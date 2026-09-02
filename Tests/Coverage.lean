@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`. -/
-theorem roster_size_is_26 : rosterSize = 26 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`. -/
+theorem roster_size_is_27 : rosterSize = 27 := by decide
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
@@ -344,6 +344,47 @@ condition is false. -/
 theorem cmov_covered_at_width_d :
     vectors.any (fun v => match v.instr.op with
       | .cmov _ sz _ _ => sz == Size.d
+      | _ => false) = true := by decide
+
+/-! ### P1 BATCH 7 — the shift group -/
+
+/-- Every shift kind reaches BOTH destinations.  The memory forms are roster
+families 8, 12 and 60 and had no vector before this batch. -/
+theorem shifts_cover_both_destinations :
+    [ShiftKind.shl, ShiftKind.shr, ShiftKind.sar].all (fun k =>
+      vectors.any (fun v => match v.instr.op with
+        | .shift k' _ d _ => k' == k && d.isMem
+        | _ => false)
+      && vectors.any (fun v => match v.instr.op with
+        | .shift k' _ d _ => k' == k && !d.isMem
+        | _ => false)) = true := by decide
+
+/-- ⭐ SOME `sar` CASE ACTUALLY RUNS AT A COUNT ≥ ITS OPERAND WIDTH.  That is the
+only place SAR's CF rule differs from SHR's — the SDM leaves SHL's and SHR's CF
+undefined there and says nothing of the kind about SAR, so SAR's CF is the SIGN.
+
+⛔ THE FIRST VERSION OF THIS THEOREM QUANTIFIED OVER VECTORS ALONE, matching only
+an `.imm8` count, and it was WRONG IN THE DIRECTION THAT LOOKS SAFE.  Deleting
+`sar_b9` made it FAIL — while the differential arm it guards still caught the
+bug, 49 disagreements instead of 79, because `sarb %cl, %al` reaches the same
+region whenever RCX's low five bits are ≥ 8, which many pre-states satisfy.
+
+⇒ **AN ASSERTION NARROWER THAN THE COVERAGE IT GUARDS REPORTS A LOSS THAT HAS
+NOT HAPPENED**, and a gate that cries wolf is one somebody eventually switches
+off. It is the mirror of the over-claiming coverage column: there, prose claimed
+more than the tests reached; here, a theorem claimed less.
+
+So it quantifies over (vector × PRE-STATE), which is what "the tests reach this
+region" actually means, and is the same shape as the carry-boundary and
+RCX/ECX assertions. -/
+theorem sar_reaches_count_ge_width :
+    vectors.any (fun v => match v.instr.op with
+      | .shift .sar sz _ amt =>
+          (preStates 1 8).any (fun st =>
+            let c : BitVec 8 := match amt with
+              | .imm8 x => x
+              | .cl => (st.getReg .b .rcx).setWidth 8
+            sz.bits ≤ Flags.shiftCount sz c)
       | _ => false) = true := by decide
 
 end X86.Tests

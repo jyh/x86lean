@@ -132,12 +132,26 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   , { mnemonic := "test", shapes := "r,r · r,imm · m,r · m,imm — all of b/w/l/q \
 · acc,imm · rh", tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A TEST" }
-  , { mnemonic := "shl",  shapes := "r/m, imm8 · r/m, cl", tier := .frame, decode := .xed,
+  -- P1 BATCH 7: the SHIFT group (roster families 8, 9, 12, 13, 60, 61) — a
+  -- memory destination and the `,one` encoding (`D1 /r`, the count in the
+  -- opcode) for all three, plus SAR.  `sal` is an ALIAS of `shl` (same opcode
+  -- `/4`) and is covered by identity, not by a row.
+  , { mnemonic := "shl",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q (sal: alias)",
+      tier := .frame, decode := .xed,
       undefined := ["CF (count ≥ width)", "OF (count ≠ 1)", "AF (count ≠ 0)"],
       sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
-  , { mnemonic := "shr",  shapes := "r/m, imm8 · r/m, cl", tier := .frame, decode := .xed,
+  , { mnemonic := "shr",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+      tier := .frame, decode := .xed,
       undefined := ["CF (count ≥ width)", "OF (count ≠ 1)", "AF (count ≠ 0)"],
       sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
+  -- ⭐ SAR's UNDEFINED SET IS SMALLER THAN SHL's AND SHR's BY ONE ENTRY, and
+  -- that is the SDM's own wording rather than a simplification: the undefined
+  -- clause names "SHL and SHR instructions where the count is greater than or
+  -- equal to the size of the destination operand".  SAR has no such clause —
+  -- shifting right past the width still has an answer, and it is the sign.
+  , { mnemonic := "sar",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+      tier := .frame, decode := .xed,
+      undefined := ["OF (count ≠ 1)", "AF (count ≠ 0)"], sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
   , { mnemonic := "lea",  shapes := "r, m", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A LEA" }
   -- P1 BATCH 4 (`p1/roster.tsv` families `-xxxxx-|-|mem` and `-xxxxx-|-|reg`):

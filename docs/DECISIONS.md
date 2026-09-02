@@ -479,3 +479,58 @@ the 32 width-`l` vectors makes it catch **zero**.
 
 **Reversal cost:** low, and loud: two `Tests/Coverage.lean` assertions and one
 selftest arm fail.
+
+## D20 — SAR's CF is defined where SHL's and SHR's is undefined.
+
+`Flags.shiftFlags` gives `.sar` its own CF branch: at a masked count at or above
+the operand width, CF is the operand's **sign bit**, and no oracle bit is drawn.
+`shl` and `shr` draw one there.
+
+This is the SDM's own wording rather than a refinement. The undefined clause
+names *"SHL and SHR instructions where the count is greater than or equal to the
+size of the destination operand"*; SAR has no such clause, because shifting a
+value right past its own width still has a well-defined answer — every vacated
+bit, and the last one shifted out, is the sign.
+
+The consequence is visible in the published coverage table: `sar`'s undefined
+list has **two** entries where `shl`'s and `shr`'s have three.
+
+⭐ **And it was arbitrated rather than argued.** The reading was implemented from
+the manual, and the model would have been self-consistent under either reading —
+only a second model could say which one the machine implements. ACL2 x86isa
+agrees, and the planted control says so directly: flipping CF on `sar_b9/6` is
+contradicted with `oracle=1`, the sign. This is the differential doing the job a
+careful reading alone cannot.
+
+**Reversal cost:** low, and loud: one selftest arm and the coverage row.
+
+## D21 — An assertion narrower than the coverage it guards is a false alarm.
+
+`sar_reaches_count_ge_width` quantifies over **(vector × pre-state)**, not over
+vectors alone.
+
+Its first version matched only an `.imm8` count on a vector. Deleting `sar_b9`
+made it FAIL — while the differential arm it guards still caught the planted bug
+(49 disagreements instead of 79), because `sarb %cl, %al` reaches the same region
+whenever RCX's low five bits are ≥ 8. **The theorem reported a coverage loss that
+had not happened.**
+
+⇒ **A gate that cries wolf is one somebody eventually switches off**, so a
+false-alarming assertion is not a harmlessly strict one — it spends the same
+credibility the real alarms need. This is the exact mirror of D15's and D16's
+over-claiming prose: there a column claimed more than the tests reached; here a
+theorem claimed less.
+
+The repair was to assert what the tests *reach* rather than what one vector
+*says*, and the result is calibrated in BOTH directions — which none of the
+earlier pre-state assertions (D13, D14, and batch 5's) had been:
+
+* everything present → passes; arm catches 79
+* `sar_b9` deleted → **passes**; arm still catches 49
+* `sar_b9` and the `cl` forms deleted → **fails**; arm catches **zero**
+
+⇒ **A pre-state assertion should be probed for silence as well as for noise.**
+Testing only that it fires when coverage is removed leaves the false-alarm
+direction unmeasured, and that is the direction that gets a gate deleted.
+
+**Reversal cost:** low.

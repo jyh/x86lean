@@ -382,7 +382,7 @@ theorem step_not_reg (sz : Size) (r : GPR) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h, Cpu.getReg]
 
-/-! ## SHL / SHR — SDM Vol. 2A.
+/-! ## SHL / SHR / SAR — SDM Vol. 2A.
 
 TWO equations, because the SDM gives two behaviours: a masked count of zero
 affects NO flag, and a non-zero count spends THREE oracle bits (CF, OF, AF, in
@@ -397,7 +397,8 @@ theorem step_shift_reg_zero (k : ShiftKind) (sz : Size) (r : GPR) (c : BitVec 8)
         regs := s.regs.set r (Value.writeView sz (s.regs.get r)
           (match k with
            | .shl => Value.trunc sz (s.getReg sz r <<< (0 : Nat))
-           | .shr => (Value.trunc sz (s.getReg sz r)) >>> (0 : Nat))),
+           | .shr => (Value.trunc sz (s.getReg sz r)) >>> (0 : Nat)
+           | .sar => Value.sar sz (s.getReg sz r) 0)),
         rip := s.rip + BitVec.ofNat 64 len } := by
   cases k <;> simp [step, h, hc, Cpu.getReg]
 
@@ -409,6 +410,7 @@ theorem step_shift_reg_nonzero (k : ShiftKind) (sz : Size) (r : GPR) (c : BitVec
        let res := match k with
          | .shl => Value.trunc sz (a <<< n)
          | .shr => (Value.trunc sz a) >>> n
+         | .sar => Value.sar sz a n
        { s with
          regs := s.regs.set r (Value.writeView sz (s.regs.get r) res),
          flags := Flags.shiftFlags k sz a res n

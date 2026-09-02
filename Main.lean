@@ -24,14 +24,15 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects thirteen real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects fifteen real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
 destination, a memory read-modify-write that drops its store, and one that
 stores the right value at the wrong WIDTH, a `jcxz` with an inverted test, and a
 `jecxz` that ignores the address-size prefix, an inverted `setcc`, and a `cmov`
-that skips its write on a false condition — and REQUIRES the comparator to catch
+that skips its write on a false condition, a `sar` that brings in zeros, and a
+`sar` given SHL/SHR's undefined-CF rule — and REQUIRES the comparator to catch
 each one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
@@ -289,6 +290,7 @@ def wrongShiftMask (i : Instr) (s : Cpu) : Cpu :=
       let res := match k with
         | .shl => Value.trunc sz (a <<< n)
         | .shr => (Value.trunc sz a) >>> n
+        | .sar => Value.sar sz a n
       if n = 0 then (s.writeOperand sz nr dst res).setRip nr
       else
         let (cfU, s) := s.undefBit
@@ -527,6 +529,54 @@ def wrongCmovSkipsWrite (i : Instr) (s : Cpu) : Cpu :=
       else s.setRip nr
   | _ => step i s
 
+/-- ⭐ P1 BATCH 7's PLANTED BUG, EASY HALF: a SAR that brings in ZEROS — i.e.
+`sar` implemented as `shr`, which is what happens when the arithmetic shift is
+written as the logical one.  Any negative operand catches it. -/
+def wrongSarLogical (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .shift .sar sz dst amt =>
+      let cnt : BitVec 8 := match amt with
+        | .imm8 v => v
+        | .cl => (s.getReg .b .rcx).setWidth 8
+      let n := Flags.shiftCount sz cnt
+      let a := s.readOperand sz nr dst
+      -- the BUG: a logical shift where an arithmetic one belongs
+      let res := (Value.trunc sz a) >>> n
+      if n = 0 then (s.writeOperand sz nr dst res).setRip nr
+      else
+        let (cfU, s) := s.undefBit
+        let (ofU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        let s := s.setFlags (Flags.shiftFlags .sar sz a res n cfU ofU afU s.flags)
+        (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND IT IS A MISREADING OF THE SDM RATHER THAN A TYPO.  This
+model gives SAR the CF rule that SHL and SHR have — *undefined when the count is
+at or above the operand width*, so it DRAWS AN ORACLE BIT there — which is what
+a reader who saw one sentence about three mnemonics would write.
+
+The SDM's undefined clause names only "SHL and SHR instructions"; SAR has no
+such clause, because shifting right past the width still has an answer and it is
+the sign.  The two models therefore agree everywhere except at a count ≥ the
+width, which in this vector table is `sar_b9` and nothing else, and only when
+the operand is negative.  `sar_covered_at_count_ge_width` is the assertion that
+keeps such a vector present. -/
+def wrongSarCfUndefinedAtLargeCount (i : Instr) (s : Cpu) : Cpu :=
+  let out := step i s
+  match i.op with
+  | .shift .sar sz dst amt =>
+      let cnt : BitVec 8 := match amt with
+        | .imm8 v => v
+        | .cl => (s.getReg .b .rcx).setWidth 8
+      let n := Flags.shiftCount sz cnt
+      if n = 0 || n < sz.bits then out
+      else
+        -- the BUG, and only here: SHL/SHR's undefined rule applied to SAR
+        { out with flags := { out.flags with cf := s.oracle.bits s.oracle.cursor } }
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -590,7 +640,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — thirteen deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — fifteen deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -609,6 +659,9 @@ def main (args : List String) : IO UInt32 := do
       let n ← driveWrong "setcc inverts its condition" wrongSetccInverted "rax"
       let p ← driveWrong "cmov skips the write when the condition is false"
                 wrongCmovSkipsWrite "rax"
+      let q ← driveWrong "sar brings in zeros instead of the sign" wrongSarLogical "rax"
+      let r' ← driveWrong "sar takes SHL/SHR's undefined-CF rule at a large count"
+                 wrongSarCfUndefinedAtLargeCount "cf"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -618,7 +671,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k && l && m && n && p then
+      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' then
         IO.println "harness selftest: PASS"
         return 0
       else

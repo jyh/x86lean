@@ -890,4 +890,66 @@ theorem setcc_and_cmov_write_no_flag :
      ∧ (step ⟨.cmov .e .q .rax (.reg .rcx), 4⟩ (mk {} f)).flags = f) := by
   exact ⟨by decide, by decide⟩
 
+/-! ## P1 BATCH 7 — SAR, and the flag rule the SDM writes differently for it -/
+
+/-- SAR propagates the SIGN, where SHR brings in zeros.  `0x80` at width b,
+shifted right by 1: `0xC0` arithmetic, `0x40` logical. -/
+theorem sar_b_propagates_the_sign :
+    (step ⟨.shift .sar .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x80 })).regs.rax = 0xC0 := by decide
+
+theorem shr_b_brings_in_zero :
+    (step ⟨.shift .shr .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x80 })).regs.rax = 0x40 := by decide
+
+/-- ⭐ AND THE SIGN IT PROPAGATES IS THE SIGN AT THE OPERAND'S WIDTH, not at 64.
+With RAX = `0x0000_0000_0000_0080`, `sarb` sees a NEGATIVE byte and fills with
+ones inside the byte; the upper 56 bits are a byte-write's business and stay
+zero.  A model that sign-extended from bit 63 would leave `0x40`. -/
+theorem sar_b_sign_is_the_operand_width :
+    (step ⟨.shift .sar .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x0000_0000_0000_0080 })).regs.rax = 0x00000000_000000C0 := by decide
+
+/-- A positive operand behaves exactly like SHR. -/
+theorem sar_positive_matches_shr :
+    (step ⟨.shift .sar .q (.reg .rax) (.imm8 4), 4⟩ (mk { rax := 0x1000 })).regs.rax
+      = (step ⟨.shift .shr .q (.reg .rax) (.imm8 4), 4⟩ (mk { rax := 0x1000 })).regs.rax
+      := by decide
+
+/-- ⭐ SAR's CF AT A COUNT ≥ THE OPERAND WIDTH IS THE SIGN, AND IS NOT DRAWN
+FROM THE ORACLE.  `sarb $9` on a negative byte: the count masks to 9, which is
+≥ 8, and every bit shifted out — including the last — is the sign.  CF is 1.
+
+The oracle here is `Oracle.zero`, so a model that drew an oracle bit (as SHL and
+SHR must at this count) would give 0.  That is the difference, and it is this
+batch's planted hard half. -/
+theorem sar_cf_at_large_count_is_the_sign :
+    (step ⟨.shift .sar .b (.reg .rax) (.imm8 9), 3⟩ (mk { rax := 0x80 })).flags.cf
+      = true := by decide
+
+/-- And on a POSITIVE byte at the same count it is 0 — so the theorem above is
+about the sign and not about a constant. -/
+theorem sar_cf_at_large_count_positive :
+    (step ⟨.shift .sar .b (.reg .rax) (.imm8 9), 3⟩ (mk { rax := 0x7F })).flags.cf
+      = false := by decide
+
+/-- The result at that count is all sign bits. -/
+theorem sar_at_large_count_is_all_sign :
+    (step ⟨.shift .sar .b (.reg .rax) (.imm8 9), 3⟩ (mk { rax := 0x80 })).regs.rax
+      = 0xFF := by decide
+
+/-- SDM: "the OF flag is cleared for SAR with a count of 1" — a CONSTANT, unlike
+SHL's and SHR's, because an arithmetic right shift cannot change the sign. -/
+theorem sar_of_is_cleared_at_count_one :
+    (step ⟨.shift .sar .q (.reg .rax) (.imm8 1), 3⟩
+      (mk { rax := 0x8000000000000000 } { of := true })).flags.of = false := by decide
+
+/-- A shift at a MEMORY destination is a read-modify-write like batch 4's, and
+still touches only its own width: `sarb $1` on `0x80` at `0x100` writes `0xC0`
+and leaves the neighbour. -/
+theorem sar_mem_is_a_byte_rmw :
+    let r := step ⟨.shift .sar .b (.mem { base := some .rbx }) (.imm8 1), 2⟩
+      (mk { rbx := 0x100 } {} ((Mem.empty.write 0x100 0x80).write 0x101 0xBB))
+    (r.mem.read 0x100, r.mem.read 0x101) = (0xC0, 0xBB) := by decide
+
 end X86.Tests

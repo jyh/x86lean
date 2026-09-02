@@ -94,6 +94,11 @@ inductive UnKind where
 are P1). -/
 inductive ShiftKind where
   | shl | shr
+  /-- P1 BATCH 7: SAR, the ARITHMETIC right shift — the one shift that
+  propagates the sign rather than zeros.  `sal` is NOT here: it is an alias of
+  `shl` with the same opcode (`/4`), so a post-decode model cannot distinguish
+  them and should not (X86/Syntax.lean's header). -/
+  | sar
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- A shift count: an 8-bit immediate, or CL. -/
@@ -238,7 +243,7 @@ def Op.mnemonic : Op → String
     | .adc => "adc" | .sbb => "sbb"
   | .un k .. => match k with
     | .inc => "inc" | .dec => "dec" | .neg => "neg" | .not => "not"
-  | .shift k .. => match k with | .shl => "shl" | .shr => "shr"
+  | .shift k .. => match k with | .shl => "shl" | .shr => "shr" | .sar => "sar"
   | .lea .. => "lea"
   | .push .. => "push"
   | .pop .. => "pop"
@@ -261,7 +266,7 @@ step with each other. -/
 def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
    "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
-   "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc"]
+   "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc", "sar"]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

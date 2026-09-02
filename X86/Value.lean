@@ -74,6 +74,18 @@ def trunc (sz : Size) (v : Val) : Val := v &&& sz.mask
 /-- The sign bit of the `sz`-wide view of `v`. -/
 def msb (sz : Size) (v : Val) : Bool := v.getLsbD sz.signBit
 
+/-- Sign-extend an `sz`-wide value into all 64 bits.  P1 BATCH 7 needs this
+because SAR propagates the sign, and the sign it propagates is the sign at the
+OPERAND's width, not at 64. -/
+def signExt (sz : Size) (v : Val) : Val :=
+  if msb sz v then (trunc sz v) ||| (~~~ sz.mask) else trunc sz v
+
+/-- ARITHMETIC right shift at width `sz`: the vacated high bits take the value of
+the operand's sign bit (SDM Vol. 2A, SAL/SAR/SHL/SHR).  Sign-extending first and
+truncating afterwards is what makes `sarb` fill from bit 7 rather than bit 63. -/
+def sar (sz : Size) (v : Val) (n : Nat) : Val :=
+  trunc sz ((signExt sz v).sshiftRight n)
+
 /-- Sign-extend the low `sz.bits` of `v` to all 64 bits. -/
 def sext (sz : Size) (v : Val) : Val :=
   if msb sz v then trunc sz v ||| ~~~sz.mask else trunc sz v

@@ -223,6 +223,8 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         match k with
         | .shl => Value.trunc sz (a <<< n)
         | .shr => (Value.trunc sz a) >>> n
+        -- SAR (SDM Vol. 2A, SAL/SAR/SHL/SHR): the vacated bits take the SIGN.
+        | .sar => Value.sar sz a n
       if n = 0 then
         -- "If the count is 0, the flags are not affected."  The destination is
         -- still written back (the instruction is a read-modify-write), with the

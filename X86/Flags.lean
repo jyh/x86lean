@@ -218,15 +218,29 @@ undefined. -/
 def shiftFlags (k : ShiftKind) (sz : Size) (a res : Val) (n : Nat)
     (cfU ofU afU : Bool) (f : Flags) : Flags :=
   let cf : Bool :=
-    if sz.bits ≤ n then cfU
-    else match k with
-      | .shl => a.getLsbD (sz.bits - n)   -- last bit shifted out of the top
-      | .shr => a.getLsbD (n - 1)         -- last bit shifted out of the bottom
+    match k with
+    -- ⭐ SAR's CF IS DEFINED WHERE SHL's AND SHR's IS NOT, and the SDM says so in
+    -- as many words: the undefined clause names "SHL and SHR instructions where
+    -- the count is greater than or equal to the size of the destination
+    -- operand".  SAR has no such clause, because shifting a value right by more
+    -- than its width still has a well-defined answer — every vacated bit, and
+    -- the last one out, is the SIGN.  So no oracle draw here.
+    | .sar => if sz.bits ≤ n then Value.msb sz a else a.getLsbD (n - 1)
+    | _ =>
+      if sz.bits ≤ n then cfU
+      else match k with
+        | .shl => a.getLsbD (sz.bits - n) -- last bit shifted out of the top
+        | .shr => a.getLsbD (n - 1)       -- last bit shifted out of the bottom
+        | .sar => false                   -- unreachable: handled above
   let of : Bool :=
     if n = 1 then
       match k with
       | .shl => Value.msb sz res != cf    -- SDM: MSB(result) XOR CF
       | .shr => Value.msb sz a            -- SDM: the MSB of the ORIGINAL operand
+      -- SDM: "the OF flag is cleared for SAR with a count of 1".  It is the one
+      -- shift whose count-1 OF is a CONSTANT rather than a function of the data,
+      -- because an arithmetic right shift cannot change the sign.
+      | .sar => false
     else ofU
   { fromResult sz res f with cf := cf, af := afU, of := of }
 

@@ -874,6 +874,126 @@ def vectors : List Vec :=
     , bytes := "660f45c1", instr := ⟨.cmov .ne .w .rax (R .rcx), 4⟩ }
   , { id := "cmovne_rr_q", mnemonic := "cmovcc", asm := "cmovne %rcx, %rax"
     , bytes := "480f45c1", instr := ⟨.cmov .ne .q .rax (R .rcx), 4⟩ }
+  -- ══ P1 BATCH 7 ═════════════════════════════════════════════════════════
+  -- The SHIFT group: roster families 8, 9, 12, 13, 60 and 61 — **24 forms**,
+  -- `shl`/`sal`/`shr`/`sar` at a register AND a memory destination, in all
+  -- three count encodings (`,one` = `D1 /r`, `,imm` = `C1 /r ib`, `,cl` =
+  -- `D3 /r`).
+  --
+  -- TWO OF THE FOUR MNEMONICS COST NOTHING.  `sal` is an ALIAS of `shl` — the
+  -- same opcode `/4` — so a post-decode model cannot distinguish them and must
+  -- not try; it is covered by identity, like the `jcc` synonyms of batch 5.
+  -- And `,one` is an ENCODING distinction: `D1` carries the count in the
+  -- opcode, `C1 ib` in a byte, and both decode to `.imm8 1`.  Separate vectors
+  -- because the BYTES differ and the bytes are what XED is trusted for.
+  --
+  -- ⭐ SAR IS THE ONE REAL ADDITION, AND ITS CF IS DEFINED WHERE SHL's AND
+  -- SHR's IS NOT.  The SDM's undefined clause names "SHL and SHR instructions
+  -- where the count is greater than or equal to the size of the destination
+  -- operand" — SAR has NO such clause, because shifting right by more than the
+  -- width still has an answer: every vacated bit, and the last one out, is the
+  -- SIGN.  So `sar_b9` (count 9 at width 8) draws NO oracle bit for CF where
+  -- `shr_b9` does, and that difference is a claim the differential arbitrates.
+  , { id := "shl_r_one_b", mnemonic := "shl", asm := "shlb %al"
+    , bytes := "d0e0", instr := ⟨.shift .shl .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "shl_r_one_q", mnemonic := "shl", asm := "shlq %rax"
+    , bytes := "48d1e0", instr := ⟨.shift .shl .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "shl_ri5_b", mnemonic := "shl", asm := "shlb $5, %al"
+    , bytes := "c0e005", instr := ⟨.shift .shl .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "shl_ri5_w", mnemonic := "shl", asm := "shlw $5, %ax"
+    , bytes := "66c1e005", instr := ⟨.shift .shl .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "shl_ri5_l", mnemonic := "shl", asm := "shll $5, %eax"
+    , bytes := "c1e005", instr := ⟨.shift .shl .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "shl_ri5_q", mnemonic := "shl", asm := "shlq $5, %rax"
+    , bytes := "48c1e005", instr := ⟨.shift .shl .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "shl_r_cl_b", mnemonic := "shl", asm := "shlb %cl, %al"
+    , bytes := "d2e0", instr := ⟨.shift .shl .b (R .rax) .cl, 2⟩ }
+  , { id := "shl_r_cl_q", mnemonic := "shl", asm := "shlq %cl, %rax"
+    , bytes := "48d3e0", instr := ⟨.shift .shl .q (R .rax) .cl, 3⟩ }
+  , { id := "shl_m_one_b", mnemonic := "shl", asm := "shlb (%rbx)"
+    , bytes := "d023", instr := ⟨.shift .shl .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "shl_m_one_q", mnemonic := "shl", asm := "shlq (%rbx)"
+    , bytes := "48d123", instr := ⟨.shift .shl .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "shl_mi5_b", mnemonic := "shl", asm := "shlb $5, (%rbx)"
+    , bytes := "c02305", instr := ⟨.shift .shl .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "shl_mi5_w", mnemonic := "shl", asm := "shlw $5, (%rbx)"
+    , bytes := "66c12305", instr := ⟨.shift .shl .w (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "shl_mi5_l", mnemonic := "shl", asm := "shll $5, (%rbx)"
+    , bytes := "c12305", instr := ⟨.shift .shl .d (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "shl_mi5_q", mnemonic := "shl", asm := "shlq $5, (%rbx)"
+    , bytes := "48c12305", instr := ⟨.shift .shl .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "shl_m_cl_b", mnemonic := "shl", asm := "shlb %cl, (%rbx)"
+    , bytes := "d223", instr := ⟨.shift .shl .b (M .rbx) .cl, 2⟩ }
+  , { id := "shl_m_cl_q", mnemonic := "shl", asm := "shlq %cl, (%rbx)"
+    , bytes := "48d323", instr := ⟨.shift .shl .q (M .rbx) .cl, 3⟩ }
+  , { id := "shr_r_one_b", mnemonic := "shr", asm := "shrb %al"
+    , bytes := "d0e8", instr := ⟨.shift .shr .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "shr_r_one_q", mnemonic := "shr", asm := "shrq %rax"
+    , bytes := "48d1e8", instr := ⟨.shift .shr .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "shr_ri5_b", mnemonic := "shr", asm := "shrb $5, %al"
+    , bytes := "c0e805", instr := ⟨.shift .shr .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "shr_ri5_w", mnemonic := "shr", asm := "shrw $5, %ax"
+    , bytes := "66c1e805", instr := ⟨.shift .shr .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "shr_ri5_l", mnemonic := "shr", asm := "shrl $5, %eax"
+    , bytes := "c1e805", instr := ⟨.shift .shr .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "shr_ri5_q", mnemonic := "shr", asm := "shrq $5, %rax"
+    , bytes := "48c1e805", instr := ⟨.shift .shr .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "shr_r_cl_b", mnemonic := "shr", asm := "shrb %cl, %al"
+    , bytes := "d2e8", instr := ⟨.shift .shr .b (R .rax) .cl, 2⟩ }
+  , { id := "shr_r_cl_q", mnemonic := "shr", asm := "shrq %cl, %rax"
+    , bytes := "48d3e8", instr := ⟨.shift .shr .q (R .rax) .cl, 3⟩ }
+  , { id := "shr_m_one_b", mnemonic := "shr", asm := "shrb (%rbx)"
+    , bytes := "d02b", instr := ⟨.shift .shr .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "shr_m_one_q", mnemonic := "shr", asm := "shrq (%rbx)"
+    , bytes := "48d12b", instr := ⟨.shift .shr .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "shr_mi5_b", mnemonic := "shr", asm := "shrb $5, (%rbx)"
+    , bytes := "c02b05", instr := ⟨.shift .shr .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "shr_mi5_w", mnemonic := "shr", asm := "shrw $5, (%rbx)"
+    , bytes := "66c12b05", instr := ⟨.shift .shr .w (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "shr_mi5_l", mnemonic := "shr", asm := "shrl $5, (%rbx)"
+    , bytes := "c12b05", instr := ⟨.shift .shr .d (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "shr_mi5_q", mnemonic := "shr", asm := "shrq $5, (%rbx)"
+    , bytes := "48c12b05", instr := ⟨.shift .shr .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "shr_m_cl_b", mnemonic := "shr", asm := "shrb %cl, (%rbx)"
+    , bytes := "d22b", instr := ⟨.shift .shr .b (M .rbx) .cl, 2⟩ }
+  , { id := "shr_m_cl_q", mnemonic := "shr", asm := "shrq %cl, (%rbx)"
+    , bytes := "48d32b", instr := ⟨.shift .shr .q (M .rbx) .cl, 3⟩ }
+  , { id := "sar_r_one_b", mnemonic := "sar", asm := "sarb %al"
+    , bytes := "d0f8", instr := ⟨.shift .sar .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "sar_r_one_q", mnemonic := "sar", asm := "sarq %rax"
+    , bytes := "48d1f8", instr := ⟨.shift .sar .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "sar_ri5_b", mnemonic := "sar", asm := "sarb $5, %al"
+    , bytes := "c0f805", instr := ⟨.shift .sar .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "sar_ri5_w", mnemonic := "sar", asm := "sarw $5, %ax"
+    , bytes := "66c1f805", instr := ⟨.shift .sar .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "sar_ri5_l", mnemonic := "sar", asm := "sarl $5, %eax"
+    , bytes := "c1f805", instr := ⟨.shift .sar .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "sar_ri5_q", mnemonic := "sar", asm := "sarq $5, %rax"
+    , bytes := "48c1f805", instr := ⟨.shift .sar .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "sar_r_cl_b", mnemonic := "sar", asm := "sarb %cl, %al"
+    , bytes := "d2f8", instr := ⟨.shift .sar .b (R .rax) .cl, 2⟩ }
+  , { id := "sar_r_cl_q", mnemonic := "sar", asm := "sarq %cl, %rax"
+    , bytes := "48d3f8", instr := ⟨.shift .sar .q (R .rax) .cl, 3⟩ }
+  , { id := "sar_m_one_b", mnemonic := "sar", asm := "sarb (%rbx)"
+    , bytes := "d03b", instr := ⟨.shift .sar .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "sar_m_one_q", mnemonic := "sar", asm := "sarq (%rbx)"
+    , bytes := "48d13b", instr := ⟨.shift .sar .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "sar_mi5_b", mnemonic := "sar", asm := "sarb $5, (%rbx)"
+    , bytes := "c03b05", instr := ⟨.shift .sar .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "sar_mi5_w", mnemonic := "sar", asm := "sarw $5, (%rbx)"
+    , bytes := "66c13b05", instr := ⟨.shift .sar .w (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "sar_mi5_l", mnemonic := "sar", asm := "sarl $5, (%rbx)"
+    , bytes := "c13b05", instr := ⟨.shift .sar .d (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "sar_mi5_q", mnemonic := "sar", asm := "sarq $5, (%rbx)"
+    , bytes := "48c13b05", instr := ⟨.shift .sar .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "sar_m_cl_b", mnemonic := "sar", asm := "sarb %cl, (%rbx)"
+    , bytes := "d23b", instr := ⟨.shift .sar .b (M .rbx) .cl, 2⟩ }
+  , { id := "sar_m_cl_q", mnemonic := "sar", asm := "sarq %cl, (%rbx)"
+    , bytes := "48d33b", instr := ⟨.shift .sar .q (M .rbx) .cl, 3⟩ }
+  , { id := "sar_q63", mnemonic := "sar", asm := "sarq $63, %rax"
+    , bytes := "48c1f83f", instr := ⟨.shift .sar .q (R .rax) (.imm8 63), 4⟩ }
+  , { id := "sar_b9", mnemonic := "sar", asm := "sarb $9, %al"
+    , bytes := "c0f809", instr := ⟨.shift .sar .b (R .rax) (.imm8 9), 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
