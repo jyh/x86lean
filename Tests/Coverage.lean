@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`. -/
-theorem roster_size_is_45 : rosterSize = 45 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles. -/
+theorem roster_size_is_53 : rosterSize = 53 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -74,9 +74,15 @@ grew 37%.
 
 So the growing factor is the VECTOR TABLE, and a batch multiplies it against
 the table rows as well: 35 → 45 rows is +29%, 474 → 507 vectors is +7%.  Three
-theorems here were each a 45 × 507 sweep of STRING equalities — 22 815 of them,
-on `List Char` — and `hasMemDestVector` re-swept all 507 vectors once per
-claiming row.
+theorems here were each a (rows × vectors) sweep of STRING equalities — 22 815
+of them at batch 10's 45 × 507, on `List Char` — and `hasMemDestVector` re-swept
+the WHOLE vector table once per claiming row.
+
+⚠️ The two figures above are batch 10's and are left at batch 10's values on
+purpose: they are the MEASUREMENT that motivated the collapse, and a measurement
+re-typed at each batch stops being one.  The shapes below are stated without
+counts for the opposite reason — they describe what the code does, and a count
+in that sentence is prose no gate reads, drifting one batch after it is written.
 
 Collapsing the inner factor once instead of per row (`vectorMnemonics`,
 `memDestMnemonics`) and hoisting the pre-states' 80-byte background pattern to a
@@ -335,8 +341,8 @@ def isMemDestVector (v : Vec) : Bool :=
     | _ => false)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
-per row re-swept all 507 vectors for every claiming row; the set it is really
-asking about has at most `rosterSize` elements.  See the note above
+per row re-swept the WHOLE vector table for every claiming row; the set it is
+really asking about has at most `rosterSize` elements.  See the note above
 `vectorMnemonics`. -/
 def memDestMnemonics : List String :=
   ((vectors.filter isMemDestVector).map Vec.mnemonic).eraseDups
@@ -590,5 +596,85 @@ theorem cext_covers_both_destinations :
      && vectors.any (fun v => match v.instr.op with
        | .cext k => k == CextKind.cwd || k == CextKind.cdq || k == CextKind.cqo
        | _ => false)) = true := by decide
+
+/-! ### P1 BATCH 11 — what the loop group and the flag singles need to be TESTED
+
+Two of the four assertions below are about the PRE-STATES rather than the
+vectors, and that is the batch's shape: both new mechanisms were unobservable in
+the state set as it stood, for two different reasons.  See docs/DECISIONS.md
+D27. -/
+
+/-- ⛔ SOME PRE-STATE SETS DF, AND UNTIL THIS BATCH NONE DID — in seventy-four
+states `df` was `false`, and no instruction in the model could write it.
+
+`cld` clears DF.  Against a state where DF is already clear, **`cld` and a
+no-op are the same function**: the differential would have compared the flag,
+found it equal, and reported agreement it never tested.  `Serialize.lean` has
+diffed `df` since P0, which is what made the gap invisible — the comparator was
+working perfectly on a bit that could not move.
+
+Deleting `dfStates` from `preStates` makes the differential's `cld` arm catch
+NOTHING and makes this theorem FAIL.  Both halves of that probe are in
+docs/DIFFERENTIAL-P1-BATCH11.md. -/
+theorem pre_states_set_df :
+    ((preStates 1 8).any (fun s => s.flags.df)
+      && (preStates 1 8).any (fun s => !s.flags.df)) = true := by decide
+
+/-- ⛔ AND SOME PRE-STATE HAS ECX = 1 OVER A NON-ZERO UPPER HALF, which no
+pre-state had either.  `addr32 loop` tests `ECX - 1`; a model that tested
+`RCX - 1` differs from it on exactly the states where one is zero and the other
+is not — that is, where the low 32 bits of RCX are 1 and the upper half is not
+zero.  `adversarial` holds 1 (upper half zero) and `0x100000000` (low half
+zero) and nothing that is both.
+
+⚠️ This is the same defect as `pre_states_set_df` in a different dress: there a
+COMPONENT no instruction wrote, here a COMBINATION no value reached. -/
+theorem pre_states_reach_ecx_one_over_a_nonzero_upper_half :
+    (preStates 1 8).any (fun s =>
+      (Value.trunc .d s.regs.rcx == 1) && ((s.regs.rcx >>> 32) != 0)) = true := by decide
+
+/-- Both counter widths are in the vector table.  With only the unprefixed form,
+`addr32` would be a constant `false` in every executed vector and a model that
+ignored the address-size prefix entirely would pass — which is exactly the bug
+`jecxz` planted at batch 5, arriving again on a different instruction. -/
+theorem loop_covers_both_counter_widths :
+    (vectors.any (fun v => match v.instr.op with | .loop _ a32 _ => a32 | _ => false)
+     && vectors.any (fun v => match v.instr.op with
+          | .loop _ a32 _ => !a32 | _ => false)) = true := by decide
+
+/-- All three loop predicates are exercised, and at both widths.  `loope` and
+`loopne` are the only forms in the group that read a flag, and they read it with
+opposite polarity: a model that confused them passes every `loop` vector. -/
+theorem loop_covers_all_three_predicates :
+    LoopKind.all.all (fun k =>
+      vectors.any (fun v => match v.instr.op with
+        | .loop k' _ _ => k' == k
+        | _ => false)) = true := by decide
+
+/-- ⭐ AND ONE LOOP VECTOR BRANCHES BACKWARDS, which is the shape every real loop
+has and which no other branch vector in this repository has.  A displacement
+whose sign is dropped — or added rather than subtracted — is invisible against a
+table of forward jumps.  The test is on the top bit of the 64-bit `d`, which the
+decoder has already sign-extended. -/
+theorem some_loop_vector_branches_backwards :
+    vectors.any (fun v => match v.instr.op with
+      | .loop _ _ d => Value.msb .q d
+      | _ => false) = true := by decide
+
+/-- The five roster spellings of the three loop predicates, counted rather than
+claimed — the same discipline `thirty_branch_spellings` applies to `Cc`.
+`loopz` is `loope` and `loopnz` is `loopne`, and clang assembles each pair to
+identical bytes, so the collapse is a fact about the machine. -/
+theorem five_loop_spellings :
+    (LoopKind.all.flatMap loopSpellings).eraseDups.length = 5 := by decide
+
+/-- Every flag-control single is exercised, and the two that write DF are among
+them.  Five one-byte instructions written from one `match` is exactly the shape
+where one case silently does what its neighbour does. -/
+theorem every_flag_single_has_a_vector :
+    ([FlagOp.clc, .stc, .cmc, .cld, .std].all (fun k =>
+      vectors.any (fun v => match v.instr.op with
+        | .flagop k' => k' == k
+        | _ => false))) = true := by decide
 
 end X86.Tests

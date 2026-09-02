@@ -96,3 +96,33 @@ undefined regions the SDM names. Evidence and findings in
 [`docs/DIFFERENTIAL-P0.md`](docs/DIFFERENTIAL-P0.md); the run found a real model
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
+
+**P1 IN PROGRESS — eleven batches landed.** The roster now stands at
+**382 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
+tested against ACL2 x86isa on every batch:
+
+```
+519 vectors · 78 pre-states · 40482 cases · 0 unexplained · 0 oracle leaks
+```
+
+⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
+[`docs/COVERAGE.md`](docs/COVERAGE.md) is emitted by
+`lake exe x86lean-diff coverage` and carries every form's fidelity tier, its
+decode-trust column and its undefined bits; the numbers in this paragraph are a
+snapshot and that file is the claim. Per-batch evidence, including every
+disagreement and every finding, is in `docs/DIFFERENTIAL-P1-BATCH*.md`, and
+every design call that cost something is in
+[`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+What P1 has added, in one line each: the ALU forms at every operand shape and
+width including read-modify-write to memory · ADC/SBB, whose result reads a
+flag · every branch condition at rel8 and rel32, plus JRCXZ/JECXZ · SETcc and
+CMOVcc (120 roster forms over two `step` cases) · the shifts, SAR and the four
+rotates · the bit-test group · the width-changing and two-destination moves ·
+the loop group and the flag-control singles.
+
+**Refused rather than approximated**, each with its reason recorded: `xchg` at
+memory (implicit LOCK, an atomicity claim a single-threaded model cannot make),
+`bswap` at 16 bits (the SDM leaves the whole result undefined, so the
+undefined-BIT oracle is the wrong instrument), and the bit-string `m,r` shape of
+BT/BTS/BTR/BTC.

@@ -668,3 +668,188 @@ a wolf-cry).
 
 **Reversal cost:** none — it is one field in a pre-state constructor. Nothing
 reads RDX in any earlier batch, which is why it could stay zero unnoticed.
+
+## D27 — DF was compared for ten batches and could not differ; and an adversarial list is adversarial only about the questions already asked.
+
+`preStates` gains two families, `dfStates` and `loopCounterStates`. They are one
+decision because they are the same defect twice, found in one batch, in the two
+places a differential can be blind.
+
+**Half one — a COMPONENT nothing wrote.** `df` has been a field of `Flags` since
+P0, printed by `Serialize.lean` since P0, and diffed by the comparator since P0.
+It was also `false` in all seventy-four pre-states, and until batch 11 **no
+instruction in the model could write it**. `cld` clears DF; against a state where
+DF is already clear, `cld` and a no-op are *the same function*. An unimplemented
+`cld` would have passed every case, and the comparator would have reported
+agreement on a bit that could not move.
+
+⚠️ The reassuring part is what made it survive: `df` appears in `flagNames`, in
+`Serialize.chk`, and in the RFLAGS word handed to ACL2. Every instrument said it
+was being watched. **A component under a working comparator is not thereby
+tested; it is tested only if something can change it.**
+
+**Half two — a COMBINATION no value reached.** `addr32 loop` tests `ECX - 1`.
+A model that tested `RCX - 1` instead differs on exactly the states where the low
+32 bits of RCX are 1 and the upper half is not zero. `adversarial` holds `1`
+(upper half zero) and `0x100000000` (low half zero) and nothing that is both, so
+the bug was invisible — not because a register was constant, but because the two
+halves of one register had never been asked to disagree.
+
+⇒ **This is D14 and D26 arriving a THIRD time, and the third instance is what
+says the rule is not about registers.** D14 was a constant memory window; D26 a
+constant RDX; D27 is a constant flag *and* an unreached combination. The general
+form: **a state component or combination that no existing instruction
+distinguishes is a constant, and a gate that watches a constant reports
+agreement it never tested.** Every batch must ask what its own new destinations
+— and its own new *distinctions* — were doing before it arrived.
+
+Held by `pre_states_set_df` and
+`pre_states_reach_ecx_one_over_a_nonzero_upper_half`, each probed in BOTH
+directions (D21): deleting either family makes its arm catch **zero** and makes
+its assertion **fail**, while deleting *one of the two* DF states leaves the arm
+catching (1 of 2) and the assertion **silent** — the calibration that says
+neither gate cries wolf.
+
+**Reversal cost:** none — four pre-states appended to a list. The `df` bit of
+`mkPre`'s flag seed is bit 6, above every seed any existing call site passes, so
+all seventy-four original pre-states are byte-identical and no earlier batch's
+evidence moved.
+
+## D28 — Two kernel ceilings raised, and the batch that tripped them contributed a seventh of the growth.
+
+`X86.Theorems` 143 → **540** ms; `Tests.Anchors` 254 → **801** ms. Raised
+deliberately, not by `--register` (which would loosen every other line at once),
+which is what `scripts/kernel_ceilings.txt` asks for.
+
+**The measurement, taken because the obvious diagnosis was available and wrong.**
+Excising batch 11's blocks from both modules and re-measuring:
+
+| module | before batch 11 | after | batch 11's share | ceiling |
+|---|---|---|---|---|
+| `X86.Theorems` | **122 ms** | 180 ms | **58 ms** | 143 |
+| `Tests.Anchors` | **249 ms** | 267 ms | **18 ms** | 254 |
+
+⛔ **`Tests.Anchors` STOOD AT 249 OF A 254 ms CEILING BEFORE THIS BATCH ADDED A
+LINE** — 98% of its headroom, spent. `X86.Theorems` stood at 85%. The ceilings
+were registered at `measured × 3` when the modules read 84.7 ms and 47.7 ms; ten
+batches later the multiple had been consumed almost exactly.
+
+⇒ 🔑 **A HEADROOM-BASED CEILING QUIETLY BECOMES A TRIPWIRE ON AN ARBITRARY
+FUTURE BATCH.** It does not fire on the batch that caused the growth; it fires on
+whichever batch happens to cross the line, and that batch looks like the cause.
+Thirteen anchors costing 18 ms failed a gate that ten predecessors' 164 ms had
+already loaded. Had this been read the natural way — "batch 11 is expensive,
+optimize it" — the effort would have gone into the 18 ms and none into the 249.
+
+This is D26/D27's shape in the cost dimension and the batch-9 scaling diagnosis's lesson a second time: **the number a gate reports is about the
+crossing, not about the cause, and the two are only related by accident.**
+
+**What is NOT claimed:** that the growth is a problem. Both modules are doing
+more work than they were, most of it in `decide`-shaped anchors, which is the
+work those modules exist to do. What is claimed is that nobody had looked, and
+that the ceiling's design guarantees nobody looks until it fires.
+
+**A ceiling-as-tripwire is worth keeping anyway**, because it forces exactly this
+measurement at a moment when someone is already in the module. What it should
+NOT do is let the measurement be skipped in favour of `--register`.
+
+**Reversal cost:** none — two numbers. The measurement is the durable part.
+
+## D29 — The gate CI runs and the probe the developer runs were different lists, and the comment saying they could not be was what hid it.
+
+`main`'s no-argument `selftest` now folds over `selftestArms`. It used to be
+twenty-three hand-written `driveWrong` calls, twenty-three hand-named bindings
+(`a b c e f g h j k l m n p q r' t' u v w x y z a2`) and a twenty-three-term
+conjunction.
+
+**How it was found.** Batch 11 added four arms, watched all four catch under
+`selftest <substring>`, ran the no-argument form as the gate — and it printed
+
+```
+harness selftest — twenty-three deliberately wrong models, each must be caught:
+...
+harness selftest: PASS
+```
+
+**PASS, with twenty-three arms, on a table of twenty-seven.** The four new arms
+had never run. The filtered probe read `selftestArms`; the gate did not.
+
+⛔ **THE DRIFT WAS BORN WITH THE FIX FOR D15.** Batch 10 introduced
+`selftestArms` precisely so the probe and the gate could not diverge, wired the
+filtered mode to it, left the full selftest alone, and wrote on the table:
+
+> *"Named once so the filtered probe mode and the full selftest cannot drift
+> apart — a probe that ran a different set from the gate would be the exact
+> defect the coverage table kept making (D15)."*
+
+The sentence describes the intended design as though it were the built one.
+
+⚠️ **AND IT WAS BORN IN A STATE OF AGREEMENT, WHICH IS THE ONLY STATE IN WHICH A
+DUPLICATE LOOKS HARMLESS.** Verified from the history rather than assumed:
+`selftestArms` first appears in `3f0111e` (batch 10, one commit before this
+one), and `git show HEAD:Main.lean | grep -c 'driveWrong "'` returns **23** — the
+same 23 the table held. At the moment of writing, the two lists were identical,
+every arm ran, the gate was honest, and the comment read as a description of
+what the code did.
+
+The divergence needed no mistake and no edit to the old list. It needed only the
+NEXT batch to append one row, which is the thing the table exists to make easy.
+⇒ **A duplicate created in agreement is not a latent bug that might fire; it is
+one that fires on the next ordinary use, and it has already banked the
+credibility of a batch in which it was correct.**
+
+⇒ 🔑 **A REASSURING COMMENT IS NOT NEUTRAL WHEN IT IS WRONG — IT IS LOAD-BEARING
+IN THE WRONG DIRECTION.** An undocumented duplicate list invites the question
+"are these two the same?". A documented one answers it, incorrectly, and the
+question is never asked again. This is D15's own lesson (*a claim no gate reads
+is wrong wherever nobody looked*) arriving on the mechanism built to enforce it.
+
+⚠️ **AND THE STALE LITERAL WAS THE HONEST HALF.** The banner said "twenty-three"
+and there really were twenty-three; the number nobody trusts is what exposed the
+comment everyone would have. The file also carried "nineteen" in its header from
+an earlier era. Both literals are now READ FROM THE TABLE (`selftestArms.length`)
+and the banner prints the count with the verdict, so a future divergence between
+"how many arms exist" and "how many ran" cannot be written down at all.
+
+**What this does NOT excuse.** Every green `selftest` from batch 10 onward was a
+green over twenty-three arms, and batch 10's own four arms *were* in the
+hand-written list, so no earlier batch's evidence is void. Only batch 11's four
+were at risk, and they were caught before the commit — by the count in a banner
+nobody had reason to read.
+
+**Reversal cost:** none. The fold is shorter than the sequence it replaced.
+
+## D30 — The same duplicate shape, found by looking for it, left OPEN with its price rather than fixed at the end of a batch.
+
+D29 was one hand-maintained duplicate of a data table. Having found it, the
+obvious next question is whether there are others. There are: **the seven flags
+are enumerated by hand in three places.**
+
+| site | what it does | how it fails if a flag is added and missed |
+|---|---|---|
+| `Flags.render` (`X86/Serialize.lean`) | the wire format both models are compared through | ⛔ **SILENTLY** — the flag is never emitted, so it is never compared, and every run is green about it |
+| `undefinedFlags` (`X86/Serialize.lean`) | derives the undefined set by running the oracle twice | loudly — a genuinely undefined bit classifies as `spec`, a false RED |
+| `flagNames` (`Main.lean`) | the classifier's "is this key a flag?" test | loudly — an undefined flag can never be explained, a false RED |
+
+⭐ **THE ASYMMETRY IS THE FINDING.** Two of the three fail noisily and would be
+fixed within the hour. The third fails exactly the way DF failed for ten batches
+(D27): the component is simply absent from the comparison, and absence reads as
+agreement. **The dangerous duplicate is the one on the path that reports
+success**, not the one on the path that reports failure.
+
+Nothing is wrong today — all three lists hold the same seven names, verified by
+reading them. This is a latent duplicate, and D29's lesson is precisely that a
+duplicate *in agreement* is the one that looks harmless.
+
+**Why it is not fixed here.** The fix is a single traversable source — a
+`Flags.toList : Flags → List (String × Bool)` that all three read — which is
+about thirty lines. But `Flags.render` defines the WIRE FORMAT that both models'
+records are compared through, so changing it requires demonstrating the emitted
+records are byte-identical, i.e. a full differential re-run. Doing that at the
+end of a batch, after the gate is already met, would put the batch's evidence at
+risk to close a gap that is currently only latent.
+
+⇒ Named, costed, and left for a batch that can carry it: **~30 lines plus one
+full differential run (~10 min) to prove the records unchanged.** It is written
+here rather than in a comment beside the code, because D29's whole lesson is
+that a comment beside the code is what stops the question being asked again.

@@ -406,6 +406,59 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .d | .q => ((s.setReg sz dst (Value.bswap sz (s.getReg sz dst))).setRip nr)
       | _ => s.halt (.unimplemented "bswap at a 16-bit or 8-bit operand size (SDM: undefined)")
 
+  -- ══ P1 BATCH 11 ═══════════════════════════════════════════════════════
+  -- The loop group and the flag-control singles.  Between them they are the
+  -- batch's whole shape: the loops write a REGISTER and read a flag but write
+  -- none, and the flag-control singles write ONE FLAG BIT and nothing else.
+
+  -- LOOP / LOOPE / LOOPNE (SDM Vol. 2A, LOOP/LOOPcc).  "Flags Affected: None."
+  --
+  -- ⚠️ THE ORDER IS DECREMENT, THEN TEST, AND THE WRITE-BACK IS UNCONDITIONAL.
+  -- ACL2 x86isa's `x86-loop` writes the decremented counter on BOTH the taken
+  -- and the not-taken path, and its branch condition reads the DECREMENTED
+  -- value; the SDM says the same ("Each time the LOOP instruction is executed,
+  -- the count register is decremented, then checked for 0").  A model that
+  -- tested the incoming counter is wrong at exactly two points — a counter of 1
+  -- (which must FALL THROUGH after decrementing to 0) and a counter of 0 (which
+  -- must BRANCH, having wrapped to all-ones) — and right everywhere else.
+  --
+  -- ⚠️ AND `addr32` IS A WIDTH ON BOTH THE READ AND THE WRITE.  With the prefix
+  -- the counter is ECX, the decrement wraps at 32 bits, and the write-back
+  -- zero-extends and clears RCX's upper half.  Reading ECX but writing RCX — or
+  -- writing 32 bits but wrapping at 64 — are both invisible unless the upper
+  -- half is non-zero AND the low half is at its boundary.
+  | .loop k addr32 d =>
+      let sz : Size := if addr32 then .d else .q
+      -- ZF is read from the INCOMING flags; nothing here writes a flag, but the
+      -- counter write-back is sequenced first below, so naming it now is what
+      -- makes the independence explicit rather than accidental.
+      let zf := s.flags.zf
+      let cnt := s.getReg sz .rcx
+      let cnt' := Value.trunc sz (cnt - 1)
+      -- the write-back happens on BOTH paths, so it is sequenced before the test
+      let s := s.setReg sz .rcx cnt'
+      let taken :=
+        match k with
+        | .loop   => cnt' != 0
+        | .loope  => cnt' != 0 && zf
+        | .loopne => cnt' != 0 && !zf
+      if taken then s.setRipChecked (nr + d) else s.setRip nr
+
+  -- CLC / STC / CMC / CLD / STD (SDM Vol. 2A).  Each writes ONE flag; "all
+  -- other flags are unaffected" (ACL2 x86isa `x86-cmc/clc/stc/cld/std` says the
+  -- same, one `!flgi` per opcode).  ⭐ `cld` and `std` are the ONLY writers of
+  -- `df` in this model, and `df` is the one flag the comparator has been
+  -- diffing since P0 with nothing able to move it.  D27.
+  | .flagop k =>
+      let f := s.flags
+      let f := match k with
+        | .clc => { f with cf := false }
+        | .stc => { f with cf := true }
+        | .cmc => { f with cf := !f.cf }
+        | .cld => { f with df := false }
+        | .std => { f with df := true }
+      (s.setFlags f).setRip nr
+
   | .call t =>
       match t with
       | .rel d =>

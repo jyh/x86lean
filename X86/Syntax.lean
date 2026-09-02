@@ -238,6 +238,31 @@ def CextKind.mnemonic : CextKind → String
   | .cbw => "cbtw" | .cwde => "cwtl" | .cdqe => "cltq"
   | .cwd => "cwtd" | .cdq => "cltd"  | .cqo => "cqto"
 
+/-- P1 BATCH 11: LOOP / LOOPE / LOOPNE (SDM Vol. 2A, LOOP/LOOPcc).  One
+constructor per PREDICATE, exactly as `Cc` is: `loopz` is `loope` and `loopnz`
+is `loopne` — clang assembles `loopz` and `loope` to the SAME BYTES (`E1 cb`),
+and a model that distinguished them would be modelling the assembler.
+`loopSpellings` below is the table that says which names each accounts for. -/
+inductive LoopKind where
+  | loop | loope | loopne
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- P1 BATCH 11: the FLAG-CONTROL singles (SDM Vol. 2A, CLC/STC/CMC/CLD/STD;
+roster families 54-59).  No operands, one byte each, and each writes EXACTLY ONE
+flag and leaves every other bit of the machine alone.
+
+⭐ THEY ARE THE FIRST INSTRUCTIONS IN THIS MODEL THAT WRITE `df` AT ALL.  The
+flag has been in `Flags` since P0 and in the differential comparator since P0 —
+`Serialize.lean` prints it and diffs it — and until this batch nothing could
+change it and no pre-state set it.  See docs/DECISIONS.md D27. -/
+inductive FlagOp where
+  | clc | stc | cmc | cld | std
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+def FlagOp.mnemonic : FlagOp → String
+  | .clc => "clc" | .stc => "stc" | .cmc => "cmc"
+  | .cld => "cld" | .std => "std"
+
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
 inductive Op where
@@ -310,6 +335,22 @@ inductive Op where
   "BSWAP ... with a 16-bit operand size ... is undefined" — the SDM does not say
   what the machine does, so neither does this model.  See D25. -/
   | bswap (sz : Size) (dst : GPR)
+  /-- P1 BATCH 11: LOOP / LOOPE / LOOPNE (SDM Vol. 2A).  ⚠️ THE COUNTER IS
+  DECREMENTED FIRST AND THE TEST IS ON THE DECREMENTED VALUE, and the write-back
+  happens on BOTH paths — a `loop` that falls through has still decremented.
+  A model that tested the OLD counter is wrong on exactly the pre-states where
+  it holds 1 (fall through, not branch) and 0 (branch, not fall through).
+
+  `addr32` selects the counter the address-size prefix `0x67` selects, exactly as
+  it does for `jcxz`: with it the counter is **ECX** and the decrement is written
+  back at 32 bits, which ZERO-EXTENDS and clears RCX's upper half (SDM Vol. 1
+  §3.4.1.1); without it the counter is the whole of RCX.  "Flags Affected: None"
+  — the counter moves, the flags do not, and ZF is an INPUT to two of the three.
+
+  rel8 only: `E0`/`E1`/`E2 cb` have no rel32 encoding, the same gap `jcxz` has. -/
+  | loop  (k : LoopKind) (addr32 : Bool) (d : Val)
+  /-- P1 BATCH 11: CLC/STC/CMC/CLD/STD.  See `FlagOp`. -/
+  | flagop (k : FlagOp)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
@@ -348,6 +389,12 @@ def Op.mnemonic : Op → String
   | .cext k => k.mnemonic
   | .xchg .. => "xchg"
   | .bswap .. => "bswap"
+  -- `addr32` does NOT change the mnemonic: AT&T spells the prefixed form
+  -- `addr32 loop`, a prefix printed beside the same name — unlike `jrcxz`/
+  -- `jecxz`, which really are two mnemonics for one instruction.
+  | .loop k .. => match k with
+    | .loop => "loop" | .loope => "loope" | .loopne => "loopne"
+  | .flagop k => k.mnemonic
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -368,7 +415,12 @@ def rosterP0 : List String :=
    -- for thirty apiece; `movxSpellings` below is the table that says which, so
    -- the collapse is data a theorem can count rather than a claim in a comment.
    "movzx", "movsx", "cbtw", "cwtl", "cltq", "cwtd", "cltd", "cqto",
-   "xchg", "bswap"]
+   "xchg", "bswap",
+   -- P1 BATCH 11: the loop group and the flag-control singles.  `loope` and
+   -- `loopne` each stand for two roster spellings (`loopz`, `loopnz`), as
+   -- `setcc` stands for thirty; `loopSpellings` is the table that says which.
+   "loop", "loope", "loopne",
+   "clc", "stc", "cmc", "cld", "std"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`
@@ -384,6 +436,23 @@ sentence is the only thing that reconciles them. -/
 def movxSpellings : MovxKind → List String
   | .zero => ["movzbw", "movzbl", "movzbq", "movzwl", "movzwq"]
   | .sign => ["movsbw", "movsbl", "movsbq", "movswl", "movswq", "movslq"]
+
+/-- ⭐ EVERY ASSEMBLER SPELLING OF EACH LOOP PREDICATE, for the same reason
+`Cc.suffixes` and `movxSpellings` exist: the roster files `loop`, `loope`,
+`loopz`, `loopne` and `loopnz` as FIVE base mnemonics, and this model has three
+constructors.  A coverage claim over that roster has to say which spellings a
+constructor accounts for, and that is what this table is.
+
+⚠️ AND THE COLLAPSE IS A FACT ABOUT THE MACHINE, NOT A CONVENIENCE: clang
+assembles `loopz .+18` and `loope .+18` to the identical bytes `e1 10`, and
+`loopnz`/`loopne` to `e0 10`.  `loop_synonyms_are_one_encoding` in
+Tests/Coverage.lean is that sentence as a theorem over the vector table. -/
+def loopSpellings : LoopKind → List String
+  | .loop => ["loop"]
+  | .loope => ["loope", "loopz"]
+  | .loopne => ["loopne", "loopnz"]
+
+def LoopKind.all : List LoopKind := [.loop, .loope, .loopne]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

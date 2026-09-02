@@ -24,7 +24,11 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects nineteen real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects one deliberately wrong model per entry of `selftestArms`
+(twenty-seven at P1 batch 11; the count is READ FROM THE TABLE and never typed,
+because both stale literals this file used to carry — "nineteen" here and
+"twenty-three" in the banner — outlived the lists they described).  Among them:
+an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
@@ -760,6 +764,108 @@ def wrongMovxFullWidthWrite (i : Instr) (s : Cpu) : Cpu :=
       ({ s with regs := s.regs.set dst (Value.trunc dsz e) }).setRip nr
   | _ => step i s
 
+/-- ⭐ P1 BATCH 11's PLANTED BUG, EASY HALF: a `loop` that tests the counter
+BEFORE decrementing it rather than after.  This is the reading the mnemonic
+invites — "loop while the counter is non-zero" — and it is wrong at exactly two
+counter values: 1, which must fall through after decrementing to zero, and 0,
+which must branch after wrapping to all-ones.  Everywhere else the two readings
+agree, which is why it needs those two values in the pre-state set and gets them
+from `adversarial`.
+
+The counter write-back is left CORRECT, so the only difference is the test. -/
+def wrongLoopTestsOldCounter (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .loop k addr32 d =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let sz : Size := if addr32 then .d else .q
+      let zf := s.flags.zf
+      let cnt := s.getReg sz .rcx
+      let cnt' := Value.trunc sz (cnt - 1)
+      let s := s.setReg sz .rcx cnt'
+      -- the BUG: the test reads the counter as it was BEFORE the decrement
+      let taken :=
+        match k with
+        | .loop   => cnt != 0
+        | .loope  => cnt != 0 && zf
+        | .loopne => cnt != 0 && !zf
+      if taken then s.setRipChecked (nr + d) else s.setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND THE ONE THE CONDITIONAL LOOPS EXIST FOR.  This model
+decrements and writes the counter back ONLY when it branches — "if the condition
+holds, decrement and jump" — which is how the instruction reads if you take the
+branch to be the instruction and the counter to be its bookkeeping.
+
+⚠️ WHAT MAKES IT HARD IS WHICH VECTOR CATCHES IT.  Plain `loop` falls through at
+exactly ONE counter value (1), so a table of `loop` alone would rest the whole
+bug on whether `adversarial` happens to contain 1.  `loope`/`loopne` fall
+through whenever ZF has the wrong polarity — half the pre-states — so the bug is
+caught broadly, but only because the conditional predicates are in the table.
+⇒ A form's coverage can depend on a SIBLING form's presence rather than on its
+own vectors. -/
+def wrongLoopNoWritebackOnFallthrough (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .loop k addr32 d =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let sz : Size := if addr32 then .d else .q
+      let zf := s.flags.zf
+      let cnt := s.getReg sz .rcx
+      let cnt' := Value.trunc sz (cnt - 1)
+      let taken :=
+        match k with
+        | .loop   => cnt' != 0
+        | .loope  => cnt' != 0 && zf
+        | .loopne => cnt' != 0 && !zf
+      -- the BUG: the counter is written back only on the taken path
+      if taken then (s.setReg sz .rcx cnt').setRipChecked (nr + d) else s.setRip nr
+  | _ => step i s
+
+/-- ⭐ THE SECOND HARD HALF, AND THE ONE `loopCounterStates` EXISTS FOR.  This
+model writes the counter back at the RIGHT width — 32 bits under `addr32`,
+zero-extending — and TESTS the full 64-bit RCX.  Splitting the width across the
+read/write and the test is the natural slip when a single `addr32` flag has to
+reach three places.
+
+⚠️ It is invisible unless the low 32 bits of RCX are 1 while the upper half is
+not zero, which is the ONLY state where `ECX - 1` is zero and `RCX - 1` is not.
+Not one of the seventy-four pre-states was such a state; `loopCounterStates` is.
+Deleting it makes this arm catch ZERO and makes
+`pre_states_reach_ecx_one_over_a_nonzero_upper_half` fail. -/
+def wrongLoopAddr32TestsFullWidth (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .loop k addr32 d =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let sz : Size := if addr32 then .d else .q
+      let zf := s.flags.zf
+      let cnt := s.getReg sz .rcx
+      let cnt' := Value.trunc sz (cnt - 1)
+      let s' := s.setReg sz .rcx cnt'
+      -- the BUG: the TEST always reads the full register, whatever the prefix said
+      let test := s.regs.get .rcx - 1
+      let taken :=
+        match k with
+        | .loop   => test != 0
+        | .loope  => test != 0 && zf
+        | .loopne => test != 0 && !zf
+      if taken then s'.setRipChecked (nr + d) else s'.setRip nr
+  | _ => step i s
+
+/-- ⭐ P1 BATCH 11's SECOND EASY HALF, AND THE ONE THAT WAS NOT CATCHABLE AT ALL
+UNTIL THIS BATCH TOUCHED THE PRE-STATES.  This model implements `cld` as a
+no-op — which is what an unwritten case in a five-way `match` amounts to.
+
+⛔ AGAINST THE PRE-STATE SET AS IT STOOD, THIS BUG IS INVISIBLE.  DF was `false`
+in all seventy-four states and nothing could write it, so "clear DF" and "do
+nothing" are the same function and the comparator — which has diffed `df` since
+P0 — would have reported agreement.  `dfStates` is what makes the arm catch;
+deleting it makes it catch ZERO and makes `pre_states_set_df` fail. -/
+def wrongCldIsNoOp (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .flagop .cld =>
+      -- the BUG: the flag is never written
+      s.setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -792,7 +898,17 @@ field the bug is in ({expectField}). The comparator fires on the wrong thing."
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
-coverage table kept making (D15). -/
+coverage table kept making (D15).
+
+⛔ AND FOR ONE BATCH THAT SENTENCE WAS FALSE, WHICH IS WHY IT IS STILL HERE WITH
+THIS NOTE UNDER IT.  Batch 10 added this table and wired only the FILTERED mode
+to it; the no-argument `selftest` — the form CI runs — kept its own hand-written
+sequence of twenty-three `driveWrong` calls. The two lists drifted immediately
+and silently, and the comment above is what made the drift invisible: it
+described the intended design as though it were the built one.
+
+Both readers now fold over THIS list, so the claim is structural rather than
+aspirational — there is no second list to disagree with. D29. -/
 def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   [ ("inc clobbers CF", wrongInc, "cf")
   , ("movl fails to zero-extend", wrongMovD, "rax")
@@ -821,7 +937,12 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("xchg copies instead of swapping", wrongXchgCopies, "rcx")
   , ("the cwtd/cltd/cqto trio merges where cltd must zero-extend", wrongCdqMerges, "rdx")
   , ("a width-changing move bounds the VALUE and not the WRITE",
-     wrongMovxFullWidthWrite, "rax") ]
+     wrongMovxFullWidthWrite, "rax")
+  , ("loop tests the counter before decrementing it", wrongLoopTestsOldCounter, "rip")
+  , ("loop writes the counter back only when it branches",
+     wrongLoopNoWritebackOnFallthrough, "rcx")
+  , ("addr32 loop tests the full 64-bit counter", wrongLoopAddr32TestsFullWidth, "rip")
+  , ("cld is a no-op (the flag nothing could write)", wrongCldIsNoOp, "df") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -883,53 +1004,34 @@ def main (args : List String) : IO UInt32 := do
       if ok then IO.println "filtered selftest: PASS"; return 0
       else IO.println "filtered selftest: FAIL"; return 1
   | ["selftest"] =>
-      IO.println "harness selftest — twenty-three deliberately wrong models, each must be caught:"
-      let a ← driveWrong "inc clobbers CF" wrongInc "cf"
-      let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
-      let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
-      let e ← driveWrong "adc drops the carry-in" wrongAdcNoCarry "rax"
-      let f ← driveWrong "adc's carry-OUT forgets the carry-in" wrongAdcCarryOutCF "cf"
-      let g ← driveWrong "cmp writes its result back" wrongCmpWritesBack "rax"
-      let h ← driveWrong "cmp writes back ONLY to a memory destination"
-                wrongCmpMemWriteBack "mem@0000000000001ff0"
-      let j ← driveWrong "a memory read-modify-write drops its STORE"
-                wrongMemStoreDropped "mem@0000000000001ff0"
-      let k ← driveWrong "a memory store ignores its operand WIDTH"
-                wrongMemStoreWidth "mem@0000000000001ff0"
-      let l ← driveWrong "jcxz inverts its test" wrongJcxzInverted "rip"
-      let m ← driveWrong "jecxz ignores the address-size prefix and reads all 64 bits"
-                wrongJecxzWidth "rip"
-      let n ← driveWrong "setcc inverts its condition" wrongSetccInverted "rax"
-      let p ← driveWrong "cmov skips the write when the condition is false"
-                wrongCmovSkipsWrite "rax"
-      let q ← driveWrong "sar brings in zeros instead of the sign" wrongSarLogical "rax"
-      let r' ← driveWrong "sar takes SHL/SHR's undefined-CF rule at a large count"
-                 wrongSarCfUndefinedAtLargeCount "cf"
-      let t' ← driveWrong "rol rotates the wrong way" wrongRolDirection "rax"
-      let u ← driveWrong "a rotate keys its CF write on the REDUCED count"
-                wrongRotCfKeyedOnReducedCount "cf"
-      let v ← driveWrong "bts sets the bit above the one it tested" wrongBtsOffByOne "rax"
-      let w ← driveWrong "a bit-test recomputes ZF instead of leaving it alone"
-                wrongBitRecomputesZf "zf"
-      let x ← driveWrong "movsx zero-extends (movsx written as movzx)"
-                wrongMovsxZeroExtends "rax"
-      let y ← driveWrong "xchg copies instead of swapping" wrongXchgCopies "rcx"
-      let z ← driveWrong "the cwtd/cltd/cqto trio merges where cltd must zero-extend"
-                wrongCdqMerges "rdx"
-      let a2 ← driveWrong "a width-changing move bounds the VALUE and not the WRITE"
-                wrongMovxFullWidthWrite "rax"
+      -- ⛔ THIS BRANCH USED TO BE TWENTY-THREE HAND-WRITTEN `driveWrong` CALLS
+      -- WITH TWENTY-THREE HAND-NAMED BINDINGS AND A TWENTY-THREE-TERM
+      -- CONJUNCTION, while `selftestArms` — introduced one batch earlier for the
+      -- filtered probe — carried a doc comment claiming the two "cannot drift
+      -- apart".  They had already drifted: the table was read ONLY by the
+      -- filtered mode, so an arm added to it ran in a probe and NEVER IN CI.
+      -- P1 batch 11 added four arms, watched them pass under `selftest <pat>`,
+      -- and found the no-argument form still announcing "twenty-three".
+      -- ⇒ The literal in the banner was the honest half; the doc comment was the
+      -- lie, and a reassuring comment is what lets a false claim survive.
+      -- See docs/DECISIONS.md D29.
+      IO.println s!"harness selftest — {selftestArms.length} deliberately wrong \
+models, each must be caught:"
+      let mut ok := true
+      for (name, wrong, field) in selftestArms do
+        let caught ← driveWrong name wrong field
+        ok := ok && caught
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
-      let d := r.unexplained == 0 && r.explained == 0 && r.missing == 0 && r.leaks == 0
-      if d then
+      let silent := r.unexplained == 0 && r.explained == 0 && r.missing == 0 && r.leaks == 0
+      if silent then
         IO.println s!"  ✔ control: the model against itself is silent ({r.matched}/{r.cases} \
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' && t' && u && v && w
-         && x && y && z && a2 then
-        IO.println "harness selftest: PASS"
+      if ok && silent then
+        IO.println s!"harness selftest: PASS ({selftestArms.length} arms + control)"
         return 0
       else
         IO.println "harness selftest: FAIL"
@@ -938,7 +1040,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **367 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **382 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -951,7 +1053,10 @@ bit-string `m,r` shape declined, see D23); 10 — the width-changing and \
 two-destination moves: MOVZX/MOVSX/MOVSXD, the six accumulator sign-extensions, \
 XCHG and BSWAP, the first forms with a source width unlike their destination's \
 and the first that write two registers, and the only batch so far that writes \
-NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25).\n\n\
+NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25); 11 — \
+the loop group LOOP/LOOPE/LOOPNE at both counter widths and the five \
+flag-control singles CLC/STC/CMC/CLD/STD, which between them added the first \
+instructions able to write DF at all (see D27).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

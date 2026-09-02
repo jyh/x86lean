@@ -1245,4 +1245,93 @@ its bits. -/
 theorem bswap_refuses_sixteen_bits :
     (step ⟨.bswap .w .rax, 3⟩ (mk { rax := 0x1234 })).stopped = true := by decide
 
+/-! ## P1 BATCH 11 — the loop group and the flag-control singles -/
+
+/-- ⭐ THE ORDER, AS ONE EXAMPLE: A COUNTER OF 1 FALLS THROUGH.  `loop` decrements
+first and tests the RESULT, so RCX = 1 becomes 0 and the branch is NOT taken —
+RIP is the fall-through address.  A model that tested the incoming counter would
+branch here, and this is one of exactly two counter values at which the two
+readings differ. -/
+theorem loop_counter_one_falls_through :
+    let r := step ⟨.loop .loop false 0x10, 2⟩ (mk { rcx := 1 } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (0, 0x400002) := by decide
+
+/-- ⭐ AND THE OTHER ONE: A COUNTER OF 0 BRANCHES, having wrapped to all-ones.
+This is the pair that says "decrement, then test" is a claim with observable
+content rather than a way of phrasing it. -/
+theorem loop_counter_zero_wraps_and_branches :
+    let r := step ⟨.loop .loop false 0x10, 2⟩ (mk { rcx := 0 } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (0xFFFFFFFFFFFFFFFF, 0x400012) := by decide
+
+/-- ⛔ THE COUNTER IS DECREMENTED ON THE FALL-THROUGH PATH TOO.  `loope` with ZF
+clear does not branch — and RCX has still moved.  A "if taken then decrement and
+jump" implementation leaves RCX at 5 here. -/
+theorem loope_decrements_even_when_not_taken :
+    let r := step ⟨.loop .loope false 0x10, 2⟩
+      (mk { rcx := 5 } { zf := false } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (4, 0x400002) := by decide
+
+theorem loope_branches_when_zf_set :
+    let r := step ⟨.loop .loope false 0x10, 2⟩
+      (mk { rcx := 5 } { zf := true } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (4, 0x400012) := by decide
+
+theorem loopne_branches_when_zf_clear :
+    let r := step ⟨.loop .loopne false 0x10, 2⟩
+      (mk { rcx := 5 } { zf := false } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (4, 0x400012) := by decide
+
+/-- ⭐ `addr32 loop` COUNTS IN ECX AND ZERO-EXTENDS THE WRITE-BACK, so the upper
+half of RCX is CLEARED by an instruction whose only job was to decrement a
+counter (SDM Vol. 1 §3.4.1.1).  Without the prefix the same state decrements the
+whole register and the upper half survives — the two lines below are the same
+counter value under the two widths. -/
+theorem addr32_loop_counts_in_ecx_and_clears_the_upper_half :
+    let r := step ⟨.loop .loop true 0x10, 3⟩
+      (mk { rcx := 0xDEADBEEF00000005 } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (4, 0x400013) := by decide
+
+theorem loop_without_the_prefix_keeps_the_upper_half :
+    let r := step ⟨.loop .loop false 0x10, 2⟩
+      (mk { rcx := 0xDEADBEEF00000005 } (rip := 0x400000))
+    (r.regs.rcx, r.rip) = (0xDEADBEEF00000004, 0x400012) := by decide
+
+/-- ⭐ AND THE STATE THAT SEPARATES THE TWO TESTS.  With ECX = 1 and RCX ≠ 1 the
+prefixed form FALLS THROUGH (the 32-bit counter reached zero) while the
+unprefixed form BRANCHES (the 64-bit counter did not).  This is the exact state
+`loopCounterStates` was added to the pre-state set to reach: nothing in
+`adversarial` had a non-zero upper half over a low half of 1. -/
+theorem addr32_and_plain_loop_disagree_at_ecx_one :
+    let s := mk { rcx := 0xDEADBEEF00000001 } (rip := 0x400000)
+    let a := step ⟨.loop .loop true 0x10, 3⟩ s
+    let b := step ⟨.loop .loop false 0x10, 2⟩ s
+    (a.rip, b.rip) = (0x400003, 0x400012) := by decide
+
+/-- The flag-control singles, one bit each. -/
+theorem clc_clears_cf_and_stc_sets_it :
+    let c := step ⟨.flagop .clc, 1⟩ (mk (flags := { cf := true }))
+    let t := step ⟨.flagop .stc, 1⟩ (mk (flags := { cf := false }))
+    (c.flags.cf, t.flags.cf) = (false, true) := by decide
+
+theorem cmc_complements_cf :
+    let a := step ⟨.flagop .cmc, 1⟩ (mk (flags := { cf := true }))
+    let b := step ⟨.flagop .cmc, 1⟩ (mk (flags := { cf := false }))
+    (a.flags.cf, b.flags.cf) = (false, true) := by decide
+
+/-- ⭐ `cld` AND `std` ARE THE MODEL'S ONLY WRITERS OF DF, and this is the anchor
+that says so with DF actually SET beforehand — the state no pre-state reached
+until this batch (docs/DECISIONS.md D27).  Against a DF-clear state, `cld` and a
+no-op are the same function. -/
+theorem cld_clears_df_and_std_sets_it :
+    let c := step ⟨.flagop .cld, 1⟩ (mk (flags := { df := true }))
+    let t := step ⟨.flagop .std, 1⟩ (mk (flags := { df := false }))
+    (c.flags.df, t.flags.df) = (false, true) := by decide
+
+/-- ⛔ AND THEY DO NOT CROSS: `cld` leaves CF, `clc` leaves DF.  Written from one
+five-case template, that is the one thing that could silently go wrong. -/
+theorem the_flag_singles_do_not_cross :
+    let c := step ⟨.flagop .cld, 1⟩ (mk (flags := { cf := true, df := true }))
+    let t := step ⟨.flagop .clc, 1⟩ (mk (flags := { cf := true, df := true }))
+    (c.flags.cf, c.flags.df, t.flags.cf, t.flags.df) = (true, false, false, true) := by decide
+
 end X86.Tests

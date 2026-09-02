@@ -1338,6 +1338,53 @@ def vectors : List Vec :=
     , instr := ⟨.bswap .d .rax, 2⟩ }
   , { id := "bswap_q", mnemonic := "bswap", asm := "bswap %rax", bytes := "480fc8"
     , instr := ⟨.bswap .q .rax, 3⟩ }
+
+  -- ══ P1 BATCH 11 ═══════════════════════════════════════════════════════
+  -- THE LOOP GROUP.  Each predicate at BOTH counter widths, because `addr32` is
+  -- a width on the read, on the wrap AND on the write-back, and the three are
+  -- separately wrong-able.
+  --
+  -- ⚠️ THE BYTES ARE THE AUTHORITY AND THE `.+18` IS NOT.  For the prefixed
+  -- forms clang computes `.` from the address AFTER the `0x67` byte, so
+  -- `addr32 loop .+18` encodes rel8 = 0x10 and actually targets `.+19`.  The
+  -- model's `d` is the ENCODED rel8, which is what `scripts/check_encodings.py`
+  -- compares against the disassembly — so this row is right and the comment is
+  -- the only place the discrepancy in the source string is visible at all.
+  , { id := "loop_rel8", mnemonic := "loop", asm := "loop .+18"
+    , bytes := "e210", instr := ⟨.loop .loop false 0x10, 2⟩ }
+  , { id := "loope_rel8", mnemonic := "loope", asm := "loope .+18"
+    , bytes := "e110", instr := ⟨.loop .loope false 0x10, 2⟩ }
+  , { id := "loopne_rel8", mnemonic := "loopne", asm := "loopne .+18"
+    , bytes := "e010", instr := ⟨.loop .loopne false 0x10, 2⟩ }
+  -- ⭐ THE BACKWARD BRANCH, which is the shape every real loop has.  `loop .-2`
+  -- encodes rel8 = 0xFC = -4, so the target is two bytes BEFORE this
+  -- instruction.  It is here because every other branch vector in this
+  -- repository jumps forward, and a sign error in the displacement is invisible
+  -- against a table of positive ones.
+  , { id := "loop_back", mnemonic := "loop", asm := "loop .-2"
+    , bytes := "e2fc", instr := ⟨.loop .loop false 0xFFFFFFFFFFFFFFFC, 2⟩ }
+  -- The address-size-prefixed forms: the counter is ECX and the write-back
+  -- zero-extends into RCX.
+  , { id := "loop_a32", mnemonic := "loop", asm := "addr32 loop .+18"
+    , bytes := "67e210", instr := ⟨.loop .loop true 0x10, 3⟩ }
+  , { id := "loope_a32", mnemonic := "loope", asm := "addr32 loope .+18"
+    , bytes := "67e110", instr := ⟨.loop .loope true 0x10, 3⟩ }
+  , { id := "loopne_a32", mnemonic := "loopne", asm := "addr32 loopne .+18"
+    , bytes := "67e010", instr := ⟨.loop .loopne true 0x10, 3⟩ }
+
+  -- THE FLAG-CONTROL SINGLES.  One byte each, one flag each, and the whole
+  -- group exists in this batch because `cld` and `std` are the model's only
+  -- writers of DF.
+  , { id := "clc", mnemonic := "clc", asm := "clc", bytes := "f8"
+    , instr := ⟨.flagop .clc, 1⟩ }
+  , { id := "stc", mnemonic := "stc", asm := "stc", bytes := "f9"
+    , instr := ⟨.flagop .stc, 1⟩ }
+  , { id := "cmc", mnemonic := "cmc", asm := "cmc", bytes := "f5"
+    , instr := ⟨.flagop .cmc, 1⟩ }
+  , { id := "cld", mnemonic := "cld", asm := "cld", bytes := "fc"
+    , instr := ⟨.flagop .cld, 1⟩ }
+  , { id := "std", mnemonic := "std", asm := "std", bytes := "fd"
+    , instr := ⟨.flagop .std, 1⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -1400,7 +1447,12 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   let f : Flags :=
     { cf := fseed % 2 == 1, pf := fseed / 2 % 2 == 1, af := fseed / 4 % 2 == 1
     , zf := fseed / 8 % 2 == 1, sf := fseed / 16 % 2 == 1, of := fseed / 32 % 2 == 1
-    , df := false }
+    -- ⭐ DF JOINED THE SWEEP IN P1 BATCH 11, AS BIT 6, AND THE BIT POSITION IS
+    -- WHY NOTHING ELSE MOVED.  Every pre-existing call site passes a seed below
+    -- 64 (0, 1, 5, 63, and the random tail's index i < 8), so all seventy-four
+    -- original pre-states keep `df := false` and every existing case is
+    -- byte-identical.  The states that actually SET it are `dfStates` below.
+    , df := fseed / 64 % 2 == 1 }
   let mem := baseMem
   -- ⭐ AND THE MEMORY OPERAND ITSELF SWEEPS, added by P1 BATCH 3.  The eight
   -- bytes at RBX — the span every memory-operand vector addresses — carry `c`,
@@ -1466,8 +1518,50 @@ def carryBoundary : List Cpu :=
   , mkPre 0 0 0,    mkPre 0 0 1         -- sbb: borrows only because of CF
   , mkPre 0 ones 0, mkPre 0 ones 1 ]    -- and the borrow that happens either way
 
+/-- ⭐ P1 BATCH 11: THE STATES IN WHICH DF IS SET, AND THE FIRST STATES IN THIS
+REPOSITORY THAT SET IT AT ALL.
+
+⛔ `df` HAS BEEN IN `Flags` SINCE P0, PRINTED BY `Serialize.lean` SINCE P0, AND
+DIFFED BY THE COMPARATOR SINCE P0 — and it was `false` in all seventy-four
+pre-states and no instruction could write it, so for ten batches the comparator
+faithfully compared a bit that could not differ.  `cld` clears DF; against a
+pre-state set where DF is already clear, **`cld` and a no-op are the same
+function**, and an unimplemented `cld` would have passed every case.
+
+⇒ This is docs/DECISIONS.md D26 arriving a THIRD time — after D14's constant
+memory window and D26's own constant RDX — and the third instance is the one
+that says the rule is not about registers: *a state component that no
+instruction writes is a constant, and a comparator that watches a constant
+reports agreement it did not test.*  See D27.
+
+Two states rather than one so the sweep still has both values of the other six
+flags: seed 64 sets DF alone, seed 127 sets DF and all six arithmetic flags. -/
+def dfStates : List Cpu :=
+  let ones : BitVec 64 := 0xFFFFFFFFFFFFFFFF
+  [ mkPre ones 0 64, mkPre 0 ones 127 ]
+
+/-- ⭐ P1 BATCH 11: THE STATE THAT SEPARATES THE `addr32` LOOP'S COUNTER WIDTHS.
+
+`addr32 loop` tests `ECX - 1`; a model that tested `RCX - 1` instead differs
+from it on exactly the states where one is zero and the other is not — that is,
+where **the low 32 bits of RCX are 1 while its upper half is not**.  Not one of
+the seventy-four pre-states was such a state: `adversarial` contains 1 (upper
+half zero) and `0x100000000` (low half zero), and no value with a non-zero upper
+half and a low half of 1.  So the bug was invisible and the vector could not
+have caught it.
+
+⚠️ AND IT IS THE SAME DEFECT AS `dfStates` ABOVE IN A DIFFERENT DRESS: there the
+gap was a component nothing wrote, here it is a COMBINATION no value reached.
+An adversarial list is adversarial with respect to the questions already being
+asked of it, and `addr32` asks a question about the two halves of RCX
+SEPARATELY that nothing before this batch asked. -/
+def loopCounterStates : List Cpu :=
+  [ mkPre 0x5555555555555555 0xDEADBEEF00000001 0     -- ecx = 1, rcx ≠ 1
+  , mkPre 0xAAAAAAAAAAAAAAAA 0xDEADBEEF00000001 8 ]   -- ... and with ZF set
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
-its neighbours, the carry boundary, then a pseudo-random tail. -/
+its neighbours, the carry boundary, the two DF states and the two `addr32`
+counter states, then a pseudo-random tail. -/
 def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let adv := adversarial
   let diag := adv.map (fun a => mkPre a a 0)
@@ -1476,6 +1570,6 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rs := randStream seed (2 * nRandom)
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
-  diag ++ pairs ++ pairs2 ++ carryBoundary ++ rnd
+  diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates ++ rnd
 
 end X86.Tests

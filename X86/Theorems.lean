@@ -673,4 +673,109 @@ theorem step_xchg_mem_refuses (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
     (step ⟨.bswap sz r, len⟩ s).flags = s.flags := by
   cases sz <;> simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.halt]
 
+/-! ## P1 BATCH 11 — the loop group and the flag-control singles -/
+
+/-- A checked RIP write never touches the registers — whether it lands or
+REFUSES.  Needed because `loop`'s counter write-back must be visible on both
+paths, and the taken path ends in `setRipChecked`, which may halt. -/
+@[simp] theorem setRipChecked_regs (s : Cpu) (v : Val) :
+    (s.setRipChecked v).regs = s.regs := by
+  cases hc : canonical v <;> cases hm : s.ms <;>
+    simp [Cpu.setRipChecked, Cpu.halt, hc, hm]
+
+@[simp] theorem setRipChecked_flags (s : Cpu) (v : Val) :
+    (s.setRipChecked v).flags = s.flags := by
+  cases hc : canonical v <;> cases hm : s.ms <;>
+    simp [Cpu.setRipChecked, Cpu.halt, hc, hm]
+
+@[simp] theorem setRipChecked_mem (s : Cpu) (v : Val) :
+    (s.setRipChecked v).mem = s.mem := by
+  cases hc : canonical v <;> cases hm : s.ms <;>
+    simp [Cpu.setRipChecked, Cpu.halt, hc, hm]
+
+@[simp] theorem setRipChecked_oracle (s : Cpu) (v : Val) :
+    (s.setRipChecked v).oracle = s.oracle := by
+  cases hc : canonical v <;> cases hm : s.ms <;>
+    simp [Cpu.setRipChecked, Cpu.halt, hc, hm]
+
+/-- ⭐ THE FRAME CLAIM THAT IS THE WHOLE POINT OF THE LOOP GROUP: `loop` WRITES
+NO FLAG, at either counter width and on either path.  Two of the three loops
+READ a flag (ZF) and none of the three writes one — the counter moves, the flags
+do not.  Stated over both `addr32` values and all three predicates at once,
+because a per-predicate proof would let one case drift. -/
+@[simp] theorem step_loop_flags (k : LoopKind) (a32 : Bool) (d : Val) (h : Live s) :
+    (step ⟨.loop k a32 d, len⟩ s).flags = s.flags := by
+  cases k <;> cases a32 <;>
+    simp [step, h, Cpu.setReg, Cpu.setRip] <;> split <;> simp [Cpu.setRip]
+
+@[simp] theorem step_loop_mem (k : LoopKind) (a32 : Bool) (d : Val) (h : Live s) :
+    (step ⟨.loop k a32 d, len⟩ s).mem = s.mem := by
+  cases k <;> cases a32 <;>
+    simp [step, h, Cpu.setReg, Cpu.setRip] <;> split <;> simp [Cpu.setRip]
+
+@[simp] theorem step_loop_oracle (k : LoopKind) (a32 : Bool) (d : Val) (h : Live s) :
+    (step ⟨.loop k a32 d, len⟩ s).oracle = s.oracle := by
+  cases k <;> cases a32 <;>
+    simp [step, h, Cpu.setReg, Cpu.setRip] <;> split <;> simp [Cpu.setRip]
+
+/-- ⭐ THE COUNTER IS WRITTEN ON BOTH PATHS, AND THIS IS THE THEOREM THAT SAYS SO.
+Whether or not the branch is taken, RCX ends holding the DECREMENTED counter —
+which is the half of `LOOP` that a "if taken, then jump and decrement"
+implementation gets wrong, and which no flag or RIP claim can see.
+
+Stated at the 64-bit width, where the write-back is the whole register, so the
+equation is an equality of values rather than of write-views. -/
+theorem step_loop_q_counter (k : LoopKind) (d : Val) (h : Live s) :
+    (step ⟨.loop k false d, len⟩ s).regs.get .rcx = s.regs.get .rcx - 1 := by
+  cases k <;>
+    simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.getReg, Value.writeView] <;>
+    split <;> simp [Cpu.setRip]
+
+/-- ⛔ AND THE FLAG-CONTROL SINGLES CHANGE EXACTLY ONE BIT.  `clc` writes CF and
+leaves DF; `cld` writes DF and leaves CF; and NEITHER touches the other five
+arithmetic flags.  This is the frame claim that makes "all other flags are
+unaffected" (SDM Vol. 2A, CLC/CLD) a checked statement rather than a comment. -/
+theorem step_clc (h : Live s) :
+    step ⟨.flagop .clc, len⟩ s =
+      { s with flags := { s.flags with cf := false },
+               rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setFlags, Cpu.setRip]
+
+theorem step_std (h : Live s) :
+    step ⟨.flagop .std, len⟩ s =
+      { s with flags := { s.flags with df := true },
+               rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setFlags, Cpu.setRip]
+
+/-- `cld` leaves CF exactly as it found it — the pair of this and
+`step_clc_leaves_df` is what says the two instructions are independent, which is
+the only thing that could go wrong in a five-case `match` written from one
+template. -/
+theorem step_cld_leaves_cf (h : Live s) :
+    (step ⟨.flagop .cld, len⟩ s).flags.cf = s.flags.cf := by
+  simp [step, h, Cpu.setFlags, Cpu.setRip]
+
+theorem step_clc_leaves_df (h : Live s) :
+    (step ⟨.flagop .clc, len⟩ s).flags.df = s.flags.df := by
+  simp [step, h, Cpu.setFlags, Cpu.setRip]
+
+/-- ⭐ `cmc` IS AN INVOLUTION ON CF, which is the one algebraic fact this group
+has and the one a "complement" written as "set" would break. -/
+theorem step_cmc_cmc_restores_cf (len2 : Nat) (h : Live s)
+    (h' : Live (step ⟨.flagop .cmc, len⟩ s)) :
+    (step ⟨.flagop .cmc, len2⟩ (step ⟨.flagop .cmc, len⟩ s)).flags.cf = s.flags.cf := by
+  simp [step, h, h', Cpu.setFlags, Cpu.setRip]
+
+@[simp] theorem step_flagop_regs (k : FlagOp) (h : Live s) :
+    (step ⟨.flagop k, len⟩ s).regs = s.regs := by
+  cases k <;> simp [step, h, Cpu.setFlags, Cpu.setRip]
+
+@[simp] theorem step_flagop_mem (k : FlagOp) (h : Live s) :
+    (step ⟨.flagop k, len⟩ s).mem = s.mem := by
+  cases k <;> simp [step, h, Cpu.setFlags, Cpu.setRip]
+
+@[simp] theorem step_flagop_oracle (k : FlagOp) (h : Live s) :
+    (step ⟨.flagop k, len⟩ s).oracle = s.oracle := by
+  cases k <;> simp [step, h, Cpu.setFlags, Cpu.setRip]
+
 end X86

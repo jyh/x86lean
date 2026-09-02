@@ -2,13 +2,13 @@
 
 # x86lean coverage
 
-Roster: 45 mnemonics in 507 differentially tested forms, covering **367 of the 525 forms** in `p1/roster.tsv`.
+Roster: 53 mnemonics in 519 differentially tested forms, covering **382 of the 525 forms** in `p1/roster.tsv`.
 
-P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in a destination that is read and never written, and the first RIP-relative vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the bit-string `m,r` shape declined, see D23); 10 — the width-changing and two-destination moves: MOVZX/MOVSX/MOVSXD, the six accumulator sign-extensions, XCHG and BSWAP, the first forms with a source width unlike their destination's and the first that write two registers, and the only batch so far that writes NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25).
+P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in a destination that is read and never written, and the first RIP-relative vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the bit-string `m,r` shape declined, see D23); 10 — the width-changing and two-destination moves: MOVZX/MOVSX/MOVSXD, the six accumulator sign-extensions, XCHG and BSWAP, the first forms with a source width unlike their destination's and the first that write two registers, and the only batch so far that writes NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25); 11 — the loop group LOOP/LOOPE/LOOPNE at both counter widths and the five flag-control singles CLC/STC/CMC/CLD/STD, which between them added the first instructions able to write DF at all (see D27).
 
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift from the AST the way the sentence it replaced had.
 
-Tiers: T-exact 30 · T-frame 15 · T-absent 0.
+Tiers: T-exact 38 · T-frame 15 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -57,5 +57,13 @@ Tiers: T-exact 30 · T-frame 15 · T-absent 0.
 | `cqto` | no operands — rdx := sign(rax) | T-exact | XED (trusted) | — | Vol. 2A CWD/CDQ/CQO |
 | `xchg` | r,r · acc,r · r,acc — b/w/l/q (m: refused, implicit LOCK) | T-exact | XED (trusted) | — | Vol. 2A XCHG |
 | `bswap` | r — l/q only (b/w: SDM undefined, refused) | T-exact | XED (trusted) | — | Vol. 2A BSWAP |
+| `loop` | rel8 (no rel32 encoding exists) · addr32 → ecx counter | T-exact | XED (trusted) | — | Vol. 2A LOOP/LOOPcc |
+| `loope` | rel8 — 2 spellings (loope, loopz) | T-exact | XED (trusted) | — | Vol. 2A LOOP/LOOPcc |
+| `loopne` | rel8 — 2 spellings (loopne, loopnz) | T-exact | XED (trusted) | — | Vol. 2A LOOP/LOOPcc |
+| `clc` | no operands — cf := 0 | T-exact | XED (trusted) | — | Vol. 2A CLC |
+| `stc` | no operands — cf := 1 | T-exact | XED (trusted) | — | Vol. 2A STC |
+| `cmc` | no operands — cf := ¬cf | T-exact | XED (trusted) | — | Vol. 2A CMC |
+| `cld` | no operands — df := 0 | T-exact | XED (trusted) | — | Vol. 2A CLD |
+| `std` | no operands — df := 1 | T-exact | XED (trusted) | — | Vol. 2A STD |
 
 **Decode trust.** Every row reads `XED (trusted)`: the AST is built from Intel XED's structured output and nothing in this repository proves that the bytes were decoded correctly. The differential vectors close this for every form below by assembling each `asm` string with clang and checking the length against the model's `Instr.len`; a Lean decoder with a proof is P4.

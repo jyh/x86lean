@@ -23,11 +23,11 @@ X86.Semantics 50
 X86.Serialize 50
 X86.State 50
 X86.Syntax 124
-X86.Theorems 143
+X86.Theorems 540
 X86.Value 61
 X86 50
 X86Native 106
-Tests.Anchors 254
+Tests.Anchors 801
 Tests.Coverage 19560
 Tests.Nonvacuity 71
 Tests.Vectors 50

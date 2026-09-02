@@ -285,6 +285,34 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XCHG" }
   , { mnemonic := "bswap", shapes := "r — l/q only (b/w: SDM undefined, refused)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A BSWAP" }
+  -- P1 BATCH 11 (roster family 15's loop group, and families 54-59): the three
+  -- loop predicates and the five flag-control singles.  ⭐ EVERY ROW IS T-exact
+  -- WITH AN EMPTY UNDEFINED COLUMN, as batch 10's were — but for the opposite
+  -- reason.  Batch 10 wrote no flag at all; these eight write flags and the
+  -- counter with COMPLETE definiteness: the SDM leaves nothing undefined in
+  -- either group, so there is again nothing for the comparator to absorb.
+  --
+  -- ⚠️ NO LOOP FORM HAS A rel32 ENCODING — `E0`/`E1`/`E2 cb` is rel8 only (SDM
+  -- Vol. 2A, LOOP) — the same gap `jrcxz` has, and the roster's `label` shapes
+  -- are the assembler's name for the same rel8 byte, not a second encoding.
+  , { mnemonic := "loop", shapes := "rel8 (no rel32 encoding exists) · addr32 → ecx counter",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A LOOP/LOOPcc" }
+  , { mnemonic := "loope", shapes := "rel8 — 2 spellings (loope, loopz)", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A LOOP/LOOPcc" }
+  , { mnemonic := "loopne", shapes := "rel8 — 2 spellings (loopne, loopnz)", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A LOOP/LOOPcc" }
+  -- Each of these five names the ONE flag it writes, because that is the whole
+  -- instruction and the coverage table should say so.
+  , { mnemonic := "clc", shapes := "no operands — cf := 0", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CLC" }
+  , { mnemonic := "stc", shapes := "no operands — cf := 1", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A STC" }
+  , { mnemonic := "cmc", shapes := "no operands — cf := ¬cf", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CMC" }
+  , { mnemonic := "cld", shapes := "no operands — df := 0", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CLD" }
+  , { mnemonic := "std", shapes := "no operands — df := 1", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A STD" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
