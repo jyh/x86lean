@@ -127,12 +127,9 @@ def vectors : List Vec :=
     , instr := ⟨.pop .q (R .rcx), 1⟩ }
   , { id := "jmp_ind",  mnemonic := "jmp",  asm := "jmp *%rax",        bytes := "ffe0"
     , instr := ⟨.jmp (.indirect (R .rax)), 2⟩ }
-  , { id := "jmp_rel",  mnemonic := "jmp",  asm := "jmp .+11",         bytes := "eb09"
-    , instr := ⟨.jmp (.rel 9), 2⟩ }
-  , { id := "je_rel",   mnemonic := "jcc",  asm := "je .+9",           bytes := "7407"
-    , instr := ⟨.jcc .e 7, 2⟩ }
-  , { id := "jne_rel",  mnemonic := "jcc",  asm := "jne .+7",          bytes := "7505"
-    , instr := ⟨.jcc .ne 5, 2⟩ }
+  -- `jmp_rel`, `je_rel` and `jne_rel` WERE here.  P1 batch 5 covers every
+  -- condition at BOTH relative encodings, and `jmp` at both, so these three
+  -- were two conditions of sixteen and one encoding of two.
   , { id := "call_ind", mnemonic := "call", asm := "call *%rax",       bytes := "ffd0"
     , instr := ⟨.call (.indirect (R .rax)), 2⟩ }
   , { id := "call_rel", mnemonic := "call", asm := "call .+5",         bytes := "e800000000"
@@ -619,6 +616,104 @@ def vectors : List Vec :=
     , bytes := "ffc8", instr := ⟨.un .dec .d (R .rax), 2⟩ }
   , { id := "dec_r_q", mnemonic := "dec", asm := "decq %rax"
     , bytes := "48ffc8", instr := ⟨.un .dec .q (R .rax), 3⟩ }
+  -- ══ P1 BATCH 5 ═════════════════════════════════════════════════════════
+  -- The BRANCH subset of roster family `-------|-|flags/ctl`: 33 mnemonics at
+  -- `rel8`, `rel32` and `label` — 99 of the family's 116 forms.
+  --
+  -- ⛔ AND THE FAMILY IS NOT THE BATCH, WHICH IS ITSELF THE FINDING.  Family 7
+  -- keys on "writes no flag, destination is flags/ctl", and that description
+  -- also fits `leaveq`, `lods`, `movs`, `nop`, `pdep`, `pext`, `retq`, `stos`
+  -- and `ud2` — string operations, BMI2 bit-manipulation, and stack and misc
+  -- forms, filed together with the branches because they agree about FLAGS.
+  -- Those 17 forms are several different templates and are NOT in this batch.
+  -- See docs/DECISIONS.md D17: the roster's family key is not a template key.
+  --
+  -- WHAT THE 33 MNEMONICS COME TO HERE: 30 of them are jcc SPELLINGS of the 16
+  -- predicates in `Cc` (`jz` and `je` are one instruction; `Cc.synonyms` is the
+  -- table and `thirty_branch_spellings` counts it), plus `jmp`, plus `jrcxz`
+  -- and `jecxz` — the one branch whose condition is a REGISTER.
+  --
+  -- ⭐ AND THE ONE THING THE ROSTER GETS WRONG, found by trying to assemble it.
+  -- K's tree carries `jecxz_rel32.k` and `jrcxz_rel32.k`, and **there is no
+  -- rel32 encoding of either instruction**: `E3 cb` is rel8 only (SDM Vol. 2A,
+  -- JCC).  clang refuses outright — "value of 297 is too large for field of 1
+  -- byte".  Two of the roster's 525 forms cannot be assembled at all.
+  --
+  -- `label` is covered by identity with `rel8`/`rel32`, as in batch 3: the
+  -- assembler picks the width and the linker fills the number in, and a
+  -- post-decode model sees only the result.
+  , { id := "jo_rel8", mnemonic := "jcc", asm := "jo .+18"
+    , bytes := "7010", instr := ⟨.jcc .o 0x10, 2⟩ }
+  , { id := "jno_rel8", mnemonic := "jcc", asm := "jno .+18"
+    , bytes := "7110", instr := ⟨.jcc .no 0x10, 2⟩ }
+  , { id := "jb_rel8", mnemonic := "jcc", asm := "jb .+18"
+    , bytes := "7210", instr := ⟨.jcc .b 0x10, 2⟩ }
+  , { id := "jae_rel8", mnemonic := "jcc", asm := "jae .+18"
+    , bytes := "7310", instr := ⟨.jcc .ae 0x10, 2⟩ }
+  , { id := "je_rel8", mnemonic := "jcc", asm := "je .+18"
+    , bytes := "7410", instr := ⟨.jcc .e 0x10, 2⟩ }
+  , { id := "jne_rel8", mnemonic := "jcc", asm := "jne .+18"
+    , bytes := "7510", instr := ⟨.jcc .ne 0x10, 2⟩ }
+  , { id := "jbe_rel8", mnemonic := "jcc", asm := "jbe .+18"
+    , bytes := "7610", instr := ⟨.jcc .be 0x10, 2⟩ }
+  , { id := "ja_rel8", mnemonic := "jcc", asm := "ja .+18"
+    , bytes := "7710", instr := ⟨.jcc .a 0x10, 2⟩ }
+  , { id := "js_rel8", mnemonic := "jcc", asm := "js .+18"
+    , bytes := "7810", instr := ⟨.jcc .s 0x10, 2⟩ }
+  , { id := "jns_rel8", mnemonic := "jcc", asm := "jns .+18"
+    , bytes := "7910", instr := ⟨.jcc .ns 0x10, 2⟩ }
+  , { id := "jp_rel8", mnemonic := "jcc", asm := "jp .+18"
+    , bytes := "7a10", instr := ⟨.jcc .p 0x10, 2⟩ }
+  , { id := "jnp_rel8", mnemonic := "jcc", asm := "jnp .+18"
+    , bytes := "7b10", instr := ⟨.jcc .np 0x10, 2⟩ }
+  , { id := "jl_rel8", mnemonic := "jcc", asm := "jl .+18"
+    , bytes := "7c10", instr := ⟨.jcc .l 0x10, 2⟩ }
+  , { id := "jge_rel8", mnemonic := "jcc", asm := "jge .+18"
+    , bytes := "7d10", instr := ⟨.jcc .ge 0x10, 2⟩ }
+  , { id := "jle_rel8", mnemonic := "jcc", asm := "jle .+18"
+    , bytes := "7e10", instr := ⟨.jcc .le 0x10, 2⟩ }
+  , { id := "jg_rel8", mnemonic := "jcc", asm := "jg .+18"
+    , bytes := "7f10", instr := ⟨.jcc .g 0x10, 2⟩ }
+  , { id := "jo_rel32", mnemonic := "jcc", asm := "jo .+200"
+    , bytes := "0f80c2000000", instr := ⟨.jcc .o 0xc2, 6⟩ }
+  , { id := "jno_rel32", mnemonic := "jcc", asm := "jno .+200"
+    , bytes := "0f81c2000000", instr := ⟨.jcc .no 0xc2, 6⟩ }
+  , { id := "jb_rel32", mnemonic := "jcc", asm := "jb .+200"
+    , bytes := "0f82c2000000", instr := ⟨.jcc .b 0xc2, 6⟩ }
+  , { id := "jae_rel32", mnemonic := "jcc", asm := "jae .+200"
+    , bytes := "0f83c2000000", instr := ⟨.jcc .ae 0xc2, 6⟩ }
+  , { id := "je_rel32", mnemonic := "jcc", asm := "je .+200"
+    , bytes := "0f84c2000000", instr := ⟨.jcc .e 0xc2, 6⟩ }
+  , { id := "jne_rel32", mnemonic := "jcc", asm := "jne .+200"
+    , bytes := "0f85c2000000", instr := ⟨.jcc .ne 0xc2, 6⟩ }
+  , { id := "jbe_rel32", mnemonic := "jcc", asm := "jbe .+200"
+    , bytes := "0f86c2000000", instr := ⟨.jcc .be 0xc2, 6⟩ }
+  , { id := "ja_rel32", mnemonic := "jcc", asm := "ja .+200"
+    , bytes := "0f87c2000000", instr := ⟨.jcc .a 0xc2, 6⟩ }
+  , { id := "js_rel32", mnemonic := "jcc", asm := "js .+200"
+    , bytes := "0f88c2000000", instr := ⟨.jcc .s 0xc2, 6⟩ }
+  , { id := "jns_rel32", mnemonic := "jcc", asm := "jns .+200"
+    , bytes := "0f89c2000000", instr := ⟨.jcc .ns 0xc2, 6⟩ }
+  , { id := "jp_rel32", mnemonic := "jcc", asm := "jp .+200"
+    , bytes := "0f8ac2000000", instr := ⟨.jcc .p 0xc2, 6⟩ }
+  , { id := "jnp_rel32", mnemonic := "jcc", asm := "jnp .+200"
+    , bytes := "0f8bc2000000", instr := ⟨.jcc .np 0xc2, 6⟩ }
+  , { id := "jl_rel32", mnemonic := "jcc", asm := "jl .+200"
+    , bytes := "0f8cc2000000", instr := ⟨.jcc .l 0xc2, 6⟩ }
+  , { id := "jge_rel32", mnemonic := "jcc", asm := "jge .+200"
+    , bytes := "0f8dc2000000", instr := ⟨.jcc .ge 0xc2, 6⟩ }
+  , { id := "jle_rel32", mnemonic := "jcc", asm := "jle .+200"
+    , bytes := "0f8ec2000000", instr := ⟨.jcc .le 0xc2, 6⟩ }
+  , { id := "jg_rel32", mnemonic := "jcc", asm := "jg .+200"
+    , bytes := "0f8fc2000000", instr := ⟨.jcc .g 0xc2, 6⟩ }
+  , { id := "jmp_rel8", mnemonic := "jmp", asm := "jmp .+18"
+    , bytes := "eb10", instr := ⟨.jmp (.rel 0x10), 2⟩ }
+  , { id := "jmp_rel32", mnemonic := "jmp", asm := "jmp .+200"
+    , bytes := "e9c3000000", instr := ⟨.jmp (.rel 0xc3), 5⟩ }
+  , { id := "jrcxz_rel8", mnemonic := "jrcxz", asm := "jrcxz .+18"
+    , bytes := "e310", instr := ⟨.jcxz false 0x10, 2⟩ }
+  , { id := "jecxz_rel8", mnemonic := "jecxz", asm := "jecxz .+18"
+    , bytes := "67e30f", instr := ⟨.jcxz true 0x0f, 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

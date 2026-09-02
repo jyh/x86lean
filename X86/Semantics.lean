@@ -261,6 +261,16 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .indirect o => s.setRipChecked (s.readOperand .q nr o)
   | .jcc c d =>
       if c.eval s.flags then s.setRipChecked (nr + d) else s.setRip nr
+  -- JRCXZ / JECXZ (SDM Vol. 2A, JCC).  ⚠️ THE ONLY BRANCH WHOSE CONDITION IS A
+  -- REGISTER, and the width of the register it reads is what the address-size
+  -- prefix selects: `jecxz` tests ECX — the LOW 32 BITS — and `jrcxz` tests all
+  -- of RCX.  A model that read the same width for both is wrong exactly when
+  -- RCX's upper half is non-zero and its lower half is zero, which is one point
+  -- in the state space and is this batch's planted hard half.
+  -- "Flags Affected: None."
+  | .jcxz addr32 d =>
+      let c := if addr32 then Value.trunc .d (s.regs.get .rcx) else s.regs.get .rcx
+      if c == 0 then s.setRipChecked (nr + d) else s.setRip nr
   | .call t =>
       match t with
       | .rel d =>

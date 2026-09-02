@@ -737,4 +737,74 @@ theorem dec_mem_reads_then_writes :
       (mk { rbx := 0x100 } {} (Mem.empty.write 0x100 0x10))).mem.read 0x100
       = 0x0F := by decide
 
+/-! ## P1 BATCH 5 — the branches, and the one whose condition is a REGISTER
+
+Thirty of family 7's branch mnemonics are spellings of the sixteen predicates in
+`Cc`, and those are anchored by P0 and by `vectors_cover_every_condition`.  What
+is new is `JRCXZ`/`JECXZ`, and everything sharp about it is the WIDTH of the
+register it reads. -/
+
+/-- `jrcxz` branches when RCX is zero. -/
+theorem jrcxz_branches_on_zero :
+    (step ⟨.jcxz false 0x10, 2⟩ (mk { rcx := 0 } (rip := 0x400000))).rip
+      = 0x400012 := by decide
+
+/-- and falls through when it is not. -/
+theorem jrcxz_falls_through_on_nonzero :
+    (step ⟨.jcxz false 0x10, 2⟩ (mk { rcx := 1 } (rip := 0x400000))).rip
+      = 0x400002 := by decide
+
+/-- ⭐ THE PAIR THE ADDRESS-SIZE PREFIX EXISTS FOR, and the only place the two
+mnemonics disagree.  With `RCX = 0x1_00000000` the low 32 bits are zero and the
+whole register is not: `jrcxz` FALLS THROUGH and `jecxz` BRANCHES.
+
+A model that read one width for both — the obvious way to write this
+instruction once — is correct everywhere except here.  It is this batch's
+planted hard half.  `pre_states_separate_rcx_from_ecx` is what keeps a pre-state
+on this point — and it is not a formality: removing the two `adversarial`
+constants that reach it makes the differential arm catch nothing AND makes that
+theorem fail, which is the gate doing its job before the loss instead of after. -/
+theorem jrcxz_reads_all_64_bits :
+    (step ⟨.jcxz false 0x10, 2⟩
+      (mk { rcx := 0x1_00000000 } (rip := 0x400000))).rip = 0x400002 := by decide
+
+theorem jecxz_reads_only_the_low_32 :
+    (step ⟨.jcxz true 0x0F, 3⟩
+      (mk { rcx := 0x1_00000000 } (rip := 0x400000))).rip = 0x400012 := by decide
+
+/-- Neither writes a flag (SDM Vol. 2A, JCC: "Flags Affected: None"). -/
+theorem jcxz_writes_no_flag :
+    let f : Flags := { cf := true, zf := true }
+    (step ⟨.jcxz false 0x10, 2⟩ (mk { rcx := 0 } f (rip := 0x400000))).flags = f := by decide
+
+/-- And it takes the canonical-target check like every other branch: a
+displacement that lands outside canonical space HALTS rather than jumping. -/
+theorem jcxz_noncanonical_target_refuses :
+    (step ⟨.jcxz false 0x0000_8000_0000_0000, 2⟩
+      (mk { rcx := 0 } (rip := 0x400000))).ms
+      = some (.unimplemented "non-canonical branch target (#GP(0) in hardware)") := by decide
+
+/-- ⭐ THE rel32 ENCODING'S LENGTH IS PART OF THE ANSWER.  A `jcc` at rel32 is
+SIX bytes, and the target is `rip + 6 + d`, not `rip + 2 + d`: the same
+displacement under the rel8 length would land four bytes short.  P0 had only
+rel8 vectors, so nothing had yet distinguished the two. -/
+theorem jcc_rel32_target_uses_its_own_length :
+    (step ⟨.jcc .e 0xC2, 6⟩ (mk {} { zf := true } (rip := 0x400000))).rip
+      = 0x4000C8 := by decide
+
+theorem jcc_rel8_target_uses_its_own_length :
+    (step ⟨.jcc .e 0x10, 2⟩ (mk {} { zf := true } (rip := 0x400000))).rip
+      = 0x400012 := by decide
+
+/-- The two compound conditions, which are where a Jcc table goes wrong: `jle`
+is `ZF || SF ≠ OF`, so it is taken on SF ≠ OF even with ZF clear... -/
+theorem jle_taken_on_sign_overflow_mismatch :
+    (step ⟨.jcc .le 0x10, 2⟩
+      (mk {} { sf := true, of := false } (rip := 0x400000))).rip = 0x400012 := by decide
+
+/-- ...and `jg` is its exact negation on the same state. -/
+theorem jg_not_taken_there :
+    (step ⟨.jcc .g 0x10, 2⟩
+      (mk {} { sf := true, of := false } (rip := 0x400000))).rip = 0x400002 := by decide
+
 end X86.Tests

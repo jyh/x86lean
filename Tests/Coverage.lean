@@ -25,6 +25,17 @@ import Tests.Vectors
 namespace X86.Tests
 open X86
 
+/-! ⚠️ `maxRecDepth` bounds the ELABORATOR's own recursion, and the checks in
+this file walk the whole vector table — 260 entries at batch 5 and growing every
+batch — so the default is exceeded by the honest checks rather than by anything
+clever.  It changes NOTHING about what is proved and nothing about the axioms a
+proof rests on: `scripts/axiom_gate.sh` runs over this development unchanged and
+still reports exactly `propext`, `Classical.choice` and `Quot.sound`.
+
+It is set once here rather than sprinkled per theorem, because a limit that has
+to be raised again at every batch is a property of the file, not of a line. -/
+set_option maxRecDepth 40000
+
 /-- Every mnemonic the coverage table names is one the AST roster names. -/
 theorem table_mnemonics_subset_roster :
     (tableP0.map Row.mnemonic).all (fun m => rosterP0.contains m) = true := by decide
@@ -45,8 +56,9 @@ theorem table_rows_distinct :
 theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
-one-line change rather than a silent one.  P0 left here with twenty. -/
-theorem roster_size_is_22 : rosterSize = 22 := by decide
+one-line change rather than a silent one.  P0 left here with twenty; batch 2
+added `adc`/`sbb` and batch 5 `jrcxz`/`jecxz`. -/
+theorem roster_size_is_24 : rosterSize = 24 := by decide
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
@@ -247,16 +259,51 @@ def hasMemDestVector (m : String) : Bool :=
     | .pop _ d => d.isMem
     | _ => false))
 
-set_option maxRecDepth 8000 in
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.
-
-⚠️ `maxRecDepth` is raised for this ONE theorem, and only once the second
-pattern was added: two `isInfixOfChars` scans over 22 prose strings exceed the
-default ELABORATOR recursion depth.  It bounds the elaborator's own recursion,
-not what is proved and not the axioms the proof rests on — the axiom gate over
-this file is unchanged and still reports exactly the three standard ones. -/
+ -/
 theorem mem_dest_claims_are_backed :
     tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic) = true := by decide
+
+/-! ### P1 BATCH 5 — the condition column, made checkable
+
+⛔ THE ROW FOR `jcc` SAID "all 16 conditions" AND HAD VECTORS FOR TWO.  It is
+the same defect as D15 and D16 in a column that reads like a count rather than a
+claim: a sentence in the shapes string asserting coverage that nothing checked.
+Sixteen is now a theorem. -/
+
+/-- Every condition code has a differential vector. -/
+theorem vectors_cover_every_condition :
+    Cc.all.all (fun c => vectors.any (fun v => match v.instr.op with
+      | .jcc c' _ => c' == c
+      | _ => false)) = true := by decide
+
+/-- And at BOTH relative encodings, which is what `rel8 · rel32` claims: some
+condition-code vector is two bytes long and some is six. -/
+theorem conditions_covered_at_both_encodings :
+    (vectors.any (fun v => match v.instr.op with
+       | .jcc _ _ => v.instr.len == 2 | _ => false)
+     && vectors.any (fun v => match v.instr.op with
+       | .jcc _ _ => v.instr.len == 6 | _ => false)) = true := by decide
+
+/-- ⭐ THE 30 SPELLINGS THE `jcc` ROW CLAIMS.  K files the synonyms separately —
+`jz` and `je` are two files and one instruction — so a coverage claim over K's
+roster has to name them.  `Cc.synonyms` is that list and this counts it, so the
+number in the shapes column cannot drift from the table behind it. -/
+theorem thirty_branch_spellings :
+    (Cc.all.flatMap Cc.synonyms).eraseDups.length = 30 := by decide
+
+/-- ⚠️ AND SOME PRE-STATE HAS RCX NON-ZERO WITH ECX ZERO.  That single point is
+the only place `jrcxz` and `jecxz` disagree, so without it the address-size
+prefix is unexercised and a model reading one width for both would pass.
+TWO constants in `adversarial` reach it — `0x100000000` and
+`0x8000000000000000` — and either alone suffices, which is precisely why this
+theorem names NEITHER: it asserts the point is reached, not how.  Removing both
+makes the differential's `jecxz` arm catch zero and makes this theorem fail, so
+for the first time here such an assertion is standing in FRONT of a coverage
+loss rather than being written after one. -/
+theorem pre_states_separate_rcx_from_ecx :
+    (preStates 1 8).any (fun s =>
+      s.regs.rcx != 0 && (s.regs.rcx &&& 0xFFFFFFFF) == 0) = true := by decide
 
 end X86.Tests

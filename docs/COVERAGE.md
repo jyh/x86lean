@@ -2,9 +2,9 @@
 
 # x86lean coverage
 
-Roster: 22 mnemonics in 227 differentially tested forms (P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and TEST at every operand shape, including a memory operand in the DESTINATION position and the first RIP-relative vector in the repository).
+Roster: 22 mnemonics in 260 differentially tested forms (P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and TEST at every operand shape, including a memory operand in the DESTINATION position and the first RIP-relative vector in the repository).
 
-Tiers: T-exact 16 · T-frame 6 · T-absent 0.
+Tiers: T-exact 18 · T-frame 6 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -27,8 +27,10 @@ Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 | `not` | r — q (m: roster family 11) | T-exact | XED (trusted) | — | Vol. 2A NOT |
 | `push` | r — q (m, imm: roster family 11) | T-exact | XED (trusted) | — | Vol. 2A PUSH |
 | `pop` | r — q (m: roster family 11) | T-exact | XED (trusted) | — | Vol. 2A POP |
-| `jmp` | rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A JMP |
-| `jcc` | rel8/rel32, all 16 conditions | T-exact | XED (trusted) | — | Vol. 2A Jcc |
+| `jmp` | rel8 · rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A JMP |
+| `jcc` | rel8 · rel32 — all 16 conditions, 30 spellings | T-exact | XED (trusted) | — | Vol. 2A Jcc |
+| `jrcxz` | rel8 (no rel32 encoding exists) | T-exact | XED (trusted) | — | Vol. 2A JCC |
+| `jecxz` | rel8 (no rel32 encoding exists) | T-exact | XED (trusted) | — | Vol. 2A JCC |
 | `call` | rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A CALL |
 
 **Decode trust.** Every row reads `XED (trusted)`: the AST is built from Intel XED's structured output and nothing in this repository proves that the bytes were decoded correctly. The differential vectors close this for every form below by assembling each `asm` string with clang and checking the length against the model's `Instr.len`; a Lean decoder with a proof is P4.

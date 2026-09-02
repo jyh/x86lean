@@ -137,6 +137,26 @@ def Cc.mnemonic : Cc → String
   | .s => "js" | .ns => "jns" | .p => "jp" | .np => "jnp"
   | .l => "jl" | .ge => "jge" | .le => "jle" | .g => "jg"
 
+/-- ⭐ EVERY ASSEMBLER SPELLING OF EACH CONDITION (SDM Vol. 1 Appendix B).
+`Cc` has one constructor per PREDICATE, because `jz` and `je` are the same
+instruction and a model that distinguishes them is modelling the assembler.  But
+K's tree files them SEPARATELY — 30 branch mnemonics for these 16 predicates —
+so a coverage claim over K's roster has to say which spellings a predicate
+accounts for.  That is what this table is: it turns "the synonyms are covered"
+from a sentence into a list a theorem can count.
+
+`Cc.mnemonic` above returns the spelling this model PRINTS; these are all the
+spellings that decode to it. -/
+def Cc.synonyms : Cc → List String
+  | .o  => ["jo"]                | .no => ["jno"]
+  | .b  => ["jb", "jc", "jnae"]  | .ae => ["jae", "jnb", "jnc"]
+  | .e  => ["je", "jz"]          | .ne => ["jne", "jnz"]
+  | .be => ["jbe", "jna"]        | .a  => ["ja", "jnbe"]
+  | .s  => ["js"]                | .ns => ["jns"]
+  | .p  => ["jp", "jpe"]         | .np => ["jnp", "jpo"]
+  | .l  => ["jl", "jnge"]        | .ge => ["jge", "jnl"]
+  | .le => ["jle", "jng"]        | .g  => ["jg", "jnle"]
+
 /-- Every condition code, for the generated coverage table and for exhaustive
 tests. -/
 def Cc.all : List Cc :=
@@ -164,6 +184,17 @@ inductive Op where
   | pop   (sz : Size) (dst : Operand)
   | jmp   (t : JmpTarget)
   | jcc   (c : Cc) (d : Val)
+  /-- P1 BATCH 5: JRCXZ / JECXZ (SDM Vol. 2A, JCC).  The one branch whose
+  condition is a REGISTER rather than a flag, and the only conditional jump with
+  no rel32 encoding at all — `E3 cb`, rel8 only.
+
+  `addr32` selects the operand the address-size prefix `0x67` selects: with it
+  the instruction tests **ECX**, the low 32 bits, and is spelled `jecxz`;
+  without it it tests the whole of **RCX** and is spelled `jrcxz`.  One
+  constructor rather than two because they are one instruction with a prefix —
+  which is what every other form in this AST already assumes about prefixes
+  (the header: "prefixes are resolved"). -/
+  | jcxz  (addr32 : Bool) (d : Val)
   | call  (t : JmpTarget)
   deriving DecidableEq, Repr, Inhabited, BEq
 
@@ -191,6 +222,7 @@ def Op.mnemonic : Op → String
   | .pop .. => "pop"
   | .jmp .. => "jmp"
   | .jcc c _ => c.mnemonic
+  | .jcxz a32 _ => if a32 then "jecxz" else "jrcxz"
   | .call .. => "call"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
@@ -205,7 +237,7 @@ step with each other. -/
 def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
    "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
-   "adc", "sbb"]
+   "adc", "sbb", "jrcxz", "jecxz"]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

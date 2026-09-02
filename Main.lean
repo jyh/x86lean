@@ -24,13 +24,14 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects nine real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects eleven real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
 destination, a memory read-modify-write that drops its store, and one that
-stores the right value at the wrong WIDTH — and REQUIRES the comparator to catch
-each one.
+stores the right value at the wrong WIDTH, a `jcxz` with an inverted test, and a
+`jecxz` that ignores the address-size prefix — and REQUIRES the comparator to
+catch each one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
 accidental: each batch plants a PAIR, an easy half that almost any pre-state
@@ -455,6 +456,47 @@ def wrongMemStoreWidth (i : Instr) (s : Cpu) : Cpu :=
       { out with mem := out.mem.writeSize .q a (out.mem.readSize sz a) }
   | _ => out
 
+/-- ⭐ P1 BATCH 5's PLANTED BUG, EASY HALF: a `jcxz` whose test is INVERTED.
+Any pre-state at all catches it, in `rip`. -/
+def wrongJcxzInverted (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .jcxz addr32 d =>
+      let c := if addr32 then Value.trunc .d (s.regs.get .rcx) else s.regs.get .rcx
+      -- the BUG: the sense of the test
+      if c != 0 then s.setRipChecked (nr + d) else s.setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND THE ONE THE ADDRESS-SIZE PREFIX EXISTS FOR.  This model
+implements `jecxz` by reading ALL 64 BITS of RCX — that is, it writes the
+instruction ONCE and lets `jrcxz`'s width stand for both, which is the obvious
+way to get this pair wrong and the way a reviewer is least likely to see.
+
+The two agree on every state except one shape: RCX non-zero with its low 32 bits
+zero.
+
+⛔ AND THE FIRST VERSION OF THIS COMMENT NAMED `0x1_00000000` AS THE VALUE THAT
+REACHES IT, WHICH WAS TOO SPECIFIC AND WAS REFUTED THE SAME WAY BATCH 2's CLAIM
+WAS.  Deleting that constant from `adversarial` left this arm still catching the
+bug — 3 disagreements instead of 6 — because `0x8000000000000000` is also
+non-zero with a zero low half, and is also in the list. TWO constants reach the
+point and either alone suffices.
+
+⭐ SO THE THING TO SAY IS ABOUT THE GATE, NOT THE CONSTANT.  With BOTH removed
+this arm catches ZERO — and `pre_states_separate_rcx_from_ecx` in
+Tests/Coverage.lean FIRES.  That assertion was written before the probe, against
+D13's and D14's law, and this is the first time in this repository that such an
+assertion has caught a coverage loss PROSPECTIVELY rather than being written
+after one was found. It does not care which constant supplies the point, which
+is exactly why it is the right thing to have. -/
+def wrongJecxzWidth (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .jcxz _ d =>
+      -- the BUG, and only here: the address-size prefix is ignored
+      if s.regs.get .rcx == 0 then s.setRipChecked (nr + d) else s.setRip nr
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -518,7 +560,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — nine deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — eleven deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -531,6 +573,9 @@ def main (args : List String) : IO UInt32 := do
                 wrongMemStoreDropped "mem@0000000000001ff0"
       let k ← driveWrong "a memory store ignores its operand WIDTH"
                 wrongMemStoreWidth "mem@0000000000001ff0"
+      let l ← driveWrong "jcxz inverts its test" wrongJcxzInverted "rip"
+      let m ← driveWrong "jecxz ignores the address-size prefix and reads all 64 bits"
+                wrongJecxzWidth "rip"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -540,7 +585,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k then
+      if a && b && c && d && e && f && g && h && j && k && l && m then
         IO.println "harness selftest: PASS"
         return 0
       else
