@@ -76,10 +76,11 @@ def vectors : List Vec :=
   -- forms systematically at all four widths, as `and_rr_q` and its siblings, so
   -- keeping the P0 rows would have run three of the 68-state sweeps twice and
   -- left the batch's own table with a hole where its widest form should be.
-  , { id := "cmp_q",    mnemonic := "cmp",  asm := "cmpq %rcx, %rax",  bytes := "4839c8"
-    , instr := ⟨.bin .cmp .q (R .rax) (R .rcx), 3⟩ }
-  , { id := "test_q",   mnemonic := "test", asm := "testq %rcx, %rax", bytes := "4885c8"
-    , instr := ⟨.bin .test .q (R .rax) (R .rcx), 3⟩ }
+  -- `cmp_q` and `test_q` WERE here.  P1 batch 3 covers both mnemonics
+  -- systematically at every width and operand shape (`cmp_rr_q`, `test_rr_q`
+  -- and their siblings), so the P0 rows would have run a 74-state sweep twice
+  -- and left the batch's own table with a hole at its widest register form —
+  -- the same reason batch 1 retired `and_q`/`or_q`/`xor_q`.
   , { id := "shl_q3",   mnemonic := "shl",  asm := "shlq $3, %rax",    bytes := "48c1e003"
     , instr := ⟨.shift .shl .q (R .rax) (.imm8 3), 4⟩ }
   , { id := "shl_b1",   mnemonic := "shl",  asm := "shlb $1, %al",     bytes := "d0e0"
@@ -370,6 +371,152 @@ def vectors : List Vec :=
     , bytes := "18e8", instr := ⟨.bin .sbb .b (R .rax) (H .rcx), 2⟩ }
   , { id := "sbb_h8d",      mnemonic := "sbb",   asm := "sbbb %cl, %ah"
     , bytes := "18cc", instr := ⟨.bin .sbb .b (H .rax) (R .rcx), 2⟩ }
+  -- ══ P1 BATCH 3 ═════════════════════════════════════════════════════════
+  -- Families `xxxxxx-|-|flags/ctl` (CMP, 11 forms, 38 K variants) and
+  -- `0xuxx0-|-|flags/ctl` (TEST, 8 forms, 25 K variants) of `p1/roster.tsv`:
+  -- the two mnemonics whose DESTINATION IS THE FLAGS.  Nineteen forms, run
+  -- together because they are one template question — does the destination get
+  -- written? — asked of `sub` and of `and` respectively.
+  --
+  -- NO NEW TEMPLATE AND NO NEW MNEMONIC: `cmp` and `test` were both in P0's
+  -- roster and `step` already discards their results.  This is what a
+  -- zero-surcharge batch looks like — vectors, anchors and evidence, no
+  -- semantics.
+  --
+  -- FOUR THINGS THESE VECTORS REACH THAT NOTHING BEFORE THEM DID:
+  --  * ⭐ A MEMORY OPERAND IN THE DESTINATION POSITION THAT IS READ AND NEVER
+  --    WRITTEN (`cmpq %rax, (%rbx)`, `testq $imm, (%rbx)`).  Every earlier
+  --    memory destination in this repository — `mov`, `push`, `call` — was
+  --    written.  A model that wrote `cmp`'s result back would be caught here
+  --    and nowhere else, which is why that is this batch's planted bug.
+  --  * `cmp` and `test` at widths b, w and l.  P0 shipped one vector each, both
+  --    at q, so three quarters of their width behaviour was untested — and the
+  --    32-bit form is where the zero-extension rule would show if these
+  --    instructions wrote anything at all.
+  --  * ⭐ RIP-RELATIVE ADDRESSING (`cmp_rip_q`), which `Ea.addr` has always
+  --    implemented and which NO differential vector has ever executed — the
+  --    only prior evidence was one `lea` anchor, i.e. this model checked
+  --    against itself.  The roster is what surfaced it: K files `cmpq $L, %r64`
+  --    as its own form, and asking what a `label` operand is post-decode leads
+  --    straight to the addressing mode nothing had exercised.
+  --  * The accumulator short forms at all four widths, for both mnemonics.
+  --
+  -- ⭐ AND WHAT `label` TURNS OUT TO BE, since two of CMP's eleven forms are
+  -- `r,label` and `m,label`.  K's rule reads the operand from `<functargets>`
+  -- as a `PointerVal`: it is an address the ASSEMBLER has not yet resolved.
+  -- By the time a linker is done it is an ordinary sign-extended imm32, and
+  -- `cmpq $L, %rax` and `cmpq $0x12345678, %rax` are THE SAME BYTES with a
+  -- different number in them.  A post-decode model cannot distinguish them and
+  -- should not try (X86/Syntax.lean).  So those two forms are covered by
+  -- `cmp_ri_q`/`cmp_mi_q` BY IDENTITY, stated here rather than counted twice —
+  -- and the addressing mode a label actually implies, RIP-relative, is covered
+  -- by a vector of its own above.
+  , { id := "cmp_rr_b", mnemonic := "cmp", asm := "cmpb %cl, %al"
+    , bytes := "38c8", instr := ⟨.bin .cmp .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "cmp_rr_w", mnemonic := "cmp", asm := "cmpw %cx, %ax"
+    , bytes := "6639c8", instr := ⟨.bin .cmp .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "cmp_rr_l", mnemonic := "cmp", asm := "cmpl %ecx, %eax"
+    , bytes := "39c8", instr := ⟨.bin .cmp .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "cmp_rr_q", mnemonic := "cmp", asm := "cmpq %rcx, %rax"
+    , bytes := "4839c8", instr := ⟨.bin .cmp .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "cmp_rm_b", mnemonic := "cmp", asm := "cmpb (%rbx), %al"
+    , bytes := "3a03", instr := ⟨.bin .cmp .b (R .rax) (M .rbx), 2⟩ }
+  , { id := "cmp_rm_w", mnemonic := "cmp", asm := "cmpw (%rbx), %ax"
+    , bytes := "663b03", instr := ⟨.bin .cmp .w (R .rax) (M .rbx), 3⟩ }
+  , { id := "cmp_rm_l", mnemonic := "cmp", asm := "cmpl (%rbx), %eax"
+    , bytes := "3b03", instr := ⟨.bin .cmp .d (R .rax) (M .rbx), 2⟩ }
+  , { id := "cmp_rm_q", mnemonic := "cmp", asm := "cmpq (%rbx), %rax"
+    , bytes := "483b03", instr := ⟨.bin .cmp .q (R .rax) (M .rbx), 3⟩ }
+  , { id := "cmp_mr_b", mnemonic := "cmp", asm := "cmpb %al, (%rbx)"
+    , bytes := "3803", instr := ⟨.bin .cmp .b (M .rbx) (R .rax), 2⟩ }
+  , { id := "cmp_mr_w", mnemonic := "cmp", asm := "cmpw %ax, (%rbx)"
+    , bytes := "663903", instr := ⟨.bin .cmp .w (M .rbx) (R .rax), 3⟩ }
+  , { id := "cmp_mr_l", mnemonic := "cmp", asm := "cmpl %eax, (%rbx)"
+    , bytes := "3903", instr := ⟨.bin .cmp .d (M .rbx) (R .rax), 2⟩ }
+  , { id := "cmp_mr_q", mnemonic := "cmp", asm := "cmpq %rax, (%rbx)"
+    , bytes := "483903", instr := ⟨.bin .cmp .q (M .rbx) (R .rax), 3⟩ }
+  , { id := "cmp_ri_b", mnemonic := "cmp", asm := "cmpb $0x5a, %cl"
+    , bytes := "80f95a", instr := ⟨.bin .cmp .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "cmp_ri_w", mnemonic := "cmp", asm := "cmpw $0x1234, %cx"
+    , bytes := "6681f93412", instr := ⟨.bin .cmp .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "cmp_ri_l", mnemonic := "cmp", asm := "cmpl $0x12345678, %ecx"
+    , bytes := "81f978563412", instr := ⟨.bin .cmp .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "cmp_ri_q", mnemonic := "cmp", asm := "cmpq $0x12345678, %rcx"
+    , bytes := "4881f978563412", instr := ⟨.bin .cmp .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "cmp_ri_q8n", mnemonic := "cmp", asm := "cmpq $-1, %rcx"
+    , bytes := "4883f9ff", instr := ⟨.bin .cmp .q (R .rcx) (.imm 0xffffffffffffffff), 4⟩ }
+  , { id := "cmp_ri_q32n", mnemonic := "cmp", asm := "cmpq $-2147483648, %rcx"
+    , bytes := "4881f900000080", instr := ⟨.bin .cmp .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "cmp_acc_b", mnemonic := "cmp", asm := "cmpb $0x5a, %al"
+    , bytes := "3c5a", instr := ⟨.bin .cmp .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "cmp_acc_w", mnemonic := "cmp", asm := "cmpw $0x1234, %ax"
+    , bytes := "663d3412", instr := ⟨.bin .cmp .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "cmp_acc_l", mnemonic := "cmp", asm := "cmpl $0x12345678, %eax"
+    , bytes := "3d78563412", instr := ⟨.bin .cmp .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "cmp_acc_q", mnemonic := "cmp", asm := "cmpq $0x12345678, %rax"
+    , bytes := "483d78563412", instr := ⟨.bin .cmp .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "cmp_mi_b", mnemonic := "cmp", asm := "cmpb $0x5a, (%rbx)"
+    , bytes := "803b5a", instr := ⟨.bin .cmp .b (M .rbx) (.imm 0x5a), 3⟩ }
+  , { id := "cmp_mi_w", mnemonic := "cmp", asm := "cmpw $0x1234, (%rbx)"
+    , bytes := "66813b3412", instr := ⟨.bin .cmp .w (M .rbx) (.imm 0x1234), 5⟩ }
+  , { id := "cmp_mi_l", mnemonic := "cmp", asm := "cmpl $0x12345678, (%rbx)"
+    , bytes := "813b78563412", instr := ⟨.bin .cmp .d (M .rbx) (.imm 0x12345678), 6⟩ }
+  , { id := "cmp_mi_q", mnemonic := "cmp", asm := "cmpq $0x12345678, (%rbx)"
+    , bytes := "48813b78563412", instr := ⟨.bin .cmp .q (M .rbx) (.imm 0x12345678), 7⟩ }
+  , { id := "cmp_h8s", mnemonic := "cmp", asm := "cmpb %ch, %al"
+    , bytes := "38e8", instr := ⟨.bin .cmp .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "cmp_h8d", mnemonic := "cmp", asm := "cmpb %cl, %ah"
+    , bytes := "38cc", instr := ⟨.bin .cmp .b (H .rax) (R .rcx), 2⟩ }
+  , { id := "cmp_rip_q", mnemonic := "cmp", asm := "cmpq $0x12345678, -0x3fe00b(%rip)"
+    , bytes := "48813df51fc0ff78563412"
+    , instr := ⟨.bin .cmp .q (.mem { ripRel := true, disp := 0xffffffffffc01ff5 })
+                (.imm 0x12345678), 11⟩ }
+  , { id := "test_rr_b", mnemonic := "test", asm := "testb %cl, %al"
+    , bytes := "84c8", instr := ⟨.bin .test .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "test_rr_w", mnemonic := "test", asm := "testw %cx, %ax"
+    , bytes := "6685c8", instr := ⟨.bin .test .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "test_rr_l", mnemonic := "test", asm := "testl %ecx, %eax"
+    , bytes := "85c8", instr := ⟨.bin .test .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "test_rr_q", mnemonic := "test", asm := "testq %rcx, %rax"
+    , bytes := "4885c8", instr := ⟨.bin .test .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "test_mr_b", mnemonic := "test", asm := "testb %al, (%rbx)"
+    , bytes := "8403", instr := ⟨.bin .test .b (M .rbx) (R .rax), 2⟩ }
+  , { id := "test_mr_w", mnemonic := "test", asm := "testw %ax, (%rbx)"
+    , bytes := "668503", instr := ⟨.bin .test .w (M .rbx) (R .rax), 3⟩ }
+  , { id := "test_mr_l", mnemonic := "test", asm := "testl %eax, (%rbx)"
+    , bytes := "8503", instr := ⟨.bin .test .d (M .rbx) (R .rax), 2⟩ }
+  , { id := "test_mr_q", mnemonic := "test", asm := "testq %rax, (%rbx)"
+    , bytes := "488503", instr := ⟨.bin .test .q (M .rbx) (R .rax), 3⟩ }
+  , { id := "test_ri_b", mnemonic := "test", asm := "testb $0x5a, %cl"
+    , bytes := "f6c15a", instr := ⟨.bin .test .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "test_ri_w", mnemonic := "test", asm := "testw $0x1234, %cx"
+    , bytes := "66f7c13412", instr := ⟨.bin .test .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "test_ri_l", mnemonic := "test", asm := "testl $0x12345678, %ecx"
+    , bytes := "f7c178563412", instr := ⟨.bin .test .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "test_ri_q", mnemonic := "test", asm := "testq $0x12345678, %rcx"
+    , bytes := "48f7c178563412", instr := ⟨.bin .test .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "test_ri_q32n", mnemonic := "test", asm := "testq $-2147483648, %rcx"
+    , bytes := "48f7c100000080", instr := ⟨.bin .test .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "test_acc_b", mnemonic := "test", asm := "testb $0x5a, %al"
+    , bytes := "a85a", instr := ⟨.bin .test .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "test_acc_w", mnemonic := "test", asm := "testw $0x1234, %ax"
+    , bytes := "66a93412", instr := ⟨.bin .test .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "test_acc_l", mnemonic := "test", asm := "testl $0x12345678, %eax"
+    , bytes := "a978563412", instr := ⟨.bin .test .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "test_acc_q", mnemonic := "test", asm := "testq $0x12345678, %rax"
+    , bytes := "48a978563412", instr := ⟨.bin .test .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "test_mi_b", mnemonic := "test", asm := "testb $0x5a, (%rbx)"
+    , bytes := "f6035a", instr := ⟨.bin .test .b (M .rbx) (.imm 0x5a), 3⟩ }
+  , { id := "test_mi_w", mnemonic := "test", asm := "testw $0x1234, (%rbx)"
+    , bytes := "66f7033412", instr := ⟨.bin .test .w (M .rbx) (.imm 0x1234), 5⟩ }
+  , { id := "test_mi_l", mnemonic := "test", asm := "testl $0x12345678, (%rbx)"
+    , bytes := "f70378563412", instr := ⟨.bin .test .d (M .rbx) (.imm 0x12345678), 6⟩ }
+  , { id := "test_mi_q", mnemonic := "test", asm := "testq $0x12345678, (%rbx)"
+    , bytes := "48f70378563412", instr := ⟨.bin .test .q (M .rbx) (.imm 0x12345678), 7⟩ }
+  , { id := "test_h8s", mnemonic := "test", asm := "testb %ch, %al"
+    , bytes := "84e8", instr := ⟨.bin .test .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "test_h8d", mnemonic := "test", asm := "testb %cl, %ah"
+    , bytes := "84cc", instr := ⟨.bin .test .b (H .rax) (R .rcx), 2⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -419,6 +566,21 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   -- and a known pattern under the stack pointer, so `pop` has something to find
   let mem := (List.range 48).foldl
     (fun m i => m.write (0x7fe0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0x10 + i))) mem
+  -- ⭐ AND THE MEMORY OPERAND ITSELF SWEEPS, added by P1 BATCH 3.  The eight
+  -- bytes at RBX — the span every memory-operand vector addresses — carry `c`,
+  -- the same value RCX carries, so `cmpq %rax, (%rbx)` sweeps exactly as
+  -- `cmpq %rcx, %rax` does and a memory operand is a full peer of a register
+  -- one in the adversarial sweep.
+  --
+  -- ⛔ WITHOUT THIS THE WINDOW WAS A CONSTANT IN ALL 74 PRE-STATES, and that is
+  -- a finding about batches 1 and 2, not only about this one: every `_rm_`
+  -- form they shipped read the SAME source value 74 times over.  Those runs
+  -- were green and their green was real, but a form whose source operand never
+  -- moves is one test reported as seventy-four.  See docs/DECISIONS.md D14.
+  --
+  -- The MARGIN keeps its 0xA0+i pattern on both sides, so a store or load that
+  -- ran off the end of its span still shows up as a difference outside it.
+  let mem := mem.writeSize .q 0x2000 c
   { regs := { rax := a, rcx := c, rbx := 0x2000, rsp := 0x8000 }
     flags := f
     mem := mem

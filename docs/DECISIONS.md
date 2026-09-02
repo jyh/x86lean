@@ -299,3 +299,77 @@ adjacent constants in `adversarial` that happen to be complements.
 coverage nobody is maintaining.**
 
 **Reversal cost:** low. They are four `decide` assertions over `preStates`.
+
+## D14 — The memory operand SWEEPS; until batch 3 it was a constant.
+
+`Tests/Vectors.lean`'s `mkPre` now writes RCX into the eight bytes at RBX — the
+span every memory-operand vector addresses — so a memory operand moves through
+the adversarial list exactly as a register operand does.
+
+**What it replaced.** Until P1 batch 3 the data window held the same fixed
+32-byte pattern in all 74 pre-states. Every `_rm_` form shipped by batches 1
+and 2 — twenty vectors, `andq (%rbx), %rax` and its siblings — therefore read
+ONE source value, seventy-four times. Nothing was wrong and no gate could have
+said so: the coverage table counts FORMS, the differential run counts CASES, and
+neither counts VALUES.
+
+⇒ **A form whose operand never moves is one test reported as seventy-four.**
+This is D13's law one level up. D13 found a boundary crossed by accident; this
+found a whole operand position that was never swept at all, and found it by
+asking what a new vector would actually vary rather than by any failure.
+
+**Evidence that it changed something real.** The harness selftest's hardest
+existing arm — `adc`'s carry-OUT forgetting the carry-in, which is invisible
+except at the carry boundary — went from **76 disagreements to 115** on the same
+planted bug. Batch 2's own evidence got stronger retroactively, which is the
+measurable form of the claim above.
+
+Three theorems hold it: `memory_operand_mirrors_rcx` (the invariant),
+`memory_operand_sweeps` (that the invariant has teeth — twenty distinct values
+at least), and `memory_window_margin_is_fixed` (the margin does NOT sweep, so an
+access that ran off the end of its width is still visible outside the span).
+
+**Reversal cost:** low, and it would be loud — the three theorems fail.
+
+## D15 — The coverage table's SHAPES column is gated, and the gate is paid for
+in kernel time.
+
+`Tests/Coverage.lean`'s `mem_dest_claims_are_backed` reads the shapes column as
+a character list and requires every `m,r` claim — a MEMORY DESTINATION, since
+the column writes shapes destination-first — to be backed by a vector whose
+destination operand really is memory.
+
+**What it caught.** The row for `and`/`or`/`xor` claimed `m,r (q)` and no such
+vector has ever existed: batch 1 shipped `and_rm_*`, a memory SOURCE with a
+register destination, and the shapes string transposed it. The
+memory-destination logic forms are roster family 4, a batch not yet run.
+
+⛔ **And the reason it survived a batch is worth more than the defect.** A
+comment sat directly above the string saying "`m,r` below is P0's row, at width
+q only" — explaining a thing that was not there. ⇒ **A wrong claim with a
+reassuring comment beside it is harder to see than a bare one, because the
+comment answers the question the reader was about to ask.** Every mnemonic-level
+theorem in the file passed throughout: `and` has a row, `and` has vectors, `and`
+is in the roster. The table's most detailed column was describing coverage the
+repository does not have, and the checks were all one granularity too coarse.
+
+**The price, stated rather than absorbed.** The theorem costs **1292 ms** of
+kernel time — `Tests.Coverage` goes 378 ms → 1960 ms — and the module's ceiling
+in `scripts/kernel_ceilings.txt` was raised from 777 to 5880 deliberately, by
+editing one line rather than by `--register`, which would have loosened every
+other module at the same time.
+
+**The cheaper design was considered and rejected.** A `Bool` field on `Row` that
+the renderer turns into text would cost almost nothing and would make the prose
+unable to UNDER-claim — while leaving it entirely free to OVER-claim, which is
+the direction that actually failed here and the direction this repository exists
+to prevent. ⇒ **A gate on the artifact costs more than a gate on a shadow of it;
+1292 ms is what the difference costs, and the artifact is what a reader trusts.**
+
+⚠️ The check is written on character lists rather than with `String.splitOn`,
+and not for taste: `splitOn` is defined by well-founded recursion, the kernel
+does not unfold it, and `decide` fails on a proposition that is TRUE. A gate
+that cannot be evaluated is not a weaker gate — it is a build error wearing a
+gate's clothes.
+
+**Reversal cost:** low. Delete the theorem and restore the ceiling.

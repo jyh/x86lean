@@ -2,7 +2,7 @@
 
 # x86lean coverage
 
-Roster: 20 mnemonics in 140 differentially tested forms (P0's twenty scalar forms, plus P1 BATCH 1 — the `0xuxx0-|-|reg` family of `p1/roster.tsv`: AND/OR/XOR writing a register, at every width and operand shape).
+Roster: 22 mnemonics in 190 differentially tested forms (P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and TEST at every operand shape, including a memory operand in the DESTINATION position and the first RIP-relative vector in the repository).
 
 Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 
@@ -11,13 +11,13 @@ Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 | `mov` | r,r · r,imm · r,m · m,r | T-exact | XED (trusted) | — | Vol. 2A MOV |
 | `add` | r/m, r/imm | T-exact | XED (trusted) | — | Vol. 2A ADD |
 | `sub` | r/m, r/imm | T-exact | XED (trusted) | — | Vol. 2A SUB |
-| `and` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q) | T-frame | XED (trusted) | AF | Vol. 2A AND |
-| `or` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q) | T-frame | XED (trusted) | AF | Vol. 2A OR |
-| `xor` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q) | T-frame | XED (trusted) | AF | Vol. 2A XOR |
-| `cmp` | r/m, r/imm | T-exact | XED (trusted) | — | Vol. 2A CMP |
+| `and` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A AND |
+| `or` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A OR |
+| `xor` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A XOR |
+| `cmp` | r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · acc,imm · rh · rip-rel (q) | T-exact | XED (trusted) | — | Vol. 2A CMP |
 | `adc` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-exact | XED (trusted) | — | Vol. 2A ADC |
 | `sbb` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-exact | XED (trusted) | — | Vol. 2A SBB |
-| `test` | r/m, r/imm | T-frame | XED (trusted) | AF | Vol. 2A TEST |
+| `test` | r,r · r,imm · m,r · m,imm — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A TEST |
 | `shl` | r/m, imm8 · r/m, cl | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `shr` | r/m, imm8 · r/m, cl | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `lea` | r, m | T-exact | XED (trusted) | — | Vol. 2A LEA |

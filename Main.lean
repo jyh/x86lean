@@ -24,12 +24,19 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects four real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects seven real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
-that drops the carry-in, and an `adc` whose carry-OUT forgets the carry-in — and
-REQUIRES the comparator to catch each one.  The last two arrived with P1 batch
-2, and the fifth is the one that says the batch's carry-boundary pre-states are
-load-bearing: it is invisible everywhere else in the state space.
+that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
+that writes its result back, and a `cmp` that writes back ONLY to a memory
+destination — and REQUIRES the comparator to catch each one.
+
+⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
+accidental: each batch plants a PAIR, an easy half that almost any pre-state
+catches and a hard half that only the batch's own new coverage can see.  Batch
+2's pair turns on the carry boundary in the PRE-STATES; batch 3's turns on a
+memory operand in the DESTINATION, which no vector had before it.  The hard half
+is the arm that says the batch's new coverage is load-bearing, and it is the one
+to run when asking whether some of that coverage could be dropped.
 
 LANE. Personal lane, public sources only.
 -/
@@ -358,6 +365,49 @@ def wrongAdcCarryOutCF (i : Instr) (s : Cpu) : Cpu :=
         (s.writeOperand sz nr dst res).setRip nr
   | _ => step i s
 
+/-- ⭐ P1 BATCH 3's PLANTED BUG, EASY HALF: a `cmp` that WRITES ITS RESULT BACK.
+
+This is the single most likely way to get `cmp` wrong — it is `sub` with the
+result discarded, and the discarding is one line that is easy not to write.  At
+a REGISTER destination any pre-state whose operands differ catches it, which is
+why this arm expects `rax` and is labelled the easy half. -/
+def wrongCmpWritesBack (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bin .cmp sz dst src =>
+      if !wellFormed2 dst src then s.halt (.illegalOperands "two memory operands")
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr dst
+        let b := s.readOperand sz nr src
+        let s := s.setFlags (Flags.sub sz a b s.flags)
+        -- the BUG: `cmp` is `sub` with the result DISCARDED, and here it is not
+        (s.writeOperand sz nr dst (Flags.subResult sz a b)).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND THE ARM THAT SAYS WHETHER THIS BATCH'S NEW VECTORS
+EARN THEIR PLACE.  This model discards the result exactly as the correct one
+does at every REGISTER destination, and writes it back only when the destination
+is MEMORY.
+
+Before P1 batch 3 there was no vector in this repository with a memory operand in
+a `cmp` or `test` destination, so this model was IDENTICAL to the correct one on
+every case the harness ran — a whole class of wrongness with nothing pointed at
+it.  The arm expects the data window rather than a register, because a register
+is precisely where this bug is invisible. -/
+def wrongCmpMemWriteBack (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bin .cmp sz dst src =>
+      if !wellFormed2 dst src then s.halt (.illegalOperands "two memory operands")
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr dst
+        let b := s.readOperand sz nr src
+        let s := s.setFlags (Flags.sub sz a b s.flags)
+        -- the BUG, and only here: a memory destination is written back
+        if dst.isMem then (s.writeOperand sz nr dst (Flags.subResult sz a b)).setRip nr
+        else s.setRip nr
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -421,12 +471,15 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — five deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — seven deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
       let e ← driveWrong "adc drops the carry-in" wrongAdcNoCarry "rax"
       let f ← driveWrong "adc's carry-OUT forgets the carry-in" wrongAdcCarryOutCF "cf"
+      let g ← driveWrong "cmp writes its result back" wrongCmpWritesBack "rax"
+      let h ← driveWrong "cmp writes back ONLY to a memory destination"
+                wrongCmpMemWriteBack "mem@0000000000001ff0"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -436,7 +489,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f then
+      if a && b && c && d && e && f && g && h then
         IO.println "harness selftest: PASS"
         return 0
       else
@@ -446,10 +499,12 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: 20 mnemonics in " ++ toString vectors.length ++ " differentially tested forms \
-(P0's twenty scalar forms, plus P1 BATCH 1 — the `0xuxx0-|-|reg` family of \
-`p1/roster.tsv`: AND/OR/XOR writing a register, at every width and operand \
-shape).\n\n\
+Roster: 22 mnemonics in " ++ toString vectors.length ++ " differentially tested forms \
+(P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a \
+register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC \
+and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and \
+TEST at every operand shape, including a memory operand in the DESTINATION \
+position and the first RIP-relative vector in the repository).\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
         toString ab ++ ".\n\n"
       let trust := "\n**Decode trust.** Every row reads `XED (trusted)`: the AST is built from \

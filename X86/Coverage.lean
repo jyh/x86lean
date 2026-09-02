@@ -75,9 +75,26 @@ def tableP0 : List Row :=
   -- P1 BATCH 1 (`p1/roster.tsv` family `0xuxx0-|-|reg`): the register-destination
   -- shapes at every width, plus the accumulator short encodings and the high-8
   -- register views.  The memory-DESTINATION forms are batch 4 of the roster and
-  -- are NOT claimed here; `m,r` below is P0's row, at width q only.
+  -- are NOT claimed here.
+  --
+  -- ⛔ THIS COMMENT USED TO END "`m,r` below is P0's row, at width q only", and
+  -- that sentence is why the false claim under it survived a batch: it read as
+  -- a deliberate, already-considered decision.  There is no P0 `m,r` row for
+  -- these three mnemonics — P0's `and_q`/`or_q`/`xor_q` were register-to-
+  -- register — so the sentence explained something that was not there.
+  -- ⇒ A WRONG CLAIM WITH A REASSURING COMMENT BESIDE IT IS HARDER TO SEE THAN A
+  -- BARE ONE, because the comment answers the question a reader was about to
+  -- ask.  The gate, not the comment, is what now holds this.
   let carryShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh"
-  let logicShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q)"
+  -- ⛔ THIS STRING ENDED `· m,r (q)` UNTIL P1 BATCH 3 AND THAT WAS FALSE.  Batch
+  -- 1 shipped `and_rm_*` — a memory SOURCE with a register destination — and the
+  -- shapes column, which writes shapes DESTINATION-FIRST, transposed it into a
+  -- memory destination the repository has never had a vector for.  The
+  -- memory-destination logic forms are roster family 4 and have not been run.
+  -- `Tests/Coverage.lean`'s `mem_dest_claims_are_backed` is the gate that now
+  -- refuses this claim without a vector behind it; it was driven RED against
+  -- exactly this string before the string was corrected.
+  let logicShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh"
   [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
   , { mnemonic := "add",  shapes := rm, tier := .exact, decode := .xed,
@@ -90,7 +107,15 @@ def tableP0 : List Row :=
       undefined := ["AF"], sdm := "Vol. 2A OR" }
   , { mnemonic := "xor",  shapes := logicShapes, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A XOR" }
-  , { mnemonic := "cmp",  shapes := rm, tier := .exact, decode := .xed,
+  -- P1 BATCH 3 (`p1/roster.tsv` families `xxxxxx-|-|flags/ctl` and
+  -- `0xuxx0-|-|flags/ctl`): the two mnemonics whose destination is the FLAGS.
+  -- `m,r` and `m,imm` are real here in a way they are nowhere else in this
+  -- table — the memory operand is ADDRESSED and READ, and never written, which
+  -- is the claim `cmp_mem_dest_writes_no_memory` anchors and the harness's
+  -- seventh planted bug is pointed at.  TEST has no `r,m` form: Intel encodes
+  -- one direction only (SDM Vol. 2A, TEST).
+  , { mnemonic := "cmp",  shapes := "r,r · r,imm · r,m · m,r · m,imm — all of \
+b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CMP" }
   -- P1 BATCH 2 (`p1/roster.tsv` family `xxxxxx-|cf|reg`): the first forms whose
   -- RESULT reads a flag.  Register destination only; the memory-destination
@@ -99,7 +124,8 @@ def tableP0 : List Row :=
       undefined := [], sdm := "Vol. 2A ADC" }
   , { mnemonic := "sbb",  shapes := carryShapes, tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A SBB" }
-  , { mnemonic := "test", shapes := rm, tier := .frame, decode := .xed,
+  , { mnemonic := "test", shapes := "r,r · r,imm · m,r · m,imm — all of b/w/l/q \
+· acc,imm · rh", tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A TEST" }
   , { mnemonic := "shl",  shapes := "r/m, imm8 · r/m, cl", tier := .frame, decode := .xed,
       undefined := ["CF (count ≥ width)", "OF (count ≠ 1)", "AF (count ≠ 0)"],

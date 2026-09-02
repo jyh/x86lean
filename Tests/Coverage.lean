@@ -121,4 +121,111 @@ theorem pre_states_sweep_cf :
     ((preStates 1 8).any (fun s => s.flags.cf)
       && (preStates 1 8).any (fun s => !s.flags.cf)) = true := by decide
 
+/-! ### P1 BATCH 3 — the MEMORY OPERAND's own coverage
+
+⛔ THE HOLE THESE CLOSE WAS FOUND BY LOOKING, NOT BY A FAILURE.  Until batch 3
+`mkPre` wrote the SAME 32-byte pattern into the data window in every pre-state,
+so every `_rm_` form shipped by batches 1 and 2 — twenty vectors — read one
+single source value seventy-four times.  Nothing was wrong: the runs were green
+and the green was real.  But a form whose source operand never moves is ONE test
+reported as seventy-four, and no gate in this repository could see the
+difference, because the coverage table counts FORMS and the differential run
+counts CASES and neither counts VALUES.
+
+The window's operand span now carries RCX, so a memory operand sweeps exactly as
+a register one does.  These three theorems are what stop it silently reverting:
+the first states the invariant, the second states that the invariant has TEETH
+(a constant window satisfies the first only if RCX is also constant, and it is
+not), the third states the margin still is not swept, so an over-wide access
+remains visible. -/
+
+/-- The memory operand every vector addresses IS the value RCX carries. -/
+theorem memory_operand_mirrors_rcx :
+    (preStates 1 8).all (fun s => s.mem.readSize .q 0x2000 == s.regs.rcx) = true := by decide
+
+/-- ⚠️ AND IT REALLY SWEEPS.  Twenty distinct values at least — the whole
+adversarial list — so a memory operand is a peer of a register operand and not a
+constant wearing its shape. -/
+theorem memory_operand_sweeps :
+    20 ≤ ((preStates 1 8).map (fun s => s.mem.readSize .q 0x2000)).eraseDups.length := by
+  decide
+
+/-- The MARGIN on either side of the operand span keeps its fixed pattern, which
+is what makes a store that ran off the end of its width visible as a difference
+OUTSIDE the span rather than not at all. -/
+theorem memory_window_margin_is_fixed :
+    (preStates 1 8).all (fun s =>
+      s.mem.read 0x1ff0 == 0xA0 && s.mem.read 0x2008 == 0xB8) = true := by decide
+
+/-- ⭐ SOME VECTOR PUTS A MEMORY OPERAND IN A `cmp` DESTINATION.  This is the
+shape a `cmp` that writes its result back is invisible without — the harness
+selftest's hard arm was run with these vectors deleted and caught NOTHING
+(docs/DIFFERENTIAL-P1-BATCH3.md), so this theorem is the standing statement of
+a fact that was measured rather than assumed. -/
+theorem vectors_have_a_memory_destination :
+    vectors.any (fun v => match v.instr.op with
+      | .bin .cmp _ d _ => d.isMem
+      | _ => false) = true := by decide
+
+/-- ⭐ AND SOME VECTOR IS RIP-RELATIVE.  `Ea.addr`'s `ripRel` branch existed from
+P0 and until batch 3 no differential vector executed it: the only evidence was a
+`lea` anchor, i.e. this model checked against itself. -/
+theorem vectors_exercise_rip_relative :
+    vectors.any (fun v => match v.instr.op with
+      | .bin _ _ (.mem ea) _ => ea.ripRel
+      | _ => false) = true := by decide
+
+/-! ### The SHAPES column, which is prose, and prose overclaims
+
+⛔ FOUND IN BATCH 3 BY READING THE TABLE INSTEAD OF THE MODEL.  The row for
+`and`/`or`/`xor` claimed the operand shape `m,r (q)` — a memory DESTINATION —
+and no such vector has ever existed: batch 1 shipped `and_rm_*` (a memory
+SOURCE with a register destination) and the shapes string transposed it.  The
+memory-destination logic forms are roster family 4, a batch that has not been
+run yet.
+
+Every theorem above is about MNEMONICS, so not one of them could see it: `and`
+has a row, `and` has vectors, `and` is in the roster, and the table's most
+detailed column was still describing coverage the repository does not have.
+That is the over-claim direction this file's own header names FIRST and then
+checks only at the granularity of the mnemonic.
+
+The check below closes it at the granularity that failed.  It is deliberately
+narrow — one shape, the one that was wrong — because a check that tried to parse
+the whole prose column would be a parser, and a parser is a second thing to get
+wrong.  ⭐ IT WAS DRIVEN RED: with the `m,r (q)` still in `logicShapes` this
+theorem does not compile, which is how it is known to have teeth. -/
+
+/-- Does this row's shapes column claim a memory DESTINATION?  The table writes
+shapes destination-first, so `m,r` is "memory destination, register source" —
+the transposition of `r,m`, and the reason the claim was easy to get backwards.
+
+⚠️ The substring test is written on CHARACTER LISTS rather than with
+`String.splitOn`, and not for taste: `splitOn` is defined by well-founded
+recursion, the kernel does not unfold it, and `decide` fails on a proposition
+that is TRUE — a gate that cannot be evaluated is not a weaker gate, it is a
+build error wearing a gate's clothes. `isInfixOfChars` recurses structurally and
+reduces. -/
+private def isInfixOfChars (pat : List Char) : List Char → Bool
+  | [] => pat.isEmpty
+  | c :: rest => pat.isPrefixOf (c :: rest) || isInfixOfChars pat rest
+
+def claimsMemDest (r : Row) : Bool := isInfixOfChars "m,r".toList r.shapes.toList
+
+/-- Is there a differential vector for this mnemonic whose DESTINATION operand
+is memory? -/
+def hasMemDestVector (m : String) : Bool :=
+  vectors.any (fun v => v.mnemonic == m && (match v.instr.op with
+    | .bin _ _ d _ => d.isMem
+    | .mov _ d _ => d.isMem
+    | .un _ _ d => d.isMem
+    | .shift _ _ d _ => d.isMem
+    | .pop _ d => d.isMem
+    | _ => false))
+
+/-- ⭐ EVERY `m,r` CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT ACTUALLY WRITES
+(or, for `cmp`/`test`, addresses) A MEMORY DESTINATION. -/
+theorem mem_dest_claims_are_backed :
+    tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic) = true := by decide
+
 end X86.Tests

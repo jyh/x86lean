@@ -560,4 +560,102 @@ theorem stopped_model_does_not_move :
     (step ⟨.mov .q (.reg .rax) (.imm 5), 3⟩
       { (mk { rax := 1 }) with ms := some (.unimplemented "x") }).regs.rax = 1 := by decide
 
+/-! ## P1 BATCH 3 — CMP and TEST: the forms whose destination is the FLAGS
+
+The template is P0's and nothing here is new semantics.  What is new is the
+OPERAND SHAPE: a memory operand in the destination position, read and never
+written.  Every earlier memory destination in this repository was written, so
+"the destination is not written" had never been an anchored claim about a
+memory operand at all — only about a register.
+
+Each anchor below is written so that the WRONG model gives a DIFFERENT answer.
+An anchor whose planted error produces the same number is a row in the coverage
+table with nothing behind it (see the deleted ninth anchor above). -/
+
+/-- ⭐ CMP WITH A MEMORY DESTINATION WRITES NO MEMORY.  `cmpq %rax, (%rbx)` with
+`(%rbx) = 0x11` and `rax = 1` computes `0x10`; a model that wrote its result
+back would leave `0x10` at the address.  It reads `0x11`. -/
+theorem cmp_mem_dest_writes_no_memory :
+    (step ⟨.bin .cmp .q (.mem { base := some .rbx }) (.reg .rax), 3⟩
+      (mk { rax := 1, rbx := 0x100 } {} (Mem.empty.write 0x100 0x11))).mem.read 0x100
+      = 0x11 := by decide
+
+/-- And the same for TEST, whose result `0xFF &&& 0x0F = 0x0F` also differs from
+the value in memory, so the anchor can tell a write-back from a no-op. -/
+theorem test_mem_dest_writes_no_memory :
+    (step ⟨.bin .test .q (.mem { base := some .rbx }) (.reg .rax), 3⟩
+      (mk { rax := 0x0F, rbx := 0x100 } {} (Mem.empty.write 0x100 0xFF))).mem.read 0x100
+      = 0xFF := by decide
+
+/-- ⭐ THE DIRECTION IS OBSERVABLE.  `cmpq %rax, (%rbx)` is `(%rbx) − %rax`, not
+the other way round: `0x10 − 0x20` borrows, so CF is set.  Under the flipped
+reading `0x20 − 0x10` it would be clear, which is what makes this an anchor
+rather than a restatement. -/
+theorem cmp_mem_dest_direction :
+    (step ⟨.bin .cmp .q (.mem { base := some .rbx }) (.reg .rax), 3⟩
+      (mk { rax := 0x20, rbx := 0x100 } {} (Mem.empty.write 0x100 0x10))).flags.cf
+      = true := by decide
+
+/-- The register-destination direction, for contrast: `cmpq (%rbx), %rax` is
+`%rax − (%rbx)`, and with the same two numbers in the same places CF is CLEAR.
+The pair is the claim; either theorem alone is satisfied by a coin. -/
+theorem cmp_reg_dest_direction :
+    (step ⟨.bin .cmp .q (.reg .rax) (.mem { base := some .rbx }), 3⟩
+      (mk { rax := 0x20, rbx := 0x100 } {} (Mem.empty.write 0x100 0x10))).flags.cf
+      = false := by decide
+
+/-- ⭐ A 32-BIT CMP WRITES NO REGISTER, and at width `d` that is a sharp claim
+rather than a soft one: a 32-bit write ZERO-EXTENDS (SDM Vol. 1 §3.4.1.1), so a
+`cmpl` that wrote its result back would not merely change the low half, it would
+erase the upper one.  RAX comes out untouched. -/
+theorem cmpl_writes_no_register :
+    (step ⟨.bin .cmp .d (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 1 })).regs.rax
+      = 0xDEADBEEF_12345678 := by decide
+
+theorem testl_writes_no_register :
+    (step ⟨.bin .test .d (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0xFF })).regs.rax
+      = 0xDEADBEEF_12345678 := by decide
+
+/-- TEST at a memory destination with an immediate still sets ZF from the AND:
+`0xF0 &&& 0x0F = 0`. -/
+theorem test_mem_imm_sets_zf :
+    (step ⟨.bin .test .b (.mem { base := some .rbx }) (.imm 0x0F), 3⟩
+      (mk { rbx := 0x100 } {} (Mem.empty.write 0x100 0xF0))).flags.zf = true := by decide
+
+/-- A HIGH-8 DESTINATION IS READ FROM BITS 15:8.  `testb %cl, %ah` with
+`RAX = 0xFF00` and `CL = 1` ands `0xFF` with `1` and leaves ZF CLEAR; a model
+reading AL (which is `0x00`) would set it. -/
+theorem test_high8_dest_reads_bits_15_8 :
+    (step ⟨.bin .test .b (.reg .rax true) (.reg .rcx), 2⟩
+      (mk { rax := 0xFF00, rcx := 1 })).flags.zf = false := by decide
+
+/-! ### RIP-relative addressing, which no differential vector had ever executed
+
+`Ea.addr` has implemented `ripRel` since P0 and the only evidence for it was one
+`lea` anchor — this model checked against itself.  P1 batch 3 gives it a vector
+(`cmp_rip_q`), and these two anchors pin the one thing that vector could not say
+on its own: WHICH address it is.
+
+The address is `nextRip + disp`, i.e. RIP AFTER the instruction (SDM Vol. 2A
+§2.2.1.6).  The off-by-`len` version of this bug is the classic one, so both
+candidate addresses are populated and they hold DIFFERENT bytes: `0x1010` is
+`rip + disp` (wrong) and holds `0xAA`; `0x101B` is `rip + 11 + disp` (right) and
+holds `0x55`. -/
+
+private def ripDecoy : Mem := (Mem.empty.write 0x1010 0xAA).write 0x101B 0x55
+
+/-- Comparing against `0x55` gives ZF: the byte read was the one at
+`nextRip + disp`. -/
+theorem rip_relative_reads_after_the_instruction :
+    (step ⟨.bin .cmp .b (.mem { ripRel := true, disp := 0x10 }) (.imm 0x55), 11⟩
+      (mk {} {} ripDecoy (rip := 0x1000))).flags.zf = true := by decide
+
+/-- And comparing against `0xAA` — the byte sitting at the WRONG address, the
+one an off-by-`len` model would have read — does not. -/
+theorem rip_relative_does_not_read_at_rip :
+    (step ⟨.bin .cmp .b (.mem { ripRel := true, disp := 0x10 }) (.imm 0xAA), 11⟩
+      (mk {} {} ripDecoy (rip := 0x1000))).flags.zf = false := by decide
+
 end X86.Tests

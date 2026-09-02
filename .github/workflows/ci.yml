@@ -43,7 +43,7 @@ jobs:
       - name: Encoding cross-check (every `Instr.len` against a real assembler)
         run: python3 scripts/check_encodings.py
 
-      - name: Harness selftest (three planted bugs, each must be caught)
+      - name: Harness selftest (seven planted bugs, each must be caught)
         run: lake env .lake/build/bin/x86lean-diff selftest
 
       - name: Kernel-cost ceilings
