@@ -24,11 +24,13 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects seven real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects nine real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
-destination — and REQUIRES the comparator to catch each one.
+destination, a memory read-modify-write that drops its store, and one that
+stores the right value at the wrong WIDTH — and REQUIRES the comparator to catch
+each one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
 accidental: each batch plants a PAIR, an easy half that almost any pre-state
@@ -408,6 +410,51 @@ def wrongCmpMemWriteBack (i : Instr) (s : Cpu) : Cpu :=
         else s.setRip nr
   | _ => step i s
 
+/-- ⭐ P1 BATCH 4's PLANTED BUG, EASY HALF: a read-modify-write to MEMORY that
+sets its flags correctly and never performs the STORE.
+
+`andq %rax, (%rbx)` is the first shape in this repository that reads a memory
+location, computes, and writes it back.  A model that computed the flags and
+forgot the store would look completely correct in every register and every flag
+— which is most of what the record carries. -/
+def wrongMemStoreDropped (i : Instr) (s : Cpu) : Cpu :=
+  let out := step i s
+  match i.op with
+  | .bin k _ (.mem _) _ =>
+      -- `cmp`/`test` legitimately write nothing, so leaving them alone keeps the
+      -- bug surgical: exactly one thing is wrong with this model.
+      if k == .cmp || k == .test then out else { out with mem := s.mem }
+  | .un _ _ (.mem _) => { out with mem := s.mem }
+  | _ => out
+
+/-- ⭐ THE HARD HALF, AND THE ONE ALL FOUR WIDTHS EXIST FOR.  This model stores
+the RIGHT VALUE at the RIGHT ADDRESS and gets the WIDTH of the store wrong: it
+writes eight bytes where the operand is one, two or four.
+
+At width q it is IDENTICAL to the correct model.  At a REGISTER destination it
+is identical too, because the register path truncates in `setReg` and never
+touches a neighbour.  It differs only in the bytes ABOVE the operand inside the
+data window — which is exactly what `memory_window_margin_is_fixed` keeps
+patterned, and exactly what no batch before this one had a vector to look at.
+
+The claim that `and_mr_b`/`_w`/`_l` and their siblings are load-bearing is
+tested by deleting them and re-running this arm, not asserted
+(docs/DIFFERENTIAL-P1-BATCH4.md). -/
+def wrongMemStoreWidth (i : Instr) (s : Cpu) : Cpu :=
+  let out := step i s
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .bin k sz (.mem ea) _ =>
+      if k == .cmp || k == .test then out
+      else
+        let a := ea.addr s nr
+        -- the BUG: the value the model stored, re-stored eight bytes wide
+        { out with mem := out.mem.writeSize .q a (out.mem.readSize sz a) }
+  | .un _ sz (.mem ea) =>
+      let a := ea.addr s nr
+      { out with mem := out.mem.writeSize .q a (out.mem.readSize sz a) }
+  | _ => out
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -471,7 +518,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — seven deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — nine deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -480,6 +527,10 @@ def main (args : List String) : IO UInt32 := do
       let g ← driveWrong "cmp writes its result back" wrongCmpWritesBack "rax"
       let h ← driveWrong "cmp writes back ONLY to a memory destination"
                 wrongCmpMemWriteBack "mem@0000000000001ff0"
+      let j ← driveWrong "a memory read-modify-write drops its STORE"
+                wrongMemStoreDropped "mem@0000000000001ff0"
+      let k ← driveWrong "a memory store ignores its operand WIDTH"
+                wrongMemStoreWidth "mem@0000000000001ff0"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -489,7 +540,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h then
+      if a && b && c && d && e && f && g && h && j && k then
         IO.println "harness selftest: PASS"
         return 0
       else

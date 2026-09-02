@@ -210,7 +210,31 @@ private def isInfixOfChars (pat : List Char) : List Char → Bool
   | [] => pat.isEmpty
   | c :: rest => pat.isPrefixOf (c :: rest) || isInfixOfChars pat rest
 
-def claimsMemDest (r : Row) : Bool := isInfixOfChars "m,r".toList r.shapes.toList
+def claimsMemDest (r : Row) : Bool :=
+  isInfixOfChars "m,r".toList r.shapes.toList
+  -- and the UNARY form of the same claim.  `inc`/`dec` have no source operand,
+  -- so `m,r` cannot express their memory destination — and writing them as
+  -- `m,r` anyway, to make them trip the first pattern, would be notation bent
+  -- to fit its own gate, which is the failure this gate exists to catch one
+  -- level up.
+  --
+  -- ⛔ THE FIRST ATTEMPT AT THIS PATTERN WAS `· m ` AND IT WAS WRONG, in a way
+  -- worth keeping: it fired on `push`, whose shapes read `r · m · imm`, where
+  -- `m` is a memory SOURCE and not a destination at all.  The shapes column had
+  -- no notation distinguishing the two for unary forms — `inc`'s `m` is written
+  -- and `push`'s is read — so the pattern could not mean what it needed to
+  -- mean. ⇒ **A CHECK CANNOT BE MORE PRECISE THAN THE NOTATION IT READS**, and
+  -- the fix belonged in the notation: a written memory destination is now
+  -- `m(rmw)`.
+  --
+  -- ⭐ AND THE WRONG PATTERN EARNED ITS KEEP ON THE WAY OUT.  Firing on `push`
+  -- is how it came out that `push` claimed `m` and `imm`, `pop` claimed `m`, and
+  -- `neg`/`not` claimed `r/m`, with NOT ONE vector among them — four more rows
+  -- over-claiming exactly as `and`/`or`/`xor` had, and four more the
+  -- mnemonic-level theorems could not see.  All four are now narrowed to what
+  -- is executed, with the roster family that will earn each back named in the
+  -- row.
+  || isInfixOfChars "m(rmw)".toList r.shapes.toList
 
 /-- Is there a differential vector for this mnemonic whose DESTINATION operand
 is memory? -/
@@ -223,8 +247,15 @@ def hasMemDestVector (m : String) : Bool :=
     | .pop _ d => d.isMem
     | _ => false))
 
-/-- ⭐ EVERY `m,r` CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT ACTUALLY WRITES
-(or, for `cmp`/`test`, addresses) A MEMORY DESTINATION. -/
+set_option maxRecDepth 8000 in
+/-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
+ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.
+
+⚠️ `maxRecDepth` is raised for this ONE theorem, and only once the second
+pattern was added: two `isInfixOfChars` scans over 22 prose strings exceed the
+default ELABORATOR recursion depth.  It bounds the elaborator's own recursion,
+not what is proved and not the axioms the proof rests on — the axiom gate over
+this file is unchanged and still reports exactly the three standard ones. -/
 theorem mem_dest_claims_are_backed :
     tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic) = true := by decide
 

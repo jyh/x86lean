@@ -373,3 +373,35 @@ that cannot be evaluated is not a weaker gate — it is a build error wearing a
 gate's clothes.
 
 **Reversal cost:** low. Delete the theorem and restore the ceiling.
+
+## D16 — A check cannot be more precise than the notation it reads.
+
+D15's shapes-column gate needed a second pattern for P1 batch 4, because
+`inc`/`dec` have no source operand and cannot write a memory destination as
+`m,r`. The first attempt was the substring `· m ` — and it fired on `push`,
+whose shapes read `r · m · imm`, where `m` is a memory **source**.
+
+The pattern was not merely buggy: it was **unexpressible**. The shapes column
+had no notation distinguishing a memory operand that is written from one that is
+read, for a unary form, so no predicate over that column could mean "memory
+destination". ⇒ **A check cannot be more precise than the notation it reads**,
+and the repair belonged in the notation, not the check: a written memory
+destination is now `m(rmw)`.
+
+⭐ **The wrong pattern earned its keep on the way out.** Firing on `push`
+revealed that `push` claimed `r · m · imm`, `pop` claimed `r · m`, and
+`neg`/`not` claimed `r/m` — with **not one memory vector among them**. Four more
+P0 rows over-claiming exactly as `and`/`or`/`xor` had in D15, and four more that
+every mnemonic-level theorem passed over: `push` has a row, has a vector, is in
+the roster.
+
+⇒ **The over-claim was not a slip in one row. It was the column's default
+behaviour, because nothing read it.** A prose column that no gate reads does not
+drift slowly; it is wrong wherever nobody happened to look, from the moment it
+is written.
+
+All four rows are now narrowed to what is executed, each naming the roster
+family that will earn its missing half back — the correction `and`/`or`/`xor`
+took in batch 3 and earned back in batch 4, applied four more times.
+
+**Reversal cost:** low, and loud: the gate fails.

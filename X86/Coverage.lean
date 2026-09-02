@@ -94,7 +94,12 @@ def tableP0 : List Row :=
   -- `Tests/Coverage.lean`'s `mem_dest_claims_are_backed` is the gate that now
   -- refuses this claim without a vector behind it; it was driven RED against
   -- exactly this string before the string was corrected.
-  let logicShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh"
+  -- ⭐ AND `m,r · m,imm` IS BACK, EARNED THIS TIME.  P1 batch 4 covers the
+  -- memory-DESTINATION forms (roster family 4) at all four widths — more than
+  -- the claim batch 3 deleted ever asserted — and
+  -- `Tests/Coverage.lean`'s `mem_dest_claims_are_backed` is what holds it now.
+  let logicShapes := "r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · \
+acc,imm · rh"
   [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
   , { mnemonic := "add",  shapes := rm, tier := .exact, decode := .xed,
@@ -135,17 +140,26 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
   , { mnemonic := "lea",  shapes := "r, m", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A LEA" }
-  , { mnemonic := "inc",  shapes := "r/m", tier := .exact, decode := .xed,
+  -- P1 BATCH 4 (`p1/roster.tsv` families `-xxxxx-|-|mem` and `-xxxxx-|-|reg`):
+  -- INC and DEC at BOTH destinations and all four widths.  The memory forms are
+  -- read-modify-writes, and CF is untouched at either destination.
+  , { mnemonic := "inc",  shapes := "r · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A INC" }
-  , { mnemonic := "dec",  shapes := "r/m", tier := .exact, decode := .xed,
+  , { mnemonic := "dec",  shapes := "r · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A DEC" }
-  , { mnemonic := "neg",  shapes := "r/m", tier := .exact, decode := .xed,
+  -- ⛔ THESE FOUR ROWS CLAIMED SHAPES NO VECTOR HAS, and P1 batch 4's gate is
+  -- what found them.  `neg`/`not` said `r/m` with only register vectors;
+  -- `push` said `r · m · imm` and `pop` said `r · m` with only `push_r`/`pop_r`.
+  -- Each is now narrowed to what is actually executed, and the missing halves
+  -- are named as the roster families that will earn them (10 and 11) — the same
+  -- correction `and`/`or`/`xor` took in batch 3 and earned back in batch 4.
+  , { mnemonic := "neg",  shapes := "r — b/q (m: roster family 10)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NEG" }
-  , { mnemonic := "not",  shapes := "r/m", tier := .exact, decode := .xed,
+  , { mnemonic := "not",  shapes := "r — q (m: roster family 11)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NOT" }
-  , { mnemonic := "push", shapes := "r · m · imm", tier := .exact, decode := .xed,
+  , { mnemonic := "push", shapes := "r — q (m, imm: roster family 11)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A PUSH" }
-  , { mnemonic := "pop",  shapes := "r · m", tier := .exact, decode := .xed,
+  , { mnemonic := "pop",  shapes := "r — q (m: roster family 11)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A POP" }
   , { mnemonic := "jmp",  shapes := "rel32 · r/m64", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A JMP" }

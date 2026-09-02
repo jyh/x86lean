@@ -112,12 +112,9 @@ def vectors : List Vec :=
     , instr := ⟨.lea .q .rax { base := some .rbx, index := some .rcx, scale := .s4, disp := 8 }, 5⟩ }
   , { id := "lea_d",    mnemonic := "lea",  asm := "leal 8(%rbx), %eax", bytes := "8d4308"
     , instr := ⟨.lea .d .rax { base := some .rbx, disp := 8 }, 3⟩ }
-  , { id := "inc_q",    mnemonic := "inc",  asm := "incq %rax",        bytes := "48ffc0"
-    , instr := ⟨.un .inc .q (R .rax), 3⟩ }
-  , { id := "inc_b",    mnemonic := "inc",  asm := "incb %al",         bytes := "fec0"
-    , instr := ⟨.un .inc .b (R .rax), 2⟩ }
-  , { id := "dec_q",    mnemonic := "dec",  asm := "decq %rax",        bytes := "48ffc8"
-    , instr := ⟨.un .dec .q (R .rax), 3⟩ }
+  -- `inc_q`, `inc_b` and `dec_q` WERE here.  P1 batch 4 covers roster families 5
+  -- and 6 — `inc`/`dec` at a memory AND a register destination — at all four
+  -- widths systematically, so these three would have run their sweeps twice.
   , { id := "neg_q",    mnemonic := "neg",  asm := "negq %rax",        bytes := "48f7d8"
     , instr := ⟨.un .neg .q (R .rax), 3⟩ }
   , { id := "neg_b",    mnemonic := "neg",  asm := "negb %al",         bytes := "f6d8"
@@ -517,6 +514,111 @@ def vectors : List Vec :=
     , bytes := "84e8", instr := ⟨.bin .test .b (R .rax) (H .rcx), 2⟩ }
   , { id := "test_h8d", mnemonic := "test", asm := "testb %cl, %ah"
     , bytes := "84cc", instr := ⟨.bin .test .b (H .rax) (R .rcx), 2⟩ }
+  -- ══ P1 BATCH 4 ═════════════════════════════════════════════════════════
+  -- Families `0xuxx0-|-|mem` (AND/OR/XOR to a MEMORY destination, 6 forms),
+  -- `-xxxxx-|-|mem` (INC/DEC at a memory destination, 2 forms) and
+  -- `-xxxxx-|-|reg` (INC/DEC at a register destination, 2 forms) of
+  -- `p1/roster.tsv`.  Ten forms, and the LAST of the wave's zero-surcharge
+  -- ones: every batch after this invents a template.
+  --
+  -- ⭐ THE NEW GROUND IS THE READ-MODIFY-WRITE TO MEMORY.  Batch 3 put a memory
+  -- operand in a destination that is READ and never written.  These forms READ
+  -- IT, COMPUTE, WRITE IT BACK AND SET FLAGS — and until now the only memory
+  -- this repository ever WROTE was `mov`, `push` and `call`, none of which
+  -- touch a flag and none of which read the location first.
+  --
+  -- ⛔ AND THESE ARE THE FORMS D15 REMOVED A FALSE CLAIM ABOUT.  The coverage
+  -- table said `and`/`or`/`xor` covered the shape `m,r (q)` and no such vector
+  -- existed; batch 3 deleted the claim and this batch is what earns it back.
+  -- The row goes back with `m,r · m,imm` at ALL FOUR WIDTHS, which is more than
+  -- the false claim ever asserted, and `mem_dest_claims_are_backed` is now what
+  -- holds it rather than a comment.
+  --
+  -- THE WIDTH IS THE WHOLE RISK HERE.  A store that ignores its operand width
+  -- is invisible at width q and invisible at every register destination — the
+  -- register path truncates in `setReg` — and shows up only as clobbered
+  -- NEIGHBOURS in the data window at b, w and l.  That is this batch's planted
+  -- hard half, and it is why all four widths are here rather than q alone.
+  , { id := "and_mr_b", mnemonic := "and", asm := "andb %al, (%rbx)"
+    , bytes := "2003", instr := ⟨.bin .and .b (M .rbx) (R .rax), 2⟩ }
+  , { id := "and_mr_w", mnemonic := "and", asm := "andw %ax, (%rbx)"
+    , bytes := "662103", instr := ⟨.bin .and .w (M .rbx) (R .rax), 3⟩ }
+  , { id := "and_mr_l", mnemonic := "and", asm := "andl %eax, (%rbx)"
+    , bytes := "2103", instr := ⟨.bin .and .d (M .rbx) (R .rax), 2⟩ }
+  , { id := "and_mr_q", mnemonic := "and", asm := "andq %rax, (%rbx)"
+    , bytes := "482103", instr := ⟨.bin .and .q (M .rbx) (R .rax), 3⟩ }
+  , { id := "and_mi_b", mnemonic := "and", asm := "andb $0x5a, (%rbx)"
+    , bytes := "80235a", instr := ⟨.bin .and .b (M .rbx) (.imm 0x5a), 3⟩ }
+  , { id := "and_mi_w", mnemonic := "and", asm := "andw $0x1234, (%rbx)"
+    , bytes := "6681233412", instr := ⟨.bin .and .w (M .rbx) (.imm 0x1234), 5⟩ }
+  , { id := "and_mi_l", mnemonic := "and", asm := "andl $0x12345678, (%rbx)"
+    , bytes := "812378563412", instr := ⟨.bin .and .d (M .rbx) (.imm 0x12345678), 6⟩ }
+  , { id := "and_mi_q", mnemonic := "and", asm := "andq $0x12345678, (%rbx)"
+    , bytes := "48812378563412", instr := ⟨.bin .and .q (M .rbx) (.imm 0x12345678), 7⟩ }
+  , { id := "or_mr_b", mnemonic := "or", asm := "orb %al, (%rbx)"
+    , bytes := "0803", instr := ⟨.bin .or .b (M .rbx) (R .rax), 2⟩ }
+  , { id := "or_mr_w", mnemonic := "or", asm := "orw %ax, (%rbx)"
+    , bytes := "660903", instr := ⟨.bin .or .w (M .rbx) (R .rax), 3⟩ }
+  , { id := "or_mr_l", mnemonic := "or", asm := "orl %eax, (%rbx)"
+    , bytes := "0903", instr := ⟨.bin .or .d (M .rbx) (R .rax), 2⟩ }
+  , { id := "or_mr_q", mnemonic := "or", asm := "orq %rax, (%rbx)"
+    , bytes := "480903", instr := ⟨.bin .or .q (M .rbx) (R .rax), 3⟩ }
+  , { id := "or_mi_b", mnemonic := "or", asm := "orb $0x5a, (%rbx)"
+    , bytes := "800b5a", instr := ⟨.bin .or .b (M .rbx) (.imm 0x5a), 3⟩ }
+  , { id := "or_mi_w", mnemonic := "or", asm := "orw $0x1234, (%rbx)"
+    , bytes := "66810b3412", instr := ⟨.bin .or .w (M .rbx) (.imm 0x1234), 5⟩ }
+  , { id := "or_mi_l", mnemonic := "or", asm := "orl $0x12345678, (%rbx)"
+    , bytes := "810b78563412", instr := ⟨.bin .or .d (M .rbx) (.imm 0x12345678), 6⟩ }
+  , { id := "or_mi_q", mnemonic := "or", asm := "orq $0x12345678, (%rbx)"
+    , bytes := "48810b78563412", instr := ⟨.bin .or .q (M .rbx) (.imm 0x12345678), 7⟩ }
+  , { id := "xor_mr_b", mnemonic := "xor", asm := "xorb %al, (%rbx)"
+    , bytes := "3003", instr := ⟨.bin .xor .b (M .rbx) (R .rax), 2⟩ }
+  , { id := "xor_mr_w", mnemonic := "xor", asm := "xorw %ax, (%rbx)"
+    , bytes := "663103", instr := ⟨.bin .xor .w (M .rbx) (R .rax), 3⟩ }
+  , { id := "xor_mr_l", mnemonic := "xor", asm := "xorl %eax, (%rbx)"
+    , bytes := "3103", instr := ⟨.bin .xor .d (M .rbx) (R .rax), 2⟩ }
+  , { id := "xor_mr_q", mnemonic := "xor", asm := "xorq %rax, (%rbx)"
+    , bytes := "483103", instr := ⟨.bin .xor .q (M .rbx) (R .rax), 3⟩ }
+  , { id := "xor_mi_b", mnemonic := "xor", asm := "xorb $0x5a, (%rbx)"
+    , bytes := "80335a", instr := ⟨.bin .xor .b (M .rbx) (.imm 0x5a), 3⟩ }
+  , { id := "xor_mi_w", mnemonic := "xor", asm := "xorw $0x1234, (%rbx)"
+    , bytes := "6681333412", instr := ⟨.bin .xor .w (M .rbx) (.imm 0x1234), 5⟩ }
+  , { id := "xor_mi_l", mnemonic := "xor", asm := "xorl $0x12345678, (%rbx)"
+    , bytes := "813378563412", instr := ⟨.bin .xor .d (M .rbx) (.imm 0x12345678), 6⟩ }
+  , { id := "xor_mi_q", mnemonic := "xor", asm := "xorq $0x12345678, (%rbx)"
+    , bytes := "48813378563412", instr := ⟨.bin .xor .q (M .rbx) (.imm 0x12345678), 7⟩ }
+  , { id := "inc_m_b", mnemonic := "inc", asm := "incb (%rbx)"
+    , bytes := "fe03", instr := ⟨.un .inc .b (M .rbx), 2⟩ }
+  , { id := "inc_m_w", mnemonic := "inc", asm := "incw (%rbx)"
+    , bytes := "66ff03", instr := ⟨.un .inc .w (M .rbx), 3⟩ }
+  , { id := "inc_m_l", mnemonic := "inc", asm := "incl (%rbx)"
+    , bytes := "ff03", instr := ⟨.un .inc .d (M .rbx), 2⟩ }
+  , { id := "inc_m_q", mnemonic := "inc", asm := "incq (%rbx)"
+    , bytes := "48ff03", instr := ⟨.un .inc .q (M .rbx), 3⟩ }
+  , { id := "inc_r_b", mnemonic := "inc", asm := "incb %al"
+    , bytes := "fec0", instr := ⟨.un .inc .b (R .rax), 2⟩ }
+  , { id := "inc_r_w", mnemonic := "inc", asm := "incw %ax"
+    , bytes := "66ffc0", instr := ⟨.un .inc .w (R .rax), 3⟩ }
+  , { id := "inc_r_l", mnemonic := "inc", asm := "incl %eax"
+    , bytes := "ffc0", instr := ⟨.un .inc .d (R .rax), 2⟩ }
+  , { id := "inc_r_q", mnemonic := "inc", asm := "incq %rax"
+    , bytes := "48ffc0", instr := ⟨.un .inc .q (R .rax), 3⟩ }
+  , { id := "dec_m_b", mnemonic := "dec", asm := "decb (%rbx)"
+    , bytes := "fe0b", instr := ⟨.un .dec .b (M .rbx), 2⟩ }
+  , { id := "dec_m_w", mnemonic := "dec", asm := "decw (%rbx)"
+    , bytes := "66ff0b", instr := ⟨.un .dec .w (M .rbx), 3⟩ }
+  , { id := "dec_m_l", mnemonic := "dec", asm := "decl (%rbx)"
+    , bytes := "ff0b", instr := ⟨.un .dec .d (M .rbx), 2⟩ }
+  , { id := "dec_m_q", mnemonic := "dec", asm := "decq (%rbx)"
+    , bytes := "48ff0b", instr := ⟨.un .dec .q (M .rbx), 3⟩ }
+  , { id := "dec_r_b", mnemonic := "dec", asm := "decb %al"
+    , bytes := "fec8", instr := ⟨.un .dec .b (R .rax), 2⟩ }
+  , { id := "dec_r_w", mnemonic := "dec", asm := "decw %ax"
+    , bytes := "66ffc8", instr := ⟨.un .dec .w (R .rax), 3⟩ }
+  , { id := "dec_r_l", mnemonic := "dec", asm := "decl %eax"
+    , bytes := "ffc8", instr := ⟨.un .dec .d (R .rax), 2⟩ }
+  , { id := "dec_r_q", mnemonic := "dec", asm := "decq %rax"
+    , bytes := "48ffc8", instr := ⟨.un .dec .q (R .rax), 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

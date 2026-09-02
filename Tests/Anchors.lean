@@ -658,4 +658,83 @@ theorem rip_relative_does_not_read_at_rip :
     (step ⟨.bin .cmp .b (.mem { ripRel := true, disp := 0x10 }) (.imm 0xAA), 11⟩
       (mk {} {} ripDecoy (rip := 0x1000))).flags.zf = false := by decide
 
+/-! ## P1 BATCH 4 — the READ-MODIFY-WRITE to a memory destination
+
+Batch 3 put a memory operand in a destination that is read and never written.
+These forms read it, compute, WRITE IT BACK and set flags — and until batch 4
+the only memory this repository ever wrote was `mov`, `push` and `call`, none of
+which touch a flag and none of which read the location first.
+
+The width of the store is the whole risk, so most of these anchors are about a
+NEIGHBOUR rather than about the value. -/
+
+private def win : Mem :=
+  (List.range 16).foldl (fun m i => m.write (0x100 + BitVec.ofNat 64 i)
+    (BitVec.ofNat 8 (0xA0 + i))) Mem.empty
+
+/-- `andb %al, (%rbx)` writes exactly ONE byte: `0xA0 &&& 0x0F = 0x00`. -/
+theorem and_mem_b_writes_the_byte :
+    (step ⟨.bin .and .b (.mem { base := some .rbx }) (.reg .rax), 2⟩
+      (mk { rax := 0x0F, rbx := 0x100 } {} win)).mem.read 0x100 = 0x00 := by decide
+
+/-- ⭐ AND IT TOUCHES NO NEIGHBOUR.  The byte above keeps its pattern.  This is
+the anchor for the bug the harness plants as batch 4's hard half — a store that
+ignores its operand width — and it is a claim no register-destination form can
+make, because a register write has no neighbours. -/
+theorem and_mem_b_leaves_the_neighbour :
+    (step ⟨.bin .and .b (.mem { base := some .rbx }) (.reg .rax), 2⟩
+      (mk { rax := 0x0F, rbx := 0x100 } {} win)).mem.read 0x101 = 0xA1 := by decide
+
+/-- ⭐ THE ASYMMETRY THAT MATTERS MOST HERE.  A 32-BIT WRITE TO A REGISTER
+ZERO-EXTENDS into the upper half (SDM Vol. 1 §3.4.1.1); a 32-bit write to MEMORY
+touches FOUR BYTES and the four above it are none of its business.  A model that
+carried the register rule across to the memory path would zero `0x104`.  It
+holds `0xA4`. -/
+theorem and_mem_l_does_not_zero_extend_into_memory :
+    (step ⟨.bin .and .d (.mem { base := some .rbx }) (.reg .rax), 2⟩
+      (mk { rax := 0xFFFFFFFF, rbx := 0x100 } {} win)).mem.read 0x104 = 0xA4 := by decide
+
+/-- And the contrast, at a register destination, where the zero-extension is
+required: `andl` with an all-ones mask leaves the low half and ERASES the
+upper. -/
+theorem andl_reg_does_zero_extend :
+    (step ⟨.bin .and .d (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0xFFFFFFFF })).regs.rax
+      = 0x12345678 := by decide
+
+/-- `andq` at a memory destination writes all EIGHT bytes: the byte at `0x107`
+is inside the operand and is cleared. -/
+theorem and_mem_q_writes_eight_bytes :
+    (step ⟨.bin .and .q (.mem { base := some .rbx }) (.reg .rax), 3⟩
+      (mk { rax := 0, rbx := 0x100 } {} win)).mem.read 0x107 = 0x00 := by decide
+
+/-- The flags come from the memory value, at a memory destination as anywhere
+else: AND clears CF and OF (SDM Vol. 2A, AND). -/
+theorem and_mem_clears_cf_of :
+    let r := step ⟨.bin .and .b (.mem { base := some .rbx }) (.reg .rax), 2⟩
+      (mk { rax := 0x0F, rbx := 0x100 }
+         { cf := true, of := true } win)
+    (r.flags.cf, r.flags.of) = (false, false) := by decide
+
+/-- ⭐ INC AT A MEMORY DESTINATION STILL DOES NOT TOUCH CF (SDM Vol. 2A, INC:
+"The CF flag is not affected").  That rule was anchored at a register in P0; the
+memory path is a different line of `step` and gets its own. -/
+theorem inc_mem_preserves_cf :
+    (step ⟨.un .inc .q (.mem { base := some .rbx }), 3⟩
+      (mk { rbx := 0x100 } { cf := true } win)).flags.cf = true := by decide
+
+/-- `incb (%rbx)` on `0xFF` wraps to zero and sets ZF — and still leaves the
+neighbour alone, which is the width claim again on the unary path. -/
+theorem inc_mem_b_wraps_and_keeps_the_neighbour :
+    let r := step ⟨.un .inc .b (.mem { base := some .rbx }), 2⟩
+      (mk { rbx := 0x100 } {} (win.write 0x100 0xFF))
+    (r.mem.read 0x100, r.flags.zf, r.mem.read 0x101) = (0x00, true, 0xA1) := by decide
+
+/-- `decq (%rbx)` reads the location, subtracts one, and stores it back — the
+read-modify-write in one statement. -/
+theorem dec_mem_reads_then_writes :
+    (step ⟨.un .dec .q (.mem { base := some .rbx }), 3⟩
+      (mk { rbx := 0x100 } {} (Mem.empty.write 0x100 0x10))).mem.read 0x100
+      = 0x0F := by decide
+
 end X86.Tests

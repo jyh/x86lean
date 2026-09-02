@@ -2,7 +2,7 @@
 
 # x86lean coverage
 
-Roster: 22 mnemonics in 190 differentially tested forms (P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and TEST at every operand shape, including a memory operand in the DESTINATION position and the first RIP-relative vector in the repository).
+Roster: 22 mnemonics in 227 differentially tested forms (P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and TEST at every operand shape, including a memory operand in the DESTINATION position and the first RIP-relative vector in the repository).
 
 Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 
@@ -11,9 +11,9 @@ Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 | `mov` | r,r · r,imm · r,m · m,r | T-exact | XED (trusted) | — | Vol. 2A MOV |
 | `add` | r/m, r/imm | T-exact | XED (trusted) | — | Vol. 2A ADD |
 | `sub` | r/m, r/imm | T-exact | XED (trusted) | — | Vol. 2A SUB |
-| `and` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A AND |
-| `or` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A OR |
-| `xor` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A XOR |
+| `and` | r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A AND |
+| `or` | r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A OR |
+| `xor` | r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A XOR |
 | `cmp` | r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · acc,imm · rh · rip-rel (q) | T-exact | XED (trusted) | — | Vol. 2A CMP |
 | `adc` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-exact | XED (trusted) | — | Vol. 2A ADC |
 | `sbb` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-exact | XED (trusted) | — | Vol. 2A SBB |
@@ -21,12 +21,12 @@ Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 | `shl` | r/m, imm8 · r/m, cl | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `shr` | r/m, imm8 · r/m, cl | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `lea` | r, m | T-exact | XED (trusted) | — | Vol. 2A LEA |
-| `inc` | r/m | T-exact | XED (trusted) | — | Vol. 2A INC |
-| `dec` | r/m | T-exact | XED (trusted) | — | Vol. 2A DEC |
-| `neg` | r/m | T-exact | XED (trusted) | — | Vol. 2A NEG |
-| `not` | r/m | T-exact | XED (trusted) | — | Vol. 2A NOT |
-| `push` | r · m · imm | T-exact | XED (trusted) | — | Vol. 2A PUSH |
-| `pop` | r · m | T-exact | XED (trusted) | — | Vol. 2A POP |
+| `inc` | r · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A INC |
+| `dec` | r · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A DEC |
+| `neg` | r — b/q (m: roster family 10) | T-exact | XED (trusted) | — | Vol. 2A NEG |
+| `not` | r — q (m: roster family 11) | T-exact | XED (trusted) | — | Vol. 2A NOT |
+| `push` | r — q (m, imm: roster family 11) | T-exact | XED (trusted) | — | Vol. 2A PUSH |
+| `pop` | r — q (m: roster family 11) | T-exact | XED (trusted) | — | Vol. 2A POP |
 | `jmp` | rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A JMP |
 | `jcc` | rel8/rel32, all 16 conditions | T-exact | XED (trusted) | — | Vol. 2A Jcc |
 | `call` | rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A CALL |
