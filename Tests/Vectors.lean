@@ -714,6 +714,166 @@ def vectors : List Vec :=
     , bytes := "e310", instr := ⟨.jcxz false 0x10, 2⟩ }
   , { id := "jecxz_rel8", mnemonic := "jecxz", asm := "jecxz .+18"
     , bytes := "67e30f", instr := ⟨.jcxz true 0x0f, 3⟩ }
+  -- ══ P1 BATCH 6 ═════════════════════════════════════════════════════════
+  -- The CONDITION-CODE families of `p1/roster.tsv` — 16, 18-22, 28-30, 34-38,
+  -- 44 and 45 — **120 forms**: SETcc at a register and a memory destination
+  -- (30 spellings × 2) and CMOVcc at `r,r` and `r,m` (30 × 2).
+  --
+  -- ⭐ 120 FORMS FOR TWO `step` CASES, AND THE REASON IS A P0 DESIGN CHOICE.
+  -- `Cc` has one constructor per PREDICATE, not per mnemonic, so K's 30 `set`
+  -- spellings and 30 `cmov` spellings are the SAME sixteen predicates the
+  -- branches already use, read through a different opcode.  `Cc.suffixes` is
+  -- that table and `Cc.setSpellings`/`Cc.cmovSpellings` derive the names; a
+  -- model with one constructor per mnemonic would be writing 90 of them here.
+  -- This is what "cheapest by BEHAVIOUR, not by form count" looks like when the
+  -- earlier design was right.
+  --
+  -- ⚠️ AND THE ONE PLACE CMOVcc IS NOT WHAT IT LOOKS LIKE.  The destination is
+  -- written WHETHER OR NOT the condition holds — only the VALUE is conditional.
+  -- At widths w and q that is invisible.  At width `d` the write ZERO-EXTENDS
+  -- (SDM Vol. 1 §3.4.1.1), so `cmovel %ecx, %eax` clears the upper half of RAX
+  -- even when ZF is clear and nothing moves.  Every `cmov` vector here is at
+  -- width `l` for exactly that reason, with `w` and `q` present for two
+  -- conditions to give the contrast; and a model that skips the write on a
+  -- false condition is this batch's planted hard half.
+  , { id := "seto_r", mnemonic := "setcc", asm := "seto %al"
+    , bytes := "0f90c0", instr := ⟨.setcc .o (R .rax), 3⟩ }
+  , { id := "setno_r", mnemonic := "setcc", asm := "setno %al"
+    , bytes := "0f91c0", instr := ⟨.setcc .no (R .rax), 3⟩ }
+  , { id := "setb_r", mnemonic := "setcc", asm := "setb %al"
+    , bytes := "0f92c0", instr := ⟨.setcc .b (R .rax), 3⟩ }
+  , { id := "setae_r", mnemonic := "setcc", asm := "setae %al"
+    , bytes := "0f93c0", instr := ⟨.setcc .ae (R .rax), 3⟩ }
+  , { id := "sete_r", mnemonic := "setcc", asm := "sete %al"
+    , bytes := "0f94c0", instr := ⟨.setcc .e (R .rax), 3⟩ }
+  , { id := "setne_r", mnemonic := "setcc", asm := "setne %al"
+    , bytes := "0f95c0", instr := ⟨.setcc .ne (R .rax), 3⟩ }
+  , { id := "setbe_r", mnemonic := "setcc", asm := "setbe %al"
+    , bytes := "0f96c0", instr := ⟨.setcc .be (R .rax), 3⟩ }
+  , { id := "seta_r", mnemonic := "setcc", asm := "seta %al"
+    , bytes := "0f97c0", instr := ⟨.setcc .a (R .rax), 3⟩ }
+  , { id := "sets_r", mnemonic := "setcc", asm := "sets %al"
+    , bytes := "0f98c0", instr := ⟨.setcc .s (R .rax), 3⟩ }
+  , { id := "setns_r", mnemonic := "setcc", asm := "setns %al"
+    , bytes := "0f99c0", instr := ⟨.setcc .ns (R .rax), 3⟩ }
+  , { id := "setp_r", mnemonic := "setcc", asm := "setp %al"
+    , bytes := "0f9ac0", instr := ⟨.setcc .p (R .rax), 3⟩ }
+  , { id := "setnp_r", mnemonic := "setcc", asm := "setnp %al"
+    , bytes := "0f9bc0", instr := ⟨.setcc .np (R .rax), 3⟩ }
+  , { id := "setl_r", mnemonic := "setcc", asm := "setl %al"
+    , bytes := "0f9cc0", instr := ⟨.setcc .l (R .rax), 3⟩ }
+  , { id := "setge_r", mnemonic := "setcc", asm := "setge %al"
+    , bytes := "0f9dc0", instr := ⟨.setcc .ge (R .rax), 3⟩ }
+  , { id := "setle_r", mnemonic := "setcc", asm := "setle %al"
+    , bytes := "0f9ec0", instr := ⟨.setcc .le (R .rax), 3⟩ }
+  , { id := "setg_r", mnemonic := "setcc", asm := "setg %al"
+    , bytes := "0f9fc0", instr := ⟨.setcc .g (R .rax), 3⟩ }
+  , { id := "seto_m", mnemonic := "setcc", asm := "seto (%rbx)"
+    , bytes := "0f9003", instr := ⟨.setcc .o (M .rbx), 3⟩ }
+  , { id := "setno_m", mnemonic := "setcc", asm := "setno (%rbx)"
+    , bytes := "0f9103", instr := ⟨.setcc .no (M .rbx), 3⟩ }
+  , { id := "setb_m", mnemonic := "setcc", asm := "setb (%rbx)"
+    , bytes := "0f9203", instr := ⟨.setcc .b (M .rbx), 3⟩ }
+  , { id := "setae_m", mnemonic := "setcc", asm := "setae (%rbx)"
+    , bytes := "0f9303", instr := ⟨.setcc .ae (M .rbx), 3⟩ }
+  , { id := "sete_m", mnemonic := "setcc", asm := "sete (%rbx)"
+    , bytes := "0f9403", instr := ⟨.setcc .e (M .rbx), 3⟩ }
+  , { id := "setne_m", mnemonic := "setcc", asm := "setne (%rbx)"
+    , bytes := "0f9503", instr := ⟨.setcc .ne (M .rbx), 3⟩ }
+  , { id := "setbe_m", mnemonic := "setcc", asm := "setbe (%rbx)"
+    , bytes := "0f9603", instr := ⟨.setcc .be (M .rbx), 3⟩ }
+  , { id := "seta_m", mnemonic := "setcc", asm := "seta (%rbx)"
+    , bytes := "0f9703", instr := ⟨.setcc .a (M .rbx), 3⟩ }
+  , { id := "sets_m", mnemonic := "setcc", asm := "sets (%rbx)"
+    , bytes := "0f9803", instr := ⟨.setcc .s (M .rbx), 3⟩ }
+  , { id := "setns_m", mnemonic := "setcc", asm := "setns (%rbx)"
+    , bytes := "0f9903", instr := ⟨.setcc .ns (M .rbx), 3⟩ }
+  , { id := "setp_m", mnemonic := "setcc", asm := "setp (%rbx)"
+    , bytes := "0f9a03", instr := ⟨.setcc .p (M .rbx), 3⟩ }
+  , { id := "setnp_m", mnemonic := "setcc", asm := "setnp (%rbx)"
+    , bytes := "0f9b03", instr := ⟨.setcc .np (M .rbx), 3⟩ }
+  , { id := "setl_m", mnemonic := "setcc", asm := "setl (%rbx)"
+    , bytes := "0f9c03", instr := ⟨.setcc .l (M .rbx), 3⟩ }
+  , { id := "setge_m", mnemonic := "setcc", asm := "setge (%rbx)"
+    , bytes := "0f9d03", instr := ⟨.setcc .ge (M .rbx), 3⟩ }
+  , { id := "setle_m", mnemonic := "setcc", asm := "setle (%rbx)"
+    , bytes := "0f9e03", instr := ⟨.setcc .le (M .rbx), 3⟩ }
+  , { id := "setg_m", mnemonic := "setcc", asm := "setg (%rbx)"
+    , bytes := "0f9f03", instr := ⟨.setcc .g (M .rbx), 3⟩ }
+  , { id := "setne_h8", mnemonic := "setcc", asm := "setne %ah"
+    , bytes := "0f95c4", instr := ⟨.setcc .ne (H .rax), 3⟩ }
+  , { id := "cmovo_rr_l", mnemonic := "cmovcc", asm := "cmovo %ecx, %eax"
+    , bytes := "0f40c1", instr := ⟨.cmov .o .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovno_rr_l", mnemonic := "cmovcc", asm := "cmovno %ecx, %eax"
+    , bytes := "0f41c1", instr := ⟨.cmov .no .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovb_rr_l", mnemonic := "cmovcc", asm := "cmovb %ecx, %eax"
+    , bytes := "0f42c1", instr := ⟨.cmov .b .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovae_rr_l", mnemonic := "cmovcc", asm := "cmovae %ecx, %eax"
+    , bytes := "0f43c1", instr := ⟨.cmov .ae .d .rax (R .rcx), 3⟩ }
+  , { id := "cmove_rr_l", mnemonic := "cmovcc", asm := "cmove %ecx, %eax"
+    , bytes := "0f44c1", instr := ⟨.cmov .e .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovne_rr_l", mnemonic := "cmovcc", asm := "cmovne %ecx, %eax"
+    , bytes := "0f45c1", instr := ⟨.cmov .ne .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovbe_rr_l", mnemonic := "cmovcc", asm := "cmovbe %ecx, %eax"
+    , bytes := "0f46c1", instr := ⟨.cmov .be .d .rax (R .rcx), 3⟩ }
+  , { id := "cmova_rr_l", mnemonic := "cmovcc", asm := "cmova %ecx, %eax"
+    , bytes := "0f47c1", instr := ⟨.cmov .a .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovs_rr_l", mnemonic := "cmovcc", asm := "cmovs %ecx, %eax"
+    , bytes := "0f48c1", instr := ⟨.cmov .s .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovns_rr_l", mnemonic := "cmovcc", asm := "cmovns %ecx, %eax"
+    , bytes := "0f49c1", instr := ⟨.cmov .ns .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovp_rr_l", mnemonic := "cmovcc", asm := "cmovp %ecx, %eax"
+    , bytes := "0f4ac1", instr := ⟨.cmov .p .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovnp_rr_l", mnemonic := "cmovcc", asm := "cmovnp %ecx, %eax"
+    , bytes := "0f4bc1", instr := ⟨.cmov .np .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovl_rr_l", mnemonic := "cmovcc", asm := "cmovl %ecx, %eax"
+    , bytes := "0f4cc1", instr := ⟨.cmov .l .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovge_rr_l", mnemonic := "cmovcc", asm := "cmovge %ecx, %eax"
+    , bytes := "0f4dc1", instr := ⟨.cmov .ge .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovle_rr_l", mnemonic := "cmovcc", asm := "cmovle %ecx, %eax"
+    , bytes := "0f4ec1", instr := ⟨.cmov .le .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovg_rr_l", mnemonic := "cmovcc", asm := "cmovg %ecx, %eax"
+    , bytes := "0f4fc1", instr := ⟨.cmov .g .d .rax (R .rcx), 3⟩ }
+  , { id := "cmovo_rm_l", mnemonic := "cmovcc", asm := "cmovo (%rbx), %eax"
+    , bytes := "0f4003", instr := ⟨.cmov .o .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovno_rm_l", mnemonic := "cmovcc", asm := "cmovno (%rbx), %eax"
+    , bytes := "0f4103", instr := ⟨.cmov .no .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovb_rm_l", mnemonic := "cmovcc", asm := "cmovb (%rbx), %eax"
+    , bytes := "0f4203", instr := ⟨.cmov .b .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovae_rm_l", mnemonic := "cmovcc", asm := "cmovae (%rbx), %eax"
+    , bytes := "0f4303", instr := ⟨.cmov .ae .d .rax (M .rbx), 3⟩ }
+  , { id := "cmove_rm_l", mnemonic := "cmovcc", asm := "cmove (%rbx), %eax"
+    , bytes := "0f4403", instr := ⟨.cmov .e .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovne_rm_l", mnemonic := "cmovcc", asm := "cmovne (%rbx), %eax"
+    , bytes := "0f4503", instr := ⟨.cmov .ne .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovbe_rm_l", mnemonic := "cmovcc", asm := "cmovbe (%rbx), %eax"
+    , bytes := "0f4603", instr := ⟨.cmov .be .d .rax (M .rbx), 3⟩ }
+  , { id := "cmova_rm_l", mnemonic := "cmovcc", asm := "cmova (%rbx), %eax"
+    , bytes := "0f4703", instr := ⟨.cmov .a .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovs_rm_l", mnemonic := "cmovcc", asm := "cmovs (%rbx), %eax"
+    , bytes := "0f4803", instr := ⟨.cmov .s .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovns_rm_l", mnemonic := "cmovcc", asm := "cmovns (%rbx), %eax"
+    , bytes := "0f4903", instr := ⟨.cmov .ns .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovp_rm_l", mnemonic := "cmovcc", asm := "cmovp (%rbx), %eax"
+    , bytes := "0f4a03", instr := ⟨.cmov .p .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovnp_rm_l", mnemonic := "cmovcc", asm := "cmovnp (%rbx), %eax"
+    , bytes := "0f4b03", instr := ⟨.cmov .np .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovl_rm_l", mnemonic := "cmovcc", asm := "cmovl (%rbx), %eax"
+    , bytes := "0f4c03", instr := ⟨.cmov .l .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovge_rm_l", mnemonic := "cmovcc", asm := "cmovge (%rbx), %eax"
+    , bytes := "0f4d03", instr := ⟨.cmov .ge .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovle_rm_l", mnemonic := "cmovcc", asm := "cmovle (%rbx), %eax"
+    , bytes := "0f4e03", instr := ⟨.cmov .le .d .rax (M .rbx), 3⟩ }
+  , { id := "cmovg_rm_l", mnemonic := "cmovcc", asm := "cmovg (%rbx), %eax"
+    , bytes := "0f4f03", instr := ⟨.cmov .g .d .rax (M .rbx), 3⟩ }
+  , { id := "cmove_rr_w", mnemonic := "cmovcc", asm := "cmove %cx, %ax"
+    , bytes := "660f44c1", instr := ⟨.cmov .e .w .rax (R .rcx), 4⟩ }
+  , { id := "cmove_rr_q", mnemonic := "cmovcc", asm := "cmove %rcx, %rax"
+    , bytes := "480f44c1", instr := ⟨.cmov .e .q .rax (R .rcx), 4⟩ }
+  , { id := "cmovne_rr_w", mnemonic := "cmovcc", asm := "cmovne %cx, %ax"
+    , bytes := "660f45c1", instr := ⟨.cmov .ne .w .rax (R .rcx), 4⟩ }
+  , { id := "cmovne_rr_q", mnemonic := "cmovcc", asm := "cmovne %rcx, %rax"
+    , bytes := "480f45c1", instr := ⟨.cmov .ne .q .rax (R .rcx), 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

@@ -185,6 +185,19 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       decode := .xed, undefined := [], sdm := "Vol. 2A JCC" }
   , { mnemonic := "jecxz", shapes := "rel8 (no rel32 encoding exists)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A JCC" }
+  -- P1 BATCH 6: the CONDITION-CODE families (16, 18-22, 28-30, 34-38, 44, 45),
+  -- 120 roster forms over TWO `step` cases.  `Cc` keys on the PREDICATE, so
+  -- K's 30 `set` and 30 `cmov` spellings are the same sixteen predicates the
+  -- branches use; `Cc.setSpellings`/`Cc.cmovSpellings` derive the names and
+  -- Tests/Coverage.lean counts them.
+  --
+  -- ⚠️ `cmovcc` has NO memory destination (`cmovcc r, r/m` only), which is why
+  -- its shapes read `r,m` and not `m,r`.  `setcc`'s memory form is a WRITE that
+  -- never reads, hence `m8(w)` rather than the `m(rmw)` inc/dec take.
+  , { mnemonic := "setcc", shapes := "r8 · rh8 · m8(w) — 30 spellings",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A SETcc" }
+  , { mnemonic := "cmovcc", shapes := "r,r · r,m — w/l/q, 30 spellings",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMOVcc" }
   , { mnemonic := "call", shapes := "rel32 · r/m64", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CALL" }
   ]

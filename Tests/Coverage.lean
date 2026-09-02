@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb` and batch 5 `jrcxz`/`jecxz`. -/
-theorem roster_size_is_24 : rosterSize = 24 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`. -/
+theorem roster_size_is_26 : rosterSize = 26 := by decide
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
@@ -246,7 +246,14 @@ def claimsMemDest (r : Row) : Bool :=
   -- mnemonic-level theorems could not see.  All four are now narrowed to what
   -- is executed, with the roster family that will earn each back named in the
   -- row.
-  || isInfixOfChars "m(rmw)".toList r.shapes.toList
+  -- ⭐ GENERALISED IN BATCH 6 from the literal `m(rmw)` to the PREFIX `m(`.
+  -- `setcc`'s memory form is a WRITE that never reads its destination, so
+  -- `m(rmw)` would be a false description of it and `m(w)` is the honest one —
+  -- and a gate that only knew one spelling would have pushed the notation to
+  -- lie, which is D16's failure exactly. The parenthesis is what makes a
+  -- MEMORY-DESTINATION claim distinguishable from `r,m`'s memory source, and
+  -- what goes inside it is free to say which kind of write it is.
+  || isInfixOfChars "m(".toList r.shapes.toList
 
 /-- Is there a differential vector for this mnemonic whose DESTINATION operand
 is memory? -/
@@ -305,5 +312,38 @@ loss rather than being written after one. -/
 theorem pre_states_separate_rcx_from_ecx :
     (preStates 1 8).any (fun s =>
       s.regs.rcx != 0 && (s.regs.rcx &&& 0xFFFFFFFF) == 0) = true := by decide
+
+/-! ### P1 BATCH 6 — 120 forms over two `step` cases
+
+⭐ The same sixteen predicates spell every `Jcc`, `SETcc` and `CMOVcc`.  K files
+90 mnemonics for them; `Cc` has 16 constructors because a predicate is the
+instruction and the spelling is the assembler's.  These theorems are what make
+that a counted claim rather than a pleasing sentence. -/
+
+theorem vectors_cover_every_setcc_condition :
+    Cc.all.all (fun c => vectors.any (fun v => match v.instr.op with
+      | .setcc c' _ => c' == c
+      | _ => false)) = true := by decide
+
+theorem vectors_cover_every_cmov_condition :
+    Cc.all.all (fun c => vectors.any (fun v => match v.instr.op with
+      | .cmov c' _ _ _ => c' == c
+      | _ => false)) = true := by decide
+
+/-- Thirty spellings each, from the one suffix table. -/
+theorem thirty_set_spellings :
+    (Cc.all.flatMap Cc.setSpellings).eraseDups.length = 30 := by decide
+
+theorem thirty_cmov_spellings :
+    (Cc.all.flatMap Cc.cmovSpellings).eraseDups.length = 30 := by decide
+
+/-- ⚠️ AND THE 32-BIT `cmov` FORMS ARE PRESENT, which is not a formality: the
+unconditional write is observable only at width `d`, so a `cmov` vector set
+without it cannot tell this model from one that skips the write when the
+condition is false. -/
+theorem cmov_covered_at_width_d :
+    vectors.any (fun v => match v.instr.op with
+      | .cmov _ sz _ _ => sz == Size.d
+      | _ => false) = true := by decide
 
 end X86.Tests

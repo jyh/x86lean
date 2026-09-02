@@ -807,4 +807,87 @@ theorem jg_not_taken_there :
     (step ⟨.jcc .g 0x10, 2⟩
       (mk {} { sf := true, of := false } (rip := 0x400000))).rip = 0x400002 := by decide
 
+/-! ## P1 BATCH 6 — SETcc and CMOVcc: the predicates, read through other opcodes
+
+120 roster forms and two `step` cases.  What needs anchoring is not the
+conditions — `Jcc` already established those and `Cc.eval` is shared — but the
+two things these opcodes do that a branch does not: SETcc writes ONE BYTE, and
+CMOVcc writes its destination whether or not the condition holds. -/
+
+/-- SETcc writes 1 when the condition holds... -/
+theorem setcc_writes_one :
+    (step ⟨.setcc .e (.reg .rax), 3⟩
+      (mk { rax := 0 } { zf := true })).regs.rax = 1 := by decide
+
+/-- ...and 0 when it does not — not "leaves the destination alone". -/
+theorem setcc_writes_zero_not_nothing :
+    (step ⟨.setcc .e (.reg .rax), 3⟩
+      (mk { rax := 0xFF } { zf := false })).regs.rax = 0 := by decide
+
+/-- ⭐ AND IT WRITES EXACTLY ONE BYTE.  With RAX = `0xDEADBEEF_12345678`, `sete`
+on a true condition leaves `0xDEADBEEF_12345601`: the upper 56 bits are
+untouched, so this is an 8-bit write and NOT a 32-bit one that would
+zero-extend. -/
+theorem setcc_is_a_byte_write :
+    (step ⟨.setcc .e (.reg .rax), 3⟩
+      (mk { rax := 0xDEADBEEF_12345678 } { zf := true })).regs.rax
+      = 0xDEADBEEF_12345601 := by decide
+
+/-- A high-8 destination writes bits 15:8 and nothing else. -/
+theorem setcc_high8 :
+    (step ⟨.setcc .ne (.reg .rax true), 3⟩
+      (mk { rax := 0xFFFF } { zf := true })).regs.rax = 0x00FF := by decide
+
+/-- At a memory destination it is still one byte: the neighbour keeps its
+pattern. -/
+theorem setcc_mem_writes_one_byte :
+    let r := step ⟨.setcc .e (.mem { base := some .rbx }), 3⟩
+      (mk { rbx := 0x100 } { zf := true } ((Mem.empty.write 0x100 0xAA).write 0x101 0xBB))
+    (r.mem.read 0x100, r.mem.read 0x101) = (0x01, 0xBB) := by decide
+
+/-- CMOVcc moves when the condition holds. -/
+theorem cmov_moves_when_taken :
+    (step ⟨.cmov .e .q .rax (.reg .rcx), 4⟩
+      (mk { rax := 1, rcx := 0x2222 } { zf := true })).regs.rax = 0x2222 := by decide
+
+/-- ⭐ AND THE ONE THAT IS NOT OBVIOUS: AT WIDTH `d` THE DESTINATION IS WRITTEN
+EVEN WHEN THE CONDITION IS FALSE, so the 32-bit zero-extension happens anyway
+(SDM Vol. 1 §3.4.1.1).  `cmovel %ecx, %eax` with ZF CLEAR moves nothing and
+still clears the upper half of RAX.
+
+A model written as "if the condition holds, move" gives `0xDEADBEEF_12345678`
+here.  This is the batch's planted hard half, and the reason every `cmov` vector
+is at width `l`. -/
+theorem cmov_not_taken_still_zero_extends_at_d :
+    (step ⟨.cmov .e .d .rax (.reg .rcx), 3⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0x2222 } { zf := false })).regs.rax
+      = 0x12345678 := by decide
+
+/-- The contrast that gives it meaning: at width `q` a false condition really is
+a no-op, and at width `w` the upper bits survive.  Without these two the theorem
+above is satisfied by a model that zero-extends everything. -/
+theorem cmov_not_taken_is_a_noop_at_q :
+    (step ⟨.cmov .e .q .rax (.reg .rcx), 4⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0x2222 } { zf := false })).regs.rax
+      = 0xDEADBEEF_12345678 := by decide
+
+theorem cmov_not_taken_preserves_upper_at_w :
+    (step ⟨.cmov .e .w .rax (.reg .rcx), 4⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0x2222 } { zf := false })).regs.rax
+      = 0xDEADBEEF_12345678 := by decide
+
+/-- And a TAKEN 32-bit cmov zero-extends the moved value, like every other
+32-bit write. -/
+theorem cmov_taken_zero_extends_at_d :
+    (step ⟨.cmov .e .d .rax (.reg .rcx), 3⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0xFFFFFFFF_00002222 } { zf := true })).regs.rax
+      = 0x2222 := by decide
+
+/-- Neither instruction writes a flag (SDM Vol. 2A, SETcc and CMOVcc). -/
+theorem setcc_and_cmov_write_no_flag :
+    let f : Flags := { cf := true, zf := true, of := true }
+    ((step ⟨.setcc .e (.reg .rax), 3⟩ (mk {} f)).flags = f
+     ∧ (step ⟨.cmov .e .q .rax (.reg .rcx), 4⟩ (mk {} f)).flags = f) := by
+  exact ⟨by decide, by decide⟩
+
 end X86.Tests

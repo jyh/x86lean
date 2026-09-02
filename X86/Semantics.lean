@@ -271,6 +271,20 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .jcxz addr32 d =>
       let c := if addr32 then Value.trunc .d (s.regs.get .rcx) else s.regs.get .rcx
       if c == 0 then s.setRipChecked (nr + d) else s.setRip nr
+  -- SETcc (SDM Vol. 2A, SETcc): ONE BYTE, 1 or 0.  "Flags Affected: None."
+  | .setcc c dst =>
+      (s.writeOperand .b nr dst (if c.eval s.flags then 1 else 0)).setRip nr
+
+  -- CMOVcc (SDM Vol. 2A, CMOVcc).  ⚠️ THE WRITE IS UNCONDITIONAL; only the
+  -- VALUE is conditional.  On a false condition the destination is rewritten
+  -- with what it already held — which is a no-op at widths w and q and is NOT
+  -- one at width d, where the write zero-extends and clears the upper half
+  -- (SDM Vol. 1 §3.4.1.1).  Writing this as "if the condition holds, move" is
+  -- the natural mistake and it is wrong on exactly the 32-bit forms.
+  | .cmov c sz dst src =>
+      let v := if c.eval s.flags then s.readOperand sz nr src else s.getReg sz dst
+      ((s.setReg sz dst v).setRip nr)
+
   | .call t =>
       match t with
       | .rel d =>

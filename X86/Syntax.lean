@@ -147,15 +147,24 @@ from a sentence into a list a theorem can count.
 
 `Cc.mnemonic` above returns the spelling this model PRINTS; these are all the
 spellings that decode to it. -/
-def Cc.synonyms : Cc → List String
-  | .o  => ["jo"]                | .no => ["jno"]
-  | .b  => ["jb", "jc", "jnae"]  | .ae => ["jae", "jnb", "jnc"]
-  | .e  => ["je", "jz"]          | .ne => ["jne", "jnz"]
-  | .be => ["jbe", "jna"]        | .a  => ["ja", "jnbe"]
-  | .s  => ["js"]                | .ns => ["jns"]
-  | .p  => ["jp", "jpe"]         | .np => ["jnp", "jpo"]
-  | .l  => ["jl", "jnge"]        | .ge => ["jge", "jnl"]
-  | .le => ["jle", "jng"]        | .g  => ["jg", "jnle"]
+def Cc.suffixes : Cc → List String
+  | .o  => ["o"]              | .no => ["no"]
+  | .b  => ["b", "c", "nae"]  | .ae => ["ae", "nb", "nc"]
+  | .e  => ["e", "z"]         | .ne => ["ne", "nz"]
+  | .be => ["be", "na"]       | .a  => ["a", "nbe"]
+  | .s  => ["s"]              | .ns => ["ns"]
+  | .p  => ["p", "pe"]        | .np => ["np", "po"]
+  | .l  => ["l", "nge"]       | .ge => ["ge", "nl"]
+  | .le => ["le", "ng"]       | .g  => ["g", "nle"]
+
+/-- ⭐ AND THE SAME SUFFIXES SPELL EVERY `Jcc`, `SETcc` AND `CMOVcc`, which is
+why P1 batch 6 costs almost nothing: K files 30 branch mnemonics, 30 `set`
+mnemonics and 30 `cmov` mnemonics, and they are ONE table of sixteen predicates
+read three ways.  A model with a `Cc` type gets the second and third for free;
+a model with one constructor per mnemonic would have written 90. -/
+def Cc.synonyms (c : Cc) : List String := c.suffixes.map ("j" ++ ·)
+def Cc.setSpellings (c : Cc) : List String := c.suffixes.map ("set" ++ ·)
+def Cc.cmovSpellings (c : Cc) : List String := c.suffixes.map ("cmov" ++ ·)
 
 /-- Every condition code, for the generated coverage table and for exhaustive
 tests. -/
@@ -195,6 +204,19 @@ inductive Op where
   which is what every other form in this AST already assumes about prefixes
   (the header: "prefixes are resolved"). -/
   | jcxz  (addr32 : Bool) (d : Val)
+  /-- P1 BATCH 6: SETcc (SDM Vol. 2A, SETcc).  Writes ONE BYTE — 1 or 0 — to an
+  8-bit destination, register or memory.  "Flags Affected: None." -/
+  | setcc (c : Cc) (dst : Operand)
+  /-- P1 BATCH 6: CMOVcc (SDM Vol. 2A, CMOVcc).  The destination is always a
+  REGISTER (`cmovcc r, r/m`); there is no memory-destination form.
+
+  ⚠️ THE DESTINATION IS WRITTEN WHETHER OR NOT THE CONDITION HOLDS, and at width
+  `d` that is observable rather than academic: a 32-bit write zero-extends (SDM
+  Vol. 1 §3.4.1.1), so `cmovel %ecx, %eax` CLEARS the upper half of RAX even
+  when ZF is clear and no data moves.  A model that skipped the write on a false
+  condition is correct at w and q and wrong at d — this batch's planted hard
+  half. -/
+  | cmov  (c : Cc) (sz : Size) (dst : GPR) (src : Operand)
   | call  (t : JmpTarget)
   deriving DecidableEq, Repr, Inhabited, BEq
 
@@ -223,6 +245,8 @@ def Op.mnemonic : Op → String
   | .jmp .. => "jmp"
   | .jcc c _ => c.mnemonic
   | .jcxz a32 _ => if a32 then "jecxz" else "jrcxz"
+  | .setcc c _ => "set" ++ (c.suffixes.headD "?")
+  | .cmov c _ _ _ => "cmov" ++ (c.suffixes.headD "?")
   | .call .. => "call"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
@@ -237,7 +261,7 @@ step with each other. -/
 def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
    "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
-   "adc", "sbb", "jrcxz", "jecxz"]
+   "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc"]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

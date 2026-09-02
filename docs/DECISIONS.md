@@ -454,3 +454,28 @@ impossible variants further down the roster.
 
 **Reversal cost:** none — this is a recorded fact, not a change. The two forms
 are marked in the `jrcxz`/`jecxz` coverage rows.
+
+## D19 — CMOVcc writes its destination unconditionally; only the value is
+conditional.
+
+`step`'s `.cmov` case always calls `setReg`, with the source operand when the
+condition holds and **the destination's own value when it does not**.
+
+This is not a stylistic choice. A 32-bit write zero-extends (SDM Vol. 1
+§3.4.1.1), so at width `d` the two readings are observably different:
+`cmovel %ecx, %eax` with ZF clear moves nothing and still clears the upper half
+of RAX, while a model written as "if the condition holds, move" leaves it
+intact. At widths `w` and `q` they agree exactly.
+
+⇒ **The natural reading of the mnemonic is wrong, and wrong only on one of the
+three widths.** It was implemented from the SDM and then *arbitrated by the
+oracle*: ACL2 x86isa agrees across all 74 pre-states of all 32 width-`l`
+vectors, 0 unexplained. That is the differential doing the job a careful reading
+alone could not — the model was self-consistent under either reading, and only a
+second model could say which one the machine implements.
+
+The planted hard half (`wrongCmovSkipsWrite`) is the other reading, and deleting
+the 32 width-`l` vectors makes it catch **zero**.
+
+**Reversal cost:** low, and loud: two `Tests/Coverage.lean` assertions and one
+selftest arm fail.

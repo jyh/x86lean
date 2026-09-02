@@ -24,14 +24,15 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects eleven real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects thirteen real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
 destination, a memory read-modify-write that drops its store, and one that
 stores the right value at the wrong WIDTH, a `jcxz` with an inverted test, and a
-`jecxz` that ignores the address-size prefix — and REQUIRES the comparator to
-catch each one.
+`jecxz` that ignores the address-size prefix, an inverted `setcc`, and a `cmov`
+that skips its write on a false condition — and REQUIRES the comparator to catch
+each one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
 accidental: each batch plants a PAIR, an easy half that almost any pre-state
@@ -497,6 +498,35 @@ def wrongJecxzWidth (i : Instr) (s : Cpu) : Cpu :=
       if s.regs.get .rcx == 0 then s.setRipChecked (nr + d) else s.setRip nr
   | _ => step i s
 
+/-- ⭐ P1 BATCH 6's PLANTED BUG, EASY HALF: a `setcc` that writes 1 and 0 the
+wrong way round.  Any pre-state catches it. -/
+def wrongSetccInverted (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .setcc c dst =>
+      -- the BUG: the sense of the condition
+      (s.writeOperand .b nr dst (if c.eval s.flags then 0 else 1)).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND THE REASON EVERY `cmov` VECTOR IS AT WIDTH `l`.  This
+model implements CMOVcc the way the mnemonic reads — *if the condition holds,
+move; otherwise do nothing* — which is correct at widths w and q and WRONG at
+width d.
+
+A 32-bit write zero-extends (SDM Vol. 1 §3.4.1.1), and CMOVcc writes its
+destination unconditionally: only the VALUE is conditional.  So `cmovel %ecx,
+%eax` with ZF clear moves nothing and still clears the upper half of RAX, and a
+model that skipped the write leaves it intact.  The two differ only at width d,
+and only when the destination's upper 32 bits are non-zero. -/
+def wrongCmovSkipsWrite (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .cmov c sz dst src =>
+      -- the BUG: no write at all on a false condition
+      if c.eval s.flags then ((s.setReg sz dst (s.readOperand sz nr src)).setRip nr)
+      else s.setRip nr
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -560,7 +590,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — eleven deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — thirteen deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -576,6 +606,9 @@ def main (args : List String) : IO UInt32 := do
       let l ← driveWrong "jcxz inverts its test" wrongJcxzInverted "rip"
       let m ← driveWrong "jecxz ignores the address-size prefix and reads all 64 bits"
                 wrongJecxzWidth "rip"
+      let n ← driveWrong "setcc inverts its condition" wrongSetccInverted "rax"
+      let p ← driveWrong "cmov skips the write when the condition is false"
+                wrongCmovSkipsWrite "rax"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -585,7 +618,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k && l && m then
+      if a && b && c && d && e && f && g && h && j && k && l && m && n && p then
         IO.println "harness selftest: PASS"
         return 0
       else
