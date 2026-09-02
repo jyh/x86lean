@@ -534,3 +534,39 @@ Testing only that it fires when coverage is removed leaves the false-alarm
 direction unmeasured, and that is the direction that gets a gate deleted.
 
 **Reversal cost:** low.
+
+## D22 — A rotate's count is reduced twice, and its flags key off the first
+reduction.
+
+`Flags.rotMasked` masks to 5 bits (6 at width `q`); `Flags.rotReduced` then
+reduces modulo the width for `rol`/`ror` and modulo **width + 1** for
+`rcl`/`rcr`, which rotate the operand and CF together as a `w+1`-bit ring.
+
+⚠️ **The flag rules ask about the MASKED count.** The SDM writes *"IF COUNT ≠ 0
+THEN CF ← LSB(DEST)"* for `rol`, and COUNT is the masked count — so `rolb $8`
+moves no data and writes CF anyway. A model asking "did the data move?" — the
+reduced count — is correct on every other count and wrong on exactly the
+non-zero multiples of the width. That is this batch's planted hard half.
+
+And `rcl` is its mirror: `rclb $9` reduces modulo **nine** to zero, and its CF
+is written by the rotate loop itself, so a loop that does not execute writes
+nothing. Same count, same width, one opcode apart, opposite answers.
+
+**Two further rules that hang on a line of the manual:**
+* **RCR's OF is computed BEFORE the rotate, RCL's after.** The SDM writes the
+  identical sentence above RCR's loop and below RCL's.
+* **A rotate touches only CF and OF.** SF/ZF/PF/AF pass through untouched,
+  unlike every shift.
+
+⭐ **All four were implemented from the manual and all four came back agreeing
+with ACL2 x86isa on the first differential run**, 32412 cases, 0 unexplained.
+The model would have been self-consistent under any of the wrong readings; this
+is the third batch running (with D19 and D20) in which a second model settled
+something re-reading could not.
+
+`Flags.rotResult` is written as bit expressions rather than the SDM's
+one-bit-at-a-time loop: the loop is a specification, and a `while` in a
+definitional semantics would make every characterization theorem an induction.
+
+**Reversal cost:** low, and loud — two selftest arms, two `Tests/Coverage.lean`
+assertions and thirteen anchors.

@@ -152,6 +152,23 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   , { mnemonic := "sar",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)", "AF (count ≠ 0)"], sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
+  -- P1 BATCH 8: the ROTATE group (roster families 25, 26, 49-52).  Same opcode
+  -- block as the shifts, different `/r`, and entirely different flags: a rotate
+  -- touches ONLY CF and OF (SDM Vol. 2A), leaving SF/ZF/PF/AF exactly as they
+  -- were — which is why AF is absent from these undefined lists and present in
+  -- the shifts'.  `rcl`/`rcr` also READ CF, because they rotate through it.
+  , { mnemonic := "rol",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+      tier := .frame, decode := .xed,
+      undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
+  , { mnemonic := "ror",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+      tier := .frame, decode := .xed,
+      undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
+  , { mnemonic := "rcl",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+      tier := .frame, decode := .xed,
+      undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
+  , { mnemonic := "rcr",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+      tier := .frame, decode := .xed,
+      undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
   , { mnemonic := "lea",  shapes := "r, m", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A LEA" }
   -- P1 BATCH 4 (`p1/roster.tsv` families `-xxxxx-|-|mem` and `-xxxxx-|-|reg`):

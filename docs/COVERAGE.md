@@ -2,9 +2,13 @@
 
 # x86lean coverage
 
-Roster: 22 mnemonics in 379 differentially tested forms (P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and TEST at every operand shape, including a memory operand in the DESTINATION position and the first RIP-relative vector in the repository).
+Roster: 31 mnemonics in 438 differentially tested forms, covering **331 of the 525 forms** in `p1/roster.tsv`.
 
-Tiers: T-exact 20 · T-frame 7 · T-absent 0.
+P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in a destination that is read and never written, and the first RIP-relative vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the rotate group, ROL/ROR/RCL/RCR.
+
+The mnemonic count is `rosterSize` rather than a literal, so it cannot drift from the AST the way the sentence it replaced had.
+
+Tiers: T-exact 20 · T-frame 11 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -21,6 +25,10 @@ Tiers: T-exact 20 · T-frame 7 · T-absent 0.
 | `shl` | r · m(rmw) — one/imm8/cl, b/w/l/q (sal: alias) | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `shr` | r · m(rmw) — one/imm8/cl, b/w/l/q | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `sar` | r · m(rmw) — one/imm8/cl, b/w/l/q | T-frame | XED (trusted) | OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
+| `rol` | r · m(rmw) — one/imm8/cl, b/w/l/q | T-frame | XED (trusted) | OF (count ≠ 1) | Vol. 2A RCL/RCR/ROL/ROR |
+| `ror` | r · m(rmw) — one/imm8/cl, b/w/l/q | T-frame | XED (trusted) | OF (count ≠ 1) | Vol. 2A RCL/RCR/ROL/ROR |
+| `rcl` | r · m(rmw) — one/imm8/cl, b/w/l/q | T-frame | XED (trusted) | OF (count ≠ 1) | Vol. 2A RCL/RCR/ROL/ROR |
+| `rcr` | r · m(rmw) — one/imm8/cl, b/w/l/q | T-frame | XED (trusted) | OF (count ≠ 1) | Vol. 2A RCL/RCR/ROL/ROR |
 | `lea` | r, m | T-exact | XED (trusted) | — | Vol. 2A LEA |
 | `inc` | r · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A INC |
 | `dec` | r · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A DEC |

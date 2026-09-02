@@ -24,7 +24,7 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects fifteen real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects seventeen real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
@@ -32,8 +32,9 @@ destination, a memory read-modify-write that drops its store, and one that
 stores the right value at the wrong WIDTH, a `jcxz` with an inverted test, and a
 `jecxz` that ignores the address-size prefix, an inverted `setcc`, and a `cmov`
 that skips its write on a false condition, a `sar` that brings in zeros, and a
-`sar` given SHL/SHR's undefined-CF rule — and REQUIRES the comparator to catch
-each one.
+`sar` given SHL/SHR's undefined-CF rule, a backwards `rol`, and a rotate whose CF
+write keys on the reduced count — and REQUIRES the comparator to catch each
+one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
 accidental: each batch plants a PAIR, an easy half that almost any pre-state
@@ -577,6 +578,53 @@ def wrongSarCfUndefinedAtLargeCount (i : Instr) (s : Cpu) : Cpu :=
         { out with flags := { out.flags with cf := s.oracle.bits s.oracle.cursor } }
   | _ => step i s
 
+/-- ⭐ P1 BATCH 8's PLANTED BUG, EASY HALF: a `rol` that rotates RIGHT.  Any
+non-symmetric operand catches it. -/
+def wrongRolDirection (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .rot .rol sz dst amt =>
+      let cnt : BitVec 8 := match amt with
+        | .imm8 v => v
+        | .cl => (s.getReg .b .rcx).setWidth 8
+      let n := Flags.rotMasked sz cnt
+      let t := Flags.rotReduced .rol sz n
+      let a := s.readOperand sz nr dst
+      -- the BUG: the other direction
+      let res := Flags.rotResult .ror sz a s.flags.cf t
+      if n = 0 then (s.writeOperand sz nr dst res).setRip nr
+      else
+        let (ofU, s) := s.undefBit
+        let s := s.setFlags (Flags.rotFlags .rol sz a res n t ofU s.flags)
+        (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND IT IS THE MOST NATURAL WAY TO WRITE THIS INSTRUCTION
+WRONG.  This model asks "did the data move?" — the REDUCED count — where the SDM
+asks "was the count non-zero?" — the MASKED one.  So it skips `rol`'s and
+`ror`'s CF write whenever the masked count is a non-zero multiple of the width.
+
+Everywhere else the two counts are both zero or both non-zero and the models are
+identical.  `rol_b8` is the one vector in this table where they differ, and
+`rotates_reach_a_full_turn` in Tests/Coverage.lean is what keeps such a case
+present. -/
+def wrongRotCfKeyedOnReducedCount (i : Instr) (s : Cpu) : Cpu :=
+  let out := step i s
+  match i.op with
+  | .rot k sz _ amt =>
+      let cnt : BitVec 8 := match amt with
+        | .imm8 v => v
+        | .cl => (s.getReg .b .rcx).setWidth 8
+      let n := Flags.rotMasked sz cnt
+      let t := Flags.rotReduced k sz n
+      match k with
+      | .rol | .ror =>
+          -- the BUG: CF left alone when the data did not move, though n ≠ 0
+          if n ≠ 0 && t = 0 then { out with flags := { out.flags with cf := s.flags.cf } }
+          else out
+      | _ => out
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -640,7 +688,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — fifteen deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — seventeen deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -662,6 +710,9 @@ def main (args : List String) : IO UInt32 := do
       let q ← driveWrong "sar brings in zeros instead of the sign" wrongSarLogical "rax"
       let r' ← driveWrong "sar takes SHL/SHR's undefined-CF rule at a large count"
                  wrongSarCfUndefinedAtLargeCount "cf"
+      let t' ← driveWrong "rol rotates the wrong way" wrongRolDirection "rax"
+      let u ← driveWrong "a rotate keys its CF write on the REDUCED count"
+                wrongRotCfKeyedOnReducedCount "cf"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -671,7 +722,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' then
+      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' && t' && u then
         IO.println "harness selftest: PASS"
         return 0
       else
@@ -681,12 +732,17 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: 22 mnemonics in " ++ toString vectors.length ++ " differentially tested forms \
-(P0's twenty scalar forms; P1 BATCH 1 — `0xuxx0-|-|reg`, AND/OR/XOR writing a \
-register at every width and operand shape; P1 BATCH 2 — `xxxxxx-|cf|reg`, ADC \
-and SBB; P1 BATCH 3 — `xxxxxx-|-|flags/ctl` and `0xuxx0-|-|flags/ctl`, CMP and \
-TEST at every operand shape, including a memory operand in the DESTINATION \
-position and the first RIP-relative vector in the repository).\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **331 of the 525 forms** in `p1/roster.tsv`.\n\n\
+P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
+register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
+reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
+a destination that is read and never written, and the first RIP-relative \
+vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 \
+and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two \
+`step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the \
+rotate group, ROL/ROR/RCL/RCR.\n\n\
+The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
+from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
         toString ab ++ ".\n\n"
       let trust := "\n**Decode trust.** Every row reads `XED (trusted)`: the AST is built from \

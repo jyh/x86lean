@@ -952,4 +952,81 @@ theorem sar_mem_is_a_byte_rmw :
       (mk { rbx := 0x100 } {} ((Mem.empty.write 0x100 0x80).write 0x101 0xBB))
     (r.mem.read 0x100, r.mem.read 0x101) = (0xC0, 0xBB) := by decide
 
+/-! ## P1 BATCH 8 — the rotates, where the count is reduced twice
+
+Everything sharp here is the difference between the MASKED count and the
+REDUCED one, and the difference between rotating a `w`-bit value and a
+`w+1`-bit one. -/
+
+theorem rol_b_one : (step ⟨.rot .rol .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x80 })).regs.rax = 0x01 := by decide
+
+theorem rol_b_one_cf : (step ⟨.rot .rol .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x80 })).flags.cf = true := by decide
+
+theorem ror_b_one : (step ⟨.rot .ror .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x01 })).regs.rax = 0x80 := by decide
+
+/-- ⭐ RCL ROTATES A NINE-BIT RING AT WIDTH b.  `0x80` with CF clear: the top bit
+goes INTO CF and a zero comes out of it, so the byte becomes `0x00` and CF is 1
+— a plain `rol` would have produced `0x01`. -/
+theorem rcl_b_one_takes_the_top_bit_into_cf :
+    let r := step ⟨.rot .rcl .b (.reg .rax) (.imm8 1), 2⟩ (mk { rax := 0x80 })
+    (r.regs.rax, r.flags.cf) = (0x00, true) := by decide
+
+/-- ...and the carry comes back out at the bottom on the next rotate. -/
+theorem rcl_b_one_brings_cf_in_at_the_bottom :
+    let r := step ⟨.rot .rcl .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x00 } { cf := true })
+    (r.regs.rax, r.flags.cf) = (0x01, false) := by decide
+
+theorem rcr_b_one_takes_the_bottom_bit_into_cf :
+    let r := step ⟨.rot .rcr .b (.reg .rax) (.imm8 1), 2⟩ (mk { rax := 0x01 })
+    (r.regs.rax, r.flags.cf) = (0x00, true) := by decide
+
+theorem rcr_b_one_brings_cf_in_at_the_top :
+    let r := step ⟨.rot .rcr .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x00 } { cf := true })
+    (r.regs.rax, r.flags.cf) = (0x80, false) := by decide
+
+/-- ⭐ THE QUIRK, AND THIS BATCH'S PLANTED HARD HALF.  `rolb $8` has a masked
+count of 8 and a reduced count of 0: the DATA DOES NOT MOVE, and CF IS STILL
+WRITTEN, because the SDM's rule is "IF COUNT ≠ 0 THEN CF ← LSB(DEST)" and COUNT
+there is the MASKED count.  `0x81` stays `0x81` and CF becomes 1. -/
+theorem rol_b8_moves_nothing_but_writes_cf :
+    let r := step ⟨.rot .rol .b (.reg .rax) (.imm8 8), 3⟩
+      (mk { rax := 0x81 } { cf := false })
+    (r.regs.rax, r.flags.cf) = (0x81, true) := by decide
+
+/-- ⭐ AND ITS OPPOSITE ONE OPCODE AWAY.  `rclb $9` reduces modulo NINE, not
+eight, so its reduced count is also 0 — but `rcl`'s CF rule is the rotate loop
+itself, and a loop that does not execute writes nothing.  Data unchanged AND CF
+unchanged.  Same count, same width, opposite answer. -/
+theorem rcl_b9_moves_nothing_and_leaves_cf :
+    let r := step ⟨.rot .rcl .b (.reg .rax) (.imm8 9), 3⟩
+      (mk { rax := 0x81 } { cf := false })
+    (r.regs.rax, r.flags.cf) = (0x81, false) := by decide
+
+/-- ⭐ RCR's OF IS COMPUTED BEFORE THE ROTATE.  `rcrb $1` on `0x80` with CF
+clear: OF is `MSB(original) XOR CF-in` = 1.  Computed AFTER, as RCL's is, it
+would be `MSB(0x40) XOR 0` = 0.  The SDM writes the same sentence above RCR's
+loop and below RCL's. -/
+theorem rcr_of_is_computed_before_the_rotate :
+    (step ⟨.rot .rcr .b (.reg .rax) (.imm8 1), 2⟩
+      (mk { rax := 0x80 })).flags.of = true := by decide
+
+/-- ⚠️ A ROTATE TOUCHES ONLY CF AND OF.  SF, ZF, PF and AF come out exactly as
+they went in — the sharpest difference from the shifts, which recompute all
+four from the result. -/
+theorem rotate_leaves_the_arithmetic_flags :
+    let f : Flags := { sf := true, zf := true, pf := true, af := true }
+    let r := step ⟨.rot .rol .q (.reg .rax) (.imm8 5), 4⟩ (mk { rax := 0x1234 } f)
+    (r.flags.sf, r.flags.zf, r.flags.pf, r.flags.af) = (true, true, true, true) := by decide
+
+/-- A rotate at a memory destination is a read-modify-write of its own width. -/
+theorem rol_mem_is_a_byte_rmw :
+    let r := step ⟨.rot .rol .b (.mem { base := some .rbx }) (.imm8 1), 2⟩
+      (mk { rbx := 0x100 } {} ((Mem.empty.write 0x100 0x80).write 0x101 0xBB))
+    (r.mem.read 0x100, r.mem.read 0x101) = (0x01, 0xBB) := by decide
+
 end X86.Tests

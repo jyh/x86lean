@@ -238,6 +238,26 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         let s := s.setFlags (Flags.shiftFlags k sz a res n cfU ofU afU s.flags)
         (s.writeOperand sz nr dst res).setRip nr
 
+  -- ROL ROR RCL RCR (SDM Vol. 2A).  ONE oracle draw (OF) whenever the masked
+  -- count is non-zero, drawn whether or not it is needed — the same discipline
+  -- the shifts follow, and for the same reason: the cursor must be a function
+  -- of the instruction stream alone.  A masked count of zero touches nothing.
+  | .rot k sz dst amt =>
+      let cnt : BitVec 8 :=
+        match amt with
+        | .imm8 v => v
+        | .cl => (s.getReg .b .rcx).setWidth 8
+      let n := Flags.rotMasked sz cnt
+      let t := Flags.rotReduced k sz n
+      let a := s.readOperand sz nr dst
+      let res := Flags.rotResult k sz a s.flags.cf t
+      if n = 0 then
+        (s.writeOperand sz nr dst res).setRip nr
+      else
+        let (ofU, s) := s.undefBit
+        let s := s.setFlags (Flags.rotFlags k sz a res n t ofU s.flags)
+        (s.writeOperand sz nr dst res).setRip nr
+
   -- LEA (SDM Vol. 2A, LEA): computes the effective address and writes it under
   -- the ordinary register-width rules, so `lea eax, [...]` zero-extends.
   -- "Flags Affected: None."

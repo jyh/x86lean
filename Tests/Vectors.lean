@@ -994,6 +994,144 @@ def vectors : List Vec :=
     , bytes := "48c1f83f", instr := ⟨.shift .sar .q (R .rax) (.imm8 63), 4⟩ }
   , { id := "sar_b9", mnemonic := "sar", asm := "sarb $9, %al"
     , bytes := "c0f809", instr := ⟨.shift .sar .b (R .rax) (.imm8 9), 3⟩ }
+  -- ══ P1 BATCH 8 ═════════════════════════════════════════════════════════
+  -- The ROTATE group: roster families 25, 26, 49, 50, 51 and 52 — **24 forms**,
+  -- `rol`/`ror`/`rcl`/`rcr` at a register AND a memory destination, in all
+  -- three count encodings.  Same opcode block as batch 7's shifts (`D0`-`D3`,
+  -- `C0`/`C1`), a different `/r` field, and entirely different flag rules.
+  --
+  -- ⭐ THREE VECTORS AT THE END ARE THE WHOLE POINT.  The count is reduced
+  -- TWICE and the two reductions differ: `rol`/`ror` reduce modulo the WIDTH,
+  -- `rcl`/`rcr` modulo the width PLUS ONE (they rotate the operand and CF
+  -- together, a `w+1`-bit ring).  And the FLAG rules key off the FIRST
+  -- reduction, not the second:
+  --   * `rol_b8` — masked 8, reduced 0.  The data does NOT move and CF is
+  --     still written.  A model testing the reduced count for "did anything
+  --     happen" leaves CF alone and is wrong here and nowhere else.
+  --   * `rol_b9` — masked 9, reduced 1.  The data rotates by one and OF is
+  --     UNDEFINED anyway, because the SDM's OF rule asks whether the count is
+  --     1, and it is 9.
+  --   * `rcl_b9` — masked 9, reduced 9 mod 9 = 0.  Nothing moves and CF is
+  --     NOT written, because the SDM's loop simply does not execute — the
+  --     opposite of `rol_b8`, at the same count, one opcode away.
+  , { id := "rol_r_one_b", mnemonic := "rol", asm := "rolb %al"
+    , bytes := "d0c0", instr := ⟨.rot .rol .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "rol_r_one_q", mnemonic := "rol", asm := "rolq %rax"
+    , bytes := "48d1c0", instr := ⟨.rot .rol .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "rol_ri5_b", mnemonic := "rol", asm := "rolb $5, %al"
+    , bytes := "c0c005", instr := ⟨.rot .rol .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "rol_ri5_w", mnemonic := "rol", asm := "rolw $5, %ax"
+    , bytes := "66c1c005", instr := ⟨.rot .rol .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "rol_ri5_l", mnemonic := "rol", asm := "roll $5, %eax"
+    , bytes := "c1c005", instr := ⟨.rot .rol .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "rol_ri5_q", mnemonic := "rol", asm := "rolq $5, %rax"
+    , bytes := "48c1c005", instr := ⟨.rot .rol .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "rol_r_cl_b", mnemonic := "rol", asm := "rolb %cl, %al"
+    , bytes := "d2c0", instr := ⟨.rot .rol .b (R .rax) .cl, 2⟩ }
+  , { id := "rol_r_cl_q", mnemonic := "rol", asm := "rolq %cl, %rax"
+    , bytes := "48d3c0", instr := ⟨.rot .rol .q (R .rax) .cl, 3⟩ }
+  , { id := "rol_m_one_b", mnemonic := "rol", asm := "rolb (%rbx)"
+    , bytes := "d003", instr := ⟨.rot .rol .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "rol_m_one_q", mnemonic := "rol", asm := "rolq (%rbx)"
+    , bytes := "48d103", instr := ⟨.rot .rol .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "rol_mi5_b", mnemonic := "rol", asm := "rolb $5, (%rbx)"
+    , bytes := "c00305", instr := ⟨.rot .rol .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "rol_mi5_q", mnemonic := "rol", asm := "rolq $5, (%rbx)"
+    , bytes := "48c10305", instr := ⟨.rot .rol .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "rol_m_cl_b", mnemonic := "rol", asm := "rolb %cl, (%rbx)"
+    , bytes := "d203", instr := ⟨.rot .rol .b (M .rbx) .cl, 2⟩ }
+  , { id := "rol_m_cl_q", mnemonic := "rol", asm := "rolq %cl, (%rbx)"
+    , bytes := "48d303", instr := ⟨.rot .rol .q (M .rbx) .cl, 3⟩ }
+  , { id := "ror_r_one_b", mnemonic := "ror", asm := "rorb %al"
+    , bytes := "d0c8", instr := ⟨.rot .ror .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "ror_r_one_q", mnemonic := "ror", asm := "rorq %rax"
+    , bytes := "48d1c8", instr := ⟨.rot .ror .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "ror_ri5_b", mnemonic := "ror", asm := "rorb $5, %al"
+    , bytes := "c0c805", instr := ⟨.rot .ror .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "ror_ri5_w", mnemonic := "ror", asm := "rorw $5, %ax"
+    , bytes := "66c1c805", instr := ⟨.rot .ror .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "ror_ri5_l", mnemonic := "ror", asm := "rorl $5, %eax"
+    , bytes := "c1c805", instr := ⟨.rot .ror .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "ror_ri5_q", mnemonic := "ror", asm := "rorq $5, %rax"
+    , bytes := "48c1c805", instr := ⟨.rot .ror .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "ror_r_cl_b", mnemonic := "ror", asm := "rorb %cl, %al"
+    , bytes := "d2c8", instr := ⟨.rot .ror .b (R .rax) .cl, 2⟩ }
+  , { id := "ror_r_cl_q", mnemonic := "ror", asm := "rorq %cl, %rax"
+    , bytes := "48d3c8", instr := ⟨.rot .ror .q (R .rax) .cl, 3⟩ }
+  , { id := "ror_m_one_b", mnemonic := "ror", asm := "rorb (%rbx)"
+    , bytes := "d00b", instr := ⟨.rot .ror .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "ror_m_one_q", mnemonic := "ror", asm := "rorq (%rbx)"
+    , bytes := "48d10b", instr := ⟨.rot .ror .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "ror_mi5_b", mnemonic := "ror", asm := "rorb $5, (%rbx)"
+    , bytes := "c00b05", instr := ⟨.rot .ror .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "ror_mi5_q", mnemonic := "ror", asm := "rorq $5, (%rbx)"
+    , bytes := "48c10b05", instr := ⟨.rot .ror .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "ror_m_cl_b", mnemonic := "ror", asm := "rorb %cl, (%rbx)"
+    , bytes := "d20b", instr := ⟨.rot .ror .b (M .rbx) .cl, 2⟩ }
+  , { id := "ror_m_cl_q", mnemonic := "ror", asm := "rorq %cl, (%rbx)"
+    , bytes := "48d30b", instr := ⟨.rot .ror .q (M .rbx) .cl, 3⟩ }
+  , { id := "rcl_r_one_b", mnemonic := "rcl", asm := "rclb %al"
+    , bytes := "d0d0", instr := ⟨.rot .rcl .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "rcl_r_one_q", mnemonic := "rcl", asm := "rclq %rax"
+    , bytes := "48d1d0", instr := ⟨.rot .rcl .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "rcl_ri5_b", mnemonic := "rcl", asm := "rclb $5, %al"
+    , bytes := "c0d005", instr := ⟨.rot .rcl .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "rcl_ri5_w", mnemonic := "rcl", asm := "rclw $5, %ax"
+    , bytes := "66c1d005", instr := ⟨.rot .rcl .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "rcl_ri5_l", mnemonic := "rcl", asm := "rcll $5, %eax"
+    , bytes := "c1d005", instr := ⟨.rot .rcl .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "rcl_ri5_q", mnemonic := "rcl", asm := "rclq $5, %rax"
+    , bytes := "48c1d005", instr := ⟨.rot .rcl .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "rcl_r_cl_b", mnemonic := "rcl", asm := "rclb %cl, %al"
+    , bytes := "d2d0", instr := ⟨.rot .rcl .b (R .rax) .cl, 2⟩ }
+  , { id := "rcl_r_cl_q", mnemonic := "rcl", asm := "rclq %cl, %rax"
+    , bytes := "48d3d0", instr := ⟨.rot .rcl .q (R .rax) .cl, 3⟩ }
+  , { id := "rcl_m_one_b", mnemonic := "rcl", asm := "rclb (%rbx)"
+    , bytes := "d013", instr := ⟨.rot .rcl .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "rcl_m_one_q", mnemonic := "rcl", asm := "rclq (%rbx)"
+    , bytes := "48d113", instr := ⟨.rot .rcl .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "rcl_mi5_b", mnemonic := "rcl", asm := "rclb $5, (%rbx)"
+    , bytes := "c01305", instr := ⟨.rot .rcl .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "rcl_mi5_q", mnemonic := "rcl", asm := "rclq $5, (%rbx)"
+    , bytes := "48c11305", instr := ⟨.rot .rcl .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "rcl_m_cl_b", mnemonic := "rcl", asm := "rclb %cl, (%rbx)"
+    , bytes := "d213", instr := ⟨.rot .rcl .b (M .rbx) .cl, 2⟩ }
+  , { id := "rcl_m_cl_q", mnemonic := "rcl", asm := "rclq %cl, (%rbx)"
+    , bytes := "48d313", instr := ⟨.rot .rcl .q (M .rbx) .cl, 3⟩ }
+  , { id := "rcr_r_one_b", mnemonic := "rcr", asm := "rcrb %al"
+    , bytes := "d0d8", instr := ⟨.rot .rcr .b (R .rax) (.imm8 1), 2⟩ }
+  , { id := "rcr_r_one_q", mnemonic := "rcr", asm := "rcrq %rax"
+    , bytes := "48d1d8", instr := ⟨.rot .rcr .q (R .rax) (.imm8 1), 3⟩ }
+  , { id := "rcr_ri5_b", mnemonic := "rcr", asm := "rcrb $5, %al"
+    , bytes := "c0d805", instr := ⟨.rot .rcr .b (R .rax) (.imm8 5), 3⟩ }
+  , { id := "rcr_ri5_w", mnemonic := "rcr", asm := "rcrw $5, %ax"
+    , bytes := "66c1d805", instr := ⟨.rot .rcr .w (R .rax) (.imm8 5), 4⟩ }
+  , { id := "rcr_ri5_l", mnemonic := "rcr", asm := "rcrl $5, %eax"
+    , bytes := "c1d805", instr := ⟨.rot .rcr .d (R .rax) (.imm8 5), 3⟩ }
+  , { id := "rcr_ri5_q", mnemonic := "rcr", asm := "rcrq $5, %rax"
+    , bytes := "48c1d805", instr := ⟨.rot .rcr .q (R .rax) (.imm8 5), 4⟩ }
+  , { id := "rcr_r_cl_b", mnemonic := "rcr", asm := "rcrb %cl, %al"
+    , bytes := "d2d8", instr := ⟨.rot .rcr .b (R .rax) .cl, 2⟩ }
+  , { id := "rcr_r_cl_q", mnemonic := "rcr", asm := "rcrq %cl, %rax"
+    , bytes := "48d3d8", instr := ⟨.rot .rcr .q (R .rax) .cl, 3⟩ }
+  , { id := "rcr_m_one_b", mnemonic := "rcr", asm := "rcrb (%rbx)"
+    , bytes := "d01b", instr := ⟨.rot .rcr .b (M .rbx) (.imm8 1), 2⟩ }
+  , { id := "rcr_m_one_q", mnemonic := "rcr", asm := "rcrq (%rbx)"
+    , bytes := "48d11b", instr := ⟨.rot .rcr .q (M .rbx) (.imm8 1), 3⟩ }
+  , { id := "rcr_mi5_b", mnemonic := "rcr", asm := "rcrb $5, (%rbx)"
+    , bytes := "c01b05", instr := ⟨.rot .rcr .b (M .rbx) (.imm8 5), 3⟩ }
+  , { id := "rcr_mi5_q", mnemonic := "rcr", asm := "rcrq $5, (%rbx)"
+    , bytes := "48c11b05", instr := ⟨.rot .rcr .q (M .rbx) (.imm8 5), 4⟩ }
+  , { id := "rcr_m_cl_b", mnemonic := "rcr", asm := "rcrb %cl, (%rbx)"
+    , bytes := "d21b", instr := ⟨.rot .rcr .b (M .rbx) .cl, 2⟩ }
+  , { id := "rcr_m_cl_q", mnemonic := "rcr", asm := "rcrq %cl, (%rbx)"
+    , bytes := "48d31b", instr := ⟨.rot .rcr .q (M .rbx) .cl, 3⟩ }
+  , { id := "rol_b8", mnemonic := "rol", asm := "rolb $8, %al"
+    , bytes := "c0c008", instr := ⟨.rot .rol .b (R .rax) (.imm8 8), 3⟩ }
+  , { id := "rol_b9", mnemonic := "rol", asm := "rolb $9, %al"
+    , bytes := "c0c009", instr := ⟨.rot .rol .b (R .rax) (.imm8 9), 3⟩ }
+  , { id := "rcl_b9", mnemonic := "rcl", asm := "rclb $9, %al"
+    , bytes := "c0d009", instr := ⟨.rot .rcl .b (R .rax) (.imm8 9), 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

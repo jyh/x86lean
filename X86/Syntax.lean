@@ -101,6 +101,19 @@ inductive ShiftKind where
   | sar
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- P1 BATCH 7/8: the ROTATE mnemonics.  They are a separate kind from
+`ShiftKind` and not an extension of it, because their flag rules are different
+in kind: a rotate's CF is a COPY of a bit that stayed in the value (or, for
+`rcl`/`rcr`, a bit that passed THROUGH CF), never a bit that fell off the end,
+and CF is an INPUT to two of the four. -/
+inductive RotKind where
+  | rol | ror
+  /-- Rotate THROUGH the carry: the operand and CF together form a `w+1`-bit
+  ring (SDM Vol. 2A, RCL/RCR).  This is why their counts are taken modulo 9 and
+  17 at widths b and w rather than modulo 8 and 16. -/
+  | rcl | rcr
+  deriving DecidableEq, Repr, Inhabited, BEq
+
 /-- A shift count: an 8-bit immediate, or CL. -/
 inductive ShiftAmt where
   | imm8 (v : BitVec 8)
@@ -209,6 +222,8 @@ inductive Op where
   which is what every other form in this AST already assumes about prefixes
   (the header: "prefixes are resolved"). -/
   | jcxz  (addr32 : Bool) (d : Val)
+  /-- P1 BATCH 8: ROL/ROR/RCL/RCR (SDM Vol. 2A). -/
+  | rot   (k : RotKind) (sz : Size) (dst : Operand) (amt : ShiftAmt)
   /-- P1 BATCH 6: SETcc (SDM Vol. 2A, SETcc).  Writes ONE BYTE — 1 or 0 — to an
   8-bit destination, register or memory.  "Flags Affected: None." -/
   | setcc (c : Cc) (dst : Operand)
@@ -250,6 +265,8 @@ def Op.mnemonic : Op → String
   | .jmp .. => "jmp"
   | .jcc c _ => c.mnemonic
   | .jcxz a32 _ => if a32 then "jecxz" else "jrcxz"
+  | .rot k .. => match k with
+    | .rol => "rol" | .ror => "ror" | .rcl => "rcl" | .rcr => "rcr"
   | .setcc c _ => "set" ++ (c.suffixes.headD "?")
   | .cmov c _ _ _ => "cmov" ++ (c.suffixes.headD "?")
   | .call .. => "call"
@@ -266,7 +283,8 @@ step with each other. -/
 def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
    "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
-   "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc", "sar"]
+   "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc", "sar",
+   "rol", "ror", "rcl", "rcr"]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

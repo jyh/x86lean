@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`. -/
-theorem roster_size_is_27 : rosterSize = 27 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates. -/
+theorem roster_size_is_31 : rosterSize = 31 := by decide
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
@@ -263,6 +263,14 @@ def hasMemDestVector (m : String) : Bool :=
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem
     | .shift _ _ d _ => d.isMem
+    -- ⭐ ADDED IN BATCH 8, AND THE GATE IS WHY.  The four rotate rows claim
+    -- `m(rmw)` and have the vectors for it, but this function did not know the
+    -- `.rot` constructor existed, so it answered "no vector" and the theorem
+    -- failed.  A checker that enumerates constructors goes STALE the moment the
+    -- AST grows, and it fails CLOSED — refusing a true claim — which is the
+    -- right direction to fail but still a thing that must be fixed rather than
+    -- worked around by weakening the row.
+    | .rot _ _ d _ => d.isMem
     | .pop _ d => d.isMem
     | _ => false))
 
@@ -385,6 +393,38 @@ theorem sar_reaches_count_ge_width :
               | .imm8 x => x
               | .cl => (st.getReg .b .rcx).setWidth 8
             sz.bits ≤ Flags.shiftCount sz c)
+      | _ => false) = true := by decide
+
+/-! ### P1 BATCH 8 — the rotate group -/
+
+/-- ⭐ SOME ROTATE CASE RUNS AT A FULL TURN: a masked count that is a NON-ZERO
+multiple of the operand width, where the data does not move and CF is written
+anyway.  That single shape is the only place the masked and reduced counts
+disagree for `rol`/`ror`, and a model keying its CF write on the reduced count
+is correct everywhere else.
+
+Quantified over (vector × pre-state) per D21, so a `cl` form supplying the same
+count keeps it satisfied and the gate does not cry wolf. -/
+theorem rotates_reach_a_full_turn :
+    vectors.any (fun v => match v.instr.op with
+      | .rot k sz _ amt =>
+          (k == RotKind.rol || k == RotKind.ror)
+          && (preStates 1 8).any (fun st =>
+            let c : BitVec 8 := match amt with
+              | .imm8 x => x
+              | .cl => (st.getReg .b .rcx).setWidth 8
+            let n := Flags.rotMasked sz c
+            n ≠ 0 && Flags.rotReduced k sz n = 0)
+      | _ => false) = true := by decide
+
+/-- And `rcl`/`rcr` reach their OWN zero, which is a different count because they
+reduce modulo width+1 — `rclb $9`, not `$8`. -/
+theorem carry_rotates_reach_their_own_zero :
+    vectors.any (fun v => match v.instr.op with
+      | .rot k sz _ (.imm8 c) =>
+          (k == RotKind.rcl || k == RotKind.rcr)
+          && (let n := Flags.rotMasked sz c
+              n ≠ 0 && Flags.rotReduced k sz n = 0)
       | _ => false) = true := by decide
 
 end X86.Tests

@@ -244,5 +244,87 @@ def shiftFlags (k : ShiftKind) (sz : Size) (a res : Val) (n : Nat)
     else ofU
   { fromResult sz res f with cf := cf, af := afU, of := of }
 
+/-! ### ROTATES — SDM Vol. 2A, RCL/RCR/ROL/ROR
+
+⭐ THE COUNT IS REDUCED TWICE AND THE TWO REDUCTIONS ARE DIFFERENT.  First the
+processor masks the count to 5 bits (6 at width q) exactly as the shifts do.
+Then `rol`/`ror` reduce MODULO THE WIDTH, because a rotate by the width is the
+identity — while `rcl`/`rcr` reduce **modulo the width PLUS ONE**, because the
+value they rotate is the operand *and CF together*, a `w+1`-bit ring.
+
+⚠️ AND THE FLAGS KEY OFF THE FIRST REDUCTION, NOT THE SECOND.  `rolb $8` has a
+masked count of 8 and a reduced count of 0: the DATA does not move, and CF is
+still written.  A model that tested the reduced count for "did anything happen"
+would leave CF alone and be wrong on exactly those counts. -/
+
+/-- The masked count, before the modular reduction — this is the one the flag
+rules ask about. -/
+def rotMasked (sz : Size) (c : BitVec 8) : Nat :=
+  match sz with | .q => c.toNat % 64 | _ => c.toNat % 32
+
+/-- The reduced count: modulo the width for `rol`/`ror`, modulo width+1 for
+`rcl`/`rcr`. -/
+def rotReduced (k : RotKind) (sz : Size) (n : Nat) : Nat :=
+  match k with
+  | .rol | .ror => n % sz.bits
+  | .rcl | .rcr => n % (sz.bits + 1)
+
+/-- The ROTATED VALUE.  `t` is the REDUCED count (`rotReduced`), so
+`0 ≤ t < w` for `rol`/`ror` and `0 ≤ t ≤ w` for `rcl`/`rcr`.
+
+Written as bit expressions rather than as the SDM's one-bit-at-a-time loop: the
+loop is a specification, and a `while` in a definitional semantics would make
+every characterization theorem an induction.  `rcl`/`rcr` rotate the `w+1`-bit
+value `CF:DEST`, which is what the three disjuncts spell out — the operand
+shifted, the incoming CF landing in the vacated position, and the bits that
+wrapped past the carry. -/
+def rotResult (k : RotKind) (sz : Size) (a : Val) (cf : Bool) (t : Nat) : Val :=
+  let w := sz.bits
+  let aw := Value.trunc sz a
+  let cfb : Val := if cf then 1 else 0
+  match k with
+  | .rol => Value.trunc sz ((aw <<< t) ||| (aw >>> (w - t)))
+  | .ror => Value.trunc sz ((aw >>> t) ||| (aw <<< (w - t)))
+  | .rcl =>
+      if t = 0 then aw
+      else Value.trunc sz ((aw <<< t) ||| (cfb <<< (t - 1)) ||| (aw >>> (w + 1 - t)))
+  | .rcr =>
+      if t = 0 then aw
+      else Value.trunc sz ((aw >>> t) ||| (cfb <<< (w - t)) ||| (aw <<< (w + 1 - t)))
+
+/-- The flags after a rotate.
+
+⚠️ ROTATES TOUCH ONLY CF AND OF (SDM Vol. 2A: "affect only the CF and OF
+flags") — SF, ZF, PF and AF are left exactly as they were, which is the sharpest
+difference from the shifts and the reason `Flags.fromResult` is not called here.
+
+`n` is the MASKED count and `t` the reduced one; the two disagree exactly when a
+rotate moves no data but still reports a carry. -/
+def rotFlags (k : RotKind) (sz : Size) (a res : Val) (n t : Nat)
+    (ofU : Bool) (f : Flags) : Flags :=
+  let cf : Bool :=
+    match k with
+    -- SDM: "IF COUNT ≠ 0 THEN CF ← LSB/MSB(DEST)" — the MASKED count, so
+    -- `rolb $8` writes CF although the data did not move.
+    | .rol => if n = 0 then f.cf else res.getLsbD 0
+    | .ror => if n = 0 then f.cf else Value.msb sz res
+    -- `rcl`/`rcr` carry CF through the ring, so a reduced count of zero leaves
+    -- it alone: the loop the SDM writes simply does not execute.
+    | .rcl => if t = 0 then f.cf else (Value.trunc sz a).getLsbD (sz.bits - t)
+    | .rcr => if t = 0 then f.cf else (Value.trunc sz a).getLsbD (t - 1)
+  let of : Bool :=
+    if n = 0 then f.of
+    else if n = 1 then
+      match k with
+      | .rol => Value.msb sz res != cf
+      | .ror => Value.msb sz res != res.getLsbD (sz.signBit - 1)
+      -- ⭐ RCL's OF is computed AFTER the rotate and RCR's BEFORE it — the SDM
+      -- writes RCR's `OF ← MSB(DEST) XOR CF` ABOVE its loop and RCL's BELOW.
+      -- Same sentence, different line, different answer.
+      | .rcl => Value.msb sz res != cf
+      | .rcr => Value.msb sz (Value.trunc sz a) != f.cf
+    else ofU
+  { f with cf := cf, of := of }
+
 end Flags
 end X86
