@@ -1,0 +1,15 @@
+# Lean build products
+/.lake/
+*.olean
+*.ilean
+*.hash
+*.trace
+
+# The differential oracle's source tree: ACL2 + the community books, cloned
+# from public sources by scripts/setup_oracle.sh.  ~1.7 GB and not ours to
+# vendor — the RECIPE is what this repository carries (docs/ORACLE-SETUP.md),
+# never the tree.
+/vendor/
+
+# Harness run products
+/run/

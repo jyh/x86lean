@@ -1,0 +1,39 @@
+name = "x86lean"
+version = "0.1.0"
+keywords = ["x86", "isa", "semantics", "formal-verification"]
+defaultTargets = ["X86"]
+
+# NO MATHLIB DEPENDENCY IN THE MODEL LIBRARY. See docs/DECISIONS.md D1 (posted
+# on the bus as a plan-v1 deviation with its reasoning). The toolchain is PINNED
+# to salt's `v4.32.0-rc1` so the two repos share an elan toolchain, and the
+# mathlib revision that pairs with it (`360da6fa66c1`) is RECORDED in
+# docs/DECISIONS.md as the tested-compatible rev should a metatheory layer ever
+# need it. The model itself needs only Lean core's `BitVec`.
+
+[leanOptions]
+relaxedAutoImplicit = false
+autoImplicit = false
+pp.unicode.fun = true
+
+[[lean_lib]]
+name = "X86"
+
+# The SEPARATELY LABELLED native tier (plan v1 §3.3/§3.6). Nothing in `X86`
+# imports it. It has its own CI gate line and its own coverage column, and it is
+# the ONLY place outside the test tree where a native-computation axiom is legal.
+[[lean_lib]]
+name = "X86Native"
+
+# Test tree: anchors, nonvacuity, and the red-first drive of the axiom gate.
+[[lean_lib]]
+name = "Tests"
+
+# The differential harness driver (compiled, not kernel-evaluated).
+[[lean_exe]]
+name = "x86lean-diff"
+root = "Main"
+
+# The axiom gate: an ALLOWLIST checker run in CI over the whole `X86` library.
+[[lean_exe]]
+name = "x86lean-axioms"
+root = "AxiomGate"

@@ -1,0 +1,169 @@
+# P0 decisions
+
+Decisions taken while executing P0 that **depart from, or sharpen, plan v1**
+(`~/projects/claude/seat/briefs/2026-09-02-PLAN-x86lean-v1.md`). Each says what
+was decided, why, and what it would cost to reverse. A decision not written down
+here is not a decision; it is a habit.
+
+---
+
+## D1 — The model library depends on Lean core ONLY. No mathlib.
+
+Plan v1 §5 says the repo is "pinned to a recorded mathlib rev". The toolchain
+**is** pinned — `leanprover/lean4:v4.32.0-rc1`, the same as salt, so the two
+repos share an elan toolchain — and the compatible mathlib revision is recorded
+here (`leanprover-community/mathlib4` at `360da6fa66c1`, the rev salt uses with
+this toolchain). But `lakefile.toml` **requires** nothing.
+
+**Why.** Three reasons, in order of weight:
+
+1. **The consumer interface (plan v1 §6) is the deliverable.** This model exists
+   so binary-level proof projects can build on it. A mathlib dependency is a tax
+   on every one of them — a multi-gigabyte build and a large trusted surface —
+   levied for `BitVec`, which is in Lean core.
+2. **Kernel cost (§3.7).** mathlib's simp set and instance search are a
+   substantial elaboration and kernel cost, and §3.7 asks for kernel time to be
+   measured and capped. Starting from core keeps the baseline honest and the
+   ceilings meaningful: the measured total is **606 ms across the whole
+   development** (`scripts/kernel_cost.py`).
+3. **The axiom allowlist stays narrow by construction** rather than by audit.
+
+**Reversal cost: near zero, and it stays that way.** Adding a `[[require]]` is
+one stanza; the direction that is expensive is the other one, and it gets more
+expensive with every form. If a metatheory layer ever needs mathlib, it can be
+its own library that depends on `X86` — which is exactly the shape a consumer
+would want anyway.
+
+---
+
+## D2 — The XMM/YMM/ZMM register file and MXCSR are ABSENT at P0.
+
+Plan v1 §3.1 lists them in the state. P0's roster is the scalar subset, so at P0
+they would be fields no instruction reads and no test constrains.
+
+**Why.** A field that nothing touches reads as coverage to anyone skimming the
+state, and is worth nothing. Adding a field to a Lean structure is
+source-compatible with every `{ s with … }` update and every `rfl`-shaped
+characterization lemma already proven, so deferring costs nothing and claiming
+costs credibility.
+
+**Due:** P2, with the first SIMD form. **Reversal cost: one structure field.**
+
+---
+
+## D3 — Memory is a TOTAL read over a FINITE representation.
+
+Plan v1 §3.1 asks for "memory as a total `BitVec 64 → BitVec 8`".
+`X86.Mem.read : Mem → BitVec 64 → BitVec 8` is total — every one of the 2^64
+addresses reads, with a zero background — but the representation is an
+association list.
+
+**Why.** A raw function field would satisfy the letter and make the P0 exit
+criterion unreachable: the differential harness must **enumerate** a memory to
+ship it to x86isa and diff a delta afterwards, and a function cannot be
+enumerated, shipped or diffed. The interface (`read`/`write`/`readSize`/
+`writeSize` and four lemmas) is the seam, placed at P0 deliberately — swapping
+the representation after 300 forms are written against a concrete list is a
+different job from swapping it now.
+
+⚠️ **Named cost:** `write` conses, so `read` is O(n) in the number of stores. Free
+at P0's handful of stores per vector; a real P1 item.
+
+---
+
+## D4 — Every operand value is a `BitVec 64` with the width as a datum.
+
+**Why.** A `BitVec sz.bits` indexed by the operand width makes `step`
+dependently typed, and then every characterization lemma must transport across
+width equalities before it can say anything. ACL2 x86isa makes the same choice
+for the same reason. The cost is one invariant — every read is truncated —
+discharged by the `X86.Value` lemma pack rather than assumed.
+
+---
+
+## D5 — The oracle draw ORDER **and COUNT** are part of the model.
+
+A shift with a non-zero masked count draws exactly **three** bits in the order
+**CF, OF, AF**, whether or not each is undefined at that count; the logic group
+draws exactly **one** (AF).
+
+**Why.** Fixing the order alone is not enough. If the *count* varied with the
+operands, the oracle cursor would not be a function of the instruction stream,
+and a differential run could not be replayed from its seed — which is the only
+way a disagreement gets bisected. Stated in `X86/Semantics.lean`, asserted in
+`Tests/Nonvacuity.lean` §3, and visible in the characterization theorems
+themselves as the `oracle := { … cursor := … + n }` component.
+
+---
+
+## D6 — The harness's "undefined" set is DERIVED, never declared.
+
+`X86.undefinedFlags` runs the same step under two opposite oracles and reports
+which flags moved. The harness has no list of its own.
+
+**Why.** A declared list is a second source of truth about what the model
+refuses to commit to, and it goes stale the first time a form changes tier —
+silently, because a stale list makes the comparator *more* permissive. Deriving
+it means there is one notion of "undefined" in the system and it is the
+semantics'. `undefinedLeaked` is the companion check: if the two oracle runs
+differ anywhere **outside** the flags, an undefined bit has reached a register,
+RIP, memory or the model state, which no tier admits.
+
+---
+
+## D7 — The native tier is a separate LIBRARY (`X86Native`), not a module
+`X86.Native`.
+
+TRUSTBASE.md as written at commit 1 named the tier `X86.Native`. A sibling
+module inside the `X86` library would be one stray `import` away from the model
+tree; a separate `lean_lib` cannot be imported by accident and the isolation is
+checkable in one line (`scripts/check_tier_isolation.sh`). TRUSTBASE.md is
+amended to match, with this note as the reason.
+
+---
+
+## D8 — Kernel ceilings registered at 3× the measured baseline, floor 50 ms.
+
+`scripts/kernel_ceilings.txt`, generated by `scripts/kernel_cost.py --register`.
+Below 50 ms, timing noise dominates and a ratio would fail on a loaded machine;
+above it, 3× is loose enough for an ordinary build and tight enough that the
+defeq blow-up §3.7 warns about cannot hide. **Raising a ceiling is a decision to
+record here, not an edit to make quietly.**
+
+---
+
+# Three defects found in P0's own gates, and what they cost
+
+Recorded because each was found by a gate firing on this repository rather than
+by review, and each has the same shape: **a check that cannot see its subject
+reports a pass.**
+
+### 1. The harness selftest found a hole in the VECTOR TABLE, not in the model.
+
+The planted "shift forgets to mask its count" bug went **uncaught**: every shift
+vector used a count of 1 or 3, both below every mask, so an unmasked model
+produced identical results everywhere. The vectors, not the comparator, were
+wrong. Five masking-boundary forms were added (`shlq $64` → masks to 0,
+`shlb $9` → count ≥ width, `shrq $63`, `shrb $9`, `shlq $1`), and the bug is now
+caught with 88 disagreements in `rax`.
+⇒ **A differential vector set that never crosses a rule's boundary cannot test
+that rule, and the coverage table will still say the form is covered.**
+
+### 2. The first "wrong model" was wrong in more ways than the one planted.
+
+The initial `wrongShiftMask` also dropped the flag computation, so it produced
+369 disagreements while the *planted* bug produced none. It looked like a pass.
+⇒ **A deliberately-wrong model must be wrong in exactly one way, or a catch
+proves nothing about the thing you meant to test.** The selftest now asserts the
+disagreement lands in the specific FIELD the bug is in.
+
+### 3. The kernel-cost gate read the wrong stream and reported CLEAN.
+
+Lean's profiler writes to **stderr**; the first draft searched stdout, measured
+`0.0 ms` for all eighteen modules, and printed `kernel-cost gate: CLEAN`. It now
+reads both streams and — the part that matters — **distinguishes a real zero
+from a failed measurement**: a module with no `type checking` line but a
+cumulative profiler block genuinely type-checks nothing (`X86.lean` is only
+imports), while no profiler block at all is an error and exits non-zero.
+⇒ **A gate that reports zero for everything is not passing; it is blind, and
+blindness and success are byte-identical in the output.**

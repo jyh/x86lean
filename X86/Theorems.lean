@@ -1,0 +1,370 @@
+/-
+# X86.Theorems — one characterization theorem per form, and the frame it carries
+
+Plan v1 §3.5: "record-update predicates per instruction class + one
+characterization theorem per form (`step i s = { s with … }`), proven once."
+
+WHY THE `{ s with … }` SHAPE AND NOT A PACK OF PROJECTIONS.  A single equation
+says what the instruction DOES and what it LEAVES ALONE in one statement: every
+field not named is, by the record-update notation, unchanged.  A pack of
+projection lemmas can be INCOMPLETE — it can silently omit the field the
+instruction quietly clobbers — and nothing about the pack reveals the omission.
+That is the frame problem, and the record-update shape is the standard answer
+(Myreen, FMCAD 2012, for machine code; the same discipline at other levels in
+the seL4 and CompCert traditions).
+
+⭐ AND IT MAKES THE ORACLE VISIBLE.  Where the SDM leaves a flag undefined, this
+model draws an oracle bit, and the `oracle := { … cursor := … + 1 }` component of
+these equations is that draw, IN THE THEOREM STATEMENT.  A reader can see from
+the statement alone which forms decline to commit and how many bits they spend.
+
+WHAT THEY ARE FOR.  They are the interface a Hoare/separation logic consumes
+(plan v1 §3.0): a machine-code triple's step rule is one of these equations plus
+a frame condition.  They are also the kernel-cost barrier of plan v1 §3.7 —
+downstream proofs rewrite with these instead of unfolding `step`, so no
+composite proof re-reduces the twenty-way match.
+
+⛔ AXIOMS.  `rfl`, `simp`, `omega` only.  No `bv_decide`, no `native_decide`.
+`Tests/AxiomCheck.lean` asserts the allowlist over the whole library.
+
+LANE. Personal lane, public sources only.
+-/
+import X86.Semantics
+
+namespace X86
+
+/-- The hypothesis every characterization theorem carries: the model has not
+already stopped.  A stopped model does not move (`step_stopped`), so this
+restricts which equation applies, not the semantics. -/
+abbrev Live (s : Cpu) : Prop := s.ms = none
+
+@[simp] theorem stopped_of_live {s : Cpu} (h : Live s) : s.stopped = false := by
+  simp [Cpu.stopped, h]
+
+-- The unfolding set for a concrete form.  Local to this file, so that a
+-- downstream proof cannot inherit it and re-unfold `step` by accident: the whole
+-- point of the characterization layer is that nothing below it unfolds `step`.
+attribute [local simp] Cpu.stopped Cpu.readOperand Cpu.writeOperand Cpu.setReg
+  Cpu.setRip Cpu.setFlags Cpu.writeMem Cpu.readMem Cpu.undefBit Oracle.draw
+  Cpu.push Cpu.popValue wellFormed2 Operand.isMem
+
+variable {s : Cpu} {len : Nat}
+
+/-! ## MOV — SDM Vol. 2A, MOV.  "Flags Affected: None." -/
+
+theorem step_mov_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.mov sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r) (s.getReg sz r')),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_mov_reg_imm (sz : Size) (r : GPR) (v : Val) (h : Live s) :
+    step ⟨.mov sz (.reg r) (.imm v), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r) (Value.trunc sz v)),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h]
+
+theorem step_mov_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
+    step ⟨.mov sz (.mem ea) (.reg r), len⟩ s =
+      { s with
+        mem := s.mem.writeSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)) (s.getReg sz r),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_mov_reg_mem (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
+    step ⟨.mov sz (.reg r) (.mem ea), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h]
+
+/-- TWO MEMORY OPERANDS STOP THE MODEL rather than meaning something.  This is
+the totality discipline as a theorem: `step` is total, and its value on a form
+no encoding can express is a HALT, not an invention. -/
+theorem step_mov_mem_mem (sz : Size) (ea ea' : Ea) (h : Live s) :
+    step ⟨.mov sz (.mem ea) (.mem ea'), len⟩ s =
+      { s with ms := some (.illegalOperands "mov: two memory operands") } := by
+  simp [step, h, Cpu.halt]
+
+/-! ## ADD / SUB — SDM Vol. 2A.  All six status flags set from the result. -/
+
+theorem step_add_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .add sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.addResult sz (s.getReg sz r) (s.getReg sz r'))),
+        flags := Flags.add sz (s.getReg sz r) (s.getReg sz r') s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_sub_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .sub sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.subResult sz (s.getReg sz r) (s.getReg sz r'))),
+        flags := Flags.sub sz (s.getReg sz r) (s.getReg sz r') s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+/-- CMP writes NO register: it is SUB with the result discarded.  The equation
+proves the discard — `regs` is absent from the update. -/
+theorem step_cmp_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .cmp sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        flags := Flags.sub sz (s.getReg sz r) (s.getReg sz r') s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h]
+
+/-! ## The logic group — SDM Vol. 2A: OF and CF cleared, SF/ZF/PF from the
+result, and **the AF flag is undefined**.  Each of these four equations spends
+exactly ONE oracle bit, and the `oracle` component says so. -/
+
+theorem step_and_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .and sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Value.trunc sz (s.getReg sz r &&& s.getReg sz r'))),
+        flags := Flags.logic sz (Value.trunc sz (s.getReg sz r &&& s.getReg sz r'))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_or_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .or sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Value.trunc sz (s.getReg sz r ||| s.getReg sz r'))),
+        flags := Flags.logic sz (Value.trunc sz (s.getReg sz r ||| s.getReg sz r'))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_xor_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .xor sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Value.trunc sz (s.getReg sz r ^^^ s.getReg sz r'))),
+        flags := Flags.logic sz (Value.trunc sz (s.getReg sz r ^^^ s.getReg sz r'))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+/-- TEST is AND with the result discarded — again, `regs` is absent. -/
+theorem step_test_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.bin .test sz (.reg r) (.reg r'), len⟩ s =
+      { s with
+        flags := Flags.logic sz (Value.trunc sz (s.getReg sz r &&& s.getReg sz r'))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+/-! ## INC / DEC / NEG / NOT — SDM Vol. 2A.
+
+INC and DEC do **not** touch CF; that is why they are not `add r, 1` and
+`sub r, 1`, and the equations below carry the proof: `Flags.inc` and `Flags.dec`
+copy `cf` through from `s.flags`.  NOT touches no flag at all. -/
+
+theorem step_inc_reg (sz : Size) (r : GPR) (h : Live s) :
+    step ⟨.un .inc sz (.reg r), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.addResult sz (s.getReg sz r) 1)),
+        flags := Flags.inc sz (s.getReg sz r) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_dec_reg (sz : Size) (r : GPR) (h : Live s) :
+    step ⟨.un .dec sz (.reg r), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.subResult sz (s.getReg sz r) 1)),
+        flags := Flags.dec sz (s.getReg sz r) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_neg_reg (sz : Size) (r : GPR) (h : Live s) :
+    step ⟨.un .neg sz (.reg r), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.subResult sz 0 (s.getReg sz r))),
+        flags := Flags.neg sz (s.getReg sz r) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+/-- NOT changes no flag: `flags` is absent from the update. -/
+theorem step_not_reg (sz : Size) (r : GPR) (h : Live s) :
+    step ⟨.un .not sz (.reg r), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Value.trunc sz (~~~s.getReg sz r))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+/-! ## SHL / SHR — SDM Vol. 2A.
+
+TWO equations, because the SDM gives two behaviours: a masked count of zero
+affects NO flag, and a non-zero count spends THREE oracle bits (CF, OF, AF, in
+that order) whether or not each is undefined at that count.  Fixing the COUNT as
+well as the order is what makes the cursor a deterministic function of the
+instruction stream, so the harness can replay a run. -/
+
+theorem step_shift_reg_zero (k : ShiftKind) (sz : Size) (r : GPR) (c : BitVec 8)
+    (h : Live s) (hc : Flags.shiftCount sz c = 0) :
+    step ⟨.shift k sz (.reg r) (.imm8 c), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (match k with
+           | .shl => Value.trunc sz (s.getReg sz r <<< (0 : Nat))
+           | .shr => (Value.trunc sz (s.getReg sz r)) >>> (0 : Nat))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases k <;> simp [step, h, hc, Cpu.getReg]
+
+theorem step_shift_reg_nonzero (k : ShiftKind) (sz : Size) (r : GPR) (c : BitVec 8)
+    (h : Live s) (hc : Flags.shiftCount sz c ≠ 0) :
+    step ⟨.shift k sz (.reg r) (.imm8 c), len⟩ s =
+      (let n := Flags.shiftCount sz c
+       let a := s.getReg sz r
+       let res := match k with
+         | .shl => Value.trunc sz (a <<< n)
+         | .shr => (Value.trunc sz a) >>> n
+       { s with
+         regs := s.regs.set r (Value.writeView sz (s.regs.get r) res),
+         flags := Flags.shiftFlags k sz a res n
+           (s.oracle.bits s.oracle.cursor)
+           (s.oracle.bits (s.oracle.cursor + 1))
+           (s.oracle.bits (s.oracle.cursor + 2)) s.flags,
+         oracle := { s.oracle with cursor := s.oracle.cursor + 3 },
+         rip := s.rip + BitVec.ofNat 64 len }) := by
+  cases k <;> simp [step, h, hc, Cpu.getReg] <;> omega
+
+/-! ## LEA — SDM Vol. 2A, LEA.  "Flags Affected: None."  The address is written
+under the ordinary register-width rules, so `lea eax, [...]` ZERO-EXTENDS. -/
+
+theorem step_lea (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
+    step ⟨.lea sz r ea, len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (ea.addr s (s.rip + BitVec.ofNat 64 len))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h]
+
+/-! ## PUSH / POP — SDM Vol. 2A.  "Flags Affected: None." -/
+
+theorem step_push_reg (sz : Size) (r : GPR) (h : Live s) :
+    step ⟨.push sz (.reg r), len⟩ s =
+      { s with
+        mem := s.mem.writeSize sz (s.regs.get .rsp - BitVec.ofNat 64 sz.bytes)
+          (s.getReg sz r),
+        regs := s.regs.set .rsp (s.regs.get .rsp - BitVec.ofNat 64 sz.bytes),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+/-- POP into a register OTHER than RSP. -/
+theorem step_pop_reg (sz : Size) (r : GPR) (h : Live s) (hr : GPR.rsp ≠ r) :
+    step ⟨.pop sz (.reg r), len⟩ s =
+      { s with
+        regs := (s.regs.set .rsp (s.regs.get .rsp + BitVec.ofNat 64 sz.bytes)).set r
+          (Value.writeView sz (s.regs.get r) (s.mem.readSize sz (s.regs.get .rsp))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Regs.get_set_ne _ _ _ _ hr]
+
+/-- POP into RSP: the LOADED value wins over the increment.  This is the classic
+ordering subtlety and it is worth its own theorem, because a model that does the
+increment last is wrong here and nowhere else. -/
+theorem step_pop_rsp (sz : Size) (h : Live s) :
+    step ⟨.pop sz (.reg .rsp), len⟩ s =
+      { s with
+        regs := s.regs.set .rsp (Value.writeView sz
+          (s.regs.get .rsp + BitVec.ofNat 64 sz.bytes)
+          (s.mem.readSize sz (s.regs.get .rsp))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Regs.set_set_same]
+
+/-! ## JMP / Jcc / CALL — SDM Vol. 2A.  "Flags Affected: None." -/
+
+theorem step_jmp_rel (d : Val) (h : Live s) :
+    step ⟨.jmp (.rel d), len⟩ s =
+      { s with rip := (s.rip + BitVec.ofNat 64 len) + d } := by
+  simp [step, h]
+
+theorem step_jmp_indirect_reg (r : GPR) (h : Live s) :
+    step ⟨.jmp (.indirect (.reg r)), len⟩ s =
+      { s with rip := s.getReg .q r } := by
+  simp [step, h, Cpu.getReg]
+
+/-- Jcc, both arms in one equation: RIP is the taken target or the fall-through,
+and NOTHING else moves — in particular the flags the condition read are
+untouched. -/
+theorem step_jcc (c : Cc) (d : Val) (h : Live s) :
+    step ⟨.jcc c d, len⟩ s =
+      { s with rip := if c.eval s.flags then (s.rip + BitVec.ofNat 64 len) + d
+                      else s.rip + BitVec.ofNat 64 len } := by
+  by_cases hc : c.eval s.flags <;> simp [step, h, hc]
+
+theorem step_call_rel (d : Val) (h : Live s) :
+    step ⟨.call (.rel d), len⟩ s =
+      { s with
+        mem := s.mem.writeSize .q (s.regs.get .rsp - 8) (s.rip + BitVec.ofNat 64 len),
+        regs := s.regs.set .rsp (s.regs.get .rsp - 8),
+        rip := (s.rip + BitVec.ofNat 64 len) + d } := by
+  simp [step, h]
+
+theorem step_call_indirect_reg (r : GPR) (h : Live s) :
+    step ⟨.call (.indirect (.reg r)), len⟩ s =
+      { s with
+        mem := s.mem.writeSize .q (s.regs.get .rsp - 8) (s.rip + BitVec.ofNat 64 len),
+        regs := s.regs.set .rsp (s.regs.get .rsp - 8),
+        rip := s.getReg .q r } := by
+  simp [step, h, Cpu.getReg]
+
+/-! ## The frame pack
+
+Which forms leave the FLAGS alone, and which leave the ORACLE alone.  These are
+corollaries of the equations above — every one is `by simp [the equation]` — but
+they are stated because they are what a downstream proof actually needs, and
+because a form that quietly spends an oracle bit would break the second group
+loudly. -/
+
+@[simp] theorem step_mov_flags (sz : Size) (r r' : GPR) (h : Live s) :
+    (step ⟨.mov sz (.reg r) (.reg r'), len⟩ s).flags = s.flags := by
+  rw [step_mov_reg_reg sz r r' h]
+
+@[simp] theorem step_lea_flags (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
+    (step ⟨.lea sz r ea, len⟩ s).flags = s.flags := by
+  rw [step_lea sz r ea h]
+
+@[simp] theorem step_not_flags (sz : Size) (r : GPR) (h : Live s) :
+    (step ⟨.un .not sz (.reg r), len⟩ s).flags = s.flags := by
+  rw [step_not_reg sz r h]
+
+@[simp] theorem step_jcc_flags (c : Cc) (d : Val) (h : Live s) :
+    (step ⟨.jcc c d, len⟩ s).flags = s.flags := by
+  rw [step_jcc c d h]
+
+/-- ADD SPENDS NO ORACLE BIT: every flag it writes is defined.  The contrast
+with `step_and_oracle` below is the content. -/
+@[simp] theorem step_add_oracle (sz : Size) (r r' : GPR) (h : Live s) :
+    (step ⟨.bin .add sz (.reg r) (.reg r'), len⟩ s).oracle = s.oracle := by
+  rw [step_add_reg_reg sz r r' h]
+
+/-- AND SPENDS EXACTLY ONE: the SDM leaves AF undefined and this model declines
+to invent it. -/
+theorem step_and_oracle (sz : Size) (r r' : GPR) (h : Live s) :
+    (step ⟨.bin .and sz (.reg r) (.reg r'), len⟩ s).oracle.cursor
+      = s.oracle.cursor + 1 := by
+  rw [step_and_reg_reg sz r r' h]
+
+/-- INC PRESERVES CF.  The single most-cited difference between `inc` and
+`add 1`, as a theorem rather than a comment. -/
+theorem step_inc_preserves_cf (sz : Size) (r : GPR) (h : Live s) :
+    (step ⟨.un .inc sz (.reg r), len⟩ s).flags.cf = s.flags.cf := by
+  rw [step_inc_reg sz r h]; rfl
+
+end X86

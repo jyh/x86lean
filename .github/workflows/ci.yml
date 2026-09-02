@@ -1,0 +1,57 @@
+name: CI
+
+# Every check this repository can make without the ACL2 oracle.
+#
+# ⚠️ WHAT IS NOT HERE, SAID PLAINLY: the differential run against ACL2 x86isa.
+# Certifying `projects/x86isa/top.cert` pulls in the `std`, `bitops` and `rtl`
+# books and is far too long for a per-push job. It runs locally (see
+# docs/ORACLE-SETUP.md) and its RESULT is recorded in the repository. A CI that
+# pretended to run it would be a green tick for work it did not do.
+#
+# The runner is x86-64 on purpose: it is the same lane plan v1 §4.4's hardware
+# co-simulation will need, and the developer machine is arm64.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: true
+          test: false
+
+      - name: Build everything (model, native tier, tests, executables)
+        run: lake build X86 X86Native Tests x86lean-diff x86lean-axioms
+
+      # ── the trust gates ──────────────────────────────────────────────────
+      - name: Axiom allowlist over the model library
+        run: ./scripts/axiom_gate.sh
+
+      - name: Axiom gate RED-FIRST drive (the gate must be seen to fail)
+        run: ./scripts/axiom_gate_selftest.sh
+
+      - name: Native tier isolation
+        run: ./scripts/check_tier_isolation.sh
+
+      # ── the model gates ──────────────────────────────────────────────────
+      - name: Encoding cross-check (every `Instr.len` against a real assembler)
+        run: python3 scripts/check_encodings.py
+
+      - name: Harness selftest (three planted bugs, each must be caught)
+        run: lake env .lake/build/bin/x86lean-diff selftest
+
+      - name: Kernel-cost ceilings
+        run: python3 scripts/kernel_cost.py
+
+      - name: Coverage table is GENERATED, not written
+        run: |
+          lake env .lake/build/bin/x86lean-diff coverage docs/COVERAGE.md
+          git diff --exit-code docs/COVERAGE.md \
+            || { echo "⛔ docs/COVERAGE.md is stale — regenerate it with"; \
+                 echo "   lake exe x86lean-diff coverage docs/COVERAGE.md"; exit 1; }

@@ -1,0 +1,33 @@
+name: Scrub
+
+# COMMIT HYGIENE, ENFORCED BY CI (fleet law, ~/projects/claude/CLAUDE.md).
+# x86lean is destined to be PUBLIC, so this gate is in place BEFORE any remote
+# exists — which is the only time the strong form is cheap.
+#
+# ⭐ THIS REPO RUNS THE STRONG FORM: the FULL history, every push, unfiltered.
+# salt and saltworks scan the push delta instead, and that is a ruling about
+# THEIR histories (which carry session URLs the Captain accepted and declined to
+# rewrite), not a weaker standard. x86lean's history has been clean since commit
+# 1, so "no session trailer has EVER entered this history" is an invariant that
+# can actually be asserted here — and an invariant is worth more than a
+# difference, because it does not depend on knowing where the last scan stopped.
+#
+# The gate FAILS CLOSED: a scan resolving to zero commits reds rather than
+# reporting success, and `--self-test` proves that before it is allowed to pass
+# on a full one. `Co-Authored-By` is deliberately untouched.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  trailers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # the strong form needs the whole history
+      - name: Gate self-test (must fail on an empty set before it may pass on a full one)
+        run: python3 scripts/check_commit_trailers.py --self-test
+      - name: Full history
+        run: python3 scripts/check_commit_trailers.py --range HEAD
