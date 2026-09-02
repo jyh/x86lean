@@ -1225,6 +1225,119 @@ def vectors : List Vec :=
     , bytes := "0fba3b05", instr := ⟨.bit .btc .d (M .rbx) (.imm 5), 4⟩ }
   , { id := "btc_mi_q", mnemonic := "btc", asm := "btcq $5, (%rbx)"
     , bytes := "480fba3b05", instr := ⟨.bit .btc .q (M .rbx) (.imm 5), 5⟩ }
+
+  -- ══ P1 BATCH 10 ═══════════════════════════════════════════════════════════
+  -- Roster family 15 (`-------|-|reg`), its NO-FLAG core: the width-changing
+  -- and two-destination moves.  Not one of these instructions writes a flag,
+  -- so the whole batch is a test of the DATA path.
+  --
+  -- ⭐ MOVZX / MOVSX: the first forms whose SOURCE WIDTH DIFFERS FROM THEIR
+  -- DESTINATION WIDTH.  The three destination widths are all here on purpose:
+  -- `.w` PRESERVES the bits above it, `.d` ZERO-EXTENDS over them and `.q`
+  -- replaces the register (SDM Vol. 1 §3.4.1.1).  A model that extended to 64
+  -- bits and wrote all of them would be right at `.d` and `.q` and wrong only
+  -- at `.w` — which is the batch's second planted bug, and these two `bw` rows
+  -- are the only vectors that can see it.
+  , { id := "movzx_rr_bw", mnemonic := "movzx", asm := "movzbw %cl, %ax"
+    , bytes := "660fb6c1", instr := ⟨.movx .zero .w .b .rax (R .rcx), 4⟩ }
+  , { id := "movzx_rr_bl", mnemonic := "movzx", asm := "movzbl %cl, %eax"
+    , bytes := "0fb6c1", instr := ⟨.movx .zero .d .b .rax (R .rcx), 3⟩ }
+  , { id := "movzx_rr_bq", mnemonic := "movzx", asm := "movzbq %cl, %rax"
+    , bytes := "480fb6c1", instr := ⟨.movx .zero .q .b .rax (R .rcx), 4⟩ }
+  -- the HIGH-8 source: bits 15:8 of RCX, zero-extended into EAX.  The only
+  -- vector in this batch whose source is not at the bottom of its register.
+  , { id := "movzx_rr_h8", mnemonic := "movzx", asm := "movzbl %ch, %eax"
+    , bytes := "0fb6c5", instr := ⟨.movx .zero .d .b .rax (H .rcx), 3⟩ }
+  , { id := "movzx_rm_bl", mnemonic := "movzx", asm := "movzbl (%rbx), %eax"
+    , bytes := "0fb603", instr := ⟨.movx .zero .d .b .rax (M .rbx), 3⟩ }
+  , { id := "movzx_rm_bq", mnemonic := "movzx", asm := "movzbq (%rbx), %rax"
+    , bytes := "480fb603", instr := ⟨.movx .zero .q .b .rax (M .rbx), 4⟩ }
+  , { id := "movzx_rr_wl", mnemonic := "movzx", asm := "movzwl %cx, %eax"
+    , bytes := "0fb7c1", instr := ⟨.movx .zero .d .w .rax (R .rcx), 3⟩ }
+  , { id := "movzx_rr_wq", mnemonic := "movzx", asm := "movzwq %cx, %rax"
+    , bytes := "480fb7c1", instr := ⟨.movx .zero .q .w .rax (R .rcx), 4⟩ }
+  , { id := "movzx_rm_wl", mnemonic := "movzx", asm := "movzwl (%rbx), %eax"
+    , bytes := "0fb703", instr := ⟨.movx .zero .d .w .rax (M .rbx), 3⟩ }
+  , { id := "movsx_rr_bw", mnemonic := "movsx", asm := "movsbw %cl, %ax"
+    , bytes := "660fbec1", instr := ⟨.movx .sign .w .b .rax (R .rcx), 4⟩ }
+  , { id := "movsx_rr_bl", mnemonic := "movsx", asm := "movsbl %cl, %eax"
+    , bytes := "0fbec1", instr := ⟨.movx .sign .d .b .rax (R .rcx), 3⟩ }
+  , { id := "movsx_rr_bq", mnemonic := "movsx", asm := "movsbq %cl, %rax"
+    , bytes := "480fbec1", instr := ⟨.movx .sign .q .b .rax (R .rcx), 4⟩ }
+  , { id := "movsx_rm_bl", mnemonic := "movsx", asm := "movsbl (%rbx), %eax"
+    , bytes := "0fbe03", instr := ⟨.movx .sign .d .b .rax (M .rbx), 3⟩ }
+  , { id := "movsx_rr_wl", mnemonic := "movsx", asm := "movswl %cx, %eax"
+    , bytes := "0fbfc1", instr := ⟨.movx .sign .d .w .rax (R .rcx), 3⟩ }
+  , { id := "movsx_rr_wq", mnemonic := "movsx", asm := "movswq %cx, %rax"
+    , bytes := "480fbfc1", instr := ⟨.movx .sign .q .w .rax (R .rcx), 4⟩ }
+  , { id := "movsx_rm_wq", mnemonic := "movsx", asm := "movswq (%rbx), %rax"
+    , bytes := "480fbf03", instr := ⟨.movx .sign .q .w .rax (M .rbx), 4⟩ }
+  -- MOVSXD (`movslq`): a DIFFERENT OPCODE — `63 /r`, one byte, no `0f` escape —
+  -- for the same rule.  It is the same constructor because the rule is what the
+  -- model implements; the opcode difference lives in the bytes, which the
+  -- encoding cross-check holds.
+  , { id := "movsx_rr_lq", mnemonic := "movsx", asm := "movslq %ecx, %rax"
+    , bytes := "4863c1", instr := ⟨.movx .sign .q .d .rax (R .rcx), 3⟩ }
+  , { id := "movsx_rm_lq", mnemonic := "movsx", asm := "movslq (%rbx), %rax"
+    , bytes := "486303", instr := ⟨.movx .sign .q .d .rax (M .rbx), 3⟩ }
+
+  -- ⭐ THE IMPLICIT-ACCUMULATOR SIGN EXTENSIONS.  Six instructions, no operands,
+  -- one bit apart in the opcode (`98` vs `99`) and writing DIFFERENT REGISTERS:
+  -- the `98` trio widens RAX in place, the `99` trio fills RDX with RAX's sign
+  -- and leaves RAX alone.  `cwtl` and `cltd` are the two whose write is 32 bits
+  -- wide, so they CLEAR the upper half of the register they write — and for
+  -- `cltd` that is only visible because `mkPre` now puts something in RDX.
+  , { id := "cbtw", mnemonic := "cbtw", asm := "cbtw", bytes := "6698"
+    , instr := ⟨.cext .cbw, 2⟩ }
+  , { id := "cwtl", mnemonic := "cwtl", asm := "cwtl", bytes := "98"
+    , instr := ⟨.cext .cwde, 1⟩ }
+  , { id := "cltq", mnemonic := "cltq", asm := "cltq", bytes := "4898"
+    , instr := ⟨.cext .cdqe, 2⟩ }
+  , { id := "cwtd", mnemonic := "cwtd", asm := "cwtd", bytes := "6699"
+    , instr := ⟨.cext .cwd, 2⟩ }
+  , { id := "cltd", mnemonic := "cltd", asm := "cltd", bytes := "99"
+    , instr := ⟨.cext .cdq, 1⟩ }
+  , { id := "cqto", mnemonic := "cqto", asm := "cqto", bytes := "4899"
+    , instr := ⟨.cext .cqo, 2⟩ }
+
+  -- ⭐ XCHG, THE FIRST FORM THAT WRITES BOTH OF ITS OPERANDS.
+  --
+  -- ⚠️ `xchg_rr_w` AND `xchg_ar_w` ARE THE SAME BYTES, `6691`, and that is why
+  -- both are here: the roster counts `ax,r` and `r,ax` as two forms, the
+  -- assembler emits ONE encoding for both, and the encoding cross-check on the
+  -- two rows is the evidence for saying so.  Without the second row the claim
+  -- would be a sentence in a comment.
+  , { id := "xchg_rr_b", mnemonic := "xchg", asm := "xchg %cl, %al"
+    , bytes := "86c1", instr := ⟨.xchg .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "xchg_rr_w", mnemonic := "xchg", asm := "xchg %cx, %ax"
+    , bytes := "6691", instr := ⟨.xchg .w (R .rax) (R .rcx), 2⟩ }
+  , { id := "xchg_ar_w", mnemonic := "xchg", asm := "xchg %ax, %cx"
+    , bytes := "6691", instr := ⟨.xchg .w (R .rcx) (R .rax), 2⟩ }
+  , { id := "xchg_rr_l", mnemonic := "xchg", asm := "xchg %ecx, %eax"
+    , bytes := "91", instr := ⟨.xchg .d (R .rax) (R .rcx), 1⟩ }
+  , { id := "xchg_rr_q", mnemonic := "xchg", asm := "xchg %rcx, %rax"
+    , bytes := "4891", instr := ⟨.xchg .q (R .rax) (R .rcx), 2⟩ }
+  -- neither operand is the accumulator, so this one cannot take the `90+r`
+  -- short encoding and goes through ModR/M
+  , { id := "xchg_nn_q", mnemonic := "xchg", asm := "xchg %rbx, %rcx"
+    , bytes := "4887cb", instr := ⟨.xchg .q (R .rcx) (R .rbx), 3⟩ }
+  -- ⭐ AND THE ONE THAT SAYS WHY `xchg` IS NOT A SWAP OF VALUES BUT A PAIR OF
+  -- WRITES.  `xchg %eax, %eax` moves no data and still CLEARS the upper half of
+  -- RAX, because a 32-bit write zero-extends.  The assembler proves the point
+  -- rather than the manual: it will NOT encode this as `90`, though `90` is
+  -- "xchg eax, eax" in every opcode table — it emits `87 c0` — because `90` in
+  -- 64-bit mode is NOP and NOP does not touch RAX.  `xchg %rax, %rax` DOES
+  -- assemble to `90`, and is therefore not this instruction at all and is not
+  -- in this table (docs/DECISIONS.md D24).
+  , { id := "xchg_same_l", mnemonic := "xchg", asm := "xchg %eax, %eax"
+    , bytes := "87c0", instr := ⟨.xchg .d (R .rax) (R .rax), 2⟩ }
+
+  -- BSWAP at the two widths the SDM defines.  `bswapl` reverses four bytes and
+  -- then zero-extends; `bswapq` reverses eight.
+  , { id := "bswap_l", mnemonic := "bswap", asm := "bswap %eax", bytes := "0fc8"
+    , instr := ⟨.bswap .d .rax, 2⟩ }
+  , { id := "bswap_q", mnemonic := "bswap", asm := "bswap %rax", bytes := "480fc8"
+    , instr := ⟨.bswap .q .rax, 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -1260,6 +1373,26 @@ def windows : List Window :=
   [ { base := 0x1ff0, len := 32 }   -- data: rbx = 0x2000, margin either side
   , { base := 0x7fe0, len := 48 } ] -- stack: rsp = 0x8000, margin below and above
 
+/-- ⭐ THE WATCHED WINDOWS' BACKGROUND PATTERN, BUILT ONCE.
+
+A known, non-uniform pattern in the data window so a wrong load is visible, and
+a known pattern under the stack pointer so `pop` has something to find.  It is
+the SAME eighty bytes in every pre-state, and it used to be built inside
+`mkPre` — eighty map insertions per state, 5 920 per evaluation of
+`preStates`, re-done by every `decide` in `Tests/Coverage.lean` that mentions
+the pre-state set.
+
+Hoisting it to a closed constant is not a style preference: it is the half of
+batch 9's scaling finding that the measurement in `Tests/Coverage.lean`'s
+header leaves over.  Nothing about the pre-states changes — the bytes are
+identical and every existing assertion about the window and its margin still
+holds, which is what says the change is a factoring and not a weakening. -/
+def baseMem : Mem :=
+  let m := (List.range 32).foldl
+    (fun m i => m.write (0x1ff0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0xA0 + i))) Mem.empty
+  (List.range 48).foldl
+    (fun m i => m.write (0x7fe0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0x10 + i))) m
+
 /-- A pre-state built from two operand values and a flag seed.  RBX and RSP are
 fixed so the memory windows mean the same thing in every vector; RAX/RCX carry
 the values under test. -/
@@ -1268,12 +1401,7 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
     { cf := fseed % 2 == 1, pf := fseed / 2 % 2 == 1, af := fseed / 4 % 2 == 1
     , zf := fseed / 8 % 2 == 1, sf := fseed / 16 % 2 == 1, of := fseed / 32 % 2 == 1
     , df := false }
-  -- a known, non-uniform pattern in the data window, so a wrong load is visible
-  let mem := (List.range 32).foldl
-    (fun m i => m.write (0x1ff0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0xA0 + i))) Mem.empty
-  -- and a known pattern under the stack pointer, so `pop` has something to find
-  let mem := (List.range 48).foldl
-    (fun m i => m.write (0x7fe0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0x10 + i))) mem
+  let mem := baseMem
   -- ⭐ AND THE MEMORY OPERAND ITSELF SWEEPS, added by P1 BATCH 3.  The eight
   -- bytes at RBX — the span every memory-operand vector addresses — carry `c`,
   -- the same value RCX carries, so `cmpq %rax, (%rbx)` sweeps exactly as
@@ -1289,7 +1417,16 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   -- The MARGIN keeps its 0xA0+i pattern on both sides, so a store or load that
   -- ran off the end of its span still shows up as a difference outside it.
   let mem := mem.writeSize .q 0x2000 c
-  { regs := { rax := a, rcx := c, rbx := 0x2000, rsp := 0x8000 }
+  -- ⭐ AND RDX CARRIES A VALUE, added by P1 BATCH 10, for the same reason the
+  -- memory window stopped being a constant in batch 3.  `cwtd`/`cltd`/`cqto`
+  -- are the first instructions in this model to write a register their operands
+  -- do not name, and `cltd`'s write is THIRTY-TWO BITS WIDE — so it clears
+  -- RDX's upper half, and a model that merged instead of zero-extending would
+  -- be indistinguishable from the correct one in EVERY pre-state where RDX is
+  -- zero.  It was zero in all 74.  The complement of `a` is used so the value
+  -- sweeps with the rest of the state and is all-ones exactly where `a` is
+  -- zero.  See docs/DECISIONS.md D26.
+  { regs := { rax := a, rcx := c, rdx := ~~~a, rbx := 0x2000, rsp := 0x8000 }
     flags := f
     mem := mem
     rip := 0x400000

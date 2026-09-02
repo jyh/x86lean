@@ -2,13 +2,13 @@
 
 # x86lean coverage
 
-Roster: 35 mnemonics in 474 differentially tested forms, covering **343 of the 525 forms** in `p1/roster.tsv`.
+Roster: 45 mnemonics in 507 differentially tested forms, covering **367 of the 525 forms** in `p1/roster.tsv`.
 
-P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in a destination that is read and never written, and the first RIP-relative vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the bit-string `m,r` shape declined, see D23).
+P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in a destination that is read and never written, and the first RIP-relative vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the bit-string `m,r` shape declined, see D23); 10 — the width-changing and two-destination moves: MOVZX/MOVSX/MOVSXD, the six accumulator sign-extensions, XCHG and BSWAP, the first forms with a source width unlike their destination's and the first that write two registers, and the only batch so far that writes NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25).
 
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift from the AST the way the sentence it replaced had.
 
-Tiers: T-exact 20 · T-frame 15 · T-absent 0.
+Tiers: T-exact 30 · T-frame 15 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -47,5 +47,15 @@ Tiers: T-exact 20 · T-frame 15 · T-absent 0.
 | `setcc` | r8 · rh8 · m8(w) — 30 spellings | T-exact | XED (trusted) | — | Vol. 2A SETcc |
 | `cmovcc` | r,r · r,m — w/l/q, 30 spellings | T-exact | XED (trusted) | — | Vol. 2A CMOVcc |
 | `call` | rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A CALL |
+| `movzx` | r,r · r,m · rh,r — b→w/l/q, w→l/q (5 spellings) | T-exact | XED (trusted) | — | Vol. 2A MOVZX |
+| `movsx` | r,r · r,m — b→w/l/q, w→l/q, l→q (6 spellings, movslq = MOVSXD) | T-exact | XED (trusted) | — | Vol. 2A MOVSX/MOVSXD |
+| `cbtw` | no operands — ax := sext(al) | T-exact | XED (trusted) | — | Vol. 2A CBW/CWDE/CDQE |
+| `cwtl` | no operands — eax := sext(ax), zero-extending into rax | T-exact | XED (trusted) | — | Vol. 2A CBW/CWDE/CDQE |
+| `cltq` | no operands — rax := sext(eax) | T-exact | XED (trusted) | — | Vol. 2A CBW/CWDE/CDQE |
+| `cwtd` | no operands — dx := sign(ax), rax untouched | T-exact | XED (trusted) | — | Vol. 2A CWD/CDQ/CQO |
+| `cltd` | no operands — edx := sign(eax), zero-extending into rdx | T-exact | XED (trusted) | — | Vol. 2A CWD/CDQ/CQO |
+| `cqto` | no operands — rdx := sign(rax) | T-exact | XED (trusted) | — | Vol. 2A CWD/CDQ/CQO |
+| `xchg` | r,r · acc,r · r,acc — b/w/l/q (m: refused, implicit LOCK) | T-exact | XED (trusted) | — | Vol. 2A XCHG |
+| `bswap` | r — l/q only (b/w: SDM undefined, refused) | T-exact | XED (trusted) | — | Vol. 2A BSWAP |
 
 **Decode trust.** Every row reads `XED (trusted)`: the AST is built from Intel XED's structured output and nothing in this repository proves that the bytes were decoded correctly. The differential vectors close this for every form below by assembling each `asm` string with clang and checking the length against the model's `Instr.len`; a Lean decoder with a proof is P4.

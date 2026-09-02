@@ -208,6 +208,36 @@ inductive BitKind where
   | bts | btr | btc
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- P1 BATCH 10: which way a WIDTH-CHANGING move fills the bits it invents.
+Two constructors rather than a `Bool` because the two are one character apart in
+the mnemonic (`movzbl` / `movsbl`) and opposite in effect, and a `Bool` named
+`signed` reads the same at both call sites. -/
+inductive MovxKind where
+  | zero | sign
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- P1 BATCH 10: the IMPLICIT-ACCUMULATOR sign extensions (SDM Vol. 2A,
+CBW/CWDE/CDQE and CWD/CDQ/CQO).  Six constructors and no operands at all: the
+source and the destination are both fixed by the opcode.
+
+⭐ THE TWO TRIOS DIFFER IN WHERE THE SIGN LANDS, and that is the whole content
+of the group.  `cbw`/`cwde`/`cdqe` widen the accumulator IN PLACE — AL into AX,
+AX into EAX, EAX into RAX.  `cwd`/`cdq`/`cqo` leave the accumulator alone and
+fill **rDX** with copies of its sign bit, which is what makes a
+double-width dividend for the `idiv` that always follows.  They are one bit
+apart in the opcode (`98` vs `99`) and they write different registers.
+
+The AT&T spellings are the names K's tree files them under, and are the names
+this model prints: `cbtw cwtl cltq` and `cwtd cltd cqto`. -/
+inductive CextKind where
+  | cbw | cwde | cdqe
+  | cwd | cdq | cqo
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+def CextKind.mnemonic : CextKind → String
+  | .cbw => "cbtw" | .cwde => "cwtl" | .cdqe => "cltq"
+  | .cwd => "cwtd" | .cdq => "cltd"  | .cqo => "cqto"
+
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
 inductive Op where
@@ -251,6 +281,35 @@ inductive Op where
   half. -/
   | cmov  (c : Cc) (sz : Size) (dst : GPR) (src : Operand)
   | call  (t : JmpTarget)
+  /-- P1 BATCH 10: MOVZX / MOVSX / MOVSXD (SDM Vol. 2A).  ⚠️ THE FIRST FORM IN
+  THIS AST WITH TWO WIDTHS: the source is read at `ssz` and the destination is
+  written at `dsz`, and `dsz` is what decides whether the write zero-extends
+  (`.d`), preserves (`.w`), or replaces (`.q`) — SDM Vol. 1 §3.4.1.1.  Every
+  other form here reads and writes at ONE width, and a model that kept one
+  `Size` for both would be forced to guess which one this instruction means.
+
+  The destination is always a REGISTER; there is no memory-destination form.
+  `movslq` (Intel MOVSXD, opcode `63 /r`) is `.sign .q .d` — a different opcode
+  from MOVSX but the same rule, so it is the same constructor. -/
+  | movx  (k : MovxKind) (dsz ssz : Size) (dst : GPR) (src : Operand)
+  /-- P1 BATCH 10: CBW/CWDE/CDQE and CWD/CDQ/CQO.  No operands: see
+  `CextKind`. -/
+  | cext  (k : CextKind)
+  /-- P1 BATCH 10: XCHG (SDM Vol. 2A).  ⚠️ THE FIRST FORM THAT WRITES BOTH OF
+  ITS OPERANDS, and at width `.d` that is observable in both of them at once:
+  each write zero-extends, so `xchg %eax, %eax` — which the assembler must
+  encode as `87 c0` because `90` is NOP — CLEARS the upper half of RAX while
+  moving no data.
+
+  ⛔ A MEMORY OPERAND IS DECLINED, not approximated: `xchg` with a memory
+  operand asserts the LOCK signal whether or not `lock` is written (SDM Vol. 2A,
+  XCHG), which is an atomicity claim this single-threaded model has no way to
+  make.  Those forms are roster family 11.  See docs/DECISIONS.md D25. -/
+  | xchg  (sz : Size) (a b : Operand)
+  /-- P1 BATCH 10: BSWAP (SDM Vol. 2A).  ⛔ Widths `.b` and `.w` are DECLINED:
+  "BSWAP ... with a 16-bit operand size ... is undefined" — the SDM does not say
+  what the machine does, so neither does this model.  See D25. -/
+  | bswap (sz : Size) (dst : GPR)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
@@ -285,6 +344,10 @@ def Op.mnemonic : Op → String
   | .setcc c _ => "set" ++ (c.suffixes.headD "?")
   | .cmov c _ _ _ => "cmov" ++ (c.suffixes.headD "?")
   | .call .. => "call"
+  | .movx k .. => match k with | .zero => "movzx" | .sign => "movsx"
+  | .cext k => k.mnemonic
+  | .xchg .. => "xchg"
+  | .bswap .. => "bswap"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -299,7 +362,28 @@ def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
    "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
    "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc", "sar",
-   "rol", "ror", "rcl", "rcr", "bt", "bts", "btr", "btc"]
+   "rol", "ror", "rcl", "rcr", "bt", "bts", "btr", "btc",
+   -- P1 BATCH 10: the width-changing and two-destination moves.  `movzx` and
+   -- `movsx` each stand for several AT&T spellings, as `setcc` and `cmovcc` do
+   -- for thirty apiece; `movxSpellings` below is the table that says which, so
+   -- the collapse is data a theorem can count rather than a claim in a comment.
+   "movzx", "movsx", "cbtw", "cwtl", "cltq", "cwtd", "cltd", "cqto",
+   "xchg", "bswap"]
+
+/-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
+reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`
+and `movslq` as five separate base mnemonics, and this model has two
+constructors.  A coverage claim over K's roster has to say which spellings a
+constructor accounts for, and that is what this table is.
+
+The width pair in the spelling reads SOURCE then DESTINATION (`movzbl` is
+byte-to-long), which is the opposite order from the `Op.movx` argument list
+(`dsz ssz`, destination first, as every other form in this AST writes its
+destination first).  Both orders are conventional in their own place and this
+sentence is the only thing that reconciles them. -/
+def movxSpellings : MovxKind → List String
+  | .zero => ["movzbw", "movzbl", "movzbq", "movzwl", "movzwq"]
+  | .sign => ["movsbw", "movsbl", "movsbq", "movswl", "movswq", "movslq"]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

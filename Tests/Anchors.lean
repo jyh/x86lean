@@ -1105,4 +1105,144 @@ theorem bts_mem_is_a_width_bounded_rmw :
       (mk { rbx := 0x100 } {} ((Mem.empty.write 0x100 0x00).write 0x102 0xBB))
     (r.mem.read 0x100, r.mem.read 0x102) = (0x20, 0xBB) := by decide
 
+/-! ## P1 BATCH 10 — the width-changing and two-destination moves
+
+Not one of these instructions writes a flag, so every anchor below is about a
+VALUE.  The three destination widths are the subject: `.w` preserves what is
+above it, `.d` zero-extends over it, `.q` replaces the register. -/
+
+/-- `movzbl %cl, %eax` with CL = 0xFF: zero extension, and the 32-bit write
+clears the upper half of RAX even though the value needs only eight bits. -/
+theorem movzx_bl_zero_extends :
+    (step ⟨.movx .zero .d .b .rax (.reg .rcx), 3⟩
+      (mk { rax := 0xFFFFFFFFFFFFFFFF, rcx := 0xFF })).regs.rax = 0xFF := by decide
+
+/-- `movsbl %cl, %eax` with CL = 0xFF (that is, -1 as a byte): the sign fills
+the destination's 32 bits — and NOT the register's 64, because the 32-bit write
+zero-extends over what the extension produced. ⭐ THE TWO RULES COMPOSE IN THAT
+ORDER, and a model that applied them the other way round would leave
+0xFFFFFFFFFFFFFFFF. -/
+theorem movsx_bl_sign_extends_then_the_write_zero_extends :
+    (step ⟨.movx .sign .d .b .rax (.reg .rcx), 3⟩
+      (mk { rax := 0, rcx := 0xFF })).regs.rax = 0xFFFFFFFF := by decide
+
+/-- ⭐ AND AT `.w` THE SAME SOURCE PRESERVES.  `movsbw %cl, %ax` writes sixteen
+bits, so the bits above them survive — the one destination width in this batch
+where a 64-bit write would be observably wrong. -/
+theorem movsx_bw_preserves_above_sixteen :
+    (step ⟨.movx .sign .w .b .rax (.reg .rcx), 4⟩
+      (mk { rax := 0xAAAAAAAAAAAA0000, rcx := 0xFF })).regs.rax
+      = 0xAAAAAAAAAAAAFFFF := by decide
+
+/-- `movslq %ecx, %rax` (Intel MOVSXD): 32 bits of source, sign-extended to 64.
+0x80000000 is the most negative 32-bit value. -/
+theorem movslq_sign_extends_to_64 :
+    (step ⟨.movx .sign .q .d .rax (.reg .rcx), 3⟩
+      (mk { rax := 0, rcx := 0x80000000 })).regs.rax
+      = 0xFFFFFFFF80000000 := by decide
+
+/-- The high-8 source really is bits 15:8. -/
+theorem movzx_reads_the_high8_source :
+    (step ⟨.movx .zero .d .b .rax (.reg .rcx true), 3⟩
+      (mk { rax := 0, rcx := 0xAB00 })).regs.rax = 0xAB := by decide
+
+/-- ⚠️ AND NOT ONE OF THEM TOUCHES A FLAG (SDM Vol. 2A, MOVZX/MOVSX: "Flags
+Affected: None"). -/
+theorem movx_writes_no_flag :
+    let f : Flags := { cf := true, zf := true, sf := true, of := true, pf := true, af := true }
+    (step ⟨.movx .sign .q .b .rax (.reg .rcx), 4⟩ (mk { rcx := 0xFF } f)).flags = f := by
+  decide
+
+/-- `cltq` (CDQE): RAX takes the sign extension of EAX. -/
+theorem cltq_widens_the_accumulator :
+    (step ⟨.cext .cdqe, 2⟩ (mk { rax := 0x80000000 })).regs.rax
+      = 0xFFFFFFFF80000000 := by decide
+
+/-- `cwtl` (CWDE) writes EAX — thirty-two bits — so it CLEARS the upper half of
+RAX as well as widening AX. -/
+theorem cwtl_clears_the_upper_half :
+    (step ⟨.cext .cwde, 1⟩ (mk { rax := 0xFFFFFFFF00008000 })).regs.rax
+      = 0xFFFF8000 := by decide
+
+/-- `cbtw` (CBW) writes AX only, so everything above bit 15 survives. -/
+theorem cbtw_preserves_above_sixteen :
+    (step ⟨.cext .cbw, 2⟩ (mk { rax := 0xAAAAAAAAAAAA0080 })).regs.rax
+      = 0xAAAAAAAAAAAAFF80 := by decide
+
+/-- ⭐ `cqto` (CQO) FILLS RDX AND LEAVES RAX ALONE — the first instruction in
+this model whose destination is a register its operands do not name. -/
+theorem cqto_fills_rdx_and_leaves_rax :
+    let r := step ⟨.cext .cqo, 2⟩ (mk { rax := 0x8000000000000000, rdx := 0x1234 })
+    (r.regs.rdx, r.regs.rax) = (0xFFFFFFFFFFFFFFFF, 0x8000000000000000) := by decide
+
+/-- A non-negative accumulator gives a ZERO rdx, so the theorem above is about
+the sign and not about a constant. -/
+theorem cqto_zeroes_rdx_when_positive :
+    (step ⟨.cext .cqo, 2⟩ (mk { rax := 0x1, rdx := 0xFFFF })).regs.rdx = 0 := by decide
+
+/-- ⭐ AND `cltd` (CDQ) WRITES EDX, WHICH CLEARS RDX'S UPPER HALF.  With EAX
+non-negative the whole of RDX becomes zero — including bits the instruction
+"wrote nothing to" under a 16-bit reading of the same rule.  This is the anchor
+for the pre-state change in `Tests/Vectors.lean`: with RDX zero beforehand, this
+theorem and its wrong twin agree. -/
+theorem cltd_clears_rdx_upper_half :
+    (step ⟨.cext .cdq, 1⟩ (mk { rax := 0x1, rdx := 0xFFFFFFFFFFFFFFFF })).regs.rdx
+      = 0 := by decide
+
+/-- `cwtd` (CWD) writes DX only: sixteen bits, and RDX's upper 48 survive. -/
+theorem cwtd_preserves_above_sixteen :
+    (step ⟨.cext .cwd, 2⟩ (mk { rax := 0x8000, rdx := 0xAAAAAAAAAAAA0000 })).regs.rdx
+      = 0xAAAAAAAAAAAAFFFF := by decide
+
+/-- XCHG swaps. -/
+theorem xchg_swaps :
+    let r := step ⟨.xchg .q (.reg .rax) (.reg .rcx), 2⟩ (mk { rax := 1, rcx := 2 })
+    (r.regs.rax, r.regs.rcx) = (2, 1) := by decide
+
+/-- ⭐ AND AT WIDTH `.d` IT IS TWO WRITES, NOT A SWAP OF VALUES: each one
+zero-extends, so BOTH registers lose their upper halves. -/
+theorem xchg_d_zero_extends_both :
+    let r := step ⟨.xchg .d (.reg .rax) (.reg .rcx), 1⟩
+      (mk { rax := 0x1111111100000001, rcx := 0x2222222200000002 })
+    (r.regs.rax, r.regs.rcx) = (2, 1) := by decide
+
+/-- ⭐ `xchg %eax, %eax` MOVES NO DATA AND IS NOT A NO-OP: the 32-bit write
+clears the upper half.  The assembler agrees — it encodes this as `87 c0`
+rather than `90`, because `90` is NOP and NOP does not touch RAX
+(docs/DECISIONS.md D24). -/
+theorem xchg_same_register_still_zero_extends :
+    (step ⟨.xchg .d (.reg .rax) (.reg .rax), 2⟩
+      (mk { rax := 0xFFFFFFFF0000ABCD })).regs.rax = 0xABCD := by decide
+
+/-- At width `.b` the swap touches one byte of each register and nothing else. -/
+theorem xchg_b_touches_one_byte_each :
+    let r := step ⟨.xchg .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xFFFFFFFFFFFFFF01, rcx := 0xEEEEEEEEEEEEEE02 })
+    (r.regs.rax, r.regs.rcx) = (0xFFFFFFFFFFFFFF02, 0xEEEEEEEEEEEEEE01) := by decide
+
+/-- ⛔ AND A MEMORY OPERAND IS REFUSED RATHER THAN GUESSED (implicit LOCK; D25).
+The model stops and changes nothing else. -/
+theorem xchg_refuses_a_memory_operand :
+    let r := step ⟨.xchg .q (.mem { base := some .rbx }) (.reg .rax), 3⟩
+      (mk { rax := 1, rbx := 0x100 })
+    (r.stopped, r.regs.rax) = (true, 1) := by decide
+
+/-- BSWAP reverses the bytes. -/
+theorem bswap_q_reverses_eight_bytes :
+    (step ⟨.bswap .q .rax, 3⟩ (mk { rax := 0x0102030405060708 })).regs.rax
+      = 0x0807060504030201 := by decide
+
+/-- ⭐ AND `bswapl` REVERSES FOUR AND THEN ZERO-EXTENDS, so the upper half of the
+register is gone rather than reversed into. -/
+theorem bswap_d_reverses_four_and_zero_extends :
+    (step ⟨.bswap .d .rax, 2⟩ (mk { rax := 0xFFFFFFFF01020304 })).regs.rax
+      = 0x04030201 := by decide
+
+/-- ⛔ AND THE WIDTHS THE SDM LEAVES UNDEFINED ARE REFUSED, not answered.  "The
+result of BSWAP with a 16-bit operand size is undefined": the oracle is the
+wrong instrument, because what is undefined is the whole result and not some of
+its bits. -/
+theorem bswap_refuses_sixteen_bits :
+    (step ⟨.bswap .w .rax, 3⟩ (mk { rax := 0x1234 })).stopped = true := by decide
+
 end X86.Tests

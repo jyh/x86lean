@@ -340,6 +340,72 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let v := if c.eval s.flags then s.readOperand sz nr src else s.getReg sz dst
       ((s.setReg sz dst v).setRip nr)
 
+  -- ══ P1 BATCH 10 ═══════════════════════════════════════════════════════
+  -- The width-changing and two-destination moves.  NOT ONE OF THEM TOUCHES A
+  -- FLAG (SDM Vol. 2A: "Flags Affected: None" on every entry in this block), so
+  -- there is not one oracle draw in the whole batch — which makes every
+  -- disagreement it can produce a DATA-path disagreement.
+
+  -- MOVZX / MOVSX / MOVSXD (SDM Vol. 2A).  Read at `ssz`, extend to 64, write
+  -- at `dsz` under the ordinary register-width rules.  The write is what makes
+  -- `movzbl` clear the upper half of RAX and `movzbw` preserve it: the
+  -- extension is the same computation in both, and `setReg dsz` is the only
+  -- thing that differs.
+  | .movx k dsz ssz dst src =>
+      let v := s.readOperand ssz nr src
+      let e := match k with
+        | .zero => Value.zext ssz v
+        | .sign => Value.sext ssz v
+      ((s.setReg dsz dst e).setRip nr)
+
+  -- CBW/CWDE/CDQE and CWD/CDQ/CQO (SDM Vol. 2A).  ⚠️ THE SECOND TRIO IS THE
+  -- FIRST THING IN THIS MODEL TO WRITE A REGISTER OTHER THAN THE ONE ITS
+  -- OPERANDS NAME: it fills rDX with the accumulator's sign and leaves the
+  -- accumulator alone.  And `cltd`'s write is 32 bits wide, so it CLEARS
+  -- RDX's upper half — invisible unless the pre-state put something there,
+  -- which is why `mkPre` now gives RDX a value (docs/DECISIONS.md D26).
+  | .cext k =>
+      let a := s.regs.get .rax
+      match k with
+      | .cbw  => ((s.setReg .w .rax (Value.sext .b a)).setRip nr)
+      | .cwde => ((s.setReg .d .rax (Value.sext .w a)).setRip nr)
+      | .cdqe => ((s.setReg .q .rax (Value.sext .d a)).setRip nr)
+      | .cwd  => ((s.setReg .w .rdx (if Value.msb .w a then Size.mask .w else 0)).setRip nr)
+      | .cdq  => ((s.setReg .d .rdx (if Value.msb .d a then Size.mask .d else 0)).setRip nr)
+      | .cqo  => ((s.setReg .q .rdx (if Value.msb .q a then Size.mask .q else 0)).setRip nr)
+
+  -- XCHG (SDM Vol. 2A).  ⚠️ BOTH VALUES ARE READ BEFORE EITHER IS WRITTEN.
+  -- With two distinct registers the order does not matter; with the SAME
+  -- register twice it is the difference between a swap and a clobber, and with
+  -- a memory operand whose base is the other operand it would be the difference
+  -- between the old address and the new one.  Reading first costs one `let` and
+  -- removes the question.
+  --
+  -- ⛔ A MEMORY OR IMMEDIATE OPERAND IS REFUSED, not approximated.  `xchg` with
+  -- a memory operand asserts LOCK unconditionally (SDM Vol. 2A, XCHG) — an
+  -- atomicity claim a single-threaded model cannot make — and an immediate
+  -- cannot be a destination at all.  D25.
+  | .xchg sz a b =>
+      if a.isMem || b.isMem then
+        s.halt (.unimplemented "xchg with a memory operand (implicit LOCK)")
+      else if a.isImm || b.isImm then
+        s.halt (.illegalOperands "xchg: immediate operand")
+      else
+        let va := s.readOperand sz nr a
+        let vb := s.readOperand sz nr b
+        let s := s.writeOperand sz nr a vb
+        ((s.writeOperand sz nr b va).setRip nr)
+
+  -- BSWAP (SDM Vol. 2A).  ⛔ "the result of BSWAP with a 16-bit operand size is
+  -- undefined" — so this model REFUSES `.b` and `.w` rather than answering.
+  -- The undefined-bit oracle is the wrong instrument here: it says "this model
+  -- declines to commit to these BITS", and what the SDM declines to define is
+  -- the whole RESULT.  D25.
+  | .bswap sz dst =>
+      match sz with
+      | .d | .q => ((s.setReg sz dst (Value.bswap sz (s.getReg sz dst))).setRip nr)
+      | _ => s.halt (.unimplemented "bswap at a 16-bit or 8-bit operand size (SDM: undefined)")
+
   | .call t =>
       match t with
       | .rel d =>

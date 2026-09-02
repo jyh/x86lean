@@ -95,6 +95,23 @@ separately because the SDM's two rules read differently and a reader should be
 able to see which one a definition meant. -/
 def zext (sz : Size) (v : Val) : Val := trunc sz v
 
+/-- P1 BATCH 10: reverse the low `n` BYTES of a value (SDM Vol. 2A, BSWAP).
+
+Written as a fold over byte positions rather than as a chain of shifts and
+masks, because the chain has to be written once per width and the widths are
+where this instruction is interesting: `bswapl` reverses FOUR bytes and then
+zero-extends, `bswapq` reverses eight.  A per-width chain would put the width in
+two places — the number of terms and the destination size — and they would be
+free to disagree. -/
+def byteRev (n : Nat) (v : Val) : Val :=
+  (List.range n).foldl
+    (fun acc i => acc ||| (((v >>> (8 * i)) &&& 0xFF) <<< (8 * (n - 1 - i)))) 0
+
+/-- Byte-reverse the `sz`-wide view.  ⛔ The model only ever calls this at `.d`
+and `.q`: the SDM leaves BSWAP with a 16-bit operand UNDEFINED, and `step`
+declines those rather than letting this function answer for them. -/
+def bswap (sz : Size) (v : Val) : Val := byteRev sz.bytes (trunc sz v)
+
 /-- Parity of the low EIGHT bits of a value — SDM Vol. 1 §3.4.3.1: PF is set
 when the low-order byte of the result has an EVEN number of set bits, and this
 is true at EVERY operand width, not only at `Size.b`.  Getting that wrong is the

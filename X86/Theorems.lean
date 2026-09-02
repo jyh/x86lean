@@ -583,4 +583,94 @@ theorem step_inc_preserves_cf (sz : Size) (r : GPR) (h : Live s) :
     (step ⟨.un .inc sz (.reg r), len⟩ s).flags.cf = s.flags.cf := by
   rw [step_inc_reg sz r h]; rfl
 
+/-! ## P1 BATCH 10 — the width-changing and two-destination moves
+
+⭐ THE WHOLE BATCH IS ONE FRAME CLAIM: these forms move data and NOTHING ELSE.
+No flag, no oracle bit, no memory (`xchg` refuses the shape that would touch
+it).  Stating it as equations is what makes "flags affected: none" checkable
+rather than a sentence copied out of the manual. -/
+
+/-- MOVZX / MOVSX / MOVSXD: the source is read at `ssz`, extended, and written
+at `dsz`.  The two widths are separate arguments of the equation because they
+are separate data on the instruction. -/
+theorem step_movx (k : MovxKind) (dsz ssz : Size) (r r' : GPR) (h : Live s) :
+    step ⟨.movx k dsz ssz r (.reg r'), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView dsz (s.regs.get r)
+                  (match k with
+                   | .zero => Value.zext ssz (s.getReg ssz r')
+                   | .sign => Value.sext ssz (s.getReg ssz r'))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases k <;> simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.readOperand, Cpu.getReg]
+
+@[simp] theorem step_movx_flags (k : MovxKind) (dsz ssz : Size) (r r' : GPR) (h : Live s) :
+    (step ⟨.movx k dsz ssz r (.reg r'), len⟩ s).flags = s.flags := by
+  rw [step_movx k dsz ssz r r' h]
+
+@[simp] theorem step_movx_oracle (k : MovxKind) (dsz ssz : Size) (r r' : GPR) (h : Live s) :
+    (step ⟨.movx k dsz ssz r (.reg r'), len⟩ s).oracle = s.oracle := by
+  rw [step_movx k dsz ssz r r' h]
+
+@[simp] theorem step_movx_mem (k : MovxKind) (dsz ssz : Size) (r r' : GPR) (h : Live s) :
+    (step ⟨.movx k dsz ssz r (.reg r'), len⟩ s).mem = s.mem := by
+  rw [step_movx k dsz ssz r r' h]
+
+/-- ⭐ `cqto` WRITES RDX AND LEAVES RAX ALONE.  `regs` is updated at `.rdx` only,
+which is the frame claim the `98`/`99` opcode pair turns on: one trio widens the
+accumulator, the other fills a register the operands never name. -/
+theorem step_cqto (h : Live s) :
+    step ⟨.cext .cqo, len⟩ s =
+      { s with
+        regs := s.regs.set .rdx (if Value.msb .q (s.regs.get .rax) then Size.mask .q else 0),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Value.writeView]
+
+theorem step_cqto_leaves_rax (h : Live s) :
+    (step ⟨.cext .cqo, len⟩ s).regs.get .rax = s.regs.get .rax := by
+  rw [step_cqto h]; simp [Regs.get_set_ne _ _ _ _ (by decide : GPR.rdx ≠ GPR.rax)]
+
+@[simp] theorem step_cext_flags (k : CextKind) (h : Live s) :
+    (step ⟨.cext k, len⟩ s).flags = s.flags := by
+  cases k <;> simp [step, h, Cpu.setReg, Cpu.setRip]
+
+@[simp] theorem step_cext_oracle (k : CextKind) (h : Live s) :
+    (step ⟨.cext k, len⟩ s).oracle = s.oracle := by
+  cases k <;> simp [step, h, Cpu.setReg, Cpu.setRip]
+
+/-- XCHG at two registers: BOTH values are read before either is written, so the
+equation names `s.getReg` on both sides and never the intermediate state.  That
+is what makes the same-register case a swap of a value with itself rather than a
+clobber. -/
+theorem step_xchg_reg_reg (sz : Size) (a b : GPR) (h : Live s) :
+    step ⟨.xchg sz (.reg a) (.reg b), len⟩ s =
+      { s with
+        regs := (s.regs.set a (Value.writeView sz (s.regs.get a) (s.getReg sz b))).set b
+                  (Value.writeView sz
+                    ((s.regs.set a (Value.writeView sz (s.regs.get a) (s.getReg sz b))).get b)
+                    (s.getReg sz a)),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.readOperand, Cpu.writeOperand, Cpu.getReg,
+    Operand.isMem, Operand.isImm]
+
+@[simp] theorem step_xchg_flags (sz : Size) (a b : GPR) (h : Live s) :
+    (step ⟨.xchg sz (.reg a) (.reg b), len⟩ s).flags = s.flags := by
+  rw [step_xchg_reg_reg sz a b h]
+
+@[simp] theorem step_xchg_mem (sz : Size) (a b : GPR) (h : Live s) :
+    (step ⟨.xchg sz (.reg a) (.reg b), len⟩ s).mem = s.mem := by
+  rw [step_xchg_reg_reg sz a b h]
+
+/-- ⛔ AND THE REFUSED SHAPE IS A THEOREM TOO.  `xchg` with a memory operand sets
+`ms` and changes NOTHING else — not the registers, not the memory it declined to
+touch.  A refusal that quietly half-executed would be worse than a wrong answer,
+because the state it left would look like a state. -/
+theorem step_xchg_mem_refuses (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
+    step ⟨.xchg sz (.mem ea) (.reg r), len⟩ s =
+      { s with ms := some (.unimplemented "xchg with a memory operand (implicit LOCK)") } := by
+  simp [step, h, Cpu.halt, Operand.isMem]
+
+@[simp] theorem step_bswap_flags (sz : Size) (r : GPR) (h : Live s) :
+    (step ⟨.bswap sz r, len⟩ s).flags = s.flags := by
+  cases sz <;> simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.halt]
+
 end X86

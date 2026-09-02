@@ -599,3 +599,72 @@ convenient.
 
 **Reversal cost:** none — this is a recorded absence. Closing it means modelling
 signed bit-string addressing and giving it its own vectors.
+
+## D24 — `xchg %rax, %rax` is NOP and `xchg %eax, %eax` is not, and the assembler is the witness.
+
+P1 batch 10 needed a vector for `xchg` with the same register twice, because
+that is where "a swap of two values" and "two writes" stop being the same
+statement: a 32-bit write zero-extends (SDM Vol. 1 §3.4.1.1), so
+`xchg %eax, %eax` moves no data and still CLEARS the upper half of RAX.
+
+⭐ **THE ASSEMBLER SETTLED IT BEFORE THE ORACLE DID.** `xchg %eax, %eax`
+assembles to `87 c0` — the ModR/M form — and NOT to `90`, though `90` is
+"XCHG eAX, eAX" in every opcode table. `xchg %rax, %rax` assembles to `90`. The
+reason is that in 64-bit mode `90` is NOP, and NOP does not touch RAX; an
+assembler that used it for the 32-bit spelling would silently drop the
+zero-extension.
+
+⇒ So `90` is **not this instruction** and is not in the vector table: it is the
+`nop` of roster family 7. The `87 c0` form is, and it is the vector that says
+`xchg` is a pair of writes.
+
+**Reversal cost:** none. If `nop` is modelled later it takes its own row; this
+decision is about which of the two spellings `.xchg` claims.
+
+## D25 — Two shapes REFUSED rather than approximated: `xchg` at memory, `bswap` at 16 bits.
+
+Both follow D23's rule — decline what the manual declines, and say so where a
+reader is looking.
+
+**`xchg` with a memory operand** asserts the LOCK signal whether or not `lock`
+is written (SDM Vol. 2A, XCHG). That is an ATOMICITY claim, and a single-threaded
+model has no vocabulary to make it or to break it. Modelling the data movement
+and silently dropping the atomicity would produce a model that is right about
+every observation this harness can make and wrong about the only thing that
+distinguishes the instruction. Those forms are roster family 11; `step` halts.
+
+**`bswap` at a 16-bit operand size** is undefined in the SDM — not its flags,
+not some of its bits: the RESULT. ⚠️ **The undefined-bit oracle is the wrong
+instrument here, and that is the useful part.** The oracle says "this model
+declines to commit to these BITS", which is a claim about a value that exists.
+Where the manual declines to define the value at all, drawing oracle bits for it
+would dress a refusal up as a `T-frame` answer. `step` halts instead.
+
+**Reversal cost:** low. Each is one `step` case, one anchor, and one coverage row.
+
+## D26 — RDX carries a value in every pre-state, because until batch 10 nothing wrote it.
+
+`mkPre` now sets `rdx := ~~~a`.
+
+`cwtd`/`cltd`/`cqto` are the first instructions in this model to write a
+register their operands do not name, and `cltd`'s write is **32 bits wide**, so
+it clears RDX's upper half. A model that merged instead — the 16-bit rule,
+applied to all three mnemonics off one sentence, which is exactly D20's shape —
+is **indistinguishable from the correct one in every pre-state where RDX is
+zero**, and RDX was zero in all seventy-four.
+
+⇒ This is D14 arriving a second time in a different register. There the memory
+window was a constant across all pre-states, so every `_rm_` form read one value
+seventy-four times; here a whole REGISTER was a constant, and it was the
+destination of a batch that had not been written yet. **A pre-state set is
+adversarial only with respect to the instructions that already exist**, and
+each batch has to ask what its own new destinations were doing before it
+arrived.
+
+Held by `pre_states_give_rdx_a_nonzero_upper_half` and probed in both
+directions: deleting the line makes the `wrongCdqMerges` arm catch zero AND
+makes the assertion fail (D21's calibration, applied by design rather than after
+a wolf-cry).
+
+**Reversal cost:** none — it is one field in a pre-state constructor. Nothing
+reads RDX in any earlier batch, which is why it could stay zero unnoticed.

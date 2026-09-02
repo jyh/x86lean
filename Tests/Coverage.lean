@@ -57,25 +57,63 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests. -/
-theorem roster_size_is_35 : rosterSize = 35 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`. -/
+theorem roster_size_is_45 : rosterSize = 45 := by decide
+
+/-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
+
+P1 batch 9 handed on a scaling problem with a diagnosis: this module's kernel
+time ran 378 → 1960 → 3130 → 6520 ms across batches 3, 5, 7 and 9, and the cause
+was recorded as (assertions × vectors × PRE-STATES).
+
+⭐ BATCH 10 MEASURED IT INSTEAD OF INHERITING IT, AND THE PRE-STATES ARE NOT IN
+IT.  Adding batch 10's eight new theorems — three of them over (vector ×
+pre-state) — cost **720 ms**.  Adding batch 10's THIRTY-THREE VECTORS, with no
+new theorem at all, cost **2400 ms**.  The vector table grew 7% and the module
+grew 37%.
+
+So the growing factor is the VECTOR TABLE, and a batch multiplies it against
+the table rows as well: 35 → 45 rows is +29%, 474 → 507 vectors is +7%.  Three
+theorems here were each a 45 × 507 sweep of STRING equalities — 22 815 of them,
+on `List Char` — and `hasMemDestVector` re-swept all 507 vectors once per
+claiming row.
+
+Collapsing the inner factor once instead of per row (`vectorMnemonics`,
+`memDestMnemonics`) and hoisting the pre-states' 80-byte background pattern to a
+closed constant (`Tests/Vectors.lean`, `baseMem`) takes the module 9640 → 8250
+ms.  None of it weakens anything: `List.contains` and `List.all` cannot tell a
+list from its duplicate-free image, and the hoisted bytes are identical.
+
+⛔ AND THE HONEST PART: THAT RECOVERED 1390 OF THIS BATCH'S OWN 2400 ms, SO 1010
+ms OF THE GROWTH IS STILL UNACCOUNTED FOR.  The three collapses were aimed at
+the products that were easiest to SEE, and between them they explain a little
+over half of what the vectors cost.  The remainder is somewhere in the ~20 other
+theorems that scan the table, and the next head should measure per theorem
+rather than reason about shapes — which is the mistake this note is correcting
+in its own inherited diagnosis.  The ceiling is untouched at 19560 with 2.4×
+headroom, so there is room to do that properly rather than under pressure. -/
+
+/-- The mnemonics the differential vector table exercises, without duplicates.
+Named so the three theorems below share one reduction rather than each
+re-deriving it 45 times. -/
+def vectorMnemonics : List String := (vectors.map Vec.mnemonic).eraseDups
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
 theorem every_row_has_a_vector :
     (tableP0.map Row.mnemonic).all
-      (fun m => (vectors.map Vec.mnemonic).contains m) = true := by decide
+      (fun m => vectorMnemonics.contains m) = true := by decide
 
 /-- And every vector's mnemonic is one the table knows about, so a form cannot
 be tested while being absent from the published coverage. -/
 theorem every_vector_has_a_row :
-    (vectors.map Vec.mnemonic).all
+    vectorMnemonics.all
       (fun m => (tableP0.map Row.mnemonic).contains m) = true := by decide
 
 /-- Every implemented mnemonic is exercised by at least one differential vector
 — the count above is matched by the vector table, not merely by the roster. -/
 theorem vectors_cover_the_roster :
-    (vectors.map Vec.mnemonic).eraseDups.length = rosterSize := by decide
+    vectorMnemonics.length = rosterSize := by decide
 
 /-- No form is in the `T-absent` tier: every roster form is modelled.
 When P1 adds a refused form this theorem is the one that must change, and
@@ -255,10 +293,17 @@ def claimsMemDest (r : Row) : Bool :=
   -- what goes inside it is free to say which kind of write it is.
   || isInfixOfChars "m(".toList r.shapes.toList
 
-/-- Is there a differential vector for this mnemonic whose DESTINATION operand
-is memory? -/
-def hasMemDestVector (m : String) : Bool :=
-  vectors.any (fun v => v.mnemonic == m && (match v.instr.op with
+/-- Does this vector write (or, for `cmp`/`test`, address) a MEMORY
+DESTINATION?
+
+⚠️ IT ENUMERATES AST CONSTRUCTORS, so it goes stale the moment `Op` grows — it
+did exactly that in batch 8, when `.rot` arrived and this function answered "no
+vector" to a true claim.  It fails CLOSED, which is the right direction, but the
+maintenance cost is real and it belongs in the same commit as the new
+constructor.  Batch 10's four new constructors are below, added here rather than
+after a gate refused them. -/
+def isMemDestVector (v : Vec) : Bool :=
+  (match v.instr.op with
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem
@@ -277,7 +322,28 @@ def hasMemDestVector (m : String) : Bool :=
     -- function in the same commit that extends `Op`.
     | .bit _ _ d _ => d.isMem
     | .pop _ d => d.isMem
-    | _ => false))
+    -- P1 BATCH 10.  ⭐ ALL FOUR ANSWER `false`, AND THAT IS THE CLAIM RATHER
+    -- THAN AN OMISSION: `movx`'s and `bswap`'s destinations are REGISTERS by
+    -- the type (a `GPR`, not an `Operand`), `cext` has no operands at all, and
+    -- `xchg` REFUSES a memory operand (D25).  Written out so that a later
+    -- reader sees a decision rather than a gap — and so that the day `xchg`
+    -- earns its memory forms, the line to change is here.
+    | .movx .. => false
+    | .cext _ => false
+    | .xchg _ a b => a.isMem || b.isMem
+    | .bswap .. => false
+    | _ => false)
+
+/-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
+per row re-swept all 507 vectors for every claiming row; the set it is really
+asking about has at most `rosterSize` elements.  See the note above
+`vectorMnemonics`. -/
+def memDestMnemonics : List String :=
+  ((vectors.filter isMemDestVector).map Vec.mnemonic).eraseDups
+
+/-- Is there a differential vector for this mnemonic whose DESTINATION operand
+is memory? -/
+def hasMemDestVector (m : String) : Bool := memDestMnemonics.contains m
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.
@@ -431,5 +497,98 @@ theorem carry_rotates_reach_their_own_zero :
           && (let n := Flags.rotMasked sz c
               n ≠ 0 && Flags.rotReduced k sz n = 0)
       | _ => false) = true := by decide
+
+/-! ### P1 BATCH 10 — the width-changing and two-destination moves
+
+⭐ THIS BATCH WRITES NO FLAGS AT ALL, so none of the assertions below are about
+a flag rule.  They are about the three things that CAN be lost silently here:
+a destination width whose write PRESERVES rather than zero-extends, a source
+whose sign bit is set (without which a sign extension and a zero extension are
+the same function), and a register that was zero in every pre-state until this
+batch put something in it. -/
+
+/-- ⭐ SOME PRE-STATE HAS A NON-ZERO UPPER HALF IN RDX, and until this batch none
+did — RDX was zero in all seventy-four.
+
+`cwtd`/`cltd`/`cqto` are the first instructions in this model to write a
+register their operands do not name, and `cltd`'s write is 32 bits wide, so it
+CLEARS RDX's upper half (SDM Vol. 1 §3.4.1.1).  A model that merged instead —
+which is what the 16-bit rule does and what a reader who saw one rule for three
+mnemonics would write — is indistinguishable from the correct one whenever RDX
+starts at zero.  Deleting `rdx := ~~~a` from `mkPre` makes the differential's
+`cltd` arm catch NOTHING and makes this theorem FAIL; see
+docs/DIFFERENTIAL-P1-BATCH10.md for both halves of that probe. -/
+theorem pre_states_give_rdx_a_nonzero_upper_half :
+    (preStates 1 8).any (fun s => (s.regs.rdx >>> 32) != 0) = true := by decide
+
+/-- Both extensions are present.  With only one of the two in the table, the
+`movx` constructor's `MovxKind` argument would be a constant and a model that
+ignored it entirely would pass. -/
+theorem movx_covers_both_extensions :
+    ([MovxKind.zero, MovxKind.sign].all (fun k =>
+      vectors.any (fun v => match v.instr.op with
+        | .movx k' _ _ _ _ => k' == k
+        | _ => false))) = true := by decide
+
+/-- ⭐ AND SOME SIGN-EXTENDING CASE ACTUALLY READS A NEGATIVE SOURCE.  A
+`movsx` whose source has a clear sign bit computes exactly what `movzx` does, so
+without this the two extensions are one function under test and a `movsx`
+implemented as `movzx` would agree everywhere.
+
+Quantified over (vector × PRE-STATE) per D21: the sign bit is a property of the
+STATE, not of the vector, so an assertion over vectors alone would be asserting
+something it cannot see. -/
+theorem movx_reaches_a_negative_source :
+    vectors.any (fun v => match v.instr.op with
+      | .movx .sign _ ssz _ src =>
+          (preStates 1 8).any (fun st =>
+            Value.msb ssz (st.readOperand ssz (st.rip + BitVec.ofNat 64 v.instr.len) src))
+      | _ => false) = true := by decide
+
+/-- ⭐ SOME WIDTH-CHANGING MOVE WRITES A 16-BIT DESTINATION OVER A REGISTER WITH
+SOMETHING IN ITS UPPER BITS.  `.w` is the only destination width here that
+PRESERVES what is above it; `.d` zero-extends and `.q` replaces.  A model that
+extended to 64 bits and wrote all 64 is correct at `.d` and `.q` and wrong only
+here — and only when there was something above bit 15 to destroy.
+
+Over (vector × pre-state) for the same reason as above: "there is something in
+the upper bits" is a fact about the state. -/
+theorem movx_writes_a_preserving_destination :
+    vectors.any (fun v => match v.instr.op with
+      | .movx _ .w _ dst _ =>
+          (preStates 1 8).any (fun st => (st.regs.get dst >>> 16) != 0)
+      | _ => false) = true := by decide
+
+/-- ⭐ SOME `xchg` RUNS AT WIDTH `d`, where the swap is observable in the bits it
+does NOT move: each of the two writes zero-extends, so both registers lose their
+upper halves.  At `b`, `w` and `q` a swap of values is the whole instruction. -/
+theorem xchg_covered_at_width_d :
+    vectors.any (fun v => match v.instr.op with
+      | .xchg sz _ _ => sz == Size.d
+      | _ => false) = true := by decide
+
+/-- ⚠️ AND THE TWO OPERAND ORDERS ARE ONE ENCODING.  The coverage row claims
+`acc,r` and `r,acc` — two roster forms — and says they are the same bytes.  This
+is that sentence as an assertion: the vector table holds both spellings, and
+their `bytes` agree.  `scripts/check_encodings.py` is what makes each of those
+byte strings the assembler's rather than ours, so the two together say the
+assembler emits one encoding for both orders. -/
+theorem xchg_operand_orders_are_one_encoding :
+    (match vectors.find? (fun v => v.id == "xchg_rr_w"),
+           vectors.find? (fun v => v.id == "xchg_ar_w") with
+     | some a, some b => a.bytes == b.bytes && a.instr.len == b.instr.len
+     | _, _ => false) = true := by decide
+
+/-- The two trios write DIFFERENT REGISTERS, and both are exercised: one vector
+widens the accumulator in place, another fills RDX with its sign.  A model that
+sent all six to the same register would otherwise be caught only by whichever
+trio happened to have a vector. -/
+theorem cext_covers_both_destinations :
+    (vectors.any (fun v => match v.instr.op with
+       | .cext k => k == CextKind.cbw || k == CextKind.cwde || k == CextKind.cdqe
+       | _ => false)
+     && vectors.any (fun v => match v.instr.op with
+       | .cext k => k == CextKind.cwd || k == CextKind.cdq || k == CextKind.cqo
+       | _ => false)) = true := by decide
 
 end X86.Tests

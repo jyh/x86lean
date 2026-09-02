@@ -251,6 +251,40 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMOVcc" }
   , { mnemonic := "call", shapes := "rel32 · r/m64", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CALL" }
+  -- P1 BATCH 10 (`p1/roster.tsv` family `-------|-|reg`, its NO-FLAG core): the
+  -- width-changing and two-destination moves.  ⭐ EVERY ROW BELOW IS T-exact
+  -- WITH AN EMPTY UNDEFINED COLUMN, and that is the batch's shape rather than a
+  -- coincidence: not one of these instructions writes a flag, so there is no
+  -- undefined flag for the comparator to absorb and every disagreement they can
+  -- produce is a DATA-path disagreement.  Batch 9 was the opposite extreme —
+  -- four undefined flags leaving ZF to carry the whole test.
+  , { mnemonic := "movzx", shapes := "r,r · r,m · rh,r — b→w/l/q, w→l/q (5 spellings)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A MOVZX" }
+  , { mnemonic := "movsx", shapes := "r,r · r,m — b→w/l/q, w→l/q, l→q (6 spellings, movslq = MOVSXD)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A MOVSX/MOVSXD" }
+  -- The two trios differ in WHERE the sign lands, and each row says which
+  -- register it writes, because that is the only thing that distinguishes them.
+  , { mnemonic := "cbtw", shapes := "no operands — ax := sext(al)", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CBW/CWDE/CDQE" }
+  , { mnemonic := "cwtl", shapes := "no operands — eax := sext(ax), zero-extending into rax",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CBW/CWDE/CDQE" }
+  , { mnemonic := "cltq", shapes := "no operands — rax := sext(eax)", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CBW/CWDE/CDQE" }
+  , { mnemonic := "cwtd", shapes := "no operands — dx := sign(ax), rax untouched", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CWD/CDQ/CQO" }
+  , { mnemonic := "cltd", shapes := "no operands — edx := sign(eax), zero-extending into rdx",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CWD/CDQ/CQO" }
+  , { mnemonic := "cqto", shapes := "no operands — rdx := sign(rax)", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CWD/CDQ/CQO" }
+  -- ⚠️ `ax,r` AND `r,ax` ARE THE SAME BYTES.  The assembler emits `66 91` for
+  -- both `xchg %ax, %cx` and `xchg %cx, %ax`, so the roster's two forms are one
+  -- encoding and the differential cannot tell them apart — said here rather
+  -- than left for a reader to assume they were separately tested.  The memory
+  -- shape is REFUSED, not missing (D25).
+  , { mnemonic := "xchg", shapes := "r,r · acc,r · r,acc — b/w/l/q (m: refused, implicit LOCK)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XCHG" }
+  , { mnemonic := "bswap", shapes := "r — l/q only (b/w: SDM undefined, refused)", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A BSWAP" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

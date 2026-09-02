@@ -34,7 +34,10 @@ stores the right value at the wrong WIDTH, a `jcxz` with an inverted test, and a
 that skips its write on a false condition, a `sar` that brings in zeros, and a
 `sar` given SHL/SHR's undefined-CF rule, a backwards `rol`, and a rotate whose CF
 write keys on the reduced count, an off-by-one `bts`, and a bit-test that
-recomputes ZF — and REQUIRES the comparator to catch each one.
+recomputes ZF, a `movsx` that zero-extends, an `xchg` that copies instead of
+swapping, a `cltd` that merges where it must zero-extend, and a width-changing
+move that bounds its VALUE instead of its WRITE — and REQUIRES the comparator to
+catch each one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
 accidental: each batch plants a PAIR, an easy half that almost any pre-state
@@ -667,6 +670,96 @@ def wrongBitRecomputesZf (i : Instr) (s : Cpu) : Cpu :=
           zf := (out.readOperand sz (s.rip + BitVec.ofNat 64 i.len) dst) == 0 } }
   | _ => step i s
 
+/-- ⭐ P1 BATCH 10's PLANTED BUG, EASY HALF: a `movsx` that ZERO-extends — that
+is, `movsx` implemented as `movzx`, which is what happens when the two are
+written from one template and the extension is the parameter someone forgot to
+thread.  Any pre-state whose source has its sign bit set catches it, which is
+most of the adversarial list.
+
+The two extensions agree exactly when the source is non-negative, so this arm is
+also what says `movx_reaches_a_negative_source` in Tests/Coverage.lean is about
+something real: without a negative source in the pre-states, `movsx` and `movzx`
+are the same function under test and this bug is invisible. -/
+def wrongMovsxZeroExtends (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .movx .sign dsz ssz dst src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let v := s.readOperand ssz nr src
+      -- the BUG: zero where the sign belongs
+      ((s.setReg dsz dst (Value.zext ssz v)).setRip nr)
+  | _ => step i s
+
+/-- ⭐ P1 BATCH 10's SECOND EASY HALF: an `xchg` that COPIES instead of swapping
+— it writes the second operand into the first and leaves the second alone.  This
+is what a half-written swap looks like, and no other form in this repository
+could catch it because no other form writes two destinations.
+
+Surgical in the sense P0's `wrongShiftMask` had to be taught: the first write is
+exactly the correct one, at the correct width, so the only difference is the
+write that is missing. -/
+def wrongXchgCopies (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .xchg sz a b =>
+      if a.isMem || b.isMem || a.isImm || b.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let vb := s.readOperand sz nr b
+        -- the BUG: the second write never happens
+        ((s.writeOperand sz nr a vb).setRip nr)
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND THE ONE THE NEW PRE-STATE EXISTS FOR.  This model gives
+the `99` trio — `cwtd`/`cltd`/`cqto` — ONE write rule: merge the computed value
+into the register the way a 16-bit write does.  That is correct for `cwtd`
+(whose write really is 16 bits) and correct for `cqto` (where the merge mask is
+empty), and WRONG for `cltd`, whose write is 32 bits and therefore CLEARS RDX's
+upper half (SDM Vol. 1 §3.4.1.1).
+
+⚠️ It is the same shape as batch 7's SAR bug: one rule read off one sentence and
+applied to three mnemonics, right for two of them.  And it is invisible unless
+RDX starts with something in its upper half — which it never did before this
+batch, in any of the seventy-four pre-states.  `mkPre` now gives RDX the
+complement of RAX; deleting that line makes this arm catch ZERO and makes
+`pre_states_give_rdx_a_nonzero_upper_half` fail. -/
+def wrongCdqMerges (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cext k =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let a := s.regs.get .rax
+      let merge (sz : Size) (v : Val) : Cpu :=
+        -- the BUG: the 16-bit merge rule, applied at every width of the trio
+        let old := s.regs.get .rdx
+        let nv := (old &&& ~~~sz.mask) ||| Value.trunc sz v
+        { s with regs := s.regs.set .rdx nv }
+      match k with
+      | .cwd => ((merge .w (if Value.msb .w a then Size.mask .w else 0)).setRip nr)
+      | .cdq => ((merge .d (if Value.msb .d a then Size.mask .d else 0)).setRip nr)
+      | .cqo => ((merge .q (if Value.msb .q a then Size.mask .q else 0)).setRip nr)
+      | _ => step i s
+  | _ => step i s
+
+/-- ⭐ THE SECOND HARD HALF, AND THE ONE THE `bw` VECTORS EXIST FOR.  This model
+applies the destination width to the VALUE and not to the WRITE: it truncates
+the extension to `dsz` and then writes all sixty-four bits.
+
+At `.d` that is exactly right, because a 32-bit write zero-extends and this
+zero-fills.  At `.q` it is right because the write is the whole register.  At
+`.w` it is WRONG, because a 16-bit write PRESERVES what is above it and this
+clears it — and `movzbw`/`movsbw` are the only two vectors in the table with a
+16-bit destination.  Two rows of thirty-three, and without them a whole rule of
+the SDM's three-way write asymmetry goes untested. -/
+def wrongMovxFullWidthWrite (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .movx k dsz ssz dst src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let v := s.readOperand ssz nr src
+      let e := match k with
+        | .zero => Value.zext ssz v
+        | .sign => Value.sext ssz v
+      -- the BUG: the width bounds the VALUE and not the WRITE
+      ({ s with regs := s.regs.set dst (Value.trunc dsz e) }).setRip nr
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -695,6 +788,40 @@ field the bug is in ({expectField}). The comparator fires on the wrong thing."
     IO.println s!"  ✔ {name}: caught — {hits.length} disagreement(s) in `{expectField}` \
 (total unexplained {r.unexplained}, explained {r.explained})"
     return true
+
+/-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
+Named once so the filtered probe mode and the full selftest cannot drift apart —
+a probe that ran a different set from the gate would be the exact defect the
+coverage table kept making (D15). -/
+def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
+  [ ("inc clobbers CF", wrongInc, "cf")
+  , ("movl fails to zero-extend", wrongMovD, "rax")
+  , ("shift forgets to mask its count", wrongShiftMask, "rax")
+  , ("adc drops the carry-in", wrongAdcNoCarry, "rax")
+  , ("adc's carry-OUT forgets the carry-in", wrongAdcCarryOutCF, "cf")
+  , ("cmp writes its result back", wrongCmpWritesBack, "rax")
+  , ("cmp writes back ONLY to a memory destination", wrongCmpMemWriteBack,
+     "mem@0000000000001ff0")
+  , ("a memory read-modify-write drops its STORE", wrongMemStoreDropped,
+     "mem@0000000000001ff0")
+  , ("a memory store ignores its operand WIDTH", wrongMemStoreWidth,
+     "mem@0000000000001ff0")
+  , ("jcxz inverts its test", wrongJcxzInverted, "rip")
+  , ("jecxz ignores the address-size prefix and reads all 64 bits", wrongJecxzWidth, "rip")
+  , ("setcc inverts its condition", wrongSetccInverted, "rax")
+  , ("cmov skips the write when the condition is false", wrongCmovSkipsWrite, "rax")
+  , ("sar brings in zeros instead of the sign", wrongSarLogical, "rax")
+  , ("sar takes SHL/SHR's undefined-CF rule at a large count",
+     wrongSarCfUndefinedAtLargeCount, "cf")
+  , ("rol rotates the wrong way", wrongRolDirection, "rax")
+  , ("a rotate keys its CF write on the REDUCED count", wrongRotCfKeyedOnReducedCount, "cf")
+  , ("bts sets the bit above the one it tested", wrongBtsOffByOne, "rax")
+  , ("a bit-test recomputes ZF instead of leaving it alone", wrongBitRecomputesZf, "zf")
+  , ("movsx zero-extends (movsx written as movzx)", wrongMovsxZeroExtends, "rax")
+  , ("xchg copies instead of swapping", wrongXchgCopies, "rcx")
+  , ("the cwtd/cltd/cqto trio merges where cltd must zero-extend", wrongCdqMerges, "rdx")
+  , ("a width-changing move bounds the VALUE and not the WRITE",
+     wrongMovxFullWidthWrite, "rax") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -729,8 +856,34 @@ def main (args : List String) : IO UInt32 := do
       let r := compareRecs ra rb
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
+  -- ⭐ `selftest <substring>` RUNS ONLY THE ARMS WHOSE NAME MATCHES, and it
+  -- exists because of what a deletion probe costs.  Every batch here tests its
+  -- "is this coverage load-bearing?" claim by DELETING the coverage and
+  -- re-running the arm that depends on it (D13, D14, batch 5's constant, D21) —
+  -- and a full `selftest` re-emits the whole vector table twice per arm,
+  -- twenty-three times over, which at batch 10's size is about eleven minutes
+  -- for a question about one arm.
+  --
+  -- ⚠️ IT IS A FILTER, NOT A SECOND SELFTEST.  The arms it runs are the same
+  -- arms, driven by the same `driveWrong`, and the no-argument form is
+  -- unchanged and is what CI runs.  A probe mode that could pass while the real
+  -- gate failed would be worse than the eleven minutes.
+  | ["selftest", pat] =>
+      let arms := selftestArms.filter (fun a => ((a.1.splitOn pat).length > 1))
+      if arms.isEmpty then
+        IO.println s!"no selftest arm matches \"{pat}\" — names are:"
+        for a in selftestArms do IO.println s!"  {a.1}"
+        return 2
+      IO.println s!"harness selftest (filtered by \"{pat}\") — {arms.length} of \
+{selftestArms.length} arms:"
+      let mut ok := true
+      for a in arms do
+        let r ← driveWrong a.1 a.2.1 a.2.2
+        ok := ok && r
+      if ok then IO.println "filtered selftest: PASS"; return 0
+      else IO.println "filtered selftest: FAIL"; return 1
   | ["selftest"] =>
-      IO.println "harness selftest — nineteen deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — twenty-three deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -758,6 +911,13 @@ def main (args : List String) : IO UInt32 := do
       let v ← driveWrong "bts sets the bit above the one it tested" wrongBtsOffByOne "rax"
       let w ← driveWrong "a bit-test recomputes ZF instead of leaving it alone"
                 wrongBitRecomputesZf "zf"
+      let x ← driveWrong "movsx zero-extends (movsx written as movzx)"
+                wrongMovsxZeroExtends "rax"
+      let y ← driveWrong "xchg copies instead of swapping" wrongXchgCopies "rcx"
+      let z ← driveWrong "the cwtd/cltd/cqto trio merges where cltd must zero-extend"
+                wrongCdqMerges "rdx"
+      let a2 ← driveWrong "a width-changing move bounds the VALUE and not the WRITE"
+                wrongMovxFullWidthWrite "rax"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -767,7 +927,8 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' && t' && u && v && w then
+      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' && t' && u && v && w
+         && x && y && z && a2 then
         IO.println "harness selftest: PASS"
         return 0
       else
@@ -777,7 +938,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **343 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **367 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -786,7 +947,11 @@ vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8
 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two \
 `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the \
 rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the \
-bit-string `m,r` shape declined, see D23).\n\n\
+bit-string `m,r` shape declined, see D23); 10 — the width-changing and \
+two-destination moves: MOVZX/MOVSX/MOVSXD, the six accumulator sign-extensions, \
+XCHG and BSWAP, the first forms with a source width unlike their destination's \
+and the first that write two registers, and the only batch so far that writes \
+NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
@@ -806,5 +971,5 @@ pre-states={(preStates 1 n).length} cases={vectors.length * (preStates 1 n).leng
       return 0
   | _ =>
       IO.eprintln "usage: x86lean-diff (emit <out> | emit-asm <out> | expected-lengths <out> | \
-compare <a> <b> | selftest | coverage <out> | stats | emit-acl2 <out>)"
+compare <a> <b> | selftest [<arm-substring>] | coverage <out> | stats | emit-acl2 <out>)"
       return 2
