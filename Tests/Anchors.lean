@@ -372,6 +372,53 @@ theorem call_pushes_return_address :
 theorem call_jumps :
     (step ⟨.call (.rel 0x100), 5⟩ (mk { rsp := 0x8000 } (rip := 0x1000))).rip = 0x1105 := by decide
 
+/-! ## Canonical addresses — SDM Vol. 1 §3.3.7.1, Vol. 2A JMP/CALL
+
+⭐ THESE ANCHORS EXIST BECAUSE THE DIFFERENTIAL RUN FOUND THE GAP THEY PIN.
+Before it, this model set RIP to whatever an indirect branch named, and every
+theorem about that was true — of a wrong model.  ACL2 x86isa disagreed on 80
+cases, all of them non-canonical branch targets. -/
+
+/-- The canonicality boundary itself: `0x00007FFF_FFFFFFFF` is the largest
+canonical low address and `0x00008000_00000000` is the first non-canonical one. -/
+theorem canonical_boundary_low :
+    canonical 0x00007FFFFFFFFFFF = true := by decide
+
+theorem noncanonical_just_above :
+    canonical 0x0000800000000000 = false := by decide
+
+/-- And the high half: `0xFFFF8000_00000000` is canonical again (bit 47 set,
+sign-extended), while `0xFFFF7FFF_FFFFFFFF` is not. -/
+theorem canonical_boundary_high :
+    canonical 0xFFFF800000000000 = true := by decide
+
+theorem noncanonical_just_below :
+    canonical 0xFFFF7FFFFFFFFFFF = false := by decide
+
+/-- A branch to a non-canonical target HALTS this model instead of landing. -/
+theorem jmp_noncanonical_halts :
+    (step ⟨.jmp (.indirect (.reg .rax)), 2⟩
+      (mk { rax := 0x5555555555555555 } (rip := 0x400000))).ms
+      = some (.unimplemented "non-canonical branch target (#GP(0) in hardware)") := by decide
+
+/-- ...and does not move RIP. -/
+theorem jmp_noncanonical_does_not_land :
+    (step ⟨.jmp (.indirect (.reg .rax)), 2⟩
+      (mk { rax := 0x5555555555555555 } (rip := 0x400000))).rip = 0x400000 := by decide
+
+/-- ⭐ A REFUSED CALL DOES NOT PUSH.  RSP is untouched — the check precedes the
+push, which is the ordering the differential run made observable by disagreeing
+on `rsp` and the stack window as well as on `rip`. -/
+theorem call_noncanonical_does_not_push :
+    (step ⟨.call (.indirect (.reg .rax)), 2⟩
+      (mk { rax := 0x5555555555555555, rsp := 0x8000 } (rip := 0x400000))).regs.rsp
+      = 0x8000 := by decide
+
+/-- A canonical indirect call still works, so the check did not break the form. -/
+theorem call_canonical_still_pushes :
+    (step ⟨.call (.indirect (.reg .rax)), 2⟩
+      (mk { rax := 0x401000, rsp := 0x8000 } (rip := 0x400000))).regs.rsp = 0x7FF8 := by decide
+
 /-! ## Totality: a form no encoding can express STOPS the model -/
 
 theorem two_memory_operands_halt :

@@ -287,42 +287,80 @@ theorem step_pop_rsp (sz : Size) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h, Regs.set_set_same]
 
-/-! ## JMP / Jcc / CALL — SDM Vol. 2A.  "Flags Affected: None." -/
+/-! ## JMP / Jcc / CALL — SDM Vol. 2A.  "Flags Affected: None."
 
-theorem step_jmp_rel (d : Val) (h : Live s) :
+⭐ EVERY ONE OF THESE CARRIES A CANONICALITY HYPOTHESIS, and it is not
+bookkeeping.  In 64-bit mode a branch to a non-canonical target raises #GP(0)
+(SDM Vol. 1 §3.3.7.1 for canonical form; Vol. 2A, JMP/CALL "64-Bit Mode
+Exceptions").  The first version of this file had no such hypothesis and the
+theorems were all still TRUE OF THE MODEL — the model was simply wrong, and
+self-consistently so.  What found it was the differential run against ACL2
+x86isa: 80 unexplained disagreements, every one an indirect branch to a
+non-canonical address.  The `_noncanonical` companions below are the other half
+of each equation, and the reason the hypothesis cannot be quietly dropped. -/
+
+theorem step_jmp_rel (d : Val) (h : Live s) (hc : canonical (s.rip + BitVec.ofNat 64 len + d)) :
     step ⟨.jmp (.rel d), len⟩ s =
       { s with rip := (s.rip + BitVec.ofNat 64 len) + d } := by
-  simp [step, h]
+  simp [step, h, Cpu.setRipChecked, hc]
 
-theorem step_jmp_indirect_reg (r : GPR) (h : Live s) :
+theorem step_jmp_indirect_reg (r : GPR) (h : Live s) (hc : canonical (s.getReg .q r)) :
+    step ⟨.jmp (.indirect (.reg r)), len⟩ s = { s with rip := s.getReg .q r } := by
+  simp [step, h, Cpu.getReg, Cpu.setRipChecked] at hc ⊢
+  simp [hc]
+
+/-- A branch this model declines: it HALTS and moves nothing else.  Note what is
+absent from the update — `rip` is not written, so a refused jump does not land
+anywhere. -/
+theorem step_jmp_indirect_noncanonical (r : GPR) (h : Live s)
+    (hc : canonical (s.getReg .q r) = false) :
     step ⟨.jmp (.indirect (.reg r)), len⟩ s =
-      { s with rip := s.getReg .q r } := by
-  simp [step, h, Cpu.getReg]
+      { s with ms := some (.unimplemented "non-canonical branch target (#GP(0) in hardware)") } := by
+  simp [step, h, Cpu.getReg, Cpu.setRipChecked, Cpu.halt] at hc ⊢
+  simp [hc, Cpu.halt, h]
 
 /-- Jcc, both arms in one equation: RIP is the taken target or the fall-through,
 and NOTHING else moves — in particular the flags the condition read are
-untouched. -/
-theorem step_jcc (c : Cc) (d : Val) (h : Live s) :
+untouched.  Only the TAKEN arm can be non-canonical, so the hypothesis is
+conditional on the branch being taken. -/
+theorem step_jcc (c : Cc) (d : Val) (h : Live s)
+    (hc : c.eval s.flags = true → canonical (s.rip + BitVec.ofNat 64 len + d)) :
     step ⟨.jcc c d, len⟩ s =
       { s with rip := if c.eval s.flags then (s.rip + BitVec.ofNat 64 len) + d
                       else s.rip + BitVec.ofNat 64 len } := by
-  by_cases hc : c.eval s.flags <;> simp [step, h, hc]
+  by_cases he : c.eval s.flags
+  · simp [step, h, he, Cpu.setRipChecked, hc he]
+  · simp [step, h, he]
 
-theorem step_call_rel (d : Val) (h : Live s) :
+theorem step_call_rel (d : Val) (h : Live s)
+    (hc : canonical (s.rip + BitVec.ofNat 64 len + d)) :
     step ⟨.call (.rel d), len⟩ s =
       { s with
         mem := s.mem.writeSize .q (s.regs.get .rsp - 8) (s.rip + BitVec.ofNat 64 len),
         regs := s.regs.set .rsp (s.regs.get .rsp - 8),
         rip := (s.rip + BitVec.ofNat 64 len) + d } := by
-  simp [step, h]
+  simp [step, h, hc]
 
-theorem step_call_indirect_reg (r : GPR) (h : Live s) :
+theorem step_call_indirect_reg (r : GPR) (h : Live s) (hc : canonical (s.getReg .q r)) :
     step ⟨.call (.indirect (.reg r)), len⟩ s =
       { s with
         mem := s.mem.writeSize .q (s.regs.get .rsp - 8) (s.rip + BitVec.ofNat 64 len),
         regs := s.regs.set .rsp (s.regs.get .rsp - 8),
         rip := s.getReg .q r } := by
-  simp [step, h, Cpu.getReg]
+  simp [step, h, Cpu.getReg] at hc ⊢
+  simp [hc]
+
+/-- ⭐ A REFUSED CALL DOES NOT PUSH.  `regs` and `mem` are both absent from the
+update, so RSP is untouched and no return address is written.  This is the
+ordering the differential run made observable: the first version pushed before
+checking, and disagreed with x86isa on `rsp` and on the stack window as well as
+on `rip` — three symptoms of one mis-ordering. -/
+theorem step_call_indirect_noncanonical (r : GPR) (h : Live s)
+    (hc : canonical (s.getReg .q r) = false) :
+    step ⟨.call (.indirect (.reg r)), len⟩ s =
+      { s with ms := some (.unimplemented "non-canonical branch target (#GP(0) in hardware)") } := by
+  simp [step, h, Cpu.getReg, Cpu.halt] at hc ⊢
+  simp [hc, Cpu.halt, h]
 
 /-! ## The frame pack
 
@@ -344,9 +382,10 @@ loudly. -/
     (step ⟨.un .not sz (.reg r), len⟩ s).flags = s.flags := by
   rw [step_not_reg sz r h]
 
-@[simp] theorem step_jcc_flags (c : Cc) (d : Val) (h : Live s) :
+@[simp] theorem step_jcc_flags (c : Cc) (d : Val) (h : Live s)
+    (hc : c.eval s.flags = true → canonical (s.rip + BitVec.ofNat 64 len + d)) :
     (step ⟨.jcc c d, len⟩ s).flags = s.flags := by
-  rw [step_jcc c d h]
+  rw [step_jcc c d h hc]
 
 /-- ADD SPENDS NO ORACLE BIT: every flag it writes is defined.  The contrast
 with `step_and_oracle` below is the content. -/

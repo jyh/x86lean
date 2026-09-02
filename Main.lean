@@ -54,6 +54,59 @@ def emitAll (stepFn : Instr → Cpu → Cpu) (nRandom : Nat) : List String :=
     (preStates 0x9E3779B97F4A7C15 nRandom).zipIdx.flatMap fun (pre, i) =>
       caseLines v i pre stepFn)
 
+/-! ## Emission for the ACL2 side
+
+⭐ THE LISP SIDE PARSES NOTHING.  Rather than teach ACL2 to read the record
+format, the harness EMITS ACL2 SOURCE: a `defconst` holding the cases as
+ordinary Lisp data.  A parser on the oracle side would be a second
+implementation of the format, in a language chosen for theorem proving rather
+than for string handling, and every bug in it would look exactly like a
+disagreement — which is the one thing this harness must never confuse. -/
+
+/-- Split a hex string into its byte pairs. -/
+def hexPairs : List Char → List String
+  | a :: b :: rest => s!"{a}{b}" :: hexPairs rest
+  | _ => []
+
+/-- The instruction's bytes, as a list of Lisp hex literals. -/
+def bytesToLisp (hexStr : String) : String :=
+  "(" ++ String.intercalate " " ((hexPairs hexStr.toList).map (fun p => s!"#x{p}")) ++ ")"
+
+/-- The GPR alist, by x86isa register index. -/
+def gprsToLisp (s : Cpu) : String :=
+  "(" ++ String.intercalate " "
+    (GPR.all.map (fun r => s!"({r.index.val} . #x{hex64 (s.regs.get r)})")) ++ ")"
+
+/-- RFLAGS as a 32-bit word.  Bit 1 is the architecturally reserved one
+(SDM Vol. 1 Figure 3-8); x86isa initialises through `!rflags`, so the value has
+to be a real RFLAGS image rather than seven loose booleans. -/
+def rflagsToLisp (f : Flags) : String :=
+  let bit (b : Bool) (n : Nat) : Nat := if b then Nat.shiftLeft 1 n else 0
+  let v := 2 + bit f.cf 0 + bit f.pf 2 + bit f.af 4 + bit f.zf 6
+             + bit f.sf 7 + bit f.df 10 + bit f.of 11
+  s!"#x{hexPad (BitVec.ofNat 64 v) 8}"
+
+/-- The memory alist: the instruction's own bytes at RIP, then every byte the
+watch windows cover.  The windows are written explicitly (rather than only the
+non-zero bytes of our representation) so that the two models start from
+BYTE-IDENTICAL memory over the whole compared region — a zero we did not write
+and a zero x86isa did not write are the same value but not the same evidence. -/
+def memToLisp (v : Vec) (s : Cpu) (ws : List Window) : String :=
+  let insn := (hexPairs v.bytes.toList).zipIdx.map (fun (b, i) =>
+    s!"(#x{hex64 (s.rip + BitVec.ofNat 64 i)} . #x{b})")
+  let win := ws.flatMap fun w =>
+    (List.range w.len).map fun i =>
+      let a := w.base + BitVec.ofNat 64 i
+      s!"(#x{hex64 a} . #x{hex8 (s.mem.read a)})"
+  "(" ++ String.intercalate " " (insn ++ win) ++ ")"
+
+def acl2Case (v : Vec) (idx : Nat) (pre : Cpu) (ws : List Window) : String :=
+  s!"  (:id \"{v.id}/{idx}\" :rip #x{hex64 pre.rip} :len {v.instr.len}\n\
+   :bytes {bytesToLisp v.bytes}\n\
+   :gprs {gprsToLisp pre}\n\
+   :rflags {rflagsToLisp pre.flags}\n\
+   :mem {memToLisp v pre ws})"
+
 /-! ## The comparator -/
 
 structure Rec where
@@ -110,7 +163,20 @@ structure Disagreement where
 undefined set while a disagreement in a register never is. -/
 def flagNames : List String := ["cf", "pf", "af", "zf", "sf", "of", "df"]
 
+/-- ⭐ WHEN BOTH MODELS REFUSE, THEY AGREE.
+
+A refused instruction has no post-state either model is claiming, so comparing
+the registers, RIP and memory after a refusal compares two pieces of debris.
+The claim being made is "this faults", and on that the two agree. Anything else
+would make the fix for the non-canonical-branch gap look like eighty new
+disagreements instead of eighty resolved ones.
+
+A refusal on ONE side only is the real finding and gets its own class. -/
+def bothRefused (a b : Rec) : Bool :=
+  (a.post.lookup "refused" == some "1") && (b.post.lookup "refused" == some "1")
+
 def classify (a b : Rec) : List Disagreement :=
+  if bothRefused a b then [] else
   let keys := (a.post.map Prod.fst) ++ (b.post.map Prod.fst).filter
     (fun k => !(a.post.map Prod.fst).contains k)
   keys.filterMap fun k =>
@@ -120,7 +186,7 @@ def classify (a b : Rec) : List Disagreement :=
     else
       let cls :=
         if x == "<missing>" || y == "<missing>" then "harness"
-        else if k == "ms" then "halt"
+        else if k == "refused" then "refusal"
         else if flagNames.contains k && a.undef.contains k then "undefined-region"
         else "spec"
       some { id := a.id, mnemonic := a.mnemonic, field := k, lhs := x, rhs := y, cls }
@@ -156,7 +222,7 @@ def compareRecs (as bs : List Rec) : Report := Id.run do
 def renderReport (r : Report) : String :=
   let head := s!"cases={r.cases} matched={r.matched} explained={r.explained} \
 unexplained={r.unexplained} oracle-leaks={r.leaks} missing={r.missing}"
-  let byClass := ["spec", "halt", "harness", "undefined-region"].map fun c =>
+  let byClass := ["spec", "refusal", "harness", "undefined-region"].map fun c =>
     s!"  {c}: {(r.details.filter (fun d => d.cls == c)).length}"
   let sample := (r.details.filter (fun d => d.cls != "undefined-region")).take 20
   let lines := sample.map fun d =>
@@ -255,6 +321,16 @@ def main (args : List String) : IO UInt32 := do
       IO.println s!"emitted {vectors.length} vectors × {(preStates 1 n).length} pre-states \
 = {vectors.length * (preStates 1 n).length} cases → {out}"
       return 0
+  | ["emit-acl2", out] =>
+      let n := 8
+      let cases := vectors.flatMap fun v =>
+        (preStates 0x9E3779B97F4A7C15 n).zipIdx.map fun (pre, i) => acl2Case v i pre windows
+      let hdr := ["; GENERATED by `x86lean-diff emit-acl2`. Do not edit.",
+                  "; The differential cases as ACL2 data; scripts/x86isa_driver.lisp maps over it.",
+                  "(in-package \"X86ISA\")", "", "(defconst *x86lean-cases*", " '("]
+      writeLines out (hdr ++ cases ++ ["  ))"])
+      IO.println s!"emitted {vectors.length * (preStates 1 n).length} ACL2 cases → {out}"
+      return 0
   | ["emit-asm", out] =>
       let hdr := ["\t.text"]
       let body := vectors.map (fun v => s!"{v.id}:\t{v.asm}")
@@ -312,5 +388,5 @@ pre-states={(preStates 1 n).length} cases={vectors.length * (preStates 1 n).leng
       return 0
   | _ =>
       IO.eprintln "usage: x86lean-diff (emit <out> | emit-asm <out> | expected-lengths <out> | \
-compare <a> <b> | selftest | coverage <out> | stats)"
+compare <a> <b> | selftest | coverage <out> | stats | emit-acl2 <out>)"
       return 2

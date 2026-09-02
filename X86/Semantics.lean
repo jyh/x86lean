@@ -42,7 +42,39 @@ def Ea.addr (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
     let i := match ea.index with | some r => s.regs.get r * ea.scale.toVal | none => 0
     b + i + ea.disp
 
+/-- CANONICAL ADDRESS (SDM Vol. 1 §3.3.7.1).  In 64-bit mode only the low 48
+bits of a linear address are implemented; bits 63:48 must be a sign extension of
+bit 47.  A branch to a non-canonical target raises #GP(0) (SDM Vol. 2A, JMP and
+CALL, "64-Bit Mode Exceptions").
+
+⭐ THIS PREDICATE EXISTS BECAUSE THE DIFFERENTIAL RUN FOUND ITS ABSENCE.  The
+first run against ACL2 x86isa produced 80 unexplained disagreements, every one
+of them an indirect `jmp` or `call` to a non-canonical target: this model set
+RIP to it, and x86isa raised #GP.  No anchor and no characterization theorem
+could have caught that — the model was self-consistently wrong, which is exactly
+the failure a second model is for. -/
+def canonical (v : BitVec 64) : Bool :=
+  -- bits 63:47 are all equal: shifting them down leaves all-zeros or all-ones
+  (v >>> 47) == 0 || (v >>> 47) == 0x1FFFF
+
 namespace Cpu
+
+/-- Set RIP to a branch target, CHECKING that the target is canonical.
+
+A non-canonical target HALTS this model rather than raising #GP, because
+exceptions need the fault machinery that system mode brings and system mode is a
+v0.x non-goal (plan v1 §1).  Halting is the honest answer: the model declines to
+say what happens, which is different from — and much safer than — quietly
+jumping somewhere impossible.
+
+⚠️ NAMED GAP, since it is now the only unchecked RIP write: the FALL-THROUGH
+`rip + len` is not checked.  x86isa checks it too (`:rip-increment-error`).  It
+is unreachable in the P0 vectors (RIP is 0x400000 and instructions are short) so
+the differential run has not exercised it, and an unexercised fix is a guess —
+it is recorded in docs/DECISIONS.md as a P1 item rather than written blind. -/
+def setRipChecked (s : Cpu) (v : BitVec 64) : Cpu :=
+  if canonical v then { s with rip := v }
+  else s.halt (.unimplemented "non-canonical branch target (#GP(0) in hardware)")
 
 /-- Read an operand at width `sz`. -/
 def readOperand (s : Cpu) (sz : Size) (nextRip : BitVec 64) : Operand → Val
@@ -211,18 +243,26 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- JMP Jcc CALL (SDM Vol. 2A).  "Flags Affected: None" for all three.
   | .jmp t =>
       match t with
-      | .rel d => s.setRip (nr + d)
-      | .indirect o => s.setRip (s.readOperand .q nr o)
+      | .rel d => s.setRipChecked (nr + d)
+      | .indirect o => s.setRipChecked (s.readOperand .q nr o)
   | .jcc c d =>
-      if c.eval s.flags then s.setRip (nr + d) else s.setRip nr
+      if c.eval s.flags then s.setRipChecked (nr + d) else s.setRip nr
   | .call t =>
       match t with
-      | .rel d => (s.push .q nr).setRip (nr + d)
+      | .rel d =>
+          -- ⚠️ THE CHECK COMES FIRST.  x86isa raises #GP(0) BEFORE the return
+          -- address is pushed, so a refused call must not have pushed either —
+          -- the first run disagreed on `rsp` and on the stack window as well as
+          -- on `rip`, which is what says the ordering is observable and not a
+          -- detail.
+          if canonical (nr + d) then (s.push .q nr).setRip (nr + d)
+          else s.halt (.unimplemented "non-canonical branch target (#GP(0) in hardware)")
       | .indirect o =>
           -- the target is read BEFORE the return address is pushed, so a
           -- `call [rsp]` reads the pre-push stack.
           let tgt := s.readOperand .q nr o
-          (s.push .q nr).setRip tgt
+          if canonical tgt then (s.push .q nr).setRip tgt
+          else s.halt (.unimplemented "non-canonical branch target (#GP(0) in hardware)")
 
 /-- Run `n` steps of a straight-line list of decoded instructions, taking each
 in order.  P0 does not fetch-and-decode from memory (that is P4's Lean decoder);

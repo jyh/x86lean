@@ -132,6 +132,24 @@ record here, not an edit to make quietly.**
 
 ---
 
+## D9 — Branch targets are checked for canonical form; the FALL-THROUGH is not.
+
+`Cpu.setRipChecked` refuses a non-canonical branch target (SDM Vol. 1 §3.3.7.1;
+#GP(0) per Vol. 2A JMP/CALL) by HALTING — the model declines rather than raising
+an exception, because the fault machinery belongs to system mode and system mode
+is a v0.x non-goal.
+
+⚠️ **Named gap:** the fall-through `rip + len` is still unchecked. x86isa checks
+it too (`:rip-increment-error`). It is unreachable in the P0 vectors (RIP is
+0x400000 and instructions are short), so the differential run has not exercised
+it — and an unexercised fix is a guess. It is a P1 item, written down rather than
+written blind.
+
+**Why this decision exists at all:** the differential run found it. See
+`docs/DIFFERENTIAL-P0.md`.
+
+---
+
 # Three defects found in P0's own gates, and what they cost
 
 Recorded because each was found by a gate firing on this repository rather than
@@ -167,3 +185,39 @@ cumulative profiler block genuinely type-checks nothing (`X86.lean` is only
 imports), while no profiler block at all is an error and exits non-zero.
 ⇒ **A gate that reports zero for everything is not passing; it is blind, and
 blindness and success are byte-identical in the output.**
+
+
+---
+
+# Two more, found by the differential run itself
+
+Recorded beside the other three because they are the same shape at a larger
+scale — **a check that cannot see its subject reports a pass** — and because
+both were in the instrument, not the model.
+
+### 4. The oracle could not answer, and that looked like a crash rather than an answer.
+
+x86isa's `create-undef` is a CONSTRAINED function: the model knows only that it
+returns a natural. The first run died at case 817 with *"cannot ev the call of
+non-executable function CREATE-UNDEF"*. That is not a broken oracle — it is
+x86isa making exactly this project's refusal, in ACL2's vocabulary, and
+declining to execute until a generator is attached.
+⇒ **The attachment is `nfix`, not a constant.** A constant `0` would have agreed
+with this model's all-zero oracle on every undefined bit, the
+`undefined-region` class would never have fired, and 694 real
+declines-to-commit would have shown up as 694 silent agreements. *Agreement
+obtained by making both sides guess the same way is not agreement about
+anything.*
+
+### 5. The harness read `ms` and x86isa had written `fault`.
+
+All 80 non-canonical branches came back as "x86isa left RIP alone, and its RIP
+disagrees with ours" — with x86isa's `#GP(0)` sitting unread in the field beside
+the one the driver looked at. The oracle had explained itself and the harness
+that asked was looking elsewhere.
+⇒ **An oracle that cannot answer, and an oracle whose answer you do not read,
+are indistinguishable from an oracle that agrees with you.** The record now
+carries `refused=0|1` derived from BOTH fields — and, deliberately, not the
+REASON, because the two models say "I decline" in different vocabularies and
+comparing the words would report a disagreement on every refusal, which is the
+opposite of the truth.

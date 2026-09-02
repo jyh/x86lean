@@ -85,8 +85,14 @@ repository's own deliberate `native_decide` is
 
 ## Status
 
-**P0.** State, values, memory, the undefined-bit oracle, the instruction AST,
-`step`, and one characterization theorem per form for the twenty scalar
-mnemonics (`mov add sub and or xor cmp test shl shr lea inc dec neg not push pop
-jmp jcc call`), in 43 differentially tested forms. All gates green; the ACL2
-x86isa differential run is the P0 exit criterion and is in progress.
+**P0 COMPLETE.** State, values, memory, the undefined-bit oracle, the
+instruction AST, `step`, and one characterization theorem per form for the
+twenty scalar mnemonics (`mov add sub and or xor cmp test shl shr lea inc dec
+neg not push pop jmp jcc call`), in 43 forms.
+
+**The P0 exit criterion is met:** one differential run against ACL2 x86isa —
+**2924 cases, 0 unexplained disagreements**, every explained one inside the
+undefined regions the SDM names. Evidence and findings in
+[`docs/DIFFERENTIAL-P0.md`](docs/DIFFERENTIAL-P0.md); the run found a real model
+bug (non-canonical branch targets) that nothing inside this repository could
+have caught.

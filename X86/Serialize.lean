@@ -63,11 +63,20 @@ def MsErr.render : MsErr → String
   | .illegalOperands w => s!"illegal-operands:{w}"
   | .unimplemented w => s!"unimplemented:{w}"
 
-/-- One state, on one line. -/
+/-- One state, on one line.
+
+⚠️ THE RECORD CARRIES `refused=0|1`, NOT THE REASON.  Both models can decline to
+give an instruction a meaning, but they say so in their own vocabulary: this one
+sets `Cpu.ms` with a string, while ACL2 x86isa raises `#GP(0)` into its `fault`
+field with a keyword.  Comparing the REASONS would report a disagreement on
+every refusal, which is the opposite of the truth — the two models are agreeing
+that the instruction faults.  What is comparable is the REFUSAL ITSELF, so that
+is what the record carries; the reason stays in `Cpu.ms` for a human reading a
+single case. -/
 def Cpu.render (s : Cpu) (ws : List Window) : String :=
-  let ms := match s.ms with | none => "none" | some e => e.render
   String.intercalate " "
-    ([s.renderRegs, s!"rip={hex64 s.rip}", s.flags.render, s!"ms={ms}"]
+    ([s.renderRegs, s!"rip={hex64 s.rip}", s.flags.render,
+      s!"refused={if s.ms.isSome then "1" else "0"}"]
       ++ ws.map (renderWindow s.mem))
 
 /-! ### The undefined mask, DERIVED rather than declared
