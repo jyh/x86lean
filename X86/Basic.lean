@@ -205,9 +205,9 @@ SDM Vol. 1 §3.4.3.1 "Status Flags":
   ZF result is zero
   SF the most-significant bit of the result (its sign)
   OF signed overflow
-DF (Vol. 1 §3.4.3.2) is a control flag; no instruction in the P0 roster reads or
-writes it, and it is carried so the state is honest about what a later string
-instruction will need. -/
+DF (Vol. 1 §3.4.3.2) is a control flag.  It was carried from P0 with nothing able
+to write it — which is exactly how it became D27, a flag every instrument reported
+as watched while it was a CONSTANT.  `cld`/`std` (P1 batch 11) write it now. -/
 structure Flags where
   cf : Bool := false
   pf : Bool := false
@@ -217,5 +217,62 @@ structure Flags where
   of : Bool := false
   df : Bool := false
   deriving DecidableEq, Repr, Inhabited, BEq
+
+/-! ### ⭐ THE SEVEN FLAGS AS DATA — D30
+
+THE FIELD LIST WAS HAND-WRITTEN IN FOUR PLACES, and one of them was on the path
+that reports SUCCESS.  `Flags.render` (X86/Serialize.lean) is the WIRE FORMAT the
+two models are compared through: a flag missing from that one string is never
+emitted, never compared, and every differential run is green about it.  That is
+not a hypothetical — it is precisely the shape of D27, where DF was carried,
+printed and diffed for ten batches while being a constant nothing could write.
+The other three (`undefinedFlags`, `flagNames`, `rflagsToLisp`) fail LOUDLY, as
+a false RED or a pre-state disagreement.  ⇒ **The dangerous duplicate is the one
+on the path that reports SUCCESS**, and the fix is to leave only one list.
+
+⚠️ AND A TABLE IS NOT BY ITSELF A FIX.  D29 was a table that had drifted from its
+hand-written twin while carrying a comment promising it could not — a duplicate
+BORN IN AGREEMENT, which needs no mistake to diverge, only the next ordinary
+append.  So this table does not merely exist; it is GUARDED, by
+`flagFields_covers_Flags` below, and the guard is a compile-time arity check
+rather than a sentence in a comment. -/
+
+/-- One flag's name, projection, and architectural position in RFLAGS. -/
+structure FlagField where
+  name : String
+  get : Flags → Bool
+  /-- The bit's position in the RFLAGS image (SDM Vol. 1 Figure 3-8).  It lives
+  here rather than in the ACL2 emitter because it is a fact about the
+  architecture, not about the wire to x86isa. -/
+  bit : Nat
+
+/-- The one list.  Its ORDER is the wire order of `Flags.render`, so changing it
+changes the record format both models are compared through. -/
+def flagFields : List FlagField :=
+  [ { name := "cf", get := (·.cf), bit := 0 }
+  , { name := "pf", get := (·.pf), bit := 2 }
+  , { name := "af", get := (·.af), bit := 4 }
+  , { name := "zf", get := (·.zf), bit := 6 }
+  , { name := "sf", get := (·.sf), bit := 7 }
+  , { name := "of", get := (·.of), bit := 11 }
+  , { name := "df", get := (·.df), bit := 10 } ]
+
+/-- ⛔ THE GUARD, AND WHY IT IS THIS SHAPE.
+
+It fails to COMPILE, not to prove, when a field is added to `Flags`: the
+anonymous-constructor pattern is positional, so an eighth field makes this line
+an arity error before any proof is attempted.  If the pattern is then repaired
+without adding a row, the two lists have different lengths and `rfl` fails.  If a
+row is added with the wrong projection, the order differs and `rfl` fails.
+
+⚠️ IT IS DELIBERATELY NOT A `decide` OVER ALL 128 FLAG STATES.  That would need
+an enumeration of `Flags`, which is a FIFTH hand-written field list — the guard
+would then have the defect it exists to prevent, and would report agreement
+because a missing field sits at its default in every enumerated state.  `cases f;
+rfl` asks the structure itself and costs no kernel time worth measuring. -/
+theorem flagFields_covers_Flags (f : Flags) :
+    flagFields.map (fun r => r.get f)
+      = (match f with | ⟨cf, pf, af, zf, sf, of, df⟩ => [cf, pf, af, zf, sf, of, df]) := by
+  cases f; rfl
 
 end X86

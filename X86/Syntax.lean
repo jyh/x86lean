@@ -351,6 +351,23 @@ inductive Op where
   | loop  (k : LoopKind) (addr32 : Bool) (d : Val)
   /-- P1 BATCH 11: CLC/STC/CMC/CLD/STD.  See `FlagOp`. -/
   | flagop (k : FlagOp)
+  /-- P1 BATCH 12: NOP (SDM Vol. 2A).  The operand is `some` for the multi-byte
+  form `0F 1F /0`, which carries a ModR/M byte purely to be long — and which the
+  SDM says "does not alter the content of a register and does not issue a memory
+  operation".  It is carried in the AST rather than discarded because the
+  DECODER produced it and a model that threw it away could not round-trip an
+  encoding; nothing in `step` reads it. -/
+  | nop   (dst : Option Operand)
+  /-- P1 BATCH 12: UD2 (SDM Vol. 2A): "Generates an invalid opcode exception."
+  The one form in the roster so far whose whole meaning is a fault. -/
+  | ud2
+  /-- P1 BATCH 12: RET near, no immediate (`C3`).  Pops RIP.  The far return and
+  the `RET imm16` form are NOT here — x86isa implements only the far return with
+  immediate (`0xCA`), which is the complement of what this models. -/
+  | ret
+  /-- P1 BATCH 12: LEAVE (`C9`) — exactly `mov rsp, rbp` then `pop rbp`
+  (SDM Vol. 2A, LEAVE). -/
+  | leave
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
@@ -395,6 +412,12 @@ def Op.mnemonic : Op → String
   | .loop k .. => match k with
     | .loop => "loop" | .loope => "loope" | .loopne => "loopne"
   | .flagop k => k.mnemonic
+  -- AT&T prints the near return and LEAVE with the operand-size suffix even
+  -- though neither has an operand; the roster files them under those names.
+  | .nop _ => "nop"
+  | .ud2 => "ud2"
+  | .ret => "retq"
+  | .leave => "leaveq"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -420,7 +443,11 @@ def rosterP0 : List String :=
    -- `loopne` each stand for two roster spellings (`loopz`, `loopnz`), as
    -- `setcc` stands for thirty; `loopSpellings` is the table that says which.
    "loop", "loope", "loopne",
-   "clc", "stc", "cmc", "cld", "std"]
+   "clc", "stc", "cmc", "cld", "std",
+   -- P1 BATCH 12: the near-free four of roster family 7.  `nop` covers all
+   -- three of its roster shapes (bare `0x90` and the multi-byte `0F 1F /0` at a
+   -- register and a memory operand) because they are one instruction.
+   "nop", "ud2", "retq", "leaveq"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

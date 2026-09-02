@@ -313,6 +313,23 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       decode := .xed, undefined := [], sdm := "Vol. 2A CLD" }
   , { mnemonic := "std", shapes := "no operands — df := 1", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A STD" }
+  -- P1 BATCH 12: the near-free four of roster family 7.  None writes a flag and
+  -- none draws an oracle bit, so all four are `T-exact` with no undefined
+  -- column — the batch's difficulty was never in the flags.
+  , { mnemonic := "nop", shapes := "no operands (0x90) · r · m — all inert",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A NOP" }
+  -- ⭐ `ud2` IS `T-exact` AND NOT `T-absent`, AND THE DISTINCTION IS THE POINT.
+  -- `T-absent` means the model REFUSED to give a form a meaning.  `ud2` has a
+  -- meaning and the model computes it: the meaning is #UD.  Filing a fully
+  -- modelled instruction under the tier reserved for gaps would understate the
+  -- coverage AND corrupt the one column a reader consults to find them — which
+  -- is why the refusal carries `MsErr.byDesign` rather than `.unimplemented`.
+  , { mnemonic := "ud2", shapes := "no operands — #UD by definition",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UD2" }
+  , { mnemonic := "retq", shapes := "no operands — near return, pops rip",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A RET" }
+  , { mnemonic := "leaveq", shapes := "no operands — rsp := rbp; pop rbp",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A LEAVE" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

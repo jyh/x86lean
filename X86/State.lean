@@ -38,6 +38,13 @@ inductive MsErr where
   | illegalOperands (what : String)
   /-- A form outside the covered roster: the `T-absent` fidelity tier. -/
   | unimplemented (what : String)
+  /-- ⭐ P1 BATCH 12: THE INSTRUCTION'S MEANING IS TO FAULT, and that is a
+  different claim from either of the two above.  `ud2` is not an operand
+  combination we cannot express, and it is not a gap in the roster — it is fully
+  modelled, and what it is modelled as is #UD.  Filing it under
+  `unimplemented` would put a COVERED form in the `T-absent` tier and make the
+  fidelity table lie in the one direction the table exists to prevent. -/
+  | byDesign (what : String)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The user-level x86-64 machine state. -/

@@ -1,7 +1,25 @@
 name = "x86lean"
 version = "0.1.0"
 keywords = ["x86", "isa", "semantics", "formal-verification"]
-defaultTargets = ["X86"]
+# ⛔ THE EXECUTABLES ARE DEFAULT TARGETS BECAUSE THE PROBE DISCIPLINE RUNS THEM.
+# This said `["X86"]` until P1 batch 12, so a bare `lake build` built the model
+# library and NOT the harness — and every deletion probe in this repo is run by
+# invoking `.lake/build/bin/x86lean-diff` directly.  A head that edited
+# `Main.lean` or `X86/Serialize.lean`, ran `lake build`, and then ran the binary
+# was testing a STALE ARTIFACT and reading the answer as evidence.  The gates
+# were never exposed (`scripts/run_differential.sh` and `.github/workflows/ci.yml`
+# both name the executables explicitly) — but the INSTRUMENT THE SEAT USES TO
+# CHECK THE GATES was, which is worse for a repo whose method is the probe.
+# Caught in batch 12 by a deletion probe that came back GREEN when it had to go
+# red.  See docs/DECISIONS.md D31.
+# ⛔ AND IT IS EVERY TARGET CI BUILDS, NOT SOME OF THEM.  The first repair of
+# this line named the two executables and still left out `Tests` and
+# `X86Native` — so `lake build` came back green while the ENTIRE TEST TIER
+# (the coverage theorems, the anchors, the axiom gate's red-first drive) had not
+# been elaborated.  That is the same defect as the stale binary, one layer up:
+# a build command whose success means less than the reader thinks.  This list is
+# now exactly `.github/workflows/ci.yml`'s, and it must stay that way.
+defaultTargets = ["X86", "X86Native", "Tests", "x86lean-diff", "x86lean-axioms"]
 
 # NO MATHLIB DEPENDENCY IN THE MODEL LIBRARY. See docs/DECISIONS.md D1 (posted
 # on the bus as a plan-v1 deviation with its reasoning). The toolchain is PINNED

@@ -104,9 +104,12 @@ def gprsToLisp (s : Cpu) : String :=
 (SDM Vol. 1 Figure 3-8); x86isa initialises through `!rflags`, so the value has
 to be a real RFLAGS image rather than seven loose booleans. -/
 def rflagsToLisp (f : Flags) : String :=
-  let bit (b : Bool) (n : Nat) : Nat := if b then Nat.shiftLeft 1 n else 0
-  let v := 2 + bit f.cf 0 + bit f.pf 2 + bit f.af 4 + bit f.zf 6
-             + bit f.sf 7 + bit f.df 10 + bit f.of 11
+  -- The positions come from `flagFields` (D30), so this emitter and the record
+  -- format cannot disagree about which flags exist.  Bit 1 is added on its own
+  -- because it is not a flag we model — it is the architecturally reserved bit,
+  -- always 1, and it belongs to the IMAGE rather than to the field list.
+  let v := flagFields.foldl
+    (fun acc r => acc + (if r.get f then Nat.shiftLeft 1 r.bit else 0)) 2
   s!"#x{hexPad (BitVec.ofNat 64 v) 8}"
 
 /-- The memory alist: the instruction's own bytes at RIP, then every byte the
@@ -184,7 +187,7 @@ structure Disagreement where
 
 /-- The seven flag names, so a disagreement in a flag can be tested against the
 undefined set while a disagreement in a register never is. -/
-def flagNames : List String := ["cf", "pf", "af", "zf", "sf", "of", "df"]
+def flagNames : List String := flagFields.map (·.name)
 
 /-- ⭐ WHEN BOTH MODELS REFUSE, THEY AGREE.
 
@@ -866,6 +869,64 @@ def wrongCldIsNoOp (i : Instr) (s : Cpu) : Cpu :=
       s.setRip (s.rip + BitVec.ofNat 64 i.len)
   | _ => step i s
 
+/-! ### P1 BATCH 12's four arms -/
+
+/-- ⭐ THE HARD HALF OF THE NOP PAIR: every `nop` advances RIP by ONE.
+
+That is what a model written against the bare `0x90` looks like when the
+multi-byte `0F 1F /0` forms arrive — the semantics are genuinely "do nothing", so
+the length is the ONLY thing left to get wrong, and a `step` that ignored
+`i.len` would be right on the one-byte form and wrong on the other four.  It is
+caught only by the multi-byte vectors, which is what says they are not
+redundant spellings of `nop`. -/
+def wrongNopFixedLength (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .nop _ => s.setRip (s.rip + 1)
+  | _ => step i s
+
+/-- The easy half: `ud2` treated as a no-op rather than a fault.  Caught by
+`refused` in every state — which is the point of an easy half, and of `ud2`
+being in the table at all: a form whose entire content is that it REFUSES is the
+only kind of vector that tests the refusal channel itself. -/
+def wrongUd2Executes (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .ud2 => s.setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⭐⭐ THE HARD HALF OF THE BATCH, AND THE ARM THAT PRICES `frameStates`.
+
+This `retq` jumps to the return address WITHOUT POPPING IT — RSP is left where it
+was.  ⛔ Against the seventy-eight pre-states that existed before this batch the
+bug is INVISIBLE, and not because the states are weak: the stack window's
+background pattern makes the eight bytes at RSP read as `0x3736353433323130`,
+which is not canonical, so `retq` REFUSES in every one of them and never reaches
+the line the bug is on.  Only the two `frameStates` put a returnable address on
+the stack.  Deleting them makes this arm catch ZERO.
+
+It is D27's shape a third time — after a constant FLAG and an unreached
+COMBINATION, a constant WINDOW CONTENT — and the first time the batch that would
+have been fooled looked for it in advance. -/
+def wrongRetNoPop (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .ret =>
+      let tgt := s.readMem .q (s.regs.get .rsp)
+      if canonical tgt then { s with rip := tgt }   -- the BUG: RSP never moves
+      else s.halt (.unimplemented "non-canonical return address (#GP(0) in hardware)")
+  | _ => step i s
+
+/-- `leaveq` with its two steps in the wrong order: the pop happens first, from
+the OLD RSP, and only then is RSP set from RBP.  This is the single most likely
+way to write LEAVE wrongly, because "set RSP to RBP, then POP RBP" reads as two
+independent assignments and it is only the ORDER that makes the pop read the
+frame rather than the caller's stack. -/
+def wrongLeaveWrongOrder (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .leave =>
+      let (v, s') := s.popValue .q
+      ((s'.setReg .q .rsp (s.regs.get .rbp)).setReg .q .rbp v).setRip
+        (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -881,7 +942,27 @@ def driveWrong (name : String) (wrong : Instr → Cpu → Cpu) (expectField : St
   let good := parseRecords (emitAll step 4)
   let bad := parseRecords (emitAll wrong 4)
   let r := compareRecs good bad
-  let hits := r.details.filter (fun d => d.cls == "spec" && d.field == expectField)
+  -- ⭐ D33: THE FILTER USED TO READ `d.cls == "spec"`, AND THAT MADE ONE CHANNEL
+  -- OF THE COMPARATOR UNTESTABLE BY CONSTRUCTION.  `classify` gives a
+  -- disagreement in `refused` the class **"refusal"**, not "spec" — so an arm
+  -- whose bug shows in the refusal channel could never register a hit, however
+  -- loudly the comparator caught it.  `ud2` is the first form whose whole
+  -- content is that it refuses, and its arm is what walked into it: the
+  -- comparator found all seventy-six disagreements and the SELFTEST reported
+  -- "fires on the wrong thing".
+  --
+  -- ⛔ The gap survived because nothing had asked.  Thirty arms, none of them on
+  -- `refused` — the same shape as DF (D27), one level up: not a constant in the
+  -- STATE this time but an unexercised branch in the INSTRUMENT.  `bothRefused`
+  -- was written for this channel and the selftest could not plant a bug in it.
+  --
+  -- What is excluded is exact rather than convenient: `undefined-region` is an
+  -- EXPLAINED disagreement and must never count as catching a bug, and
+  -- `harness` means a field went missing from a record, which is an instrument
+  -- failure rather than a caught model bug.  Everything else — `spec` and
+  -- `refusal` — is the comparator doing its job.
+  let hits := r.details.filter
+    (fun d => d.field == expectField && d.cls != "undefined-region" && d.cls != "harness")
   if r.unexplained == 0 then
     IO.println s!"  ⛔ {name}: comparator reported ZERO unexplained disagreements against a \
 KNOWN-WRONG model. The comparator does not work."
@@ -942,7 +1023,11 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("loop writes the counter back only when it branches",
      wrongLoopNoWritebackOnFallthrough, "rcx")
   , ("addr32 loop tests the full 64-bit counter", wrongLoopAddr32TestsFullWidth, "rip")
-  , ("cld is a no-op (the flag nothing could write)", wrongCldIsNoOp, "df") ]
+  , ("cld is a no-op (the flag nothing could write)", wrongCldIsNoOp, "df")
+  , ("every nop advances RIP by one byte", wrongNopFixedLength, "rip")
+  , ("ud2 executes instead of faulting", wrongUd2Executes, "refused")
+  , ("retq jumps without popping (the state nothing could reach)", wrongRetNoPop, "rsp")
+  , ("leaveq pops before it moves RSP", wrongLeaveWrongOrder, "rbp") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1036,11 +1121,23 @@ cases identical, 0 oracle leaks)"
       else
         IO.println "harness selftest: FAIL"
         return 1
+  -- ⚠️ THE "N of the 525" BELOW IS STILL A HAND-MAINTAINED LITERAL, and batch 12
+  -- nearly got it wrong by two.  THE COUNTING RULE, since it is not obvious and
+  -- the roster does not state it: a "form" is a ROW of `p1/roster.tsv`, NOT a
+  -- width-expanded form.  The file has 525 rows and 1193 width-expanded forms,
+  -- and the widths column reads `lw` (two widths) on rows that count ONCE.
+  -- Verified against batch 11, which claimed 15 and has exactly 15 rows.
+  --
+  --   awk -F'\t' 'NR>2 && $4 ~ /^(nop|ud2|retq|leaveq)$/' p1/roster.tsv | wc -l
+  --
+  -- Making this derivable needs a claimed-forms table keyed to the roster's
+  -- (base, shape) pairs — real work, and a better batch than a tack-on. Until
+  -- then: COUNT THE ROWS with the command above and do not reason from widths.
   | ["coverage", out] =>
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **382 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **388 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -1056,7 +1153,10 @@ and the first that write two registers, and the only batch so far that writes \
 NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25); 11 — \
 the loop group LOOP/LOOPE/LOOPNE at both counter widths and the five \
 flag-control singles CLC/STC/CMC/CLD/STD, which between them added the first \
-instructions able to write DF at all (see D27).\n\n\
+instructions able to write DF at all (see D27); 12 — the near-free four of \
+family 7, NOP at its three shapes plus UD2, RETQ and LEAVEQ: the first form \
+whose whole meaning is a FAULT, and the first two forms that needed a new \
+PRE-STATE to be reachable at all (see D34).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

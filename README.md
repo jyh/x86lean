@@ -97,12 +97,12 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 IN PROGRESS — eleven batches landed.** The roster now stands at
-**382 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
+**P1 IN PROGRESS — twelve batches landed.** The roster now stands at
+**388 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
 tested against ACL2 x86isa on every batch:
 
 ```
-519 vectors · 78 pre-states · 40482 cases · 0 unexplained · 0 oracle leaks
+527 vectors · 80 pre-states · 42160 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
@@ -119,7 +119,8 @@ width including read-modify-write to memory · ADC/SBB, whose result reads a
 flag · every branch condition at rel8 and rel32, plus JRCXZ/JECXZ · SETcc and
 CMOVcc (120 roster forms over two `step` cases) · the shifts, SAR and the four
 rotates · the bit-test group · the width-changing and two-destination moves ·
-the loop group and the flag-control singles.
+the loop group and the flag-control singles · NOP/UD2/RETQ/LEAVEQ, including the
+first form whose whole meaning is a FAULT.
 
 **Refused rather than approximated**, each with its reason recorded: `xchg` at
 memory (implicit LOCK, an atomicity claim a single-threaded model cannot make),

@@ -778,4 +778,84 @@ theorem step_cmc_cmc_restores_cf (len2 : Nat) (h : Live s)
     (step ⟨.flagop k, len⟩ s).oracle = s.oracle := by
   cases k <;> simp [step, h, Cpu.setFlags, Cpu.setRip]
 
+/-! ## P1 BATCH 12 — the near-free four -/
+
+/-- ⭐⭐ NOP'S CHARACTERIZATION IS ITS FRAME, AND IT IS QUANTIFIED OVER THE
+OPERAND.  Every other form in this file needs a separate lemma per component to
+say what it did NOT touch; `nop` is the one whose entire meaning is the frame, so
+the statement is a single equation and there is nothing left to say.
+
+⚠️ THE `∀ o` IS THE LOAD-BEARING PART.  It covers `.nop (some (M .rbx))` — the
+multi-byte form with a MEMORY operand — and therefore proves that
+`nopl (%rbx)` does not read the data window, does not fault on it, and does not
+depend on what it holds.  A model that "harmlessly" read the operand and threw
+the value away would still be wrong (a read from an unmapped page faults in
+hardware), and this equation is what forbids it. -/
+theorem step_nop (o : Option Operand) (h : Live s) :
+    step ⟨.nop o, len⟩ s = { s with rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setRip]
+
+/-- ⭐ UD2 HALTS AND DOES NOT ADVANCE RIP.  The second half is the claim that
+could go wrong: a fault is not a completed instruction, so the RIP that x86isa
+reports is the one the instruction started at.  Everything else is untouched. -/
+theorem step_ud2 (h : Live s) :
+    step ⟨.ud2, len⟩ s =
+      { s with ms := some (.byDesign "ud2: #UD is the instruction's meaning") } := by
+  simp [step, h, Cpu.halt]
+
+/-- RET near, taken: RIP becomes the popped value and RSP moves up by eight. -/
+theorem step_ret_taken (h : Live s)
+    (hc : canonical (s.readMem .q (s.regs.get .rsp)) = true) :
+    step ⟨.ret, len⟩ s =
+      { s.setReg .q .rsp (s.regs.get .rsp + 8) with
+          rip := s.readMem .q (s.regs.get .rsp) } := by
+  simp only [Cpu.readMem] at hc ⊢
+  simp [step, h, hc, Cpu.setReg]
+
+/-- ⭐⭐ AND ON A REFUSAL, RSP DOES NOT MOVE.  This is the lemma that encodes what
+`call`'s first differential run had to be taught: x86isa raises #GP(0) on a
+non-canonical target BEFORE committing the stack update, so a `retq` that popped
+and then refused would disagree with it on `rsp` as well as on `rip`.  The
+disagreement on `rsp` is what makes the ORDER observable rather than an
+implementation detail — and it is the reason this is a theorem rather than a
+comment beside the `if`. -/
+theorem step_ret_refused_frame (h : Live s)
+    (hc : canonical (s.readMem .q (s.regs.get .rsp)) = false) :
+    (step ⟨.ret, len⟩ s).regs = s.regs
+      ∧ (step ⟨.ret, len⟩ s).rip = s.rip
+      ∧ (step ⟨.ret, len⟩ s).mem = s.mem := by
+  simp only [Cpu.readMem] at hc
+  simp [step, h, hc, Cpu.halt]
+
+/-- ⭐ LEAVE IS `mov rsp, rbp` THEN `pop rbp`, AND THE ORDER IS THE INSTRUCTION.
+RBP comes from the address RBP ITSELF held — not from the old RSP — so the new
+RSP is `RBP + 8`.  A model that popped before moving RSP would read the caller's
+stack and leave RSP eight above the OLD one; against a state set where RBP is
+zero and the stack pattern is fixed, the two are indistinguishable, which is
+exactly why `frameStates` exists. -/
+theorem step_leave_rsp (h : Live s) :
+    (step ⟨.leave, len⟩ s).regs.get .rsp = s.regs.get .rbp + 8 := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.popValue, Value.writeView]
+
+theorem step_leave_rbp (h : Live s) :
+    (step ⟨.leave, len⟩ s).regs.get .rbp = s.readMem .q (s.regs.get .rbp) := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.popValue, Cpu.readMem, Value.writeView]
+
+theorem step_leave_rip (h : Live s) :
+    (step ⟨.leave, len⟩ s).rip = s.rip + BitVec.ofNat 64 len := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.popValue]
+
+/-- The two components `leaveq` must NOT touch. -/
+@[simp] theorem step_leave_flags (h : Live s) :
+    (step ⟨.leave, len⟩ s).flags = s.flags := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.popValue]
+
+@[simp] theorem step_leave_mem (h : Live s) :
+    (step ⟨.leave, len⟩ s).mem = s.mem := by
+  simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.popValue]
+
+@[simp] theorem step_nop_flags (o : Option Operand) (h : Live s) :
+    (step ⟨.nop o, len⟩ s).flags = s.flags := by
+  simp [step, h, Cpu.setRip]
+
 end X86

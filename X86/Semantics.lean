@@ -459,6 +459,46 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         | .std => { f with df := true }
       (s.setFlags f).setRip nr
 
+  -- ── P1 BATCH 12 ───────────────────────────────────────────────────────────
+  -- NOP (SDM Vol. 2A).  "Flags Affected: None", no register altered, and — for
+  -- the multi-byte form — "does not issue a memory operation".  ⚠️ THE OPERAND
+  -- IS DELIBERATELY NOT READ.  `nop (%rbx)` must not fault, must not touch the
+  -- watched window, and must not depend on what the window holds; reading it
+  -- "harmlessly" would still be wrong, because a read from an unmapped page is
+  -- a fault in hardware and the whole point of the form is that it is inert.
+  | .nop _ => s.setRip nr
+
+  -- UD2 (SDM Vol. 2A): "Generates an invalid opcode exception."  ⭐ THIS IS THE
+  -- ONE HALT THAT IS A MODELLED ANSWER RATHER THAN A DECLINED ONE, which is why
+  -- it carries `byDesign` and not `unimplemented`: the record's `refused=1` says
+  -- the same thing x86isa's `#UD` fault says, and the two models AGREE.
+  | .ud2 => s.halt (.byDesign "ud2: #UD is the instruction's meaning")
+
+  -- RET near (SDM Vol. 2A, RET).  "Flags Affected: None."
+  --
+  -- ⚠️ THE CANONICAL CHECK COMES FIRST, AND RSP DOES NOT MOVE IF IT FAILS —
+  -- the same discipline `call` was forced into by its first differential run.
+  -- x86isa raises #GP(0) on the target before committing the pop, so a refused
+  -- `retq` that had already incremented RSP would disagree on `rsp` as well as
+  -- on `rip`, and the disagreement on `rsp` is the one that says the ORDER is
+  -- observable rather than an implementation detail.
+  | .ret =>
+      let sp := s.regs.get .rsp
+      let tgt := s.readMem .q sp
+      if canonical tgt then
+        { s.setReg .q .rsp (sp + 8) with rip := tgt }
+      else s.halt (.unimplemented "non-canonical return address (#GP(0) in hardware)")
+
+  -- LEAVE (SDM Vol. 2A): "Set RSP to RBP, then POP RBP."  Written as those two
+  -- steps in that order rather than as one closed form, because the order is
+  -- the instruction: the POP reads from the NEW RSP (that is, from RBP), and a
+  -- model that popped first would read the caller's stack instead of the
+  -- frame's.  "Flags Affected: None."
+  | .leave =>
+      let s := s.setReg .q .rsp (s.regs.get .rbp)
+      let (v, s) := s.popValue .q
+      (s.setReg .q .rbp v).setRip nr
+
   | .call t =>
       match t with
       | .rel d =>

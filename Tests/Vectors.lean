@@ -1385,6 +1385,44 @@ def vectors : List Vec :=
     , instr := ⟨.flagop .cld, 1⟩ }
   , { id := "std", mnemonic := "std", asm := "std", bytes := "fd"
     , instr := ⟨.flagop .std, 1⟩ }
+
+  -- ══ P1 BATCH 12 ═══════════════════════════════════════════════════════
+  -- The near-free four of roster family 7: `nop` at its three shapes, `ud2`,
+  -- `retq` and `leaveq`.  Cheap in SEMANTICS — none of them touches a flag —
+  -- and NOT cheap in STATE, which is the batch's finding: two of the four are
+  -- unreachable against the existing pre-states.  See `frameStates` below.
+  --
+  -- ⛔ `lods` IS NOT HERE ALTHOUGH THE BANK LISTED IT AS A CHEAP CANDIDATE.
+  -- ACL2 x86isa does not implement it: `machine/catalogue-data.lisp`, section
+  -- "5.1.8 String Instructions", says in as many words "Unimplemented
+  -- instructions: SCAS and LODS variations".  A form the oracle cannot execute
+  -- cannot be differentially validated, so it is not a cheap form — it is a
+  -- form that needs a different oracle.
+  --
+  -- NOP's three shapes are ONE instruction and one constructor.  The bare `0x90`
+  -- and the multi-byte `0F 1F /0` differ only in how many bytes they occupy;
+  -- the operand of the long form exists to pad, and `step` never reads it.
+  , { id := "nop", mnemonic := "nop", asm := "nop", bytes := "90"
+    , instr := ⟨.nop none, 1⟩ }
+  , { id := "nop_r_l", mnemonic := "nop", asm := "nopl %eax", bytes := "0f1fc0"
+    , instr := ⟨.nop (some (R .rax)), 3⟩ }
+  , { id := "nop_r_w", mnemonic := "nop", asm := "nopw %ax", bytes := "660f1fc0"
+    , instr := ⟨.nop (some (R .rax)), 4⟩ }
+  -- ⭐ THE MEMORY SHAPE IS THE ONE WITH A CLAIM IN IT.  `nopl (%rbx)` addresses
+  -- the data window, and the assertion is that it does NOT read it: the post
+  -- state must be RIP+3 and nothing else, with the window untouched.
+  , { id := "nop_m_l", mnemonic := "nop", asm := "nopl (%rbx)", bytes := "0f1f03"
+    , instr := ⟨.nop (some (M .rbx)), 3⟩ }
+  , { id := "nop_m_w", mnemonic := "nop", asm := "nopw (%rbx)", bytes := "660f1f03"
+    , instr := ⟨.nop (some (M .rbx)), 4⟩ }
+  -- UD2: the first vector in the roster whose EXPECTED result is a refusal on
+  -- both sides.  `bothRefused` is what makes the two models agree here.
+  , { id := "ud2", mnemonic := "ud2", asm := "ud2", bytes := "0f0b"
+    , instr := ⟨.ud2, 2⟩ }
+  , { id := "retq", mnemonic := "retq", asm := "retq", bytes := "c3"
+    , instr := ⟨.ret, 1⟩ }
+  , { id := "leaveq", mnemonic := "leaveq", asm := "leaveq", bytes := "c9"
+    , instr := ⟨.leave, 1⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -1559,9 +1597,49 @@ def loopCounterStates : List Cpu :=
   [ mkPre 0x5555555555555555 0xDEADBEEF00000001 0     -- ecx = 1, rcx ≠ 1
   , mkPre 0xAAAAAAAAAAAAAAAA 0xDEADBEEF00000001 8 ]   -- ... and with ZF set
 
+/-- ⭐⭐ P1 BATCH 12: THE STATES THAT GIVE `retq` AND `leaveq` A FRAME TO FIND,
+AND THE REASON THE BATCH IS NOT AS CHEAP AS ITS SEMANTICS.
+
+⛔ AGAINST THE SEVENTY-EIGHT EXISTING PRE-STATES, `retq` CAN ONLY REFUSE.  The
+stack window's background is `0x10 + i` from 0x7fe0, so the eight bytes at
+RSP = 0x8000 read little-endian as `0x3736353433323130` — whose bits 63:47 are
+not all equal, i.e. NOT CANONICAL.  Every existing state therefore drives `retq`
+down the #GP path, and **a model whose `retq` did nothing at all but refuse would
+pass every one of them**.  `leaveq` is worse: RBP is 0 in all seventy-eight, so
+it would set RSP to 0 and pop from an address outside BOTH watched windows,
+where neither model is observed.
+
+This is D27's rule applied BEFORE the fact instead of after it.  DF was found to
+be a constant after ten batches of being diffed; here the constant — a stack that
+never holds a returnable address, and an RBP that never points anywhere — was
+looked for while writing the vectors, because the question "what in the state
+does this form actually read?" is now part of adding a form.  ⇒ **The cheapness
+of a form is a fact about its SEMANTICS; its cost is a fact about the STATE it
+needs.**  These four instructions are one line of `step` each and needed a new
+pre-state constructor.
+
+The two states differ in the SIGN of the canonical target: `0x401000` sits in
+the low half and `0xFFFFFFFFFFFF8000` in the high half, so a `canonical` written
+as an unsigned range check rather than a bits-63:47-agree check fails on the
+second and passes the first. -/
+def mkFrame (a c : BitVec 64) (fseed : Nat) (ret rbp frameVal : BitVec 64) : Cpu :=
+  let s := mkPre a c fseed
+  let s := s.setReg .q .rbp rbp
+  -- the return address where `retq` looks, and a distinct value where `leaveq`
+  -- looks after it has moved RSP to RBP.  Both land inside the stack window, so
+  -- both models are handed the same bytes and both are observed.
+  let s := s.writeMem .q (s.regs.get .rsp) ret
+  s.writeMem .q rbp frameVal
+
+def frameStates : List Cpu :=
+  [ mkFrame 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0
+      0x0000000000401000 0x7ff0 0x00000000DEADBEEF
+  , mkFrame 0xAAAAAAAAAAAAAAAA 0xF0F0F0F0F0F0F0F0 63
+      0xFFFFFFFFFFFF8000 0x7ff8 0x123456789ABCDEF0 ]
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
-its neighbours, the carry boundary, the two DF states and the two `addr32`
-counter states, then a pseudo-random tail. -/
+its neighbours, the carry boundary, the two DF states, the two `addr32`
+counter states and the two stack frames, then a pseudo-random tail. -/
 def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let adv := adversarial
   let diag := adv.map (fun a => mkPre a a 0)
@@ -1570,6 +1648,7 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rs := randStream seed (2 * nRandom)
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
-  diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates ++ rnd
+  diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
+    ++ frameStates ++ rnd
 
 end X86.Tests

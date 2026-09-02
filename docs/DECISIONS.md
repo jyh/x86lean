@@ -853,3 +853,167 @@ risk to close a gap that is currently only latent.
 full differential run (~10 min) to prove the records unchanged.** It is written
 here rather than in a comment beside the code, because D29's whole lesson is
 that a comment beside the code is what stops the question being asked again.
+
+### DISCHARGED in P1 batch 12 — and the count above was wrong.
+
+**There were FOUR sites, not three.** The table above misses `rflagsToLisp`
+(`Main.lean`), which packs the flags into the RFLAGS image sent to ACL2 by
+hand-written bit positions. It fails in a fourth way again — a flag missing there
+disagrees only where some pre-state actually SETS it, so it is loud on a varying
+flag and silent on a constant one, which is to say it would have been silent
+about DF for ten batches (D27) and is loud about it now. ⇒ **An inherited
+diagnosis is a hypothesis: the shape of D30 was right, its enumeration was
+short, and the missing item was the one whose failure mode is conditional rather
+than categorical.**
+
+All four now fold over one `flagFields` table in `X86/Basic.lean`, carrying each
+flag's name, projection and RFLAGS bit position.
+
+⚠️ **AND A TABLE IS NOT BY ITSELF THE FIX** — that is exactly what D29 was. The
+table is GUARDED by `flagFields_covers_Flags`, which fails to COMPILE rather
+than to prove: the anonymous-constructor pattern is positional, so an eighth
+field in `Flags` is an arity error before any proof is attempted; repairing the
+pattern without adding a row makes the two lists differ in length and `rfl`
+fails; a row with the wrong projection makes the order differ and `rfl` fails.
+It is deliberately NOT a `decide` over all 128 flag states, because enumerating
+`Flags` would require a FIFTH hand-written field list — a guard with the defect
+it exists to prevent, reporting agreement because a missing field sits at its
+default in every enumerated state.
+
+**The byte-identical proof was done, and the first attempt at it was vacuous.**
+Emitting before and after gave two identical files because `lake build` had not
+rebuilt the emitter (D31). Redone against a `git stash`-ed pristine tree with the
+executable explicitly built: **52 089 879 bytes of records and 115 498 260 bytes
+of ACL2 cases, byte-identical.** And the table is load-bearing rather than
+decorative: with the guard neutered and the `df` row deleted, `df=` vanishes from
+all 80 964 record lines.
+
+## D31 — `lake build` did not build the harness, and the probe discipline is what runs the harness.
+
+`lakefile.toml` said `defaultTargets = ["X86"]`. A bare `lake build` therefore
+elaborated the model library and built **neither executable nor the test tier**.
+
+⛔ **THAT IS PRECISELY THE COMMAND A PROBE IS RUN AFTER.** Every deletion probe
+in this repository works by editing a source file, rebuilding, and invoking
+`.lake/build/bin/x86lean-diff` directly — and the binary the probe ran was
+whatever the last `lake build x86lean-diff` or `run_differential.sh` had left on
+disk. Batch 12 caught this the only way it could be caught: a probe that had to
+go RED came back GREEN. The `df` row was deleted from the new `flagFields`
+table, `lake build` reported success, and the emitted records still carried
+`df=` in all 80 964 lines — because the emitter was twenty-eight minutes old.
+
+⭐ **THE GATES WERE NEVER EXPOSED, AND THAT IS THE UNCOMFORTABLE PART.**
+`scripts/run_differential.sh` builds `x86lean-diff` explicitly (line 17) and
+`.github/workflows/ci.yml` names all five targets. So CI was always honest. What
+was dishonest was **the instrument the seat uses to CHECK the gates** — and for
+a project whose entire method is "test the claim by deleting the coverage and
+watching the arm go quiet", an unreliable probe is worse than an unreliable
+gate: it silently converts a discipline into a ritual.
+
+⚠️ **AND THE FIRST REPAIR OF THIS LINE WAS ITSELF INCOMPLETE**, in the same
+direction, within the same hour. It added the two executables and still omitted
+`Tests` and `X86Native`, so `lake build` came back green while the entire test
+tier — the coverage theorems, the anchors, the axiom gate's red-first drive —
+had not been elaborated at all. That was caught by adding four mnemonics to
+`rosterP0` and watching `lake build` report success when `roster_size_is_53`
+could not possibly still hold. ⇒ **A partial fix to a "what does green mean"
+defect reproduces the defect at a smaller radius, and it is believed more
+readily the second time because it has just been repaired.**
+
+`defaultTargets` is now exactly the CI target list, and it must stay that way.
+
+## D32 — Two defects that cancelled: the memory-destination gate could not read `setcc`'s claim, and could not have backed it either.
+
+`mem_dest_claims_are_backed` exists to stop the coverage table over-claiming a
+memory destination. It was green. It was green because **both halves of it were
+broken and the two errors cancelled.**
+
+| half | defect |
+|---|---|
+| `claimsMemDest` (the shapes reader) | fired on the prefix `m(`. `setcc`'s row spells its memory write **`m8(w)`**, with the operand width between the `m` and the parenthesis — so the claim was never read |
+| `isMemDestVector` (the vector finder) | had no `.setcc` case and fell into `_ => false`, answering "no vector" to a claim that has **sixteen** |
+
+Repairing either half alone turns the gate RED — verified, both ways. The green
+depended on being wrong twice.
+
+⛔ **AND BATCH 6 WIDENED THAT PATTERN EXPRESSLY FOR `setcc`.** The comment above
+the clause says so: it generalised the literal `m(rmw)` to the prefix `m(` so
+that `setcc`'s write could be described honestly as `m(w)`. It missed its own
+motivating row by one character, and then explained itself for six batches.
+
+⇒ 🔑 **A GENERALISATION THAT NAMES ITS MOTIVATING CASE IS NOT EVIDENCE THAT IT
+COVERS IT.** The comment is the artifact that made the question feel answered —
+D29's law again, now in a gate rather than a table. The clause is now the
+NOTATION'S RULE (`m`, optional width, `(`), not a spelling; and
+`isMemDestVector`'s catch-all is **gone**, so growing `Op` is a compile error on
+that line rather than a silent `false`.
+
+## D33 — The selftest could not plant a bug in the refusal channel, because `driveWrong` only counted `spec`-class hits.
+
+`classify` gives a disagreement in `refused` the class **`"refusal"`**.
+`driveWrong` counted a hit as `d.cls == "spec" && d.field == expectField`. ⇒ **an
+arm whose bug shows in the refusal channel could never register**, however
+correctly the comparator caught it.
+
+`ud2` — the first form in the roster whose entire meaning is a fault — is what
+walked into it. Its arm plants a `ud2` that executes instead of faulting; the
+comparator found all seventy-six disagreements in `refused`, and the selftest
+printed *"fires on the wrong thing"* and FAILED.
+
+⭐ **THIRTY ARMS AND NOT ONE ON `refused`.** `bothRefused` was written
+specifically for this channel — it is the reason two models that both decline an
+instruction count as agreeing — and the harness's own self-test could not reach
+it. That is D27's shape moved up one level: not a constant in the STATE, but an
+unexercised branch in the INSTRUMENT. **A test harness has coverage gaps too,
+and nothing was watching that one because nothing had asked.**
+
+The filter now excludes exactly `undefined-region` (an EXPLAINED disagreement,
+which must never count as catching a bug) and `harness` (a missing field, an
+instrument failure rather than a caught model bug), and admits `spec` and
+`refusal`.
+
+## D34 — `retq` and `leaveq` were UNREACHABLE, not merely untested, and the batch looked before it shipped.
+
+Against the seventy-eight pre-states that existed before batch 12:
+
+* the stack window's background pattern is `0x10 + i` from `0x7fe0`, so the eight
+  bytes at RSP = `0x8000` read as `0x3736353433323130` — bits 63:47 are not all
+  equal, so it is **not canonical** and `retq` refuses in every single state;
+* RBP is `0` in all seventy-eight, so `leaveq` would set RSP to 0 and pop from an
+  address outside **both** watched windows.
+
+⇒ **A `retq` that jumped to the return address without ever popping it would have
+passed the entire pre-batch state set.** Measured, not argued: with `frameStates`
+removed, that arm catches ZERO and the selftest reports "the comparator does not
+work". With `frameStates` present it catches exactly **2** — the two frames, and
+nothing else.
+
+⭐ **THIS IS D27's RULE APPLIED BEFORE THE FACT INSTEAD OF AFTER IT.** D14 was a
+constant memory window, D26 a constant RDX, D27 a constant FLAG and an unreached
+COMBINATION; this is a constant WINDOW CONTENT. Four dresses is enough to state
+the rule without reference to any of them: **a gate watching something that
+cannot move reports an agreement it never tested.** What changed in this batch is
+the moment the question was asked — "what in the state does this form actually
+read, and does anything in the state set vary it?" is now part of adding a form,
+not part of the post-mortem.
+
+⇒ 🔑 And the corollary the batch was priced by: **the cheapness of a form is a
+fact about its SEMANTICS; its cost is a fact about the STATE it needs.** These
+four instructions are one line of `step` apiece — `nop` does nothing, `ud2`
+faults, `retq` pops, `leaveq` is two assignments — and two of them needed a new
+pre-state constructor before they could be tested at all.
+
+## D35 — `lods` is not a cheap candidate, because ACL2 x86isa does not implement it.
+
+The batch-11 bank listed `lods` among the cheapest remaining forms. It is not a
+cheap form; it is a form this project's ORACLE cannot execute.
+`vendor/acl2/books/projects/x86isa/machine/catalogue-data.lisp`, section
+"5.1.8 String Instructions", says in as many words: *"Unimplemented
+instructions: SCAS and LODS variations."*
+
+⇒ **A form's cost has a third component nobody had needed to name: whether the
+oracle implements it.** Cheap semantics + cheap state + **no oracle** = not a
+differentially validated form at all. Checking the catalogue before pricing a
+group is now the first step, not the last; `retq` and `leaveq` were kept because
+the same file's section 5.1.7 lists only the FAR return with immediate (`0xCA`)
+as unimplemented, and section 5.1.10 lists no exclusion for `LEAVE`.

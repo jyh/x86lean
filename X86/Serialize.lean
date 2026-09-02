@@ -51,9 +51,18 @@ def renderWindow (m : Mem) (w : Window) : String :=
   let bytes := (List.range w.len).map (fun i => hex8 (m.read (w.base + BitVec.ofNat 64 i)))
   s!"mem@{hex64 w.base}={String.intercalate "" bytes}"
 
+/-- ⭐ THE WIRE FORMAT, FOLDED OVER `flagFields` (D30).
+
+This string used to hand-enumerate the seven flags, and it is the one place in
+the model where a missing flag is INVISIBLE: absent from the record, absent from
+the diff, and therefore reported as agreement on every case for ever.  It now
+reads the single table, whose completeness is a compile-time arity check
+(`flagFields_covers_Flags`).  The rendered bytes are unchanged — the table's
+order IS this function's old order, and the batch that made this change proved
+it by diffing 40482 emitted records before and after. -/
 def Flags.render (f : Flags) : String :=
   let b (x : Bool) : String := if x then "1" else "0"
-  s!"cf={b f.cf} pf={b f.pf} af={b f.af} zf={b f.zf} sf={b f.sf} of={b f.of} df={b f.df}"
+  String.intercalate " " (flagFields.map (fun r => s!"{r.name}={b (r.get f)}"))
 
 def Cpu.renderRegs (s : Cpu) : String :=
   String.intercalate " "
@@ -62,6 +71,7 @@ def Cpu.renderRegs (s : Cpu) : String :=
 def MsErr.render : MsErr → String
   | .illegalOperands w => s!"illegal-operands:{w}"
   | .unimplemented w => s!"unimplemented:{w}"
+  | .byDesign w => s!"by-design:{w}"
 
 /-- One state, on one line.
 
@@ -95,9 +105,7 @@ def onesOracle : Oracle := { bits := fun _ => true }
 def undefinedFlags (i : Instr) (s : Cpu) : List String :=
   let a := (step i { s with oracle := zeroOracle }).flags
   let b := (step i { s with oracle := onesOracle }).flags
-  let chk (n : String) (x y : Bool) : List String := if x == y then [] else [n]
-  chk "cf" a.cf b.cf ++ chk "pf" a.pf b.pf ++ chk "af" a.af b.af ++
-  chk "zf" a.zf b.zf ++ chk "sf" a.sf b.sf ++ chk "of" a.of b.of ++ chk "df" a.df b.df
+  flagFields.filterMap (fun r => if r.get a == r.get b then none else some r.name)
 
 /-- Do the two oracle runs agree on everything OUTSIDE the flags?  If they do
 not, an undefined bit has leaked into a register, RIP, memory or the model

@@ -58,7 +58,7 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles. -/
-theorem roster_size_is_53 : rosterSize = 53 := by decide
+theorem roster_size_is_57 : rosterSize = 57 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -266,6 +266,16 @@ private def isInfixOfChars (pat : List Char) : List Char → Bool
   | [] => pat.isEmpty
   | c :: rest => pat.isPrefixOf (c :: rest) || isInfixOfChars pat rest
 
+/-- A written MEMORY DESTINATION in the shapes notation: `m`, an optional operand
+width, then a parenthesised kind — `m(rmw)`, `m(w)`, `m8(w)`.  Matching the rule
+rather than enumerating the spellings is the whole point; see D32 in the comment
+below. -/
+def claimsMemDestShape : List Char → Bool
+  | [] => false
+  | c :: rest =>
+    (c == 'm' && (rest.dropWhile Char.isDigit).head? == some '(')
+      || claimsMemDestShape rest
+
 def claimsMemDest (r : Row) : Bool :=
   isInfixOfChars "m,r".toList r.shapes.toList
   -- and the UNARY form of the same claim.  `inc`/`dec` have no source operand,
@@ -297,7 +307,25 @@ def claimsMemDest (r : Row) : Bool :=
   -- lie, which is D16's failure exactly. The parenthesis is what makes a
   -- MEMORY-DESTINATION claim distinguishable from `r,m`'s memory source, and
   -- what goes inside it is free to say which kind of write it is.
-  || isInfixOfChars "m(".toList r.shapes.toList
+  -- ⛔ AND THE PREFIX `m(` WAS STILL A SPELLING, WHICH IS D32.  Batch 6
+  -- generalised the literal `m(rmw)` to the prefix `m(` expressly so that
+  -- `setcc`'s memory WRITE could be described honestly as `m(w)` — and the row
+  -- it was written for spells it **`m8(w)`**, with the operand width between the
+  -- `m` and the parenthesis.  So the generalisation missed its own motivating
+  -- case, `setcc`'s memory-destination claim went UNREAD for six batches, and a
+  -- comment three lines up named `setcc` as the reason the pattern was widened.
+  --
+  -- ⭐ AND IT WAS INVISIBLE BECAUSE A SECOND DEFECT CANCELLED IT.
+  -- `isMemDestVector` had no `.setcc` case either, so it answered "no vector" to
+  -- a claim that has SIXTEEN.  Repairing either half alone turns the gate RED;
+  -- the green depended on both being wrong at once.  ⇒ **Two defects that cancel
+  -- read exactly like a passing gate, and the one that is easy to find is the
+  -- one that keeps the other hidden.**  Verified by repairing this clause alone
+  -- and watching `mem_dest_claims_are_backed` fail.
+  --
+  -- The clause below is therefore the NOTATION'S RULE and not another spelling:
+  -- `m`, an optional operand width, then a parenthesised kind.
+  || claimsMemDestShape r.shapes.toList
 
 /-- Does this vector write (or, for `cmp`/`test`, address) a MEMORY
 DESTINATION?
@@ -338,7 +366,38 @@ def isMemDestVector (v : Vec) : Bool :=
     | .cext _ => false
     | .xchg _ a b => a.isMem || b.isMem
     | .bswap .. => false
-    | _ => false)
+    -- ⭐ P1 BATCH 12: `.setcc` HAD NO CASE AND ITS ROW CLAIMS `m8(w)`, with
+    -- sixteen vectors backing it.  It fell into the catch-all and answered
+    -- "no vector" to a true claim — the batch-8 `.rot` defect exactly, surviving
+    -- six batches longer because the shapes pattern above could not read the
+    -- claim either.  See D32.
+    | .setcc _ d => d.isMem
+    -- ⛔ AND THE CATCH-ALL IS GONE.  `_ => false` made this function ABSORB every
+    -- new `Op` constructor silently, which is how `.rot` (batch 8) and `.setcc`
+    -- (here) each got a wrong answer with nothing to say so.  The match is now
+    -- EXHAUSTIVE, so growing `Op` is a COMPILE ERROR on this line and the answer
+    -- for a new form has to be written down.  The remaining constructors answer
+    -- `false`, and each is a decision rather than an omission: `lea`, `cmov`,
+    -- `movx` and `bswap` have REGISTER destinations by their types; `jmp`,
+    -- `jcc`, `jcxz`, `loop`, `call`, `ret` and `flagop` have no operand
+    -- destination at all; `nop` and `ud2` touch nothing; `leave` writes RBP, a
+    -- register.  `push` and `call` DO write the stack, and they still answer
+    -- `false` because this predicate asks about an operand-encoded memory
+    -- DESTINATION — the shapes column spells `push`'s `m` as a memory SOURCE,
+    -- and that distinction is the one the notation was fixed to make.
+    | .lea .. => false
+    | .push .. => false
+    | .jmp .. => false
+    | .jcc .. => false
+    | .jcxz .. => false
+    | .cmov .. => false
+    | .call .. => false
+    | .loop .. => false
+    | .flagop _ => false
+    | .nop _ => false
+    | .ud2 => false
+    | .ret => false
+    | .leave => false)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
 per row re-swept the WHOLE vector table for every claiming row; the set it is
@@ -619,6 +678,31 @@ docs/DIFFERENTIAL-P1-BATCH11.md. -/
 theorem pre_states_set_df :
     ((preStates 1 8).any (fun s => s.flags.df)
       && (preStates 1 8).any (fun s => !s.flags.df)) = true := by decide
+
+/-- ⭐⭐ P1 BATCH 12: SOME PRE-STATE HOLDS A **RETURNABLE FRAME** — a canonical
+address at RSP and an RBP that points into the watched stack window.
+
+⛔ AND UNTIL THIS BATCH NONE DID, WHICH MADE `retq` UNTESTABLE RATHER THAN
+UNTESTED.  The stack window's background pattern puts `0x3736353433323130` at
+RSP = 0x8000; bits 63:47 of that are not all equal, so it is NOT CANONICAL and
+`retq` refuses in every one of the seventy-eight states that existed before.
+**A `retq` that jumped without ever popping would have passed all of them** —
+measured, not argued: deleting `frameStates` makes that arm catch ZERO and the
+selftest report "the comparator does not work".  RBP was 0 in all seventy-eight,
+so `leaveq` popped from an address outside both watched windows.
+
+⚠️ THIRD DRESS OF ONE DEFECT.  `pre_states_set_df` is a COMPONENT no instruction
+wrote; the theorem below is a COMBINATION no value reached; this is a WINDOW
+CONTENT no state varied.  The rule is not about registers, or flags, or states —
+it is that a gate watching something that cannot move reports an agreement it
+never tested.  This is the first batch to look for it BEFORE shipping the form
+rather than after.
+
+The `any` is deliberately not an `all` and not a count: dropping ONE of the two
+frame states leaves the coverage real and must not fire (D21's calibration). -/
+theorem pre_states_have_a_returnable_frame :
+    ((preStates 1 8).any (fun s => canonical (s.mem.readSize .q (s.regs.get .rsp)))
+      && (preStates 1 8).any (fun s => s.regs.get .rbp != 0)) = true := by decide
 
 /-- ⛔ AND SOME PRE-STATE HAS ECX = 1 OVER A NON-ZERO UPPER HALF, which no
 pre-state had either.  `addr32 loop` tests `ECX - 1`; a model that tested

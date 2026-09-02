@@ -1334,4 +1334,63 @@ theorem the_flag_singles_do_not_cross :
     let t := step ⟨.flagop .clc, 1⟩ (mk (flags := { cf := true, df := true }))
     (c.flags.cf, c.flags.df, t.flags.cf, t.flags.df) = (true, false, false, true) := by decide
 
+/-! ## P1 BATCH 12 — the near-free four
+
+Each of these is an SDM sentence evaluated in the kernel.  They are cheap because
+none of the four writes a flag; the batch's cost was in the STATE the last two
+need, which is asserted in `Tests/Coverage.lean` rather than here. -/
+
+/-- ⭐ NOP IS INERT AT EVERY SHAPE, INCLUDING THE MEMORY ONE, and the RIP it
+advances is the DECODED LENGTH rather than a constant.  `nopl (%rbx)` is checked
+against a state whose data window is non-zero: the registers, the flags and the
+memory must all come out untouched, which is what "does not issue a memory
+operation" (SDM Vol. 2A, NOP) means operationally. -/
+theorem nop_is_inert_at_every_shape :
+    let m := Mem.empty.write 0x2000 0xAB
+    let s := mk (flags := { cf := true, zf := true }) (mem := m) (rip := 0x400000)
+    let short := step ⟨.nop none, 1⟩ s
+    let long  := step ⟨.nop (some (.mem { base := some .rbx })), 3⟩ s
+    (short.rip, long.rip, long.flags.cf, long.flags.zf, long.mem.read 0x2000,
+      long.regs.get .rbx)
+      = (0x400001, 0x400003, true, true, 0xAB, 0) := by decide
+
+/-- ⭐ UD2 REFUSES AND DOES NOT ADVANCE RIP.  The second half is the claim worth
+anchoring: a fault is not a completed instruction, so the RIP both models report
+is the one the instruction started at. -/
+theorem ud2_faults_without_advancing_rip :
+    let s := step ⟨.ud2, 2⟩ (mk (rip := 0x400000))
+    (s.ms.isSome, s.rip) = (true, 0x400000) := by decide
+
+/-- RET near: RIP comes off the stack and RSP moves up by eight
+(SDM Vol. 2A, RET). -/
+theorem retq_pops_the_return_address :
+    let m := Mem.empty.writeSize .q 0x8000 0x401000
+    let r : Regs := ({} : Regs).set .rsp 0x8000
+    let s := step ⟨.ret, 1⟩ (mk (regs := r) (mem := m) (rip := 0x400000))
+    (s.rip, s.regs.get .rsp, s.ms.isSome) = (0x401000, 0x8008, false) := by decide
+
+/-- ⛔ AND ON A NON-CANONICAL RETURN ADDRESS IT REFUSES **WITHOUT MOVING RSP**.
+x86isa raises #GP(0) before committing the pop, so a model that popped and then
+refused would disagree with it on `rsp` as well as on `rip` — the disagreement
+that says the ORDER is observable.  `0x3736353433323130` is not an arbitrary
+choice: it is what the differential harness's own stack background actually
+reads as at RSP, and therefore the value seventy-eight of the eighty pre-states
+present to `retq`. -/
+theorem retq_refuses_a_noncanonical_return_without_moving_rsp :
+    let m := Mem.empty.writeSize .q 0x8000 0x3736353433323130
+    let r : Regs := ({} : Regs).set .rsp 0x8000
+    let s := step ⟨.ret, 1⟩ (mk (regs := r) (mem := m) (rip := 0x400000))
+    (s.ms.isSome, s.regs.get .rsp, s.rip) = (true, 0x8000, 0x400000) := by decide
+
+/-- ⭐ LEAVE IS `mov rsp, rbp` THEN `pop rbp`, IN THAT ORDER.  RSP ends at
+RBP + 8 and RBP takes the value that was AT the old RBP — not at the old RSP,
+which is the whole content of the ordering.  The two are distinguishable here
+only because RBP and RSP hold different addresses and the memory under each
+differs; against a state with RBP = 0 they coincide. -/
+theorem leaveq_moves_rsp_then_pops_rbp :
+    let m := (Mem.empty.writeSize .q 0x7ff0 0xDEADBEEF).writeSize .q 0x8000 0x1111
+    let r : Regs := (({} : Regs).set .rsp 0x8000).set .rbp 0x7ff0
+    let s := step ⟨.leave, 1⟩ (mk (regs := r) (mem := m) (rip := 0x400000))
+    (s.regs.get .rsp, s.regs.get .rbp, s.rip) = (0x7ff8, 0xDEADBEEF, 0x400001) := by decide
+
 end X86.Tests
