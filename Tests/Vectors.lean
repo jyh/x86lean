@@ -283,6 +283,93 @@ def vectors : List Vec :=
     , bytes := "30e8", instr := ⟨.bin .xor .b (R .rax) (H .rcx), 2⟩ }
   , { id := "xor_h8d",      mnemonic := "xor",   asm := "xorb %cl, %ah"
     , bytes := "30cc", instr := ⟨.bin .xor .b (H .rax) (R .rcx), 2⟩ }
+
+  -- ══ P1 BATCH 2 ═════════════════════════════════════════════════════════
+  -- The family `xxxxxx-|cf|reg` of `p1/roster.tsv`: ADC and SBB, the first
+  -- forms whose RESULT reads a flag.  14 forms in K's roster, 48 K variants.
+  -- Same shape sweep as batch 1, because the shapes are the same shapes — the
+  -- new content is entirely in the carry, and the carry lives in the
+  -- PRE-STATES rather than in the vectors.
+  , { id := "adc_rr_b",     mnemonic := "adc",   asm := "adcb %cl, %al"
+    , bytes := "10c8", instr := ⟨.bin .adc .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "adc_rm_b",     mnemonic := "adc",   asm := "adcb (%rbx), %al"
+    , bytes := "1203", instr := ⟨.bin .adc .b (R .rax) (M .rbx), 2⟩ }
+  , { id := "adc_rr_w",     mnemonic := "adc",   asm := "adcw %cx, %ax"
+    , bytes := "6611c8", instr := ⟨.bin .adc .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "adc_rm_w",     mnemonic := "adc",   asm := "adcw (%rbx), %ax"
+    , bytes := "661303", instr := ⟨.bin .adc .w (R .rax) (M .rbx), 3⟩ }
+  , { id := "adc_rr_l",     mnemonic := "adc",   asm := "adcl %ecx, %eax"
+    , bytes := "11c8", instr := ⟨.bin .adc .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "adc_rm_l",     mnemonic := "adc",   asm := "adcl (%rbx), %eax"
+    , bytes := "1303", instr := ⟨.bin .adc .d (R .rax) (M .rbx), 2⟩ }
+  , { id := "adc_rr_q",     mnemonic := "adc",   asm := "adcq %rcx, %rax"
+    , bytes := "4811c8", instr := ⟨.bin .adc .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "adc_rm_q",     mnemonic := "adc",   asm := "adcq (%rbx), %rax"
+    , bytes := "481303", instr := ⟨.bin .adc .q (R .rax) (M .rbx), 3⟩ }
+  , { id := "adc_ri_b",     mnemonic := "adc",   asm := "adcb $0x5a, %cl"
+    , bytes := "80d15a", instr := ⟨.bin .adc .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "adc_ri_w",     mnemonic := "adc",   asm := "adcw $0x1234, %cx"
+    , bytes := "6681d13412", instr := ⟨.bin .adc .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "adc_ri_l",     mnemonic := "adc",   asm := "adcl $0x12345678, %ecx"
+    , bytes := "81d178563412", instr := ⟨.bin .adc .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "adc_ri_q",     mnemonic := "adc",   asm := "adcq $0x12345678, %rcx"
+    , bytes := "4881d178563412", instr := ⟨.bin .adc .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "adc_ri_q8n",   mnemonic := "adc",   asm := "adcq $-1, %rcx"
+    , bytes := "4883d1ff", instr := ⟨.bin .adc .q (R .rcx) (.imm 0xffffffffffffffff), 4⟩ }
+  , { id := "adc_ri_q32n",  mnemonic := "adc",   asm := "adcq $-2147483648, %rcx"
+    , bytes := "4881d100000080", instr := ⟨.bin .adc .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "adc_acc_b",    mnemonic := "adc",   asm := "adcb $0x5a, %al"
+    , bytes := "145a", instr := ⟨.bin .adc .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "adc_acc_w",    mnemonic := "adc",   asm := "adcw $0x1234, %ax"
+    , bytes := "66153412", instr := ⟨.bin .adc .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "adc_acc_l",    mnemonic := "adc",   asm := "adcl $0x12345678, %eax"
+    , bytes := "1578563412", instr := ⟨.bin .adc .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "adc_acc_q",    mnemonic := "adc",   asm := "adcq $0x12345678, %rax"
+    , bytes := "481578563412", instr := ⟨.bin .adc .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "adc_h8s",      mnemonic := "adc",   asm := "adcb %ch, %al"
+    , bytes := "10e8", instr := ⟨.bin .adc .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "adc_h8d",      mnemonic := "adc",   asm := "adcb %cl, %ah"
+    , bytes := "10cc", instr := ⟨.bin .adc .b (H .rax) (R .rcx), 2⟩ }
+  , { id := "sbb_rr_b",     mnemonic := "sbb",   asm := "sbbb %cl, %al"
+    , bytes := "18c8", instr := ⟨.bin .sbb .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "sbb_rm_b",     mnemonic := "sbb",   asm := "sbbb (%rbx), %al"
+    , bytes := "1a03", instr := ⟨.bin .sbb .b (R .rax) (M .rbx), 2⟩ }
+  , { id := "sbb_rr_w",     mnemonic := "sbb",   asm := "sbbw %cx, %ax"
+    , bytes := "6619c8", instr := ⟨.bin .sbb .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "sbb_rm_w",     mnemonic := "sbb",   asm := "sbbw (%rbx), %ax"
+    , bytes := "661b03", instr := ⟨.bin .sbb .w (R .rax) (M .rbx), 3⟩ }
+  , { id := "sbb_rr_l",     mnemonic := "sbb",   asm := "sbbl %ecx, %eax"
+    , bytes := "19c8", instr := ⟨.bin .sbb .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "sbb_rm_l",     mnemonic := "sbb",   asm := "sbbl (%rbx), %eax"
+    , bytes := "1b03", instr := ⟨.bin .sbb .d (R .rax) (M .rbx), 2⟩ }
+  , { id := "sbb_rr_q",     mnemonic := "sbb",   asm := "sbbq %rcx, %rax"
+    , bytes := "4819c8", instr := ⟨.bin .sbb .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "sbb_rm_q",     mnemonic := "sbb",   asm := "sbbq (%rbx), %rax"
+    , bytes := "481b03", instr := ⟨.bin .sbb .q (R .rax) (M .rbx), 3⟩ }
+  , { id := "sbb_ri_b",     mnemonic := "sbb",   asm := "sbbb $0x5a, %cl"
+    , bytes := "80d95a", instr := ⟨.bin .sbb .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "sbb_ri_w",     mnemonic := "sbb",   asm := "sbbw $0x1234, %cx"
+    , bytes := "6681d93412", instr := ⟨.bin .sbb .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "sbb_ri_l",     mnemonic := "sbb",   asm := "sbbl $0x12345678, %ecx"
+    , bytes := "81d978563412", instr := ⟨.bin .sbb .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "sbb_ri_q",     mnemonic := "sbb",   asm := "sbbq $0x12345678, %rcx"
+    , bytes := "4881d978563412", instr := ⟨.bin .sbb .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "sbb_ri_q8n",   mnemonic := "sbb",   asm := "sbbq $-1, %rcx"
+    , bytes := "4883d9ff", instr := ⟨.bin .sbb .q (R .rcx) (.imm 0xffffffffffffffff), 4⟩ }
+  , { id := "sbb_ri_q32n",  mnemonic := "sbb",   asm := "sbbq $-2147483648, %rcx"
+    , bytes := "4881d900000080", instr := ⟨.bin .sbb .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "sbb_acc_b",    mnemonic := "sbb",   asm := "sbbb $0x5a, %al"
+    , bytes := "1c5a", instr := ⟨.bin .sbb .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "sbb_acc_w",    mnemonic := "sbb",   asm := "sbbw $0x1234, %ax"
+    , bytes := "661d3412", instr := ⟨.bin .sbb .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "sbb_acc_l",    mnemonic := "sbb",   asm := "sbbl $0x12345678, %eax"
+    , bytes := "1d78563412", instr := ⟨.bin .sbb .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "sbb_acc_q",    mnemonic := "sbb",   asm := "sbbq $0x12345678, %rax"
+    , bytes := "481d78563412", instr := ⟨.bin .sbb .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "sbb_h8s",      mnemonic := "sbb",   asm := "sbbb %ch, %al"
+    , bytes := "18e8", instr := ⟨.bin .sbb .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "sbb_h8d",      mnemonic := "sbb",   asm := "sbbb %cl, %ah"
+    , bytes := "18cc", instr := ⟨.bin .sbb .b (H .rax) (R .rcx), 2⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -338,8 +425,42 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
     rip := 0x400000
     oracle := zeroOracle }
 
+/-- ⭐ THE CARRY BOUNDARY, added by P1 BATCH 2 — and it is the same finding P0's
+harness selftest made about the shift counts, arriving a second time in a
+different rule.
+
+`adc` and `sbb` differ from `add` and `sub` in exactly one place: an operand
+pair that does not carry can carry once CF is added, and one that does not
+borrow can borrow once CF is subtracted.  `0xFF + 0x00 + 1` and `0x00 - 0x00 - 1`
+are the states where the carry ALONE decides the answer.
+
+⛔ THIS BLOCK WAS FIRST WRITTEN CLAIMING THE THREE SWEEPS ABOVE COULD NOT REACH
+THOSE STATES.  The claim was tested by deleting this list and re-running the
+harness selftest's boundary arm, and it was WRONG: the bug was still caught.
+Two accidents reach the boundary.  `0xAAAA…AA` and `0x5555…55` are adjacent in
+`adversarial` and are exact complements, so the `pairs` sweep hands `adc` a sum
+of `2^64 - 1` with CF set; and truncating `0x100000000` to a byte gives zero, so
+several pairs become `0xFF + 0x00` at width b.  Neither was put there for this.
+
+⇒ **COVERAGE THAT ARISES INCIDENTALLY FROM A LIST WRITTEN FOR ANOTHER PURPOSE IS
+COVERAGE NOBODY IS MAINTAINING.**  Reordering `adversarial` or dropping one of
+those two constants would remove the only states exercising the carry rule, and
+every gate would stay green.  So this list stays — not because it is the only
+way to reach the boundary, but because it is the only DELIBERATE one — and
+`Tests/Coverage.lean` asserts the boundary is crossed, so the accident can no
+longer be the thing holding the rule up.
+
+Six states, three operand pairs against both values of CF.  `0xFFFF…FF` is
+all-ones at EVERY width and `0` is zero at every width, so one pair covers the
+boundary at b, w, l and q at once. -/
+def carryBoundary : List Cpu :=
+  let ones : BitVec 64 := 0xFFFFFFFFFFFFFFFF
+  [ mkPre ones 0 0, mkPre ones 0 1      -- adc: overflows only because of CF
+  , mkPre 0 0 0,    mkPre 0 0 1         -- sbb: borrows only because of CF
+  , mkPre 0 ones 0, mkPre 0 ones 1 ]    -- and the borrow that happens either way
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
-its neighbours, plus a pseudo-random tail. -/
+its neighbours, the carry boundary, then a pseudo-random tail. -/
 def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let adv := adversarial
   let diag := adv.map (fun a => mkPre a a 0)
@@ -348,6 +469,6 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rs := randStream seed (2 * nRandom)
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
-  diag ++ pairs ++ pairs2 ++ rnd
+  diag ++ pairs ++ pairs2 ++ carryBoundary ++ rnd
 
 end X86.Tests

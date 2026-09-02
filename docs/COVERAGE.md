@@ -2,9 +2,9 @@
 
 # x86lean coverage
 
-Roster: 20 mnemonics in 100 differentially tested forms (P0's twenty scalar forms, plus P1 BATCH 1 — the `0xuxx0-|-|reg` family of `p1/roster.tsv`: AND/OR/XOR writing a register, at every width and operand shape).
+Roster: 20 mnemonics in 140 differentially tested forms (P0's twenty scalar forms, plus P1 BATCH 1 — the `0xuxx0-|-|reg` family of `p1/roster.tsv`: AND/OR/XOR writing a register, at every width and operand shape).
 
-Tiers: T-exact 14 · T-frame 6 · T-absent 0.
+Tiers: T-exact 16 · T-frame 6 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -15,6 +15,8 @@ Tiers: T-exact 14 · T-frame 6 · T-absent 0.
 | `or` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q) | T-frame | XED (trusted) | AF | Vol. 2A OR |
 | `xor` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q) | T-frame | XED (trusted) | AF | Vol. 2A XOR |
 | `cmp` | r/m, r/imm | T-exact | XED (trusted) | — | Vol. 2A CMP |
+| `adc` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-exact | XED (trusted) | — | Vol. 2A ADC |
+| `sbb` | r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh | T-exact | XED (trusted) | — | Vol. 2A SBB |
 | `test` | r/m, r/imm | T-frame | XED (trusted) | AF | Vol. 2A TEST |
 | `shl` | r/m, imm8 · r/m, cl | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |
 | `shr` | r/m, imm8 · r/m, cl | T-frame | XED (trusted) | CF (count ≥ width), OF (count ≠ 1), AF (count ≠ 0) | Vol. 2A SAL/SAR/SHL/SHR |

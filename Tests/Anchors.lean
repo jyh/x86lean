@@ -186,6 +186,62 @@ theorem test_sets_zf_when_disjoint :
     (step ⟨.bin .test .q (.reg .rax) (.reg .rcx), 3⟩
       (mk { rax := 0xF0, rcx := 0x0F })).flags.zf = true := by decide
 
+/-! ## P1 BATCH 2 — the carry, at the two states where it alone decides
+
+Each of these is a state in which `adc` and `add` give DIFFERENT answers, or
+`sbb` and `sub` do. That is the whole content of the batch: everywhere else the
+new template degenerates to the old one, and `adc_no_carry_is_add` in
+X86/Theorems.lean proves the degeneration. -/
+
+/-- ⭐ `0xFF + 0x00 + CF` AT WIDTH b: without the carry it is 0xFF and no carry
+out; with it, the byte wraps to 0 and CF is SET. A model that ignored the
+carry-in would answer 0xFF here and agree with the oracle on every operand pair
+that does not sit on this boundary. -/
+theorem adc_carry_alone_overflows :
+    ((step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xFF, rcx := 0x00 } { cf := true })).regs.rax = 0x00)
+    ∧ ((step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xFF, rcx := 0x00 } { cf := true })).flags.cf = true) := by decide
+
+theorem adc_without_carry_does_not :
+    ((step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xFF, rcx := 0x00 })).regs.rax = 0xFF)
+    ∧ ((step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xFF, rcx := 0x00 })).flags.cf = false) := by decide
+
+/-- ⭐ `0x00 - 0x00 - CF`: without the carry, zero and no borrow; with it, 0xFF
+and CF set. The mirror of the above, and the state `sub` can never reach. -/
+theorem sbb_carry_alone_borrows :
+    ((step ⟨.bin .sbb .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0x00, rcx := 0x00 } { cf := true })).regs.rax = 0xFF)
+    ∧ ((step ⟨.bin .sbb .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0x00, rcx := 0x00 } { cf := true })).flags.cf = true) := by decide
+
+/-- ⚠️ THE CARRY READ IS THE INCOMING ONE. Here the instruction both reads CF
+(as an addend) and writes it (as a carry-out), and the two values DIFFER: CF
+goes in set and comes out clear. An implementation that read CF after writing
+it, or wrote before reading, would produce 0x02 or a set CF; only reading first
+gives 0x02… — concretely, `0x00 + 0x01 + 1 = 0x02` with CF cleared on the way
+out, and the anchor pins both halves. -/
+theorem adc_reads_cf_before_writing_it :
+    ((step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0x00, rcx := 0x01 } { cf := true })).regs.rax = 0x02)
+    ∧ ((step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0x00, rcx := 0x01 } { cf := true })).flags.cf = false) := by decide
+
+/-- The 32-bit carry form still zero-extends: `adcl` with a carry into the low
+bit clears the upper 32 bits like every other 32-bit write. -/
+theorem adcl_zero_extends :
+    (step ⟨.bin .adc .d (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xDEADBEEF_00000001, rcx := 0x00000001 } { cf := true })).regs.rax
+      = 0x00000003 := by decide
+
+/-- And AF still comes from the same identity with a carry in the way: the low
+nibble `0xF + 0x0 + 1` carries out of bit 3. -/
+theorem adc_aux_carry_sees_the_carry_in :
+    (step ⟨.bin .adc .b (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0x0F, rcx := 0x00 } { cf := true })).flags.af = true := by decide
+
 /-! ## P1 BATCH 1 — the four behaviours P0's vectors never reached
 
 Anchors, not vectors: each is a concrete SDM sentence checked by `decide`, so it

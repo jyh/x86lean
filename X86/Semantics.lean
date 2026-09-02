@@ -151,6 +151,20 @@ def step (i : Instr) (s : Cpu) : Cpu :=
             let res := Flags.subResult sz a b
             let s := s.setFlags (Flags.sub sz a b s.flags)
             (s.writeOperand sz nr dst res).setRip nr
+        -- ADC / SBB (SDM Vol. 2A).  ⚠️ The carry is read from the INCOMING
+        -- flags, before any of them are written: `s.flags.cf`, not the flags of
+        -- the state being built.  Reading it after would make the instruction
+        -- depend on its own output.
+        | .adc =>
+            let cin := s.flags.cf
+            let res := Flags.adcResult sz a b cin
+            let s := s.setFlags (Flags.adc sz a b cin s.flags)
+            (s.writeOperand sz nr dst res).setRip nr
+        | .sbb =>
+            let cin := s.flags.cf
+            let res := Flags.sbbResult sz a b cin
+            let s := s.setFlags (Flags.sbb sz a b cin s.flags)
+            (s.writeOperand sz nr dst res).setRip nr
         -- CMP is SUB with the result DISCARDED (SDM Vol. 2A, CMP).
         | .cmp =>
             (s.setFlags (Flags.sub sz a b s.flags)).setRip nr

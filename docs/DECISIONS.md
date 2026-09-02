@@ -259,3 +259,43 @@ defects, found this time in a test rather than in a gate.
 
 **Reversal cost:** none. The claim is real but it is a claim about the vector
 table, not about `step`.
+
+
+## D12 — Batch 2 was chosen AGAINST the roster's own order, to price the term
+## batch 1 could not.
+
+`scripts/k_roster.py` orders families by how much of them P0 already covers, so
+the script's batch 2 is `cmp` (11 forms, existing template). It was passed over.
+
+Batch 1 measured 623 k tokens per form for a form under an EXISTING template —
+and then the roster showed that only 6 of 61 families, 50 of 525 forms, are of
+that kind. 55 families need a new template. A wave quoted from batch 1 alone
+prices 10% of itself and guesses the rest.
+
+`adc`/`sbb` was taken instead because it is unambiguously ONE new template, a
+single family rather than a mixture, and large enough (14 forms) that
+`batch 2 total − 14 × 623 k` is a real number for the surcharge.
+
+**Reversal cost:** none — the roster's order is data, not a commitment, and the
+five skipped already-templated batches are still there.
+
+## D13 — Four checks now test the PRE-STATES, not the model.
+
+`Tests/Coverage.lean` asserts that some pre-state crosses the carry boundary at
+width q and at width b, that some crosses the borrow boundary, and that CF takes
+both values across the set.
+
+Every other check in this repository asks whether the model matches the table,
+the table matches the AST, or the model matches the oracle. **None of them can
+see a rule's boundary stop being crossed.** The coverage table reads the same,
+every vector still runs, and the differential run still comes back clean —
+because a rule nothing exercises cannot disagree with anything.
+
+This was found by testing a claim rather than making one: batch 2 asserted that
+P0's sweeps could not reach the carry boundary, deleted its own boundary states
+to prove it, and discovered the sweeps reached the boundary by accident — two
+adjacent constants in `adversarial` that happen to be complements.
+⇒ **Coverage that arises incidentally from a list written for another purpose is
+coverage nobody is maintaining.**
+
+**Reversal cost:** low. They are four `decide` assertions over `preStates`.

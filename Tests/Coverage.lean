@@ -33,13 +33,20 @@ theorem table_mnemonics_subset_roster :
 theorem roster_covered_by_table :
     rosterP0.all (fun m => (tableP0.map Row.mnemonic).contains m) = true := by decide
 
-/-- Exactly twenty rows, and no duplicates. -/
-theorem table_has_twenty_rows : tableP0.length = 20 := by decide
+/-- The table has exactly one row per implemented mnemonic, and no duplicates.
+The count is `rosterSize` rather than a literal, so this theorem and
+`roster_size_matches` below cannot drift apart — twenty-two today, because P1
+batch 2 added `adc` and `sbb`. -/
+theorem table_row_count : tableP0.length = rosterSize := by decide
 
 theorem table_rows_distinct :
     (tableP0.map Row.mnemonic).eraseDups.length = tableP0.length := by decide
 
-theorem roster_has_twenty : rosterP0.length = 20 := by decide
+theorem roster_size_matches : rosterP0.length = rosterSize := by decide
+
+/-- And the literal, stated ONCE, so that growing the roster is a visible
+one-line change rather than a silent one.  P0 left here with twenty. -/
+theorem roster_size_is_22 : rosterSize = 22 := by decide
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
@@ -53,11 +60,12 @@ theorem every_vector_has_a_row :
     (vectors.map Vec.mnemonic).all
       (fun m => (tableP0.map Row.mnemonic).contains m) = true := by decide
 
-/-- The twenty mnemonics are exactly the twenty the plan of record names. -/
-theorem vectors_cover_twenty_mnemonics :
-    (vectors.map Vec.mnemonic).eraseDups.length = 20 := by decide
+/-- Every implemented mnemonic is exercised by at least one differential vector
+— the count above is matched by the vector table, not merely by the roster. -/
+theorem vectors_cover_the_roster :
+    (vectors.map Vec.mnemonic).eraseDups.length = rosterSize := by decide
 
-/-- No form is in the `T-absent` tier at P0: every roster form is modelled.
+/-- No form is in the `T-absent` tier: every roster form is modelled.
 When P1 adds a refused form this theorem is the one that must change, and
 changing it is a deliberate act rather than a silent drift. -/
 theorem no_absent_forms_at_p0 :
@@ -75,5 +83,42 @@ undefined column — an internal consistency the reader would otherwise have to
 verify by eye across twenty rows. -/
 theorem frame_tier_iff_undefined_bits :
     tableP0.all (fun r => (r.tier == Tier.frame) == !r.undefined.isEmpty) = true := by decide
+
+/-! ## The pre-state set's own coverage
+
+⭐ THESE ASSERT PROPERTIES OF THE PRE-STATES, NOT OF THE MODEL, and that is the
+gap they close.  Every other check here asks whether the table matches the AST.
+None of them can see that a rule's boundary has stopped being crossed — the
+coverage table would read exactly the same, every vector would still run, and
+the differential run would still come back clean, because a rule nothing
+exercises cannot disagree with anything.
+
+The carry boundary was crossed by ACCIDENT before P1 batch 2 noticed
+(`Tests/Vectors.lean`, `carryBoundary`): two adjacent constants in `adversarial`
+happen to be complements. An accident is not a gate. -/
+
+/-- Some pre-state puts `adc` exactly on the carry boundary at width q: the two
+operands sum to `2^64 - 1`, so the carry-in ALONE decides the carry-out. -/
+theorem pre_states_cross_the_carry_boundary_q :
+    (preStates 1 8).any (fun s =>
+      s.flags.cf && (s.regs.rax + s.regs.rcx == 0xFFFFFFFFFFFFFFFF)) = true := by decide
+
+/-- And at width b, where the operands are truncated to a byte. -/
+theorem pre_states_cross_the_carry_boundary_b :
+    (preStates 1 8).any (fun s =>
+      s.flags.cf && ((s.regs.rax &&& 0xFF) + (s.regs.rcx &&& 0xFF) == 0xFF)) = true := by decide
+
+/-- The borrow boundary for `sbb`: minuend equals subtrahend with CF set, so the
+borrow comes only from the carry-in. -/
+theorem pre_states_cross_the_borrow_boundary :
+    (preStates 1 8).any (fun s =>
+      s.flags.cf && (s.regs.rax == s.regs.rcx)) = true := by decide
+
+/-- ⚠️ AND BOTH VALUES OF CF ARE PRESENT.  A pre-state set in which CF is always
+set, or never, makes every carry-reading form a constant function of its
+operands and the differential run cannot tell `adc` from `add`. -/
+theorem pre_states_sweep_cf :
+    ((preStates 1 8).any (fun s => s.flags.cf)
+      && (preStates 1 8).any (fun s => !s.flags.cf)) = true := by decide
 
 end X86.Tests

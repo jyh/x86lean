@@ -24,9 +24,12 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects three real historical x86 modelling bugs — an `inc` that
-clobbers CF, a `movl` that fails to zero-extend, and a shift that forgets to
-mask its count — and REQUIRES the comparator to catch each one.
+`selftest` injects four real x86 modelling bugs — an `inc` that clobbers CF, a
+`movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
+that drops the carry-in, and an `adc` whose carry-OUT forgets the carry-in — and
+REQUIRES the comparator to catch each one.  The last two arrived with P1 batch
+2, and the fifth is the one that says the batch's carry-boundary pre-states are
+load-bearing: it is invisible everywhere else in the state space.
 
 LANE. Personal lane, public sources only.
 -/
@@ -284,6 +287,77 @@ def wrongShiftMask (i : Instr) (s : Cpu) : Cpu :=
         (s.writeOperand sz nr dst res).setRip nr
   | _ => step i s
 
+/-- ⭐ P1 BATCH 2's PLANTED BUG, and the reason it is here rather than in a
+comment.  This model is `adc` with the carry-in DROPPED — i.e. `adc` implemented
+as `add`, which is the single most likely way to get a carry-propagating form
+wrong and the one a reviewer is least likely to see, because the two agree on
+every operand pair that does not sit on the carry boundary.
+
+It is SURGICAL in the sense P0's `wrongShiftMask` had to be taught: the flags are
+recomputed by the same route, so the only difference is the carry.
+
+⚠️ THIS ONE IS THE EASY HALF, AND SAYING SO IS THE POINT.  Any pre-state with CF
+set catches it, because dropping the carry moves the RESULT by one on almost
+every operand pair — 630 disagreements, from three sweeps that were already
+there.  `wrongAdcCarryOutCF` below is the hard half, and it is the one that says
+whether `carryBoundary` earns its place. -/
+def wrongAdcNoCarry (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bin .adc sz dst src =>
+      if !wellFormed2 dst src then s.halt (.illegalOperands "two memory operands")
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr dst
+        let b := s.readOperand sz nr src
+        -- the BUG: `false` where the model reads `s.flags.cf`
+        let res := Flags.adcResult sz a b false
+        let s := s.setFlags (Flags.adc sz a b false s.flags)
+        (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND THE ONE THE CARRY BOUNDARY EXISTS FOR.  This model
+computes the RESULT correctly — carry-in and all — and gets only the CARRY-OUT
+wrong, by asking `adcCF` for the carry of `a + b` instead of `a + b + CF`.
+
+Every operand pair on which `a + b` already carries, or already does not, gives
+the same CF either way. The two models differ ONLY where the incoming carry is
+what pushes the sum over the top: `0xFF + 0x00 + 1` at width b, and its siblings
+at the other three widths. That is one point in the state space, and P0's three
+sweeps do not contain it — the diagonal has every flag clear, and the two
+rotated sweeps pair each adversarial value with something far from zero.
+
+⛔ AND THE PARAGRAPH THAT STOOD HERE CLAIMED SOMETHING THE PROBE REFUTED.  It
+said that deleting `carryBoundary` from `Tests/Vectors.lean` would make this arm
+catch nothing.  Deleting it was tried, and this arm still caught the bug — 62
+disagreements instead of 76.  P0's three sweeps DO cross the carry boundary,
+twice over and both times by accident: `0xAAAA…` and `0x5555…` sit next to each
+other in the adversarial list and are exact complements, so `a + b + 1` wraps at
+width q; and truncating `0x100000000` to a byte gives zero, so several pairs
+become `0xFF + 0x00` at width b.
+
+Which leaves the honest reason `carryBoundary` stays, stated as what it is:
+⇒ **COVERAGE THAT ARISES INCIDENTALLY FROM A LIST WRITTEN FOR ANOTHER PURPOSE IS
+COVERAGE NOBODY IS MAINTAINING.**  Reordering `adversarial`, or dropping one of
+those two constants, would silently remove the only states that exercise this
+rule, and no gate would say so.  `Tests/Coverage.lean`'s
+`pre_states_cross_the_carry_boundary` is what turns the accident into an
+assertion; `carryBoundary` is what makes the assertion cheap to keep true. -/
+def wrongAdcCarryOutCF (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bin .adc sz dst src =>
+      if !wellFormed2 dst src then s.halt (.illegalOperands "two memory operands")
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr dst
+        let b := s.readOperand sz nr src
+        let cin := s.flags.cf
+        let res := Flags.adcResult sz a b cin            -- correct
+        let f := Flags.adc sz a b cin s.flags
+        -- the BUG, and nothing else: the carry OUT forgets the carry IN
+        let s := s.setFlags { f with cf := Flags.adcCF sz a b false }
+        (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -347,10 +421,12 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — three deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — five deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
+      let e ← driveWrong "adc drops the carry-in" wrongAdcNoCarry "rax"
+      let f ← driveWrong "adc's carry-OUT forgets the carry-in" wrongAdcCarryOutCF "cf"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -360,7 +436,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d then
+      if a && b && c && d && e && f then
         IO.println "harness selftest: PASS"
         return 0
       else

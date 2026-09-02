@@ -165,6 +165,84 @@ theorem step_test_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h, Cpu.getReg]
 
+/-! ## P1 BATCH 2 — ADC and SBB: the first forms whose RESULT reads a flag
+
+`p1/roster.tsv` family `xxxxxx-|cf|reg`, 14 forms, 48 K variants.  Same generic
+source operand and generic `h8` destination as batch 1 (D10), for the same
+reason and with the same limit.
+
+⭐ WHAT IS NEW IN THE STATEMENT, and it is one subterm: `s.flags.cf` appears on
+the RIGHT of the equation, inside the result as well as inside the flags.  Every
+P0 characterization equation computes its result from operands only; these two
+say, in the theorem, that the same instruction on the same operands has two
+different results depending on the state it starts in.  Anything reasoning above
+this layer has to carry CF, and the equation is where it finds that out.
+
+⚠️ AND THE CARRY IS THE INCOMING ONE.  `s.flags.cf` is read from `s`, not from
+the intermediate state after the flags are written — an ADC that read its own
+output CF would be a fixpoint, not an instruction, and the equation is what
+pins the order down. -/
+
+theorem step_adc_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    step ⟨.bin .adc sz (.reg r h8) o, len⟩ s =
+      { s with
+        regs := s.regs.set r (if h8
+          then Value.writeHigh8 (s.regs.get r)
+            (Flags.adcResult sz (s.getReg sz r h8)
+              (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf)
+          else Value.writeView sz (s.regs.get r)
+            (Flags.adcResult sz (s.getReg sz r h8)
+              (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf)),
+        flags := Flags.adc sz (s.getReg sz r h8)
+          (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases h8 <;> simp [step, h, Cpu.getReg]
+
+theorem step_sbb_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    step ⟨.bin .sbb sz (.reg r h8) o, len⟩ s =
+      { s with
+        regs := s.regs.set r (if h8
+          then Value.writeHigh8 (s.regs.get r)
+            (Flags.sbbResult sz (s.getReg sz r h8)
+              (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf)
+          else Value.writeView sz (s.regs.get r)
+            (Flags.sbbResult sz (s.getReg sz r h8)
+              (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf)),
+        flags := Flags.sbb sz (s.getReg sz r h8)
+          (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases h8 <;> simp [step, h, Cpu.getReg]
+
+/-- ⭐ ADC WITH CF CLEAR IS ADD, AND SBB WITH CF CLEAR IS SUB — as an equation,
+not as a comment.  This is the theorem that says the new template DEGENERATES to
+the old one, which is the strongest single statement available about a
+carry-propagating form: if it were wrong, `adc` would be a second, subtly
+different adder living beside `add` and the differential run would have to find
+the difference one operand at a time. -/
+theorem adc_no_carry_is_add (sz : Size) (a b : Val) :
+    Flags.adcResult sz a b false = Flags.addResult sz a b := by
+  simp [Flags.adcResult, Flags.addResult, Flags.carryVal]
+
+theorem sbb_no_carry_is_sub (sz : Size) (a b : Val) :
+    Flags.sbbResult sz a b false = Flags.subResult sz a b := by
+  simp [Flags.sbbResult, Flags.subResult, Flags.carryVal]
+
+theorem adc_no_carry_flags_are_add (sz : Size) (a b : Val) (f : Flags) :
+    Flags.adc sz a b false f = Flags.add sz a b f := by
+  simp [Flags.adc, Flags.add, Flags.adcCF, Flags.addCF, adc_no_carry_is_add]
+
+theorem sbb_no_carry_flags_are_sub (sz : Size) (a b : Val) (f : Flags) :
+    Flags.sbb sz a b false f = Flags.sub sz a b f := by
+  simp [Flags.sbb, Flags.sub, Flags.sbbCF, Flags.subCF, sbb_no_carry_is_sub]
+
+theorem step_adc_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    (step ⟨.bin .adc sz (.reg r h8) o, len⟩ s).mem = s.mem := by
+  rw [step_adc_reg_op sz r h8 o h]
+
+theorem step_sbb_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    (step ⟨.bin .sbb sz (.reg r h8) o, len⟩ s).mem = s.mem := by
+  rw [step_sbb_reg_op sz r h8 o h]
+
 /-! ## P1 BATCH 1 — the logic group at EVERY operand shape
 
 `p1/roster.tsv` family `0xuxx0-|-|reg`: AND, OR and XOR writing a register.

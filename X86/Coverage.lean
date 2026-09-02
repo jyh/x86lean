@@ -76,6 +76,7 @@ def tableP0 : List Row :=
   -- shapes at every width, plus the accumulator short encodings and the high-8
   -- register views.  The memory-DESTINATION forms are batch 4 of the roster and
   -- are NOT claimed here; `m,r` below is P0's row, at width q only.
+  let carryShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh"
   let logicShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q)"
   [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
@@ -91,6 +92,13 @@ def tableP0 : List Row :=
       undefined := ["AF"], sdm := "Vol. 2A XOR" }
   , { mnemonic := "cmp",  shapes := rm, tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CMP" }
+  -- P1 BATCH 2 (`p1/roster.tsv` family `xxxxxx-|cf|reg`): the first forms whose
+  -- RESULT reads a flag.  Register destination only; the memory-destination
+  -- forms are a different family.
+  , { mnemonic := "adc",  shapes := carryShapes, tier := .exact, decode := .xed,
+      undefined := [], sdm := "Vol. 2A ADC" }
+  , { mnemonic := "sbb",  shapes := carryShapes, tier := .exact, decode := .xed,
+      undefined := [], sdm := "Vol. 2A SBB" }
   , { mnemonic := "test", shapes := rm, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A TEST" }
   , { mnemonic := "shl",  shapes := "r/m, imm8 · r/m, cl", tier := .frame, decode := .xed,

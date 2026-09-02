@@ -77,6 +77,12 @@ rather than beside them because they are exactly `sub` and `and` with the result
 DISCARDED — the flags are the whole instruction (SDM Vol. 2A, CMP and TEST). -/
 inductive BinKind where
   | add | sub | and | or | xor | cmp | test
+  /-- P1 BATCH 2: ADC and SBB, the two forms that READ CF as well as writing it
+  (SDM Vol. 2A, ADC: "Adds the destination operand, the source operand, and the
+  carry (CF) flag").  They are in `BinKind` rather than a kind of their own
+  because their operand shapes are the same shapes — but they are a different
+  TEMPLATE, because their result depends on a flag, which no P0 form's does. -/
+  | adc | sbb
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The one-operand mnemonics. -/
@@ -176,6 +182,7 @@ def Op.mnemonic : Op → String
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
     | .xor => "xor" | .cmp => "cmp" | .test => "test"
+    | .adc => "adc" | .sbb => "sbb"
   | .un k .. => match k with
     | .inc => "inc" | .dec => "dec" | .neg => "neg" | .not => "not"
   | .shift k .. => match k with | .shl => "shl" | .shr => "shr"
@@ -186,11 +193,24 @@ def Op.mnemonic : Op → String
   | .jcc c _ => c.mnemonic
   | .call .. => "call"
 
-/-- The twenty mnemonic NAMES of the P0 roster, as data.  `Tests/Coverage.lean`
+/-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
-table cannot drift from the AST. -/
+table cannot drift from the AST.
+
+The first twenty are P0's roster; `adc` and `sbb` are P1 batch 2.  The name is
+still `rosterP0` because every downstream reference is to "the roster this model
+implements" and renaming it would touch more than it clarifies — but the COUNT
+is `rosterSize` below, so the three theorems that assert it cannot fall out of
+step with each other. -/
 def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
-   "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call"]
+   "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
+   "adc", "sbb"]
+
+/-- The size of the implemented roster, named once.  Growing the roster changes
+this and the three assertions in `Tests/Coverage.lean` follow — which is the
+deliberate act that file's header asks for, rather than three separate numbers
+drifting apart. -/
+def rosterSize : Nat := rosterP0.length
 
 end X86
