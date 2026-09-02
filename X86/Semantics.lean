@@ -258,6 +258,39 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         let s := s.setFlags (Flags.rotFlags k sz a res n t ofU s.flags)
         (s.writeOperand sz nr dst res).setRip nr
 
+  -- BT / BTS / BTR / BTC (SDM Vol. 2A).  ⚠️ ZF IS THE ONLY ARITHMETIC FLAG THAT
+  -- SURVIVES: "the ZF flag is unaffected... the OF, SF, AF and PF flags are
+  -- undefined".  Four oracle draws, in the fixed order PF, AF, SF, OF.
+  --
+  -- ⛔ NAMED GAP: the MEMORY destination with a REGISTER offset is not here.
+  -- That shape is not a bit within the addressed operand — it is an index into
+  -- a BIT STRING, signed, reaching outside the operand entirely, and the
+  -- effective address moves with it.  Modelling it is a real piece of work and
+  -- guessing at it would be worse than declining, so the four `m,r` forms of
+  -- roster family 31/41 are NOT claimed (docs/DECISIONS.md D23).  The forms
+  -- here take the offset MODULO the operand width, which is what the SDM
+  -- specifies for a register destination and for an immediate offset.
+  | .bit k sz dst off =>
+      let a := s.readOperand sz nr dst
+      let n := (s.readOperand sz nr off).toNat % sz.bits
+      let bit := a.getLsbD n
+      let res : Val :=
+        match k with
+        | .bt  => a
+        | .bts => Value.trunc sz (a ||| (BitVec.ofNat 64 1 <<< n))
+        | .btr => Value.trunc sz (a &&& ~~~(BitVec.ofNat 64 1 <<< n))
+        | .btc => Value.trunc sz (a ^^^ (BitVec.ofNat 64 1 <<< n))
+      let (pfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (sfU, s) := s.undefBit
+      let (ofU, s) := s.undefBit
+      let s := s.setFlags { s.flags with
+        cf := bit, pf := pfU, af := afU, sf := sfU, of := ofU }
+      match k with
+      -- BT writes nothing, exactly as `cmp` does.
+      | .bt => s.setRip nr
+      | _ => (s.writeOperand sz nr dst res).setRip nr
+
   -- LEA (SDM Vol. 2A, LEA): computes the effective address and writes it under
   -- the ordinary register-width rules, so `lea eax, [...]` zero-extends.
   -- "Flags Affected: None."

@@ -157,6 +157,26 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- touches ONLY CF and OF (SDM Vol. 2A), leaving SF/ZF/PF/AF exactly as they
   -- were — which is why AF is absent from these undefined lists and present in
   -- the shifts'.  `rcl`/`rcr` also READ CF, because they rotate through it.
+  -- P1 BATCH 9: the BIT-TEST group (roster families 31, 32, 41).  ⚠️ ZF is the
+  -- only arithmetic flag that SURVIVES — "the ZF flag is unaffected... the OF,
+  -- SF, AF, and PF flags are undefined" — which is the widest undefined set in
+  -- this model and the reason all four rows are T-frame despite computing
+  -- almost nothing.  `bt` writes no destination, exactly as `cmp` does.
+  -- ⛔ The `m,r` shape (memory base with a REGISTER offset) is a signed BIT
+  -- STRING index that reaches outside the operand; it is NOT modelled and is
+  -- named as absent here rather than quietly folded in.  See D23.
+  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm — w/l/q (m,r: bit-string, not modelled)",
+      tier := .frame, decode := .xed,
+      undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BT" }
+  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm — w/l/q (m,r: not modelled)",
+      tier := .frame, decode := .xed,
+      undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTS" }
+  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm — w/l/q (m,r: not modelled)",
+      tier := .frame, decode := .xed,
+      undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTR" }
+  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm — w/l/q (m,r: not modelled)",
+      tier := .frame, decode := .xed,
+      undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTC" }
   , { mnemonic := "rol",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }

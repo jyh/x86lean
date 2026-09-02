@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates. -/
-theorem roster_size_is_31 : rosterSize = 31 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests. -/
+theorem roster_size_is_35 : rosterSize = 35 := by decide
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
@@ -271,6 +271,11 @@ def hasMemDestVector (m : String) : Bool :=
     -- right direction to fail but still a thing that must be fixed rather than
     -- worked around by weakening the row.
     | .rot _ _ d _ => d.isMem
+    -- ⭐ ADDED WITH `.bit` ITSELF in batch 9, rather than after the gate refused
+    -- a true claim as it did for `.rot` in batch 8.  The staleness is a
+    -- property of enumerating a growing type; the remedy is to extend this
+    -- function in the same commit that extends `Op`.
+    | .bit _ _ d _ => d.isMem
     | .pop _ d => d.isMem
     | _ => false))
 

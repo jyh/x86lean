@@ -1132,6 +1132,99 @@ def vectors : List Vec :=
     , bytes := "c0c009", instr := ⟨.rot .rol .b (R .rax) (.imm8 9), 3⟩ }
   , { id := "rcl_b9", mnemonic := "rcl", asm := "rclb $9, %al"
     , bytes := "c0d009", instr := ⟨.rot .rcl .b (R .rax) (.imm8 9), 3⟩ }
+  -- ══ P1 BATCH 9 ═════════════════════════════════════════════════════════
+  -- The BIT-TEST group: roster families 31, 32 and 41 — `bt`/`bts`/`btr`/`btc`
+  -- at `r,imm`, `r,r` and `m,imm`, widths w/l/q (there is no 8-bit form).
+  -- **12 of the group's 16 forms.**
+  --
+  -- ⛔ THE FOUR `m,r` FORMS ARE DELIBERATELY NOT HERE, and the reason is not
+  -- time.  With a MEMORY destination and a REGISTER offset the operand is not a
+  -- word with a bit selected in it — it is the base of a BIT STRING, the offset
+  -- is SIGNED and may reach far outside the addressed operand, and the
+  -- effective address moves with it.  That is a different addressing mode
+  -- wearing the same mnemonic.  Guessing at it would be worse than declining,
+  -- so it is declined and named (docs/DECISIONS.md D23).
+  --
+  -- ⭐ `bt` IS TO THIS GROUP WHAT `cmp` IS TO THE ALU: the test happens, CF
+  -- takes the selected bit, and the destination is NOT written.  The other
+  -- three do the identical test and then set, clear or complement.
+  --
+  -- ⚠️ AND ZF IS THE ONLY ARITHMETIC FLAG THAT SURVIVES.  The SDM: "the ZF flag
+  -- is unaffected... the OF, SF, AF, and PF flags are undefined".  That is four
+  -- oracle draws on an instruction that computes almost nothing — the widest
+  -- undefined set in the model so far, and the reason these rows are T-frame.
+  , { id := "bt_ri_w", mnemonic := "bt", asm := "bt $5, %ax"
+    , bytes := "660fbae005", instr := ⟨.bit .bt .w (R .rax) (.imm 5), 5⟩ }
+  , { id := "bt_ri_l", mnemonic := "bt", asm := "bt $5, %eax"
+    , bytes := "0fbae005", instr := ⟨.bit .bt .d (R .rax) (.imm 5), 4⟩ }
+  , { id := "bt_ri_q", mnemonic := "bt", asm := "bt $5, %rax"
+    , bytes := "480fbae005", instr := ⟨.bit .bt .q (R .rax) (.imm 5), 5⟩ }
+  , { id := "bt_rr_w", mnemonic := "bt", asm := "bt %cx, %ax"
+    , bytes := "660fa3c8", instr := ⟨.bit .bt .w (R .rax) (R .rcx), 4⟩ }
+  , { id := "bt_rr_l", mnemonic := "bt", asm := "bt %ecx, %eax"
+    , bytes := "0fa3c8", instr := ⟨.bit .bt .d (R .rax) (R .rcx), 3⟩ }
+  , { id := "bt_rr_q", mnemonic := "bt", asm := "bt %rcx, %rax"
+    , bytes := "480fa3c8", instr := ⟨.bit .bt .q (R .rax) (R .rcx), 4⟩ }
+  , { id := "bt_mi_w", mnemonic := "bt", asm := "btw $5, (%rbx)"
+    , bytes := "660fba2305", instr := ⟨.bit .bt .w (M .rbx) (.imm 5), 5⟩ }
+  , { id := "bt_mi_l", mnemonic := "bt", asm := "btl $5, (%rbx)"
+    , bytes := "0fba2305", instr := ⟨.bit .bt .d (M .rbx) (.imm 5), 4⟩ }
+  , { id := "bt_mi_q", mnemonic := "bt", asm := "btq $5, (%rbx)"
+    , bytes := "480fba2305", instr := ⟨.bit .bt .q (M .rbx) (.imm 5), 5⟩ }
+  , { id := "bts_ri_w", mnemonic := "bts", asm := "bts $5, %ax"
+    , bytes := "660fbae805", instr := ⟨.bit .bts .w (R .rax) (.imm 5), 5⟩ }
+  , { id := "bts_ri_l", mnemonic := "bts", asm := "bts $5, %eax"
+    , bytes := "0fbae805", instr := ⟨.bit .bts .d (R .rax) (.imm 5), 4⟩ }
+  , { id := "bts_ri_q", mnemonic := "bts", asm := "bts $5, %rax"
+    , bytes := "480fbae805", instr := ⟨.bit .bts .q (R .rax) (.imm 5), 5⟩ }
+  , { id := "bts_rr_w", mnemonic := "bts", asm := "bts %cx, %ax"
+    , bytes := "660fabc8", instr := ⟨.bit .bts .w (R .rax) (R .rcx), 4⟩ }
+  , { id := "bts_rr_l", mnemonic := "bts", asm := "bts %ecx, %eax"
+    , bytes := "0fabc8", instr := ⟨.bit .bts .d (R .rax) (R .rcx), 3⟩ }
+  , { id := "bts_rr_q", mnemonic := "bts", asm := "bts %rcx, %rax"
+    , bytes := "480fabc8", instr := ⟨.bit .bts .q (R .rax) (R .rcx), 4⟩ }
+  , { id := "bts_mi_w", mnemonic := "bts", asm := "btsw $5, (%rbx)"
+    , bytes := "660fba2b05", instr := ⟨.bit .bts .w (M .rbx) (.imm 5), 5⟩ }
+  , { id := "bts_mi_l", mnemonic := "bts", asm := "btsl $5, (%rbx)"
+    , bytes := "0fba2b05", instr := ⟨.bit .bts .d (M .rbx) (.imm 5), 4⟩ }
+  , { id := "bts_mi_q", mnemonic := "bts", asm := "btsq $5, (%rbx)"
+    , bytes := "480fba2b05", instr := ⟨.bit .bts .q (M .rbx) (.imm 5), 5⟩ }
+  , { id := "btr_ri_w", mnemonic := "btr", asm := "btr $5, %ax"
+    , bytes := "660fbaf005", instr := ⟨.bit .btr .w (R .rax) (.imm 5), 5⟩ }
+  , { id := "btr_ri_l", mnemonic := "btr", asm := "btr $5, %eax"
+    , bytes := "0fbaf005", instr := ⟨.bit .btr .d (R .rax) (.imm 5), 4⟩ }
+  , { id := "btr_ri_q", mnemonic := "btr", asm := "btr $5, %rax"
+    , bytes := "480fbaf005", instr := ⟨.bit .btr .q (R .rax) (.imm 5), 5⟩ }
+  , { id := "btr_rr_w", mnemonic := "btr", asm := "btr %cx, %ax"
+    , bytes := "660fb3c8", instr := ⟨.bit .btr .w (R .rax) (R .rcx), 4⟩ }
+  , { id := "btr_rr_l", mnemonic := "btr", asm := "btr %ecx, %eax"
+    , bytes := "0fb3c8", instr := ⟨.bit .btr .d (R .rax) (R .rcx), 3⟩ }
+  , { id := "btr_rr_q", mnemonic := "btr", asm := "btr %rcx, %rax"
+    , bytes := "480fb3c8", instr := ⟨.bit .btr .q (R .rax) (R .rcx), 4⟩ }
+  , { id := "btr_mi_w", mnemonic := "btr", asm := "btrw $5, (%rbx)"
+    , bytes := "660fba3305", instr := ⟨.bit .btr .w (M .rbx) (.imm 5), 5⟩ }
+  , { id := "btr_mi_l", mnemonic := "btr", asm := "btrl $5, (%rbx)"
+    , bytes := "0fba3305", instr := ⟨.bit .btr .d (M .rbx) (.imm 5), 4⟩ }
+  , { id := "btr_mi_q", mnemonic := "btr", asm := "btrq $5, (%rbx)"
+    , bytes := "480fba3305", instr := ⟨.bit .btr .q (M .rbx) (.imm 5), 5⟩ }
+  , { id := "btc_ri_w", mnemonic := "btc", asm := "btc $5, %ax"
+    , bytes := "660fbaf805", instr := ⟨.bit .btc .w (R .rax) (.imm 5), 5⟩ }
+  , { id := "btc_ri_l", mnemonic := "btc", asm := "btc $5, %eax"
+    , bytes := "0fbaf805", instr := ⟨.bit .btc .d (R .rax) (.imm 5), 4⟩ }
+  , { id := "btc_ri_q", mnemonic := "btc", asm := "btc $5, %rax"
+    , bytes := "480fbaf805", instr := ⟨.bit .btc .q (R .rax) (.imm 5), 5⟩ }
+  , { id := "btc_rr_w", mnemonic := "btc", asm := "btc %cx, %ax"
+    , bytes := "660fbbc8", instr := ⟨.bit .btc .w (R .rax) (R .rcx), 4⟩ }
+  , { id := "btc_rr_l", mnemonic := "btc", asm := "btc %ecx, %eax"
+    , bytes := "0fbbc8", instr := ⟨.bit .btc .d (R .rax) (R .rcx), 3⟩ }
+  , { id := "btc_rr_q", mnemonic := "btc", asm := "btc %rcx, %rax"
+    , bytes := "480fbbc8", instr := ⟨.bit .btc .q (R .rax) (R .rcx), 4⟩ }
+  , { id := "btc_mi_w", mnemonic := "btc", asm := "btcw $5, (%rbx)"
+    , bytes := "660fba3b05", instr := ⟨.bit .btc .w (M .rbx) (.imm 5), 5⟩ }
+  , { id := "btc_mi_l", mnemonic := "btc", asm := "btcl $5, (%rbx)"
+    , bytes := "0fba3b05", instr := ⟨.bit .btc .d (M .rbx) (.imm 5), 4⟩ }
+  , { id := "btc_mi_q", mnemonic := "btc", asm := "btcq $5, (%rbx)"
+    , bytes := "480fba3b05", instr := ⟨.bit .btc .q (M .rbx) (.imm 5), 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

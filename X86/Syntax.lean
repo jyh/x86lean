@@ -199,6 +199,15 @@ inductive JmpTarget where
   | indirect (o : Operand)
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- P1 BATCH 9: the BIT-TEST group (SDM Vol. 2A, BT/BTC/BTR/BTS).  One kind per
+what-happens-after-the-test, because the TEST is identical in all four: CF takes
+the selected bit, and only then does the destination change (or not). -/
+inductive BitKind where
+  /-- Test only — the destination is READ and never written, like `cmp`. -/
+  | bt
+  | bts | btr | btc
+  deriving DecidableEq, Repr, Inhabited, BEq
+
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
 inductive Op where
@@ -224,6 +233,10 @@ inductive Op where
   | jcxz  (addr32 : Bool) (d : Val)
   /-- P1 BATCH 8: ROL/ROR/RCL/RCR (SDM Vol. 2A). -/
   | rot   (k : RotKind) (sz : Size) (dst : Operand) (amt : ShiftAmt)
+  /-- P1 BATCH 9: BT/BTS/BTR/BTC.  `off` is an immediate or a register; the
+  MEMORY-destination-with-REGISTER-offset shape is NOT modelled — see the
+  header note in `X86/Semantics.lean`. -/
+  | bit   (k : BitKind) (sz : Size) (dst : Operand) (off : Operand)
   /-- P1 BATCH 6: SETcc (SDM Vol. 2A, SETcc).  Writes ONE BYTE — 1 or 0 — to an
   8-bit destination, register or memory.  "Flags Affected: None." -/
   | setcc (c : Cc) (dst : Operand)
@@ -267,6 +280,8 @@ def Op.mnemonic : Op → String
   | .jcxz a32 _ => if a32 then "jecxz" else "jrcxz"
   | .rot k .. => match k with
     | .rol => "rol" | .ror => "ror" | .rcl => "rcl" | .rcr => "rcr"
+  | .bit k .. => match k with
+    | .bt => "bt" | .bts => "bts" | .btr => "btr" | .btc => "btc"
   | .setcc c _ => "set" ++ (c.suffixes.headD "?")
   | .cmov c _ _ _ => "cmov" ++ (c.suffixes.headD "?")
   | .call .. => "call"
@@ -284,7 +299,7 @@ def rosterP0 : List String :=
   ["mov", "add", "sub", "and", "or", "xor", "cmp", "test", "shl", "shr",
    "lea", "inc", "dec", "neg", "not", "push", "pop", "jmp", "jcc", "call",
    "adc", "sbb", "jrcxz", "jecxz", "setcc", "cmovcc", "sar",
-   "rol", "ror", "rcl", "rcr"]
+   "rol", "ror", "rcl", "rcr", "bt", "bts", "btr", "btc"]
 
 /-- The size of the implemented roster, named once.  Growing the roster changes
 this and the three assertions in `Tests/Coverage.lean` follow — which is the

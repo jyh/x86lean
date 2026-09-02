@@ -24,7 +24,7 @@ MODES
 ⭐ ON `selftest`.  Plan v1 §7 lists "the harness's own bugs" as a risk and names
 the mitigation: a selftest with a deliberately wrong model.  A comparator that
 has only ever been run on two agreeing models is not known to detect anything.
-`selftest` injects seventeen real x86 modelling bugs — an `inc` that clobbers CF, a
+`selftest` injects nineteen real x86 modelling bugs — an `inc` that clobbers CF, a
 `movl` that fails to zero-extend, a shift that forgets to mask its count, an `adc`
 that drops the carry-in, an `adc` whose carry-OUT forgets the carry-in, a `cmp`
 that writes its result back, and a `cmp` that writes back ONLY to a memory
@@ -33,8 +33,8 @@ stores the right value at the wrong WIDTH, a `jcxz` with an inverted test, and a
 `jecxz` that ignores the address-size prefix, an inverted `setcc`, and a `cmov`
 that skips its write on a false condition, a `sar` that brings in zeros, and a
 `sar` given SHL/SHR's undefined-CF rule, a backwards `rol`, and a rotate whose CF
-write keys on the reduced count — and REQUIRES the comparator to catch each
-one.
+write keys on the reduced count, an off-by-one `bts`, and a bit-test that
+recomputes ZF — and REQUIRES the comparator to catch each one.
 
 ⭐ THE PATTERN THE LAST FOUR MAKE, since it is now deliberate rather than
 accidental: each batch plants a PAIR, an easy half that almost any pre-state
@@ -625,6 +625,48 @@ def wrongRotCfKeyedOnReducedCount (i : Instr) (s : Cpu) : Cpu :=
       | _ => out
   | _ => step i s
 
+/-- ⭐ P1 BATCH 9's PLANTED BUG, EASY HALF: a `bts` that sets the bit ABOVE the
+one it tested.  CF is right and the destination is wrong. -/
+def wrongBtsOffByOne (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .bit .bts sz dst off =>
+      let a := s.readOperand sz nr dst
+      let n := (s.readOperand sz nr off).toNat % sz.bits
+      let bit := a.getLsbD n
+      -- the BUG: n + 1
+      let res := Value.trunc sz (a ||| (BitVec.ofNat 64 1 <<< (n + 1)))
+      let (pfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (sfU, s) := s.undefBit
+      let (ofU, s) := s.undefBit
+      let s := s.setFlags { s.flags with
+        cf := bit, pf := pfU, af := afU, sf := sfU, of := ofU }
+      (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE HARD HALF, AND IT IS THE ONE FLAG THE HARNESS CAN STILL SEE.
+
+The bit-test group leaves ZF ALONE (SDM Vol. 2A: "the ZF flag is unaffected")
+and leaves OF, SF, AF and PF UNDEFINED.  A model that recomputed ZF from the
+result — which is what every other read-modify-write in this model does, so it
+is the natural thing to write — differs from the correct one only in ZF.
+
+⚠️ AND THAT IS EXACTLY WHY THIS ARM IS SHARP RATHER THAN LUCKY.  A disagreement
+in PF, AF, SF or OF would be classified EXPLAINED, because those flags are in
+the undefined set for these forms and the comparator absorbs them by design.
+ZF is the only flag of the six whose disagreement can be unexplained here, so
+this bug is visible through a very narrow window — and a model that got several
+of these flags wrong at once would still be caught only by the ZF one. -/
+def wrongBitRecomputesZf (i : Instr) (s : Cpu) : Cpu :=
+  let out := step i s
+  match i.op with
+  | .bit _ sz dst _ =>
+      -- the BUG: ZF from the post-state destination, as an ALU op would
+      { out with flags := { out.flags with
+          zf := (out.readOperand sz (s.rip + BitVec.ofNat 64 i.len) dst) == 0 } }
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -688,7 +730,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println (renderReport r)
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   | ["selftest"] =>
-      IO.println "harness selftest — seventeen deliberately wrong models, each must be caught:"
+      IO.println "harness selftest — nineteen deliberately wrong models, each must be caught:"
       let a ← driveWrong "inc clobbers CF" wrongInc "cf"
       let b ← driveWrong "movl fails to zero-extend" wrongMovD "rax"
       let c ← driveWrong "shift forgets to mask its count" wrongShiftMask "rax"
@@ -713,6 +755,9 @@ def main (args : List String) : IO UInt32 := do
       let t' ← driveWrong "rol rotates the wrong way" wrongRolDirection "rax"
       let u ← driveWrong "a rotate keys its CF write on the REDUCED count"
                 wrongRotCfKeyedOnReducedCount "cf"
+      let v ← driveWrong "bts sets the bit above the one it tested" wrongBtsOffByOne "rax"
+      let w ← driveWrong "a bit-test recomputes ZF instead of leaving it alone"
+                wrongBitRecomputesZf "zf"
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
       let r := compareRecs good good
@@ -722,7 +767,7 @@ def main (args : List String) : IO UInt32 := do
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' && t' && u then
+      if a && b && c && d && e && f && g && h && j && k && l && m && n && p && q && r' && t' && u && v && w then
         IO.println "harness selftest: PASS"
         return 0
       else
@@ -732,7 +777,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **331 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **343 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -740,7 +785,8 @@ a destination that is read and never written, and the first RIP-relative \
 vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 \
 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two \
 `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the \
-rotate group, ROL/ROR/RCL/RCR.\n\n\
+rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the \
+bit-string `m,r` shape declined, see D23).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

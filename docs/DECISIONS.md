@@ -570,3 +570,32 @@ definitional semantics would make every characterization theorem an induction.
 
 **Reversal cost:** low, and loud — two selftest arms, two `Tests/Coverage.lean`
 assertions and thirteen anchors.
+
+## D23 — The bit-string shape of BT/BTS/BTR/BTC is DECLINED, not approximated.
+
+`step`'s `.bit` case takes the bit offset **modulo the operand width**, which is
+what the SDM specifies for a register destination and for an immediate offset.
+The four `m,r` forms of roster families 31 and 41 — a MEMORY base with a
+REGISTER offset — are **not modelled and not claimed**.
+
+With that combination the operand is not a word with a bit selected inside it.
+It is the **base of a bit string**: the offset is signed, may reach far outside
+the addressed operand in either direction, and the effective address moves with
+it. It is a different addressing mode wearing the same mnemonic.
+
+⇒ **Declining is the honest answer and approximating would not be.** A model
+that quietly applied the modulo rule there would be self-consistent, would pass
+every anchor in this file, and would be wrong in a way no test here asks about —
+which is exactly the shape of defect this project exists to prevent. The gap is
+named in the coverage rows (`m,r: bit-string, not modelled`), so a reader cannot
+mistake 12 forms for 16.
+
+⚠️ It is therefore also the first place the coverage table carries a **T-frame
+row with an unmodelled SHAPE** rather than merely undefined bits. The tier
+column says how faithful a modelled form is; it has never had to say that a
+shape is absent. That the shapes column can say it, and is gated
+(`mem_dest_claims_are_backed`), is what keeps this honest rather than
+convenient.
+
+**Reversal cost:** none — this is a recorded absence. Closing it means modelling
+signed bit-string addressing and giving it its own vectors.

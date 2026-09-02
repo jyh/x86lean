@@ -1029,4 +1029,80 @@ theorem rol_mem_is_a_byte_rmw :
       (mk { rbx := 0x100 } {} ((Mem.empty.write 0x100 0x80).write 0x101 0xBB))
     (r.mem.read 0x100, r.mem.read 0x101) = (0x01, 0xBB) := by decide
 
+/-! ## P1 BATCH 9 — the bit-test group
+
+The test is identical in all four; what differs is what happens afterwards.  So
+the anchors are about the AFTERWARDS, and about the one flag that survives. -/
+
+/-- CF takes the selected bit: bit 5 of `0x20` is 1. -/
+theorem bt_cf_takes_the_bit :
+    (step ⟨.bit .bt .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0x20 })).flags.cf
+      = true := by decide
+
+theorem bt_cf_clear_when_bit_clear :
+    (step ⟨.bit .bt .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0x00 })).flags.cf
+      = false := by decide
+
+/-- ⭐ `bt` WRITES NOTHING — it is to this group what `cmp` is to the ALU.  With
+bit 5 clear, a `bts` would leave `0x20`; `bt` leaves `0x00`. -/
+theorem bt_writes_no_register :
+    (step ⟨.bit .bt .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0x00 })).regs.rax
+      = 0x00 := by decide
+
+theorem bts_sets_the_bit :
+    (step ⟨.bit .bts .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0x00 })).regs.rax
+      = 0x20 := by decide
+
+theorem btr_clears_the_bit :
+    (step ⟨.bit .btr .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0xFF })).regs.rax
+      = 0xDF := by decide
+
+theorem btc_complements_the_bit :
+    (step ⟨.bit .btc .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0xFF })).regs.rax
+      = 0xDF := by decide
+
+theorem btc_complements_back :
+    (step ⟨.bit .btc .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0xDF })).regs.rax
+      = 0xFF := by decide
+
+/-- ⭐ AND ALL FOUR REPORT THE OLD BIT, NOT THE NEW ONE.  `bts` on a clear bit
+sets it AND leaves CF at 0 — the test happens before the write.  A model that
+read CF back out of the result would say 1. -/
+theorem bts_reports_the_bit_before_setting_it :
+    (step ⟨.bit .bts .q (.reg .rax) (.imm 5), 5⟩ (mk { rax := 0x00 })).flags.cf
+      = false := by decide
+
+/-- ⚠️ THE OFFSET IS TAKEN MODULO THE OPERAND WIDTH at a register destination:
+bit 64 of a 64-bit operand is bit 0. -/
+theorem bit_offset_wraps_modulo_width :
+    (step ⟨.bit .bt .q (.reg .rax) (.reg .rcx), 4⟩
+      (mk { rax := 0x01, rcx := 64 })).flags.cf = true := by decide
+
+/-- And at width w it wraps at 16, not at 64 — the modulus is the OPERAND's
+width, not the register's. -/
+theorem bit_offset_wraps_at_the_operand_width :
+    (step ⟨.bit .bt .w (.reg .rax) (.reg .rcx), 4⟩
+      (mk { rax := 0x01, rcx := 16 })).flags.cf = true := by decide
+
+/-- ⭐ ZF IS THE ONLY ARITHMETIC FLAG THAT SURVIVES (SDM Vol. 2A: "the ZF flag is
+unaffected").  `btr` clearing the last set bit produces a ZERO destination and
+ZF stays exactly as it was — here, false.  Every other read-modify-write in this
+model would set it. -/
+theorem bit_ops_leave_zf_alone :
+    (step ⟨.bit .btr .q (.reg .rax) (.imm 5), 5⟩
+      (mk { rax := 0x20 } { zf := false })).flags.zf = false := by decide
+
+/-- ...and a set ZF survives just as well, so the theorem above is about
+PRESERVATION and not about a constant. -/
+theorem bit_ops_preserve_a_set_zf :
+    (step ⟨.bit .btr .q (.reg .rax) (.imm 5), 5⟩
+      (mk { rax := 0x20 } { zf := true })).flags.zf = true := by decide
+
+/-- At a memory destination `bts` is a read-modify-write of its own width and
+leaves the neighbouring byte alone. -/
+theorem bts_mem_is_a_width_bounded_rmw :
+    let r := step ⟨.bit .bts .w (.mem { base := some .rbx }) (.imm 5), 5⟩
+      (mk { rbx := 0x100 } {} ((Mem.empty.write 0x100 0x00).write 0x102 0xBB))
+    (r.mem.read 0x100, r.mem.read 0x102) = (0x20, 0xBB) := by decide
+
 end X86.Tests
