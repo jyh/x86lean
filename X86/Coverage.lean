@@ -72,17 +72,22 @@ structure Row where
 /-- THE P0 TABLE.  Twenty rows, one per mnemonic in the plan v1 §5 roster. -/
 def tableP0 : List Row :=
   let rm := "r/m, r/imm"
+  -- P1 BATCH 1 (`p1/roster.tsv` family `0xuxx0-|-|reg`): the register-destination
+  -- shapes at every width, plus the accumulator short encodings and the high-8
+  -- register views.  The memory-DESTINATION forms are batch 4 of the roster and
+  -- are NOT claimed here; `m,r` below is P0's row, at width q only.
+  let logicShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh · m,r (q)"
   [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
   , { mnemonic := "add",  shapes := rm, tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A ADD" }
   , { mnemonic := "sub",  shapes := rm, tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A SUB" }
-  , { mnemonic := "and",  shapes := rm, tier := .frame, decode := .xed,
+  , { mnemonic := "and",  shapes := logicShapes, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A AND" }
-  , { mnemonic := "or",   shapes := rm, tier := .frame, decode := .xed,
+  , { mnemonic := "or",   shapes := logicShapes, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A OR" }
-  , { mnemonic := "xor",  shapes := rm, tier := .frame, decode := .xed,
+  , { mnemonic := "xor",  shapes := logicShapes, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A XOR" }
   , { mnemonic := "cmp",  shapes := rm, tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CMP" }

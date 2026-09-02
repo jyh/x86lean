@@ -186,6 +186,81 @@ theorem test_sets_zf_when_disjoint :
     (step ⟨.bin .test .q (.reg .rax) (.reg .rcx), 3⟩
       (mk { rax := 0xF0, rcx := 0x0F })).flags.zf = true := by decide
 
+/-! ## P1 BATCH 1 — the four behaviours P0's vectors never reached
+
+Anchors, not vectors: each is a concrete SDM sentence checked by `decide`, so it
+fails at BUILD time rather than waiting for an oracle. They exist because the
+batch's whole content is operand shapes and widths, and a shape that is never
+exercised is a coverage-table row with nothing behind it. -/
+
+/-- ⭐ A 32-BIT ALU WRITE ZERO-EXTENDS (SDM Vol. 1 §3.4.1.1).  P0 proved this for
+`mov` and nowhere else; batch 1 is where it reaches the logic group. `andl`
+with an all-ones mask keeps the low 32 bits and CLEARS the upper 32 — a model
+that merged instead of zero-extending would keep `0xDEADBEEF` up there and every
+`r,r` and `r,imm` vector at width `q` would still pass. -/
+theorem andl_zero_extends :
+    (step ⟨.bin .and .d (.reg .rax) (.reg .rcx), 2⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0xFFFFFFFF })).regs.rax
+      = 0x12345678 := by decide
+
+/-- And the contrast that gives it meaning: a 16-BIT write PRESERVES the upper
+bits.  Same instruction, same operands, one width apart. -/
+theorem andw_preserves_upper :
+    (step ⟨.bin .and .w (.reg .rax) (.reg .rcx), 3⟩
+      (mk { rax := 0xDEADBEEF_12345678, rcx := 0xFFFF })).regs.rax
+      = 0xDEADBEEF_12340000 + 0x5678 := by decide
+
+/-- ⭐ THE HIGH-8 REGISTERS.  `andb %cl, %ah` writes bits 15:8 of RAX and
+touches nothing else in the register — not the low byte, not the upper 48 bits.
+Nothing in P0 read or wrote AH/CH/DH/BH at all. -/
+theorem and_high8_dest :
+    (step ⟨.bin .and .b (.reg .rax true) (.reg .rcx), 2⟩
+      (mk { rax := 0xDEADBEEF_1234FF78, rcx := 0x0F })).regs.rax
+      = 0xDEADBEEF_12340F78 := by decide
+
+/-- And a high-8 SOURCE reads bits 15:8, not the low byte: with CH = 0x34 and
+CL = 0x78, `andb %ch, %al` masks with 0x34 and `andb %cl, %al` would mask with
+0x78. -/
+theorem and_high8_src :
+    (step ⟨.bin .and .b (.reg .rax) (.reg .rcx true), 2⟩
+      (mk { rax := 0xFF, rcx := 0x3478 })).regs.rax = 0x34 := by decide
+
+/-- ⭐ THE SIGN-EXTENDED IMMEDIATE.  `andq $-1, %rcx` encodes `$-1` as ONE byte
+(`48 83 e1 ff`) and the decoder hands the model the 64-bit value it stands for
+(X86/Syntax.lean: "immediates are already sign- or zero-extended … the semantics
+never re-extends").  This anchor is what that sentence costs if it is wrong: a
+model that zero-extended the imm8 would mask with 0xFF and clear the top 56
+bits of RCX instead of leaving the register alone. -/
+theorem and_imm8_sign_extended :
+    (step ⟨.bin .and .q (.reg .rcx) (.imm 0xFFFFFFFF_FFFFFFFF), 4⟩
+      (mk { rcx := 0xDEADBEEF_12345678 })).regs.rcx = 0xDEADBEEF_12345678 := by decide
+
+/-- ⭐ A MEMORY SOURCE WITH A REGISTER DESTINATION, and the frame that goes with
+it: `orq (%rbx), %rax` reads eight bytes little-endian and writes NO memory.
+P0's only memory reads were `mov` and `pop`. -/
+theorem or_reg_mem_reads_le :
+    (step ⟨.bin .or .q (.reg .rax) (.mem { base := some .rbx }), 3⟩
+      (mk { rax := 0, rbx := 0x100 }
+         {} ((Mem.empty.write 0x100 0x78).write 0x101 0x56))).regs.rax
+      = 0x5678 := by decide
+
+theorem or_reg_mem_writes_no_memory :
+    (step ⟨.bin .or .q (.reg .rax) (.mem { base := some .rbx }), 3⟩
+      (mk { rax := 0xFF, rbx := 0x100 }
+         {} (Mem.empty.write 0x100 0x11))).mem.read 0x100 = 0x11 := by decide
+
+-- ⛔ THERE WAS A NINTH ANCHOR HERE AND IT SAID NOTHING.  It was written to
+-- record that the accumulator short form and the general form are the same
+-- instruction to a post-decode model, and what it actually asserted was
+-- `step i c = step i c` by `rfl` — true of every term in Lean, provable of a
+-- model that did the opposite.  It type-checked, it was green, and it was a
+-- coverage row with nothing behind it, which is the defect this batch's anchors
+-- exist to prevent.  The claim is real but it is a claim about the VECTOR
+-- TABLE, not about `step`: `and_acc_b` and `and_ri_b` carry different bytes
+-- from the assembler, and Tests/Coverage.lean is where a fact about the table
+-- belongs.  Deleted rather than repaired, and left named so it is not
+-- reinvented.
+
 /-! ## INC / DEC / NEG / NOT -/
 
 /-- ⭐ INC DOES NOT TOUCH CF.  With CF set on the way in, an `inc` that overflows

@@ -221,3 +221,41 @@ carries `refused=0|1` derived from BOTH fields — and, deliberately, not the
 REASON, because the two models say "I decline" in different vocabularies and
 comparing the words would report a disagreement on every refusal, which is the
 opposite of the truth.
+
+
+## D10 — Batch 1's characterization is ONE theorem per mnemonic over a generic
+## source operand, and stops at the register destination.
+
+`step_and_reg_op` and its two siblings take the source operand as a VARIABLE, so
+one equation covers `r,r`, `r,imm` and `r,m`; the destination carries a variable
+`h8`, so it covers AH/CH/DH/BH too. Twenty-one roster forms, three theorems.
+
+This is sound HERE AND ONLY HERE. `wellFormed2` can fail only when both operands
+are memory, and this family's destination is a register — so there is no side
+condition to discharge and no case silently lost. The moment the destination can
+be memory (batch 4), the equation gains a frame component and a well-formedness
+hypothesis, and the same trick would quietly drop both.
+
+**Reversal cost:** low. Splitting one generic equation into three shape-specific
+ones is mechanical; the downstream consumers rewrite with the same name.
+
+⚠️ The batch also carries three FRAME theorems (`step_and_reg_op_mem` and
+siblings) stating positively that it writes no memory. A characterization
+equation names the components that change and says nothing out loud about the
+rest — reading that silence as a guarantee means trusting that the reader
+enumerated the record's fields, and a record gains fields.
+
+## D11 — A ninth anchor was DELETED rather than repaired.
+
+`accumulator_form_is_not_special` was written to record that `andb $0x5a, %al`
+and `andb $0x5a, %cl` decode to the same AST. What it asserted was
+`step i c = step i c`, by `rfl` — true of every term in Lean, and provable of a
+model that did the exact opposite. It type-checked and it was green.
+
+It is named in `Tests/Anchors.lean` where it stood, so it is not reinvented.
+⇒ **A test whose subject cancels out of its own statement passes for the same
+reason an empty test suite does.** The same shape as P0's five instrument
+defects, found this time in a test rather than in a gate.
+
+**Reversal cost:** none. The claim is real but it is a claim about the vector
+table, not about `step`.

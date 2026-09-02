@@ -165,6 +165,103 @@ theorem step_test_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h, Cpu.getReg]
 
+/-! ## P1 BATCH 1 — the logic group at EVERY operand shape
+
+`p1/roster.tsv` family `0xuxx0-|-|reg`: AND, OR and XOR writing a register.
+Twenty-one forms in K's roster; three equations here, because the destination
+being a register is the only thing the equation needs to know.
+
+⭐ ONE THEOREM PER MNEMONIC, NOT ONE PER FORM, AND THE REASON IS THE MODEL'S
+SHAPE RATHER THAN A WISH TO WRITE LESS.  The source operand is a VARIABLE `o`,
+so a single equation covers `r,r`, `r,imm` and `r,m` at once; the destination
+carries a variable `h8`, so it covers AH/CH/DH/BH too.  That is sound here and
+only here: `wellFormed2` can only fail when BOTH operands are memory, and this
+family's destination is a register, so there is no side condition to discharge
+and no case to lose.  The memory-DESTINATION forms are batch 4 of the roster and
+they are not covered by these — a register destination and a memory destination
+are different equations, and merging them is how a frame condition goes missing.
+
+The `oracle` component is the AF draw, exactly one bit, visible in the statement
+(SDM Vol. 2A: AND/OR/XOR clear OF and CF, set SF/ZF/PF from the result, and
+leave AF undefined).  K agrees at `0xuxx0-` in `p1/roster.tsv`, read from its
+rule text and not from ours: three sources, one reading. -/
+
+theorem step_and_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    step ⟨.bin .and sz (.reg r h8) o, len⟩ s =
+      { s with
+        regs := s.regs.set r (if h8
+          then Value.writeHigh8 (s.regs.get r)
+            (Value.trunc sz (s.getReg sz r h8 &&&
+              s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))
+          else Value.writeView sz (s.regs.get r)
+            (Value.trunc sz (s.getReg sz r h8 &&&
+              s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))),
+        flags := Flags.logic sz
+          (Value.trunc sz (s.getReg sz r h8 &&&
+            s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases h8 <;> simp [step, h, Cpu.getReg]
+
+theorem step_or_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    step ⟨.bin .or sz (.reg r h8) o, len⟩ s =
+      { s with
+        regs := s.regs.set r (if h8
+          then Value.writeHigh8 (s.regs.get r)
+            (Value.trunc sz (s.getReg sz r h8 |||
+              s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))
+          else Value.writeView sz (s.regs.get r)
+            (Value.trunc sz (s.getReg sz r h8 |||
+              s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))),
+        flags := Flags.logic sz
+          (Value.trunc sz (s.getReg sz r h8 |||
+            s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases h8 <;> simp [step, h, Cpu.getReg]
+
+theorem step_xor_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    step ⟨.bin .xor sz (.reg r h8) o, len⟩ s =
+      { s with
+        regs := s.regs.set r (if h8
+          then Value.writeHigh8 (s.regs.get r)
+            (Value.trunc sz (s.getReg sz r h8 ^^^
+              s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))
+          else Value.writeView sz (s.regs.get r)
+            (Value.trunc sz (s.getReg sz r h8 ^^^
+              s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))),
+        flags := Flags.logic sz
+          (Value.trunc sz (s.getReg sz r h8 ^^^
+            s.readOperand sz (s.rip + BitVec.ofNat 64 len) o))
+          (s.oracle.bits s.oracle.cursor) s.flags,
+        oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases h8 <;> simp [step, h, Cpu.getReg]
+
+/-! ### The batch's FRAME (plan v1 §3.5)
+
+⚠️ THIS IS THE HALF THE CHARACTERIZATION EQUATIONS DO NOT STATE OUT LOUD.  An
+equation `step i s = { s with … }` says which components change by naming them —
+but reading a component's ABSENCE as a guarantee means trusting that the reader
+enumerated the record's fields correctly, and a record gains fields.  These say
+it positively, for the field a register-destination form must not touch: batch
+1 writes NO MEMORY, at any width, through any source operand, including a
+source that is itself a memory read. -/
+
+theorem step_and_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    (step ⟨.bin .and sz (.reg r h8) o, len⟩ s).mem = s.mem := by
+  rw [step_and_reg_op sz r h8 o h]
+
+theorem step_or_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    (step ⟨.bin .or sz (.reg r h8) o, len⟩ s).mem = s.mem := by
+  rw [step_or_reg_op sz r h8 o h]
+
+theorem step_xor_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+    (step ⟨.bin .xor sz (.reg r h8) o, len⟩ s).mem = s.mem := by
+  rw [step_xor_reg_op sz r h8 o h]
+
 /-! ## INC / DEC / NEG / NOT — SDM Vol. 2A.
 
 INC and DEC do **not** touch CF; that is why they are not `add r, 1` and

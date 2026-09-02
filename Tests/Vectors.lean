@@ -40,6 +40,10 @@ structure Vec where
   deriving Repr, Inhabited
 
 private def R (r : GPR) : Operand := .reg r
+/-- The HIGH-8 view: AH/CH/DH/BH, bits 15:8 of the named register.  P0 never
+used one, so P1 batch 1 is the first differential evidence that `high8` reads
+and writes the right eight bits. -/
+private def H (r : GPR) : Operand := .reg r true
 private def M (b : GPR) : Operand := .mem { base := some b }
 
 /-- THE VECTOR TABLE.  38 forms covering all twenty P0 mnemonics. -/
@@ -68,12 +72,10 @@ def vectors : List Vec :=
     , instr := ⟨.bin .sub .q (R .rax) (R .rcx), 3⟩ }
   , { id := "sub_b",    mnemonic := "sub",  asm := "subb %cl, %al",    bytes := "28c8"
     , instr := ⟨.bin .sub .b (R .rax) (R .rcx), 2⟩ }
-  , { id := "and_q",    mnemonic := "and",  asm := "andq %rcx, %rax",  bytes := "4821c8"
-    , instr := ⟨.bin .and .q (R .rax) (R .rcx), 3⟩ }
-  , { id := "or_q",     mnemonic := "or",   asm := "orq %rcx, %rax",   bytes := "4809c8"
-    , instr := ⟨.bin .or .q (R .rax) (R .rcx), 3⟩ }
-  , { id := "xor_q",    mnemonic := "xor",  asm := "xorq %rcx, %rax",  bytes := "4831c8"
-    , instr := ⟨.bin .xor .q (R .rax) (R .rcx), 3⟩ }
+  -- `and_q`, `or_q` and `xor_q` WERE here.  P1 batch 1 covers the same three
+  -- forms systematically at all four widths, as `and_rr_q` and its siblings, so
+  -- keeping the P0 rows would have run three of the 68-state sweeps twice and
+  -- left the batch's own table with a hole where its widest form should be.
   , { id := "cmp_q",    mnemonic := "cmp",  asm := "cmpq %rcx, %rax",  bytes := "4839c8"
     , instr := ⟨.bin .cmp .q (R .rax) (R .rcx), 3⟩ }
   , { id := "test_q",   mnemonic := "test", asm := "testq %rcx, %rax", bytes := "4885c8"
@@ -137,6 +139,150 @@ def vectors : List Vec :=
     , instr := ⟨.call (.indirect (R .rax)), 2⟩ }
   , { id := "call_rel", mnemonic := "call", asm := "call .+5",         bytes := "e800000000"
     , instr := ⟨.call (.rel 0), 5⟩ }
+
+  -- ══ P1 BATCH 1 ═════════════════════════════════════════════════════════
+  -- The family `0xuxx0-|-|reg` of `p1/roster.tsv`: AND, OR and XOR writing a
+  -- REGISTER, clearing CF and OF, computing SF/ZF/PF and leaving AF undefined.
+  -- 21 forms in K's roster, 72 K variants; here at every width, because
+  -- `andl` zero-extends into the upper 32 bits and `andw` does not, and a
+  -- vector set that never crosses that boundary cannot test it.
+  --
+  -- FOUR THINGS THESE VECTORS REACH THAT P0'S NEVER DID:
+  --  * the 32-bit forms, i.e. the zero-extension rule of SDM Vol. 1 §3.4.1.1
+  --    on the ALU path rather than only on `mov`;
+  --  * a MEMORY SOURCE with a register destination (`andq (%rbx), %rax`);
+  --  * the HIGH-8 registers AH/CH, in both operand positions;
+  --  * an immediate that the DECODER sign-extended — `$-1` as an imm8 and
+  --    `$-2147483648` as an imm32 — which is the convention `Operand.imm`
+  --    rests on (X86/Syntax.lean) and which nothing had yet exercised.
+  --
+  -- ⭐ AND THE ACCUMULATOR FORMS ARE HERE FOR A REASON THAT IS NOT SEMANTIC.
+  -- `andb $0x5a, %al` (opcode 24 ib) and `andb $0x5a, %cl` (opcode 80 /4 ib)
+  -- decode to the SAME AST: this model is post-decode, so it cannot tell them
+  -- apart and should not try.  They are separate vectors because the bytes
+  -- differ, and the bytes are the half of the pair that XED is trusted for
+  -- (TRUSTBASE.md).  A form whose only distinction is its encoding is exactly
+  -- the form a decode bug hides in.
+  , { id := "and_rr_b",     mnemonic := "and",   asm := "andb %cl, %al"
+    , bytes := "20c8", instr := ⟨.bin .and .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "and_rm_b",     mnemonic := "and",   asm := "andb (%rbx), %al"
+    , bytes := "2203", instr := ⟨.bin .and .b (R .rax) (M .rbx), 2⟩ }
+  , { id := "and_rr_w",     mnemonic := "and",   asm := "andw %cx, %ax"
+    , bytes := "6621c8", instr := ⟨.bin .and .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "and_rm_w",     mnemonic := "and",   asm := "andw (%rbx), %ax"
+    , bytes := "662303", instr := ⟨.bin .and .w (R .rax) (M .rbx), 3⟩ }
+  , { id := "and_rr_l",     mnemonic := "and",   asm := "andl %ecx, %eax"
+    , bytes := "21c8", instr := ⟨.bin .and .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "and_rm_l",     mnemonic := "and",   asm := "andl (%rbx), %eax"
+    , bytes := "2303", instr := ⟨.bin .and .d (R .rax) (M .rbx), 2⟩ }
+  , { id := "and_rr_q",     mnemonic := "and",   asm := "andq %rcx, %rax"
+    , bytes := "4821c8", instr := ⟨.bin .and .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "and_rm_q",     mnemonic := "and",   asm := "andq (%rbx), %rax"
+    , bytes := "482303", instr := ⟨.bin .and .q (R .rax) (M .rbx), 3⟩ }
+  , { id := "and_ri_b",     mnemonic := "and",   asm := "andb $0x5a, %cl"
+    , bytes := "80e15a", instr := ⟨.bin .and .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "and_ri_w",     mnemonic := "and",   asm := "andw $0x1234, %cx"
+    , bytes := "6681e13412", instr := ⟨.bin .and .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "and_ri_l",     mnemonic := "and",   asm := "andl $0x12345678, %ecx"
+    , bytes := "81e178563412", instr := ⟨.bin .and .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "and_ri_q",     mnemonic := "and",   asm := "andq $0x12345678, %rcx"
+    , bytes := "4881e178563412", instr := ⟨.bin .and .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "and_ri_q8n",   mnemonic := "and",   asm := "andq $-1, %rcx"
+    , bytes := "4883e1ff", instr := ⟨.bin .and .q (R .rcx) (.imm 0xffffffffffffffff), 4⟩ }
+  , { id := "and_ri_q32n",  mnemonic := "and",   asm := "andq $-2147483648, %rcx"
+    , bytes := "4881e100000080", instr := ⟨.bin .and .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "and_acc_b",    mnemonic := "and",   asm := "andb $0x5a, %al"
+    , bytes := "245a", instr := ⟨.bin .and .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "and_acc_w",    mnemonic := "and",   asm := "andw $0x1234, %ax"
+    , bytes := "66253412", instr := ⟨.bin .and .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "and_acc_l",    mnemonic := "and",   asm := "andl $0x12345678, %eax"
+    , bytes := "2578563412", instr := ⟨.bin .and .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "and_acc_q",    mnemonic := "and",   asm := "andq $0x12345678, %rax"
+    , bytes := "482578563412", instr := ⟨.bin .and .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "and_h8s",      mnemonic := "and",   asm := "andb %ch, %al"
+    , bytes := "20e8", instr := ⟨.bin .and .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "and_h8d",      mnemonic := "and",   asm := "andb %cl, %ah"
+    , bytes := "20cc", instr := ⟨.bin .and .b (H .rax) (R .rcx), 2⟩ }
+  , { id := "or_rr_b",      mnemonic := "or",    asm := "orb %cl, %al"
+    , bytes := "08c8", instr := ⟨.bin .or .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "or_rm_b",      mnemonic := "or",    asm := "orb (%rbx), %al"
+    , bytes := "0a03", instr := ⟨.bin .or .b (R .rax) (M .rbx), 2⟩ }
+  , { id := "or_rr_w",      mnemonic := "or",    asm := "orw %cx, %ax"
+    , bytes := "6609c8", instr := ⟨.bin .or .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "or_rm_w",      mnemonic := "or",    asm := "orw (%rbx), %ax"
+    , bytes := "660b03", instr := ⟨.bin .or .w (R .rax) (M .rbx), 3⟩ }
+  , { id := "or_rr_l",      mnemonic := "or",    asm := "orl %ecx, %eax"
+    , bytes := "09c8", instr := ⟨.bin .or .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "or_rm_l",      mnemonic := "or",    asm := "orl (%rbx), %eax"
+    , bytes := "0b03", instr := ⟨.bin .or .d (R .rax) (M .rbx), 2⟩ }
+  , { id := "or_rr_q",      mnemonic := "or",    asm := "orq %rcx, %rax"
+    , bytes := "4809c8", instr := ⟨.bin .or .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "or_rm_q",      mnemonic := "or",    asm := "orq (%rbx), %rax"
+    , bytes := "480b03", instr := ⟨.bin .or .q (R .rax) (M .rbx), 3⟩ }
+  , { id := "or_ri_b",      mnemonic := "or",    asm := "orb $0x5a, %cl"
+    , bytes := "80c95a", instr := ⟨.bin .or .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "or_ri_w",      mnemonic := "or",    asm := "orw $0x1234, %cx"
+    , bytes := "6681c93412", instr := ⟨.bin .or .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "or_ri_l",      mnemonic := "or",    asm := "orl $0x12345678, %ecx"
+    , bytes := "81c978563412", instr := ⟨.bin .or .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "or_ri_q",      mnemonic := "or",    asm := "orq $0x12345678, %rcx"
+    , bytes := "4881c978563412", instr := ⟨.bin .or .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "or_ri_q8n",    mnemonic := "or",    asm := "orq $-1, %rcx"
+    , bytes := "4883c9ff", instr := ⟨.bin .or .q (R .rcx) (.imm 0xffffffffffffffff), 4⟩ }
+  , { id := "or_ri_q32n",   mnemonic := "or",    asm := "orq $-2147483648, %rcx"
+    , bytes := "4881c900000080", instr := ⟨.bin .or .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "or_acc_b",     mnemonic := "or",    asm := "orb $0x5a, %al"
+    , bytes := "0c5a", instr := ⟨.bin .or .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "or_acc_w",     mnemonic := "or",    asm := "orw $0x1234, %ax"
+    , bytes := "660d3412", instr := ⟨.bin .or .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "or_acc_l",     mnemonic := "or",    asm := "orl $0x12345678, %eax"
+    , bytes := "0d78563412", instr := ⟨.bin .or .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "or_acc_q",     mnemonic := "or",    asm := "orq $0x12345678, %rax"
+    , bytes := "480d78563412", instr := ⟨.bin .or .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "or_h8s",       mnemonic := "or",    asm := "orb %ch, %al"
+    , bytes := "08e8", instr := ⟨.bin .or .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "or_h8d",       mnemonic := "or",    asm := "orb %cl, %ah"
+    , bytes := "08cc", instr := ⟨.bin .or .b (H .rax) (R .rcx), 2⟩ }
+  , { id := "xor_rr_b",     mnemonic := "xor",   asm := "xorb %cl, %al"
+    , bytes := "30c8", instr := ⟨.bin .xor .b (R .rax) (R .rcx), 2⟩ }
+  , { id := "xor_rm_b",     mnemonic := "xor",   asm := "xorb (%rbx), %al"
+    , bytes := "3203", instr := ⟨.bin .xor .b (R .rax) (M .rbx), 2⟩ }
+  , { id := "xor_rr_w",     mnemonic := "xor",   asm := "xorw %cx, %ax"
+    , bytes := "6631c8", instr := ⟨.bin .xor .w (R .rax) (R .rcx), 3⟩ }
+  , { id := "xor_rm_w",     mnemonic := "xor",   asm := "xorw (%rbx), %ax"
+    , bytes := "663303", instr := ⟨.bin .xor .w (R .rax) (M .rbx), 3⟩ }
+  , { id := "xor_rr_l",     mnemonic := "xor",   asm := "xorl %ecx, %eax"
+    , bytes := "31c8", instr := ⟨.bin .xor .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "xor_rm_l",     mnemonic := "xor",   asm := "xorl (%rbx), %eax"
+    , bytes := "3303", instr := ⟨.bin .xor .d (R .rax) (M .rbx), 2⟩ }
+  , { id := "xor_rr_q",     mnemonic := "xor",   asm := "xorq %rcx, %rax"
+    , bytes := "4831c8", instr := ⟨.bin .xor .q (R .rax) (R .rcx), 3⟩ }
+  , { id := "xor_rm_q",     mnemonic := "xor",   asm := "xorq (%rbx), %rax"
+    , bytes := "483303", instr := ⟨.bin .xor .q (R .rax) (M .rbx), 3⟩ }
+  , { id := "xor_ri_b",     mnemonic := "xor",   asm := "xorb $0x5a, %cl"
+    , bytes := "80f15a", instr := ⟨.bin .xor .b (R .rcx) (.imm 0x5a), 3⟩ }
+  , { id := "xor_ri_w",     mnemonic := "xor",   asm := "xorw $0x1234, %cx"
+    , bytes := "6681f13412", instr := ⟨.bin .xor .w (R .rcx) (.imm 0x1234), 5⟩ }
+  , { id := "xor_ri_l",     mnemonic := "xor",   asm := "xorl $0x12345678, %ecx"
+    , bytes := "81f178563412", instr := ⟨.bin .xor .d (R .rcx) (.imm 0x12345678), 6⟩ }
+  , { id := "xor_ri_q",     mnemonic := "xor",   asm := "xorq $0x12345678, %rcx"
+    , bytes := "4881f178563412", instr := ⟨.bin .xor .q (R .rcx) (.imm 0x12345678), 7⟩ }
+  , { id := "xor_ri_q8n",   mnemonic := "xor",   asm := "xorq $-1, %rcx"
+    , bytes := "4883f1ff", instr := ⟨.bin .xor .q (R .rcx) (.imm 0xffffffffffffffff), 4⟩ }
+  , { id := "xor_ri_q32n",  mnemonic := "xor",   asm := "xorq $-2147483648, %rcx"
+    , bytes := "4881f100000080", instr := ⟨.bin .xor .q (R .rcx) (.imm 0xffffffff80000000), 7⟩ }
+  , { id := "xor_acc_b",    mnemonic := "xor",   asm := "xorb $0x5a, %al"
+    , bytes := "345a", instr := ⟨.bin .xor .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "xor_acc_w",    mnemonic := "xor",   asm := "xorw $0x1234, %ax"
+    , bytes := "66353412", instr := ⟨.bin .xor .w (R .rax) (.imm 0x1234), 4⟩ }
+  , { id := "xor_acc_l",    mnemonic := "xor",   asm := "xorl $0x12345678, %eax"
+    , bytes := "3578563412", instr := ⟨.bin .xor .d (R .rax) (.imm 0x12345678), 5⟩ }
+  , { id := "xor_acc_q",    mnemonic := "xor",   asm := "xorq $0x12345678, %rax"
+    , bytes := "483578563412", instr := ⟨.bin .xor .q (R .rax) (.imm 0x12345678), 6⟩ }
+  , { id := "xor_h8s",      mnemonic := "xor",   asm := "xorb %ch, %al"
+    , bytes := "30e8", instr := ⟨.bin .xor .b (R .rax) (H .rcx), 2⟩ }
+  , { id := "xor_h8d",      mnemonic := "xor",   asm := "xorb %cl, %ah"
+    , bytes := "30cc", instr := ⟨.bin .xor .b (H .rax) (R .rcx), 2⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
