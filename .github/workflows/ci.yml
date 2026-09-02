@@ -49,6 +49,16 @@ jobs:
       - name: Kernel-cost ceilings
         run: python3 scripts/kernel_cost.py
 
+      # ── the roster gate (plan v1 §5: K's list is P1's fence) ─────────────
+      - name: Fetch the K semantics (sparse: `semantics/` only, 15 MB of 2.8 GB)
+        run: ./scripts/setup_k_roster.sh
+
+      - name: P1 roster derivation selftest (13 SDM facts, driven red-first)
+        run: python3 scripts/k_roster.py --selftest
+
+      - name: P1 roster is DERIVED from K's tree, not written
+        run: python3 scripts/k_roster.py --check
+
       - name: Coverage table is GENERATED, not written
         run: |
           lake env .lake/build/bin/x86lean-diff coverage docs/COVERAGE.md

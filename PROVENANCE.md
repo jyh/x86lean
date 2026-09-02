@@ -29,4 +29,14 @@ or the canonical web page). Nothing here is cited from memory.
 4. Salt tooling (the owner's personal-lane Lean project) may be reused freely.
 
 ## Reading log
-(empty at commit 1)
+
+| when | source | files | licence holder | what it informed |
+|---|---|---|---|---|
+| 2026-09-02 (P0) | ACL2 x86isa | consulted by EXECUTION only, as the differential oracle | © 2015 Regents of the Univ. of Texas (BSD-3) | No rule was read from its text. Its ANSWERS are recorded as evidence in `docs/DIFFERENTIAL-P0.md`; `scripts/x86isa_driver.lisp` is this project's own code driving it. |
+| 2026-09-02 (P1) | K x86-64 semantics, commit `592380aea048` | `semantics/{register,immediate,memory,system}Instructions/*.k` — 3063 files, read MECHANICALLY by `scripts/k_roster.py` | © 2019 Univ. of Illinois at Urbana-Champaign (NCSA) | The P1 ROSTER and its batch partition (`p1/roster.tsv`, `docs/P1-ROSTER.md`): each file yields its mnemonic, operand shapes, which flags it writes, whether it writes a computed value / a constant / `undefMInt`, and which flags it reads. No K rule text is reproduced; what leaves the script is mnemonic names, operand shapes and flag dispositions — facts about x86-64 that the SDM states. |
+
+⚠️ **The second row is a MECHANICAL reading and is logged as one entry, not 3063.** Rule 2 asks for
+every file consulted for a semantic rule; these files were consulted for a CLASSIFICATION, by a script
+whose source is in this repository and whose output is regenerated in CI. The audit unit is the script,
+not the file list — the file list is `semantics/` at the named commit, and `scripts/setup_k_roster.sh`
+fetches exactly it.
