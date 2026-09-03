@@ -2197,3 +2197,76 @@ OUTCOME IS A DRAFT, AND FILING IT EARLY IS WHAT MAKES IT READ AS A RECORD** — 
 module with at least one quadratic declaration and a cost concentration in two prose-driven ones —
 which is why the honest next step is probably to make `vectorMnemonics` linear rather than to
 find a denominator that flatters it.
+
+## D63 — the kernel's reduction cache spans a declaration and not two, and that was where the module's money was (P1 batch 21)
+
+**Decision.** State each group of related coverage claims in ONE `decide` and DERIVE the original
+theorems from it, their statements byte-for-byte unchanged. `Tests.Coverage` goes **37 900 →
+22 400 ms** (−42%). Two groups: `memDestSweep` (the three mem-dest theorems) and `vectorCoverage`
+(the three vector-coverage theorems).
+
+### 1. D62's "honest fix" was priced first, and it was the smaller half
+D62 closed by naming `vectorMnemonics`'s quadratic `eraseDups` as the honest next step. Priced
+before it was taken, per-declaration, at load 3.0–3.2:
+
+| probe | ms | what it isolates |
+|---|---|---|
+| `vectorMnemonics.length = 83` | **935** | dedup over the 775 |
+| `(vectors.map Vec.mnemonic).any (· == "zzz") = false` | **69** | the same 775 projections, one compare each, NO dedup |
+| `… .any (·.isEmpty) = false` | **76** | the same projections, no compare at all |
+
+⭐ So the dedup is REAL — 93% of that list's cost — and D62's diagnosis is **confirmed by a
+control at the same shape**, not merely believed. ⛔ **And it is worth 2.8 s of a 37 900 ms
+module: 7%.** It was paid three times because three theorems mention it, which is the fact that
+matters and is not the fact D62 recorded.
+
+⛔ **Replacing `eraseDups` with something cheaper was priced and REFUSED.** Both dedup-free
+spellings cost the same ~30 000 string comparisons the dedup does (83 rows × first-occurrence-in-775,
+or 775 vectors × position-in-83), and a hand-written 83-element literal pinned by a theorem
+would pay it once at the price of a list edited by hand every batch — a chore, not a gate.
+
+### 2. What the measurement found instead
+| declaration | apart | merged |
+|---|---|---|
+| `mem_dest_rewrite_changed_exactly_the_three_operand_rows` | 10 600 | |
+| `mem_dest_claims_are_backed` | 9 720 | |
+| `mem_dest_vectors_are_claimed` | 5 250 | |
+| **total** | **25 570** | **11 200** |
+
+⇒ 🔑 **THE KERNEL'S REDUCTION CACHE SPANS A DECLARATION AND NOT TWO.** A `def` naming a closed
+constant already collapses the work *inside* one theorem — measured separately, the 39
+`hasMemDestVector` calls in `mem_dest_claims_are_backed` cost **70 ms** of its 9 720, so
+`memDestMnemonics` was reduced once there — but every new theorem mentioning it starts cold. The
+note above `memDestMnemonics` claims the collapse is "asked once instead of per row"; that was
+true, and it was **half** the sharing available. ⇒ 🔑 **A COST MODEL THAT ONLY KNOWS ABOUT THE
+ARTIFACT CANNOT SEE THE COST OF ASKING TWICE.**
+
+### 3. Why this cannot weaken a gate, by construction
+Merging claims is exactly the move that goes silent: a conjunction is green if the kernel never
+reaches a conjunct, and nothing in a green build says which of six was exercised. Two answers,
+both structural:
+
+- **The six original theorems still exist with their original TYPES**, proved from the merged one.
+  A conjunction weaker than any of them would not let the derivation typecheck. Nothing here is a
+  restatement — the statements are the same bytes.
+- **`scripts/sharing_redprobe.sh`** plants a defect in each of the six conjuncts **alone** and
+  requires the kernel to prove the conjunct `false`. ⚠️ The arms prove `= false` rather than merely
+  failing to compile: an erroring `decide` could be erroring for any reason, while a proof of
+  `false` is the kernel positively agreeing the defect is visible *at that conjunct*. A **positive
+  control** — the unplanted shape, `= true` — runs in the same file, because six `false`s are also
+  what a probe that has stopped seeing its subject would print. **7 arms, 28 s, wired into CI.**
+
+⚠️ `claimsMemDestLoose` loses `private` for this, and that is a gate's requirement rather than a
+convenience: the first conjunct cannot be stated without it, and the alternative was a copy of the
+rule inside the probe — precisely the byte-identical duplicate batch 14 deleted.
+
+### 4. What is NOT done
+The per-row ceiling is **not lowered in this entry** — the module's row count changes in the same
+batch (`cmpxchg8b`), and a ceiling set against a denominator that is about to move is a number
+measured under one condition and applied under another ([[feedback-a-measurement-without-its-conditions]]).
+It is re-registered at the end of the batch, from the post-`cmpxchg8b` reading, at the `× 1.6`
+convention batch 14 registered this line with.
+
+**Reversal cost:** small and local. Deleting the two merged declarations and restoring `by decide`
+on the six restores the previous file exactly; the red probe is the only thing that would have to
+be deleted with them.

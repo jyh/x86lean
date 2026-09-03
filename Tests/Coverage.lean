@@ -123,22 +123,48 @@ Named so the three theorems below share one reduction rather than each
 re-deriving it 45 times. -/
 def vectorMnemonics : List String := (vectors.map Vec.mnemonic).eraseDups
 
+/-- ⭐⭐ P1 BATCH 21 — THE THREE VECTOR-COVERAGE FACTS IN ONE KERNEL REDUCTION,
+for the reason measured at `memDestSweep`: the kernel's reduction cache spans a
+declaration and not two, so `vectorMnemonics`'s `eraseDups` was paid three times.
+
+⭐ THE DEDUP IS REAL, CONFIRMED BY A CONTROL AT THE SAME SHAPE (batch 21):
+`vectorMnemonics.length = 83` costs **935 ms**, while forcing the same 775
+`Vec.mnemonic` projections with NO dedup — `(vectors.map Vec.mnemonic).any (·
+== "zzz") = false` — costs **69 ms**, and `.any (·.isEmpty)` **76 ms**.  So 93%
+of this list's cost is the dedup and not the traversal, exactly as D62 said.
+⚠️ What D62 got wrong was the SIZE of the prize, not its existence: three
+payments of 935 ms is 2.8 s of a 37 900 ms module.  See `memDestSweep`.
+
+⛔ REPLACING `eraseDups` WITH ANYTHING CHEAPER WAS PRICED AND REFUSED.  Both
+dedup-free spellings cost the same ~30 000 string comparisons the dedup does
+(83 rows x first-occurrence-in-775, or 775 vectors x position-in-83), and a
+hand-written 83-element literal pinned by a theorem would pay the dedup once —
+at the cost of a list edited by hand every batch.  **Paying it once is the whole
+win available, and this shape takes it without new data to maintain.** -/
+theorem vectorCoverage :
+    ((tableP0.map Row.mnemonic).all (fun m => vectorMnemonics.contains m)
+     && vectorMnemonics.all (fun m => (tableP0.map Row.mnemonic).contains m)
+     && (vectorMnemonics.length == rosterSize)) = true := by decide
+
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
 a form nothing executes is a claim backed by nothing. -/
 theorem every_row_has_a_vector :
     (tableP0.map Row.mnemonic).all
-      (fun m => vectorMnemonics.contains m) = true := by decide
+      (fun m => vectorMnemonics.contains m) = true := by
+  have h := vectorCoverage; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
 
 /-- And every vector's mnemonic is one the table knows about, so a form cannot
 be tested while being absent from the published coverage. -/
 theorem every_vector_has_a_row :
     vectorMnemonics.all
-      (fun m => (tableP0.map Row.mnemonic).contains m) = true := by decide
+      (fun m => (tableP0.map Row.mnemonic).contains m) = true := by
+  have h := vectorCoverage; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.2
 
 /-- Every implemented mnemonic is exercised by at least one differential vector
 — the count above is matched by the vector table, not merely by the roster. -/
 theorem vectors_cover_the_roster :
-    vectorMnemonics.length = rosterSize := by decide
+    vectorMnemonics.length = rosterSize := by
+  have h := vectorCoverage; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.2
 
 /-- No form is in the `T-absent` tier: every roster form is modelled.
 When P1 adds a refused form this theorem is the one that must change, and
@@ -720,10 +746,62 @@ private def looseMemDestShape : List Char → Bool
     (c == 'm' && (rest.dropWhile Char.isDigit).head? == some '(')
       || looseMemDestShape rest
 
-private def claimsMemDestLoose (r : Row) : Bool :=
+-- ⚠️ P1 BATCH 21 — NOT `private` ANY MORE, and the reason is a gate rather than
+-- a convenience.  `scripts/sharing_redprobe.sh` plants a defect in each of
+-- `memDestSweep`'s three conjuncts alone and requires the kernel to report
+-- `false`; the first conjunct cannot be stated without this rule.  The
+-- alternative was a copy of it in the probe — which is precisely the
+-- byte-identical duplicate batch 14 deleted three declarations above.
+def claimsMemDestLoose (r : Row) : Bool :=
   isInfixOfChars "m,r".toList r.shapes.toList || looseMemDestShape r.shapes.toList
 
-set_option maxHeartbeats 1000000 in
+set_option maxHeartbeats 8000000 in
+/-- ⭐⭐ P1 BATCH 21 — THE THREE MEM-DEST SWEEPS, IN ONE KERNEL REDUCTION.
+
+This declaration proves NOTHING new.  It is the conjunction of the three
+theorems below, stated so that the kernel reduces `claimsMemDest`,
+`claimsMemDestLoose` and `memDestMnemonics` ONCE for the whole group instead of
+once per theorem.  Each of the three keeps its own name and its own statement,
+byte-for-byte, and is derived from this one — so if this conjunction were
+weaker than any of them, the derivation would not typecheck.  **Nothing is
+weakened by construction, and that is the reason for this shape rather than a
+merged statement.**
+
+⭐ WHY, MEASURED (batch 21, per-declaration profiler, load 3.0-3.2):
+
+    apart   mem_dest_rewrite_…        10 600 ms
+            mem_dest_claims_are_backed 9 720 ms
+            mem_dest_vectors_are_claimed 5 250 ms   = 25 570 ms
+    merged  this declaration                        = 11 200 ms
+
+⇒ 🔑 **THE KERNEL'S REDUCTION CACHE SPANS A DECLARATION AND NOT TWO.**  A `def`
+naming a closed constant collapses the work inside one theorem — measured
+separately, the 39 `hasMemDestVector` calls in `mem_dest_claims_are_backed`
+cost 70 ms of its 9 720, so `memDestMnemonics` was already reduced once there —
+but every new theorem mentioning it starts from cold.  The note above
+`memDestMnemonics` says the collapse is "asked once instead of per row"; that
+was true and it was only half the sharing available.
+
+⛔ AND THIS IS WHERE THE MODULE'S MONEY WAS, WHICH IS NOT WHERE BATCH 20 SAID.
+D62 named `vectorMnemonics`'s quadratic `eraseDups` as "the honest fix", worth
+~3.5 s.  Measured: that dedup is real (935 ms against a 76 ms control at the
+same 775 projections without it) and it is worth 2.8 s of a 37 900 ms module —
+**7%**.  The sweep sharing here is worth 14 370 ms — **38%**.  The item D62
+called bigger was the smaller one, and the difference was never measured
+because a whole-module total cannot see it. -/
+theorem memDestSweep :
+    ((tableP0.filterMap (fun r =>
+        match claimsMemDestLoose r, claimsMemDest r with
+        | true,  false => some (r.mnemonic, true)
+        | false, true  => some (r.mnemonic, false)
+        | _,     _     => none)
+      == [("sarx", true), ("shlx", true), ("shrx", true),
+          ("cmps", false), ("scas", false), ("repe", false), ("repne", false)])
+     && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)
+     && ((memDestMnemonics.filter (fun m =>
+            !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) == [])) = true := by
+  decide
+
 /-- ⭐ THE REWRITE CHANGED EXACTLY THREE ROWS, AND THEY ARE THE THREE IT WAS
 WRITTEN FOR.  `sarx`, `shlx` and `shrx` are the table's only three-operand
 forms; the old rule read the `m,r` inside their `r,m,r` as a memory
@@ -788,13 +866,15 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- (first position, `m,` or `m(`) disagree about them.  ⚠️ `rep` does
          -- NOT join: its first shape is `m(w),m`, a real write, on which both
          -- rules agree.
-         ("repe", false), ("repne", false)] := by decide
+         ("repe", false), ("repne", false)] := by
+  have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.
  -/
 theorem mem_dest_claims_are_backed :
-    tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic) = true := by decide
+    tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic) = true := by
+  have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.2
 
 /-- ⭐⭐ P1 BATCH 15 — THE OTHER DIRECTION, WHICH WAS MISSING FOR FOURTEEN
 BATCHES.  `mem_dest_claims_are_backed` catches a row claiming more than the
@@ -814,7 +894,8 @@ nobody checks is the half where the claim is too SMALL — which is exactly the
 half a reader trusts, because an under-claim never looks like a mistake. -/
 theorem mem_dest_vectors_are_claimed :
     (memDestMnemonics.filter (fun m =>
-      !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) = [] := by decide
+      !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) = [] := by
+  have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.2
 
 /-! ### P1 BATCH 5 — the condition column, made checkable
 

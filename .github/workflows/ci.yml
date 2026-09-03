@@ -54,6 +54,15 @@ jobs:
       - name: Kernel-cost ceilings
         run: python3 scripts/kernel_cost.py
 
+      # ⭐ P1 BATCH 21. `memDestSweep` and `vectorCoverage` check three claims
+      # each in ONE kernel reduction, so the sweeps behind them are paid once
+      # (37 900 -> 21 900 ms on Tests.Coverage). A conjunction is the shape that
+      # can go silent in a way three theorems cannot, so each of the six
+      # conjuncts is planted with a defect ALONE and required to report `false`,
+      # with an unplanted positive control in the same run.
+      - name: Shared-reduction red probe (6 conjuncts + control)
+        run: ./scripts/sharing_redprobe.sh
+
       # P1 BATCH 14 (D41): the per-batch narrative in the generated coverage
       # document, gated against the differential records — two artifacts that
       # are not maintained by the same edit.

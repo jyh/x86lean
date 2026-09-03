@@ -228,6 +228,18 @@ def per_declaration(f, threshold_ms=100):
 # is `(vectors.map Vec.mnemonic).eraseDups`, and `List.eraseDups` is QUADRATIC.
 # The two theorems above then run `contains` over its result once per row.
 #
+# ⭐⭐ P1 BATCH 21 PRICED THAT REPAIR BEFORE TAKING IT, AND IT WAS THE SMALLER
+# OF THE TWO.  The dedup is real -- `vectorMnemonics.length = 83` costs 935 ms
+# against a 69 ms control forcing the same 775 projections with no dedup -- but
+# it is 2.8 s of a 37 900 ms module (7%).  What was never measured is that the
+# kernel's reduction cache SPANS A DECLARATION AND NOT TWO, so the three
+# mem-dest sweeps were paid three times over: 10 600 + 9 720 + 5 250 = 25 570 ms
+# apart, 11 200 ms in one declaration.  Stating each group's claims in ONE
+# reduction (`memDestSweep`, `vectorCoverage`) and DERIVING the original
+# theorems from it, statements byte-for-byte unchanged, took the module
+# 37 900 -> 22 400 ms.  ⇒ 🔑 A COST MODEL THAT ONLY KNOWS ABOUT THE ARTIFACT
+# CANNOT SEE THE COST OF ASKING TWICE.  See D63.
+#
 # ⚠️ AND THE TWO DECLARATIONS THAT DOMINATE THE MODULE ARE BARELY VECTOR-DRIVEN
 # AT ALL -- `mem_dest_rewrite_changed_exactly_the_three_operand_rows` x1.050 and
 # `mem_dest_claims_are_backed` x1.077, most of even that being the SHAPES prose
@@ -334,10 +346,10 @@ def main():
                   f"= {cov/nrows:.1f} ms/row over {nrows} rows, "
                   f"{cov/nvecs:.2f} ms/vector over {nvecs} kernel-pinned vectors "
                   f"({thms} assertions)")
-            print("  ⚠️  NEITHER unit is flat: the module is SUPER-LINEAR in "
-                  "vectors in three declarations and barely vector-driven in the "
-                  "two that dominate it. See D62 and the per-declaration table "
-                  "below; do not gate on a whole-module density.")
+            print("  ⚠️  NEITHER unit is flat, and after batch 21 ONE "
+                  "declaration (memDestSweep) is ~half the module while being "
+                  "barely vector-driven. See D62 and D63 and the per-declaration "
+                  "table below; do not gate on a whole-module density.")
             for line, name, ms in per_declaration("Tests/Coverage.lean")[:8]:
                 print(f"    {ms:9.0f} ms  {name}  (Tests/Coverage.lean:{line})")
     print(f"total kernel time across the development: {total:.1f}ms")
