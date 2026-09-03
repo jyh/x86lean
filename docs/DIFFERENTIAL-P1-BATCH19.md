@@ -23,7 +23,7 @@ partition the roster.** Batch 18's handover named the symptom precisely: of the 
 believed remained, it could account for only 32, and the other ~40 carried base names the
 model already implements. It could not close the residue and said so.
 
-**The derived answer is 464 of the 525 rows. The literal said 453. It was ELEVEN LOW.**
+**The derived answer is 465 of the 525 rows. The literal said 453. It was TWELVE LOW.**
 
 ⇒ 🔑 **THE DIRECTION IS THE FINDING.** An over-claim reads as a mistake and gets looked
 for; an under-claim reads as modesty and does not. Eighteen batches of arithmetic rested on
@@ -63,10 +63,10 @@ silent:
 
 | | |
 |---|---|
-| roster rows claimed | **464 of 525** |
+| roster rows claimed | **465 of 525** |
 | — spelled by a vector | 346 |
-| — same encoding, other spelling | 118 |
-| distinct machine forms claimed | **322 of 382** |
+| — same encoding, other spelling | 119 |
+| distinct machine forms claimed | **323 of 380** |
 
 ⛔ **AND TWO ROWS DESCRIBE NO ENCODING AT ALL.** `jecxz rel32` and `jrcxz rel32` exist
 because K's grammar generates them; the assembler refuses both — *"value of 200 is too large
@@ -76,28 +76,47 @@ them among the 61 rows that remain.
 
 ## What remains, fully accounted for the first time
 
-Batch 18 handed on "72 rows remain, and I can account for only 32 of them." **61 remain,
+Batch 18 handed on "72 rows remain, and I can account for only 32 of them." **60 remain,
 and every one is now named:**
 
 | | |
 |---|---|
 | oracle UNAVAILABLE — the nine BMI forms x86isa refuses | 18 |
 | **NO ENCODING EXISTS** — `jecxz rel32`, `jrcxz rel32` | 2 |
-| genuinely available work | **41** |
+| genuinely available work | **40** |
 
-The 41: `add` 8 · `sub` 8 · `mov` 3 · `cmp` 2 · `push` 2 · `xchg` 2 · `adc` 2 · `sbb` 2 ·
-one each of `jmp` `neg` `callq` `movnti` `not` `pop` `stos` `bt` `btc` `btr` `bts`
-`cmpxchg8b`. They are mostly the memory-DESTINATION and accumulator-short forms of the
+The 40: `add` 8 · `sub` 8 · `mov` 3 · `cmp` 2 · `push` 2 · `xchg` 2 · `adc` 2 · `sbb` 2 ·
+one each of `jmp` `neg` `callq` `movnti` `not` `pop` `bt` `btc` `btr` `bts` `cmpxchg8b`.
+`scripts/claimed_forms.py --remaining` prints them with their shapes and widths, so the
+next batch derives its scope instead of guessing at an `awk` pattern. They are mostly the memory-DESTINATION and accumulator-short forms of the
 arithmetic P0 shipped at `r,r` — `add m,r`, `sub r,imm`, `add al,imm` — which is a coherent
 next batch rather than a residue.
 
-⚠️ **WHERE THE ELEVEN ROWS WENT CANNOT BE ATTRIBUTED TO A BATCH, AND THAT IS ITSELF THE
+⚠️ **WHERE THE TWELVE ROWS WENT CANNOT BE ATTRIBUTED TO A BATCH, AND THAT IS ITSELF THE
 FINDING.** The counting rules for batches 13–18 are written down in `Main.lean` and can be
-re-run; the rules for batches 1–12 never were. Ten of the 118 alias-only rows have a base
+re-run; the rules for batches 1–12 never were. Ten of the 119 alias-only rows have a base
 name that a base-name rule would have caught (`movs m,m`, `cmps -`, `scas m`, `lods m`,
 `xchg r,eax`, `xchg r,rax` and their kin), which is suggestive and is not proof.
 ⇒ 🔑 **AN UNRECORDED RULE CANNOT BE AUDITED EVEN AFTER THE FACT.** The number could be
 corrected only by recomputing it from scratch, which is what this batch did.
+
+## ⛔ AND THE FIRST VERSION OF THE TOOL REPEATED THE VERY DEFECT IT EXISTS TO CATCH
+
+It under-claimed by one row. The first claim rule grouped rows into aliases only when their
+skeleton sets were EQUAL **and** their roster `widths` strings matched — so `stos m`
+(widths `bw`) never joined `stos -` (widths `blqw`), although `stos m` at byte width IS the
+`0xaa` that vector `stos_b` assembles to. It is the only strict-subset pair in the roster.
+
+It was caught by running a **second claim rule** and diffing: *a row is claimed iff some
+vector's bytes match one of its own encodings*, with no parse consulted at all. The two
+rules agreed on 464 rows and disagreed on exactly one. The claim is now the byte rule and
+the parse is its CHECK — the gate requires every row claimed by bytes to share an encoding
+with a row the parse independently identified, which is what stops an over-masked skeleton
+matching rows that are not the same instruction.
+
+⇒ 🔑 **A CONSERVATIVE RULE IS STILL A WRONG RULE, and it is wrong in the direction that does
+not announce itself.** Writing a whole batch about an unpoliced under-claim did not stop me
+shipping a smaller one inside the instrument built to catch it. Only the second rule did.
 
 ## The three defects found building it, which are one defect
 

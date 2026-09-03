@@ -678,6 +678,9 @@ def main():
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--aliases", action="store_true",
                     help="print every alias group with the evidence")
+    ap.add_argument("--remaining", action="store_true",
+                    help="print the unclaimed rows, grouped, as a scope for the "
+                         "next batch")
     ap.add_argument("--check", action="store_true",
                     help="gate the numbers PUBLISHED in docs/COVERAGE.md "
                          "against the derivation")
@@ -707,6 +710,7 @@ def main():
             words = words[1].split(None, 1)
             if vbytes[:2] == ADDR32:
                 vbytes = vbytes[2:]
+                v["nopfx"] = vbytes
         if words[0] in PREFIXES:
             prefix = words[0]
             words = words[1].split(None, 1) if len(words) > 1 else [""]
@@ -744,16 +748,79 @@ def main():
         for i in cands:
             direct[i].append(v["id"])
 
-    # A row is CLAIMED if a vector spells it, or if it is the same machine form
-    # as a row a vector spells.
-    claimed = set()
-    for i in direct:
-        claimed |= set(group_of.get(i, (i,)))
-    claimed = sorted(claimed)
+    # ⭐ THE CLAIM: a row is claimed iff some vector's bytes ARE an instance of
+    # one of that row's own encodings.  No spelling is consulted, because the
+    # model decodes bytes and not spellings -- which is what makes a vector
+    # written `je` a test of the `jz` row.
+    #
+    # ⛔ THIS REPLACED AN ALIAS-GROUP RULE THAT UNDER-CLAIMED BY ONE.  The first
+    # version grouped rows whose skeletons agreed AT EVERY WIDTH and required
+    # their roster `widths` to be equal, so `stos m` (widths `bw`) never joined
+    # `stos -` (widths `blqw`) even though `stos m` at byte width IS the byte
+    # `0xaa` that vector `stos_b` assembles to.  ⇒ Caught by cross-checking the
+    # two rules against each other, in a batch whose whole subject is an
+    # under-claim nothing was reading. A rule that is CONSERVATIVE is still
+    # wrong, and it is wrong in the direction that does not announce itself.
+    claimed_of = collections.defaultdict(list)
+    for v in vecs:
+        for cand in (v["bytes"], v.get("nopfx")):
+            if not cand:
+                continue
+            for (i, w), fs in forms.items():
+                if any(matches(cand, m, sk) for (m, sk) in fs):
+                    claimed_of[i].append(v["id"])
+    claimed = sorted(claimed_of)
+
+    # ⭐ AND THE PARSE IS THE CHECK ON IT.  Source S identified, independently of
+    # the byte match, which row each vector spells.  Two things must hold, and
+    # both are gated: every row the parse identifies must also be claimed by the
+    # bytes; and every row claimed by the bytes that the parse did NOT identify
+    # must share an encoding with one it did -- otherwise the skeleton has
+    # over-masked and is matching rows that are not the same instruction.
+    parsed = sorted(direct)
+    unexplained_claim = []
+    parsed_skels = set()
+    for i in parsed:
+        for w in (list(rows[i]["widths"]) if rows[i]["widths"] != "-"
+                  else ["q", "l", "w", "b"]):
+            parsed_skels |= set(forms.get((i, w), ()))
+    for i in claimed:
+        if i in direct:
+            continue
+        mine = set()
+        for w in (list(rows[i]["widths"]) if rows[i]["widths"] != "-"
+                  else ["q", "l", "w", "b"]):
+            mine |= set(forms.get((i, w), ()))
+        if not (mine & parsed_skels):
+            unexplained_claim.append(i)
+
     alias_only = [i for i in claimed if i not in direct]
-    n_groups = len({group_of.get(i, (i,)) for i in range(len(rows))})
-    claimed_groups = len({group_of.get(i, (i,)) for i in claimed})
-    noform = [i for i in range(len(rows)) if i not in sig]
+
+    # A "machine form" is a row's SET OF ENCODINGS, and rows sharing one are the
+    # same instruction under different spellings.  Counting rows instead
+    # double-counts every alias, which is exactly why eighteen batches of
+    # base-name arithmetic could not partition this roster.
+    #
+    # ⚠️ THE RELATION IS NOT ALWAYS EQUALITY.  `stos m` (roster widths `bw`) has
+    # a STRICT SUBSET of `stos -`'s encodings (`blqw`) -- one such pair in the
+    # whole roster, and requiring equality is what made the first version of the
+    # claim rule miss it.  Grouping is by equality; the claim above is not.
+    def skels_of(i):
+        ws = (list(rows[i]["widths"]) if rows[i]["widths"] != "-"
+              else ["q", "l", "w", "b"])
+        out = set()
+        for w in ws:
+            out |= set(forms.get((i, w), ()))
+        return frozenset(out)
+
+    groups = collections.defaultdict(list)
+    for i in range(len(rows)):
+        k = skels_of(i)
+        if k:
+            groups[k].append(i)
+    n_groups = len(groups)
+    noform = [i for i in range(len(rows)) if not skels_of(i)]
+    claimed_groups = len({skels_of(i) for i in claimed if skels_of(i)})
 
     findings = []
     published = read_published() if args.check else None
@@ -767,7 +834,8 @@ def main():
                                 ("claimed machine forms", claimed_groups,
                                  published[2]),
                                 ("machine forms", n_groups, published[3]),
-                                ("alias rows", len(rows) - n_groups,
+                                ("alias rows",
+                                 len(rows) - n_groups - len(noform),
                                  published[4]),
                                 ("rows spelled by a vector", len(direct),
                                  published[5])):
@@ -777,6 +845,12 @@ def main():
 
     if unresolved:
         findings.append(f"{len(unresolved)} vector(s) resolve to NO roster row")
+    if unexplained_claim:
+        findings.append(
+            f"{len(unexplained_claim)} row(s) matched by BYTES share no encoding "
+            f"with any row the parse identified: " + ", ".join(
+                f"{rows[i]['base']} {rows[i]['shape']}"
+                for i in unexplained_claim[:6]))
     if split:
         findings.append(f"{len(split)} vector(s) resolve to rows that are NOT "
                         f"the same machine form")
@@ -787,7 +861,8 @@ def main():
     if not args.quiet:
         print(f"roster rows                      {len(rows)}")
         print(f"  distinct machine forms         {n_groups}"
-              f"   ({len(rows) - n_groups} rows are alias spellings)")
+              f"   ({len(rows) - n_groups - len(noform)} rows are alias "
+              f"spellings, {len(noform)} have no encoding at all)")
         print(f"  rows with NO assemblable form  {len(noform)}")
         print(f"  (row,width) readings voided    {len(voided)}")
         print(f"vectors                          {len(vecs)}")
@@ -795,7 +870,7 @@ def main():
         print(f"  split across forms             {len(split)}")
         print(f"CLAIMED rows                     {len(claimed)} of {len(rows)}")
         print(f"  spelled by a vector            {len(direct)}")
-        print(f"  same form as one that is       {len(alias_only)}")
+        print(f"  same encoding as one that is   {len(alias_only)}")
         print(f"CLAIMED machine forms            {claimed_groups} of {n_groups}")
         for i in noform:
             print(f"  ⚠️  no assemblable form: {rows[i]['base']} {rows[i]['shape']}")
@@ -807,6 +882,31 @@ def main():
         for k, why in voided:
             print(f"  ⚠️  voided {rows[k[0]]['base']} {rows[k[0]]['shape']} "
                   f"@{'/'.join(str(x) for x in k[1:])}: {why}")
+
+    if args.remaining:
+        # ⚠️ DECLARED, NOT DERIVED, and marked as such because this file exists
+        # to stop a hand-maintained number being mistaken for a measured one.
+        # These nine forms were measured UNAVAILABLE against ACL2 x86isa in P1
+        # batch 18 -- the oracle refuses them -- and nothing here re-measures it.
+        # If the oracle gains them, this list is stale and the count below with
+        # it; the row-by-row listing underneath is derived and stays correct.
+        BMI = {"andn", "bextr", "blsmsk", "blsr", "bzhi", "mulx", "pdep",
+               "pext", "rorx"}
+        unc = [i for i in range(len(rows)) if i not in set(claimed)]
+        nof = [i for i in unc if i in noform]
+        bmi = [i for i in unc if rows[i]["base"] in BMI and i not in nof]
+        work = [i for i in unc if i not in set(nof) | set(bmi)]
+        print(f"\nREMAINING {len(unc)} of {len(rows)} rows")
+        print(f"  NO ENCODING EXISTS (derived here)          {len(nof):3d}")
+        for i in nof:
+            print(f"      {rows[i]['base']} {rows[i]['shape']}")
+        print(f"  oracle UNAVAILABLE (DECLARED, batch 18)    {len(bmi):3d}"
+              f"   {' '.join(sorted({rows[i]['base'] for i in bmi}))}")
+        print(f"  AVAILABLE WORK                             {len(work):3d}")
+        for b in sorted({rows[i]["base"] for i in work}):
+            shapes = [f"{rows[i]['shape']}({rows[i]['widths']})"
+                      for i in work if rows[i]["base"] == b]
+            print(f"      {b:11s} {len(shapes):2d}  " + " · ".join(shapes))
 
     if args.aliases:
         seen = set()

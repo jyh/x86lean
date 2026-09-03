@@ -1905,12 +1905,24 @@ reading `andb $0x5a,%al` as the generic `r,imm` form offers an encoding with a M
 against a two-byte accumulator encoding, and the candidate dies. A vector that resolves to
 NOTHING is a finding and the tool exits non-zero; it never guesses.
 
-**The derived answer is 464 of the 525 rows, not 453.** The literal was **eleven low**.
+**The derived answer is 465 of the 525 rows, not 453.** The literal was **twelve low**.
 
 ⇒ 🔑 **AND THE DIRECTION IS THE FINDING.** An over-claim reads as a mistake and gets
 looked for; an under-claim reads as modesty and does not. Eighteen batches of arithmetic
 rested on a number that no gate read in either direction, and the error it accumulated was
-the one that nobody was ever going to go looking for. `--check` now gates all six published
+the one that nobody was ever going to go looking for.
+
+⛔ **AND THE FIRST VERSION OF THIS TOOL REPEATED THE MISTAKE, BY ONE ROW.** It grouped rows
+into aliases only when their skeleton sets were EQUAL *and* their roster `widths` strings
+matched, so `stos m` (widths `bw`) never joined `stos -` (widths `blqw`) although `stos m`
+at byte width IS the `0xaa` that vector `stos_b` assembles to. It was caught by running a
+SECOND claim rule — a row is claimed iff some vector's bytes match one of its own encodings,
+with no parse consulted at all — and diffing the two: they agreed on 464 rows and disagreed
+on exactly that one. The claim is now the byte rule; the parse is its check, and the gate
+requires that every row claimed by bytes share an encoding with a row the parse identified.
+⇒ 🔑 **A CONSERVATIVE RULE IS STILL A WRONG RULE, and it is wrong in the direction that does
+not announce itself.** Writing a whole batch about an unpoliced under-claim did not stop me
+shipping a smaller one in the instrument built to catch it; only the second rule did. `--check` now gates all six published
 numbers, and `--selftest` drives the comparison red with an over-claim AND with an
 under-claim, because a gate that only fires on over-claims would have passed this repository
 for eighteen batches.
@@ -1929,16 +1941,16 @@ much — but a rule of the form `$4 ~ /^(je)$/` claims three rows and leaves thr
 ones behind, and no amount of care with the pattern repairs a rule that counts spellings
 where the machine counts encodings.
 
-⇒ The document now publishes **both** denominators: 464 of 525 rows, which are 322 of the
-382 distinct machine forms those rows describe. Of the 464, **346 are spelled by a vector
-and 118 are the same encoding under another spelling** — printed separately, because a
+⇒ The document now publishes **both** denominators: 465 of 525 rows, which are 323 of the
+380 distinct machine forms those rows describe. Of the 465, **346 are spelled by a vector
+and 119 are the same encoding under another spelling** — printed separately, because a
 claim that rests on an alias should be visible as one.
 
 ⛔ **AND TWO ROWS DESCRIBE NO ENCODING AT ALL.** `jecxz rel32` and `jrcxz rel32` are in the
 roster because K's grammar generates them; the assembler refuses both — *"value of 200 is
 too large for field of 1 byte"* — because those instructions have only an 8-bit
 displacement. They are not uncovered work. They are denominator that cannot be earned, and
-the tool names them on every run rather than letting them sit in the 61 rows that remain.
+the tool names them on every run rather than letting them sit in the 60 rows that remain.
 
 ## D58 — the perturbation that reaches every bit, and the control that shared its blind spot
 
