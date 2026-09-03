@@ -87,8 +87,16 @@ jobs:
       # which the model HAS. The mapping and every line-level rule are driven
       # here; the census itself needs a corpus of downloaded binaries and runs
       # locally, so what CI gates is the instrument, not the reading.
-      - name: Demand-census mapping (45 arms)
-        run: python3 scripts/demand_census.py --selftest
+      # ⭐ P1 SEAL (D66, D69). The census needs a corpus of downloaded binaries,
+      # so CI gates the INSTRUMENT (the mapping arms) and the STALENESS of the
+      # published reading — not the reading itself, which cannot be re-derived
+      # here. The staleness check needs no corpus: it recomputes the model's
+      # mnemonic identity and refuses if the document was generated against a
+      # different one.
+      - name: Demand-census mapping (49 arms) + staleness
+        run: |
+          python3 scripts/demand_census.py --selftest
+          python3 scripts/demand_census.py --check
 
       # ⭐ P1 SEAL (D67). The README's Lean example is an INVITATION -- a reader
       # copies it to find out whether this model is usable -- and the one that

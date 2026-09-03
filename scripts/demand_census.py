@@ -239,6 +239,57 @@ def census(paths):
         n += 1
     return total, n
 
+# ⭐⭐ THE STALENESS STAMP (P1 seal, D69).
+#
+# `docs/COVERAGE.md` is GENERATED and CI fails if it is stale, because the
+# generator can be re-run on any machine.  This document cannot: it needs a
+# corpus of downloaded binaries, so CI can gate the INSTRUMENT (the 45 mapping
+# arms) and not the READING.  That leaves a published document whose headline —
+# "the model covers 84 mnemonics", and every percentage under it — is a claim
+# about a model that can change underneath it, with nothing to notice.
+#
+# ⇒ 🔑 A FIGURE NOT RE-COMPUTED AT THE MOMENT OF WRITING IS A FIGURE OF AN
+# EARLIER TREE.  So the document STAMPS the exact model it was generated
+# against, and `--check` — which needs no corpus and does run in CI — recomputes
+# that identity and refuses if it has moved.  The census does not become correct
+# again; it becomes LOUD.
+#
+# ⚠️ The identity is a hash of the SORTED MNEMONIC LIST, not of the file: the
+# census depends on precisely that set and on nothing else in the coverage
+# table, so a reworded row must not fail this gate and a NEW MNEMONIC must.
+STAMP_RE = re.compile(r"<!-- census-model: mnemonics=(\d+) sha=([0-9a-f]{16}) -->")
+
+def model_stamp(model):
+    import hashlib
+    h = hashlib.sha256(" ".join(sorted(model)).encode()).hexdigest()[:16]
+    return len(model), h
+
+def check_stale(out_path):
+    model = model_mnemonics()
+    n, h = model_stamp(model)
+    try:
+        text = open(os.path.join(root, out_path)).read()
+    except OSError:
+        print(f"⛔ {out_path} does not exist. Generate it with "
+              f"`demand_census.py --corpus <dir>`.")
+        return 2
+    m = STAMP_RE.search(text)
+    if not m:
+        print(f"⛔ {out_path} carries no `census-model` stamp, so nothing can "
+              f"tell which model its percentages are about. Regenerate it.")
+        return 2
+    sn, sh = int(m.group(1)), m.group(2)
+    if (sn, sh) != (n, h):
+        print(f"⛔ THE CENSUS IS STALE. {out_path} was generated against a model "
+              f"of {sn} mnemonics (sha {sh}); the model is now {n} (sha {h}). "
+              f"Every coverage percentage in that document is against the older "
+              f"model.\n   Regenerate: demand_census.py --corpus <dir>  "
+              f"(the recipe is in the document).")
+        return 1
+    print(f"demand-census staleness gate: CLEAN — the document was generated "
+          f"against this exact model ({n} mnemonics, sha {h}).")
+    return 0
+
 def report(name, counts, model, fh):
     mapped = collections.Counter()
     unmapped = collections.Counter()
@@ -372,11 +423,38 @@ def selftest():
         print(("  ✔ " if ok else "  ⛔ ") + f"model set contains `{must}`")
         if not ok:
             bad.append("model:" + must)
+    # ── the staleness stamp, driven BOTH ways ───────────────────────────────
+    import shutil, tempfile
+    doc = os.path.join(root, "docs", "DEMAND-CENSUS.md")
+    if os.path.exists(doc):
+        saved = open(doc).read()
+        try:
+            ok = check_stale("docs/DEMAND-CENSUS.md") == 0
+            print(("  ✔ " if ok else "  ⛔ ") +
+                  "the SHIPPED census matches the model it was generated against")
+            bad += [] if ok else ["stamp-control"]
+            # a stamp for a DIFFERENT model must be reported
+            open(doc, "w").write(STAMP_RE.sub(
+                "<!-- census-model: mnemonics=99 sha=0123456789abcdef -->", saved))
+            r = check_stale("docs/DEMAND-CENSUS.md")
+            print(("  ✔ " if r == 1 else "  ⛔ ") +
+                  "a census generated against a DIFFERENT model is reported STALE")
+            bad += [] if r == 1 else ["stamp-stale"]
+            # and no stamp at all must refuse, not pass
+            open(doc, "w").write(STAMP_RE.sub("", saved))
+            r = check_stale("docs/DEMAND-CENSUS.md")
+            print(("  ✔ " if r == 2 else "  ⛔ ") +
+                  "a census with NO stamp is refused, not read as fresh")
+            bad += [] if r == 2 else ["stamp-missing"]
+        finally:
+            open(doc, "w").write(saved)
+        ok = open(doc).read() == saved
+        print(("  ✔ " if ok else "  ⛔ ") + "the document is byte-restored")
+        bad += [] if ok else ["stamp-restore"]
     if bad:
-        print(f"demand-census selftest: FAIL ({len(bad)} of "
-              f"{len(arms)+len(line_arms)+3} arms)")
+        print(f"demand-census selftest: FAIL ({len(bad)} arms)")
         return 1
-    print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+3} arms; "
+    print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7} arms; "
           f"the width-changing/string-move trap in both directions, and every "
           f"line-level rule that moved the number)")
     return 0
@@ -387,9 +465,12 @@ def main():
     ap.add_argument("--kernel")
     ap.add_argument("--out", default="docs/DEMAND-CENSUS.md")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
     if args.selftest:
         return selftest()
+    if args.check:
+        return check_stale(args.out)
     if not args.corpus:
         print("⛔ --corpus is required")
         return 2
@@ -404,6 +485,8 @@ def main():
     with open(os.path.join(root, args.out), "w") as fh:
         fh.write("# THE DEMAND-SIDE CENSUS — what real binaries actually execute\n\n")
         fh.write("*Generated by `scripts/demand_census.py`. Do not edit.*\n\n")
+        n_m, h_m = model_stamp(model)
+        fh.write(f"<!-- census-model: mnemonics={n_m} sha={h_m} -->\n\n")
         fh.write("""## The corpus, and how to rebuild it
 
 Public Debian `amd64` binaries, downloaded and never vendored. The recipe, so

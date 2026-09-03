@@ -2598,3 +2598,47 @@ probe that edits its subject can leave it edited.
 
 **Reversal cost:** the `@perRow` mechanism is still in the parser and unused by this module; one
 line restores it.
+
+## D69 — the census document could go stale in silence, so it stamps the model it was measured against (P1 seal)
+
+**Decision.** `docs/DEMAND-CENSUS.md` carries a machine-readable stamp naming the exact model it
+was generated against, and `demand_census.py --check` — which needs **no corpus**, so it runs in
+CI — recomputes that identity and refuses if it has moved.
+
+### 1. The hole
+`docs/COVERAGE.md` is generated and CI fails if it is stale, because the generator runs anywhere.
+The census cannot: it needs a corpus of downloaded Debian binaries, so CI gates the **instrument**
+(the mapping arms) and not the **reading**. That leaves a published document whose headline —
+*"The model covers **84 mnemonics**"* — and every percentage under it are claims about a model
+that can change underneath them with nothing to notice. The next batch that adds a mnemonic makes
+`cc1 97.4%` a statement about a model that no longer exists, and it will still read as current.
+
+⇒ 🔑 **A FIGURE NOT RE-COMPUTED AT THE MOMENT OF WRITING IS A FIGURE OF AN EARLIER TREE.** (The
+helm ruled this on the fleet bus at 14:37 for a freeze hash; the same sentence names this
+document's defect, which is why it is written down here rather than admired there.)
+
+### 2. What the stamp is, and what it deliberately is not
+The identity is a hash of the **sorted mnemonic list**, not of `docs/COVERAGE.md`:
+
+    <!-- census-model: mnemonics=84 sha=a0f12388d24b4e9e -->
+
+The census depends on precisely that set and on nothing else in the coverage table. So a reworded
+row, a changed tier, a new SDM citation must **not** fail this gate — a gate that cried wolf on
+prose would be switched off — and a **new mnemonic must**. Driven both ways.
+
+⚠️ **It does not make a stale census correct. It makes it loud.** The document stays wrong until
+somebody re-runs it with a corpus; what changes is that nobody can read it believing otherwise.
+
+### 3. Four arms, and the one that matters is not the doctored stamp
+- the SHIPPED census matches the model it names → the control;
+- a stamp naming a **different** model → reported STALE;
+- **no stamp at all** → refused, not read as fresh (an unstamped document is the state this gate
+  was invented in, so it must not be the state that passes);
+- and the real condition rather than a doctored one: **a new mnemonic planted in the generated
+  coverage table** made the gate fire with `84 → 85, sha a0f12388… → 3aa14d31…`.
+  ⇒ A stamp test that only ever edits the stamp proves the comparison works and says nothing
+  about whether the SUBJECT can move; this one moves the subject.
+
+Plus a byte-restore assertion, because a probe that edits its subject can leave it edited.
+
+**Reversal cost:** none — one comment line in a generated file and one flag.
