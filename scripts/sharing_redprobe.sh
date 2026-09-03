@@ -20,8 +20,16 @@ set -u
 cd "$(dirname "$0")/.."
 TMP="${TMPDIR:-/tmp}/x86lean-redprobe-$$"
 mkdir -p "$TMP"
-PROBE="Tests/RedProbe21.lean"
-trap 'rm -f "$PROBE"; rm -rf "$TMP"' EXIT
+# ⛔ THE PROBE FILE LIVES OUTSIDE THE REPOSITORY, and that is a repair rather
+# than a preference.  It used to be written to `Tests/RedProbe21.lean` and
+# deleted by the EXIT trap — which does not run on SIGKILL, so an interrupted
+# probe left a stray `.lean` file inside a public-destined tree, where the next
+# `lake build` would compile it and the next `git status` would carry it.
+# ⇒ 🔑 A CLEANUP THAT ONLY RUNS ON A CLEAN EXIT IS NOT CLEANUP.  `lake env lean`
+# resolves `import Tests.Coverage` from anywhere, so the file never needs to be
+# in the tree at all — and a file that is never created cannot be left behind.
+PROBE="$TMP/RedProbe21.lean"
+trap 'rm -rf "$TMP"' EXIT
 
 cat > "$PROBE" <<'EOF'
 import Tests.Coverage
