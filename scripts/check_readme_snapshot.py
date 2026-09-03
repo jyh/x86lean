@@ -57,8 +57,8 @@ def selftest():
     # (label, file, from, to) — one per claim, then one on a source
     muts = [
         ("batches landed",  "README.md", "P1 IN PROGRESS — ", "P1 IN PROGRESS — 9"),
-        ("forms covered",   "README.md", "** of the 525 forms**", "**7 of the 525 forms**"),
-        ("roster total",    "README.md", " of the 525 forms**", " of the 524 forms**"),
+        ("forms covered",   "README.md", "** of the 525 rows**", "**7 of the 525 rows**"),
+        ("roster total",    "README.md", " of the 525 rows**", " of the 524 rows**"),
         ("vectors",         "README.md", " vectors · ", "1 vectors · "),
         ("pre-states",      "README.md", " pre-states · ", "1 pre-states · "),
         ("cases",           "README.md", " cases · 0 unexplained", "1 cases · 0 unexplained"),
@@ -73,10 +73,10 @@ def selftest():
                 body = re.sub(r'(\*\*P1 IN PROGRESS — )(\d+)( batches landed)',
                               r'\g<1>99\g<3>', body, count=1)
             elif label == "forms covered":
-                body = re.sub(r'\*\*(\d+)( of the \d+ forms\*\* in \[`p1/roster)',
+                body = re.sub(r'\*\*(\d+)( of the \d+ rows\*\* in \[`p1/roster)',
                               r'**7\g<2>', body, count=1)
             elif label == "roster total":
-                body = re.sub(r'(\*\*\d+ of the )(\d+)( forms\*\* in \[`p1/roster)',
+                body = re.sub(r'(\*\*\d+ of the )(\d+)( rows\*\* in \[`p1/roster)',
                               r'\g<1>524\g<3>', body, count=1)
             elif label == "vectors":
                 body = re.sub(r'(\d+)( vectors · \d+ pre-states)', r'1\g<2>', body, count=1)
@@ -139,7 +139,7 @@ cov = open("docs/COVERAGE.md").read()
 
 # ── the generated coverage line is the authority for three of the five ──────
 m = re.search(r'Roster: (\d+) mnemonics in (\d+) differentially tested forms, '
-              r'covering \*\*(\d+) of the (\d+) forms\*\*', cov)
+              r'covering \*\*(\d+) of the (\d+) rows\*\*', cov)
 if not m:
     die("⛔ could not parse the roster line of docs/COVERAGE.md. A missing "
         "subject is not a pass.", 2)
@@ -172,11 +172,11 @@ if rec_vecs != cov_vecs:
 
 # ── what the README claims ──────────────────────────────────────────────────
 rm = re.search(r'\*\*P1 IN PROGRESS — (\d+) batches landed\.\*\*', readme)
-fm = re.search(r'\*\*(\d+) of the (\d+) forms\*\* in \[`p1/roster\.tsv`\]', readme)
+fm = re.search(r'\*\*(\d+) of the (\d+) rows\*\* in \[`p1/roster\.tsv`\]', readme)
 sm = re.search(r'(\d+) vectors · (\d+) pre-states · (\d+) cases', readme)
 if not (rm and fm and sm):
     die("⛔ could not find the README snapshot paragraph (batches landed, "
-        "`N of the M forms`, and the `N vectors · N pre-states · N cases` "
+        "`N of the M rows`, and the `N vectors · N pre-states · N cases` "
         "block). A missing subject is not a pass.", 2)
 
 claims = {

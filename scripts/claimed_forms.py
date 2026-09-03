@@ -1,0 +1,840 @@
+#!/usr/bin/env python3
+"""Derive the coverage claim from the vectors and the roster, instead of asserting it.
+
+WHY THIS EXISTS.  Until batch 19 the sentence "covering N of the 525 forms in
+`p1/roster.tsv`" was a HAND-MAINTAINED LITERAL.  Its value was a running sum of
+eighteen independent `awk` counting rules, each written in a comment in
+`Main.lean` at the batch that added it, and **nothing had ever checked that those
+eighteen rules partition the roster**.  Batch 18's handover said so plainly: it
+could account for only 32 of the 72 rows it believed remained, and the other ~40
+carried base names the model already implements.  A number nobody can recompute
+is a number nobody can refute.
+
+WHAT THIS DOES.  It computes the claim from two sources that are not derived from
+each other, and **their agreement is the gate**:
+
+  SOURCE S (the vector's own text).  Each differential vector's AT&T `asm`
+  string -- the string clang assembles and `check_encodings.py` already gates --
+  is parsed against the roster's own shape vocabulary into candidate
+  (prefix, base, shape) rows.
+
+  SOURCE E (the roster row's own encoding).  Every roster row is synthesised
+  into a canonical instance and assembled by clang.  This says what a row's
+  machine encoding IS, with no reference to any vector.
+
+  THE GATE.  A vector may only claim a row whose canonical instance has THE SAME
+  OPCODE as the vector's own assembled bytes.  A mis-parse does not survive it:
+  reading `andb $0x5a,%al` as the generic `r,imm` form offers opcode 0x80 against
+  the vector's 0x24, and the candidate dies.  A vector that resolves to NOTHING,
+  or to two rows that are not the same encoding, is a FINDING and this script
+  exits non-zero.  It never guesses.
+
+⭐ AND SOURCE E IS WHAT FINDS THE ALIASES.  Rows whose canonical instances
+assemble to IDENTICAL BYTES are the same machine form under different spellings
+-- `jz` and `je`, `setz` and `sete`, `sal` and `shl`, `xchg ax,r` and
+`xchg r,ax`.  The model decodes bytes, not spellings, so a vector spelled `je`
+exercises the `jz` row exactly as much.  Claiming both is correct; claiming both
+SILENTLY is not, so every alias group is printed with the bytes that prove it.
+
+LANE.  Personal lane, public sources only.  clang/LLVM and binutils are tools;
+nothing from either is copied.
+"""
+import sys, os, re, json, subprocess, tempfile, collections, argparse
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(ROOT)
+
+# ---------------------------------------------------------------- the roster
+
+def load_roster(path="p1/roster.tsv"):
+    rows = []
+    for i, line in enumerate(open(path)):
+        if i < 2:                      # a comment line and the header
+            continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) >= 6:
+            rows.append({"prefix": f[2], "base": f[3], "shape": f[4], "widths": f[5]})
+    return rows
+
+# --------------------------------------------------- SOURCE E: assemble rows
+
+# Registers by their ENCODING INDEX, at each width, chosen so that no instance
+# ever needs a REX prefix -- a perturbation that changes an encoding's LENGTH
+# has changed its form, and would void the reading.  Index 0 (the accumulator)
+# is never used, so clang cannot slip into a short accumulator encoding
+# underneath a perturbation that was only meant to move a register field.
+RIDX = {"b": {1: "%cl", 2: "%dl", 3: "%bl", 4: "%ah", 5: "%ch", 6: "%dh", 7: "%bh"},
+        "w": {1: "%cx", 2: "%dx", 3: "%bx", 4: "%sp", 5: "%bp", 6: "%si", 7: "%di"},
+        "l": {1: "%ecx", 2: "%edx", 3: "%ebx", 4: "%esp", 5: "%ebp", 6: "%esi",
+              7: "%edi"},
+        "q": {1: "%rcx", 2: "%rdx", 3: "%rbx", 4: "%rsp", 5: "%rbp", 6: "%rsi",
+              7: "%rdi"}}
+
+# ⭐ THE BANKS EXIST TO MOVE EVERY BIT OF EVERY REGISTER FIELD.  A ModRM
+# register field is THREE bits, so two samples cannot span it: whichever bits
+# happen to agree in both are frozen into the skeleton as if they were part of
+# the opcode.  That is not a hypothetical -- it is the defect this table was
+# written to fix, and it made `and %ecx,%eax` fail to match the `and r,r` row
+# it is an instance of.  Read down each column: every operand position takes a
+# set of indices whose pairwise XORs cover 0b111.
+BANKS = [(1, 2, 3), (2, 3, 4), (4, 1, 5), (3, 4, 1)]
+HELDOUT_BANK = (5, 6, 2)
+# Memory bases, likewise spanning all three bits of the r/m field.  Index 4
+# (%rsp) would force a SIB byte and index 5 (%rbp) a displacement, either of
+# which changes the LENGTH, so neither appears here.
+MBASE = [6, 3, 1, 2]
+HELDOUT_MBASE = 7
+
+# Bases whose SOURCE operand width is fixed by the mnemonic (mixed-width moves).
+SRCW = {"movsb": "b", "movzb": "b", "movsw": "w", "movzw": "w", "movslq": "l"}
+# Bases taking an indirect operand in AT&T syntax.
+STAR = {"jmp", "callq"}
+ACCTOK = ("al", "ax", "eax", "rax")
+
+# The immediates of a perturbation are BITWISE COMPLEMENTS of one another at the
+# same encoded size, so that every bit -- and therefore every byte -- of the
+# immediate field moves.  A pair like 0x11/0x22 moves only some of them, and the
+# rest would be read as opcode.
+IMMS = {
+    "narrow": {w: ("$0x11", "$-18", "$0x2b") for w in "bwlq"},
+    "wide": {"b": ("$0x5a", "$-91", "$0x33"),
+             "w": ("$0x1234", "$-4661", "$0x5678"),
+             "l": ("$0x12345678", "$-305419897", "$0x7edcba98"),
+             "q": ("$0x12345678", "$-305419897", "$0x7edcba98")}}
+# Memory ADDRESSING MODES.  A roster row's shape says `m`; the machine has
+# several encodings of `m`, and a vector may use any of them, so each is its own
+# form of the same row.  {B} is the base register, {D} the displacement.
+MODES = ["({B})", "{D8}({B})", "{D32}({B})", "{D8}({B},%rcx,4)",
+         "{D32}(%rip)"]
+# ⛔ THESE PAIRS MUST BE TRUE BITWISE COMPLEMENTS, SIGN BIT INCLUDED.  The first
+# version of this table used 0x6dcba987 as the "complement" of 0x12345678 --
+# every bit but the TOP one -- so bit 31 of every displacement was frozen into
+# the skeleton, and the one vector with a NEGATIVE displacement did not match
+# the row it is an instance of.  ⚠️ The held-out control did not catch it,
+# because the held-out value 0x7edcba98 is positive too and agreed with the
+# perturbations on exactly the bit they missed: A CONTROL THAT SHARES THE BLIND
+# SPOT IS SILENT.  The held-out values below are negative for that reason.
+MDISP = {"D8": ("0x11", "-0x12", "-0x2b"),
+         "D32": ("0x12345678", "-0x12345679", "-0x7edcba98")}
+
+
+def synth(r, w, suffix, imm="$0x11", bank=0, mode=0, dispv=0, held=False):
+    """A canonical AT&T instance of roster row `r` at width `w`.
+
+    `bank`, `imm` and `mode` select a PERTURBATION: a different register set, a
+    different immediate of the same size, a different addressing mode.  None of
+    them changes the instruction's form -- that is what makes the bits they move
+    operand bits rather than opcode bits.  `held=True` selects values held out
+    of the perturbation set entirely, used to check the resulting skeleton.
+    """
+    toks = [] if r["shape"] == "-" else r["shape"].split(",")
+    regs = HELDOUT_BANK if held else BANKS[bank]
+    mbase = HELDOUT_MBASE if held else MBASE[bank]
+    att, ri = [], 0
+    sw = SRCW.get(r["base"])
+    for pos, t in enumerate(toks):
+        if t == "r":
+            ww = sw if (sw and pos == 1) else w
+            ix = regs[ri]
+            if sw and pos == 1 and sw == "b" and w == "q" and ix > 3:
+                # ⚠️ `movzbq %dh, %rbp` IS NOT ENCODABLE -- a high-8 register and
+                # a REX prefix cannot coexist, and REX.W is what makes this a
+                # 64-bit destination.  Only indices 1-3 are available here, so
+                # bit 2 of this field is genuinely unspannable and the skeleton
+                # under-covers it.  That is honest: the instances it then
+                # refuses are instances the assembler refuses too.
+                ix = 1 + (ix % 3)
+            att.append(RIDX[ww][ix]); ri += 1
+        elif t == "m":
+            m = MODES[mode]
+            d8, d32 = (MDISP["D8"][2], MDISP["D32"][2]) if held else \
+                      (MDISP["D8"][dispv], MDISP["D32"][dispv])
+            att.append(m.format(B=RIDX["q"][mbase], D8=d8, D32=d32))
+        elif t == "imm":
+            att.append(imm if isinstance(imm, str) else None)
+        elif t == "one":
+            pass                                    # AT&T leaves the 1 implicit
+        elif t == "cl":
+            att.append("%cl")
+        elif t in ACCTOK:
+            att.append("%" + t)
+        elif t in ("label", "rel8"):
+            # A lone `label` is a branch target; a `label` beside another
+            # operand is a symbolic IMMEDIATE (`cmp $L, (%rsi)`), which is how
+            # K's grammar writes `cmp m,imm` with a symbol.
+            att.append("NEAR" if len(toks) == 1 else "$NEAR")
+        elif t == "rel32":
+            att.append("Lfar")
+        else:
+            return None
+    if any(a is None for a in att):
+        return None
+    att.reverse()                                   # the roster is Intel order
+    if r["base"] in STAR and toks and toks[0] in ("r", "m"):
+        att = ["*" + a for a in att]
+    mn = r["base"] + (w if suffix else "")
+    if r["prefix"]:
+        mn = r["prefix"] + " " + mn
+    return (mn + " " + ", ".join(att)).strip()
+
+
+# An ADDRESS-SIZE prefix the vector spells out.  The roster has no row for it --
+# `addr32 loop` is the same form as `loop` with a 0x67 in front -- so the byte is
+# removed before matching.  This is not a guess: the prefix is written in the
+# vector's own assembly text, and only then is it stripped.
+ADDR32 = "67"
+
+
+def instance_text(rows, key, bank=0, immv=0, dispv=0, pad=0, held=False):
+    """The text of one perturbation of the reading identified by `key` =
+    (row, width, immediate class, addressing mode, suffix)."""
+    i, w, cls, md, suf = key
+    r = rows[i]
+    imm = IMMS[cls][w][2 if held else immv]
+    return synth(r, w, suf, imm=imm, bank=bank, mode=md, dispv=dispv, held=held)
+
+
+def row_readings(rows):
+    """Every (row, width, immediate class, addressing mode, spelling) candidate.
+
+    ⚠️ AN ACCUMULATOR ROW IS SYNTHESISED WITH A WIDE IMMEDIATE ONLY.  Given
+    `and $0x11, %rax` clang emits the generic ModRM encoding, not the short
+    `0x25` one -- so a narrow immediate would give the `rax,imm` row the same
+    encoding as the `r,imm` row and the two would stop being distinguishable.
+    A generic row keeps BOTH classes, because both are genuinely its encodings.
+    """
+    out = []
+    for idx, r in enumerate(rows):
+        ws = list(r["widths"]) if r["widths"] != "-" else ["q", "l", "w", "b"]
+        toks = [] if r["shape"] == "-" else r["shape"].split(",")
+        acc = toks and toks[0] in ACCTOK
+        nmodes = len(MODES) if "m" in toks else 1
+        for w in ws:
+            for cls in (["wide"] if acc else ["narrow", "wide"]):
+                sufs = (True, False) if r["widths"] != "-" else (False, True)
+                for md in range(nmodes):
+                    for suf in sufs:
+                        k = (idx, w, cls, md, suf)
+                        t = instance_text(rows, k)
+                        if t:
+                            out.append(k)
+    return out
+
+
+def assemble(items, tag, pads=None):
+    """Assemble `items` = [(key, text)], one label each; return {index: bytes}.
+
+    `pads[j]` inserts that many `nop`s between instance `j` and its own NEAR
+    target, which is how the branch-target perturbation moves a displacement
+    without moving anything else.
+
+    Lines clang refuses are dropped and returned as `dead`: a roster row with NO
+    assemblable spelling is a finding about the roster, not a crash here.
+    """
+    tmp = tempfile.mkdtemp()
+    alive = list(range(len(items)))
+    dead = []
+    for _ in range(8):
+        src, line_of = ["\t.text"], {}
+        for j in alive:
+            src.append(f"{tag}{j}:\t{items[j][1].replace('NEAR', f'N{j}')}")
+            line_of[len(src)] = j
+            src += ["\tnop"] * (pads[j] if pads else 0)
+            # ⛔ THE `nop` IS LOAD-BEARING.  Without it this label and the NEXT
+            # instance's label share an address, and objdump prints only ONE
+            # symbol per address -- which silently hid 4713 of 4714 encodings
+            # and reported them as "rows with no assemblable form".  A lost
+            # label must not be able to look like an answer, so this function
+            # counts them and refuses rather than returning a short table.
+            src.append(f"N{j}:\tnop")        # this instance's own rel8 target
+        src += [".fill 200, 1, 0x90", "Lfar:", "\tnop"]
+        p = os.path.join(tmp, "a.s")
+        open(p, "w").write("\n".join(src) + "\n")
+        q = subprocess.run(
+            f"clang -target x86_64-unknown-linux-gnu -c {p} -o {tmp}/a.o",
+            shell=True, capture_output=True, text=True)
+        if q.returncode == 0:
+            break
+        bad = set()
+        for m in re.finditer(r'a\.s:(\d+):\d+: error', q.stderr):
+            if int(m.group(1)) in line_of:
+                bad.add(line_of[int(m.group(1))])
+        if not bad:
+            print("⛔ clang failed with no attributable line:\n" + q.stderr[:2000])
+            sys.exit(2)
+        dead += sorted(bad)
+        alive = [j for j in alive if j not in bad]
+    else:
+        print("⛔ assembly did not converge"); sys.exit(2)
+
+    d = subprocess.run(f"objdump -d {tmp}/a.o", shell=True,
+                       capture_output=True, text=True)
+    if d.returncode != 0:
+        print("⛔ objdump failed:\n" + d.stderr[:2000]); sys.exit(2)
+    labels, by_addr = {}, {}
+    for line in d.stdout.splitlines():
+        m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
+        if m:
+            labels[m.group(2)] = int(m.group(1), 16); continue
+        m = re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)', line)
+        if m:
+            by_addr[int(m.group(1), 16)] = "".join(m.group(2).split())
+    got, lost = {}, []
+    for j in alive:
+        lbl = f"{tag}{j}"
+        if lbl in labels and labels[lbl] in by_addr:
+            got[j] = by_addr[labels[lbl]]
+        else:
+            lost.append(j)
+    if lost:
+        print(f"⛔ {len(lost)} of {len(alive)} assembled instances have no "
+              f"readable label in the disassembly (e.g. {items[lost[0]][1]!r}); "
+              f"the encodings would be silently missing")
+        sys.exit(2)
+    return got, dead
+# --------------------------------------------------------- the FORM SKELETON
+
+# The seven perturbations of a reading, and the one held out to check them.
+# (bank, immediate index, addressing-mode delta, pad)
+PERTURB = [(0, 0, 0, 0),      # v0 -- the reading itself
+           (1, 0, 0, 0),      # v1..v3 -- register banks spanning every bit of
+           (2, 0, 0, 0),      #          every register field
+           (3, 0, 0, 0),
+           (0, 1, 0, 0),      # v4 -- the complementary immediate
+           (0, 0, 1, 0),      # v5 -- the complementary memory displacement
+           (0, 0, 0, 7)]      # v6 -- the branch target, seven bytes further
+
+
+def skeleton(enc, is_branch, has_imm):
+    """The bits of an encoding that do NOT depend on operand values.
+
+    `enc[0]` is the reading; the rest are perturbations that move only operand
+    VALUES.  A bit that changes under any of them is an operand bit; what
+    survives is the form.
+
+    ⭐ TWO FIELDS GET A TRAILING EXTENSION, and the reason is structural rather
+    than empirical.  A relative DISPLACEMENT and an IMMEDIATE are the last field
+    of an x86 encoding, so every byte from the first one that moves to the end of
+    the instruction belongs to that field.  Without this a `rel32` whose high
+    bytes never move -- because no perturbation can put a target 16MB away --
+    would have those bytes read as opcode, and only branches to nearby targets
+    would ever match.
+
+    Returns (mask, skel), or None if a perturbation changed the LENGTH, which
+    means it changed the form and the reading is void.
+    """
+    if len(set(len(e) for e in enc)) != 1:
+        return None
+    b = [bytes.fromhex(e) for e in enc]
+    n = len(b[0])
+    mask = bytearray(n)
+    for k in range(1, len(b)):
+        for i in range(n):
+            mask[i] |= b[0][i] ^ b[k][i]
+    if is_branch or has_imm:
+        # the displacement perturbation is v6, the immediate's is v4
+        for v in ((6,) if is_branch else ()) + ((4,) if has_imm else ()):
+            if v >= len(b):
+                continue
+            moved = [i for i in range(n) if b[0][i] ^ b[v][i]]
+            if moved:
+                for i in range(moved[0], n):
+                    mask[i] = 0xff
+    return (bytes(mask), bytes(b[0][i] & ~mask[i] for i in range(n)))
+
+
+def matches(byts, mask, skel):
+    """Do these bytes belong to that form?"""
+    v = bytes.fromhex(byts)
+    if len(v) != len(skel):
+        return False
+    return all((v[i] & ~mask[i]) == skel[i] for i in range(len(v)))
+
+
+# --------------------------------------------- SOURCE S: parse a vector's asm
+
+PREFIXES = {"rep", "repe", "repne", "repnz", "repz"}
+SUFFIXES = {"b", "w", "l", "q"}
+ACCREG = {"%al": "al", "%ax": "ax", "%eax": "eax", "%rax": "rax"}
+
+
+def split_ops(s):
+    """Split AT&T operands on top-level commas -- `0x10(%rax,%rbx,4)` has its
+    own."""
+    out, cur, depth = [], "", 0
+    for ch in s:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur.strip()); cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        out.append(cur.strip())
+    return out
+
+
+def op_tokens(o):
+    """Every roster shape token an AT&T operand could be.  Deliberately
+    GENEROUS: narrowing is the skeleton gate's job, not the parser's."""
+    o = o.strip()
+    if o.startswith("*"):
+        o = o[1:]
+    if o.startswith("$"):
+        c = ["imm"]
+        try:
+            if int(o[1:], 0) == 1:
+                c.append("one")
+        except ValueError:
+            pass
+        return c
+    if o.startswith("%"):
+        c = ["r"]
+        if o in ACCREG:
+            c.append(ACCREG[o])
+        if o == "%cl":
+            c.append("cl")
+        return c
+    if "(" in o:
+        return ["m"]
+    if re.fullmatch(r'\.[+-]\d+', o) or re.fullmatch(r'[A-Za-z_.][A-Za-z0-9_.]*', o):
+        return ["label", "rel8", "rel32"]
+    return ["m"]
+
+
+def base_parses(mnem, bases):
+    """(base, width) readings of an AT&T mnemonic against the roster's own
+    vocabulary, longest base first."""
+    out = []
+    for b in bases:
+        if mnem == b:
+            out.append((b, None))
+        elif mnem.startswith(b) and mnem[len(b):] in SUFFIXES:
+            out.append((b, mnem[len(b):]))
+    if not out:                        # AT&T writes `call`/`ret` for `callq`/`retq`
+        for b in bases:
+            if b == mnem + "q":
+                out.append((b, None))
+    return out
+
+
+def read_vectors(asm_path, len_path):
+    lens = {}
+    for line in open(len_path):
+        p = line.split()
+        if len(p) == 3:
+            lens[p[0]] = (int(p[1]), p[2])
+    vecs = []
+    for line in open(asm_path):
+        line = line.rstrip("\n")
+        if "\t" not in line:
+            continue
+        vid, asm = line.split("\t", 1)
+        vid = vid.rstrip(":")
+        if not vid:
+            continue
+        ln, byts = lens.get(vid, (0, ""))
+        vecs.append({"id": vid, "asm": asm, "bytes": byts, "len": ln})
+    return vecs
+
+
+def emit_vectors():
+    # A PROBE MUST BE CHEAP OR IT DOES NOT GET RUN.  With these set, the vector
+    # table is read from files instead of the built binary, so deleting a vector
+    # and re-deriving the claim costs a second rather than a rebuild.
+    if os.environ.get("X86LEAN_ASM") and os.environ.get("X86LEAN_LEN"):
+        return read_vectors(os.environ["X86LEAN_ASM"], os.environ["X86LEAN_LEN"])
+    tmp = tempfile.mkdtemp()
+    a, l = os.path.join(tmp, "v.s"), os.path.join(tmp, "v.len")
+    for mode, out in (("emit-asm", a), ("expected-lengths", l)):
+        q = subprocess.run(f"lake env .lake/build/bin/x86lean-diff {mode} {out}",
+                           shell=True, capture_output=True, text=True)
+        if q.returncode != 0:
+            print("⛔ could not emit the vector table (build it first):\n"
+                  + q.stdout + q.stderr)
+            sys.exit(2)
+    return read_vectors(a, l)
+
+
+# ----------------------------------------------------------------- the build
+
+def build_forms(rows):
+    """Every roster row's FORM SKELETONS, and the alias groups they induce."""
+    cand = row_readings(rows)
+    got, _ = assemble([(k, instance_text(rows, k)) for k in cand], "E")
+    # Phase 1 only asks which SPELLING the assembler accepts; keep the first.
+    chosen = {}
+    for j in sorted(got):
+        k = cand[j]
+        chosen.setdefault(k[:4], k)
+
+    # Phase 2: the same spelling under perturbations that move only operand
+    # values, plus one held-out reading that must match what they derive.
+    keys = sorted(chosen, key=lambda k: (k[0], k[1], k[2], k[3]))
+    items, pads = [], []
+    for k in keys:
+        full = chosen[k]
+        for (bank, immv, dispv, pad) in PERTURB:
+            # ⚠️ THE ADDRESSING MODE IS HELD FIXED.  A perturbation may move a
+            # displacement's VALUE but never the mode that carries it: changing
+            # `(%rsi)` to `8(%rsi)` changes the LENGTH, which is a change of
+            # form, and every memory row voided itself when this was got wrong.
+            t = instance_text(rows, full, bank=bank, immv=immv, dispv=dispv)
+            items.append((k, t)); pads.append(pad)
+        t = instance_text(rows, full, held=True)
+        items.append((k, t)); pads.append(3)
+    got2, _ = assemble(items, "P", pads=pads)
+
+    per = len(PERTURB) + 1
+    forms = collections.defaultdict(list)
+    voided = []
+    for n, k in enumerate(keys):
+        enc = [got2.get(per * n + v) for v in range(per)]
+        toks = [] if rows[k[0]]["shape"] == "-" else rows[k[0]]["shape"].split(",")
+        is_branch = any(t in ("label", "rel8", "rel32") for t in toks)
+        has_imm = "imm" in toks
+        if any(e is None for e in enc[:len(PERTURB)]):
+            voided.append((k, "a perturbation did not assemble")); continue
+        sk = skeleton(enc[:len(PERTURB)], is_branch, has_imm)
+        if sk is None:
+            voided.append((k, "a perturbation changed the LENGTH")); continue
+        # ⭐ THE HELD-OUT CONTROL.  The mask above is only as good as the
+        # perturbations that produced it, and an UNDER-covered mask does not
+        # announce itself -- it silently freezes an operand bit into the form
+        # and then refuses instances that differ in it.  So one reading, built
+        # from registers, an immediate and a displacement that NO perturbation
+        # used, must satisfy the skeleton.  If it does not, the reading is void
+        # and said so, rather than quietly claiming less than it should.
+        if enc[-1] is None:
+            voided.append((k, "the held-out reading did not assemble")); continue
+        if not matches(enc[-1], *sk):
+            voided.append((k, "the held-out reading does not match the derived "
+                              "skeleton -- the perturbations under-cover it"))
+            continue
+        forms[(k[0], k[1])].append(sk)
+
+    # ⭐ A CONTROL ON THE WIDTHS.  clang accepts an UNSUFFIXED spelling and
+    # picks a default width for it, so a reading meant to be `btw` can quietly
+    # come back as `btl` -- and then the row's `w` and `q` readings hold the `l`
+    # encoding and every `w`/`q` vector of that row goes unresolved with nothing
+    # to say why.  A row whose roster widths are distinct must have distinct
+    # encodings at them; where it does not, the readings are void and named.
+    for i, r in enumerate(rows):
+        ws = list(r["widths"])
+        if len(ws) < 2:
+            continue
+        seen = {}
+        for w in ws:
+            f = tuple(sorted(set(forms.get((i, w), ()))))
+            if not f:
+                continue
+            if f in seen:
+                voided.append(((i, w), f"its encoding is identical to width "
+                                        f"{seen[f]}, so the width did not reach "
+                                        f"the assembler"))
+                forms.pop((i, w), None)
+                forms.pop((i, seen[f]), None)
+            else:
+                seen[f] = w
+
+    # Alias groups: rows whose form skeletons agree at every width.  clang, not
+    # a hand-written synonym list, is what says `jz` and `je` are one form.
+    sig = {}
+    for i, r in enumerate(rows):
+        ws = list(r["widths"]) if r["widths"] != "-" else ["q", "l", "w", "b"]
+        key = tuple(tuple(sorted(set(forms.get((i, w), ())))) for w in ws)
+        if any(k for k in key):
+            sig[i] = (r["widths"], key)
+    groups = collections.defaultdict(list)
+    for i, k in sig.items():
+        groups[k].append(i)
+    group_of = {}
+    for members in groups.values():
+        for i in members:
+            group_of[i] = tuple(sorted(members))
+    return forms, group_of, voided, sig
+
+
+# ----------------------------------------------------- the published sentence
+
+PUBLISHED_RE = re.compile(
+    r"covering \*\*(\d+) of the (\d+) rows\*\*.*?"
+    r"\*\*(\d+) of the (\d+) distinct machine forms\*\*.*?"
+    r"(\d+) rows are alias SPELLINGS.*?"
+    r"\*\*(\d+) are spelled by a vector\*\*", re.S)
+
+
+def read_published(path="docs/COVERAGE.md"):
+    """The six numbers the GENERATED coverage document publishes.
+
+    ⚠️ This reads the document, not `Main.lean`, on purpose: the document is
+    what a reader sees, and CI already fails if it is stale with respect to the
+    generator.  A gate that read the generator's own source would be comparing
+    the claim to itself.
+    """
+    try:
+        text = open(path).read()
+    except OSError:
+        print(f"⛔ {path} is missing; nothing to check the derivation against")
+        sys.exit(2)
+    m = PUBLISHED_RE.search(text)
+    if not m:
+        print(f"⛔ {path} does not carry the six coverage numbers in the "
+              f"expected form; the gate cannot read what it is meant to check")
+        sys.exit(2)
+    return tuple(int(g) for g in m.groups())
+
+
+def selftest():
+    """Drive this gate RED before believing it green.
+
+    ⛔ THE POINT OF EACH ARM.  A gate is only evidence if it can be seen to
+    fail, and this one has two independent halves that can each be silently
+    broken: the RESOLVER (which vectors claim which rows) and the COMPARISON
+    (whether the published numbers match).  So each half is broken alone, and
+    each must go red on its own.
+    """
+    import shutil
+    tmp = tempfile.mkdtemp()
+    a, l = os.path.join(tmp, "v.s"), os.path.join(tmp, "v.len")
+    for mode, out in (("emit-asm", a), ("expected-lengths", l)):
+        q = subprocess.run(f"lake env .lake/build/bin/x86lean-diff {mode} {out}",
+                           shell=True, capture_output=True, text=True)
+        if q.returncode != 0:
+            print("⛔ selftest cannot run: build the vector table first")
+            sys.exit(2)
+
+    def run(asm, lens, extra=""):
+        env = dict(os.environ, X86LEAN_ASM=asm, X86LEAN_LEN=lens)
+        return subprocess.run(
+            f"python3 {os.path.abspath(__file__)} --quiet {extra}",
+            shell=True, capture_output=True, text=True, env=env)
+
+    arms, bad = [], []
+
+    # ARM 0 -- the positive control.  Untouched, the gate must be GREEN; an arm
+    # set that only ever goes red proves the gate is stuck, not that it works.
+    r = run(a, l, "--check")
+    arms.append(("control: the repository as it stands", r.returncode == 0, r))
+
+    # ARM 1 -- break the RESOLVER: a vector whose bytes are no form at all.
+    lines = open(l).read().splitlines()
+    b1 = os.path.join(tmp, "b1.len")
+    open(b1, "w").write("\n".join(
+        [lines[0].rsplit(" ", 1)[0] + " 9090"] + lines[1:]) + "\n")
+    r = run(a, b1)
+    arms.append(("a vector whose bytes match no roster row", r.returncode != 0, r))
+
+    # ARM 2 -- break the RESOLVER the other way: text and bytes disagree.
+    src = open(a).read().replace("movl %ecx, %eax", "xorl %ecx, %eax", 1)
+    b2 = os.path.join(tmp, "b2.s")
+    open(b2, "w").write(src)
+    r = run(b2, l)
+    arms.append(("a vector whose text and bytes disagree", r.returncode != 0, r))
+
+    # ARM 3/4 -- break the COMPARISON, in BOTH directions.  An over-claim and an
+    # under-claim must both fail; the defect this tool was written for was an
+    # under-claim, which is the direction nobody polices.
+    doc = open("docs/COVERAGE.md").read()
+    pub = read_published()
+    for delta, name in ((+1, "an OVER-claim of one row"),
+                        (-1, "an UNDER-claim of one row")):
+        d = os.path.join(tmp, f"cov{delta}.md")
+        open(d, "w").write(doc.replace(
+            f"**{pub[0]} of the {pub[1]} rows**",
+            f"**{pub[0] + delta} of the {pub[1]} rows**", 1))
+        shutil.copy("docs/COVERAGE.md", os.path.join(tmp, "keep.md"))
+        shutil.copy(d, "docs/COVERAGE.md")
+        try:
+            r = run(a, l, "--check")
+        finally:
+            shutil.copy(os.path.join(tmp, "keep.md"), "docs/COVERAGE.md")
+        arms.append((f"the published number carries {name}",
+                     r.returncode != 0, r))
+
+    for name, ok, r in arms:
+        print(("  ✔ " if ok else "  ⛔ ") + name)
+        if not ok:
+            bad.append(name)
+            print("      " + (r.stdout + r.stderr).strip()[:400].replace(
+                "\n", "\n      "))
+    if bad:
+        print(f"claimed-forms selftest: FAIL ({len(bad)} of {len(arms)} arms)")
+        return 1
+    print(f"claimed-forms selftest: PASS ({len(arms)} arms, "
+          f"control + resolver x2 + comparison in both directions)")
+    return 0
+
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--json", help="write the derived table here")
+    ap.add_argument("--expect", type=int,
+                    help="the row count the coverage table publishes; "
+                         "disagreement is a finding")
+    ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--aliases", action="store_true",
+                    help="print every alias group with the evidence")
+    ap.add_argument("--check", action="store_true",
+                    help="gate the numbers PUBLISHED in docs/COVERAGE.md "
+                         "against the derivation")
+    ap.add_argument("--selftest", action="store_true",
+                    help="drive the gate RED in both directions before "
+                         "believing it green")
+    args = ap.parse_args()
+    if args.selftest:
+        return selftest()
+
+    rows = load_roster()
+    bases = sorted({r["base"] for r in rows}, key=len, reverse=True)
+    forms, group_of, voided, sig = build_forms(rows)
+    byrow = {}
+    for i, r in enumerate(rows):
+        byrow.setdefault((r["prefix"], r["base"], r["shape"]), []).append(i)
+
+    vecs = emit_vectors()
+
+    direct = collections.defaultdict(list)    # row -> vector ids that SPELL it
+    unresolved, split = [], []
+    for v in vecs:
+        words = v["asm"].split(None, 1)
+        prefix = ""
+        vbytes = v["bytes"]
+        if words[0] == "addr32":
+            words = words[1].split(None, 1)
+            if vbytes[:2] == ADDR32:
+                vbytes = vbytes[2:]
+        if words[0] in PREFIXES:
+            prefix = words[0]
+            words = words[1].split(None, 1) if len(words) > 1 else [""]
+        mnem = words[0]
+        ops = split_ops(words[1]) if len(words) > 1 else []
+
+        cands = set()
+        for base, width in base_parses(mnem, bases):
+            tokss = [op_tokens(o) for o in ops]
+            # AT&T leaves the implicit 1 of a shift-by-one form unwritten.
+            variants = [tokss] + ([[["one"]] + tokss] if len(ops) == 1 else [])
+            for tk in variants:
+                combos = [[]]
+                for ts in tk:
+                    combos = [c + [t] for c in combos for t in ts]
+                for combo in combos:
+                    shape = ",".join(reversed(combo)) if combo else "-"
+                    for i in byrow.get((prefix, base, shape), []):
+                        ws = ([width] if width else
+                              (list(rows[i]["widths"]) if rows[i]["widths"] != "-"
+                               else ["q", "l", "w", "b"]))
+                        for w in ws:
+                            # ⭐ THE GATE.  The parse only proposes; the row's own
+                            # form skeleton disposes.  A mis-parse offers an
+                            # encoding the assembler never produced for this
+                            # vector, and dies here.
+                            if any(matches(vbytes, m, s)
+                                   for (m, s) in forms.get((i, w), ())):
+                                cands.add(i)
+        if not cands:
+            unresolved.append(v); continue
+        gs = {group_of.get(i, (i,)) for i in cands}
+        if len(gs) > 1:
+            split.append((v, sorted(cands))); continue
+        for i in cands:
+            direct[i].append(v["id"])
+
+    # A row is CLAIMED if a vector spells it, or if it is the same machine form
+    # as a row a vector spells.
+    claimed = set()
+    for i in direct:
+        claimed |= set(group_of.get(i, (i,)))
+    claimed = sorted(claimed)
+    alias_only = [i for i in claimed if i not in direct]
+    n_groups = len({group_of.get(i, (i,)) for i in range(len(rows))})
+    claimed_groups = len({group_of.get(i, (i,)) for i in claimed})
+    noform = [i for i in range(len(rows)) if i not in sig]
+
+    findings = []
+    published = read_published() if args.check else None
+    if published is not None:
+        # ⭐ GATED IN BOTH DIRECTIONS, AND ON EVERY NUMBER.  A gate that read
+        # only the claimed-row count would pass an under-claim in any of the
+        # other five -- which is the exact shape of the defect that kept eleven
+        # rows out of sight for eighteen batches.
+        for name, got, want in (("claimed rows", len(claimed), published[0]),
+                                ("roster rows", len(rows), published[1]),
+                                ("claimed machine forms", claimed_groups,
+                                 published[2]),
+                                ("machine forms", n_groups, published[3]),
+                                ("alias rows", len(rows) - n_groups,
+                                 published[4]),
+                                ("rows spelled by a vector", len(direct),
+                                 published[5])):
+            if got != want:
+                findings.append(f"docs/COVERAGE.md publishes {want} for "
+                                f"'{name}'; the derivation gives {got}")
+
+    if unresolved:
+        findings.append(f"{len(unresolved)} vector(s) resolve to NO roster row")
+    if split:
+        findings.append(f"{len(split)} vector(s) resolve to rows that are NOT "
+                        f"the same machine form")
+    if args.expect is not None and args.expect != len(claimed):
+        findings.append(f"the coverage table publishes {args.expect} rows; "
+                        f"the vectors and the roster derive {len(claimed)}")
+
+    if not args.quiet:
+        print(f"roster rows                      {len(rows)}")
+        print(f"  distinct machine forms         {n_groups}"
+              f"   ({len(rows) - n_groups} rows are alias spellings)")
+        print(f"  rows with NO assemblable form  {len(noform)}")
+        print(f"  (row,width) readings voided    {len(voided)}")
+        print(f"vectors                          {len(vecs)}")
+        print(f"  unresolved                     {len(unresolved)}")
+        print(f"  split across forms             {len(split)}")
+        print(f"CLAIMED rows                     {len(claimed)} of {len(rows)}")
+        print(f"  spelled by a vector            {len(direct)}")
+        print(f"  same form as one that is       {len(alias_only)}")
+        print(f"CLAIMED machine forms            {claimed_groups} of {n_groups}")
+        for i in noform:
+            print(f"  ⚠️  no assemblable form: {rows[i]['base']} {rows[i]['shape']}")
+        for v in unresolved:
+            print(f"  ⛔ unresolved: {v['id']:24s} {v['asm']:34s} {v['bytes']}")
+        for v, c in split:
+            print(f"  ⛔ split: {v['id']:22s} {v['asm']:30s} -> " +
+                  ", ".join(f"{rows[i]['base']} {rows[i]['shape']}" for i in c))
+        for k, why in voided:
+            print(f"  ⚠️  voided {rows[k[0]]['base']} {rows[k[0]]['shape']} "
+                  f"@{'/'.join(str(x) for x in k[1:])}: {why}")
+
+    if args.aliases:
+        seen = set()
+        print("\n--- alias groups (clang: identical form skeletons) ---")
+        for i in range(len(rows)):
+            g = group_of.get(i, (i,))
+            if len(g) < 2 or g in seen:
+                continue
+            seen.add(g)
+            hit = "✔" if any(x in direct for x in g) else " "
+            print(f" {hit} " + " = ".join(
+                f"{rows[x]['prefix'] + '/' if rows[x]['prefix'] else ''}"
+                f"{rows[x]['base']} {rows[x]['shape']}" for x in g))
+
+    if args.json:
+        json.dump({"rows": rows, "claimed": claimed,
+                   "direct": sorted(direct), "alias_only": alias_only,
+                   "groups": [list(g) for g in
+                              sorted({group_of.get(i, (i,)) for i in range(len(rows))})],
+                   "noform": noform, "n_groups": n_groups,
+                   "claimed_groups": claimed_groups,
+                   "by_vector": {str(i): direct[i] for i in sorted(direct)}},
+                  open(args.json, "w"), indent=1)
+
+    for f in findings:
+        print(f"⛔ {f}")
+    return 1 if findings else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

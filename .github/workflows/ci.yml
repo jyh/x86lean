@@ -106,3 +106,20 @@ jobs:
           git diff --exit-code docs/COVERAGE.md \
             || { echo "⛔ docs/COVERAGE.md is stale — regenerate it with"; \
                  echo "   lake exe x86lean-diff coverage docs/COVERAGE.md"; exit 1; }
+
+      # P1 BATCH 19 (D56, D57, D58): the coverage NUMBERS, derived rather than
+      # asserted. They were a hand-maintained literal for eighteen batches — a
+      # running sum of eighteen `awk` rules that nothing had ever checked
+      # partition the roster — and the literal was ELEVEN LOW. This derives the
+      # claim from the vectors' own assembly text and the roster rows' own
+      # encodings, two sources neither of which comes from the other, and gates
+      # all six published numbers against it.
+      #
+      # ⛔ `--selftest` breaks the two halves SEPARATELY (the resolver, then the
+      # comparison) and breaks the comparison in BOTH DIRECTIONS. A gate that
+      # fired only on over-claims would have passed this repository for eighteen
+      # batches, because the defect it exists to catch was an under-claim.
+      - name: Coverage numbers are DERIVED from the vectors and the roster
+        run: |
+          python3 scripts/claimed_forms.py --selftest
+          python3 scripts/claimed_forms.py --check

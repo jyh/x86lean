@@ -1879,3 +1879,99 @@ and not a CI gate. Said here rather than left for a reader to assume the CI badg
 ⇒ This is [[make-the-probe-cheap]] and [[a-probe-must-create-its-condition]] arriving
 together. A discipline that has to be re-typed each batch is one that will be re-typed
 slightly differently, and the difference will be in the part nobody is attending to.
+
+## D56 — the coverage number is DERIVED, and the literal it replaced was eleven LOW
+
+**P1 batch 19.** Until this batch the sentence "covering N of the 525 forms in
+`p1/roster.tsv`" was a hand-maintained literal in `Main.lean`. Its value was a running sum
+of eighteen independent `awk` counting rules, one written into a comment at the batch that
+added it, and **nothing had ever checked that those rules partition the roster.** Batch 18's
+handover said so plainly: it could account for only 32 of the 72 rows it believed remained,
+and the other ~40 carried base names the model already implements.
+
+`scripts/claimed_forms.py` computes the claim from two sources that are not derived from
+each other, and **their agreement is the gate**:
+
+* **SOURCE S — the vector's own text.** Each differential vector's AT&T `asm` string, the
+  one clang assembles and `check_encodings.py` already gates, parsed against the roster's
+  own shape vocabulary into candidate `(prefix, base, shape)` rows. It is deliberately
+  GENEROUS: `%al` is offered as both `r` and `al`, `$1` as both `imm` and `one`, a symbol
+  as `label`, `rel8` and `rel32`.
+* **SOURCE E — the roster row's own encoding.** Every roster row is synthesised into a
+  canonical instance and assembled by clang, with no reference to any vector.
+
+A vector may claim only a row whose encoding it MATCHES. A mis-parse does not survive:
+reading `andb $0x5a,%al` as the generic `r,imm` form offers an encoding with a ModRM byte
+against a two-byte accumulator encoding, and the candidate dies. A vector that resolves to
+NOTHING is a finding and the tool exits non-zero; it never guesses.
+
+**The derived answer is 464 of the 525 rows, not 453.** The literal was **eleven low**.
+
+⇒ 🔑 **AND THE DIRECTION IS THE FINDING.** An over-claim reads as a mistake and gets
+looked for; an under-claim reads as modesty and does not. Eighteen batches of arithmetic
+rested on a number that no gate read in either direction, and the error it accumulated was
+the one that nobody was ever going to go looking for. `--check` now gates all six published
+numbers, and `--selftest` drives the comparison red with an over-claim AND with an
+under-claim, because a gate that only fires on over-claims would have passed this repository
+for eighteen batches.
+
+## D57 — 143 of the 525 roster rows are alias SPELLINGS, which is why base-name counting could never partition it
+
+Rows whose canonical instances assemble to the same FORM SKELETON are the same machine
+instruction under different spellings: `jz` and `je`, `setz` and `sete`, `cmovz` and
+`cmove`, `sal` and `shl`, `loopz` and `loope`, `xchg ax,r` and `xchg r,ax`, `movs -` and
+`movs m,m`. clang says so, not a hand-written synonym list.
+
+**This is the residue batch 18 could not close.** 128 roster rows carry a base name that no
+vector even spells, and 108 of them are pure synonyms of forms the model tests. The model
+decodes BYTES, not spellings, so a vector spelled `je` exercises the `jz` row exactly as
+much — but a rule of the form `$4 ~ /^(je)$/` claims three rows and leaves three identical
+ones behind, and no amount of care with the pattern repairs a rule that counts spellings
+where the machine counts encodings.
+
+⇒ The document now publishes **both** denominators: 464 of 525 rows, which are 322 of the
+382 distinct machine forms those rows describe. Of the 464, **346 are spelled by a vector
+and 118 are the same encoding under another spelling** — printed separately, because a
+claim that rests on an alias should be visible as one.
+
+⛔ **AND TWO ROWS DESCRIBE NO ENCODING AT ALL.** `jecxz rel32` and `jrcxz rel32` are in the
+roster because K's grammar generates them; the assembler refuses both — *"value of 200 is
+too large for field of 1 byte"* — because those instructions have only an 8-bit
+displacement. They are not uncovered work. They are denominator that cannot be earned, and
+the tool names them on every run rather than letting them sit in the 61 rows that remain.
+
+## D58 — the perturbation that reaches every bit, and the control that shared its blind spot
+
+The form skeleton is derived by assembling each row under perturbations that move only
+operand VALUES — a different register bank, a complementary immediate, a moved branch
+target — and masking every bit that changes. Three defects were found building it, and all
+three are the same defect at different scales.
+
+1. **Two register banks cannot span a three-bit field.** The first version perturbed
+   registers between two banks; whichever bits happened to agree in both were frozen into
+   the skeleton as though they were opcode. `and %ecx,%eax` then failed to match the
+   `and r,r` row it is an instance of. Four banks now cover every bit of every operand
+   position, and the table says why.
+2. **A "complement" that was not one.** The displacement pair was `0x12345678` /
+   `0x6dcba987` — every bit but the TOP one — so bit 31 of every displacement was read as
+   opcode, and the one vector with a NEGATIVE displacement (`cmpq $0x12345678,
+   -0x3fe00b(%rip)`) did not match its own row. ⚠️ **The held-out control did not catch it,
+   because the held-out value was positive too and agreed with the perturbations on exactly
+   the bit they missed.** The held-out values are negative for that reason now.
+3. **A silently lost label.** `objdump` prints one symbol per address, so every instance
+   label that shared an address with the preceding one was hidden — **4713 of 4714
+   encodings vanished and were reported as "rows with no assemblable form"**, which is a
+   sentence that reads like an answer. A `nop` now separates them, and `assemble` counts
+   its labels and refuses rather than returning a short table.
+
+⇒ 🔑 [[a-perturbation-must-reach-the-field]] at BIT granularity: it is not enough that a
+perturbation move the field, it must move **every bit** of it, and a control drawn from the
+same half of the space as the perturbation is silent about the other half. Each of the three
+was found by a vector that failed to match a row it plainly belongs to — i.e. by the tool
+REFUSING rather than guessing, which is the only reason they were found at all.
+
+⭐ One more control belongs to the same family. clang accepts an UNSUFFIXED spelling and
+picks a default width for it, so a reading meant to be `btw` came back as `btl`, and the
+`w` and `q` readings of four `bt` rows held the `l` encoding while every `w`/`q` vector of
+those rows went unresolved with nothing to say why. **A row whose roster widths are distinct
+must have distinct encodings at them**; where it does not, the readings are voided and named.
