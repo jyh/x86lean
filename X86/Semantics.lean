@@ -957,6 +957,54 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         else
           ((s.setReg sz .rax tmp)).setRip nr
 
+  -- ══ P1 BATCH 21 ═══════════════════════════════════════════════════════
+  -- CMPXCHG8B (SDM Vol. 2A).  The eight-byte compare-exchange, and the LAST
+  -- claimable row of the roster.
+  --
+  --   IF EDX:EAX = DEST  THEN ZF := 1; DEST := ECX:EBX
+  --                      ELSE ZF := 0; EDX:EAX := DEST
+  --
+  -- ⭐ THE FLAG RULE IS MEASURED, NOT READ.  The SDM says ZF is set by the
+  -- comparison and "the CF, PF, AF, SF, and OF flags are unaffected" — which is
+  -- the opposite of `cmpxchg` three declarations above, whose flags are the
+  -- whole comparison.  Two forms in one family with opposite flag rules is
+  -- exactly the place a reader assumes rather than checks, so it was measured
+  -- against the oracle BEFORE this constructor existed: over all eighty-two
+  -- pre-states, with flag seeds sweeping from all-clear to all-set, `cmpxchg8b`
+  -- moves ZF ALONE, while `cmpxchg` at the same shape in the same run moves all
+  -- six.  The control is what makes the first reading mean something — a form
+  -- that changed no flag at all would look identical if the harness had stopped
+  -- watching flags.
+  --
+  -- ⚠️ AND `Flags.sub` IS NOT THE RULE HERE, though it is for `cmpxchg`.  ZF is
+  -- set by an EQUALITY, not by a subtraction whose other five flags happen to be
+  -- discarded: the two agree on ZF and the second would be a false description
+  -- of what this instruction computes.
+  --
+  -- ⛔ EVERY REGISTER WRITE ON THE UNEQUAL BRANCH IS THIRTY-TWO BITS AND NONE IS
+  -- A NO-OP.  `EDX:EAX := DEST` clears bits 63:32 of both RDX and RAX, so a
+  -- state whose RDX already held the right low half is still changed. This is
+  -- D53's rule arriving as a design constraint rather than as eighty
+  -- disagreements: measured on the oracle at pre-state 13, RDX comes back
+  -- `ffffffff00000000` on the EQUAL branch (untouched) and zero-extended on
+  -- every other one.
+  | .cmpxchg8b dst =>
+      if !dst.isMem then
+        s.halt (.illegalOperands "cmpxchg8b: memory destination required")
+      else
+        let tmp := s.readOperand .q nr dst
+        -- EDX:EAX, assembled from the two 32-bit halves.  ⚠️ `getReg .d` is the
+        -- 32-bit view, so this is EDX and EAX rather than RDX and RAX; writing
+        -- it with `.q` would compare the wrong 128 bits of state.
+        let acc := (s.getReg .d .rdx) <<< 32 ||| s.getReg .d .rax
+        if tmp == acc then
+          let src := (s.getReg .d .rcx) <<< 32 ||| s.getReg .d .rbx
+          ((s.writeOperand .q nr dst src).setFlags { s.flags with zf := true }).setRip nr
+        else
+          let s := s.setReg .d .rdx (tmp >>> 32)
+          let s := s.setReg .d .rax tmp
+          (s.setFlags { s.flags with zf := false }).setRip nr
+
   -- XADD (SDM Vol. 2A).  `TEMP := SRC + DEST; SRC := DEST; DEST := TEMP`.
   --
   -- ⚠️ THE ORDER IS SDM's AND IT MATTERS FOR ONE SHAPE THIS MODEL DOES NOT SHIP:

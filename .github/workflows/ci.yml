@@ -8,6 +8,15 @@ name: CI
 # docs/ORACLE-SETUP.md) and its RESULT is recorded in the repository. A CI that
 # pretended to run it would be a green tick for work it did not do.
 #
+# ⚠️ AND SO IS `scripts/oracle_availability.py` (P1 batch 21, D65), for the same
+# reason and stated here rather than left to be noticed: it EXECUTES forms on
+# the oracle, so it cannot run on a runner that has no oracle. It runs beside
+# the differential — `scripts/run_differential.sh` invokes it first and stops on
+# it — and it takes about six seconds, which is what makes running it every
+# batch realistic. Naming it here is the point: an oracle-dependent gate that is
+# not in this file is a gate somebody has to remember, and the list of those has
+# exactly two entries.
+#
 # The runner is x86-64 on purpose: it is the same lane plan v1 §4.4's hardware
 # co-simulation will need, and the developer machine is arm64.
 on:

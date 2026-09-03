@@ -58,7 +58,7 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are). -/
-theorem roster_size_is_83 : rosterSize = 83 := by decide
+theorem roster_size_is_84 : rosterSize = 84 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -71,13 +71,13 @@ together they blocked ONE DESIGN rather than the goal: a gate on each
 DECLARATION needs no assertion count at all, because dividing by the number of
 declarations is the only thing an assertion count was ever for.  See D62.
 
-⚠️ THE LITERAL IS THE POINT, exactly as it is for `roster_size_is_83`.  Growing
+⚠️ THE LITERAL IS THE POINT, exactly as it is for `roster_size_is_84`.  Growing
 the vector table is a visible one-line change here, and `kernel_cost.py` reads
 THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_775 : vectorCount = 775 := by decide
+theorem vector_count_is_776 : vectorCount = 776 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -710,7 +710,13 @@ def isMemDestVector (v : Vec) : Bool :=
     -- which is the only way this line could go wrong.
     | .repstrop _ k _ => match k with
       | .movs | .stos | .cmps | .scas => true
-      | .lods => false)
+      | .lods => false
+    -- ⭐ P1 BATCH 21.  `cmpxchg8b`'s memory operand is written on the EQUAL
+    -- branch and read on both, so it is a memory destination in exactly the
+    -- `cmp`/`test` sense this predicate's name is about — and unlike every
+    -- other constructor here the answer needs no operand test at all, because
+    -- the encoding admits no register form (`step` declines one).
+    | .cmpxchg8b d => d.isMem)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
 per row re-swept the WHOLE vector table for every claiming row; the set it is

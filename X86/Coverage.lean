@@ -528,6 +528,22 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
                     "ZF (count > size)", "SF (count > size)", "OF (count ≠ 1)",
                     "DEST (count > size)"],
       sdm := "Vol. 2A SHRD" }
+  -- P1 BATCH 21 (roster family 56): the eight-byte compare-exchange, and the
+  -- last row of the roster this model can claim.
+  --
+  -- ⚠️ THE SHAPES COLUMN SAYS `m(rmw)` AND NAMES NO REGISTER OPERAND, because
+  -- this instruction HAS none: `EDX:EAX`, `ECX:EBX` and the memory operand are
+  -- fixed by the opcode, and a reader of a bare `m` would have no way to know
+  -- that four registers are read and two are written.  It also says the
+  -- registers are 32-BIT VIEWS, which is the fact a reader is most likely to get
+  -- wrong on a form whose memory operand is 64 bits wide.
+  --
+  -- ⭐ `T-exact` WITH AN EMPTY UNDEFINED LIST, and unlike `cmpxchg` beside it
+  -- the flags are NOT the comparison's: ZF alone moves, measured against the
+  -- oracle over all 82 pre-states with `cmpxchg` as the control in the same run.
+  , { mnemonic := "cmpxchg8b",
+      shapes := "m(rmw) — q only (EDX:EAX vs [m]; ECX:EBX stored on equal; 32-bit register views; ZF is the only flag)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMPXCHG8B/CMPXCHG16B" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

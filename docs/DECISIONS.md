@@ -2270,3 +2270,109 @@ convention batch 14 registered this line with.
 **Reversal cost:** small and local. Deleting the two merged declarations and restoring `by decide`
 on the six restores the previous file exactly; the red probe is the only thing that would have to
 be deleted with them.
+
+## D64 — CMPXCHG8B: the last claimable row, and a branch reached by one accident (P1 batch 21)
+
+**Decision.** Model `cmpxchg8b m64` as one constructor with **no `Size` field** and a
+memory-only destination, and add four purpose-built pre-states so its two branches are both
+exercised deliberately. Roster 497 → 498 of 525; **AVAILABLE WORK 0**.
+
+### 1. What was measured BEFORE the constructor existed
+`cmpxchg8b (%rbx)` (`0f c7 0b`, clang) run on the oracle over the 82 inherited pre-states, with
+`cmpxchg %ecx,(%rbx)` as a control in the same run:
+
+| | executes | equal branch (ZF=1) | flags that EVER move |
+|---|---|---|---|
+| `cmpxchg8b (%rbx)` | 82/82 | **1** | `zf` |
+| `cmpxchg %ecx,(%rbx)` (control) | 82/82 | 22 | `cf pf af zf sf of` |
+
+⭐ **THE FLAG RULE IS THE OPPOSITE OF ITS NEIGHBOUR'S, AND THAT IS WHY IT WAS MEASURED.**
+`cmpxchg`'s flags are the whole comparison (`Flags.sub`); `cmpxchg8b` moves ZF alone. Two forms
+in one family with opposite rules is where a reader assumes. The control is what makes the first
+column mean something: a form that moved no flag at all would look identical if the harness had
+stopped watching flags.
+
+⚠️ `Flags.sub` is **not** the rule here even though the two agree on ZF — ZF is set by an
+EQUALITY, and the subtraction would be a false description of what the instruction computes.
+
+### 2. The branch that one accidental state reached
+`mkPre` puts `~a` in RDX and `c` in the eight bytes at RBX, so `EDX:EAX` is `(~a)[31:0]:a[31:0]`
+and the comparison succeeds only where `c = a` **and** `a`'s high half is the complement of its
+low half. That is `a = 0x00000000ffffffff` — one entry of `adversarial`, and there by accident.
+⇒ **A BRANCH REACHED BY ONE ACCIDENTAL STATE IS A BRANCH NOBODY IS MAINTAINING** —
+`carryBoundary`'s finding (batch 2) in a control-flow shape: reorder `adversarial` and the equal
+branch leaves the run with every gate still green. `cmpxchg8bStates` makes it deliberate: the
+equal branch is now reached in 3 of 86 cases, 2 of them on purpose.
+
+### 3. ⛔ AND A GATE REFUSED THE FIRST DESIGN, WHICH WAS THE CHEAPER ONE ARRIVING
+The states were first built by writing the wanted value into the eight bytes at RBX.
+`memory_operand_mirrors_rcx` refused them: batch 3 made `[0x2000] = RCX` an invariant of EVERY
+pre-state, and that invariant is the only reason a memory operand sweeps instead of being a
+constant wearing its shape (D14). Setting **EDX:EAX** instead reaches the same four comparisons
+and weakens nothing — no exemption, no widened window, no gate to re-probe.
+⇒ 🔑 **A GATE THAT REFUSES A NEW PRE-STATE IS USUALLY NAMING A CHEAPER WAY TO BUILD IT.** The
+reflex is to exempt; the exemption would have cost a both-ways probe and bought nothing.
+
+### 4. ⛔⛔ AND THE COMMENT JUSTIFYING THE OTHER TWO STATES WAS FALSE
+The two unequal states differ from the accumulator pair in ONE half, for the defect of comparing
+one half. The comment shipped with them said *"no inherited pre-state is such a state."*
+**Counted rather than believed: 21 of the 82 inherited states already agree in the low half and
+differ in the high half, and 11 do the reverse** — because `mkPre`'s diagonal has `RCX = RAX`,
+so the low halves match there by construction. Both half-width arms are caught with or without
+these states.
+⇒ 🔑 **A STATE ADDED FOR A DEFECT IS NOT EVIDENCE THAT THE DEFECT NEEDED IT.** The plausible
+sentence about a new pre-state is the one claiming it was necessary, and it costs one count to
+check. The states are kept for `carryBoundary`'s reason — they are the only DELIBERATE ones —
+and the comment now says that instead.
+
+### 5. The arms, and a gap named rather than discovered
+Five arms, all caught: always-stores (79 disagreements — the unequal branch is reached),
+never-stores (**3** — the equal branch is reached, and 2 of the 3 are this batch's states),
+EAX-only comparison (22 in `zf`), merge-instead-of-zero-extend (71 in `rdx`, D53's defect in this
+form), stored halves swapped (3).
+
+⛔ **NAMED GAP: EBX is 0x2000 in every pre-state this harness has**, since RBX is the fixed
+data-window pointer, so the low half of the value stored on the equal branch is a CONSTANT.
+Swapping the halves is still caught (ECX sweeps) and so is storing any other register; what no
+state here can catch is a model that stores the literal 0x2000 in that half by some other route.
+Making EBX sweep means moving RBX, which moves every memory vector's address at once — a second
+instrument change in the same batch, which is how two defects cancel.
+
+**Reversal cost:** one `step` case, one constructor, one coverage row, one vector, four
+pre-states, five arms.
+
+## D65 — the unavailable list stops being DECLARED (P1 batch 21)
+
+**Decision.** `scripts/oracle_availability.py` MEASURES which mnemonics the oracle refuses, by
+executing one form per mnemonic over the real pre-states with two positive controls, and gates
+the answer **in both directions**. `claimed_forms.py` imports that table instead of carrying its
+own; the six rows declined by decision are declared beside the DECISION that declined them.
+
+### 1. Why: D61 was recorded in two prose files and in zero gates
+D61 measured `movnti` UNAVAILABLE at batch 20 — 82/82 refused, with an identical-shape control
+executing 82/82 in the same run — and wrote it into `docs/DECISIONS.md` and `docs/COVERAGE.md`.
+The hard-coded set in `claimed_forms.py` was never touched, so `--remaining` went on printing
+`movnti` under **AVAILABLE WORK** for a whole batch while two documents said the list had been
+corrected. The next head is invited by that line to start work that cannot be done.
+⇒ 🔑 **A CITATION IS AN UNGATED CLAIM**, and D61's own closing line — *"the line moves from
+declared to measured the day a probe runs it"* — is the repair nobody ran.
+
+### 2. Both directions, because they are not symmetric
+A mnemonic declared unavailable that starts executing shrinks the roster's residue silently
+(D36's error). A mnemonic declared available that refuses INVENTS work — and that direction is
+unpoliced precisely because it is discovered cheaply by whoever tries. The gate reports both, and
+`--selftest` drives three red arms: every "refuses" form flipped must be reported, every
+"executes" form flipped must be reported, and an EMPTY run must be reported by all twelve forms
+rather than read as agreement. **~6 seconds**, which is the point — a discipline expensive to
+exercise gets exercised less.
+
+### 3. The residue, partitioned and checked
+    27 = 2 no encoding (DERIVED) + 19 oracle-unavailable (MEASURED) + 6 declined (D23, D25)
+       + 0 AVAILABLE WORK
+The four buckets are now required to sum to the residue, and a DECLINED entry that no longer
+names an unclaimed row is reported as stale. ⚠️ The batch-20 handover gave this partition as
+`27 = 2 + 19 + 6 + 1`, which sums to 28, describes a state where `movnti` had already been
+declared (it had not), and disagreed with its own row count. Three of its four terms were wrong.
+
+**Reversal cost:** none — deleting the script restores a hand-maintained set, which is what this
+replaces.

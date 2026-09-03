@@ -691,6 +691,25 @@ inductive Op where
   CL exactly as the ordinary shifts' is — so `ShiftAmt` is reused rather than
   restated. -/
   | dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR) (amt : ShiftAmt)
+  /-- P1 BATCH 21: CMPXCHG8B — the only form in this model whose operands are a
+  REGISTER PAIR, and the only one with no `Size` field at all.
+
+  `cmpxchg8b m64` compares `EDX:EAX` with the eight bytes at `m64`.  Equal:
+  `ZF := 1` and the memory takes `ECX:EBX`.  Unequal: `ZF := 0` and `EDX:EAX`
+  takes the memory — two 32-bit register writes, which ZERO-EXTEND, so RDX's and
+  RAX's upper halves are cleared on that branch.  D53's lesson arrives here as a
+  RULE rather than as a surprise: every write in this instruction is 32 bits
+  wide and none of them is a no-op.
+
+  ⚠️ NO `Size` FIELD, because the width is not a choice: `0F C7 /1` is 64 bits
+  of memory and 32-bit register halves, always.  Giving it a `Size` would invite
+  `step` to branch on a width the encoding cannot express.
+
+  ⛔ THE DESTINATION MUST BE MEMORY.  `0F C7 /1` with `mod = 11` is not
+  `cmpxchg8b` on a register — it is #UD (the opcode's register form is
+  `rdrand`/`rdseed` at other /r values).  `step` declines a non-memory operand
+  rather than inventing a register-pair compare. -/
+  | cmpxchg8b (dst : Operand)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -815,6 +834,7 @@ def Op.mnemonic : Op → String
   | .cmpxchg .. => "cmpxchg"
   | .xadd .. => "xadd"
   | .dshift k .. => k.mnemonic
+  | .cmpxchg8b .. => "cmpxchg8b"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -884,7 +904,14 @@ def rosterP0 : List String :=
    -- `DShiftKind`), as `shl`/`shr`/`sar` are for `.shift`; `cmpxchg` and `xadd`
    -- are a constructor apiece, because what is hard about each is different —
    -- one has a conditional destination, the other has two.
-   "cmpxchg", "xadd", "shld", "shrd"]
+   "cmpxchg", "xadd", "shld", "shrd",
+   -- P1 BATCH 21: the eight-byte compare-exchange.  ONE row, one constructor,
+   -- one operand shape — and the last row of the roster that this model can
+   -- claim at all: everything else outstanding either has no encoding
+   -- (`jecxz rel32`, `jrcxz rel32`), is refused by the oracle at every
+   -- pre-state (the nine BMI mnemonics and `movnti`), or was declined by a
+   -- recorded decision (D23's bit-string `m,r`, D25's `xchg` at memory).
+   "cmpxchg8b"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

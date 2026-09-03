@@ -97,15 +97,18 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 IN PROGRESS — 20 batches landed.** The roster now stands at
-**497 of the 525 rows** in [`p1/roster.tsv`](p1/roster.tsv) — which are 349 of
+**P1 IN PROGRESS — 21 batches landed.** ⭐ **AVAILABLE WORK IS ZERO**: every
+remaining row either has no encoding, is refused by the oracle at every
+pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
+recorded decision. The roster stands at
+**498 of the 525 rows** in [`p1/roster.tsv`](p1/roster.tsv) — which are 350 of
 the 374 distinct MACHINE FORMS those rows describe, 149 of the rows being alias
 spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 `stos -`) — differentially tested
 against ACL2 x86isa on every batch:
 
 ```
-775 vectors · 82 pre-states · 63550 cases · 0 unexplained · 0 oracle leaks
+776 vectors · 86 pre-states · 66736 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

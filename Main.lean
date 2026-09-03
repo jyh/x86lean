@@ -1878,6 +1878,113 @@ def wrongIndirectBranchUsesAddress (i : Instr) (s : Cpu) : Cpu :=
       else s.halt (.unimplemented "non-canonical branch target (#GP(0) in hardware)")
   | _ => step i s
 
+/-! ### P1 BATCH 21 — CMPXCHG8B
+
+⭐ FIVE ARMS, AND TWO OF THEM PRICE THE OBSERVATION RATHER THAN BEING PLAUSIBLE.
+This instruction chooses a branch, and — measured on the oracle before the
+constructor existed — the EQUAL branch is reached in ONE of the 82 inherited
+pre-states.  So an arm that always takes one branch agrees with the model on
+every case of that branch, and whatever catches it is exactly the evidence that
+the OTHER branch is reached.  `cmpxchg8bStates` is what makes the second of the
+two catchable at all; deleting those four states and re-running the arm is the
+check that they are load-bearing (D64).
+-/
+
+/-- ⭐ THE EQUAL BRANCH, ALWAYS.  Correct wherever the values match, so what
+catches it measures how often they do NOT. -/
+def wrongCmpxchg8bAlwaysStores (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg8b dst =>
+      if !dst.isMem then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let src := (s.getReg .d .rcx) <<< 32 ||| s.getReg .d .rbx
+        ((s.writeOperand .q nr dst src).setFlags { s.flags with zf := true }).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE UNEQUAL BRANCH, ALWAYS.  Correct wherever the values differ, so what
+catches it is the evidence that the equal branch is REACHED — and before this
+batch's four purpose-built pre-states, exactly one case in the whole run could
+have caught it. -/
+def wrongCmpxchg8bNeverStores (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg8b dst =>
+      if !dst.isMem then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let tmp := s.readOperand .q nr dst
+        let s := s.setReg .d .rdx (tmp >>> 32)
+        let s := s.setReg .d .rax tmp
+        (s.setFlags { s.flags with zf := false }).setRip nr
+  | _ => step i s
+
+/-- ⛔ THE COMPARISON, THIRTY-TWO BITS WIDE — EAX against `[m][31:0]`, ignoring
+EDX.  It differs from this model exactly where the two operands agree in their
+low half and differ in their high half.  ⚠️ MEASURED: 21 of the 82 INHERITED
+pre-states are already such a state — `mkPre` puts RCX in the memory operand and
+`~RAX` in RDX, so the whole diagonal matches in the low half by construction — so
+this arm is caught with or without batch 21's `delta` states, and the comment
+that first stood here claimed otherwise.  See `cmpxchg8bStates`. -/
+def wrongCmpxchg8bCompares32 (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg8b dst =>
+      if !dst.isMem then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let tmp := s.readOperand .q nr dst
+        if Value.trunc .d tmp == s.getReg .d .rax then
+          let src := (s.getReg .d .rcx) <<< 32 ||| s.getReg .d .rbx
+          ((s.writeOperand .q nr dst src).setFlags { s.flags with zf := true }).setRip nr
+        else
+          let s := s.setReg .d .rdx (tmp >>> 32)
+          let s := s.setReg .d .rax tmp
+          (s.setFlags { s.flags with zf := false }).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ `EDX:EAX := DEST` AS A MERGE INSTEAD OF A ZERO-EXTENSION — D53's defect,
+in the form this instruction invites.  Every register write here is 32 bits
+wide, so both writes clear bits 63:32; a model that preserved them is correct on
+every state whose RAX and RDX already had zero up there, and this harness has
+plenty. -/
+def wrongCmpxchg8bMergesRegisters (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg8b dst =>
+      if !dst.isMem then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let tmp := s.readOperand .q nr dst
+        let acc := (s.getReg .d .rdx) <<< 32 ||| s.getReg .d .rax
+        if tmp == acc then
+          let src := (s.getReg .d .rcx) <<< 32 ||| s.getReg .d .rbx
+          ((s.writeOperand .q nr dst src).setFlags { s.flags with zf := true }).setRip nr
+        else
+          let keep (old v : Val) : Val := (old &&& 0xFFFFFFFF00000000) ||| (v &&& 0xFFFFFFFF)
+          let s := { s with regs := (s.regs.set .rdx (keep (s.regs.get .rdx) (tmp >>> 32))) }
+          let s := { s with regs := (s.regs.set .rax (keep (s.regs.get .rax) tmp)) }
+          (s.setFlags { s.flags with zf := false }).setRip nr
+  | _ => step i s
+
+/-- ⛔ THE STORED PAIR, SWAPPED — `EBX:ECX` instead of `ECX:EBX`.  ⚠️ RBX is this
+harness's fixed data-window pointer, so EBX is 0x2000 in every pre-state and
+only ECX sweeps; this arm is caught by the half that DOES move, and the case
+that no state here can catch is named beside `cmpxchg8bStates`. -/
+def wrongCmpxchg8bStoresSwapped (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg8b dst =>
+      if !dst.isMem then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let acc := (s.getReg .d .rdx) <<< 32 ||| s.getReg .d .rax
+        let tmp := s.readOperand .q nr dst
+        if tmp == acc then
+          let src := (s.getReg .d .rbx) <<< 32 ||| s.getReg .d .rcx
+          ((s.writeOperand .q nr dst src).setFlags { s.flags with zf := true }).setRip nr
+        else
+          let s := s.setReg .d .rdx (tmp >>> 32)
+          let s := s.setReg .d .rax tmp
+          (s.setFlags { s.flags with zf := false }).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2014,7 +2121,20 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      wrongDshiftBadAtWidth, "rax")
   , ("shrd fills from the source's top bits, as shld does", wrongShrdFillsFromSourceTop, "rax")
   , ("shld/shrd take CF from the result instead of the original destination",
-     wrongDshiftCfFromResult, "cf") ]
+     wrongDshiftCfFromResult, "cf")
+  -- P1 BATCH 21 — the eight-byte compare-exchange.  Five arms; the first two are
+  -- the branch-observation pair, and the second of them is the reason
+  -- `cmpxchg8bStates` exists.
+  , ("cmpxchg8b always stores (the arm that proves the unequal branch is reached)",
+     wrongCmpxchg8bAlwaysStores, "mem@0000000000001fe0")
+  , ("cmpxchg8b never stores (the arm that proves the equal branch is reached)",
+     wrongCmpxchg8bNeverStores, "mem@0000000000001fe0")
+  , ("cmpxchg8b compares EAX alone against the low half of the memory operand",
+     wrongCmpxchg8bCompares32, "zf")
+  , ("cmpxchg8b merges EDX:EAX into RDX:RAX instead of zero-extending",
+     wrongCmpxchg8bMergesRegisters, "rdx")
+  , ("cmpxchg8b stores EBX:ECX instead of ECX:EBX",
+     wrongCmpxchg8bStoresSwapped, "mem@0000000000001fe0") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -2244,7 +2364,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **497 of the 525 rows** in `p1/roster.tsv` — which are **349 of the 374 distinct machine forms** those rows describe, because 149 rows are alias SPELLINGS or narrowings of another row (`jz` for `je`, `sal` for `shl`, `stos m` for `stos -`, `cmp m,label` for `cmp m,imm`) and 2 describe no encoding at all. Of the 497, **373 are spelled by a vector** and 124 are the same encoding under a different spelling. ⭐ ALL SIX NUMBERS ARE DERIVED, by `scripts/claimed_forms.py`, and gated in CI; until P1 batch 19 the first was a hand-maintained literal and it was SIXTEEN LOW.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **498 of the 525 rows** in `p1/roster.tsv` — which are **350 of the 374 distinct machine forms** those rows describe, because 149 rows are alias SPELLINGS or narrowings of another row (`jz` for `je`, `sal` for `shl`, `stos m` for `stos -`, `cmp m,label` for `cmp m,imm`) and 2 describe no encoding at all. Of the 498, **374 are spelled by a vector** and 124 are the same encoding under a different spelling. ⭐ ALL SIX NUMBERS ARE DERIVED, by `scripts/claimed_forms.py`, and gated in CI; until P1 batch 19 the first was a hand-maintained literal and it was SIXTEEN LOW.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -2338,13 +2458,37 @@ one, and nineteen batches of agreement said nothing whatever about those lines. 
 Two are now tested by four vectors and three arms, with the pairing checked by \
 DELETING the vectors and re-running the arms; the third cannot be, because \
 `callq *(%rsp)` is refused by x86isa in 80 of the 82 pre-states and agreement where \
-both models refuse is agreement about nothing.  The batch also corrected a DECLARED \
+both models refuse is agreement about nothing.  The batch also MEASURED a DECLARED \
 list — `movnti` is NOT available work, 82/82 refused, confirmed twice over by an \
 identical-shape control that executed 82/82 in the same run and by x86isa's own \
-section doc — and it replaced the `Tests.Coverage` kernel ceiling's UNIT: the \
+section doc — though it recorded that finding in prose and in no gate, so the \
+tool went on printing `movnti` as available until batch 21 — and it replaced the \
+`Tests.Coverage` kernel ceiling's UNIT: the \
 per-ROW ceiling divides by a variable the cost is not linear in, and the \
 per-DECLARATION repair that batch 17 recorded as blocked was blocked only in the \
-design it considered (see D59, D60, D61, D62).\n\n\
+design it considered (see D59, D60, D61, D62); 21 — CMPXCHG8B, the LAST \
+claimable row of the roster, and the batch that closes AVAILABLE WORK to ZERO.  \
+One constructor with no `Size` field and a memory-only destination, whose flag \
+rule is the OPPOSITE of the `cmpxchg` beside it — ZF alone, measured against the \
+oracle over all 82 pre-states with `cmpxchg` as a control in the same run, \
+because two forms of one family with opposite flag rules is where a reader \
+assumes.  Its EQUAL branch was reachable in exactly ONE of the 82 inherited \
+pre-states, and that one by accident: `mkPre` puts `~a` in RDX and `c` at the \
+memory operand, so the comparison succeeds only where `c = a` and `a`'s high half \
+is the complement of its low half.  Four purpose-built states make both branches \
+deliberate — and the FIRST design of them was refused by a gate, \
+`memory_operand_mirrors_rcx`, which named the cheaper build: move the accumulator \
+pair, not the memory, and batch 3's invariant survives untouched.  ⛔ The comment \
+justifying two of the four was FALSE and was caught by counting rather than \
+believing: it claimed no inherited state could tell a half-width comparison from a \
+full one, and 21 of the 82 already could.  The batch also stopped the residue's \
+unavailable list being DECLARED: it is MEASURED now, by executing one form per \
+mnemonic on the oracle with two positive controls, gated in BOTH directions and \
+driven red-first in six seconds — the repair D61 named a batch earlier and wrote \
+into two documents and no gate.  And `Tests.Coverage` lost 42% of its kernel time \
+to a fact nobody had measured: the kernel's reduction cache spans a DECLARATION \
+and not two, so six theorems were re-reducing the same sweeps (see D63, D64, \
+D65).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

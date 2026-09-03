@@ -13,6 +13,15 @@ mkdir -p run
 
 [ -x "$ACL2" ] || { echo "⛔ no ACL2 image at $ACL2 — run scripts/setup_oracle.sh" >&2; exit 2; }
 
+# ⭐ P1 BATCH 21 (D65).  THE UNAVAILABLE LIST IS CHECKED FIRST, because it is
+# the only other gate in this repository that needs the oracle and because a
+# differential run over a stale residue answers a question about the wrong
+# roster.  Six seconds, gated both ways, red-first.
+echo "── checking the oracle-availability declarations ──"
+python3 scripts/oracle_availability.py || {
+  echo "⛔ the unavailable list disagrees with the oracle; the residue is stale." >&2
+  exit 2; }
+
 echo "── building the Lean side ──"
 lake build x86lean-diff >/dev/null
 lake env .lake/build/bin/x86lean-diff emit       run/lean.txt

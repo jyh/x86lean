@@ -2154,6 +2154,18 @@ def vectors : List Vec :=
     , bytes := "ff3424", instr := ⟨.push .q (M .rsp), 3⟩ }
   , { id := "pop_m_rsp",  mnemonic := "pop",  asm := "popq (%rsp)"
     , bytes := "8f0424", instr := ⟨.pop .q (M .rsp), 3⟩ }
+  -- ⭐⭐ P1 BATCH 21: CMPXCHG8B, THE LAST CLAIMABLE ROSTER ROW — one vector,
+  -- because the instruction has exactly one operand shape.
+  --
+  -- ⚠️ ONE VECTOR IS NOT ONE TEST HERE AND IS NOT EIGHTY-SIX EITHER.  Measured
+  -- against the oracle before this form existed, `cmpxchg8b (%rbx)` executes at
+  -- ALL 82 pre-states and reaches its EQUAL branch in exactly ONE of them —
+  -- `mkPre a a 0` at `a = 0x00000000ffffffff`, where `a`'s high half happens to
+  -- equal the low half of `~a`.  So without `cmpxchg8bStates` below, 81 of 82
+  -- cases would exercise one branch and the other would be tested by an
+  -- accident nobody chose.  See D64.
+  , { id := "cmpxchg8b_m", mnemonic := "cmpxchg8b", asm := "cmpxchg8b (%rbx)"
+    , bytes := "0fc70b", instr := ⟨.cmpxchg8b (M .rbx), 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -2465,6 +2477,102 @@ def mkStringPtr (a c : BitVec 64) (fseed : Nat) (si di : BitVec 64) : Cpu :=
   let s := mkPre a c fseed
   { s with regs := { s.regs with rsi := si, rdi := di } }
 
+/-- ⭐⭐ P1 BATCH 21: THE STATES IN WHICH `cmpxchg8b` CAN TAKE EITHER BRANCH,
+and the states that tell a 64-bit comparison from a 32-bit one.
+
+⛔ THE MEASUREMENT THAT MADE THEM NECESSARY, taken on the oracle BEFORE the
+constructor existed: `cmpxchg8b (%rbx)` executes at all 82 pre-states and
+reaches its EQUAL branch in exactly ONE. `mkPre` puts `~a` in RDX and `c` in the
+eight bytes at RBX, so `EDX:EAX` is `(~a)[31:0] : a[31:0]` and the comparison
+succeeds only where `c = a` AND `a`'s high half is the complement of its low
+half — which is `a = 0x00000000ffffffff`, one entry of `adversarial`, and true
+by accident.
+⇒ **A BRANCH REACHED BY ONE ACCIDENTAL STATE IS A BRANCH NOBODY IS MAINTAINING**
+(the `carryBoundary` finding, batch 2, in a control-flow shape): reordering
+`adversarial` or dropping one constant would take the equal branch out of the
+run and every gate would stay green.
+
+⚠️ THE TWO UNEQUAL STATES DISCRIMINATE A HALF-WIDTH COMPARISON, AND THEY ARE
+NOT WHAT MAKES IT CATCHABLE. The comparison is 64 bits wide and is assembled
+from two 32-bit register views, so the defect this form invites is comparing ONE
+half. `delta` is XORed into the accumulator pair: `1` differs in the LOW half
+alone, `1 <<< 32` in the HIGH half alone, so a model comparing only EAX calls
+the second EQUAL, one comparing only EDX calls the first EQUAL, and this model
+calls both UNEQUAL.
+
+⛔ AND THE SENTENCE THAT USED TO STAND HERE — *"no inherited pre-state is such a
+state"* — WAS FALSE, caught by counting the states instead of believing it.
+Measured over the emitted cases: **21 of the 82 inherited pre-states** already
+agree in the low half and differ in the high half, and **11** do the reverse.
+The reason is `mkPre` itself: it sets `[0x2000] = RCX` and RDX to `~RAX`, so on
+the whole diagonal (where `RCX = RAX`) the low halves match by construction.
+Both half-width arms are caught with or without these two states.
+⇒ 🔑 **A STATE ADDED FOR A DEFECT IS NOT EVIDENCE THAT THE DEFECT NEEDED IT** —
+the plausible sentence about a new pre-state is the one saying it was necessary,
+and it costs one count to check.
+
+⭐ THEY ARE KEPT ANYWAY, AND THE REASON IS `carryBoundary`'s (batch 2): the
+inherited coverage is INCIDENTAL — it arises from a diagonal written for the
+adversarial sweep and would vanish if that list were reordered — while these two
+are the only DELIBERATE ones. The same holds, and matters more, for the two
+EQUAL states: the equal branch is reached in ONE of the 82 inherited states and
+that one is an accident, so without them a branch of this instruction is
+exercised by a coincidence nobody is maintaining.
+
+⭐⭐ MEASURED BY DELETION, not asserted — this whole list removed from
+`preStates` and the five arms re-run:
+
+    arm                                with these states   without
+    cmpxchg8b never stores                     3                1
+    cmpxchg8b stores EBX:ECX                   3                1
+    cmpxchg8b compares EAX alone              22               21
+    cmpxchg8b merges EDX:EAX                  71               71
+    cmpxchg8b always stores                   79               77
+
+The two EQUAL-branch arms fall to a SINGLE disagreement, which is the accidental
+state and nothing else. And `22 → 21` is the second route to the count above: the
+half-width arm loses exactly the one state added for it, out of the 21 that were
+already there.
+
+⚠️ THE ADDRESS AND THE WIDTH KEEP THE OBSERVATION. The eight bytes at 0x2000 are
+inside the watched data window (0x1fe0..0x201f), so both models are read on
+every one of these states — an operand written outside the window would make any
+wrong model agree by construction.
+
+⛔ AND A NAMED GAP, because it is not covered and saying so is cheaper than
+discovering it: **EBX is 0x2000 in every pre-state this harness has**, since RBX
+is the fixed data-window pointer, so the low half of the value stored on the
+equal branch is a CONSTANT. Swapping the stored halves is still caught (ECX
+sweeps), and so is storing any other register (they sweep too); what no state
+here can catch is a model that stores the literal 0x2000 in that half by some
+other route. Making EBX sweep means moving RBX, which moves every memory
+vector's address at once — a second instrument change in the same batch, which
+is how two defects cancel. -/
+def mkCmpxchg8b (a c : BitVec 64) (fseed : Nat) (delta : BitVec 64) : Cpu :=
+  let s := mkPre a c fseed
+  -- ⭐ THE ACCUMULATOR PAIR MOVES, NOT THE MEMORY, AND A GATE IS WHY.  The first
+  -- version of this constructor wrote the wanted value into the eight bytes at
+  -- RBX — and `memory_operand_mirrors_rcx` refused it: batch 3 made
+  -- `[0x2000] = RCX` an invariant of EVERY pre-state, and that invariant is the
+  -- only reason a memory operand sweeps like a register one instead of being a
+  -- constant wearing its shape (D14).  Setting EDX:EAX instead reaches exactly
+  -- the same four comparisons and **weakens nothing** — no exemption, no
+  -- widened window, no gate to re-probe.
+  -- ⇒ 🔑 A GATE THAT REFUSES A NEW PRE-STATE IS USUALLY NAMING A CHEAPER WAY TO
+  -- BUILD IT.
+  let want := c ^^^ delta
+  let s := s.setReg .d .rax want
+  s.setReg .d .rdx (want >>> 32)
+
+def cmpxchg8bStates : List Cpu :=
+  [ -- EQUAL, deliberately, at two different value pairs so the branch is not
+    -- reached by one state.
+    mkCmpxchg8b 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  0
+  , mkCmpxchg8b 0xAAAAAAAAAAAAAAAA 0xF0F0F0F0F0F0F0F0 63 0
+    -- UNEQUAL in the LOW half alone, and in the HIGH half alone.
+  , mkCmpxchg8b 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  1
+  , mkCmpxchg8b 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  (1 <<< 32) ]
+
 def stringBoundaryStates : List Cpu :=
   [ -- DF clear: `…FF + 1` carries out of the byte, and out of the word at 0x7fff.
     mkStringPtr 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  0x1fff 0x7fff
@@ -2474,8 +2582,8 @@ def stringBoundaryStates : List Cpu :=
 
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
 its neighbours, the carry boundary, the two DF states, the two `addr32`
-counter states, the two stack frames, the two string-pointer boundaries, then a
-pseudo-random tail. -/
+counter states, the two stack frames, the two string-pointer boundaries, the
+four `cmpxchg8b` branch states, then a pseudo-random tail. -/
 def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let adv := adversarial
   let diag := adv.map (fun a => mkPre a a 0)
@@ -2485,6 +2593,6 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
   diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
-    ++ frameStates ++ stringBoundaryStates ++ rnd
+    ++ frameStates ++ stringBoundaryStates ++ cmpxchg8bStates ++ rnd
 
 end X86.Tests

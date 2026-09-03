@@ -1079,29 +1079,92 @@ def main():
                   f"@{'/'.join(str(x) for x in k[1:])}: {why}")
 
     if args.remaining:
-        # ⚠️ DECLARED, NOT DERIVED, and marked as such because this file exists
-        # to stop a hand-maintained number being mistaken for a measured one.
-        # These nine forms were measured UNAVAILABLE against ACL2 x86isa in P1
-        # batch 18 -- the oracle refuses them -- and nothing here re-measures it.
-        # If the oracle gains them, this list is stale and the count below with
-        # it; the row-by-row listing underneath is derived and stays correct.
-        BMI = {"andn", "bextr", "blsmsk", "blsr", "bzhi", "mulx", "pdep",
-               "pext", "rorx"}
+        # ⭐⭐ P1 BATCH 21 -- THE RESIDUE'S THIRD BUCKET, AND WHY IT USED TO BE
+        # WRONG.  This split was: no-encoding (DERIVED), oracle-unavailable
+        # (a HARD-CODED set of nine mnemonics, DECLARED at batch 18), and
+        # AVAILABLE WORK -- everything else, BY DEFAULT.
+        #
+        # ⇒ 🔑 A DECLARED LIST INHERITS THE DIRECTION OF ITS DEFAULT, and this
+        # one's default is *available*, so every gap in it INVENTS work.  D61
+        # measured `movnti` UNAVAILABLE at batch 20 and wrote the finding into
+        # docs/DECISIONS.md and docs/COVERAGE.md and INTO NEITHER GATE -- so for
+        # a whole batch the prose said the list had been corrected while this
+        # function went on printing `movnti` under AVAILABLE WORK.
+        # ⇒ 🔑 A CITATION IS AN UNGATED CLAIM.
+        #
+        # Both hand-maintained sets are now IMPORTED from the artifacts that own
+        # them, and both are gated:
+        #   * `scripts/oracle_availability.py` MEASURES the unavailable set by
+        #     executing one form per mnemonic on the oracle over the real
+        #     pre-states, with two positive controls, checked in BOTH directions
+        #     and driven red first;
+        #   * DECLINED names a recorded DECISION per row (a decision cannot be
+        #     measured), and `check_citations.py` already requires the named
+        #     decision to exist.
+        # A row in neither, and still unclaimed, is AVAILABLE WORK -- and that
+        # bucket is now empty, which is the statement worth gating.
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import importlib.util as _ilu
+        _sp = _ilu.spec_from_loader("_oa", loader=None)
+        _oa = {}
+        _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "oracle_availability.py")).read()
+        _m = re.search(r"^FORMS = \[(.*?)^\]", _src, re.S | re.M)
+        if not _m:
+            print("⛔ could not read FORMS from scripts/oracle_availability.py. "
+                  "An unavailable-set this file GUESSED at is the defect D61 is "
+                  "about.")
+            sys.exit(2)
+        UNAVAILABLE = {mn for mn, exp in
+                       re.findall(r'\(\s*"([^"]+)"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(\w+)"\s*\)',
+                                  _m.group(1))
+                       if exp == "refuses" and not mn.startswith("CONTROL")}
+        # ⚠️ DECLINED IS A DECISION, NOT A MEASUREMENT, so it is declared here --
+        # with the decision that made it, so a reader can check the reason and
+        # `check_citations.py` can check the reference exists.
+        DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
+                    ("btr", "m,r"): "D23", ("btc", "m,r"): "D23",
+                    ("xchg", "m,r"): "D25", ("xchg", "r,m"): "D25"}
         unc = [i for i in range(len(rows)) if i not in set(claimed)]
         nof = [i for i in unc if i in noform]
-        bmi = [i for i in unc if rows[i]["base"] in BMI and i not in nof]
-        work = [i for i in unc if i not in set(nof) | set(bmi)]
+        bmi = [i for i in unc if rows[i]["base"] in UNAVAILABLE and i not in nof]
+        dec = [i for i in unc if (rows[i]["base"], rows[i]["shape"]) in DECLINED
+               and i not in set(nof) | set(bmi)]
+        work = [i for i in unc if i not in set(nof) | set(bmi) | set(dec)]
         print(f"\nREMAINING {len(unc)} of {len(rows)} rows")
         print(f"  NO ENCODING EXISTS (derived here)          {len(nof):3d}")
         for i in nof:
             print(f"      {rows[i]['base']} {rows[i]['shape']}")
-        print(f"  oracle UNAVAILABLE (DECLARED, batch 18)    {len(bmi):3d}"
+        print(f"  oracle UNAVAILABLE (MEASURED, batch 21)    {len(bmi):3d}"
               f"   {' '.join(sorted({rows[i]['base'] for i in bmi}))}")
+        print(f"      re-measure: scripts/oracle_availability.py "
+              f"(gated both ways, red-first, ~6 s)")
+        print(f"  DECLINED by a recorded decision            {len(dec):3d}")
+        for i in dec:
+            print(f"      {rows[i]['base']:11s} {rows[i]['shape']:12s} "
+                  f"{DECLINED[(rows[i]['base'], rows[i]['shape'])]}")
         print(f"  AVAILABLE WORK                             {len(work):3d}")
         for b in sorted({rows[i]["base"] for i in work}):
             shapes = [f"{rows[i]['shape']}({rows[i]['widths']})"
                       for i in work if rows[i]["base"] == b]
             print(f"      {b:11s} {len(shapes):2d}  " + " · ".join(shapes))
+        # ⭐ AND THE PARTITION IS CHECKED, because four buckets that do not sum
+        # to the residue is the arithmetic the batch-20 handover got wrong in
+        # three of its four terms and in its total.
+        if len(nof) + len(bmi) + len(dec) + len(work) != len(unc):
+            print("⛔ the residue's buckets do not partition it.")
+            sys.exit(2)
+        # ⚠️ A DECLINED ENTRY THAT NO LONGER NAMES A ROW is the mirror finding --
+        # the roster changed under a hand-written list -- and it is reported
+        # because a stale exemption is exactly how a claim goes unpoliced.
+        live = {(rows[i]["base"], rows[i]["shape"]) for i in range(len(rows))}
+        for k in sorted(DECLINED):
+            if k not in live:
+                findings.append(f"DECLINED names {k[0]} {k[1]}, which is no "
+                                f"longer a roster row")
+            elif k not in {(rows[i]["base"], rows[i]["shape"]) for i in unc}:
+                findings.append(f"DECLINED names {k[0]} {k[1]}, which is now "
+                                f"CLAIMED — the decline is stale ({DECLINED[k]})")
 
     if args.aliases:
         seen = set()

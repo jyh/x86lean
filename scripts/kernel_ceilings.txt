@@ -95,7 +95,30 @@ X86.Value 61
 X86 50
 X86Native 106
 Tests.Anchors 801
-Tests.Coverage @perRow 744.0
+# ⭐⭐ P1 BATCH 21 — LOWERED 744 -> 493, and lowering is the direction nobody
+# polices.  D63 took Tests.Coverage from 37 900 to 22 400 ms by paying each
+# group's sweeps once instead of once per theorem, so the ceiling batch 20 set
+# at `measured x 1.6` (465.1 -> 744) now stands at 2.4x headroom.  A tripwire
+# with 2.4x headroom will not notice a doubling.  Re-registered at the same
+# convention batch 14 registered this line with, on the WORST of four readings.
+#
+# ⚠️ AND THE CONDITIONS, because a figure without them cannot be compared:
+# 24 900 / 25 900 / 25 800 / 24 900 ms at one-minute loads of 7.85 / 11.45 /
+# 10.58 / 10.76 — a NEIGHBOURING PROCESS was running two `lean` jobs at 100%
+# throughout.  The quiet reading taken earlier in this same batch, before
+# `cmpxchg8b` added its row, was 22 400 ms at load 3.4.  So this ceiling is set
+# from a CONTENDED measurement and is therefore on the LOOSE side of where a
+# quiet one would put it: 25 900 / 84 = 308.3 ms/row, x1.6 = 493.3.  That
+# direction is the safe one for a tripwire (it cannot fire spuriously) and it is
+# stated rather than left for the next head to infer.  A quiet re-measurement
+# can tighten it further.
+#
+# ⚠️ AND THE STANDING OBJECTION IS UNCHANGED: this allowance is derived from a
+# measurement of the very thing it checks, so it drifts with its subject and has
+# to be re-registered whenever the module moves.  That is a chore, not a gate.
+# D62 designed the replacement and its own second source refused it; D63 says
+# what a replacement now has to handle.
+Tests.Coverage @perRow 493.3
 Tests.Nonvacuity 245
 Tests.Vectors 50
 Tests 50
