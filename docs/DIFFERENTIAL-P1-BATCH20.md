@@ -46,10 +46,17 @@ shape work rather than semantics — and it is why not one line of `X86/Semantic
 
 ## ⛔ THE FIRST RUN WAS GREEN, AND THAT IS THE PART THAT NEEDED WORK
 
-`unexplained=0` on the first run, with all **5822 new cases MATCHED** (38603 → 44425, exactly
-71 × 82 — none refused, none explained away). The design predicted it: `Op` is keyed by
-mnemonic with a shared operand pair, so these shapes have been expressible since P0 and run
-through code the differential has validated for nineteen batches.
+`unexplained=0` on the first run of the 71 shape vectors, with all **5822 new cases MATCHED**
+(38603 → 44425, exactly 71 × 82 — none refused, none explained away). The design predicted it:
+`Op` is keyed by mnemonic with a shared operand pair, so these shapes have been expressible
+since P0 and run through code the differential has validated for nineteen batches.
+
+⭐ **Two receipts say the model really is untouched, rather than a comment saying so.**
+`git diff ee7a250..HEAD -- X86/ X86Native/` is **EMPTY** — not one line of the model, the
+native tier or the theorems changed. And the two differential runs agree exactly: the
+71-vector run matched 44 425, the final 775-vector run matches **44 753**, and
+`44 425 + 4 × 82 = 44 753` to the case. The four order vectors added their 328 cases and
+disturbed nothing else.
 
 ⚠️ **A prediction that comes true is not a test of itself.** Looking for what the green did NOT
 contain found **three claims in `step` that nothing in this repository could distinguish**:

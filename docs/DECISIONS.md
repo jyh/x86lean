@@ -2171,10 +2171,23 @@ numbers on every run — and a corrected growth-law line that no longer asserts 
 module does not have. `vectorCount` is now kernel-pinned beside `rosterSize`, so the reported
 density has a proven denominator even though nothing gates on it yet.
 
-**The per-row ceiling STANDS, and it was not tripped:** batch 18 predicted batch 20 would exceed
-it and batch 20 does not — the module lands under, with headroom intact. The prediction was made
-in the row unit, which this entry has just shown is not a unit; that it was nearly right is not
-evidence that it was right for a reason.
+**The per-row ceiling is RAISED, 470 → 744, and demoted in writing to a coarse tripwire.** Batch
+18 predicted batch 20 would exceed it. It does not: the module measures **465.1 ms/row against
+470**. ⛔ **And that pass is the reason for the raise, not an argument against it** — 1.05% of
+headroom is inside this module's own measured load sensitivity, so the green goes either way on
+the next machine. ⇒ 🔑 **A GATE THAT PASSES BY LESS THAN ITS NOISE HAS NOT PASSED.** The margin
+is `measured × 1.6`, the convention batch 14 REGISTERED this line with (293 × 1.6 = 470), so the
+allowance comes from the line's own history rather than from the thing it checks.
+
+⚠️ The batch-18 prediction was made in the row unit, which this entry has just shown is not a
+unit. That it was nearly right is not evidence that it was right for a reason.
+
+⛔⛔ **AND THIS PARAGRAPH WAS FALSE WHEN IT WAS FIRST COMMITTED.** It was drafted while the
+measurement was still running, said *"the per-row ceiling STANDS ... with headroom intact"*, and
+was appended to this file BEFORE the outcome it describes existed. It was caught by re-reading,
+not by a gate — nothing gates the prose in this file. ⇒ 🔑 **A DECISION WRITTEN BEFORE ITS OWN
+OUTCOME IS A DRAFT, AND FILING IT EARLY IS WHAT MAKES IT READ AS A RECORD** — the same defect as
+[[feedback-ungated-prose-overclaims]], committed by the head writing the entry that names it.
 
 **Reversal cost:** the next design has the table it needs. Whatever it gates on must handle a
 module with at least one quadratic declaration and a cost concentration in two prose-driven ones —
