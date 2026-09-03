@@ -1210,16 +1210,30 @@ def driveWrong (name : String) (wrong : Instr → Cpu → Cpu) (expectField : St
   -- `refusal` — is the comparator doing its job.
   let hits := r.details.filter
     (fun d => d.field == expectField && d.cls != "undefined-region" && d.cls != "harness")
+  -- ⭐ FLUSHED AFTER EVERY ARM, and the reason is a three-hour silence.
+  --
+  -- This binary's stdout is BLOCK-BUFFERED when it is not a tty, so the full
+  -- 73-arm selftest — 3 h 44 m at the P1 seal — wrote NOTHING until it exited.
+  -- A watcher could see the process was alive (CPU advancing) but not where it
+  -- was, so a stuck run and a slow one looked identical from outside, which is
+  -- the defect bench reported on the fleet bus at 13:41 (*"a watch built on
+  -- END-OF-UNIT events cannot tell a long unit from a dead one"*) arriving in
+  -- this repository's own longest-running gate.
+  -- ⇒ 🔑 LIVENESS IS NOT PROGRESS.  One flush per arm turns a three-hour
+  -- silence into 73 events, and costs one syscall against ~161 seconds of work.
+  let say (msg : String) : IO Unit := do
+    IO.println msg
+    (← IO.getStdout).flush
   if r.unexplained == 0 then
-    IO.println s!"  ⛔ {name}: comparator reported ZERO unexplained disagreements against a \
+    say s!"  ⛔ {name}: comparator reported ZERO unexplained disagreements against a \
 KNOWN-WRONG model. The comparator does not work."
     return false
   else if hits.isEmpty then
-    IO.println s!"  ⛔ {name}: {r.unexplained} unexplained disagreements, but NONE in the \
+    say s!"  ⛔ {name}: {r.unexplained} unexplained disagreements, but NONE in the \
 field the bug is in ({expectField}). The comparator fires on the wrong thing."
     return false
   else
-    IO.println s!"  ✔ {name}: caught — {hits.length} disagreement(s) in `{expectField}` \
+    say s!"  ✔ {name}: caught — {hits.length} disagreement(s) in `{expectField}` \
 (total unexplained {r.unexplained}, explained {r.explained})"
     return true
 
