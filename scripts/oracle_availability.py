@@ -67,6 +67,33 @@ FORMS = [
     # ⭐ AND A SECOND CONTROL AT THIS BATCH'S OWN FORM, so a run that has stopped
     # seeing memory-operand instructions cannot pass.
     ("CONTROL:cmpxchg8b", "cmpxchg8b (%rbx)", "0fc70b",           "executes"),
+    # ⭐⭐ THE SIX DECLINED ROWS, RECORDED AS **EXECUTES** — and that is the point.
+    #
+    # `claimed_forms.py --remaining` puts these in a bucket called "DECLINED by a
+    # recorded decision", which is only honest if the decline is a DECISION and
+    # not an oracle limitation wearing a decision's name.  Measured: all six
+    # execute at every pre-state, so **oracle support is not what is stopping
+    # them**, and a later reader cannot quietly re-derive "declined" as
+    # "unsupported".
+    #
+    # D23 — the bit-string `m,r` shape of the bit-test group: `step`'s `.bit`
+    # case takes the offset MODULO the operand width, which is right for a
+    # register destination and wrong here, where the offset is signed and the
+    # effective address moves with it.  ⚠️ Closing D23 is real work in the
+    # PRE-STATES, not in `step`: with RBX at 0x2000 and ECX sweeping the
+    # adversarial list, the effective address leaves the watched window, and an
+    # unobserved region reports agreement.
+    #
+    # D25 — `xchg` at a memory operand asserts LOCK whether or not it is
+    # written.  ⛔ That decline is about VOCABULARY and this row does not touch
+    # it: a single-threaded model can reproduce every observation this harness
+    # makes and still be wrong about the only thing that distinguishes the
+    # instruction.  **Oracle support is not an argument to un-decline it.**
+    ("DECLINED:bt m,r",   "btl %ecx,(%rbx)",   "0fa30b",          "executes"),
+    ("DECLINED:bts m,r",  "btsl %ecx,(%rbx)",  "0fab0b",          "executes"),
+    ("DECLINED:btr m,r",  "btrl %ecx,(%rbx)",  "0fb30b",          "executes"),
+    ("DECLINED:btc m,r",  "btcl %ecx,(%rbx)",  "0fbb0b",          "executes"),
+    ("DECLINED:xchg m,r", "xchgl %ecx,(%rbx)", "870b",            "executes"),
 ]
 
 CASES = "run/cases.lsp"
@@ -113,12 +140,21 @@ def rewrite(case, i, tag, hexbytes):
         sys.exit(2)
     return "".join(c)
 
+def tag_of(mn):
+    """⚠️ THE CASE ID CANNOT CARRY A SPACE.  The record format is
+    `CASE id=<tag>/<n> len=<n>`, read by splitting on whitespace, so a mnemonic
+    like `DECLINED:bt m,r` would emit an id the reader truncates and every one of
+    its records would go missing.  It did, on the first run — and the gate
+    REFUSED rather than reading the silence as a refusal, which is the whole
+    reason that branch says "a missing reading is not a refusal"."""
+    return re.sub(r"[^A-Za-z0-9]", "_", mn)
+
 def measure(forms):
     """{mnemonic: (executed, refused)} — by EXECUTING, never by reading a catalogue."""
     sel = pre_states()
     body = []
     for mn, _asm, hexbytes, _exp in forms:
-        tag = mn.replace(":", "_")
+        tag = tag_of(mn)
         for i, c in enumerate(sel):
             body.append(rewrite(c, i, tag, hexbytes))
     tmp = tempfile.mkdtemp(prefix="x86lean-avail-")
@@ -150,7 +186,7 @@ def measure(forms):
 def report(forms, res, n, quiet=False):
     bad = []
     for mn, asm, _b, exp in forms:
-        tag = mn.replace(":", "_")
+        tag = tag_of(mn)
         e, r = res.get(tag, (0, 0))
         if e + r != n:
             bad.append((mn, "produced %d records, expected %d — a missing reading "

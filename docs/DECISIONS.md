@@ -2374,5 +2374,28 @@ names an unclaimed row is reported as stale. ⚠️ The batch-20 handover gave t
 `27 = 2 + 19 + 6 + 1`, which sums to 28, describes a state where `movnti` had already been
 declared (it had not), and disagreed with its own row count. Three of its four terms were wrong.
 
+### 4. And the six DECLINED rows are recorded as EXECUTES, on purpose
+A bucket called "declined by a recorded decision" is only honest if the decline is a DECISION and
+not an oracle limitation wearing a decision's name. Measured in the same run: `btl/btsl/btrl/btcl
+%ecx,(%rbx)` and `xchgl %ecx,(%rbx)` all execute **86/86**. So oracle support is not what stops
+them, and a later reader cannot quietly re-derive "declined" as "unsupported".
+
+⛔ **AND THAT IS NOT AN ARGUMENT TO UN-DECLINE EITHER OF THEM.** D23's decline is about modelling
+honesty — `step`'s `.bit` case takes the offset modulo the operand width, which is wrong where the
+offset is signed and the effective address moves with it — and closing it is work in the
+PRE-STATES, not in `step`: with RBX at 0x2000 and ECX sweeping the adversarial list the effective
+address leaves the watched window, and an unobserved region reports agreement. D25's is about
+VOCABULARY: `xchg` at memory asserts LOCK, and a single-threaded model can reproduce every
+observation this harness makes while being wrong about the only thing that distinguishes the
+instruction.
+⇒ 🔑 **MEASURING THAT A CONSTRAINT IS NOT BINDING DOES NOT REMOVE THE OTHER CONSTRAINTS** — and the
+measurement makes both rows look equally available when only one is honest work.
+
+⚠️ The first run of these five rows produced **zero records for all of them**, because the
+mnemonic key carries a space and the record id is read by splitting on whitespace. The gate
+reported *"produced 0 records, expected 86 — a missing reading is not a refusal"* rather than
+counting the silence. That branch was written on the general principle; this is the first time it
+fired, and it fired on its author.
+
 **Reversal cost:** none — deleting the script restores a hand-maintained set, which is what this
 replaces.
