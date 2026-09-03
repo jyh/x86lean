@@ -116,9 +116,27 @@ two instrument changes in one batch is how two defects come to cancel.
 ## What is NOT claimed
 - `movnti` — measured unavailable, above.
 - `bt`/`bts`/`btr`/`btc` at `m,r` — **D23 stands, now priced rather than argued.** At `.q`
-  x86isa refuses in 26 of 82 states (the bit-string address goes non-canonical); at `.w`/`.l` it
-  executes by addressing memory hundreds of megabytes outside every watched window, where this
-  harness observes nothing and would therefore **report agreement it never made**.
+  x86isa refuses in 26 of 82 states, the bit-string address having gone non-canonical.
+
+  ⛔ **AND THE FIRST VERSION OF THIS PARAGRAPH WAS WRONG, in the direction that flattered the
+  decline.** It said the surviving states address memory "hundreds of megabytes outside every
+  watched window" — inferred from the offset being a full-width signed register, and stated as
+  though measured. Computing `RBX + esz × (offset div (esz×8))` over the harness's own 82 RCX
+  values says otherwise:
+
+  | width | lands INSIDE the watched window | more than 1 MB away | max displacement |
+  |---|---|---|---|
+  | `.w` | **58 of 82** | 0 | **4 KB** |
+  | `.l` | 49 of 82 | 24 | 256 MB |
+  | `.q` | 35 of 82 | 38 | 2^60 |
+
+  So a MAJORITY of states are observable at every width, and at `.w` nothing leaves the
+  neighbourhood at all. **D23 still stands** — the minority that leaves the window is exactly
+  where the harness would **report agreement it never made**
+  ([[feedback-unobserved-regions-report-agreement]]), and a form whose evidence is 58/82 silent
+  on the interesting cases is not a form this model should claim. ⭐ But the honest reading is
+  that the shape is CHEAPER than argued, not more expensive, and batch 21 should price `.w`
+  specifically rather than inherit "not modelled" for all three widths.
 - `xchg m,r` / `r,m` — **D25 stands.** The oracle executes both (0 refusals), so the decline is
   OURS: implicit LOCK is an atomicity claim a single-threaded model cannot make or break.
   ⚠️ The neighbouring `cmpxchg m,r` IS claimed, and the distinction is principled rather than
