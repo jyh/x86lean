@@ -927,6 +927,72 @@ def wrongLeaveWrongOrder (i : Instr) (s : Cpu) : Cpu :=
         (s.rip + BitVec.ofNat 64 i.len)
   | _ => step i s
 
+/-! ### P1 BATCH 13 — the flagless shifts and the byte-swapping move
+
+Three arms.  The first is the DEFINING property of `sarx`/`shlx`/`shrx` — they
+compute a shift and write no flag — and it is the arm that would be missing if
+the batch had been priced as "the shifts again with a different encoding".
+
+⚠️ THE OTHER TWO ARE BOTH ABOUT WIDTH, because that is where `movbe` can be
+wrong while looking right: a model that byte-reverses 64 bits and truncates is
+CORRECT at `.q`, and a store that writes the wrong number of bytes is invisible
+unless the margin around it is watched. -/
+
+/-- `shlx`/`shrx`/`sarx` writing the flags an ordinary shift writes — the exact
+bug a model gets by routing the new mnemonics through the old `.shift` case.
+"Flags Affected: None" (SDM Vol. 2A, SARX/SHLX/SHRX). -/
+def wrongShiftxWritesFlags (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .shiftx k sz dst src cnt =>
+      match sz with
+      | .d | .q =>
+          let n := Flags.shiftCount sz ((s.getReg .b cnt).setWidth 8)
+          let a := s.readOperand sz (s.rip + BitVec.ofNat 64 i.len) src
+          let res : Val :=
+            match k with
+            | .shl => Value.trunc sz (a <<< n)
+            | .shr => (Value.trunc sz a) >>> n
+            | .sar => Value.sar sz a n
+          if n = 0 then (s.setReg sz dst res).setRip (s.rip + BitVec.ofNat 64 i.len)
+          else
+            let (cfU, s) := s.undefBit
+            let (ofU, s) := s.undefBit
+            let (afU, s) := s.undefBit
+            let s := s.setFlags (Flags.shiftFlags k sz a res n cfU ofU afU s.flags)
+            (s.setReg sz dst res).setRip (s.rip + BitVec.ofNat 64 i.len)
+      | _ => step i s
+  | _ => step i s
+
+/-- ⭐ `movbe` REVERSING AT 64 BITS AND TRUNCATING AFTERWARDS — the model that is
+RIGHT AT `.q` and wrong at `.w` and `.d`.  It is the most likely wrong `movbe`
+because `Value.bswap` reads as a whole-register operation and the width looks
+like a detail of the write rather than of the reversal. -/
+def wrongMovbeFullWidth (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .movbe sz dst src =>
+      if !(dst.isMem != src.isMem) || dst.isImm || src.isImm then step i s
+      else match sz with
+      | .w | .d | .q =>
+          let nr := s.rip + BitVec.ofNat 64 i.len
+          let a := s.readOperand sz nr src
+          (s.writeOperand sz nr dst (Value.byteRev 8 a)).setRip nr
+      | .b => step i s
+  | _ => step i s
+
+/-- `movbe` moving the bytes without reversing them — a byte-swapping move that
+forgot the swap, i.e. an ordinary `mov`.  Invisible on a palindrome and loud
+everywhere else, which is what the sweeping data window provides. -/
+def wrongMovbeNoReversal (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .movbe sz dst src =>
+      if !(dst.isMem != src.isMem) || dst.isImm || src.isImm then step i s
+      else match sz with
+      | .w | .d | .q =>
+          let nr := s.rip + BitVec.ofNat 64 i.len
+          (s.writeOperand sz nr dst (s.readOperand sz nr src)).setRip nr
+      | .b => step i s
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -1027,7 +1093,14 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("every nop advances RIP by one byte", wrongNopFixedLength, "rip")
   , ("ud2 executes instead of faulting", wrongUd2Executes, "refused")
   , ("retq jumps without popping (the state nothing could reach)", wrongRetNoPop, "rsp")
-  , ("leaveq pops before it moves RSP", wrongLeaveWrongOrder, "rbp") ]
+  , ("leaveq pops before it moves RSP", wrongLeaveWrongOrder, "rbp")
+  -- P1 BATCH 13.  ⚠️ `wrongMovbeNoReversal`'s field is the DATA WINDOW and not
+  -- `rax`, deliberately: the store direction is the half a register field
+  -- cannot see, and the load direction is caught by the other two arms.
+  , ("shlx/shrx/sarx write the flags a shift writes", wrongShiftxWritesFlags, "cf")
+  , ("movbe reverses 64 bits at every width", wrongMovbeFullWidth, "rax")
+  , ("movbe moves without reversing", wrongMovbeNoReversal,
+     "mem@0000000000001ff0") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1130,6 +1203,10 @@ cases identical, 0 oracle leaks)"
   --
   --   awk -F'\t' 'NR>2 && $4 ~ /^(nop|ud2|retq|leaveq)$/' p1/roster.tsv | wc -l
   --
+  -- P1 BATCH 13 ran it and got 8 — `sarx`, `shlx`, `shrx` and `movbe` at two
+  -- shapes each — taking 388 to 396.  The shapes the roster names for them are
+  -- `r,r,r`/`r,m,r` and `r,m`/`m,r`, and there is a vector for every one.
+  --
   -- Making this derivable needs a claimed-forms table keyed to the roster's
   -- (base, shape) pairs — real work, and a better batch than a tack-on. Until
   -- then: COUNT THE ROWS with the command above and do not reason from widths.
@@ -1137,7 +1214,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **388 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **396 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \

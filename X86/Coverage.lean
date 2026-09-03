@@ -330,6 +330,29 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A RET" }
   , { mnemonic := "leaveq", shapes := "no operands — rsp := rbp; pop rbp",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A LEAVE" }
+  -- P1 BATCH 13: the flagless shifts and the byte-swapping move.  All four are
+  -- `T-exact` with an EMPTY undefined column, and for these three that column is
+  -- the whole instruction: `shl`/`shr`/`sar` draw three oracle bits at every
+  -- non-zero count, and their `x`-suffixed cousins compute the same result and
+  -- draw none, because "Flags Affected: None".
+  --
+  -- ⚠️ THE SHAPES ARE WRITTEN DESTINATION-FIRST like every other row, so `r,r,r`
+  -- is `dst, src, count` and `r,m,r` has the memory operand as the SOURCE.
+  -- Neither is a memory-destination claim and `claimsMemDest` must not read one:
+  -- these forms cannot write memory at all.
+  , { mnemonic := "sarx", shapes := "r,r,r · r,m,r — l/q only", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A SARX/SHLX/SHRX" }
+  , { mnemonic := "shlx", shapes := "r,r,r · r,m,r — l/q only", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A SARX/SHLX/SHRX" }
+  , { mnemonic := "shrx", shapes := "r,r,r · r,m,r — l/q only", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A SARX/SHLX/SHRX" }
+  -- ⭐ `movbe` IS THE BATCH'S MEMORY-DESTINATION CLAIM, spelled `m(w)` — a WRITE
+  -- that never reads its destination, the same kind of write `setcc` makes, and
+  -- the notation's rule (`m`, an optional width, a parenthesised kind) is what
+  -- `claimsMemDest` reads.  `isMemDestVector` gains its `.movbe` case in the
+  -- same commit; D32 is what that pairing costs when it is not done.
+  , { mnemonic := "movbe", shapes := "r,m · m(w),r — w/l/q", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A MOVBE" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

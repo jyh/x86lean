@@ -368,6 +368,40 @@ inductive Op where
   /-- P1 BATCH 12: LEAVE (`C9`) — exactly `mov rsp, rbp` then `pop rbp`
   (SDM Vol. 2A, LEAVE). -/
   | leave
+  /-- P1 BATCH 13: SARX / SHLX / SHRX (SDM Vol. 2A, "SARX/SHLX/SHRX — Shift
+  Without Affecting Flags").  The SHIFT KIND is reused from `ShiftKind` because
+  the value computed is the same function of the same three inputs; what is
+  different is everything AROUND it.
+
+  ⭐ THREE OPERANDS, AND NONE OF THEM IS THE OTHERS' — this is the first form in
+  this AST that reads a source and writes a DIFFERENT destination while taking
+  its count from a THIRD place.  `.shift` is a read-modify-write on one operand
+  with the count in CL or an immediate; here `dst` is written, `src` is read,
+  and `cnt` is any GPR.  A model that reused `.shift`'s shape would have had to
+  pretend the destination and the source were the same register.
+
+  ⛔ AND THE FLAGS ARE THE WHOLE POINT: "Flags Affected: None."  `.shift` at a
+  non-zero masked count writes six flags and draws three oracle bits; this form
+  writes none and draws none, at every count.  That is why it is a separate
+  constructor and not a `Bool` on `.shift`: the two share a result and share
+  nothing else.
+
+  ⛔ Widths `.b` and `.w` HAVE NO ENCODING — VEX.W selects 32 or 64 bits and
+  there is no 8- or 16-bit form — so `step` declines them rather than answering
+  for bytes the machine cannot be asked about. -/
+  | shiftx (k : ShiftKind) (sz : Size) (dst : GPR) (src : Operand) (cnt : GPR)
+  /-- P1 BATCH 13: MOVBE (SDM Vol. 2A, MOVBE) — "Move Data After Swapping
+  Bytes".  A load or a store that byte-reverses on the way through.
+
+  ⛔ EXACTLY ONE OPERAND IS MEMORY, and that is an encoding fact rather than a
+  convention: both encodings (`0F 38 F0 /r` and `0F 38 F1 /r`) take a ModR/M
+  with a memory r/m, and `movbe r, r` does not exist.  `step` declines the
+  register-to-register and immediate shapes instead of silently giving them the
+  meaning of a byte-reversing `mov`.
+
+  ⛔ Width `.b` has no encoding either — the byte form would be a no-op and
+  Intel does not define one.  Widths w/l/q are the roster's `lqw`. -/
+  | movbe (sz : Size) (dst src : Operand)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
@@ -418,6 +452,13 @@ def Op.mnemonic : Op → String
   | .ud2 => "ud2"
   | .ret => "retq"
   | .leave => "leaveq"
+  -- P1 BATCH 13.  The `x` suffix is the mnemonic, not a width: `shlx` is one
+  -- instruction at two operand sizes, spelled `shlxl`/`shlxq` by AT&T exactly as
+  -- `shl` is spelled `shll`/`shlq`.  The roster folds those widths, so these are
+  -- the roster's own base names.
+  | .shiftx k .. => match k with
+    | .shl => "shlx" | .shr => "shrx" | .sar => "sarx"
+  | .movbe .. => "movbe"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -447,7 +488,11 @@ def rosterP0 : List String :=
    -- P1 BATCH 12: the near-free four of roster family 7.  `nop` covers all
    -- three of its roster shapes (bare `0x90` and the multi-byte `0F 1F /0` at a
    -- register and a memory operand) because they are one instruction.
-   "nop", "ud2", "retq", "leaveq"]
+   "nop", "ud2", "retq", "leaveq",
+   -- P1 BATCH 13: the flagless shifts and the byte-swapping move.  `sarx`,
+   -- `shlx` and `shrx` are three names for ONE constructor (`.shiftx`, keyed by
+   -- `ShiftKind`), as `shl`/`shr`/`sar` are for `.shift`; `movbe` is its own.
+   "sarx", "shlx", "shrx", "movbe"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

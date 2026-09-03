@@ -499,6 +499,66 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let (v, s) := s.popValue .q
       (s.setReg .q .rbp v).setRip nr
 
+  -- ══ P1 BATCH 13 ═══════════════════════════════════════════════════════
+  -- The flagless shifts and the byte-swapping move.  Both are forms whose
+  -- RESULT this model already knew how to compute — `Flags.shiftCount` and the
+  -- three shift expressions came from batches 7/8, `Value.byteRev` from batch
+  -- 10 — and whose content is entirely in what they do NOT do.
+
+  -- SARX / SHLX / SHRX (SDM Vol. 2A).  "Flags Affected: None."
+  --
+  -- ⭐ THE SAME COUNT MASK AS `.shift`, AND IT IS THE SAME SENTENCE OF THE SDM:
+  -- "the count is masked to 5 bits (or 6 bits with a 64-bit operand)".  So
+  -- `Flags.shiftCount` is called here rather than re-derived — a second copy of
+  -- the mask would be a second place for the 5/6 split to be wrong, and the
+  -- split is the part of a shift that is easy to get wrong.
+  --
+  -- ⚠️ THE COUNT IS READ AT WIDTH `.b` AND NOT AT `sz`, and that is not a
+  -- shortcut: the mask keeps at most six bits, and the low six bits of a
+  -- register are the low six bits of its low byte whatever the operand size.
+  -- Reading the count at `sz` would be equally correct and would say something
+  -- false about where the count comes from — the count register's width is not
+  -- the operand's width.
+  --
+  -- ⛔ AND THERE IS NO `n = 0` BRANCH, unlike `.shift`.  `.shift` needs one
+  -- because "if the count is 0, the flags are not affected"; this form affects
+  -- no flags at any count, so a zero count is an ordinary case that copies the
+  -- source to the destination — and the destination write still ZERO-EXTENDS at
+  -- `.d`, so `shlxl` with a count of zero is observably not a no-op.
+  | .shiftx k sz dst src cnt =>
+      match sz with
+      | .d | .q =>
+          let n := Flags.shiftCount sz ((s.getReg .b cnt).setWidth 8)
+          let a := s.readOperand sz nr src
+          let res : Val :=
+            match k with
+            | .shl => Value.trunc sz (a <<< n)
+            | .shr => (Value.trunc sz a) >>> n
+            | .sar => Value.sar sz a n
+          (s.setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands
+          "sarx/shlx/shrx at an 8- or 16-bit operand size (VEX.W selects 32 or 64 only)")
+
+  -- MOVBE (SDM Vol. 2A).  "Flags Affected: None."
+  --
+  -- ⚠️ THE REVERSAL IS AT THE OPERAND WIDTH, NOT AT 64 BITS.  `movbew` reverses
+  -- TWO bytes, `movbel` four, `movbeq` eight — and the destination write then
+  -- applies the ordinary width rule on top, so `movbel` zero-extends and
+  -- `movbew` merges (SDM Vol. 1 §3.4.1.1).  A model that reversed eight bytes
+  -- and truncated would be wrong at both narrow widths and right at `.q`.
+  --
+  -- ⛔ EXACTLY ONE MEMORY OPERAND.  Both encodings put the memory operand in
+  -- ModR/M's r/m field, so `movbe r, r` has no encoding; declining is the same
+  -- refusal `wellFormed2` makes for two memory operands, one direction further.
+  | .movbe sz dst src =>
+      if !(dst.isMem != src.isMem) || dst.isImm || src.isImm then
+        s.halt (.illegalOperands "movbe requires exactly one memory operand")
+      else match sz with
+      | .w | .d | .q =>
+          let a := s.readOperand sz nr src
+          (s.writeOperand sz nr dst (Value.bswap sz a)).setRip nr
+      | .b => s.halt (.illegalOperands "movbe at an 8-bit operand size (no encoding)")
+
   | .call t =>
       match t with
       | .rel d =>

@@ -1399,6 +1399,21 @@ def vectors : List Vec :=
   -- cannot be differentially validated, so it is not a cheap form — it is a
   -- form that needs a different oracle.
   --
+  -- ⛔⛔ AND THAT PARAGRAPH IS FALSE.  P1 BATCH 13 RAN THE OPCODES INSTEAD OF
+  -- READING THE PROSE: `lodsb/w/l/q` and `scasb/w/l/q` all EXECUTE in ACL2
+  -- x86isa — `lodsq` loads eight bytes and advances RSI by 8, `scasq` compares
+  -- and advances RDI — while `blsr`, `blsmsk`, `bzhi`, `pdep`, `pext`, `andn`,
+  -- `bextr`, `mulx` and `rorx` refuse in the same run, so the probe was
+  -- calibrated in BOTH directions.  The same `:doc` is wrong the other way
+  -- about `lzcnt` (listed unimplemented, executes) and silent about `blsi`
+  -- (listed in neither its implemented nor its unimplemented set, executes).
+  --
+  -- ⇒ **A CATALOGUE'S PROSE IS A CLAIM ABOUT THE MODEL, NOT A MEASUREMENT OF
+  -- IT** — and the previous batch's own bank had made "check the oracle's
+  -- catalogue FIRST" the rule for pricing a form, which turned one file's stale
+  -- doc-string into this project's roster policy.  `lods`/`scas` are back on
+  -- the candidate list.  See docs/DECISIONS.md D36.
+  --
   -- NOP's three shapes are ONE instruction and one constructor.  The bare `0x90`
   -- and the multi-byte `0F 1F /0` differ only in how many bytes they occupy;
   -- the operand of the long form exists to pad, and `step` never reads it.
@@ -1423,6 +1438,75 @@ def vectors : List Vec :=
     , instr := ⟨.ret, 1⟩ }
   , { id := "leaveq", mnemonic := "leaveq", asm := "leaveq", bytes := "c9"
     , instr := ⟨.leave, 1⟩ }
+
+  -- ══ P1 BATCH 13 ═══════════════════════════════════════════════════════
+  -- The flagless shifts (roster family 15: `sarx`, `shlx`, `shrx` at `r,r,r`
+  -- and `r,m,r`) and the byte-swapping move (`movbe` at `r,m` and `m,r`).
+  --
+  -- ⭐ THE COUNT REGISTER IS RDX, AND THAT IS WHY THIS BATCH NEEDS NO NEW
+  -- PRE-STATE.  `mkPre` sets `rdx := ~~~a` — added in batch 10 so that `cltd`
+  -- had a non-constant RDX to clobber — so the shift count sweeps over the
+  -- complements of the whole adversarial list.  It reaches a masked count of
+  -- ZERO (from `a = 0xFF`, whose complement's low byte is 0) and a masked count
+  -- of 63/31 (from `a = 0`), which are the two ends of the mask.
+  -- ⇒ The batch-12 rule — the cost of a form is a fact about the STATE it needs
+  -- — cuts the other way here: these forms are cheap in state precisely because
+  -- an EARLIER batch paid for the component they read.
+  --
+  -- ⚠️ AND THE MASK IS OBSERVABLE, which is what makes the sweep worth having:
+  -- `a = 0` gives an unmasked count of 255, and a model that failed to mask
+  -- would shift everything out and answer 0 where the machine answers
+  -- `src >> 63`.
+  , { id := "shlx_rrr_q", mnemonic := "shlx", asm := "shlxq %rdx, %rcx, %rax"
+    , bytes := "c4e2e9f7c1", instr := ⟨.shiftx .shl .q .rax (R .rcx) .rdx, 5⟩ }
+  , { id := "shlx_rrr_d", mnemonic := "shlx", asm := "shlxl %edx, %ecx, %eax"
+    , bytes := "c4e269f7c1", instr := ⟨.shiftx .shl .d .rax (R .rcx) .rdx, 5⟩ }
+  , { id := "shrx_rrr_q", mnemonic := "shrx", asm := "shrxq %rdx, %rcx, %rax"
+    , bytes := "c4e2ebf7c1", instr := ⟨.shiftx .shr .q .rax (R .rcx) .rdx, 5⟩ }
+  , { id := "shrx_rrr_d", mnemonic := "shrx", asm := "shrxl %edx, %ecx, %eax"
+    , bytes := "c4e26bf7c1", instr := ⟨.shiftx .shr .d .rax (R .rcx) .rdx, 5⟩ }
+  , { id := "sarx_rrr_q", mnemonic := "sarx", asm := "sarxq %rdx, %rcx, %rax"
+    , bytes := "c4e2eaf7c1", instr := ⟨.shiftx .sar .q .rax (R .rcx) .rdx, 5⟩ }
+  , { id := "sarx_rrr_d", mnemonic := "sarx", asm := "sarxl %edx, %ecx, %eax"
+    , bytes := "c4e26af7c1", instr := ⟨.shiftx .sar .d .rax (R .rcx) .rdx, 5⟩ }
+  -- The `r,m,r` shape: the SOURCE is memory and the destination is still a
+  -- register.  `(%rbx)` is the data window, whose eight bytes carry `c` — the
+  -- same value RCX carries — so these six sweep exactly as the six above do.
+  , { id := "shlx_rmr_q", mnemonic := "shlx", asm := "shlxq %rdx, (%rbx), %rax"
+    , bytes := "c4e2e9f703", instr := ⟨.shiftx .shl .q .rax (M .rbx) .rdx, 5⟩ }
+  , { id := "shlx_rmr_d", mnemonic := "shlx", asm := "shlxl %edx, (%rbx), %eax"
+    , bytes := "c4e269f703", instr := ⟨.shiftx .shl .d .rax (M .rbx) .rdx, 5⟩ }
+  , { id := "shrx_rmr_q", mnemonic := "shrx", asm := "shrxq %rdx, (%rbx), %rax"
+    , bytes := "c4e2ebf703", instr := ⟨.shiftx .shr .q .rax (M .rbx) .rdx, 5⟩ }
+  , { id := "shrx_rmr_d", mnemonic := "shrx", asm := "shrxl %edx, (%rbx), %eax"
+    , bytes := "c4e26bf703", instr := ⟨.shiftx .shr .d .rax (M .rbx) .rdx, 5⟩ }
+  , { id := "sarx_rmr_q", mnemonic := "sarx", asm := "sarxq %rdx, (%rbx), %rax"
+    , bytes := "c4e2eaf703", instr := ⟨.shiftx .sar .q .rax (M .rbx) .rdx, 5⟩ }
+  , { id := "sarx_rmr_d", mnemonic := "sarx", asm := "sarxl %edx, (%rbx), %eax"
+    , bytes := "c4e26af703", instr := ⟨.shiftx .sar .d .rax (M .rbx) .rdx, 5⟩ }
+  -- MOVBE, both directions at all three widths.
+  --
+  -- ⚠️ THE THREE WIDTHS ARE THE INSTRUCTION.  A model that byte-reversed at 64
+  -- bits and truncated afterwards agrees with this one at `.q` and disagrees at
+  -- `.w` and `.d` in EVERY pre-state where the operand is not a palindrome —
+  -- so the narrow widths are not width-padding, they are the only vectors that
+  -- can tell the two apart.  `wrongMovbeFullWidth` is that model.
+  , { id := "movbe_rm_q", mnemonic := "movbe", asm := "movbeq (%rbx), %rax"
+    , bytes := "480f38f003", instr := ⟨.movbe .q (R .rax) (M .rbx), 5⟩ }
+  , { id := "movbe_rm_d", mnemonic := "movbe", asm := "movbel (%rbx), %eax"
+    , bytes := "0f38f003", instr := ⟨.movbe .d (R .rax) (M .rbx), 4⟩ }
+  , { id := "movbe_rm_w", mnemonic := "movbe", asm := "movbew (%rbx), %ax"
+    , bytes := "660f38f003", instr := ⟨.movbe .w (R .rax) (M .rbx), 5⟩ }
+  -- The STORE direction — the batch's memory-DESTINATION claim, spelled `m(w)`
+  -- in the coverage table.  At `.w` it writes TWO bytes into the middle of the
+  -- eight-byte span the window carries, so a store of the wrong width shows as
+  -- a difference in the bytes it should not have touched.
+  , { id := "movbe_mr_q", mnemonic := "movbe", asm := "movbeq %rax, (%rbx)"
+    , bytes := "480f38f103", instr := ⟨.movbe .q (M .rbx) (R .rax), 5⟩ }
+  , { id := "movbe_mr_d", mnemonic := "movbe", asm := "movbel %eax, (%rbx)"
+    , bytes := "0f38f103", instr := ⟨.movbe .d (M .rbx) (R .rax), 4⟩ }
+  , { id := "movbe_mr_w", mnemonic := "movbe", asm := "movbew %ax, (%rbx)"
+    , bytes := "660f38f103", instr := ⟨.movbe .w (M .rbx) (R .rax), 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

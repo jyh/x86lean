@@ -2,13 +2,13 @@
 
 # x86lean coverage
 
-Roster: 57 mnemonics in 527 differentially tested forms, covering **388 of the 525 forms** in `p1/roster.tsv`.
+Roster: 61 mnemonics in 545 differentially tested forms, covering **396 of the 525 forms** in `p1/roster.tsv`.
 
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in a destination that is read and never written, and the first RIP-relative vector; 4 — the ALU read-modify-write to memory; 5 — every condition at rel8 and rel32, plus JRCXZ/JECXZ; 6 — SETcc and CMOVcc, 120 roster forms over two `step` cases; 7 — the shift group at a memory destination, plus SAR; 8 — the rotate group, ROL/ROR/RCL/RCR; 9 — the bit-test group, BT/BTS/BTR/BTC (the bit-string `m,r` shape declined, see D23); 10 — the width-changing and two-destination moves: MOVZX/MOVSX/MOVSXD, the six accumulator sign-extensions, XCHG and BSWAP, the first forms with a source width unlike their destination's and the first that write two registers, and the only batch so far that writes NO FLAG AT ALL (`xchg` at memory and `bswap` at 16 bits declined, see D25); 11 — the loop group LOOP/LOOPE/LOOPNE at both counter widths and the five flag-control singles CLC/STC/CMC/CLD/STD, which between them added the first instructions able to write DF at all (see D27); 12 — the near-free four of family 7, NOP at its three shapes plus UD2, RETQ and LEAVEQ: the first form whose whole meaning is a FAULT, and the first two forms that needed a new PRE-STATE to be reachable at all (see D34).
 
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift from the AST the way the sentence it replaced had.
 
-Tiers: T-exact 42 · T-frame 15 · T-absent 0.
+Tiers: T-exact 46 · T-frame 15 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -69,5 +69,9 @@ Tiers: T-exact 42 · T-frame 15 · T-absent 0.
 | `ud2` | no operands — #UD by definition | T-exact | XED (trusted) | — | Vol. 2A UD2 |
 | `retq` | no operands — near return, pops rip | T-exact | XED (trusted) | — | Vol. 2A RET |
 | `leaveq` | no operands — rsp := rbp; pop rbp | T-exact | XED (trusted) | — | Vol. 2A LEAVE |
+| `sarx` | r,r,r · r,m,r — l/q only | T-exact | XED (trusted) | — | Vol. 2A SARX/SHLX/SHRX |
+| `shlx` | r,r,r · r,m,r — l/q only | T-exact | XED (trusted) | — | Vol. 2A SARX/SHLX/SHRX |
+| `shrx` | r,r,r · r,m,r — l/q only | T-exact | XED (trusted) | — | Vol. 2A SARX/SHLX/SHRX |
+| `movbe` | r,m · m(w),r — w/l/q | T-exact | XED (trusted) | — | Vol. 2A MOVBE |
 
 **Decode trust.** Every row reads `XED (trusted)`: the AST is built from Intel XED's structured output and nothing in this repository proves that the bytes were decoded correctly. The differential vectors close this for every form below by assembling each `asm` string with clang and checking the length against the model's `Instr.len`; a Lean decoder with a proof is P4.

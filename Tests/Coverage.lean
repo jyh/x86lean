@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles. -/
-theorem roster_size_is_57 : rosterSize = 57 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`. -/
+theorem roster_size_is_61 : rosterSize = 61 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -266,24 +266,58 @@ private def isInfixOfChars (pat : List Char) : List Char → Bool
   | [] => pat.isEmpty
   | c :: rest => pat.isPrefixOf (c :: rest) || isInfixOfChars pat rest
 
-/-- A written MEMORY DESTINATION in the shapes notation: `m`, an optional operand
-width, then a parenthesised kind — `m(rmw)`, `m(w)`, `m8(w)`.  Matching the rule
-rather than enumerating the spellings is the whole point; see D32 in the comment
-below. -/
-def claimsMemDestShape : List Char → Bool
-  | [] => false
-  | c :: rest =>
-    (c == 'm' && (rest.dropWhile Char.isDigit).head? == some '(')
-      || claimsMemDestShape rest
+/-- ⭐⭐ P1 BATCH 13 REWROTE THIS PREDICATE, AND THE REASON IS THE THIRD
+INSTANCE OF D16/D32: **a check cannot be more precise than the notation it
+reads**, and this one had become LESS precise than the notation it reads.
+
+The old predicate was two independent substring tests — the literal `m,r`
+anywhere in the column, OR an `m` + optional width + `(` anywhere in it.  Both
+were written when every shape in the table had TWO operands, where a substring
+`m,r` can only be "memory destination, register source".
+
+⛔ BATCH 13's `sarx`/`shlx`/`shrx` HAVE THREE OPERANDS. Their shapes read
+`r,r,r · r,m,r` — destination, source, count — and `r,m,r` CONTAINS `m,r`, whose
+`m` is the SOURCE. The old predicate read a memory-destination claim out of a
+row for a form that cannot write memory at all, `mem_dest_claims_are_backed`
+went RED on a TRUE claim, and the cheap way out would have been to respell the
+shapes column until the pattern stopped firing — notation bent to fit its own
+gate, which is precisely the failure this gate exists to catch one level up.
+
+⇒ The rule the column actually follows is POSITIONAL, and it is now written as
+one: **shapes are destination-first, so a memory destination is an `m` in the
+FIRST operand position of some shape.** A shape starts at the beginning of the
+column or after the ` · ` separator.
+
+⚠️ AND FIRST-POSITION `m` ALONE IS NOT ENOUGH, which is the part inherited from
+the older comment below and kept: `push`'s shapes read `r · m · imm`, where the
+lone `m` is a memory SOURCE. A memory DESTINATION is a first-position `m`
+followed by something that marks it as written — a further operand (`m,r`,
+`m,imm`) or a parenthesised kind (`m(rmw)`, `m8(w)`). A bare `m` is a read. -/
+private def memDestHere : List Char → Bool
+  | 'm' :: rest =>
+      match (rest.dropWhile Char.isDigit) with
+      | ',' :: _ => true      -- `m,r`, `m,imm` — a destination with a source
+      | '(' :: _ => true      -- `m(rmw)`, `m8(w)` — a destination with a kind
+      | _ => false            -- a bare `m`: a memory SOURCE (push)
+  | _ => false
+
+/-- Scan the shapes column, tracking whether the cursor is at the START of a
+shape.  Spaces do not end a shape start (the separator is written ` · `), the
+middle dot begins a new shape, and anything else means the cursor is inside one.
+
+⚠️ Written by structural recursion on the character list, for the same reason
+`isInfixOfChars` was: `String.splitOn` is defined by well-founded recursion, the
+kernel does not unfold it, and `decide` fails on a proposition that is TRUE — a
+gate that cannot be evaluated is a build error wearing a gate's clothes. -/
+private def memDestFromShapeStart : List Char → Bool → Bool
+  | [], _ => false
+  | ' ' :: rest, atStart => memDestFromShapeStart rest atStart
+  | '·' :: rest, _ => memDestFromShapeStart rest true
+  | c :: rest, atStart =>
+      (atStart && memDestHere (c :: rest)) || memDestFromShapeStart rest false
 
 def claimsMemDest (r : Row) : Bool :=
-  isInfixOfChars "m,r".toList r.shapes.toList
-  -- and the UNARY form of the same claim.  `inc`/`dec` have no source operand,
-  -- so `m,r` cannot express their memory destination — and writing them as
-  -- `m,r` anyway, to make them trip the first pattern, would be notation bent
-  -- to fit its own gate, which is the failure this gate exists to catch one
-  -- level up.
-  --
+  memDestFromShapeStart r.shapes.toList true
   -- ⛔ THE FIRST ATTEMPT AT THIS PATTERN WAS `· m ` AND IT WAS WRONG, in a way
   -- worth keeping: it fired on `push`, whose shapes read `r · m · imm`, where
   -- `m` is a memory SOURCE and not a destination at all.  The shapes column had
@@ -304,9 +338,7 @@ def claimsMemDest (r : Row) : Bool :=
   -- `setcc`'s memory form is a WRITE that never reads its destination, so
   -- `m(rmw)` would be a false description of it and `m(w)` is the honest one —
   -- and a gate that only knew one spelling would have pushed the notation to
-  -- lie, which is D16's failure exactly. The parenthesis is what makes a
-  -- MEMORY-DESTINATION claim distinguishable from `r,m`'s memory source, and
-  -- what goes inside it is free to say which kind of write it is.
+  -- lie, which is D16's failure exactly.
   -- ⛔ AND THE PREFIX `m(` WAS STILL A SPELLING, WHICH IS D32.  Batch 6
   -- generalised the literal `m(rmw)` to the prefix `m(` expressly so that
   -- `setcc`'s memory WRITE could be described honestly as `m(w)` — and the row
@@ -323,9 +355,9 @@ def claimsMemDest (r : Row) : Bool :=
   -- one that keeps the other hidden.**  Verified by repairing this clause alone
   -- and watching `mem_dest_claims_are_backed` fail.
   --
-  -- The clause below is therefore the NOTATION'S RULE and not another spelling:
-  -- `m`, an optional operand width, then a parenthesised kind.
-  || claimsMemDestShape r.shapes.toList
+  -- ⭐⭐ AND BATCH 13 FOUND THE REMAINING HALF OF THAT LESSON: both of D32's
+  -- repaired clauses were still POSITION-BLIND, which no two-operand row could
+  -- reveal.  See the doc comment above `memDestHere`.
 
 /-- Does this vector write (or, for `cmp`/`test`, address) a MEMORY
 DESTINATION?
@@ -397,7 +429,21 @@ def isMemDestVector (v : Vec) : Bool :=
     | .nop _ => false
     | .ud2 => false
     | .ret => false
-    | .leave => false)
+    | .leave => false
+    -- ⭐ P1 BATCH 13.  `.movbe` IS THE FIRST NEW MEMORY-DESTINATION FORM SINCE
+    -- THE CATCH-ALL WAS DELETED, and the deletion did its job: adding the
+    -- constructor made this match non-exhaustive and the build FAILED here
+    -- before this line existed.  That is the batch-8 (`.rot`) and batch-12
+    -- (`.setcc`) defect refusing to happen a third time.
+    --
+    -- ⭐⭐ AND THE OTHER HALF OF D32 WAS EXERCISED FOR FREE.  With the `m(w)`
+    -- claim in the coverage row and this line still absent,
+    -- `mem_dest_claims_are_backed` went RED — so the gate is measured
+    -- load-bearing for this batch rather than assumed to be.
+    | .movbe _ d _ => d.isMem
+    -- `.shiftx` writes a GPR by its type, exactly as `.movx` and `.bswap` do;
+    -- its MEMORY operand is the source.  `false` is the decision, not a gap.
+    | .shiftx .. => false)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
 per row re-swept the WHOLE vector table for every claiming row; the set it is
@@ -409,6 +455,45 @@ def memDestMnemonics : List String :=
 /-- Is there a differential vector for this mnemonic whose DESTINATION operand
 is memory? -/
 def hasMemDestVector (m : String) : Bool := memDestMnemonics.contains m
+
+/-- ⭐ THE OLD PREDICATE, KEPT AS DATA SO THE REWRITE IS AUDITABLE.
+
+Rewriting a gate is the one change that can WEAKEN it silently: the new form is
+green, the old form was green, and nothing says which rows changed hands.  A
+one-off script that answers "only the three I meant" is not evidence anybody can
+re-run — so the old rule stays here and the disagreement is a THEOREM.
+
+⚠️ This is deliberately the pre-batch-13 predicate, warts and all: the literal
+`m,r` anywhere plus `m` + optional width + `(` anywhere, neither of them
+position-aware. -/
+private def isInfixOfChars' (pat : List Char) : List Char → Bool
+  | [] => pat.isEmpty
+  | c :: rest => pat.isPrefixOf (c :: rest) || isInfixOfChars' pat rest
+
+private def looseMemDestShape : List Char → Bool
+  | [] => false
+  | c :: rest =>
+    (c == 'm' && (rest.dropWhile Char.isDigit).head? == some '(')
+      || looseMemDestShape rest
+
+private def claimsMemDestLoose (r : Row) : Bool :=
+  isInfixOfChars' "m,r".toList r.shapes.toList || looseMemDestShape r.shapes.toList
+
+set_option maxHeartbeats 1000000 in
+/-- ⭐ THE REWRITE CHANGED EXACTLY THREE ROWS, AND THEY ARE THE THREE IT WAS
+WRITTEN FOR.  `sarx`, `shlx` and `shrx` are the table's only three-operand
+forms; the old rule read the `m,r` inside their `r,m,r` as a memory
+DESTINATION, and that `m` is the source.  Every other row answers the same as
+it did before.
+
+⛔ AND THE THEOREM IS STATED AS "the loose rule minus the tight one is exactly
+this list", not as "they agree on 58 rows": a count would be satisfied by any
+three rows changing hands. -/
+theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
+    ((tableP0.filter (fun r => claimsMemDestLoose r && !claimsMemDest r)).map Row.mnemonic
+      = ["sarx", "shlx", "shrx"])
+    ∧ (tableP0.all (fun r => !claimsMemDest r || claimsMemDestLoose r) = true) := by
+  refine ⟨by decide, by decide⟩
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.

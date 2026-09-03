@@ -107,9 +107,18 @@ def byteRev (n : Nat) (v : Val) : Val :=
   (List.range n).foldl
     (fun acc i => acc ||| (((v >>> (8 * i)) &&& 0xFF) <<< (8 * (n - 1 - i)))) 0
 
-/-- Byte-reverse the `sz`-wide view.  ⛔ The model only ever calls this at `.d`
-and `.q`: the SDM leaves BSWAP with a 16-bit operand UNDEFINED, and `step`
-declines those rather than letting this function answer for them. -/
+/-- Byte-reverse the `sz`-wide view.
+
+⚠️ THE CALLERS DISAGREE ABOUT WHICH WIDTHS ARE LEGAL, and the disagreement is in
+the INSTRUCTIONS rather than here.  `BSWAP` is called only at `.d` and `.q`,
+because the SDM leaves BSWAP with a 16-bit operand UNDEFINED and `step` declines
+it; `MOVBE` (P1 batch 13) is called at `.w` as well, because MOVBE's 16-bit form
+is defined and encodable.  So this function answers for w/l/q and the refusal
+lives at each call site, where the reason for it differs.
+
+⛔ THIS COMMENT USED TO READ "the model only ever calls this at `.d` and `.q`".
+That was true when `bswap` had one caller and became false the moment `movbe`
+arrived — the ordinary way a scope claim rots, and one no gate reads. -/
 def bswap (sz : Size) (v : Val) : Val := byteRev sz.bytes (trunc sz v)
 
 /-- Parity of the low EIGHT bits of a value — SDM Vol. 1 §3.4.3.1: PF is set

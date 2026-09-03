@@ -1393,4 +1393,130 @@ theorem leaveq_moves_rsp_then_pops_rbp :
     let s := step ⟨.leave, 1⟩ (mk (regs := r) (mem := m) (rip := 0x400000))
     (s.regs.get .rsp, s.regs.get .rbp, s.rip) = (0x7ff8, 0xDEADBEEF, 0x400001) := by decide
 
+/-! ## P1 BATCH 13 — the flagless shifts and the byte-swapping move
+
+Two forms whose RESULT this model already computed and whose content is in what
+they do NOT do.  The anchors below are therefore mostly NEGATIVE claims — no
+flag moves, no memory is written — and a negative claim is exactly the kind a
+differential run cannot make on its own, because a state component that never
+changes on either side agrees for free (D27). -/
+
+/-- ⭐⭐ SHLX/SHRX/SARX COMPUTE THE SAME RESULT AS SHL/SHR/SAR AND WRITE NO FLAG.
+
+Both halves in one theorem, against a state whose six arithmetic flags are ALL
+SET, so "no flag moves" is a claim with something to lose: the `.shift` form
+below is run from the identical state and clears CF, which is what says the
+flags in the `.shiftx` line were preserved rather than never touched.
+
+SDM Vol. 2A, SARX/SHLX/SHRX: "Flags Affected: None." -/
+theorem shiftx_matches_the_shift_and_writes_no_flag :
+    let f : Flags := { cf := true, pf := true, af := true, zf := true,
+                       sf := true, of := true }
+    let r : Regs := (({} : Regs).set .rcx 0x123456789ABCDEF0).set .rdx 5
+    let s := mk (regs := r) (flags := f) (rip := 0x400000)
+    let x := step ⟨.shiftx .shl .q .rax (.reg .rcx) .rdx, 5⟩ s
+    -- `0x468ACF13579BDE00` is `0x123456789ABCDEF0 <<< 5` at 64 bits — the value
+    -- the theorem below shows the ordinary `shlq $5` computes from the same
+    -- state.  It is written as a literal rather than as `y.regs.get .rcx`
+    -- because a proposition mentioning BOTH `step`s defeats `Decidable`
+    -- synthesis through the `let` chain; the pairing is made by the two
+    -- theorems reading the same literal.
+    -- ⭐ THE WHOLE `Flags` RECORD, not seven projections: a projection list has
+    -- to be kept in step with the record and a field added later would go
+    -- unchecked here — the `flagFields` lesson (D30) one level up.
+    (x.regs.get .rax, x.flags, x.rip) = (0x468ACF13579BDE00, f, 0x400005) := by decide
+
+/-- ⛔ AND THE CONTROL FOR THE THEOREM ABOVE: the ordinary `.shift`, run from the
+IDENTICAL state, DOES move a flag.  Without this the "every flag came out as it
+went in" claim would be satisfied by a state no shift rule can reach — D27's
+rule applied to an anchor rather than to a pre-state set. -/
+theorem the_shift_it_is_compared_against_does_move_a_flag :
+    let f : Flags := { cf := true, pf := true, af := true, zf := true,
+                       sf := true, of := true }
+    let r : Regs := (({} : Regs).set .rcx 0x123456789ABCDEF0).set .rdx 5
+    let s := mk (regs := r) (flags := f) (rip := 0x400000)
+    let y := step ⟨.shift .shl .q (.reg .rcx) (.imm8 5), 4⟩ s
+    -- the SAME result value, and CF moved
+    (y.regs.get .rcx, y.flags.cf) = (0x468ACF13579BDE00, false) := by decide
+
+/-- ⭐ THE COUNT IS MASKED — 6 bits at `.q`, 5 at `.d` — AND IT IS THE COUNT
+REGISTER'S LOW BITS, not the operand's.  A count of 64 masks to 0 and copies;
+a count of 65 masks to 1.  SDM Vol. 2A: "the count is masked to 5 bits (or 6
+bits with a 64-bit operand size)". -/
+theorem shiftx_masks_its_count :
+    let mkS (cnt : BitVec 64) : Cpu :=
+      mk (regs := (({} : Regs).set .rcx 0x8000000000000001).set .rdx cnt)
+    let at64 := step ⟨.shiftx .shr .q .rax (.reg .rcx) .rdx, 5⟩ (mkS 64)
+    let at65 := step ⟨.shiftx .shr .q .rax (.reg .rcx) .rdx, 5⟩ (mkS 65)
+    -- and at `.d` the SAME count of 64 masks to 0 in five bits, while 33 masks
+    -- to 1 — the 5/6 split, stated where it can be wrong
+    let d32 := step ⟨.shiftx .shr .d .rax (.reg .rcx) .rdx, 5⟩ (mkS 32)
+    let d33 := step ⟨.shiftx .shr .d .rax (.reg .rcx) .rdx, 5⟩ (mkS 33)
+    (at64.regs.get .rax, at65.regs.get .rax, d32.regs.get .rax, d33.regs.get .rax)
+      = (0x8000000000000001, 0x4000000000000000, 0x00000001, 0x00000000) := by decide
+
+/-- ⭐ AND THE ZERO COUNT IS NOT A NO-OP AT `.d`: the destination write
+zero-extends (SDM Vol. 1 §3.4.1.1), so `shlxl` with a masked count of zero
+CLEARS the upper half of the destination while moving the source unchanged into
+the lower half.  `.shift` needs a special zero-count branch because its flags
+must not move; this form has no such branch, and this is the state that says the
+absence is correct rather than merely untested. -/
+theorem shiftx_at_zero_count_still_zero_extends :
+    let r : Regs := ((({} : Regs).set .rax 0xFFFFFFFFFFFFFFFF).set .rcx 0x12345678).set .rdx 0
+    let s := step ⟨.shiftx .shl .d .rax (.reg .rcx) .rdx, 5⟩ (mk (regs := r))
+    s.regs.get .rax = 0x0000000012345678 := by decide
+
+/-- ⛔ AND THE NARROW WIDTHS ARE DECLINED.  VEX.W selects 32 or 64 bits and there
+is no 8- or 16-bit encoding, so the model refuses rather than answering for an
+instruction that cannot be written down. -/
+theorem shiftx_declines_the_widths_with_no_encoding :
+    ((step ⟨.shiftx .shl .b .rax (.reg .rcx) .rdx, 5⟩ (mk)).ms.isSome,
+     (step ⟨.shiftx .shl .w .rax (.reg .rcx) .rdx, 5⟩ (mk)).ms.isSome)
+      = (true, true) := by decide
+
+/-- ⭐⭐ MOVBE REVERSES AT THE OPERAND WIDTH, AND THE WIDTH RULE APPLIES ON TOP.
+
+The three loads from the SAME eight bytes are the whole instruction: `movbew`
+reverses two bytes and MERGES into AX, `movbel` reverses four and ZERO-EXTENDS,
+`movbeq` reverses eight.  A model that reversed 64 bits and truncated afterwards
+agrees with this one at `.q` and disagrees at both narrow widths — which is why
+all three widths are anchored and not just the widest.
+
+SDM Vol. 2A, MOVBE; SDM Vol. 1 §3.4.1.1 for the destination width rule. -/
+theorem movbe_reverses_at_the_operand_width :
+    let m := Mem.empty.writeSize .q 0x2000 0x1122334455667788
+    let r : Regs := (({} : Regs).set .rbx 0x2000).set .rax 0xFFFFFFFFFFFFFFFF
+    let s := mk (regs := r) (mem := m) (rip := 0x400000)
+    let q := step ⟨.movbe .q (.reg .rax) (.mem { base := some .rbx }), 5⟩ s
+    let d := step ⟨.movbe .d (.reg .rax) (.mem { base := some .rbx }), 4⟩ s
+    let w := step ⟨.movbe .w (.reg .rax) (.mem { base := some .rbx }), 5⟩ s
+    (q.regs.get .rax, d.regs.get .rax, w.regs.get .rax)
+      = (0x8877665544332211, 0x0000000088776655, 0xFFFFFFFFFFFF8877) := by decide
+
+/-- ⭐ THE STORE DIRECTION WRITES EXACTLY ITS OWN WIDTH.  `movbew %ax, (%rbx)`
+puts two reversed bytes at the address and leaves the other six alone — the
+margin is what says the store did not run long.  "Flags Affected: None" is
+checked from an all-set flag state, as above. -/
+theorem movbe_stores_at_its_own_width_and_writes_no_flag :
+    let f : Flags := { cf := true, pf := true, af := true, zf := true,
+                       sf := true, of := true }
+    let m := Mem.empty.writeSize .q 0x2000 0xAAAAAAAAAAAAAAAA
+    let r : Regs := (({} : Regs).set .rbx 0x2000).set .rax 0x1122334455667788
+    let s := mk (regs := r) (flags := f) (mem := m) (rip := 0x400000)
+    let w := step ⟨.movbe .w (.mem { base := some .rbx }) (.reg .rax), 5⟩ s
+    let q := step ⟨.movbe .q (.mem { base := some .rbx }) (.reg .rax), 5⟩ s
+    (w.mem.readSize .q 0x2000, q.mem.readSize .q 0x2000, w.flags, w.rip)
+      = (0xAAAAAAAAAAAA8877, 0x8877665544332211, f, 0x400005) := by decide
+
+/-- ⛔ AND THE SHAPES WITH NO ENCODING ARE DECLINED: register-to-register (both
+encodings put the memory operand in ModR/M's r/m field), two memory operands,
+an immediate, and the 8-bit width. -/
+theorem movbe_declines_the_shapes_with_no_encoding :
+    let M : Operand := .mem { base := some .rbx }
+    ((step ⟨.movbe .q (.reg .rax) (.reg .rcx), 5⟩ (mk)).ms.isSome,
+     (step ⟨.movbe .q M M, 5⟩ (mk)).ms.isSome,
+     (step ⟨.movbe .q (.reg .rax) (.imm 7), 5⟩ (mk)).ms.isSome,
+     (step ⟨.movbe .b (.reg .rax) M, 5⟩ (mk)).ms.isSome)
+      = (true, true, true, true) := by decide
+
 end X86.Tests

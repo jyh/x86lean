@@ -1017,3 +1017,77 @@ differentially validated form at all. Checking the catalogue before pricing a
 group is now the first step, not the last; `retq` and `leaveq` were kept because
 the same file's section 5.1.7 lists only the FAR return with immediate (`0xCA`)
 as unimplemented, and section 5.1.10 lists no exclusion for `LEAVE`.
+
+## D36 — D35 was right about the file and wrong about the machine: the oracle's catalogue is prose, and it is wrong in both directions.
+
+D35 made "check `catalogue-data.lisp` before pricing a form" the first step of a
+batch, on the strength of one `:doc` string. **P1 batch 13 ran the opcodes
+instead of reading the prose, and the doc string is wrong.**
+
+The measurement: thirty-six hand-assembled forms (every byte sequence verified
+against clang first), planted at RIP in the harness's own pre-state shape, one
+`x86-fetch-decode-execute` each, `refused` read off the post-state.
+
+| the catalogue's `:doc` says | measured |
+|---|---|
+| §5.1.8: "Unimplemented instructions: SCAS and LODS variations" | ⛔ **`lodsb/w/l/q` and `scasb/w/l/q` ALL EXECUTE.** `lodsq` loads eight bytes and advances RSI by 8; `scasq` compares against RAX, sets the flags and advances RDI by 8. |
+| §5.1.16: LZCNT is unimplemented | ⛔ **`lzcntq/l/w` EXECUTE**, and correctly: `lzcntq` of `0x123456789ABCDEF0` is 3, where a `bsr` decoding the same bytes with the `F3` ignored would answer 60. |
+| §5.1.16: lists neither BLSI implemented nor unimplemented | ⛔ **`blsiq/l` EXECUTE.** The section's two lists are not a partition. |
+| §5.1.16: ANDN, BEXTR, BLSMSK, BLSR, BZHI, PDEP, PEXT, MULX, RORX unimplemented | ✔ all nine refuse |
+| §5.1.13: MOVBE implemented | ✔ executes, both directions, w/l/q |
+| §5.1.16: SARX, SHLX, SHRX, TZCNT implemented | ✔ all execute |
+
+⭐ **THE PROBE WAS CALIBRATED IN BOTH DIRECTIONS IN THE SAME RUN**, which is why
+its answer is worth more than the doc's: nine forms refused and twenty-seven
+executed, so neither "everything executes" nor "everything refuses" is a reading
+the instrument could have produced by being broken.
+
+⇒ 🔑 **A catalogue's prose is a claim ABOUT a model, not a measurement OF it** —
+and D35 turned one stale doc string into this project's roster policy in a single
+step, because the doc agreed with the answer that was wanted (a form dropped is a
+batch made cheaper). The rule survives with its instrument replaced: **price a
+form against the oracle by EXECUTING one instance of it**, which costs about five
+seconds of ACL2 and is now `run/probe_drive.lsp`'s shape. `lods` and `scas` go
+back on the candidate list; `lzcnt` and `blsi` join them.
+
+⚠️ And the shape of the error is one this project has now met four times: an
+inherited diagnosis, correct in outline (the oracle's coverage IS a real third
+cost) and wrong in the enumeration, believed because the outline was right.
+
+## D37 — The memory-destination gate was position-blind, and only a three-operand form could show it.
+
+D32 repaired `claimsMemDest` twice — the literal `m(rmw)` widened to the prefix
+`m(`, then widened again to "an `m`, an optional width, a parenthesis" — and both
+repairs left a substring test for the literal `m,r` untouched beside them.
+
+⛔ **BATCH 13's `sarx`/`shlx`/`shrx` ARE THE TABLE'S FIRST THREE-OPERAND ROWS.**
+Their shapes read `r,r,r · r,m,r` — destination, source, count — and `r,m,r`
+CONTAINS `m,r`, whose `m` is the SOURCE. `mem_dest_claims_are_backed` went RED on
+a TRUE claim about forms that cannot write memory at all.
+
+The cheap way out was to respell the shapes column until the pattern stopped
+firing. That is notation bent to fit its own gate — the failure this gate exists
+to catch one level up — so the repair went into the predicate: shapes are
+destination-first, so **a memory destination is an `m` in the FIRST operand
+position of some shape**, followed by a `,` (a further operand) or a `(` (a
+parenthesised kind). A bare first-position `m` is still a memory SOURCE, which is
+what keeps `push`'s `r · m · imm` out.
+
+⭐ **AND THE REWRITE IS AUDITED BY A THEOREM, not by a script.** Rewriting a gate
+is the one change that can weaken it invisibly: the old form was green and the
+new form is green, and nothing says which rows changed hands. The pre-batch-13
+predicate is kept as `claimsMemDestLoose`, and
+`mem_dest_rewrite_changed_exactly_the_three_operand_rows` states that the rows
+the loose rule claims and the tight one does not are EXACTLY `["sarx", "shlx",
+"shrx"]`, and that the tight rule claims nothing the loose one did not. Stated as
+the list rather than as a count, because a count is satisfied by any three rows
+changing hands.
+
+⇒ 🔑 **A pattern that has been repaired twice is trusted more than one that never
+has, and a repair aimed at a spelling does not touch a defect of position.** Both
+of D32's fixes were about WHICH CHARACTERS spell a memory destination; neither
+asked WHERE in the shape they may appear, because with two operands the question
+does not arise. **The dimension a defect can hide in is the one no existing row
+varies** — which is D27's rule ("a gate watching something that cannot move
+reports an agreement it never tested") moved from the pre-state set to the
+NOTATION.
