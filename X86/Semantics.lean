@@ -905,6 +905,149 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         let (pfU, s) := s.undefBit
         ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setReg sz dst l).setRip nr
 
+  -- ══ P1 BATCH 18 ═══════════════════════════════════════════════════════
+  -- The compare-exchange pair and the double-precision shifts.
+
+  -- CMPXCHG (SDM Vol. 2A).  ⭐ THE FIRST FORM IN THIS MODEL WHOSE DESTINATION IS
+  -- CHOSEN BY A COMPARISON IT MAKES ITSELF, and the comparison is against a
+  -- register that is not an operand: the accumulator, AL/AX/EAX/RAX by opcode.
+  --
+  -- ⚠️ THE FLAGS ARE THE COMPARISON'S, IN FULL AND WITH NOTHING UNDEFINED.  The
+  -- SDM's pseudo-code writes only ZF, and the "Flags Affected" paragraph then
+  -- says "the ZF flag is set if the values ... are equal; otherwise it is
+  -- cleared.  The CF, PF, AF, SF and OF flags are set according to the results
+  -- of the comparison operation" — so this is `Flags.sub` of the accumulator
+  -- against the destination, exactly `cmp`, and NOT a hand-written ZF.  Measured
+  -- on the oracle before this constructor existed: `cmpxchg` draws nothing from
+  -- x86isa's undefined generator at any width or shape, in all eighty-two
+  -- pre-states.
+  --
+  -- ⛔⛔ AND THE UNEQUAL BRANCH DOES **NOT** WRITE THE DESTINATION, THOUGH THE
+  -- SDM'S PSEUDO-CODE SAYS `DEST := TEMP`.  This model wrote it, as the
+  -- pseudo-code reads, and the differential run refused: EIGHTY disagreements,
+  -- every one of them `cmpxchg_r_l`, every one of them RCX's upper half.  A
+  -- 32-bit register write ZERO-EXTENDS in 64-bit mode, so writing the
+  -- destination back with the value it already had is not the no-op the line
+  -- looks like — it clears bits 63:32.
+  --
+  -- ⭐ TWO INDEPENDENT PUBLIC MODELS SAY OTHERWISE, AND ONE OF THEM IS EVIDENCE
+  -- ABOUT SILICON.  ACL2 x86isa's `x86-cmpxchg` takes the else branch as
+  -- `(!rgfi-size reg/mem-size *rax* reg/mem …)` and nothing else — no write to
+  -- the destination at all.  K's `CMPXCHGL-R32-R32`, which was LEARNED BY
+  -- EXECUTION rather than read off the manual, is explicit in the same
+  -- direction: on the unequal branch the accumulator becomes
+  -- `concatenateMInt(mi(32,0), R2[32:64])` — zero-extended — while the
+  -- destination becomes `getParentValue(R2, RSMap)`, the FULL 64-bit parent
+  -- value, unchanged.  Both halves of that rule are visible at `.d` and at no
+  -- other width, which is why one vector out of seven found it.
+  --
+  -- ⇒ THE SDM'S `DEST := TEMP` DESCRIBES THE MEMORY WRITE-BACK, the one that
+  -- matters under LOCK and for a read-only page, and applying it literally to a
+  -- register destination invents a zero-extension no processor performs.  This
+  -- model does not model LOCK or page protection, so it writes nothing on this
+  -- branch and says so.  D53.
+  | .cmpxchg sz dst src =>
+      if dst.isImm then s.halt (.illegalOperands "cmpxchg: immediate destination")
+      else
+        let acc := s.getReg sz .rax
+        let tmp := s.readOperand sz nr dst
+        let s := s.setFlags (Flags.sub sz acc tmp s.flags)
+        if Value.trunc sz acc == Value.trunc sz tmp then
+          (s.writeOperand sz nr dst (s.getReg sz src)).setRip nr
+        else
+          ((s.setReg sz .rax tmp)).setRip nr
+
+  -- XADD (SDM Vol. 2A).  `TEMP := SRC + DEST; SRC := DEST; DEST := TEMP`.
+  --
+  -- ⚠️ THE ORDER IS SDM's AND IT MATTERS FOR ONE SHAPE THIS MODEL DOES NOT SHIP:
+  -- `xadd %rax, %rax` names the same register twice, and the two writes then
+  -- disagree about what the answer is.  Writing SRC first and DEST second is
+  -- what the pseudo-code says, so this model says it too rather than choosing
+  -- the order that reads better.
+  --
+  -- ⭐ THE FLAGS ARE THE ADDITION'S, complete — `xadd` is the second form in
+  -- this model to write both operands and the FIRST to write flags while doing
+  -- it (`xchg`, batch 10, writes none at all).
+  | .xadd sz dst src =>
+      if dst.isImm then s.halt (.illegalOperands "xadd: immediate destination")
+      else
+        let a := s.readOperand sz nr dst
+        let b := s.getReg sz src
+        let res := Flags.addResult sz a b
+        let s := s.setFlags (Flags.add sz a b s.flags)
+        let s := s.setReg sz src a
+        (s.writeOperand sz nr dst res).setRip nr
+
+  -- SHLD / SHRD (SDM Vol. 2A).  THREE BRANCHES, and the third is why this batch
+  -- is not the shift group again.
+  --
+  --   count = 0            no operation at all, and NO FLAG IS TOUCHED
+  --   1 ≤ count ≤ size     the double shift, with AF undefined and OF undefined
+  --                        unless the count is 1
+  --   count > size         "the result is undefined" — the DESTINATION and all
+  --                        six arithmetic flags, reachable at `.w` alone
+  --
+  -- ⛔⛔ THE COUNT-ZERO BRANCH **DOES** WRITE THE DESTINATION, THOUGH THE SDM
+  -- SAYS "IF COUNT = 0 THEN no operation".  This model took the manual at its
+  -- word and wrote nothing; the differential run answered with FIFTY-ONE
+  -- disagreements, every one of them at `.d`, every one of them the destination
+  -- register's upper half.  A 32-bit register write zero-extends, so "write the
+  -- value it already had" is observable at exactly one width — and it happens.
+  --
+  -- ⭐ K's SEMANTICS CALLS THIS AN INTEL BUG IN SO MANY WORDS.  Its
+  -- `SHLDL-R32-R32` rule for a masked count of zero is
+  -- `setParentValue(concatenateMInt(mi(32,0), MIdest), R) // Intel Bug`, and K's
+  -- rules were LEARNED BY EXECUTION on real hardware rather than read off the
+  -- manual.  ACL2 x86isa agrees with it.  ⚠️ AND `.shift` IN THIS VERY FILE
+  -- ALREADY KNEW: its count-zero branch writes the unchanged value back, with a
+  -- comment saying the instruction is a read-modify-write.  The first draft of
+  -- this branch departed from the code beside it on the strength of SDM prose,
+  -- and the prose was the thing that was wrong.  D54.
+  --
+  -- ⛔ THE REFUSAL IS THE ONE THING THIS BATCH DECLINES.  See
+  -- `dshiftMemUndefined` for why an undefined value in MEMORY is refused rather
+  -- than answered, and docs/DECISIONS.md D52.
+  | .dshift k sz dst src amt =>
+      if !(dshiftEncodable sz) then
+        s.halt (.illegalOperands "shld/shrd have no 8-bit encoding")
+      else if dst.isImm then
+        s.halt (.illegalOperands "shld/shrd: immediate destination")
+      else
+        let cnt : BitVec 8 :=
+          match amt with
+          | .imm8 v => v
+          | .cl => (s.getReg .b .rcx).setWidth 8
+        let n := Flags.shiftCount sz cnt
+        let a := s.readOperand sz nr dst
+        if dshiftMemUndefined sz dst.isMem n then
+          s.halt (.unimplemented
+            "shld/shrd: an undefined RESULT in memory (16-bit operand, count > 16)")
+        else if n = 0 then
+          -- The write-back with the unchanged value, and NO FLAG: see D54.
+          (s.writeOperand sz nr dst a).setRip nr
+        else if sz.bits < n then
+          -- THE BAD-PARAMETERS BRANCH.  SEVEN draws: the six flags in the fixed
+          -- order CF, PF, AF, ZF, SF, OF — `divFlags`' order, because it is the
+          -- same six — and then the destination's `sz.bits` bits.  The order is
+          -- part of the model exactly as the shifts' three draws are.
+          let (cfU, s) := s.undefBit
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (zfU, s) := s.undefBit
+          let (sfU, s) := s.undefBit
+          let (ofU, s) := s.undefBit
+          let (u, s) := s.undefVal sz.bits
+          ((s.setFlags (Flags.dshiftBadFlags cfU pfU afU zfU sfU ofU s.flags)).writeOperand
+            sz nr dst u).setRip nr
+        else
+          let b := s.getReg sz src
+          let res := Flags.dshiftRes k sz a b n
+          -- TWO draws, in the fixed order OF, AF.
+          let (ofU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let s := s.setFlags (Flags.dshiftFlags k sz a res n ofU afU s.flags)
+          (s.writeOperand sz nr dst res).setRip nr
+
 /-- Run `n` steps of a straight-line list of decoded instructions, taking each
 in order.  P0 does not fetch-and-decode from memory (that is P4's Lean decoder);
 this is the shape the differential harness drives. -/

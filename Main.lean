@@ -1609,6 +1609,187 @@ def wrongIdivRemainderSign (i : Instr) (s : Cpu) : Cpu :=
             sz q rv).setRip nr
   | _ => step i s
 
+/-! ### P1 BATCH 18 — the compare-exchange pair and the double shifts
+
+⭐⭐ TWO OF THESE EIGHT ARMS ARE THE MODEL THIS BATCH ACTUALLY SHIPPED FIRST.
+`wrongCmpxchgSdmWriteBack` and `wrongDshiftZeroCountWritesNothing` are the SDM
+read literally — the first writes `DEST := TEMP` on the unequal branch, the
+second performs the manual's "no operation" — and the differential run rejected
+both, 80 disagreements and 51.  Planting them here turns two one-off findings
+into a standing probe: if either rule is ever "corrected" back to what the
+manual says, the selftest goes red instead of the differential going red two
+hundred vectors later.  See docs/DECISIONS.md D53 and D54.
+
+⭐ AND TWO OF THEM EXIST TO PRICE THE OBSERVATION, not to be plausible.
+`cmpxchg`'s answer is a CHOICE, so an arm that always takes one branch agrees
+with the model on every case of that branch — whatever catches it is exactly the
+evidence that the OTHER branch is reached.  Both directions are here, because one
+alone would leave half the instruction unmeasured while reporting agreement. -/
+
+/-- ⭐ THE EQUAL BRANCH, ALWAYS — never writes the accumulator.  Correct on every
+case where the values match, so what catches it measures the UNEQUAL branch. -/
+def wrongCmpxchgAlwaysStores (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg sz dst src =>
+      if dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let acc := s.getReg sz .rax
+        let tmp := s.readOperand sz nr dst
+        let s := s.setFlags (Flags.sub sz acc tmp s.flags)
+        (s.writeOperand sz nr dst (s.getReg sz src)).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE UNEQUAL BRANCH, ALWAYS — never stores the source.  Correct on every
+case where the values differ, so what catches it measures the EQUAL branch, and
+the pair of arms together says both are reached. -/
+def wrongCmpxchgNeverStores (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg sz dst src =>
+      if dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let acc := s.getReg sz .rax
+        let tmp := s.readOperand sz nr dst
+        let s := s.setFlags (Flags.sub sz acc tmp s.flags)
+        ((s.setReg sz .rax tmp)).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ THE SDM, READ LITERALLY: `DEST := TEMP` on the unequal branch.  It looks
+like a no-op and is not one at `.d`, where a 32-bit register write zero-extends —
+so this arm clears the destination's upper half on every unequal 32-bit case and
+agrees with the shipped model at every other width.  D53. -/
+def wrongCmpxchgSdmWriteBack (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .cmpxchg sz dst src =>
+      if dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let acc := s.getReg sz .rax
+        let tmp := s.readOperand sz nr dst
+        let s := s.setFlags (Flags.sub sz acc tmp s.flags)
+        if Value.trunc sz acc == Value.trunc sz tmp then
+          (s.writeOperand sz nr dst (s.getReg sz src)).setRip nr
+        else
+          ((s.setReg sz .rax tmp).writeOperand sz nr dst tmp).setRip nr
+  | _ => step i s
+
+/-- XADD AS AN ORDINARY ADD — the sum reaches the destination and the source is
+left alone.  Invisible wherever the destination already held what the source is
+about to get, and loud everywhere else. -/
+def wrongXaddNoSourceWrite (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .xadd sz dst src =>
+      if dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr dst
+        let b := s.getReg sz src
+        let res := Flags.addResult sz a b
+        let s := s.setFlags (Flags.add sz a b s.flags)
+        (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ THE SDM, READ LITERALLY, A SECOND TIME: "IF COUNT = 0 THEN no
+operation".  Both public executable models write the destination anyway, and K's
+rule for this case carries the comment `// Intel Bug`.  Observable at `.d` alone.
+D54. -/
+def wrongDshiftZeroCountWritesNothing (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .dshift _ sz dst _ amt =>
+      if !(dshiftEncodable sz) || dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let cnt : BitVec 8 :=
+          match amt with
+          | .imm8 v => v
+          | .cl => (s.getReg .b .rcx).setWidth 8
+        if Flags.shiftCount sz cnt = 0 then s.setRip nr else step i s
+  | _ => step i s
+
+/-- ⭐ THE BOUNDARY OFF BY ONE: "the count is GREATER than the operand size" read
+as "greater than or equal".  A count EQUAL to the width is legal and its answer
+is the source; this arm calls it undefined and draws.  It is wrong at exactly one
+count, reachable only at `.w`, and `adversarial` contains `0x10` — so the five
+pre-states whose CL masks to 16 are the whole of its evidence. -/
+def wrongDshiftBadAtWidth (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .dshift _ sz dst _ amt =>
+      if !(dshiftEncodable sz) || dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let cnt : BitVec 8 :=
+          match amt with
+          | .imm8 v => v
+          | .cl => (s.getReg .b .rcx).setWidth 8
+        let n := Flags.shiftCount sz cnt
+        if dshiftMemUndefined sz dst.isMem n || n != sz.bits then step i s
+        else
+          let (cfU, s) := s.undefBit
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (zfU, s) := s.undefBit
+          let (sfU, s) := s.undefBit
+          let (ofU, s) := s.undefBit
+          let (u, s) := s.undefVal sz.bits
+          ((s.setFlags (Flags.dshiftBadFlags cfU pfU afU zfU sfU ofU s.flags)).writeOperand
+            sz nr dst u).setRip nr
+  | _ => step i s
+
+/-- SHRD FILLING FROM THE SOURCE'S TOP BITS — `shld`'s fill, applied to the
+other direction.  The two agree only where the source's top `n` bits equal its
+bottom `n`, which `adversarial`'s alternating patterns make rare and its
+all-ones entries make certain, so the arm is right somewhere and wrong mostly. -/
+def wrongShrdFillsFromSourceTop (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .dshift .shrd sz dst src amt =>
+      if !(dshiftEncodable sz) || dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let cnt : BitVec 8 :=
+          match amt with
+          | .imm8 v => v
+          | .cl => (s.getReg .b .rcx).setWidth 8
+        let n := Flags.shiftCount sz cnt
+        let a := s.readOperand sz nr dst
+        if dshiftMemUndefined sz dst.isMem n || n = 0 || sz.bits < n then step i s
+        else
+          let b := s.getReg sz src
+          let res := Value.trunc sz
+            (((Value.trunc sz a) >>> n) ||| ((Value.trunc sz b) >>> (sz.bits - n)))
+          let (ofU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let s := s.setFlags (Flags.dshiftFlags .shrd sz a res n ofU afU s.flags)
+          (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
+/-- ⭐ CF READ OFF THE RESULT INSTEAD OF THE ORIGINAL DESTINATION — one
+substitution, and it is the mistake the definition invites, because in the result
+the bit at that position holds an incoming SOURCE bit.  The two agree exactly
+where the two operands happen to match at one bit, so roughly half the cases. -/
+def wrongDshiftCfFromResult (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .dshift k sz dst src amt =>
+      if !(dshiftEncodable sz) || dst.isImm then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let cnt : BitVec 8 :=
+          match amt with
+          | .imm8 v => v
+          | .cl => (s.getReg .b .rcx).setWidth 8
+        let n := Flags.shiftCount sz cnt
+        let a := s.readOperand sz nr dst
+        if dshiftMemUndefined sz dst.isMem n || n = 0 || sz.bits < n then step i s
+        else
+          let b := s.getReg sz src
+          let res := Flags.dshiftRes k sz a b n
+          let (ofU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          -- the BUG: `res` where the rule says the ORIGINAL destination
+          let s := s.setFlags (Flags.dshiftFlags k sz res res n ofU afU s.flags)
+          (s.writeOperand sz nr dst res).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -1713,7 +1894,28 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      wrongDivAlwaysRefuses, "refused")
   , ("the byte multiply writes DX:AX instead of AH:AL", wrongMulBytePairInRdx, "rdx")
   , ("imul's three-operand form multiplies its destination", wrongImul3ReadsDest, "rax")
-  , ("idiv's remainder takes the divisor's sign", wrongIdivRemainderSign, "rdx") ]
+  , ("idiv's remainder takes the divisor's sign", wrongIdivRemainderSign, "rdx")
+  -- P1 BATCH 18 — the compare-exchange pair and the double shifts.  Eight arms.
+  -- ⭐ TWO OF THEM ARE THE SDM READ LITERALLY, and both were this batch's own
+  -- first model: the differential rejected them with 80 and 51 disagreements
+  -- before either became an arm.
+  -- ⭐ AND TWO ARE THE OBSERVATION CONTROLS for `cmpxchg`'s two branches: each
+  -- agrees with the model on every case of one branch, so what catches it is
+  -- exactly the evidence that the other branch is reached.
+  , ("cmpxchg always stores (the arm that proves the unequal branch is reached)",
+     wrongCmpxchgAlwaysStores, "rax")
+  , ("cmpxchg never stores (the arm that proves the equal branch is reached)",
+     wrongCmpxchgNeverStores, "rcx")
+  , ("cmpxchg writes DEST := TEMP on the unequal branch, as the SDM's pseudo-code says",
+     wrongCmpxchgSdmWriteBack, "rcx")
+  , ("xadd forgets to write its source", wrongXaddNoSourceWrite, "rcx")
+  , ("shld/shrd perform the SDM's \"no operation\" at a count of zero",
+     wrongDshiftZeroCountWritesNothing, "rax")
+  , ("shld/shrd call a count EQUAL to the operand size bad parameters",
+     wrongDshiftBadAtWidth, "rax")
+  , ("shrd fills from the source's top bits, as shld does", wrongShrdFillsFromSourceTop, "rax")
+  , ("shld/shrd take CF from the result instead of the original destination",
+     wrongDshiftCfFromResult, "cf") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1907,11 +2109,27 @@ cases identical, 0 oracle leaks)"
   -- Making this derivable needs a claimed-forms table keyed to the roster's
   -- (base, shape) pairs — real work, and a better batch than a tack-on. Until
   -- then: COUNT THE ROWS with the command above and do not reason from widths.
+  --
+  -- ⭐ P1 BATCH 18 RE-DERIVED ITS OWN SCOPE RATHER THAN READING THE HANDOVER'S,
+  -- which is D49's whole point, and the two agreed — the agreement being the
+  -- result of the check and not a reason to have skipped it:
+  --
+  --   awk -F'\t' 'NR>2 && $4 ~ /^(xadd|cmpxchg|shld|shrd)$/' p1/roster.tsv | wc -l
+  --
+  -- 12 — FOUR base names spread over FOUR families (10 and 14 for `cmpxchg` and
+  -- `xadd` at `m,r` and `r,r`; 24 and 40 for `shld`/`shrd` at `r,r,cl|imm` and
+  -- `m,r,cl|imm`).  Family 24's other four rows are `div`/`idiv`, discharged by
+  -- batch 17, so the base-name rule cannot double-count.  441 to 453.
+  -- ⚠️ TWELVE ROWS, FOUR ROSTER MNEMONICS, FORTY-ONE VECTORS — the three counts
+  -- again, and the reason the last one is large is that `shld`/`shrd`'s
+  -- IMMEDIATE is not a sample but a BRANCH SELECTOR: 0, 1, 5, 16 and 20 pick out
+  -- the no-operation, the OF-defined, the ordinary, the exact-boundary and the
+  -- bad-parameters cases, and none of them can be reached from another.
   | ["coverage", out] =>
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **441 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **453 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -1959,7 +2177,21 @@ in this model to REFUSE ON THEIR OPERANDS rather than on their opcode: measured 
 against the oracle on all eighty-two pre-states before a vector existed, `div` \
 and `idiv` fault in 51%-84% of them, so the batch's danger was never a wrong \
 answer but a quotient nothing asks for, and the arm that refuses on every \
-divisor is what proves it is asked (see D49, D50).\n\n\
+divisor is what proves it is asked (see D49, D50); 18 — the compare-exchange \
+pair CMPXCHG/XADD and the double-precision shifts SHLD/SHRD, twelve roster rows \
+over three constructors and four families, in which the SDM's own pseudo-code \
+was found WRONG TWICE ABOUT 64-BIT MODE and both times in the same place: a \
+register write the manual describes as a no-op is not one at 32 bits, where \
+every write zero-extends.  CMPXCHG's `DEST := TEMP` on the unequal branch does \
+not happen (80 differential cases) and SHLD/SHRD's \"IF COUNT = 0 THEN no \
+operation\" writes the destination anyway (51 more) — ACL2 x86isa and K agree \
+against the manual on both, and K's rule for the second carries the comment \
+`// Intel Bug`.  SHLD/SHRD also bring this model its SECOND undefined \
+DESTINATION, undefined here because of the COUNT rather than the source, in \
+thirty-five of the eighty-two pre-states at `.w`; the 16-bit MEMORY destination \
+with a count above 16 is REFUSED rather than answered, because an oracle bit in \
+memory is the one thing the leak check has no declaration channel for (see D52, \
+D53, D54).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

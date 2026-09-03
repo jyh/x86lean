@@ -1715,3 +1715,167 @@ series.
 ⇒ This is [[audit-the-premise-of-a-right-decision]] exactly: the decision (report the growth
 law in the flat unit) was right, and the premise inside it (411 ms/row, up from 363) was
 unmeasured — a number taken under a load the previous number may not have had.
+
+---
+
+## D52 — An undefined value in a REGISTER is answered; an undefined value in MEMORY is refused.
+
+**P1 batch 18.** `shld`/`shrd` mask their count to five bits (six at `.q`) and then, per SDM
+Vol. 2A, "if the count is greater than the operand size, the result is undefined" — the
+DESTINATION and all six arithmetic flags. A five-bit mask reaches 31 and a 16-bit operand is
+16 wide, so the branch exists at `.w` and nowhere else. **It is not a corner: over this
+harness's own eighty-two pre-states a CL-driven count lands above 16 in thirty-five of
+them** (measured on the oracle before the constructor existed).
+
+With a **register** destination this model answers, from the undefined-bit oracle, and batch
+14's machinery carries it unchanged: `declaredUndefGPRs` names the register from the AST and
+the SDM rule, `undefinedRegs` observes which registers actually move between the two opposite
+oracle runs, and `undefinedLeaked` is their EQUALITY — with teeth in both directions, a leak
+one way and a false undefined-claim the other.
+
+With a **memory** destination there is no such channel. `undefinedLeaked` demands that the two
+oracle runs agree on every watched byte, and `Main.undefinableFields` — the closed list of
+fields the comparator may explain as undefined — is flags and register names only. Its own
+comment already named the day a memory window reached the undefined set as the day it must be
+widened.
+
+⇒ **This model REFUSES that one combination** (`dshiftMemUndefined`: a memory destination, at
+`.w`, with a masked count above 16) rather than widening its strongest gate as a side effect
+of one batch. Everything else is answered: every width with a register destination, and `.w`
+in memory with a count that is actually defined.
+
+⚠️ **The refusal is why there is no `m,r,cl` vector at `.w`.** The oracle COMPUTES that case,
+so a vector there would be a refusal-class disagreement rather than a test — which is the
+self-enforcing part: the gap cannot be filled by accident, and it cannot be forgotten either,
+because `step_dshift_mem_undefined_refuses` states the refusal as a theorem.
+
+**What the repair would be, when a batch is willing to pay for it:** the memory analogue of
+batch 14's two sources. A `declaredUndefMem` reading the AST and the SDM rule, an
+`undefinedLeaked` that compares the windows OUTSIDE the declared span and requires the span
+itself to MOVE, and a comparator that can explain a byte range rather than a field name. Two
+places have to grow, and they are named here so the next head does not have to find them.
+
+---
+
+## D53 — The SDM's `DEST := TEMP` does not happen, and it took eighty cases at one width to see it.
+
+**P1 batch 18.** The SDM's CMPXCHG Operation pseudo-code reads
+
+```
+IF accumulator = TEMP  THEN ZF := 1; DEST := SRC;
+                       ELSE ZF := 0; accumulator := TEMP; DEST := TEMP;  FI
+```
+
+and this model was written to say exactly that. The differential run answered with **eighty
+unexplained disagreements, every one of them `cmpxchg_r_l`, every one of them RCX**:
+lean `0000000055555555`, oracle `5555555555555555`.
+
+⛔ **`DEST := TEMP` IS NOT THE NO-OP IT READS AS.** In 64-bit mode a 32-bit register write
+zero-extends, so writing the destination back with the value it already had clears bits 63:32.
+The line is observable at `.d` and at no other width — at `.b` and `.w` the write merges, at
+`.q` there is nothing above to clear, and in memory the same bytes go back.
+
+⭐ **TWO INDEPENDENT PUBLIC MODELS SAY OTHERWISE, AND ONE OF THEM IS EVIDENCE ABOUT SILICON.**
+ACL2 x86isa's `x86-cmpxchg` (`machine/instructions/exchange.lisp`) takes the else branch as
+`(!rgfi-size reg/mem-size *rax* reg/mem rex-byte x86)` and nothing else — no write to the
+destination at all. K's `CMPXCHGL-R32-R32`, whose rules were **learned by execution** rather
+than read off the manual, is explicit in both halves: on the unequal branch the accumulator
+becomes `concatenateMInt(mi(32,0), R2[32:64])` — zero-extended — while the destination becomes
+`getParentValue(R2, RSMap)`, the **full 64-bit parent value, unchanged**.
+
+⇒ The SDM's `DEST := TEMP` describes the **memory** write-back, the one that matters under
+LOCK and on a write-protected page. Applied literally to a register destination it invents a
+zero-extension no processor performs. This model does not model LOCK or page protection, so it
+writes nothing on that branch, says so in the coverage table's shapes column, and states it as
+a theorem (`step_cmpxchg_unequal_leaves_dest`).
+
+⇒ 🔑 **A SPECIFICATION'S NO-OP IS ONLY A NO-OP AT THE WIDTHS WHERE THE WRITE IS INVISIBLE.**
+Three of the four widths agreed. The batch shipped one 32-bit register vector out of seven
+`cmpxchg` vectors, and that one vector is the entire evidence.
+
+---
+
+## D54 — …and the manual's "no operation" is not one either. The same defect, the opposite direction, the same batch.
+
+**P1 batch 18.** SHLD/SHRD's Operation section says `IF COUNT = 0 THEN no operation`. This
+model, having just been burned by reading the manual too literally, read it literally again —
+and wrote nothing at a masked count of zero. The differential answered with **fifty-one more
+disagreements**, again all at `.d`, again all the destination's upper half.
+
+⭐ **K CALLS IT AN INTEL BUG IN SO MANY WORDS.** Its `SHLDL-R32-R32` rule for this case is
+
+```
+rule execinstr (shldl R, MIdest, MIsrc, MIcount, .Operands) =>
+       setParentValue(concatenateMInt(mi(32,0), MIdest), R)   // Intel Bug
+     requires eqMInt(MIcount, mi(bitwidthMInt(MIcount), 0))
+```
+
+— the destination IS written, zero-extended, at a count of zero. ACL2 x86isa agrees.
+
+⛔⛔ **AND THE CODE BESIDE IT ALREADY KNEW.** `X86/Semantics.lean`'s ordinary `.shift` has had
+a count-zero branch that writes the unchanged value back since P0, with a comment saying the
+instruction is a read-modify-write. The batch-18 branch was written to DIFFER from it, and the
+comment justifying the difference cited the SDM.
+
+⇒ 🔑 **WHEN A NEW FORM DEPARTS FROM THE SHAPE OF THE FORM BESIDE IT, THE BURDEN IS ON THE
+DEPARTURE — AND "THE MANUAL SAYS SO" IS THE WEAKEST DISCHARGE OF IT.** The manual was the
+source of the error both times in this batch. The two existing models are the ones that had
+executed.
+
+⇒ ⭐ **AND BOTH DEFECTS ARE NOW ARMS.** `wrongCmpxchgSdmWriteBack` and
+`wrongDshiftZeroCountWritesNothing` are the two rejected models, planted in `selftestArms`, so
+a later head who "corrects" either rule back to the manual gets a red selftest in seventy-five
+seconds instead of a red differential two hundred vectors later. A finding that is only written
+down is a finding that has to be re-found.
+
+---
+
+## D55 — The probe's controls belong inside the probe, not inside the head running it.
+
+**P1 batch 18.** Every batch since D36 has priced its forms by EXECUTING the oracle rather
+than reading its catalogue, and the probe has been rebuilt from scratch each time in the
+head's scratchpad. Batch 18 extended it: to find which fields x86isa fills from its
+undefined generator, run the same cases twice with `create-undef` attached to two different
+functions and diff the post-states.
+
+⛔⛔ **The second attachment was `(+ 1000 (nfix x))`, and 1000 is even.** A flag is one bit,
+so every one-bit undefined field kept its parity and came back identical. The table read
+"zero undefined fields" for all forty forms — which looks exactly like a clean answer, and
+would have sent the batch on with the belief that `shld`/`shrd` draw nothing.
+
+⭐ **It was caught by the arm carrying no information about the subject.** `andq %rcx,%rax`
+was in the run as a positive control, its AF is undefined by the SDM, and this repository's
+own ACL2 driver comment records it as the instruction whose undefined AF first forced the
+`defattach` to exist. It read zero too — and that is the only reason the table was not
+believed.
+
+⇒ 🔑 **A DIFFERENTIAL PROBE'S PERTURBATION MUST BE ABLE TO MOVE THE NARROWEST FIELD IT
+READS.** The failure was not in the construction of the probe, which was sound, but in its
+arithmetic — and a sound-looking probe reporting silence is indistinguishable from a real
+negative result.
+
+**The repair is that the control is no longer the head's to remember.**
+`scripts/oracle_undef_probe.py` takes a list of `id<TAB>asm` forms and:
+
+* assembles them with clang and patches the bytes of the harness's OWN emitted `mov_d`
+  cases, so the pre-states it reports on are the differential run's rather than a
+  re-implementation that can drift;
+* runs ACL2 twice, with `nfix` and with `(+ 1 (nfix x))` — **odd, with this entry's
+  paragraph beside the constant**;
+* **appends two controls the caller cannot remove**, `andq %rcx,%rax` (AF must be undefined
+  in every case) and `movq %rcx,%rax` (nothing may be undefined);
+* and **exits 2 printing NOTHING ELSE if either control fails**, because a probe that cannot
+  see its own control has measured its own blindness rather than the subject.
+
+Nine seconds for forty forms. Verified in both directions: with the offset set back to 1000
+the tool refuses and names the cause.
+
+⚠️ **AND THIS VERIFICATION IS NOT IN CI, FOR THE SAME REASON THE DIFFERENTIAL RUN IS NOT:**
+the ACL2 oracle is a 1.7 GB local tree that `scripts/setup_oracle.sh` builds and `/vendor/`
+excludes, so nothing in `.github/workflows/ci.yml` can execute it. The control is a RUNTIME
+gate inside the tool — it fires on every invocation, on the machine that has the oracle —
+and not a CI gate. Said here rather than left for a reader to assume the CI badge covers it.
+
+⇒ This is [[make-the-probe-cheap]] and [[a-probe-must-create-its-condition]] arriving
+together. A discipline that has to be re-typed each batch is one that will be re-typed
+slightly differently, and the difference will be in the part nobody is attending to.

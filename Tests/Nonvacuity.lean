@@ -405,4 +405,93 @@ theorem imul_overflow_is_not_mul_overflow :
   ∧ Value.mulOverflow .b 0xFF 0xFF = true
   ∧ Value.imulOverflow .b 0xFF 0xFF = false := by decide
 
+/-! ## P1 BATCH 18 — the double shifts' three branches, and the two forms that
+draw nothing
+
+⭐ THIS GROUP NEEDS THE `≠` AND THE `=` DIRECTION IN THE SAME PLACE, because its
+undefined set is a function of the COUNT: the same instruction at the same width
+commits to every flag at one count, draws two at another, and draws six and the
+destination at a third.  A file of `≠` theorems alone would be satisfied by a
+model that drew all six everywhere. -/
+
+/-- ⭐⭐ THE UNDEFINED DESTINATION — the SECOND in this model, and the first whose
+undefinedness comes from an operand OTHER than the one it overwrites.  `.w` with
+a count of 20: above the operand size, so the SDM stops defining the result. -/
+theorem shld_w_bad_count_dest_undefined :
+    (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax
+      ≠ (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax := by decide
+
+/-- …and ALL SIX FLAGS with it.  CF is exhibited; the undefined-column gate
+checks the whole set against what the model draws, in both directions. -/
+theorem shld_w_bad_count_cf_undefined :
+    (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).flags.cf
+      ≠ (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).flags.cf := by decide
+
+/-- ⛔ AND ONE COUNT LOWER THE SAME INSTRUCTION COMMITS TO ITS DESTINATION AND TO
+CF.  `.w` with a count of 16 is the boundary: legal, so the answer is computed
+and the oracle is not consulted for it.  ⚠️ THIS IS THE THEOREM THAT MAKES THE
+TWO ABOVE MEAN SOMETHING — without it a model that drew the destination at every
+count would satisfy both and be wrong about twenty-four of the harness's
+eighty-two pre-states. -/
+theorem shld_w_boundary_count_is_committed :
+    (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 16), 5⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax
+      = (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 16), 5⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax
+  ∧ (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 16), 5⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).flags.cf
+      = (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 16), 5⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).flags.cf := by decide
+
+/-- AF is undefined at every non-zero count, and OF at every non-zero count but
+one — so at a count of 5 both are drawn. -/
+theorem shld_af_and_of_undefined_at_five :
+    (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 5), 5⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).flags.af
+      ≠ (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 5), 5⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).flags.af
+  ∧ (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 5), 5⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).flags.of
+      ≠ (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 5), 5⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).flags.of := by decide
+
+/-- ⭐ AND AT A COUNT OF ONE, OF IS COMMITTED — the one count where the SDM
+defines it, as a sign change.  CF is committed at every legal count. -/
+theorem shld_of_committed_at_one :
+    (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 1), 4⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).flags.of
+      = (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 1), 4⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).flags.of := by decide
+
+/-- ⭐ A COUNT OF ZERO DRAWS NOTHING AT ALL — no flag moves between the two
+oracles, because none is written.  Distinguishes "undefined" from "unwritten",
+which the `≠` theorems above cannot. -/
+theorem shld_zero_count_draws_nothing :
+    (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 0), 4⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).flags
+      = (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 0), 4⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).flags
+  ∧ (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 0), 4⟩
+      (s0 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax
+      = (step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 0), 4⟩
+      (s1 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax := by decide
+
+/-- ⭐ CMPXCHG AND XADD DRAW NOTHING, ON EITHER BRANCH.  Both are `T-exact` with
+an EMPTY undefined column, and this is the theorem that holds that column up:
+the two opposite oracles give the identical post-state, so no bit of either
+answer comes from the oracle.  ⚠️ BOTH CMPXCHG BRANCHES ARE EXHIBITED — a model
+that drew a flag on the branch nobody tested would satisfy a one-branch version
+of this. -/
+theorem cmpxchg_and_xadd_draw_nothing :
+    (step ⟨.cmpxchg .d (.reg .rcx) .rdx, 3⟩ (s0 { rax := 7, rcx := 9, rdx := 5 })).flags
+      = (step ⟨.cmpxchg .d (.reg .rcx) .rdx, 3⟩ (s1 { rax := 7, rcx := 9, rdx := 5 })).flags
+  ∧ (step ⟨.cmpxchg .d (.reg .rcx) .rdx, 3⟩ (s0 { rax := 9, rcx := 9, rdx := 5 })).flags
+      = (step ⟨.cmpxchg .d (.reg .rcx) .rdx, 3⟩ (s1 { rax := 9, rcx := 9, rdx := 5 })).flags
+  ∧ (step ⟨.xadd .q (.reg .rax) .rcx, 4⟩ (s0 { rax := 9, rcx := 4 })).flags
+      = (step ⟨.xadd .q (.reg .rax) .rcx, 4⟩ (s1 { rax := 9, rcx := 4 })).flags := by decide
+
 end X86.Tests

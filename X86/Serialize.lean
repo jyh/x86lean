@@ -152,6 +152,30 @@ def declaredUndefGPRs (i : Instr) (s : Cpu) : List GPR :=
   | .bitcnt .bsr sz dst src =>
       if bitcntEncodable .bsr sz && Value.isZero sz (s.readOperand sz nr src)
       then [dst] else []
+  -- ⭐⭐ P1 BATCH 18 — THE SECOND UNDEFINED DESTINATION, AND IT IS UNDEFINED FOR
+  -- A DIFFERENT REASON THAN THE FIRST.  `bsf`/`bsr`'s destination is undefined
+  -- when the SOURCE VALUE is zero; `shld`/`shrd`'s is undefined when the COUNT
+  -- OPERAND, after masking, exceeds the operand size — a property of a different
+  -- operand, and one that can only happen at `.w`, where a 5-bit mask reaches 31
+  -- and the operand is 16 wide.  Over this harness's eighty-two pre-states a
+  -- CL-driven count lands there in THIRTY-FIVE.
+  --
+  -- ⚠️ THE MEMORY DESTINATION IS NOT HERE, AND ITS ABSENCE IS THE MODEL'S
+  -- REFUSAL RATHER THAN AN OMISSION: `step` halts on that combination
+  -- (`dshiftMemUndefined`), so there is no undefined memory to declare and
+  -- `undefinedLeaked`'s demand that the two oracle runs agree on every watched
+  -- byte is left with its full teeth.  The day this model answers for it, THIS
+  -- is one of the two places that has to grow, and the other is
+  -- `undefinableFields` in the comparator.
+  | .dshift _ sz dst _ amt =>
+      let cnt : BitVec 8 :=
+        match amt with
+        | .imm8 v => v
+        | .cl => (s.getReg .b .rcx).setWidth 8
+      let n := Flags.shiftCount sz cnt
+      if dshiftEncodable sz && !dshiftMemUndefined sz dst.isMem n && sz.bits < n then
+        (match dst with | .reg r _ => [r] | _ => [])
+      else []
   | _ => []
 
 /-- The same set as NAMES, in `GPR.all` order so that it and `undefinedRegs`

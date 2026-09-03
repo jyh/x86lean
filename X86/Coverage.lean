@@ -469,6 +469,42 @@ or a quotient too wide", tier := .frame, decode := .xed,
   , { mnemonic := "idiv", shapes := "r — b/w/l/q · m — b/q · #DE on a zero divisor \
 or a quotient out of signed range", tier := .frame, decode := .xed,
       undefined := ["CF", "PF", "AF", "ZF", "SF", "OF"], sdm := "Vol. 2A IDIV" }
+  -- P1 BATCH 18 (roster families 10, 14, 24 and 40): the compare-exchange pair
+  -- and the double-precision shifts.  ⭐ THE TWO HALVES SIT AT OPPOSITE ENDS OF
+  -- THE TIER COLUMN and the batch is worth reading as that contrast: `cmpxchg`
+  -- and `xadd` are `T-exact` with an EMPTY undefined list — every architected
+  -- bit of both destinations and all six flags is computed — while `shld` and
+  -- `shrd` draw all six flags AND the destination in one branch.
+  --
+  -- ⚠️ `cmpxchg`'s SHAPES SAY `dest ≠ acc` BECAUSE THE ACCUMULATOR IS NOT AN
+  -- OPERAND.  A vector whose destination is RAX compares the accumulator with
+  -- itself and can never reach the branch that writes it; the note is in the
+  -- published table because a reader of "r,r — b/w/l/q" would have no way to
+  -- know that one of those `r`s is unavailable.
+  , { mnemonic := "cmpxchg", shapes := "r(rmw),r · m(rmw),r — b/w/l/q (dest ≠ acc; no write on the unequal branch, D53)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMPXCHG" }
+  , { mnemonic := "xadd", shapes := "r(rmw),r · m(rmw),r — b/w/l/q (writes both operands)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XADD" }
+  -- ⛔ THE `w` REFUSAL IS IN THE SHAPES COLUMN AND IS NOT A GAP.  At a 16-bit
+  -- operand a masked count can reach 31, and above 16 the SDM leaves the RESULT
+  -- undefined.  With a register destination this model answers, from the
+  -- undefined-bit oracle, and declares the register (`DEST` below).  With a
+  -- MEMORY destination it refuses, because an oracle bit in memory is the one
+  -- thing `X86.undefinedLeaked` has no declaration channel for.  D52.
+  , { mnemonic := "shld",
+      shapes := "r(rmw),r,imm8/cl · m(rmw),r,imm8/cl — w/l/q (m at w with cl: refused)",
+      tier := .frame, decode := .xed,
+      undefined := ["CF (count > size)", "PF (count > size)", "AF (count ≠ 0)",
+                    "ZF (count > size)", "SF (count > size)", "OF (count ≠ 1)",
+                    "DEST (count > size)"],
+      sdm := "Vol. 2A SHLD" }
+  , { mnemonic := "shrd",
+      shapes := "r(rmw),r,imm8/cl · m(rmw),r,imm8/cl — w/l/q (m at w with cl: refused)",
+      tier := .frame, decode := .xed,
+      undefined := ["CF (count > size)", "PF (count > size)", "AF (count ≠ 0)",
+                    "ZF (count > size)", "SF (count > size)", "OF (count ≠ 1)",
+                    "DEST (count > size)"],
+      sdm := "Vol. 2A SHRD" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

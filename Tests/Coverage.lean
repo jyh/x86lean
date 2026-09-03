@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors). -/
-theorem roster_size_is_79 : rosterSize = 79 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are). -/
+theorem roster_size_is_83 : rosterSize = 83 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -288,6 +288,67 @@ theorem imulr_vectors_exist_exactly_where_encodable :
       && (vectors.any (fun v => match v.instr.op with
         | .imulr sz' _ _ (some _) => sz' == sz
         | _ => false) == imulrEncodable sz))) = true := by decide
+
+/-! ### P1 BATCH 18 — the three claims this batch would otherwise have made only
+in prose
+
+⛔ EACH OF THESE IS A SENTENCE A COMMENT ALREADY SAYS, TURNED INTO SOMETHING THAT
+FAILS.  The repository's own law: a column — or a sentence — no gate reads is
+wrong wherever nobody looked, and a TRUE disclaimer is worse than none, because
+it reassures. -/
+
+/-- ⛔⛔ NO `cmpxchg` VECTOR NAMES THE ACCUMULATOR AS ITS DESTINATION, and the
+whole batch rests on it.  `cmpxchg` compares AL/AX/EAX/RAX — not an operand —
+with the destination, so a vector whose destination is RAX compares the
+accumulator with itself, ZF is 1 in every pre-state, and the branch that writes
+the accumulator is UNREACHABLE.  Both observation arms would then agree with the
+model everywhere and report a pass while measuring half an instruction.
+
+⚠️ It is stated as an ALL over the vector table rather than as a note beside the
+seven vectors, because the failure it guards against is a vector added LATER by
+someone who read the seven and copied the shape without the reason. -/
+theorem cmpxchg_vectors_never_target_the_accumulator :
+    vectors.all (fun v => match v.instr.op with
+      | .cmpxchg _ (.reg r _) _ => r != .rax
+      | _ => true) = true := by decide
+
+/-- ⛔⛔ D52, FROM THE VECTOR SIDE: at `.w` the double shifts have MEMORY vectors
+with an IMMEDIATE count and none with CL — because `step` refuses that
+combination and the oracle does not, so a vector there would be a refusal
+disagreement rather than a test.
+
+⚠️ IT IS AN EQUALITY AND SO FAILS IN BOTH DIRECTIONS.  A CL vector appearing at
+`.w` in memory is the over-claim; the immediate vectors QUIETLY DISAPPEARING is
+the under-claim, and that half is the one nobody looks for — it would leave the
+refusal looking like a decision to skip the width entirely. -/
+theorem dshift_memory_vectors_at_w_are_immediate_only :
+    ((vectors.any (fun v => match v.instr.op with
+        | .dshift _ .w (.mem _) _ (.imm8 _) => true
+        | _ => false))
+    , (vectors.any (fun v => match v.instr.op with
+        | .dshift _ .w (.mem _) _ .cl => true
+        | _ => false))) = (true, false) := by decide
+
+/-- ⭐ THE FIVE IMMEDIATES ARE THE FIVE BRANCHES, AS A SET.  `$0` is the
+no-operation, `$1` the one count at which OF is defined, `$5` the ordinary case,
+`$16` the exact boundary at `.w` where the answer is the source, and `$20` past
+it, where the destination is undefined.  Written as an equality on the sorted set
+so that losing one — the cheapest way for this batch's coverage to rot — is a
+failure rather than a smaller number nobody notices.
+
+⚠️ Stated as TWO `all`s rather than as a sorted list, because `List.mergeSort`
+is defined by well-founded recursion and the kernel does not unfold it — the
+`String.splitOn` trap of `memDestHere`, in a different function.  Both directions
+are here for the reason the equality was wanted: one says no branch is missing,
+the other says no immediate is present that is not one of the five. -/
+theorem dshift_immediates_are_the_five_branches :
+    (([0, 1, 5, 16, 20] : List Nat).all (fun c =>
+        vectors.any (fun v => match v.instr.op with
+          | .dshift _ _ _ _ (.imm8 i) => i.toNat == c
+          | _ => false))
+     && vectors.all (fun v => match v.instr.op with
+          | .dshift _ _ _ _ (.imm8 i) => ([0, 1, 5, 16, 20] : List Nat).contains i.toNat
+          | _ => true)) = true := by decide
 
 /-! ### P1 BATCH 3 — the MEMORY OPERAND's own coverage
 
@@ -527,6 +588,20 @@ def isMemDestVector (v : Vec) : Bool :=
     -- difference visible.  `.imulr`'s destination is a `GPR` by its type.
     | .muldiv .. => false
     | .imulr .. => false
+    -- ⭐ P1 BATCH 18, AND THE EXHAUSTIVE MATCH EARNED ITS KEEP A FIFTH TIME:
+    -- three new constructors, three compile errors here, three answers written
+    -- down instead of assumed.  All three take an `Operand` destination and all
+    -- three can be memory, so all three ask it.
+    --
+    -- ⚠️ `.dshift`'s ANSWER IS `d.isMem` AND NOT "d.isMem AND THE MODEL ANSWERS
+    -- FOR IT".  The `.w`-in-memory-with-a-big-count case is REFUSED by `step`,
+    -- but the vectors that reach this predicate are `l` and `q` with `cl` and
+    -- every width with an immediate, all of which really do write memory — and a
+    -- predicate that tried to encode the refusal here would be answering a
+    -- question about `step` in a function about the vector table.
+    | .cmpxchg _ d _ => d.isMem
+    | .xadd _ d _ => d.isMem
+    | .dshift _ _ d _ _ => d.isMem
     -- ⛔ AND THE CATCH-ALL IS GONE.  `_ => false` made this function ABSORB every
     -- new `Op` constructor silently, which is how `.rot` (batch 8) and `.setcc`
     -- (here) each got a wrong answer with nothing to say so.  The match is now

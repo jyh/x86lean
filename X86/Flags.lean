@@ -401,6 +401,15 @@ def mulFlags (ovf : Bool) (sfU zfU afU pfU : Bool) (f : Flags) : Flags :=
     cf := ovf, of := ovf
     sf := sfU, zf := zfU, af := afU, pf := pfU }
 
+/-- ⭐ THE SIX ARITHMETIC FLAGS, ALL FROM THE ORACLE.  Named once and shared,
+because two different SDM sentences ask for it — DIV/IDIV's "the CF, OF, SF, ZF,
+AF and PF flags are undefined" and SHLD/SHRD's bad-parameters clause — and a
+six-field record update copied into two definitions is a duplicate that agrees
+today and diverges on whichever of the two is edited next.  DF is not among them
+and is left alone, as it is by every arithmetic form. -/
+def allSixUndef (cfU pfU afU zfU sfU ofU : Bool) (f : Flags) : Flags :=
+  { f with cf := cfU, pf := pfU, af := afU, zf := zfU, sf := sfU, of := ofU }
+
 /-- DIV and IDIV (SDM Vol. 2A, DIV / IDIV): "the CF, OF, SF, ZF, AF and PF flags
 are undefined".
 
@@ -412,7 +421,90 @@ quotient from a wrong one; the ANSWER is in RAX and RDX and nowhere else.
 
 ⚠️ DF IS NOT AMONG THEM and is left alone, as it is by every arithmetic form. -/
 def divFlags (cfU pfU afU zfU sfU ofU : Bool) (f : Flags) : Flags :=
-  { f with cf := cfU, pf := pfU, af := afU, zf := zfU, sf := sfU, of := ofU }
+  allSixUndef cfU pfU afU zfU sfU ofU f
+
+/-! ### P1 BATCH 18 — the double-precision shift RESULT
+
+⭐ ONE DEFINITION FOR BOTH DIRECTIONS, and the pair of shifts inside it is what
+makes the operands' roles legible: the DESTINATION moves by `n`, the SOURCE
+moves by `sz.bits - n` the other way, and the two are OR-ed.  Writing `shld` and
+`shrd` as separate expressions would have duplicated the truncation discipline —
+the part that is easy to get wrong at `.w` and `.d`, where a 64-bit `Val` holds
+a narrower operand.
+
+⚠️ IT LIVES IN THIS FILE AND NOT IN `X86/Value.lean`, WHERE ITS NEIGHBOURS ARE,
+for the reason `Flags.rotResult` does: it is keyed by a `DShiftKind`, and the
+kinds are declared in `X86/Syntax.lean`, which imports `Value` and is imported
+by this file.  The alternative was a `Bool` parameter meaning "left", which is
+the same information with the name taken off.
+
+⚠️ `b` IS TRUNCATED BEFORE IT IS SHIFTED IN `shld` AND `a` BEFORE `shrd` SHIFTS
+IT RIGHT, and neither truncation is optional: a right shift of an untruncated
+64-bit `Val` brings the operand's *upper* bits — bits that are not part of the
+`.w` or `.d` operand at all — into the result.  A model that truncated only at
+the end would be right at `.q` and wrong at the two narrow widths, which is the
+shape of nearly every width bug in this file.
+
+⚠️ ONLY DEFINED FOR `1 ≤ n ≤ sz.bits`; `step` handles `n = 0` (no operation) and
+`n > sz.bits` (the SDM's "bad parameters", where the whole result is undefined)
+before it gets here.  At `n = sz.bits` — reachable only at `.w`, where the mask
+allows 16 — the answer is the SOURCE, and that falls out of the definition
+rather than needing a case: `a <<< 16` leaves nothing inside a 16-bit window and
+`(trunc .w b) >>> 0` is all of `b`. -/
+def dshiftRes (k : DShiftKind) (sz : Size) (a b : Val) (n : Nat) : Val :=
+  match k with
+  | .shld => Value.trunc sz ((a <<< n) ||| ((Value.trunc sz b) >>> (sz.bits - n)))
+  | .shrd => Value.trunc sz (((Value.trunc sz a) >>> n) ||| (b <<< (sz.bits - n)))
+
+/-! ### P1 BATCH 18 — the double-precision shifts, SHLD and SHRD
+
+⭐ THE COUNT RULE IS THE ORDINARY SHIFTS' AND IS NOT RESTATED.  The SDM masks
+`shld`/`shrd`'s count with the same 5 bits (6 at `.q`) it masks `shl`'s with, so
+`Flags.shiftCount` is called rather than copied — a second masking function that
+had to be kept equal to the first is a duplicate born in agreement, and this
+file already carries one pair (`rotMasked`) that had to be justified as
+DELIBERATELY different.
+
+⛔ WHAT IS NOT THE ORDINARY SHIFTS' IS THE THIRD BRANCH.  `shl` has two cases,
+count zero and count non-zero.  These have three, because the SDM adds "if the
+count is greater than the operand size, the result is undefined" — and after the
+5-bit mask that is reachable at `.w` and nowhere else.  The branch is
+`dshiftBadFlags`, and the DESTINATION goes undefined with the flags; `step`
+handles that half, since it is the only part that needs the oracle to hand out
+more than a bit. -/
+
+/-- The flags after a double shift with a count in `1 ... sz.bits`.
+
+⚠️ CF IS THE LAST BIT SHIFTED OUT OF THE DESTINATION, and "out of" points the
+opposite way for the two directions: `shld` moves the destination LEFT, so the
+last bit to leave is the one at `sz.bits - n`; `shrd` moves it RIGHT, so it is
+the one at `n - 1`.  The bit is read from the ORIGINAL destination, never from
+the result — in the result that position holds an incoming SOURCE bit, and a
+model that read it there would agree with this one exactly when the two operands
+happen to match at one bit.
+
+⚠️ OF IS DEFINED ONLY AT `n = 1` and is a SIGN CHANGE, which is `shl`'s rule
+stated differently rather than the same expression: `shl`'s is `MSB(result) XOR
+CF`, and here CF is not the bit that used to be the sign unless `n = 1`.  At
+`n = 1` the two agree, which is the only place either is defined. -/
+def dshiftFlags (k : DShiftKind) (sz : Size) (a res : Val) (n : Nat)
+    (ofU afU : Bool) (f : Flags) : Flags :=
+  let cf : Bool :=
+    match k with
+    | .shld => a.getLsbD (sz.bits - n)
+    | .shrd => a.getLsbD (n - 1)
+  let of : Bool :=
+    if n = 1 then Value.msb sz a != Value.msb sz res else ofU
+  { fromResult sz res f with cf := cf, af := afU, of := of }
+
+/-- SHLD/SHRD with a masked count ABOVE the operand size (SDM Vol. 2A,
+SHLD/SHRD): "If the count is greater than the operand size, the result is
+undefined" — and the flags with it.  Pointwise the same rule as `divFlags`, and
+delegating to the same definition rather than restating it is deliberate: two
+copies of a six-field record update, maintained apart, is the duplicate that
+diverges on the next ordinary edit. -/
+def dshiftBadFlags (cfU pfU afU zfU sfU ofU : Bool) (f : Flags) : Flags :=
+  allSixUndef cfU pfU afU zfU sfU ofU f
 
 end Flags
 end X86

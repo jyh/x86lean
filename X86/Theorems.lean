@@ -1214,4 +1214,121 @@ theorem step_imul3_ignores_dest (h : Live s) (dst rs : GPR) (hne : dst ≠ rs)
 
 end MulDiv
 
+/-! ## P1 BATCH 18 — CMPXCHG, XADD and the double-precision shifts
+
+⭐ THE FIRST THEOREM HERE IS A CORRECTION, NOT A CHARACTERIZATION.  The SDM's
+CMPXCHG pseudo-code writes `DEST := TEMP` on the unequal branch; this model
+wrote it, and eighty differential cases at `.d` said no.  `step_cmpxchg_unequal_
+leaves_dest` is the repaired claim in the form a reader can check without running
+anything: on the unequal branch the destination register keeps ALL SIXTY-FOUR of
+its bits.  See docs/DECISIONS.md D53. -/
+section Batch18
+variable {sz : Size} {r rs : GPR} {len : Nat} {s : Cpu}
+
+/-- ⛔⛔ D53, AS A THEOREM.  A `DEST := DEST` on a 32-bit register destination is
+not the no-op it reads as — a 32-bit register write zero-extends — so "the model
+leaves it alone" is a claim with observable content and belongs here rather than
+in a comment. -/
+theorem step_cmpxchg_unequal_leaves_dest (h : Live s) (hne : r ≠ .rax)
+    (hu : Value.trunc sz (s.regs.get .rax) ≠ Value.trunc sz (s.regs.get r)) :
+    (step ⟨.cmpxchg sz (.reg r) rs, len⟩ s).regs.get r = s.regs.get r := by
+  simp [step, h, Cpu.getReg, Operand.isImm, if_neg hu,
+    Regs.get_set_ne _ _ _ _ (Ne.symm hne)]
+
+/-- …and the accumulator DOES move on that branch, so the theorem above is a
+statement about which half of the SDM's else-branch is real rather than a claim
+that the branch does nothing. -/
+theorem step_cmpxchg_unequal_writes_acc (h : Live s) (hne : r ≠ .rax)
+    (hu : Value.trunc sz (s.regs.get .rax) ≠ Value.trunc sz (s.regs.get r)) :
+    (step ⟨.cmpxchg sz (.reg r) rs, len⟩ s).regs.get .rax
+      = Value.writeView sz (s.regs.get .rax) (s.getReg sz r) := by
+  simp [step, h, Cpu.getReg, Operand.isImm, if_neg hu]
+
+/-- THE EQUAL BRANCH: the destination takes the SOURCE, and the accumulator is
+left alone — the mirror image of the two above. -/
+theorem step_cmpxchg_equal (h : Live s) (hne : r ≠ .rax)
+    (he : Value.trunc sz (s.regs.get .rax) = Value.trunc sz (s.regs.get r)) :
+    (step ⟨.cmpxchg sz (.reg r) rs, len⟩ s).regs
+      = s.regs.set r (Value.writeView sz (s.regs.get r) (s.getReg sz rs)) := by
+  simp [step, h, Cpu.getReg, Operand.isImm, if_pos he]
+
+/-- ⭐ XADD WRITES BOTH OPERANDS, and the SOURCE takes the destination's ORIGINAL
+value.  Stated as the whole register file so that "both" is visible rather than
+split across two theorems that could each be true of a model that wrote one. -/
+theorem step_xadd_reg_reg (h : Live s) :
+    step ⟨.xadd sz (.reg r) rs, len⟩ s =
+      (let a := s.getReg sz r
+       let b := s.getReg sz rs
+       let s1 := s.setFlags (Flags.add sz a b s.flags)
+       let s2 := s1.setReg sz rs a
+       { s2 with
+         regs := s2.regs.set r (Value.writeView sz (s2.regs.get r)
+           (Flags.addResult sz a b)),
+         rip := s.rip + BitVec.ofNat 64 len }) := by
+  simp [step, h, Cpu.getReg, Operand.isImm, Cpu.setFlags, Cpu.setReg, Cpu.setRip]
+
+/-- ⛔ SHLD/SHRD HAVE NO 8-BIT ENCODING, and `step` says so rather than answering
+for bytes no opcode can carry — batch 14's statement about the bit-counting
+group's missing widths, and batch 17's about `imul`'s, in a third place. -/
+theorem step_dshift_b_refuses (k : DShiftKind) (dst : Operand) (amt : ShiftAmt)
+    (h : Live s) :
+    (step ⟨.dshift k .b dst rs amt, len⟩ s).stopped = true := by
+  have he : dshiftEncodable .b = false := by decide
+  simp [step, h, he, Cpu.halt]
+
+/-- ⛔⛔ D52, AS A THEOREM: the ONE combination this model declines to answer for,
+stated as a refusal that changes nothing else.  A 16-bit memory destination with
+a masked count above 16 would place an undefined value in MEMORY, and
+`X86.undefinedLeaked` has no declaration channel for that.  ⚠️ The hypothesis is
+on the masked count and not on the immediate, because CL reaches the same branch
+in thirty-five of the harness's eighty-two pre-states. -/
+theorem step_dshift_mem_undefined_refuses (k : DShiftKind) (ea : Ea) (c : BitVec 8)
+    (h : Live s) (hc : 16 < Flags.shiftCount .w c) :
+    step ⟨.dshift k .w (.mem ea) rs (.imm8 c), len⟩ s =
+      { s with ms := some (.unimplemented
+          "shld/shrd: an undefined RESULT in memory (16-bit operand, count > 16)") } := by
+  have he : dshiftEncodable .w = true := by decide
+  have hm : dshiftMemUndefined .w true (Flags.shiftCount .w c) = true := by
+    simp [dshiftMemUndefined, Size.bits]; omega
+  simp [step, h, he, hm, Cpu.halt, Operand.isImm, Operand.isMem]
+
+/-- ⭐⭐ A COUNT OF ZERO TOUCHES NO FLAG — AND STILL WRITES THE DESTINATION.  D54:
+the SDM says "IF COUNT = 0 THEN no operation", and both public executable models
+disagree with it, K's rule for this case carrying the comment `// Intel Bug`.
+The write is invisible at `.b`, `.w` and `.q` and is a ZERO-EXTENSION at `.d`,
+which is where fifty-one differential cases found it.
+
+⚠️ THE STATEMENT IS ABOUT A REGISTER because that is where the write is
+observable: `Value.writeView` is the whole content of the theorem, and at `.d` it
+clears bits 63:32. -/
+theorem step_dshift_zero_count (k : DShiftKind) (c : BitVec 8)
+    (h : Live s) (hsz : sz ≠ .b) (hc : Flags.shiftCount sz c = 0) :
+    step ⟨.dshift k sz (.reg r) rs (.imm8 c), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r) (s.getReg sz r)),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  have he : dshiftEncodable sz = true := by
+    cases sz <;> first | exact absurd rfl hsz | decide
+  simp_all [step, dshiftEncodable, dshiftMemUndefined, Cpu.getReg, Operand.isImm,
+    Operand.isMem]
+
+/-- ⭐ AT A COUNT EQUAL TO THE OPERAND SIZE THE ANSWER IS THE SOURCE, and the
+count can only equal the operand size at `.w`, where a five-bit mask allows 16.
+It is the boundary the vector `shld_ri16_w` exists for: one below it is an
+ordinary shift, one above it the SDM stops defining the result. -/
+theorem dshiftRes_shld_full_width (a b : Val) :
+    Flags.dshiftRes .shld .w a b 16 = Value.trunc .w b := by
+  simp only [Flags.dshiftRes, Size.bits, Nat.sub_self, BitVec.ushiftRight_zero]
+  apply BitVec.eq_of_getLsbD_eq
+  intro i
+  simp only [Value.trunc, BitVec.getLsbD_and, BitVec.getLsbD_or,
+    BitVec.getLsbD_shiftLeft]
+  by_cases hi : i < 16
+  · have hlo : i < (Size.w).bits := by simpa [Size.bits] using hi
+    simp [hi, Size.mask_getLsbD_low .w i hlo]
+  · have hhi : (Size.w).bits ≤ i := by simp [Size.bits]; omega
+    simp [Size.mask_getLsbD_high .w i hhi]
+
+end Batch18
+
 end X86

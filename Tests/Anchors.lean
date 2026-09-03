@@ -1744,4 +1744,78 @@ theorem imul2_q_reads_dest :
     let w := step ⟨.imulr .q .rax (.reg .rcx) none, 4⟩ (mdState 7 0 3)
     (w.regs.get .rax, w.flags.cf) = (21, false) := by decide
 
+/-! ## P1 BATCH 18 — the compare-exchange pair and the double shifts
+
+⭐ THE FIRST FOUR ANCHOR A BRANCH, NOT A NUMBER.  `cmpxchg`'s answer is a choice
+between two destinations, so what a reader needs pinned is which choice happens
+and what each one writes — including the half of the SDM's else-branch this
+model does NOT perform (D53). -/
+
+/-- ⭐ THE UNEQUAL BRANCH: the accumulator takes the destination, and the
+DESTINATION IS NOT TOUCHED.  ⛔ THE WIDTH IS `.d` DELIBERATELY, and it is the
+only width at which this theorem has content: a 32-bit register write
+zero-extends, so a model obeying the SDM's `DEST := TEMP` literally would leave
+RCX at `0x0000000012345678` instead of `0xDEADBEEF12345678`.  Eighty
+differential cases said so before this theorem existed. -/
+theorem cmpxchg_l_unequal_leaves_dest_upper_half :
+    let w := step ⟨.cmpxchg .d (.reg .rcx) .rdx, 3⟩ (mdState 7 0 0xDEADBEEF12345678)
+    (w.regs.get .rcx, w.regs.get .rax, w.flags.zf)
+      = (0xDEADBEEF12345678, 0x12345678, false) := by decide
+
+/-- …and the EQUAL branch writes the source into the destination, zero-extended
+as any 32-bit register write is, leaving the accumulator alone. -/
+theorem cmpxchg_l_equal_writes_src :
+    let w := step ⟨.cmpxchg .d (.reg .rcx) .rdx, 3⟩ (mdState 0x12345678 0xAA 0x12345678)
+    (w.regs.get .rcx, w.regs.get .rax, w.flags.zf) = (0xAA, 0x12345678, true) := by decide
+
+/-- ⭐ XADD WRITES BOTH: `RAX := RAX + RCX`, `RCX := old RAX`.  `9 + 4 = 13`, and
+RCX comes back holding `9`. -/
+theorem xadd_q_writes_both :
+    let w := step ⟨.xadd .q (.reg .rax) .rcx, 4⟩ (mdState 9 0 4)
+    (w.regs.get .rax, w.regs.get .rcx, w.flags.cf) = (13, 9, false) := by decide
+
+/-- ⭐ SHLD BRINGS IN THE SOURCE'S TOP BITS.  At `.q`, `shldq $4` on
+`0x1234567800000000` with source `0xFEDCBA9876543210` gives
+`0x4567800000000000` shifted up by 4 with the source's top nibble `F` arriving at
+the bottom: `0x2345678000000000 ||| 0xF`.  CF is the last bit to leave the top —
+bit 60 of the destination, which is `1`. -/
+theorem shld_q_brings_in_source_top :
+    let w := step ⟨.dshift .shld .q (.reg .rax) .rcx (.imm8 4), 5⟩
+      (mdState 0x1234567800000000 0 0xFEDCBA9876543210)
+    (w.regs.get .rax, w.flags.cf) = (0x234567800000000F, true) := by decide
+
+/-- …and SHRD brings in the source's BOTTOM bits at the top, the mirror image.
+CF is the last bit to leave the bottom — bit 3 of the destination. -/
+theorem shrd_q_brings_in_source_bottom :
+    let w := step ⟨.dshift .shrd .q (.reg .rax) .rcx (.imm8 4), 5⟩
+      (mdState 0x1234567800000000 0 0xFEDCBA9876543210)
+    (w.regs.get .rax, w.flags.cf) = (0x0123456780000000, false) := by decide
+
+/-- ⭐ THE BOUNDARY, ANCHORED: a count EQUAL to the operand size is a legal
+count, and it makes the destination the SOURCE.  Reachable at `.w` alone — a
+five-bit mask allows 16 and a 16-bit operand is 16 wide. -/
+theorem shld_w_count_equals_width_is_source :
+    let w := step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 16), 5⟩
+      (mdState 0xFFFF0000ABCD 0 0x1234)
+    (w.regs.get .rax, w.stopped) = (0xFFFF00001234, false) := by decide
+
+/-- ⭐⭐ D54, ANCHORED: A COUNT OF ZERO TOUCHES NO FLAG AND STILL ZERO-EXTENDS
+THE DESTINATION.  The SDM says "no operation"; ACL2 x86isa and K both write the
+destination, and K's rule for this case is commented `// Intel Bug`.
+
+⚠️ RAX's UPPER HALF IS NON-ZERO ON PURPOSE.  With `rax := 0xABCD` — the first
+version of this anchor — the write-back and the no-op give the same answer and
+the theorem would be true of both models.  `0xDEADBEEF0000ABCD` is what makes it
+say something, and it is the D14 shape: a state that does not vary in the bits
+the claim is about is a test that passes by construction.
+
+⚠️ THE FLAGS ARE ALL SET so a model that recomputed them from the result would
+clear four and this theorem would see that too. -/
+theorem shld_zero_count_writes_dest_and_no_flag :
+    let s := mk (regs := ((({} : Regs).set .rax 0xDEADBEEF0000ABCD).set .rcx 0x1234))
+      (flags := { cf := true, pf := true, af := true, zf := true, sf := true, of := true })
+      (rip := 0x400000)
+    let w := step ⟨.dshift .shld .d (.reg .rax) .rcx (.imm8 0), 4⟩ s
+    (w.regs.get .rax, w.flags, w.rip) = (0x0000ABCD, s.flags, 0x400004) := by decide
+
 end X86.Tests

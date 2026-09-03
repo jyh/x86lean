@@ -442,6 +442,33 @@ distinction is one definition and the theorems can quantify over it. -/
 def MulDivKind.isDiv : MulDivKind → Bool
   | .div | .idiv => true
   | _ => false
+
+/-! ### P1 BATCH 18 — the DOUBLE-PRECISION SHIFTS
+
+`shld` and `shrd` shift a destination by `n` and fill the vacated bits from a
+SECOND operand instead of with zeros, the sign, or the carry.  They are one kind
+for the reason `shl`/`shr`/`sar` are: one encoding family (`0F A4`/`A5` and
+`0F AC`/`AD`), one count rule, one flag rule, and the only difference is the
+DIRECTION — which decides which end of the destination the last bit leaves from
+and which end of the source the incoming bits come from.
+
+⛔ THEY ARE THE FIRST FORMS IN THIS MODEL WITH A "BAD PARAMETERS" BRANCH.  The
+SDM (Vol. 2A, SHLD/SHRD) masks the count to 5 bits (6 at `.q`) and then says:
+"If the count operand is 0, the flags are not affected.  If the count is greater
+than the operand size, the result is undefined" — DEST *and* CF, OF, SF, ZF, AF
+and PF, all six.  A 5-bit mask reaches 31 and a 16-bit operand is 16 wide, so
+the branch is reachable at ONE width only, `.w`, and it is not a corner: over
+this harness's own eighty-two pre-states a masked count lands above 16 in
+THIRTY-FIVE of them.  Measured on the oracle before this constructor existed —
+see docs/DECISIONS.md D52. -/
+inductive DShiftKind where
+  | shld | shrd
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+def DShiftKind.mnemonic : DShiftKind → String
+  | .shld => "shld" | .shrd => "shrd"
+
+def DShiftKind.all : List DShiftKind := [.shld, .shrd]
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
 inductive Op where
@@ -644,6 +671,26 @@ inductive Op where
   16-, 32- or 64-bit operand, and the byte-wide multiply is the one-operand
   `F6 /5` above.  `imulrEncodable` is the table, and `step` declines `.b`. -/
   | imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val)
+  /-- P1 BATCH 18: CMPXCHG — the first form in this model whose DESTINATION is
+  decided by a comparison the instruction makes about its own operands.
+
+  `cmpxchg dst, src` compares the ACCUMULATOR (AL/AX/EAX/RAX, by opcode, not by
+  any operand) with `dst`.  Equal: `dst := src`.  Unequal: the accumulator takes
+  `dst`, and `dst` is written back unchanged — the SDM's `DEST := DEST`, which
+  is not a no-op at `.d`, where any register write zero-extends.
+
+  ⚠️ THE ACCUMULATOR IS NOT AN OPERAND, so `dst` must not be RAX in a vector or
+  the comparison is a tautology and the unequal branch is unreachable. -/
+  | cmpxchg (sz : Size) (dst : Operand) (src : GPR)
+  /-- P1 BATCH 18: XADD — the second form in this model that writes BOTH its
+  operands (`xchg`, batch 10, was the first), and the first that writes both
+  AND sets the flags.  `TEMP := SRC + DEST; SRC := DEST; DEST := TEMP`. -/
+  | xadd (sz : Size) (dst : Operand) (src : GPR)
+  /-- P1 BATCH 18: SHLD/SHRD.  `dst` is read and written, `src` is a REGISTER by
+  the encoding (`0F A4 /r` is `r/m, r, imm8`), and the count is an immediate or
+  CL exactly as the ordinary shifts' is — so `ShiftAmt` is reused rather than
+  restated. -/
+  | dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR) (amt : ShiftAmt)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -669,6 +716,34 @@ with no encoding — which is the resemblance batch 16 had to disclaim about
 `repApplies`, where it did NOT.  Here the resemblance is real: `imul %cl` is a
 one-operand `.muldiv` and `imulb %cl, %al` does not assemble at all. -/
 def imulrEncodable (sz : Size) : Bool := sz != .b
+
+/-- P1 BATCH 18: the double shifts have no 8-bit encoding.  `0F A4`/`A5`/`AC`/
+`AD` take a 16-, 32- or 64-bit operand and there is no byte form at all — the
+same shape of fact as `imulrEncodable`, written the same way. -/
+def dshiftEncodable (sz : Size) : Bool := sz != .b
+
+/-- ⛔ P1 BATCH 18 — THE ONE PLACE THIS MODEL DECLINES TO ANSWER FOR A DOUBLE
+SHIFT, AND WHY IT IS A REFUSAL RATHER THAN A GUESS OR AN OMISSION.
+
+At `.w` a masked count above 16 leaves the DESTINATION undefined.  When that
+destination is a REGISTER the model answers with the undefined-bit oracle, and
+the machinery batch 14 built for `bsf`/`bsr` carries it: `declaredUndefGPRs`
+names the register, `undefinedRegs` observes it move, and their EQUALITY is the
+leak check.  There is no such channel for MEMORY.  `X86.undefinedLeaked` demands
+that the two opposite oracle runs agree on every watched byte, and
+`undefinableFields` in the comparator is a CLOSED list of flag and register
+names whose own comment names the day a memory window reaches the undefined set
+as the day it must be widened.
+
+⇒ Rather than widen the model's strongest gate as a side effect of one batch,
+this model REFUSES exactly the combination that would put an oracle bit into
+memory: a memory destination, at `.w`, with a masked count above 16.  Every
+other double shift — every width with a register destination, and `.w` in memory
+with a count that is actually defined — is answered.  The refusal is a property
+of (width, destination kind, count), so it is a theorem rather than a comment:
+see `Tests/Coverage.lean`.  D52. -/
+def dshiftMemUndefined (sz : Size) (dstIsMem : Bool) (n : Nat) : Bool :=
+  dstIsMem && sz.bits < n
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
 the header on why `len` is a datum and what it costs in trust. -/
@@ -737,6 +812,9 @@ def Op.mnemonic : Op → String
   | .repstrop r _ _ => r.mnemonic
   | .muldiv k .. => k.mnemonic
   | .imulr .. => "imul"
+  | .cmpxchg .. => "cmpxchg"
+  | .xadd .. => "xadd"
+  | .dshift k .. => k.mnemonic
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -800,7 +878,13 @@ def rosterP0 : List String :=
    -- forms that write one register.  ⚠️ They are ONE roster row each way round:
    -- the roster files `imul` once as a base name at six shapes, and this list
    -- names mnemonics, so `imul` appears here once.
-   "mul", "imul", "div", "idiv"]
+   "mul", "imul", "div", "idiv",
+   -- P1 BATCH 18: the compare-exchange pair and the double-precision shifts.
+   -- `shld` and `shrd` are two names for ONE constructor (`.dshift`, keyed by
+   -- `DShiftKind`), as `shl`/`shr`/`sar` are for `.shift`; `cmpxchg` and `xadd`
+   -- are a constructor apiece, because what is hard about each is different —
+   -- one has a conditional destination, the other has two.
+   "cmpxchg", "xadd", "shld", "shrd"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

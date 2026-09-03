@@ -1823,6 +1823,133 @@ def vectors : List Vec :=
     , bytes := "f63b", instr := ⟨.muldiv .idiv .b (M .rbx), 2⟩ }
   , { id := "idiv_mq", mnemonic := "idiv", asm := "idivq (%rbx)"
     , bytes := "48f73b", instr := ⟨.muldiv .idiv .q (M .rbx), 3⟩ }
+  -- ⭐⭐ P1 BATCH 18 — THE COMPARE-EXCHANGE PAIR AND THE DOUBLE SHIFTS.  Forty-one
+  -- vectors over four mnemonics and three constructors.
+  --
+  -- ⛔ `cmpxchg`'s DESTINATION IS NEVER RAX, AND THAT IS THE WHOLE DESIGN OF
+  -- THESE SEVEN.  The accumulator is not an operand: `cmpxchg` compares
+  -- AL/AX/EAX/RAX with the destination, so `cmpxchg %rdx, %rax` compares RAX
+  -- with itself, ZF is 1 in every pre-state, and the branch that writes the
+  -- accumulator is UNREACHABLE.  With RCX and `(%rbx)` as destinations the split
+  -- is real and was MEASURED on the oracle before a vector existed: 22 to 27 of
+  -- the eighty-two take the equal branch, 55 to 60 the unequal, depending on
+  -- width.  `mkPre`'s diagonal is where the two values meet.
+  --
+  -- ⚠️ THE DOUBLE SHIFTS TAKE THEIR SOURCE FROM RDX AND NOT FROM RCX, alone in
+  -- this table among the register-destination forms.  The count is CL — the low
+  -- byte of RCX — so a source in RCX would put the count INSIDE the source
+  -- operand at `.w`, where CX and CL overlap, and a model that read the source
+  -- at the wrong width would be shielded by the coincidence.  RDX carries
+  -- `~~~a`, so the bits shifted in are the complement of the bits shifted out
+  -- and any confusion between the two operands is loud.
+  --
+  -- ⭐ THE FIVE IMMEDIATES ARE FIVE DIFFERENT BRANCHES, not five samples of one.
+  -- `$5` is the ordinary case; `$1` is the ONE count at which OF is defined
+  -- rather than drawn from the oracle; `$0` is the branch that does nothing at
+  -- all and touches no flag; `$16` at `.w` is the exact boundary, where the
+  -- count equals the operand size and the answer is the SOURCE; and `$20` at
+  -- `.w` is past it, where the SDM leaves the destination and all six flags
+  -- undefined.
+  --
+  -- ⚠️ `shld_ri20_w` TESTS NO ARITHMETIC AND IS HERE ANYWAY.  Its destination is
+  -- undefined in all eighty-two pre-states, so the comparator explains every
+  -- disagreement in RAX and no wrong shift could ever be caught by it.  What it
+  -- does test is the DECLARATION: `undefinedLeaked` demands that the registers
+  -- the model declares undefined are exactly the registers that move between the
+  -- two opposite oracle runs, in both directions, so this vector is the one that
+  -- fails if the declaration is missing AND the one that fails if it is invented.
+  -- The `_cl_w` vectors reach the same branch in 35 of 82 and the defined branch
+  -- in 24, which is where the shift itself is observed.
+  --
+  -- ⛔ THERE IS NO `m,cl` VECTOR AT `.w`, AND THE MODEL REFUSES THAT COMBINATION
+  -- RATHER THAN ANSWERING IT.  A 16-bit memory destination with a count above 16
+  -- would put an oracle-drawn value into MEMORY, which `undefinedLeaked` has no
+  -- declaration channel for and the comparator's `undefinableFields` is a closed
+  -- list against.  Refusing is why this table has no vector there: the oracle
+  -- COMPUTES that case, so a vector would be a refusal disagreement rather than
+  -- a test.  See `dshiftMemUndefined` and docs/DECISIONS.md D52.
+  , { id := "cmpxchg_r_b", mnemonic := "cmpxchg", asm := "cmpxchgb %dl, %cl"
+    , bytes := "0fb0d1", instr := ⟨.cmpxchg .b (R .rcx) .rdx, 3⟩ }
+  , { id := "cmpxchg_r_w", mnemonic := "cmpxchg", asm := "cmpxchgw %dx, %cx"
+    , bytes := "660fb1d1", instr := ⟨.cmpxchg .w (R .rcx) .rdx, 4⟩ }
+  , { id := "cmpxchg_r_l", mnemonic := "cmpxchg", asm := "cmpxchgl %edx, %ecx"
+    , bytes := "0fb1d1", instr := ⟨.cmpxchg .d (R .rcx) .rdx, 3⟩ }
+  , { id := "cmpxchg_r_q", mnemonic := "cmpxchg", asm := "cmpxchgq %rdx, %rcx"
+    , bytes := "480fb1d1", instr := ⟨.cmpxchg .q (R .rcx) .rdx, 4⟩ }
+  , { id := "cmpxchg_m_b", mnemonic := "cmpxchg", asm := "cmpxchgb %dl, (%rbx)"
+    , bytes := "0fb013", instr := ⟨.cmpxchg .b (M .rbx) .rdx, 3⟩ }
+  , { id := "cmpxchg_m_l", mnemonic := "cmpxchg", asm := "cmpxchgl %edx, (%rbx)"
+    , bytes := "0fb113", instr := ⟨.cmpxchg .d (M .rbx) .rdx, 3⟩ }
+  , { id := "cmpxchg_m_q", mnemonic := "cmpxchg", asm := "cmpxchgq %rdx, (%rbx)"
+    , bytes := "480fb113", instr := ⟨.cmpxchg .q (M .rbx) .rdx, 4⟩ }
+  , { id := "xadd_r_b", mnemonic := "xadd", asm := "xaddb %cl, %al"
+    , bytes := "0fc0c8", instr := ⟨.xadd .b (R .rax) .rcx, 3⟩ }
+  , { id := "xadd_r_w", mnemonic := "xadd", asm := "xaddw %cx, %ax"
+    , bytes := "660fc1c8", instr := ⟨.xadd .w (R .rax) .rcx, 4⟩ }
+  , { id := "xadd_r_l", mnemonic := "xadd", asm := "xaddl %ecx, %eax"
+    , bytes := "0fc1c8", instr := ⟨.xadd .d (R .rax) .rcx, 3⟩ }
+  , { id := "xadd_r_q", mnemonic := "xadd", asm := "xaddq %rcx, %rax"
+    , bytes := "480fc1c8", instr := ⟨.xadd .q (R .rax) .rcx, 4⟩ }
+  , { id := "xadd_m_b", mnemonic := "xadd", asm := "xaddb %al, (%rbx)"
+    , bytes := "0fc003", instr := ⟨.xadd .b (M .rbx) .rax, 3⟩ }
+  , { id := "xadd_m_l", mnemonic := "xadd", asm := "xaddl %eax, (%rbx)"
+    , bytes := "0fc103", instr := ⟨.xadd .d (M .rbx) .rax, 3⟩ }
+  , { id := "xadd_m_q", mnemonic := "xadd", asm := "xaddq %rax, (%rbx)"
+    , bytes := "480fc103", instr := ⟨.xadd .q (M .rbx) .rax, 4⟩ }
+  , { id := "shld_r_cl_w", mnemonic := "shld", asm := "shldw %cl, %dx, %ax"
+    , bytes := "660fa5d0", instr := ⟨.dshift .shld .w (R .rax) .rdx .cl, 4⟩ }
+  , { id := "shld_r_cl_l", mnemonic := "shld", asm := "shldl %cl, %edx, %eax"
+    , bytes := "0fa5d0", instr := ⟨.dshift .shld .d (R .rax) .rdx .cl, 3⟩ }
+  , { id := "shld_r_cl_q", mnemonic := "shld", asm := "shldq %cl, %rdx, %rax"
+    , bytes := "480fa5d0", instr := ⟨.dshift .shld .q (R .rax) .rdx .cl, 4⟩ }
+  , { id := "shrd_r_cl_w", mnemonic := "shrd", asm := "shrdw %cl, %dx, %ax"
+    , bytes := "660fadd0", instr := ⟨.dshift .shrd .w (R .rax) .rdx .cl, 4⟩ }
+  , { id := "shrd_r_cl_l", mnemonic := "shrd", asm := "shrdl %cl, %edx, %eax"
+    , bytes := "0fadd0", instr := ⟨.dshift .shrd .d (R .rax) .rdx .cl, 3⟩ }
+  , { id := "shrd_r_cl_q", mnemonic := "shrd", asm := "shrdq %cl, %rdx, %rax"
+    , bytes := "480fadd0", instr := ⟨.dshift .shrd .q (R .rax) .rdx .cl, 4⟩ }
+  , { id := "shld_ri5_w", mnemonic := "shld", asm := "shldw $5, %dx, %ax"
+    , bytes := "660fa4d005", instr := ⟨.dshift .shld .w (R .rax) .rdx (.imm8 5), 5⟩ }
+  , { id := "shld_ri5_l", mnemonic := "shld", asm := "shldl $5, %edx, %eax"
+    , bytes := "0fa4d005", instr := ⟨.dshift .shld .d (R .rax) .rdx (.imm8 5), 4⟩ }
+  , { id := "shld_ri5_q", mnemonic := "shld", asm := "shldq $5, %rdx, %rax"
+    , bytes := "480fa4d005", instr := ⟨.dshift .shld .q (R .rax) .rdx (.imm8 5), 5⟩ }
+  , { id := "shrd_ri5_w", mnemonic := "shrd", asm := "shrdw $5, %dx, %ax"
+    , bytes := "660facd005", instr := ⟨.dshift .shrd .w (R .rax) .rdx (.imm8 5), 5⟩ }
+  , { id := "shrd_ri5_l", mnemonic := "shrd", asm := "shrdl $5, %edx, %eax"
+    , bytes := "0facd005", instr := ⟨.dshift .shrd .d (R .rax) .rdx (.imm8 5), 4⟩ }
+  , { id := "shrd_ri5_q", mnemonic := "shrd", asm := "shrdq $5, %rdx, %rax"
+    , bytes := "480facd005", instr := ⟨.dshift .shrd .q (R .rax) .rdx (.imm8 5), 5⟩ }
+  , { id := "shld_ri1_l", mnemonic := "shld", asm := "shldl $1, %edx, %eax"
+    , bytes := "0fa4d001", instr := ⟨.dshift .shld .d (R .rax) .rdx (.imm8 1), 4⟩ }
+  , { id := "shrd_ri1_l", mnemonic := "shrd", asm := "shrdl $1, %edx, %eax"
+    , bytes := "0facd001", instr := ⟨.dshift .shrd .d (R .rax) .rdx (.imm8 1), 4⟩ }
+  , { id := "shld_ri0_l", mnemonic := "shld", asm := "shldl $0, %edx, %eax"
+    , bytes := "0fa4d000", instr := ⟨.dshift .shld .d (R .rax) .rdx (.imm8 0), 4⟩ }
+  , { id := "shld_ri16_w", mnemonic := "shld", asm := "shldw $16, %dx, %ax"
+    , bytes := "660fa4d010", instr := ⟨.dshift .shld .w (R .rax) .rdx (.imm8 16), 5⟩ }
+  , { id := "shld_ri20_w", mnemonic := "shld", asm := "shldw $20, %dx, %ax"
+    , bytes := "660fa4d014", instr := ⟨.dshift .shld .w (R .rax) .rdx (.imm8 20), 5⟩ }
+  , { id := "shld_mi5_w", mnemonic := "shld", asm := "shldw $5, %ax, (%rbx)"
+    , bytes := "660fa40305", instr := ⟨.dshift .shld .w (M .rbx) .rax (.imm8 5), 5⟩ }
+  , { id := "shld_mi5_l", mnemonic := "shld", asm := "shldl $5, %eax, (%rbx)"
+    , bytes := "0fa40305", instr := ⟨.dshift .shld .d (M .rbx) .rax (.imm8 5), 4⟩ }
+  , { id := "shld_mi5_q", mnemonic := "shld", asm := "shldq $5, %rax, (%rbx)"
+    , bytes := "480fa40305", instr := ⟨.dshift .shld .q (M .rbx) .rax (.imm8 5), 5⟩ }
+  , { id := "shrd_mi5_w", mnemonic := "shrd", asm := "shrdw $5, %ax, (%rbx)"
+    , bytes := "660fac0305", instr := ⟨.dshift .shrd .w (M .rbx) .rax (.imm8 5), 5⟩ }
+  , { id := "shrd_mi5_l", mnemonic := "shrd", asm := "shrdl $5, %eax, (%rbx)"
+    , bytes := "0fac0305", instr := ⟨.dshift .shrd .d (M .rbx) .rax (.imm8 5), 4⟩ }
+  , { id := "shrd_mi5_q", mnemonic := "shrd", asm := "shrdq $5, %rax, (%rbx)"
+    , bytes := "480fac0305", instr := ⟨.dshift .shrd .q (M .rbx) .rax (.imm8 5), 5⟩ }
+  , { id := "shld_m_cl_l", mnemonic := "shld", asm := "shldl %cl, %eax, (%rbx)"
+    , bytes := "0fa503", instr := ⟨.dshift .shld .d (M .rbx) .rax .cl, 3⟩ }
+  , { id := "shld_m_cl_q", mnemonic := "shld", asm := "shldq %cl, %rax, (%rbx)"
+    , bytes := "480fa503", instr := ⟨.dshift .shld .q (M .rbx) .rax .cl, 4⟩ }
+  , { id := "shrd_m_cl_l", mnemonic := "shrd", asm := "shrdl %cl, %eax, (%rbx)"
+    , bytes := "0fad03", instr := ⟨.dshift .shrd .d (M .rbx) .rax .cl, 3⟩ }
+  , { id := "shrd_m_cl_q", mnemonic := "shrd", asm := "shrdq %cl, %rax, (%rbx)"
+    , bytes := "480fad03", instr := ⟨.dshift .shrd .q (M .rbx) .rax .cl, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
