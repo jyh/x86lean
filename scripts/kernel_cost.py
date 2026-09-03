@@ -86,6 +86,44 @@ def kernel_ms(f):
 # A missing or unparseable literal is an ERROR, never a default: a denominator
 # guessed at is a ceiling that means nothing.
 PER_ROW_TAG = "@perRow"
+DECL_TAG    = "@decl"     # ⭐ an ABSOLUTE ceiling on one named declaration
+TAIL_TAG    = "@tail"     # ⭐ an ABSOLUTE ceiling on everything else in the module
+
+# ⭐⭐ THE PER-DECLARATION GATE (P1 seal, D68) — THE UNIT PROBLEM, ENDED.
+#
+# The helm, 13:37: *"a number measured in the wrong unit and applied with care is
+# still the wrong number."*  `Tests.Coverage` was gated PER ROW, and D62 had
+# already proved the row is not the unit: after D63 one declaration is half the
+# module and is barely row- or vector-driven.  Every refinement since batch 14
+# went into the MARGIN (x1.6, worst-of-N, loads recorded) and none into the
+# DENOMINATOR.
+#
+# ⇒ An ABSOLUTE millisecond ceiling on a NAMED DECLARATION has no denominator, so
+# it cannot be in the wrong unit.  D62 designed exactly this and recorded it as
+# blocked; D63 removed the reason it looked hard.
+#
+# ⛔ AND THE MEASUREMENT REFUSED THE NAIVE VERSION OF IT, which was to gate every
+# declaration.  Four profiles on a quiet machine (one-minute loads 3.25-5.37):
+#
+#     memDestSweep                       11 800 · 12 100 · 11 900 · 11 900   2.5%
+#     pre_states_have_a_returnable_frame  1 800 ·  1 800 ·  1 690 ·  1 820   7.7%
+#     vectorCoverage                      1 440 ·  1 410 ·  1 410 ·  1 450   2.8%
+#     ---------------------------------------------------------------- gateable
+#     table_mnemonics_subset_roster          708 ·   513 ·     …             38%
+#     bitcnt_encodable_forms_…               912 ·   809 ·   844 ·    919    13%
+#     (and the COUNT of attributed declarations moved 26 / 27 / 28 between runs)
+#
+# ⇒ 🔑 **A PER-DECLARATION CEILING IS SOUND ONLY FOR DECLARATIONS BIG ENOUGH TO
+# MEASURE.**  Below about a second the run-to-run noise is larger than any
+# sensible margin, and a gate there would need relaxing on somebody's schedule —
+# which is the chore D62 warned about, one layer down.
+#
+# So: the three declarations above a second are gated INDIVIDUALLY, and
+# everything else is gated as ONE ABSOLUTE TAIL (module total minus the gated
+# declarations).  Neither number divides by anything.
+# ⚠️ A gated declaration MISSING from the profile is an ERROR, never a pass: a
+# declaration that has been renamed or deleted takes its ceiling with it, and a
+# gate that cannot find its subject reports a pass.
 
 def roster_size():
     src = open("Tests/Coverage.lean").read()
@@ -268,27 +306,93 @@ def coverage_growth_denominator():
     return thms, vecs
 
 def read_ceilings():
-    """Returns {module: (kind, value)} where kind is "abs" or "perRow"."""
-    d = {}
+    """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
+    d, decls, tails = {}, {}, {}
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             line = line.split("#")[0].strip()
-            if line:
-                parts = line.split()
-                if len(parts) == 3 and parts[1] == PER_ROW_TAG:
-                    d[parts[0]] = ("perRow", float(parts[2]))
-                elif len(parts) == 2:
-                    d[parts[0]] = ("abs", float(parts[1]))
-                else:
-                    print(f"⛔ unparseable ceiling line: {line!r}")
-                    sys.exit(2)
-    return d
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) == 4 and parts[1] == DECL_TAG:
+                decls.setdefault(parts[0], {})[parts[2]] = float(parts[3])
+            elif len(parts) == 3 and parts[1] == TAIL_TAG:
+                tails[parts[0]] = float(parts[2])
+            elif len(parts) == 3 and parts[1] == PER_ROW_TAG:
+                d[parts[0]] = ("perRow", float(parts[2]))
+            elif len(parts) == 2:
+                d[parts[0]] = ("abs", float(parts[1]))
+            else:
+                print(f"⛔ unparseable ceiling line: {line!r}")
+                sys.exit(2)
+    return d, decls, tails
+
+def selftest():
+    """⛔ DRIVE THE PER-DECLARATION GATE RED, EACH FAILURE MODE ALONE.
+
+    A ceiling gate is the easiest kind to have and not have: it passes when the
+    numbers are fine, and it also passes when it has stopped looking. This one
+    has FOUR ways to stop looking and each is planted separately, in the CEILING
+    FILE rather than in the model — a probe that edits its subject can leave it
+    edited."""
+    import shutil, tempfile
+    saved = open(CEIL_FILE).read()
+    arms = [
+        ("a declaration OVER its ceiling",
+         lambda t: re.sub(r"(@decl memDestSweep )\S+", r"\g<1>100", t),
+         "OVER"),
+        ("the TAIL over its ceiling",
+         lambda t: re.sub(r"(@tail )\S+", r"\g<1>100", t), "OVER"),
+        # ⛔ the arm that matters most: a gated declaration that is renamed or
+        # deleted takes its ceiling with it, and a gate that cannot find its
+        # subject must not report a pass.
+        ("a gated declaration that is NOT in the profile",
+         lambda t: t.replace("@decl vectorCoverage ", "@decl vectorCoverageXX "),
+         "NOT FOUND"),
+        # ⛔ and the way this design could be used to become ungated: gate a few
+        # declarations, omit the tail, and the rest of the module is free.
+        ("declarations gated with NO tail ceiling",
+         lambda t: re.sub(r"^.*@tail.*$", "", t, flags=re.M), "no @tail"),
+    ]
+    bad = []
+    try:
+        for name, mutate, expect in arms:
+            open(CEIL_FILE, "w").write(mutate(saved))
+            r = subprocess.run([sys.executable, os.path.abspath(__file__)],
+                               capture_output=True, text=True)
+            out = r.stdout + r.stderr
+            ok = r.returncode != 0 and expect in out
+            print(("  ✔ " if ok else "  ⛔ ") + name +
+                  ("" if ok else f"   (rc={r.returncode}, expected {expect!r})"))
+            if not ok:
+                bad.append(name)
+    finally:
+        open(CEIL_FILE, "w").write(saved)
+    # ⭐ THE POSITIVE CONTROL, LAST AND AFTER THE RESTORE: four reds prove the
+    # gate can fail; only this proves it can pass, and that the probe put the
+    # ceiling file back exactly as it found it.
+    r = subprocess.run([sys.executable, os.path.abspath(__file__)],
+                       capture_output=True, text=True)
+    ok = r.returncode == 0 and open(CEIL_FILE).read() == saved
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "control: the shipped ceilings PASS, and the file is byte-restored")
+    if not ok:
+        bad.append("control")
+    if bad:
+        print(f"kernel-cost selftest: FAIL ({len(bad)} of {len(arms)+1} arms)")
+        return 1
+    print(f"kernel-cost selftest: PASS ({len(arms)+1} arms — every way this gate "
+          f"could stop looking, driven separately, plus the control)")
+    return 0
+
 
 def main():
+    if "--selftest" in sys.argv:
+        return selftest()
     register = "--register" in sys.argv
     subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
                    capture_output=True, text=True)
-    ceil = read_ceilings()
+    ceil, decl_ceils, tail_ceils = read_ceilings()
     nrows = roster_size()
     nvecs = vector_count()
     rows, total, fail = [], 0.0, False
@@ -311,7 +415,7 @@ def main():
                 else:
                     fh.write(f"{n} {max(ms * HEADROOM, FLOOR_MS):.0f}\n")
         print(f"registered {len(rows)} ceilings → {CEIL_FILE}")
-        ceil = read_ceilings()
+        ceil, decl_ceils, tail_ceils = read_ceilings()
 
     try:
         la1, la5, _ = os.getloadavg()
@@ -334,7 +438,14 @@ def main():
     print(f"{'MODULE':<24}{'KERNEL(ms)':>12}{'CEILING(ms)':>13}   VERDICT")
     for n, ms in rows:
         e = ceil.get(n)
-        if e is None:
+        if e is None and n in decl_ceils:
+            # ⚠️ NOT unregistered: gated PER DECLARATION below, which is a
+            # stronger statement than a module total and is why the module total
+            # has no ceiling of its own. The tail ceiling covers the remainder,
+            # and the block below REFUSES if a module gates declarations without
+            # one — so this branch cannot become a way to be ungated.
+            v, cs = "gated per declaration ↓", "-"
+        elif e is None:
             v, fail = "UNREGISTERED ⛔", True
             cs = "-"
         else:
@@ -346,6 +457,45 @@ def main():
                 v = "ok" if kind == "abs" else f"ok ({val:.1f}/row x {nrows})"
             cs = f"{c:.0f}"
         print(f"{n:<24}{ms:>12.1f}{cs:>13}   {v}")
+    # ⭐⭐ THE PER-DECLARATION GATE.  No denominator anywhere in it.
+    for mod, want in sorted(decl_ceils.items()):
+        f = [x for x in modules() if mod_name(x) == mod]
+        if not f:
+            print(f"⛔ {mod} has per-declaration ceilings but no source file.")
+            fail = True
+            continue
+        got = {name: ms for _l, name, ms in per_declaration(f[0])}
+        total = dict(rows).get(mod)
+        print(f"--- {mod}: per-declaration ceilings (ABSOLUTE ms, no denominator)")
+        named = 0.0
+        for name, c in sorted(want.items(), key=lambda kv: -kv[1]):
+            ms = got.get(name)
+            if ms is None:
+                # ⛔ A MISSING READING IS NOT A ZERO.  A renamed or deleted
+                # declaration takes its ceiling with it, and this gate must not
+                # go quiet when its subject leaves.
+                print(f"  ⛔ {name:44s} NOT FOUND in the profile — renamed, "
+                      f"deleted, or now below the profiler threshold")
+                fail = True
+                continue
+            named += ms
+            v = "OVER ⛔" if ms > c else "ok"
+            if ms > c:
+                fail = True
+            print(f"  {name:44s}{ms:>9.0f}{c:>9.0f}   {v}")
+        tc = tail_ceils.get(mod)
+        if tc is not None and total is not None:
+            tail = total - named
+            v = "OVER ⛔" if tail > tc else "ok"
+            if tail > tc:
+                fail = True
+            print(f"  {'(everything else in the module)':44s}{tail:>9.0f}"
+                  f"{tc:>9.0f}   {v}")
+        elif tc is None:
+            print(f"  ⛔ {mod} gates declarations but has no {TAIL_TAG} ceiling, "
+                  f"so the rest of the module is ungated.")
+            fail = True
+
     print("---")
     cov = dict(rows).get("Tests.Coverage")
     if cov:

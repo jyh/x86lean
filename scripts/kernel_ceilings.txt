@@ -118,7 +118,31 @@ Tests.Anchors 801
 # to be re-registered whenever the module moves.  That is a chore, not a gate.
 # D62 designed the replacement and its own second source refused it; D63 says
 # what a replacement now has to handle.
-Tests.Coverage @perRow 493.3
+# ⭐⭐ P1 SEAL (D68) — Tests.Coverage IS NO LONGER GATED PER ROW.
+# The helm, 13:37: "a number measured in the wrong unit and applied with care is
+# still the wrong number." D62 proved the ROW is not this module's unit; every
+# refinement since batch 14 went into the margin and none into the denominator.
+# These four ceilings are ABSOLUTE MILLISECONDS and divide by nothing.
+#
+# Registered at `measured x 1.6` (batch 14's convention for this line) on the
+# WORST of four profiles taken after the batch-21 selftest finished, at
+# one-minute loads 3.25 / 3.65 / 4.77 / 5.37 — inside the 2.2-4.1 band this
+# script MEASURED as having no effect on this module, except the two above it,
+# which is why the worst reading is the one used.
+#
+#     memDestSweep                        11 800 · 12 100 · 11 900 · 11 900
+#     pre_states_have_a_returnable_frame   1 800 ·  1 800 ·  1 690 ·  1 820
+#     vectorCoverage                       1 440 ·  1 410 ·  1 410 ·  1 450
+#
+# ⛔ ONLY THESE THREE ARE GATED INDIVIDUALLY, AND THE MEASUREMENT IS WHY: below
+# about a second the run-to-run spread reaches 38% (table_mnemonics_subset_roster
+# read 708 and then 513) and the COUNT of attributed declarations moved 26/27/28
+# between runs. A ceiling there would be noise with a margin on it.
+# Everything else is gated as ONE ABSOLUTE TAIL.
+Tests.Coverage @decl memDestSweep 19360
+Tests.Coverage @decl pre_states_have_a_returnable_frame 2912
+Tests.Coverage @decl vectorCoverage 2320
+Tests.Coverage @tail 12420
 Tests.Nonvacuity 245
 Tests.Vectors 50
 Tests 50

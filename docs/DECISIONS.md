@@ -2540,3 +2540,61 @@ around it claims. It checks that a reader who copies it gets a file that compile
 script rather than left to be found.
 
 **Reversal cost:** none; one script and one CI step.
+
+## D68 — the per-declaration kernel ceiling: the unit problem, ended (P1 seal)
+
+**Decision.** `Tests.Coverage` is no longer gated per ROW. Three declarations are gated at an
+**absolute millisecond ceiling each**, and everything else in the module is gated as one
+**absolute tail**. Neither number divides by anything.
+
+    memDestSweep                         19360 ms
+    pre_states_have_a_returnable_frame    2912 ms
+    vectorCoverage                        2320 ms
+    (everything else in the module)      12420 ms
+
+### 1. Why: the care had all gone into the margin
+The helm, 13:37: *"a number measured in the wrong unit and applied with care is still the wrong
+number."* This batch had just lowered the ceiling 744 → 493.3 **ms/row** with a great deal of
+care — the `× 1.6` convention this line was registered with, the worst of four readings, every
+reading's load recorded, the direction of the contention error named. ⛔ **And D62 had already
+proved the row is not this module's unit**: after D63 one declaration is half the module and is
+barely row- or vector-driven. The margin was refined four times; the denominator never was.
+⇒ An absolute ceiling on a NAMED DECLARATION has no denominator, so it cannot be in the wrong
+unit. D62 designed exactly this and recorded it blocked; D63 removed the reason it looked hard.
+
+### 2. ⛔ AND THE MEASUREMENT REFUSED THE NAIVE VERSION — gate every declaration
+Four profiles on a quiet machine (one-minute loads 3.25 / 3.65 / 4.77 / 5.37), taken only after
+the batch-21 selftest had finished:
+
+| declaration | four readings | spread |
+|---|---|---|
+| `memDestSweep` | 11 800 · 12 100 · 11 900 · 11 900 | **2.5%** |
+| `pre_states_have_a_returnable_frame` | 1 800 · 1 800 · 1 690 · 1 820 | **7.7%** |
+| `vectorCoverage` | 1 440 · 1 410 · 1 410 · 1 450 | **2.8%** |
+| `table_mnemonics_subset_roster` | 708 · 513 · … | **38%** |
+| `bitcnt_encodable_forms_all_have_both_shapes` | 912 · 809 · 844 · 919 | 13% |
+
+…and the COUNT of attributed declarations moved **26 / 27 / 28** between runs.
+⇒ 🔑 **A PER-DECLARATION CEILING IS SOUND ONLY FOR DECLARATIONS BIG ENOUGH TO MEASURE.** Below
+about a second the run-to-run noise exceeds any sensible margin, and a ceiling there would need
+relaxing on somebody's schedule — D62's chore, one layer down. So the three above a second are
+gated individually and the rest as one tail. **This is the second time a two-point measurement
+has refused the obvious version of a gate on this line** (D62 was the first); the difference is
+that this time it refused only the naive half, and the sound half was installed.
+
+### 3. Four ways this gate could stop looking, each driven alone
+`kernel_cost.py --selftest`, red-first in CI, planting in the CEILING FILE and never in the model:
+
+- a declaration **over** its ceiling → reported;
+- the **tail** over its ceiling → reported;
+- ⛔ a gated declaration **not in the profile** (renamed, deleted, or fallen below the profiler
+  threshold) → reported as `NOT FOUND`, because **a missing reading is not a zero** and a
+  declaration that leaves takes its ceiling with it;
+- ⛔ declarations gated with **no tail ceiling** → refused, because that is how this design could
+  be used to become ungated: gate three declarations, omit the tail, and the rest is free.
+
+Plus a **positive control** run last, which also asserts the ceiling file was byte-restored — a
+probe that edits its subject can leave it edited.
+
+**Reversal cost:** the `@perRow` mechanism is still in the parser and unused by this module; one
+line restores it.
