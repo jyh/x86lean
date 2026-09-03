@@ -240,6 +240,15 @@ def per_declaration(f, threshold_ms=100):
 # 37 900 -> 22 400 ms.  ⇒ 🔑 A COST MODEL THAT ONLY KNOWS ABOUT THE ARTIFACT
 # CANNOT SEE THE COST OF ASKING TWICE.  See D63.
 #
+# ⛔ AND THE TECHNIQUE IS NOT GENERAL, WHICH WAS MEASURED RATHER THAN LEFT TO BE
+# OVER-APPLIED.  NINETEEN theorems here reduce `preStates 1 8` -- more sharing by
+# count than the six that were merged -- and merging four of them saves 7%
+# (786 -> 733 ms, back to back).  ⇒ 🔑 SHARING PAYS WHERE THE SHARED SUBJECT'S
+# REDUCTION IS EXPENSIVE, NOT WHERE THE SUBJECT IS MERELY SHARED.  A dedup or a
+# character sweep costs seconds; 86 records built from simple constructors do
+# not, and the per-state PREDICATE, which is where those theorems' time goes,
+# is different in each and cannot be shared at all.  D63 §5.
+#
 # ⚠️ AND THE TWO DECLARATIONS THAT DOMINATE THE MODULE ARE BARELY VECTOR-DRIVEN
 # AT ALL -- `mem_dest_rewrite_changed_exactly_the_three_operand_rows` x1.050 and
 # `mem_dest_claims_are_backed` x1.077, most of even that being the SHAPES prose

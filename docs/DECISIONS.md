@@ -2267,6 +2267,25 @@ measured under one condition and applied under another ([[feedback-a-measurement
 It is re-registered at the end of the batch, from the post-`cmpxchg8b` reading, at the `× 1.6`
 convention batch 14 registered this line with.
 
+### 5. ⛔ AND THE TECHNIQUE IS NOT GENERAL — MEASURED, BEFORE IT COULD BE OVER-APPLIED
+The obvious next move is "merge every group that shares a subject", and `Tests.Coverage` has an
+inviting one: **nineteen theorems each reduce `preStates 1 8`**, the 86-state pre-state list —
+more sharing, by count, than the six this entry merged. Measured, four of them apart and then in
+one declaration, back to back so contention cancels:
+
+    four `preStates` theorems APART    786 ms
+    the same four MERGED               733 ms      — 7%
+
+⇒ 🔑 **SHARING PAYS WHERE THE SHARED SUBJECT'S REDUCTION IS EXPENSIVE, NOT WHERE THE SUBJECT IS
+MERELY SHARED.** `vectorMnemonics` is a dedup (935 ms) and `claimsMemDest` is a character sweep of
+the whole table (9 400 ms); `preStates 1 8` is 86 records built from simple constructors, and
+almost all of those theorems' cost is the PER-STATE PREDICATE, which no merge can share because
+each predicate is different. The count of call sites predicts nothing on its own.
+
+⚠️ This is recorded because the reading of D63 that generalises it — *merge anything shared* —
+would produce a file of conjunctions, each needing its own red probe, for 7% at a time. The two
+merges here were worth it because their subjects cost seconds apiece.
+
 **Reversal cost:** small and local. Deleting the two merged declarations and restoring `by decide`
 on the six restores the previous file exactly; the red probe is the only thing that would have to
 be deleted with them.
