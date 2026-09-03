@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`). -/
-theorem roster_size_is_75 : rosterSize = 75 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors). -/
+theorem roster_size_is_79 : rosterSize = 79 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -236,6 +236,58 @@ theorem bitcnt_encodable_forms_all_have_both_shapes :
            && vectors.any (fun v => match v.instr.op with
              | .bitcnt k' sz' _ (.mem _) => k' == k && sz' == sz
              | _ => false))))) = true := by decide
+
+/-! ### P1 BATCH 17 — the multiply-divide group's own claims
+
+⚠️ THE FIRST OF THESE IS THE ONE BATCH 16 WOULD HAVE WANTED.  `imulrEncodable`
+looks exactly like `bitcntEncodable` and this time the resemblance is honest —
+both record forms with NO ENCODING — so the theorem is written in the same
+shape, and the difference from batch 16's `repApplies` (a roster PARTITION,
+whose rejected pairs all assemble) is left stated in the AST rather than
+rediscovered here. -/
+
+theorem imulr_declined_widths_are_exactly_the_byte :
+    ([Size.b, .w, .d, .q].filter (fun sz => !imulrEncodable sz)) = [.b] := by decide
+
+/-- ⭐ EVERY ONE-OPERAND MEMBER OF THE GROUP HAS A VECTOR AT EVERY WIDTH.  The
+coverage row says `r — b/w/l/q`, and this is what backs it: four kinds times
+four widths, all sixteen present with a register source. -/
+theorem muldiv_all_kinds_and_widths_have_a_register_vector :
+    (MulDivKind.all.all (fun k =>
+      [Size.b, .w, .d, .q].all (fun sz =>
+        vectors.any (fun v => match v.instr.op with
+          | .muldiv k' sz' (.reg _ _) => k' == k && sz' == sz
+          | _ => false)))) = true := by decide
+
+/-- ⭐⭐ AND THE MEMORY CLAIM IS BACKED AT EXACTLY THE WIDTHS IT NAMES — `b` and
+`q`, no more and no less.
+
+⛔ THIS IS THE GATE THE `shapes` COLUMN NEEDED AND `mem_dest_claims_are_backed`
+CANNOT GIVE: a memory operand that is a SOURCE is invisible to every
+memory-DESTINATION gate in this file, so `mul`'s `m` claim had nothing reading
+it.  Writing `m — b/w/l/q` would have been an over-claim no gate could see,
+which is D47's shape in the column beside the one D47 was about.  Stated as an
+EQUALITY so it fails in both directions: adding a `.w` memory vector without
+widening the row breaks it too. -/
+theorem muldiv_memory_vectors_are_exactly_b_and_q :
+    (MulDivKind.all.map (fun k =>
+      [Size.b, .w, .d, .q].filter (fun sz =>
+        vectors.any (fun v => match v.instr.op with
+          | .muldiv k' sz' (.mem _) => k' == k && sz' == sz
+          | _ => false))))
+      = [[.b, .q], [.b, .q], [.b, .q], [.b, .q]] := by decide
+
+/-- `imul`'s two- and three-operand forms have a vector at each ENCODABLE width,
+and none at `.b` — the other direction of `imulr_declined_widths_are_exactly_
+the_byte`, over the vector table rather than over the table of encodings. -/
+theorem imulr_vectors_exist_exactly_where_encodable :
+    ([Size.b, .w, .d, .q].all (fun sz =>
+      (vectors.any (fun v => match v.instr.op with
+        | .imulr sz' _ _ none => sz' == sz
+        | _ => false) == imulrEncodable sz)
+      && (vectors.any (fun v => match v.instr.op with
+        | .imulr sz' _ _ (some _) => sz' == sz
+        | _ => false) == imulrEncodable sz))) = true := by decide
 
 /-! ### P1 BATCH 3 — the MEMORY OPERAND's own coverage
 
@@ -464,6 +516,17 @@ def isMemDestVector (v : Vec) : Bool :=
     -- six batches longer because the shapes pattern above could not read the
     -- claim either.  See D32.
     | .setcc _ d => d.isMem
+    -- ⭐ P1 BATCH 17.  Both new constructors answer `false`, and each is a
+    -- DECISION rather than an omission — the deleted catch-all made this line a
+    -- compile error, for the fourth time, and it is the fourth time it has
+    -- worked.  `.muldiv`'s memory operand is a SOURCE: `divq (%rbx)` reads the
+    -- divisor from memory and writes RDX and RAX, so there is no operand-encoded
+    -- memory DESTINATION however wide the result.  ⚠️ That is the same
+    -- distinction the comment below draws for `push` — the shapes column spells
+    -- `mul`'s `m` as a source, and the notation exists to make exactly this
+    -- difference visible.  `.imulr`'s destination is a `GPR` by its type.
+    | .muldiv .. => false
+    | .imulr .. => false
     -- ⛔ AND THE CATCH-ALL IS GONE.  `_ => false` made this function ABSORB every
     -- new `Op` constructor silently, which is how `.rot` (batch 8) and `.setcc`
     -- (here) each got a wrong answer with nothing to say so.  The match is now

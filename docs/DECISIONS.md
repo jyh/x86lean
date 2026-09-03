@@ -1551,3 +1551,167 @@ quotation would trade a real check for a heuristic in a file whose whole subject
 is claims nobody verifies. The convention instead is that **a dead citation is
 never written in citation form** — named in prose, never as `` `ident` ``
 beside its file — which is why those notes read as they do.
+
+---
+
+## D49 — The handover's scope was named by FAMILY, and the families did not partition the mnemonics.
+
+P1 batch 16's bank told batch 17 to take **"families 14/23/27/24 — `xadd`/`cmpxchg`,
+`mul`/`imul`, `div`/`idiv`/`shld`/`shrd`"**. Taken literally that instruction is wrong
+three ways, and running the roster query rather than reading the sentence found all
+three before any code was written:
+
+1. **Family 23 was already discharged.** It is `repe`/`repne`/`repnz`/`repz` × `cmps`/`scas`
+   — eight of the eleven prefixed rows batch 16 itself had just claimed. The bank listed as
+   *next* a family the same bank recorded as *done*.
+2. **The families do not partition the mnemonics.** `cmpxchg` and `xadd` occupy family
+   **10** (`m,r`) as well as 14; `shld` and `shrd` occupy family **40** (`m,r,cl`,
+   `m,r,imm`) as well as 24. A batch scoped by family number would have claimed 18 rows
+   and orphaned 6 — memory-destination rows of mnemonics it had just implemented, filed
+   under families nobody would look at again.
+3. Scoped by BASE NAME the same set is **24 rows**, not 18.
+
+⇒ 🔑 **A HANDOVER'S SCOPE IS A HYPOTHESIS, AND THE FAMILY COLUMN IS A HINT.** The roster
+is the authority. Batches 15 and 16 had to split ONE family with a column filter and wrote
+the counting rule down for it; the lesson generalises the other way too — **a mnemonic
+spans several families**, and a rule that reads the family column alone is wrong in the
+direction nobody checks, because an under-claim looks like modesty.
+
+The scope actually taken is `mul` · `imul` · `div` · `idiv`, twelve rows, counted by
+
+```
+awk -F'\t' 'NR>2 && $4 ~ /^(mul|imul|div|idiv)$/' p1/roster.tsv | wc -l   →  12
+```
+
+and those four base names occur in no other family, so the rule cannot double-count with
+any earlier batch. ⚠️ The reason for this cut is not tidiness: `div` consumes exactly what
+`mul` produces — one opcode group, one register pair — while `xadd`/`cmpxchg` and
+`shld`/`shrd` share nothing with that mechanism and are batch 18.
+
+---
+
+## D50 — The danger of a form that faults was never a wrong answer; it was an answer nothing asks for.
+
+`div` and `idiv` are the first forms in this model whose refusal depends on the
+**OPERANDS** rather than the opcode. Batch 12's `ud2` refuses because of what it is;
+`divq %rcx` refuses because of what RDX, RAX and RCX happen to hold, so the same vector
+refuses at one pre-state and divides at the next.
+
+**The bank's warning was that the fault would be hard to REACH.** It said to check that a
+zero divisor and an overflowing quotient are both reachable "rather than assumed". They
+were checked — with a 656-case oracle probe over the harness's own eighty-two pre-states,
+built by patching the bytes of the emitted `mov_d` cases so the pre-states were the
+differential run's and not a re-implementation of them — and the measurement said the
+**opposite** of what the warning anticipated:
+
+| form | quotient computed | #DE zero divisor | #DE quotient overflow | oracle refused | mismatches |
+|---|---|---|---|---|---|
+| `div_b` | 39 | 20 | 23 | 43 | **0** |
+| `idiv_b` | 40 | 20 | 22 | 42 | **0** |
+| `div_w` | 24 | 17 | 41 | 58 | **0** |
+| `idiv_w` | 13 | 17 | 52 | 69 | **0** |
+| `div_l` | 20 | 14 | 48 | 62 | **0** |
+| `idiv_l` | 17 | 14 | 51 | 65 | **0** |
+| `div_q` | 14 | 8 | 60 | 68 | **0** |
+| `idiv_q` | 19 | 8 | 55 | 63 | **0** |
+
+⇒ ⛔⛔ **THE FAULTS ARE NOT SCARCE, THEY ARE THE MAJORITY: 51%–84% of pre-states refuse,
+and at `idiv_w` only 13 of 82 actually divide.** `mkPre` sets `RDX := ~RAX` — put there in
+batch 10 for `cltd`, nothing to do with division — and a huge high half is exactly what
+makes a quotient too wide.
+
+⇒ 🔑 **A GROUP THAT MOSTLY REFUSES IS A GROUP WHOSE AGREEMENT IS MOSTLY SILENCE.** Both
+models refuse, the comparator records a match, and the quotient is never examined. That is
+[[unobserved-regions-report-agreement]] with the roles reversed: there a too-narrow window
+positively claimed agreement about bytes nobody looked at; here a too-eager refusal
+positively claims agreement about arithmetic nobody ran.
+
+**So the batch carries an arm whose only job is to price the observation**:
+`wrongDivAlwaysRefuses`, a `div` that refuses on **every** divisor. It agrees with the
+oracle on every genuinely faulting case and must be caught by the rest. It is —
+**145 disagreements in `refused`**, so the non-faulting path is observed, measured rather
+than hoped. Two more arms attack the fault predicate from the other side
+(`wrongDivNoQuotientOverflow`, which keeps only the zero-divisor sentence: 236 catches)
+and the arithmetic behind it (`wrongIdivFloorDivision`, Lean's `Int` division in place of
+truncation-toward-zero: 63 catches).
+
+⚠️ **And the same measurement produced a smaller lesson with a wider reach.** The probe's
+own pre-state named `ok` — RAX = 0x100, RCX = 0x1000, RDX = 1 — is a perfectly good
+non-faulting state at `.w`, `.d` and `.q`, and at `.b` it is a **zero-divisor** state,
+because the divisor is `CL`, the low byte of 0x1000, which is zero. `div_b/ok` came back
+`refused=1` and the *name* was wrong, not the model.
+
+⇒ 🔑 **THE FAULT CONDITION IS A FUNCTION OF THE TRUNCATED OPERAND.** A divisor list that
+is "all non-zero" is not a non-zero-divisor list at every width, and a state chosen for one
+width silently becomes a different state at another. That is D43's shape a third time,
+and it is why the table above is per-width rather than a single figure.
+
+⚠️ **A claim in the `shapes` column that no gate could read.** `mul`'s memory operand is a
+SOURCE, so every memory-DESTINATION gate in `Tests/Coverage.lean` is blind to it: writing
+`m — b/w/l/q` while shipping vectors at two widths would have been an over-claim with
+nothing looking at it — D47's shape in the column beside the one D47 was about.
+`muldiv_memory_vectors_are_exactly_b_and_q` is stated as an EQUALITY, so it fails in both
+directions: widening the row without a vector breaks it, and adding a vector without
+widening the row breaks it too.
+
+---
+
+## D51 — The gate that stopped needing to be raised still records a number nobody can compare.
+
+Batch 14 changed `Tests.Coverage`'s ceiling from an absolute figure to a PER-ROW one (D38),
+on the argument that "a gate relaxed on schedule is not a gate". The change worked: the
+ceiling has not been raised in four batches. But the **density it gates has climbed every
+one of them** — 266 → 339 → 363 ms/row across batches 14 to 16 — and each bank has handed
+the figure on with a warning and no repair. Batch 17 is the fourth to receive it.
+
+**Two things are wrong, and they are different.**
+
+**(1) The row is not the unit.** `Tests.Coverage`'s kernel cost is linear in
+(ASSERTIONS × VECTORS), and neither factor is the roster size: a batch adds theorems and
+vectors faster than it adds mnemonics. Over batches 15–17 the quantity `ms / (assertions ×
+vectors)` moves by a few percent where `ms/row` moves 21%.
+
+⚠️ **And the sound repair is BLOCKED, which is why batch 17 reports the figure and does not
+gate on it.** The per-row ceiling can be trusted *because its denominator is kernel-pinned*:
+`roster_size_is_N` is proved equal to the table's length, so it is a number Lean checks
+rather than one the script counted. A vector count could be pinned the same way. An
+ASSERTION count cannot — it is a property of the file's text, not of any term in it — so
+registering a ceiling in the flat unit would trade a proven denominator for a grepped one,
+which is exactly what `scripts/kernel_cost.py`'s own note says makes a ceiling meaningless.
+The figure is therefore printed on every run, in the unit that is flat, so the growth law is
+**observed each batch instead of reconstructed from git by whoever finally hits the ceiling.**
+
+**(2) ⛔⛔ The series cannot be extended honestly, because none of its readings records
+whether the machine was idle.** `scripts/kernel_ceilings.txt` *knows* this matters: for
+`Tests.Nonvacuity` it records "measured on an IDLE machine (81.8 / 81.4 across two runs)"
+and notes that a reading taken during the 21-minute selftest was ~15% high. The line beside
+it — the per-row figure that is actually tracked batch to batch — records nothing at all.
+
+⇒ 🔑 **A MEASUREMENT WHOSE CONDITIONS ARE NOT RECORDED CANNOT BE COMPARED WITH A LATER ONE.**
+The discipline was written down once, in a comment, for the one module where it did not
+matter much, and was not applied to the number a head is asked to watch.
+
+⚠️ **This batch caught itself doing it.** Batch 17's first two kernel-cost runs were taken
+while the 56-arm selftest was running, and read **411 and 425 ms/row** — which would have
+been handed on as "a fourth consecutive climb" with no note of the load. Re-measured after
+the selftest finished, **two runs both read 31 200 ms = 394.9 ms/row**, at one-minute load
+averages of **2.20 and 4.08**.
+
+⇒ ⭐ **And the re-measurement corrected the folklore as well as the figure.** The ceiling
+file says a loaded reading is "~15% high"; measured here, ordinary background load moves it
+**not at all** (two identical readings 1.9× apart in load average) while contention with the
+selftest — a CPU-saturating Lean-and-ACL2 mix — moves it **4%–8%**. The rule is not "load"
+but "contention for the same resource", and only the second kind was ever observed.
+
+The repair is that `scripts/kernel_cost.py` now prints the one-minute and five-minute LOAD
+AVERAGE beside every figure it reports, so a reading carries its own conditions and the next
+head can tell whether a trend is real. Batch 17's own figure, stated the way the rule
+demands: **394.9 ms/row, 1.19× headroom, two runs at load 2.20 / 4.08.** Against batch 16's
+362.7 (load unrecorded) that is +8.9% in the row unit and **+2.6% in the flat unit**
+(688.6 → 706.6 ns per assertion × vector) — which is the evidence for (1), offered with its
+own caveat: batch 16's conditions are unknown, so this is one comparable pair and not a
+series.
+
+⇒ This is [[audit-the-premise-of-a-right-decision]] exactly: the decision (report the growth
+law in the flat unit) was right, and the premise inside it (411 ms/row, up from 363) was
+unmeasured — a number taken under a load the previous number may not have had.

@@ -97,6 +97,53 @@ def roster_size():
         sys.exit(2)
     return int(ms[0])
 
+# ⭐⭐ P1 BATCH 17 — THE GROWTH LAW, MEASURED AND REPORTED RATHER THAN
+# REDISCOVERED, AND THE LOAD AVERAGE BESIDE IT.
+#
+# The per-row ceiling was introduced by batch 14 precisely so that a gate would
+# not need raising every batch (D38).  It has not needed raising since — and the
+# DENSITY it gates has climbed every batch anyway: 266 -> 339 -> 363 ms/row
+# across batches 14 to 16, so the headroom went 1.77x -> 1.39x -> 1.30x.
+#
+# ⛔ AND THE SERIES CANNOT BE EXTENDED HONESTLY, BECAUSE NONE OF THOSE READINGS
+# RECORDS WHETHER THE MACHINE WAS IDLE.  This file's own comment knows that it
+# matters — it records "measured on an IDLE machine (81.8 / 81.4 across two
+# runs)" for `Tests.Nonvacuity`, and notes that a reading taken during the
+# selftest was ~15% high — and the line beside it, the per-row figure handed
+# from batch to batch, records nothing.  ⇒ A MEASUREMENT WHOSE CONDITIONS ARE
+# NOT RECORDED CANNOT BE COMPARED WITH A LATER ONE; the discipline was written
+# down once and not applied to the number that is actually tracked.  So this
+# script now prints the one-minute LOAD AVERAGE beside every figure it reports,
+# and a head reading a batch record can tell whether the trend is real.
+#
+# ⛔ SO THE ROW IS NOT THE UNIT EITHER.  `Tests.Coverage`'s cost is linear in
+# (ASSERTIONS x VECTORS), and neither factor is the roster size: a batch adds
+# theorems and vectors faster than it adds mnemonics.  Batch 16 -> 17 moves
+# +2.6% in the flat unit (688.6 -> 706.6 ns) and +8.9% per row (362.7 -> 394.9).
+# ⚠️ ONE PAIR IS NOT A SERIES, and it is offered as one pair: batch 17's reading
+# records its load (two runs at 2.20 and 4.08, both 31 200 ms) and batch 16's
+# records none, so this is the FIRST comparison in the repository that could be
+# checked at all.
+#
+# ⚠️ AND THE SOUND REPAIR IS BLOCKED, WHICH IS WHY THIS PRINTS AND DOES NOT
+# GATE.  The per-row ceiling can be trusted because its denominator is
+# KERNEL-PINNED — `roster_size_is_N` is proved equal to the table's length, so
+# it is a number Lean checks rather than a number this script counted.  A vector
+# count could be pinned the same way; an ASSERTION count cannot be, because it
+# is a property of the file's text and not of any term in it.  Registering a
+# ceiling in a unit whose denominator this script greps for would trade a proven
+# denominator for a guessed one — the exact thing the note above says makes a
+# ceiling mean nothing.
+#
+# So the figure is REPORTED on every run, in the unit that is actually flat, so
+# that the growth law is observed each batch instead of being reconstructed from
+# git by whoever finally hits the ceiling.
+def coverage_growth_denominator():
+    """(assertions, vectors) for Tests.Coverage — REPORTED, never gated."""
+    thms = len(re.findall(r'^theorem\s', open("Tests/Coverage.lean").read(), re.M))
+    vecs = len(re.findall(r'\{\s*id\s*:=\s*"', open("Tests/Vectors.lean").read()))
+    return thms, vecs
+
 def read_ceilings():
     """Returns {module: (kind, value)} where kind is "abs" or "perRow"."""
     d = {}
@@ -142,6 +189,23 @@ def main():
         print(f"registered {len(rows)} ceilings → {CEIL_FILE}")
         ceil = read_ceilings()
 
+    try:
+        la1, la5, _ = os.getloadavg()
+        load = f"{la1:.2f} (1 min) / {la5:.2f} (5 min)"
+    except OSError:
+        load = "unavailable"
+    # ⚠️ WHAT THIS LINE SAYS IS MEASURED, NOT INHERITED.  A first version quoted
+    # scripts/kernel_ceilings.txt's "~15% high under load" — and batch 17 then
+    # measured it: ordinary background load moves `Tests.Coverage` by NOTHING
+    # (31 200 / 31 200 / 31 000 / 31 300 ms at one-minute loads of 2.20 / 4.08 / 3.42 / 3.88),
+    # while CONTENTION WITH THE 56-ARM SELFTEST — a CPU-saturating Lean-and-ACL2
+    # mix — moved it 4%-8% (32 500 and 33 600).  So the rule is not "load", it is
+    # "contention for the same resource", and printing the inherited figure would
+    # have been this repository's own D47 in the line added to prevent it.
+    print(f"⚠️ LOAD AVERAGE DURING THIS MEASUREMENT: {load}. Measured effect on "
+          f"Tests.Coverage: ordinary background load, none (four runs within "
+          f"1% at loads 2.2-4.1); contention with the full selftest, 4%-8%. "
+          f"A figure quoted without this line cannot be compared with another.")
     print(f"coverage-table rows (kernel-pinned rosterSize): {nrows}")
     print(f"{'MODULE':<24}{'KERNEL(ms)':>12}{'CEILING(ms)':>13}   VERDICT")
     for n, ms in rows:
@@ -159,6 +223,13 @@ def main():
             cs = f"{c:.0f}"
         print(f"{n:<24}{ms:>12.1f}{cs:>13}   {v}")
     print("---")
+    cov = dict(rows).get("Tests.Coverage")
+    if cov:
+        thms, vecs = coverage_growth_denominator()
+        if thms and vecs:
+            print(f"Tests.Coverage growth law (REPORTED, not gated): {cov:.0f}ms "
+                  f"= {cov/nrows:.1f} ms/row = {1000*cov/(thms*vecs):.1f} ns per "
+                  f"(assertion x vector), over {thms} assertions and {vecs} vectors")
     print(f"total kernel time across the development: {total:.1f}ms")
     if fail:
         print("⛔ kernel-cost gate FAILED (over ceiling, or unregistered).")

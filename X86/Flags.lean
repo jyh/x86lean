@@ -382,5 +382,37 @@ def blsi (sz : Size) (src res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
     of := false
     pf := pfU, af := afU }
 
+/-! ### The multiply and divide flags (P1 BATCH 17) -/
+
+/-- MUL and IMUL, all three operand shapes (SDM Vol. 2A, MUL / IMUL): "the CF
+and OF flags are set … the SF, ZF, AF and PF flags are undefined".
+
+⭐ ONE FUNCTION FOR BOTH MNEMONICS AND ALL FOUR SHAPES, because the SDM says the
+same thing about the flags in all of them and only the PREDICATE behind `ovf`
+differs — `Value.mulOverflow` for MUL, `Value.imulOverflow` for IMUL.  Passing
+the answer in rather than the operands is what keeps the two rules in the file
+that states them (`X86/Value.lean`) instead of duplicating the distinction here.
+
+⛔ CF AND OF ARE ALWAYS EQUAL for this group.  That is not a simplification: the
+SDM defines them by the same sentence.  It also means a defect that computes the
+overflow wrongly moves BOTH bits, so a vector watching either one sees it. -/
+def mulFlags (ovf : Bool) (sfU zfU afU pfU : Bool) (f : Flags) : Flags :=
+  { f with
+    cf := ovf, of := ovf
+    sf := sfU, zf := zfU, af := afU, pf := pfU }
+
+/-- DIV and IDIV (SDM Vol. 2A, DIV / IDIV): "the CF, OF, SF, ZF, AF and PF flags
+are undefined".
+
+⛔⛔ ALL SIX ARITHMETIC FLAGS, AND THIS IS THE FIRST FORM IN THE MODEL THAT
+DEFINES NONE OF THEM.  Every other undefined-flag form so far commits to at
+least one bit — `bsf` promises ZF, `blsi` promises three.  A division promises
+nothing at all, so there is no flag a differential run can use to tell a right
+quotient from a wrong one; the ANSWER is in RAX and RDX and nowhere else.
+
+⚠️ DF IS NOT AMONG THEM and is left alone, as it is by every arithmetic form. -/
+def divFlags (cfU pfU afU zfU sfU ofU : Bool) (f : Flags) : Flags :=
+  { f with cf := cfU, pf := pfU, af := afU, zf := zfU, sf := sfU, of := ofU }
+
 end Flags
 end X86

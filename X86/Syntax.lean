@@ -415,6 +415,33 @@ def FlagOp.mnemonic : FlagOp → String
   | .clc => "clc" | .stc => "stc" | .cmc => "cmc"
   | .cld => "cld" | .std => "std"
 
+/-- P1 BATCH 17: the four one-operand members of opcode group `F6`/`F7`
+(SDM Vol. 2A, MUL · IMUL · DIV · IDIV).  One operand is written in the
+instruction; the other, and the destination, are `RDX:RAX` by opcode.
+
+⭐ THEY ARE ONE KIND BECAUSE THEY ARE ONE ENCODING AND ONE REGISTER PAIR — `/4`,
+`/5`, `/6`, `/7` of the same two opcodes — and because the thing that is hard
+about them is shared: a result twice as wide as the operand, held in a pair
+whose LOW half is the accumulator at every width but one.
+
+⛔ AT `.b` THE PAIR IS `AH:AL`, NOT `DX:AX`.  "byte → AX", says the SDM's table,
+and AX is one register.  A model that reached for RDX at every width would be
+right at three widths out of four and would silently clobber RDX at the fourth. -/
+inductive MulDivKind where
+  | mul | imul | div | idiv
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+def MulDivKind.mnemonic : MulDivKind → String
+  | .mul => "mul" | .imul => "imul" | .div => "div" | .idiv => "idiv"
+
+def MulDivKind.all : List MulDivKind := [.mul, .imul, .div, .idiv]
+
+/-- Is this member of the group a DIVISION — the two whose meaning includes a
+fault that depends on the operands?  Named rather than matched inline so the
+distinction is one definition and the theorems can quantify over it. -/
+def MulDivKind.isDiv : MulDivKind → Bool
+  | .div | .idiv => true
+  | _ => false
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
 inductive Op where
@@ -586,6 +613,37 @@ inductive Op where
   The ITERATION is shared for real, not copied: `stringIter` is batch 15's body
   with the RIP write lifted out, and both constructors call it. -/
   | repstrop (r : RepPrefix) (k : StringOp) (sz : Size)
+  /-- P1 BATCH 17: MUL / IMUL / DIV / IDIV in their ONE-OPERAND form — see
+  `MulDivKind`.  All four exist at all four widths, and the destination is the
+  `RDX:RAX` pair (`AH:AL` at `.b`) rather than anything the operand names.
+
+  ⛔ THE TWO DIVISIONS FAULT ON THEIR OPERANDS.  `ud2` (batch 12) is the only
+  other form in this model whose meaning is a fault, and its fault is a property
+  of the OPCODE; these are the first whose refusal is a property of the VALUES,
+  so the same instruction at the same width refuses in one pre-state and
+  computes in the next.  Measured over the harness's own eighty-two pre-states
+  before this constructor existed: `div` and `idiv` refuse in 51%–84% of them,
+  depending on width and signedness, and both refusal causes — a zero divisor
+  and a quotient too wide — are reached at every width. -/
+  | muldiv (k : MulDivKind) (sz : Size) (src : Operand)
+  /-- P1 BATCH 17: IMUL's TWO- and THREE-operand forms, which write a single
+  register and no pair.
+
+  ⭐ ONE CONSTRUCTOR, KEYED BY `imm`.  `imul r, r/m` is `dst := dst * src` and
+  `imul $imm, r/m, r` is `dst := src * imm`: the destination, the width rule and
+  the whole flag rule are identical, and the two differ in WHICH PAIR is
+  multiplied — one expression.  `none` is the two-operand form.
+
+  ⚠️ This is the opposite call from batch 16's, and deliberately so.  There a
+  field on `.strop` would have touched twenty existing vectors and every lemma
+  about them, so the batch added a constructor; here nothing exists yet to
+  perturb, and a second constructor would have duplicated the CF/OF rule — the
+  one part of IMUL a reader is likely to get wrong.
+
+  ⛔ NO 8-BIT FORM EXISTS for either shape: `0F AF`, `6B` and `69` all take a
+  16-, 32- or 64-bit operand, and the byte-wide multiply is the one-operand
+  `F6 /5` above.  `imulrEncodable` is the table, and `step` declines `.b`. -/
+  | imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -601,6 +659,16 @@ of the six has an 8-bit form. -/
 def bitcntEncodable : BitCntKind → Size → Bool
   | .blsi, sz => sz == .d || sz == .q
   | _,     sz => sz != .b
+
+
+/-- P1 BATCH 17: which widths IMUL's two- and three-operand shapes EXIST at,
+written as data beside the AST for the reason `bitcntEncodable` is.
+
+⚠️ IT LOOKS LIKE `bitcntEncodable` AND IT SAYS THE SAME KIND OF THING — a form
+with no encoding — which is the resemblance batch 16 had to disclaim about
+`repApplies`, where it did NOT.  Here the resemblance is real: `imul %cl` is a
+one-operand `.muldiv` and `imulb %cl, %al` does not assemble at all. -/
+def imulrEncodable (sz : Size) : Bool := sz != .b
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
 the header on why `len` is a datum and what it costs in trust. -/
@@ -667,6 +735,8 @@ def Op.mnemonic : Op → String
   -- keyed on `k.mnemonic` would name rows batch 15 already claims and leave
   -- these eleven unnamed.
   | .repstrop r _ _ => r.mnemonic
+  | .muldiv k .. => k.mnemonic
+  | .imulr .. => "imul"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -722,7 +792,15 @@ def rosterP0 : List String :=
    -- ⚠️ These are the PREFIX names, not the string ops — the five base names
    -- above are batch 15's rows and these eleven are separate rows of the same
    -- file, which is why the count moves by eleven and not by five.
-   "rep", "repe", "repne"]
+   "rep", "repe", "repne",
+   -- P1 BATCH 17: the multiply-divide group.  `mul`, `div` and `idiv` are one
+   -- constructor apiece within `.muldiv`; `imul` is the only mnemonic in this
+   -- model spread over TWO constructors — `.muldiv .imul` for the one-operand
+   -- form that writes RDX:RAX, and `.imulr` for the two- and three-operand
+   -- forms that write one register.  ⚠️ They are ONE roster row each way round:
+   -- the roster files `imul` once as a base name at six shapes, and this list
+   -- names mnemonics, so `imul` appears here once.
+   "mul", "imul", "div", "idiv"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

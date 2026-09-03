@@ -1108,4 +1108,110 @@ theorem step_repstrop_iterates_like_strop (h : Live s) (hp : repApplies r k = tr
 
 end RepStringOps
 
+/-! ## P1 BATCH 17 — the multiply-divide group
+
+⭐ THE STATEMENTS HERE ARE ABOUT THE FAULT AND THE FRAME, NOT ABOUT THE
+ARITHMETIC.  A theorem saying `mul` computes the product would restate
+`Value.mulPair`, which is the definition; what is worth holding is what the
+definitions do NOT say — that a division's refusal is exactly the SDM's two
+conditions, that a refusal writes nothing at all, and that the pair really is
+`AH:AL` at one width and `RDX:RAX` at the other three.  Those are the claims a
+plausible wrong model contradicts. -/
+
+section MulDiv
+variable {k : MulDivKind} {sz : Size} {src : Operand} {len : Nat} {s s' : Cpu}
+
+/-- ⭐⭐ THE FAULT LAW: a `div` refuses EXACTLY when `Value.divPairU` has no
+answer, and an `idiv` exactly when `Value.divPairS` has none.  Nothing else can
+stop these forms.
+
+⚠️ THIS IS THE THEOREM `wrongDivNoQuotientOverflow` CONTRADICTS, and it is
+stated as an `↔` on purpose: an implication in either direction alone would be
+satisfied by a model that refuses too often or too rarely, and this batch's
+measurement says the too-often direction is the one nothing else would catch. -/
+theorem step_div_refuses_iff (h : Live s) :
+    (step ⟨.muldiv .div sz src, len⟩ s).stopped = true
+      ↔ Value.divPairU sz (s.mdHi sz) (s.getReg sz .rax)
+          (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none := by
+  simp only [step, Cpu.stopped, h, if_false, Bool.not_true]
+  cases hd : Value.divPairU sz (s.mdHi sz) (s.getReg sz .rax)
+      (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) <;> cases sz <;>
+    simp_all [Cpu.halt, Cpu.setRip, Cpu.setFlags, Cpu.setMdPair, Cpu.setReg, Cpu.undefBit]
+
+theorem step_idiv_refuses_iff (h : Live s) :
+    (step ⟨.muldiv .idiv sz src, len⟩ s).stopped = true
+      ↔ Value.divPairS sz (s.mdHi sz) (s.getReg sz .rax)
+          (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none := by
+  simp only [step, Cpu.stopped, h, if_false, Bool.not_true]
+  cases hd : Value.divPairS sz (s.mdHi sz) (s.getReg sz .rax)
+      (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) <;> cases sz <;>
+    simp_all [Cpu.halt, Cpu.setRip, Cpu.setFlags, Cpu.setMdPair, Cpu.setReg, Cpu.undefBit]
+
+/-- ⭐⭐ A REFUSED DIVISION CHANGES NOTHING BUT `ms` — stated over the WHOLE
+record, as batch 16's `step_repstrop_rcx_zero` is, because "writes nothing" is
+the claim and a field-by-field version is a list somebody has to keep complete.
+
+⚠️ IT IS ALSO THE PROPERTY THE DIFFERENTIAL RUN DEPENDS ON.  x86isa's post-state
+on a #DE has RAX, RDX, RIP and the flags exactly as it found them — measured, in
+the 656-case probe — so a model that faulted after committing a partial write
+would disagree with the oracle in a field the comparator reads. -/
+theorem step_div_refused_frame (h : Live s)
+    (hd : Value.divPairU sz (s.mdHi sz) (s.getReg sz .rax)
+            (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none) :
+    step ⟨.muldiv .div sz src, len⟩ s
+      = { s with ms := some (.byDesign "div: #DE is the instruction's meaning at this divisor") } := by
+  simp [step, Cpu.stopped, h, hd, Cpu.halt, Live] at *
+
+theorem step_idiv_refused_frame (h : Live s)
+    (hd : Value.divPairS sz (s.mdHi sz) (s.getReg sz .rax)
+            (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none) :
+    step ⟨.muldiv .idiv sz src, len⟩ s
+      = { s with ms := some (.byDesign "idiv: #DE is the instruction's meaning at this divisor") } := by
+  simp [step, Cpu.stopped, h, hd, Cpu.halt, Live] at *
+
+/-- ⭐ THE PAIR IS `AH:AL` AT `.b` AND LEAVES RDX ALONE — the claim
+`wrongMulBytePairInRdx` contradicts, and the one sentence of the SDM's
+destination table that a uniform implementation gets wrong. -/
+theorem setMdPair_b_leaves_rdx (s : Cpu) (lo hi : Val) :
+    (s.setMdPair .b lo hi).regs.get .rdx = s.regs.get .rdx := by
+  simp [Cpu.setMdPair, Cpu.setReg, Regs.get_set_ne]
+
+/-- …and at every other width the high half IS RDX, so the two halves of the
+previous theorem's claim are both stated rather than one being left to a
+reader. -/
+theorem setMdPair_wide_writes_rdx (s : Cpu) (sz : Size) (lo hi : Val) (hs : sz ≠ .b) :
+    (s.setMdPair sz lo hi).getReg sz .rdx
+      = Value.trunc sz (Value.writeView sz (s.regs.get .rdx) hi) := by
+  cases sz <;> simp_all [Cpu.setMdPair, Cpu.setReg, Cpu.getReg, Regs.get_set_ne]
+
+/-- ⛔ IMUL's TWO- AND THREE-OPERAND FORMS DO NOT EXIST AT `.b`, and `step` says
+so rather than answering for bytes no encoding can carry — the same statement
+batch 14 makes about the bit-counting group's missing widths. -/
+theorem step_imulr_b_refuses (h : Live s) (dst : GPR) (imm : Option Val) :
+    (step ⟨.imulr .b dst src imm, len⟩ s).stopped = true := by
+  have he : imulrEncodable .b = false := by decide
+  simp [step, Cpu.stopped, h, he, Cpu.halt]
+
+/-- ⭐ THE THREE-OPERAND FORM DOES NOT READ ITS DESTINATION: overwriting the
+destination register with an arbitrary value does not change the answer.
+
+⚠️ THE PERTURBATION IS NAMED IN THE STATEMENT rather than left as "two states
+that happen to agree elsewhere", so the theorem says what a reader would test by
+hand.  It is exactly what `wrongImul3ReadsDest` breaks — and no single example
+could show it, because that model agrees with this one wherever the destination
+already holds the source. -/
+theorem step_imul3_ignores_dest (h : Live s) (dst rs : GPR) (hne : dst ≠ rs)
+    (im v : Val) (hsz : sz ≠ .b) :
+    (step ⟨.imulr sz dst (.reg rs) (some im), len⟩ (s.setReg .q dst v)).getReg sz dst
+      = (step ⟨.imulr sz dst (.reg rs) (some im), len⟩ s).getReg sz dst := by
+  have he : imulrEncodable sz = true := by
+    cases sz <;> first | exact absurd rfl hsz | decide
+  have hl : Live (s.setReg .q dst v) := by simpa [Live, Cpu.setReg] using h
+  cases sz <;> simp_all [step, Cpu.stopped, imulrEncodable, Cpu.setRip,
+    Cpu.setFlags, Cpu.setReg, Cpu.getReg, Cpu.readOperand, Cpu.undefBit,
+    Regs.get_set_ne _ _ _ _ hne, Value.trunc_writeView]
+  <;> rw [Regs.get_set_ne _ _ _ _ hne]
+
+end MulDiv
+
 end X86

@@ -1662,4 +1662,86 @@ nobody filed. -/
 theorem repne_movs_is_declined :
     (step ⟨.repstrop .repn .movs .q, 3⟩ (repState false 3)).stopped = true := by decide
 
+/-! ## P1 BATCH 17 — the multiply-divide anchors
+
+⭐ THE NUMBERS BELOW ARE ARITHMETIC A READER CAN CHECK IN THEIR HEAD, which is
+what an anchor is for: a differential run says the model agrees with x86isa, and
+these say what it agrees ON. -/
+
+private def mdState (rax rdx rcx : BitVec 64) : Cpu :=
+  mk (regs := (((({} : Regs).set .rax rax).set .rdx rdx).set .rcx rcx)) (rip := 0x400000)
+
+/-- `mulq`: `2^32 * 2^32 = 2^64`, the smallest product that does not fit — RAX
+zero, RDX one, and CF/OF set. -/
+theorem mul_q_smallest_overflow :
+    let w := step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (mdState 0x100000000 0 0x100000000)
+    (w.regs.get .rax, w.regs.get .rdx, w.flags.cf, w.flags.of, w.rip)
+      = (0, 1, true, true, 0x400003) := by decide
+
+/-- ⭐ `imulq` ON THE SAME MAGNITUDES WITH A SIGN: `-1 * -1 = 1`.  The high half
+is zero and there is no overflow — where `mulq` on the same BITS would report
+`0xFFFFFFFFFFFFFFFE` in RDX and set CF. -/
+theorem imul_q_minus_one_squared :
+    let w := step ⟨.muldiv .imul .q (.reg .rcx), 3⟩
+      (mdState 0xFFFFFFFFFFFFFFFF 0 0xFFFFFFFFFFFFFFFF)
+    (w.regs.get .rax, w.regs.get .rdx, w.flags.cf)
+      = (1, 0, false) := by decide
+
+theorem mul_q_minus_one_squared_is_a_different_answer :
+    let w := step ⟨.muldiv .mul .q (.reg .rcx), 3⟩
+      (mdState 0xFFFFFFFFFFFFFFFF 0 0xFFFFFFFFFFFFFFFF)
+    (w.regs.get .rax, w.regs.get .rdx, w.flags.cf)
+      = (1, 0xFFFFFFFFFFFFFFFE, true) := by decide
+
+/-- ⭐ THE BYTE MULTIPLY'S PAIR IS ONE REGISTER: `0xFF * 0xFF = 0xFE01` lands
+whole in AX, and RDX is untouched. -/
+theorem mul_b_writes_ax :
+    let w := step ⟨.muldiv .mul .b (.reg .rcx), 2⟩ (mdState 0xFF 0xDEADBEEF 0xFF)
+    (w.regs.get .rax, w.regs.get .rdx) = (0xFE01, 0xDEADBEEF) := by decide
+
+/-- `divq`: `(1 << 64 + 0) / 3` — a dividend that genuinely uses RDX.  Quotient
+`0x5555555555555555`, remainder `1`. -/
+theorem div_q_uses_rdx :
+    let w := step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (mdState 0 1 3)
+    (w.regs.get .rax, w.regs.get .rdx, w.stopped)
+      = (0x5555555555555555, 1, false) := by decide
+
+/-- ⛔ AND ONE STEP FURTHER IT IS A FAULT: the same dividend divided by `1` has
+a quotient of `2^64`, which does not fit RAX.  The divisor is NON-ZERO, so this
+anchors the SECOND #DE sentence, and RAX, RDX and RIP are left exactly as they
+were found. -/
+theorem div_q_quotient_overflow_writes_nothing :
+    let w := step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (mdState 0 1 1)
+    (w.stopped, w.regs.get .rax, w.regs.get .rdx, w.rip)
+      = (true, 0, 1, 0x400000) := by decide
+
+/-- ⭐⭐ IDIV's ROUNDING, ANCHORED WHERE LEAN AND THE MACHINE DISAGREE.
+`-7 / 2` is `-3` remainder `-1` (truncate toward zero, remainder takes the
+dividend's sign); `Int`'s `/` and `%` give `-4` and `1`. -/
+theorem idiv_q_negative_dividend_truncates :
+    let w := step ⟨.muldiv .idiv .q (.reg .rcx), 3⟩
+      (mdState 0xFFFFFFFFFFFFFFF9 0xFFFFFFFFFFFFFFFF 2)
+    (w.regs.get .rax, w.regs.get .rdx)
+      = (0xFFFFFFFFFFFFFFFD, 0xFFFFFFFFFFFFFFFF) := by decide
+
+/-- ⛔ IDIV's ASYMMETRIC RANGE: `-2^63 / -1` is `2^63`, which is not a signed
+64-bit value, so it is #DE — the one overflow that a symmetric range check would
+miss. -/
+theorem idiv_q_int_min_over_minus_one_faults :
+    (step ⟨.muldiv .idiv .q (.reg .rcx), 3⟩
+      (mdState 0x8000000000000000 0xFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFF)).stopped
+      = true := by decide
+
+/-- ⭐ IMUL's THREE-OPERAND FORM IGNORES ITS DESTINATION, anchored: `3 * 7 = 21`
+with RAX holding a marker that does not appear in the answer. -/
+theorem imul3_q_ignores_dest :
+    let w := step ⟨.imulr .q .rax (.reg .rcx) (some 7), 7⟩ (mdState 0xDEADBEEF 0 3)
+    (w.regs.get .rax, w.flags.cf) = (21, false) := by decide
+
+/-- …and the TWO-operand form does read it: `3 * 7` again, with the roles
+swapped, so the same product arrives by the other route. -/
+theorem imul2_q_reads_dest :
+    let w := step ⟨.imulr .q .rax (.reg .rcx) none, 4⟩ (mdState 7 0 3)
+    (w.regs.get .rax, w.flags.cf) = (21, false) := by decide
+
 end X86.Tests

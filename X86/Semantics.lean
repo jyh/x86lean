@@ -202,6 +202,36 @@ def stringIter (k : StringOp) (sz : Size) (s : Cpu) : Cpu :=
       let s := s.setFlags (Flags.sub sz a b s.flags)
       s.setReg .q .rdi (di + d)
 
+
+/-! ### The double-width accumulator pair (P1 BATCH 17)
+
+⭐ THE PAIR IS ADDRESSED THROUGH TWO FUNCTIONS AND NOT WRITTEN OUT AT FOUR CALL
+SITES, because the `.b` asymmetry is the whole difficulty and it should exist in
+exactly one place.  "byte → AX, word → DX:AX, doubleword → EDX:EAX, quadword →
+RDX:RAX" (SDM Vol. 2A, MUL, Table 3-x): at three widths the high half is RDX and
+at the fourth it is **AH, the high byte of the SAME register the low half is
+in**.  Both functions are total and neither has a special case a caller can
+forget. -/
+namespace Cpu
+
+/-- The HIGH half of the accumulator pair at this width: `AH` at `.b`, the
+`sz`-wide view of RDX otherwise. -/
+def mdHi (s : Cpu) (sz : Size) : Val :=
+  match sz with
+  | .b => s.getReg .b .rax true
+  | _ => s.getReg sz .rdx
+
+/-- Write the pair: `lo` to the accumulator, `hi` to AH at `.b` and to RDX
+otherwise.  ⚠️ The two writes go to the SAME register at `.b`, which is why the
+low half is written first and the high half merges into the result — the other
+order would leave AL holding the low bits of the high half. -/
+def setMdPair (s : Cpu) (sz : Size) (lo hi : Val) : Cpu :=
+  match sz with
+  | .b => (s.setReg .b .rax lo).setReg .b .rax hi true
+  | _ => (s.setReg sz .rax lo).setReg sz .rdx hi
+
+end Cpu
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -781,6 +811,99 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           let tgt := s.readOperand .q nr o
           if canonical tgt then (s.push .q nr).setRip tgt
           else s.halt (.unimplemented "non-canonical branch target (#GP(0) in hardware)")
+
+  -- MUL · IMUL · DIV · IDIV, the ONE-OPERAND forms (SDM Vol. 2A).  See
+  -- `MulDivKind` and `Cpu.setMdPair`.
+  --
+  -- ⛔⛔ THE TWO DIVISIONS ARE THE FIRST FORMS IN THIS MODEL WHOSE REFUSAL IS A
+  -- FUNCTION OF THE OPERANDS.  `ud2` (batch 12) refuses because of what it IS;
+  -- `divq %rcx` refuses because of what RDX, RAX and RCX happen to hold, so the
+  -- same vector refuses at one pre-state and divides at the next.  The refusal
+  -- carries `byDesign` for `ud2`'s reason: #DE is the instruction's meaning
+  -- here, not a gap in the roster, and filing it as `unimplemented` would put a
+  -- covered form in the `T-absent` tier.
+  --
+  -- ⚠️ AND THE FAULT IS DECIDED BEFORE ANYTHING IS WRITTEN.  `Value.divPairU`
+  -- and `Value.divPairS` return `Option`, so there is no path on which a
+  -- quotient exists and the fault has not been considered; a `halt` beside the
+  -- arithmetic could be forgotten, and this cannot.  Measured against x86isa on
+  -- all eighty-two pre-states at four widths and both signednesses — 656 cases,
+  -- 656 agreements, before this constructor was written — the oracle refuses on
+  -- exactly the operand pairs the SDM's two sentences name.
+  --
+  -- ⚠️ THE UNDEFINED DRAWS HAPPEN ONLY ON THE NON-FAULTING PATH, so a division's
+  -- consumption of the oracle depends on its OPERANDS.  That is `bsf`'s
+  -- situation from batch 14 and it obeys the same weaker property that matters:
+  -- the cursor depends on the operands, never on the oracle's own BITS, so the
+  -- two opposite-oracle runs that derive the undefined set take the same branch.
+  | .muldiv k sz src =>
+      let a := s.readOperand sz nr src
+      let lo := s.getReg sz .rax
+      match k with
+      | .mul =>
+          let (l, h) := Value.mulPair sz lo a
+          let ovf := Value.mulOverflow sz lo a
+          let (sfU, s) := s.undefBit
+          let (zfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (pfU, s) := s.undefBit
+          ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setMdPair sz l h).setRip nr
+      | .imul =>
+          let (l, h) := Value.imulPair sz lo a
+          let ovf := Value.imulOverflow sz lo a
+          let (sfU, s) := s.undefBit
+          let (zfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (pfU, s) := s.undefBit
+          ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setMdPair sz l h).setRip nr
+      | .div =>
+          match Value.divPairU sz (s.mdHi sz) lo a with
+          | none => s.halt (.byDesign "div: #DE is the instruction's meaning at this divisor")
+          | some (q, r) =>
+              let (cfU, s) := s.undefBit
+              let (pfU, s) := s.undefBit
+              let (afU, s) := s.undefBit
+              let (zfU, s) := s.undefBit
+              let (sfU, s) := s.undefBit
+              let (ofU, s) := s.undefBit
+              ((s.setFlags (Flags.divFlags cfU pfU afU zfU sfU ofU s.flags)).setMdPair
+                sz q r).setRip nr
+      | .idiv =>
+          match Value.divPairS sz (s.mdHi sz) lo a with
+          | none => s.halt (.byDesign "idiv: #DE is the instruction's meaning at this divisor")
+          | some (q, r) =>
+              let (cfU, s) := s.undefBit
+              let (pfU, s) := s.undefBit
+              let (afU, s) := s.undefBit
+              let (zfU, s) := s.undefBit
+              let (sfU, s) := s.undefBit
+              let (ofU, s) := s.undefBit
+              ((s.setFlags (Flags.divFlags cfU pfU afU zfU sfU ofU s.flags)).setMdPair
+                sz q r).setRip nr
+
+  -- IMUL, the TWO- and THREE-operand forms (SDM Vol. 2A, IMUL).  One register
+  -- destination, no pair, and the SAME CF/OF rule as the one-operand form —
+  -- which is why `Value.imulOverflow` is shared rather than restated.
+  --
+  -- ⚠️ THE THREE-OPERAND FORM DOES NOT READ ITS DESTINATION.  `imul $7, %rcx,
+  -- %rax` is `rax := rcx * 7`; a model that multiplied the destination in would
+  -- agree with this one only where RAX already held the immediate.
+  | .imulr sz dst src imm =>
+      if !(imulrEncodable sz) then
+        s.halt (.illegalOperands
+          "imul's two- and three-operand forms have no 8-bit encoding")
+      else
+        let b := s.readOperand sz nr src
+        let (x, y) := match imm with
+          | none => (s.getReg sz dst, b)
+          | some i => (b, Value.trunc sz i)
+        let (l, _) := Value.imulPair sz x y
+        let ovf := Value.imulOverflow sz x y
+        let (sfU, s) := s.undefBit
+        let (zfU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        let (pfU, s) := s.undefBit
+        ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setReg sz dst l).setRip nr
 
 /-- Run `n` steps of a straight-line list of decoded instructions, taking each
 in order.  P0 does not fetch-and-decode from memory (that is P4's Lean decoder);

@@ -97,12 +97,12 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 IN PROGRESS — 16 batches landed.** The roster now stands at
-**429 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
+**P1 IN PROGRESS — 17 batches landed.** The roster now stands at
+**441 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
 tested against ACL2 x86isa on every batch:
 
 ```
-627 vectors · 82 pre-states · 51414 cases · 0 unexplained · 0 oracle leaks
+659 vectors · 82 pre-states · 54038 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

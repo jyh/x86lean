@@ -303,4 +303,106 @@ theorem popcnt_fully_committed :
   -- are compared component by component, and the components are whole RECORDS
   -- (`flags`) rather than seven projections, which is D30 one level down.
 
+/-! ## §4 — P1 BATCH 17: the flags a division promises nothing about, and the
+FAULT that must be reachable in both directions
+
+⭐⭐ THIS SECTION CARRIES AN OBLIGATION THE OTHERS DO NOT: a REACHABILITY claim
+about the model's own refusal.  `div` and `idiv` fault on their OPERANDS, and a
+form that refused in every state would agree with x86isa on every case it was
+shown — the oracle refuses there too — while testing nothing about the quotient.
+So both branches are asserted to be reachable, by exhibiting a state on each
+side, and the `divPairU`/`divPairS` half of the claim is checked by `decide`
+rather than by a comment reporting what a probe once printed.
+
+⚠️ THE TWO REFUSAL CAUSES ARE ASSERTED SEPARATELY.  A zero divisor and an
+over-wide quotient are different sentences of the SDM, and a model implementing
+only the first is `wrongDivNoQuotientOverflow` — which is caught by the
+differential run, but only because a pre-state reaches the second cause.  These
+theorems are what keep that true if `adversarial` is ever reordered: batch 2's
+`carryBoundary` lesson, applied to a fault instead of a carry. -/
+
+/-- `div` REFUSES on a zero divisor. -/
+theorem div_refuses_on_zero_divisor :
+    (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 7, rdx := 0, rcx := 0 })).stopped
+      = true := by decide
+
+/-- `div` REFUSES when the quotient is too wide — a NON-zero divisor, so this is
+the second sentence and not the first one again. -/
+theorem div_refuses_on_quotient_overflow :
+    (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 0, rdx := 5, rcx := 2 })).stopped
+      = true := by decide
+
+/-- ⭐ AND IT COMPUTES — the arm without which the two above would be satisfied
+by a `div` that never divides.  `10 / 3 = 3` remainder `1`. -/
+theorem div_computes_and_writes_the_pair :
+    (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 10, rdx := 0, rcx := 3 })).stopped
+      = false
+  ∧ (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 10, rdx := 0, rcx := 3 })).regs.get .rax
+      = 3
+  ∧ (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 10, rdx := 0, rcx := 3 })).regs.get .rdx
+      = 1 := by decide
+
+/-- ⭐⭐ IDIV TRUNCATES TOWARD ZERO, AND THE REMAINDER TAKES THE DIVIDEND'S SIGN.
+`-7 / 2` is `-3` remainder `-1` on the machine; Lean's `Int` division would give
+`-4` remainder `1`.  This is the one substitution `wrongIdivFloorDivision` and
+`wrongIdivRemainderSign` make, stated where a reader can check it by eye. -/
+theorem idiv_truncates_toward_zero :
+    (step ⟨.muldiv .idiv .q (.reg .rcx), 3⟩
+        (s0 { rax := 0xFFFFFFFFFFFFFFF9, rdx := 0xFFFFFFFFFFFFFFFF, rcx := 2 })).regs.get .rax
+      = 0xFFFFFFFFFFFFFFFD
+  ∧ (step ⟨.muldiv .idiv .q (.reg .rcx), 3⟩
+        (s0 { rax := 0xFFFFFFFFFFFFFFF9, rdx := 0xFFFFFFFFFFFFFFFF, rcx := 2 })).regs.get .rdx
+      = 0xFFFFFFFFFFFFFFFF := by decide
+
+/-- ⭐ THE BYTE MULTIPLY WRITES `AH:AL` AND LEAVES RDX ALONE.  `200 * 3 = 600 =
+0x258`, so AL is `0x58` and AH is `0x02` — one register — and RDX keeps the
+marker it was given.  `wrongMulBytePairInRdx` is the model this refutes. -/
+theorem mul_byte_writes_ah_al_not_rdx :
+    (step ⟨.muldiv .mul .b (.reg .rcx), 2⟩
+        (s0 { rax := 200, rcx := 3, rdx := 0xDEAD })).regs.get .rax = 0x0258
+  ∧ (step ⟨.muldiv .mul .b (.reg .rcx), 2⟩
+        (s0 { rax := 200, rcx := 3, rdx := 0xDEAD })).regs.get .rdx = 0xDEAD := by decide
+
+/-- `div` and `idiv`: all six arithmetic flags undefined.  Two of the six are
+exhibited; the differential run's undefined-column gate checks all six against
+what the model draws, in both directions. -/
+theorem div_cf_undefined :
+    (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 10, rdx := 0, rcx := 3 })).flags.cf
+      ≠ (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s1 { rax := 10, rdx := 0, rcx := 3 })).flags.cf := by
+  decide
+
+theorem idiv_zf_undefined :
+    (step ⟨.muldiv .idiv .q (.reg .rcx), 3⟩ (s0 { rax := 10, rdx := 0, rcx := 3 })).flags.zf
+      ≠ (step ⟨.muldiv .idiv .q (.reg .rcx), 3⟩ (s1 { rax := 10, rdx := 0, rcx := 3 })).flags.zf := by
+  decide
+
+/-- ⭐ AND MUL's CF AND OF ARE COMMITTED — the two bits the multiply group
+PROMISES, against four it does not.  A model that drew all six, as the divisions
+do, would satisfy every `≠` theorem in this file and be wrong about the only
+flag `mul` is for. -/
+theorem mul_cf_and_of_committed :
+    (step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (s0 { rax := 0x100000000, rcx := 0x100000000 })).flags.cf
+      = (step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (s1 { rax := 0x100000000, rcx := 0x100000000 })).flags.cf
+  ∧ (step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (s0 { rax := 0x100000000, rcx := 0x100000000 })).flags.of
+      = (step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (s1 { rax := 0x100000000, rcx := 0x100000000 })).flags.of := by
+  decide
+
+theorem mul_af_undefined :
+    (step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (s0 { rax := 3, rcx := 5 })).flags.af
+      ≠ (step ⟨.muldiv .mul .q (.reg .rcx), 3⟩ (s1 { rax := 3, rcx := 5 })).flags.af := by
+  decide
+
+/-- ⛔ IMUL's OVERFLOW RULE IS NOT MUL's, exhibited at a state where the two
+answers DIFFER: `0xFF * 0xFF` at `.b` is `-1 * -1 = 1` signed — no overflow —
+and `255 * 255 = 65025` unsigned, which does not fit a byte.  ⚠️ THE STATE WAS
+CHOSEN A SECOND TIME.  The first version used `rax := 0xFF, rcx := 1`, where
+both rules answer `false`: the theorem was true, green, and proved nothing about
+the difference it is named for.  This is the model `wrongImulUsesMulOverflow`
+gets wrong, and now the theorem sees it. -/
+theorem imul_overflow_is_not_mul_overflow :
+    (step ⟨.muldiv .imul .b (.reg .rcx), 2⟩ (s0 { rax := 0xFF, rcx := 0xFF })).flags.cf = false
+  ∧ (step ⟨.muldiv .mul .b (.reg .rcx), 2⟩ (s0 { rax := 0xFF, rcx := 0xFF })).flags.cf = true
+  ∧ Value.mulOverflow .b 0xFF 0xFF = true
+  ∧ Value.imulOverflow .b 0xFF 0xFF = false := by decide
+
 end X86.Tests

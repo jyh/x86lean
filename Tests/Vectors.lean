@@ -1739,6 +1739,90 @@ def vectors : List Vec :=
     , bytes := "f2af", instr := ⟨.repstrop .repn .scas .d, 2⟩ }
   , { id := "repne_scas_q", mnemonic := "repne", asm := "repne scasq"
     , bytes := "f248af", instr := ⟨.repstrop .repn .scas .q, 3⟩ }
+  -- ⭐⭐ P1 BATCH 17 — THE MULTIPLY-DIVIDE GROUP.  Thirty-two vectors over four
+  -- mnemonics and two constructors, and the first vectors in this table for
+  -- which a REFUSAL is the expected answer at most pre-states: measured on the
+  -- oracle before any of them existed, `div` and `idiv` fault in 51%–84% of the
+  -- eighty-two, depending on width and signedness.
+  --
+  -- ⚠️ THE MEMORY FORMS ARE AT `.b` AND `.q`, NOT ONE WIDTH, and the choice is
+  -- structural rather than generous: `.b` is the width at which the destination
+  -- pair is `AH:AL` — one register — and every other width puts the high half
+  -- in RDX.  A memory-source vector at `.q` alone would leave the byte pair's
+  -- write path tested only through register sources.  ⚠️ `imul`'s two- and
+  -- three-operand forms have NO `.b` encoding at all, so their memory vector is
+  -- `.q` and the shapes column says so.
+  --
+  -- ⭐ `imul3_q`'s IMMEDIATE IS NEGATIVE, alone in this table.  `69`/`6B` carry
+  -- an imm32 that the decoder SIGN-EXTENDS to the operand width, so a positive
+  -- immediate cannot tell a sign-extending decoder from a zero-extending one at
+  -- `.q`.  `$-0x12345678` assembles to `88 a9 cb ed` and the AST carries
+  -- `0xFFFFFFFFEDCBA988` — the extension already done, as this AST's `imm`
+  -- always is.
+  , { id := "mul_b", mnemonic := "mul", asm := "mulb %cl"
+    , bytes := "f6e1", instr := ⟨.muldiv .mul .b (R .rcx), 2⟩ }
+  , { id := "mul_w", mnemonic := "mul", asm := "mulw %cx"
+    , bytes := "66f7e1", instr := ⟨.muldiv .mul .w (R .rcx), 3⟩ }
+  , { id := "mul_l", mnemonic := "mul", asm := "mull %ecx"
+    , bytes := "f7e1", instr := ⟨.muldiv .mul .d (R .rcx), 2⟩ }
+  , { id := "mul_q", mnemonic := "mul", asm := "mulq %rcx"
+    , bytes := "48f7e1", instr := ⟨.muldiv .mul .q (R .rcx), 3⟩ }
+  , { id := "mul_mb", mnemonic := "mul", asm := "mulb (%rbx)"
+    , bytes := "f623", instr := ⟨.muldiv .mul .b (M .rbx), 2⟩ }
+  , { id := "mul_mq", mnemonic := "mul", asm := "mulq (%rbx)"
+    , bytes := "48f723", instr := ⟨.muldiv .mul .q (M .rbx), 3⟩ }
+  , { id := "imul1_b", mnemonic := "imul", asm := "imulb %cl"
+    , bytes := "f6e9", instr := ⟨.muldiv .imul .b (R .rcx), 2⟩ }
+  , { id := "imul1_w", mnemonic := "imul", asm := "imulw %cx"
+    , bytes := "66f7e9", instr := ⟨.muldiv .imul .w (R .rcx), 3⟩ }
+  , { id := "imul1_l", mnemonic := "imul", asm := "imull %ecx"
+    , bytes := "f7e9", instr := ⟨.muldiv .imul .d (R .rcx), 2⟩ }
+  , { id := "imul1_q", mnemonic := "imul", asm := "imulq %rcx"
+    , bytes := "48f7e9", instr := ⟨.muldiv .imul .q (R .rcx), 3⟩ }
+  , { id := "imul1_mb", mnemonic := "imul", asm := "imulb (%rbx)"
+    , bytes := "f62b", instr := ⟨.muldiv .imul .b (M .rbx), 2⟩ }
+  , { id := "imul1_mq", mnemonic := "imul", asm := "imulq (%rbx)"
+    , bytes := "48f72b", instr := ⟨.muldiv .imul .q (M .rbx), 3⟩ }
+  , { id := "imul2_w", mnemonic := "imul", asm := "imulw %cx, %ax"
+    , bytes := "660fafc1", instr := ⟨.imulr .w .rax (R .rcx) none, 4⟩ }
+  , { id := "imul2_l", mnemonic := "imul", asm := "imull %ecx, %eax"
+    , bytes := "0fafc1", instr := ⟨.imulr .d .rax (R .rcx) none, 3⟩ }
+  , { id := "imul2_q", mnemonic := "imul", asm := "imulq %rcx, %rax"
+    , bytes := "480fafc1", instr := ⟨.imulr .q .rax (R .rcx) none, 4⟩ }
+  , { id := "imul2_mq", mnemonic := "imul", asm := "imulq (%rbx), %rax"
+    , bytes := "480faf03", instr := ⟨.imulr .q .rax (M .rbx) none, 4⟩ }
+  , { id := "imul3_w", mnemonic := "imul", asm := "imulw $0x1234, %cx, %ax"
+    , bytes := "6669c13412", instr := ⟨.imulr .w .rax (R .rcx) (some 0x1234), 5⟩ }
+  , { id := "imul3_l", mnemonic := "imul", asm := "imull $0x12345678, %ecx, %eax"
+    , bytes := "69c178563412", instr := ⟨.imulr .d .rax (R .rcx) (some 0x12345678), 6⟩ }
+  , { id := "imul3_q", mnemonic := "imul", asm := "imulq $-0x12345678, %rcx, %rax"
+    , bytes := "4869c188a9cbed", instr := ⟨.imulr .q .rax (R .rcx) (some 0xFFFFFFFFEDCBA988), 7⟩ }
+  , { id := "imul3_mq", mnemonic := "imul", asm := "imulq $0x12345678, (%rbx), %rax"
+    , bytes := "48690378563412", instr := ⟨.imulr .q .rax (M .rbx) (some 0x12345678), 7⟩ }
+  , { id := "div_b", mnemonic := "div", asm := "divb %cl"
+    , bytes := "f6f1", instr := ⟨.muldiv .div .b (R .rcx), 2⟩ }
+  , { id := "div_w", mnemonic := "div", asm := "divw %cx"
+    , bytes := "66f7f1", instr := ⟨.muldiv .div .w (R .rcx), 3⟩ }
+  , { id := "div_l", mnemonic := "div", asm := "divl %ecx"
+    , bytes := "f7f1", instr := ⟨.muldiv .div .d (R .rcx), 2⟩ }
+  , { id := "div_q", mnemonic := "div", asm := "divq %rcx"
+    , bytes := "48f7f1", instr := ⟨.muldiv .div .q (R .rcx), 3⟩ }
+  , { id := "div_mb", mnemonic := "div", asm := "divb (%rbx)"
+    , bytes := "f633", instr := ⟨.muldiv .div .b (M .rbx), 2⟩ }
+  , { id := "div_mq", mnemonic := "div", asm := "divq (%rbx)"
+    , bytes := "48f733", instr := ⟨.muldiv .div .q (M .rbx), 3⟩ }
+  , { id := "idiv_b", mnemonic := "idiv", asm := "idivb %cl"
+    , bytes := "f6f9", instr := ⟨.muldiv .idiv .b (R .rcx), 2⟩ }
+  , { id := "idiv_w", mnemonic := "idiv", asm := "idivw %cx"
+    , bytes := "66f7f9", instr := ⟨.muldiv .idiv .w (R .rcx), 3⟩ }
+  , { id := "idiv_l", mnemonic := "idiv", asm := "idivl %ecx"
+    , bytes := "f7f9", instr := ⟨.muldiv .idiv .d (R .rcx), 2⟩ }
+  , { id := "idiv_q", mnemonic := "idiv", asm := "idivq %rcx"
+    , bytes := "48f7f9", instr := ⟨.muldiv .idiv .q (R .rcx), 3⟩ }
+  , { id := "idiv_mb", mnemonic := "idiv", asm := "idivb (%rbx)"
+    , bytes := "f63b", instr := ⟨.muldiv .idiv .b (M .rbx), 2⟩ }
+  , { id := "idiv_mq", mnemonic := "idiv", asm := "idivq (%rbx)"
+    , bytes := "48f73b", instr := ⟨.muldiv .idiv .q (M .rbx), 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

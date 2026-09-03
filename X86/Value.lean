@@ -199,6 +199,8 @@ def readHigh8 (v : Val) : Val := trunc .b (v >>> 8)
 
 @[simp] theorem writeView_q (old v : Val) : writeView .q old v = v := rfl
 
+
+
 /-- The MERGE shape that both preserving widths share: keep `old` above the
 width, take `v` below it.  Proven once, at an arbitrary bit index, and then both
 `writeView` cases are this lemma by definitional unfolding. -/
@@ -248,6 +250,21 @@ theorem writeView_low (sz : Size) (h : sz = .w ∨ sz = .b)
     rw [writeView_getLsbD_w, if_pos hi']
   · have hi' : i < 8 := hi
     rw [writeView_getLsbD_b, if_pos hi']
+
+/-- ⭐ P1 BATCH 17: A NARROW WRITE READS BACK NARROW, WHATEVER WAS THERE — the
+`sz`-wide view after a `sz`-wide write does not depend on the old contents.
+Obvious at `.q` and `.d`, and the whole point at `.w` and `.b`, where
+`writeView` MERGES: the merged bits all sit above the width, so `trunc` drops
+exactly them.  Batch 17 needed it to say that IMUL's three-operand form ignores
+its destination at every width rather than only at `.q`. -/
+@[simp] theorem trunc_writeView (sz : Size) (old v : Val) :
+    trunc sz (writeView sz old v) = trunc sz v := by
+  apply BitVec.eq_of_getLsbD_eq; intro i _
+  cases sz <;> simp only [trunc_getLsbD, Size.bits] <;>
+    rcases Nat.lt_or_ge i 8 with hi | hi <;> rcases Nat.lt_or_ge i 16 with hj | hj <;>
+    rcases Nat.lt_or_ge i 32 with hk | hk <;>
+    simp [writeView_getLsbD_b, writeView_getLsbD_w, writeView_q, hi, hj, hk,
+      writeView, Nat.not_lt.mpr] <;> omega
 
 /-- Reading back what `writeHigh8` wrote. -/
 @[simp] theorem readHigh8_writeHigh8 (old v : Val) :
@@ -327,6 +344,108 @@ at the operand width.  Zero in, zero out. -/
 def blsi (sz : Size) (v : Val) : Val :=
   let a := trunc sz v
   trunc sz ((0 - a) &&& a)
+
+/-! ### The double-width products and the dividing pair (P1 BATCH 17)
+
+⭐ EVERY FUNCTION BELOW IS WRITTEN OVER `Nat` OR `Int` AND TRUNCATED AT THE END,
+rather than over a `BitVec (2 * sz.bits)`.  The reason is the same one the file
+header gives for `Val = BitVec 64`: a doubled width would be a dependent type
+indexed by the operand size, and `step` would have to carry a proof to get at
+its own result.  ⚠️ The cost is that these are the only arithmetic definitions
+in the model that leave the bitvector world, so each one ends by coming back
+through `trunc`, and the characterization lemmas in `X86/Theorems.lean` are what
+say the round trip is faithful.
+
+⚠️ AND THE SIGNED PRODUCT COMES BACK THROUGH `Int.emod`, NOT `Int.div`.  Lean's
+`%` on `Int` is the EUCLIDEAN remainder, so `p % 2 ^ (2 * bits)` is in
+`[0, 2 ^ (2 * bits))` for every `p` including a negative one — which is exactly
+the two's-complement representation the machine holds.  Reaching for `Int.tdiv`
+here would give the high half a sign that x86 does not put there. -/
+
+/-- The unsigned double-width product, as `(low, high)` at the operand width.
+MUL (SDM Vol. 2A, MUL). -/
+def mulPair (sz : Size) (a b : Val) : Val × Val :=
+  let p := uval sz a * uval sz b
+  (BitVec.ofNat 64 (p % 2 ^ sz.bits), BitVec.ofNat 64 (p / 2 ^ sz.bits))
+
+/-- The SIGNED double-width product, as `(low, high)` at the operand width, in
+two's complement.  IMUL's one-operand form (SDM Vol. 2A, IMUL). -/
+def imulPair (sz : Size) (a b : Val) : Val × Val :=
+  let p : Int := sval sz a * sval sz b
+  let n : Nat := (p % ((2 : Int) ^ (2 * sz.bits))).toNat
+  (BitVec.ofNat 64 (n % 2 ^ sz.bits), BitVec.ofNat 64 (n / 2 ^ sz.bits))
+
+/-- ⭐ IMUL's CF/OF RULE, WRITTEN ONCE AND SHARED BY ALL THREE OPERAND SHAPES.
+"CF and OF are set when the signed integer value of the intermediate product
+differs from the sign-extended operand-size-truncated product" (SDM Vol. 2A,
+IMUL) — which is the same sentence for the one-, two- and three-operand forms,
+and this is that sentence.
+
+⚠️ NOT "the high half is non-zero", which is MUL's rule.  The two agree on
+positive products and disagree on every negative one: `-1 * 1` at `.b` has high
+half `0xFF`, and IMUL does not set CF for it.  A model that shared MUL's rule
+here would be right on more than half of `adversarial` and wrong on the rest. -/
+def imulOverflow (sz : Size) (a b : Val) : Bool :=
+  sval sz a * sval sz b != sval sz (imulPair sz a b).1
+
+/-- MUL's CF/OF rule: set exactly when the product does not fit the operand
+width, i.e. when the high half is non-zero (SDM Vol. 2A, MUL). -/
+def mulOverflow (sz : Size) (a b : Val) : Bool :=
+  (mulPair sz a b).2 != 0
+
+/-- The DIVIDEND, assembled from the high and low halves at the operand width.
+⚠️ At `.b` the caller passes AH and AL rather than RDX and RAX — see
+`Cpu.mdHi` and `Cpu.setMdPair` in `X86/Semantics.lean` for why that is the same
+shape and not a special case. -/
+def dividendU (sz : Size) (hi lo : Val) : Nat :=
+  uval sz hi * 2 ^ sz.bits + uval sz lo
+
+/-- The signed dividend: the same `2 * sz.bits` bit pattern, read as two's
+complement. -/
+def dividendS (sz : Size) (hi lo : Val) : Int :=
+  let u : Int := (dividendU sz hi lo : Nat)
+  if msb sz hi then u - ((2 ^ (2 * sz.bits) : Nat) : Int) else u
+
+/-- DIV: `(quotient, remainder)` at the operand width, or `none` when the
+instruction's meaning is #DE — a zero divisor, or a quotient too wide for the
+destination (SDM Vol. 2A, DIV: "#DE — If the source operand (divisor) is 0 / If
+the quotient is too large for the designated register").
+
+⭐ THE REFUSAL IS PART OF THE FUNCTION AND NOT A CHECK BESIDE IT.  Returning
+`Option` means a caller cannot compute a quotient without having decided what to
+do about the fault, which is the property `step` needs: batch 12's `ud2` taught
+that a form whose meaning is a fault must be modelled as one, and this is the
+first form whose fault depends on the OPERANDS. -/
+def divPairU (sz : Size) (hi lo d : Val) : Option (Val × Val) :=
+  let dv := uval sz d
+  if dv == 0 then none
+  else
+    let n := dividendU sz hi lo
+    let q := n / dv
+    if q ≥ 2 ^ sz.bits then none else some (BitVec.ofNat 64 q, BitVec.ofNat 64 (n % dv))
+
+/-- IDIV: `(quotient, remainder)`, or `none` for #DE (SDM Vol. 2A, IDIV).
+
+⚠️ THE QUOTIENT TRUNCATES TOWARD ZERO AND THE REMAINDER TAKES THE DIVIDEND'S
+SIGN — `Int.tdiv`/`Int.tmod`, NOT `/` and `%`, which on `Int` in Lean are the
+EUCLIDEAN pair and round the other way for a negative dividend.  `-7 / 2` is
+`-3` on the machine and `-4` in Lean's `/`.  This one substitution is the whole
+difference between IDIV and a plausible model of it, and it is invisible on
+every non-negative dividend — which is most of `adversarial` at `.b`.
+
+⚠️ AND THE RANGE CHECK IS ASYMMETRIC because two's complement is: the quotient
+must lie in `[-2 ^ (bits - 1), 2 ^ (bits - 1) - 1]`, so `-2 ^ 63 / -1` faults
+while `2 ^ 63 / -1`… cannot arise, the dividend being wider than the quotient. -/
+def divPairS (sz : Size) (hi lo d : Val) : Option (Val × Val) :=
+  let dv := sval sz d
+  if dv == 0 then none
+  else
+    let n := dividendS sz hi lo
+    let q := n.tdiv dv
+    let lim : Int := 2 ^ (sz.bits - 1)
+    if q < -lim || q > lim - 1 then none
+    else some (BitVec.ofNat 64 ((q % (2 ^ sz.bits : Int)).toNat)
+             , BitVec.ofNat 64 (((n.tmod dv) % (2 ^ sz.bits : Int)).toNat))
 
 end Value
 end X86

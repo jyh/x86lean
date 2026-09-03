@@ -442,6 +442,33 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   , { mnemonic := "repne", shapes := "m,m · m,acc — b/w/l/q · rcx-counted, \
       exits on rcx=0 or zf=1", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B REPNE/REPNZ" }
+  -- ⭐ P1 BATCH 17 — the multiply-divide group.  Four rows, two constructors,
+  -- and the first two rows in this table whose forms REFUSE on their operands.
+  --
+  -- ⚠️ THE SHAPES COLUMN NAMES THE WIDTHS PER SHAPE, because they differ: the
+  -- one-operand forms exist at all four widths and their memory vectors are at
+  -- `.b` and `.q`; `imul`'s two- and three-operand forms have no 8-bit encoding
+  -- at all.  Writing "b/w/l/q" once across the row would have been an
+  -- UNDER-check in one place and an OVER-claim in another, which is the pair
+  -- `mem_dest_claims_are_backed` and `mem_dest_vectors_are_claimed` exist to
+  -- keep apart.
+  --
+  -- ⚠️ `div` AND `idiv` NAME ALL SIX ARITHMETIC FLAGS and commit to none — the
+  -- first rows here to do so.  The `undefined` column is checked in both
+  -- directions against what the model DRAWS, so this is a measurement and not a
+  -- transcription of the SDM sentence.
+  , { mnemonic := "mul", shapes := "r — b/w/l/q · m — b/q · dest RDX:RAX (AH:AL at b)",
+      tier := .frame, decode := .xed,
+      undefined := ["SF", "ZF", "AF", "PF"], sdm := "Vol. 2A MUL" }
+  , { mnemonic := "imul", shapes := "r · m — 1-operand, dest RDX:RAX (AH:AL at b) · \
+r,r · r,r,imm — w/l/q · r,m · r,m,imm — q", tier := .frame, decode := .xed,
+      undefined := ["SF", "ZF", "AF", "PF"], sdm := "Vol. 2A IMUL" }
+  , { mnemonic := "div", shapes := "r — b/w/l/q · m — b/q · #DE on a zero divisor \
+or a quotient too wide", tier := .frame, decode := .xed,
+      undefined := ["CF", "PF", "AF", "ZF", "SF", "OF"], sdm := "Vol. 2A DIV" }
+  , { mnemonic := "idiv", shapes := "r — b/w/l/q · m — b/q · #DE on a zero divisor \
+or a quotient out of signed range", tier := .frame, decode := .xed,
+      undefined := ["CF", "PF", "AF", "ZF", "SF", "OF"], sdm := "Vol. 2A IDIV" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

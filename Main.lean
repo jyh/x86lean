@@ -1441,6 +1441,174 @@ def wrongRepDecrementAtZero (i : Instr) (s : Cpu) : Cpu :=
         s'.setRip (if r.terminates s'.flags.zf then nr else s.rip)
   | _ => step i s
 
+
+/-! ### P1 BATCH 17 — the multiply-divide arms
+
+⭐ SEVEN ARMS, AND THE SHAPE OF THE BATCH DICTATES THEM.  Measured before any of
+this existed: `div` and `idiv` REFUSE in 51%–84% of the eighty-two pre-states.
+A refusal is agreement that says nothing about the quotient, so this group's
+danger is not a wrong answer — it is a model that is never asked.  Three of the
+seven attack the fault predicate directly, one from each side and one from the
+middle, and the rest attack the arithmetic that only runs when the fault does
+not fire. -/
+
+/-- ⭐ IMUL TAKING MUL's OVERFLOW RULE — the single most plausible wrong model in
+this batch, and it is CORRECT on every non-negative product.  MUL sets CF when
+the high half is non-zero; IMUL sets it when the full product differs from the
+sign-extension of the low half.  `-1 * 1` at `.b` has high half `0xFF` and no
+overflow, and this model claims one. -/
+def wrongImulUsesMulOverflow (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .muldiv .imul sz src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let a := s.readOperand sz nr src
+      let lo := s.getReg sz .rax
+      let (l, h) := Value.imulPair sz lo a
+      let ovf := (Value.imulPair sz lo a).2 != 0
+      let (sfU, s) := s.undefBit
+      let (zfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (pfU, s) := s.undefBit
+      ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setMdPair sz l h).setRip nr
+  | _ => step i s
+
+/-- ⭐⭐ IDIV ROUNDING THE WRONG WAY — `Int`'s `/` and `%`, which in Lean are the
+EUCLIDEAN pair, in place of `tdiv`/`tmod`.  The machine truncates toward zero;
+this rounds toward negative infinity, so `-7 / 2` is `-4` here and `-3` on the
+machine.  ⚠️ INVISIBLE ON EVERY NON-NEGATIVE DIVIDEND, which is most of
+`adversarial` at `.b`, and invisible whenever the division is exact at any
+width. -/
+def wrongIdivFloorDivision (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .muldiv .idiv sz src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let a := s.readOperand sz nr src
+      let lo := s.getReg sz .rax
+      let dv := Value.sval sz a
+      if dv == 0 then s.halt (.byDesign "idiv: #DE") else
+      let n := Value.dividendS sz (s.mdHi sz) lo
+      let q := n / dv
+      let lim : Int := 2 ^ (sz.bits - 1)
+      if q < -lim || q > lim - 1 then s.halt (.byDesign "idiv: #DE") else
+      let qv : Val := BitVec.ofNat 64 ((q % (2 ^ sz.bits : Int)).toNat)
+      let rv : Val := BitVec.ofNat 64 (((n % dv) % (2 ^ sz.bits : Int)).toNat)
+      let (cfU, s) := s.undefBit
+      let (pfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (zfU, s) := s.undefBit
+      let (sfU, s) := s.undefBit
+      let (ofU, s) := s.undefBit
+      ((s.setFlags (Flags.divFlags cfU pfU afU zfU sfU ofU s.flags)).setMdPair
+        sz qv rv).setRip nr
+  | _ => step i s
+
+/-- ⛔ DIV THAT FAULTS ONLY ON A ZERO DIVISOR, truncating an over-wide quotient
+instead of refusing.  Half the fault predicate, deleted.  ⚠️ It is the half a
+reader is likeliest to forget: "#DE if the source operand is 0" is the sentence
+everybody knows, and "if the quotient is too large for the designated register"
+is the one beside it. -/
+def wrongDivNoQuotientOverflow (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .muldiv .div sz src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let a := s.readOperand sz nr src
+      let lo := s.getReg sz .rax
+      let dv := Value.uval sz a
+      if dv == 0 then s.halt (.byDesign "div: #DE") else
+      let n := Value.dividendU sz (s.mdHi sz) lo
+      let (cfU, s) := s.undefBit
+      let (pfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (zfU, s) := s.undefBit
+      let (sfU, s) := s.undefBit
+      let (ofU, s) := s.undefBit
+      ((s.setFlags (Flags.divFlags cfU pfU afU zfU sfU ofU s.flags)).setMdPair
+        sz (BitVec.ofNat 64 (n / dv)) (BitVec.ofNat 64 (n % dv))).setRip nr
+  | _ => step i s
+
+/-- ⭐⭐ THE ARM THAT PROVES THE QUOTIENT IS OBSERVED AT ALL: a `div` that
+refuses on EVERY divisor.  It agrees with the oracle on the 51%–84% of
+pre-states that genuinely fault and must be caught by the rest.
+
+⚠️ WITHOUT THIS ARM THE BATCH WOULD HAVE NO EVIDENCE THAT THE NON-FAULTING PATH
+IS TESTED.  A group whose forms mostly refuse is the mirror of batch 12's
+`retq`, where the model was unobserved because every pre-state refused — and
+there the refusal was the MODEL's, here it is the ORACLE's too, so the two agree
+and the agreement means nothing. -/
+def wrongDivAlwaysRefuses (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .muldiv .div _ _ => s.halt (.byDesign "div: #DE")
+  | _ => step i s
+
+/-- ⛔ THE BYTE MULTIPLY WRITING `DX:AX` INSTEAD OF `AH:AL`.  Correct at `.w`,
+`.d` and `.q` — it is the same function there — and at `.b` it clobbers RDX and
+leaves AH holding whatever it held.  ⚠️ This is the arm `Cpu.setMdPair` exists
+to make hard: with the pair addressed inline at four call sites, the `.b`
+special case is four chances to forget it. -/
+def wrongMulBytePairInRdx (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .muldiv .mul sz src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let a := s.readOperand sz nr src
+      let lo := s.getReg sz .rax
+      let (l, h) := Value.mulPair sz lo a
+      let ovf := Value.mulOverflow sz lo a
+      let (sfU, s) := s.undefBit
+      let (zfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (pfU, s) := s.undefBit
+      (((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setReg sz .rax l).setReg
+        sz .rdx h).setRip nr
+  | _ => step i s
+
+/-- ⛔ IMUL's THREE-OPERAND FORM MULTIPLYING ITS DESTINATION.  `imul $7, %rcx,
+%rax` is `rax := rcx * 7`; this model computes `rax := rax * 7` and ignores the
+source entirely.  ⚠️ It agrees wherever RAX and the source happen to be equal —
+which is the whole `diag` sweep, twenty of the eighty-two pre-states. -/
+def wrongImul3ReadsDest (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .imulr sz dst src (some im) =>
+      if !(imulrEncodable sz) then step i s else
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let _ := s.readOperand sz nr src
+      let x := s.getReg sz dst
+      let y := Value.trunc sz im
+      let (l, _) := Value.imulPair sz x y
+      let ovf := Value.imulOverflow sz x y
+      let (sfU, s) := s.undefBit
+      let (zfU, s) := s.undefBit
+      let (afU, s) := s.undefBit
+      let (pfU, s) := s.undefBit
+      ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setReg sz dst l).setRip nr
+  | _ => step i s
+
+/-- ⛔ IDIV's REMAINDER TAKING THE DIVISOR's SIGN rather than the dividend's.
+`Int.emod` in place of `Int.tmod` on the remainder ALONE — the quotient is left
+correct, so this is the half of the rounding rule that `wrongIdivFloorDivision`
+gets for free and this one gets on its own.  Invisible whenever the division is
+exact, and whenever dividend and divisor share a sign. -/
+def wrongIdivRemainderSign (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .muldiv .idiv sz src =>
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let a := s.readOperand sz nr src
+      let lo := s.getReg sz .rax
+      match Value.divPairS sz (s.mdHi sz) lo a with
+      | none => s.halt (.byDesign "idiv: #DE")
+      | some (q, _) =>
+          let n := Value.dividendS sz (s.mdHi sz) lo
+          let dv := Value.sval sz a
+          let rv : Val := BitVec.ofNat 64 (((n % dv) % (2 ^ sz.bits : Int)).toNat)
+          let (cfU, s) := s.undefBit
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (zfU, s) := s.undefBit
+          let (sfU, s) := s.undefBit
+          let (ofU, s) := s.undefBit
+          ((s.setFlags (Flags.divFlags cfU pfU afU zfU sfU ofU s.flags)).setMdPair
+            sz q rv).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -1532,7 +1700,20 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("repe/repne test the INCOMING zf instead of the comparison's own",
      wrongRepZfIncoming, "rip")
   , ("rep decrements rcx even when it is already zero",
-     wrongRepDecrementAtZero, "rcx") ]
+     wrongRepDecrementAtZero, "rcx")
+  -- P1 BATCH 17 — the multiply-divide group.  Seven arms; three of them are
+  -- about the FAULT rather than the arithmetic, because a group that refuses in
+  -- most pre-states is a group whose agreement is mostly silence.
+  , ("imul takes MUL's overflow rule", wrongImulUsesMulOverflow, "cf")
+  , ("idiv rounds toward negative infinity instead of toward zero",
+     wrongIdivFloorDivision, "rax")
+  , ("div forgets that an over-wide quotient is also #DE",
+     wrongDivNoQuotientOverflow, "refused")
+  , ("div refuses on every divisor (the arm that proves the quotient is observed)",
+     wrongDivAlwaysRefuses, "refused")
+  , ("the byte multiply writes DX:AX instead of AH:AL", wrongMulBytePairInRdx, "rdx")
+  , ("imul's three-operand form multiplies its destination", wrongImul3ReadsDest, "rax")
+  , ("idiv's remainder takes the divisor's sign", wrongIdivRemainderSign, "rdx") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1702,6 +1883,27 @@ cases identical, 0 oracle leaks)"
   -- `docs/DIFFERENTIAL-P1-BATCH<N>.md` files, which are a per-batch artifact
   -- maintained for another reason and therefore cannot drift in step with it.
   --
+  --
+  -- ⭐⭐ P1 BATCH 17 COUNTS BY BASE NAME AND *NOT* BY FAMILY, and the difference
+  -- is a finding rather than a preference.  The handover named this batch as
+  -- "families 14/23/27/24".  Family 23 was already discharged (it is eight of
+  -- batch 16's eleven prefixed rows); `cmpxchg` and `xadd` occupy family 10 as
+  -- well as 14; `shld` and `shrd` occupy family 40 as well as 24.  A batch
+  -- scoped by family number would have claimed rows it did not implement and
+  -- orphaned rows it did.
+  --
+  --   awk -F'\t' 'NR>2 && $4 ~ /^(mul|imul|div|idiv)$/' p1/roster.tsv | wc -l
+  --
+  -- 12 — eight in family 27 (`mul`/`imul` at six shapes) and four in family 24
+  -- (`div`/`idiv` at `r` and `m`).  These four base names occur in NO other
+  -- family, so the rule cannot double-count with any earlier batch, and it
+  -- splits family 24 exactly as batches 15 and 16 split the string family:
+  -- `shld` and `shrd` are that family's other EIGHT rows and are NOT claimed
+  -- here.  429 to 441.
+  -- ⚠️ TWELVE ROWS, FOUR ROSTER MNEMONICS, THIRTY-TWO VECTORS — three counts
+  -- again, and `imul` is the reason the middle one is not eight: it is ONE
+  -- roster base name spread over SIX shapes and TWO of this model's
+  -- constructors.
   -- Making this derivable needs a claimed-forms table keyed to the roster's
   -- (base, shape) pairs — real work, and a better batch than a tack-on. Until
   -- then: COUNT THE ROWS with the command above and do not reason from widths.
@@ -1709,7 +1911,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **429 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **441 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -1749,7 +1951,15 @@ exactly one iteration per step and signals a repeat by NOT advancing RIP, and \
 COUNT EXHAUSTION DOES NOT ADVANCE IT EITHER — the count is tested only on entry, \
 so `rep movs` with RCX=1 copies, leaves RCX=0, and stays put (see D46).  The \
 batch needed no new pre-state: `adversarial` already contains the single value \
-of RCX that separates that rule from the obvious one.\n\n\
+of RCX that separates that rule from the obvious one; 17 — the multiply-divide \
+group MUL/IMUL/DIV/IDIV, twelve roster rows over two constructors, whose \
+results are TWICE the operand width and live in `RDX:RAX` — or, at eight bits \
+alone, in `AH:AL`, one register — and whose two divisions are the first forms \
+in this model to REFUSE ON THEIR OPERANDS rather than on their opcode: measured \
+against the oracle on all eighty-two pre-states before a vector existed, `div` \
+and `idiv` fault in 51%-84% of them, so the batch's danger was never a wrong \
+answer but a quotient nothing asks for, and the arm that refuses on every \
+divisor is what proves it is asked (see D49, D50).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
