@@ -159,10 +159,14 @@ def synth(r, w, suffix, imm="$0x11", bank=0, mode=0, dispv=0, held=False):
         elif t in ACCTOK:
             att.append("%" + t)
         elif t in ("label", "rel8"):
-            # A lone `label` is a branch target; a `label` beside another
-            # operand is a symbolic IMMEDIATE (`cmp $L, (%rsi)`), which is how
-            # K's grammar writes `cmp m,imm` with a symbol.
-            att.append("NEAR" if len(toks) == 1 else "$NEAR")
+            # A lone `label` is a branch target.  A `label` BESIDE another
+            # operand is a symbolic IMMEDIATE -- `cmp $L, (%rsi)` is how K's
+            # grammar writes `cmp m,imm` with a symbol -- so it is synthesised
+            # as the immediate it is.  ⚠️ Writing `$NEAR` here instead left the
+            # immediate unperturbed, so its bytes stayed literal zeros and were
+            # read as OPCODE; the row then failed to group with the `imm` row it
+            # is a restriction of, and the separation check said so.
+            att.append("NEAR" if len(toks) == 1 else imm)
         elif t == "rel32":
             att.append("Lfar")
         else:
@@ -489,6 +493,7 @@ def build_forms(rows):
 
     per = len(PERTURB) + 1
     forms = collections.defaultdict(list)
+    canon = collections.defaultdict(set)
     voided = []
     for n, k in enumerate(keys):
         enc = [got2.get(per * n + v) for v in range(per)]
@@ -514,6 +519,7 @@ def build_forms(rows):
                               "skeleton -- the perturbations under-cover it"))
             continue
         forms[(k[0], k[1])].append(sk)
+        canon[k[0]].add(enc[0])
 
     # ⭐ A CONTROL ON THE WIDTHS.  clang accepts an UNSUFFIXED spelling and
     # picks a default width for it, so a reading meant to be `btw` can quietly
@@ -554,7 +560,7 @@ def build_forms(rows):
     for members in groups.values():
         for i in members:
             group_of[i] = tuple(sorted(members))
-    return forms, group_of, voided, sig
+    return forms, group_of, voided, sig, canon
 
 
 # ----------------------------------------------------- the published sentence
@@ -634,7 +640,29 @@ def selftest():
     r = run(b2, l)
     arms.append(("a vector whose text and bytes disagree", r.returncode != 0, r))
 
-    # ARM 3/4 -- break the COMPARISON, in BOTH directions.  An over-claim and an
+    # ARM 3 -- make a claim rest on the ABSTRACTION instead of on evidence.
+    # `0x90` is both `nop` and `xchg eax,eax`; the roster carries both rows and
+    # no byte-level rule separates them.  Normally `xchg eax,r` is supported by
+    # its own vector (`xchg %ecx,%eax`, bytes `91`).  Delete that vector and the
+    # row is left claimed ONLY through the colliding `90`, which is exactly the
+    # condition the separation check exists to name.
+    #
+    # ⛔ THE ARM IS BUILT FROM DATA, NOT FROM A CODE HOOK, ON PURPOSE.  The first
+    # version of it set an env var that made every mask total -- and that went
+    # red by tripping the WIDTH control instead, i.e. for a reason other than
+    # the one the arm was named after.  A red light in the wrong lamp is not a
+    # test of this gate.
+    sp_s, sp_l = os.path.join(tmp, "sp.s"), os.path.join(tmp, "sp.len")
+    open(sp_s, "w").write("".join(
+        ln for ln in open(a) if not ln.startswith("xchg_rr_l:")))
+    open(sp_l, "w").write("".join(
+        ln for ln in open(l) if not ln.startswith("xchg_rr_l ")))
+    r = run(sp_s, sp_l)
+    named = "claimed ONLY through an encoding" in (r.stdout + r.stderr)
+    arms.append(("a row left claimed only through a colliding encoding",
+                 r.returncode != 0 and named, r))
+
+    # ARM 4/5 -- break the COMPARISON, in BOTH directions.  An over-claim and an
     # under-claim must both fail; the defect this tool was written for was an
     # under-claim, which is the direction nobody polices.
     doc = open("docs/COVERAGE.md").read()
@@ -664,7 +692,7 @@ def selftest():
         print(f"claimed-forms selftest: FAIL ({len(bad)} of {len(arms)} arms)")
         return 1
     print(f"claimed-forms selftest: PASS ({len(arms)} arms, "
-          f"control + resolver x2 + comparison in both directions)")
+          f"control + resolver x2 + separation + comparison in both directions)")
     return 0
 
 
@@ -693,7 +721,7 @@ def main():
 
     rows = load_roster()
     bases = sorted({r["base"] for r in rows}, key=len, reverse=True)
-    forms, group_of, voided, sig = build_forms(rows)
+    forms, group_of, voided, sig, canon = build_forms(rows)
     byrow = {}
     for i, r in enumerate(rows):
         byrow.setdefault((r["prefix"], r["base"], r["shape"]), []).append(i)
@@ -796,6 +824,79 @@ def main():
 
     alias_only = [i for i in claimed if i not in direct]
 
+    _sk_cache = {}
+
+    def related(i, j):
+        """Do these two rows describe the same instruction?
+
+        ⚠️ NOT EQUALITY OF ENCODING SETS.  K's grammar writes some rows as a
+        RESTRICTION of another: `cmp m,label` is `cmp m,imm` with a symbolic
+        immediate and only the `q` width, `stos m` is `stos -` at `b` and `w`.
+        Its encodings are a strict SUBSET, not a different instruction -- and
+        requiring equality here is the same mistake that made the first claim
+        rule miss `stos m` entirely.
+        """
+        a, b = skels_of_cache(i), skels_of_cache(j)
+        return bool(a) and bool(b) and (a <= b or b <= a)
+
+    def skels_of_cache(i):
+        if i not in _sk_cache:
+            ws = (list(rows[i]["widths"]) if rows[i]["widths"] != "-"
+                  else ["q", "l", "w", "b"])
+            out = set()
+            for w in ws:
+                out |= set(forms.get((i, w), ()))
+            _sk_cache[i] = frozenset(out)
+        return _sk_cache[i]
+
+    # ⭐ THE SEPARATION CHECK — the one that catches an OVER-masked skeleton.
+    #
+    # ⛔ THE GATE ABOVE CANNOT DO IT, and finding that out is why this exists.
+    # "Every byte-claimed row shares an encoding with a parse-identified row"
+    # passes trivially when a skeleton masks so much that two DIFFERENT rows
+    # collide: the wrongly-claimed row then shares its (wrong) encoding with the
+    # parsed one, and the gate applauds. Under-masking announces itself -- the
+    # held-out reading stops matching -- but over-masking is silent, because
+    # matching MORE never makes anything fail.
+    #
+    # So: a row's skeleton may not match a canonical instance of a row it is not
+    # an alias of. Two rows are aliases exactly when their encoding sets agree;
+    # anything else the skeleton swallows is a form distinction it has lost.
+    by_len = collections.defaultdict(list)
+    for i, encs in canon.items():
+        for e in encs:
+            by_len[len(e)].append((i, e))
+    collisions = []
+    for (i, w), fs in forms.items():
+        for (m, sk) in fs:
+            for (j, e) in by_len.get(len(sk) * 2, ()):
+                if j == i or related(i, j):
+                    continue
+                if matches(e, m, sk):
+                    collisions.append((i, j, e))
+                    break
+            else:
+                continue
+            break
+
+    # ⚠️ A COLLISION IS NOT AUTOMATICALLY A WRONG CLAIM, and the difference is
+    # worth keeping: `0x90` genuinely IS both `nop` and `xchg eax,eax`, and the
+    # SDM defines that byte as NOP precisely so that it does NOT zero-extend
+    # RAX. The roster carries both rows and no byte-level rule can separate
+    # them. So a collision is REPORTED; it becomes a FINDING only when the
+    # claimed row has no vector supporting it other than the colliding
+    # encoding -- which is the case where the claim really does rest on the
+    # abstraction rather than on evidence.
+    spurious = []
+    for (i, j, e) in collisions:
+        if i not in claimed_of:
+            continue
+        support = [vid for vid in claimed_of[i]
+                   if next((v for v in vecs if v["id"] == vid), {}).get("bytes")
+                   != e]
+        if not support:
+            spurious.append((i, j))
+
     # A "machine form" is a row's SET OF ENCODINGS, and rows sharing one are the
     # same instruction under different spellings.  Counting rows instead
     # double-counts every alias, which is exactly why eighteen batches of
@@ -813,14 +914,28 @@ def main():
             out |= set(forms.get((i, w), ()))
         return frozenset(out)
 
+    # Group by CONTAINMENT: a row whose encodings are a subset of another's is
+    # the same instruction described more narrowly, not a second one.
+    live = [i for i in range(len(rows)) if skels_of(i)]
+    parent = {i: i for i in live}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]; x = parent[x]
+        return x
+
+    for a in range(len(live)):
+        for b in range(a + 1, len(live)):
+            i, j = live[a], live[b]
+            si, sj = skels_of(i), skels_of(j)
+            if si <= sj or sj <= si:
+                parent[find(i)] = find(j)
     groups = collections.defaultdict(list)
-    for i in range(len(rows)):
-        k = skels_of(i)
-        if k:
-            groups[k].append(i)
+    for i in live:
+        groups[find(i)].append(i)
     n_groups = len(groups)
     noform = [i for i in range(len(rows)) if not skels_of(i)]
-    claimed_groups = len({skels_of(i) for i in claimed if skels_of(i)})
+    claimed_groups = len({find(i) for i in claimed if skels_of(i)})
 
     findings = []
     published = read_published() if args.check else None
@@ -845,6 +960,12 @@ def main():
 
     if unresolved:
         findings.append(f"{len(unresolved)} vector(s) resolve to NO roster row")
+    if spurious:
+        findings.append(
+            f"{len(spurious)} row(s) are claimed ONLY through an encoding that "
+            f"also belongs to a row they are not an alias of: " + ", ".join(
+                f"{rows[i]['base']} {rows[i]['shape']} ~ {rows[j]['base']} "
+                f"{rows[j]['shape']}" for i, j in spurious[:5]))
     if unexplained_claim:
         findings.append(
             f"{len(unexplained_claim)} row(s) matched by BYTES share no encoding "
@@ -874,6 +995,10 @@ def main():
         print(f"CLAIMED machine forms            {claimed_groups} of {n_groups}")
         for i in noform:
             print(f"  ⚠️  no assemblable form: {rows[i]['base']} {rows[i]['shape']}")
+        for (i, j, e) in collisions:
+            print(f"  ⚠️  byte-level collision (reported, not a mis-claim): "
+                  f"{rows[i]['base']} {rows[i]['shape']} shares encoding {e} "
+                  f"with {rows[j]['base']} {rows[j]['shape']}")
         for v in unresolved:
             print(f"  ⛔ unresolved: {v['id']:24s} {v['asm']:34s} {v['bytes']}")
         for v, c in split:

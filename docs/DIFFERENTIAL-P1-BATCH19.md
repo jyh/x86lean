@@ -23,7 +23,7 @@ partition the roster.** Batch 18's handover named the symptom precisely: of the 
 believed remained, it could account for only 32, and the other ~40 carried base names the
 model already implements. It could not close the residue and said so.
 
-**The derived answer is 465 of the 525 rows. The literal said 453. It was TWELVE LOW.**
+**The derived answer is 469 of the 525 rows. The literal said 453. It was SIXTEEN LOW.**
 
 ⇒ 🔑 **THE DIRECTION IS THE FINDING.** An over-claim reads as a mistake and gets looked
 for; an under-claim reads as modesty and does not. Eighteen batches of arithmetic rested on
@@ -63,10 +63,10 @@ silent:
 
 | | |
 |---|---|
-| roster rows claimed | **465 of 525** |
+| roster rows claimed | **469 of 525** |
 | — spelled by a vector | 346 |
-| — same encoding, other spelling | 119 |
-| distinct machine forms claimed | **323 of 380** |
+| — same encoding, other spelling | 123 |
+| distinct machine forms claimed | **322 of 374** |
 
 ⛔ **AND TWO ROWS DESCRIBE NO ENCODING AT ALL.** `jecxz rel32` and `jrcxz rel32` exist
 because K's grammar generates them; the assembler refuses both — *"value of 200 is too large
@@ -76,25 +76,25 @@ them among the 61 rows that remain.
 
 ## What remains, fully accounted for the first time
 
-Batch 18 handed on "72 rows remain, and I can account for only 32 of them." **60 remain,
+Batch 18 handed on "72 rows remain, and I can account for only 32 of them." **56 remain,
 and every one is now named:**
 
 | | |
 |---|---|
 | oracle UNAVAILABLE — the nine BMI forms x86isa refuses | 18 |
 | **NO ENCODING EXISTS** — `jecxz rel32`, `jrcxz rel32` | 2 |
-| genuinely available work | **40** |
+| genuinely available work | **36** |
 
-The 40: `add` 8 · `sub` 8 · `mov` 3 · `cmp` 2 · `push` 2 · `xchg` 2 · `adc` 2 · `sbb` 2 ·
-one each of `jmp` `neg` `callq` `movnti` `not` `pop` `bt` `btc` `btr` `bts` `cmpxchg8b`.
+The 36: `sub` 8 · `add` 7 · `mov` 2 · `push` 2 · `xchg` 2 · `adc` 2 · `sbb` 2 · one each of
+`jmp` `neg` `callq` `movnti` `not` `pop` `bt` `btc` `btr` `bts` `cmpxchg8b`.
 `scripts/claimed_forms.py --remaining` prints them with their shapes and widths, so the
 next batch derives its scope instead of guessing at an `awk` pattern. They are mostly the memory-DESTINATION and accumulator-short forms of the
 arithmetic P0 shipped at `r,r` — `add m,r`, `sub r,imm`, `add al,imm` — which is a coherent
 next batch rather than a residue.
 
-⚠️ **WHERE THE TWELVE ROWS WENT CANNOT BE ATTRIBUTED TO A BATCH, AND THAT IS ITSELF THE
+⚠️ **WHERE THE SIXTEEN ROWS WENT CANNOT BE ATTRIBUTED TO A BATCH, AND THAT IS ITSELF THE
 FINDING.** The counting rules for batches 13–18 are written down in `Main.lean` and can be
-re-run; the rules for batches 1–12 never were. Ten of the 119 alias-only rows have a base
+re-run; the rules for batches 1–12 never were. Ten of the 123 alias-only rows have a base
 name that a base-name rule would have caught (`movs m,m`, `cmps -`, `scas m`, `lods m`,
 `xchg r,eax`, `xchg r,rax` and their kin), which is suggestive and is not proof.
 ⇒ 🔑 **AN UNRECORDED RULE CANNOT BE AUDITED EVEN AFTER THE FACT.** The number could be
@@ -117,6 +117,25 @@ matching rows that are not the same instruction.
 ⇒ 🔑 **A CONSERVATIVE RULE IS STILL A WRONG RULE, and it is wrong in the direction that does
 not announce itself.** Writing a whole batch about an unpoliced under-claim did not stop me
 shipping a smaller one inside the instrument built to catch it. Only the second rule did.
+
+⛔ **AND THEN IT HAPPENED AGAIN, FOR FOUR MORE ROWS.** The alias relation was still EQUALITY
+after that repair, but K's grammar writes some rows as a RESTRICTION of another, so the
+relation is CONTAINMENT — and a symbolic-immediate row (`cmp m,label`) was synthesised with
+an unperturbed `$NEAR`, leaving its immediate bytes as literal zeros that were read as
+OPCODE. Found by a THIRD check: **a row's skeleton may not match a canonical instance of a
+row it is not related to.** That is the only one of the three able to catch an OVER-masked
+skeleton, because under-masking makes the held-out reading stop matching while over-masking
+is SILENT — matching more never makes anything fail. 465 → **469**.
+
+⇒ 🔑 **THREE CORRECTIONS, ALL IN THE SAME DIRECTION.** Each was an under-claim; each was
+invisible to the gate that existed when it was made; each was found only by adding a route
+to the answer that did not go through the rule under test. **A published number is worth as
+much as the number of INDEPENDENT routes that agree on it**, which is why the tool now
+carries three — and reports the single place they cannot separate: `0x90` is both `nop` and
+`xchg eax,eax`, the SDM defines that byte as NOP precisely so it does not zero-extend RAX,
+and no byte-level rule can tell them apart. The collision is printed on every run and
+becomes a FINDING only if a row is ever claimed solely through it — an arm of the selftest
+deletes the vector that independently supports `xchg eax,r` and requires exactly that.
 
 ## The three defects found building it, which are one defect
 
@@ -154,9 +173,15 @@ generator's own source. `--selftest` has five arms and takes 6 s:
   ✔ control: the repository as it stands
   ✔ a vector whose bytes match no roster row
   ✔ a vector whose text and bytes disagree
+  ✔ a row left claimed only through a colliding encoding
   ✔ the published number carries an OVER-claim of one row
   ✔ the published number carries an UNDER-claim of one row
 ```
+
+⚠️ **THE THIRD ARM IS BUILT FROM DATA, NOT FROM A CODE HOOK, AND THAT WAS A REPAIR.** Its
+first version set an environment variable that made every mask total — and it went red by
+tripping the WIDTH control instead, i.e. for a reason other than the one the arm is named
+after. **A red light in the wrong lamp is not a test of the gate beside it.**
 
 ⚠️ **The last two arms are the batch's own lesson made mechanical.** A gate that fired only
 on over-claims would have passed this repository for eighteen batches.

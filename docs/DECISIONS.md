@@ -1905,7 +1905,7 @@ reading `andb $0x5a,%al` as the generic `r,imm` form offers an encoding with a M
 against a two-byte accumulator encoding, and the candidate dies. A vector that resolves to
 NOTHING is a finding and the tool exits non-zero; it never guesses.
 
-**The derived answer is 465 of the 525 rows, not 453.** The literal was **twelve low**.
+**The derived answer is 469 of the 525 rows, not 453.** The literal was **sixteen low**.
 
 ⇒ 🔑 **AND THE DIRECTION IS THE FINDING.** An over-claim reads as a mistake and gets
 looked for; an under-claim reads as modesty and does not. Eighteen batches of arithmetic
@@ -1922,7 +1922,28 @@ on exactly that one. The claim is now the byte rule; the parse is its check, and
 requires that every row claimed by bytes share an encoding with a row the parse identified.
 ⇒ 🔑 **A CONSERVATIVE RULE IS STILL A WRONG RULE, and it is wrong in the direction that does
 not announce itself.** Writing a whole batch about an unpoliced under-claim did not stop me
-shipping a smaller one in the instrument built to catch it; only the second rule did. `--check` now gates all six published
+shipping a smaller one in the instrument built to catch it; only the second rule did.
+
+⛔ **AND IT HAPPENED A SECOND TIME, FOR FOUR MORE ROWS.** The alias relation was still
+EQUALITY of encoding sets after the first repair. But K's grammar writes some rows as a
+RESTRICTION of another — `cmp m,label` is `cmp m,imm` with a symbolic immediate at one
+width, `stos m` is `stos -` at `b` and `w` — so the relation is CONTAINMENT, not equality.
+Worse, a symbolic-immediate row was being synthesised with an unperturbed `$NEAR`, so its
+immediate bytes stayed literal zeros and were read as OPCODE, which is what stopped it
+grouping with the row it is a narrowing of. Both were found by a THIRD check — a row's
+skeleton may not match a canonical instance of a row it is not related to — which is the
+only one of the three that can catch an OVER-masked skeleton, because under-masking makes
+the held-out reading stop matching while over-masking is silent: matching MORE never makes
+anything fail. 465 → **469**.
+
+⇒ 🔑 **THREE CORRECTIONS, ALL IN THE SAME DIRECTION.** Each was an under-claim, each was
+invisible to the gate that existed at the time, and each was found only by adding a check
+that reached the answer by a different route. The published number is worth exactly as much
+as the number of INDEPENDENT routes that agree on it — which is why the tool now carries
+three and reports the one place they cannot separate (`0x90` is both `nop` and
+`xchg eax,eax`; the SDM defines that byte as NOP precisely so it does not zero-extend RAX,
+and no byte-level rule can tell them apart). That collision is REPORTED on every run and
+becomes a FINDING only if a row is ever claimed solely through it. `--check` now gates all six published
 numbers, and `--selftest` drives the comparison red with an over-claim AND with an
 under-claim, because a gate that only fires on over-claims would have passed this repository
 for eighteen batches.
@@ -1941,16 +1962,16 @@ much — but a rule of the form `$4 ~ /^(je)$/` claims three rows and leaves thr
 ones behind, and no amount of care with the pattern repairs a rule that counts spellings
 where the machine counts encodings.
 
-⇒ The document now publishes **both** denominators: 465 of 525 rows, which are 323 of the
-380 distinct machine forms those rows describe. Of the 465, **346 are spelled by a vector
-and 119 are the same encoding under another spelling** — printed separately, because a
+⇒ The document now publishes **both** denominators: 469 of 525 rows, which are 322 of the
+374 distinct machine forms those rows describe. Of the 469, **346 are spelled by a vector
+and 123 are the same encoding under another spelling** — printed separately, because a
 claim that rests on an alias should be visible as one.
 
 ⛔ **AND TWO ROWS DESCRIBE NO ENCODING AT ALL.** `jecxz rel32` and `jrcxz rel32` are in the
 roster because K's grammar generates them; the assembler refuses both — *"value of 200 is
 too large for field of 1 byte"* — because those instructions have only an 8-bit
 displacement. They are not uncovered work. They are denominator that cannot be earned, and
-the tool names them on every run rather than letting them sit in the 60 rows that remain.
+the tool names them on every run rather than letting them sit in the 56 rows that remain.
 
 ## D58 — the perturbation that reaches every bit, and the control that shared its blind spot
 
