@@ -5,6 +5,16 @@ licence, and what was actually consulted. Every licence below was read at the ca
 file or page on 2026-09-02 (method: the GitHub contents API with `Accept: application/vnd.github.raw`,
 or the canonical web page). Nothing here is cited from memory.
 
+## This repository's own licence
+
+**Apache-2.0** (`LICENSE`, verbatim from apache.org, copyright 2026 Jason Hickey), by the
+Captain's ruling at the 09/03 council. ⚠️ The choice is not free: this repository CONSULTS
+BSD-3 (ACL2 x86isa), NCSA (K) and BSD-2/BSD-3 (Sail) work by EXECUTION and copies none of
+it, so nothing here is a derivative of them — but Apache-2.0's patent grant is the reason
+it is Apache and not MIT, on a repository whose subject is a patented instruction set.
+⛔ **The repository is PRIVATE.** Publication is gated on the Captain's IARC approval; a
+licence file is not a publication decision and does not become one.
+
 ## Licence table
 
 | Source | Canonical location | Licence | Role here |

@@ -597,6 +597,65 @@ PUBLISHED_RE = re.compile(
     r"\*\*(\d+) are spelled by a vector\*\*", re.S)
 
 
+def residue_buckets(rows, claimed, noform):
+    """The residue, partitioned. Called by BOTH `--remaining` (which prints
+    it) and `--check` (which gates the README description against it), so the
+    printed partition and the gated one cannot be two different derivations."""
+    # ⭐⭐ P1 BATCH 21 -- THE RESIDUE'S THIRD BUCKET, AND WHY IT USED TO BE
+    # WRONG.  This split was: no-encoding (DERIVED), oracle-unavailable
+    # (a HARD-CODED set of nine mnemonics, DECLARED at batch 18), and
+    # AVAILABLE WORK -- everything else, BY DEFAULT.
+    #
+    # ⇒ 🔑 A DECLARED LIST INHERITS THE DIRECTION OF ITS DEFAULT, and this
+    # one's default is *available*, so every gap in it INVENTS work.  D61
+    # measured `movnti` UNAVAILABLE at batch 20 and wrote the finding into
+    # docs/DECISIONS.md and docs/COVERAGE.md and INTO NEITHER GATE -- so for
+    # a whole batch the prose said the list had been corrected while this
+    # function went on printing `movnti` under AVAILABLE WORK.
+    # ⇒ 🔑 A CITATION IS AN UNGATED CLAIM.
+    #
+    # Both hand-maintained sets are now IMPORTED from the artifacts that own
+    # them, and both are gated:
+    #   * `scripts/oracle_availability.py` MEASURES the unavailable set by
+    #     executing one form per mnemonic on the oracle over the real
+    #     pre-states, with two positive controls, checked in BOTH directions
+    #     and driven red first;
+    #   * DECLINED names a recorded DECISION per row (a decision cannot be
+    #     measured), and `check_citations.py` already requires the named
+    #     decision to exist.
+    # A row in neither, and still unclaimed, is AVAILABLE WORK -- and that
+    # bucket is now empty, which is the statement worth gating.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import importlib.util as _ilu
+    _sp = _ilu.spec_from_loader("_oa", loader=None)
+    _oa = {}
+    _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "oracle_availability.py")).read()
+    _m = re.search(r"^FORMS = \[(.*?)^\]", _src, re.S | re.M)
+    if not _m:
+        print("⛔ could not read FORMS from scripts/oracle_availability.py. "
+              "An unavailable-set this file GUESSED at is the defect D61 is "
+              "about.")
+        sys.exit(2)
+    UNAVAILABLE = {mn for mn, exp in
+                   re.findall(r'\(\s*"([^"]+)"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(\w+)"\s*\)',
+                              _m.group(1))
+                   if exp == "refuses" and not mn.startswith("CONTROL")}
+    # ⚠️ DECLINED IS A DECISION, NOT A MEASUREMENT, so it is declared here --
+    # with the decision that made it, so a reader can check the reason and
+    # `check_citations.py` can check the reference exists.
+    DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
+                ("btr", "m,r"): "D23", ("btc", "m,r"): "D23",
+                ("xchg", "m,r"): "D25", ("xchg", "r,m"): "D25"}
+    unc = [i for i in range(len(rows)) if i not in set(claimed)]
+    nof = [i for i in unc if i in noform]
+    bmi = [i for i in unc if rows[i]["base"] in UNAVAILABLE and i not in nof]
+    dec = [i for i in unc if (rows[i]["base"], rows[i]["shape"]) in DECLINED
+           and i not in set(nof) | set(bmi)]
+    work = [i for i in unc if i not in set(nof) | set(bmi) | set(dec)]
+    return unc, nof, bmi, dec, work, DECLINED
+
+
 def read_published(path="docs/COVERAGE.md"):
     """The six numbers the GENERATED coverage document publishes.
 
@@ -736,6 +795,48 @@ def selftest():
     arms.append(("an exemption for a vector that RESOLVES is reported stale",
                  r7.returncode != 0
                  and "exemption is stale" in (r7.stdout + r7.stderr), r7))
+
+    # ⭐⭐ ARMS 8-12 -- THE README'S READER DESCRIPTION.  P1 batch 21 landed the
+    # description the Captain asked for at the top of README.md, and it states
+    # the residue in prose: "27 of 525", "19 ... 2 ... 6 ... 0 rows of available
+    # work", "84 mnemonics in 776 ... forms". Every one is a number this script
+    # DERIVES, and the pairing of a prose number with a script that derives it
+    # is exactly what was ELEVEN LOW for eighteen batches (D56).
+    #
+    # ⛔ THE ZERO IS THE ARM THAT MATTERS. "0 rows of available work" is the
+    # strongest sentence in the document and the one that silently becomes false
+    # the day the roster grows -- an over-claim that reads as a milestone.
+    #
+    # ⚠️ AND A DELETED PARAGRAPH IS ITS OWN ARM, because a gate that reads a
+    # number cannot tell "the number is right" from "the sentence is gone".
+    rd_saved = open("README.md").read()
+    plants = [
+        ("the description's AVAILABLE-WORK zero, made one",
+         "- 0 rows of available work", "- 1 rows of available work", None),
+        ("the description's DECLINED count, off by one",
+         "- 6 rows declined on record", "- 7 rows declined on record", None),
+        ("the description's RESIDUE total, off by one",
+         "reason** — 27 of 525", "reason** — 26 of 525", None),
+        ("the description's MNEMONIC count, off by one",
+         "84 mnemonics in 776", "83 mnemonics in 776", None),
+        ("the description's residue paragraph, DELETED",
+         "- 0 rows of available work", "", "does not state"),
+    ]
+    try:
+        for name, a_, b_, want in plants:
+            if a_ not in rd_saved:
+                arms.append((name + " [ANCHOR MISSING]", False,
+                             subprocess.CompletedProcess([], 0, "", "")))
+                continue
+            open("README.md", "w").write(rd_saved.replace(a_, b_, 1))
+            r = run(a, l, "--check")
+            out = r.stdout + r.stderr
+            ok = r.returncode != 0 and (
+                ("README.md's description" in out) if want is None
+                else (want in out))
+            arms.append((name, ok, r))
+    finally:
+        open("README.md", "w").write(rd_saved)
 
     for name, ok, r in arms:
         print(("  ✔ " if ok else "  ⛔ ") + name)
@@ -1014,6 +1115,70 @@ def main():
                 findings.append(f"docs/COVERAGE.md publishes {want} for "
                                 f"'{name}'; the derivation gives {got}")
 
+    # ⭐⭐ P1 BATCH 21 — THE README'S READER DESCRIPTION CARRIES THE RESIDUE, SO
+    # THIS TOOL OWNS THOSE NUMBERS TOO.  The description the Captain asked for
+    # states "27 of 525 ... 19 ... 2 ... 6 ... 0 rows of available work" in the
+    # most-read file in the repository, and every one of those is a claim this
+    # script DERIVES.  A number published in prose and derived in a script is
+    # exactly the pairing that was ELEVEN LOW for eighteen batches (D56).
+    #
+    # ⚠️ Gated in BOTH directions like the six above, and the AVAILABLE-WORK
+    # zero is gated with them: "0 rows of available work" is the strongest claim
+    # in that paragraph and the one that silently becomes false the day the
+    # roster grows.
+    if args.check:
+        unc_r, nof_r, bmi_r, dec_r, work_r, _dcl = residue_buckets(rows, claimed, noform)
+        # ⚠️ THE MNEMONIC COUNT IS NOT DERIVABLE HERE, AND SAYING SO IS THE POINT.
+        # This file knows the ROSTER's base names (184 of them over 525 rows);
+        # the number the description states is how many mnemonics the MODEL
+        # implements, which is `rosterSize` and lives in the AST. A first version
+        # of this gate counted the roster's bases and reported 184 against the
+        # README's 84 -- it would have been "fixed" by writing 184 into the
+        # README, which is a gate teaching a document to lie.
+        # ⇒ It is read from the GENERATED coverage document, which is emitted
+        # from the model and which CI already fails on if it is stale.
+        mm = re.search(r"Roster: (\d+) mnemonics in (\d+) differentially tested",
+                       open("docs/COVERAGE.md").read())
+        if not mm:
+            print("⛔ docs/COVERAGE.md does not carry the 'Roster: N mnemonics in "
+                  "M ... forms' line; the description's mnemonic count has no "
+                  "source to be checked against")
+            sys.exit(2)
+        n_mnemonics, n_forms_cov = int(mm.group(1)), int(mm.group(2))
+        try:
+            rdme = open("README.md").read()
+        except OSError:
+            print("⛔ README.md is missing; the description's numbers cannot be "
+                  "checked against the derivation")
+            sys.exit(2)
+        pats = [
+            ("residual rows", r'\*\*Rows of the roster not modelled, with the reason\*\* — (\d+) of (\d+)',
+             (len(unc_r), len(rows))),
+            ("oracle-unavailable rows", r'\n\s*- (\d+) rows the oracle does not implement', (len(bmi_r),)),
+            ("no-encoding rows", r'\n\s*- (\d+) rows that describe no encoding at all', (len(nof_r),)),
+            ("declined rows", r'\n\s*- (\d+) rows declined on record', (len(dec_r),)),
+            ("available work", r'\n\s*- (\d+) rows of available work', (len(work_r),)),
+            ("mnemonics and forms", r'\*\*Instructions\.\*\* (\d+) mnemonics in (\d+) differentially tested',
+             (n_mnemonics, n_forms_cov)),
+            ("rows covered", r'covering\n?\s*(\d+) of the (\d+) rows of the P1 roster',
+             (len(claimed), len(rows))),
+            ("alias rows", r'and (\d+) of them are alias spellings', (len(rows) - n_groups - len(noform),)),
+            ("differential cases", r'ACL2 x86isa on (\d+) generated cases', (None,)),
+        ]
+        for name, pat, want in pats:
+            m = re.search(pat, rdme)
+            if not m:
+                findings.append(f"README.md's description does not state "
+                                f"'{name}' in the form this gate reads; a number "
+                                f"it cannot find is a number nothing checks")
+                continue
+            got = tuple(int(g) for g in m.groups())
+            if want[0] is None:
+                continue          # owned by check_readme_snapshot.py, not here
+            if got != want:
+                findings.append(f"README.md's description publishes {got} for "
+                                f"'{name}'; the derivation gives {want}")
+
     exempt_ids = set(os.environ.get("X86LEAN_SIB_EXEMPT_OVERRIDE",
                                     ",".join(sorted(SIB_BASE_EXEMPT))).split(","))
     exempt_ids = {e for e in exempt_ids if e}
@@ -1079,58 +1244,7 @@ def main():
                   f"@{'/'.join(str(x) for x in k[1:])}: {why}")
 
     if args.remaining:
-        # ⭐⭐ P1 BATCH 21 -- THE RESIDUE'S THIRD BUCKET, AND WHY IT USED TO BE
-        # WRONG.  This split was: no-encoding (DERIVED), oracle-unavailable
-        # (a HARD-CODED set of nine mnemonics, DECLARED at batch 18), and
-        # AVAILABLE WORK -- everything else, BY DEFAULT.
-        #
-        # ⇒ 🔑 A DECLARED LIST INHERITS THE DIRECTION OF ITS DEFAULT, and this
-        # one's default is *available*, so every gap in it INVENTS work.  D61
-        # measured `movnti` UNAVAILABLE at batch 20 and wrote the finding into
-        # docs/DECISIONS.md and docs/COVERAGE.md and INTO NEITHER GATE -- so for
-        # a whole batch the prose said the list had been corrected while this
-        # function went on printing `movnti` under AVAILABLE WORK.
-        # ⇒ 🔑 A CITATION IS AN UNGATED CLAIM.
-        #
-        # Both hand-maintained sets are now IMPORTED from the artifacts that own
-        # them, and both are gated:
-        #   * `scripts/oracle_availability.py` MEASURES the unavailable set by
-        #     executing one form per mnemonic on the oracle over the real
-        #     pre-states, with two positive controls, checked in BOTH directions
-        #     and driven red first;
-        #   * DECLINED names a recorded DECISION per row (a decision cannot be
-        #     measured), and `check_citations.py` already requires the named
-        #     decision to exist.
-        # A row in neither, and still unclaimed, is AVAILABLE WORK -- and that
-        # bucket is now empty, which is the statement worth gating.
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import importlib.util as _ilu
-        _sp = _ilu.spec_from_loader("_oa", loader=None)
-        _oa = {}
-        _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "oracle_availability.py")).read()
-        _m = re.search(r"^FORMS = \[(.*?)^\]", _src, re.S | re.M)
-        if not _m:
-            print("⛔ could not read FORMS from scripts/oracle_availability.py. "
-                  "An unavailable-set this file GUESSED at is the defect D61 is "
-                  "about.")
-            sys.exit(2)
-        UNAVAILABLE = {mn for mn, exp in
-                       re.findall(r'\(\s*"([^"]+)"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(\w+)"\s*\)',
-                                  _m.group(1))
-                       if exp == "refuses" and not mn.startswith("CONTROL")}
-        # ⚠️ DECLINED IS A DECISION, NOT A MEASUREMENT, so it is declared here --
-        # with the decision that made it, so a reader can check the reason and
-        # `check_citations.py` can check the reference exists.
-        DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
-                    ("btr", "m,r"): "D23", ("btc", "m,r"): "D23",
-                    ("xchg", "m,r"): "D25", ("xchg", "r,m"): "D25"}
-        unc = [i for i in range(len(rows)) if i not in set(claimed)]
-        nof = [i for i in unc if i in noform]
-        bmi = [i for i in unc if rows[i]["base"] in UNAVAILABLE and i not in nof]
-        dec = [i for i in unc if (rows[i]["base"], rows[i]["shape"]) in DECLINED
-               and i not in set(nof) | set(bmi)]
-        work = [i for i in unc if i not in set(nof) | set(bmi) | set(dec)]
+        unc, nof, bmi, dec, work, DECLINED = residue_buckets(rows, claimed, noform)
         print(f"\nREMAINING {len(unc)} of {len(rows)} rows")
         print(f"  NO ENCODING EXISTS (derived here)          {len(nof):3d}")
         for i in nof:

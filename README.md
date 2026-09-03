@@ -10,6 +10,117 @@ See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
 [`docs/DECISIONS.md`](docs/DECISIONS.md) for the P0 decisions and their reasons,
 and [`docs/COVERAGE.md`](docs/COVERAGE.md) for the generated coverage table.
 
+## What this is
+
+x86lean is an executable, machine-checked semantics of **user-level 64-bit x86**
+in Lean 4. It answers one question exactly: given the processor's visible state
+and one instruction, what is the state afterwards. Every instruction form is a
+total function `step`, and every form has a theorem stating its effect as an
+equation on the state record, so what a form does not change is **proved**
+unchanged, not assumed.
+
+It is built from public sources only: the Intel SDM for the intent, and three
+executable models the SDM's prose is checked against — ACL2 x86isa, the K
+semantics of x86-64, and Sail — plus Intel XED for decoding. Where the SDM
+leaves a bit undefined the model does not pick a value: it draws one from an
+oracle carried in the state, so no theorem can depend on it. The whole main tier
+depends on exactly the three standard Lean axioms and nothing else, gated per
+declaration in CI.
+
+### What it covers
+
+- **Scope.** The integer instruction set of 64-bit mode as a user program sees
+  it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
+  oracle. Single-threaded, one instruction at a time.
+- **Instructions.** 84 mnemonics in 776 differentially tested forms, covering
+  498 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
+  forms, and 149 of them are alias spellings of another row. The moves, the ALU
+  group at every width and operand shape including read-modify-write to memory,
+  the shifts and rotates, the bit-test and bit-count groups, conditional set and
+  move, the branch and loop group, push/pop/call/ret, the string instructions
+  with their repeat prefixes, multiply and divide, compare-exchange (including
+  `cmpxchg8b`) and the double-width shifts.
+- **Fidelity per form** is stated in [`docs/COVERAGE.md`](docs/COVERAGE.md),
+  generated from the model: `T-exact` (the result and every flag the SDM defines
+  are proved), `T-frame` (the defined parts proved, the undefined bits declared
+  and drawn from the oracle), and a decode-trust column.
+- **Validation.** Every form is run against ACL2 x86isa on 66736 generated cases
+  with zero unexplained disagreements; disagreements inside SDM-undefined
+  regions are recorded as such per form. Agreement is evidence gathered by
+  execution, never a theorem about the other model.
+
+### What it does not cover — yet
+
+- **Not in scope.** SIMD and floating point (SSE, AVX, x87), segmentation and
+  paging, privileged and system instructions, interrupts and exceptions beyond
+  the faults named below, memory ordering and multi-threading, 32-bit and 16-bit
+  modes.
+- **No decoder yet.** "These bytes mean this instruction" is trusted to Intel
+  XED and recorded as trusted in the coverage table. A Lean decoder for the
+  covered subset is a later phase.
+- **Rows of the roster not modelled, with the reason** — 27 of 525, and
+  **nothing on that list is merely undone**:
+  - 19 rows the oracle does not implement (the BMI group and `movnti`), so no
+    differential evidence can exist for them. Measured by executing them, not
+    read off a catalogue (`scripts/oracle_availability.py`); a second oracle is
+    the route.
+  - 2 rows that describe no encoding at all — `jecxz rel32` and `jrcxz rel32`,
+    which the assembler refuses because those instructions have only an 8-bit
+    displacement.
+  - 6 rows declined on record: `xchg` at a memory operand, whose implicit LOCK
+    is an atomicity claim a single-threaded model can neither make nor break
+    (`docs/DECISIONS.md` D25), and the bit-string `m,r` shape of
+    `bt`/`bts`/`btr`/`btc`, where the offset is signed and the effective address
+    moves with it (D23). ⚠️ Both are decisions and not oracle limitations: all
+    six execute on ACL2 x86isa, and the availability gate records that so the
+    reason cannot quietly be re-read as "unsupported".
+  - 0 rows of available work. This is what the number means: the residue is
+    fully accounted for, and the partition is checked rather than asserted.
+- **Faults** are modelled as refusals of `step`, not as exception delivery:
+  division by zero and quotient overflow, `ud2`, non-canonical addresses.
+- **Hardware co-simulation** against a real x86-64 processor is planned and not
+  yet run. ACL2 x86isa is the only oracle so far.
+
+### How to use it
+
+Build — Lean 4 core only, no mathlib:
+
+```bash
+lake build            # X86, X86Native, Tests, x86lean-diff, x86lean-axioms
+```
+
+State a fact about an instruction. Each form's characterization theorem is an
+equation you can rewrite with, and it names every field that changes — so the
+frame comes with the result:
+
+```lean
+open X86
+example (s : Cpu) (h : Live s) :
+    (step ⟨.bin .add .q (.reg .rax) (.reg .rbx), 3⟩ s).regs.get .rcx
+      = s.regs.get .rcx := by
+  simp [step_add_reg_reg .q .rax .rbx h]
+```
+
+Run the harness:
+
+```bash
+lake exe x86lean-diff coverage docs/COVERAGE.md   # regenerate the coverage table
+lake exe x86lean-diff selftest                    # the comparator catches its planted bugs
+lake exe x86lean-diff selftest cmpxchg8b          # …just the arms whose name matches
+./scripts/run_differential.sh                     # the differential run (needs the oracle)
+./scripts/oracle_availability.py                  # what the oracle will and will not execute
+```
+
+Add a form: a constructor in the AST, its `step` case, its characterization
+theorem, a vector in the roster's spelling, and a differential run.
+`python3 scripts/claimed_forms.py --remaining` lists the unclaimed rows with
+their shapes and says which bucket each is in.
+
+Read the trust story before citing a theorem:
+[`TRUSTBASE.md`](TRUSTBASE.md) (what is proven, what is trusted, what is
+validated), [`PROVENANCE.md`](PROVENANCE.md) (every source and its licence), and
+[`docs/DECISIONS.md`](docs/DECISIONS.md) (every design call and its reason).
+
 ## What kind of semantics
 
 A **small-step operational** semantics: each instruction form is a TOTAL state
