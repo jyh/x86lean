@@ -121,7 +121,9 @@ encoding's LENGTH — %rsp forces a SIB byte — and a form skeleton is a fixed-
 pattern. The exclusion is correct and load-bearing; the consequence had simply never been paid,
 because until batch 20 no vector used either base.
 
-The two vectors claim nothing (their rows are claimed by the RBX siblings), so they are
+The two vectors claim nothing — **tested by deletion rather than asserted**: re-deriving without
+them moves the vector count 775 → 773 and leaves every published number identical (497 claimed,
+373 spelled), so the exemption suppresses a parse failure and not a claim. They are
 **exempted by id, and the exemption is gated in BOTH directions**: an exempt id that starts
 resolving is a finding (the list has gone stale), and an unresolved vector not on the list is a
 finding exactly as before. ⛔ **The claim instrument was NOT otherwise touched this batch** —

@@ -2063,8 +2063,12 @@ them cannot be described by it. **That exclusion is correct and load-bearing.**
 `popq (%rsp)` is the only instance that can make D59's second claim observable, and it resolves
 to NO roster row.
 
-The two vectors claim nothing — their rows are claimed by the RBX-based siblings — so they are
-exempted **by id**, and the exemption is gated in BOTH directions: an exempt id that starts
+The two vectors claim nothing — their rows are claimed by the RBX-based siblings — and that is
+**tested by deletion, not asserted**: re-deriving with the two removed (via the tool's own
+`X86LEAN_ASM`/`X86LEAN_LEN` file mode, so no rebuild is needed) moves the vector count 775 → 773
+and leaves **every published number identical** — 497 claimed rows, 373 spelled by a vector. The
+exemption therefore suppresses a parse failure and not a claim. They are exempted **by id**, and
+the exemption is gated in BOTH directions: an exempt id that starts
 RESOLVING is a finding (the skeleton grew and the list is stale), and an unresolved vector not
 on the list is a finding exactly as before. `--selftest` carries an arm for each direction,
 because a hand-kept exclusion list whose staleness nothing checks is the failure mode of
