@@ -2426,3 +2426,75 @@ fired, and it fired on its author.
 
 **Reversal cost:** none — deleting the script restores a hand-maintained set, which is what this
 replaces.
+
+## D66 — the demand-side census, and the kernel number that was 58% padding (desk ES, P1 seal)
+
+**Decision.** `scripts/demand_census.py` measures the other side of coverage: not how much of a
+roster the model implements, but **what fraction of the instructions in real x86-64 binaries the
+model already covers**, with the mnemonics it does not cover ranked by how often they occur — the
+P2 roster candidates, by demand.
+
+    cc1        5,379,923 instructions   97.4% covered
+    coreutils    873,099                95.0%
+    glibc        603,554                81.1%
+    vmlinux      2,781,898              98.0%   ← own column, never pooled
+
+### 1. ⛔⛔ THE KERNEL COLUMN FIRST READ 40.7%, AND 58% OF IT WAS PADDING
+`int3` was the top "instruction" in vmlinux: **3,881,051 occurrences, 58.19% of the column.**
+0xCC is the inter-function padding byte, and a disassembler reports a run of them as instructions
+because that is what the bytes decode to.
+⇒ 🔑 **A DISASSEMBLER HAS NO CONCEPT OF "NOT CODE"**, so a static census must supply one, and the
+one it supplies has to be stated. A run of two or more `int3` is PADDING and excluded; a lone
+`int3` is a real breakpoint and is counted. **40.7% → 98.0%.**
+
+⚠️ The first number was not merely wrong, it was wrong in the direction that would have driven a
+decision: it said the kernel was the *least* covered corpus, when it is the *most*. A
+system-mode fork argued from 40.7% would have been argued from filler.
+
+### 2. ⭐ AND THAT INVERTS THE FORK QUESTION THIS CENSUS WAS COMMISSIONED TO INFORM
+The kernel's privileged slice — `sti`, `cli`, `in`/`out`, `wrmsr`, `clac`/`stac`, `rdtsc` — is
+about **1,900 instructions in 2.78 million: 0.07%.** What the kernel actually needs from this
+model is not system mode at all:
+
+| what the kernel uses that the model lacks | occurrences | share |
+|---|---|---|
+| ordinary instructions at a `%gs:`-relative address (per-CPU variables) | 33,463 | 1.20% |
+| the `lock` prefix | 9,029 | 0.32% |
+| `movabsq` (the `mov $imm64, r64` form) | 6,281 | 0.23% |
+| **everything privileged, together** | **~1,900** | **0.07%** |
+
+⇒ **A segment base in `Ea`, a LOCK vocabulary, and one more `mov` form buy more kernel coverage
+than a system-mode fork would**, and each is a smaller change. The fork is the Captain's to rule;
+this is the evidence, and it points the other way from the first reading.
+
+### 3. Three more over-claims, each measured rather than footnoted
+A mnemonic-level census inflates itself, and the inflation was measured before it was excluded:
+
+- **a vector register under an integer mnemonic** — `movq %xmm0, %rax` is spelled `movq`:
+  0.636% of cc1, 0.121% of glibc;
+- **an `%fs:`/`%gs:` prefix** — `mov %fs:0x28, %rax` is the stack-protector load in most compiled
+  functions: 0.244% of cc1, 2.655% of glibc, 0.802% of the kernel;
+- **`lock`, which objdump prints on its own line** — so a naive counter scored the prefix as an
+  instruction *and* scored the instruction it prefixes as covered. 9,029 in the kernel, and the
+  model has no LOCK, which is exactly why D25 declines `xchg` at memory.
+
+⛔ **AND THE SEGMENT RULE WAS FIRST TOO BROAD, WHICH IS AN UNDER-CLAIM.** It matched all six
+segment registers, and the output said so: `nop (segment operand)` ranked 2nd among "uncovered"
+mnemonics in three of four columns. The canonical multi-byte NOP is spelled `nopw %cs:0x0(…)` and
+a string op's destination is architecturally `%es:(%rdi)` — notation, not an override. In long
+mode only FS and GS are overrides.
+⇒ 🔑 **AN OVER-BROAD EXCLUSION IS AN UNDER-CLAIM, AND AN UNDER-CLAIM IN A COVERAGE NUMBER LOOKS
+LIKE RIGOUR.** It was found by READING the ranked list, which is the only reason the tool prints
+one ([[feedback-under-claims-are-unpoliced]]).
+
+### 4. What the number is NOT
+It is a STATIC count — what a compiler emits, not what is hot — and an **UPPER BOUND on
+form-level coverage**: the three exclusions above move it toward the truth, not to it, because an
+addressing mode or operand shape the model lacks is still counted as covered when the mnemonic
+matches. That residual error is in the flattering direction and is not measured. Said in the
+generated document, not only here.
+
+**45 selftest arms**, including the `movsbl`→`movsx`-not-`movs` trap in both directions and every
+line-level rule that moved the number.
+
+**Reversal cost:** none; the tool reads binaries it downloads and writes one generated document.

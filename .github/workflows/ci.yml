@@ -72,6 +72,15 @@ jobs:
       - name: Shared-reduction red probe (6 conjuncts + control)
         run: ./scripts/sharing_redprobe.sh
 
+      # ⭐ P1 SEAL (D66). The demand-side census maps objdump mnemonics onto the
+      # roster, and that mapping is where a coverage number inflates itself --
+      # strip a suffix too eagerly and `movsbl` becomes the string move `movs`,
+      # which the model HAS. The mapping and every line-level rule are driven
+      # here; the census itself needs a corpus of downloaded binaries and runs
+      # locally, so what CI gates is the instrument, not the reading.
+      - name: Demand-census mapping (45 arms)
+        run: python3 scripts/demand_census.py --selftest
+
       # P1 BATCH 14 (D41): the per-batch narrative in the generated coverage
       # document, gated against the differential records — two artifacts that
       # are not maintained by the same edit.
