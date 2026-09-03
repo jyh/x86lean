@@ -2255,6 +2255,14 @@ both structural:
   `false` is the kernel positively agreeing the defect is visible *at that conjunct*. A **positive
   control** — the unplanted shape, `= true` — runs in the same file, because six `false`s are also
   what a probe that has stopped seeing its subject would print. **7 arms, 28 s, wired into CI.**
+- ⛔ **And the probe RESTATES the conjuncts, which is a duplicate born in agreement**: edit
+  `memDestSweep` and the arms go on passing while testing a shape that is no longer shipped —
+  green, and about nothing. So each arm's SUBJECT must OCCUR in `Tests/Coverage.lean` and a
+  missing anchor **REFUSES (rc 2)** instead of passing. Occurrence, not equality: the shipped text
+  carries line breaks and comments the probe cannot reproduce, and a gate that cried wolf on
+  reformatting gets switched off. **Driven red** — one conjunct spelled `== (rosterSize)` instead
+  of `== rosterSize` and the probe refused — and the anchor list carries its own two-way self-test,
+  because a list that silently matched nothing would be the defect it exists to prevent.
 
 ⚠️ `claimsMemDestLoose` loses `private` for this, and that is a gate's requirement rather than a
 convenience: the first conjunct cannot be stated without it, and the alternative was a copy of the

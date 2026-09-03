@@ -72,6 +72,49 @@ theorem control : ((vectorMnemonics.length == rosterSize)
   && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)) = true := by decide
 EOF
 
+# ⛔⛔ THE PROBE RESTATES THE CONJUNCTS, WHICH IS A DUPLICATE BORN IN AGREEMENT.
+# If `memDestSweep` or `vectorCoverage` is edited, these arms go on passing while
+# testing a shape that is no longer shipped — green, and about nothing. So each
+# planted arm's SUBJECT is required to OCCUR in Tests/Coverage.lean, and a
+# missing anchor REFUSES (rc 2) instead of passing.
+#
+# ⚠️ Occurrence, not equality: the shipped text carries line breaks and comments
+# this file cannot reproduce, and a gate that cried wolf on ordinary reformatting
+# would be switched off. What it catches is the case that matters — a conjunct
+# deleted, renamed, or rewritten, leaving an arm that plants a defect in
+# something the repository no longer checks.
+ANCHORS=(
+  'tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)'
+  'memDestMnemonics.filter (fun m =>'
+  '!(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r))'
+  'match claimsMemDestLoose r, claimsMemDest r with'
+  '("repe", false), ("repne", false)'
+  '(tableP0.map Row.mnemonic).all (fun m => vectorMnemonics.contains m)'
+  'vectorMnemonics.all (fun m => (tableP0.map Row.mnemonic).contains m)'
+  'vectorMnemonics.length == rosterSize'
+)
+missing=0
+for a in "${ANCHORS[@]}"; do
+  if ! grep -qF -- "$a" Tests/Coverage.lean; then
+    echo "⛔ RED PROBE REFUSES — this arm's subject is not in Tests/Coverage.lean:"
+    echo "     $a"
+    missing=1
+  fi
+done
+if [ $missing -ne 0 ]; then
+  echo "   The shipped declaration has changed and these arms would plant defects"
+  echo "   in a shape the repository no longer checks. Update both together."
+  exit 2
+fi
+
+# ⭐ AND THE ANCHOR CHECK IS ITSELF PROVEN TO FIRE, in the same run, because an
+# anchor list that silently matched nothing would be the defect it exists to
+# prevent.
+if grep -qF -- 'vectorMnemonics.length == rosterSizeXX' Tests/Coverage.lean; then
+  echo "⛔ the anchor self-test found a string that cannot exist."; exit 2; fi
+if ! grep -qF -- "${ANCHORS[0]}" Tests/Coverage.lean; then
+  echo "⛔ the anchor self-test cannot find a string it just matched."; exit 2; fi
+
 OUT="$TMP/out.txt"
 lake env lean "$PROBE" > "$OUT" 2>&1
 rc=$?
@@ -86,6 +129,7 @@ if grep -q "declaration uses 'sorry'" "$OUT"; then
   exit 1
 fi
 echo "✔ red probe: 6 arms + 1 positive control, all PASS."
+echo "  ${#ANCHORS[@]} anchors: every planted subject OCCURS in the shipped Tests/Coverage.lean"
 echo "  memDestSweep  conjuncts 1-3 each report a planted defect ALONE (r1 r2 r3)"
 echo "  vectorCoverage conjuncts 1-3 each report a planted defect ALONE (r4 r5 r6)"
 echo "  control: the unplanted shape is TRUE in the same run"
