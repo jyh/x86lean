@@ -1519,4 +1519,74 @@ theorem movbe_declines_the_shapes_with_no_encoding :
      (step ⟨.movbe .b (.reg .rax) M, 5⟩ (mk)).ms.isSome)
       = (true, true, true, true) := by decide
 
+/-! ## P1 BATCH 15 — the string group
+
+⭐ THESE EXIST BECAUSE THE FRAME THEOREMS IN `X86/Theorems.lean` WOULD ALL HOLD
+OF A NO-OP.  "`movs` writes no flag" and "`cmps` writes no memory" are true of
+an instruction that does nothing at all, and every one of them was proved on the
+first attempt — which is a reason to pin the VALUES, not a reason to move on.
+Each anchor below is a concrete I/O pair a reader can check against the SDM by
+hand. -/
+
+/-- A state with a source at 0x1000 and a destination at 0x2000, distinct
+contents in each, and the accumulator holding a third value. -/
+private def strState (df : Bool) : Cpu :=
+  let m := (Mem.empty.writeSize .q 0x1000 0x8877665544332211).writeSize .q 0x2000 0xEEEEEEEEEEEEEEEE
+  let r : Regs := ((({} : Regs).set .rsi 0x1000).set .rdi 0x2000).set .rax 0x00000000AABBCCDD
+  mk (regs := r) (flags := { df := df }) (mem := m) (rip := 0x400000)
+
+/-- ⭐ MOVSQ COPIES EIGHT BYTES AND ADVANCES BOTH POINTERS BY EIGHT. -/
+theorem movsq_copies_and_advances_both_pointers :
+    let w := step ⟨.strop .movs .q, 2⟩ (strState false)
+    (w.mem.readSize .q 0x2000, w.regs.get .rsi, w.regs.get .rdi, w.rip)
+      = (0x8877665544332211, 0x1008, 0x2008, 0x400002) := by decide
+
+/-- ⭐ WITH DF SET THE POINTERS GO BACKWARD — and the COPY still happens at the
+ORIGINAL addresses.  ⚠️ This is the anchor for the ordering: a model that
+decremented first would have written at 0x1ff8 and left 0x2000 untouched. -/
+theorem movsq_with_df_copies_first_then_decrements :
+    let w := step ⟨.strop .movs .q, 2⟩ (strState true)
+    (w.mem.readSize .q 0x2000, w.regs.get .rsi, w.regs.get .rdi)
+      = (0x8877665544332211, 0x0FF8, 0x1FF8) := by decide
+
+/-- ⭐ MOVSB COPIES ONE BYTE AND ADVANCES BY ONE — and the seven bytes above the
+destination are UNTOUCHED, which is what says the width reaches the store and
+not only the pointer. -/
+theorem movsb_copies_one_byte :
+    let w := step ⟨.strop .movs .b, 1⟩ (strState false)
+    (w.mem.readSize .q 0x2000, w.regs.get .rdi)
+      = (0xEEEEEEEEEEEEEE11, 0x2001) := by decide
+
+/-- ⭐ LODSL ZERO-EXTENDS INTO RAX; LODSW MERGES.  The two widths in one
+statement, because the difference between them is the whole content of the
+SDM Vol. 1 §3.4.1.1 rule this form depends on. -/
+theorem lods_zero_extends_at_32_and_merges_at_16 :
+    let l := step ⟨.strop .lods .d, 1⟩ (strState false)
+    let w := step ⟨.strop .lods .w, 2⟩ (strState false)
+    (l.regs.get .rax, w.regs.get .rax, l.regs.get .rdi)
+      = (0x0000000044332211, 0x00000000AABB2211, 0x2000) := by decide
+
+/-- ⭐ STOSQ WRITES THE ACCUMULATOR TO [RDI] AND LEAVES RSI ALONE. -/
+theorem stosq_writes_rax_and_leaves_rsi :
+    let w := step ⟨.strop .stos .q, 2⟩ (strState false)
+    (w.mem.readSize .q 0x2000, w.regs.get .rsi, w.regs.get .rdi)
+      = (0x00000000AABBCCDD, 0x1000, 0x2008) := by decide
+
+/-- ⭐⭐ CMPSQ COMPUTES `[RSI] − [RDI]`, NOT THE REVERSE.  `0x8877…11` minus
+`0xEEEE…EE` BORROWS, so CF is set; the opposite order would not borrow and CF
+would be clear.  ⛔ THIS IS THE ANCHOR FOR THE AT&T PRINT-ORDER TRAP, and CF is
+the bit that distinguishes the two readings. -/
+theorem cmpsq_subtracts_source_minus_destination :
+    let w := step ⟨.strop .cmps .q, 2⟩ (strState false)
+    (w.flags.cf, w.mem.readSize .q 0x2000, w.regs.get .rsi, w.regs.get .rdi)
+      = (true, 0xEEEEEEEEEEEEEEEE, 0x1008, 0x2008) := by decide
+
+/-- ⭐ SCASQ COMPUTES `RAX − [RDI]` AND MOVES ONLY RDI.  `0xAABBCCDD` minus
+`0xEEEE…EE` also borrows; what separates this from `cmps` is that RSI does not
+move and the value read is the ACCUMULATOR's, not memory's. -/
+theorem scasq_subtracts_rax_minus_destination :
+    let w := step ⟨.strop .scas .q, 2⟩ (strState false)
+    (w.flags.cf, w.regs.get .rsi, w.regs.get .rdi)
+      = (true, 0x1000, 0x2008) := by decide
+
 end X86.Tests

@@ -1223,6 +1223,142 @@ field the bug is in ({expectField}). The comparator fires on the wrong thing."
 (total unexplained {r.unexplained}, explained {r.explained})"
     return true
 
+/-! ### P1 BATCH 15 — the string group's planted defects
+
+Each of these is a mistake the group actually invites, and each is written so it
+is RIGHT somewhere: an arm that is wrong on every case would be caught by any
+vector and says nothing about the sweep. -/
+
+/-- ⭐ DF IGNORED — the pointer always advances forward.  ⚠️ THIS IS CORRECT ON
+78 OF THE 80 PRE-STATES: only `dfStates` sets DF, so this arm is a direct
+measurement of whether batch 11's two DF states are still doing work.  Before
+those states existed, this defect was invisible. -/
+def wrongStringNoDF (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .strop k sz =>
+      let d : BitVec 64 := BitVec.ofNat 64 sz.bytes   -- DF never consulted
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let si := s.regs.get .rsi
+      let di := s.regs.get .rdi
+      match k with
+      | .movs =>
+          let v := s.readMem sz si
+          let s := s.writeMem sz di v
+          (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
+      | .stos => ((s.writeMem sz di (s.getReg sz .rax)).setReg .q .rdi (di + d)).setRip nr
+      | .lods => ((s.setReg sz .rax (s.readMem sz si)).setReg .q .rsi (si + d)).setRip nr
+      | .cmps =>
+          let s := s.setFlags (Flags.sub sz (s.readMem sz si) (s.readMem sz di) s.flags)
+          (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
+      | .scas =>
+          let s := s.setFlags (Flags.sub sz (s.getReg sz .rax) (s.readMem sz di) s.flags)
+          (s.setReg .q .rdi (di + d)).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE POINTER UPDATE ROUTED THROUGH THE OPERAND-WIDTH RULE.  `setReg sz`
+instead of `setReg .q`, which is the natural mistake because every OTHER write
+in this model goes through the width rule.  ⚠️ It is RIGHT at `.q` (a 64-bit
+write) and RIGHT at `.d` (a 32-bit write zero-extends, and the pointers here are
+below 2^32), and WRONG only at `.b` and `.w`, the two widths where `setReg`
+MERGES — so it is caught by a quarter of the group's vectors and by no other. -/
+def wrongStringPointerWidth (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .strop k sz =>
+      let step' : BitVec 64 := BitVec.ofNat 64 sz.bytes
+      let d : BitVec 64 := if s.flags.df then 0 - step' else step'
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let si := s.regs.get .rsi
+      let di := s.regs.get .rdi
+      match k with
+      | .movs =>
+          let v := s.readMem sz si
+          let s := s.writeMem sz di v
+          (((s.setReg sz .rsi (si + d)).setReg sz .rdi (di + d))).setRip nr
+      | .stos => ((s.writeMem sz di (s.getReg sz .rax)).setReg sz .rdi (di + d)).setRip nr
+      | .lods => ((s.setReg sz .rax (s.readMem sz si)).setReg sz .rsi (si + d)).setRip nr
+      | .cmps =>
+          let s := s.setFlags (Flags.sub sz (s.readMem sz si) (s.readMem sz di) s.flags)
+          (((s.setReg sz .rsi (si + d)).setReg sz .rdi (di + d))).setRip nr
+      | .scas =>
+          let s := s.setFlags (Flags.sub sz (s.getReg sz .rax) (s.readMem sz di) s.flags)
+          (s.setReg sz .rdi (di + d)).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE COPY HAPPENS AT THE ALREADY-ADVANCED POINTERS.  ⚠️ Its REGISTER
+results are identical to the correct model's — the pointers end in the same
+place — so this arm can only ever be caught in the MEMORY window, which is why
+it names one.  It is the arm that says the widened window is load-bearing: with
+DF set it writes eight bytes BELOW `rdi`, at 0x2008, and before batch 15 that
+address was still inside the old window but the SOURCE it reads with DF clear
+(0x1ff0) and the address it writes forward (0x2018) were not both watched. -/
+def wrongMovsPreIncrement (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .strop .movs sz =>
+      let step' : BitVec 64 := BitVec.ofNat 64 sz.bytes
+      let d : BitVec 64 := if s.flags.df then 0 - step' else step'
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let si := (s.regs.get .rsi) + d
+      let di := (s.regs.get .rdi) + d
+      let v := s.readMem sz si
+      let s := s.writeMem sz di v
+      (((s.setReg .q .rsi si).setReg .q .rdi di)).setRip nr
+  | _ => step i s
+
+/-- ⭐⭐ THE OPERAND-ORDER TRAP, WRITTEN OUT.  `[rdi] − [rsi]`, which is exactly
+what AT&T prints (`cmpsq %es:(%rdi), (%rsi)`) and exactly the reverse of what
+the instruction computes.  ⚠️ It agrees with the correct model whenever the two
+operands are EQUAL, and this batch's pre-states make that reachable on purpose,
+so the arm is not vacuously distinguished either. -/
+def wrongCmpsOperandOrder (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .strop .cmps sz =>
+      let step' : BitVec 64 := BitVec.ofNat 64 sz.bytes
+      let d : BitVec 64 := if s.flags.df then 0 - step' else step'
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let si := s.regs.get .rsi
+      let di := s.regs.get .rdi
+      let s := s.setFlags (Flags.sub sz (s.readMem sz di) (s.readMem sz si) s.flags)
+      (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
+  | _ => step i s
+
+/-- ⭐ THE POINTER SWAP.  `scas` reads `[rsi]`, not `[rdi]` — the confusion the
+whole group invites, since three of the five use RSI and two use RDI and the
+names differ by one letter.  ⚠️ It still advances RDI correctly, so only the
+FLAGS give it away. -/
+def wrongScasUsesRsi (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .strop .scas sz =>
+      let step' : BitVec 64 := BitVec.ofNat 64 sz.bytes
+      let d : BitVec 64 := if s.flags.df then 0 - step' else step'
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let di := s.regs.get .rdi
+      let s := s.setFlags
+        (Flags.sub sz (s.getReg sz .rax) (s.readMem sz (s.regs.get .rsi)) s.flags)
+      (s.setReg .q .rdi (di + d)).setRip nr
+  | _ => step i s
+
+/-- ⭐ `lods` MERGING AT 32 BITS.  The accumulator write is the one place in the
+group where the ordinary width rule is WANTED, and this arm bypasses it in the
+direction that looks harmless: it preserves RAX's upper half at `.d` instead of
+clearing it (SDM Vol. 1 §3.4.1.1).  ⚠️ Correct at `.b`, `.w` and `.q`; wrong at
+`.d` alone, and only when RAX's upper half is non-zero — which `adversarial`
+supplies. -/
+def wrongLodsNoZeroExtend (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .strop .lods sz =>
+      let step' : BitVec 64 := BitVec.ofNat 64 sz.bytes
+      let d : BitVec 64 := if s.flags.df then 0 - step' else step'
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let si := s.regs.get .rsi
+      let v := s.readMem sz si
+      let old := s.regs.get .rax
+      let merged : Val := match sz with
+        | .d => (old &&& 0xFFFFFFFF00000000) ||| (Value.trunc .d v)
+        | _  => Value.writeView sz old v
+      let s := s.setReg .q .rax merged
+      (s.setReg .q .rsi (si + d)).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -1237,6 +1373,7 @@ described the intended design as though it were the built one.
 
 Both readers now fold over THIS list, so the claim is structural rather than
 aspirational — there is no second list to disagree with. D29. -/
+
 def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   [ ("inc clobbers CF", wrongInc, "cf")
   , ("movl fails to zero-extend", wrongMovD, "rax")
@@ -1245,11 +1382,11 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("adc's carry-OUT forgets the carry-in", wrongAdcCarryOutCF, "cf")
   , ("cmp writes its result back", wrongCmpWritesBack, "rax")
   , ("cmp writes back ONLY to a memory destination", wrongCmpMemWriteBack,
-     "mem@0000000000001ff0")
+     "mem@0000000000001fe0")
   , ("a memory read-modify-write drops its STORE", wrongMemStoreDropped,
-     "mem@0000000000001ff0")
+     "mem@0000000000001fe0")
   , ("a memory store ignores its operand WIDTH", wrongMemStoreWidth,
-     "mem@0000000000001ff0")
+     "mem@0000000000001fe0")
   , ("jcxz inverts its test", wrongJcxzInverted, "rip")
   , ("jecxz ignores the address-size prefix and reads all 64 bits", wrongJecxzWidth, "rip")
   , ("setcc inverts its condition", wrongSetccInverted, "rax")
@@ -1281,7 +1418,7 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("shlx/shrx/sarx write the flags a shift writes", wrongShiftxWritesFlags, "cf")
   , ("movbe reverses 64 bits at every width", wrongMovbeFullWidth, "rax")
   , ("movbe moves without reversing", wrongMovbeNoReversal,
-     "mem@0000000000001ff0")
+     "mem@0000000000001fe0")
   -- P1 BATCH 14.  The two opcode-pair confusions, the inverted CF, and the
   -- width the narrow vectors exist to defend.
   , ("bsr reports leading zeros instead of the top bit's index",
@@ -1289,7 +1426,20 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("lzcnt takes ZF from the source, as bsf does", wrongLzcntZfFromSource, "zf")
   , ("blsi sets CF when the source IS zero", wrongBlsiCfSense, "cf")
   , ("popcnt counts the whole register, not the operand",
-     wrongPopcntFullWidthSource, "rax") ]
+     wrongPopcntFullWidthSource, "rax")
+  -- P1 BATCH 15 — the string group.  Six arms, and every one of them is a
+  -- defect that would leave some other width or some other flag correct, so
+  -- none of them can be caught by a single case.
+  , ("a string op ignores DF and always moves forward", wrongStringNoDF, "rdi")
+  , ("a string pointer is updated at the OPERAND width, not 64 bits",
+     wrongStringPointerWidth, "rdi")
+  , ("movs advances its pointers BEFORE the copy", wrongMovsPreIncrement,
+     "mem@0000000000001fe0")
+  , ("cmps subtracts destination from source, as AT&T prints it",
+     wrongCmpsOperandOrder, "cf")
+  , ("scas compares against rsi instead of rdi", wrongScasUsesRsi, "cf")
+  , ("lods merges into the accumulator instead of zero-extending at 32 bits",
+     wrongLodsNoZeroExtend, "rax") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1422,6 +1572,19 @@ cases identical, 0 oracle leaks)"
   -- P1 BATCH 14 ran it for `popcnt|lzcnt|tzcnt|bsf|bsr|blsi` and got 12 — six
   -- mnemonics at `r,r` and `r,m` — taking 396 to 408.
   --
+  -- ⭐ P1 BATCH 15 ran it for `movs|stos|lods|cmps|scas` and got 21, WHICH IS
+  -- NOT THE NUMBER TO ADD.  Eleven of those rows carry a `rep`/`repe`/`repne`/
+  -- `repnz`/`repz` PREFIX (column 3) and are loop control, not data movement;
+  -- this batch claims only the ten unprefixed rows.  The filtered count is
+  --
+  --   awk -F'\t' 'NR>2 && $4 ~ /^(movs|stos|lods|cmps|scas)$/ && $3 == ""' \
+  --     p1/roster.tsv | wc -l
+  --
+  -- ⚠️ and the unfiltered form of that command is exactly how this literal would
+  -- have been over-stated by eleven.  The base-name rule alone is not the
+  -- counting rule whenever a group has prefixed variants — the FIRST group in
+  -- this roster that does.  408 to 418.
+  --
   -- ⛔⛔ AND BATCH 14 FOUND THE SENTENCE BELOW A WHOLE BATCH STALE.  The
   -- per-batch narrative stopped at "12 — the near-free four" while this count
   -- already read 396, which INCLUDES batch 13: batch 13 updated the number and
@@ -1439,7 +1602,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **408 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **418 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -1466,7 +1629,15 @@ POPCNT/LZCNT/TZCNT/BSF/BSR/BLSI, six mnemonics on one operand shape whose flag \
 rules agree on almost nothing, and the first UNDEFINED DESTINATION in the \
 model: `bsf`/`bsr` at a zero source leave the destination REGISTER undefined \
 rather than unmodified, so the oracle-leak check had to learn the difference \
-between an oracle bit that is admitted and one that is not (see D40).\n\n\
+between an oracle bit that is admitted and one that is not (see D40); 15 — the \
+string group MOVS/STOS/LODS/CMPS/SCAS at all four widths, the first forms in \
+the model with NO OPERAND FIELD (their addresses are RSI and RDI by opcode) and \
+the first that READ DF, which had been a bit only `cld`/`std` could write since \
+batch 11; the batch widened the data window so a pointer moving BACKWARD stays \
+observable (see D42) and added the first pre-states in which a pointer update \
+CARRIES across a width boundary (see D43).  The `rep`-prefixed forms of the \
+same opcodes are loop control over this data movement and are NOT claimed \
+here.\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

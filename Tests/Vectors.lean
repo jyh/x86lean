@@ -1604,6 +1604,62 @@ def vectors : List Vec :=
     , bytes := "c4e2f8f3d9", instr := ⟨.bitcnt .blsi .q .rax (R .rcx), 5⟩ }
   , { id := "blsi_rm_q", mnemonic := "blsi", asm := "blsiq (%rbx), %rax"
     , bytes := "c4e2f8f31b", instr := ⟨.bitcnt .blsi .q .rax (M .rbx), 5⟩ }
+  -- ⭐ P1 BATCH 15: the string group.  TWENTY VECTORS, FIVE MNEMONICS, FOUR
+  -- WIDTHS, AND NOT ONE OPERAND BETWEEN THEM — the `asm` field is the bare
+  -- mnemonic because that is the whole of the source form.
+  --
+  -- ⚠️ THE WIDTH IS CARRIED BY A PREFIX, NOT BY A ModR/M BYTE, and the four
+  -- encodings of each form are the reason to spell all four out rather than
+  -- trust a pattern: `l` is the BARE opcode, `w` is that opcode behind `66`,
+  -- `q` is it behind `48`, and `b` is a DIFFERENT OPCODE (`a4` against `a5`).
+  -- A table generated from "opcode plus width prefix" would have produced
+  -- `66 a4` and `48 a4` for the byte forms, which no assembler emits.
+  --
+  -- ⛔ THESE ARE THE STRING MOVES, NOT THE SIGN-EXTENDING ONES.  `movsb` here
+  -- assembles to `a4` and copies `[rsi]` to `[rdi]`; batch 10's `movsbl`
+  -- assembles to `0f be` and sign-extends a byte into a register.  AT&T gives
+  -- the two the same first six characters, and `scripts/check_encodings.py` is
+  -- what makes the distinction a checked fact rather than a careful reading.
+  , { id := "movs_b", mnemonic := "movs", asm := "movsb"
+    , bytes := "a4", instr := ⟨.strop .movs .b, 1⟩ }
+  , { id := "movs_w", mnemonic := "movs", asm := "movsw"
+    , bytes := "66a5", instr := ⟨.strop .movs .w, 2⟩ }
+  , { id := "movs_l", mnemonic := "movs", asm := "movsl"
+    , bytes := "a5", instr := ⟨.strop .movs .d, 1⟩ }
+  , { id := "movs_q", mnemonic := "movs", asm := "movsq"
+    , bytes := "48a5", instr := ⟨.strop .movs .q, 2⟩ }
+  , { id := "stos_b", mnemonic := "stos", asm := "stosb"
+    , bytes := "aa", instr := ⟨.strop .stos .b, 1⟩ }
+  , { id := "stos_w", mnemonic := "stos", asm := "stosw"
+    , bytes := "66ab", instr := ⟨.strop .stos .w, 2⟩ }
+  , { id := "stos_l", mnemonic := "stos", asm := "stosl"
+    , bytes := "ab", instr := ⟨.strop .stos .d, 1⟩ }
+  , { id := "stos_q", mnemonic := "stos", asm := "stosq"
+    , bytes := "48ab", instr := ⟨.strop .stos .q, 2⟩ }
+  , { id := "lods_b", mnemonic := "lods", asm := "lodsb"
+    , bytes := "ac", instr := ⟨.strop .lods .b, 1⟩ }
+  , { id := "lods_w", mnemonic := "lods", asm := "lodsw"
+    , bytes := "66ad", instr := ⟨.strop .lods .w, 2⟩ }
+  , { id := "lods_l", mnemonic := "lods", asm := "lodsl"
+    , bytes := "ad", instr := ⟨.strop .lods .d, 1⟩ }
+  , { id := "lods_q", mnemonic := "lods", asm := "lodsq"
+    , bytes := "48ad", instr := ⟨.strop .lods .q, 2⟩ }
+  , { id := "cmps_b", mnemonic := "cmps", asm := "cmpsb"
+    , bytes := "a6", instr := ⟨.strop .cmps .b, 1⟩ }
+  , { id := "cmps_w", mnemonic := "cmps", asm := "cmpsw"
+    , bytes := "66a7", instr := ⟨.strop .cmps .w, 2⟩ }
+  , { id := "cmps_l", mnemonic := "cmps", asm := "cmpsl"
+    , bytes := "a7", instr := ⟨.strop .cmps .d, 1⟩ }
+  , { id := "cmps_q", mnemonic := "cmps", asm := "cmpsq"
+    , bytes := "48a7", instr := ⟨.strop .cmps .q, 2⟩ }
+  , { id := "scas_b", mnemonic := "scas", asm := "scasb"
+    , bytes := "ae", instr := ⟨.strop .scas .b, 1⟩ }
+  , { id := "scas_w", mnemonic := "scas", asm := "scasw"
+    , bytes := "66af", instr := ⟨.strop .scas .w, 2⟩ }
+  , { id := "scas_l", mnemonic := "scas", asm := "scasl"
+    , bytes := "af", instr := ⟨.strop .scas .d, 1⟩ }
+  , { id := "scas_q", mnemonic := "scas", asm := "scasq"
+    , bytes := "48af", instr := ⟨.strop .scas .q, 2⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -1636,7 +1692,22 @@ def randStream (seed : UInt64) : Nat → List (BitVec 64)
 operand span the vectors use, so a store that ran off the end of its span shows
 as a difference in the MARGIN rather than not at all. -/
 def windows : List Window :=
-  [ { base := 0x1ff0, len := 32 }   -- data: rbx = 0x2000, margin either side
+  -- ⭐ P1 BATCH 15 WIDENED THE DATA WINDOW FROM 32 BYTES TO 64, and every one of
+  -- the original 32 kept its address, its contents and its meaning.  The string
+  -- group is the first in this model whose operands MOVE, so RSI and RDI need a
+  -- full operation plus a margin in BOTH directions inside watched memory.
+  --
+  -- ⛔ THE ALTERNATIVE WAS NOT "A SMALLER WINDOW", IT WAS AN UNTESTED DF CASE.
+  -- Off the end of a window, our `Mem` reads 0 for an unwritten byte and the
+  -- ACL2 driver renders an unmapped read as `00` — so a pointer that decremented
+  -- when it should have incremented would have the two models AGREEING ON
+  -- ZEROES.  A backward step landing outside the watched bytes is not a weak
+  -- test, it is a test that passes by construction.
+  --
+  -- ⚠️ Widening rather than adding a THIRD window is what keeps the cost at
+  -- +32 bytes a case instead of +48 or more, and keeps one window constant on
+  -- each side of the oracle boundary instead of two.
+  [ { base := 0x1fe0, len := 64 }   -- data: rsi = 0x1fe8, rbx = 0x2000, rdi = 0x2010
   , { base := 0x7fe0, len := 48 } ] -- stack: rsp = 0x8000, margin below and above
 
 /-- ⭐ THE WATCHED WINDOWS' BACKGROUND PATTERN, BUILT ONCE.
@@ -1656,6 +1727,22 @@ holds, which is what says the change is a factoring and not a weakening. -/
 def baseMem : Mem :=
   let m := (List.range 32).foldl
     (fun m i => m.write (0x1ff0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0xA0 + i))) Mem.empty
+  -- ⭐ P1 BATCH 15: THE TWO NEW FLANKS GET THEIR OWN PATTERNS RATHER THAN A
+  -- RE-BASED `0xA0 + i`.  Re-basing the existing run at 0x1fe0 would have been
+  -- the obvious edit and would have moved every byte of the old window: 0x1ff0
+  -- would then read 0xB0, and `memory_window_margin_is_fixed` — which asserts
+  -- 0xA0 there — would have failed, along with every anchor and differential
+  -- result that depends on the data window's contents.
+  --
+  -- ⇒ Three disjoint runs (0x60.., 0xA0.., 0xE0..) instead of one, so the
+  -- widening is PURELY ADDITIVE: all 64 bytes are still distinct, so a load
+  -- from the wrong address is still visible, and not one previously-existing
+  -- byte changed.  Batch 11 did the same thing when it made DF bit 6 of the
+  -- flag seed rather than renumbering the six below it.
+  let m := (List.range 16).foldl
+    (fun m i => m.write (0x1fe0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0x60 + i))) m
+  let m := (List.range 16).foldl
+    (fun m i => m.write (0x2010 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0xE0 + i))) m
   (List.range 48).foldl
     (fun m i => m.write (0x7fe0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0x10 + i))) m
 
@@ -1688,6 +1775,26 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   -- The MARGIN keeps its 0xA0+i pattern on both sides, so a store or load that
   -- ran off the end of its span still shows up as a difference outside it.
   let mem := mem.writeSize .q 0x2000 c
+  -- ⭐ P1 BATCH 15: THE STRING OPERANDS SWEEP TOO, and they must be a THIRD and
+  -- FOURTH value rather than reusing `a` and `c`, because of what each of the
+  -- five forms would otherwise become.
+  --
+  -- ⛔ WITH `[RSI] = a` THE WHOLE OF `lods` IS A NO-OP: it loads RAX from RSI,
+  -- RAX already holds `a`, and a model that did not write the accumulator at
+  -- all would agree with this one in every state.  With `[RDI] = a` the same
+  -- is true of `stos`.  The trap is D14's ("a form whose source operand never
+  -- moves is one test reported as seventy-four") in its sharper form: here the
+  -- operand DOES sweep, and the form is still untested, because it sweeps in
+  -- lockstep with the register it is compared against.
+  --
+  -- So: `[RSI] = c` and `[RDI] = a XOR c`.  Then `lods` moves RAX except on the
+  -- diagonal, `stos` moves memory except where `c = 0`, `movs` moves it except
+  -- where `a = 0` — and, deliberately, the two comparisons still reach ZF:
+  -- `cmps` is `c − (a XOR c)`, zero exactly when `a = 0`, and `scas` is
+  -- `a − (a XOR c)`, zero exactly when `c = 0`.  Both values are in
+  -- `adversarial`, so both zero cases are reached rather than hoped for.
+  let mem := mem.writeSize .q 0x1fe8 c
+  let mem := mem.writeSize .q 0x2010 (a ^^^ c)
   -- ⭐ AND RDX CARRIES A VALUE, added by P1 BATCH 10, for the same reason the
   -- memory window stopped being a constant in batch 3.  `cwtd`/`cltd`/`cqto`
   -- are the first instructions in this model to write a register their operands
@@ -1697,7 +1804,19 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   -- zero.  It was zero in all 74.  The complement of `a` is used so the value
   -- sweeps with the rest of the state and is all-ones exactly where `a` is
   -- zero.  See docs/DECISIONS.md D26.
-  { regs := { rax := a, rcx := c, rdx := ~~~a, rbx := 0x2000, rsp := 0x8000 }
+  -- ⭐ P1 BATCH 15: RSI AND RDI POINT SOMEWHERE.  They were 0 in all eighty
+  -- pre-states — measured in the emitted cases, not only read off this record —
+  -- and address 0 is outside both watched windows, so the string group would
+  -- have been the `leaveq` trap of batch 12 all over again: both models
+  -- unobserved, and agreement that tested nothing.
+  --
+  -- ⚠️ THE ADDRESSES ARE FIXED, LIKE RBX AND RSP, AND ONLY THE DATA SWEEPS.
+  -- 0x1fe8 has eight bytes of operand with the 0x60.. margin below it and the
+  -- 0xA0.. margin above; 0x2010 has eight with the 0xB8.. margin below and the
+  -- 0xE8.. margin above.  Forty bytes apart, so no width overlaps the other,
+  -- and one step in EITHER direction stays inside the watched window.
+  { regs := { rax := a, rcx := c, rdx := ~~~a, rbx := 0x2000, rsp := 0x8000
+            , rsi := 0x1fe8, rdi := 0x2010 }
     flags := f
     mem := mem
     rip := 0x400000
@@ -1818,9 +1937,51 @@ def frameStates : List Cpu :=
   , mkFrame 0xAAAAAAAAAAAAAAAA 0xF0F0F0F0F0F0F0F0 63
       0xFFFFFFFFFFFF8000 0x7ff8 0x123456789ABCDEF0 ]
 
+/-- ⭐⭐ P1 BATCH 15: THE STATES IN WHICH A STRING POINTER CROSSES A WIDTH
+BOUNDARY — and the third time this repository has had to add a pre-state for a
+COMBINATION rather than for a value.
+
+⛔ THE DEFECT THAT FOUND THEM.  A planted arm updated RSI and RDI through the
+ordinary operand-width rule (`setReg sz`) instead of writing the whole 64 bits,
+which is the natural mistake because every other register write in this model
+DOES go through that rule.  The comparator reported **zero disagreements against
+that known-wrong model** — the harness selftest's own failure message, not a
+guess.
+
+⚠️ AND THE ARM WAS RIGHT; THE PRE-STATES WERE THE PROBLEM.  A merged write and a
+full write differ only when the new pointer differs from the old ABOVE the
+operand width — that is, only when the update CARRIES or BORROWS across a byte
+or word boundary.  With RSI at 0x1fe8 and RDI at 0x2010, `±1` and `±2` never
+touch bit 8, so the two writes are bit-identical at every width and in both
+directions, and the wrong model IS the right model on all eighty states.
+
+⇒ D27's rule again, in its `loopCounterStates` form: **an adversarial set is
+adversarial only with respect to the questions already asked of it.** The
+pointers were chosen to keep every access inside the watched windows, which is a
+question about ADDRESSES; nothing had yet asked a question about the ARITHMETIC
+that produces the next address.
+
+The two states are the two directions.  Forward, both pointers sit at `…FF` so
+the increment carries; backward, both sit at `…00` so the decrement borrows.
+⚠️ Every access still lands inside a watched window at every width — 0x1fff and
+0x2000 are in the data window (which reaches 0x201f), and 0x7fff and 0x8000 are
+in the stack window (which reaches 0x800f) — so the states test the pointer
+arithmetic WITHOUT giving up the observation that made the group testable. -/
+def mkStringPtr (a c : BitVec 64) (fseed : Nat) (si di : BitVec 64) : Cpu :=
+  let s := mkPre a c fseed
+  { s with regs := { s.regs with rsi := si, rdi := di } }
+
+def stringBoundaryStates : List Cpu :=
+  [ -- DF clear: `…FF + 1` carries out of the byte, and out of the word at 0x7fff.
+    mkStringPtr 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  0x1fff 0x7fff
+    -- DF set: `…00 − 1` borrows.  Seed 64 sets DF and leaves the six arithmetic
+    -- flags clear, exactly as `dfStates` does.
+  , mkStringPtr 0xAAAAAAAAAAAAAAAA 0xF0F0F0F0F0F0F0F0 64 0x2000 0x8000 ]
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
 its neighbours, the carry boundary, the two DF states, the two `addr32`
-counter states and the two stack frames, then a pseudo-random tail. -/
+counter states, the two stack frames, the two string-pointer boundaries, then a
+pseudo-random tail. -/
 def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let adv := adversarial
   let diag := adv.map (fun a => mkPre a a 0)
@@ -1830,6 +1991,6 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
   diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
-    ++ frameStates ++ rnd
+    ++ frameStates ++ stringBoundaryStates ++ rnd
 
 end X86.Tests

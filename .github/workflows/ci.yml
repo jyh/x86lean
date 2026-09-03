@@ -60,6 +60,15 @@ jobs:
       - name: Coverage prose names every batch that has a differential record
         run: python3 scripts/check_coverage_prose.py
 
+      # P1 BATCH 15 (D45): the watch windows are declared in BOTH Lean and the
+      # ACL2 driver, because neither toolchain can read the other's source.
+      # The drift fails loud — every record differs — but only after a
+      # four-minute oracle run; this catches it in 20 ms.  `--selftest` mutates
+      # each side's FIRST and LAST window, because the first version of the
+      # parser silently read only the first and its selftest passed anyway.
+      - name: Watch windows agree across the Lean/ACL2 boundary
+        run: python3 scripts/check_windows.py --selftest
+
       # ── the roster gate (plan v1 §5: K's list is P1's fence) ─────────────
       - name: Fetch the K semantics (sparse: `semantics/` only, 15 MB of 2.8 GB)
         run: ./scripts/setup_k_roster.sh

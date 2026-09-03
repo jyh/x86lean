@@ -645,6 +645,62 @@ def step (i : Instr) (s : Cpu) : Cpu :=
             let (afU, s) := s.undefBit
             ((s.setFlags (Flags.blsi sz a res pfU afU s.flags)).setReg sz dst res).setRip nr
 
+  -- MOVS / STOS / LODS / CMPS / SCAS (SDM Vol. 2A/2B).  See `StringOp`.
+  --
+  -- ⭐ THE DELTA IS THE WHOLE GROUP'S SHARED CONTENT, and it is the first thing
+  -- in this model that READS DF.  "If the DF flag is 0, the pointer is
+  -- incremented; if the DF flag is 1, it is decremented" — by the OPERAND
+  -- WIDTH, not by a fixed eight.  ⚠️ DF was a dead bit in this repository for
+  -- ten batches (D27) and is written by `cld`/`std` since batch 11; this is
+  -- where it finally changes an ANSWER rather than a field of the output.
+  --
+  -- ⛔ THE ACCESS HAPPENS AT THE CURRENT POINTER AND THE UPDATE COMES AFTER.
+  -- Measured, not assumed: with DF set, the oracle's `movsq` still WROTE at
+  -- RDI's original 0x2000 and only then left RDI at 0x1ff8.  A model that
+  -- decremented first would touch the eight bytes below on every backward step
+  -- and agree with this one on every forward one.
+  --
+  -- ⚠️ THE POINTER WRITE IS `.q` AND THE DATA ACCESS IS `sz`; the two widths in
+  -- each line are different on purpose.  See the note on the constructor.
+  --
+  -- "Flags Affected: None" for MOVS, STOS and LODS.  CMPS and SCAS set all six
+  -- arithmetic flags and leave NONE undefined — the whole group draws nothing
+  -- from the oracle, which is why every row of it is `T-exact`.
+  | .strop k sz =>
+      let step : BitVec 64 := BitVec.ofNat 64 sz.bytes
+      let d : BitVec 64 := if s.flags.df then 0 - step else step
+      let si := s.regs.get .rsi
+      let di := s.regs.get .rdi
+      match k with
+      | .movs =>
+          let v := s.readMem sz si
+          let s := s.writeMem sz di v
+          (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
+      | .stos =>
+          let v := s.getReg sz .rax
+          let s := s.writeMem sz di v
+          (s.setReg .q .rdi (di + d)).setRip nr
+      -- ⚠️ LODS WRITES THE ACCUMULATOR THROUGH THE ORDINARY WIDTH RULE, so
+      -- `lodsl` ZERO-EXTENDS into RAX while `lodsw` and `lodsb` MERGE (SDM
+      -- Vol. 1 §3.4.1.1).  This is the one place in the group where `setReg`'s
+      -- width behaviour is wanted rather than bypassed.
+      | .lods =>
+          let v := s.readMem sz si
+          let s := s.setReg sz .rax v
+          (s.setReg .q .rsi (si + d)).setRip nr
+      -- ⛔ SOURCE MINUS DESTINATION: `[RSI] − [RDI]`, not the AT&T print order.
+      | .cmps =>
+          let a := s.readMem sz si
+          let b := s.readMem sz di
+          let s := s.setFlags (Flags.sub sz a b s.flags)
+          (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
+      -- SCAS is `RAX − [RDI]`, and only RDI moves.
+      | .scas =>
+          let a := s.getReg sz .rax
+          let b := s.readMem sz di
+          let s := s.setFlags (Flags.sub sz a b s.flags)
+          (s.setReg .q .rdi (di + d)).setRip nr
+
   | .call t =>
       match t with
       | .rel d =>

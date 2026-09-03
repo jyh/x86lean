@@ -384,6 +384,42 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       sdm := "Vol. 2A BSR" }
   , { mnemonic := "blsi", shapes := "r,r · r,m — l/q only", tier := .frame,
       decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSI" }
+  -- P1 BATCH 15: the string group.  ⭐ EVERY ROW IS `T-exact` AND EVERY
+  -- `undefined` LIST IS EMPTY — the first whole group since batch 12 that draws
+  -- nothing from the oracle.  MOVS/STOS/LODS write no flags at all; CMPS and
+  -- SCAS write all six and the SDM leaves none of them undefined.
+  --
+  -- ⚠️ THE SHAPES ARE WRITTEN IN THE COLUMN'S OWN DESTINATION-FIRST NOTATION
+  -- (`m(w)`, `m,m`) RATHER THAN AS THE PROSE THEY STARTED AS.  The first
+  -- draft of these rows read `implicit [rdi] ← [rsi]`, which is clearer to a
+  -- human and INVISIBLE to `claimsMemDest` — so `movs` and `stos`, which write
+  -- memory, would have sat in the table not claiming a memory destination, and
+  -- the only gate on that column checks claims AGAINST vectors, never vectors
+  -- against claims.  The row would have under-claimed and every gate stayed
+  -- green.  ⇒ `mem_dest_vectors_are_claimed` (the reverse direction) was added
+  -- with this batch; see `Tests/Coverage.lean`.
+  --
+  -- ⚠️ `cmps` AND `scas` CLAIM A MEMORY DESTINATION AND WRITE NOTHING, which is
+  -- the `cmp`/`test` precedent exactly: their destination operand is `[rdi]`,
+  -- it is ADDRESSED and not written, and the gate's own wording already admits
+  -- that case.  `lods` is the only one of the five whose destination is a
+  -- register, and it is the only one that does not claim.
+  --
+  -- ⚠️ The roster files each of these under TWO rows — a bare form (`movs`) and
+  -- an explicit-operand form (`movs m,m`) — which are THE SAME OPCODE BYTES
+  -- with the same meaning, differing only in whether the assembler was told the
+  -- operands it already knows.  One row here covers both, and `docs/COVERAGE.md`
+  -- says so where the count is derived.
+  , { mnemonic := "movs", shapes := "m(w),m — b/w/l/q · implicit rdi ← rsi", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A MOVS" }
+  , { mnemonic := "stos", shapes := "m(w),acc — b/w/l/q · implicit rdi ← rAX", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2B STOS" }
+  , { mnemonic := "lods", shapes := "acc,m — b/w/l/q · implicit rAX ← rsi", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A LODS" }
+  , { mnemonic := "cmps", shapes := "m,m — b/w/l/q · implicit rdi vs rsi", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2A CMPS" }
+  , { mnemonic := "scas", shapes := "m,acc — b/w/l/q · implicit rdi vs rAX", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2B SCAS" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

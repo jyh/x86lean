@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six. -/
-theorem roster_size_is_67 : rosterSize = 67 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`). -/
+theorem roster_size_is_72 : rosterSize = 72 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -506,7 +506,19 @@ def isMemDestVector (v : Vec) : Bool :=
     | .shiftx .. => false
     -- P1 BATCH 14.  The bit-counting group's destination is always a GPR; its
     -- MEMORY operand is the source.  `false` is the decision, not a gap.
-    | .bitcnt .. => false)
+    | .bitcnt .. => false
+    -- ⭐ P1 BATCH 15.  THE STRING GROUP IS THE FIRST WHOSE ANSWER HERE CANNOT BE
+    -- READ OFF AN OPERAND FIELD, because it has none: the destination is `[rdi]`
+    -- or `rAX` by OPCODE.  So the answer is per-kind, and each one is a
+    -- decision rather than a default.
+    --
+    -- `movs` and `stos` WRITE `[rdi]`.  `cmps` and `scas` ADDRESS `[rdi]` as
+    -- their destination operand and write nothing — the `cmp`/`test` case
+    -- exactly, and the reason this predicate's name says "dest" and not
+    -- "writes".  `lods` alone has a register destination.
+    | .strop k _ => match k with
+      | .movs | .stos | .cmps | .scas => true
+      | .lods => false)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
 per row re-swept the WHOLE vector table for every claiming row; the set it is
@@ -576,20 +588,60 @@ kernel, and D15 already decided to pay it.**  There is no cheap version of this
 gate; there is only the gate or a gate on a shadow of the artifact.  The
 rewrite is kept because it is a STRONGER statement and it deleted a duplicated
 definition, not because it was an optimisation — it was not one.  See
-docs/DECISIONS.md D38. -/
+docs/DECISIONS.md D38.
+
+⭐⭐ P1 BATCH 15 ADDED THE FIRST `(_, false)` ENTRIES, AND THAT IS THE COMPONENT
+BATCH 14 ADDED SPECULATIVELY.  `cmps` and `scas` are claimed by the POSITIONAL
+rule and missed by the loose one: their shapes are `m,m` and `m,acc`, and
+`claimsMemDestLoose` looks for the literal string `m,r` or an `m(`, neither of
+which is there.  The loose rule was never general — it was keyed to the exact
+spelling the table happened to use for `cmp` — and these two rows are where that
+finally shows.
+
+⇒ The name of this theorem is now half wrong and deliberately kept: it says
+`the_three_operand_rows`, and the list has five entries. ⚠️ The RIGHT reading is
+the statement, not the name — "the rows where the two rules disagree are exactly
+these" — and the name is left as the record of what the list contained when it
+was written. **Renaming it would erase the only evidence in this file that the
+set has grown for a second, unrelated reason.**
+
+⭐ AND IT WAS THE `(_, false)` SLOT THAT CAUGHT THEM. Batch 14 added that
+component with no row exercising it, on the argument that a row changing hands
+the other way should break the equality. One batch later, two rows did. -/
 theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
     tableP0.filterMap (fun r =>
         match claimsMemDestLoose r, claimsMemDest r with
         | true,  false => some (r.mnemonic, true)
         | false, true  => some (r.mnemonic, false)
         | _,     _     => none)
-      = [("sarx", true), ("shlx", true), ("shrx", true)] := by decide
+      = [("sarx", true), ("shlx", true), ("shrx", true),
+         ("cmps", false), ("scas", false)] := by decide
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.
  -/
 theorem mem_dest_claims_are_backed :
     tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic) = true := by decide
+
+/-- ⭐⭐ P1 BATCH 15 — THE OTHER DIRECTION, WHICH WAS MISSING FOR FOURTEEN
+BATCHES.  `mem_dest_claims_are_backed` catches a row claiming more than the
+vectors do.  Nothing caught a row claiming LESS: a form whose vectors write
+memory while its shapes column never says so was invisible, because the only
+gate read the claim and went looking for the vector, never the reverse.
+
+⛔ AND THIS BATCH WOULD HAVE BEEN THE FIRST TO FALL IN IT.  The string rows were
+first written as `implicit [rdi] ← [rsi]` — accurate English, and containing no
+first-position `m`, so `claimsMemDest` was false for `movs` and `stos` while
+their vectors plainly write memory.  Every gate in this file stayed green on a
+coverage table that had stopped saying what the model does.
+
+⇒ This is batch 14's rule for the `undefined` column arriving in the `shapes`
+column: **a table checked in one direction is only half checked**, and the half
+nobody checks is the half where the claim is too SMALL — which is exactly the
+half a reader trusts, because an under-claim never looks like a mistake. -/
+theorem mem_dest_vectors_are_claimed :
+    (memDestMnemonics.filter (fun m =>
+      !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) = [] := by decide
 
 /-! ### P1 BATCH 5 — the condition column, made checkable
 

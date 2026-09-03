@@ -1249,3 +1249,114 @@ narrative altogether (⇒ refusal, rc 2, not a pass).
 
 ⇒ 🔑 **Prose next to a gated number is the least-suspected text in a
 document**: it is read every time the number is checked, and checked never.
+
+---
+
+## D42 — a backward step off the end of a watched window is a test that passes by construction
+
+**P1 batch 15.** The string group is the first in this model whose operands
+MOVE. RSI and RDI were 0 in all eighty pre-states — measured in the emitted
+`run/cases.lsp`, not only read off `mkPre` — and address 0 lies outside both
+watched windows.
+
+That much is batch 12's `leaveq` trap again. The part that is new survives
+giving the pointers a home: **off the end of a watched window, this model's
+`Mem` reads 0 for an unwritten byte and the ACL2 driver renders an unmapped read
+as `00`.** A pointer that decremented when it should have incremented would
+therefore have the two models agreeing — on zeroes — and the DF case would have
+been green without ever being tested.
+
+The data window is widened from 32 bytes to 64 so that every access, at every
+width, in BOTH directions, lands inside watched memory. Every one of the
+original 32 bytes keeps its address and its contents: the two new flanks get
+their own patterns rather than re-basing the existing run, which would have
+moved the whole window and broken `memory_window_margin_is_fixed`.
+
+⇒ 🔑 **An unobserved region does not report "unknown"; it reports agreement.**
+Two models that both read zero off the end of the world agree perfectly, and the
+gate cannot tell that from a model that is right.
+
+---
+
+## D43 — a probe that reports nothing has two causes, and the flattering one is that the model is right
+
+**P1 batch 15.** A planted arm updated the string pointers through the ordinary
+operand-width rule (`setReg sz`) instead of writing all 64 bits — the natural
+mistake, since every other register write in this model does go through that
+rule. The harness reported **zero unexplained disagreements against a
+known-wrong model**, which is its own way of saying the comparator does not work.
+
+⚠️ The arm was right; the pre-states were the problem. A merged write and a full
+write differ only where the new pointer differs from the old ABOVE the operand
+width — only when the update CARRIES or BORROWS across a byte or word boundary.
+With RSI at `0x1fe8` and RDI at `0x2010`, `±1` and `±2` never touch bit 8, so
+the wrong model IS the right model on all eighty states, at every width, in both
+directions.
+
+This is D27 in its `loopCounterStates` form: **an adversarial set is adversarial
+only with respect to the questions already asked of it.** The pointer addresses
+were chosen to keep every access inside a watched window — a question about
+ADDRESSES. Nothing had asked about the ARITHMETIC that produces the next one.
+
+`stringBoundaryStates` supplies both directions: forward with both pointers at
+`…FF`, backward with both at `…00`, all four addresses still inside a watched
+window at every width.
+
+⇒ 🔑 **A green from a probe is evidence about the model only if the state can
+express the defect.** Otherwise it is evidence about the state, and the two look
+identical from the outside.
+
+---
+
+## D44 — a table checked in one direction is half checked, and the unchecked half is the flattering one
+
+**P1 batch 15.** `mem_dest_claims_are_backed` has caught a coverage row claiming
+MORE than its vectors deliver since batch 3. Nothing checked the reverse.
+
+⛔ This batch would have been the first to fall in it. The string rows were
+first written as `implicit [rdi] ← [rsi]` — accurate English, and containing no
+first-position `m`, so `claimsMemDest` was false for `movs` and `stos` while
+their vectors plainly write memory. Every gate stayed green on a coverage table
+that had stopped saying what the model does.
+
+`mem_dest_vectors_are_claimed` states the other direction.
+
+⇒ 🔑 **An over-claim looks like a mistake and an under-claim looks like
+modesty**, so the direction nobody gates is the direction nobody doubts. This is
+the `undefined` column's lesson (D39) arriving in the `shapes` column one batch
+later, which is what says it is a property of TABLES and not of that column.
+
+⭐ A second-order confirmation arrived free: rewriting the shapes in the
+destination-first notation gave
+`mem_dest_rewrite_changed_exactly_the_three_operand_rows` its first `(_, false)`
+entries. Batch 14 added that component with no row exercising it, on the
+argument that a row changing hands the other way ought to break the equality.
+One batch later, `cmps` and `scas` did.
+
+---
+
+## D45 — a positive control says nothing about the part of the subject it never touches
+
+**P1 batch 15.** The watch windows are declared twice, in Lean and in Lisp,
+because neither toolchain can read the other's source. `scripts/check_windows.py`
+now compares the two literals.
+
+⚠️ Stated honestly, the drift it guards fails LOUD rather than silent: a
+mismatch makes every rendered record differ. What the gate buys is detection in
+20 ms rather than after a 4-minute ACL2 run — the difference between a check
+that runs before a commit and one that does not (see *make the probe cheap*).
+
+⛔ **And the gate's first version was wrong in the way it was written to
+prevent.** Its Lisp parser used a non-greedy regex that ended its capture at the
+first `))` — and the last pair's closing paren IS the list's closing paren — so
+it silently parsed only the FIRST window. Its selftest passed: both planted
+mutations happened to fall in the first window, both went red, and both went red
+for the right-looking reason.
+
+⇒ 🔑 **A positive control proves the gate reacts to the condition it CREATES.**
+It is silent about every part of the subject the control does not reach, and a
+control is usually written from the same mental model as the code it checks — so
+the two share their blind spot. The repair is not a better control but a
+different KIND of check alongside it: the parsed window COUNT is now compared
+between the two sides, which catches a dropped trailing entry even when every
+value that was read agrees.

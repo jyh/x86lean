@@ -232,6 +232,53 @@ inductive BitCntKind where
   | popcnt | lzcnt | tzcnt | bsf | bsr | blsi
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- P1 BATCH 15: the STRING group (SDM Vol. 2A/2B: MOVS, STOS, LODS, CMPS, SCAS).
+
+⭐ THE FIRST FORMS IN THIS AST WITH NO OPERAND FIELD AT ALL, and that is the
+point of them rather than an economy.  Every other memory-touching form in this
+model names its address in a `ModR/M` byte that the decoder handed us; these
+five name theirs NOWHERE.  The addresses are RSI and RDI by opcode, the
+accumulator is RAX by opcode, and the only thing the encoding varies is the
+WIDTH.  `Operand` therefore has nothing to hold, and a constructor carrying one
+would be inventing a field the machine does not have.
+
+⭐ AND THEY ARE THE FIRST FORMS THAT WRITE A POINTER THEY ALSO READ.  Each one
+advances RSI and/or RDI by the operand width — **forward or backward according
+to DF** — so a single step both dereferences a register and updates it.  DF has
+been in `Flags` since P0 and only `cld`/`std` (batch 11) could write it; these
+are the first forms that READ it, and the first for which it changes an answer
+rather than a bit of output.
+
+⛔ `cmps` COMPUTES `[RSI] − [RDI]`, WHICH IS THE REVERSE OF HOW AT&T PRINTS IT.
+clang disassembles the byte `A7` as `cmpsq %es:(%rdi), (%rsi)` — destination
+first, as AT&T does everywhere — but the SUBTRACTION is source minus
+destination, and the flags are of that difference.  A model written from the
+printed operand order gets every `cmps` flag inverted.  ⚠️ `scas` is `RAX −
+[RDI]` and would NOT be inverted by the same mistake, so the two do not fail
+together and the differential would report `cmps` alone.  Measured against the
+oracle before the semantics were written: `[rsi]=a0`, `[rdi]=b0` gives
+`cf=1 sf=1 pf=1`, which is `0xa0 − 0xb0`, not `0xb0 − 0xa0`.
+
+Every one of the five exists at all four widths — there is no `Encodable` table
+here as there is for `.bitcnt`, because nothing in this group is missing. -/
+inductive StringOp where
+  | movs | stos | lods | cmps | scas
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The roster's base name for each string form.  The WIDTH is a suffix AT&T
+adds (`movsb`/`movsw`/`movsl`/`movsq`), exactly as it does for `shl`, so the
+base name is what `p1/roster.tsv` files them under.
+
+⛔ `movs` IS NOT `movsb`/`movsw`/`movslq`.  Those three are `Op.movx` — the
+SIGN-EXTENDING moves of batch 10 — and AT&T spells the byte-width string move
+`movsb` too.  The two are distinguished here by the ROSTER BASE NAME (`movs`
+against `movsw`), which is the only place the ambiguity is resolved; a coverage
+claim keyed on the AT&T spelling alone would count one group twice and the
+other never. -/
+def StringOp.mnemonic : StringOp → String
+  | .movs => "movs" | .stos => "stos" | .lods => "lods"
+  | .cmps => "cmps" | .scas => "scas"
+
 /-- P1 BATCH 10: which way a WIDTH-CHANGING move fills the bits it invents.
 Two constructors rather than a `Bool` because the two are one character apart in
 the mnemonic (`movzbl` / `movsbl`) and opposite in effect, and a `Bool` named
@@ -435,6 +482,16 @@ inductive Op where
   roster files it `lq` where the other five are `lqw`.  `step` declines what has
   no encoding rather than answering for it. -/
   | bitcnt (k : BitCntKind) (sz : Size) (dst : GPR) (src : Operand)
+  /-- P1 BATCH 15: MOVS / STOS / LODS / CMPS / SCAS — see `StringOp`.  No
+  operand field: the addresses are RSI and RDI and the accumulator is RAX, all
+  by opcode.  All five exist at all four widths.
+
+  ⚠️ THE POINTER UPDATE IS ALWAYS A FULL 64-BIT WRITE, whatever the operand
+  width.  `movsb` advances the whole of RSI by one; it does not write RSI's low
+  byte.  A model that routed the update through the ordinary width rule would
+  be right at `.q`, right at `.d` by accident of zero-extension, and wrong at
+  `.b` and `.w` — the two widths where `setReg` MERGES. -/
+  | strop (k : StringOp) (sz : Size)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -509,6 +566,7 @@ def Op.mnemonic : Op → String
   | .bitcnt k .. => match k with
     | .popcnt => "popcnt" | .lzcnt => "lzcnt" | .tzcnt => "tzcnt"
     | .bsf => "bsf" | .bsr => "bsr" | .blsi => "blsi"
+  | .strop k _ => k.mnemonic
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -548,7 +606,15 @@ def rosterP0 : List String :=
    -- ⚠️ `lzcnt` and `blsi` are on this list only because batch 13 MEASURED the
    -- oracle instead of reading its catalogue, which had struck both off; see
    -- docs/DECISIONS.md D36.
-   "popcnt", "lzcnt", "tzcnt", "bsf", "bsr", "blsi"]
+   "popcnt", "lzcnt", "tzcnt", "bsf", "bsr", "blsi",
+   -- P1 BATCH 15: the string group.  Five names for ONE constructor
+   -- (`.strop`, keyed by `StringOp`).  ⚠️ `movs` here is the STRING move, not
+   -- the sign-extending `movsb`/`movsw`/`movslq` of batch 10 — see
+   -- `StringOp.mnemonic` for why the roster base name is the only thing that
+   -- tells them apart.  The `rep`-prefixed forms of these same opcodes are NOT
+   -- claimed here; they are loop control over this data movement and are their
+   -- own batch.
+   "movs", "stos", "lods", "cmps", "scas"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

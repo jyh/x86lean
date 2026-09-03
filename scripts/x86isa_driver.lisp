@@ -98,8 +98,16 @@
       (x86l-windows (cdr ws) (concatenate 'string acc " mem@"
                                           (x86l-hex (car w) 16) "=" s) x86))))
 
-; The watch windows, matching Tests/Vectors.lean `windows`.
-(defconst *x86l-windows* '((#x1ff0 . 32) (#x7fe0 . 48)))
+; The watch windows.  THIS IS A DUPLICATE of Tests/Vectors.lean `windows`,
+; across a language boundary, and until P1 batch 15 a comment was the only thing
+; holding the two together.  It fails LOUD rather than silent -- any drift makes
+; every rendered record differ and the whole run comes back as disagreement --
+; but discovering it costs a full ACL2 run, so `scripts/check_windows.py` now
+; compares the two literals directly and is run by CI and by the selftest.
+; Widened from (#x1ff0 . 32) in batch 15 to give RSI and RDI a margin in both
+; directions; see the note on `windows` for why a backward step off the end of a
+; window is a test that passes by construction.
+(defconst *x86l-windows* '((#x1fe0 . 64) (#x7fe0 . 48)))
 
 (defun x86l-post (x86)
   (declare (xargs :stobjs x86))

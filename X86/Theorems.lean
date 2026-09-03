@@ -977,4 +977,64 @@ theorem step_bitcnt_declined (k : BitCntKind) (h : Live s)
 
 end BitCnt
 
+/-! ## P1 BATCH 15 — the string group
+
+⭐ WHAT THESE CAN AND CANNOT SAY.  A characterization theorem states that `step`
+equals a record update; it cannot state that the update is the RIGHT one.  For
+this group the differential run against x86isa is what checks the VALUES, and
+what is worth proving here is the FRAME — which components each form touches —
+because the frame is where the group's five members actually differ from one
+another, and where a copy-and-edit mistake between them would land. -/
+section StringOps
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- ⭐ MOVS, STOS AND LODS WRITE NO FLAG.  "Flags Affected: None" for all three,
+and this is the statement that separates them from `cmps`/`scas`, which are the
+same shape of instruction and write six.  ⚠️ The three are proved TOGETHER
+rather than one at a time on purpose: the risk in this group is not that one
+member is wrong in isolation, it is that one member was written by editing
+another and kept a line it should have dropped. -/
+@[simp] theorem step_strop_movs_flags (h : Live s) :
+    (step ⟨.strop .movs sz, len⟩ s).flags = s.flags := by
+  simp [step, Cpu.stopped, h]
+
+@[simp] theorem step_strop_stos_flags (h : Live s) :
+    (step ⟨.strop .stos sz, len⟩ s).flags = s.flags := by
+  simp [step, Cpu.stopped, h]
+
+@[simp] theorem step_strop_lods_flags (h : Live s) :
+    (step ⟨.strop .lods sz, len⟩ s).flags = s.flags := by
+  simp [step, Cpu.stopped, h]
+
+/-- ⭐ CMPS AND SCAS WRITE NO MEMORY.  They are the two members whose coverage
+row CLAIMS a memory destination (`m,m` and `m,acc`) while writing nothing — the
+`cmp`/`test` case — so this theorem is the proof of the half of that claim a
+reader is most likely to doubt. -/
+@[simp] theorem step_strop_cmps_mem (h : Live s) :
+    (step ⟨.strop .cmps sz, len⟩ s).mem = s.mem := by
+  simp [step, Cpu.stopped, h]
+
+@[simp] theorem step_strop_scas_mem (h : Live s) :
+    (step ⟨.strop .scas sz, len⟩ s).mem = s.mem := by
+  simp [step, Cpu.stopped, h]
+
+/-- ⭐ LODS DOES NOT TOUCH RDI, AND STOS AND SCAS DO NOT TOUCH RSI.  Which
+pointer each form advances is the single most confusable fact in the group —
+the names differ by one letter — and `wrongScasUsesRsi` is the planted defect
+that says the differential can see it.  This says the model has it right by
+construction rather than by agreement. -/
+theorem step_strop_lods_rdi (h : Live s) :
+    (step ⟨.strop .lods sz, len⟩ s).regs.get .rdi = s.regs.get .rdi := by
+  simp [step, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
+
+theorem step_strop_stos_rsi (h : Live s) :
+    (step ⟨.strop .stos sz, len⟩ s).regs.get .rsi = s.regs.get .rsi := by
+  simp [step, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
+
+theorem step_strop_scas_rsi (h : Live s) :
+    (step ⟨.strop .scas sz, len⟩ s).regs.get .rsi = s.regs.get .rsi := by
+  simp [step, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
+
+end StringOps
+
 end X86
