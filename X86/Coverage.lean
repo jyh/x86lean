@@ -360,9 +360,12 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- ⭐ THE `undefined` COLUMN IS NOW GATED, and this batch is why.  Until now it
   -- was checked only against the TIER (`frame_tier_iff_undefined_bits`: frame
   -- iff non-empty), so a row naming the wrong flags, or too few, read exactly
-  -- like a right one.  `undefined_column_matches_the_model` in `Main.lean`
-  -- compares its flag TOKENS against the set the model actually draws over
-  -- every emitted case.  See docs/DECISIONS.md D39.
+  -- like a right one.  `undefinedColumnTokens` in `Main.lean`, driven by that
+  -- file's `undefined-column` mode and run inside the CI selftest, compares its
+  -- flag TOKENS against the set the model actually draws over every emitted
+  -- case.  ⚠️ This citation read `undefined_column_matches_the_model` until P1
+  -- batch 16 — a name nothing in the repository ever carried, though the check
+  -- itself is real.  See docs/DECISIONS.md D39 and D48.
   --
   -- ⛔ AND `bsf`/`bsr` CARRY A TOKEN NO ROW HAS EVER CARRIED: `DEST`.  Their
   -- undefined region includes the DESTINATION REGISTER at a zero source, not
@@ -420,6 +423,25 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       decode := .xed, undefined := [], sdm := "Vol. 2A CMPS" }
   , { mnemonic := "scas", shapes := "m,acc — b/w/l/q · implicit rdi vs rAX", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B SCAS" }
+  -- P1 BATCH 16: the repeat prefixes.  THREE ROWS FOR ELEVEN ROSTER ROWS —
+  -- `repz`/`repnz` are spellings (`repSpellings`), and each prefix covers the
+  -- two or three string ops the roster files under it.
+  --
+  -- ⚠️ THE SHAPES COLUMN NAMES THE COUNT AND THE EXIT, because those are the
+  -- only things the prefix adds and a row that repeated batch 15's operand
+  -- shapes alone would describe a form indistinguishable from the unprefixed
+  -- one.  ⛔ `rep` claims a memory destination and MUST: `rep movs` and
+  -- `rep stos` write `[rdi]`, so an under-claim here is exactly what
+  -- `mem_dest_vectors_are_claimed` was added in batch 15 to catch.
+  , { mnemonic := "rep", shapes := "m(w),m · m(w),acc · acc,m — b/w/l/q · \
+      rcx-counted, exits on rcx=0 only", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2B REP" }
+  , { mnemonic := "repe", shapes := "m,m · m,acc — b/w/l/q · rcx-counted, \
+      exits on rcx=0 or zf=0", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2B REPE/REPZ" }
+  , { mnemonic := "repne", shapes := "m,m · m,acc — b/w/l/q · rcx-counted, \
+      exits on rcx=0 or zf=1", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2B REPNE/REPNZ" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

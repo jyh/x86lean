@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`). -/
-theorem roster_size_is_72 : rosterSize = 72 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`). -/
+theorem roster_size_is_75 : rosterSize = 75 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -518,6 +518,15 @@ def isMemDestVector (v : Vec) : Bool :=
     -- "writes".  `lods` alone has a register destination.
     | .strop k _ => match k with
       | .movs | .stos | .cmps | .scas => true
+      | .lods => false
+    -- ⭐ P1 BATCH 16.  THE PREFIX CHANGES NOTHING HERE, and saying so is the
+    -- point: a repeat prefix is loop control, and the memory destination of
+    -- `rep movs` is the memory destination of `movs`.  ⚠️ It is written as a
+    -- DELEGATION to the same per-kind table rather than as a second copy of it,
+    -- so the two can never disagree about which of the five write memory —
+    -- which is the only way this line could go wrong.
+    | .repstrop _ k _ => match k with
+      | .movs | .stos | .cmps | .scas => true
       | .lods => false)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
@@ -615,7 +624,14 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
         | false, true  => some (r.mnemonic, false)
         | _,     _     => none)
       = [("sarx", true), ("shlx", true), ("shrx", true),
-         ("cmps", false), ("scas", false)] := by decide
+         ("cmps", false), ("scas", false),
+         -- P1 BATCH 16: `repe` and `repne` join for the same reason `cmps` and
+         -- `scas` did — they ADDRESS a memory destination and write none, so
+         -- the loose rule (which reads a bare `m` anywhere) and the strict one
+         -- (first position, `m,` or `m(`) disagree about them.  ⚠️ `rep` does
+         -- NOT join: its first shape is `m(w),m`, a real write, on which both
+         -- rules agree.
+         ("repe", false), ("repne", false)] := by decide
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.
@@ -978,6 +994,54 @@ claimed — the same discipline `thirty_branch_spellings` applies to `Cc`.
 identical bytes, so the collapse is a fact about the machine. -/
 theorem five_loop_spellings :
     (LoopKind.all.flatMap loopSpellings).eraseDups.length = 5 := by decide
+
+/-! ### P1 BATCH 16 — the repeat prefixes -/
+
+/-- ⭐ THE (prefix, string op) PARTITION, ASSERTED RATHER THAN LEFT IMPLICIT.
+`repApplies` is written as data beside the AST expressly so this theorem can
+name the exact set; a chain of `halt` branches inside `step` would have made
+"which pairs this model claims" a thing to be reconstructed by reading.
+
+⚠️ IT IS A ROSTER PARTITION, NOT AN ENCODING FACT — every rejected pair
+assembles, and `repne movsq` is even EXECUTED by the oracle (as an unprefixed
+string op). See `RepPrefix` and docs/DECISIONS.md D46. -/
+theorem rep_applies_is_exactly_the_roster_partition :
+    (RepPrefix.all.flatMap (fun r =>
+      [StringOp.movs, .stos, .lods, .cmps, .scas].filterMap (fun k =>
+        if repApplies r k then some (r, k) else none)))
+      = [(.rep, .movs), (.rep, .stos), (.rep, .lods),
+         (.repe, .cmps), (.repe, .scas),
+         (.repn, .cmps), (.repn, .scas)] := by decide
+
+/-- The five roster spellings of the three repeat prefixes, counted rather than
+claimed — the same discipline `five_loop_spellings` applies to `LoopKind`.
+`repz` is `repe` and `repnz` is `repne`; that the collapse is a fact about the
+machine is checked against an assembler by the `SYNONYMS` table of
+`scripts/check_encodings.py`, because there are no `repz` vectors for a theorem
+to quantify over and there must not be (docs/DECISIONS.md D48). -/
+theorem five_rep_spellings :
+    (RepPrefix.all.flatMap repSpellings).eraseDups.length = 5 := by decide
+
+/-- Every prefix reaches every string op the roster files under it, at every
+width — seven (prefix, op) pairs at four widths, twenty-eight vectors, with no
+pair reached by accident of another's spelling. -/
+theorem vectors_cover_every_rep_pair :
+    (RepPrefix.all.all (fun r =>
+      [StringOp.movs, .stos, .lods, .cmps, .scas].all (fun k =>
+        !repApplies r k ||
+        [Size.b, .w, .d, .q].all (fun sz =>
+          vectors.any (fun v => match v.instr.op with
+            | .repstrop r' k' sz' => r' == r && k' == k && sz' == sz
+            | _ => false))))) = true := by decide
+
+/-- ⛔ AND NO VECTOR EXERCISES A PAIR THE MODEL DECLINES.  The other direction:
+a vector for `repne movsq` would be a differential case against a form `step`
+halts on, which reads as agreement (both models decline) while testing nothing.
+-/
+theorem no_vector_uses_a_declined_rep_pair :
+    vectors.all (fun v => match v.instr.op with
+      | .repstrop r k _ => repApplies r k
+      | _ => true) = true := by decide
 
 /-- Every flag-control single is exercised, and the two that write DF are among
 them.  Five one-byte instructions written from one `match` is exactly the shape

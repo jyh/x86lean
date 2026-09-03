@@ -1515,7 +1515,10 @@ def vectors : List Vec :=
   -- the eight bytes at RBX both carry `a`, and `adversarial` contains 0.  The
   -- zero source is therefore reached by BOTH shapes rather than being a case
   -- this batch would have had to construct.  ⚠️ That is asserted rather than
-  -- assumed: `bit_counting_reaches_a_zero_source` in `Tests/Coverage.lean`.
+  -- assumed: `bit_counting_reaches_a_zero_register_source` and
+  -- `bit_counting_reaches_a_zero_memory_source` in `Tests/Coverage.lean`
+  -- (cited here as one name until batch 16; the theorem was split in two and
+  -- the citation was not).
   --
   -- ⭐⭐ LZCNT IS BSR PLUS AN F3 PREFIX, AND TZCNT IS BSF PLUS AN F3 PREFIX.
   -- Read the assembled bytes above: `bsrq %rcx, %rax` is `480fbdc1` and
@@ -1660,6 +1663,82 @@ def vectors : List Vec :=
     , bytes := "af", instr := ⟨.strop .scas .d, 1⟩ }
   , { id := "scas_q", mnemonic := "scas", asm := "scasq"
     , bytes := "48af", instr := ⟨.strop .scas .q, 2⟩ }
+
+  -- ⭐ P1 BATCH 16: THE ELEVEN `rep`-PREFIXED ROWS.  Twenty-eight vectors over
+  -- three prefixes: `rep` on the three data movers, `repe` and `repne` on the
+  -- two comparisons, each at all four widths.
+  --
+  -- ⚠️ THE PREFIX BYTE IS A PREFIX OF THE BYTES, and at width `w` it lands
+  -- BEFORE the `66` operand-size prefix (`f3 66 a5`), not after it — the order
+  -- clang emits and the only width where two prefixes meet.  Every one of these
+  -- twenty-eight is checked against clang by `scripts/check_encodings.py`.
+  --
+  -- ⛔ `repz`/`repnz` HAVE NO VECTORS OF THEIR OWN AND MUST NOT: they assemble
+  -- to bytes identical to `repe`/`repne` (`repSpellings`), so a vector apiece
+  -- would be the same instruction differentially tested twice.
+  --
+  -- ⚠️ THE IDENTITY IS CHECKED AGAINST AN ASSEMBLER, NOT ASSERTED HERE — the
+  -- `SYNONYMS` table of `scripts/check_encodings.py`.  A first draft of this
+  -- comment cited a theorem "in Tests/Coverage.lean" that had not been written,
+  -- which is verbatim the defect batch 11 left in `loopSpellings` and which
+  -- `scripts/check_citations.py` caught in the same sweep.  The convention was
+  -- copied together with its hole.  See docs/DECISIONS.md D48.
+  , { id := "rep_movs_b", mnemonic := "rep", asm := "rep movsb"
+    , bytes := "f3a4", instr := ⟨.repstrop .rep .movs .b, 2⟩ }
+  , { id := "rep_movs_w", mnemonic := "rep", asm := "rep movsw"
+    , bytes := "f366a5", instr := ⟨.repstrop .rep .movs .w, 3⟩ }
+  , { id := "rep_movs_l", mnemonic := "rep", asm := "rep movsl"
+    , bytes := "f3a5", instr := ⟨.repstrop .rep .movs .d, 2⟩ }
+  , { id := "rep_movs_q", mnemonic := "rep", asm := "rep movsq"
+    , bytes := "f348a5", instr := ⟨.repstrop .rep .movs .q, 3⟩ }
+  , { id := "rep_stos_b", mnemonic := "rep", asm := "rep stosb"
+    , bytes := "f3aa", instr := ⟨.repstrop .rep .stos .b, 2⟩ }
+  , { id := "rep_stos_w", mnemonic := "rep", asm := "rep stosw"
+    , bytes := "f366ab", instr := ⟨.repstrop .rep .stos .w, 3⟩ }
+  , { id := "rep_stos_l", mnemonic := "rep", asm := "rep stosl"
+    , bytes := "f3ab", instr := ⟨.repstrop .rep .stos .d, 2⟩ }
+  , { id := "rep_stos_q", mnemonic := "rep", asm := "rep stosq"
+    , bytes := "f348ab", instr := ⟨.repstrop .rep .stos .q, 3⟩ }
+  , { id := "rep_lods_b", mnemonic := "rep", asm := "rep lodsb"
+    , bytes := "f3ac", instr := ⟨.repstrop .rep .lods .b, 2⟩ }
+  , { id := "rep_lods_w", mnemonic := "rep", asm := "rep lodsw"
+    , bytes := "f366ad", instr := ⟨.repstrop .rep .lods .w, 3⟩ }
+  , { id := "rep_lods_l", mnemonic := "rep", asm := "rep lodsl"
+    , bytes := "f3ad", instr := ⟨.repstrop .rep .lods .d, 2⟩ }
+  , { id := "rep_lods_q", mnemonic := "rep", asm := "rep lodsq"
+    , bytes := "f348ad", instr := ⟨.repstrop .rep .lods .q, 3⟩ }
+  , { id := "repe_cmps_b", mnemonic := "repe", asm := "repe cmpsb"
+    , bytes := "f3a6", instr := ⟨.repstrop .repe .cmps .b, 2⟩ }
+  , { id := "repe_cmps_w", mnemonic := "repe", asm := "repe cmpsw"
+    , bytes := "f366a7", instr := ⟨.repstrop .repe .cmps .w, 3⟩ }
+  , { id := "repe_cmps_l", mnemonic := "repe", asm := "repe cmpsl"
+    , bytes := "f3a7", instr := ⟨.repstrop .repe .cmps .d, 2⟩ }
+  , { id := "repe_cmps_q", mnemonic := "repe", asm := "repe cmpsq"
+    , bytes := "f348a7", instr := ⟨.repstrop .repe .cmps .q, 3⟩ }
+  , { id := "repe_scas_b", mnemonic := "repe", asm := "repe scasb"
+    , bytes := "f3ae", instr := ⟨.repstrop .repe .scas .b, 2⟩ }
+  , { id := "repe_scas_w", mnemonic := "repe", asm := "repe scasw"
+    , bytes := "f366af", instr := ⟨.repstrop .repe .scas .w, 3⟩ }
+  , { id := "repe_scas_l", mnemonic := "repe", asm := "repe scasl"
+    , bytes := "f3af", instr := ⟨.repstrop .repe .scas .d, 2⟩ }
+  , { id := "repe_scas_q", mnemonic := "repe", asm := "repe scasq"
+    , bytes := "f348af", instr := ⟨.repstrop .repe .scas .q, 3⟩ }
+  , { id := "repne_cmps_b", mnemonic := "repne", asm := "repne cmpsb"
+    , bytes := "f2a6", instr := ⟨.repstrop .repn .cmps .b, 2⟩ }
+  , { id := "repne_cmps_w", mnemonic := "repne", asm := "repne cmpsw"
+    , bytes := "f266a7", instr := ⟨.repstrop .repn .cmps .w, 3⟩ }
+  , { id := "repne_cmps_l", mnemonic := "repne", asm := "repne cmpsl"
+    , bytes := "f2a7", instr := ⟨.repstrop .repn .cmps .d, 2⟩ }
+  , { id := "repne_cmps_q", mnemonic := "repne", asm := "repne cmpsq"
+    , bytes := "f248a7", instr := ⟨.repstrop .repn .cmps .q, 3⟩ }
+  , { id := "repne_scas_b", mnemonic := "repne", asm := "repne scasb"
+    , bytes := "f2ae", instr := ⟨.repstrop .repn .scas .b, 2⟩ }
+  , { id := "repne_scas_w", mnemonic := "repne", asm := "repne scasw"
+    , bytes := "f266af", instr := ⟨.repstrop .repn .scas .w, 3⟩ }
+  , { id := "repne_scas_l", mnemonic := "repne", asm := "repne scasl"
+    , bytes := "f2af", instr := ⟨.repstrop .repn .scas .d, 2⟩ }
+  , { id := "repne_scas_q", mnemonic := "repne", asm := "repne scasq"
+    , bytes := "f248af", instr := ⟨.repstrop .repn .scas .q, 3⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

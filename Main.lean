@@ -1359,6 +1359,88 @@ def wrongLodsNoZeroExtend (i : Instr) (s : Cpu) : Cpu :=
       (s.setReg .q .rsi (si + d)).setRip nr
   | _ => step i s
 
+/-- ⭐⭐ P1 BATCH 16'S CENTRAL ARM: THE MODEL A CAREFUL READER WOULD WRITE.
+Decrement RCX, notice it has reached zero, fall through — which is the SDM's
+loop read as a single step, and it is wrong about x86isa.  ⚠️ IT IS RIGHT
+EVERYWHERE EXCEPT RCX = 1: at RCX = 0 no iteration happens in either model, and
+at RCX ≥ 2 the count does not reach zero.  One value of one register separates
+it from the truth, `adversarial` contains that value, and the arm is caught. -/
+def wrongRepAdvanceOnCountZero (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .repstrop r k sz =>
+      if !repApplies r k then s.halt (.unimplemented "declined") else
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let cx := s.regs.get .rcx
+      if cx == 0 then s.setRip nr
+      else
+        let s' := (stringIter k sz s).setReg .q .rcx (cx - 1)
+        -- the extra disjunct is the whole defect
+        s'.setRip (if r.terminates s'.flags.zf || cx - 1 == 0 then nr else s.rip)
+  | _ => step i s
+
+/-- The count consulted AFTER its own decrement, so a repeat with RCX = 1 does
+nothing at all.  ⚠️ Distinct from the arm above: that one performs the right
+work and stops too early, this one performs no work at RCX = 1. -/
+def wrongRepDecrementFirst (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .repstrop r k sz =>
+      if !repApplies r k then s.halt (.unimplemented "declined") else
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let cx := s.regs.get .rcx - 1
+      if s.regs.get .rcx == 0 then s.setRip nr
+      else if cx == 0 then (s.setReg .q .rcx cx).setRip nr
+      else
+        let s' := (stringIter k sz s).setReg .q .rcx cx
+        s'.setRip (if r.terminates s'.flags.zf then nr else s.rip)
+  | _ => step i s
+
+/-- The count decremented through the OPERAND-width rule, exactly as batch 15's
+POINTERS were in `wrongStringPointerWidth`.  ⚠️ The same defect in the one
+register batch 15 did not write — and the same blind spot applies: it is
+invisible unless RCX's decrement CARRIES across the operand width, which is why
+`adversarial`'s `0x100000000` and `0x10` matter here. -/
+def wrongRepCountWidth (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .repstrop r k sz =>
+      if !repApplies r k then s.halt (.unimplemented "declined") else
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let cx := s.regs.get .rcx
+      if cx == 0 then s.setRip nr
+      else
+        let s' := (stringIter k sz s).setReg sz .rcx (cx - 1)
+        s'.setRip (if r.terminates s'.flags.zf then nr else s.rip)
+  | _ => step i s
+
+/-- The exit predicate reading the flags the instruction STARTED with.  A repeat
+whose termination lags one iteration behind its own comparison. -/
+def wrongRepZfIncoming (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .repstrop r k sz =>
+      if !repApplies r k then s.halt (.unimplemented "declined") else
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let cx := s.regs.get .rcx
+      if cx == 0 then s.setRip nr
+      else
+        let s' := (stringIter k sz s).setReg .q .rcx (cx - 1)
+        s'.setRip (if r.terminates s.flags.zf then nr else s.rip)
+  | _ => step i s
+
+/-- The decrement applied on the RCX = 0 path too, so a zero count WRAPS to
+all-ones.  ⚠️ The one arm here whose damage is invisible in RIP — both models
+fall through — and visible only in RCX, which is why its watched field is
+`rcx` and not `rip`. -/
+def wrongRepDecrementAtZero (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .repstrop r k sz =>
+      if !repApplies r k then s.halt (.unimplemented "declined") else
+      let nr := s.rip + BitVec.ofNat 64 i.len
+      let cx := s.regs.get .rcx
+      if cx == 0 then (s.setReg .q .rcx (cx - 1)).setRip nr
+      else
+        let s' := (stringIter k sz s).setReg .q .rcx (cx - 1)
+        s'.setRip (if r.terminates s'.flags.zf then nr else s.rip)
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -1373,7 +1455,6 @@ described the intended design as though it were the built one.
 
 Both readers now fold over THIS list, so the claim is structural rather than
 aspirational — there is no second list to disagree with. D29. -/
-
 def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   [ ("inc clobbers CF", wrongInc, "cf")
   , ("movl fails to zero-extend", wrongMovD, "rax")
@@ -1439,7 +1520,19 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      wrongCmpsOperandOrder, "cf")
   , ("scas compares against rsi instead of rdi", wrongScasUsesRsi, "cf")
   , ("lods merges into the accumulator instead of zero-extending at 32 bits",
-     wrongLodsNoZeroExtend, "rax") ]
+     wrongLodsNoZeroExtend, "rax")
+  -- P1 BATCH 16 — the repeat prefixes.  Five arms, and the FIRST of them is the
+  -- model this batch was most likely to have written.
+  , ("rep advances rip when the decrement drives rcx to zero",
+     wrongRepAdvanceOnCountZero, "rip")
+  , ("rep decrements rcx before the string operation reads it",
+     wrongRepDecrementFirst, "rip")
+  , ("the repeat count is decremented at the OPERAND width",
+     wrongRepCountWidth, "rcx")
+  , ("repe/repne test the INCOMING zf instead of the comparison's own",
+     wrongRepZfIncoming, "rip")
+  , ("rep decrements rcx even when it is already zero",
+     wrongRepDecrementAtZero, "rcx") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1585,6 +1678,20 @@ cases identical, 0 oracle leaks)"
   -- counting rule whenever a group has prefixed variants — the FIRST group in
   -- this roster that does.  408 to 418.
   --
+  -- ⭐ P1 BATCH 16 CLAIMS THOSE ELEVEN, and the counting command is batch 15's
+  -- with the filter INVERTED — `$3 != ""` rather than `$3 == ""` — so the two
+  -- batches partition the twenty-one rows exactly and neither can double-count:
+  --
+  --   awk -F'\t' 'NR>2 && $4 ~ /^(movs|stos|lods|cmps|scas)$/ && $3 != ""' \
+  --     p1/roster.tsv | wc -l
+  --
+  -- 3 `rep` + 2 each of `repe`/`repne`/`repnz`/`repz` = 11.  418 to 429.
+  -- ⚠️ ELEVEN ROWS, THREE ROSTER MNEMONICS, TWENTY-EIGHT VECTORS: the three
+  -- counts differ on purpose and each is right for its own question.  `repz`
+  -- and `repnz` are roster rows with no mnemonic and no vector of their own
+  -- (they assemble to bytes identical to `repe`/`repne`), and each mnemonic
+  -- spans several string ops at four widths.
+  --
   -- ⛔⛔ AND BATCH 14 FOUND THE SENTENCE BELOW A WHOLE BATCH STALE.  The
   -- per-batch narrative stopped at "12 — the near-free four" while this count
   -- already read 396, which INCLUDES batch 13: batch 13 updated the number and
@@ -1602,7 +1709,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **418 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **429 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -1635,9 +1742,14 @@ the model with NO OPERAND FIELD (their addresses are RSI and RDI by opcode) and 
 the first that READ DF, which had been a bit only `cld`/`std` could write since \
 batch 11; the batch widened the data window so a pointer moving BACKWARD stays \
 observable (see D42) and added the first pre-states in which a pointer update \
-CARRIES across a width boundary (see D43).  The `rep`-prefixed forms of the \
-same opcodes are loop control over this data movement and are NOT claimed \
-here.\n\n\
+CARRIES across a width boundary (see D43); 16 — the REPEAT PREFIXES over that \
+same data movement, REP/REPE/REPZ/REPNE/REPNZ, eleven roster rows in which the \
+model's RIP is for the first time sometimes its OWN address: x86isa performs \
+exactly one iteration per step and signals a repeat by NOT advancing RIP, and \
+COUNT EXHAUSTION DOES NOT ADVANCE IT EITHER — the count is tested only on entry, \
+so `rep movs` with RCX=1 copies, leaves RCX=0, and stays put (see D46).  The \
+batch needed no new pre-state: `adversarial` already contains the single value \
+of RCX that separates that rule from the obvious one.\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

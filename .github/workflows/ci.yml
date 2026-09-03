@@ -60,6 +60,27 @@ jobs:
       - name: Coverage prose names every batch that has a differential record
         run: python3 scripts/check_coverage_prose.py
 
+      # P1 BATCH 16 (D48): every comment that cites a declaration by name and
+      # file must be telling the truth. Three phantom citations were standing
+      # when this was written, the oldest from batch 11 — each naming a gate
+      # that would have been load-bearing if it existed. `--selftest` checks
+      # BOTH directions: a phantom is caught, a real citation is not flagged.
+      - name: Named cross-references in comments point at something real
+        run: |
+          python3 scripts/check_citations.py --selftest
+          python3 scripts/check_citations.py
+
+      # P1 BATCH 16 (D47): the README's headline numbers, gated against the
+      # GENERATED coverage table and the per-batch differential records. They
+      # had been stale for four batches — and the sentence beneath them said
+      # they were "a snapshot", which is what made the staleness read as
+      # design. `--selftest` mutates every claim AND one source, because a gate
+      # that compared the README to itself would pass every README mutation.
+      - name: README headline numbers agree with the generated coverage table
+        run: |
+          python3 scripts/check_readme_snapshot.py --selftest
+          python3 scripts/check_readme_snapshot.py
+
       # P1 BATCH 15 (D45): the watch windows are declared in BOTH Lean and the
       # ACL2 driver, because neither toolchain can read the other's source.
       # The drift fails loud — every record differs — but only after a

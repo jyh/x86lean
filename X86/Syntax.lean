@@ -279,6 +279,87 @@ def StringOp.mnemonic : StringOp → String
   | .movs => "movs" | .stos => "stos" | .lods => "lods"
   | .cmps => "cmps" | .scas => "scas"
 
+/-- P1 BATCH 16: THE REPEAT PREFIXES, which turn a string operation into a
+loop.  Three constructors because the roster's `prefix` column has three base
+names; TWO PREFIX BYTES, because `rep` and `repe` are both `F3`.
+
+⭐ THE SPLIT BETWEEN `.rep` AND `.repe` IS A NAMING FACT, NOT AN ENCODING ONE,
+and that is the one thing about this type a reader must not get wrong.  Measured
+with clang: `rep cmpsq` and `repe cmpsq` assemble to the IDENTICAL bytes
+`f3 48 a7`.  What differs is which string operation the byte prefixes — `F3` on
+`movs`/`stos`/`lods` is spelled `rep` and repeats on the count alone, while `F3`
+on `cmps`/`scas` is spelled `repe` and ALSO stops on `ZF = 0` — so the same byte
+means two different loops depending on whether the instruction it prefixes sets
+ZF.  Modelling that as one constructor with a context-dependent rule would hide
+the branch inside `step`; modelling it as two makes `repApplies` below the place
+where the partition is stated and checked.
+
+⚠️ CONTRAST WITH `bitcntEncodable`, WHICH LOOKS LIKE THIS AND IS NOT.  That table
+records which forms HAVE NO ENCODING — an architectural fact.  `repApplies` is a
+ROSTER partition: every pair it rejects assembles perfectly well.  A comment
+calling both "which forms exist" would be wrong about this one, and the
+difference is exactly the sort a later reader would take on trust. -/
+inductive RepPrefix where
+  /-- `F3` on `movs`/`stos`/`lods`: repeat while RCX ≠ 0, and on nothing else. -/
+  | rep
+  /-- `F3` on `cmps`/`scas`: repeat while RCX ≠ 0 AND ZF = 1 (`repe`, `repz`). -/
+  | repe
+  /-- `F2` on `cmps`/`scas`: repeat while RCX ≠ 0 AND ZF = 0 (`repne`, `repnz`). -/
+  | repn
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+def RepPrefix.all : List RepPrefix := [.rep, .repe, .repn]
+
+def RepPrefix.mnemonic : RepPrefix → String
+  | .rep => "rep" | .repe => "repe" | .repn => "repne"
+
+/-- ⭐ EVERY ASSEMBLER SPELLING OF EACH REPEAT PREFIX, for the same reason
+`loopSpellings` and `movxSpellings` exist: the roster files FIVE prefix names and
+this model has three constructors.  `repz` is `repe` and `repnz` is `repne`, and
+clang assembles each pair to identical bytes, so the collapse is a fact about the
+machine rather than a convenience. -/
+def repSpellings : RepPrefix → List String
+  | .rep => ["rep"]
+  | .repe => ["repe", "repz"]
+  | .repn => ["repne", "repnz"]
+
+/-- WHICH (prefix, string op) PAIRS THIS MODEL CLAIMS — the roster's partition,
+written as data beside the AST so that `Tests/Coverage.lean` can assert the exact
+set rather than leaving it implicit in a chain of `halt` branches.
+
+⛔ AND IT IS A CLAIM ABOUT THE ROSTER, NOT ABOUT THE MACHINE.  Both rejected
+shapes assemble, and one of them was MEASURED against the oracle rather than
+assumed:
+
+* `F3` on `cmps`/`scas` spelled `rep` is the SAME INSTRUCTION as `repe` — same
+  bytes — so `.rep` on a comparison would be a second name for a form `.repe`
+  already covers, and the roster files it only under `repe`/`repz`.
+* `F2` on `movs`/`stos`/`lods` (`repne movsq`, `f2 48 a5`) assembles, and
+  x86isa EXECUTES IT AS AN UNPREFIXED STRING OP: one iteration, **RCX not
+  decremented**, RIP advanced.  That is the oracle declining to treat `F2` as a
+  repeat prefix there.  The roster does not file the form and this model does
+  not claim it — copying an oracle's treatment of a shape nobody filed would be
+  taking a quirk for a specification. -/
+def repApplies : RepPrefix → StringOp → Bool
+  | .rep, k => k == .movs || k == .stos || k == .lods
+  | .repe, k => k == .cmps || k == .scas
+  | .repn, k => k == .cmps || k == .scas
+
+/-- ⭐⭐ WHETHER THE REPEAT ENDS IN *THIS* STEP — and it reads the flags the
+iteration just wrote, not the incoming ones.
+
+Measured, not assumed: `repe cmpsq` on operands that differ came back with
+`ZF = 0` and RIP ADVANCED in the same step, from a pre-state whose incoming ZF
+was 0 as well; `repne scasq` on operands that MATCH came back `ZF = 1` and RIP
+advanced.  Both predicates therefore fire on the comparison's own result.
+
+⛔ COUNT EXHAUSTION IS NOT IN THIS FUNCTION, AND THAT IS THE BATCH'S FINDING.
+See the `.repstrop` case of `step`. -/
+def RepPrefix.terminates : RepPrefix → Bool → Bool
+  | .rep, _ => false
+  | .repe, zf => !zf
+  | .repn, zf => zf
+
 /-- P1 BATCH 10: which way a WIDTH-CHANGING move fills the bits it invents.
 Two constructors rather than a `Bool` because the two are one character apart in
 the mnemonic (`movzbl` / `movsbl`) and opposite in effect, and a `Bool` named
@@ -492,6 +573,19 @@ inductive Op where
   be right at `.q`, right at `.d` by accident of zero-extension, and wrong at
   `.b` and `.w` — the two widths where `setReg` MERGES. -/
   | strop (k : StringOp) (sz : Size)
+  /-- P1 BATCH 16: a string operation under a REPEAT PREFIX — see `RepPrefix`.
+
+  ⭐ A SEPARATE CONSTRUCTOR RATHER THAN AN `Option RepPrefix` FIELD ON `.strop`.
+  The field would have been the smaller diff and the worse one: it would have
+  touched all twenty batch-15 vectors, every characterization lemma and both
+  memory-destination gates, so a batch whose semantics reuse batch 15's
+  UNCHANGED would have rewritten every line that mentions it.  Additive instead,
+  for the reason batch 15 widened its window additively — nothing that already
+  passed can be perturbed by a form that did not exist.
+
+  The ITERATION is shared for real, not copied: `stringIter` is batch 15's body
+  with the RIP write lifted out, and both constructors call it. -/
+  | repstrop (r : RepPrefix) (k : StringOp) (sz : Size)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -567,6 +661,12 @@ def Op.mnemonic : Op → String
     | .popcnt => "popcnt" | .lzcnt => "lzcnt" | .tzcnt => "tzcnt"
     | .bsf => "bsf" | .bsr => "bsr" | .blsi => "blsi"
   | .strop k _ => k.mnemonic
+  -- ⚠️ THE PREFIX IS THE MNEMONIC HERE, not the string op.  `p1/roster.tsv`
+  -- files these eleven rows under their `prefix` column (`rep`, `repe`,
+  -- `repne`, `repnz`, `repz`) with the string op in `base`, so a coverage claim
+  -- keyed on `k.mnemonic` would name rows batch 15 already claims and leave
+  -- these eleven unnamed.
+  | .repstrop r _ _ => r.mnemonic
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -614,7 +714,15 @@ def rosterP0 : List String :=
    -- tells them apart.  The `rep`-prefixed forms of these same opcodes are NOT
    -- claimed here; they are loop control over this data movement and are their
    -- own batch.
-   "movs", "stos", "lods", "cmps", "scas"]
+   "movs", "stos", "lods", "cmps", "scas",
+   -- P1 BATCH 16: the repeat prefixes over that same data movement.  Three
+   -- names for ONE constructor (`.repstrop`, keyed by `RepPrefix`), and `repe`
+   -- and `repne` each stand for two roster spellings (`repz`, `repnz`) exactly
+   -- as `loope` and `loopne` do; `repSpellings` is the table that says which.
+   -- ⚠️ These are the PREFIX names, not the string ops — the five base names
+   -- above are batch 15's rows and these eleven are separate rows of the same
+   -- file, which is why the count moves by eleven and not by five.
+   "rep", "repe", "repne"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`
@@ -639,8 +747,17 @@ constructor accounts for, and that is what this table is.
 
 ⚠️ AND THE COLLAPSE IS A FACT ABOUT THE MACHINE, NOT A CONVENIENCE: clang
 assembles `loopz .+18` and `loope .+18` to the identical bytes `e1 10`, and
-`loopnz`/`loopne` to `e0 10`.  `loop_synonyms_are_one_encoding` in
-Tests/Coverage.lean is that sentence as a theorem over the vector table. -/
+`loopnz`/`loopne` to `e0 10`.
+
+⛔ THIS SENTENCE USED TO END BY NAMING A THEOREM — loop-synonyms-are-one-
+encoding — AS LIVING IN Tests/Coverage.lean AND HOLDING THIS CLAIM "over the
+vector table".  NO SUCH THEOREM WAS EVER WRITTEN.  It stood for five batches; P1 batch 16's
+`scripts/check_citations.py` found it.  ⚠️ It could not have been written as
+stated: there are no `loopz`/`loopnz` VECTORS and there must not be — a vector
+per spelling is one instruction differentially tested twice — so a theorem
+"over the vector table" had nothing to quantify over.  The claim is about an
+ASSEMBLER, and it is now checked by one, in the `SYNONYMS` table of
+`scripts/check_encodings.py`.  See docs/DECISIONS.md D48. -/
 def loopSpellings : LoopKind → List String
   | .loop => ["loop"]
   | .loope => ["loope", "loopz"]

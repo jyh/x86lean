@@ -77,3 +77,72 @@ if bad:
     sys.exit(1)
 print(f"encoding cross-check: CLEAN — {checked} forms, every `Instr.len` and every "
       f"byte string agrees with the assembler")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE SYNONYM COLLAPSE, CHECKED AGAINST THE ASSEMBLER (P1 BATCH 16).
+#
+# `loopSpellings` and `repSpellings` in X86/Syntax.lean each map several ROSTER
+# SPELLINGS onto one constructor, and both are documented as "a fact about the
+# machine, not a convenience" — `loopz` IS `loope`, `repz` IS `repe`.
+#
+# ⛔ THAT CLAIM WAS UNGATED FOR FIVE BATCHES, AND WORSE THAN UNGATED.  Batch 11's
+# comment named a theorem — loop-synonyms-are-one-encoding — as living in
+# Tests/Coverage.lean and holding the claim "over the vector table", and no such
+# theorem was ever written.  P1 batch 16's `scripts/check_citations.py` is what
+# found it; see docs/DECISIONS.md D48.
+#
+# ⚠️ AND IT CANNOT BE A THEOREM OVER THE VECTOR TABLE, WHICH IS WHY THE ORIGINAL
+# WAS NEVER WRITTEN.  There are no `loopz`/`repz` vectors and there must not be:
+# a vector per spelling would be the same instruction differentially tested
+# twice, and the vector table is keyed by AST form, which is precisely what the
+# collapse says these spellings share.  The claim is about the ASSEMBLER, so the
+# check belongs here, where an assembler is already running.
+SYNONYMS = [
+    ("loope .+18", "loopz .+18"),
+    ("loopne .+18", "loopnz .+18"),
+    ("repe cmpsq", "repz cmpsq"),
+    ("repe scasb", "repz scasb"),
+    ("repne cmpsl", "repnz cmpsl"),
+    ("repne scasw", "repnz scasw"),
+]
+
+sasm, sobj = os.path.join(tmp, "syn.s"), os.path.join(tmp, "syn.o")
+with open(sasm, "w") as f:
+    f.write("\t.text\n")
+    for i, (a, b) in enumerate(SYNONYMS):
+        f.write(f"syn{i}a:\t{a}\nsyn{i}b:\t{b}\n")
+r = run(f"clang -target x86_64-unknown-linux-gnu -c {sasm} -o {sobj}")
+if r.returncode != 0:
+    print("⛔ assembler refused a synonym pair — a spelling this model claims is "
+          "real does not assemble:\n" + r.stderr)
+    sys.exit(2)
+r = run(f"objdump -d {sobj}")
+if r.returncode != 0:
+    print("⛔ objdump failed on the synonym object:\n" + r.stderr); sys.exit(2)
+
+slabels, saddrs = {}, {}
+for line in r.stdout.splitlines():
+    m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
+    if m:
+        slabels[m.group(2)] = int(m.group(1), 16); continue
+    m = re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)', line)
+    if m:
+        saddrs[int(m.group(1), 16)] = "".join(m.group(2).split())
+
+sbad = []
+for i, (a, b) in enumerate(SYNONYMS):
+    la, lb = slabels.get(f"syn{i}a"), slabels.get(f"syn{i}b")
+    if la is None or lb is None or la not in saddrs or lb not in saddrs:
+        sbad.append(f"`{a}` / `{b}`: no instruction at one of the labels"); continue
+    if saddrs[la] != saddrs[lb]:
+        sbad.append(f"`{a}` = {saddrs[la]} but `{b}` = {saddrs[lb]} — these are "
+                    f"NOT one encoding, and the roster collapse that assumes "
+                    f"they are is wrong")
+
+if sbad:
+    print(f"⛔ synonym collapse FAILED ({len(sbad)} of {len(SYNONYMS)} pairs):")
+    for b in sbad: print("   " + b)
+    sys.exit(1)
+print(f"synonym collapse: CLEAN — {len(SYNONYMS)} spelling pairs, each assembling "
+      f"to identical bytes, so `loopSpellings` and `repSpellings` collapse "
+      f"spellings the machine has already collapsed")

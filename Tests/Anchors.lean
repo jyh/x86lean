@@ -1589,4 +1589,77 @@ theorem scasq_subtracts_rax_minus_destination :
     (w.flags.cf, w.regs.get .rsi, w.regs.get .rdi)
       = (true, 0x1000, 0x2008) := by decide
 
+/-! ### P1 BATCH 16 — the repeat prefixes
+
+⭐ EVERY NUMBER BELOW WAS MEASURED AGAINST x86isa BEFORE IT WAS WRITTEN, not
+derived from the SDM's prose and checked afterwards.  The probe is recorded in
+docs/DIFFERENTIAL-P1-BATCH16.md; these are the same facts as `decide`-checked
+statements about this model. -/
+
+/-- A repeat state: the string state above with a COUNT. -/
+private def repState (df : Bool) (rcx : BitVec 64) : Cpu :=
+  let s := strState df
+  { s with regs := s.regs.set .rcx rcx }
+
+/-- ⭐⭐ THE FINDING, ANCHORED AT THE ONLY VALUE THAT SHOWS IT.  `rep movsq` with
+RCX = 1 does the copy, leaves RCX = 0 — and leaves RIP AT THE INSTRUCTION.  The
+fall-through is the NEXT step's job.  ⚠️ Compare `rep_movsq_rcx_zero_falls_
+through` below: the same model, one step later, is what advances RIP. -/
+theorem rep_movsq_last_iteration_does_not_advance_rip :
+    let w := step ⟨.repstrop .rep .movs .q, 3⟩ (repState false 1)
+    (w.mem.readSize .q 0x2000, w.regs.get .rcx, w.rip)
+      = (0x8877665544332211, 0, 0x400000) := by decide
+
+/-- ⭐ AND WITH THE COUNT ALREADY ZERO IT IS A PURE FALL-THROUGH: no copy, no
+pointer move, and RCX does NOT wrap to all-ones. -/
+theorem rep_movsq_rcx_zero_falls_through :
+    let w := step ⟨.repstrop .rep .movs .q, 3⟩ (repState false 0)
+    (w.mem.readSize .q 0x2000, w.regs.get .rcx, w.regs.get .rdi, w.rip)
+      = (0xEEEEEEEEEEEEEEEE, 0, 0x2000, 0x400003) := by decide
+
+/-- ⭐ THE TWO STEPS COMPOSED ARE THE WHOLE LOOP.  Running `rep movsq` twice
+from RCX = 1 reaches the state a reader expects a single `rep` to reach — one
+copy, RCX = 0, RIP past the instruction.  ⚠️ This is the anchor that says the
+one-iteration decomposition is a faithful loop and not merely a different
+answer: `run` is the model's own multi-step driver. -/
+theorem rep_movsq_two_steps_complete_the_loop :
+    let w := run [⟨.repstrop .rep .movs .q, 3⟩, ⟨.repstrop .rep .movs .q, 3⟩]
+      (repState false 1)
+    (w.mem.readSize .q 0x2000, w.regs.get .rcx, w.regs.get .rdi, w.rip)
+      = (0x8877665544332211, 0, 0x2008, 0x400003) := by decide
+
+/-- ⭐ THE COUNT IS DECREMENTED AT 64 BITS EVEN AT THE BYTE WIDTH.  `rep movsb`
+with RCX = 0x1_0000_0000 leaves 0x0_FFFF_FFFF — a value whose low half alone
+would have wrapped the other way. -/
+theorem rep_movsb_decrements_the_whole_of_rcx :
+    let w := step ⟨.repstrop .rep .movs .b, 2⟩ (repState false 0x100000000)
+    w.regs.get .rcx = 0xFFFFFFFF := by decide
+
+/-- ⭐⭐ `repe` STOPS ON ZF = 0 AND `repne` CONTINUES ON IT — the same state, the
+same comparison, opposite RIPs.  `0x8877…11` ≠ `0xEEEE…EE`, so the comparison
+clears ZF: `repe` is done and `repne` goes round again.  ⚠️ Written as ONE
+statement over both prefixes because the risk in this pair is not that either is
+wrong alone, it is that both read the same predicate. -/
+theorem repe_and_repne_take_opposite_exits_on_the_same_comparison :
+    let e := step ⟨.repstrop .repe .cmps .q, 3⟩ (repState false 3)
+    let n := step ⟨.repstrop .repn .cmps .q, 3⟩ (repState false 3)
+    (e.flags.zf, e.rip, n.flags.zf, n.rip, e.regs.get .rcx, n.regs.get .rcx)
+      = (false, 0x400003, false, 0x400000, 2, 2) := by decide
+
+/-- ⭐ AND THE PREDICATE READS THE COMPARISON'S OWN ZF, NOT THE INCOMING ONE.
+The state here arrives with ZF already SET, and `repe` still exits — because the
+comparison it just made cleared it.  A model testing the incoming flag would
+have gone round again. -/
+theorem repe_reads_the_zf_it_just_wrote :
+    let s := repState false 3
+    let w := step ⟨.repstrop .repe .cmps .q, 3⟩ { s with flags := { s.flags with zf := true } }
+    (w.flags.zf, w.rip) = (false, 0x400003) := by decide
+
+/-- ⭐ A PREFIX THIS MODEL DOES NOT CLAIM HALTS.  `F2` on `movs` assembles and
+x86isa executes it as an unprefixed string op; the roster does not file it, so
+this model declines rather than copying the oracle's treatment of a shape
+nobody filed. -/
+theorem repne_movs_is_declined :
+    (step ⟨.repstrop .repn .movs .q, 3⟩ (repState false 3)).stopped = true := by decide
+
 end X86.Tests

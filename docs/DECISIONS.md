@@ -1360,3 +1360,194 @@ the two share their blind spot. The repair is not a better control but a
 different KIND of check alongside it: the parsed window COUNT is now compared
 between the two sides, which catches a dropped trailing entry even when every
 value that was read agrees.
+
+## D46 — an instruction's own address is a legal answer, and the SDM's loop is not the oracle's step
+
+P1 batch 16 (the repeat prefixes). Every `rep`-prefixed string form in
+`p1/roster.tsv` — eleven rows — is a loop, and this model takes ONE STEP at a
+time. The question the batch opened with, before a vector was written, was how
+`Instr.len` and RIP interact when the model must not advance.
+
+**The measurement.** `x86-fetch-decode-execute` performs exactly one iteration
+and signals "repeat" by leaving RIP alone. That much was known from batch 15's
+probe. What was not known, and what this batch went to the oracle for, is where
+the count is tested:
+
+| case | RCX in | RCX out | RIP |
+|---|---|---|---|
+| `rep movsq` | 0 | 0 | **advanced** |
+| `rep movsq` | 1 | 0 | **UNCHANGED** |
+| `rep movsq` | 3 | 2 | unchanged |
+| `repe cmpsq`, operands equal | 1 | 0 | **UNCHANGED** |
+| `repe cmpsq`, operands differ | 3 | 2 | advanced (ZF=0) |
+| `repne scasq`, operands equal | 3 | 2 | advanced (ZF=1) |
+
+⛔ **COUNT EXHAUSTION DOES NOT ADVANCE RIP.** The count is tested only ON ENTRY.
+`rep movsq` with RCX = 1 performs the copy, leaves RCX = 0, and stays at its own
+address; it is the NEXT step, finding the count already zero, that falls
+through. The SDM writes REP as a `while` loop, and the natural single-step
+reading of a `while` loop — do the body, decrement, notice zero, leave — is the
+WRONG decomposition. The right one puts the test at the top, which is what a
+`while` loop actually says and what a reader in a hurry does not see.
+
+⇒ 🔑 **A model that advanced on the decrement reaching zero is right at every
+value of RCX except 1.** It agrees on 0 (no iteration in either model) and on
+every value ≥ 2 (the count does not reach zero in one step). ONE VALUE OF ONE
+REGISTER separates the two models across the whole eleven-row group.
+
+That is D43's shape with the answer coming out the other way. There the planted
+defect caught nothing and the pre-states were at fault; here `adversarial`
+already contained 1 — put there in P0 for the flag rules, for reasons having
+nothing to do with loop counts — so the sweep reached the one state that
+discriminates and `wrongRepAdvanceOnCountZero` is caught. ⇒ **The batch was
+lucky, and the luck is worth recording as such**: had `adversarial` been the
+"interesting boundaries" list it superficially resembles — 0, powers of two,
+all-ones — the whole branch would have been green and wrong.
+
+**The second decision: `.repstrop` as its own constructor, and `stringIter`
+shared for real.** An `Option RepPrefix` field on `.strop` would have been the
+smaller diff and the worse one — it touches all twenty batch-15 vectors, both
+memory-destination gates and every characterization lemma, so a batch that
+reuses batch 15's semantics UNCHANGED would have rewritten every line naming
+them. Additive instead, for the reason batch 15 widened its window additively.
+But additive must not mean *copied*: `stringIter` is batch 15's body with the
+RIP write lifted out, and BOTH constructors call it, because a second copy of
+five subtly-ordered arms is five chances to drift.
+
+⇒ 🔑 **A refactor is audited by a theorem, not by a diff.**
+`step_repstrop_iterates_like_strop` says the prefixed form leaves the same
+memory and the same flags as the unprefixed one on a non-zero count. That is the
+statement that fails if the two bodies ever diverge, and it is re-runnable in a
+way "I checked the diff" is not.
+
+**The third: `repApplies` is a ROSTER partition, not an encoding fact.** It
+looks exactly like `bitcntEncodable` from batch 14 and means something different,
+which is the kind of resemblance that gets taken on trust. Every pair it rejects
+ASSEMBLES:
+
+* `rep cmpsq` and `repe cmpsq` are the identical bytes `f3 48 a7` — measured
+  with clang — so `.rep` on a comparison would be a second name for a form
+  `.repe` already covers.
+* `repne movsq` (`f2 48 a5`) assembles, and x86isa **executes it as an
+  unprefixed string op**: one iteration, RCX *not* decremented, RIP advanced.
+
+⇒ The model declines it. Copying an oracle's treatment of a shape the roster
+does not file would be taking a quirk for a specification — and the comment
+saying so is load-bearing, because the next reader's default assumption will be
+that a table shaped like `bitcntEncodable` records what has no encoding.
+
+## D47 — a disclaimer is not a gate, and it is worse than nothing
+
+P1 batch 16, found while sweeping for stale numbers after the coverage literal
+moved 418 → 429. `README.md` — the first file any reader of this repository
+opens, and it is destined to be public — carried this:
+
+> **P1 IN PROGRESS — twelve batches landed.** The roster now stands at
+> **388 of the 525 forms** … `527 vectors · 80 pre-states · 42160 cases`
+
+Every one of those five numbers was **four batches stale**. Batches 13, 14 and
+15 each moved the literal in `Main.lean`, regenerated `docs/COVERAGE.md`, and
+wrote a differential record; each left this paragraph untouched. Every gate in
+the repository stayed green, because none of them reads the README.
+
+That much is D41 again — *a column no gate reads is wrong wherever nobody
+looked* — arriving in a third document after the shapes column (D15/D16) and the
+per-batch narrative (D41). What makes it worth its own decision is the sentence
+that stood directly underneath it:
+
+> ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.** … the numbers in
+> this paragraph are a snapshot and that file is the claim.
+
+⇒ 🔑 **THAT DISCLAIMER IS WHY THE STALENESS SURVIVED FOUR BATCHES.** It reads as
+diligence — it names the real authority, it warns the reader, it looks like
+exactly the discipline this repository applies everywhere else. And its effect
+was to tell every reader, and every author of the next batch, *not to check
+these figures*. A number nobody is expected to trust is a number nobody
+corrects.
+
+⇒ 🔑 **A wrong number under a disclaimer is worse than a bare wrong number.** A
+bare one still looks wrong to somebody; a disclaimed one has been pre-explained,
+so noticing it feels like pedantry rather than a finding. This is D15's rule
+("a wrong claim with a reassuring comment beside it is harder to see than a bare
+one") in its strongest form yet, because here the reassuring comment was not
+merely beside the claim — it was *about* the claim, and it was TRUE. The
+generated file really is the authority. The disclaimer was accurate and it was
+still the defect.
+
+**The repair is a gate, not better prose.** `scripts/check_readme_snapshot.py`
+checks all six headline numbers in CI against sources that cannot drift in step
+with them: forms/vectors/mnemonics from the GENERATED `docs/COVERAGE.md`, the
+batch count from the `docs/DIFFERENTIAL-P1-BATCH<N>.md` files (the same anchor
+D41 uses), and pre-states/cases from the newest of those records. It also checks
+the two independent writes of the vector count against **each other** before
+comparing either to the README, so it cannot validate the README against a
+figure that is itself wrong.
+
+⚠️ **And its positive control mutates every claim and one SOURCE** — D45's
+lesson taken literally. Six claims over three sources needs a mutation per
+claim, not per gate; and without the source-side mutation a gate that parsed the
+README and compared it to itself would pass all six README arms while checking
+nothing. Deleting the paragraph outright exits 2: a missing subject is not a
+pass.
+
+## D48 — a citation is an ungated claim, and it is the most persuasive kind
+
+P1 batch 16. While writing a comment that pointed at the gate holding a claim —
+the ordinary convention in this repository — the batch cited a theorem it had
+not yet written. Grepping to fix its own slip turned up three that were already
+there, the oldest from P1 batch 11:
+
+| cited as | in | reality |
+|---|---|---|
+| loop-synonyms-are-one-encoding | `Tests/Coverage.lean` | **never existed** (batch 11) |
+| bit-counting-reaches-a-zero-source | `Tests/Coverage.lean` | split in two, citation not updated (batch 14) |
+| undefined-column-matches-the-model | `Main.lean` | the check is real; nothing ever carried that name (batch 14) |
+
+Each occurred exactly once in the repository: in the comment that cited it.
+
+⇒ 🔑 **A CITATION READS AS THE GATE IT NAMES.** These sentences are written to
+answer the sceptical reader — *this is not merely asserted, here is the theorem
+that holds it* — and they answer that reader whether or not the theorem exists.
+Nobody greps for the name of a gate they have just been told about; the citation
+is the reason not to look. This is D15's rule ("a wrong claim with a reassuring
+comment beside it is harder to see than a bare one") one level up: the comment is
+no longer merely reassuring, it names its own evidence.
+
+⚠️ **And the two grades are different defects.** A citation whose name drifted
+(batch 14's two) still points a reader at real work — a grep finds the
+near-neighbour, and the claim IS held. One that points at nothing (batch 11's)
+leaves the claim unheld while looking held. Batch 16 had reproduced the second
+kind verbatim, which is what a convention does when nothing checks it: **the
+pattern gets copied together with its hole.**
+
+**The repair, in two parts.**
+
+`scripts/check_citations.py` (CI) requires every `` `identifier` `` cited "in
+<source file>" to OCCUR in that file. ⚠️ Occurrence, not declaration, and the
+weaker test is deliberate: a first version demanded a declaration and fired on
+"the list of `undefBit` call sites in `X86/Semantics.lean`" and "paired with
+`Oracle.zero` in `Tests/Nonvacuity.lean`" — both true sentences citing a file
+for a USE. **A gate that cries wolf on true sentences gets switched off**, and
+occurrence is exactly the line between pointing at something and pointing at
+nothing. Its control runs both directions: a phantom must be caught and a real
+citation must NOT be flagged, because a gate that only proves it can go red says
+nothing about why it goes green.
+
+And batch 11's actual claim is now *held*, not merely cited: the `SYNONYMS`
+table in `scripts/check_encodings.py` assembles `loope`/`loopz`,
+`loopne`/`loopnz`, `repe`/`repz` and `repne`/`repnz` and requires identical
+bytes. ⚠️ **It could never have been the theorem batch 11 named.** There are no
+`loopz`/`repz` vectors and there must not be — a vector per spelling is one
+instruction differentially tested twice — so a theorem "over the vector table"
+had nothing to quantify over. The claim is about an assembler and now an
+assembler checks it. ⇒ **The phantom citation was not a typo; it named a
+theorem that could not exist**, and writing the name was what made the
+impossibility invisible.
+
+⚠️ **A limit, stated because it shaped the repair.** The gate cannot tell a live
+citation from a quoted dead one: this batch's own post-mortem notes quote the
+sentences they replace, and the gate flagged them. Weakening it to guess at
+quotation would trade a real check for a heuristic in a file whose whole subject
+is claims nobody verifies. The convention instead is that **a dead citation is
+never written in citation form** — named in prose, never as `` `ident` ``
+beside its file — which is why those notes read as they do.

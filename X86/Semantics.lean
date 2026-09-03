@@ -150,6 +150,58 @@ def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
     let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
     (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
 
+/-- ⭐ P1 BATCH 16: ONE ITERATION OF A STRING OPERATION, WITHOUT THE RIP WRITE.
+
+This is P1 batch 15's `.strop` body verbatim, with the single `setRip nr` at the
+end of each arm lifted out to the caller.  It is factored rather than copied
+because batch 16 needs the SAME five iterations under a repeat prefix, and a
+second copy of five subtly-ordered arms — the access-before-update rule, the
+`.q` pointer write against the `sz` data access, `cmps`'s reversed operand order
+— is five chances for the two copies to drift.  ⚠️ The refactor is guarded: the
+twenty batch-15 vectors and their characterization lemmas run against it
+unchanged, so a slip here is a RED differential and not a silent regression.
+
+⛔ IT DELIBERATELY DOES NOT TOUCH RIP.  Both callers write RIP exactly once and
+explicitly, so "which address this instruction leaves behind" is a decision
+visible at the call site rather than an absence to be inferred.  Batch 16 is the
+first form in this model whose RIP is sometimes its OWN address, and an
+implicit-fallthrough spelling of that would be indistinguishable from a
+forgotten write. -/
+def stringIter (k : StringOp) (sz : Size) (s : Cpu) : Cpu :=
+  let step : BitVec 64 := BitVec.ofNat 64 sz.bytes
+  let d : BitVec 64 := if s.flags.df then 0 - step else step
+  let si := s.regs.get .rsi
+  let di := s.regs.get .rdi
+  match k with
+  | .movs =>
+      let v := s.readMem sz si
+      let s := s.writeMem sz di v
+      ((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))
+  | .stos =>
+      let v := s.getReg sz .rax
+      let s := s.writeMem sz di v
+      s.setReg .q .rdi (di + d)
+  -- ⚠️ LODS WRITES THE ACCUMULATOR THROUGH THE ORDINARY WIDTH RULE, so
+  -- `lodsl` ZERO-EXTENDS into RAX while `lodsw` and `lodsb` MERGE (SDM
+  -- Vol. 1 §3.4.1.1).  This is the one place in the group where `setReg`'s
+  -- width behaviour is wanted rather than bypassed.
+  | .lods =>
+      let v := s.readMem sz si
+      let s := s.setReg sz .rax v
+      s.setReg .q .rsi (si + d)
+  -- ⛔ SOURCE MINUS DESTINATION: `[RSI] − [RDI]`, not the AT&T print order.
+  | .cmps =>
+      let a := s.readMem sz si
+      let b := s.readMem sz di
+      let s := s.setFlags (Flags.sub sz a b s.flags)
+      ((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))
+  -- SCAS is `RAX − [RDI]`, and only RDI moves.
+  | .scas =>
+      let a := s.getReg sz .rax
+      let b := s.readMem sz di
+      let s := s.setFlags (Flags.sub sz a b s.flags)
+      s.setReg .q .rdi (di + d)
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -666,40 +718,52 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- "Flags Affected: None" for MOVS, STOS and LODS.  CMPS and SCAS set all six
   -- arithmetic flags and leave NONE undefined — the whole group draws nothing
   -- from the oracle, which is why every row of it is `T-exact`.
-  | .strop k sz =>
-      let step : BitVec 64 := BitVec.ofNat 64 sz.bytes
-      let d : BitVec 64 := if s.flags.df then 0 - step else step
-      let si := s.regs.get .rsi
-      let di := s.regs.get .rdi
-      match k with
-      | .movs =>
-          let v := s.readMem sz si
-          let s := s.writeMem sz di v
-          (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
-      | .stos =>
-          let v := s.getReg sz .rax
-          let s := s.writeMem sz di v
-          (s.setReg .q .rdi (di + d)).setRip nr
-      -- ⚠️ LODS WRITES THE ACCUMULATOR THROUGH THE ORDINARY WIDTH RULE, so
-      -- `lodsl` ZERO-EXTENDS into RAX while `lodsw` and `lodsb` MERGE (SDM
-      -- Vol. 1 §3.4.1.1).  This is the one place in the group where `setReg`'s
-      -- width behaviour is wanted rather than bypassed.
-      | .lods =>
-          let v := s.readMem sz si
-          let s := s.setReg sz .rax v
-          (s.setReg .q .rsi (si + d)).setRip nr
-      -- ⛔ SOURCE MINUS DESTINATION: `[RSI] − [RDI]`, not the AT&T print order.
-      | .cmps =>
-          let a := s.readMem sz si
-          let b := s.readMem sz di
-          let s := s.setFlags (Flags.sub sz a b s.flags)
-          (((s.setReg .q .rsi (si + d)).setReg .q .rdi (di + d))).setRip nr
-      -- SCAS is `RAX − [RDI]`, and only RDI moves.
-      | .scas =>
-          let a := s.getReg sz .rax
-          let b := s.readMem sz di
-          let s := s.setFlags (Flags.sub sz a b s.flags)
-          (s.setReg .q .rdi (di + d)).setRip nr
+  | .strop k sz => (stringIter k sz s).setRip nr
+
+  -- ⭐⭐ P1 BATCH 16: THE REPEAT PREFIXES (SDM Vol. 2B, REP/REPE/REPZ/REPNE/
+  -- REPNZ).  ONE ITERATION PER `step`, and the loop-back is a RIP that does not
+  -- move.
+  --
+  -- ⛔⛔ COUNT EXHAUSTION DOES NOT ADVANCE RIP, AND THIS IS THE ONE THING HERE
+  -- THAT IS NOT WHAT IT LOOKS LIKE.  The obvious model — and the SDM's own
+  -- pseudocode read as a single step — decrements RCX, notices it has reached
+  -- zero, and falls through to the next instruction.  x86isa does not: measured,
+  -- `rep movsq` with RCX = 1 performs the copy, leaves RCX = 0, and leaves RIP
+  -- AT THE INSTRUCTION.  It takes one FURTHER step, which finds RCX already
+  -- zero, to move past it.  So the count is tested only ON ENTRY, and the
+  -- SDM's loop is decomposed with its `while` test at the TOP.
+  --
+  -- ⚠️ A MODEL THAT ADVANCED ON THE DECREMENT REACHING ZERO IS RIGHT EVERYWHERE
+  -- EXCEPT RCX = 1.  It agrees on every RCX = 0 case (no iteration at all) and
+  -- on every RCX ≥ 2 case (the count does not reach zero), so exactly one value
+  -- of one register separates the two models — and `adversarial` contains 1, so
+  -- the pre-states reach it.  `wrongRepAdvanceOnCountZero` in Main.lean is that
+  -- model, and it is caught.  Had the sweep skipped 1, this whole branch would
+  -- have been green and wrong, which is D43 in the shape it takes when the
+  -- state DOES happen to express the difference.
+  --
+  -- THE ZF PREDICATE READS THE FLAGS THE ITERATION JUST WROTE (`RepPrefix.
+  -- terminates` on `s'.flags.zf`, not `s.flags.zf`).  `repe cmpsq` on differing
+  -- operands ended the repeat in the same step it made the comparison.
+  --
+  -- ⚠️ AND THE COUNT WRITE IS `.q`, like the pointer writes beside it: `rep
+  -- movsb` decrements the whole of RCX.  Measured at RCX = 0x1_0000_0001, which
+  -- became 0x1_0000_0000 — a value whose low half alone would have wrapped.
+  --
+  -- "Flags Affected: None" for the prefix itself; the flags are whatever the
+  -- iteration left, and on the RCX = 0 path they are untouched.
+  | .repstrop r k sz =>
+      if !repApplies r k then
+        s.halt (.unimplemented "repeat prefix not filed for this string op")
+      else
+        let cx := s.regs.get .rcx
+        -- RCX = 0 ON ENTRY: no iteration at all.  No memory access, no flag
+        -- write, no pointer move, and RCX is NOT decremented — it does not wrap
+        -- to all-ones.  This is the only path that always advances.
+        if cx == 0 then s.setRip nr
+        else
+          let s' := (stringIter k sz s).setReg .q .rcx (cx - 1)
+          s'.setRip (if r.terminates s'.flags.zf then nr else s.rip)
 
   | .call t =>
       match t with

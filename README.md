@@ -97,19 +97,32 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 IN PROGRESS — twelve batches landed.** The roster now stands at
-**388 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
+**P1 IN PROGRESS — 16 batches landed.** The roster now stands at
+**429 of the 525 forms** in [`p1/roster.tsv`](p1/roster.tsv), differentially
 tested against ACL2 x86isa on every batch:
 
 ```
-527 vectors · 80 pre-states · 42160 cases · 0 unexplained · 0 oracle leaks
+627 vectors · 82 pre-states · 51414 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
 [`docs/COVERAGE.md`](docs/COVERAGE.md) is emitted by
 `lake exe x86lean-diff coverage` and carries every form's fidelity tier, its
-decode-trust column and its undefined bits; the numbers in this paragraph are a
-snapshot and that file is the claim. Per-batch evidence, including every
+decode-trust column and its undefined bits.
+
+⛔ **AND EVERY NUMBER IN THE PARAGRAPH ABOVE IS GATED**, by
+`scripts/check_readme_snapshot.py` in CI, against the generated coverage table
+and the per-batch differential records. Until P1 batch 16 it was not, and it had
+been wrong for four batches — 388 forms, twelve batches, 527 vectors — while
+every other gate in the repository stayed green.
+
+⇒ 🔑 The sentence that used to stand here said the numbers were "a snapshot" and
+that the generated file "is the claim". That disclaimer is what made the
+staleness invisible: it told every reader not to trust the figures, so nobody
+checked them, and four batches went by. **A disclaimer is not a gate** — it
+converts a wrong number into an expected one, which is strictly worse than
+leaving it unqualified, because an unqualified wrong number still looks wrong to
+somebody. See `docs/DECISIONS.md` D47. Per-batch evidence, including every
 disagreement and every finding, is in `docs/DIFFERENTIAL-P1-BATCH*.md`, and
 every design call that cost something is in
 [`docs/DECISIONS.md`](docs/DECISIONS.md).

@@ -996,15 +996,15 @@ member is wrong in isolation, it is that one member was written by editing
 another and kept a line it should have dropped. -/
 @[simp] theorem step_strop_movs_flags (h : Live s) :
     (step ⟨.strop .movs sz, len⟩ s).flags = s.flags := by
-  simp [step, Cpu.stopped, h]
+  simp [step, stringIter, Cpu.stopped, h]
 
 @[simp] theorem step_strop_stos_flags (h : Live s) :
     (step ⟨.strop .stos sz, len⟩ s).flags = s.flags := by
-  simp [step, Cpu.stopped, h]
+  simp [step, stringIter, Cpu.stopped, h]
 
 @[simp] theorem step_strop_lods_flags (h : Live s) :
     (step ⟨.strop .lods sz, len⟩ s).flags = s.flags := by
-  simp [step, Cpu.stopped, h]
+  simp [step, stringIter, Cpu.stopped, h]
 
 /-- ⭐ CMPS AND SCAS WRITE NO MEMORY.  They are the two members whose coverage
 row CLAIMS a memory destination (`m,m` and `m,acc`) while writing nothing — the
@@ -1012,11 +1012,11 @@ row CLAIMS a memory destination (`m,m` and `m,acc`) while writing nothing — th
 reader is most likely to doubt. -/
 @[simp] theorem step_strop_cmps_mem (h : Live s) :
     (step ⟨.strop .cmps sz, len⟩ s).mem = s.mem := by
-  simp [step, Cpu.stopped, h]
+  simp [step, stringIter, Cpu.stopped, h]
 
 @[simp] theorem step_strop_scas_mem (h : Live s) :
     (step ⟨.strop .scas sz, len⟩ s).mem = s.mem := by
-  simp [step, Cpu.stopped, h]
+  simp [step, stringIter, Cpu.stopped, h]
 
 /-- ⭐ LODS DOES NOT TOUCH RDI, AND STOS AND SCAS DO NOT TOUCH RSI.  Which
 pointer each form advances is the single most confusable fact in the group —
@@ -1025,16 +1025,87 @@ that says the differential can see it.  This says the model has it right by
 construction rather than by agreement. -/
 theorem step_strop_lods_rdi (h : Live s) :
     (step ⟨.strop .lods sz, len⟩ s).regs.get .rdi = s.regs.get .rdi := by
-  simp [step, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
+  simp [step, stringIter, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
 
 theorem step_strop_stos_rsi (h : Live s) :
     (step ⟨.strop .stos sz, len⟩ s).regs.get .rsi = s.regs.get .rsi := by
-  simp [step, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
+  simp [step, stringIter, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
 
 theorem step_strop_scas_rsi (h : Live s) :
     (step ⟨.strop .scas sz, len⟩ s).regs.get .rsi = s.regs.get .rsi := by
-  simp [step, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
+  simp [step, stringIter, Cpu.stopped, h, Cpu.setReg, Cpu.setRip, Regs.get_set_ne]
 
 end StringOps
+
+/-! ### P1 BATCH 16 — the repeat prefixes -/
+section RepStringOps
+variable {r : RepPrefix} {k : StringOp} {sz : Size} {len : Nat} {s : Cpu}
+
+/-- A prefix this model does not claim HALTS rather than guessing.  `repApplies`
+is a roster partition and every pair it rejects assembles, so the decline has to
+be visible in the semantics and not only in the coverage table. -/
+theorem step_repstrop_declined (h : Live s) (hp : repApplies r k = false) :
+    (step ⟨.repstrop r k sz, len⟩ s).stopped = true := by
+  simp [step, Cpu.stopped, Cpu.halt, h, hp] at *
+
+/-- ⭐ RCX = 0 ON ENTRY: THE INSTRUCTION IS A FALL-THROUGH AND NOTHING ELSE.
+No memory access, no flag write, no pointer move — and RCX itself is NOT
+decremented, so it does not wrap to all-ones.  Stated over the WHOLE record
+rather than field by field, because "changes nothing" is the claim and a
+field-by-field version would be a list somebody has to keep complete. -/
+theorem step_repstrop_rcx_zero (h : Live s) (hp : repApplies r k = true)
+    (h0 : s.regs.get .rcx = 0) :
+    step ⟨.repstrop r k sz, len⟩ s
+      = { s with rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, Cpu.stopped, Cpu.setRip, h, hp, h0]
+
+/-- ⭐⭐ THE BATCH'S FINDING, AS A THEOREM: `rep` ON A NON-ZERO COUNT LEAVES RIP
+WHERE IT FOUND IT — including on the step that drives the count to zero.
+
+`RepPrefix.terminates .rep` is constantly `false`, so this needs no hypothesis
+about the count's VALUE beyond its being non-zero: `rep movs` with RCX = 1 ends
+with RCX = 0 and RIP still at the instruction, and it is the NEXT step, finding
+the count already zero, that falls through.  A model that advanced on the
+decrement reaching zero contradicts this theorem at exactly one value of RCX,
+and `wrongRepAdvanceOnCountZero` is that model. -/
+theorem step_rep_rip_unmoved (h : Live s) (hp : repApplies .rep k = true)
+    (h0 : ¬ (s.regs.get .rcx = 0)) :
+    (step ⟨.repstrop .rep k sz, len⟩ s).rip = s.rip := by
+  simp only [step, Cpu.stopped, h, hp, if_false, Bool.not_true, if_neg h0,
+    beq_iff_eq, Bool.false_eq_true, RepPrefix.terminates, Cpu.setRip, Cpu.setReg]
+  simp
+
+/-- The count is decremented by one, as a FULL 64-BIT write.  `rep movsb`
+decrements the whole of RCX, not its low byte — the pointer-width defect of
+batch 15 (D43) in the one register batch 15 did not update. -/
+theorem step_repstrop_decrements_rcx (h : Live s) (hp : repApplies r k = true)
+    (h0 : ¬ (s.regs.get .rcx = 0)) :
+    (step ⟨.repstrop r k sz, len⟩ s).regs.get .rcx = s.regs.get .rcx - 1 := by
+  -- ⚠️ ALL FIVE KINDS, not the three that move two pointers.  A first draft
+  -- carried `k ≠ .lods` and `k ≠ .scas` hypotheses that nothing in the
+  -- statement needs — `stringIter` never writes RCX for any kind — and
+  -- `simp_all` discharged those two cases FROM THE CONTRADICTION rather than
+  -- from the semantics.  The theorem was green and silent about two fifths of
+  -- the group it names.
+  cases k <;> simp_all [step, Cpu.stopped, Cpu.setRip, Cpu.setReg, stringIter,
+    Regs.get_set_ne]
+
+/-- ⭐⭐ THE PREFIX CHANGES LOOP CONTROL AND NOTHING ELSE — the theorem that
+audits the `stringIter` refactor rather than trusting it.
+
+On a non-zero count, the prefixed form leaves the SAME memory and the SAME flags
+as the unprefixed one.  If the shared iteration had been copied instead of
+factored and the two copies drifted, this is the statement that would fail; a
+script that diffed the two bodies would not have been evidence anybody could
+re-run. -/
+theorem step_repstrop_iterates_like_strop (h : Live s) (hp : repApplies r k = true)
+    (h0 : ¬ (s.regs.get .rcx = 0)) :
+    (step ⟨.repstrop r k sz, len⟩ s).mem = (step ⟨.strop k sz, len⟩ s).mem
+  ∧ (step ⟨.repstrop r k sz, len⟩ s).flags = (step ⟨.strop k sz, len⟩ s).flags := by
+  constructor <;>
+    (simp only [step, Cpu.stopped, h, hp, if_false, Bool.not_true, if_neg h0,
+      beq_iff_eq, Bool.false_eq_true, Cpu.setRip, Cpu.setReg]; simp)
+
+end RepStringOps
 
 end X86
