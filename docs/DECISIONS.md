@@ -1091,3 +1091,161 @@ does not arise. **The dimension a defect can hide in is the one no existing row
 varies** — which is D27's rule ("a gate watching something that cannot move
 reports an agreement it never tested") moved from the pre-state set to the
 NOTATION.
+
+## D38
+
+**An absolute kernel-time ceiling on a table-driven module is a chore, not a
+gate — and it provably missed the regression a per-row one catches.**
+
+P1 batch 13 handed batch 14 a named inherited cost: `Tests.Coverage` at
+16 400 ms against a 19 560 ms ceiling (84%), of which 5 800 ms was one theorem.
+Batch 14's first act was to MEASURE it rather than act on it, and both figures
+were wrong: the module ran **17 900–18 400 ms across three runs (92–94%)** and
+the theorem's share was **12 300 ms, not 5 800** — more than twice the handed-on
+number and 69% of the module rather than 35%. ⇒ [[inherited-diagnosis-is-a-hypothesis]]
+for the fifth time in this repository, and the first time the inherited number
+was wrong in the *reassuring* direction on both halves at once.
+
+⛔ **THE OBVIOUS REPAIR WAS TRIED FIRST AND FAILED.** The audit theorem was a
+conjunction of two `decide`s that swept the table twice, evaluating both string
+predicates on every row in both sweeps — four predicate evaluations per row for a
+question about one. Rewritten as a single `filterMap` it evaluates each once and
+says strictly more (the second component records WHICH rule claimed the row, so a
+row changing hands the other way breaks the equality). **It saved nothing:
+17.9 s before, 17.9 s after.** Measuring the two disjuncts of
+`claimsMemDestLoose` separately shows why — the `m,r` infix scan costs ~6.1 s and
+`looseMemDestShape` ~6.1 s, so both are full character-list sweeps of the shapes
+column and the traversal count was never the driver. ⇒ **The cost is reading the
+artifact in the kernel, which D15 already decided to pay.** The rewrite was kept
+for being a stronger statement and for deleting a duplicated definition, not as
+an optimisation — it was not one, and its comment says so.
+
+⇒ 🔑 **SO THE UNITS CHANGED INSTEAD OF THE NUMBER.** This module's kernel cost is
+LINEAR IN THE COVERAGE TABLE, which grows every batch by construction. An
+absolute ceiling on it must therefore be raised every batch — batches 3 and 14
+both did — and **a gate relaxed on schedule is not a gate; it is a chore that
+trains its owner to raise it.** The ceiling is now registered PER ROW
+(`Tests.Coverage @perRow 470.0`) and multiplied by the live row count.
+
+⭐ **AND THE OLD FORM PROVABLY MISSED WHAT THE NEW ONE CATCHES.** Batch 13's
+theorem took the module from ~90 ms/row to 293 ms/row — a **3.2× jump in cost per
+row** — and the absolute ceiling did not fire (17 900 against 19 560). At the
+registered headroom the per-row ceiling does. Batch 14's own 12 rows and 34
+vectors then took it to **266 ms/row, DOWN from 293** while the absolute number
+held flat: the gate now reads cost DENSITY, where ordinary growth is free and
+only a real regression moves the number.
+
+⚠️ The denominator is not counted by the script. It is read from the literal in
+`theorem roster_size_is_N : rosterSize = N := by decide`, which `table_row_count`
+pins to `tableP0.length` — so the number the ceiling divides by is one Lean
+PROVES is the table's length. A missing or ambiguous literal is an ERROR, never a
+default; both refusals are probed.
+
+⚠️ **AND BATCH 10 ASKED FOR THIS AT THE RIGHT TIME AND WAS NOT HEARD.** Its note
+in `Tests/Coverage.lean` says: measure per theorem, "the ceiling is untouched at
+19560 with 2.4× headroom, so there is room to do that properly rather than under
+pressure." Batches 11, 12 and 13 did not; batch 14 arrived at 1.09× and did it
+under exactly the pressure batch 10 named. ⇒ **A deferred instruction with no
+gate behind it is a suggestion, and the batch that can afford to act on it is
+never the batch that has to.**
+
+## D39
+
+**The `undefined` column was a published claim that no gate read.**
+
+`frame_tier_iff_undefined_bits` checked the column against the TIER — frame iff
+non-empty — and nothing checked its CONTENTS. A row naming the wrong flags, or
+four of the five it should, read exactly like a correct one. It is the model's
+published statement of where it declines to commit and what every tier claim
+rests on, and for thirteen batches it was prose.
+
+`checkUndefinedColumn` compares the flag TOKENS each row mentions against the set
+the model actually draws, measured over every emitted case, **in both
+directions**: a row naming a flag the model never draws OVER-claims, and a row
+missing one the model does draw UNDER-claims — the worse direction, because a
+reader takes a bit for committed that the oracle chooses.
+
+⚠️ **Tokens, not strings, and the limit is stated rather than left to be found.**
+Existing rows carry real conditions (`CF (count ≥ width)`, `OF (count ≠ 1)`) that
+are worth keeping in the published table, so the gate extracts the names a row
+mentions and does not police the prose around them. **A row could still carry a
+wrong CONDITION.** That is not checked here, and saying so is part of the gate.
+
+⇒ 🔑 **A column no gate reads is wrong wherever nobody looked** — D15's rule
+about the shapes column, arriving in the column beside it, found only because
+batch 14 added the first row whose undefined region is not a flag.
+
+## D40
+
+**The first UNDEFINED DESTINATION, and how the leak check kept its teeth.**
+
+`bsf`/`bsr` at a zero source leave the DESTINATION REGISTER undefined (SDM
+Vol. 2A) — not a flag. Every undefined region in the model until batch 14 was a
+flag, and `undefinedLeaked` could therefore be stated in one line: the two
+opposite oracle runs must agree on everything that is not a flag.
+
+Real silicon leaves the destination unmodified and AMD documents that it does.
+Intel does not, and this model follows its stated source: writing the old value
+back would be INVENTING A FACT in exactly the sense `X86/Oracle.lean`'s header
+forbids — and it is the more tempting invention because it matches the machine on
+the desk. **The differential run shows the two models parting exactly there**:
+against ACL2 x86isa, which leaves the destination unmodified, there are **108
+disagreements in `rax`, all in `bsf`/`bsr`**, every one of them EXPLAINED.
+
+⛔ **THE TEMPTING REPAIR WOULD HAVE GUTTED THE LEAK CHECK.** Widening the derived
+undefined set to registers and stopping there means no register can ever leak
+again: an oracle bit reaching `rcx` by mistake would be re-read as "`rcx` is
+undefined here", the differential would file the resulting disagreement as
+`undefined-region`, and a real spec bug would be recorded as an explained one.
+The check would report a pass in precisely the case it exists to catch.
+
+⇒ 🔑 **SO THERE ARE TWO SOURCES AND THE GATE IS THEIR EQUALITY.**
+`declaredUndefRegs` reads the AST and the SDM rule; `undefinedRegs` runs the two
+oracles and reports what moved. A register that moves and is not declared is the
+old leak. A register declared and not moving is a FALSE UNDEFINED CLAIM — the new
+hazard, which would license the harness to explain away a genuine disagreement in
+that register for ever. Neither direction was possible before this batch and both
+are probed: declaring the destination always (378 leaks), never (78), and
+**declaring the WRONG register — right count, wrong name — which also fires (78)
+and is the one a count-based check would have missed.**
+
+⚠️ **AND THERE IS NO SELFTEST ARM FOR IT, CORRECTLY.** A model writing a
+different value into an undefined destination is not WRONG; `classify` files that
+as `undefined-region` and `driveWrong` excludes the class by design. The claim is
+held up where it can actually be seen — `Tests/Nonvacuity.lean` (the two oracles
+must differ at a zero source and AGREE at a non-zero one) and `undefinedLeaked`
+on every case. **An arm here would have been a probe that could only report a
+pass**, which is the shape of [[a-probe-must-create-its-condition]].
+
+⚠️ Batch 14 first probed the leak check with `selftest <arm>` and got PASS from a
+deliberately broken declaration — because `driveWrong` never reads
+`Report.leaks`. The count was reachable only through the no-argument selftest's
+control, twenty-one minutes away. It is now in the `undefined-column` command
+(32 s), because a discipline expensive to exercise gets exercised less.
+
+## D41
+
+**The count had a comment and survived thirteen batches; the sentence beside it
+had none and did not.**
+
+`docs/COVERAGE.md`'s per-batch narrative stopped at "12 — the near-free four"
+while the count in the same paragraph already read **396**, which includes batch
+13. Batch 13 updated the number and not the prose. Every gate stayed green, and
+the published coverage document described a model one batch older than the one it
+tabulated.
+
+The two claims sit one line apart and are maintained by the same hand. The
+difference between them is that the literal carries a comment in `Main.lean`
+stating the counting rule and an `awk` line that checks it, and the sentence
+carried nothing.
+
+`scripts/check_coverage_prose.py` gates the narrative against the
+`docs/DIFFERENTIAL-P1-BATCH<N>.md` files — one per batch, written by a different
+step of the work for a different reason, so **the two sides of the gate are not
+maintained by the same edit**. A gate whose halves move together is a gate that
+agrees with itself. It is probed by replaying batch 13's actual defect (narrative
+stops at 12 ⇒ RED), by removing a middle batch (⇒ RED), and by hiding the
+narrative altogether (⇒ refusal, rc 2, not a pass).
+
+⇒ 🔑 **Prose next to a gated number is the least-suspected text in a
+document**: it is read every time the number is checked, and checked never.

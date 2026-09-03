@@ -57,8 +57,8 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`. -/
-theorem roster_size_is_61 : rosterSize = 61 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six. -/
+theorem roster_size_is_67 : rosterSize = 67 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -176,6 +176,66 @@ operands and the differential run cannot tell `adc` from `add`. -/
 theorem pre_states_sweep_cf :
     ((preStates 1 8).any (fun s => s.flags.cf)
       && (preStates 1 8).any (fun s => !s.flags.cf)) = true := by decide
+
+/-! ### P1 BATCH 14 — the zero source, and the encodings that do not exist
+
+⭐ THE ZERO SOURCE IS THE ONLY STATE IN WHICH FOUR OF THIS BATCH'S SIX FORMS SAY
+ANYTHING UNUSUAL: `bsf`/`bsr` leave the destination undefined there, and
+`lzcnt`/`tzcnt` answer the operand width and set CF there.  Batch 14 claimed it
+needed no new pre-state because `preStates`' diagonal arm already reaches it.
+⛔ THAT CLAIM IS ASSERTED HERE RATHER THAN BELIEVED — it is exactly the shape of
+claim D14, D26 and D27 each caught being false after the fact, and each time the
+run had been green. -/
+
+/-- A pre-state in which the REGISTER source of an `r,r` form is zero. -/
+theorem bit_counting_reaches_a_zero_register_source :
+    (preStates 1 8).any (fun s => s.regs.rcx == 0) = true := by decide
+
+/-- ⭐ AND ONE IN WHICH THE MEMORY SOURCE IS ZERO TOO, which is a separate fact:
+the `r,m` vectors read the eight bytes at RBX, not RCX, and a batch that checked
+only the register shape would have left half its forms never reaching their
+interesting state.  `mkPre` writes `c` to that span, so this asks whether some
+pre-state has BOTH the pointer and zero bytes behind it. -/
+theorem bit_counting_reaches_a_zero_memory_source :
+    (preStates 1 8).any (fun s =>
+      s.regs.rbx == 0x2000 && s.readMem .q 0x2000 == 0) = true := by decide
+
+/-- ⚠️ AND A NON-ZERO SOURCE IS REACHED AS WELL, in both shapes.  Without this
+the two theorems above would be satisfied by a pre-state set that was ALL zeros,
+in which `bsf` is undefined everywhere and nothing is tested. -/
+theorem bit_counting_reaches_a_nonzero_source :
+    ((preStates 1 8).any (fun s => s.regs.rcx != 0)
+      && (preStates 1 8).any (fun s => s.regs.rbx == 0x2000 && s.readMem .q 0x2000 != 0)) = true := by
+  decide
+
+/-- ⭐ THE FORMS THIS MODEL DECLINES, STATED AS THE EXACT LIST.  Six (kind,
+width) pairs have no encoding: none of the six mnemonics has an 8-bit form, and
+`blsi` is VEX-encoded with VEX.W selecting 32 or 64, so it has no 16-bit one.
+
+⛔ STATED AS THE PAIRS AND NOT AS A COUNT, for the reason
+`mem_dest_rewrite_changed_exactly_the_three_operand_rows` is: a count of seven
+is satisfied by any seven pairs changing hands, and the pair that would actually
+go wrong here — `blsi` at `.w` — is the one a reader is most likely to forget. -/
+theorem bitcnt_declined_forms_are_exactly_the_unencodable_ones :
+    (([BitCntKind.popcnt, .lzcnt, .tzcnt, .bsf, .bsr, .blsi].flatMap (fun k =>
+        [Size.b, .w, .d, .q].filterMap (fun sz =>
+          if bitcntEncodable k sz then none else some (k, sz))))
+      = [(.popcnt, .b), (.lzcnt, .b), (.tzcnt, .b), (.bsf, .b), (.bsr, .b),
+         (.blsi, .b), (.blsi, .w)]) := by decide
+
+/-- And every (kind, width) pair the model DOES accept has a differential vector
+at both operand shapes — so `r,r · r,m` in the coverage table is backed rather
+than asserted. -/
+theorem bitcnt_encodable_forms_all_have_both_shapes :
+    ([BitCntKind.popcnt, .lzcnt, .tzcnt, .bsf, .bsr, .blsi].all (fun k =>
+      [Size.b, .w, .d, .q].all (fun sz =>
+        !bitcntEncodable k sz ||
+          (vectors.any (fun v => match v.instr.op with
+             | .bitcnt k' sz' _ (.reg _ _) => k' == k && sz' == sz
+             | _ => false)
+           && vectors.any (fun v => match v.instr.op with
+             | .bitcnt k' sz' _ (.mem _) => k' == k && sz' == sz
+             | _ => false))))) = true := by decide
 
 /-! ### P1 BATCH 3 — the MEMORY OPERAND's own coverage
 
@@ -443,7 +503,10 @@ def isMemDestVector (v : Vec) : Bool :=
     | .movbe _ d _ => d.isMem
     -- `.shiftx` writes a GPR by its type, exactly as `.movx` and `.bswap` do;
     -- its MEMORY operand is the source.  `false` is the decision, not a gap.
-    | .shiftx .. => false)
+    | .shiftx .. => false
+    -- P1 BATCH 14.  The bit-counting group's destination is always a GPR; its
+    -- MEMORY operand is the source.  `false` is the decision, not a gap.
+    | .bitcnt .. => false)
 
 /-- The mnemonics that HAVE such a vector, collapsed ONCE.  Asking the question
 per row re-swept the WHOLE vector table for every claiming row; the set it is
@@ -465,11 +528,14 @@ re-run — so the old rule stays here and the disagreement is a THEOREM.
 
 ⚠️ This is deliberately the pre-batch-13 predicate, warts and all: the literal
 `m,r` anywhere plus `m` + optional width + `(` anywhere, neither of them
-position-aware. -/
-private def isInfixOfChars' (pat : List Char) : List Char → Bool
-  | [] => pat.isEmpty
-  | c :: rest => pat.isPrefixOf (c :: rest) || isInfixOfChars' pat rest
+position-aware.
 
+⛔ BATCH 14: it reached this shape carrying a BYTE-IDENTICAL COPY of
+`isInfixOfChars` under a primed name.  The rewrite that introduced it had just
+stopped using the original in `claimsMemDest`, so the original became dead and
+the copy became the only live one — two definitions that agreed at birth, one
+of them unreachable, and nothing to hold them together on the next edit.  The
+copy is gone; this rule calls the original, which is live again. -/
 private def looseMemDestShape : List Char → Bool
   | [] => false
   | c :: rest =>
@@ -477,7 +543,7 @@ private def looseMemDestShape : List Char → Bool
       || looseMemDestShape rest
 
 private def claimsMemDestLoose (r : Row) : Bool :=
-  isInfixOfChars' "m,r".toList r.shapes.toList || looseMemDestShape r.shapes.toList
+  isInfixOfChars "m,r".toList r.shapes.toList || looseMemDestShape r.shapes.toList
 
 set_option maxHeartbeats 1000000 in
 /-- ⭐ THE REWRITE CHANGED EXACTLY THREE ROWS, AND THEY ARE THE THREE IT WAS
@@ -486,14 +552,38 @@ forms; the old rule read the `m,r` inside their `r,m,r` as a memory
 DESTINATION, and that `m` is the source.  Every other row answers the same as
 it did before.
 
-⛔ AND THE THEOREM IS STATED AS "the loose rule minus the tight one is exactly
-this list", not as "they agree on 58 rows": a count would be satisfied by any
-three rows changing hands. -/
+⛔ AND THE THEOREM IS STATED AS "the rows where the two rules DISAGREE are
+exactly this list", not as "they agree on 58 rows": a count would be satisfied
+by any three rows changing hands.
+
+⭐ BATCH 14 MADE IT ONE TRAVERSAL AND STRICTLY STRONGER.  It was a conjunction
+of two `decide`s — "loose-minus-tight is these three" and "tight implies loose"
+— which swept the table twice and evaluated BOTH string predicates on every row
+in BOTH sweeps.  Written as a single `filterMap` it evaluates each predicate
+once per row, and it says MORE: the second component records which rule claimed
+the row, so a row that changed hands the other way (tight yes, loose no) appears
+as `(_, false)` and breaks the equality.  That is the old second conjunct,
+carried per-row instead of as a separate sweep.
+
+⛔⛔ AND IT SAVED NO KERNEL TIME AT ALL — 17.9s BEFORE, 17.9s AFTER.  The
+rewrite was made on a plausible diagnosis (four predicate evaluations per row
+for a question about one) and the diagnosis was WRONG about where the money
+goes.  Measuring the two disjuncts of `claimsMemDestLoose` separately: the
+`m,r` infix scan alone costs ~6.1s and `looseMemDestShape` alone costs ~6.1s,
+so BOTH are full character-list sweeps of the shapes column and the traversal
+count was never the driver.  ⇒ **The cost is reading the artifact in the
+kernel, and D15 already decided to pay it.**  There is no cheap version of this
+gate; there is only the gate or a gate on a shadow of the artifact.  The
+rewrite is kept because it is a STRONGER statement and it deleted a duplicated
+definition, not because it was an optimisation — it was not one.  See
+docs/DECISIONS.md D38. -/
 theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
-    ((tableP0.filter (fun r => claimsMemDestLoose r && !claimsMemDest r)).map Row.mnemonic
-      = ["sarx", "shlx", "shrx"])
-    ∧ (tableP0.all (fun r => !claimsMemDest r || claimsMemDestLoose r) = true) := by
-  refine ⟨by decide, by decide⟩
+    tableP0.filterMap (fun r =>
+        match claimsMemDestLoose r, claimsMemDest r with
+        | true,  false => some (r.mnemonic, true)
+        | false, true  => some (r.mnemonic, false)
+        | _,     _     => none)
+      = [("sarx", true), ("shlx", true), ("shrx", true)] := by decide
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
 ACTUALLY WRITES (or, for `cmp`/`test`, addresses) A MEMORY DESTINATION.

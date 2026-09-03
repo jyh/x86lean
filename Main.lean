@@ -64,7 +64,14 @@ open X86.Tests
 /-- One emitted case. -/
 def caseLines (v : Vec) (idx : Nat) (pre : Cpu) (stepFn : Instr → Cpu → Cpu) : List String :=
   let post := stepFn v.instr pre
-  let und := undefinedFlags v.instr pre
+  -- ⛔ P1 BATCH 14: the undefined SET, not the undefined FLAGS.  `bsf`/`bsr` at
+  -- a zero source leave the destination REGISTER undefined, and a record that
+  -- named only flags would have made every such case an unexplained
+  -- disagreement in `rax` — the differential's gate failing on the model being
+  -- RIGHT.  `undefinedRegs` is cross-checked against the AST-level declaration
+  -- by `undefinedLeaked`, so widening the record here does not widen what can
+  -- be explained away; see the note in `X86/Serialize.lean`.
+  let und := undefinedFlags v.instr pre ++ undefinedRegs v.instr pre
   let leak := undefinedLeaked v.instr pre windows
   [ s!"CASE id={v.id}/{idx} mnemonic={v.mnemonic} bytes={v.bytes} len={v.instr.len}"
   , s!"PRE {pre.render windows}"
@@ -185,9 +192,25 @@ structure Disagreement where
   /-- `undefined-region` (EXPLAINED) · `spec` · `halt` · `harness`. -/
   cls : String
 
-/-- The seven flag names, so a disagreement in a flag can be tested against the
-undefined set while a disagreement in a register never is. -/
+/-- The seven flag names. -/
 def flagNames : List String := flagFields.map (·.name)
+
+/-- ⛔ THE FIELDS THAT MAY BE EXPLAINED AS UNDEFINED AT ALL.
+
+This list used to be `flagNames`, and the comment beside it read "so a
+disagreement in a flag can be tested against the undefined set while a
+disagreement in a register never is".  P1 BATCH 14 made that false: `bsf`/`bsr`
+at a zero source leave the DESTINATION REGISTER undefined (SDM Vol. 2A), so a
+register disagreement can be legitimate.
+
+⚠️ IT IS STILL A CLOSED LIST, and deliberately.  Dropping the guard entirely and
+testing only `a.undef.contains k` would give the same answer today — the record
+carries nothing but flag and register names — and would silently start
+explaining away `rip`, `refused`, or a memory window the day one of those
+reached the undefined set.  RIP and memory are exactly what `undefinedLeaked`
+refuses to let the oracle touch, and this list is the second place that refusal
+is written down. -/
+def undefinableFields : List String := flagNames ++ GPR.all.map (·.name .q)
 
 /-- ⭐ WHEN BOTH MODELS REFUSE, THEY AGREE.
 
@@ -213,7 +236,7 @@ def classify (a b : Rec) : List Disagreement :=
       let cls :=
         if x == "<missing>" || y == "<missing>" then "harness"
         else if k == "refused" then "refusal"
-        else if flagNames.contains k && a.undef.contains k then "undefined-region"
+        else if undefinableFields.contains k && a.undef.contains k then "undefined-region"
         else "spec"
       some { id := a.id, mnemonic := a.mnemonic, field := k, lhs := x, rhs := y, cls }
 
@@ -993,6 +1016,102 @@ def wrongMovbeNoReversal (i : Instr) (s : Cpu) : Cpu :=
       | .b => step i s
   | _ => step i s
 
+/-! ### P1 BATCH 14 — the bit-counting group
+
+⭐ THERE IS NO ARM FOR THE UNDEFINED DESTINATION, AND THAT IS CORRECT.  A model
+that writes a different value into `bsf`'s destination at a zero source is not
+WRONG — the SDM leaves it undefined, `classify` files the disagreement as
+`undefined-region`, and `driveWrong` excludes that class from its hits by
+design.  The undefined destination is held up by `Tests/Nonvacuity.lean` (two
+oracles must differ there, and must AGREE at a non-zero source) and by
+`X86.undefinedLeaked`, which requires the DERIVED undefined registers to equal
+the AST-level DECLARATION on every case.  Probing a claim in the place that can
+actually see it is the point; an arm here would have been a probe that could
+only ever report a pass. -/
+
+/-- ⭐⭐ BSR REPORTING THE COUNT OF LEADING ZEROS INSTEAD OF THE INDEX OF THE
+TOP SET BIT — the confusion the encoding invites, because `lzcnt` IS `bsr` with
+an F3 prefix and a CPU without the feature runs one as the other.  The two sum
+to the width minus one, so they agree only where that sum is symmetric and
+differ on almost every source; batch 13's ACL2 probe measured the witness
+(`0x123456789ABCDEF0`: `lzcnt` 3, `bsr` 60). -/
+def wrongBsrIsLzcnt (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bitcnt .bsr sz dst src =>
+      if !(bitcntEncodable .bsr sz) then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr src
+        let (cfU, s) := s.undefBit
+        let (pfU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        let (sfU, s) := s.undefBit
+        let (ofU, s) := s.undefBit
+        let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
+        if Value.isZero sz a then
+          let (u, s) := s.undefVal sz.bits
+          (s.setReg sz dst u).setRip nr
+        else
+          -- the BUG, and only here
+          (s.setReg sz dst (BitVec.ofNat 64 (Value.clz sz a))).setRip nr
+  | _ => step i s
+
+/-- ⭐ LZCNT SETTING ZF FROM THE SOURCE — `bsf`/`bsr`'s rule, applied to the
+instruction one prefix byte away.  "ZF ← (DEST = 0)" and "ZF ← (SRC = 0)" have
+the same answer for every source EXCEPT those whose top bit is set, where the
+count is zero and the source is not.  `adversarial` is full of them. -/
+def wrongLzcntZfFromSource (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bitcnt .lzcnt sz dst src =>
+      if !(bitcntEncodable .lzcnt sz) then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr src
+        let res : Val := BitVec.ofNat 64 (Value.clz sz a)
+        let (pfU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        let (sfU, s) := s.undefBit
+        let (ofU, s) := s.undefBit
+        ((s.setFlags { Flags.bitCount sz a res pfU afU sfU ofU s.flags with
+            zf := Value.isZero sz a }).setReg sz dst res).setRip nr
+  | _ => step i s
+
+/-- BLSI's CF the usual way up — set when the source IS zero.  The SDM has it
+the other way (`IF SRC = 0 THEN CF ← 0 ELSE CF ← 1`), which makes `blsi` the one
+instruction in this batch whose CF disagrees with `lzcnt`/`tzcnt`'s on every
+state rather than on some of them. -/
+def wrongBlsiCfSense (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bitcnt .blsi sz dst src =>
+      if !(bitcntEncodable .blsi sz) then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr src
+        let res := Value.blsi sz a
+        let (pfU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        ((s.setFlags { Flags.blsi sz a res pfU afU s.flags with
+            zf := Value.isZero sz res, cf := Value.isZero sz a }).setReg sz dst res).setRip nr
+  | _ => step i s
+
+/-- ⚠️ POPCNT COUNTING THE WHOLE REGISTER RATHER THAN THE OPERAND.  Correct at
+`.q` and wrong at `.w` and `.d` whenever the bits above the operand are set —
+the same shape as `wrongMovbeFullWidth` in batch 13, and the reason the narrow
+widths are in the vector table at all. -/
+def wrongPopcntFullWidthSource (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .bitcnt .popcnt sz dst src =>
+      if !(bitcntEncodable .popcnt sz) then step i s
+      else
+        let nr := s.rip + BitVec.ofNat 64 i.len
+        let a := s.readOperand sz nr src
+        let full := match src with
+          | .reg r _ => s.regs.get r
+          | _ => s.readOperand .q nr src
+        let res : Val := BitVec.ofNat 64 (Value.popCount .q full)
+        ((s.setFlags (Flags.popcnt sz a s.flags)).setReg sz dst res).setRip nr
+  | _ => step i s
+
 /-! ## Main -/
 
 def writeLines (path : String) (ls : List String) : IO Unit :=
@@ -1001,6 +1120,68 @@ def writeLines (path : String) (ls : List String) : IO Unit :=
 def readLines (path : String) : IO (List String) := do
   let s ← IO.FS.readFile path
   return (s.splitOn "\n").filter (fun l => !l.trimAscii.toString.isEmpty)
+
+/-! ### ⭐⭐ P1 BATCH 14 — THE `undefined` COLUMN, GATED AT LAST
+
+⛔ UNTIL THIS BATCH THE COLUMN WAS CHECKED ONLY AGAINST THE TIER.
+`frame_tier_iff_undefined_bits` says a row is `T-frame` exactly when its
+`undefined` list is non-empty — so a row naming the WRONG flags, or four of the
+five it should, read exactly like a correct one.  It is the published statement
+of where this model declines to commit, it is what a reader checks a proof's
+strength against, and nothing compared it to the model.
+
+⇒ **A COLUMN NO GATE READS IS WRONG WHEREVER NOBODY LOOKED.**  This is the same
+defect as D15 (a shapes column asserting coverage nothing checked) in the column
+next to it, found while adding the first row whose undefined region is not a
+flag.
+
+⚠️ THE COMPARISON IS ON TOKENS, NOT ON THE STRINGS.  Existing rows write real
+conditions — `CF (count ≥ width)`, `OF (count ≠ 1)` — and those conditions are
+worth keeping in the published table.  So the gate extracts the flag NAMES a row
+mentions and compares that SET against the set the model actually draws, over
+every emitted case.  It does not police the prose; it polices the claim inside
+it.  A row could still carry a wrong CONDITION, which is named here as the
+limit of this gate rather than left for a reader to discover. -/
+
+/-- The flag (and `DEST`) tokens a coverage row's `undefined` column mentions. -/
+def undefinedColumnTokens (r : Row) : List String :=
+  ["CF", "PF", "AF", "ZF", "SF", "OF", "DEST"].filter
+    (fun t => r.undefined.any (fun e => (e.splitOn t).length > 1))
+
+/-- The tokens the MODEL actually draws, per mnemonic, over every vector and
+pre-state.  A register in the undefined set is reported as `DEST`: the only
+register any form declares undefined is its own destination, which
+`X86.undefinedLeaked` enforces case by case. -/
+def measuredUndefinedTokens (n : Nat) : List (String × List String) := Id.run do
+  let mut acc : List (String × List String) := []
+  for v in vectors do
+    for pre in preStates 0x9E3779B97F4A7C15 n do
+      let fs := (undefinedFlags v.instr pre).map String.toUpper
+      let rs := if (undefinedRegs v.instr pre).isEmpty then [] else ["DEST"]
+      let cur := (acc.lookup v.mnemonic).getD []
+      acc := acc.filter (fun kv => kv.1 != v.mnemonic)
+             ++ [(v.mnemonic, (cur ++ fs ++ rs).eraseDups)]
+  return acc
+
+/-- ⭐ AND IT IS CHECKED IN BOTH DIRECTIONS.  A row naming a flag the model never
+draws OVER-claims — it advertises a weaker model than the one shipped.  A row
+missing a flag the model does draw UNDER-claims, which is worse: a reader takes
+a bit for committed that the oracle chooses. -/
+def checkUndefinedColumn (n : Nat) : IO Bool := do
+  let measured := measuredUndefinedTokens n
+  let mut ok := true
+  for r in tableP0 do
+    let claimed := undefinedColumnTokens r
+    let got := (measured.lookup r.mnemonic).getD []
+    let over := claimed.filter (fun t => !got.contains t)
+    let under := got.filter (fun t => !claimed.contains t)
+    if !over.isEmpty || !under.isEmpty then
+      ok := false
+      IO.println s!"  ⛔ {r.mnemonic}: column says {claimed}, model draws {got} \
+(over-claims {over}, under-claims {under})"
+  if ok then
+    IO.println s!"  ✔ undefined column: all {tableP0.length} rows match what the model draws"
+  return ok
 
 /-- Run one wrong model against the correct one and REQUIRE a catch. -/
 def driveWrong (name : String) (wrong : Instr → Cpu → Cpu) (expectField : String) :
@@ -1100,7 +1281,15 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("shlx/shrx/sarx write the flags a shift writes", wrongShiftxWritesFlags, "cf")
   , ("movbe reverses 64 bits at every width", wrongMovbeFullWidth, "rax")
   , ("movbe moves without reversing", wrongMovbeNoReversal,
-     "mem@0000000000001ff0") ]
+     "mem@0000000000001ff0")
+  -- P1 BATCH 14.  The two opcode-pair confusions, the inverted CF, and the
+  -- width the narrow vectors exist to defend.
+  , ("bsr reports leading zeros instead of the top bit's index",
+     wrongBsrIsLzcnt, "rax")
+  , ("lzcnt takes ZF from the source, as bsf does", wrongLzcntZfFromSource, "zf")
+  , ("blsi sets CF when the source IS zero", wrongBlsiCfSense, "cf")
+  , ("popcnt counts the whole register, not the operand",
+     wrongPopcntFullWidthSource, "rax") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -1161,6 +1350,26 @@ def main (args : List String) : IO UInt32 := do
         ok := ok && r
       if ok then IO.println "filtered selftest: PASS"; return 0
       else IO.println "filtered selftest: FAIL"; return 1
+  -- P1 BATCH 14: the `undefined` column on its own, so the gate is CHEAP to
+  -- probe.  A discipline expensive to exercise gets exercised less; the full
+  -- selftest is twenty minutes and this is seconds.
+  | ["undefined-column"] =>
+      -- ⛔ AND THE LEAK CHECK RUNS HERE TOO, because the batch that added it
+      -- could not probe it: `driveWrong` compares two models and never looks at
+      -- `Report.leaks`, so an arm that broke `undefinedLeaked` still reported
+      -- PASS. The leak count was reachable only through the no-argument
+      -- selftest's control — twenty-one minutes — which is a discipline
+      -- expensive enough to exercise that it stops being exercised.
+      let ok ← checkUndefinedColumn 4
+      let recs := parseRecords (emitAll step 4)
+      let leaks := (recs.filter (·.leak)).length
+      if leaks == 0 then
+        IO.println s!"  ✔ oracle leaks: 0 of {recs.length} cases (every undefined \
+register equals the AST-level declaration)"
+      else
+        IO.println s!"  ⛔ oracle leaks: {leaks} of {recs.length} cases — an oracle bit \
+reached something no form declares undefined, or a declared register did not move"
+      return (if ok && leaks == 0 then 0 else 1)
   | ["selftest"] =>
       -- ⛔ THIS BRANCH USED TO BE TWENTY-THREE HAND-WRITTEN `driveWrong` CALLS
       -- WITH TWENTY-THREE HAND-NAMED BINDINGS AND A TWENTY-THREE-TERM
@@ -1188,8 +1397,11 @@ models, each must be caught:"
 cases identical, 0 oracle leaks)"
       else
         IO.println s!"  ⛔ control: the model DISAGREES WITH ITSELF — {renderReport r}"
-      if ok && silent then
-        IO.println s!"harness selftest: PASS ({selftestArms.length} arms + control)"
+      -- P1 BATCH 14: the published `undefined` column against what is drawn.
+      let colOk ← checkUndefinedColumn 4
+      if ok && silent && colOk then
+        IO.println s!"harness selftest: PASS ({selftestArms.length} arms + control \
++ undefined-column)"
         return 0
       else
         IO.println "harness selftest: FAIL"
@@ -1207,6 +1419,19 @@ cases identical, 0 oracle leaks)"
   -- shapes each — taking 388 to 396.  The shapes the roster names for them are
   -- `r,r,r`/`r,m,r` and `r,m`/`m,r`, and there is a vector for every one.
   --
+  -- P1 BATCH 14 ran it for `popcnt|lzcnt|tzcnt|bsf|bsr|blsi` and got 12 — six
+  -- mnemonics at `r,r` and `r,m` — taking 396 to 408.
+  --
+  -- ⛔⛔ AND BATCH 14 FOUND THE SENTENCE BELOW A WHOLE BATCH STALE.  The
+  -- per-batch narrative stopped at "12 — the near-free four" while this count
+  -- already read 396, which INCLUDES batch 13: batch 13 updated the number and
+  -- not the prose, and every gate stayed green because nothing read the prose.
+  -- ⇒ The literal has this comment and a stated counting rule, and it survived
+  -- thirteen batches; the sentence beside it had neither, and it did not.
+  -- `scripts/check_coverage_prose.py` now gates the narrative against the
+  -- `docs/DIFFERENTIAL-P1-BATCH<N>.md` files, which are a per-batch artifact
+  -- maintained for another reason and therefore cannot drift in step with it.
+  --
   -- Making this derivable needs a claimed-forms table keyed to the roster's
   -- (base, shape) pairs — real work, and a better batch than a tack-on. Until
   -- then: COUNT THE ROWS with the command above and do not reason from widths.
@@ -1214,7 +1439,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **396 of the 525 forms** in `p1/roster.tsv`.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **408 of the 525 forms** in `p1/roster.tsv`.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -1233,7 +1458,15 @@ flag-control singles CLC/STC/CMC/CLD/STD, which between them added the first \
 instructions able to write DF at all (see D27); 12 — the near-free four of \
 family 7, NOP at its three shapes plus UD2, RETQ and LEAVEQ: the first form \
 whose whole meaning is a FAULT, and the first two forms that needed a new \
-PRE-STATE to be reachable at all (see D34).\n\n\
+PRE-STATE to be reachable at all (see D34); 13 — the flagless shifts \
+SARX/SHLX/SHRX and the byte-swapping move MOVBE, the table's first \
+three-operand rows, whose `r,m,r` shape broke a memory-destination gate that \
+had been repaired twice (see D36, D37); 14 — the bit-counting group \
+POPCNT/LZCNT/TZCNT/BSF/BSR/BLSI, six mnemonics on one operand shape whose flag \
+rules agree on almost nothing, and the first UNDEFINED DESTINATION in the \
+model: `bsf`/`bsr` at a zero source leave the destination REGISTER undefined \
+rather than unmodified, so the oracle-leak check had to learn the difference \
+between an oracle bit that is admitted and one that is not (see D40).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

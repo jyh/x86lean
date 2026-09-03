@@ -208,6 +208,30 @@ inductive BitKind where
   | bts | btr | btc
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- P1 BATCH 14: the BIT-COUNTING group.  Six mnemonics that share one operand
+shape — read one source at the operand width, write one GPR, set flags — and
+agree on nothing else.
+
+⭐ THEY ARE ONE CONSTRUCTOR FOR THE REASON `BinKind` IS: the shape is the same
+and the RESULT and FLAG RULE are what vary, which is what a kind parameter is
+for.  Compare `.shiftx`, which is a separate constructor from `.shift` because
+its operand shape really is different (three operands, and a count register that
+is not the destination).
+
+⛔ AND THE SDM GIVES THREE DIFFERENT ANSWERS AT A ZERO SOURCE, which is the
+whole content of the group and the reason these are not one function with a
+flag:
+* `popcnt` answers **0** — there are no set bits.
+* `lzcnt`/`tzcnt` answer the **OPERAND WIDTH** — 64, 32 or 16, and set CF.
+* `bsf`/`bsr` leave the **DESTINATION UNDEFINED** and set ZF.  This is the first
+  form in this AST whose undefined region is a REGISTER rather than a flag; see
+  the note on `step` and `X86.undefinedRegs`.
+* `blsi` answers **0** and is not a count at all — it isolates the lowest set
+  bit, `(-src) AND src`. -/
+inductive BitCntKind where
+  | popcnt | lzcnt | tzcnt | bsf | bsr | blsi
+  deriving DecidableEq, Repr, Inhabited, BEq
+
 /-- P1 BATCH 10: which way a WIDTH-CHANGING move fills the bits it invents.
 Two constructors rather than a `Bool` because the two are one character apart in
 the mnemonic (`movzbl` / `movsbl`) and opposite in effect, and a `Bool` named
@@ -402,7 +426,30 @@ inductive Op where
   ⛔ Width `.b` has no encoding either — the byte form would be a no-op and
   Intel does not define one.  Widths w/l/q are the roster's `lqw`. -/
   | movbe (sz : Size) (dst src : Operand)
+  /-- P1 BATCH 14: POPCNT / LZCNT / TZCNT / BSF / BSR / BLSI — see
+  `BitCntKind`.  The destination is always a REGISTER (`r, r/m`); there is no
+  memory-destination form for any of the six.
+
+  ⛔ WIDTHS.  `.b` has no encoding for any of them.  `blsi` is VEX-encoded and
+  VEX.W selects 32 or 64 only, so `.w` has no encoding for it either — the
+  roster files it `lq` where the other five are `lqw`.  `step` declines what has
+  no encoding rather than answering for it. -/
+  | bitcnt (k : BitCntKind) (sz : Size) (dst : GPR) (src : Operand)
   deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
+
+⭐ Written as DATA beside the AST rather than as a chain of `halt` branches
+inside `step`, so that "which forms this model declines, and why" is a table a
+theorem can read — `Tests/Coverage.lean` asserts the exact set, and the six
+declined pairs are declined by an encoding fact rather than by an omission
+nobody re-checks.
+
+`blsi` is VEX-encoded and VEX.W selects 32 or 64, so it has no 16-bit form; none
+of the six has an 8-bit form. -/
+def bitcntEncodable : BitCntKind → Size → Bool
+  | .blsi, sz => sz == .d || sz == .q
+  | _,     sz => sz != .b
 
 /-- A DECODED instruction: an operation plus its encoded length in bytes.  See
 the header on why `len` is a datum and what it costs in trust. -/
@@ -459,6 +506,9 @@ def Op.mnemonic : Op → String
   | .shiftx k .. => match k with
     | .shl => "shlx" | .shr => "shrx" | .sar => "sarx"
   | .movbe .. => "movbe"
+  | .bitcnt k .. => match k with
+    | .popcnt => "popcnt" | .lzcnt => "lzcnt" | .tzcnt => "tzcnt"
+    | .bsf => "bsf" | .bsr => "bsr" | .blsi => "blsi"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
 checks that this list and the set of `Op.mnemonic` values agree, so the coverage
@@ -492,7 +542,13 @@ def rosterP0 : List String :=
    -- P1 BATCH 13: the flagless shifts and the byte-swapping move.  `sarx`,
    -- `shlx` and `shrx` are three names for ONE constructor (`.shiftx`, keyed by
    -- `ShiftKind`), as `shl`/`shr`/`sar` are for `.shift`; `movbe` is its own.
-   "sarx", "shlx", "shrx", "movbe"]
+   "sarx", "shlx", "shrx", "movbe",
+   -- P1 BATCH 14: the bit-counting group.  Six names for ONE constructor
+   -- (`.bitcnt`, keyed by `BitCntKind`), as `shl`/`shr`/`sar` are for `.shift`.
+   -- ⚠️ `lzcnt` and `blsi` are on this list only because batch 13 MEASURED the
+   -- oracle instead of reading its catalogue, which had struck both off; see
+   -- docs/DECISIONS.md D36.
+   "popcnt", "lzcnt", "tzcnt", "bsf", "bsr", "blsi"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

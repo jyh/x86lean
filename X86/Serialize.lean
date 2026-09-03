@@ -107,14 +107,76 @@ def undefinedFlags (i : Instr) (s : Cpu) : List String :=
   let b := (step i { s with oracle := onesOracle }).flags
   flagFields.filterMap (fun r => if r.get a == r.get b then none else some r.name)
 
-/-- Do the two oracle runs agree on everything OUTSIDE the flags?  If they do
-not, an undefined bit has leaked into a register, RIP, memory or the model
-state — a defect of a different and worse kind than an undefined flag, because
-nothing in the tier table admits it.  The harness checks this on every vector. -/
+/-! ### ⛔⛔ P1 BATCH 14 — AN UNDEFINED REGISTER, AND HOW THE LEAK CHECK KEPT ITS
+TEETH
+
+Until this batch every undefined region in the model was a FLAG, and the leak
+check could be stated in one line: the two oracle runs must agree on everything
+that is not a flag.  `bsf`/`bsr` at a zero source break that — the SDM leaves
+the DESTINATION REGISTER undefined — and the tempting repair is to widen the
+derived set to registers and be done.
+
+⛔ THAT REPAIR WOULD HAVE GUTTED THE CHECK.  If the undefined registers are
+DERIVED from the same two runs the check compares, then no register can ever
+leak: an oracle bit reaching `rcx` by mistake would be re-read as "`rcx` is
+undefined here", the differential would classify the resulting disagreement as
+`undefined-region`, and a real spec bug would be filed as an explained one.  The
+check would report a pass in exactly the case it exists to catch.
+
+⇒ SO THERE ARE TWO SOURCES AND THEY MUST AGREE.  `declaredUndefRegs` reads the
+AST and the SDM rule — `bsf`/`bsr`, and only at a zero source.
+`undefinedRegs` runs the two oracles and reports what actually moved.  The leak
+check is their EQUALITY, which has teeth in both directions:
+
+* a register that moves and is NOT declared is the old leak, unchanged — an
+  oracle bit somewhere nothing admits;
+* a register that is declared and does NOT move is a FALSE UNDEFINED CLAIM, and
+  that is the new hazard this batch introduced: it would license the harness to
+  explain away a genuine disagreement in that register for ever.
+
+Neither direction existed as a possibility before this batch, and both are
+probed — see the `bsf`/`bsr` arms of `scripts/axiom_gate_selftest.sh`. -/
+
+/-- The registers a form DECLARES undefined, read from the AST and the SDM rule
+rather than from the model's behaviour. -/
+def declaredUndefGPRs (i : Instr) (s : Cpu) : List GPR :=
+  let nr : BitVec 64 := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  -- SDM Vol. 2A, BSF/BSR: "If the content of the source operand is 0, the
+  -- content of the destination operand is undefined."  ⚠️ ONLY THEN — at a
+  -- non-zero source the destination is an ordinary computed index, and
+  -- declaring it undefined there would be the false claim described above.
+  | .bitcnt .bsf sz dst src =>
+      if bitcntEncodable .bsf sz && Value.isZero sz (s.readOperand sz nr src)
+      then [dst] else []
+  | .bitcnt .bsr sz dst src =>
+      if bitcntEncodable .bsr sz && Value.isZero sz (s.readOperand sz nr src)
+      then [dst] else []
+  | _ => []
+
+/-- The same set as NAMES, in `GPR.all` order so that it and `undefinedRegs`
+are comparable as lists rather than needing a set equality the kernel would
+have to work harder for. -/
+def declaredUndefRegs (i : Instr) (s : Cpu) : List String :=
+  let ds := declaredUndefGPRs i s
+  GPR.all.filterMap (fun r => if ds.contains r then some (r.name .q) else none)
+
+/-- The registers that actually MOVE between the two opposite oracle runs. -/
+def undefinedRegs (i : Instr) (s : Cpu) : List String :=
+  let a := (step i { s with oracle := zeroOracle }).regs
+  let b := (step i { s with oracle := onesOracle }).regs
+  GPR.all.filterMap (fun r => if a.get r == b.get r then none else some (r.name .q))
+
+/-- Do the two oracle runs agree on everything the model does not DECLARE
+undefined?  If they do not, an undefined bit has leaked into a register no form
+admits, or into RIP, memory or the model state — a defect of a different and
+worse kind than an undefined flag, because nothing in the tier table admits it.
+A declared register that does not move is reported here too, for the reason in
+the note above.  The harness checks this on every vector. -/
 def undefinedLeaked (i : Instr) (s : Cpu) (ws : List Window) : Bool :=
   let a := step i { s with oracle := zeroOracle }
   let b := step i { s with oracle := onesOracle }
-  !(a.renderRegs == b.renderRegs
+  !(undefinedRegs i s == declaredUndefRegs i s
     && a.rip == b.rip
     && (match a.ms, b.ms with | none, none => true | some x, some y => x == y | _, _ => false)
     && (ws.map (renderWindow a.mem)) == (ws.map (renderWindow b.mem)))

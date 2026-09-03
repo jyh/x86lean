@@ -121,6 +121,35 @@ def popValue (s : Cpu) (sz : Size) : Val × Cpu :=
 
 end Cpu
 
+/-- P1 BATCH 14: BSF and BSR, which differ in ONE expression.
+
+⭐ THEY ARE ONE FUNCTION BECAUSE EVERYTHING THAT IS SUBTLE ABOUT THEM IS SHARED:
+five undefined flags drawn in a fixed order, ZF from the SOURCE, and the
+UNDEFINED DESTINATION at a zero source.  `rev` selects which index the non-zero
+case reports.  Writing the two arms out separately would have duplicated the
+undefined-destination branch — the one thing in this batch that had never been
+written before — and a duplicate born in agreement diverges on the next edit.
+
+⚠️ It is also what lets the characterization theorems reduce: a combined
+`| .bsf | .bsr =>` arm inside `step`'s match compiles to a matcher that does NOT
+unfold for either constructor, so `step_bsf_zf` could not be proved through it. -/
+def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
+    (nr : BitVec 64) (s : Cpu) : Cpu :=
+  let (cfU, s) := s.undefBit
+  let (pfU, s) := s.undefBit
+  let (afU, s) := s.undefBit
+  let (sfU, s) := s.undefBit
+  let (ofU, s) := s.undefBit
+  let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
+  if Value.isZero sz a then
+    -- the SDM's "the content of the destination operand is undefined", drawn
+    -- rather than invented.  `sz.bits` bits, so the draw is the operand's width.
+    let (u, s) := s.undefVal sz.bits
+    (s.setReg sz dst u).setRip nr
+  else
+    let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
+    (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -558,6 +587,63 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           let a := s.readOperand sz nr src
           (s.writeOperand sz nr dst (Value.bswap sz a)).setRip nr
       | .b => s.halt (.illegalOperands "movbe at an 8-bit operand size (no encoding)")
+
+  -- POPCNT (SDM Vol. 2B) · LZCNT/TZCNT · BSF/BSR · BLSI (SDM Vol. 2A).
+  --
+  -- ⛔⛔ BSF AND BSR AT A ZERO SOURCE ARE THIS MODEL'S FIRST UNDEFINED
+  -- DESTINATION.  "If the content source operand is 0, the content of the
+  -- destination operand is undefined" — a REGISTER, not a flag.  Real silicon
+  -- leaves the destination unmodified and AMD documents that it does; Intel
+  -- does not, and this model follows its stated source rather than the folklore.
+  -- Writing the old value back would be INVENTING A FACT in exactly the sense
+  -- X86/Oracle.lean's header forbids, and it is the more tempting invention
+  -- because it happens to match the machine on the desk.
+  --
+  -- ⚠️ THE ZERO SOURCE IS REACHABLE, not hypothetical: `adversarial` contains 0,
+  -- so every `bsf`/`bsr` vector runs this branch at one pre-state in eleven.
+  --
+  -- ⚠️ THE FIVE FLAG DRAWS HAPPEN BEFORE THE BRANCH, unconditionally, so that
+  -- the flags always read the same five positions of the stream whichever way
+  -- the source falls.  ⛔ THE TOTAL a `bsf` consumes IS still data-dependent —
+  -- a zero source draws `sz.bits` more for the destination — and saying
+  -- otherwise would be a comment claiming a property the code does not have.
+  -- What matters is the weaker fact, and it holds: the cursor depends on the
+  -- SOURCE, never on the oracle's own BITS, so the two opposite-oracle runs
+  -- that derive the undefined set always take the same branch and end at the
+  -- same position (`cursor_independent_of_bits`, `Tests/Nonvacuity.lean`).
+  | .bitcnt k sz dst src =>
+      if !(bitcntEncodable k sz) then
+        s.halt (.illegalOperands
+          "the bit-counting group has no 8-bit form, and blsi has no 16-bit form")
+      else
+        let a := s.readOperand sz nr src
+        match k with
+        | .popcnt =>
+            let res : Val := BitVec.ofNat 64 (Value.popCount sz a)
+            ((s.setFlags (Flags.popcnt sz a s.flags)).setReg sz dst res).setRip nr
+        | .lzcnt =>
+            let res : Val := BitVec.ofNat 64 (Value.clz sz a)
+            let (pfU, s) := s.undefBit
+            let (afU, s) := s.undefBit
+            let (sfU, s) := s.undefBit
+            let (ofU, s) := s.undefBit
+            ((s.setFlags (Flags.bitCount sz a res pfU afU sfU ofU s.flags)).setReg
+              sz dst res).setRip nr
+        | .tzcnt =>
+            let res : Val := BitVec.ofNat 64 (Value.ctz sz a)
+            let (pfU, s) := s.undefBit
+            let (afU, s) := s.undefBit
+            let (sfU, s) := s.undefBit
+            let (ofU, s) := s.undefBit
+            ((s.setFlags (Flags.bitCount sz a res pfU afU sfU ofU s.flags)).setReg
+              sz dst res).setRip nr
+        | .bsf => bitScanStep false sz dst a nr s
+        | .bsr => bitScanStep true sz dst a nr s
+        | .blsi =>
+            let res := Value.blsi sz a
+            let (pfU, s) := s.undefBit
+            let (afU, s) := s.undefBit
+            ((s.setFlags (Flags.blsi sz a res pfU afU s.flags)).setReg sz dst res).setRip nr
 
   | .call t =>
       match t with

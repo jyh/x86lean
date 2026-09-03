@@ -14,6 +14,40 @@
 # UNDER-claim while leaving it free to OVER-claim, which is the direction that
 # actually failed.  A gate on the artifact costs more than a gate on a shadow of
 # it, and this is what the difference costs.  See docs/DECISIONS.md D15.
+#
+# ⭐⭐ P1 BATCH 14 STOPPED RAISING IT AND CHANGED ITS UNITS.  See D38.
+# Tests.Coverage's kernel cost is LINEAR IN THE COVERAGE TABLE, which grows
+# every batch by construction, so an absolute ceiling on it must be raised every
+# batch — and a gate relaxed on schedule is not a gate.  Batch 10 measured 2.4x
+# headroom and wrote that there was "room to do this properly rather than under
+# pressure"; batches 11-13 did not, and batch 14 arrived at 1.09x.  The ceiling
+# is now PER ROW, multiplied by the kernel-pinned `rosterSize`.
+#
+# ⛔ AND THE ABSOLUTE CEILING PROVABLY MISSED THE REGRESSION THE NEW ONE CATCHES.
+# Batch 13 added one theorem costing 12 400ms — measured by batch 14, which also
+# found the handed-on figure for it (5 800ms) was low by more than a factor of
+# two.  The module went ~90ms/row to 293ms/row, a 3.2x jump in cost per row, and
+# the absolute ceiling did NOT fire (17 900 against 19 560).  A per-row ceiling
+# at this headroom fires on exactly that.
+#
+# The registered figure GRANDFATHERS batch 13's theorem rather than pretending
+# it is not there: 293ms/row measured x 1.6.  The headroom is tighter than the
+# 3.0 used for absolute lines because ordinary GROWTH is now divided out and
+# only noise (measured at ~3% across three runs) and real regressions remain.
+#
+# ⭐ AND Tests.Nonvacuity DELIBERATELY KEEPS AN ABSOLUTE CEILING — it is the
+# counterpoint that makes the rule above a rule rather than a habit.  It went
+# OVER on the same day (81.5ms against 71) because batch 14 added seventeen
+# theorems, four of which draw a 64-bit undefined DESTINATION and so evaluate
+# `Oracle.drawVal` sixty-four deep inside a `decide`.  That growth is NOT
+# structural: this module grows only when a batch deliberately writes new
+# obligations, which is exactly the moment a head should be made to state the
+# cost out loud.  A per-row ceiling here would divide out the only signal there
+# is.  RAISED to 81.5 x 3.0 = 245 by hand, not by --register.
+#
+# ⚠️ Measured on an IDLE machine (81.8 / 81.4 across two runs).  The first
+# reading was 94ms and was taken while the 21-minute selftest was running; a
+# ceiling registered from that number would have been ~15% loose for ever.
 X86.Basic 163
 X86.Coverage 50
 X86.Flags 50
@@ -28,7 +62,7 @@ X86.Value 61
 X86 50
 X86Native 106
 Tests.Anchors 801
-Tests.Coverage 19560
-Tests.Nonvacuity 71
+Tests.Coverage @perRow 470.0
+Tests.Nonvacuity 245
 Tests.Vectors 50
 Tests 50

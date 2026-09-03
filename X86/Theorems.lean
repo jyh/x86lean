@@ -858,4 +858,123 @@ theorem step_leave_rip (h : Live s) :
     (step ⟨.nop o, len⟩ s).flags = s.flags := by
   simp [step, h, Cpu.setRip]
 
+/-! ## P1 BATCH 14 — the bit-counting group
+
+⭐ THE THEOREMS THAT EARN THEIR KEEP HERE ARE THE ONES ABOUT THE THREE ZF RULES.
+The group's results are ordinary computations and a differential run checks them
+against the oracle case by case; what a run over a fixed vector table CANNOT
+check is that ZF reads the SOURCE for `bsf`/`bsr`/`popcnt` and the DESTINATION
+for `lzcnt`/`tzcnt`, because those two questions have the same answer for every
+source except the ones where the count comes out zero.  Stated as theorems they
+are claims about ALL states. -/
+
+section BitCnt
+variable {sz : Size} {dst : GPR} {src : Operand}
+
+/-! ### The shared BSF/BSR body, framed once
+
+`bitScanStep` branches on the source, and BOTH branches write the destination
+and RIP and touch nothing else.  Framing it here once means the six `step`
+theorems below never have to see that branch. -/
+
+@[simp] theorem bitScanStep_mem (rev : Bool) (a : Val) (nr : BitVec 64) :
+    (bitScanStep rev sz dst a nr s).mem = s.mem := by
+  simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, Cpu.setFlags, Cpu.setReg, Cpu.setRip]
+  split <;> rfl
+
+@[simp] theorem bitScanStep_rip (rev : Bool) (a : Val) (nr : BitVec 64) :
+    (bitScanStep rev sz dst a nr s).rip = nr := by
+  simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, Cpu.setFlags, Cpu.setReg, Cpu.setRip]
+  split <;> rfl
+
+/-- ⭐ ZF IS SET FROM THE SOURCE IN BOTH BRANCHES — including the branch where
+the DESTINATION is undefined.  That is the whole of what `bsf`/`bsr` promise
+about their flags at a zero source, and it holds whatever the oracle says. -/
+@[simp] theorem bitScanStep_zf (rev : Bool) (a : Val) (nr : BitVec 64) :
+    (bitScanStep rev sz dst a nr s).flags.zf = Value.isZero sz a := by
+  simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, Cpu.setFlags, Cpu.setReg, Cpu.setRip,
+    Flags.bitScan]
+  split <;> rfl
+
+/-! ### The three ZF rules, which are three different questions -/
+
+/-- BSF sets ZF from the SOURCE (SDM Vol. 2A: "ZF ← (SRC = 0)"). -/
+theorem step_bsf_zf (h : Live s) (he : bitcntEncodable .bsf sz = true) :
+    (step ⟨.bitcnt .bsf sz dst src, len⟩ s).flags.zf =
+      Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) := by
+  simp only [step, Cpu.stopped, h, Option.isSome_none, Bool.false_eq_true, if_false, he,
+    Bool.not_true, if_false, bitScanStep_zf]
+
+theorem step_bsr_zf (h : Live s) (he : bitcntEncodable .bsr sz = true) :
+    (step ⟨.bitcnt .bsr sz dst src, len⟩ s).flags.zf =
+      Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) := by
+  simp only [step, Cpu.stopped, h, Option.isSome_none, Bool.false_eq_true, if_false, he,
+    Bool.not_true, if_false, bitScanStep_zf]
+
+/-- ⭐ LZCNT AND TZCNT SET ZF FROM THE DESTINATION, WHICH IS A DIFFERENT
+QUESTION.  `lzcntq` of a source whose top bit is set writes 0 and sets ZF though
+the source is not zero; a model that copied `bsr`'s rule is wrong on exactly
+those states, and this is the theorem that says so about all of them. -/
+theorem step_lzcnt_zf (h : Live s) (he : bitcntEncodable .lzcnt sz = true) :
+    (step ⟨.bitcnt .lzcnt sz dst src, len⟩ s).flags.zf =
+      Value.isZero sz
+        (BitVec.ofNat 64
+          (Value.clz sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src))) := by
+  simp [step, h, he, Flags.bitCount]
+
+theorem step_tzcnt_zf (h : Live s) (he : bitcntEncodable .tzcnt sz = true) :
+    (step ⟨.bitcnt .tzcnt sz dst src, len⟩ s).flags.zf =
+      Value.isZero sz
+        (BitVec.ofNat 64
+          (Value.ctz sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src))) := by
+  simp [step, h, he, Flags.bitCount]
+
+/-- And LZCNT sets CF when the SOURCE is zero. -/
+theorem step_lzcnt_cf (h : Live s) (he : bitcntEncodable .lzcnt sz = true) :
+    (step ⟨.bitcnt .lzcnt sz dst src, len⟩ s).flags.cf =
+      Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) := by
+  simp [step, h, he, Flags.bitCount]
+
+/-- ⛔ AND BLSI SETS CF THE OTHER WAY UP — set when the source is NON-zero
+(SDM Vol. 2A, BLSI: "IF SRC = 0 THEN CF ← 0 ELSE CF ← 1").  Two instructions in
+one batch whose CF asks the same question and answers it oppositely; a model
+that shared one rule between them is wrong on every state for one of the two. -/
+theorem step_blsi_cf (h : Live s) (he : bitcntEncodable .blsi sz = true) :
+    (step ⟨.bitcnt .blsi sz dst src, len⟩ s).flags.cf =
+      !(Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src)) := by
+  simp [step, h, he, Flags.blsi]
+
+/-- POPCNT clears OF, SF, AF, CF and PF unconditionally — the one member of the
+group that leaves nothing undefined. -/
+theorem step_popcnt_clears (h : Live s) (he : bitcntEncodable .popcnt sz = true) :
+    (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.cf = false
+    ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.of = false
+    ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.sf = false
+    ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.af = false
+    ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.pf = false := by
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> simp [step, h, he, Flags.popcnt]
+
+/-- ⭐ NONE OF THE SIX WRITES MEMORY.  Their memory operand is always the SOURCE,
+which is what the coverage table's shapes column claims by NOT spelling any of
+them `m(...)` — and `isMemDestVector`'s `.bitcnt` case says the same thing one
+layer down.  Three statements of one fact, and this is the one with a proof. -/
+@[simp] theorem step_bitcnt_mem (k : BitCntKind) (h : Live s) :
+    (step ⟨.bitcnt k sz dst src, len⟩ s).mem = s.mem := by
+  simp only [step, Cpu.stopped, h, Option.isSome_none, Bool.false_eq_true, if_false]
+  split
+  · simp [Cpu.halt, h]
+  · cases k <;> simp
+
+/-- And a form the model DECLINES changes nothing but `ms` — `blsi` at 16 bits
+and any of the six at 8 bits have no encoding, and refusing is not the same as
+answering zero. -/
+theorem step_bitcnt_declined (k : BitCntKind) (h : Live s)
+    (he : bitcntEncodable k sz = false) :
+    (step ⟨.bitcnt k sz dst src, len⟩ s).regs = s.regs
+    ∧ (step ⟨.bitcnt k sz dst src, len⟩ s).rip = s.rip
+    ∧ (step ⟨.bitcnt k sz dst src, len⟩ s).flags = s.flags := by
+  refine ⟨?_, ?_, ?_⟩ <;> simp [step, h, he, Cpu.halt]
+
+end BitCnt
+
 end X86

@@ -139,6 +139,19 @@ def undefBit (s : Cpu) : Bool × Cpu :=
   let (b, o) := s.oracle.draw
   (b, { s with oracle := o })
 
+/-- Draw `n` undefined bits as the low `n` bits of a value.
+
+⛔ P1 BATCH 14 IS THE FIRST CALLER, AND IT IS THE FIRST TIME AN ORACLE BIT IS
+ALLOWED TO REACH A REGISTER.  `bsf`/`bsr` at a zero source leave the DESTINATION
+undefined (SDM Vol. 2A), not merely a flag.  Everything the surrounding
+machinery assumed about undefined regions being flags had to be widened to
+admit it — deliberately and in one place, `X86.undefinedRegs`, so that an
+oracle bit reaching any register NO FORM DECLARES undefined is still the leak it
+always was.  See the note there. -/
+def undefVal (s : Cpu) (n : Nat) : Val × Cpu :=
+  let (v, o) := s.oracle.drawVal n
+  (v, { s with oracle := o })
+
 @[simp] theorem undefBit_regs (s : Cpu) : (s.undefBit).2.regs = s.regs := rfl
 @[simp] theorem undefBit_rip (s : Cpu) : (s.undefBit).2.rip = s.rip := rfl
 @[simp] theorem undefBit_flags (s : Cpu) : (s.undefBit).2.flags = s.flags := rfl

@@ -326,5 +326,61 @@ def rotFlags (k : RotKind) (sz : Size) (a res : Val) (n t : Nat)
     else ofU
   { f with cf := cf, of := of }
 
+/-! ### P1 BATCH 14 — the bit-counting group, whose six flag rules agree on
+almost nothing
+
+⛔ THE THREE ZF RULES ARE NOT THE SAME RULE.  This is where a model of this
+group goes wrong, so each is written separately and named for what it reads:
+* `popcnt` and `bsf`/`bsr` set ZF from the **SOURCE** ("ZF ← (SRC = 0)", SDM
+  Vol. 2B POPCNT and Vol. 2A BSF/BSR).
+* `lzcnt` and `tzcnt` set ZF from the **DESTINATION** ("ZF ← (DEST = 0)", SDM
+  Vol. 2A LZCNT/TZCNT) — which is a DIFFERENT question: `lzcntq` of a source
+  with its top bit set writes 0 and sets ZF, though the source is not zero.
+* `blsi` sets ZF from its result, which is zero exactly when the source is, so
+  for that one the two questions coincide.
+
+⚠️ For `popcnt` the two coincide as well (the count is zero iff the source is),
+which is what makes `lzcnt`/`tzcnt` the only place the distinction is visible —
+and therefore the only place a differential run can catch it.  It is caught: see
+`wrongLzcntZfFromSource` in `Main.lean`. -/
+
+/-- POPCNT (SDM Vol. 2B): "OF, SF, ZF, AF, CF, PF ← 0; ZF ← (SRC = 0)".  The
+only member of the group that leaves NO flag undefined. -/
+def popcnt (sz : Size) (src : Val) (f : Flags) : Flags :=
+  { f with
+    cf := false, of := false, sf := false, af := false, pf := false
+    zf := Value.isZero sz src }
+
+/-- LZCNT and TZCNT (SDM Vol. 2A): "CF ← (SRC = 0); ZF ← (DEST = 0); OF, SF, PF
+and AF are undefined."  ⚠️ ZF reads the DESTINATION — see the note above. -/
+def bitCount (sz : Size) (src dest : Val) (pfU afU sfU ofU : Bool) (f : Flags) : Flags :=
+  { f with
+    cf := Value.isZero sz src
+    zf := Value.isZero sz dest
+    pf := pfU, af := afU, sf := sfU, of := ofU }
+
+/-- BSF and BSR (SDM Vol. 2A): "ZF ← (SRC = 0); CF, OF, SF, AF and PF are
+undefined."  ⚠️ Five of the six flags are undefined and the SIXTH is the only
+thing the instruction promises about its flags — and at a zero source the
+DESTINATION is undefined too, which `step` handles with the oracle. -/
+def bitScan (sz : Size) (src : Val) (cfU pfU afU sfU ofU : Bool) (f : Flags) : Flags :=
+  { f with
+    zf := Value.isZero sz src
+    cf := cfU, pf := pfU, af := afU, sf := sfU, of := ofU }
+
+/-- BLSI (SDM Vol. 2A): "SF ← temp<MSB>; ZF ← (temp = 0); CF ← (SRC ≠ 0);
+OF ← 0; AF and PF are undefined."
+
+⛔ CF IS THE INVERSE OF THE USUAL SENSE — set when the source is NON-zero, where
+`lzcnt`/`tzcnt` set it when the source IS zero.  Two instructions in one batch
+whose CF reads the same question and answers it in opposite directions. -/
+def blsi (sz : Size) (src res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
+  { f with
+    sf := Value.msb sz res
+    zf := Value.isZero sz res
+    cf := !(Value.isZero sz src)
+    of := false
+    pf := pfU, af := afU }
+
 end Flags
 end X86

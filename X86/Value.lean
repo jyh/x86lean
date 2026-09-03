@@ -262,5 +262,71 @@ theorem writeView_low (sz : Size) (h : sz = .w ∨ sz = .b)
     simp [h, h1, h2]
   · simp [h]
 
+/-! ### P1 BATCH 14 — counting bits, and the two functions that are NOT each
+other's mirror
+
+`popcnt`, `lzcnt`, `tzcnt`, `bsf` and `bsr` all answer a question about WHICH
+bits of the source are set, and the SDM answers it three different ways at a
+zero source: `popcnt` says 0, `lzcnt`/`tzcnt` say the OPERAND WIDTH, and
+`bsf`/`bsr` say the destination is UNDEFINED.  Each is written here as a total
+function so that `step` never has to invent a value, and the undefined one is
+handled in `step` by the oracle rather than by a made-up number here.
+
+⚠️ ALL THREE RECURSE ON A FUEL ARGUMENT rather than on the value.  The kernel
+must be able to REDUCE these — every characterization theorem below and every
+coverage assertion is a `decide` — and structural recursion on `Nat` reduces
+where well-founded recursion on a shrinking `BitVec` would not.  That is the
+same reason `isInfixOfChars` exists in `Tests/Coverage.lean`. -/
+
+/-- Set bits among the low `n`. -/
+def popCountN (v : Val) : Nat → Nat
+  | 0 => 0
+  | n + 1 => (if v.getLsbD n then 1 else 0) + popCountN v n
+
+/-- POPCNT: the number of set bits in the source at its operand width. -/
+def popCount (sz : Size) (v : Val) : Nat := popCountN (trunc sz v) sz.bits
+
+/-- Trailing zeros among the low `n` bits — `n` when all of them are clear.
+
+⚠️ Scanning UPWARD from bit 0, so the `n` returned for an all-clear field is the
+width itself, which is exactly what TZCNT is defined to return for a zero
+source.  It is NOT a sentinel this model chose. -/
+def ctzN (v : Val) : Nat → Nat
+  | 0 => 0
+  | n + 1 => if v.getLsbD 0 then 0 else 1 + ctzN (v >>> 1) n
+
+/-- Leading zeros among the low `n` bits — `n` when all of them are clear. -/
+def clzN (v : Val) : Nat → Nat
+  | 0 => 0
+  | n + 1 => if v.getLsbD n then 0 else 1 + clzN v n
+
+/-- LZCNT: leading zeros at the operand width; the width itself for a zero
+source (SDM Vol. 2A, LZCNT). -/
+def clz (sz : Size) (v : Val) : Nat := clzN (trunc sz v) sz.bits
+
+/-- TZCNT: trailing zeros at the operand width; the width itself for a zero
+source (SDM Vol. 2A, TZCNT). -/
+def ctz (sz : Size) (v : Val) : Nat := ctzN (trunc sz v) sz.bits
+
+/-- BSF's index: the position of the LOWEST set bit.  ⚠️ Defined only where the
+source is non-zero — at a zero source the SDM leaves the DESTINATION undefined
+and `step` draws it from the oracle instead of calling this. -/
+def bitScanForward (sz : Size) (v : Val) : Nat := ctz sz v
+
+/-- BSR's index: the position of the HIGHEST set bit.  ⚠️ Note this is NOT
+`clz`: LZCNT counts the zeros ABOVE the top set bit and BSR reports that bit's
+INDEX, so they add up to the width minus one.  Writing `bsr` as `clz` (or the
+reverse) is a model that is right at exactly one source value — `1` at `.b`,
+where both answer 7 and 0 respectively — and the deliberately wrong model
+`wrongBsrIsLzcnt` in `Main.lean` is that mistake, planted.  Defined only where
+the source is non-zero. -/
+def bitScanReverse (sz : Size) (v : Val) : Nat := sz.bits - 1 - clz sz v
+
+/-- BLSI: isolate the lowest set bit — `(-src) AND src` (SDM Vol. 2A, BLSI),
+at the operand width.  Zero in, zero out. -/
+def blsi (sz : Size) (v : Val) : Val :=
+  let a := trunc sz v
+  trunc sz ((0 - a) &&& a)
+
 end Value
 end X86

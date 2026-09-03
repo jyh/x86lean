@@ -187,4 +187,120 @@ theorem cursor_independent_of_bits :
       = (step ⟨.shift .shl .q (.reg .rax) (.imm8 1), 3⟩ (s1 { rax := 1 })).oracle.cursor := by
   decide
 
+/-! ## §3 — P1 BATCH 14: the first UNDEFINED REGISTER, and the flags around it
+
+⭐⭐ THE OBLIGATION IN THIS SECTION IS NEW IN KIND.  Every theorem above is about
+a FLAG: the oracle may reach it, or must not.  `bsf`/`bsr` at a zero source leave
+the DESTINATION REGISTER undefined (SDM Vol. 2A), so for the first time the
+oracle must be shown to reach a REGISTER — and, just as importantly, to reach it
+ONLY at a zero source.
+
+⛔ THE SECOND HALF IS THE ONE THAT WOULD OTHERWISE GO UNTESTED, and it is what
+`X86.undefinedLeaked` enforces on every differential case: at a NON-zero source
+the destination is an ordinary computed index and the two oracles must AGREE on
+it.  A model that drew the destination unconditionally would satisfy §1 here and
+be wrong about every `bsf` in the world.
+
+⚠️ `maxRecDepth` is raised for this section alone.  An undefined DESTINATION is
+`sz.bits` oracle draws — sixty-four of them at `.q`, where an undefined FLAG is
+one — so `Oracle.drawVal` recurses sixty-four deep inside a `decide` that the
+elaborator must evaluate.  Nothing about the proofs is heavier; the recursion is
+simply deeper than the default allows. -/
+
+set_option maxRecDepth 8000
+
+/-- BSF at a zero source: the DESTINATION is undefined. -/
+theorem bsf_dest_undefined_at_zero_source :
+    (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax
+      ≠ (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax := by
+  decide
+
+theorem bsr_dest_undefined_at_zero_source :
+    (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax
+      ≠ (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax := by
+  decide
+
+/-- ⛔ AND AT A NON-ZERO SOURCE IT IS NOT.  This is the half that says the
+undefined region is a REGION and not the whole instruction. -/
+theorem bsf_dest_defined_at_nonzero_source :
+    (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0x120 })).regs.get .rax
+      = (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0x120 })).regs.get .rax := by
+  decide
+
+theorem bsr_dest_defined_at_nonzero_source :
+    (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0x120 })).regs.get .rax
+      = (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0x120 })).regs.get .rax := by
+  decide
+
+/-- BSF/BSR: five undefined flags.  ZF is NOT among them and is checked below. -/
+theorem bsf_cf_undefined :
+    (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rcx := 0x120 })).flags.cf
+      ≠ (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s1 { rcx := 0x120 })).flags.cf := by
+  decide
+
+theorem bsr_of_undefined :
+    (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s0 { rcx := 0x120 })).flags.of
+      ≠ (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s1 { rcx := 0x120 })).flags.of := by
+  decide
+
+/-- ⭐ AND ZF IS COMMITTED, at a zero source and a non-zero one alike — the one
+promise `bsf`/`bsr` make about their flags.  A model that drew ZF from the
+oracle along with the other five would pass every §1 theorem in this file. -/
+theorem bsf_zf_committed_at_zero_source :
+    (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rcx := 0 })).flags.zf
+      = (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s1 { rcx := 0 })).flags.zf := by
+  decide
+
+theorem bsr_zf_committed_at_nonzero_source :
+    (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s0 { rcx := 0x120 })).flags.zf
+      = (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s1 { rcx := 0x120 })).flags.zf := by
+  decide
+
+/-- LZCNT and TZCNT: PF, AF, SF and OF undefined; CF and ZF committed. -/
+theorem lzcnt_sf_undefined :
+    (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s0 { rcx := 0x120 })).flags.sf
+      ≠ (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s1 { rcx := 0x120 })).flags.sf := by
+  decide
+
+theorem tzcnt_pf_undefined :
+    (step ⟨.bitcnt .tzcnt .q .rax (.reg .rcx), 5⟩ (s0 { rcx := 0x120 })).flags.pf
+      ≠ (step ⟨.bitcnt .tzcnt .q .rax (.reg .rcx), 5⟩ (s1 { rcx := 0x120 })).flags.pf := by
+  decide
+
+theorem lzcnt_cf_and_zf_committed :
+    (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s0 { rcx := 0 })).flags.cf
+      = (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s1 { rcx := 0 })).flags.cf
+    ∧ (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s0 { rcx := 0 })).flags.zf
+      = (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s1 { rcx := 0 })).flags.zf := by
+  decide
+
+/-- ⭐ AND LZCNT'S DESTINATION IS NEVER UNDEFINED, not even at a zero source —
+where it is the WIDTH.  This is the theorem that separates the two opcode pairs:
+`bsr` and `lzcnt` are one prefix byte apart and answer a zero source in
+completely different currencies. -/
+theorem lzcnt_dest_defined_at_zero_source :
+    (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax
+      = (step ⟨.bitcnt .lzcnt .q .rax (.reg .rcx), 5⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax := by
+  decide
+
+/-- BLSI: PF and AF undefined, SF/ZF/CF/OF committed. -/
+theorem blsi_af_undefined :
+    (step ⟨.bitcnt .blsi .q .rax (.reg .rcx), 5⟩ (s0 { rcx := 0x120 })).flags.af
+      ≠ (step ⟨.bitcnt .blsi .q .rax (.reg .rcx), 5⟩ (s1 { rcx := 0x120 })).flags.af := by
+  decide
+
+/-- ⭐ POPCNT LEAVES NOTHING UNDEFINED — the only member of the group at
+`T-exact`, and the tier is a behavioural claim rather than a label. -/
+theorem popcnt_fully_committed :
+    (step ⟨.bitcnt .popcnt .q .rax (.reg .rcx), 5⟩ (s0 { rax := 0xDEAD, rcx := 0x120 })).flags
+      = (step ⟨.bitcnt .popcnt .q .rax (.reg .rcx), 5⟩ (s1 { rax := 0xDEAD, rcx := 0x120 })).flags
+    ∧ (step ⟨.bitcnt .popcnt .q .rax (.reg .rcx), 5⟩ (s0 { rax := 0xDEAD, rcx := 0x120 })).regs.get .rax
+      = (step ⟨.bitcnt .popcnt .q .rax (.reg .rcx), 5⟩ (s1 { rax := 0xDEAD, rcx := 0x120 })).regs.get .rax := by
+  decide
+  -- ⚠️ NOT `... s0 = ... s1` ON THE WHOLE `Cpu`.  `Cpu` carries the `Oracle`,
+  -- whose `bits` is a FUNCTION FIELD with no `DecidableEq` — by design, since a
+  -- decidable oracle is one a theorem could learn a bit of.  So the two states
+  -- are compared component by component, and the components are whole RECORDS
+  -- (`flags`) rather than seven projections, which is D30 one level down.
+
 end X86.Tests

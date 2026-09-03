@@ -67,14 +67,51 @@ def kernel_ms(f):
     v = float(m.group(1))
     return v * 1000 if m.group(2) == "s" else v
 
+# ⭐ THE DENOMINATOR FOR A TABLE-DRIVEN MODULE, AND WHY IT CAN BE TRUSTED.
+#
+# `Tests.Coverage` type-checks `decide` over the coverage TABLE: its kernel cost
+# is linear in the number of rows, and the roster grows every batch by
+# construction.  An absolute-millisecond ceiling on such a module is a gate that
+# must be RAISED EVERY BATCH — and a gate relaxed on schedule is not a gate, it
+# is a chore that trains its owner to raise it.  Batches 3 and 14 both raised
+# this one; batch 10 recorded 2.4x headroom as "room to do this properly rather
+# than under pressure", and by batch 14 the headroom was 1.09x.  So the ceiling
+# for such a module is registered PER ROW and multiplied by the live row count.
+#
+# ⚠️ The row count is not counted by this script.  It is read from the LITERAL
+# in `theorem roster_size_is_N : rosterSize = N := by decide` — and that literal
+# is kernel-pinned to the table by `table_row_count : tableP0.length =
+# rosterSize`, so the denominator this gate divides by is a number Lean PROVES
+# is the table's length, not a number this script counted and could get wrong.
+# A missing or unparseable literal is an ERROR, never a default: a denominator
+# guessed at is a ceiling that means nothing.
+PER_ROW_TAG = "@perRow"
+
+def roster_size():
+    src = open("Tests/Coverage.lean").read()
+    ms = re.findall(r'rosterSize\s*=\s*(\d+)\s*:=\s*by\s+decide', src)
+    if len(ms) != 1:
+        print(f"⛔ could not read a unique kernel-pinned `rosterSize = N` from "
+              f"Tests/Coverage.lean (found {len(ms)}). A per-row ceiling "
+              f"without a trustworthy denominator is not a gate.")
+        sys.exit(2)
+    return int(ms[0])
+
 def read_ceilings():
+    """Returns {module: (kind, value)} where kind is "abs" or "perRow"."""
     d = {}
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             line = line.split("#")[0].strip()
             if line:
-                k, v = line.split()
-                d[k] = float(v)
+                parts = line.split()
+                if len(parts) == 3 and parts[1] == PER_ROW_TAG:
+                    d[parts[0]] = ("perRow", float(parts[2]))
+                elif len(parts) == 2:
+                    d[parts[0]] = ("abs", float(parts[1]))
+                else:
+                    print(f"⛔ unparseable ceiling line: {line!r}")
+                    sys.exit(2)
     return d
 
 def main():
@@ -82,6 +119,7 @@ def main():
     subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
                    capture_output=True, text=True)
     ceil = read_ceilings()
+    nrows = roster_size()
     rows, total, fail = [], 0.0, False
     for f in modules():
         n = mod_name(f)
@@ -95,21 +133,30 @@ def main():
             fh.write(f"# Ceiling = max(measured x {HEADROOM}, {FLOOR_MS}ms): below the floor,\n")
             fh.write("# timing noise dominates and a ratio would fail on a loaded machine.\n")
             for n, ms in rows:
-                fh.write(f"{n} {max(ms * HEADROOM, FLOOR_MS):.0f}\n")
+                prev = ceil.get(n)
+                if prev and prev[0] == "perRow":
+                    fh.write(f"{n} {PER_ROW_TAG} "
+                             f"{max(ms * HEADROOM / nrows, FLOOR_MS / nrows):.1f}\n")
+                else:
+                    fh.write(f"{n} {max(ms * HEADROOM, FLOOR_MS):.0f}\n")
         print(f"registered {len(rows)} ceilings → {CEIL_FILE}")
         ceil = read_ceilings()
 
+    print(f"coverage-table rows (kernel-pinned rosterSize): {nrows}")
     print(f"{'MODULE':<24}{'KERNEL(ms)':>12}{'CEILING(ms)':>13}   VERDICT")
     for n, ms in rows:
-        c = ceil.get(n)
-        if c is None:
+        e = ceil.get(n)
+        if e is None:
             v, fail = "UNREGISTERED ⛔", True
             cs = "-"
-        elif ms > c:
-            v, fail = "OVER CEILING ⛔", True
-            cs = f"{c:.0f}"
         else:
-            v, cs = "ok", f"{c:.0f}"
+            kind, val = e
+            c = val * nrows if kind == "perRow" else val
+            if ms > c:
+                v, fail = "OVER CEILING ⛔", True
+            else:
+                v = "ok" if kind == "abs" else f"ok ({val:.1f}/row x {nrows})"
+            cs = f"{c:.0f}"
         print(f"{n:<24}{ms:>12.1f}{cs:>13}   {v}")
     print("---")
     print(f"total kernel time across the development: {total:.1f}ms")

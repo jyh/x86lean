@@ -1507,6 +1507,103 @@ def vectors : List Vec :=
     , bytes := "0f38f103", instr := ⟨.movbe .d (M .rbx) (R .rax), 4⟩ }
   , { id := "movbe_mr_w", mnemonic := "movbe", asm := "movbew %ax, (%rbx)"
     , bytes := "660f38f103", instr := ⟨.movbe .w (M .rbx) (R .rax), 5⟩ }
+
+  -- ══ P1 BATCH 14 ═══════════════════════════════════════════════════════
+  -- The bit-counting group: POPCNT, LZCNT, TZCNT, BSF, BSR, BLSI at `r,r` and
+  -- `r,m`, every width each of them has an encoding for.  Twelve roster rows,
+  -- and NO NEW PRE-STATE — `preStates`' `diag` arm is `mkPre a a 0`, so RCX and
+  -- the eight bytes at RBX both carry `a`, and `adversarial` contains 0.  The
+  -- zero source is therefore reached by BOTH shapes rather than being a case
+  -- this batch would have had to construct.  ⚠️ That is asserted rather than
+  -- assumed: `bit_counting_reaches_a_zero_source` in `Tests/Coverage.lean`.
+  --
+  -- ⭐⭐ LZCNT IS BSR PLUS AN F3 PREFIX, AND TZCNT IS BSF PLUS AN F3 PREFIX.
+  -- Read the assembled bytes above: `bsrq %rcx, %rax` is `480fbdc1` and
+  -- `lzcntq %rcx, %rax` is `f3480fbdc1` — the SAME OPCODE 0F BD, one byte
+  -- apart.  That is not a coincidence of this table, it is the encoding: a CPU
+  -- without the LZCNT feature executes `lzcnt` AS `bsr`, silently, because F3
+  -- is a prefix it is entitled to ignore.
+  --
+  -- ⇒ THE TWO ANSWER DIFFERENT QUESTIONS ABOUT THE SAME BITS.  BSR reports the
+  -- INDEX of the highest set bit; LZCNT counts the zeros ABOVE it.  They sum to
+  -- the width minus one, so they agree at exactly one source per width and
+  -- differ everywhere else.  Batch 13 measured this against the oracle and
+  -- recorded the witness — `lzcntq 0x123456789ABCDEF0` = 3 where `bsr` = 60 —
+  -- and `X86.Value.bitScanReverse`'s own comment names the confusion; the
+  -- deliberately wrong model `wrongBsrIsLzcnt` is it, planted.
+  --
+  -- ⚠️ AND THE ZERO SOURCE SEPARATES THEM AGAIN, differently: `lzcnt` and
+  -- `tzcnt` answer the WIDTH and set CF, while `bsf` and `bsr` leave the
+  -- DESTINATION UNDEFINED and set ZF.  Four instructions on two opcodes, and
+  -- every pair of them differs somewhere in this vector table.
+  , { id := "popcnt_rr_w", mnemonic := "popcnt", asm := "popcntw %cx, %ax"
+    , bytes := "66f30fb8c1", instr := ⟨.bitcnt .popcnt .w .rax (R .rcx), 5⟩ }
+  , { id := "popcnt_rm_w", mnemonic := "popcnt", asm := "popcntw (%rbx), %ax"
+    , bytes := "66f30fb803", instr := ⟨.bitcnt .popcnt .w .rax (M .rbx), 5⟩ }
+  , { id := "popcnt_rr_d", mnemonic := "popcnt", asm := "popcntl %ecx, %eax"
+    , bytes := "f30fb8c1", instr := ⟨.bitcnt .popcnt .d .rax (R .rcx), 4⟩ }
+  , { id := "popcnt_rm_d", mnemonic := "popcnt", asm := "popcntl (%rbx), %eax"
+    , bytes := "f30fb803", instr := ⟨.bitcnt .popcnt .d .rax (M .rbx), 4⟩ }
+  , { id := "popcnt_rr_q", mnemonic := "popcnt", asm := "popcntq %rcx, %rax"
+    , bytes := "f3480fb8c1", instr := ⟨.bitcnt .popcnt .q .rax (R .rcx), 5⟩ }
+  , { id := "popcnt_rm_q", mnemonic := "popcnt", asm := "popcntq (%rbx), %rax"
+    , bytes := "f3480fb803", instr := ⟨.bitcnt .popcnt .q .rax (M .rbx), 5⟩ }
+  , { id := "lzcnt_rr_w", mnemonic := "lzcnt", asm := "lzcntw %cx, %ax"
+    , bytes := "66f30fbdc1", instr := ⟨.bitcnt .lzcnt .w .rax (R .rcx), 5⟩ }
+  , { id := "lzcnt_rm_w", mnemonic := "lzcnt", asm := "lzcntw (%rbx), %ax"
+    , bytes := "66f30fbd03", instr := ⟨.bitcnt .lzcnt .w .rax (M .rbx), 5⟩ }
+  , { id := "lzcnt_rr_d", mnemonic := "lzcnt", asm := "lzcntl %ecx, %eax"
+    , bytes := "f30fbdc1", instr := ⟨.bitcnt .lzcnt .d .rax (R .rcx), 4⟩ }
+  , { id := "lzcnt_rm_d", mnemonic := "lzcnt", asm := "lzcntl (%rbx), %eax"
+    , bytes := "f30fbd03", instr := ⟨.bitcnt .lzcnt .d .rax (M .rbx), 4⟩ }
+  , { id := "lzcnt_rr_q", mnemonic := "lzcnt", asm := "lzcntq %rcx, %rax"
+    , bytes := "f3480fbdc1", instr := ⟨.bitcnt .lzcnt .q .rax (R .rcx), 5⟩ }
+  , { id := "lzcnt_rm_q", mnemonic := "lzcnt", asm := "lzcntq (%rbx), %rax"
+    , bytes := "f3480fbd03", instr := ⟨.bitcnt .lzcnt .q .rax (M .rbx), 5⟩ }
+  , { id := "tzcnt_rr_w", mnemonic := "tzcnt", asm := "tzcntw %cx, %ax"
+    , bytes := "66f30fbcc1", instr := ⟨.bitcnt .tzcnt .w .rax (R .rcx), 5⟩ }
+  , { id := "tzcnt_rm_w", mnemonic := "tzcnt", asm := "tzcntw (%rbx), %ax"
+    , bytes := "66f30fbc03", instr := ⟨.bitcnt .tzcnt .w .rax (M .rbx), 5⟩ }
+  , { id := "tzcnt_rr_d", mnemonic := "tzcnt", asm := "tzcntl %ecx, %eax"
+    , bytes := "f30fbcc1", instr := ⟨.bitcnt .tzcnt .d .rax (R .rcx), 4⟩ }
+  , { id := "tzcnt_rm_d", mnemonic := "tzcnt", asm := "tzcntl (%rbx), %eax"
+    , bytes := "f30fbc03", instr := ⟨.bitcnt .tzcnt .d .rax (M .rbx), 4⟩ }
+  , { id := "tzcnt_rr_q", mnemonic := "tzcnt", asm := "tzcntq %rcx, %rax"
+    , bytes := "f3480fbcc1", instr := ⟨.bitcnt .tzcnt .q .rax (R .rcx), 5⟩ }
+  , { id := "tzcnt_rm_q", mnemonic := "tzcnt", asm := "tzcntq (%rbx), %rax"
+    , bytes := "f3480fbc03", instr := ⟨.bitcnt .tzcnt .q .rax (M .rbx), 5⟩ }
+  , { id := "bsf_rr_w", mnemonic := "bsf", asm := "bsfw %cx, %ax"
+    , bytes := "660fbcc1", instr := ⟨.bitcnt .bsf .w .rax (R .rcx), 4⟩ }
+  , { id := "bsf_rm_w", mnemonic := "bsf", asm := "bsfw (%rbx), %ax"
+    , bytes := "660fbc03", instr := ⟨.bitcnt .bsf .w .rax (M .rbx), 4⟩ }
+  , { id := "bsf_rr_d", mnemonic := "bsf", asm := "bsfl %ecx, %eax"
+    , bytes := "0fbcc1", instr := ⟨.bitcnt .bsf .d .rax (R .rcx), 3⟩ }
+  , { id := "bsf_rm_d", mnemonic := "bsf", asm := "bsfl (%rbx), %eax"
+    , bytes := "0fbc03", instr := ⟨.bitcnt .bsf .d .rax (M .rbx), 3⟩ }
+  , { id := "bsf_rr_q", mnemonic := "bsf", asm := "bsfq %rcx, %rax"
+    , bytes := "480fbcc1", instr := ⟨.bitcnt .bsf .q .rax (R .rcx), 4⟩ }
+  , { id := "bsf_rm_q", mnemonic := "bsf", asm := "bsfq (%rbx), %rax"
+    , bytes := "480fbc03", instr := ⟨.bitcnt .bsf .q .rax (M .rbx), 4⟩ }
+  , { id := "bsr_rr_w", mnemonic := "bsr", asm := "bsrw %cx, %ax"
+    , bytes := "660fbdc1", instr := ⟨.bitcnt .bsr .w .rax (R .rcx), 4⟩ }
+  , { id := "bsr_rm_w", mnemonic := "bsr", asm := "bsrw (%rbx), %ax"
+    , bytes := "660fbd03", instr := ⟨.bitcnt .bsr .w .rax (M .rbx), 4⟩ }
+  , { id := "bsr_rr_d", mnemonic := "bsr", asm := "bsrl %ecx, %eax"
+    , bytes := "0fbdc1", instr := ⟨.bitcnt .bsr .d .rax (R .rcx), 3⟩ }
+  , { id := "bsr_rm_d", mnemonic := "bsr", asm := "bsrl (%rbx), %eax"
+    , bytes := "0fbd03", instr := ⟨.bitcnt .bsr .d .rax (M .rbx), 3⟩ }
+  , { id := "bsr_rr_q", mnemonic := "bsr", asm := "bsrq %rcx, %rax"
+    , bytes := "480fbdc1", instr := ⟨.bitcnt .bsr .q .rax (R .rcx), 4⟩ }
+  , { id := "bsr_rm_q", mnemonic := "bsr", asm := "bsrq (%rbx), %rax"
+    , bytes := "480fbd03", instr := ⟨.bitcnt .bsr .q .rax (M .rbx), 4⟩ }
+  , { id := "blsi_rr_d", mnemonic := "blsi", asm := "blsil %ecx, %eax"
+    , bytes := "c4e278f3d9", instr := ⟨.bitcnt .blsi .d .rax (R .rcx), 5⟩ }
+  , { id := "blsi_rm_d", mnemonic := "blsi", asm := "blsil (%rbx), %eax"
+    , bytes := "c4e278f31b", instr := ⟨.bitcnt .blsi .d .rax (M .rbx), 5⟩ }
+  , { id := "blsi_rr_q", mnemonic := "blsi", asm := "blsiq %rcx, %rax"
+    , bytes := "c4e2f8f3d9", instr := ⟨.bitcnt .blsi .q .rax (R .rcx), 5⟩ }
+  , { id := "blsi_rm_q", mnemonic := "blsi", asm := "blsiq (%rbx), %rax"
+    , bytes := "c4e2f8f31b", instr := ⟨.bitcnt .blsi .q .rax (M .rbx), 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

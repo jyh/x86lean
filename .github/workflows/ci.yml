@@ -43,11 +43,22 @@ jobs:
       - name: Encoding cross-check (every `Instr.len` against a real assembler)
         run: python3 scripts/check_encodings.py
 
-      - name: Harness selftest (seven planted bugs, each must be caught)
+      # ⛔ THIS STEP WAS NAMED "seven planted bugs" UNTIL P1 BATCH 14, when there
+      # were thirty-eight. The banner the command PRINTS has been derived from
+      # `selftestArms.length` since D29 caught exactly this drift one layer down;
+      # the step NAME beside it was still a literal, and had been wrong for seven
+      # batches. A number in a label nothing reads is D41's rule in the CI file.
+      - name: Harness selftest (every planted bug caught, + control + undefined column)
         run: lake env .lake/build/bin/x86lean-diff selftest
 
       - name: Kernel-cost ceilings
         run: python3 scripts/kernel_cost.py
+
+      # P1 BATCH 14 (D41): the per-batch narrative in the generated coverage
+      # document, gated against the differential records — two artifacts that
+      # are not maintained by the same edit.
+      - name: Coverage prose names every batch that has a differential record
+        run: python3 scripts/check_coverage_prose.py
 
       # ── the roster gate (plan v1 §5: K's list is P1's fence) ─────────────
       - name: Fetch the K semantics (sparse: `semantics/` only, 15 MB of 2.8 GB)

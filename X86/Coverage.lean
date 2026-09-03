@@ -353,6 +353,37 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- same commit; D32 is what that pairing costs when it is not done.
   , { mnemonic := "movbe", shapes := "r,m · m(w),r — w/l/q", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A MOVBE" }
+  -- P1 BATCH 14 (`p1/roster.tsv` families 33, 39, 42, 46): the BIT-COUNTING
+  -- group.  One operand shape — `r,r · r,m`, destination always a register —
+  -- and six different answers about what the flags mean.
+  --
+  -- ⭐ THE `undefined` COLUMN IS NOW GATED, and this batch is why.  Until now it
+  -- was checked only against the TIER (`frame_tier_iff_undefined_bits`: frame
+  -- iff non-empty), so a row naming the wrong flags, or too few, read exactly
+  -- like a right one.  `undefined_column_matches_the_model` in `Main.lean`
+  -- compares its flag TOKENS against the set the model actually draws over
+  -- every emitted case.  See docs/DECISIONS.md D39.
+  --
+  -- ⛔ AND `bsf`/`bsr` CARRY A TOKEN NO ROW HAS EVER CARRIED: `DEST`.  Their
+  -- undefined region includes the DESTINATION REGISTER at a zero source, not
+  -- only flags, and a column that could only name flags would have been unable
+  -- to state the most unusual claim in the table.
+  , { mnemonic := "popcnt", shapes := "r,r · r,m — w/l/q", tier := .exact,
+      decode := .xed, undefined := [], sdm := "Vol. 2B POPCNT" }
+  , { mnemonic := "lzcnt", shapes := "r,r · r,m — w/l/q", tier := .frame,
+      decode := .xed, undefined := ["PF", "AF", "SF", "OF"],
+      sdm := "Vol. 2A LZCNT" }
+  , { mnemonic := "tzcnt", shapes := "r,r · r,m — w/l/q", tier := .frame,
+      decode := .xed, undefined := ["PF", "AF", "SF", "OF"],
+      sdm := "Vol. 2A TZCNT" }
+  , { mnemonic := "bsf", shapes := "r,r · r,m — w/l/q", tier := .frame,
+      decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF", "DEST (src=0)"],
+      sdm := "Vol. 2A BSF" }
+  , { mnemonic := "bsr", shapes := "r,r · r,m — w/l/q", tier := .frame,
+      decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF", "DEST (src=0)"],
+      sdm := "Vol. 2A BSR" }
+  , { mnemonic := "blsi", shapes := "r,r · r,m — l/q only", tier := .frame,
+      decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSI" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
