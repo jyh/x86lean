@@ -60,6 +60,25 @@ one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are). -/
 theorem roster_size_is_83 : rosterSize = 83 := by decide
 
+/-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
+`scripts/kernel_cost.py` can divide by it.
+
+Batch 17 wrote that this denominator "could be pinned the same way" as
+`rosterSize` and did not pin it, because the unit it wanted also needed an
+ASSERTION count, which cannot be pinned — an assertion count is a property of
+this file's TEXT and of no term in it.  Both halves of that were true, and
+together they blocked ONE DESIGN rather than the goal: a gate on each
+DECLARATION needs no assertion count at all, because dividing by the number of
+declarations is the only thing an assertion count was ever for.  See D62.
+
+⚠️ THE LITERAL IS THE POINT, exactly as it is for `roster_size_is_83`.  Growing
+the vector table is a visible one-line change here, and `kernel_cost.py` reads
+THIS literal — a number Lean proves equal to `vectors.length` — rather than
+counting the table itself and possibly getting it wrong. -/
+def vectorCount : Nat := vectors.length
+
+theorem vector_count_is_775 : vectorCount = 775 := by decide
+
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
 P1 batch 9 handed on a scaling problem with a diagnosis: this module's kernel

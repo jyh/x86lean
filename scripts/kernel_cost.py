@@ -20,7 +20,7 @@ of §3.7.  Raising a ceiling is a decision to record in docs/DECISIONS.md.
 
 Usage:  kernel_cost.py [--register]   (--register rewrites the ceiling file)
 """
-import os, re, subprocess, sys, glob
+import os, re, subprocess, sys, glob, json
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
@@ -97,6 +97,81 @@ def roster_size():
         sys.exit(2)
     return int(ms[0])
 
+
+# ⭐⭐ P1 BATCH 20 — THE DENOMINATOR BATCH 17 SAID COULD BE PINNED, PINNED.
+# `vectorCount` is proved equal to `vectors.length` in Tests/Coverage.lean, so
+# this is a number Lean checks and not a number this script counted.  The same
+# refusal as `roster_size`: a missing literal is an ERROR, never a default.
+def vector_count():
+    src = open("Tests/Coverage.lean").read()
+    ms = re.findall(r'vectorCount\s*=\s*(\d+)\s*:=\s*by\s+decide', src)
+    if len(ms) != 1:
+        print(f"⛔ could not read a unique kernel-pinned `vectorCount = N` from "
+              f"Tests/Coverage.lean (found {len(ms)}). A per-declaration ceiling "
+              f"without a trustworthy denominator is not a gate.")
+        sys.exit(2)
+    return int(ms[0])
+
+
+# ⭐⭐⭐ PER-DECLARATION KERNEL TIME — THE MEASUREMENT BATCH 17 RECORDED AS
+# BLOCKED, AND THE BLOCK WAS ONE SENTENCE TOO WIDE.
+#
+# Batch 17 wrote: "A vector count could be pinned the same way; an ASSERTION
+# count cannot be, because it is a property of the file's text and not of any
+# term in it."  Both halves are TRUE.  What was not noticed for three batches is
+# what they rule out: they block gating the module's TOTAL in an
+# (assertions x vectors) unit.  They say nothing about gating EACH
+# DECLARATION — and a per-declaration gate needs no assertion count at all,
+# because dividing by the number of declarations is the only thing the assertion
+# count was ever for.
+#
+# ⇒ 🔑 A BLOCKED REPAIR BLOCKS A DESIGN, NOT A GOAL.
+#
+# The mechanism: `lean --json -D profiler.threshold=N` emits one
+# `type checking took X` message PER DECLARATION, carrying `fileName` and
+# `pos.line`, so a failure names the declaration instead of the module.  Plain
+# (non-JSON) output carries the same timings with NO position, which is why the
+# first attempt at this looked impossible too.
+def per_declaration(f, threshold_ms=100):
+    """[(line, name, ms)] for one module, kernel time attributed by source line."""
+    r = subprocess.run(
+        ["lake", "env", "lean", "--json", "-D", "profiler=true",
+         "-D", f"profiler.threshold={threshold_ms}", f],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"⛔ {f} did not compile under the per-declaration profiler:\n{r.stderr}")
+        sys.exit(2)
+    src = open(f).read().splitlines()
+    # A declaration's header is the nearest `theorem`/`def`/`example` at or
+    # before the message's line — the message sits on the declaration's own line
+    # for a term-mode proof and on its tactic block for others.
+    def name_at(line):
+        for k in range(line, 0, -1):
+            m = re.match(r'\s*(?:private\s+)?(theorem|def|example|lemma)\s+(\S+)',
+                         src[k - 1])
+            if m:
+                return m.group(2)
+        return "?"
+    out, seen = [], 0
+    for ln in r.stdout.splitlines():
+        if not ln.startswith("{"):
+            continue
+        try:
+            m = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        g = re.match(r'type checking took ([\d.]+)(ms|s)', m.get("data", ""))
+        if not g:
+            continue
+        seen += 1
+        v = float(g.group(1)) * (1000 if g.group(2) == "s" else 1)
+        out.append((m["pos"]["line"], name_at(m["pos"]["line"]), v))
+    if not out:
+        print(f"⛔ {f}: the per-declaration profiler produced no `type checking` "
+              f"message at all. A gate that cannot see its subject reports a pass.")
+        sys.exit(2)
+    return sorted(out, key=lambda t: -t[2])
+
 # ⭐⭐ P1 BATCH 17 — THE GROWTH LAW, MEASURED AND REPORTED RATHER THAN
 # REDISCOVERED, AND THE LOAD AVERAGE BESIDE IT.
 #
@@ -138,6 +213,33 @@ def roster_size():
 # So the figure is REPORTED on every run, in the unit that is actually flat, so
 # that the growth law is observed each batch instead of being reconstructed from
 # git by whoever finally hits the ceiling.
+#
+# ⛔⛔ P1 BATCH 20 MEASURED THAT UNIT AND IT IS NOT FLAT.  "Linear in
+# (assertions x vectors)" was inferred from two whole-module totals, and a total
+# cannot tell a linear module from a super-linear one.  Profiled PER
+# DECLARATION at 700 and again at 775 vectors -- the same code, minutes apart --
+# three declarations grow FASTER than their input:
+#
+#     vectors_cover_the_roster   x1.645        (vectors x1.107)
+#     every_row_has_a_vector     x1.324
+#     every_vector_has_a_row     x1.321
+#
+# and the reason is in the source rather than in the timings: `vectorMnemonics`
+# is `(vectors.map Vec.mnemonic).eraseDups`, and `List.eraseDups` is QUADRATIC.
+# The two theorems above then run `contains` over its result once per row.
+#
+# ⚠️ AND THE TWO DECLARATIONS THAT DOMINATE THE MODULE ARE BARELY VECTOR-DRIVEN
+# AT ALL -- `mem_dest_rewrite_changed_exactly_the_three_operand_rows` x1.050 and
+# `mem_dest_claims_are_backed` x1.077, most of even that being the SHAPES prose
+# this batch lengthened rather than the vectors it added.  Together they are 54%
+# of the module.
+#
+# ⇒ A PER-VECTOR DENOMINATOR WOULD HAVE GONE SLACK EXACTLY WHERE THE COST IS,
+# and slack is the direction nobody polices.  The gate that was going to replace
+# the per-row ceiling is therefore NOT INSTALLED: its own second source refused
+# it (D62).  What IS installed is the measurement that refused it, printed on
+# every run, because the next design needs this table and not another two
+# batches of whole-module totals.
 def coverage_growth_denominator():
     """(assertions, vectors) for Tests.Coverage — REPORTED, never gated."""
     thms = len(re.findall(r'^theorem\s', open("Tests/Coverage.lean").read(), re.M))
@@ -167,6 +269,7 @@ def main():
                    capture_output=True, text=True)
     ceil = read_ceilings()
     nrows = roster_size()
+    nvecs = vector_count()
     rows, total, fail = [], 0.0, False
     for f in modules():
         n = mod_name(f)
@@ -228,8 +331,15 @@ def main():
         thms, vecs = coverage_growth_denominator()
         if thms and vecs:
             print(f"Tests.Coverage growth law (REPORTED, not gated): {cov:.0f}ms "
-                  f"= {cov/nrows:.1f} ms/row = {1000*cov/(thms*vecs):.1f} ns per "
-                  f"(assertion x vector), over {thms} assertions and {vecs} vectors")
+                  f"= {cov/nrows:.1f} ms/row over {nrows} rows, "
+                  f"{cov/nvecs:.2f} ms/vector over {nvecs} kernel-pinned vectors "
+                  f"({thms} assertions)")
+            print("  ⚠️  NEITHER unit is flat: the module is SUPER-LINEAR in "
+                  "vectors in three declarations and barely vector-driven in the "
+                  "two that dominate it. See D62 and the per-declaration table "
+                  "below; do not gate on a whole-module density.")
+            for line, name, ms in per_declaration("Tests/Coverage.lean")[:8]:
+                print(f"    {ms:9.0f} ms  {name}  (Tests/Coverage.lean:{line})")
     print(f"total kernel time across the development: {total:.1f}ms")
     if fail:
         print("⛔ kernel-cost gate FAILED (over ceiling, or unregistered).")

@@ -71,7 +71,21 @@ structure Row where
 
 /-- THE P0 TABLE.  Twenty rows, one per mnemonic in the plan v1 §5 roster. -/
 def tableP0 : List Row :=
-  let rm := "r/m, r/imm"
+  -- ⛔ `rm` WAS `"r/m, r/imm"` UNTIL P1 BATCH 20, AND IT WAS THE LAST PIECE OF
+  -- P0 PROSE IN THIS COLUMN.  It is not false, but it is not a SHAPE LIST
+  -- either: it names an operand grammar rather than the shapes this model has
+  -- vectors for, and `claimsMemDest` reads it as claiming no memory
+  -- destination at all — correctly, since until this batch `add` and `sub` had
+  -- none.  Batch 20 gives both mnemonics `m,r`, `m,imm`, `r,m` and the
+  -- accumulator short encodings at all four widths, so the string has to say
+  -- so, and once it must be rewritten it may as well be exact.
+  --
+  -- ⚠️ THE TWO STRINGS DIFFER, AND THE DIFFERENCE IS THE POINT.  `sub` has
+  -- `r,imm` at all four widths (batch 20 added `sub_ri_*`); `add` has it only
+  -- at `q`, because `add r,imm` was already a CLAIMED roster row and adding
+  -- vectors for it would have bought coverage this table already had.  A
+  -- shared string would have had to over-claim one of them, and the direction
+  -- it would have over-claimed in is the one no gate reads.
   -- P1 BATCH 1 (`p1/roster.tsv` family `0xuxx0-|-|reg`): the register-destination
   -- shapes at every width, plus the accumulator short encodings and the high-8
   -- register views.  The memory-DESTINATION forms are batch 4 of the roster and
@@ -85,7 +99,14 @@ def tableP0 : List Row :=
   -- ⇒ A WRONG CLAIM WITH A REASSURING COMMENT BESIDE IT IS HARDER TO SEE THAN A
   -- BARE ONE, because the comment answers the question a reader was about to
   -- ask.  The gate, not the comment, is what now holds this.
-  let carryShapes := "r,r · r,imm · r,m — all of b/w/l/q · acc,imm · rh"
+  -- ⭐ P1 BATCH 20 ADDS `m,r · m,imm` — roster family 43, the memory
+  -- destination for the two mnemonics whose RESULT reads a flag.  The string is
+  -- now character-for-character `logicShapes`, and they are deliberately kept
+  -- as two bindings rather than merged: the shapes agreeing today is a fact
+  -- about the roster, not a constraint on it, and a merge would silently
+  -- propagate the next batch's edit to six mnemonics that did not earn it.
+  let carryShapes := "r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · \
+acc,imm · rh"
   -- ⛔ THIS STRING ENDED `· m,r (q)` UNTIL P1 BATCH 3 AND THAT WAS FALSE.  Batch
   -- 1 shipped `and_rm_*` — a memory SOURCE with a register destination — and the
   -- shapes column, which writes shapes DESTINATION-FIRST, transposed it into a
@@ -102,9 +123,11 @@ def tableP0 : List Row :=
 acc,imm · rh"
   [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
-  , { mnemonic := "add",  shapes := rm, tier := .exact, decode := .xed,
+  , { mnemonic := "add",  shapes := "r,r — b/q · r,imm (q) · acc,imm · r,m · \
+m,r · m,imm — all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A ADD" }
-  , { mnemonic := "sub",  shapes := rm, tier := .exact, decode := .xed,
+  , { mnemonic := "sub",  shapes := "r,r — b/q · r,imm · acc,imm · r,m · \
+m,r · m,imm — all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A SUB" }
   , { mnemonic := "and",  shapes := logicShapes, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A AND" }
@@ -204,13 +227,13 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- Each is now narrowed to what is actually executed, and the missing halves
   -- are named as the roster families that will earn them (10 and 11) — the same
   -- correction `and`/`or`/`xor` took in batch 3 and earned back in batch 4.
-  , { mnemonic := "neg",  shapes := "r — b/q (m: roster family 10)", tier := .exact, decode := .xed,
+  , { mnemonic := "neg",  shapes := "r — b/q · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NEG" }
-  , { mnemonic := "not",  shapes := "r — q (m: roster family 11)", tier := .exact, decode := .xed,
+  , { mnemonic := "not",  shapes := "r — q · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NOT" }
-  , { mnemonic := "push", shapes := "r — q (m, imm: roster family 11)", tier := .exact, decode := .xed,
+  , { mnemonic := "push", shapes := "r · m — q/w · imm (q)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A PUSH" }
-  , { mnemonic := "pop",  shapes := "r — q (m: roster family 11)", tier := .exact, decode := .xed,
+  , { mnemonic := "pop",  shapes := "r — q · m(w) — q/w", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A POP" }
   -- P1 BATCH 5 (`p1/roster.tsv` family `-------|-|flags/ctl`, its BRANCH
   -- subset): every condition at BOTH relative encodings, plus JRCXZ/JECXZ.

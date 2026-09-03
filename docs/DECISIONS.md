@@ -2008,3 +2008,175 @@ picks a default width for it, so a reading meant to be `btw` came back as `btl`,
 `w` and `q` readings of four `bt` rows held the `l` encoding while every `w`/`q` vector of
 those rows went unresolved with nothing to say why. **A row whose roster widths are distinct
 must have distinct encodings at them**; where it does not, the readings are voided and named.
+
+## D59 — three ORDER claims that nineteen batches of green said nothing about, and the one that cannot be tested
+
+`step` has carried three sentences about ORDER since P0:
+
+* `.push` reads its source **before** RSP moves — "so `push rsp` pushes the OLD RSP";
+* `.pop` computes its destination's effective address **after** RSP moves — "a `pop rsp`
+  therefore ends with the LOADED value";
+* `.call .indirect` reads its target **before** the return address is pushed.
+
+Every one is a real architectural commitment, each cites the SDM, and **not one of them was
+tested by anything.** Every push/pop/call vector in the table named an operand that does not
+move with RSP — `push_r` pushes RAX, `pop_r` pops into RCX, and batch 20's own `push_m_q` and
+`pop_m_q` address memory through RBX — and against all of them a model with any of the three
+orders reversed is **bit-identical**.
+
+⇒ 🔑 **A CLAIM THE VECTORS CANNOT DISTINGUISH IS NOT TESTED BY THEM**, however many of them
+there are. This is D14's rule ("a form whose source operand never moves is one test reported as
+seventy-four") applied not to a VALUE but to a SEQUENCE, and it is harder to see: D14's defect
+shows up as an operand that is constant, which a reader can notice, while this one shows up as
+nothing at all.
+
+⛔ **It was found by asking what a GREEN run did not contain.** The 71 shape vectors of this
+batch passed the differential on the first run and were predicted to — no `step` case changed —
+and it is precisely that predictability which made "what can these 5822 new cases still not
+see?" the only question worth asking of them.
+
+**Two are now tested**, by four vectors (`push_rsp`, `pop_rsp`, `push_m_rsp`, `pop_m_rsp`)
+paired with three arms, with the pairing checked by deleting the vectors and re-running the
+arms rather than asserted. Both pop arms exist separately because one is about an ADDRESS
+(showing in the stack window) and the other about WHICH WRITE WINS (showing in `rsp`); a merged
+arm would have been caught by either vector and would not have said which claim was tested.
+
+⛔ **The third cannot be tested through the differential.** `callq *(%rsp)` is the only
+instance that makes it observable, and **x86isa refuses it in 80 of the 82 pre-states**,
+executing only in the two frame states. Agreement where both models refuse is agreement about
+nothing, so the vector is not in the table and the claim is pinned by an anchor against this
+model alone — a weaker instrument, named as such here so that a reader does not count three
+tested orders where there are two.
+
+**Reversal cost:** none for the two that landed. The third closes when a pre-state family puts
+RSP somewhere x86isa will execute an indirect call through.
+
+## D60 — the claim instrument cannot see %rsp, and the exemption is gated in both directions
+
+`scripts/claimed_forms.py` derives each roster row's form skeleton by assembling canonical
+instances under register perturbations. `MBASE` deliberately excludes register index 4 (%rsp)
+and 5 (%rbp): either changes an encoding's **LENGTH** — %rsp forces a SIB byte, %rbp a
+displacement — and a skeleton is a fixed-length byte pattern, so an instance built on one of
+them cannot be described by it. **That exclusion is correct and load-bearing.**
+
+⚠️ **Its consequence had never been paid, because until batch 20 no vector used either base.**
+`popq (%rsp)` is the only instance that can make D59's second claim observable, and it resolves
+to NO roster row.
+
+The two vectors claim nothing — their rows are claimed by the RBX-based siblings — so they are
+exempted **by id**, and the exemption is gated in BOTH directions: an exempt id that starts
+RESOLVING is a finding (the skeleton grew and the list is stale), and an unresolved vector not
+on the list is a finding exactly as before. `--selftest` carries an arm for each direction,
+because a hand-kept exclusion list whose staleness nothing checks is the failure mode of
+[[an-unrecorded-rule-cannot-be-audited]].
+
+⛔ **The skeleton derivation itself was NOT touched.** Extending it to cover SIB-base instances
+is the "proper" fix and it is deliberately declined here: this batch already changes the
+kernel-cost gate, and two instrument changes in one batch is how two defects come to cancel
+(D-note, batch 19). The cost of the declined fix is two vectors that claim nothing and say so.
+
+**Reversal cost:** low — one additional encoding per row, plus a re-derivation of all six
+published numbers with the three independent routes re-diffed.
+
+## D61 — a DECLARED unavailable-list, wrong in the direction that invents work
+
+`claimed_forms.py --remaining` splits the residue into rows that cannot be encoded (derived),
+rows the oracle cannot execute (**DECLARED, batch 18**), and available work. It named 36 rows
+available. **35 were.**
+
+⛔ **`movnti m,r` is not implemented by ACL2 x86isa** — 82/82 refused at every real pre-state.
+Batch 18 measured nine BMI forms as unavailable and wrote them down; `movnti` was never
+measured, and an unmeasured row falls into "available" by default.
+
+⇒ 🔑 **A DECLARED list inherits the direction of its default.** This one defaults to
+*available*, so every gap in it INVENTS work — the flattering direction, because a batch that
+sets out to do work that turns out to be impossible discovers it early and cheaply, and
+therefore nobody builds a gate. The mirror error (a row wrongly declared unavailable) would
+have silently shrunk the roster for ever, and is the one D36 was written about.
+
+**Two independent routes agree**, which is why this is recorded as a fact: the probe carried
+`movl %ecx,(%rbx)` — identical shape, address and pre-states — and it executed 82/82 in the
+same run, so the refusal is the OPCODE; and x86isa's own SSE2-cacheability section doc reads
+*"The only implemented instruction here is LFENCE."* ⚠️ D36 says the catalogue is wrong in both
+directions and must never be the only route; here it happens to be right, and it is the second
+route rather than the first.
+
+**Reversal cost:** none. The line moves from declared to measured the day a probe runs it.
+
+## D62 — the repair that was blocked for three batches, unblocked, designed, and then REFUSED BY ITS OWN SECOND SOURCE
+
+`Tests.Coverage`'s kernel ceiling has been raised twice (batches 3, 14) and had its unit changed
+once. Batch 14 made it PER ROW precisely so it would stop needing raising (D38), since *a gate
+relaxed on schedule is not a gate*. Batch 17 observed that the row is not the unit either, added
+a line reporting **µs per (assertion × vector)** as **REPORTED, NOT GATED**, and recorded why the
+sound repair was blocked:
+
+> *"A vector count could be pinned the same way; an ASSERTION count cannot be, because it is a
+> property of the file's text and not of any term in it."*
+
+**Every sentence of that is true**, and it was carried forward unexamined for three batches.
+
+### 1. The block was one sentence too wide
+It blocks gating the module's **TOTAL** in an (assertions × vectors) unit. It says nothing about
+gating **each DECLARATION** — and a per-declaration gate needs no assertion count at all, because
+*dividing by the number of declarations is the only thing an assertion count was ever for*.
+
+⇒ 🔑 **A BLOCKED REPAIR BLOCKS A DESIGN, NOT A GOAL.** The diagnosis was CORRECT, which is what
+made it expensive: a wrong diagnosis gets tested by the next head, and a right one gets quoted.
+[[feedback-inherited-diagnosis-is-a-hypothesis]] at its sharpest — the hypothesis worth
+re-reading is not the shaky one, it is the one nobody re-reads because it was right.
+
+**And the mechanism was there the whole time.** `lean --json -D profiler.threshold=N` emits one
+`type checking took X` message per declaration carrying `fileName` and `pos.line`. ⚠️ Plain
+non-JSON output carries the same timings with NO position, so a first look says attribution is
+impossible; `--json` is the entire difference.
+
+### 2. ⛔ And then the measurement refused the design
+The gate was to be `no declaration may cost more than K × vectorCount`. Before installing it, the
+density was measured at **two vector counts** — the same code at 700 and at 775 vectors, minutes
+apart — because [[feedback-widening-a-gate-needs-a-second-source]] forbids deriving a gate's
+allowance from the thing it checks. **The two points disagree, and the disagreement is
+structural, not noise:**
+
+| declaration | 700v | 775v | ratio |
+|---|---|---|---|
+| `mem_dest_rewrite_changed_exactly_the_three_operand_rows` | 10 100 | 10 600 | **×1.050** |
+| `mem_dest_claims_are_backed` | 9 010 | 9 700 | **×1.077** |
+| `vectors_cover_the_roster` | 626 | 1 030 | **×1.645** |
+| `every_row_has_a_vector` | 914 | 1 210 | ×1.324 |
+| `every_vector_has_a_row` | 931 | 1 230 | ×1.321 |
+| *(input)* | | | *vectors ×1.107* |
+
+* **The two declarations that dominate the module — 54% of its kernel time — are barely
+  vector-driven**, and most of even that growth is the SHAPES prose this batch lengthened. A
+  per-vector denominator would make them look CHEAPER every batch that adds vectors: **the gate
+  would go slack exactly where the cost is**, in the direction nobody polices
+  ([[feedback-under-claims-are-unpoliced]]).
+* **Three declarations grow FASTER than their input.** ⭐ And the reason is in the SOURCE, not in
+  the timings, which is the second route that makes this a fact rather than a reading:
+  `vectorMnemonics` is `(vectors.map Vec.mnemonic).eraseDups` and **`List.eraseDups` is
+  QUADRATIC**; the two theorems above then run `contains` over its result once per row.
+
+⇒ 🔑 **THE "GROWTH LAW" REPORTED SINCE BATCH 17 IS ITSELF WRONG.** "Linear in
+(assertions × vectors)" was inferred from whole-module TOTALS, and **a total cannot tell a linear
+module from a super-linear one** — the flat-looking unit was two opposite errors averaging out
+across a whole file. Three batches of readings in that unit were compared as though they meant
+something.
+
+### 3. What landed, and what did not
+**NOT installed:** the per-declaration-per-vector gate. Its own second source refused it, and the
+bus post that proposed it said in advance that this was the outcome if the two points disagreed.
+**Installed:** the per-declaration measurement that refused it — printed with names and line
+numbers on every run — and a corrected growth-law line that no longer asserts a linearity the
+module does not have. `vectorCount` is now kernel-pinned beside `rosterSize`, so the reported
+density has a proven denominator even though nothing gates on it yet.
+
+**The per-row ceiling STANDS, and it was not tripped:** batch 18 predicted batch 20 would exceed
+it and batch 20 does not — the module lands under, with headroom intact. The prediction was made
+in the row unit, which this entry has just shown is not a unit; that it was nearly right is not
+evidence that it was right for a reason.
+
+**Reversal cost:** the next design has the table it needs. Whatever it gates on must handle a
+module with at least one quadratic declaration and a cost concentration in two prose-driven ones —
+which is why the honest next step is probably to make `vectorMnemonics` linear rather than to
+find a denominator that flatters it.

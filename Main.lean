@@ -1790,6 +1790,94 @@ def wrongDshiftCfFromResult (i : Instr) (s : Cpu) : Cpu :=
           (s.writeOperand sz nr dst res).setRip nr
   | _ => step i s
 
+/-! ### P1 BATCH 20 — the four arms pointed at claims nothing was pointed at
+
+⭐ THE 71 SHAPE VECTORS OF THIS BATCH PASSED THE DIFFERENTIAL ON THE FIRST RUN,
+and that is exactly the result that has to be distrusted rather than enjoyed.
+No line of `X86/Semantics.lean` changed for them, so a green run is what the
+design predicted — but "the code is already validated" is a claim about code the
+new vectors mostly do not reach on any path the old ones did not.
+
+⛔ AND LOOKING FOUND TWO CLAIMS IN `step` THAT NOTHING COULD SEE.  `.push` reads
+its source BEFORE RSP moves; `.pop` computes its destination address AFTER RSP
+moves.  Both sentences are in the semantics, both have been since P0, and
+against every push/pop vector that existed — including this batch's own, which
+address memory through RBX — a model with either order reversed is BIT-IDENTICAL.
+⇒ **A CLAIM THE VECTORS CANNOT DISTINGUISH IS NOT TESTED BY THEM**, however many
+of them there are.  The four vectors `push_rsp`, `pop_rsp`, `push_m_rsp` and
+`pop_m_rsp` exist to give these three arms something to bite on, and the arms
+exist so that the vectors' load-bearingness is CHECKED and not asserted. -/
+
+/-- P1 BATCH 20: `push` reads its source AFTER the stack pointer has moved.
+
+Caught only by a source that MOVES with RSP: `pushq %rsp` pushes 0x7ff8 instead
+of 0x8000, and `pushq (%rsp)` reads the wrong quadword.  Against `push_r`
+(RAX), `push_i_q` (an immediate) and `push_m_q` (RBX) this model is exactly the
+right one, which is what keeps the bug surgical. -/
+def wrongPushValueAfterDecrement (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .push sz src =>
+      -- the state the SDM says the source is NOT read in
+      let moved := s.setReg .q .rsp (s.regs.get .rsp - BitVec.ofNat 64 sz.bytes)
+      (s.push sz (moved.readOperand sz nr src)).setRip nr
+  | _ => step i s
+
+/-- P1 BATCH 20: `pop` computes its destination's effective address BEFORE the
+stack pointer is incremented (SDM Vol. 2A, POP: the address is computed after).
+
+Caught only by a destination whose address moves with RSP: `popq (%rsp)` stores
+at 0x8000 instead of 0x8008.  Both addresses are inside the watched stack window,
+which is what makes the difference observable rather than merely real. -/
+def wrongPopAddressBeforeIncrement (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .pop sz (.mem ea) =>
+      let (v, s') := s.popValue sz
+      -- the BUG: the address comes from the PRE-increment state
+      { s' with mem := s'.mem.writeSize sz (ea.addr s nr) v }.setRip nr
+  | _ => step i s
+
+/-- P1 BATCH 20: `pop` into a REGISTER writes the loaded value first and the
+stack-pointer increment second, so `popq %rsp` ends holding RSP+8 rather than
+the value it loaded.
+
+⚠️ THIS IS A SEPARATE ARM FROM THE ONE ABOVE AND NOT A GENERALISATION OF IT.
+The memory arm is about an ADDRESS and shows in the stack window; this one is
+about WHICH WRITE WINS and shows in `rsp`.  A single arm covering both would have
+been caught by either vector and would not have said which claim was tested. -/
+def wrongPopRegisterOrder (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .pop sz (.reg r h) =>
+      let sp := s.regs.get .rsp
+      let v := s.readMem sz sp
+      -- the BUG: the destination write happens first, so the RSP update
+      -- overwrites it when the destination IS RSP
+      let s := s.writeOperand sz nr (.reg r h) v
+      (s.setReg .q .rsp (sp + BitVec.ofNat 64 sz.bytes)).setRip nr
+  | _ => step i s
+
+/-- P1 BATCH 20: an INDIRECT branch jumps to the address of its memory operand
+instead of to the value stored there — `jmp *(%rbx)` going to 0x2000 rather than
+to `[0x2000]`.
+
+⭐ It is the classic indirect-branch confusion, and until this batch there was no
+vector with an indirect memory target for it to be wrong about.  ⚠️ It is
+DELIBERATELY VISIBLE IN THE REFUSAL CHANNEL TOO: `[0x2000]` is non-canonical in
+26 of the 82 pre-states and 0x2000 never is, so the wrong model BRANCHES where
+this one refuses — which is the half of the disagreement a comparator that only
+diffed committed states would miss. -/
+def wrongIndirectBranchUsesAddress (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .jmp (.indirect (.mem ea)) => s.setRipChecked (ea.addr s nr)
+  | .call (.indirect (.mem ea)) =>
+      let tgt := ea.addr s nr
+      if canonical tgt then (s.push .q nr).setRip tgt
+      else s.halt (.unimplemented "non-canonical branch target (#GP(0) in hardware)")
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -1817,6 +1905,17 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      "mem@0000000000001fe0")
   , ("a memory store ignores its operand WIDTH", wrongMemStoreWidth,
      "mem@0000000000001fe0")
+  -- P1 BATCH 20.  The first three catch in the STACK window and in `rsp`, not
+  -- in the data window: they are about the order of two writes, not about a
+  -- value.
+  , ("push reads its source AFTER the stack pointer moves",
+     wrongPushValueAfterDecrement, "mem@0000000000007fe0")
+  , ("pop computes its destination address BEFORE the increment",
+     wrongPopAddressBeforeIncrement, "mem@0000000000007fe0")
+  , ("pop into a register lets the RSP update overwrite the loaded value",
+     wrongPopRegisterOrder, "rsp")
+  , ("an indirect branch uses the ADDRESS of its operand, not the value",
+     wrongIndirectBranchUsesAddress, "rip")
   , ("jcxz inverts its test", wrongJcxzInverted, "rip")
   , ("jecxz ignores the address-size prefix and reads all 64 bits", wrongJecxzWidth, "rip")
   , ("setcc inverts its condition", wrongSetccInverted, "rax")
@@ -2145,7 +2244,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **469 of the 525 rows** in `p1/roster.tsv` — which are **322 of the 374 distinct machine forms** those rows describe, because 149 rows are alias SPELLINGS or narrowings of another row (`jz` for `je`, `sal` for `shl`, `stos m` for `stos -`, `cmp m,label` for `cmp m,imm`) and 2 describe no encoding at all. Of the 469, **346 are spelled by a vector** and 123 are the same encoding under a different spelling. ⭐ ALL SIX NUMBERS ARE DERIVED, by `scripts/claimed_forms.py`, and gated in CI; until P1 batch 19 the first was a hand-maintained literal and it was SIXTEEN LOW.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **497 of the 525 rows** in `p1/roster.tsv` — which are **349 of the 374 distinct machine forms** those rows describe, because 149 rows are alias SPELLINGS or narrowings of another row (`jz` for `je`, `sal` for `shl`, `stos m` for `stos -`, `cmp m,label` for `cmp m,imm`) and 2 describe no encoding at all. Of the 497, **373 are spelled by a vector** and 124 are the same encoding under a different spelling. ⭐ ALL SIX NUMBERS ARE DERIVED, by `scripts/claimed_forms.py`, and gated in CI; until P1 batch 19 the first was a hand-maintained literal and it was SIXTEEN LOW.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -2223,7 +2322,29 @@ answers the residue batch 18 could not close — 149 of the 525 rows are alias \
 SPELLINGS of another row, which is why base-name arithmetic could never \
 partition them — and it finds two rows that describe NO ENCODING AT ALL: \
 `jecxz rel32` and `jrcxz rel32`, which the assembler refuses because those \
-instructions have only an 8-bit displacement (see D56, D57, D58).\n\n\
+instructions have only an 8-bit displacement (see D56, D57, D58); 20 — the shapes this model could always EXPRESS and had never been asked: the \
+memory-DESTINATION and accumulator-short forms of ADD/SUB/ADC/SBB, `mov m,imm`, \
+`neg`/`not` at memory, `push imm/m`, `pop m`, and the indirect JMP/CALL through \
+memory — 28 roster rows and 71 vectors, with NOT ONE LINE of `X86/Semantics.lean` \
+changed, because `Op` is keyed by mnemonic with a SHARED operand pair and these \
+shapes have been expressible since P0.  The batch's finding is what its own green \
+run did not contain: `unexplained=0` on the FIRST run with every one of the 5822 \
+new cases MATCHED, and THREE ORDER CLAIMS in `step` that nothing in the repository \
+could distinguish — `.push` reads its source before RSP moves, `.pop` computes its \
+destination address after, and `.call .indirect` reads its target before pushing.  \
+Every push/pop/call vector that existed named an operand that does not move with \
+RSP, so a model with any of the three orders reversed was BIT-IDENTICAL to this \
+one, and nineteen batches of agreement said nothing whatever about those lines.  \
+Two are now tested by four vectors and three arms, with the pairing checked by \
+DELETING the vectors and re-running the arms; the third cannot be, because \
+`callq *(%rsp)` is refused by x86isa in 80 of the 82 pre-states and agreement where \
+both models refuse is agreement about nothing.  The batch also corrected a DECLARED \
+list — `movnti` is NOT available work, 82/82 refused, confirmed twice over by an \
+identical-shape control that executed 82/82 in the same run and by x86isa's own \
+section doc — and it replaced the `Tests.Coverage` kernel ceiling's UNIT: the \
+per-ROW ceiling divides by a variable the cost is not linear in, and the \
+per-DECLARATION repair that batch 17 recorded as blocked was blocked only in the \
+design it considered (see D59, D60, D61, D62).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

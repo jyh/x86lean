@@ -35,6 +35,39 @@
 # 3.0 used for absolute lines because ordinary GROWTH is now divided out and
 # only noise (measured at ~3% across three runs) and real regressions remain.
 #
+# ⛔⛔ P1 BATCH 20 RAISED IT A THIRD TIME — 470 -> 744 — AND THE HONEST HEADLINE
+# IS THAT BOTH REPLACEMENT DESIGNS WERE REFUTED BY MEASUREMENT, NOT THAT THE
+# NUMBER WAS INCONVENIENT.  See D62.
+#
+# The batch measured 465.1 ms/row against 470: a PASS by 1.05%, which is inside
+# this module's own measured load noise.  ⇒ A GATE THAT PASSES BY LESS THAN ITS
+# NOISE HAS NOT PASSED; it has produced a reading that would go either way on
+# the next machine, and shipping that as green is the phantom this file has
+# twice been rewritten to avoid.
+#
+# The repair batch 17 recorded as blocked WAS unblocked (the block ruled out one
+# design, not the goal, and `lean --json` attributes kernel time per
+# DECLARATION).  The gate it enabled — no declaration above K x vectorCount —
+# was then REFUSED BY ITS OWN SECOND SOURCE: profiled at 700 and at 775 vectors,
+# the two declarations holding 54% of this module are barely vector-driven
+# (x1.050, x1.077 against an input of x1.107), so a per-vector denominator would
+# have gone SLACK exactly where the cost is.  And three declarations grow FASTER
+# than their input — `vectorMnemonics` is `eraseDups`, which is QUADRATIC — so
+# the "linear in (assertions x vectors)" growth law reported since batch 17 is
+# itself wrong, and was only ever inferred from whole-module TOTALS.
+#
+# ⇒ The number below is now a COARSE TRIPWIRE and no longer pretends to be a
+# density law.  The instrument a head should read is the PER-DECLARATION table
+# `kernel_cost.py` prints beside it.  The margin is `measured x 1.6`, which is
+# the convention this line was REGISTERED with by batch 14 (293 x 1.6 = 470) and
+# not a margin invented to fit — the allowance must not come from the thing it
+# checks.
+#
+# ⚠️ THE REAL FIX IS TO MAKE THE MODULE CHEAPER, NOT THE GATE LOOSER, and it is
+# named rather than done: `vectorMnemonics`'s quadratic dedup costs ~3.5 s
+# across three theorems and grows as the square of a table that grows every
+# batch.  Batch 21 should price it.
+#
 # ⭐ AND Tests.Nonvacuity DELIBERATELY KEEPS AN ABSOLUTE CEILING — it is the
 # counterpoint that makes the rule above a rule rather than a habit.  It went
 # OVER on the same day (81.5ms against 71) because batch 14 added seventeen
@@ -62,7 +95,7 @@ X86.Value 61
 X86 50
 X86Native 106
 Tests.Anchors 801
-Tests.Coverage @perRow 470.0
+Tests.Coverage @perRow 744.0
 Tests.Nonvacuity 245
 Tests.Vectors 50
 Tests 50

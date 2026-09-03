@@ -85,6 +85,31 @@ HELDOUT_BANK = (5, 6, 2)
 MBASE = [6, 3, 1, 2]
 HELDOUT_MBASE = 7
 
+# ⛔⛔ AND THE LINE ABOVE MAKES THIS INSTRUMENT STRUCTURALLY BLIND TO THE ONE
+# BASE REGISTER THAT MOVES WITH THE STACK.  Excluding %rsp and %rbp is CORRECT
+# — a form skeleton is a fixed-length byte pattern and either base changes the
+# length — but the consequence had never been paid because no vector used one.
+#
+# P1 BATCH 20 is the first batch that needs one.  `popq (%rsp)` is the ONLY
+# instance that can make `step`'s claim — that a POP's destination address is
+# computed AFTER the stack pointer is incremented — observable at all: any
+# other base does not move, so a model with the order reversed is bit-identical.
+# The same is true of `pushq (%rsp)` for the mirror claim.  Both vectors exist
+# to be caught by an ARM, not to claim a row: the rows they belong to
+# (`push m`, `pop m`) are claimed by their RBX-based siblings.
+#
+# ⇒ Such a vector resolves to NO roster row, and that is the instrument being
+# RIGHT.  It must not be reported as a parse failure — and it must not become a
+# hole either.
+#
+# ⭐ SO THE EXEMPTION IS GATED IN BOTH DIRECTIONS.  An id listed here that
+# RESOLVES is a finding, not a quiet pass: it means the skeleton grew to cover
+# the case and this list has gone stale, which is the failure mode a hand-kept
+# exclusion list always has ([[an-unrecorded-rule-cannot-be-audited]]).  An
+# unresolved vector NOT listed here is a finding exactly as before.  `--selftest`
+# carries an arm for each direction.
+SIB_BASE_EXEMPT = {"push_m_rsp", "pop_m_rsp"}
+
 # Bases whose SOURCE operand width is fixed by the mnemonic (mixed-width moves).
 SRCW = {"movsb": "b", "movzb": "b", "movsw": "w", "movzw": "w", "movslq": "l"}
 # Bases taking an indirect operand in AT&T syntax.
@@ -682,6 +707,36 @@ def selftest():
         arms.append((f"the published number carries {name}",
                      r.returncode != 0, r))
 
+    # ARM 6/7 -- P1 BATCH 20: the SIB-BASE EXEMPTION, broken in BOTH directions.
+    # A hand-kept exclusion list is the classic place for a gate to go quietly
+    # slack, so neither direction is left to a reader's care.
+    #
+    #  * DROP an id from the list and the vector it covered must come back as an
+    #    unresolved finding -- i.e. the exemption is really suppressing
+    #    something, and is not decoration over a resolver that never fired.
+    #  * ADD an id that RESOLVES and the list must be reported STALE -- i.e. the
+    #    day the skeleton grows to cover SIB bases, the exemption cannot sit
+    #    there silently widening the gate.
+    r = run(a, l, "--check")
+    dropped = ",".join(sorted(SIB_BASE_EXEMPT)[1:])
+    r6 = subprocess.run(
+        f"python3 {os.path.abspath(__file__)} --quiet --check",
+        shell=True, capture_output=True, text=True,
+        env=dict(os.environ, X86LEAN_ASM=a, X86LEAN_LEN=l,
+                 X86LEAN_SIB_EXEMPT_OVERRIDE=dropped))
+    arms.append(("an exempted vector, un-exempted, is an unresolved finding",
+                 r6.returncode != 0
+                 and "resolve to NO roster row" in (r6.stdout + r6.stderr), r6))
+    r7 = subprocess.run(
+        f"python3 {os.path.abspath(__file__)} --quiet --check",
+        shell=True, capture_output=True, text=True,
+        env=dict(os.environ, X86LEAN_ASM=a, X86LEAN_LEN=l,
+                 X86LEAN_SIB_EXEMPT_OVERRIDE=",".join(
+                     sorted(SIB_BASE_EXEMPT) + ["mov_d"])))
+    arms.append(("an exemption for a vector that RESOLVES is reported stale",
+                 r7.returncode != 0
+                 and "exemption is stale" in (r7.stdout + r7.stderr), r7))
+
     for name, ok, r in arms:
         print(("  ✔ " if ok else "  ⛔ ") + name)
         if not ok:
@@ -692,7 +747,8 @@ def selftest():
         print(f"claimed-forms selftest: FAIL ({len(bad)} of {len(arms)} arms)")
         return 1
     print(f"claimed-forms selftest: PASS ({len(arms)} arms, "
-          f"control + resolver x2 + separation + comparison in both directions)")
+          f"control + resolver x2 + separation + comparison in both "
+          f"directions + the SIB-base exemption in both directions)")
     return 0
 
 
@@ -958,8 +1014,19 @@ def main():
                 findings.append(f"docs/COVERAGE.md publishes {want} for "
                                 f"'{name}'; the derivation gives {got}")
 
-    if unresolved:
-        findings.append(f"{len(unresolved)} vector(s) resolve to NO roster row")
+    exempt_ids = set(os.environ.get("X86LEAN_SIB_EXEMPT_OVERRIDE",
+                                    ",".join(sorted(SIB_BASE_EXEMPT))).split(","))
+    exempt_ids = {e for e in exempt_ids if e}
+    unres_real = [v for v in unresolved if v["id"] not in exempt_ids]
+    stale_exempt = sorted(exempt_ids - {v["id"] for v in unresolved}
+                          - {v["id"] for v in vecs if False})
+    stale_exempt = [e for e in stale_exempt if any(v["id"] == e for v in vecs)]
+    if unres_real:
+        findings.append(f"{len(unres_real)} vector(s) resolve to NO roster row")
+    if stale_exempt:
+        findings.append(
+            f"{len(stale_exempt)} SIB-base-exempt vector(s) now RESOLVE, so the "
+            f"exemption is stale: " + ", ".join(stale_exempt))
     if spurious:
         findings.append(
             f"{len(spurious)} row(s) are claimed ONLY through an encoding that "
@@ -1000,7 +1067,10 @@ def main():
                   f"{rows[i]['base']} {rows[i]['shape']} shares encoding {e} "
                   f"with {rows[j]['base']} {rows[j]['shape']}")
         for v in unresolved:
-            print(f"  ⛔ unresolved: {v['id']:24s} {v['asm']:34s} {v['bytes']}")
+            tag = ("exempt (base %rsp forces a SIB byte; claims no row)"
+                   if v["id"] in exempt_ids else "unresolved")
+            mark = "  ⚠️  " if v["id"] in exempt_ids else "  ⛔ "
+            print(f"{mark}{tag}: {v['id']:24s} {v['asm']:34s} {v['bytes']}")
         for v, c in split:
             print(f"  ⛔ split: {v['id']:22s} {v['asm']:30s} -> " +
                   ", ".join(f"{rows[i]['base']} {rows[i]['shape']}" for i in c))
