@@ -49,7 +49,7 @@
 # design, not the goal, and `lean --json` attributes kernel time per
 # DECLARATION).  The gate it enabled — no declaration above K x vectorCount —
 # was then REFUSED BY ITS OWN SECOND SOURCE: profiled at 700 and at 775 vectors,
-# the two declarations holding 54% of this module are barely vector-driven
+# the two declarations holding 53% of this module are barely vector-driven
 # (x1.050, x1.077 against an input of x1.107), so a per-vector denominator would
 # have gone SLACK exactly where the cost is.  And three declarations grow FASTER
 # than their input — `vectorMnemonics` is `eraseDups`, which is QUADRATIC — so

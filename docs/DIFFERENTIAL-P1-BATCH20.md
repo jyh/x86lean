@@ -161,7 +161,7 @@ nothing about gating **each declaration**, which needs no assertion count at all
 attributes `type checking` per declaration with `fileName` and `pos.line`.
 
 ⛔ **And then the two-point measurement refused the gate it enabled.** Profiled at 700 and at 775
-vectors: the two declarations holding **54% of the module are barely vector-driven** (×1.050,
+vectors: the two declarations holding **53% of the module are barely vector-driven** (×1.050,
 ×1.077 against an input of ×1.107), so a per-vector denominator would go slack exactly where the
 cost is; and **three declarations grow FASTER than their input**, because `vectorMnemonics` is
 `eraseDups` and **`eraseDups` is quadratic**.

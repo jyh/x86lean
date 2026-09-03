@@ -231,7 +231,7 @@ def per_declaration(f, threshold_ms=100):
 # ⚠️ AND THE TWO DECLARATIONS THAT DOMINATE THE MODULE ARE BARELY VECTOR-DRIVEN
 # AT ALL -- `mem_dest_rewrite_changed_exactly_the_three_operand_rows` x1.050 and
 # `mem_dest_claims_are_backed` x1.077, most of even that being the SHAPES prose
-# this batch lengthened rather than the vectors it added.  Together they are 54%
+# this batch lengthened rather than the vectors it added.  Together they are 53%
 # of the module.
 #
 # ⇒ A PER-VECTOR DENOMINATOR WOULD HAVE GONE SLACK EXACTLY WHERE THE COST IS,

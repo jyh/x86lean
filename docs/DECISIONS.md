@@ -2147,7 +2147,7 @@ structural, not noise:**
 | `every_vector_has_a_row` | 931 | 1 230 | ×1.321 |
 | *(input)* | | | *vectors ×1.107* |
 
-* **The two declarations that dominate the module — 54% of its kernel time — are barely
+* **The two declarations that dominate the module — 53% of its kernel time — are barely
   vector-driven**, and most of even that growth is the SHAPES prose this batch lengthened. A
   per-vector denominator would make them look CHEAPER every batch that adds vectors: **the gate
   would go slack exactly where the cost is**, in the direction nobody polices
