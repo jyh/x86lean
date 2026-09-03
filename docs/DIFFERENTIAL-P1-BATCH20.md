@@ -33,9 +33,9 @@ catalogue alone, and this is the case where it happened to be right.
 
 | group | rows | refused | undefined fields |
 |---|---|---|---|
-| `add`/`sub`/`adc`/`sbb` at `m,imm` · `m,r` · `r,m` · `acc,imm` · `sub r,imm` | 28 | **0 of 82** | none |
-| `mov m,imm` · `neg m` · `not m` · `push imm/m` · `pop m` | (in the 28) | **0** | none |
-| `jmp *m` · `call *m` | (in the 28) | 26 of 82 | none |
+| `add`/`sub`/`adc`/`sbb` at `m,imm` · `m,r` · `r,m` · `acc,imm` · `sub r,imm` | **19** | **0 of 82** | none |
+| `mov m,imm` · `mov m,label` · `neg m` · `not m` · `push imm/m` · `pop m` | **7** | **0** | none |
+| `jmp *m` · `call *m` | **2** | 26 of 82 | none |
 | `cmpxchg8b m` | 1 | 0 | none |
 | `movnti m,r` | 1 | **82 of 82 — NOT SUPPORTED** | — |
 | `bt`/`bts`/`btr`/`btc` at `m,r` | 4 | 0 at `w`/`l`, **26 at `q`** | af, of, pf, sf |
@@ -52,11 +52,25 @@ shape work rather than semantics — and it is why not one line of `X86/Semantic
 since P0 and run through code the differential has validated for nineteen batches.
 
 ⭐ **Two receipts say the model really is untouched, rather than a comment saying so.**
-`git diff ee7a250..HEAD -- X86/ X86Native/` is **EMPTY** — not one line of the model, the
-native tier or the theorems changed. And the two differential runs agree exactly: the
-71-vector run matched 44 425, the final 775-vector run matches **44 753**, and
-`44 425 + 4 × 82 = 44 753` to the case. The four order vectors added their 328 cases and
-disturbed nothing else.
+
+```
+git diff ee7a250..HEAD -- X86/Semantics.lean X86/Syntax.lean X86/Flags.lean X86/State.lean \
+    X86/Value.lean X86/Memory.lean X86/Theorems.lean X86/Oracle.lean X86/Basic.lean \
+    X86/Serialize.lean X86Native/      →  EMPTY
+```
+
+Every executable module is byte-identical. The one file that changed under `X86/` is
+`X86/Coverage.lean` — the coverage TABLE's shapes column, which is prose about the model and
+not the model. And the two differential runs agree exactly: the 71-vector run matched 44 425,
+the final 775-vector run matches **44 753**, and `44 425 + 4 × 82 = 44 753` to the case. The
+four order vectors added their 328 cases and disturbed nothing else.
+
+⛔ **THIS PARAGRAPH FIRST CITED `git diff … -- X86/ X86Native/` AND CLAIMED IT WAS EMPTY. IT IS
+NOT** — `X86/Coverage.lean` lives under `X86/`. The command I had actually run named the model's
+modules one by one; the command I WROTE DOWN was the tidy-looking generalisation of it, and it
+returns a different answer. ⇒ 🔑 **A CITED COMMAND IS EVIDENCE ONLY IF IT IS THE COMMAND THAT
+WAS RUN** ([[feedback-a-citation-is-an-ungated-claim]]). The receipt above is now the exact
+invocation, and the claim it supports is strictly stronger than the one it replaced.
 
 ⚠️ **A prediction that comes true is not a test of itself.** Looking for what the green did NOT
 contain found **three claims in `step` that nothing in this repository could distinguish**:
