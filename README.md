@@ -94,7 +94,11 @@ equation you can rewrite with, and it names every field that changes — so the
 frame comes with the result:
 
 ```lean
+import X86
 open X86
+
+-- `Live s` says the model has not halted; `h` is what every characterization
+-- theorem takes, because a halted state is not a state an equation is about.
 example (s : Cpu) (h : Live s) :
     (step ⟨.bin .add .q (.reg .rax) (.reg .rbx), 3⟩ s).regs.get .rcx
       = s.regs.get .rcx := by

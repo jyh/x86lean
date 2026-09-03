@@ -81,6 +81,16 @@ jobs:
       - name: Demand-census mapping (45 arms)
         run: python3 scripts/demand_census.py --selftest
 
+      # ⭐ P1 SEAL (D67). The README's Lean example is an INVITATION -- a reader
+      # copies it to find out whether this model is usable -- and the one that
+      # shipped at the seal did not compile: `open X86` with no `import X86`.
+      # The head that wrote it had just corrected three errors of exactly this
+      # kind in the draft it replaced.
+      - name: README lean blocks compile (+selftest)
+        run: |
+          python3 scripts/check_readme_lean.py --selftest
+          python3 scripts/check_readme_lean.py
+
       # P1 BATCH 14 (D41): the per-batch narrative in the generated coverage
       # document, gated against the differential records — two artifacts that
       # are not maintained by the same edit.

@@ -2498,3 +2498,45 @@ generated document, not only here.
 line-level rule that moved the number.
 
 **Reversal cost:** none; the tool reads binaries it downloads and writes one generated document.
+
+## D67 — the README's Lean example did not compile, and now it is compiled by a gate (P1 seal)
+
+**Decision.** `scripts/check_readme_lean.py` extracts every ```` ```lean ```` block from
+`README.md` and compiles it, in CI, with an 8-arm selftest.
+
+### 1. What shipped
+The example landed at the seal opened `open X86` with **no `import X86`**. A reader pasting it
+got four errors, the first `unknown namespace X86`. The rest of the block was correct — the
+theorem name, its arguments, the `Live` hypothesis were all checked against the source — and the
+line that makes it *runnable* was the one nobody checked, because it is the line you do not think
+of as content.
+
+⚠️ **The head that wrote it had, in the same commit, corrected three errors of exactly this class
+in the draft it replaced**: a CLI mode the binary does not have, a theorem name that does not
+exist, and a residual list naming a row that is not in the residue.
+⇒ 🔑 **CORRECTING A CLASS OF ERROR IN SOMEBODY ELSE'S DRAFT DOES NOT INOCULATE YOUR OWN.** The
+only thing that would have caught it is the thing that catches it now: running it.
+
+### 2. The rule is by INTENT, not by outcome
+The README carries **shapes** on purpose — `def step (i : Instr) (s : Cpu) : Cpu` with no body,
+`step i s = { s with … }` with a literal ellipsis. They are not meant to be pasted, and a gate
+that compiled them would cry wolf on prose and get switched off.
+
+⛔ **But "skip what does not compile" would be a gate that skips its own subject** — it would have
+skipped the broken block. So a block that declares an `example`/`theorem`/`#eval` is offered as
+runnable, and one of those **without an import is a FINDING, not a fragment**. Three classifier
+arms drive exactly that separation, including the case that shipped.
+
+### 3. ⛔ AND THE GATE'S OWN SELFTEST CAUGHT THE GATE
+The `sorry` check looked for `declaration uses 'sorry'` with straight quotes. Lean emits
+`` declaration uses `sorry` `` with **backticks**, so it never fired and a `sorry`-closed block
+would have passed. The arm that plants one is the only reason this is known.
+⇒ 🔑 **A PATTERN IS A GUESS ABOUT WORDING UNTIL SOMETHING DRIVES IT** — the same shape bench
+reported on the fleet bus this morning, where a widened pattern changed nothing because the
+scanner was reading the wrong line.
+
+⚠️ **What this does not check:** that the example is interesting, or that it says what the prose
+around it claims. It checks that a reader who copies it gets a file that compiles. Stated in the
+script rather than left to be found.
+
+**Reversal cost:** none; one script and one CI step.
