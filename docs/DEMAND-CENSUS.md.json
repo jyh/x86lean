@@ -164,52 +164,78 @@
     "orps",
     27
    ]
-  ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 5215297,
+    "U": 27159,
+    "CA": 495,
+    "AC": 136972
+   },
+   "name_route_asm": 136972,
+   "body_route_asm": 495,
+   "total": 5379923
+  },
+  "ext": {
+   "SSE-legacy (xmm)": 130854,
+   "mov imm64 / movabs (P2 addition 3)": 7234,
+   "CPUID": 51,
+   "XSAVE": 1,
+   "PREFETCH": 4,
+   "LOCK prefix (P2 addition 2)": 82,
+   "CET-IBT": 1490,
+   "GPR/other (unclassified)": 42,
+   "segment base %fs:/%gs: (P2 addition 1)": 4,
+   "RDRAND": 2,
+   "RDSEED": 8,
+   "SSE2 (pause)": 4
+  },
+  "class": "compiler"
  },
  "coreutils": {
-  "total": 873099,
-  "covered": 829485,
-  "pct": 95.00469018977229,
+  "total": 879551,
+  "covered": 835639,
+  "pct": 95.0074526661899,
   "miss": [
    [
     "endbr64",
-    11536
+    11626
    ],
    [
     "movaps",
-    6532
+    6592
    ],
    [
     "movdqa",
-    4098
+    4129
    ],
    [
     "mov (segment operand)",
-    3511
+    3543
    ],
    [
     "sub (segment operand)",
-    3468
+    3501
    ],
    [
     "movups",
-    2397
+    2413
    ],
    [
     "pxor",
-    1914
+    1925
    ],
    [
     "mov (vector operand)",
-    1493
+    1502
    ],
    [
     "movabsq",
-    1323
+    1332
    ],
    [
     "punpcklqdq",
-    752
+    758
    ],
    [
     "movdqu",
@@ -285,7 +311,7 @@
    ],
    [
     "hlt",
-    104
+    105
    ],
    [
     "fld",
@@ -331,7 +357,33 @@
     "paddq",
     77
    ]
-  ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 863382,
+    "U": 14670,
+    "AC": 1155,
+    "CA": 344
+   },
+   "name_route_asm": 1155,
+   "body_route_asm": 344,
+   "total": 879551
+  },
+  "ext": {
+   "SSE-legacy (xmm)": 21519,
+   "segment base %fs:/%gs: (P2 addition 1)": 7044,
+   "CET-IBT": 11626,
+   "GPR/other (unclassified)": 1085,
+   "mov imm64 / movabs (P2 addition 3)": 1332,
+   "CPUID": 28,
+   "XSAVE": 2,
+   "VEX-128 (v\u2026 xmm)": 152,
+   "AVX2/AVX (ymm)": 99,
+   "AVX (state)": 13,
+   "x87 (st)": 919,
+   "AVX-512 (zmm/k)": 93
+  },
+  "class": "compiler"
  },
  "glibc": {
   "total": 603554,
@@ -498,7 +550,1231 @@
     "comisd",
     606
    ]
-  ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 504808,
+    "U": 8781,
+    "AC": 55619,
+    "CA": 13783,
+    "AA": 20563
+   },
+   "name_route_asm": 76182,
+   "body_route_asm": 34346,
+   "total": 603554
+  },
+  "ext": {
+   "CET-IBT": 85,
+   "SSE-legacy (xmm)": 63518,
+   "segment base %fs:/%gs: (P2 addition 1)": 6130,
+   "mov imm64 / movabs (P2 addition 3)": 1415,
+   "SYSCALL": 544,
+   "LOCK prefix (P2 addition 2)": 672,
+   "GPR/other (unclassified)": 6334,
+   "XSAVE": 8,
+   "CPUID": 52,
+   "TSC": 28,
+   "VEX-128 (v\u2026 xmm)": 9950,
+   "AVX-512 (zmm/k)": 6980,
+   "AVX2/AVX (ymm)": 9665,
+   "x87 (st)": 7887,
+   "SSE2 (pause)": 12,
+   "PREFETCH": 196,
+   "SSE (fence)": 19,
+   "AVX (state)": 708,
+   "BMI2": 36,
+   "BMI1": 64
+  },
+  "class": "compiler"
+ },
+ "dav1d": {
+  "total": 303830,
+  "covered": 142369,
+  "pct": 46.858111443899546,
+  "miss": [
+   [
+    "movdqa",
+    18289
+   ],
+   [
+    "vmovdqa",
+    7097
+   ],
+   [
+    "vmovdqa32",
+    6019
+   ],
+   [
+    "vpaddw",
+    4658
+   ],
+   [
+    "vpaddd",
+    4448
+   ],
+   [
+    "vpmulhrsw",
+    4005
+   ],
+   [
+    "vpbroadcastd",
+    3577
+   ],
+   [
+    "paddd",
+    3110
+   ],
+   [
+    "mov (vector operand)",
+    3050
+   ],
+   [
+    "movd",
+    3012
+   ],
+   [
+    "vpsrad",
+    2949
+   ],
+   [
+    "paddw",
+    2668
+   ],
+   [
+    "pmaddwd",
+    2635
+   ],
+   [
+    "movdqu",
+    2340
+   ],
+   [
+    "vpmaddwd",
+    2296
+   ],
+   [
+    "vpmaddubsw",
+    2132
+   ],
+   [
+    "vpshufb",
+    1909
+   ],
+   [
+    "vinserti128",
+    1810
+   ],
+   [
+    "pmulhrsw",
+    1743
+   ],
+   [
+    "vpmulld",
+    1731
+   ],
+   [
+    "psrad",
+    1630
+   ],
+   [
+    "vmovdqu",
+    1611
+   ],
+   [
+    "vpunpcklwd",
+    1600
+   ],
+   [
+    "vpdpwssd",
+    1589
+   ],
+   [
+    "pmaddubsw",
+    1483
+   ],
+   [
+    "vpunpckhwd",
+    1415
+   ],
+   [
+    "movhps",
+    1400
+   ],
+   [
+    "vmovq",
+    1385
+   ],
+   [
+    "vpsubw",
+    1367
+   ],
+   [
+    "pshufb",
+    1347
+   ],
+   [
+    "movups",
+    1278
+   ],
+   [
+    "punpcklwd",
+    1254
+   ],
+   [
+    "vpaddsw",
+    1238
+   ],
+   [
+    "vpackssdw",
+    1214
+   ],
+   [
+    "punpcklbw",
+    1167
+   ],
+   [
+    "vmovd",
+    1166
+   ],
+   [
+    "vpsubd",
+    1137
+   ],
+   [
+    "pshufd",
+    1121
+   ],
+   [
+    "vpermq",
+    993
+   ],
+   [
+    "pxor",
+    970
+   ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 93471,
+    "CA": 3619,
+    "U": 957,
+    "AC": 24700,
+    "AA": 181083
+   },
+   "name_route_asm": 205783,
+   "body_route_asm": 184702,
+   "total": 303830
+  },
+  "ext": {
+   "CET-IBT": 691,
+   "SSE-legacy (xmm)": 67361,
+   "segment base %fs:/%gs: (P2 addition 1)": 216,
+   "CPUID": 1,
+   "XSAVE": 1,
+   "AVX2/AVX (ymm)": 47468,
+   "VEX-128 (v\u2026 xmm)": 12553,
+   "AVX (state)": 679,
+   "AVX-512 (zmm/k)": 31951,
+   "mov imm64 / movabs (P2 addition 3)": 88,
+   "BMI2": 392,
+   "LOCK prefix (P2 addition 2)": 60
+  },
+  "class": "asm"
+ },
+ "ffmpeg": {
+  "total": 3116986,
+  "covered": 2791298,
+  "pct": 89.55118823119514,
+  "miss": [
+   [
+    "movdqa",
+    27450
+   ],
+   [
+    "movss",
+    14667
+   ],
+   [
+    "sub (segment operand)",
+    13908
+   ],
+   [
+    "mov (segment operand)",
+    13279
+   ],
+   [
+    "endbr64",
+    11236
+   ],
+   [
+    "mov (vector operand)",
+    9346
+   ],
+   [
+    "paddw",
+    9057
+   ],
+   [
+    "pxor",
+    8182
+   ],
+   [
+    "vmovaps",
+    7522
+   ],
+   [
+    "paddd",
+    7260
+   ],
+   [
+    "pmaddwd",
+    6603
+   ],
+   [
+    "movaps",
+    6482
+   ],
+   [
+    "movdqu",
+    6446
+   ],
+   [
+    "vmovdqa",
+    6036
+   ],
+   [
+    "movups",
+    5852
+   ],
+   [
+    "mulss",
+    5229
+   ],
+   [
+    "movsd",
+    5206
+   ],
+   [
+    "psrad",
+    4904
+   ],
+   [
+    "psubw",
+    4875
+   ],
+   [
+    "movd",
+    4810
+   ],
+   [
+    "addss",
+    4384
+   ],
+   [
+    "vshufps",
+    4340
+   ],
+   [
+    "vpaddd",
+    4275
+   ],
+   [
+    "mulsd",
+    4181
+   ],
+   [
+    "vpmaddwd",
+    4034
+   ],
+   [
+    "vpaddw",
+    3966
+   ],
+   [
+    "punpcklwd",
+    3572
+   ],
+   [
+    "addsd",
+    3468
+   ],
+   [
+    "vaddps",
+    3418
+   ],
+   [
+    "punpcklbw",
+    3393
+   ],
+   [
+    "vpsrad",
+    2949
+   ],
+   [
+    "movabsq",
+    2939
+   ],
+   [
+    "vsubps",
+    2791
+   ],
+   [
+    "pand",
+    2720
+   ],
+   [
+    "vmulps",
+    2620
+   ],
+   [
+    "cvtss2sd",
+    2607
+   ],
+   [
+    "packssdw",
+    2595
+   ],
+   [
+    "vpsubw",
+    2456
+   ],
+   [
+    "por",
+    2364
+   ],
+   [
+    "punpckhwd",
+    2237
+   ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 2746475,
+    "AC": 127628,
+    "U": 15204,
+    "CA": 133,
+    "AA": 227546
+   },
+   "name_route_asm": 355174,
+   "body_route_asm": 227679,
+   "total": 3116986
+  },
+  "ext": {
+   "CET-IBT": 11236,
+   "segment base %fs:/%gs: (P2 addition 1)": 27187,
+   "SSE-legacy (xmm)": 184950,
+   "mov imm64 / movabs (P2 addition 3)": 2939,
+   "GPR/other (unclassified)": 84,
+   "LOCK prefix (P2 addition 2)": 88,
+   "VEX-128 (v\u2026 xmm)": 33492,
+   "AVX2/AVX (ymm)": 45509,
+   "AVX (state)": 255,
+   "MMX (mm)": 19832,
+   "AVX-512 (zmm/k)": 104,
+   "PREFETCH": 1,
+   "x87 (st)": 3,
+   "SSE2 (fence)": 3,
+   "TSC": 3,
+   "CPUID": 1,
+   "XSAVE": 1
+  },
+  "class": "asm"
+ },
+ "vlc-codec": {
+  "total": 151688,
+  "covered": 143738,
+  "pct": 94.75897895680608,
+  "miss": [
+   [
+    "movups",
+    967
+   ],
+   [
+    "endbr64",
+    813
+   ],
+   [
+    "movdqa",
+    514
+   ],
+   [
+    "pxor",
+    465
+   ],
+   [
+    "mov (vector operand)",
+    427
+   ],
+   [
+    "movaps",
+    394
+   ],
+   [
+    "movdqu",
+    360
+   ],
+   [
+    "movd",
+    346
+   ],
+   [
+    "movss",
+    302
+   ],
+   [
+    "paddd",
+    269
+   ],
+   [
+    "sub (segment operand)",
+    234
+   ],
+   [
+    "mov (segment operand)",
+    227
+   ],
+   [
+    "pshufd",
+    190
+   ],
+   [
+    "punpcklwd",
+    149
+   ],
+   [
+    "movabsq",
+    135
+   ],
+   [
+    "punpcklqdq",
+    132
+   ],
+   [
+    "punpckldq",
+    120
+   ],
+   [
+    "cvtsi2ss",
+    112
+   ],
+   [
+    "paddq",
+    91
+   ],
+   [
+    "addss",
+    88
+   ],
+   [
+    "cvttss2si",
+    85
+   ],
+   [
+    "mulss",
+    75
+   ],
+   [
+    "pand",
+    71
+   ],
+   [
+    "movsd",
+    70
+   ],
+   [
+    "pmuludq",
+    70
+   ],
+   [
+    "paddw",
+    64
+   ],
+   [
+    "mulsd",
+    62
+   ],
+   [
+    "punpckhwd",
+    61
+   ],
+   [
+    "cvtsi2sd",
+    60
+   ],
+   [
+    "por",
+    54
+   ],
+   [
+    "psrld",
+    53
+   ],
+   [
+    "psrlw",
+    46
+   ],
+   [
+    "shufps",
+    46
+   ],
+   [
+    "cvtsd2ss",
+    46
+   ],
+   [
+    "cvtsi2ssl",
+    45
+   ],
+   [
+    "cvtss2sd",
+    39
+   ],
+   [
+    "psrlq",
+    37
+   ],
+   [
+    "psllw",
+    35
+   ],
+   [
+    "pandn",
+    34
+   ],
+   [
+    "psrldq",
+    28
+   ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 150388,
+    "U": 1018,
+    "CA": 282
+   },
+   "name_route_asm": 0,
+   "body_route_asm": 282,
+   "total": 151688
+  },
+  "ext": {
+   "CET-IBT": 813,
+   "mov imm64 / movabs (P2 addition 3)": 135,
+   "segment base %fs:/%gs: (P2 addition 1)": 461,
+   "SSE-legacy (xmm)": 6521,
+   "GPR/other (unclassified)": 8,
+   "LOCK prefix (P2 addition 2)": 12
+  },
+  "class": "asm"
+ },
+ "vlc-video_chroma": {
+  "total": 112104,
+  "covered": 58544,
+  "pct": 52.22293584528652,
+  "miss": [
+   [
+    "movdqa",
+    8984
+   ],
+   [
+    "mov (vector operand)",
+    4740
+   ],
+   [
+    "movdqu",
+    4262
+   ],
+   [
+    "punpcklbw",
+    4115
+   ],
+   [
+    "psrlw",
+    3708
+   ],
+   [
+    "packuswb",
+    3496
+   ],
+   [
+    "psllw",
+    3002
+   ],
+   [
+    "pshufd",
+    2921
+   ],
+   [
+    "pand",
+    2432
+   ],
+   [
+    "movd",
+    2089
+   ],
+   [
+    "paddsw",
+    2016
+   ],
+   [
+    "movntdqa",
+    1984
+   ],
+   [
+    "pmulhw",
+    1728
+   ],
+   [
+    "punpckhbw",
+    1413
+   ],
+   [
+    "movups",
+    747
+   ],
+   [
+    "punpcklwd",
+    724
+   ],
+   [
+    "movntdq",
+    690
+   ],
+   [
+    "pxor",
+    689
+   ],
+   [
+    "punpckhwd",
+    596
+   ],
+   [
+    "psubsw",
+    576
+   ],
+   [
+    "movhpd",
+    512
+   ],
+   [
+    "psubusb",
+    288
+   ],
+   [
+    "pshufb",
+    256
+   ],
+   [
+    "movlpd",
+    256
+   ],
+   [
+    "prefetchnta",
+    237
+   ],
+   [
+    "endbr64",
+    235
+   ],
+   [
+    "por",
+    192
+   ],
+   [
+    "movaps",
+    181
+   ],
+   [
+    "movhlps",
+    132
+   ],
+   [
+    "psrad",
+    64
+   ],
+   [
+    "pslld",
+    64
+   ],
+   [
+    "paddq",
+    64
+   ],
+   [
+    "mov (segment operand)",
+    39
+   ],
+   [
+    "sub (segment operand)",
+    39
+   ],
+   [
+    "emms",
+    24
+   ],
+   [
+    "paddb",
+    16
+   ],
+   [
+    "movabsq",
+    12
+   ],
+   [
+    "sfence",
+    10
+   ],
+   [
+    "punpcklqdq",
+    9
+   ],
+   [
+    "mfence",
+    8
+   ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 52317,
+    "U": 272,
+    "CA": 59515
+   },
+   "name_route_asm": 0,
+   "body_route_asm": 59515,
+   "total": 112104
+  },
+  "ext": {
+   "CET-IBT": 235,
+   "segment base %fs:/%gs: (P2 addition 1)": 78,
+   "SSE-legacy (xmm)": 45989,
+   "SSE2 (fence)": 8,
+   "GPR/other (unclassified)": 24,
+   "mov imm64 / movabs (P2 addition 3)": 12,
+   "MMX (mm)": 6967,
+   "PREFETCH": 237,
+   "SSE (fence)": 10
+  },
+  "class": "asm"
+ },
+ "vpx": {
+  "total": 722331,
+  "covered": 434500,
+  "pct": 60.15247857284265,
+  "miss": [
+   [
+    "movdqa",
+    57065
+   ],
+   [
+    "paddd",
+    23446
+   ],
+   [
+    "movdqu",
+    18465
+   ],
+   [
+    "psubusw",
+    16851
+   ],
+   [
+    "movaps",
+    11593
+   ],
+   [
+    "pmaddwd",
+    11258
+   ],
+   [
+    "por",
+    11161
+   ],
+   [
+    "punpcklwd",
+    8885
+   ],
+   [
+    "punpckhwd",
+    6598
+   ],
+   [
+    "movd",
+    6106
+   ],
+   [
+    "psrad",
+    5426
+   ],
+   [
+    "punpckldq",
+    5199
+   ],
+   [
+    "mov (vector operand)",
+    5000
+   ],
+   [
+    "paddw",
+    4515
+   ],
+   [
+    "psadbw",
+    4426
+   ],
+   [
+    "movups",
+    4279
+   ],
+   [
+    "pxor",
+    3918
+   ],
+   [
+    "pshufd",
+    3866
+   ],
+   [
+    "paddq",
+    3314
+   ],
+   [
+    "punpckhdq",
+    3140
+   ],
+   [
+    "pmullw",
+    2727
+   ],
+   [
+    "punpcklbw",
+    2578
+   ],
+   [
+    "punpcklqdq",
+    2414
+   ],
+   [
+    "endbr64",
+    2345
+   ],
+   [
+    "pmuludq",
+    2332
+   ],
+   [
+    "psrldq",
+    2291
+   ],
+   [
+    "movsd",
+    2229
+   ],
+   [
+    "psubd",
+    2177
+   ],
+   [
+    "psubw",
+    2100
+   ],
+   [
+    "pand",
+    2021
+   ],
+   [
+    "packssdw",
+    1861
+   ],
+   [
+    "vmovdqa",
+    1822
+   ],
+   [
+    "vmovdqu",
+    1729
+   ],
+   [
+    "pcmpgtd",
+    1675
+   ],
+   [
+    "pcmpeqw",
+    1627
+   ],
+   [
+    "psraw",
+    1577
+   ],
+   [
+    "pmulhuw",
+    1391
+   ],
+   [
+    "paddsw",
+    1351
+   ],
+   [
+    "vpaddd",
+    1274
+   ],
+   [
+    "vpaddw",
+    1243
+   ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 412101,
+    "U": 15158,
+    "CA": 81330,
+    "AC": 31862,
+    "AA": 181880
+   },
+   "name_route_asm": 213742,
+   "body_route_asm": 263210,
+   "total": 722331
+  },
+  "ext": {
+   "SSE-legacy (xmm)": 268523,
+   "CET-IBT": 2345,
+   "segment base %fs:/%gs: (P2 addition 1)": 1551,
+   "GPR/other (unclassified)": 19,
+   "mov imm64 / movabs (P2 addition 3)": 380,
+   "CPUID": 12,
+   "XSAVE": 8,
+   "VEX-128 (v\u2026 xmm)": 2738,
+   "AVX2/AVX (ymm)": 11593,
+   "AVX (state)": 163,
+   "AVX-512 (zmm/k)": 24,
+   "SSE2 (pause)": 3,
+   "MMX (mm)": 418,
+   "PREFETCH": 54
+  },
+  "class": "asm"
+ },
+ "x264": {
+  "total": 377330,
+  "covered": 295425,
+  "pct": 78.29353616198023,
+  "miss": [
+   [
+    "movdqa",
+    5749
+   ],
+   [
+    "mov (vector operand)",
+    5456
+   ],
+   [
+    "paddw",
+    4881
+   ],
+   [
+    "psubw",
+    4396
+   ],
+   [
+    "pxor",
+    3345
+   ],
+   [
+    "movd",
+    2507
+   ],
+   [
+    "movaps",
+    2063
+   ],
+   [
+    "vmovdqa",
+    1858
+   ],
+   [
+    "paddd",
+    1833
+   ],
+   [
+    "vpaddw",
+    1815
+   ],
+   [
+    "psadbw",
+    1719
+   ],
+   [
+    "movsd",
+    1668
+   ],
+   [
+    "pmaxsw",
+    1562
+   ],
+   [
+    "movdqu",
+    1498
+   ],
+   [
+    "vpsubw",
+    1464
+   ],
+   [
+    "endbr64",
+    1168
+   ],
+   [
+    "vpaddd",
+    953
+   ],
+   [
+    "movss",
+    888
+   ],
+   [
+    "punpcklbw",
+    822
+   ],
+   [
+    "pabsw",
+    822
+   ],
+   [
+    "punpcklwd",
+    754
+   ],
+   [
+    "pmaddwd",
+    743
+   ],
+   [
+    "vpabsw",
+    677
+   ],
+   [
+    "punpckldq",
+    668
+   ],
+   [
+    "vmovd",
+    660
+   ],
+   [
+    "vmovq",
+    654
+   ],
+   [
+    "vmovdqu",
+    644
+   ],
+   [
+    "mulsd",
+    635
+   ],
+   [
+    "psubd",
+    604
+   ],
+   [
+    "por",
+    595
+   ],
+   [
+    "psrld",
+    523
+   ],
+   [
+    "vpsadbw",
+    504
+   ],
+   [
+    "punpckhwd",
+    479
+   ],
+   [
+    "movups",
+    464
+   ],
+   [
+    "movhps",
+    443
+   ],
+   [
+    "punpcklqdq",
+    441
+   ],
+   [
+    "pshufw",
+    437
+   ],
+   [
+    "pshuflw",
+    430
+   ],
+   [
+    "punpckhdq",
+    423
+   ],
+   [
+    "vpunpckhqdq",
+    421
+   ]
+  ],
+  "attribution": {
+   "cells": {
+    "CC": 269143,
+    "U": 1796,
+    "AC": 33250,
+    "CA": 572,
+    "AA": 72569
+   },
+   "name_route_asm": 105819,
+   "body_route_asm": 73141,
+   "total": 377330
+  },
+  "ext": {
+   "CET-IBT": 1168,
+   "segment base %fs:/%gs: (P2 addition 1)": 450,
+   "mov imm64 / movabs (P2 addition 3)": 237,
+   "SSE-legacy (xmm)": 44689,
+   "PREFETCH": 178,
+   "LOCK prefix (P2 addition 2)": 2,
+   "GPR/other (unclassified)": 83,
+   "MMX (mm)": 15664,
+   "CPUID": 1,
+   "XSAVE": 1,
+   "SSE (fence)": 22,
+   "VEX-128 (v\u2026 xmm)": 13469,
+   "AVX (state)": 144,
+   "AVX2/AVX (ymm)": 3984,
+   "BMI2": 8,
+   "AVX-512 (zmm/k)": 1805
+  },
+  "class": "asm"
+ },
+ "_asm_pooled": {
+  "total": 4784269,
+  "covered": 3865874,
+  "pct": 80.80385948198146,
+  "ext": {
+   "CET-IBT": 16488,
+   "SSE-legacy (xmm)": 618033,
+   "segment base %fs:/%gs: (P2 addition 1)": 29943,
+   "CPUID": 15,
+   "XSAVE": 11,
+   "AVX2/AVX (ymm)": 108554,
+   "VEX-128 (v\u2026 xmm)": 62252,
+   "AVX (state)": 1241,
+   "AVX-512 (zmm/k)": 33884,
+   "mov imm64 / movabs (P2 addition 3)": 3791,
+   "BMI2": 400,
+   "LOCK prefix (P2 addition 2)": 162,
+   "GPR/other (unclassified)": 218,
+   "MMX (mm)": 42881,
+   "PREFETCH": 470,
+   "x87 (st)": 3,
+   "SSE2 (fence)": 11,
+   "TSC": 3,
+   "SSE (fence)": 32,
+   "SSE2 (pause)": 3
+  }
  },
  "vmlinux-kernel": {
   "total": 2781898,
@@ -665,6 +1941,51 @@
     "vmmcall",
     27
    ]
-  ]
+  ],
+  "attribution": {
+   "cells": {
+    "-": 2781898
+   },
+   "name_route_asm": 0,
+   "body_route_asm": 0,
+   "total": 2781898
+  },
+  "ext": {
+   "GPR/other (unclassified)": 4918,
+   "CPUID": 41,
+   "RDRAND": 7,
+   "mov imm64 / movabs (P2 addition 3)": 6281,
+   "segment base %fs:/%gs: (P2 addition 1)": 33470,
+   "XSAVE": 5,
+   "LOCK prefix (P2 addition 2)": 9029,
+   "TSC": 127,
+   "SSE (fence)": 28,
+   "SYSCALL": 2,
+   "SSE2 (pause)": 314,
+   "SSE2 (fence)": 168,
+   "SSE-legacy (xmm)": 93,
+   "VEX-128 (v\u2026 xmm)": 52,
+   "AVX2/AVX (ymm)": 10,
+   "AVX (state)": 1,
+   "PREFETCH": 46,
+   "RDSEED": 2,
+   "SSE2 (nt store)": 16,
+   "x87 (st)": 1
+  },
+  "class": "kernel"
+ },
+ "_controls": {
+  "cc1": {
+   "name": 2.5459843942004374,
+   "body": 0.009200875179812053,
+   "ok_name": false,
+   "ok_body": true
+  },
+  "glibc": {
+   "name": 12.622234298836558,
+   "body": 5.6906258594922745,
+   "ok_name": true,
+   "ok_body": true
+  }
  }
 }

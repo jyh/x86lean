@@ -93,10 +93,16 @@ jobs:
       # here. The staleness check needs no corpus: it recomputes the model's
       # mnemonic identity and refuses if the document was generated against a
       # different one.
-      - name: Demand-census mapping (49 arms) + staleness
+      # ⭐⭐ THE ASSEMBLY COLUMN CLASS (the Captain, 09/03 16:5x) added the
+      # per-function hand-written/compiler split, its two routes, and the
+      # ISA-extension buckets -- and the RED PROBE is what says the new arms can
+      # fail: it breaks each rule in memory, one at a time, and requires the
+      # selftest to go red. It writes nothing into the tree.
+      - name: Demand-census mapping (109 arms) + staleness + red probe
         run: |
           python3 scripts/demand_census.py --selftest
           python3 scripts/demand_census.py --check
+          python3 scripts/census_redprobe.py
 
       # ⭐ P1 SEAL (D67). The README's Lean example is an INVITATION -- a reader
       # copies it to find out whether this model is usable -- and the one that

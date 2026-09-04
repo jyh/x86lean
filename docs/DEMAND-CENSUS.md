@@ -10,46 +10,88 @@ Public Debian `amd64` binaries, downloaded and never vendored. The recipe, so
 the number can be re-derived rather than believed:
 
 ```bash
+# one subdir of $CORPUS per column, named as COLUMN_CLASS names it
 for u in main/c/coreutils/coreutils_9.10-1_amd64.deb \
          main/g/glibc/libc6_2.44-1_amd64.deb \
          main/g/gcc-14/cpp-14-x86-64-linux-gnu_14.4.0-2_amd64.deb \
-         main/l/linux/linux-image-6.1.0-50-amd64-unsigned_6.1.176-1_amd64.deb; do
+         main/l/linux/linux-image-6.1.0-50-amd64-unsigned_6.1.176-1_amd64.deb \
+         main/f/ffmpeg/libavcodec61_7.1.5-0+deb13u1_amd64.deb \
+         main/f/ffmpeg/libavutil59_7.1.5-0+deb13u1_amd64.deb \
+         main/x/x264/libx264-164_0.164.3108+git31e19f9-2+b1_amd64.deb \
+         main/d/dav1d/libdav1d7_1.5.1-1_amd64.deb \
+         main/libv/libvpx/libvpx9_1.15.0-2.1+deb13u1_amd64.deb \
+         main/v/vlc/vlc-plugin-base_3.0.23-0+deb13u1_amd64.deb; do
   curl -O "https://deb.debian.org/debian/pool/$u"
 done                       # then `ar x` + `tar xf data.tar.*` each one
 # vmlinux is the xz payload inside vmlinuz: find the `fd 37 7a 58 5a 00` magic
 # and decompress from it; the result starts with \x7fELF.
-scripts/demand_census.py --corpus <dir with one subdir per column>
+# vlc-plugin-base is split at unpack: plugins/codec/ -> vlc-codec,
+# plugins/video_chroma/ -> vlc-video_chroma (VLC delegates decoding to
+# libavcodec, so its OWN hand-written SIMD is in the chroma converters).
+
+# ⛔ AND THE SYMBOLS, WITHOUT WHICH THE ATTRIBUTION SILENTLY REPORTS ITS DEFAULT.
+# The shipped .so files are STRIPPED: `.dynsym` holds only exported names and
+# carries ZERO ISA-suffixed symbols in every column of this corpus.  The
+# per-function split needs `.symtab`, which lives in the debug packages.
+for u in d/dav1d/libdav1d7-dbgsym_1.5.1-1_amd64.deb \
+         x/x264/libx264-164-dbgsym_0.164.3108+git31e19f9-2+b1_amd64.deb \
+         libv/libvpx/libvpx9-dbgsym_1.15.0-2.1+deb13u1_amd64.deb \
+         f/ffmpeg/libavcodec61-dbgsym_7.1.5-0+deb13u1_amd64.deb \
+         f/ffmpeg/libavutil59-dbgsym_7.1.5-0+deb13u1_amd64.deb \
+         v/vlc/vlc-plugin-base-dbgsym_3.0.23-0+deb13u1_amd64.deb \
+         c/coreutils/coreutils-dbgsym_9.10-1_amd64.deb \
+         g/gcc-14/cpp-14-x86-64-linux-gnu-dbgsym_14.4.0-2_amd64.deb; do
+  curl -O "https://deb.debian.org/debian-debug/pool/main/$u"
+done
+curl -O https://deb.debian.org/debian/pool/main/g/glibc/libc6-dbg_2.44-1_amd64.deb
+
+scripts/demand_census.py --corpus $CORPUS --debug $DEBUG
 ```
 
 ⚠️ **GPL code is COUNTED, never copied.** Nothing from these binaries enters
 this repository; the disassembly is read, tallied, and discarded.
 
-⛔ **THE KERNEL IS ITS OWN COLUMN AND IS NEVER POOLED** with the three user-space
+⛔ **THE KERNEL IS ITS OWN COLUMN AND IS NEVER POOLED** with the user-space
 ones. Its privileged instructions are outside the model's stated scope rather
 than missing from it, so a pooled number would report coverage for a corpus the
 model never claimed.
 
+⛔ **AND HAND-WRITTEN ASSEMBLY IS ITS OWN COLUMN CLASS**, never pooled with
+compiler output. They are two demands: a compiler emits a narrow, predictable
+vocabulary, while a codec's hand-written kernels are packed SIMD in forms no
+compiler produces. Averaging them reports a number for a corpus nobody writes.
+
 ## What this number is, and what it is not
 
 It is a **STATIC** count of instruction occurrences in a disassembly: what a
-compiler EMITS, which is the right question for deciding what to model next and
+binary CONTAINS, which is the right question for deciding what to model next and
 the wrong one for deciding what is hot at run time.
 
 ⚠️ It is an **UPPER BOUND on form-level coverage.** This tool maps a MNEMONIC to
-a roster name; the model covers FORMS. Three ways a mnemonic-level count
+a roster name; the model covers FORMS. Four ways a mnemonic-level count
 over-claims are excluded here and measured — a vector-register operand, an
-`%fs:`/`%gs:` segment prefix, and a `lock` prefix — but an addressing mode or
-operand shape the model lacks is still counted as covered if the mnemonic
-matches. The remaining error is in the flattering direction and is not measured.
+**MMX** register operand, an `%fs:`/`%gs:` segment prefix, and a `lock` prefix —
+but an addressing mode or operand shape the model lacks is still counted as
+covered if the mnemonic matches. The remaining error is in the flattering
+direction and is not measured.
 
-The model covers **84 mnemonics**. Every number below is a STATIC count of instruction occurrences in a disassembly, not a dynamic profile: it measures what a compiler EMITS, which is the right question for deciding what to model next and the wrong one for deciding what is hot.
+⛔ **The MMX exclusion is new, and it was a real over-claim.** `%[xyz]mm` does
+not match `%mm0`, so until the assembly class arrived every MMX instruction
+whose mnemonic maps to a roster name — `movq %mm0, %mm3` is spelled `movq` —
+was counted as covered. `%mm` occurs **0 times in glibc and 0 times in cc1**,
+and **15,690 times in libx264**: the gap was invisible in the corpus that
+existed and material in the one that did not.
+
+The model covers **84 mnemonics**. Every number below is a STATIC count of instruction occurrences in a disassembly, not a dynamic profile: it measures what a binary CONTAINS, which is the right question for deciding what to model next and the wrong one for deciding what is hot.
+
+## COMPILER OUTPUT
 
 ### cc1 — 2 ELF x86-64 objects
 
 - **5,379,923 instructions** over 262 distinct objdump mnemonics.
 - **Covered by the model: 5,240,147 (97.4%).**
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped, but carrying a VECTOR register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 33,925 (0.63%) — counted as NOT covered.
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 33,925 (0.63%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 105,851 (2.0%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -115,61 +157,93 @@ The model covers **84 mnemonics**. Every number below is a STATIC count of instr
 | 24 | `paddd` | 118 | 0.00% |
 | 25 | `pcmpeqd` | 109 | 0.00% |
 
-### coreutils — 104 ELF x86-64 objects
+#### Hand-written vs compiler-emitted — the confusion matrix
 
-- **873,099 instructions** over 294 distinct objdump mnemonics.
-- **Covered by the model: 829,485 (95.0%).**
+Symbol maps were found for **2 of 2** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 495 | 0.01% | 34.5% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 136,972 | 2.55% | 98.1% |
+| `CC` | both routes say compiler-emitted | 5,215,297 | 96.94% | 97.4% |
+| `U` | no function symbol covers this address | 27,159 | 0.50% | 100.0% |
+
+- **Hand-written by the NAME route: 136,972 (2.5%).** By the BODY route: 495 (0.0%). The two routes disagree on 137,467 instructions (2.6%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `_ZL22set_ix86_tune_featuresP11gcc_options14processor_typeb.lto_priv.0`, `btree_handle_root_split.part.0`, `_ZL16search_line_sse2PKhS0_.lto_priv.0`, `_ZN14range_op_table23initialize_integral_opsEv`, `_Z22ior_hard_reg_conflictsP11ira_allocnoRK12HARD_REG_SET`, `_ZL17zero_to_inf_rangeR10real_valueS0_i.lto_priv.0.cold`
+- The `AC` cell's largest functions: `_ZL23ix86_expand_int_sse_cmpP7rtx_def8rtx_codeS0_S0_S0_S0_Pb.lto_priv.0`, `_Z17gen_avx_haddv8sf3P7rtx_defS0_S0_`, `_Z17gen_avx_hsubv8sf3P7rtx_defS0_S0_`, `_Z21ix86_expand_sse_movccP7rtx_defS0_S0_S0_.cold`, `_ZN12_GLOBAL__N_134pass_remove_partial_avx_dependency7executeEP8function.lto_priv.0`, `_ZL21convert_mult_to_fma_1P9tree_nodeS0_S0_.lto_priv.0`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 130,854 | 2.43% | `movaps`, `movq`, `movups`, `movdqa`, `punpcklqdq`, `movdqu` |
+| mov imm64 / movabs (P2 addition 3) | 7,234 | 0.13% | `movabsq` |
+| CET-IBT | 1,490 | 0.03% | `endbr64` |
+| LOCK prefix (P2 addition 2) | 82 | 0.00% | `xaddl`, `cmpxchgq`, `addl`, `cmpxchgl`, `subl` |
+| CPUID | 51 | 0.00% | `cpuid` |
+| GPR/other (unclassified) | 42 | 0.00% | `incsspq`, `rdsspq`, `hlt` |
+| RDSEED | 8 | 0.00% | `rdseedl` |
+| PREFETCH | 4 | 0.00% | `prefetchnta`, `prefetcht0` |
+| segment base %fs:/%gs: (P2 addition 1) | 4 | 0.00% | `movq` |
+| SSE2 (pause) | 4 | 0.00% | `pause` |
+| RDRAND | 2 | 0.00% | `rdrandl` |
+| XSAVE | 1 | 0.00% | `xgetbv` |
+
+### coreutils — 106 ELF x86-64 objects
+
+- **879,551 instructions** over 294 distinct objdump mnemonics.
+- **Covered by the model: 835,639 (95.0%).**
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped, but carrying a VECTOR register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 8,472 (0.97%) — counted as NOT covered.
-- Not mapped at all, and therefore counted as NOT covered: 35,142 (4.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 8,546 (0.97%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 35,366 (4.0%).
 
 | rank | mnemonic | occurrences | share | in the model? |
 |---|---|---|---|---|
-| 1 | `mov` | 258,377 | 29.59% | ✅ |
-| 2 | `jcc` | 88,652 | 10.15% | ✅ |
-| 3 | `call` | 57,244 | 6.56% | ✅ |
-| 4 | `jmp` | 52,977 | 6.07% | ✅ |
-| 5 | `cmp` | 50,425 | 5.78% | ✅ |
-| 6 | `lea` | 43,404 | 4.97% | ✅ |
-| 7 | `nop` | 40,484 | 4.64% | ✅ |
-| 8 | `xor` | 37,522 | 4.30% | ✅ |
-| 9 | `test` | 37,295 | 4.27% | ✅ |
-| 10 | `push` | 30,567 | 3.50% | ✅ |
-| 11 | `add` | 27,349 | 3.13% | ✅ |
-| 12 | `pop` | 26,271 | 3.01% | ✅ |
-| 13 | `sub` | 15,803 | 1.81% | ✅ |
-| 14 | `movzx` | 14,635 | 1.68% | ✅ |
-| 15 | `retq` | 12,340 | 1.41% | ✅ |
-| 16 | `endbr64` | 11,536 | 1.32% | — |
-| 17 | `and` | 7,468 | 0.86% | ✅ |
-| 18 | `movaps` | 6,532 | 0.75% | — |
-| 19 | `setcc` | 5,728 | 0.66% | ✅ |
-| 20 | `movdqa` | 4,098 | 0.47% | — |
-| 21 | `cmovcc` | 4,055 | 0.46% | ✅ |
-| 22 | `mov (segment operand)` | 3,511 | 0.40% | — |
-| 23 | `movsx` | 3,492 | 0.40% | ✅ |
-| 24 | `sub (segment operand)` | 3,468 | 0.40% | — |
-| 25 | `or` | 2,858 | 0.33% | ✅ |
-| 26 | `shr` | 2,533 | 0.29% | ✅ |
-| 27 | `movups` | 2,397 | 0.27% | — |
-| 28 | `shl` | 2,368 | 0.27% | ✅ |
-| 29 | `pxor` | 1,914 | 0.22% | — |
-| 30 | `mov (vector operand)` | 1,493 | 0.17% | — |
+| 1 | `mov` | 260,317 | 29.60% | ✅ |
+| 2 | `jcc` | 89,306 | 10.15% | ✅ |
+| 3 | `call` | 57,664 | 6.56% | ✅ |
+| 4 | `jmp` | 53,425 | 6.07% | ✅ |
+| 5 | `cmp` | 50,751 | 5.77% | ✅ |
+| 6 | `lea` | 43,717 | 4.97% | ✅ |
+| 7 | `nop` | 40,777 | 4.64% | ✅ |
+| 8 | `xor` | 37,815 | 4.30% | ✅ |
+| 9 | `test` | 37,568 | 4.27% | ✅ |
+| 10 | `push` | 30,826 | 3.50% | ✅ |
+| 11 | `add` | 27,529 | 3.13% | ✅ |
+| 12 | `pop` | 26,477 | 3.01% | ✅ |
+| 13 | `sub` | 15,911 | 1.81% | ✅ |
+| 14 | `movzx` | 14,748 | 1.68% | ✅ |
+| 15 | `retq` | 12,430 | 1.41% | ✅ |
+| 16 | `endbr64` | 11,626 | 1.32% | — |
+| 17 | `and` | 7,509 | 0.85% | ✅ |
+| 18 | `movaps` | 6,592 | 0.75% | — |
+| 19 | `setcc` | 5,761 | 0.65% | ✅ |
+| 20 | `movdqa` | 4,129 | 0.47% | — |
+| 21 | `cmovcc` | 4,083 | 0.46% | ✅ |
+| 22 | `mov (segment operand)` | 3,543 | 0.40% | — |
+| 23 | `movsx` | 3,517 | 0.40% | ✅ |
+| 24 | `sub (segment operand)` | 3,501 | 0.40% | — |
+| 25 | `or` | 2,875 | 0.33% | ✅ |
+| 26 | `shr` | 2,556 | 0.29% | ✅ |
+| 27 | `movups` | 2,413 | 0.27% | — |
+| 28 | `shl` | 2,386 | 0.27% | ✅ |
+| 29 | `pxor` | 1,925 | 0.22% | — |
+| 30 | `mov (vector operand)` | 1,502 | 0.17% | — |
 
 **The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
 
 | rank | mnemonic | occurrences | share |
 |---|---|---|---|
-| 1 | `endbr64` | 11,536 | 1.32% |
-| 2 | `movaps` | 6,532 | 0.75% |
-| 3 | `movdqa` | 4,098 | 0.47% |
-| 4 | `mov (segment operand)` | 3,511 | 0.40% |
-| 5 | `sub (segment operand)` | 3,468 | 0.40% |
-| 6 | `movups` | 2,397 | 0.27% |
-| 7 | `pxor` | 1,914 | 0.22% |
-| 8 | `mov (vector operand)` | 1,493 | 0.17% |
-| 9 | `movabsq` | 1,323 | 0.15% |
-| 10 | `punpcklqdq` | 752 | 0.09% |
+| 1 | `endbr64` | 11,626 | 1.32% |
+| 2 | `movaps` | 6,592 | 0.75% |
+| 3 | `movdqa` | 4,129 | 0.47% |
+| 4 | `mov (segment operand)` | 3,543 | 0.40% |
+| 5 | `sub (segment operand)` | 3,501 | 0.40% |
+| 6 | `movups` | 2,413 | 0.27% |
+| 7 | `pxor` | 1,925 | 0.22% |
+| 8 | `mov (vector operand)` | 1,502 | 0.17% |
+| 9 | `movabsq` | 1,332 | 0.15% |
+| 10 | `punpcklqdq` | 758 | 0.09% |
 | 11 | `movdqu` | 672 | 0.08% |
 | 12 | `comiss` | 419 | 0.05% |
 | 13 | `movss` | 269 | 0.03% |
@@ -186,12 +260,44 @@ The model covers **84 mnemonics**. Every number below is a STATIC count of instr
 | 24 | `fldt` | 140 | 0.02% |
 | 25 | `fstpt` | 134 | 0.02% |
 
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **106 of 106** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 344 | 0.04% | 34.0% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 1,155 | 0.13% | 67.5% |
+| `CC` | both routes say compiler-emitted | 863,382 | 98.16% | 95.0% |
+| `U` | no function symbol covers this address | 14,670 | 1.67% | 100.0% |
+
+- **Hand-written by the NAME route: 1,155 (0.1%).** By the BODY route: 344 (0.0%). The two routes disagree on 1,499 instructions (0.2%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `sha384_read_ctx`, `sha512_read_ctx`, `src_to_dest_compare`, `dev_ino_compare`, `sm3_init_ctx`
+- The `AC` cell's largest functions: `crc32_update_no_xor_pclmul`, `cksum_avx512`, `cksum_avx2`, `cksum_pclmul`, `wc_lines_avx512`, `wc_lines_avx2`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 21,519 | 2.45% | `movaps`, `movdqa`, `movups`, `pxor`, `movq`, `punpcklqdq` |
+| CET-IBT | 11,626 | 1.32% | `endbr64` |
+| segment base %fs:/%gs: (P2 addition 1) | 7,044 | 0.80% | `movq`, `subq` |
+| mov imm64 / movabs (P2 addition 3) | 1,332 | 0.15% | `movabsq` |
+| GPR/other (unclassified) | 1,085 | 0.12% | `fldcw`, `fldt`, `fstpt`, `fildll`, `hlt`, `fadds` |
+| x87 (st) | 919 | 0.10% | `fstp`, `fxch`, `fld`, `fcompi`, `fcomi`, `fmul` |
+| VEX-128 (v… xmm) | 152 | 0.02% | `vmovdqa`, `vpxor`, `vpclmulqdq`, `vpshufb`, `vpsrldq`, `vpinsrd` |
+| AVX2/AVX (ymm) | 99 | 0.01% | `vmovdqa`, `vpshufb`, `vpxor`, `vpclmulqdq`, `vpaddq`, `vextracti128` |
+| AVX-512 (zmm/k) | 93 | 0.01% | `vmovdqa64`, `vpshufb`, `vpclmulqdq`, `vextracti64x4`, `vpmovzxdq`, `vpaddq` |
+| CPUID | 28 | 0.00% | `cpuid` |
+| AVX (state) | 13 | 0.00% | `vzeroupper` |
+| XSAVE | 2 | 0.00% | `xgetbv` |
+
 ### glibc — 28 ELF x86-64 objects
 
 - **603,554 instructions** over 688 distinct objdump mnemonics.
 - **Covered by the model: 489,251 (81.1%).**
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped, but carrying a VECTOR register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 8,373 (1.39%) — counted as NOT covered.
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 8,373 (1.39%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 105,930 (17.6%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -257,13 +363,722 @@ The model covers **84 mnemonics**. Every number below is a STATIC count of instr
 | 24 | `vmulsd` | 1,141 | 0.19% |
 | 25 | `pmovmskb` | 1,118 | 0.19% |
 
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **28 of 28** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `AA` | both routes say HAND-WRITTEN | 20,563 | 3.41% | 32.9% |
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 13,783 | 2.28% | 36.9% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 55,619 | 9.22% | 55.7% |
+| `CC` | both routes say compiler-emitted | 504,808 | 83.64% | 86.7% |
+| `U` | no function symbol covers this address | 8,781 | 1.45% | 100.0% |
+
+- **Hand-written by the NAME route: 76,182 (12.6%).** By the BODY route: 34,346 (5.7%). The two routes disagree on 69,402 instructions (11.5%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `strcmp`, `__kernel_casinhf128`, `catanhf128`, `catanf128`, `__ieee754_hypotf128`, `__multc3`
+- The `AC` cell's largest functions: `__strncmp_sse2`, `__stpncpy_sse2_unaligned`, `__strncat_sse2_unaligned`, `__strncpy_sse2_unaligned`, `__strncmp_sse42`, `__wcscmp_sse2`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 63,518 | 10.52% | `movdqa`, `movsd`, `movaps`, `movapd`, `mulsd`, `addsd` |
+| VEX-128 (v… xmm) | 9,950 | 1.65% | `vmovsd`, `vmulsd`, `vaddsd`, `vsubsd`, `vmovq`, `vfmaddsd` |
+| AVX2/AVX (ymm) | 9,665 | 1.60% | `vmovdqu`, `vpmovmskb`, `vpcmpeqb`, `vmovdqu64`, `vmovdqa`, `vpcmpeqd` |
+| x87 (st) | 7,887 | 1.31% | `fstp`, `fxch`, `fld`, `fmul`, `faddp`, `fucomi` |
+| AVX-512 (zmm/k) | 6,980 | 1.16% | `vmovups`, `kmovd`, `vfmadd213pd`, `kmovw`, `vpcmpeqb`, `vptestnmb` |
+| GPR/other (unclassified) | 6,334 | 1.05% | `fldt`, `fstpt`, `fabs`, `fldz`, `fld1`, `flds` |
+| segment base %fs:/%gs: (P2 addition 1) | 6,130 | 1.02% | `movl`, `movq`, `subq`, `cmpl`, `addq`, `cmpq` |
+| mov imm64 / movabs (P2 addition 3) | 1,415 | 0.23% | `movabsq` |
+| AVX (state) | 708 | 0.12% | `vzeroupper`, `vzeroall` |
+| LOCK prefix (P2 addition 2) | 672 | 0.11% | `cmpxchgl`, `addq`, `subl`, `cmpxchgq`, `addl`, `xaddl` |
+| SYSCALL | 544 | 0.09% | `syscall` |
+| PREFETCH | 196 | 0.03% | `prefetcht0`, `prefetcht1` |
+| CET-IBT | 85 | 0.01% | `endbr64` |
+| BMI1 | 64 | 0.01% | `blsmskl`, `blsmskq`, `blsrl`, `andnl`, `andnq` |
+| CPUID | 52 | 0.01% | `cpuid` |
+| BMI2 | 36 | 0.01% | `bzhil`, `bzhiq` |
+| TSC | 28 | 0.00% | `rdtsc` |
+| SSE (fence) | 19 | 0.00% | `sfence` |
+| SSE2 (pause) | 12 | 0.00% | `pause` |
+| XSAVE | 8 | 0.00% | `xrstor`, `xsave`, `xgetbv` |
+
+## HAND-WRITTEN ASSEMBLY (codec libraries)
+
+Each column is split **per function** into hand-written and compiler-emitted by
+**two independent routes** — the symbol NAME (an ISA token as a `_`-delimited
+component: `_sse2`, `_ssse3`, `_avx2`, `_avx512icl`, `_mmxext`, `_xop`, `_fma3`)
+and the function BODY (packed-SIMD density ≥ 50% over ≥ 8 instructions). The
+**confusion matrix** is published rather than a single number, because each
+route has a blind spot the other one sees: the name route misses a nasm function
+with no ISA suffix, and the body route misses hand-written GPR-only assembly.
+The disagreement cells are printed with their largest functions so they can be
+read rather than believed.
+
+⚠️ Packed SIMD is not "touches a vector register": the scalar floating-point
+forms (`addsd`, `mulss`, `cvtsi2sd`) and the GPR↔xmm transfers (`movd`, `movq`)
+are excluded, or every math-heavy C function would read as hand-written.
+
+### dav1d — 1 ELF x86-64 objects
+
+- **303,830 instructions** over 496 distinct objdump mnemonics.
+- **Covered by the model: 142,369 (46.9%).**
+- Mapped to a roster name the model does not have: 0 (0.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 3,326 (1.09%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 158,135 (52.0%).
+
+| rank | mnemonic | occurrences | share | in the model? |
+|---|---|---|---|---|
+| 1 | `mov` | 37,017 | 12.18% | ✅ |
+| 2 | `movdqa` | 18,289 | 6.02% | — |
+| 3 | `lea` | 13,768 | 4.53% | ✅ |
+| 4 | `add` | 11,562 | 3.81% | ✅ |
+| 5 | `jcc` | 11,017 | 3.63% | ✅ |
+| 6 | `vmovdqa` | 7,097 | 2.34% | — |
+| 7 | `cmp` | 6,281 | 2.07% | ✅ |
+| 8 | `vmovdqa32` | 6,019 | 1.98% | — |
+| 9 | `nop` | 5,990 | 1.97% | ✅ |
+| 10 | `call` | 5,924 | 1.95% | ✅ |
+| 11 | `sub` | 5,508 | 1.81% | ✅ |
+| 12 | `jmp` | 5,053 | 1.66% | ✅ |
+| 13 | `vpaddw` | 4,658 | 1.53% | — |
+| 14 | `vpaddd` | 4,448 | 1.46% | — |
+| 15 | `test` | 4,172 | 1.37% | ✅ |
+| 16 | `push` | 4,049 | 1.33% | ✅ |
+| 17 | `vpmulhrsw` | 4,005 | 1.32% | — |
+| 18 | `movzx` | 4,003 | 1.32% | ✅ |
+| 19 | `vpbroadcastd` | 3,577 | 1.18% | — |
+| 20 | `retq` | 3,323 | 1.09% | ✅ |
+| 21 | `pop` | 3,110 | 1.02% | ✅ |
+| 22 | `paddd` | 3,110 | 1.02% | — |
+| 23 | `mov (vector operand)` | 3,050 | 1.00% | — |
+| 24 | `movd` | 3,012 | 0.99% | — |
+| 25 | `vpsrad` | 2,949 | 0.97% | — |
+| 26 | `movsx` | 2,877 | 0.95% | ✅ |
+| 27 | `paddw` | 2,668 | 0.88% | — |
+| 28 | `pmaddwd` | 2,635 | 0.87% | — |
+| 29 | `imul` | 2,484 | 0.82% | ✅ |
+| 30 | `xor` | 2,460 | 0.81% | ✅ |
+
+**The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
+
+| rank | mnemonic | occurrences | share |
+|---|---|---|---|
+| 1 | `movdqa` | 18,289 | 6.02% |
+| 2 | `vmovdqa` | 7,097 | 2.34% |
+| 3 | `vmovdqa32` | 6,019 | 1.98% |
+| 4 | `vpaddw` | 4,658 | 1.53% |
+| 5 | `vpaddd` | 4,448 | 1.46% |
+| 6 | `vpmulhrsw` | 4,005 | 1.32% |
+| 7 | `vpbroadcastd` | 3,577 | 1.18% |
+| 8 | `paddd` | 3,110 | 1.02% |
+| 9 | `mov (vector operand)` | 3,050 | 1.00% |
+| 10 | `movd` | 3,012 | 0.99% |
+| 11 | `vpsrad` | 2,949 | 0.97% |
+| 12 | `paddw` | 2,668 | 0.88% |
+| 13 | `pmaddwd` | 2,635 | 0.87% |
+| 14 | `movdqu` | 2,340 | 0.77% |
+| 15 | `vpmaddwd` | 2,296 | 0.76% |
+| 16 | `vpmaddubsw` | 2,132 | 0.70% |
+| 17 | `vpshufb` | 1,909 | 0.63% |
+| 18 | `vinserti128` | 1,810 | 0.60% |
+| 19 | `pmulhrsw` | 1,743 | 0.57% |
+| 20 | `vpmulld` | 1,731 | 0.57% |
+| 21 | `psrad` | 1,630 | 0.54% |
+| 22 | `vmovdqu` | 1,611 | 0.53% |
+| 23 | `vpunpcklwd` | 1,600 | 0.53% |
+| 24 | `vpdpwssd` | 1,589 | 0.52% |
+| 25 | `pmaddubsw` | 1,483 | 0.49% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **1 of 1** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `AA` | both routes say HAND-WRITTEN | 181,083 | 59.60% | 19.8% |
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 3,619 | 1.19% | 17.3% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 24,700 | 8.13% | 59.8% |
+| `CC` | both routes say compiler-emitted | 93,471 | 30.76% | 96.5% |
+| `U` | no function symbol covers this address | 957 | 0.31% | 100.0% |
+
+- **Hand-written by the NAME route: 205,783 (67.7%).** By the BODY route: 184,702 (60.8%). The two routes disagree on 28,319 instructions (9.3%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `dav1d_itx_dsp_init_16bpc`, `dav1d_itx_dsp_init_8bpc`, `dav1d_mc_dsp_init_8bpc`, `dav1d_mc_dsp_init_16bpc`, `dav1d_calc_eih`, `dav1d_intra_pred_dsp_init_8bpc`
+- The `AC` cell's largest functions: `dav1d_fguv_32x32xn_i444_16bpc_ssse3`, `dav1d_fguv_32x32xn_i422_16bpc_ssse3`, `dav1d_fguv_32x32xn_i420_16bpc_ssse3`, `dav1d_fguv_32x32xn_i422_8bpc_ssse3`, `dav1d_fguv_32x32xn_i444_8bpc_ssse3`, `dav1d_fguv_32x32xn_i420_8bpc_ssse3`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 67,361 | 22.17% | `movdqa`, `paddd`, `movq`, `movd`, `paddw`, `pmaddwd` |
+| AVX2/AVX (ymm) | 47,468 | 15.62% | `vmovdqa`, `vpaddd`, `vpaddw`, `vpmulhrsw`, `vpbroadcastd`, `vpsrad` |
+| AVX-512 (zmm/k) | 31,951 | 10.52% | `vmovdqa32`, `vpaddw`, `vpmulhrsw`, `vpdpwssd`, `vpbroadcastd`, `vpaddd` |
+| VEX-128 (v… xmm) | 12,553 | 4.13% | `vmovdqa`, `vmovq`, `vmovd`, `vmovhps`, `vmovdqu`, `vpextrd` |
+| CET-IBT | 691 | 0.23% | `endbr64` |
+| AVX (state) | 679 | 0.22% | `vzeroupper` |
+| BMI2 | 392 | 0.13% | `rorxl`, `rorxq` |
+| segment base %fs:/%gs: (P2 addition 1) | 216 | 0.07% | `subq`, `movq` |
+| mov imm64 / movabs (P2 addition 3) | 88 | 0.03% | `movabsq` |
+| LOCK prefix (P2 addition 2) | 60 | 0.02% | `addl`, `cmpxchgl`, `orl`, `xaddl`, `subl` |
+| CPUID | 1 | 0.00% | `cpuid` |
+| XSAVE | 1 | 0.00% | `xgetbv` |
+
+### ffmpeg — 2 ELF x86-64 objects
+
+- **3,116,986 instructions** over 594 distinct objdump mnemonics.
+- **Covered by the model: 2,791,298 (89.6%).**
+- Mapped to a roster name the model does not have: 0 (0.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 36,621 (1.17%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 289,067 (9.3%).
+
+| rank | mnemonic | occurrences | share | in the model? |
+|---|---|---|---|---|
+| 1 | `mov` | 926,298 | 29.72% | ✅ |
+| 2 | `jcc` | 205,825 | 6.60% | ✅ |
+| 3 | `lea` | 197,214 | 6.33% | ✅ |
+| 4 | `add` | 193,057 | 6.19% | ✅ |
+| 5 | `cmp` | 138,999 | 4.46% | ✅ |
+| 6 | `movzx` | 105,211 | 3.38% | ✅ |
+| 7 | `sub` | 98,085 | 3.15% | ✅ |
+| 8 | `movsx` | 83,330 | 2.67% | ✅ |
+| 9 | `jmp` | 74,261 | 2.38% | ✅ |
+| 10 | `nop` | 73,467 | 2.36% | ✅ |
+| 11 | `test` | 73,193 | 2.35% | ✅ |
+| 12 | `xor` | 72,999 | 2.34% | ✅ |
+| 13 | `call` | 71,807 | 2.30% | ✅ |
+| 14 | `push` | 65,815 | 2.11% | ✅ |
+| 15 | `pop` | 55,034 | 1.77% | ✅ |
+| 16 | `sar` | 50,355 | 1.62% | ✅ |
+| 17 | `shl` | 48,831 | 1.57% | ✅ |
+| 18 | `and` | 44,119 | 1.42% | ✅ |
+| 19 | `imul` | 42,569 | 1.37% | ✅ |
+| 20 | `shr` | 42,127 | 1.35% | ✅ |
+| 21 | `cmovcc` | 32,317 | 1.04% | ✅ |
+| 22 | `movdqa` | 27,450 | 0.88% | — |
+| 23 | `or` | 22,570 | 0.72% | ✅ |
+| 24 | `movss` | 14,667 | 0.47% | — |
+| 25 | `sub (segment operand)` | 13,908 | 0.45% | — |
+| 26 | `mov (segment operand)` | 13,279 | 0.43% | — |
+| 27 | `retq` | 12,638 | 0.41% | ✅ |
+| 28 | `endbr64` | 11,236 | 0.36% | — |
+| 29 | `neg` | 10,372 | 0.33% | ✅ |
+| 30 | `bswap` | 9,449 | 0.30% | ✅ |
+
+**The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
+
+| rank | mnemonic | occurrences | share |
+|---|---|---|---|
+| 1 | `movdqa` | 27,450 | 0.88% |
+| 2 | `movss` | 14,667 | 0.47% |
+| 3 | `sub (segment operand)` | 13,908 | 0.45% |
+| 4 | `mov (segment operand)` | 13,279 | 0.43% |
+| 5 | `endbr64` | 11,236 | 0.36% |
+| 6 | `mov (vector operand)` | 9,346 | 0.30% |
+| 7 | `paddw` | 9,057 | 0.29% |
+| 8 | `pxor` | 8,182 | 0.26% |
+| 9 | `vmovaps` | 7,522 | 0.24% |
+| 10 | `paddd` | 7,260 | 0.23% |
+| 11 | `pmaddwd` | 6,603 | 0.21% |
+| 12 | `movaps` | 6,482 | 0.21% |
+| 13 | `movdqu` | 6,446 | 0.21% |
+| 14 | `vmovdqa` | 6,036 | 0.19% |
+| 15 | `movups` | 5,852 | 0.19% |
+| 16 | `mulss` | 5,229 | 0.17% |
+| 17 | `movsd` | 5,206 | 0.17% |
+| 18 | `psrad` | 4,904 | 0.16% |
+| 19 | `psubw` | 4,875 | 0.16% |
+| 20 | `movd` | 4,810 | 0.15% |
+| 21 | `addss` | 4,384 | 0.14% |
+| 22 | `vshufps` | 4,340 | 0.14% |
+| 23 | `vpaddd` | 4,275 | 0.14% |
+| 24 | `mulsd` | 4,181 | 0.13% |
+| 25 | `vpmaddwd` | 4,034 | 0.13% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **2 of 2** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `AA` | both routes say HAND-WRITTEN | 227,546 | 7.30% | 10.1% |
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 133 | 0.00% | 30.8% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 127,628 | 4.09% | 89.5% |
+| `CC` | both routes say compiler-emitted | 2,746,475 | 88.11% | 96.1% |
+| `U` | no function symbol covers this address | 15,204 | 0.49% | 98.8% |
+
+- **Hand-written by the NAME route: 355,174 (11.4%).** By the BODY route: 227,679 (7.3%). The two routes disagree on 127,761 instructions (4.1%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `apply_window.constprop.0`, `copy64_c`, `get_pixels_16_c`
+- The `AC` cell's largest functions: `ff_snow_horizontal_compose97i_mmx`, `dct_quantize_sse2`, `dct_quantize_ssse3`, `av_aes_init`, `gmc_mmx`, `ff_dct32_float_avx`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 184,950 | 5.93% | `movdqa`, `movss`, `pxor`, `paddd`, `paddw`, `movaps` |
+| AVX2/AVX (ymm) | 45,509 | 1.46% | `vmovaps`, `vshufps`, `vaddps`, `vsubps`, `vmulps`, `vpaddd` |
+| VEX-128 (v… xmm) | 33,492 | 1.07% | `vmovdqa`, `vpaddw`, `vpaddd`, `vpmaddwd`, `vpsrad`, `vpsubw` |
+| segment base %fs:/%gs: (P2 addition 1) | 27,187 | 0.87% | `subq`, `movq` |
+| MMX (mm) | 19,832 | 0.64% | `movq`, `paddw`, `movd`, `psubw`, `punpcklbw`, `pxor` |
+| CET-IBT | 11,236 | 0.36% | `endbr64` |
+| mov imm64 / movabs (P2 addition 3) | 2,939 | 0.09% | `movabsq` |
+| AVX (state) | 255 | 0.01% | `vzeroupper` |
+| AVX-512 (zmm/k) | 104 | 0.00% | `vpermb`, `vmovdqu32`, `vpdpbusd`, `vpbroadcastd`, `vpxord`, `vpmovdw` |
+| LOCK prefix (P2 addition 2) | 88 | 0.00% | `xaddb`, `addl`, `subl`, `xaddl`, `subq`, `addq` |
+| GPR/other (unclassified) | 84 | 0.00% | `emms`, `cvttss2si`, `cvttsd2si`, `fstpl`, `fldl`, `cvtss2si` |
+| x87 (st) | 3 | 0.00% | `fstp`, `faddp` |
+| SSE2 (fence) | 3 | 0.00% | `lfence` |
+| TSC | 3 | 0.00% | `rdtsc` |
+| PREFETCH | 1 | 0.00% | `prefetcht0` |
+| CPUID | 1 | 0.00% | `cpuid` |
+| XSAVE | 1 | 0.00% | `xgetbv` |
+
+### vlc-codec — 52 ELF x86-64 objects
+
+- **151,688 instructions** over 231 distinct objdump mnemonics.
+- **Covered by the model: 143,738 (94.8%).**
+- Mapped to a roster name the model does not have: 0 (0.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 900 (0.59%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 7,050 (4.6%).
+
+| rank | mnemonic | occurrences | share | in the model? |
+|---|---|---|---|---|
+| 1 | `mov` | 49,194 | 32.43% | ✅ |
+| 2 | `jcc` | 15,421 | 10.17% | ✅ |
+| 3 | `lea` | 9,653 | 6.36% | ✅ |
+| 4 | `call` | 8,843 | 5.83% | ✅ |
+| 5 | `cmp` | 7,385 | 4.87% | ✅ |
+| 6 | `test` | 7,213 | 4.76% | ✅ |
+| 7 | `jmp` | 7,064 | 4.66% | ✅ |
+| 8 | `add` | 5,188 | 3.42% | ✅ |
+| 9 | `xor` | 5,133 | 3.38% | ✅ |
+| 10 | `nop` | 4,623 | 3.05% | ✅ |
+| 11 | `push` | 4,391 | 2.89% | ✅ |
+| 12 | `sub` | 3,138 | 2.07% | ✅ |
+| 13 | `movzx` | 3,108 | 2.05% | ✅ |
+| 14 | `pop` | 2,898 | 1.91% | ✅ |
+| 15 | `and` | 1,682 | 1.11% | ✅ |
+| 16 | `retq` | 1,249 | 0.82% | ✅ |
+| 17 | `shl` | 1,249 | 0.82% | ✅ |
+| 18 | `or` | 1,083 | 0.71% | ✅ |
+| 19 | `movsx` | 1,082 | 0.71% | ✅ |
+| 20 | `movups` | 967 | 0.64% | — |
+| 21 | `shr` | 841 | 0.55% | ✅ |
+| 22 | `endbr64` | 813 | 0.54% | — |
+| 23 | `cmovcc` | 634 | 0.42% | ✅ |
+| 24 | `imul` | 584 | 0.39% | ✅ |
+| 25 | `sar` | 531 | 0.35% | ✅ |
+| 26 | `movdqa` | 514 | 0.34% | — |
+| 27 | `pxor` | 465 | 0.31% | — |
+| 28 | `mov (vector operand)` | 427 | 0.28% | — |
+| 29 | `movaps` | 394 | 0.26% | — |
+| 30 | `movdqu` | 360 | 0.24% | — |
+
+**The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
+
+| rank | mnemonic | occurrences | share |
+|---|---|---|---|
+| 1 | `movups` | 967 | 0.64% |
+| 2 | `endbr64` | 813 | 0.54% |
+| 3 | `movdqa` | 514 | 0.34% |
+| 4 | `pxor` | 465 | 0.31% |
+| 5 | `mov (vector operand)` | 427 | 0.28% |
+| 6 | `movaps` | 394 | 0.26% |
+| 7 | `movdqu` | 360 | 0.24% |
+| 8 | `movd` | 346 | 0.23% |
+| 9 | `movss` | 302 | 0.20% |
+| 10 | `paddd` | 269 | 0.18% |
+| 11 | `sub (segment operand)` | 234 | 0.15% |
+| 12 | `mov (segment operand)` | 227 | 0.15% |
+| 13 | `pshufd` | 190 | 0.13% |
+| 14 | `punpcklwd` | 149 | 0.10% |
+| 15 | `movabsq` | 135 | 0.09% |
+| 16 | `punpcklqdq` | 132 | 0.09% |
+| 17 | `punpckldq` | 120 | 0.08% |
+| 18 | `cvtsi2ss` | 112 | 0.07% |
+| 19 | `paddq` | 91 | 0.06% |
+| 20 | `addss` | 88 | 0.06% |
+| 21 | `cvttss2si` | 85 | 0.06% |
+| 22 | `mulss` | 75 | 0.05% |
+| 23 | `pand` | 71 | 0.05% |
+| 24 | `movsd` | 70 | 0.05% |
+| 25 | `pmuludq` | 70 | 0.05% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **52 of 52** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 282 | 0.19% | 39.4% |
+| `CC` | both routes say compiler-emitted | 150,388 | 99.14% | 94.8% |
+| `U` | no function symbol covers this address | 1,018 | 0.67% | 100.0% |
+
+- **Hand-written by the NAME route: 0 (0.0%).** By the BODY route: 282 (0.2%). The two routes disagree on 282 instructions (0.2%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `F64NDecode`, `Flush`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 6,521 | 4.30% | `movups`, `movdqa`, `pxor`, `movq`, `movaps`, `movdqu` |
+| CET-IBT | 813 | 0.54% | `endbr64` |
+| segment base %fs:/%gs: (P2 addition 1) | 461 | 0.30% | `subq`, `movq` |
+| mov imm64 / movabs (P2 addition 3) | 135 | 0.09% | `movabsq` |
+| LOCK prefix (P2 addition 2) | 12 | 0.01% | `subl`, `addl` |
+| GPR/other (unclassified) | 8 | 0.01% | `cvttss2si` |
+
+### vlc-video_chroma — 19 ELF x86-64 objects
+
+- **112,104 instructions** over 120 distinct objdump mnemonics.
+- **Covered by the model: 58,544 (52.2%).**
+- Mapped to a roster name the model does not have: 0 (0.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 4,818 (4.30%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 48,742 (43.5%).
+
+| rank | mnemonic | occurrences | share | in the model? |
+|---|---|---|---|---|
+| 1 | `mov` | 18,109 | 16.15% | ✅ |
+| 2 | `movdqa` | 8,984 | 8.01% | — |
+| 3 | `lea` | 6,878 | 6.14% | ✅ |
+| 4 | `add` | 6,458 | 5.76% | ✅ |
+| 5 | `jcc` | 4,790 | 4.27% | ✅ |
+| 6 | `mov (vector operand)` | 4,740 | 4.23% | — |
+| 7 | `movzx` | 4,726 | 4.22% | ✅ |
+| 8 | `movdqu` | 4,262 | 3.80% | — |
+| 9 | `punpcklbw` | 4,115 | 3.67% | — |
+| 10 | `psrlw` | 3,708 | 3.31% | — |
+| 11 | `cmp` | 3,504 | 3.13% | ✅ |
+| 12 | `packuswb` | 3,496 | 3.12% | — |
+| 13 | `psllw` | 3,002 | 2.68% | — |
+| 14 | `pshufd` | 2,921 | 2.61% | — |
+| 15 | `pand` | 2,432 | 2.17% | — |
+| 16 | `movd` | 2,089 | 1.86% | — |
+| 17 | `paddsw` | 2,016 | 1.80% | — |
+| 18 | `movntdqa` | 1,984 | 1.77% | — |
+| 19 | `nop` | 1,834 | 1.64% | ✅ |
+| 20 | `pmulhw` | 1,728 | 1.54% | — |
+| 21 | `punpckhbw` | 1,413 | 1.26% | — |
+| 22 | `movsx` | 1,289 | 1.15% | ✅ |
+| 23 | `jmp` | 1,162 | 1.04% | ✅ |
+| 24 | `sub` | 1,154 | 1.03% | ✅ |
+| 25 | `pop` | 1,146 | 1.02% | ✅ |
+| 26 | `push` | 1,060 | 0.95% | ✅ |
+| 27 | `test` | 975 | 0.87% | ✅ |
+| 28 | `call` | 966 | 0.86% | ✅ |
+| 29 | `shl` | 748 | 0.67% | ✅ |
+| 30 | `movups` | 747 | 0.67% | — |
+
+**The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
+
+| rank | mnemonic | occurrences | share |
+|---|---|---|---|
+| 1 | `movdqa` | 8,984 | 8.01% |
+| 2 | `mov (vector operand)` | 4,740 | 4.23% |
+| 3 | `movdqu` | 4,262 | 3.80% |
+| 4 | `punpcklbw` | 4,115 | 3.67% |
+| 5 | `psrlw` | 3,708 | 3.31% |
+| 6 | `packuswb` | 3,496 | 3.12% |
+| 7 | `psllw` | 3,002 | 2.68% |
+| 8 | `pshufd` | 2,921 | 2.61% |
+| 9 | `pand` | 2,432 | 2.17% |
+| 10 | `movd` | 2,089 | 1.86% |
+| 11 | `paddsw` | 2,016 | 1.80% |
+| 12 | `movntdqa` | 1,984 | 1.77% |
+| 13 | `pmulhw` | 1,728 | 1.54% |
+| 14 | `punpckhbw` | 1,413 | 1.26% |
+| 15 | `movups` | 747 | 0.67% |
+| 16 | `punpcklwd` | 724 | 0.65% |
+| 17 | `movntdq` | 690 | 0.62% |
+| 18 | `pxor` | 689 | 0.61% |
+| 19 | `punpckhwd` | 596 | 0.53% |
+| 20 | `psubsw` | 576 | 0.51% |
+| 21 | `movhpd` | 512 | 0.46% |
+| 22 | `psubusb` | 288 | 0.26% |
+| 23 | `pshufb` | 256 | 0.23% |
+| 24 | `movlpd` | 256 | 0.23% |
+| 25 | `prefetchnta` | 237 | 0.21% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **19 of 19** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 59,515 | 53.09% | 37.7% |
+| `CC` | both routes say compiler-emitted | 52,317 | 46.67% | 68.5% |
+| `U` | no function symbol covers this address | 272 | 0.24% | 100.0% |
+
+- **Hand-written by the NAME route: 0 (0.0%).** By the BODY route: 59,515 (53.1%). The two routes disagree on 59,515 instructions (53.1%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `CopyFromUswc`, `I420_R5G6B5`, `I420_R5G5B5`, `I420_R8G8B8A8`, `I420_B8G8R8A8`, `I420_A8B8G8R8`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 45,989 | 41.02% | `movdqa`, `movdqu`, `psrlw`, `punpcklbw`, `pshufd`, `packuswb` |
+| MMX (mm) | 6,967 | 6.21% | `movq`, `punpcklbw`, `paddsw`, `pmulhw`, `packuswb`, `psllw` |
+| PREFETCH | 237 | 0.21% | `prefetchnta` |
+| CET-IBT | 235 | 0.21% | `endbr64` |
+| segment base %fs:/%gs: (P2 addition 1) | 78 | 0.07% | `movq`, `subq` |
+| GPR/other (unclassified) | 24 | 0.02% | `emms` |
+| mov imm64 / movabs (P2 addition 3) | 12 | 0.01% | `movabsq` |
+| SSE (fence) | 10 | 0.01% | `sfence` |
+| SSE2 (fence) | 8 | 0.01% | `mfence` |
+
+### vpx — 1 ELF x86-64 objects
+
+- **722,331 instructions** over 411 distinct objdump mnemonics.
+- **Covered by the model: 434,500 (60.2%).**
+- Mapped to a roster name the model does not have: 0 (0.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 6,551 (0.91%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 281,280 (38.9%).
+
+| rank | mnemonic | occurrences | share | in the model? |
+|---|---|---|---|---|
+| 1 | `mov` | 139,743 | 19.35% | ✅ |
+| 2 | `movdqa` | 57,065 | 7.90% | — |
+| 3 | `lea` | 33,283 | 4.61% | ✅ |
+| 4 | `add` | 32,650 | 4.52% | ✅ |
+| 5 | `jcc` | 29,918 | 4.14% | ✅ |
+| 6 | `paddd` | 23,446 | 3.25% | — |
+| 7 | `cmp` | 22,865 | 3.17% | ✅ |
+| 8 | `movzx` | 20,496 | 2.84% | ✅ |
+| 9 | `movdqu` | 18,465 | 2.56% | — |
+| 10 | `psubusw` | 16,851 | 2.33% | — |
+| 11 | `movsx` | 15,120 | 2.09% | ✅ |
+| 12 | `push` | 14,677 | 2.03% | ✅ |
+| 13 | `sub` | 13,800 | 1.91% | ✅ |
+| 14 | `nop` | 12,867 | 1.78% | ✅ |
+| 15 | `pop` | 11,673 | 1.62% | ✅ |
+| 16 | `movaps` | 11,593 | 1.60% | — |
+| 17 | `test` | 11,301 | 1.56% | ✅ |
+| 18 | `pmaddwd` | 11,258 | 1.56% | — |
+| 19 | `por` | 11,161 | 1.55% | — |
+| 20 | `jmp` | 10,398 | 1.44% | ✅ |
+| 21 | `imul` | 9,967 | 1.38% | ✅ |
+| 22 | `call` | 9,154 | 1.27% | ✅ |
+| 23 | `punpcklwd` | 8,885 | 1.23% | — |
+| 24 | `cmovcc` | 7,222 | 1.00% | ✅ |
+| 25 | `xor` | 6,732 | 0.93% | ✅ |
+| 26 | `sar` | 6,680 | 0.92% | ✅ |
+| 27 | `punpckhwd` | 6,598 | 0.91% | — |
+| 28 | `shl` | 6,460 | 0.89% | ✅ |
+| 29 | `movd` | 6,106 | 0.85% | — |
+| 30 | `psrad` | 5,426 | 0.75% | — |
+
+**The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
+
+| rank | mnemonic | occurrences | share |
+|---|---|---|---|
+| 1 | `movdqa` | 57,065 | 7.90% |
+| 2 | `paddd` | 23,446 | 3.25% |
+| 3 | `movdqu` | 18,465 | 2.56% |
+| 4 | `psubusw` | 16,851 | 2.33% |
+| 5 | `movaps` | 11,593 | 1.60% |
+| 6 | `pmaddwd` | 11,258 | 1.56% |
+| 7 | `por` | 11,161 | 1.55% |
+| 8 | `punpcklwd` | 8,885 | 1.23% |
+| 9 | `punpckhwd` | 6,598 | 0.91% |
+| 10 | `movd` | 6,106 | 0.85% |
+| 11 | `psrad` | 5,426 | 0.75% |
+| 12 | `punpckldq` | 5,199 | 0.72% |
+| 13 | `mov (vector operand)` | 5,000 | 0.69% |
+| 14 | `paddw` | 4,515 | 0.63% |
+| 15 | `psadbw` | 4,426 | 0.61% |
+| 16 | `movups` | 4,279 | 0.59% |
+| 17 | `pxor` | 3,918 | 0.54% |
+| 18 | `pshufd` | 3,866 | 0.54% |
+| 19 | `paddq` | 3,314 | 0.46% |
+| 20 | `punpckhdq` | 3,140 | 0.43% |
+| 21 | `pmullw` | 2,727 | 0.38% |
+| 22 | `punpcklbw` | 2,578 | 0.36% |
+| 23 | `punpcklqdq` | 2,414 | 0.33% |
+| 24 | `endbr64` | 2,345 | 0.32% |
+| 25 | `pmuludq` | 2,332 | 0.32% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **1 of 1** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `AA` | both routes say HAND-WRITTEN | 181,880 | 25.18% | 9.9% |
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 81,330 | 11.26% | 16.7% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 31,862 | 4.41% | 77.3% |
+| `CC` | both routes say compiler-emitted | 412,101 | 57.05% | 90.0% |
+| `U` | no function symbol covers this address | 15,158 | 2.10% | 48.5% |
+
+- **Hand-written by the NAME route: 213,742 (29.6%).** By the BODY route: 263,210 (36.4%). The two routes disagree on 113,192 instructions (15.7%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `highbd_idct32_1024_4x32`, `highbd_idct32_135_4x32`, `set_segment_index.constprop.0`, `highbd_idct32_34_4x32`, `idct16_8col`, `highbd_idct16x16_38_4col`
+- The `AC` cell's largest functions: `vp9_apply_temporal_filter_sse4_1`, `vpx_scaled_2d_ssse3`, `vp9_highbd_apply_temporal_filter_sse4_1`, `vpx_convolve8_horiz_avx2`, `vp9_scale_and_extend_frame_ssse3`, `vpx_convolve8_vert_avx2`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 268,523 | 37.17% | `movdqa`, `paddd`, `movdqu`, `psubusw`, `movaps`, `pmaddwd` |
+| AVX2/AVX (ymm) | 11,593 | 1.60% | `vmovdqa`, `vmovdqu`, `vpaddd`, `vpaddw`, `vpsubw`, `vpabsw` |
+| VEX-128 (v… xmm) | 2,738 | 0.38% | `vmovdqu`, `vmovdqa`, `vpxor`, `vmovd`, `vmovq`, `vpackssdw` |
+| CET-IBT | 2,345 | 0.32% | `endbr64` |
+| segment base %fs:/%gs: (P2 addition 1) | 1,551 | 0.21% | `subq`, `movq` |
+| MMX (mm) | 418 | 0.06% | `movq`, `movd`, `paddw`, `punpcklbw`, `paddsw`, `pmullw` |
+| mov imm64 / movabs (P2 addition 3) | 380 | 0.05% | `movabsq` |
+| AVX (state) | 163 | 0.02% | `vzeroupper` |
+| PREFETCH | 54 | 0.01% | `prefetcht0`, `prefetcht2` |
+| AVX-512 (zmm/k) | 24 | 0.00% | `vmovdqa64`, `vpaddd`, `vpsadbw`, `vpslldq`, `vpord`, `vmovdqu64` |
+| GPR/other (unclassified) | 19 | 0.00% | `cvttsd2si`, `fldcw`, `emms`, `wait`, `fnstcw` |
+| CPUID | 12 | 0.00% | `cpuid` |
+| XSAVE | 8 | 0.00% | `xgetbv` |
+| SSE2 (pause) | 3 | 0.00% | `pause` |
+
+### x264 — 1 ELF x86-64 objects
+
+- **377,330 instructions** over 523 distinct objdump mnemonics.
+- **Covered by the model: 295,425 (78.3%).**
+- Mapped to a roster name the model does not have: 0 (0.0%).
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 5,908 (1.57%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 75,997 (20.1%).
+
+| rank | mnemonic | occurrences | share | in the model? |
+|---|---|---|---|---|
+| 1 | `mov` | 100,311 | 26.58% | ✅ |
+| 2 | `lea` | 24,062 | 6.38% | ✅ |
+| 3 | `jcc` | 21,914 | 5.81% | ✅ |
+| 4 | `add` | 21,605 | 5.73% | ✅ |
+| 5 | `movzx` | 13,140 | 3.48% | ✅ |
+| 6 | `cmp` | 12,896 | 3.42% | ✅ |
+| 7 | `nop` | 10,953 | 2.90% | ✅ |
+| 8 | `call` | 9,788 | 2.59% | ✅ |
+| 9 | `test` | 9,556 | 2.53% | ✅ |
+| 10 | `movsx` | 8,513 | 2.26% | ✅ |
+| 11 | `sub` | 7,884 | 2.09% | ✅ |
+| 12 | `jmp` | 7,556 | 2.00% | ✅ |
+| 13 | `xor` | 7,372 | 1.95% | ✅ |
+| 14 | `push` | 6,470 | 1.71% | ✅ |
+| 15 | `movdqa` | 5,749 | 1.52% | — |
+| 16 | `pop` | 5,501 | 1.46% | ✅ |
+| 17 | `shl` | 5,493 | 1.46% | ✅ |
+| 18 | `mov (vector operand)` | 5,456 | 1.45% | — |
+| 19 | `paddw` | 4,881 | 1.29% | — |
+| 20 | `psubw` | 4,396 | 1.17% | — |
+| 21 | `pxor` | 3,345 | 0.89% | — |
+| 22 | `sar` | 3,337 | 0.88% | ✅ |
+| 23 | `retq` | 2,827 | 0.75% | ✅ |
+| 24 | `and` | 2,615 | 0.69% | ✅ |
+| 25 | `movd` | 2,507 | 0.66% | — |
+| 26 | `cmovcc` | 2,093 | 0.55% | ✅ |
+| 27 | `movaps` | 2,063 | 0.55% | — |
+| 28 | `or` | 2,022 | 0.54% | ✅ |
+| 29 | `imul` | 1,860 | 0.49% | ✅ |
+| 30 | `vmovdqa` | 1,858 | 0.49% | — |
+
+**The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
+
+| rank | mnemonic | occurrences | share |
+|---|---|---|---|
+| 1 | `movdqa` | 5,749 | 1.52% |
+| 2 | `mov (vector operand)` | 5,456 | 1.45% |
+| 3 | `paddw` | 4,881 | 1.29% |
+| 4 | `psubw` | 4,396 | 1.17% |
+| 5 | `pxor` | 3,345 | 0.89% |
+| 6 | `movd` | 2,507 | 0.66% |
+| 7 | `movaps` | 2,063 | 0.55% |
+| 8 | `vmovdqa` | 1,858 | 0.49% |
+| 9 | `paddd` | 1,833 | 0.49% |
+| 10 | `vpaddw` | 1,815 | 0.48% |
+| 11 | `psadbw` | 1,719 | 0.46% |
+| 12 | `movsd` | 1,668 | 0.44% |
+| 13 | `pmaxsw` | 1,562 | 0.41% |
+| 14 | `movdqu` | 1,498 | 0.40% |
+| 15 | `vpsubw` | 1,464 | 0.39% |
+| 16 | `endbr64` | 1,168 | 0.31% |
+| 17 | `vpaddd` | 953 | 0.25% |
+| 18 | `movss` | 888 | 0.24% |
+| 19 | `punpcklbw` | 822 | 0.22% |
+| 20 | `pabsw` | 822 | 0.22% |
+| 21 | `punpcklwd` | 754 | 0.20% |
+| 22 | `pmaddwd` | 743 | 0.20% |
+| 23 | `vpabsw` | 677 | 0.18% |
+| 24 | `punpckldq` | 668 | 0.18% |
+| 25 | `vmovd` | 660 | 0.17% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **1 of 1** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `AA` | both routes say HAND-WRITTEN | 72,569 | 19.23% | 13.9% |
+| `CA` | packed-SIMD body, but no ISA suffix in the name | 572 | 0.15% | 35.1% |
+| `AC` | ISA-suffixed name, but the body is not packed SIMD | 33,250 | 8.81% | 77.8% |
+| `CC` | both routes say compiler-emitted | 269,143 | 71.33% | 95.7% |
+| `U` | no function symbol covers this address | 1,796 | 0.48% | 100.0% |
+
+- **Hand-written by the NAME route: 105,819 (28.0%).** By the BODY route: 73,141 (19.4%). The two routes disagree on 33,822 instructions (9.0%), and that disagreement is the honest width of this split.
+- The `CA` cell's largest functions: `mbcmp_init`, `x264_8_hadamard_load`, `x264_8_pixel_ssd_8x8_sse2slow`, `x264_10_hadamard_load`, `x264_8_pixel_ssd_16x16_sse2slow`, `x264_10_coeff_last64_lzcnt`
+- The `AC` cell's largest functions: `x264_8_trellis_cabac_chroma_422_dc_ssse3`, `x264_10_trellis_cabac_chroma_422_dc_ssse3`, `mbtree_propagate_list_avx2`, `mbtree_propagate_list_avx`, `mbtree_propagate_list_ssse3`, `x264_8_pixel_avg2_w16_cache64_ssse3`
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| SSE-legacy (xmm) | 44,689 | 11.84% | `movdqa`, `paddw`, `psubw`, `pxor`, `movaps`, `movsd` |
+| MMX (mm) | 15,664 | 4.15% | `movq`, `paddw`, `psubw`, `movd`, `pxor`, `pmaxsw` |
+| VEX-128 (v… xmm) | 13,469 | 3.57% | `vmovdqa`, `vpaddw`, `vpsubw`, `vpaddd`, `vmovd`, `vmovq` |
+| AVX2/AVX (ymm) | 3,984 | 1.06% | `vpaddw`, `vmovdqa`, `vpsubw`, `vinserti128`, `vpsadbw`, `vpaddd` |
+| AVX-512 (zmm/k) | 1,805 | 0.48% | `vpbroadcastq`, `vmovdqa32`, `vpbroadcastd`, `vinserti32x4`, `vpaddd`, `vpaddw` |
+| CET-IBT | 1,168 | 0.31% | `endbr64` |
+| segment base %fs:/%gs: (P2 addition 1) | 450 | 0.12% | `subq`, `movq` |
+| mov imm64 / movabs (P2 addition 3) | 237 | 0.06% | `movabsq` |
+| PREFETCH | 178 | 0.05% | `prefetcht0`, `prefetchnta` |
+| AVX (state) | 144 | 0.04% | `vzeroupper` |
+| GPR/other (unclassified) | 83 | 0.02% | `emms` |
+| SSE (fence) | 22 | 0.01% | `sfence` |
+| BMI2 | 8 | 0.00% | `rorxq`, `bzhil`, `rorxl` |
+| LOCK prefix (P2 addition 2) | 2 | 0.00% | `xaddl` |
+| CPUID | 1 | 0.00% | `cpuid` |
+| XSAVE | 1 | 0.00% | `xgetbv` |
+
+### The assembly class, pooled
+
+- **4,784,269 instructions**, covered by the model **3,865,874 (80.8%)**.
+- ⛔ Pooled ACROSS the codec columns and never with compiler output: the two are different demands, which is why this class exists.
+
+- **Not covered: 918,395 instructions (19.2% of the class)** — this is the P2 demand, and the table below is it, per extension.
+
+| bucket | occurrences | share of the class | share of the UNCOVERED work |
+|---|---|---|---|
+| SSE-legacy (xmm) | 618,033 | 12.92% | 67.3% |
+| AVX2/AVX (ymm) | 108,554 | 2.27% | 11.8% |
+| VEX-128 (v… xmm) | 62,252 | 1.30% | 6.8% |
+| MMX (mm) | 42,881 | 0.90% | 4.7% |
+| AVX-512 (zmm/k) | 33,884 | 0.71% | 3.7% |
+| segment base %fs:/%gs: (P2 addition 1) | 29,943 | 0.63% | 3.3% |
+| CET-IBT | 16,488 | 0.34% | 1.8% |
+| mov imm64 / movabs (P2 addition 3) | 3,791 | 0.08% | 0.4% |
+| AVX (state) | 1,241 | 0.03% | 0.1% |
+| PREFETCH | 470 | 0.01% | 0.1% |
+| BMI2 | 400 | 0.01% | 0.0% |
+| GPR/other (unclassified) | 218 | 0.00% | 0.0% |
+| LOCK prefix (P2 addition 2) | 162 | 0.00% | 0.0% |
+| SSE (fence) | 32 | 0.00% | 0.0% |
+| CPUID | 15 | 0.00% | 0.0% |
+| XSAVE | 11 | 0.00% | 0.0% |
+| SSE2 (fence) | 11 | 0.00% | 0.0% |
+| x87 (st) | 3 | 0.00% | 0.0% |
+| TSC | 3 | 0.00% | 0.0% |
+| SSE2 (pause) | 3 | 0.00% | 0.0% |
+
+## THE KERNEL — its own column, never pooled
+
 ### vmlinux-kernel — 1 ELF x86-64 objects
 
 - **2,781,898 instructions** over 336 distinct objdump mnemonics.
 - ⛔ **3,881,051 `int3` in runs of two or more were counted as PADDING and excluded** from the line above and from every percentage below. Before this exclusion they were 58.2% of this column.
 - **Covered by the model: 2,727,287 (98.0%).**
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped, but carrying a VECTOR register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 42,486 (1.53%) — counted as NOT covered.
+- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` SEGMENT PREFIX, or a `lock` prefix — none of which this model has: 42,486 (1.53%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 12,125 (0.4%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -328,3 +1143,66 @@ The model covers **84 mnemonics**. Every number below is a STATIC count of instr
 | 23 | `btr (lock operand)` | 279 | 0.01% |
 | 24 | `inb` | 198 | 0.01% |
 | 25 | `clac` | 158 | 0.01% |
+
+#### Hand-written vs compiler-emitted — the confusion matrix
+
+Symbol maps were found for **0 of 1** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
+
+| cell | what it means | instructions | share | covered by the model |
+|---|---|---|---|---|
+| `-` | this column has no symbol map | 2,781,898 | 100.00% | 98.0% |
+
+#### What is NOT covered, bucketed by ISA extension
+
+| bucket | occurrences | share of column | the mnemonics in it |
+|---|---|---|---|
+| segment base %fs:/%gs: (P2 addition 1) | 33,470 | 1.20% | `movq`, `subq`, `movl`, `decl`, `incl`, `addq` |
+| LOCK prefix (P2 addition 2) | 9,029 | 0.32% | `xaddl`, `orb`, `decl`, `incl`, `cmpxchgl`, `andb` |
+| mov imm64 / movabs (P2 addition 3) | 6,281 | 0.23% | `movabsq` |
+| GPR/other (unclassified) | 4,918 | 0.18% | `int3`, `ud1l`, `pushfq`, `sti`, `cli`, `outb` |
+| SSE2 (pause) | 314 | 0.01% | `pause` |
+| SSE2 (fence) | 168 | 0.01% | `lfence`, `mfence` |
+| TSC | 127 | 0.00% | `rdtsc`, `rdtscp` |
+| SSE-legacy (xmm) | 93 | 0.00% | `movd`, `pxor`, `paddd`, `movdqa`, `punpckldq`, `movdqu` |
+| VEX-128 (v… xmm) | 52 | 0.00% | `vpxor`, `vpaddd`, `vprord`, `vmovdqu`, `vpshufd`, `vmovdqa` |
+| PREFETCH | 46 | 0.00% | `prefetcht0`, `prefetcht1` |
+| CPUID | 41 | 0.00% | `cpuid` |
+| SSE (fence) | 28 | 0.00% | `sfence` |
+| SSE2 (nt store) | 16 | 0.00% | `movntiq`, `movntil` |
+| AVX2/AVX (ymm) | 10 | 0.00% | `vmovdqa`, `vmovdqu`, `vpermi2d`, `vextracti128` |
+| RDRAND | 7 | 0.00% | `rdrandq` |
+| XSAVE | 5 | 0.00% | `xgetbv` |
+| SYSCALL | 2 | 0.00% | `syscall` |
+| RDSEED | 2 | 0.00% | `rdseedq` |
+| AVX (state) | 1 | 0.00% | `vzeroupper` |
+| x87 (st) | 1 | 0.00% | `fsubp` |
+
+## The controls, and the one that fired
+
+Pre-registered before the corpus was downloaded, and riding in the same run as the result they license — because a split measured with no control is a number with no condition.
+
+| column | pre-registered | NAME route | BODY route | verdict |
+|---|---|---|---|---|
+| `cc1` | must read ~0% hand-written | 2.5% | 0.0% | ⛔ the NAME route is NOT as pre-registered |
+| `glibc` | must read substantially hand-written | 12.6% | 5.7% | ✅ both routes as pre-registered |
+
+⛔ **THE `cc1` CONTROL FIRED ON THE NAME ROUTE, AND IT NAMED ITS OWN CAUSE.**
+A C++ compiler's own binary should contain no hand-written assembly, and the
+body route agrees — 0.0%. The name route reads 2.5%, and the `AC` cell says why:
+`ix86_expand_int_sse_cmp`, `gen_avx_haddv8sf3`, `ix86_expand_sse_movcc`,
+`pass_remove_partial_avx_dependency`. These are compiler functions **about** SSE
+and AVX, and `sse` and `avx` are `_`-delimited components of their names.
+
+⇒ 🔑 **THE NAME ROUTE IS A CONVENTION, NOT A FACT.** It over-claims in a program
+whose SUBJECT is the instruction set, and it under-claims wherever the
+convention is not followed — `vlc-video_chroma` reads **0.0% by name and 53.1%
+by body**, because VLC's chroma converters are hand-written SIMD with ordinary C
+names. The two failures point in opposite directions, which is the entire reason
+there are two routes and the entire reason the matrix is published instead of a
+number.
+
+⚠️ **THE THRESHOLD IS NOT WIDENED TO MAKE THIS PASS.** Deriving a control's new
+allowance from the thing it is checking would leave a gate that can only agree
+with its subject. The reading stands as ⛔ and the split is quoted as a RANGE —
+the `AA` cell is the floor, the wider of the two routes is the ceiling.
+
