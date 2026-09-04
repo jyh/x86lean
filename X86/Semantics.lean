@@ -482,6 +482,25 @@ def vshufApply (k : VShufKind) (src : BitVec 128) (sel : BitVec 8) : BitVec 128 
   | .lw => vselect 16 src sel.toNat 0 ||| ((src >>> 64) <<< 64)
   | .hw => vselect 16 src sel.toNat 4 ||| ((src <<< 64) >>> 64)
 
+/-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
+lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
+instruction is named for: a negative word becomes 0, not 255. -/
+private def vpackusAux (src : BitVec 128) (base : Nat) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      let w := src.extractLsb' ((i) * 16) 16
+      let b : BitVec 8 :=
+        if w.msb then 0                       -- negative saturates DOWN to 0
+        else if 255 < w.toNat then 255        -- and above 255 UP to 255
+        else w.setWidth 8
+      (vpackusAux src base i) ||| ((b.setWidth 128) <<< ((base + i) * 8))
+
+/-- ⭐⭐ `packuswb`'s combinator.  The DESTINATION's eight words become the low
+eight bytes and the SOURCE's the high eight — the order the SDM gives and the one
+objdump's own comment shows. -/
+def vpackus (dst src : BitVec 128) : BitVec 128 :=
+  vpackusAux dst 0 8 ||| vpackusAux src 8 8
+
 /-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
 Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
 get a packed operation wrong is to reach for `BinKind`'s flag machinery by
@@ -528,6 +547,10 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .cmpgtb => vlanes 8  (fun x y => if y.slt x then -1 else 0) a b
   | .cmpgtw => vlanes 16 (fun x y => if y.slt x then -1 else 0) a b
   | .cmpgtd => vlanes 32 (fun x y => if y.slt x then -1 else 0) a b
+  -- ⭐⭐⭐ P2 BATCH 18 — `packuswb`.  ⛔ NOT `vlanes`: this is the first operation
+  -- here that NARROWS, so lane `i` of the result is not a function of lane `i` of
+  -- the operands, and the combinator that pairs them cannot express it.
+  | .packuswb => vpackus a b
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=

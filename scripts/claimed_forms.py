@@ -250,6 +250,9 @@ CLAIMS_NO_ROW = {
     "psrld_i_x4": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "psraw_m_disp": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ P2 BATCH 18 (packuswb), same commit as the vectors.
+    "packuswb_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "packuswb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 17 (the packed compares), same commit as the vectors.
     "pcmpeqb_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "pcmpeqb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",

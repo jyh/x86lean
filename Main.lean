@@ -2810,6 +2810,46 @@ def wrongVcmpBooleanNotMask (i : Instr) (s : Cpu) : Cpu :=
       else (s.setXmm dst (bl k (s.getXmm dst) (s.readMem128 a))).setRip nr
   | _ => step i s
 
+/-- ⛔⛔⛔ P2 BATCH 18, ARM 1 — `packuswb` TRUNCATING INSTEAD OF SATURATING.
+Keeping the low byte of each word is BIT-IDENTICAL at every in-range value, which
+is every value a vector table written without adversarial constants contains. It
+is the model this group exists to refute. -/
+def wrongPackuswbTruncates (i : Instr) (s : Cpu) : Cpu :=
+  let tr (dst src : BitVec 128) : BitVec 128 :=
+    let byteOf (v : BitVec 128) (k : Nat) : BitVec 128 :=
+      ((v.extractLsb' (k * 16) 16).setWidth 8).setWidth 128
+    (List.range 8).foldl (fun acc k =>
+      acc ||| (byteOf dst k <<< (k * 8)) ||| (byteOf src k <<< ((8 + k) * 8))) 0
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbin .packuswb dst src => (s.setXmm dst (tr (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vbinm .packuswb dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (tr (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 18, ARM 2 — `packuswb` READING ITS SOURCE AS UNSIGNED, so a
+negative word clamps to 255 instead of to 0 — the OPPOSITE END of the range.
+
+⚠️ It agrees with the right model at 32 of 88 pre-states at the register shape and
+0 of 88 at the memory shape, so the memory vector is what carries this arm. -/
+def wrongPackuswbUnsignedSource (i : Instr) (s : Cpu) : Cpu :=
+  let un (dst src : BitVec 128) : BitVec 128 :=
+    let byteOf (v : BitVec 128) (k : Nat) : BitVec 128 :=
+      let w := v.extractLsb' (k * 16) 16
+      (((if 255 < w.toNat then (255 : BitVec 8) else w.setWidth 8)).setWidth 128)
+    (List.range 8).foldl (fun acc k =>
+      acc ||| (byteOf dst k <<< (k * 8)) ||| (byteOf src k <<< ((8 + k) * 8))) 0
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbin .packuswb dst src => (s.setXmm dst (un (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vbinm .packuswb dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (un (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -3063,7 +3103,15 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("pcmpgt compares its lanes as UNSIGNED",
      wrongVcmpUnsigned, "xmm0")
   , ("a packed compare writes 1 instead of an all-ones MASK",
-     wrongVcmpBooleanNotMask, "xmm0") ]
+     wrongVcmpBooleanNotMask, "xmm0")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 18 — `packuswb`.  ⚠️ BOTH ARM NAMES CONTAIN
+  -- `packuswb`, so one filter selects both — the defect batch 17 hit, where two
+  -- arms of one batch shared no substring and `selftest` ran half of them and
+  -- said PASS (D116 §5).
+  , ("packuswb truncates instead of saturating",
+     wrongPackuswbTruncates, "xmm0")
+  , ("packuswb reads its source as UNSIGNED, clamping negatives to 255",
+     wrongPackuswbUnsignedSource, "xmm0") ]
 
 /-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
 indices name, and `selftest-shards` checks these indices — so the gate exercises
@@ -3863,7 +3911,25 @@ zero for signedness, and only measuring the two separately showed it.  ⚠️ Le
 `<` on `BitVec` is UNSIGNED, so the wrong model is not a strawman but what a \
 model written without noticing the SDM's word `signed` type-checks to; and the \
 result is a MASK, not a flag, which is bit-identical in the low bit of every \
-lane (see D116).\n\n\
+lane (see D116); 15 — `packuswb`, THE ONE MEMBER OF THE PACK GROUP THE ORACLE \
+CAN EXECUTE: one roster row, 2 vectors, one new `VBinKind` constructor and one \
+combinator, 5,105 buildable instructions.  ⛔⛔ THE GROUP IS ONE MNEMONIC WIDE \
+AND THAT IS A MEASUREMENT: `packsswb` and `packssdw` REFUSE at every pre-state \
+(D115), and `packssdw` is roster rank 15 at 5,613 instructions.  A batch sampled \
+at `packuswb` — the group's natural representative, adjacent opcode, same \
+shapes, 88 of 88 against the SDM — WOULD HAVE PASSED while two thirds of the \
+group could not be run.  ⭐ The saturation is ASYMMETRIC and it is the \
+instruction: source lanes SIGNED, result lanes UNSIGNED, so a negative word \
+saturates to 0 and one above 255 to 255.  ⚠️ THE TRUNCATION MODEL SCORES 0 OF 88 \
+AND THAT NUMBER IS A PROPERTY OF THE PRE-STATES, NOT OF THE INSTRUCTION — \
+keeping the low byte is bit-identical at every IN-RANGE value, and what refutes \
+it is `adversarial` reaching 0x8000/0xFFFF/0x7FFF, a P0 choice for SCALAR \
+arithmetic doing the work here by inheritance.  A table of small positive \
+constants would have scored it 88 of 88 and reported green about a model that \
+does not saturate at all ⇒ A WRONG MODEL'S SCORE IS A JOINT FACT ABOUT THE MODEL \
+AND THE PRE-STATES.  ⛔ And it is not `vlanes`: this is the first operation here \
+that NARROWS, so lane i of the result is not a function of lane i of the \
+operands (see D117).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

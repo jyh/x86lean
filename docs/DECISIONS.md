@@ -5460,3 +5460,55 @@ the instrument says it measured, not only what it concluded.**
 see two and not a verdict.
 
 **Reversal cost:** six `VBinKind` constructors, six `vbinApply` arms, six roster rows, 13 vectors.
+
+---
+
+## D117 — `packuswb`: a group one mnemonic wide, and a truncation model that a gentle vector table would have missed
+
+**P2 batch 18.** `packuswb` joins `VBinKind`; `vpackus` is a new combinator because this is the
+first NARROWING operation here — lane `i` of the result is not a function of lane `i` of the
+operands, so `vlanes` cannot express it.
+
+### 1. The group is one mnemonic wide, and that is a measurement rather than a choice
+
+`packsswb` and `packssdw` refuse on the oracle at every pre-state (D115). `packssdw` is **roster rank
+15 at 5,613 instructions** and was marked `not measured`, which the roster's default reads as
+available.
+
+⇒ 🔑 **A batch sampled at `packuswb` would have passed** — same encoding family, adjacent opcodes,
+same operand shapes, executes at 88 of 88 and returns the SDM's answer. [[a-batch-cannot-be-sampled]]
+again, and this time the sample would have been drawn from **the same mnemonic family**, which is the
+sampling that feels safest of all. The defence was not judgement; it was measuring all three.
+
+### 2. The saturation, and the model a gentle table would have missed
+
+Source lanes SIGNED, result lanes UNSIGNED: a negative word saturates to 0, one above 255 to 255 —
+opposite ends of the range. Against the oracle, 88 of 88 at both shapes, with three models refuted:
+
+```
+                          trunc   unsigned-source   swapped
+packuswb %xmm1,%xmm0          0                32        20
+packuswb (%rbx),%xmm0         0                 0        38
+```
+
+⚠️ **Truncation scores 0 of 88 here, and that number is a property of the PRE-STATES, not of the
+instruction.** Keeping the low byte is bit-identical at every in-range value. A vector table of small
+positive constants would have scored truncation 88 of 88 and reported a green run about a model that
+does not saturate at all. What refutes it is `adversarial` reaching `0x8000`, `0xFFFF` and `0x7FFF` —
+a choice made in P0 for scalar arithmetic and doing the work here.
+
+⇒ 🔑 **A WRONG MODEL'S SCORE IS A JOINT FACT ABOUT THE MODEL AND THE PRE-STATES**, and reporting it
+without saying which is doing the work invites the next head to trust a table that cannot reach the
+rule.
+
+⭐ And the unsigned-source model is refuted best by the MEMORY vector (0 of 88 against 32 at the
+register shape), because the memory source sweeps where `xmm1` is a fixed pattern — so the two
+vectors are not interchangeable and neither is redundant.
+
+### 3. Both arms share a substring, deliberately
+
+`"packuswb truncates instead of saturating"` and `"packuswb reads its source as UNSIGNED…"` both
+contain `packuswb`, so one filter selects both. That is a direct response to D116 §5, where two arms
+of one batch shared no substring, `selftest` ran half of them and printed PASS.
+
+**Reversal cost:** one `VBinKind` constructor, one combinator, one roster row, 2 vectors, 2 arms.

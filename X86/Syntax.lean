@@ -237,6 +237,26 @@ inductive VBinKind where
   group tests. -/
   | cmpeqb | cmpeqw | cmpeqd
   | cmpgtb | cmpgtw | cmpgtd
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 18 — `packuswb` (SDM Vol. 2B, PACKUSWB): eight
+  SIGNED words from the destination and eight from the source, each SATURATED to
+  an UNSIGNED byte, destination's low.
+
+  ⛔⛔ **THE SIGNEDNESS IS ASYMMETRIC AND THAT IS THE WHOLE INSTRUCTION**: the
+  SOURCE lanes are read as SIGNED and the RESULT lanes are UNSIGNED, so a negative
+  word saturates to **0** and a word above 255 to **255**. A model that read the
+  source as unsigned would send every negative word to 255 — the opposite end of
+  the range — and it agrees with this one at 32 of 88 pre-states at the register
+  shape and 0 of 88 at the memory shape (measured before this was written).
+
+  ⚠️ AND TRUNCATION IS THE OTHER MODEL: keeping the low byte is bit-identical at
+  every in-range value, which is every value a casual vector table contains. It
+  agrees at 0 of 88 here only because the pre-states reach out of range.
+
+  ⛔ ITS TWO SIGNED SIBLINGS ARE NOT HERE AND CANNOT BE: `packsswb` and `packssdw`
+  REFUSE on the oracle at every pre-state (D115), and `packssdw` is roster rank 15
+  at 5,613 instructions. A batch sampled at `packuswb` — its own sibling — would
+  have been written against an oracle that cannot run two thirds of the group. -/
+  | packuswb
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -253,6 +273,7 @@ def VBinKind.mnemonic : VBinKind → String
   | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
   | .cmpeqb => "pcmpeqb" | .cmpeqw => "pcmpeqw" | .cmpeqd => "pcmpeqd"
   | .cmpgtb => "pcmpgtb" | .cmpgtw => "pcmpgtw" | .cmpgtd => "pcmpgtd"
+  | .packuswb => "packuswb"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
@@ -1849,7 +1870,10 @@ def rosterP0 : List String :=
    -- ⛔ THE GROUP WAS PICKED FROM A MEASUREMENT, NOT A RANK (D115): every other
    -- candidate in the residue at this size REFUSES on the oracle, including the
    -- whole saturating add/subtract family and both signed packs.
-   "pcmpeqb", "pcmpeqw", "pcmpeqd", "pcmpgtb", "pcmpgtw", "pcmpgtd"]
+   "pcmpeqb", "pcmpeqw", "pcmpeqd", "pcmpgtb", "pcmpgtw", "pcmpgtd",
+   -- ⭐ P2 VECTOR WAVE, BATCH 18: `packuswb`, the ONE member of the pack group the
+   -- oracle can execute.  `packsswb` and `packssdw` refuse at every pre-state.
+   "packuswb"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

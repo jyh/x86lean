@@ -739,6 +739,10 @@ acc,imm · rh"
       shapes := "x,x,i · x,m,i",
       note := "the source's four LOW words selected into the low quadword, its HIGH quadword copied through; m 16-byte aligned, else #GP(0) — proved, not vectored (D110)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFLW" }
+  , { mnemonic := "packuswb",
+      shapes := "x,x · x,m",
+      note := "eight SIGNED words from the destination and eight from the source, each saturated to an UNSIGNED byte, destination low; a negative word becomes 0 and one above 255 becomes 255 — the asymmetry is the instruction. Its signed siblings packsswb/packssdw REFUSE on the oracle (D115)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
   , { mnemonic := "pcmpeqb",
       shapes := "x,x · x,m",
       note := "16 lanes of 8 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",

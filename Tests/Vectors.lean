@@ -2939,6 +2939,31 @@ def vectors : List Vec :=
     , bytes := "660f6503", instr := ⟨.vbinm .cmpgtw .x0 { base := some .rbx }, 4⟩ }
   , { id := "pcmpgtd_m", mnemonic := "pcmpgtd", asm := "pcmpgtd (%rbx), %xmm0"
     , bytes := "660f6603", instr := ⟨.vbinm .cmpgtd .x0 { base := some .rbx }, 4⟩ }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 18 — `packuswb`, THE ONE MEMBER OF THE PACK GROUP
+  -- THE ORACLE CAN EXECUTE.  5,105 buildable instructions (6,230 total, 18.1% of
+  -- them MMX-register and declined).
+  --
+  -- ⛔ ITS TWO SIGNED SIBLINGS REFUSE AT EVERY PRE-STATE (D115): `packssdw` is
+  -- roster rank 15 at 5,613 instructions and `packsswb` is not in the ranked
+  -- table at all.  A batch sampled at THIS mnemonic — the group's own natural
+  -- representative — would have been written against an oracle that cannot run
+  -- two thirds of it.
+  --
+  -- ⭐ THE SATURATION IS ASYMMETRIC AND MEASURED, not assumed: the source lanes
+  -- are SIGNED and the result lanes UNSIGNED, so a negative word saturates to 0
+  -- and one above 255 to 255.  Against the oracle, 88 of 88 at both shapes, with
+  -- three wrong models refuted:
+  --
+  --   packuswb %xmm1,%xmm0    trunc=0  unsigned-source=32  swapped=20
+  --   packuswb (%rbx),%xmm0   trunc=0  unsigned-source= 0  swapped=38
+  --
+  -- ⚠️ TRUNCATION IS THE MODEL TO FEAR: keeping the low byte is bit-identical at
+  -- every IN-RANGE value, which is every value a casual vector table contains.
+  -- It survives 0 of 88 here only because `adversarial` reaches out of range.
+  , { id := "packuswb_x", mnemonic := "packuswb", asm := "packuswb %xmm1, %xmm0"
+    , bytes := "660f67c1", instr := ⟨.vbin .packuswb .x0 .x1, 4⟩ }
+  , { id := "packuswb_m", mnemonic := "packuswb", asm := "packuswb (%rbx), %xmm0"
+    , bytes := "660f6703", instr := ⟨.vbinm .packuswb .x0 { base := some .rbx }, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
