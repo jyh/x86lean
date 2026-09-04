@@ -245,10 +245,53 @@ Tests.Anchors 801
 # without a cross product a kernel must reduce — and it is the next head's first
 # obstacle, named here with its growth law and one refuted route rather than left
 # to be rediscovered as a red gate.
+# ⭐⭐⭐ P2 BATCH 12 CLOSED THIS, AND THE ENTRY ABOVE IS KEPT AS THE HISTORY IT IS.
+# `vectorCoverage` measured 962 · 1 010 · 1 020 · 1 100 ms (1-min loads 3.71 /
+# 5.65 / 4.30 / 4.88) and is REGISTERED DOWN, 2 320 -> 1 760, at the worst of
+# four readings x 1.6.  It is no longer the binding constraint and it is no
+# longer a load sensor: the margin (660 ms) is now several times the machine's
+# own spread (140 ms across those four), which is what a ceiling has to be
+# before its verdict is about the code.
+#
+# ⛔ IT WAS NOT MADE CHEAPER BY A CHEAPER SPELLING — FOUR OF THOSE WERE MEASURED
+# AND REFUTED FIRST, and the refutations are why the fifth was worth building:
+#   * hoisting `tableP0.map Row.mnemonic` out of the inner lambda: NO CHANGE
+#     (2.08 s -> 2.01 s, inside noise).  The map is under 50 ms; the lambda was
+#     never the cost.
+#   * dropping the dedup and sweeping the raw lists both ways: 6.1 s, 2.7x WORSE.
+#     The dedup pays for itself by making the outer loop 111 long instead of 854.
+#   * collapsing adjacent duplicates before the dedup (P2 batch 11's route, run
+#     again here declaration-to-declaration rather than module-to-module):
+#     2.32 -> 2.13 s, EIGHT PER CENT.  The previous head's 7% was right and its
+#     revert was right; my re-reading of it as "20% at the declaration the gate
+#     actually reads" was wrong, and measuring it cost four minutes.
+#   * `mergeSort` — the O(n log n) dedup — does not reduce in the kernel AT ALL
+#     (`decide` fails on the instance), so that design died before it was written.
+#   ⇒ 🔑 THE DEDUP'S COST IS THE DISTINCT-AGAINST-DISTINCT COMPARISONS, not the
+#   duplicates: `eraseDups` over the 111 DISTINCT mnemonics alone is 801 ms of the
+#   1 700 ms, and no de-duplication of the INPUT can remove it.  That is why every
+#   route that attacked the input failed, and it is the fact the comparison-count
+#   model hides.
+#
+# ⭐ WHAT WORKED WAS TO STOP THE KERNEL SEARCHING.  `Tests/VectorRuns.lean` is
+# generated (`lake exe x86lean-diff runs`, gated byte-for-byte in CI) and names
+# the table row index of each RUN of equal mnemonics in the vector table; the
+# kernel compares two lists element by element and does the rest in `Nat`.  Same
+# four facts, 2 250 -> 990 ms, and the growth law changes with it: linear in the
+# RUNS (181, not 854) for the string half, and Nat comparisons for the coverage
+# half.  ⚠️ The per-comparison figures that model implies (~0.13 ms a string,
+# ~0.037 ms a Nat) are ARITHMETIC on the arm timings, not measurements; they are
+# in D105 because they predict the next batch's ~+60 ms, which is the form in
+# which they can be found wrong.
+#   ⇒ 🔑 A CERTIFICATE THE KERNEL CHECKS IS CHEAPER THAN A SEARCH THE KERNEL
+#   RUNS — and it is not weaker, because the check names both tables: a lying
+#   certificate is caught by `scripts/sharing_redprobe.sh`'s r4 arm, which plants
+#   exactly that lie and requires the kernel to prove it false.
 Tests.Coverage @decl memDestSweep 7040
 Tests.Coverage @decl pre_states_have_a_returnable_frame 2912
-Tests.Coverage @decl vectorCoverage 2320
+Tests.Coverage @decl vectorCoverage 1760
 Tests.Coverage @tail 12420
 Tests.Nonvacuity 245
 Tests.Vectors 50
+Tests.VectorRuns 50
 Tests 50

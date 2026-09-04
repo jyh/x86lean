@@ -4563,3 +4563,121 @@ behind the frontier.
 
 **Reversal cost:** one word deleted from a git command; two `test` lines; one regenerated document;
 sixteen dictionary entries.
+
+## D105 — the kernel was searching where it could have been checking, and four cheaper spellings were refuted before the fifth was built (P2 vector wave, batch 12)
+
+`vectorCoverage` — the declaration proving that the differential vectors exercise exactly the
+coverage table's mnemonics — cost **2 250–2 370 ms against a 2 320 ms ceiling**. D103 named it as
+the next head's first obstacle, forbade raising the ceiling (the number would come from the thing
+it checks), recorded one refuted route, and left an instruction: **profile the declaration's PARTS
+before optimising it.** This is that profile, the four refutations it produced, and the design that
+came out of them.
+
+### 1. The parts, measured (each its own declaration, one file, same run)
+
+```
+the traversal alone   (854 `Vec.mnemonic` projections, no dedup)            104 ms
+the table's own map   (111 rows -> 111 mnemonics)                          < 50 ms
+the DEDUP alone       (`vectorMnemonics.length == rosterSize`)             1 700 ms
+inclusion sweep 1     (dedup + rows looked up in the deduped list)         1 970 ms
+inclusion sweep 2     (dedup + the deduped list looked up in the rows)     2 080 ms
+the whole shipped declaration                                             2 260 ms
+```
+
+⇒ **The dedup is three quarters of it.** And the part of the dedup that matters is not the
+duplicates: `eraseDups` over the **111 DISTINCT mnemonics alone** — a list from which nothing can be
+removed — is **801 ms**, half the dedup's cost. The comparison count model that every previous
+attempt reasoned from counts the wrong comparisons.
+
+### 2. ⛔ Four cheaper spellings, each REFUTED by measurement
+
+* **Hoist `tableP0.map Row.mnemonic` out of the inner lambda.** The shipped sweep rebuilds it once
+  per element, which reads like an obvious 111× waste. Measured: **2.08 s → 2.01 s, nothing.** The
+  map is under 50 ms and the kernel was already sharing it. *This was my hypothesis, and it was the
+  most confident one.*
+* **Drop the dedup; sweep the raw lists both ways.** Measured **6.1 s — 2.7× WORSE.** The dedup pays
+  for itself by making the outer loop 111 long instead of 854.
+* **Collapse adjacent duplicates before the dedup** (batch 11's route, reverted there at 7% measured
+  module-to-module). I re-ran it **declaration to declaration**, expecting the per-declaration gate
+  to see a bigger share: **2.32 → 2.13 s, eight per cent.** The previous head's number and its
+  revert were both right, and my re-reading of them was wrong. ⇒ 🔑 **a REFUTED route re-derived
+  from a better denominator is still refuted** — the denominator was not the defect.
+* **`mergeSort`, an O(n log n) dedup.** `decide` fails outright: the `String` order's instance does
+  not reduce in the kernel. The design died before it was written, for 30 seconds of probe.
+
+### 3. ⭐⭐ What worked: stop the kernel searching, and let it CHECK
+
+`Tests/VectorRuns.lean` is **generated** (`lake exe x86lean-diff runs`) and gated byte-for-byte in
+CI exactly as `docs/COVERAGE.md` is. It names, for each **run** of equal mnemonics in the vector
+table, the **index of the coverage-table row** that run exercises — 181 runs over 854 vectors and
+111 rows. `vectorCoverage` then checks four things and searches for none of them:
+
+```
+1. every run's mnemonic IS the mnemonic of the row its index names   (181 string compares)
+2. every row index 0..rosterSize-1 is named by some run              (Nat)
+3. no run names an index outside the table                           (Nat)
+4. the runs name exactly rosterSize distinct rows                    (Nat)
+```
+
+```
+in isolation, same run   shipped 2 260 ms   certificate 990 ms
+in the module            2 370 ms  ->  962 · 1 010 · 1 020 · 1 100 ms (loads 3.7-5.7)
+ceiling                  2 320     ->  1 760   (worst of four x 1.6, the file's convention)
+Tests.Coverage           19 300 ms ->  17 900 ms
+```
+
+⚠️ **A cost model, marked as INFERENCE and not as measurement.** Dividing each arm's time by the
+comparison count its shape implies gives ~0.13 ms per **string** comparison and ~0.037 ms per **Nat**
+comparison, consistently across six arms — which would mean the certificate trades roughly 17 000
+string comparisons for 181 of them plus Nat work. Every figure in that sentence is arithmetic ON the
+timings above with an assumed comparison count, not a thing this repository measured; it is written
+down because it PREDICTS the next batch's cost (~+60 ms, not ~+200), which is the form in which it
+can be found wrong. What IS measured is the arm table and the module total.
+
+The growth law changes with the design: the string half is linear in the RUNS (181, not 854) and the
+coverage half is Nat work over rows × runs, where the old shape was |rows| × |vectors| in strings.
+
+### 4. ⛔ A certificate is only worth the check, and the check is red-first
+
+`scripts/sharing_redprobe.sh` gains a fourth `vectorCoverage` arm and its first arm is now the
+important one: **r4 plants a LYING certificate** (every run pointed one row along) and requires the
+kernel to prove the equality FALSE. r5 removes every run naming row 0 (a row with no vector), r6
+adds a run naming a row that does not exist, r7 takes the distinct count one short. Seven arms and a
+positive control at the same shape, all in one run; the anchor list that ties each arm to a string
+occurring in the shipped declaration was updated in the same edit, and it REFUSES rather than
+passing when it cannot find one.
+
+⛔⛔ **AND THE VOCABULARY CHANGE OPENED A HOLE, WHICH IS CLOSED BY PROOF AND NOT BY COMMENT.** Every
+conjunct speaks about the RUNS, and the runs come out of `collapseAdjacent`. The old spelling swept
+every vector's mnemonic directly and so could not have this defect; the new one would go on holding
+if that function ever DROPPED a mnemonic rather than collapsing repeats of it — an observation
+narrower than the claim it supports, which is the failure this repository keeps finding in its own
+gates. So `mem_collapseAdjacent` proves, for all lists, that collapsing loses no member, and
+`every_vector_mnemonic_is_in_the_table` reassembles the original published statement — *every
+mnemonic the vectors exercise is one the table names* — from the four conjuncts plus that lemma. ⚠️
+Neither is a `decide`: they are proofs about a function and a chain, so they cost the kernel nothing
+that grows with the tables.
+
+⚠️ **The three published theorems changed VOCABULARY, and that is the risk this batch carries.**
+`every_row_has_a_vector` no longer mentions vectors: it says every row index is named by a run. It
+means what it used to mean **only through the bridge** (conjunct 1), so the bridge is now stated as
+its own theorem, `vector_runs_name_their_rows`, and each docstring says so. A reader who takes the
+index facts without the bridge is reading arithmetic about a list of numbers.
+
+### 5. The deadlock that had to be designed around, and the alternative that was refused
+
+The generator lives in `x86lean-diff`, which imports `Tests.Vectors` and **never** `Tests.Coverage`.
+That is load-bearing: a stale certificate makes `Tests/Coverage.lean` fail to BUILD (it is imported
+by the model tier, unlike `docs/COVERAGE.md`), so if the generator needed the module it invalidates,
+a fresh checkout with a stale file could not regenerate it.
+
+⛔ **The cheapest design measured was refused on other grounds.** Comparing the collapsed runs
+directly against the table's mnemonics — no certificate at all — costs **165 ms**, but it requires
+the vector table's mnemonics to be CONTIGUOUS and in table order (they are 181 runs over 111
+distinct today). Reordering 854 hand-authored vectors would scramble thirteen comment blocks that
+explain why particular vectors sit where they do ("these four exist because the harness selftest
+FOUND their absence") and would make every future batch an insertion rather than an append. A 165 ms
+declaration is not worth a file whose comments no longer point at their subjects.
+
+**Reversal cost:** one generated file, one generator arm, one theorem's four conjuncts, four probe
+arms, one ceiling line.

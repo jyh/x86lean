@@ -21,6 +21,7 @@ LANE. Personal lane, public sources only.
 -/
 import X86
 import Tests.Vectors
+import Tests.VectorRuns
 
 namespace X86.Tests
 open X86
@@ -142,55 +143,155 @@ over half of what the vectors cost.  The remainder is somewhere in the ~20 other
 theorems that scan the table, and the next head should measure per theorem
 rather than reason about shapes — which is the mistake this note is correcting
 in its own inherited diagnosis.  The ceiling is untouched at 19560 with 2.4×
-headroom, so there is room to do that properly rather than under pressure. -/
+headroom, so there is room to do that properly rather than under pressure.
 
-/-- The mnemonics the differential vector table exercises, without duplicates.
-Named so the three theorems below share one reduction rather than each
-re-deriving it 45 times. -/
-def vectorMnemonics : List String := (vectors.map Vec.mnemonic).eraseDups
+⚠️ STAMP, P2 BATCH 12 (D105): everything above is batch 10's, and one sentence of
+it is no longer true of the code below it.  `vectorCoverage` is no longer a
+(rows × vectors) sweep of string equalities at all — it CHECKS a generated
+certificate (`Tests/VectorRuns.lean`) and works in `Nat`, 2 250 → 990 ms — and the
+per-theorem measurement this note asked the next head for is in D105 §1.  The
+note is kept because the measurement that motivated it is still the honest
+record of how the cost was found; it is stamped because a description of a shape
+the file no longer has reads, to the next head, exactly like a description of the
+shape it does. -/
 
-/-- ⭐⭐ P1 BATCH 21 — THE THREE VECTOR-COVERAGE FACTS IN ONE KERNEL REDUCTION,
-for the reason measured at `memDestSweep`: the kernel's reduction cache spans a
-declaration and not two, so `vectorMnemonics`'s `eraseDups` was paid three times.
+/-- Adjacent equal mnemonics collapsed to one: the vector table's RUNS, in the
+table's own order.  One comparison per vector and no search — this is the only
+pass over the 854 vectors that `vectorCoverage` makes. -/
+def collapseAdjacent : List String → List String
+  | [] => []
+  | [a] => [a]
+  | a :: b :: t => if a == b then collapseAdjacent (b :: t) else a :: collapseAdjacent (b :: t)
 
-⭐ THE DEDUP IS REAL, CONFIRMED BY A CONTROL AT THE SAME SHAPE (batch 21):
-`vectorMnemonics.length = 83` costs **935 ms**, while forcing the same 775
-`Vec.mnemonic` projections with NO dedup — `(vectors.map Vec.mnemonic).any (·
-== "zzz") = false` — costs **69 ms**, and `.any (·.isEmpty)` **76 ms**.  So 93%
-of this list's cost is the dedup and not the traversal, exactly as D62 said.
-⚠️ What D62 got wrong was the SIZE of the prize, not its existence: three
-payments of 935 ms is 2.8 s of a 37 900 ms module.  See `memDestSweep`.
+/-- The mnemonics the differential vector table exercises, run by run. -/
+def mnemonicRuns : List String := collapseAdjacent (vectors.map Vec.mnemonic)
 
-⛔ REPLACING `eraseDups` WITH ANYTHING CHEAPER WAS PRICED AND REFUSED.  Both
-dedup-free spellings cost the same ~30 000 string comparisons the dedup does
-(83 rows x first-occurrence-in-775, or 775 vectors x position-in-83), and a
-hand-written 83-element literal pinned by a theorem would pay the dedup once —
-at the cost of a list edited by hand every batch.  **Paying it once is the whole
-win available, and this shape takes it without new data to maintain.** -/
+/-- The coverage table's mnemonics, in the table's order. -/
+def tableMnemonics : List String := tableP0.map Row.mnemonic
+
+/-- ⭐⭐⭐ P2 BATCH 12 (D105) — THE SAME FOUR FACTS, CHECKED AGAINST A CERTIFICATE
+INSTEAD OF SEARCHED FOR.  The previous spelling deduplicated the 854 vector
+mnemonics and swept the table against the result: 2 250 ms, against a ceiling of
+2 320 that the next batch crossed on its own.  Four cheaper spellings were
+measured and REFUTED first, and each refutation is worth more than the shape it
+killed (D105): hoisting the table's map out of the lambda changed NOTHING (the
+map is under 50 ms); dropping the dedup and sweeping raw lists was 2.7x WORSE
+(6.1 s); collapsing duplicate runs before the dedup — the route the previous
+head reverted on a module-level reading — is 8% measured DECLARATION to
+declaration, because the dedup's cost is the DISTINCT-against-distinct
+comparisons (801 ms for 111 alone) that no de-duplication of the input can
+remove; and `mergeSort` does not reduce in the kernel at all.
+
+⭐ WHAT MAKES IT CHEAP IS THAT THE KERNEL STOPS SEARCHING.  `Tests/VectorRuns.lean`
+is GENERATED (`lake exe x86lean-diff runs`, gated byte-for-byte in CI exactly as
+`docs/COVERAGE.md` is) and names, for each run of equal mnemonics, the INDEX of
+the row that run exercises.  The kernel then only compares lists element by
+element and works in `Nat`:
+
+* conjunct 1 — every run's mnemonic IS the mnemonic of the row its index names.
+  ⛔ THIS IS THE CONJUNCT THAT GIVES THE OTHER THREE THEIR MEANING: without it
+  the index list is arbitrary numbers, and a certificate that lied about a run
+  would make the coverage facts below true of nothing.  It is also the arm that
+  fails first when either table changes without the other.
+* conjunct 2 — every row index 0..rosterSize-1 is named by some run: every row
+  is exercised by a vector.
+* conjunct 3 — no run names an index outside the table.  Without it a mnemonic
+  ABSENT from the table would take `List.idxOf`'s out-of-range answer and
+  conjunct 1's `getD` default would be free to agree with it.
+* conjunct 4 — the runs name exactly `rosterSize` distinct rows.
+
+`decide`, one declaration, so the reduction is shared: 990 ms for the four. -/
 theorem vectorCoverage :
-    ((tableP0.map Row.mnemonic).all (fun m => vectorMnemonics.contains m)
-     && vectorMnemonics.all (fun m => (tableP0.map Row.mnemonic).contains m)
-     && (vectorMnemonics.length == rosterSize)) = true := by decide
+    (mnemonicRuns == vectorRunIdx.map (fun i => tableMnemonics.getD i "")
+     && (List.range rosterSize).all (fun i => vectorRunIdx.contains i)
+     && vectorRunIdx.all (fun i => i < rosterSize)
+     && (vectorRunIdx.eraseDups.length == rosterSize)) = true := by decide
+
+/-- ⛔ THE BRIDGE, STATED SEPARATELY BECAUSE EVERYTHING BELOW LEANS ON IT: the
+generated run-index is not data anyone trusts, it is a claim the kernel checks
+against BOTH tables at once. -/
+theorem vector_runs_name_their_rows :
+    (mnemonicRuns == vectorRunIdx.map (fun i => tableMnemonics.getD i "")) = true := by
+  have h := vectorCoverage; simp only [Bool.and_eq_true] at h; exact h.1.1.1
 
 /-- ⭐ EVERY ROW IS BACKED BY AT LEAST ONE DIFFERENTIAL VECTOR.  A tier claim for
-a form nothing executes is a claim backed by nothing. -/
+a form nothing executes is a claim backed by nothing.  Read WITH
+`vector_runs_name_their_rows`: this says every row index is named by a run, and
+that says the run naming it really does exercise that row's mnemonic. -/
 theorem every_row_has_a_vector :
-    (tableP0.map Row.mnemonic).all
-      (fun m => vectorMnemonics.contains m) = true := by
-  have h := vectorCoverage; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
+    ((List.range rosterSize).all (fun i => vectorRunIdx.contains i)) = true := by
+  have h := vectorCoverage; simp only [Bool.and_eq_true] at h; exact h.1.1.2
 
 /-- And every vector's mnemonic is one the table knows about, so a form cannot
-be tested while being absent from the published coverage. -/
+be tested while being absent from the published coverage: no run names a row
+that is not there.  ⚠️ Read as a claim about VECTORS this is the index half only;
+`every_vector_mnemonic_is_in_the_table` below is the whole statement, and it is
+what this theorem existed to say before batch 12 changed the vocabulary. -/
 theorem every_vector_has_a_row :
-    vectorMnemonics.all
-      (fun m => (tableP0.map Row.mnemonic).contains m) = true := by
-  have h := vectorCoverage; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.2
+    (vectorRunIdx.all (fun i => i < rosterSize)) = true := by
+  have h := vectorCoverage; simp only [Bool.and_eq_true] at h; exact h.1.2
+
+/-- ⛔⛔ THE HOLE THE RUN LIST COULD HAVE OPENED, CLOSED BY PROOF RATHER THAN BY
+COMMENT.  Every theorem above speaks about the RUNS, and the runs are produced by
+`collapseAdjacent`.  If that function ever dropped a mnemonic instead of merely
+collapsing repeats of it, every claim above would go on holding about a list that
+had quietly stopped mentioning some vector — the exact failure this repository
+keeps finding in ITS OWN gates (an observation narrower than the thing it
+reports on).  The previous spelling could not have this defect because it swept
+every vector's mnemonic directly.  So the property is proved, once, for all
+lists: collapsing loses no member.  ⚠️ No `decide` here — it is a proof about the
+function, not a computation over the table, and it therefore costs the kernel
+nothing that grows. -/
+theorem mem_collapseAdjacent :
+    ∀ (l : List String) (x : String), x ∈ l → x ∈ collapseAdjacent l := by
+  intro l
+  induction l using collapseAdjacent.induct with
+  | case1 => intro x h; cases h
+  | case2 a => intro x h; simpa [collapseAdjacent] using h
+  | case3 a b t hab ih =>
+      intro x h
+      rw [collapseAdjacent, if_pos hab]
+      have hab' : a = b := by simpa using hab
+      cases h with
+      | head => exact ih _ (by simp [hab'])
+      | tail _ h' => exact ih x h'
+  | case4 a b t hab ih =>
+      intro x h
+      rw [collapseAdjacent, if_neg hab]
+      cases h with
+      | head => exact List.mem_cons_self
+      | tail _ h' => exact List.mem_cons_of_mem _ (ih x h')
+
+/-- ⭐ AND THE PUBLISHED FACT, IN THE VOCABULARY IT WAS ALWAYS IN: every mnemonic
+the differential vectors exercise is one the coverage table names.  This is the
+statement `every_vector_has_a_row` used to make directly, reassembled from the
+four conjuncts and the lemma above — the certificate's indices are in range, the
+row each index names carries the run's own mnemonic, and no vector was lost on
+the way into a run. -/
+theorem every_vector_mnemonic_is_in_the_table (m : String)
+    (h : m ∈ vectors.map Vec.mnemonic) : m ∈ tableMnemonics := by
+  have hm : m ∈ mnemonicRuns := mem_collapseAdjacent _ m h
+  have hb : mnemonicRuns = vectorRunIdx.map (fun i => tableMnemonics.getD i "") :=
+    eq_of_beq vector_runs_name_their_rows
+  rw [hb, List.mem_map] at hm
+  obtain ⟨i, hi, heq⟩ := hm
+  have hlt : i < rosterSize := by
+    have := List.all_eq_true.mp every_vector_has_a_row i hi
+    simpa using this
+  have hlen : tableMnemonics.length = rosterSize := by
+    simp [tableMnemonics, table_row_count]
+  have hidx : i < tableMnemonics.length := by omega
+  have hget : tableMnemonics.getD i "" = tableMnemonics[i] := by
+    simp [List.getD, List.getElem?_eq_getElem hidx]
+  rw [hget] at heq
+  exact heq ▸ List.getElem_mem hidx
 
 /-- Every implemented mnemonic is exercised by at least one differential vector
 — the count above is matched by the vector table, not merely by the roster. -/
 theorem vectors_cover_the_roster :
-    vectorMnemonics.length = rosterSize := by
-  have h := vectorCoverage; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.2
+    vectorRunIdx.eraseDups.length = rosterSize := by
+  have h := vectorCoverage
+  simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.2
 
 /-- No form is in the `T-absent` tier: every roster form is modelled.
 When P1 adds a refused form this theorem is the one that must change, and

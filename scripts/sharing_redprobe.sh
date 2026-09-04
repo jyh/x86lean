@@ -1,11 +1,12 @@
 #!/bin/bash
 # ⭐⭐ P1 BATCH 21 — THE RED PROBE FOR THE TWO SHARED REDUCTIONS.
 #
-# `memDestSweep` and `vectorCoverage` each check THREE claims in one kernel
-# reduction so the sweeps behind them are paid once (batch 21; 37 900 -> 21 900
-# ms on Tests.Coverage).  Merging claims is exactly the move that can go silent:
-# a conjunction is green if the kernel never reaches a conjunct, and nothing in
-# a green build says which of the six was actually exercised.
+# `memDestSweep` checks THREE claims in one kernel reduction and `vectorCoverage`
+# FOUR (three until P2 batch 12 rebuilt it on a certificate, D105), so the work
+# behind them is paid once (batch 21; 37 900 -> 21 900 ms on Tests.Coverage).
+# Merging claims is exactly the move that can go silent: a conjunction is green
+# if the kernel never reaches a conjunct, and nothing in
+# a green build says which of the seven was actually exercised.
 #
 # So each conjunct is planted with a defect ALONE and REQUIRED TO REPORT FALSE.
 # ⚠️ The arms prove `... = false` rather than merely failing to compile: a
@@ -59,24 +60,35 @@ theorem r3 :
     ((("zzz" :: memDestMnemonics).filter (fun m =>
       !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) == []) = false := by decide
 
--- ── vectorCoverage, conjunct by conjunct ──────────────────────────────────
--- R4: a table row with no vector.
+-- ── vectorCoverage, conjunct by conjunct (P2 batch 12, D105) ──────────────
+-- ⛔ THE SHAPE CHANGED IN BATCH 12 AND SO DID THESE ARMS. The declaration no
+-- longer dedups and sweeps; it CHECKS A GENERATED CERTIFICATE, so the first arm
+-- below is the one that matters most: it plants a LIE in the certificate and
+-- requires the kernel to say so. A certificate nothing can catch lying is data
+-- the repository would be trusting rather than checking.
+
+-- R4: the certificate off by one row — every run pointed at its neighbour.
 theorem r4 :
-    (tableP0.map Row.mnemonic).all
-      (fun m => (vectorMnemonics.drop 1).contains m) = false := by decide
+    (mnemonicRuns == vectorRunIdx.map (fun i => tableMnemonics.getD (i+1) "")) = false := by decide
 
--- R5: a vector mnemonic with no table row.
+-- R5: a table row that no run names (every run naming row 0 removed).
 theorem r5 :
-    ("zzz" :: vectorMnemonics).all
-      (fun m => (tableP0.map Row.mnemonic).contains m) = false := by decide
+    ((List.range rosterSize).all
+      (fun i => (vectorRunIdx.filter (fun j => j != 0)).contains i)) = false := by decide
 
--- R6: the count, off by one.
-theorem r6 : ((vectorMnemonics.drop 1).length == rosterSize) = false := by decide
+-- R6: a run naming a row that is not in the table.
+theorem r6 :
+    ((rosterSize :: vectorRunIdx).all (fun i => i < rosterSize)) = false := by decide
+
+-- R7: the distinct count, one row short.
+theorem r7 :
+    ((vectorRunIdx.filter (fun j => j != 0)).eraseDups.length == rosterSize) = false := by decide
 
 -- ⭐ THE POSITIVE CONTROL, in the SAME run: an arm at the same shape with NO
--- planted defect must be TRUE.  Without it, six `false`s are also what a probe
+-- planted defect must be TRUE. Without it, seven `false`s are also what a probe
 -- that has stopped seeing its subject would print.
-theorem control : ((vectorMnemonics.length == rosterSize)
+theorem control :
+    ((mnemonicRuns == vectorRunIdx.map (fun i => tableMnemonics.getD i ""))
   && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)) = true := by decide
 EOF
 
@@ -97,9 +109,10 @@ ANCHORS=(
   '!(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r))'
   'match claimsMemDestLoose r, claimsMemDest r with'
   '("repe", false), ("repne", false)'
-  '(tableP0.map Row.mnemonic).all (fun m => vectorMnemonics.contains m)'
-  'vectorMnemonics.all (fun m => (tableP0.map Row.mnemonic).contains m)'
-  'vectorMnemonics.length == rosterSize'
+  'mnemonicRuns == vectorRunIdx.map (fun i => tableMnemonics.getD i "")'
+  '(List.range rosterSize).all (fun i => vectorRunIdx.contains i)'
+  'vectorRunIdx.all (fun i => i < rosterSize)'
+  'vectorRunIdx.eraseDups.length == rosterSize'
 )
 missing=0
 for a in "${ANCHORS[@]}"; do
@@ -118,7 +131,7 @@ fi
 # ⭐ AND THE ANCHOR CHECK IS ITSELF PROVEN TO FIRE, in the same run, because an
 # anchor list that silently matched nothing would be the defect it exists to
 # prevent.
-if grep -qF -- 'vectorMnemonics.length == rosterSizeXX' Tests/Coverage.lean; then
+if grep -qF -- 'vectorRunIdx.eraseDups.length == rosterSizeXX' Tests/Coverage.lean; then
   echo "⛔ the anchor self-test found a string that cannot exist."; exit 2; fi
 if ! grep -qF -- "${ANCHORS[0]}" Tests/Coverage.lean; then
   echo "⛔ the anchor self-test cannot find a string it just matched."; exit 2; fi
@@ -136,9 +149,10 @@ if grep -q "declaration uses 'sorry'" "$OUT"; then
   echo "⛔ RED PROBE FAILED — an arm was closed by sorry."
   exit 1
 fi
-echo "✔ red probe: 6 arms + 1 positive control, all PASS."
+echo "✔ red probe: 7 arms + 1 positive control, all PASS."
 echo "  ${#ANCHORS[@]} anchors: every planted subject OCCURS in the shipped Tests/Coverage.lean"
 echo "  memDestSweep  conjuncts 1-3 each report a planted defect ALONE (r1 r2 r3)"
-echo "  vectorCoverage conjuncts 1-3 each report a planted defect ALONE (r4 r5 r6)"
+echo "  vectorCoverage conjuncts 1-4 each report a planted defect ALONE (r4 r5 r6 r7)"
+echo "    r4 is the CERTIFICATE arm: a lying Tests/VectorRuns.lean is caught by the kernel"
 echo "  control: the unplanted shape is TRUE in the same run"
 exit 0

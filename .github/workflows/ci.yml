@@ -118,7 +118,7 @@ jobs:
       # looking — a declaration over, the tail over, a gated declaration that is
       # no longer in the profile, and declarations gated with no tail ceiling —
       # plus the control, and it runs FIRST so a stuck gate cannot report a pass.
-      - name: Shared-reduction red probe (6 conjuncts + control)
+      - name: Shared-reduction red probe (7 conjuncts + control)
         run: ./scripts/sharing_redprobe.sh
 
       # ⭐⭐ P2 ITEM 1 (D70, D71, D72). Four theorems landed with the segment
@@ -239,6 +239,20 @@ jobs:
 
       - name: P2 roster is DERIVED from K + the census, not written
         run: python3 scripts/p2_roster.py --check
+
+      # ⭐⭐ P2 BATCH 12 (D105). The run-index CERTIFICATE that `vectorCoverage`
+      # checks. Same discipline as the coverage table one step below, and for a
+      # stronger reason: this file is IMPORTED BY THE MODEL TIER, so a stale one
+      # does not merely publish a wrong number — it makes `Tests/Coverage.lean`
+      # fail to build. ⛔ The generator imports `Tests.Vectors` and never
+      # `Tests.Coverage`, so it can always be rebuilt to regenerate the file it
+      # invalidated; without that the pair would deadlock a fresh checkout.
+      - name: Vector run-index certificate is GENERATED, not written
+        run: |
+          lake env .lake/build/bin/x86lean-diff runs Tests/VectorRuns.lean
+          git diff --exit-code Tests/VectorRuns.lean \
+            || { echo "⛔ Tests/VectorRuns.lean is stale — regenerate it with"; \
+                 echo "   lake exe x86lean-diff runs Tests/VectorRuns.lean"; exit 1; }
 
       - name: Coverage table is GENERATED, not written
         run: |
