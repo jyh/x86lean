@@ -2481,6 +2481,29 @@ def vectors : List Vec :=
     , bytes := "66480f7ec0", instr := ⟨.vmovg false .q .x0 .rax, 5⟩ }
   , { id := "movq_xx", mnemonic := "movq", asm := "movq %xmm1, %xmm0"
     , bytes := "f30f7ec1", instr := ⟨.vmovq .x0 .x1, 4⟩ }
+
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
+  -- vector operations here that are a PERMUTATION rather than lane-wise
+  -- arithmetic: half the lanes of each operand, interleaved, destination first.
+  -- ⚠️ `punpckl` and `punpckh` read DISJOINT halves of their inputs, so a
+  -- pre-state whose two halves agreed could not tell them apart — the arm below
+  -- is what measures whether these pre-states actually do.
+  , { id := "punpcklbw_xx", mnemonic := "punpcklbw", asm := "punpcklbw %xmm1, %xmm0"
+    , bytes := "660f60c1", instr := ⟨.vbin .unpcklb .x0 .x1, 4⟩ }
+  , { id := "punpcklwd_xx", mnemonic := "punpcklwd", asm := "punpcklwd %xmm1, %xmm0"
+    , bytes := "660f61c1", instr := ⟨.vbin .unpcklw .x0 .x1, 4⟩ }
+  , { id := "punpckldq_xx", mnemonic := "punpckldq", asm := "punpckldq %xmm1, %xmm0"
+    , bytes := "660f62c1", instr := ⟨.vbin .unpckld .x0 .x1, 4⟩ }
+  , { id := "punpcklqdq_xx", mnemonic := "punpcklqdq", asm := "punpcklqdq %xmm1, %xmm0"
+    , bytes := "660f6cc1", instr := ⟨.vbin .unpcklq .x0 .x1, 4⟩ }
+  , { id := "punpckhbw_xx", mnemonic := "punpckhbw", asm := "punpckhbw %xmm1, %xmm0"
+    , bytes := "660f68c1", instr := ⟨.vbin .unpckhb .x0 .x1, 4⟩ }
+  , { id := "punpckhwd_xx", mnemonic := "punpckhwd", asm := "punpckhwd %xmm1, %xmm0"
+    , bytes := "660f69c1", instr := ⟨.vbin .unpckhw .x0 .x1, 4⟩ }
+  , { id := "punpckhdq_xx", mnemonic := "punpckhdq", asm := "punpckhdq %xmm1, %xmm0"
+    , bytes := "660f6ac1", instr := ⟨.vbin .unpckhd .x0 .x1, 4⟩ }
+  , { id := "punpckhqdq_xx", mnemonic := "punpckhqdq", asm := "punpckhqdq %xmm1, %xmm0"
+    , bytes := "660f6dc1", instr := ⟨.vbin .unpckhq .x0 .x1, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

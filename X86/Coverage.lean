@@ -602,6 +602,30 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   , { mnemonic := "movq",
       shapes := "r,x · x,x — out of XMM at 64 bits; x,x zeroes the upper quadword; the x,r direction is proved, not vectored (D93)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
+  , { mnemonic := "punpcklbw",
+      shapes := "x,x — interleaves the low 8-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpcklwd",
+      shapes := "x,x — interleaves the low 16-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpckldq",
+      shapes := "x,x — interleaves the low 32-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpcklqdq",
+      shapes := "x,x — interleaves the low 64-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpckhbw",
+      shapes := "x,x — interleaves the high 8-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  , { mnemonic := "punpckhwd",
+      shapes := "x,x — interleaves the high 16-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  , { mnemonic := "punpckhdq",
+      shapes := "x,x — interleaves the high 32-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  , { mnemonic := "punpckhqdq",
+      shapes := "x,x — interleaves the high 64-bit lanes, destination first",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

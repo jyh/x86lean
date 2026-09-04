@@ -155,6 +155,18 @@ inductive VBinKind where
   | subb | subw | subd | subq
   /-- The bitwise trio (SDM Vol. 2B, PXOR/PAND/POR): lane-independent. -/
   | xor | and | or
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP, SDM Vol. 2B
+  PUNPCKL*/PUNPCKH*.  These are the first vector operations here that are not
+  lane-wise ARITHMETIC but a PERMUTATION: they take half the lanes of each
+  operand and interleave them, destination lane first.
+
+  ⚠️ `l`/`h` selects WHICH half is consumed — the low half of each operand or the
+  high half — and it is not a variant of the same function: `punpckl` and
+  `punpckh` read disjoint halves of their inputs, so no pre-state in which the
+  two halves agree can tell them apart.  That is worth knowing before trusting a
+  green run on them. -/
+  | unpcklb | unpcklw | unpckld | unpcklq
+  | unpckhb | unpckhw | unpckhd | unpckhq
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The one-operand mnemonics. -/
@@ -1203,6 +1215,10 @@ def Op.mnemonic : Op → String
     | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
     | .subb => "psubb" | .subw => "psubw" | .subd => "psubd" | .subq => "psubq"
     | .xor => "pxor"   | .and => "pand"   | .or => "por"
+    | .unpcklb => "punpcklbw" | .unpcklw => "punpcklwd"
+    | .unpckld => "punpckldq" | .unpcklq => "punpcklqdq"
+    | .unpckhb => "punpckhbw" | .unpckhw => "punpckhwd"
+    | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -1352,7 +1368,10 @@ def rosterP0 : List String :=
    -- P2 VECTOR WAVE, BATCH 5: the cross-register-file moves.  `movq` is a roster
    -- name here in its SSE sense; the GPR `movq %rcx,%rax` is a spelling of `mov`
    -- and always has been, which is why the two do not collide.
-   "movd", "movq"]
+   "movd", "movq",
+   -- P2 VECTOR WAVE, BATCH 7: the unpack group, one roster row per mnemonic.
+   "punpcklbw", "punpcklwd", "punpckldq", "punpcklqdq",
+   "punpckhbw", "punpckhwd", "punpckhdq", "punpckhqdq"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

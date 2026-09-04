@@ -2390,6 +2390,44 @@ def wrongVmovgFromXNoZeroExtend (i : Instr) (s : Cpu) : Cpu :=
       else step i s
   | _ => step i s
 
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — the wrong models for the UNPACK group.
+
+Both are about WHICH BITS, not about arithmetic — an unpack computes nothing, it
+only chooses. -/
+
+/-- ⛔ `punpckl` reads the HIGH half of each operand and `punpckh` the LOW one.
+⚠️ THIS ARM MEASURES SOMETHING ABOUT THE PRE-STATES, not only about the model:
+`punpckl` and `punpckh` read DISJOINT halves, so any pre-state whose two halves
+happened to agree could not tell them apart. If this arm fires in far fewer cases
+than the others, that is a fact about the XMM pattern and not about the rule. -/
+def wrongUnpackHalf (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vbin k d s' =>
+      let k' : VBinKind := match k with
+        | .unpcklb => .unpckhb | .unpcklw => .unpckhw
+        | .unpckld => .unpckhd | .unpcklq => .unpckhq
+        | .unpckhb => .unpcklb | .unpckhw => .unpcklw
+        | .unpckhd => .unpckld | .unpckhq => .unpcklq
+        | other => other
+      step ⟨.vbin k' d s', i.len⟩ s
+  | _ => step i s
+
+/-- ⛔ THE ORDER WITHIN EACH PAIR IS REVERSED — source lane low, destination lane
+high. The SDM and objdump both give destination first
+(`xmm0 = xmm0[0],xmm1[0],…`), and this is the mistake a reader makes by reading
+the AT&T operand order instead of the operation's. -/
+def wrongUnpackOrder (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vbin k d s' =>
+      match k with
+      | .unpcklb | .unpcklw | .unpckld | .unpcklq
+      | .unpckhb | .unpckhw | .unpckhd | .unpckhq =>
+          -- swap the two operands: `vunpack` puts its FIRST argument low
+          (s.setXmm d (vbinApply k (s.getXmm s') (s.getXmm d))).setRip
+            (s.rip + BitVec.ofNat 64 i.len)
+      | _ => step i s
+  | _ => step i s
+
 /-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness's own red arm
 
 ⛔ THIS BATCH ADDS NO SEMANTICS, SO ITS ARM CANNOT BE A WRONG RULE.  Nothing in
@@ -2606,6 +2644,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      wrongVmovqCopiesAll, "xmm0")
   , ("movd out of XMM does not zero-extend its 32-bit GPR write",
      wrongVmovgFromXNoZeroExtend, "rcx")
+  -- ⭐⭐ P2 VECTOR WAVE, BATCH 7 — the unpack group: which bits, not what value.
+  , ("punpckl and punpckh read each other's half", wrongUnpackHalf, "xmm0")
+  , ("an unpack interleaves source-first instead of destination-first",
+     wrongUnpackOrder, "xmm0")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness.  One arm, and it is the whole
   -- claim: a planted XMM difference must be CAUGHT before one line of vector
   -- semantics is written.
@@ -3263,7 +3305,21 @@ prefix and one field.  ⚠️ And `classify` takes the list as a PARAMETER — \
 against a deliberately wrong copy of ITSELF, where an oracle's defect is \
 irrelevant, and the planted bug there is EXACTLY the mistake x86isa makes.  \
 Probed both ways: a declared divergence that does not occur fails, and deleting \
-a real entry brings its 81 disagreements straight back as `spec` (see D95).\n\n\
+a real entry brings its 81 disagreements straight back as `spec` (see D95); 9 — THE UNPACK \
+(INTERLEAVE) GROUP, `punpckl` and `punpckh` at all four lane widths: the first \
+vector operations here that COMPUTE NOTHING AND ONLY CHOOSE.  The rule is \
+generalised once — `128/(2w)` pairs, each `dst[base+i] : src[base+i]` with the \
+destination LOW, `base` selecting the low or high half — and as with `vlanes` \
+the COUNT is derived from the width rather than passed beside it.  ⭐ Checked by \
+EVALUATION before the oracle was asked: five hand-computed cases on a byte-ramp, \
+with the expected values taken from objdump's own disassembly comment and from \
+K's rule rather than from one reading of the manual.  ⚠️ AND ONE ARM MEASURES \
+THE PRE-STATES RATHER THAN THE MODEL: `punpckl` and `punpckh` read DISJOINT \
+halves, so a pre-state whose halves agreed could not tell them apart, and a \
+green run would have said nothing about which half is read.  Written into the \
+AST as a worry, then measured — both arms fire in 656 of 656 cases, so batch 0's \
+pattern distinguishes the halves everywhere, and had the number come back small \
+THAT would have been the finding (see D96).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

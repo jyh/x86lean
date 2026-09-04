@@ -3833,3 +3833,39 @@ no vector can distinguish is a false entry in the gate's inventory; the vectors 
 has a subject again.
 
 **Reversal cost:** one structure, one list, one parameter, one gate.
+
+## D96 — the unpack group: an operation that computes nothing and only chooses (P2 vector wave, batch 7)
+
+**Forms.** `punpckl{bw,wd,dq,qdq}` and `punpckh{bw,wd,dq,qdq}` — eight mnemonics, ~4% of the measured
+gap (ranks 13, 18, 21 and neighbours). The first vector operations here that are a **permutation**
+rather than lane-wise arithmetic.
+
+**The rule, generalised once rather than eight times.** For lane width `w` the result is
+`128 / (2w)` pairs, pair `i` being `dst[base+i] : src[base+i]` with the destination in the **low**
+half of each pair — `base = 0` for `punpckl`, `base = pairs` for `punpckh`. As with `vlanes`, the
+**count is derived from the width** and never passed, so a width and a count cannot disagree.
+
+⭐ **Checked by evaluation before the oracle was asked.** Five hand-computed cases (`punpcklbw`,
+`punpckhbw`, `punpcklqdq`, `punpckhqdq`, `punpckldq`) on a byte-ramp pre-state, all `true` — seconds,
+against thirty minutes for a differential run. objdump prints the interleave in its own disassembly
+comment (`xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],…`) and K's `punpcklbw_xmm_xmm.k` gives the same
+order, so the expected values came from two sources rather than from my reading of one.
+
+### ⚠️ An arm that measures the PRE-STATES rather than the model
+
+`punpckl` and `punpckh` read **disjoint halves** of their inputs. So a pre-state whose two halves
+happened to agree could not tell them apart, and a green run would say nothing about which half is
+read. That is a property of the XMM pattern, not of the rule, and it was written into the AST comment
+as a *worry* — then measured:
+
+| arm | caught in |
+|---|---|
+| `punpckl` and `punpckh` read each other's half | **656** = 8 × 82, every case |
+| an unpack interleaves source-first instead of destination-first | **656**, every case |
+
+Both fire in **all** their cases, so batch 0's pre-state pattern distinguishes the halves everywhere.
+⇒ **The worry is now a measurement.** Writing it down as a caveat would have been the cheap move;
+running the arm turned it into a fact, and had the number come back small *that* would have been the
+finding.
+
+**Reversal cost:** eight kinds, one combinator, eight vectors, two arms.

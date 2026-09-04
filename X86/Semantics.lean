@@ -324,6 +324,26 @@ disagree with `w`. -/
 def vlanes (w : Nat) (f : BitVec w → BitVec w → BitVec w) (a b : BitVec 128) : BitVec 128 :=
   vlanesAux w f a b (128 / w)
 
+/-- One interleaved PAIR of an unpack, folded from the top down.  Each pair is
+`2*w` bits: the DESTINATION's lane low, the SOURCE's lane high — which is the
+order SDM Vol. 2B gives and the order objdump prints
+(`xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],…`). -/
+private def vunpackAux (w base : Nat) (dst src : BitVec 128) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      (vunpackAux w base dst src i)
+        ||| (((dst.extractLsb' ((base + i) * w) w).setWidth 128) <<< (2 * i * w))
+        ||| (((src.extractLsb' ((base + i) * w) w).setWidth 128) <<< ((2 * i + 1) * w))
+
+/-- ⭐⭐ THE UNPACK COMBINATOR.  `hi` chooses which half of each operand is
+consumed, and — as with `vlanes` — the COUNT is DERIVED rather than passed: an
+unpack at lane width `w` produces `128 / (2*w)` pairs and consumes exactly that
+many lanes from each operand, so the count and the base cannot disagree with the
+width. -/
+def vunpack (w : Nat) (hi : Bool) (dst src : BitVec 128) : BitVec 128 :=
+  let pairs := 128 / (2 * w)
+  vunpackAux w (if hi then pairs else 0) dst src pairs
+
 /-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
 Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
 get a packed operation wrong is to reach for `BinKind`'s flag machinery by
@@ -344,6 +364,15 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .subw => vlanes 16 (· - ·) a b
   | .subd => vlanes 32 (· - ·) a b
   | .subq => vlanes 64 (· - ·) a b
+  -- ⭐ THE UNPACKS: `a` is the DESTINATION and takes the low half of each pair.
+  | .unpcklb => vunpack 8  false a b
+  | .unpcklw => vunpack 16 false a b
+  | .unpckld => vunpack 32 false a b
+  | .unpcklq => vunpack 64 false a b
+  | .unpckhb => vunpack 8  true  a b
+  | .unpckhw => vunpack 16 true  a b
+  | .unpckhd => vunpack 32 true  a b
+  | .unpckhq => vunpack 64 true  a b
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
