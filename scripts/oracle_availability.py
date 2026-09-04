@@ -317,6 +317,57 @@ P2_FORMS = [
     ("pshufb",     "pshufb %xmm1, %xmm0",         "660f3800c1",   "refuses", "refuses"),
     ("pmulhrsw",   "pmulhrsw %xmm1, %xmm0",       "660f380bc1",   "refuses", "refuses"),
     ("palignr",    "palignr $0x4, %xmm1, %xmm0",  "660f3a0fc104", "refuses", "refuses"),
+    # ⛔⛔⛔ P2 BATCH 16 — EIGHTEEN MORE, AND THE ROSTER WAS RANKING EVERY ONE OF
+    # THEM AS AVAILABLE WORK.  The P2 roster's oracle column reads `⚠️ not
+    # measured` for any row this table does not name, and D65's law is that a
+    # declared list inherits the direction of its DEFAULT — this one defaults to
+    # AVAILABLE, so an unmeasured row does not read "unknown", it reads "go build
+    # it".  Thirteen non-VEX rows carried that mark; one ACL2 run moved eighteen
+    # mnemonics out of the residue.
+    #
+    # ⚠️ WHAT MAKES THIS WORSE THAN A GAP: the batch that found it went looking
+    # for the PACK group — `packssdw`, rank 15, 5,613 instructions, `⚠️ not
+    # measured` — and would have written a batch's semantics against an oracle
+    # that cannot execute it.  `packuswb` beside it DOES execute, so a group
+    # sampled at one member would have passed
+    # ([[feedback-a-batch-cannot-be-sampled]], the law that made `pmaddwd` a
+    # surprise at rank 1, paid a second time at rank 15).
+    #
+    # ⭐ BOTH CONTROLS RODE IN THE SAME RUN AND BOTH BEHAVED: `packuswb` and
+    # `paddd` executed at all 88 pre-states, `pmaddwd` refused at all 88.
+    #
+    # THE WHOLE SATURATING ADD/SUBTRACT FAMILY, named as a family rather than as
+    # eight rows: x86isa has no saturating packed arithmetic at all.
+    ("paddsb",     "paddsb %xmm1, %xmm0",         "660fecc1",     "refuses", "refuses"),
+    ("paddsw",     "paddsw %xmm1, %xmm0",         "660fedc1",     "refuses", "refuses"),
+    ("paddusb",    "paddusb %xmm1, %xmm0",        "660fdcc1",     "refuses", "refuses"),
+    ("paddusw",    "paddusw %xmm1, %xmm0",        "660fddc1",     "refuses", "refuses"),
+    ("psubsb",     "psubsb %xmm1, %xmm0",         "660fe8c1",     "refuses", "refuses"),
+    ("psubsw",     "psubsw %xmm1, %xmm0",         "660fe9c1",     "refuses", "refuses"),
+    ("psubusb",    "psubusb %xmm1, %xmm0",        "660fd8c1",     "refuses", "refuses"),
+    # the averages, the unsigned min/max pair, and four multiplies
+    ("pavgb",      "pavgb %xmm1, %xmm0",          "660fe0c1",     "refuses", "refuses"),
+    ("pavgw",      "pavgw %xmm1, %xmm0",          "660fe3c1",     "refuses", "refuses"),
+    ("pmaxub",     "pmaxub %xmm1, %xmm0",         "660fdec1",     "refuses", "refuses"),
+    ("pminub",     "pminub %xmm1, %xmm0",         "660fdac1",     "refuses", "refuses"),
+    ("pmulhw",     "pmulhw %xmm1, %xmm0",         "660fe5c1",     "refuses", "refuses"),
+    ("pmuludq",    "pmuludq %xmm1, %xmm0",        "660ff4c1",     "refuses", "refuses"),
+    ("pmaddubsw",  "pmaddubsw %xmm1, %xmm0",      "660f3804c1",   "refuses", "refuses"),
+    # ⛔ AND THE TWO SIGNED PACKS — `packuswb`'s own siblings.  `packssdw` is
+    # roster rank 15 at 5,613 and CANNOT BE BUILT; `packsswb` is not in the
+    # ranked table at all.  The UNSIGNED one executes and is declared above.
+    ("packssdw",   "packssdw %xmm1, %xmm0",       "660f6bc1",     "refuses", "refuses"),
+    ("packsswb",   "packsswb %xmm1, %xmm0",       "660f63c1",     "refuses", "refuses"),
+    # ⭐⭐ AND THE SEVEN THAT DO EXECUTE — declared so the roster stops calling
+    # them UNMEASURED and a later head can pick a batch from a MEASUREMENT.  The
+    # six packed COMPARES are the next buildable group in the whole residue.
+    ("pcmpeqb",    "pcmpeqb %xmm1, %xmm0",        "660f74c1",     "refuses", "executes"),
+    ("pcmpeqw",    "pcmpeqw %xmm1, %xmm0",        "660f75c1",     "refuses", "executes"),
+    ("pcmpeqd",    "pcmpeqd %xmm1, %xmm0",        "660f76c1",     "refuses", "executes"),
+    ("pcmpgtb",    "pcmpgtb %xmm1, %xmm0",        "660f64c1",     "refuses", "executes"),
+    ("pcmpgtw",    "pcmpgtw %xmm1, %xmm0",        "660f65c1",     "refuses", "executes"),
+    ("pcmpgtd",    "pcmpgtd %xmm1, %xmm0",        "660f66c1",     "refuses", "executes"),
+    ("pmovmskb",   "pmovmskb %xmm1, %eax",        "660fd7c1",     "refuses", "executes"),
     # ── P2 BATCH 11's CANDIDATES: the packed SHIFT group and the permute.
     #    ⛔ PROBED PER FORM, NOT PER GROUP.  `psllw` and `psrad` at an immediate
     #    were already measured executing, and seven of their siblings had never

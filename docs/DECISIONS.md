@@ -5305,3 +5305,62 @@ carries the error and cannot be edited; this decision is where it is answered.
 was wrong for four hours.
 
 **Reversal cost:** none — it is a correction, not a mechanism.
+
+---
+
+## D115 — the residue, measured: the oracle refuses more of the gap than it executes
+
+**P2 batch 16. No forms, no vectors, no semantics — one ACL2 run and a table.**
+
+### 1. What was wrong with the roster
+
+`docs/P2-ROSTER.md`'s oracle column reads `⚠️ not measured` for any mnemonic `oracle_availability.py`
+does not name. D65 established what that costs:
+
+> *A DECLARED LIST INHERITS THE DIRECTION OF ITS DEFAULT. This one defaults to available, so every
+> gap in it INVENTS work.*
+
+Thirteen non-VEX ranked rows carried that mark. **One run of 30 forms × 88 pre-states settled all of
+them**, with both controls behaving (`packuswb` and `paddd` executed at all 88, `pmaddwd` refused at
+all 88).
+
+### 2. What it found
+
+**Eighteen mnemonics the roster was ranking as available work cannot be executed by the oracle at
+all** — among them the ENTIRE saturating add/subtract family (`padds{b,w}`, `paddus{b,w}`,
+`psubs{b,w}`, `psubus{b,w}`), both averages, the unsigned min/max pair, four multiplies, and
+**both signed packs**.
+
+⚠️ **The batch that found this was looking for the PACK group.** `packssdw` is rank 15 at 5,613
+instructions and was marked `not measured`; `packuswb` beside it executes. A group sampled at one
+member would have passed, and a batch's semantics would have been written against an oracle that
+cannot run it. ⇒ [[a-batch-cannot-be-sampled]], the law that made `pmaddwd` a surprise at rank 1,
+**paid a second time at rank 15** — and this time the sample would have been drawn from the same
+mnemonic family, which is the sampling that feels safest.
+
+### 3. ⭐⭐ THE NUMBER THAT CHANGES P2's SHAPE
+
+```
+                         BEFORE                     AFTER
+the oracle EXECUTES      34 mnemonics  84,395       41 mnemonics   92,555   21.5%
+the oracle REFUSES       11 mnemonics  79,863       27 mnemonics  108,578   25.3%
+probed so far            45            164,258      68            201,133   46.8%
+```
+
+⇒ 🔑 **THE ORACLE NOW REFUSES MORE OF THE UNCOVERED GAP THAN IT EXECUTES**, and the crossover
+happened in one run because nobody had asked. More than a quarter of what P2 has left **cannot be
+differentially validated at any price** — not by working harder, and not by a better batch order.
+
+⚠️ This is a fact about the METHOD's ceiling, not about a batch, and it was reachable at any time
+since P2 batch 1 for the cost of one ACL2 run. It was not reached because the roster's default made
+every unmeasured row look like work rather than like a question.
+
+### 4. What is buildable
+
+Seven mnemonics moved the other way and are declared `executes`: the **six packed compares**
+(`pcmpeq{b,w,d}`, `pcmpgt{b,w,d}`) and `pmovmskb`. With `packuswb`, which was already declared, that
+is **13,012 buildable instructions** of the `asm` class — the next batch, and it is now picked from a
+measurement rather than from a rank.
+
+**Reversal cost:** 23 rows in `oracle_availability.py`; the gate holds them to the oracle in both
+directions, so a row that starts executing is a finding rather than a silent stale entry.

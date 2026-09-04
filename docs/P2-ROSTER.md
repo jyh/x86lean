@@ -79,13 +79,13 @@ Cumulative share is over the whole uncovered gap (429,790 instructions), so a ro
 | 12 | `packuswb` | 6,230 | 1.45% | 30.0% | ⚠️ 18% | ✔ | `xm`, `xx` |
 | 13 | `vmovdqu` | 6,160 | 1.43% | 31.5% | — | ⚠️ not measured | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
 | 14 | `mulss` | 5,698 | 1.33% | 32.8% | — | ⚠️ not measured | `xm`, `xx` |
-| 15 | `packssdw` | 5,613 | 1.31% | 34.1% | 3% | ⚠️ not measured | `xm`, `xx` |
+| 15 | `packssdw` | 5,613 | 1.31% | 34.1% | 3% | ⛔ **REFUSES** | `xm`, `xx` |
 | 16 | `mulsd` | 5,482 | 1.28% | 35.4% | — | ⚠️ not measured | `xm`, `xx` |
 | 17 | `vpmulhrsw` | 5,010 | 1.17% | 36.5% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 18 | `addss` | 4,696 | 1.09% | 37.6% | — | ⚠️ not measured | `xm`, `xx` |
 | 19 | `vshufps` | 4,693 | 1.09% | 38.7% | — | ⚠️ not measured | `xxmi`, `xxxi`, `yymi`, `yyyi` |
 | 20 | `pmullw` | 4,539 | 1.06% | 39.8% | ⚠️ 21% | ⛔ **REFUSES** | `xm`, `xx` |
-| 21 | `paddsw` | 4,473 | 1.04% | 40.8% | ⚠️ 18% | ⚠️ not measured | `xm`, `xx` |
+| 21 | `paddsw` | 4,473 | 1.04% | 40.8% | ⚠️ 18% | ⛔ **REFUSES** | `xm`, `xx` |
 | 22 | `addsd` | 4,260 | 0.99% | 41.8% | — | ⚠️ not measured | `xm`, `xx` |
 | 23 | `paddw` | 4,166 | 0.97% | 42.8% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
 | 24 | `vpbroadcastd` | 3,941 | 0.92% | 43.7% | — | ⚠️ not measured | `xm`, `xx`, `ym`, `yx` |
@@ -96,15 +96,15 @@ Cumulative share is over the whole uncovered gap (429,790 instructions), so a ro
 | 29 | `vmovq` | 3,430 | 0.80% | 47.9% | — | ⚠️ not measured | `mx`, `rx`, `xm`, `xr`, `xx` |
 | 30 | `movd` | 3,386 | 0.79% | 48.6% | ⛔ **100% — PHANTOM ROW** | ⚠️ not measured | `mx`, `rx`, `xm`, `xr` |
 | 31 | `vpunpckhwd` | 3,352 | 0.78% | 49.4% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
-| 32 | `pmaddubsw` | 3,188 | 0.74% | 50.2% | 2% | ⚠️ not measured | `xm`, `xx` |
-| 33 | `psubusb` | 3,087 | 0.72% | 50.9% | ⚠️ 16% | ⚠️ not measured | `xm`, `xx` |
+| 32 | `pmaddubsw` | 3,188 | 0.74% | 50.2% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
+| 33 | `psubusb` | 3,087 | 0.72% | 50.9% | ⚠️ 16% | ⛔ **REFUSES** | `xm`, `xx` |
 | 34 | `vpmaddubsw` | 3,048 | 0.71% | 51.6% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 35 | `vpackssdw` | 3,026 | 0.70% | 52.3% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 36 | `vpshufb` | 2,984 | 0.69% | 53.0% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 37 | `cvtss2sd` | 2,949 | 0.69% | 53.7% | — | ⚠️ not measured | `xm`, `xx` |
 | 38 | `psubw` | 2,932 | 0.68% | 54.4% | ⛔ **100% — PHANTOM ROW** | ⚠️ not measured | `xm`, `xx` |
 | 39 | `vsubps` | 2,795 | 0.65% | 55.0% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
-| 40 | `pmuludq` | 2,790 | 0.65% | 55.7% | — | ⚠️ not measured | `xm`, `xx` |
+| 40 | `pmuludq` | 2,790 | 0.65% | 55.7% | — | ⛔ **REFUSES** | `xm`, `xx` |
 
 - The joined set — **378 mnemonics K has semantics for AND the corpus executes** — accounts for **391,918 instructions (91.2% of the gap)**.
 
@@ -165,18 +165,18 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 34 | 84,395 | 19.6% |
-| the oracle REFUSES | 11 | 79,863 | 18.6% |
-| **probed so far** | 45 | **164,258** | **38.2%** |
+| the oracle EXECUTES | 41 | 92,555 | 21.5% |
+| the oracle REFUSES | 27 | 108,578 | 25.3% |
+| **probed so far** | 68 | **201,133** | **46.8%** |
 
-So of the demand probed, **51% has an oracle** — after a
+So of the demand probed, **46% has an oracle** — after a
 one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
 rank 4 in the demand list, 2.31% of the whole gap, refusing in the same run in
 which `movdqa` beside it executes. The nine the oracle does not have are
-`palignr`, `pmaddwd`, `pmaxsw`, `pminsw`, `pmulhrsw`, `pmullw`, `psadbw`, `pshufb`, `psubusw`, `vmovdqa32`, `vpaddw`.
+`packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmulhrsw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vmovdqa32`, `vpaddw`.
 
 ⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
 two disagree the pessimistic one is taken: the census pools an MMX and an SSE
