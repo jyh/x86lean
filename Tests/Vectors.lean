@@ -2681,12 +2681,127 @@ def vectors : List Vec :=
     , bytes := "660f72d405", instr := ⟨.vshifti .srl .w32 .x4 0x5, 5⟩ }
   -- ⚠️ AND ONE AT A DISPLACEMENT, WHOSE COUNT IS A CONSTANT — SAID, NOT HIDDEN.
   -- Only the eight bytes at 0x2000 sweep (`memory_operand_mirrors_rcx`), so a
-  -- displaced load reads the fixed 0xB0.. window and its count never moves.  This
-  -- vector therefore tests `vshiftm`'s ADDRESS COMPUTATION and nothing about the
-  -- count rule; reporting it as a second count test would be D14's defect
-  -- ("a form whose source operand never moves is one test reported as many").
-  , { id := "psraw_m_disp", mnemonic := "psraw", asm := "psraw 0x8(%rbx), %xmm5"
-    , bytes := "660fe16b08", instr := ⟨.vshiftm .sra .w16 .x5 { base := some .rbx, disp := 8 }, 5⟩ }
+  -- displaced load reads a fixed window and its count never moves.  This vector
+  -- therefore tests `vshiftm`'s ADDRESS COMPUTATION and nothing about the count
+  -- rule; reporting it as a second count test would be D14's defect ("a form
+  -- whose source operand never moves is one test reported as many").
+  --
+  -- ⛔⛔⛔ **THIS VECTOR WAS `0x8(%rbx)` AND THAT ADDRESS IS NOT 16-BYTE ALIGNED**
+  -- (P2 batch 14, D110).  It is moved to `0x10(%rbx)` = 0x2010 — still a
+  -- displacement, still inside the watched window, still a constant count, so
+  -- everything it was written to test it still tests.
+  --
+  -- ⭐⭐ AND ITS OLD ADDRESS IS THE BATCH'S SHARPEST FINDING, because it means the
+  -- missing `#GP` was **NOT** invisible for want of a vector.  The vector existed,
+  -- it was added in the SAME COMMIT as the defect, and it PASSED — 88 pre-states,
+  -- zero disagreements — because THE MODEL'S MISSING CHECK AND THE ORACLE'S
+  -- MISSING CHECK ARE THE SAME OMISSION.  x86isa implements the 16-byte rule in
+  -- one file of its whole tree (`logical.lisp`) and not in `pshift.lisp`, so the
+  -- differential compared a model that should have faulted against an oracle that
+  -- also does not fault, and reported agreement.
+  --
+  -- ⇒ 🔑 **TWO DEFECTS THAT CANCEL SURVIVE EVERY GREEN RUN THAT COMPARES THEM TO
+  -- EACH OTHER.**  What broke the tie was not a vector and not the oracle: it was
+  -- the SDM read for a DIFFERENT group, one screen away, plus x86isa's own source
+  -- contradicting its own behaviour.  A differential is blind to exactly the
+  -- errors its two sides share, and nothing inside it can report that.
+  --
+  -- ⚠️ The unaligned form is therefore NOT re-added under the divergence channel.
+  -- That channel is for an oracle that computes a WRONG VALUE with a third source
+  -- naming the right one (D95); here the oracle omits a FAULT, which is D91's
+  -- case, and D91's answer is no vector.  The rule is `vshiftm_unaligned_faults`.
+  , { id := "psraw_m_disp", mnemonic := "psraw", asm := "psraw 0x10(%rbx), %xmm5"
+    , bytes := "660fe16b10", instr := ⟨.vshiftm .sra .w16 .x5 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE GROUP (`pshufd`, `pshuflw`,
+  -- `pshufhw`): 12,064 buildable instructions of the census's `asm` class
+  -- (9,049 + 2,660 + 355), plus `pshufw`'s 642, which are 642/642 MMX-register
+  -- forms this model has no register file for and are DECLINED, not covered.
+  --
+  -- ⭐⭐ THE TABLE IS BUILT FROM A MEASURED DISCRIMINATION, NOT FROM A GUESS AT
+  -- ONE.  Every form below was run on the oracle against THREE models — the SDM,
+  -- the reversed-field one, and the identity — over all 88 pre-states, and the
+  -- counts are recorded per form because they are NOT uniform:
+  --
+  --   pshufd  $0x1b %xmm1        88 of 88 discriminating   76 distinct sources
+  --   pshufd  $0x93 %xmm1        88                        76
+  --   pshufd  $0xe4 %xmm1        88 vs the reversal, 0 vs the identity  ⚠️
+  --   pshuflw $0x1b %xmm1        60 of 88  ⚠️                76
+  --   pshufhw $0x1b %xmm1        82 of 88                  76
+  --   pshuflw $0x1b (%rbx)       60 of 88  ⚠️                33
+  --   pshuflw $0x1b -16(%rbx)    88 of 88                   1  ⚠️
+  --
+  -- ⛔⛔ `pshuflw` AT A REGISTER SOURCE IS BLIND IN 28 OF 88 PRE-STATES, and the
+  -- reason is structural rather than unlucky: `xmmPattern`'s low quadword is
+  -- `c ^^^ (i * 0x1111111111111111)`, whose four WORDS are identical wherever
+  -- `c`'s are — which is every adversarial constant in the sweep.  A word-level
+  -- permutation is the first operation in this model whose correctness is
+  -- invisible unless the source's LANES DIFFER, and these pre-states were built
+  -- for arithmetic, where lane uniformity costs nothing.
+  --
+  -- ⭐ THE FIX NEEDED NO NEW PRE-STATE.  `-16(%rbx)` is 0x1ff0: 16-byte aligned,
+  -- inside the watched data window, and `baseMem` fills it with 0xA0…0xAF —
+  -- sixteen DISTINCT bytes, so all four words of either quadword differ and the
+  -- permutation is fully observable.  ⚠️ AND IT IS CONSTANT ACROSS PRE-STATES,
+  -- which is D14's "one test reported as eighty-eight".  So the two sources are
+  -- BOTH here and each is read for what it prices: `(%rbx)` varies and
+  -- discriminates weakly, `-16(%rbx)` discriminates completely and does not vary.
+  -- Neither alone is enough and the pairing is the claim.
+  , { id := "pshufd_x_rev", mnemonic := "pshufd", asm := "pshufd $0x1b, %xmm1, %xmm0"
+    , bytes := "660f70c11b", instr := ⟨.vshuf .d .x0 .x1 0x1b, 5⟩ }
+  -- ⚠️ `$0x93` IS HERE BECAUSE `$0x1b` IS A PALINDROME.  0x1b selects (3,2,1,0),
+  -- so a model reading the immediate's fields BACKWARDS returns the identity —
+  -- a plausible-looking register rather than a scrambled one.  0x93 selects
+  -- (3,0,1,2), which no reversal of it produces.
+  , { id := "pshufd_x_asym", mnemonic := "pshufd", asm := "pshufd $0x93, %xmm1, %xmm0"
+    , bytes := "660f70c193", instr := ⟨.vshuf .d .x0 .x1 0x93, 5⟩ }
+  -- ⚠️ THE IDENTITY SELECTOR, AND WHAT IT PRICES IS STATED RATHER THAN COUNTED.
+  -- `$0xe4` selects (0,1,2,3), so this vector CANNOT distinguish this model from
+  -- one that ignores the immediate and copies — 88 of 88 agree with the identity.
+  -- It discriminates the FIELD ORDER completely (the reversal gives (3,2,1,0)
+  -- here, and disagrees at all 88), and that is the only thing it is counted for.
+  , { id := "pshufd_x_id", mnemonic := "pshufd", asm := "pshufd $0xe4, %xmm1, %xmm0"
+    , bytes := "660f70c1e4", instr := ⟨.vshuf .d .x0 .x1 0xe4, 5⟩ }
+  -- ⭐⭐ THE REGISTER FIELDS MOVED OFF x0/x1, and here it does more than it did
+  -- for `movdqa_x4x5`: with `dst` and `src` DISTINCT it is also what separates
+  -- this model from one that permutes the destination in place, which is the
+  -- shape every packed constructor before this batch has.
+  , { id := "pshufd_x2x3", mnemonic := "pshufd", asm := "pshufd $0x1b, %xmm3, %xmm2"
+    , bytes := "660f70d31b", instr := ⟨.vshuf .d .x2 .x3 0x1b, 5⟩ }
+  , { id := "pshuflw_x_rev", mnemonic := "pshuflw", asm := "pshuflw $0x1b, %xmm1, %xmm0"
+    , bytes := "f20f70c11b", instr := ⟨.vshuf .lw .x0 .x1 0x1b, 5⟩ }
+  , { id := "pshufhw_x_rev", mnemonic := "pshufhw", asm := "pshufhw $0x1b, %xmm1, %xmm0"
+    , bytes := "f30f70c11b", instr := ⟨.vshuf .hw .x0 .x1 0x1b, 5⟩ }
+  , { id := "pshufhw_x_asym", mnemonic := "pshufhw", asm := "pshufhw $0x93, %xmm1, %xmm0"
+    , bytes := "f30f70c193", instr := ⟨.vshuf .hw .x0 .x1 0x93, 5⟩ }
+  -- ⛔⛔ EVERY MEMORY VECTOR BELOW IS AT A 16-BYTE-ALIGNED ADDRESS, AND THERE IS
+  -- NO UNALIGNED ONE — for the reason `movdqa` has none (D91), re-measured for
+  -- this group rather than inherited: `pshufd 8(%rbx),%xmm0` EXECUTES on the
+  -- oracle at all 88 pre-states while this model faults it, so a vector would be
+  -- a one-sided refusal counted UNEXPLAINED.  ⭐ The refusal IS visible to this
+  -- harness — `pand 8(%rbx),%xmm0` is refused by the oracle at all 88 in the
+  -- same run — so "the oracle cannot see it" is excluded by a positive control
+  -- rather than assumed.  The rule is `vshufm_unaligned_faults`.
+  , { id := "pshufd_m_rev", mnemonic := "pshufd", asm := "pshufd $0x1b, (%rbx), %xmm0"
+    , bytes := "660f70031b", instr := ⟨.vshufm .d .x0 { base := some .rbx } 0x1b, 5⟩ }
+  , { id := "pshufd_mw_rev", mnemonic := "pshufd", asm := "pshufd $0x1b, -16(%rbx), %xmm0"
+    , bytes := "660f7043f01b"
+    , instr := ⟨.vshufm .d .x0 { base := some .rbx, disp := -16 } 0x1b, 6⟩ }
+  -- ⭐ THE VARYING-SOURCE `pshuflw`, kept even though it discriminates in only 60
+  -- of 88: it is the only `pshuflw` vector whose source MOVES, and the one below
+  -- it is the only one whose source's lanes all differ.
+  , { id := "pshuflw_m_rev", mnemonic := "pshuflw", asm := "pshuflw $0x1b, (%rbx), %xmm0"
+    , bytes := "f20f70031b", instr := ⟨.vshufm .lw .x0 { base := some .rbx } 0x1b, 5⟩ }
+  , { id := "pshuflw_mw_rev", mnemonic := "pshuflw", asm := "pshuflw $0x1b, -16(%rbx), %xmm0"
+    , bytes := "f20f7043f01b"
+    , instr := ⟨.vshufm .lw .x0 { base := some .rbx, disp := -16 } 0x1b, 6⟩ }
+  , { id := "pshuflw_mw_asym", mnemonic := "pshuflw", asm := "pshuflw $0x93, -16(%rbx), %xmm0"
+    , bytes := "f20f7043f093"
+    , instr := ⟨.vshufm .lw .x0 { base := some .rbx, disp := -16 } 0x93, 6⟩ }
+  , { id := "pshufhw_mw_rev", mnemonic := "pshufhw", asm := "pshufhw $0x1b, -16(%rbx), %xmm0"
+    , bytes := "f30f7043f01b"
+    , instr := ⟨.vshufm .hw .x0 { base := some .rbx, disp := -16 } 0x1b, 6⟩ }
+  , { id := "pshufhw_m_asym", mnemonic := "pshufhw", asm := "pshufhw $0x93, (%rbx), %xmm0"
+    , bytes := "f30f700393", instr := ⟨.vshufm .hw .x0 { base := some .rbx } 0x93, 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

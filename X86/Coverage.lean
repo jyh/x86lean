@@ -724,6 +724,25 @@ acc,imm · rh"
       shapes := "x,i",
       note := "the WHOLE 128-bit register, by BYTES, not lane-wise; count > 15 ⇒ all 0s",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLDQ" }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE GROUP.  Three mnemonics at one
+  -- opcode (`0F 70 /r ib`) under three mandatory prefixes.
+  --
+  -- ⛔ THE `note` COLUMN CARRIES THE 16-BYTE `#GP`, AND `note` IS READ BY NO
+  -- PREDICATE — which is exactly why the rule is ALSO a theorem
+  -- (`vshufm_unaligned_faults`).  A rule that lives only in this column is a
+  -- rule no gate reads.
+  , { mnemonic := "pshufd",
+      shapes := "x,x,i · x,m,i",
+      note := "four 32-bit lanes selected by the immediate's four 2-bit fields, field j to lane j; the whole register is written and the destination is not read; m must be 16-byte aligned, else #GP(0) — proved, not vectored (D110)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFD" }
+  , { mnemonic := "pshuflw",
+      shapes := "x,x,i · x,m,i",
+      note := "the source's four LOW words selected into the low quadword, its HIGH quadword copied through; m 16-byte aligned, else #GP(0) — proved, not vectored (D110)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFLW" }
+  , { mnemonic := "pshufhw",
+      shapes := "x,x,i · x,m,i",
+      note := "the source's four HIGH words selected into the high quadword, its LOW quadword copied through; disjoint from pshuflw's half; m 16-byte aligned, else #GP(0) (D110)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFHW" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

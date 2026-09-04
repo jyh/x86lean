@@ -4928,3 +4928,236 @@ and none is the channel: the saturation rule is a theorem
 itself, where the oracle's defect is irrelevant, so declaring a divergence cannot weaken them.
 
 **Reversal cost:** eight list entries; delete them the day x86isa's register path reads 64 bits.
+
+---
+
+## D109 — the permute group's shape: a selection whose COUNT comes from the selector
+
+**P2 batch 14.** `pshufd`/`pshuflw`/`pshufhw` are one opcode (`0F 70 /r ib`) under three
+mandatory prefixes, and they are the first operations in this model that read a source and write a
+destination **without combining them**: no lane of the result is a function of the destination's old
+value, and no lane is a function of more than one source lane.
+
+**The AST carries no lane width, and the absence is the decision.** The reflex from `VShiftW` is to
+put `w16`/`w32` beside the kind, and it would be wrong twice: `lw` and `hw` are not one function at
+two widths — they consume DISJOINT halves of the source, as `punpckl`/`punpckh` do — and `d` is not a
+third width of the same function, because it replaces the whole register where both word forms COPY
+the untouched quadword through. The width is a consequence of the kind and is derived in
+`vshufApply`.
+
+⛔ **THE COUNT IS DERIVED FROM THE SELECTOR, NOT FROM THE LANE WIDTH, AND THAT IS THE ONE PLACE THIS
+GROUP DEPARTS FROM `vlanes`.** `vlanes` folds `128 / w` lanes. A permute folds **four** — an 8-bit
+immediate holds exactly four 2-bit fields — which is four of four at `w = 32` and four of **eight** at
+`w = 16`. Taking the `vlanes` reflex (`128 / 16 = 8`) permutes the whole register and silently
+destroys the half the SDM says to preserve. That wrong model is planted as
+`wrongVshufWholeRegisterWords`, and ⚠️ **it leaves `pshufd` completely untouched**, because there
+`128 / 32` and `8 / 2` are both 4 — which is why the word forms carry vectors of their own rather
+than riding on the doubleword's.
+
+**`pshufw` is declined by register file, not omitted.** It is the same opcode's fourth prefix (none),
+takes MMX operands, and this model has no MMX register file. Measured over the census's `asm` class:
+**642 of 642** occurrences are MMX-register forms — the same decline D107 made for the shifts' 2,822,
+and stated here because a mnemonic absent from a kind is an absence, and an absence falls the way the
+default points.
+
+**Reversal cost:** one inductive of three constructors, one combinator, two `Op` constructors.
+
+---
+
+## D110 — the packed shifts' memory form had no alignment check, and the comment said the absence was the rule
+
+**P2 batch 14, and the finding is in what the batch INHERITED.** `Op.vshiftm` (P2 batch 13) carried:
+
+> *"NO ALIGNMENT CHECK, unlike `vload`. The SDM states no alignment requirement for the shift forms,
+> so there is no `#GP` branch to write — the absence is the rule."*
+
+### 1. The SDM settles it in three lines, and none of them is a recollection
+
+```
+PSHUFD   Other Exceptions: … Table 2-21, "Type 4 Class Exception Conditions"
+PAND     Other Exceptions: … Table 2-21, "Type 4 Class Exception Conditions"
+MOVDQU   Other Exceptions: … Table 2-21, "Type 4 Class Exception Conditions"
+MOVDQU   "the operand may be unaligned to any alignment WITHOUT causing a
+          general-protection exception (#GP) to be generated"
+MOVUPS   the same sentence, the same table
+```
+
+⭐ **AN EXEMPTION IS PROOF OF THE RULE IT EXEMPTS FROM.** MOVDQU and MOVUPS sit in Type 4 and are
+given an explicit licence to be unaligned; an exemption from a requirement that does not exist is
+vacuous. So Type 4 carries a 16-byte `#GP` for every member not exempted — and `psrlw xmm,m128`,
+`pshufd xmm,m128,imm8` and `pand xmm,m128` are all unexempted members.
+
+**x86isa agrees in its own source, independently of the manual.** `logical.lisp` implements the
+legacy `pand`/`por`/`pxor` check literally (`:memory-address-is-not-16-byte-aligned`) and disables it
+for the VEX form with the comment *"There is no alignment checking (see Intel Manual Volume 2
+Table 2-21)"* — exactly the legacy/VEX split Type 4 encodes.
+
+### 2. ⛔⛔ Why it survived a green run of 78,584 cases — and the first answer was WRONG
+
+**The first draft of this decision said "no vector could construct the violation, because every
+memory vector addresses `(%rbx)` = 0x2000, which is aligned." That is false**, and it was written
+into four files before the differential refuted it.
+
+```
+psraw_m_disp   psraw 0x8(%rbx), %xmm5     ← 0x2008. NOT 16-byte aligned.
+```
+
+The vector exists. **P2 batch 13 added it in the same commit as the defect**, pointed straight at the
+rule — and it PASSED, at all 88 pre-states, inside a run that reported `unexplained=0` over 78,584
+cases. Repairing `.vshiftm` is what surfaced it: the differential came back **264 unexplained**, every
+one of them this single vector (88 pre-states × `xmm5`, `rip`, `refused`), and no other.
+
+⇒ 🔑 **IT PASSED BECAUSE THE MODEL'S MISSING CHECK AND THE ORACLE'S MISSING CHECK ARE THE SAME
+OMISSION.** x86isa implements the 16-byte rule in exactly one file of its whole tree
+(`logical.lisp`) and not in `pshift.lisp`. The differential compared a model that should have faulted
+against an oracle that also does not fault, and reported agreement.
+
+⇒ 🔑 **TWO DEFECTS THAT CANCEL SURVIVE EVERY GREEN RUN THAT COMPARES THEM TO EACH OTHER.** A
+differential is blind to exactly the errors its two sides share, and **nothing inside it can report
+that**. What broke the tie was not a vector and not the oracle: it was the SDM read for a DIFFERENT
+group one screen away, plus x86isa's own source contradicting its own behaviour. That is a worse fact
+about the method than the one this decision first recorded, and it is the one worth keeping: the
+strongest instrument in this repository has a blind spot shaped exactly like its two sides'
+agreement.
+
+⚠️ **How the false claim got written.** The vectors being ADDED were checked for alignment, and the
+property was generalised to the vectors already there without grepping the table for a displacement.
+It was the load-bearing half of the explanation — the reason offered for the defect surviving — and
+it sat in the incidental half of a finding whose main half is sound
+([[audit-the-premise-of-a-right-decision]]).
+
+**The repair to the vector.** `psraw_m_disp` moves to `0x10(%rbx)` = 0x2010: still displaced, still
+inside the watched window, still a constant count, so everything it was written to test it still
+tests. ⛔ The unaligned form is NOT re-added under the known-divergence channel — that channel is for
+an oracle that computes a WRONG VALUE with a third source naming the right one (D95), and this is an
+omitted FAULT, which is D91's case and D91's answer is no vector.
+
+### 3. The oracle contradicts itself across one exception class
+
+88 pre-states, one run, all at `8(%rbx)`:
+
+```
+pand   8(%rbx),%xmm0    refused 88 of 88   ← POSITIVE CONTROL: the refusal IS visible
+pand    (%rbx),%xmm0    refused  0 of 88   ← negative control, same opcode, aligned
+pshufd 8(%rbx),%xmm0    refused  0 of 88
+psrlw  8(%rbx),%xmm0    refused  0 of 88
+movdqa 8(%rbx),%xmm0    refused  0 of 88   ← D91's reading, reproduced
+```
+
+`grep -rln 16-byte-aligned` over x86isa's instruction tree returns **one file**.
+
+⇒ 🔑 **THE ORACLE'S ALIGNMENT BEHAVIOUR IS A PROPERTY OF THE FILE THAT IMPLEMENTS THE INSTRUCTION,
+NOT OF THE INSTRUCTION'S CLASS.** D108 found the oracle disagreeing with itself across two SHAPES of
+one mnemonic; this is the same defect across three MNEMONICS of one class. ⛔ **D91's sentence is
+amended in place**: *"ACL2 x86isa does not implement the alignment check"* is true of `movdqa` and
+false about the oracle, and it was the sentence that told the next reader not to look
+([[a-justification-outlives-its-condition]]).
+
+### 4. The resolution, and the gate that was driven red
+
+The rule is written into `.vshufm` and into `.vshiftm`, and is asserted by four theorems
+(`vshufm_unaligned_faults` / `vshufm_aligned_runs` / `vshiftm_unaligned_faults` /
+`vshiftm_aligned_runs`), because no vector can validate it — the oracle executes where this model
+faults, so a vector would be a one-sided refusal counted UNEXPLAINED (D91's position, re-measured for
+this group rather than inherited).
+
+⛔ **Each branch was DELETED in turn from the shipped `Semantics.lean` and the tree rebuilt**: the
+shift deletion went red at `vshiftm_unaligned_faults` and the permute deletion at
+`vshufm_unaligned_faults`, **each at its own theorem and no other** — so these are two independent
+gates, not one wearing two names ([[two-arms-that-agree-to-the-case]]).
+
+⭐ **And the class HAS a measured route to differential validation**, which D91 did not: `pand`/`por`/
+`pxor` at a memory operand, where the oracle does check. `Op.vbin` is register-only today, so
+building its memory shape is the priced first item of the next batch — the rule then stops resting on
+the manual for at least one member of its class.
+
+**Reversal cost:** two `if !aligned16` branches and four theorems.
+
+---
+
+## D111 — the kernel-cost ceiling accused a batch of a regression that was the machine
+
+**P2 batch 14.** The gate's first reading with the batch applied: `@tail` **13,160** against a
+12,420 ceiling — 740 ms over, and **+1,490 ms** against batch 13's recorded 11,670, which would have
+made it the most expensive batch in the project's history.
+
+### 1. The matched measurement, which is the only kind that means anything here
+
+Alternating the two trees in ONE session on ONE machine:
+
+```
+PARENT COMMIT 144e9a3 (batch removed)   12,970 · 13,030 · 13,060   loads 5.2 · 6.7 · 7.3
+THIS BATCH APPLIED                      13,040 · 13,160 · 13,680   loads 6.6 · 6.5 · 7.9
+ceiling                                 12,420
+the same parent, measured earlier the same day                     11,670
+```
+
+**The parent commit is itself 550 ms over the ceiling**, before the batch exists. The two bands
+overlap (13,040 < 13,060). ⚠️ They are not identical and this record does not claim they are — the
+batch's three readings average ~230 ms above the parent's — but the +1,490 ms the first single
+reading implied is not there.
+
+⇒ 🔑 **A CEILING WHOSE MARGIN IS UNDER THE MACHINE'S OWN SPREAD REPORTS THE MACHINE, NOT THE CODE.**
+Margin: 750 ms (6.4%). Across-session shift at one commit: 1,320 ms (11%). Within-session spread at
+one commit: ~90 ms. The gate cannot tell a batch from a busy afternoon, and it blamed the batch by
+about six times the batch's own likely cost.
+
+### 2. What is NOT done
+
+⛔ **The ceiling is not raised.** Deriving a gate's new allowance from the thing it checks is how a
+gate stops being one ([[widening-a-gate-needs-a-second-source]]), and the matched A/B is the second
+source — it says the code did not grow enough to explain the reading.
+
+⛔ **D105's arithmetic is retired, not merely falsified.** "~+200 ms per batch" and "480 ms of margin
+⇒ two batches" were read off absolute figures whose machine-to-machine term is 1,320 ms. A per-batch
+cost cannot be recovered from unmatched absolute readings at all.
+
+### 3. What is done
+
+`kernel_cost.py` now reports **UNMEASURABLE** — naming the load it saw and the band its own effect
+measurement covers (2.20 / 3.42 / 3.88 / 4.08) — instead of reporting OVER, whenever the one-minute
+load is outside that band. It still exits non-zero (rc 3): **a refusal is not a pass**, and the
+per-declaration `OVER ⛔` markers are printed unchanged so the readings stay visible
+([[a-gate-that-refuses-must-say-what-it-saw]]).
+
+⭐ **Two new selftest arms, and the second is the held-out one.** The refusal fires on a machine
+state rather than on a file, so it cannot be planted in the ceiling file like the other four; the
+load is overridden instead (`X86LEAN_FAKE_LOADAVG`, printed on every run that uses it, and able only
+to make the verdict stricter — never to turn a red into a pass). Arm 5 forces a load outside the band
+and requires UNMEASURABLE; **arm 6 forces one inside it and requires that the refusal does NOT fire**,
+without which the change is indistinguishable from switching the gate off. ### 3a. ⛔⛔ And the probe reproduced this decision's own confusion, one hour later
+
+The positive control was first written to run at a **forced** calibrated load (`X86LEAN_FAKE_LOADAVG=
+"1.00"`), on the reasoning that a control which cannot tell *"the ceilings pass"* from *"the machine
+is busy"* reports the second as a failure of the first.
+
+**That was a defect, and the selftest caught it by failing.** Forcing the load suppresses the
+VERDICT but not the CONDITION: the child still profiled a busy machine, only with the refusal
+disabled — so the arm asserted *"the ceilings pass"* about a reading that cannot support either
+answer. ⇒ 🔑 **A SEAM THAT SILENCES A GATE'S REFUSAL DOES NOT CREATE THE CONDITION THE REFUSAL WAS
+GUARDING**, and the arm that used it was making exactly the machine-reading-as-code-fact mistake this
+decision exists to name. It was written an hour after the decision, by the head that wrote the
+decision.
+
+The control now runs at the REAL load and admits three outcomes, because there are three:
+
+```
+rc 0   the ceilings pass                      → the control did its job
+rc 3   UNMEASURABLE at this load              → it could not, and SAYS SO in its own line
+rc 1   over ceiling AT A CALIBRATED LOAD      → a real regression, and the arm FAILS
+```
+
+⚠️ The middle case is **a pass that prints its own uselessness** — it states that the control passed
+WITHOUT checking the ceilings, and that the only thing verified was that the gate refused rather than
+guessed. It is not an escape hatch: `rc 1`, the one outcome meaning *"the code got slower on a
+machine quiet enough to tell"*, still fails.
+
+### 4. ⚠️ The honest cost
+
+**On a machine that is never this quiet, the gate is now silent**, and every reading in the table
+above is outside the band. That is worse than a gate that works and better than one that lies. The
+repair is to **gate the DELTA between two trees measured in one session** — the instrument the table
+above was produced by hand — and it is a batch with its own red probes (a gate that measures two trees
+has two ways to measure the wrong one), not something to smuggle into a semantics batch.
+
+**Reversal cost:** one constant, one branch, two selftest arms.

@@ -2647,6 +2647,72 @@ element of a walk is the one an off-by-one still reaches. -/
 def wrongXmmClobbered (i : Instr) (s : Cpu) : Cpu :=
   (step i s).setXmm .x3 0
 
+/-- ⛔⛔ P2 BATCH 14, ARM 1 — THE PERMUTE'S FIELD ORDER REVERSED.  Destination
+lane `j` takes the immediate's field `3-j` instead of field `j`.
+
+⚠️ THIS IS THE ONE MISTAKE THE GROUP INVITES, because the SDM prints the fields
+most-significant-first (`ORDER[7:6]`, `ORDER[5:4]`, `ORDER[3:2]`, `ORDER[1:0]`)
+while the LANES it assigns them to run least-significant-first.  A reader
+transcribing the pseudocode top to bottom writes exactly this.
+⚠️ AND IT IS INVISIBLE AT A PALINDROMIC SELECTOR — `$0x1b` is a reversal, so the
+wrong model returns the IDENTITY there rather than a scrambled register, which
+looks like a plausible answer.  `$0x93` is in the table for that reason. -/
+def wrongVshufReversedFields (i : Instr) (s : Cpu) : Cpu :=
+  let rev (sel : BitVec 8) : BitVec 8 :=
+    ((sel &&& 3) <<< 6) ||| (((sel >>> 2) &&& 3) <<< 4)
+      ||| (((sel >>> 4) &&& 3) <<< 2) ||| ((sel >>> 6) &&& 3)
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vshuf k dst src sel =>
+      (s.setXmm dst (vshufApply k (s.getXmm src) (rev sel))).setRip nr
+  | .vshufm k dst ea sel =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (vshufApply k (s.readMem128 a) (rev sel))).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 14, ARM 2 — THE PERMUTE AS A READ-MODIFY-WRITE.  It permutes the
+DESTINATION instead of the source, which is the shape every packed constructor
+before this batch has (`vbin`, `vshifti`, `vshiftx` all read `dst`).
+
+⚠️ BIT-IDENTICAL TO THE RIGHT MODEL ON ANY VECTOR WHOSE DESTINATION ALREADY HOLDS
+ITS SOURCE — and every register vector in this repository before batch 5 was
+`x0 ← x1`, which is not that, but is one small step from it.  `pshufd_x2x3` and
+the memory forms are what separate them. -/
+def wrongVshufPermutesInPlace (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vshuf k dst _ sel =>
+      (s.setXmm dst (vshufApply k (s.getXmm dst) sel)).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔⛔ P2 BATCH 14, ARM 3 — `pshuflw`/`pshufhw` PERMUTING ALL EIGHT WORDS.
+This is the `vlanes` reflex written out: derive the lane count from the WIDTH
+(`128 / 16 = 8`) rather than from the SELECTOR (`8 / 2 = 4`), and apply the same
+four 2-bit fields twice, once to each half.
+
+⛔ It destroys exactly the half the SDM says to copy through, and it leaves
+`pshufd` — where `128 / 32` and `8 / 2` are both 4 — COMPLETELY UNTOUCHED.  So an
+arm that only ran `pshufd` vectors would pass this model, which is the reason the
+word forms carry vectors of their own rather than riding on the doubleword's. -/
+def wrongVshufWholeRegisterWords (i : Instr) (s : Cpu) : Cpu :=
+  let both (src : BitVec 128) (sel : BitVec 8) : BitVec 128 :=
+    vselect 16 src sel.toNat 0 ||| vselect 16 src sel.toNat 4
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vshuf k dst src sel =>
+      match k with
+      | .d => step i s
+      | _ => (s.setXmm dst (both (s.getXmm src) sel)).setRip nr
+  | .vshufm k dst ea sel =>
+      match k with
+      | .d => step i s
+      | _ =>
+        let a := ea.addr s nr
+        if !aligned16 a then step i s
+        else (s.setXmm dst (both (s.readMem128 a) sel)).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2873,7 +2939,23 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("pslldq/psrldq are modelled as 64-bit-lane bit shifts",
      wrongVshiftdqIsLaneWise, "xmm0")
   , ("psraw/psrad shift in zeros instead of the sign bit",
-     wrongVshiftAritheticIsLogical, "xmm0") ]
+     wrongVshiftAritheticIsLogical, "xmm0")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE GROUP.  Three arms, one per way
+  -- the group can be got wrong that a green run would otherwise hide.
+  --
+  -- ⛔ THERE IS NO FOURTH ARM FOR THE ALIGNMENT RULE, AND ITS ABSENCE IS STATED
+  -- RATHER THAN LEFT AS A GAP: every memory vector in this table is at a
+  -- 16-byte-aligned address, so a model with the `#GP` branch deleted agrees
+  -- with this one on all of them.  That rule is gated by the kernel
+  -- (`vshufm_unaligned_faults`, `vshiftm_unaligned_faults`) and its red
+  -- direction was demonstrated by deleting each branch in turn — each took its
+  -- OWN theorem down and no other.
+  , ("the permute's immediate fields are read in reverse order",
+     wrongVshufReversedFields, "xmm0")
+  , ("the permute reads its DESTINATION instead of its source",
+     wrongVshufPermutesInPlace, "xmm2")
+  , ("pshuflw/pshufhw permute all eight words instead of four",
+     wrongVshufWholeRegisterWords, "xmm0") ]
 
 /-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
 indices name, and `selftest-shards` checks these indices — so the gate exercises
@@ -3598,7 +3680,38 @@ third fact reconciled them exactly: that many of the group's instructions are \
 MMX-register forms this model has no register file for, so the batch is \
 published at 32,882 and not at the 35,704 the roster ranks — a demand figure \
 and a coverage gain are different quantities whenever the model declines a \
-register file (see D106, D107).\n\n\
+register file (see D106, D107); 12 — THE PERMUTE GROUP, `pshufd`/`pshuflw`/\
+`pshufhw` at BOTH operand shapes: three roster rows, 14 vectors, no new state, \
+12,064 buildable instructions of the assembly class (`pshufw` is a fourth \
+prefix of the same opcode and is DECLINED, 642 of 642 MMX-register).  ⛔⛔ THE \
+BATCH'S FINDING IS ONE SCREEN ABOVE ITS OWN ARM: batch 11's `vshiftm` carried \
+`NO ALIGNMENT CHECK … the absence is the rule`, and the SDM says otherwise in \
+three lines — PSHUFD, PAND and MOVDQU are all Table 2-21 (Type 4), and MOVDQU \
+alone is granted an operand that `may be unaligned … WITHOUT causing a \
+general-protection exception`.  AN EXEMPTION IS PROOF OF THE RULE IT EXEMPTS \
+FROM, so Type 4 carries a 16-byte #GP for every member not exempted and the \
+packed shifts are not.  ⛔⛔ AND IT WAS NOT INVISIBLE FOR WANT OF A \
+VECTOR: `psraw 0x8(%rbx),%xmm5` is 0x2008, UNALIGNED, was added in the same \
+commit as the defect, and PASSED at all 88 pre-states -- because x86isa \
+implements the 16-byte rule in ONE file of its tree and not in `pshift.lisp`, \
+so the model's missing check and the oracle's missing check are THE SAME \
+OMISSION.  Repairing the arm is what surfaced it: 264 unexplained, every one \
+that single vector.  ⇒ TWO DEFECTS THAT CANCEL SURVIVE EVERY GREEN RUN THAT \
+COMPARES THEM TO EACH OTHER, and a differential is blind to exactly the errors \
+its two sides share.  ⭐ The oracle \
+cannot settle it and CONTRADICTS ITSELF trying: x86isa implements the check in \
+exactly one file of its tree, so it refuses `pand 8(%rbx)` at all 88 \
+pre-states and executes `pshufd`, `psrlw` and `movdqa` at the same address — \
+one exception class, three answers, with `pand` serving as the positive \
+control that the refusal is visible at all.  So the rule is a THEOREM at both \
+groups, and each alignment branch was DELETED in turn to prove the gate has \
+teeth: each took its own theorem down and no other.  ⭐⭐ And `pshuflw` at a \
+register source discriminates in only 60 of 88 pre-states, structurally — \
+`xmmPattern`'s low quadword has four identical WORDS wherever the swept \
+constant does — so a word-level permutation is the first operation here whose \
+correctness is invisible unless the source's lanes differ; the repair needed no \
+new pre-state, only an aligned window whose sixteen bytes are all distinct \
+(see D109, D110, D111).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

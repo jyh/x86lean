@@ -293,6 +293,51 @@ def VShiftOp.mnemonic : VShiftOp → VShiftW → String
   | .sra, .w8 => "psrab" | .sra, .w16 => "psraw"
   | .sra, .w32 => "psrad" | .sra, .w64 => "psraq"
 
+/-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE (SHUFFLE) GROUP'S KIND.
+
+`pshufd`, `pshuflw` and `pshufhw` are ONE opcode (`0F 70 /r ib`) under three
+mandatory prefixes (`66`, `F2`, `F3`), and they are the first operations in this
+model that **read a source and write a destination without combining them**: no
+lane of the result is a function of the destination's old value, and no lane is a
+function of more than one source lane.  A permutation, not an operation.
+
+⚠️ **THERE IS NO LANE-WIDTH FIELD, AND ITS ABSENCE IS THE POINT.**  The reflex
+from `VShiftW` is to carry `w16`/`w32` beside the kind, and it would be wrong
+twice: `lw` and `hw` are not one function at two widths (they consume DISJOINT
+halves of the source, exactly as `punpckl`/`punpckh` do), and `d` is not a third
+width of the same function (it replaces the whole register, where both word forms
+COPY the untouched quadword through).  The width is a consequence of the kind,
+so it is derived in `vshufApply` and written nowhere else.
+
+⛔ **`pshufw` IS NOT HERE, AND IT IS DECLINED BY REGISTER FILE, NOT BY OVERSIGHT.**
+`0F 70 /r ib` with no prefix takes MMX operands, and this model has no MMX
+register file (the same decline the packed shifts made for 2,822 of their
+instructions, D107).  Measured on the census's `asm` class: **642 of 642 of this
+corpus's `pshufw` are MMX-register forms**, so the decline costs the model nothing
+it could otherwise have claimed — but it is stated here because a mnemonic absent
+from a kind is an ABSENCE, and an absence falls the way the default points. -/
+inductive VShufKind where
+  /-- `pshufd` (`66 0F 70 /r ib`): four 32-bit lanes selected from the source by
+  the four 2-bit fields of the immediate.  The WHOLE register is written. -/
+  | d
+  /-- `pshuflw` (`F2 0F 70 /r ib`): the source's four LOW words are selected into
+  the destination's four low words; **the high quadword is COPIED FROM THE
+  SOURCE**, not preserved from the destination — the destination's old value is
+  not read at all. -/
+  | lw
+  /-- `pshufhw` (`F3 0F 70 /r ib`): the source's four HIGH words, selected into
+  the destination's four high words, with the source's low quadword copied
+  through.  ⚠️ `lw` and `hw` consume DISJOINT halves, so no pre-state whose two
+  halves agree can tell them apart. -/
+  | hw
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The assembler spelling.  One mnemonic per kind and no suffix table: unlike
+the shifts, the letter in the name (`d`/`lw`/`hw`) is the KIND and not a lane
+width, so there is nothing here for a width to disagree with. -/
+def VShufKind.mnemonic : VShufKind → String
+  | .d => "pshufd" | .lw => "pshuflw" | .hw => "pshufhw"
+
 /-- The one-operand mnemonics. -/
 inductive UnKind where
   | inc | dec | neg | not
@@ -1072,11 +1117,30 @@ inductive Op where
   MEMORY.  128 bits are addressed and the low quadword is the count, so this
   reuses `readMem128` exactly as `vload` does.
 
-  ⚠️ NO ALIGNMENT REQUIREMENT, unlike `vload`.  The SDM states none for the shift
-  forms, so there is no `#GP` branch to write and its absence is the rule rather
-  than an omission — the same sentence `vmovsld` carries, and it is repeated here
-  because the neighbouring 128-bit memory form DOES fault and the reflex built by
-  reading `vload` is the wrong one.
+  ⛔⛔ **THIS DOCSTRING SAID "NO ALIGNMENT REQUIREMENT … its absence is the rule
+  rather than an omission", AND IT WAS AN OMISSION** (P2 batch 14, D110).
+  `psrlw xmm,m128` is SDM `Table 2-21, "Type 4 Class Exception Conditions"` — the
+  same table as `pand` and as `movdqu` — and it is MOVDQU's entry that decides it:
+  its operand *"may be unaligned to any alignment without causing a
+  general-protection exception (#GP) to be generated"*. **An exemption is proof of
+  the rule it exempts from**, and the shifts are not exempted. THE ADDRESS MUST BE
+  16-BYTE ALIGNED, ELSE `#GP(0)`.
+
+  ⛔⛔ **AND IT SURVIVED A GREEN RUN OF 78,584 CASES WITH A VECTOR POINTED
+  STRAIGHT AT IT.** `psraw_m_disp` addressed `0x8(%rbx)` = 0x2008, unaligned, and
+  was added in the same commit as this constructor. It passed at all 88
+  pre-states — because x86isa implements the 16-byte rule in exactly one file of
+  its tree and not in `pshift.lisp`, so **the model's missing check and the
+  oracle's missing check are the same omission**. ⇒ 🔑 TWO DEFECTS THAT CANCEL
+  SURVIVE EVERY GREEN RUN THAT COMPARES THEM TO EACH OTHER; a differential is
+  blind to exactly the errors its two sides share, and nothing inside it can
+  report that.
+
+  ⚠️ AND THE SENTENCE IT CITED IS STILL TRUE WHERE IT WAS WRITTEN. `vmovsld` does
+  state no alignment requirement: `movss`/`movsd` are SCALAR, a 4- or 8-byte
+  operand in exception Type 5, with no 16-byte rule to break. What was wrong was
+  carrying that sentence ACROSS a class boundary — from a scalar form to a
+  128-bit one — because the two arms look alike.
 
   ⭐ IT IS BUILT RATHER THAN DECLINED, and the reason is measured: this shape is
   **305 of the group's 35,704 corpus instructions (0.85%)**, which is small — but
@@ -1099,6 +1163,41 @@ inductive Op where
   the immediate alone — and the corpus agrees: 0 of the 4,786 `pslldq`/`psrldq`
   instructions in it use anything but an immediate. -/
   | vshiftdq (left : Bool) (dst : XmmReg) (cnt : BitVec 8)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE GROUP, REGISTER SOURCE
+  (`66/F2/F3 0F 70 /r ib`).
+
+  ⚠️ **`dst` AND `src` ARE TWO REGISTERS AND THE DESTINATION IS NEVER READ**,
+  which is a departure from every packed constructor before it: `vbin` and
+  `vshifti`/`vshiftx` are read-modify-writes on `dst`.  A model that reused that
+  shape — one register, permuted in place — is bit-identical to this one on every
+  vector whose destination is its own source, and this repository has already
+  paid for the register-field version of that mistake once (batch 5's
+  `movdqa`, where every vector read xmm1 into xmm0 and a model ignoring the
+  fields agreed on all of them).  `pshufd_x2x3` below is what forbids it. -/
+  | vshuf  (k : VShufKind) (dst src : XmmReg) (sel : BitVec 8)
+  /-- ⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE GROUP, MEMORY SOURCE
+  (`66/F2/F3 0F 70 /r ib` with a memory ModRM).
+
+  ⛔⛔ **THE ADDRESS MUST BE 16-BYTE ALIGNED, ELSE `#GP(0)`** — and this is the
+  rule `Op.vshiftm` was written WITHOUT, which was a defect and is repaired in
+  this batch (D110).  The chain is the SDM's own, not a reading of one page:
+  PSHUFD, PAND and MOVDQU are all `Table 2-21, "Type 4 Class Exception
+  Conditions"`, and MOVDQU's entry states that its operand *"may be unaligned to
+  any alignment without causing a general-protection exception (#GP) to be
+  generated"*.  **An exemption is proof of the rule it exempts from**: Type 4
+  carries a 16-byte `#GP` for every member not so exempted, and `pshufd` is not.
+
+  ⚠️ **NO VECTOR CAN VALIDATE THIS, AND THAT IS MEASURED RATHER THAN ASSUMED.**
+  ACL2 x86isa implements the check in exactly one file of its whole tree
+  (`logical.lisp`, the legacy `pand`/`por`/`pxor`), so it REFUSES `pand
+  8(%rbx),%xmm0` at all 88 pre-states and EXECUTES `pshufd 8(%rbx),%xmm0` at all
+  88 — one exception class, two answers.  A vector here would be a one-sided
+  refusal in every pre-state, which `classify` rightly calls `refusal` and counts
+  UNEXPLAINED.  So the rule is a THEOREM (`vshufm_unaligned_faults`,
+  `vshiftm_unaligned_faults`), exactly as D91 made `vload`'s, and the route by
+  which it becomes differentially validatable is named and priced: the `vbin`
+  memory shape, where the oracle DOES check. -/
+  | vshufm (k : VShufKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -1217,6 +1316,11 @@ def opOperands : Op → List Operand
   -- lock and segment walks see it exactly as `vload`'s.
   | .vshifti .. | .vshiftx .. | .vshiftdq .. => []
   | .vshiftm _ _ _ ea => [.mem ea]
+  -- P2 BATCH 14: the permute group, exactly as the shifts — the register source
+  -- names no `Operand` (an XMM register is a different file), the memory source
+  -- names its address so the lock and segment walks see it.
+  | .vshuf .. => []
+  | .vshufm _ _ ea _ => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1334,6 +1438,9 @@ def Op.anyLocked : Op → Bool
   -- for the same reason `vload` does.
   | .vshifti .. | .vshiftx .. | .vshiftdq .. => false
   | .vshiftm _ _ _ ea => ea.lock
+  -- P2 BATCH 14: `lock pshufd` is not a form the SDM lists.
+  | .vshuf .. => false
+  | .vshufm _ _ ea _ => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1475,6 +1582,10 @@ def Op.mnemonic : Op → String
   -- share the semantics, differing only in where the count is read from.
   | .vshifti op w .. | .vshiftx op w .. | .vshiftm op w .. => op.mnemonic w
   | .vshiftdq left .. => if left then "pslldq" else "psrldq"
+  -- ⭐ P2 BATCH 14.  Both operand shapes print the same mnemonic, for the reason
+  -- the three shift shapes do: the mandatory prefix names the operation and the
+  -- source's provenance is in the operands.
+  | .vshuf k .. | .vshufm k .. => k.mnemonic
   | .vmovq .. => "movq"
   | .vbin k .. => match k with
     | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
@@ -1658,7 +1769,17 @@ def rosterP0 : List String :=
    "psrlw", "psrld", "psrlq",
    "psraw", "psrad",
    -- and the two WHOLE-REGISTER byte shifts, which are not packed (`Op.vshiftdq`)
-   "pslldq", "psrldq"]
+   "pslldq", "psrldq",
+   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14: the permute group.  THREE rows for one
+   -- opcode — `0F 70 /r ib` under three mandatory prefixes — because the roster
+   -- counts what a disassembler PRINTS, and it prints three names.  That is the
+   -- `movdqa`/`movdqu` rule, not the `shl`/`sal` one.
+   --
+   -- ⛔ `pshufw` IS ABSENT AND IS THE FOURTH PREFIX (none) OF THE SAME OPCODE.
+   -- It is MMX-only and this model has no MMX register file; measured, 642 of
+   -- 642 of the census's `asm` class are MMX-register forms.  A row here without
+   -- a constructor would claim a form the model cannot execute.
+   "pshufd", "pshuflw", "pshufhw"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

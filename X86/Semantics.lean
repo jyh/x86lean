@@ -435,6 +435,53 @@ def vshiftdqApply (left : Bool) (a : BitVec 128) (cnt : Nat) : BitVec 128 :=
   if cnt > 15 then 0
   else if left then a <<< (8 * cnt) else a >>> (8 * cnt)
 
+/-- One selected lane of a permute, folded from the top down.  `base` is the
+lane index the group starts at — 0 for `pshufd` and `pshuflw`, 4 for `pshufhw` —
+and it offsets BOTH the source lane read and the destination lane written, which
+is what makes one recursion serve all three kinds. -/
+private def vselectAux (w : Nat) (src : BitVec 128) (sel base : Nat) :
+    Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      (vselectAux w src sel base i)
+        ||| (((src.extractLsb' ((base + (sel >>> (2 * i)) % 4) * w) w).setWidth 128)
+              <<< ((base + i) * w))
+
+/-- ⭐⭐ THE PERMUTE COMBINATOR — and the count it folds over comes from a
+DIFFERENT place than every other combinator here.
+
+⛔⛔ **`vlanes` DERIVES ITS COUNT FROM THE LANE WIDTH (`128 / w`); THIS ONE
+CANNOT, AND TAKING THE REFLEX WOULD BE WRONG FOR BOTH WORD FORMS.**  A permute's
+count is a property of the SELECTOR: an 8-bit immediate holds exactly four 2-bit
+fields, so exactly four lanes are written — four of four at `w = 32`, and four of
+EIGHT at `w = 16`, where the other four are copied through untouched.  `128 / 16`
+is 8 and would permute the whole register, silently destroying the half
+`pshuflw`/`pshufhw` are defined to preserve.
+
+⇒ The literal 4 here is `8 / 2` — the immediate's width over a field's width —
+and it is written once, in the one place the selector is decoded. -/
+def vselect (w : Nat) (src : BitVec 128) (sel base : Nat) : BitVec 128 :=
+  vselectAux w src sel base 4
+
+/-- The permute group (SDM Vol. 2B, PSHUFD/PSHUFLW/PSHUFHW).
+
+⚠️ **NO ARGUMENT IS THE DESTINATION'S OLD VALUE.**  Every lane of the result comes
+from `src`: the permuted ones by selection, the untouched quadword by a copy.
+A model that preserved the destination's other half instead — the reflex from
+`vmovs`'s merge rule — is bit-identical to this one on every vector whose
+destination already holds its source.
+
+⚠️ NO FLAG IS WRITTEN ("Flags Affected: None" for all three). -/
+def vshufApply (k : VShufKind) (src : BitVec 128) (sel : BitVec 8) : BitVec 128 :=
+  match k with
+  | .d  => vselect 32 src sel.toNat 0
+  -- ⭐ THE TWO WORD FORMS ARE A SELECTION **OR-ED WITH A COPY**, and the two
+  -- halves are disjoint by construction: `vselect 16 … 0` writes only lanes 0-3
+  -- (bits 63:0) and `vselect 16 … 4` only lanes 4-7 (bits 127:64), so the `|||`
+  -- cannot collide with the quadword beside it.
+  | .lw => vselect 16 src sel.toNat 0 ||| ((src >>> 64) <<< 64)
+  | .hw => vselect 16 src sel.toNat 4 ||| ((src <<< 64) >>> 64)
+
 /-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
 Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
 get a packed operation wrong is to reach for `BinKind`'s flag machinery by
@@ -612,23 +659,55 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         let cnt := ((s.getXmm src).setWidth 64).toNat
         (s.setXmm dst (vshiftApply op w (s.getXmm dst) cnt)).setRip nr
 
-  -- ⚠️ NO ALIGNMENT CHECK, unlike `vload` one screen up.  The SDM states no
-  -- alignment requirement for the shift forms, so there is no `#GP` branch to
-  -- write — the absence is the rule (`Op.vshiftm`).
+  -- ⛔⛔ P2 BATCH 14 (D110) — THIS ARM HAD NO ALIGNMENT CHECK AND THE COMMENT
+  -- HERE SAID THE ABSENCE WAS THE RULE.  It was a defect.  `psrlw xmm,m128` is
+  -- SDM `Table 2-21, "Type 4 Class Exception Conditions"` — the same table as
+  -- `pand` and as `movdqu`, and it is MOVDQU's entry that decides it: its
+  -- operand *"may be unaligned to any alignment without causing a
+  -- general-protection exception (#GP) to be generated"*.  An exemption is proof
+  -- of the rule it exempts from, and the shifts are not exempted.
+  --
+  -- ⛔⛔ AND THE DEFECT WAS NOT INVISIBLE FOR WANT OF A VECTOR.  `psraw_m_disp`
+  -- addressed `0x8(%rbx)` = 0x2008 — UNALIGNED — was added in the same commit as
+  -- this arm, and PASSED at all 88 pre-states.  x86isa implements the 16-byte
+  -- rule in one file of its tree and not in `pshift.lisp`, so the differential
+  -- compared a model that should have faulted against an oracle that also does
+  -- not fault.  ⇒ 🔑 TWO DEFECTS THAT CANCEL SURVIVE EVERY GREEN RUN THAT
+  -- COMPARES THEM TO EACH OTHER, and a differential is blind to exactly the
+  -- errors its two sides share.  The rule is a theorem
+  -- (`vshiftm_unaligned_faults`) because nothing in the run could reach it.
   | .vshiftm op w dst ea =>
       if !(vshiftEncodable op w) then
         s.halt (.illegalOperands
           "there is no packed byte shift, and no psraq outside AVX-512")
       else
         let a := ea.addr s nr
-        let cnt := ((s.readMem128 a).setWidth 64).toNat
-        (s.setXmm dst (vshiftApply op w (s.getXmm dst) cnt)).setRip nr
+        if !aligned16 a then
+          s.halt (.byDesign
+            "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+        else
+          let cnt := ((s.readMem128 a).setWidth 64).toNat
+          (s.setXmm dst (vshiftApply op w (s.getXmm dst) cnt)).setRip nr
 
   -- ⭐ `pslldq` / `psrldq`: the WHOLE REGISTER, by BYTES.  No lane width, no
   -- encodability table — both forms exist and the only count shape is the
   -- immediate.
   | .vshiftdq left dst cnt =>
       (s.setXmm dst (vshiftdqApply left (s.getXmm dst) cnt.toNat)).setRip nr
+
+  -- ⭐⭐⭐ P2 BATCH 14 — THE PERMUTE GROUP.  ⚠️ `s.getXmm src`, NEVER `s.getXmm
+  -- dst`: the destination's old value is not read, at either shape.
+  | .vshuf k dst src sel =>
+      (s.setXmm dst (vshufApply k (s.getXmm src) sel)).setRip nr
+
+  -- ⛔ AND THE SAME 16-BYTE `#GP` THE SHIFT ARM NOW CARRIES.  `Op.vshufm`'s
+  -- docstring has the SDM chain; this is the branch it names.
+  | .vshufm k dst ea sel =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vshufApply k (s.readMem128 a) sel)).setRip nr
 
   | .vstore k ea src =>
       let a := ea.addr s nr

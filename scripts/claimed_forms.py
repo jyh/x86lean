@@ -250,6 +250,28 @@ CLAIMS_NO_ROW = {
     "psrld_i_x4": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "psraw_m_disp": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ P2 BATCH 14 (the permute group) — ADDED IN THE SAME COMMIT AS THE
+    # VECTORS, which is what D106 cost a first-ever-green master run to
+    # learn: this list is the ONLY gate that reads these ids, and a vector
+    # landing without its entry is invisible until the gate is reached.
+    # ⚠️ Fourteen entries for fourteen vectors, written out rather than
+    # matched by a `pshuf` prefix: a pattern here would absorb the next
+    # permute vector silently, and this list's whole value is that adding a
+    # vector is a visible line.
+    "pshufd_x_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufd_x_asym": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufd_x_id": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufd_x2x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshuflw_x_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufhw_x_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufhw_x_asym": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufd_m_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufd_mw_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshuflw_m_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshuflw_mw_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshuflw_mw_asym": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufhw_mw_rev": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pshufhw_m_asym": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⛔ P2 BATCH 10 (the move family) LANDED WITHOUT THESE SIXTEEN, and
     # nothing said so for three commits: `claimed_forms.py --check` is the
     # only gate that reads this list, and master CI has never reached it —

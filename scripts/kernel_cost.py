@@ -365,6 +365,15 @@ def selftest():
         ("declarations gated with NO tail ceiling",
          lambda t: re.sub(r"^.*@tail.*$", "", t, flags=re.M), "no @tail"),
     ]
+    # ⭐ THE FIFTH ARM CREATES ITS OWN CONDITION.  The refusal branch fires on a
+    # machine state, not on a file, so it cannot be planted in the ceiling file
+    # like the four above; the load is overridden instead, and the arm requires
+    # the word UNMEASURABLE and a non-zero exit.  Without it the branch would be
+    # shipped untested on any machine quiet enough to run the selftest.
+    load_arms = [("the load OUTSIDE the calibrated band", "9.99", "UNMEASURABLE"),
+                 # ⚠️ AND THE HELD-OUT ARM: at a load INSIDE the band the refusal
+                 # must NOT fire, or the gate has simply stopped gating.
+                 ("the load INSIDE the band (must NOT refuse)", "1.00", None)]
     bad = []
     try:
         for name, mutate, expect in arms:
@@ -381,6 +390,19 @@ def selftest():
                   ("" if ok else f"   (rc={r.returncode}, expected {expect!r})"))
             if not ok:
                 bad.append(name)
+        for name, fake, expect in load_arms:
+            r = subprocess.run([sys.executable, os.path.abspath(__file__)],
+                               capture_output=True, text=True,
+                               env=dict(os.environ, X86LEAN_FAKE_LOADAVG=fake))
+            out = r.stdout + r.stderr
+            if expect is None:
+                ok = "UNMEASURABLE" not in out
+            else:
+                ok = r.returncode != 0 and expect in out
+            print(("  ✔ " if ok else "  ⛔ ") + name +
+                  ("" if ok else f"   (rc={r.returncode}, expected {expect!r})"))
+            if not ok:
+                bad.append(name)
     finally:
         shutil.rmtree(probe_dir, ignore_errors=True)
     # ⭐ THE POSITIVE CONTROL: four reds prove the gate can fail; only this proves
@@ -391,11 +413,34 @@ def selftest():
     # longer a fact about a restore — it is the REGRESSION GUARD if the seam is
     # ever removed and the mutations come back into the tree.  Stated rather
     # than left to read as a live check (D75).
+    # ⛔⛔ THIS CONTROL WAS WRITTEN ONCE WITH `X86LEAN_FAKE_LOADAVG="1.00"` AND
+    # THAT WAS A DEFECT, CAUGHT BY ITS OWN FAILURE.  Forcing the load suppresses
+    # the VERDICT but not the CONDITION: the child still profiled a busy machine,
+    # only with the refusal disabled, so the arm asserted "the ceilings pass"
+    # about a reading that cannot support either answer.  That is D111's own
+    # confusion — a machine reading read as a code fact — reproduced inside the
+    # probe written to prevent it, one hour later.
+    #
+    # ⇒ It runs at the REAL load and admits THREE outcomes, because there are
+    # three:
+    #     rc 0  the ceilings pass                     → the control did its job
+    #     rc 3  UNMEASURABLE at this load             → it could not, and SAYS SO
+    #     rc 1  over ceiling AT A CALIBRATED LOAD     → a real regression, FAIL
+    # ⚠️ The middle case is a PASS that prints its own uselessness. It is not an
+    # escape hatch: rc 1 — the only outcome that means "the code got slower on a
+    # machine quiet enough to tell" — still fails the selftest.
     r = subprocess.run([sys.executable, os.path.abspath(__file__)],
                        capture_output=True, text=True)
-    ok = r.returncode == 0 and open(CEIL_FILE).read() == saved
+    out0 = r.stdout + r.stderr
+    untouched = open(CEIL_FILE).read() == saved
+    unmeas = r.returncode == 3 and "UNMEASURABLE" in out0
+    ok = untouched and (r.returncode == 0 or unmeas)
     print(("  ✔ " if ok else "  ⛔ ") +
-          "control: the shipped ceilings PASS, and the tree file is UNTOUCHED")
+          "control: the shipped ceilings PASS at a calibrated load, and the tree "
+          "file is UNTOUCHED" +
+          ("  ⚠️ UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING "
+           "THE CEILINGS; the only thing it verified today is that the gate "
+           "refused rather than guessed" if unmeas else ""))
     # ⛔⛔ AND WHEN IT FAILS, PRINT WHY.  This arm used to DISCARD `r.stdout`, so a
     # CI log said only "a control failed" and never named the declaration that
     # was over its ceiling — the reading a developer actually needs, and the one
@@ -409,7 +454,7 @@ def selftest():
     # attached turns every remote failure into a local re-run, and for anything
     # machine-dependent the local re-run answers a different question.
     if not ok:
-        if r.returncode == 0:
+        if r.returncode == 0 or unmeas:
             print("     (the ceiling file was MODIFIED by the probe — a restore failed)")
         print("     ── the failing run's own output ──")
         for line in (r.stdout + r.stderr).splitlines():
@@ -417,9 +462,9 @@ def selftest():
     if not ok:
         bad.append("control")
     if bad:
-        print(f"kernel-cost selftest: FAIL ({len(bad)} of {len(arms)+1} arms)")
+        print(f"kernel-cost selftest: FAIL ({len(bad)} of {len(arms)+len(load_arms)+1} arms)")
         return 1
-    print(f"kernel-cost selftest: PASS ({len(arms)+1} arms — every way this gate "
+    print(f"kernel-cost selftest: PASS ({len(arms)+len(load_arms)+1} arms — every way this gate "
           f"could stop looking, driven separately, plus the control)")
     return 0
 
@@ -455,11 +500,54 @@ def main():
         print(f"registered {len(rows)} ceilings → {CEIL_FILE}")
         ceil, decl_ceils, tail_ceils = read_ceilings()
 
+    # ⭐⭐⭐ P2 BATCH 14 (D111) — THE BAND THIS TOOL'S OWN EFFECT MEASUREMENT
+    # COVERS, AND THE VERDICT IT IS ALLOWED TO REACH OUTSIDE IT.
+    #
+    # The note printed below is a real measurement and it is a measurement AT
+    # FOUR LOADS: 2.20, 3.42, 3.88, 4.08.  It says nothing whatever about load
+    # 7.9, and this gate spent batch 14 asserting a 740 ms overrun and a
+    # +1,490 ms regression at loads of 6.5-7.9 — of which the regression was
+    # ~0 and the overrun belonged to the PARENT COMMIT.  Measured, by
+    # alternating the two trees in one session:
+    #
+    #     parent 144e9a3   12,970 · 13,030 · 13,060   (loads 5.2 · 6.7 · 7.3)
+    #     + batch 14       13,040 · 13,160 · 13,680   (loads 6.6 · 6.5 · 7.9)
+    #     the same parent, measured earlier the same day        11,670
+    #
+    # ⇒ 🔑 A CEILING WHOSE MARGIN IS UNDER THE MACHINE'S OWN SPREAD REPORTS THE
+    # MACHINE, NOT THE CODE.  The margin was 6.4%; the across-session shift at
+    # ONE commit is 11%.
+    #
+    # ⛔ SO THE CEILING IS NOT RAISED — deriving a gate's new allowance from the
+    # thing it checks is how a gate stops being one.  What changes is the VERDICT
+    # this tool is entitled to reach: outside the calibrated band it reports
+    # UNMEASURABLE and names the load it saw, instead of naming a commit.  It
+    # still exits NON-ZERO; a refusal is not a pass, and the per-declaration
+    # `OVER ⛔` markers below are printed unchanged so the readings are visible.
+    #
+    # ⚠️ THE HONEST COST, STATED: on a machine that is never this quiet, this gate
+    # is now SILENT.  That is worse than a gate that works and better than one
+    # that lies.  The repair is to gate the DELTA between two trees measured in
+    # ONE session — the instrument the table above was produced by hand — and it
+    # is a batch with its own red probes, not a tack-on.
+    CALIBRATED_LOAD = (0.0, 4.1)
+    faked = os.environ.get("X86LEAN_FAKE_LOADAVG")
     try:
         la1, la5, _ = os.getloadavg()
-        load = f"{la1:.2f} (1 min) / {la5:.2f} (5 min)"
     except OSError:
-        load = "unavailable"
+        la1, la5 = -1.0, -1.0
+    if faked is not None:
+        # ⚠️ A TEST SEAM THAT ANNOUNCES ITSELF.  `--selftest` needs to CREATE the
+        # high-load condition rather than wait for one, so it can drive the
+        # refusal red like every other arm.  The override is printed on every run
+        # that uses it, so a measurement taken under it can never be quoted as a
+        # clean one — and it can only make the verdict STRICTER (UNMEASURABLE),
+        # never turn a red into a pass, so it is not an escape hatch.
+        la1 = float(faked)
+        print(f"⚠️ LOAD AVERAGE OVERRIDDEN by X86LEAN_FAKE_LOADAVG={faked} — this "
+              f"run is a PROBE and its figures are not a measurement of anything.")
+    load = "unavailable" if la1 < 0 else f"{la1:.2f} (1 min) / {la5:.2f} (5 min)"
+    unmeasurable = la1 > CALIBRATED_LOAD[1]
     # ⚠️ WHAT THIS LINE SAYS IS MEASURED, NOT INHERITED.  A first version quoted
     # scripts/kernel_ceilings.txt's "~15% high under load" — and batch 17 then
     # measured it: ordinary background load moves `Tests.Coverage` by NOTHING
@@ -559,6 +647,19 @@ def main():
             for line, name, ms in decls[:8]:
                 print(f"    {ms:9.0f} ms  {name}  (Tests/Coverage.lean:{line})")
     print(f"total kernel time across the development: {total:.1f}ms")
+    # ⛔ THE REFUSAL COMES FIRST, because at a load outside the calibrated band
+    # this tool cannot tell a regression from an afternoon — and a red that names
+    # the wrong culprit is worse than no red, since it trains a reader to
+    # discount the next one.
+    if unmeasurable:
+        print(f"⛔ kernel-cost gate UNMEASURABLE — one-minute load was {la1:.2f}, "
+              f"outside the band this tool's own effect measurement covers "
+              f"(loads {CALIBRATED_LOAD[0]:.1f}-{CALIBRATED_LOAD[1]:.1f}). The "
+              f"readings above are printed and are NOT a verdict about this "
+              f"commit: at load 6.5-7.9 the unchanged parent of P2 batch 14 read "
+              f"550ms over this same ceiling. Re-run on a quiet machine, or gate "
+              f"the DELTA between two trees measured in one session (D111).")
+        return 3
     if fail:
         print("⛔ kernel-cost gate FAILED (over ceiling, or unregistered).")
         return 1

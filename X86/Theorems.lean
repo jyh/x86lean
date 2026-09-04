@@ -717,17 +717,30 @@ theorem step_vload_aligned (k : VMovKind) (d : XmmReg) (ea : Ea) (h : Live s)
 /-- ⭐⭐ AN UNALIGNED `movdqa` FAULTS — the rule that makes `aligned` mean
 something, stated where a kernel can check it.
 
-⛔ AND IT IS ASSERTED HERE **BECAUSE THE DIFFERENTIAL CANNOT ASSERT IT.** ACL2
-x86isa does not implement the alignment check: measured, by executing
-`movdqa 8(%rbx),%xmm0` at an unaligned address with CR4.OSFXSR set, where the
-oracle EXECUTES it. A vector for this form would therefore put a ONE-SIDED
-REFUSAL into every pre-state, which `classify` correctly calls the `refusal`
-class and counts UNEXPLAINED — a red run about a model that is right.
+⛔ AND IT IS ASSERTED HERE **BECAUSE THE DIFFERENTIAL CANNOT ASSERT IT AT THIS
+FORM.** Measured, by executing `movdqa 8(%rbx),%xmm0` at an unaligned address
+with CR4.OSFXSR set: the oracle EXECUTES it, at all 88 pre-states. A vector for
+this form would therefore put a ONE-SIDED REFUSAL into every pre-state, which
+`classify` correctly calls the `refusal` class and counts UNEXPLAINED — a red run
+about a model that is right.
 
-⇒ So this rule has NO second source. It rests on the SDM alone (Vol. 2B, MOVDQA)
-and on this theorem, and TRUSTBASE.md says so in as many words. It is exactly the
-kind of claim the hardware co-simulation lane exists to settle, because real
-silicon IS the oracle for it. D91. -/
+⛔⛔ **THIS PARAGRAPH USED TO SAY "ACL2 x86isa DOES NOT IMPLEMENT THE ALIGNMENT
+CHECK", AND THAT SENTENCE IS FALSE ABOUT THE ORACLE** (P2 batch 14, D110). It is
+true of `movdqa`, which is what was measured. x86isa implements the 16-byte #GP
+in exactly one file of its tree — `logical.lisp`, the legacy `pand`/`por`/`pxor`
+— and REFUSES `pand 8(%rbx),%xmm0` at all 88 pre-states in the same run in which
+it executes this form and `psrlw` and `pshufd` at the same address. One exception
+class (SDM Table 2-21, Type 4), three answers.
+⇒ 🔑 **THE ORACLE'S ALIGNMENT BEHAVIOUR IS A PROPERTY OF THE FILE THAT IMPLEMENTS
+THE INSTRUCTION, NOT OF THE INSTRUCTION'S CLASS** — so "the oracle does not check
+alignment" is not a fact that generalises from one form, and the sentence that
+generalised it was the one telling the next reader not to look.
+
+⇒ This rule still has no second source AT THIS FORM: it rests on the SDM
+(Vol. 2B, MOVDQA) and on this theorem, and TRUSTBASE.md says so in as many words.
+⭐ But the CLASS now has a measured route to differential validation — `vbin` at a
+memory operand, where the oracle does check — and that is a priced next batch
+rather than a wish. D91, amended by D110. -/
 theorem vload_unaligned_faults (k : VMovKind) (d : XmmReg) (ea : Ea) (h : Live s)
     (hl : ea.lock = false) (hk : k.aligned = true)
     (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
@@ -1605,5 +1618,77 @@ theorem dshiftRes_shld_full_width (a b : Val) :
     simp [Size.mask_getLsbD_high .w i hhi]
 
 end Batch18
+
+/-! ## P2 VECTOR WAVE, BATCH 14 — the permute group, and the alignment rule it
+shares with the packed shifts.
+
+⛔ **THE THREE THEOREMS BELOW ARE THE ONLY GATE ON A RULE NO VECTOR CAN REACH.**
+The differential cannot test an unaligned `pshufd`, `pshuflw`, `pshufhw` or
+`psrlw`: the oracle executes all of them (measured, 88 of 88, in the same run in
+which it refuses `pand` at the identical address). So the `#GP` branch these
+forms carry is checked by the kernel here or by nothing at all — which is
+precisely the shape D91 gave `vload`, arriving a second time at a group whose
+prose had claimed the opposite. -/
+namespace Batch14
+
+variable {s : Cpu} {len : Nat}
+
+/-- ⭐⭐ AN UNALIGNED PERMUTE FAULTS. -/
+theorem vshufm_unaligned_faults (k : VShufKind) (d : XmmReg) (ea : Ea) (sel : BitVec 8)
+    (h : Live s) (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vshufm k d ea sel, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+/-- ⭐ AND IT RUNS AT AN ALIGNED ONE — the other half, without which "it faults"
+is indistinguishable from "it always faults". -/
+theorem vshufm_aligned_runs (k : VShufKind) (d : XmmReg) (ea : Ea) (sel : BitVec 8)
+    (h : Live s) (hl : ea.lock = false)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    (step ⟨.vshufm k d ea sel, len⟩ s).stopped = false := by
+  simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
+        Op.anyLocked, Op.lockable]
+
+/-- ⭐⭐⭐ AND THE SAME RULE AT THE PACKED SHIFTS' MEMORY FORM — **the theorem
+that would have failed before this batch**, because `Op.vshiftm` had no `#GP`
+branch and a comment saying its absence was the rule.
+
+⚠️ The `vshiftEncodable` hypothesis is not decoration: at an unencodable pair the
+arm halts for a DIFFERENT reason (`illegalOperands`), so a theorem without it
+would be true for the wrong reason on two of its twelve cases and would go on
+holding if the alignment branch were deleted. -/
+theorem vshiftm_unaligned_faults (op : VShiftOp) (w : VShiftW) (d : XmmReg) (ea : Ea)
+    (h : Live s) (hl : ea.lock = false) (he : vshiftEncodable op w = true)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vshiftm op w d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, he, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+theorem vshiftm_aligned_runs (op : VShiftOp) (w : VShiftW) (d : XmmReg) (ea : Ea)
+    (h : Live s) (hl : ea.lock = false) (he : vshiftEncodable op w = true)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    (step ⟨.vshiftm op w d ea, len⟩ s).stopped = false := by
+  simp [step, h, hl, he, hA, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
+        Op.anyLocked, Op.lockable]
+
+/-- ⭐⭐ THE DESTINATION IS NOT READ — stated as an EXACT step characterisation,
+so the claim is visible in the theorem's own shape: the right-hand side names
+`s.xmm.get r` and never mentions `d`'s old value at all.
+
+⛔ It is a theorem rather than a vector because the vectors cannot say it. A model
+that permuted the destination IN PLACE agrees with this one on every vector whose
+destination already holds its source — the register-field mistake batch 5 paid
+for once, arriving here in its operand form. `pshufd_x2x3` is the vector that
+makes the two differ; this is the statement of what it is testing. -/
+theorem vshuf_reads_only_the_source (k : VShufKind) (d r : XmmReg) (sel : BitVec 8)
+    (h : Live s) :
+    step ⟨.vshuf k d r sel, len⟩ s =
+      { s with xmm := s.xmm.set d (vshufApply k (s.xmm.get r) sel),
+               rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal,
+        Op.anyLocked, Op.lockable]
+
+end Batch14
 
 end X86
