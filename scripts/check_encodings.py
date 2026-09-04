@@ -24,7 +24,9 @@ tmp = tempfile.mkdtemp()
 asm, exp = os.path.join(tmp, "v.s"), os.path.join(tmp, "exp.txt")
 obj = os.path.join(tmp, "v.o")
 
-for mode, out in (("emit-asm", asm), ("expected-lengths", exp)):
+segf = os.path.join(tmp, "seg.txt")
+for mode, out in (("emit-asm", asm), ("expected-lengths", exp),
+                  ("segment-decls", segf)):
     r = run(f"lake env .lake/build/bin/x86lean-diff {mode} {out}")
     if r.returncode != 0:
         print(r.stdout, r.stderr); sys.exit(2)
@@ -77,6 +79,109 @@ if bad:
     sys.exit(1)
 print(f"encoding cross-check: CLEAN — {checked} forms, every `Instr.len` and every "
       f"byte string agrees with the assembler")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ⭐⭐ P2 ITEM 1 — THE SEGMENT OVERRIDE, HELD BY THREE INDEPENDENT SOURCES.
+#
+# A `%fs:`/`%gs:` operand is visible in three places that no single edit writes
+# together: the hand-written AT&T text of the vector, the PREFIX BYTE the
+# assembler emits for it (`64` for FS, `65` for GS — SDM Vol. 2A §2.1.1), and
+# the `seg` field of the Lean AST. All three must agree, per vector and per
+# SEGMENT — not merely "some override is present", because reading GS's base for
+# an FS access is exactly one of the four planted defects this batch carries.
+#
+# ⛔ WHY IT IS HERE AND NOT A THEOREM. It WAS a theorem — an AST walk compared
+# against the encoded bytes over all 784 vectors — and it cost 4 200 ms of kernel
+# time, the second most expensive declaration in Tests.Coverage. Measured, the
+# byte half alone was 7.9 s standalone against 0.4 s for the AST half: the whole
+# cost was `String.toList` on 784 literals. The kernel-cost ceiling refused it
+# and named this build. The completeness half — "does the AST walk see every
+# constructor" — did not move here: it became the ABSENCE of a wildcard arm in
+# `X86.opOperands`, which the compiler checks on every build and which also
+# covers constructors no vector uses yet.
+declared = {}
+for line in open(segf):
+    parts = line.split()
+    if len(parts) == 2:
+        declared[parts[0]] = parts[1]
+
+asm_text = {}
+for line in open(asm):
+    m = re.match(r'^(\S+):\t(.*)$', line.rstrip("\n"))
+    if m:
+        asm_text[m.group(1)] = m.group(2)
+
+PREFIX = {"64": "fs", "65": "gs"}
+
+
+def seg_findings(declared, asm_text, first_byte):
+    """The three-source comparison, as a function so `--selftest` can doctor each
+    source in turn.  Returns the list of disagreements."""
+    out = []
+    for vid, want in declared.items():
+        t = asm_text.get(vid, "")
+        from_text = "fs" if "%fs:" in t else "gs" if "%gs:" in t else "-"
+        from_bytes = PREFIX.get(first_byte.get(vid, ""), "-")
+        if not (want == from_text == from_bytes):
+            out.append(f"{vid}: AST says {want}, AT&T text says {from_text}, "
+                       f"assembler prefix says {from_bytes}")
+    return out
+
+
+first_byte = {}
+for vid in declared:
+    b = by_addr.get(labels.get(vid, -1), [])
+    if b:
+        first_byte[vid] = b[0]
+
+# ⭐ RED-FIRST, IN THE SAME RUN AND FOR THE PRICE OF THREE DICT COPIES.  Each of
+# the three sources is doctored ALONE and must produce a finding, and the
+# undoctored comparison must produce none — because three sources that agree is
+# also what a comparison reading none of them would report.
+# It runs on EVERY invocation, not behind a flag: three dict copies cost
+# microseconds, and a red-first arm nobody remembers to pass a flag for is a
+# red-first arm that does not run.
+if True:
+    import copy as _copy
+    arms, sok = [], True
+    victim = next((v for v, w in declared.items() if w == "fs"), None)
+    other = next((v for v, w in declared.items() if w == "gs"), None)
+    if victim is None or other is None:
+        print("⛔ segment selftest cannot run: no FS and GS vector to doctor.")
+        sys.exit(2)
+    d = dict(declared); d[victim] = "gs"
+    arms.append(("the AST's segment, swapped fs->gs",
+                 bool(seg_findings(d, asm_text, first_byte))))
+    a2 = dict(asm_text); a2[victim] = a2[victim].replace("%fs:", "")
+    arms.append(("the AT&T text loses its override",
+                 bool(seg_findings(declared, a2, first_byte))))
+    b2 = dict(first_byte); b2[victim] = "65"
+    arms.append(("the assembler's prefix byte, fs->gs",
+                 bool(seg_findings(declared, asm_text, b2))))
+    arms.append(("control: the shipped three sources agree",
+                 not seg_findings(declared, asm_text, first_byte)))
+    for name, ok in arms:
+        print(("  ✔ " if ok else "  ✖ ") + name)
+        sok = sok and ok
+    if not sok:
+        print("⛔ segment cross-check SELFTEST FAILED — a doctored source was "
+              "not caught, or the control did not hold.")
+        sys.exit(1)
+
+segbad = seg_findings(declared, asm_text, first_byte)
+if segbad:
+    print(f"⛔ segment-override cross-check FAILED ({len(segbad)} of "
+          f"{len(declared)} forms):")
+    for b in segbad: print("   " + b)
+    sys.exit(1)
+n_seg = sum(1 for v in declared.values() if v != "-")
+if n_seg == 0:
+    print("⛔ segment-override cross-check found NO segmented vector. A check "
+          "whose subject is absent reports a failure here, not a pass.")
+    sys.exit(2)
+print(f"segment cross-check: CLEAN — {n_seg} segmented form(s) of {len(declared)}; "
+      f"the AT&T text, the assembler's prefix byte and the AST agree on the "
+      f"SEGMENT, per vector")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # THE SYNONYM COLLAPSE, CHECKED AGAINST THE ASSEMBLER (P1 BATCH 16).

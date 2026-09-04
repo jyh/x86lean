@@ -13,8 +13,15 @@ updated the number and not the prose, every gate stayed green, and the published
 coverage document described a model one batch older than the one it tabulated.
 ⇒ A COLUMN — OR A SENTENCE — NO GATE READS IS WRONG WHEREVER NOBODY LOOKED.
 
+⭐⭐ P2 ITEM 1 (BATCH 22) WIDENED THE GLOB FROM `P1` TO `P<p>`.  Read literally,
+this gate would have gone on reporting "CLEAN — all 21 P1 batches" for ever
+while naming not one P2 batch: its subject was named by a LITERAL, so renaming
+the work made the work invisible and the gate answered about the part it could
+still see.  That is not silence, it is a positive report of agreement about a
+region nobody observed ([[unobserved-regions-report-agreement]]).
+
 THE ANCHOR, AND WHY IT CANNOT DRIFT IN STEP.  The batches are counted from
-`docs/DIFFERENTIAL-P1-BATCH<N>.md`: one file per batch, written for a different
+`docs/DIFFERENTIAL-P<p>-BATCH<n>.md`: one file per batch, written for a different
 purpose (the differential run's record) by a different step of the work.  A gate
 whose two sides are maintained by the same edit is a gate that agrees with
 itself; these two are not.
@@ -28,33 +35,40 @@ import os, re, sys, glob
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
 
-batches = sorted(int(re.search(r'BATCH(\d+)\.md$', f).group(1))
-                 for f in glob.glob("docs/DIFFERENTIAL-P1-BATCH*.md"))
-if not batches:
-    print("⛔ no docs/DIFFERENTIAL-P1-BATCH<N>.md files found. A gate that cannot "
+found = {}
+for f in glob.glob("docs/DIFFERENTIAL-P*-BATCH*.md"):
+    mm = re.search(r'DIFFERENTIAL-P(\d+)-BATCH(\d+)\.md$', f)
+    if mm:
+        found.setdefault(int(mm.group(1)), set()).add(int(mm.group(2)))
+if not found:
+    print("⛔ no docs/DIFFERENTIAL-P<p>-BATCH<n>.md files found. A gate that cannot "
           "find its anchor reports a pass; this one reports a failure.")
     sys.exit(2)
 
-expected = list(range(1, max(batches) + 1))
-missing_files = [n for n in expected if n not in batches]
-if missing_files:
-    print(f"⛔ batch record(s) missing from docs/: {missing_files}")
-    sys.exit(1)
-
 doc = open("docs/COVERAGE.md").read()
-m = re.search(r'P1 has added, by batch:(.*?)\n', doc, re.S)
-if not m:
-    print("⛔ could not find the per-batch narrative in docs/COVERAGE.md. "
-          "A missing subject is not a pass.")
-    sys.exit(2)
-narrative = m.group(1)
+total_expected = 0
+for phase in sorted(found):
+    expected = list(range(1, max(found[phase]) + 1))
+    missing_files = [n for n in expected if n not in found[phase]]
+    if missing_files:
+        print(f"⛔ P{phase} batch record(s) missing from docs/: {missing_files}")
+        sys.exit(1)
+    m = re.search(rf'P{phase} has added, by batch:(.*?)\n', doc, re.S)
+    if not m:
+        print(f"⛔ could not find the per-batch narrative for P{phase} in "
+              f"docs/COVERAGE.md. A missing subject is not a pass.")
+        sys.exit(2)
+    narrative = m.group(1)
+    missing = [n for n in expected if not re.search(rf'(?:^|[;:])\s*{n} —', narrative)]
+    if missing:
+        print(f"⛔ docs/COVERAGE.md's P{phase} per-batch narrative is STALE: no "
+              f"entry for batch(es) {missing}, but "
+              f"docs/DIFFERENTIAL-P{phase}-BATCH<N>.md exists for each. Update "
+              f"the sentence in Main.lean and regenerate.")
+        sys.exit(1)
+    total_expected += len(expected)
 
-missing = [n for n in expected if not re.search(rf'(?:^|[;:])\s*{n} —', narrative)]
-if missing:
-    print(f"⛔ docs/COVERAGE.md's per-batch narrative is STALE: no entry for "
-          f"batch(es) {missing}, but docs/DIFFERENTIAL-P1-BATCH<N>.md exists for "
-          f"each. Update the sentence in Main.lean and regenerate.")
-    sys.exit(1)
-
-print(f"coverage-prose gate: CLEAN — the narrative names all {len(expected)} "
-      f"P1 batches, matching the {len(batches)} differential records in docs/")
+n_records = sum(len(v) for v in found.values())
+print(f"coverage-prose gate: CLEAN — the narratives name all {total_expected} "
+      f"batches across {len(found)} phase(s), matching the {n_records} "
+      f"differential records in docs/")

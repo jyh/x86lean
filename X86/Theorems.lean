@@ -422,15 +422,34 @@ theorem step_shift_reg_nonzero (k : ShiftKind) (sz : Size) (r : GPR) (c : BitVec
   cases k <;> simp [step, h, hc, Cpu.getReg] <;> omega
 
 /-! ## LEA — SDM Vol. 2A, LEA.  "Flags Affected: None."  The address is written
-under the ordinary register-width rules, so `lea eax, [...]` ZERO-EXTENDS. -/
+under the ordinary register-width rules, so `lea eax, [...]` ZERO-EXTENDS.
+
+⭐⭐ P2 ITEM 1 CHANGED THIS THEOREM'S STATEMENT, AND THE CHANGE IS THE CLAIM.
+It said `ea.addr` and now says `ea.offset`: LEA writes the EFFECTIVE ADDRESS,
+with no segment base added (SDM Vol. 2A, LEA).  Before this batch the two were
+the same function and the distinction could not be stated; `step_lea_ignores_seg`
+below is the half that a reader cannot get from the shape of this one. -/
 
 theorem step_lea (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
     step ⟨.lea sz r ea, len⟩ s =
       { s with
         regs := s.regs.set r (Value.writeView sz (s.regs.get r)
-          (ea.addr s (s.rip + BitVec.ofNat 64 len))),
+          (ea.offset s (s.rip + BitVec.ofNat 64 len))),
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h]
+
+/-- ⭐⭐ A SEGMENT PREFIX ON A `lea` IS INERT — stated positively, over ALL
+segments and ALL states, because the differential run can only ever sample it.
+`{ ea with seg := g }` and `ea` are the same instruction to LEA. -/
+theorem step_lea_ignores_seg (sz : Size) (r : GPR) (ea : Ea) (g g' : Option Seg) :
+    step ⟨.lea sz r { ea with seg := g }, len⟩ s = step ⟨.lea sz r { ea with seg := g' }, len⟩ s := by
+  by_cases h : Live s
+  · rw [step_lea sz r _ h, step_lea sz r _ h]
+    simp only [Ea.offset_set_seg]
+  · simp only [Live] at h
+    cases hm : s.ms with
+    | none => exact absurd hm h
+    | some _ => simp [step, Cpu.stopped, hm]
 
 /-! ## PUSH / POP — SDM Vol. 2A.  "Flags Affected: None." -/
 
@@ -879,22 +898,29 @@ theorems below never have to see that branch. -/
 
 @[simp] theorem bitScanStep_mem (rev : Bool) (a : Val) (nr : BitVec 64) :
     (bitScanStep rev sz dst a nr s).mem = s.mem := by
-  simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, Cpu.setFlags, Cpu.setReg, Cpu.setRip]
-  split <;> rfl
+  -- ⭐ P2 ITEM 1: `simp` with the FRAME LEMMAS, not `rfl` over the record.  See
+  -- the note on `undefVal_regs` in `X86/State.lean`: unfolding and closing by
+  -- `rfl` made this proof's cost scale with the number of fields in `Cpu`, and
+  -- two new fields blew the heartbeat limit on it.
+  simp only [bitScanStep, Cpu.setFlags]
+  split <;> simp
 
 @[simp] theorem bitScanStep_rip (rev : Bool) (a : Val) (nr : BitVec 64) :
     (bitScanStep rev sz dst a nr s).rip = nr := by
-  simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, Cpu.setFlags, Cpu.setReg, Cpu.setRip]
-  split <;> rfl
+  -- ⭐ P2 ITEM 1: `simp` with the FRAME LEMMAS, not `rfl` over the record.  See
+  -- the note on `undefVal_regs` in `X86/State.lean`: unfolding and closing by
+  -- `rfl` made this proof's cost scale with the number of fields in `Cpu`, and
+  -- two new fields blew the heartbeat limit on it.
+  simp only [bitScanStep, Cpu.setFlags]
+  split <;> simp
 
 /-- ⭐ ZF IS SET FROM THE SOURCE IN BOTH BRANCHES — including the branch where
 the DESTINATION is undefined.  That is the whole of what `bsf`/`bsr` promise
 about their flags at a zero source, and it holds whatever the oracle says. -/
 @[simp] theorem bitScanStep_zf (rev : Bool) (a : Val) (nr : BitVec 64) :
     (bitScanStep rev sz dst a nr s).flags.zf = Value.isZero sz a := by
-  simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, Cpu.setFlags, Cpu.setReg, Cpu.setRip,
-    Flags.bitScan]
-  split <;> rfl
+  simp only [bitScanStep, Cpu.setFlags, Flags.bitScan]
+  split <;> simp [Flags.bitScan]
 
 /-! ### The three ZF rules, which are three different questions -/
 

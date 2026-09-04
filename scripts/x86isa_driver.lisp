@@ -125,17 +125,39 @@
           wins)
         x86)))
 
+; ⭐⭐ P2 ITEM 1 — THE FS AND GS SEGMENT BASES, AND WHY THEY ARE MSRs HERE.
+;
+; In 64-bit mode x86isa reads FS's and GS's bases out of the IA32_FS_BASE and
+; IA32_GS_BASE model-specific registers (`segment-base-and-bounds`,
+; machine/segmentation.lisp: the 64-bit arm is `(msri *ia32_fs_base-idx* x86)`
+; and nothing else), NOT out of the hidden segment-descriptor registers that
+; serve the 32-bit modes.  So the fifth argument of `init-x86-state-64` — the
+; MSR alist, `nil` in every case this driver emitted before this batch — is
+; where a segment base has to arrive.  The Lean side sends the VALUES
+; (`:fsbase`/`:gsbase`); these two index constants are x86isa's own and stay on
+; this side of the boundary.
+;
+; ⚠️ A CASE THAT OMITS THEM STILL WORKS AND MEANS BASE ZERO, which is what every
+; pre-P2 case intends — so the emitter and this reader can be updated in either
+; order without a run that silently compares the wrong thing.
+(defun x86l-msrs (c)
+  (let ((fs (cadr (assoc-keyword :fsbase c)))
+        (gs (cadr (assoc-keyword :gsbase c))))
+    (list (cons #.*ia32_fs_base-idx* (if fs fs 0))
+          (cons #.*ia32_gs_base-idx* (if gs gs 0)))))
+
 (defun x86l-run-case (c x86 state)
   (declare (xargs :stobjs (x86 state)))
   (b* ((id     (cadr (assoc-keyword :id c)))
        (rip0   (cadr (assoc-keyword :rip c)))
        (len    (cadr (assoc-keyword :len c)))
        (gprs   (cadr (assoc-keyword :gprs c)))
+       (msrs   (x86l-msrs c))
        (rflags (cadr (assoc-keyword :rflags c)))
        (mem    (cadr (assoc-keyword :mem c)))
        (x86 (!app-view t x86))
        ((mv flg x86)
-        (init-x86-state-64 nil rip0 gprs nil nil nil nil nil nil rflags mem x86))
+        (init-x86-state-64 nil rip0 gprs nil msrs nil nil nil nil rflags mem x86))
        ((when flg)
         (prog2$ (cw "CASE id=~s0 len=~x1~%POST init-error~%" id len)
                 (mv x86 state)))

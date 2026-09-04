@@ -2166,6 +2166,63 @@ def vectors : List Vec :=
   -- accident nobody chose.  See D64.
   , { id := "cmpxchg8b_m", mnemonic := "cmpxchg8b", asm := "cmpxchg8b (%rbx)"
     , bytes := "0fc70b", instr := ⟨.cmpxchg8b (M .rbx), 3⟩ }
+  -- ⭐⭐⭐ P2 ITEM 1 (BATCH 22): THE FS/GS SEGMENT BASE.  Eight vectors, and the
+  -- DISPLACEMENT IS 0x28 IN SEVEN OF THEM ON PURPOSE — that is the
+  -- stack-protector load `movq %fs:0x28, %rax` that the census counts 29,943
+  -- times in the assembly class, not a number chosen to be convenient.
+  --
+  -- ⛔⛔ WHAT MAKES 0x28 WORK IS THE BASE, AND THE BASE IS WHY THIS BATCH IS NOT
+  -- ONE LINE.  `%fs:0x28` is address 0x28 unless a segment base is added, and
+  -- 0x28 is outside BOTH watched windows — where our `Mem` reads 0 and the ACL2
+  -- driver renders an unmapped byte as `00`.  A vector whose access lands there
+  -- is batch 12's `leaveq` trap and batch 15's backward string step for the
+  -- third time: **both models unobserved, and agreement that tested nothing.**
+  -- So `fsBase` is 0x1fd8 and `gsBase` 0x1fe8 (see `mkPre`), chosen so that the
+  -- REAL displacement lands on the swept operand at 0x2000 through FS and on
+  -- the second swept operand at 0x2010 through GS — two DIFFERENT values, so a
+  -- model that swapped the two bases differs too, not merely one that dropped
+  -- them.
+  --
+  -- ⚠️ AND THE `lea` IS NOT DECORATION.  `leaq %fs:0x28, %rax` is the only
+  -- vector in this repository that can distinguish `Ea.offset` from `Ea.addr`:
+  -- LEA must write 0x28, and a model that added the segment base would write
+  -- 0x2000 — in EVERY pre-state, which is what makes the claim testable rather
+  -- than sampled.  Without this row the split into two functions would be an
+  -- assertion no vector could contradict.
+  , { id := "mov_fs_abs_q", mnemonic := "mov", asm := "movq %fs:0x28, %rax"
+    , bytes := "64488b042528000000"
+    , instr := ⟨.mov .q (R .rax) (.mem { disp := 0x28, seg := some .fs }), 9⟩ }
+  , { id := "mov_gs_abs_q", mnemonic := "mov", asm := "movq %gs:0x28, %rax"
+    , bytes := "65488b042528000000"
+    , instr := ⟨.mov .q (R .rax) (.mem { disp := 0x28, seg := some .gs }), 9⟩ }
+  , { id := "mov_fs_abs_d", mnemonic := "mov", asm := "movl %fs:0x28, %eax"
+    , bytes := "648b042528000000"
+    , instr := ⟨.mov .d (R .rax) (.mem { disp := 0x28, seg := some .fs }), 8⟩ }
+  -- ⭐ THE BASE-REGISTER SHAPE, so the segment base is shown to be added to a
+  -- COMPUTED effective address and not only to a bare displacement.  RBX is
+  -- 0x2000 in every pre-state, so -0x1fd8 + 0x2000 + 0x1fd8 = 0x2000 again.
+  , { id := "mov_fs_base_q", mnemonic := "mov", asm := "movq %fs:-0x1fd8(%rbx), %rax"
+    , bytes := "64488b8328e0ffff"
+    , instr := ⟨.mov .q (R .rax) (.mem { base := some .rbx, disp := 0xFFFFFFFFFFFFE028, seg := some .fs }), 8⟩ }
+  , { id := "mov_fs_store_q", mnemonic := "mov", asm := "movq %rax, %fs:0x28"
+    , bytes := "644889042528000000"
+    , instr := ⟨.mov .q (.mem { disp := 0x28, seg := some .fs }) (R .rax), 9⟩ }
+  -- ⭐ A NARROW STORE THROUGH THE SEGMENT: a model that got the address right
+  -- and the width wrong writes eight bytes where one belongs, and the window's
+  -- margin is what sees it.
+  , { id := "mov_fs_store_b", mnemonic := "mov", asm := "movb %al, %fs:0x28"
+    , bytes := "6488042528000000"
+    , instr := ⟨.mov .b (.mem { disp := 0x28, seg := some .fs }) (R .rax), 8⟩ }
+  -- ⭐ A READ-MODIFY-WRITE through one segmented address: the load and the store
+  -- must resolve to the SAME linear address, which a form that only loads or
+  -- only stores cannot say.
+  , { id := "add_fs_rmw_q", mnemonic := "add", asm := "addq %rcx, %fs:0x28"
+    , bytes := "6448010c2528000000"
+    , instr := ⟨.bin .add .q (.mem { disp := 0x28, seg := some .fs }) (R .rcx), 9⟩ }
+  -- ⭐ THE INERT PREFIX.  LEA writes the EFFECTIVE address: 0x28, never 0x2000.
+  , { id := "lea_fs_abs_q", mnemonic := "lea", asm := "leaq %fs:0x28, %rax"
+    , bytes := "64488d042528000000"
+    , instr := ⟨.lea .q .rax { disp := 0x28, seg := some .fs }, 9⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -2321,11 +2378,28 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   -- 0xA0.. margin above; 0x2010 has eight with the 0xB8.. margin below and the
   -- 0xE8.. margin above.  Forty bytes apart, so no width overlaps the other,
   -- and one step in EITHER direction stays inside the watched window.
+  -- ⭐⭐ P2 ITEM 1: THE TWO SEGMENT BASES, AND THE TWO VALUES ARE CHOSEN, NOT
+  -- ARBITRARY.  `fsBase + 0x28 = 0x2000` and `gsBase + 0x28 = 0x2010` — the two
+  -- swept operands in the data window, holding `c` and `a XOR c` respectively.
+  --
+  -- ⛔ THEY ARE FIXED IN EVERY PRE-STATE, LIKE RBX AND RSP, AND THEY ARE NOT IN
+  -- THE COMPARED RECORD.  No instruction in this roster writes either (D27: a
+  -- component nothing writes is a constant, and a comparator watching a
+  -- constant reports agreement it did not test), so what is compared is the
+  -- ADDRESS they produce and never the bases themselves.
+  --
+  -- ⚠️ AND THE TWO VALUES DIFFER BY 0x10 RATHER THAN BEING EQUAL, which is what
+  -- makes `fs` and `gs` DISTINGUISHABLE: with one base for both, a model that
+  -- read GS's base for an FS access would agree in every case, and this batch
+  -- would ship an untested half. `X86.Seg` has exactly two constructors and a
+  -- pre-state that cannot tell them apart tests one.
   { regs := { rax := a, rcx := c, rdx := ~~~a, rbx := 0x2000, rsp := 0x8000
             , rsi := 0x1fe8, rdi := 0x2010 }
     flags := f
     mem := mem
     rip := 0x400000
+    fsBase := 0x1fd8
+    gsBase := 0x1fe8
     oracle := zeroOracle }
 
 /-- ⭐ THE CARRY BOUNDARY, added by P1 BATCH 2 — and it is the same finding P0's

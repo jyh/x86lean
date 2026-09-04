@@ -126,6 +126,44 @@ instance : ToString GPR := ⟨fun r => r.name .q⟩
 
 end GPR
 
+/-! ## The two segment registers long mode still honours
+
+⭐⭐ P2 ITEM 1 (the Captain's order, 09/03).  In 64-bit mode segmentation is
+disabled for CS, DS, ES and SS: their bases are treated as zero and their limits
+are not checked (SDM Vol. 3A §3.4.4, "Segmentation in IA-32e Mode").  **FS and
+GS are the exception** — their 64-bit bases are still added to the effective
+address, and are loaded from the IA32_FS_BASE and IA32_GS_BASE MSRs (SDM Vol. 3A
+§3.4.4 and Vol. 4, Table 2-2).
+
+⛔ SO THIS IS NOT "SEGMENTATION", AND THE DISTINCTION IS WHY THE ITEM IS CHEAP.
+A model that admitted segmentation would owe descriptors, selectors, limits,
+expand-down data segments and #GP on a null selector.  What long mode leaves is
+**one 64-bit base register, chosen by a prefix, added modulo 2^64** — which is
+why the whole addition is this inductive, two fields on `Cpu`, and one `+` in
+`Ea.addr`.  There is no descriptor anywhere in this repository and none is
+implied by this type.
+
+The demand is measured, not argued: 29,943 instructions in the census's assembly
+class carry an FS/GS override (docs/DEMAND-CENSUS.md), and the commonest of them
+is the stack-protector load `movq %fs:0x28, %rax` that appears in the prologue
+of most compiled functions. -/
+inductive Seg where
+  | fs | gs
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+namespace Seg
+
+/-- The name a disassembler prints in an AT&T segment override. -/
+def name : Seg → String
+  | .fs => "fs" | .gs => "gs"
+
+/-- Both of them, so a sweep over the segments has one source. -/
+def all : List Seg := [.fs, .gs]
+
+instance : ToString Seg := ⟨Seg.name⟩
+
+end Seg
+
 /-! ## The register file
 
 Sixteen named fields rather than a `Vector`/`Array`/function.  This is a

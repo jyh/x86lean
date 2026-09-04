@@ -31,16 +31,77 @@ import X86.Flags
 
 namespace X86
 
-/-- The effective address of a memory operand.  All arithmetic is `BitVec 64`,
-so it wraps at 2^64 exactly as 64-bit-mode address computation does.
-`nextRip` is the address of the FOLLOWING instruction, which is what
-RIP-relative addressing is defined against (SDM Vol. 2A §2.2.1.6). -/
-def Ea.addr (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
+/-- The EFFECTIVE ADDRESS — the offset within a segment — of a memory operand.
+All arithmetic is `BitVec 64`, so it wraps at 2^64 exactly as 64-bit-mode
+address computation does.  `nextRip` is the address of the FOLLOWING
+instruction, which is what RIP-relative addressing is defined against (SDM
+Vol. 2A §2.2.1.6).
+
+⛔ NO SEGMENT BASE IS ADDED HERE.  This is the quantity `lea` writes, and the
+separation is the whole content of P2 item 1's correctness risk: see
+`Ea.addr`. -/
+def Ea.offset (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
   if ea.ripRel then nextRip + ea.disp
   else
     let b := match ea.base with | some r => s.regs.get r | none => 0
     let i := match ea.index with | some r => s.regs.get r * ea.scale.toVal | none => 0
     b + i + ea.disp
+
+/-- ⭐⭐ P2 ITEM 1: THE LINEAR ADDRESS A MEMORY ACCESS ACTUALLY USES — the
+effective address plus the base of the segment the prefix selected (SDM Vol. 3A
+§3.4, Figure 3-5).  In 64-bit mode only FS and GS have a base, so `Cpu.segBase`
+is zero for every other case and this reduces to `Ea.offset` on every
+instruction that carries no override — which is every vector this repository had
+before this batch, and why not one of their results moves.
+
+⛔⛔ AND THE POINT OF THERE BEING TWO FUNCTIONS IS `lea`, WHICH MUST NOT CALL
+THIS ONE.  LEA computes the EFFECTIVE ADDRESS (SDM Vol. 2A, LEA), so a segment
+prefix on a `lea` changes nothing; ACL2 x86isa agrees structurally — its
+`x86-lea` uses `x86-effective-addr` and never calls `ea-to-la`, while every
+memory read and write goes through `rme-size`/`wme-size`, which do.  Writing one
+function and using it in both places is the defect this split exists to prevent,
+and `leaq %fs:...` is a vector, so the differential run would see it.
+
+⚠️ ONE DEPARTURE FROM x86isa, NAMED RATHER THAN LEFT TO BE FOUND: x86isa's
+`ea-to-la` also requires the resulting LINEAR address to be canonical and faults
+if it is not, for segmented and unsegmented accesses alike.  This model checks
+canonicity on branch TARGETS only (D9) and on no data address at all — a
+pre-existing gap that this batch does not widen and does not close.  It is
+unreachable in this harness by construction rather than by luck, and
+`segmentedAddressesAreCanonical` in `Tests/Coverage.lean` is the assertion that
+says so over the whole vector × pre-state cross product; the day a swept segment
+base or a large displacement makes it reachable, that theorem goes red before
+the oracle does. -/
+def Ea.addr (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
+  -- ⚠️ MATCHED, NOT `s.segBase ea.seg + ea.offset s nextRip`.  The two are equal
+  -- (`addr_eq_segBase_add` below proves it), but the summed form puts a
+  -- `BitVec 64` ADDITION on the path of EVERY memory access in the model,
+  -- including the hundreds that carry no override — and a `+ 0` the kernel must
+  -- still reduce is not free.  Written as a sum, this batch blew the heartbeat
+  -- limit on three pre-existing `bsf`/`bsr` frame proofs that had never been
+  -- near it, before it had added a single instruction.  Matched, the
+  -- unsegmented path is byte-for-byte the old `Ea.addr` and reduces exactly as
+  -- it did; the cost lands only where the feature is used.  D8's kernel-cost
+  -- discipline, arriving as a design constraint rather than a ceiling.
+  match ea.seg with
+  | none => ea.offset s nextRip
+  | some g => s.segBase (some g) + ea.offset s nextRip
+
+@[simp] theorem Ea.addr_of_no_seg (ea : Ea) (s : Cpu) (nr : BitVec 64) (h : ea.seg = none) :
+    ea.addr s nr = ea.offset s nr := by
+  simp [Ea.addr, h]
+
+/-- `Ea.offset` does not read the segment field, stated so the LEA theorem can
+use it rather than relying on a defeq the reader has to reconstruct. -/
+@[simp] theorem Ea.offset_set_seg (ea : Ea) (g : Option Seg) (s : Cpu) (nr : BitVec 64) :
+    Ea.offset { ea with seg := g } s nr = Ea.offset ea s nr := rfl
+
+/-- The summed form, as a THEOREM rather than the definition, so the reading in
+SDM Vol. 3A Figure 3-5 — linear address = segment base + effective address — is
+still stated somewhere and is checked, without being what the kernel reduces. -/
+theorem Ea.addr_eq_segBase_add (ea : Ea) (s : Cpu) (nr : BitVec 64) :
+    ea.addr s nr = s.segBase ea.seg + ea.offset s nr := by
+  cases h : ea.seg <;> simp [Ea.addr, h]
 
 /-- CANONICAL ADDRESS (SDM Vol. 1 §3.3.7.1).  In 64-bit mode only the low 48
 bits of a linear address are implemented; bits 63:48 must be a sign extension of
@@ -406,7 +467,9 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- the ordinary register-width rules, so `lea eax, [...]` zero-extends.
   -- "Flags Affected: None."
   | .lea sz dst ea =>
-      ((s.setReg sz dst (ea.addr s nr)).setRip nr)
+      -- ⛔ `Ea.offset`, NOT `Ea.addr`: LEA writes the effective address and no
+      -- segment base is added to it (SDM Vol. 2A, LEA).  P2 item 1.
+      ((s.setReg sz dst (ea.offset s nr)).setRip nr)
 
   -- PUSH POP (SDM Vol. 2A).  "Flags Affected: None."
   | .push sz src =>

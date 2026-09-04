@@ -53,6 +53,23 @@ structure Cpu where
   rip : BitVec 64 := 0
   flags : Flags := {}
   mem : Mem := {}
+  /-- ⭐⭐ P2 ITEM 1: THE FS AND GS SEGMENT BASES.  In 64-bit mode these are the
+  only two segment bases the machine still adds (see `X86.Seg`), and they are
+  MSR-loaded values — IA32_FS_BASE and IA32_GS_BASE — not descriptor fields.
+
+  ⛔ THEY ARE INPUTS, NOT OUTPUTS, AND THAT IS A DELIBERATE LIMIT ON THE MODEL.
+  No instruction in this roster writes either of them: `wrfsbase`/`wrgsbase` and
+  `wrmsr` are not modelled, and `arch_prctl` is a system call.  D27 is the rule
+  that decides what follows from that — *a state component no instruction writes
+  is a constant, and a comparator that watches a constant reports agreement it
+  did not test* — so these two fields are deliberately **absent from the
+  differential record**.  What is compared is the ADDRESS the base produces:
+  the vectors read and write through `%fs:`/`%gs:` into the watched windows, and
+  a model with the wrong base (or none) lands somewhere else and differs in the
+  window bytes and in the loaded register.  Putting the bases in the record
+  instead would have added two fields that agree in every case for ever. -/
+  fsBase : BitVec 64 := 0
+  gsBase : BitVec 64 := 0
   oracle : Oracle := Oracle.zero
   ms : Option MsErr := none
 
@@ -109,6 +126,21 @@ def setReg (s : Cpu) (sz : Size) (r : GPR) (v : Val) (high8 : Bool := false) : C
 @[simp] theorem setReg_oracle (s : Cpu) (sz : Size) (r : GPR) (v : Val) (h8 : Bool) :
     (s.setReg sz r v h8).oracle = s.oracle := rfl
 
+/-! ### The segment bases -/
+
+/-- The base a segment override selects.  `none` — no override — is base zero,
+which in 64-bit mode is also what CS/DS/ES/SS give (SDM Vol. 3A §3.4.4), so the
+absence of an override and an override on a zeroed segment are the same
+computation and this function has no third case. -/
+def segBase (s : Cpu) : Option Seg → BitVec 64
+  | none => 0
+  | some .fs => s.fsBase
+  | some .gs => s.gsBase
+
+@[simp] theorem segBase_none (s : Cpu) : s.segBase none = 0 := rfl
+@[simp] theorem segBase_fs (s : Cpu) : s.segBase (some .fs) = s.fsBase := rfl
+@[simp] theorem segBase_gs (s : Cpu) : s.segBase (some .gs) = s.gsBase := rfl
+
 /-! ### Memory access -/
 
 def readMem (s : Cpu) (sz : Size) (a : BitVec 64) : Val := s.mem.readSize sz a
@@ -158,6 +190,34 @@ def undefVal (s : Cpu) (n : Nat) : Val × Cpu :=
 @[simp] theorem undefBit_mem (s : Cpu) : (s.undefBit).2.mem = s.mem := rfl
 @[simp] theorem undefBit_ms (s : Cpu) : (s.undefBit).2.ms = s.ms := rfl
 @[simp] theorem undefBit_fst (s : Cpu) : (s.undefBit).1 = s.oracle.bits s.oracle.cursor := rfl
+
+/-! ⭐⭐ P2 ITEM 1 ADDED THE FRAME LEMMAS FOR `undefVal`, AND THE REASON IS A
+COST FINDING RATHER THAN A NEW THEOREM.
+
+`undefBit` has had these five since P0; `undefVal` — added in P1 batch 14 — never
+got them, so the three `bitScanStep` frame proofs in `X86/Theorems.lean` unfolded
+it and finished by `rfl`, i.e. by a defeq check over the WHOLE `Cpu` record
+eight updates deep.  That worked, with no margin: adding two fields to `Cpu` for
+the FS/GS bases — two fields no instruction reads and nothing else in the batch
+touches — pushed all three over the 200 000-heartbeat limit at once, before the
+batch had added a single instruction.
+
+⇒ 🔑 **THE COST OF A STATE FIELD IS PAID BY EVERY WHOLE-RECORD PROOF, NOT BY THE
+FORMS THAT USE IT.**  A `maxHeartbeats` bump on the three would have been the
+one-line repair and would have left the next field to find the limit again.
+With these, `simp` pushes each projection through symbolically and never builds
+the record at all — the proofs no longer scale with the number of fields, which
+is the property that was missing, not the margin. -/
+
+@[simp] theorem undefVal_regs (s : Cpu) (n : Nat) : (s.undefVal n).2.regs = s.regs := rfl
+@[simp] theorem undefVal_rip (s : Cpu) (n : Nat) : (s.undefVal n).2.rip = s.rip := rfl
+@[simp] theorem undefVal_flags (s : Cpu) (n : Nat) : (s.undefVal n).2.flags = s.flags := rfl
+@[simp] theorem undefVal_mem (s : Cpu) (n : Nat) : (s.undefVal n).2.mem = s.mem := rfl
+@[simp] theorem undefVal_ms (s : Cpu) (n : Nat) : (s.undefVal n).2.ms = s.ms := rfl
+@[simp] theorem undefVal_fsBase (s : Cpu) (n : Nat) : (s.undefVal n).2.fsBase = s.fsBase := rfl
+@[simp] theorem undefVal_gsBase (s : Cpu) (n : Nat) : (s.undefVal n).2.gsBase = s.gsBase := rfl
+@[simp] theorem undefBit_fsBase (s : Cpu) : (s.undefBit).2.fsBase = s.fsBase := rfl
+@[simp] theorem undefBit_gsBase (s : Cpu) : (s.undefBit).2.gsBase = s.gsBase := rfl
 
 /-! ### Control flow -/
 

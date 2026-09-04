@@ -77,7 +77,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_776 : vectorCount = 776 := by decide
+theorem vector_count_is_784 : vectorCount = 784 := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -1295,5 +1295,65 @@ theorem every_flag_single_has_a_vector :
       vectors.any (fun v => match v.instr.op with
         | .flagop k' => k' == k
         | _ => false))) = true := by decide
+
+/-! ## ⭐⭐ P2 ITEM 1 (BATCH 22) — the named gap, made unreachable rather than hoped for
+
+`X86/Semantics.lean`'s note on `Ea.addr` records a DEPARTURE from ACL2 x86isa:
+its `ea-to-la` requires the resulting LINEAR address to be canonical and faults
+if it is not, while this model checks canonicity on branch targets only (D9) and
+on no data address at all.  That gap is older than this batch and this batch
+does not close it.
+
+⛔ WHAT WOULD MAKE IT MATTER IS A SEGMENT BASE, because a base is the first thing
+in this model that can move a data address a long way from where the operands
+put it.  So the departure is bounded by an assertion rather than by a sentence:
+over the whole (segmented vector × pre-state) cross product, every linear address
+this model computes is canonical, so the two models cannot disagree about a
+fault neither of them can reach here.  The day a swept base or a large
+displacement makes it reachable, THIS goes red before the oracle does.
+
+⚠️ AND THE EXTRACTION HAS NO WILDCARD ARM, because a `match` with a `_ => []`
+default is the shape whose gaps all fall the silent way: a constructor it forgot
+would make these sweeps EMPTY, and an empty sweep is green.  `opOperands` in
+`X86/Coverage.lean` is exhaustive over all thirty-six `Op` constructors, so the
+completeness question is answered by the compiler on every build.  The byte-side
+cross-check that this replaced — and why — is in the note on that function. -/
+
+/-- The vectors that carry a segment override at all. -/
+def segVectors : List Vec := vectors.filter (fun v => !(segEas v.instr).isEmpty)
+
+/-- And there are some, so the sweep below is not vacuous. -/
+theorem some_vector_carries_a_segment : segVectors.length = 8 := by decide
+
+/-- ⭐ EVERY LINEAR ADDRESS THIS MODEL COMPUTES THROUGH A SEGMENT IS CANONICAL,
+over every pre-state.  This is what bounds the departure named in
+`X86/Semantics.lean`. -/
+theorem segmentedAddressesAreCanonical :
+    (segVectors.all (fun v =>
+      (preStates 1 8).all (fun s =>
+        (segEas v.instr).all (fun e =>
+          canonical (e.addr s (s.rip + BitVec.ofNat 64 v.instr.len)))))) = true := by decide
+
+/-- ⭐⭐ AND THE ADDRESSES LAND WHERE THE WINDOWS ARE — the claim D72 says the
+whole observability of this batch rests on.  Every segmented access resolves
+into a WATCHED window in every pre-state; a displacement chosen for realism
+alone would fail here rather than pass by reading zeros on both sides. -/
+theorem segmentedAddressesLandInAWatchedWindow :
+    (segVectors.all (fun v =>
+      match v.instr.op with
+      -- `lea` performs no access, so it is exempt BY NAME rather than by the
+      -- sweep quietly not applying to it.
+      | .lea _ _ _ => true
+      | _ =>
+        (preStates 1 8).all (fun s =>
+          (segEas v.instr).all (fun e =>
+            let a := e.addr s (s.rip + BitVec.ofNat 64 v.instr.len)
+            -- ⚠️ EIGHT BYTES, not the operand's own width: 8 is the widest
+            -- access any of these forms makes, so demanding that the whole
+            -- eight fit is STRICTER than the truth for the narrow ones, which
+            -- is the direction a bound may err in.
+            windows.any (fun w =>
+              w.base ≤ a && a + 8 ≤ w.base + BitVec.ofNat 64 w.len))))) = true := by
+  decide
 
 end X86.Tests

@@ -81,6 +81,17 @@ jobs:
       - name: Shared-reduction red probe (6 conjuncts + control)
         run: ./scripts/sharing_redprobe.sh
 
+      # ⭐⭐ P2 ITEM 1 (D70, D71, D72). Four theorems landed with the segment
+      # base, and each of them is the kind that can be green because it is EMPTY
+      # rather than because it is true: an AST walk with a `_ => []` default, a
+      # canonicity sweep that bounds a NAMED departure from x86isa, and the
+      # window claim the whole OBSERVABILITY of the batch rests on -- an address
+      # outside the watched windows reads as zeros in both models and reports
+      # agreement about nothing. Each is planted alone and required to report
+      # `false`, with an unplanted positive control in the same run. 17 seconds.
+      - name: Segment-base red probe (4 arms + control)
+        run: ./scripts/segment_redprobe.sh
+
       # ⭐ P1 SEAL (D66). The demand-side census maps objdump mnemonics onto the
       # roster, and that mapping is where a coverage number inflates itself --
       # strip a suffix too eagerly and `movsbl` becomes the string move `movs`,

@@ -38,8 +38,16 @@ def Scale.toVal : Scale → Val
   | .s1 => 1 | .s2 => 2 | .s4 => 4 | .s8 => 8
 
 /-- An effective address: `base + index*scale + disp`, or `next_rip + disp` when
-RIP-relative.  Segment bases are not modelled (v0.x non-goal: FS/GS-relative
-addressing arrives with the thread-local-storage forms in P1). -/
+RIP-relative, plus the segment whose base a prefix selects.
+
+⭐⭐ P2 ITEM 1 ADDED `seg`, AND IT IS THE ONLY FIELD HERE THAT IS NOT PART OF THE
+OFFSET.  `base + index*scale + disp` is what the SDM calls the *effective
+address*; the segment base turns it into a *linear address* (SDM Vol. 3A §3.4).
+Two consumers want different ones of those, so `Ea` has two functions rather
+than one — `Ea.offset` and `Ea.addr` — and `lea` is the reason: **LEA writes the
+effective address, with no segment base added** (SDM Vol. 2A, LEA: "Computes the
+effective address of the second operand"), so a segment prefix on a `lea` is
+architecturally inert.  See the note on `Ea.addr` in `X86/Semantics.lean`. -/
 structure Ea where
   base : Option GPR := none
   index : Option GPR := none
@@ -48,6 +56,11 @@ structure Ea where
   disp : Val := 0
   /-- RIP-relative (ModR/M mod=00, r/m=101 in 64-bit mode). -/
   ripRel : Bool := false
+  /-- The segment override, if the encoding carried one (prefix `64` = FS,
+  `65` = GS).  `none` is every other case, including an explicit `%ds:`/`%ss:`
+  override, whose base is zero in 64-bit mode and which therefore has nothing
+  for this model to carry. -/
+  seg : Option Seg := none
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- An operand.  The operand WIDTH is not here: it is one datum on the

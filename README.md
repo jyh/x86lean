@@ -32,7 +32,7 @@ declaration in CI.
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
   it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
   oracle. Single-threaded, one instruction at a time.
-- **Instructions.** 84 mnemonics in 776 differentially tested forms, covering
+- **Instructions.** 84 mnemonics in 784 differentially tested forms, covering
   498 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. The moves, the ALU
   group at every width and operand shape including read-modify-write to memory,
@@ -44,7 +44,7 @@ declaration in CI.
   generated from the model: `T-exact` (the result and every flag the SDM defines
   are proved), `T-frame` (the defined parts proved, the undefined bits declared
   and drawn from the oracle), and a decode-trust column.
-- **Validation.** Every form is run against ACL2 x86isa on 66736 generated cases
+- **Validation.** Every form is run against ACL2 x86isa on 67424 generated cases
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
   execution, never a theorem about the other model.
@@ -212,7 +212,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 IN PROGRESS — 21 batches landed.** ⭐ **AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 1 batch landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -223,7 +223,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-776 vectors · 86 pre-states · 66736 cases · 0 unexplained · 0 oracle leaks
+784 vectors · 86 pre-states · 67424 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

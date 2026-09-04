@@ -563,4 +563,76 @@ def tierCounts (rows : List Row) : Nat × Nat × Nat :=
   , (rows.filter (fun r => r.tier == .frame)).length
   , (rows.filter (fun r => r.tier == .absent)).length )
 
+/-- ⭐⭐ EVERY OPERAND AN `Op` NAMES, WITH NO WILDCARD ARM.
+
+⛔ THE ABSENCE OF `| _ => []` IS THE WHOLE POINT, AND IT REPLACES A THEOREM.
+The first version of this function had a wildcard and a companion theorem
+comparing its answer against the ENCODED BYTES (`64`/`65` prefixes) over all
+784 vectors — a real second source, and it worked.  It also cost **4 200 ms of
+kernel time**, the second most expensive declaration in this module, measured:
+the byte half alone is 7.9 s standalone against 0.4 s for the AST half, because
+`String.toList` on 784 literals is what the kernel actually spends its time on.
+
+⇒ THE CEILING REFUSED IT AND NAMED A CHEAPER BUILD, which is the recurring shape
+in this repository ([[a-gate-that-refuses-names-a-cheaper-build]]).  Exhaustive,
+the completeness question is answered by the COMPILER on every build rather than
+by a sweep: a thirty-seventh `Op` constructor is a compile error here and forces
+whoever adds it to say whether it can carry a segment.  That is strictly stronger
+than the theorem it replaces — which could only have caught a constructor some
+VECTOR already used — and it costs nothing.
+
+⚠️ The byte-side check is not lost: `seg_findings` in `scripts/check_encodings.py`
+gates it, where a `%fs:` in the AT&T text, a `64`/`65` prefix in the bytes, and
+the `seg` field of the AST must agree — per vector and per SEGMENT — and where
+reading a string costs microseconds. -/
+def opOperands : Op → List Operand
+  | .mov _ dst src => [dst, src]
+  | .bin _ _ dst src => [dst, src]
+  | .un _ _ dst => [dst]
+  | .shift _ _ dst _ => [dst]
+  | .lea _ _ _ => []          -- its `Ea` is collected below, not as an operand
+  | .push _ src => [src]
+  | .pop _ dst => [dst]
+  | .jmp t => (match t with | .rel _ => [] | .indirect o => [o])
+  | .jcc _ _ => []
+  | .jcxz _ _ => []
+  | .rot _ _ dst _ => [dst]
+  | .bit _ _ dst off => [dst, off]
+  | .setcc _ dst => [dst]
+  | .cmov _ _ _ src => [src]
+  | .call t => (match t with | .rel _ => [] | .indirect o => [o])
+  | .movx _ _ _ _ src => [src]
+  | .cext _ => []
+  | .xchg _ a b => [a, b]
+  | .bswap _ _ => []
+  | .loop _ _ _ => []
+  | .flagop _ => []
+  | .nop dst => dst.toList
+  | .ud2 => []
+  | .ret => []
+  | .leave => []
+  | .shiftx _ _ _ src _ => [src]
+  | .movbe _ dst src => [dst, src]
+  | .bitcnt _ _ _ src => [src]
+  -- the string group addresses RSI/RDI by opcode: no operand field at all, and
+  -- therefore no place a segment override could be recorded in this AST.
+  | .strop _ _ => []
+  | .repstrop _ _ _ => []
+  | .muldiv _ _ src => [src]
+  | .imulr _ _ src _ => [src]
+  | .cmpxchg _ dst _ => [dst]
+  | .xadd _ dst _ => [dst]
+  | .dshift _ _ dst _ _ => [dst]
+  | .cmpxchg8b dst => [dst]
+
+/-- The segmented effective addresses an instruction names.  `lea`'s `Ea` is
+included deliberately even though `lea` performs no access: if a `lea`'s address
+were ever made non-canonical, `Ea.offset` would still be defined but the reader
+of these theorems is entitled to know. -/
+def segEas (i : Instr) : List Ea :=
+  let fromOps := (opOperands i.op).filterMap
+    (fun o => match o with | .mem e => some e | _ => none)
+  let fromLea := match i.op with | .lea _ _ e => [e] | _ => []
+  (fromOps ++ fromLea).filter (fun e => e.seg.isSome)
+
 end X86

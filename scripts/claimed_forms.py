@@ -108,7 +108,38 @@ HELDOUT_MBASE = 7
 # exclusion list always has ([[an-unrecorded-rule-cannot-be-audited]]).  An
 # unresolved vector NOT listed here is a finding exactly as before.  `--selftest`
 # carries an arm for each direction.
-SIB_BASE_EXEMPT = {"push_m_rsp", "pop_m_rsp"}
+# ⭐⭐ P2 ITEM 1 (BATCH 22) TURNED THIS FROM A SET INTO A TABLE WITH A REASON PER
+# ENTRY, and the reason is that the batch would otherwise have filed eight
+# segment-override vectors under a label that says "base %rsp forces a SIB byte".
+# That label was TRUE of both existing entries and is FALSE of the new eight,
+# and a printed tag nobody reads against its subject is exactly how a reassuring
+# comment outlives the thing it describes ([[ungated-prose-overclaims]],
+# [[an-unrecorded-rule-cannot-be-audited]]).  One list, one rule each, and the
+# rule is what gets printed.
+#
+# THE SEGMENT ENTRIES' RULE, stated so it can be argued with: a segment override
+# is a PREFIX (`64`/`65`) on an instruction whose roster row is already claimed
+# by its unsegmented sibling — `mov r,m`, `mov m,r`, `add m,r` and `lea r,m` are
+# all claimed without these vectors, and the claimed-row count does not move
+# when they are added (498 before, 498 after).  They exist to make the SEGMENT
+# BASE observable, which is a capability the census prices at 29,943
+# instructions and the roster does not describe at all — K's tree has no
+# separate rule for a prefixed `mov`.  So: no row, on purpose, and both
+# directions of the exemption stay gated exactly as batch 20 built them.
+CLAIMS_NO_ROW = {
+    "push_m_rsp":     "base %rsp forces a SIB byte; claims no row",
+    "pop_m_rsp":      "base %rsp forces a SIB byte; claims no row",
+    "mov_fs_abs_q":   "a segment override is a prefix on a row already claimed",
+    "mov_gs_abs_q":   "a segment override is a prefix on a row already claimed",
+    "mov_fs_abs_d":   "a segment override is a prefix on a row already claimed",
+    "mov_fs_base_q":  "a segment override is a prefix on a row already claimed",
+    "mov_fs_store_q": "a segment override is a prefix on a row already claimed",
+    "mov_fs_store_b": "a segment override is a prefix on a row already claimed",
+    "add_fs_rmw_q":   "a segment override is a prefix on a row already claimed",
+    "lea_fs_abs_q":   "a segment override is a prefix on a row already claimed",
+}
+
+SIB_BASE_EXEMPT = set(CLAIMS_NO_ROW)
 
 # Bases whose SOURCE operand width is fixed by the mnemonic (mixed-width moves).
 SRCW = {"movsb": "b", "movzb": "b", "movsw": "w", "movzw": "w", "movslq": "l"}
@@ -810,6 +841,18 @@ def selftest():
     # ⚠️ AND A DELETED PARAGRAPH IS ITS OWN ARM, because a gate that reads a
     # number cannot tell "the number is right" from "the sentence is gone".
     rd_saved = open("README.md").read()
+
+    def _mnem_anchor(txt):
+        """The shipped `N mnemonics in M differentially tested forms` phrase,
+        read rather than typed.  An empty string when the sentence is gone, so
+        the arm reports ANCHOR MISSING instead of silently matching."""
+        m = re.search(r'(\d+) mnemonics in (\d+)', txt)
+        return m.group(0) if m else ""
+
+    def _mnem_perturbed(txt):
+        m = re.search(r'(\d+) mnemonics in (\d+)', txt)
+        return f"{int(m.group(1)) - 1} mnemonics in {m.group(2)}" if m else ""
+
     plants = [
         ("the description's AVAILABLE-WORK zero, made one",
          "- 0 rows of available work", "- 1 rows of available work", None),
@@ -817,8 +860,19 @@ def selftest():
          "- 6 rows declined on record", "- 7 rows declined on record", None),
         ("the description's RESIDUE total, off by one",
          "reason** — 27 of 525", "reason** — 26 of 525", None),
+        # ⛔⛔ THIS PLANT IS DERIVED FROM THE README, AND IT USED TO BE THE
+        # LITERAL `"84 mnemonics in 776"`.  P2 batch 1 took the form count from
+        # 776 to 784 and this arm reported ANCHOR MISSING — the selftest of the
+        # gate whose whole purpose is to stop a hand-maintained number going
+        # stale had a hand-maintained number in it, and it went stale on the
+        # first batch that moved the figure.  ⇒ A GATE IS NOT EXEMPT FROM THE
+        # DEFECT IT POLICES, and the exemption is usually granted by nobody
+        # having looked at the gate's own body.  The plant now reads the shipped
+        # sentence and perturbs the count it finds there, so it cannot go stale
+        # again; a README that stops carrying the sentence still reports ANCHOR
+        # MISSING, which is the honest answer.
         ("the description's MNEMONIC count, off by one",
-         "84 mnemonics in 776", "83 mnemonics in 776", None),
+         _mnem_anchor(rd_saved), _mnem_perturbed(rd_saved), None),
         ("the description's residue paragraph, DELETED",
          "- 0 rows of available work", "", "does not state"),
     ]
@@ -1190,7 +1244,7 @@ def main():
         findings.append(f"{len(unres_real)} vector(s) resolve to NO roster row")
     if stale_exempt:
         findings.append(
-            f"{len(stale_exempt)} SIB-base-exempt vector(s) now RESOLVE, so the "
+            f"{len(stale_exempt)} claims-no-row vector(s) now RESOLVE, so the "
             f"exemption is stale: " + ", ".join(stale_exempt))
     if spurious:
         findings.append(
@@ -1232,7 +1286,7 @@ def main():
                   f"{rows[i]['base']} {rows[i]['shape']} shares encoding {e} "
                   f"with {rows[j]['base']} {rows[j]['shape']}")
         for v in unresolved:
-            tag = ("exempt (base %rsp forces a SIB byte; claims no row)"
+            tag = (f"exempt ({CLAIMS_NO_ROW.get(v['id'], 'no rule recorded')})"
                    if v["id"] in exempt_ids else "unresolved")
             mark = "  ⚠️  " if v["id"] in exempt_ids else "  ⛔ "
             print(f"{mark}{tag}: {v['id']:24s} {v['asm']:34s} {v['bytes']}")

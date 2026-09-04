@@ -133,10 +133,20 @@ def memToLisp (v : Vec) (s : Cpu) (ws : List Window) : String :=
       s!"(#x{hex64 a} . #x{hex8 (s.mem.read a)})"
   "(" ++ String.intercalate " " (insn ++ win) ++ ")"
 
+/-- ⭐⭐ P2 ITEM 1: THE SEGMENT BASES TRAVEL AS VALUES AND THE *INDICES* STAY IN
+THE LISP.  x86isa keeps FS's and GS's 64-bit bases in the IA32_FS_BASE and
+IA32_GS_BASE MSRs, addressed by ITS OWN internal indices
+(`*ia32_fs_base-idx*`) — numbers that mean nothing outside that model.  Emitting
+them from here would put an x86isa implementation detail in a Lean source file
+and would be a second place to keep it right; emitting the VALUES and letting
+`scripts/x86isa_driver.lisp` name the registers keeps each side saying what it
+alone knows.  The same reasoning `gprsToLisp` uses for `r.index`, one level up:
+there the encoding is architectural and shared, here it is not. -/
 def acl2Case (v : Vec) (idx : Nat) (pre : Cpu) (ws : List Window) : String :=
   s!"  (:id \"{v.id}/{idx}\" :rip #x{hex64 pre.rip} :len {v.instr.len}\n\
    :bytes {bytesToLisp v.bytes}\n\
    :gprs {gprsToLisp pre}\n\
+   :fsbase #x{hex64 pre.fsBase} :gsbase #x{hex64 pre.gsBase}\n\
    :rflags {rflagsToLisp pre.flags}\n\
    :mem {memToLisp v pre ws})"
 
@@ -1999,6 +2009,65 @@ def wrongCmpxchg8bStoresSwapped (i : Instr) (s : Cpu) : Cpu :=
           (s.setFlags { s.flags with zf := false }).setRip nr
   | _ => step i s
 
+/-! ### ⭐⭐ P2 ITEM 1 (BATCH 22) — the segment base's four planted defects
+
+Four arms, and they are four DIFFERENT claims rather than four spellings of one.
+Dropping the base, swapping the two bases, adding the base where the SDM says
+not to, and adding it to the load but not the store are each a model somebody
+would plausibly write, and each leaves the other three claims correct — so no
+one of them is caught by another's vector.
+
+⛔ THE FIRST ARM IS THE ONE THIS BATCH WAS MOST LIKELY TO HAVE SHIPPED, and it
+is also what says the pre-states earn their keep.  `%fs:0x28` with the base
+dropped is address 0x28, outside both watched windows — so if the vectors'
+displacements had been chosen for realism alone and not for where they LAND,
+this arm would have been an unobserved difference on the load side and an
+invisible store on the write side, and would have registered as agreement.
+
+⚠️ THE FIRST TWO ARMS PERTURB THE PRE-STATE RATHER THAN THE SEMANTICS, which is
+a different technique from every other arm in this file and is the honest one
+here: "the base is ignored" IS "the base is zero", and writing a second
+`Ea.addr` to say so would have planted a defect in a copy of the code rather
+than in the model under test. -/
+
+/-- ⛔ A SEGMENT OVERRIDE IS IGNORED — the effective address is used as the
+linear address, which is correct for CS/DS/ES/SS in 64-bit mode and wrong for
+exactly the two registers this batch added. -/
+def wrongSegBaseIgnored (i : Instr) (s : Cpu) : Cpu :=
+  step i { s with fsBase := 0, gsBase := 0 }
+
+/-- ⛔ FS AND GS READ EACH OTHER'S BASE.  Caught only because the two bases
+DIFFER in every pre-state (`mkPre`); with one base for both, this arm would be
+silent and the batch would have shipped an untested half. -/
+def wrongSegFsGsSwapped (i : Instr) (s : Cpu) : Cpu :=
+  step i { s with fsBase := s.gsBase, gsBase := s.fsBase }
+
+/-- ⛔⛔ `lea` ADDS THE SEGMENT BASE.  The one arm about the SPLIT rather than
+about the base: it plants the model in which `Ea.offset` and `Ea.addr` are the
+same function — which is what this repository had before this batch — and
+`leaq %fs:0x28, %rax` is the only vector that can see it. -/
+def wrongLeaAddsSegBase (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .lea sz dst ea =>
+      if s.stopped then s
+      else (s.setReg sz dst (ea.addr s nr)).setRip nr
+  | _ => step i s
+
+/-- ⛔ THE BASE REACHES THE LOAD BUT NOT THE STORE.  A `mov` to a segmented
+memory destination writes at the effective address — the shape a model takes
+when the base is added in `readOperand` alone, which is the natural place to put
+it first. -/
+def wrongSegStoreUnsegmented (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .mov sz (.mem ea) src =>
+      if s.stopped then s
+      else
+        let v := s.readOperand sz nr src
+        (s.writeMem sz (ea.offset s nr) v).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2148,7 +2217,15 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("cmpxchg8b merges EDX:EAX into RDX:RAX instead of zero-extending",
      wrongCmpxchg8bMergesRegisters, "rdx")
   , ("cmpxchg8b stores EBX:ECX instead of ECX:EBX",
-     wrongCmpxchg8bStoresSwapped, "mem@0000000000001fe0") ]
+     wrongCmpxchg8bStoresSwapped, "mem@0000000000001fe0")
+  -- ⭐⭐ P2 ITEM 1 (BATCH 22) — the segment base.  Four arms; the note above
+  -- their definitions says why they are four claims and not four spellings.
+  , ("a segment override is ignored", wrongSegBaseIgnored, "rax")
+  , ("fs and gs read each other's base", wrongSegFsGsSwapped, "rax")
+  , ("lea adds the segment base (the split that is the whole item)",
+     wrongLeaAddsSegBase, "rax")
+  , ("a segmented STORE lands at the effective address", wrongSegStoreUnsegmented,
+     "mem@0000000000001fe0") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -2176,6 +2253,19 @@ def main (args : List String) : IO UInt32 := do
       return 0
   | ["expected-lengths", out] =>
       writeLines out (vectors.map (fun v => s!"{v.id} {v.instr.len} {v.bytes}"))
+      return 0
+  -- ⭐⭐ P2 ITEM 1: THE AST'S OWN ANSWER TO "does this vector carry a segment
+  -- override", emitted so `seg_findings` in `scripts/check_encodings.py` can hold THREE
+  -- independent sources against each other — the hand-written AT&T text, the
+  -- ASSEMBLER's bytes, and this.  It replaces a Lean theorem that compared the
+  -- AST against the bytes over all 784 vectors and cost 4 200 ms of kernel time
+  -- doing it, almost all of that in `String.toList` (measured: 7.9 s for the
+  -- byte half alone against 0.4 s for the AST half).  Reading a string is what
+  -- Python is for; deciding a `match` is exhaustive is what the compiler is for.
+  | ["segment-decls", out] =>
+      writeLines out (vectors.map (fun v =>
+        let segs := (X86.segEas v.instr).filterMap Ea.seg
+        s!"{v.id} {match segs with | [] => "-" | g :: _ => g.name}"))
       return 0
   | ["compare", a, b] =>
       let ra := parseRecords (← readLines a)
@@ -2503,6 +2593,36 @@ into two documents and no gate.  And `Tests.Coverage` lost 42% of its kernel tim
 to a fact nobody had measured: the kernel's reduction cache spans a DECLARATION \
 and not two, so six theorems were re-reducing the same sweeps (see D63, D64, \
 D65).\n\n\
+P2 has added, by batch: 1 — THE FS/GS SEGMENT BASE IN `Ea`, the first of the \
+three scalar capabilities the Captain ordered into P2 and the first addition in \
+this repository priced by MEASURED DEMAND rather than by a roster row: 29,943 \
+instructions of the census's assembly class carry an FS or GS override, 3.26% \
+of the uncovered gap, and the commonest of them is the stack-protector load \
+`movq %fs:0x28, %rax` in the prologue of most compiled functions.  It claims NO \
+new roster row — a segment override is a PREFIX on rows already claimed — so \
+the roster's 498 does not move; what moves is what the model can execute.  In \
+64-bit mode CS/DS/ES/SS have no base and FS/GS keep a 64-bit MSR-loaded one \
+(SDM Vol. 3A §3.4.4), so the whole addition is two fields on `Cpu`, one field on \
+`Ea`, and a SPLIT: `Ea.offset` is the effective address that `lea` writes and \
+`Ea.addr` is the linear address a memory access uses, because LEA adds no \
+segment base and a single function would have been wrong for it.  The batch's \
+two findings are both about COST and OBSERVABILITY rather than about \
+semantics.  Two fields on `Cpu` — read by nothing else in the batch — blew the \
+heartbeat limit on three inherited `bsf`/`bsr` frame proofs that closed by \
+`rfl` over the whole record, because `undefVal` had never been given the frame \
+lemmas `undefBit` has had since P0; the repair makes those proofs independent \
+of the field count rather than raising a margin.  And the segment bases are \
+INPUTS no instruction writes, so by D27 they are deliberately absent from the \
+compared record and are observed only through the ADDRESS they produce — which \
+is why every vector's displacement is chosen to land inside a watched window: \
+`%fs:0x28` with the base dropped is address 0x28, where both models read zeros \
+and would have agreed about nothing.  A third finding is a cost one that bought \
+a stronger claim: the completeness check on the AST walk cost 4 200 ms of \
+kernel time, almost all of it `String.toList` over 784 literals, and the \
+ceiling's refusal replaced it with an EXHAUSTIVE `Op` match — the compiler \
+answers completeness now, for every constructor rather than only the ones some \
+vector uses — plus a three-source cross-check in the assembler gate (see D70, \
+D71, D72, D73, D74).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

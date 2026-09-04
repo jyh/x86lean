@@ -141,7 +141,7 @@ Tests.Anchors 801
 # Everything else is gated as ONE ABSOLUTE TAIL.
 Tests.Coverage @decl memDestSweep 19360
 Tests.Coverage @decl pre_states_have_a_returnable_frame 2912
-Tests.Coverage @decl vectorCoverage 2320
+Tests.Coverage @decl vectorCoverageXX 2320
 Tests.Coverage @tail 12420
 Tests.Nonvacuity 245
 Tests.Vectors 50

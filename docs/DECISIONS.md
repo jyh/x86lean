@@ -2642,3 +2642,146 @@ somebody re-runs it with a corpus; what changes is that nobody can read it belie
 Plus a byte-restore assertion, because a probe that edits its subject can leave it edited.
 
 **Reversal cost:** none — one comment line in a generated file and one flag.
+
+## D70 — the segment base is a MATCH, not a sum, and the reason is a heartbeat limit (P2 batch 1)
+
+**The decision.** `Ea.addr` is
+
+```lean
+match ea.seg with
+| none   => ea.offset s nextRip
+| some g => s.segBase (some g) + ea.offset s nextRip
+```
+
+and not the one-line `s.segBase ea.seg + ea.offset s nextRip`, even though
+`Ea.addr_eq_segBase_add` proves the two equal and the summed form is the one SDM Vol. 3A
+Figure 3-5 draws.
+
+**Why.** Written as a sum, every memory access in the model — the hundreds that carry no
+override — acquires a `BitVec 64` addition of zero that the kernel must still reduce. That is
+not a hypothetical: the summed form was written first, and it, together with the two new `Cpu`
+fields, blew the 200 000-heartbeat limit on three inherited `bsf`/`bsr` frame proofs before this
+batch had added a single instruction. Matched, the unsegmented path is byte-for-byte the old
+`Ea.addr` and reduces exactly as it did, so the cost lands only where the feature is used.
+
+**⚠️ The reading is preserved as a THEOREM rather than lost.** `Ea.addr_eq_segBase_add` states
+the SDM's own form and is checked; what changed is which of the two the kernel walks.
+
+**Reversal cost:** one definition; the theorem holds either way.
+
+## D71 — two fields on `Cpu` blew three proofs, and the repair is not a bigger margin (P2 batch 1)
+
+**What happened.** `fsBase` and `gsBase` are read by nothing in this batch except `Ea.addr`.
+Adding them to `Cpu` made `bitScanStep_mem`, `bitScanStep_rip` and `bitScanStep_zf` — three P1
+batch 14 frame lemmas — exceed `maxHeartbeats` at once. Removing the two fields (and changing
+nothing else) made all three pass again, which is how the cause was established rather than
+guessed.
+
+**The cause.** Those proofs ran `simp only [bitScanStep, Cpu.undefBit, Cpu.undefVal, …]` and
+closed with `split <;> rfl` — a defeq check over a `Cpu` record eight updates deep. `undefBit`
+has had frame lemmas (`undefBit_mem`, `undefBit_rip`, …) since P0; `undefVal`, added in batch 14
+alongside these very proofs, never got them, so there was nothing for `simp` to push a projection
+through and `rfl` did the whole record instead.
+
+**The decision.** Give `undefVal` the five frame lemmas its sibling has (plus the two new fields
+on both), and let the three proofs be `simp` rather than `rfl`. A `set_option maxHeartbeats`
+bump on the three would have been one line and would have left the next field to find the limit
+again.
+
+⇒ 🔑 **THE COST OF A STATE FIELD IS PAID BY EVERY WHOLE-RECORD PROOF, NOT BY THE FORMS THAT USE
+IT.** The fix that matters is the one that makes the cost stop scaling with the field count, not
+the one that buys room for two more fields. D8's kernel-cost discipline arriving as a design
+constraint rather than as a ceiling to raise.
+
+**Reversal cost:** none — the frame lemmas are true independently of the batch.
+
+## D72 — the segment bases are INPUTS, so they are not in the record, and the displacements pay for that (P2 batch 1)
+
+**The decision.** `Cpu.fsBase` and `Cpu.gsBase` are **not** emitted in the compared state record,
+and are fixed (0x1fd8 and 0x1fe8) in every pre-state.
+
+**Why not in the record.** No instruction in this roster writes either — `wrfsbase`, `wrgsbase`
+and `wrmsr` are not modelled, and `arch_prctl` is a system call. D27 is the standing rule for
+that situation: *a state component no instruction writes is a constant, and a comparator that
+watches a constant reports agreement it did not test.* Two more always-equal fields would have
+been two more lines of green about nothing.
+
+**⛔ What that costs, and what pays for it.** If the bases are not compared directly, the ONLY
+evidence that the model uses them is the address they produce — so every vector's displacement is
+chosen to make that address land inside a watched window. `%fs:0x28` with the base dropped is
+address 0x28, which is outside both windows, where our `Mem` reads 0 and the ACL2 driver renders
+an unmapped byte as `00`. A vector whose access lands there is batch 12's `leaveq` trap and batch
+15's backward string step a third time: **both models unobserved, and agreement that tested
+nothing.** `fsBase = 0x1fd8` puts the real displacement 0x28 on the swept operand at 0x2000; the
+`mov_fs_base_q` vector carries `-0x1fd8` for the same reason.
+
+**⚠️ And the two bases DIFFER by 0x10 rather than being equal.** With one value for both, a model
+that read GS's base for an FS access would agree in every case and half the addition would ship
+untested. `X86.Seg` has two constructors and a pre-state that cannot tell them apart tests one.
+
+**What is NOT closed, named rather than left to be found.** x86isa's `ea-to-la` requires the
+resulting LINEAR address to be canonical and faults if it is not, for segmented and unsegmented
+accesses alike. This model checks canonicity on branch targets only (D9) and on no data address.
+This batch does not widen that gap — the bases are fixed and small — and does not close it.
+
+**Reversal cost:** two fields and eight vectors.
+
+## D73 — the completeness check cost 4 200 ms, and the ceiling named a build that costs nothing (P2 batch 1)
+
+**What was there.** `segEas` reads an instruction's AST and returns its segmented effective
+addresses. A `match` with a `_ => []` default is the shape whose gaps all fall the silent way — a
+constructor it forgot would make the batch's two sweeps EMPTY, and an empty sweep is green — so it
+shipped with a companion theorem comparing its answer against the **encoded bytes** (`64`/`65`
+prefixes) over all 784 vectors. A real second source, and it worked.
+
+**What it cost.** 4 200 ms of kernel time: the second most expensive declaration in
+`Tests.Coverage`, behind `memDestSweep`, and enough to take the module's `@tail` ceiling from
+12 420 to 12 770 and fail the gate.
+
+**Measured rather than assumed.** Split into halves and timed standalone: the byte side **7.9 s**,
+the AST side **0.4 s**. The whole cost is `String.toList` reducing 784 string literals in the
+kernel. Nothing about the claim was expensive; the representation was.
+
+**The decision — two pieces, neither of which is a raised ceiling.**
+
+1. `X86.opOperands` is **exhaustive over all thirty-six `Op` constructors, with no wildcard arm.**
+   The completeness question is now answered by the COMPILER on every build. That is strictly
+   stronger than the theorem it replaces, which could only ever have caught a constructor some
+   VECTOR already used; a thirty-seventh constructor is now a compile error that forces whoever
+   adds it to say whether it can carry a segment.
+2. The byte side became `seg_findings` in `scripts/check_encodings.py`, where an assembler is
+   already running, and grew a THIRD source while it moved: the hand-written AT&T text, the
+   assembler's prefix byte, and the AST's `seg` field must agree **per vector and per segment** —
+   because reading GS's base for an FS access is one of this batch's four planted defects. Its
+   red-first arms doctor each of the three sources alone, plus a control, on every invocation
+   rather than behind a flag.
+
+⇒ 🔑 **A CEILING THAT REFUSES NAMES A CHEAPER BUILD, AND THE CHEAPER BUILD IS USUALLY STRONGER.**
+The obvious repair was `@tail 12420 → 13500`. What the refusal actually bought was a compile-time
+completeness guarantee and a third independent source, for zero kernel time. This is D62's shape
+(a blocked repair blocked one DESIGN, not the goal) arriving in a cost gate rather than a unit
+problem.
+
+**Reversal cost:** one function's arms and one Python block.
+
+## D74 — the gate that polices stale literals had a stale literal in its own selftest (P2 batch 1)
+
+`scripts/claimed_forms.py` exists because a published number was a hand-maintained literal and was
+ELEVEN LOW for eighteen batches (D56). Its `--selftest` plants a defect in each README claim and
+requires the gate to catch it. One of those plants was the string `"84 mnemonics in 776"`.
+
+P2 batch 1 took the form count from 776 to 784, and that arm reported **ANCHOR MISSING** — the arm
+had gone stale, and had it been one of the arms whose absence is quiet rather than announced, the
+selftest would have shrunk in silence.
+
+⇒ 🔑 **A GATE IS NOT EXEMPT FROM THE DEFECT IT POLICES**, and the exemption is granted by nobody
+reading the gate's own body. The plant now DERIVES its anchor from the shipped sentence
+(`_mnem_anchor`) and perturbs the count it finds there, so it cannot go stale again; a README that
+stops carrying the sentence still reports ANCHOR MISSING, which is the honest answer rather than a
+pass.
+
+⚠️ **The failure mode was announced here and is not everywhere.** This arm printed `[ANCHOR
+MISSING]`. That behaviour is what made a five-minute finding out of it, and it is worth naming as
+the reason the pattern is safe: an arm that had simply not matched would have counted as a pass.
+
+**Reversal cost:** two helper functions.
