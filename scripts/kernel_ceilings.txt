@@ -139,9 +139,24 @@ Tests.Anchors 801
 # read 708 and then 513) and the COUNT of attributed declarations moved 26/27/28
 # between runs. A ceiling there would be noise with a margin on it.
 # Everything else is gated as ONE ABSOLUTE TAIL.
+# ⛔⛔ P2 BATCH 1 SHIPPED THIS FILE CORRUPTED FOR ONE COMMIT, AND THE CAUSE IS
+# WORTH MORE THAN THE REPAIR.  `afcde4a` carried
+# `Tests.Coverage @decl vectorCoverageXX 2320` — a ceiling on a declaration that
+# does not exist, which is exactly the defect `kernel_cost.py --selftest`'s third
+# arm PLANTS.  It was committed because `git add -A` ran while that selftest was
+# mid-arm: the probe MUTATES THIS FILE IN THE TREE and restores it afterwards,
+# so for a few seconds the working tree legitimately contains a planted defect.
+# ⇒ 🔑 A PROBE THAT EDITS THE TREE MAKES `git add -A` A RACE, and the window is
+# invisible because the probe's own output says nothing about the tree.  P1's
+# seal moved `sharing_redprobe.sh` OUT of the tree for the neighbouring reason (a
+# cleanup that only runs on a clean exit is not cleanup, a467a22); this one is
+# still in-tree, and until it is moved the rule is: NEVER STAGE WHILE A PROBE
+# THAT WRITES THE TREE IS RUNNING.  The restoration is `2ec…` below this line in
+# the history; CI on `afcde4a` is expected RED on the kernel-cost step and that
+# red is understood.
 Tests.Coverage @decl memDestSweep 19360
 Tests.Coverage @decl pre_states_have_a_returnable_frame 2912
-Tests.Coverage @decl vectorCoverageXX 2320
+Tests.Coverage @decl vectorCoverage 2320
 Tests.Coverage @tail 12420
 Tests.Nonvacuity 245
 Tests.Vectors 50

@@ -24,7 +24,16 @@ import os, re, subprocess, sys, glob, json
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
-CEIL_FILE = "scripts/kernel_ceilings.txt"
+# ⭐⭐ P2 BATCH 1 (D75) — THE CEILINGS PATH IS A SEAM, AND IT IS A SEAM BECAUSE A
+# COMMIT SHIPPED A PLANTED DEFECT.  `--selftest` used to mutate this file IN THE
+# TREE and restore it afterwards; `afcde4a` was staged inside that window and
+# pushed `@decl vectorCoverageXX` — the exact string the third arm plants — to
+# both remotes.  ⇒ A PROBE THAT EDITS THE TREE MAKES `git add -A` A RACE, and
+# the window is invisible: this script's output says nothing about the tree, and
+# the planted line is one character from a legitimate one.  With the seam the
+# probe writes only under TMPDIR and the repository is never touched, which is
+# the same move the P1 seal made for `scripts/sharing_redprobe.sh` (a467a22).
+CEIL_FILE = os.environ.get("X86LEAN_CEIL_FILE", "scripts/kernel_ceilings.txt")
 # Headroom over the measured baseline.  Generous enough that ordinary noise on a
 # loaded machine does not fail a build, tight enough that a real regression does.
 HEADROOM = 3.0
@@ -337,6 +346,8 @@ def selftest():
     edited."""
     import shutil, tempfile
     saved = open(CEIL_FILE).read()
+    probe_dir = tempfile.mkdtemp(prefix="x86lean-ceilprobe-")
+    probe_ceil = os.path.join(probe_dir, "kernel_ceilings.txt")
     arms = [
         ("a declaration OVER its ceiling",
          lambda t: re.sub(r"(@decl memDestSweep )\S+", r"\g<1>100", t),
@@ -357,9 +368,13 @@ def selftest():
     bad = []
     try:
         for name, mutate, expect in arms:
-            open(CEIL_FILE, "w").write(mutate(saved))
+            # ⛔ THE MUTATION GOES TO A TEMP FILE AND THE CHILD IS POINTED AT IT.
+            # Nothing under the repository is written; see D75 and the note on
+            # CEIL_FILE for the commit that paid for this line.
+            open(probe_ceil, "w").write(mutate(saved))
             r = subprocess.run([sys.executable, os.path.abspath(__file__)],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True,
+                               env=dict(os.environ, X86LEAN_CEIL_FILE=probe_ceil))
             out = r.stdout + r.stderr
             ok = r.returncode != 0 and expect in out
             print(("  ✔ " if ok else "  ⛔ ") + name +
@@ -367,15 +382,20 @@ def selftest():
             if not ok:
                 bad.append(name)
     finally:
-        open(CEIL_FILE, "w").write(saved)
-    # ⭐ THE POSITIVE CONTROL, LAST AND AFTER THE RESTORE: four reds prove the
-    # gate can fail; only this proves it can pass, and that the probe put the
-    # ceiling file back exactly as it found it.
+        shutil.rmtree(probe_dir, ignore_errors=True)
+    # ⭐ THE POSITIVE CONTROL: four reds prove the gate can fail; only this proves
+    # it can pass.
+    #
+    # ⚠️ ITS BYTE CHECK IS NOW TRIVIALLY TRUE, AND IS KEPT ON PURPOSE.  With the
+    # seam the probe cannot write the shipped file, so "byte-restored" is no
+    # longer a fact about a restore — it is the REGRESSION GUARD if the seam is
+    # ever removed and the mutations come back into the tree.  Stated rather
+    # than left to read as a live check (D75).
     r = subprocess.run([sys.executable, os.path.abspath(__file__)],
                        capture_output=True, text=True)
     ok = r.returncode == 0 and open(CEIL_FILE).read() == saved
     print(("  ✔ " if ok else "  ⛔ ") +
-          "control: the shipped ceilings PASS, and the file is byte-restored")
+          "control: the shipped ceilings PASS, and the tree file is UNTOUCHED")
     if not ok:
         bad.append("control")
     if bad:

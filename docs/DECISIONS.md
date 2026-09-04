@@ -2785,3 +2785,49 @@ MISSING]`. That behaviour is what made a five-minute finding out of it, and it i
 the reason the pattern is safe: an arm that had simply not matched would have counted as a pass.
 
 **Reversal cost:** two helper functions.
+
+## D75 — a probe that edits the tree makes `git add -A` a race, and this batch lost it (P2 batch 1)
+
+**What happened.** Commit `afcde4a` — this batch's own commit — shipped
+`scripts/kernel_ceilings.txt` carrying `Tests.Coverage @decl vectorCoverageXX 2320`: a ceiling on
+a declaration that does not exist. That string is not a typo. It is exactly what
+`kernel_cost.py --selftest`'s **third arm plants**, and it was in the working tree because
+`git add -A` ran while that selftest was mid-arm. The probe restores the file when it finishes; it
+had not finished. The commit was pushed to both tiers before the selftest returned, so CI on
+`afcde4a` is expected RED on the kernel-cost step, and that red is understood.
+
+⇒ 🔑 **A PROBE THAT EDITS THE TREE MAKES `git add -A` A RACE**, and the window is invisible:
+nothing in the probe's output mentions the tree, `git status` during the window looks like ordinary
+work in progress, and the planted line is one character from a legitimate one.
+
+**The repair, in the order it matters.**
+
+1. **The seam.** `CEIL_FILE` is now read from `X86LEAN_CEIL_FILE`, and `--selftest` writes each
+   mutation to a file in a temp directory and points the child at it. The probe no longer writes
+   inside the repository at all — the same move P1's seal made for `sharing_redprobe.sh` (a467a22)
+   for the neighbouring reason: *a cleanup that only runs on a clean exit is not cleanup*. Here
+   the failure needed no crash, only a concurrent `git add`.
+2. **The control keeps its byte check**, which is now trivially true. That is deliberate: it is
+   the regression guard if the seam is ever removed, and it says so.
+
+⚠️ **What this does NOT fix.** `check_readme_snapshot.py --selftest` and
+`claimed_forms.py --selftest` also mutate tracked files in place and restore them. They are
+correct as written and are not touched here, but they carry the same race. Until they take the
+same seam, the standing rule is: **never stage while a probe that writes the tree is running.**
+
+**The receipt, measured in the condition the seam exists for.** With the seam in place, the
+tracked `scripts/kernel_ceilings.txt` was sampled **30 times over 60 s while `--selftest` was
+running**: `differed=0`, with a `lean` child alive in **23 of the 30** samples — so the sampling
+was inside the arms rather than between them. Before the seam the file was mutated for the WHOLE
+of each arm, so all 23 of those samples would have differed. That is the positive control on the
+observation, not merely on the result.
+
+⚠️ **And a probe-subject defect of my own, found while taking that receipt.** The first version of
+this check counted occurrences of `vectorCoverageXX` in the file — and found one, because the
+sentence you are reading QUOTES the planted string. `read_ceilings` does `line.split("#")[0]`, so a
+`#`-prefixed line yields nothing and the quote is inert; but the probe could not tell a quotation
+from a plant. It counts ACTIVE (non-comment) lines now, and compares the file's sha against a
+snapshot rather than grepping for a string. *A probe that greps for the defect's TEXT cannot tell
+the defect from a description of it.*
+
+**Reversal cost:** one environment variable.
