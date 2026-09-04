@@ -396,6 +396,24 @@ def selftest():
     ok = r.returncode == 0 and open(CEIL_FILE).read() == saved
     print(("  ✔ " if ok else "  ⛔ ") +
           "control: the shipped ceilings PASS, and the tree file is UNTOUCHED")
+    # ⛔⛔ AND WHEN IT FAILS, PRINT WHY.  This arm used to DISCARD `r.stdout`, so a
+    # CI log said only "a control failed" and never named the declaration that
+    # was over its ceiling — the reading a developer actually needs, and the one
+    # that cannot be recovered from a remote runner afterwards.  It cost two
+    # diagnosis cycles (D94) before it was worth fixing: both times the answer
+    # was only obtainable by re-running the whole gate locally, on a DIFFERENT
+    # machine from the one that failed, which for a TIMING gate is precisely the
+    # measurement that cannot be transferred.
+    #
+    # ⇒ 🔑 A GATE THAT REFUSES MUST SAY WHAT IT SAW.  A refusal with no reading
+    # attached turns every remote failure into a local re-run, and for anything
+    # machine-dependent the local re-run answers a different question.
+    if not ok:
+        if r.returncode == 0:
+            print("     (the ceiling file was MODIFIED by the probe — a restore failed)")
+        print("     ── the failing run's own output ──")
+        for line in (r.stdout + r.stderr).splitlines():
+            print("     " + line)
     if not ok:
         bad.append("control")
     if bad:
