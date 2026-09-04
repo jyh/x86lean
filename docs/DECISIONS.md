@@ -3955,3 +3955,73 @@ when the oracle is done and the machine is quiet, which is the condition the cei
 under.
 
 **Reversal cost:** one CI step removed, one line added to the batch runner.
+
+## D98 — the census's staleness stamp caught the model moving and said nothing about the MAPPING that did not (P2 vector wave, batch 9 — OPEN)
+
+**Found by CI**, on step 13, another step that had not run in 49 commits:
+
+```
+⛔ THE CENSUS IS STALE. docs/DEMAND-CENSUS.md was generated against a model of 84
+   mnemonics (sha a0f1…); the model is now 107 (sha b7d0…).
+```
+
+The anti-staleness stamp is correct and it fired for the right reason: the vector wave took the model
+from 84 mnemonics to 107.
+
+### 1. The regeneration, and what it showed
+
+The corpus was rebuilt from the recipe in the document — 10 Debian packages plus 9 debug packages,
+`vmlinux` carved out of the `vmlinuz` xz payload, vlc split into its `codec` and `video_chroma`
+columns (52 and 19 objects, matching the document's own counts). `demand_census.py --corpus --debug`
+ran clean.
+
+⭐ **Every column's instruction TOTAL reproduced exactly** — `cc1` 5,379,923, `coreutils` 879,551,
+`vmlinux-kernel` 2,781,898, all eleven identical to the cached JSON. The corpus is reproducible from
+the recorded recipe, which is the document's central claim about itself.
+
+⛔ **AND EVERY COVERAGE PERCENTAGE WAS UNCHANGED — +0.0 IN ALL ELEVEN COLUMNS.** After the model
+gained `movdqa` (12.85% of the measured gap), `paddd`, `movdqu`, `movq`, `movd` and eighteen more,
+the census reported *exactly* the same coverage. The regenerated `.json` is byte-identical to the
+committed one.
+
+### 2. Why: a second list, ungated
+
+```python
+def to_roster(m):          # objdump mnemonic -> roster name
+    ...
+    return None            # anything outside EXACT / SUFFIXED / STRING / REPS / cc-families
+```
+
+Every vector mnemonic maps to `None`, and `covered = (r is not None and kind == "plain" and r in
+model)` — so they are counted as **not covered whatever the model says**. `to_roster` is a
+hand-maintained allow-list that has to grow when the roster grows, and nothing checks that it did.
+
+⇒ 🔑 **AN ANTI-STALENESS GATE OVER TWO COUPLED ARTIFACTS REPORTS ONLY ABOUT THE ONE IT HASHES.** The
+stamp hashes the MODEL. The mapping is the other half of the derivation and is invisible to it — so
+the gate fired, I regenerated, and the regenerated document is still wrong. **A stamp that forces a
+regeneration can make a stale number look freshly computed**, which is worse than the stamp not
+existing, because the regeneration reads as diligence.
+
+⚠️ **And the direction is the unpoliced one.** The census UNDER-claims: it reports the model covering
+less of real binaries than it does. An over-claim looks like a mistake; an under-claim looks like
+modesty, and nobody audits modesty.
+
+### 3. ⛔ Why this is recorded OPEN rather than fixed
+
+The repair is not one line. `to_roster` needs a fallback for mnemonics the roster already names — but
+`_split` *also* routes any non-`plain` operand kind to `outscope`, and that rule exists to stop the
+census claiming `movq %xmm0, %rax` through the roster's scalar `mov`. That exclusion was **correct**
+when the model had no vector forms; it is wrong now, but only for the forms actually modelled
+(register-to-register, out-of-XMM, and the memory `movdqa`/`movdqu`), and relaxing it carelessly
+produces an **OVER-claim** — the direction the whole `kind` mechanism was built to prevent (its
+comment records 28,019 instructions once counted as two opposite residues at once).
+
+⇒ It is a batch: the mapping must grow with the roster, and the out-of-scope rule must distinguish
+vector forms the model now covers from those it does not. Rushing it at the end of a session would
+trade a known under-claim for an unknown over-claim.
+
+**The regenerated document is deliberately NOT committed.** Its stamp would read 107 while its numbers
+still under-claim — a green gate over a wrong document. The red is accurate: the census *is* stale in
+the sense that matters, and it should stay loud until the mapping is fixed.
+
+**Reversal cost:** none — nothing was changed.
