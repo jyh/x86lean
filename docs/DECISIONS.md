@@ -3339,3 +3339,60 @@ a standalone one-arm invocation (5m41s) was **wrong by ~2×**, because a filtere
 whole startup; the marginal per-arm figure is the one that predicts a batch.
 
 **Reversal cost:** two quotation marks.
+
+## D89 — D83's defect, one disassembler over: GNU objdump wraps its byte column at seven (P2 vector wave, batch 1, CI repair)
+
+**What the first CI run in forty-nine commits found.** With `ci.yml` parsing again (D88), step 8 —
+the encoding cross-check — failed on **24 of 804 forms**, every one of them reported as **exactly
+seven bytes**:
+
+```
+cmp_rip_q      model len=11  assembler says 7   48813df51fc0ff
+movabs_q       model len=10  assembler says 7   48b88877665544
+mov_fs_abs_q   model len= 9  assembler says 7   64488b04252800
+```
+
+**Diagnosed from the data alone, with no Linux machine.** Every reported byte string is a strict
+**prefix** of the model's, cut at a constant 7 — `movabs_q` is `48b8 8877665544 | 332211`. A cut that
+does not vary with the instruction is a **column width**, not an encoding disagreement: the assembler
+emitted the same bytes and the *reader* stopped. **The model is right; the harness truncates.**
+
+**The cause.** GNU objdump (binutils, on the x86-64 CI runner) wraps its hex dump at seven bytes per
+line and continues on the next line with an address and **no mnemonic**; LLVM objdump (Apple, on the
+arm64 developer machine — `Apple LLVM version 21.0.0`) puts them all on one line. The parse matched
+bytes on ONE line, so on Linux every instruction over seven bytes lost its tail.
+
+⇒ 🔑 **D83's OWN RULE, ONE PLATFORM OVER, PLUS THE HALF IT DID NOT SAY.** D83 wrote *a harness that
+truncates its own reading cannot see a model that truncates the same way*, and *column-filling is a
+property of the widest datum*. What it missed is that **the column belongs to the TOOL, not to the
+data** — so the widest datum has to be tried against every tool the project will use. Here that is
+not a hypothetical second tool: CI is deliberately x86-64 because that is the lane plan v1 §4.4's
+hardware co-simulation runs on.
+
+⚠️ **And the direction is the dangerous one again.** The gate reported `len=7` for a ten-byte
+instruction, so a model that had truncated to 7 would have **agreed with it**. It fired only because
+the model is right — the same reason D83 fired.
+
+⚠️ **AND IT WAS INVISIBLE FOR FORTY-NINE COMMITS BECAUSE OF D88.** This is a live gate failure that a
+non-parsing workflow file had been hiding. The two findings compound: an absent CI does not merely
+fail to catch new defects, it **conceals the ones already present**, and it conceals them behind a
+red tick that looks like a check with an opinion.
+
+**The decision.** One `parse_objdump(text)` used by **both** call sites — D83's lesson was that the
+two are the same literal and a repair applied to one half-lands. A byte line whose bytes are followed
+by nothing is a continuation and is appended to the instruction it continues, guarded by **address
+arithmetic**: a continuation must begin exactly where the previous instruction's bytes ran to, and a
+label resets the chain. This is the same treatment the `f0` LOCK prefix already gets in this file.
+
+**The gate runs on EVERY invocation, not behind `--selftest`.** It is pure string processing —
+microseconds — and it is the only thing on an arm64 Mac that can hold the Linux path, because macOS
+objdump cannot produce a wrapped sample. A check this cheap should not be skippable.
+
+⚠️ **The third sample exists because the first two could not see the guard.** With the
+address-arithmetic condition deleted, the GNU and LLVM samples both still passed: every neighbouring
+line in them carries a mnemonic, so nothing was ever swallowed, and **a control drawn from that half
+of the space is silent about over-eager folding**. `_GAP_SAMPLE` puts a mnemonic-less line at a
+non-contiguous address; without the guard `gap_q` reads five bytes instead of three. Probed both ways:
+folding off ⇒ `movabs_q` truncates to 7 (the CI defect, restored); guard off ⇒ the gap arm fires.
+
+**Reversal cost:** one function, two call sites, three samples.

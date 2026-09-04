@@ -20,6 +20,140 @@ os.chdir(root)
 def run(cmd, **kw):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True, **kw)
 
+# ══════════════════════════════════════════════════════════════════════════
+# ⛔⛔⛔ THE BYTE COLUMN BELONGS TO THE DISASSEMBLER, NOT TO THE INSTRUCTION.
+#
+# D83 repaired this parse once: the pattern was `(?:[0-9a-f]{2} )+` — each byte
+# followed by a SPACE — which dropped the last byte of any instruction long
+# enough to fill objdump's byte column, because there the final byte abuts the
+# TAB before the mnemonic.  `movabsq $imm64, %r64` is ten bytes and read back as
+# NINE.  That repair was correct and is still here.
+#
+# ⛔ IT WAS ALSO VALIDATED AGAINST EXACTLY ONE DISASSEMBLER.  The developer
+# machine is arm64 macOS, where `objdump` is Apple LLVM; CI is x86-64 Linux,
+# where it is GNU binutils — and **GNU objdump WRAPS its hex dump at seven bytes
+# per line**, continuing on the next line with an address and NO mnemonic:
+#
+#     0:   48 b8 88 77 66 55 44    movabs $0x1122334455667788,%rax
+#     7:   33 22 11
+#
+# LLVM puts all ten on one line.  So the one-line parse silently truncated every
+# instruction over seven bytes on Linux, and the first CI run in forty-nine
+# commits reported 24 of 804 forms as exactly seven bytes long — a CONSTANT,
+# independent of the instruction, which is the signature of a column width and
+# not of an encoding disagreement.  Every reported string was a strict PREFIX of
+# the model's bytes.
+#
+# ⇒ 🔑 D83's OWN RULE, ONE PLATFORM OVER — "a harness that truncates its own
+# reading cannot see a model that truncates the same way" — plus the part it did
+# not say: **the column belongs to the TOOL, so the widest datum must be tried
+# against every tool the project will use.**  x86-64 Linux is not incidental
+# here; it is the lane the hardware co-simulation will run on.
+#
+# ⚠️ And the direction is again the dangerous one: the gate reported len=7 for a
+# ten-byte instruction, so a model that had truncated to 7 would have AGREED.
+_LABEL_RE = re.compile(r'^([0-9a-f]+) <([^>]+)>:')
+_BYTE_RE  = re.compile(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )*[0-9a-f]{2})(.*)$')
+
+
+def parse_objdump(text, fold_continuations=True):
+    """(labels, by_addr) from `objdump -d`, for EITHER disassembler.
+
+    A line whose bytes are followed by NOTHING is a GNU continuation line and is
+    appended to the instruction it continues.  The fold is guarded by ADDRESS
+    ARITHMETIC — a continuation must begin exactly where the previous
+    instruction's bytes ran to — so a mnemonic-less line that is not a
+    continuation cannot be swallowed.  `fold_continuations=False` exists only so
+    the selftest can drive the defect back in and see a RED.
+    """
+    labels, by_addr, last = {}, {}, None
+    for line in text.splitlines():
+        m = _LABEL_RE.match(line.strip())
+        if m:
+            labels[m.group(2)] = int(m.group(1), 16)
+            last = None                      # a continuation cannot cross a label
+            continue
+        m = _BYTE_RE.match(line)
+        if not m:
+            continue
+        addr, bs, tail = int(m.group(1), 16), m.group(2).split(), m.group(3)
+        if (fold_continuations and tail.strip() == "" and last is not None
+                and addr == last + len(by_addr[last])):
+            by_addr[last].extend(bs)
+        else:
+            by_addr[addr] = list(bs)
+            last = addr
+    return labels, by_addr
+
+
+# ⭐ THE PARSER'S OWN GATE, RUN ON EVERY INVOCATION rather than behind a
+# `--selftest` flag.  It is pure string processing — microseconds — and it is the
+# ONLY thing on this machine that can hold the Linux path: macOS objdump cannot
+# produce a wrapped sample, so a developer here would never otherwise see the
+# format that broke CI.  A check this cheap should not be skippable
+# (D-note: a discipline expensive to exercise gets exercised less; this one is
+# free, so it runs always).
+_GNU_SAMPLE = (
+    "0000000000000000 <movabs_q>:\n"
+    "   0:\t48 b8 88 77 66 55 44 \tmovabs $0x1122334455667788,%rax\n"
+    "   7:\t33 22 11 \n"
+    "000000000000000a <short_q>:\n"
+    "   a:\t48 89 c8             \tmov    %rcx,%rax\n")
+_LLVM_SAMPLE = (
+    "0000000000000000 <movabs_q>:\n"
+    "       0: 48 b8 88 77 66 55 44 33 22 11\tmovabsq\t$1234605616436508552, %rax\n"
+    "000000000000000a <short_q>:\n"
+    "       a: 48 89 c8\tmovq\t%rcx, %rax\n")
+
+
+# ⚠️ A THIRD SAMPLE, AND IT EXISTS BECAUSE THE FIRST TWO COULD NOT SEE THE GUARD.
+# Removing the address-arithmetic condition from the fold left both samples above
+# still passing — their neighbouring lines all carry mnemonics, so nothing was
+# ever swallowed, and a control drawn from that half of the space is silent about
+# over-eager folding.  Here a mnemonic-less byte line sits at a NON-CONTIGUOUS
+# address (9, where the instruction at 0 ended at 3): it must NOT be folded, and
+# without the guard it is, making `gap_q` read five bytes instead of three.
+_GAP_SAMPLE = (
+    "0000000000000000 <gap_q>:\n"
+    "   0:\t48 89 c8             \tmov    %rcx,%rax\n"
+    "   9:\tde ad \n")
+
+
+def _selftest_parser():
+    bad = []
+    for name, sample in (("GNU (wrapped)", _GNU_SAMPLE), ("LLVM (one line)", _LLVM_SAMPLE)):
+        labels, by_addr = parse_objdump(sample)
+        got = len(by_addr.get(labels.get("movabs_q", -1), []))
+        if got != 10:
+            bad.append(f"{name}: movabs_q read as {got} bytes, expected 10")
+        got_s = len(by_addr.get(labels.get("short_q", -1), []))
+        if got_s != 3:
+            bad.append(f"{name}: short_q read as {got_s} bytes, expected 3 "
+                       f"(a neighbour was swallowed)")
+    # ⭐ THE RED ARM: with folding off, the GNU sample MUST truncate to 7. A
+    # parser that passes both samples either way is not folding anything, and
+    # would report CLEAN about a defect it no longer detects.
+    labels, by_addr = parse_objdump(_GNU_SAMPLE, fold_continuations=False)
+    if len(by_addr.get(labels["movabs_q"], [])) != 7:
+        bad.append("RED ARM: with continuation-folding DISABLED the GNU sample "
+                   "did not truncate to 7 — this gate is not testing what it claims")
+    # ⭐ THE GUARD'S OWN ARM: a mnemonic-less line at a non-contiguous address is
+    # NOT a continuation and must be left alone.
+    labels, by_addr = parse_objdump(_GAP_SAMPLE)
+    if len(by_addr.get(labels["gap_q"], [])) != 3:
+        bad.append(f"GAP: gap_q read as {len(by_addr.get(labels['gap_q'], []))} "
+                   f"bytes, expected 3 — a mnemonic-less line at a "
+                   f"NON-CONTIGUOUS address was folded in")
+    if bad:
+        print("⛔ the objdump parser's own selftest FAILED — the byte column is "
+              "being read wrongly, so every length below would be suspect:")
+        for b in bad:
+            print("   " + b)
+        sys.exit(2)
+
+
+_selftest_parser()
+
 tmp = tempfile.mkdtemp()
 asm, exp = os.path.join(tmp, "v.s"), os.path.join(tmp, "exp.txt")
 obj = os.path.join(tmp, "v.o")
@@ -39,29 +173,10 @@ r = run(f"objdump -d {obj}")
 if r.returncode != 0:
     print("⛔ objdump failed:\n" + r.stderr); sys.exit(2)
 
-# Map label -> address, and collect instruction addresses in order.
-labels, addrs = {}, []
-for line in r.stdout.splitlines():
-    m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
-    if m:
-        labels[m.group(2)] = int(m.group(1), 16); continue
-    # ⛔⛔ P2 ITEM 3 FOUND THIS BY BEING THE LONGEST ENCODING IN THE TABLE.
-    # The pattern used to be `(?:[0-9a-f]{2} )+` — each byte followed by a
-    # SPACE — which silently DROPPED THE LAST BYTE of any instruction long
-    # enough to fill objdump's byte column, because there the final byte abuts
-    # the TAB before the mnemonic instead of a space.  `movabsq $imm64, %r64`
-    # is ten bytes, the first form in this repository to reach that width, and
-    # it read back as NINE.
-    # ⇒ 🔑 AND THE DIRECTION IS THE FINDING: the gate would have reported
-    # `len=9` for a ten-byte instruction, so a model that claimed 9 would have
-    # AGREED WITH IT.  A harness that truncates its own reading cannot see a
-    # model that truncates the same way.  Latent since P0; only the longest
-    # encoding could expose it.
-    m = re.match(r'^\s*([0-9a-f]+):\s+([0-9a-f]{2}(?: [0-9a-f]{2})*)(?:\s|$)', line)
-    if m:
-        addrs.append((int(m.group(1), 16), m.group(2).split()))
+# Map label -> address and address -> bytes (see `parse_objdump`).
+labels, by_addr = parse_objdump(r.stdout)
 
-by_addr = {a: b for a, b in addrs}
+
 
 # ⭐⭐ P2 ITEM 2: THE `lock` PREFIX IS A SEPARATE objdump LINE, AND JOINING IT IS
 # NOT COSMETIC.  objdump disassembles `f0 48 01 0b` as TWO lines — `f0  lock`
@@ -324,26 +439,12 @@ r = run(f"objdump -d {sobj}")
 if r.returncode != 0:
     print("⛔ objdump failed on the synonym object:\n" + r.stderr); sys.exit(2)
 
-slabels, saddrs = {}, {}
-for line in r.stdout.splitlines():
-    m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
-    if m:
-        slabels[m.group(2)] = int(m.group(1), 16); continue
-    # ⛔⛔ P2 ITEM 3 FOUND THIS BY BEING THE LONGEST ENCODING IN THE TABLE.
-    # The pattern used to be `(?:[0-9a-f]{2} )+` — each byte followed by a
-    # SPACE — which silently DROPPED THE LAST BYTE of any instruction long
-    # enough to fill objdump's byte column, because there the final byte abuts
-    # the TAB before the mnemonic instead of a space.  `movabsq $imm64, %r64`
-    # is ten bytes, the first form in this repository to reach that width, and
-    # it read back as NINE.
-    # ⇒ 🔑 AND THE DIRECTION IS THE FINDING: the gate would have reported
-    # `len=9` for a ten-byte instruction, so a model that claimed 9 would have
-    # AGREED WITH IT.  A harness that truncates its own reading cannot see a
-    # model that truncates the same way.  Latent since P0; only the longest
-    # encoding could expose it.
-    m = re.match(r'^\s*([0-9a-f]+):\s+([0-9a-f]{2}(?: [0-9a-f]{2})*)(?:\s|$)', line)
-    if m:
-        saddrs[int(m.group(1), 16)] = "".join(m.group(2).split())
+# ⛔ THE SECOND CALL SITE, fixed with the FIRST and by the same function.
+# D83's whole lesson was that these two are the same literal, and a repair
+# applied to one of them is a repair that half-landed.
+_slabels, _sby = parse_objdump(r.stdout)
+slabels = _slabels
+saddrs = {a: "".join(b) for a, b in _sby.items()}
 
 sbad = []
 for i, (a, b) in enumerate(SYNONYMS):
