@@ -45,6 +45,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # level, so an import RUNS it and takes this process's argv with it.  Its output
 # is consumed through the JSON, which is the artifact anyway.
 import k_roster as K
+# ⭐ AND the P2 availability table, which is a MEASUREMENT of the oracle rather
+# than a reading of it.  This import is only possible because that file's bare
+# `sys.exit(main())` was guarded — the first attempt to reuse its runner ran the
+# P1 gate and exited this process instead.
+import oracle_availability as OA
 
 CENSUS_JSON = os.path.join(root, "docs", "DEMAND-CENSUS.md.json")
 
@@ -265,6 +270,84 @@ by this table's sort.
     fh.write("`" + "`, `".join(m for m, _o, _s in b["supply_only"][:60]) + "`\n")
     if len(b["supply_only"]) > 60:
         fh.write(f"\n…and {len(b['supply_only'])-60} more.\n")
+
+    # ── what the oracle can actually answer, MEASURED ──
+    dem, _cols = demand(d)
+    vec = collections.Counter()
+    for ck, occ in dem.items():
+        mn, route = join_key(ck)
+        if route == "vector":
+            vec[mn] += occ
+    # ⛔ ONE VERDICT PER MNEMONIC, NOT ONE PER PROBE.  `movq_xmm` and `movq_mmx`
+    # are two probes of the same census key (`movq`), and `paddw` is probed at
+    # both an xmm and an mm operand — because the CENSUS pools an MMX and an SSE
+    # spelling under one mnemonic, which is a real limit of a mnemonic-level
+    # count and not something this join can undo.  Counting per probe added
+    # `movq`'s 28,019 twice and `paddw`'s once too often, in the direction that
+    # makes the oracle look better than it is.
+    verdict = {}
+    conflict = []
+    for label, _asm, _b, _e0, e1 in OA.P2_FORMS:
+        if label.startswith(("CONTROL", "ADD")):
+            continue
+        mn = label.split("_")[0]
+        if mn in verdict and verdict[mn] != e1:
+            conflict.append(mn)
+        verdict[mn] = "refuses" if conflict and mn in conflict else e1
+    ex = rf = 0
+    ex_names, rf_names = [], []
+    for mn, v in sorted(verdict.items()):
+        occ = vec.get(mn, 0)
+        if v == "executes":
+            ex += occ; ex_names.append(mn)
+        else:
+            rf += occ; rf_names.append(mn)
+    probed = ex + rf
+    fh.write("\n## What the oracle can answer — measured, not read\n\n")
+    fh.write(f"""`scripts/oracle_availability.py --p2` runs every form below on ACL2
+x86isa under **two CR4 settings**, with an always-executes control and an
+always-refuses control in each arm.
+
+⛔ **The first reading of this said P2 had no oracle at all, and it was a finding
+about the PRE-STATES.** Twenty of twenty vector forms refused, both controls
+behaving. The oracle's own fault record said `#UD Encountered!` and `CR4` read
+**0**: P0 and P1 only ever needed scalar integer instructions, so SSE was never
+enabled and x86isa raised #UD exactly as hardware would. Setting
+`CR4.OSFXSR|OSXMMEXCPT` makes `movdqa`, `paddd` and `vpaddd` execute.
+
+| | mnemonics | occurrences | share of the gap |
+|---|---|---|---|
+| the oracle EXECUTES | {len(ex_names)} | {ex:,} | {100.0*ex/b['total_uncovered']:.1f}% |
+| the oracle REFUSES | {len(rf_names)} | {rf:,} | {100.0*rf/b['total_uncovered']:.1f}% |
+| **probed so far** | {len(ex_names)+len(rf_names)} | **{probed:,}** | **{100.0*probed/b['total_uncovered']:.1f}%** |
+
+So of the demand probed, **{100.0*ex/probed:.0f}% has an oracle** — after a
+one-line change to the pre-states, and not before it.
+
+⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
+were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
+rank 4 in the demand list, 2.31% of the whole gap, refusing in the same run in
+which `movdqa` beside it executes. The nine the oracle does not have are
+`{'`, `'.join(rf_names)}`.
+
+⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
+two disagree the pessimistic one is taken: the census pools an MMX and an SSE
+spelling of `paddw` under a single key, so its demand cannot be split between
+the batches by mnemonic at all. Conflicts on this run: {conflict or 'none'}.
+
+⛔ **AVX-512 refuses in BOTH arms** — the one batch this oracle cannot answer,
+and the only one that needs another (K as an executable oracle, Sail, or the
+hardware co-simulation on kenai).
+
+⚠️⚠️ **AND "EXECUTES" IS NOT "DIFFERENTIABLE".** The oracle running a form
+without a fault says it can be ASKED. It does not say the harness can SEE the
+answer: `x86l-post` reports 16 GPRs, RIP, the flags and two memory windows, and
+`X86/State.lean` has no vector register file at all. A P2 differential run today
+would execute every vector form on both sides and observe none of their results
+— which does not report "unknown", it positively reports agreement. **That is
+P2's real harness cost, and this run does not reduce it by one line.**
+
+""")
 
     # ── the wave, as batches ──
     fh.write("\n## The wave\n\n")

@@ -201,7 +201,189 @@ def report(forms, res, n, quiet=False):
             print(f"  {mark} {mn:22s} {asm:26s} {got:9s} ({e} executed, {r} refused)")
     return bad
 
+
+# ══════════════════════════════════════════════════════════════════════════
+# ⭐⭐ P2's ORACLE-AVAILABILITY RUN (the Captain's 09/03 P2 word).
+#
+# The P2 roster prices its wave from K's tree, which is a CATALOGUE reading, and
+# every batch in it is priced "runnable pending an oracle-availability run".
+# This is that run, against the ORACLE — ACL2 x86isa, the differential partner,
+# which is a different artifact from the coverage target list.
+#
+# ⛔⛔ THE FIRST READING WAS A FINDING ABOUT THE PRE-STATES, NOT ABOUT THE ORACLE,
+# AND IT POINTED THE WRONG WAY BY 86% OF THE GAP.  Twenty of twenty vector forms
+# refused — `movdqa`, `paddd`, every `v`-form — with both controls behaving.  Had
+# that gone to the Captain it would have said P2's first three batches have no
+# oracle at all, which would have killed the phase.  The oracle's own fault
+# record said otherwise: `#UD Encountered!`, and `(ctri 4 x86)` read **0**.
+# CR4.OSFXSR was never set, because P0 and P1 only ever needed scalar integer
+# instructions, so x86isa raised #UD on SSE exactly as hardware would.
+#
+# ⇒ 🔑 A REFUSAL IS A FINDING ABOUT THE STATE UNTIL PROVED OTHERWISE, and the
+# proof is an ARM THAT CHANGES THE STATE — not a reading of the model's source.
+# So the discrimination lives in this gate rather than in a sentence about it:
+# every form runs under BOTH CR4 settings, and both readings are declared.
+#
+# ⚠️ AND A REFUSE-ALWAYS CONTROL RIDES IN THE CR4-ON ARM.  Without `movnti`,
+# "I set a bit and everything started executing" is indistinguishable from a
+# discriminator that has stopped discriminating
+# ([[feedback-a-refusing-form-needs-a-refuse-always-control]]).
+#
+# ⚠️⚠️ AND "EXECUTES" IS NOT "DIFFERENTIABLE".  x86isa running a form without a
+# fault says the ORACLE can be asked.  It does not say the harness can SEE the
+# answer: `x86l-post` reports 16 GPRs, RIP, the flags and two memory windows,
+# and `X86/State.lean` has no vector register file at all (absent at P0 on
+# purpose).  A P2 differential run today would execute every vector form on both
+# sides and OBSERVE none of their results — which does not report "unknown", it
+# positively reports agreement ([[feedback-unobserved-regions-report-agreement]]).
+# THAT is P2's harness cost, and this run does not reduce it by one line.
+CR4_OFF = "nil"
+CR4_ON  = "'((4 . #x600))"          # OSFXSR | OSXMMEXCPT — what an OS sets
+
+# (label, asm, bytes, expect at CR4=0, expect at CR4=0x600)
+#
+# ⚠️ THE CR4=0 COLUMN FOR THE SSE ROWS IS A PREDICTION, NOT A SECOND READING.
+# Those forms were measured only at CR4=0x600; "refuses with SSE disabled" is
+# what the hardware rule says must happen, so it is DECLARED here and the gate
+# measures it on every run.  A prediction a gate tests immediately is worth
+# having; a prediction written into prose is not.
+P2_FORMS = [
+    # ── batch 1, SSE-legacy (xmm): 67.3% of the measured gap ──
+    ("movdqa",     "movdqa (%rbx), %xmm0",        "660f6f03",     "refuses", "executes"),
+    ("paddd",      "paddd %xmm1, %xmm0",          "660ffec1",     "refuses", "executes"),
+    ("movdqu",     "movdqu (%rbx), %xmm0",        "f30f6f03",     "refuses", "executes"),
+    ("movaps",     "movaps (%rbx), %xmm0",        "0f2803",       "refuses", "executes"),
+    ("pxor",       "pxor %xmm1, %xmm0",           "660fefc1",     "refuses", "executes"),
+    ("pshufd",     "pshufd $0x1b, %xmm1, %xmm0",  "660f70c11b",   "refuses", "executes"),
+    ("paddw",      "paddw %xmm1, %xmm0",          "660ffdc1",     "refuses", "executes"),
+    ("movd",       "movd %ecx, %xmm0",            "660f6ec1",     "refuses", "executes"),
+    ("movss",      "movss (%rbx), %xmm0",         "f30f1003",     "refuses", "executes"),
+    ("punpcklwd",  "punpcklwd %xmm1, %xmm0",      "660f61c1",     "refuses", "executes"),
+    ("por",        "por %xmm1, %xmm0",            "660febc1",     "refuses", "executes"),
+    ("movups",     "movups (%rbx), %xmm0",        "0f1003",       "refuses", "executes"),
+    ("psrad",      "psrad $0x3, %xmm0",           "660f72e003",   "refuses", "executes"),
+    ("psubw",      "psubw %xmm1, %xmm0",          "660ff9c1",     "refuses", "executes"),
+    ("punpcklbw",  "punpcklbw %xmm1, %xmm0",      "660f60c1",     "refuses", "executes"),
+    ("punpckhwd",  "punpckhwd %xmm1, %xmm0",      "660f69c1",     "refuses", "executes"),
+    ("movsd",      "movsd (%rbx), %xmm0",         "f20f1003",     "refuses", "executes"),
+    ("pand",       "pand %xmm1, %xmm0",           "660fdbc1",     "refuses", "executes"),
+    ("punpckldq",  "punpckldq %xmm1, %xmm0",      "660f62c1",     "refuses", "executes"),
+    ("psllw",      "psllw $0x2, %xmm0",           "660f71f002",   "refuses", "executes"),
+    ("packuswb",   "packuswb %xmm1, %xmm0",       "660f67c1",     "refuses", "executes"),
+    ("movq_xmm",   "movq %xmm0, %rax",            "66480f7ec0",   "refuses", "executes"),
+    # ⛔⛔ AND THE NINE THE ORACLE DOES NOT HAVE, WHICH IS WHY A BATCH CANNOT BE
+    # PRICED FROM A SAMPLE OF ITS OWN MEMBERS.  `pmaddwd` is rank 4 in the demand
+    # list — 21,239 occurrences, 2.31% of the whole gap — and it refuses with SSE
+    # fully enabled, in the same run in which `movdqa` beside it executes.  Seven
+    # forms had been probed and all seven executed; the eighth did not.
+    ("pmaddwd",    "pmaddwd %xmm1, %xmm0",        "660ff5c1",     "refuses", "refuses"),
+    ("psubusw",    "psubusw %xmm1, %xmm0",        "660fd9c1",     "refuses", "refuses"),
+    ("psadbw",     "psadbw %xmm1, %xmm0",         "660ff6c1",     "refuses", "refuses"),
+    ("pmullw",     "pmullw %xmm1, %xmm0",         "660fd5c1",     "refuses", "refuses"),
+    ("pmaxsw",     "pmaxsw %xmm1, %xmm0",         "660feec1",     "refuses", "refuses"),
+    ("pminsw",     "pminsw %xmm1, %xmm0",         "660feac1",     "refuses", "refuses"),
+    ("pshufb",     "pshufb %xmm1, %xmm0",         "660f3800c1",   "refuses", "refuses"),
+    ("pmulhrsw",   "pmulhrsw %xmm1, %xmm0",       "660f380bc1",   "refuses", "refuses"),
+    ("palignr",    "palignr $0x4, %xmm1, %xmm0",  "660f3a0fc104", "refuses", "refuses"),
+    # ── batch 2, AVX2/AVX (ymm): 11.8% ──
+    ("vmovdqa_y",  "vmovdqa (%rbx), %ymm0",       "c5fd6f03",     "refuses", "executes"),
+    ("vpaddd_y",   "vpaddd %ymm1, %ymm2, %ymm0",  "c5edfec1",     "refuses", "executes"),
+    # ── batch 3, VEX-128: 6.8% ──
+    ("vpxor_x",    "vpxor %xmm1, %xmm2, %xmm0",   "c5e9efc1",     "refuses", "executes"),
+    # ── batch 4, MMX: 4.7%.  ⭐ MMX predates SSE and needs no CR4 bit — which is
+    #    itself the control that says the CR4 arm is changing the right thing. ──
+    ("movq_mmx",   "movq %mm1, %mm0",             "0f6fc1",       "executes", "executes"),
+    ("paddw_mmx",  "paddw %mm1, %mm0",            "0ffdc1",       "executes", "executes"),
+    # ── batch 5, AVX-512: 3.7%.  ⛔ REFUSES IN BOTH ARMS — the one batch this
+    #    oracle cannot answer at all, and the only one that needs another. ──
+    ("vmovdqa32",  "vmovdqa32 (%rbx), %zmm0",     "62f17d486f03", "refuses", "refuses"),
+    ("vpaddw_z",   "vpaddw %zmm1, %zmm2, %zmm0",  "62f16d48fdc1", "refuses", "refuses"),
+    # ── batch 6, CET-IBT: 1.8% ──
+    ("endbr64",    "endbr64",                     "f30f1efa",     "executes", "executes"),
+    # ── the three additions, in the Captain's order: ALL THREE ALREADY EXECUTE ──
+    ("ADD1:mov %gs:", "movq %gs:0x28, %rax",      "65488b042528000000", "executes", "executes"),
+    ("ADD2:lock incl", "lock incl (%rbx)",        "f0ff03",       "executes", "executes"),
+    ("ADD3:movabsq", "movabsq $0x123456789abc, %rax",
+                                    "48b8bc9a785634120000", "executes", "executes"),
+    # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
+    ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
+    ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),
+]
+
+
+def measure_cr4(forms, ctrs):
+    """One reading per form under a given CR4, taken through `init-x86-state-64`
+    directly so the control-register argument is reachable.
+
+    ⚠️ EVERY READING CARRIES ITS OWN LABEL IN THE OUTPUT LINE.  The first version
+    of this probe printed unlabelled results and they were read off by POSITION,
+    which is a reading no one can check and which was wrong the first time it was
+    tried."""
+    lines = ['(include-book "projects/x86isa/tools/execution/init-state" '
+             ':dir :system :ttags :all)',
+             '(include-book "projects/x86isa/machine/x86" :dir :system :ttags :all)',
+             "(set-fmt-hard-right-margin 100000 state)",
+             "(set-fmt-soft-right-margin 99000 state)",
+             '(in-package "X86ISA")']
+    for label, _asm, hx, _e0, _e1 in forms:
+        mem = " ".join("(#x%016x . #x%s)" % (0x400000 + k, hx[2*k:2*k+2])
+                       for k in range(len(hx) // 2))
+        lines.append(
+            "(b* (((mv flg x86) (init-x86-state-64 nil #x400000 "
+            "'((0 . #x400000) (3 . #x2000)) %s nil nil nil nil nil #x2 '(%s) x86))"
+            " (x86 (!app-view t x86))"
+            " (x86 (x86-fetch-decode-execute x86)))"
+            ' (prog2$ (cw "P2RESULT tag=%s flg=~x0 refused=~x1~%%" flg'
+            " (if (or (ms x86) (fault x86)) 1 0)) x86))"
+            % (ctrs, mem, tag_of(label)))
+    tmp = tempfile.mkdtemp(prefix="x86lean-p2-")
+    drive = os.path.join(tmp, "drive.lsp")
+    open(drive, "w").write("\n".join(lines) + "\n")
+    out = os.path.join(tmp, "out.txt")
+    with open(out, "w") as fh:
+        subprocess.run([ACL2], stdin=open(drive), stdout=fh,
+                       stderr=subprocess.STDOUT)
+    got = {}
+    for m in re.finditer(r"P2RESULT tag=(\S+) flg=(\S+) refused=(\d)",
+                         open(out).read()):
+        got[m.group(1)] = "refuses" if m.group(3) == "1" else "executes"
+    return got
+
+
+def p2_run():
+    bad, rows = [], []
+    off = measure_cr4(P2_FORMS, CR4_OFF)
+    on = measure_cr4(P2_FORMS, CR4_ON)
+    for label, asm, _hx, e0, e1 in P2_FORMS:
+        t = tag_of(label)
+        g0, g1 = off.get(t), on.get(t)
+        if g0 is None or g1 is None:
+            bad.append((label, "a reading is MISSING, and a missing reading is "
+                               "not a refusal"))
+            continue
+        if (g0, g1) != (e0, e1):
+            bad.append((label, "declared (%s, %s), MEASURED (%s, %s)"
+                        % (e0, e1, g0, g1)))
+        rows.append((label, asm, e0, e1, g0, g1))
+    print("P2 oracle availability — ACL2 x86isa, one reading per form per CR4 arm\n")
+    print(f"  {'form':18s} {'asm':32s} {'CR4=0':>10s} {'CR4=0x600':>11s}")
+    for label, asm, e0, e1, g0, g1 in rows:
+        mark = "✔" if (g0, g1) == (e0, e1) else "⛔"
+        print(f"  {mark} {label:16s} {asm:32s} {g0:>10s} {g1:>11s}")
+    if bad:
+        print("\n⛔ P2 oracle-availability gate: FAIL")
+        for mn, why in bad:
+            print(f"    {mn}: {why}")
+        return 1
+    print("\nP2 oracle-availability gate: CLEAN — every declaration matches the "
+          "oracle's own behaviour under BOTH CR4 settings, the always-executes "
+          "control executed in both arms, and the always-refuses control refused "
+          "in both.")
+    return 0
+
 def main():
+    if "--p2" in sys.argv:
+        return p2_run()
     check = "--check" in sys.argv
     if "--selftest" in sys.argv:
         # ⭐ RED FIRST, BOTH DIRECTIONS.  A gate that has only ever been seen
@@ -251,4 +433,11 @@ def main():
           "oracle's own behaviour, and both controls executed.")
     return 0
 
-sys.exit(main())
+# ⛔ GUARDED.  This file used to end in a bare `sys.exit(main())`, so IMPORTING
+# it ran the P1 gate and took the importing process's exit with it — which is
+# exactly what happened the first time the P2 probe below tried to reuse
+# `measure()` rather than copy it.  A module that cannot be imported forces the
+# next tool to duplicate its runner, and a duplicated runner is one that can
+# disagree with itself ([[feedback-duplicate-born-in-agreement]]).
+if __name__ == "__main__":
+    sys.exit(main())

@@ -13,3 +13,4 @@
 
 # Harness run products
 /run/
+__pycache__/

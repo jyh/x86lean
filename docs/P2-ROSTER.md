@@ -131,6 +131,52 @@ K has semantics for these and the corpus never executes one. Cheap to model; wor
 
 …and 125 more.
 
+## What the oracle can answer — measured, not read
+
+`scripts/oracle_availability.py --p2` runs every form below on ACL2
+x86isa under **two CR4 settings**, with an always-executes control and an
+always-refuses control in each arm.
+
+⛔ **The first reading of this said P2 had no oracle at all, and it was a finding
+about the PRE-STATES.** Twenty of twenty vector forms refused, both controls
+behaving. The oracle's own fault record said `#UD Encountered!` and `CR4` read
+**0**: P0 and P1 only ever needed scalar integer instructions, so SSE was never
+enabled and x86isa raised #UD exactly as hardware would. Setting
+`CR4.OSFXSR|OSXMMEXCPT` makes `movdqa`, `paddd` and `vpaddd` execute.
+
+| | mnemonics | occurrences | share of the gap |
+|---|---|---|---|
+| the oracle EXECUTES | 26 | 492,232 | 53.6% |
+| the oracle REFUSES | 11 | 79,863 | 8.7% |
+| **probed so far** | 37 | **572,095** | **62.3%** |
+
+So of the demand probed, **86% has an oracle** — after a
+one-line change to the pre-states, and not before it.
+
+⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
+were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
+rank 4 in the demand list, 2.31% of the whole gap, refusing in the same run in
+which `movdqa` beside it executes. The nine the oracle does not have are
+`palignr`, `pmaddwd`, `pmaxsw`, `pminsw`, `pmulhrsw`, `pmullw`, `psadbw`, `pshufb`, `psubusw`, `vmovdqa32`, `vpaddw`.
+
+⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
+two disagree the pessimistic one is taken: the census pools an MMX and an SSE
+spelling of `paddw` under a single key, so its demand cannot be split between
+the batches by mnemonic at all. Conflicts on this run: none.
+
+⛔ **AVX-512 refuses in BOTH arms** — the one batch this oracle cannot answer,
+and the only one that needs another (K as an executable oracle, Sail, or the
+hardware co-simulation on kenai).
+
+⚠️⚠️ **AND "EXECUTES" IS NOT "DIFFERENTIABLE".** The oracle running a form
+without a fault says it can be ASKED. It does not say the harness can SEE the
+answer: `x86l-post` reports 16 GPRs, RIP, the flags and two memory windows, and
+`X86/State.lean` has no vector register file at all. A P2 differential run today
+would execute every vector form on both sides and observe none of their results
+— which does not report "unknown", it positively reports agreement. **That is
+P2's real harness cost, and this run does not reduce it by one line.**
+
+
 ## The wave
 
 Batches are cut by ISA bucket, because that is the axis on which
