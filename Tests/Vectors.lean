@@ -2371,9 +2371,9 @@ def vectors : List Vec :=
   -- decoding observable, and it is the same reason the GPR vectors do not all
   -- use %rax.
   , { id := "movdqa_xx", mnemonic := "movdqa", asm := "movdqa %xmm1, %xmm0"
-    , bytes := "660f6fc1", instr := ⟨.vmov true .x0 .x1, 4⟩ }
+    , bytes := "660f6fc1", instr := ⟨.vmov .dqa .x0 .x1, 4⟩ }
   , { id := "movdqu_xx", mnemonic := "movdqu", asm := "movdqu %xmm1, %xmm0"
-    , bytes := "f30f6fc1", instr := ⟨.vmov false .x0 .x1, 4⟩ }
+    , bytes := "f30f6fc1", instr := ⟨.vmov .dqu .x0 .x1, 4⟩ }
   , { id := "paddb_xx", mnemonic := "paddb", asm := "paddb %xmm1, %xmm0"
     , bytes := "660ffcc1", instr := ⟨.vbin .addb .x0 .x1, 4⟩ }
   , { id := "paddw_xx", mnemonic := "paddw", asm := "paddw %xmm1, %xmm0"
@@ -2413,9 +2413,9 @@ def vectors : List Vec :=
   -- and was false; the arm is what found it, exactly as P1 batch 20's three
   -- order claims were found by asking what a predicted green does not contain.
   , { id := "movdqa_x4x5", mnemonic := "movdqa", asm := "movdqa %xmm5, %xmm4"
-    , bytes := "660f6fe5", instr := ⟨.vmov true .x4 .x5, 4⟩ }
+    , bytes := "660f6fe5", instr := ⟨.vmov .dqa .x4 .x5, 4⟩ }
   , { id := "movdqu_x4x5", mnemonic := "movdqu", asm := "movdqu %xmm5, %xmm4"
-    , bytes := "f30f6fe5", instr := ⟨.vmov false .x4 .x5, 4⟩ }
+    , bytes := "f30f6fe5", instr := ⟨.vmov .dqu .x4 .x5, 4⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 3 — THE MEMORY FORMS.  RBX is 0x2000 in every
   -- pre-state, which is 16-byte ALIGNED and sits inside the 64-byte data window
@@ -2440,16 +2440,16 @@ def vectors : List Vec :=
   -- models execute it, and it is what says the effective address is computed and
   -- used rather than the base register being read directly.
   , { id := "movdqa_load_m", mnemonic := "movdqa", asm := "movdqa (%rbx), %xmm0"
-    , bytes := "660f6f03", instr := ⟨.vload true .x0 { base := some .rbx }, 4⟩ }
+    , bytes := "660f6f03", instr := ⟨.vload .dqa .x0 { base := some .rbx }, 4⟩ }
   , { id := "movdqa_store_m", mnemonic := "movdqa", asm := "movdqa %xmm0, (%rbx)"
-    , bytes := "660f7f03", instr := ⟨.vstore true { base := some .rbx } .x0, 4⟩ }
+    , bytes := "660f7f03", instr := ⟨.vstore .dqa { base := some .rbx } .x0, 4⟩ }
   , { id := "movdqu_load_m", mnemonic := "movdqu", asm := "movdqu (%rbx), %xmm0"
-    , bytes := "f30f6f03", instr := ⟨.vload false .x0 { base := some .rbx }, 4⟩ }
+    , bytes := "f30f6f03", instr := ⟨.vload .dqu .x0 { base := some .rbx }, 4⟩ }
   , { id := "movdqu_store_m", mnemonic := "movdqu", asm := "movdqu %xmm0, (%rbx)"
-    , bytes := "f30f7f03", instr := ⟨.vstore false { base := some .rbx } .x0, 4⟩ }
+    , bytes := "f30f7f03", instr := ⟨.vstore .dqu { base := some .rbx } .x0, 4⟩ }
   , { id := "movdqu_load_unal", mnemonic := "movdqu", asm := "movdqu 8(%rbx), %xmm0"
     , bytes := "f30f6f4308"
-    , instr := ⟨.vload false .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+    , instr := ⟨.vload .dqu .x0 { base := some .rbx, disp := 8 }, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
@@ -2488,6 +2488,74 @@ def vectors : List Vec :=
   -- ⚠️ `punpckl` and `punpckh` read DISJOINT halves of their inputs, so a
   -- pre-state whose two halves agreed could not tell them apart — the arm below
   -- is what measures whether these pre-states actually do.
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — THE MOVE FAMILY COMPLETED.  Ranks 2, 5, 6
+  -- and 11 of the measured demand list (`movaps` 21,011 · `movss` 16,067 ·
+  -- `movups` 13,587 · `movsd` 9,175 — 59,840 instructions, 11.2% of the gap).
+  --
+  -- ⭐ ALL FOUR WERE MEASURED EXECUTING ON THE ORACLE BEFORE ONE LINE OF THIS
+  -- BATCH WAS WRITTEN, and that measurement is the reason this batch exists
+  -- rather than the one the candidate list ranked first: `pmaddwd` (rank 1) and
+  -- `psubusw` (rank 3) REFUSE on x86isa, in the same run in which `movaps`
+  -- beside them executes.  A roster ranks demand; it does not rank buildability.
+  --
+  -- ⭐⭐ AND "EXECUTES" WAS NOT TAKEN FOR "IMPLEMENTS".  The merge rule below was
+  -- probed on the oracle directly — xmm0 all-ones, xmm1 a byte ramp, memory a
+  -- second ramp — with three controls covering the three candidate behaviours
+  -- (`movdqa` full copy · `movd` merge, its known defect D93 · `movq %xmm,%xmm`
+  -- zero).  x86isa returned the SDM's answer in all four discriminating cases.
+  -- That is what makes this batch differentially validatable where batch 5's
+  -- `movd` was not.
+
+  -- `movaps`/`movups` between registers.  ⚠️ `movaps_x4x5` exists for the reason
+  -- `movdqa_x4x5` does — with only x0←x1 vectors, a model that ignored the
+  -- register fields entirely would be bit-identical to this one (batch 5's
+  -- finding, and it is not re-learned here).
+  , { id := "movaps_xx", mnemonic := "movaps", asm := "movaps %xmm1, %xmm0"
+    , bytes := "0f28c1", instr := ⟨.vmov .aps .x0 .x1, 3⟩ }
+  , { id := "movaps_x4x5", mnemonic := "movaps", asm := "movaps %xmm5, %xmm4"
+    , bytes := "0f28e5", instr := ⟨.vmov .aps .x4 .x5, 3⟩ }
+  , { id := "movups_xx", mnemonic := "movups", asm := "movups %xmm1, %xmm0"
+    , bytes := "0f10c1", instr := ⟨.vmov .ups .x0 .x1, 3⟩ }
+  -- The memory forms.  RBX is 0x2000, 16-byte aligned, so `movaps` does not
+  -- fault here.  ⛔ THERE IS NO UNALIGNED `movaps` VECTOR, for exactly the reason
+  -- there is no unaligned `movdqa` one: the oracle does not implement the check
+  -- (D91).  `movups_load_unal` is the unaligned case that CAN be validated.
+  , { id := "movaps_load_m", mnemonic := "movaps", asm := "movaps (%rbx), %xmm0"
+    , bytes := "0f2803", instr := ⟨.vload .aps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "movaps_store_m", mnemonic := "movaps", asm := "movaps %xmm0, (%rbx)"
+    , bytes := "0f2903", instr := ⟨.vstore .aps { base := some .rbx } .x0, 3⟩ }
+  , { id := "movups_load_m", mnemonic := "movups", asm := "movups (%rbx), %xmm0"
+    , bytes := "0f1003", instr := ⟨.vload .ups .x0 { base := some .rbx }, 3⟩ }
+  , { id := "movups_store_m", mnemonic := "movups", asm := "movups %xmm0, (%rbx)"
+    , bytes := "0f1103", instr := ⟨.vstore .ups { base := some .rbx } .x0, 3⟩ }
+  , { id := "movups_load_unal", mnemonic := "movups", asm := "movups 8(%rbx), %xmm0"
+    , bytes := "0f104308"
+    , instr := ⟨.vload .ups .x0 { base := some .rbx, disp := 8 }, 4⟩ }
+
+  -- ⛔⛔ MOVSS / MOVSD — AND BOTH SHAPES MUST BE HERE OR NEITHER RULE IS TESTED.
+  -- The register form PRESERVES the destination's upper bits and the memory form
+  -- CLEARS them; a model that always merged and a model that always zeroed are
+  -- each bit-identical to this one on half of these vectors, and BOTH are
+  -- indistinguishable from it at any pre-state whose destination is zero.  The
+  -- XMM pattern is deliberately non-zero (batch 0) and the two arms in Main.lean
+  -- plant exactly those two wrong models — so this is a measurement, not a hope.
+  , { id := "movss_xx", mnemonic := "movss", asm := "movss %xmm1, %xmm0"
+    , bytes := "f30f10c1", instr := ⟨.vmovs .d .x0 .x1, 4⟩ }
+  , { id := "movss_x4x5", mnemonic := "movss", asm := "movss %xmm5, %xmm4"
+    , bytes := "f30f10e5", instr := ⟨.vmovs .d .x4 .x5, 4⟩ }
+  , { id := "movss_load_m", mnemonic := "movss", asm := "movss (%rbx), %xmm0"
+    , bytes := "f30f1003", instr := ⟨.vmovsld .d .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movss_store_m", mnemonic := "movss", asm := "movss %xmm0, (%rbx)"
+    , bytes := "f30f1103", instr := ⟨.vmovsst .d { base := some .rbx } .x0, 4⟩ }
+  , { id := "movsd_xx", mnemonic := "movsd", asm := "movsd %xmm1, %xmm0"
+    , bytes := "f20f10c1", instr := ⟨.vmovs .q .x0 .x1, 4⟩ }
+  , { id := "movsd_x4x5", mnemonic := "movsd", asm := "movsd %xmm5, %xmm4"
+    , bytes := "f20f10e5", instr := ⟨.vmovs .q .x4 .x5, 4⟩ }
+  , { id := "movsd_load_m", mnemonic := "movsd", asm := "movsd (%rbx), %xmm0"
+    , bytes := "f20f1003", instr := ⟨.vmovsld .q .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movsd_store_m", mnemonic := "movsd", asm := "movsd %xmm0, (%rbx)"
+    , bytes := "f20f1103", instr := ⟨.vmovsst .q { base := some .rbx } .x0, 4⟩ }
+
   , { id := "punpcklbw_xx", mnemonic := "punpcklbw", asm := "punpcklbw %xmm1, %xmm0"
     , bytes := "660f60c1", instr := ⟨.vbin .unpcklb .x0 .x1, 4⟩ }
   , { id := "punpcklwd_xx", mnemonic := "punpcklwd", asm := "punpcklwd %xmm1, %xmm0"
@@ -2606,7 +2674,7 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
   let f : Flags :=
     { cf := fseed % 2 == 1, pf := fseed / 2 % 2 == 1, af := fseed / 4 % 2 == 1
     , zf := fseed / 8 % 2 == 1, sf := fseed / 16 % 2 == 1, of := fseed / 32 % 2 == 1
-    -- ⭐ DF JOINED THE SWEEP IN P1 BATCH 11, AS BIT 6, AND THE BIT POSITION IS
+    -- ⭐ DF JOINED THE SWEEP IN P1 BATCH 10, AS BIT 6, AND THE BIT POSITION IS
     -- WHY NOTHING ELSE MOVED.  Every pre-existing call site passes a seed below
     -- 64 (0, 1, 5, 63, and the random tail's index i < 8), so all seventy-four
     -- original pre-states keep `df := false` and every existing case is
@@ -2745,7 +2813,7 @@ def carryBoundary : List Cpu :=
   , mkPre 0 0 0,    mkPre 0 0 1         -- sbb: borrows only because of CF
   , mkPre 0 ones 0, mkPre 0 ones 1 ]    -- and the borrow that happens either way
 
-/-- ⭐ P1 BATCH 11: THE STATES IN WHICH DF IS SET, AND THE FIRST STATES IN THIS
+/-- ⭐ P1 BATCH 10: THE STATES IN WHICH DF IS SET, AND THE FIRST STATES IN THIS
 REPOSITORY THAT SET IT AT ALL.
 
 ⛔ `df` HAS BEEN IN `Flags` SINCE P0, PRINTED BY `Serialize.lean` SINCE P0, AND
@@ -2767,7 +2835,7 @@ def dfStates : List Cpu :=
   let ones : BitVec 64 := 0xFFFFFFFFFFFFFFFF
   [ mkPre ones 0 64, mkPre 0 ones 127 ]
 
-/-- ⭐ P1 BATCH 11: THE STATE THAT SEPARATES THE `addr32` LOOP'S COUNTER WIDTHS.
+/-- ⭐ P1 BATCH 10: THE STATE THAT SEPARATES THE `addr32` LOOP'S COUNTER WIDTHS.
 
 `addr32 loop` tests `ECX - 1`; a model that tested `RCX - 1` instead differs
 from it on exactly the states where one is zero and the other is not — that is,

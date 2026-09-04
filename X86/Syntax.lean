@@ -125,6 +125,56 @@ inductive BinKind where
   | adc | sbb
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — WHICH 128-BIT MOVE THIS IS.
+
+This field was `aligned : Bool` and it carried TWO facts at once: which mnemonic
+a disassembler prints, and whether the form requires a 16-byte-aligned address.
+That worked while there were exactly two mnemonics and the flag could stand for
+both. `movaps`/`movups` are a THIRD and FOURTH spelling of the same 128-bit move
+with the same alignment rule (SDM Vol. 2B, MOVAPS: "#GP(0) — if a memory operand
+is not aligned on a 16-byte boundary"; MOVUPS states no such requirement), so a
+Bool can no longer name the mnemonic.
+
+⛔ THE ALIGNMENT RULE IS NOW DERIVED FROM THE MNEMONIC (`VMovKind.aligned`)
+RATHER THAN CARRIED BESIDE IT. Two fields that must agree are two sources for
+one fact and the second goes stale — the shape `vlanes` refuses for its lane
+count and `vbinApply` for its widths. Here the mnemonic is the primitive datum
+(it is what the encoding selects) and alignment is a function of it.
+
+⚠️ FOUR MNEMONICS, FOUR OPCODES, ONE STATE TRANSITION BETWEEN REGISTERS —
+`66 0f 6f`, `f3 0f 6f`, `0f 28`, `0f 10`. That they agree between registers is a
+claim about the architecture and not an accident of this encoding, so it is a
+theorem over ALL FOUR kinds (`vmov_kind_irrelevant`, Tests/Coverage.lean) rather
+than the comment that first stated it for two.
+
+⚠️ `aps`/`ups` are the SINGLE-PRECISION spellings and this model does not
+distinguish them from the integer ones. That is deliberate and it is an
+ARCHITECTURAL claim, not an oversight: the SDM gives MOVAPS and MOVDQA the same
+data movement and the same fault, and the difference between them — a
+domain-crossing forwarding penalty — is a MICROARCHITECTURAL property that no
+architectural state in this model, or in the SDM, can observe. A model that
+distinguished them would be modelling the pipeline. -/
+inductive VMovKind where
+  /-- `movdqa` — `66 0f 6f` / `66 0f 7f`. Aligned. -/
+  | dqa
+  /-- `movdqu` — `f3 0f 6f` / `f3 0f 7f`. Unaligned permitted. -/
+  | dqu
+  /-- `movaps` — `0f 28` / `0f 29`. Aligned. -/
+  | aps
+  /-- `movups` — `0f 10` / `0f 11`. Unaligned permitted. -/
+  | ups
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Whether this mnemonic requires a 16-byte-aligned memory operand (SDM Vol. 2B,
+MOVDQA / MOVAPS: #GP(0) otherwise). ⚠️ DERIVED, never stored beside the kind. -/
+def VMovKind.aligned : VMovKind → Bool
+  | .dqa | .aps => true
+  | .dqu | .ups => false
+
+/-- The mnemonic a disassembler prints for this kind. -/
+def VMovKind.mnemonic : VMovKind → String
+  | .dqa => "movdqa" | .dqu => "movdqu" | .aps => "movaps" | .ups => "movups"
+
 /-- ⭐⭐⭐ P2 VECTOR WAVE — THE PACKED-INTEGER BINARY OPERATIONS, and the LANE
 WIDTH is part of the kind rather than a `Size`.
 
@@ -474,7 +524,7 @@ def CextKind.mnemonic : CextKind → String
   | .cbw => "cbtw" | .cwde => "cwtl" | .cdqe => "cltq"
   | .cwd => "cwtd" | .cdq => "cltd"  | .cqo => "cqto"
 
-/-- P1 BATCH 11: LOOP / LOOPE / LOOPNE (SDM Vol. 2A, LOOP/LOOPcc).  One
+/-- P1 BATCH 10: LOOP / LOOPE / LOOPNE (SDM Vol. 2A, LOOP/LOOPcc).  One
 constructor per PREDICATE, exactly as `Cc` is: `loopz` is `loope` and `loopnz`
 is `loopne` — clang assembles `loopz` and `loope` to the SAME BYTES (`E1 cb`),
 and a model that distinguished them would be modelling the assembler.
@@ -483,7 +533,7 @@ inductive LoopKind where
   | loop | loope | loopne
   deriving DecidableEq, Repr, Inhabited, BEq
 
-/-- P1 BATCH 11: the FLAG-CONTROL singles (SDM Vol. 2A, CLC/STC/CMC/CLD/STD;
+/-- P1 BATCH 10: the FLAG-CONTROL singles (SDM Vol. 2A, CLC/STC/CMC/CLD/STD;
 roster families 54-59).  No operands, one byte each, and each writes EXACTLY ONE
 flag and leaves every other bit of the machine alone.
 
@@ -625,7 +675,7 @@ inductive Op where
   "BSWAP ... with a 16-bit operand size ... is undefined" — the SDM does not say
   what the machine does, so neither does this model.  See D25. -/
   | bswap (sz : Size) (dst : GPR)
-  /-- P1 BATCH 11: LOOP / LOOPE / LOOPNE (SDM Vol. 2A).  ⚠️ THE COUNTER IS
+  /-- P1 BATCH 10: LOOP / LOOPE / LOOPNE (SDM Vol. 2A).  ⚠️ THE COUNTER IS
   DECREMENTED FIRST AND THE TEST IS ON THE DECREMENTED VALUE, and the write-back
   happens on BOTH paths — a `loop` that falls through has still decremented.
   A model that tested the OLD counter is wrong on exactly the pre-states where
@@ -639,7 +689,7 @@ inductive Op where
 
   rel8 only: `E0`/`E1`/`E2 cb` have no rel32 encoding, the same gap `jcxz` has. -/
   | loop  (k : LoopKind) (addr32 : Bool) (d : Val)
-  /-- P1 BATCH 11: CLC/STC/CMC/CLD/STD.  See `FlagOp`. -/
+  /-- P1 BATCH 10: CLC/STC/CMC/CLD/STD.  See `FlagOp`. -/
   | flagop (k : FlagOp)
   /-- P1 BATCH 12: NOP (SDM Vol. 2A).  The operand is `some` for the multi-byte
   form `0F 1F /0`, which carries a ModR/M byte purely to be long — and which the
@@ -819,7 +869,7 @@ inductive Op where
   encoding — so it is stated as a theorem (`vmov_aligned_irrelevant`,
   Tests/Coverage.lean) instead of a comment. It becomes load-bearing on the day
   the memory forms arrive, which is the day the two stop agreeing. -/
-  | vmov  (aligned : Bool) (dst src : XmmReg)
+  | vmov  (k : VMovKind) (dst src : XmmReg)
   /-- P2 VECTOR WAVE, BATCH 2 — the packed-integer binary operations between two
   XMM registers (SDM Vol. 2B). "Flags Affected: None" for every one of them: a
   packed operation writes no flag, which is the single most important thing to
@@ -841,8 +891,8 @@ inductive Op where
   need a well-formedness CHECK where it could instead have a type that cannot
   say it.  Splitting load from store makes the illegal state unrepresentable —
   strictly better than the shape `Op.mov` is stuck with. -/
-  | vload  (aligned : Bool) (dst : XmmReg) (ea : Ea)
-  | vstore (aligned : Bool) (ea : Ea) (src : XmmReg)
+  | vload  (k : VMovKind) (dst : XmmReg) (ea : Ea)
+  | vstore (k : VMovKind) (ea : Ea) (src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -870,6 +920,47 @@ inductive Op where
   the destination — they are different functions, and one constructor with a
   width would invite the reading that `vmov` at 64 bits is this. -/
   | vmovq (dst src : XmmReg)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — MOVSS / MOVSD, AND THE FIRST FORM IN THIS
+  MODEL WHOSE DESTINATION RULE DEPENDS ON WHERE ITS SOURCE LIVES.
+
+  `movss`/`movsd` move ONE scalar — 32 or 64 bits — into the low lane of an XMM
+  register. What happens to the REST of that register is not one rule (SDM
+  Vol. 2B, MOVSS/MOVSD):
+
+  * from a REGISTER, the upper bits are **PRESERVED** — `movss %xmm1,%xmm0`
+    leaves 127:32 as they were, and objdump prints the merge in its own
+    disassembly comment (`xmm0 = xmm1[0],xmm0[1,2,3]`);
+  * from MEMORY, the upper bits are **ZEROED**.
+
+  ⛔ THE SAME MNEMONIC, THE SAME WIDTH, THE SAME DESTINATION — AND TWO DIFFERENT
+  FUNCTIONS, SELECTED BY THE SOURCE OPERAND'S KIND. Every other form in this
+  model treats its source as a value; these read the *provenance* of the value.
+  That is why they are three constructors and not one over a source operand
+  type: a single constructor would have to branch on which case it was given,
+  which is the branch this type removes (the `vload`/`vstore` argument, one step
+  further — there the split made an illegal state unrepresentable, here it also
+  makes two different SEMANTICS impossible to confuse).
+
+  ⚠️ A MODEL THAT ALWAYS MERGED AND A MODEL THAT ALWAYS ZEROED ARE EACH
+  BIT-IDENTICAL TO THIS ONE ON HALF THE FORMS, and both are indistinguishable
+  from it at any pre-state whose destination XMM register is already zero. The
+  vectors must therefore carry BOTH shapes at a NON-ZERO destination, and the
+  arms in Main.lean plant exactly those two wrong models. -/
+  | vmovs   (sz : Size) (dst src : XmmReg)
+  /-- P2 VECTOR WAVE, BATCH 11 — `movss`/`movsd` from MEMORY: the low lane is
+  loaded and the upper bits are ZEROED. See `Op.vmovs` for why this is a separate
+  constructor rather than a source operand.
+
+  ⚠️ NO ALIGNMENT REQUIREMENT. `movss`/`movsd` are SCALAR and the SDM states no
+  alignment rule for them — unlike `movaps`/`movdqa`, whose #GP is the whole
+  content of `VMovKind.aligned`. A reader who expects an `aligned` field here
+  should expect its absence: there is nothing for it to say. -/
+  | vmovsld (sz : Size) (dst : XmmReg) (ea : Ea)
+  /-- P2 VECTOR WAVE, BATCH 11 — `movss`/`movsd` TO MEMORY: `sz` bytes of the low
+  lane are stored and nothing is zeroed, because nothing else is written. The
+  merge/zero question does not arise in this direction at all, which is why the
+  store is one function rather than two. -/
+  | vmovsst (sz : Size) (ea : Ea) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -900,6 +991,14 @@ def imulrEncodable (sz : Size) : Bool := sz != .b
 `AD` take a 16-, 32- or 64-bit operand and there is no byte form at all — the
 same shape of fact as `imulrEncodable`, written the same way. -/
 def dshiftEncodable (sz : Size) : Bool := sz != .b
+
+/-- P2 VECTOR WAVE, BATCH 11: the scalar moves exist at 32 and 64 bits ONLY.
+`movss` is `f3 0f 10` and `movsd` is `f2 0f 10`; there is no byte or word form —
+the prefix selects the width and only two prefixes are defined for this opcode.
+Written as data beside the AST for the reason `bitcntEncodable` is: "which forms
+this model declines, and why" is then a table a theorem can read
+(`Tests/Coverage.lean`) rather than an omission nobody re-checks. -/
+def vmovsEncodable (sz : Size) : Bool := sz == .d || sz == .q
 
 /-- ⛔ P1 BATCH 18 — THE ONE PLACE THIS MODEL DECLINES TO ANSWER FOR A DOUBLE
 SHIFT, AND WHY IT IS A REFUSAL RATHER THAN A GUESS OR AN OMISSION.
@@ -968,10 +1067,12 @@ def opOperands : Op → List Operand
   -- a vector load's address is reported here exactly as a scalar one is. That is
   -- what makes `lock movdqa` #UD for free: `lockable` does not list it.
   | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
+  | .vmovsld _ _ ea | .vmovsst _ ea _ => [.mem ea]
   -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
   -- reported keeps the lock and segment walks exact.
   | .vmovg _ _ _ r => [.reg r]
   | .vmovq .. => []
+  | .vmovs .. => []
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1082,7 +1183,8 @@ def Op.anyLocked : Op → Bool
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
   | .vmov .. | .vbin .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
-  | .vmovg .. | .vmovq .. => false
+  | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
+  | .vmovg .. | .vmovq .. | .vmovs .. => false
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1206,9 +1308,16 @@ one per family whose operand is a VARIABLE, stating the obvious fact in the form
 /-- The mnemonic a disassembler prints, used by the coverage table and by the
 differential harness's disagreement reports. -/
 def Op.mnemonic : Op → String
-  -- ⚠️ BOTH SPELLINGS, because both opcodes exist. See `Op.vmov`.
-  | .vmov a .. => if a then "movdqa" else "movdqu"
-  | .vload a .. | .vstore a .. => if a then "movdqa" else "movdqu"
+  -- ⚠️ ALL FOUR SPELLINGS, because all four opcodes exist, and the kind is what
+  -- names them. See `VMovKind`.
+  | .vmov k .. => k.mnemonic
+  | .vload k .. | .vstore k .. => k.mnemonic
+  -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
+  -- AT&T spelling, and they are unrelated: this one is `f2 0f 10`. The model
+  -- does not carry the string form, so nothing here is ambiguous — but the day
+  -- it does, these are two rows and not one, unlike `shl`/`sal`.
+  | .vmovs sz .. | .vmovsld sz .. | .vmovsst sz .. =>
+      match sz with | .q => "movsd" | _ => "movss"
   | .vmovg _ sz .. => match sz with | .q => "movq" | _ => "movd"
   | .vmovq .. => "movq"
   | .vbin k .. => match k with
@@ -1300,7 +1409,7 @@ def rosterP0 : List String :=
    -- the collapse is data a theorem can count rather than a claim in a comment.
    "movzx", "movsx", "cbtw", "cwtl", "cltq", "cwtd", "cltd", "cqto",
    "xchg", "bswap",
-   -- P1 BATCH 11: the loop group and the flag-control singles.  `loope` and
+   -- P1 BATCH 10: the loop group and the flag-control singles.  `loope` and
    -- `loopne` each stand for two roster spellings (`loopz`, `loopnz`), as
    -- `setcc` stands for thirty; `loopSpellings` is the table that says which.
    "loop", "loope", "loopne",
@@ -1371,7 +1480,13 @@ def rosterP0 : List String :=
    "movd", "movq",
    -- P2 VECTOR WAVE, BATCH 7: the unpack group, one roster row per mnemonic.
    "punpcklbw", "punpcklwd", "punpckldq", "punpcklqdq",
-   "punpckhbw", "punpckhwd", "punpckhdq", "punpckhqdq"]
+   "punpckhbw", "punpckhwd", "punpckhdq", "punpckhqdq",
+   -- ⭐ P2 VECTOR WAVE, BATCH 11: the move family completed.  `movaps`/`movups`
+   -- are two more ROWS for the SAME constructor (`Op.vmov`, now distinguished by
+   -- `VMovKind`) for the reason `movdqa`/`movdqu` are two — they are distinct
+   -- OPCODES, and a model that printed one name for the other would be wrong
+   -- about what it decoded.  `movss`/`movsd` are one row each.
+   "movaps", "movups", "movss", "movsd"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

@@ -4232,3 +4232,167 @@ scope forever or merely out of its current wave — a roster question for the Ca
 one. What the batch guarantees is that the next batch's rank 1 cannot be a phantom without saying so.
 
 **Reversal cost:** one field in the census JSON and one column in a generated table.
+
+## D101 — a roster that prices demand does not price buildability, and the two look the same in a ranked table (P2 vector wave, batch 11)
+
+The relight handed on a candidate list described as "trustworthy for the first time" — D99 had just
+repaired the covered/not-covered test and D100 had just marked the phantom rows. Rank 1 was
+`pmaddwd`, rank 3 `psubusw`, and **the oracle refuses both**.
+
+### 1. The knowledge existed; the join did not
+
+`scripts/oracle_availability.py` has held the nine refusing SSE mnemonics since P2 batch 1, measured
+by executing, gated in both directions, with an always-executes and an always-refuses control in
+each CR4 arm. Re-measured live before acting on it — nine seconds, both controls behaving — and the
+reading stands.
+
+`p2_roster.py` joins **demand** (`docs/DEMAND-CENSUS.md.json`) against **supply** (K's tree) and
+consults **no third artifact**. So a form the differential cannot ask about is priced exactly like
+one it can, and the ranked list a fresh head is handed carries the omission forward. The roster's
+own text said K coverage was "a CATALOGUE reading" and that a batch was "runnable pending an
+oracle-availability run" — both true, and together a reason not to look: the run had been made.
+
+⇒ 🔑 **A ROSTER THAT PRICES DEMAND DOES NOT PRICE BUILDABILITY.** It is D100 on the other side of
+the same join — there the demand belonged to another instruction, here the supply is one no oracle
+can execute.
+
+### 2. ⛔ The first version of the repair reproduced D100 exactly, in the under-claiming direction
+
+Keyed by mnemonic alone, the new column printed ⛔ **REFUSES** against `vpaddw` — a row of 11,682
+AVX2 `%ymm` instructions — on the strength of a probe that is `vpaddw %zmm1,%zmm2,%zmm0`, AVX-512,
+which this oracle cannot execute at all. One mnemonic, two register files, one verdict borrowed
+across them.
+
+⇒ 🔑 **A VERDICT MUST BE JOINED ON THE SAME KEY THE DEMAND IS COUNTED BY.** The census already
+counts the gap per (mnemonic, ISA bucket) — `miss_by_ext`, D100's own repair — so that is the key,
+and the bucket names are the census's own strings, because two vocabularies for one partition is the
+second source that goes stale.
+
+⚠️ **The failure direction is the one nobody polices.** Marking a buildable row unbuildable reads as
+caution, not as a mistake: it would have quietly removed a rank from the next head's list with a
+reason that looked measured. It was caught by reading the OUTPUT of the fix rather than its intent —
+`vpaddw` is not a form this batch cares about, and the row was inspected anyway.
+
+### 3. What landed
+
+`measured_availability()` returns `{(mnemonic, bucket): verdict}` and **refuses on a conflict**
+rather than picking; `probe_bucket()` reads the register file off the probe's OPERANDS, because the
+mnemonic cannot say it (`movq` is three instructions in three files) and the label is a tag, not a
+datum. The roster looks each row up on its **dominant** bucket. Three values, not two: a mnemonic
+the probe does not name reads **not measured**, never "available" — a declared list inherits the
+direction of its default, and `available` is the default that invents work.
+
+Arms: the three bands of `oracle_note`, six `probe_bucket` cases including the GPR control that must
+return `None`, **every probe bucket must be a census bucket** (a vocabulary drift would fail
+silently, printing "not measured" on every row — the reassuring direction), and **the join must
+actually land** on ≥20 census mnemonics, because a join that matched nothing looks like honest
+modesty. p2-roster selftest 52 → **64 arms**.
+
+### 4. ⭐ And the arm count itself was a hand-summed literal
+
+The selftest reported its own size as
+`len(arms)+len(key_arms)+1+4*len(asm)+len(ADDITIONS)+len(lock_arms)+6` — correct when written, and
+it does not grow with the arms. This batch added twelve and the gate went on printing **52**.
+
+⇒ 🔑 **A HAND-ACCUMULATED TOTAL CANNOT SEE ITS OWN PARTS**: it can only be recomputed, never
+corrected, and it fails in the reassuring direction — under-counting reads as a smaller gate rather
+than as a broken one. Every arm prints a line, so the count is now the count of printed lines:
+**64 = 64**, and the number cannot drift from the work again.
+
+### 5. ⛔ And one of the new arms was a DRIFTING THRESHOLD that this batch broke within the hour
+
+The arm proving the join is not vacuous — *"a join that matched nothing would print 'not measured'
+everywhere"* — was first written as `hits >= 20`, the count of census mnemonics the join resolves.
+It passed at 23.
+
+Then the batch that wrote it landed, `movaps`/`movups`/`movss`/`movsd` became COVERED, those four
+left the uncovered residue, the count fell **23 → 19**, and the arm went red about nothing at all.
+
+⇒ 🔑 **A THRESHOLD ON A QUANTITY THE WORK CONSUMES IS A CHORE, NOT A GATE.** Every landed batch
+shrinks the residue, so that number can only fall and the gate can only be relaxed — and a gate
+relaxed each batch stops being read. The repair is to state the arm's CLAIM instead of a number: it
+exists to catch a join that matched NOTHING, so it now asserts that **at least one of the forty rows
+the document actually prints resolves to a measured verdict** (13 of 40 today), which has no literal
+to maintain and fails exactly when the join breaks.
+
+⚠️ Driven both ways before it was believed: planting `dominant_bucket → None` takes it to **0 of 40**
+and the selftest FAILS; reverted, 64 arms PASS.
+
+### 6. ⭐ And the batch's price was confirmed by an independent origin
+
+Regenerating the census against the new 111-mnemonic model moved the uncovered gap **534,576 →
+474,736 — a fall of exactly 59,840**, which is the number the roster had quoted for these four rows
+from the other side of the join. The roster reads K's tree and ranks demand; the census walks the
+corpus and splits covered from uncovered.
+
+⚠️ **These are two ORIGINS, not two readings of one artifact** — the distinction this repository has
+already paid for once. A single artifact read twice agrees with itself when it is wrong; here the
+supply-side price and the demand-side split were computed by different code from different inputs
+and met at the instruction.
+
+⚠️ And the corpus itself was verified before it was believed: it survives only in an old session's
+scratchpad and **two candidate directories exist**. A model change must move the covered/uncovered
+SPLIT and nothing else, so the corpus-side totals are the invariant — all **11 columns' instruction
+totals came back byte-identical**. Picking the directory the bank named and checking nothing would
+have been a guess wearing a citation.
+
+**Reversal cost:** one column in a generated table and one function in each of two scripts.
+
+## D102 — the coverage table's `shapes` column is a kernel-walked field, so prose in it is a cost (P2 vector wave, batch 11)
+
+`scripts/kernel_cost.py` refused this batch: `memDestSweep` measured **19,900 ms** against a
+19,360 ms ceiling registered at P1 batch 21 as `12,100 × 1.6`. The declaration has grown **62%**
+across the P2 wave; this batch is the one that crossed.
+
+⚠️ **Load was not available as an excuse, because the tool prints its own conditions.** Its line
+records that the 2.2–4.1 load band has no measured effect on this module (four runs within 1%), and
+the run sat inside that band. That is what a measurement carried with its conditions buys.
+
+### 1. Where the money is, measured
+
+A whole-module total cannot see its parts, and this file has mis-attributed its own money once
+already (D62 named the smaller of two costs "the honest fix"). So the declaration was split and
+re-profiled rather than reasoned about:
+
+| conjunct | kernel ms |
+|---|---|
+| the loose-vs-strict string sweep over `Row.shapes` | **~18,800 of 19,600 — 96%** |
+| `hasMemDestVector`'s 854-vector sweeps | ~800 |
+
+The cost is in walking `Row.shapes` **character by character**, twice per row. The four new rows
+carried ~340 characters of explanatory prose and **1,500 ms** with it.
+
+⇒ 🔑 **A FIELD A KERNEL-REDUCED PREDICATE READS IS NOT A PLACE FOR PROSE.** The explanation was not
+deleted — it moved to the AST docstrings, which nothing reduces. Trimmed: **18,400 ms**, three
+readings within 1%, gate CLEAN.
+
+⛔ **AND THIS IS NOT A NEW LESSON, IT IS A REPEAT, WHICH IS THE PART WORTH RECORDING.** D94 recorded
+it in the SAME declaration and the SAME field — `claimsMemDest` walking `Row.shapes`, 30,700 ms
+against this ceiling, repaired by shortening the strings — and the seat's own memory carries a card
+that says, in as many words, *"before writing prose into a data field, ask whether any `decide`
+reduces that field."* Four rows of explanatory prose went into that exact field anyway.
+
+⇒ 🔑 **IN AN EDITOR A STRING LOOKS LIKE A COMMENT; THE KERNEL REDUCES IT.** The lesson was known,
+written down, and re-paid. What is new here is only the DECOMPOSITION — that 96% of the declaration
+is the string sweep and not the 854-vector sweeps beside it — which is what makes the next repair a
+design question rather than another trim.
+
+⚠️ **One inherited figure is corrected by this run.** D94's note recorded the reading as swinging
+±2× on the same tree. Under the conditions this gate now prints for itself — the 2.2–4.1 load band,
+which it measured as having no effect — three readings came back **18,500 / 18,400 / 18,400**, inside
+1%. The ±2× was real under contention and is not the spread in this band; a spread quoted without its
+conditions is as unusable as a timing quoted without them.
+
+### 2. ⛔ And the pass is thin, which is the part that must not be silent
+
+18,400 of 19,360 is **95% of the ceiling**. Read the margin, not the verdict.
+
+The next batch crosses again, and the answer then is **not a looser number**. It is that
+`claimsMemDestLoose` — an artifact kept only to be compared against — walks a documentation field,
+and the disagreement list it exists to pin down **would change** if it stopped: stripping the prose
+from all 106 shapes strings was tried, and `memDestSweep` failed loudly, which is the gate working.
+So the cheaper build is real but it changes the subject of a historical comparison, and that is a
+design question rather than a margin question. It is priced here so the next head inherits the
+measurement instead of the surprise.
+
+**Reversal cost:** four strings in `X86/Coverage.lean`.

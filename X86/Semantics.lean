@@ -430,10 +430,10 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- the displacement or on the base register.  With a segment base in play those
   -- differ, and it is the address the machine actually accesses that hardware
   -- checks.
-  | .vload al dst ea =>
+  | .vload k dst ea =>
       let a := ea.addr s nr
-      if al && !aligned16 a then
-        s.halt (.byDesign "movdqa at an address that is not 16-byte aligned (#GP(0))")
+      if k.aligned && !aligned16 a then
+        s.halt (.byDesign "an aligned 128-bit move at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
@@ -458,10 +458,46 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vmovq dst src =>
       (s.setXmm dst (((s.getXmm src).setWidth 64).setWidth 128)).setRip nr
 
-  | .vstore al ea src =>
+  -- ⭐⭐⭐ MOVSS / MOVSD BETWEEN REGISTERS — THE MERGE (SDM Vol. 2B, MOVSS/MOVSD).
+  --
+  -- ⛔ THE UPPER BITS ARE PRESERVED, and this is the ONE arm in the vector wave
+  -- where that is true.  Every other XMM write here either fills all 128 bits
+  -- (`vmov`, `vbin`) or ZEROES what it does not write (`vmovg`, `vmovq`) — so
+  -- the reflex built by five batches is exactly the wrong one, and reaching for
+  -- `setWidth` (which zero-extends) is how this form gets written wrong.
+  --
+  -- The low `n` bits of `dst` are cleared and replaced; `>>> n <<< n` is the
+  -- clear, and the source's low lane is truncated and zero-extended into place
+  -- so the `|||` cannot disturb the half it must preserve.
+  | .vmovs sz dst src =>
+      let n := sz.bits
+      let keep := ((s.getXmm dst) >>> n) <<< n
+      let low  := ((s.getXmm src).setWidth n).setWidth 128
+      (s.setXmm dst (keep ||| low)).setRip nr
+
+  -- ⭐⭐⭐ MOVSS / MOVSD FROM MEMORY — THE ZERO-EXTEND, and the same mnemonic as
+  -- the arm above.  The SDM gives MOVSS two separate operation clauses selected
+  -- by the source operand's KIND, and this is the second one: bits above the
+  -- loaded lane are CLEARED, not preserved.
+  --
+  -- ⚠️ NO ALIGNMENT CHECK, unlike `vload`.  A scalar move states no alignment
+  -- requirement in the SDM, so there is no `#GP` branch to write — its absence
+  -- is the rule, not an omission (`Op.vmovsld`).
+  | .vmovsld sz dst ea =>
       let a := ea.addr s nr
-      if al && !aligned16 a then
-        s.halt (.byDesign "movdqa at an address that is not 16-byte aligned (#GP(0))")
+      (s.setXmm dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+
+  -- MOVSS / MOVSD TO MEMORY: `sz` bytes of the low lane.  `writeMem` is the same
+  -- `Size`-indexed path every scalar store uses; the only vector-specific step is
+  -- taking the low quadword out of the XMM register.
+  | .vmovsst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+
+  | .vstore k ea src =>
+      let a := ea.addr s nr
+      if k.aligned && !aligned16 a then
+        s.halt (.byDesign "an aligned 128-bit move at an address that is not 16-byte aligned (#GP(0))")
       else (s.writeMem128 a (s.getXmm src)).setRip nr
 
   -- MOV (SDM Vol. 2A, MOV): "Flags Affected: None."

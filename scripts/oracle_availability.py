@@ -465,6 +465,103 @@ def main():
           "oracle's own behaviour, and both controls executed.")
     return 0
 
+# ══════════════════════════════════════════════════════════════════════════
+# ⭐⭐ THE MEASUREMENT, MADE READABLE BY THE ROSTER — P2 batch 11.
+#
+# ⛔ THE P2 ROSTER RANKED `pmaddwd` FIRST AND `psubusw` THIRD WHILE THIS FILE HAD
+# HELD BOTH AS REFUSED SINCE P2 BATCH 1.  The roster joins DEMAND (the census)
+# against SUPPLY (K's tree) and consults no third artifact, so a form the ORACLE
+# cannot execute is priced exactly like one it can — and the ranked list a fresh
+# head is handed carries the omission into the next batch.  It is D100's defect
+# on the other side of the join: there the demand was another instruction's, here
+# the supply is one the differential cannot ask about.
+#
+# ⇒ 🔑 A ROSTER THAT PRICES DEMAND DOES NOT PRICE BUILDABILITY, AND THE TWO LOOK
+# THE SAME IN A RANKED TABLE.
+#
+# ⚠️ THE MNEMONIC IS TAKEN FROM THE `asm` COLUMN'S FIRST TOKEN, NOT FROM THE
+# LABEL.  The labels are probe tags — `movq_xmm`, `movq_mmx`, `paddw_mmx`,
+# `ADD1:mov %gs:` — and stripping a suffix off them to recover a mnemonic is
+# precisely the lossy key that made D100's phantom row.  The `asm` string is what
+# an assembler accepted, so its first token IS the mnemonic, with no rule to go
+# stale.
+#
+# ⛔ AND A MNEMONIC THIS TABLE DOES NOT NAME IS `None` — **NOT** "executes".
+# A declared list inherits the direction of its default, and the default that
+# invents work is the unpoliced one: an absent form must read as UNMEASURED, so
+# the roster prints a question mark rather than a licence.
+# ⛔⛔ AND THE KEY IS (MNEMONIC, ISA BUCKET), NOT THE MNEMONIC.  The first draft
+# of this function keyed by mnemonic alone and immediately reproduced D100 in the
+# opposite direction: `vpaddw` is probed here only as `vpaddw %zmm1,%zmm2,%zmm0`
+# (AVX-512, which this oracle cannot execute at all), and the roster's `vpaddw`
+# row is 11,682 instructions of AVX2 `%ymm` demand.  The join printed ⛔ REFUSES
+# against a row whose actual encoding was never probed.
+#
+# ⇒ 🔑 A VERDICT MUST BE JOINED ON THE SAME KEY THE DEMAND IS COUNTED BY.  The
+# census counts the gap per (mnemonic, ISA bucket) — `miss_by_ext`, D100's own
+# repair — so that is the key, and the bucket NAMES ARE THE CENSUS'S, spelled the
+# same way, because two vocabularies for one partition is the second source that
+# goes stale.
+#
+# ⚠️ AND THE FAILURE WAS AN UNDER-CLAIM, WHICH IS THE DIRECTION NOBODY POLICES:
+# marking a buildable row unbuildable reads as caution, not as a mistake, and it
+# would have removed a rank from the next head's list with a reason that looked
+# measured. It was caught by reading the OUTPUT of the fix rather than its intent.
+BUCKET_OF_PROBE = [
+    ("%mm",  "MMX (mm)"),
+    ("%zmm", "AVX-512 (zmm/k)"),
+    ("%ymm", "AVX2/AVX (ymm)"),
+]
+
+
+def probe_bucket(asm):
+    """The census ISA bucket a probe form belongs to, or None for a form that is
+    not a vector row at all (the GPR controls and the three scalar additions).
+
+    ⚠️ READ OFF THE OPERANDS, which is where the register FILE actually is — the
+    mnemonic cannot say it (`movq` is three instructions in three files) and the
+    probe's label is a tag, not a datum."""
+    for tok, bucket in BUCKET_OF_PROBE:
+        if tok in asm:
+            return bucket
+    if "%xmm" not in asm:
+        return None
+    return "VEX-128 (v… xmm)" if asm.split()[0].startswith("v") else "SSE-legacy (xmm)"
+
+
+def measured_availability():
+    """{(mnemonic, bucket): "executes" | "refuses"} — the CR4-ENABLED arm.
+
+    ⚠️ CR4=0x600 is the arm to read because it is the condition the differential
+    itself runs under (`scripts/check_driver_cr4.py` is the gate that says so).
+    The CR4=0 column measures a machine with SSE switched off, where everything
+    refuses for a reason that is not about the form.
+
+    ⚠️ THE MNEMONIC IS THE `asm` COLUMN'S FIRST TOKEN, NOT THE LABEL.  The labels
+    are probe tags — `movq_xmm`, `paddw_mmx`, `ADD1:mov %gs:` — and stripping a
+    suffix off one to recover a mnemonic is the lossy key that made D100's
+    phantom row.  The `asm` string is what an assembler accepted, so its first
+    token IS the mnemonic, with no rule to go stale.
+
+    ⛔ REFUSES ON A CONFLICT rather than picking one: two probes at the same
+    (mnemonic, bucket) with different verdicts is a finding about this table, and
+    resolving it silently would bury it."""
+    out, seen = {}, {}
+    for label, asm, _hx, _e0, e1 in P2_FORMS:
+        bucket = probe_bucket(asm)
+        if bucket is None:
+            continue
+        key = (asm.split()[0], bucket)
+        if key in seen and seen[key][1] != e1:
+            raise SystemExit(
+                "⛔ oracle-availability: %r is measured %s as %r and %s as %r. "
+                "One (mnemonic, bucket), two verdicts — resolve the table, do "
+                "not pick." % (key, seen[key][0], seen[key][1], label, e1))
+        seen[key] = (label, e1)
+        out[key] = e1
+    return out
+
+
 # ⛔ GUARDED.  This file used to end in a bare `sys.exit(main())`, so IMPORTING
 # it ran the P1 gate and took the importing process's exit with it — which is
 # exactly what happened the first time the P2 probe below tried to reuse

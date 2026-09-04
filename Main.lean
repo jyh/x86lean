@@ -2344,8 +2344,8 @@ vector in the table at an address that is not 16-byte aligned, so without it thi
 wrong model would be indistinguishable from the right one. -/
 def wrongVmovduAlsoAligns (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vload _ d ea => step ⟨.vload true d ea, i.len⟩ s
-  | .vstore _ ea r => step ⟨.vstore true ea r, i.len⟩ s
+  | .vload _ d ea => step ⟨.vload .dqa d ea, i.len⟩ s
+  | .vstore _ ea r => step ⟨.vstore .dqa ea r, i.len⟩ s
   | _ => step i s
 
 /-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — the wrong models for MOVD/MOVQ.
@@ -2389,6 +2389,85 @@ def wrongVmovgFromXNoZeroExtend (i : Instr) (s : Cpu) : Cpu :=
           (s.rip + BitVec.ofNat 64 i.len)
       else step i s
   | _ => step i s
+
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — the wrong models for the MOVE FAMILY.
+
+⛔⛔ THE FIRST TWO ARE THE BATCH, AND THEY POINT IN OPPOSITE DIRECTIONS.
+`movss`/`movsd` PRESERVE the destination's upper bits from a register and CLEAR
+them from memory, so there are exactly two ways to be wrong by being consistent —
+always merge, or always zero — and each is bit-identical to this model on HALF
+the vectors.  A gate that planted only one of them would report a green that
+means "this model is not the other one", which is not the claim.
+
+⚠️ AND BOTH ARE ALSO INDISTINGUISHABLE FROM THE RIGHT MODEL AT ANY PRE-STATE
+WHOSE DESTINATION XMM REGISTER IS ZERO.  That is a property of the PRE-STATES,
+not of the model, and the caught-counts below are what measure it — batch 0's
+deliberately non-zero pattern is the reason there is anything to count. -/
+
+/-- ⛔ THE SCALAR MOVE ZEROES WHAT IT SHOULD PRESERVE: `movss %xmm1,%xmm0` clears
+bits 127:32 instead of leaving them.  This is `vmovq`'s rule applied to a form
+that does not have it — the mistake five previous batches of "XMM writes clear
+the rest" make natural. -/
+def wrongVmovsZeroesUpper (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovs sz d s' =>
+      (s.setXmm d (((s.getXmm s').setWidth sz.bits).setWidth 128)).setRip
+        (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ AND THE OPPOSITE: the scalar LOAD merges into the destination instead of
+clearing it — the SDM's register clause applied to its memory clause.  ⚠️ This is
+the direction a reader is LESS likely to plant, because "a load overwrites the
+register" feels obviously true; what it overwrites is the whole point. -/
+def wrongVmovsldMergesUpper (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovsld sz d ea =>
+      let a := ea.addr s (s.rip + BitVec.ofNat 64 i.len)
+      let keep := ((s.getXmm d) >>> sz.bits) <<< sz.bits
+      let low  := ((s.readMem sz a).setWidth sz.bits).setWidth 128
+      (s.setXmm d (keep ||| low)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ THE SCALAR MOVE IGNORES ITS REGISTER FIELDS — every `movss`/`movsd`
+between registers moves xmm1 into xmm0.  ⚠️ `movss_x4x5` and `movsd_x4x5` exist
+FOR this arm, and batch 5 is why they exist BEFORE the run rather than after it:
+with only x0←x1 vectors this wrong model is bit-identical to the right one and
+the arm would report a green about operands nothing decoded. -/
+def wrongVmovsFixedRegisters (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovs sz _ _ => step ⟨.vmovs sz .x0 .x1, i.len⟩ s
+  | _ => step i s
+
+/-- ⛔ THE SCALAR MOVE USES THE WRONG WIDTH — `movss` moves 64 bits and `movsd`
+32.  ⚠️ Without this arm the two mnemonics are distinguished only by a `Size`
+field nothing reads back: a model that collapsed them would agree with this one
+wherever the source's bits 63:32 happened to match the destination's. -/
+def wrongVmovsWidthSwapped (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovs sz d s' => step ⟨.vmovs (if sz == .d then .q else .d) d s', i.len⟩ s
+  | .vmovsld sz d ea => step ⟨.vmovsld (if sz == .d then .q else .d) d ea, i.len⟩ s
+  | .vmovsst sz ea r => step ⟨.vmovsst (if sz == .d then .q else .d) ea r, i.len⟩ s
+  | _ => step i s
+
+/-- ⛔ THE SCALAR STORE WRITES THE WHOLE REGISTER — 16 bytes where the SDM says 4
+or 8.  The bytes above the lane in the memory window are `baseMem`'s, non-zero
+and all distinct, so an over-wide store differs in every pre-state. -/
+def wrongVmovsstStoresAll (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovsst _ ea r =>
+      let a := ea.addr s (s.rip + BitVec.ofNat 64 i.len)
+      (s.writeMem128 a (s.getXmm r)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-! ⛔ `movaps` APPLIES NO ALIGNMENT CHECK — i.e. a model that read `VMovKind`'s
+new members as unaligned by default.  ⚠️ THIS ARM CANNOT FIRE, AND IT IS NOT IN
+THE LIST BELOW FOR EXACTLY THAT REASON: there is no unaligned `movaps` vector,
+because the oracle does not implement the check (D91), so the arm would be a
+permanently-silent entry in an inventory whose whole value is that every entry
+fires.  The rule is carried by `vload_unaligned_faults`, which is now stated over
+`k.aligned` and therefore covers `movaps` as well as `movdqa`.  ⇒ The comment
+above `wrongVmovduAlsoAligns` said this once for two mnemonics; it says it for
+four now, and the theorem that replaced the arm grew with them. -/
 
 /-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — the wrong models for the UNPACK group.
 
@@ -2648,6 +2727,16 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("punpckl and punpckh read each other's half", wrongUnpackHalf, "xmm0")
   , ("an unpack interleaves source-first instead of destination-first",
      wrongUnpackOrder, "xmm0")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — the move family.  The first two are the
+  -- batch's claim in its two directions; neither alone would say it.
+  , ("movss/movsd from a register ZERO the upper bits instead of preserving them",
+     wrongVmovsZeroesUpper, "xmm0")
+  , ("movss/movsd from memory MERGE into the upper bits instead of clearing them",
+     wrongVmovsldMergesUpper, "xmm0")
+  , ("movss/movsd ignore their register fields", wrongVmovsFixedRegisters, "xmm4")
+  , ("movss and movsd swap widths", wrongVmovsWidthSwapped, "xmm0")
+  , ("a scalar store writes all sixteen bytes", wrongVmovsstStoresAll,
+     "mem@0000000000001fe0")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness.  One arm, and it is the whole
   -- claim: a planted XMM difference must be CAUGHT before one line of vector
   -- semantics is written.
@@ -3319,7 +3408,37 @@ halves, so a pre-state whose halves agreed could not tell them apart, and a \
 green run would have said nothing about which half is read.  Written into the \
 AST as a worry, then measured — both arms fire in 656 of 656 cases, so batch 0's \
 pattern distinguishes the halves everywhere, and had the number come back small \
-THAT would have been the finding (see D96).\n\n\
+THAT would have been the finding (see D96); \
+10 — THE MOVE FAMILY COMPLETED, `movaps`/`movups`/`movss`/`movsd`, ranks 2, 5, \
+6 and 11 of the measured demand list — 59,840 instructions, 11.2% of the gap, \
+the largest group available and NOT the one the candidate list ranked first.  \
+⛔ THE BATCH'S FINDING IS THAT TWO OF THE TOP THREE RANKS COULD NOT BE BUILT AT \
+ALL: `pmaddwd` (rank 1) and `psubusw` (rank 3) REFUSE on ACL2 x86isa, measured \
+live with both controls behaving, and this repository had held that reading in \
+`oracle_availability.py` since P2 batch 1 while the roster — which joins DEMAND \
+against SUPPLY and consults no third artifact — went on ranking them.  ⇒ A \
+ROSTER THAT PRICES DEMAND DOES NOT PRICE BUILDABILITY, and the two look the \
+same in a ranked table; the roster now carries an ORACLE column, emitted and \
+consumed in the same batch, whose first draft reproduced D100 in the opposite \
+direction by keying a `%zmm` verdict onto a `%ymm` row until it was keyed by \
+(mnemonic, ISA bucket) — the same key the demand is counted by.  ⭐ AND \
+`EXECUTES` WAS NOT TAKEN FOR `IMPLEMENTS`: `movss`/`movsd` have TWO operation \
+clauses under one mnemonic — from a REGISTER the upper bits are PRESERVED, from \
+MEMORY they are CLEARED — so the RULE was probed on the oracle with three \
+controls covering all three candidate behaviours, and x86isa returned the SDM's \
+answer in all four discriminating cases, which is what makes this batch \
+differentially validatable where batch 7's `movd` was not.  A model that always \
+merged and one that always zeroed are each BIT-IDENTICAL to this one on half \
+the vectors, so both are planted.  `aligned : Bool` became `VMovKind`, four \
+mnemonics from which the alignment rule is DERIVED rather than stored beside \
+it, and `vload_unaligned_faults` now quantifies over `k.aligned` so the theorem \
+GREW WITH THE TYPE instead of being restated.  ⚠️ AND THE KERNEL-COST GATE \
+REFUSED, naming a cheaper build: 96% of `memDestSweep` is walking `Row.shapes` \
+character by character, so a documentation field a kernel-reduced predicate \
+reads is NOT a place for prose — the explanation moved to the AST docstrings \
+and 1,500 ms went with it.  ⛔ The pass is 95% of the ceiling and the next \
+batch crosses again; the margin is written down rather than the verdict \
+(see D101, D102).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

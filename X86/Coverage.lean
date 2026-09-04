@@ -626,6 +626,28 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   , { mnemonic := "punpckhqdq",
       shapes := "x,x — interleaves the high 64-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — THE MOVE FAMILY COMPLETED.
+  --
+  -- `movaps`/`movups` carry the SAME shapes and the SAME alignment rule as
+  -- `movdqa`/`movdqu`; they are separate rows because they are separate OPCODES
+  -- and a disassembler prints them by name.  The single-precision spelling
+  -- changes no architectural state, and saying so is `VMovKind`'s job.
+  , { mnemonic := "movaps",
+      shapes := "x,x · x,m · m,x — aligned, else #GP(0); D91",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPS" }
+  , { mnemonic := "movups",
+      shapes := "x,x · x,m · m,x — no alignment rule",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPS" }
+  -- ⛔ AND THE TWO WHOSE DESTINATION RULE DEPENDS ON WHERE THE SOURCE LIVES.
+  -- The shapes string says both halves, because a reader who saw only "x,x ·
+  -- x,m · m,x" would have no way to know that the first two do DIFFERENT things
+  -- to the same bits.
+  , { mnemonic := "movss",
+      shapes := "x,x (32b, upper MERGED) · x,m (upper ZEROED) · m,x",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVSS" }
+  , { mnemonic := "movsd",
+      shapes := "x,x (64b, upper MERGED) · x,m (upper ZEROED) · m,x",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVSD" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

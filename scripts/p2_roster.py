@@ -36,6 +36,9 @@ Usage:  p2_roster.py [--out docs/P2-ROSTER.md]
 """
 from __future__ import annotations
 import os, re, sys, json, collections, argparse
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import oracle_availability as OA
+from oracle_availability import measured_availability
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -94,6 +97,43 @@ def mmx_note(n_mmx, occ):
     return ("⛔ **100% — PHANTOM ROW**" if f > 99.5 else
             f"⚠️ {f:.0f}%" if f >= 10.0 else
             f"{f:.0f}%" if n_mmx else "—")
+
+
+def oracle_note(verdict):
+    """The ORACLE column of one roster row — P2 batch 11.
+
+    ⛔ A ROSTER PRICES DEMAND AND SUPPLY AND, UNTIL THIS COLUMN, NOTHING ELSE.
+    `pmaddwd` ranked FIRST here with 21,239 instructions of real demand and five
+    real K shapes, and ACL2 x86isa — the differential's other side — cannot
+    execute it. A batch cannot be built against an oracle that declines, so a
+    rank that cannot be built is a rank that costs the next head a measurement to
+    rediscover. `scripts/oracle_availability.py` has held that reading, gated in
+    both directions, since P2 batch 1; it was never JOINED.
+
+    ⚠️ THREE VALUES, NOT TWO.  A mnemonic the measured table does not name is
+    **UNMEASURED**, and it must not read as available: a declared list inherits
+    the direction of its default, and `available` is the default that invents
+    work. ⭐ A FUNCTION so the three bands can be driven by an arm, for the reason
+    `mmx_note` is one."""
+    return ("⛔ **REFUSES**" if verdict == "refuses" else
+            "✔" if verdict == "executes" else
+            "⚠️ not measured")
+
+
+def dominant_bucket(per_ext, mn):
+    """The ISA bucket most of this row's demand is in — the key its oracle
+    verdict must be looked up by.
+
+    ⛔ THE ROW'S OWN DEMAND DECIDES THIS, NOT ITS SPELLING.  A first draft read
+    the file off the mnemonic (`v…` means VEX) and that is a rule about names,
+    which is what `movq` — one mnemonic, three register files — exists to break.
+    The census already counts the gap per bucket; asking it is both cheaper and
+    correct.
+
+    ⚠️ Returns `None` for a mnemonic with no per-bucket demand at all, so an
+    absent row reads as UNMEASURED rather than borrowing some other row's key."""
+    c = per_ext.get(mn)
+    return c.most_common(1)[0][0] if c else None
 
 
 def lock_why():
@@ -258,10 +298,26 @@ mnemonics**. The demand side is the assembly column class of
 not cover**, across {len(b['cols'])} codec columns, never pooled with compiler
 output or with the kernel.
 
-⚠️ **K coverage below is a CATALOGUE reading.** A `.k` file existing for a form
-says the oracle NAMES it, not that the oracle EXECUTES it. Every batch is priced
-*runnable pending an oracle-availability run*, and that run — not this table —
-is what makes a batch startable.
+⚠️ **The K column is a CATALOGUE reading.** A `.k` file existing for a form says
+the coverage target NAMES it, not that anything EXECUTES it.
+
+⭐ **The `oracle` column is not.** It is the CR4-enabled arm of
+`scripts/oracle_availability.py` — ACL2 x86isa, measured by executing one form
+per mnemonic, gated in both directions with an always-executes and an
+always-refuses control — joined here in P2 batch 11.
+
+⛔ **THIS COLUMN EXISTS BECAUSE ITS ABSENCE COST A BATCH.** The paragraph here
+used to say a batch was priced *"runnable pending an oracle-availability run"*,
+and that the run — *"not this table"* — was what made a batch startable. Both
+sentences were true, and together they were a reason not to look: the run had
+been made, and its answer lived in a file this table never read, so the table
+went on ranking `pmaddwd` FIRST and `psubusw` THIRD when the oracle refuses both.
+⇒ 🔑 **A ROSTER THAT PRICES DEMAND DOES NOT PRICE BUILDABILITY, AND THE TWO LOOK
+THE SAME IN A RANKED TABLE.** A row marked ⛔ **REFUSES** has real demand and real
+K supply and **cannot be differentially validated at all**.
+
+⚠️ A row marked *not measured* is exactly that — the probe does not name it. It
+is not a licence, and it is not a refusal.
 
 """)
 
@@ -330,20 +386,30 @@ not by this table's sort — but the row count is DERIVED now, and it is
     # DEMAND, and it reads as an ordinary row.  The share is printed per row now,
     # from the census's `miss_by_ext`; ⚠️ a row at 100% is a PHANTOM.
     mmx = collections.Counter()
+    # ⭐⭐ P2 BATCH 11 — THE FULL PER-BUCKET DEMAND, not only its MMX slice.  D100
+    # emitted `miss_by_ext` and consumed one key of it; the oracle column needs
+    # the whole map, because the bucket a row's demand actually LIVES in is the
+    # key its oracle verdict must be looked up by.
+    per_ext = collections.defaultdict(collections.Counter)
     for _g, r in d.items():
         if isinstance(r, dict) and r.get("class") == "asm":
             for m, per in (r.get("miss_by_ext") or {}).items():
                 mmx[m] += per.get("MMX (mm)", 0)
+                for bucket, n in per.items():
+                    per_ext[m][bucket] += n
+    # ⭐⭐ P2 BATCH 11 — THE THIRD ARTIFACT, JOINED.  See `oracle_note`.
+    avail = measured_availability()
     fh.write("| rank | mnemonic | occurrences | share | cumulative | "
-             "of it, MMX | K operand shapes |\n")
-    fh.write("|---|---|---|---|---|---|---|\n")
+             "of it, MMX | oracle | K operand shapes |\n")
+    fh.write("|---|---|---|---|---|---|---|---|\n")
     cum = 0
     for i, (mn, occ, shapes) in enumerate(b["joined"][:40], 1):
         cum += occ
         note = mmx_note(mmx.get(mn, 0), occ)
+        orc = oracle_note(avail.get((mn, dominant_bucket(per_ext, mn))))
         fh.write(f"| {i} | `{mn}` | {occ:,} | "
                  f"{100.0*occ/b['total_uncovered']:.2f}% | "
-                 f"{100.0*cum/b['total_uncovered']:.1f}% | {note} | "
+                 f"{100.0*cum/b['total_uncovered']:.1f}% | {note} | {orc} | "
                  f"{', '.join('`'+s+'`' for s in shapes)} |\n")
     joined_total = sum(o for _m, o, _s in b["joined"])
     fh.write(f"\n- The joined set — **{len(b['joined'])} mnemonics K has "
@@ -494,6 +560,23 @@ def selftest():
     """⛔ THE JOIN IS WHERE THIS TOOL WOULD INFLATE OR DEFLATE P2, so it is
     driven on the shapes that would do it."""
     bad = []
+    # ⛔⛔ P2 BATCH 11 — THE ARM COUNT IS DERIVED, AND IT WAS A HAND-SUMMED
+    # LITERAL.  The line below used to read
+    #   len(arms)+len(key_arms)+1+4*len(asm)+len(ADDITIONS)+len(lock_arms)+6
+    # — a total accumulated by hand, with a bare `+6` for the MMX bands and no
+    # record of which arm each term stood for.  This batch added twelve arms and
+    # the gate went on reporting 52.
+    #
+    # ⇒ 🔑 A HAND-ACCUMULATED TOTAL CANNOT SEE ITS OWN PARTS: it can only be
+    # recomputed, never corrected, and it fails in the reassuring direction —
+    # UNDER-counting reads as a smaller gate rather than as a broken one.  Every
+    # arm prints a line; counting the lines is the same act as running them, so
+    # the number cannot drift from the work again.
+    n_arms = [0]
+    def say(line):
+        if line.startswith("  ✔ ") or line.startswith("  ⛔ "):
+            n_arms[0] += 1
+        print(line)
     # the SIMD predicate must agree with k_roster's, in both directions
     arms = [
         (("paddb", ("xmm", "xmm")), True),
@@ -509,7 +592,7 @@ def selftest():
                or any(tok.startswith(p) for p in K.EXCLUDE_PREFIX)
                or any(K.VECTOR_OPERAND.match(o) for o in ops))
         ok = got == want
-        print(("  ✔ " if ok else "  ⛔ ") +
+        say(("  ✔ " if ok else "  ⛔ ") +
               f"SIMD? {tok:12s} {str(ops):22s} -> {got}" +
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
@@ -527,7 +610,7 @@ def selftest():
     for ck, want in key_arms:
         got = join_key(ck)
         ok = got == want
-        print(("  ✔ " if ok else "  ⛔ ") + f"join key {ck:26s} -> {got}" +
+        say(("  ✔ " if ok else "  ⛔ ") + f"join key {ck:26s} -> {got}" +
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append("key:" + ck)
@@ -537,12 +620,12 @@ def selftest():
     asm = [g for g, r in d.items()
            if isinstance(r, dict) and r.get("class") == "asm"]
     ok = bool(asm)
-    print(("  ✔ " if ok else "  ⛔ ") +
+    say(("  ✔ " if ok else "  ⛔ ") +
           f"the census JSON declares an assembly class ({len(asm)} columns)")
     bad += [] if ok else ["asm-class"]
     for g in asm:
         has = "miss_all" in d[g]
-        print(("  ✔ " if has else "  ⛔ ") +
+        say(("  ✔ " if has else "  ⛔ ") +
               f"column `{g}` carries the FULL uncovered map, not the top 40")
         if not has:
             bad.append("miss_all:" + g)
@@ -550,7 +633,7 @@ def selftest():
         if has:
             top = dict(x for x in d[g]["miss"])
             sup = all(d[g]["miss_all"].get(k) == v for k, v in top.items())
-            print(("  ✔ " if sup else "  ⛔ ") +
+            say(("  ✔ " if sup else "  ⛔ ") +
                   f"  and it agrees with the top-40 list on every entry")
             if not sup:
                 bad.append("miss-agree:" + g)
@@ -568,14 +651,97 @@ def selftest():
                              (0, 0, "—")):              # a row with no demand
         got = mmx_note(n_mmx, occ)
         ok = got == want
-        print(("  ✔ " if ok else "  ⛔ ") +
+        say(("  ✔ " if ok else "  ⛔ ") +
               f"mmx share {n_mmx}/{occ} -> {got}" +
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append(f"mmx:{n_mmx}/{occ}")
+    # ⛔⛔ P2 BATCH 11 — THE ORACLE COLUMN, IN ALL THREE BANDS.  The third band is
+    # the one that matters: an UNMEASURED mnemonic must not read as available.
+    # A declared list inherits the direction of its default, and `available` is
+    # the default that invents work — a rank a head then spends a batch
+    # discovering it cannot build.
+    for verdict, want in (("refuses", "⛔ **REFUSES**"),
+                          ("executes", "✔"),
+                          (None, "⚠️ not measured"),
+                          ("", "⚠️ not measured")):
+        got = oracle_note(verdict)
+        ok = got == want
+        say(("  ✔ " if ok else "  ⛔ ") +
+              f"oracle note {str(verdict):10s} -> {got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append(f"oracle:{verdict}")
+    # ⛔⛔ AND THE KEY THE VERDICT IS JOINED ON.  Keying by mnemonic alone printed
+    # ⛔ REFUSES against `vpaddw` — a row of 11,682 AVX2 `%ymm` instructions —
+    # on the strength of an AVX-512 `%zmm` probe. Same defect as D100, opposite
+    # direction, and an UNDER-claim, which is the direction that reads as caution.
+    for asm_s, want in (("pmaddwd %xmm1, %xmm0",       "SSE-legacy (xmm)"),
+                        ("vpaddw %zmm1, %zmm2, %zmm0", "AVX-512 (zmm/k)"),
+                        ("vpaddd %ymm1, %ymm2, %ymm0", "AVX2/AVX (ymm)"),
+                        ("vpxor %xmm1, %xmm2, %xmm0",  "VEX-128 (v… xmm)"),
+                        ("movq %mm1, %mm0",            "MMX (mm)"),
+                        ("movl %ecx, (%rbx)",          None)):
+        got = OA.probe_bucket(asm_s)
+        ok = got == want
+        say(("  ✔ " if ok else "  ⛔ ") +
+              f"probe bucket {asm_s:28s} -> {got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append("bucket:" + asm_s)
+    # ⛔ AND THE BUCKET NAMES MUST BE THE CENSUS'S OWN, spelled identically.  Two
+    # vocabularies for one partition is the second source that goes stale, and it
+    # would fail SILENTLY here — every lookup missing, every row "not measured",
+    # which is the reassuring direction.
+    census_buckets = set()
+    for g in asm:
+        for _m, per in (d[g].get("miss_by_ext") or {}).items():
+            census_buckets |= set(per)
+    probe_buckets = {b for (_m, b) in OA.measured_availability()}
+    stray = probe_buckets - census_buckets
+    ok = not stray
+    say(("  ✔ " if ok else "  ⛔ ") +
+          f"every probe bucket is a census bucket ({len(probe_buckets)} probed, "
+          f"{len(census_buckets)} in the census)" +
+          ("" if ok else f"   STRAY {sorted(stray)}"))
+    if not ok:
+        bad.append("bucket-vocab")
+    # ⛔ AND THE JOIN MUST ACTUALLY LAND.  A column whose every lookup missed
+    # would print "not measured" on every row and look like honest modesty.
+    # ⚠️ THE SAME ACCUMULATION THE RENDERER DOES, and deliberately not a second
+    # copy of its RULE: `dominant_bucket` is the one function both call.
+    per_ext = collections.defaultdict(collections.Counter)
+    for g in asm:
+        for m, per in (d[g].get("miss_by_ext") or {}).items():
+            for bucket, n in per.items():
+                per_ext[m][bucket] += n
+    av = OA.measured_availability()
+    # ⛔⛔ AND THE THRESHOLD HERE WAS A DRIFTING LITERAL, WHICH THIS BATCH BROKE
+    # WITHIN THE HOUR.  It read `hits >= 20` against the count of census
+    # mnemonics the join resolves.  Then the batch that wrote it COVERED
+    # `movaps`/`movups`/`movss`/`movsd`, those four left the uncovered residue,
+    # the count went 23 -> 19, and the arm went red about nothing at all.
+    #
+    # ⇒ 🔑 A THRESHOLD ON A QUANTITY THE WORK CONSUMES IS A CHORE, NOT A GATE —
+    # every landed batch shrinks the residue, so the number can only fall and the
+    # gate can only be relaxed.  State the arm's CLAIM instead: it exists to
+    # catch a join that matched NOTHING, which would print "not measured" on
+    # every row and read as honest modesty.  So the assertion is exactly that
+    # negation, over the rows the document actually prints, with no number to
+    # maintain.
+    printed = [mn for mn, _o, _s in build(d)["joined"][:40]]
+    resolved = [mn for mn in printed
+                if av.get((mn, dominant_bucket(per_ext, mn))) is not None]
+    ok = len(resolved) > 0
+    say(("  ✔ " if ok else "  ⛔ ") +
+          f"the oracle join RESOLVES {len(resolved)} of the {len(printed)} rows "
+          f"the roster prints (a join that matched nothing would print "
+          f"'not measured' on every one of them)")
+    if not ok:
+        bad.append("oracle-join-empty")
     for g in asm:
         has = "miss_by_ext" in d[g]
-        print(("  ✔ " if has else "  ⛔ ") +
+        say(("  ✔ " if has else "  ⛔ ") +
               f"column `{g}` carries the residue keyed by MNEMONIC AND BUCKET")
         if not has:
             bad.append("miss_by_ext:" + g)
@@ -586,12 +752,12 @@ def selftest():
                 flat = sum(v for k, v in d[g]["miss_all"].items()
                            if k == m or k.startswith(m + " ("))
                 if sum(per.values()) != flat:
-                    print(f"  ⛔ `{g}`/`{m}`: {sum(per.values())} by bucket vs "
+                    say(f"  ⛔ `{g}`/`{m}`: {sum(per.values())} by bucket vs "
                           f"{flat} in the flat map")
                     bad.append("miss-keying:" + g + "/" + m)
                     break
             else:
-                print(f"  ✔   and it agrees with `miss_all` on every mnemonic")
+                say(f"  ✔   and it agrees with `miss_all` on every mnemonic")
 
     # ⛔ GATED IN BOTH DIRECTIONS.  This arm used to say only "the census emits
     # this bucket", which is true exactly while the addition is UNDELIVERED; it
@@ -603,7 +769,7 @@ def selftest():
     for name, key, _w in ADDITIONS:
         landed = DC.EXT_SCOPE[key]
         ok = (key not in ext) if landed else (key in ext)
-        print(("  ✔ " if ok else "  ⛔ ") +
+        say(("  ✔ " if ok else "  ⛔ ") +
               (f"addition `{name}` is in scope for the census and is ABSENT "
                f"from its uncovered buckets (`{key}`)" if landed else
                f"addition `{name}` names a bucket the census emits (`{key}`)"))
@@ -654,14 +820,14 @@ def selftest():
                       and CF.LOCK_UNBLOCKED == saved_unblocked
                       and lock_why() == base))
     for name, ok in lock_arms:
-        print(("  ✔ " if ok else "  ⛔ ") + name)
+        say(("  ✔ " if ok else "  ⛔ ") + name)
         if not ok:
             bad.append("lock:" + name)
     if bad:
         print(f"p2-roster selftest: FAIL ({len(bad)} arms)")
         return 1
     print(f"p2-roster selftest: PASS "
-          f"({len(arms)+len(key_arms)+1+4*len(asm)+len(ADDITIONS)+len(lock_arms)+6} "
+          f"({n_arms[0]} "
           f"arms; the SIMD predicate in both directions, the join's inputs, "
           f"every addition tied to a bucket the census emits, and the LOCK "
           f"claim derived from `claimed_forms.DECLINED` in both directions)")

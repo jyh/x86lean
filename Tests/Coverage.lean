@@ -58,7 +58,7 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are). -/
-theorem roster_size_is_107 : rosterSize = 107 := by decide
+theorem roster_size_is_111 : rosterSize = 111 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -77,7 +77,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_838 : vectorCount = 838 := by decide
+theorem vector_count_is_854 : vectorCount = 854 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -94,8 +94,16 @@ PROSE (D65). It is cheap to state as a theorem over both flag values and every
 register pair, so it is stated. On the day the memory forms land, this theorem
 is the one that must GAIN a hypothesis — and it will fail loudly rather than
 quietly licence a wrong `movdqa`. -/
-theorem vmov_aligned_irrelevant (d s' : XmmReg) (n : Nat) (c : Cpu) :
-    step ⟨.vmov true d s', n⟩ c = step ⟨.vmov false d s', n⟩ c := rfl
+theorem vmov_kind_irrelevant (k k' : VMovKind) (d s' : XmmReg) (n : Nat) (c : Cpu) :
+    step ⟨.vmov k d s', n⟩ c = step ⟨.vmov k' d s', n⟩ c := rfl
+
+/-- ⭐ AND THE OTHER HALF, STATED WHERE IT BITES: at MEMORY the four kinds are
+NOT one operation, and the partition that separates them is `VMovKind.aligned`.
+Written as a claim about the derived flag rather than as four separate cases, so
+a fifth mnemonic cannot be added without answering the question. -/
+theorem vmov_alignment_is_by_kind :
+    (VMovKind.dqa.aligned && VMovKind.aps.aligned
+     && !VMovKind.dqu.aligned && !VMovKind.ups.aligned) = true := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -620,6 +628,12 @@ def isMemDestVector (v : Vec) : Bool :=
     | .vstore .. => true
     -- P2 VECTOR WAVE, BATCH 5: neither direction of `movd`/`movq` touches memory.
     | .vmovg .. | .vmovq .. => false
+    -- ⭐ P2 VECTOR WAVE, BATCH 11, added in the SAME COMMIT as the constructors,
+    -- which is what this function's own doc comment asks for and what batch 8
+    -- had to learn from a refused theorem.  A scalar STORE is a memory
+    -- destination; the register form and the load are not.
+    | .vmovs .. | .vmovsld .. => false
+    | .vmovsst .. => true
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem
@@ -845,7 +859,14 @@ theorem memDestSweep :
       -- pin down.
       == [("sarx", true), ("shlx", true), ("shrx", true),
           ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
-          ("movdqa", false), ("movdqu", false)])
+          ("movdqa", false), ("movdqu", false),
+          -- ⭐ P2 VECTOR WAVE, BATCH 11 adds four more in the SAME direction, and
+          -- their sameness is the point: the loose rule is blind to `m,x` for
+          -- every mnemonic, not just for the two that first exposed it.  A
+          -- vocabulary gap does not discriminate between the forms that fall
+          -- into it.
+          ("movaps", false), ("movups", false),
+          ("movss", false), ("movsd", false)])
      && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)
      && ((memDestMnemonics.filter (fun m =>
             !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) == [])) = true := by
@@ -920,7 +941,13 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- again — not "addresses without writing" but "writes through a
          -- vocabulary the loose rule does not have": its literal is `m,r`, and a
          -- vector store's shape is `m,x`.
-         ("movdqa", false), ("movdqu", false)] := by
+         ("movdqa", false), ("movdqu", false),
+         -- ⭐ P2 VECTOR WAVE, BATCH 11: four more stores in the SAME vocabulary
+         -- gap.  `movss`/`movsd` write 4 and 8 bytes rather than 16, so the gap
+         -- is not about the WIDTH of the store either — it is `x` the loose rule
+         -- cannot say, at any width.
+         ("movaps", false), ("movups", false),
+         ("movss", false), ("movsd", false)] := by
   have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT
@@ -1191,7 +1218,7 @@ theorem cext_covers_both_destinations :
        | .cext k => k == CextKind.cwd || k == CextKind.cdq || k == CextKind.cqo
        | _ => false)) = true := by decide
 
-/-! ### P1 BATCH 11 — what the loop group and the flag singles need to be TESTED
+/-! ### P1 BATCH 10 — what the loop group and the flag singles need to be TESTED
 
 Two of the four assertions below are about the PRE-STATES rather than the
 vectors, and that is the batch's shape: both new mechanisms were unobservable in

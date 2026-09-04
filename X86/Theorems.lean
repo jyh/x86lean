@@ -583,9 +583,11 @@ loudly. -/
 
 /-! ### ⭐⭐⭐ THE PACKED (SIMD) FORMS — P2 vector wave, batch 2 -/
 
-/-- `movdqa`/`movdqu` between registers: XMM and RIP move, and NOTHING ELSE. -/
-theorem step_vmov (a : Bool) (d s' : XmmReg) (h : Live s) :
-    step ⟨.vmov a d s', len⟩ s =
+/-- Any of the four 128-bit moves between registers: XMM and RIP move, and
+NOTHING ELSE.  ⭐ STATED OVER THE KIND rather than over each mnemonic, which is
+what makes `vmov_kind_irrelevant` a corollary rather than a second proof. -/
+theorem step_vmov (k : VMovKind) (d s' : XmmReg) (h : Live s) :
+    step ⟨.vmov k d s', len⟩ s =
       { s with xmm := s.xmm.set d (s.getXmm s'),
                rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm]
@@ -605,9 +607,9 @@ rather than assumed. -/
     (step ⟨.vbin k d s', len⟩ s).flags = s.flags := by
   rw [step_vbin k d s' h]
 
-@[simp] theorem step_vmov_flags (a : Bool) (d s' : XmmReg) (h : Live s) :
-    (step ⟨.vmov a d s', len⟩ s).flags = s.flags := by
-  rw [step_vmov a d s' h]
+@[simp] theorem step_vmov_flags (k : VMovKind) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vmov k d s', len⟩ s).flags = s.flags := by
+  rw [step_vmov k d s' h]
 
 /-! ### ⭐⭐⭐ MOVD / MOVQ across the register files — P2 vector wave, batch 5 -/
 
@@ -637,17 +639,80 @@ theorem vmovq_zeroes_upper (d s' : XmmReg) (h : Live s) :
   simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
         Op.lockable]
 
+/-! ### ⭐⭐⭐ MOVSS / MOVSD — the merge and the zero — P2 vector wave, batch 11 -/
+
+/-- ⭐⭐ FROM A REGISTER, THE UPPER BITS ARE **PRESERVED**.
+
+This is the only XMM write in this model that keeps any of its destination.
+`vmov` fills all 128 bits, `vbin` computes all 128, and `vmovg`/`vmovq` CLEAR
+what they do not write — so "the upper bits survive" is the claim most likely to
+be written wrong by analogy with the five forms that came before it, and it is
+stated here rather than left to the differential.
+
+⚠️ STATED AS AN EQUALITY ON THE HIGH BITS SPECIFICALLY, not as an equality on the
+whole register, because the whole-register form is just `step`'s definition read
+back and would hold for a model that merged the WRONG WAY round. `getLsbD` above
+the lane must equal the DESTINATION's old bit — naming which operand survives. -/
+theorem vmovs_preserves_upper (sz : Size) (d s' : XmmReg) (h : Live s)
+    (i : Nat) (hi : sz.bits ≤ i) :
+    ((step ⟨.vmovs sz d s', len⟩ s).getXmm d).getLsbD i = (s.getXmm d).getLsbD i := by
+  have hn : sz.bits + (i - sz.bits) = i := Nat.add_sub_cancel' hi
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Cpu.stopped, Op.lockIllegal,
+        Op.anyLocked, Op.lockable, hn, Nat.not_lt.mpr hi]
+  -- ⚠️ THE INDEX ABOVE THE REGISTER is not a vacuous case to wave through: both
+  -- sides are `false` there, and saying so is what lets the theorem be stated for
+  -- EVERY `i` rather than only for `i < 128` — a hypothesis a caller would then
+  -- have to carry.
+  rcases Nat.lt_or_ge i 128 with h1 | h1
+  · simp [h1]
+  · simp [Nat.not_lt.mpr h1, BitVec.getLsbD_of_ge _ _ h1]
+
+/-- ⭐ AND THE LOW LANE COMES FROM THE SOURCE — the other half, without which the
+theorem above is satisfied by an instruction that does nothing at all. -/
+theorem vmovs_low_from_src (sz : Size) (d s' : XmmReg) (h : Live s)
+    (i : Nat) (hi : i < sz.bits) :
+    ((step ⟨.vmovs sz d s', len⟩ s).getXmm d).getLsbD i = (s.getXmm s').getLsbD i := by
+  have h128 : i < 128 := by cases sz <;> simp [Size.bits] at hi <;> omega
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Cpu.stopped, Op.lockIllegal,
+        Op.anyLocked, Op.lockable, hi, h128]
+
+/-- ⭐⭐ FROM MEMORY, THE UPPER BITS ARE **CLEARED** — the same mnemonic, the
+other rule.  ⛔ THIS AND THE THEOREM ABOVE ARE THE BATCH: two claims that cannot
+both be true of one function, about instructions a disassembler prints with the
+same name. -/
+theorem vmovsld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovsld sz d ea, len⟩ s).getXmm d =
+      ((s.readMem sz (ea.addr s (s.rip + BitVec.ofNat 64 len))).setWidth sz.bits).setWidth 128 := by
+  simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+/-- ⭐ NO SCALAR MOVE TOUCHES A FLAG (SDM Vol. 2B, MOVSS/MOVSD: "Flags Affected:
+None"), stated for the same reason `step_vbin_flags` is. -/
+@[simp] theorem step_vmovs_flags (sz : Size) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vmovs sz d s', len⟩ s).flags = s.flags := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ AND NO SCALAR MOVE BETWEEN REGISTERS TOUCHES MEMORY OR A GPR — the frame. -/
+@[simp] theorem step_vmovs_regs (sz : Size) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vmovs sz d s', len⟩ s).regs = s.regs := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+@[simp] theorem step_vmovs_mem (sz : Size) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vmovs sz d s', len⟩ s).mem = s.mem := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
 /-! ### The vector MEMORY forms — P2 vector wave, batch 3 -/
 
 /-- An ALIGNED vector load: XMM and RIP move, nothing else. -/
-theorem step_vload_aligned (a : Bool) (d : XmmReg) (ea : Ea) (h : Live s)
+theorem step_vload_aligned (k : VMovKind) (d : XmmReg) (ea : Ea) (h : Live s)
     (hl : ea.lock = false)
     (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
-    step ⟨.vload a d ea, len⟩ s =
+    step ⟨.vload k d ea, len⟩ s =
       { s with xmm := s.xmm.set d (s.readMem128 (ea.addr s (s.rip + BitVec.ofNat 64 len))),
                rip := s.rip + BitVec.ofNat 64 len } := by
-  cases a <;> simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Op.lockIllegal,
-                    Op.anyLocked, Op.lockable]
+  cases k <;> simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Op.lockIllegal,
+                    Op.anyLocked, Op.lockable, VMovKind.aligned]
 
 /-- ⭐⭐ AN UNALIGNED `movdqa` FAULTS — the rule that makes `aligned` mean
 something, stated where a kernel can check it.
@@ -663,25 +728,27 @@ class and counts UNEXPLAINED — a red run about a model that is right.
 and on this theorem, and TRUSTBASE.md says so in as many words. It is exactly the
 kind of claim the hardware co-simulation lane exists to settle, because real
 silicon IS the oracle for it. D91. -/
-theorem vload_unaligned_faults (d : XmmReg) (ea : Ea) (h : Live s)
-    (hl : ea.lock = false)
+theorem vload_unaligned_faults (k : VMovKind) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) (hk : k.aligned = true)
     (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
-    (step ⟨.vload true d ea, len⟩ s).stopped = true := by
-  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+    (step ⟨.vload k d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, hk, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
 
-theorem vstore_unaligned_faults (r : XmmReg) (ea : Ea) (h : Live s)
-    (hl : ea.lock = false)
+theorem vstore_unaligned_faults (k : VMovKind) (r : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) (hk : k.aligned = true)
     (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
-    (step ⟨.vstore true ea r, len⟩ s).stopped = true := by
-  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+    (step ⟨.vstore k ea r, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, hk, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
 
 /-- ⭐ AND `movdqu` DOES NOT FAULT AT THE SAME ADDRESS — the other half of the
 claim, and the one that says `aligned` is doing the discriminating rather than
 the address being rejected by something else. -/
-theorem vload_unaligned_movdqu_runs (d : XmmReg) (ea : Ea) (h : Live s)
-    (hl : ea.lock = false) :
-    (step ⟨.vload false d ea, len⟩ s).stopped = false := by
-  simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
+theorem vload_unaligned_movdqu_runs (k : VMovKind) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) (hk : k.aligned = false) :
+    (step ⟨.vload k d ea, len⟩ s).stopped = false := by
+  simp [step, h, hl, hk, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
         Op.anyLocked, Op.lockable]
 
 /-- ⭐ AND NO PACKED FORM TOUCHES A GENERAL-PURPOSE REGISTER OR MEMORY — the
@@ -832,7 +899,7 @@ theorem step_xchg_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
     (step ⟨.bswap sz r, len⟩ s).flags = s.flags := by
   cases sz <;> simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.halt]
 
-/-! ## P1 BATCH 11 — the loop group and the flag-control singles -/
+/-! ## P1 BATCH 10 — the loop group and the flag-control singles -/
 
 /-- A checked RIP write never touches the registers — whether it lands or
 REFUSES.  Needed because `loop`'s counter write-back must be visible on both
