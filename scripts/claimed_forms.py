@@ -170,6 +170,8 @@ CLAIMS_NO_ROW = {
     "movdqu_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movdqu_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movdqu_load_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movd_to_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movq_to_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movd_from_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_from_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",

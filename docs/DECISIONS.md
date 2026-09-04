@@ -3764,3 +3764,72 @@ said which declaration was over. The local re-run is the only reason this was di
 should print `r.stdout` on failure.
 
 **Reversal cost:** fifteen string literals.
+
+## D95 — the known-divergence channel: keeping a test alive when the ORACLE is the one that is wrong (P2 vector wave, batch 6)
+
+**The problem this repays.** Twice the differential has been right and the oracle wrong — `movdqa` at
+an unaligned address, which x86isa does not fault on (D91, oracle *incomplete*), and `movd`/`movq`
+into an XMM register, which x86isa merges where the SDM and K both say clear (D93, oracle *wrong*).
+Both times the remedy was to **delete the vector**, and D93 said plainly what that costs:
+
+> Removing a vector stops the test **permanently and silently**: if x86isa is fixed tomorrow, nothing
+> notices.
+
+### 1. What it is
+
+`knownDivergences` names a **vector-id prefix**, **one field**, an **independent source**, and the
+decision note. A disagreement matching an entry is classified `oracle-divergence` — **not matched and
+not explained**, its own class, counted in the header of every run:
+
+```
+cases=71380 matched=51335 explained=28774 unexplained=0 oracle-divergence=159 oracle-leaks=0 missing=0
+```
+
+The two into-XMM vectors are **back in the table** and compared on every run.
+
+### 2. ⛔ Why this is the most dangerous list in the repository, and the three things that make it safe
+
+A place to put disagreements is a place to hide red. So:
+
+**It is gated in the OTHER direction.** An entry that produces *no* disagreement is a **failure**:
+
+```
+⛔ DECLARED ORACLE DIVERGENCES THAT DID NOT OCCUR:
+   mov_q / rax (PROBE) — declared divergent against: FABRICATED for the probe
+   Either the oracle was FIXED (delete the entry …) or this model has drifted into
+   agreeing with a known-wrong answer.
+```
+
+Without that arm, an entry whose divergence had gone would excuse a field forever, invisibly —
+nothing prints a rule that never fires.
+
+**Every entry carries its third source, and that is the admission price.** A two-model disagreement
+names no culprit (D93). An entry asserts that an *independent* public authority — K by file, the SDM
+by section — agrees with **this** model against the oracle. Without that, the list is just somewhere
+to put red.
+
+**It is narrow by construction:** one vector prefix, one field. It cannot excuse a whole vector, nor
+a field it did not name.
+
+⚠️ **And the scoping matters more than it looks.** `classify` takes the list as a **parameter**, and
+`driveWrong` passes `[]`. A declared divergence is a statement about this model against the *oracle*;
+the selftest compares this model against a deliberately wrong copy of *itself*, where an oracle's
+defect is irrelevant. Passing the same list to both would have let a declared oracle divergence
+quietly excuse a **planted bug** — and the planted bug here, `wrongVmovgPreservesUpper`, is *exactly*
+the mistake x86isa makes.
+
+### 3. Probed in both directions
+
+| plant | result |
+|---|---|
+| a declared divergence that does not occur | `rc=1`, names the stale entry and both causes |
+| a real entry deleted | `rc=1`, `unexplained=81` resurfaces as `spec`, `oracle-divergence=78` |
+
+The second is the one that proves the entries do real work rather than decorate: delete one and the
+red comes straight back.
+
+⭐ **The arm that was removed at batch 5 is restored with its vectors.** D93 removed it because an arm
+no vector can distinguish is a false entry in the gate's inventory; the vectors are back, so the arm
+has a subject again.
+
+**Reversal cost:** one structure, one list, one parameter, one gate.

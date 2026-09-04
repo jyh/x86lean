@@ -250,7 +250,64 @@ A refusal on ONE side only is the real finding and gets its own class. -/
 def bothRefused (a b : Rec) : Bool :=
   (a.post.lookup "refused" == some "1") && (b.post.lookup "refused" == some "1")
 
-def classify (a b : Rec) : List Disagreement :=
+/-- ⭐⭐⭐ THE KNOWN-ORACLE-DIVERGENCE LIST (P2 vector wave, batch 6).
+
+⛔ WHY THIS EXISTS, AND WHY IT IS THE MOST DANGEROUS LIST IN THE REPOSITORY.
+
+Twice now the differential has been RIGHT and the ORACLE wrong: `movdqa` at an
+unaligned address, which x86isa does not fault on (D91, oracle INCOMPLETE), and
+`movd`/`movq` into an XMM register, which x86isa MERGES where the SDM and K both
+say CLEAR (D93, oracle WRONG). Both times the remedy was to DELETE the vector,
+and deleting a vector stops that test **permanently and silently**: if x86isa is
+fixed tomorrow, nothing notices, and the model's own rule goes back to being
+carried by a theorem alone.
+
+⇒ A declared divergence keeps the case RUNNING. It is compared on every run, it
+is reported in its own class and counted, and — the half that makes it safe —
+**it is gated in BOTH directions**: an entry that stops diverging is a FAILURE,
+not a quiet success, because it means either the oracle was fixed (delete the
+entry) or this model drifted into agreeing with a known-wrong answer (find out
+why, urgently).
+
+⚠️ EVERY ENTRY CARRIES ITS THIRD SOURCE, and that is the admission price. A
+two-model disagreement names no culprit (D93); an entry here asserts that some
+*independent* public authority — K's semantics, the SDM by section — agrees with
+THIS model against the oracle. Without that, this list is just a place to hide
+red.
+
+⚠️ AND IT IS DELIBERATELY NARROW: an entry names a vector-id PREFIX and ONE
+FIELD. It cannot excuse a whole vector, and it cannot excuse a field the entry
+did not name. `undefinableFields` is the only comparable mechanism here and its
+own comment warns what a broad explaining-away list costs. -/
+structure KnownDivergence where
+  /-- The vector id, without the `/n` pre-state suffix. -/
+  vec : String
+  /-- The single field this model and the oracle are known to differ in. -/
+  field : String
+  /-- The INDEPENDENT authority that agrees with this model. Not optional. -/
+  source : String
+  /-- The decision note recording the measurement. -/
+  note : String
+  deriving Repr, Inhabited
+
+def knownDivergences : List KnownDivergence :=
+  [ { vec := "movd_to_x", field := "xmm0"
+    , source := "K `movd_xmm_r32.k`: concatenateMInt(mi(96,0), …); SDM Vol. 2B MOVD: DEST[127:32] <- 0"
+    , note := "D93" }
+  , { vec := "movq_to_x", field := "xmm0"
+    , source := "K `movq_xmm_r64.k`: concatenateMInt(mi(64,0), …); SDM Vol. 2B MOVQ: DEST[127:64] <- 0"
+    , note := "D93" } ]
+
+def divergenceFor (id field : String) : Option KnownDivergence :=
+  knownDivergences.find? (fun d => d.vec == id.takeWhile (· != '/') && d.field == field)
+
+/-- ⚠️ `divs` IS A PARAMETER, NOT A GLOBAL, AND THE SCOPING IS THE POINT.  A
+declared divergence is a statement about **this model against the ORACLE**. The
+selftest's `driveWrong` compares this model against a deliberately WRONG COPY OF
+ITSELF, where an oracle's defect is irrelevant — so it passes `[]` and an arm
+that lands on a divergent field still counts as a catch. Passing the same list to
+both would have let a declared oracle divergence quietly excuse a planted bug. -/
+def classify (divs : List KnownDivergence) (a b : Rec) : List Disagreement :=
   if bothRefused a b then [] else
   let keys := (a.post.map Prod.fst) ++ (b.post.map Prod.fst).filter
     (fun k => !(a.post.map Prod.fst).contains k)
@@ -263,6 +320,13 @@ def classify (a b : Rec) : List Disagreement :=
         if x == "<missing>" || y == "<missing>" then "harness"
         else if k == "refused" then "refusal"
         else if undefinableFields.contains k && a.undef.contains k then "undefined-region"
+        -- ⭐ A DECLARED DIVERGENCE IS ITS OWN CLASS. It is NOT "matched" and NOT
+        -- "explained": it is a disagreement this repository has measured, named
+        -- and attributed to the oracle, and it is counted and reported on every
+        -- run so it can never become invisible.
+        else if (divs.find? (fun d =>
+                   d.vec == a.id.takeWhile (· != '/') && d.field == k)).isSome then
+          "oracle-divergence"
         else "spec"
       some { id := a.id, mnemonic := a.mnemonic, field := k, lhs := x, rhs := y, cls }
 
@@ -271,11 +335,13 @@ structure Report where
   matched : Nat := 0
   explained : Nat := 0
   unexplained : Nat := 0
+  /-- Disagreements matching a declared `knownDivergences` entry. -/
+  diverged : Nat := 0
   leaks : Nat := 0
   missing : Nat := 0
   details : List Disagreement := []
 
-def compareRecs (as bs : List Rec) : Report := Id.run do
+def compareRecs (divs : List KnownDivergence) (as bs : List Rec) : Report := Id.run do
   let mut r : Report := {}
   for a in as do
     r := { r with cases := r.cases + 1 }
@@ -283,23 +349,29 @@ def compareRecs (as bs : List Rec) : Report := Id.run do
     match bs.find? (fun b => b.id == a.id) with
     | none => r := { r with missing := r.missing + 1 }
     | some b =>
-      let ds := classify a b
+      let ds := classify divs a b
       if ds.isEmpty then r := { r with matched := r.matched + 1 }
       else
         let expl := ds.filter (fun d => d.cls == "undefined-region")
-        let unex := ds.filter (fun d => d.cls != "undefined-region")
+        let dvg := ds.filter (fun d => d.cls == "oracle-divergence")
+        let unex := ds.filter (fun d => d.cls != "undefined-region"
+                                        && d.cls != "oracle-divergence")
         r := { r with
           explained := r.explained + expl.length
+          diverged := r.diverged + dvg.length
           unexplained := r.unexplained + unex.length
           details := r.details ++ ds }
   return r
 
 def renderReport (r : Report) : String :=
   let head := s!"cases={r.cases} matched={r.matched} explained={r.explained} \
-unexplained={r.unexplained} oracle-leaks={r.leaks} missing={r.missing}"
-  let byClass := ["spec", "refusal", "harness", "undefined-region"].map fun c =>
+unexplained={r.unexplained} oracle-divergence={r.diverged} \
+oracle-leaks={r.leaks} missing={r.missing}"
+  let byClass := ["spec", "refusal", "harness", "undefined-region",
+                  "oracle-divergence"].map fun c =>
     s!"  {c}: {(r.details.filter (fun d => d.cls == c)).length}"
-  let sample := (r.details.filter (fun d => d.cls != "undefined-region")).take 20
+  let sample := (r.details.filter (fun d => d.cls != "undefined-region"
+                                              && d.cls != "oracle-divergence")).take 20
   let lines := sample.map fun d =>
     s!"  [{d.cls}] {d.id} ({d.mnemonic}) {d.field}: lean={d.lhs} oracle={d.rhs}"
   String.intercalate "\n" ([head] ++ byClass ++
@@ -1214,7 +1286,7 @@ def driveWrong (name : String) (wrong : Instr → Cpu → Cpu) (expectField : St
     IO Bool := do
   let good := parseRecords (emitAll step 4)
   let bad := parseRecords (emitAll wrong 4)
-  let r := compareRecs good bad
+  let r := compareRecs [] good bad
   -- ⭐ D33: THE FILTER USED TO READ `d.cls == "spec"`, AND THAT MADE ONE CHANNEL
   -- OF THE COMPARATOR UNTESTABLE BY CONSTRUCTION.  `classify` gives a
   -- disagreement in `refused` the class **"refusal"**, not "spec" — so an arm
@@ -2283,6 +2355,20 @@ bits, and each one is bit-identical to the right model whenever the bits it fail
 to clear were already zero — which is exactly why batch 0's XMM pre-state pattern
 is deliberately non-zero and non-constant. -/
 
+/-- ⛔ `movd`/`movq` INTO an XMM register MERGE instead of clearing: the bits
+above the written width keep whatever the destination held. ⚠️ THIS IS EXACTLY
+THE DEFECT ACL2 x86isa HAS (D93) — which is why it is planted against the Lean
+model rather than the oracle, and why `driveWrong` passes an EMPTY divergence
+list: a declared oracle divergence must never excuse a planted bug. -/
+def wrongVmovgPreservesUpper (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovg true sz x r =>
+      let old := s.getXmm x
+      let v := (s.getReg sz r).setWidth 128
+      let keep : BitVec 128 := old &&& (BitVec.allOnes 128 <<< (sz.bits))
+      (s.setXmm x (v ||| keep)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
 /-- ⛔ `movq %xmm1,%xmm0` behaves like `movdqa` — it copies all 128 bits instead
 of moving the low quadword and ZEROING the upper one. -/
 def wrongVmovqCopiesAll (i : Instr) (s : Cpu) : Cpu :=
@@ -2508,13 +2594,14 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      "mem@0000000000001fe0")
   , ("movdqu applies movdqa's alignment check", wrongVmovduAlsoAligns, "refused")
   -- ⭐⭐ P2 VECTOR WAVE, BATCH 5 — the cross-file moves, all three about ZEROING.
-  -- ⛔ `movd/movq into XMM merge instead of clearing the upper bits` WAS AN ARM
-  -- HERE AND HAS BEEN REMOVED WITH ITS VECTORS.  It fired — 151 cases — and then
-  -- the differential showed that ACL2 x86isa itself merges, so the two into-XMM
-  -- vectors had to go (D93) and the arm lost its subject. An arm no vector can
-  -- distinguish is a FALSE ENTRY in this list, not a weak test (D91), so it is
-  -- gone rather than left green forever. The rule it guarded is carried by
-  -- `vmovg_to_xmm_zeroes_upper` in X86/Theorems.lean.
+  -- ⭐ RESTORED WITH ITS VECTORS (D95).  It was removed at batch 5 when the two
+  -- into-XMM vectors went, because an arm no vector can distinguish is a false
+  -- entry in this list. `knownDivergences` brought the vectors back, so the arm
+  -- has a subject again — and note that it plants EXACTLY the mistake x86isa
+  -- makes, which is why it must be compared against the Lean model and not the
+  -- oracle: `driveWrong` passes `[]` for the divergence list.
+  , ("movd/movq into XMM merge instead of clearing the upper bits",
+     wrongVmovgPreservesUpper, "xmm0")
   , ("movq xmm,xmm copies all 128 bits instead of zeroing the upper quadword",
      wrongVmovqCopiesAll, "xmm0")
   , ("movd out of XMM does not zero-extend its 32-bit GPR write",
@@ -2595,8 +2682,33 @@ def main (args : List String) : IO UInt32 := do
   | ["compare", a, b] =>
       let ra := parseRecords (← readLines a)
       let rb := parseRecords (← readLines b)
-      let r := compareRecs ra rb
+      let r := compareRecs knownDivergences ra rb
       IO.println (renderReport r)
+      -- ⭐⭐ THE DIVERGENCE LIST, GATED IN THE OTHER DIRECTION.  A declared entry
+      -- that produced NO disagreement in this run is a FAILURE, not a quiet
+      -- success: either the oracle was fixed (delete the entry, and restore the
+      -- vector to ordinary comparison) or THIS MODEL has drifted into agreeing
+      -- with an answer the SDM and K say is wrong. Both need a human; neither
+      -- may pass silently.
+      --
+      -- ⛔ WITHOUT THIS ARM THE LIST WOULD BE A PLACE TO HIDE RED — a declared
+      -- divergence that no longer happens would go on excusing a field forever,
+      -- and the excuse would be invisible because nothing prints an entry that
+      -- never fires.
+      let stale := knownDivergences.filter fun d =>
+        !(r.details.any fun x =>
+            x.cls == "oracle-divergence" && x.field == d.field
+            && x.id.takeWhile (· != '/') == d.vec)
+      if !stale.isEmpty then
+        IO.println "⛔ DECLARED ORACLE DIVERGENCES THAT DID NOT OCCUR:"
+        for d in stale do
+          IO.println s!"   {d.vec} / {d.field} ({d.note}) — declared divergent \
+against: {d.source}"
+        IO.println "   Either the oracle was FIXED (delete the entry and let the \
+field be compared again) or this model has drifted into agreeing with a \
+known-wrong answer. A divergence list is only honest while every entry in it is \
+still true."
+        return 1
       if r.unexplained > 0 || r.missing > 0 || r.leaks > 0 then return 1 else return 0
   -- ⭐ `selftest <substring>` RUNS ONLY THE ARMS WHOSE NAME MATCHES, and it
   -- exists because of what a deletion probe costs.  Every batch here tests its
@@ -2726,7 +2838,7 @@ models, each must be caught:"
         ok := ok && caught
       -- and the control: the correct model against itself must be SILENT
       let good := parseRecords (emitAll step 4)
-      let r := compareRecs good good
+      let r := compareRecs [] good good
       let silent := r.unexplained == 0 && r.explained == 0 && r.missing == 0 && r.leaks == 0
       if silent then
         IO.println s!"  ✔ control: the model against itself is silent ({r.matched}/{r.cases} \
@@ -3133,7 +3245,25 @@ oracle cannot check — the alignment fault (oracle incomplete) and this one \
 vector stops the test PERMANENTLY AND SILENTLY.  Both point at the same next \
 mechanism: a declared known-divergence channel carrying its third-source \
 citation, gated in BOTH directions so it fires when the divergence disappears \
-(see D93).\n\n\
+(see D93); 8 — THE KNOWN-DIVERGENCE CHANNEL, and NO INSTRUCTION AT ALL.  Twice \
+the differential has been right and the ORACLE wrong — `movdqa` unaligned, which \
+x86isa does not fault on, and `movd`/`movq` into XMM, which it MERGES where the \
+SDM and K both say CLEAR — and both times the remedy was to DELETE the vector, \
+which stops that test PERMANENTLY AND SILENTLY: if x86isa were fixed tomorrow, \
+nothing would notice.  `oracle-divergence` is now its own class in the header of \
+every run, NOT matched and NOT explained, and the two deleted vectors are back \
+in the table and compared again.  ⛔ A PLACE TO PUT DISAGREEMENTS IS A PLACE TO \
+HIDE RED, so three things keep it honest: it is GATED IN THE OTHER DIRECTION (an \
+entry that produces no disagreement FAILS, because either the oracle was fixed \
+or this model has drifted into agreeing with a known-wrong answer); every entry \
+carries an INDEPENDENT SOURCE by file and section, since a two-model \
+disagreement names no culprit; and it is narrow by construction, one vector \
+prefix and one field.  ⚠️ And `classify` takes the list as a PARAMETER — \
+`driveWrong` passes the empty one, because the selftest compares this model \
+against a deliberately wrong copy of ITSELF, where an oracle's defect is \
+irrelevant, and the planted bug there is EXACTLY the mistake x86isa makes.  \
+Probed both ways: a declared divergence that does not occur fails, and deleting \
+a real entry brings its 81 disagreements straight back as `spec` (see D95).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
