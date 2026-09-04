@@ -77,7 +77,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_820 : vectorCount = 820 := by decide
+theorem vector_count_is_825 : vectorCount = 825 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -611,6 +611,13 @@ def isMemDestVector (v : Vec) : Bool :=
     -- register-to-register only: there is no memory destination to report, and
     -- when the memory forms land this is one of the lines that must change.
     | .vmov .. | .vbin .. => false
+    -- ⭐ P2 VECTOR WAVE, BATCH 3.  A vector STORE is a memory destination; a
+    -- vector LOAD is not.  This is the first time the two vector mnemonics
+    -- differ from each other in this function, which is the shape of the whole
+    -- batch: `movdqa` and `movdqu` stop being interchangeable once an address
+    -- exists.
+    | .vload .. => false
+    | .vstore .. => true
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem
@@ -824,8 +831,19 @@ theorem memDestSweep :
         | true,  false => some (r.mnemonic, true)
         | false, true  => some (r.mnemonic, false)
         | _,     _     => none)
+      -- ⭐ P2 VECTOR WAVE, BATCH 3 adds the last two, and their direction is the
+      -- interesting one: the LOOSE rule says no and the STRICT rule says yes.
+      -- `claimsMemDestLoose` looks for the literal `m,r` — `r` being a
+      -- GENERAL-PURPOSE register — so it is blind to a vector store, whose shape
+      -- is `m,x`. The strict rule reads the shape's START and gets it right.
+      -- ⇒ The old rule was not merely imprecise, it was VOCABULARY-BOUND, and a
+      -- second register file is what exposed that. Recorded here rather than
+      -- repaired: `claimsMemDestLoose` exists only to be compared against, and
+      -- teaching it `x` would erase the very divergence this theorem exists to
+      -- pin down.
       == [("sarx", true), ("shlx", true), ("shrx", true),
-          ("cmps", false), ("scas", false), ("repe", false), ("repne", false)])
+          ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
+          ("movdqa", false), ("movdqu", false)])
      && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)
      && ((memDestMnemonics.filter (fun m =>
             !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) == [])) = true := by
@@ -895,7 +913,12 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- (first position, `m,` or `m(`) disagree about them.  ⚠️ `rep` does
          -- NOT join: its first shape is `m(w),m`, a real write, on which both
          -- rules agree.
-         ("repe", false), ("repne", false)] := by
+         ("repe", false), ("repne", false),
+         -- ⭐ P2 VECTOR WAVE, BATCH 3: the vector STORES.  A different reason
+         -- again — not "addresses without writing" but "writes through a
+         -- vocabulary the loose rule does not have": its literal is `m,r`, and a
+         -- vector store's shape is `m,x`.
+         ("movdqa", false), ("movdqu", false)] := by
   have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT

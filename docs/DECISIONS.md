@@ -3481,3 +3481,85 @@ unaligned `movdqa` is #GP. That is a semantic question of its own and it gets it
 than riding in on this one.
 
 **Reversal cost:** two `Op` constructors, one combinator, sixteen vectors, four arms.
+
+## D91 — the oracle does not implement `movdqa`'s alignment check, so the model's most interesting new rule has no second source (P2 vector wave, batch 3)
+
+**What landed.** `Op.vload` and `Op.vstore`: the memory forms of `movdqa`/`movdqu`, a 128-bit memory
+path, and the point at which those two mnemonics **stop being the same instruction**. `aligned` was
+inert in `vmov` because between registers there is no address; here it decides whether the access
+happens at all.
+
+### 1. The measurement that shaped the batch
+
+An unaligned `movdqa` is **#GP(0)** in hardware (SDM Vol. 2B, MOVDQA). Before writing a vector for
+it, the oracle was asked — by execution, not by reading its source:
+
+```
+movdqa (%rbx),%xmm0   @0x2000 aligned        -> executed
+movdqa 8(%rbx),%xmm0  @0x2008 UNALIGNED      -> executed      ⛔
+movdqu 8(%rbx),%xmm0  @0x2008 unaligned      -> executed
+movdqa %xmm0,8(%rbx)  @0x2008 UNALIGNED      -> executed      ⛔
+movl %ecx,(%rbx)      (control)              -> executed
+```
+
+**ACL2 x86isa does not implement the alignment check.** It executes the form that hardware faults on.
+
+### 2. ⇒ The decision, and why it is not the comfortable one
+
+The model **faults** — `byDesign`, the same class `lockIllegal` uses, because the claim is *"this
+model says: it faults"* and not *"this model cannot say"*, and that distinction decides a coverage
+tier (D34).
+
+⛔ **And therefore no unaligned `movdqa` vector is shipped.** One would produce a **one-sided
+refusal** in every pre-state; `classify` correctly calls that the `refusal` class and counts it
+**unexplained**. The run would go red about a model that is right.
+
+⇒ 🔑 **THE ORACLE IS EVIDENCE, NOT THE SPECIFICATION — AND THIS IS THE FIRST TIME IN THIS PROJECT
+THAT THE DIFFERENCE HAS COST SOMETHING.** Batch 18 found the SDM *wrong* twice and followed x86isa
+and K against it. Here the arrow reverses: the oracle is **incomplete**, and following it would make
+the model silently compute a result where hardware raises #GP — the exact direction TRUSTBASE exists
+to prevent. Agreement with an oracle that does not implement a rule is not evidence about that rule.
+
+**So the rule is carried by theorem instead of by run:** `vload_unaligned_faults`,
+`vstore_unaligned_faults`, and — the half that makes the pair mean something —
+`vload_unaligned_movdqu_runs`, which says `movdqu` at the *same* address does **not** stop. Without
+that second theorem, "movdqa faults" is consistent with "every unaligned access faults", and the
+flag would not be doing the discriminating.
+
+⚠️ **Stated plainly, because it is the weakest claim in the repository:** this rule has **no second
+source**. It rests on the SDM and on a Lean proof that the model implements what I read there. It is
+recorded in TRUSTBASE.md and it is a concrete, named item for the hardware co-simulation lane, where
+real silicon **is** the oracle for it — a better argument for that lane than the BMI group the
+co-sim design was commissioned on and priced at a rounding error.
+
+### 3. ⛔ An arm deliberately NOT added
+
+The obvious arm — *"`movdqa` ignores its alignment requirement"* — cannot be caught, because no
+unaligned `movdqa` vector exists or can. Adding it would place a **permanently silent entry** in a
+list whose entire value is that every entry fires.
+
+⇒ 🔑 **AN ARM NO VECTOR CAN DISTINGUISH IS NOT A WEAK TEST; IT IS A FALSE ENTRY IN THE GATE'S OWN
+INVENTORY** — the same defect as D90's arm that did not fire, except that there the repair was a
+vector and here no vector is possible, so the honest move is to leave it out and say why.
+
+The three arms that *can* fire are shipped: a load that reads only eight bytes, a store that writes
+only eight, and **`movdqu` applying `movdqa`'s check** — which is what `movdqu_load_unal` exists for,
+being the table's only vector at an address that is not 16-byte aligned.
+
+### 4. Two smaller decisions
+
+**`vload`/`vstore` rather than one constructor over a `VOperand` pair.** An operand type admitting
+both `xmm` and `mem` on either side can represent `movdqa (%rax), (%rbx)`, which no encoding
+produces — the model would then need a well-formedness *check* where it can instead have a type that
+cannot say it. `Op.mov` is stuck with `wellFormed2`; these are not.
+
+**`readMem128` composes two 64-bit reads rather than opening a new byte recursion.** `readMem` is the
+path every memory vector since P0 has exercised and its endianness is settled by 500 roster rows of
+evidence; a second recursion beside it is a place for the two to disagree.
+
+⚠️ And the vector stores exposed that `claimsMemDestLoose` is **vocabulary-bound**: its literal is
+`m,r`, so it is blind to `m,x`. Recorded in `memDestSweep` rather than repaired — that function
+exists only to be compared against, and teaching it `x` would erase the divergence the theorem is
+there to pin down.
+
+**Reversal cost:** two constructors, two memory helpers, five vectors, three arms.

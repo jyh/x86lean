@@ -118,6 +118,12 @@ def canonical (v : BitVec 64) : Bool :=
   -- bits 63:47 are all equal: shifting them down leaves all-zeros or all-ones
   (v >>> 47) == 0 || (v >>> 47) == 0x1FFFF
 
+/-- ⭐ SIXTEEN-BYTE ALIGNMENT: the predicate `movdqa` faults on and `movdqu` does
+not (SDM Vol. 2B, MOVDQA).  It lives beside `canonical` because they are the same
+KIND of thing — a property of a computed address that decides whether the access
+happens at all — and neither is a property of the `Cpu`. -/
+def aligned16 (a : BitVec 64) : Bool := (a &&& 0xF) == 0
+
 namespace Cpu
 
 /-- Set RIP to a branch target, CHECKING that the target is canonical.
@@ -380,6 +386,32 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- "Flags Affected: None" — the flags are not read and not written.
   | .vbin k dst src =>
       (s.setXmm dst (vbinApply k (s.getXmm dst) (s.getXmm src))).setRip nr
+
+  -- ⭐⭐⭐ MOVDQA / MOVDQU AT MEMORY — the forms where `aligned` finally bites.
+  --
+  -- ⛔ AN UNALIGNED `movdqa` IS #GP(0) (SDM Vol. 2B, MOVDQA), and this model
+  -- HALTS on it with `byDesign` rather than `unimplemented`.  The distinction is
+  -- D34's and it decides a coverage TIER: `unimplemented` means "this model
+  -- cannot say", which would file a fully-modelled form under `T-absent`;
+  -- `byDesign` means "this model says: it faults", which is the true claim here
+  -- and is exactly what `lockIllegal` already does one screen up for a `lock` on
+  -- a form the SDM does not permit it on.
+  --
+  -- ⚠️ THE ALIGNMENT IS CHECKED ON THE LINEAR ADDRESS `Ea.addr` PRODUCES, not on
+  -- the displacement or on the base register.  With a segment base in play those
+  -- differ, and it is the address the machine actually accesses that hardware
+  -- checks.
+  | .vload al dst ea =>
+      let a := ea.addr s nr
+      if al && !aligned16 a then
+        s.halt (.byDesign "movdqa at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (s.readMem128 a)).setRip nr
+
+  | .vstore al ea src =>
+      let a := ea.addr s nr
+      if al && !aligned16 a then
+        s.halt (.byDesign "movdqa at an address that is not 16-byte aligned (#GP(0))")
+      else (s.writeMem128 a (s.getXmm src)).setRip nr
 
   -- MOV (SDM Vol. 2A, MOV): "Flags Affected: None."
   | .mov sz dst src =>

@@ -2234,6 +2234,48 @@ def wrongVbinWritesFlags (i : Instr) (s : Cpu) : Cpu :=
   | .vbin .. => let t := step i s; t.setFlags { t.flags with zf := true }
   | _ => step i s
 
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 3 — the wrong models for the MEMORY forms.
+
+⛔ AND ONE ARM IS DELIBERATELY ABSENT, WHICH IS WORTH MORE THAN ITS PRESENCE.
+The obvious arm — "`movdqa` ignores its alignment requirement" — CANNOT BE
+CAUGHT by this table, because there is no unaligned `movdqa` vector and there
+cannot be one: ACL2 x86isa does not implement the check, so such a vector would
+be a one-sided refusal in every pre-state. Adding the arm anyway would put a
+permanently-silent entry in a list whose whole value is that every entry fires.
+The rule is carried by `vload_unaligned_faults` instead, and D91 records that it
+has no second source. ⇒ **AN ARM THAT NO VECTOR CAN DISTINGUISH IS NOT A WEAK
+TEST, IT IS A FALSE ENTRY IN THE GATE'S OWN INVENTORY.** -/
+
+/-- ⛔ A vector load that reads only EIGHT bytes and zeroes the top half — the
+mistake of reusing the 64-bit path. The high eight bytes at `(%rbx)` are
+baseMem's 0xB8…0xBF, non-zero and all distinct, so this differs in every
+pre-state. -/
+def wrongVload8Bytes (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vload _ d ea =>
+      let a := ea.addr s (s.rip + BitVec.ofNat 64 i.len)
+      (s.setXmm d ((s.readMem .q a).setWidth 128)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ A vector store that writes only the low eight bytes, leaving the rest of
+the window as it was. -/
+def wrongVstore8Bytes (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vstore _ ea r =>
+      let a := ea.addr s (s.rip + BitVec.ofNat 64 i.len)
+      (s.writeMem .q a ((s.getXmm r).setWidth 64)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both
+mnemonics fault. This is the arm `movdqu_load_unal` exists for: it is the only
+vector in the table at an address that is not 16-byte aligned, so without it this
+wrong model would be indistinguishable from the right one. -/
+def wrongVmovduAlsoAligns (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vload _ d ea => step ⟨.vload true d ea, i.len⟩ s
+  | .vstore _ ea r => step ⟨.vstore true ea r, i.len⟩ s
+  | _ => step i s
+
 /-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness's own red arm
 
 ⛔ THIS BATCH ADDS NO SEMANTICS, SO ITS ARM CANNOT BE A WRONG RULE.  Nothing in
@@ -2432,6 +2474,11 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("psub computes SRC - DEST", wrongVbinSubReversed, "xmm0")
   , ("movdqa/movdqu ignore their register fields", wrongVmovFixedRegisters, "xmm4")
   , ("a packed operation writes ZF", wrongVbinWritesFlags, "zf")
+  -- ⭐⭐ P2 VECTOR WAVE, BATCH 3 — the memory forms.
+  , ("a vector load reads only eight bytes", wrongVload8Bytes, "xmm0")
+  , ("a vector store writes only eight bytes", wrongVstore8Bytes,
+     "mem@0000000000001fe0")
+  , ("movdqu applies movdqa's alignment check", wrongVmovduAlsoAligns, "refused")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness.  One arm, and it is the whole
   -- claim: a planted XMM difference must be CAUGHT before one line of vector
   -- semantics is written.
@@ -2918,7 +2965,29 @@ claimed — P1 batch 20's rule again, asking what a predicted green does not \
 contain.  ⚠️ And the arm that COULD have passed silently did not: a wrong LANE \
 WIDTH is invisible unless some lane actually carries across its boundary, and \
 computing every packed add at 64-bit lanes is caught in 355 cases, so the \
-pre-state pattern does exercise the rule (see D90).\n\n\
+pre-state pattern does exercise the rule (see D90); 6 — THE VECTOR MEMORY \
+FORMS, and the point at which `movdqa` and `movdqu` STOP BEING THE SAME \
+INSTRUCTION: `Op.vload`/`Op.vstore` (two constructors rather than one over an \
+operand pair, so `movdqa (%rax),(%rbx)` is UNREPRESENTABLE rather than checked), \
+a 128-bit memory path composed from the 64-bit one every vector since P0 has \
+exercised, and the 16-byte alignment rule.  ⛔ THE BATCH'S FINDING IS ABOUT THE \
+ORACLE: an unaligned `movdqa` is #GP(0) in hardware, and ACL2 x86isa DOES NOT \
+IMPLEMENT THE CHECK — measured by executing it at 0x2008 with CR4.OSFXSR set, \
+where the oracle executes what silicon faults on.  A vector for it would be a \
+ONE-SIDED REFUSAL in every pre-state, which `classify` rightly counts \
+UNEXPLAINED, so the run would go red about a model that is RIGHT.  ⇒ THE ORACLE \
+IS EVIDENCE, NOT THE SPECIFICATION, and this is the first time in this project \
+that the difference has cost something: batch 18 found the SDM wrong twice and \
+followed x86isa against it, and here the arrow reverses — the oracle is \
+INCOMPLETE, and following it would make the model compute a result where \
+hardware faults.  So the rule is carried by THEOREM instead of by run \
+(`vload_unaligned_faults`, with `vload_unaligned_movdqu_runs` as the half that \
+makes the pair discriminate), it is the weakest claim in the repository because \
+it has NO SECOND SOURCE, and it is a named item for the hardware co-simulation \
+lane where real silicon IS the oracle for it.  ⚠️ And one arm is DELIBERATELY \
+ABSENT: `movdqa ignores its alignment requirement` cannot be caught by any \
+vector that can exist, and an arm no vector can distinguish is not a weak test \
+but a FALSE ENTRY in the gate's own inventory (see D91).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

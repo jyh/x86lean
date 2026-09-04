@@ -813,6 +813,24 @@ inductive Op where
   packed operation writes no flag, which is the single most important thing to
   get right about them and the easiest to get wrong by analogy with `BinKind`. -/
   | vbin  (k : VBinKind) (dst src : XmmReg)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 3 — THE MEMORY FORMS, and the point at which
+  `movdqa` and `movdqu` STOP BEING THE SAME INSTRUCTION.
+
+  `aligned` was inert in `vmov` because between two registers there is no address
+  to align.  Here there is: `movdqa` requires the effective address to be a
+  multiple of 16 and raises **#GP(0)** otherwise (SDM Vol. 2B, MOVDQA), while
+  `movdqu` has no such requirement.  Same operands, same width, same data
+  movement — and one of them faults.
+
+  ⚠️ TWO CONSTRUCTORS RATHER THAN ONE WITH A `VOperand` PAIR, and the reason is
+  the same one that made `wellFormed2` necessary for the GPR forms: an operand
+  type admitting both `xmm` and `mem` on both sides can represent
+  `movdqa (%rax), (%rbx)`, which no encoding produces, and the model would then
+  need a well-formedness CHECK where it could instead have a type that cannot
+  say it.  Splitting load from store makes the illegal state unrepresentable —
+  strictly better than the shape `Op.mov` is stuck with. -/
+  | vload  (aligned : Bool) (dst : XmmReg) (ea : Ea)
+  | vstore (aligned : Bool) (ea : Ea) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -906,6 +924,11 @@ def opOperands : Op → List Operand
   -- the memory forms land, THIS is the line that has to grow, and the compiler
   -- will say so.
   | .vmov .. | .vbin .. => []
+  -- ⭐ AND THE MEMORY FORMS DO NAME ONE.  `Operand.mem` is how every consumer of
+  -- this walk — the segment gate, the lock gate — finds an effective address, so
+  -- a vector load's address is reported here exactly as a scalar one is. That is
+  -- what makes `lock movdqa` #UD for free: `lockable` does not list it.
+  | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1015,6 +1038,7 @@ def Op.anyLocked : Op → Bool
   -- No memory operand, so no `lock` prefix can be attached; `lock movdqa` is not
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
   | .vmov .. | .vbin .. => false
+  | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1140,6 +1164,7 @@ differential harness's disagreement reports. -/
 def Op.mnemonic : Op → String
   -- ⚠️ BOTH SPELLINGS, because both opcodes exist. See `Op.vmov`.
   | .vmov a .. => if a then "movdqa" else "movdqu"
+  | .vload a .. | .vstore a .. => if a then "movdqa" else "movdqu"
   | .vbin k .. => match k with
     | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
     | .subb => "psubb" | .subw => "psubw" | .subd => "psubd" | .subq => "psubq"

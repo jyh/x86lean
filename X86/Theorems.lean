@@ -609,6 +609,53 @@ rather than assumed. -/
     (step ⟨.vmov a d s', len⟩ s).flags = s.flags := by
   rw [step_vmov a d s' h]
 
+/-! ### The vector MEMORY forms — P2 vector wave, batch 3 -/
+
+/-- An ALIGNED vector load: XMM and RIP move, nothing else. -/
+theorem step_vload_aligned (a : Bool) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    step ⟨.vload a d ea, len⟩ s =
+      { s with xmm := s.xmm.set d (s.readMem128 (ea.addr s (s.rip + BitVec.ofNat 64 len))),
+               rip := s.rip + BitVec.ofNat 64 len } := by
+  cases a <;> simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Op.lockIllegal,
+                    Op.anyLocked, Op.lockable]
+
+/-- ⭐⭐ AN UNALIGNED `movdqa` FAULTS — the rule that makes `aligned` mean
+something, stated where a kernel can check it.
+
+⛔ AND IT IS ASSERTED HERE **BECAUSE THE DIFFERENTIAL CANNOT ASSERT IT.** ACL2
+x86isa does not implement the alignment check: measured, by executing
+`movdqa 8(%rbx),%xmm0` at an unaligned address with CR4.OSFXSR set, where the
+oracle EXECUTES it. A vector for this form would therefore put a ONE-SIDED
+REFUSAL into every pre-state, which `classify` correctly calls the `refusal`
+class and counts UNEXPLAINED — a red run about a model that is right.
+
+⇒ So this rule has NO second source. It rests on the SDM alone (Vol. 2B, MOVDQA)
+and on this theorem, and TRUSTBASE.md says so in as many words. It is exactly the
+kind of claim the hardware co-simulation lane exists to settle, because real
+silicon IS the oracle for it. D91. -/
+theorem vload_unaligned_faults (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vload true d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+theorem vstore_unaligned_faults (r : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vstore true ea r, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ AND `movdqu` DOES NOT FAULT AT THE SAME ADDRESS — the other half of the
+claim, and the one that says `aligned` is doing the discriminating rather than
+the address being rejected by something else. -/
+theorem vload_unaligned_movdqu_runs (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vload false d ea, len⟩ s).stopped = false := by
+  simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
+        Op.anyLocked, Op.lockable]
+
 /-- ⭐ AND NO PACKED FORM TOUCHES A GENERAL-PURPOSE REGISTER OR MEMORY — the
 frame, stated in the direction a downstream proof needs it. -/
 @[simp] theorem step_vbin_regs (k : VBinKind) (d s' : XmmReg) (h : Live s) :

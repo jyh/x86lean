@@ -558,10 +558,10 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   -- so there is nothing for the undefined-bit oracle to supply.  The empty
   -- `undefined` list is a claim the differential run tests on every case.
   , { mnemonic := "movdqa",
-      shapes := "x,x — register to register only; the 16-byte ALIGNMENT rule is a property of a MEMORY operand and there is no memory form here yet",
+      shapes := "x,x · x,m · m,x — the memory forms require a 16-byte-ALIGNED effective address and are #GP(0) otherwise; that rule is MODELLED and asserted by theorem but NOT differentially validated, because ACL2 x86isa does not implement the check (measured — D91)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQA" }
   , { mnemonic := "movdqu",
-      shapes := "x,x — identical to `movdqa` between registers (`vmov_aligned_irrelevant`); the two differ only where an address exists",
+      shapes := "x,x · x,m · m,x — no alignment requirement at any operand; identical to `movdqa` between registers (`vmov_aligned_irrelevant`) and differing from it exactly where an address exists",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" }
   , { mnemonic := "paddb",
       shapes := "x,x — 16 lanes of 8 bits, each wrapping independently; no carry crosses a lane and no flag is written",

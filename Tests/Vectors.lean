@@ -2416,6 +2416,40 @@ def vectors : List Vec :=
     , bytes := "660f6fe5", instr := ⟨.vmov true .x4 .x5, 4⟩ }
   , { id := "movdqu_x4x5", mnemonic := "movdqu", asm := "movdqu %xmm5, %xmm4"
     , bytes := "f30f6fe5", instr := ⟨.vmov false .x4 .x5, 4⟩ }
+
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 3 — THE MEMORY FORMS.  RBX is 0x2000 in every
+  -- pre-state, which is 16-byte ALIGNED and sits inside the 64-byte data window
+  -- at 0x1fe0, so a sixteen-byte access at `(%rbx)` is fully observable on both
+  -- sides.  The low eight bytes sweep with `c`; the high eight are baseMem's
+  -- 0xB8…0xBF — constant across pre-states but all DISTINCT and non-zero, so a
+  -- model that read only eight bytes, or swapped the halves, differs.
+  --
+  -- ⛔⛔ THERE IS NO UNALIGNED `movdqa` VECTOR HERE, AND ITS ABSENCE IS THE
+  -- BATCH'S CENTRAL FINDING RATHER THAN AN OMISSION.  An unaligned `movdqa` is
+  -- #GP(0) in hardware (SDM Vol. 2B) and this model faults on it — but ACL2
+  -- x86isa DOES NOT IMPLEMENT THE CHECK: measured, not assumed, by executing
+  -- `movdqa 8(%rbx),%xmm0` at 0x2008 on the oracle with CR4.OSFXSR set, where it
+  -- EXECUTES.  A vector for it would put a one-sided refusal into every
+  -- pre-state, and `classify` rightly calls that the `refusal` class and counts
+  -- it UNEXPLAINED.  So the rule is modelled and asserted by theorem
+  -- (`vload_unaligned_faults`), and it is NOT differentially validated, because
+  -- the oracle cannot validate it.  See D91 — and it is a concrete item for the
+  -- hardware co-simulation lane, where real silicon IS the oracle for this.
+  --
+  -- ⚠️ `movdqu_load_unal` IS the unaligned case that CAN be validated: both
+  -- models execute it, and it is what says the effective address is computed and
+  -- used rather than the base register being read directly.
+  , { id := "movdqa_load_m", mnemonic := "movdqa", asm := "movdqa (%rbx), %xmm0"
+    , bytes := "660f6f03", instr := ⟨.vload true .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movdqa_store_m", mnemonic := "movdqa", asm := "movdqa %xmm0, (%rbx)"
+    , bytes := "660f7f03", instr := ⟨.vstore true { base := some .rbx } .x0, 4⟩ }
+  , { id := "movdqu_load_m", mnemonic := "movdqu", asm := "movdqu (%rbx), %xmm0"
+    , bytes := "f30f6f03", instr := ⟨.vload false .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movdqu_store_m", mnemonic := "movdqu", asm := "movdqu %xmm0, (%rbx)"
+    , bytes := "f30f7f03", instr := ⟨.vstore false { base := some .rbx } .x0, 4⟩ }
+  , { id := "movdqu_load_unal", mnemonic := "movdqu", asm := "movdqu 8(%rbx), %xmm0"
+    , bytes := "f30f6f4308"
+    , instr := ⟨.vload false .x0 { base := some .rbx, disp := 8 }, 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

@@ -201,6 +201,46 @@ def readMem (s : Cpu) (sz : Size) (a : BitVec 64) : Val := s.mem.readSize sz a
 def writeMem (s : Cpu) (sz : Size) (a : BitVec 64) (v : Val) : Cpu :=
   { s with mem := s.mem.writeSize sz a v }
 
+/-! ### ⭐⭐⭐ THE 128-BIT MEMORY PATH — P2 vector wave, batch 3 -/
+
+/-- Read sixteen bytes, little-endian, as TWO 64-bit reads.
+
+⚠️ IT REUSES `readMem` RATHER THAN REACHING INTO `Mem`.  `Mem.readN` tops out at
+eight bytes because it returns a `BitVec 64`, so a 128-bit read needs either a
+new byte recursion or a composition of the existing one.  The composition is
+chosen deliberately: `readMem` is the path every scalar vector in this repository
+has exercised since P0, its endianness is settled by 500 roster rows of
+differential evidence, and a second byte-recursion beside it would be a place for
+the two to disagree — a duplicate born in agreement.
+
+⚠️ AND IT IS TWO SEPARATE 8-BYTE READS, NOT AN ATOMIC ONE.  That is honest: this
+model has no atomicity vocabulary for loads (TRUSTBASE.md, "Atomicity is
+RECORDED, never verified"), and a 16-byte SSE load is not architecturally atomic
+anyway. -/
+def readMem128 (s : Cpu) (a : BitVec 64) : BitVec 128 :=
+  (((s.readMem .q (a + 8)).setWidth 128) <<< 64) ||| ((s.readMem .q a).setWidth 128)
+
+/-- Write sixteen bytes, little-endian, as two 64-bit writes: low half first. -/
+def writeMem128 (s : Cpu) (a : BitVec 64) (v : BitVec 128) : Cpu :=
+  ((s.writeMem .q a (v.setWidth 64)).writeMem .q (a + 8) ((v >>> 64).setWidth 64))
+
+/-! ⭐ THE FRAME LEMMAS FOR THE NEW WRITER, ON THE DAY IT IS ADDED — D71's rule,
+which this repository has now paid for twice.  A proof must never have to reduce
+the whole record to learn that a 128-bit store left the registers alone. -/
+@[simp] theorem writeMem128_regs (s : Cpu) (a : BitVec 64) (v : BitVec 128) :
+    (s.writeMem128 a v).regs = s.regs := rfl
+@[simp] theorem writeMem128_rip (s : Cpu) (a : BitVec 64) (v : BitVec 128) :
+    (s.writeMem128 a v).rip = s.rip := rfl
+@[simp] theorem writeMem128_flags (s : Cpu) (a : BitVec 64) (v : BitVec 128) :
+    (s.writeMem128 a v).flags = s.flags := rfl
+@[simp] theorem writeMem128_xmm (s : Cpu) (a : BitVec 64) (v : BitVec 128) :
+    (s.writeMem128 a v).xmm = s.xmm := rfl
+@[simp] theorem writeMem128_ms (s : Cpu) (a : BitVec 64) (v : BitVec 128) :
+    (s.writeMem128 a v).ms = s.ms := rfl
+@[simp] theorem setXmm_mem' (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).mem = s.mem := rfl
+
+
 @[simp] theorem writeMem_regs (s : Cpu) (sz : Size) (a : BitVec 64) (v : Val) :
     (s.writeMem sz a v).regs = s.regs := rfl
 @[simp] theorem writeMem_rip (s : Cpu) (sz : Size) (a : BitVec 64) (v : Val) :
