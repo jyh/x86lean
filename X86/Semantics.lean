@@ -709,6 +709,28 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (vshufApply k (s.readMem128 a) sel)).setRip nr
 
+  -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
+  --
+  -- ⚠️ THE OPERAND ORDER IS `dst` THEN `mem`, AND IT IS NOT SYMMETRIC.  Eleven of
+  -- the nineteen operations commute, and the eight that do not — `psub*` and the
+  -- eight unpacks — would be silently wrong the other way round: `vbinApply`'s
+  -- unpack arm takes `a` as the DESTINATION, whose lane goes LOW in each pair.
+  -- Measured against the oracle at all 88 pre-states before this line was
+  -- written, at every one of the nineteen.
+  --
+  -- ⛔ AND THE SAME 16-BYTE `#GP` AS `vshufm` AND `vshiftm` (D110).  Here it is
+  -- the first such branch in this repository that a RUN can check: x86isa
+  -- implements the rule for `pand`/`por`/`pxor` (`logical.lisp`), so at those
+  -- three an unaligned address makes BOTH models refuse and `bothRefused` reports
+  -- agreement.  At the other sixteen the oracle still executes, and the rule is
+  -- theorem-only exactly as D91 described.
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vbinApply k (s.getXmm dst) (s.readMem128 a))).setRip nr
+
   | .vstore k ea src =>
       let a := ea.addr s nr
       if k.aligned && !aligned16 a then

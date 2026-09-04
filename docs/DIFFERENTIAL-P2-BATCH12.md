@@ -301,13 +301,27 @@ pshuflw/pshufhw permute all eight words instead of four      582 in xmm0
 filtered selftest: PASS
 ```
 
-⭐ **Each number says which vector is carrying the arm, and each is the one the
-table was built for.** Arm 2's 84 is `pshufd_x2x3` alone — the only vector whose
-destination and source differ — and it is 84 of 88 rather than 88 because in four
-pre-states `xmm2` and `xmm3` happen to permute to the same value. Arm 3's 582 is
-the word forms alone: `pshufd` is untouched by that model, because `128/32` and
-`8/2` are both 4, which is exactly why `pshuflw`/`pshufhw` carry vectors of their
-own instead of riding on the doubleword's.
+⭐ **Each number says which vector is carrying the arm.** Arm 2's 84 is
+`pshufd_x2x3` alone — the only vector whose destination and source differ. Arm 3's
+582 is the word forms alone: `pshufd` is untouched by that model, because `128/32`
+and `8/2` are both 4, which is exactly why `pshuflw`/`pshufhw` carry vectors of
+their own instead of riding on the doubleword's.
+
+⛔⛔ **THIS PARAGRAPH FIRST READ ARM 2's 84 AS "84 OF 88" AND INVENTED A REASON
+FOR THE MISSING FOUR** — *"in four pre-states `xmm2` and `xmm3` happen to permute
+to the same value"*. There are no missing four. **`driveWrong` runs over
+`preStates seed 4` = 84 pre-states; the differential runs over 88.** The arm
+caught **84 of 84 — every case it ran**.
+
+⇒ 🔑 **A DENOMINATOR BORROWED FROM THE NEIGHBOURING INSTRUMENT INVENTS AN
+EXPLANATION FOR ITS OWN GAP.** The two numbers sat one screen apart in the same
+record, 88 was the one in front of me, and the difference between two instruments
+was written down as a property of the data — complete with a mechanism that
+sounds like it was measured. ⚠️ It was caught only because a LATER batch's arm
+came back at exactly `84 × 3`: three vectors, none of them able to "coincide",
+all reporting the same per-vector figure. **The second instance is what made the
+first one legible**, which is an argument for reading a suspicious number twice
+rather than once convincingly.
 
 ⛔ **There is no fourth arm for the alignment rule, and the absence is stated
 rather than left as a gap.** Every memory vector in this table is aligned, so a

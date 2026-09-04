@@ -219,6 +219,19 @@ inductive VBinKind where
   | unpckhb | unpckhw | unpckhd | unpckhq
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
+BOTH OPERAND SHAPES (`Op.vbin` and `Op.vbinm`): the memory form prints exactly
+what the register form does, and a second copy would be a duplicate that diverges
+the day one of them is corrected. -/
+def VBinKind.mnemonic : VBinKind → String
+  | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
+  | .subb => "psubb" | .subw => "psubw" | .subd => "psubd" | .subq => "psubq"
+  | .xor => "pxor"   | .and => "pand"   | .or => "por"
+  | .unpcklb => "punpcklbw" | .unpcklw => "punpcklwd"
+  | .unpckld => "punpckldq" | .unpcklq => "punpcklqdq"
+  | .unpckhb => "punpckhbw" | .unpckhw => "punpckhwd"
+  | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
+
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
 
@@ -1198,6 +1211,31 @@ inductive Op where
   which it becomes differentially validatable is named and priced: the `vbin`
   memory shape, where the oracle DOES check. -/
   | vshufm (k : VShufKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE
+  (`66 0F ..` with a memory ModRM), the second operand shape of the nineteen
+  operations `Op.vbin` has carried since batches 5 and 7.
+
+  ⛔⛔ **THIS BATCH ADDS NO CENSUS COVERAGE AND THAT IS THE POINT: IT REMOVES AN
+  OVER-CLAIM.**  The census counts by MNEMONIC, so all 182,286 instructions of
+  these nineteen are ALREADY counted as covered — including the **7,705** whose
+  source is memory, which this model could not execute at all.  A gain of zero in
+  the published number and a removal of 4.63% of a silent lie is exactly the
+  trade `Op.vshiftm` made at 0.85% (D107), one order of magnitude up.
+
+  ⭐⭐ **AND IT MAKES THE 16-BYTE `#GP` DIFFERENTIALLY VALIDATABLE FOR THE FIRST
+  TIME IN THIS REPOSITORY.**  D91 recorded that no vector could test the rule
+  because the oracle executes where this model faults; D110 found why — x86isa
+  implements the check in exactly ONE file of its tree.  That file is
+  `logical.lisp`, and it implements `pand`/`por`/`pxor`.  So at those three
+  mnemonics an unaligned m128 is refused by BOTH models, `bothRefused` reports
+  agreement, and the rule is finally carried by a RUN and not only by a theorem.
+  ⚠️ At the other sixteen it is still theorem-only, and the split is not a
+  judgement call: it is which x86isa source file implements the instruction.
+
+  ⭐ THE SPLIT WAS PREDICTED BEFORE IT WAS MEASURED, from reading x86isa's files
+  rather than from running it — `por 8(%rbx)` refuses at all 88 pre-states,
+  `paddd`, `psubw` and `punpcklbw` at the same address execute at all 88. -/
+  | vbinm (k : VBinKind) (dst : XmmReg) (ea : Ea)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -1321,6 +1359,8 @@ def opOperands : Op → List Operand
   -- names its address so the lock and segment walks see it.
   | .vshuf .. => []
   | .vshufm _ _ ea _ => [.mem ea]
+  -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
+  | .vbinm _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1441,6 +1481,8 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 14: `lock pshufd` is not a form the SDM lists.
   | .vshuf .. => false
   | .vshufm _ _ ea _ => ea.lock
+  -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
+  | .vbinm _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1587,14 +1629,11 @@ def Op.mnemonic : Op → String
   -- source's provenance is in the operands.
   | .vshuf k .. | .vshufm k .. => k.mnemonic
   | .vmovq .. => "movq"
-  | .vbin k .. => match k with
-    | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
-    | .subb => "psubb" | .subw => "psubw" | .subd => "psubd" | .subq => "psubq"
-    | .xor => "pxor"   | .and => "pand"   | .or => "por"
-    | .unpcklb => "punpcklbw" | .unpcklw => "punpcklwd"
-    | .unpckld => "punpckldq" | .unpcklq => "punpcklqdq"
-    | .unpckhb => "punpckhbw" | .unpckhw => "punpckhwd"
-    | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
+  -- ⭐ P2 BATCH 15: BOTH operand shapes read the SAME table, which is now a
+  -- function beside the kind rather than a `match` inside this one.  A copy here
+  -- for `vbinm` would be a duplicate that diverges the day a spelling is fixed
+  -- in one of them and not the other (D106's shape, and it is not re-learned).
+  | .vbin k .. | .vbinm k .. => k.mnemonic
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"

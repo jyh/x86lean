@@ -1691,4 +1691,49 @@ theorem vshuf_reads_only_the_source (k : VShufKind) (d r : XmmReg) (sel : BitVec
 
 end Batch14
 
+/-! ## P2 VECTOR WAVE, BATCH 15 — the packed binary group at a memory source, and
+the first alignment claim in this repository a RUN can check. -/
+namespace Batch15
+
+variable {s : Cpu} {len : Nat}
+
+/-- ⭐⭐ AN UNALIGNED PACKED BINARY OPERATION FAULTS.
+
+⭐⭐⭐ **AND UNLIKE `vload_unaligned_faults` (D91) AND `vshufm_unaligned_faults`
+(D110), THIS ONE IS NOT ALONE.** For `k = .and`, `.or`, `.xor` the oracle refuses
+the same address — x86isa implements the 16-byte `#GP` in `logical.lisp`, and
+only there — so `pand_m_unal`, `por_m_unal` and `pxor_m_unal` are vectors in which
+BOTH models refuse, `bothRefused` reports agreement, and the rule is carried by a
+RUN as well as by this theorem. At the other sixteen kinds it is theorem-only,
+and the split is a fact about x86isa's source tree rather than a judgement. -/
+theorem vbinm_unaligned_faults (k : VBinKind) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vbinm k d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+theorem vbinm_aligned_runs (k : VBinKind) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    (step ⟨.vbinm k d ea, len⟩ s).stopped = false := by
+  simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
+        Op.anyLocked, Op.lockable]
+
+/-- ⭐⭐ THE MEMORY SHAPE IS THE REGISTER SHAPE'S FUNCTION WITH ITS SECOND OPERAND
+LOADED — stated so that the two shapes cannot drift into different arithmetic.
+
+⚠️ The operand ORDER is the content: `dst` is the first argument and the memory
+value the second, which for the eleven commuting operations is invisible and for
+`psub*` and the eight unpacks is the whole answer. -/
+theorem vbinm_is_vbin_with_a_loaded_operand (k : VBinKind) (d : XmmReg) (ea : Ea)
+    (h : Live s) (hl : ea.lock = false)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    (step ⟨.vbinm k d ea, len⟩ s).xmm.get d
+      = vbinApply k (s.xmm.get d) (s.readMem128 (ea.addr s (s.rip + BitVec.ofNat 64 len))) := by
+  simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal,
+        Op.anyLocked, Op.lockable]
+
+end Batch15
+
 end X86

@@ -5161,3 +5161,147 @@ above was produced by hand — and it is a batch with its own red probes (a gate
 has two ways to measure the wrong one), not something to smuggle into a semantics batch.
 
 **Reversal cost:** one constant, one branch, two selftest arms.
+
+---
+
+## D112 — the packed binary group's memory shape: a batch that adds no coverage and removes an over-claim
+
+**P2 batch 15.** `Op.vbinm` gives the nineteen operations of `Op.vbin` their second operand shape.
+One constructor, 22 vectors, no new roster row, no new state.
+
+### 1. The number does not move, and that is the argument
+
+Measured over the census's `asm` class: the nineteen are **182,286** instructions, of which
+**166,269** are buildable (the rest MMX-register) and **7,705 (4.63%)** take a memory source. The
+census counts by MNEMONIC, so **all of them have been counted as covered since batch 7** — including
+the 7,705 the model could not execute.
+
+⇒ 🔑 **AN OVER-CLAIM IS INVISIBLE TO THE INSTRUMENT THAT PRODUCES IT.** A coverage census keyed on
+mnemonics cannot see a missing operand shape, in either direction: it neither rewards this batch nor
+reported the gap that made it necessary. The only defence is to price the SHAPE and not the
+mnemonic, which is what `vshiftm` did at 0.85% (D107) and what this does at 4.63%.
+
+⚠️ Stated plainly so no later reader mistakes it for a coverage win: **`docs/DEMAND-CENSUS.md`,
+`docs/DEMAND-CENSUS.md.json` and `docs/P2-ROSTER.md` are BYTE-IDENTICAL after this batch** — not even
+the model stamp moves, because the model gained no MNEMONIC. `demand_census.py --check` passes
+without regeneration. That is the correct outcome, and it is the claim of this decision confirmed by
+the instrument itself: the census cannot see what this batch did, in either direction.
+
+⚠️ Contrast batch 14, which added three mnemonics and moved the gap by exactly 12,064. The two
+batches are the same size in instructions and one is invisible to the census. **That difference is
+the decision, not an accident of this batch.**
+
+### 2. The oracle was measured at THIS shape
+
+D108's law — oracle support is a fact about a **(mnemonic, SHAPE) pair** — applied without exception:
+all nineteen are validated at the register shape, none had ever been asked at a memory source. All
+nineteen execute and return this model's `vbinApply` value at all 88 pre-states, discriminating in
+65–88 of them. ⚠️ `pand`'s 65 is the lowest and is recorded rather than pooled: AND against a source
+sharing bits is the likeliest of the nineteen to leave the destination unchanged.
+
+### 3. The operand order
+
+`vbinApply k dst mem`. Eleven of the nineteen commute; `psub*` and the eight unpacks do not, and
+`vbinApply`'s unpack arm takes its FIRST argument as the destination, whose lane goes low in each
+pair. `wrongVbinmOperandsSwapped` is planted for it and is caught by twelve of the nineteen vectors.
+⚠️ **That minority is the number to read**: an arm caught by a minority of a group's vectors is an arm
+whose group needed exactly those, and pooling it into "caught" would hide which seven are carrying
+nothing for this claim.
+
+**Reversal cost:** one constructor, one step arm, three theorems, 22 vectors.
+
+---
+
+## D113 — the alignment rule stops being unvalidatable, and the arm D91 called impossible is written
+
+**P2 batch 15.** For nine batches this repository has carried a rule its oracle could not check.
+D91 (batch 6) stated it exactly, and was right:
+
+> *"`movdqa` ignores its alignment requirement` cannot be caught by any vector that can exist, and an
+> arm no vector can distinguish is not a weak test but a FALSE ENTRY in the gate's own inventory."*
+
+### 1. D110 found the reason, and the reason contained the exception
+
+x86isa implements the 16-byte `#GP` in **exactly one file of its whole instruction tree**
+(`grep -rln 16-byte-aligned` ⇒ `logical.lisp`), and that file implements `pand`, `por` and `pxor`.
+So the rule is unvalidatable for sixteen of the nineteen and **validatable for three**.
+
+⭐ **THE SPLIT WAS PREDICTED FROM THE SOURCE BEFORE IT WAS MEASURED**, which is the strongest shape
+this evidence can take — a claim registered in a form that could have been wrong:
+
+```
+                            predicted    MEASURED (88 pre-states)
+por       8(%rbx),%xmm0     refuses      refuses    88 of 88
+paddd     8(%rbx),%xmm0     executes     executes    0 refused
+psubw     8(%rbx),%xmm0     executes     executes    0 refused
+punpcklbw 8(%rbx),%xmm0     executes     executes    0 refused
+```
+
+⇒ 🔑 **ONE EXCEPTION CLASS, ONE OPERAND SIZE, TWO BEHAVIOURS — AND THE LINE BETWEEN THEM IS WHICH
+FILE IMPLEMENTS THE INSTRUCTION.** D110 recorded that as an observation about the oracle; here it is
+used as a PREDICTION, and predicting correctly is what turns it from a curiosity into a tool. The
+next head can now decide in advance which rules of this class a run can check, by reading x86isa's
+tree rather than by discovering it in a red run.
+
+### 2. Three vectors in which both models refuse — and what makes them worth anything
+
+`pand_m_unal`, `por_m_unal`, `pxor_m_unal` at `0x8(%rbx)`. Both models refuse; `bothRefused` reports
+agreement; the rule is finally carried by a run.
+
+⚠️⚠️ **AGREEMENT BY MUTUAL REFUSAL IS SILENCE.** Two sides refusing is indistinguishable from two
+sides broken, and a vector whose only content is that nothing happened is worth precisely what a
+planted model would cost it ([[a-refusing-form-needs-a-refuse-always-control]]). So the arm D91 called
+impossible is written: `wrongVbinmIgnoresAlignment` executes at an unaligned address, disagrees in
+`refused` — D33's channel, which exists because `ud2` walked into the same gap — and is caught.
+
+⇒ **Those three vectors are worth exactly what that arm catches, and not one case more.** The claim
+is not "the alignment rule is now tested"; it is "the alignment rule is now tested at three of the
+nineteen, against an oracle that implements it there and nowhere else, and the observation is priced
+by a planted model rather than by the absence of a disagreement."
+
+⛔ **The other sixteen are unchanged and still theorem-only** (`vbinm_unaligned_faults`), as are
+`vload`, `vstore`, `vshufm` and `vshiftm`. D91's entry is amended in scope, not retired: it named a
+general truth about this oracle that has exactly one exception, and the exception is now used.
+
+**Reversal cost:** three vectors and one arm.
+
+
+---
+
+## D114 — a denominator borrowed from the neighbouring instrument invents an explanation for its own gap
+
+**P2 batch 15, correcting P2 batch 14.** The permute batch's record reported its second planted arm
+as *"84 disagreements in `xmm2` … 84 of 88 rather than 88 because in four pre-states `xmm2` and
+`xmm3` happen to permute to the same value."*
+
+**There are no missing four.** `driveWrong` emits over `preStates seed 4`, which is **84** states;
+the differential emits over **88**. The arm caught **84 of 84 — every case it ran**.
+
+### What actually happened
+
+Both numbers appear in every batch record, one screen apart. `88` was the one in front of me,
+because the differential's line is the batch's headline receipt. The arm's `84` was then read against
+it, the difference became a gap, and **a gap invites a mechanism** — so one was supplied, phrased
+exactly like a measurement (*"in four pre-states … happen to permute to the same value"*) and never
+computed.
+
+⇒ 🔑 **A DENOMINATOR BORROWED FROM THE NEIGHBOURING INSTRUMENT INVENTS AN EXPLANATION FOR ITS OWN
+GAP.** The wrong denominator does not produce an obviously wrong answer; it produces a plausible
+one, and the plausibility is supplied by the writer rather than by the data. This is
+[[a-normalisation-needs-its-denominator-to-vary-the-same-way]] in its cheapest form: not a
+calibration failure, just two instruments with different sample counts quoted in one paragraph.
+
+### What caught it
+
+**Not a gate, and not re-reading.** The next batch's alignment arm came back at **252 = 84 × 3** —
+three vectors, none of which could "coincide" in the way the invented mechanism described, all
+reporting the same per-vector figure. ⇒ **The second instance is what made the first one legible.**
+
+⚠️ The correction is recorded in `docs/DIFFERENTIAL-P2-BATCH12.md` and in batch 13's record, which
+now states the two denominators explicitly beside the numbers. The commit message of `4f6766b`
+carries the error and cannot be edited; this decision is where it is answered.
+
+⇒ A number that needs a story is worth reading twice. This one got a story on the first reading and
+was wrong for four hours.
+
+**Reversal cost:** none — it is a correction, not a mechanism.

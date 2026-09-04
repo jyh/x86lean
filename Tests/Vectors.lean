@@ -2802,6 +2802,82 @@ def vectors : List Vec :=
     , instr := ⟨.vshufm .hw .x0 { base := some .rbx, disp := -16 } 0x1b, 6⟩ }
   , { id := "pshufhw_m_asym", mnemonic := "pshufhw", asm := "pshufhw $0x93, (%rbx), %xmm0"
     , bytes := "f30f700393", instr := ⟨.vshufm .hw .x0 { base := some .rbx } 0x93, 5⟩ }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
+  --
+  -- ⛔⛔ THIS BATCH ADDS NO CENSUS COVERAGE, AND THAT IS WHY IT IS WORTH DOING.
+  -- The census counts by MNEMONIC, so all 182,286 instructions of these nineteen
+  -- are ALREADY counted as covered — including the **7,705** whose source is
+  -- memory, which this model could not execute at all.  The published number does
+  -- not move; what moves is a 4.63% silent over-claim, the same trade `vshiftm`
+  -- made at 0.85% (D107) one order of magnitude up.
+  --
+  -- ⭐ ALL NINETEEN WERE MEASURED ON THE ORACLE AT THIS SHAPE BEFORE A LINE WAS
+  -- WRITTEN, and "the oracle executes this mnemonic" was NOT inherited from the
+  -- register shape: D108 established that oracle support is a fact about a
+  -- (mnemonic, SHAPE) pair.  All nineteen execute and return this model's value
+  -- at all 88 pre-states, with the discriminating count recorded per form (65-88;
+  -- `pand` is lowest at 65 because AND with a source that shares bits is the
+  -- likeliest to leave the destination unchanged).
+  , { id := "pand_m", mnemonic := "pand", asm := "pand (%rbx), %xmm0"
+    , bytes := "660fdb03", instr := ⟨.vbinm .and .x0 { base := some .rbx }, 4⟩ }
+  , { id := "por_m", mnemonic := "por", asm := "por (%rbx), %xmm0"
+    , bytes := "660feb03", instr := ⟨.vbinm .or .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pxor_m", mnemonic := "pxor", asm := "pxor (%rbx), %xmm0"
+    , bytes := "660fef03", instr := ⟨.vbinm .xor .x0 { base := some .rbx }, 4⟩ }
+  , { id := "paddb_m", mnemonic := "paddb", asm := "paddb (%rbx), %xmm0"
+    , bytes := "660ffc03", instr := ⟨.vbinm .addb .x0 { base := some .rbx }, 4⟩ }
+  , { id := "paddw_m", mnemonic := "paddw", asm := "paddw (%rbx), %xmm0"
+    , bytes := "660ffd03", instr := ⟨.vbinm .addw .x0 { base := some .rbx }, 4⟩ }
+  , { id := "paddd_m", mnemonic := "paddd", asm := "paddd (%rbx), %xmm0"
+    , bytes := "660ffe03", instr := ⟨.vbinm .addd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "paddq_m", mnemonic := "paddq", asm := "paddq (%rbx), %xmm0"
+    , bytes := "660fd403", instr := ⟨.vbinm .addq .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psubb_m", mnemonic := "psubb", asm := "psubb (%rbx), %xmm0"
+    , bytes := "660ff803", instr := ⟨.vbinm .subb .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psubw_m", mnemonic := "psubw", asm := "psubw (%rbx), %xmm0"
+    , bytes := "660ff903", instr := ⟨.vbinm .subw .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psubd_m", mnemonic := "psubd", asm := "psubd (%rbx), %xmm0"
+    , bytes := "660ffa03", instr := ⟨.vbinm .subd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psubq_m", mnemonic := "psubq", asm := "psubq (%rbx), %xmm0"
+    , bytes := "660ffb03", instr := ⟨.vbinm .subq .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpcklbw_m", mnemonic := "punpcklbw", asm := "punpcklbw (%rbx), %xmm0"
+    , bytes := "660f6003", instr := ⟨.vbinm .unpcklb .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpcklwd_m", mnemonic := "punpcklwd", asm := "punpcklwd (%rbx), %xmm0"
+    , bytes := "660f6103", instr := ⟨.vbinm .unpcklw .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpckldq_m", mnemonic := "punpckldq", asm := "punpckldq (%rbx), %xmm0"
+    , bytes := "660f6203", instr := ⟨.vbinm .unpckld .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpcklqdq_m", mnemonic := "punpcklqdq", asm := "punpcklqdq (%rbx), %xmm0"
+    , bytes := "660f6c03", instr := ⟨.vbinm .unpcklq .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpckhbw_m", mnemonic := "punpckhbw", asm := "punpckhbw (%rbx), %xmm0"
+    , bytes := "660f6803", instr := ⟨.vbinm .unpckhb .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpckhwd_m", mnemonic := "punpckhwd", asm := "punpckhwd (%rbx), %xmm0"
+    , bytes := "660f6903", instr := ⟨.vbinm .unpckhw .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpckhdq_m", mnemonic := "punpckhdq", asm := "punpckhdq (%rbx), %xmm0"
+    , bytes := "660f6a03", instr := ⟨.vbinm .unpckhd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "punpckhqdq_m", mnemonic := "punpckhqdq", asm := "punpckhqdq (%rbx), %xmm0"
+    , bytes := "660f6d03", instr := ⟨.vbinm .unpckhq .x0 { base := some .rbx }, 4⟩ }
+  -- ⭐⭐⭐ AND THE THREE THE ORACLE CAN JUDGE — the first vectors in this
+  -- repository that TEST THE 16-BYTE ALIGNMENT RULE AGAINST A RUN.
+  --
+  -- D91 recorded that no such vector could exist: the oracle executes where this
+  -- model faults, so a vector would be a one-sided refusal counted UNEXPLAINED.
+  -- D110 found why, and found the exception: x86isa implements the check in
+  -- exactly ONE file of its tree, `logical.lisp`, which is `pand`/`por`/`pxor`.
+  -- At those three an unaligned address makes BOTH models refuse, `bothRefused`
+  -- reports agreement, and the rule is finally carried by evidence.
+  --
+  -- ⚠️⚠️ AND AGREEMENT BY MUTUAL REFUSAL IS SILENCE UNLESS SOMETHING PRICES IT.
+  -- Both sides refusing looks identical to both sides being broken, so the arm
+  -- `wrongVbinmIgnoresAlignment` is planted for exactly this: a model that
+  -- executes here disagrees in `refused` and is caught.  That is the arm D91
+  -- recorded as DELIBERATELY ABSENT because no vector could distinguish it —
+  -- it can now, for three of the nineteen.
+  , { id := "pand_m_unal", mnemonic := "pand", asm := "pand 0x8(%rbx), %xmm0"
+    , bytes := "660fdb4308", instr := ⟨.vbinm .and .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+  , { id := "por_m_unal", mnemonic := "por", asm := "por 0x8(%rbx), %xmm0"
+    , bytes := "660feb4308", instr := ⟨.vbinm .or .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+  , { id := "pxor_m_unal", mnemonic := "pxor", asm := "pxor 0x8(%rbx), %xmm0"
+    , bytes := "660fef4308", instr := ⟨.vbinm .xor .x0 { base := some .rbx, disp := 8 }, 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

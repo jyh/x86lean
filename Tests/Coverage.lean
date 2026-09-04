@@ -93,7 +93,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_907 : vectorCount = 907 := by decide
+theorem vector_count_is_929 : vectorCount = 929 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -753,6 +753,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- Neither permute shape is a memory destination: `vshufm`'s memory operand
     -- is its SOURCE, exactly as `vshiftm`'s is its count.
     | .vshuf .. | .vshufm .. => false
+    -- ⭐ P2 VECTOR WAVE, BATCH 15, added in the SAME COMMIT as the constructor.
+    -- `vbinm`'s memory operand is its SOURCE; the destination is always an XMM
+    -- register, so this is not a memory-destination form either.
+    | .vbinm .. => false
     -- P2 VECTOR WAVE, BATCH 5: neither direction of `movd`/`movq` touches memory.
     | .vmovg .. | .vmovq .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 11, added in the SAME COMMIT as the constructors,
@@ -1629,6 +1633,8 @@ def isVShiftForm (v : Vec) : Bool :=
   | .vshifti .. | .vshiftx .. | .vshiftm .. | .vshiftdq .. => true
   -- P2 BATCH 14: the permute group is a vector form.
   | .vshuf .. | .vshufm .. => true
+  -- P2 BATCH 15: the packed binary group's memory shape is a vector form.
+  | .vbinm .. => true
   | _ => false
 
 def vshiftVectors : List Vec := vectors.filter isVShiftForm

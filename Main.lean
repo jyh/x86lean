@@ -2713,6 +2713,52 @@ def wrongVshufWholeRegisterWords (i : Instr) (s : Cpu) : Cpu :=
         else (s.setXmm dst (both (s.readMem128 a) sel)).setRip nr
   | _ => step i s
 
+/-- ⭐⭐⭐ P2 BATCH 15, THE ARM D91 RECORDED AS IMPOSSIBLE — a packed binary
+operation that IGNORES its 16-byte alignment requirement.
+
+⛔ D91 wrote: *"`movdqa` ignores its alignment requirement` cannot be caught by
+any vector that can exist, and an arm no vector can distinguish is not a weak
+test but a FALSE ENTRY in the gate's own inventory."* That was true, and it was
+true of every alignment rule in this repository for nine batches.
+
+⭐ It stops being true here for three of the nineteen. `pand_m_unal`,
+`por_m_unal` and `pxor_m_unal` are addresses at which BOTH models refuse — and a
+model that executes instead disagrees in `refused`, which `classify` reports in
+the `refusal` class (D33's channel). ⚠️ THIS ARM IS WHAT PRICES THOSE THREE
+VECTORS: two sides refusing looks exactly like two sides broken, and without a
+planted model that does NOT refuse, their agreement would be silence
+([[a-refusing-form-needs-a-refuse-always-control]]).
+
+⚠️ It reports in `refused` and not in `xmm0`, because at an unaligned address the
+wrong model WRITES where the right one halts — and it is the halt, not the value,
+that the vectors are testing. -/
+def wrongVbinmIgnoresAlignment (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      (s.setXmm dst (vbinApply k (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 15, ARM 2 — THE OPERANDS SWAPPED. `vbinApply k dst mem` becomes
+`vbinApply k mem dst`.
+
+⚠️ INVISIBLE AT ELEVEN OF THE NINETEEN. `pand`/`por`/`pxor` and the eight
+add/subtract... no: the ELEVEN that commute are the three bitwise and the four
+adds, four of them — `psub*` does not commute and neither does an unpack, whose
+`a` argument is the DESTINATION and takes the low lane of every pair. So the arm
+is caught only by `psub*` and `punpck*`, which is twelve of the nineteen vectors,
+and that is the number to read: an arm caught by a MINORITY of a group's vectors
+is one whose group needed those vectors. -/
+def wrongVbinmOperandsSwapped (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (vbinApply k (s.readMem128 a) (s.getXmm dst))).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2955,7 +3001,13 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("the permute reads its DESTINATION instead of its source",
      wrongVshufPermutesInPlace, "xmm2")
   , ("pshuflw/pshufhw permute all eight words instead of four",
-     wrongVshufWholeRegisterWords, "xmm0") ]
+     wrongVshufWholeRegisterWords, "xmm0")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — and the FIRST of these two is the arm D91
+  -- recorded as impossible to write.  It reports in `refused`, not in a value.
+  , ("a packed binary operation ignores its 16-byte alignment requirement",
+     wrongVbinmIgnoresAlignment, "refused")
+  , ("the packed binary memory form has its operands swapped",
+     wrongVbinmOperandsSwapped, "xmm0") ]
 
 /-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
 indices name, and `selftest-shards` checks these indices — so the gate exercises
@@ -3711,7 +3763,31 @@ register source discriminates in only 60 of 88 pre-states, structurally — \
 constant does — so a word-level permutation is the first operation here whose \
 correctness is invisible unless the source's lanes differ; the repair needed no \
 new pre-state, only an aligned window whose sixteen bytes are all distinct \
-(see D109, D110, D111).\n\n\
+(see D109, D110, D111); 13 — THE PACKED BINARY GROUP AT A MEMORY SOURCE, the \
+nineteen operations `Op.vbin` has carried since batches 5 and 7, at their other \
+operand shape: one constructor, 22 vectors, NO new roster row and NO new state. \
+⛔⛔ THIS BATCH ADDS NO COVERAGE AND THAT IS THE POINT — the census counts by \
+MNEMONIC, so all 182,286 instructions of these nineteen were ALREADY counted as \
+covered, including the 7,705 whose source is memory and which this model could \
+not execute at all.  The published number does not move; what moves is that \
+4.63% of it stops being a lie.  That is `vshiftm`'s 0.85% trade (D107) one order \
+of magnitude up, and AN OVER-CLAIM IS INVISIBLE TO THE INSTRUMENT THAT PRODUCES \
+IT.  ⭐⭐⭐ AND THE 16-BYTE #GP IS DIFFERENTIALLY VALIDATED HERE FOR THE FIRST \
+TIME: D91 recorded that no vector could test it and that the arm `movdqa \
+ignores its alignment requirement` was a FALSE ENTRY in the gate's inventory \
+because nothing could distinguish it — true for nine batches.  D110 found why \
+and thereby found the exception: x86isa implements the check in exactly ONE \
+file of its tree, and that file is `pand`/`por`/`pxor`.  The split was \
+PREDICTED from the source before it was measured — `por 8(%rbx)` refuses at all \
+88 pre-states while `paddd`, `psubw` and `punpcklbw` at the same address execute \
+at all 88 — so at those three both models refuse, `bothRefused` reports \
+agreement, and the rule is carried by a RUN.  ⚠️ AGREEMENT BY MUTUAL REFUSAL IS \
+SILENCE UNLESS SOMETHING PRICES IT, so the arm D91 called impossible is now \
+written and reports in `refused` rather than in a value.  ⚠️ And the operand \
+ORDER is the content: eleven of the nineteen commute, and the swapped arm is \
+caught by only twelve of the vectors — the number to read, because an arm caught \
+by a minority of a group's vectors is one whose group needed exactly those \
+(see D112, D113).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

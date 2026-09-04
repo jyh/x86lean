@@ -250,6 +250,33 @@ CLAIMS_NO_ROW = {
     "psrld_i_x4": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "psraw_m_disp": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ P2 BATCH 15 (the packed binary group's MEMORY shape), added in the
+    # SAME COMMIT as the vectors — D106's cost, not re-paid.  Twenty-two
+    # entries written out rather than matched by a prefix: a pattern would
+    # absorb the next such vector silently, and this list's whole value is
+    # that adding a vector is a visible line.
+    "pand_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "por_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pxor_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpcklbw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpcklwd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpckldq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpcklqdq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpckhbw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpckhwd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpckhdq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "punpckhqdq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pand_m_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "por_m_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pxor_m_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 14 (the permute group) — ADDED IN THE SAME COMMIT AS THE
     # VECTORS, which is what D106 cost a first-ever-green master run to
     # learn: this list is the ONLY gate that reads these ids, and a vector

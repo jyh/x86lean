@@ -583,37 +583,37 @@ acc,imm · rh"
       shapes := "x,x · x,m · m,x", note := "no alignment requirement at any operand",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" }
   , { mnemonic := "paddb",
-      shapes := "x,x", note := "16 lanes of 8 bits, no flag written",
+      shapes := "x,x · x,m", note := "16 lanes of 8 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddw",
-      shapes := "x,x", note := "8 lanes of 16 bits, no flag written",
+      shapes := "x,x · x,m", note := "8 lanes of 16 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddd",
-      shapes := "x,x", note := "4 lanes of 32 bits, no flag written",
+      shapes := "x,x · x,m", note := "4 lanes of 32 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddq",
-      shapes := "x,x", note := "2 lanes of 64 bits, no flag written",
+      shapes := "x,x · x,m", note := "2 lanes of 64 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "psubb",
-      shapes := "x,x", note := "16 lanes of 8 bits, no flag written",
+      shapes := "x,x · x,m", note := "16 lanes of 8 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubw",
-      shapes := "x,x", note := "8 lanes of 16 bits, no flag written",
+      shapes := "x,x · x,m", note := "8 lanes of 16 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubd",
-      shapes := "x,x", note := "4 lanes of 32 bits, no flag written",
+      shapes := "x,x · x,m", note := "4 lanes of 32 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubq",
-      shapes := "x,x", note := "2 lanes of 64 bits, no flag written",
+      shapes := "x,x · x,m", note := "2 lanes of 64 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "pxor",
-      shapes := "x,x", note := "bitwise over all 128 bits",
+      shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" }
   , { mnemonic := "pand",
-      shapes := "x,x", note := "bitwise over all 128 bits",
+      shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAND" }
   , { mnemonic := "por",
-      shapes := "x,x", note := "bitwise over all 128 bits",
+      shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
   , { mnemonic := "movd",
       shapes := "r,x", note := "out of XMM at 32 bits; the x,r direction is proved, not vectored (D93)",
@@ -622,28 +622,28 @@ acc,imm · rh"
       shapes := "r,x · x,x", note := "out of XMM at 64 bits; x,x zeroes the upper quadword; the x,r direction is proved, not vectored (D93)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   , { mnemonic := "punpcklbw",
-      shapes := "x,x", note := "interleaves the low 8-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the low 8-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpcklwd",
-      shapes := "x,x", note := "interleaves the low 16-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the low 16-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpckldq",
-      shapes := "x,x", note := "interleaves the low 32-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the low 32-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpcklqdq",
-      shapes := "x,x", note := "interleaves the low 64-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the low 64-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpckhbw",
-      shapes := "x,x", note := "interleaves the high 8-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the high 8-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhwd",
-      shapes := "x,x", note := "interleaves the high 16-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the high 16-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhdq",
-      shapes := "x,x", note := "interleaves the high 32-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the high 32-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhqdq",
-      shapes := "x,x", note := "interleaves the high 64-bit lanes, destination first",
+      shapes := "x,x · x,m", note := "interleaves the high 64-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — THE MOVE FAMILY COMPLETED.
   --
