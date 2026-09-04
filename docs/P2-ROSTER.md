@@ -83,18 +83,18 @@ Cumulative share is over the whole uncovered gap (474,736 instructions), so a ro
 | 16 | `mulss` | 5,698 | 1.20% | 34.2% | — | ⚠️ not measured | `xm`, `xx` |
 | 17 | `packssdw` | 5,613 | 1.18% | 35.4% | 3% | ⚠️ not measured | `xm`, `xx` |
 | 18 | `mulsd` | 5,482 | 1.15% | 36.5% | — | ⚠️ not measured | `xm`, `xx` |
-| 19 | `psrlw` | 5,437 | 1.15% | 37.7% | 6% | ⚠️ not measured | `xi`, `xm`, `xx` |
+| 19 | `psrlw` | 5,437 | 1.15% | 37.7% | 6% | ✔ | `xi`, `xm`, `xx` |
 | 20 | `vpmulhrsw` | 5,010 | 1.06% | 38.7% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 21 | `addss` | 4,696 | 0.99% | 39.7% | — | ⚠️ not measured | `xm`, `xx` |
 | 22 | `vshufps` | 4,693 | 0.99% | 40.7% | — | ⚠️ not measured | `xxmi`, `xxxi`, `yymi`, `yyyi` |
 | 23 | `pmullw` | 4,539 | 0.96% | 41.7% | ⚠️ 21% | ⛔ **REFUSES** | `xm`, `xx` |
 | 24 | `paddsw` | 4,473 | 0.94% | 42.6% | ⚠️ 18% | ⚠️ not measured | `xm`, `xx` |
 | 25 | `psllw` | 4,324 | 0.91% | 43.5% | ⚠️ 15% | ✔ | `xi`, `xm`, `xx` |
-| 26 | `psraw` | 4,307 | 0.91% | 44.4% | ⚠️ 19% | ⚠️ not measured | `xi`, `xm`, `xx` |
+| 26 | `psraw` | 4,307 | 0.91% | 44.4% | ⚠️ 19% | ✔ | `xi`, `xm`, `xx` |
 | 27 | `addsd` | 4,260 | 0.90% | 45.3% | — | ⚠️ not measured | `xm`, `xx` |
 | 28 | `paddw` | 4,166 | 0.88% | 46.2% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
 | 29 | `vpbroadcastd` | 3,941 | 0.83% | 47.0% | — | ⚠️ not measured | `xm`, `xx`, `ym`, `yx` |
-| 30 | `psrldq` | 3,896 | 0.82% | 47.9% | — | ⚠️ not measured | `xi` |
+| 30 | `psrldq` | 3,896 | 0.82% | 47.9% | — | ✔ | `xi` |
 | 31 | `pmaxsw` | 3,776 | 0.80% | 48.6% | ⚠️ 24% | ⛔ **REFUSES** | `xm`, `xx` |
 | 32 | `movhps` | 3,672 | 0.77% | 49.4% | — | ⚠️ not measured | `mx`, `xm` |
 | 33 | `vpunpcklwd` | 3,630 | 0.76% | 50.2% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
@@ -165,11 +165,11 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 26 | 107,340 | 22.6% |
+| the oracle EXECUTES | 34 | 126,326 | 26.6% |
 | the oracle REFUSES | 11 | 79,863 | 16.8% |
-| **probed so far** | 37 | **187,203** | **39.4%** |
+| **probed so far** | 45 | **206,189** | **43.4%** |
 
-So of the demand probed, **57% has an oracle** — after a
+So of the demand probed, **61% has an oracle** — after a
 one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms

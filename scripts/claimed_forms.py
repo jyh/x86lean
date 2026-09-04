@@ -183,6 +183,27 @@ CLAIMS_NO_ROW = {
     "punpckhdq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "punpckhqdq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⛔ P2 BATCH 10 (the move family) LANDED WITHOUT THESE SIXTEEN, and
+    # nothing said so for three commits: `claimed_forms.py --check` is the
+    # only gate that reads this list, and master CI has never reached it —
+    # the K fetch two steps earlier had been failing since the workflow
+    # first parsed. A gate nobody has ever seen run is not a gate. (D104.)
+    "movaps_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movaps_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movups_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movaps_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movaps_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movups_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movups_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movups_load_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movss_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movss_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movss_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movss_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movsd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movsd_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movsd_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movsd_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "push_m_rsp":     "base %rsp forces a SIB byte; claims no row",
     "pop_m_rsp":      "base %rsp forces a SIB byte; claims no row",
     "mov_fs_abs_q":   "a segment override is a prefix on a row already claimed",

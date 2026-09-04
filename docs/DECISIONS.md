@@ -4469,3 +4469,97 @@ DERIVED from the profile now. A tool's output is prose too, and prose nobody re-
 claim this repository keeps paying for.
 
 **Reversal cost:** one field, one line in `renderTable`, one entry in a pinned list.
+
+## D104 — the CI step that had never run to success, and the two gates that were hiding behind it (P2 vector wave, batch 12)
+
+The relight's order named one defect: master CI red at the step *"Fetch the K semantics (sparse)"*,
+`scripts/setup_k_roster.sh` failing with
+
+```
+fatal: 'LICENSE.md' is not a directory; to treat it as a directory anyway, rerun with --skip-checks
+```
+
+diagnosed as *"an environment change under a working script"* — the runner's git 2.55 — with two
+repairs offered: `--skip-checks`, or no-cone mode. Both halves of that diagnosis are wrong, and each
+was wrong in a way that changed the work.
+
+### 1. The cause: not the environment, and not a script that used to work
+
+`git sparse-checkout set` in **cone** mode takes DIRECTORY prefixes; a file argument has been fatal
+since long before 2.55. Local **git 2.48.1** reproduces it in three commands:
+
+```
+git init r && cd r && mkdir semantics && touch LICENSE.md && git add -A && git commit -m i
+git sparse-checkout set semantics LICENSE.md      # fatal: 'LICENSE.md' is not a directory
+```
+
+So why did nobody see it? Because **nothing had ever executed that branch.** The script's clone
+branch runs only where no tree exists; every developer box takes the `[ -d "$DEST/.git" ]` branch
+instead, and this seat's `vendor/k-x86-64` is a **full 2.8 GB clone** whose `sparse-checkout list`
+answers `fatal: this worktree is not sparse` — made by hand, not by this recipe. In CI the step has
+never passed. ⇒ 🔑 **THE BRANCH THAT ONLY A FRESH ENVIRONMENT TAKES IS THE BRANCH NOTHING HAS
+EXECUTED**, and its comment header — "15 MB of 2.8 GB, a fifteen-second job" — was prose about a
+code path with no witness anywhere.
+
+### 2. The repair is smaller than either form that was offered
+
+In cone mode the repository ROOT's files are materialised **unconditionally**. A fresh
+`clone --sparse` of the K repository therefore already carries `LICENSE.md` **before any pattern is
+set**, and `sparse-checkout set semantics` leaves it in place. The pattern was **redundant, not
+merely wrong**: neither `--skip-checks` nor no-cone mode is needed, and both would have kept a
+pattern that does nothing. ⇒ 🔑 a gate that refuses names a cheaper build — read the refusal for the
+design before reaching for the flag that silences it.
+
+Measured against the real repository at K `592380ae`, the first time this branch has run to success:
+
+```
+clone --filter=blob:none --sparse --depth 1     1.3 s   (2.3 s in the vendor path, cold)
+working tree                                    21 MB  = semantics 15 MB + .git 5.8 MB
+tests/ present                                  no
+```
+
+The two properties the recipe promises are now **asserted** rather than assumed — `semantics/
+registerInstructions` exists (as before) and `LICENSE.md` is non-empty (new: this repository READS an
+NCSA source and `PROVENANCE.md` cites that file). Both driven red-first against a real fetched tree,
+with the untouched tree as the positive control in the same run:
+
+```
+fresh clone                    rc 0      idempotent re-run          rc 0
+LICENSE.md removed             rc 2      semantics/ removed         rc 2
+```
+
+### 3. ⛔ The scope was wrong too, and that is the larger finding
+
+The order said *"RED on every run since 12:17Z"* (four commits). `gh run list --workflow=CI --branch
+master --limit 200` answers **36 runs, 36 failures** — every CI run master has ever had, back to
+09/03 16:04 and the D88 quoting repair that first made GitHub create jobs at all. The 11:47 run did
+not even reach the K step; it failed earlier, at the census-staleness selftest. So the K fetch was
+never "the" defect: it was the **frontier**, and behind it sat gates that no run has ever reached.
+Two of them are red at `161500b`, found by running the remaining steps locally against the freshly
+fetched sparse tree:
+
+* **`docs/P2-ROSTER.md` is stale.** `f1b698d` probed the twelve packed-shift forms and updated
+  `scripts/oracle_availability.py` without re-deriving the document that reads it: eight mnemonics
+  (`psrlw`, `psraw`, `psrldq`, …) still say ⚠️ *not measured* where the measurement says ✔, and the
+  summary band under-reports — EXECUTES 26 → **34**, probed demand 39.4% → **43.4%**. Regenerated;
+  `--check` byte-identical.
+* **Sixteen batch-10 vectors claim no roster row and were never exempted.** `movaps`/`movups`/
+  `movss`/`movsd` — the P1 roster excludes xmm operands *by derivation*, so a SIMD vector must be
+  listed in `CLAIMS_NO_ROW`, and every earlier vector batch listed its own. Batch 10 did not, so
+  `claimed_forms.py --check` fails at HEAD with sixteen unresolved vectors and its **control arm**
+  red. Added; `--check` rc 0 with the claimed-row count unmoved (500 of 525, as the rule predicts),
+  `--selftest` 13 of 13.
+
+⇒ 🔑 **A GATE NOBODY HAS EVER SEEN RUN IS NOT A GATE.** Both of these were written to fail loudly and
+both did — into a log that stopped being read three steps earlier. A failing step does not merely
+report its own defect; it **launders every gate behind it into silence**, and the silence reads
+exactly like green in a bank that lists gate names. The bank for batch 10 listed twelve gates as
+CLEAN; these two are not on that list, and *not on the list* is where a red hides.
+
+⚠️ Under this, "the CI is red on the K fetch" and "the CI is red" are different claims with different
+costs, and only the second is true. The order's exit — *verify by a green run on master* — is
+therefore the right exit for a reason it did not state: it is the only check that can see what is
+behind the frontier.
+
+**Reversal cost:** one word deleted from a git command; two `test` lines; one regenerated document;
+sixteen dictionary entries.
