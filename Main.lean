@@ -2138,6 +2138,29 @@ def wrongXchgMemStillRefuses (i : Instr) (s : Cpu) : Cpu :=
       else step i s
   | _ => step i s
 
+/-- ⭐⭐ P2 ITEM 3 (BATCH 24) — `movabs` TAKES THE `imm32` PATH.
+
+⛔ THIS IS THE ONLY THING ABOUT `movabs` THAT CAN BE WRONG IN THIS MODEL, and
+saying so is the batch's honesty.  `Operand.imm` has carried a full `BitVec 64`
+since P0 and the decoder is trusted to have done any extension, so `movabsq
+$imm64` and `movq $imm32` reach `step` as the same shape and no semantics
+distinguishes them.  What a wrong DECODER would do is re-derive the value
+through the 32-bit immediate path — truncate and sign-extend — and that is what
+this plants.
+
+⚠️ IT IS KEYED ON THE VALUE, NOT ON THE LENGTH.  Keying on `i.len == 10` would
+plant a defect in the decoder's output rather than in a model of it, and would
+be indistinguishable from a typo.  Truncate-and-sign-extend is IDENTITY on every
+immediate that fits in a signed 32 bits — which is every other `mov r,imm`
+vector in the table — so the arm fires on exactly the three vectors whose values
+cannot be reached by extending anything. -/
+def wrongMovabsImm32Path (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .mov sz dst (.imm v) =>
+      let v32 : Val := BitVec.signExtend 64 (v.truncate 32)
+      step ⟨.mov sz dst (.imm v32), i.len⟩ s
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2305,7 +2328,11 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
      wrongLockableIsAnyMemDest, "mem@0000000000001fe0")
   , ("the lockable list drops xadd and cmpxchg8b", wrongLockableOmitsRmw, "refused")
   , ("xchg at memory still refuses (the model before this batch)",
-     wrongXchgMemStillRefuses, "refused") ]
+     wrongXchgMemStillRefuses, "refused")
+  -- ⭐⭐ P2 ITEM 3 (BATCH 24) — the 64-bit immediate.  ONE arm, because there is
+  -- exactly one thing about this form the model could get wrong.
+  , ("movabs re-derives its immediate through the imm32 path",
+     wrongMovabsImm32Path, "rax") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -2730,7 +2757,23 @@ un-declined — and all four planted arms live there, two of them moving the \
 lockable list in OPPOSITE directions.  The harness needed teaching too: objdump \
 prints `f0` as its OWN instruction line, so a locked vector read as a ONE-BYTE \
 instruction, and a model that silently DROPPED the prefix would have agreed \
-with that one byte (D79) (see D76, D77, D78, D79).\n\n\
+with that one byte (D79) (see D76, D77, D78, D79, D80, D81, D82); 3 — `movabs`, \
+THE 64-BIT IMMEDIATE MOVE, and the batch that is honest about being CHEAP.  \
+`Operand.imm` has carried a full `BitVec 64` since P0 and the decoder is trusted \
+to have done any extension, so `movabsq $imm64, %r64` reaches `step` as the same \
+shape `movq $imm32, %r64` does and NO SEMANTICS CHANGES — P1 batch 20's finding \
+again, a shape the model could always express and had never been asked.  What \
+the three vectors DO test is the LENGTH path (ten bytes, the longest encoding in \
+this table) and the DECODE-TRUST boundary at the one place it is tempting to \
+re-derive: two of them carry values — `0x00000000ffffffff` and \
+`0xffffffff00000000` — that no 32-bit immediate can sign-extend to, so the one \
+plausible wrong decoder is caught and every other `mov r,imm` vector is \
+unaffected.  ⛔ AND THE LENGTH PATH IS WHERE THE FINDING WAS: ten bytes fills \
+objdump's byte column exactly, so its final byte abuts the TAB rather than a \
+space, and `check_encodings.py` had been silently DROPPING THE LAST BYTE of any \
+instruction that long — latent since P0, exposed only by the first form wide \
+enough to reach it, and in the direction that matters: the gate would have read \
+`len=9`, so a model that claimed 9 would have AGREED WITH IT (see D83).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

@@ -2306,6 +2306,48 @@ def vectors : List Vec :=
   , { id := "lock_shl_m_q_ud", mnemonic := "shl", asm := "lock shlq $3, (%rbx)"
     , bytes := "f048c12303"
     , instr := ⟨.shift .shl .q (.mem { base := some .rbx, lock := true }) (.imm8 3), 5⟩ }
+  -- ⭐⭐⭐ P2 ITEM 3 (BATCH 24): `movabs`, THE 64-BIT IMMEDIATE MOVE.  Three
+  -- vectors, and the batch's honesty depends on being clear about what they
+  -- test and what they cannot.
+  --
+  -- ⛔ THE AST COULD ALWAYS EXPRESS THIS FORM.  `Operand.imm` carries a `Val`,
+  -- which is a `BitVec 64`, and the decoder is trusted to have done any
+  -- extension (X86/Syntax.lean's header).  So `movabsq $imm64, %r64` and
+  -- `movq $imm32, %r64` reach `step` as the same shape with different values,
+  -- and NO SEMANTICS CHANGE.  This is P1 batch 20's finding again — a shape the
+  -- model could always express and had never been asked — and the same rule
+  -- applies: what a green here does NOT contain has to be said out loud.
+  --
+  -- ⚠️ WHAT IT DOES TEST, in order of what could actually be wrong:
+  --   * the LENGTH path.  Ten bytes is the longest encoding in this table, and
+  --     `Instr.len` is a datum the model cannot check about itself; the
+  --     assembler cross-check and the RIP the differential compares are what
+  --     close it.
+  --   * the DECODE-TRUST boundary, at the one place it is most tempting to
+  --     re-derive: a decoder that reused the `imm32` path would sign-extend,
+  --     and the two values below are chosen so that it MUST differ.
+  --   * the demand, which is measured: 3,791 occurrences, 0.41% of the gap.
+  --
+  -- ⛔ IT CLAIMS NO NEW ROSTER ROW.  K files `mov r,imm` as ONE row with six
+  -- variants and `blqw` widths; `mov_ri` already claims it.  Like the segment
+  -- override and the LOCK prefix before it, this addition changes what the
+  -- model can EXECUTE and not what it covers.
+  , { id := "movabs_q", mnemonic := "mov", asm := "movabsq $0x1122334455667788, %rax"
+    , bytes := "48b88877665544332211"
+    , instr := ⟨.mov .q (R .rax) (.imm 0x1122334455667788), 10⟩ }
+  -- ⭐⭐ THE TWO DISCRIMINATING VALUES, and they are the whole test.
+  --
+  -- `0x00000000ffffffff` is what a 32-bit immediate of `-1` SIGN-EXTENDS to
+  -- `0xffffffffffffffff` from — so a model that took `movabs`'s low 32 bits
+  -- through the `imm32` path writes all-ones where this writes 4 294 967 295.
+  -- `0xffffffff00000000` is the mirror: its low 32 bits are ZERO, so the same
+  -- wrong model writes 0.  Neither value can be reached by extending anything.
+  , { id := "movabs_lo32_ones", mnemonic := "mov", asm := "movabsq $0x00000000ffffffff, %rax"
+    , bytes := "48b8ffffffff00000000"
+    , instr := ⟨.mov .q (R .rax) (.imm 0x00000000FFFFFFFF), 10⟩ }
+  , { id := "movabs_hi32_ones", mnemonic := "mov", asm := "movabsq $0xffffffff00000000, %rbx"
+    , bytes := "48bb00000000ffffffff"
+    , instr := ⟨.mov .q (R .rbx) (.imm 0xFFFFFFFF00000000), 10⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

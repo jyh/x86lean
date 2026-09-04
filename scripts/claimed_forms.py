@@ -156,6 +156,14 @@ CLAIMS_NO_ROW = {
     "lock_mov_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
     "lock_lea_ud":        "a LOCK prefix is a prefix on a row already claimed",
     "lock_shl_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
+    # ⭐ P2 ITEM 3.  K files `mov r,imm` as ONE row with six variants and `blqw`
+    # widths, and `mov_ri` already claims it: `movabs` is a distinct ENCODING of
+    # a claimed row, not a row of its own.  The resolver assembles the roster
+    # row's canonical form (`48 c7 c0 …`) and these are `48 b8 …`, so they
+    # resolve to nothing — which is the instrument being right.
+    "movabs_q":           "movabs is a distinct ENCODING of a row already claimed",
+    "movabs_lo32_ones":   "movabs is a distinct ENCODING of a row already claimed",
+    "movabs_hi32_ones":   "movabs is a distinct ENCODING of a row already claimed",
 }
 
 SIB_BASE_EXEMPT = set(CLAIMS_NO_ROW)

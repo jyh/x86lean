@@ -45,7 +45,19 @@ for line in r.stdout.splitlines():
     m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
     if m:
         labels[m.group(2)] = int(m.group(1), 16); continue
-    m = re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)', line)
+    # ⛔⛔ P2 ITEM 3 FOUND THIS BY BEING THE LONGEST ENCODING IN THE TABLE.
+    # The pattern used to be `(?:[0-9a-f]{2} )+` — each byte followed by a
+    # SPACE — which silently DROPPED THE LAST BYTE of any instruction long
+    # enough to fill objdump's byte column, because there the final byte abuts
+    # the TAB before the mnemonic instead of a space.  `movabsq $imm64, %r64`
+    # is ten bytes, the first form in this repository to reach that width, and
+    # it read back as NINE.
+    # ⇒ 🔑 AND THE DIRECTION IS THE FINDING: the gate would have reported
+    # `len=9` for a ten-byte instruction, so a model that claimed 9 would have
+    # AGREED WITH IT.  A harness that truncates its own reading cannot see a
+    # model that truncates the same way.  Latent since P0; only the longest
+    # encoding could expose it.
+    m = re.match(r'^\s*([0-9a-f]+):\s+([0-9a-f]{2}(?: [0-9a-f]{2})*)(?:\s|$)', line)
     if m:
         addrs.append((int(m.group(1), 16), m.group(2).split()))
 
@@ -317,7 +329,19 @@ for line in r.stdout.splitlines():
     m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
     if m:
         slabels[m.group(2)] = int(m.group(1), 16); continue
-    m = re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)', line)
+    # ⛔⛔ P2 ITEM 3 FOUND THIS BY BEING THE LONGEST ENCODING IN THE TABLE.
+    # The pattern used to be `(?:[0-9a-f]{2} )+` — each byte followed by a
+    # SPACE — which silently DROPPED THE LAST BYTE of any instruction long
+    # enough to fill objdump's byte column, because there the final byte abuts
+    # the TAB before the mnemonic instead of a space.  `movabsq $imm64, %r64`
+    # is ten bytes, the first form in this repository to reach that width, and
+    # it read back as NINE.
+    # ⇒ 🔑 AND THE DIRECTION IS THE FINDING: the gate would have reported
+    # `len=9` for a ten-byte instruction, so a model that claimed 9 would have
+    # AGREED WITH IT.  A harness that truncates its own reading cannot see a
+    # model that truncates the same way.  Latent since P0; only the longest
+    # encoding could expose it.
+    m = re.match(r'^\s*([0-9a-f]+):\s+([0-9a-f]{2}(?: [0-9a-f]{2})*)(?:\s|$)', line)
     if m:
         saddrs[int(m.group(1), 16)] = "".join(m.group(2).split())
 

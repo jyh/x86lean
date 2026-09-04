@@ -3028,3 +3028,64 @@ tighter one.**
 Registered at measured × 1.6 on the 121 reading: 194 → **200**.
 
 **Reversal cost:** one line.
+
+## D83 — the encoding gate silently dropped the last byte of any ten-byte instruction (P2 batch 24)
+
+`scripts/check_encodings.py` parsed objdump's byte column with
+`(?:[0-9a-f]{2} )+` — each byte followed by a **space**. objdump pads that column
+to a fixed width, so for every instruction this repository had ever carried the
+final byte was followed by padding and the pattern worked.
+
+**`movabsq $imm64, %r64` is ten bytes**, the first form here wide enough to fill
+the column exactly. Its final byte abuts the **tab** before the mnemonic, and the
+gate read the instruction as **nine** bytes.
+
+⇒ 🔑 **AND THE DIRECTION IS THE FINDING.** The gate reported `model says len=10,
+assembler says 9` — loud, because the model was right. Had the model been wrong
+in the same way the parser was, the two would have agreed: **a harness that
+truncates its own reading cannot see a model that truncates the same way.** The
+defect has been latent since P0 and no shorter form could expose it.
+
+**The decision.** The pattern is `[0-9a-f]{2}(?: [0-9a-f]{2})*` followed by
+whitespace-or-end, which does not care what separates the bytes from the
+mnemonic. Both call sites (the vector table and the synonym check) are fixed
+together; they were the same literal.
+
+⚠️ **What this says about the class.** A parser that has only ever seen padded
+input has not been tested on unpadded input, and column-filling is a property of
+the WIDEST datum — so the widest datum is where a column parser gets its first
+real test. This repository now has one ten-byte instruction; the next parser
+written against a padded column deserves a deliberately-widest case before it
+ships.
+
+**Reversal cost:** one regex, two call sites.
+
+## D84 — `movabs` is a batch that changes no semantics, and says so (P2 batch 24)
+
+P2 addition 3. `Operand.imm` has carried a full `BitVec 64` since P0 and the
+decoder is trusted to have performed any extension (`X86/Syntax.lean`'s header,
+`TRUSTBASE.md`), so `movabsq $imm64, %r64` and `movq $imm32, %r64` reach `step`
+as the same shape with different values. **Not one line of `X86/Semantics.lean`
+changed**, and the roster does not move: K files `mov r,imm` as one row with six
+variants, and `mov_ri` already claims it.
+
+⛔ **So what a green run here does NOT contain has to be said, which is P1 batch
+20's rule.** It contains no evidence about immediate extension, because there is
+no extension in this model to be wrong about. What it does contain:
+
+1. **the length path.** Ten bytes is the longest encoding in the table; a wrong
+   `Instr.len` is a wrong RIP on every case, and the model cannot check it about
+   itself. This is what found D83.
+2. **the decode-trust boundary**, at the one place re-derivation is tempting.
+   `movabs_lo32_ones` (`0x00000000ffffffff`) and `movabs_hi32_ones`
+   (`0xffffffff00000000`) carry values no 32-bit immediate sign-extends to, so
+   the single plausible wrong decoder — one that reused the `imm32` path — is
+   caught, and every other `mov r,imm` vector is unaffected by that arm because
+   truncate-and-sign-extend is IDENTITY on them.
+3. **the demand**, measured: 3,791 occurrences, 0.41% of the uncovered gap.
+
+⚠️ **The arm is keyed on the VALUE and not on `i.len`.** Keying on the length
+would plant a defect in the decoder's output rather than in a model of it, and
+would be indistinguishable from a typo.
+
+**Reversal cost:** three vectors and one arm.
