@@ -3763,6 +3763,30 @@ ceilings PASS"* and discards the plain run's output, so the CI log said a contro
 said which declaration was over. The local re-run is the only reason this was diagnosed. The arm
 should print `r.stdout` on failure.
 
+⚠️⚠️ **CORRECTION, on six readings rather than three — the "±2×" above is TOO STRONG.** Three further
+readings taken back-to-back on the same tree:
+
+| | run 4 | run 5 | run 6 | spread |
+|---|---|---|---|---|
+| `memDestSweep` | 18,000 | 17,700 | 17,800 | ±1% |
+| `X86.Theorems` | 728 | 711 | 724 | ±1% |
+| `Tests.Anchors` | 464 | 480 | 477 | ±2% |
+| module total | 31,900 | 31,700 | 31,500 | ±0.6% |
+
+The measurement is **stable to a few percent**. Run 2 was a single outlier taken under load, and I
+generalised from it to "a quantity that swings by 2×" — a claim three readings could not support and
+six readings refute. ⇒ **A number is worth as many independent routes as agree on it, and that
+applies to my own conclusions as much as to the repository's.** The *specific* judgement that run 2's
+overages were noise was correct, and so was refusing to raise ceilings on it; the *general* claim
+about the gate was not.
+
+⇒ **And the corrected picture changes the diagnosis.** Every local reading sits comfortably under its
+ceiling while CI fails the same step twice — so CI is **systematically slower**, not noisy, and a
+noise margin is the wrong remedy for it. A ceiling calibrated on one machine cannot be enforced on
+another at all; the principled repairs are to calibrate on the CI machine, or to make the gate a
+RATIO against a reference declaration measured in the same run, which cancels machine speed. The
+choice waits on CI's actual numbers (D94's diagnosability fix, `d45804f`, is what will supply them).
+
 **Reversal cost:** fifteen string literals.
 
 ## D95 — the known-divergence channel: keeping a test alive when the ORACLE is the one that is wrong (P2 vector wave, batch 6)
