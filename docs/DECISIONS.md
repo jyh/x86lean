@@ -3619,3 +3619,89 @@ seam, and it is probed four ways, each a distinct way the seam fails:
 parallelism and is paid in machine time, not in coverage.
 
 **Reversal cost:** two commands, one gate, one matrix.
+
+## D93 — the differential found a defect in ACL2 x86isa, and K is what settled it (P2 vector wave, batch 5)
+
+**Forms.** `movd` and `movq` across the register files — rank 4 (3.05%) and rank 8 (2.05%) of the
+measured demand list, the highest-demand forms this model did not have, and the first here whose two
+operands live in **different register files**.
+
+### 1. The run went RED, and the model was right
+
+Five vectors were written. The differential returned **159 unexplained `spec` disagreements**, all of
+them in exactly two vectors:
+
+```
+movd_to_x   81 of 86      movq_to_x   78 of 86
+movd_to_x/18  lean=…000000aaaaaaaa   oracle=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+movd_to_x/14  lean=…000000000000000   oracle=00000001000000000000000100000000
+```
+
+The oracle preserved the destination's upper bits and wrote only the low 32 (or 64). **ACL2 x86isa
+merges where the specification says clear.**
+
+⚠️ **And that is precisely the wrong model this batch had already planted as an arm** — *"movd/movq
+into XMM merge instead of clearing the upper bits"*, which fired in 151 cases against the Lean model.
+The arm and the oracle implement the same mistake.
+
+### 2. ⭐ It is not this repository's word against the oracle's — K settled it
+
+`vendor/k-x86-64`, public and already relied on for the P1 and P2 rosters, gives:
+
+```
+movd r32 -> xmm :  concatenateMInt( mi(96, 0), extractMInt(R1, 32, 64) )
+movq r64 -> xmm :  concatenateMInt( mi(64, 0), getParentValue(R1) )
+movq xmm -> xmm :  concatenateMInt( mi(64, 0), extractMInt(R1, 192, 256) )
+```
+
+Ninety-six (or sixty-four) **zero bits** and then the datum. SDM Vol. 2B, MOVD/MOVQ: `DEST[127:32] ←
+0`. ⇒ **Two independent public models and the manual agree with this model; x86isa is alone.**
+
+⇒ 🔑 **THE THIRD SOURCE IS WHAT TURNS A DISAGREEMENT INTO A FINDING.** With two models, a red run
+says only *"one of you is wrong"*, and the tempting reading — the oracle has 500 roster rows of
+credibility behind it — is the wrong one here. K costs nothing to consult and it decides the
+question. D91 had no third source and had to say so; this one has one and uses it.
+
+⚠️ **The defect is DIRECTIONAL, and that sharpens rather than softens it.** x86isa gets
+`movq %xmm1,%xmm0` right (it zeroes the upper quadword) and gets both out-of-XMM directions right.
+Only GPR → XMM is wrong. A model that were simply "vague about upper bits" would have failed all
+five; failing exactly two is the signature of a specific defect, and it is why the other three
+vectors stay in the table and remain differentially validated.
+
+### 3. The decision, and the coverage it costs
+
+The two into-XMM vectors are **removed**; the semantics and the roster rows stay. The rule is carried
+by `vmovg_to_xmm_zeroes_upper` — and the arm that guarded it is **removed with them**, because with
+no vector it could never fire again, and *an arm no vector can distinguish is a false entry in the
+gate's inventory* (D91), not a weak test.
+
+⚠️ **Stated as a cost, not a tidy ending:** this repository now has **two** rules its oracle cannot
+check — the `movdqa` alignment fault (D91, oracle *incomplete*) and this one (oracle *wrong*). Both
+are proved and neither is differentially validated.
+
+⭐ **Both point at the same next mechanism.** Removing a vector stops the test **permanently and
+silently**: if x86isa is fixed tomorrow, nothing notices. A *declared known-divergence channel* — a
+per-(vector, field) list carrying its third-source citation, gated in **both** directions so it fires
+when the divergence disappears — keeps the 164 cases running and deletes itself when the oracle
+catches up. **That is my recommendation for the next batch**; it is not done here because it changes
+`classify`, the most load-bearing instrument in the repository, and that deserves its own red-first
+batch rather than riding in on this one.
+
+### 4. What survives, and what it proves
+
+`movd_from_x`, `movq_from_x` and `movq_xx` remain and agree with the oracle. Their arms fire:
+
+| arm | caught in |
+|---|---|
+| `movq xmm,xmm` copies all 128 bits instead of zeroing the upper quadword | 76 (`xmm0`) |
+| `movd` out of XMM does not zero-extend its 32-bit GPR write | 35 (`rcx`) |
+
+⭐ Out of XMM needed **no code at all**: `Cpu.setReg` already zero-extends at `.d`, and that the rule
+applies unchanged across a register-file boundary is the reason there is nothing here to read.
+
+⚠️ Neither arm fires in all 82 of its cases, and that is **correct rather than a shortfall** — the
+adversarial value list contains zeros, and where the bits a wrong model fails to clear were already
+zero the two models genuinely agree. A count equal to the case count would have been the suspicious
+reading.
+
+**Reversal cost:** two constructors, three vectors, two arms, two roster rows.

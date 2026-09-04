@@ -2450,6 +2450,43 @@ def vectors : List Vec :=
   , { id := "movdqu_load_unal", mnemonic := "movdqu", asm := "movdqu 8(%rbx), %xmm0"
     , bytes := "f30f6f4308"
     , instr := ⟨.vload false .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
+  -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
+  -- width, so the zeroing is observable in BOTH files:
+  --   * `movd %ecx,%xmm0` must clear xmm0's bits 127:32, not merge into them —
+  --     and the XMM pre-state pattern is deliberately NON-ZERO (batch 0), which
+  --     is the only reason a model that preserved them could be caught;
+  --   * `movd %xmm0,%ecx` is an ordinary 32-bit GPR write and must zero-extend
+  --     to 64, the rule every other form here already obeys.
+  -- ⚠️ `movq_xx` is NOT `movdqa` at 64 bits: it moves the low quadword and ZEROES
+  -- the upper one (objdump says so itself: `xmm0 = xmm1[0],zero`).
+  -- ⛔⛔ THE TWO **INTO-XMM** VECTORS WERE WRITTEN, RUN, AND REMOVED, AND THE RUN
+  -- IS WHY THIS COMMENT EXISTS.  `movd %ecx,%xmm0` and `movq %rcx,%xmm0`
+  -- produced 159 unexplained `spec` disagreements — 81 of 86 and 78 of 86 —
+  -- because **ACL2 x86isa MERGES where the SDM says CLEAR**: it writes the low
+  -- 32 (or 64) bits and preserves the destination's upper bits.
+  --
+  --     movd_to_x/18  lean=…000000aaaaaaaa  oracle=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  --
+  -- ⭐ THE MODEL IS RIGHT, AND IT IS NOT THIS REPOSITORY'S WORD AGAINST THE
+  -- ORACLE'S.  K's semantics — a THIRD source, vendored and public — give
+  -- `movd r32 -> xmm` as `concatenateMInt(mi(96, 0), …)`: ninety-six zero bits
+  -- and then the datum. `movq r64 -> xmm` is `mi(64, 0)` the same way. SDM
+  -- Vol. 2B, MOVD/MOVQ: `DEST[127:32] <- 0`.  Two independent public models and
+  -- the manual agree with this model; x86isa is alone.
+  --
+  -- ⚠️ AND THE DEFECT IS DIRECTIONAL, which is why `movq_xx` and the two
+  -- `_from_x` rows STAY: x86isa gets `movq %xmm1,%xmm0` right (it zeroes the
+  -- upper quadword) and gets both out-of-XMM directions right. Only GPR -> XMM
+  -- is wrong. Keeping the rows the oracle CAN check is not a consolation prize —
+  -- it is the whole of what the differential is for.
+  , { id := "movd_from_x", mnemonic := "movd", asm := "movd %xmm0, %ecx"
+    , bytes := "660f7ec1", instr := ⟨.vmovg false .d .x0 .rcx, 4⟩ }
+  , { id := "movq_from_x", mnemonic := "movq", asm := "movq %xmm0, %rax"
+    , bytes := "66480f7ec0", instr := ⟨.vmovg false .q .x0 .rax, 5⟩ }
+  , { id := "movq_xx", mnemonic := "movq", asm := "movq %xmm1, %xmm0"
+    , bytes := "f30f7ec1", instr := ⟨.vmovq .x0 .x1, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

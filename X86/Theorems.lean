@@ -609,6 +609,34 @@ rather than assumed. -/
     (step ⟨.vmov a d s', len⟩ s).flags = s.flags := by
   rw [step_vmov a d s' h]
 
+/-! ### ⭐⭐⭐ MOVD / MOVQ across the register files — P2 vector wave, batch 5 -/
+
+/-- ⭐⭐ WRITING AN XMM REGISTER FROM A GPR **CLEARS** THE BITS ABOVE THE WRITTEN
+WIDTH.  `movd %ecx,%xmm0` leaves bits 127:32 zero; it does not merge.
+
+⛔ AND THIS THEOREM IS THE ONLY THING IN THE REPOSITORY THAT CHECKS IT, BECAUSE
+THE ORACLE IS WRONG HERE.  ACL2 x86isa merges — measured, 81 of 86 and 78 of 86
+unexplained `spec` disagreements on the two into-XMM vectors, which is why those
+vectors are not in the table (D93).
+
+⚠️ It is NOT this model's word against x86isa's. **K's semantics, vendored and
+public, give `movd r32 -> xmm` as `concatenateMInt(mi(96, 0), …)`** — ninety-six
+zero bits and then the datum — and `movq r64 -> xmm` as `mi(64, 0)` the same way;
+SDM Vol. 2B says `DEST[127:32] <- 0`. Two independent public models and the manual
+agree with this model. -/
+theorem vmovg_to_xmm_zeroes_upper (sz : Size) (x : XmmReg) (r : GPR) (h : Live s) :
+    (step ⟨.vmovg true sz x r, len⟩ s).getXmm x = (s.getReg sz r).setWidth 128 := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+/-- ⭐ `movq %xmm1,%xmm0` moves the low quadword and ZEROES the upper one — it is
+not `movdqa` at a narrower width.  ⭐ x86isa gets THIS one right, so it is
+differentially validated as well as proved; the defect is directional. -/
+theorem vmovq_zeroes_upper (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vmovq d s', len⟩ s).getXmm d = ((s.getXmm s').setWidth 64).setWidth 128 := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
 /-! ### The vector MEMORY forms — P2 vector wave, batch 3 -/
 
 /-- An ALIGNED vector load: XMM and RIP move, nothing else. -/

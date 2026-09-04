@@ -831,6 +831,33 @@ inductive Op where
   strictly better than the shape `Op.mov` is stuck with. -/
   | vload  (aligned : Bool) (dst : XmmReg) (ea : Ea)
   | vstore (aligned : Bool) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
+  Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
+  instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
+
+  `toXmm` is the direction and `sz` is the width — `.d` spells `movd`, `.q`
+  spells `movq`.  Both directions ZERO what they do not write, and at two
+  different granularities, which is the whole content of the form:
+
+  * **into XMM**: the destination's upper bits are ZEROED, not preserved — a
+    32-bit `movd` clears bits 127:32 (SDM Vol. 2B, MOVD);
+  * **out of XMM**: an ordinary GPR write, so `.d` zero-extends to 64 by the rule
+    every other form in this model already obeys (SDM Vol. 1 §3.4.1.1).
+
+  ⚠️ A model that PRESERVED the upper bits of the XMM destination is the obvious
+  wrong one and is bit-identical to this one whenever the destination happened to
+  be zero — which is why the pre-state XMM pattern being non-zero (batch 0) is
+  what makes this form testable at all. -/
+  | vmovg (toXmm : Bool) (sz : Size) (x : XmmReg) (r : GPR)
+  /-- P2 VECTOR WAVE, BATCH 5 — `movq %xmm1, %xmm0` (`f3 0f 7e`), which is NOT
+  `movdqa` at 64 bits: it moves the low quadword and **ZEROES the upper one**.
+  objdump says so in its own disassembly comment (`xmm0 = xmm1[0],zero`).
+
+  ⛔ It is a separate constructor from `vmov` rather than a width field on it,
+  because `vmov` PRESERVES nothing and copies everything while this ZEROES half
+  the destination — they are different functions, and one constructor with a
+  width would invite the reading that `vmov` at 64 bits is this. -/
+  | vmovq (dst src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -929,6 +956,10 @@ def opOperands : Op → List Operand
   -- a vector load's address is reported here exactly as a scalar one is. That is
   -- what makes `lock movdqa` #UD for free: `lockable` does not list it.
   | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
+  -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
+  -- reported keeps the lock and segment walks exact.
+  | .vmovg _ _ _ r => [.reg r]
+  | .vmovq .. => []
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1039,6 +1070,7 @@ def Op.anyLocked : Op → Bool
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
   | .vmov .. | .vbin .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
+  | .vmovg .. | .vmovq .. => false
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1165,6 +1197,8 @@ def Op.mnemonic : Op → String
   -- ⚠️ BOTH SPELLINGS, because both opcodes exist. See `Op.vmov`.
   | .vmov a .. => if a then "movdqa" else "movdqu"
   | .vload a .. | .vstore a .. => if a then "movdqa" else "movdqu"
+  | .vmovg _ sz .. => match sz with | .q => "movq" | _ => "movd"
+  | .vmovq .. => "movq"
   | .vbin k .. => match k with
     | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
     | .subb => "psubb" | .subw => "psubw" | .subd => "psubd" | .subq => "psubq"
@@ -1314,7 +1348,11 @@ def rosterP0 : List String :=
    "movdqa", "movdqu",
    "paddb", "paddw", "paddd", "paddq",
    "psubb", "psubw", "psubd", "psubq",
-   "pxor", "pand", "por"]
+   "pxor", "pand", "por",
+   -- P2 VECTOR WAVE, BATCH 5: the cross-register-file moves.  `movq` is a roster
+   -- name here in its SSE sense; the GPR `movq %rcx,%rax` is a spelling of `mov`
+   -- and always has been, which is why the two do not collide.
+   "movd", "movq"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

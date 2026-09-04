@@ -596,6 +596,12 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   , { mnemonic := "por",
       shapes := "x,x — bitwise over all 128 bits",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
+  , { mnemonic := "movd",
+      shapes := "r,x — 32 bits ACROSS the register files, out of XMM, where the GPR write zero-extends to 64. The x,r direction is MODELLED and PROVED (`vmovg_to_xmm_zeroes_upper`) but has NO VECTOR: x86isa MERGES where the SDM and K both say CLEAR, so it cannot be differentially validated — D93",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
+  , { mnemonic := "movq",
+      shapes := "r,x · x,x — 64 bits out of XMM, and `movq x,x` ZEROES the upper quadword (validated: x86isa gets this one right), which is what makes it not `movdqa` at a narrower width. The x,r direction is MODELLED and PROVED but has no vector, for the same oracle defect as `movd` — D93",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

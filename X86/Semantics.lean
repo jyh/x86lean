@@ -407,6 +407,28 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         s.halt (.byDesign "movdqa at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
 
+  -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
+  --
+  -- ⚠️ BOTH DIRECTIONS ZERO WHAT THEY DO NOT WRITE, at two different
+  -- granularities, and neither zeroing is optional:
+  --   * into XMM, bits above the written width are CLEARED — `movd %ecx,%xmm0`
+  --     leaves 127:32 zero, it does not merge into whatever was there;
+  --   * out of XMM, the GPR write is an ordinary one, so `.d` zero-extends to 64
+  --     by the same rule as every other form here (SDM Vol. 1 §3.4.1.1), which
+  --     `Cpu.setReg` already implements — there is no special case for it.
+  | .vmovg toXmm sz x r =>
+      if toXmm then
+        (s.setXmm x ((s.getReg sz r).setWidth 128)).setRip nr
+      else
+        (s.setReg sz r ((s.getXmm x).setWidth 64)).setRip nr
+
+  -- ⭐ `movq %xmm1, %xmm0` — the LOW QUADWORD, with the upper one ZEROED.  This
+  -- is the form that is NOT `movdqa` at a narrower width: `vmov` copies 128 bits
+  -- and preserves nothing because there is nothing left over; this one has 64
+  -- bits left over and CLEARS them.
+  | .vmovq dst src =>
+      (s.setXmm dst (((s.getXmm src).setWidth 64).setWidth 128)).setRip nr
+
   | .vstore al ea src =>
       let a := ea.addr s nr
       if al && !aligned16 a then

@@ -2276,6 +2276,34 @@ def wrongVmovduAlsoAligns (i : Instr) (s : Cpu) : Cpu :=
   | .vstore _ ea r => step ⟨.vstore true ea r, i.len⟩ s
   | _ => step i s
 
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — the wrong models for MOVD/MOVQ.
+
+All three are about ZEROING, because that is all these forms do beyond moving
+bits, and each one is bit-identical to the right model whenever the bits it fails
+to clear were already zero — which is exactly why batch 0's XMM pre-state pattern
+is deliberately non-zero and non-constant. -/
+
+/-- ⛔ `movq %xmm1,%xmm0` behaves like `movdqa` — it copies all 128 bits instead
+of moving the low quadword and ZEROING the upper one. -/
+def wrongVmovqCopiesAll (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovq dst src => (s.setXmm dst (s.getXmm src)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ `movd %xmm0,%ecx` writes 32 bits WITHOUT zero-extending, preserving the
+GPR's upper half — the `.d`-width mistake this model has caught before in the
+scalar forms, now on the other side of the register-file boundary. -/
+def wrongVmovgFromXNoZeroExtend (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovg false sz x r =>
+      if sz == .d then
+        let old := s.getReg .q r
+        let lo := (s.getXmm x).setWidth 64 &&& 0xFFFFFFFF
+        (s.setReg .q r ((old &&& 0xFFFFFFFF00000000) ||| lo)).setRip
+          (s.rip + BitVec.ofNat 64 i.len)
+      else step i s
+  | _ => step i s
+
 /-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness's own red arm
 
 ⛔ THIS BATCH ADDS NO SEMANTICS, SO ITS ARM CANNOT BE A WRONG RULE.  Nothing in
@@ -2479,6 +2507,18 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("a vector store writes only eight bytes", wrongVstore8Bytes,
      "mem@0000000000001fe0")
   , ("movdqu applies movdqa's alignment check", wrongVmovduAlsoAligns, "refused")
+  -- ⭐⭐ P2 VECTOR WAVE, BATCH 5 — the cross-file moves, all three about ZEROING.
+  -- ⛔ `movd/movq into XMM merge instead of clearing the upper bits` WAS AN ARM
+  -- HERE AND HAS BEEN REMOVED WITH ITS VECTORS.  It fired — 151 cases — and then
+  -- the differential showed that ACL2 x86isa itself merges, so the two into-XMM
+  -- vectors had to go (D93) and the arm lost its subject. An arm no vector can
+  -- distinguish is a FALSE ENTRY in this list, not a weak test (D91), so it is
+  -- gone rather than left green forever. The rule it guarded is carried by
+  -- `vmovg_to_xmm_zeroes_upper` in X86/Theorems.lean.
+  , ("movq xmm,xmm copies all 128 bits instead of zeroing the upper quadword",
+     wrongVmovqCopiesAll, "xmm0")
+  , ("movd out of XMM does not zero-extend its 32-bit GPR write",
+     wrongVmovgFromXNoZeroExtend, "rcx")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness.  One arm, and it is the whole
   -- claim: a planted XMM difference must be CAUGHT before one line of vector
   -- semantics is written.
@@ -3067,7 +3107,33 @@ it has NO SECOND SOURCE, and it is a named item for the hardware co-simulation \
 lane where real silicon IS the oracle for it.  ⚠️ And one arm is DELIBERATELY \
 ABSENT: `movdqa ignores its alignment requirement` cannot be caught by any \
 vector that can exist, and an arm no vector can distinguish is not a weak test \
-but a FALSE ENTRY in the gate's own inventory (see D91).\n\n\
+but a FALSE ENTRY in the gate's own inventory (see D91); 7 — MOVD and MOVQ \
+ACROSS THE REGISTER FILES, rank 4 and rank 8 of the measured demand list, and \
+THE BATCH IN WHICH THE DIFFERENTIAL FOUND A DEFECT IN THE ORACLE.  Five vectors \
+were written and the run came back with 159 unexplained `spec` disagreements in \
+exactly two of them: `movd %ecx,%xmm0` and `movq %rcx,%xmm0`, where **ACL2 \
+x86isa MERGES the destination's upper bits instead of CLEARING them** — the same \
+wrong model this batch had already planted as an arm and caught in 151 cases \
+against the Lean side.  ⭐ AND IT IS NOT THIS REPOSITORY'S WORD AGAINST THE \
+ORACLE'S: K's semantics, vendored and public, give `movd r32 -> xmm` as \
+`concatenateMInt(mi(96, 0), …)` — ninety-six zero bits and then the datum — and \
+SDM Vol. 2B says `DEST[127:32] <- 0`.  ⇒ THE THIRD SOURCE IS WHAT TURNS A \
+DISAGREEMENT INTO A FINDING: with two models a red run says only that one of \
+them is wrong, and the tempting reading — the oracle has 500 roster rows of \
+credibility behind it — is the wrong one here.  ⚠️ The defect is DIRECTIONAL, \
+which sharpens it: x86isa gets `movq %xmm1,%xmm0` and both out-of-XMM \
+directions right, so the other three vectors stay and remain validated, and \
+failing exactly two is the signature of a specific defect rather than vagueness. \
+The two into-XMM vectors are removed, their rule carried by \
+`vmovg_to_xmm_zeroes_upper`, and the arm that guarded them is removed WITH them \
+because an arm no vector can distinguish is a false entry in the gate's own \
+inventory.  ⚠️ THE COST, STATED PLAINLY: this repository now has TWO rules its \
+oracle cannot check — the alignment fault (oracle incomplete) and this one \
+(oracle wrong) — both proved, neither differentially validated, and removing a \
+vector stops the test PERMANENTLY AND SILENTLY.  Both point at the same next \
+mechanism: a declared known-divergence channel carrying its third-source \
+citation, gated in BOTH directions so it fires when the divergence disappears \
+(see D93).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
