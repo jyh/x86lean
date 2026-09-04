@@ -3396,3 +3396,88 @@ non-contiguous address; without the guard `gap_q` reads five bytes instead of th
 folding off ⇒ `movabs_q` truncates to 7 (the CI defect, restored); guard off ⇒ the gap arm fires.
 
 **Reversal cost:** one function, two call sites, three samples.
+
+## D90 — the first vector semantics, and the arm that did not fire (P2 vector wave, batch 2)
+
+**What landed.** `Op.vmov` and `Op.vbin`: `movdqa`/`movdqu` register-to-register and the eleven
+packed integer operations `paddb/w/d/q`, `psubb/w/d/q`, `pxor`, `pand`, `por`. Sixteen vectors, 13
+new mnemonics, no memory forms. This is the batch that makes batch 4's channel **non-vacuous** —
+until now nothing in the roster wrote an XMM register, so by D27 the comparator was watching sixteen
+constants and agreeing about them.
+
+### 1. Three design decisions, each with its reason
+
+**`movdqa` and `movdqu` are ONE constructor with an `aligned` flag, and two roster rows.** They are
+different *opcodes* (`66 0f 6f` against `f3 0f 6f`), so unlike `sal`/`shl` they are not one encoding
+under two spellings and the model must not print one name for the other. Between registers the flag
+is inert, because the alignment rule is stated of a **memory** operand — a claim about the
+architecture, so it is a theorem (`vmov_aligned_irrelevant`) and not the comment that first stated
+it. It becomes load-bearing the day the memory forms land, which is the day the two stop agreeing.
+
+**The lane WIDTH is in the kind; the lane COUNT is derived from it.** `Size` in this model means the
+width of one value, and a packed operation has two widths that are both essential and neither of
+which is that one. A first draft of `vlanes` took the count as an argument — `vlanes 32 (·+·) a b 4`
+— which is a width and a count side by side, i.e. two sources for one fact, where the wrong pair is a
+silently truncated register rather than a type error. `128 / w` cannot disagree with `w`.
+
+**The packed forms name no `Operand` and claim no P1 roster row.** `Operand` is the GPR/memory/
+immediate vocabulary; an XMM register is a different register *file*. And `docs/P1-ROSTER.md` is
+**derived** from K's tree with an exclusion that has read, since P1, *any operand `xmm`/`ymm`/…: SIMD,
+plan v1 §5 P2* — so there is no `paddd` row there to claim and there never was. The alternative was
+considered and refused: admitting SIMD to the P1 roster edits a derived artifact's exclusion rule,
+which moves the 525-row denominator and therefore every coverage percentage this repository has
+published, in a batch whose subject is semantics. A denominator change is its own batch. The sixteen
+vectors are exempted **with that reason recorded**, gated in both directions like every other entry.
+
+### 2. ⛔ THE FINDING: AN ARM THAT DID NOT FIRE, AND A COMMENT THAT SAID IT WOULD
+
+`wrongVmovFixedRegisters` makes every `movdqa`/`movdqu` move xmm1 into xmm0 whatever it encodes. Run
+against the first sixteen vectors it was **not caught**:
+
+```
+⛔ movdqa/movdqu ignore their register fields: comparator reported ZERO unexplained
+   disagreements against a KNOWN-WRONG model. The comparator does not work.
+```
+
+Both `vmov` vectors moved xmm1 into xmm0, so the wrong model was **bit-identical** to the real one on
+every vector in the table. **`Op.vmov`'s register fields were decoded by nothing**, and the
+differential's `unexplained=0` said nothing whatever about them.
+
+⚠️ **And the arm's own comment asserted it was covered** — by `paddd_x2x3`, which is a `.vbin` and
+cannot exercise `vmov`'s operands at all. The pairing was *claimed in prose* and was false.
+
+⇒ 🔑 **P1 BATCH 20'S RULE, IN THE VECTOR WAVE: ASK WHAT A PREDICTED GREEN DOES NOT CONTAIN.** Three
+order claims went nineteen batches untested there because every vector named an operand that could
+not distinguish them; here two vectors shared a register pair and one line of decoding went untested
+from the moment it was written. The repair is `movdqa_x4x5` and `movdqu_x4x5`, and **the pairing is
+proven by the failure rather than asserted**: the arm demonstrably did not fire before they existed
+and fires in 164 cases after — the deletion experiment, run in the only direction that needs no
+faith.
+
+⚠️ A second, smaller instance in the same arm: with the vectors added it was caught but **in the
+wrong field** — 328 disagreements, none in the declared `xmm2`, because the new vectors write `xmm4`.
+The arm requires the disagreement *in the field the bug is in*, and that precision is what turned a
+green into a correction.
+
+### 3. ⚠️ The arm that COULD have passed silently, and did not
+
+A wrong **lane width** is invisible unless some lane actually carries across its boundary: if every
+xmm lane in the pre-state pattern were small, `paddd` and `paddq` would agree on every case and the
+run would report agreement about a rule it never tested. `wrongVbinLaneWidth` computes every packed
+add and subtract at 64-bit lanes and is **caught in 355 cases**, so batch 4's deliberately non-zero,
+non-constant pre-state pattern does exercise the lane boundary. That is why the batch is not sealed
+on `unexplained=0` alone.
+
+`psub computes SRC - DEST` is caught in 328 cases (the adds and the bitwise trio are commutative and
+cannot see it, which is why it is a separate arm). `a packed operation writes ZF` is caught in 696 —
+"Flags Affected: None" is on every SDM entry in the group, and reaching for `BinKind`'s flag
+machinery by analogy is the easiest way to get a packed operation wrong.
+
+### 4. What this batch does NOT claim
+
+No memory form. They need a 128-bit memory path (`readMem`/`writeMem` are defined at `Size`, which
+stops at 64) **and** they are where `movdqa` and `movdqu` stop being the same instruction — an
+unaligned `movdqa` is #GP. That is a semantic question of its own and it gets its own batch rather
+than riding in on this one.
+
+**Reversal cost:** two `Op` constructors, one combinator, sixteen vectors, four arms.

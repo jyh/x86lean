@@ -126,7 +126,45 @@ HELDOUT_MBASE = 7
 # instructions and the roster does not describe at all — K's tree has no
 # separate rule for a prefixed `mov`.  So: no row, on purpose, and both
 # directions of the exemption stay gated exactly as batch 20 built them.
+# ⭐⭐⭐ AND THE P2 VECTOR ROWS ARE A THIRD RULE, NOT A THIRD EXAMPLE OF THE
+# SECOND.  The segment and LOCK entries below say *the row exists and a sibling
+# already claims it*.  The SIMD entries say something different and stronger:
+# **this roster does not contain the row at all, by its own derivation.**
+# `docs/P1-ROSTER.md` is derived from K's tree by `scripts/k_roster.py`, and its
+# exclusion table has carried, since P1, the line
+#
+#     | any operand `xmm`/`ymm`/`zmm`/`mm`/`m128`/`m256`/`m512` | SIMD: plan v1 §5 P2. |
+#
+# so there is no `paddd` row here to claim and there never was.  The vector work
+# is counted against `docs/P2-ROSTER.md`, which exists, ranks these very
+# mnemonics by measured demand, and is the correct denominator for it.
+#
+# ⛔ THE ALTERNATIVE WAS CONSIDERED AND REFUSED: admitting SIMD to the P1 roster
+# means editing a DERIVED artifact's exclusion rule, which moves the 525-row
+# denominator and therefore every coverage percentage this repository has
+# published — in a batch whose subject is semantics.  A denominator change is its
+# own batch with its own evidence, not a side effect of the first vector form.
+#
+# ⚠️ These stay gated in BOTH directions like every entry here: the day the P1
+# roster does admit a SIMD row, the exemption stops being true and this gate says
+# so rather than quietly under-counting.
 CLAIMS_NO_ROW = {
+    "movdqa_xx":  "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movdqu_xx":  "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddb_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddw_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddd_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddq_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubb_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubw_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubd_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psubq_xx":   "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pxor_xx":    "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pand_xx":    "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "por_xx":     "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "paddd_x2x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movdqa_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movdqu_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "push_m_rsp":     "base %rsp forces a SIB byte; claims no row",
     "pop_m_rsp":      "base %rsp forces a SIB byte; claims no row",
     "mov_fs_abs_q":   "a segment override is a prefix on a row already claimed",

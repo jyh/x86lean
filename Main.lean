@@ -2177,6 +2177,63 @@ def wrongMovabsImm32Path (i : Instr) (s : Cpu) : Cpu :=
       step ⟨.mov sz dst (.imm v32), i.len⟩ s
   | _ => step i s
 
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2 — the wrong models for the PACKED forms.
+
+Batch 0's arm could only clobber a register, because no instruction wrote one.
+These are the first arms that can be WRONG RULES about vector arithmetic, and
+they are chosen to be the mistakes a model would actually make. -/
+
+/-- ⛔⛔ THE LANE WIDTH, WHICH IS THE WHOLE OF "PACKED".  This model computes
+every packed add and subtract at 64-bit lanes, whatever the mnemonic says — so
+`paddd` carries out of bit 31 into bit 32 instead of wrapping inside its lane.
+
+⚠️ THIS IS THE ARM THAT COULD SILENTLY PASS, and it is the reason the batch is
+not sealed on `unexplained=0` alone. A wrong lane width is invisible unless some
+lane actually CARRIES across its boundary in some pre-state: if every xmm lane
+in the pre-state pattern were small, `paddd` and `paddq` would agree on every
+case and the differential would report agreement about a rule it never tested.
+Running this arm is how the batch learns which it is. -/
+def wrongVbinLaneWidth (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vbin k d s' =>
+      let k' : VBinKind := match k with
+        | .addb | .addw | .addd => .addq
+        | .subb | .subw | .subd => .subq
+        | other => other
+      step ⟨.vbin k' d s', i.len⟩ s
+  | _ => step i s
+
+/-- ⛔ THE OPERAND ORDER OF A NON-COMMUTATIVE PACKED OP: `SRC - DEST` instead of
+`DEST - SRC`. The adds and the bitwise trio are commutative and cannot see this,
+so it is a claim about `psub*` alone — which is why it is a separate arm from
+the lane width rather than folded into it. -/
+def wrongVbinSubReversed (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vbin k d s' =>
+      match k with
+      | .subb | .subw | .subd | .subq =>
+          (s.setXmm d (vbinApply k (s.getXmm s') (s.getXmm d))).setRip
+            (s.rip + BitVec.ofNat 64 i.len)
+      | _ => step i s
+  | _ => step i s
+
+/-- ⛔ THE REGISTER FIELDS, IGNORED: every `movdqa`/`movdqu` moves xmm1 into
+xmm0 regardless of what it encodes. Thirteen of the fourteen new vectors DO
+write xmm0 from xmm1, so this arm is caught by exactly one of them —
+`paddd_x2x3`'s sibling reasoning, and the reason that row exists. -/
+def wrongVmovFixedRegisters (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmov a _ _ => step ⟨.vmov a .x0 .x1, i.len⟩ s
+  | _ => step i s
+
+/-- ⛔ A PACKED OPERATION THAT WRITES A FLAG — the mistake of reaching for
+`BinKind`'s machinery by analogy. "Flags Affected: None" on every SDM entry in
+the group, so ZF moving at all is a disagreement. -/
+def wrongVbinWritesFlags (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vbin .. => let t := step i s; t.setFlags { t.flags with zf := true }
+  | _ => step i s
+
 /-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness's own red arm
 
 ⛔ THIS BATCH ADDS NO SEMANTICS, SO ITS ARM CANNOT BE A WRONG RULE.  Nothing in
@@ -2368,6 +2425,13 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   -- exactly one thing about this form the model could get wrong.
   , ("movabs re-derives its immediate through the imm32 path",
      wrongMovabsImm32Path, "rax")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2 — the first arms that are wrong RULES about
+  -- vector arithmetic rather than a clobbered channel.
+  , ("a packed add/subtract uses 64-bit lanes whatever the mnemonic says",
+     wrongVbinLaneWidth, "xmm0")
+  , ("psub computes SRC - DEST", wrongVbinSubReversed, "xmm0")
+  , ("movdqa/movdqu ignore their register fields", wrongVmovFixedRegisters, "xmm4")
+  , ("a packed operation writes ZF", wrongVbinWritesFlags, "zf")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness.  One arm, and it is the whole
   -- claim: a planted XMM difference must be CAUGHT before one line of vector
   -- semantics is written.
@@ -2831,7 +2895,30 @@ renderer which is defined and never CALLED.  ⚠️ Its claim is narrow on purpo
 nothing in this roster writes XMM, so by D27 the registers are constants and \
 the comparator is watching one; what the batch proves is that the CHANNEL \
 exists, both models report it, they agree, and a planted difference is CAUGHT — \
-64,746 cases for one clobbered register (see D85).\n\n\
+64,746 cases for one clobbered register (see D85); 5 — THE FIRST VECTOR \
+SEMANTICS: `movdqa`/`movdqu` register-to-register and the eleven packed integer \
+operations PADDB/W/D/Q, PSUBB/W/D/Q, PXOR, PAND and POR, sixteen vectors that \
+between them make batch 4's channel NON-VACUOUS — until this batch nothing \
+wrote an XMM register, so by D27 the comparator was watching sixteen constants \
+and agreeing about them.  `movdqa` and `movdqu` are ONE constructor with an \
+`aligned` flag rather than one row: they are different OPCODES, so the model \
+must not print one name for the other, and the flag is INERT between registers \
+because the alignment rule is stated of a MEMORY operand — a claim, so a theorem \
+(`vmov_aligned_irrelevant`) and not a comment.  The lane WIDTH lives in the kind \
+and the lane COUNT is derived from it, never written beside it.  ⛔ THE BATCH'S \
+FINDING IS AN ARM THAT DID NOT FIRE: `wrongVmovFixedRegisters` — every \
+`movdqa`/`movdqu` moves xmm1 into xmm0 whatever it encodes — was BIT-IDENTICAL \
+to the real model on every vector in the table, because both `vmov` vectors \
+moved xmm1 into xmm0, so the comparator reported ZERO disagreements against a \
+known-wrong model and `Op.vmov`'s register fields were decoded by nothing.  The \
+comment on the arm ASSERTED it was covered, by a `.vbin` vector that cannot \
+exercise `vmov`'s operands at all.  `movdqa_x4x5` and `movdqu_x4x5` exist \
+because the arm failed, and the pairing is proven by the failure rather than \
+claimed — P1 batch 20's rule again, asking what a predicted green does not \
+contain.  ⚠️ And the arm that COULD have passed silently did not: a wrong LANE \
+WIDTH is invisible unless some lane actually carries across its boundary, and \
+computing every packed add at 64-bit lanes is caught in 355 cases, so the \
+pre-state pattern does exercise the rule (see D90).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

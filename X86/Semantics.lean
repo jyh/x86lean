@@ -293,6 +293,52 @@ def setMdPair (s : Cpu) (sz : Size) (lo hi : Val) : Cpu :=
 
 end Cpu
 
+/-! ## The packed (SIMD) operations -/
+
+/-- One lane of a packed operation, folded from the top down.  ⚠️ `n` is the lane
+COUNT and is never written by a caller: `vlanes` derives it. -/
+private def vlanesAux (w : Nat) (f : BitVec w → BitVec w → BitVec w)
+    (a b : BitVec 128) : Nat → BitVec 128
+  | 0 => 0
+  | n + 1 =>
+      (vlanesAux w f a b n) |||
+        (((f (a.extractLsb' (n * w) w) (b.extractLsb' (n * w) w)).setWidth 128) <<< (n * w))
+
+/-- ⭐⭐ THE PACKED COMBINATOR.  A packed operation applies `f` to each aligned
+`w`-bit lane INDEPENDENTLY: no carry, no borrow and no flag crosses a lane
+boundary (SDM Vol. 2B, PADDB/PADDW/PADDD/PADDQ — "the instructions do not record
+a carry").  That independence is the whole content of "packed", and writing it
+as one combinator rather than eight open-coded loops is what makes it checkable.
+
+⚠️ **THE LANE COUNT IS DERIVED FROM THE WIDTH, NOT WRITTEN BESIDE IT.**  A first
+draft passed the count as an argument — `vlanes 32 (· + ·) a b 4` — which is a
+width and a count side by side, i.e. two sources for one fact, and the wrong pair
+is a silently truncated register rather than a type error. `128 / w` cannot
+disagree with `w`. -/
+def vlanes (w : Nat) (f : BitVec w → BitVec w → BitVec w) (a b : BitVec 128) : BitVec 128 :=
+  vlanesAux w f a b (128 / w)
+
+/-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
+Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
+get a packed operation wrong is to reach for `BinKind`'s flag machinery by
+analogy.  `step`'s arm below writes XMM and RIP and nothing else. -/
+def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
+  match k with
+  -- The bitwise trio: lane-independent, so they do not go through `vlanes` at
+  -- all.  Routing them through a one-lane call would be a claim that the SDM
+  -- defines them lane-wise, which it does not.
+  | .xor  => a ^^^ b
+  | .and  => a &&& b
+  | .or   => a ||| b
+  | .addb => vlanes 8  (· + ·) a b
+  | .addw => vlanes 16 (· + ·) a b
+  | .addd => vlanes 32 (· + ·) a b
+  | .addq => vlanes 64 (· + ·) a b
+  | .subb => vlanes 8  (· - ·) a b
+  | .subw => vlanes 16 (· - ·) a b
+  | .subd => vlanes 32 (· - ·) a b
+  | .subq => vlanes 64 (· - ·) a b
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -315,6 +361,25 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- relative branch are defined against.
   let nr : BitVec 64 := s.rip + BitVec.ofNat 64 i.len
   match i.op with
+
+  -- ⭐⭐⭐ MOVDQA / MOVDQU, register to register — THE FIRST INSTRUCTION IN THIS
+  -- MODEL THAT WRITES AN XMM REGISTER.  Until this arm existed, `Cpu.xmm` was a
+  -- channel every differential case reported and no instruction could move, so
+  -- the comparator was watching sixteen constants and agreeing about them (D85
+  -- said so in as many words).  This is the line that makes that claim non-vacuous.
+  --
+  -- ⚠️ `aligned` IS IGNORED HERE, ON PURPOSE.  Between two registers there is no
+  -- address, so the rule that separates MOVDQA from MOVDQU has nothing to apply
+  -- to (SDM Vol. 2B, MOVDQA: the alignment requirement is stated of a MEMORY
+  -- operand).  This is a claim about the architecture, so it is a theorem —
+  -- `vmov_aligned_irrelevant` — and not this comment.
+  | .vmov _ dst src =>
+      (s.setXmm dst (s.getXmm src)).setRip nr
+
+  -- PADD* / PSUB* / PXOR / PAND / POR (SDM Vol. 2B).  DEST := DEST op SRC, and
+  -- "Flags Affected: None" — the flags are not read and not written.
+  | .vbin k dst src =>
+      (s.setXmm dst (vbinApply k (s.getXmm dst) (s.getXmm src))).setRip nr
 
   -- MOV (SDM Vol. 2A, MOV): "Flags Affected: None."
   | .mov sz dst src =>

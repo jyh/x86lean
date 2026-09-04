@@ -125,6 +125,38 @@ inductive BinKind where
   | adc | sbb
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- ⭐⭐⭐ P2 VECTOR WAVE — THE PACKED-INTEGER BINARY OPERATIONS, and the LANE
+WIDTH is part of the kind rather than a `Size`.
+
+`Size` in this model means the width of ONE value (SDM Vol. 1 §3.4.1.1's rule
+about what a write does to the rest of the register).  A packed operation has
+two widths that are both essential and neither of which is that one: the
+register is always 128 bits, and the LANE is 8, 16, 32 or 64.  Reusing `Size`
+here would have made `paddd` and `paddw` differ in a field that every other
+`Op` uses to mean something else — so the lane lives in the kind, exactly as
+`BinKind` carries the difference between `add` and `adc` rather than a flag.
+
+⚠️ The lane WIDTH is not repeated in a table beside this type. It is written
+once per case in `vbinApply` (X86/Semantics.lean) and the lane COUNT is derived
+from it there, never written down — a width and a count side by side is two
+sources for one fact and the second one goes stale (D41/D74's shape).
+
+⚠️ The bitwise three (`pxor`, `pand`, `por`) have NO lane width: they are the
+same function at every lane, which is why the SDM gives them one entry and no
+`b/w/d/q` suffix. They are here rather than in `BinKind` because their operands
+are XMM registers, and that is a different register FILE, not a different
+width. -/
+inductive VBinKind where
+  /-- Packed add, 16 lanes of 8 / 8 of 16 / 4 of 32 / 2 of 64 (SDM Vol. 2B,
+  PADDB/PADDW/PADDD/PADDQ).  Each lane wraps independently — there is no carry
+  between lanes and no flag is written. -/
+  | addb | addw | addd | addq
+  /-- Packed subtract (SDM Vol. 2B, PSUBB/PSUBW/PSUBD/PSUBQ). -/
+  | subb | subw | subd | subq
+  /-- The bitwise trio (SDM Vol. 2B, PXOR/PAND/POR): lane-independent. -/
+  | xor | and | or
+  deriving DecidableEq, Repr, Inhabited, BEq
+
 /-- The one-operand mnemonics. -/
 inductive UnKind where
   | inc | dec | neg | not
@@ -750,6 +782,37 @@ inductive Op where
   `rdrand`/`rdseed` at other /r values).  `step` declines a non-memory operand
   rather than inventing a register-pair compare. -/
   | cmpxchg8b (dst : Operand)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2 — THE FIRST INSTRUCTION IN THIS MODEL THAT
+  WRITES AN XMM REGISTER.
+
+  `movdqa` and `movdqu` between two REGISTERS are one instruction here, and that
+  is a modelling statement, not a shortcut: the alignment rule that separates
+  them applies to a MEMORY operand ("when the source or destination operand is a
+  memory operand, the operand must be aligned on a 16-byte boundary" — SDM
+  Vol. 2B, MOVDQA), and between registers there is no address to be aligned. The
+  same reasoning already collapses `sal` into `shl`.
+
+  ⛔ THE MEMORY FORMS ARE NOT HERE, and their absence is deliberate rather than
+  pending. They need a 128-bit memory path (`readMem`/`writeMem` are defined at
+  `Size`, which stops at 64) AND they are where `movdqa` and `movdqu` STOP being
+  the same instruction — an unaligned `movdqa` is #GP. That is a semantic
+  question of its own and it gets its own batch rather than riding in on this
+  one.
+
+  ⚠️ `aligned` RECORDS WHICH OF THE TWO IT WAS, and it is deliberately inert
+  here. `movdqa` is `66 0f 6f` and `movdqu` is `f3 0f 6f` — DIFFERENT OPCODES, so
+  unlike `sal`/`shl` these are not one encoding under two spellings and the model
+  must not print one name for the other. Between registers the flag changes
+  nothing, and that is the SDM's own claim rather than an accident of this
+  encoding — so it is stated as a theorem (`vmov_aligned_irrelevant`,
+  Tests/Coverage.lean) instead of a comment. It becomes load-bearing on the day
+  the memory forms arrive, which is the day the two stop agreeing. -/
+  | vmov  (aligned : Bool) (dst src : XmmReg)
+  /-- P2 VECTOR WAVE, BATCH 2 — the packed-integer binary operations between two
+  XMM registers (SDM Vol. 2B). "Flags Affected: None" for every one of them: a
+  packed operation writes no flag, which is the single most important thing to
+  get right about them and the easiest to get wrong by analogy with `BinKind`. -/
+  | vbin  (k : VBinKind) (dst src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -835,6 +898,14 @@ gates it, where a `%fs:` in the AT&T text, a `64`/`65` prefix in the bytes, and
 the `seg` field of the AST must agree — per vector and per SEGMENT — and where
 reading a string costs microseconds. -/
 def opOperands : Op → List Operand
+  -- ⭐ THE VECTOR FORMS NAME NO `Operand`, and that is a statement rather than a
+  -- gap: `Operand` is the GPR/memory/immediate vocabulary, and an XMM register
+  -- is a different register FILE, not another value in this one. A register-only
+  -- vector form has no effective address, so every consumer that walks operands
+  -- — the segment gate, the lock gate — correctly sees nothing to check. The day
+  -- the memory forms land, THIS is the line that has to grow, and the compiler
+  -- will say so.
+  | .vmov .. | .vbin .. => []
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -941,6 +1012,9 @@ that had never been near it.  One pass over `opOperands` costs what the `simp`
 set can afford; `Op.eas` stays, unmarked, for the segment theorems that want the
 addresses themselves. -/
 def Op.anyLocked : Op → Bool
+  -- No memory operand, so no `lock` prefix can be attached; `lock movdqa` is not
+  -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
+  | .vmov .. | .vbin .. => false
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1064,6 +1138,12 @@ one per family whose operand is a VARIABLE, stating the obvious fact in the form
 /-- The mnemonic a disassembler prints, used by the coverage table and by the
 differential harness's disagreement reports. -/
 def Op.mnemonic : Op → String
+  -- ⚠️ BOTH SPELLINGS, because both opcodes exist. See `Op.vmov`.
+  | .vmov a .. => if a then "movdqa" else "movdqu"
+  | .vbin k .. => match k with
+    | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
+    | .subb => "psubb" | .subw => "psubw" | .subd => "psubd" | .subq => "psubq"
+    | .xor => "pxor"   | .and => "pand"   | .or => "por"
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -1200,7 +1280,16 @@ def rosterP0 : List String :=
    -- (`jecxz rel32`, `jrcxz rel32`), is refused by the oracle at every
    -- pre-state (the nine BMI mnemonics and `movnti`), or was declined by a
    -- recorded decision (D23's bit-string `m,r`, D25's `xchg` at memory).
-   "cmpxchg8b"]
+   "cmpxchg8b",
+   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2 — the first roster rows whose register file is
+   -- not the general-purpose one.  `movdqa` and `movdqu` are TWO rows for ONE
+   -- constructor (`Op.vmov`, distinguished by `aligned`) because they are two
+   -- OPCODES — unlike `shl`/`sal`, which are one opcode under two spellings and
+   -- are therefore one row.  The eleven packed operations are one row each.
+   "movdqa", "movdqu",
+   "paddb", "paddw", "paddd", "paddq",
+   "psubb", "psubw", "psubd", "psubq",
+   "pxor", "pand", "por"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

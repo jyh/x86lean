@@ -58,7 +58,7 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are). -/
-theorem roster_size_is_84 : rosterSize = 84 := by decide
+theorem roster_size_is_97 : rosterSize = 97 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -77,7 +77,25 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_804 : vectorCount = 804 := by decide
+theorem vector_count_is_820 : vectorCount = 820 := by decide
+
+/-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
+AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
+
+`Op.vmov` carries `aligned` because the two are different OPCODES (`66 0f 6f`
+against `f3 0f 6f`) and the model must not print one name for the other. What it
+must ALSO not do is let that flag change the state transition, because the rule
+that separates the two mnemonics is stated of a MEMORY operand (SDM Vol. 2B,
+MOVDQA: "the operand must be aligned on a 16-byte boundary") and between two
+registers there is no address to align.
+
+⚠️ THIS IS THE KIND OF SENTENCE THIS REPOSITORY HAS TWICE FOUND TO BE UNGATED
+PROSE (D65). It is cheap to state as a theorem over both flag values and every
+register pair, so it is stated. On the day the memory forms land, this theorem
+is the one that must GAIN a hypothesis — and it will fail loudly rather than
+quietly licence a wrong `movdqa`. -/
+theorem vmov_aligned_irrelevant (d s' : XmmReg) (n : Nat) (c : Cpu) :
+    step ⟨.vmov true d s', n⟩ c = step ⟨.vmov false d s', n⟩ c := rfl
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -588,6 +606,11 @@ constructor.  Batch 10's four new constructors are below, added here rather than
 after a gate refused them. -/
 def isMemDestVector (v : Vec) : Bool :=
   (match v.instr.op with
+    -- ⭐ P2 VECTOR WAVE, BATCH 2, added in the SAME COMMIT as the constructors,
+    -- which is what this function's own doc comment asks for.  Both are
+    -- register-to-register only: there is no memory destination to report, and
+    -- when the memory forms land this is one of the lines that must change.
+    | .vmov .. | .vbin .. => false
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem

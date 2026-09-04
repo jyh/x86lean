@@ -2348,6 +2348,74 @@ def vectors : List Vec :=
   , { id := "movabs_hi32_ones", mnemonic := "mov", asm := "movabsq $0xffffffff00000000, %rbx"
     , bytes := "48bb00000000ffffffff"
     , instr := ⟨.mov .q (R .rbx) (.imm 0xFFFFFFFF00000000), 10⟩ }
+
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2 — THE FIRST VECTORS WHOSE INSTRUCTIONS WRITE
+  -- AN XMM REGISTER.
+  --
+  -- Batch 0 built the sixteen-register channel and proved, honestly and
+  -- narrowly, that it TRANSPORTS a value: both models report xmm0…xmm15, they
+  -- agree, and a planted clobber is caught.  What it could not prove is that
+  -- anything FLOWS through it, because no instruction in the roster could move a
+  -- vector register — so the comparator was watching sixteen constants, and D27
+  -- says a comparator watching a constant reports agreement it did not test.
+  -- These rows are what close that gap.
+  --
+  -- ⚠️ EVERY ONE IS REGISTER-TO-REGISTER.  The memory forms need a 128-bit
+  -- memory path and they are where `movdqa` and `movdqu` stop being the same
+  -- instruction (an unaligned `movdqa` is #GP); that is a batch of its own.
+  --
+  -- ⚠️ `paddd_x2x3` IS NOT A DUPLICATE OF `paddd_x0x1`.  Every other row here
+  -- writes xmm0 and reads xmm1, so a model that ignored the register FIELDS
+  -- entirely — always reading xmm1 into xmm0 — would agree with the oracle on
+  -- all of them.  One row at a different register pair is what makes the operand
+  -- decoding observable, and it is the same reason the GPR vectors do not all
+  -- use %rax.
+  , { id := "movdqa_xx", mnemonic := "movdqa", asm := "movdqa %xmm1, %xmm0"
+    , bytes := "660f6fc1", instr := ⟨.vmov true .x0 .x1, 4⟩ }
+  , { id := "movdqu_xx", mnemonic := "movdqu", asm := "movdqu %xmm1, %xmm0"
+    , bytes := "f30f6fc1", instr := ⟨.vmov false .x0 .x1, 4⟩ }
+  , { id := "paddb_xx", mnemonic := "paddb", asm := "paddb %xmm1, %xmm0"
+    , bytes := "660ffcc1", instr := ⟨.vbin .addb .x0 .x1, 4⟩ }
+  , { id := "paddw_xx", mnemonic := "paddw", asm := "paddw %xmm1, %xmm0"
+    , bytes := "660ffdc1", instr := ⟨.vbin .addw .x0 .x1, 4⟩ }
+  , { id := "paddd_xx", mnemonic := "paddd", asm := "paddd %xmm1, %xmm0"
+    , bytes := "660ffec1", instr := ⟨.vbin .addd .x0 .x1, 4⟩ }
+  , { id := "paddq_xx", mnemonic := "paddq", asm := "paddq %xmm1, %xmm0"
+    , bytes := "660fd4c1", instr := ⟨.vbin .addq .x0 .x1, 4⟩ }
+  , { id := "psubb_xx", mnemonic := "psubb", asm := "psubb %xmm1, %xmm0"
+    , bytes := "660ff8c1", instr := ⟨.vbin .subb .x0 .x1, 4⟩ }
+  , { id := "psubw_xx", mnemonic := "psubw", asm := "psubw %xmm1, %xmm0"
+    , bytes := "660ff9c1", instr := ⟨.vbin .subw .x0 .x1, 4⟩ }
+  , { id := "psubd_xx", mnemonic := "psubd", asm := "psubd %xmm1, %xmm0"
+    , bytes := "660ffac1", instr := ⟨.vbin .subd .x0 .x1, 4⟩ }
+  , { id := "psubq_xx", mnemonic := "psubq", asm := "psubq %xmm1, %xmm0"
+    , bytes := "660ffbc1", instr := ⟨.vbin .subq .x0 .x1, 4⟩ }
+  , { id := "pxor_xx", mnemonic := "pxor", asm := "pxor %xmm1, %xmm0"
+    , bytes := "660fefc1", instr := ⟨.vbin .xor .x0 .x1, 4⟩ }
+  , { id := "pand_xx", mnemonic := "pand", asm := "pand %xmm1, %xmm0"
+    , bytes := "660fdbc1", instr := ⟨.vbin .and .x0 .x1, 4⟩ }
+  , { id := "por_xx", mnemonic := "por", asm := "por %xmm1, %xmm0"
+    , bytes := "660febc1", instr := ⟨.vbin .or .x0 .x1, 4⟩ }
+  , { id := "paddd_x2x3", mnemonic := "paddd", asm := "paddd %xmm3, %xmm2"
+    , bytes := "660ffed3", instr := ⟨.vbin .addd .x2 .x3, 4⟩ }
+  -- ⛔⛔ THESE TWO EXIST BECAUSE AN ARM FAILED, AND THE ARM WAS RIGHT.
+  --
+  -- `wrongVmovFixedRegisters` makes every `movdqa`/`movdqu` move xmm1 into xmm0
+  -- whatever it encodes.  With only `movdqa_xx` and `movdqu_xx` in the table —
+  -- BOTH of which move xmm1 into xmm0 — that wrong model is BIT-IDENTICAL to
+  -- this one on every vector, and the comparator reported ZERO disagreements
+  -- against a known-wrong model.  The register fields of `Op.vmov` were decoded
+  -- by nothing.
+  --
+  -- ⚠️ AND THE COMMENT ON THAT ARM ASSERTED THE OPPOSITE.  It said the arm was
+  -- caught by `paddd_x2x3` — which is a `.vbin`, not a `.vmov`, and therefore
+  -- cannot exercise `vmov`'s operands at all.  A pairing was CLAIMED in prose
+  -- and was false; the arm is what found it, exactly as P1 batch 20's three
+  -- order claims were found by asking what a predicted green does not contain.
+  , { id := "movdqa_x4x5", mnemonic := "movdqa", asm := "movdqa %xmm5, %xmm4"
+    , bytes := "660f6fe5", instr := ⟨.vmov true .x4 .x5, 4⟩ }
+  , { id := "movdqu_x4x5", mnemonic := "movdqu", asm := "movdqu %xmm5, %xmm4"
+    , bytes := "f30f6fe5", instr := ⟨.vmov false .x4 .x5, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

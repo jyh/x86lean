@@ -581,6 +581,44 @@ they are stated because they are what a downstream proof actually needs, and
 because a form that quietly spends an oracle bit would break the second group
 loudly. -/
 
+/-! ### ⭐⭐⭐ THE PACKED (SIMD) FORMS — P2 vector wave, batch 2 -/
+
+/-- `movdqa`/`movdqu` between registers: XMM and RIP move, and NOTHING ELSE. -/
+theorem step_vmov (a : Bool) (d s' : XmmReg) (h : Live s) :
+    step ⟨.vmov a d s', len⟩ s =
+      { s with xmm := s.xmm.set d (s.getXmm s'),
+               rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm]
+
+/-- The packed binary operations: DEST := DEST op SRC, in XMM only. -/
+theorem step_vbin (k : VBinKind) (d s' : XmmReg) (h : Live s) :
+    step ⟨.vbin k d s', len⟩ s =
+      { s with xmm := s.xmm.set d (vbinApply k (s.getXmm d) (s.getXmm s')),
+               rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm]
+
+/-- ⭐ NO PACKED FORM TOUCHES A FLAG.  "Flags Affected: None" is on every SDM
+entry in this group, and the easiest way to get a packed operation wrong is to
+reach for `BinKind`'s flag machinery by analogy — so the absence is asserted
+rather than assumed. -/
+@[simp] theorem step_vbin_flags (k : VBinKind) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vbin k d s', len⟩ s).flags = s.flags := by
+  rw [step_vbin k d s' h]
+
+@[simp] theorem step_vmov_flags (a : Bool) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vmov a d s', len⟩ s).flags = s.flags := by
+  rw [step_vmov a d s' h]
+
+/-- ⭐ AND NO PACKED FORM TOUCHES A GENERAL-PURPOSE REGISTER OR MEMORY — the
+frame, stated in the direction a downstream proof needs it. -/
+@[simp] theorem step_vbin_regs (k : VBinKind) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vbin k d s', len⟩ s).regs = s.regs := by
+  rw [step_vbin k d s' h]
+
+@[simp] theorem step_vbin_mem (k : VBinKind) (d s' : XmmReg) (h : Live s) :
+    (step ⟨.vbin k d s', len⟩ s).mem = s.mem := by
+  rw [step_vbin k d s' h]
+
 @[simp] theorem step_mov_flags (sz : Size) (r r' : GPR) (h : Live s) :
     (step ⟨.mov sz (.reg r) (.reg r'), len⟩ s).flags = s.flags := by
   rw [step_mov_reg_reg sz r r' h]

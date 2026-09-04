@@ -552,6 +552,50 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   , { mnemonic := "cmpxchg8b",
       shapes := "m(rmw) — q only (EDX:EAX vs [m]; ECX:EBX stored on equal; 32-bit register views; ZF is the only flag)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMPXCHG8B/CMPXCHG16B" }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2.  Every row here is `T-exact` and carries NO
+  -- undefined flags, and that is not an oversight: a packed integer operation
+  -- writes no flag at all (SDM Vol. 2B, "Flags Affected: None" on each entry),
+  -- so there is nothing for the undefined-bit oracle to supply.  The empty
+  -- `undefined` list is a claim the differential run tests on every case.
+  , { mnemonic := "movdqa",
+      shapes := "x,x — register to register only; the 16-byte ALIGNMENT rule is a property of a MEMORY operand and there is no memory form here yet",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQA" }
+  , { mnemonic := "movdqu",
+      shapes := "x,x — identical to `movdqa` between registers (`vmov_aligned_irrelevant`); the two differ only where an address exists",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" }
+  , { mnemonic := "paddb",
+      shapes := "x,x — 16 lanes of 8 bits, each wrapping independently; no carry crosses a lane and no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "paddw",
+      shapes := "x,x — 8 lanes of 16 bits, each wrapping independently; no carry crosses a lane and no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "paddd",
+      shapes := "x,x — 4 lanes of 32 bits, each wrapping independently; no carry crosses a lane and no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "paddq",
+      shapes := "x,x — 2 lanes of 64 bits, each wrapping independently; no carry crosses a lane and no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "psubb",
+      shapes := "x,x — 16 lanes of 8 bits, each borrowing independently; no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "psubw",
+      shapes := "x,x — 8 lanes of 16 bits, each borrowing independently; no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "psubd",
+      shapes := "x,x — 4 lanes of 32 bits, each borrowing independently; no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "psubq",
+      shapes := "x,x — 2 lanes of 64 bits, each borrowing independently; no flag is written",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "pxor",
+      shapes := "x,x — bitwise over all 128 bits; no lane width, and it does not go through the lane combinator",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" }
+  , { mnemonic := "pand",
+      shapes := "x,x — bitwise over all 128 bits",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAND" }
+  , { mnemonic := "por",
+      shapes := "x,x — bitwise over all 128 bits",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
