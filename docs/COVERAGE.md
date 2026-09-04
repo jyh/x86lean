@@ -98,20 +98,20 @@ Tiers: T-exact 73 · T-frame 26 · T-absent 0.
 | `shld` | r(rmw),r,imm8/cl · m(rmw),r,imm8/cl — w/l/q (m at w with cl: refused) | T-frame | XED (trusted) | CF (count > size), PF (count > size), AF (count ≠ 0), ZF (count > size), SF (count > size), OF (count ≠ 1), DEST (count > size) | Vol. 2A SHLD |
 | `shrd` | r(rmw),r,imm8/cl · m(rmw),r,imm8/cl — w/l/q (m at w with cl: refused) | T-frame | XED (trusted) | CF (count > size), PF (count > size), AF (count ≠ 0), ZF (count > size), SF (count > size), OF (count ≠ 1), DEST (count > size) | Vol. 2A SHRD |
 | `cmpxchg8b` | m(rmw) — q only (EDX:EAX vs [m]; ECX:EBX stored on equal; 32-bit register views; ZF is the only flag) | T-exact | XED (trusted) | — | Vol. 2A CMPXCHG8B/CMPXCHG16B |
-| `movdqa` | x,x · x,m · m,x — the memory forms require a 16-byte-ALIGNED effective address and are #GP(0) otherwise; that rule is MODELLED and asserted by theorem but NOT differentially validated, because ACL2 x86isa does not implement the check (measured — D91) | T-exact | XED (trusted) | — | Vol. 2B MOVDQA |
-| `movdqu` | x,x · x,m · m,x — no alignment requirement at any operand; identical to `movdqa` between registers (`vmov_aligned_irrelevant`) and differing from it exactly where an address exists | T-exact | XED (trusted) | — | Vol. 2B MOVDQU |
-| `paddb` | x,x — 16 lanes of 8 bits, each wrapping independently; no carry crosses a lane and no flag is written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
-| `paddw` | x,x — 8 lanes of 16 bits, each wrapping independently; no carry crosses a lane and no flag is written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
-| `paddd` | x,x — 4 lanes of 32 bits, each wrapping independently; no carry crosses a lane and no flag is written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
-| `paddq` | x,x — 2 lanes of 64 bits, each wrapping independently; no carry crosses a lane and no flag is written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
-| `psubb` | x,x — 16 lanes of 8 bits, each borrowing independently; no flag is written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
-| `psubw` | x,x — 8 lanes of 16 bits, each borrowing independently; no flag is written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
-| `psubd` | x,x — 4 lanes of 32 bits, each borrowing independently; no flag is written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
-| `psubq` | x,x — 2 lanes of 64 bits, each borrowing independently; no flag is written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
-| `pxor` | x,x — bitwise over all 128 bits; no lane width, and it does not go through the lane combinator | T-exact | XED (trusted) | — | Vol. 2B PXOR |
+| `movdqa` | x,x · x,m · m,x — memory operands must be 16-byte aligned, else #GP(0); proved, not vectored (D91) | T-exact | XED (trusted) | — | Vol. 2B MOVDQA |
+| `movdqu` | x,x · x,m · m,x — no alignment requirement at any operand | T-exact | XED (trusted) | — | Vol. 2B MOVDQU |
+| `paddb` | x,x — 16 lanes of 8 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `paddw` | x,x — 8 lanes of 16 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `paddd` | x,x — 4 lanes of 32 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `paddq` | x,x — 2 lanes of 64 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `psubb` | x,x — 16 lanes of 8 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `psubw` | x,x — 8 lanes of 16 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `psubd` | x,x — 4 lanes of 32 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `psubq` | x,x — 2 lanes of 64 bits, no flag written | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `pxor` | x,x — bitwise over all 128 bits | T-exact | XED (trusted) | — | Vol. 2B PXOR |
 | `pand` | x,x — bitwise over all 128 bits | T-exact | XED (trusted) | — | Vol. 2B PAND |
 | `por` | x,x — bitwise over all 128 bits | T-exact | XED (trusted) | — | Vol. 2B POR |
-| `movd` | r,x — 32 bits ACROSS the register files, out of XMM, where the GPR write zero-extends to 64. The x,r direction is MODELLED and PROVED (`vmovg_to_xmm_zeroes_upper`) but has NO VECTOR: x86isa MERGES where the SDM and K both say CLEAR, so it cannot be differentially validated — D93 | T-exact | XED (trusted) | — | Vol. 2B MOVD/MOVQ |
-| `movq` | r,x · x,x — 64 bits out of XMM, and `movq x,x` ZEROES the upper quadword (validated: x86isa gets this one right), which is what makes it not `movdqa` at a narrower width. The x,r direction is MODELLED and PROVED but has no vector, for the same oracle defect as `movd` — D93 | T-exact | XED (trusted) | — | Vol. 2B MOVD/MOVQ |
+| `movd` | r,x — out of XMM at 32 bits; the x,r direction is proved, not vectored (D93) | T-exact | XED (trusted) | — | Vol. 2B MOVD/MOVQ |
+| `movq` | r,x · x,x — out of XMM at 64 bits; x,x zeroes the upper quadword; the x,r direction is proved, not vectored (D93) | T-exact | XED (trusted) | — | Vol. 2B MOVD/MOVQ |
 
 **Decode trust.** Every row reads `XED (trusted)`: the AST is built from Intel XED's structured output and nothing in this repository proves that the bytes were decoded correctly. The differential vectors close this for every form below by assembling each `asm` string with clang and checking the length against the model's `Instr.len`; a Lean decoder with a proof is P4.

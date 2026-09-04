@@ -3705,3 +3705,62 @@ zero the two models genuinely agree. A count equal to the case count would have 
 reading.
 
 **Reversal cost:** two constructors, three vectors, two arms, two roster rows.
+
+## D94 — prose in a field the kernel walks character by character, and a ceiling measured against a ±2× quantity (P2 vector wave, batch 6)
+
+**Found by CI**, on the first run in which step 11 had ever executed: `kernel-cost selftest: FAIL (1
+of 5 arms)` — and the arm that failed was the **control**, *"the shipped ceilings PASS"*. All three
+red arms fired correctly; the gate was working and the tree was over.
+
+### 1. The cause was mine, and it is D72's lesson in a new place
+
+```
+memDestSweep    30700 ms    ceiling 19360    OVER ⛔
+```
+
+`claimsMemDest` walks `Row.shapes` **character by character** (`memDestFromShapeStart` recurses on
+`r.shapes.toList`), and `memDestSweep` reduces it over every row in a kernel `decide`. Batches 3 and
+5 wrote *explanatory prose* into that field — the longest was **285 characters** — because the
+caveats felt worth recording:
+
+> `"r,x — 32 bits ACROSS the register files, out of XMM, where the GPR write zero-extends to 64. The
+> x,r direction is MODELLED and PROVED (…) but has NO VECTOR: x86isa MERGES where the SDM and K both
+> say CLEAR, so it cannot be differentially validated — D93"`
+
+⇒ 🔑 **A COMMENT IN A STRING THE KERNEL REDUCES IS NOT A COMMENT — IT IS A COST.** D72 recorded the
+same shape (an AST walk costing 4,200 ms, "almost all of it `String.toList` over 784 literals") and
+the repair there was to stop reading strings in the kernel. Here the strings stayed and I made them
+longer. The shapes column is a **shape list**; every caveat in it belongs in the decision note where
+it already was. Shortened to ≤118 characters: `memDestSweep` **30,700 → 15,400 ms**.
+
+### 2. ⚠️ And the gate is measuring a quantity that swings by 2×
+
+Three readings, same tree, same machine:
+
+| | run 1 | run 2 | run 3 | ceiling |
+|---|---|---|---|---|
+| `memDestSweep` | 30,700 ⛔ | 17,900 | 15,400 | 19,360 |
+| `X86.Theorems` | — | 1,300 ⛔ | 753 | 1,100 |
+| `Tests.Anchors` | 469 | 929 ⛔ | 463 | 801 |
+| module total | 44,600 | 34,500 | 29,500 | |
+
+Run 2 reported **three modules over** that run 3 clears by a factor of two, on a tree that differed
+only in string literals which cannot affect `Tests.Anchors` at all.
+
+⇒ **The prose fix is real and the run-2 overages were noise, and telling those apart needed a third
+reading — not an argument.** Had I raised three ceilings after run 2, I would have permanently
+widened a gate to accommodate a busy laptop. *A number is worth as many independent routes as agree
+on it*, and a timing figure carries no conditions with it.
+
+⚠️ **Recorded as an open weakness, not repaired here:** a fixed ceiling against a ±2× measurement
+will fire spuriously, and CI runners are noisier than this machine. The honest repairs are a best-of-N
+reading, or ceilings stated with a stated noise margin, or a re-run policy — each a decision, none of
+them "raise it until green". What must NOT happen is a ceiling raised to fit whichever reading
+someone took first.
+
+⚠️ **A diagnosability gap, worth one line:** the control arm prints only *"control: the shipped
+ceilings PASS"* and discards the plain run's output, so the CI log said a control failed and never
+said which declaration was over. The local re-run is the only reason this was diagnosed. The arm
+should print `r.stdout` on failure.
+
+**Reversal cost:** fifteen string literals.
