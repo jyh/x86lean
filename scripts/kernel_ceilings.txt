@@ -208,12 +208,43 @@ Tests.Anchors 801
 # 2 280 against 2 320, measured in the same runs.  Its cost is `vectorMnemonics`'s
 # dedup, which is |rows| x |vectors| string comparisons — 111 x 854 today — so it
 # grows with BOTH and the next batch crosses it at about two more vectors.
-# ⇒ THE CHEAPER BUILD WAS ALREADY PRICED AND REFUSED (see the note on
-# `vectorCoverage`): every dedup-free spelling costs the same cross product, and a
-# hand-written literal trades it for a list edited every batch.  So this is a
-# DESIGN question — how to state "these two sets are equal" without a cross
-# product a kernel must reduce — and it is the next head's first obstacle, named
-# here with its growth law rather than left to be rediscovered as a red gate.
+# ⇒ THE CHEAPER BUILD WAS ALREADY PRICED AND REFUSED at P1 batch 21 (see the note
+# on `vectorCoverage`): every dedup-free spelling costs the same cross product,
+# and a hand-written literal trades it for a list edited every batch.
+#
+# ⛔⛔ AND ONE MORE ROUTE IS NOW PRICED AND REFUSED, MEASURED RATHER THAN REASONED.
+# P2 batch 11 tried collapsing ADJACENT duplicates before the dedup — one linear
+# pass, order untouched, result identical, taking `eraseDups`'s input from 854 to
+# 181.  On the comparison model that is a ~4x cut to 93% of the declaration's
+# cost.  MEASURED, back to back at the same load: 2 490 -> 2 310 ms.  **Seven per
+# cent**, inside the 4-8% contention band this script documents about itself.
+#   ⇒ 🔑 THE COST IS NOT WHERE THE COMPARISON-COUNT MODEL SAYS IT IS.  D62 got the
+#   EXISTENCE of this dedup's cost right and its SIZE wrong; this is the same
+#   error one level down, and it was caught only because the change was measured
+#   instead of argued.  The change was REVERTED — an optimisation that cannot be
+#   shown above noise is complexity plus a false comment.
+#   ⇒ The next head must PROFILE `vectorCoverage`'s parts (the two inclusion
+#   sweeps, the dedup, the length check) SEPARATELY before optimising it.  A
+#   whole-declaration total cannot see them, which is the mistake this entry
+#   records having made.
+#
+# ⛔⛔ AND AT 98% THIS CEILING HAS STOPPED BEING A GATE AND BECOME A LOAD SENSOR.
+# On a tree that differs from the 2 260 ms reading by ONE COMMENT, `vectorCoverage`
+# measured **2 540 ms — OVER** at 1-min load 7.29, and **2 210-2 310 ok** at loads
+# 3.2-4.1.  Same code, same day, opposite verdicts, decided by whatever else the
+# box was running.
+#   ⇒ 🔑 A CEILING WHOSE MARGIN IS SMALLER THAN THE MACHINE'S OWN SPREAD REPORTS
+#   THE MACHINE, NOT THE CODE — and it reports it in the direction that looks like
+#   a regression, which is the direction that costs a head an investigation.
+#   ⚠️ Do NOT repair this by raising the ceiling: the number would then be derived
+#   from the thing it checks, and the margin it buys would be spent by the next
+#   batch anyway.  The repair is to make the DECLARATION cheaper (above), or to
+#   run this gate only where its ceilings were calibrated.
+#
+# So this stays a DESIGN question — how to state "these two sets are equal"
+# without a cross product a kernel must reduce — and it is the next head's first
+# obstacle, named here with its growth law and one refuted route rather than left
+# to be rediscovered as a red gate.
 Tests.Coverage @decl memDestSweep 7040
 Tests.Coverage @decl pre_states_have_a_returnable_frame 2912
 Tests.Coverage @decl vectorCoverage 2320
