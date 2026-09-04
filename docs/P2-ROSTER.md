@@ -47,48 +47,48 @@ not by this table's sort — but the row count is DERIVED now, and it is
 
 Cumulative share is over the whole uncovered gap (534,576 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
 
-| rank | mnemonic | occurrences | share | cumulative | K operand shapes |
-|---|---|---|---|---|---|
-| 1 | `pmaddwd` | 21,239 | 3.97% | 4.0% | `xm`, `xx` |
-| 2 | `movaps` | 21,011 | 3.93% | 7.9% | `mx`, `xm`, `xx` |
-| 3 | `psubusw` | 17,214 | 3.22% | 11.1% | `xm`, `xx` |
-| 4 | `vmovdqa` | 16,813 | 3.15% | 14.3% | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 5 | `movss` | 16,067 | 3.01% | 17.3% | `mx`, `xm`, `xx` |
-| 6 | `movups` | 13,587 | 2.54% | 19.8% | `mx`, `xm`, `xx` |
-| 7 | `psrad` | 12,394 | 2.32% | 22.1% | `xi`, `xm`, `xx` |
-| 8 | `vpaddw` | 11,682 | 2.19% | 24.3% | `xxm`, `xxx`, `yym`, `yyy` |
-| 9 | `movq` | 11,109 | 2.08% | 26.4% | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 10 | `vpaddd` | 10,950 | 2.05% | 28.4% | `xxm`, `xxx`, `yym`, `yyy` |
-| 11 | `movsd` | 9,175 | 1.72% | 30.2% | `mx`, `xm`, `xx` |
-| 12 | `pshufd` | 9,049 | 1.69% | 31.9% | `xmi`, `xxi` |
-| 13 | `vmovaps` | 7,599 | 1.42% | 33.3% | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 14 | `vpmaddwd` | 7,209 | 1.35% | 34.6% | `xxm`, `xxx`, `yym`, `yyy` |
-| 15 | `psadbw` | 6,411 | 1.20% | 35.8% | `xm`, `xx` |
-| 16 | `vpsrad` | 6,338 | 1.19% | 37.0% | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
-| 17 | `vpsubw` | 6,234 | 1.17% | 38.2% | `xxm`, `xxx`, `yym`, `yyy` |
-| 18 | `packuswb` | 6,230 | 1.17% | 39.3% | `xm`, `xx` |
-| 19 | `vmovdqu` | 6,160 | 1.15% | 40.5% | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 20 | `mulss` | 5,698 | 1.07% | 41.6% | `xm`, `xx` |
-| 21 | `packssdw` | 5,613 | 1.05% | 42.6% | `xm`, `xx` |
-| 22 | `mulsd` | 5,482 | 1.03% | 43.6% | `xm`, `xx` |
-| 23 | `psrlw` | 5,437 | 1.02% | 44.7% | `xi`, `xm`, `xx` |
-| 24 | `vpmulhrsw` | 5,010 | 0.94% | 45.6% | `xxm`, `xxx`, `yym`, `yyy` |
-| 25 | `addss` | 4,696 | 0.88% | 46.5% | `xm`, `xx` |
-| 26 | `vshufps` | 4,693 | 0.88% | 47.3% | `xxmi`, `xxxi`, `yymi`, `yyyi` |
-| 27 | `pmullw` | 4,539 | 0.85% | 48.2% | `xm`, `xx` |
-| 28 | `paddsw` | 4,473 | 0.84% | 49.0% | `xm`, `xx` |
-| 29 | `psllw` | 4,324 | 0.81% | 49.8% | `xi`, `xm`, `xx` |
-| 30 | `psraw` | 4,307 | 0.81% | 50.6% | `xi`, `xm`, `xx` |
-| 31 | `addsd` | 4,260 | 0.80% | 51.4% | `xm`, `xx` |
-| 32 | `paddw` | 4,166 | 0.78% | 52.2% | `xm`, `xx` |
-| 33 | `vpbroadcastd` | 3,941 | 0.74% | 53.0% | `xm`, `xx`, `ym`, `yx` |
-| 34 | `psrldq` | 3,896 | 0.73% | 53.7% | `xi` |
-| 35 | `pmaxsw` | 3,776 | 0.71% | 54.4% | `xm`, `xx` |
-| 36 | `movhps` | 3,672 | 0.69% | 55.1% | `mx`, `xm` |
-| 37 | `vpunpcklwd` | 3,630 | 0.68% | 55.8% | `xxm`, `xxx`, `yym`, `yyy` |
-| 38 | `vaddps` | 3,434 | 0.64% | 56.4% | `xxm`, `xxx`, `yym`, `yyy` |
-| 39 | `vmovq` | 3,430 | 0.64% | 57.0% | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 40 | `movd` | 3,386 | 0.63% | 57.7% | `mx`, `rx`, `xm`, `xr` |
+| rank | mnemonic | occurrences | share | cumulative | of it, MMX | K operand shapes |
+|---|---|---|---|---|---|---|
+| 1 | `pmaddwd` | 21,239 | 3.97% | 4.0% | 2% | `xm`, `xx` |
+| 2 | `movaps` | 21,011 | 3.93% | 7.9% | — | `mx`, `xm`, `xx` |
+| 3 | `psubusw` | 17,214 | 3.22% | 11.1% | 0% | `xm`, `xx` |
+| 4 | `vmovdqa` | 16,813 | 3.15% | 14.3% | — | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 5 | `movss` | 16,067 | 3.01% | 17.3% | — | `mx`, `xm`, `xx` |
+| 6 | `movups` | 13,587 | 2.54% | 19.8% | — | `mx`, `xm`, `xx` |
+| 7 | `psrad` | 12,394 | 2.32% | 22.1% | 2% | `xi`, `xm`, `xx` |
+| 8 | `vpaddw` | 11,682 | 2.19% | 24.3% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 9 | `movq` | 11,109 | 2.08% | 26.4% | ⛔ **100% — PHANTOM ROW** | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 10 | `vpaddd` | 10,950 | 2.05% | 28.4% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 11 | `movsd` | 9,175 | 1.72% | 30.2% | — | `mx`, `xm`, `xx` |
+| 12 | `pshufd` | 9,049 | 1.69% | 31.9% | — | `xmi`, `xxi` |
+| 13 | `vmovaps` | 7,599 | 1.42% | 33.3% | — | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 14 | `vpmaddwd` | 7,209 | 1.35% | 34.6% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 15 | `psadbw` | 6,411 | 1.20% | 35.8% | ⚠️ 14% | `xm`, `xx` |
+| 16 | `vpsrad` | 6,338 | 1.19% | 37.0% | — | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
+| 17 | `vpsubw` | 6,234 | 1.17% | 38.2% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 18 | `packuswb` | 6,230 | 1.17% | 39.3% | ⚠️ 18% | `xm`, `xx` |
+| 19 | `vmovdqu` | 6,160 | 1.15% | 40.5% | — | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 20 | `mulss` | 5,698 | 1.07% | 41.6% | — | `xm`, `xx` |
+| 21 | `packssdw` | 5,613 | 1.05% | 42.6% | 3% | `xm`, `xx` |
+| 22 | `mulsd` | 5,482 | 1.03% | 43.6% | — | `xm`, `xx` |
+| 23 | `psrlw` | 5,437 | 1.02% | 44.7% | 6% | `xi`, `xm`, `xx` |
+| 24 | `vpmulhrsw` | 5,010 | 0.94% | 45.6% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 25 | `addss` | 4,696 | 0.88% | 46.5% | — | `xm`, `xx` |
+| 26 | `vshufps` | 4,693 | 0.88% | 47.3% | — | `xxmi`, `xxxi`, `yymi`, `yyyi` |
+| 27 | `pmullw` | 4,539 | 0.85% | 48.2% | ⚠️ 21% | `xm`, `xx` |
+| 28 | `paddsw` | 4,473 | 0.84% | 49.0% | ⚠️ 18% | `xm`, `xx` |
+| 29 | `psllw` | 4,324 | 0.81% | 49.8% | ⚠️ 15% | `xi`, `xm`, `xx` |
+| 30 | `psraw` | 4,307 | 0.81% | 50.6% | ⚠️ 19% | `xi`, `xm`, `xx` |
+| 31 | `addsd` | 4,260 | 0.80% | 51.4% | — | `xm`, `xx` |
+| 32 | `paddw` | 4,166 | 0.78% | 52.2% | ⛔ **100% — PHANTOM ROW** | `xm`, `xx` |
+| 33 | `vpbroadcastd` | 3,941 | 0.74% | 53.0% | — | `xm`, `xx`, `ym`, `yx` |
+| 34 | `psrldq` | 3,896 | 0.73% | 53.7% | — | `xi` |
+| 35 | `pmaxsw` | 3,776 | 0.71% | 54.4% | ⚠️ 24% | `xm`, `xx` |
+| 36 | `movhps` | 3,672 | 0.69% | 55.1% | — | `mx`, `xm` |
+| 37 | `vpunpcklwd` | 3,630 | 0.68% | 55.8% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 38 | `vaddps` | 3,434 | 0.64% | 56.4% | — | `xxm`, `xxx`, `yym`, `yyy` |
+| 39 | `vmovq` | 3,430 | 0.64% | 57.0% | — | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 40 | `movd` | 3,386 | 0.63% | 57.7% | ⛔ **100% — PHANTOM ROW** | `mx`, `rx`, `xm`, `xr` |
 
 - The joined set — **387 mnemonics K has semantics for AND the corpus executes** — accounts for **496,704 instructions (92.9% of the gap)**.
 

@@ -84,6 +84,18 @@ ADDITIONS = [
 ]
 
 
+def mmx_note(n_mmx, occ):
+    """The MMX share of one roster row's demand, as the row prints it.
+
+    ⛔ A FUNCTION SO IT CAN BE ARMED.  The three bands are a claim about how much
+    of a row's price is demand the row's own shapes cannot close, and a claim
+    rendered inline is a claim no arm can drive."""
+    f = 100.0 * n_mmx / occ if occ else 0.0
+    return ("⛔ **100% — PHANTOM ROW**" if f > 99.5 else
+            f"⚠️ {f:.0f}%" if f >= 10.0 else
+            f"{f:.0f}%" if n_mmx else "—")
+
+
 def lock_why():
     """⭐⭐ THE SENTENCE FOR ADDITION 2, DERIVED FROM `claimed_forms`'s TABLES.
 
@@ -308,14 +320,30 @@ not by this table's sort — but the row count is DERIVED now, and it is
              f"({b['total_uncovered']:,} instructions), so a row's cumulative "
              "column answers: *if P2 stopped here, what fraction of the "
              "assembly class would the model execute?*\n\n")
-    fh.write("| rank | mnemonic | occurrences | share | cumulative | K operand shapes |\n")
-    fh.write("|---|---|---|---|---|---|\n")
+    # ⛔⛔ THE MMX COLUMN, AND WHY A RANK IS NOT A PRICE WITHOUT IT.  A census
+    # residue keyed `movq (vector operand)` erases the REGISTER FILE, so this
+    # join priced K's `mx`/`rx`/`xm`/`xr`/`xx` shapes of `movq` with 11,109
+    # instructions that are **100% `%mm`** — MMX, which this model has no
+    # register file for and which none of those shapes would close.  The demand
+    # was real and the supply was real and they were not the same instructions.
+    # ⇒ 🔑 A JOIN ON A KEY THAT DROPPED A FIELD PRICES ONE THING WITH ANOTHER'S
+    # DEMAND, and it reads as an ordinary row.  The share is printed per row now,
+    # from the census's `miss_by_ext`; ⚠️ a row at 100% is a PHANTOM.
+    mmx = collections.Counter()
+    for _g, r in d.items():
+        if isinstance(r, dict) and r.get("class") == "asm":
+            for m, per in (r.get("miss_by_ext") or {}).items():
+                mmx[m] += per.get("MMX (mm)", 0)
+    fh.write("| rank | mnemonic | occurrences | share | cumulative | "
+             "of it, MMX | K operand shapes |\n")
+    fh.write("|---|---|---|---|---|---|---|\n")
     cum = 0
     for i, (mn, occ, shapes) in enumerate(b["joined"][:40], 1):
         cum += occ
+        note = mmx_note(mmx.get(mn, 0), occ)
         fh.write(f"| {i} | `{mn}` | {occ:,} | "
                  f"{100.0*occ/b['total_uncovered']:.2f}% | "
-                 f"{100.0*cum/b['total_uncovered']:.1f}% | "
+                 f"{100.0*cum/b['total_uncovered']:.1f}% | {note} | "
                  f"{', '.join('`'+s+'`' for s in shapes)} |\n")
     joined_total = sum(o for _m, o, _s in b["joined"])
     fh.write(f"\n- The joined set — **{len(b['joined'])} mnemonics K has "
@@ -530,6 +558,41 @@ def selftest():
     ext = set()
     for g in asm:
         ext |= set(d[g].get("ext", {}))
+    # ⛔ THE MMX SHARE, IN ALL THREE BANDS AND AT BOTH EDGES.  A row priced
+    # entirely by demand its own operand shapes cannot close is a PHANTOM, and
+    # the whole value of the column is that it says so out loud.
+    for n_mmx, occ, want in ((11109, 11109, "⛔ **100% — PHANTOM ROW**"),
+                             (0, 21011, "—"), (454, 21239, "2%"),
+                             (5000, 20000, "⚠️ 25%"),
+                             (1, 10000, "0%"),          # nonzero but tiny: NOT "—"
+                             (0, 0, "—")):              # a row with no demand
+        got = mmx_note(n_mmx, occ)
+        ok = got == want
+        print(("  ✔ " if ok else "  ⛔ ") +
+              f"mmx share {n_mmx}/{occ} -> {got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append(f"mmx:{n_mmx}/{occ}")
+    for g in asm:
+        has = "miss_by_ext" in d[g]
+        print(("  ✔ " if has else "  ⛔ ") +
+              f"column `{g}` carries the residue keyed by MNEMONIC AND BUCKET")
+        if not has:
+            bad.append("miss_by_ext:" + g)
+        if has:
+            # ⛔ the two keyings are the SAME residue: per-mnemonic bucket totals
+            # must not exceed that mnemonic's entry in the flat map.
+            for m, per in d[g]["miss_by_ext"].items():
+                flat = sum(v for k, v in d[g]["miss_all"].items()
+                           if k == m or k.startswith(m + " ("))
+                if sum(per.values()) != flat:
+                    print(f"  ⛔ `{g}`/`{m}`: {sum(per.values())} by bucket vs "
+                          f"{flat} in the flat map")
+                    bad.append("miss-keying:" + g + "/" + m)
+                    break
+            else:
+                print(f"  ✔   and it agrees with `miss_all` on every mnemonic")
+
     # ⛔ GATED IN BOTH DIRECTIONS.  This arm used to say only "the census emits
     # this bucket", which is true exactly while the addition is UNDELIVERED; it
     # went red the moment two of the three landed, and the honest reading is not
@@ -598,7 +661,7 @@ def selftest():
         print(f"p2-roster selftest: FAIL ({len(bad)} arms)")
         return 1
     print(f"p2-roster selftest: PASS "
-          f"({len(arms)+len(key_arms)+1+2*len(asm)+len(ADDITIONS)+len(lock_arms)} "
+          f"({len(arms)+len(key_arms)+1+4*len(asm)+len(ADDITIONS)+len(lock_arms)+6} "
           f"arms; the SIMD predicate in both directions, the join's inputs, "
           f"every addition tied to a bucket the census emits, and the LOCK "
           f"claim derived from `claimed_forms.DECLINED` in both directions)")

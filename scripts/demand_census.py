@@ -913,7 +913,7 @@ def ext_table(name, counts, model, fh):
     tot = sum(rest.values()) or 1
     buckets = collections.Counter()
     covered_buckets = collections.Counter()
-    detail = {}
+    detail, by_mn = {}, {}
     for (m, _kind, _o, ext), k in rest.items():
         # ⛔ THROUGH `_decide`, NOT PAST IT — this loop used to carry its own
         # copy of the three-conjunct test.
@@ -928,6 +928,14 @@ def ext_table(name, counts, model, fh):
             continue
         buckets[ext] += k
         detail.setdefault(ext, collections.Counter())[m] += k
+        # ⭐⭐ AND THE SAME RESIDUE KEYED THE OTHER WAY ROUND.  `miss_all` keys a
+        # vector residue as `movq (vector operand)`, which ERASES the register
+        # file — so the tool that prices P2 sees one number for a mnemonic and
+        # cannot tell MMX demand from XMM demand.  It priced `movq` at rank 9 on
+        # 11,109 instructions that are **100% `%mm`**, which no XMM or GPR form
+        # in K's tree would close.  The mnemonic and the bucket are both facts
+        # this loop already has; only the JOIN was lossy.
+        by_mn.setdefault(m, collections.Counter())[ext] += k
     fh.write("\n#### What is NOT covered, bucketed by ISA extension\n\n")
     fh.write("| bucket | occurrences | share of column | the mnemonics in it |\n")
     fh.write("|---|---|---|---|\n")
@@ -935,7 +943,8 @@ def ext_table(name, counts, model, fh):
         top = ", ".join(f"`{m}`" for m, _ in detail[ext].most_common(6))
         fh.write(f"| {ext} | {k:,} | {100.0*k/tot:.2f}% | {top} |\n")
     return ({e: k for e, k in buckets.items()},
-            {e: k for e, k in covered_buckets.items()})
+            {e: k for e, k in covered_buckets.items()},
+            {m: dict(c) for m, c in by_mn.items()})
 
 def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     mapped, unmapped, outscope, padding, rest = _split(counts, model)
@@ -991,14 +1000,15 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     for i, (m, k) in enumerate(miss.most_common(25), 1):
         fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% |\n")
     att = attribution(name, counts, model, fns or {}, n, n_sym, fh)
-    ext, ext_covered = ext_table(name, counts, model, fh)
+    ext, ext_covered, miss_by_ext = ext_table(name, counts, model, fh)
     # ⚠️ THE FULL uncovered map rides in the JSON, not just the top 40.  The P2
     # roster is priced by JOINING K's SIMD forms against this demand, and a
     # truncated list would price the tail at zero — which is the direction that
     # makes a roster look cheaper than it is.
     return dict(total=tot, covered=covered, pct=100.0*covered/tot,
                 miss=miss.most_common(40), miss_all=dict(miss),
-                attribution=att, ext=ext, ext_covered=ext_covered)
+                attribution=att, ext=ext, ext_covered=ext_covered,
+                miss_by_ext=miss_by_ext)
 
 def selftest():
     """⛔ THE MAPPING IS WHERE A CENSUS INFLATES ITSELF, so it is driven on the
@@ -1134,9 +1144,14 @@ def selftest():
     _mp, _um, _os, _pad, _rest = _split(synth, _M)
     c_tot = sum(_rest.values())
     c_cov = sum(k for r, k in _mp.items() if r in _M)
-    buckets, cov_buckets = ext_table("conservation", synth, _M, io.StringIO())
+    buckets, cov_buckets, by_ext = ext_table("conservation", synth, _M,
+                                             io.StringIO())
     ok = (c_cov + sum(buckets.values()) == c_tot and c_tot == 235
-          and c_cov == 167 and sum(cov_buckets.values()) == c_cov)
+          and c_cov == 167 and sum(cov_buckets.values()) == c_cov
+          # ⛔ the per-mnemonic keying is the SAME residue, not a second count
+          and sum(sum(v.values()) for v in by_ext.values())
+              == sum(buckets.values())
+          and by_ext.get("paddw", {}).get("MMX (mm)") == 40)
     print(("  ✔ " if ok else "  ⛔ ") +
           f"conservation: covered {c_cov} + uncovered {sum(buckets.values())} "
           f"== total {c_tot} (padding {_pad} excluded)" +

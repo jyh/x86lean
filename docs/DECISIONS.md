@@ -4173,3 +4173,62 @@ citations, coverage-prose, readme-snapshot, readme-lean, windows, ci-shards all 
 
 **Reversal cost:** the mapping and the partition are one file each; the documents regenerate in
 32 seconds from a corpus the recipe rebuilds.
+
+## D100 — a join on a key that had dropped a field priced one instruction set with another's demand (P2 vector wave, batch 10)
+
+Found immediately after D99, by reading the candidate list D99 had just made trustworthy: **rank 9 was
+`movq`, a mnemonic the model HAS.**
+
+### 1. Why a covered mnemonic was still ranked
+
+The census keys a vector residue as `` `movq (vector operand)` `` — by the mnemonic objdump printed,
+which D66 chose deliberately so the P2 join has a word to look up in K's tree. But that key **drops
+the register file**. `p2_roster.demand()` pools it under `movq`, joins it against K's `movq` shapes —
+`mx`, `rx`, `xm`, `xr`, `xx` — and prints a row worth 11,109 instructions.
+
+Measured, by walking the assembly-class corpus and splitting each uncovered residue by its ISA bucket:
+
+| roster row | of its demand, MMX |
+|---|---|
+| `pmaddwd` | 454 of 21,239 — 2% |
+| `psubusw` | 37 of 17,214 — 0% |
+| `psrad` | 222 of 12,394 — 2% |
+| **`movq`** | **11,109 of 11,109 — 100%** |
+
+⛔ **Rank 9 is a PHANTOM ROW.** Every non-MMX `movq` form the census can see is already covered (P2
+batch 5); what remains is `movq %mm0,%mm1`, and **none of the five K shapes that row advertises would
+close a single one of those instructions.** The demand was real and the supply was real and they were
+not the same instructions.
+
+⇒ 🔑 **A JOIN ON A KEY THAT DROPPED A FIELD PRICES ONE THING WITH ANOTHER'S DEMAND — and the result
+reads as an ordinary row.** Nothing about rank 9 looked wrong; it had a plausible mnemonic, a
+plausible count and a plausible list of shapes.
+
+⚠️ **The defect is older than D99 and D99 made it visible rather than causing it.** Before the repair
+the same key pooled the XMM `movq` demand in as well, so the row was *larger* and its MMX fraction
+*lower* — the mis-pricing was diluted to invisibility. Concentration is what exposed it.
+
+### 2. The repair, both halves in one batch
+
+The mnemonic and the bucket are both facts the census's residue loop already has; only the join was
+lossy. `report()` now emits `miss_by_ext` — the same residue keyed `{mnemonic: {bucket: count}}` —
+and the roster prints the MMX share of every row, marking a row above 99.5% as a **PHANTOM ROW** and
+one above 10% with a warning.
+
+⛔ **It is emitted AND consumed in the same batch.** A field written and never read is the shape this
+repository has already paid for once (a renderer defined and never called), and a column computed and
+never printed would be exactly that.
+
+**Arms:** `mmx_note` is a function so its three bands can be driven — six arms including both edges
+(1 of 10,000 prints `0%`, not `—`, because a nonzero share must never render as absent; a row with no
+demand at all prints `—`). And the two keyings are gated against each other on the real data: for
+every mnemonic in every assembly column, the per-bucket totals must equal that mnemonic's entry in the
+flat map. A residue counted twice, or a bucket lost, fails there rather than in a reader's judgement.
+p2-roster selftest 34 → **52 arms**.
+
+⚠️ **What this does NOT do:** it does not re-rank. The MMX share is printed beside the demand rather
+than subtracted from it, because subtracting would require deciding whether an MMX form is out of P2's
+scope forever or merely out of its current wave — a roster question for the Captain, not a rendering
+one. What the batch guarantees is that the next batch's rank 1 cannot be a phantom without saying so.
+
+**Reversal cost:** one field in the census JSON and one column in a generated table.
