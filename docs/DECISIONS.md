@@ -3563,3 +3563,59 @@ exists only to be compared against, and teaching it `x` would erase the divergen
 there to pin down.
 
 **Reversal cost:** two constructors, two memory helpers, five vectors, three arms.
+
+## D92 — sharding the harness selftest, and the seam that sharding creates (P2 vector wave, batch 4)
+
+**The measurement.** D88 said the first real CI run should answer whether step 9 fits inside a CI
+job rather than guessing. It answered: **it dominates.** Two runs sat inside the harness selftest for
+hours while every other step finished in minutes. The cost is **arms × vectors**, and *both* grow
+every batch — 23 arms over 46,320 cases at P1 batch 14, **90 arms over 70,950 cases** here, ~2.6 min
+per arm marginal. Its own comment still says "twenty minutes".
+
+**The decision: shard it, and trim nothing.** The arms are independent by construction, so
+`selftest-shard k n` runs the arms whose index is `≡ k-1 (mod n)` and the CI matrix runs `k = 1..6`
+in parallel. Every arm still runs on every push; they merely run beside each other.
+
+⚠️ **STRIDE, NOT CONTIGUOUS BLOCK.** Arms differ in cost — the string group's are dearer than the
+flag singles' — so a contiguous split leaves the wall-clock decided by whichever shard inherited the
+expensive neighbours.
+
+### ⛔ The real content: sharding a coverage gate is how a coverage gate stops covering
+
+If the split is wrong, some arms run twice (harmless) or **never** — and the failure is invisible,
+because every shard that *does* run reports PASS and the job is green. That is this repository's
+recurring defect introduced into the instrument that finds it. Two things stand against it:
+
+**1. The partition is arithmetic, computed from `selftestArms.length` and written down nowhere.**
+Adding an arm cannot leave it uncovered. `selftest-shards n` proves shards `1..n` name every arm
+**exactly once** — it runs no arm, costs milliseconds, and is in the `build` job beside the shards it
+describes. Probed by planting an off-by-one in the selection: `shards 1..6 name 75 arm slots for 90
+arms`.
+
+⚠️ **Its first draft was a tautology, and that is worth recording because it is the SECOND time in
+one session.** The gate recomputed `i % n == j` for itself, so it agreed with the shard because both
+had been written from the same sentence and would have gone on agreeing if the shard's rule changed
+underneath it. Exactly the defect in `check_driver_cr4.py`'s first selftest (D86). ⇒ **Naming a class
+confers no immunity from it.** Fixed by one `shardIndices`, two callers.
+
+**2. The seam the arithmetic cannot reach is the ORCHESTRATOR.** The divisor `6` is written in
+`ci.yml` twice — the length of `matrix.shard`, and the command's argument — and if they disagree the
+arithmetic stays perfect while whole residue classes never run. A matrix of `[1,2,3]` against a
+command saying `6` runs half the arms, and **every shard log says PASS, because each shard really did
+pass.**
+
+⇒ 🔑 **SHARDING MOVES THE COVERAGE QUESTION OUT OF THE CODE AND INTO THE ORCHESTRATOR, WHERE NONE OF
+THIS REPOSITORY'S OTHER GATES CAN SEE IT.** `scripts/check_ci_shards.py` is the gate for that one
+seam, and it is probed four ways, each a distinct way the seam fails:
+
+| plant | caught |
+|---|---|
+| matrix `[1,2,3]` against divisor 6 | `[4, 5, 6] would never run` |
+| a literal `k` instead of `${{ matrix.shard }}` | every job runs the same shard and all pass |
+| partition gate asserting a different `n` | the gate describes a different split |
+| a gap in the matrix (`[1,2,3,4,5,7]`) | `[6] would never run` |
+
+**Cost.** The Lean build now happens in two jobs rather than one, which is the price of the
+parallelism and is paid in machine time, not in coverage.
+
+**Reversal cost:** two commands, one gate, one matrix.

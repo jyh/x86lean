@@ -65,8 +65,17 @@ jobs:
       # `selftestArms.length` since D29 caught exactly this drift one layer down;
       # the step NAME beside it was still a literal, and had been wrong for seven
       # batches. A number in a label nothing reads is D41's rule in the CI file.
-      - name: Harness selftest (every planted bug caught, + control + undefined column)
-        run: lake env .lake/build/bin/x86lean-diff selftest
+      # ⭐⭐⭐ STEP 9 MOVED TO ITS OWN SHARDED JOB (see `selftest` below).  What
+      # stays here is the PARTITION GATE, which runs no arm at all — it is a
+      # property of the shard arithmetic — so it costs milliseconds and it is the
+      # thing that makes sharding safe: it fails if shards 1..N do not name every
+      # arm exactly once.  Sharding a coverage gate is how a coverage gate
+      # silently stops covering, and this is what stands in the way of that.
+      - name: Shard partition gate (shards 1..6 name every selftest arm exactly once)
+        run: lake env .lake/build/bin/x86lean-diff selftest-shards 6
+
+      - name: The CI matrix agrees with the shard count it passes
+        run: python3 scripts/check_ci_shards.py
 
       # ⭐ P1 SEAL (D68). Tests.Coverage is gated PER DECLARATION now, in absolute
       # milliseconds, because D62 proved the ROW is not its unit and every
@@ -231,3 +240,37 @@ jobs:
         run: |
           python3 scripts/claimed_forms.py --selftest
           python3 scripts/claimed_forms.py --check
+
+  # ⭐⭐⭐ THE HARNESS SELFTEST, SHARDED.  Ninety arms over 825 vectors at ~2.6 min
+  # per arm is hours, and BOTH numbers grow every batch — it was the dominant
+  # cost of this workflow and the reason the first real run took most of a
+  # morning.  The arms are independent by construction, so this parallelises
+  # perfectly.
+  #
+  # ⛔ NO ARM IS TRIMMED TO BUY TIME.  Every arm still runs on every push; they
+  # merely run beside each other.  Which arms belong to which shard is computed
+  # by the binary from `selftestArms.length`, never written down here, so adding
+  # an arm cannot leave it uncovered — and the `Shard partition gate` step in the
+  # `build` job proves shards 1..6 name every arm exactly once.
+  #
+  # ⚠️ THE `6` APPEARS TWICE — in `matrix.shard` and in the command — and
+  # `scripts/check_ci_shards.py` is what holds those two to each other. A matrix
+  # shorter than the divisor would silently stop running whole residue classes of
+  # arms, which is exactly the failure this gate exists to prevent.
+  selftest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+      - name: Build the differential executable
+        run: lake build x86lean-diff
+      - name: "Harness selftest shard ${{ matrix.shard }} of 6"
+        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 6

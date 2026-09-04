@@ -2485,6 +2485,24 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("an XMM register is clobbered (the harness's own red arm)",
      wrongXmmClobbered, "xmm3") ]
 
+/-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
+indices name, and `selftest-shards` checks these indices — so the gate exercises
+the SAME function the shards do.
+
+⛔ A FIRST DRAFT HAD THE GATE RECOMPUTE `i % n == j` FOR ITSELF, which is a
+tautology wearing a gate's clothes: it agreed with the shard because both were
+written from the same sentence, and it would have gone on agreeing if the shard's
+rule changed underneath it.  That is the identical defect this session had
+already made once, in `scripts/check_driver_cr4.py`'s selftest — a red arm that
+cannot fail.  Naming a class confers no immunity from it.  One function, two
+callers.
+
+⚠️ STRIDE rather than contiguous block: arms differ in cost (the string group's
+are dearer than the flag singles'), so a contiguous split would leave the
+wall-clock decided by whichever shard inherited the expensive neighbours. -/
+def shardIndices (k n : Nat) : List Nat :=
+  (List.range selftestArms.length).filter (fun i => i % n == k - 1)
+
 def main (args : List String) : IO UInt32 := do
   match args with
   | ["emit", out] =>
@@ -2552,6 +2570,68 @@ def main (args : List String) : IO UInt32 := do
   -- arms, driven by the same `driveWrong`, and the no-argument form is
   -- unchanged and is what CI runs.  A probe mode that could pass while the real
   -- gate failed would be worse than the eleven minutes.
+  -- ⭐⭐⭐ THE SHARDED SELFTEST (P2 vector wave, batch 4 — a CI cost repair).
+  --
+  -- Step 9 of `ci.yml` runs every arm over every vector, and BOTH numbers grow
+  -- every batch: 23 arms over 46,320 cases at P1 batch 14 became 90 over 70,950
+  -- here, ~2.6 min per arm marginal, i.e. hours. It is the dominant cost of CI
+  -- and it parallelises perfectly, because the arms are independent by
+  -- construction.
+  --
+  -- ⛔ AND SHARDING A COVERAGE GATE IS EXACTLY HOW A COVERAGE GATE SILENTLY
+  -- STOPS COVERING. If the shard arithmetic and the CI matrix ever disagree,
+  -- some arms run twice (harmless) or NEVER (a gate reporting CLEAN about arms
+  -- nobody ran) — the defect this repository keeps finding, introduced into the
+  -- instrument that finds it. So the partition is computed HERE, from
+  -- `selftestArms.length`, and never written down anywhere else: growing the arm
+  -- list cannot leave an arm uncovered. `selftest-shards` is the gate that says
+  -- so, and `scripts/check_ci_shards.py` is what holds the CI matrix to the same
+  -- `n`.
+  --
+  -- ⚠️ THE SPLIT IS BY STRIDE, NOT BY CONTIGUOUS BLOCK: arms differ in cost (the
+  -- string group's are dearer than the flag singles'), and a contiguous split
+  -- would put the expensive neighbours in one shard and leave the wall-clock
+  -- decided by that shard alone.
+  | ["selftest-shard", ks, ns] =>
+      match ks.toNat?, ns.toNat? with
+      | some k, some n =>
+        if n == 0 || k == 0 || k > n then
+          IO.println s!"⛔ bad shard {k}/{n}: need 1 ≤ k ≤ n"; return 2
+        else
+          let arms := (shardIndices k n).filterMap (fun i => selftestArms[i]?)
+          IO.println s!"harness selftest — SHARD {k} of {n}: \
+{arms.length} of {selftestArms.length} arms"
+          let mut ok := true
+          for a in arms do
+            let r ← driveWrong a.1 a.2.1 a.2.2
+            ok := ok && r
+          if ok then IO.println s!"shard {k}/{n}: PASS ({arms.length} arms)"; return 0
+          else IO.println s!"shard {k}/{n}: FAIL"; return 1
+      | _, _ => IO.println "⛔ selftest-shard takes two numbers: k n"; return 2
+
+  -- ⭐ THE PARTITION GATE.  Runs NO arm — it is a property of the arithmetic
+  -- alone — so it costs milliseconds and can be run on every push beside the
+  -- shards it describes.  It asserts that shards 1..n TOGETHER name every arm
+  -- EXACTLY ONCE: no arm missed (a silent coverage loss) and none duplicated
+  -- (wasted wall-clock that would also hide a miss elsewhere in the count).
+  | ["selftest-shards", ns] =>
+      match ns.toNat? with
+      | some n =>
+        if n == 0 then IO.println "⛔ n must be ≥ 1"; return 2 else
+        let total := selftestArms.length
+        let covered := (List.range n).flatMap fun j => shardIndices (j + 1) n
+        let sorted := covered.mergeSort (· ≤ ·)
+        let expected := List.range total
+        if sorted == expected then
+          IO.println s!"shard partition gate: CLEAN — shards 1..{n} name all \
+{total} arms exactly once"
+          return 0
+        else
+          IO.println s!"⛔ shard partition gate: FAIL — shards 1..{n} name \
+{sorted.length} arm slots for {total} arms; some arm is missed or duplicated"
+          return 1
+      | _ => IO.println "⛔ selftest-shards takes a number"; return 2
+
   | ["selftest", pat] =>
       let arms := selftestArms.filter (fun a => ((a.1.splitOn pat).length > 1))
       if arms.isEmpty then
