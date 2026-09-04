@@ -152,6 +152,19 @@ jobs:
           python3 scripts/check_readme_snapshot.py --selftest
           python3 scripts/check_readme_snapshot.py
 
+      # ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0. The record's sixteen `xmmN=` fields are
+      # produced TWICE — by `Cpu.renderXmms` and by `x86l-xmms` — because
+      # neither toolchain can read the other's source. Same duplicate the watch
+      # windows are, same loud-but-expensive failure: any drift makes every
+      # record differ and costs a four-minute ACL2 run to discover. This asks
+      # the same question in 20 ms, and drives BOTH sides separately plus the
+      # WIDTH, because a gate that only checked names would pass a half-width
+      # reading — the failure that silently halves the observation.
+      - name: XMM record format agrees across the Lean/ACL2 boundary
+        run: |
+          python3 scripts/check_xmm_format.py --selftest
+          python3 scripts/check_xmm_format.py
+
       # P1 BATCH 15 (D45): the watch windows are declared in BOTH Lean and the
       # ACL2 driver, because neither toolchain can read the other's source.
       # The drift fails loud — every record differs — but only after a

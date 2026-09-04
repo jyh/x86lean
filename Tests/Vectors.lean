@@ -2434,6 +2434,15 @@ def baseMem : Mem :=
   (List.range 48).foldl
     (fun m i => m.write (0x7fe0 + BitVec.ofNat 64 i) (BitVec.ofNat 8 (0x10 + i))) m
 
+/-- ⭐ THE XMM PATTERN, BUILT FROM THE SWEPT VALUES.  See the note at its use
+site in `mkPre` for why all-zero would have been the worst choice available. -/
+def xmmPattern (a c : BitVec 64) : Xmms :=
+  XmmReg.all.foldl (fun xs r =>
+    let i : BitVec 64 := BitVec.ofNat 64 r.index.val
+    let hi : BitVec 64 := a + i
+    let lo : BitVec 64 := c ^^^ (i * 0x1111111111111111)
+    xs.set r ((hi.setWidth 128) <<< 64 ||| lo.setWidth 128)) {}
+
 /-- A pre-state built from two operand values and a flag seed.  RBX and RSP are
 fixed so the memory windows mean the same thing in every vector; RAX/RCX carry
 the values under test. -/
@@ -2525,6 +2534,25 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
     rip := 0x400000
     fsBase := 0x1fd8
     gsBase := 0x1fe8
+    -- ⭐⭐⭐ THE VECTOR REGISTERS (P2 vector wave, batch 0 — THE HARNESS).
+    --
+    -- ⛔ ALL-ZERO WOULD HAVE BEEN THE WORST POSSIBLE CHOICE, and it is the one
+    -- that costs nothing to write.  With sixteen zero registers on both sides,
+    -- a model that reported the wrong REGISTER, or reported a constant, or
+    -- reported nothing at all, agrees with the oracle in every case — the
+    -- unobserved-region trap in its purest form, dressed as a green run.
+    --
+    -- ⇒ Each register gets a DISTINCT value that MOVES with the pre-state:
+    -- the high half is `a + i` and the low half is `c XOR (i * 0x1111…)`, so
+    --   * no two registers are equal (a swap or a wrong index is visible),
+    --   * none is a constant across cases (the channel is not a constant),
+    --   * and none is zero except at the one swept value where it must be.
+    --
+    -- ⚠️ NOTHING IN THIS ROSTER WRITES THEM, so by D27 they are still inputs and
+    -- the comparator is still watching a constant PER CASE.  What the pattern
+    -- buys is that the constant is a DIFFERENT constant in every register and
+    -- every case, which is what a wrong reading has to survive.
+    xmm := xmmPattern a c
     oracle := zeroOracle }
 
 /-- ⭐ THE CARRY BOUNDARY, added by P1 BATCH 2 — and it is the same finding P0's

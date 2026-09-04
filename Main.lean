@@ -102,6 +102,21 @@ def hexPairs : List Char → List String
 def bytesToLisp (hexStr : String) : String :=
   "(" ++ String.intercalate " " ((hexPairs hexStr.toList).map (fun p => s!"#x{p}")) ++ ")"
 
+/-- ⭐⭐⭐ THE XMM ALIST, by register index (P2 vector wave, batch 0).
+
+The oracle's XMM registers are not an argument of `init-x86-state-64`, so the
+driver writes them after initialising — the same shape the segment bases take,
+and for the same reason: the VALUES travel from here and the x86isa API
+(`wx128`) stays on the Lisp side.  Each value is one 128-bit natural, which
+ACL2 reads as an ordinary integer literal. -/
+def xmmsToLisp (s : Cpu) : String :=
+  "(" ++ String.intercalate " "
+    (XmmReg.all.map (fun r =>
+      let v := s.xmm.get r
+      let hi : BitVec 64 := (v >>> 64).setWidth 64
+      let lo : BitVec 64 := v.setWidth 64
+      s!"({r.index.val} . #x{hex64 hi}{hex64 lo})")) ++ ")"
+
 /-- The GPR alist, by x86isa register index. -/
 def gprsToLisp (s : Cpu) : String :=
   "(" ++ String.intercalate " "
@@ -147,6 +162,7 @@ def acl2Case (v : Vec) (idx : Nat) (pre : Cpu) (ws : List Window) : String :=
    :bytes {bytesToLisp v.bytes}\n\
    :gprs {gprsToLisp pre}\n\
    :fsbase #x{hex64 pre.fsBase} :gsbase #x{hex64 pre.gsBase}\n\
+   :xmms {xmmsToLisp pre}\n\
    :rflags {rflagsToLisp pre.flags}\n\
    :mem {memToLisp v pre ws})"
 
@@ -2161,6 +2177,25 @@ def wrongMovabsImm32Path (i : Instr) (s : Cpu) : Cpu :=
       step ⟨.mov sz dst (.imm v32), i.len⟩ s
   | _ => step i s
 
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness's own red arm
+
+⛔ THIS BATCH ADDS NO SEMANTICS, SO ITS ARM CANNOT BE A WRONG RULE.  Nothing in
+the roster writes a vector register; what the batch claims is that the CHANNEL
+exists and is compared, and the only way to test a channel with nothing flowing
+through it is to push something through it deliberately.
+
+⇒ The arm CLOBBERS one XMM register on every step.  If it is caught, the sixteen
+new fields are genuinely being read, rendered, transported to the oracle,
+rendered again on the far side and diffed.  If it were not caught — and before
+this batch it could not have been, because the field did not exist — then a P2
+vector run would have reported `unexplained=0` about a region nobody looked at.
+
+⚠️ IT PICKS xmm3 AND NOT xmm0, deliberately: `xmm0` is the register a
+half-initialised file is most likely to have right by accident, and the first
+element of a walk is the one an off-by-one still reaches. -/
+def wrongXmmClobbered (i : Instr) (s : Cpu) : Cpu :=
+  (step i s).setXmm .x3 0
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2332,7 +2367,12 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   -- ⭐⭐ P2 ITEM 3 (BATCH 24) — the 64-bit immediate.  ONE arm, because there is
   -- exactly one thing about this form the model could get wrong.
   , ("movabs re-derives its immediate through the imm32 path",
-     wrongMovabsImm32Path, "rax") ]
+     wrongMovabsImm32Path, "rax")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0 — the harness.  One arm, and it is the whole
+  -- claim: a planted XMM difference must be CAUGHT before one line of vector
+  -- semantics is written.
+  , ("an XMM register is clobbered (the harness's own red arm)",
+     wrongXmmClobbered, "xmm3") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -2773,7 +2813,25 @@ objdump's byte column exactly, so its final byte abuts the TAB rather than a \
 space, and `check_encodings.py` had been silently DROPPING THE LAST BYTE of any \
 instruction that long — latent since P0, exposed only by the first form wide \
 enough to reach it, and in the direction that matters: the gate would have read \
-`len=9`, so a model that claimed 9 would have AGREED WITH IT (see D83).\n\n\
+`len=9`, so a model that claimed 9 would have AGREED WITH IT (see D83, D84); 4 — \
+THE VECTOR HARNESS, and NO INSTRUCTION AT ALL.  `x86l-post` reported 16 GPRs, \
+RIP, the flags and two memory windows; the oracle EXECUTES the vector forms \
+(measured, not assumed); so a vector form run on both sides would have been \
+compared on NONE of its results — and an unobserved region does not report \
+`unknown`, it reports AGREEMENT.  ⇒ `THE ORACLE EXECUTES IT` IS NOT `THE \
+HARNESS CAN SEE THE ANSWER`, and the register file had to exist and be COMPARED \
+before one line of vector semantics was written anywhere.  Sixteen 128-bit \
+registers nested in ONE `Cpu` field (D71: a whole-record `rfl` costs \
+O(fields), and sixteen flat ones would have cost eight times two), their frame \
+lemmas written the day the field was added rather than when a proof needed \
+them, a pre-state pattern that is deliberately NOT zero — all-zero on both \
+sides is the unobserved-region trap in its purest form — and a cross-check \
+across the language boundary with seven arms, including the two that catch a \
+renderer which is defined and never CALLED.  ⚠️ Its claim is narrow on purpose: \
+nothing in this roster writes XMM, so by D27 the registers are constants and \
+the comparator is watching one; what the batch proves is that the CHANNEL \
+exists, both models report it, they agree, and a planted difference is CAUGHT — \
+64,746 cases for one clobbered register (see D85).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

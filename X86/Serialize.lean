@@ -68,6 +68,28 @@ def Cpu.renderRegs (s : Cpu) : String :=
   String.intercalate " "
     (GPR.all.map (fun r => s!"{r.name .q}={hex64 (s.regs.get r)}"))
 
+/-- ⭐⭐⭐ THE VECTOR REGISTERS IN THE WIRE FORMAT (P2 vector wave, batch 0).
+
+⛔ THIS IS THE POINT OF THE WHOLE BATCH.  The oracle EXECUTES the vector forms —
+measured, not assumed — but `x86l-post` reported 16 GPRs, RIP, the flags and two
+memory windows, so a vector form run on both sides would have been compared on
+NONE of its results.  **An unobserved region does not report "unknown"; it
+reports AGREEMENT.**  Until this line existed, a P2 vector batch's `unexplained=0`
+would have been a statement about the harness and not about the model.
+
+⚠️ EACH REGISTER IS 128 BITS AND IS PRINTED AS TWO 64-BIT HALVES, high first.
+`hexPad` takes a `BitVec 64`, and widening it would touch the flag and window
+renderers that already use it; splitting here keeps the one format function this
+file has and makes the wire text trivially readable from the Lisp side, which
+has to produce the identical string with no shared code. -/
+def Cpu.renderXmms (s : Cpu) : String :=
+  String.intercalate " "
+    (XmmReg.all.map (fun r =>
+      let v := s.xmm.get r
+      let hi : BitVec 64 := (v >>> 64).setWidth 64
+      let lo : BitVec 64 := v.setWidth 64
+      s!"{r.name}={hex64 hi}{hex64 lo}"))
+
 def MsErr.render : MsErr → String
   | .illegalOperands w => s!"illegal-operands:{w}"
   | .unimplemented w => s!"unimplemented:{w}"
@@ -85,7 +107,7 @@ is what the record carries; the reason stays in `Cpu.ms` for a human reading a
 single case. -/
 def Cpu.render (s : Cpu) (ws : List Window) : String :=
   String.intercalate " "
-    ([s.renderRegs, s!"rip={hex64 s.rip}", s.flags.render,
+    ([s.renderRegs, s.renderXmms, s!"rip={hex64 s.rip}", s.flags.render,
       s!"refused={if s.ms.isSome then "1" else "0"}"]
       ++ ws.map (renderWindow s.mem))
 
@@ -200,7 +222,20 @@ the note above.  The harness checks this on every vector. -/
 def undefinedLeaked (i : Instr) (s : Cpu) (ws : List Window) : Bool :=
   let a := step i { s with oracle := zeroOracle }
   let b := step i { s with oracle := onesOracle }
-  !(undefinedRegs i s == declaredUndefRegs i s
+  -- ⭐⭐⭐ THE VECTOR REGISTERS JOIN THE LEAK CHECK ON THE DAY THEY EXIST
+  -- (P2 vector wave, batch 0), and BEFORE any form can write one.
+  --
+  -- ⛔ There is no `declaredUndefXmms` and there must not be one yet: nothing in
+  -- this roster draws an oracle bit into a vector register, so the honest rule
+  -- is the ABSOLUTE one — the two opposite oracle runs must agree on every XMM
+  -- register, with no declaration channel to explain a difference away.  The
+  -- day a form legitimately leaves a vector register undefined, THIS is one of
+  -- the two places that has to grow, and the other is `undefinableFields` in
+  -- the comparator; batch 14 wrote that lesson about `bsf`/`bsr` and the
+  -- registers, and it is cheaper to widen the check now than to discover the
+  -- gap from a leak that classified itself as explained.
+  !(a.xmm == b.xmm
+    && undefinedRegs i s == declaredUndefRegs i s
     && a.rip == b.rip
     && (match a.ms, b.ms with | none, none => true | some x, some y => x == y | _, _ => false)
     && (ws.map (renderWindow a.mem)) == (ws.map (renderWindow b.mem)))

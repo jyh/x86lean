@@ -3089,3 +3089,45 @@ would plant a defect in the decoder's output rather than in a model of it, and
 would be indistinguishable from a typo.
 
 **Reversal cost:** three vectors and one arm.
+
+## D85 — the vector register file exists before any vector semantics, and its claim is narrow (P2 vector wave, batch 0)
+
+**The decision.** `Xmms` (sixteen named 128-bit fields) and one `Cpu.xmm` field; sixteen `xmmN=`
+fields in the differential record; the same sixteen produced by `x86l-xmms` in the ACL2 driver;
+XMM values carried into the oracle's pre-state through the case record; a cross-check across the
+language boundary; and one planted arm. **No vector instruction, and no vector semantics.**
+
+**Why now, and why not at P0.** `X86/State.lean` has said since P0 that XMM is *"ABSENT AT P0, ON
+PURPOSE … at P0 they would be fields that no instruction reads and no test constrains — a phantom
+that reads as coverage."* That was right, and it expired when the oracle-availability run measured
+what actually blocks P2: the oracle EXECUTES the vector forms, and `x86l-post` reported 16 GPRs,
+RIP, the flags and two memory windows.
+
+⇒ 🔑 **"THE ORACLE EXECUTES IT" IS NOT "THE HARNESS CAN SEE THE ANSWER."** A vector form run on
+both sides would have been compared on NONE of its results, and an unobserved region does not
+report "unknown" — it reports AGREEMENT. The first vector batch's `unexplained=0` would have been
+a statement about the harness.
+
+**⚠️ WHAT THIS BATCH CLAIMS, STATED NARROWLY BECAUSE D27 IS WATCHING.** No instruction writes XMM,
+so the registers are CONSTANTS, and a comparator that watches a constant reports agreement it did
+not test. The claim is exactly: *the channel exists, both models report it, they agree on it, and a
+planted difference in it is CAUGHT.* Only the last clause has teeth — `wrongXmmClobbered` zeroes
+`xmm3` and is caught in 64 746 cases.
+
+**Three design decisions worth their reasons:**
+
+1. **One `Cpu` field, sixteen registers nested inside it.** D71 measured that two fields on `Cpu`
+   blew three inherited proofs, because a whole-record `rfl` costs O(fields). Sixteen flat fields
+   would have cost eight times that. Nested, every existing record proof pays for one more
+   projection. ⚠️ And the frame lemmas were written the day the field was added, not when a proof
+   needed them — which is precisely what `undefVal` did not get, and D71 is the bill for that.
+2. **The pre-state pattern is not zero.** All-zero on both sides is the unobserved-region trap in
+   its purest form: a model reporting the wrong register, a constant, or nothing at all would agree
+   in every case. Each register gets `(a+i) : (c XOR i·0x1111…)`, so no two are equal and none is
+   constant across cases.
+3. **The leak check widened on the same day.** The two opposite oracle runs must now agree on every
+   XMM register, with **no declaration channel** — because nothing draws an oracle bit into a
+   vector register yet, and the honest rule while that is true is the absolute one. The day a form
+   legitimately leaves one undefined, this and `undefinableFields` are the two places that grow.
+
+**Reversal cost:** one field, one renderer on each side, one gate.

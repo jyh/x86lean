@@ -70,6 +70,27 @@ structure Cpu where
   instead would have added two fields that agree in every case for ever. -/
   fsBase : BitVec 64 := 0
   gsBase : BitVec 64 := 0
+  /-- ⭐⭐⭐ THE VECTOR REGISTER FILE (P2 vector wave, batch 0 — THE HARNESS).
+
+  ⛔ THIS FIELD IS THE ANSWER TO A MEASUREMENT, NOT A GUESS AT WHAT P2 NEEDS.
+  The header above says XMM is "ABSENT AT P0, ON PURPOSE … a phantom that reads
+  as coverage", and that was right for as long as no vector form was next.  What
+  changed is what the oracle-availability run measured: the oracle EXECUTES the
+  vector forms, and `x86l-post` reports 16 GPRs, RIP, the flags and two memory
+  windows — so a vector form run on both sides would be compared on NONE of its
+  results, and an unobserved region reports AGREEMENT rather than "unknown".
+
+  ⚠️ IT IS ONE FIELD AND NOT SIXTEEN, and that is D71 applied in advance: two
+  fields on this structure blew three inherited proofs in P2 batch 1 because a
+  whole-record `rfl` costs O(fields).  Nested in `Xmms`, every existing record
+  proof pays for one more projection rather than sixteen.
+
+  ⚠️ AND NO INSTRUCTION IN THIS ROSTER WRITES IT — so by D27 it is a CONSTANT,
+  and a comparator that watches a constant reports agreement it did not test.
+  The batch's claim is exactly: the channel exists, both models report it, they
+  agree, and a PLANTED difference in it is caught.  Only the last clause has
+  teeth, and it is the one the red probe proves. -/
+  xmm : Xmms := {}
   oracle : Oracle := Oracle.zero
   ms : Option MsErr := none
 
@@ -126,6 +147,38 @@ def setReg (s : Cpu) (sz : Size) (r : GPR) (v : Val) (high8 : Bool := false) : C
 @[simp] theorem setReg_oracle (s : Cpu) (sz : Size) (r : GPR) (v : Val) (h8 : Bool) :
     (s.setReg sz r v h8).oracle = s.oracle := rfl
 
+/-! ### The vector registers -/
+
+/-- Read one XMM register. -/
+def getXmm (s : Cpu) (r : XmmReg) : BitVec 128 := s.xmm.get r
+
+/-- Write one XMM register.  ⚠️ NOTHING IN THIS ROSTER CALLS IT YET — it exists
+so the harness's red probe can plant a difference, and so the first vector form
+has a place to write.  See the note on `Cpu.xmm`. -/
+def setXmm (s : Cpu) (r : XmmReg) (v : BitVec 128) : Cpu :=
+  { s with xmm := s.xmm.set r v }
+
+@[simp] theorem setXmm_regs (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).regs = s.regs := rfl
+@[simp] theorem setXmm_rip (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).rip = s.rip := rfl
+@[simp] theorem setXmm_flags (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).flags = s.flags := rfl
+@[simp] theorem setXmm_mem (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).mem = s.mem := rfl
+@[simp] theorem setXmm_ms (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).ms = s.ms := rfl
+@[simp] theorem getXmm_setXmm_same (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).getXmm r = v := by simp [getXmm, setXmm]
+
+/-! ⭐ AND THE FRAME LEMMAS IN THE OTHER DIRECTION, WRITTEN NOW RATHER THAN WHEN
+A PROOF NEEDS THEM.  D71's finding was that `undefVal` shipped without the frame
+lemmas its sibling had, and three proofs closed by whole-record `rfl` instead —
+which is why two new fields could blow a heartbeat limit.  Every state-mutating
+helper this file already has gets its `xmm` lemma here, on the day the field is
+added, so no proof ever has to reduce the record to learn that XMM did not move. -/
+@[simp] theorem setReg_xmm (s : Cpu) (sz : Size) (r : GPR) (v : Val) (h8 : Bool) :
+    (s.setReg sz r v h8).xmm = s.xmm := rfl
 /-! ### The segment bases -/
 
 /-- The base a segment override selects.  `none` — no override — is base zero,
@@ -250,6 +303,19 @@ def setFlags (s : Cpu) (f : Flags) : Cpu := { s with flags := f }
 @[simp] theorem setFlags_regs (s : Cpu) (f : Flags) : (s.setFlags f).regs = s.regs := rfl
 @[simp] theorem setFlags_rip (s : Cpu) (f : Flags) : (s.setFlags f).rip = s.rip := rfl
 @[simp] theorem setFlags_mem (s : Cpu) (f : Flags) : (s.setFlags f).mem = s.mem := rfl
+
+/-! ### ⭐ THE REST OF THE XMM FRAME, at the end because these helpers are
+defined below the register views.  Written on the day the field was added, for
+D71's reason: `undefVal` shipped without the frame lemmas its sibling had, and
+three proofs closed by whole-record `rfl` instead — which is how two new fields
+came to blow a heartbeat limit. -/
+@[simp] theorem writeMem_xmm (s : Cpu) (sz : Size) (a : BitVec 64) (v : Val) :
+    (s.writeMem sz a v).xmm = s.xmm := rfl
+@[simp] theorem setFlags_xmm (s : Cpu) (f : Flags) : (s.setFlags f).xmm = s.xmm := rfl
+@[simp] theorem setRip_xmm (s : Cpu) (v : BitVec 64) : (s.setRip v).xmm = s.xmm := rfl
+@[simp] theorem advance_xmm (s : Cpu) (n : Nat) : (s.advance n).xmm = s.xmm := rfl
+@[simp] theorem undefBit_xmm (s : Cpu) : (s.undefBit).2.xmm = s.xmm := rfl
+@[simp] theorem undefVal_xmm (s : Cpu) (n : Nat) : (s.undefVal n).2.xmm = s.xmm := rfl
 
 end Cpu
 end X86

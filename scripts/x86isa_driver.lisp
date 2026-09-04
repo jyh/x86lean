@@ -82,6 +82,46 @@
     " of=" (x86l-bit (flgi :of x86))
     " df=" (x86l-bit (flgi :df x86))))
 
+; ⭐⭐⭐ THE VECTOR REGISTERS (P2 vector wave, batch 0 — THE HARNESS).
+;
+; ⛔ THIS IS WHY THE BATCH EXISTS.  This driver reported 16 GPRs, RIP, the flags
+; and two memory windows.  The oracle EXECUTES the vector forms — measured, not
+; assumed — so a P2 vector run would have executed every form on BOTH sides and
+; compared NONE of their results, and an unobserved region does not report
+; "unknown": it reports AGREEMENT.  Sixteen registers had to appear in this
+; string before one line of vector semantics was written anywhere.
+;
+; `rx128` reads the low 128 bits of a ZMM register (x86isa's `xmm-access`
+; regtype); `wx128` writes them.  Both are `:enabled` and `:inline` in
+; machine/register-readers-and-writers.lisp, so no book beyond `x86` is needed.
+;
+; ⚠️ THE FORMAT IS A DUPLICATE ACROSS THE LANGUAGE BOUNDARY, exactly as the watch
+; windows are, and it fails the same way: any drift makes every record differ and
+; the whole run comes back as disagreement.  `scripts/check_xmm_format.py`
+; compares the two sides directly, for the reason batch 15 wrote
+; `check_windows.py`: discovering it through a four-minute oracle run is a
+; twenty-millisecond question asked expensively.
+(defun x86l-xmms (i acc x86)
+  (declare (xargs :stobjs x86))
+  (if (or (not (natp i)) (>= i 16))
+      acc
+    (x86l-xmms (1+ i)
+               (concatenate 'string acc " xmm"
+                            (coerce (explode-atom i 10) 'string) "="
+                            (x86l-hex (rx128 i x86) 32))
+               x86)))
+
+(defun x86l-set-xmms (alist x86)
+  (declare (xargs :stobjs x86))
+  (if (or (atom alist) (not (consp (car alist))))
+      x86
+    (let* ((idx (caar alist))
+           (val (cdar alist))
+           (x86 (if (and (natp idx) (< idx 16) (natp val))
+                    (wx128 idx val x86)
+                  x86)))
+      (x86l-set-xmms (cdr alist) x86))))
+
 (defun x86l-window-bytes (addr n acc x86)
   (declare (xargs :stobjs x86))
   (if (zp n) (mv acc x86)
@@ -114,6 +154,7 @@
   (b* (((mv wins x86) (x86l-windows *x86l-windows* "" x86)))
     (mv (concatenate 'string
           "POST " (x86l-regs 0 "" x86)
+          (x86l-xmms 0 "" x86)
           " rip=" (x86l-hex (n64 (rip x86)) 16)
           " " (x86l-flags x86)
           ; ⚠️ BOTH FIELDS.  x86isa records a #GP(0) in `fault`, NOT in `ms` —
@@ -155,12 +196,18 @@
        (msrs   (x86l-msrs c))
        (rflags (cadr (assoc-keyword :rflags c)))
        (mem    (cadr (assoc-keyword :mem c)))
+       (xmms   (cadr (assoc-keyword :xmms c)))
        (x86 (!app-view t x86))
        ((mv flg x86)
         (init-x86-state-64 nil rip0 gprs nil msrs nil nil nil nil rflags mem x86))
        ((when flg)
         (prog2$ (cw "CASE id=~s0 len=~x1~%POST init-error~%" id len)
                 (mv x86 state)))
+       ;; ⚠️ AFTER `init-x86-state-64`, WHICH TAKES NO XMM ARGUMENT.  A case
+       ;; that omits `:xmms` leaves them zero, which is what every pre-vector
+       ;; case intends — so emitter and reader can be updated in either order
+       ;; without a run that silently compares the wrong thing.
+       (x86 (x86l-set-xmms xmms x86))
        (x86 (x86-fetch-decode-execute x86))
        ((mv post x86) (x86l-post x86)))
     (prog2$ (cw "CASE id=~s0 len=~x1~%~s2~%" id len post)

@@ -190,6 +190,109 @@ structure Regs where
   r15 : BitVec 64 := 0
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-! ## ⭐⭐⭐ THE VECTOR REGISTER FILE (P2 vector wave, batch 0 — THE HARNESS)
+
+⛔ THIS IS A HARNESS CHANGE, NOT A SEMANTICS ONE, AND THE DISTINCTION IS THE
+WHOLE BATCH.  `X86/State.lean` has said since P0 that XMM is "ABSENT AT P0, ON
+PURPOSE … at P0 they would be fields that no instruction reads and no test
+constrains — a phantom that reads as coverage."  That reasoning was right and it
+expires the moment a VECTOR differential run becomes the next thing to do —
+because the oracle-availability run measured the thing that actually blocks P2:
+
+  * `x86l-post` reports 16 GPRs, RIP, the flags and two memory windows;
+  * so a vector form executed on BOTH sides is compared on NONE of its results;
+  * and an unobserved region does not report "unknown", it reports AGREEMENT.
+
+⇒ **"THE ORACLE EXECUTES IT" IS NOT "THE HARNESS CAN SEE THE ANSWER."**  The
+register file has to exist and be COMPARED before one line of vector semantics
+is written, or the first vector batch's green means nothing.
+
+⚠️ AND WHAT THIS BATCH CLAIMS IS DELIBERATELY NARROW, because D27 is watching:
+no instruction in this roster writes XMM, so these registers are CONSTANTS, and
+a comparator that watches a constant reports agreement it did not test.  The
+claim is exactly: **the channel exists, both models report it, they agree on it,
+and a planted difference in it is CAUGHT.**  The last clause is the only one
+with teeth, and it is the one the red probe proves.
+
+⭐ SIXTEEN NAMED FIELDS INSIDE ONE STRUCTURE, and the nesting is D71's lesson
+applied in advance: P2 batch 1 blew three inherited proofs by adding TWO fields
+to `Cpu`, because a whole-record `rfl` costs O(fields).  Sixteen would have cost
+eight times that.  Nested, `Cpu` grows by exactly ONE field and every existing
+record proof pays for one more projection, not sixteen. -/
+structure Xmms where
+  xmm0  : BitVec 128 := 0
+  xmm1  : BitVec 128 := 0
+  xmm2  : BitVec 128 := 0
+  xmm3  : BitVec 128 := 0
+  xmm4  : BitVec 128 := 0
+  xmm5  : BitVec 128 := 0
+  xmm6  : BitVec 128 := 0
+  xmm7  : BitVec 128 := 0
+  xmm8  : BitVec 128 := 0
+  xmm9  : BitVec 128 := 0
+  xmm10 : BitVec 128 := 0
+  xmm11 : BitVec 128 := 0
+  xmm12 : BitVec 128 := 0
+  xmm13 : BitVec 128 := 0
+  xmm14 : BitVec 128 := 0
+  xmm15 : BitVec 128 := 0
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The sixteen XMM registers, by their encoding number (SDM Vol. 2A Table 2-2 —
+the same `reg` field, the same REX extension). -/
+inductive XmmReg where
+  | x0 | x1 | x2  | x3  | x4  | x5  | x6  | x7
+  | x8 | x9 | x10 | x11 | x12 | x13 | x14 | x15
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+namespace XmmReg
+
+def index : XmmReg → Fin 16
+  | .x0 => 0  | .x1 => 1  | .x2  => 2  | .x3  => 3
+  | .x4 => 4  | .x5 => 5  | .x6  => 6  | .x7  => 7
+  | .x8 => 8  | .x9 => 9  | .x10 => 10 | .x11 => 11
+  | .x12 => 12 | .x13 => 13 | .x14 => 14 | .x15 => 15
+
+def all : List XmmReg :=
+  [.x0, .x1, .x2, .x3, .x4, .x5, .x6, .x7,
+   .x8, .x9, .x10, .x11, .x12, .x13, .x14, .x15]
+
+def name (r : XmmReg) : String := s!"xmm{r.index.val}"
+
+instance : ToString XmmReg := ⟨XmmReg.name⟩
+
+end XmmReg
+
+namespace Xmms
+
+/-- Read one XMM register.  The 16-way match reduces by iota in one step, which
+is the same kernel-cost decision `Regs.get` records. -/
+def get (xs : Xmms) : XmmReg → BitVec 128
+  | .x0 => xs.xmm0   | .x1 => xs.xmm1   | .x2  => xs.xmm2   | .x3  => xs.xmm3
+  | .x4 => xs.xmm4   | .x5 => xs.xmm5   | .x6  => xs.xmm6   | .x7  => xs.xmm7
+  | .x8 => xs.xmm8   | .x9 => xs.xmm9   | .x10 => xs.xmm10  | .x11 => xs.xmm11
+  | .x12 => xs.xmm12 | .x13 => xs.xmm13 | .x14 => xs.xmm14  | .x15 => xs.xmm15
+
+/-- Write one XMM register. -/
+def set (xs : Xmms) : XmmReg → BitVec 128 → Xmms
+  | .x0, v => { xs with xmm0 := v }    | .x1, v => { xs with xmm1 := v }
+  | .x2, v => { xs with xmm2 := v }    | .x3, v => { xs with xmm3 := v }
+  | .x4, v => { xs with xmm4 := v }    | .x5, v => { xs with xmm5 := v }
+  | .x6, v => { xs with xmm6 := v }    | .x7, v => { xs with xmm7 := v }
+  | .x8, v => { xs with xmm8 := v }    | .x9, v => { xs with xmm9 := v }
+  | .x10, v => { xs with xmm10 := v }  | .x11, v => { xs with xmm11 := v }
+  | .x12, v => { xs with xmm12 := v }  | .x13, v => { xs with xmm13 := v }
+  | .x14, v => { xs with xmm14 := v }  | .x15, v => { xs with xmm15 := v }
+
+@[simp] theorem get_set_same (xs : Xmms) (r : XmmReg) (v : BitVec 128) :
+    (xs.set r v).get r = v := by cases r <;> rfl
+
+@[simp] theorem get_set_ne (xs : Xmms) (r r' : XmmReg) (v : BitVec 128) (h : r ≠ r') :
+    (xs.set r v).get r' = xs.get r' := by
+  cases r <;> cases r' <;> first | rfl | exact absurd rfl h
+
+end Xmms
+
 namespace Regs
 
 /-- Read the full 64-bit register. -/

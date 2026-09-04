@@ -217,7 +217,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 3 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 4 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
