@@ -219,6 +219,80 @@ inductive VBinKind where
   | unpckhb | unpckhw | unpckhd | unpckhq
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
+FROM THEIR LANE WIDTH.
+
+⚠️ **THIS IS A DEPARTURE FROM `VBinKind`, WHICH PUTS THE LANE IN THE KIND**
+(`addb`/`addw`/`addd`/`addq`), and the burden is on the departure.  What let
+`VBinKind` do that is that it has NO HOLE: add and sub both exist at all four
+lane widths, so there was never an absent pair to represent.  The shifts have
+TWO holes, and each is an ENCODING FACT rather than a decision of this model:
+
+  * there is **no packed BYTE shift at all** — `psllb` does not assemble, at any
+    of the three operations;
+  * there is **no `psraq`** in this model's encoding space.  `psllq` and `psrlq`
+    exist, and the ARITHMETIC right shift stops at the doubleword (SDM Vol. 2B,
+    PSRAW/PSRAD list W and D and no Q).  `psraq` is real but EVEX-only, i.e. in
+    the AVX-512 batch this model has measured its oracle cannot answer at all.
+
+A hole is exactly what `bitcntEncodable` exists for, and this repository's rule
+is that a form the model declines is DATA A THEOREM CAN READ rather than a
+constructor nobody wrote.  A flat eight-constructor kind list would have made
+"there is no `psraq`" an ABSENCE, and an absence in a declared list falls the way
+the default points ([[feedback-a-declared-list-inherits-its-default]]). -/
+inductive VShiftOp where
+  /-- Packed shift left LOGICAL (SDM Vol. 2B, PSLLW/PSLLD/PSLLQ). -/
+  | sll
+  /-- Packed shift right LOGICAL (PSRLW/PSRLD/PSRLQ): zeroes shift in. -/
+  | srl
+  /-- Packed shift right ARITHMETIC (PSRAW/PSRAD): the lane's own SIGN BIT
+  shifts in, which is the whole difference from `srl` and is invisible at any
+  pre-state whose lanes are all non-negative. -/
+  | sra
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The lane width a packed shift operates at.
+
+⚠️ `w8` IS HERE ON PURPOSE, so that "there is no packed byte shift" is a ROW OF
+`vshiftEncodable` rather than a constructor nobody wrote — the same choice
+`vmovsEncodable` makes by ranging over all four `Size`s and admitting two.  It is
+NOT `Size`, for the reason `VBinKind`'s note gives: `Size` in this model means
+the width of ONE value, and a packed operation's register is always 128 bits
+while its LANE is 8, 16, 32 or 64. -/
+inductive VShiftW where
+  | w8 | w16 | w32 | w64
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The lane width in bits.  ⚠️ The LANE COUNT is never written beside it —
+`vshiftApply` derives `128 / bits`, for the reason `vlanes` does. -/
+def VShiftW.bits : VShiftW → Nat
+  | .w8 => 8 | .w16 => 16 | .w32 => 32 | .w64 => 64
+
+/-- Which (operation, lane width) pairs EXIST, written as data beside the AST for
+the reason `bitcntEncodable` is: `Tests/Coverage.lean` asserts the exact declined
+set, so the two holes are re-checked by the kernel rather than by a reader. -/
+def vshiftEncodable : VShiftOp → VShiftW → Bool
+  | _,    .w8  => false        -- no packed byte shift exists, at any operation
+  | .sra, .w64 => false        -- and no PSRAQ outside AVX-512
+  | _,    _    => true
+
+/-- The assembler spelling.  ⚠️ THE SUFFIX NAMES THE LANE, NOT THE OPERAND SIZE:
+`psrad` shifts four 32-bit lanes of a 128-bit register, and every other `w/d/q`
+suffix in this AST names the width of the whole value.
+
+⚠️ The two UNENCODABLE pairs are given their real architectural names rather than
+a placeholder — `psraq` is a genuine AVX-512 mnemonic and `psllb` is what a byte
+shift would be called — because a `mnemonic` that lied about an unreachable case
+would be a worse thing to read than one that is simply out of this model's
+encoding space.  `vshiftEncodable` is what says which are reachable. -/
+def VShiftOp.mnemonic : VShiftOp → VShiftW → String
+  | .sll, .w8 => "psllb" | .sll, .w16 => "psllw"
+  | .sll, .w32 => "pslld" | .sll, .w64 => "psllq"
+  | .srl, .w8 => "psrlb" | .srl, .w16 => "psrlw"
+  | .srl, .w32 => "psrld" | .srl, .w64 => "psrlq"
+  | .sra, .w8 => "psrab" | .sra, .w16 => "psraw"
+  | .sra, .w32 => "psrad" | .sra, .w64 => "psraq"
+
 /-- The one-operand mnemonics. -/
 inductive UnKind where
   | inc | dec | neg | not
@@ -961,6 +1035,70 @@ inductive Op where
   merge/zero question does not arise in this direction at all, which is why the
   store is one function rather than two. -/
   | vmovsst (sz : Size) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS AT AN IMMEDIATE COUNT
+  (`66 0F 71/72/73 /r ib`), and the first operation in this model whose RESULT
+  IS NOT A FUNCTION OF ITS OPERANDS LANE BY LANE: one count is applied to every
+  lane, so the combinator `vlanes` — which pairs lane `i` of `a` with lane `i` of
+  `b` — cannot express it and a unary one is introduced beside it.
+
+  ⛔⛔ **THE COUNT SATURATES, IT DOES NOT WRAP** (SDM Vol. 2B, PSLLW: "if the
+  value specified by the count operand is greater than 15 (for words), 31 (for
+  doublewords), or 63 (for a quadword), then the destination operand is set to
+  all 0s"; PSRAW/PSRAD: "each destination data element is filled with the initial
+  value of the sign bit").  A model taking the count MODULO the lane width is the
+  obvious wrong one and is bit-identical to this one on every in-range count —
+  which is every count a casual vector table would contain.  Measured on the
+  oracle before a line of this was written: 20 rows where the two models differ,
+  and ACL2 x86isa agrees with the SDM on all 20. -/
+  | vshifti (op : VShiftOp) (w : VShiftW) (dst : XmmReg) (cnt : BitVec 8)
+  /-- P2 VECTOR WAVE, BATCH 13 — the packed shifts with the count in the LOW
+  QUADWORD OF AN XMM REGISTER (`66 0F F1/D1/E1/F2/D2/E2/F3/D3 /r`).
+
+  ⛔⛔ **THE COUNT IS ALL SIXTY-FOUR BITS, AND THAT IS THE WHOLE CONTENT OF THIS
+  CONSTRUCTOR.**  It is a separate constructor from `vshifti` rather than a count
+  OPERAND on one, for the reason `vload`/`vstore` are two: the shapes are two
+  different opcodes and an operand type admitting both would represent forms no
+  encoding produces.  But the semantic difference is real as well — an immediate
+  count cannot exceed 255, and a register count reaching 2^32 is a case the
+  immediate form CANNOT CONSTRUCT.
+
+  ⚠️ A model reading only the count's low BYTE agrees with this one on every
+  count below 256, and the corpus's own pre-state sweep produces counts far above
+  that.  Measured on the oracle: at a count of 2^32 + 3 the low-byte model and
+  this one differ on all eight encodable forms, and x86isa answers with this
+  one. -/
+  | vshiftx (op : VShiftOp) (w : VShiftW) (dst src : XmmReg)
+  /-- P2 VECTOR WAVE, BATCH 13 — the packed shifts with the count loaded from
+  MEMORY.  128 bits are addressed and the low quadword is the count, so this
+  reuses `readMem128` exactly as `vload` does.
+
+  ⚠️ NO ALIGNMENT REQUIREMENT, unlike `vload`.  The SDM states none for the shift
+  forms, so there is no `#GP` branch to write and its absence is the rule rather
+  than an omission — the same sentence `vmovsld` carries, and it is repeated here
+  because the neighbouring 128-bit memory form DOES fault and the reflex built by
+  reading `vload` is the wrong one.
+
+  ⭐ IT IS BUILT RATHER THAN DECLINED, and the reason is measured: this shape is
+  **305 of the group's 35,704 corpus instructions (0.85%)**, which is small — but
+  the census counts by MNEMONIC and would have counted all 35,704 as covered
+  either way, so declining it would have been an over-claim of exactly 0.85% that
+  no gate in this repository could see. -/
+  | vshiftm (op : VShiftOp) (w : VShiftW) (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — `pslldq` / `psrldq` (`66 0F 73 /7 ib`,
+  `/3 ib`), WHICH ARE NOT PACKED AT ALL.
+
+  ⛔ THEY SHIFT THE WHOLE 128-BIT REGISTER BY WHOLE BYTES, crossing every lane
+  boundary — the one thing the word "packed" promises does not happen.  They wear
+  a `p` prefix and sit at the same opcode byte as `psllq`/`psrlq`, distinguished
+  only by the ModRM `/r` field, which is exactly why they are the two forms most
+  likely to be modelled by analogy with their neighbours and be wrong.
+
+  ⚠️ THE COUNT IS IN BYTES AND SATURATES AT 16, not at 128: `pslldq $0x14` zeroes
+  the register (measured on the oracle, and objdump prints the all-`zero` shuffle
+  comment itself).  There is no register or memory count shape — the SDM gives
+  the immediate alone — and the corpus agrees: 0 of the 4,786 `pslldq`/`psrldq`
+  instructions in it use anything but an immediate. -/
+  | vshiftdq (left : Bool) (dst : XmmReg) (cnt : BitVec 8)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -1073,6 +1211,12 @@ def opOperands : Op → List Operand
   | .vmovg _ _ _ r => [.reg r]
   | .vmovq .. => []
   | .vmovs .. => []
+  -- ⭐ P2 BATCH 13.  The immediate and register count shapes name no `Operand`
+  -- (the count is an `imm8` inside the opcode's ModRM, or an XMM register, and
+  -- neither is in this vocabulary); the MEMORY shape names its address, so the
+  -- lock and segment walks see it exactly as `vload`'s.
+  | .vshifti .. | .vshiftx .. | .vshiftdq .. => []
+  | .vshiftm _ _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1185,6 +1329,11 @@ def Op.anyLocked : Op → Bool
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
   | .vmovg .. | .vmovq .. | .vmovs .. => false
+  -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
+  -- refusing it is what makes it #UD — the memory shape reports its `Ea` here
+  -- for the same reason `vload` does.
+  | .vshifti .. | .vshiftx .. | .vshiftdq .. => false
+  | .vshiftm _ _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -1319,6 +1468,13 @@ def Op.mnemonic : Op → String
   | .vmovs sz .. | .vmovsld sz .. | .vmovsst sz .. =>
       match sz with | .q => "movsd" | _ => "movss"
   | .vmovg _ sz .. => match sz with | .q => "movq" | _ => "movd"
+  -- ⭐ P2 BATCH 13.  All three count shapes print the SAME mnemonic — `psrad`
+  -- names the operation and the lane, and the count's provenance is in the
+  -- operands, not in the name.  That is the opposite of `movss`/`movsd`, where
+  -- the shapes differ in SEMANTICS and share a name; here they share a name and
+  -- share the semantics, differing only in where the count is read from.
+  | .vshifti op w .. | .vshiftx op w .. | .vshiftm op w .. => op.mnemonic w
+  | .vshiftdq left .. => if left then "pslldq" else "psrldq"
   | .vmovq .. => "movq"
   | .vbin k .. => match k with
     | .addb => "paddb" | .addw => "paddw" | .addd => "paddd" | .addq => "paddq"
@@ -1486,7 +1642,23 @@ def rosterP0 : List String :=
    -- `VMovKind`) for the reason `movdqa`/`movdqu` are two — they are distinct
    -- OPCODES, and a model that printed one name for the other would be wrong
    -- about what it decoded.  `movss`/`movsd` are one row each.
-   "movaps", "movups", "movss", "movsd"]
+   "movaps", "movups", "movss", "movsd",
+   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
+   -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
+   -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this
+   -- list and that table name the same set, so a row added here without an
+   -- encoding, or an encoding added without a row, is a kernel failure.
+   --
+   -- ⚠️ ONE ROW PER MNEMONIC, NOT PER COUNT SHAPE.  `psrad $3,%xmm0`,
+   -- `psrad %xmm1,%xmm0` and `psrad (%rbx),%xmm0` are three ENCODINGS of one
+   -- mnemonic — the roster counts what a disassembler prints, and it prints
+   -- `psrad` for all three.  The shapes are backed by vectors and asserted per
+   -- shape in the coverage theorems instead.
+   "psllw", "pslld", "psllq",
+   "psrlw", "psrld", "psrlq",
+   "psraw", "psrad",
+   -- and the two WHOLE-REGISTER byte shifts, which are not packed (`Op.vshiftdq`)
+   "pslldq", "psrldq"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

@@ -58,8 +58,17 @@ theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
-added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are). -/
-theorem roster_size_is_111 : rosterSize = 111 := by decide
+added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are).
+
+P2's vector wave then added the rows its own batches name, and **P2 batch 13 adds
+TEN**: the eight encodable lane-wise packed shifts (`psllw`/`pslld`/`psllq`,
+`psrlw`/`psrld`/`psrlq`, `psraw`/`psrad`) and the two whole-register byte shifts
+(`pslldq`/`psrldq`).  ⚠️ EIGHT AND NOT TWELVE, and the missing four are an
+encoding fact rather than a stopping point: there is no packed byte shift at any
+operation, and no `psraq` outside AVX-512.  `vshiftEncodable` is where that is
+written and `vshift_declined_pairs_are_exactly_the_unencodable_ones` is what
+holds this literal and that table together. -/
+theorem roster_size_is_121 : rosterSize = 121 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -78,7 +87,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_854 : vectorCount = 854 := by decide
+theorem vector_count_is_893 : vectorCount = 893 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -727,6 +736,13 @@ def isMemDestVector (v : Vec) : Bool :=
     -- exists.
     | .vload .. => false
     | .vstore .. => true
+    -- ⭐ P2 VECTOR WAVE, BATCH 13, added in the SAME COMMIT as the constructors.
+    -- NONE of the four is a memory destination: the packed shifts write an XMM
+    -- register always, and the memory operand of `vshiftm` is the COUNT — a
+    -- SOURCE.  That is the distinction this function exists to keep, and it is
+    -- the first time a vector form has had a memory operand that is not its
+    -- destination since `vload`.
+    | .vshifti .. | .vshiftx .. | .vshiftm .. | .vshiftdq .. => false
     -- P2 VECTOR WAVE, BATCH 5: neither direction of `movd`/`movq` touches memory.
     | .vmovg .. | .vmovq .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 11, added in the SAME COMMIT as the constructors,
@@ -1548,5 +1564,172 @@ theorem segmentedAddressesLandInAWatchedWindow :
             windows.any (fun w =>
               w.base ≤ a && a + 8 ≤ w.base + BitVec.ofNat 64 w.len))))) = true := by
   decide
+
+
+/-! ### ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — the packed shifts' own claims
+
+Four things this batch asserts rather than describes: which (operation, lane)
+pairs exist, that the SATURATING count rule is what the model implements, that
+the vector table reaches BOTH count regimes at every count shape, and that the
+whole-register byte shifts are not lane-wise. -/
+
+/-- ⭐ THE PAIRS THIS MODEL DECLINES, STATED AS THE EXACT LIST rather than as a
+count, for the reason `bitcnt_declined_forms_are_exactly_the_unencodable_ones`
+is: a count of four is satisfied by any four pairs changing hands, and the pair a
+reader is most likely to get wrong here — `sra` at `w64`, because `sll` and `srl`
+DO exist there — is exactly the one a count would hide. -/
+theorem vshift_declined_pairs_are_exactly_the_unencodable_ones :
+    (([VShiftOp.sll, .srl, .sra].flatMap (fun op =>
+        [VShiftW.w8, .w16, .w32, .w64].filterMap (fun w =>
+          if vshiftEncodable op w then none else some (op, w))))
+      = [(.sll, .w8), (.srl, .w8), (.sra, .w8), (.sra, .w64)]) := by decide
+
+/-- ⭐ AND THE ROSTER NAMES EXACTLY THE ENCODABLE ONES, in both directions: every
+encodable pair's mnemonic is a roster row, and no mnemonic of an UNENCODABLE pair
+is.  The second half is the one that would go unpoliced — a spare `psraq` row
+would be an over-claim that the first half cannot see, and an over-claim in a
+coverage table is the failure this repository exists to prevent. -/
+theorem vshift_roster_names_exactly_the_encodable_pairs :
+    (([VShiftOp.sll, .srl, .sra].all (fun op =>
+        [VShiftW.w8, .w16, .w32, .w64].all (fun w =>
+          if vshiftEncodable op w then rosterP0.contains (op.mnemonic w)
+          else !(rosterP0.contains (op.mnemonic w)))))) = true := by decide
+
+/-- ⭐⭐ THE SHIFT FORMS OF THE VECTOR TABLE, FILTERED ONCE.
+
+⛔ THIS EXISTS BECAUSE THE KERNEL-COST GATE REFUSED THE FIRST SPELLING, AND THE
+REFUSAL NAMED THE CHEAPER BUILD.  The two theorems below ask, for each of the
+eight encodable (operation, lane) pairs, whether the table holds a vector at each
+count shape and in each count regime — and the first spelling asked each of those
+questions by walking all **893** vectors: twenty-four full passes, **1 140 ms** in
+the largest of them alone, and the module tail went 10 700 → 13 950 against a
+12 420 ceiling.  Filtering once and asking the questions of the **39** shift
+vectors is the same claim at a twenty-third of the walk.
+
+⚠️ **AND IT IS THE SAME CLAIM, WHICH IS A THEOREM AND NOT A COMMENT.**  A
+projection is exactly where a coverage claim quietly stops meaning what it said —
+batch 12 paid this when a vocabulary change moved four conjuncts off the vectors
+and had to reassemble the published sentence by proof.  `vshiftVectors_is_exactly_the_shift_forms`
+is that bridge here, and it is `List.mem_filter`: membership in this list is
+membership in `vectors` AND being a shift form, so nothing can be true of this
+list that is not true of the table it comes from.  It is not a `decide`, so it
+costs the kernel nothing that grows with either. -/
+def isVShiftForm (v : Vec) : Bool :=
+  match v.instr.op with
+  | .vshifti .. | .vshiftx .. | .vshiftm .. | .vshiftdq .. => true
+  | _ => false
+
+def vshiftVectors : List Vec := vectors.filter isVShiftForm
+
+/-- THE BRIDGE.  A claim about `vshiftVectors` is a claim about `vectors`. -/
+theorem vshiftVectors_is_exactly_the_shift_forms (v : Vec) :
+    v ∈ vshiftVectors ↔ (v ∈ vectors ∧ isVShiftForm v = true) :=
+  List.mem_filter
+
+/-- ⭐⭐ EVERY ENCODABLE PAIR HAS A VECTOR AT ALL THREE COUNT SHAPES.  The
+coverage table's `x,i · x,x · x,m` is a claim about eight mnemonics times three
+encodings, and this is what backs it — the same shape as
+`bitcnt_encodable_forms_all_have_both_shapes`, one operand shape wider. -/
+theorem vshift_encodable_pairs_have_all_three_count_shapes :
+    ([VShiftOp.sll, .srl, .sra].all (fun op =>
+      [VShiftW.w8, .w16, .w32, .w64].all (fun w =>
+        !vshiftEncodable op w ||
+          (vshiftVectors.any (fun v => match v.instr.op with
+             | .vshifti op' w' _ _ => op' == op && w' == w
+             | _ => false)
+           && vshiftVectors.any (fun v => match v.instr.op with
+             | .vshiftx op' w' _ _ => op' == op && w' == w
+             | _ => false)
+           && vshiftVectors.any (fun v => match v.instr.op with
+             | .vshiftm op' w' _ _ => op' == op && w' == w
+             | _ => false))))) = true := by decide
+
+/-- ⛔⛔ AND EVERY ENCODABLE PAIR HAS AN IMMEDIATE VECTOR **IN EACH COUNT
+REGIME** — one below its lane width and one at or above it.
+
+THIS IS THE BATCH.  A model that took the count MODULO the lane width is
+bit-identical to this one at every in-range count, so a table carrying only `$3`
+would report zero disagreements against it.  Stated per (op, lane) rather than
+once, because the boundary is the LANE WIDTH and a model saturating at a single
+constant would pass the pairs whose width it happened to use. -/
+theorem vshift_immediate_vectors_reach_both_count_regimes :
+    ([VShiftOp.sll, .srl, .sra].all (fun op =>
+      [VShiftW.w8, .w16, .w32, .w64].all (fun w =>
+        !vshiftEncodable op w ||
+          (vshiftVectors.any (fun v => match v.instr.op with
+             | .vshifti op' w' _ c => op' == op && w' == w && c.toNat < w.bits
+             | _ => false)
+           && vshiftVectors.any (fun v => match v.instr.op with
+             | .vshifti op' w' _ c => op' == op && w' == w && c.toNat ≥ w.bits
+             | _ => false))))) = true := by decide
+
+/-- ⭐⭐ THE PRE-STATES REACH BOTH COUNT REGIMES AT THE **REGISTER** AND
+**MEMORY** COUNT SHAPES TOO, where the count is not written in the vector.
+
+⛔ WITHOUT THIS THE TWELVE `_x` AND `_m` VECTORS TEST ONE BRANCH TWELVE TIMES.
+Every value the adversarial sweep gives `c` is a full 64-bit pattern, so every
+count it produces is far above any lane width — a model that returned all-zeros
+for every register-counted shift would have agreed with the oracle on all of
+them.  `shiftCountStates` is what puts the other branch in reach, and this is
+what says it still does after any later edit to `xmmPattern` or to the sweep:
+the two facts are held together by the kernel rather than by the comment on
+`shiftCountStates` ([[feedback-a-citation-is-an-ungated-claim]]). -/
+theorem shift_count_reaches_both_regimes :
+    (((preStates 1 8).any (fun s => ((s.getXmm .x1).setWidth 64).toNat < 16)
+      && (preStates 1 8).any (fun s => ((s.getXmm .x1).setWidth 64).toNat ≥ 64))
+     && ((preStates 1 8).any (fun s =>
+           s.regs.rbx == 0x2000 && ((s.readMem128 0x2000).setWidth 64).toNat < 16)
+      && (preStates 1 8).any (fun s =>
+           s.regs.rbx == 0x2000 && ((s.readMem128 0x2000).setWidth 64).toNat ≥ 64)))
+    = true := by decide
+
+/-- ⭐ THE SATURATION RULE ITSELF, at each lane width, as a claim about
+`vshiftApply` rather than about a vector: a count AT the lane width zeroes a
+logical shift and sign-fills an arithmetic one, and the operand it is applied to
+is NOT already zero — which is what stops this being true of a model that
+returns zero always.
+
+⚠️ THE WITNESS HAS ITS SIGN BIT SET IN EVERY LANE WIDTH, so `sra`'s answer
+(all-ones) differs from `srl`'s (all-zeros) and the two cannot be confused. -/
+theorem vshift_saturates_rather_than_wrapping :
+    (let v : BitVec 128 := 0x81234567_89abcdef_fedcba98_76543210
+     -- a logical shift at or above the lane width is all zeros
+     (vshiftApply .sll .w16 v 16 == 0
+      && vshiftApply .srl .w16 v 16 == 0
+      && vshiftApply .sll .w32 v 32 == 0
+      && vshiftApply .srl .w32 v 32 == 0
+      && vshiftApply .sll .w64 v 64 == 0
+      && vshiftApply .srl .w64 v 64 == 0
+     -- ⛔ AND A HUGE COUNT — the one an `xmm` count operand can hold and an
+     -- immediate cannot — is the SAME answer and not a crash.
+      && vshiftApply .sll .w16 v 4294967299 == 0
+      && vshiftApply .srl .w64 v 18446744073709551615 == 0
+     -- an arithmetic shift fills each lane with its own sign bit, so the answer
+     -- depends on the operand and is NOT a constant
+      && vshiftApply .sra .w16 v 16 == 0xffff0000_ffffffff_ffffffff_00000000
+      && vshiftApply .sra .w32 v 32 == 0xffffffff_ffffffff_ffffffff_00000000
+     -- ⚠️ and the in-range case still SHIFTS: without this every line above is
+     -- satisfied by a model that saturates always.
+      && vshiftApply .srl .w16 v 4 == 0x08120456_089a0cde_0fed0ba9_07650321
+      && vshiftApply .sll .w16 v 4 == 0x12305670_9ab0def0_edc0a980_65402100)) = true := by
+  decide
+
+/-- ⭐ `pslldq` / `psrldq` ARE NOT LANE-WISE, and this is what says so: they move
+bytes ACROSS the 16-bit lane boundaries, so no `vshiftApply` at any lane width
+agrees with them on this witness.  A model that implemented them by analogy with
+their opcode neighbours `psllq`/`psrlq` would fail here.
+
+⚠️ Their saturation is at 16 BYTES, not at a lane width. -/
+theorem vshiftdq_is_a_whole_register_byte_shift :
+    (let v : BitVec 128 := 0x81234567_89abcdef_fedcba98_76543210
+     (vshiftdqApply true v 3 == 0x6789abcd_effedcba_98765432_10000000
+      && vshiftdqApply false v 3 == 0x00000081_23456789_abcdeffe_dcba9876
+      -- a count past 15 BYTES zeroes the register; 16 is not a lane width
+      && vshiftdqApply true v 16 == 0
+      && vshiftdqApply false v 20 == 0
+      -- and it is not any lane-wise shift: a byte shift of 2 crosses every
+      -- 16-bit lane boundary, which `vshiftApply .srl .w16 v 16` cannot do
+      && vshiftdqApply false v 2 != vshiftApply .srl .w16 v 16
+      && vshiftdqApply true v 2 != vshiftApply .sll .w16 v 16)) = true := by decide
 
 end X86.Tests

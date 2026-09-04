@@ -2572,6 +2572,121 @@ def vectors : List Vec :=
     , bytes := "660f6ac1", instr := ⟨.vbin .unpckhd .x0 .x1, 4⟩ }
   , { id := "punpckhqdq_xx", mnemonic := "punpckhqdq", asm := "punpckhqdq %xmm1, %xmm0"
     , bytes := "660f6dc1", instr := ⟨.vbin .unpckhq .x0 .x1, 4⟩ }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
+  --
+  -- ⛔⛔ EVERY (operation, lane) PAIR APPEARS AT AN IN-RANGE COUNT **AND AT ITS
+  -- OWN SATURATION BOUNDARY**, and the second of those is the batch.  A model
+  -- taking the count modulo the lane width is bit-identical to this one at every
+  -- in-range count, so a vector table carrying only `$3` would report a green run
+  -- against a known-wrong model — the same silence `wrongVmovFixedRegisters`
+  -- found in batch 2, one level down.
+  --
+  -- ⚠️ THE BOUNDARY IS PER LANE WIDTH AND THE VECTORS SAY SO: `$0x10` for the
+  -- word forms, `$0x20` for the doubleword, `$0x40` for the quadword.  A model
+  -- that saturated at a single constant would pass eight of these and fail the
+  -- other sixteen, which is why the boundary is not written once.
+  --
+  -- ⚠️ THE `_x` AND `_m` SHAPES TAKE THEIR COUNT FROM THE SWEPT PRE-STATE, so
+  -- their count is whatever `c` and `xmmPattern` produce — overwhelmingly a huge
+  -- 64-bit value, i.e. the SATURATING regime.  `shiftCountStates` is what puts
+  -- them in the OTHER regime, and `shift_count_reaches_both_regimes` is the gate
+  -- that says so; without it these twelve vectors would test one branch twelve
+  -- times and read as twelve tests.
+  , { id := "psllw_i", mnemonic := "psllw", asm := "psllw $0x3, %xmm0"
+    , bytes := "660f71f003", instr := ⟨.vshifti .sll .w16 .x0 0x3, 5⟩ }
+  , { id := "psllw_isat", mnemonic := "psllw", asm := "psllw $0x10, %xmm0"
+    , bytes := "660f71f010", instr := ⟨.vshifti .sll .w16 .x0 0x10, 5⟩ }
+  , { id := "psllw_x", mnemonic := "psllw", asm := "psllw %xmm1, %xmm0"
+    , bytes := "660ff1c1", instr := ⟨.vshiftx .sll .w16 .x0 .x1, 4⟩ }
+  , { id := "psllw_m", mnemonic := "psllw", asm := "psllw (%rbx), %xmm0"
+    , bytes := "660ff103", instr := ⟨.vshiftm .sll .w16 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pslld_i", mnemonic := "pslld", asm := "pslld $0x3, %xmm0"
+    , bytes := "660f72f003", instr := ⟨.vshifti .sll .w32 .x0 0x3, 5⟩ }
+  , { id := "pslld_isat", mnemonic := "pslld", asm := "pslld $0x20, %xmm0"
+    , bytes := "660f72f020", instr := ⟨.vshifti .sll .w32 .x0 0x20, 5⟩ }
+  , { id := "pslld_x", mnemonic := "pslld", asm := "pslld %xmm1, %xmm0"
+    , bytes := "660ff2c1", instr := ⟨.vshiftx .sll .w32 .x0 .x1, 4⟩ }
+  , { id := "pslld_m", mnemonic := "pslld", asm := "pslld (%rbx), %xmm0"
+    , bytes := "660ff203", instr := ⟨.vshiftm .sll .w32 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psllq_i", mnemonic := "psllq", asm := "psllq $0x3, %xmm0"
+    , bytes := "660f73f003", instr := ⟨.vshifti .sll .w64 .x0 0x3, 5⟩ }
+  , { id := "psllq_isat", mnemonic := "psllq", asm := "psllq $0x40, %xmm0"
+    , bytes := "660f73f040", instr := ⟨.vshifti .sll .w64 .x0 0x40, 5⟩ }
+  , { id := "psllq_x", mnemonic := "psllq", asm := "psllq %xmm1, %xmm0"
+    , bytes := "660ff3c1", instr := ⟨.vshiftx .sll .w64 .x0 .x1, 4⟩ }
+  , { id := "psllq_m", mnemonic := "psllq", asm := "psllq (%rbx), %xmm0"
+    , bytes := "660ff303", instr := ⟨.vshiftm .sll .w64 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psrlw_i", mnemonic := "psrlw", asm := "psrlw $0x3, %xmm0"
+    , bytes := "660f71d003", instr := ⟨.vshifti .srl .w16 .x0 0x3, 5⟩ }
+  , { id := "psrlw_isat", mnemonic := "psrlw", asm := "psrlw $0x10, %xmm0"
+    , bytes := "660f71d010", instr := ⟨.vshifti .srl .w16 .x0 0x10, 5⟩ }
+  , { id := "psrlw_x", mnemonic := "psrlw", asm := "psrlw %xmm1, %xmm0"
+    , bytes := "660fd1c1", instr := ⟨.vshiftx .srl .w16 .x0 .x1, 4⟩ }
+  , { id := "psrlw_m", mnemonic := "psrlw", asm := "psrlw (%rbx), %xmm0"
+    , bytes := "660fd103", instr := ⟨.vshiftm .srl .w16 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psrld_i", mnemonic := "psrld", asm := "psrld $0x3, %xmm0"
+    , bytes := "660f72d003", instr := ⟨.vshifti .srl .w32 .x0 0x3, 5⟩ }
+  , { id := "psrld_isat", mnemonic := "psrld", asm := "psrld $0x20, %xmm0"
+    , bytes := "660f72d020", instr := ⟨.vshifti .srl .w32 .x0 0x20, 5⟩ }
+  , { id := "psrld_x", mnemonic := "psrld", asm := "psrld %xmm1, %xmm0"
+    , bytes := "660fd2c1", instr := ⟨.vshiftx .srl .w32 .x0 .x1, 4⟩ }
+  , { id := "psrld_m", mnemonic := "psrld", asm := "psrld (%rbx), %xmm0"
+    , bytes := "660fd203", instr := ⟨.vshiftm .srl .w32 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psrlq_i", mnemonic := "psrlq", asm := "psrlq $0x3, %xmm0"
+    , bytes := "660f73d003", instr := ⟨.vshifti .srl .w64 .x0 0x3, 5⟩ }
+  , { id := "psrlq_isat", mnemonic := "psrlq", asm := "psrlq $0x40, %xmm0"
+    , bytes := "660f73d040", instr := ⟨.vshifti .srl .w64 .x0 0x40, 5⟩ }
+  , { id := "psrlq_x", mnemonic := "psrlq", asm := "psrlq %xmm1, %xmm0"
+    , bytes := "660fd3c1", instr := ⟨.vshiftx .srl .w64 .x0 .x1, 4⟩ }
+  , { id := "psrlq_m", mnemonic := "psrlq", asm := "psrlq (%rbx), %xmm0"
+    , bytes := "660fd303", instr := ⟨.vshiftm .srl .w64 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psraw_i", mnemonic := "psraw", asm := "psraw $0x3, %xmm0"
+    , bytes := "660f71e003", instr := ⟨.vshifti .sra .w16 .x0 0x3, 5⟩ }
+  , { id := "psraw_isat", mnemonic := "psraw", asm := "psraw $0x10, %xmm0"
+    , bytes := "660f71e010", instr := ⟨.vshifti .sra .w16 .x0 0x10, 5⟩ }
+  , { id := "psraw_x", mnemonic := "psraw", asm := "psraw %xmm1, %xmm0"
+    , bytes := "660fe1c1", instr := ⟨.vshiftx .sra .w16 .x0 .x1, 4⟩ }
+  , { id := "psraw_m", mnemonic := "psraw", asm := "psraw (%rbx), %xmm0"
+    , bytes := "660fe103", instr := ⟨.vshiftm .sra .w16 .x0 { base := some .rbx }, 4⟩ }
+  , { id := "psrad_i", mnemonic := "psrad", asm := "psrad $0x3, %xmm0"
+    , bytes := "660f72e003", instr := ⟨.vshifti .sra .w32 .x0 0x3, 5⟩ }
+  , { id := "psrad_isat", mnemonic := "psrad", asm := "psrad $0x20, %xmm0"
+    , bytes := "660f72e020", instr := ⟨.vshifti .sra .w32 .x0 0x20, 5⟩ }
+  , { id := "psrad_x", mnemonic := "psrad", asm := "psrad %xmm1, %xmm0"
+    , bytes := "660fe2c1", instr := ⟨.vshiftx .sra .w32 .x0 .x1, 4⟩ }
+  , { id := "psrad_m", mnemonic := "psrad", asm := "psrad (%rbx), %xmm0"
+    , bytes := "660fe203", instr := ⟨.vshiftm .sra .w32 .x0 { base := some .rbx }, 4⟩ }
+  -- ⛔ AND THE TWO THAT ARE NOT PACKED: the whole register, by BYTES.  Their
+  -- saturation is at 16 BYTES, not at the lane width — `$0x14` zeroes the
+  -- register — and they share an opcode byte with `psllq`/`psrlq`, differing only
+  -- in the ModRM `/r` field, so a decoder or a model that confused the two would
+  -- be confusing a lane-wise shift with a whole-register one.
+  , { id := "pslldq_i", mnemonic := "pslldq", asm := "pslldq $0x3, %xmm0"
+    , bytes := "660f73f803", instr := ⟨.vshiftdq true .x0 0x3, 5⟩ }
+  , { id := "pslldq_isat", mnemonic := "pslldq", asm := "pslldq $0x14, %xmm0"
+    , bytes := "660f73f814", instr := ⟨.vshiftdq true .x0 0x14, 5⟩ }
+  , { id := "psrldq_i", mnemonic := "psrldq", asm := "psrldq $0x3, %xmm0"
+    , bytes := "660f73d803", instr := ⟨.vshiftdq false .x0 0x3, 5⟩ }
+  , { id := "psrldq_isat", mnemonic := "psrldq", asm := "psrldq $0x14, %xmm0"
+    , bytes := "660f73d814", instr := ⟨.vshiftdq false .x0 0x14, 5⟩ }
+  -- ⭐⭐ THE THREE THAT MOVE THE REGISTER FIELDS OFF xmm0/xmm1, for the reason
+  -- `movdqa_x2x3` exists: with every vector reading xmm1 into xmm0, a model that
+  -- ignored the register fields entirely would be bit-identical to this one and
+  -- the comparator would report zero disagreements against it (batch 2 measured
+  -- exactly that and the arm was right).  One per constructor that HAS register
+  -- fields to get wrong.
+  , { id := "psrad_x2x3", mnemonic := "psrad", asm := "psrad %xmm3, %xmm2"
+    , bytes := "660fe2d3", instr := ⟨.vshiftx .sra .w32 .x2 .x3, 4⟩ }
+  , { id := "psrld_i_x4", mnemonic := "psrld", asm := "psrld $0x5, %xmm4"
+    , bytes := "660f72d405", instr := ⟨.vshifti .srl .w32 .x4 0x5, 5⟩ }
+  -- ⚠️ AND ONE AT A DISPLACEMENT, WHOSE COUNT IS A CONSTANT — SAID, NOT HIDDEN.
+  -- Only the eight bytes at 0x2000 sweep (`memory_operand_mirrors_rcx`), so a
+  -- displaced load reads the fixed 0xB0.. window and its count never moves.  This
+  -- vector therefore tests `vshiftm`'s ADDRESS COMPUTATION and nothing about the
+  -- count rule; reporting it as a second count test would be D14's defect
+  -- ("a form whose source operand never moves is one test reported as many").
+  , { id := "psraw_m_disp", mnemonic := "psraw", asm := "psraw 0x8(%rbx), %xmm5"
+    , bytes := "660fe16b08", instr := ⟨.vshiftm .sra .w16 .x5 { base := some .rbx, disp := 8 }, 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
@@ -3024,6 +3139,36 @@ def cmpxchg8bStates : List Cpu :=
   , mkCmpxchg8b 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  1
   , mkCmpxchg8b 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  (1 <<< 32) ]
 
+/-- ⭐⭐⭐ P2 BATCH 13 — THE TWO PRE-STATES IN WHICH A PACKED SHIFT'S COUNT IS
+**IN RANGE**, and without which twelve of this batch's vectors test one branch
+twelve times.
+
+The `_x` and `_m` shapes read their count from the pre-state: `xmm1`'s low
+quadword is `c ^^^ 0x1111111111111111` and `[0x2000]` is `c`.  Every value `c`
+takes in the adversarial sweep is a full 64-bit pattern, so every one of those
+counts is FAR above any lane width — the saturating branch, every time.  A model
+that returned all-zeros for every register-counted shift would have agreed with
+the oracle on all of them ([[feedback-unobserved-regions-report-agreement]]: a
+region nothing observes does not report "unknown", it reports agreement).
+
+⚠️ **THE TWO STATES ARE NOT INTERCHANGEABLE AND NEITHER ALONE IS ENOUGH**, which
+is the point of there being two: the same `c` cannot make both counts small,
+because the two differ by a fixed XOR.  `c = 3` puts the MEMORY count in range
+and leaves `xmm1`'s at `0x1111111111111112`; `c = 0x1111111111111112` puts
+`xmm1`'s at 3 and leaves the memory one huge.  A single state would have covered
+one shape and silently left the other in the blind spot it was added to fix
+([[feedback-a-control-can-share-the-blind-spot]]).
+
+⭐ BUILT THROUGH `mkPre`, so every invariant the other pre-state families rest on
+still holds here — in particular `[0x2000] = RCX` (`memory_operand_mirrors_rcx`),
+which is the invariant that makes a memory operand sweep like a register one and
+which a hand-built state would have broken. -/
+def shiftCountStates : List Cpu :=
+  [ -- the MEMORY count in range (3), xmm1's count saturating
+    mkPre 0x5555555555555555 0x0000000000000003 0
+    -- and xmm1's count in range (3), the memory one saturating
+  , mkPre 0xAAAAAAAAAAAAAAAA 0x1111111111111112 0 ]
+
 def stringBoundaryStates : List Cpu :=
   [ -- DF clear: `…FF + 1` carries out of the byte, and out of the word at 0x7fff.
     mkStringPtr 0x5555555555555555 0x0F0F0F0F0F0F0F0F 0  0x1fff 0x7fff
@@ -3034,7 +3179,8 @@ def stringBoundaryStates : List Cpu :=
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
 its neighbours, the carry boundary, the two DF states, the two `addr32`
 counter states, the two stack frames, the two string-pointer boundaries, the
-four `cmpxchg8b` branch states, then a pseudo-random tail. -/
+four `cmpxchg8b` branch states, the two in-range shift counts, then a
+pseudo-random tail. -/
 def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let adv := adversarial
   let diag := adv.map (fun a => mkPre a a 0)
@@ -3044,6 +3190,7 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
   diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
-    ++ frameStates ++ stringBoundaryStates ++ cmpxchg8bStates ++ rnd
+    ++ frameStates ++ stringBoundaryStates ++ cmpxchg8bStates ++ shiftCountStates
+    ++ rnd
 
 end X86.Tests

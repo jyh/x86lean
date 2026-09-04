@@ -4681,3 +4681,250 @@ declaration is not worth a file whose comments no longer point at their subjects
 
 **Reversal cost:** one generated file, one generator arm, one theorem's four conjuncts, four probe
 arms, one ceiling line.
+
+## D106 — a duplicated objdump parser, and the first master CI run that a gate had never been seen to run (P2 vector wave, batch 13)
+
+**The Actions billing wall cleared (desk FH) and the first master CI run in this repository's life
+came back RED.** Not on the commit under it: on a parser copied months earlier.
+
+```
+⛔ control: the repository as it stands
+    ⛔ 1 vector(s) resolve to NO roster row
+claimed-forms selftest: FAIL (1 of 13 arms)
+```
+
+### 1. The message named nothing, and that cost the diagnosis
+
+The failing arm is the CONTROL — *the repository as it stands*. On the developer machine both
+`--check` and `--selftest` pass at `f45aa6c`, rc 0, verified in a clean worktree before anything was
+touched. So the red was **Linux-only**, and all the runner said was a count.
+
+⇒ 🔑 **A GATE THAT REFUSES MUST SAY WHAT IT SAW.** Every other finding in that same list names its
+subjects; this one printed `1 vector(s)` and stopped. A remote red that names nothing turns into a
+local re-run that measures a different machine. It now prints the id, the bytes, and the byte COUNT
+— and with that alone the answer fell out in one command.
+
+### 2. The cause is the DUPLICATE, not the parse
+
+`scripts/claimed_forms.py` carried its own copy of the objdump byte-column parse. `check_encodings.py`
+has `parse_objdump`, written for exactly this defect and repaired TWICE — D83 (the final byte
+abutting the tab) and its Linux follow-up (**GNU objdump wraps its hex dump at seven bytes**,
+continuing on a line carrying an address and no mnemonic). The copy received neither.
+
+⇒ 🔑 **A DUPLICATE BORN IN AGREEMENT DIVERGES ON THE NEXT ORDINARY REPAIR, AND THE ONE THAT MATTERS
+IS THE ONE ON THE PATH THAT REPORTS SUCCESS.** The fixed copy sat in a gate green for weeks; the
+stale copy sat in the gate master CI had never reached (D104's frontier). This repository had already
+written that law down — for `looseMemDestShape`, *"two definitions that agreed at birth, one of them
+unreachable"* — and then paid it again three files away. ⇒ **Naming a defect is not finding its
+siblings**: the sibling was found by grepping for the parse SHAPE, and it should have been grepped
+for when D83 was written.
+
+### 3. Measured on the runner's actual tool, not inferred
+
+The developer machine's `objdump` is Apple LLVM and cannot produce a wrapped sample, so rather than
+repair on a hypothesis, GNU binutils was installed and the format taken from it directly:
+
+```
+GNU objdump (GNU Binutils) 2.47              Apple LLVM objdump
+  7: 48 b8 88 77 66 55 44   movabs ...         7: 48 b8 88 77 66 55 44 33 22 10  movabsq ...
+  e: 33 22 11                                  (all ten bytes on one line)
+```
+
+With GNU objdump on PATH and the tree otherwise untouched, the stale copy read `cmp_rip_q` — eleven
+bytes — as its first seven:
+
+```
+⛔ 1 vector(s) resolve to NO roster row: cmp_rip_q (48813df51fc0ff78563412, 11 bytes)
+```
+
+**Exactly the runner's count.** ⛔ `cmp_rip_q` is the ONLY non-exempt vector of 854 at eight bytes or
+more; the other eleven wide vectors are all `CLAIMS_NO_ROW`-exempt and could not expose it. ⇒ 🔑 **A
+COLUMN PARSER IS TESTED BY ITS WIDEST DATUM**, and this table had exactly one — which is why
+forty-nine commits of local green said nothing.
+
+### 4. The repair, and the check a pair of passes cannot give
+
+`claimed_forms.py` imports `parse_objdump`. **No third parser was written**: the original folds
+continuations under an address-arithmetic guard and carries an always-on selftest over a GNU sample,
+an LLVM sample, and a third readable only by the guard.
+
+```
+claimed_forms --selftest   GNU: PASS 13/13 (the arm CI failed)    LLVM: PASS 13/13
+claimed_forms --check      GNU: rc 0                              LLVM: rc 0
+check_encodings            GNU: rc 0                              LLVM: rc 0
+```
+
+⭐ And the stronger statement: the two tools' full `--check` output is now **byte-identical**, and
+stable across repeated runs. Two greens side by side would not have shown that the reading had
+stopped depending on the tool ([[two-defects-that-cancel]]); an equality does.
+
+⚠️ **A false residual, recorded because it will recur.** A `500 vs 501` difference between the tools
+was briefly read as a remaining defect. It was an ORDER EFFECT: `--check` regenerates
+`docs/COVERAGE.md`, so the first run moved the file the second compared against. Settled runs agree
+exactly. A gate with a side effect cannot be A/B-ed by running it twice in sequence.
+
+### 5. What this adds to D104
+
+D104: *a gate nobody has ever seen run is not a gate.* The half this adds: **the first time such a
+gate runs, it may fail for a reason that has nothing to do with the commit under it.** A red on the
+first-ever run of a step is evidence about the STEP's history, not about the change beneath it — and
+reading it the other way would have sent this seat looking through batch 12.
+
+**Reversal cost:** one import, one deleted parse block, one message widened to name its subject.
+
+
+## D107 — the packed shifts: a count that does not wrap, and a guard whose real reason is a crash (P2 vector wave, batch 13)
+
+Ten roster rows — the eight encodable lane-wise packed shifts and the two whole-register byte shifts
+— at three count shapes, 39 vectors, no new state. `docs/DIFFERENTIAL-P2-BATCH11.md` carries the
+batch's own account; this records the three decisions.
+
+### 1. The oracle was measured before the model was written, because the handover asserted it
+
+The batch arrived with *"the saturating-count rule measured IMPLEMENTED"* and **no artifact in the
+tree said so**. An oracle with no rule for out-of-range counts agrees with any model over vectors
+that stay in range, so the sentence had to become a measurement
+([[the-oracle-is-evidence-not-the-specification]], [[inherited-diagnosis-is-a-hypothesis]]). Three
+models — the SDM's, count-modulo-lane-width, and count-truncated-to-a-byte — against x86isa:
+**42 rows, 42 agree with the SDM, 20 of them DISCRIMINATING.** The other 22 are printed as pricing
+NOTHING rather than counted as support: at an in-range count all three models agree, so those rows
+say the harness runs, not that the rule holds.
+
+### 2. The guard has two reasons and only one is a theorem
+
+`vshiftLane` refuses to shift at `cnt ≥ w`. The SDM's rule is asserted in
+`vshift_saturates_rather_than_wrapping`. The second reason is not statable in Lean:
+
+```
+x <<< (4294967299 : Nat)  ⇒  INTERNAL PANIC: Nat.shiftl exponent is too big
+```
+
+— in the interpreter **and in the kernel**. 2³²+3 is a count `psllw %xmm1,%xmm0` reads whenever the
+count register holds it, which the pre-state sweep produces in quantity. ⛔ **A declaration that
+panics does not fail to elaborate; it kills the process**, so this cannot be a red arm inside Lean
+and is `scripts/shift_guard_redprobe.sh` instead, which plants the unguarded spelling.
+
+⇒ 🔑 **THE ASYMMETRY IS THE DEFECT'S COVER.** Lean's two right shifts saturate correctly at any
+count, so removing the guard leaves every `psrl`/`psra` vector passing and takes the build down only
+on `psll` at a large register count. The probe therefore carries a **held-out arm** asserting the
+right shifts stay quiet: without it the probe would demonstrate a crash and not the fact that makes
+it hard to find.
+
+### 3. The AST departs from `VBinKind`, and the departure carries the burden
+
+`VBinKind` puts the lane in the kind because it has **no hole**. The shifts have two — no packed byte
+shift, and no `psraq` outside AVX-512 — so they are a product with a `vshiftEncodable` table, and the
+declined set is stated **as the four pairs, not as a count**: `sra` at `w64` is the pair a reader
+will get wrong, since `sll` and `srl` both exist there, and it is exactly the one a count hides.
+Gated in both directions, because a spare `psraq` roster row is an over-claim the forward direction
+cannot see ([[under-claims-are-unpoliced]], inverted).
+
+### 4. Two routes disagreed by 2,822 and the third fact reconciled them exactly
+
+The census's gap fell **474,736 → 441,854**, i.e. by 32,882, against the roster's 35,704 for the
+group. The difference is **2,822 MMX-register-form instructions** which this model, having no MMX
+register file, correctly does not claim — measured directly, per mnemonic, and independently
+reproducing the roster's own *"of it, MMX"* column. `35,704 − 2,822 = 32,882`, exact.
+
+⇒ The batch is published at **32,882**, not at the rank the roster shows. A demand figure and a
+coverage gain are different quantities whenever the model declines a register file.
+
+### 5. `x,m` was built rather than declined, and the reason is a number
+
+The census counts by mnemonic, so declining the memory-count shape would have been counted at 100%
+of the group's demand while covering **0.85% less** (305 of 35,704, measured on both candidate
+corpora, agreeing exactly and matching the census per-mnemonic 10 of 10) — an over-claim no gate here
+could see. The oracle was measured on that shape first, since **12 of 12 does not license the 13th**
+and no row of `oracle_availability.py` had ever asked it.
+
+**Reversal cost:** four AST constructors, two combinators, one encodability table, ten table rows,
+39 vectors, two pre-states, seven theorems, four selftest arms, one probe script, one CI step.
+
+
+## D108 — the oracle reads the packed-shift count from 128 bits where the SDM and K read 64, and it contradicts itself two shapes over (P2 vector wave, batch 13)
+
+The batch's differential came back with **8 unexplained disagreements out of 78,584**, all on the
+register-count shape, all at ONE pre-state. This is the third time the differential has been right
+and ACL2 x86isa wrong (after D91's missing alignment fault and D93's merging `movd`), and it is the
+first one the oracle refutes ITSELF on.
+
+### 1. What the run said
+
+```
+cases=78584 matched=58052 explained=29435 unexplained=8 oracle-divergence=163 oracle-leaks=0
+  [spec] psllw_x/79 (psllw) xmm0: lean=5550…8890  oracle=0000…0000
+  [spec] psrad_x/79 (psrad) xmm0: lean=f555…0222  oracle=ffff…0000
+  … eight in all, one per encodable lane-wise shift, at pre-state 79 alone
+```
+
+Pre-state 79 is one of this batch's two `shiftCountStates`, and it is the only state in the sweep
+whose `xmm1` has a **small low quadword and a non-zero upper one**: `aaaaaaaaaaaaaaab_0000000000000003`.
+The model shifted by 3. The oracle saturated.
+
+⚠️ **The pre-state transports correctly**, which was checked before anything was concluded:
+`mov_d/79` and `paddb_xx/79` report identical `xmm0` on both sides. The disagreement is about the
+SEMANTICS, not about the harness.
+
+### 2. Isolated to a single bit
+
+```
+psllw %xmm1,%xmm0,  xmm0 = aaaaaaaaaaaaaaaa_1111111111111112
+
+  count operand                          oracle answer          SDM
+  0x0000…0000_0000000000000003           shift by 3             shift by 3   ✔
+  0x0000…0001_0000000000000003           all zeros              shift by 3   ⛔
+  0xaaaa…aaab_0000000000000003           all zeros              shift by 3   ⛔
+  0x0000…0000_0000000000000040 (control) all zeros              all zeros    ✔
+```
+
+One bit of the count register's **upper quadword** — a bit SDM Vol. 2B says is not part of the count
+(`COUNT ← COUNT_SOURCE[63:0]`) — flips the answer completely. The control at a true count of 64
+saturates correctly in the same run, so the oracle's saturation machinery is not broken; its notion
+of where the count ENDS is.
+
+### 3. ⭐⭐ The third source, and then a better one: the oracle contradicts itself
+
+D93's rule is that a two-model disagreement names no culprit. K's `psllw_xmm_xmm.k` is explicit —
+the saturation test is
+
+```
+ugtMInt( extractMInt( getParentValue(R1, RSMap), 192, 256), mi(64, 15))
+```
+
+and bits 192..256 of the 256-bit parent are exactly `SRC[63:0]`; the upper quadword is never read.
+K agrees with this model and with the manual.
+
+⛔ **AND THEN THE STRONGER FACT, WHICH NEEDS NO INTERPRETATION AT ALL.** The same mnemonic's
+MEMORY-count shape, given the SAME 128-bit count value, returns the SDM's answer:
+
+```
+psllw %xmm1, %xmm0    count 0xbfbebdbcbbbab9b8_0000000000000003  ⇒  0000…0000   (wrong)
+psllw (%rbx), %xmm0   the same 128 bits, in memory              ⇒  5550…8890   (right)
+```
+
+⇒ 🔑 **AN ORACLE THAT DISAGREES WITH ITSELF ACROSS TWO SHAPES OF ONE MNEMONIC HAS A DEFECT, NOT A
+READING.** x86isa's own memory path already implements the 64-bit rule its register path does not,
+so no appeal to the manual is needed to say which of the two is the mistake. This is a better class
+of evidence than D93's, and it was available only because the batch built **both** count shapes —
+had `x,m` been declined as the 0.85% it is worth, the finding would have been a bare disagreement
+with the more credible model.
+
+### 4. The resolution, and what is deliberately NOT declared
+
+Eight `knownDivergences` entries — one per encodable lane-wise shift, field `xmm0`, each carrying
+its K citation. The vectors keep running and keep being compared; if x86isa is fixed, the channel
+fails and says so.
+
+⛔ **`vshiftm` IS NOT DECLARED.** It agrees, and an entry that never diverges is a failure in this
+channel by design. ⛔ **AND THERE IS NO WILDCARD**: eight entries, each naming one vector prefix and
+one field, so a future disagreement about a lane width or a sign fill is not absorbed by a broad rule
+written for the count's width.
+
+⚠️ **The cost, stated plainly.** An entry excuses field `xmm0` for that vector at EVERY pre-state, so
+a real defect of this model in the same field would now be absorbed. Three things stand against that
+and none is the channel: the saturation rule is a theorem
+(`vshift_saturates_rather_than_wrapping`), the two wrong models are planted as selftest arms, and
+`driveWrong` passes the EMPTY divergence list — the arms compare this model against a wrong copy of
+itself, where the oracle's defect is irrelevant, so declaring a divergence cannot weaken them.
+
+**Reversal cost:** eight list entries; delete them the day x86isa's register path reads 64 bits.

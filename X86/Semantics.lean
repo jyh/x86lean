@@ -344,6 +344,97 @@ def vunpack (w : Nat) (hi : Bool) (dst src : BitVec 128) : BitVec 128 :=
   let pairs := 128 / (2 * w)
   vunpackAux w (if hi then pairs else 0) dst src pairs
 
+/-- One lane of a UNARY packed operation, folded from the top down.  ⚠️ `n` is
+the lane COUNT and is never written by a caller: `vlanes1` derives it, for the
+reason `vlanes` does. -/
+private def vlanes1Aux (w : Nat) (f : BitVec w → BitVec w) (a : BitVec 128) :
+    Nat → BitVec 128
+  | 0 => 0
+  | n + 1 =>
+      (vlanes1Aux w f a n) |||
+        (((f (a.extractLsb' (n * w) w)).setWidth 128) <<< (n * w))
+
+/-- ⭐⭐ THE UNARY PACKED COMBINATOR, and the reason it is not `vlanes` with a
+constant second operand.
+
+A packed SHIFT applies ONE count to every lane.  `vlanes` pairs lane `i` of `a`
+with lane `i` of `b`, so expressing a shift through it would mean broadcasting
+the count into all sixteen lanes first — which is a `BitVec 128` the SDM never
+mentions, is wrong at any lane width where the count does not fit, and would make
+the saturation rule below apply per lane to a value that has already been
+truncated.  The count is a Nat here and stays one. -/
+def vlanes1 (w : Nat) (f : BitVec w → BitVec w) (a : BitVec 128) : BitVec 128 :=
+  vlanes1Aux w f a (128 / w)
+
+/-- ⭐⭐⭐ ONE LANE OF A PACKED SHIFT — THE SATURATING COUNT RULE, WHICH IS THE
+WHOLE CONTENT OF THE GROUP (SDM Vol. 2B, PSLLW/PSRLW/PSRAW and their D and Q
+forms).
+
+A count at or above the lane width does NOT wrap and does not shift:
+
+  * a LOGICAL shift, either direction, sets the lane to **all 0s**;
+  * an ARITHMETIC right shift fills the lane with **the initial value of its own
+    sign bit** — all 1s for a negative lane, all 0s for a non-negative one.
+
+⛔⛔ **THE GUARD IS NOT A CONVENIENCE AND IT IS NOT REDUNDANT.**  Lean's own
+`BitVec` shifts already saturate this way, so the two right-shift branches would
+be correct without it — and the LEFT one would not merely be slow, it would
+CRASH.  `x <<< (4294967299 : Nat)` — the exact count `psllw %xmm1,%xmm0` reads
+when the count register's low quadword is 2^32 + 3 — is `INTERNAL PANIC:
+Nat.shiftl exponent is too big`, measured on this toolchain in BOTH TIERS: the
+interpreter (`#eval`) and the KERNEL (`by decide`).  So the guard must
+short-circuit BEFORE the shift, and it is the left shift alone that needs it,
+which is exactly the asymmetry that would let a partial repair look complete:
+every `psrl`/`psra` vector would pass while `psll` at a large register count
+took down the build.  `scripts/shift_guard_redprobe.sh` plants the unguarded
+spelling and requires the panic — it cannot be a Lean red arm, because a
+declaration that panics kills the process rather than failing to elaborate.
+
+⚠️ Written uniformly over the three operations even though two do not need it,
+because the SDM states the rule for all three and the code is where a reader
+looks for it.  A guard present only where it is load-bearing would read as an
+optimisation rather than as the architecture. -/
+def vshiftLane (op : VShiftOp) (w : Nat) (x : BitVec w) (cnt : Nat) : BitVec w :=
+  if cnt ≥ w then
+    match op with
+    | .sll | .srl => 0
+    -- all sign bits: `-1` is `allOnes` at every width this is called at.
+    | .sra => if x.msb then -1 else 0
+  else
+    match op with
+    | .sll => x <<< cnt
+    | .srl => x >>> cnt
+    | .sra => x.sshiftRight cnt
+
+/-- The packed shifts.  ⚠️ NO FLAG IS WRITTEN — "Flags Affected: None" for every
+entry in the group, as for `vbinApply`.
+
+⚠️ THE LANE COUNT IS DERIVED FROM THE WIDTH by `vlanes1`, never written here. -/
+def vshiftApply (op : VShiftOp) (w : VShiftW) (a : BitVec 128) (cnt : Nat) :
+    BitVec 128 :=
+  match w with
+  | .w8  => vlanes1 8  (fun x => vshiftLane op 8  x cnt) a
+  | .w16 => vlanes1 16 (fun x => vshiftLane op 16 x cnt) a
+  | .w32 => vlanes1 32 (fun x => vshiftLane op 32 x cnt) a
+  | .w64 => vlanes1 64 (fun x => vshiftLane op 64 x cnt) a
+
+/-- ⭐⭐⭐ `pslldq` / `psrldq` — THE WHOLE-REGISTER BYTE SHIFT, which is not a
+packed operation and does not go through `vlanes1` at all.
+
+⛔ Routing it through the lane combinator would be a claim that the SDM defines
+it lane-wise, which it does not: it crosses every lane boundary by construction.
+That is the same reason `vbinApply` keeps `pxor`/`pand`/`por` out of `vlanes`.
+
+⚠️ THE COUNT IS IN BYTES AND SATURATES AT 16, not at 128.  `pslldq $0x14` zeroes
+the register.  The guard is load-bearing here for the same reason it is in
+`vshiftLane`, one step weaker: an immediate count cannot exceed 255, so
+`8 * cnt` cannot reach the panic — but without the guard a count of 16..255
+would still be a shift of 128..2040 bits, which Lean's `BitVec` truncates to the
+right answer by luck rather than by the rule being written down. -/
+def vshiftdqApply (left : Bool) (a : BitVec 128) (cnt : Nat) : BitVec 128 :=
+  if cnt > 15 then 0
+  else if left then a <<< (8 * cnt) else a >>> (8 * cnt)
+
 /-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
 Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
 get a packed operation wrong is to reach for `BinKind`'s flag machinery by
@@ -493,6 +584,51 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vmovsst sz ea src =>
       let a := ea.addr s nr
       (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+
+  -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
+  -- shifted lane-wise by ONE count; "Flags Affected: None".
+  --
+  -- ⛔ THE UNENCODABLE PAIRS ARE REFUSED HERE, in the shape `bitcnt` uses: a
+  -- form with no encoding is `illegalOperands`, not a silent fallthrough, so the
+  -- fidelity table cannot file a form this model has no opcode for as covered.
+  -- `vshiftEncodable` is the table and `Tests/Coverage.lean` asserts its exact
+  -- declined set.
+  | .vshifti op w dst cnt =>
+      if !(vshiftEncodable op w) then
+        s.halt (.illegalOperands
+          "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        (s.setXmm dst (vshiftApply op w (s.getXmm dst) cnt.toNat)).setRip nr
+
+  -- ⚠️ `.toNat` OF THE LOW QUADWORD, NOT OF A TRUNCATED BYTE.  The count is all
+  -- sixty-four bits (SDM Vol. 2B: "COUNT ← SRC[63:0]"), which is why
+  -- `vshiftLane`'s guard has to survive a Nat of that size rather than merely be
+  -- correct on small ones.
+  | .vshiftx op w dst src =>
+      if !(vshiftEncodable op w) then
+        s.halt (.illegalOperands
+          "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let cnt := ((s.getXmm src).setWidth 64).toNat
+        (s.setXmm dst (vshiftApply op w (s.getXmm dst) cnt)).setRip nr
+
+  -- ⚠️ NO ALIGNMENT CHECK, unlike `vload` one screen up.  The SDM states no
+  -- alignment requirement for the shift forms, so there is no `#GP` branch to
+  -- write — the absence is the rule (`Op.vshiftm`).
+  | .vshiftm op w dst ea =>
+      if !(vshiftEncodable op w) then
+        s.halt (.illegalOperands
+          "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let a := ea.addr s nr
+        let cnt := ((s.readMem128 a).setWidth 64).toNat
+        (s.setXmm dst (vshiftApply op w (s.getXmm dst) cnt)).setRip nr
+
+  -- ⭐ `pslldq` / `psrldq`: the WHOLE REGISTER, by BYTES.  No lane width, no
+  -- encodability table — both forms exist and the only count shape is the
+  -- immediate.
+  | .vshiftdq left dst cnt =>
+      (s.setXmm dst (vshiftdqApply left (s.getXmm dst) cnt.toNat)).setRip nr
 
   | .vstore k ea src =>
       let a := ea.addr s nr

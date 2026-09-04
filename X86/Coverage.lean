@@ -667,6 +667,63 @@ acc,imm · rh"
   , { mnemonic := "movsd",
       shapes := "x,x (64b, upper MERGED) · x,m (upper ZEROED) · m,x",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVSD" }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
+  --
+  -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
+  -- match `claimsMemDest` (whose notation for a written memory operand is the
+  -- `m(` prefix) or `claimsMemDestLoose` (`m,r`), and they do not — the shift
+  -- forms have no memory-destination encoding at all.
+  --
+  -- ⛔ THE `shapes` COLUMN IS KERNEL-REDUCED CHARACTER BY CHARACTER (~5 ms each,
+  -- and it has refused a batch over exactly that twice — D94, D102).  Every one
+  -- of these ten rows carries the SAME 15-character shape string or a
+  -- 3-character one, and the whole saturation rule — the content of the group —
+  -- lives in `note`, which no predicate reads.
+  , { mnemonic := "psllw",
+      shapes := "x,i · x,x · x,m",
+      note := "8 lanes of 16 bits; count ≥ 16 ⇒ all 0s, it does not wrap; the x,x and x,m count is the full 64 bits",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLW" }
+  , { mnemonic := "pslld",
+      shapes := "x,i · x,x · x,m",
+      note := "4 lanes of 32 bits; count ≥ 32 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLD" }
+  , { mnemonic := "psllq",
+      shapes := "x,i · x,x · x,m",
+      note := "2 lanes of 64 bits; count ≥ 64 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLQ" }
+  , { mnemonic := "psrlw",
+      shapes := "x,i · x,x · x,m",
+      note := "8 lanes of 16 bits, zeroes shifted in; count ≥ 16 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLW" }
+  , { mnemonic := "psrld",
+      shapes := "x,i · x,x · x,m",
+      note := "4 lanes of 32 bits, zeroes shifted in; count ≥ 32 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLD" }
+  , { mnemonic := "psrlq",
+      shapes := "x,i · x,x · x,m",
+      note := "2 lanes of 64 bits, zeroes shifted in; count ≥ 64 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLQ" }
+  -- ⛔ THE ARITHMETIC PAIR, AND THERE IS NO THIRD.  `psraq` is EVEX-only, which
+  -- is why `vshiftEncodable` has a row for it and this table does not.
+  , { mnemonic := "psraw",
+      shapes := "x,i · x,x · x,m",
+      note := "8 lanes of 16 bits, the lane's own sign bit shifted in; count ≥ 16 ⇒ every bit of the lane is that sign bit",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAW" }
+  , { mnemonic := "psrad",
+      shapes := "x,i · x,x · x,m",
+      note := "4 lanes of 32 bits, the lane's own sign bit shifted in; count ≥ 32 ⇒ every bit of the lane is that sign bit; no psraq exists outside AVX-512",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAD" }
+  -- ⛔ AND THE TWO THAT ARE NOT PACKED AT ALL: one 128-bit register, shifted by
+  -- whole BYTES, across every lane boundary.  Immediate count only — the SDM
+  -- gives no other shape, and the corpus uses no other.
+  , { mnemonic := "pslldq",
+      shapes := "x,i",
+      note := "the WHOLE 128-bit register, by BYTES, not lane-wise; count > 15 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLDQ" }
+  , { mnemonic := "psrldq",
+      shapes := "x,i",
+      note := "the WHOLE 128-bit register, by BYTES, not lane-wise; count > 15 ⇒ all 0s",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLDQ" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

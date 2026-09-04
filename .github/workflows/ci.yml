@@ -121,6 +121,20 @@ jobs:
       - name: Shared-reduction red probe (7 conjuncts + control)
         run: ./scripts/sharing_redprobe.sh
 
+      # ⭐⭐⭐ P2 BATCH 13. `vshiftLane`'s `cnt ≥ w` guard has TWO reasons and only
+      # one of them is a theorem: the SDM's saturation rule, which
+      # Tests/Coverage.lean asserts, and the fact that the unguarded LEFT shift
+      # takes the toolchain down at a count a register operand can hold
+      # (`INTERNAL PANIC: Nat.shiftl exponent is too big`, in the interpreter AND
+      # in the kernel). A declaration that panics cannot be a red arm inside Lean
+      # -- it kills the process rather than failing to elaborate -- so it is a
+      # probe, and the probe PLANTS the unguarded spelling instead of describing
+      # it. The held-out arm is the one that matters: the two RIGHT shifts
+      # saturate quietly at any count, so removing the guard is invisible to
+      # every psrl/psra vector and a partial removal would look like a pass.
+      - name: Packed-shift count guard, driven red (2 red arms + control + held out)
+        run: ./scripts/shift_guard_redprobe.sh
+
       # ⭐⭐ P2 ITEM 1 (D70, D71, D72). Four theorems landed with the segment
       # base, and each of them is the kind that can be green because it is EMPTY
       # rather than because it is true: an AST walk with a `_ => []` default, a

@@ -44,6 +44,28 @@ import sys, os, re, json, subprocess, tempfile, collections, argparse
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
 
+# ⛔⛔ THE BYTE-COLUMN PARSE IS IMPORTED, NOT REWRITTEN, AND THAT IS THE WHOLE
+# REPAIR OF D106.  This file used to carry its OWN copy of the objdump parse —
+# `re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)', line)` — written before
+# `check_encodings.parse_objdump` existed and never revisited after it did.
+#
+# The two agreed at birth.  Then D83 and its Linux follow-up fixed the ORIGINAL
+# twice — the final byte abutting the tab, and GNU objdump's SEVEN-BYTE WRAP —
+# and the copy here received neither, because nothing held them together.  ⇒ 🔑
+# A DUPLICATE BORN IN AGREEMENT DIVERGES ON THE NEXT ORDINARY REPAIR, AND THE
+# ONE THAT MATTERS IS THE ONE ON THE PATH THAT REPORTS SUCCESS: the fixed copy
+# was in a gate that had been green for weeks, and the stale copy was in the gate
+# master CI had never reached (D104).
+#
+# ⚠️ MEASURED, NOT INFERRED.  With GNU binutils' objdump on PATH this file's own
+# copy read `cmp_rip_q` — ELEVEN bytes, the widest non-exempt vector in the
+# table — as its first SEVEN, and reported "1 vector(s) resolve to NO roster
+# row", which is exactly what the runner said.  With Apple LLVM's objdump the
+# same vector resolves, which is why forty-nine commits of local green said
+# nothing about it.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_encodings import parse_objdump
+
 # ---------------------------------------------------------------- the roster
 
 def load_roster(path="p1/roster.tsv"):
@@ -182,6 +204,51 @@ CLAIMS_NO_ROW = {
     "punpckhwd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "punpckhdq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "punpckhqdq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ P2 VECTOR WAVE, BATCH 13 — the packed shift group, exempted for the
+    # reason every SIMD vector before it is: the P1 roster is DERIVED from K's
+    # non-SIMD forms and excludes xmm operands, so a shift vector has no P1 row
+    # to resolve to and is counted in the P2 roster instead.  ⚠️ Added in the
+    # SAME COMMIT as the vectors: this list is the one D104 found three commits
+    # stale, and the gate that reads it had never run on master.
+    "psllw_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllw_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllw_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pslld_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pslld_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pslld_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pslld_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllq_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllq_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllq_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psllq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlw_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlw_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlw_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrld_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrld_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrld_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrld_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlq_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlq_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlq_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrlq_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psraw_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psraw_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psraw_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psraw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrad_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrad_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrad_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrad_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pslldq_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pslldq_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrldq_i": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrldq_isat": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrad_x2x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psrld_i_x4": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "psraw_m_disp": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⛔ P2 BATCH 10 (the move family) LANDED WITHOUT THESE SIXTEEN, and
     # nothing said so for three commits: `claimed_forms.py --check` is the
@@ -435,19 +502,16 @@ def assemble(items, tag, pads=None):
                        capture_output=True, text=True)
     if d.returncode != 0:
         print("⛔ objdump failed:\n" + d.stderr[:2000]); sys.exit(2)
-    labels, by_addr = {}, {}
-    for line in d.stdout.splitlines():
-        m = re.match(r'^([0-9a-f]+) <([^>]+)>:', line.strip())
-        if m:
-            labels[m.group(2)] = int(m.group(1), 16); continue
-        m = re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)', line)
-        if m:
-            by_addr[int(m.group(1), 16)] = "".join(m.group(2).split())
+    # ⭐ ONE PARSER FOR BOTH DISASSEMBLERS, and it is the one with the tests.
+    # `parse_objdump` folds GNU objdump's wrapped continuation lines under an
+    # ADDRESS-ARITHMETIC guard and carries its own always-on selftest over a GNU
+    # sample, an LLVM sample and a sample that can only be read by the guard.
+    labels, by_addr = parse_objdump(d.stdout)
     got, lost = {}, []
     for j in alive:
         lbl = f"{tag}{j}"
         if lbl in labels and labels[lbl] in by_addr:
-            got[j] = by_addr[labels[lbl]]
+            got[j] = "".join(by_addr[labels[lbl]])
         else:
             lost.append(j)
     if lost:
@@ -1411,7 +1475,20 @@ def main():
             f"{len(still_declined)} row(s) are recorded as both DECLINED and "
             f"UNBLOCKED: " + ", ".join(f"{b} {sh}" for b, sh in still_declined))
     if unres_real:
-        findings.append(f"{len(unres_real)} vector(s) resolve to NO roster row")
+        # ⛔⛔ IT NAMES THEM NOW, AND THE COUNT ALONE COST A DIAGNOSIS.  Every
+        # other finding in this list names its subjects; this one printed a bare
+        # `1 vector(s)` — and when master CI finally reached this gate (D104
+        # cleared the step that had hidden it for 36 runs) the failure was a
+        # LINUX-ONLY one, so the seat could not reproduce it and had nothing but
+        # a number to go on.  ⇒ 🔑 A GATE THAT REFUSES MUST SAY WHAT IT SAW: a
+        # remote red that names nothing turns into a local re-run that measures a
+        # different machine.  The BYTES are printed beside the id because the
+        # suspected cause is a byte-column parse, and a length that disagrees
+        # with the vector's own is the whole evidence.
+        findings.append(
+            f"{len(unres_real)} vector(s) resolve to NO roster row: " +
+            ", ".join(f"{v['id']} ({v['bytes']}, {len(v['bytes']) // 2} bytes)"
+                      for v in sorted(unres_real, key=lambda v: v["id"])[:10]))
     if stale_exempt:
         findings.append(
             f"{len(stale_exempt)} claims-no-row vector(s) now RESOLVE, so the "

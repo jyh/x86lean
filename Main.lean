@@ -297,7 +297,54 @@ def knownDivergences : List KnownDivergence :=
     , note := "D93" }
   , { vec := "movq_to_x", field := "xmm0"
     , source := "K `movq_xmm_r64.k`: concatenateMInt(mi(64,0), …); SDM Vol. 2B MOVQ: DEST[127:64] <- 0"
-    , note := "D93" } ]
+    , note := "D93" }
+  -- ⛔⛔⛔ P2 BATCH 13 (D108) — ACL2 x86isa READS THE PACKED-SHIFT COUNT FROM ALL
+  -- 128 BITS OF THE COUNT REGISTER, where the SDM and K both read SRC[63:0].
+  --
+  -- Found by the differential, not by reading: 8 unexplained disagreements, all
+  -- at the ONE pre-state whose `xmm1` has a small low quadword and a NON-ZERO
+  -- upper one. Isolated to a single bit: flipping one bit of the count
+  -- register's upper quadword — a bit the SDM says is not part of the count —
+  -- flips the oracle's answer from `shift by 3` to `all zeros`.
+  --
+  -- ⭐⭐ AND THE ORACLE CONTRADICTS ITSELF, which is what makes this a finding
+  -- rather than an interpretation. The MEMORY-count shape of the SAME mnemonic,
+  -- given the SAME 128-bit count value, returns the SDM's answer:
+  --     psllw %xmm1,%xmm0   count 0xbfbe…b9b8_0000000000000003  ⇒  0  (wrong)
+  --     psllw (%rbx),%xmm0  the same 128 bits in memory         ⇒  shift by 3
+  -- so x86isa's own memory path already implements the 64-bit rule that its
+  -- register path does not. `vshiftm` is therefore NOT declared here: it agrees,
+  -- and declaring it would be an entry that never diverges — which this channel
+  -- fails, by design.
+  --
+  -- ⚠️ EIGHT ENTRIES AND NOT ONE WILDCARD. The channel names a vector prefix and
+  -- ONE field; a single broad entry would excuse the whole group, including any
+  -- future disagreement about a lane width or a sign fill that has nothing to do
+  -- with the count's width.
+  , { vec := "psllw_x", field := "xmm0"
+    , source := "K `psllw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLW: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "pslld_x", field := "xmm0"
+    , source := "K `pslld_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLD: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "psllq_x", field := "xmm0"
+    , source := "K `psllq_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,63))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLQ: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "psrlw_x", field := "xmm0"
+    , source := "K `psrlw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLW: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "psrld_x", field := "xmm0"
+    , source := "K `psrld_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLD: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "psrlq_x", field := "xmm0"
+    , source := "K `psrlq_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,63))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLQ: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "psraw_x", field := "xmm0"
+    , source := "K `psraw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRAW: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" }
+  , { vec := "psrad_x", field := "xmm0"
+    , source := "K `psrad_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRAD: COUNT <- COUNT_SOURCE[63:0]"
+    , note := "D108" } ]
 
 def divergenceFor (id field : String) : Option KnownDivergence :=
   knownDivergences.find? (fun d => d.vec == id.takeWhile (· != '/') && d.field == field)
@@ -2299,6 +2346,79 @@ def wrongVmovFixedRegisters (i : Instr) (s : Cpu) : Cpu :=
   | .vmov a _ _ => step ⟨.vmov a .x0 .x1, i.len⟩ s
   | _ => step i s
 
+/-- ⛔⛔⛔ P2 BATCH 13, ARM 1 — THE COUNT TAKEN **MODULO** THE LANE WIDTH.
+
+This is the wrong model a reader would actually write, and it is BIT-IDENTICAL
+to the right one at every count below the lane width.  `psrlw $3` cannot tell
+them apart; `psrlw $0x10` can, and the difference is maximal — the SDM says all
+zeros, this says the operand unchanged.
+
+⚠️ IT IS SPELLED AS A REAL SHIFT, not as a `halt`: an arm that refuses is caught
+by the frame and says nothing about the RULE. -/
+def wrongVshiftModuloCount (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vshifti op w dst cnt =>
+      if !(vshiftEncodable op w) then step i s
+      else (s.setXmm dst (vshiftApply op w (s.getXmm dst) (cnt.toNat % w.bits))).setRip nr
+  | .vshiftx op w dst src =>
+      if !(vshiftEncodable op w) then step i s
+      else
+        let c := ((s.getXmm src).setWidth 64).toNat
+        (s.setXmm dst (vshiftApply op w (s.getXmm dst) (c % w.bits))).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 13, ARM 2 — THE COUNT READ AS **EIGHT BITS**, not sixty-four.
+
+`psrad %xmm1,%xmm0` takes SRC[63:0] as its count.  A model that truncated to a
+byte agrees with this one on every count below 256 — and the immediate forms
+CANNOT distinguish it at all, because an `imm8` never exceeds 255.  Only the
+`_x` and `_m` vectors can catch this, which is why the batch has them and why
+`shift_count_reaches_both_regimes` insists the sweep reaches large counts.
+
+⚠️ Deliberately NOT applied to `vshifti`: an arm that is wrong on a shape the
+vectors cannot distinguish would be caught by the OTHER shape and read as
+covering both. -/
+def wrongVshiftLowByteCount (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vshiftx op w dst src =>
+      if !(vshiftEncodable op w) then step i s
+      else
+        let c := ((s.getXmm src).setWidth 8).toNat
+        (s.setXmm dst (vshiftApply op w (s.getXmm dst) c)).setRip nr
+  | .vshiftm op w dst ea =>
+      if !(vshiftEncodable op w) then step i s
+      else
+        let a := ea.addr s nr
+        let c := ((s.readMem128 a).setWidth 8).toNat
+        (s.setXmm dst (vshiftApply op w (s.getXmm dst) c)).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 13, ARM 3 — `pslldq`/`psrldq` MODELLED AS THEIR OPCODE
+NEIGHBOURS.  They share opcode byte `73` with `psllq`/`psrlq` and differ only in
+the ModRM `/r` field, so treating them as a 64-bit-lane shift is the confusion
+the encoding invites — and it also shifts by BITS where the real form shifts by
+BYTES, so the arm is wrong twice in the same direction a careless reading is. -/
+def wrongVshiftdqIsLaneWise (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vshiftdq left dst cnt =>
+      (s.setXmm dst (vshiftApply (if left then .sll else .srl) .w64
+        (s.getXmm dst) cnt.toNat)).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ P2 BATCH 13, ARM 4 — THE ARITHMETIC SHIFT MADE LOGICAL.  `psraw`/`psrad`
+shift the lane's own SIGN BIT in; this shifts zeros.  Invisible at any pre-state
+whose lanes are all non-negative, which is why `xmmPattern`'s high half carries
+`a` and the adversarial sweep reaches negative lanes. -/
+def wrongVshiftAritheticIsLogical (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vshifti .sra w dst cnt =>
+      if !(vshiftEncodable .sra w) then step i s
+      else (s.setXmm dst (vshiftApply .srl w (s.getXmm dst) cnt.toNat)).setRip
+             (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
 /-- ⛔ A PACKED OPERATION THAT WRITES A FLAG — the mistake of reaching for
 `BinKind`'s machinery by analogy. "Flags Affected: None" on every SDM entry in
 the group, so ZF moving at all is a disagreement. -/
@@ -2742,7 +2862,18 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   -- claim: a planted XMM difference must be CAUGHT before one line of vector
   -- semantics is written.
   , ("an XMM register is clobbered (the harness's own red arm)",
-     wrongXmmClobbered, "xmm3") ]
+     wrongXmmClobbered, "xmm3")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS.  Four arms, and the
+  -- first two are the batch: each is a model a careful reader would write, and
+  -- each is bit-identical to the right one over a whole regime of counts.
+  , ("a packed shift takes its count MODULO the lane width",
+     wrongVshiftModuloCount, "xmm0")
+  , ("a packed shift reads only the low BYTE of a register/memory count",
+     wrongVshiftLowByteCount, "xmm0")
+  , ("pslldq/psrldq are modelled as 64-bit-lane bit shifts",
+     wrongVshiftdqIsLaneWise, "xmm0")
+  , ("psraw/psrad shift in zeros instead of the sign bit",
+     wrongVshiftAritheticIsLogical, "xmm0") ]
 
 /-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
 indices name, and `selftest-shards` checks these indices — so the gate exercises
@@ -3439,7 +3570,35 @@ character by character, so a documentation field a kernel-reduced predicate \
 reads is NOT a place for prose — the explanation moved to the AST docstrings \
 and 1,500 ms went with it.  ⛔ The pass is 95% of the ceiling and the next \
 batch crosses again; the margin is written down rather than the verdict \
-(see D101, D102).\n\n\
+(see D101, D102); 11 — THE PACKED SHIFT GROUP, `psllw`/`pslld`/`psllq`, \
+`psrlw`/`psrld`/`psrlq`, `psraw`/`psrad` at THREE COUNT SHAPES each, plus the \
+two whole-register byte shifts `pslldq`/`psrldq`: ten roster rows, 39 vectors, \
+no new state, and worth 32,882 instructions of the assembly class.  ⛔ THE \
+BATCH IS THE SATURATION RULE: a count at or above the lane width does not \
+wrap, it zeroes a logical shift and sign-fills an arithmetic one, and a model \
+taking the count MODULO the lane width is BIT-IDENTICAL to this one at every \
+in-range count — which is every count a casual vector table contains.  The \
+handover asserted the oracle implemented that rule and NO ARTIFACT SAID SO, so \
+three models were run against x86isa in one probe: 42 rows, all 42 agree with \
+the SDM, and 20 of them DISCRIMINATING — the other 22 are printed as pricing \
+NOTHING rather than counted as support.  ⛔⛔ AND THE GUARD HAS A SECOND \
+REASON NO THEOREM CAN STATE: the unguarded LEFT shift at a count a register \
+operand can hold is `INTERNAL PANIC: Nat.shiftl exponent is too big`, in the \
+interpreter AND in the kernel, while both RIGHT shifts saturate quietly at any \
+count — so removing the guard leaves every `psrl`/`psra` vector passing and \
+takes the BUILD down only on `psll`.  A declaration that panics kills the \
+process rather than failing to elaborate, so it is a probe that PLANTS the \
+unguarded spelling, with a held-out arm for the two shifts whose silence is \
+the defect's cover.  ⭐ The AST departs from `VBinKind` — a product with an \
+encodability table rather than the lane in the kind — because the shifts have \
+two HOLES that `VBinKind` never had: no packed byte shift, and no `psraq` \
+outside AVX-512, and the declined set is stated as the four PAIRS rather than \
+as a count.  ⭐⭐ The census and the roster then disagreed by 2,822 and the \
+third fact reconciled them exactly: that many of the group's instructions are \
+MMX-register forms this model has no register file for, so the batch is \
+published at 32,882 and not at the 35,704 the roster ranks — a demand figure \
+and a coverage gain are different quantities whenever the model declines a \
+register file (see D106, D107).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++
