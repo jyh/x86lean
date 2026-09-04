@@ -67,7 +67,7 @@ FORMS = [
     # ⭐ AND A SECOND CONTROL AT THIS BATCH'S OWN FORM, so a run that has stopped
     # seeing memory-operand instructions cannot pass.
     ("CONTROL:cmpxchg8b", "cmpxchg8b (%rbx)", "0fc70b",           "executes"),
-    # ⭐⭐ THE SIX DECLINED ROWS, RECORDED AS **EXECUTES** — and that is the point.
+    # ⭐⭐ THE DECLINED ROWS, RECORDED AS **EXECUTES** — and that is the point.
     #
     # `claimed_forms.py --remaining` puts these in a bucket called "DECLINED by a
     # recorded decision", which is only honest if the decline is a DECISION and
@@ -84,16 +84,30 @@ FORMS = [
     # adversarial list, the effective address leaves the watched window, and an
     # unobserved region reports agreement.
     #
-    # D25 — `xchg` at a memory operand asserts LOCK whether or not it is
-    # written.  ⛔ That decline is about VOCABULARY and this row does not touch
-    # it: a single-threaded model can reproduce every observation this harness
-    # makes and still be wrong about the only thing that distinguishes the
-    # instruction.  **Oracle support is not an argument to un-decline it.**
+    # ⛔⛔ D25's ROW LEFT THIS LIST IN P2 BATCH 23, AND ITS DEPARTURE IS THE
+    # ENTRY WORTH READING.  `xchg` at a memory operand was declined because its
+    # implicit LOCK is an atomicity claim a model with no LOCK vocabulary could
+    # neither make nor break — and this comment used to end *"oracle support is
+    # not an argument to un-decline it."*  It still is not: what un-declined it
+    # was the VOCABULARY (`Ea.lock`, D77), not the measurement in this table.
+    # The row is gone from here because it is CLAIMED now, and a probe that went
+    # on labelling a claimed row `DECLINED:` would be publishing a decision the
+    # repository no longer holds.
+    #
+    # ⚠️ The count in this comment used to be SIX and is now FOUR; it is written
+    # as "the declined rows" rather than a number, because a number in a comment
+    # beside a list is the thing that goes stale while the list is right (D74).
+    # `claimed_forms.DECLINED` is the table, and `claimed_forms --check` is what
+    # holds it to the claimed set.
     ("DECLINED:bt m,r",   "btl %ecx,(%rbx)",   "0fa30b",          "executes"),
     ("DECLINED:bts m,r",  "btsl %ecx,(%rbx)",  "0fab0b",          "executes"),
     ("DECLINED:btr m,r",  "btrl %ecx,(%rbx)",  "0fb30b",          "executes"),
     ("DECLINED:btc m,r",  "btcl %ecx,(%rbx)",  "0fbb0b",          "executes"),
-    ("DECLINED:xchg m,r", "xchgl %ecx,(%rbx)", "870b",            "executes"),
+    # ⭐ AND `xchg` STAYS IN THE RUN AS AN UNLABELLED FORM, because a row that
+    # left the residue is exactly the row whose oracle support somebody will
+    # want to re-check — and because dropping it entirely would shrink the
+    # probe's subject silently.
+    ("CLAIMED:xchg m,r",  "xchgl %ecx,(%rbx)", "870b",            "executes"),
 ]
 
 CASES = "run/cases.lsp"
@@ -102,9 +116,14 @@ def pre_states():
     """The real pre-states, taken from the emitted differential cases.  ⚠️ NOT a
     fresh set written here: a probe on states the differential does not use
     would answer a question nobody asked."""
-    if not os.path.exists(CASES):
-        subprocess.run(["lake", "env", ".lake/build/bin/x86lean-diff",
-                        "emit-acl2", CASES], check=True, capture_output=True)
+    # ⛔⛔ P2 ITEM 2: ALWAYS RE-EMIT.  This read `if not os.path.exists(CASES)`,
+    # so the probe used whatever `run/cases.lsp` happened to be on disk — an
+    # artifact of a PREVIOUS run, in a possibly older record format, describing
+    # pre-states the current model does not emit.  A gate that reuses a stale
+    # input reports about a subject nobody chose, and says nothing about which.
+    # Re-emitting costs a couple of seconds against a six-second gate.
+    subprocess.run(["lake", "env", ".lake/build/bin/x86lean-diff",
+                    "emit-acl2", CASES], check=True, capture_output=True)
     lines = open(CASES).read().splitlines(True)
     cases, cur = [], None
     for l in lines:
@@ -133,9 +152,22 @@ def rewrite(case, i, tag, hexbytes):
     # ones this case had and append the rest.
     def repl(m):
         return " ".join("(#x%016x . %s)" % (0x400000 + k, b[k]) for k in range(len(b)))
-    c[4] = re.sub(r'\(#x0000000000400000 \. #x[0-9a-f]{2}\)(?: \(#x00000000004000[0-9a-f]{2} \. #x[0-9a-f]{2}\))*',
-                  repl, c[4], count=1)
-    if "#x%016x" % (0x400000 + len(b) - 1) not in c[4]:
+    # ⛔⛔ P2 ITEM 2: THE `:mem` LINE IS FOUND BY CONTENT, NOT BY INDEX.  This
+    # said `c[4]`, and `c[4]` was the `:mem` line until P2 batch 1 inserted a
+    # `:fsbase`/`:gsbase` line into the record — after which `c[4]` is `:rflags`
+    # and every rewrite silently placed no bytes at all.
+    # ⇒ 🔑 A POSITIONAL INDEX INTO A RECORD IS A BET THAT THE RECORD WILL NOT
+    # GROW, and this repository has now lost that bet twice: P2 batch 1's own
+    # oracle run read twelve results off their POSITION because the labels were
+    # not emitting.  Same defect, one layer up, six hours apart.
+    mem_i = next((k for k, l in enumerate(c) if l.lstrip().startswith(":mem ")), None)
+    if mem_i is None:
+        print("⛔ no `:mem` line in the case record for %s — the emitted format "
+              "changed and this rewrite cannot find its subject." % tag)
+        sys.exit(2)
+    c[mem_i] = re.sub(r'\(#x0000000000400000 \. #x[0-9a-f]{2}\)(?: \(#x00000000004000[0-9a-f]{2} \. #x[0-9a-f]{2}\))*',
+                      repl, c[mem_i], count=1)
+    if "#x%016x" % (0x400000 + len(b) - 1) not in c[mem_i]:
         print("⛔ could not place %d instruction bytes at RIP for %s" % (len(b), tag))
         sys.exit(2)
     return "".join(c)

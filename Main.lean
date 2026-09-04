@@ -2068,6 +2068,76 @@ def wrongSegStoreUnsegmented (i : Instr) (s : Cpu) : Cpu :=
         (s.writeMem sz (ea.offset s nr) v).setRip nr
   | _ => step i s
 
+/-! ### ⭐⭐ P2 ITEM 2 (BATCH 23) — the LOCK vocabulary's four planted defects
+
+⛔ THE HARD PART OF THIS BATCH IS THAT LOCK HAS NO ARITHMETIC.  A single-step,
+single-threaded semantics computes exactly the same result locked or unlocked,
+so `lock addq %rcx, (%rbx)` and `addq %rcx, (%rbx)` are the same function and no
+arm can distinguish a model that "implements LOCK" from one that ignores it in
+the value channel.  What IS observable is the two edges: the forms the prefix
+makes ILLEGAL, and the form the vocabulary UN-DECLINED.  All four arms live on
+those edges, and each leaves the other three claims correct.
+
+⚠️ AND TWO OF THEM MOVE THE LOCKABLE LIST IN OPPOSITE DIRECTIONS, deliberately.
+A widened list and a narrowed one are caught by DIFFERENT vectors — the widened
+one by `lock_mov_m_q_ud`, the narrowed one by `lock_xadd_m_q` and its siblings —
+so neither can stand in for the other. -/
+
+/-- ⛔ THE PREFIX IS IGNORED ENTIRELY: no form is #UD, so `lock movq %rax,(%rbx)`
+stores instead of faulting.  The model this batch was most likely to have
+shipped, because the value channel gives no reason to write the rule at all. -/
+def wrongLockIgnored (i : Instr) (s : Cpu) : Cpu :=
+  let strip (e : Ea) : Ea := { e with lock := false }
+  let stripOp (o : Operand) : Operand :=
+    match o with | .mem e => .mem (strip e) | x => x
+  match i.op with
+  | .mov sz d src => step ⟨.mov sz (stripOp d) (stripOp src), i.len⟩ s
+  | .bin k sz d src => step ⟨.bin k sz (stripOp d) (stripOp src), i.len⟩ s
+  | .un k sz d => step ⟨.un k sz (stripOp d), i.len⟩ s
+  | .bit k sz d off => step ⟨.bit k sz (stripOp d) (stripOp off), i.len⟩ s
+  | .lea sz d ea => step ⟨.lea sz d (strip ea), i.len⟩ s
+  | _ => step i s
+
+/-- ⛔ THE LOCKABLE LIST IS WIDENED to "anything with a memory destination" —
+the derivation `Op.lockable`'s note says a reader would reach for, and which
+quietly admits `mov`, the shifts and `cmp`.  Caught by the #UD vector. -/
+def wrongLockableIsAnyMemDest (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .mov sz d src =>
+      if d.isMem then
+        let strip (o : Operand) : Operand :=
+          match o with | .mem e => .mem { e with lock := false } | x => x
+        step ⟨.mov sz (strip d) (strip src), i.len⟩ s
+      else step i s
+  | _ => step i s
+
+/-- ⛔ THE LOCKABLE LIST IS NARROWED: the read-modify-write pair `xadd` and
+`cmpxchg8b` fall off it, so their LEGAL locked forms fault.  The opposite
+direction from the arm above, and caught by different vectors. -/
+def wrongLockableOmitsRmw (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .xadd _ dst _ =>
+      if dst.isMem && (X86.Op.eas i.op).any Ea.lock then
+        s.halt (.byDesign "lock prefix on a form the SDM does not permit it on (#UD)")
+      else step i s
+  | .cmpxchg8b dst =>
+      if dst.isMem && (X86.Op.eas i.op).any Ea.lock then
+        s.halt (.byDesign "lock prefix on a form the SDM does not permit it on (#UD)")
+      else step i s
+  | _ => step i s
+
+/-- ⛔ `xchg` AT MEMORY STILL REFUSES — the model as it stood before this batch.
+It is the arm that proves the un-decline is OBSERVED rather than merely written:
+without a vector at that shape, deleting D25's decline would have changed
+nothing any gate could see. -/
+def wrongXchgMemStillRefuses (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .xchg _ a b =>
+      if a.isMem || b.isMem then
+        s.halt (.unimplemented "xchg with a memory operand (implicit LOCK)")
+      else step i s
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -2225,7 +2295,17 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("lea adds the segment base (the split that is the whole item)",
      wrongLeaAddsSegBase, "rax")
   , ("a segmented STORE lands at the effective address", wrongSegStoreUnsegmented,
-     "mem@0000000000001fe0") ]
+     "mem@0000000000001fe0")
+  -- ⭐⭐ P2 ITEM 2 (BATCH 23) — the LOCK vocabulary.  Four arms on the two
+  -- OBSERVABLE edges (which forms are #UD, and the un-declined `xchg`), because
+  -- the value channel cannot distinguish locked from unlocked at all.
+  , ("the lock prefix is ignored, so an illegal lock executes", wrongLockIgnored,
+     "mem@0000000000001fe0")
+  , ("the lockable list is widened to any memory destination",
+     wrongLockableIsAnyMemDest, "mem@0000000000001fe0")
+  , ("the lockable list drops xadd and cmpxchg8b", wrongLockableOmitsRmw, "refused")
+  , ("xchg at memory still refuses (the model before this batch)",
+     wrongXchgMemStillRefuses, "refused") ]
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -2263,9 +2343,18 @@ def main (args : List String) : IO UInt32 := do
   -- byte half alone against 0.4 s for the AST half).  Reading a string is what
   -- Python is for; deciding a `match` is exhaustive is what the compiler is for.
   | ["segment-decls", out] =>
+      -- ⭐ P2 ITEM 2 ADDED THE THIRD COLUMN.  The LOCK prefix has exactly the
+      -- shape the segment override had — an AT&T token, a prefix byte, and an
+      -- AST field — and it acquired the same three-source cross-check for the
+      -- same reason, plus one this batch found the hard way: objdump prints
+      -- `f0` as its OWN instruction line, so an ungated harness reads a locked
+      -- vector as a one-byte instruction and a model that DROPPED the prefix
+      -- would agree with that reading.
       writeLines out (vectors.map (fun v =>
-        let segs := (X86.segEas v.instr).filterMap Ea.seg
-        s!"{v.id} {match segs with | [] => "-" | g :: _ => g.name}"))
+        let eas := X86.Op.eas v.instr.op
+        let segs := eas.filterMap Ea.seg
+        s!"{v.id} {match segs with | [] => "-" | g :: _ => g.name} \
+{if eas.any Ea.lock then "lock" else "-"}"))
       return 0
   | ["compare", a, b] =>
       let ra := parseRecords (← readLines a)
@@ -2468,7 +2557,7 @@ cases identical, 0 oracle leaks)"
       let (e, f, ab) := tierCounts tableP0
       let hdr := "<!-- GENERATED by `lake exe x86lean-diff coverage`. Do not edit by hand. -->\n\n\
 # x86lean coverage\n\n\
-Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **498 of the 525 rows** in `p1/roster.tsv` — which are **350 of the 374 distinct machine forms** those rows describe, because 149 rows are alias SPELLINGS or narrowings of another row (`jz` for `je`, `sal` for `shl`, `stos m` for `stos -`, `cmp m,label` for `cmp m,imm`) and 2 describe no encoding at all. Of the 498, **374 are spelled by a vector** and 124 are the same encoding under a different spelling. ⭐ ALL SIX NUMBERS ARE DERIVED, by `scripts/claimed_forms.py`, and gated in CI; until P1 batch 19 the first was a hand-maintained literal and it was SIXTEEN LOW.\n\n\
+Roster: " ++ toString rosterSize ++ " mnemonics in " ++ toString vectors.length ++ " differentially tested forms, covering **500 of the 525 rows** in `p1/roster.tsv` — which are **351 of the 374 distinct machine forms** those rows describe, because 149 rows are alias SPELLINGS or narrowings of another row (`jz` for `je`, `sal` for `shl`, `stos m` for `stos -`, `cmp m,label` for `cmp m,imm`) and 2 describe no encoding at all. Of the 500, **375 are spelled by a vector** and 125 are the same encoding under a different spelling. ⭐ ALL SIX NUMBERS ARE GATED — `scripts/claimed_forms.py` DERIVES them from two independent sources (every vector's own AT&T text and every roster row's own encoding, assembled by clang) and CI fails if this sentence disagrees. ⚠️ They are written here and CHECKED there, not computed here: this sentence said `ARE DERIVED` until P2 batch 23, which is the stronger word and was not true of the literals in front of it. Until P1 batch 19 the first was neither derived nor gated, and it was SIXTEEN LOW.\n\n\
 P0 shipped twenty scalar mnemonics. P1 has added, by batch: 1 — AND/OR/XOR to a \
 register at every width and shape; 2 — ADC/SBB, the first forms whose RESULT \
 reads a flag; 3 — CMP/TEST at every operand shape, the first memory operand in \
@@ -2622,7 +2711,26 @@ kernel time, almost all of it `String.toList` over 784 literals, and the \
 ceiling's refusal replaced it with an EXHAUSTIVE `Op` match — the compiler \
 answers completeness now, for every constructor rather than only the ones some \
 vector uses — plus a three-source cross-check in the assembler gate (see D70, \
-D71, D72, D73, D74).\n\n\
+D71, D72, D73, D74); 2 — THE LOCK VOCABULARY, the second of the Captain's three \
+additions and the one whose value is in what it UNBLOCKS rather than in its own \
+frequency.  `Ea.lock`, `Op.lockable` — the SDM's nineteen-mnemonic list, \
+TRANSCRIBED and not inferred, because a list derived from `the \
+memory-destination forms we have` would have admitted `mov`, the shifts and \
+every `cmp` — and ONE well-formedness test in `step`.  ⭐ It UN-DECLINES `xchg` \
+at a memory operand: D25 refused that shape because its implicit LOCK is an \
+atomicity claim a model with no vocabulary for it could neither make nor break, \
+and the roster goes 498 -> 500 rows.  ⛔ THE ROSTER SAID IT WOULD UNBLOCK SIX \
+ROWS AND IT UNBLOCKS TWO: the other four are D23's signed BIT-STRING shape, \
+which no LOCK vocabulary touches, and that false sentence sat inside a document \
+CI re-derives byte-for-byte — a derivation gate is a wrapper a false sentence \
+can sit inside (D76).  ⛔ AND THE BATCH HAS NO ARITHMETIC: `lock addq` and \
+`addq` are the same function in a single-step semantics, so what is observable \
+is the two EDGES — which forms the prefix makes #UD, and the form it \
+un-declined — and all four planted arms live there, two of them moving the \
+lockable list in OPPOSITE directions.  The harness needed teaching too: objdump \
+prints `f0` as its OWN instruction line, so a locked vector read as a ONE-BYTE \
+instruction, and a model that silently DROPPED the prefix would have agreed \
+with that one byte (D79) (see D76, D77, D78, D79).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

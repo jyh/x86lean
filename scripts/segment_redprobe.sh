@@ -115,8 +115,8 @@ ANCHORS=(
 
 missing=0
 for a in "${ANCHORS[@]}"; do
-  if ! grep -qF -- "$a" Tests/Coverage.lean X86/Coverage.lean; then
-    echo "⛔ SEGMENT RED PROBE REFUSES — this arm's subject is in neither Tests/Coverage.lean nor X86/Coverage.lean:"
+  if ! grep -qF -- "$a" Tests/Coverage.lean X86/Coverage.lean X86/Syntax.lean; then
+    echo "⛔ SEGMENT RED PROBE REFUSES — this arm's subject is in none of Tests/Coverage.lean, X86/Coverage.lean, X86/Syntax.lean:"
     echo "     $a"
     missing=1
   fi
@@ -129,9 +129,9 @@ fi
 
 # ⭐ AND THE ANCHOR CHECK IS PROVEN TO FIRE, in the same run: an anchor list that
 # silently matched nothing would be the defect it exists to prevent.
-if grep -qF -- 'theorem segmentedAddressesAreCanonicalXX' Tests/Coverage.lean X86/Coverage.lean; then
+if grep -qF -- 'theorem segmentedAddressesAreCanonicalXX' Tests/Coverage.lean X86/Coverage.lean X86/Syntax.lean; then
   echo "⛔ the anchor self-test found a string that cannot exist."; exit 2; fi
-if ! grep -qF -- "${ANCHORS[0]}" Tests/Coverage.lean X86/Coverage.lean; then
+if ! grep -qF -- "${ANCHORS[0]}" Tests/Coverage.lean X86/Coverage.lean X86/Syntax.lean; then
   echo "⛔ the anchor self-test cannot find a string it just matched."; exit 2; fi
 
 OUT="$TMP/out.txt"
@@ -148,7 +148,7 @@ if grep -q "declaration uses 'sorry'" "$OUT"; then
   exit 1
 fi
 echo "✔ segment red probe: 4 arms + 1 positive control, all PASS."
-echo "  ${#ANCHORS[@]} anchors: every planted subject OCCURS in the shipped Tests/ or X86/ Coverage.lean"
+echo "  ${#ANCHORS[@]} anchors: every planted subject OCCURS in the shipped Tests/Coverage, X86/Coverage or X86/Syntax"
 echo "  s1 the AST extraction loses .mov           -> the segmented COUNT moves"
 echo "  s2 the extraction loses its seg filter     -> the count moves the other way"
 echo "  s3 a non-canonical segment base            -> canonicity claim goes false"

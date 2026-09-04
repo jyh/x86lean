@@ -2223,6 +2223,89 @@ def vectors : List Vec :=
   , { id := "lea_fs_abs_q", mnemonic := "lea", asm := "leaq %fs:0x28, %rax"
     , bytes := "64488d042528000000"
     , instr := ⟨.lea .q .rax { disp := 0x28, seg := some .fs }, 9⟩ }
+  -- ⭐⭐⭐ P2 ITEM 2 (BATCH 23): THE LOCK VOCABULARY.  Two things at once, and
+  -- they are worth separating because only one of them is a new instruction.
+  --
+  -- (1) THE UN-DECLINED `xchg` AT MEMORY.  D25 refused it because its implicit
+  -- LOCK is an atomicity claim the model had no vocabulary for; `Ea.lock` is
+  -- that vocabulary, so the form executes and the two roster rows come back.
+  -- ⚠️ NO `lock := true` HERE: `xchg` at memory asserts LOCK whether or not the
+  -- prefix is written (SDM Vol. 2A, XCHG), so the flag would be recording a
+  -- prefix the encoding does not carry — the bytes are `48 87 03`, no `f0`.
+  , { id := "xchg_m_q", mnemonic := "xchg", asm := "xchgq %rax, (%rbx)"
+    , bytes := "488703", instr := ⟨.xchg .q (M .rbx) (R .rax), 3⟩ }
+  , { id := "xchg_m_d", mnemonic := "xchg", asm := "xchgl %eax, (%rbx)"
+    , bytes := "8703", instr := ⟨.xchg .d (M .rbx) (R .rax), 2⟩ }
+  , { id := "xchg_m_b", mnemonic := "xchg", asm := "xchgb %al, (%rbx)"
+    , bytes := "8603", instr := ⟨.xchg .b (M .rbx) (R .rax), 2⟩ }
+  , { id := "xchg_m_w", mnemonic := "xchg", asm := "xchgw %ax, (%rbx)"
+    , bytes := "668703", instr := ⟨.xchg .w (M .rbx) (R .rax), 3⟩ }
+  -- (2) THE PREFIX ITSELF, on eight of the nineteen forms the SDM lists.  Each
+  -- computes exactly what its unlocked sibling computes — that is the point:
+  -- a single-step semantics has no observation that distinguishes atomic from
+  -- non-atomic, so what these vectors test is the DECODE-to-AST path and the
+  -- well-formedness rule, not a new arithmetic.
+  , { id := "lock_inc_m_d", mnemonic := "inc", asm := "lock incl (%rbx)"
+    , bytes := "f0ff03", instr := ⟨.un .inc .d (.mem { base := some .rbx, lock := true }), 3⟩ }
+  , { id := "lock_dec_m_d", mnemonic := "dec", asm := "lock decl (%rbx)"
+    , bytes := "f0ff0b", instr := ⟨.un .dec .d (.mem { base := some .rbx, lock := true }), 3⟩ }
+  , { id := "lock_add_m_q", mnemonic := "add", asm := "lock addq %rcx, (%rbx)"
+    , bytes := "f048010b"
+    , instr := ⟨.bin .add .q (.mem { base := some .rbx, lock := true }) (R .rcx), 4⟩ }
+  , { id := "lock_or_m_q", mnemonic := "or", asm := "lock orq %rcx, (%rbx)"
+    , bytes := "f048090b"
+    , instr := ⟨.bin .or .q (.mem { base := some .rbx, lock := true }) (R .rcx), 4⟩ }
+  , { id := "lock_not_m_q", mnemonic := "not", asm := "lock notq (%rbx)"
+    , bytes := "f048f713", instr := ⟨.un .not .q (.mem { base := some .rbx, lock := true }), 4⟩ }
+  , { id := "lock_neg_m_q", mnemonic := "neg", asm := "lock negq (%rbx)"
+    , bytes := "f048f71b", instr := ⟨.un .neg .q (.mem { base := some .rbx, lock := true }), 4⟩ }
+  , { id := "lock_bts_m_q", mnemonic := "bts", asm := "lock btsq $3, (%rbx)"
+    , bytes := "f0480fba2b03"
+    , instr := ⟨.bit .bts .q (.mem { base := some .rbx, lock := true }) (.imm 3), 6⟩ }
+  , { id := "lock_xadd_m_q", mnemonic := "xadd", asm := "lock xaddq %rcx, (%rbx)"
+    , bytes := "f0480fc10b"
+    , instr := ⟨.xadd .q (.mem { base := some .rbx, lock := true }) .rcx, 5⟩ }
+  , { id := "lock_cmpxchg_m_q", mnemonic := "cmpxchg", asm := "lock cmpxchgq %rcx, (%rbx)"
+    , bytes := "f0480fb10b"
+    , instr := ⟨.cmpxchg .q (.mem { base := some .rbx, lock := true }) .rcx, 5⟩ }
+  , { id := "lock_cmpxchg8b_m", mnemonic := "cmpxchg8b", asm := "lock cmpxchg8b (%rbx)"
+    , bytes := "f00fc70b"
+    , instr := ⟨.cmpxchg8b (.mem { base := some .rbx, lock := true }), 4⟩ }
+  -- ⛔⛔ (3) THE #UD ARM, AND IT IS THE ONE THIS BATCH IS ABOUT.  `mov` is NOT on
+  -- the SDM's lockable list and `lock movq %rax, (%rbx)` is #UD on silicon — and
+  -- it is the form a reader most expects to be lockable, because it looks
+  -- exactly like the atomic store somebody wants.  The assembler accepts it, so
+  -- it can be a vector; the model halts; x86isa raises #UD; the comparator's
+  -- `refused` channel is where they meet.
+  --
+  -- ⚠️ AGREEMENT WHERE BOTH MODELS REFUSE IS AGREEMENT ABOUT NOTHING (batch 20),
+  -- so the CONTROL is in the same run and was already there: `mov_mr`
+  -- (`movq %rax, (%rbx)`, same operands, no prefix) EXECUTES in all 86 cases.
+  -- The pair is what makes this row evidence rather than silence.
+  , { id := "lock_mov_m_q_ud", mnemonic := "mov", asm := "lock movq %rax, (%rbx)"
+    , bytes := "f0488903"
+    , instr := ⟨.mov .q (.mem { base := some .rbx, lock := true }) (R .rax), 4⟩ }
+  -- ⭐⭐ TWO MORE #UD ROWS, AND THEY ARE HERE BECAUSE THE FIRST SELFTEST RUN
+  -- SHOWED TWO ARMS REPORTING THE SAME 60 DISAGREEMENTS IN THE SAME FIELD.
+  --
+  -- ⛔ "the lock prefix is ignored" and "the lockable list is widened to any
+  -- memory destination" are different CLAIMS and were, on the vector set as it
+  -- first stood, the same OBSERVATION: the only unlisted form carrying a lock
+  -- was `mov`, so the arm that strips every lock and the arm that strips only
+  -- `mov`'s were indistinguishable.  A claim the vectors cannot distinguish is
+  -- a claim nothing tests ([[a-claim-the-vectors-cannot-distinguish]]), and two
+  -- arms agreeing to the case is how that looks from outside.
+  --
+  -- ⇒ `lock leaq` and `lock shlq` give the wider arm a subject the narrower one
+  -- does not touch: `lea` computes an address and writes no memory at all, and
+  -- the shift group has a memory destination and is still not on the manual's
+  -- list.  Both are #UD on silicon and both assemble.
+  , { id := "lock_lea_ud", mnemonic := "lea", asm := "lock leaq (%rbx), %rax"
+    , bytes := "f0488d03"
+    , instr := ⟨.lea .q .rax { base := some .rbx, lock := true }, 4⟩ }
+  , { id := "lock_shl_m_q_ud", mnemonic := "shl", asm := "lock shlq $3, (%rbx)"
+    , bytes := "f048c12303"
+    , instr := ⟨.shift .shl .q (.mem { base := some .rbx, lock := true }) (.imm8 3), 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

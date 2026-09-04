@@ -296,6 +296,21 @@ end Cpu
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
+  -- ⭐⭐ P2 ITEM 2: THE LOCK WELL-FORMEDNESS RULE, CHECKED ONCE AND BEFORE THE
+  -- MATCH.  A `lock` on a form the SDM does not list is #UD on real silicon
+  -- (SDM Vol. 2A, "LOCK"), and it is `byDesign` rather than `unimplemented`
+  -- here for the reason batch 12 recorded for `ud2`: the instruction is fully
+  -- modelled, and what it is modelled as is a FAULT.  Filing it under
+  -- `unimplemented` would put a covered form in the `T-absent` tier and make
+  -- the fidelity table lie in the one direction it exists to prevent.
+  --
+  -- ⚠️ BEFORE THE MATCH, not inside each case: there are nineteen lockable
+  -- forms and a check per case is nineteen chances to forget one, which is
+  -- exactly the shape D29 found in the selftest's two drifting lists.  One
+  -- check, over the operand walk every other consumer of the AST already uses.
+  if i.op.lockIllegal then
+    s.halt (.byDesign "lock prefix on a form the SDM does not permit it on (#UD)")
+  else
   -- the address of the NEXT instruction: what RIP-relative addressing and every
   -- relative branch are defined against.
   let nr : BitVec 64 := s.rip + BitVec.ofNat 64 i.len
@@ -555,15 +570,28 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- between the old address and the new one.  Reading first costs one `let` and
   -- removes the question.
   --
-  -- ⛔ A MEMORY OR IMMEDIATE OPERAND IS REFUSED, not approximated.  `xchg` with
-  -- a memory operand asserts LOCK unconditionally (SDM Vol. 2A, XCHG) — an
-  -- atomicity claim a single-threaded model cannot make — and an immediate
-  -- cannot be a destination at all.  D25.
+  -- ⭐⭐ P2 ITEM 2 UN-DECLINED THE MEMORY FORMS, AND THE CHANGE IS ONE DELETED
+  -- BRANCH.  D25 refused `xchg` at memory because its implicit LOCK is an
+  -- atomicity claim and the model had no vocabulary to make it.  `Ea.lock` is
+  -- that vocabulary: the model now RECORDS that the access is architecturally
+  -- atomic and states, in `TRUSTBASE.md`, that atomicity has no observable
+  -- consequence in a single-threaded step semantics and is carried rather than
+  -- verified.  ⛔ The distinction that matters: the model no longer says
+  -- "I cannot describe this instruction"; it says "here is the instruction, and
+  -- here is the property of it I am not checking."  Two DIFFERENT roster rows
+  -- (`xchg m,r` and `xchg r,m`) come back, and no others — the four `bt`-family
+  -- `m,r` rows beside them are declined for signed BIT-STRING addressing (D23),
+  -- which this addition does not touch.  D76.
+  --
+  -- ⚠️ NO `lock` FLAG IS REQUIRED ON THE `Ea`.  With a memory operand `xchg`
+  -- asserts LOCK whether or not the prefix is written (SDM Vol. 2A, XCHG), so
+  -- both spellings are the same instruction and `Op.lockable` answers true for
+  -- either.  An immediate still cannot be a destination at all.
   | .xchg sz a b =>
-      if a.isMem || b.isMem then
-        s.halt (.unimplemented "xchg with a memory operand (implicit LOCK)")
-      else if a.isImm || b.isImm then
+      if a.isImm || b.isImm then
         s.halt (.illegalOperands "xchg: immediate operand")
+      else if !wellFormed2 a b then
+        s.halt (.illegalOperands "xchg: two memory operands")
       else
         let va := s.readOperand sz nr a
         let vb := s.readOperand sz nr b

@@ -66,28 +66,31 @@ theorem step_mov_reg_imm (sz : Size) (r : GPR) (v : Val) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h]
 
-theorem step_mov_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
+theorem step_mov_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h : Live s)
+    (hl : ea.lock = false) :
     step ⟨.mov sz (.mem ea) (.reg r), len⟩ s =
       { s with
         mem := s.mem.writeSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)) (s.getReg sz r),
         rip := s.rip + BitVec.ofNat 64 len } := by
-  simp [step, h, Cpu.getReg]
+  simp [step, h, Cpu.getReg, hl]
 
-theorem step_mov_reg_mem (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
+theorem step_mov_reg_mem (sz : Size) (r : GPR) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
     step ⟨.mov sz (.reg r) (.mem ea), len⟩ s =
       { s with
         regs := s.regs.set r (Value.writeView sz (s.regs.get r)
           (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))),
         rip := s.rip + BitVec.ofNat 64 len } := by
-  simp [step, h]
+  simp [step, h, hl]
 
 /-- TWO MEMORY OPERANDS STOP THE MODEL rather than meaning something.  This is
 the totality discipline as a theorem: `step` is total, and its value on a form
 no encoding can express is a HALT, not an invention. -/
-theorem step_mov_mem_mem (sz : Size) (ea ea' : Ea) (h : Live s) :
+theorem step_mov_mem_mem (sz : Size) (ea ea' : Ea) (h : Live s)
+    (hl : ea.lock = false) (hl' : ea'.lock = false) :
     step ⟨.mov sz (.mem ea) (.mem ea'), len⟩ s =
       { s with ms := some (.illegalOperands "mov: two memory operands") } := by
-  simp [step, h, Cpu.halt]
+  simp [step, h, Cpu.halt, hl, hl']
 
 /-! ## ADD / SUB — SDM Vol. 2A.  All six status flags set from the result. -/
 
@@ -183,7 +186,8 @@ the intermediate state after the flags are written — an ADC that read its own
 output CF would be a fixpoint, not an instruction, and the equation is what
 pins the order down. -/
 
-theorem step_adc_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_adc_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     step ⟨.bin .adc sz (.reg r h8) o, len⟩ s =
       { s with
         regs := s.regs.set r (if h8
@@ -196,9 +200,10 @@ theorem step_adc_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Liv
         flags := Flags.adc sz (s.getReg sz r h8)
           (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf s.flags,
         rip := s.rip + BitVec.ofNat 64 len } := by
-  cases h8 <;> simp [step, h, Cpu.getReg]
+  cases h8 <;> cases o <;> simp [step, h, Cpu.getReg, hl] <;> simp_all
 
-theorem step_sbb_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_sbb_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     step ⟨.bin .sbb sz (.reg r h8) o, len⟩ s =
       { s with
         regs := s.regs.set r (if h8
@@ -211,7 +216,7 @@ theorem step_sbb_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Liv
         flags := Flags.sbb sz (s.getReg sz r h8)
           (s.readOperand sz (s.rip + BitVec.ofNat 64 len) o) s.flags.cf s.flags,
         rip := s.rip + BitVec.ofNat 64 len } := by
-  cases h8 <;> simp [step, h, Cpu.getReg]
+  cases h8 <;> cases o <;> simp [step, h, Cpu.getReg, hl] <;> simp_all
 
 /-- ⭐ ADC WITH CF CLEAR IS ADD, AND SBB WITH CF CLEAR IS SUB — as an equation,
 not as a comment.  This is the theorem that says the new template DEGENERATES to
@@ -235,13 +240,15 @@ theorem sbb_no_carry_flags_are_sub (sz : Size) (a b : Val) (f : Flags) :
     Flags.sbb sz a b false f = Flags.sub sz a b f := by
   simp [Flags.sbb, Flags.sub, Flags.sbbCF, Flags.subCF, sbb_no_carry_is_sub]
 
-theorem step_adc_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_adc_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     (step ⟨.bin .adc sz (.reg r h8) o, len⟩ s).mem = s.mem := by
-  rw [step_adc_reg_op sz r h8 o h]
+  rw [step_adc_reg_op sz r h8 o h hl]
 
-theorem step_sbb_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_sbb_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     (step ⟨.bin .sbb sz (.reg r h8) o, len⟩ s).mem = s.mem := by
-  rw [step_sbb_reg_op sz r h8 o h]
+  rw [step_sbb_reg_op sz r h8 o h hl]
 
 /-! ## P1 BATCH 1 — the logic group at EVERY operand shape
 
@@ -264,7 +271,8 @@ The `oracle` component is the AF draw, exactly one bit, visible in the statement
 leave AF undefined).  K agrees at `0xuxx0-` in `p1/roster.tsv`, read from its
 rule text and not from ours: three sources, one reading. -/
 
-theorem step_and_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_and_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     step ⟨.bin .and sz (.reg r h8) o, len⟩ s =
       { s with
         regs := s.regs.set r (if h8
@@ -280,9 +288,10 @@ theorem step_and_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Liv
           (s.oracle.bits s.oracle.cursor) s.flags,
         oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
         rip := s.rip + BitVec.ofNat 64 len } := by
-  cases h8 <;> simp [step, h, Cpu.getReg]
+  cases h8 <;> cases o <;> simp [step, h, Cpu.getReg, hl] <;> simp_all
 
-theorem step_or_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_or_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     step ⟨.bin .or sz (.reg r h8) o, len⟩ s =
       { s with
         regs := s.regs.set r (if h8
@@ -298,9 +307,10 @@ theorem step_or_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live
           (s.oracle.bits s.oracle.cursor) s.flags,
         oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
         rip := s.rip + BitVec.ofNat 64 len } := by
-  cases h8 <;> simp [step, h, Cpu.getReg]
+  cases h8 <;> cases o <;> simp [step, h, Cpu.getReg, hl] <;> simp_all
 
-theorem step_xor_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_xor_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     step ⟨.bin .xor sz (.reg r h8) o, len⟩ s =
       { s with
         regs := s.regs.set r (if h8
@@ -316,7 +326,7 @@ theorem step_xor_reg_op (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Liv
           (s.oracle.bits s.oracle.cursor) s.flags,
         oracle := { s.oracle with cursor := s.oracle.cursor + 1 },
         rip := s.rip + BitVec.ofNat 64 len } := by
-  cases h8 <;> simp [step, h, Cpu.getReg]
+  cases h8 <;> cases o <;> simp [step, h, Cpu.getReg, hl] <;> simp_all
 
 /-! ### The batch's FRAME (plan v1 §3.5)
 
@@ -328,17 +338,20 @@ it positively, for the field a register-destination form must not touch: batch
 1 writes NO MEMORY, at any width, through any source operand, including a
 source that is itself a memory read. -/
 
-theorem step_and_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_and_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     (step ⟨.bin .and sz (.reg r h8) o, len⟩ s).mem = s.mem := by
-  rw [step_and_reg_op sz r h8 o h]
+  rw [step_and_reg_op sz r h8 o h hl]
 
-theorem step_or_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_or_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     (step ⟨.bin .or sz (.reg r h8) o, len⟩ s).mem = s.mem := by
-  rw [step_or_reg_op sz r h8 o h]
+  rw [step_or_reg_op sz r h8 o h hl]
 
-theorem step_xor_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s) :
+theorem step_xor_reg_op_mem (sz : Size) (r : GPR) (h8 : Bool) (o : Operand) (h : Live s)
+    (hl : o.locked = false) :
     (step ⟨.bin .xor sz (.reg r h8) o, len⟩ s).mem = s.mem := by
-  rw [step_xor_reg_op sz r h8 o h]
+  rw [step_xor_reg_op sz r h8 o h hl]
 
 /-! ## INC / DEC / NEG / NOT — SDM Vol. 2A.
 
@@ -430,21 +443,23 @@ with no segment base added (SDM Vol. 2A, LEA).  Before this batch the two were
 the same function and the distinction could not be stated; `step_lea_ignores_seg`
 below is the half that a reader cannot get from the shape of this one. -/
 
-theorem step_lea (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
+theorem step_lea (sz : Size) (r : GPR) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
     step ⟨.lea sz r ea, len⟩ s =
       { s with
         regs := s.regs.set r (Value.writeView sz (s.regs.get r)
           (ea.offset s (s.rip + BitVec.ofNat 64 len))),
         rip := s.rip + BitVec.ofNat 64 len } := by
-  simp [step, h]
+  simp [step, h, hl]
 
 /-- ⭐⭐ A SEGMENT PREFIX ON A `lea` IS INERT — stated positively, over ALL
 segments and ALL states, because the differential run can only ever sample it.
 `{ ea with seg := g }` and `ea` are the same instruction to LEA. -/
-theorem step_lea_ignores_seg (sz : Size) (r : GPR) (ea : Ea) (g g' : Option Seg) :
+theorem step_lea_ignores_seg (sz : Size) (r : GPR) (ea : Ea) (g g' : Option Seg)
+    (hl : ea.lock = false) :
     step ⟨.lea sz r { ea with seg := g }, len⟩ s = step ⟨.lea sz r { ea with seg := g' }, len⟩ s := by
   by_cases h : Live s
-  · rw [step_lea sz r _ h, step_lea sz r _ h]
+  · rw [step_lea sz r { ea with seg := g } h hl, step_lea sz r { ea with seg := g' } h hl]
     simp only [Ea.offset_set_seg]
   · simp only [Live] at h
     cases hm : s.ms with
@@ -570,9 +585,10 @@ loudly. -/
     (step ⟨.mov sz (.reg r) (.reg r'), len⟩ s).flags = s.flags := by
   rw [step_mov_reg_reg sz r r' h]
 
-@[simp] theorem step_lea_flags (sz : Size) (r : GPR) (ea : Ea) (h : Live s) :
+@[simp] theorem step_lea_flags (sz : Size) (r : GPR) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
     (step ⟨.lea sz r ea, len⟩ s).flags = s.flags := by
-  rw [step_lea sz r ea h]
+  rw [step_lea sz r ea h hl]
 
 @[simp] theorem step_not_flags (sz : Size) (r : GPR) (h : Live s) :
     (step ⟨.un .not sz (.reg r), len⟩ s).flags = s.flags := by
@@ -679,14 +695,25 @@ theorem step_xchg_reg_reg (sz : Size) (a b : GPR) (h : Live s) :
     (step ⟨.xchg sz (.reg a) (.reg b), len⟩ s).mem = s.mem := by
   rw [step_xchg_reg_reg sz a b h]
 
-/-- ⛔ AND THE REFUSED SHAPE IS A THEOREM TOO.  `xchg` with a memory operand sets
-`ms` and changes NOTHING else — not the registers, not the memory it declined to
-touch.  A refusal that quietly half-executed would be worse than a wrong answer,
-because the state it left would look like a state. -/
-theorem step_xchg_mem_refuses (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
+/-- ⭐⭐ P2 ITEM 2 REPLACED A REFUSAL THEOREM WITH A BEHAVIOUR ONE, and the
+replacement is the batch's whole claim about `xchg`.
+
+This declaration used to read `step_xchg_mem_refuses` and assert that `xchg` at
+memory sets `ms` and changes nothing else — D25's decline, stated so that a
+refusal could not quietly half-execute.  The decline was about ATOMICITY, and
+`Ea.lock` is the vocabulary it lacked, so the form now EXECUTES: it swaps, and
+the atomicity is recorded rather than verified (`TRUSTBASE.md`).
+
+⛔ THE OLD THEOREM IS DELETED RATHER THAN KEPT WITH A HYPOTHESIS, because there
+is no state left in which it holds — and a refusal theorem that can no longer
+fire is exactly the kind of green that describes a model nobody runs. -/
+theorem step_xchg_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h : Live s) :
     step ⟨.xchg sz (.mem ea) (.reg r), len⟩ s =
-      { s with ms := some (.unimplemented "xchg with a memory operand (implicit LOCK)") } := by
-  simp [step, h, Cpu.halt, Operand.isMem]
+      (((s.writeOperand sz (s.rip + BitVec.ofNat 64 len) (.mem ea) (s.getReg sz r)).writeOperand
+          sz (s.rip + BitVec.ofNat 64 len) (.reg r)
+          (s.readOperand sz (s.rip + BitVec.ofNat 64 len) (.mem ea))).setRip
+        (s.rip + BitVec.ofNat 64 len)) := by
+  simp [step, h, Cpu.getReg, Operand.isMem, Operand.isImm, wellFormed2]
 
 @[simp] theorem step_bswap_flags (sz : Size) (r : GPR) (h : Live s) :
     (step ⟨.bswap sz r, len⟩ s).flags = s.flags := by
@@ -810,9 +837,12 @@ multi-byte form with a MEMORY operand — and therefore proves that
 depend on what it holds.  A model that "harmlessly" read the operand and threw
 the value away would still be wrong (a read from an unmapped page faults in
 hardware), and this equation is what forbids it. -/
-theorem step_nop (o : Option Operand) (h : Live s) :
+theorem step_nop (o : Option Operand) (h : Live s)
+    (hl : (o.map Operand.locked).getD false = false) :
     step ⟨.nop o, len⟩ s = { s with rip := s.rip + BitVec.ofNat 64 len } := by
-  simp [step, h, Cpu.setRip]
+  cases o with
+  | none => simp [step, h, Cpu.setRip]
+  | some x => cases x <;> simp_all [step, h, Cpu.setRip]
 
 /-- ⭐ UD2 HALTS AND DOES NOT ADVANCE RIP.  The second half is the claim that
 could go wrong: a fault is not a completed instruction, so the RIP that x86isa
@@ -873,9 +903,12 @@ theorem step_leave_rip (h : Live s) :
     (step ⟨.leave, len⟩ s).mem = s.mem := by
   simp [step, h, Cpu.setReg, Cpu.setRip, Cpu.popValue]
 
-@[simp] theorem step_nop_flags (o : Option Operand) (h : Live s) :
+@[simp] theorem step_nop_flags (o : Option Operand) (h : Live s)
+    (hl : (o.map Operand.locked).getD false = false) :
     (step ⟨.nop o, len⟩ s).flags = s.flags := by
-  simp [step, h, Cpu.setRip]
+  cases o with
+  | none => simp [step, h, Cpu.setRip]
+  | some x => cases x <;> simp_all [step, h, Cpu.setRip]
 
 /-! ## P1 BATCH 14 — the bit-counting group
 
@@ -925,60 +958,75 @@ about their flags at a zero source, and it holds whatever the oracle says. -/
 /-! ### The three ZF rules, which are three different questions -/
 
 /-- BSF sets ZF from the SOURCE (SDM Vol. 2A: "ZF ← (SRC = 0)"). -/
-theorem step_bsf_zf (h : Live s) (he : bitcntEncodable .bsf sz = true) :
+theorem step_bsf_zf (h : Live s) (he : bitcntEncodable .bsf sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .bsf sz dst src, len⟩ s).flags.zf =
       Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) := by
-  simp only [step, Cpu.stopped, h, Option.isSome_none, Bool.false_eq_true, if_false, he,
-    Bool.not_true, if_false, bitScanStep_zf]
+  cases src <;> simp_all only [Operand.locked] <;>
+  simp only [step, Cpu.stopped, Op.lockIllegal, Op.eas, opOperands, Op.lockable,
+    List.filterMap_cons, List.filterMap_nil, List.any_nil, List.any_cons, List.append_nil,
+    Bool.or_false, Bool.false_and, Bool.and_false, Bool.not_false,
+    Bool.false_eq_true, if_false, h, Option.isSome_none, Bool.false_eq_true, if_false, he,
+    Bool.not_true, if_false, bitScanStep_zf] <;> simp_all
 
-theorem step_bsr_zf (h : Live s) (he : bitcntEncodable .bsr sz = true) :
+theorem step_bsr_zf (h : Live s) (he : bitcntEncodable .bsr sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .bsr sz dst src, len⟩ s).flags.zf =
       Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) := by
-  simp only [step, Cpu.stopped, h, Option.isSome_none, Bool.false_eq_true, if_false, he,
-    Bool.not_true, if_false, bitScanStep_zf]
+  cases src <;> simp_all only [Operand.locked] <;>
+  simp only [step, Cpu.stopped, Op.lockIllegal, Op.eas, opOperands, Op.lockable,
+    List.filterMap_cons, List.filterMap_nil, List.any_nil, List.any_cons, List.append_nil,
+    Bool.or_false, Bool.false_and, Bool.and_false, Bool.not_false,
+    Bool.false_eq_true, if_false, h, Option.isSome_none, Bool.false_eq_true, if_false, he,
+    Bool.not_true, if_false, bitScanStep_zf] <;> simp_all
 
 /-- ⭐ LZCNT AND TZCNT SET ZF FROM THE DESTINATION, WHICH IS A DIFFERENT
 QUESTION.  `lzcntq` of a source whose top bit is set writes 0 and sets ZF though
 the source is not zero; a model that copied `bsr`'s rule is wrong on exactly
 those states, and this is the theorem that says so about all of them. -/
-theorem step_lzcnt_zf (h : Live s) (he : bitcntEncodable .lzcnt sz = true) :
+theorem step_lzcnt_zf (h : Live s) (he : bitcntEncodable .lzcnt sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .lzcnt sz dst src, len⟩ s).flags.zf =
       Value.isZero sz
         (BitVec.ofNat 64
           (Value.clz sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src))) := by
-  simp [step, h, he, Flags.bitCount]
+  cases src <;> simp_all [step, h, he, Flags.bitCount]
 
-theorem step_tzcnt_zf (h : Live s) (he : bitcntEncodable .tzcnt sz = true) :
+theorem step_tzcnt_zf (h : Live s) (he : bitcntEncodable .tzcnt sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .tzcnt sz dst src, len⟩ s).flags.zf =
       Value.isZero sz
         (BitVec.ofNat 64
           (Value.ctz sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src))) := by
-  simp [step, h, he, Flags.bitCount]
+  cases src <;> simp_all [step, h, he, Flags.bitCount]
 
 /-- And LZCNT sets CF when the SOURCE is zero. -/
-theorem step_lzcnt_cf (h : Live s) (he : bitcntEncodable .lzcnt sz = true) :
+theorem step_lzcnt_cf (h : Live s) (he : bitcntEncodable .lzcnt sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .lzcnt sz dst src, len⟩ s).flags.cf =
       Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) := by
-  simp [step, h, he, Flags.bitCount]
+  cases src <;> simp_all [step, h, he, Flags.bitCount]
 
 /-- ⛔ AND BLSI SETS CF THE OTHER WAY UP — set when the source is NON-zero
 (SDM Vol. 2A, BLSI: "IF SRC = 0 THEN CF ← 0 ELSE CF ← 1").  Two instructions in
 one batch whose CF asks the same question and answers it oppositely; a model
 that shared one rule between them is wrong on every state for one of the two. -/
-theorem step_blsi_cf (h : Live s) (he : bitcntEncodable .blsi sz = true) :
+theorem step_blsi_cf (h : Live s) (he : bitcntEncodable .blsi sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .blsi sz dst src, len⟩ s).flags.cf =
       !(Value.isZero sz (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src)) := by
-  simp [step, h, he, Flags.blsi]
+  cases src <;> simp_all [step, h, he, Flags.blsi]
 
 /-- POPCNT clears OF, SF, AF, CF and PF unconditionally — the one member of the
 group that leaves nothing undefined. -/
-theorem step_popcnt_clears (h : Live s) (he : bitcntEncodable .popcnt sz = true) :
+theorem step_popcnt_clears (h : Live s) (he : bitcntEncodable .popcnt sz = true)
+    (hl : src.locked = false) :
     (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.cf = false
     ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.of = false
     ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.sf = false
     ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.af = false
     ∧ (step ⟨.bitcnt .popcnt sz dst src, len⟩ s).flags.pf = false := by
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> simp [step, h, he, Flags.popcnt]
+  cases src <;> refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> simp_all [step, h, he, Flags.popcnt]
 
 /-- ⭐ NONE OF THE SIX WRITES MEMORY.  Their memory operand is always the SOURCE,
 which is what the coverage table's shapes column claims by NOT spelling any of
@@ -987,9 +1035,13 @@ layer down.  Three statements of one fact, and this is the one with a proof. -/
 @[simp] theorem step_bitcnt_mem (k : BitCntKind) (h : Live s) :
     (step ⟨.bitcnt k sz dst src, len⟩ s).mem = s.mem := by
   simp only [step, Cpu.stopped, h, Option.isSome_none, Bool.false_eq_true, if_false]
+  -- ⭐ P2 ITEM 2: the lock guard's HALT branch preserves memory too, so this
+  -- claim needs no hypothesis — only a case for the branch.
   split
-  · simp [Cpu.halt, h]
-  · cases k <;> simp
+  · cases hm : s.ms <;> simp [Cpu.halt, hm]
+  · split
+    · simp [Cpu.halt, h]
+    · cases k <;> simp
 
 /-- And a form the model DECLINES changes nothing but `ms` — `blsi` at 16 bits
 and any of the six at 8 bits have no encoding, and refusing is not the same as
@@ -999,7 +1051,7 @@ theorem step_bitcnt_declined (k : BitCntKind) (h : Live s)
     (step ⟨.bitcnt k sz dst src, len⟩ s).regs = s.regs
     ∧ (step ⟨.bitcnt k sz dst src, len⟩ s).rip = s.rip
     ∧ (step ⟨.bitcnt k sz dst src, len⟩ s).flags = s.flags := by
-  refine ⟨?_, ?_, ?_⟩ <;> simp [step, h, he, Cpu.halt]
+  refine ⟨?_, ?_, ?_⟩ <;> cases src <;> simp [step, h, he, Cpu.halt] <;> split <;> simp
 
 end BitCnt
 
@@ -1155,20 +1207,30 @@ stop these forms.
 stated as an `↔` on purpose: an implication in either direction alone would be
 satisfied by a model that refuses too often or too rarely, and this batch's
 measurement says the too-often direction is the one nothing else would catch. -/
-theorem step_div_refuses_iff (h : Live s) :
+theorem step_div_refuses_iff (h : Live s) (hl : src.locked = false) :
     (step ⟨.muldiv .div sz src, len⟩ s).stopped = true
       ↔ Value.divPairU sz (s.mdHi sz) (s.getReg sz .rax)
           (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none := by
-  simp only [step, Cpu.stopped, h, if_false, Bool.not_true]
+  -- ⭐ P2 ITEM 2: the lock guard is discharged FIRST, as a `have`, so the proof
+  -- below is the one this theorem always had.  Rewriting the guard away before
+  -- the case analysis keeps the two concerns separate.
+  have hlk : (Op.muldiv .div sz src).lockIllegal = false := by
+    cases src <;> simp_all [Operand.locked]
+  simp only [step, Cpu.stopped, h, hlk, if_false, Bool.not_true]
   cases hd : Value.divPairU sz (s.mdHi sz) (s.getReg sz .rax)
       (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) <;> cases sz <;>
     simp_all [Cpu.halt, Cpu.setRip, Cpu.setFlags, Cpu.setMdPair, Cpu.setReg, Cpu.undefBit]
 
-theorem step_idiv_refuses_iff (h : Live s) :
+theorem step_idiv_refuses_iff (h : Live s) (hl : src.locked = false) :
     (step ⟨.muldiv .idiv sz src, len⟩ s).stopped = true
       ↔ Value.divPairS sz (s.mdHi sz) (s.getReg sz .rax)
           (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none := by
-  simp only [step, Cpu.stopped, h, if_false, Bool.not_true]
+  -- ⭐ P2 ITEM 2: the lock guard is discharged FIRST, as a `have`, so the proof
+  -- below is the one this theorem always had.  Rewriting the guard away before
+  -- the case analysis keeps the two concerns separate.
+  have hlk : (Op.muldiv .idiv sz src).lockIllegal = false := by
+    cases src <;> simp_all [Operand.locked]
+  simp only [step, Cpu.stopped, h, hlk, if_false, Bool.not_true]
   cases hd : Value.divPairS sz (s.mdHi sz) (s.getReg sz .rax)
       (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) <;> cases sz <;>
     simp_all [Cpu.halt, Cpu.setRip, Cpu.setFlags, Cpu.setMdPair, Cpu.setReg, Cpu.undefBit]
@@ -1181,19 +1243,23 @@ the claim and a field-by-field version is a list somebody has to keep complete.
 on a #DE has RAX, RDX, RIP and the flags exactly as it found them — measured, in
 the 656-case probe — so a model that faulted after committing a partial write
 would disagree with the oracle in a field the comparator reads. -/
-theorem step_div_refused_frame (h : Live s)
+theorem step_div_refused_frame (h : Live s) (hl : src.locked = false)
     (hd : Value.divPairU sz (s.mdHi sz) (s.getReg sz .rax)
             (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none) :
     step ⟨.muldiv .div sz src, len⟩ s
       = { s with ms := some (.byDesign "div: #DE is the instruction's meaning at this divisor") } := by
-  simp [step, Cpu.stopped, h, hd, Cpu.halt, Live] at *
+  have hlk : ∀ k, (Op.muldiv k sz src).lockIllegal = false := by
+    intro k; cases src <;> simp_all [Operand.locked]
+  cases src <;> simp_all [step, Cpu.stopped, Cpu.halt, Live, Operand.locked]
 
-theorem step_idiv_refused_frame (h : Live s)
+theorem step_idiv_refused_frame (h : Live s) (hl : src.locked = false)
     (hd : Value.divPairS sz (s.mdHi sz) (s.getReg sz .rax)
             (s.readOperand sz (s.rip + BitVec.ofNat 64 len) src) = none) :
     step ⟨.muldiv .idiv sz src, len⟩ s
       = { s with ms := some (.byDesign "idiv: #DE is the instruction's meaning at this divisor") } := by
-  simp [step, Cpu.stopped, h, hd, Cpu.halt, Live] at *
+  have hlk : ∀ k, (Op.muldiv k sz src).lockIllegal = false := by
+    intro k; cases src <;> simp_all [Operand.locked]
+  cases src <;> simp_all [step, Cpu.stopped, Cpu.halt, Live, Operand.locked]
 
 /-- ⭐ THE PAIR IS `AH:AL` AT `.b` AND LEAVES RDX ALONE — the claim
 `wrongMulBytePairInRdx` contradicts, and the one sentence of the SDM's
@@ -1216,7 +1282,10 @@ batch 14 makes about the bit-counting group's missing widths. -/
 theorem step_imulr_b_refuses (h : Live s) (dst : GPR) (imm : Option Val) :
     (step ⟨.imulr .b dst src imm, len⟩ s).stopped = true := by
   have he : imulrEncodable .b = false := by decide
-  simp [step, Cpu.stopped, h, he, Cpu.halt]
+  -- ⭐ P2 ITEM 2: TRUE IN BOTH BRANCHES OF THE LOCK GUARD, and it needs no
+  -- hypothesis for that reason — a locked operand halts too, with a different
+  -- `ms`, and this theorem is about `stopped` rather than about the reason.
+  cases src <;> simp [step, Cpu.stopped, h, he, Cpu.halt] <;> split <;> simp
 
 /-- ⭐ THE THREE-OPERAND FORM DOES NOT READ ITS DESTINATION: overwriting the
 destination register with an arbitrary value does not change the answer.
@@ -1300,7 +1369,7 @@ theorem step_dshift_b_refuses (k : DShiftKind) (dst : Operand) (amt : ShiftAmt)
     (h : Live s) :
     (step ⟨.dshift k .b dst rs amt, len⟩ s).stopped = true := by
   have he : dshiftEncodable .b = false := by decide
-  simp [step, h, he, Cpu.halt]
+  cases dst <;> simp [step, h, he, Cpu.halt] <;> split <;> simp
 
 /-- ⛔⛔ D52, AS A THEOREM: the ONE combination this model declines to answer for,
 stated as a refusal that changes nothing else.  A 16-bit memory destination with
@@ -1309,14 +1378,14 @@ a masked count above 16 would place an undefined value in MEMORY, and
 on the masked count and not on the immediate, because CL reaches the same branch
 in thirty-five of the harness's eighty-two pre-states. -/
 theorem step_dshift_mem_undefined_refuses (k : DShiftKind) (ea : Ea) (c : BitVec 8)
-    (h : Live s) (hc : 16 < Flags.shiftCount .w c) :
+    (h : Live s) (hc : 16 < Flags.shiftCount .w c) (hl : ea.lock = false) :
     step ⟨.dshift k .w (.mem ea) rs (.imm8 c), len⟩ s =
       { s with ms := some (.unimplemented
           "shld/shrd: an undefined RESULT in memory (16-bit operand, count > 16)") } := by
   have he : dshiftEncodable .w = true := by decide
   have hm : dshiftMemUndefined .w true (Flags.shiftCount .w c) = true := by
     simp [dshiftMemUndefined, Size.bits]; omega
-  simp [step, h, he, hm, Cpu.halt, Operand.isImm, Operand.isMem]
+  simp [step, h, he, hm, hl, Cpu.halt, Operand.isImm, Operand.isMem]
 
 /-- ⭐⭐ A COUNT OF ZERO TOUCHES NO FLAG — AND STILL WRITES THE DESTINATION.  D54:
 the SDM says "IF COUNT = 0 THEN no operation", and both public executable models

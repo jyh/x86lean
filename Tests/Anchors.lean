@@ -1220,12 +1220,41 @@ theorem xchg_b_touches_one_byte_each :
       (mk { rax := 0xFFFFFFFFFFFFFF01, rcx := 0xEEEEEEEEEEEEEE02 })
     (r.regs.rax, r.regs.rcx) = (0xFFFFFFFFFFFFFF02, 0xEEEEEEEEEEEEEE01) := by decide
 
-/-- ⛔ AND A MEMORY OPERAND IS REFUSED RATHER THAN GUESSED (implicit LOCK; D25).
-The model stops and changes nothing else. -/
-theorem xchg_refuses_a_memory_operand :
-    let r := step ⟨.xchg .q (.mem { base := some .rbx }) (.reg .rax), 3⟩
+/-- ⭐⭐ P2 ITEM 2 REPLACED A REFUSAL ANCHOR WITH A BEHAVIOUR ONE.
+
+This anchor asserted the D25 decline — `xchg` at memory stops the model — and
+that state no longer exists.  `Ea.lock` is the atomicity vocabulary D25 said the
+model lacked, so the form EXECUTES: the register takes the memory's value and
+the memory takes the register's, in one step, with the atomicity RECORDED and
+not verified (`TRUSTBASE.md`).
+
+⛔ THE ANCHOR IS REWRITTEN RATHER THAN DELETED, because what it was really
+holding is that the swap does not half-happen: the old version said "stops and
+changes nothing else", and its replacement says both directions of the exchange
+land.  A refusal anchor that could no longer fire would be a green about a model
+nobody runs. -/
+theorem xchg_memory_swaps_both_ways :
+    let s0 := mk { rax := 1, rbx := 0x100 }
+    let s1 := { s0 with mem := s0.mem.writeSize .q 0x100 0xDEADBEEF }
+    let r := step ⟨.xchg .q (.mem { base := some .rbx }) (.reg .rax), 3⟩ s1
+    (r.stopped, r.regs.rax, r.mem.readSize .q 0x100) = (false, 0xDEADBEEF, 1) := by decide
+
+/-- ⛔ AND A `lock` ON A FORM THE MANUAL DOES NOT LIST IS #UD.  `mov` is the one
+a reader most expects to be lockable — `lock movq %rax, (%rbx)` looks exactly
+like the atomic store somebody wants — and it is not on the SDM's list. -/
+theorem lock_on_mov_is_ud :
+    let r := step ⟨.mov .q (.mem { base := some .rbx, lock := true }) (.reg .rax), 4⟩
       (mk { rax := 1, rbx := 0x100 })
-    (r.stopped, r.regs.rax) = (true, 1) := by decide
+    (r.stopped, r.mem.readSize .q 0x100) = (true, 0) := by decide
+
+/-- And a `lock` on a form the manual DOES list executes exactly as the
+unlocked form does — the flag changes what the model RECORDS, not what it
+computes. -/
+theorem lock_on_add_executes :
+    let ea : Ea := { base := some .rbx }
+    let s0 := mk { rax := 1, rbx := 0x100 }
+    (step ⟨.bin .add .q (.mem { ea with lock := true }) (.reg .rax), 4⟩ s0).mem.readSize .q 0x100
+      = (step ⟨.bin .add .q (.mem ea) (.reg .rax), 3⟩ s0).mem.readSize .q 0x100 := by decide
 
 /-- BSWAP reverses the bytes. -/
 theorem bswap_q_reverses_eight_bytes :

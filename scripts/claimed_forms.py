@@ -137,6 +137,25 @@ CLAIMS_NO_ROW = {
     "mov_fs_store_b": "a segment override is a prefix on a row already claimed",
     "add_fs_rmw_q":   "a segment override is a prefix on a row already claimed",
     "lea_fs_abs_q":   "a segment override is a prefix on a row already claimed",
+    # ⭐ P2 ITEM 2.  Same rule as the segment overrides one line up, for the same
+    # reason: `f0` is a PREFIX, and the rows the eleven locked vectors sit on —
+    # `inc m`, `add m,r`, `xadd m,r`, `cmpxchg8b m`, `mov m,r` — are all claimed
+    # by their unlocked siblings.  The claimed-row count does not move when they
+    # are added (500 before, 500 after); what they test is the well-formedness
+    # RULE and the #UD edge, which the roster does not describe.
+    "lock_inc_m_d":       "a LOCK prefix is a prefix on a row already claimed",
+    "lock_dec_m_d":       "a LOCK prefix is a prefix on a row already claimed",
+    "lock_add_m_q":       "a LOCK prefix is a prefix on a row already claimed",
+    "lock_or_m_q":        "a LOCK prefix is a prefix on a row already claimed",
+    "lock_not_m_q":       "a LOCK prefix is a prefix on a row already claimed",
+    "lock_neg_m_q":       "a LOCK prefix is a prefix on a row already claimed",
+    "lock_bts_m_q":       "a LOCK prefix is a prefix on a row already claimed",
+    "lock_xadd_m_q":      "a LOCK prefix is a prefix on a row already claimed",
+    "lock_cmpxchg_m_q":   "a LOCK prefix is a prefix on a row already claimed",
+    "lock_cmpxchg8b_m":   "a LOCK prefix is a prefix on a row already claimed",
+    "lock_mov_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
+    "lock_lea_ud":        "a LOCK prefix is a prefix on a row already claimed",
+    "lock_shl_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
 }
 
 SIB_BASE_EXEMPT = set(CLAIMS_NO_ROW)
@@ -628,6 +647,39 @@ PUBLISHED_RE = re.compile(
     r"\*\*(\d+) are spelled by a vector\*\*", re.S)
 
 
+# ⚠️ DECLINED IS A DECISION, NOT A MEASUREMENT, so it is declared here -- with
+# the decision that made it, so a reader can check the reason and
+# `check_citations.py` can check the reference exists.
+#
+# ⭐⭐ P2 ITEM 2 HOISTED THIS TO MODULE LEVEL, AND THE REASON IS A FALSE CLAIM IT
+# WOULD HAVE PREVENTED.  `docs/P2-ROSTER.md` said the LOCK vocabulary would
+# unblock "the six `bt`-family memory forms ... declined for want of it", making
+# item 2 look three times more valuable in rows than it is.  THIS TABLE IS THE
+# ANSWER: six rows are declined, and they carry TWO DIFFERENT DECISIONS — the two
+# `xchg` rows for the implicit LOCK (D25), and the four `bt`-family rows for
+# SIGNED BIT-STRING ADDRESSING (D23), which no LOCK vocabulary touches.
+# `p2_roster.py` derives its sentence from here now instead of asserting one.
+DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
+            ("btr", "m,r"): "D23", ("btc", "m,r"): "D23"}
+
+# The decision that blocks a row on ATOMICITY, i.e. the one a LOCK vocabulary
+# answers.  Named rather than spelled at the use site, so the claim "this is
+# what item 2 unblocks" is stated once.
+LOCK_BLOCKED_DECISION = "D25"
+
+# ⭐⭐ P2 ITEM 2 EMPTIED THE `D25` SIDE OF THAT TABLE, and the emptying is a claim
+# that has to be gated or it is just a deletion.  `xchg m,r` and `xchg r,m` were
+# declined for their implicit LOCK; `Ea.lock` is the vocabulary they lacked, and
+# they are CLAIMED now.  This list is what makes "the addition unblocked them"
+# checkable: `--check` requires every row here to be in the claimed set, so
+# removing a row from DECLINED without actually modelling it fails LOUD instead
+# of quietly shrinking the residue.
+#
+# ⚠️ The residue's total is unchanged in kind: six rows were declined, four are
+# (D23's bit-string shape, which no LOCK vocabulary touches — D76).
+LOCK_UNBLOCKED = {("xchg", "m,r"), ("xchg", "r,m")}
+
+
 def residue_buckets(rows, claimed, noform):
     """The residue, partitioned. Called by BOTH `--remaining` (which prints
     it) and `--check` (which gates the README description against it), so the
@@ -672,12 +724,6 @@ def residue_buckets(rows, claimed, noform):
                    re.findall(r'\(\s*"([^"]+)"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(\w+)"\s*\)',
                               _m.group(1))
                    if exp == "refuses" and not mn.startswith("CONTROL")}
-    # ⚠️ DECLINED IS A DECISION, NOT A MEASUREMENT, so it is declared here --
-    # with the decision that made it, so a reader can check the reason and
-    # `check_citations.py` can check the reference exists.
-    DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
-                ("btr", "m,r"): "D23", ("btc", "m,r"): "D23",
-                ("xchg", "m,r"): "D25", ("xchg", "r,m"): "D25"}
     unc = [i for i in range(len(rows)) if i not in set(claimed)]
     nof = [i for i in unc if i in noform]
     bmi = [i for i in unc if rows[i]["base"] in UNAVAILABLE and i not in nof]
@@ -842,6 +888,19 @@ def selftest():
     # number cannot tell "the number is right" from "the sentence is gone".
     rd_saved = open("README.md").read()
 
+    def _num_anchor(txt, pat):
+        """The shipped phrase matching `pat` (one capture group: the number),
+        read rather than typed.  Empty when the sentence is gone, so the arm
+        reports ANCHOR MISSING instead of silently matching."""
+        m = re.search(pat, txt)
+        return m.group(0) if m else ""
+
+    def _num_perturbed(txt, pat):
+        m = re.search(pat, txt)
+        if not m:
+            return ""
+        return m.group(0).replace(m.group(1), str(int(m.group(1)) + 1), 1)
+
     def _mnem_anchor(txt):
         """The shipped `N mnemonics in M differentially tested forms` phrase,
         read rather than typed.  An empty string when the sentence is gone, so
@@ -856,10 +915,20 @@ def selftest():
     plants = [
         ("the description's AVAILABLE-WORK zero, made one",
          "- 0 rows of available work", "- 1 rows of available work", None),
+        # ⛔⛔ THESE TWO WERE LITERALS AS WELL, AND P2 BATCH 23 FOUND THEM THE
+        # SAME WAY D74 FOUND THE THIRD: the batch moved the numbers (6 declined
+        # rows -> 4, a residue of 27 -> 25) and both arms reported ANCHOR
+        # MISSING.  D74 derived ONE plant and left its two neighbours alone —
+        # which is the shape of an incomplete repair: the defect was named, the
+        # instance was fixed, and the identical instances beside it were not
+        # looked for.  ⇒ EVERY plant in this table is derived from the shipped
+        # sentence now, so the table has no literal left to go stale.
         ("the description's DECLINED count, off by one",
-         "- 6 rows declined on record", "- 7 rows declined on record", None),
+         _num_anchor(rd_saved, r'- (\d+) rows declined on record'),
+         _num_perturbed(rd_saved, r'- (\d+) rows declined on record'), None),
         ("the description's RESIDUE total, off by one",
-         "reason** — 27 of 525", "reason** — 26 of 525", None),
+         _num_anchor(rd_saved, r'reason\*\* — (\d+) of 525'),
+         _num_perturbed(rd_saved, r'reason\*\* — (\d+) of 525'), None),
         # ⛔⛔ THIS PLANT IS DERIVED FROM THE README, AND IT USED TO BE THE
         # LITERAL `"84 mnemonics in 776"`.  P2 batch 1 took the form count from
         # 776 to 784 and this arm reported ANCHOR MISSING — the selftest of the
@@ -1240,6 +1309,22 @@ def main():
     stale_exempt = sorted(exempt_ids - {v["id"] for v in unresolved}
                           - {v["id"] for v in vecs if False})
     stale_exempt = [e for e in stale_exempt if any(v["id"] == e for v in vecs)]
+    # ⭐⭐ P2 ITEM 2: THE UNBLOCKED ROWS MUST ACTUALLY BE CLAIMED.  Taking a row
+    # out of DECLINED shrinks the residue; without this, the shrink would be a
+    # deletion nobody checked, and "the LOCK vocabulary unblocked `xchg` at
+    # memory" would be prose in a document that derives everything else.
+    claimed_pairs = {(rows[i]["base"], rows[i]["shape"]) for i in set(claimed)}
+    lock_unclaimed = sorted(LOCK_UNBLOCKED - claimed_pairs)
+    if lock_unclaimed:
+        findings.append(
+            f"{len(lock_unclaimed)} row(s) recorded as UNBLOCKED by the LOCK "
+            f"vocabulary are not claimed: " +
+            ", ".join(f"{b} {sh}" for b, sh in lock_unclaimed))
+    still_declined = sorted(LOCK_UNBLOCKED & set(globals()['DECLINED']))
+    if still_declined:
+        findings.append(
+            f"{len(still_declined)} row(s) are recorded as both DECLINED and "
+            f"UNBLOCKED: " + ", ".join(f"{b} {sh}" for b, sh in still_declined))
     if unres_real:
         findings.append(f"{len(unres_real)} vector(s) resolve to NO roster row")
     if stale_exempt:

@@ -29,6 +29,25 @@ Where the SDM says a flag or result is undefined, the model draws the value from
 the state (a cursor and a `Nat → Bool`/byte stream). Theorems cannot learn the drawn value; the
 nonvacuity check (two oracles, two results) is a test. This is the ACL2 x86isa `UNDEF` discipline.
 
+## Atomicity is RECORDED, never verified (P2 batch 23)
+
+`Ea.lock` records that a memory access is architecturally atomic — the `f0` prefix, or `xchg`'s
+implicit LOCK. **It is not a claim that this model verifies anything about concurrency.**
+
+A single-step, single-threaded semantics has no observation that distinguishes an atomic
+read-modify-write from a non-atomic one: `lock addq %rcx, (%rbx)` and `addq %rcx, (%rbx)` compute
+the same state transition here, and every differential case agrees with the oracle either way.
+What the vocabulary buys is the ability to SAY the property, which is what D25 said the model
+lacked when it declined `xchg` at memory — and the ability to enforce the SDM's rule about where
+the prefix is legal, which is observable (a `lock` on a form the manual does not list is #UD, and
+the `refused` channel compares it).
+
+⇒ **The trust boundary, stated plainly:** a reader may rely on this model for what a locked
+instruction COMPUTES and for WHICH forms accept the prefix. A reader may not rely on it for
+memory ordering, for interleaving with another thread, or for anything a memory model would have
+to say. Multi-threading and memory ordering are v0.x non-goals (plan v1 §1), and this field does
+not quietly change that.
+
 ## What is validated, not proven
 Agreement with ACL2 x86isa, with K, and with real hardware is EVIDENCE gathered by execution
 (differential and co-simulation runs recorded per form), never a theorem about those systems.

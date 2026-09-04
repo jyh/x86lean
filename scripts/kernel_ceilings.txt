@@ -89,8 +89,45 @@ X86.Oracle 50
 X86.Semantics 50
 X86.Serialize 50
 X86.State 50
-X86.Syntax 124
-X86.Theorems 540
+# ⭐⭐ P2 BATCH 23 RAISED X86.Theorems FROM 540 TO 1100, AND THIS IS THE THIRD
+# OPTION, NOT THE FIRST.  `step` now tests `Op.lockIllegal` BEFORE its match
+# (D77), so every one of the module's ~200 characterization theorems has to
+# reduce that guard.  Measured 733 ms against the 540 ceiling.
+#
+# TWO CHEAPER BUILDS WERE TAKEN FIRST, in the order this file's own history
+# recommends (D68, D71, D73):
+#   1. the guard's predicate was rewritten from THREE list passes
+#      (`filterMap` + `++` + `any`, via `Op.eas`) to ONE (`Op.anyLocked`, a
+#      direct 36-arm match whose equality with the `opOperands` walk is a
+#      compiler-checked theorem) — 733 -> 684 ms, 7%;
+#   2. the operand walk and the two predicates are `simp` DEFINITIONS, which
+#      discharges the side condition structurally for every register-operand
+#      theorem — without it, 41 more theorems would carry a hypothesis and the
+#      cost would be higher still.
+#
+# ⛔ WHAT IS LEFT IS THE FEATURE'S PRICE AND NOT AN ACCIDENT OF REPRESENTATION.
+# A guard at the head of `step` is work every theorem about `step` must do; the
+# only design that avoids it is not having the guard, and not having it means a
+# locked `mov` executes instead of faulting (D77).  Registered at measured x1.6
+# on the 684 reading, this file's convention: 684 x 1.6 = 1094 -> 1100.
+#
+# ⚠️ CONDITIONS, because a figure without them cannot be compared: one-minute
+# load 5.03 / five-minute 4.54, ABOVE the 2.2-4.1 band this script measured as
+# having no effect on Tests.Coverage.  Both the 733 and the 684 readings were
+# taken minutes apart under the same conditions, so the COMPARISON between them
+# is the safe part; the absolute figures are on the loose side and a quiet
+# re-measurement can tighten this.
+# ⚠️ P2 BATCH 23 RAISED X86.Syntax FROM 124 TO 200, AND IT WAS FOUND BY THE
+# SELFTEST'S CONTROL RATHER THAN BY THE GATE.  The plain gate read 121 against
+# 124 — CLEAN, and at **97.6% of its ceiling**.  The `--selftest` control, which
+# runs last and under the contention of four measurements before it (this
+# script's own note: 4%-8%), went OVER.  ⇒ A CEILING PASSED AT 97.6% IS A GATE
+# THAT WILL FIRE ON THE NEXT LINE SOMEBODY ADDS, and reading the pass as
+# headroom is the mistake; the control is what made the tightness visible.
+# The batch added `Op.lockable`, `Op.anyLocked` and its equality theorem to this
+# module.  Registered at measured x1.6 on the 121 reading: 194 -> 200.
+X86.Syntax 200
+X86.Theorems 1100
 X86.Value 61
 X86 50
 X86Native 106

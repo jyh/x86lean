@@ -50,6 +50,12 @@ import k_roster as K
 # `sys.exit(main())` was guarded — the first attempt to reuse its runner ran the
 # P1 gate and exited this process instead.
 import oracle_availability as OA
+# ⭐⭐ P2 ITEM 2: THE DECLINED TABLE, IMPORTED RATHER THAN DESCRIBED.  This
+# document used to SAY what the LOCK vocabulary would unblock, and the sentence
+# was wrong in the flattering direction — see the note on `DECLINED` in
+# `scripts/claimed_forms.py`.  `claimed_forms` guards its `main` with
+# `__name__`, so importing it is safe.
+import claimed_forms as CF
 
 CENSUS_JSON = os.path.join(root, "docs", "DEMAND-CENSUS.md.json")
 
@@ -65,17 +71,60 @@ ADDITIONS = [
      "address, not segmentation: FS/GS are the only two overrides long mode "
      "honours, and their base is an MSR-loaded value the model can carry as "
      "state."),
-    ("the LOCK vocabulary", "LOCK prefix (P2 addition 2)",
-     "D25 declines `xchg` at memory and the six `bt`-family memory forms "
-     "BECAUSE there is no LOCK vocabulary to state their atomicity in. The "
-     "addition unblocks those declined rows as a side effect, which is why it "
-     "is worth more than its occurrence count says."),
+    ("the LOCK vocabulary", "LOCK prefix (P2 addition 2)", None),  # DERIVED, see lock_why()
     ("the `movabs` mov form", "mov imm64 / movabs (P2 addition 3)",
      "The 64-bit immediate move is a distinct encoding, not a width of the "
      "existing `mov`: `movabsq $imm64, %r64` is the only form that carries a "
      "full 64-bit immediate, and it is what a compiler emits for any address "
      "or constant that does not fit in 32 bits."),
 ]
+
+
+def lock_why():
+    """⭐⭐ THE SENTENCE FOR ADDITION 2, DERIVED FROM `claimed_forms`'s TABLES.
+
+    ⛔ IT WAS PROSE, AND THE PROSE WAS FALSE.  It read: *"D25 declines `xchg` at
+    memory and the six `bt`-family memory forms BECAUSE there is no LOCK
+    vocabulary to state their atomicity in. The addition unblocks those declined
+    rows as a side effect."*  Three errors in one sentence, all in the direction
+    that flatters the item: there are FOUR `bt`-family rows and not six (six was
+    the TOTAL of declined rows); D23 declines them, not D25; and their reason is
+    SIGNED BIT-STRING ADDRESSING, which no LOCK vocabulary touches.  The
+    addition unblocked **two** rows, not six.
+
+    ⚠️ AND THE DOCUMENT AROUND IT IS GENERATED AND GATED BYTE-FOR-BYTE, which is
+    what let the sentence survive: `--check` proves the file matches what this
+    script emits, and says nothing about whether the script tells the truth.
+    A derivation gate is a wrapper a false sentence can sit inside
+    ([[ungated-prose-overclaims]]).
+
+    ⭐ SINCE P2 BATCH 23 THE ADDITION IS DONE, so the sentence is written from
+    two tables that are gated in opposite directions: `LOCK_UNBLOCKED` names the
+    rows it unblocked and `claimed_forms --check` requires every one of them to
+    be CLAIMED; `DECLINED` names what is still declined and why."""
+    unblocked = sorted(CF.LOCK_UNBLOCKED)
+    still = sorted((r, d) for r, d in CF.DECLINED.items())
+    lock_names = ", ".join(f"`{b} {sh}`" for b, sh in unblocked)
+    other_names = ", ".join(f"`{b} {sh}`" for (b, sh), _ in still)
+    other_decisions = ", ".join(sorted({d for _, d in still}))
+    remaining_lock = sum(1 for d in CF.DECLINED.values()
+                         if d == CF.LOCK_BLOCKED_DECISION)
+    return (
+        f"`xchg` at a memory operand asserts the LOCK signal whether or not "
+        f"`lock` is written (SDM Vol. 2A, XCHG), and that is an ATOMICITY claim "
+        f"a model with no LOCK vocabulary can neither make nor break "
+        f"({CF.LOCK_BLOCKED_DECISION}). ⭐ **LANDED in P2 batch 23**: the "
+        f"addition unblocked exactly the **{len(unblocked)} row(s)** declined "
+        f"for that reason — {lock_names} — which are CLAIMED now, and "
+        f"**{remaining_lock} row(s)** remain blocked on atomicity.\n\n"
+        f"⛔ **It did NOT unblock the {len(still)} row(s) still declined** "
+        f"({other_names}, {other_decisions}), whose reason is signed BIT-STRING "
+        f"addressing: the offset may reach far outside the addressed operand and "
+        f"the effective address moves with it. That is a different addressing "
+        f"mode wearing the same mnemonic, and no LOCK vocabulary touches it. "
+        f"⚠️ This paragraph is DERIVED from `claimed_forms`'s tables, each gated "
+        f"in its own direction; an earlier hand-written version claimed all "
+        f"{len(unblocked) + len(still)} rows for this addition.")
 
 
 def census():
@@ -219,14 +268,16 @@ is what makes a batch startable.
                  f"{100.0*k/b['total_uncovered']:.2f}% |\n")
     fh.write("\n")
     for i, (name, key, why) in enumerate(ADDITIONS, 1):
-        fh.write(f"**{i}. {name}** — {why}\n\n")
-    fh.write("""⚠️ **The LOCK vocabulary's occurrence count under-states it by
-construction.** Codec kernels are single-threaded inner loops; the count that
-matters for LOCK is in the KERNEL column, where the census reads 9,029
-lock-prefixed instructions, and in the six rows P1 declined ON RECORD for want
-of it. An addition whose value is in what it UNBLOCKS cannot be ranked by its
-own frequency, which is why it is listed second by the Captain's order and not
-by this table's sort.
+        fh.write(f"**{i}. {name}** — {why if why is not None else lock_why()}\n\n")
+    n_unblocked = len(CF.LOCK_UNBLOCKED)
+    fh.write(f"""⚠️ **The LOCK vocabulary's occurrence count under-states it, but by
+less than this document once claimed.** Codec kernels are single-threaded inner
+loops; the count that matters for LOCK is in the KERNEL column, where the census
+reads 9,029 lock-prefixed instructions, and in the **{n_unblocked} row(s)** it
+unblocked. An addition whose value is in what it UNBLOCKS cannot be ranked by
+its own frequency, which is why it is listed second by the Captain's order and
+not by this table's sort — but the row count is DERIVED now, and it is
+{n_unblocked}, not the six this paragraph used to assert.
 
 """)
 
@@ -463,12 +514,62 @@ def selftest():
               f"addition `{name}` names a bucket the census emits (`{key}`)")
         if not ok:
             bad.append("addition:" + key)
+    # ⭐⭐ P2 ITEM 2 — THE LOCK CLAIM, DRIVEN IN BOTH DIRECTIONS.
+    #
+    # ⛔ THIS ARM EXISTS BECAUSE THE SENTENCE IT GUARDS WAS FALSE FOR A WHOLE
+    # PHASE, inside a document CI re-derives BYTE-FOR-BYTE.  The derivation gate
+    # proves the file matches the script; it says nothing about whether the
+    # script tells the truth, and a hand-written paragraph inside a generated
+    # document reads as generated ([[ungated-prose-overclaims]]).  So the claim
+    # is derived from `claimed_forms.DECLINED`, and here that derivation is
+    # required to MOVE when its source moves — and to be right when it does not.
+    saved_declined = dict(CF.DECLINED)
+    saved_unblocked = set(CF.LOCK_UNBLOCKED)
+    lock_arms = []
+    try:
+        base = lock_why()
+        n_unb = len(saved_unblocked)
+        n_still = len(saved_declined)
+        lock_arms.append(("the shipped sentence names the unblocked rows and the residue",
+                          f"**{n_unb} row(s)** declined for that reason" in base
+                          and f"the {n_still} row(s) still declined" in base))
+        # RED 1: an extra unblocked row must move the count.
+        CF.LOCK_UNBLOCKED.add(("xadd", "m,r"))
+        lock_arms.append(("an extra UNBLOCKED row moves the derived count",
+                          f"**{n_unb + 1} row(s)** declined for that reason" in lock_why()))
+        CF.LOCK_UNBLOCKED.clear(); CF.LOCK_UNBLOCKED.update(saved_unblocked)
+        # RED 2: a still-declined row re-labelled as atomicity-blocked must be
+        # reported as REMAINING, not silently folded into the unblocked claim.
+        CF.DECLINED[("bt", "m,r")] = CF.LOCK_BLOCKED_DECISION
+        lock_arms.append(("a row re-labelled atomicity-blocked is reported as REMAINING",
+                          "**1 row(s)** remain blocked on atomicity" in lock_why()))
+        CF.DECLINED.clear(); CF.DECLINED.update(saved_declined)
+        # RED 3: with NOTHING unblocked the sentence must say zero rather than
+        # fall back on a plausible-looking number.
+        CF.LOCK_UNBLOCKED.clear()
+        lock_arms.append(("with nothing unblocked the sentence says ZERO",
+                          "**0 row(s)** declined for that reason" in lock_why()))
+    finally:
+        CF.DECLINED.clear(); CF.DECLINED.update(saved_declined)
+        CF.LOCK_UNBLOCKED.clear(); CF.LOCK_UNBLOCKED.update(saved_unblocked)
+    # ⭐ and the restore is itself checked, because a probe that edits its
+    # subject can leave it edited (the P1 seal's rule, and D75's).
+    lock_arms.append(("the tables are restored",
+                      CF.DECLINED == saved_declined
+                      and CF.LOCK_UNBLOCKED == saved_unblocked
+                      and lock_why() == base))
+    for name, ok in lock_arms:
+        print(("  ✔ " if ok else "  ⛔ ") + name)
+        if not ok:
+            bad.append("lock:" + name)
     if bad:
         print(f"p2-roster selftest: FAIL ({len(bad)} arms)")
         return 1
-    print(f"p2-roster selftest: PASS ({len(arms)+len(key_arms)+1+2*len(asm)+len(ADDITIONS)} "
-          f"arms; the SIMD predicate in both directions, the join's inputs, and "
-          f"every addition tied to a bucket the census emits)")
+    print(f"p2-roster selftest: PASS "
+          f"({len(arms)+len(key_arms)+1+2*len(asm)+len(ADDITIONS)+len(lock_arms)} "
+          f"arms; the SIMD predicate in both directions, the join's inputs, "
+          f"every addition tied to a bucket the census emits, and the LOCK "
+          f"claim derived from `claimed_forms.DECLINED` in both directions)")
     return 0
 
 

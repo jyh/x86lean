@@ -32,8 +32,8 @@ declaration in CI.
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
   it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
   oracle. Single-threaded, one instruction at a time.
-- **Instructions.** 84 mnemonics in 784 differentially tested forms, covering
-  498 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
+- **Instructions.** 84 mnemonics in 801 differentially tested forms, covering
+  500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. The moves, the ALU
   group at every width and operand shape including read-modify-write to memory,
   the shifts and rotates, the bit-test and bit-count groups, conditional set and
@@ -44,7 +44,7 @@ declaration in CI.
   generated from the model: `T-exact` (the result and every flag the SDM defines
   are proved), `T-frame` (the defined parts proved, the undefined bits declared
   and drawn from the oracle), and a decode-trust column.
-- **Validation.** Every form is run against ACL2 x86isa on 67424 generated cases
+- **Validation.** Every form is run against ACL2 x86isa on 68886 generated cases
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
   execution, never a theorem about the other model.
@@ -58,7 +58,7 @@ declaration in CI.
 - **No decoder yet.** "These bytes mean this instruction" is trusted to Intel
   XED and recorded as trusted in the coverage table. A Lean decoder for the
   covered subset is a later phase.
-- **Rows of the roster not modelled, with the reason** — 27 of 525, and
+- **Rows of the roster not modelled, with the reason** — 25 of 525, and
   **nothing on that list is merely undone**:
   - 19 rows the oracle does not implement (the BMI group and `movnti`), so no
     differential evidence can exist for them. Measured by executing them, not
@@ -67,13 +67,18 @@ declaration in CI.
   - 2 rows that describe no encoding at all — `jecxz rel32` and `jrcxz rel32`,
     which the assembler refuses because those instructions have only an 8-bit
     displacement.
-  - 6 rows declined on record: `xchg` at a memory operand, whose implicit LOCK
-    is an atomicity claim a single-threaded model can neither make nor break
-    (`docs/DECISIONS.md` D25), and the bit-string `m,r` shape of
+  - 4 rows declined on record: the bit-string `m,r` shape of
     `bt`/`bts`/`btr`/`btc`, where the offset is signed and the effective address
-    moves with it (D23). ⚠️ Both are decisions and not oracle limitations: all
-    six execute on ACL2 x86isa, and the availability gate records that so the
-    reason cannot quietly be re-read as "unsupported".
+    moves with it (`docs/DECISIONS.md` D23). ⚠️ That is a decision and not an
+    oracle limitation: all four execute on ACL2 x86isa, and the availability
+    gate records it so the reason cannot quietly be re-read as "unsupported".
+    ⭐ It was **6** until P2 batch 23: `xchg` at a memory operand was declined
+    because its implicit LOCK is an atomicity claim a model with no LOCK
+    vocabulary could neither make nor break (D25), and the LOCK vocabulary is
+    what that addition added. The two rows are claimed now, and the claim is
+    gated — `scripts/claimed_forms.py` requires every row it records as
+    unblocked to be in the claimed set, so shrinking this residue cannot be a
+    deletion nobody checked.
   - 0 rows of available work. This is what the number means: the residue is
     fully accounted for, and the partition is checked rather than asserted.
 - **Faults** are modelled as refusals of `step`, not as exception delivery:
@@ -212,18 +217,18 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 1 batch landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 2 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
-**498 of the 525 rows** in [`p1/roster.tsv`](p1/roster.tsv) — which are 350 of
+**500 of the 525 rows** in [`p1/roster.tsv`](p1/roster.tsv) — which are 350 of
 the 374 distinct MACHINE FORMS those rows describe, 149 of the rows being alias
 spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 `stos -`) — differentially tested
 against ACL2 x86isa on every batch:
 
 ```
-784 vectors · 86 pre-states · 67424 cases · 0 unexplained · 0 oracle leaks
+801 vectors · 86 pre-states · 68886 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

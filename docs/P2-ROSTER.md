@@ -28,17 +28,20 @@ is what makes a batch startable.
 
 **1. segment base in `Ea`** — `Ea` has no segment field: segmentation was declared out of scope, so `mov %fs:0x28, %rax` — the stack-protector load in most compiled functions — is refused. The addition is a base register on the effective address, not segmentation: FS/GS are the only two overrides long mode honours, and their base is an MSR-loaded value the model can carry as state.
 
-**2. the LOCK vocabulary** — D25 declines `xchg` at memory and the six `bt`-family memory forms BECAUSE there is no LOCK vocabulary to state their atomicity in. The addition unblocks those declined rows as a side effect, which is why it is worth more than its occurrence count says.
+**2. the LOCK vocabulary** — `xchg` at a memory operand asserts the LOCK signal whether or not `lock` is written (SDM Vol. 2A, XCHG), and that is an ATOMICITY claim a model with no LOCK vocabulary can neither make nor break (D25). ⭐ **LANDED in P2 batch 23**: the addition unblocked exactly the **2 row(s)** declined for that reason — `xchg m,r`, `xchg r,m` — which are CLAIMED now, and **0 row(s)** remain blocked on atomicity.
+
+⛔ **It did NOT unblock the 4 row(s) still declined** (`bt m,r`, `btc m,r`, `btr m,r`, `bts m,r`, D23), whose reason is signed BIT-STRING addressing: the offset may reach far outside the addressed operand and the effective address moves with it. That is a different addressing mode wearing the same mnemonic, and no LOCK vocabulary touches it. ⚠️ This paragraph is DERIVED from `claimed_forms`'s tables, each gated in its own direction; an earlier hand-written version claimed all 6 rows for this addition.
 
 **3. the `movabs` mov form** — The 64-bit immediate move is a distinct encoding, not a width of the existing `mov`: `movabsq $imm64, %r64` is the only form that carries a full 64-bit immediate, and it is what a compiler emits for any address or constant that does not fit in 32 bits.
 
-⚠️ **The LOCK vocabulary's occurrence count under-states it by
-construction.** Codec kernels are single-threaded inner loops; the count that
-matters for LOCK is in the KERNEL column, where the census reads 9,029
-lock-prefixed instructions, and in the six rows P1 declined ON RECORD for want
-of it. An addition whose value is in what it UNBLOCKS cannot be ranked by its
-own frequency, which is why it is listed second by the Captain's order and not
-by this table's sort.
+⚠️ **The LOCK vocabulary's occurrence count under-states it, but by
+less than this document once claimed.** Codec kernels are single-threaded inner
+loops; the count that matters for LOCK is in the KERNEL column, where the census
+reads 9,029 lock-prefixed instructions, and in the **2 row(s)** it
+unblocked. An addition whose value is in what it UNBLOCKS cannot be ranked by
+its own frequency, which is why it is listed second by the Captain's order and
+not by this table's sort — but the row count is DERIVED now, and it is
+2, not the six this paragraph used to assert.
 
 ## The vector roster, ranked by measured demand
 

@@ -50,6 +50,32 @@ for line in r.stdout.splitlines():
         addrs.append((int(m.group(1), 16), m.group(2).split()))
 
 by_addr = {a: b for a, b in addrs}
+
+# ⭐⭐ P2 ITEM 2: THE `lock` PREFIX IS A SEPARATE objdump LINE, AND JOINING IT IS
+# NOT COSMETIC.  objdump disassembles `f0 48 01 0b` as TWO lines — `f0  lock`
+# then `48 01 0b  addq %rcx,(%rbx)` — so a vector whose encoding begins with the
+# prefix would be read here as a ONE-BYTE instruction.  The `Instr.len` check
+# would then compare the model's 4 against the assembler's 1 and fail on every
+# locked vector, and — worse in the other direction — a model that had SILENTLY
+# DROPPED the prefix would have agreed with that 1.
+#
+# ⇒ A single-byte `f0` line is FOLDED INTO ITS SUCCESSOR: same start address,
+# bytes concatenated. That is what the machine does (a prefix is part of the
+# instruction, SDM Vol. 2A §2.1.1) and what `Instr.len` means. Anything else
+# objdump splits — REX, the operand-size prefix — it already keeps on one line;
+# `f0` is the only one this table has met that it does not.
+LOCK_PREFIX = "f0"
+_folded, _absorbed = {}, set()
+for a in sorted(by_addr):
+    if a in _absorbed:
+        continue
+    b = by_addr[a]
+    if len(b) == 1 and b[0] == LOCK_PREFIX and (a + 1) in by_addr:
+        _folded[a] = b + by_addr[a + 1]
+        _absorbed.add(a + 1)
+    else:
+        _folded[a] = b
+by_addr = _folded
 ordered = sorted(by_addr)
 
 expected = {}
@@ -99,11 +125,12 @@ print(f"encoding cross-check: CLEAN — {checked} forms, every `Instr.len` and e
 # constructor" — did not move here: it became the ABSENCE of a wildcard arm in
 # `X86.opOperands`, which the compiler checks on every build and which also
 # covers constructors no vector uses yet.
-declared = {}
+declared, declared_lock = {}, {}
 for line in open(segf):
     parts = line.split()
-    if len(parts) == 2:
+    if len(parts) == 3:
         declared[parts[0]] = parts[1]
+        declared_lock[parts[0]] = parts[2]
 
 asm_text = {}
 for line in open(asm):
@@ -182,6 +209,66 @@ if n_seg == 0:
 print(f"segment cross-check: CLEAN — {n_seg} segmented form(s) of {len(declared)}; "
       f"the AT&T text, the assembler's prefix byte and the AST agree on the "
       f"SEGMENT, per vector")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ⭐⭐ P2 ITEM 2 — THE LOCK PREFIX, HELD BY THE SAME THREE SOURCES.
+#
+# ⛔ AND THIS ONE ALSO GATES THE PREFIX FOLD ABOVE.  objdump prints `f0` as its
+# OWN instruction line; without the fold a locked vector reads here as a
+# ONE-BYTE instruction, and — the direction that matters — a model that had
+# silently DROPPED the prefix would have agreed with that one byte. So the arms
+# below are not decoration on a solved problem: they are what says the fold is
+# still happening and still necessary.
+def lock_findings(declared_lock, asm_text, first_byte):
+    out = []
+    for vid, want in declared_lock.items():
+        t = asm_text.get(vid, "")
+        from_text = "lock" if re.match(r"^\s*lock\b", t) else "-"
+        from_bytes = "lock" if first_byte.get(vid, "") == "f0" else "-"
+        if not (want == from_text == from_bytes):
+            out.append(f"{vid}: AST says {want}, AT&T text says {from_text}, "
+                       f"assembler prefix says {from_bytes}")
+    return out
+
+
+if True:
+    lock_arms, lok = [], True
+    lvic = next((v for v, w in declared_lock.items() if w == "lock"), None)
+    if lvic is None:
+        print("⛔ lock cross-check cannot run: no locked vector to doctor.")
+        sys.exit(2)
+    d = dict(declared_lock); d[lvic] = "-"
+    lock_arms.append(("the AST loses its lock flag",
+                      bool(lock_findings(d, asm_text, first_byte))))
+    a2 = dict(asm_text); a2[lvic] = re.sub(r"^\s*lock\s+", "", a2[lvic])
+    lock_arms.append(("the AT&T text loses its `lock` token",
+                      bool(lock_findings(declared_lock, a2, first_byte))))
+    b2 = dict(first_byte); b2[lvic] = "48"
+    lock_arms.append(("the assembler's prefix byte is not f0 (the UNFOLDED read)",
+                      bool(lock_findings(declared_lock, asm_text, b2))))
+    lock_arms.append(("control: the shipped three sources agree",
+                      not lock_findings(declared_lock, asm_text, first_byte)))
+    for name, ok in lock_arms:
+        print(("  ✔ " if ok else "  ✖ ") + name)
+        lok = lok and ok
+    if not lok:
+        print("⛔ lock cross-check SELFTEST FAILED.")
+        sys.exit(1)
+
+lockbad = lock_findings(declared_lock, asm_text, first_byte)
+if lockbad:
+    print(f"⛔ lock-prefix cross-check FAILED ({len(lockbad)} of "
+          f"{len(declared_lock)} forms):")
+    for b in lockbad: print("   " + b)
+    sys.exit(1)
+n_lock = sum(1 for v in declared_lock.values() if v == "lock")
+if n_lock == 0:
+    print("⛔ lock cross-check found NO locked vector. A check whose subject is "
+          "absent reports a failure here, not a pass.")
+    sys.exit(2)
+print(f"lock cross-check: CLEAN — {n_lock} locked form(s) of {len(declared_lock)}; "
+      f"the AT&T text, the assembler's `f0` prefix byte and the AST's `Ea.lock` "
+      f"agree, per vector — which is also what says the prefix FOLD is live")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # THE SYNONYM COLLAPSE, CHECKED AGAINST THE ASSEMBLER (P1 BATCH 16).

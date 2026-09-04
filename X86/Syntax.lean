@@ -61,6 +61,33 @@ structure Ea where
   override, whose base is zero in 64-bit mode and which therefore has nothing
   for this model to carry. -/
   seg : Option Seg := none
+  /-- ⭐⭐ P2 ITEM 2: THE `LOCK` PREFIX (`F0`), CARRIED ON THE EFFECTIVE ADDRESS
+  RATHER THAN ON THE INSTRUCTION, and the placement is the design.
+
+  The SDM is explicit (Vol. 2A, "LOCK"): the prefix may be used *"only to those
+  forms of the instruction where the destination operand is a MEMORY
+  OPERAND"* — anything else is #UD.  So `lock` without a memory operand is not
+  a state this AST should be able to describe, and putting the flag here makes
+  that combination UNREPRESENTABLE instead of a runtime check somebody has to
+  remember to write.
+
+  ⚠️ THE ILLEGALITY IS A DECODE FACT, AND THIS AST IS POST-DECODE.  `f0 48 01
+  c8` (`lock addq %rcx, %rax`) is rejected by the DECODER, and decode is trusted
+  to XED and recorded as trusted (`TRUSTBASE.md`, and the coverage table's
+  decode-trust column).  A model that could express it and then halted would be
+  answering a question its own trust boundary says it does not answer.  What IS
+  expressible, and therefore has to be checked here, is a lock on a memory
+  destination of an instruction that is NOT on the SDM's lockable list — see
+  `Op.lockable`.
+
+  ⛔ AND IT DOES NOT CLAIM ATOMICITY.  A single-step, single-threaded semantics
+  has no observation that distinguishes an atomic read-modify-write from a
+  non-atomic one, and this field does not pretend otherwise: it RECORDS that the
+  access is architecturally atomic, which is what D25 said the model lacked the
+  vocabulary to say.  Having the vocabulary is what unblocks `xchg` at memory;
+  it is not a claim that the model verifies anything about concurrency, and
+  `TRUSTBASE.md` says so where a reader is looking. -/
+  lock : Bool := false
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- An operand.  The operand WIDTH is not here: it is one datum on the
@@ -784,6 +811,255 @@ structure Instr where
   /-- Encoded length in bytes, from the decoder (XED). -/
   len : Nat
   deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- ⭐⭐ EVERY OPERAND AN `Op` NAMES, WITH NO WILDCARD ARM.
+
+⛔ THE ABSENCE OF `| _ => []` IS THE WHOLE POINT, AND IT REPLACES A THEOREM.
+The first version of this function had a wildcard and a companion theorem
+comparing its answer against the ENCODED BYTES (`64`/`65` prefixes) over all
+784 vectors — a real second source, and it worked.  It also cost **4 200 ms of
+kernel time**, the second most expensive declaration in this module, measured:
+the byte half alone is 7.9 s standalone against 0.4 s for the AST half, because
+`String.toList` on 784 literals is what the kernel actually spends its time on.
+
+⇒ THE CEILING REFUSED IT AND NAMED A CHEAPER BUILD, which is the recurring shape
+in this repository ([[a-gate-that-refuses-names-a-cheaper-build]]).  Exhaustive,
+the completeness question is answered by the COMPILER on every build rather than
+by a sweep: a thirty-seventh `Op` constructor is a compile error here and forces
+whoever adds it to say whether it can carry a segment.  That is strictly stronger
+than the theorem it replaces — which could only have caught a constructor some
+VECTOR already used — and it costs nothing.
+
+⚠️ The byte-side check is not lost: `seg_findings` in `scripts/check_encodings.py`
+gates it, where a `%fs:` in the AT&T text, a `64`/`65` prefix in the bytes, and
+the `seg` field of the AST must agree — per vector and per SEGMENT — and where
+reading a string costs microseconds. -/
+def opOperands : Op → List Operand
+  | .mov _ dst src => [dst, src]
+  | .bin _ _ dst src => [dst, src]
+  | .un _ _ dst => [dst]
+  | .shift _ _ dst _ => [dst]
+  | .lea _ _ _ => []          -- its `Ea` is collected below, not as an operand
+  | .push _ src => [src]
+  | .pop _ dst => [dst]
+  | .jmp t => (match t with | .rel _ => [] | .indirect o => [o])
+  | .jcc _ _ => []
+  | .jcxz _ _ => []
+  | .rot _ _ dst _ => [dst]
+  | .bit _ _ dst off => [dst, off]
+  | .setcc _ dst => [dst]
+  | .cmov _ _ _ src => [src]
+  | .call t => (match t with | .rel _ => [] | .indirect o => [o])
+  | .movx _ _ _ _ src => [src]
+  | .cext _ => []
+  | .xchg _ a b => [a, b]
+  | .bswap _ _ => []
+  | .loop _ _ _ => []
+  | .flagop _ => []
+  | .nop dst => dst.toList
+  | .ud2 => []
+  | .ret => []
+  | .leave => []
+  | .shiftx _ _ _ src _ => [src]
+  | .movbe _ dst src => [dst, src]
+  | .bitcnt _ _ _ src => [src]
+  -- the string group addresses RSI/RDI by opcode: no operand field at all, and
+  -- therefore no place a segment override could be recorded in this AST.
+  | .strop _ _ => []
+  | .repstrop _ _ _ => []
+  | .muldiv _ _ src => [src]
+  | .imulr _ _ src _ => [src]
+  | .cmpxchg _ dst _ => [dst]
+  | .xadd _ dst _ => [dst]
+  | .dshift _ _ dst _ _ => [dst]
+  | .cmpxchg8b dst => [dst]
+
+/-- The effective addresses an instruction names — every memory operand's, plus
+`lea`'s, which is not an operand.  ONE walk, shared by the segment theorems in
+`Tests/Coverage.lean` and by the LOCK well-formedness rule below, so a
+constructor added to `opOperands` reaches both. -/
+def Op.eas (o : Op) : List Ea :=
+  (opOperands o).filterMap (fun x => match x with | .mem e => some e | _ => none)
+    ++ (match o with | .lea _ _ e => [e] | _ => [])
+
+/-- ⭐⭐ P2 ITEM 2: THE SDM'S LOCKABLE LIST, AS DATA.
+
+SDM Vol. 2A, "LOCK — Assert LOCK# Signal Prefix": *"The LOCK prefix can be
+prepended only to the following instructions and only to those forms of the
+instructions where the destination operand is a memory operand: ADD, ADC, AND,
+BTC, BTR, BTS, CMPXCHG, CMPXCHG8B, CMPXCHG16B, DEC, INC, NEG, NOT, OR, SBB, SUB,
+XOR, XADD, and XCHG."*  Anything else raises #UD.
+
+⛔ THE LIST IS TRANSCRIBED FROM THE MANUAL AND NOT INFERRED FROM WHAT THIS MODEL
+HAPPENS TO IMPLEMENT.  `CMPXCHG16B` is on it and is not in this roster; `MOV` is
+NOT on it and is in this roster and is the form a reader would most expect to be
+lockable, because `lock movq %rax, (%rbx)` looks exactly like the atomic store
+somebody wants.  A list derived from "the memory-destination forms we have"
+would have quietly admitted `mov`, `shl`, `sar`, the whole shift group and every
+`cmp`/`test` — every one of them a #UD on real silicon.
+
+⚠️ `XCHG` IS ON THE LIST AND IS ALSO IMPLICITLY LOCKED: with a memory operand it
+asserts LOCK whether or not the prefix is written (SDM Vol. 2A, XCHG).  So an
+`xchg` at memory is lock-legal with the flag set OR clear, and both spellings
+are the same instruction — which is why `Op.lockable` answers about the FORM and
+`Instr` carries no separate "was the prefix written" bit for it. -/
+def Op.lockable : Op → Bool
+  -- The arithmetic and logic group, at a memory DESTINATION.  `cmp` and `test`
+  -- are deliberately NOT here: they write no destination, so there is nothing
+  -- to make atomic and the manual does not list them.
+  | .bin k _ dst _ => dst.isMem && (match k with
+      | .add | .adc | .and | .or | .sbb | .sub | .xor => true
+      | .cmp | .test => false)
+  | .un k _ dst => dst.isMem && (match k with
+      | .inc | .dec | .neg | .not => true)
+  -- BTC/BTR/BTS are lockable; plain BT is NOT — it writes nothing.
+  | .bit k _ dst _ => dst.isMem && (match k with
+      | .bts | .btr | .btc => true
+      | .bt => false)
+  | .cmpxchg _ dst _ => dst.isMem
+  | .cmpxchg8b dst => dst.isMem
+  | .xadd _ dst _ => dst.isMem
+  | .xchg _ a b => a.isMem || b.isMem
+  | _ => false
+
+/-- Does this operand carry a `lock`?  ⭐ It exists so a characterization theorem
+over a GENERAL operand can state P2 item 2's side condition without restating the
+whole instruction — `(hl : o.locked = false)` rather than a copy of the `Op` the
+theorem is already about, which would be a duplicate born in agreement. -/
+def Operand.locked : Operand → Bool
+  | .mem e => e.lock
+  | _ => false
+
+/-- Does any operand of this form carry a `lock`?
+
+⭐⭐ THIS IS A SECOND TRAVERSAL AND NOT A CONVENIENCE, and the measurement is
+why.  `lockIllegal` was first written as `o.eas.any Ea.lock` — three list passes
+(`filterMap`, `++`, `any`) that `simp` unfolds symbolically at EVERY call site,
+and `step`'s guard puts one at the head of every characterization theorem in
+`X86/Theorems.lean`.  Measured: **733 ms against a 540 ms ceiling**, a module
+that had never been near it.  One pass over `opOperands` costs what the `simp`
+set can afford; `Op.eas` stays, unmarked, for the segment theorems that want the
+addresses themselves. -/
+def Op.anyLocked : Op → Bool
+  | .mov _ dst src => dst.locked || src.locked
+  | .bin _ _ dst src => dst.locked || src.locked
+  | .un _ _ dst => dst.locked
+  | .shift _ _ dst _ => dst.locked
+  | .lea _ _ e => e.lock
+  | .push _ src => src.locked
+  | .pop _ dst => dst.locked
+  | .jmp t => (match t with | .rel _ => false | .indirect o => o.locked)
+  | .jcc _ _ => false
+  | .jcxz _ _ => false
+  | .rot _ _ dst _ => dst.locked
+  | .bit _ _ dst off => dst.locked || off.locked
+  | .setcc _ dst => dst.locked
+  | .cmov _ _ _ src => src.locked
+  | .call t => (match t with | .rel _ => false | .indirect o => o.locked)
+  | .movx _ _ _ _ src => src.locked
+  | .cext _ => false
+  | .xchg _ a b => a.locked || b.locked
+  | .bswap _ _ => false
+  | .loop _ _ _ => false
+  | .flagop _ => false
+  | .nop dst => (dst.map Operand.locked).getD false
+  | .ud2 => false
+  | .ret => false
+  | .leave => false
+  | .shiftx _ _ _ src _ => src.locked
+  | .movbe _ dst src => dst.locked || src.locked
+  | .bitcnt _ _ _ src => src.locked
+  | .strop _ _ => false
+  | .repstrop _ _ _ => false
+  | .muldiv _ _ src => src.locked
+  | .imulr _ _ src _ => src.locked
+  | .cmpxchg _ dst _ => dst.locked
+  | .xadd _ dst _ => dst.locked
+  | .dshift _ _ dst _ _ => dst.locked
+  | .cmpxchg8b dst => dst.locked
+
+/-- ⛔⛔ AND THE DUPLICATE IS GATED BY THE COMPILER.  `anyLocked` above is a
+SECOND walk over the same operand structure `opOperands` describes, written out
+per constructor because that is what `simp` can reduce cheaply — and a second
+copy of a 36-arm match is a duplicate born in agreement, which diverges on the
+next constructor somebody adds to one and not the other.
+
+This equation is the gate: it holds by `rfl` in every arm, so a divergence is a
+BUILD FAILURE and not a drift.  ⚠️ `lea` is the one arm where the two genuinely
+differ, and deliberately: its `Ea` is not an operand, so `opOperands` does not
+carry it and `Op.eas` adds it separately. -/
+theorem Op.anyLocked_eq (o : Op) :
+    o.anyLocked = (match o with
+                   | .lea _ _ e => e.lock
+                   | _ => (opOperands o).any Operand.locked) := by
+  cases o
+  case jmp t | call t => cases t <;> simp [Op.anyLocked, opOperands, Operand.locked]
+  case nop d => cases d <;> simp [Op.anyLocked, opOperands, Operand.locked]
+  all_goals simp [Op.anyLocked, opOperands, Operand.locked]
+
+/-- ⭐⭐ IS A `lock` FLAG SET ON A FORM THE SDM DOES NOT ALLOW IT ON?
+
+This is the ONE thing about LOCK a post-decode model still has to decide, and it
+is decidable here rather than at decode: `lock movq %rax, (%rbx)` is a
+well-formed ENCODING that the decoder will hand over — the prefix is legal
+bytes, the operands are legal operands — and it is #UD because MOV is not on the
+manual's list.  `lock addq %rcx, %rax`, by contrast, cannot reach this AST at
+all: the flag lives on an `Ea`, and there is no `Ea` in it.
+
+⛔ SO THIS PREDICATE'S SUBJECT IS EXACTLY THE CASE THE TYPE CANNOT RULE OUT, and
+the differential run compares it through the `refused` channel against x86isa's
+own #UD. -/
+def Op.lockIllegal (o : Op) : Bool := o.anyLocked && !o.lockable
+
+@[simp] theorem Operand.locked_reg (r : GPR) (h8 : Bool) :
+    (Operand.reg r h8).locked = false := rfl
+@[simp] theorem Operand.locked_imm (v : Val) : (Operand.imm v).locked = false := rfl
+@[simp] theorem Operand.locked_mem (e : Ea) : (Operand.mem e).locked = e.lock := rfl
+
+
+/- ⭐ THE THREE DEFINITIONS ABOVE ARE `simp` DEFINITIONS, and that is what keeps
+P2 item 2's guard from costing sixty-one theorems a hypothesis.
+
+`step` now tests `lockIllegal` BEFORE its match, so every characterization
+theorem acquires a side condition.  For the register-only forms — most of the
+sixty-one — the condition is decidably FALSE by structure: no `Ea`, therefore no
+`lock`, therefore no violation.  With the equation lemmas in the simp set,
+`simp [step, h]` discharges it exactly as it discharged `wellFormed2` before,
+and those theorems keep their statements unchanged.
+
+⛔ THE MEMORY-OPERAND THEOREMS ARE A DIFFERENT CASE AND MUST NOT BE PAPERED OVER.
+For `mov m,r` the condition is `ea.lock`, which is a real hypothesis: the
+theorem was making a claim that is now FALSE for a locked operand, because a
+locked `mov` is #UD.  Those theorems gain `(hl : ea.lock = false)` and say so —
+narrowing a claim that had become too wide is the honest repair, and hiding it
+behind a simp lemma would be the dishonest one. -/
+attribute [simp] Op.anyLocked Op.lockable Op.lockIllegal
+
+/-! ### The lock-guard's side condition, discharged per family
+
+⭐ P2 ITEM 2.  `step` tests `lockIllegal` before its match, so a characterization
+theorem written with `simp only` and a hand-listed lemma set — which is how the
+oracle-drawing families are written, because their bodies do not survive a full
+`simp` — cannot see that the condition is false.  These lemmas are the bridge:
+one per family whose operand is a VARIABLE, stating the obvious fact in the form
+`simp only` can use. -/
+
+@[simp] theorem lockIllegal_bitcnt (k : BitCntKind) (sz : Size) (dst : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.bitcnt k sz dst src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_muldiv (k : MulDivKind) (sz : Size) (src : Operand)
+    (h : src.locked = false) : (Op.muldiv k sz src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val)
+    (h : src.locked = false) : (Op.imulr sz dst src imm).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR)
+    (amt : ShiftAmt) (h : dst.locked = false) :
+    (Op.dshift k sz dst src amt).lockIllegal = false := by
+  cases dst <;> simp_all [Operand.locked, opOperands]
 
 /-- The mnemonic a disassembler prints, used by the coverage table and by the
 differential harness's disagreement reports. -/
