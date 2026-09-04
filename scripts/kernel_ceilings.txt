@@ -191,7 +191,30 @@ Tests.Anchors 801
 # THAT WRITES THE TREE IS RUNNING.  The restoration is `2ec…` below this line in
 # the history; CI on `afcde4a` is expected RED on the kernel-cost step and that
 # red is understood.
-Tests.Coverage @decl memDestSweep 19360
+# ⭐⭐ P2 BATCH 11 — `memDestSweep` IS RE-REGISTERED **DOWNWARD**, 19360 -> 7040.
+# `Row.shapes` no longer carries prose (X86/Coverage.lean's `note` field, D103):
+# the predicates walk 30% of the characters they used to and the declaration fell
+# 18 500 -> 4 400 ms.  The whole module went 33 100 -> 18 600.
+#
+# ⚠️ THIS IS A TIGHTENING, NOT AN ALLOWANCE.  Raising a ceiling from the thing it
+# measures is forbidden here and stays forbidden; LOWERING one to match a cost
+# that fell is what keeps the gate able to see a regression at all — a ceiling
+# with 4.4x headroom detects nothing.  Registered at `measured x 1.6` on the
+# WORST of four readings, the file's own convention:
+#
+#     memDestSweep   4 400 · 4 330 · 4 320 · 4 280   (1-min loads 4.05/3.22/4.02/3.70)
+#
+# ⛔⛔ AND THE BINDING CONSTRAINT IS NOW `vectorCoverage`, AT 98% OF ITS CEILING.
+# 2 280 against 2 320, measured in the same runs.  Its cost is `vectorMnemonics`'s
+# dedup, which is |rows| x |vectors| string comparisons — 111 x 854 today — so it
+# grows with BOTH and the next batch crosses it at about two more vectors.
+# ⇒ THE CHEAPER BUILD WAS ALREADY PRICED AND REFUSED (see the note on
+# `vectorCoverage`): every dedup-free spelling costs the same cross product, and a
+# hand-written literal trades it for a list edited every batch.  So this is a
+# DESIGN question — how to state "these two sets are equal" without a cross
+# product a kernel must reduce — and it is the next head's first obstacle, named
+# here with its growth law rather than left to be rediscovered as a red gate.
+Tests.Coverage @decl memDestSweep 7040
 Tests.Coverage @decl pre_states_have_a_returnable_frame 2912
 Tests.Coverage @decl vectorCoverage 2320
 Tests.Coverage @tail 12420

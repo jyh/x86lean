@@ -317,6 +317,23 @@ P2_FORMS = [
     ("pshufb",     "pshufb %xmm1, %xmm0",         "660f3800c1",   "refuses", "refuses"),
     ("pmulhrsw",   "pmulhrsw %xmm1, %xmm0",       "660f380bc1",   "refuses", "refuses"),
     ("palignr",    "palignr $0x4, %xmm1, %xmm0",  "660f3a0fc104", "refuses", "refuses"),
+    # ── P2 BATCH 11's CANDIDATES: the packed SHIFT group and the permute.
+    #    ⛔ PROBED PER FORM, NOT PER GROUP.  `psllw` and `psrad` at an immediate
+    #    were already measured executing, and seven of their siblings had never
+    #    been asked — which is exactly the sample that made `pmaddwd` a surprise
+    #    at rank 1 ([[feedback-a-batch-cannot-be-sampled]]).  Both COUNT SHAPES
+    #    are probed, because `psrad $imm` and `psrad %xmm` are different opcodes
+    #    (`66 0f 72 /4 ib` against `66 0f e2 /r`) and an oracle may have one.
+    ("psrlw_i",    "psrlw $0x2, %xmm0",           "660f71d002",   "refuses", "executes"),
+    ("psraw_i",    "psraw $0x2, %xmm0",           "660f71e002",   "refuses", "executes"),
+    ("psrld_i",    "psrld $0x2, %xmm0",           "660f72d002",   "refuses", "executes"),
+    ("pslld_i",    "pslld $0x2, %xmm0",           "660f72f002",   "refuses", "executes"),
+    ("psrlq_i",    "psrlq $0x2, %xmm0",           "660f73d002",   "refuses", "executes"),
+    ("psllq_i",    "psllq $0x2, %xmm0",           "660f73f002",   "refuses", "executes"),
+    ("psrldq_i",   "psrldq $0x2, %xmm0",          "660f73d802",   "refuses", "executes"),
+    ("pslldq_i",   "pslldq $0x2, %xmm0",          "660f73f802",   "refuses", "executes"),
+    ("psrad_x",    "psrad %xmm1, %xmm0",          "660fe2c1",     "refuses", "executes"),
+    ("psrlw_x",    "psrlw %xmm1, %xmm0",          "660fd1c1",     "refuses", "executes"),
     # ── batch 2, AVX2/AVX (ymm): 11.8% ──
     ("vmovdqa_y",  "vmovdqa (%rbx), %ymm0",       "c5fd6f03",     "refuses", "executes"),
     ("vpaddd_y",   "vpaddd %ymm1, %ymm2, %ymm0",  "c5edfec1",     "refuses", "executes"),

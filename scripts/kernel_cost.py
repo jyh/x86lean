@@ -543,11 +543,20 @@ def main():
                   f"= {cov/nrows:.1f} ms/row over {nrows} rows, "
                   f"{cov/nvecs:.2f} ms/vector over {nvecs} kernel-pinned vectors "
                   f"({thms} assertions)")
-            print("  ⚠️  NEITHER unit is flat, and after batch 21 ONE "
-                  "declaration (memDestSweep) is ~half the module while being "
-                  "barely vector-driven. See D62 and D63 and the per-declaration "
-                  "table below; do not gate on a whole-module density.")
-            for line, name, ms in per_declaration("Tests/Coverage.lean")[:8]:
+            # ⛔ THIS SENTENCE USED TO NAME `memDestSweep` AS "~half the module"
+            # AS A LITERAL, and P2 batch 11 took it from 18 500 to 4 400 ms —
+            # 23% — while the sentence went on saying half.  A gate's own OUTPUT
+            # is prose too, and prose in a tool nobody re-reads is exactly the
+            # ungated claim this repository keeps paying for (D65, D94, D102).
+            # ⇒ The share and the name are DERIVED from the profile now, so the
+            # warning cannot describe a distribution the tool is not seeing.
+            decls = per_declaration("Tests/Coverage.lean")
+            top_ms, top_name = (decls[0][2], decls[0][1]) if decls else (0.0, "?")
+            print(f"  ⚠️  NEITHER unit is flat: the largest single declaration "
+                  f"({top_name}) is {100.0*top_ms/cov:.0f}% of the module on its "
+                  f"own. See D62, D63 and D103 and the per-declaration table "
+                  f"below; do not gate on a whole-module density.")
+            for line, name, ms in decls[:8]:
                 print(f"    {ms:9.0f} ms  {name}  (Tests/Coverage.lean:{line})")
     print(f"total kernel time across the development: {total:.1f}ms")
     if fail:

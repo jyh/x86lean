@@ -857,7 +857,23 @@ theorem memDestSweep :
       -- repaired: `claimsMemDestLoose` exists only to be compared against, and
       -- teaching it `x` would erase the very divergence this theorem exists to
       -- pin down.
-      == [("sarx", true), ("shlx", true), ("shrx", true),
+      -- ⛔⛔ P2 BATCH 11 — `bt` JOINS THIS LIST, AND WHY IT WAS ABSENT IS THE
+      -- BEST ARGUMENT FOR THE SPLIT THAT PUT IT HERE.  `Row.shapes` used to
+      -- carry prose at the end, and `bt`'s read
+      --     "r,imm · r,r · m,imm — w/l/q (m,r: bit-string, not modelled)"
+      -- The loose rule searches for the infix `m,r` ANYWHERE in the column, and
+      -- it found one — inside a parenthetical stating that that shape is **NOT
+      -- MODELLED**.  The two rules AGREED about `bt` for a reason that is the
+      -- exact opposite of the truth, and this list was one row short of honest.
+      --
+      -- ⇒ 🔑 A PREDICATE OVER A FIELD THAT MIXES DATA WITH PROSE IS READING BOTH,
+      -- AND PROSE IS WHERE A CLAIM'S NEGATION GETS WRITTEN.  With `note` split
+      -- off, the loose rule sees `r,imm · r,r · m,imm`, finds no `m,r`, and
+      -- correctly disagrees with the strict rule, which reads `m,imm` at a shape
+      -- start.  ⚠️ This is the ONLY row of 106 whose classification moved:
+      -- computed before the edit under the invariant "no row's `claimsMemDest`
+      -- changes", and confirmed by this gate after.
+      == [("bt", false), ("sarx", true), ("shlx", true), ("shrx", true),
           ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
           ("movdqa", false), ("movdqu", false),
           -- ⭐ P2 VECTOR WAVE, BATCH 11 adds four more in the SAME direction, and
@@ -928,7 +944,8 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
         | true,  false => some (r.mnemonic, true)
         | false, true  => some (r.mnemonic, false)
         | _,     _     => none)
-      = [("sarx", true), ("shlx", true), ("shrx", true),
+      = [-- ⛔ P2 BATCH 11: `bt`. See `memDestSweep` for why it is here and was not.
+         ("bt", false), ("sarx", true), ("shlx", true), ("shrx", true),
          ("cmps", false), ("scas", false),
          -- P1 BATCH 16: `repe` and `repne` join for the same reason `cmps` and
          -- `scas` did — they ADDRESS a memory destination and write none, so

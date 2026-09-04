@@ -4396,3 +4396,76 @@ design question rather than a margin question. It is priced here so the next hea
 measurement instead of the surprise.
 
 **Reversal cost:** four strings in `X86/Coverage.lean`.
+
+## D103 — the coverage table's `shapes` column mixed data with prose, and a kernel predicate was reading both (P2 vector wave, batch 11)
+
+D102 recorded that `memDestSweep` costs ~5 ms per character of `Row.shapes` and closed with the
+margin rather than a repair: 18,400 of a 19,360 ceiling, and *"the next batch crosses again."* It
+did — immediately. Padding ten rows by thirty characters each, the size of the next batch's ten
+coverage rows **however terse their shapes**, takes the declaration to **20,000 ms**. The packed
+shift group was blocked before a line of it was written.
+
+### 1. The repair, and why it is not a trim
+
+`Row` gains a `note : String` field. `shapes` carries the operand vocabulary a kernel-reduced
+predicate reads; `note` carries the prose, and **no predicate reads it**. `renderTable` rejoins the
+two with the same ` — `, so **`docs/COVERAGE.md` is byte-identical across the change** — which is the
+check that says this was a refactor and not an edit to a published claim.
+
+```
+shapes column   4,577 -> 1,370 characters   (30%)
+memDestSweep   18,500 -> 4,400 ms           (4,400 / 4,330 / 4,320 / 4,280, four readings)
+Tests.Coverage 33,100 -> 18,600 ms
+```
+
+### 2. ⛔ The first attempt was wrong, and the way it was wrong is the finding
+
+The obvious rule — *split at the em dash* — is wrong, because in this column the em dash does
+**two** jobs: it separates a shape list from its prose, and it separates a shape from its WIDTHS
+(`m(rmw) — all of b/w/l/q`). Splitting `neg`, `not` and `pop` at the first one moved real shape
+vocabulary out of the predicates' sight and **silently dropped three memory-destination claims**.
+
+⇒ 🔑 **A SEPARATOR THAT MEANS TWO THINGS IS NOT A BOUNDARY.** The gate caught it — `memDestSweep`
+went red — but it caught it by luck of coverage, not by construction. So the split point is chosen
+per row as the **earliest em dash that leaves `claimsMemDest` unchanged for that row**: an invariant,
+computed over all 106 rows *before* the edit and enforced by the gate *after*.
+
+### 3. ⭐ And the split found a real defect in the artifact it was moving
+
+Exactly one row of 106 changes classification: **`bt`**. Its column read
+
+```
+"r,imm · r,r · m,imm — w/l/q (m,r: bit-string, not modelled)"
+```
+
+`claimsMemDestLoose` searches for the infix `m,r` **anywhere**, and found one — inside a parenthetical
+saying that shape is **NOT MODELLED**. The loose and strict rules therefore AGREED about `bt` for a
+reason that is the exact opposite of the truth, and the pinned disagreement list was one row short of
+honest. With the prose out, loose correctly disagrees and `bt` joins the list.
+
+⇒ 🔑 **A PREDICATE OVER A FIELD THAT MIXES DATA WITH PROSE IS READING BOTH — AND PROSE IS WHERE A
+CLAIM'S NEGATION GETS WRITTEN.** The cost was the reason to look; the correctness defect is what
+looking found.
+
+### 4. The ceiling is re-registered DOWNWARD, and the next constraint is named
+
+`memDestSweep` 19,360 → **7,040** (worst of four readings × 1.6, the file's own convention, conditions
+recorded). ⚠️ A tightening, not an allowance: raising a ceiling from the thing it measures stays
+forbidden, but a ceiling with 4.4× headroom detects nothing.
+
+⛔ **`vectorCoverage` IS NOW THE BINDING CONSTRAINT, AT 98%** — 2,280 against 2,320. Its cost is
+`vectorMnemonics`'s dedup, |rows| × |vectors| string comparisons (111 × 854), so it grows with
+**both** and crosses at roughly two more vectors. Its cheaper builds were priced and refused at P1
+batch 21: every dedup-free spelling costs the same cross product, and a hand-written literal trades
+it for a list edited every batch. ⇒ Stating "these two sets are equal" without a cross product a
+kernel must reduce is a DESIGN question, and it is the next head's first obstacle — named here with
+its growth law rather than left to be met as a red gate.
+
+### 5. ⚠️ And the gate's own warning line had gone stale in the same breath
+
+`kernel_cost.py` printed *"ONE declaration (memDestSweep) is ~half the module"* as a LITERAL. This
+batch made it 23% and the sentence went on saying half. The share and the declaration's name are
+DERIVED from the profile now. A tool's output is prose too, and prose nobody re-reads is the ungated
+claim this repository keeps paying for.
+
+**Reversal cost:** one field, one line in `renderTable`, one entry in a pinned list.

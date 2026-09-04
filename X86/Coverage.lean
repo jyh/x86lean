@@ -58,8 +58,37 @@ def DecodeTrust.toString : DecodeTrust → String
 /-- One row of the coverage table. -/
 structure Row where
   mnemonic : String
-  /-- Operand shapes covered, in AT&T-free Intel-ish notation. -/
+  /-- ⛔⛔ OPERAND SHAPES ONLY — VOCABULARY, NEVER PROSE.  P2 batch 11.
+
+  `claimsMemDest` and `claimsMemDestLoose` reduce this field inside a kernel
+  `decide`, walking it CHARACTER BY CHARACTER, and `memDestSweep` was ~half of
+  `Tests.Coverage`'s whole kernel time because of it.  Measured at **~5 ms per
+  character of this column** — by padding ten rows by thirty characters each and
+  watching the declaration go 18,500 -> 20,000 ms against a 19,360 ceiling, which
+  is a batch REFUSED for four sentences of documentation.  This field has now
+  refused a batch over exactly that twice (D94, D102).
+
+  ⇒ THE EXPLANATION GOES IN `note`, WHICH NO PREDICATE READS. -/
   shapes : String
+  /-- The prose that used to sit at the end of `shapes`: fault conditions,
+  widths, provenance, what a form's two halves do differently.
+
+  ⭐ RENDERED into `docs/COVERAGE.md` exactly as before — `renderTable` rejoins
+  it with the same ` — `, and the published table is BYTE-UNCHANGED by the split,
+  which is the check that says this was a refactor and not an edit to a claim.
+
+  ⛔ THE BOUNDARY IS NOT "the first em dash", AND ASSUMING IT WAS IS HOW THIS
+  SPLIT FAILED ON ITS FIRST ATTEMPT.  The em dash does double duty in this
+  column: it separates a shape from its WIDTHS (`m(rmw) — all of b/w/l/q`) as
+  well as the shape list from its prose.  Splitting `neg`, `not` and `pop` at
+  the first one moved `m(rmw)` — real shape vocabulary — out of the predicates'
+  sight and silently dropped three memory-destination claims.  The gate caught
+  it. ⇒ 🔑 A SEPARATOR THAT MEANS TWO THINGS IS NOT A BOUNDARY.
+
+  The split point is therefore chosen PER ROW as the earliest em dash that
+  leaves `claimsMemDest` unchanged for that row — an invariant, checked for all
+  106 rows before the edit was made and enforced by `memDestSweep` after. -/
+  note : String := ""
   tier : Tier
   decode : DecodeTrust
   /-- The flags this model draws from the undefined-bit oracle, per the SDM.
@@ -123,11 +152,9 @@ acc,imm · rh"
 acc,imm · rh"
   [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
-  , { mnemonic := "add",  shapes := "r,r — b/q · r,imm (q) · acc,imm · r,m · \
-m,r · m,imm — all of b/w/l/q", tier := .exact, decode := .xed,
+  , { mnemonic := "add",  shapes := "r,r — b/q · r,imm (q) · acc,imm · r,m · m,r · m,imm", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A ADD" }
-  , { mnemonic := "sub",  shapes := "r,r — b/q · r,imm · acc,imm · r,m · \
-m,r · m,imm — all of b/w/l/q", tier := .exact, decode := .xed,
+  , { mnemonic := "sub",  shapes := "r,r — b/q · r,imm · acc,imm · r,m · m,r · m,imm", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A SUB" }
   , { mnemonic := "and",  shapes := logicShapes, tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A AND" }
@@ -142,8 +169,7 @@ m,r · m,imm — all of b/w/l/q", tier := .exact, decode := .xed,
   -- is the claim `cmp_mem_dest_writes_no_memory` anchors and the harness's
   -- seventh planted bug is pointed at.  TEST has no `r,m` form: Intel encodes
   -- one direction only (SDM Vol. 2A, TEST).
-  , { mnemonic := "cmp",  shapes := "r,r · r,imm · r,m · m,r · m,imm — all of \
-b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
+  , { mnemonic := "cmp",  shapes := "r,r · r,imm · r,m · m,r · m,imm", note := "all of b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CMP" }
   -- P1 BATCH 2 (`p1/roster.tsv` family `xxxxxx-|cf|reg`): the first forms whose
   -- RESULT reads a flag.  Register destination only; the memory-destination
@@ -152,18 +178,17 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A ADC" }
   , { mnemonic := "sbb",  shapes := carryShapes, tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A SBB" }
-  , { mnemonic := "test", shapes := "r,r · r,imm · m,r · m,imm — all of b/w/l/q \
-· acc,imm · rh", tier := .frame, decode := .xed,
+  , { mnemonic := "test", shapes := "r,r · r,imm · m,r · m,imm", note := "all of b/w/l/q · acc,imm · rh", tier := .frame, decode := .xed,
       undefined := ["AF"], sdm := "Vol. 2A TEST" }
   -- P1 BATCH 7: the SHIFT group (roster families 8, 9, 12, 13, 60, 61) — a
   -- memory destination and the `,one` encoding (`D1 /r`, the count in the
   -- opcode) for all three, plus SAR.  `sal` is an ALIAS of `shl` (same opcode
   -- `/4`) and is covered by identity, not by a row.
-  , { mnemonic := "shl",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q (sal: alias)",
+  , { mnemonic := "shl",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q (sal: alias)",
       tier := .frame, decode := .xed,
       undefined := ["CF (count ≥ width)", "OF (count ≠ 1)", "AF (count ≠ 0)"],
       sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
-  , { mnemonic := "shr",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+  , { mnemonic := "shr",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["CF (count ≥ width)", "OF (count ≠ 1)", "AF (count ≠ 0)"],
       sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
@@ -172,7 +197,7 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- clause names "SHL and SHR instructions where the count is greater than or
   -- equal to the size of the destination operand".  SAR has no such clause —
   -- shifting right past the width still has an answer, and it is the sign.
-  , { mnemonic := "sar",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+  , { mnemonic := "sar",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)", "AF (count ≠ 0)"], sdm := "Vol. 2A SAL/SAR/SHL/SHR" }
   -- P1 BATCH 8: the ROTATE group (roster families 25, 26, 49-52).  Same opcode
@@ -188,28 +213,28 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- ⛔ The `m,r` shape (memory base with a REGISTER offset) is a signed BIT
   -- STRING index that reaches outside the operand; it is NOT modelled and is
   -- named as absent here rather than quietly folded in.  See D23.
-  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm — w/l/q (m,r: bit-string, not modelled)",
+  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm", note := "w/l/q (m,r: bit-string, not modelled)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BT" }
-  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm — w/l/q (m,r: not modelled)",
+  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTS" }
-  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm — w/l/q (m,r: not modelled)",
+  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTR" }
-  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm — w/l/q (m,r: not modelled)",
+  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTC" }
-  , { mnemonic := "rol",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+  , { mnemonic := "rol",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
-  , { mnemonic := "ror",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+  , { mnemonic := "ror",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
-  , { mnemonic := "rcl",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+  , { mnemonic := "rcl",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
-  , { mnemonic := "rcr",  shapes := "r · m(rmw) — one/imm8/cl, b/w/l/q",
+  , { mnemonic := "rcr",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
       undefined := ["OF (count ≠ 1)"], sdm := "Vol. 2A RCL/RCR/ROL/ROR" }
   , { mnemonic := "lea",  shapes := "r, m", tier := .exact, decode := .xed,
@@ -217,9 +242,9 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- P1 BATCH 4 (`p1/roster.tsv` families `-xxxxx-|-|mem` and `-xxxxx-|-|reg`):
   -- INC and DEC at BOTH destinations and all four widths.  The memory forms are
   -- read-modify-writes, and CF is untouched at either destination.
-  , { mnemonic := "inc",  shapes := "r · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
+  , { mnemonic := "inc",  shapes := "r · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A INC" }
-  , { mnemonic := "dec",  shapes := "r · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
+  , { mnemonic := "dec",  shapes := "r · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A DEC" }
   -- ⛔ THESE FOUR ROWS CLAIMED SHAPES NO VECTOR HAS, and P1 batch 4's gate is
   -- what found them.  `neg`/`not` said `r/m` with only register vectors;
@@ -227,13 +252,13 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- Each is now narrowed to what is actually executed, and the missing halves
   -- are named as the roster families that will earn them (10 and 11) — the same
   -- correction `and`/`or`/`xor` took in batch 3 and earned back in batch 4.
-  , { mnemonic := "neg",  shapes := "r — b/q · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
+  , { mnemonic := "neg",  shapes := "r — b/q · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NEG" }
-  , { mnemonic := "not",  shapes := "r — q · m(rmw) — all of b/w/l/q", tier := .exact, decode := .xed,
+  , { mnemonic := "not",  shapes := "r — q · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NOT" }
-  , { mnemonic := "push", shapes := "r · m — q/w · imm (q)", tier := .exact, decode := .xed,
+  , { mnemonic := "push", shapes := "r · m", note := "q/w · imm (q)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A PUSH" }
-  , { mnemonic := "pop",  shapes := "r — q · m(w) — q/w", tier := .exact, decode := .xed,
+  , { mnemonic := "pop",  shapes := "r — q · m(w)", note := "q/w", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A POP" }
   -- P1 BATCH 5 (`p1/roster.tsv` family `-------|-|flags/ctl`, its BRANCH
   -- subset): every condition at BOTH relative encodings, plus JRCXZ/JECXZ.
@@ -246,7 +271,7 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- holds the second rather than the sentence holding itself.
   , { mnemonic := "jmp",  shapes := "rel8 · rel32 · r/m64", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A JMP" }
-  , { mnemonic := "jcc",  shapes := "rel8 · rel32 — all 16 conditions, 30 spellings",
+  , { mnemonic := "jcc",  shapes := "rel8 · rel32", note := "all 16 conditions, 30 spellings",
       tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A Jcc" }
   -- JRCXZ and JECXZ are ONE instruction with an address-size prefix, and are two
@@ -268,9 +293,9 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- ⚠️ `cmovcc` has NO memory destination (`cmovcc r, r/m` only), which is why
   -- its shapes read `r,m` and not `m,r`.  `setcc`'s memory form is a WRITE that
   -- never reads, hence `m8(w)` rather than the `m(rmw)` inc/dec take.
-  , { mnemonic := "setcc", shapes := "r8 · rh8 · m8(w) — 30 spellings",
+  , { mnemonic := "setcc", shapes := "r8 · rh8 · m8(w)", note := "30 spellings",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A SETcc" }
-  , { mnemonic := "cmovcc", shapes := "r,r · r,m — w/l/q, 30 spellings",
+  , { mnemonic := "cmovcc", shapes := "r,r · r,m", note := "w/l/q, 30 spellings",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMOVcc" }
   , { mnemonic := "call", shapes := "rel32 · r/m64", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A CALL" }
@@ -281,23 +306,23 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- undefined flag for the comparator to absorb and every disagreement they can
   -- produce is a DATA-path disagreement.  Batch 9 was the opposite extreme —
   -- four undefined flags leaving ZF to carry the whole test.
-  , { mnemonic := "movzx", shapes := "r,r · r,m · rh,r — b→w/l/q, w→l/q (5 spellings)",
+  , { mnemonic := "movzx", shapes := "r,r · r,m · rh,r", note := "b→w/l/q, w→l/q (5 spellings)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A MOVZX" }
-  , { mnemonic := "movsx", shapes := "r,r · r,m — b→w/l/q, w→l/q, l→q (6 spellings, movslq = MOVSXD)",
+  , { mnemonic := "movsx", shapes := "r,r · r,m", note := "b→w/l/q, w→l/q, l→q (6 spellings, movslq = MOVSXD)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A MOVSX/MOVSXD" }
   -- The two trios differ in WHERE the sign lands, and each row says which
   -- register it writes, because that is the only thing that distinguishes them.
-  , { mnemonic := "cbtw", shapes := "no operands — ax := sext(al)", tier := .exact,
+  , { mnemonic := "cbtw", shapes := "no operands", note := "ax := sext(al)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CBW/CWDE/CDQE" }
-  , { mnemonic := "cwtl", shapes := "no operands — eax := sext(ax), zero-extending into rax",
+  , { mnemonic := "cwtl", shapes := "no operands", note := "eax := sext(ax), zero-extending into rax",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CBW/CWDE/CDQE" }
-  , { mnemonic := "cltq", shapes := "no operands — rax := sext(eax)", tier := .exact,
+  , { mnemonic := "cltq", shapes := "no operands", note := "rax := sext(eax)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CBW/CWDE/CDQE" }
-  , { mnemonic := "cwtd", shapes := "no operands — dx := sign(ax), rax untouched", tier := .exact,
+  , { mnemonic := "cwtd", shapes := "no operands", note := "dx := sign(ax), rax untouched", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CWD/CDQ/CQO" }
-  , { mnemonic := "cltd", shapes := "no operands — edx := sign(eax), zero-extending into rdx",
+  , { mnemonic := "cltd", shapes := "no operands", note := "edx := sign(eax), zero-extending into rdx",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CWD/CDQ/CQO" }
-  , { mnemonic := "cqto", shapes := "no operands — rdx := sign(rax)", tier := .exact,
+  , { mnemonic := "cqto", shapes := "no operands", note := "rdx := sign(rax)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CWD/CDQ/CQO" }
   -- ⚠️ `ax,r` AND `r,ax` ARE THE SAME BYTES.  The assembler emits `66 91` for
   -- both `xchg %ax, %cx` and `xchg %cx, %ax`, so the roster's two forms are one
@@ -312,9 +337,9 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- row because the reader's question has changed rather than gone away: it
   -- used to be "why is this missing" and it is now "what exactly is claimed".
   , { mnemonic := "xchg",
-      shapes := "r,r · acc,r · r,acc · ·m(rmw),r — b/w/l/q (m: atomic by LOCK, recorded not verified)",
+      shapes := "r,r · acc,r · r,acc · ·m(rmw),r", note := "b/w/l/q (m: atomic by LOCK, recorded not verified)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XCHG" }
-  , { mnemonic := "bswap", shapes := "r — l/q only (b/w: SDM undefined, refused)", tier := .exact,
+  , { mnemonic := "bswap", shapes := "r", note := "l/q only (b/w: SDM undefined, refused)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A BSWAP" }
   -- P1 BATCH 11 (roster family 15's loop group, and families 54-59): the three
   -- loop predicates and the five flag-control singles.  ⭐ EVERY ROW IS T-exact
@@ -328,26 +353,26 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- are the assembler's name for the same rel8 byte, not a second encoding.
   , { mnemonic := "loop", shapes := "rel8 (no rel32 encoding exists) · addr32 → ecx counter",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A LOOP/LOOPcc" }
-  , { mnemonic := "loope", shapes := "rel8 — 2 spellings (loope, loopz)", tier := .exact,
+  , { mnemonic := "loope", shapes := "rel8", note := "2 spellings (loope, loopz)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A LOOP/LOOPcc" }
-  , { mnemonic := "loopne", shapes := "rel8 — 2 spellings (loopne, loopnz)", tier := .exact,
+  , { mnemonic := "loopne", shapes := "rel8", note := "2 spellings (loopne, loopnz)", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A LOOP/LOOPcc" }
   -- Each of these five names the ONE flag it writes, because that is the whole
   -- instruction and the coverage table should say so.
-  , { mnemonic := "clc", shapes := "no operands — cf := 0", tier := .exact,
+  , { mnemonic := "clc", shapes := "no operands", note := "cf := 0", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CLC" }
-  , { mnemonic := "stc", shapes := "no operands — cf := 1", tier := .exact,
+  , { mnemonic := "stc", shapes := "no operands", note := "cf := 1", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A STC" }
-  , { mnemonic := "cmc", shapes := "no operands — cf := ¬cf", tier := .exact,
+  , { mnemonic := "cmc", shapes := "no operands", note := "cf := ¬cf", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CMC" }
-  , { mnemonic := "cld", shapes := "no operands — df := 0", tier := .exact,
+  , { mnemonic := "cld", shapes := "no operands", note := "df := 0", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CLD" }
-  , { mnemonic := "std", shapes := "no operands — df := 1", tier := .exact,
+  , { mnemonic := "std", shapes := "no operands", note := "df := 1", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A STD" }
   -- P1 BATCH 12: the near-free four of roster family 7.  None writes a flag and
   -- none draws an oracle bit, so all four are `T-exact` with no undefined
   -- column — the batch's difficulty was never in the flags.
-  , { mnemonic := "nop", shapes := "no operands (0x90) · r · m — all inert",
+  , { mnemonic := "nop", shapes := "no operands (0x90) · r · m", note := "all inert",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A NOP" }
   -- ⭐ `ud2` IS `T-exact` AND NOT `T-absent`, AND THE DISTINCTION IS THE POINT.
   -- `T-absent` means the model REFUSED to give a form a meaning.  `ud2` has a
@@ -355,11 +380,11 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- modelled instruction under the tier reserved for gaps would understate the
   -- coverage AND corrupt the one column a reader consults to find them — which
   -- is why the refusal carries `MsErr.byDesign` rather than `.unimplemented`.
-  , { mnemonic := "ud2", shapes := "no operands — #UD by definition",
+  , { mnemonic := "ud2", shapes := "no operands", note := "#UD by definition",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UD2" }
-  , { mnemonic := "retq", shapes := "no operands — near return, pops rip",
+  , { mnemonic := "retq", shapes := "no operands", note := "near return, pops rip",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A RET" }
-  , { mnemonic := "leaveq", shapes := "no operands — rsp := rbp; pop rbp",
+  , { mnemonic := "leaveq", shapes := "no operands", note := "rsp := rbp; pop rbp",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A LEAVE" }
   -- P1 BATCH 13: the flagless shifts and the byte-swapping move.  All four are
   -- `T-exact` with an EMPTY undefined column, and for these three that column is
@@ -371,18 +396,18 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- is `dst, src, count` and `r,m,r` has the memory operand as the SOURCE.
   -- Neither is a memory-destination claim and `claimsMemDest` must not read one:
   -- these forms cannot write memory at all.
-  , { mnemonic := "sarx", shapes := "r,r,r · r,m,r — l/q only", tier := .exact,
+  , { mnemonic := "sarx", shapes := "r,r,r · r,m,r", note := "l/q only", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A SARX/SHLX/SHRX" }
-  , { mnemonic := "shlx", shapes := "r,r,r · r,m,r — l/q only", tier := .exact,
+  , { mnemonic := "shlx", shapes := "r,r,r · r,m,r", note := "l/q only", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A SARX/SHLX/SHRX" }
-  , { mnemonic := "shrx", shapes := "r,r,r · r,m,r — l/q only", tier := .exact,
+  , { mnemonic := "shrx", shapes := "r,r,r · r,m,r", note := "l/q only", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A SARX/SHLX/SHRX" }
   -- ⭐ `movbe` IS THE BATCH'S MEMORY-DESTINATION CLAIM, spelled `m(w)` — a WRITE
   -- that never reads its destination, the same kind of write `setcc` makes, and
   -- the notation's rule (`m`, an optional width, a parenthesised kind) is what
   -- `claimsMemDest` reads.  `isMemDestVector` gains its `.movbe` case in the
   -- same commit; D32 is what that pairing costs when it is not done.
-  , { mnemonic := "movbe", shapes := "r,m · m(w),r — w/l/q", tier := .exact,
+  , { mnemonic := "movbe", shapes := "r,m · m(w),r", note := "w/l/q", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A MOVBE" }
   -- P1 BATCH 14 (`p1/roster.tsv` families 33, 39, 42, 46): the BIT-COUNTING
   -- group.  One operand shape — `r,r · r,m`, destination always a register —
@@ -402,21 +427,21 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- undefined region includes the DESTINATION REGISTER at a zero source, not
   -- only flags, and a column that could only name flags would have been unable
   -- to state the most unusual claim in the table.
-  , { mnemonic := "popcnt", shapes := "r,r · r,m — w/l/q", tier := .exact,
+  , { mnemonic := "popcnt", shapes := "r,r · r,m", note := "w/l/q", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B POPCNT" }
-  , { mnemonic := "lzcnt", shapes := "r,r · r,m — w/l/q", tier := .frame,
+  , { mnemonic := "lzcnt", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
       decode := .xed, undefined := ["PF", "AF", "SF", "OF"],
       sdm := "Vol. 2A LZCNT" }
-  , { mnemonic := "tzcnt", shapes := "r,r · r,m — w/l/q", tier := .frame,
+  , { mnemonic := "tzcnt", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
       decode := .xed, undefined := ["PF", "AF", "SF", "OF"],
       sdm := "Vol. 2A TZCNT" }
-  , { mnemonic := "bsf", shapes := "r,r · r,m — w/l/q", tier := .frame,
+  , { mnemonic := "bsf", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
       decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF", "DEST (src=0)"],
       sdm := "Vol. 2A BSF" }
-  , { mnemonic := "bsr", shapes := "r,r · r,m — w/l/q", tier := .frame,
+  , { mnemonic := "bsr", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
       decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF", "DEST (src=0)"],
       sdm := "Vol. 2A BSR" }
-  , { mnemonic := "blsi", shapes := "r,r · r,m — l/q only", tier := .frame,
+  , { mnemonic := "blsi", shapes := "r,r · r,m", note := "l/q only", tier := .frame,
       decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSI" }
   -- P1 BATCH 15: the string group.  ⭐ EVERY ROW IS `T-exact` AND EVERY
   -- `undefined` LIST IS EMPTY — the first whole group since batch 12 that draws
@@ -444,15 +469,15 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- with the same meaning, differing only in whether the assembler was told the
   -- operands it already knows.  One row here covers both, and `docs/COVERAGE.md`
   -- says so where the count is derived.
-  , { mnemonic := "movs", shapes := "m(w),m — b/w/l/q · implicit rdi ← rsi", tier := .exact,
+  , { mnemonic := "movs", shapes := "m(w),m", note := "b/w/l/q · implicit rdi ← rsi", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A MOVS" }
-  , { mnemonic := "stos", shapes := "m(w),acc — b/w/l/q · implicit rdi ← rAX", tier := .exact,
+  , { mnemonic := "stos", shapes := "m(w),acc", note := "b/w/l/q · implicit rdi ← rAX", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B STOS" }
-  , { mnemonic := "lods", shapes := "acc,m — b/w/l/q · implicit rAX ← rsi", tier := .exact,
+  , { mnemonic := "lods", shapes := "acc,m", note := "b/w/l/q · implicit rAX ← rsi", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A LODS" }
-  , { mnemonic := "cmps", shapes := "m,m — b/w/l/q · implicit rdi vs rsi", tier := .exact,
+  , { mnemonic := "cmps", shapes := "m,m", note := "b/w/l/q · implicit rdi vs rsi", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2A CMPS" }
-  , { mnemonic := "scas", shapes := "m,acc — b/w/l/q · implicit rdi vs rAX", tier := .exact,
+  , { mnemonic := "scas", shapes := "m,acc", note := "b/w/l/q · implicit rdi vs rAX", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B SCAS" }
   -- P1 BATCH 16: the repeat prefixes.  THREE ROWS FOR ELEVEN ROSTER ROWS —
   -- `repz`/`repnz` are spellings (`repSpellings`), and each prefix covers the
@@ -464,14 +489,11 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- one.  ⛔ `rep` claims a memory destination and MUST: `rep movs` and
   -- `rep stos` write `[rdi]`, so an under-claim here is exactly what
   -- `mem_dest_vectors_are_claimed` was added in batch 15 to catch.
-  , { mnemonic := "rep", shapes := "m(w),m · m(w),acc · acc,m — b/w/l/q · \
-      rcx-counted, exits on rcx=0 only", tier := .exact,
+  , { mnemonic := "rep", shapes := "m(w),m · m(w),acc · acc,m", note := "b/w/l/q · rcx-counted, exits on rcx=0 only", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B REP" }
-  , { mnemonic := "repe", shapes := "m,m · m,acc — b/w/l/q · rcx-counted, \
-      exits on rcx=0 or zf=0", tier := .exact,
+  , { mnemonic := "repe", shapes := "m,m · m,acc", note := "b/w/l/q · rcx-counted, exits on rcx=0 or zf=0", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B REPE/REPZ" }
-  , { mnemonic := "repne", shapes := "m,m · m,acc — b/w/l/q · rcx-counted, \
-      exits on rcx=0 or zf=1", tier := .exact,
+  , { mnemonic := "repne", shapes := "m,m · m,acc", note := "b/w/l/q · rcx-counted, exits on rcx=0 or zf=1", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B REPNE/REPNZ" }
   -- ⭐ P1 BATCH 17 — the multiply-divide group.  Four rows, two constructors,
   -- and the first two rows in this table whose forms REFUSE on their operands.
@@ -488,17 +510,14 @@ b/w/l/q · acc,imm · rh · rip-rel (q)", tier := .exact, decode := .xed,
   -- first rows here to do so.  The `undefined` column is checked in both
   -- directions against what the model DRAWS, so this is a measurement and not a
   -- transcription of the SDM sentence.
-  , { mnemonic := "mul", shapes := "r — b/w/l/q · m — b/q · dest RDX:RAX (AH:AL at b)",
+  , { mnemonic := "mul", shapes := "r", note := "b/w/l/q · m — b/q · dest RDX:RAX (AH:AL at b)",
       tier := .frame, decode := .xed,
       undefined := ["SF", "ZF", "AF", "PF"], sdm := "Vol. 2A MUL" }
-  , { mnemonic := "imul", shapes := "r · m — 1-operand, dest RDX:RAX (AH:AL at b) · \
-r,r · r,r,imm — w/l/q · r,m · r,m,imm — q", tier := .frame, decode := .xed,
+  , { mnemonic := "imul", shapes := "r · m", note := "1-operand, dest RDX:RAX (AH:AL at b) · r,r · r,r,imm — w/l/q · r,m · r,m,imm — q", tier := .frame, decode := .xed,
       undefined := ["SF", "ZF", "AF", "PF"], sdm := "Vol. 2A IMUL" }
-  , { mnemonic := "div", shapes := "r — b/w/l/q · m — b/q · #DE on a zero divisor \
-or a quotient too wide", tier := .frame, decode := .xed,
+  , { mnemonic := "div", shapes := "r", note := "b/w/l/q · m — b/q · #DE on a zero divisor or a quotient too wide", tier := .frame, decode := .xed,
       undefined := ["CF", "PF", "AF", "ZF", "SF", "OF"], sdm := "Vol. 2A DIV" }
-  , { mnemonic := "idiv", shapes := "r — b/w/l/q · m — b/q · #DE on a zero divisor \
-or a quotient out of signed range", tier := .frame, decode := .xed,
+  , { mnemonic := "idiv", shapes := "r", note := "b/w/l/q · m — b/q · #DE on a zero divisor or a quotient out of signed range", tier := .frame, decode := .xed,
       undefined := ["CF", "PF", "AF", "ZF", "SF", "OF"], sdm := "Vol. 2A IDIV" }
   -- P1 BATCH 18 (roster families 10, 14, 24 and 40): the compare-exchange pair
   -- and the double-precision shifts.  ⭐ THE TWO HALVES SIT AT OPPOSITE ENDS OF
@@ -512,9 +531,9 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   -- itself and can never reach the branch that writes it; the note is in the
   -- published table because a reader of "r,r — b/w/l/q" would have no way to
   -- know that one of those `r`s is unavailable.
-  , { mnemonic := "cmpxchg", shapes := "r(rmw),r · m(rmw),r — b/w/l/q (dest ≠ acc; no write on the unequal branch, D53)",
+  , { mnemonic := "cmpxchg", shapes := "r(rmw),r · m(rmw),r", note := "b/w/l/q (dest ≠ acc; no write on the unequal branch, D53)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMPXCHG" }
-  , { mnemonic := "xadd", shapes := "r(rmw),r · m(rmw),r — b/w/l/q (writes both operands)",
+  , { mnemonic := "xadd", shapes := "r(rmw),r · m(rmw),r", note := "b/w/l/q (writes both operands)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XADD" }
   -- ⛔ THE `w` REFUSAL IS IN THE SHAPES COLUMN AND IS NOT A GAP.  At a 16-bit
   -- operand a masked count can reach 31, and above 16 the SDM leaves the RESULT
@@ -523,14 +542,14 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   -- MEMORY destination it refuses, because an oracle bit in memory is the one
   -- thing `X86.undefinedLeaked` has no declaration channel for.  D52.
   , { mnemonic := "shld",
-      shapes := "r(rmw),r,imm8/cl · m(rmw),r,imm8/cl — w/l/q (m at w with cl: refused)",
+      shapes := "r(rmw),r,imm8/cl · m(rmw),r,imm8/cl", note := "w/l/q (m at w with cl: refused)",
       tier := .frame, decode := .xed,
       undefined := ["CF (count > size)", "PF (count > size)", "AF (count ≠ 0)",
                     "ZF (count > size)", "SF (count > size)", "OF (count ≠ 1)",
                     "DEST (count > size)"],
       sdm := "Vol. 2A SHLD" }
   , { mnemonic := "shrd",
-      shapes := "r(rmw),r,imm8/cl · m(rmw),r,imm8/cl — w/l/q (m at w with cl: refused)",
+      shapes := "r(rmw),r,imm8/cl · m(rmw),r,imm8/cl", note := "w/l/q (m at w with cl: refused)",
       tier := .frame, decode := .xed,
       undefined := ["CF (count > size)", "PF (count > size)", "AF (count ≠ 0)",
                     "ZF (count > size)", "SF (count > size)", "OF (count ≠ 1)",
@@ -550,7 +569,7 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   -- the flags are NOT the comparison's: ZF alone moves, measured against the
   -- oracle over all 82 pre-states with `cmpxchg` as the control in the same run.
   , { mnemonic := "cmpxchg8b",
-      shapes := "m(rmw) — q only (EDX:EAX vs [m]; ECX:EBX stored on equal; 32-bit register views; ZF is the only flag)",
+      shapes := "m(rmw)", note := "q only (EDX:EAX vs [m]; ECX:EBX stored on equal; 32-bit register views; ZF is the only flag)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CMPXCHG8B/CMPXCHG16B" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 2.  Every row here is `T-exact` and carries NO
   -- undefined flags, and that is not an oversight: a packed integer operation
@@ -558,73 +577,73 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   -- so there is nothing for the undefined-bit oracle to supply.  The empty
   -- `undefined` list is a claim the differential run tests on every case.
   , { mnemonic := "movdqa",
-      shapes := "x,x · x,m · m,x — memory operands must be 16-byte aligned, else #GP(0); proved, not vectored (D91)",
+      shapes := "x,x · x,m · m,x", note := "memory operands must be 16-byte aligned, else #GP(0); proved, not vectored (D91)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQA" }
   , { mnemonic := "movdqu",
-      shapes := "x,x · x,m · m,x — no alignment requirement at any operand",
+      shapes := "x,x · x,m · m,x", note := "no alignment requirement at any operand",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" }
   , { mnemonic := "paddb",
-      shapes := "x,x — 16 lanes of 8 bits, no flag written",
+      shapes := "x,x", note := "16 lanes of 8 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddw",
-      shapes := "x,x — 8 lanes of 16 bits, no flag written",
+      shapes := "x,x", note := "8 lanes of 16 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddd",
-      shapes := "x,x — 4 lanes of 32 bits, no flag written",
+      shapes := "x,x", note := "4 lanes of 32 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddq",
-      shapes := "x,x — 2 lanes of 64 bits, no flag written",
+      shapes := "x,x", note := "2 lanes of 64 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "psubb",
-      shapes := "x,x — 16 lanes of 8 bits, no flag written",
+      shapes := "x,x", note := "16 lanes of 8 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubw",
-      shapes := "x,x — 8 lanes of 16 bits, no flag written",
+      shapes := "x,x", note := "8 lanes of 16 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubd",
-      shapes := "x,x — 4 lanes of 32 bits, no flag written",
+      shapes := "x,x", note := "4 lanes of 32 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubq",
-      shapes := "x,x — 2 lanes of 64 bits, no flag written",
+      shapes := "x,x", note := "2 lanes of 64 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "pxor",
-      shapes := "x,x — bitwise over all 128 bits",
+      shapes := "x,x", note := "bitwise over all 128 bits",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" }
   , { mnemonic := "pand",
-      shapes := "x,x — bitwise over all 128 bits",
+      shapes := "x,x", note := "bitwise over all 128 bits",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAND" }
   , { mnemonic := "por",
-      shapes := "x,x — bitwise over all 128 bits",
+      shapes := "x,x", note := "bitwise over all 128 bits",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
   , { mnemonic := "movd",
-      shapes := "r,x — out of XMM at 32 bits; the x,r direction is proved, not vectored (D93)",
+      shapes := "r,x", note := "out of XMM at 32 bits; the x,r direction is proved, not vectored (D93)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   , { mnemonic := "movq",
-      shapes := "r,x · x,x — out of XMM at 64 bits; x,x zeroes the upper quadword; the x,r direction is proved, not vectored (D93)",
+      shapes := "r,x · x,x", note := "out of XMM at 64 bits; x,x zeroes the upper quadword; the x,r direction is proved, not vectored (D93)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   , { mnemonic := "punpcklbw",
-      shapes := "x,x — interleaves the low 8-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the low 8-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpcklwd",
-      shapes := "x,x — interleaves the low 16-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the low 16-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpckldq",
-      shapes := "x,x — interleaves the low 32-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the low 32-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpcklqdq",
-      shapes := "x,x — interleaves the low 64-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the low 64-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpckhbw",
-      shapes := "x,x — interleaves the high 8-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the high 8-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhwd",
-      shapes := "x,x — interleaves the high 16-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the high 16-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhdq",
-      shapes := "x,x — interleaves the high 32-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the high 32-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhqdq",
-      shapes := "x,x — interleaves the high 64-bit lanes, destination first",
+      shapes := "x,x", note := "interleaves the high 64-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 11 — THE MOVE FAMILY COMPLETED.
   --
@@ -633,10 +652,10 @@ or a quotient out of signed range", tier := .frame, decode := .xed,
   -- and a disassembler prints them by name.  The single-precision spelling
   -- changes no architectural state, and saying so is `VMovKind`'s job.
   , { mnemonic := "movaps",
-      shapes := "x,x · x,m · m,x — aligned, else #GP(0); D91",
+      shapes := "x,x · x,m · m,x", note := "aligned, else #GP(0); D91",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPS" }
   , { mnemonic := "movups",
-      shapes := "x,x · x,m · m,x — no alignment rule",
+      shapes := "x,x · x,m · m,x", note := "no alignment rule",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPS" }
   -- ⛔ AND THE TWO WHOSE DESTINATION RULE DEPENDS ON WHERE THE SOURCE LIVES.
   -- The shapes string says both halves, because a reader who saw only "x,x ·
@@ -658,7 +677,10 @@ def renderTable (rows : List Row) : String :=
   let sep := "|---|---|---|---|---|---|\n"
   let line (r : Row) : String :=
     let u := if r.undefined.isEmpty then "—" else String.intercalate ", " r.undefined
-    s!"| `{r.mnemonic}` | {r.shapes} | {r.tier.toString} | {r.decode.toString} | {u} | {r.sdm} |\n"
+    -- ⭐ THE SPLIT IS REJOINED HERE AND NOWHERE ELSE, so the published column is
+    -- the string it always was and `docs/COVERAGE.md` is byte-unchanged.
+    let sh := if r.note.isEmpty then r.shapes else s!"{r.shapes} — {r.note}"
+    s!"| `{r.mnemonic}` | {sh} | {r.tier.toString} | {r.decode.toString} | {u} | {r.sdm} |\n"
   hdr ++ sep ++ String.join (rows.map line)
 
 /-- Summary counts, for the harness's report line. -/
