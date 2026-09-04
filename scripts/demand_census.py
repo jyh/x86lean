@@ -667,6 +667,7 @@ def attribution(name, counts, model, fns, n, n_sym, fh):
     silently read as compiler output; it says so, and its cells are `-`."""
     rest = {key: k for key, k in counts.items() if key[1] != "padding"}
     per_cell = collections.Counter()
+    per_cell_cov = collections.Counter()
     for (_m, _k, o, _e), k in rest.items():
         per_cell[o] += k
     tot = sum(per_cell.values()) or 1
@@ -686,6 +687,7 @@ def attribution(name, counts, model, fns, n, n_sym, fh):
             continue
         sub = {key: k for key, k in rest.items() if key[2] == cellk}
         st, sc = _covered(sub, model)
+        per_cell_cov[cellk] = sc
         fh.write(f"| `{cellk}` | {CELL_LABEL[cellk]} | {v:,} | "
                  f"{100.0*v/tot:.2f}% | {100.0*sc/st:.1f}% |\n")
     A_name = per_cell.get("AA", 0) + per_cell.get("AC", 0)
@@ -703,6 +705,7 @@ def attribution(name, counts, model, fns, n, n_sym, fh):
                 names = ", ".join(f"`{nm}`" for nm, _ in top.most_common(6))
                 fh.write(f"- The `{cellk}` cell's largest functions: {names}\n")
     return dict(cells={k: v for k, v in per_cell.items()},
+                cells_covered={k: v for k, v in per_cell_cov.items()},
                 name_route_asm=A_name, body_route_asm=A_body, total=tot)
 
 def ext_table(name, counts, model, fh):

@@ -172,6 +172,12 @@
     "CA": 495,
     "AC": 136972
    },
+   "cells_covered": {
+    "CA": 171,
+    "AC": 134328,
+    "CC": 5078489,
+    "U": 27159
+   },
    "name_route_asm": 136972,
    "body_route_asm": 495,
    "total": 5379923
@@ -364,6 +370,12 @@
     "U": 14670,
     "AC": 1155,
     "CA": 344
+   },
+   "cells_covered": {
+    "CA": 117,
+    "AC": 780,
+    "CC": 820072,
+    "U": 14670
    },
    "name_route_asm": 1155,
    "body_route_asm": 344,
@@ -558,6 +570,13 @@
     "AC": 55619,
     "CA": 13783,
     "AA": 20563
+   },
+   "cells_covered": {
+    "AA": 6764,
+    "CA": 5081,
+    "AC": 31005,
+    "CC": 437620,
+    "U": 8781
    },
    "name_route_asm": 76182,
    "body_route_asm": 34346,
@@ -761,6 +780,13 @@
     "AC": 24700,
     "AA": 181083
    },
+   "cells_covered": {
+    "AA": 35813,
+    "CA": 627,
+    "AC": 14762,
+    "CC": 90210,
+    "U": 957
+   },
    "name_route_asm": 205783,
    "body_route_asm": 184702,
    "total": 303830
@@ -954,6 +980,13 @@
     "U": 15204,
     "CA": 133,
     "AA": 227546
+   },
+   "cells_covered": {
+    "AA": 22953,
+    "CA": 41,
+    "AC": 114234,
+    "CC": 2639052,
+    "U": 15018
    },
    "name_route_asm": 355174,
    "body_route_asm": 227679,
@@ -1152,6 +1185,11 @@
     "U": 1018,
     "CA": 282
    },
+   "cells_covered": {
+    "CA": 111,
+    "CC": 142609,
+    "U": 1018
+   },
    "name_route_asm": 0,
    "body_route_asm": 282,
    "total": 151688
@@ -1337,6 +1375,11 @@
     "CC": 52317,
     "U": 272,
     "CA": 59515
+   },
+   "cells_covered": {
+    "CA": 22430,
+    "CC": 35842,
+    "U": 272
    },
    "name_route_asm": 0,
    "body_route_asm": 59515,
@@ -1528,6 +1571,13 @@
     "CA": 81330,
     "AC": 31862,
     "AA": 181880
+   },
+   "cells_covered": {
+    "AA": 18051,
+    "CA": 13591,
+    "AC": 24629,
+    "CC": 370879,
+    "U": 7350
    },
    "name_route_asm": 213742,
    "body_route_asm": 263210,
@@ -1724,6 +1774,13 @@
     "AC": 33250,
     "CA": 572,
     "AA": 72569
+   },
+   "cells_covered": {
+    "AA": 10095,
+    "CA": 201,
+    "AC": 25872,
+    "CC": 257461,
+    "U": 1796
    },
    "name_route_asm": 105819,
    "body_route_asm": 73141,
@@ -1945,6 +2002,9 @@
   "attribution": {
    "cells": {
     "-": 2781898
+   },
+   "cells_covered": {
+    "-": 2727287
    },
    "name_route_asm": 0,
    "body_route_asm": 0,
