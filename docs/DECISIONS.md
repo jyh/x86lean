@@ -3956,7 +3956,7 @@ under.
 
 **Reversal cost:** one CI step removed, one line added to the batch runner.
 
-## D98 — the census's staleness stamp caught the model moving and said nothing about the MAPPING that did not (P2 vector wave, batch 9 — OPEN)
+## D98 — the census's staleness stamp caught the model moving and said nothing about the MAPPING that did not (P2 vector wave, batch 9 — OPEN, closed by D99)
 
 **Found by CI**, on step 13, another step that had not run in 49 commits:
 
@@ -4025,3 +4025,151 @@ still under-claim — a green gate over a wrong document. The red is accurate: t
 the sense that matters, and it should stay loud until the mapping is fixed.
 
 **Reversal cost:** none — nothing was changed.
+
+## D99 — the covered/not-covered test had THREE inputs and only one was coupled to the model (P2 vector wave, batch 10)
+
+D98's repair, taken as a batch. The inherited diagnosis was **right and incomplete**, and testing it
+before acting on it is what found the rest.
+
+### 1. The handed-on cause, verified — and then measured wider
+
+`to_roster()` returning `None` for every vector mnemonic is real: driven over the model's own roster,
+**22 of the 107 mnemonics the model has cannot be produced by the mapping at all** (`movdqa`, `movdqu`,
+`movd`, the four `padd*`, the four `psub*`, `pand`, `por`, `pxor`, the eight `punpck*`). Five more
+(`jcc`, `setcc`, `cmovcc`, `movsx`, `movzx`) are roster names objdump never prints and are not a gap.
+
+But the decision it feeds has **three conjuncts**:
+
+```python
+covered = (r is not None and kind == "plain" and r in model)
+#          └─ the mapping    └─ the operands    └─ the model
+```
+
+and the middle one was never in the diagnosis. `kind != "plain"` was written when the model had no
+vector registers, no segment base and no LOCK vocabulary. **All three have since landed** (P2 batches
+1, 2 and 3, and 4–9), and the rule did not move. So the census was also refusing:
+
+- **76,591 instructions** carrying an `%fs:`/`%gs:` prefix — P2 addition 1 put that base on `Ea`;
+- **20,053 instructions** spelled `movabsq`, which nothing mapped at all — P2 addition 3 landed the
+  form and changed no semantics, so the model has always been able to execute it;
+- **53,822 instructions** of `movq` between an XMM register and a GPR or memory — a P2 batch-5 row.
+
+⇒ 🔑 **AN INHERITED DIAGNOSIS IS A HYPOTHESIS AND SO IS ITS SCOPE.** The named cause was true; the
+handed-on repair — "make `to_roster` see the model, relax `_split`" — would have left the segment and
+`movabs` gaps in place, and there is nothing in a green run that would have said so.
+
+### 2. What the fix is, in each of the three places
+
+**The mapping** gains an identity rule, LAST, after every rewrite rule: a mnemonic the model names
+maps to itself. That is the vector allow-list, DERIVED — the list cannot go stale because there is no
+list. `movabsq`/`movabs` join `EXACT` as `mov`.
+
+**The one collision is resolved by the operands, not by a guess.** `movq` is two instructions: the
+64-bit GPR move (roster `mov`) and the SSE2 move (roster `movq`). Resolving it by mnemonic alone must
+be wrong about one of them, so `to_roster` now takes the ISA bucket `isa_bucket` already computed —
+not a second reading of the operand string, which would be a second rule that can disagree.
+
+**The scope rule** becomes `EXT_SCOPE`, a **total partition** of the ISA buckets into what the model's
+state can represent and what it cannot, and `form_in_scope` **refuses** on a bucket nobody has ruled
+on. An allow-list would send an unclassified bucket to COVERED and a deny-list to NOT COVERED; both
+are a default, and a default is how this document came to report +0.0. The GPR buckets are derived
+from `GPR_EXT` rather than restated.
+
+⛔ **`lock` stays out of scope, as a REFUSAL rather than an absence.** P2 addition 2 landed, so the
+model does execute locked forms — but only the SDM's nineteen, and that predicate is `Op.lockIllegal`,
+which none of this tool's inputs publish. Claiming a locked form by MNEMONIC would credit the model
+with `lock movq %rax,(%rbx)` — `#UD` on silicon, and the form a reader most expects to be lockable.
+Cost of the refusal, printed rather than swallowed: **9,945 instructions, 0.07% of the corpus**. The
+refusal names the cheaper build (export the predicate) instead of asking for an exemption.
+
+### 3. The result, and the independent route that checked it
+
+| column | before | after |
+|---|---|---|
+| cc1 | 97.4% | 98.8% |
+| coreutils | 95.0% | 97.1% |
+| glibc | 81.1% | 85.6% |
+| dav1d | 46.9% | **60.6%** |
+| ffmpeg | 89.6% | 93.2% |
+| vlc-codec | 94.8% | 97.2% |
+| vlc-video_chroma | 52.2% | **75.6%** |
+| vpx | 60.2% | **84.1%** |
+| x264 | 78.3% | 84.8% |
+| vmlinux-kernel | 98.0% | 99.5% |
+
+The uncovered gap the P2 roster is priced against goes **918,395 → 534,576**, and `movdqa` — ranked
+**#1, 12.85% of the gap** — leaves the candidate list, along with `paddd`, `movdqu` and `movq` at
+ranks 2, 3 and 4. The census was telling P2 to implement what P2 had already implemented.
+
+⛔ **A jump that large in the flattering direction is exactly when not to believe the instrument**, so
+the numbers were checked against a source that is not this tool: raw `objdump` over the ffmpeg column.
+`paddw` with an `%mm` operand: **2,303** — the census's excluded MMX count, to the instruction.
+`paddw` with `%xmm`: **6,754**, and 6,754 + 2,303 is exactly the 9,057 by which the `paddw` residue
+fell. `movdqa`: **27,450**, exactly the newly-covered count. Two independent origins, agreeing per
+mnemonic ([[feedback-two-readings-are-not-two-witnesses]] — this time they are two).
+
+⚠️ **And the residues that GREW are a reclassification, not a leak.** An MMX `paddw` used to be
+"a mnemonic this tool cannot map"; it is now "a mnemonic the model HAS, in a register file it does
+not" — the accurate residue, and the one the P2 join needs. The conservation identity
+`covered + uncovered == total` holds in every column before and after.
+
+### 4. The stamp, which could not have seen any of the above
+
+The stamp hashed the model. It now carries a second sha over **the mapping's behaviour**: every
+decision `_decide` makes over a domain that needs no corpus — every mnemonic any table in the file can
+rewrite, crossed with every bucket `EXT_SCOPE` rules on. Behaviour, not source text, so a reworded
+comment does not fail it and a changed ANSWER does. The failure message now names **which half moved**,
+because D98 was a red that said "the model moved" about a document whose numbers could not move.
+
+⛔ **And the arm that proves the stamp can go red was itself stale.** The selftest planted a
+DIFFERENT model by writing a stamp as a literal in the old two-field format — so when the stamp grew
+a third field the substitution matched nothing, wrote nothing, and the arm was testing a document with
+no stamp at all. The plant is now DERIVED from the shipped stamp by flipping one hex digit of the half
+under test, and there is a second plant for the mapping half — D98's own case, gated.
+
+### 5. Three more defects the batch surfaced
+
+⛔ **`ext_table` carried a second copy of the covered/not-covered test.** `_split`'s docstring has
+claimed since D66 that it is "the one place the decision is made"; forty lines below it, the loop that
+builds the P2 candidate list re-implemented the same three conjuncts. It agreed for twenty-two batches,
+which is why nobody looked, and it would have diverged on *this* edit — leaving the headline repaired
+and the candidate list computed by the old rule. Both now call `_decide`, and a **conservation arm**
+(covered + the ext buckets == the column total, exactly) makes any future second implementation
+observable rather than a matter of reading.
+
+⛔ **A justification outlived the condition it was true of.** The header comment read *"Both now count
+as NOT COVERED, so the headline number is honest by construction"* for twenty-two batches after both
+had stopped being true, and the published preamble listed *"four ways a mnemonic-level count
+over-claims are excluded"* when two of the four were no longer excluded. Prose explaining why an
+exclusion is rigorous **reads as a reason not to look at it**.
+
+⛔ **The P2 roster's arm was gated in one direction.** It asserted that each of the three additions
+names a bucket the census emits — true exactly while the addition is *undelivered*. It went red when
+two of them landed. The honest reading is not that the arm broke: a delivered item still showing as a
+gap is the same defect as a stale census, so the arm now requires ABSENCE for an addition in scope and
+PRESENCE for one still refused. And because a bucket that vanishes because the model GAINED it reads
+identically to a bucket nobody needed, the census now records its **covered** buckets too, and the
+document prints "LANDED — *n* instructions now counted as covered" instead of a bare zero.
+
+### 6. A finding about the probe, not about the code
+
+Two new red-probe mutations came back **"selftest still PASSES — THE ARM IS BLIND"**. One was: the
+mutation replaced `return EXT_SCOPE[ext]` with `.get(ext, False)` — a line only reachable after the
+refusal above it has already fired. The mutation was **inert**, and an inert mutation accuses the arm
+in language indistinguishable from a real finding.
+
+⇒ 🔑 **A MUTATION THAT CHANGES NO BEHAVIOUR IS A FINDING ABOUT THE MUTATION.** Both were re-anchored
+on the refusal itself — the only line that can express either direction — and the probe now runs **26
+mutations, every one caught**, including one per excluded register file, both directions of the
+partition's default, the stamp welded back to one half, and the `ext_table` duplicate restored.
+
+⚠️ **A measurement carried forward without its conditions:** the batch inherited "census regeneration
+≈ 25 min". It is **32 seconds** on a warm page cache and about three minutes cold. Nothing was
+designed around the wrong figure, but a probe priced at 25 minutes is a probe run once.
+
+**Gates:** census selftest **138 arms PASS** (was 109) · red probe **26 mutations, all caught** (was 15)
+· staleness gate CLEAN on both halves · p2-roster selftest 34 arms PASS · `--check` byte-identical ·
+citations, coverage-prose, readme-snapshot, readme-lean, windows, ci-shards all green.
+
+**Reversal cost:** the mapping and the partition are one file each; the documents regenerate in
+32 seconds from a corpus the recipe rebuilds.

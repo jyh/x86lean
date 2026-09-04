@@ -63,6 +63,81 @@ MUTATIONS = [
      'SEGMENT_RE = re.compile(r"%(?:cs|ds|es|ss|fs|gs):")'),
     ("a run of int3 is counted as code again",
      "        if run >= 2:", "        if run >= 999999999:"),
+
+    # ⭐⭐ D98'S OWN DEFECT AND ITS TWO FAILURE DIRECTIONS.  The repair widened
+    # what counts as covered, and widening is the direction nobody audits: an
+    # over-claim looks like a mistake, an under-claim looks like modesty
+    # ([[feedback-under-claims-are-unpoliced]]).  So both directions are planted
+    # here, and each must go RED.
+    #
+    # THE UNDER-CLAIM — this is D98 exactly: the mapping's vector half is a
+    # second list that does not grow with the roster, so a batch that adds
+    # `movdqa` moves the headline by +0.0%.  It went unseen for twenty-two
+    # batches because a stale number is silent.
+    ("the identity rule is removed — the mapping stops seeing the model (D98)",
+     "    if model is not None and m in model:\n        return m\n    return None",
+     "    return None"),
+    ("the vector spelling no longer wins — `movq %xmm0,%rax` resolves as `mov`",
+     "    if model is not None and ext in XMM_EXT and m in model:\n        return m",
+     "    if False:\n        return m"),
+    ("`movabsq` stops mapping to the `mov` P2 batch 3 landed",
+     '    "movabsq":"mov", "movabs":"mov",', '    "movabsq":None, "movabs":None,'),
+
+    # THE OVER-CLAIM — the direction the repair could newly fail in, one
+    # register file at a time.  A model with no MMX, no AVX and no VEX
+    # encoding must not be credited with them because the MNEMONIC matches.
+    ("MMX is admitted into scope — `paddw %mm0,%mm1` counts as covered",
+     '    "MMX (mm)":                               False,',
+     '    "MMX (mm)":                               True,'),
+    ("AVX2 is admitted into scope — a `%ymm` operand counts as covered",
+     '    "AVX2/AVX (ymm)":                         False,',
+     '    "AVX2/AVX (ymm)":                         True,'),
+    ("the VEX encoding is admitted into scope",
+     '    "VEX-128 (v… xmm)":                       False,',
+     '    "VEX-128 (v… xmm)":                       True,'),
+    ("x87 is admitted into scope",
+     '    "x87 (st)":                               False,',
+     '    "x87 (st)":                               True,'),
+    ("the LOCK refusal is quietly lifted, claiming forms that are #UD",
+     '    "LOCK prefix (P2 addition 2)":            False,',
+     '    "LOCK prefix (P2 addition 2)":            True,'),
+    # ⛔ AND THE PARTITION'S OWN FAILURE MODE: a bucket nobody ruled on must
+    # STOP the census.  A default there is invisible by construction, so it gets
+    # a mutation in EACH direction rather than a comment — an allow-list would
+    # over-claim it and a deny-list would under-claim it, and the arm has to
+    # distinguish REFUSING from both.
+    #
+    # ⚠️ THESE TWO REPLACE A PAIR THAT DID NOT WORK, AND THE PROBE SAID SO.  The
+    # first attempt mutated `return EXT_SCOPE[ext]` into `.get(ext, False)` —
+    # unreachable, because the refusal above it has already fired, so the
+    # mutation was INERT and the probe reported "THE ARM IS BLIND" about an arm
+    # that was fine.  ⇒ 🔑 A MUTATION THAT CHANGES NO BEHAVIOUR ACCUSES THE ARM,
+    # and the accusation reads exactly like a real finding
+    # ([[feedback-probe-silence-has-two-causes]]).  The anchor is the REFUSAL
+    # itself, which is the only line that can express either direction.
+    ("an unruled ISA bucket falls to COVERED instead of refusing",
+     """f"number for a model nobody described. Add it to EXT_SCOPE.")
+        sys.exit(2)""",
+     """f"number for a model nobody described. Add it to EXT_SCOPE.")
+        return True"""),
+    ("an unruled ISA bucket falls to NOT COVERED instead of refusing",
+     """f"number for a model nobody described. Add it to EXT_SCOPE.")
+        sys.exit(2)""",
+     """f"number for a model nobody described. Add it to EXT_SCOPE.")
+        return False"""),
+
+    # ⭐ AND THE STAMP THAT COULD NOT SEE ANY OF THE ABOVE.  With the rules half
+    # welded to the model half, every mutation on this list becomes invisible to
+    # the gate that is supposed to notice the document has gone stale.
+    ("the stamp hashes only the model again, as it did through D98",
+     '    rh = hashlib.sha256("\\n".join(rows).encode()).hexdigest()[:16]',
+     "    rh = h"),
+    # ⛔ and the DUPLICATE the repair deleted: `ext_table` carried its own copy
+    # of the covered test for twenty-two batches and agreed the whole time.
+    ("`ext_table` grows a second copy of the covered/not-covered test",
+     "        _r, covered, _cls = _decide(m, ext, model)",
+     '        _r = to_roster(m, ext, model)\n'
+     '        covered = (_r is not None and _kind == "plain" and _r in model)'),
 ]
 
 

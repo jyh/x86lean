@@ -149,7 +149,7 @@ jobs:
       # ISA-extension buckets -- and the RED PROBE is what says the new arms can
       # fail: it breaks each rule in memory, one at a time, and requires the
       # selftest to go red. It writes nothing into the tree.
-      - name: Demand-census mapping (109 arms) + staleness + red probe
+      - name: Demand-census mapping + scope partition + staleness (both halves) + red probe
         run: |
           python3 scripts/demand_census.py --selftest
           python3 scripts/demand_census.py --check

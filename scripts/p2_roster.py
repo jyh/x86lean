@@ -41,9 +41,13 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # ⚠️ `k_roster` guards its `main` with `__name__`, so importing it is safe and
 # the SIMD predicate is used from its definition rather than restated here.
-# ⛔ `demand_census` is NOT importable — it calls `sys.exit(main())` at module
-# level, so an import RUNS it and takes this process's argv with it.  Its output
-# is consumed through the JSON, which is the artifact anyway.
+# ⭐⭐ `demand_census` IS importable as of D98 — its bare `sys.exit(main())` is
+# guarded, the third file here to need that.  Its NUMBERS still arrive through
+# the JSON, which is the artifact; what is imported is `EXT_SCOPE`, the ruling
+# on which ISA buckets the model's state can represent.  A copy of that
+# partition in this file would be a second list to keep in step with the roster,
+# and D98 is what a second list does when it stops being kept.
+import demand_census as DC
 import k_roster as K
 # ⭐ AND the P2 availability table, which is a MEASUREMENT of the oracle rather
 # than a reading of it.  This import is only possible because that file's bare
@@ -260,12 +264,29 @@ is what makes a batch startable.
         if isinstance(r, dict) and r.get("class") == "asm":
             for e, k in r.get("ext", {}).items():
                 ext[e] += k
-    fh.write("| # | addition | measured demand (asm class) | share of the gap |\n")
-    fh.write("|---|---|---|---|\n")
+    # ⭐⭐ DELIVERED IS DERIVED, AND A ZERO IS NOT A DELIVERY.  All three
+    # additions have LANDED, and two of them (the segment base and `movabs`)
+    # therefore vanished from the census's uncovered buckets — which reads as
+    # "0 instructions of demand", identical to an addition nobody needed.  The
+    # state is read from the census's OWN scope partition (`DC.EXT_SCOPE`,
+    # imported rather than copied) and the demand from the census's covered
+    # buckets, so neither is a sentence anyone has to remember to update.
+    covd = collections.Counter()
+    for _g, r in d.items():
+        if isinstance(r, dict) and r.get("class") == "asm":
+            for e, k in (r.get("ext_covered") or {}).items():
+                covd[e] += k
+    fh.write("| # | addition | state | measured demand (asm class) | "
+             "share of the gap |\n")
+    fh.write("|---|---|---|---|---|\n")
     for i, (name, key, _why) in enumerate(ADDITIONS, 1):
         k = ext.get(key, 0)
-        fh.write(f"| {i} | {name} | {k:,} | "
-                 f"{100.0*k/b['total_uncovered']:.2f}% |\n")
+        if DC.EXT_SCOPE[key]:
+            fh.write(f"| {i} | {name} | ✅ LANDED — {covd.get(key, 0):,} "
+                     f"instructions now COUNTED AS COVERED | — | — |\n")
+        else:
+            fh.write(f"| {i} | {name} | ⛔ still counted as a gap | {k:,} | "
+                     f"{100.0*k/b['total_uncovered']:.2f}% |\n")
     fh.write("\n")
     for i, (name, key, why) in enumerate(ADDITIONS, 1):
         fh.write(f"**{i}. {name}** — {why if why is not None else lock_why()}\n\n")
@@ -417,7 +438,8 @@ class shares it. Within a batch the order is by demand.
         cum += k
         fh.write(f"| {i} | {e} | {k:,} | {100.0*k/b['total_uncovered']:.2f}% | "
                  f"{100.0*cum/b['total_uncovered']:.1f}% |\n")
-    add_share = sum(ext.get(k, 0) for _n, k, _w in ADDITIONS)
+    add_share = sum(ext.get(k, 0) for _n, k, _w in ADDITIONS
+                    if not DC.EXT_SCOPE[k])
     fh.write(f"""
 ⚠️ **This table stops at {100.0*cum/b['total_uncovered']:.1f}%, not at 100%, and the
 remainder is not missing.** The three additions are
@@ -508,10 +530,20 @@ def selftest():
     ext = set()
     for g in asm:
         ext |= set(d[g].get("ext", {}))
+    # ⛔ GATED IN BOTH DIRECTIONS.  This arm used to say only "the census emits
+    # this bucket", which is true exactly while the addition is UNDELIVERED; it
+    # went red the moment two of the three landed, and the honest reading is not
+    # that the arm broke but that its claim had one direction.  An addition the
+    # census now counts as covered must be ABSENT from the uncovered buckets,
+    # and one it still refuses must be PRESENT — a delivered item still showing
+    # as a gap is exactly the stale-census defect this batch is about.
     for name, key, _w in ADDITIONS:
-        ok = key in ext
+        landed = DC.EXT_SCOPE[key]
+        ok = (key not in ext) if landed else (key in ext)
         print(("  ✔ " if ok else "  ⛔ ") +
-              f"addition `{name}` names a bucket the census emits (`{key}`)")
+              (f"addition `{name}` is in scope for the census and is ABSENT "
+               f"from its uncovered buckets (`{key}`)" if landed else
+               f"addition `{name}` names a bucket the census emits (`{key}`)"))
         if not ok:
             bad.append("addition:" + key)
     # ⭐⭐ P2 ITEM 2 — THE LOCK CLAIM, DRIVEN IN BOTH DIRECTIONS.

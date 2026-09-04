@@ -35,7 +35,7 @@ copied, and nothing from them enters this repository.
 Usage:  demand_census.py --corpus DIR [--out docs/DEMAND-CENSUS.md]
         demand_census.py --selftest
 """
-import os, re, sys, json, subprocess, collections, argparse
+import os, re, io, sys, json, contextlib, subprocess, collections, argparse
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -75,17 +75,51 @@ EXACT = {
     "loopne":"loopne", "loopnz":"loopne",
     "jrcxz":"jrcxz", "jecxz":"jecxz",
     "cmpxchg8b":"cmpxchg8b", "cmpxchg16b":None,
+    # ⭐ `movabsq $imm64, %r64` IS `mov` IN THE ROSTER.  P2 batch 3 landed it and
+    # changed no semantics: `Operand.imm` has carried a full `BitVec 64` since
+    # P0, so the form reaches `step` as the shape `movq $imm32, %r64` already
+    # did.  Nothing here mapped the mnemonic, so 20,053 instructions of this
+    # corpus were counted as a gap the model had already closed.
+    "movabsq":"mov", "movabs":"mov",
 }
 
-def to_roster(m):
+def to_roster(m, ext=None, model=None):
     """objdump mnemonic -> roster name, or None if this tool will not claim it.
+
+    ⭐⭐ `model` IS NOT OPTIONAL POLISH — IT IS THE FIX FOR D98.  Before it, the
+    vector half of this mapping was a SECOND HAND-MAINTAINED LIST that had to
+    grow every time the roster did, and it never did: `to_roster` returned
+    `None` for `movdqa`, `paddd`, `pxor` and nineteen more mnemonics the model
+    HAD, so the census reported +0.0% after a batch that added them and went on
+    ranking them as the top items of "what the model does NOT cover".  The
+    identity rule below is that list, DERIVED: a mnemonic the model names maps
+    to itself, and the list cannot go stale because there is no list.
 
     ⚠️ ORDER MATTERS AND THE DANGEROUS RULE IS LAST.  `movsbl`, `movswq`,
     `movzbl` are the width-changing moves (`movsx`/`movzx`); `movsb`/`movsq` are
     the STRING move.  Stripping a trailing size letter first would turn
     `movsbl` into `movsb` and then into the string `movs` — a different
     instruction the model has, so the census would silently claim it.  The
-    width-changing forms are matched BEFORE any suffix stripping."""
+    width-changing forms are matched BEFORE any suffix stripping.
+
+    ⛔ AND `ext` DECIDES THE ONE COLLISION.  `movq` is TWO instructions: the
+    64-bit GPR move (roster `mov`, via the suffix rule below) and the SSE2
+    move between an XMM register and a GPR or memory (roster `movq`, a P2
+    batch-5 row).  Resolving it by mnemonic alone must pick one and be wrong
+    about the other, so the operand's register file — already classified once,
+    by `isa_bucket`, and passed in here as `ext` rather than re-read from the
+    operand string — settles it.  A second reading of the operands would be a
+    second rule that can disagree with the first.
+
+    ⚠️ ORDER MATTERS AND THE DANGEROUS RULE IS LAST.  `movsbl`, `movswq`,
+    `movzbl` are the width-changing moves (`movsx`/`movzx`); `movsb`/`movsq` are
+    the STRING move.  Stripping a trailing size letter first would turn
+    `movsbl` into `movsb` and then into the string `movs` — a different
+    instruction the model has, so the census would silently claim it.  The
+    """
+    # ⭐ the vector spelling wins where the operands ARE vector: see `ext` above.
+    if model is not None and ext in XMM_EXT and m in model:
+        return m
     if m in EXACT:
         return EXACT[m]
     # the width-changing moves: movs/movz + src width + dst width
@@ -113,6 +147,15 @@ def to_roster(m):
         return m[:-1]
     if m in SUFFIXED:
         return m
+    # ⭐⭐ THE IDENTITY RULE, LAST AND DERIVED FROM THE MODEL (D98).  Every rule
+    # above is a REWRITE — objdump's spelling differs from the roster's — and
+    # each is written out because getting one wrong claims a form nobody
+    # executed.  What was missing was the case where the two spellings AGREE,
+    # which is every SSE mnemonic the model has ever gained.  It fires last, so
+    # no rewrite above can be overridden by it, and it claims nothing the model
+    # does not name.
+    if model is not None and m in model:
+        return m
     return None
 
 INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9.]*)\s*(.*)")
@@ -124,11 +167,20 @@ INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9.]*)\s*(.*)")
 #     before this rule existed: 0.636% of cc1 and 0.121% of glibc, every one of
 #     them `movq`.
 #   * `mov %fs:0x28, %rax` -- the stack-protector load in most compiled
-#     functions -- carries a SEGMENT PREFIX, and `Ea` has no segment field
-#     because segmentation is out of scope by declaration.  Measured: 0.244% of
+#     functions -- carries a SEGMENT PREFIX, and `Ea` had no segment field
+#     because segmentation was out of scope by declaration.  Measured: 0.244% of
 #     cc1, 2.655% of glibc, 0.802% of the kernel.
-# Both now count as NOT COVERED, so the headline number is honest by
-# construction instead of by a sentence underneath it.
+#
+# ⛔⛔ AND BOTH OF THOSE SENTENCES ARE NOW HISTORY, WHICH IS THE OTHER HALF OF
+# D98.  This paragraph read "Both now count as NOT COVERED" for twenty-two
+# batches after both stopped being true: P2 batch 1 put the FS/GS base on `Ea`
+# and P2 batch 5 gave the model `movq` between an XMM register and a GPR.  The
+# rules those sentences describe went on excluding both forms — 76,591 and
+# 33,839 instructions of this corpus — and the prose went on explaining why
+# that was rigorous.  ⇒ 🔑 A JUSTIFICATION OUTLIVES THE CONDITION IT WAS TRUE
+# OF, and it reads as a reason not to look.  What is true now is decided by
+# `EXT_SCOPE`, which is a partition rather than a paragraph, and by the rules
+# half of the staleness stamp, which moves when it moves.
 #
 # ⚠️ THEY DO NOT MAKE THE NUMBER EXACT, AND THE LIMIT IS STATED IN THE
 # GENERATED DOCUMENT: an addressing mode or operand shape the model lacks is
@@ -320,6 +372,74 @@ def isa_bucket(mn, ops, kind="plain"):
         return "x87 (st)"
     base = mn[:-1] if (mn[:-1] in GPR_EXT and mn[-1] in "bwlq") else mn
     return GPR_EXT.get(base, "GPR/other (unclassified)")
+
+
+# ── which of those buckets the model's STATE can represent at all ──────────
+# ⭐⭐ THE SECOND HALF OF D98, AND THE HALF THAT POINTS THE OTHER WAY.  Whether
+# the model covers an instruction is decided by THREE things and only the first
+# was ever coupled to the model: the roster name (`to_roster`, fixed above), the
+# REGISTER FILE the operands name, and the PREFIX.  The old rule was one line —
+# `kind != "plain"` is not covered — and it was written when the model had no
+# vector registers, no segment base and no LOCK vocabulary.  All three have
+# since landed, and the rule did not move.
+#
+# ⛔ IT IS A TOTAL PARTITION AND `form_in_scope` REFUSES ON A BUCKET IT DOES NOT
+# KNOW.  An allow-list would send every unclassified bucket to COVERED (an
+# over-claim) and a deny-list would send it to NOT COVERED (an under-claim);
+# both are a default, and a default is how this document came to say +0.0 after
+# a batch that moved it ([[feedback-a-declared-list-inherits-its-default]]).  A
+# new bucket added to `isa_bucket` STOPS THE CENSUS until someone rules on it.
+#
+# ⚠️ THE GPR EXTENSION BUCKETS ARE DERIVED FROM `GPR_EXT`, not restated: they
+# name a REASON, not a register file, so whether the model has `popcnt` or
+# `endbr64` is decided where every other mnemonic's is — by `r in model`.
+EXT_SCOPE = {v: True for v in GPR_EXT.values()}
+EXT_SCOPE.update({
+    # ⛔ operand-free AVX state instructions are NOT a GPR form; they are in
+    # `GPR_EXT` only because there are no operands to read a width off.
+    "AVX (state)":                            False,
+    # register files this model does not have
+    "AVX-512 (zmm/k)":                        False,
+    "AVX2/AVX (ymm)":                         False,
+    "VEX-128 (v… xmm)":                       False,
+    "MMX (mm)":                               False,
+    "x87 (st)":                               False,
+    # ⭐ the one vector register file it DOES have (P2 batches 4-9)
+    "SSE-legacy (xmm)":                       True,
+    # ⭐ P2 addition 1 LANDED (batch 1): the FS/GS base is a field on `Ea`, so a
+    # segment override is a prefix on rows already claimed — 76,591 instructions
+    # of this corpus, the commonest of them the stack-protector load.
+    "segment base %fs:/%gs: (P2 addition 1)": True,
+    # ⭐ P2 addition 3 LANDED (batch 3): see the `movabsq` entry in EXACT.
+    "mov imm64 / movabs (P2 addition 3)":     True,
+    # ⛔ P2 addition 2 LANDED (batch 2) AND THIS STAYS FALSE, DELIBERATELY.  The
+    # model's LOCK coverage is PER FORM — `Op.lockIllegal` over the SDM's
+    # nineteen-mnemonic list — and this tool has no model-derived route to that
+    # predicate: `docs/COVERAGE.md` publishes mnemonics, not the list.  Copying
+    # the nineteen names here would be a fourth hand-maintained list, of exactly
+    # the kind D98 is about, and claiming a locked form by MNEMONIC would
+    # over-claim `lock movq %rax,(%rbx)` — #UD on silicon, and the form a reader
+    # most expects to be lockable.  So it is refused, at a MEASURED cost of
+    # 9,945 instructions (0.07% of this corpus), and the refusal names the
+    # cheaper build: export `Op.lockIllegal` into a generated artifact and this
+    # line becomes derivable ([[feedback-a-gate-that-refuses-names-a-cheaper-build]]).
+    "LOCK prefix (P2 addition 2)":            False,
+    "GPR/other (unclassified)":               True,
+})
+# the buckets whose operands name an XMM register — the input to `to_roster`'s
+# one operand-dependent rule.  ⚠️ `VEX-128` is xmm too, and is here for the same
+# reason: `vmovq %xmm0,%rax` must resolve its spelling the same way even though
+# `EXT_SCOPE` then refuses it for the ENCODING.
+XMM_EXT = frozenset({"SSE-legacy (xmm)", "VEX-128 (v… xmm)"})
+
+def form_in_scope(ext):
+    """⛔ REFUSES rather than defaulting. See EXT_SCOPE."""
+    if ext not in EXT_SCOPE:
+        print(f"⛔ `{ext}` is an ISA bucket no one has ruled on. A census that "
+              f"guesses whether a register file is in scope reports a coverage "
+              f"number for a model nobody described. Add it to EXT_SCOPE.")
+        sys.exit(2)
+    return EXT_SCOPE[ext]
 
 
 # ── the symbol map: build-id -> debug file -> sorted (addr, end, name) ─────
@@ -595,16 +715,57 @@ def census(paths, dbg=None):
 # ⚠️ The identity is a hash of the SORTED MNEMONIC LIST, not of the file: the
 # census depends on precisely that set and on nothing else in the coverage
 # table, so a reworded row must not fail this gate and a NEW MNEMONIC must.
-STAMP_RE = re.compile(r"<!-- census-model: mnemonics=(\d+) sha=([0-9a-f]{16}) -->")
+# ⭐⭐ AND THE STAMP HASHED ONLY ONE OF THE TWO COUPLED ARTIFACTS (D98).  The
+# paragraph above is true and was not enough.  A census percentage is a function
+# of TWO inputs — the model, and the MAPPING that decides which of a binary's
+# instructions the model covers — and this stamp hashed the first.  So when the
+# model gained `movdqa`, `paddd`, `pxor` and twenty more, the stamp moved, the
+# gate went red, the document was regenerated on its word, and every percentage
+# came back BIT-IDENTICAL: the mapping had not grown with the roster and could
+# not see the new rows.
+#
+# ⇒ 🔑 AN ANTI-STALENESS GATE OVER TWO COUPLED ARTIFACTS REPORTS ONLY ABOUT THE
+# ONE IT HASHES — AND A FORCED REGENERATION CAN THEN MAKE A STALE NUMBER LOOK
+# FRESHLY COMPUTED, which is worse than no stamp at all, because the
+# regeneration reads as diligence.
+#
+# So the stamp carries a SECOND sha over the MAPPING'S BEHAVIOUR: every decision
+# `_decide` makes over a domain that needs no corpus — every mnemonic any table
+# here names, crossed with every ISA bucket `EXT_SCOPE` rules on.  ⚠️ BEHAVIOUR,
+# not source text: a reworded comment must not fail this gate and a changed
+# ANSWER must ([[feedback-a-staleness-stamp-hashes-only-one-half]]).  The domain
+# is closed under the tables, so a new mapping rule cannot hide outside it — any
+# rule that starts claiming a mnemonic must name that mnemonic somewhere here.
+STAMP_RE = re.compile(r"<!-- census-model: mnemonics=(\d+) sha=([0-9a-f]{16}) "
+                      r"rules=([0-9a-f]{16}) -->")
+
+def _rule_domain(model):
+    """Every mnemonic this file's mapping tables can possibly rewrite, plus the
+    model's own names.  ⛔ NOT read from the census's output: a gate whose
+    domain came from the document it checks could only agree with it."""
+    d = set(model) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
+        | set(GPR_EXT)
+    for base in list(SUFFIXED) + list(STRING):
+        d |= {base + c for c in "bwlq"}
+    for pre in ("j", "set", "cmov"):
+        d |= {pre + c for c in CC}
+    d |= {f"mov{a}{b}{c}" for a in "sz" for b in "bwl" for c in "wlq"}
+    return d
 
 def model_stamp(model):
     import hashlib
     h = hashlib.sha256(" ".join(sorted(model)).encode()).hexdigest()[:16]
-    return len(model), h
+    rows = []
+    for m in sorted(_rule_domain(model)):
+        for ext in sorted(EXT_SCOPE):
+            r, cov, cls = _decide(m, ext, model)
+            rows.append(f"{m}\t{ext}\t{r}\t{int(cov)}\t{cls}")
+    rh = hashlib.sha256("\n".join(rows).encode()).hexdigest()[:16]
+    return len(model), h, rh
 
 def check_stale(out_path):
     model = model_mnemonics()
-    n, h = model_stamp(model)
+    n, h, rh = model_stamp(model)
     try:
         text = open(os.path.join(root, out_path)).read()
     except OSError:
@@ -616,16 +777,25 @@ def check_stale(out_path):
         print(f"⛔ {out_path} carries no `census-model` stamp, so nothing can "
               f"tell which model its percentages are about. Regenerate it.")
         return 2
-    sn, sh = int(m.group(1)), m.group(2)
-    if (sn, sh) != (n, h):
-        print(f"⛔ THE CENSUS IS STALE. {out_path} was generated against a model "
-              f"of {sn} mnemonics (sha {sh}); the model is now {n} (sha {h}). "
-              f"Every coverage percentage in that document is against the older "
-              f"model.\n   Regenerate: demand_census.py --corpus <dir>  "
+    sn, sh, srh = int(m.group(1)), m.group(2), m.group(3)
+    # ⛔ WHICH HALF MOVED IS PART OF THE MESSAGE.  D98 was a red that said "the
+    # model moved" about a document whose numbers could not move; a reader who
+    # cannot tell the halves apart regenerates and believes the result.
+    if (sn, sh) != (n, h) or srh != rh:
+        which = ("the MODEL and the MAPPING have both moved"
+                 if (sn, sh) != (n, h) and srh != rh else
+                 "the MODEL has moved" if (sn, sh) != (n, h) else
+                 "the MAPPING has moved (the model is unchanged)")
+        print(f"⛔ THE CENSUS IS STALE — {which}. {out_path} was generated "
+              f"against a model of {sn} mnemonics (sha {sh}, rules {srh}); it "
+              f"is now {n} (sha {h}, rules {rh}). Every coverage percentage in "
+              f"that document is against the older pair.\n"
+              f"   Regenerate: demand_census.py --corpus <dir>  "
               f"(the recipe is in the document).")
         return 1
     print(f"demand-census staleness gate: CLEAN — the document was generated "
-          f"against this exact model ({n} mnemonics, sha {h}).")
+          f"against this exact model ({n} mnemonics, sha {h}) AND this exact "
+          f"mapping (rules {rh}).")
     return 0
 
 CELL_LABEL = {
@@ -637,20 +807,39 @@ CELL_LABEL = {
     "-":  "this column has no symbol map",
 }
 
+def _decide(m, ext, model):
+    """⛔⛔ THE ONE PLACE the covered/not-covered decision is made — (roster,
+    covered, class) for a single (mnemonic, ISA-bucket) pair.
+
+    ⚠️ IT IS A FUNCTION BECAUSE IT USED NOT TO BE.  `_split`'s docstring has
+    claimed since D66 that it is "the one place", and `ext_table` re-implemented
+    the same three-conjunct test forty lines below it — a duplicate born in
+    agreement, which diverges on the next ordinary edit and would have diverged
+    on THIS one, silently leaving the P2 candidate list computed by the old rule
+    while the headline moved ([[feedback-duplicate-born-in-agreement]]).  The
+    conservation arm in `--selftest` fails if any second implementation appears:
+    covered + the ext buckets must equal the column total, exactly."""
+    r = to_roster(m, ext, model)
+    if r is None:
+        return None, False, "unmapped"
+    if not form_in_scope(ext):
+        return r, False, "outscope"
+    return r, (r in model), "mapped"
+
 def _split(counts, model):
-    """(mapped, unmapped, outscope, padding, counts-without-padding) — the one
-    place the covered/not-covered decision is made, so the whole-column figures
-    and the per-cell figures cannot drift apart."""
+    """(mapped, unmapped, outscope, padding, counts-without-padding), bucketed
+    by `_decide` so the whole-column figures and the per-cell figures cannot
+    drift apart."""
     mapped = collections.Counter()
     unmapped = collections.Counter()
     outscope = collections.Counter()
     padding = sum(k for key, k in counts.items() if key[1] == "padding")
     rest = {key: k for key, k in counts.items() if key[1] != "padding"}
-    for (m, kind, _o, _e), k in rest.items():
-        r = to_roster(m)
-        if r is None:
+    for (m, kind, _o, ext), k in rest.items():
+        r, _cov, cls = _decide(m, ext, model)
+        if cls == "unmapped":
             unmapped[m] += k
-        elif kind != "plain":
+        elif cls == "outscope":
             # ⛔ KEYED BY THE MNEMONIC objdump PRINTED, not by the roster name
             # it maps to.  `movq %xmm0, %rax` maps to the roster's `mov`, and
             # writing it `mov (vector operand)` DESTROYS the only word that
@@ -723,11 +912,19 @@ def ext_table(name, counts, model, fh):
     mapped, unmapped, outscope, _pad, rest = _split(counts, model)
     tot = sum(rest.values()) or 1
     buckets = collections.Counter()
+    covered_buckets = collections.Counter()
     detail = {}
-    for (m, kind, _o, ext), k in rest.items():
-        r = to_roster(m)
-        covered = (r is not None and kind == "plain" and r in model)
+    for (m, _kind, _o, ext), k in rest.items():
+        # ⛔ THROUGH `_decide`, NOT PAST IT — this loop used to carry its own
+        # copy of the three-conjunct test.
+        _r, covered, _cls = _decide(m, ext, model)
         if covered:
+            # ⭐ RECORDED, NOT DISCARDED.  A bucket that leaves this table
+            # because the model GAINED it reads identically to a bucket that was
+            # never there — zero occurrences either way — and the tool that
+            # prices P2's remaining work cannot tell "delivered" from "no
+            # demand" ([[feedback-unobserved-regions-report-agreement]]).
+            covered_buckets[ext] += k
             continue
         buckets[ext] += k
         detail.setdefault(ext, collections.Counter())[m] += k
@@ -737,7 +934,8 @@ def ext_table(name, counts, model, fh):
     for ext, k in buckets.most_common():
         top = ", ".join(f"`{m}`" for m, _ in detail[ext].most_common(6))
         fh.write(f"| {ext} | {k:,} | {100.0*k/tot:.2f}% | {top} |\n")
-    return {e: k for e, k in buckets.items()}
+    return ({e: k for e, k in buckets.items()},
+            {e: k for e, k in covered_buckets.items()})
 
 def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     mapped, unmapped, outscope, padding, rest = _split(counts, model)
@@ -759,9 +957,11 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     fh.write(f"- **Covered by the model: {covered:,} ({100.0*covered/tot:.1f}%).**\n")
     fh.write(f"- Mapped to a roster name the model does not have: {out_of:,} "
              f"({100.0*out_of/tot:.1f}%).\n")
-    fh.write(f"- Mapped, but carrying a VECTOR or MMX register, an `%fs:`/`%gs:` "
-             f"SEGMENT PREFIX, or a `lock` prefix — none of which this model "
-             f"has: {oos:,} ({100.0*oos/tot:.2f}%) — counted as NOT covered.\n")
+    fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
+             f"cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, "
+             f"a VEX encoding, or a `lock` prefix (whose legality is per-form "
+             f"and not published here): {oos:,} ({100.0*oos/tot:.2f}%) — "
+             f"counted as NOT covered.\n")
     fh.write(f"- Not mapped at all, and therefore counted as NOT covered: "
              f"{unk:,} ({100.0*unk/tot:.1f}%).\n\n")
     fh.write("| rank | mnemonic | occurrences | share | in the model? |\n")
@@ -791,14 +991,14 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     for i, (m, k) in enumerate(miss.most_common(25), 1):
         fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% |\n")
     att = attribution(name, counts, model, fns or {}, n, n_sym, fh)
-    ext = ext_table(name, counts, model, fh)
+    ext, ext_covered = ext_table(name, counts, model, fh)
     # ⚠️ THE FULL uncovered map rides in the JSON, not just the top 40.  The P2
     # roster is priced by JOINING K's SIMD forms against this demand, and a
     # truncated list would price the tail at zero — which is the direction that
     # makes a roster look cheaper than it is.
     return dict(total=tot, covered=covered, pct=100.0*covered/tot,
                 miss=miss.most_common(40), miss_all=dict(miss),
-                attribution=att, ext=ext)
+                attribution=att, ext=ext, ext_covered=ext_covered)
 
 def selftest():
     """⛔ THE MAPPING IS WHERE A CENSUS INFLATES ITSELF, so it is driven on the
@@ -822,7 +1022,12 @@ def selftest():
         # ⛔ things this tool must REFUSE to claim
         ("vmovdqa", None), ("xorps", None), ("wrmsr", None), ("swapgs", None),
         ("syscall", None), ("cpuid", None), ("iretq", None), ("lock", None),
-        ("cmpxchg16b", None), ("pxor", None), ("endbr64", None),
+        ("cmpxchg16b", None), ("endbr64", None),
+        # ⚠️ `pxor` USED TO BE ON THAT LIST and is not any more: with no model
+        # passed it is still None (the rewrite tables do not name it), and the
+        # model-aware arms below are where its answer now lives.  It sat here
+        # as a REFUSAL for the twenty-two batches in which the model had it.
+        ("pxor", None),
     ]
     bad = []
     for m, want in arms:
@@ -832,6 +1037,125 @@ def selftest():
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append(m)
+    # ⭐⭐ THE MODEL-AWARE MAPPING AND THE SCOPE PARTITION (D98).  Every arm above
+    # runs `to_roster` with NO model, which is the half that was never wrong.
+    _M = model_mnemonics()
+    map_arms = [
+        # the identity rule: a mnemonic the model names maps to itself
+        ("movdqa", None,                 "movdqa"),
+        ("pxor",   "SSE-legacy (xmm)",   "pxor"),
+        ("punpcklqdq", "SSE-legacy (xmm)", "punpcklqdq"),
+        # ⭐ THE ONE COLLISION, RESOLVED BY THE OPERANDS AND NOT BY A GUESS
+        ("movq",   "SSE-legacy (xmm)",   "movq"),
+        ("movq",   "GPR/other (unclassified)", "mov"),
+        ("movd",   "SSE-legacy (xmm)",   "movd"),
+        # ⭐ the form P2 batch 3 landed and nothing mapped
+        ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
+        # ⛔ a VEX spelling is still not a roster name, model or no model
+        ("vmovdqa", "VEX-128 (v… xmm)",  None),
+        ("vpaddd",  "AVX2/AVX (ymm)",    None),
+        # ⛔ and the rewrite rules still win over the identity rule
+        ("movsbl",  None,                "movsx"),
+        ("nopw",    None,                "nop"),
+    ]
+    for m, ext, want in map_arms:
+        got = to_roster(m, ext, _M)
+        ok = got == want
+        print(("  ✔ " if ok else "  ⛔ ") +
+              f"map[{ext}] {m:10s} -> {got}" + ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append("map:" + m)
+    # ⛔⛔ THE OVER-CLAIM ARMS.  D98's repair widens what counts as covered, and
+    # widening is the direction nobody audits: an under-claim looks like modesty
+    # ([[feedback-under-claims-are-unpoliced]]).  Every register file and prefix
+    # the model does NOT have gets an arm here, each on a mnemonic the model DOES
+    # have — because that is the only shape in which the over-claim can occur.
+    scope_arms = [
+        ("paddw",   "SSE-legacy (xmm)",                       True),
+        ("paddw",   "MMX (mm)",                               False),
+        ("paddd",   "AVX2/AVX (ymm)",                         False),
+        ("movdqa",  "AVX-512 (zmm/k)",                        False),
+        ("movq",    "VEX-128 (v… xmm)",                       False),
+        ("fstp",    "x87 (st)",                               False),
+        ("vzeroupper", "AVX (state)",                         False),
+        # ⭐ the two P2 additions that LANDED and are therefore in scope
+        ("movq",    "segment base %fs:/%gs: (P2 addition 1)", True),
+        ("movabsq", "mov imm64 / movabs (P2 addition 3)",     True),
+        # ⛔ and the one that landed and is still REFUSED, on purpose: the
+        # model's lock legality is per-form and this tool cannot read it.
+        ("addq",    "LOCK prefix (P2 addition 2)",            False),
+        # a GPR extension the model does not have is refused by `r in model`,
+        # not by the partition — the partition says its FORM is representable.
+        ("endbr64", "CET-IBT",                                False),
+        ("popcntq", "POPCNT",                                 True),
+    ]
+    for m, ext, want in scope_arms:
+        _r, got, _c = _decide(m, ext, _M)
+        ok = got == want
+        print(("  ✔ " if ok else "  ⛔ ") +
+              f"scope {m:11s} in {ext:38s} -> covered={got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append("scope:" + m + "/" + ext)
+    # ⛔ AND THE PARTITION IS TOTAL: an ISA bucket nobody has ruled on must STOP
+    # the census, not fall to either answer.  Driven in-process by catching the
+    # exit, because a default here is invisible by construction.
+    try:
+        form_in_scope("Doubleplus-SIMD (nonexistent)")
+        ok = False
+    except SystemExit:
+        ok = True
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "an ISA bucket with no scope ruling REFUSES, it does not default")
+    bad += [] if ok else ["scope-default"]
+    # ⛔ every bucket `isa_bucket` can actually return has a ruling
+    for ext in set(GPR_EXT.values()) | {
+            "GPR/other (unclassified)", "AVX-512 (zmm/k)", "AVX2/AVX (ymm)",
+            "VEX-128 (v… xmm)", "SSE-legacy (xmm)", "MMX (mm)", "x87 (st)",
+            "LOCK prefix (P2 addition 2)",
+            "segment base %fs:/%gs: (P2 addition 1)",
+            "mov imm64 / movabs (P2 addition 3)"}:
+        if ext not in EXT_SCOPE:
+            print(f"  ⛔ `{ext}` is returnable by isa_bucket and unruled")
+            bad.append("unruled:" + ext)
+    # ⭐⭐ CONSERVATION: covered + the ext buckets == the column total, EXACTLY.
+    # This is what makes a second implementation of the covered/not-covered test
+    # observable: `ext_table` carried one for twenty-two batches and agreed with
+    # `_split` the whole time, which is precisely why nobody looked at it.
+    synth = collections.Counter()
+    for key, k in [(("movdqa", "vector", "CC", "SSE-legacy (xmm)"), 100),
+                   (("paddw",  "vector", "CC", "MMX (mm)"),          40),
+                   (("vpaddd", "vector", "AA", "AVX2/AVX (ymm)"),    25),
+                   (("movq",   "segment","CC", "segment base %fs:/%gs: (P2 addition 1)"), 7),
+                   (("addq",   "lock",   "CC", "LOCK prefix (P2 addition 2)"), 3),
+                   (("int3",   "padding","-",  "-"),                 11),
+                   (("movq",   "plain",  "CC", "GPR/other (unclassified)"), 60)]:
+        synth[key] += k
+    _mp, _um, _os, _pad, _rest = _split(synth, _M)
+    c_tot = sum(_rest.values())
+    c_cov = sum(k for r, k in _mp.items() if r in _M)
+    buckets, cov_buckets = ext_table("conservation", synth, _M, io.StringIO())
+    ok = (c_cov + sum(buckets.values()) == c_tot and c_tot == 235
+          and c_cov == 167 and sum(cov_buckets.values()) == c_cov)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          f"conservation: covered {c_cov} + uncovered {sum(buckets.values())} "
+          f"== total {c_tot} (padding {_pad} excluded)" +
+          ("" if ok else "   EXPECTED 167 + 68 == 235"))
+    bad += [] if ok else ["conservation"]
+    # ⭐ THE STAMP'S SECOND HALF MOVES WHEN THE MAPPING DOES AND THE MODEL DOES NOT
+    _n0, _h0, _r0 = model_stamp(_M)
+    _saved = EXT_SCOPE["MMX (mm)"]
+    EXT_SCOPE["MMX (mm)"] = True
+    _n1, _h1, _r1 = model_stamp(_M)
+    EXT_SCOPE["MMX (mm)"] = _saved
+    _n2, _h2, _r2 = model_stamp(_M)
+    ok = (_h0 == _h1) and (_r0 != _r1) and (_r0 == _r2)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "the stamp's `rules` half moves when the MAPPING moves and the model "
+          "does not — the exact blindness D98 was" +
+          ("" if ok else f"   model {_h0}/{_h1}  rules {_r0}/{_r1}/{_r2}"))
+    bad += [] if ok else ["stamp-rules-half"]
+
     # ── the LINE-LEVEL rules, each driven on the shape that moved the number ──
     def L(*rows):
         return [f"  ffffffff81000{i:03x}:      \t{r}" for i, r in enumerate(rows)]
@@ -1067,13 +1391,46 @@ def selftest():
             print(("  ✔ " if ok else "  ⛔ ") +
                   "the SHIPPED census matches the model it was generated against")
             bad += [] if ok else ["stamp-control"]
-            # a stamp for a DIFFERENT model must be reported
-            open(doc, "w").write(STAMP_RE.sub(
-                "<!-- census-model: mnemonics=99 sha=0123456789abcdef -->", saved))
-            r = check_stale("docs/DEMAND-CENSUS.md")
-            print(("  ✔ " if r == 1 else "  ⛔ ") +
-                  "a census generated against a DIFFERENT model is reported STALE")
-            bad += [] if r == 1 else ["stamp-stale"]
+            # ⛔ THE PLANT IS DERIVED FROM THE SHIPPED STAMP, NEVER WRITTEN AS A
+            # LITERAL.  It was a literal until D98, in the old two-field format;
+            # when the stamp grew a third field the plant stopped matching
+            # `STAMP_RE`, the substitution wrote nothing, and the arm that
+            # proves this gate can go red was itself testing a document with no
+            # stamp at all — the anti-staleness gate carrying a stale literal in
+            # its own selftest ([[feedback-a-gate-is-not-exempt-from-its-own-defect]]).
+            m0 = STAMP_RE.search(saved)
+            def _flip(h):
+                return h[:-1] + ("0" if h[-1] != "0" else "1")
+            def _plant(n=None, sha=None, rules=None):
+                return STAMP_RE.sub(
+                    f"<!-- census-model: mnemonics={n or m0.group(1)} "
+                    f"sha={sha or m0.group(2)} "
+                    f"rules={rules or m0.group(3)} -->", saved)
+            ok = m0 is not None
+            print(("  ✔ " if ok else "  ⛔ ") +
+                  "the shipped stamp PARSES, so the plants below are real edits")
+            bad += [] if ok else ["stamp-parse"]
+            if ok:
+                for label, text, want_half in (
+                        ("a census generated against a DIFFERENT MODEL is "
+                         "reported STALE",
+                         _plant(sha=_flip(m0.group(2))), "the MODEL has moved"),
+                        # ⭐⭐ D98 ITSELF, AS AN ARM: the model is byte-identical
+                        # and the MAPPING has moved.  This is the case the old
+                        # stamp could not see, and seeing it is the whole repair.
+                        ("a census generated against a DIFFERENT MAPPING is "
+                         "reported STALE, with the model unchanged",
+                         _plant(rules=_flip(m0.group(3))),
+                         "the MAPPING has moved (the model is unchanged)")):
+                    open(doc, "w").write(text)
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        r = check_stale("docs/DEMAND-CENSUS.md")
+                    said = want_half in buf.getvalue()
+                    good = (r == 1) and said
+                    print(("  ✔ " if good else "  ⛔ ") + label +
+                          ("" if good else f"   rc={r} names-the-half={said}"))
+                    bad += [] if good else ["stamp-stale"]
             # and no stamp at all must refuse, not pass
             open(doc, "w").write(STAMP_RE.sub("", saved))
             r = check_stale("docs/DEMAND-CENSUS.md")
@@ -1090,7 +1447,10 @@ def selftest():
         return 1
     n_new = (len(mmx_arms) + len(name_arms) + len(packed_arms) +
              len(body_arms) + len(ext_arms) + len(sym_arms) +
-             len(prefix_arms) + 6)
+             len(prefix_arms) + 6 +
+             # D98: the model-aware mapping, the scope partition, its totality,
+             # conservation, the stamp's second half, and the second plant
+             len(map_arms) + len(scope_arms) + 6)
     print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7+n_new} arms; "
           f"the width-changing/string-move trap in both directions, every "
           f"line-level rule that moved the number, and both routes of the "
@@ -1161,19 +1521,53 @@ binary CONTAINS, which is the right question for deciding what to model next and
 the wrong one for deciding what is hot at run time.
 
 ⚠️ It is an **UPPER BOUND on form-level coverage.** This tool maps a MNEMONIC to
-a roster name; the model covers FORMS. Four ways a mnemonic-level count
-over-claims are excluded here and measured — a vector-register operand, an
-**MMX** register operand, an `%fs:`/`%gs:` segment prefix, and a `lock` prefix —
-but an addressing mode or operand shape the model lacks is still counted as
-covered if the mnemonic matches. The remaining error is in the flattering
-direction and is not measured.
+a roster name; the model covers FORMS. An addressing mode or operand shape the
+model lacks is still counted as covered if the mnemonic matches, so the
+remaining error is in the flattering direction and is not measured.
 
-⛔ **The MMX exclusion is new, and it was a real over-claim.** `%[xyz]mm` does
-not match `%mm0`, so until the assembly class arrived every MMX instruction
-whose mnemonic maps to a roster name — `movq %mm0, %mm3` is spelled `movq` —
-was counted as covered. `%mm` occurs **0 times in glibc and 0 times in cc1**,
-and **15,690 times in libx264**: the gap was invisible in the corpus that
-existed and material in the one that did not.
+**What decides whether a form is in scope at all** is the register file its
+operands name and the prefix it carries, and every bucket is ruled on
+explicitly — there is no default:
+
+| the operands name… | in scope? | why |
+|---|---|---|
+| GPRs only | ✅ | the model's whole P0/P1 roster |
+| an `%fs:`/`%gs:` segment base | ✅ | **P2 addition 1** put the base on `Ea` |
+| a 64-bit immediate (`movabsq`) | ✅ | **P2 addition 3**; `Operand.imm` was always 64-bit |
+| an `%xmm` register, SSE-legacy encoding | ✅ | **P2 batches 4–9** |
+| an `%mm0`–`%mm7` MMX register | ⛔ | this model has no MMX register file |
+| a `%ymm`, `%zmm` or `%k` register | ⛔ | no AVX/AVX-512 state |
+| a VEX-encoded `%xmm` form (`v…`) | ⛔ | a different encoding, not a different name |
+| an x87 `%st` register | ⛔ | no x87 state |
+| a `lock` prefix | ⛔ | see below |
+
+⛔ **The `lock` exclusion is a REFUSAL, not an absence.** P2 addition 2 landed a
+LOCK vocabulary, so the model does execute locked forms — but only the SDM's
+nineteen, and whether a given form is one of them is `Op.lockIllegal`, which
+this document's inputs do not publish. Claiming a locked instruction by
+MNEMONIC would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on
+silicon and the form a reader most expects to be lockable. So it is counted as
+NOT covered, at a measured cost, until that predicate is exported.
+
+⛔ **The MMX exclusion was a real over-claim.** `%[xyz]mm` does not match
+`%mm0`, so until the assembly class arrived every MMX instruction whose mnemonic
+maps to a roster name — `movq %mm0, %mm3` is spelled `movq` — was counted as
+covered. `%mm` occurs **0 times in glibc and 0 times in cc1**, and **15,690
+times in libx264**: the gap was invisible in the corpus that existed and
+material in the one that did not.
+
+⛔ **And the opposite error ran for twenty-two batches in the other direction.**
+The rule that excluded vector operands was written when the model had no vector
+registers, and it did not move when the model gained twenty-two SSE mnemonics,
+an `%fs:`/`%gs:` base and a 64-bit immediate move: the mapping from an objdump
+mnemonic to a roster name kept a hand-maintained vector half that returned
+"unknown" for every one of them. Regenerating this document after those batches
+changed **every percentage by +0.0**, and the ranked list below went on offering
+`movdqa` — which the model HAS — as the second-largest gap to close. That half
+is now DERIVED from the model rather than listed, and the staleness stamp at the
+top of this file hashes the mapping's behaviour as well as the model, because a
+stamp over two coupled artifacts that hashes one of them reports only about the
+one it hashes.
 
 """
 
@@ -1263,8 +1657,9 @@ def main():
     with open(os.path.join(root, args.out), "w") as fh:
         fh.write("# THE DEMAND-SIDE CENSUS — what real binaries actually execute\n\n")
         fh.write("*Generated by `scripts/demand_census.py`. Do not edit.*\n\n")
-        n_m, h_m = model_stamp(model)
-        fh.write(f"<!-- census-model: mnemonics={n_m} sha={h_m} -->\n\n")
+        n_m, h_m, rh_m = model_stamp(model)
+        fh.write(f"<!-- census-model: mnemonics={n_m} sha={h_m} "
+                 f"rules={rh_m} -->\n\n")
         fh.write(DOC_PREAMBLE)
         fh.write(f"The model covers **{len(model)} mnemonics**. Every number below "
                  f"is a STATIC count of instruction occurrences in a disassembly, "
@@ -1351,4 +1746,10 @@ def main():
               f"(body) {100.0*a['body_route_asm']/(a['total'] or 1):5.1f}%")
     return 0
 
-sys.exit(main())
+# ⛔ GUARDED SO THIS FILE CAN BE IMPORTED.  `EXT_SCOPE` — which of the ISA
+# buckets the model's state can represent — is read by `p2_roster.py`, and the
+# alternative to importing it is a second copy of the partition in the tool that
+# prices the gap: the two would agree on the day they were written and diverge
+# on the next batch, which is the shape D98 itself was.
+if __name__ == "__main__":
+    sys.exit(main())
