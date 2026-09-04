@@ -113,7 +113,7 @@ The model covers **84 mnemonics**. Every number below is a STATIC count of instr
 | 15 | `nop` | 47,105 | 0.88% | ✅ |
 | 16 | `movaps` | 34,654 | 0.64% | — |
 | 17 | `and` | 33,971 | 0.63% | ✅ |
-| 18 | `mov (vector operand)` | 33,839 | 0.63% | — |
+| 18 | `movq (vector operand)` | 33,839 | 0.63% | — |
 | 19 | `shl` | 24,512 | 0.46% | ✅ |
 | 20 | `movups` | 20,774 | 0.39% | — |
 | 21 | `setcc` | 17,594 | 0.33% | ✅ |
@@ -132,7 +132,7 @@ The model covers **84 mnemonics**. Every number below is a STATIC count of instr
 | rank | mnemonic | occurrences | share |
 |---|---|---|---|
 | 1 | `movaps` | 34,654 | 0.64% |
-| 2 | `mov (vector operand)` | 33,839 | 0.63% |
+| 2 | `movq (vector operand)` | 33,839 | 0.63% |
 | 3 | `movups` | 20,774 | 0.39% |
 | 4 | `movdqa` | 12,096 | 0.22% |
 | 5 | `punpcklqdq` | 9,949 | 0.18% |
@@ -220,15 +220,15 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 | 19 | `setcc` | 5,761 | 0.65% | ✅ |
 | 20 | `movdqa` | 4,129 | 0.47% | — |
 | 21 | `cmovcc` | 4,083 | 0.46% | ✅ |
-| 22 | `mov (segment operand)` | 3,543 | 0.40% | — |
+| 22 | `movq (segment operand)` | 3,543 | 0.40% | — |
 | 23 | `movsx` | 3,517 | 0.40% | ✅ |
-| 24 | `sub (segment operand)` | 3,501 | 0.40% | — |
+| 24 | `subq (segment operand)` | 3,501 | 0.40% | — |
 | 25 | `or` | 2,875 | 0.33% | ✅ |
 | 26 | `shr` | 2,556 | 0.29% | ✅ |
 | 27 | `movups` | 2,413 | 0.27% | — |
 | 28 | `shl` | 2,386 | 0.27% | ✅ |
 | 29 | `pxor` | 1,925 | 0.22% | — |
-| 30 | `mov (vector operand)` | 1,502 | 0.17% | — |
+| 30 | `movq (vector operand)` | 1,502 | 0.17% | — |
 
 **The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
 
@@ -237,11 +237,11 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 | 1 | `endbr64` | 11,626 | 1.32% |
 | 2 | `movaps` | 6,592 | 0.75% |
 | 3 | `movdqa` | 4,129 | 0.47% |
-| 4 | `mov (segment operand)` | 3,543 | 0.40% |
-| 5 | `sub (segment operand)` | 3,501 | 0.40% |
+| 4 | `movq (segment operand)` | 3,543 | 0.40% |
+| 5 | `subq (segment operand)` | 3,501 | 0.40% |
 | 6 | `movups` | 2,413 | 0.27% |
 | 7 | `pxor` | 1,925 | 0.22% |
-| 8 | `mov (vector operand)` | 1,502 | 0.17% |
+| 8 | `movq (vector operand)` | 1,502 | 0.17% |
 | 9 | `movabsq` | 1,332 | 0.15% |
 | 10 | `punpcklqdq` | 758 | 0.09% |
 | 11 | `movdqu` | 672 | 0.08% |
@@ -322,16 +322,16 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 | 18 | `movaps` | 5,982 | 0.99% | — |
 | 19 | `movzx` | 5,705 | 0.95% | ✅ |
 | 20 | `or` | 4,433 | 0.73% | ✅ |
-| 21 | `mov (segment operand)` | 4,379 | 0.73% | — |
-| 22 | `movsx` | 4,187 | 0.69% | ✅ |
-| 23 | `movapd` | 4,088 | 0.68% | — |
-| 24 | `mulsd` | 3,369 | 0.56% | — |
-| 25 | `shr` | 3,269 | 0.54% | ✅ |
-| 26 | `addsd` | 3,079 | 0.51% | — |
-| 27 | `shl` | 2,843 | 0.47% | ✅ |
-| 28 | `cmovcc` | 2,547 | 0.42% | ✅ |
-| 29 | `fldt` | 2,392 | 0.40% | — |
-| 30 | `vmovups` | 2,321 | 0.38% | — |
+| 21 | `movsx` | 4,187 | 0.69% | ✅ |
+| 22 | `movapd` | 4,088 | 0.68% | — |
+| 23 | `mulsd` | 3,369 | 0.56% | — |
+| 24 | `shr` | 3,269 | 0.54% | ✅ |
+| 25 | `addsd` | 3,079 | 0.51% | — |
+| 26 | `shl` | 2,843 | 0.47% | ✅ |
+| 27 | `cmovcc` | 2,547 | 0.42% | ✅ |
+| 28 | `fldt` | 2,392 | 0.40% | — |
+| 29 | `vmovups` | 2,321 | 0.38% | — |
+| 30 | `fstp` | 2,291 | 0.38% | — |
 
 **The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
 
@@ -340,28 +340,28 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 | 1 | `movdqa` | 11,543 | 1.91% |
 | 2 | `movsd` | 6,291 | 1.04% |
 | 3 | `movaps` | 5,982 | 0.99% |
-| 4 | `mov (segment operand)` | 4,379 | 0.73% |
-| 5 | `movapd` | 4,088 | 0.68% |
-| 6 | `mulsd` | 3,369 | 0.56% |
-| 7 | `addsd` | 3,079 | 0.51% |
-| 8 | `fldt` | 2,392 | 0.40% |
-| 9 | `vmovups` | 2,321 | 0.38% |
-| 10 | `fstp` | 2,291 | 0.38% |
+| 4 | `movapd` | 4,088 | 0.68% |
+| 5 | `mulsd` | 3,369 | 0.56% |
+| 6 | `addsd` | 3,079 | 0.51% |
+| 7 | `fldt` | 2,392 | 0.40% |
+| 8 | `vmovups` | 2,321 | 0.38% |
+| 9 | `fstp` | 2,291 | 0.38% |
+| 10 | `movl (segment operand)` | 2,271 | 0.38% |
 | 11 | `movups` | 2,111 | 0.35% |
-| 12 | `movss` | 2,094 | 0.35% |
-| 13 | `pxor` | 2,038 | 0.34% |
-| 14 | `subsd` | 1,868 | 0.31% |
-| 15 | `mov (vector operand)` | 1,571 | 0.26% |
-| 16 | `fxch` | 1,516 | 0.25% |
-| 17 | `sub (segment operand)` | 1,473 | 0.24% |
-| 18 | `movabsq` | 1,415 | 0.23% |
-| 19 | `movdqu` | 1,361 | 0.23% |
-| 20 | `vmovdqu` | 1,338 | 0.22% |
-| 21 | `vmovsd` | 1,336 | 0.22% |
-| 22 | `pcmpeqb` | 1,309 | 0.22% |
-| 23 | `fstpt` | 1,142 | 0.19% |
-| 24 | `vmulsd` | 1,141 | 0.19% |
-| 25 | `pmovmskb` | 1,118 | 0.19% |
+| 12 | `movq (segment operand)` | 2,103 | 0.35% |
+| 13 | `movss` | 2,094 | 0.35% |
+| 14 | `pxor` | 2,038 | 0.34% |
+| 15 | `subsd` | 1,868 | 0.31% |
+| 16 | `movq (vector operand)` | 1,571 | 0.26% |
+| 17 | `fxch` | 1,516 | 0.25% |
+| 18 | `subq (segment operand)` | 1,473 | 0.24% |
+| 19 | `movabsq` | 1,415 | 0.23% |
+| 20 | `movdqu` | 1,361 | 0.23% |
+| 21 | `vmovdqu` | 1,338 | 0.22% |
+| 22 | `vmovsd` | 1,336 | 0.22% |
+| 23 | `pcmpeqb` | 1,309 | 0.22% |
+| 24 | `fstpt` | 1,142 | 0.19% |
+| 25 | `vmulsd` | 1,141 | 0.19% |
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
@@ -452,7 +452,7 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 20 | `retq` | 3,323 | 1.09% | ✅ |
 | 21 | `pop` | 3,110 | 1.02% | ✅ |
 | 22 | `paddd` | 3,110 | 1.02% | — |
-| 23 | `mov (vector operand)` | 3,050 | 1.00% | — |
+| 23 | `movq (vector operand)` | 3,050 | 1.00% | — |
 | 24 | `movd` | 3,012 | 0.99% | — |
 | 25 | `vpsrad` | 2,949 | 0.97% | — |
 | 26 | `movsx` | 2,877 | 0.95% | ✅ |
@@ -473,7 +473,7 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 6 | `vpmulhrsw` | 4,005 | 1.32% |
 | 7 | `vpbroadcastd` | 3,577 | 1.18% |
 | 8 | `paddd` | 3,110 | 1.02% |
-| 9 | `mov (vector operand)` | 3,050 | 1.00% |
+| 9 | `movq (vector operand)` | 3,050 | 1.00% |
 | 10 | `movd` | 3,012 | 0.99% |
 | 11 | `vpsrad` | 2,949 | 0.97% |
 | 12 | `paddw` | 2,668 | 0.88% |
@@ -558,8 +558,8 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | 22 | `movdqa` | 27,450 | 0.88% | — |
 | 23 | `or` | 22,570 | 0.72% | ✅ |
 | 24 | `movss` | 14,667 | 0.47% | — |
-| 25 | `sub (segment operand)` | 13,908 | 0.45% | — |
-| 26 | `mov (segment operand)` | 13,279 | 0.43% | — |
+| 25 | `subq (segment operand)` | 13,908 | 0.45% | — |
+| 26 | `movq (segment operand)` | 13,279 | 0.43% | — |
 | 27 | `retq` | 12,638 | 0.41% | ✅ |
 | 28 | `endbr64` | 11,236 | 0.36% | — |
 | 29 | `neg` | 10,372 | 0.33% | ✅ |
@@ -571,10 +571,10 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 |---|---|---|---|
 | 1 | `movdqa` | 27,450 | 0.88% |
 | 2 | `movss` | 14,667 | 0.47% |
-| 3 | `sub (segment operand)` | 13,908 | 0.45% |
-| 4 | `mov (segment operand)` | 13,279 | 0.43% |
+| 3 | `subq (segment operand)` | 13,908 | 0.45% |
+| 4 | `movq (segment operand)` | 13,279 | 0.43% |
 | 5 | `endbr64` | 11,236 | 0.36% |
-| 6 | `mov (vector operand)` | 9,346 | 0.30% |
+| 6 | `movq (vector operand)` | 9,346 | 0.30% |
 | 7 | `paddw` | 9,057 | 0.29% |
 | 8 | `pxor` | 8,182 | 0.26% |
 | 9 | `vmovaps` | 7,522 | 0.24% |
@@ -670,7 +670,7 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 | 25 | `sar` | 531 | 0.35% | ✅ |
 | 26 | `movdqa` | 514 | 0.34% | — |
 | 27 | `pxor` | 465 | 0.31% | — |
-| 28 | `mov (vector operand)` | 427 | 0.28% | — |
+| 28 | `movq (vector operand)` | 427 | 0.28% | — |
 | 29 | `movaps` | 394 | 0.26% | — |
 | 30 | `movdqu` | 360 | 0.24% | — |
 
@@ -682,14 +682,14 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 | 2 | `endbr64` | 813 | 0.54% |
 | 3 | `movdqa` | 514 | 0.34% |
 | 4 | `pxor` | 465 | 0.31% |
-| 5 | `mov (vector operand)` | 427 | 0.28% |
+| 5 | `movq (vector operand)` | 427 | 0.28% |
 | 6 | `movaps` | 394 | 0.26% |
 | 7 | `movdqu` | 360 | 0.24% |
 | 8 | `movd` | 346 | 0.23% |
 | 9 | `movss` | 302 | 0.20% |
 | 10 | `paddd` | 269 | 0.18% |
-| 11 | `sub (segment operand)` | 234 | 0.15% |
-| 12 | `mov (segment operand)` | 227 | 0.15% |
+| 11 | `subq (segment operand)` | 234 | 0.15% |
+| 12 | `movq (segment operand)` | 227 | 0.15% |
 | 13 | `pshufd` | 190 | 0.13% |
 | 14 | `punpcklwd` | 149 | 0.10% |
 | 15 | `movabsq` | 135 | 0.09% |
@@ -743,7 +743,7 @@ Symbol maps were found for **52 of 52** objects in this column. Rows are the two
 | 3 | `lea` | 6,878 | 6.14% | ✅ |
 | 4 | `add` | 6,458 | 5.76% | ✅ |
 | 5 | `jcc` | 4,790 | 4.27% | ✅ |
-| 6 | `mov (vector operand)` | 4,740 | 4.23% | — |
+| 6 | `movq (vector operand)` | 4,740 | 4.23% | — |
 | 7 | `movzx` | 4,726 | 4.22% | ✅ |
 | 8 | `movdqu` | 4,262 | 3.80% | — |
 | 9 | `punpcklbw` | 4,115 | 3.67% | — |
@@ -774,7 +774,7 @@ Symbol maps were found for **52 of 52** objects in this column. Rows are the two
 | rank | mnemonic | occurrences | share |
 |---|---|---|---|
 | 1 | `movdqa` | 8,984 | 8.01% |
-| 2 | `mov (vector operand)` | 4,740 | 4.23% |
+| 2 | `movq (vector operand)` | 4,740 | 4.23% |
 | 3 | `movdqu` | 4,262 | 3.80% |
 | 4 | `punpcklbw` | 4,115 | 3.67% |
 | 5 | `psrlw` | 3,708 | 3.31% |
@@ -883,7 +883,7 @@ Symbol maps were found for **19 of 19** objects in this column. Rows are the two
 | 10 | `movd` | 6,106 | 0.85% |
 | 11 | `psrad` | 5,426 | 0.75% |
 | 12 | `punpckldq` | 5,199 | 0.72% |
-| 13 | `mov (vector operand)` | 5,000 | 0.69% |
+| 13 | `movq (vector operand)` | 5,000 | 0.69% |
 | 14 | `paddw` | 4,515 | 0.63% |
 | 15 | `psadbw` | 4,426 | 0.61% |
 | 16 | `movups` | 4,279 | 0.59% |
@@ -959,7 +959,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | 15 | `movdqa` | 5,749 | 1.52% | — |
 | 16 | `pop` | 5,501 | 1.46% | ✅ |
 | 17 | `shl` | 5,493 | 1.46% | ✅ |
-| 18 | `mov (vector operand)` | 5,456 | 1.45% | — |
+| 18 | `movq (vector operand)` | 5,456 | 1.45% | — |
 | 19 | `paddw` | 4,881 | 1.29% | — |
 | 20 | `psubw` | 4,396 | 1.17% | — |
 | 21 | `pxor` | 3,345 | 0.89% | — |
@@ -978,7 +978,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | rank | mnemonic | occurrences | share |
 |---|---|---|---|
 | 1 | `movdqa` | 5,749 | 1.52% |
-| 2 | `mov (vector operand)` | 5,456 | 1.45% |
+| 2 | `movq (vector operand)` | 5,456 | 1.45% |
 | 3 | `paddw` | 4,881 | 1.29% |
 | 4 | `psubw` | 4,396 | 1.17% |
 | 5 | `pxor` | 3,345 | 0.89% |
@@ -1098,13 +1098,13 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | 13 | `sub` | 40,679 | 1.46% | ✅ |
 | 14 | `movzx` | 37,887 | 1.36% | ✅ |
 | 15 | `and` | 35,526 | 1.28% | ✅ |
-| 16 | `mov (segment operand)` | 16,553 | 0.60% | — |
-| 17 | `or` | 16,246 | 0.58% | ✅ |
-| 18 | `movsx` | 15,832 | 0.57% | ✅ |
-| 19 | `shl` | 14,642 | 0.53% | ✅ |
-| 20 | `shr` | 14,085 | 0.51% | ✅ |
+| 16 | `or` | 16,246 | 0.58% | ✅ |
+| 17 | `movsx` | 15,832 | 0.57% | ✅ |
+| 18 | `shl` | 14,642 | 0.53% | ✅ |
+| 19 | `shr` | 14,085 | 0.51% | ✅ |
+| 20 | `movq (segment operand)` | 14,017 | 0.50% | — |
 | 21 | `cmovcc` | 12,945 | 0.47% | ✅ |
-| 22 | `sub (segment operand)` | 9,898 | 0.36% | — |
+| 22 | `subq (segment operand)` | 9,898 | 0.36% | — |
 | 23 | `ud2` | 7,731 | 0.28% | ✅ |
 | 24 | `movabsq` | 6,281 | 0.23% | — |
 | 25 | `setcc` | 6,066 | 0.22% | ✅ |
@@ -1112,37 +1112,37 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | 27 | `imul` | 3,650 | 0.13% | ✅ |
 | 28 | `cltq` | 3,558 | 0.13% | ✅ |
 | 29 | `bt` | 2,925 | 0.11% | ✅ |
-| 30 | `inc (segment operand)` | 2,778 | 0.10% | — |
+| 30 | `rol` | 2,592 | 0.09% | ✅ |
 
 **The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
 
 | rank | mnemonic | occurrences | share |
 |---|---|---|---|
-| 1 | `mov (segment operand)` | 16,553 | 0.60% |
-| 2 | `sub (segment operand)` | 9,898 | 0.36% |
+| 1 | `movq (segment operand)` | 14,017 | 0.50% |
+| 2 | `subq (segment operand)` | 9,898 | 0.36% |
 | 3 | `movabsq` | 6,281 | 0.23% |
-| 4 | `inc (segment operand)` | 2,778 | 0.10% |
-| 5 | `xadd (lock operand)` | 2,494 | 0.09% |
-| 6 | `dec (segment operand)` | 2,418 | 0.09% |
-| 7 | `add (segment operand)` | 1,678 | 0.06% |
-| 8 | `int3` | 1,427 | 0.05% |
-| 9 | `or (lock operand)` | 1,099 | 0.04% |
-| 10 | `dec (lock operand)` | 1,009 | 0.04% |
-| 11 | `cmpxchg (lock operand)` | 952 | 0.03% |
-| 12 | `inc (lock operand)` | 820 | 0.03% |
-| 13 | `add (lock operand)` | 772 | 0.03% |
-| 14 | `ud1l` | 685 | 0.02% |
-| 15 | `and (lock operand)` | 643 | 0.02% |
-| 16 | `bts (lock operand)` | 601 | 0.02% |
-| 17 | `pushfq` | 476 | 0.02% |
-| 18 | `sti` | 454 | 0.02% |
-| 19 | `cli` | 411 | 0.01% |
-| 20 | `outb` | 394 | 0.01% |
-| 21 | `sub (lock operand)` | 351 | 0.01% |
-| 22 | `pause` | 314 | 0.01% |
-| 23 | `btr (lock operand)` | 279 | 0.01% |
-| 24 | `inb` | 198 | 0.01% |
-| 25 | `clac` | 158 | 0.01% |
+| 4 | `xaddl (lock operand)` | 2,383 | 0.09% |
+| 5 | `movl (segment operand)` | 2,204 | 0.08% |
+| 6 | `decl (segment operand)` | 2,169 | 0.08% |
+| 7 | `incl (segment operand)` | 1,887 | 0.07% |
+| 8 | `addq (segment operand)` | 1,502 | 0.05% |
+| 9 | `int3` | 1,427 | 0.05% |
+| 10 | `orb (lock operand)` | 1,073 | 0.04% |
+| 11 | `decl (lock operand)` | 925 | 0.03% |
+| 12 | `incq (segment operand)` | 883 | 0.03% |
+| 13 | `ud1l` | 685 | 0.02% |
+| 14 | `incl (lock operand)` | 648 | 0.02% |
+| 15 | `cmpxchgl (lock operand)` | 631 | 0.02% |
+| 16 | `andb (lock operand)` | 617 | 0.02% |
+| 17 | `btsq (lock operand)` | 600 | 0.02% |
+| 18 | `addl (lock operand)` | 560 | 0.02% |
+| 19 | `pushfq` | 476 | 0.02% |
+| 20 | `sti` | 454 | 0.02% |
+| 21 | `cli` | 411 | 0.01% |
+| 22 | `outb` | 394 | 0.01% |
+| 23 | `pause` | 314 | 0.01% |
+| 24 | `cmpxchgq (lock operand)` | 313 | 0.01% |
+| 25 | `movb (segment operand)` | 288 | 0.01% |
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 

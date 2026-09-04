@@ -651,7 +651,15 @@ def _split(counts, model):
         if r is None:
             unmapped[m] += k
         elif kind != "plain":
-            outscope[f"{r} ({kind} operand)"] += k
+            # ⛔ KEYED BY THE MNEMONIC objdump PRINTED, not by the roster name
+            # it maps to.  `movq %xmm0, %rax` maps to the roster's `mov`, and
+            # writing it `mov (vector operand)` DESTROYS the only word that
+            # could be joined against another source: the P2 roster looks these
+            # up in K's tree, where the rule is called `movq`, and the folded
+            # spelling put 28,019 instructions in "K has no rule for this"
+            # while putting `movq` in "K has a rule nobody executes" — the same
+            # instructions counted as two opposite residues at once.
+            outscope[f"{m} ({kind} operand)"] += k
         else:
             mapped[r] += k
     return mapped, unmapped, outscope, padding, rest
@@ -784,8 +792,13 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
         fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% |\n")
     att = attribution(name, counts, model, fns or {}, n, n_sym, fh)
     ext = ext_table(name, counts, model, fh)
+    # ⚠️ THE FULL uncovered map rides in the JSON, not just the top 40.  The P2
+    # roster is priced by JOINING K's SIMD forms against this demand, and a
+    # truncated list would price the tail at zero — which is the direction that
+    # makes a roster look cheaper than it is.
     return dict(total=tot, covered=covered, pct=100.0*covered/tot,
-                miss=miss.most_common(40), attribution=att, ext=ext)
+                miss=miss.most_common(40), miss_all=dict(miss),
+                attribution=att, ext=ext)
 
 def selftest():
     """⛔ THE MAPPING IS WHERE A CENSUS INFLATES ITSELF, so it is driven on the

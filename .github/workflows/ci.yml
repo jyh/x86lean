@@ -160,6 +160,17 @@ jobs:
       - name: P1 roster is DERIVED from K's tree, not written
         run: python3 scripts/k_roster.py --check
 
+      # ⭐⭐ P2's roster is the JOIN of K's SIMD forms with the demand census,
+      # and BOTH its inputs are in the repository -- K's tree, which the step
+      # above already fetched, and the census's committed JSON. So unlike the
+      # census (whose reading needs a downloaded corpus and can only be gated
+      # for staleness), this document is re-derived byte-for-byte here.
+      - name: P2 roster derivation selftest (the join, in both directions)
+        run: python3 scripts/p2_roster.py --selftest
+
+      - name: P2 roster is DERIVED from K + the census, not written
+        run: python3 scripts/p2_roster.py --check
+
       - name: Coverage table is GENERATED, not written
         run: |
           lake env .lake/build/bin/x86lean-diff coverage docs/COVERAGE.md
