@@ -250,6 +250,20 @@ CLAIMS_NO_ROW = {
     "psrld_i_x4": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "psraw_m_disp": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movq_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ P2 BATCH 17 (the packed compares), same commit as the vectors.
+    "pcmpeqb_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpeqb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpeqw_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpeqw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpeqd_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpeqd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtb_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtw_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtw_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtd_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pcmpgtb_x2x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 15 (the packed binary group's MEMORY shape), added in the
     # SAME COMMIT as the vectors — D106's cost, not re-paid.  Twenty-two
     # entries written out rather than matched by a prefix: a pattern would

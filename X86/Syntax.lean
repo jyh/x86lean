@@ -217,6 +217,26 @@ inductive VBinKind where
   green run on them. -/
   | unpcklb | unpcklw | unpckld | unpcklq
   | unpckhb | unpckhw | unpckhd | unpckhq
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 17 — THE PACKED COMPARES (SDM Vol. 2B,
+  PCMPEQB/W/D and PCMPGTB/W/D).  They join `VBinKind` rather than taking a kind of
+  their own, and the reason is that they ARE packed binary operations: two XMM
+  operands, lane-wise, no flag written, and — the part that decides it — BOTH
+  OPERAND SHAPES COME FREE, because `Op.vbin` and `Op.vbinm` already carry them.
+  A separate inductive would have needed its own memory constructor, its own step
+  arm and its own alignment branch, all identical to these.
+
+  ⚠️ THE RESULT IS A MASK, NOT A FLAG: a lane is set to ALL ONES or all zeros,
+  never to 1.  That is the model a reader coming from `Flags` writes, and it is
+  bit-identical to this one in the low bit of every lane — which is why the
+  planted `boolean` arm exists and why it is caught weakly at `pcmpeqd` (12 of 88
+  pre-states agree with it) and strongly at the memory forms (0 of 88).
+
+  ⛔ `pcmpgt` IS A **SIGNED** COMPARISON, and `pcmpeq` is neither signed nor
+  unsigned — equality is the same relation either way, so an `eq` vector prices
+  NOTHING about signedness and the two must not be pooled when counting what the
+  group tests. -/
+  | cmpeqb | cmpeqw | cmpeqd
+  | cmpgtb | cmpgtw | cmpgtd
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -231,6 +251,8 @@ def VBinKind.mnemonic : VBinKind → String
   | .unpckld => "punpckldq" | .unpcklq => "punpcklqdq"
   | .unpckhb => "punpckhbw" | .unpckhw => "punpckhwd"
   | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
+  | .cmpeqb => "pcmpeqb" | .cmpeqw => "pcmpeqw" | .cmpeqd => "pcmpeqd"
+  | .cmpgtb => "pcmpgtb" | .cmpgtw => "pcmpgtw" | .cmpgtd => "pcmpgtd"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
@@ -1818,7 +1840,16 @@ def rosterP0 : List String :=
    -- It is MMX-only and this model has no MMX register file; measured, 642 of
    -- 642 of the census's `asm` class are MMX-register forms.  A row here without
    -- a constructor would claim a form the model cannot execute.
-   "pshufd", "pshuflw", "pshufhw"]
+   "pshufd", "pshuflw", "pshufhw",
+   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 17: the packed compares, six rows.  They are
+   -- `VBinKind` members, so both operand shapes are covered by the constructors
+   -- that already existed — but the ROSTER counts mnemonics a disassembler
+   -- prints, and it prints six.
+   --
+   -- ⛔ THE GROUP WAS PICKED FROM A MEASUREMENT, NOT A RANK (D115): every other
+   -- candidate in the residue at this size REFUSES on the oracle, including the
+   -- whole saturating add/subtract family and both signed packs.
+   "pcmpeqb", "pcmpeqw", "pcmpeqd", "pcmpgtb", "pcmpgtw", "pcmpgtd"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

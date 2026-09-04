@@ -739,6 +739,30 @@ acc,imm · rh"
       shapes := "x,x,i · x,m,i",
       note := "the source's four LOW words selected into the low quadword, its HIGH quadword copied through; m 16-byte aligned, else #GP(0) — proved, not vectored (D110)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFLW" }
+  , { mnemonic := "pcmpeqb",
+      shapes := "x,x · x,m",
+      note := "16 lanes of 8 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQB" }
+  , { mnemonic := "pcmpeqw",
+      shapes := "x,x · x,m",
+      note := "8 lanes of 16 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQW" }
+  , { mnemonic := "pcmpeqd",
+      shapes := "x,x · x,m",
+      note := "4 lanes of 32 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQD" }
+  , { mnemonic := "pcmpgtb",
+      shapes := "x,x · x,m",
+      note := "16 lanes of 8 bits; a lane becomes ALL ONES or all zeros, never 1; the comparison is SIGNED, and an unsigned model agrees wherever both lanes are non-negative",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTB" }
+  , { mnemonic := "pcmpgtw",
+      shapes := "x,x · x,m",
+      note := "8 lanes of 16 bits; a lane becomes ALL ONES or all zeros, never 1; the comparison is SIGNED, and an unsigned model agrees wherever both lanes are non-negative",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTW" }
+  , { mnemonic := "pcmpgtd",
+      shapes := "x,x · x,m",
+      note := "4 lanes of 32 bits; a lane becomes ALL ONES or all zeros, never 1; the comparison is SIGNED, and an unsigned model agrees wherever both lanes are non-negative",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTD" }
   , { mnemonic := "pshufhw",
       shapes := "x,x,i · x,m,i",
       note := "the source's four HIGH words selected into the high quadword, its LOW quadword copied through; disjoint from pshuflw's half; m 16-byte aligned, else #GP(0) (D110)",

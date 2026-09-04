@@ -511,6 +511,23 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .unpckhw => vunpack 16 true  a b
   | .unpckhd => vunpack 32 true  a b
   | .unpckhq => vunpack 64 true  a b
+  -- ⭐⭐⭐ P2 BATCH 17 — THE PACKED COMPARES.  A lane becomes ALL ONES or all
+  -- zeros; `-1` is `allOnes` at every width `vlanes` is called at here, exactly
+  -- as it is in `vshiftLane`'s sign-fill arm.
+  --
+  -- ⛔ `slt`/`sle` ARE THE SIGNED COMPARISONS AND `<` ON `BitVec` IS NOT.  Lean's
+  -- `<` on `BitVec` is UNSIGNED, so writing `a < b` here would compile, would be
+  -- bit-identical to this on every lane whose operands are both non-negative, and
+  -- would be wrong exactly where the SDM's word `signed` is doing work.  The
+  -- planted `unsigned` arm is that model, and it agrees with this one at 61 of 88
+  -- pre-states for `pcmpgtb %xmm1,%xmm0` — so 27 states carry the whole rule.
+  | .cmpeqb => vlanes 8  (fun x y => if x == y then -1 else 0) a b
+  | .cmpeqw => vlanes 16 (fun x y => if x == y then -1 else 0) a b
+  | .cmpeqd => vlanes 32 (fun x y => if x == y then -1 else 0) a b
+  -- ⚠️ `y.slt x`, not `x.sgt y`: the SDM's `DEST > SRC` with `a` the destination.
+  | .cmpgtb => vlanes 8  (fun x y => if y.slt x then -1 else 0) a b
+  | .cmpgtw => vlanes 16 (fun x y => if y.slt x then -1 else 0) a b
+  | .cmpgtd => vlanes 32 (fun x y => if y.slt x then -1 else 0) a b
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=

@@ -5364,3 +5364,99 @@ measurement rather than from a rank.
 
 **Reversal cost:** 23 rows in `oracle_availability.py`; the gate holds them to the oracle in both
 directions, so a row that starts executing is a finding rather than a silent stale entry.
+
+---
+
+## D116 — a control can share the blind spot of the thing it controls
+
+**P2 batch 17.** The packed compares join `VBinKind` rather than taking a kind of their own: they
+are packed binary operations, and both operand shapes come free from `Op.vbin` and `Op.vbinm`
+together with the 16-byte alignment rule. Six roster rows, 13 vectors, no new constructor.
+
+### 1. The group was picked from a measurement
+
+D115's run left the compares as the only buildable candidate of this size in the residue — every
+other one refuses. **7,454 buildable instructions.** That is the first batch in this repository
+chosen from a measurement of the oracle rather than from a demand rank, and it is the whole point of
+D115 landing first.
+
+### 2. ⛔ What each vector prices is not uniform
+
+Measured per form against three wrong models, 88 pre-states (a number is how many states the WRONG
+model still agrees on — lower is a sharper vector):
+
+```
+                       unsigned   boolean   swapped
+pcmpeqb %xmm1,%xmm0         88         9        88
+pcmpeqd %xmm1,%xmm0         88        12        88
+pcmpgtb %xmm1,%xmm0         61        34         0
+pcmpgtd %xmm1,%xmm0         73        53         0
+pcmpeqb (%rbx),%xmm0        88         0        88
+pcmpgtw (%rbx),%xmm0        15         8         0
+```
+
+⚠️ **`pcmpeq` prices nothing about signedness or operand order.** Equality is the same relation
+signed or unsigned and is symmetric, so both models agree with it at all 88 **by construction**.
+Reporting "six mnemonics tested" as six tests of the signedness rule would be an over-claim of
+exactly half the group — the kind no gate here can see, because a gate counts vectors.
+
+### 3. ⛔⛔⛔ THE FINDING: the register-field control is blind to the batch's own rule
+
+`pcmpgtb %xmm3,%xmm2` exists for the reason `movdqa_x4x5` does — batch 5 found that with every
+vector reading xmm1 into xmm0, a model ignoring the register FIELDS is bit-identical to the right
+one. It is a correct and necessary control.
+
+**And the unsigned model agrees with the right one at ALL 88 pre-states on it**, against 61 of 88 on
+`pcmpgtb %xmm1,%xmm0`. `xmmPattern` gives xmm2 and xmm3 byte lanes that never differ in sign in a
+discriminating way.
+
+⇒ 🔑 **A CONTROL CAN SHARE THE BLIND SPOT OF THE THING IT CONTROLS.** The vector is worth exactly
+what it was added for and **zero** for the rule the batch is about. Had the group carried only its
+register-field control at `pcmpgtb` — the natural economy, one control per constructor — the
+signedness rule would have been untested and the run green.
+
+⚠️ **What made it visible was measuring the two vectors SEPARATELY** instead of reporting "the
+`pcmpgtb` vectors". A per-form column costs nothing to print and is the only thing that can show one
+member of a group carrying a rule and another carrying none of it
+([[a-control-can-share-the-blind-spot]] — written down after a held-out value was drawn from the same
+half of the space, and here the same shape appears in a REGISTER PAIR rather than in a value).
+
+### 4. The two wrong models, and why neither is a strawman
+
+**Unsigned.** Lean's `<` on `BitVec` IS unsigned. `y.slt x` is the arm; `y < x` compiles, and is
+bit-identical wherever both lanes are non-negative. A model written without noticing the SDM's word
+"signed" lands exactly there.
+
+**Boolean, not mask.** A lane becomes all ones or all zeros, never 1 — and the flag model is
+bit-identical in the LOW BIT of every lane, which is the bit a reader coming from `Flags` is thinking
+about. Measured: it survives 34–53 of 88 at the register shape and 0–8 at the memory shape, so **the
+memory vectors are carrying this arm and the register ones are barely carrying it at all.**
+
+### 5. ⛔⛔ AND THE FILTERED SELFTEST RAN HALF THE BATCH'S ARMS AND SAID PASS
+
+`x86lean-diff selftest "<substring>"` selects arms by substring. This batch's two arms are named
+*"pcmpgt compares its lanes as UNSIGNED"* and *"a packed compare writes 1 instead of an all-ones
+MASK"* — and **they share no substring**. Filtering on `"packed compare"` ran ONE of them and printed
+
+```
+harness selftest (filtered by "packed compare") — 1 of 111 arms:
+  ✔ a packed compare writes 1 instead of an all-ones MASK: caught — 822 in `xmm0`
+filtered selftest: PASS
+```
+
+**The arm that never ran is the signedness one — the whole subject of this decision.** A green
+`filtered selftest: PASS` was printed about a subject half the size of the one intended.
+
+⇒ 🔑 **A FILTER THAT NAMES A GROUP MUST BE CHECKED AGAINST THE GROUP'S SIZE.** The count is right
+there in the header (`1 of 111`) and it is the only thing that distinguishes "the arms passed" from
+"the arms I meant were not selected". The verdict line cannot: it says PASS either way.
+
+⚠️ This is the session's own recurring shape arriving in the tool used to check for it — an
+instrument reporting success about a subject smaller than the one intended, exactly as `refusal: 0`
+would have, exactly as the 84-vs-88 denominator did. **The defence is the same each time: read what
+the instrument says it measured, not only what it concluded.**
+
+⇒ The batch's arms are reported here per arm and per name, with their counts, so a later reader can
+see two and not a verdict.
+
+**Reversal cost:** six `VBinKind` constructors, six `vbinApply` arms, six roster rows, 13 vectors.

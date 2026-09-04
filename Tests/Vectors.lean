@@ -2878,6 +2878,67 @@ def vectors : List Vec :=
     , bytes := "660feb4308", instr := ⟨.vbinm .or .x0 { base := some .rbx, disp := 8 }, 5⟩ }
   , { id := "pxor_m_unal", mnemonic := "pxor", asm := "pxor 0x8(%rbx), %xmm0"
     , bytes := "660fef4308", instr := ⟨.vbinm .xor .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 17 — THE PACKED COMPARES, and the group was
+  -- PICKED FROM A MEASUREMENT RATHER THAN FROM A RANK (D115).  Every other
+  -- candidate of this size in the residue REFUSES on the oracle: the whole
+  -- saturating add/subtract family, both averages, the unsigned min/max pair,
+  -- four multiplies, and both SIGNED packs.  7,454 buildable instructions.
+  --
+  -- ⛔⛔ WHAT EACH VECTOR PRICES IS NOT UNIFORM, AND POOLING THEM WOULD LIE.
+  -- Measured on the oracle against three wrong models, per form, over 88
+  -- pre-states:
+  --
+  --   pcmpeqb %xmm1,%xmm0     unsigned=88  boolean= 9  swapped=88
+  --   pcmpeqd %xmm1,%xmm0     unsigned=88  boolean=12  swapped=88
+  --   pcmpgtb %xmm1,%xmm0     unsigned=61  boolean=34  swapped= 0
+  --   pcmpgtd %xmm1,%xmm0     unsigned=73  boolean=53  swapped= 0
+  --   pcmpeqb (%rbx),%xmm0    unsigned=88  boolean= 0  swapped=88
+  --   pcmpgtw (%rbx),%xmm0    unsigned=15  boolean= 8  swapped= 0
+  --
+  -- ⚠️ `pcmpeq` PRICES NOTHING ABOUT SIGNEDNESS OR OPERAND ORDER — equality is
+  -- the same relation either way, so `unsigned` and `swapped` agree with it at
+  -- ALL 88 by construction.  Only `pcmpgt` carries those two rules, and only the
+  -- MASK-vs-flag rule is common to both halves.
+  , { id := "pcmpeqb_x", mnemonic := "pcmpeqb", asm := "pcmpeqb %xmm1, %xmm0"
+    , bytes := "660f74c1", instr := ⟨.vbin .cmpeqb .x0 .x1, 4⟩ }
+  , { id := "pcmpeqw_x", mnemonic := "pcmpeqw", asm := "pcmpeqw %xmm1, %xmm0"
+    , bytes := "660f75c1", instr := ⟨.vbin .cmpeqw .x0 .x1, 4⟩ }
+  , { id := "pcmpeqd_x", mnemonic := "pcmpeqd", asm := "pcmpeqd %xmm1, %xmm0"
+    , bytes := "660f76c1", instr := ⟨.vbin .cmpeqd .x0 .x1, 4⟩ }
+  , { id := "pcmpgtb_x", mnemonic := "pcmpgtb", asm := "pcmpgtb %xmm1, %xmm0"
+    , bytes := "660f64c1", instr := ⟨.vbin .cmpgtb .x0 .x1, 4⟩ }
+  , { id := "pcmpgtw_x", mnemonic := "pcmpgtw", asm := "pcmpgtw %xmm1, %xmm0"
+    , bytes := "660f65c1", instr := ⟨.vbin .cmpgtw .x0 .x1, 4⟩ }
+  , { id := "pcmpgtd_x", mnemonic := "pcmpgtd", asm := "pcmpgtd %xmm1, %xmm0"
+    , bytes := "660f66c1", instr := ⟨.vbin .cmpgtd .x0 .x1, 4⟩ }
+  -- ⛔⛔ THE REGISTER-FIELD CONTROL IS **BLIND TO THE SIGNEDNESS RULE**, and that
+  -- is measured rather than suspected: `pcmpgtb %xmm3,%xmm2` agrees with the
+  -- UNSIGNED model at ALL 88 pre-states, where `pcmpgtb %xmm1,%xmm0` agrees at
+  -- only 61.  `xmmPattern` gives xmm2 and xmm3 byte lanes that never differ in
+  -- sign in a discriminating way.
+  --
+  -- ⇒ 🔑 A CONTROL CAN SHARE THE BLIND SPOT OF THE THING IT CONTROLS.  This
+  -- vector exists for the reason `movdqa_x4x5` does — to stop a model that
+  -- ignores the register FIELDS — and it prices exactly that and nothing else.
+  -- Both vectors are needed and neither substitutes for the other.
+  , { id := "pcmpgtb_x2x3", mnemonic := "pcmpgtb", asm := "pcmpgtb %xmm3, %xmm2"
+    , bytes := "660f64d3", instr := ⟨.vbin .cmpgtb .x2 .x3, 4⟩ }
+  -- The memory shape, free from `Op.vbinm` (batch 15) and carrying the same
+  -- 16-byte alignment rule.  ⭐ It discriminates the `boolean` model BEST — 0 of
+  -- 88 for `pcmpeqb` against 9 at the register shape — because the memory source
+  -- varies where `xmm1` is a fixed pattern.
+  , { id := "pcmpeqb_m", mnemonic := "pcmpeqb", asm := "pcmpeqb (%rbx), %xmm0"
+    , bytes := "660f7403", instr := ⟨.vbinm .cmpeqb .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pcmpeqw_m", mnemonic := "pcmpeqw", asm := "pcmpeqw (%rbx), %xmm0"
+    , bytes := "660f7503", instr := ⟨.vbinm .cmpeqw .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pcmpeqd_m", mnemonic := "pcmpeqd", asm := "pcmpeqd (%rbx), %xmm0"
+    , bytes := "660f7603", instr := ⟨.vbinm .cmpeqd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pcmpgtb_m", mnemonic := "pcmpgtb", asm := "pcmpgtb (%rbx), %xmm0"
+    , bytes := "660f6403", instr := ⟨.vbinm .cmpgtb .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pcmpgtw_m", mnemonic := "pcmpgtw", asm := "pcmpgtw (%rbx), %xmm0"
+    , bytes := "660f6503", instr := ⟨.vbinm .cmpgtw .x0 { base := some .rbx }, 4⟩ }
+  , { id := "pcmpgtd_m", mnemonic := "pcmpgtd", asm := "pcmpgtd (%rbx), %xmm0"
+    , bytes := "660f6603", instr := ⟨.vbinm .cmpgtd .x0 { base := some .rbx }, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

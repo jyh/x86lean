@@ -2759,6 +2759,57 @@ def wrongVbinmOperandsSwapped (i : Instr) (s : Cpu) : Cpu :=
       else (s.setXmm dst (vbinApply k (s.readMem128 a) (s.getXmm dst))).setRip nr
   | _ => step i s
 
+/-- ⛔⛔⛔ P2 BATCH 17, ARM 1 — `pcmpgt` COMPARED AS UNSIGNED. Lean's `<` on
+`BitVec` IS unsigned, so this is not a strawman: it is what a model written
+without noticing the SDM's word "signed" compiles to, and it type-checks.
+
+⚠️ IT AGREES WITH THE RIGHT MODEL WHEREVER BOTH LANES ARE NON-NEGATIVE — 61 of 88
+pre-states for `pcmpgtb %xmm1,%xmm0`, and **88 of 88 for `pcmpgtb %xmm3,%xmm2`**,
+which is why the register-field control cannot stand in for the signedness one.
+⛔ And it is invisible at every `pcmpeq` vector, because equality is the same
+relation signed or unsigned. -/
+def wrongVcmpUnsigned (i : Instr) (s : Cpu) : Cpu :=
+  let un (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
+    match k with
+    | .cmpgtb => vlanes 8  (fun x y => if y < x then -1 else 0) a b
+    | .cmpgtw => vlanes 16 (fun x y => if y < x then -1 else 0) a b
+    | .cmpgtd => vlanes 32 (fun x y => if y < x then -1 else 0) a b
+    | _ => vbinApply k a b
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbin k dst src => (s.setXmm dst (un k (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (un k (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 17, ARM 2 — THE COMPARE RESULT AS A FLAG RATHER THAN A MASK: a
+lane becomes `1` instead of all ones.
+
+⚠️ BIT-IDENTICAL IN THE LOW BIT OF EVERY LANE, which is the bit a reader coming
+from `Flags` is thinking about. Measured: it agrees at 34-53 of 88 pre-states at
+the register shape and at 0-8 at the memory shape, so the memory vectors are
+carrying this arm and the register ones are barely carrying it at all. -/
+def wrongVcmpBooleanNotMask (i : Instr) (s : Cpu) : Cpu :=
+  let bl (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
+    match k with
+    | .cmpeqb => vlanes 8  (fun x y => if x == y then 1 else 0) a b
+    | .cmpeqw => vlanes 16 (fun x y => if x == y then 1 else 0) a b
+    | .cmpeqd => vlanes 32 (fun x y => if x == y then 1 else 0) a b
+    | .cmpgtb => vlanes 8  (fun x y => if y.slt x then 1 else 0) a b
+    | .cmpgtw => vlanes 16 (fun x y => if y.slt x then 1 else 0) a b
+    | .cmpgtd => vlanes 32 (fun x y => if y.slt x then 1 else 0) a b
+    | _ => vbinApply k a b
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbin k dst src => (s.setXmm dst (bl k (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (bl k (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
 /-- THE ARMS, AS DATA: name, wrong model, and the field the bug must show in.
 Named once so the filtered probe mode and the full selftest cannot drift apart —
 a probe that ran a different set from the gate would be the exact defect the
@@ -3007,7 +3058,12 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("a packed binary operation ignores its 16-byte alignment requirement",
      wrongVbinmIgnoresAlignment, "refused")
   , ("the packed binary memory form has its operands swapped",
-     wrongVbinmOperandsSwapped, "xmm0") ]
+     wrongVbinmOperandsSwapped, "xmm0")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 17 — the packed compares.
+  , ("pcmpgt compares its lanes as UNSIGNED",
+     wrongVcmpUnsigned, "xmm0")
+  , ("a packed compare writes 1 instead of an all-ones MASK",
+     wrongVcmpBooleanNotMask, "xmm0") ]
 
 /-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
 indices name, and `selftest-shards` checks these indices — so the gate exercises
@@ -3787,7 +3843,27 @@ written and reports in `refused` rather than in a value.  ⚠️ And the operand
 ORDER is the content: eleven of the nineteen commute, and the swapped arm is \
 caught by only twelve of the vectors — the number to read, because an arm caught \
 by a minority of a group's vectors is one whose group needed exactly those \
-(see D112, D113).\n\n\
+(see D112, D113); 14 — THE PACKED COMPARES, `pcmpeq{b,w,d}` and \
+`pcmpgt{b,w,d}` at both operand shapes: six roster rows, 13 vectors, NO new \
+constructor — they join `VBinKind`, so `Op.vbin` and `Op.vbinm` carry them and \
+the 16-byte alignment rule comes with them.  ⭐ THE GROUP WAS PICKED FROM A \
+MEASUREMENT AND NOT FROM A RANK: every other candidate of this size in the \
+residue REFUSES on the oracle (D115), so the compares are what is left — 7,454 \
+buildable instructions.  ⛔⛔ WHAT EACH VECTOR PRICES IS NOT UNIFORM: `pcmpeq` \
+prices NOTHING about signedness or operand order, because equality is the same \
+relation either way and both wrong models agree with it at all 88 pre-states BY \
+CONSTRUCTION; only `pcmpgt` carries those rules, and the MEMORY forms carry them \
+hardest (the unsigned model survives 15 of 88 there against 67 at the register \
+shape).  ⛔⛔⛔ AND THE REGISTER-FIELD CONTROL IS BLIND TO THE RULE THE BATCH IS \
+ABOUT: `pcmpgtb %xmm3,%xmm2` agrees with the UNSIGNED model at ALL 88 pre-states \
+where `pcmpgtb %xmm1,%xmm0` agrees at 61, because `xmmPattern` gives xmm2 and \
+xmm3 byte lanes that never differ in sign.  ⇒ A CONTROL CAN SHARE THE BLIND SPOT \
+OF THE THING IT CONTROLS — it is a good control for register FIELDS and worth \
+zero for signedness, and only measuring the two separately showed it.  ⚠️ Lean's \
+`<` on `BitVec` is UNSIGNED, so the wrong model is not a strawman but what a \
+model written without noticing the SDM's word `signed` type-checks to; and the \
+result is a MASK, not a flag, which is bit-identical in the low bit of every \
+lane (see D116).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

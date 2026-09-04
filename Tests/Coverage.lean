@@ -74,7 +74,7 @@ holds this literal and that table together.
 counts what a disassembler PRINTS.  ⛔ `pshufw` is the same opcode's FOURTH
 prefix (none) and is NOT a row: it takes MMX operands and this model has no MMX
 register file, so a row for it would claim a form the model cannot execute. -/
-theorem roster_size_is_124 : rosterSize = 124 := by decide
+theorem roster_size_is_130 : rosterSize = 130 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -93,7 +93,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_929 : vectorCount = 929 := by decide
+theorem vector_count_is_942 : vectorCount = 942 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
