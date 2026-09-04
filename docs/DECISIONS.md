@@ -3131,3 +3131,211 @@ planted difference in it is CAUGHT.* Only the last clause has teeth — `wrongXm
    legitimately leaves one undefined, this and `undefinableFields` are the two places that grow.
 
 **Reversal cost:** one field, one renderer on each side, one gate.
+
+## D86 — a CR4 gate that was already GREEN measured a call site no differential run uses (P2 vector wave, batch 1)
+
+`scripts/oracle_availability.py --p2` has carried a two-arm CR4 gate since the P2 roster run. It
+declares every candidate vector form under **both** CR4 settings, it rides a refuse-always control
+and an MMX form that needs no CR4 bit, and it is green: `movdqa` executes at `CR4=0x600` and
+refuses at `CR4=0`. The comment above it even records the finding that produced it — the first
+availability reading said "P2 has no oracle" because `(ctri 4 x86)` read **0**.
+
+**And the differential path was still passing `nil`.** `measure_cr4()` builds its own
+`init-x86-state-64` call. The call site that actually feeds the comparator —
+`x86l-run-case` in `scripts/x86isa_driver.lisp` — took its `ctrs` argument as `nil` from P0 until
+this batch. So the repository held a *correct, gated, twice-armed* measurement of the oracle's SSE
+capability, taken on a path no differential run has ever executed.
+
+⇒ 🔑 **A CAPABILITY MEASURED ON A BYPASS PATH SAYS NOTHING ABOUT THE PATH THAT SHIPS.** Two call
+sites into the same oracle; the probe answered *"x86isa can do SSE"*, which is true, and it was
+read as *"the differential can do SSE"*, which was false. The gate was not wrong — it was
+**about something else**, and nothing in its output said so.
+
+⚠️ **The near-miss worth naming.** This one would have failed loudly: with `ctrs` nil every SSE
+form raises `#UD`, the oracle's post-state carries `refused=1`, and `refused=` is a field the
+comparator reads. The dangerous sibling is the quiet one — a form the oracle declines for a reason
+the harness attributes to the MODEL. The reason it stayed invisible this long is that
+*nothing had ever asked the shipping path a question only SSE could answer.*
+
+**The decision.** One `defconst` on the side that owns it:
+
+```lisp
+(defconst *x86l-ctrs* (list (cons #.*cr4* #x600)))   ; OSFXSR | OSXMMEXCPT
+```
+
+passed as `init-x86-state-64`'s fourth argument. **Not** a `:ctrs` field in the emitted case, which
+was the drafted design, and the departure has three reasons, each checked rather than argued:
+
+1. **Lean has no CR4.** `X86/State.lean` models no control register, so an emitted `:ctrs` would be
+   a constant serialised 69,144 times with nothing on the Lean side to disagree with — a
+   cross-language duplicate that no gate could hold together. The `:fsbase`/`:gsbase` precedent
+   sends values across the boundary because the model *has* those values and they *vary*.
+2. **It would have grown the emitted record**, and `oracle_availability.py`'s `rewrite()` still
+   reads `:bytes` off `c[1]` **by position** — the bet this repository has already lost twice
+   (the `:mem` line, P2 batch 2).
+3. **Several scripts `ld` this driver** — `run_differential.sh`, `oracle_availability.py` and
+   `oracle_undef_probe.py` when the decision was taken, and `check_driver_cr4.py` makes another the
+   moment this batch lands. A constant inside the driver reaches every one of them; an emitter field
+   reaches only what the emitter feeds.
+
+   ⚠️ That sentence began life as *"three scripts `ld` this driver"*, and the gate this same batch
+   added made it four before the commit was written. **A COUNT BESIDE A LIST goes stale while the
+   list stays right** — which is the exact defect this batch repaired in `.github/workflows/ci.yml`
+   an hour earlier, reproduced in the decision note that recorded the repair. Naming a class does not
+   confer immunity from it; the list is written out and carries no total.
+
+**The gate: `scripts/check_driver_cr4.py`, through `x86l-run-case` itself.** Six forms × six real
+pre-states, run twice: once with the driver **exactly as shipped**, once with `*x86l-ctrs*` planted
+back to `nil` — which is byte-for-byte the pre-batch driver. SSE must execute in the first and
+refuse in the second; `movl %ecx,(%rbx)` must execute in **both** (so the OFF arm is a reading about
+SSE and not about a dead run) and `movnti` must refuse in both. The plant is **derived from the
+shipped file**, and the probe **refuses** if the defconst is absent rather than running two
+identical arms and reporting agreement. 19 seconds.
+
+⚠️ **The selftest's first draft was a tautology and is worth recording as a defect, not a footnote.**
+It asked whether each measured value differed from the *inverted* declaration — which, once the
+shipped table is green, is true by construction for every form. It printed two ✔ red arms and
+proved nothing. The fix routes the plant through `report()` itself, so the arm exercises the code
+that does the reporting; probed by blinding `report()`, by flipping a shipped declaration, and by
+renaming the defconst — **each produces a red**.
+
+⚠️ **What this batch does NOT claim.** That any vector form is *differentiable*. Nothing on the Lean
+side writes XMM yet, so D85's narrow claim stands unchanged: the channel exists and a planted
+difference in it is caught. This batch removes the oracle's `#UD`, which is a **precondition** for
+vector semantics, not a step of them. It changes no semantics and adds no roster row.
+
+⚠️ **And a modelling choice, stated so it can be held against us:** x86lean assumes SSE is ENABLED
+and does not model the `#UD` a real `CR4.OSFXSR=0` would raise. Recorded in TRUSTBASE.md.
+
+**Reversal cost:** one `defconst`, one argument, one gate.
+
+## D87 — editing a shell script while bash is executing it forked the run, and the batch's own receipt was the casualty (P2 vector wave, batch 1)
+
+**What happened.** This batch's first differential run finished with a clean report —
+`cases=69144 matched=49258 explained=28774 unexplained=0 oracle-leaks=0 missing=0` — and then
+printed one more line that belonged to no gate in this repository:
+
+```
+at: garbled time
+EXIT=1
+```
+
+`x86lean-diff compare` returns 1 only on `unexplained`, `missing` or `leaks`, and all three were 0,
+so the failing command was not the comparison. It was `at`. **The Unix `at` scheduler**, which this
+repository has never invoked.
+
+**The cause, and it was mine.** `scripts/run_differential.sh` was being executed by bash when this
+batch inserted its new `check_driver_cr4.py` step near the top of the file. **bash reads a script
+incrementally, by byte offset**, not into memory: it had the compare command in hand, but its saved
+offset for "what to read next" was an offset into the OLD file. The insertion moved every later byte
+down by about 700, so when bash resumed it landed one byte inside
+
+```sh
+cat > run/drive.lsp <<LSP
+```
+
+and executed **`at > run/drive.lsp`** with the heredoc as its input — an `at` invocation with no time
+specification, which answers `garbled time` and exits 1. The exact error and the exact exit code are
+both accounted for by a one-byte shift.
+
+⇒ 🔑 **A RUNNING SHELL SCRIPT IS AN OPEN FILE HANDLE, NOT A LOADED PROGRAM.** Editing it mid-run does
+not schedule the change for next time — it splices new bytes into the *current* execution at an
+offset nobody chose. The failure is not a syntax error at the edit site; it is an arbitrary command
+assembled from the middle of unrelated text, executed with the privileges and the working directory
+of the run.
+
+⚠️ **THE SIBLING, AND THE REASON THIS IS A NOTE AND NOT A FOOTNOTE.** D75 is the same class one file
+over: *a probe that edits the tree makes `git add -A` a race.* This is *a run that reads the tree
+makes an EDIT a race.* Both hazards are invisible in `git status`, both windows are opened by
+ordinary batch work — writing the next gate while the current run finishes — and in both the
+corrupted artifact looks almost right. This one was loud only because `at` happens to exist and to
+refuse; a shifted offset landing inside a `grep` or an `echo` would have produced a plausible line
+and a zero exit.
+
+**What was actually damaged, stated exactly.** Nothing in the model, and nothing in the numbers: the
+oracle ran to completion under the patched driver, the comparison read all 69,144 cases, and the
+report printed before the splice. What was damaged is the **receipt** — a run whose exit status is 1
+for a reason unrelated to its subject cannot be shown as a green batch seal. It was re-run clean,
+with no edit to any file the run reads, and the second run is the one recorded.
+
+⚠️ **AND THE NUMBERS ARE HELD AGAINST A BASELINE, NOT ASSERTED.** `c693ab7` recorded
+`cases=69144 matched=49258 explained=28774`; this batch reproduces all three **digit for digit**,
+which is the batch's actual claim: `CR4.OSFXSR` is inert for the 804 existing scalar vectors. Two
+identical readings normally deserve the suspicion that one arm is wearing two names — here the
+identity is the *prediction*, because OSFXSR gates SSE decode and this corpus contains no SSE form,
+and it is corroborated by an independent measurement that CR4 *does* reach the oracle
+(`check_driver_cr4.py`, where planting it back to `nil` flips four forms to `refuses`).
+
+**The rule.** While a run is in flight, edit nothing it reads — not the script, not the driver it
+`ld`s, not the Python gates it invokes. Docs are free. If a gate must be written while a run is out,
+write it in the scratchpad and move it in afterwards.
+
+**Reversal cost:** none — this is a process finding; the code change it damaged was re-run, not
+rewritten.
+
+## D88 — `ci.yml` had not parsed for forty-nine commits, and an unparseable workflow reports a failure rather than an absence (P2 vector wave, batch 1)
+
+**What was found.** Every push since `aa11e35` (09/02) produced a `ci.yml` run whose conclusion was
+`failure` **with zero jobs**, and whose `createdAt` and `updatedAt` are the same second. GitHub had
+not run a step; it had refused the file. Forty-nine commits, the whole back half of P1 and the whole
+of P2 to date.
+
+```
+$ gh api repos/jyh/x86lean/actions/runs/33835447015/jobs --jq .total_count
+0
+$ gh run view 33835447015
+X This run likely failed because of a workflow file issue.
+```
+
+**The cause is one unquoted colon.**
+
+```yaml
+- name: Fetch the K semantics (sparse: `semantics/` only, 15 MB of 2.8 GB)
+```
+
+`sparse: ` inside an unquoted YAML scalar opens a mapping where a mapping is not allowed, so the
+document does not parse — *the whole file*, not the step. Local confirmation:
+`mapping values are not allowed in this context at line 186 column 44`. Quoting the name is the
+entire repair, and the file then parses to one job of twenty-five steps.
+
+⇒ 🔑 **AN UNPARSEABLE GATE FILE REPORTS A FAILURE, NOT AN ABSENCE — AND THE TWO LOOK NOTHING ALIKE
+IN A LIST AND IDENTICAL IN A GLANCE.** A red tick beside a commit is read as *"a check ran and did
+not like it"*, which invites diagnosis. What was actually true is *"no check exists"*, which invites
+nothing. Worse, it was **instant**: a zero-second run does not even look like a job that tried. The
+signal that something is wrong was present on every push and carried the wrong meaning on every one.
+
+⚠️ **AND IT IS THE STRONGEST FORM OF THE REPOSITORY'S OWN RECURRING DEFECT.** D65 wrote *a citation
+is an ungated claim*; D41 and D74 wrote that a number beside a list goes stale. This is the whole
+CI file as an ungated claim: twenty-five steps naming twenty-five gates, every one of them a true
+description of a script that exists and works, and none of them running. `ci.yml`'s own header
+comment reasons carefully about *which* gates cannot run on a runner without an oracle — a paragraph
+about the boundary of a job that was not executing at all.
+
+⚠️ **What this does NOT mean.** The gates themselves are fine: all ten fast ones were run locally at
+this batch and are green, the oracle-dependent ones run beside the differential every batch, and the
+**Scrub** workflow — the commit-trailer gate that the fleet's hygiene doctrine rests on — is a
+*separate file*, parses, and has been green throughout. The hygiene gate never lapsed. What lapsed is
+every correctness gate's *automation*; they have been running only where a seat remembered to run
+them.
+
+**The decision.** Quote the name, and say why in the file so the next editor does not unquote it. No
+gate is weakened or trimmed to make the first run green: which steps are too expensive for CI is a
+question the first real run should answer, and trimming them now would be choosing, unmeasured, which
+checks matter — a declared list inheriting the direction of its default (D61).
+
+⚠️ **THE FIRST RUN WILL BE LONG, AND THAT IS THE NEXT HEAD'S FIRST READING.** Step 7 is the full
+harness selftest: **83 arms**, measured at ~2.6 min per arm marginal (~48 arms in 2h05m before it was
+stopped), so **≈3.6 hours** — against the "twenty minutes" its own comment still claims, written when
+there were 23 arms and 46,320 cases. Arms grew 3.6× and the corpus 1.5×; the total grew ~10×.
+⇒ **A whole-job total cannot tell growth in the work from growth in each unit** (D-note on profiling
+per part at two sizes). Steps 8 and 11 are also long. Whether this job fits GitHub's six-hour limit is
+now a measurement to take, not a guess — and it could not have been taken while the file did not parse.
+
+⚠️ **A method note, recorded because it cost two hours here.** The full selftest was launched piped
+through `tail -4`, which hid all 83 per-arm lines until the process ended: a long job's progress
+output must not be piped, or a run with no signal is indistinguishable from a hang. Its cost was
+recovered instead from the arm NAMES that survived the pipe — and the first cost estimate taken from
+a standalone one-arm invocation (5m41s) was **wrong by ~2×**, because a filtered run re-pays the
+whole startup; the marginal per-arm figure is the one that predicts a batch.
+
+**Reversal cost:** two quotation marks.

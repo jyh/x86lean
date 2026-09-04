@@ -8,14 +8,22 @@ name: CI
 # docs/ORACLE-SETUP.md) and its RESULT is recorded in the repository. A CI that
 # pretended to run it would be a green tick for work it did not do.
 #
-# ⚠️ AND SO IS `scripts/oracle_availability.py` (P1 batch 21, D65), for the same
-# reason and stated here rather than left to be noticed: it EXECUTES forms on
-# the oracle, so it cannot run on a runner that has no oracle. It runs beside
-# the differential — `scripts/run_differential.sh` invokes it first and stops on
-# it — and it takes about six seconds, which is what makes running it every
-# batch realistic. Naming it here is the point: an oracle-dependent gate that is
-# not in this file is a gate somebody has to remember, and the list of those has
-# exactly two entries.
+# ⚠️ AND SO ARE THE ORACLE-DEPENDENT GATES, for the same reason and stated here
+# rather than left to be noticed: they EXECUTE forms on the oracle, so they
+# cannot run on a runner that has no oracle. They run beside the differential —
+# `scripts/run_differential.sh` invokes each of them BEFORE the expensive run and
+# stops on it — and each is seconds, which is what makes running them every batch
+# realistic. Naming them here is the point: an oracle-dependent gate that is not
+# in this file is a gate somebody has to remember.
+#
+#   * `scripts/oracle_availability.py`  (P1 batch 21, D65)   ~6 s
+#   * `scripts/check_driver_cr4.py`     (P2 vector 1, D86)   ~19 s
+#
+# ⛔ THIS COMMENT USED TO END "the list of those has exactly two entries", and
+# D86's batch made it three. A COUNT IN A COMMENT BESIDE A LIST is the thing that
+# goes stale while the list stays right — D41's rule, D74's repair, and the CI
+# file was carrying the same shape one more time. The list is now written out and
+# carries no total.
 #
 # The runner is x86-64 on purpose: it is the same lane plan v1 §4.4's hardware
 # co-simulation will need, and the developer machine is arm64.
@@ -175,7 +183,12 @@ jobs:
         run: python3 scripts/check_windows.py --selftest
 
       # ── the roster gate (plan v1 §5: K's list is P1's fence) ─────────────
-      - name: Fetch the K semantics (sparse: `semantics/` only, 15 MB of 2.8 GB)
+      # ⛔⛔ THIS NAME IS QUOTED, AND THE QUOTES ARE THE WHOLE REPAIR. Unquoted,
+      # the bare `sparse: ` inside it is a YAML mapping key, and the FILE DOES NOT
+      # PARSE — GitHub created ZERO jobs for it from `aa11e35` (09/02) to P2 vector
+      # batch 1, forty-nine commits, and every run showed as an instant "failure"
+      # that reads like a blip rather than an absence. See D88.
+      - name: "Fetch the K semantics (sparse: `semantics/` only, 15 MB of 2.8 GB)"
         run: ./scripts/setup_k_roster.sh
 
       - name: P1 roster derivation selftest (13 SDM facts, driven red-first)

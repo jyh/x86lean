@@ -187,6 +187,43 @@
     (list (cons #.*ia32_fs_base-idx* (if fs fs 0))
           (cons #.*ia32_gs_base-idx* (if gs gs 0)))))
 
+; ⭐⭐⭐ CR4.OSFXSR — THE CONTROL REGISTER THE DIFFERENTIAL PATH NEVER SET.
+;
+; ⛔ THIS IS THE WHOLE BATCH, and the gap it closes was invisible because the
+; probe that already knew about it DOES NOT COME THROUGH HERE.
+; `scripts/oracle_availability.py --p2` has carried a two-arm CR4 gate since the
+; P2 roster run — it proved that x86isa executes `movdqa` at CR4=0x600 and
+; refuses it at CR4=0 — but it proved that through an `init-x86-state-64` call
+; IT BUILDS ITSELF (`measure_cr4`), not through `x86l-run-case`.  So the reading
+; "the oracle can do SSE" was true of a call site that no differential run uses,
+; while THIS one — the only one that feeds the comparator — went on passing
+; `nil` for `ctrs` and would have raised #UD on every vector form.
+;
+; ⇒ 🔑 A CAPABILITY MEASURED ON A BYPASS PATH SAYS NOTHING ABOUT THE PATH THAT
+; SHIPS.  Two call sites into the same oracle, and only the one nobody runs a
+; differential through had been configured.
+;
+; Bit 9 is OSFXSR and bit 10 is OSXMMEXCPT: #x600 is what an OS sets when it has
+; FXSAVE storage and an SSE-exception handler, and x86isa reads OSFXSR directly
+; (`dispatch-macros.lisp`: `(equal (cr4Bits->osfxsr (cr4)) 0)` => `:ud`).
+;
+; ⚠️ WHY THIS IS A CONSTANT HERE AND NOT A FIELD IN THE EMITTED CASE.  The
+; `:fsbase`/`:gsbase` precedent sends VALUES across the boundary because the Lean
+; model HAS those values and they vary per pre-state.  It has no CR4 at all —
+; `X86/State.lean` models no control register — so an emitted `:ctrs` would be a
+; constant serialised 69,144 times with nothing on the Lean side to disagree
+; with, i.e. a cross-language duplicate that no gate could hold together
+; ([[feedback-duplicate-born-in-agreement]]).  Worse, it would GROW the emitted
+; record, and `oracle_availability.py`'s `rewrite()` still reads `:bytes` off
+; `c[1]` BY POSITION — the bet this repository has already lost twice (D-note on
+; the `:mem` line).  One literal, on the side that owns it, reaching all three
+; `ld` sites of this driver at once.
+;
+; ⚠️ WHAT THIS MODELS, STATED SO IT CAN BE HELD AGAINST US: x86lean assumes SSE
+; is ENABLED and does not model the #UD that a real CR4.OSFXSR=0 would raise.
+; That is a modelling choice, recorded in TRUSTBASE.md, not a value under test.
+(defconst *x86l-ctrs* (list (cons #.*cr4* #x600)))
+
 (defun x86l-run-case (c x86 state)
   (declare (xargs :stobjs (x86 state)))
   (b* ((id     (cadr (assoc-keyword :id c)))
@@ -199,7 +236,7 @@
        (xmms   (cadr (assoc-keyword :xmms c)))
        (x86 (!app-view t x86))
        ((mv flg x86)
-        (init-x86-state-64 nil rip0 gprs nil msrs nil nil nil nil rflags mem x86))
+        (init-x86-state-64 nil rip0 gprs *x86l-ctrs* msrs nil nil nil nil rflags mem x86))
        ((when flg)
         (prog2$ (cw "CASE id=~s0 len=~x1~%POST init-error~%" id len)
                 (mv x86 state)))

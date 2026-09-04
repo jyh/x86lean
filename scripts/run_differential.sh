@@ -22,6 +22,18 @@ python3 scripts/oracle_availability.py || {
   echo "⛔ the unavailable list disagrees with the oracle; the residue is stale." >&2
   exit 2; }
 
+# ⭐⭐ P2 VECTOR WAVE, BATCH 1 (D86).  DOES THE PATH BELOW ACTUALLY ENABLE SSE?
+# The gate above measures the ORACLE's capability through a call site it builds
+# itself; this one measures the DRIVER's, through `x86l-run-case` — the only call
+# site anything below this line uses. They are different questions, and the
+# second went unasked from P0 until the batch that set `*x86l-ctrs*`. Nineteen
+# seconds, both arms, before a twenty-five-minute run that would otherwise
+# compare a model that computes against an oracle that declines.
+echo "── checking that the DIFFERENTIAL PATH enables SSE (CR4.OSFXSR) ──"
+python3 scripts/check_driver_cr4.py || {
+  echo "⛔ the driver's CR4 configuration is not what the gate declares." >&2
+  exit 2; }
+
 echo "── building the Lean side ──"
 lake build x86lean-diff >/dev/null
 lake env .lake/build/bin/x86lean-diff emit       run/lean.txt

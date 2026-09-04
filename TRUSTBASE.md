@@ -48,6 +48,30 @@ memory ordering, for interleaving with another thread, or for anything a memory 
 to say. Multi-threading and memory ordering are v0.x non-goals (plan v1 §1), and this field does
 not quietly change that.
 
+## SSE availability is ASSUMED, never modelled (P2 vector wave, batch 1)
+
+Real hardware raises `#UD` on every SSE instruction when `CR4.OSFXSR` is 0 — the bit by which an
+operating system declares it has FXSAVE storage and an SSE-exception handler. **x86lean does not
+model that check.** `X86/State.lean` has no control-register file; the model computes a vector
+form's result unconditionally, as though the OS had already enabled SSE.
+
+The oracle is CONFIGURED TO MATCH rather than left to disagree: `scripts/x86isa_driver.lisp` sets
+`CR4 = 0x600` (`OSFXSR | OSXMMEXCPT`) in the pre-state of every differential case, so both sides
+answer the same question. Before this batch it passed `nil`, and x86isa refused every SSE form
+exactly as hardware would — a disagreement about the machine's CONFIGURATION that would have been
+read as a disagreement about its SEMANTICS.
+
+⇒ **The trust boundary, stated plainly:** a reader may rely on this model for what an SSE
+instruction COMPUTES on a machine where SSE is enabled — which is every 64-bit OS in ordinary use.
+A reader may NOT rely on it to decide whether a given instruction faults on a machine where it is
+not: this model will happily compute a result where hardware raises `#UD`. Modelling the
+availability check means adding CR4 to the state, and that is not free (D71 measured what a `Cpu`
+field costs every record proof); it is a v0.x non-goal until something needs it.
+
+⚠️ The configuration is GATED, not asserted: `scripts/check_driver_cr4.py` runs SSE forms through
+`x86l-run-case` under the shipped driver and under a driver whose `*x86l-ctrs*` is planted back to
+`nil`, and requires that they execute in the first and refuse in the second (D86).
+
 ## What is validated, not proven
 Agreement with ACL2 x86isa, with K, and with real hardware is EVIDENCE gathered by execution
 (differential and co-simulation runs recorded per form), never a theorem about those systems.
