@@ -19,6 +19,40 @@ name: CI
 #   * `scripts/oracle_availability.py`  (P1 batch 21, D65)   ~6 s
 #   * `scripts/check_driver_cr4.py`     (P2 vector 1, D86)   ~19 s
 #
+# ⛔⛔ AND A THIRD, FOR A DIFFERENT REASON: `scripts/kernel_cost.py`.  It is not
+# oracle-dependent — it is MACHINE-CALIBRATED, and that is a stronger reason to
+# keep it off a runner.  `scripts/kernel_ceilings.txt` registers ABSOLUTE
+# MILLISECONDS at `measured x 1.6`, taken on a QUIET DEVELOPMENT MACHINE with the
+# load conditions written beside each line.  A GitHub runner is a different
+# machine, and MEASURED it is about twice as slow — two readings, against six
+# local ones on the same tree:
+#
+#     module            CI-1     CI-2     local      CI/local
+#     X86.Syntax         418      436      ~145        3.0x
+#     X86.Theorems      1530     1640      ~721        2.3x
+#     Tests.Anchors      928     1030      ~474        2.2x
+#     memDestSweep     27 400   29 800   ~17 800       1.7x
+#     vectorCoverage    5 590    5 860    ~1 900       3.1x
+#     TOTAL            61 400   66 100   ~31 700       2.1x
+#
+# ⇒ The step failed here on EVERY module, which is a fact about the hardware and
+# not about the tree: the same tree passes locally with ~1% run-to-run spread.
+#
+# ⚠️ AND RAISING THE CEILINGS TO FIT WAS CONSIDERED AND REFUSED.  The per-module
+# factor VARIES from 1.7x to 3.1x, so no single calibration constant exists; and
+# ceilings loosened to a runner's scale would be ~2x slack on the machine where
+# batches are actually developed — this file's own history is a record of
+# fighting exactly that slack (see the `2.4x headroom will not notice a
+# doubling` note beside Tests.Coverage).  The gate earns its keep by being TIGHT
+# against a known machine; a portable version of it would have to divide by
+# something that varies the same way as its subject, and the measurement above
+# says nothing here does.
+#
+# ⇒ So it runs where it is calibrated: `scripts/run_differential.sh` invokes it
+# on every batch, which is also the repair for the real gap — a discipline that
+# depends on a head REMEMBERING is one this session demonstrably failed to keep.
+# See D97.
+#
 # ⛔ THIS COMMENT USED TO END "the list of those has exactly two entries", and
 # D86's batch made it three. A COUNT IN A COMMENT BESIDE A LIST is the thing that
 # goes stale while the list stays right — D41's rule, D74's repair, and the CI
@@ -84,17 +118,6 @@ jobs:
       # looking — a declaration over, the tail over, a gated declaration that is
       # no longer in the profile, and declarations gated with no tail ceiling —
       # plus the control, and it runs FIRST so a stuck gate cannot report a pass.
-      - name: Kernel-cost ceilings (red-first, then the reading)
-        run: |
-          python3 scripts/kernel_cost.py --selftest
-          python3 scripts/kernel_cost.py
-
-      # ⭐ P1 BATCH 21. `memDestSweep` and `vectorCoverage` check three claims
-      # each in ONE kernel reduction, so the sweeps behind them are paid once
-      # (37 900 -> 21 900 ms on Tests.Coverage). A conjunction is the shape that
-      # can go silent in a way three theorems cannot, so each of the six
-      # conjuncts is planted with a defect ALONE and required to report `false`,
-      # with an unplanted positive control in the same run.
       - name: Shared-reduction red probe (6 conjuncts + control)
         run: ./scripts/sharing_redprobe.sh
 

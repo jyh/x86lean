@@ -69,3 +69,25 @@ fi
 
 echo "── comparing ──"
 lake env .lake/build/bin/x86lean-diff compare run/lean.txt run/oracle.txt
+
+# ⭐⭐⭐ AND THE KERNEL-COST GATE, HERE BECAUSE THIS IS WHERE IT IS CALIBRATED.
+#
+# `scripts/kernel_ceilings.txt` registers ABSOLUTE milliseconds at `measured x
+# 1.6`, taken on a quiet DEVELOPMENT machine with the load conditions written
+# beside each line.  A GitHub runner is a different machine and measures about
+# twice as slow, by a factor that VARIES per declaration (1.7x-3.1x), so the gate
+# cannot be enforced there and `ci.yml` says so in its header.
+#
+# ⛔ IT USED TO DEPEND ON A HEAD REMEMBERING TO RUN IT, AND THAT FAILED.  The
+# session that added the P2 vector wave ran this differential six times and
+# `kernel_cost.py` NOT ONCE — until CI complained about a regression that had
+# been sitting in the tree for three batches (prose written into a field the
+# kernel walks character by character, D94).  A gate whose schedule is "somebody
+# will think of it" is D65's ungated claim wearing a habit.
+#
+# ⇒ It runs on the same trigger as the differential: the BATCH.  Ten minutes
+# against the thirty this script already costs, and it runs LAST, when the oracle
+# is done and the machine is quiet again — which is the condition the ceilings
+# were registered under.
+echo "── kernel-cost ceilings (calibrated for THIS machine; see ci.yml on why not in CI) ──"
+python3 scripts/kernel_cost.py

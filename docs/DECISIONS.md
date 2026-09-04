@@ -3893,3 +3893,65 @@ running the arm turned it into a fact, and had the number come back small *that*
 finding.
 
 **Reversal cost:** eight kinds, one combinator, eight vectors, two arms.
+
+## D97 — a machine-calibrated gate cannot be enforced on another machine, and the repair is WHERE it runs, not HOW LOOSE it is (P2 vector wave, batch 8)
+
+**The measurement, at last.** D94's diagnosability fix (`d45804f`) made the control print its
+reading, and CI answered twice:
+
+| module | CI-1 | CI-2 | local (×6) | CI/local |
+|---|---|---|---|---|
+| `X86.Syntax` | 418 | 436 | ~145 | **3.0×** |
+| `X86.Theorems` | 1530 | 1640 | ~721 | **2.3×** |
+| `Tests.Anchors` | 928 | 1030 | ~474 | **2.2×** |
+| `memDestSweep` | 27,400 | 29,800 | ~17,800 | **1.7×** |
+| `vectorCoverage` | 5,590 | 5,860 | ~1,900 | **3.1×** |
+| total | 61,400 | 66,100 | ~31,700 | 2.1× |
+
+Every module over, on a tree that passes locally with ~1% spread. **A fact about the hardware, not
+about the tree.**
+
+### 1. ⛔ Two designs were refuted by this table before either was written
+
+**A calibration reference** — a fixed declaration measured in the same run, ceilings as multiples of
+it, so machine speed cancels — requires the machines to differ by ONE factor. They differ by
+**1.7× to 3.1×**. A single constant would leave `memDestSweep` 2× slack while still failing
+`vectorCoverage`. ⇒ 🔑 **A NORMALISATION IS ONLY VALID IF THE DENOMINATOR VARIES THE SAME WAY AS THE
+SUBJECT** — an empirical claim about the data, not a property of the arithmetic, and easy to skip
+because the formula looks principled either way. (Normalising by the *total* would have been worse
+still: a defect that scales numerator and denominator is invisible to every percentage.)
+
+**Raising the ceilings to CI's scale** was the other candidate, and this file's own history refutes
+it: `kernel_ceilings.txt` records a ceiling being *lowered* 744 → 493 because *"a tripwire with 2.4×
+headroom will not notice a doubling"*. Ceilings at runner scale are ~2× slack on the machine where
+batches are actually developed.
+
+⚠️ **I nearly reached the opposite conclusion by a category error**, and it is worth recording: I
+argued CI-calibrated ceilings would have missed my own `memDestSweep` regression — comparing a
+*local* measurement against a *CI* ceiling. A regression is measured on the machine that holds the
+ceiling, so the ratio is preserved. The argument was wrong; the conclusion happened to survive on
+other grounds.
+
+### 2. The decision: change WHERE it runs
+
+`kernel_cost.py` is **removed from `ci.yml`** and named in that file's header beside the
+oracle-dependent gates — for a *different* reason, stated as such: those cannot run without an
+oracle, this one cannot run without **the machine its ceilings were registered on**. The evidence
+table is in the header so the next reader does not re-derive it.
+
+**No ceiling is touched.** The gate keeps the tightness that caught a real 1.7× regression three
+batches after it entered the tree.
+
+### 3. ⭐ And the actual gap was never the ceilings — it was the schedule
+
+The session that added the whole P2 vector wave ran `run_differential.sh` **six times** and
+`kernel_cost.py` **not once**, until CI complained. The regression had been sitting in the tree for
+three batches.
+
+⇒ **A gate whose schedule is "somebody will think of it" is D65's ungated claim wearing a habit.** So
+it now runs on the same trigger as the differential — the **batch** — appended to
+`run_differential.sh`: ten minutes against the thirty that script already costs, running **last**,
+when the oracle is done and the machine is quiet, which is the condition the ceilings were registered
+under.
+
+**Reversal cost:** one CI step removed, one line added to the batch runner.
