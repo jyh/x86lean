@@ -202,8 +202,16 @@ toolchain is pinned in `lean-toolchain`.
 | `scripts/axiom_gate_selftest.sh` | the gate FIRES on a real `native_decide` — red-first, not a fixture |
 | `scripts/check_tier_isolation.sh` | no module under `X86/` imports the native tier |
 | `scripts/check_encodings.py` | every `Instr.len` and byte string agrees with a real assembler |
-| `scripts/kernel_cost.py` | per-module kernel time under its registered ceiling |
-| `x86lean-diff selftest` | the differential comparator catches three planted bugs |
+| `scripts/kernel_cost.py` | per-module kernel time, printed against its registered ceiling — a READING, retired as a merge gate 09/04 because the unchanged parent already exceeded two of them on this box |
+| `scripts/kernel_delta.py` | the kernel-time DELTA a change introduces, two trees profiled in one session, against a budget derived from the ten preceding batches |
+| `scripts/kernel_delta.py --selftest` | the delta gate's comparison and budget file, driven red — synthetic readings, no measurement, and it says so |
+| `scripts/kernel_delta.py --selftest-measure` | the same gate on real trees: identical trees must pass, a planted constructor must fail |
+| `x86lean-diff selftest` | the comparator catches one deliberately wrong model per entry of `selftestArms` |
+
+**No arm count is written in that table.** It said *"catches three planted bugs"* from the P0
+commit until 09/04, by which time `selftestArms` held **118** — a literal in the most-read document
+in the repository, wrong by 115, gated by nothing and never re-read. The command derives its own
+count from `selftestArms.length` (D29); the table names the list instead of counting it.
 
 **On the axiom gate being an allowlist.** The obvious gate rejects anything
 depending on `Lean.ofReduceBool`. It does not work: since Lean 4.29 each

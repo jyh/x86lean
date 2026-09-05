@@ -20,9 +20,28 @@ of §3.7.  Raising a ceiling is a decision to record in docs/DECISIONS.md.
 
 Usage:  kernel_cost.py [--register]   (--register rewrites the ceiling file)
 """
-import os, re, subprocess, sys, glob, json
+import os, re, subprocess, sys, glob, json, time
 
-root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# ⭐⭐ P2 BATCH 25 (D123) — THE ROOT IS A SEAM, AND IT EXISTS SO THAT ONE
+# MEASUREMENT IMPLEMENTATION SERVES BOTH GATES.  `kernel_delta.py` profiles a
+# SECOND tree (a detached worktree at the parent commit) and must get its
+# numbers from the SAME code that produces the ceiling gate's numbers — two
+# copies of a profiler agree until the next ordinary append to one of them, and
+# then they disagree silently in whichever direction nobody is looking.  So the
+# delta gate runs THIS script, with `--root <the other tree>`, rather than
+# carrying its own `lean -D profiler=true` invocation.
+#
+# ⚠️ The script that runs is always the CURRENT tree's, never the other tree's:
+# a delta measured by two different measuring programs is not a delta.
+def _root_arg():
+    for i, a in enumerate(sys.argv):
+        if a == "--root" and i + 1 < len(sys.argv):
+            return os.path.abspath(sys.argv[i + 1])
+        if a.startswith("--root="):
+            return os.path.abspath(a.split("=", 1)[1])
+    return None
+
+root = _root_arg() or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
 # ⭐⭐ P2 BATCH 1 (D75) — THE CEILINGS PATH IS A SEAM, AND IT IS A SEAM BECAUSE A
 # COMMIT SHIPPED A PLANTED DEFECT.  `--selftest` used to mutate this file IN THE
@@ -314,6 +333,54 @@ def coverage_growth_denominator():
     vecs = len(re.findall(r'\{\s*id\s*:=\s*"', open("Tests/Vectors.lean").read()))
     return thms, vecs
 
+# ⭐⭐⭐ P2 BATCH 25 (D123) — THE RAW-READING MODE THE DELTA GATE CONSUMES.
+#
+# `kernel_delta.py` needs the SAME numbers this gate reads, taken in ONE session,
+# from TWO trees.  It gets them by running this script twice with `--root`, and
+# this mode is the interface: no ceilings, no verdict, no load refusal — the
+# readings and the conditions they were taken under, and nothing that pretends
+# to be a judgement about a commit.
+#
+# ⛔ `--decl-modules` IS AN ARGUMENT AND NOT A LOOKUP, ON PURPOSE.  If each tree
+# read its OWN ceiling file for the list of per-declaration modules, the two
+# sides of a delta could be asked different questions — and the answer would
+# still be two numbers that subtract.  The caller passes one list to both.
+#
+# ⛔ A NAMED MODULE WITH NO SOURCE FILE IS REPORTED, NEVER SKIPPED.  A module
+# that exists on one side of the delta and not the other is a real change, and
+# the caller has to decide what it means; a skip here would decide it silently
+# in the direction of "no difference".
+def emit_json():
+    want = []
+    for i, a in enumerate(sys.argv):
+        if a == "--decl-modules" and i + 1 < len(sys.argv):
+            want = [x for x in sys.argv[i + 1].split(",") if x]
+    b = subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
+                       capture_output=True, text=True)
+    if b.returncode != 0:
+        sys.stderr.write(f"⛔ {os.getcwd()}: `lake build` failed, so every reading "
+                         f"below would be about a tree that does not compile.\n"
+                         f"{b.stdout}\n{b.stderr}\n")
+        return 2
+    mods, decls, missing = {}, {}, []
+    for f in modules():
+        mods[mod_name(f)] = kernel_ms(f)
+    for m in want:
+        f = [x for x in modules() if mod_name(x) == m]
+        if not f:
+            missing.append(m)
+            continue
+        decls[m] = {name: ms for _l, name, ms in per_declaration(f[0])}
+    try:
+        la1, la5, _ = os.getloadavg()
+    except OSError:
+        la1, la5 = -1.0, -1.0
+    print(json.dumps({"root": os.getcwd(), "load1": la1, "load5": la5,
+                      "t": time.time(), "modules": mods, "decls": decls,
+                      "missing": missing}))
+    return 0
+
+
 def read_ceilings():
     """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
     d, decls, tails = {}, {}, {}
@@ -472,6 +539,8 @@ def selftest():
 def main():
     if "--selftest" in sys.argv:
         return selftest()
+    if "--emit-json" in sys.argv:
+        return emit_json()
     register = "--register" in sys.argv
     subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
                    capture_output=True, text=True)

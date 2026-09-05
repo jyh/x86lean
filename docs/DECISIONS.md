@@ -5960,6 +5960,14 @@ manufactured by the very effect the decision names.
 
 ### 2. ⭐⭐ THE IN-BAND DELTA, WHICH IS THE READING THAT COUNTS
 
+> ⛔⛔ **SUPERSEDED BY MEASUREMENT — D123 §3, the same day.** Both figures in this section were taken
+> **one reading per side**. Re-measured on the identical `.lean` diff with **three repeats per side,
+> alternated base/head in one session**: `X86.Syntax` **+2.0** (within-side spread 8.0) and
+> `Tests.Coverage` residue **−60.0** (spread 500). Neither reproduces, and the batch below merged
+> CLEAN under the delta gate (D125). The CONCLUSION of this decision — that an absolute ceiling
+> inside the parent's own spread is not a gate — stands and is strengthened; the two numbers offered
+> as its evidence do not.
+
 ```
                           parent 0f7baee     batch 23      delta      ceiling
 X86.Syntax                     198.0 ok        206.0 ⛔      +8         200
@@ -6065,3 +6073,249 @@ things at once. It is a named item for the next head, with `vpaddw` as its worke
 red-first arm.
 
 **Reversal cost:** 9 rows in `oracle_availability.py`, gated in both CR4 arms; the roster regenerates.
+
+## D123 — the delta gate: a control set already in the record, and two numbers that did not reproduce
+
+**P2 batch 25**, on the helm's ruling of 2026-09-04 21:42: *"the absolute ceilings are retired as a
+MERGE GATE and kept as READINGS printed beside every merge; D111's delta method is the gate — you set
+the per-batch delta budget from your own batch history (print the last ten batches' deltas; budget = a
+stated multiple of their median, with the reason), register it in the repo's CI as the check that
+runs, red-first driven (a planted constructor that doubles the delta must fail)."*
+
+All four parts are built. The one that changed what I believe is the history, and it is a finding
+against the premise of the batch that ordered it.
+
+### 1. ⛔⛔ THE COST ESTIMATE THAT MADE THE HISTORY LOOK UNMEASURABLE WAS WRONG BY TWO ORDERS
+
+The bank handing this on priced the walk as *"each historical point needs a checkout plus a full
+`lake` rebuild (hours, not minutes)"*, said *"I did NOT measure that history"*, and offered **two**
+real data points where the ruling asked for ten.
+
+Measured, before anything else was written:
+
+```
+a full clean `lake build` in a fresh worktree     33 s
+one full profile pass (19 modules + per-decl)     57 s
+⇒ twelve commits x two sweeps                    ~32 min, in the background
+```
+
+⇒ 🔑 **AN INHERITED COST ESTIMATE IS A HYPOTHESIS, AND ONE INSTANCE TESTS IT.** A ruling had been
+shaped around a number nobody had timed, and the shape it took was *"budget them from a real ten
+before quoting one"* — advice that reads as caution and functions as a reason not to look.
+
+### 2. ⭐⭐⭐ THE TEN BATCHES, MEASURED — AND FIVE OF THE ELEVEN COMMITS CHANGED NO LEAN AT ALL
+
+`scripts/kernel_delta_history.py` walks one detached worktree through twelve commits, twice —
+forward, then in reverse so a load that drifts through the run biases the two sweeps in OPPOSITE
+directions — and differences adjacent readings. 24 readings, ~32 minutes.
+
+⭐ **The control set was already in the history and is not synthetic.** Five of the eleven commits in
+the window touch **no `.lean` file whatever**: `3769ea0` (b16, the residue measured), `762da1a`
+(b19, the FP group measured), `873a4d9` (b21, the census), `e57c99f` (D122) and `5c01599` (b24, the
+VEX-128 bucket). Whatever this instrument reports for them, it reported about nothing.
+
+```
+Tests.Coverage @residue (ms)      six commits that CHANGED Lean   five that changed NONE
+                                  +130 +185 +220 +250 +285 +415   −270 −140 −140 −50 −15
+X86.Syntax (ms)                   +0.5 +0.5 +4.5 +4.5 +8.5 +10.5  −7.0 −4.5 +1.5 +3.5 +4.5
+```
+
+⇒ 🔑 **THE SEPARATION IS THE INSTRUMENT'S CHARACTER, MEASURED RATHER THAN ASSUMED.** On the residue
+the two populations do not overlap at all — every real batch positive, every control negative or
+flat. On `X86.Syntax` they overlap: a commit that changed nothing produced **+4.5 ms**, which is the
+MEDIAN of the six real batches.
+
+### 3. ⛔⛔ NEITHER OF D122'S TWO NUMBERS REPRODUCES, AND I TWICE ALMOST SAID OTHERWISE
+
+D122 held P2 batch 23 off master on two readings taken **one per side, in band**: `X86.Syntax`
+**+8 ms** and `Tests.Coverage`'s residue **+580 ms**. This gate measured the same `.lean` diff with
+**three repeats per side, alternated**:
+
+```
+                          base(master)   head(batch 23)   delta   within-side spread   budget
+X86.Syntax                     198.0          200.0        +2.0          8.0            37.0
+Tests.Coverage @residue      13 130         13 070         −60.0        500.0          1825.1
+Tests.Coverage               21 100         21 300        +200.0        500.0          1519.2
+```
+
+⇒ 🔑 **BOTH OF D122'S NUMBERS WERE SINGLE-READING ARTEFACTS.** `+8` reproduces as `+2` against a
+spread of `8`; `+580` reproduces as `−60` against a spread of `500`. Batch 23's true kernel cost is
+below this instrument's resolution on both units. The batch was held off master for two hours by two
+readings that a repeat does not support.
+
+⛔⛔ **AND I ALMOST WROTE THE OPPOSITE, TWICE, IN THIS SAME DECISION.**
+
+1. I first drafted this section as *"the premise of D122 survives"* — reasoning that `+8` exceeds all
+   five zero-Lean controls (worst `+4.5`) and matches batch 22's own constructor delta (`+8.5`). Both
+   of those comparisons are sound. **They compare D122's number with my controls; they do not
+   re-measure D122's number**, and when I did, it was `+2`.
+2. Earlier I read the planted-constructor arm as `+6 ms` off two pass lines of a four-pass run. Its
+   summary said `+16.0`.
+
+⇒ 🔑 **A NUMBER YOU DID NOT TAKE YOURSELF IS NOT EVIDENCE ABOUT THE THING IT NAMES; IT IS EVIDENCE
+ABOUT THE RUN THAT PRODUCED IT.** Twice in one batch I built a careful argument on top of one
+somebody else's single reading and one of my own pass lines, in a batch whose entire subject is that
+a single reading of this quantity means nothing.
+
+⇒ **What the ruling got right, and for a reason better than the one D122 gave — and here is the
+sharpest form of it, measured tonight.** `master` was profiled twice this evening by two different
+runs of the same gate, five minutes apart:
+
+```
+22:45  the batch-23 gate, master side, median of 3     X86.Syntax  198.0   UNDER the 200 ceiling
+22:50  the identical-trees control, base side, med 2   X86.Syntax  216.0   OVER  the 200 ceiling
+```
+
+⇒ 🔑 **ONE COMMIT, ONE EVENING, ONE BOX, TWO OPPOSITE VERDICTS FROM THE SAME GATE.** Across the whole
+window `X86.Syntax` reads 184–213. A threshold inside that spread does not report the commit; the
+gate now prints exactly which side of each ceiling the BASE sits on, so a reader can see it without
+being told.
+
+### 3a. THE ESTIMATOR ARGUMENT THAT DID NOT SURVIVE ITS OWN TEST
+
+Contention noise is one-sided — another process can only make a reading slower — which is a good
+argument for taking the MINIMUM of the repeats rather than their median. Scored against a ground
+truth the code itself guarantees (the coverage table only GROWS across this window: `rosterSize`
+121→134 and `vectorCount` 893→954, both monotone, checked commit by commit), the argument is not
+supported:
+
+```
+estimator   negative deltas on Tests.Coverage, which cannot fall
+  median    2 of 11        min   2 of 11        max   3 of 11
+```
+
+⇒ The median is kept. An argument about the shape of the noise is still an argument
+([[feedback-inherited-diagnosis-is-a-hypothesis]]: a cause you thought of yourself gets the same
+credulity as one you inherited).
+
+### 4. THE BUDGET, AND THE FOUR GENERATED RULES THAT WERE READ AND REFUSED
+
+`scripts/kernel_delta_budget.txt` is **generated**, with its whole derivation inside it — a
+hand-accumulated number with no per-step rule can only be recomputed, never corrected, and this
+repository carried a coverage total that was eleven low for eighteen batches for exactly that reason
+(D56).
+
+```
+candidate_u = max( median historical relative delta,
+                   worst relative delta on a commit that changed NO .lean file,
+                   worst measured within-commit relative spread )
+budget_u    = MULT x candidate_u,  floored at @floor absolute milliseconds
+```
+
+The three terms are three different things and the `max` is deliberate: the first says what a batch
+costs, the second says what a commit that changed NOTHING appeared to cost, the third says what the
+instrument can resolve. Set below any one of them, the gate is not a gate.
+
+⛔ **FOUR GENERATED RULES WERE READ AND REFUSED BEFORE THIS FILE SHIPPED**, and all four failures
+are the same shape — a statistic taken over the wrong population, or of the wrong quantity:
+
+1. **`@floor` = the worst absolute control delta over ALL units** generated **800 ms**, which is
+   `Tests.Coverage`'s noise in milliseconds handed to `X86.Syntax`, a module whose entire reading is
+   191 ms. That is a borrowed denominator wearing a floor's name
+   ([[feedback-a-borrowed-denominator-invents-its-own-gap]]). Restricted to the units under 50 ms it
+   read **2 ms**.
+1b. **And that second rule was wrong too, in a third way.** The gate's refusal compares a budget
+   against the run's own **SPREAD**; the floor was derived from a **DELTA**. Different statistics of
+   the same readings, and the spread is systematically larger — **5.30 ms** on `X86Native` against a
+   2 ms delta-derived floor, which would make the gate REFUSE on small modules whenever an ordinary
+   run was as noisy as this walk already was. ⇒ 🔑 **A THRESHOLD MUST BE DERIVED FROM THE STATISTIC IT
+   WILL BE COMPARED AGAINST.** Registered at **6 ms**, with no extra multiple: a run noisier than the
+   worst this walk saw SHOULD refuse rather than pass.
+2. **`MULT` = the smallest multiple at which every batch passes, rounded up** generated **1.4**
+   against a needed **1.40** — a gate with ZERO headroom on the unit that binds it
+   (`Tests.Coverage @decl vectorCoverage`), so the next batch costing what `0f929e3` cost fires it.
+   Registered at **2.0**, which buys **1.43×** margin over the worst batch in the window; both
+   numbers are printed in the file so neither can hide.
+3. **`@default` = MULT × the LARGEST candidate** would hand every future module the allowance of
+   `Tests.VectorRuns`, a 0.3 ms file with 58% spread. It is the median candidate now — and every unit
+   that falls to it is LISTED by the gate on every run, so a module landing there by accident is
+   visible rather than silently free.
+
+⚠️ **WHAT THE RESULTING GATE CAN AND CANNOT SEE, STATED IN MILLISECONDS.** `X86.Syntax`'s budget is
+18.7% of 191 ms ≈ **36 ms**, which is about **four and a half AST constructors**. That is not a
+tight gate and it is not pretended to be one: it is what a box whose within-commit spread on that
+unit is 9.3% can support. The gate catches a batch that multiplies a module's cost; it does not
+catch one constructor, and no repeat count available in a merge gate would make it.
+
+### 5. ⭐⭐ WHY THIS GATE CAN BE REGISTERED IN CI WHEN `kernel_cost.py` COULD NOT
+
+`.github/workflows/ci.yml` spends thirty lines refusing to run the ceiling gate on a runner, and the
+refusal stands: the same tree profiled there reads **1.7×–3.1× slower DEPENDING ON THE MODULE**, so
+no single calibration constant exists, and ceilings loosened to fit would be ~2× slack on the box
+where batches are developed.
+
+⇒ 🔑 **THE MEASUREMENT THAT REFUTES A PORTABLE CEILING IS WHAT MAKES A PORTABLE RATIO WORK.** That
+factor is a property of *(machine, unit)*. This gate profiles two trees on ONE machine and gates the
+ratio of the difference to the base, so the factor sits in the numerator and the denominator and
+divides out exactly — whatever it is, and however much it varies between modules. Every budget in
+`scripts/kernel_delta_budget.txt` is therefore a percentage.
+
+⚠️ **AND THAT IS A PREDICTION, NOT A MEASUREMENT.** It follows from the factor being multiplicative
+and stable within a session, which the CI table supports for ABSOLUTE readings and which nothing has
+tested for a matched DELTA on two machines: this account's runner refuses every job for billing (desk
+FH), so no delta has ever been measured anywhere but here. The first delta CI prints is the test of
+this paragraph, not its confirmation.
+
+### 6. THE RED-FIRST DRIVE, AND THE ONE CONSTRAINT THE PLANT COULD NOT WORK AROUND
+
+The helm asked for *"a planted constructor that doubles the delta"*. It is literally that, with a
+constraint stated rather than quietly evaded:
+
+⛔ **A constructor cannot be planted in `Op`.** Adding one leaves `opOperands`, `Op.anyLocked` and
+`Op.mnemonic` non-exhaustive in `X86/Syntax.lean` and breaks ~30 further match sites in five other
+files. The tree would not build, and a probe whose subject does not build measures nothing.
+
+⭐ **`PrefetchHint` is the one inductive in the repository that can carry it.** It is matched in
+exactly one place — `PrefetchHint.mnemonic` — so N constructors and their N arms compile, change no
+other module, and put their whole cost in `X86.Syntax`: the unit whose real margin was two
+milliseconds. The plant is a real constructor addition to a real inductive, which is why it was
+preferred to a synthetic block of `decide` theorems, and the probe REFUSES if the shape it edits is
+no longer there rather than silently planting nothing.
+
+⛔⛔ **AND THE FIRST PLANT SIZE DID NOT CREATE THE CONDITION, WHICH IS THE MOST USEFUL THING THE ARM
+HAS DONE SO FAR.** 48 planted constructors moved `X86.Syntax` **+16.0 ms** — 0.33 ms each — against a
+**27.4 ms** budget, and the arm returned rc 0 where 1 was wanted: **it failed, out loud, instead of
+reporting the gate sound while planting something the gate is right to ignore**
+([[feedback-a-probe-must-create-its-condition]]).
+⚠️ And the first figure I read for it was **+6 ms**, taken off two single pass lines of a four-pass
+run before the medians existed. The arm's summary line is the reading; a pass line is not
+([[feedback-read-what-the-instrument-measured]]).
+
+⇒ 🔑 **A CONSTRUCTOR ON A FRESH INDUCTIVE COSTS A THIRD OF A MILLISECOND, AND A REAL `Op`
+CONSTRUCTOR COSTS SOMETHING THIS BOX CANNOT RESOLVE.** D122 put the latter at 8 ms from one reading;
+§3 measures the same diff at **+2.0 ± 8**. So the honest statement is a bound, not a figure — and a
+plant sized to ONE REAL CONSTRUCTOR would have been sized to a quantity nobody has measured.
+The 0.33 ms figure IS measured (48 constructors, +16.0 ms, four alternating passes), which is why the
+plant is sized from it.
+⚠️ The plant is therefore sized to the BUDGET rather than to a real constructor, at 512 (~170 ms at
+the measured rate), and the arm prints its measured delta on every run so that estimate is checked
+rather than trusted.
+
+⭐⭐ **Beside it runs the arm that could have invalidated every green this gate will ever print:
+base and head at the SAME COMMIT.** Whatever the gate reports there is pure instrument. It is the
+negative control the whole method rests on, and it runs in CI in its own job.
+
+**BOTH ARMS, MEASURED UNDER THE SHIPPED BUDGET FILE:**
+
+```
+arm 1  identical trees          rc 0 (wanted 0)   worst unit delta  +60.0 ms on Tests.Coverage @residue
+arm 2  512 planted constructors rc 1 (wanted 1)   X86.Syntax  205.0 → 928.0  = +723.0 against a 38.3 budget
+delta-gate measured selftest: PASS (2 arms)
+```
+
+⭐ **And the estimate that sized the plant was wrong by 4.3×, which is the reason the arm prints its
+delta.** At the 48-constructor rate (0.33 ms each) 512 predicted ~170 ms; it measured **+723.0**,
+1.41 ms each. 10.7× the constructors bought 45× the cost — the match compiler is **super-linear in
+the arm count**, so a plant sized by extrapolation is a plant sized by a model nobody checked.
+
+⚠️ Both arms were re-judged over their SAVED readings after the budget file changed
+(`--save-readings` / `--readings`), not re-measured: a second measurement would be a different
+evening, and re-judging the same readings is the only way to compare a changed budget against a
+fixed observation.
+
+### 7. WHAT IS RETIRED AND WHAT IS KEPT
+
+`scripts/kernel_ceilings.txt` is **not deleted and not raised**. Its figures ride beside every merge
+as READINGS, box-stamped, printed by `kernel_delta.py` under a heading that says they are retired as
+a gate. Deriving a gate's allowance from the quantity it measures has no second source, and doing it
+in the batch the gate just stopped is the worst available moment (D122 §3); nothing here does it.

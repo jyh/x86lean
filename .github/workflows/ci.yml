@@ -325,3 +325,100 @@ jobs:
         run: lake build x86lean-diff
       - name: "Harness selftest shard ${{ matrix.shard }} of 6"
         run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 6
+
+  # ⭐⭐⭐ THE KERNEL-TIME DELTA GATE (D123), REGISTERED HERE BY THE HELM'S RULING
+  # OF 2026-09-04 21:42: *"the absolute ceilings are retired as a MERGE GATE …
+  # D111's delta method is the gate — you set the per-batch delta budget from
+  # your own batch history, register it in the repo's CI as the check that runs,
+  # red-first driven."*
+  #
+  # ⛔⛔ AND IT IS HERE FOR A REASON THE COMMENT AT THE TOP OF THIS FILE SPENDS
+  # THIRTY LINES REFUSING TO PUT `kernel_cost.py` HERE.  That refusal is correct
+  # and it is UNCHANGED: absolute millisecond ceilings are calibrated on one
+  # machine, and the same tree profiled on this runner reads 1.7x-3.1x slower
+  # DEPENDING ON THE MODULE, so no single calibration constant exists.
+  #
+  # ⇒ 🔑 THE VERY MEASUREMENT THAT REFUTES A PORTABLE CEILING IS WHAT MAKES A
+  # PORTABLE RATIO WORK.  That factor is a property of (machine, unit).  This gate
+  # profiles TWO TREES ON ONE MACHINE and gates the RATIO of the difference to the
+  # base reading, so the factor appears in both numerator and denominator and
+  # divides out exactly — whatever it is, and however much it varies between
+  # modules.  `scripts/kernel_delta_budget.txt` is written in percentages for
+  # precisely that reason, with an absolute `@floor` for the modules too small
+  # for a ratio to mean anything.
+  #
+  # ⚠️ THAT IS A PREDICTION AND THE FIRST RUN HERE IS ITS TEST, NOT ITS CONFIRMATION.
+  # This account's runner refuses every job for billing (desk FH), so no delta has
+  # ever been measured on any machine but the developer box.  Compare the first
+  # green here against `docs/DECISIONS.md` D123's local table before believing the
+  # portability claim; a percentage that reads the same on two machines is the
+  # evidence, and until then it is an argument.
+  #
+  # ⚠️ `fetch-depth: 0` IS LOAD-BEARING.  The gate profiles the change's BASE, and
+  # `actions/checkout`'s default shallow clone has no parent commit to check out —
+  # the gate would refuse (it does not invent a base), and a refusal every run is
+  # a gate nobody reads.
+  kernel-delta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+
+      # ⭐ THE COMPARISON'S OWN RED-FIRST DRIVE, AND IT RUNS FIRST so that a gate
+      # which has stopped comparing cannot report a pass on the step below. It
+      # carries no measurement at all — synthetic readings and planted budget
+      # files — and it SAYS SO in its own output rather than leaving a reader to
+      # assume otherwise.
+      # ⛔ NO ARM COUNT IN THIS NAME.  The step above it carried "seven planted
+      # bugs" for seven batches while there were thirty-eight (D41): a number in
+      # a label nothing derives is the thing that goes stale while the list stays
+      # right. The command prints its own count.
+      - name: Delta-gate comparison and budget file, driven red
+        run: python3 scripts/kernel_delta.py --selftest
+
+      # ⭐ THE BUDGET FILE IS GENERATED, AND THIS IS WHAT SAYS SO. Same discipline
+      # as the coverage table and the run-index certificate: re-derive it from the
+      # committed readings and require byte equality, so a hand-edited allowance
+      # cannot ride in under a generated header.
+      # ⚠️ WHAT THIS PROVES AND WHAT IT DOES NOT: byte-for-byte re-derivation says
+      # the file matches the script, never that the script is right. The rule it
+      # applies is printed inside the file for that reason.
+      - name: Delta budget is DERIVED from the committed readings, not written
+        run: |
+          python3 scripts/kernel_delta_history.py --register-budget /tmp/budget.txt \
+            --readings docs/kernel-delta-history-2026-09-04.jsonl
+          diff -u scripts/kernel_delta_budget.txt /tmp/budget.txt \
+            || { echo "⛔ scripts/kernel_delta_budget.txt is not what its own"; \
+                 echo "   derivation produces — regenerate it, do not edit it."; exit 1; }
+
+      - name: Kernel-time DELTA against this change's base (two trees, one machine)
+        run: python3 scripts/kernel_delta.py --repeats 2
+
+  # ⭐⭐ THE ARM THE HELM ASKED FOR BY NAME — *"a planted constructor that doubles
+  # the delta must fail"* — in its own job because it needs FOUR builds and eight
+  # profile passes and would otherwise double the gate's wall clock.
+  #
+  # It plants N real constructors into `PrefetchHint` (the one inductive in this
+  # repository matched in exactly one place, so the plant compiles and its whole
+  # cost lands in `X86.Syntax`) and requires the gate to go RED. Beside it runs
+  # the NEGATIVE control that could invalidate every green this gate has ever
+  # printed: base and head at the SAME commit, which must be CLEAN.
+  kernel-delta-redfirst:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+      - name: Delta gate driven on real trees (identical-trees control + planted constructor)
+        run: python3 scripts/kernel_delta.py --selftest-measure --repeats 2
