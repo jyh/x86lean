@@ -6999,6 +6999,16 @@ are kept until the first day they are not.
 
 ## D131 — P2 BATCH 27: the prediction route replaced, and 23 of 23 — priced, not believed
 
+> ⛔⛔ **CORRECTED BY D132, the same sitting.** This section calls x86isa's instruction listing **"a
+> second source"** and reads 23 of 23 as a model of the oracle beating naive baselines. It is **not a
+> second source**: `machine/dispatch-creator.lisp` includes `inst-listing` and builds the opcode
+> dispatch from it, so the slot the route reads is the datum that *decides* the machine's behaviour.
+> The listing and the machine are **one source read two ways**. The score below is real and the
+> baseline comparison stands as a measure of how much information the read carries — but it is
+> evidence that the READING IS FAITHFUL, not that a model is good. §2's framing is the error; §3, §4
+> and §5 are unaffected. D132 carries the correction and what it turned out to buy.
+
+
 Twenty-three (mnemonic, bucket) pairs asked: **ranks 2–24** of `p2_roster.py --unprobed`. Rank 1
 `vzeroupper` / `AVX (state)` was skipped, again and deliberately — `probe_bucket` reads the bucket
 off the OPERANDS and that bucket has none, so a probe for it runs, has its verdict discarded, and
@@ -7084,3 +7094,92 @@ All 23 came from `clang -target x86_64-unknown-linux-gnu`; none was typed. D128'
 every one of the now-**179** rows on **both** disassemblers (Apple LLVM and GNU binutils) at every CI
 run, so the `hx` ACL2 executes is the assembly of the `asm` that keys the table. D130's structure
 gate confirms all 179 tags are distinct, so every row has its own reading.
+
+## D132 — CORRECTION to D131: the catalogue is not a second source, it is the machine's own definition
+
+D131 §2 called x86isa's instruction listing "a **second source**" and scored the batch-27 route
+against naive baselines as though 23 of 23 measured a good model of the oracle. Chasing that green —
+because a green that easy is a suspect — refuted the framing.
+
+### 1. ⛔⛔ THE LISTING GENERATES THE DISPATCH
+
+`machine/dispatch-creator.lisp` opens with `(include-book "inst-listing")` and builds the opcode
+dispatch out of it:
+
+```lisp
+(fn-call (if (equal fn nil) unimplemented-opcode
+           (let ((fn-name (car fn)) …) …)))        ; dispatch-creator.lisp
+```
+
+The semantic-function slot the route reads **is** the datum that decides whether the running machine
+implements the opcode. ⇒ 🔑 **the catalogue and the machine are ONE source read two ways — statically
+and dynamically.** They are not two witnesses, and artifacts of one source agree because they are the
+same thing, not because they confirm each other.
+
+**So the score means something different from what D131 said it meant.** 23 of 23, and the 163 of 163
+below, are **not** evidence that a model of the oracle is good; they are evidence that **this reader
+parses the listing faithfully**. A miss would have been the finding. A hit is the baseline
+expectation. The route was still temporally predictive — it was written and hashed before ACL2 ran —
+and the baseline comparison still measures how much information the read carries versus a naive rule.
+What does not survive is the word *second*.
+
+### 2. ⭐⭐ THE CORRECTION MAKES THE RESULT STRONGER, NOT WEAKER
+
+If oracle support is **derivable**, then the unasked remainder can be priced with **no ACL2 run at
+all**. `scripts/p2_oracle_support.py` does that. Scored first on everything already measured:
+
+```
+SCORED AGAINST THE MEASURED TABLE — 168 pairs measured
+  predicted and scorable : 163      correct : 163  (100.0%)      wrong : 0
+  absent from the listing under this name  : 5
+  baseline "always refuses"                : 87 / 163
+  baseline "always executes"               : 76 / 163
+  baseline "refuse iff v-prefixed/zmm"     : 117 / 163
+```
+
+and then applied to the 258 pairs nobody has asked:
+
+```
+THE UNASKED REMAINDER, PRICED STATICALLY — 258 pairs, 37,334 instructions
+  x86isa IMPLEMENTS    84 pairs / 15,119 / 40.5% of the remainder
+  x86isa DOES NOT     158 pairs / 20,108 / 53.9%
+  NOT RESOLVED HERE    16 pairs /  2,107 /  5.6%
+```
+
+**Those 84 pairs are the ones that can become differential vectors**, ranked by demand, and a head
+can now pick a batch by what the oracle can actually validate instead of by demand order alone. That
+is a better artifact than a good predictor would have been.
+
+### 3. ⚠️ WHAT THE PROBE STILL BUYS — STATED AS A MEASUREMENT, NOT AN ASSUMPTION
+
+A static read cannot see the ways a form fails **before** the dispatch is reached or **despite** an
+implemented slot: a byte string that does not decode to that entry at all; a feature-flag or CR4
+gate; an ACL2 guard violation (`cvtss2sd` at zero operands raises one — which is exactly why it
+serves as the operand control). **163 of 163 is a measured statement that none of those bit on 168
+pairs.** It is not a claim that they cannot, and `measured_availability` still publishes only what
+ACL2 executed. ⇒ the probe's residual value is now *characterised* rather than assumed, which is
+what lets a future head decide when to spend one.
+
+### 4. ⛔ THE READER'S OWN DEFECT, FOUND WHILE CHECKING IT — AND IT WAS WRONG IN BOTH DIRECTIONS
+
+The first version bucketed a legacy entry by its **feature flag**. Two real entries broke it:
+
+| entry | feature | operands | truth | the reader said |
+|---|---|---|---|---|
+| `PSHUFW` | `:SSE` | `(P Q)(Q Q)` | MMX | SSE-legacy — **wrong bucket** |
+| `PSHUFB` | `:SSSE3` | `(P Q)(Q Q)` | MMX | *no bucket at all* — `":SSSE3"` does not contain the substring `":SSE"` |
+
+⇒ 🔑 **a legacy entry's register file is in its OPERAND LETTERS, not in its feature flag** — the SDM's
+`P`/`Q`/`N` name MMX registers and `V`/`W`/`H`/`U` name XMM ones. That is the same rule
+`probe_bucket` already follows, for the same reason: the mnemonic and the feature flag are labels,
+the operands are the thing. Repairing it lifted scorable coverage from 156 to **163 of 168** and left
+the disagreement count at **zero**, which is the shape of a reader defect rather than a source
+disagreement: it moved rows from *unreadable* into *correct*, not from *wrong* into *right*.
+
+### 5. THE RESIDUAL GAP, NAMED AND NOT GUESSED
+
+Five measured pairs and sixteen unasked ones carry a name the listing does not use: AT&T size
+suffixes (`cvtsi2sdl`, `cvtsi2ssq`), `movd`, `vpermq`, `pextrw`, `vzeroupper`. **None is resolved by
+stripping a suffix**, because recovering a mnemonic by stripping characters off a label is D100's
+lossy key exactly, and it is how a phantom row was published once already. They are printed as
+unresolved so the next head sees a gap rather than a guess.

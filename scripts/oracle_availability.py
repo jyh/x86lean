@@ -656,23 +656,29 @@ P2_FORMS = [
     # ⭐⭐ THE PREDICTION ROUTE CHANGED THIS BATCH, BECAUSE b26's ROUTE FAILED.
     # b26 predicted from SIBLING BASE RATES and got five wrong, all in the same
     # direction, four of them by inferring a VEX-128 verdict from an SSE-legacy
-    # sibling.  So b27's predictions were read off a SECOND SOURCE instead: the
-    # oracle's own catalogue, `machine/inst-listing.lisp`, at THE ENTRY WHOSE
-    # ENCODING MATCHES THE BYTES CLANG PRODUCED (VEX/EVEX class, vector length,
-    # prefix, opcode, /reg).  A `'NIL` semantic-function slot ⇒ predict refuses.
-    # ⛔ THE CATALOGUE IS EVIDENCE, NOT THE SPECIFICATION — it has been AHEAD of
-    # the tool before.  That is exactly why it is worth scoring: a disagreement
-    # is a finding about the ORACLE'S OWN RECORD and is reusable by every later
-    # batch that predicts this way.
+    # sibling.  So b27's declarations were read off x86isa's own instruction
+    # listing instead, `machine/inst-listing.lisp`, at THE ENTRY WHOSE ENCODING
+    # MATCHES THE BYTES CLANG PRODUCED (VEX/EVEX class, vector length, prefix,
+    # opcode, /reg).  A `'NIL` semantic-function slot ⇒ declare refuses.
+    # ⛔⛔ CORRECTED BY D132: THIS PARAGRAPH ORIGINALLY CALLED THE LISTING "A
+    # SECOND SOURCE" AND IT IS NOT ONE.  `machine/dispatch-creator.lisp` includes
+    # `inst-listing` and builds the opcode dispatch FROM it, so the slot read
+    # here is the datum that DECIDES the running machine's behaviour.  The
+    # listing and the machine are ONE source read two ways.  ⇒ the 23 of 23 below
+    # is not a model of the oracle proving itself; it is this reading proving
+    # FAITHFUL.  A miss would have been the finding.  See
+    # `scripts/p2_oracle_support.py`, which generalises the read and scores it on
+    # all 168 measured pairs.
     # ⚠️ The CR4=0 column is predicted too, and independently: MMX needs neither
     # OSFXSR nor OSXMMEXCPT, so the four MMX forms are predicted to execute in
     # BOTH arms (as the shipped `packuswb_mmx` row does), and every SSE/AVX form
     # to refuse at CR4=0.  A miss in that column is its own finding.
     #
     # ⭐⭐ THE RESULT: 23 OF 23, IN BOTH COLUMNS (46 of 46 cells), against b26's
-    # 18 of 23 on the base-rate route.  ⛔ AND A GREEN THAT EASY IS A SUSPECT, so
-    # it was priced rather than believed.  Three naive rules scored on the same
-    # 23, on the published CR4=0x600 column:
+    # 18 of 23 on the base-rate route.  ⛔ AND A GREEN THAT EASY IS A SUSPECT —
+    # the pricing below is what it bought, and chasing it is what found D132's
+    # correction above.  Three naive rules scored on the same 23, on the
+    # published CR4=0x600 column:
     #     "always refuses"                    17 / 23
     #     "always executes"                    6 / 23
     #     "refuse iff VEX/EVEX (v-prefixed)"  20 / 23   <- the best baseline
