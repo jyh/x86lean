@@ -7411,3 +7411,88 @@ costs no more per pair and yields forms the differential can actually use.
 
 `ci_local.py --job build`: **26 of 26 GREEN**. All 23 encodings from `clang`; D128's gate re-derives
 all **225** rows on both disassemblers; D130's structure gate confirms 225 distinct tags.
+
+## D136 — P2 BATCH 30: the implemented remainder exhausted in one batch, and the demand it moved counted two ways
+
+Batches 27–29 asked 23 pairs each off the derived support read. This batch asks **all 38 that
+remained** — every (mnemonic, bucket) pair `scripts/p2_oracle_support.py` reads as IMPLEMENTED in
+x86isa's instruction listing. After it the derived-support queue holds **no implemented pair that
+has never been asked**: the tool now prints `x86isa IMPLEMENTS 0 pairs / 0 / 0.0% of the remainder`.
+
+### 1. WHY ONE BATCH AND NOT TWO, WHICH IS AN ARGUMENT ABOUT COST AND NOT ABOUT CONFIDENCE
+
+The costs here scale with BATCHES, not rows: one ACL2 run (16.6 s for the whole 263-row table, not
+per row), one `ci_local --job build` (2m25), one roster regeneration, one decision entry, one
+commit. The costs that scale with ROWS — a spelling chosen, an encoding taken from `clang`, a
+verdict predicted — are identical however they are grouped. Splitting 38 into 23 + 15 would have
+paid the fixed cost twice and bought nothing.
+
+⛔ **And it does not weaken the test.** Every row is scored independently against a declaration
+hashed before ACL2 ran. 38 rows that could each fail is a strictly stronger run than 23 that could.
+
+### 2. THE DECLARATION WAS SEALED BEFORE THE ORACLE RAN
+
+```
+sha256(the 38 rows) = 6e8474ff4f07771264068577b88644d49e94954752cecf2d5d1815c2609ff942
+sealed 2026-09-05T20:02:18Z — verified byte-identical in the file BEFORE the run and again AFTER
+```
+
+Predictions: 29 `(refuses, executes)` for the SSE/VEX/AVX rows, 9 `(executes, executes)` for the MMX
+rows — MMX does not go through CR4.OSFXSR, so the CR4=0 arm is not a refusal for them.
+
+**RESULT: 38 of 38, both columns, 76 of 76 cells. No missing reading. No guard violation.**
+`ci_local.py --job build`: 26 of 26 GREEN.
+
+### 3. ⭐ THE CR4=0 ARM IS DEMONSTRABLY NOT FROZEN, AND THIS BATCH IS ITS OWN CONTROL
+
+A column that reads `refuses` on every row cannot be distinguished from a column that is not being
+set at all — the failure mode of [[feedback-a-dimension-with-no-parameter-is-frozen]], where 77 verdicts
+turned out to be readings at zero. This batch carries the discriminator **inside itself**: the nine
+MMX rows declare `executes` at CR4=0 where the twenty-nine others declare `refuses`, and all
+thirty-eight matched. Measured inside batch 30: `{(executes, executes): 9, (refuses, executes): 29}`.
+Had the CR4=0 arm been stuck at `refuses`, nine rows would have gone red. It is a positive control
+that cost nothing because the batch's own composition supplies it.
+
+The operand control ran as always and reports the write LANDS and the verdict DEPENDS on it, so
+these are readings at the declared operands rather than at zero.
+
+### 4. THE FP RISK WAS PRICED BEFORE THE RUN, NOT EXPLAINED AFTER
+
+Nine rows do FP arithmetic (`addpd`, `subpd`, `mulpd`, `divpd`, `divps`, `maxps`, `minps`, `sqrtps`,
+`cvtpd2ps`). An ACL2 guard violation is the outcome that is NEITHER verdict — it yields no reading
+at all. Every result was computed first: double lanes 32.501960784313724 and 8.125246051728084,
+single lanes 3.0039215087890625 and 2.5039138793945312, giving add 40.627207 · sub 24.376715 ·
+mul 264.086429 · div 4.00012 (pd) / 1.199690 (ps) · max 3.003922 · min 2.503914 · sqrt 1.582376 ·
+cvtpd2ps 8.125246 — all normal, no NaN, no denormal, no Inf, no zero divisor, no negative root.
+So none was expected, and a firing would have read as the finding it is.
+
+### 5. THE MOVE, IN BOTH ACCOUNTINGS
+
+```
+THE UNASKED REMAINDER   212 / 23,532 / 5.7%  ->  174 / 22,215 / 5.4%
+   of which x86isa IMPLEMENTS   38 / 1,317   ->    0 /      0     <- the seam
+BY MNEMONIC     EXECUTES 107 / 160,182 / 38.8%  ->  138 / 161,256 / 39.1%
+                probed   189 / 377,344 / 91.4%  ->  220 / 378,418 / 91.7%
+BY (mn,BUCKET)  EXECUTES  88 / 131,648 / 31.9%  ->  126 / 132,909 / 32.2%
+                probed   176 / 301,525 / 73.1%  ->  214 / 302,786 / 73.4%
+                not asked at its own bucket   110,953 / 26.9%  ->  109,692 / 26.6%
+```
+
+By (mnemonic, bucket) the pair count moved by **exactly 38** and the demand by **exactly 1,261** —
+and 1,261 is the number I computed independently from `per_ext_map` for these 38 pairs before
+reading the regenerated roster. Two routes, one number.
+
+### 6. ⛔ AND THE NUMBER THE QUEUE TOOL PRINTED FOR THIS BATCH WAS 1,317, NOT 1,261
+
+`p2_oracle_support.py` priced this batch at **1,317** instructions; the roster credited **1,261**.
+The 56-instruction difference is not noise and not a rounding: it decomposes exactly across seven
+VEX/AVX mnemonics whose demand straddles two buckets — `vmovups` 17 · `vpaddq` 26 · `vmovupd` 4 ·
+`vmovmskps` 2 · `vmovapd` 4 · `vandps` 1 · `vxorpd` 2 = 56.
+
+That is **D134's defect, in the tool written the same sitting as D134's repair**: a pair priced with
+its MNEMONIC's whole demand while labelled and consumed at ONE bucket. It is repaired in D137, which
+also names the sibling in `p2_roster.unprobed()` — the ranker that ordered batches 27–30 — because
+naming a defect is not finding its siblings.
+
+⚠️ It changes nothing about *this* batch's verdicts, which are measurements, not estimates. What it
+touched was the PRICE and the ORDER, and both are stated here at the corrected figure.

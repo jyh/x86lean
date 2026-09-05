@@ -803,6 +803,89 @@ P2_FORMS = [
     ("sqrtsd",         "sqrtsd %xmm1, %xmm0",             "f20f51c1",      "refuses", "executes"),
     ("pcmpgtb_mmx",    "pcmpgtb %mm1, %mm0",              "0f64c1",        "executes", "executes"),
     ("vpcmpgtd_y",     "vpcmpgtd %ymm1, %ymm2, %ymm0",    "c5ed66c1",      "refuses", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # P2 BATCH 30 — THE IMPLEMENTED REMAINDER, EXHAUSTED IN ONE BATCH.
+    # Not "the next 23": ALL 38 pairs that `scripts/p2_oracle_support.py`
+    # reads as IMPLEMENTED in x86isa's instruction listing, 1,317 instructions
+    # of census demand.  After this batch the derived-support queue holds NO
+    # implemented pair that has never been asked, and what remains unasked is
+    # 158 pairs the listing says are NOT implemented plus 16 whose names it
+    # does not carry.
+    # ⭐ WHY ONE BATCH AND NOT TWO.  The costs that scale with BATCHES rather
+    # than rows are the whole cost here: one ACL2 run (13.5 s for the table,
+    # not per row), one `ci_local --job build`, one DECISIONS entry, one
+    # roster regeneration, one commit.  The costs that scale with ROWS —
+    # a spelling chosen, an encoding taken from clang, a verdict predicted —
+    # are identical whether they are spread over one batch or two.  Splitting
+    # would have bought nothing and paid the fixed cost twice
+    # ([[feedback-measure-tokens-per-request]]: the unit of cost is the BATCH).
+    # ⛔ AND IT DOES NOT WEAKEN THE TEST.  Each row is scored independently
+    # against a declaration hashed before ACL2 ran; 38 rows that could each
+    # fail is a STRICTLY STRONGER run than 23 that could, not a laxer one.
+    # ⛔ EVERY `hx` CAME FROM `clang` (one assembly unit, one `objdump -d`,
+    # the addresses checked CONSECUTIVE so the row/instruction zip is verified
+    # rather than assumed); none was typed.
+    # ⚠️ THE NINE MMX ROWS ARE DECLARED (executes, executes).  MMX does not go
+    # through CR4.OSFXSR, so the CR4=0 arm is not a refusal for them — the
+    # precedent is batch 29's psllq/psrad/psubb/pcmpgtb at MMX.  Ten mnemonics
+    # here already sit at SSE-legacy (psrld, paddb, pcmpgtw, pslld, pcmpeqd,
+    # pcmpeqb, pcmpeqw, psubd, pcmpgtd) and are asked here at MMX: DISTINCT
+    # census keys, distinct labels, measured separately.
+    # ⚠️ THE FP RISK, PRICED BEFORE THE RUN AND NOT EXPLAINED AFTER.  Nine rows
+    # do FP ARITHMETIC (addpd, subpd, mulpd, divpd, divps, maxps, minps,
+    # sqrtps, cvtpd2ps) and an ACL2 GUARD VIOLATION is the outcome that is
+    # NEITHER verdict — it yields no reading at all.  At XMM0_NZ/XMM1_NZ the
+    # double lanes are 32.501960784313724 and 8.125246051728084, the single
+    # lanes 3.0039215087890625 and 2.5039138793945312, and EVERY result was
+    # computed before the run: add 40.627207 · sub 24.376715 · mul 264.086429
+    # · div 4.00012 (pd) / 1.199690 (ps) · max 3.003922 · min 2.503914 ·
+    # sqrt 1.582376 · cvtpd2ps 8.125246 — all NORMAL, no NaN, no denormal, no
+    # Inf, no zero divisor, no negative root, the conversion far inside float
+    # range.  So none is expected; a firing is the FINDING, and `p2_run`
+    # reports a MISSING reading separately because it is not a refusal.
+    # ⚠️ movmskps and vmovmskps write a GPR, not a vector register (the b29
+    # precedent is cvtss2si); probe_bucket reads the bucket off `%xmm`.
+    # ⛔ DECLARATION SEALED BEFORE ACL2 RAN: sha256 of the 38 rows below
+    # = 6e8474ff4f07771264068577b88644d49e94954752cecf2d5d1815c2609ff942,
+    # 2026-09-05T20:02:18Z.
+    ("psrld_mmx",       "psrld %mm1, %mm0",                  "0fd2c1",          "executes", "executes"),
+    ("paddb_mmx",       "paddb %mm1, %mm0",                  "0ffcc1",          "executes", "executes"),
+    ("pcmpgtw_mmx",     "pcmpgtw %mm1, %mm0",                "0f65c1",          "executes", "executes"),
+    ("pslld_mmx",       "pslld %mm1, %mm0",                  "0ff2c1",          "executes", "executes"),
+    ("pcmpeqd_mmx",     "pcmpeqd %mm1, %mm0",                "0f76c1",          "executes", "executes"),
+    ("pcmpeqb_mmx",     "pcmpeqb %mm1, %mm0",                "0f74c1",          "executes", "executes"),
+    ("pcmpeqw_mmx",     "pcmpeqw %mm1, %mm0",                "0f75c1",          "executes", "executes"),
+    ("psubd_mmx",       "psubd %mm1, %mm0",                  "0ffac1",          "executes", "executes"),
+    ("pcmpgtd_mmx",     "pcmpgtd %mm1, %mm0",                "0f66c1",          "executes", "executes"),
+    ("shufpd",          "shufpd $0x1, %xmm1, %xmm0",         "660fc6c101",      "refuses", "executes"),
+    ("xorpd",           "xorpd %xmm1, %xmm0",                "660f57c1",        "refuses", "executes"),
+    ("unpcklps",        "unpcklps %xmm1, %xmm0",             "0f14c1",          "refuses", "executes"),
+    ("mulpd",           "mulpd %xmm1, %xmm0",                "660f59c1",        "refuses", "executes"),
+    ("addpd",           "addpd %xmm1, %xmm0",                "660f58c1",        "refuses", "executes"),
+    ("andnps",          "andnps %xmm1, %xmm0",               "0f55c1",          "refuses", "executes"),
+    ("movmskps",        "movmskps %xmm1, %eax",              "0f50c1",          "refuses", "executes"),
+    ("andnpd",          "andnpd %xmm1, %xmm0",               "660f55c1",        "refuses", "executes"),
+    ("unpcklpd",        "unpcklpd %xmm1, %xmm0",             "660f14c1",        "refuses", "executes"),
+    ("orps",            "orps %xmm1, %xmm0",                 "0f56c1",          "refuses", "executes"),
+    ("unpckhps",        "unpckhps %xmm1, %xmm0",             "0f15c1",          "refuses", "executes"),
+    ("orpd",            "orpd %xmm1, %xmm0",                 "660f56c1",        "refuses", "executes"),
+    ("subpd",           "subpd %xmm1, %xmm0",                "660f5cc1",        "refuses", "executes"),
+    ("maxps",           "maxps %xmm1, %xmm0",                "0f5fc1",          "refuses", "executes"),
+    ("minps",           "minps %xmm1, %xmm0",                "0f5dc1",          "refuses", "executes"),
+    ("unpckhpd",        "unpckhpd %xmm1, %xmm0",             "660f15c1",        "refuses", "executes"),
+    ("divps",           "divps %xmm1, %xmm0",                "0f5ec1",          "refuses", "executes"),
+    ("divpd",           "divpd %xmm1, %xmm0",                "660f5ec1",        "refuses", "executes"),
+    ("sqrtps",          "sqrtps %xmm1, %xmm0",               "0f51c1",          "refuses", "executes"),
+    ("cvtpd2ps",        "cvtpd2ps %xmm1, %xmm0",             "660f5ac1",        "refuses", "executes"),
+    ("vpaddq_v",        "vpaddq %xmm1, %xmm2, %xmm0",        "c5e9d4c1",        "refuses", "executes"),
+    ("vmovupd_v",       "vmovupd %xmm1, %xmm0",              "c5f910c1",        "refuses", "executes"),
+    ("vmovmskps_v",     "vmovmskps %xmm1, %eax",             "c5f850c1",        "refuses", "executes"),
+    ("vandps_v",        "vandps %xmm1, %xmm2, %xmm0",        "c5e854c1",        "refuses", "executes"),
+    ("vxorpd_v",        "vxorpd %xmm1, %xmm2, %xmm0",        "c5e957c1",        "refuses", "executes"),
+    ("vorps_v",         "vorps %xmm1, %xmm2, %xmm0",         "c5e856c1",        "refuses", "executes"),
+    ("vmovups_y",       "vmovups %ymm1, %ymm0",              "c5fc10c1",        "refuses", "executes"),
+    ("vmovapd_y",       "vmovapd %ymm1, %ymm0",              "c5fd28c1",        "refuses", "executes"),
+    ("vpcmpeqq_y",      "vpcmpeqq %ymm1, %ymm2, %ymm0",      "c4e26d29c1",      "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),

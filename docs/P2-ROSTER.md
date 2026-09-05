@@ -167,9 +167,9 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 107 | 160,182 | 38.8% |
+| the oracle EXECUTES | 138 | 161,256 | 39.1% |
 | the oracle REFUSES | 82 | 217,162 | 52.6% |
-| **probed so far** | 189 | **377,344** | **91.4%** |
+| **probed so far** | 220 | **378,418** | **91.7%** |
 
 ⛔⛔ **AND THAT IS NOT THE COVERAGE NUMBER.** A mnemonic gets one verdict, so the
 table above carries a mnemonic's WHOLE demand on a reading taken at ONE of its
@@ -181,18 +181,18 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 88 | 131,648 | 31.9% |
+| the oracle EXECUTES | 126 | 132,909 | 32.2% |
 | the oracle REFUSES | 88 | 169,877 | 41.2% |
-| **probed so far** | 176 | **301,525** | **73.1%** |
-| not asked at its own bucket | | 110,953 | 26.9% |
+| **probed so far** | 214 | **302,786** | **73.4%** |
+| not asked at its own bucket | | 109,692 | 26.6% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-75,819 instructions, 18.4% of the gap** — that is
+75,632 instructions, 18.3% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
 
-So of the demand probed, **42% has an oracle** by mnemonic and
+So of the demand probed, **43% has an oracle** by mnemonic and
 **44%** by bucket — after a one-line change to the
 pre-states, and not before it.
 
