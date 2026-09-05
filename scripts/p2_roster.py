@@ -494,6 +494,22 @@ not by this table's sort — but the row count is DERIVED now, and it is
         else:
             rf += occ; rf_names.append(mn)
     probed = ex + rf
+    # ⛔⛔ THE PARAGRAPH BELOW CARRIED THREE FIGURES AS LITERALS, AND TWO OF THEM
+    # WERE FALSE IN THE COMMIT THAT INTRODUCED THEM (`00dd9ea`: the table beside
+    # the prose said REFUSES **11** and ranked `pmaddwd` **5th**, while the prose
+    # said "nine" and "rank 4"). The third, `2.31%`, was true at birth and read
+    # `5.15%` by the time anyone looked.
+    # ⇒ 🔑 A BYTE-FOR-BYTE DERIVATION GATE PROVES `file == script`. IT CAN NEVER
+    #   PROVE `script == true`, so a hand-written number inside a generated
+    #   document is invisible to that gate for as long as the document exists —
+    #   and it reads as generated, which is why nobody checks it.
+    #   ([[feedback-a-derivation-gate-wraps-a-false-sentence]])
+    # Every figure in the prose is now taken from the SAME objects the ranked
+    # table above is printed from, so the two cannot disagree again.
+    _pm_rank = next((i for i, (mn, _o, _s) in enumerate(b["joined"], 1)
+                     if mn == "pmaddwd"), None)
+    _pm_occ = next((o for mn, o, _s in b["joined"] if mn == "pmaddwd"), 0)
+    _pm_share = 100.0 * _pm_occ / b["total_uncovered"]
     fh.write("\n## What the oracle can answer — measured, not read\n\n")
     fh.write(f"""`scripts/oracle_availability.py --p2` runs every form below on ACL2
 x86isa under **two CR4 settings**, with an always-executes control and an
@@ -517,8 +533,8 @@ one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
-rank 4 in the demand list, 2.31% of the whole gap, refusing in the same run in
-which `movdqa` beside it executes. The nine the oracle does not have are
+rank {_pm_rank} in the demand list, {_pm_share:.2f}% of the whole gap, refusing in the same run in
+which `movdqa` beside it executes. The {len(rf_names)} the oracle does not have are
 `{'`, `'.join(rf_names)}`.
 
 ⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the

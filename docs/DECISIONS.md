@@ -6547,3 +6547,147 @@ first-red commit and its blast radius named here rather than left to be rediscov
 ⚠️ And a caution the next head should carry: `ci_local.py` runs on **arm64 macOS**; CI's runner is
 **x86-64 Linux**, where this tree has been measured 1.7×–3.1× slower per module. A green here is not a
 receipt for the runner. It is, however, the first time in five batches that anything has asked.
+
+## D127 — the census regenerated, every moved instruction attributed, and three false figures a byte-for-byte gate could never see
+
+**D126's first item, discharged.** `docs/DEMAND-CENSUS.md` was five batches stale (stamped against
+131 mnemonics, the model at 135); three of the `build` job's twenty-five steps were red because of
+it. The corpus was rebuilt from the recipe in the document, the census re-run, and the P2 roster
+re-derived. `ci_local.py --job build` now reads **25 of 25 GREEN** — the first fully clean local
+`build` this repository has had.
+
+### 1. ⭐⭐ THE CONTROL WAS ALREADY IN THE RECORD, AND IT IS AN EXACT ONE
+
+D126's stated risk was that regenerating "moves every published coverage percentage", so a number
+gets published nobody can attribute. That risk is real only if the corpus or the disassembler moved
+underneath the document as well. **Both were pinned by a control that cost nothing to read: the
+document's own instruction totals.** They are a function of the corpus and the tool ALONE — the model
+does not enter them — and they are printed per column in every version of the document.
+
+```
+column              published (HEAD)      re-measured today
+cc1                    5,379,923            5,379,923   ✔
+coreutils                879,551              879,551   ✔
+glibc                    603,554              603,554   ✔
+dav1d                    303,830              303,830   ✔
+ffmpeg                 3,116,986            3,116,986   ✔
+vlc-codec                151,688              151,688   ✔
+vlc-video_chroma         112,104              112,104   ✔
+vpx                      722,331              722,331   ✔
+x264                     377,330              377,330   ✔
+vmlinux-kernel         2,781,898            2,781,898   ✔
+```
+
+**Ten of ten, exactly.** So the corpus and the disassembler are the same ones the published
+percentages were measured with, and every number that moved, moved because the MODEL moved.
+
+⚠️ **The disassembler is not recorded anywhere in the document, and it decides these totals.** It is
+`objdump` off `PATH`, which on this box is **Apple LLVM objdump (Apple LLVM version 21.0.0)** —
+GNU binutils 2.47 is installed but keg-only and unlinked, so it is not what runs. That the tool was
+constant across the whole document history was established the same way: the totals above are
+byte-identical in all nine regenerations from `50dcfa7` (09-03 13:27) through `320cb45`
+(09-04 16:27), a window that spans the binutils install at 11:48. ⛔ **A future head who regenerates
+on a box where GNU objdump is first on `PATH` will get different totals and nothing in the document
+will say why** — D89 measured that difference in another gate (GNU wraps its byte column at seven).
+Recording the tool in the stamp is docketed and deliberately NOT done here: hashing it would red the
+gate permanently on the x86-64 Linux runner, which is a gate nobody can ever have.
+
+### 2. ⛔ THE CORPUS RECIPE HAS A GAP, AND IT COST 6,452 INSTRUCTIONS
+
+The first rebuild reproduced **nine** of the ten totals; `coreutils` read **873,099** against the
+published **879,551**. That was not a repo defect — it was mine. The recipe says to `ar x` + `tar xf`
+each package into "one subdir of `$CORPUS` per column"; I cherry-picked `usr/bin` and so dropped
+`usr/sbin/chroot` and `usr/libexec/coreutils/libstdbuf.so`.
+
+⛔ **The mechanism was measured, not assumed.** Those two files alone, run through this same census as
+their own column, count **6,452** instructions — and `873,099 + 6,452 = 879,551` exactly. The corpus
+was rebuilt from whole trees and all ten then matched.
+
+🔑 The value of the control is what it did here: it turned a silent 0.7% error in one column into a
+number with a name, before anything was published. A regeneration with no reproduced control cannot
+tell "I rebuilt the corpus wrong" from "the corpus changed" from "the model changed" — and all three
+look like a plausible new reading.
+
+### 3. ⭐ THE GAP MOVED BY 4,591, AND ALL 4,591 ARE ACCOUNTED FOR — BY THREE INDEPENDENT ROUTES
+
+```
+the uncovered gap (assembly class)   417,231  ->  412,640     -4,591
+  the oracle EXECUTES                144,535  ->  139,944     -4,591
+  the oracle REFUSES                 179,651  ->  179,651          0   (raw count UNCHANGED)
+the roster's measured hole             43.1%  ->    43.5%
+  ⇒ the hole did not grow. Its NUMERATOR did not move at all; the denominator shrank.
+```
+
+The model gained four mnemonics since the census's stamp — `movhps`, `pmovmskb`, `prefetchnta`,
+`prefetcht0`. Their demand in the OLD uncovered bucket sums to **4,631**, which is **40 more** than
+the gap actually moved. The 40 were chased rather than rounded: they are `pmovmskb (vector operand)`
+in ffmpeg (15) and x264 (25) — a bucket batch 23's `pmovmskb` does not cover, so they correctly
+stayed uncovered. `4,631 - 40 = 4,591`. ⭐ And the strongest arm: of the **1,346** other
+(column, uncovered-key) pairs, **1,346 are byte-identical** old to new. Nothing else moved at all.
+
+⇒ 🔑 **A DENOMINATOR AND A NUMERATOR MAY MOVE IN ONE BATCH IF EVERY INSTRUCTION OF THE MOVE IS
+ATTRIBUTED.** D126 was right that doing it blind publishes an unattributable number; the repair is
+not to avoid the batch but to make the move add up, per instruction, against a control the reading
+did not supply.
+
+### 4. ⛔⛔ THREE FIGURES IN A GENERATED, GATED DOCUMENT THAT WERE FALSE THE DAY THEY WERE WRITTEN
+
+`docs/P2-ROSTER.md` is generated, and `p2_roster.py --check` re-derives it byte-for-byte in CI. That
+gate was **CLEAN** on a shipped document which said, four lines under its own table:
+
+```
+prose:  "...it is rank 4 in the demand list, 2.31% of the whole gap..."
+table:  | 1 | `pmaddwd` | 21,239 | 5.09% |          <- rank 1, not 4; 5.09%, not 2.31%
+prose:  "The nine the oracle does not have are `...`"   <- followed by 49 names
+table:  | the oracle REFUSES | 49 | 179,651 | 43.1% |
+```
+
+**Two of the three were false in the very commit that introduced them** (`00dd9ea`, the first
+oracle-availability run: the table said REFUSES **11** and ranked `pmaddwd` **5th** while the prose
+already said "nine" and "rank 4"). The third, `2.31%`, was true at birth and had drifted to 5.09%.
+They survived because they were literals inside the generator's f-string, so the document is a
+faithful rendering of the script and the gate has nothing to complain about.
+
+⇒ 🔑 **A BYTE-FOR-BYTE DERIVATION GATE PROVES `file == script`. IT CAN NEVER PROVE `script == true`.**
+A hand-written number inside a generated document is invisible to that gate for as long as the
+document exists — and, worse, it *reads as generated*, so no human checks it either. Its own
+neighbours were derived and correct the whole time.
+
+**The repair** is not a new gate but the removal of the thing a gate cannot see: all three figures are
+now taken from the same objects (`b["joined"]`, `rf_names`, `b["total_uncovered"]`) that print the
+table beside them, so the prose and the table cannot disagree again. They now read `rank 1`, `5.15%`
+and `The 49`, agreeing with the table and with the 49 names actually listed (checked by counting
+them, not by trusting the field).
+
+⚠️ **The sibling search was run, not skipped** ([[feedback-naming-a-defect-is-not-finding-its-siblings]]):
+these three are the only hand-written figures in either generator's prose blocks; every other number
+in both documents is interpolated.
+
+### 5. WHAT THIS BATCH DELIBERATELY DID NOT DO
+
+- **The per-mnemonic collapse (D124 §3) is untouched.** It moves a published numerator's provenance
+  and remains its own batch, with `vpaddw` as the worked example.
+- **No ceiling and no budget was touched.** `kernel_ceilings.txt` and `kernel_delta_budget.txt` are
+  unchanged; this batch changes no `.lean` file at all, so the delta gate has nothing to judge.
+- **Nothing was pushed.** Local only, both tiers.
+- **The historical figures in this file are left standing as written.** D115's, D124's and D126's
+  `417,231` and `43.1%` were true on their dates and are dated records, not live claims; rewriting
+  them would destroy the only evidence of what each batch actually saw.
+
+### 6. THE CORPUS, IDENTIFIED
+
+19 Debian `amd64` packages, every recipe URL re-probed and resolving `200` with no version redirect
+before the download. The sha256 of each is recorded in the bank so the next regeneration can tell a
+moved pool from a moved model; `coreutils_9.10-1_amd64.deb` is
+`6e39a854a50bdfb912f5afc7ffa920d83093b33a2394fa5ece4771adf9b40dbc`.
+
+### 7. THE CENSUS AFTER THE MOVE
+
+```
+census stamp        131 / 6d5c44858342796c / c6278134749d11c1
+                ->  135 / 756af18bbd2a48a9 / 2d8eaea351934cb1
+asked, per KEY               69.8%  ->  69.5%
+the unasked remainder    303 pairs / 88,333 / 21.2%  ->  304 pairs / 88,373 / 21.4%
+  (+1 pair, +40 instructions: the `pmovmskb (vector operand)` bucket of §3, now visible as unasked)
+ci_local.py --job build      24 of 25  ->  25 of 25 GREEN
+```
