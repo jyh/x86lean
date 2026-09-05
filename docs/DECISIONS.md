@@ -7702,3 +7702,82 @@ THE UNASKED REMAINDER   174 / 18,224  ->  172 / 18,032
 not implement and one it does that no probe can express — a *design* item (widen `probe_bucket`),
 not a queue item. D136's headline `IMPLEMENTS 0 pairs` was true of the reader and false of x86isa;
 it is corrected here, and the correction was worth 192 instructions of measured coverage.
+
+## D139 — the soft-float commission, opened: its premise tested, its price re-derived, and one of its own kill-checks refuted
+
+The council's item 2(c) put the soft-float commission on this repository's queue as P3, *"a design
+commission with its own freeze + refuter pass when paris reaches it"*. The two items ahead of it
+(D136, D138) are discharged, so it is opened here. `docs/SOFT-FLOAT-COMMISSION.md` is the freeze and
+`docs/QUEUE.md` is the queue it sits on — the first time this repository's queue has been a file
+rather than bank prose, which is §2's whole lesson.
+
+### 1. THE PREMISE WAS INHERITED, SO IT WAS TESTED
+
+The commission has been carried since batch 19 on *"Lean's `Float` is an opaque extern type the
+kernel cannot reduce"*. Run at `v4.32.0-rc1`, it is confirmed and **stronger than stated**:
+
+```
+(2.0:Float) + 2.0 = 4.0  by rfl          ⛔ not definitionally equal
+#print Float                              structure Float where val : floatSpec.float
+#print floatSpec                          opaque floatSpec : FloatSpec   ← nothing to unfold
+                         by native_decide ⛔ failed to synthesize Decidable (2.0 + 2.0 = 4.0)
+CONTROL, same run:  (2#8) + (2#8) = 4#8 by decide   ✔ depends on NO axioms
+```
+
+There is no route through `Float` **at any axiom price** — not merely no kernel route. The escape
+hatch usually available (`native_decide`, at the cost of `ofReduceBool`) does not apply, because
+propositional equality on `Float` has no `Decidable` instance at all.
+
+### 2. THE PRICE HAD DRIFTED 44% WHILE THE ROW SAT DOCKETED
+
+The commission's size has been quoted as **25,688 instructions over 7 mnemonics** since batch 19.
+Re-derived from the current measured availability table: **40 pairs, 36,925 instructions.** Batches
+29, 30 and 31 measured twenty more FP mnemonics as executing, and every one of them joined a block
+whose price was a sentence in a bank.
+
+⇒ 🔑 **A cost carried in prose does not move when the world does.** Nothing was wrong when written;
+what was missing is that no gate and no generator owned the number, so eleven days of measurement
+went past it. That is why the price now names the tool that prints it.
+
+### 3. K1 — VERIFIED, WITH A CONTROL
+
+`ucomisd`'s comparison rule, over Lean-core `BitVec`, no mathlib, decided by the **kernel**, with
+`#print axioms` reporting `[propext]` — inside the three standard axioms. Seven cases pass,
+including the four a raw bitvector compare gets wrong (`+0 = -0`, negative ordering, NaN unordered).
+
+⛔ And a planted-wrong expectation was refuted by the kernel (*"decide proved that the proposition …
+is false"*), because seven passing `decide`s prove nothing about propositions that might be vacuous.
+
+### 4. ⛔ THE REFUTER PASS KILLED ONE OF MY OWN KILL-CHECKS
+
+K2 said sub-group B *needs rounding, therefore MXCSR* — as a property of the block. Attacked by
+asking whether any member is exact for every input:
+
+```
+cvtss2sd   binary32 -> binary64 : 199,489 patterns   non-exact 0
+cvtsi2sdl  int32    -> binary64 : 200,000 values     non-exact 0
+CONTROL cvtsi2sdq  int64 -> binary64 : non-exact 198,824   <- the instrument sees rounding
+CONTROL cvtsi2ssl  int32 -> binary32 : non-exact 193,067
+```
+
+binary64 has an 11-bit exponent against binary32's 8 and 52 mantissa bits against 23, so every
+binary32 value widens exactly; every int32 fits in a 53-bit significand. **3,437 instructions leave
+the rounding-dependent block**, and the immediately-buildable group doubles: 3,182 → 6,619, from
+8.6% of the commission to 17.9%. A third group separated itself on the way — `cvttsd2si`/`cvttss2si`
+truncate, and truncation is fixed by the opcode rather than chosen by MXCSR.RC.
+
+⇒ 🔑 **A block named for a shared blocker is a hypothesis about every member of it.** `cvtss2sd` has
+sat inside this commission since batch 19 as one of its original five, and it cannot round. The
+grouping was made from the *instruction class* rather than from the *question* — can this result be
+inexact? — and no gate reads a class.
+
+### 5. WHAT IS RECOMMENDED, AND WHAT IS DELIBERATELY NOT PRICED
+
+Take sub-group A (6,619 instructions, no new state field) as an ordinary P2-shaped batch. Leave B
+frozen until K3 and K4 are **measured** — K3 because a `Cpu` field is not known to be cheap
+([[feedback-a-state-field-costs-every-record-proof]]: two fields once blew three unrelated record
+proofs), K4 because a 52×52 mantissa multiply in the kernel is not obviously affordable under the
+delta gate.
+
+⛔ **B's price is left blank on purpose.** Inventing one would be the third inherited figure in this
+commission's own history, and §2 is a record of what that costs.
