@@ -6012,3 +6012,56 @@ above 15. Both are joint facts ([[feedback-a-wrong-models-score-is-a-joint-fact]
 
 **Reversal cost:** one `Op` constructor, one semantics clause, one coverage row, one roster row,
 2 vectors, 3 arms — all on the branch.
+
+---
+
+## D123 — the VEX-128 bucket, and a census that is not finished when every mnemonic has been named
+
+**P2 batch 24. One ACL2 run of 11 arms.** Taken under the helm's 21:42 ruling: *finish the census*.
+
+### 1. ⛔⛔ WHY ROWS STAYED `not measured` AFTER A RUN THAT NAMED THEM
+
+Batch 21 probed `vpsubw` at **ymm** and it EXECUTES — and the roster went on printing `⚠️ not
+measured` for `vpsubw`. That is the join working CORRECTLY: its demand is dominantly **VEX-128**, and
+`dominant_bucket` refuses to carry a ymm reading across to an xmm row.
+
+⇒ 🔑 **A CENSUS IS NOT FINISHED WHEN EVERY MNEMONIC HAS BEEN NAMED. It is finished when every
+(mnemonic, BUCKET) the demand actually occupies has been asked.** Eleven ranked rows and 48,525
+instructions were still unmeasured after batch 21 for exactly this reason, and the caution was earned:
+`vpaddw` — **rank 4, 11,682 instructions** — had never been asked at the width where its demand lives.
+
+```
+EXECUTE  vpaddw 11,682 · vpsubw 6,234
+REFUSE   vpmulhrsw 5,010 · vmovq 3,430 · vpunpcklwd 3,630 · vpunpckhwd 3,352
+         vpmaddubsw 3,048 · vpackssdw 3,026 · vsubps 2,795
+```
+Both controls behaved (`vpxor` at VEX-128 executed, `movnti` refused).
+
+### 2. ⚠️⚠️ AND THE INSTRUMENT NOW ERRS IN **BOTH** DIRECTIONS
+
+```
+the oracle EXECUTES  55 mnemonics  129,979  31.2%
+the oracle REFUSES   42            164,825  39.5%   <- the hole
+probed               97            294,804  70.7%
+```
+
+The hole moved 33.7% → **39.5%**. But `executes` did not move at all, and it should have: `vpaddw`
+executes at xmm. It is counted as REFUSING because `p2_roster`'s verdict is per **mnemonic**, and a
+conflict between two buckets collapses to `refuses` — a rule written to stop double-counting demand,
+which here **condemns 11,682 instructions of executable work on the word of a `zmm` probe**.
+
+⇒ 🔑 So the two errors now point OPPOSITE WAYS, and neither is visible in the total:
+* an **unprobed** (mnemonic, bucket) pair defaults to *available* and **under-states** the hole;
+* a **collapsed** verdict lets one refusing width condemn every width and **over-states** it.
+
+⚠️ **39.5% is therefore the best current figure and it is not a clean floor** — the claim D120 made
+about 33.7% needs this qualification. It is a floor with respect to the 29.3% still unprobed, and an
+over-estimate with respect to at least one row. Both halves are stated because an under-claim looks
+like modesty and goes unpoliced ([[feedback-under-claims-are-unpoliced]]).
+
+⛔ **NOT REPAIRED HERE, and the reason is scope**: splitting `vec[mn]` per bucket changes the
+denominator of every published coverage number, and doing that inside a census batch would move two
+things at once. It is a named item for the next head, with `vpaddw` as its worked example and its
+red-first arm.
+
+**Reversal cost:** 9 rows in `oracle_availability.py`, gated in both CR4 arms; the roster regenerates.

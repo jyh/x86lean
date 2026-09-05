@@ -510,6 +510,31 @@ P2_FORMS = [
     ("cvtsi2ss",   "cvtsi2ssl %ecx, %xmm0",       "f30f2ac1",     "refuses", "executes"),
     ("prefetchnta", "prefetchnta (%rbx)",         "0f1803",       "executes", "executes"),
     ("prefetcht0", "prefetcht0 (%rbx)",           "0f180b",       "executes", "executes"),
+    # ── ⭐⭐ batch 24, THE VEX-128 BUCKET — and the reason a mnemonic already in
+    #    this table could still read `not measured`.
+    #
+    #    ⛔⛔ THE JOIN IS PER (MNEMONIC, BUCKET), AND THAT IS NOT A TECHNICALITY.
+    #    Batch 21 probed `vpsubw` at **ymm** and it EXECUTES; the roster went on
+    #    printing `⚠️ not measured` for `vpsubw`, because its DEMAND is dominantly
+    #    VEX-128 and `dominant_bucket` correctly refuses to carry a ymm reading
+    #    across to an xmm row.  The same mnemonic is two questions.
+    #    ⇒ 🔑 A CENSUS IS NOT FINISHED WHEN EVERY MNEMONIC HAS BEEN NAMED; it is
+    #    finished when every (mnemonic, BUCKET) the demand actually occupies has
+    #    been asked.  Eleven ranked rows and 48,525 instructions were still
+    #    unmeasured after batch 21 for exactly this reason.
+    #
+    #    ⚠️ AND THE ANSWER DIFFERS BY WIDTH, so the caution was earned:
+    #    `vpsubw` executes at BOTH widths, but `vpaddw` — rank 4, 11,682
+    #    instructions — is measured here at xmm where batch 21 never reached it.
+    ("vpaddw",     "vpaddw %xmm1, %xmm2, %xmm0",     "c5e9fdc1",   "refuses", "executes"),
+    ("vpsubw",     "vpsubw %xmm1, %xmm2, %xmm0",     "c5e9f9c1",   "refuses", "executes"),
+    ("vpmulhrsw",  "vpmulhrsw %xmm1, %xmm2, %xmm0",  "c4e2690bc1", "refuses", "refuses"),
+    ("vpunpcklwd", "vpunpcklwd %xmm1, %xmm2, %xmm0", "c5e961c1",   "refuses", "refuses"),
+    ("vpunpckhwd", "vpunpckhwd %xmm1, %xmm2, %xmm0", "c5e969c1",   "refuses", "refuses"),
+    ("vpmaddubsw", "vpmaddubsw %xmm1, %xmm2, %xmm0", "c4e26904c1", "refuses", "refuses"),
+    ("vpackssdw",  "vpackssdw %xmm1, %xmm2, %xmm0",  "c5e96bc1",   "refuses", "refuses"),
+    ("vmovq",      "vmovq %xmm1, %xmm0",             "c5fa7ec1",   "refuses", "refuses"),
+    ("vsubps",     "vsubps %xmm1, %xmm2, %xmm0",     "c5e85cc1",   "refuses", "refuses"),
     # ⚠️ MMX, and DECLINED BY DESIGN rather than by the oracle — this model has no
     # MMX register file.  `emms` executes and `pshufw` refuses; both are recorded
     # so neither reads as available work.
