@@ -7351,3 +7351,63 @@ The by-mnemonic table is **kept**, not deleted: it answers a real question (how 
 oracle been asked about) and other prose counts mnemonics. What changes is that it is no longer
 presented as the coverage number, and the demand-weighted figure now sits beside it with the
 difference spelled out. `ci_local.py --job build`: **26 of 26 GREEN**.
+
+## D135 — P2 BATCH 29: the FP-heaviest batch, and the guard violation that did not fire
+
+The next 23 pairs the derived support calls implemented, by demand — and deliberately the batch with
+the most floating point in it, because that is where the one divergence class a static read cannot
+see is most likely to bite.
+
+### 1. WHY THIS BATCH WAS WORTH RUNNING RATHER THAN DERIVING
+
+Eleven of twenty-three rows are floating point: `sqrtss`, `sqrtsd`, `cvtss2si`, `cvtsd2si`,
+`minss`/`minsd`, `maxss`/`maxsd`, `ucomiss`/`ucomisd`, `subps`. An **ACL2 guard violation** is the one
+outcome that is neither verdict — it aborts the step and yields **no reading at all** — and it is
+known to be reachable here: `cvtss2sd` at zero operands raises one, which is exactly why it serves as
+the operand control.
+
+⚠️ **The risk was priced before the run, not explained after it.** At `xmm0 = 0x4040…40` and
+`xmm1 = 0x4020…20`, every single-precision lane is `0x40404040` = 3.0078125 and `0x40204020` =
+2.5039…; every double lane is 32.25 and 8.2539…. All normal positive: no NaN, no denormal, no zero
+divisor, no negative operand to a square root, and both conversions land far inside int32. So no
+guard violation was expected — and the prediction was recorded that way so that a firing would read
+as the finding it is rather than as a surprise to be rationalised.
+
+**Result: 23 of 23, both columns, 46 of 46 cells** (sealed `be7f80e5…`, 07:46:52Z, unchanged after).
+No missing readings. No guard violation fired. Nineteen `(refuses, executes)` and four
+`(executes, executes)`, the four being MMX.
+
+### 2. THE MOVE, IN BOTH ACCOUNTINGS — WHICH IS WHAT D134 BOUGHT
+
+```
+THE UNASKED REMAINDER   235 pairs / 27,271 / 6.6%  ->  212 pairs / 23,532 / 5.7%
+asked at its own bucket             84.3%          ->  85.2%
+
+BY MNEMONIC   EXECUTES  87 / 156,976 / 38.0%  ->  107 / 160,182 / 38.8%
+              probed   169 / 374,138 / 90.7%  ->  189 / 377,344 / 91.4%
+BY (mn,BUCKET) EXECUTES 65 / 128,234 / 31.1%  ->   88 / 131,648 / 31.9%
+              probed   153 / 298,111 / 72.2%  ->  176 / 301,525 / 73.1%
+              not asked at its own bucket 114,367 -> 110,953
+```
+
+The 23 pairs' demand sums to **3,739**; the remainder fell by `27,271 − 23,532 =` **3,739**, and pairs
+by exactly **23**. This is the first batch reported in both accountings, and the pair of them is the
+point: the by-mnemonic headline moved +0.7 points while the demand-weighted one moved +0.9 — the two
+do not track each other, which is precisely why publishing only the first was a mis-statement.
+
+⚠️ Three mnemonics (`psllq`, `psrad`, `pcmpgtb`) already sat at SSE-legacy and were asked here at
+**MMX**: distinct keys, distinct labels, measured separately.
+
+### 3. WHAT FOUR BATCHES OF THIS NOW SAY, AND WHAT THEY DO NOT
+
+Batches 27, 28 and 29 scored 23 of 23 each, 138 of 138 cells, against declarations hashed before ACL2
+ran. Batches 28 and 29 were the ones that **could** have failed — every row declared `executes` off a
+static read, with three divergence classes able to refute it. None did.
+
+⛔ That is a measured statement about **69 implemented forms**, not a licence. A batch cannot be
+sampled, and the classes remain live: the operand control exists because one of them fires on a form
+already in this table. What it does support is the reordering itself — asking implemented pairs first
+costs no more per pair and yields forms the differential can actually use.
+
+`ci_local.py --job build`: **26 of 26 GREEN**. All 23 encodings from `clang`; D128's gate re-derives
+all **225** rows on both disassemblers; D130's structure gate confirms 225 distinct tags.

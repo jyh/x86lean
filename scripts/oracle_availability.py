@@ -765,6 +765,44 @@ P2_FORMS = [
     ("andps",           "andps %xmm1, %xmm0",                "0f54c1",        "refuses", "executes"),
     ("vpcmpgtb_v",      "vpcmpgtb %xmm1, %xmm2, %xmm0",      "c5e964c1",      "refuses", "executes"),
     ("movlpd",          "movlpd (%rbx), %xmm0",              "660f1203",      "refuses", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # P2 BATCH 29 — the next 23 pairs the derived support calls IMPLEMENTED,
+    # and the FP-heaviest batch yet, which is the point.  Eleven rows are
+    # floating point (sqrtss, sqrtsd, cvtss2si, cvtsd2si, minss/minsd,
+    # maxss/maxsd, ucomiss/ucomisd, subps), and an ACL2 GUARD VIOLATION is the
+    # one divergence class that yields NO READING AT ALL rather than a verdict.
+    # ⚠️ PRICED BEFORE THE RUN, NOT EXPLAINED AFTER: at xmm0=0x4040..40 and
+    # xmm1=0x4020..20 every single lane is 3.0078125 / 2.5039..., every double
+    # lane 32.25 / 8.2539..., all NORMAL POSITIVE — no NaN, no denormal, no zero
+    # divisor, no negative root, both conversions far inside int32.  So no guard
+    # violation is expected; if one fires it is the finding, and `p2_run` reports
+    # a MISSING reading separately because a missing reading is not a refusal.
+    # ⚠️ psllq, psrad and pcmpgtb already sit at SSE-legacy and are asked here at
+    # MMX — distinct keys, distinct labels, measured separately.
+    # ⛔ EVERY `hx` CAME FROM `clang`; none was typed.
+    ("vpaddb_y",       "vpaddb %ymm1, %ymm2, %ymm0",      "c5edfcc1",      "refuses", "executes"),
+    ("minsd",          "minsd %xmm1, %xmm0",              "f20f5dc1",      "refuses", "executes"),
+    ("maxss",          "maxss %xmm1, %xmm0",              "f30f5fc1",      "refuses", "executes"),
+    ("psllq_mmx",      "psllq %mm1, %mm0",                "0ff3c1",        "executes", "executes"),
+    ("psrad_mmx",      "psrad %mm1, %mm0",                "0fe2c1",        "executes", "executes"),
+    ("minss",          "minss %xmm1, %xmm0",              "f30f5dc1",      "refuses", "executes"),
+    ("vmovddup_v",     "vmovddup %xmm1, %xmm0",           "c5fb12c1",      "refuses", "executes"),
+    ("maxsd",          "maxsd %xmm1, %xmm0",              "f20f5fc1",      "refuses", "executes"),
+    ("ucomiss",        "ucomiss %xmm1, %xmm0",            "0f2ec1",        "refuses", "executes"),
+    ("vpcmpeqb_y",     "vpcmpeqb %ymm1, %ymm2, %ymm0",    "c5ed74c1",      "refuses", "executes"),
+    ("vpcmpeqd_y",     "vpcmpeqd %ymm1, %ymm2, %ymm0",    "c5ed76c1",      "refuses", "executes"),
+    ("cvtss2si",       "cvtss2si %xmm1, %eax",            "f30f2dc1",      "refuses", "executes"),
+    ("andpd",          "andpd %xmm1, %xmm0",              "660f54c1",      "refuses", "executes"),
+    ("subps",          "subps %xmm1, %xmm0",              "0f5cc1",        "refuses", "executes"),
+    ("ucomisd",        "ucomisd %xmm1, %xmm0",            "660f2ec1",      "refuses", "executes"),
+    ("sqrtss",         "sqrtss %xmm1, %xmm0",             "f30f51c1",      "refuses", "executes"),
+    ("movupd",         "movupd (%rbx), %xmm0",            "660f1003",      "refuses", "executes"),
+    ("movlps",         "movlps (%rbx), %xmm0",            "0f1203",        "refuses", "executes"),
+    ("psubb_mmx",      "psubb %mm1, %mm0",                "0ff8c1",        "executes", "executes"),
+    ("cvtsd2si",       "cvtsd2si %xmm1, %eax",            "f20f2dc1",      "refuses", "executes"),
+    ("sqrtsd",         "sqrtsd %xmm1, %xmm0",             "f20f51c1",      "refuses", "executes"),
+    ("pcmpgtb_mmx",    "pcmpgtb %mm1, %mm0",              "0f64c1",        "executes", "executes"),
+    ("vpcmpgtd_y",     "vpcmpgtd %ymm1, %ymm2, %ymm0",    "c5ed66c1",      "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),
