@@ -272,6 +272,40 @@ def report(forms, res, n, quiet=False):
 CR4_OFF = "nil"
 CR4_ON  = "'((4 . #x600))"          # OSFXSR | OSXMMEXCPT — what an OS sets
 
+# ⭐⭐ P2 BATCH 19 — THE OPERANDS, WHICH USED TO BE ZERO AND WERE NEVER CHOSEN.
+#
+# `init-x86-state-64` takes no XMM argument, so until this batch EVERY verdict in
+# the table below was a reading taken at xmm0 = xmm1 = 0 — one point of the value
+# space, and the single most special value IEEE-754 has.  Nothing declared that;
+# it was the default of a function that has no parameter for it, which is the
+# quietest kind of frozen dimension ([[feedback-defects-hide-where-nothing-varies]]).
+#
+# ⛔ AND THE FROZEN POINT CAN INVERT A VERDICT.  `cvtss2sd` at a zero source does
+# not execute and does not refuse: it violates an ACL2 guard —
+#     (RTL::SSE-POST-COMP U MXCSR F), guard (AND (REAL/RATIONALP U) (NOT (= U 0)) …)
+#     violated by (RTL::SSE-POST-COMP 0 8064 '(NIL 53 11))
+# — and a guard violation produces NO READING, which is a THIRD verdict this
+# table's two-valued model has no slot for.  At any non-zero source the same form
+# executes and returns the right answer.  Read at zero it looks unavailable; it is
+# available.  ⇒ 🔑 A PROBE THAT NEVER VARIES A DIMENSION REPORTS THE DEFAULT OF
+# THAT DIMENSION, AND THE DEFAULT LOOKS LIKE AN ANSWER.
+#
+# ⚠️ WHY THESE BYTES AND NOT A RANDOM PATTERN.  The same 128 bits must be an
+# ORDINARY value under every reading this table takes, because the question is
+# "can the oracle run this form", not "can it run this value":
+#     low 32  0x40404040 = 3.0078f      — a normal single
+#     low 64  0x4040404040404040 ≈ 32.5 — a normal double
+#     as packed bytes/words/dwords      — ordinary non-zero integers
+# A random pattern would have been a NaN or a denormal under some reading and
+# would have turned a availability probe into a value probe.
+#
+# ⛔ THE ZERO READING IS NOT DISCARDED — it is the SELFTEST's positive control
+# (`--selftest`, the `cvtss2sd` arm).  It must still crash, or the xmm write below
+# silently did nothing and every "executes" in this table is once again a reading
+# at zero wearing a non-zero label ([[feedback-a-probe-must-create-its-condition]]).
+XMM0_NZ = 0x40404040404040404040404040404040
+XMM1_NZ = 0x40204020402040204020402040204020
+
 # (label, asm, bytes, expect at CR4=0, expect at CR4=0x600)
 #
 # ⚠️ THE CR4=0 COLUMN FOR THE SSE ROWS IS A PREDICTION, NOT A SECOND READING.
@@ -385,6 +419,39 @@ P2_FORMS = [
     ("pslldq_i",   "pslldq $0x2, %xmm0",          "660f73f802",   "refuses", "executes"),
     ("psrad_x",    "psrad %xmm1, %xmm0",          "660fe2c1",     "refuses", "executes"),
     ("psrlw_x",    "psrlw %xmm1, %xmm0",          "660fd1c1",     "refuses", "executes"),
+    # ── ⭐⭐ batch 19, SCALAR SSE FLOATING POINT: 26,757 instructions, 6.4% of the
+    #    whole P2 gap, and NEVER ASKED ABOUT until this batch.  Batch 18's bank
+    #    closed with "everything larger either refuses or is VEX".  The first half
+    #    of that sentence was scoped to the PROBED set and was true; the second
+    #    half was a claim about the WHOLE residue and was false — these six are
+    #    neither refusing nor VEX, they were simply never in the table.  ⇒ 🔑 A
+    #    CATEGORY WITH NO SLOT IN THE SENTENCE READS AS ABSENT, and a bank's
+    #    closing "next" line is the sentence nobody re-derives.
+    #
+    #    ⚠️ ALL SIX EXECUTE, and the arithmetic is RIGHT, not merely non-faulting:
+    #    measured 2.0*3.0 = 6.0 (0x40C00000), 2.0+3.0 = 5.0 (0x40A00000),
+    #    cvtss2sd 3.0f -> 3.0 (0x4008000000000000).  A form that faults is easy to
+    #    tell from one that runs; a form that RUNS WRONG is not, so the values were
+    #    checked against IEEE-754 by hand rather than assumed from a clean exit.
+    #
+    #    ⛔ "EXECUTES" HERE IS NOT "BUILDABLE THIS WEEK".  `X86/State.lean` has no
+    #    MXCSR (absent on purpose, D2) and Lean's own `Float` is an opaque extern
+    #    type the kernel cannot reduce, so these six need a soft-float IEEE-754
+    #    layer over `BitVec` plus a new state field — and a state field costs every
+    #    record proof ([[feedback-a-state-field-costs-every-record-proof]]).  That
+    #    is a DESIGN BLOCK, priced in D118, not the next vector batch.
+    ("mulss",      "mulss %xmm1, %xmm0",          "f30f59c1",     "refuses", "executes"),
+    ("mulsd",      "mulsd %xmm1, %xmm0",          "f20f59c1",     "refuses", "executes"),
+    ("addss",      "addss %xmm1, %xmm0",          "f30f58c1",     "refuses", "executes"),
+    ("addsd",      "addsd %xmm1, %xmm0",          "f20f58c1",     "refuses", "executes"),
+    ("movhps",     "movhps (%rbx), %xmm0",        "0f1603",       "refuses", "executes"),
+    # ⛔ THE ROW THAT COULD NOT BE WRITTEN BEFORE THE PROBE WAS REPAIRED.  At the
+    # old zero operands this form produces NO READING (an ACL2 guard violation,
+    # not a refusal), so declaring it `executes` would have FAILED the gate for a
+    # reason that had nothing to do with the oracle's support for it.  The
+    # measurement forced the instrument, rather than the instrument bounding the
+    # measurement ([[feedback-a-gate-that-refuses-names-a-cheaper-build]]).
+    ("cvtss2sd",   "cvtss2sd %xmm1, %xmm0",       "f30f5ac1",     "refuses", "executes"),
     # ── batch 2, AVX2/AVX (ymm): 11.8% ──
     ("vmovdqa_y",  "vmovdqa (%rbx), %ymm0",       "c5fd6f03",     "refuses", "executes"),
     ("vpaddd_y",   "vpaddd %ymm1, %ymm2, %ymm0",  "c5edfec1",     "refuses", "executes"),
@@ -432,10 +499,15 @@ def measure_cr4(forms, ctrs):
             "(b* (((mv flg x86) (init-x86-state-64 nil #x400000 "
             "'((0 . #x400000) (3 . #x2000)) %s nil nil nil nil nil #x2 '(%s) x86))"
             " (x86 (!app-view t x86))"
+            # ⭐ THE OPERANDS, set AFTER init because init has no xmm argument.
+            # See XMM0_NZ above for why zero was never a choice and why these
+            # particular bytes are the ones that keep this an AVAILABILITY probe.
+            " (x86 (!xmmi-size 16 0 #x%032x x86))"
+            " (x86 (!xmmi-size 16 1 #x%032x x86))"
             " (x86 (x86-fetch-decode-execute x86)))"
             ' (prog2$ (cw "P2RESULT tag=%s flg=~x0 refused=~x1~%%" flg'
             " (if (or (ms x86) (fault x86)) 1 0)) x86))"
-            % (ctrs, mem, tag_of(label)))
+            % (ctrs, mem, XMM0_NZ, XMM1_NZ, tag_of(label)))
     tmp = tempfile.mkdtemp(prefix="x86lean-p2-")
     drive = os.path.join(tmp, "drive.lsp")
     open(drive, "w").write("\n".join(lines) + "\n")
@@ -450,8 +522,97 @@ def measure_cr4(forms, ctrs):
     return got
 
 
+def p2_operand_control(arms=None):
+    """⭐⭐ THE ARM THAT SAYS THE OPERANDS ARE REAL — P2 batch 19.
+
+    `measure_cr4` now writes XMM0_NZ/XMM1_NZ before every reading.  If that write
+    ever stopped landing — a renamed `!xmmi-size`, a reordered `b*`, an x86isa
+    bump — EVERY verdict would silently go back to being a reading at zero, and
+    the table would still print 77 green ticks, because the forms that agree at
+    zero are exactly the ones that agree everywhere.  ⇒ 🔑 A NO-OP WRITE AND A
+    CORRECT WRITE PRODUCE THE SAME TABLE; only a form whose verdict DEPENDS on the
+    operand can tell them apart.
+
+    `cvtss2sd` is that form, and it is the only one known:
+        at a ZERO source     -> an ACL2 guard violation, so NO READING at all
+        at a NON-ZERO source -> executes
+    So this arm runs it BOTH ways in ONE run and requires the disagreement.  If
+    x86isa ever repairs the guard, the zero arm starts reading and this control
+    fires — which is a finding about the oracle, not a false alarm, and is the
+    reason it is stated as "these two must DIFFER" rather than "zero must crash".
+
+    ⚠️ A THIRD READING RIDES ALONG: `packuswb` at the same non-zero registers,
+    whose result must be all-ones (0xff.. bytes, from saturating 0x4040/0x4020
+    words).  A zeroed xmm cannot produce it, so it WITNESSES the write directly
+    instead of inferring it from an absence."""
+    # ⚠️ A PARAMETER so each of the three failure branches can be DRIVEN by an arm
+    # rather than only read.  A control whose own failure paths are untested is a
+    # gate nobody has seen run ([[feedback-probe-gates-both-ways]]).
+    if arms is None:
+        arms = [("CTRL:cvt_nonzero", "f30f5ac1", XMM0_NZ, XMM1_NZ),
+                ("CTRL:cvt_zero",    "f30f5ac1", 0,       0),
+                ("CTRL:witness",     "660f67c1", XMM0_NZ, XMM1_NZ)]
+    lines = ['(include-book "projects/x86isa/tools/execution/init-state" '
+             ':dir :system :ttags :all)',
+             '(include-book "projects/x86isa/machine/x86" :dir :system :ttags :all)',
+             "(set-fmt-hard-right-margin 100000 state)",
+             "(set-fmt-soft-right-margin 99000 state)",
+             '(in-package "X86ISA")']
+    for label, hx, x0, x1 in arms:
+        mem = " ".join("(#x%016x . #x%s)" % (0x400000 + k, hx[2*k:2*k+2])
+                       for k in range(len(hx) // 2))
+        lines.append(
+            "(b* (((mv flg x86) (init-x86-state-64 nil #x400000 "
+            "'((0 . #x400000) (3 . #x2000)) %s nil nil nil nil nil #x2 '(%s) x86))"
+            " (x86 (!app-view t x86))"
+            " (x86 (!xmmi-size 16 0 #x%032x x86))"
+            " (x86 (!xmmi-size 16 1 #x%032x x86))"
+            " (x86 (x86-fetch-decode-execute x86)))"
+            ' (prog2$ (cw "CTRLRESULT tag=%s flg=~x0 refused=~x1 xmm0=~x2~%%" flg'
+            " (if (or (ms x86) (fault x86)) 1 0) (xmmi-size 16 0 x86)) x86))"
+            % (CR4_ON, mem, x0, x1, tag_of(label)))
+    tmp = tempfile.mkdtemp(prefix="x86lean-p2ctrl-")
+    drive = os.path.join(tmp, "drive.lsp")
+    open(drive, "w").write("\n".join(lines) + "\n")
+    out = os.path.join(tmp, "out.txt")
+    with open(out, "w") as fh:
+        subprocess.run([ACL2], stdin=open(drive), stdout=fh,
+                       stderr=subprocess.STDOUT)
+    got = {m.group(1): (m.group(3), m.group(4)) for m in re.finditer(
+        r"CTRLRESULT tag=(\S+) flg=(\S+) refused=(\d) xmm0=(\S+)", open(out).read())}
+    nz, zr, wt = (got.get(tag_of(a[0])) for a in arms)
+    ALLONES = str((1 << 128) - 1)
+    problems = []
+    if nz is None:
+        problems.append("cvtss2sd at NON-ZERO operands produced no reading; the "
+                        "probe's own subject does not run, so nothing it says "
+                        "about the other 77 forms is worth reading")
+    if zr is not None:
+        problems.append("cvtss2sd at ZERO operands now READS (%s). Either x86isa "
+                        "repaired the sse-post-comp guard — a finding, and this "
+                        "control must be re-pointed at whatever still varies — or "
+                        "the operands are not reaching the machine" % (zr,))
+    if wt is None or wt[1] != ALLONES:
+        problems.append("the packuswb witness returned %s, not all-ones; a zeroed "
+                        "xmm cannot produce all-ones, so the operand write did NOT "
+                        "land and every verdict is a reading at zero"
+                        % (wt[1] if wt else "no reading",))
+    if problems:
+        print("⛔ operand control: FAIL — the availability table's verdicts are "
+              "NOT established at the operands it claims")
+        for p in problems:
+            print("    " + p)
+        return 1
+    print("  ✔ operand control: the write LANDS (packuswb witnesses all-ones) and "
+          "the verdict DEPENDS on it (cvtss2sd executes at non-zero, no reading "
+          "at zero) — so the 77 verdicts are readings at the declared operands")
+    return 0
+
+
 def p2_run():
     bad, rows = [], []
+    if p2_operand_control():
+        return 1
     off = measure_cr4(P2_FORMS, CR4_OFF)
     on = measure_cr4(P2_FORMS, CR4_ON)
     for label, asm, _hx, e0, e1 in P2_FORMS:

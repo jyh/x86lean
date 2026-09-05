@@ -77,19 +77,19 @@ Cumulative share is over the whole uncovered gap (417,231 instructions), so a ro
 | 10 | `vpsrad` | 6,338 | 1.52% | 27.9% | — | ⚠️ not measured | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
 | 11 | `vpsubw` | 6,234 | 1.49% | 29.4% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 12 | `vmovdqu` | 6,160 | 1.48% | 30.9% | — | ⚠️ not measured | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 13 | `mulss` | 5,698 | 1.37% | 32.3% | — | ⚠️ not measured | `xm`, `xx` |
+| 13 | `mulss` | 5,698 | 1.37% | 32.3% | — | ✔ | `xm`, `xx` |
 | 14 | `packssdw` | 5,613 | 1.35% | 33.6% | 3% | ⛔ **REFUSES** | `xm`, `xx` |
-| 15 | `mulsd` | 5,482 | 1.31% | 34.9% | — | ⚠️ not measured | `xm`, `xx` |
+| 15 | `mulsd` | 5,482 | 1.31% | 34.9% | — | ✔ | `xm`, `xx` |
 | 16 | `vpmulhrsw` | 5,010 | 1.20% | 36.1% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
-| 17 | `addss` | 4,696 | 1.13% | 37.3% | — | ⚠️ not measured | `xm`, `xx` |
+| 17 | `addss` | 4,696 | 1.13% | 37.3% | — | ✔ | `xm`, `xx` |
 | 18 | `vshufps` | 4,693 | 1.12% | 38.4% | — | ⚠️ not measured | `xxmi`, `xxxi`, `yymi`, `yyyi` |
 | 19 | `pmullw` | 4,539 | 1.09% | 39.5% | ⚠️ 21% | ⛔ **REFUSES** | `xm`, `xx` |
 | 20 | `paddsw` | 4,473 | 1.07% | 40.5% | ⚠️ 18% | ⛔ **REFUSES** | `xm`, `xx` |
-| 21 | `addsd` | 4,260 | 1.02% | 41.6% | — | ⚠️ not measured | `xm`, `xx` |
+| 21 | `addsd` | 4,260 | 1.02% | 41.6% | — | ✔ | `xm`, `xx` |
 | 22 | `paddw` | 4,166 | 1.00% | 42.6% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
 | 23 | `vpbroadcastd` | 3,941 | 0.94% | 43.5% | — | ⚠️ not measured | `xm`, `xx`, `ym`, `yx` |
 | 24 | `pmaxsw` | 3,776 | 0.91% | 44.4% | ⚠️ 24% | ⛔ **REFUSES** | `xm`, `xx` |
-| 25 | `movhps` | 3,672 | 0.88% | 45.3% | — | ⚠️ not measured | `mx`, `xm` |
+| 25 | `movhps` | 3,672 | 0.88% | 45.3% | — | ✔ | `mx`, `xm` |
 | 26 | `vpunpcklwd` | 3,630 | 0.87% | 46.2% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 27 | `vaddps` | 3,434 | 0.82% | 47.0% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 28 | `vmovq` | 3,430 | 0.82% | 47.8% | — | ⚠️ not measured | `mx`, `rx`, `xm`, `xr`, `xx` |
@@ -100,7 +100,7 @@ Cumulative share is over the whole uncovered gap (417,231 instructions), so a ro
 | 33 | `vpmaddubsw` | 3,048 | 0.73% | 51.7% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 34 | `vpackssdw` | 3,026 | 0.73% | 52.4% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 35 | `vpshufb` | 2,984 | 0.72% | 53.1% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
-| 36 | `cvtss2sd` | 2,949 | 0.71% | 53.8% | — | ⚠️ not measured | `xm`, `xx` |
+| 36 | `cvtss2sd` | 2,949 | 0.71% | 53.8% | — | ✔ | `xm`, `xx` |
 | 37 | `psubw` | 2,932 | 0.70% | 54.5% | ⛔ **100% — PHANTOM ROW** | ⚠️ not measured | `xm`, `xx` |
 | 38 | `vsubps` | 2,795 | 0.67% | 55.2% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
 | 39 | `pmuludq` | 2,790 | 0.67% | 55.8% | — | ⛔ **REFUSES** | `xm`, `xx` |
@@ -165,11 +165,11 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 41 | 79,996 | 19.2% |
+| the oracle EXECUTES | 47 | 106,753 | 25.6% |
 | the oracle REFUSES | 27 | 108,578 | 26.0% |
-| **probed so far** | 68 | **188,574** | **45.2%** |
+| **probed so far** | 74 | **215,331** | **51.6%** |
 
-So of the demand probed, **42% has an oracle** — after a
+So of the demand probed, **50% has an oracle** — after a
 one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms

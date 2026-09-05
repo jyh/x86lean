@@ -5347,6 +5347,14 @@ the oracle REFUSES       11 mnemonics  79,863       27 mnemonics  108,578   25.3
 probed so far            45            164,258      68            201,133   46.8%
 ```
 
+⚠️ **THE FIGURES IN THIS TABLE ARE AS OF BATCH 16 AND ARE NOT THE LIVE ONES — see D118 §6.** The
+census's uncovered total has since moved (417,231), so the same 108,578 refusing instructions are
+**26.0%**, not 25.3%, and the executing column derives differently too. The live figures are
+generated into `docs/P2-ROSTER.md` by `scripts/p2_roster.py`, which CI holds byte-identical; quote
+them from there. This table stays byte-untouched because a dated decision is a record of what was
+measured that day — but a bank reproduced these numbers as current, so the pointer is written here
+rather than left to be rediscovered.
+
 ⇒ 🔑 **THE ORACLE NOW REFUSES MORE OF THE UNCOVERED GAP THAN IT EXECUTES**, and the crossover
 happened in one run because nobody had asked. More than a quarter of what P2 has left **cannot be
 differentially validated at any price** — not by working harder, and not by a better batch order.
@@ -5512,3 +5520,136 @@ contain `packuswb`, so one filter selects both. That is a direct response to D11
 of one batch shared no substring, `selftest` ran half of them and printed PASS.
 
 **Reversal cost:** one `VBinKind` constructor, one combinator, one roster row, 2 vectors, 2 arms.
+
+---
+
+## D118 — the scalar-FP group, measured; and every availability verdict in the table was a reading at zero
+
+**P2 batch 19. No forms, no vectors, no semantics — one repaired instrument and six settled rows.**
+
+### 1. The claim that was false, and the shape of its falsity
+
+Batch 18's bank closed with the sentence that sets the next head's queue:
+
+> *`pmovmskb` (453) is the only executing mnemonic left unbuilt from the probed set. Everything
+> larger either refuses or is VEX — which needs VEX decoding vocabulary and is unpriced.*
+
+The first sentence is true and is correctly scoped to **the probed set**. The second is a claim about
+the **whole residue**, and it is false. `docs/P2-ROSTER.md` carried 26 rows marked `⚠️ not measured`;
+18 are VEX, two (`movd`, `psubw`) are `100% — PHANTOM ROW` MMX demand whose xmm probe correctly does
+not transfer — and **six are scalar SSE floating point that had never been asked about at all**:
+
+```
+mulss 5,698 · mulsd 5,482 · addss 4,696 · addsd 4,260 · movhps 3,672 · cvtss2sd 2,949
+TOTAL 26,757 instructions — larger than any of the last five batches (14 was 12,064; 18 was 5,105)
+```
+
+⇒ 🔑 **A CATEGORY WITH NO SLOT IN THE SENTENCE READS AS ABSENT.** "Refuses or VEX" is a two-valued
+partition offered for a three-valued residue, and the third class did not read as *unhandled*, it
+read as *empty*. This is [[feedback-a-declared-list-inherits-its-default]] moved up one level: not a
+list whose gaps default to available, but a **sentence** whose missing case defaults to nothing.
+And it sat in a bank's closing "next" line — the one sentence a relight acts on and nobody
+re-derives.
+
+### 2. ⭐⭐ THE INSTRUMENT: every verdict in the table was a reading at ONE point of the value space
+
+`init-x86-state-64` takes no XMM argument, so `measure_cr4` never wrote one. Every `executes` and
+every `refuses` in `P2_FORMS` — 77 rows, gated in both directions, joined into the roster, and used
+to pick batches 17 and 18 — was a reading taken at **xmm0 = xmm1 = 0**. Nothing declared that; it was
+the default of a function with no parameter for it, which is the quietest kind of frozen dimension.
+
+**And the frozen point can invert a verdict.** `cvtss2sd` at a zero source neither executes nor
+refuses:
+
+```
+ACL2 Error [Evaluation]: The guard for (RTL::SSE-POST-COMP U MXCSR F), which is
+(AND (REAL/RATIONALP U) (NOT (= U 0)) (NATP MXCSR) (RTL::FORMATP F)), is violated
+by the arguments in the call (RTL::SSE-POST-COMP 0 8064 '(NIL 53 11)).
+```
+
+A guard violation produces **no reading** — a THIRD verdict the two-valued model has no slot for, and
+one that surfaces as an absence. At any non-zero source the same form executes and returns the right
+answer. Read at zero it looks unavailable; it is available.
+
+⇒ 🔑 **A PROBE THAT NEVER VARIES A DIMENSION REPORTS THE DEFAULT OF THAT DIMENSION, AND THE DEFAULT
+LOOKS LIKE AN ANSWER.**
+
+### 3. What the re-measurement found, and the honest bound on it
+
+All 77 rows re-read at non-zero operands (xmm0 = `0x4040…40`, xmm1 = `0x4020…20`, chosen so the same
+bits are a NORMAL number under every FP reading — low32 3.0078f, low64 ≈32.5 — and an ordinary
+non-zero integer under every packed reading; a random pattern would have been a NaN or denormal under
+some reading and would have turned an availability probe into a value probe):
+
+**77 of 77 agree with the zero reading. Zero flips. Zero crashes.**
+
+⚠️ **So the hazard is real and has NOT corrupted the table.** That is the honest result and it is
+worth stating in both halves: the freeze could invert a verdict (proved, by `cvtss2sd`), and on the
+77 rows actually in the table it did not.
+
+⚠️⚠️ **AND 77/77 IS EXACTLY WHAT A NO-OP WRITE WOULD ALSO PRINT.** The forms that agree at zero are
+precisely the ones that agree everywhere, so an xmm write that silently did nothing produces an
+identical green table. The first run of this measurement carried no arm that could tell those apart
+and therefore established nothing; §4 is the repair.
+
+⛔ **THE DIFFERENTIAL IS NOT AFFECTED, and the scope matters.** `scripts/x86isa_driver.lisp` sets xmm
+from each case's `:xmms`, and the emitted 83,072 cases carry varying values. The frozen dimension was
+only ever in the AVAILABILITY probe — the instrument that decides **which batch is next**, not the
+one that validates a batch. No landed vector's validation is in question.
+
+### 4. The operand control, and its three red arms
+
+`p2_operand_control()` runs in the same ACL2 session as the table and requires:
+
+| arm | requirement | what its failure means |
+|---|---|---|
+| `cvt_nonzero` | executes | the probe's own subject does not run; nothing it says is readable |
+| `cvt_zero` | **no reading** | either x86isa repaired the guard (a finding) or operands are not arriving |
+| `witness` | `packuswb` → all-ones | a zeroed xmm cannot produce all-ones, so the write did not land |
+
+The witness is the one that **observes the write directly** rather than inferring it from an absence:
+saturating `0x4040`/`0x4020` words to unsigned bytes gives `0xff…ff`, which no zero operand can
+produce. All three branches were driven red before the green was believed — the write zeroed (both
+`cvt_nonzero` and `witness` fire, two independent routes), the zero-crash removed, and the witness
+re-pointed at `pxor` — with the shipped arms passing in the same session.
+
+⚠️ The `cvt_zero` arm is stated as *"these two must DIFFER"* and not *"zero must crash"*, because an
+x86isa that repairs the guard is a **finding about the oracle**, not a false alarm; it must fire and
+be re-pointed at whatever still varies, not be silenced.
+
+### 5. What is buildable, and what this is NOT
+
+The roster moves:
+
+```
+                    BEFORE                    AFTER
+the oracle EXECUTES 41 mnemonics   79,996     47 mnemonics  106,753   25.6%
+the oracle REFUSES  27            108,578     27            108,578   26.0%
+probed              68            188,574     74            215,331   51.6%
+```
+
+⛔ **"EXECUTES" IS NOT "BUILDABLE THIS WEEK", and this batch does not pretend the group is next.**
+`X86/State.lean` has no MXCSR (absent on purpose, D2), and Lean's `Float` is an opaque extern type
+the kernel cannot reduce — so a definitional, `decide`-checkable model of these six needs a
+**soft-float IEEE-754 layer over `BitVec`** plus a new state field, and
+[[feedback-a-state-field-costs-every-record-proof]] records that two fields blew three unrelated
+record proofs. That is a **design block for the helm**, priced here and not started.
+
+⇒ The measured buildable work that needs no new vocabulary is still `pmovmskb` (453).
+
+### 6. ⚠️ A DRIFT FOUND ON THE WAY, AND NOT REPAIRED IN THE DIRECTION IT LOOKS
+
+D115 §3 prints `executes 41 / 92,555 / 21.5%`, `refuses 27 / 108,578 / 25.3%`, `probed 68 / 201,133 /
+46.8%`. The generator today derives `41 / 79,996 / 19.2%` and `68 / 188,574 / 45.2%` for the same
+table, and the refusing share is **26.0%, not 25.3%** — the absolute is unchanged and the
+DENOMINATOR moved (the census's uncovered total is now 417,231). D115's figures were true when
+written and are left byte-untouched as a dated record; what was wrong is that the **bank reproduced
+them as current**, and the standing order to print "the refusing 25.3%" beside every coverage number
+therefore names a stale figure.
+
+⇒ 🔑 **A DATED RECORD IS NOT STALE; A QUOTATION OF IT IS.** No gated artifact carried the drift —
+`docs/COVERAGE.md` and `README.md` are clean — which is why nothing fired. The pointer added to D115
+says where the live figures are, so the next quotation is taken from the generator.
+
+**Reversal cost:** two constants, four lines in `measure_cr4`, six `P2_FORMS` rows, one control
+function; `docs/P2-ROSTER.md` regenerates.
