@@ -7270,3 +7270,84 @@ correctly frozen — it describes what happened, not what is) and two counts in
 All 23 came from `clang`; none was typed. D128's gate re-derives every one of the now-**202** rows on
 both disassemblers each CI run; D130's structure gate confirms all 202 tags are distinct.
 `ci_local.py --job build`: **26 of 26 GREEN**.
+
+## D134 — the coverage number was counted per mnemonic and consumed per bucket; both are now published, and their difference is computed
+
+D124 §3 named this discrepancy and left it as its own batch because it moves a published numerator's
+provenance. D133 priced one instance of it (`vpaddw`, 9,921 instructions). This is the whole of it.
+
+### 1. THE MEASUREMENT, AND THE CONTROL THAT LICENSES IT
+
+The summary table gives each **mnemonic** one verdict and counts that mnemonic's **whole** demand
+under it. The row-level oracle column, and the differential that depends on it, ask a different
+question: does this demand have a verdict **at the bucket it lives in**?
+
+⚠️ The first attempt to measure the gap reproduced *348,011* where the document publishes *374,138* —
+a **borrowed denominator**, built from the join's occurrences instead of `vec`'s. Nothing was reported
+from it. Rebuilt on the generator's own `vec`, the reproduction is exact:
+
+```
+CONTROL — my reproduction vs the PUBLISHED table
+   EXECUTES   87 / 156,976      (published: 87 / 156,976)
+   REFUSES    82 / 217,162      (published: 82 / 217,162)
+   probed    169 / 374,138      (published: 169 / 374,138)   -> REPRODUCES EXACTLY
+```
+
+⇒ 🔑 **reproduce the published figure before perturbing it, or the delta is a fact about your
+reconstruction.** Only after that control passed was the difference attributable:
+
+```
+BY MNEMONIC     EXECUTES 156,976 (38.0%)   REFUSES 217,162 (52.6%)   probed 374,138 (90.7%)
+BY (mn,BUCKET)  EXECUTES 128,234 (31.1%)   REFUSES 169,877 (41.2%)   probed 298,111 (72.2%)
+                                                    not asked at its own bucket 114,367 (27.7%)
+```
+
+**76,027 instructions — 18.4% of the 412,640-instruction gap — are attributed on a reading taken at a
+different bucket than the demand lives in.** `movdqa` measured at SSE-legacy carries its ymm demand
+with it. The published coverage headline was **90.7%** where the demand-weighted answer is **72.2%**.
+
+### 2. THE SPLIT IS EXACT, AND THAT IS CHECKED RATHER THAN ASSUMED
+
+`per_ext_map`'s per-bucket demand sums to `vec`'s per-mnemonic demand for **all 564 mnemonics —
+412,478 both ways, delta zero**. So nothing is rescaled and the two tables share a denominator *by
+measurement*. `attribute_by_bucket` refuses if that ever stops being true, because a shared
+denominator assumed rather than measured is how a gap gets invented.
+
+Both tables are now printed, with **their difference computed in the document**, so it can never
+again drift unnoticed. A total cannot see its parts; two totals that must agree can.
+
+### 3. ⛔ THE PARAGRAPH THAT SAID THIS WAS IMPOSSIBLE
+
+The section carried: *"the census pools an MMX and an SSE spelling of `paddw` under a single key, so
+its demand **cannot be split** between the batches by mnemonic at all."* `per_ext_map` — in the same
+file — splits every mnemonic's demand by bucket exactly, and has since D124. `paddw`'s census demand
+is `{MMX (mm): 4166}`, entirely one bucket. ⇒ 🔑 **a justification outlives its condition**: prose
+explaining why something cannot be done reads as a reason not to try, and survives the arrival of the
+capability that refutes it. The pessimistic collapse was never forced by the data; it was a choice
+that a stale sentence kept looking like a constraint.
+
+### 4. ⛔ MY OWN RED ARM WAS THE OTHER ARM WEARING A SECOND NAME
+
+Two arms were written for `attribute_by_bucket`: "break the denominator" and "break conservation".
+The second **fired the denominator branch** — moving a by-mnemonic total breaks that check first — and
+printed a ✔ for a gate it never reached.
+
+And the reason it cannot be reached is worth stating rather than papering over: once the denominator
+check passes, every bucket's demand sums to its mnemonic's and the loop adds each exactly once, **so
+conservation is implied, not independently testable from data**. The assertion stays as a guard
+against a future edit to the *loop* — a stray `continue`, a bucket counted twice — and is deliberately
+**not** claimed as a second red arm.
+
+Arm 2 was replaced with the condition that *is* data-reachable and that arm 1 cannot see: a
+**positive control on the unattributed pile**. If `avail` ever answered for a pair it has not measured
+— a default in place of a `None` — unasked demand would land silently in a verdict, over-reporting
+coverage in the direction that reads as progress. The arm answers for one unasked pair and requires
+the numbers to move: `endbr64`/CET-IBT shifts 16,488 instructions out of unattributed and into
+executes. A pile that could not be made to move would be a pile nothing was ever added to.
+
+### 5. WHAT IS NOT DONE HERE
+
+The by-mnemonic table is **kept**, not deleted: it answers a real question (how many mnemonics has the
+oracle been asked about) and other prose counts mnemonics. What changes is that it is no longer
+presented as the coverage number, and the demand-weighted figure now sits beside it with the
+difference spelled out. `ci_local.py --job build`: **26 of 26 GREEN**.

@@ -163,14 +163,38 @@ behaving. The oracle's own fault record said `#UD Encountered!` and `CR4` read
 enabled and x86isa raised #UD exactly as hardware would. Setting
 `CR4.OSFXSR|OSXMMEXCPT` makes `movdqa`, `paddd` and `vpaddd` execute.
 
+**BY MNEMONIC** — how much demand belongs to mnemonics the oracle has a verdict for:
+
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
 | the oracle EXECUTES | 87 | 156,976 | 38.0% |
 | the oracle REFUSES | 82 | 217,162 | 52.6% |
 | **probed so far** | 169 | **374,138** | **90.7%** |
 
-So of the demand probed, **42% has an oracle** — after a
-one-line change to the pre-states, and not before it.
+⛔⛔ **AND THAT IS NOT THE COVERAGE NUMBER.** A mnemonic gets one verdict, so the
+table above carries a mnemonic's WHOLE demand on a reading taken at ONE of its
+buckets — `movdqa` measured at SSE-legacy brings its ymm demand with it. The
+question the differential actually depends on is whether the demand has a verdict
+**at the bucket it lives in**:
+
+**BY (mnemonic, BUCKET)** — each bucket's demand on the verdict measured *at that bucket*:
+
+| | pairs | occurrences | share of the gap |
+|---|---|---|---|
+| the oracle EXECUTES | 65 | 128,234 | 31.1% |
+| the oracle REFUSES | 88 | 169,877 | 41.2% |
+| **probed so far** | 153 | **298,111** | **72.2%** |
+| not asked at its own bucket | | 114,367 | 27.7% |
+
+⇒ **the by-mnemonic table is ahead of the by-bucket one by
+76,027 instructions, 18.4% of the gap** — that is
+exactly the demand attributed on a reading taken somewhere else. Every
+instruction is attributed once in the second table, and the generator refuses if
+the three rows do not sum to the vector demand.
+
+So of the demand probed, **42% has an oracle** by mnemonic and
+**43%** by bucket — after a one-line change to the
+pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
@@ -178,10 +202,16 @@ rank 1 in the demand list, 5.15% of the whole gap, refusing in the same run in
 which `movdqa` beside it executes. The 82 the oracle does not have are
 `movntdq`, `movntdqa`, `pabsw`, `packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pinsrw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmuldq`, `pmulhrsw`, `pmulhuw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vbroadcasti128`, `vextracti128`, `vinserti128`, `vmovd`, `vmovdqa32`, `vmovhps`, `vmovq`, `vmulps`, `vpabsw`, `vpackssdw`, `vpackuswb`, `vpaddsw`, `vpaddw`, `vpalignr`, `vpblendd`, `vpbroadcastd`, `vpbroadcastq`, `vpbroadcastw`, `vperm2f128`, `vpermq`, `vpmaddubsw`, `vpmaddwd`, `vpmaxsd`, `vpmaxsw`, `vpminsd`, `vpminsw`, `vpmovzxbw`, `vpmulhrsw`, `vpmulld`, `vpmullw`, `vpsadbw`, `vpshufb`, `vpshufd`, `vpsrad`, `vpsraw`, `vpsrld`, `vpsrlw`, `vpsubsw`, `vpsubusb`, `vpunpckhbw`, `vpunpckhdq`, `vpunpckhqdq`, `vpunpckhwd`, `vpunpcklbw`, `vpunpckldq`, `vpunpcklqdq`, `vpunpcklwd`, `vshufps`, `vsubps`.
 
-⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
-two disagree the pessimistic one is taken: the census pools an MMX and an SSE
-spelling of `paddw` under a single key, so its demand cannot be split between
-the batches by mnemonic at all. Conflicts on this run: `vpaddw`.
+⚠️ **A mnemonic probed in two register classes gets ONE verdict** in the FIRST
+table, and where its buckets disagree the pessimistic one is taken. Conflicts on
+this run: `vpaddw`.
+⛔ This paragraph used to end *"so its demand cannot be split between the batches
+by mnemonic at all"*, and that was false where it mattered: `per_ext_map`, in
+this same file, splits every mnemonic's demand by bucket exactly — `vpaddw` is
+ymm 5,487 · VEX-128 4,434 · zmm 1,761, and it EXECUTES at the first two while the
+pessimistic collapse publishes all 11,682 as refusing. The second table above is
+that split, and it exists because the sentence claiming it was impossible
+outlived the code that made it possible.
 
 ⛔ **AVX-512 refuses in BOTH arms** — the one batch this oracle cannot answer,
 and the only one that needs another (K as an executable oracle, Sail, or the
