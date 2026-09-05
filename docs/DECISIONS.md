@@ -7819,6 +7819,11 @@ mean spread (max-min):   2257   3053   3528   4210   4579   4915   5501   6024
 sd of the gated estimate:1445   1313   1035    946    846    748    613    504
 ```
 
+⭐ The two DIRECTIONS in that table are bounds 8 and 9 of `delta_band_calibration.py --check`, so
+the finding is re-derivable rather than quoted — a paragraph is where a claim's negation gets
+written. ⚠️ They are asserted about the STATISTICS and call nothing in `kernel_delta.py`; the
+REFUSE row is bound 6, which does read the shipped rule.
+
 ⇒ 🔑 **THE INSTRUMENT GOT MONOTONICALLY BETTER AND THE GATE GOT MONOTONICALLY MORE CERTAIN THAT IT
 COULD NOT SEE.** Spending machine time on this gate bought refusals. The one act a seat could take
 was the one act that could not work, and the gate said so in the same paragraph as the verdict.
@@ -7862,14 +7867,23 @@ identical draws for every rule:
 
 ```
                                         OLD range      BAND K=1      BAND K=2
-false PASS  (`ok` at a true 2x budget)      ≤ 0%          2.7%          0.5%
-false RED   (`FAILED` at a true zero)       ≤ 0%          3.0%          0.5%
+false PASS  (`ok` at a true 2x budget)      0.0%          2.7%          0.5%
+false RED   (`FAILED` at a true zero)       0.0%          3.0%          0.5%
 a commit exactly ON its budget, refused    0-100%          67%           92%
 a harmless commit, sigma 1000, n=3..24    33%→0% ok    79%→100% ok   49%→100% ok
 ```
 
 The OLD column's zeroes are bought by refusing 95-100% of everything; they are the numbers of an
-instrument that does not speak. ⭐ **The sweep is `scripts/delta_band_calibration.py` and it is a
+instrument that does not speak.
+
+⛔ **And the first draft of this table, and of the docstring it summarises, said `≤ 0%` for both of
+K=2's figures and `≤ 2%` for K=1's false pass.** Those came off the exploratory probe, which
+printed integer percentages; the calibration script then computed 0.5%, 0.5% and 2.7% and the
+prose was never reconciled with the gate written to check it. **An over-claim by the width of a
+truncation, in the paragraph whose whole job is to report a measurement** — and the gate did not
+catch it, because it asserts `≤ 1.0%` while the prose claimed something stricter than the gate.
+⇒ 🔑 *a bound in prose that is TIGHTER than the bound in the gate is unpoliced in the direction
+that flatters.* Corrected to the measured worst cell. ⭐ **The sweep is `scripts/delta_band_calibration.py` and it is a
 GATE, not a table**: `--check` asserts all seven bounds, including the two LIVENESS bounds that a
 rule refusing everything would fail, and it reads `K_SIGMA` out of the shipped gate rather than
 keeping a copy — if the constant is renamed it refuses instead of testing a number nobody uses.
@@ -7900,7 +7914,22 @@ looking at that end, because a refusal test is read as the thing that might fire
 
 ### 6. THE ARMS
 
-`--selftest` is 25 arms (was 18). Six planted defects, each the shape a hurried fix takes —
+⭐⭐ **AND THE MEASURED SELFTEST'S OWN JUDGEMENT IS NOW DRIVEN WITHOUT ITS FOUR BUILDS.**
+`selftest_measure` lives in its own CI job because it needs real trees, and **that job has never
+completed on any machine** — so its decision logic was the least-exercised code in the file, and
+this repair changed it. Three arms stub `measure` and hand arm 1 each of the three verdicts it can
+be told: a conviction on identical trees must RED (a true delta of exactly zero convicted would
+make every red this gate ever printed suspect), a CLEAN passes, and a REFUSAL passes while
+reporting the box. Nothing is profiled.
+
+⛔ **And the first version of those arms had the defect they exist to catch.** Driven red, a mutant
+that quietly replaced the loud-box stub readings with quiet ones left the suite GREEN: the arm
+named *"identical trees REFUSED"* was testing the CLEAN branch under that name, and the rc-3 branch
+went uncovered with nothing red. Each case now DECLARES the verdict it must produce, and an arm
+that fails to create its own condition says so in those words. Two of three planted defects were
+caught before that fix; three of three after.
+
+`--selftest` is 28 arms (was 18). Six planted defects, each the shape a hurried fix takes —
 `K_SIGMA = 0`; `resolution()` returning the range again; a one-reading side scoring 0.0 noise;
 either side of the band dropped; `se` not dividing by `n` — **all six caught.** The arms that name
 the finding are a matched pair on the SAME dispersion at 3 and at 12 repeats: the readings' range
@@ -7938,6 +7967,143 @@ refuses must say what it saw"*, paid on the seat's own gate, by the head that wr
   large, hence the band too wide, hence the gate too conservative — the safe direction, stated
   rather than corrected. Correcting it would need the paired differences, and with the passes
   ordered base,head,base,head each pair carries a one-pass bias the medians do not.
+- **A band of exactly zero means "these readings did not vary", which is not quite "there is no
+  noise".** Lean's profiler prints three significant figures, so a module reported in SECONDS is
+  quantized to 100 ms and one reported in milliseconds to 0.1 ms. Checked rather than assumed:
+  `Tests.Coverage` at ~26 s carries a 100 ms quantum against a 1,778 ms budget (0.4%), and the
+  smallest units are floored at 6 ms absolute, so no unit's budget is currently near its own
+  quantum and a zero band cannot manufacture a conviction. It is written down because that
+  relationship is not gated anywhere, and a future unit whose budget approaches its quantum would
+  get a confident verdict off readings that agreed only because they were rounded.
 - **`--repeats 6` in CI is a guess about a runner nobody has measured** (Actions refuses every job
   on this account for billing, desk FH). The first run that completes there prices it, and the
   number to read off is the gate's own `~N repeats` line.
+
+## D142 — batch 32 re-measured on the repaired gate: the +2,900 that held it and the +1,000 that replaced it are the same reading
+
+The first act of the repaired delta gate (D141) was to take the measurement the old one refused,
+`--repeats 6`, **with `--out`** — the flag the first run omitted, which is why none of this could be
+established by re-judging instead of re-measuring.
+
+### 1. THE TWO RUNS, AND WHY NEITHER IS "THE" DELTA
+
+```
+                        base      head     delta    band(K=2)     range    budget   verdict
+run 1  09/05 15:2x    24 700    27 600    +2 900    (±4 100)*     3 400    1 778    UNMEASURABLE
+run 2  09/05 16:1x    24 500    25 500    +1 000     ±1 443       2 700    1 764    UNMEASURABLE
+                                                     * reconstructed: run 1 saved no readings
+```
+
+⛔ **The two runs profiled the same trees.** Run 1's head was `42f9ebe` and run 2's `3a811fb` — two
+amends apart — but the amends touched `Main.lean` and two docs, and `kernel_cost.modules()` reads
+`X86/*.lean`, `X86.lean`, `X86Native.lean`, `Tests/*.lean`, `Tests.lean`. None of the three is
+profiled. Same subject, two afternoons.
+
+⇒ 🔑 **THE SAME HEAD TREE READ 27,600 AND 25,500 ON TWO AFTERNOONS, WITH NO CODE BETWEEN THEM.**
+That 2,100 ms is the instrument, measured across sessions rather than argued from within one, and
+it is larger than the 1,764 ms budget the two runs were arguing about. The honest statement is not
+that run 1's +2,900 was wrong: it is that **+2,900 and +1,000 are the same measurement to within
+the resolution of the box**, and the band is the first thing this gate has ever printed that says
+so out loud.
+
+⚠️ **And the located CAUSE that came with run 1 did not survive.** Its reading put the cost at
+`Tests.Coverage @residue`, *"15,210 → 18,210, +3,000 for 8 vectors — about 375 ms per vector"*, and
+the bank's order to a successor was built on it (*"cut vectors or move the coverage claim"*).
+Measured at six repeats, `@residue` is **15,225 → 15,960, +735, band ±1,319, budget 2,116 — `ok`**.
+The unit named as the batch's cost is the unit the gate now passes.
+[[feedback-inherited-diagnosis-is-a-hypothesis]]
+
+### 2. FIVE UNITS REFUSED, AND THEY ARE NOT ALL ABOUT THE BATCH
+
+```
+UNIT                                     delta    band     budget   ~repeats to decide
+Tests.Coverage                          +1 000   ±1 443   1 764.0        22
+Tests.Coverage @decl vectorCoverage       +195     ±265     266.1        84
+X86.Basic                                 −1.7    ±34.7      24.6        11
+X86.Semantics                             +0.8     ±6.7       6.0        10
+X86.Value                                 −1.9    ±14.1       6.1        19
+```
+
+Read the deltas. **Three of the five are essentially zero** — the batch does not touch `X86.Basic`,
+`X86.Semantics` or `X86.Value` in any way that a millisecond could see. They refuse because each
+one's BUDGET is smaller than what this box invents between two readings of one tree. Those three
+would refuse for any commit, including a commit that changed nothing.
+
+⚠️ **Not a regression from the band.** The old range rule refused them too (`X86.Semantics` range
+16.1 against a 6.0 budget). What changed is that the refusal now says which units, why, and what an
+answer would cost.
+
+⛔ **And this REFUTES the direction `docs/QUEUE.md` item 4 asserted four hours earlier**, in the
+same sitting, written by me: *"a floor is a MINIMUM allowance, so this one can only be too
+generous; re-deriving it can only tighten the gate."* `X86.Semantics`'s budget IS the floor (27.8%
+of 15.6 ms is 4.34, floored to 6.0) and the box's band on it is **±6.7** — so a floor derived
+against the band would be LARGER. ⇒ 🔑 *"it can only err in the safe direction" is a claim about a
+measurement nobody has taken*, and it survives precisely because it sounds like caution.
+[[feedback-conservative-is-a-direction-not-a-margin]]
+
+### 3. THE CONTROL, AND IT SETTLES THE QUESTION AGAINST BOTH RUNS
+
+`kernel_delta.py --base c372d80 --head c372d80 --repeats 6` — **the same commit on both sides**, so
+the true delta of every unit is exactly zero. Run at 16:2x, an hour after the batch run, same box.
+
+```
+UNIT                                    base      head      delta    band     budget   VERDICT
+Tests.Coverage                        27 500    25 350    −2 150   ±2 474    1 980    ok
+Tests.Coverage @residue               17 680    15 650    −2 030   ±2 637    2 458    ok
+Tests.Coverage @decl memDestSweep      5 715     5 830      +115     ±510      492    UNMEASURABLE
+Tests.Coverage @decl vectorCoverage     1 770     1 760       −10    ±72.7      278    ok
+X86.Basic                               96.6      99.6      +3.0    ±10.9     24.4    ok
+X86.Semantics                           15.8      16.4      +0.7     ±2.6      6.0    ok
+X86.Value                               27.5      27.7      +0.2     ±2.6      6.0    ok
+```
+
+⇒ 🔑 **THE GATE INVENTED A 2,150 ms DIFFERENCE BETWEEN TWO COPIES OF ONE COMMIT — larger than the
+1,980 ms budget it was gating — AND RETURNED `ok`.** That `ok` is not a bug: the band covers the
+invented delta, so "confidently not over budget" is a true statement. But it is a true statement
+about the BUDGET and not about the instrument, and the number that says so — the −2,150 — is
+printed by `--selftest-measure`'s arm 1 under the words *"that is what this box invents between two
+copies of one commit, and every budget has to clear it"* **with nothing gating it.**
+
+⛔ **And the same base tree read 27,500 here and 24,500 an hour earlier — 12% apart, on `c372d80`,
+with no code between them.** Batch 32's whole disputed delta is +1,000. The instrument's own zero
+moves by three times that between runs.
+
+### 4. MY PREDICTION FOR THIS CONTROL WAS WRONG, AND THE WAY IT WAS WRONG IS THE FINDING
+
+Written down before the control finished, from the batch run's bands: *"three of the five refusals
+are the BOX (`X86.Basic`, `X86.Semantics`, `X86.Value` — deltas ~0, budgets under the noise) and
+two the BATCH."* The control passed **all three**, with bands 3-5× smaller than the batch run's:
+
+```
+                 batch run     control
+X86.Basic          ±34.7        ±10.9        budget 24.4-24.6
+X86.Semantics       ±6.7         ±2.6        budget 6.0
+X86.Value          ±14.1         ±2.6        budget 6.0-6.1
+```
+
+⇒ 🔑 **"THE BOX'S NOISE" IS NOT A PROPERTY OF THE BOX.** It varies several-fold between two runs an
+hour apart, so no single run supports a sentence of the form *"this unit's budget is under the
+box's noise"* — including the sentence I wrote into `docs/QUEUE.md` item 4 four hours earlier and
+then corrected once already, in the opposite direction, on the batch run's numbers. That claim has
+now been wrong twice in one sitting, in both directions, each time from one run's readings.
+[[feedback-a-single-reading-is-about-its-run]]
+
+⚠️ There is no order bias to report, and I looked: the batch run's base read LOWER than its head
+(24,500 vs 25,500) and the control's read HIGHER (27,500 vs 25,350). A systematic base-then-head
+effect would have pointed the same way twice. It does not, so the alternation is not indicted here
+— what is left is plain, large, run-to-run variation.
+
+### 5. WHERE THIS LEAVES BATCH 32 — NOT MERGED, AND NOT FOR "A QUIET BOX"
+
+Not one unit's delta exceeds its budget as a point estimate, in either run. Nothing is convicted.
+But the gate refuses, and the control says the refusal is honest rather than timid: on
+`Tests.Coverage` this instrument cannot resolve a 1,764 ms budget at any affordable number of
+repeats, because its own zero wanders by ±2,000 between runs. The refusal names 22 repeats for
+`Tests.Coverage` and **84** for `Tests.Coverage @decl vectorCoverage`, whose margin is 71 ms —
+and at 84 the band still lands exactly on the line, so even that price does not buy an answer.
+
+⇒ The remedy the gate offers third is the only live one: **make the measurement cheaper to resolve,
+not the verdict easier to reach.** That is now `docs/QUEUE.md` item 4, rewritten from "re-derive
+`@floor`" to what the measurements actually say. ⛔ Batch 32 stays on its branch — but for a
+recorded, measured reason with a named next act, which is a different thing from waiting on
+a quiet box that was never going to come.

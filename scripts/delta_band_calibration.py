@@ -110,9 +110,15 @@ def table(res):
 # they are what stops the safe answer from being the empty one.
 def check(res):
     band = f"BAND K={K_SIGMA:g}"
-    bad = []
+    # ⛔ THE COUNT IS DERIVED, NOT TYPED. `.github/workflows/ci.yml` carries this
+    # repository's own ruling on it — a step label said "seven planted bugs" for
+    # seven batches while there were thirty-eight (D41) — and the first draft of
+    # THIS file said "9 bounds" as a literal in two places, in a file written to
+    # stop a number drifting away from what produces it.
+    asserted, bad = [], []
     def want(cond, msg):
         print(("  ✔ " if cond else "  ⛔ ") + msg)
+        asserted.append(msg)
         if not cond: bad.append(msg)
 
     fp = max(res[(band, s, "2x budget", n)]["ok"] for s in SIGMAS for n in NS)
@@ -147,11 +153,43 @@ def check(res):
          f"ok {oldflip['ok']*100:.0f}% / FAIL {oldflip['FAIL']*100:.0f}% / "
          f"refused {oldflip['REFUSE']*100:.0f}%")
 
+    # ⛔⛔ AND D141's HEADLINE TABLE, WHICH WAS PROSE NOTHING RE-DERIVED. The
+    # decision record prints a range that GROWS with n beside an estimate whose
+    # sd FALLS with n, and that opposition is the entire finding; a paragraph is
+    # where a claim's negation gets written, so the two directions are asserted
+    # here from the same draws the rest of this file uses.
+    # ⚠️ AND THESE TWO BOUNDS ARE ABOUT THE STATISTICS, NOT ABOUT THE SHIPPED
+    # RULE. Nothing in them calls `kernel_delta.py`; a green here says the table
+    # in D141 §1 is re-derivable, and says nothing whatever about whether the
+    # gate implements the band correctly. The seven bounds above are the ones
+    # that read the shipped constant. Kept apart on purpose, because a suite
+    # whose arms mean different things is read as if they all meant the strongest
+    # one.
+    import statistics as _st
+    rng_of, sd_of = [], []
+    for n in NS:
+        r = random.Random(SEED)
+        ranges, ests = [], []
+        for _ in range(TRIALS // 4):
+            bs = [r.gauss(BASE, 1400.0) for _ in range(n)]
+            hs = [r.gauss(BASE + 1000.0, 1400.0) for _ in range(n)]
+            ranges.append(max(max(bs) - min(bs), max(hs) - min(hs)))
+            ests.append(_st.median(hs) - _st.median(bs))
+        rng_of.append(_st.mean(ranges))
+        sd_of.append(_st.stdev(ests))
+    want(all(x < y for x, y in zip(rng_of, rng_of[1:])),
+         "the READINGS' range RISES with the repeats: "
+         + " → ".join(f"{x:.0f}" for x in rng_of))
+    want(all(x > y for x, y in zip(sd_of, sd_of[1:])),
+         "while the sd of the GATED ESTIMATE falls: "
+         + " → ".join(f"{x:.0f}" for x in sd_of)
+         + "  ⇒ the two move in opposite directions, which is D141")
+
     if bad:
-        print(f"\n⛔ delta-band calibration: FAIL ({len(bad)} of 7 bounds) — the rule no "
+        print(f"\n⛔ delta-band calibration: FAIL ({len(bad)} of {len(asserted)} bounds) — the rule no "
               f"longer delivers what kernel_delta.py's docstring says it does.")
         return 1
-    print(f"\ndelta-band calibration: PASS (7 bounds, K_SIGMA={K_SIGMA:g} read from "
+    print(f"\ndelta-band calibration: PASS ({len(asserted)} bounds, K_SIGMA={K_SIGMA:g} read from "
           f"the shipped gate, no measurement of any tree in this run)")
     return 0
 

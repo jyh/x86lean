@@ -381,7 +381,8 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
         # absolute apparent delta a zero-Lean commit produced THERE.
         # ⛔⛔ AND THE SECOND VERSION WAS WRONG TOO, IN A THIRD WAY: it took the
         # worst DELTA on a zero-Lean commit (2 ms) while the gate's refusal
-        # compares a budget against the run's own SPREAD. Those are different
+        # THEN compared a budget against the run's own SPREAD (it no longer does
+        # — D141; this paragraph is the history of the number). Those are different
         # statistics of the same readings, and the spread is systematically the
         # larger — measured, 5.30 ms on `X86Native` against a 2 ms delta-derived
         # floor. A gate registered on the first would REFUSE on small modules

@@ -106,10 +106,17 @@ the commit under test is the one move this file already forbids for the budget.
 It was chosen on the two error rates, swept over sigma in {200, 1000, 2000} ms
 and n in {3, 6, 10, 16, 24}, 4,000 trials a cell, identical draws for every rule:
 
-    a FALSE PASS  (`ok` on a commit truly at 2x its budget):  K=2 ≤ 0%, K=1 ≤ 2%
-    a FALSE RED   (`FAILED` on a commit truly at zero):       K=2 ≤ 0%, K=1 ≤ 3%
+    a FALSE PASS  (`ok` on a commit truly at 2x its budget):  K=2 0.5%, K=1 2.7%
+    a FALSE RED   (`FAILED` on a commit truly at zero):       K=2 0.5%, K=1 3.0%
     on a commit exactly ON the budget:  K=2 refuses 92-96%; the OLD rule refused
                                         0% on a quiet box and split 50/49.
+
+⛔ THOSE FOUR FIGURES ARE THE WORST CELL OF THE SWEEP, NOT A ROUNDING OF IT. The
+first draft of this paragraph read "K=2 ≤ 0%, K=1 ≤ 2%" — copied off a probe that
+printed integer percentages, before `delta_band_calibration.py` computed them
+exactly, and never reconciled with it. Both were over-claims by the width of the
+truncation, in the file the calibration exists to describe. The gate asserts
+≤ 1.0% on the two K=2 figures; run it rather than trusting this line.
 
 ⭐ AND THE REMEDY IS NOW REAL AND PRICED. `se` falls as 1/sqrt(n), so a refusal
 names the number of repeats that would decide the question and this gate prints
@@ -629,6 +636,81 @@ def _explicit(base_vals, head_vals, unit="M"):
             "readings": {"base": side(base_vals), "head": side(head_vals)}}
 
 
+# ⭐⭐ THE MEASURED SELFTEST'S JUDGEMENT, DRIVEN WITHOUT ITS FOUR BUILDS.
+#
+# ⛔ `selftest_measure` runs in its own CI job because it needs real trees, and
+# that job has NEVER COMPLETED on any machine (Actions refuses every job on this
+# account for billing, desk FH). So its own decision logic — what arm 1 accepts,
+# what it rejects, what it merely reports — is the least-exercised code in this
+# file, and D141 changed it. A gate whose judgement is only reachable through an
+# expensive path is a judgement nobody drives.
+#
+# ⇒ `measure` is stubbed, so nothing is profiled. These arms say nothing about
+# whether the profiler can see a code change; they say what arm 1 DOES with the
+# three verdicts it can be handed. [[feedback-make-the-probe-cheap]]
+def _stub_readings(base_vals, head_vals, syn=250.0):
+    def side(vals):
+        return [{"modules": {"Tests.Coverage": v, "X86.Syntax": syn}, "decls": {},
+                 "load1": 9.0, "load5": 9.0, "secs": 70.0} for v in vals]
+    return {"base_rev": "0" * 40, "head_rev": "0" * 40, "planted": False,
+            "box": "BOX stub — no measurement in this run", "decl_map": {},
+            "readings": {"base": side(base_vals), "head": side(head_vals)}}
+
+
+def selftest_measure_judgement():
+    """(names, bad) — arm 1's verdict on each of the three things it can be told."""
+    import io, contextlib
+    global measure
+    real, names, bad = measure, [], []
+    # ⛔⛔ EACH CASE DECLARES THE VERDICT IT MUST PRODUCE, NOT ONLY THE ANSWER IT
+    # MUST GET. Driven red first: quietly replacing the loud-box readings with
+    # quiet ones left this suite GREEN while the rc-3 branch stopped being
+    # covered at all — an arm whose NAME says "REFUSED" testing the CLEAN path.
+    # The declared verdict is the arm creating its own condition.
+    # [[feedback-a-probe-must-create-its-condition]]
+    cases = [
+        # ⛔ THE ONE THAT MUST RED: identical trees have a true delta of exactly
+        # zero, so a conviction there would make every red this gate ever printed
+        # suspect. It is the only outcome arm 1 may reject.
+        ("identical trees CONVICTED must fail arm 1", "FAILED",
+         _stub_readings([24700, 24710, 24690], [40000, 40010, 39990]), True),
+        ("identical trees CLEAN passes arm 1", "CLEAN",
+         _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), False),
+        # ⚠️ AND THE ONE D141 CHANGED. A refusal on identical trees is a fact
+        # about the BOX at that many repeats, not a defect in the gate; requiring
+        # rc 0 here made the arm red whenever another seat was building, and an
+        # arm that reds for a reason outside the code is an arm nobody reads.
+        ("identical trees REFUSED reports the box and passes arm 1", "UNMEASURABLE",
+         _stub_readings([24700, 21000, 28000], [24700, 20500, 28500]), False),
+    ]
+    for name, want_verdict, data, want_bad in cases:
+        measure = lambda *a, **k: data
+        argv = sys.argv[:]
+        sys.argv = ["kernel_delta.py", "--selftest-measure", "--repeats", "3", "--plant", "1"]
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                selftest_measure()
+        finally:
+            sys.argv, measure = argv, real
+        arm1 = [l for l in buf.getvalue().splitlines() if "identical trees ⇒" in l]
+        got_bad = any(l.startswith("  ⛔") for l in arm1)
+        made_it = any(want_verdict in l for l in arm1)
+        ok = got_bad == want_bad and made_it
+        names.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name +
+              ("" if ok else
+               (f"   (these readings produced no {want_verdict}, so the arm tested "
+                f"another branch under this name)" if not made_it else
+                f"   (arm 1 said {'⛔' if got_bad else '✔'}, wanted "
+                f"{'⛔' if want_bad else '✔'})")))
+        if not ok:
+            bad.append(name)
+            for l in arm1:
+                print("      " + l.strip())
+    return names, bad
+
+
 def selftest():
     """⛔ EVERY WAY THE COMPARISON COULD STOP LOOKING, DRIVEN SEPARATELY.
 
@@ -825,6 +907,10 @@ def selftest():
     if not ok:
         bad.append(arms[-1])
     shutil.rmtree(probe, ignore_errors=True)
+
+    jn, jb = selftest_measure_judgement()
+    arms.extend(jn)
+    bad.extend(jb)
 
     if bad:
         print(f"delta-gate selftest: FAIL ({len(bad)} of {len(arms)} arms)")
