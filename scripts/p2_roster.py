@@ -120,6 +120,28 @@ def oracle_note(verdict):
             "⚠️ not measured")
 
 
+# ⭐⭐ P2 BATCH 25 — THE PER-BUCKET DEMAND MAP, ACCUMULATED ONCE.
+#
+# ⛔ THERE WERE TWO COPIES OF THIS LOOP — the renderer's and the selftest's — and
+# the selftest's own comment already knew the hazard, saying of `dominant_bucket`
+# that it is *"deliberately not a second copy of its RULE"*.  The RULE was shared;
+# the ACCUMULATION was not, and a third caller was about to make three.  Two
+# copies born in agreement diverge on the next ordinary append, and the copy that
+# matters is the one on the path that reports SUCCESS.
+def per_ext_map(d, groups=None):
+    """{mnemonic: {bucket: occurrences}} over the assembly-class columns."""
+    per_ext = collections.defaultdict(collections.Counter)
+    for g, r in d.items():
+        if groups is not None and g not in groups:
+            continue
+        if not isinstance(r, dict) or r.get("class") != "asm":
+            continue
+        for m, per in (r.get("miss_by_ext") or {}).items():
+            for bucket, n in per.items():
+                per_ext[m][bucket] += n
+    return per_ext
+
+
 def dominant_bucket(per_ext, mn):
     """The ISA bucket most of this row's demand is in — the key its oracle
     verdict must be looked up by.
@@ -390,13 +412,11 @@ not by this table's sort — but the row count is DERIVED now, and it is
     # emitted `miss_by_ext` and consumed one key of it; the oracle column needs
     # the whole map, because the bucket a row's demand actually LIVES in is the
     # key its oracle verdict must be looked up by.
-    per_ext = collections.defaultdict(collections.Counter)
     for _g, r in d.items():
         if isinstance(r, dict) and r.get("class") == "asm":
             for m, per in (r.get("miss_by_ext") or {}).items():
                 mmx[m] += per.get("MMX (mm)", 0)
-                for bucket, n in per.items():
-                    per_ext[m][bucket] += n
+    per_ext = per_ext_map(d)
     # ⭐⭐ P2 BATCH 11 — THE THIRD ARTIFACT, JOINED.  See `oracle_note`.
     avail = measured_availability()
     fh.write("| rank | mnemonic | occurrences | share | cumulative | "
@@ -451,15 +471,20 @@ not by this table's sort — but the row count is DERIVED now, and it is
     # count and not something this join can undo.  Counting per probe added
     # `movq`'s 28,019 twice and `paddw`'s once too often, in the direction that
     # makes the oracle look better than it is.
+    # ⛔ THE CONFLICT LIST IS A SET, AND IT WAS A LIST THAT REPEATED. A mnemonic
+    # probed at THREE widths whose verdicts disagree twice was appended twice, so
+    # the published sentence read `['vpaddw', 'vpaddw']` — a count of PROBES
+    # wearing the name of a count of mnemonics. The verdict was unaffected; the
+    # sentence was not.
     verdict = {}
-    conflict = []
+    conflict = set()
     for label, _asm, _b, _e0, e1 in OA.P2_FORMS:
         if label.startswith(("CONTROL", "ADD")):
             continue
         mn = label.split("_")[0]
         if mn in verdict and verdict[mn] != e1:
-            conflict.append(mn)
-        verdict[mn] = "refuses" if conflict and mn in conflict else e1
+            conflict.add(mn)
+        verdict[mn] = "refuses" if mn in conflict else e1
     ex = rf = 0
     ex_names, rf_names = [], []
     for mn, v in sorted(verdict.items()):
@@ -499,7 +524,7 @@ which `movdqa` beside it executes. The nine the oracle does not have are
 ⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
 two disagree the pessimistic one is taken: the census pools an MMX and an SSE
 spelling of `paddw` under a single key, so its demand cannot be split between
-the batches by mnemonic at all. Conflicts on this run: {conflict or 'none'}.
+the batches by mnemonic at all. Conflicts on this run: {', '.join('`'+m+'`' for m in sorted(conflict)) or 'none'}.
 
 ⛔ **AVX-512 refuses in BOTH arms** — the one batch this oracle cannot answer,
 and the only one that needs another (K as an executable oracle, Sail, or the
@@ -710,11 +735,7 @@ def selftest():
     # would print "not measured" on every row and look like honest modesty.
     # ⚠️ THE SAME ACCUMULATION THE RENDERER DOES, and deliberately not a second
     # copy of its RULE: `dominant_bucket` is the one function both call.
-    per_ext = collections.defaultdict(collections.Counter)
-    for g in asm:
-        for m, per in (d[g].get("miss_by_ext") or {}).items():
-            for bucket, n in per.items():
-                per_ext[m][bucket] += n
+    per_ext = per_ext_map(d, groups=set(asm))
     av = OA.measured_availability()
     # ⛔⛔ AND THE THRESHOLD HERE WAS A DRIFTING LITERAL, WHICH THIS BATCH BROKE
     # WITHIN THE HOUR.  It read `hits >= 20` against the count of census
@@ -863,16 +884,101 @@ def check(out):
     return 1
 
 
+# ⭐⭐⭐ P2 BATCH 25 — THE INSTRUMENT THAT SAYS WHEN THE CENSUS IS FINISHED.
+#
+# Batch 24 established the rule the hard way: *a census is not finished when every
+# MNEMONIC has been named; it is finished when every (mnemonic, BUCKET) the demand
+# actually occupies has been asked.*  `vpsubw` was probed at ymm and EXECUTES, and
+# the roster went on printing `not measured` for it, correctly, because its demand
+# is VEX-128 and a ymm reading may not be carried across to an xmm row.
+#
+# ⛔ THAT RULE WAS APPLIED BY HAND, WHICH IS WHY THIS EXISTS.  A head reading the
+# roster sees `⚠️ not measured` on a row and has to work out, per row, WHICH
+# BUCKET to probe and what that row is worth.  Doing that by eye is how eleven
+# rows and 48,525 instructions sat unasked for three batches.  This prints the
+# remaining question list, ranked by the demand it would resolve, with the exact
+# `(mnemonic, bucket)` key `oracle_availability.py` has to be extended by.
+#
+# ⚠️ IT REPORTS THE SIZE OF THE UNASKED REMAINDER, WHICH IS NOT THE SIZE OF THE
+# HOLE.  An unprobed pair defaults to *available* in the published hole and so
+# UNDER-states it; a mnemonic whose buckets DISAGREE collapses to `refuses` and
+# OVER-states it.  Both directions are live (D124), and this tool measures only
+# the first.
+def unprobed(top=60):
+    d = census()
+    b = build(d)
+    per_ext = per_ext_map(d)
+    avail = measured_availability()
+    total = b["total_uncovered"]
+    rows, asked, unasked = [], 0, 0
+    for mn, occ, shapes in b["joined"]:
+        bucket = dominant_bucket(per_ext, mn)
+        if avail.get((mn, bucket)) is not None:
+            asked += occ
+            continue
+        unasked += occ
+        rows.append((occ, mn, bucket, shapes))
+    rows.sort(reverse=True)
+    # ⭐⭐⭐ THE TWO ACCOUNTINGS, IN ONE DENOMINATOR — and they do not agree.
+    #
+    # ⛔ The roster's summary table counts a mnemonic as PROBED if the
+    # availability table NAMES it, at any width. The row's own oracle column
+    # looks it up at the bucket its DEMAND lives in. Both figures are printed in
+    # the same document and they are different questions.
+    #
+    # ⚠️ THE DIFFERENCE IS COMPUTED HERE OVER ONE SET WITH ONE `occ`, on purpose.
+    # Subtracting the roster's published 294,804 from this walk's 218,333 would
+    # be a difference of two accountings — `vec[mn]` over join keys against the
+    # joined rows' own occurrences — and a borrowed denominator invents its own
+    # gap.
+    by_name = {k[0] for k in avail}
+    named = sum(occ for mn, occ, _s in b["joined"] if mn in by_name)
+    print(f"NAMED anywhere in the availability table: {named:,} "
+          f"({100.0*named/total:.1f}% of the gap)")
+    print(f"ASKED at the bucket its demand lives in: {asked:,} "
+          f"({100.0*asked/total:.1f}%)")
+    print(f"⇒ counted as probed by NAME but never asked at its BUCKET: "
+          f"{named-asked:,} ({100.0*(named-asked)/total:.1f}% of the gap)")
+    print()
+    print(f"THE UNASKED REMAINDER OF THE CENSUS — {len(rows)} (mnemonic, bucket) "
+          f"pairs, {unasked:,} instructions, {100.0*unasked/total:.1f}% of the "
+          f"{total:,}-instruction gap")
+    print(f"asked so far: {asked:,} ({100.0*asked/total:.1f}%)")
+    print(f"{'rank':>5} {'occurrences':>12} {'share':>7} {'cum':>7}  "
+          f"{'mnemonic':<16} bucket")
+    cum = 0
+    for i, (occ, mn, bucket, _sh) in enumerate(rows[:top], 1):
+        cum += occ
+        print(f"{i:>5} {occ:>12,} {100.0*occ/total:>6.2f}% "
+              f"{100.0*cum/total:>6.2f}%  {mn:<16} "
+              f"{bucket if bucket else '⛔ NO PER-BUCKET DEMAND'}")
+    if len(rows) > top:
+        print(f"…and {len(rows)-top} more, {sum(o for o,_m,_b,_s in rows[top:]):,} "
+              f"instructions")
+    # ⛔ A PAIR WITH NO BUCKET AT ALL CANNOT BE PROBED BY THIS KEY, and saying so
+    # is the difference between a list that can be finished and one that cannot.
+    nobucket = [r for r in rows if r[2] is None]
+    if nobucket:
+        print(f"⚠️ {len(nobucket)} row(s) have NO per-bucket demand in the census, "
+              f"so no (mnemonic, bucket) probe can resolve them: "
+              + ", ".join(f"`{m}`" for _o, m, _b, _s in nobucket[:12]))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="docs/P2-ROSTER.md")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--unprobed", action="store_true",
+                    help="rank the (mnemonic, bucket) pairs the census has not asked")
     args = ap.parse_args()
     if args.selftest:
         return selftest()
     if args.check:
         return check(args.out)
+    if args.unprobed:
+        return unprobed()
     d = census()
     b = build(d)
     with open(os.path.join(root, args.out), "w") as fh:

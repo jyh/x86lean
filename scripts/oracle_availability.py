@@ -535,6 +535,50 @@ P2_FORMS = [
     ("vpackssdw",  "vpackssdw %xmm1, %xmm2, %xmm0",  "c5e96bc1",   "refuses", "refuses"),
     ("vmovq",      "vmovq %xmm1, %xmm0",             "c5fa7ec1",   "refuses", "refuses"),
     ("vsubps",     "vsubps %xmm1, %xmm2, %xmm0",     "c5e85cc1",   "refuses", "refuses"),
+    # ── ⭐⭐⭐ batch 25, THE UNASKED REMAINDER, RANKED BY A TOOL RATHER THAN BY EYE.
+    #
+    #    `p2_roster.py --unprobed` prints every (mnemonic, BUCKET) pair the census
+    #    has demand for and has never asked, with the demand each would resolve.
+    #    Before it existed the rule from batch 24 was applied by hand, and eleven
+    #    rows sat unasked for three batches because doing it by eye is how a list
+    #    of 328 pairs gets sampled instead of worked.
+    #
+    #    ⛔ THE TOOL ALSO REPORTS THAT THIS DOCUMENT ANSWERS THE QUESTION TWICE.
+    #    Counted by NAME — is the mnemonic anywhere in this table? — 64.5% of the
+    #    gap is probed. Counted by KEY — is it asked at the bucket its demand
+    #    lives in, which is what each roster row actually looks up? — 52.3%. The
+    #    12.1% between them is 50,646 instructions that read as measured and are
+    #    not. See D124.
+    #
+    #    ⚠️ ENCODINGS ASSEMBLED BY clang AND READ BACK FROM THE DISASSEMBLY, never
+    #    typed: a hand-written byte string is a control for a different
+    #    instruction, and this repository has already paid for one (the batch-24
+    #    alignment control that dropped a `66` prefix and became MMX `pand`).
+    ('vpaddw_y',        'vpaddw %ymm1, %ymm2, %ymm0',           'c5edfdc1',       "refuses", "executes"),
+    ('vpmulhrsw_y',     'vpmulhrsw %ymm1, %ymm2, %ymm0',        'c4e26d0bc1',     "refuses", "refuses"),
+    ('vpunpcklwd_y',    'vpunpcklwd %ymm1, %ymm2, %ymm0',       'c5ed61c1',       "refuses", "refuses"),
+    ('vpunpckhwd_y',    'vpunpckhwd %ymm1, %ymm2, %ymm0',       'c5ed69c1',       "refuses", "refuses"),
+    ('vpmaddubsw_y',    'vpmaddubsw %ymm1, %ymm2, %ymm0',       'c4e26d04c1',     "refuses", "refuses"),
+    ('vpackssdw_y',     'vpackssdw %ymm1, %ymm2, %ymm0',        'c5ed6bc1',       "refuses", "refuses"),
+    ('vsubps_y',        'vsubps %ymm1, %ymm2, %ymm0',           'c5ec5cc1',       "refuses", "refuses"),
+    ('vpabsw_y',        'vpabsw %ymm1, %ymm0',                  'c4e27d1dc1',     "refuses", "refuses"),
+    ('vpunpcklbw_y',    'vpunpcklbw %ymm1, %ymm2, %ymm0',       'c5ed60c1',       "refuses", "refuses"),
+    ('vpmulld_y',       'vpmulld %ymm1, %ymm2, %ymm0',          'c4e26d40c1',     "refuses", "refuses"),
+    ('vinserti128_y',   'vinserti128 $1, %xmm1, %ymm2, %ymm0',  'c4e36d38c101',   "refuses", "refuses"),
+    ('vmovd_x',         'vmovd %xmm1, %eax',                    'c5f97ec8',       "refuses", "refuses"),
+    ('vpsubd_x',        'vpsubd %xmm1, %xmm2, %xmm0',           'c5e9fac1',       "refuses", "executes"),
+    ('vmovhps_x',       'vmovhps %xmm1, (%rbx)',                'c5f8170b',       "refuses", "refuses"),
+    ('vpand_x',         'vpand %xmm1, %xmm2, %xmm0',            'c5e9dbc1',       "refuses", "executes"),
+    ('vpor_x',          'vpor %xmm1, %xmm2, %xmm0',             'c5e9ebc1',       "refuses", "executes"),
+    ('pandn',           'pandn %xmm1, %xmm0',                   '660fdfc1',       "refuses", "executes"),
+    ('movapd',          'movapd %xmm1, %xmm0',                  '660f28c1',       "refuses", "executes"),
+    ('subss',           'subss %xmm1, %xmm0',                   'f30f5cc1',       "refuses", "executes"),
+    ('subsd',           'subsd %xmm1, %xmm0',                   'f20f5cc1',       "refuses", "executes"),
+    ('movntdqa',        'movntdqa (%rbx), %xmm0',               '660f382a03',     "refuses", "refuses"),
+    ('movd_mmx',        'movd %mm1, %eax',                      '0f7ec8',         "executes", "executes"),
+    ('psubw_mmx',       'psubw %mm1, %mm0',                     '0ff9c1',         "executes", "executes"),
+    ('punpcklbw_mmx',   'punpcklbw %mm1, %mm0',                 '0f60c1',         "executes", "executes"),
+    ('pxor_mmx',        'pxor %mm1, %mm0',                      '0fefc1',         "executes", "executes"),
     # ⚠️ MMX, and DECLINED BY DESIGN rather than by the oracle — this model has no
     # MMX register file.  `emms` executes and `pshufw` refuses; both are recorded
     # so neither reads as available work.

@@ -68,7 +68,7 @@ Cumulative share is over the whole uncovered gap (417,231 instructions), so a ro
 | 1 | `pmaddwd` | 21,239 | 5.09% | 5.1% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
 | 2 | `psubusw` | 17,214 | 4.13% | 9.2% | 0% | ⛔ **REFUSES** | `xm`, `xx` |
 | 3 | `vmovdqa` | 16,813 | 4.03% | 13.2% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 4 | `vpaddw` | 11,682 | 2.80% | 16.0% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
+| 4 | `vpaddw` | 11,682 | 2.80% | 16.0% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
 | 5 | `movq` | 11,109 | 2.66% | 18.7% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr`, `xx` |
 | 6 | `vpaddd` | 10,950 | 2.62% | 21.3% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
 | 7 | `vmovaps` | 7,599 | 1.82% | 23.2% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
@@ -80,7 +80,7 @@ Cumulative share is over the whole uncovered gap (417,231 instructions), so a ro
 | 13 | `mulss` | 5,698 | 1.37% | 32.3% | — | ✔ | `xm`, `xx` |
 | 14 | `packssdw` | 5,613 | 1.35% | 33.6% | 3% | ⛔ **REFUSES** | `xm`, `xx` |
 | 15 | `mulsd` | 5,482 | 1.31% | 34.9% | — | ✔ | `xm`, `xx` |
-| 16 | `vpmulhrsw` | 5,010 | 1.20% | 36.1% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
+| 16 | `vpmulhrsw` | 5,010 | 1.20% | 36.1% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 17 | `addss` | 4,696 | 1.13% | 37.3% | — | ✔ | `xm`, `xx` |
 | 18 | `vshufps` | 4,693 | 1.12% | 38.4% | — | ⛔ **REFUSES** | `xxmi`, `xxxi`, `yymi`, `yyyi` |
 | 19 | `pmullw` | 4,539 | 1.09% | 39.5% | ⚠️ 21% | ⛔ **REFUSES** | `xm`, `xx` |
@@ -90,19 +90,19 @@ Cumulative share is over the whole uncovered gap (417,231 instructions), so a ro
 | 23 | `vpbroadcastd` | 3,941 | 0.94% | 43.5% | — | ⛔ **REFUSES** | `xm`, `xx`, `ym`, `yx` |
 | 24 | `pmaxsw` | 3,776 | 0.91% | 44.4% | ⚠️ 24% | ⛔ **REFUSES** | `xm`, `xx` |
 | 25 | `movhps` | 3,672 | 0.88% | 45.3% | — | ✔ | `mx`, `xm` |
-| 26 | `vpunpcklwd` | 3,630 | 0.87% | 46.2% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
+| 26 | `vpunpcklwd` | 3,630 | 0.87% | 46.2% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 27 | `vaddps` | 3,434 | 0.82% | 47.0% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 28 | `vmovq` | 3,430 | 0.82% | 47.8% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 29 | `movd` | 3,386 | 0.81% | 48.6% | ⛔ **100% — PHANTOM ROW** | ⚠️ not measured | `mx`, `rx`, `xm`, `xr` |
-| 30 | `vpunpckhwd` | 3,352 | 0.80% | 49.4% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
+| 29 | `movd` | 3,386 | 0.81% | 48.6% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr` |
+| 30 | `vpunpckhwd` | 3,352 | 0.80% | 49.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 31 | `pmaddubsw` | 3,188 | 0.76% | 50.2% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
 | 32 | `psubusb` | 3,087 | 0.74% | 50.9% | ⚠️ 16% | ⛔ **REFUSES** | `xm`, `xx` |
-| 33 | `vpmaddubsw` | 3,048 | 0.73% | 51.7% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
-| 34 | `vpackssdw` | 3,026 | 0.73% | 52.4% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
+| 33 | `vpmaddubsw` | 3,048 | 0.73% | 51.7% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 34 | `vpackssdw` | 3,026 | 0.73% | 52.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 35 | `vpshufb` | 2,984 | 0.72% | 53.1% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 36 | `cvtss2sd` | 2,949 | 0.71% | 53.8% | — | ✔ | `xm`, `xx` |
-| 37 | `psubw` | 2,932 | 0.70% | 54.5% | ⛔ **100% — PHANTOM ROW** | ⚠️ not measured | `xm`, `xx` |
-| 38 | `vsubps` | 2,795 | 0.67% | 55.2% | — | ⚠️ not measured | `xxm`, `xxx`, `yym`, `yyy` |
+| 37 | `psubw` | 2,932 | 0.70% | 54.5% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 38 | `vsubps` | 2,795 | 0.67% | 55.2% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 39 | `pmuludq` | 2,790 | 0.67% | 55.8% | — | ⛔ **REFUSES** | `xm`, `xx` |
 | 40 | `vmulps` | 2,715 | 0.65% | 56.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 
@@ -165,23 +165,23 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 55 | 129,979 | 31.2% |
-| the oracle REFUSES | 42 | 164,825 | 39.5% |
-| **probed so far** | 97 | **294,804** | **70.7%** |
+| the oracle EXECUTES | 62 | 144,535 | 34.6% |
+| the oracle REFUSES | 49 | 179,651 | 43.1% |
+| **probed so far** | 111 | **324,186** | **77.7%** |
 
-So of the demand probed, **44% has an oracle** — after a
+So of the demand probed, **45% has an oracle** — after a
 one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
 rank 4 in the demand list, 2.31% of the whole gap, refusing in the same run in
 which `movdqa` beside it executes. The nine the oracle does not have are
-`packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmulhrsw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vmovdqa32`, `vmovq`, `vmulps`, `vpackssdw`, `vpaddw`, `vpbroadcastd`, `vpmaddubsw`, `vpmaddwd`, `vpmulhrsw`, `vpshufb`, `vpsrad`, `vpunpckhwd`, `vpunpcklwd`, `vshufps`, `vsubps`.
+`movntdqa`, `packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmulhrsw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vinserti128`, `vmovd`, `vmovdqa32`, `vmovhps`, `vmovq`, `vmulps`, `vpabsw`, `vpackssdw`, `vpaddw`, `vpbroadcastd`, `vpmaddubsw`, `vpmaddwd`, `vpmulhrsw`, `vpmulld`, `vpshufb`, `vpsrad`, `vpunpckhwd`, `vpunpcklbw`, `vpunpcklwd`, `vshufps`, `vsubps`.
 
 ⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
 two disagree the pessimistic one is taken: the census pools an MMX and an SSE
 spelling of `paddw` under a single key, so its demand cannot be split between
-the batches by mnemonic at all. Conflicts on this run: ['vpaddw'].
+the batches by mnemonic at all. Conflicts on this run: `vpaddw`.
 
 ⛔ **AVX-512 refuses in BOTH arms** — the one batch this oracle cannot answer,
 and the only one that needs another (K as an executable oracle, Sail, or the

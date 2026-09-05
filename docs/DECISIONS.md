@@ -6389,3 +6389,161 @@ the one that produced `84,128 cases, unexplained=0, oracle-divergence=171` on th
 an argument from the diff, not a re-run, and it is stated as one.
 ⚠️ **CI has still never run any of this.** GitHub Actions refuses every job on this account for
 billing (desk FH). The local gates are the receipt this box can produce.
+
+## D124 — the census counts a mnemonic as probed by NAME and reads its verdict by KEY
+
+**P2 batch 25.** Batch 24 established the rule — *a census is not finished when every MNEMONIC has
+been named; it is finished when every (mnemonic, BUCKET) the demand occupies has been asked* — and
+applied it BY HAND to eleven rows. `scripts/p2_roster.py --unprobed` applies it to all of them, and
+the first thing it reports is that `docs/P2-ROSTER.md` answers the question two different ways.
+
+### 1. THE TWO ACCOUNTINGS, IN ONE DENOMINATOR — AS THE INSTRUMENT FOUND THEM
+
+The roster's summary table counts a mnemonic as probed if `oracle_availability.py` NAMES it, at any
+width. Each ROW's oracle column looks the mnemonic up at the bucket its own demand lives in
+(`dominant_bucket`). Over one set of rows with one occurrence count:
+
+```
+NAMED anywhere in the availability table   268,979   64.5% of the 417,231-instruction gap
+ASKED at the bucket its demand lives in    218,333   52.3%
+⇒ probed by NAME but never asked at its BUCKET  50,646   12.1%
+```
+
+⚠️ **The difference is computed over ONE set with ONE `occ` on purpose.** The published *"probed so
+far 294,804 / 70.7%"* is a THIRD accounting (`vec[mn]` over join keys); subtracting one from another
+would be a difference of two denominators, which invents its own gap
+([[feedback-a-borrowed-denominator-invents-its-own-gap]]).
+
+⇒ 🔑 **A CENSUS CAN BE FINISHED IN ONE ACCOUNTING AND UNFINISHED IN ANOTHER, IN THE SAME DOCUMENT,
+AND NEITHER NUMBER LOOKS WRONG.** 328 (mnemonic, bucket) pairs carrying 161,026 instructions — 38.6%
+of the gap — have never been asked, against a published figure that reads 70.7% probed.
+
+### 2. `vpaddw` IS THE WORKED EXAMPLE AND IT DISAGREES WITH ITSELF
+
+The bank handed this on as a diagnosis and it was TESTED rather than believed
+([[feedback-inherited-diagnosis-is-a-hypothesis]]). It holds, with one correction to its wording:
+
+* `vpaddw` is probed at **zmm** (refuses, AVX-512 — this oracle cannot execute it at all) and at
+  **xmm** (executes, batch 24).
+* The SUMMARY's per-mnemonic collapse sees a conflict and takes `refuses`, so **11,682 instructions
+  are counted inside the 39.5% hole on the word of an AVX-512 probe**.
+* The ROW's oracle column looks up `(vpaddw, AVX2/AVX (ymm))` — its dominant bucket — finds nothing,
+  and prints `⚠️ not measured`.
+
+One mnemonic, two verdicts, both published. The bank called it *"counted as REFUSING"*, which is the
+summary's answer; the ranked table says `not measured` on the same row.
+
+### 3. WHAT IS DONE AND WHAT IS NOT
+
+⛔ **The per-mnemonic collapse is NOT repaired here, and the reason is the one the previous head
+gave**: splitting the summary's `vec[mn]` per bucket moves the NUMERATOR's provenance (`vec` sums
+join keys; `per_ext` sums `miss_by_ext`), and a census batch must not move a published number's
+source at the same time as it moves the number.
+
+⭐ **What IS done is the instrument that makes the remainder finite and ranked** — `--unprobed` prints
+every unasked pair with the demand it would resolve and the exact key `oracle_availability.py` has to
+be extended by — and the accumulation both callers used is now ONE function (`per_ext_map`), because
+a third copy was about to be written and two copies born in agreement diverge on the next append.
+
+### 4. WHAT THIS BATCH ASKS, AND WHAT IT LEAVES
+
+Twenty-five (mnemonic, bucket) pairs — the top of `--unprobed` — were assembled by clang, declared
+provisionally, run on the oracle, and then written back at the twelve values the oracle actually
+produced. Second run: **CLEAN in both CR4 arms, both controls behaving.**
+
+```
+                                       before        after
+asked at the bucket its demand lives in   52.3%        69.8%
+unasked remainder            328 pairs / 38.6%   303 pairs / 21.2%   (161,026 → 88,333 instructions)
+probed by NAME but not by KEY   50,646 / 12.1%    7,335 / 1.8%
+the roster's measured hole (REFUSES)      39.5%        43.1%   (executes 31.2% → 34.6%)
+```
+
+⭐ **THE HOLE ROSE, AND THAT IS THE INSTRUMENT WORKING.** Twelve of the twenty-five execute and
+thirteen refuse; the refusing ones were previously counted as *available by default*, which is the
+direction an unprobed pair errs in. A census that only ever lowers the hole is a census measuring
+its own optimism.
+
+⭐ **MMX EXECUTES WITH CR4 = 0.** `movd %mm1,%eax`, `psubw`, `punpcklbw` and `pxor` at `%mm` run in
+BOTH arms — MMX uses the x87 state and is not gated by `CR4.OSFXSR`, exactly as the SDM says and
+unlike every SSE form in this table. Four rows that would have read as "the oracle has no MMX" now
+say the opposite, and the model's MMX gap is a decision of this repository's, not the oracle's.
+
+⛔⛔ **AND `vpaddw` IS STILL INSIDE THE 43.1% HOLE, NOW AGAINST TWO EXECUTING WIDTHS.** It is probed
+at zmm (refuses — AVX-512, which this oracle cannot execute at all), at xmm (executes, batch 24) and
+now at ymm (executes, this batch). The summary's per-mnemonic collapse still takes `refuses`, so
+**11,682 instructions sit in the published hole on the word of an AVX-512 probe alone.** Adding a
+second executing width did not remove them; only §3's repair will.
+
+⚠️ One cosmetic defect found and fixed on the way: the conflict list was a `list` that was appended
+to once per disagreeing PROBE, so a mnemonic measured at three widths printed as
+`['vpaddw', 'vpaddw']` — a count of probes wearing the name of a count of mnemonics. It is a set now,
+rendered as prose.
+
+⛔ **The census is NOT finished and this record does not say it is.** The instrument's contribution is
+that the remainder is a LIST rather than a search: every unasked pair, ranked by the demand it would
+resolve, with the exact `(mnemonic, bucket)` key `oracle_availability.py` has to be extended by. The
+next head can work down it without re-deriving which bucket to probe.
+
+## D126 — a CI gate has been red for five batches, and no record in those five says so
+
+**Found while running the CI `build` job's gates locally on the tree that merged P2 batch 23.**
+`scripts/demand_census.py --check` fails:
+
+> ⛔ THE CENSUS IS STALE — the MODEL and the MAPPING have both moved.
+> `docs/DEMAND-CENSUS.md` was generated against a model of **131** mnemonics; it is now **135**.
+> Every coverage percentage in that document is against the older pair.
+
+### 1. IT IS NOT THIS MERGE, AND THE COMMIT WHERE IT STARTS IS MEASURED, NOT INFERRED
+
+The first instinct was that batch 23 broke it — it adds `pmovmskb` to `rosterP0`, which moves the
+model's identity. ⛔ **That was tested rather than believed**, by checking out each commit in the
+window into a worktree and running the gate:
+
+```
+762da1a  P2 batch 19   demand-census staleness gate: CLEAN (131 mnemonics)
+a5326fd  P2 batch 20   ⛔ STALE   ← the first red
+873a4d9  P2 batch 21   ⛔ STALE
+0f7baee  P2 batch 22   ⛔ STALE
+5c01599  P2 batch 24   ⛔ STALE     (the tree this life inherited)
+ff5b59c  D123          ⛔ STALE     (no `.lean` change of mine)
+```
+
+**Batch 20 (`movhps`) took `rosterP0` from 131 to 132 and the census document was not regenerated.**
+Five batches have landed on top of it. Two further CI steps — the census `--selftest` and
+`census_redprobe.py` — fail as a consequence, because their planted arms cannot distinguish "the
+model moved" from "the mapping moved" once both already have; so **one stale artifact reds three of
+the workflow's twenty-five steps**.
+
+### 2. ⛔⛔ WHY FIVE BATCHES OF RECORDS SAY "GATES GREEN"
+
+* **GitHub Actions refuses every job on this account for BILLING** (desk FH), so no CI run has ever
+  executed this step. Master CI has never been green — 36 of 36 runs — and that is recorded.
+* **The per-batch local discipline runs the gates named in `scripts/run_differential.sh`**, which is
+  a SUBSET of `.github/workflows/ci.yml`. Nothing compared the two lists.
+
+⇒ 🔑 **A GATE THAT LIVES ONLY IN CI, ON AN ACCOUNT WHERE CI CANNOT RUN, IS A GATE NOBODY HAS.** D104
+found two gates hiding behind a failing step and repaired *them*; the repair it did not make was to
+give a head one command that runs the whole workflow on the box that exists. "Gates green" in five
+banks meant "the gates I ran are green", and the sentence cannot tell the difference.
+
+### 3. WHAT IS DONE, AND WHAT IS DELIBERATELY NOT
+
+⭐ **`scripts/ci_local.py` runs a CI job's steps on this box, DERIVED from `ci.yml` rather than copied
+from it.** A hand-written roster of CI steps is a duplicate born in agreement — it matches the day it
+is written and diverges on the next append, silently. This parses the workflow, runs each `run:`
+block in order, NAMES the `uses:` steps it skips as runner setup, and prints the failing step's own
+output rather than only its name. `--list` shows what it would run; it parses the `build` job's 25
+steps and the two new `kernel-delta` jobs.
+
+⛔ **THE CENSUS IS NOT REGENERATED HERE, and that is a decision rather than an omission.**
+Regenerating needs the corpus re-downloaded (ten Debian packages plus nine debug packages, the
+recipe is in the document) and **it moves every published coverage percentage in this repository** —
+`docs/DEMAND-CENSUS.md` feeds `p2_roster.py`, which feeds the hole this same batch has just
+re-measured at 43.1%. Moving a denominator and a numerator in one batch, at the end of a life, is how
+a number gets published that nobody can attribute. It is the next head's FIRST item, with its
+first-red commit and its blast radius named here rather than left to be rediscovered.
+
+⚠️ And a caution the next head should carry: `ci_local.py` runs on **arm64 macOS**; CI's runner is
+**x86-64 Linux**, where this tree has been measured 1.7×–3.1× slower per module. A green here is not a
+receipt for the runner. It is, however, the first time in five batches that anything has asked.
