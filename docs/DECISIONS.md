@@ -6659,9 +6659,26 @@ table beside them, so the prose and the table cannot disagree again. They now re
 and `The 49`, agreeing with the table and with the 49 names actually listed (checked by counting
 them, not by trusting the field).
 
-⚠️ **The sibling search was run, not skipped** ([[feedback-naming-a-defect-is-not-finding-its-siblings]]):
-these three are the only hand-written figures in either generator's prose blocks; every other number
-in both documents is interpolated.
+⚠️⚠️ **AND THE SIBLING SEARCH I SAID I HAD RUN WAS SCOPED TOO NARROWLY — CORRECTED WITHIN THE HOUR.**
+This paragraph first read *"these three are the only hand-written figures in either generator's prose
+blocks"*. That sentence is TRUE and it is not the claim that mattered: I had grepped the two
+GENERATORS, and the same three figures were sitting in a **code comment** in a third file,
+`scripts/oracle_availability.py:340` — *"AND THE NINE THE ORACLE DOES NOT HAVE … `pmaddwd` is rank 4
+in the demand list — 21,239 occurrences, 2.31% of the whole gap"*. I found it on the NEXT task, by
+opening that file for an unrelated reason.
+
+⇒ 🔑 **A SIBLING SWEEP INHERITS THE SCOPE OF THE FILE THE DEFECT WAS FOUND IN.** The card says to grep
+*the same file for the same shape*; the defect's shape here was not "a literal in a generator" but
+"a hand-written figure about a table that regenerates", and that shape has no reason to respect file
+boundaries. The repo-wide grep that found it (`rank [0-9]+ in the demand`, `2.31%`, `the nine the
+oracle`) took one command and should have been the FIRST move, not the second.
+
+⛔ And the comment is the worse hiding place of the two: a figure in a generated document is at least
+re-rendered next to the truth on every regeneration, where a reader might catch it. **A figure in a
+comment is invisible to every gate there is** and is re-rendered never. The repair therefore does not
+restate the figures at all — it names where they are derived (`docs/P2-ROSTER.md`, from `b["joined"]`
+and `rf_names`) and records that all three drifted, so the next reader is sent to the live number
+instead of being handed a stale one.
 
 ### 5. WHAT THIS BATCH DELIBERATELY DID NOT DO
 

@@ -337,11 +337,20 @@ P2_FORMS = [
     ("psllw",      "psllw $0x2, %xmm0",           "660f71f002",   "refuses", "executes"),
     ("packuswb",   "packuswb %xmm1, %xmm0",       "660f67c1",     "refuses", "executes"),
     ("movq_xmm",   "movq %xmm0, %rax",            "66480f7ec0",   "refuses", "executes"),
-    # ⛔⛔ AND THE NINE THE ORACLE DOES NOT HAVE, WHICH IS WHY A BATCH CANNOT BE
-    # PRICED FROM A SAMPLE OF ITS OWN MEMBERS.  `pmaddwd` is rank 4 in the demand
-    # list — 21,239 occurrences, 2.31% of the whole gap — and it refuses with SSE
-    # fully enabled, in the same run in which `movdqa` beside it executes.  Seven
-    # forms had been probed and all seven executed; the eighth did not.
+    # ⛔⛔ AND THE ONES THE ORACLE DOES NOT HAVE, WHICH IS WHY A BATCH CANNOT BE
+    # PRICED FROM A SAMPLE OF ITS OWN MEMBERS.  `pmaddwd` refuses with SSE fully
+    # enabled, in the same run in which `movdqa` beside it executes: seven forms
+    # had been probed and all seven executed; the eighth did not.
+    # ⚠️ THE COUNT AND THE RANK ARE DELIBERATELY NOT WRITTEN HERE.  This comment
+    # said "THE NINE" and "rank 4 ... 2.31% of the whole gap" from `00dd9ea` until
+    # D127.  All three drifted (49, rank 1, 5.15%) and two were already false in
+    # the commit that introduced them — the table beside them said REFUSES 11 and
+    # ranked `pmaddwd` 5th on the day they were typed.  The live figures are
+    # DERIVED into `docs/P2-ROSTER.md` from `b["joined"]` and `rf_names`; read
+    # them there, where a regeneration cannot leave them behind.
+    # ⇒ 🔑 a byte-for-byte derivation gate proves `file == script`, never
+    #   `script == true`, so a hand-written figure is invisible to it forever —
+    #   and a figure in a COMMENT is invisible to every gate there is.
     ("pmaddwd",    "pmaddwd %xmm1, %xmm0",        "660ff5c1",     "refuses", "refuses"),
     ("psubusw",    "psubusw %xmm1, %xmm0",        "660fd9c1",     "refuses", "refuses"),
     ("psadbw",     "psadbw %xmm1, %xmm0",         "660ff6c1",     "refuses", "refuses"),
