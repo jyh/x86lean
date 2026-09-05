@@ -8,7 +8,7 @@ SIBLING BASE RATES and b26 got five of twenty-three wrong, all in one direction 
 four by inferring a VEX-128 verdict from an SSE-legacy sibling, precisely the
 inference the census key exists to forbid.  Batch 27 read the answer off x86isa's
 own instruction listing instead and scored 23 of 23; this file generalises that
-read to every pair, and scores it on all 168 already measured.
+read to every pair, and scores it on every pair already measured.
 
 ⛔⛔⛔ AND THE FIRST THING TO SAY IS THE CORRECTION D132 PAID FOR.  Batch 27's note
 called the listing "a SECOND SOURCE" and read 23 of 23 as a model of the oracle
@@ -35,7 +35,9 @@ dispatch is reached or DESPITE an implemented slot: a byte string that does not
 decode to the entry at all, a feature-flag or CR4 gate, an ACL2 guard violation
 (`cvtss2sd` at zero operands raises one, which is why it serves as the operand
 control).  The 163 of 163 below is a MEASURED statement that none of those bit on
-168 pairs — not an assumption that they cannot.
+every pair measured so far — not an assumption that they cannot.  The count is
+printed by the run; it is deliberately not written here, because a literal in a
+comment goes stale silently and this table grows every batch.
 
 ⚠️ THE PREDICTION IS PER FORM, NOT PER PAIR.  One (mnemonic, bucket) can carry
 several opcodes — `psrlw` at ymm is both `0F71 /2` and `0FD1` — and x86isa may
@@ -136,8 +138,8 @@ def main():
 
     # ══════════════════════════════════════════════════════════════════════
     # ⭐⭐ THE SCORE, on every pair the repository has actually MEASURED.
-    # This is the honest price of the route: 168 pairs, both verdicts well
-    # represented, and the catalogue never saw any of them.
+    # This is the honest price of the read: every measured pair, both verdicts
+    # well represented.  The count is computed, never written down here.
     hit = miss = amb = absent = 0
     wrong = []
     for key, got in sorted(meas.items()):

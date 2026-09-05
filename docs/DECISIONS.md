@@ -7183,3 +7183,90 @@ suffixes (`cvtsi2sdl`, `cvtsi2ssq`), `movd`, `vpermq`, `pextrw`, `vzeroupper`. *
 stripping a suffix**, because recovering a mnemonic by stripping characters off a label is D100's
 lossy key exactly, and it is how a phantom row was published once already. They are printed as
 unresolved so the next head sees a gap rather than a guess.
+
+## D133 — P2 BATCH 28: the queue reordered by derived support, and the first batch that could have failed
+
+Not the top of `--unprobed` by demand: **the top 23 of the 84 pairs `scripts/p2_oracle_support.py`
+derives as implemented**, by demand. The fork was posted on the bus with a recommendation and taken
+on it, per the standing law that nothing blocks on the Captain.
+
+**Why reorder.** Same census progress per pair, but every pair asked here is one that **can become a
+differential vector** — which is what the project is for — and it is where a probe is most
+informative. D132 established that the listing *generates* the dispatch, so asking a pair the listing
+calls unimplemented can only confirm the read. Asking one it calls **implemented** is different: the
+machine can still refuse for reasons a static read cannot see —
+
+- the bytes do not decode to that entry at all (a decode-level `#UD`);
+- a feature-flag or CR4 gate fires;
+- an ACL2 guard violation aborts the step, which yields **no reading at all** rather than a refusal
+  (`cvtss2sd` at zero operands does exactly this, which is why it is the operand control).
+
+⇒ 🔑 **this is the first batch whose predictions could be caught out by the machine.** Batch 27's
+could not: every row it declared `refuses` was a row the listing said was unimplemented, and the
+listing is what makes it so.
+
+### 1. THE RESULT: 23 OF 23 AGAIN — AND THIS TIME THAT IS INFORMATION
+
+46 of 46 cells, scored mechanically against a file hashed before ACL2 ran (sha256 `0ccb1f2a…`,
+07:31:09Z, unchanged after). Fifteen `(refuses, executes)` and eight `(executes, executes)` — the
+eight being the MMX forms, which need neither `OSFXSR` nor `OSXMMEXCPT`.
+
+**None of the three divergence classes bit.** That is a measured statement about 23 implemented
+forms, not an assumption that they cannot: no decode-level refusal, no feature gate, and no guard
+violation — the six floating-point rows (`divss`, `mulps`, `addps`, `movddup`, `cvttsd2si`,
+`cvttss2si`) were run at operands whose every lane is a normal positive float, which was recorded as
+a *reason to expect no guard violation* before the run rather than claimed as one afterwards.
+
+### 2. THE MOVE — AND THE FIRST BATCH THAT MOVES ONLY THE EXECUTING SIDE
+
+```
+THE UNASKED REMAINDER  258 pairs / 37,334 / 9.0%  ->  235 pairs / 27,271 / 6.6%
+asked at its own bucket                  81.9%    ->  84.3%
+probed so far          153 / 367,246 / 89.0%      ->  169 / 374,138 / 90.7%
+  the oracle EXECUTES   71 / 150,084 / 36.4%      ->   87 / 156,976 / 38.0%
+  the oracle REFUSES    82 / 217,162 / 52.6%      ->   82 / 217,162 / 52.6%   ← unchanged
+```
+
+The 23 pairs' demand sums to **10,063**; the remainder fell by `37,334 − 27,271 =` **10,063**, and
+pairs by exactly **23**. Every previous batch grew the published hole; this one does not touch it,
+because every pair asked executes. Mnemonics rose 16, not 23, because seven were already named at
+SSE-legacy and were asked here at **MMX** — distinct keys, distinct labels, measured separately.
+
+### 3. ⭐ THE PER-MNEMONIC COLLAPSE NOW HAS A MAGNITUDE — D124 §3, PRICED
+
+Every mnemonic measured at more than one bucket was checked for agreement rather than assumed to
+agree: **25 such mnemonics, 24 agree, one does not.**
+
+```
+vpaddw   demand 11,682   ymm 5,487 · VEX-128 4,434 · zmm 1,761
+         measured: ymm executes · VEX-128 executes · zmm REFUSES
+         dominant bucket = ymm, where it EXECUTES
+         the summary counts all 11,682 as REFUSES  (pessimistic collapse)
+```
+
+The conflict itself is old and already named in `p2_roster.py`'s comments. What is new is the
+**number and its direction**: the summary overstates REFUSES by **9,921 instructions — 2.4% of the
+412,640-instruction gap** — and understates EXECUTES by the same. ⇒ ⚠️ **the error runs in the
+direction that makes the oracle look worse than it is, which is the unpoliced direction**: an
+over-claim reads as a mistake, an under-claim reads as modesty. It is left unrepaired here because
+moving a published numerator's provenance is its own batch — but it is no longer an unpriced one.
+
+### 4. ⛔ A STALE COUNT IN THE ONE SENTENCE THAT ASSERTS THE VERDICTS ARE TRUSTWORTHY
+
+The operand control has printed *"so the **77** verdicts are readings at the declared operands"*
+since batch 19. The table held 77 rows then; it holds **202** now. The same literal sat in the
+control's failure message. Neither is reachable by any gate — a count written as a literal in a
+message re-renders never, which is D127's lesson in its worst location: **the sentence whose whole
+job is to certify that every verdict was taken at real operands was itself carrying a figure that had
+been wrong for nine batches.** Repaired by deriving it from `len(P2_FORMS)`, not by updating it.
+
+A repo-wide sweep for the same shape was run **before** this note was written, not after: the only
+other literals of that family are a historical account of the D128 parser incident (`132 of 133`,
+correctly frozen — it describes what happened, not what is) and two counts in
+`p2_oracle_support.py`'s own docstring, which were removed in favour of the number its run prints.
+
+### 5. THE ENCODINGS
+
+All 23 came from `clang`; none was typed. D128's gate re-derives every one of the now-**202** rows on
+both disassemblers each CI run; D130's structure gate confirms all 202 tags are distinct.
+`ci_local.py --job build`: **26 of 26 GREEN**.

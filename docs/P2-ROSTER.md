@@ -165,11 +165,11 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 71 | 150,084 | 36.4% |
+| the oracle EXECUTES | 87 | 156,976 | 38.0% |
 | the oracle REFUSES | 82 | 217,162 | 52.6% |
-| **probed so far** | 153 | **367,246** | **89.0%** |
+| **probed so far** | 169 | **374,138** | **90.7%** |
 
-So of the demand probed, **41% has an oracle** — after a
+So of the demand probed, **42% has an oracle** — after a
 one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms

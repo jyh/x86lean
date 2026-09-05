@@ -718,6 +718,53 @@ P2_FORMS = [
     ("vbroadcasti128_y","vbroadcasti128 (%rbx), %ymm0",       "c4e27d5a03",   "refuses", "refuses"),
     ("psllw_mmx",      "psllw %mm1, %mm0",                    "0ff1c1",       "executes", "executes"),
     ("vpcmpeqw_y",     "vpcmpeqw %ymm1, %ymm2, %ymm0",        "c5ed75c1",     "refuses", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # P2 BATCH 28 — THE QUEUE REORDERED, AND THE FIRST BATCH THAT CAN FAIL.
+    #
+    # Not the top of `--unprobed` by demand: the top 23 of the 84 pairs
+    # `scripts/p2_oracle_support.py` DERIVES as implemented, by demand. Same
+    # census progress per pair, but every pair asked here is one that CAN BECOME
+    # A DIFFERENTIAL VECTOR, which is what the project is for.
+    #
+    # ⛔⛔ AND THIS BATCH IS A REAL TEST WHERE BATCH 27 WAS NOT.  D132 established
+    # that the listing GENERATES the dispatch, so asking a pair the listing calls
+    # UNIMPLEMENTED can only confirm the read.  Asking one it calls IMPLEMENTED
+    # is different: the machine can still refuse for reasons a static read cannot
+    # see — bytes that do not decode to that entry, a feature-flag or CR4 gate,
+    # or an ACL2 guard violation, which yields NO READING AT ALL rather than a
+    # refusal (`cvtss2sd` at zero operands does exactly that, which is why it is
+    # the operand control).  ⇒ every row here is a chance for the derived support
+    # to be caught out, and a MISSING reading is a third outcome that is neither
+    # verdict.
+    #
+    # ⚠️ SEVEN OF THESE MNEMONICS ARE ALREADY IN THIS TABLE AT SSE-legacy
+    # (punpckhwd, pand, paddd, punpckldq, psrlq, por, psrlw) and are asked here
+    # at MMX.  Distinct census keys, distinct labels, measured separately — the
+    # thing b26 proved matters and D130 proved was silently broken.
+    # ⛔ EVERY `hx` CAME FROM `clang`; none was typed.
+    ("divss",           "divss %xmm1, %xmm0",                "f30f5ec1",      "refuses", "executes"),
+    ("vpandn_v",        "vpandn %xmm1, %xmm2, %xmm0",        "c5e9dfc1",      "refuses", "executes"),
+    ("movhpd",          "movhpd (%rbx), %xmm0",              "660f1603",      "refuses", "executes"),
+    ("cvttsd2si",       "cvttsd2si %xmm1, %eax",             "f20f2cc1",      "refuses", "executes"),
+    ("punpckhwd_mmx",   "punpckhwd %mm1, %mm0",              "0f69c1",        "executes", "executes"),
+    ("pand_mmx",        "pand %mm1, %mm0",                   "0fdbc1",        "executes", "executes"),
+    ("movddup",         "movddup %xmm1, %xmm0",              "f20f12c1",      "refuses", "executes"),
+    ("paddd_mmx",       "paddd %mm1, %mm0",                  "0ffec1",        "executes", "executes"),
+    ("mulps",           "mulps %xmm1, %xmm0",                "0f59c1",        "refuses", "executes"),
+    ("punpckldq_mmx",   "punpckldq %mm1, %mm0",              "0f62c1",        "executes", "executes"),
+    ("psrlq_mmx",       "psrlq %mm1, %mm0",                  "0fd3c1",        "executes", "executes"),
+    ("vpcmpgtw_v",      "vpcmpgtw %xmm1, %xmm2, %xmm0",      "c5e965c1",      "refuses", "executes"),
+    ("addps",           "addps %xmm1, %xmm0",                "0f58c1",        "refuses", "executes"),
+    ("vpsubb_v",        "vpsubb %xmm1, %xmm2, %xmm0",        "c5e9f8c1",      "refuses", "executes"),
+    ("por_mmx",         "por %mm1, %mm0",                    "0febc1",        "executes", "executes"),
+    ("xorps",           "xorps %xmm1, %xmm0",                "0f57c1",        "refuses", "executes"),
+    ("cvttss2si",       "cvttss2si %xmm1, %eax",             "f30f2cc1",      "refuses", "executes"),
+    ("punpckhdq_mmx",   "punpckhdq %mm1, %mm0",              "0f6ac1",        "executes", "executes"),
+    ("movlhps",         "movlhps %xmm1, %xmm0",              "0f16c1",        "refuses", "executes"),
+    ("psrlw_mmx",       "psrlw %mm1, %mm0",                  "0fd1c1",        "executes", "executes"),
+    ("andps",           "andps %xmm1, %xmm0",                "0f54c1",        "refuses", "executes"),
+    ("vpcmpgtb_v",      "vpcmpgtb %xmm1, %xmm2, %xmm0",      "c5e964c1",      "refuses", "executes"),
+    ("movlpd",          "movlpd (%rbx), %xmm0",              "660f1203",      "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),
@@ -832,7 +879,8 @@ def p2_operand_control(arms=None):
     if nz is None:
         problems.append("cvtss2sd at NON-ZERO operands produced no reading; the "
                         "probe's own subject does not run, so nothing it says "
-                        "about the other 77 forms is worth reading")
+                        "about the other %d forms is worth reading"
+                        % (len(P2_FORMS) - 1))
     if zr is not None:
         problems.append("cvtss2sd at ZERO operands now READS (%s). Either x86isa "
                         "repaired the sse-post-comp guard — a finding, and this "
@@ -849,9 +897,15 @@ def p2_operand_control(arms=None):
         for p in problems:
             print("    " + p)
         return 1
+    # ⛔ DERIVED, NOT RESTATED.  This sentence said "the 77 verdicts" from batch
+    # 19 until batch 28, by which point the table held 202 rows.  A count written
+    # as a literal in a message is invisible to every gate and re-renders never
+    # — the exact shape D127 paid for, and it went stale in the one place that
+    # asserts the verdicts are trustworthy.  ⇒ print the number the table has.
     print("  ✔ operand control: the write LANDS (packuswb witnesses all-ones) and "
           "the verdict DEPENDS on it (cvtss2sd executes at non-zero, no reading "
-          "at zero) — so the 77 verdicts are readings at the declared operands")
+          "at zero) — so the %d verdicts are readings at the declared operands"
+          % len(P2_FORMS))
     return 0
 
 
