@@ -5760,3 +5760,83 @@ unstarted: gate the DELTA between two trees measured in one session (D111).
 
 **Reversal cost:** two AST constructors, one semantics clause, one coverage row, one roster row,
 6 vectors, 3 arms, 6 `claimed_forms` exemptions.
+
+---
+
+## D120 — the census of the unprobed remainder: VEX is SPLIT, and the hole is a third
+
+**P2 batch 21. No forms, no vectors — one ACL2 run of 18 arms and a table that moves the plan.**
+
+### 1. Why this run happened before it was asked for
+
+The Captain's 19:21 ruling makes arm C (a second, K-backed oracle) ripen *"when the measured buildable
+list is EMPTY — post the census that proves it."* D118 is the reason that census was run **now**
+rather than at the moment the list looked empty: an ASSERTED-empty queue is precisely the thing that
+had just turned out to be wrong, and the assertion had survived a whole relight.
+
+Only 74 of the residue's mnemonics had ever been asked — **51.6% of the demand. 48.4% had never been
+measured at all**, and every unmeasured row defaults to *available* (D65).
+
+### 2. ⛔⛔ VEX IS NOT ONE CLASS, AND EVERY SENTENCE HERE HAD TREATED IT AS ONE
+
+Batch 18's bank read *"everything larger either refuses or is VEX — which needs VEX decoding
+vocabulary and is unpriced"*. That sentence has two failures, and D118 only found the first. The
+second is here: it treats **VEX as a single class blocked by one cause** — our decoder. Measured:
+
+```
+vmovaps  (ymm)  7,599  EXECUTES        vpmaddwd (ymm)  7,209  REFUSES
+vpsubw   (ymm)  6,234  EXECUTES        vpsrad   (ymm)  6,338  REFUSES
+vmovdqu  (ymm)  6,160  EXECUTES        vshufps  (ymm)  4,693  REFUSES
+                                       vpbroadcastd    3,941  REFUSES
+                                       vaddps   (ymm)  3,434  REFUSES
+                                       vpshufb  (ymm)  2,984  REFUSES
+                                       vmulps   (ymm)  2,715  REFUSES
+```
+
+⇒ 🔑 **THE VEX RESIDUE IS BLOCKED BY BOTH CAUSES AT ONCE, IN DIFFERENT PLACES.** A plan that priced
+only the decoding vocabulary would have bought the *executing* half and discovered the rest at the
+differential; a plan that priced only the oracle would have missed that half of it is available today
+if the decoder existed. Neither number alone describes the work.
+
+⚠️ Note the shape: the *moves* execute and the *arithmetic and permutes* refuse. That is the same
+split x86isa shows at SSE, one register width up — evidence about the oracle's coverage pattern
+rather than about AVX.
+
+### 3. WHAT IS BUILDABLE TODAY THAT NOBODY KNEW WAS
+
+⭐ **`prefetchnta` and `prefetcht0` — 466 instructions — EXECUTE, and are architecturally NO-OPS.**
+They change no state this model observes.
+
+⚠️ **That is the claim in this decision most likely to be wrong, and it is deliberately NOT yet a
+semantics.** [[feedback-the-burden-is-on-the-departure]]: a spec's "no-op" is only a no-op where the
+write is invisible, and the burden is on the departure — the manual has not executed, the oracle has.
+It is recorded here as a MEASUREMENT of the oracle, and a batch that implements it must show the
+model and the oracle agree on all 88 pre-states before the word "no-op" appears in a semantics.
+
+⚠️ `cvtsi2sd`/`cvtsi2ss` (2,603) execute and **join the soft-float commission** rather than the
+buildable list: they are blocked by this model's missing MXCSR and by Lean's `Float` being an opaque
+extern, not by the oracle. The commission is 23,085 → **25,688**.
+
+⚠️ `emms` executes and `pshufw` refuses; both are MMX and **declined by design** (no MMX register
+file). Recorded so neither reads as available work.
+
+### 4. ⭐⭐ THE NUMBER THAT CHANGES THE RULING'S ARITHMETIC
+
+```
+                    BEFORE (D118)              AFTER
+the oracle EXECUTES 47 mnemonics  106,753      55 mnemonics  129,979   31.2%
+the oracle REFUSES  27            108,578      35            140,534   33.7%
+probed              74            215,331      90            270,513   64.8%
+```
+
+⇒ **THE KNOWN HOLE IS 33.7%, NOT 26.0% AND NOT THE ORDERED 25.3%.** It grew by a third of itself in
+one run, because the refusing set was never the eighteen mnemonics the ruling names — those were
+simply the refusing rows that had been *looked at*. This is the strongest available argument for arm
+C, and it is an argument the ruling could not have had, because the measurement did not exist.
+
+⚠️ **AND THE CENSUS IS NOT FINISHED.** 35.2% of the demand is still unprobed. The number above is a
+floor on the hole, not its size — every further run has so far moved it in the same direction, which
+is the direction that shrinks the buildable list.
+
+**Reversal cost:** 16 rows in `oracle_availability.py`, gated in both CR4 arms; `docs/P2-ROSTER.md`
+regenerates.

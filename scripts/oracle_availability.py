@@ -472,6 +472,49 @@ P2_FORMS = [
     ("ADD2:lock incl", "lock incl (%rbx)",        "f0ff03",       "executes", "executes"),
     ("ADD3:movabsq", "movabsq $0x123456789abc, %rax",
                                     "48b8bc9a785634120000", "executes", "executes"),
+    # ── ⭐⭐ batch 21, THE CENSUS OF THE UNPROBED REMAINDER.  The 19:21 ruling
+    #    makes arm C ripen "when the measured buildable list is EMPTY — post the
+    #    census that proves it".  D118's lesson is that an ASSERTED-empty queue is
+    #    exactly the thing that turns out to be wrong, so the remainder was
+    #    MEASURED before anything was declared about it.
+    #
+    #    ⛔⛔ AND VEX IS SPLIT, WHICH NO PRIOR SENTENCE HERE ALLOWED FOR.  Batch
+    #    18's bank read "everything larger either refuses or is VEX", treating VEX
+    #    as a single class blocked only by OUR decoding vocabulary.  It is not one
+    #    class: `vmovaps`/`vpsubw`/`vmovdqu` at ymm EXECUTE, while `vpmaddwd`,
+    #    `vpsrad`, `vpshufb`, `vpbroadcastd`, `vaddps`, `vmulps` and `vshufps`
+    #    REFUSE.  So the VEX residue is blocked by BOTH causes at once, in
+    #    different places, and a plan that priced only the vocabulary would have
+    #    been wrong about which rows it bought.
+    #
+    #    ⭐ AND TWO ROWS ARE BUILDABLE TODAY: `prefetchnta` and `prefetcht0` (466
+    #    instructions) EXECUTE and are architecturally NO-OPS — they change no
+    #    state this model observes.  ⚠️ That claim is the one to distrust
+    #    ([[feedback-the-burden-is-on-the-departure]]): a "no-op" is only a no-op
+    #    where the write is invisible, so it is written here as a MEASUREMENT of
+    #    the oracle and NOT yet as a semantics.
+    ("vmovaps",    "vmovaps (%rbx), %ymm0",       "c5fc2803",     "refuses", "executes"),
+    ("vpsubw",     "vpsubw %ymm1, %ymm2, %ymm0",  "c5edf9c1",     "refuses", "executes"),
+    ("vmovdqu",    "vmovdqu (%rbx), %ymm0",       "c5fe6f03",     "refuses", "executes"),
+    ("vpmaddwd",   "vpmaddwd %ymm1, %ymm2, %ymm0", "c5edf5c1",    "refuses", "refuses"),
+    ("vpsrad",     "vpsrad $3, %ymm1, %ymm0",     "c5fd72e103",   "refuses", "refuses"),
+    ("vpshufb",    "vpshufb %ymm1, %ymm2, %ymm0", "c4e26d00c1",   "refuses", "refuses"),
+    ("vpbroadcastd", "vpbroadcastd %xmm1, %ymm0", "c4e27d58c1",   "refuses", "refuses"),
+    ("vaddps",     "vaddps %ymm1, %ymm2, %ymm0",  "c5ec58c1",     "refuses", "refuses"),
+    ("vmulps",     "vmulps %ymm1, %ymm2, %ymm0",  "c5ec59c1",     "refuses", "refuses"),
+    ("vshufps",    "vshufps $27, %ymm1, %ymm2, %ymm0", "c5ecc6c11b", "refuses", "refuses"),
+    # ⚠️ The two integer->float converts JOIN THE SOFT-FLOAT COMMISSION (D118 §5):
+    # they execute on the oracle and are blocked by this model's lack of MXCSR and
+    # of a kernel-reducible float, not by the oracle.  23,085 becomes 25,688.
+    ("cvtsi2sd",   "cvtsi2sdl %ecx, %xmm0",       "f20f2ac1",     "refuses", "executes"),
+    ("cvtsi2ss",   "cvtsi2ssl %ecx, %xmm0",       "f30f2ac1",     "refuses", "executes"),
+    ("prefetchnta", "prefetchnta (%rbx)",         "0f1803",       "executes", "executes"),
+    ("prefetcht0", "prefetcht0 (%rbx)",           "0f180b",       "executes", "executes"),
+    # ⚠️ MMX, and DECLINED BY DESIGN rather than by the oracle — this model has no
+    # MMX register file.  `emms` executes and `pshufw` refuses; both are recorded
+    # so neither reads as available work.
+    ("emms",       "emms",                        "0f77",         "executes", "executes"),
+    ("pshufw",     "pshufw $27, %mm1, %mm0",      "0f70c11b",     "refuses", "refuses"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),
