@@ -593,6 +593,51 @@ P2_FORMS = [
     # so neither reads as available work.
     ("emms",       "emms",                        "0f77",         "executes", "executes"),
     ("pshufw",     "pshufw $27, %mm1, %mm0",      "0f70c11b",     "refuses", "refuses"),
+    # ⭐⭐ P2 BATCH 26 — THE TOP OF `p2_roster.py --unprobed`, ASKED.
+    #    Twenty-three (mnemonic, bucket) pairs, ranks 1-24 of the ranked unasked
+    #    list (rank 21 `vzeroupper` is SKIPPED and the reason is D128 §5: its
+    #    bucket `AVX (state)` is one `probe_bucket` cannot express, so a probe
+    #    for it would be dropped from `measured_availability` and the pair would
+    #    stay unasked no matter how often it was asked).
+    #    ⛔ EVERY `hx` BELOW CAME FROM `clang`, none was typed, and D128's gate
+    #    re-derives all of them on both disassemblers at every CI run.
+    #    ⚠️ ASKED PER PAIR, NEVER PER GROUP ([[feedback-a-batch-cannot-be-sampled]]):
+    #    the VEX-128 and ymm spellings of the same mnemonic are different keys and
+    #    are probed separately, because that is exactly the sampling that made
+    #    `pmaddwd` a surprise at rank 1.
+    #    ⛔⛔ AND IT HAPPENED AGAIN, IN THIS BATCH, ON THE PREDICTION. Eighteen of
+    #    the twenty-three verdicts were predicted correctly before the run; FIVE
+    #    were wrong and ALL FIVE in the same direction (predicted `executes`,
+    #    measured `refuses`). Four of them are the VEX-128 unpacks — and their
+    #    SSE-legacy siblings `punpckldq`/`punpcklwd`/`punpcklbw`/`punpckhwd` all
+    #    EXECUTE, three of them declared a few dozen lines above this comment.
+    #    ⇒ 🔑 THE SAME OPERATION HAS DIFFERENT ORACLE SUPPORT AT DIFFERENT
+    #      ENCODINGS, which is the whole reason the census key is (mnemonic,
+    #      BUCKET) and not a mnemonic. A verdict inferred from a sibling in
+    #      another bucket is not evidence about this one.
+    ("vpackuswb",   "vpackuswb %ymm1, %ymm2, %ymm0",   "c5ed67c1",     "refuses", "refuses"),
+    ("pmulhuw",     "pmulhuw %xmm1, %xmm0",            "660fe4c1",     "refuses", "refuses"),
+    ("vpaddsw",     "vpaddsw %ymm1, %ymm2, %ymm0",     "c5ededc1",     "refuses", "refuses"),
+    ("shufps",      "shufps $0x1b, %xmm1, %xmm0",      "0fc6c11b",     "refuses", "executes"),
+    ("vpunpckldq",  "vpunpckldq %xmm1, %xmm2, %xmm0",  "c5e962c1",     "refuses", "refuses"),
+    ("vpsraw",      "vpsraw $0x2, %ymm1, %ymm0",       "c5fd71e102",   "refuses", "refuses"),
+    ("vpunpcklqdq", "vpunpcklqdq %xmm1, %xmm2, %xmm0", "c5e96cc1",     "refuses", "refuses"),
+    ("vextracti128","vextracti128 $0x1, %ymm1, %xmm0", "c4e37d39c801", "refuses", "refuses"),
+    ("vpmaxsw",     "vpmaxsw %ymm1, %ymm2, %ymm0",     "c5edeec1",     "refuses", "refuses"),
+    ("vpunpckhqdq", "vpunpckhqdq %xmm1, %xmm2, %xmm0", "c5e96dc1",     "refuses", "refuses"),
+    ("vxorps",      "vxorps %ymm1, %ymm2, %ymm0",      "c5ec57c1",     "refuses", "executes"),
+    ("vpminsw",     "vpminsw %ymm1, %ymm2, %ymm0",     "c5edeac1",     "refuses", "refuses"),
+    ("vpunpckhdq",  "vpunpckhdq %xmm1, %xmm2, %xmm0",  "c5e96ac1",     "refuses", "refuses"),
+    ("movhlps",     "movhlps %xmm1, %xmm0",            "0f12c1",       "refuses", "executes"),
+    ("vpermq",      "vpermq $0x1b, %ymm1, %ymm0",      "c4e3fd00c11b", "refuses", "refuses"),
+    ("vpsubusb",    "vpsubusb %xmm1, %xmm2, %xmm0",    "c5e9d8c1",     "refuses", "refuses"),
+    ("pabsw",       "pabsw %xmm1, %xmm0",              "660f381dc1",   "refuses", "refuses"),
+    ("cvtsd2ss",    "cvtsd2ss %xmm1, %xmm0",           "f20f5ac1",     "refuses", "executes"),
+    ("divsd",       "divsd %xmm1, %xmm0",              "f20f5ec1",     "refuses", "executes"),
+    ("vpunpckhbw",  "vpunpckhbw %ymm1, %ymm2, %ymm0",  "c5ed68c1",     "refuses", "refuses"),
+    ("pinsrw",      "pinsrw $0x3, %ecx, %xmm0",        "660fc4c103",   "refuses", "refuses"),
+    ("packuswb_mmx","packuswb %mm1, %mm0",             "0f67c1",       "executes", "executes"),
+    ("comisd",      "comisd %xmm1, %xmm0",             "660f2fc1",     "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),

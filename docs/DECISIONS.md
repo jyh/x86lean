@@ -6811,3 +6811,82 @@ built for are the NEXT batch, deliberately: the gate that makes their encodings 
 land before them, which is the red-first discipline applied at the level of a batch rather than an
 arm. `ci_local.py --job build` reads **26 of 26 GREEN** (the step count rose from 25 because
 `ci_local` derives its list from `ci.yml` rather than carrying one).
+
+## D129 — P2 BATCH 26: the top of the unasked list, asked; and five predictions wrong in one direction
+
+The order's item 1, taken with D128's encoding gate already under it. **Twenty-three (mnemonic,
+bucket) pairs asked** — ranks 1–24 of `p2_roster.py --unprobed`, minus rank 21.
+
+### 1. WHY RANK 21 WAS SKIPPED, AND WHY THAT IS NOT A GAP IN THE BATCH
+
+`vzeroupper` (1,241 instructions) sits in bucket `AVX (state)`, and D128 §5 measured that
+`probe_bucket()` cannot express it: a probe written for it is dropped from
+`measured_availability()`, so the pair would stay on the unasked list **after being asked**. Probing
+it would have produced a form that runs, a verdict that is discarded, and a list that does not move —
+the most expensive kind of nothing. It is named here so the next head does not rediscover it by
+spending a probe on it.
+
+### 2. ⛔⛔ THE PREDICTIONS WERE RECORDED BEFORE THE RUN, AND FIVE WERE WRONG — ALL ONE WAY
+
+Each form's verdict was predicted and written into the table *before* ACL2 saw it, so the run
+measures my model of the oracle and not only the oracle. **Eighteen of twenty-three held. Five did
+not, and all five failed in the same direction — predicted `executes`, measured `refuses`:**
+
+```
+vpunpckldq    VEX-128    predicted executes   MEASURED refuses
+vpunpcklqdq   VEX-128    predicted executes   MEASURED refuses
+vpunpckhqdq   VEX-128    predicted executes   MEASURED refuses
+vpunpckhdq    VEX-128    predicted executes   MEASURED refuses
+pinsrw        SSE-legacy predicted executes   MEASURED refuses
+```
+
+**Four of the five are the VEX-128 unpacks — and their SSE-legacy siblings all EXECUTE.**
+`punpckldq`, `punpcklwd`, `punpcklbw` and `punpckhwd` are declared `executes` a few dozen lines above
+them in the same table, measured in earlier batches. I inferred the VEX verdicts from those siblings
+without saying so, and every one of the four inferences was wrong.
+
+⇒ 🔑 **THE SAME OPERATION HAS DIFFERENT ORACLE SUPPORT AT DIFFERENT ENCODINGS.** That is precisely
+why the census key is `(mnemonic, BUCKET)` and not a mnemonic — and it is the same shape as
+[[feedback-a-batch-cannot-be-sampled]], one level up: there the eighth member of a group broke a
+verdict drawn from seven; here a whole BUCKET broke a verdict drawn from another bucket of the same
+name. A sibling in another bucket is not evidence about this one, and the direction of the error is
+the one that invents work.
+
+⚠️ **A prediction that is never written down cannot be scored.** Had I filled the declarations in
+from the run, this batch would have published twenty-three correct rows and learned nothing; the
+5-of-23 is only visible because the guess was committed first and the run was allowed to refute it.
+
+### 3. THE MOVE, AND IT ADDS UP EXACTLY
+
+```
+asked at the bucket its demand lives in      69.5%  ->  77.2%
+the unasked remainder    304 pairs / 88,373 / 21.4%  ->  281 pairs / 56,676 / 13.7%
+probed so far      111 mn / 319,595 / 77.5%  ->  133 mn / 350,167 / 84.9%
+  the oracle EXECUTES  62 / 139,944 / 33.9%  ->   68 / 147,867 / 35.8%
+  the oracle REFUSES   49 / 179,651 / 43.5%  ->   65 / 202,300 / 49.0%
+```
+
+⭐ **Both accountings agree to the instruction**: the 23 pairs' own demand sums to **31,697**, and the
+unasked remainder fell by `88,373 − 56,676 =` **31,697**; pairs fell by exactly **23**.
+
+⛔ **The hole GREW, 43.5% → 49.0%, and that is the batch working, not failing.** Sixteen of the
+twenty-three are refusals, so asking moved demand out of *unknown* and into *known-unsupported*. A
+batch of this kind can only make the published hole larger or leave it alone; a head who reads a
+rising REFUSES number as a regression will stop asking, which is the one thing that would keep it
+looking small.
+
+### 4. ⚠️ THE MNEMONIC COUNT ROSE BY 22, NOT 23 — D124 §3, UNCHANGED AND UNCONCEALED
+
+The summary table counts MNEMONICS, and its `verdict` map is keyed by `label.split("_")[0]`, so
+`packuswb_mmx` collapses into the `packuswb` already measured at SSE-legacy. Their verdicts agree
+(both execute), so nothing is hidden by the collapse this time and no conflict is raised. **This is
+D124 §3's known discrepancy and this batch neither repairs nor worsens it** — the row-level oracle
+column is still looked up per bucket while the summary counts per mnemonic. It stays its own batch
+because it moves a published numerator's provenance.
+
+### 5. THE ENCODINGS
+
+All 23 came from `clang -target x86_64-unknown-linux-gnu`; none was typed. D128's gate re-derives
+every one of the now-**156** rows on **both** disassemblers at every CI run, so the `hx` that ACL2
+executes is the assembly of the `asm` that keys the table. `ci_local.py --job build`: **26 of 26
+GREEN**.

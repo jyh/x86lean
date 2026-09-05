@@ -165,18 +165,18 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 62 | 139,944 | 33.9% |
-| the oracle REFUSES | 49 | 179,651 | 43.5% |
-| **probed so far** | 111 | **319,595** | **77.5%** |
+| the oracle EXECUTES | 68 | 147,867 | 35.8% |
+| the oracle REFUSES | 65 | 202,300 | 49.0% |
+| **probed so far** | 133 | **350,167** | **84.9%** |
 
-So of the demand probed, **44% has an oracle** — after a
+So of the demand probed, **42% has an oracle** — after a
 one-line change to the pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
 rank 1 in the demand list, 5.15% of the whole gap, refusing in the same run in
-which `movdqa` beside it executes. The 49 the oracle does not have are
-`movntdqa`, `packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmulhrsw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vinserti128`, `vmovd`, `vmovdqa32`, `vmovhps`, `vmovq`, `vmulps`, `vpabsw`, `vpackssdw`, `vpaddw`, `vpbroadcastd`, `vpmaddubsw`, `vpmaddwd`, `vpmulhrsw`, `vpmulld`, `vpshufb`, `vpsrad`, `vpunpckhwd`, `vpunpcklbw`, `vpunpcklwd`, `vshufps`, `vsubps`.
+which `movdqa` beside it executes. The 65 the oracle does not have are
+`movntdqa`, `pabsw`, `packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pinsrw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmulhrsw`, `pmulhuw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vextracti128`, `vinserti128`, `vmovd`, `vmovdqa32`, `vmovhps`, `vmovq`, `vmulps`, `vpabsw`, `vpackssdw`, `vpackuswb`, `vpaddsw`, `vpaddw`, `vpbroadcastd`, `vpermq`, `vpmaddubsw`, `vpmaddwd`, `vpmaxsw`, `vpminsw`, `vpmulhrsw`, `vpmulld`, `vpshufb`, `vpsrad`, `vpsraw`, `vpsubusb`, `vpunpckhbw`, `vpunpckhdq`, `vpunpckhqdq`, `vpunpckhwd`, `vpunpcklbw`, `vpunpckldq`, `vpunpcklqdq`, `vpunpcklwd`, `vshufps`, `vsubps`.
 
 ⚠️ **A mnemonic probed in two register classes gets ONE verdict**, and where the
 two disagree the pessimistic one is taken: the census pools an MMX and an SSE
