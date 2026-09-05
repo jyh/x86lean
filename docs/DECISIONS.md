@@ -5906,6 +5906,19 @@ Tests.Coverage (residue)      12540  ⛔          12900        +360
 ⛔ **THE PARENT IS ALREADY OVER BOTH CEILINGS WITH NONE OF THIS BATCH IN IT.** And across four runs of
 substantially identical code `X86.Syntax` read **204, 205, 206 and 244** — a 20% spread.
 
+> ⛔⛔ **CORRECTION, D122, and it is against this section's own method.** The parent readings above were
+> taken OUT OF BAND (load 6.07). An IN-BAND profile of the same parent tree (load 3.90) reads
+> `X86.Syntax` **198.0 — UNDER its ceiling**, and only `Tests.Coverage`'s residue (12610) is genuinely
+> over. So the sentence "the parent is already over BOTH ceilings" is **half wrong**: it is true of the
+> Coverage residue and false of `X86.Syntax`, whose 206 was load noise.
+>
+> ⇒ 🔑 **I USED AN OUT-OF-BAND READING TO ARGUE THAT OUT-OF-BAND READINGS CANNOT BE TRUSTED.** The
+> conclusion of §5 survives — the ceilings are load-sensitive and the delta is the only meaningful
+> reading — but one of its two supporting facts did not, and it was the one I did not re-measure
+> because it agreed with what I already believed. A gate's own refusal applies to the evidence you
+> gather to indict it. See D122 §2 for the in-band delta and for what the `X86.Syntax` margin really
+> is: the parent sits at **198 of 200**, so the ceiling cannot absorb even one AST constructor.
+
 ⇒ 🔑 **A CEILING WHOSE MARGIN IS UNDER THE MACHINE'S OWN SPREAD REPORTS THE MACHINE, NOT THE CODE**
 ([[feedback-match-the-gate-units-to-the-growth-law]]), and the delta is the only reading here that
 means anything. **No ceiling was raised**: deriving a gate's new allowance from the thing it measures
@@ -5917,3 +5930,85 @@ infrastructure item.
 
 **Reversal cost:** one `PrefetchHint` type, one `Op` constructor, one semantics clause, two coverage
 rows, two roster rows, 4 vectors, 2 arms, 4 `claimed_forms` exemptions.
+
+---
+
+## D122 — the in-band delta, a correction to D121, and a ceiling that cannot absorb one constructor
+
+**P2 batch 23 (`pmovmskb`) is COMPLETE AND NOT MERGED TO master.** It lives on `p2-batch23-pmovmskb`.
+Its differential is green; the kernel-cost gate returns a RED VERDICT in band, and a red verdict is a
+stop where a refusal was not.
+
+### 1. ⛔ THE CORRECTION, AND IT IS AGAINST MY OWN METHOD
+
+D121 §5 says *"the parent is already over BOTH ceilings with none of this batch in it"*, from a parent
+profile taken at load 6.07 — **out of band**. Re-measured in band (load 3.90):
+
+```
+parent 0f7baee, IN BAND      X86.Syntax  198.0  ok        Tests.Coverage residue  12610  OVER ⛔
+parent 873a4d9, OUT OF BAND  X86.Syntax  206.0  OVER ⛔    Tests.Coverage residue  12540  OVER ⛔
+```
+
+Half of that sentence was true (the Coverage residue) and half was load noise (`X86.Syntax`).
+
+⇒ 🔑 **I USED AN OUT-OF-BAND READING TO ARGUE THAT OUT-OF-BAND READINGS CANNOT BE TRUSTED.** D121's
+conclusion survives — the gate is load-sensitive, the delta is the only meaningful reading — but one
+of its two supporting facts did not, and it was the one I never re-measured **because it agreed with
+what I already believed**. [[feedback-audit-the-premise-of-a-right-decision]]: a reason inside a
+correct decision is the least-inspected kind, and here the decision was right and the reason was
+manufactured by the very effect the decision names.
+
+### 2. ⭐⭐ THE IN-BAND DELTA, WHICH IS THE READING THAT COUNTS
+
+```
+                          parent 0f7baee     batch 23      delta      ceiling
+X86.Syntax                     198.0 ok        206.0 ⛔      +8         200
+Tests.Coverage (residue)      12610  ⛔        13190 ⛔     +580      12420
+```
+
+⛔ **THE `X86.Syntax` CEILING HAS TWO MILLISECONDS OF HEADROOM ON master.** The parent passes at
+**198 of 200 — 99%** — and one AST constructor costs +8. So this is not a fact about `pmovmskb`: **the
+next batch that adds any constructor will cross it too**, whatever it is.
+[[feedback-a-pass-at-97-percent-is-not-headroom]] — the margin was the number to read, and nobody read
+it while the verdict said `ok`.
+
+⚠️ And `Tests.Coverage`'s residue is over **on master already**, in band. Two ceilings, two different
+stories, and the whole-module refusals of D121 could distinguish neither.
+
+### 3. WHY THE BATCH IS NOT MERGED, AND WHY NO CEILING WAS RAISED
+
+D121's gate REFUSED (no verdict, machine out of band); this one FAILED in band. A refusal and a red
+are not the same evidence, and treating them alike is how a project starts merging over a gate it has
+stopped reading. So `pmovmskb` waits on the branch.
+
+⛔ **No ceiling was raised.** Deriving a gate's new allowance from the quantity it measures has no
+second source ([[feedback-widening-a-gate-needs-a-second-source]]), and doing it *in the batch the
+gate just stopped* is the worst available moment. The two legitimate routes are both open and both
+belong to whoever takes this next:
+1. **D111's delta gate** — gate the change between two trees in one session, which is the only reading
+   this machine can produce. D121 showed the method works; this decision shows it discriminates.
+2. **A second source for the ceilings** — CI's Linux runner, which has never scored this tree.
+
+⚠️ Until one of them lands, **every batch that adds a constructor is blocked by a 2 ms margin**, which
+makes this an infrastructure item ahead of the next form, not behind it.
+
+### 4. THE BATCH ITSELF, for whoever merges it
+
+`pmovmskb`: `dst[i] ← MSB(src.byte i)`, bits above 15 zero. ⭐ **No `Size` field, on two independent
+sources**: K gives `pmovmskb_r32_xmm.k` and `_r64_xmm.k` the same value, and the assembler emits the
+**same bytes** (`660fd7c1`) for `%eax` and `%rax` — REX.W buys nothing when the result is
+zero-extended. A width field would be one no encoding can set and no semantics can read.
+
+```
+differential   cases=84128 unexplained=0 oracle-divergence=171 (unchanged)
+arms (3 of 121, shared substring `pmovmskb`)
+  reads the LOW bit of each byte           83
+  reverses the lane order                  51
+  merges instead of clearing 63:16         46
+```
+⚠️ The last two score low **for reasons about the pre-states, not the instruction**: a reversed mask is
+invisible on a palindrome, and a merging model is invisible unless the destination already holds bits
+above 15. Both are joint facts ([[feedback-a-wrong-models-score-is-a-joint-fact]]).
+
+**Reversal cost:** one `Op` constructor, one semantics clause, one coverage row, one roster row,
+2 vectors, 3 arms — all on the branch.
