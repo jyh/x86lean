@@ -1068,6 +1068,35 @@ inductive Op where
   strictly better than the shape `Op.mov` is stuck with. -/
   | vload  (k : VMovKind) (dst : XmmReg) (ea : Ea)
   | vstore (k : VMovKind) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐ P2 BATCH 20 — `movhps`, THE HIGH-QUADWORD MOVE (SDM Vol. 2B, MOVHPS).
+  `0f 16` loads, `0f 17` stores; 3,672 instructions of the assembly class.
+
+  THE FORM IN ONE LINE: the memory operand is 64 bits and it is the register's
+  HIGH quadword that moves. On a load `dst[127:64] ← m64` and **`dst[63:0] is
+  PRESERVED`**; on a store `m64 ← src[127:64]`.
+
+  ⛔ IT IS DELIBERATELY NOT A `VMovKind`, and that is not a naming choice. That
+  kind's entire content is `VMovKind.aligned` — the 16-byte #GP rule — and this
+  form HAS no such rule: its memory operand is eight bytes, so SDM Exception
+  Type 5 applies and no alignment is required. Giving it a `VMovKind` would force
+  a fifth constructor whose `aligned` answer is meaningless, and a field whose
+  value means nothing is read by someone eventually. ⚠️ MEASURED, not read off
+  the manual: the oracle executes both directions at 16-, 8- AND 4-byte
+  alignment, in a run where `pand 0x8(%rbx),%xmm0` REFUSES and
+  `pand (%rbx),%xmm0` EXECUTES — so the harness demonstrably CAN see an
+  alignment refusal, and its silence here is a reading rather than a blind spot.
+
+  ⚠️ TWO CONSTRUCTORS, for exactly the reason `vload`/`vstore` are two: an
+  operand pair admitting `mem` on both sides could spell `movhps (%rax),(%rbx)`,
+  which no encoding produces.
+
+  ⭐ THE PRESERVED HALF IS THE CONTENT. A model that CLEARS `dst[63:0]` instead of
+  preserving it is bit-identical to this one wherever the low half is already
+  zero — the mirror of the `movd`-into-XMM defect (D93), where the oracle merged
+  what the SDM clears. Here the SDM preserves, so the wrong model is the one that
+  zeroes, and it is caught only by a pre-state whose low quadword is non-zero. -/
+  | vloadh  (dst : XmmReg) (ea : Ea)
+  | vstoreh (ea : Ea) (src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1385,6 +1414,9 @@ def opOperands : Op → List Operand
   -- a vector load's address is reported here exactly as a scalar one is. That is
   -- what makes `lock movdqa` #UD for free: `lockable` does not list it.
   | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
+  -- `movhps` names an address exactly as `vload`/`vstore` do, so the segment and
+  -- lock gates see it with no new rule.
+  | .vloadh _ ea | .vstoreh ea _ => [.mem ea]
   | .vmovsld _ _ ea | .vmovsst _ ea _ => [.mem ea]
   -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
   -- reported keeps the lock and segment walks exact.
@@ -1514,6 +1546,7 @@ def Op.anyLocked : Op → Bool
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
   | .vmov .. | .vbin .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
+  | .vloadh _ ea | .vstoreh ea _ => ea.lock
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
@@ -1653,6 +1686,8 @@ def Op.mnemonic : Op → String
   -- names them. See `VMovKind`.
   | .vmov k .. => k.mnemonic
   | .vload k .. | .vstore k .. => k.mnemonic
+  -- ⚠️ ONE spelling for both directions: `0f 16` and `0f 17` are both `movhps`.
+  | .vloadh .. | .vstoreh .. => "movhps"
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
   -- AT&T spelling, and they are unrelated: this one is `f2 0f 10`. The model
   -- does not carry the string form, so nothing here is ambiguous — but the day
@@ -1836,6 +1871,10 @@ def rosterP0 : List String :=
    -- OPCODES, and a model that printed one name for the other would be wrong
    -- about what it decoded.  `movss`/`movsd` are one row each.
    "movaps", "movups", "movss", "movsd",
+   -- ⭐⭐ P2 BATCH 20: `movhps`, ONE row for BOTH directions — unlike
+   -- `movdqa`/`movdqu` these are one mnemonic at two opcodes (`0f 16`/`0f 17`),
+   -- so a disassembler prints the same name for each and the roster has one row.
+   "movhps",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

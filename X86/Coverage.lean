@@ -667,6 +667,13 @@ acc,imm · rh"
   , { mnemonic := "movsd",
       shapes := "x,x (64b, upper MERGED) · x,m (upper ZEROED) · m,x",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVSD" }
+  -- ⭐⭐ P2 BATCH 20 — the only move here whose memory operand is 64 bits and
+  -- whose register operand is HALF written.  No `x,x` shape: MOVHPS has no
+  -- register-to-register encoding at all.
+  , { mnemonic := "movhps",
+      shapes := "x,m · m,x",
+      note := "the HIGH quadword only; the low half is PRESERVED, not zeroed; 8-byte operand, so no alignment rule (measured, D119)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHPS" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

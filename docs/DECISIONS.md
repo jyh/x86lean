@@ -5653,3 +5653,110 @@ says where the live figures are, so the next quotation is taken from the generat
 
 **Reversal cost:** two constants, four lines in `measure_cr4`, six `P2_FORMS` rows, one control
 function; `docs/P2-ROSTER.md` regenerates.
+
+---
+
+## D119 — `movhps`: the half that does not move, and an absence measured instead of asserted
+
+**P2 batch 20; sixteenth differential record.** Two constructors, 6 vectors, one roster row, no new
+state, 3,672 instructions.
+
+### 1. Why this form and not `pmovmskb`
+
+D118 measured six scalar-SSE-FP mnemonics the residue had been reporting as absent (26,757
+instructions). The Captain's 19:21 ruling put them first. ⛔ **They do not build together, and saying
+so was half the batch:** `mulss`/`mulsd`/`addss`/`addsd`/`cvtss2sd` (23,085) need a soft-float
+IEEE-754 layer over `BitVec` plus MXCSR — Lean's `Float` is an opaque extern the kernel cannot
+reduce, so a `decide`-checkable model cannot borrow it — and that is a design commission, posted and
+not started. `movhps` is the one of the six that is a **pure data move**.
+
+⇒ 🔑 **"EXECUTES ON THE ORACLE" AND "BUILDABLE" ARE DIFFERENT PROPERTIES, AND THE ROSTER HAS A COLUMN
+FOR ONLY ONE.** That is D115's own finding one level down: there a ranked table priced demand and not
+buildability; here a *measured* table prices oracle support and not the model's own vocabulary.
+
+### 2. The content is the half that does not move
+
+```
+load  (0f 16):  dst[127:64] ← m64,  dst[63:0] PRESERVED
+store (0f 17):  m64 ← src[127:64]
+```
+
+⭐ **So the plausible wrong model is the one that CLEARS the low half — the exact mirror of D93.**
+There ACL2 x86isa *merged* what the SDM clears (`movd` into XMM). Here the SDM *preserves*, so the
+direction of the plausible error reverses with the rule. A model that clears is bit-identical to this
+one at every pre-state whose low quadword is already zero.
+
+```
+                     loads-low   clears-low   stores-low
+movhps loads (xmm0)        146          152            —
+movhps store (mem)           —            —          208
+```
+
+⚠️ **152 is a joint fact about the model and the PRE-STATES** ([[feedback-a-wrong-models-score-is-a-joint-fact]]).
+What refutes `clears-low` is `xmmPattern` giving xmm0 a non-zero low quadword; a pre-state table that
+zeroed the destination would have scored it 0 and reported green about a model that destroys half the
+register on every load.
+
+### 3. ⛔ The alignment rule is ABSENT, and the absence is measured
+
+The memory operand is eight bytes, so SDM Exception Type 5 applies and no alignment is required.
+**D110 is why that sentence is not left to a comment:** there, *"NO ALIGNMENT CHECK … the absence is
+the rule"* was written about a group that DID have one, and the model's missing check and the
+oracle's missing check were the same omission — two defects that cancel, invisible to the differential
+that compares them.
+
+So it was measured, with a **two-sided control in the same run**:
+
+```
+movhps, both directions, at 16- / 8- / 4-byte alignment     EXECUTES
+pand 0x8(%rbx),%xmm0   [x86isa's one file that checks 16B]  REFUSES
+pand (%rbx),%xmm0                                           EXECUTES
+```
+
+⇒ The harness demonstrably **can** see an alignment refusal, so `movhps`'s silence is a reading and
+not a blind spot. K's rules carry no check either — a third source independent of both.
+
+⚠️ **The unaligned vectors are at displacement 4, not 8.** Eight is still 8-byte aligned and could not
+distinguish "no alignment rule at all" from "an 8-byte rule" — the control must differ in the
+dimension most likely frozen ([[feedback-a-control-can-share-the-blind-spot]]). Both addresses were
+checked against the watched window (`0x1fe0` + 64) rather than assumed.
+
+⛔ **AND A CONTROL WITH THE WRONG ENCODING IS A CONTROL FOR A DIFFERENT INSTRUCTION.** The first
+`pand` control EXECUTED unaligned and looked like a finding against D113 — because it was written
+`0fdb…`, the **MMX** `pand`, with the `66` prefix dropped. MMX has no 16-byte rule, so the reading was
+true of the instruction actually run. It fails in the direction that MANUFACTURES a finding, and the
+only thing that caught it was that D113 predicted the opposite. ⇒ 🔑 **Assemble a control's bytes;
+never hand-write them from memory.**
+
+### 4. Two constructors, and deliberately not a `VMovKind`
+
+`Op.vloadh`/`Op.vstoreh` are two for the reason `vload`/`vstore` are: an operand pair admitting `mem`
+on both sides could spell `movhps (%rax),(%rbx)`, which no encoding produces. And it is **not** a
+fifth `VMovKind`: that type's entire content is `VMovKind.aligned`, the 16-byte rule, and a member
+whose answer to it is meaningless is a field someone reads eventually.
+
+⚠️ ONE roster row for both directions — one mnemonic at two opcodes, unlike `movdqa`/`movdqu`, which
+are two rows because a disassembler prints two names. ⚠️ Two of the six vectors use `%xmm5` for D90's
+reason: batch 5's vectors all moved xmm1 into xmm0, so a fixed-register model was bit-identical to the
+real one and the register fields were decoded by nothing.
+
+### 5. Receipts, and the gate that REFUSED
+
+```
+cases=83600 matched=63068 explained=29435 unexplained=0 oracle-divergence=171 oracle-leaks=0 missing=0
+```
+171 oracle-divergences, unchanged; this batch adds none.
+
+⛔ **The kernel-cost gate refused rather than reporting**, twice: one-minute load 4.61 then 4.24,
+outside the band its own effect-measurement covers (0.0–4.1). The load is not this batch's — `ps`
+attributes it to WebKit, a vendor updater and another seat's bus scanner
+([[feedback-enumerate-is-not-attribute]]) — and it does not go quiet on this machine. That is the
+pre-existing condition the batch-18 bank records, not a regression here; the gate printing readings
+and withholding a verdict is the RIGHT refusal, because a machine-calibrated gate that answered here
+would be reporting the machine ([[feedback-a-machine-calibrated-gate-belongs-where-it-is-calibrated]]).
+⚠️ **`vectorCoverage` reads 1680 of its 1760 ceiling — 95%, and the margin is the number to read, not
+the verdict** ([[feedback-a-pass-at-97-percent-is-not-headroom]]). The priced repair is unchanged and
+unstarted: gate the DELTA between two trees measured in one session (D111).
+
+**Reversal cost:** two AST constructors, one semantics clause, one coverage row, one roster row,
+6 vectors, 3 arms, 6 `claimed_forms` exemptions.

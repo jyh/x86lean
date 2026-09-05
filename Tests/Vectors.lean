@@ -2451,6 +2451,42 @@ def vectors : List Vec :=
     , bytes := "f30f6f4308"
     , instr := ⟨.vload .dqu .x0 { base := some .rbx, disp := 8 }, 5⟩ }
 
+  -- ⭐⭐ P2 BATCH 20 — MOVHPS, the high-quadword move.  3,672 instructions.
+  --
+  -- ⛔ WHAT MAKES THIS GROUP DISCRIMINATING IS THE HALF THAT DOES **NOT** MOVE.
+  -- A model that CLEARS `dst[63:0]` instead of preserving it is bit-identical to
+  -- the right one at every pre-state whose low quadword is already zero, so the
+  -- arm is only worth anything because `xmmPattern` gives xmm0 a non-zero low
+  -- half.  That is the mirror of D93's finding: there the oracle MERGED what the
+  -- SDM clears; here the SDM PRESERVES, so the wrong model is the one that zeroes.
+  --
+  -- ⚠️ THE UNALIGNED FORMS ARE AT disp 4, NOT 8, ON PURPOSE.  Eight would still
+  -- be 8-byte aligned and could not tell "no alignment rule at all" from "an
+  -- 8-byte rule".  0x2004 is aligned to 4 and to nothing more, and both models
+  -- execute it — measured on the oracle before this vector was written, in a run
+  -- where `pand 0x8(%rbx)` REFUSES and `pand (%rbx)` EXECUTES, so the harness
+  -- demonstrably CAN see an alignment refusal.  Both addresses are inside the
+  -- watched window (0x1fe0 + 64), checked rather than assumed.
+  --
+  -- ⚠️ AND TWO OF THE SIX USE %xmm5, for D90's reason: every vector of batch 5
+  -- moved xmm1 into xmm0, so a model with FIXED registers was bit-identical to
+  -- the real one and the register fields were decoded by nothing.
+  , { id := "movhps_load_m", mnemonic := "movhps", asm := "movhps (%rbx), %xmm0"
+    , bytes := "0f1603", instr := ⟨.vloadh .x0 { base := some .rbx }, 3⟩ }
+  , { id := "movhps_load_unal4", mnemonic := "movhps", asm := "movhps 4(%rbx), %xmm0"
+    , bytes := "0f164304"
+    , instr := ⟨.vloadh .x0 { base := some .rbx, disp := 4 }, 4⟩ }
+  , { id := "movhps_store_m", mnemonic := "movhps", asm := "movhps %xmm0, (%rbx)"
+    , bytes := "0f1703", instr := ⟨.vstoreh { base := some .rbx } .x0, 3⟩ }
+  , { id := "movhps_store_unal4", mnemonic := "movhps", asm := "movhps %xmm0, 4(%rbx)"
+    , bytes := "0f174304"
+    , instr := ⟨.vstoreh { base := some .rbx, disp := 4 } .x0, 4⟩ }
+  , { id := "movhps_load_x5", mnemonic := "movhps", asm := "movhps (%rbx), %xmm5"
+    , bytes := "0f162b", instr := ⟨.vloadh .x5 { base := some .rbx }, 3⟩ }
+  , { id := "movhps_store_x5", mnemonic := "movhps", asm := "movhps %xmm5, 8(%rbx)"
+    , bytes := "0f176b08"
+    , instr := ⟨.vstoreh { base := some .rbx, disp := 8 } .x5, 4⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

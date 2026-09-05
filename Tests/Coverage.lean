@@ -74,7 +74,7 @@ holds this literal and that table together.
 counts what a disassembler PRINTS.  ⛔ `pshufw` is the same opcode's FOURTH
 prefix (none) and is NOT a row: it takes MMX operands and this model has no MMX
 register file, so a row for it would claim a form the model cannot execute. -/
-theorem roster_size_is_131 : rosterSize = 131 := by decide
+theorem roster_size_is_132 : rosterSize = 132 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -93,7 +93,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_944 : vectorCount = 944 := by decide
+theorem vector_count_is_950 : vectorCount = 950 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -742,6 +742,11 @@ def isMemDestVector (v : Vec) : Bool :=
     -- exists.
     | .vload .. => false
     | .vstore .. => true
+    -- ⭐ P2 BATCH 20, added in the SAME COMMIT as the constructors, which is what
+    -- this function's own doc comment asks for.  `movhps` splits the same way:
+    -- the store writes eight bytes of memory, the load does not.
+    | .vloadh .. => false
+    | .vstoreh .. => true
     -- ⭐ P2 VECTOR WAVE, BATCH 13, added in the SAME COMMIT as the constructors.
     -- NONE of the four is a memory destination: the packed shifts write an XMM
     -- register always, and the memory operand of `vshiftm` is the COUNT — a
@@ -1013,7 +1018,11 @@ theorem memDestSweep :
           -- vocabulary gap does not discriminate between the forms that fall
           -- into it.
           ("movaps", false), ("movups", false),
-          ("movss", false), ("movsd", false)])
+          ("movss", false), ("movsd", false),
+          -- ⭐ P2 BATCH 20 — `movhps` joins in the SAME direction, for the same
+          -- vocabulary reason: its store shape is `m,x`, which the loose rule
+          -- cannot see because `x` is not a general-purpose register.
+          ("movhps", false)])
      && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)
      && ((memDestMnemonics.filter (fun m =>
             !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) == [])) = true := by
@@ -1095,7 +1104,8 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- is not about the WIDTH of the store either — it is `x` the loose rule
          -- cannot say, at any width.
          ("movaps", false), ("movups", false),
-         ("movss", false), ("movsd", false)] := by
+         ("movss", false), ("movsd", false),
+         ("movhps", false)] := by
   have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT

@@ -614,6 +614,28 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         s.halt (.byDesign "an aligned 128-bit move at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
 
+  -- ⭐⭐ MOVHPS (SDM Vol. 2B) — the HIGH quadword moves and the LOW one is UNTOUCHED.
+  --
+  -- ⛔ NO ALIGNMENT BRANCH, and its absence is the rule rather than an omission:
+  -- the memory operand is 8 bytes (Exception Type 5), so there is no 16-byte
+  -- requirement to check.  D110 is the reason this sentence is not left to a
+  -- comment — there, `NO ALIGNMENT CHECK … the absence is the rule` was written
+  -- about a group that DID have one.  Here it is measured on the oracle at three
+  -- alignments with a two-sided control, and K's rules carry no check either.
+  --
+  -- ⚠️ COMPOSED FROM `readMem .q` / `writeMem .q`, the same 64-bit path
+  -- `readMem128` is built from, rather than a new primitive — a second route to
+  -- the same bytes is a place for the two to disagree.
+  | .vloadh dst ea =>
+      let a := ea.addr s nr
+      -- high ← m64; low ← the destination's own low quadword, PRESERVED.
+      let hi := ((s.readMem .q a).setWidth 128) <<< 64
+      let lo := ((s.getXmm dst).setWidth 64).setWidth 128
+      (s.setXmm dst (hi ||| lo)).setRip nr
+  | .vstoreh ea src =>
+      let a := ea.addr s nr
+      (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
+
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --
   -- ⚠️ BOTH DIRECTIONS ZERO WHAT THEY DO NOT WRITE, at two different
