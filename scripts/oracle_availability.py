@@ -643,6 +643,75 @@ P2_FORMS = [
     ("pinsrw",      "pinsrw $0x3, %ecx, %xmm0",        "660fc4c103",   "refuses", "refuses"),
     ("packuswb_mmx","packuswb %mm1, %mm0",             "0f67c1",       "executes", "executes"),
     ("comisd",      "comisd %xmm1, %xmm0",             "660f2fc1",     "refuses", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # P2 BATCH 27 — ranks 2-24 of `p2_roster.py --unprobed`, 23 pairs.
+    # Rank 1 `vzeroupper` / `AVX (state)` is SKIPPED, again and deliberately:
+    # `probe_bucket` reads the bucket off the OPERANDS and that bucket has none,
+    # so a probe for it runs, has its verdict DISCARDED, and leaves the pair
+    # exactly as unasked as before (D128 §5).  Named here so the next head does
+    # not spend a probe rediscovering it.
+    # ⛔ EVERY `hx` BELOW CAME FROM `clang`, none was typed; D128's gate
+    # re-derives all of them on BOTH disassemblers at every CI run.
+    #
+    # ⭐⭐ THE PREDICTION ROUTE CHANGED THIS BATCH, BECAUSE b26's ROUTE FAILED.
+    # b26 predicted from SIBLING BASE RATES and got five wrong, all in the same
+    # direction, four of them by inferring a VEX-128 verdict from an SSE-legacy
+    # sibling.  So b27's predictions were read off a SECOND SOURCE instead: the
+    # oracle's own catalogue, `machine/inst-listing.lisp`, at THE ENTRY WHOSE
+    # ENCODING MATCHES THE BYTES CLANG PRODUCED (VEX/EVEX class, vector length,
+    # prefix, opcode, /reg).  A `'NIL` semantic-function slot ⇒ predict refuses.
+    # ⛔ THE CATALOGUE IS EVIDENCE, NOT THE SPECIFICATION — it has been AHEAD of
+    # the tool before.  That is exactly why it is worth scoring: a disagreement
+    # is a finding about the ORACLE'S OWN RECORD and is reusable by every later
+    # batch that predicts this way.
+    # ⚠️ The CR4=0 column is predicted too, and independently: MMX needs neither
+    # OSFXSR nor OSXMMEXCPT, so the four MMX forms are predicted to execute in
+    # BOTH arms (as the shipped `packuswb_mmx` row does), and every SSE/AVX form
+    # to refuse at CR4=0.  A miss in that column is its own finding.
+    #
+    # ⭐⭐ THE RESULT: 23 OF 23, IN BOTH COLUMNS (46 of 46 cells), against b26's
+    # 18 of 23 on the base-rate route.  ⛔ AND A GREEN THAT EASY IS A SUSPECT, so
+    # it was priced rather than believed.  Three naive rules scored on the same
+    # 23, on the published CR4=0x600 column:
+    #     "always refuses"                    17 / 23
+    #     "always executes"                    6 / 23
+    #     "refuse iff VEX/EVEX (v-prefixed)"  20 / 23   <- the best baseline
+    #     THE CATALOGUE ROUTE                 23 / 23
+    # It beats the best baseline on exactly three rows, and they are the three
+    # that discriminate: `pmuldq` and `movntdq` are legacy SSE forms the baseline
+    # calls executes and the oracle REFUSES (no semantic function), and
+    # `vpcmpeqw` is a VEX.256 form the baseline calls refuses and the oracle
+    # EXECUTES.  ⚠️ The probe is also demonstrably not stuck: three distinct
+    # verdict patterns came back in one run — (executes, executes) x4,
+    # (refuses, executes) x2, (refuses, refuses) x17.
+    # ⛔ WHAT THIS DOES NOT LICENSE: the remaining 258 pairs.  A batch cannot be
+    # sampled ([[feedback-a-batch-cannot-be-sampled]]) — this is 23 asked pairs
+    # across 5 buckets, not a proof about the route.  The catalogue stays a
+    # SCREEN that makes a prediction scorable; `measured_availability` still
+    # publishes only what ACL2 executed.
+    ("vpsrlw_y",       "vpsrlw $0x2, %ymm1, %ymm0",           "c5fd71d102",   "refuses", "refuses"),
+    ("pmuldq",         "pmuldq %xmm1, %xmm0",                 "660f3828c1",   "refuses", "refuses"),
+    ("vpshufd_y",      "vpshufd $0x1b, %ymm1, %ymm0",         "c5fd70c11b",   "refuses", "refuses"),
+    ("vpbroadcastw_y", "vpbroadcastw %xmm1, %ymm0",           "c4e27d79c1",   "refuses", "refuses"),
+    ("vpminsd_y",      "vpminsd %ymm1, %ymm2, %ymm0",         "c4e26d39c1",   "refuses", "refuses"),
+    ("vpmaxsd_y",      "vpmaxsd %ymm1, %ymm2, %ymm0",         "c4e26d3dc1",   "refuses", "refuses"),
+    ("vpmovzxbw_y",    "vpmovzxbw %xmm1, %ymm0",              "c4e27d30c1",   "refuses", "refuses"),
+    ("vpblendd_y",     "vpblendd $0x5, %ymm1, %ymm2, %ymm0",  "c4e36d02c105", "refuses", "refuses"),
+    ("vpsrld_y",       "vpsrld $0x2, %ymm1, %ymm0",           "c5fd72d102",   "refuses", "refuses"),
+    ("vpsubsw_z",      "vpsubsw %zmm1, %zmm2, %zmm0",         "62f16d48e9c1", "refuses", "refuses"),
+    ("vpsadbw_y",      "vpsadbw %ymm1, %ymm2, %ymm0",         "c5edf6c1",     "refuses", "refuses"),
+    ("vpbroadcastq_y", "vpbroadcastq %xmm1, %ymm0",           "c4e27d59c1",   "refuses", "refuses"),
+    ("psraw_mmx",      "psraw %mm1, %mm0",                    "0fe1c1",       "executes", "executes"),
+    ("comiss",         "comiss %xmm1, %xmm0",                 "0f2fc1",       "refuses", "executes"),
+    ("vpmullw_y",      "vpmullw %ymm1, %ymm2, %ymm0",         "c5edd5c1",     "refuses", "refuses"),
+    ("punpcklwd_mmx",  "punpcklwd %mm1, %mm0",                "0f61c1",       "executes", "executes"),
+    ("punpckhbw_mmx",  "punpckhbw %mm1, %mm0",                "0f68c1",       "executes", "executes"),
+    ("movntdq",        "movntdq %xmm0, (%rbx)",               "660fe703",     "refuses", "refuses"),
+    ("vperm2f128_y",   "vperm2f128 $0x1, %ymm1, %ymm2, %ymm0","c4e36d06c101", "refuses", "refuses"),
+    ("vpalignr_v",     "vpalignr $0x4, %xmm1, %xmm2, %xmm0",  "c4e3690fc104", "refuses", "refuses"),
+    ("vbroadcasti128_y","vbroadcasti128 (%rbx), %ymm0",       "c4e27d5a03",   "refuses", "refuses"),
+    ("psllw_mmx",      "psllw %mm1, %mm0",                    "0ff1c1",       "executes", "executes"),
+    ("vpcmpeqw_y",     "vpcmpeqw %ymm1, %ymm2, %ymm0",        "c5ed75c1",     "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),

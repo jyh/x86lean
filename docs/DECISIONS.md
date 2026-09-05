@@ -6996,3 +6996,91 @@ assignment in one, a document's heading namespace in the other. Neither was foun
 probe table's by an assertion written while adding rows, the document's by needing the next number.
 ⇒ **a uniqueness invariant that is never asserted is not an invariant, it is a habit**, and habits
 are kept until the first day they are not.
+
+## D131 — P2 BATCH 27: the prediction route replaced, and 23 of 23 — priced, not believed
+
+Twenty-three (mnemonic, bucket) pairs asked: **ranks 2–24** of `p2_roster.py --unprobed`. Rank 1
+`vzeroupper` / `AVX (state)` was skipped, again and deliberately — `probe_bucket` reads the bucket
+off the OPERANDS and that bucket has none, so a probe for it runs, has its verdict discarded, and
+leaves the pair exactly as unasked as before (D128 §5). It is named here so the next head does not
+spend a probe rediscovering it.
+
+### 1. ⭐⭐ THE PREDICTION ROUTE WAS REPLACED, BECAUSE b26's ROUTE FAILED
+
+b26 predicted from **sibling base rates** and got five wrong, all in the same direction, four of them
+by inferring a VEX-128 verdict from an SSE-legacy sibling. So b27's predictions were read off a
+**second source**: the oracle's own catalogue, `vendor/acl2/books/projects/x86isa/machine/
+inst-listing.lisp`, at the entry whose **encoding matches the bytes clang produced** — VEX/EVEX
+class, vector length, prefix, opcode, `/reg`. A `'NIL` semantic-function slot ⇒ predict `refuses`.
+
+All 23 predictions, both CR4 columns, were **written down and hashed before ACL2 saw any of these
+forms** (sha256 `84ec5947…`, 07:02:54Z).
+
+⚠️ **The instrument was a suspect first, and it was guilty.** The extractor's function-slot regex was
+uppercase-only, and x86isa writes some slots lowercase (`x86-vpsubb/vpsubw/…-vex`), so a lowercase
+slot read as unknown and could fall through to "unimplemented" — a mis-declared `refuses`. All 23
+were re-derived case-insensitively *before the run*; **every prediction was unchanged**, and the seal
+verifies byte-for-byte that the amendment left the table untouched. The bug never reached this batch
+— but it reached `vpsubw`, which is how it was found. ⇒ 🔑 **a new instrument is a suspect until a
+case it gets wrong is exhibited**, and here the exhibit was free: an entry outside the batch that it
+scored as unknown.
+
+### 2. ⭐⭐ 23 OF 23 — AND A GREEN THAT EASY IS A SUSPECT, SO IT WAS PRICED
+
+Every pair correct in **both** CR4 columns: 46 of 46 cells, scored mechanically against the sealed
+file rather than by eye. Against b26's 18 of 23, that demands an explanation better than "the route
+is good". Three naive rules were scored on the same 23 rows, on the published CR4=0x600 column:
+
+| rule | score |
+|---|---|
+| "always refuses" | 17 / 23 |
+| "always executes" | 6 / 23 |
+| "refuse iff VEX/EVEX (v-prefixed)" | **20 / 23** ← the best baseline |
+| **the catalogue route** | **23 / 23** |
+
+It beats the best baseline on exactly three rows, and they are the three that discriminate:
+`pmuldq` and `movntdq` are legacy-SSE forms the baseline calls *executes* and the oracle **refuses**
+(no semantic function), and `vpcmpeqw` is a VEX.256 form the baseline calls *refuses* and the oracle
+**executes**. The probe is also demonstrably not stuck: three distinct verdict patterns came back in
+one run — `(executes, executes)` ×4, `(refuses, executes)` ×2, `(refuses, refuses)` ×17.
+
+⛔ **What this does not license: the remaining 258 pairs.** A batch cannot be sampled — this is 23
+asked pairs across 5 buckets, not a proof about the route. The catalogue remains a **screen** that
+makes a prediction scorable; `measured_availability` still publishes only what ACL2 executed.
+
+### 3. THE MOVE, AND BOTH ACCOUNTINGS AGREE TO THE INSTRUCTION
+
+```
+the uncovered gap                412,640   (unchanged — asking moves demand, it does not remove it)
+asked at its own bucket            77.2% -> 81.9%
+THE UNASKED REMAINDER   281 pairs / 56,676 / 13.7% -> 258 pairs / 37,334 / 9.0%
+probed so far          133 mn / 350,167 / 84.9% -> 153 mn / 367,246 / 89.0%
+  the oracle EXECUTES   68 / 147,867 / 35.8%    ->  71 / 150,084 / 36.4%
+  the oracle REFUSES    65 / 202,300 / 49.0%    ->  82 / 217,162 / 52.6%
+```
+
+The 23 pairs' own demand sums to **19,342**; the remainder fell by `56,676 − 37,334 =` **19,342**,
+and pairs fell by exactly **23**. The two figures come from different routes — the first from the
+ranked listing, the second recomputed by the tool from the census join — so their agreement checks
+the transcription and not only the arithmetic.
+
+⛔ **The hole GREW again, 49.0% → 52.6%, and that is the batch working.** Seventeen of twenty-three
+are refusals, so asking moved demand out of *unknown* into *known-unsupported*. A head who reads a
+rising REFUSES as a regression will stop asking, which is the one thing that keeps it looking small.
+
+### 4. ⚠️ THE MNEMONIC COUNT ROSE BY 20, NOT 23 — D124 §3, AND CHECKED RATHER THAN ASSUMED
+
+Three of the batch's mnemonics were already NAMED at another bucket: `psraw`, `punpcklwd` and `psllw`
+each existed at SSE-legacy and were asked here at **MMX**. So pairs rose 23 while mnemonics rose 20.
+The summary table gives a mnemonic ONE verdict and takes the pessimistic one where its buckets
+disagree — so whether anything is hidden is a question, not an assumption. It was **executed**, not
+argued: all three agree across their two buckets (`executes` at both), as does `packuswb` from b26.
+Nothing is concealed by the collapse this batch. **This is D124 §3's known discrepancy, neither
+repaired nor worsened.**
+
+### 5. THE ENCODINGS
+
+All 23 came from `clang -target x86_64-unknown-linux-gnu`; none was typed. D128's gate re-derives
+every one of the now-**179** rows on **both** disassemblers (Apple LLVM and GNU binutils) at every CI
+run, so the `hx` ACL2 executes is the assembly of the `asm` that keys the table. D130's structure
+gate confirms all 179 tags are distinct, so every row has its own reading.
