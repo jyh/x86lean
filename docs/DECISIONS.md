@@ -7586,3 +7586,119 @@ No measured verdict moves: availability is read by executing, and D136's 38 of 3
 already per-bucket, which is exactly why the discrepancy showed up as a disagreement between the
 rankers and the roster rather than as a wrong published number. What moves is the **price** of the
 remaining work and the **order** it will be done in.
+
+## D138 — the sixteen "absent under this name" pairs: eleven were never absent, and the reader was dropping 169 entries
+
+The council's item 2 was *"the 16 NOT-RESOLVED names, each found by ENCODING"*. Resolving them
+found that the pile had two different things in it and that its label was wrong for most of them.
+
+### 1. ELEVEN OF THE SIXTEEN NAMES WERE IN THE LISTING ALL ALONG
+
+The first check was the cheapest one and it should have been run when the pile was created:
+grep the listing for each name. Eleven of sixteen are there. So `"absent under this name"` — the
+tool's own words — was false for eleven pairs, and the real cause was that the catalogue READER
+discarded their entries. `entries()` computes a bucket, and `if bucket is None: continue`; a
+dropped entry leaves no trace, and the pair then reads as a *name* problem downstream.
+
+⇒ 🔑 **A pile named for one cause collects everything with that symptom.** The name of a bucket is
+a hypothesis about its contents, and nothing was gating it.
+
+### 2. TWO READER DEFECTS, MEASURED RATHER THAN ESTIMATED
+
+```
+INST entries in the listing            3,184
+dropped by the reader (bucket = None)  1,777   55.8%
+  EVEX — out of scope BY DESIGN          927        0 implemented
+  legacy, genuinely non-vector           437      378 implemented  (correctly excluded)
+  legacy, no ARG list (mostly non-vector)244       30 implemented  (correctly excluded)
+  ⛔ VEX with :LIG / :LZ / :L0           161        8 implemented  ← DEFECT
+  ⛔ vector operand present, not in OP1    8        0 implemented  ← DEFECT
+```
+
+⚠️ The first cut of this table said *"445 entries lost to the OP1 regex"*. That was wrong: it
+lumped 437 ordinary GPR instructions — correctly excluded from a **vector** census — in with the 8
+real misses. **The in-scope loss is 169 entries, not 850 and not 1,777.** A breakdown that mixes a
+correct exclusion with a defect over-states the defect, and the over-statement is the flattering
+direction when you are the one reporting it.
+
+**Defect A — the width is not always spelled `:128`/`:256`.** x86isa marks VEX lane width with six
+tokens: `:128` 306 · `:256` 277 · `:LIG` 70 · `:L0` 36 · `:LZ` 28 · `:L1` 27. The reader knew two.
+`:LIG`/`:L0`/`:LZ` are the **scalar VEX** forms — `vaddss`, `vmovsd`, `vcomiss`, `vcvttss2si` and
+their kin, every one encoded with VEX.L = 0 and keyed by the census at VEX-128. Eight of the
+sixteen unresolved names were this class.
+
+**Defect B — the ARG regex read only the first operand.** It was
+`\(ARG\s(.*?)\)\s*\n` — non-greedy to the first `)` at end of line — and an ARG list is written one
+operand per line. On `pextrw` it captured `":OP1 '(G D"`: a GPR, no vector register, bucket `None`.
+⇒ **every instruction whose vector operand is not first was invisible** — `pextrw`, `pextrd/q`,
+`pinsrd/q`, `extractps`: the extract-and-insert family, which is exactly the family whose
+destination is a GPR or memory. Replaced by a balanced-paren reader.
+
+With both repaired, `NOT RESOLVED` fell 16 → 6 pairs and the ten that moved all landed in
+`DOES NOT` — independently agreeing with the encoding resolution done by hand first.
+
+### 3. THE SIX THAT REALLY WERE NAME DIFFERENCES, RESOLVED BY ENCODING
+
+`scripts/resolve_names.py` keys on what the machine dispatches on — opcode map, opcode byte,
+mandatory prefix, VEX.L — recovered from bytes `clang` emitted:
+
+```
+cvtsi2sdq  #xF2A   :F2  f2480f2ac0      -> cvtsi2sd    executes   ← 178 instructions, ASKABLE
+cvtsi2ssq  #xF2A   :F3  f3480f2ac0      -> cvtsi2ss    executes   ←  14 instructions, ASKABLE
+pextrd     #xF3A16 :66  660f3a16c001    -> pextrd/q    refuses
+pinsrd     #xF3A22 :66  660f3a22c001    -> pinsrd/q    refuses
+pinsrq     #xF3A22 :66  66480f3a22c001  -> pinsrd/q    refuses
+vzeroupper #xF77   -    c5f877          -> vzeroupper  executes   ← 1,241, NOT askable
+```
+
+⛔ **And this is why the rule is "by encoding, never by name."** A suffix-stripping rule gets
+`cvtsi2sdq → cvtsi2sd` right and then must invent `pextrd → pextrd/q` — and *no edit of the string
+`pextrd` produces `pextrd/q`*, because that name is two widths sharing one entry, not a spelling of
+one mnemonic. D100 paid for the general form of this with a phantom row.
+
+⚠️ `vzeroupper` resolves and **is implemented**, and is still unaskable: the census keys it at
+`AVX (state)`, one of the buckets `probe_bucket` cannot express (D128 §5). Resolving the name buys
+the verdict and nothing askable — 1,241 instructions this route cannot reach.
+
+### 4. ⛔ THE RESOLVER'S OWN GATE WAS WRONG TWICE, AND BOTH WERE FOUND BY PLANTING
+
+**(a) It refused, and the refusal was right.** The first run failed with
+*"vzeroupper: 2 listing names ['vzeroall', 'vzeroupper'] — ambiguous, not picked"*. Both sit at
+opcode `0F 77` with no prefix and are told apart by **VEX.L alone**, which my key did not carry.
+The gate declining to choose is what exposed the omission; a resolver that picked the first name
+would have published `vzeroall`'s verdict under `vzeroupper`.
+
+**(b) It was silent, and the silence was a circular test.** The spelling arm accepted
+`head in (mn, name)` — where `name` is the listing name **derived from those very bytes**. So it
+asked whether the disassembly agrees with what the bytes decoded to, which is true by construction.
+Planting `addpd %xmm1, %xmm0` as the spelling for `cvtsi2sdq` resolved it to `addpd` and the gate
+printed **CLEAN**.
+
+⇒ 🔑 **A check whose expected value is computed from its subject is not a check.** The repair
+compares against `mn` — the census mnemonic, the one datum in the row that does not come from the
+bytes — allowing only the operand-size suffix the two spellings disagree about. Re-planted after
+the fix: `⛔ … the spelling is not this instruction`, rc 1.
+
+### 5. P2 BATCH 31 — THE TWO PAIRS THE READER WAS HIDING
+
+Declaration sealed before ACL2 ran (`a32e3399…`, 2026-09-05T20:33:02Z), verified unchanged after.
+**2 of 2, both columns.** `(refuses, executes)` each — measured now, not predicted.
+
+⚠️ The source operand is a **GPR, a dimension this probe does not vary**, so it was checked instead
+of assumed: `measure_cr4`'s `init-x86-state-64` sets gprs `((0 . #x400000) (3 . #x2000))`, so
+RAX = 4,194,304 = 2²² — non-zero and exact in both float and double. Had it been 0 these would
+convert 0 → 0.0 and risk the `SSE-POST-COMP` guard violation that yields **no reading at all**.
+
+### 6. WHERE THE QUEUE STANDS
+
+```
+THE UNASKED REMAINDER   174 / 18,224  ->  172 / 18,032
+  x86isa IMPLEMENTS       3 /  1,433  ->    1 /  1,241   (vzeroupper alone, and unaskable)
+  x86isa DOES NOT       171 / 16,791  ->  171 / 16,791
+  NOT RESOLVED            0 /      0  ->    0 /      0
+```
+
+**Every implemented pair that can be asked has been asked.** What is left is 171 pairs x86isa does
+not implement and one it does that no probe can express — a *design* item (widen `probe_bucket`),
+not a queue item. D136's headline `IMPLEMENTS 0 pairs` was true of the reader and false of x86isa;
+it is corrected here, and the correction was worth 192 instructions of measured coverage.

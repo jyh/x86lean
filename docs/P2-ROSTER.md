@@ -167,9 +167,9 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 138 | 161,256 | 39.1% |
+| the oracle EXECUTES | 140 | 161,448 | 39.1% |
 | the oracle REFUSES | 82 | 217,162 | 52.6% |
-| **probed so far** | 220 | **378,418** | **91.7%** |
+| **probed so far** | 222 | **378,610** | **91.8%** |
 
 ⛔⛔ **AND THAT IS NOT THE COVERAGE NUMBER.** A mnemonic gets one verdict, so the
 table above carries a mnemonic's WHOLE demand on a reading taken at ONE of its
@@ -181,10 +181,10 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 126 | 132,909 | 32.2% |
+| the oracle EXECUTES | 128 | 133,101 | 32.3% |
 | the oracle REFUSES | 88 | 169,877 | 41.2% |
-| **probed so far** | 214 | **302,786** | **73.4%** |
-| not asked at its own bucket | | 109,692 | 26.6% |
+| **probed so far** | 216 | **302,978** | **73.4%** |
+| not asked at its own bucket | | 109,500 | 26.5% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
 75,632 instructions, 18.3% of the gap** — that is

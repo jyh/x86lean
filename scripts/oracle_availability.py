@@ -886,6 +886,34 @@ P2_FORMS = [
     ("vmovups_y",       "vmovups %ymm1, %ymm0",              "c5fc10c1",        "refuses", "executes"),
     ("vmovapd_y",       "vmovapd %ymm1, %ymm0",              "c5fd28c1",        "refuses", "executes"),
     ("vpcmpeqq_y",      "vpcmpeqq %ymm1, %ymm2, %ymm0",      "c4e26d29c1",      "refuses", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # P2 BATCH 31 — THE TWO PAIRS THE CATALOGUE READER WAS HIDING (D138).
+    # After batch 30 the derived-support queue reported `x86isa IMPLEMENTS 0
+    # pairs`.  That was an artifact of the READER, not a fact about x86isa:
+    # the census spells these with clang's operand-size suffix (`cvtsi2sdq`)
+    # and the listing spells them without it (`CVTSI2SD`), so the join missed
+    # and both landed in the "absent under this name" pile.  Resolved BY
+    # ENCODING in `scripts/resolve_names.py` — #xF2A with :F2 / :F3, no VEX —
+    # and x86isa IMPLEMENTS both.  192 instructions of census demand.
+    # ⛔ NEVER BY STRIPPING THE SUFFIX.  That rule would also have to invent
+    # `pextrd -> pextrd/q`, and no edit of the string `pextrd` produces
+    # `pextrd/q` — the listing's name is two widths sharing one entry.  D100
+    # published a phantom row on exactly that kind of key.
+    # ⚠️ THE SOURCE IS A GPR, WHICH IS A DIMENSION THIS PROBE DOES NOT VARY —
+    # so it was checked rather than assumed.  `measure_cr4`'s
+    # `init-x86-state-64` call sets gprs `((0 . #x400000) (3 . #x2000))`, so
+    # RAX = 0x400000 = 4,194,304 = 2^22: NON-ZERO and exactly representable in
+    # both float and double.  Had RAX been 0 these would convert 0 -> 0.0 and
+    # risk the SSE-POST-COMP guard violation that yields NO READING — the
+    # `cvtss2sd`-at-zero failure the operand control exists for.  It is not
+    # zero, so no guard violation is expected and a firing is the finding.
+    # ⛔ BOTH `hx` FROM `clang`; the disassembler prints `cvtsi2sd`/`cvtsi2ss`,
+    # which is the name difference this batch is about, visible in the bytes.
+    # ⛔ DECLARATION SEALED BEFORE ACL2 RAN: sha256 of the 2 rows below
+    # = a32e3399e00d67a53c15ce9d517ea40634e41d99306a800683acdcc41198326b,
+    # 2026-09-05T20:33:02Z.
+    ("cvtsi2sdq",      "cvtsi2sdq %rax, %xmm0",             "f2480f2ac0",      "refuses", "executes"),
+    ("cvtsi2ssq",      "cvtsi2ssq %rax, %xmm0",             "f3480f2ac0",      "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),

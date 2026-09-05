@@ -58,9 +58,21 @@ def entry_bucket(vex, evex, pfx, feat, args):
     if evex:
         return "AVX-512 (zmm/k)" if ":512" in evex else None   # EVEX.128/256: not a census bucket here
     if vex:
-        if ":256" in vex:
+        # ⛔⛔ THE WIDTH IS NOT ALWAYS SPELLED `:128`/`:256` — D138.  x86isa marks
+        # a VEX entry's lane width with SIX different tokens, and reading only
+        # two of them dropped 161 of the listing's 3,184 entries on the floor:
+        #     :128 306 · :256 277 · :LIG 70 · :L0 36 · :LZ 28 · :L1 27
+        # `:LIG` (L ignored), `:L0` and `:LZ` (L must be zero) are the SCALAR
+        # VEX forms — vaddss, vmovsd, vcomiss, vcvttss2si and their kin — every
+        # one of which an assembler encodes with VEX.L = 0 and the census
+        # therefore keys at VEX-128.  `:L1` is 256.
+        # ⚠️ AND THE OLD CODE `return None`d, which `entries()` silently
+        # `continue`s — so a whole class left no trace, and the remainder tool
+        # reported the survivors as "absent under this name" when the name was
+        # in the listing all along ([[feedback-a-sentence-missing-case-reads-as-empty]]).
+        if ":256" in vex or ":L1" in vex:
             return "AVX2/AVX (ymm)"
-        if ":128" in vex:
+        if (":128" in vex or ":LIG" in vex or ":LZ" in vex or ":L0" in vex):
             return "VEX-128 (v… xmm)"
         return None
     # ⛔⛔ A LEGACY ENTRY'S REGISTER FILE IS IN ITS OPERAND LETTERS, NOT IN ITS
@@ -82,6 +94,46 @@ def entry_bucket(vex, evex, pfx, feat, args):
     return None
 
 
+def _arg_list(body):
+    r"""The WHOLE `(ARG …)` list, by balanced parentheses — never a regex.
+
+    ⛔⛔ THE REGEX THIS REPLACES READ ONLY THE FIRST OPERAND — D138.  It was
+    `\(ARG\s(.*?)\)\s*\n`: non-greedy up to the first `)` at end of line.  An
+    ARG list is written one operand per line, so on
+
+        (ARG :OP1 '(G D)
+             :OP2 '(U DQ)
+             :OP3 '(I B))
+
+    it captured `":OP1 '(G D"` — OP1 alone, and with its closing paren eaten.
+    `entry_bucket` then looked for the register file in that fragment, found a
+    GPR, and returned None; `entries()` dropped the row without a word.
+
+    ⇒ 🔑 EVERY INSTRUCTION WHOSE VECTOR OPERAND IS NOT FIRST WAS INVISIBLE —
+    `pextrw`, `pextrd/q`, `pinsrd/q`, `extractps`: the extract-and-insert family,
+    which is precisely the family whose destination is a GPR or memory.  They
+    are also, not by coincidence, four of the sixteen the tool called "absent
+    under this name" ([[feedback-a-column-parser-is-tested-by-its-widest-datum]]).
+
+    Returns "" when the entry has no ARG list at all, which is a real case
+    (`vzeroupper` takes no operands) and must not be confused with a parse
+    failure — the caller's bucket rule handles a widthless entry by its VEX
+    fields instead."""
+    i = body.find("(ARG")
+    if i < 0:
+        return ""
+    depth, j = 0, i
+    while j < len(body):
+        if body[j] == "(":
+            depth += 1
+        elif body[j] == ")":
+            depth -= 1
+            if depth == 0:
+                return body[i + 4:j]
+        j += 1
+    return body[i + 4:]      # unterminated: hand back what there is
+
+
 def entries():
     """(name, bucket, implemented) for every INST entry the listing declares."""
     txt = open(LISTING).read()
@@ -93,12 +145,12 @@ def entries():
         evex = re.search(r":EVEX\s+'\(([^)]*)\)", body)
         pfx = re.search(r":PFX\s+(\S+)", body)
         feat = re.search(r":FEAT\s+'\(([^)]*)\)", body)
-        args = re.search(r"\(ARG\s(.*?)\)\s*\n", body, re.S)
+        args = _arg_list(body)
         bucket = entry_bucket(vex.group(1) if vex else "",
                               evex.group(1) if evex else "",
                               pfx.group(1) if pfx else "",
                               feat.group(1) if feat else "",
-                              args.group(1) if args else "")
+                              args)
         if bucket is None:
             continue
         # ⛔ CASE-INSENSITIVE, AND THAT IS NOT COSMETIC.  x86isa writes some
@@ -122,6 +174,19 @@ def predict():
     for key, impls in by_key.items():
         out[key] = ("ambiguous" if len(impls) > 1
                     else ("executes" if True in impls else "refuses"))
+    # ⭐ THE PAIRS THE CENSUS AND THE LISTING SPELL DIFFERENTLY, joined BY
+    # ENCODING (`resolve_names.py`) rather than by editing the string.  Without
+    # this the join misses and the pair is reported "absent under this name" —
+    # which was true of six pairs and 1,452 instructions, two of them
+    # IMPLEMENTED and therefore askable (D138).
+    # ⛔ A DIRECT HIT ALWAYS WINS.  The alias may only FILL a gap, never
+    # override a key the listing carries under the census's own name; a resolver
+    # that can overwrite a measured-agreeing key can quietly move a verdict.
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import resolve_names as RN
+    for key, r in RN.resolve().items():
+        if key not in out and r["verdict"]:
+            out[key] = r["verdict"]
     return out
 
 
