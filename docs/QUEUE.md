@@ -38,6 +38,19 @@ finished except for what the probe cannot express.
 2. **Land the buildable groups the census has surfaced** — the ordinary batch work.
 3. **The kernel-delta gate** stays the merge gate; the absolute ceilings ride beside every merge as
    readings, never as a gate (helm 2026-09-04 21:42).
+4. **Re-derive `@floor` against the BAND, not the spread** (opened by D141). The 6 ms floor in
+   `scripts/kernel_delta_budget.txt` was derived from the worst within-commit RANGE because the
+   refusal used to read `budget < spread`; it no longer does, so the constraint that set the number
+   is gone. ⛔ The number was deliberately left alone — moving an ALLOWANCE in the same commit that
+   moved a RULE makes the two inseparable afterwards — and the direction of the staleness is known:
+   a floor is a MINIMUM allowance, so this one can only be too generous. Re-deriving it can only
+   tighten the gate. Price: no new measurement — `kernel_delta_history.py --register-budget` over
+   the committed readings at `docs/kernel-delta-history-2026-09-04.jsonl`, plus the arm that says
+   which units it binds.
+5. **`--repeats` in CI is a guess** (D141 §9). `.github/workflows/ci.yml` asks for 6 on a runner no
+   delta has ever run on. The first job that completes there prices it, and the number to read off
+   is the gate's own `~N repeats a side would decide it` line. Blocked: GitHub Actions refuses every
+   job on this account for billing (desk FH).
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
 `docs/SOFT-FLOAT-COMMISSION.md` — opened 2026-09-05, with its premise tested at the object, its

@@ -7781,3 +7781,163 @@ delta gate.
 
 ⛔ **B's price is left blank on purpose.** Inventing one would be the third inherited figure in this
 commission's own history, and §2 is a record of what that costs.
+
+## D141 — the delta gate's refusal grew with the repeats it asked for: a gate whose only remedy was a box it could not have
+
+> ⚠️ **D140 IS NOT MISSING.** It is P2 batch 32's own entry, written on
+> `p2-batch32-fp-compares` and not yet merged. This repair lands FIRST and on
+> `master` deliberately: it is the instrument that will score that batch, and an
+> instrument judged in the same commit as the thing it judges cannot be judged at
+> all. The gap closes when the batch merges.
+
+Batch 32 has sat on `p2-batch32-fp-compares` since 15:33 on 09/05, held off `master` by a delta
+gate that returned `UNMEASURABLE`. The bank handed that on as *"blocked on a quiet box"*, and the
+box was not quiet at the next boot either (load 10.46/11.12/11.06). Before waiting for a third
+afternoon I read the instrument. **The refusal was honest and its stated remedy was arithmetically
+impossible.**
+
+### 1. THE DEFECT, IN ONE LINE OF THE GATE'S OWN SOURCE
+
+`kernel_delta.py` refused when `budget < spread`, and printed *"re-run with more `--repeats` or on
+a quieter box"*. `spread` was
+
+```python
+spread = max((max(bs) - min(bs)) if len(bs) > 1 else 0.0,      # the RANGE of a side's readings
+             (max(hs) - min(hs)) if len(hs) > 1 else 0.0)
+```
+
+⛔ **A RANGE GROWS WITH THE NUMBER OF READINGS.** The quantity actually gated is a difference of
+MEDIANS, whose uncertainty falls as `1/sqrt(n)`. So of the two remedies the gate offered, the one
+under the seat's own control made the refusal STRICTLY MORE LIKELY, and only the one outside its
+control could ever help. Driven through this file's own `verdict()` on synthetic readings — a true
+delta of 1,000 ms, per-reading sigma 1,400 ms, the real 1,778 ms budget, 400 trials a cell:
+
+```
+n:                          2      3      4      6      8     10     16     24
+REFUSE rate:              60%    84%    96%   100%   100%   100%   100%   100%
+mean spread (max-min):   2257   3053   3528   4210   4579   4915   5501   6024
+sd of the gated estimate:1445   1313   1035    946    846    748    613    504
+```
+
+⇒ 🔑 **THE INSTRUMENT GOT MONOTONICALLY BETTER AND THE GATE GOT MONOTONICALLY MORE CERTAIN THAT IT
+COULD NOT SEE.** Spending machine time on this gate bought refusals. The one act a seat could take
+was the one act that could not work, and the gate said so in the same paragraph as the verdict.
+
+### 2. THE HALF THAT IS WORSE, BECAUSE IT IS A FALSE VERDICT AND NOT A MISSING ONE
+
+The same rule on a QUIET box (sigma 200 ms) refuses nothing — and on a commit sitting exactly ON
+its budget it returned `ok` **50%** of the time and `OVER BUDGET` **50%**, over 4,000 trials. A
+coin flip, delivered as a verdict, on precisely the commits a budget gate exists to judge. A small
+range says the readings agreed with each other; it never said the delta was far enough from the
+budget to call. The two failures are one mistake: **`spread` answered a question about the
+READINGS where the gate needed one about the ESTIMATE.**
+
+⛔ And a third face of it, found by an arm whose own NAME had been carrying the defect for nine
+batches. `--selftest` asserted that `{M: 100} → {M: 900}` with jitter 80 against a 50 ms budget
+must REFUSE — *"a REFUSAL outranks an over-budget red"*. That is a delta **sixteen times** its
+allowance and five standard errors clear of it, refused because the box's noise (80) exceeded the
+budget (50). The arm's name stated a principle that is true only when the run genuinely cannot
+tell, and the arm made the blindness look like scruple. It is now split in two: a straddling band
+still refuses, **and a delta far over budget is CONVICTED even when the box's noise exceeds that
+budget.**
+
+### 3. WHAT REPLACES IT — A BAND, NOT A THRESHOLD
+
+Each unit's delta carries the uncertainty of its own estimator, from this run's readings alone:
+
+```
+se(unit) = 1.2533 * sqrt( s_base^2 / n_base + s_head^2 / n_head )
+delta - K*se > budget  ⇒ FAILED  ·  delta + K*se < budget  ⇒ ok  ·  else UNMEASURABLE
+```
+
+with **K = 2**. The refusal now depends on how far the delta is from the budget, not merely on how
+loud the box is, so a commit nowhere near its allowance is decided cheaply and only a commit near
+the line is expensive — which is a fact about the commit.
+
+⛔ **K WAS NOT CHOSEN BY WHAT IT SAYS ABOUT BATCH 32.** Deriving a gate's free number from the
+commit under test is the move this file already forbids for the budget, and it would have been
+easy here: K=1 decides batch 32 in about a third the repeats. K was fixed on the two error rates,
+swept over sigma in {200, 1000, 2000} ms and n in {3, 6, 10, 16, 24}, 4,000 trials a cell,
+identical draws for every rule:
+
+```
+                                        OLD range      BAND K=1      BAND K=2
+false PASS  (`ok` at a true 2x budget)      ≤ 0%          2.7%          0.5%
+false RED   (`FAILED` at a true zero)       ≤ 0%          3.0%          0.5%
+a commit exactly ON its budget, refused    0-100%          67%           92%
+a harmless commit, sigma 1000, n=3..24    33%→0% ok    79%→100% ok   49%→100% ok
+```
+
+The OLD column's zeroes are bought by refusing 95-100% of everything; they are the numbers of an
+instrument that does not speak. ⭐ **The sweep is `scripts/delta_band_calibration.py` and it is a
+GATE, not a table**: `--check` asserts all seven bounds, including the two LIVENESS bounds that a
+rule refusing everything would fail, and it reads `K_SIGMA` out of the shipped gate rather than
+keeping a copy — if the constant is renamed it refuses instead of testing a number nobody uses.
+Driven red at K = 0.5, 1.0 (false-pass and false-red bounds break) and 4.0 (liveness breaks).
+
+### 4. THE PRECEDENCE INVERTED WITH THE RULE, AND ONLY A REPLAY SHOWED IT
+
+The gate returned `UNMEASURABLE` (rc 3) in preference to `FAILED` (rc 1), on the old arm's
+principle that *"a refusal is not a verdict at all"*. While the refusal read `budget < spread` that
+was right: the spread was a property of the RUN, so a refusal anywhere meant no verdict anywhere.
+
+Under the band it is a property of ONE UNIT and its distance from ITS budget — and a unit marked
+`OVER BUDGET` was convicted **beyond this run's noise**, which is exactly what the refused unit
+says it could not establish. Found by replaying a realistic readings file through `--readings`:
+`Tests.Coverage` convicted at +2,900 with a ±409 band, `Tests.Coverage @residue` refused at the
+same +2,900 because its budget is 2,766 and the margin is +134. The run was reported
+`UNMEASURABLE`. ⇒ **a commit that certainly breaks a budget was being filed under "we could not
+tell", because a different unit was unresolved** — the reassuring direction. Now `FAILED` outranks
+`UNMEASURABLE` outranks `CLEAN`; both messages still print, only the exit code ranks. A tightening,
+and pinned by its own arm.
+
+### 5. THE HOLE AT THE OTHER END, CLOSED BY THE SAME CHANGE
+
+`max - min` of ONE reading is `0.0`, so under the old rule `--repeats 1` could **never** refuse:
+the gate returned a verdict off a single pass a side with nothing whatever said about its noise.
+A side with fewer than two readings now yields an infinite band and the gate refuses. Nobody was
+looking at that end, because a refusal test is read as the thing that might fire too often.
+
+### 6. THE ARMS
+
+`--selftest` is 25 arms (was 18). Six planted defects, each the shape a hurried fix takes —
+`K_SIGMA = 0`; `resolution()` returning the range again; a one-reading side scoring 0.0 noise;
+either side of the band dropped; `se` not dividing by `n` — **all six caught.** The arms that name
+the finding are a matched pair on the SAME dispersion at 3 and at 12 repeats: the readings' range
+is identical (600.0 in both) while the band falls from ±614 to ±262, so the old rule's verdict
+could not have moved and the new rule's does. A third arm asserts that pairing directly, because
+without it the two runs are unrelated and prove nothing about the remedy.
+
+### 7. THE REFUSAL NOW NAMES ITS PRICE, AND ITS THREE CAUSES SEPARATELY
+
+A refusal prints, per unit, the delta, the budget, the margin between them, the band, and
+`~N repeats a side would decide it` — `N = n * (K*se / |delta - budget|)^2`, labelled a projection
+because it reads this run's noise forward onto a box that may not repeat it. Three causes that the
+first draft of this message collapsed into one sentence are now named apart: a side with fewer than
+two readings (cannot estimate its noise at all), a delta sitting exactly on its budget (no n
+decides it), and a genuine straddle (buy repeats). The first draft printed *"no number of repeats
+decides a delta sitting ON its budget"* for a unit whose margin was −990.
+
+### 8. ⛔ AND THE FINDING THAT MADE ALL OF THIS COST AN EXTRA DAY
+
+`kernel_delta.py` has taken `--out FILE` and `--readings FILE` from the start, *"because a
+measurement that took eleven minutes should be re-judgeable against a changed budget in seconds"*.
+**The batch-32 run did not pass `--out`.** Its readings do not exist, so the refusal that held the
+batch cannot be re-judged, the sigma behind its 3,400 ms spread is an inference from a printed
+range rather than a measurement, and the first thing this repair wanted — the actual numbers — had
+to be replaced by a synthetic model of them. This is the seat's own banked card *"a gate that
+refuses must say what it saw"*, paid on the seat's own gate, by the head that wrote the card.
+
+### 9. WHAT THIS DOES NOT SETTLE
+
+- **It does not score batch 32.** No tree was profiled for any number in this entry; every reading
+  here is synthetic and says so. Whether the batch passes, fails, or refuses again is the next
+  measurement's to say, and it will be taken with `--out`.
+- **The 1.2533 factor is asymptotic** and conservative at the n this gate runs (the true ratio at
+  n=3 is 1.16), and it assumes readings that are independent within a side. Drift makes `s` too
+  large, hence the band too wide, hence the gate too conservative — the safe direction, stated
+  rather than corrected. Correcting it would need the paired differences, and with the passes
+  ordered base,head,base,head each pair carries a one-pass bias the medians do not.
+- **`--repeats 6` in CI is a guess about a runner nobody has measured** (Actions refuses every job
+  on this account for billing, desk FH). The first run that completes there prices it, and the
+  number to read off is the gate's own `~N repeats` line.

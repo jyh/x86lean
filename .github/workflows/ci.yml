@@ -391,6 +391,17 @@ jobs:
       - name: Delta-gate comparison and budget file, driven red
         run: python3 scripts/kernel_delta.py --selftest
 
+      # ⭐ THE FREE NUMBER IN THE RULE, GATED (D141). `K_SIGMA` decides how far
+      # from its budget a delta must sit before this gate will call it, and a
+      # free number in a gate is the kind that gets chosen by what it says about
+      # the commit in front of the chooser. This asserts the error rates the
+      # gate's own docstring quotes — in BOTH directions, because a rule that
+      # refused everything would satisfy every "false pass" bound for free, and
+      # two of the seven bounds are liveness for exactly that reason. No tree is
+      # profiled; it runs in ~22 s on the developer box.
+      - name: The band's constant delivers the error rates its docstring claims
+        run: python3 scripts/delta_band_calibration.py --check
+
       # ⭐ THE BUDGET FILE IS GENERATED, AND THIS IS WHAT SAYS SO. Same discipline
       # as the coverage table and the run-index certificate: re-derive it from the
       # committed readings and require byte equality, so a hand-edited allowance
@@ -406,8 +417,19 @@ jobs:
             || { echo "⛔ scripts/kernel_delta_budget.txt is not what its own"; \
                  echo "   derivation produces — regenerate it, do not edit it."; exit 1; }
 
+      # ⚠️ REPEATS IS A PRICE, NOT A SETTING (D141). The refusal test is now a
+      # band of K standard errors around the delta, and that band falls as
+      # 1/sqrt(n) — so the number here is what this job is willing to SPEND to
+      # get a verdict rather than a refusal. Two passes a side is the least a
+      # noise estimate can be built from at all, and no box has yet been shown
+      # to resolve this budget at two. Six is a guess about a runner nobody has
+      # measured (this account's Actions refuse every job for billing, desk FH);
+      # ⛔ THE FIRST RUN THAT COMPLETES HERE PRICES IT, and the number to read
+      # off that run is the `~N repeats a side would decide it` line the gate
+      # prints when it refuses. Raise this to what that line says; do not raise
+      # the budget, which is the one move the gate forbids.
       - name: Kernel-time DELTA against this change's base (two trees, one machine)
-        run: python3 scripts/kernel_delta.py --repeats 2
+        run: python3 scripts/kernel_delta.py --repeats 6
 
   # ⭐⭐ THE ARM THE HELM ASKED FOR BY NAME — *"a planted constructor that doubles
   # the delta must fail"* — in its own job because it needs FOUR builds and eight

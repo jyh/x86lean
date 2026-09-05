@@ -44,16 +44,82 @@ points and that direction is the one nobody polices.
 * **CLEAN** — every unit's delta is within its budget.
 * **FAILED** (rc 1) — some unit's delta exceeds its budget. The code got more
   expensive to check by more than the batch history says a batch costs.
-* **UNMEASURABLE** (rc 3) — some unit's budget is SMALLER THAN THE SPREAD THIS
-  RUN ITSELF MEASURED between repeats of the SAME tree. That is not a verdict
-  about the commit and must not be reported as one: the instrument could not
-  resolve the quantity being gated.
+* **UNMEASURABLE** (rc 3) — the run's own uncertainty BAND around the delta
+  straddles the budget, so this run cannot tell which side of it the commit is
+  on. That is not a verdict about the commit and must not be reported as one.
 
 ⭐ The third verdict is what replaces `kernel_cost.py`'s load-average band, and it
-is strictly better evidence: the band is a HEURISTIC about the machine calibrated
-on four readings months of batches ago, while this is the machine's spread
+is strictly better evidence: that band is a HEURISTIC about the machine calibrated
+on four readings months of batches ago, while this is the machine's noise
 MEASURED IN THE SAME RUN, on the same trees, by the same profiler. A gate that
 can measure its own noise does not need to guess at it from `uptime`.
+
+## ⛔⛔ D141 — THE REFUSAL TEST THIS FILE SHIPPED FOR ITS FIRST NINE BATCHES, AND
+## WHY IT WAS A GATE THAT COULD ONLY DIE
+
+Until 2026-09-05 the refusal was `budget < spread`, where `spread` was the worst
+WITHIN-SIDE RANGE (`max - min`) of the repeats — and the refusal printed the
+advice *"re-run with more `--repeats` or on a quieter box"*.
+
+⛔ A RANGE GROWS WITH THE NUMBER OF READINGS. The gated quantity — a difference
+of MEDIANS — gets BETTER with more readings, at 1/sqrt(n). So of the two remedies
+the gate offered, the one under the seat's own control made the refusal STRICTLY
+MORE LIKELY, and only the one outside its control could ever help. Measured
+through this file's own `verdict()`, on synthetic readings with a true delta of
+1,000 ms, per-reading sigma 1,400 ms, against the real 1,778 ms budget:
+
+    n:                        2      3      4      6      8     10     16     24
+    REFUSE rate:            60%    84%    96%   100%   100%   100%   100%   100%
+    mean spread (max-min): 2257   3053   3528   4210   4579   4915   5501   6024
+    sd of the gated estimate:1445  1313   1035    946    846    748    613    504
+
+⇒ 🔑 **THE INSTRUMENT GOT MONOTONICALLY BETTER AND THE GATE GOT MONOTONICALLY
+MORE CERTAIN THAT IT COULD NOT SEE.** Batch 32 sat on a branch for a day and a
+half against a refusal whose only stated escape was a quiet box that never came.
+
+⛔ AND THE SECOND HALF, WHICH IS WORSE, BECAUSE IT IS A FALSE VERDICT RATHER THAN
+NO VERDICT. On a QUIET box (sigma 200 ms) the old rule refused nothing — and on a
+commit sitting exactly ON its budget it returned `ok` 50% of the time and
+`OVER BUDGET` 49%, a COIN FLIP delivered as a verdict, on precisely the commits
+the gate exists to judge. A range that is small says the readings agreed; it
+never said the delta was far enough from the budget to call.
+
+## THE RULE NOW: A BAND, NOT A THRESHOLD
+
+Every unit's delta carries the uncertainty of its own estimator, computed from
+this run's readings alone:
+
+    se(unit) = 1.2533 * sqrt( s_base^2 / n_base  +  s_head^2 / n_head )
+
+(`1.2533` is the asymptotic ratio of the median's standard error to the mean's
+for a normal sample; it is CONSERVATIVE for the small n this gate runs at — the
+true ratio at n=3 is 1.16.) The verdict is then the three-way question the three
+verdicts were always describing:
+
+    delta - K*se > budget          ⇒ FAILED       (over, beyond this run's noise)
+    delta + K*se < budget          ⇒ ok           (under, beyond this run's noise)
+    otherwise                      ⇒ UNMEASURABLE (this run cannot tell)
+
+with **K = 2**, a stated convention and the more conservative of the two levels
+measured. ⛔ K WAS NOT CHOSEN BY WHAT IT SAYS ABOUT ANY BATCH — deriving it from
+the commit under test is the one move this file already forbids for the budget.
+It was chosen on the two error rates, swept over sigma in {200, 1000, 2000} ms
+and n in {3, 6, 10, 16, 24}, 4,000 trials a cell, identical draws for every rule:
+
+    a FALSE PASS  (`ok` on a commit truly at 2x its budget):  K=2 ≤ 0%, K=1 ≤ 2%
+    a FALSE RED   (`FAILED` on a commit truly at zero):       K=2 ≤ 0%, K=1 ≤ 3%
+    on a commit exactly ON the budget:  K=2 refuses 92-96%; the OLD rule refused
+                                        0% on a quiet box and split 50/49.
+
+⭐ AND THE REMEDY IS NOW REAL AND PRICED. `se` falls as 1/sqrt(n), so a refusal
+names the number of repeats that would decide the question and this gate prints
+it. The old rule's cost to a verdict was infinite; this one's is arithmetic.
+
+⚠️ The drift the alternated passes exist to cancel INFLATES the within-side `s`,
+so `se` over-states the uncertainty of a delta the alternation already protected.
+That is the conservative direction and it is stated rather than corrected: a
+correction would need the paired differences, and with the passes ordered
+base,head,base,head each pair carries a one-pass bias that the medians do not.
 
 ## WHAT IT DOES NOT DO
 
@@ -73,7 +139,7 @@ usage:
   kernel_delta.py --selftest                 the comparison arms (seconds)
   kernel_delta.py --selftest-measure         the two arms that need real trees
 """
-import os, re, sys, json, time, shutil, socket, platform, statistics, subprocess, tempfile
+import os, re, sys, math, json, time, shutil, socket, platform, statistics, subprocess, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KCOST = os.path.join(ROOT, "scripts", "kernel_cost.py")
@@ -208,6 +274,54 @@ def units_of(reading, decl_map):
     return out
 
 
+# ⭐⭐⭐ THE UNCERTAINTY OF THE QUANTITY THE GATE ACTUALLY TESTS (D141).
+#
+# ⛔ NOT the spread of the readings — the spread of the ESTIMATE. The gate does
+# not compare a reading to a budget, it compares `median(head) - median(base)`,
+# and that number's noise falls as 1/sqrt(n) while the readings' RANGE rises. A
+# refusal test built on the range therefore gets more certain as the instrument
+# gets better, which is how this gate spent its ninth batch refusing everything.
+#
+# ⛔ A SIDE WITH FEWER THAN TWO READINGS CANNOT ESTIMATE ITS OWN NOISE and this
+# returns infinity, so the gate REFUSES. The old range statistic returned 0.0
+# there — `max - min` of one reading — so `--repeats 1` could never refuse and
+# the gate delivered a verdict off a single pass per side with nothing at all
+# said about its noise. That hole is closed by the same change that opens the
+# remedy, and it is the direction nobody was looking.
+K_SIGMA = 2.0
+MEDIAN_SE_FACTOR = 1.2533   # SE(median)/SE(mean), normal, asymptotic; conservative at small n
+
+
+def resolution(bs, hs):
+    """The standard error of `median(hs) - median(bs)`, from these readings alone.
+
+    A unit present on ONE side only is a real change and not a paired
+    measurement: the absent side contributes no variance, and the delta is the
+    whole of the present reading. Refusing there would put a flag the gate is
+    right to raise behind a noise test it cannot satisfy."""
+    var = 0.0
+    for xs in (bs, hs):
+        if not xs:
+            continue
+        if len(xs) < 2:
+            return float("inf")
+        var += statistics.variance(xs) / len(xs)
+    return MEDIAN_SE_FACTOR * math.sqrt(var)
+
+
+def repeats_to_decide(n, se, margin):
+    """How many repeats a side would need for K*se to clear `margin`.
+
+    ⚠️ A PROJECTION AND LABELLED ONE. It reads this run's noise forward on the
+    assumption that the next run's is the same, which is exactly the assumption a
+    loaded box breaks. It is a price, not an allowance: the re-run measures its
+    own noise afresh and may refuse again."""
+    if se in (0.0, float("inf")) or margin <= 0 or n < 2:
+        return None
+    need = n * (K_SIGMA * se / margin) ** 2
+    return max(n + 1, int(math.ceil(need)))
+
+
 def profile(worktree, decl_mods):
     r = subprocess.run([sys.executable, KCOST, "--emit-json", "--root", worktree,
                         "--decl-modules", ",".join(decl_mods)],
@@ -324,8 +438,9 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
                             for r in data["readings"][s]))
     all_units = sorted(set().union(*[set(u) for u in sides["base"] + sides["head"]]))
     p()
-    p(f"{'UNIT':<56}{'base':>10}{'head':>10}{'delta':>10}{'spread':>9}{'budget':>9}  VERDICT")
-    fail, refuse, defaulted, flags = False, False, [], []
+    p(f"{'UNIT':<56}{'base':>10}{'head':>10}{'delta':>10}{'+-K*se':>9}"
+      f"{'range':>9}{'budget':>9}  VERDICT")
+    fail, refuse, defaulted, flags, unresolved = False, False, [], [], []
     for u in all_units:
         bs = [x[u] for x in sides["base"] if u in x]
         hs = [x[u] for x in sides["head"] if u in x]
@@ -337,29 +452,44 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
         b = statistics.median(bs) if bs else 0.0
         h = statistics.median(hs) if hs else 0.0
         d = h - b
-        # ⚠️ THE SPREAD IS THE INSTRUMENT'S OWN NOISE, measured on the SAME trees
-        # in the SAME run: the worst within-side range of the two sides. It is
-        # what makes the refusal below a measurement rather than a guess.
-        spread = max((max(bs) - min(bs)) if len(bs) > 1 else 0.0,
-                     (max(hs) - min(hs)) if len(hs) > 1 else 0.0)
+        # ⚠️ TWO NUMBERS, AND ONLY ONE OF THEM IS THE TEST. `band` is K standard
+        # errors of the DELTA and it is what decides; `rng` is the readings'
+        # within-side range, kept because it is the plainest description of what
+        # the box did during the run — a READING beside a verdict, which is this
+        # file's standing habit and the reason D141 was findable at all.
+        se = resolution(bs, hs)
+        band = K_SIGMA * se
+        rng = max((max(bs) - min(bs)) if len(bs) > 1 else 0.0,
+                  (max(hs) - min(hs)) if len(hs) > 1 else 0.0)
+        bandtxt = "inf" if band == float("inf") else f"{band:.1f}"
         if u in budgets:
             bud = effective(budgets[u], b, floor)
         elif default_ms is not None:
             bud = effective(default_ms, b, floor)
             defaulted.append(u)
         else:
-            p(f"{u:<56}{b:>10.1f}{h:>10.1f}{d:>+10.1f}{spread:>9.1f}{'-':>9}  NO BUDGET ⛔")
+            p(f"{u:<56}{b:>10.1f}{h:>10.1f}{d:>+10.1f}{bandtxt:>9}"
+              f"{rng:>9.1f}{'-':>9}  NO BUDGET ⛔")
             fail = True
             continue
-        if bud < spread:
-            v = "UNMEASURABLE ⛔"
-            refuse = True
-        elif d > bud:
+        # ⛔ THE THREE-WAY QUESTION, IN THIS ORDER. A delta is over budget only
+        # when it is over by more than this run can have invented, and under it
+        # only when it is under by more than that; everything between is the
+        # instrument saying it cannot tell, which is a thing to print and not a
+        # thing to break in one direction because a verdict was wanted.
+        if d - band > bud:
             v = "OVER BUDGET ⛔"
             fail = True
-        else:
+        elif d + band < bud:
             v = "ok"
-        p(f"{u:<56}{b:>10.1f}{h:>10.1f}{d:>+10.1f}{spread:>9.1f}{bud:>9.1f}  {v}")
+        else:
+            v = "UNMEASURABLE ⛔"
+            refuse = True
+            n_side = min(len(bs) or 10**9, len(hs) or 10**9)
+            need = repeats_to_decide(n_side, se, abs(d - bud))
+            unresolved.append((u, d, bud, band, need))
+        p(f"{u:<56}{b:>10.1f}{h:>10.1f}{d:>+10.1f}{bandtxt:>9}"
+          f"{rng:>9.1f}{bud:>9.1f}  {v}")
     p()
     if defaulted:
         # ⛔ A DEFAULT THAT IS NOT LISTED IS A LIST WITH INVISIBLE GAPS. Every
@@ -372,16 +502,59 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
     for f in flags:
         p(f"⚠️  {f}")
     if refuse:
-        p(f"⛔ delta gate UNMEASURABLE — a budget below the spread this run itself "
-          f"measured between repeats of the SAME tree. The readings above are "
-          f"printed and are NOT a verdict about this commit: the instrument could "
-          f"not resolve the quantity being gated. Re-run with more --repeats or on "
-          f"a quieter box; do NOT widen the budget, which would derive the "
-          f"allowance from the noise it is supposed to see through.")
-        return 3, L
+        p(f"⛔ delta gate UNMEASURABLE — for the unit(s) below, this run's own "
+          f"uncertainty band straddles the budget, so the readings above do NOT "
+          f"say which side of it this commit is on. They are printed, and they "
+          f"are not a verdict.")
+        # ⭐ THE PRICE OF AN ANSWER, PER UNIT, BECAUSE A REFUSAL THAT NAMES NO
+        # REMEDY IS A WALL. The projection is `n * (K*se / |delta - budget|)^2`:
+        # the band falls as 1/sqrt(n), so the repeats needed rise as the SQUARE
+        # of how close the delta sits to its budget. A commit near the line is
+        # expensive to judge and that is a fact about the commit, not the gate.
+        for u, d, bud, band, need in unresolved:
+            margin = d - bud
+            # ⛔ THREE CAUSES, NAMED SEPARATELY. A single "no remedy" sentence
+            # covering all of them is the shape where a missing case reads as
+            # empty: "cannot estimate its noise" and "sits exactly on the line"
+            # are different facts and want different acts from the reader.
+            if band == float("inf"):
+                price = ("this run has a side with fewer than two readings, so it "
+                         "cannot estimate its own noise at all — re-run with "
+                         "--repeats 2 or more")
+            elif margin == 0:
+                price = "no number of repeats decides a delta sitting exactly ON its budget"
+            elif need:
+                price = f"~{need} repeats a side would decide it"
+            else:
+                price = "the readings carry no spread at all, so nothing here is noise"
+            p(f"   · {u}: delta {d:+.1f} vs budget {bud:.1f} "
+              f"(margin {margin:+.1f}), band ±{band:.1f} ⇒ {price}")
+        p(f"⛔ DO NOT WIDEN THE BUDGET. That would derive the allowance from the "
+          f"noise it exists to see through. Buy repeats, quiet the box, or make "
+          f"the commit cheaper — the third is the one a refusal most often means.")
+    # ⛔⛔ THE PRECEDENCE, AND IT INVERTED WITH THE RULE (D141). While the refusal
+    # read `budget < spread` it was a property of the RUN — the box's noise
+    # swamped the allowance — so a refusal anywhere meant no verdict anywhere,
+    # and "a REFUSAL outranks an over-budget red" was right.
+    #
+    # Under the band it is a property of ONE UNIT and its distance from ITS
+    # budget: a unit marked OVER BUDGET was convicted BEYOND this run's noise,
+    # which is exactly what the refused unit says it could not establish. A
+    # refusal on a second unit adds no doubt to the first, and reporting
+    # UNMEASURABLE there would file a commit that certainly breaks its budget
+    # under "we could not tell" — the reassuring direction, and the wrong one.
+    #
+    # ⇒ FAILED outranks UNMEASURABLE outranks CLEAN. Both messages still print,
+    # so a refusal is never swallowed by a conviction; only the exit code ranks.
     if fail:
-        p("⛔ delta gate FAILED (a unit's delta is over its budget, or has none).")
+        p("⛔ delta gate FAILED (a unit's delta is over its budget by more than "
+          "this run's own noise, or has no budget at all)."
+          + (" A unit above is also UNMEASURABLE; that is printed and does not "
+             "soften this — the convicted unit was decided beyond the same noise."
+             if refuse else ""))
         return 1, L
+    if refuse:
+        return 3, L
     p("delta gate: CLEAN")
     return 0, L
 
@@ -445,6 +618,17 @@ def _synthetic(base_vals, head_vals, repeats=2, jitter=0.0):
                                          "head": side(head_vals, repeats)}}
 
 
+def _explicit(base_vals, head_vals, unit="M"):
+    """Readings from EXPLICIT per-pass values — for the arms that need a
+    dispersion held fixed while the number of repeats changes, which
+    `_synthetic`'s single step-jitter cannot express."""
+    def side(vals):
+        return [{"modules": {unit: v}, "decls": {}, "load1": 1.0} for v in vals]
+    return {"base_rev": "0" * 40, "head_rev": "1" * 40, "planted": False,
+            "box": "BOX synthetic — no measurement in this run", "decl_map": {},
+            "readings": {"base": side(base_vals), "head": side(head_vals)}}
+
+
 def selftest():
     """⛔ EVERY WAY THE COMPARISON COULD STOP LOOKING, DRIVEN SEPARATELY.
 
@@ -483,23 +667,97 @@ def selftest():
     # ⛔ THE ARM THAT MATTERS MOST FOR HONESTY: a budget under the run's own
     # measured spread is not a verdict about the commit, and must not be reported
     # as one — in EITHER direction.
-    run("a budget under the measured spread REFUSES, not passes",
+    run("a budget under this run's own uncertainty REFUSES, not passes",
         _synthetic({"M": 100.0}, {"M": 105.0}, jitter=80.0), None, {"M": ("abs", 50.0)},
         3, "UNMEASURABLE")
-    run("a REFUSAL outranks an over-budget red (it is not a verdict at all)",
-        _synthetic({"M": 100.0}, {"M": 900.0}, jitter=80.0), None, {"M": ("abs", 50.0)},
+    # ⛔⛔ THIS ARM USED TO SAY `_synthetic({"M":100},{"M":900}, jitter=80)` MUST
+    # REFUSE, against a 50 ms budget — a delta of +800 on a box whose noise is
+    # ±142, sixteen times its allowance and five bands clear of it. The old rule
+    # refused it because the readings' RANGE (80) exceeded the BUDGET (50), and
+    # the arm's name made that sound like a principle. It is a principle only
+    # when the run genuinely cannot tell. ⇒ THE PAIR NOW SPLITS THE TWO CASES,
+    # and the second one is D141's red-first: a gate that cannot convict a
+    # commit sixteen times over its budget is not being careful, it is blind.
+    run("a REFUSAL outranks an over-budget red WHEN THE BAND STRADDLES",
+        _synthetic({"M": 100.0}, {"M": 160.0}, jitter=80.0), None, {"M": ("abs", 50.0)},
         3, "UNMEASURABLE")
+    run("a delta far over budget is CONVICTED even though the box's noise "
+        "exceeds that budget",
+        _synthetic({"M": 100.0}, {"M": 900.0}, jitter=80.0), None, {"M": ("abs", 50.0)},
+        1, "OVER BUDGET")
+    # ⭐⭐⭐ D141's OWN RED-FIRST, AND IT IS THE ARM THE OLD STATISTIC COULD NOT
+    # HAVE PASSED. The SAME per-reading dispersion, four times the repeats: the
+    # readings' RANGE is identical (600.0 in both runs, printed in the `range`
+    # column), so the old rule's verdict could not move — its stated remedy,
+    # "re-run with more --repeats", was arithmetically a no-op at best and, with
+    # real draws instead of a repeating pattern, strictly counter-productive
+    # (measured: 84% refusal at n=3 rising to 100% at n=6 and every n above).
+    # The band falls as 1/sqrt(n), so buying repeats buys a verdict.
+    PATTERN = [-300.0, 0.0, +300.0]
+    b3 = [1000.0 + x for x in PATTERN]
+    h3 = [1120.0 + x for x in PATTERN]
+    run("the remedy is a NO-OP at three repeats: the band still straddles",
+        _explicit(b3, h3), None, {"M": ("abs", 500.0)}, 3, "UNMEASURABLE")
+    run("…and the SAME dispersion at twelve repeats DECIDES it — the range is "
+        "unchanged, the band is not",
+        _explicit(b3 * 4, h3 * 4), None, {"M": ("abs", 500.0)}, 0, "ok")
+    # ⛔ THE ARM THAT PROVES THE TWO RUNS REALLY DID SHARE A DISPERSION. Without
+    # it the pair above is two unrelated runs and proves nothing about the
+    # remedy; the whole claim is that ONE number moved and the other did not.
+    r3 = max(max(b3) - min(b3), max(h3) - min(h3))
+    r12 = max(max(b3 * 4) - min(b3 * 4), max(h3 * 4) - min(h3 * 4))
+    se3, se12 = resolution(b3, h3), resolution(b3 * 4, h3 * 4)
+    same_range, band_fell = (r3 == r12), (se12 < se3)
+    arms.append("the range is blind to the repeats the band spends")
+    print(("  ✔ " if (same_range and band_fell) else "  ⛔ ") +
+          f"the range is blind to the repeats the band spends "
+          f"(range {r3:.0f} → {r12:.0f}; band ±{K_SIGMA*se3:.0f} → ±{K_SIGMA*se12:.0f})")
+    if not (same_range and band_fell):
+        bad.append("the range is blind to the repeats the band spends")
+
+    # ⛔ THE COIN FLIP THE OLD RULE DELIVERED AS A VERDICT. A commit sitting
+    # exactly on its budget cannot be called by any run with noise in it, and on
+    # a quiet box the old rule called it anyway — measured 50% `ok` / 49% `OVER
+    # BUDGET` over 4,000 trials, which is not a gate, it is a toss.
+    run("a delta sitting exactly ON its budget REFUSES rather than tossing a coin",
+        _explicit([1000.0, 1010.0, 990.0], [1100.0, 1110.0, 1090.0]),
+        None, {"M": ("abs", 100.0)}, 3, "exactly ON its budget")
+
+    # ⛔ THE PRECEDENCE ARM. One unit convicted beyond the run's noise, one unit
+    # straddling: the commit certainly breaks a budget, and filing that under
+    # "could not tell" because a DIFFERENT unit was unresolved is the direction
+    # that reads as caution and lands the batch.
+    run("a unit convicted beyond the noise outranks a refusal on ANOTHER unit",
+        {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False,
+         "box": "BOX synthetic — no measurement in this run", "decl_map": {},
+         "readings": {"base": [{"modules": {"A": 1000.0, "B": 1000.0}, "decls": {}, "load1": 1.0},
+                               {"modules": {"A": 1010.0, "B": 1010.0}, "decls": {}, "load1": 1.0},
+                               {"modules": {"A":  990.0, "B":  990.0}, "decls": {}, "load1": 1.0}],
+                      "head": [{"modules": {"A": 2000.0, "B": 1100.0}, "decls": {}, "load1": 1.0},
+                               {"modules": {"A": 2010.0, "B": 1110.0}, "decls": {}, "load1": 1.0},
+                               {"modules": {"A": 1990.0, "B": 1090.0}, "decls": {}, "load1": 1.0}]}},
+        None, {"A": ("abs", 100.0), "B": ("abs", 100.0)}, 1, "does not soften this")
+
+    # ⛔ THE HOLE THE RANGE LEFT OPEN AT THE OTHER END: `max - min` of ONE reading
+    # is 0.0, so `--repeats 1` could never refuse and the gate returned a verdict
+    # off a single pass a side with nothing said about its noise. A run that
+    # cannot estimate its own noise has no verdict to give.
+    run("one reading a side REFUSES — a run that cannot estimate its noise has "
+        "no verdict",
+        _explicit([1000.0], [1010.0]), None, {"M": ("abs", 100.0)},
+        3, "fewer than two readings")
+
     # ⛔ a unit present on one side only: silence here would report "no change"
     # about the one direction that is certainly a change.
     run("a unit NEW in head is flagged",
         {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False, "box": "BOX synthetic",
-         "decl_map": {}, "readings": {"base": [{"modules": {}, "decls": {}, "load1": 1.0}],
-                                      "head": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}]}},
+         "decl_map": {}, "readings": {"base": [{"modules": {}, "decls": {}, "load1": 1.0}] * 2,
+                                      "head": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}] * 2}},
         ("abs", 1000.0), {}, 0, "NEW unit in head")
     run("a unit GONE from head is flagged",
         {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False, "box": "BOX synthetic",
-         "decl_map": {}, "readings": {"base": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}],
-                                      "head": [{"modules": {}, "decls": {}, "load1": 1.0}]}},
+         "decl_map": {}, "readings": {"base": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}] * 2,
+                                      "head": [{"modules": {}, "decls": {}, "load1": 1.0}] * 2}},
         ("abs", 1000.0), {}, 0, "GONE from head")
 
     # ⭐⭐ THE RELATIVE FORM, DRIVEN IN BOTH DIRECTIONS.  A percentage budget is
@@ -648,11 +906,28 @@ def selftest_measure():
                    statistics.median([x[k] for x in us["base"]]) for k in keys}
     worst_unit = max(per_unit, key=lambda k: abs(per_unit[k]))
     worst = abs(per_unit[worst_unit])
-    ok0 = rc0 == 0
+    # ⛔⛔ WHAT THIS ARM MAY AND MAY NOT REQUIRE, AFTER D141. Identical trees have
+    # a true delta of exactly zero, so a FAILED here (rc 1) is the arm's real
+    # red: the gate convicted a commit that changed nothing, and every red it
+    # has ever printed would be suspect. But rc 3 is NOT a defect in the gate —
+    # it is the gate saying this box was too loud at this many repeats to certify
+    # even a zero, which is a fact about the AFTERNOON and the arm reports it as
+    # one with its price attached. Requiring rc 0 here would make the arm fail
+    # whenever the box is busy, and an arm that reds for a reason outside the
+    # code is an arm whose reds stop being read.
+    ok0 = rc0 != 1
+    verdicts = {0: "CLEAN", 1: "FAILED ⛔", 3: "UNMEASURABLE"}
     print(("  ✔ " if ok0 else "  ⛔ ") +
-          f"identical trees ⇒ rc {rc0} (wanted 0); worst unit delta {worst:.1f} ms "
+          f"identical trees ⇒ {verdicts.get(rc0, rc0)}; worst unit delta {worst:.1f} ms "
           f"on `{worst_unit}` — that is what this box invents between two copies "
           f"of one commit, and every budget has to clear it")
+    if rc0 == 3:
+        print("      ⚠️  a refusal on identical trees is a statement about THIS BOX "
+              "at --repeats " f"{repeats}, not about the gate. The unit lines below "
+              "carry the repeats that would decide it.")
+        for l in lines0:
+            if "·" in l or "UNMEASURABLE" in l:
+                print("      " + l)
     if not ok0:
         bad.append("identical-trees control")
         for l in lines0:

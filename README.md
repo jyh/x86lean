@@ -205,6 +205,7 @@ toolchain is pinned in `lean-toolchain`.
 | `scripts/kernel_cost.py` | per-module kernel time, printed against its registered ceiling — a READING, retired as a merge gate 09/04 because the unchanged parent already exceeded two of them on this box |
 | `scripts/kernel_delta.py` | the kernel-time DELTA a change introduces, two trees profiled in one session, against a budget derived from the ten preceding batches |
 | `scripts/kernel_delta.py --selftest` | the delta gate's comparison and budget file, driven red — synthetic readings, no measurement, and it says so |
+| `scripts/delta_band_calibration.py --check` | the error rates the delta gate's band constant delivers, asserted in both directions — false pass, false red, and two liveness bounds a refusing gate would fail |
 | `scripts/kernel_delta.py --selftest-measure` | the same gate on real trees: identical trees must pass, a planted constructor must fail |
 | `x86lean-diff selftest` | the comparator catches one deliberately wrong model per entry of `selftestArms` |
 

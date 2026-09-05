@@ -388,8 +388,15 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
         # whenever an ordinary run was as noisy as this walk already was.
         #
         # ⇒ 🔑 A THRESHOLD MUST BE DERIVED FROM THE STATISTIC IT WILL BE COMPARED
-        # AGAINST. The refusal reads `budget < spread`, so the floor is the worst
-        # within-commit SPREAD among the units a percentage cannot express.
+        # AGAINST — which is why this line is now on notice. When it was written
+        # the refusal read `budget < spread`; since D141 it reads as a band around
+        # the DELTA, and the floor is no longer constrained to clear any spread.
+        # ⛔ IT IS LEFT AS IT WAS ON PURPOSE. Re-deriving it would move an
+        # ALLOWANCE in the same commit that moved a RULE, and the two would not be
+        # separable afterwards. A floor is a minimum allowance, so the direction of
+        # the staleness is known: this one can only be too generous, never too
+        # tight, and re-deriving it against the band is an open item.
+        # ⚠️ Anything reading this to justify the number should read D141 first.
         #
         # ⚠️ AND NO EXTRA MULTIPLE IS APPLIED TO IT, deliberately. A run noisier
         # than the worst this walk saw SHOULD refuse rather than pass; padding the
@@ -435,10 +442,23 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
 # ⛔ TWO EARLIER RULES FOR THIS NUMBER WERE GENERATED, READ AND REFUSED. Taken as
 # the worst apparent delta over EVERY unit it read 800 ms — `Tests.Coverage`'s
 # noise lent to a module whose entire reading is 200 ms. Taken as the worst
-# apparent DELTA among small units it read 2 ms — but the gate's refusal compares
-# a budget against the run's SPREAD, not against a delta, and the spread on those
-# same units reaches 5.30 ms. A threshold must be derived from the statistic it
-# will be compared against.
+# apparent DELTA among small units it read 2 ms — against a within-commit spread
+# on those same units of 5.30 ms.
+# ⚠️⚠️ AND THE REASON THAT SETTLED IT HAS SINCE EXPIRED (D141, 2026-09-05). It read:
+# *"the gate's refusal compares a budget against the run's SPREAD, not against a
+# delta, so a threshold must be derived from the statistic it will be compared
+# against."* The refusal no longer reads `budget < spread` — it asks whether a band
+# of K standard errors around the DELTA straddles the budget — so the floor is no
+# longer constrained to clear a spread at all.
+# ⛔ THE NUMBER IS DELIBERATELY UNCHANGED, AND THE DIRECTION IS STATED. A floor is a
+# MINIMUM ALLOWANCE, so 6 ms is now slightly LOOSER on tiny modules than a
+# band-derived floor would be; re-deriving it in the same commit as the rule change
+# would make a rule repair and an allowance change indistinguishable, which is the
+# one thing this file's own history says not to do. The re-derivation is an OPEN
+# ITEM and it can only tighten. ⇒ 🔑 A JUSTIFICATION OUTLIVES THE CONDITION THAT
+# MADE IT TRUE, and it outlives it INSIDE A GENERATED FILE, where byte-for-byte
+# re-derivation proves the file matches the script and never that the script is
+# still right.
 #
 # ⛔ THE UNITS ARE PERCENTAGES BECAUSE A PERCENTAGE TRAVELS.  The same tree reads
 # 1.7x-3.1x slower on a GitHub runner DEPENDING ON THE MODULE, so an absolute
