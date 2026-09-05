@@ -686,6 +686,12 @@ acc,imm · rh"
   , { mnemonic := "prefetcht0",
       shapes := "m", note := "as prefetchnta",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PREFETCHh" }
+  -- ⭐⭐ P2 BATCH 23 — PMOVMSKB.  ONE row: the r32 and r64 spellings share an
+  -- encoding (both assemble to 660fd7c1), so a disassembler prints one name.
+  , { mnemonic := "pmovmskb",
+      shapes := "r,x",
+      note := "bit i is the sign bit of byte i; bits above 15 zero; D122",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

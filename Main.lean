@@ -2537,6 +2537,52 @@ def wrongPrefetchLoads (i : Instr) (s : Cpu) : Cpu :=
       ((s.setReg .q .rax (s.readMem .q (ea.addr s nr))).setRip nr)
   | _ => step i s
 
+/-! ### ⭐⭐ P2 BATCH 23 — the wrong models for PMOVMSKB.
+
+All three share the substring `pmovmskb`, so ONE filter selects them (D117). Each
+is a different way to get "gather one bit per byte" wrong, and each is
+bit-identical to the real model on some pre-state, which is why all three are
+needed. -/
+
+/-- ⛔ READS THE LOW BIT of each byte instead of the sign bit. The plainest
+misreading of "a mask of the bytes", and it agrees with the real model on any byte
+whose top and bottom bits happen to match. -/
+def wrongPmovmskbLowBit (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovmsk dst src =>
+      let v := s.getXmm src
+      let mask : Val := (List.range 16).foldl
+        (fun acc k => acc ||| (((v >>> (8 * k)) &&& 1).setWidth 64 <<< k)) 0
+      (s.setReg .d dst mask).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ REVERSES THE LANE ORDER — bit 0 takes byte 15. A byte-order confusion that
+is invisible on any source whose mask is a palindrome, and identical on an
+all-zero or all-ones source. -/
+def wrongPmovmskbReversed (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovmsk dst src =>
+      let v := s.getXmm src
+      let mask : Val := (List.range 16).foldl
+        (fun acc k => acc ||| (((v >>> (8 * (15 - k) + 7)) &&& 1).setWidth 64 <<< k)) 0
+      (s.setReg .d dst mask).setRip (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
+/-- ⛔ MERGES INTO THE DESTINATION instead of clearing bits 63:16 — the `movd`
+defect of D93 in its natural place. ⚠️ It is invisible unless the destination
+already holds something above bit 15, so what refutes it is the pre-state's
+register contents and not the instruction. -/
+def wrongPmovmskbMerges (i : Instr) (s : Cpu) : Cpu :=
+  match i.op with
+  | .vmovmsk dst src =>
+      let v := s.getXmm src
+      let mask : Val := (List.range 16).foldl
+        (fun acc k => acc ||| (((v >>> (8 * k + 7)) &&& 1).setWidth 64 <<< k)) 0
+      let old := s.getReg .q dst
+      (s.setReg .q dst ((old &&& (0xffffffffffff0000 : BitVec 64)) ||| mask)).setRip
+        (s.rip + BitVec.ofNat 64 i.len)
+  | _ => step i s
+
 /-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both
 mnemonics fault. This is the arm `movdqu_load_unal` exists for: it is the only
 vector in the table at an address that is not 16-byte aligned, so without it this
@@ -3122,6 +3168,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   -- `wrongPrefetchFaults` for why the hint field gets none.
   , ("prefetch faults on its operand", wrongPrefetchFaults, "refused")
   , ("prefetch loads its operand into rax", wrongPrefetchLoads, "rax")
+  -- ⭐⭐ P2 BATCH 23 — PMOVMSKB. Three arms, one shared substring (D117).
+  , ("pmovmskb reads the LOW bit of each byte", wrongPmovmskbLowBit, "rax")
+  , ("pmovmskb reverses the lane order", wrongPmovmskbReversed, "rax")
+  , ("pmovmskb merges instead of clearing 63:16", wrongPmovmskbMerges, "rax")
   -- ⭐⭐ P2 VECTOR WAVE, BATCH 5 — the cross-file moves, all three about ZEROING.
   -- ⭐ RESTORED WITH ITS VECTORS (D95).  It was removed at batch 5 when the two
   -- into-XMM vectors went, because an arm no vector can distinguish is a false
@@ -4017,7 +4067,7 @@ constants would have scored it 88 of 88 and reported green about a model that \
 does not saturate at all ⇒ A WRONG MODEL'S SCORE IS A JOINT FACT ABOUT THE MODEL \
 AND THE PRE-STATES.  ⛔ And it is not `vlanes`: this is the first operation here \
 that NARROWS, so lane i of the result is not a function of lane i of the \
-operands (see D117); 16 — `movhps`, AND THE HALF THAT DOES NOT MOVE.  One roster row for BOTH directions (one mnemonic at two opcodes, `0f 16` and `0f 17`), 6 vectors, two constructors, NO new state, 3,672 instructions.  ⭐ THE FIRST MEMBER OF A GROUP THE RESIDUE HAD BEEN REPORTING AS ABSENT: batch 19 measured six never-asked scalar-SSE-FP mnemonics worth 26,757 instructions, which a bank's closing sentence had partitioned two ways — `refuses or VEX` — for a three-valued remainder, and a category with no slot in the sentence reads as EMPTY rather than as unhandled (D118).  `movhps` is the one of the six needing no floating-point arithmetic at all; the other five need a soft-float IEEE-754 layer over `BitVec` plus MXCSR, because Lean's `Float` is an opaque extern the kernel cannot reduce.  ⛔ THE CONTENT IS THE HALF THAT DOES NOT MOVE: the load writes `dst[127:64]` and PRESERVES `dst[63:0]`, so the plausible wrong model is the one that CLEARS the low half — the exact MIRROR of D93, where the oracle MERGED what the SDM clears, the direction of the plausible error reversing with the rule.  It is caught in 152 cases, and that number is a joint fact about the model and the PRE-STATES: what refutes it is `xmmPattern` giving xmm0 a non-zero low quadword, and a table that zeroed the destination would have scored it 0 and reported green about a model that destroys half the register on every load.  ⛔ NO ALIGNMENT RULE, MEASURED RATHER THAN ASSERTED: the operand is eight bytes (Type 5), and D110 is why that sentence is not left to a comment — there `NO ALIGNMENT CHECK … the absence is the rule` was written about a group that DID have one.  Both directions execute at 16-, 8- and 4-byte alignment in a run where `pand 0x8(%rbx)` REFUSES and `pand (%rbx)` EXECUTES, so the harness demonstrably CAN see an alignment refusal and this silence is a reading.  ⚠️ The unaligned vectors sit at displacement FOUR, not eight: eight is still 8-byte aligned and could not tell `no rule at all` from `an 8-byte rule` (see D119); 17 — `PREFETCHh`, THE FORM THAT CHANGES NOTHING.  `prefetchnta` and `prefetcht0` at a memory operand, two roster rows, 4 vectors, one constructor, no new state, 466 instructions — found by batch 21's CENSUS, which measured the unprobed remainder instead of declaring it empty, so nobody knew it was buildable.  ⚠️ WHAT THE VECTORS PROVE IS NARROW AND THE RECORD SAYS SO: the form changes no architectural state, so the differential can witness only that BOTH models leave every watched register, flag and window alone and advance RIP by the right length.  That is the claim `prefetch` makes, and a model that read the memory, faulted on it, or mis-computed the length breaks it — but a form that writes nothing is one whose vectors agree with almost any wrong model, so the two arms are what stop the agreement being vacuous.  ⛔ AND NO ARM IS PLANTED FOR THE LOCALITY HINT: it is architecturally invisible, so no vector that can exist would distinguish it, and an arm no vector can distinguish is a FALSE ENTRY in the gate's own inventory (D91).  The spellings are held apart by `check_encodings.py`, which assembles each `asm` and compares bytes — the instrument that can actually see a `/reg` field.  ⛔⛔ TWO ROWS AND NOT FOUR, AND THE KERNEL-COST GATE NAMED THE CHEAPER BUILD: four hints put `Tests.Coverage`'s residue 700 ms over its ceiling, and `prefetcht1`/`prefetcht2` have ZERO measured demand, so modelling them was completionism rather than demand — the instinct this roster declines at `pshufw`.  The refusal named a cheaper build and the cheaper build was the more honest one (see D121).\n\n\
+operands (see D117); 16 — `movhps`, AND THE HALF THAT DOES NOT MOVE.  One roster row for BOTH directions (one mnemonic at two opcodes, `0f 16` and `0f 17`), 6 vectors, two constructors, NO new state, 3,672 instructions.  ⭐ THE FIRST MEMBER OF A GROUP THE RESIDUE HAD BEEN REPORTING AS ABSENT: batch 19 measured six never-asked scalar-SSE-FP mnemonics worth 26,757 instructions, which a bank's closing sentence had partitioned two ways — `refuses or VEX` — for a three-valued remainder, and a category with no slot in the sentence reads as EMPTY rather than as unhandled (D118).  `movhps` is the one of the six needing no floating-point arithmetic at all; the other five need a soft-float IEEE-754 layer over `BitVec` plus MXCSR, because Lean's `Float` is an opaque extern the kernel cannot reduce.  ⛔ THE CONTENT IS THE HALF THAT DOES NOT MOVE: the load writes `dst[127:64]` and PRESERVES `dst[63:0]`, so the plausible wrong model is the one that CLEARS the low half — the exact MIRROR of D93, where the oracle MERGED what the SDM clears, the direction of the plausible error reversing with the rule.  It is caught in 152 cases, and that number is a joint fact about the model and the PRE-STATES: what refutes it is `xmmPattern` giving xmm0 a non-zero low quadword, and a table that zeroed the destination would have scored it 0 and reported green about a model that destroys half the register on every load.  ⛔ NO ALIGNMENT RULE, MEASURED RATHER THAN ASSERTED: the operand is eight bytes (Type 5), and D110 is why that sentence is not left to a comment — there `NO ALIGNMENT CHECK … the absence is the rule` was written about a group that DID have one.  Both directions execute at 16-, 8- and 4-byte alignment in a run where `pand 0x8(%rbx)` REFUSES and `pand (%rbx)` EXECUTES, so the harness demonstrably CAN see an alignment refusal and this silence is a reading.  ⚠️ The unaligned vectors sit at displacement FOUR, not eight: eight is still 8-byte aligned and could not tell `no rule at all` from `an 8-byte rule` (see D119); 17 — `PREFETCHh`, THE FORM THAT CHANGES NOTHING.  `prefetchnta` and `prefetcht0` at a memory operand, two roster rows, 4 vectors, one constructor, no new state, 466 instructions — found by batch 21's CENSUS, which measured the unprobed remainder instead of declaring it empty, so nobody knew it was buildable.  ⚠️ WHAT THE VECTORS PROVE IS NARROW AND THE RECORD SAYS SO: the form changes no architectural state, so the differential can witness only that BOTH models leave every watched register, flag and window alone and advance RIP by the right length.  That is the claim `prefetch` makes, and a model that read the memory, faulted on it, or mis-computed the length breaks it — but a form that writes nothing is one whose vectors agree with almost any wrong model, so the two arms are what stop the agreement being vacuous.  ⛔ AND NO ARM IS PLANTED FOR THE LOCALITY HINT: it is architecturally invisible, so no vector that can exist would distinguish it, and an arm no vector can distinguish is a FALSE ENTRY in the gate's own inventory (D91).  The spellings are held apart by `check_encodings.py`, which assembles each `asm` and compares bytes — the instrument that can actually see a `/reg` field.  ⛔⛔ TWO ROWS AND NOT FOUR, AND THE KERNEL-COST GATE NAMED THE CHEAPER BUILD: four hints put `Tests.Coverage`'s residue 700 ms over its ceiling, and `prefetcht1`/`prefetcht2` have ZERO measured demand, so modelling them was completionism rather than demand — the instinct this roster declines at `pshufw`.  The refusal named a cheaper build and the cheaper build was the more honest one (see D121); 18 — `PMOVMSKB`, THE LAST FORM IN THE MEASURED RESIDUE NEEDING NO NEW VOCABULARY.  One roster row, 2 vectors, one constructor, no new state, 453 instructions.  ⭐⭐ NO WIDTH FIELD, ON TWO INDEPENDENT SOURCES: the SDM lists `r32` and `r64` rows, but K gives both the identical value and the ASSEMBLER emits the SAME BYTES (`660fd7c1`) for `%eax` and `%rax` — REX.W buys nothing when the result is zero-extended, so the two spellings are the same instruction and a width field would be one no encoding can set and no semantics can read.  The 32-bit write already zero-extends by SDM Vol. 1 3.4.1.1, so the rule is INHERITED rather than restated, and there is no r64 vector because it would be the first one under another name.  ⚠️ Two of its three arms score LOW for reasons about the PRE-STATES rather than the instruction — a reversed mask is invisible on a palindrome, and a merging model is invisible unless the destination already holds bits above 15.  ⛔⛔ AND THE BATCH IS NOT ON `master`: its differential is green and its kernel-cost gate is RED IN BAND, because the `X86.Syntax` ceiling has TWO MILLISECONDS of headroom (the parent passes at 198 of 200) and one constructor costs eight — so the next batch adding any constructor crosses it too, whatever it is (see D122).\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

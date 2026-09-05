@@ -648,6 +648,23 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- a `step` that branched on it would be modelling the cache.
   | .prefetch _ _ => s.setRip nr
 
+  -- ⭐⭐ PMOVMSKB (SDM Vol. 2B) — the sign bit of each of sixteen bytes, gathered.
+  --
+  -- ⚠️ WRITTEN AS A FOLD OVER `List.range 16` rather than sixteen `|||` terms so
+  -- the LANE COUNT is derived from the width, as `vlanes` derives it — a literal
+  -- sixteen repeated in the body is a place for a typo no type can catch.
+  --
+  -- ⚠️ `.d` AND NOT `.q`: the 32-bit write zero-extends to 64 by SDM Vol. 1
+  -- §3.4.1.1, which `setReg` already implements, so the upper bits are cleared by
+  -- the RULE THIS MODEL ALREADY HAS rather than by a special case here.  That is
+  -- also why `Op.vmovmsk` carries no width — see its docstring.
+  | .vmovmsk dst src =>
+      let v := s.getXmm src
+      let mask : Val :=
+        (List.range 16).foldl
+          (fun acc i => acc ||| (((v >>> (8 * i + 7)) &&& 1).setWidth 64 <<< i)) 0
+      (s.setReg .d dst mask).setRip nr
+
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --
   -- ⚠️ BOTH DIRECTIONS ZERO WHAT THEY DO NOT WRITE, at two different

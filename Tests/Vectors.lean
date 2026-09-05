@@ -2515,6 +2515,22 @@ def vectors : List Vec :=
     , bytes := "0f184b04"
     , instr := ⟨.prefetch .t0 { base := some .rbx, disp := 4 }, 4⟩ }
 
+  -- ⭐⭐ P2 BATCH 23 — PMOVMSKB, the last measured form needing no new vocabulary.
+  --
+  -- ⚠️ TWO VECTORS AT DIFFERENT REGISTER PAIRS, for D90's reason: a model with
+  -- FIXED register fields is bit-identical to the real one whenever every vector
+  -- names the same pair, and that is how batch 5 shipped an arm that could not
+  -- fire.  `%xmm5 -> %ecx` shares no register with `%xmm1 -> %eax`.
+  --
+  -- ⚠️ NO r64 VECTOR, and its absence is a MEASUREMENT rather than an omission:
+  -- `pmovmskb %xmm1,%rax` assembles to the SAME BYTES as the r32 spelling
+  -- (660fd7c1), so a second vector would be the first one under another name —
+  -- a duplicate born in agreement, not a second test.
+  , { id := "pmovmskb_x1_eax", mnemonic := "pmovmskb", asm := "pmovmskb %xmm1, %eax"
+    , bytes := "660fd7c1", instr := ⟨.vmovmsk .rax .x1, 4⟩ }
+  , { id := "pmovmskb_x5_ecx", mnemonic := "pmovmskb", asm := "pmovmskb %xmm5, %ecx"
+    , bytes := "660fd7cd", instr := ⟨.vmovmsk .rcx .x5, 4⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

@@ -1146,6 +1146,26 @@ inductive Op where
   what makes it so — the address is named by the instruction even though nothing
   reads it. -/
   | prefetch (hint : PrefetchHint) (ea : Ea)
+  /-- ⭐⭐ P2 BATCH 23 — `PMOVMSKB` (SDM Vol. 2B). 453 instructions, and the LAST
+  form in the measured residue that needs no new vocabulary.
+
+  `dst[i] ← MSB(src.byte i)` for i in 0..15, and everything above bit 15 is zero.
+  It is the first operation here that reads a vector register and writes a
+  GENERAL-PURPOSE one while computing something — `vmovg` moves bits across the
+  files, this one REDUCES them.
+
+  ⭐⭐ **THERE IS NO `Size` FIELD, AND TWO INDEPENDENT SOURCES SAY THERE MUST NOT
+  BE.** The SDM lists `PMOVMSKB r32, xmm` and `PMOVMSKB r64, xmm` as separate
+  rows, which invites a width parameter:
+  * **K** gives both `pmovmskb_r32_xmm.k` and `pmovmskb_r64_xmm.k` the SAME value —
+    `concatenateMInt(mi(48,0), <16 bits>)` — so the two rows are one semantics;
+  * **the assembler** goes further: `pmovmskb %xmm1,%eax` and `pmovmskb %xmm1,%rax`
+    both assemble to `660fd7c1`, the identical bytes, because the result is
+    zero-extended and REX.W buys nothing.
+  ⇒ 🔑 A width field here would be a field no encoding can set and no semantics can
+  read. The 32-bit write already zero-extends to 64 by SDM Vol. 1 §3.4.1.1, which
+  `Cpu.setReg .d` implements — so the rule is INHERITED rather than restated. -/
+  | vmovmsk (dst : GPR) (src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1468,6 +1488,8 @@ def opOperands : Op → List Operand
   | .vloadh _ ea | .vstoreh ea _ => [.mem ea]
   -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
   | .prefetch _ ea => [.mem ea]
+  -- No memory operand at all: two register files, no address.
+  | .vmovmsk .. => []
   | .vmovsld _ _ ea | .vmovsst _ ea _ => [.mem ea]
   -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
   -- reported keeps the lock and segment walks exact.
@@ -1599,6 +1621,7 @@ def Op.anyLocked : Op → Bool
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadh _ ea | .vstoreh ea _ => ea.lock
   | .prefetch _ ea => ea.lock
+  | .vmovmsk .. => false
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
@@ -1741,6 +1764,7 @@ def Op.mnemonic : Op → String
   -- ⚠️ ONE spelling for both directions: `0f 16` and `0f 17` are both `movhps`.
   | .vloadh .. | .vstoreh .. => "movhps"
   | .prefetch h _ => h.mnemonic
+  | .vmovmsk .. => "pmovmskb"
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
   -- AT&T spelling, and they are unrelated: this one is `f2 0f 10`. The model
   -- does not carry the string form, so nothing here is ambiguous — but the day
@@ -1932,6 +1956,9 @@ def rosterP0 : List String :=
    -- disassembler PRINTS, and `0f 18` prints a name per `/reg` value.  Only the
    -- two with measured demand are modelled; see `PrefetchHint`.
    "prefetchnta", "prefetcht0",
+   -- ⭐⭐ P2 BATCH 23: ONE row — the r32 and r64 spellings share an ENCODING, so a
+   -- disassembler prints one name.  See `Op.vmovmsk`.
+   "pmovmskb",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

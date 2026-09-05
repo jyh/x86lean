@@ -263,6 +263,8 @@ CLAIMS_NO_ROW = {
     "prefetchnta_d8": "P2 vector wave: PREFETCHh is a cache hint with no P1 roster row — it takes no register operand at all, so the SIMD exemption beside it would be a FALSE reason; counted in the P2 roster",
     "prefetcht0_m": "P2 vector wave: PREFETCHh is a cache hint with no P1 roster row — it takes no register operand at all, so the SIMD exemption beside it would be a FALSE reason; counted in the P2 roster",
     "prefetcht0_d4": "P2 vector wave: PREFETCHh is a cache hint with no P1 roster row — it takes no register operand at all, so the SIMD exemption beside it would be a FALSE reason; counted in the P2 roster",
+    "pmovmskb_x1_eax": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "pmovmskb_x5_ecx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 17 (the packed compares), same commit as the vectors.
     "pcmpeqb_x": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "pcmpeqb_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
