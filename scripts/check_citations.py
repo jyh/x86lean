@@ -53,7 +53,7 @@ written in citation form** — name it in prose, not as `` `ident` `` beside its
 file.  Weakening the gate to guess at quotation marks would have traded a real
 check for a heuristic, on a file whose whole subject is claims nobody verifies.
 """
-import os, re, sys, glob, subprocess
+import collections, os, re, sys, glob, subprocess
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
@@ -117,8 +117,96 @@ def selftest():
     sys.exit(0 if ok else 1)
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# ⭐⭐ D130's SECOND INSTANCE: A DECISION NUMBER IS A CITATION TOO.
+#
+# `docs/DECISIONS.md` is cited by number from source comments and from `ci.yml`
+# ("the kernel-time delta gate (D123)"), so a D-number is an identifier with
+# inbound references — exactly what the rest of this file exists to protect.
+# Nothing checked that a number names ONE decision.
+#
+# ⛔ IT ALREADY DID NOT.  `D123` heads two different sections: batch 24's VEX-128
+# bucket (landed `5c01599`) and the delta gate (landed `ff5b59c`).  Two decisions,
+# one number, and every one of the seven inbound references — `ci.yml`,
+# `kernel_cost.py`, and five cross-references inside DECISIONS.md itself —
+# resolves to the delta gate, so the other section is unreachable BY NUMBER.
+#
+# ⚠️ WHY IT IS RECORDED AND NOT RENUMBERED.  Renumbering the referenced one would
+# break `ci.yml` and `kernel_cost.py`; renumbering the unreferenced one has no
+# free in-sequence number to move to, since D124 was taken by the next batch the
+# same day.  So the collision stays in the history and is FROZEN here instead:
+# the assertion is EXACT, not a tolerance, so a third `D123` or any new duplicate
+# fails.  ⛔ Do not add to `KNOWN_DUPLICATE_D`; a second entry means a number was
+# reused after this gate existed, which is the thing it is here to stop.
+KNOWN_DUPLICATE_D = {"123": 2}
+
+def check_decision_numbers():
+    text = open("docs/DECISIONS.md").read()
+    heads = re.findall(r"^## D(\d+) ", text, re.M)
+    dups = {n: c for n, c in collections.Counter(heads).items() if c > 1}
+    if dups != KNOWN_DUPLICATE_D:
+        new = {n: c for n, c in dups.items() if KNOWN_DUPLICATE_D.get(n) != c}
+        gone = {n: c for n, c in KNOWN_DUPLICATE_D.items() if dups.get(n) != c}
+        print("⛔ DECISION NUMBERS — a number that names two decisions is a "
+              "citation that resolves to whichever the reader finds first.")
+        if new:
+            print("    NEW duplicates: " + ", ".join(
+                "D%s heads %d sections" % (n, c) for n, c in sorted(new.items())))
+        if gone:
+            print("    the known historical duplicate changed or was repaired: "
+                  "%s — if it was repaired, delete it from KNOWN_DUPLICATE_D "
+                  "rather than widening this gate." % sorted(gone.items()))
+        return 1
+    print("  \u2714 decision numbers: %d headings, %d distinct; the one known "
+          "historical collision (D123) is frozen, not tolerated"
+          % (len(heads), len(set(heads))))
+    return 0
+
+
+def selftest_decision_numbers():
+    """⭐ RED FIRST, and the arm PLANTS A DUPLICATE IN A COPY OF THE SHIPPED FILE
+    rather than in a fixture, so the gate is exercised against the real text it
+    reads ([[feedback-a-gate-is-not-exempt-from-its-own-defect]])."""
+    target = "docs/DECISIONS.md"
+    saved = open(target).read()
+    ok = True
+    try:
+        # arm 1: a NEW duplicate of an existing number
+        first = re.search(r"^## D(\d+) .*$", saved, re.M)
+        open(target, "w").write(saved + "\n## D%s \u2014 a planted second claimant\n"
+                                % first.group(1))
+        if check_decision_numbers() == 0:
+            print("  \u2716 red arm SILENT: a duplicated D-number was not caught")
+            ok = False
+        else:
+            print("  \u2714 red arm caught: a second section claiming D%s"
+                  % first.group(1))
+        # arm 2: a THIRD D123 — the known duplicate must not be a blanket pass
+        open(target, "w").write(saved + "\n## D123 \u2014 a planted third claimant\n")
+        if check_decision_numbers() == 0:
+            print("  \u2716 red arm SILENT: the KNOWN duplicate absorbed a third "
+                  "claimant, so the exemption is a tolerance and not a freeze")
+            ok = False
+        else:
+            print("  \u2714 red arm caught: a THIRD D123 (the exemption is exact)")
+    finally:
+        open(target, "w").write(saved)
+    # the control: unplanted, it must pass
+    if check_decision_numbers() != 0:
+        print("  \u2716 control: the shipped DECISIONS.md fails its own gate")
+        ok = False
+    else:
+        print("  \u2714 control: the shipped file passes unplanted")
+    return ok
+
+
 if "--selftest" in sys.argv:
+    if not selftest_decision_numbers():
+        sys.exit(1)
     selftest()
+
+if check_decision_numbers():
+    sys.exit(1)
 
 bad, checked = [], 0
 for src in SOURCES:

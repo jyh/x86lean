@@ -6890,3 +6890,109 @@ All 23 came from `clang -target x86_64-unknown-linux-gnu`; none was typed. D128'
 every one of the now-**156** rows on **both** disassemblers at every CI run, so the `hx` that ACL2
 executes is the assembly of the `asm` that keys the table. `ci_local.py --job build`: **26 of 26
 GREEN**.
+
+## D130 — one key, two subjects: a probe tag that shared a reading, and a decision number that shares a section
+
+Found by batch 27's pre-flight, before a single new row was measured. A uniqueness assertion over
+`P2_FORMS` refused, and the duplicate was already in the shipped table at `961653e`. Chasing its
+shape through the repository turned up a second instance of the same defect in a different medium.
+
+### 1. ⛔⛔ TWO ROWS SHARED A LABEL, SO TWO PUBLISHED VERDICTS CAME FROM ONE READING
+
+`measure_cr4` emits one ACL2 form per row, each printing `P2RESULT tag=<tag_of(label)> …`, and
+collects them with `got[tag] = verdict`. Two rows carried the label `vpsubw`:
+
+```
+("vpsubw", "vpsubw %ymm1, %ymm2, %ymm0", "c5edf9c1", …)   AVX2/AVX (ymm)
+("vpsubw", "vpsubw %xmm1, %xmm2, %xmm0", "c5e9f9c1", …)   VEX-128 (v… xmm)
+```
+
+ACL2 printed two records under one tag; the dict kept the **last**; both rows were then scored
+against that one reading. Those are two **different census keys**, both published in the
+availability table. The ymm key had never been measured — its verdict was the xmm row's reading
+wearing the ymm row's name.
+
+That is not a technicality, and b26 is why. Batch 26 measured four VEX-128 unpacks that **refuse**
+where their SSE-legacy siblings **execute** — which is the whole reason the census key is
+(mnemonic, BUCKET) and not a mnemonic. A verdict borrowed across buckets is the exact error the key
+exists to prevent.
+
+**Why nothing caught it.** `p2_run` guards the *other* direction: `g0 is None` catches a row that got
+no reading — "a missing reading is not a refusal". Nothing caught a row that got *somebody else's*.
+And a shared reading is not anomalous to read: both rows print a ✔ against it. ⇒ 🔑 **identical
+verdicts in identical fields is what confirmation looks like, and is also what one arm wearing two
+names looks like.**
+
+**And why it lived here and nowhere else.** The repository's other two measurement paths COUNT
+records per tag and compare the count to the number of pre-states: `measure` stores
+`res[tag] = (e, r)` and `report` refuses on `e + r != n`; `check_driver_cr4.verdict` does the same. A
+collision there surfaces at once as *2n records, expected n*. `measure_cr4` is the one path that
+collapses a tag to a single verdict **by assignment**, so a second record does not increment a count
+— it overwrites, erasing the first. ⇒ 🔑 **the collision is undetectable exactly where the collector
+stopped counting.**
+
+**The repair and its receipt.** The VEX-128 row is relabelled `vpsubw_v`; the key is unaffected
+because the mnemonic comes from the `asm` column, not the label (D100, D128). `--p2` then measured
+the ymm form for the first time:
+
+```
+✔ vpsubw    vpsubw %ymm1, %ymm2, %ymm0   refuses  executes
+✔ vpsubw_v  vpsubw %xmm1, %xmm2, %xmm0   refuses  executes
+```
+
+It agrees. **The published verdict was right — by luck, not by measurement.** The borrowed reading
+came from a sibling x86isa implements through the same semantic function
+(`x86-vpsubb/vpsubw/vpsubd/vpsubq-vex` serves both the VEX-128 and VEX-256 entries), so the coin
+landed the right way up. The defect was real and its live consequence was nil; the gate is what makes
+that not a coin toss next time. **Stating the consequence as nil is not the same as calling the
+defect nil**, and the temptation to round one into the other is why this paragraph is here.
+
+**The gate.** `p2_structure_check` refuses on any tag emitted by more than one row. It runs from
+`--check-encodings` — the entry point CI actually runs, since ACL2 is not on the runner — and again
+at the top of `--p2` before ACL2 is paid for. Two red arms, both required to fire, plus a control:
+
+- two rows sharing a LABEL outright (the live shape, spottable in principle);
+- two rows whose LABELS DIFFER but whose TAGS collide, because `tag_of` squashes every
+  non-alphanumeric to `_`: `X:y` and `X_y` are one tag. This table already carries `CONTROL:mov` and
+  `ADD1:mov %gs:`, so that collision is reachable and **invisible in the source**. ⇒ an arm drawn
+  only from the visible half would have been silent on it.
+
+**What it deliberately does not flag.** Two rows may legitimately share a (mnemonic, bucket) KEY:
+`psrad $0x3, %xmm0` (0F72 /4) and `psrad %xmm1, %xmm0` (0FE2) are different opcodes at one census
+key, as are `psrlw_i`/`psrlw_x`. Their labels are distinct, so they are measured independently, and
+`measured_availability` already refuses if they disagree. That design is correct and untouched — but
+the fold is now **printed**, because a reader of the table could not otherwise tell that two rows
+collapse into one published verdict.
+
+### 2. ⛔ THE SAME DEFECT IN PROSE: `D123` HEADS TWO SECTIONS
+
+Numbering this note required knowing the next free number, and the count did not match: **126
+headings, 125 distinct.** `D123` heads both batch 24's VEX-128 bucket (`5c01599`) and the delta gate
+(`ff5b59c`) — two decisions, one number, landed the same day, and nothing in the repository checked.
+
+A D-number is a **citation**: `ci.yml` says "the kernel-time delta gate (D123)", `kernel_cost.py`
+cites it twice, and DECISIONS.md cross-references it five times. All seven resolve to the delta gate,
+so the other section is **unreachable by number** — it is published and uncitable.
+
+**Recorded, not renumbered.** Renumbering the referenced one breaks `ci.yml` and `kernel_cost.py`;
+the unreferenced one has no free in-sequence number to move to, D124 having been taken by the next
+batch the same day. So the collision stays in the history and is FROZEN in
+`check_citations.py`: the assertion is `KNOWN_DUPLICATE_D == {"123": 2}`, **exact and not a
+tolerance**, with a red arm proving a *third* `D123` still fails — because an exemption that absorbs
+more of the thing it exempts is not an exemption, it is a hole. This gate lives in
+`check_citations.py` because that file exists for one sentence — *a citation is itself an ungated
+claim* — and a decision number is a citation whose target nobody greps.
+
+⚠️ While confirming the inbound references, `kernel_cost.py` was seen to label D123 as
+"P2 BATCH 25", where batch 25 is D124 (`fd4a8ba`). That is a stale figure in a comment — D127's
+lesson, unrepaired here because it is a different defect from this one and is docketed, not
+forgotten.
+
+### 3. 🔑 WHAT THE TWO INSTANCES SHARE
+
+Both are a **key that names one thing while two things stand behind it**, and in both the failure is
+silent because the collapse happens in a container that cannot represent the collision: a `dict`
+assignment in one, a document's heading namespace in the other. Neither was found by review — the
+probe table's by an assertion written while adding rows, the document's by needing the next number.
+⇒ **a uniqueness invariant that is never asserted is not an invariant, it is a habit**, and habits
+are kept until the first day they are not.

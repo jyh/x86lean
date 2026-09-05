@@ -39,7 +39,7 @@ LANE.  Personal lane; ACL2 x86isa is BSD-3 and is CONSULTED BY EXECUTION.
 
 Usage:  oracle_availability.py [--check] [--selftest]
 """
-import os, re, subprocess, sys, tempfile
+import collections, os, re, subprocess, sys, tempfile
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
@@ -536,7 +536,12 @@ P2_FORMS = [
     #    `vpsubw` executes at BOTH widths, but `vpaddw` — rank 4, 11,682
     #    instructions — is measured here at xmm where batch 21 never reached it.
     ("vpaddw",     "vpaddw %xmm1, %xmm2, %xmm0",     "c5e9fdc1",   "refuses", "executes"),
-    ("vpsubw",     "vpsubw %xmm1, %xmm2, %xmm0",     "c5e9f9c1",   "refuses", "executes"),
+    # ⛔ RENAMED FROM `vpsubw` BY D130, AND THE RENAME IS THE REPAIR. This row
+    # and the ymm row above it shared one LABEL, so `measure_cr4` printed two
+    # `P2RESULT tag=vpsubw` lines and its collector kept the LAST — one
+    # reading scored against two rows in two different BUCKETS. See
+    # `p2_structure_check`.
+    ("vpsubw_v",   "vpsubw %xmm1, %xmm2, %xmm0",     "c5e9f9c1",   "refuses", "executes"),
     ("vpmulhrsw",  "vpmulhrsw %xmm1, %xmm2, %xmm0",  "c4e2690bc1", "refuses", "refuses"),
     ("vpunpcklwd", "vpunpcklwd %xmm1, %xmm2, %xmm0", "c5e961c1",   "refuses", "refuses"),
     ("vpunpckhwd", "vpunpckhwd %xmm1, %xmm2, %xmm0", "c5e969c1",   "refuses", "refuses"),
@@ -775,8 +780,96 @@ def p2_operand_control(arms=None):
     return 0
 
 
+def p2_structure_check(forms=None, quiet=False):
+    """⛔⛔ TWO ROWS THAT SHARE A TAG SHARE A MEASUREMENT — D130.
+
+    `measure_cr4` emits one ACL2 form per row, each printing
+    `P2RESULT tag=<tag_of(label)> ...`, and collects them into a dict KEYED BY
+    THAT TAG.  A dict keeps the last writer.  So two rows with the same label do
+    not produce two readings that can be compared — they produce ONE reading,
+    handed to BOTH rows, and `p2_run` then scores each row against it.
+
+    ⭐ AND THIS IS WHY THE DEFECT LIVED HERE AND NOWHERE ELSE.  The other two
+    measurement paths in this repository COUNT records per tag and compare the
+    count to the number of pre-states: `measure` stores `res[tag] = (e, r)` and
+    `report` refuses on `e + r != n`; `check_driver_cr4.verdict` does the same.
+    A tag collision there shows up immediately as "2n records, expected n".
+    `measure_cr4` is the one path that collapses a tag to a SINGLE verdict by
+    assignment (`got[tag] = ...`), so a second record does not add to a count —
+    it overwrites, leaving no trace of the first.  ⇒ the collision is undetectable
+    exactly where the collector stopped counting.
+
+    ⇒ 🔑 THE EXISTING GUARD LOOKS FOR A MISSING READING, WHICH IS THE OTHER
+    DIRECTION.  `g0 is None` catches a row that got nothing; nothing at all
+    caught a row that got SOMEBODY ELSE'S.  And the shared reading is not even
+    detectably odd, because both rows print a ✔ against it — identical verdicts
+    in identical fields, which is what confirmation looks like
+    ([[feedback-two-arms-that-agree-to-the-case]]).
+
+    THE LIVE CASE, and why it mattered.  `vpsubw` was the label of BOTH
+    `vpsubw %ymm1, %ymm2, %ymm0` (AVX2/AVX (ymm)) and
+    `vpsubw %xmm1, %xmm2, %xmm0` (VEX-128 (v… xmm)).  Those are two DIFFERENT
+    census keys, both published in the availability table, and the ymm one had
+    never been measured: its verdict was the xmm row's reading wearing the ymm
+    row's name.  b26 is the reason that is not a technicality — it measured four
+    VEX-128 unpacks that REFUSE where their SSE-legacy siblings EXECUTE, which
+    is the whole reason the key is (mnemonic, BUCKET) and not a mnemonic.
+
+    ⚠️ WHAT THIS DOES *NOT* FLAG, deliberately.  Two rows may legitimately share
+    a (mnemonic, bucket) KEY — `psrad $0x3, %xmm0` (0F72 /4) and
+    `psrad %xmm1, %xmm0` (0FE2) are different opcodes at one census key, and the
+    census counts the key.  Those rows have DISTINCT labels, so they are measured
+    independently, and `measured_availability` already REFUSES if they disagree.
+    That is correct and is left alone.  It is only reported here, because a
+    reader of the table cannot otherwise tell that two rows fold into one
+    published verdict."""
+    forms = P2_FORMS if forms is None else forms
+    problems = []
+
+    tags = collections.defaultdict(list)
+    for label, asm, _hx, _e0, _e1 in forms:
+        tags[tag_of(label)].append((label, asm))
+    for tag, rows in sorted(tags.items()):
+        if len(rows) > 1:
+            problems.append(
+                "tag %r is emitted by %d rows (%s) — ACL2 prints %d records under "
+                "that one tag and the collector keeps the LAST, so these rows do "
+                "not have %d readings between them, they have ONE"
+                % (tag, len(rows), ", ".join("%s [%s]" % (l, a) for l, a in rows),
+                   len(rows), len(rows)))
+
+    keys = collections.defaultdict(list)
+    for label, asm, _hx, _e0, _e1 in forms:
+        bucket = probe_bucket(asm)
+        if bucket is not None:
+            keys[(asm.split()[0], bucket)].append(label)
+    folded = sorted((k, v) for k, v in keys.items() if len(v) > 1)
+
+    if problems:
+        # ⚠️ SILENT UNDER `quiet`, because the red arms below call it that way and
+        # a planted failure printing its own ⛔ reads as a real one in the log.
+        if not quiet:
+            print("⛔ P2 structure gate: FAIL — a shared tag is a shared "
+                  "measurement:")
+            for why in problems:
+                print("    " + why)
+        return 1
+    if not quiet:
+        print("  ✔ P2 structure: %d rows, %d distinct tags — every row has its own "
+              "reading" % (len(forms), len(tags)))
+        for key, labels in folded:
+            print("    ⚠️ %s at %s is published from %d rows (%s), measured "
+                  "separately and required to agree" % (key[0], key[1],
+                                                        len(labels), ", ".join(labels)))
+    return 0
+
+
 def p2_run():
     bad, rows = [], []
+    # ⭐ STRUCTURE BEFORE MEASUREMENT: pure string work, microseconds,
+    # and if it fails every reading below is misattributed anyway.
+    if p2_structure_check():
+        return 1
     if p2_operand_control():
         return 1
     off = measure_cr4(P2_FORMS, CR4_OFF)
@@ -893,6 +986,41 @@ def _disagreements(forms, objdump):
 def encoding_check():
     """The `hx` every row EXECUTES is the assembly of the `asm` that NAMES it —
     on every disassembler this box has — driven red first."""
+    # ══════════════════════════════════════════════════════════════════
+    # ⭐ D130's STRUCTURE GATE RIDES HERE, and here on purpose: this is the
+    # entry point CI runs (`--check-encodings`), because ACL2 is not on the
+    # runner.  A gate that only fires under `--p2` is a gate the runner never
+    # sees ([[feedback-a-gate-behind-a-failing-step-is-silent]]).
+    if p2_structure_check():
+        return 1
+    # ⭐ RED FIRST, AND THE SECOND ARM IS THE ONE THAT MATTERS.  Arm 1 plants two
+    # rows with the SAME LABEL — the live `vpsubw` defect's own shape, and one a
+    # reader could in principle spot.  Arm 2 plants two rows whose labels are
+    # VISIBLY DIFFERENT and whose TAGS collide anyway, because `tag_of` squashes
+    # every non-alphanumeric to `_`; this table already carries labels like
+    # `CONTROL:mov` and `ADD1:mov %gs:`, so that collision is reachable and is
+    # invisible in the source.  An arm drawn only from the visible half would be
+    # silent on it ([[feedback-a-control-can-share-the-blind-spot]]).
+    dup_arms = [
+        ("two rows sharing a LABEL outright (the live `vpsubw` shape)",
+         lambda rows: rows[:1] + [(rows[0][0],) + rows[1][1:]] + rows[2:]),
+        ("two rows whose LABELS DIFFER but whose TAGS collide under `tag_of` "
+         "(`X:y` and `X_y`)",
+         lambda rows: [("X:y",) + rows[0][1:], ("X_y",) + rows[1][1:]] + rows[2:]),
+    ]
+    for why, plant in dup_arms:
+        if not p2_structure_check(plant(list(P2_FORMS)), quiet=True):
+            print("⛔ P2 structure gate: RED ARM SILENT — %s was NOT caught, so "
+                  "this gate is not watching what it claims to." % why)
+            return 1
+        print("  ✔ red arm caught: %s" % why)
+    # ⚠️ AND THE CONTROL, because a gate that refuses everything also passes both
+    # arms above ([[feedback-a-probe-must-create-its-condition]]).
+    if p2_structure_check(list(P2_FORMS), quiet=True):
+        print("⛔ P2 structure gate: the UNPLANTED table failed its own gate.")
+        return 1
+    print("  ✔ control: the shipped table passes the same check unplanted")
+
     tools = [("LLVM (PATH)", "objdump")]
     if os.path.exists(GNU_OBJDUMP):
         tools.append(("GNU binutils", GNU_OBJDUMP))
