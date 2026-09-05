@@ -5840,3 +5840,80 @@ is the direction that shrinks the buildable list.
 
 **Reversal cost:** 16 rows in `oracle_availability.py`, gated in both CR4 arms; `docs/P2-ROSTER.md`
 regenerates.
+
+---
+
+## D121 — `PREFETCHh`: a form that changes nothing, and the gate that named a cheaper build
+
+**P2 batch 22; seventeenth differential record.** One constructor, 4 vectors, two roster rows, no new
+state, 466 instructions.
+
+### 1. It exists because batch 21 MEASURED instead of declaring
+
+`prefetchnta` (315) and `prefetcht0` (151) were invisible until D120's census asked the oracle about
+the unprobed remainder. They are the direct answer to the question *"is the buildable list empty?"* —
+which had been answered "yes, except `pmovmskb`" from a list nobody had finished measuring.
+
+### 2. ⚠️ THE CLAIM IS NARROW, AND THE NARROWNESS IS THE BATCH
+
+`step` advances RIP and does nothing else. PREFETCHh reads no memory and **does not fault** — not on
+an unmapped address, not on a misaligned one. So the differential can witness only that both models
+leave every watched register, flag and memory window alone and advance RIP by the right length.
+
+⛔ **A form that writes nothing is one whose vectors agree with almost any wrong model**
+([[feedback-unobserved-regions-report-agreement]]). The two arms are what stop that agreement being
+vacuous — `prefetch faults on its operand` (336 in `refused`) and `prefetch loads its operand into
+rax` (292 in `rax`), both real misreadings of the SDM's word *hint*.
+
+⚠️ The word "no-op" was NOT taken from the manual. D120 recorded it as a measurement of the oracle and
+explicitly refused to write it into a semantics until a run said so; this batch is that run
+([[feedback-the-burden-is-on-the-departure]]).
+
+### 3. ⛔ NO ARM FOR THE HINT, AND THAT IS A DECISION RATHER THAN AN OMISSION
+
+*"Prefetch ignores its locality hint"* is architecturally invisible: no vector that can exist would
+distinguish it. An arm for it would be a **FALSE ENTRY in the gate's own inventory**, which is D91's
+rule and a cost this repository has already paid once. The spellings are held apart by
+`scripts/check_encodings.py`, which assembles each `asm` and compares bytes — **the instrument that
+can actually see a `/reg` field**. ⇒ 🔑 The response to an undistinguishable claim is to move it to a
+gate that can see it, never to plant an arm that cannot fire.
+
+### 4. ⛔⛔ TWO ROWS, NOT FOUR — THE KERNEL-COST GATE NAMED THE CHEAPER BUILD
+
+The first cut modelled all four hints. The gate refused: four roster rows put `Tests.Coverage`'s
+residue **700 ms over its ceiling**, because several `decide` theorems are quadratic in the row count.
+`prefetcht1`/`prefetcht2` have **zero measured demand** — absent from the census entirely — so
+modelling them was completionism, not demand, which is the instinct this roster declines at `pshufw`.
+
+⇒ 🔑 **THE REFUSAL NAMED A CHEAPER BUILD, AND THE CHEAPER BUILD WAS THE MORE HONEST ONE**
+([[feedback-a-gate-that-refuses-names-a-cheaper-build]]). It weakens nothing. Shortening the `note`
+strings — prose the kernel walks character by character — was the other half, and moved `X86.Syntax`
+204 → 200 ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]], re-paid a third time).
+
+### 5. ⭐⭐ D111's METHOD, RUN FOR THE FIRST TIME, AND WHAT IT FOUND
+
+The gate could not return a verdict in four attempts (one-minute loads 3.60, 5.85, 6.20, 6.38 against
+a band of 0.0–4.1; `ps` attributes the load to WebKit, a vendor updater and another seat's bus
+scanner). So D111's priced-and-unstarted repair was applied **as a measurement**: parent and current
+tree, profiled back to back in one session.
+
+```
+                          parent 873a4d9      this batch      delta
+X86.Syntax                     206.0 ⛔           205.0        ~0
+Tests.Coverage (residue)      12540  ⛔          12900        +360
+```
+
+⛔ **THE PARENT IS ALREADY OVER BOTH CEILINGS WITH NONE OF THIS BATCH IN IT.** And across four runs of
+substantially identical code `X86.Syntax` read **204, 205, 206 and 244** — a 20% spread.
+
+⇒ 🔑 **A CEILING WHOSE MARGIN IS UNDER THE MACHINE'S OWN SPREAD REPORTS THE MACHINE, NOT THE CODE**
+([[feedback-match-the-gate-units-to-the-growth-law]]), and the delta is the only reading here that
+means anything. **No ceiling was raised**: deriving a gate's new allowance from the thing it measures
+is the move with no second source ([[feedback-widening-a-gate-needs-a-second-source]]). The
+authoritative reading is CI's, on a Linux runner, and this tree is not pushed. ⚠️ **This is the first
+evidence that the absolute per-module ceilings are unusable on this machine for ANY commit, not just
+for a batch that grows the table** — which promotes D111's repair from a nicety to the next
+infrastructure item.
+
+**Reversal cost:** one `PrefetchHint` type, one `Op` constructor, one semantics clause, two coverage
+rows, two roster rows, 4 vectors, 2 arms, 4 `claimed_forms` exemptions.

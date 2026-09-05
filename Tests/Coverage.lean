@@ -74,7 +74,7 @@ holds this literal and that table together.
 counts what a disassembler PRINTS.  ⛔ `pshufw` is the same opcode's FOURTH
 prefix (none) and is NOT a row: it takes MMX operands and this model has no MMX
 register file, so a row for it would claim a form the model cannot execute. -/
-theorem roster_size_is_132 : rosterSize = 132 := by decide
+theorem roster_size_is_134 : rosterSize = 134 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -93,7 +93,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_950 : vectorCount = 950 := by decide
+theorem vector_count_is_954 : vectorCount = 954 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -747,6 +747,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- the store writes eight bytes of memory, the load does not.
     | .vloadh .. => false
     | .vstoreh .. => true
+    -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
+    -- not a memory destination.  It is the first form here that names an `Ea` it
+    -- does not even READ.
+    | .prefetch .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 13, added in the SAME COMMIT as the constructors.
     -- NONE of the four is a memory destination: the packed shifts write an XMM
     -- register always, and the memory operand of `vshiftm` is the COUNT — a

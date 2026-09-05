@@ -636,6 +636,18 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a := ea.addr s nr
       (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
 
+  -- ⭐⭐ PREFETCHh (SDM Vol. 2B) — ADVANCE RIP AND DO NOTHING ELSE.
+  --
+  -- ⛔ THE ADDRESS IS NOT COMPUTED HERE, and that is deliberate rather than an
+  -- omission: nothing reads it, PREFETCHh does not fault, and computing an
+  -- effective address that no branch consumes would be a `let` a reader mistakes
+  -- for an access.  `Op.eas` still REPORTS the `Ea` so the segment and lock gates
+  -- see it — being named and being read are different things.
+  --
+  -- ⚠️ THE HINT IS DISCARDED, and it must be: it is architecturally invisible, so
+  -- a `step` that branched on it would be modelling the cache.
+  | .prefetch _ _ => s.setRip nr
+
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --
   -- ⚠️ BOTH DIRECTIONS ZERO WHAT THEY DO NOT WRITE, at two different

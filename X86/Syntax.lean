@@ -165,6 +165,34 @@ inductive VMovKind where
   | ups
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- ⭐⭐ P2 BATCH 22 — the PREFETCH locality hint (SDM Vol. 2B, PREFETCHh).
+
+⛔ **THE HINT IS ARCHITECTURALLY INVISIBLE**, and that is the whole difficulty of
+the form rather than a detail of it. All four spellings share opcode `0f 18` and
+differ only in the ModRM `/reg` field; the SDM says the hint influences cache
+state and *"does not affect program behavior"*. So the four are FOUR ROWS — a
+disassembler prints four names — carrying ONE semantics, and no differential
+vector can tell them apart. See `Op.prefetch`. -/
+inductive PrefetchHint where
+  /-- `prefetchnta` — `0f 18 /0`. Non-temporal. -/
+  | nta
+  /-- `prefetcht0` — `0f 18 /1`. All cache levels. -/
+  | t0
+  -- ⛔ `/2` AND `/3` (`prefetcht1`, `prefetcht2`) ARE NOT HERE, and their absence
+  -- is demand, not oversight.  The census measures 315 instructions of
+  -- `prefetchnta` and 151 of `prefetcht0` and **none at all** of the other two,
+  -- and this roster is demand-driven — `pshufw` is declined on the same rule.
+  -- ⭐ THE KERNEL-COST GATE IS WHAT NAMED THIS: with four hints the batch put
+  -- `Tests.Coverage`'s residue 700 ms over its ceiling, because four roster rows
+  -- cost several `decide` theorems that are quadratic in the row count.  The
+  -- gate refused, the cheaper build was the demand-honest one, and it weakens
+  -- nothing ([[feedback-a-gate-that-refuses-names-a-cheaper-build]]).
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The mnemonic a disassembler prints for this hint. -/
+def PrefetchHint.mnemonic : PrefetchHint → String
+  | .nta => "prefetchnta" | .t0 => "prefetcht0"
+
 /-- Whether this mnemonic requires a 16-byte-aligned memory operand (SDM Vol. 2B,
 MOVDQA / MOVAPS: #GP(0) otherwise). ⚠️ DERIVED, never stored beside the kind. -/
 def VMovKind.aligned : VMovKind → Bool
@@ -1097,6 +1125,27 @@ inductive Op where
   zeroes, and it is caught only by a pre-state whose low quadword is non-zero. -/
   | vloadh  (dst : XmmReg) (ea : Ea)
   | vstoreh (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐ P2 BATCH 22 — `PREFETCHh` (SDM Vol. 2B). 466 instructions across
+  `prefetchnta` (315) and `prefetcht0` (151).
+
+  ⛔⛔ **THE FORM CHANGES NO ARCHITECTURAL STATE AT ALL**, and this constructor
+  exists to say exactly that and nothing more: `step` advances RIP and touches
+  nothing else. It does not read the memory it names, and PREFETCHh **does not
+  fault** — not on an unmapped address, not on a misaligned one (SDM: it is a
+  hint, and "prefetches from an illegal address are ignored").
+
+  ⚠️⚠️ **SO THE HINT FIELD IS UNDISTINGUISHABLE BY ANY VECTOR THAT CAN EXIST**, and
+  a wrong-model arm for it would be a FALSE ENTRY in the gate's own inventory —
+  D91's rule, which cost this repository an arm that could never fire. The four
+  spellings are held apart by the ENCODING gate (`scripts/check_encodings.py`
+  assembles each `asm` and compares bytes), which is the instrument that can
+  actually see a `/reg` field, not by the differential.
+
+  ⚠️ The `Ea` is still carried and still reported by `Op.eas`, so the segment and
+  lock walks see it: `lock prefetchnta` must be #UD, and `lockable` refusing it is
+  what makes it so — the address is named by the instruction even though nothing
+  reads it. -/
+  | prefetch (hint : PrefetchHint) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1417,6 +1466,8 @@ def opOperands : Op → List Operand
   -- `movhps` names an address exactly as `vload`/`vstore` do, so the segment and
   -- lock gates see it with no new rule.
   | .vloadh _ ea | .vstoreh ea _ => [.mem ea]
+  -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
+  | .prefetch _ ea => [.mem ea]
   | .vmovsld _ _ ea | .vmovsst _ ea _ => [.mem ea]
   -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
   -- reported keeps the lock and segment walks exact.
@@ -1547,6 +1598,7 @@ def Op.anyLocked : Op → Bool
   | .vmov .. | .vbin .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadh _ ea | .vstoreh ea _ => ea.lock
+  | .prefetch _ ea => ea.lock
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
@@ -1688,6 +1740,7 @@ def Op.mnemonic : Op → String
   | .vload k .. | .vstore k .. => k.mnemonic
   -- ⚠️ ONE spelling for both directions: `0f 16` and `0f 17` are both `movhps`.
   | .vloadh .. | .vstoreh .. => "movhps"
+  | .prefetch h _ => h.mnemonic
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
   -- AT&T spelling, and they are unrelated: this one is `f2 0f 10`. The model
   -- does not carry the string form, so nothing here is ambiguous — but the day
@@ -1875,6 +1928,10 @@ def rosterP0 : List String :=
    -- `movdqa`/`movdqu` these are one mnemonic at two opcodes (`0f 16`/`0f 17`),
    -- so a disassembler prints the same name for each and the roster has one row.
    "movhps",
+   -- ⭐⭐ P2 BATCH 22: TWO rows for one semantics — the roster counts what a
+   -- disassembler PRINTS, and `0f 18` prints a name per `/reg` value.  Only the
+   -- two with measured demand are modelled; see `PrefetchHint`.
+   "prefetchnta", "prefetcht0",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

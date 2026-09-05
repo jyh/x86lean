@@ -2487,6 +2487,34 @@ def vectors : List Vec :=
     , bytes := "0f176b08"
     , instr := ⟨.vstoreh { base := some .rbx, disp := 8 } .x5, 4⟩ }
 
+  -- ⭐⭐ P2 BATCH 22 — PREFETCHh.  466 instructions (nta 315, t0 151).
+  --
+  -- ⚠️⚠️ WHAT THESE VECTORS PROVE IS NARROW, AND SAYING SO IS THE POINT.  The form
+  -- changes no architectural state, so the differential can witness only that
+  -- BOTH models leave every watched register, flag and memory window alone and
+  -- advance RIP by the right length.  That is worth having — it is exactly the
+  -- claim `prefetch` makes, and a model that read the memory, faulted on it, or
+  -- mis-computed the length would break it — but it is NOT evidence about the
+  -- hint.  ⛔ NO ARM IS PLANTED FOR THE HINT FIELD: it is architecturally
+  -- invisible, so an arm for it could never fire, and an arm no vector can
+  -- distinguish is a FALSE ENTRY in the gate's own inventory (D91).  The four
+  -- spellings are held apart by `check_encodings.py`, which assembles each `asm`
+  -- and compares bytes — the instrument that can actually see a `/reg` field.
+  --
+  -- ⚠️ Both modelled mnemonics appear because both are roster ROWS and every row
+  -- must be exercised by a vector; the two DISPLACEMENTS are what exercise the
+  -- length path, which is the part a wrong model can actually get wrong.
+  , { id := "prefetchnta_m", mnemonic := "prefetchnta", asm := "prefetchnta (%rbx)"
+    , bytes := "0f1803", instr := ⟨.prefetch .nta { base := some .rbx }, 3⟩ }
+  , { id := "prefetchnta_d8", mnemonic := "prefetchnta", asm := "prefetchnta 8(%rbx)"
+    , bytes := "0f184308"
+    , instr := ⟨.prefetch .nta { base := some .rbx, disp := 8 }, 4⟩ }
+  , { id := "prefetcht0_m", mnemonic := "prefetcht0", asm := "prefetcht0 (%rbx)"
+    , bytes := "0f180b", instr := ⟨.prefetch .t0 { base := some .rbx }, 3⟩ }
+  , { id := "prefetcht0_d4", mnemonic := "prefetcht0", asm := "prefetcht0 4(%rbx)"
+    , bytes := "0f184b04"
+    , instr := ⟨.prefetch .t0 { base := some .rbx, disp := 4 }, 4⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

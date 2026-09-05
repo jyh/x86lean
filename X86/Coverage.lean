@@ -674,6 +674,18 @@ acc,imm · rh"
       shapes := "x,m · m,x",
       note := "the HIGH quadword only; the low half is PRESERVED, not zeroed; 8-byte operand, so no alignment rule (measured, D119)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHPS" }
+  -- ⭐⭐ P2 BATCH 22 — PREFETCHh.  TWO rows, ONE semantics: the `/reg` field
+  -- picks the locality hint, the hint is architecturally invisible, and the
+  -- roster counts what a disassembler PRINTS.  ⚠️ `m` here is neither read nor
+  -- written — it is NAMED.  The shapes column must not spell it `m(`, which is
+  -- the notation for a written destination.
+  , { mnemonic := "prefetchnta",
+      shapes := "m",
+      note := "a hint: no state, no fault; D121",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PREFETCHh" }
+  , { mnemonic := "prefetcht0",
+      shapes := "m", note := "as prefetchnta",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PREFETCHh" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
