@@ -7496,3 +7496,93 @@ naming a defect is not finding its siblings.
 
 ⚠️ It changes nothing about *this* batch's verdicts, which are measurements, not estimates. What it
 touched was the PRICE and the ORDER, and both are stated here at the corrected figure.
+
+## D137 — the queue rankers priced a pair at its mnemonic: D134's defect at the site D134 did not sweep
+
+### 1. HOW IT WAS FOUND, WHICH IS THE PART WORTH KEEPING
+
+Not by reading the code. By **two numbers for one batch that should have been the same one**.
+`p2_oracle_support.py` priced P2 batch 30's 38 pairs at **1,317** instructions; the regenerated
+roster credited **1,261**. 56 apart. That is small enough to round away and exactly the size that
+gets rounded away — and it decomposed, with no remainder, across the seven mnemonics in the batch
+whose demand straddles two buckets:
+
+```
+vmovups 17 · vpaddq 26 · vmovupd 4 · vmovmskps 2 · vmovapd 4 · vandps 1 · vxorpd 2  =  56
+```
+
+`vpaddq` was priced at **54** where its VEX-128 demand is **28** — nearly double.
+
+### 2. THE DEFECT
+
+D134 established that a mnemonic's whole demand must not ride on a reading taken at one of its
+buckets, and repaired the published coverage table. **Both queue rankers kept doing it.**
+`unprobed()` here and the remainder pricing in `p2_oracle_support.py` each walked
+`build()["joined"]`, took `dominant_bucket(mn)` as the pair's key, and then priced that pair with
+`occ` — the mnemonic's total across *every* bucket.
+
+⚠️ **The prose was already correct; only the arithmetic was wrong.** `unprobed()` printed its total
+under the label *"ASKED at the bucket its demand lives in"* while summing the quantity that is
+explicitly not that. A label naming the right number is not a gate on it
+([[feedback-a-citation-is-an-ungated-claim]]).
+
+⇒ 🔑 **The error is an OVER-claim, which is the direction that reads as value.** A split pair is
+ranked by demand that asking it cannot resolve, so inflated rows sort *upward* and the queue spends
+its next batch on them first. This is `[[feedback-a-join-on-a-lossy-key]]` — one thing priced with
+another's demand, arriving as an ordinary row.
+
+### 3. WHAT THE CORRECTED NUMBERS ARE
+
+```
+THE UNASKED REMAINDER      22,215  ->  18,224 instructions   (3,991 was other buckets' demand)
+   x86isa DOES NOT         20,108  ->  16,119
+   NOT RESOLVED             2,107  ->   2,105
+ASKED at the bucket its demand lives in
+                          353,019  -> 282,908   (a 70,111-instruction over-claim, 17.0% of the gap)
+```
+
+Both tools now report **18,224** by independent routes. The witness the selftest names is
+`vmovdqa`: **16,813** instructions of demand, **9,409** of them at `AVX2/AVX (ymm)` — the other
+**7,404** sit where that pair cannot answer.
+
+### 4. THE GATE, AND BOTH PLANTS DRIVEN RED
+
+`unasked_walk()` is factored out of `unprobed()` so the selftest gates **the ranker's own output**
+rather than re-deriving the walk beside it — a gate that rebuilds its subject can agree with the
+code while both are wrong ([[feedback-two-readings-are-not-two-witnesses]]). Three arms:
+
+- **a vacuity guard first.** If no mnemonic's demand were split, the two prices would agree and the
+  arm would pass while testing nothing. It asserts the distinction has a live instance.
+- **the witness arm:** a pair is priced strictly below its mnemonic's total.
+- **the red arm:** run the *same walk* under the pre-D137 rule and require both the total **and the
+  ordering the queue consumes** to change.
+
+⛔ **Both reversions were planted and both went red**, each through the arm meant for it:
+
+```
+plant 1 — bucket_demand reverted   -> ⛔ "D137 arm is VACUOUS…"                    rc=1
+plant 2 — unasked_walk reverted    -> ⛔ "22,215 -> 22,215 and does NOT reorder"   rc=1
+restored                           -> PASS (69 arms)
+```
+
+Plant 2 is the one that matters: it leaves `bucket_demand` correct and reverts only the caller,
+which is the actual defect this entry repairs.
+
+### 5. ⛔ THE FIRST RED ARM I WROTE WAS A TAUTOLOGY
+
+It set `_pre_d137 = _tot` and then tested `if _pre_d137 < _tot`. That is `_tot < _tot` — false by
+construction, so the arm printed ✔ on every possible input and could not have failed for any reason.
+It was written in the same hour as, and directly beneath, a comment citing
+[[feedback-an-implied-assertion-is-not-a-second-gate]].
+
+⇒ 🔑 **A red arm whose planted value is computed from the thing it is compared against is not a
+control, it is a restatement.** The repair was to give the arm a subject that actually runs — the
+ranker — and then to prove it fires by planting the reversion rather than by arguing it would.
+
+### 6. WHAT THIS DOES NOT CHANGE
+
+No measured verdict moves: availability is read by executing, and D136's 38 of 38 are measurements.
+`docs/P2-ROSTER.md` is **byte-unchanged** by this commit — the published coverage tables were
+already per-bucket, which is exactly why the discrepancy showed up as a disagreement between the
+rankers and the roster rather than as a wrong published number. What moves is the **price** of the
+remaining work and the **order** it will be done in.

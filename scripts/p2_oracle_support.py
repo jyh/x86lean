@@ -174,20 +174,33 @@ def main():
     sys.path.insert(0, os.path.join(ROOT, "scripts"))
     import p2_roster as R
     d = R.census(); b = R.build(d); per_ext = R.per_ext_map(d)
+    # ⛔⛔ PRICED AT THE BUCKET, NOT AT THE MNEMONIC (D137).  This loop used to
+    # carry `occ` — the mnemonic's WHOLE demand — into a row labelled with ONE
+    # bucket, which is precisely the defect D134 repaired in the published
+    # coverage table and did not sweep for here.  Measured on P2 batch 30's own
+    # 38 pairs: this file said 1,317 instructions where the roster credited
+    # 1,261, the 56 decomposing exactly across the seven mnemonics whose demand
+    # straddles two buckets.  The error is an OVER-claim, so inflated pairs sort
+    # upward and the queue spends its next batch on them first.
+    # ⚠️ `occ` is still carried, and the difference is PRINTED below, because a
+    # number silently swapped for a better one is how the next drift hides.
     rows, unknown = [], []
     for mn, occ, _shapes in b["joined"]:
         bucket = R.dominant_bucket(per_ext, mn)
         if meas.get((mn, bucket)) is not None:
             continue
+        bd = R.bucket_demand(per_ext, mn, bucket)
         p = pred.get((mn, bucket))
         if p in (None, "ambiguous"):
-            unknown.append((occ, mn, bucket, p))
+            unknown.append((bd, mn, bucket, p, occ))
         else:
-            rows.append((occ, mn, bucket, p))
-    tot = sum(o for o, _m, _b, _p in rows) + sum(o for o, _m, _b, _p in unknown)
-    ex = sum(o for o, _m, _b, p in rows if p == "executes")
-    rf = sum(o for o, _m, _b, p in rows if p == "refuses")
-    uk = sum(o for o, _m, _b, _p in unknown)
+            rows.append((bd, mn, bucket, p, occ))
+    tot = sum(o for o, _m, _b, _p, _q in rows) + sum(o for o, _m, _b, _p, _q in unknown)
+    ex = sum(o for o, _m, _b, p, _q in rows if p == "executes")
+    rf = sum(o for o, _m, _b, p, _q in rows if p == "refuses")
+    uk = sum(o for o, _m, _b, _p, _q in unknown)
+    tot_mn = (sum(q for _o, _m, _b, _p, q in rows)
+              + sum(q for _o, _m, _b, _p, q in unknown))
     print("\nTHE UNASKED REMAINDER, PRICED STATICALLY — %d pairs, %s instructions"
           % (len(rows) + len(unknown), format(tot, ",")))
     print("  x86isa IMPLEMENTS   %3d pairs / %8s / %5.1f%% of the remainder"
@@ -199,15 +212,20 @@ def main():
     print("  NOT RESOLVED HERE   %3d pairs / %8s / %5.1f%%   (absent or split "
           "in the listing under this name)"
           % (len(unknown), format(uk, ","), 100.0 * uk / tot if tot else 0))
+    print("  ⚠️ priced at each pair's own BUCKET.  The same remainder priced at "
+          "the MNEMONIC's whole\n     demand is %s instructions — %s of it sits "
+          "at those mnemonics' OTHER buckets,\n     which is demand asking this "
+          "pair cannot resolve (D137)."
+          % (format(tot_mn, ","), format(tot_mn - tot, ",")))
     print("\n  the pairs x86isa IMPLEMENTS, by demand — these are the ones that "
           "can become differential vectors:")
-    for occ, mn, bucket, _p in sorted(rows, reverse=True):
+    for occ, mn, bucket, _p, _occ_mn in sorted(rows, reverse=True):
         if _p == "executes":
             print("    %8s  %-16s %s" % (format(occ, ","), mn, bucket))
     if unknown:
         print("\n  ⚠️ NOT RESOLVED — each needs a look, and a wrong name here is a "
               "lossy key, so none is guessed:")
-        for occ, mn, bucket, p in sorted(unknown, reverse=True)[:20]:
+        for occ, mn, bucket, p, _occ_mn in sorted(unknown, reverse=True)[:20]:
             print("    %8s  %-16s %-18s %s" % (format(occ, ","), mn, bucket,
                                                p or "absent under this name"))
 

@@ -158,6 +158,44 @@ def dominant_bucket(per_ext, mn):
     return c.most_common(1)[0][0] if c else None
 
 
+def bucket_demand(per_ext, mn, bucket):
+    """The demand of `mn` AT `bucket` — NOT the mnemonic's whole demand.
+
+    ⛔⛔ THIS FUNCTION EXISTS BECAUSE D134's DEFECT HAD A SECOND SITE AND THE
+    REPAIR DID NOT SWEEP FOR IT.  D134 split the published coverage table into a
+    by-mnemonic and a by-(mnemonic, bucket) accounting because carrying a
+    mnemonic's WHOLE demand on a reading taken at ONE of its buckets over-states
+    coverage.  The summary table was repaired.  The two QUEUE RANKERS were not:
+    `unprobed()` here and `p2_oracle_support.py` both walked `build()["joined"]`,
+    took `dominant_bucket(mn)` as the key, and then priced the pair with `occ` —
+    the mnemonic's total — while labelling it with that single bucket.
+
+    📊 MEASURED, on P2 batch 30's own 38 pairs: the rankers said **1,317**
+    instructions, the roster credited **1,261**.  The 56 decompose exactly across
+    the seven mnemonics whose demand straddles two buckets —
+    `vmovups` 17 · `vpaddq` 26 · `vmovupd` 4 · `vmovmskps` 2 · `vmovapd` 4 ·
+    `vandps` 1 · `vxorpd` 2 — and `vpaddq` alone was priced at nearly twice its
+    real demand (54 against 28).
+
+    ⇒ 🔑 THE ERROR IS AN OVER-CLAIM, WHICH IS THE DIRECTION THAT READS AS VALUE.
+    A pair whose demand is split gets ranked by demand it cannot resolve, so the
+    inflated rows sort UPWARD and the queue spends its next batch on them first.
+    That is why this was worth repairing before the remaining queue is ordered
+    ([[feedback-a-join-on-a-lossy-key]]).
+
+    ⚠️ The prose was already right and only the arithmetic was wrong, which is
+    the hardest version to see: `unprobed()` printed its total under the label
+    "ASKED at the bucket its demand lives in" while summing the quantity that is
+    explicitly not that ([[feedback-a-citation-is-an-ungated-claim]]).
+
+    Returns 0 for a mnemonic with no demand at that bucket, and for `bucket=None`
+    — a row with no per-bucket demand at all cannot be priced by this key, and
+    `unprobed()` prints those separately rather than scoring them as zero-value."""
+    if bucket is None:
+        return 0
+    return (per_ext.get(mn) or {}).get(bucket, 0)
+
+
 def lock_why():
     """⭐⭐ THE SENTENCE FOR ADDITION 2, DERIVED FROM `claimed_forms`'s TABLES.
 
@@ -941,6 +979,67 @@ def selftest():
             if not _moved:
                 bad.append("attrib-unasked-inert")
 
+        # ══════════════════════════════════════════════════════════════════
+        # ⛔⛔ D137 — THE QUEUE RANKERS PRICED A PAIR AT ITS MNEMONIC.
+        #
+        # D134 repaired the published coverage table and stopped there.  Both
+        # rankers (`unprobed()` here, `p2_oracle_support.py`) kept walking
+        # `joined` and pricing a (mnemonic, bucket) row with the mnemonic's
+        # WHOLE `occ`.  Found by arithmetic, not by reading: P2 batch 30's 38
+        # pairs were priced 1,317 by the rankers and 1,261 by the roster, and
+        # the 56 decomposed exactly across seven straddling mnemonics.
+        #
+        # ⚠️ THE ARM MUST NOT BE VACUOUS.  If no mnemonic's demand were split
+        # across buckets the two prices would agree and this would pass while
+        # testing nothing, so the FIRST assertion is that the distinction has a
+        # live instance in the shipped census
+        # ([[feedback-a-probe-must-create-its-condition]]).
+        _pe2 = per_ext_map(d)
+        _split = [(o - bucket_demand(_pe2, m, dominant_bucket(_pe2, m)), m)
+                  for m, o, _s in build(d)["joined"]
+                  if len(_pe2.get(m) or {}) > 1]
+        _split.sort(reverse=True)
+        if not _split or _split[0][0] <= 0:
+            say("  ⛔ D137 arm is VACUOUS: no mnemonic in the shipped census has "
+                  "demand at more than one bucket, so per-mnemonic and "
+                  "per-bucket pricing cannot differ and this arm proves nothing")
+            bad.append("d137-vacuous")
+        else:
+            _gap, _wit = _split[0]
+            _tot = next(o for m, o, _s in build(d)["joined"] if m == _wit)
+            _bd = bucket_demand(_pe2, _wit, dominant_bucket(_pe2, _wit))
+            ok = _bd < _tot
+            say(("  ✔ " if ok else "  ⛔ ") +
+                  f"a pair is priced at its BUCKET, not its mnemonic: `{_wit}` "
+                  f"has {_tot:,} instructions of demand but only {_bd:,} at "
+                  f"`{dominant_bucket(_pe2, _wit)}` — the other {_gap:,} sit at "
+                  f"buckets this pair cannot resolve")
+            if not ok:
+                bad.append("d137-priced-per-mnemonic")
+            # ⭐ THE RED ARM, DRIVEN THROUGH THE RANKER ITSELF.  A first draft
+            # of this arm set `_pre = _tot` and then tested `_pre < _tot` — a
+            # TAUTOLOGY that could not fail and gated nothing, which is the
+            # shape [[feedback-an-implied-assertion-is-not-a-second-gate]]
+            # warns about and which I wrote anyway.  The subject must be the
+            # ranker's OUTPUT: run `unasked_walk` under the pre-D137 rule and
+            # require BOTH the total AND the ordering the queue consumes to
+            # change.  If the walk is ever reverted, the shipped and planted
+            # runs coincide and this goes red.
+            _b_all = build(d)
+            _good, _, _u_good, _, _ = unasked_walk(_b_all, _pe2, av)
+            _bad_, _, _u_bad, _, _ = unasked_walk(_b_all, _pe2, av,
+                                                  price_by_mnemonic=True)
+            _order_moved = [r[1] for r in _good[:20]] != [r[1] for r in _bad_[:20]]
+            _total_moved = _u_good < _u_bad
+            ok2 = _order_moved and _total_moved
+            say(("  ✔ " if ok2 else "  ⛔ ") +
+                  f"red arm: pricing the SAME walk per mnemonic moves the "
+                  f"remainder {_u_good:,} -> {_u_bad:,} and "
+                  + ("reorders" if _order_moved else "⛔ does NOT reorder") +
+                  " the top 20 the queue consumes")
+            if not ok2:
+                bad.append("d137-red-silent")
+
     for g in asm:
         has = "miss_by_ext" in d[g]
         say(("  ✔ " if has else "  ⛔ ") +
@@ -1085,21 +1184,44 @@ def check(out):
 # UNDER-states it; a mnemonic whose buckets DISAGREE collapses to `refuses` and
 # OVER-states it.  Both directions are live (D124), and this tool measures only
 # the first.
+def unasked_walk(b, per_ext, avail, price_by_mnemonic=False):
+    """The unasked (mnemonic, bucket) pairs, RANKED BY THE DEMAND ASKING THEM
+    WOULD ACTUALLY RESOLVE — the demand at each pair's own bucket (D137).
+
+    Factored out of `unprobed()` so the selftest can gate THE RANKER'S OWN
+    OUTPUT rather than re-implement the walk beside it; a gate that re-derives
+    its subject can agree with the code while both are wrong
+    ([[feedback-two-readings-are-not-two-witnesses]]).
+
+    `price_by_mnemonic=True` restores the PRE-D137 rule and exists ONLY so the
+    red arm can drive the defect through this exact code path and require the
+    output to change.  Nothing else may pass it."""
+    rows, asked, unasked, asked_mn, unasked_mn = [], 0, 0, 0, 0
+    for mn, occ, shapes in b["joined"]:
+        bucket = dominant_bucket(per_ext, mn)
+        bd = occ if price_by_mnemonic else bucket_demand(per_ext, mn, bucket)
+        if avail.get((mn, bucket)) is not None:
+            asked += bd
+            asked_mn += occ
+            continue
+        unasked += bd
+        unasked_mn += occ
+        rows.append((bd, mn, bucket, shapes))
+    rows.sort(reverse=True)
+    return rows, asked, unasked, asked_mn, unasked_mn
+
+
 def unprobed(top=60):
     d = census()
     b = build(d)
     per_ext = per_ext_map(d)
     avail = measured_availability()
     total = b["total_uncovered"]
-    rows, asked, unasked = [], 0, 0
-    for mn, occ, shapes in b["joined"]:
-        bucket = dominant_bucket(per_ext, mn)
-        if avail.get((mn, bucket)) is not None:
-            asked += occ
-            continue
-        unasked += occ
-        rows.append((occ, mn, bucket, shapes))
-    rows.sort(reverse=True)
+    # ⛔ PRICED AT THE BUCKET, NOT AT THE MNEMONIC (D137).  `occ` is the
+    # mnemonic's WHOLE demand; `bucket_demand` is the part of it that actually
+    # sits at the key this pair is probed by.  Both are carried so the gap
+    # between them is printed rather than chosen silently — the D134 remedy.
+    rows, asked, unasked, asked_mn, unasked_mn = unasked_walk(b, per_ext, avail)
     # ⭐⭐⭐ THE TWO ACCOUNTINGS, IN ONE DENOMINATOR — and they do not agree.
     #
     # ⛔ The roster's summary table counts a mnemonic as PROBED if the
@@ -1118,12 +1240,19 @@ def unprobed(top=60):
           f"({100.0*named/total:.1f}% of the gap)")
     print(f"ASKED at the bucket its demand lives in: {asked:,} "
           f"({100.0*asked/total:.1f}%)")
+    # ⚠️ THE SAME PILE PRICED THE OTHER WAY, PRINTED SO IT CANNOT DRIFT UNSEEN.
+    # Until D137 the line above carried THIS number under THAT label.
+    print(f"   (the same asked pairs priced at their MNEMONIC's whole demand: "
+          f"{asked_mn:,} — a difference of {asked_mn-asked:,}, which is demand "
+          f"sitting at those mnemonics' OTHER buckets)")
     print(f"⇒ counted as probed by NAME but never asked at its BUCKET: "
           f"{named-asked:,} ({100.0*(named-asked)/total:.1f}% of the gap)")
     print()
     print(f"THE UNASKED REMAINDER OF THE CENSUS — {len(rows)} (mnemonic, bucket) "
           f"pairs, {unasked:,} instructions, {100.0*unasked/total:.1f}% of the "
           f"{total:,}-instruction gap")
+    print(f"   (priced at the MNEMONIC instead: {unasked_mn:,} — "
+          f"{unasked_mn-unasked:,} of it lives at other buckets)")
     print(f"asked so far: {asked:,} ({100.0*asked/total:.1f}%)")
     print(f"{'rank':>5} {'occurrences':>12} {'share':>7} {'cum':>7}  "
           f"{'mnemonic':<16} bucket")
