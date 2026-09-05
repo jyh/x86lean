@@ -6319,3 +6319,73 @@ fixed observation.
 as READINGS, box-stamped, printed by `kernel_delta.py` under a heading that says they are retired as
 a gate. Deriving a gate's allowance from the quantity it measures has no second source, and doing it
 in the batch the gate just stopped is the worst available moment (D122 §3); nothing here does it.
+
+## D125 — batch 23 merges, under the gate it was held off master for
+
+**P2 batch 23 (`pmovmskb`) is ON master.** It sat on `p2-batch23-pmovmskb` from 21:40 because
+`kernel_cost.py` returned a red verdict in band: `X86.Syntax` 206 against a 200 ceiling, and
+`Tests.Coverage`'s residue 13,190 against 12,420 (D122). The helm retired those ceilings as a merge
+gate at 21:42 and made D111's delta the gate; D123 built it; this is the merge.
+
+### 1. THE COMMIT THAT LANDS IS NOT THE COMMIT THAT WAS MEASURED, AND THE DIFFERENCE IS CHECKED
+
+The branch was based on `e57c99f`; master had moved to `5c01599` (batch 24) and then to D123's
+commit. The batch is cherry-picked forward rather than merged, so the history stays linear — and the
+question that creates is whether the measured pair is the landed pair.
+
+⛔ **It is checked rather than assumed.** Restricted to `*.lean`, the diff of the ORIGINAL pair
+(`e57c99f` → `p2-batch23-pmovmskb`) and of the REBASED pair (`5c01599` → the cherry-pick) are
+**byte-identical** (`git patch-id --stable` agrees, and so does `diff`). Batch 24 and D123 touch only
+`docs/`, `scripts/` and `.github/`, so nothing the kernel reads moved. The differential result
+(84,128 cases, unexplained=0, oracle-divergence 171) and the kernel delta therefore carry.
+
+### 2. THE GATE'S READING — CLEAN
+
+Three repeats per side, alternated base/head, in one session on one box
+(`yukon.lan`, macOS-26.6.2-arm64, 14 cpus, one-minute loads 3.81–5.07):
+
+```
+UNIT                                          base       head     delta   spread   budget  VERDICT
+X86.Syntax                                   198.0      200.0      +2.0      8.0     37.0  ok
+Tests.Coverage                             21100.0    21300.0    +200.0    500.0   1519.2  ok
+Tests.Coverage @residue                    13130.0    13070.0     -60.0    500.0   1825.1  ok
+Tests.Coverage @decl memDestSweep           4850.0     4940.0     +90.0     90.0    417.1  ok
+Tests.Coverage @decl vectorCoverage         1470.0     1460.0     -10.0     90.0    230.8  ok
+Tests.Coverage @decl pre_states_…_frame     1730.0     1770.0     +40.0    100.0    320.1  ok
+X86.Theorems                                 887.0      894.0      +7.0     36.0    162.3  ok
+…every other unit ok; 2 fell to @default 23.3% (Tests, X86 — both read 0.0 ms)
+delta gate: CLEAN
+```
+
+### 3. ⛔⛔ AND THE TWO NUMBERS THAT HELD IT OFF MASTER DO NOT REPRODUCE
+
+D122's readings were taken **one per side**. Three repeats give:
+
+```
+                          D122 (1 reading/side)    this gate (3/side, alternated)    spread
+X86.Syntax                      +8 ms                        +2.0 ms                   8.0
+Tests.Coverage @residue        +580 ms                       −60.0 ms                 500.0
+```
+
+The batch's true kernel cost is **below this instrument's resolution on both units**. It waited two
+hours on two numbers a repeat does not support. D123 §3 carries the full account, including the two
+places I nearly repeated the same mistake while writing it up.
+
+### 4. THE ABSOLUTE READINGS, BOX-STAMPED, BESIDE THE MERGE (retired as a gate, 09/04 21:42)
+
+`kernel_delta.py` prints them under a heading that says they are not a verdict, and DERIVES the
+sentence that used to be a literal:
+
+> The BASE — the tree this change is a change to, with none of it applied — is over **1** of these
+> ceilings: `Tests.Coverage @residue` (13,130 against 12,420); the head is over **1**: the same one.
+
+`X86.Syntax` reads **200.0 against a ceiling of 200** on the head — the razor's edge D122 named,
+which is the whole reason an absolute ceiling here reports the afternoon.
+
+### 5. WHAT THE MERGE DOES NOT SETTLE
+
+⚠️ **The differential was not re-run.** It does not need to be — the `.lean` diff is byte-identical to
+the one that produced `84,128 cases, unexplained=0, oracle-divergence=171` on the branch — but that is
+an argument from the diff, not a re-run, and it is stated as one.
+⚠️ **CI has still never run any of this.** GitHub Actions refuses every job on this account for
+billing (desk FH). The local gates are the receipt this box can produce.
