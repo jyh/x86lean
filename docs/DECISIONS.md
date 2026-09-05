@@ -6708,3 +6708,106 @@ the unasked remainder    303 pairs / 88,333 / 21.2%  ->  304 pairs / 88,373 / 21
   (+1 pair, +40 instructions: the `pmovmskb (vector operand)` bucket of §3, now visible as unasked)
 ci_local.py --job build      24 of 25  ->  25 of 25 GREEN
 ```
+
+## D128 — the availability table is keyed by the column that does not run, and measured through the column that does
+
+Found while preparing the next probe batch, by asking what would validate the twenty-three new
+encodings I was about to write. Nothing would have.
+
+### 1. THE TWO COLUMNS
+
+Every row of `P2_FORMS` in `scripts/oracle_availability.py` carries an `asm` string and an `hx`
+string, and they are consumed by different code for different purposes:
+
+* **`hx` is written into ACL2's memory and IS THE INSTRUCTION THAT EXECUTES** — `measure_cr4` emits
+  it as `(#x<addr> . #x<byte>)` pairs. The oracle never sees the `asm`.
+* **`asm` is never assembled by anything** — but `measured_availability()` keys the entire
+  availability table by `asm.split()[0]`, and deliberately so: a probe LABEL is a tag
+  (`movq_xmm`, `paddw_mmx`), and D100's phantom row came from recovering a mnemonic by stripping a
+  suffix off one.
+
+⇒ 🔑 **THE KEY COMES FROM THE COLUMN THAT DOES NOT RUN, AND THE MEASUREMENT COMES FROM THE COLUMN
+THAT DOES.** One mistyped hex byte publishes a verdict *about* `pmaddwd` that was *measured on*
+whatever those bytes decode to. It is D100's phantom-row family arriving through the one column no
+reader checks, because a hex string is not readable by eye. `docs/P2-ROSTER.md` prints those verdicts
+in its oracle column, and `p2_roster.py --unprobed` decides what to work on next from them.
+
+The gate is `oracle_availability.py --check-encodings`, registered in CI: every row's `hx` must be
+what `clang -target x86_64-unknown-linux-gnu` assembles from that row's own `asm`. It needs no ACL2,
+so it runs with the model gates rather than behind the oracle. **The shipped table passes: 133 of
+133.** The gate's value is not this reading — it is that the next twenty-three rows cannot be wrong.
+
+### 2. ⛔⛔ THE PARSER WAS THE HARD PART, AND IT FAILED ON EXACTLY ONE ROW — WHICH READ AS A DEFECT IN THE TABLE
+
+The first parser matched `([0-9a-f]{2} )+`, requiring a space after every byte. That space is
+**padding**, and objdump only emits it after instructions narrower than the column. The table's
+widest row is `movabsq $0x123456789abc, %rax` at ten bytes, whose last byte abuts the tab — so its
+final `00` was dropped, and **132 of 133 rows agreed while one disagreed.**
+
+⚠️ I nearly filed that one as a finding against the shipped table. What stopped it was shape rather
+than suspicion: `48b8bc9a7856341200` is a strict PREFIX of the declared `48b8bc9a785634120000`, and a
+prefix at one length is a column width, not a disagreement — the diagnosis
+[[feedback-a-column-parser-is-tested-by-its-widest-datum]] was written for. **The instrument was
+wrong and the subject was right**, in a run whose green would have been reported as a repo defect.
+
+### 3. ⭐⭐ AND THE TWO DISASSEMBLERS DISAGREE ABOUT THE DELIMITER — BOTH ARE NOW EXERCISED HERE
+
+D89 found that GNU objdump wraps its byte column at seven bytes where LLVM does not, and recorded
+that it **could not be tested on the dev machine, which had only one disassembler**. That is no
+longer true — GNU binutils 2.47 is installed (keg-only, so it is not what `objdump` resolves to) —
+so this gate runs against both and requires both to agree:
+
+```
+LLVM   `   0: 48 b8 .. 00 00<TAB>movabsq<TAB>$0x...`     space after the colon
+GNU    `   0:<TAB>48 b8 .. 34 <TAB>movabs $0x...`        TAB after the colon,
+       `   7:<TAB>12 00 00 `                             and WRAPPED at seven
+```
+
+Neither delimiter is a space, and the second parser — written to fix the first — returned **empty for
+every GNU line**, because splitting on the tab put the bytes in a different field. The shipped parser
+drops the address, splits on tabs, and takes the leading run of fields that are nothing but hex byte
+pairs. `133 forms, 0 disagreements` under **both**.
+
+### 4. THE RED ARMS, AND WHY THE SECOND ONE IS THE ONLY ONE THAT MATTERS
+
+```
+✔ one byte flipped in an ordinary short form
+✔ the WIDEST row (`ADD3:movabsq`, 10 bytes) truncated by its LAST byte
+✔ a row carrying a DIFFERENT real instruction's encoding (`pxor` given `paddd`'s bytes)
+```
+
+⛔ **Arms 1 and 3 would BOTH have passed against the padding-dependent parser this gate was born
+from.** They perturb short forms, and short forms are exactly where that parser was correct. Only arm
+2 differs in the dimension a column parser can be frozen in
+([[feedback-a-control-can-share-the-blind-spot]]) — and it is generated from the shipped table
+(`max(P2_FORMS, key=len(hx))`), not from the literal `movabsq`, so it follows the widest row if a
+wider one is ever added ([[feedback-a-gate-is-not-exempt-from-its-own-defect]]).
+
+### 5. ⚠️ A BUCKET THE PROBE TABLE CANNOT EXPRESS, MEASURED RATHER THAN ASSERTED
+
+`probe_bucket()` reads a form's ISA bucket off its OPERANDS (`%mm`, `%zmm`, `%ymm`, `%xmm`) and
+returns `None` for anything else. The census emits **eighteen** buckets; a probe form can produce
+**five**. The other thirteen — `AVX (state)`, `x87 (st)`, `PREFETCH`, `LOCK prefix`, `CPUID`, `BMI2`,
+`XSAVE`, the fences, and the rest — are **unaskable**: a probe written for one is silently dropped
+from `measured_availability()`, so the pair stays on the unasked list forever no matter how often it
+is probed.
+
+⛔ There IS a gate here and it runs **one way only**: it checks that every probe bucket is a census
+bucket (a stray-probe / over-claim direction) and never that a census bucket is reachable by a probe.
+The unpoliced direction is the one that reads as modesty
+([[feedback-under-claims-are-unpoliced]], [[feedback-probe-gates-both-ways]]).
+
+⚠️ **The live cost is one pair, and I am not inflating it to thirteen buckets' worth.** Measured
+against today's residue: of the 304 unasked pairs / 88,373 instructions, **303 pairs / 87,132 (98.6%)
+are askable** and **1 pair / 1,241 (1.4%) is not** — `vzeroupper`, `AVX (state)`, which will sit near
+the top of the ranked list indefinitely and quietly refuse to be retired. The vocabulary gap is
+thirteen buckets; the demand behind it today is one row. Both numbers are stated because the gap can
+grow silently as coverage moves and nothing would say so.
+
+### 6. WHAT THIS BATCH IS NOT
+
+**It adds no probe form and moves no published number.** The twenty-three new forms this gate was
+built for are the NEXT batch, deliberately: the gate that makes their encodings trustworthy has to
+land before them, which is the red-first discipline applied at the level of a batch rather than an
+arm. `ci_local.py --job build` reads **26 of 26 GREEN** (the step count rose from 25 because
+`ci_local` derives its list from `ci.yml` rather than carrying one).

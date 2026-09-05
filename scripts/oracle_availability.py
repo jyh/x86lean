@@ -763,7 +763,140 @@ def p2_run():
           "in both.")
     return 0
 
+# ⭐⭐⭐ THE COLUMN THAT RUNS AND THE COLUMN THAT NAMES IT (D128).
+#
+# Every row of `P2_FORMS` carries an `asm` string and an `hx` string, and they
+# are used for DIFFERENT things by different code:
+#   * `hx`  is written into ACL2's memory and IS THE INSTRUCTION THAT EXECUTES
+#           (`measure_cr4`, the `(#x... . #x..)` pairs).
+#   * `asm` is never assembled by anything — but `measured_availability()` keys
+#           the whole availability table by `asm.split()[0]`, deliberately,
+#           because a probe LABEL is a tag and the assembler's own text is not.
+# ⇒ 🔑 THE KEY COMES FROM THE COLUMN THAT DOES NOT RUN, AND THE MEASUREMENT COMES
+#   FROM THE COLUMN THAT DOES. Nothing tied them together, so one mistyped hex
+#   byte would have published a verdict about `pmaddwd` that was measured on
+#   whatever those bytes actually decode to — a phantom row of D100's exact
+#   family, arriving through the one column no reader checks because it is
+#   unreadable by eye.
+#
+# ⛔ AND THE PARSER IS THE HARD PART, NOT THE COMPARISON. The byte column is
+# delimited differently by the two disassemblers this project meets, and neither
+# delimiter is a space:
+#     LLVM   `   0: 48 b8 .. 00 00<TAB>movabsq<TAB>$0x...`
+#     GNU    `   0:<TAB>48 b8 .. 34 <TAB>movabs $0x...`   and WRAPPED AT SEVEN
+#            `   7:<TAB>12 00 00 `                          bytes per line
+# The first parser written here matched `([0-9a-f]{2} )+` and so depended on the
+# PADDING objdump adds after short instructions. It dropped the last byte of the
+# widest form in the table (`movabsq`, 10 bytes) — and of that form only, so 132
+# of 133 rows agreed and the one disagreement read as a defect in the TABLE.
+# D89 learned this on the other side (GNU wraps at seven where LLVM does not)
+# and could not test it: the dev box had one disassembler. It now has both, so
+# this gate runs against BOTH and requires them to agree.
+# ([[feedback-a-column-parser-is-tested-by-its-widest-datum]])
+
+_BYTES_ONLY = re.compile(r"(?:\s*[0-9a-f]{2})+\s*\Z")
+_ADDR = re.compile(r"^\s*[0-9a-f]+:")
+GNU_OBJDUMP = "/opt/homebrew/opt/binutils/bin/objdump"
+
+
+def bytes_of(disasm):
+    """The instruction bytes in an `objdump -d` listing, for BOTH tools.
+
+    Drop the address, split the remainder on TABS, and take the leading run of
+    fields that are nothing but hex byte pairs. Trailing padding is ignored
+    rather than relied on."""
+    out = []
+    for ln in disasm.splitlines():
+        if not _ADDR.match(ln):
+            continue
+        for field in _ADDR.sub("", ln, count=1).split("\t"):
+            if field.strip() == "":
+                continue
+            if _BYTES_ONLY.fullmatch(field):
+                out.append(re.sub(r"\s+", "", field))
+            else:
+                break
+    return "".join(out)
+
+
+def encode_forms(asms, objdump="objdump"):
+    """{asm: hex} — one .s per form, so a form the assembler refuses is NAMED
+    rather than silently shifting its neighbours' bytes."""
+    out = {}
+    with tempfile.TemporaryDirectory() as td:
+        for i, a in enumerate(asms):
+            src = os.path.join(td, "f%d.s" % i); obj = os.path.join(td, "f%d.o" % i)
+            open(src, "w").write("    .text\n    %s\n" % a)
+            r = subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu",
+                                "-c", src, "-o", obj],
+                               capture_output=True, text=True)
+            if r.returncode != 0:
+                tail = (r.stderr.strip().splitlines() or ["?"])[-1]
+                out[a] = "ASSEMBLER REFUSED: " + tail
+                continue
+            d = subprocess.run([objdump, "-d", "--section=.text", obj],
+                               capture_output=True, text=True).stdout
+            out[a] = bytes_of(d)
+    return out
+
+
+def _disagreements(forms, objdump):
+    enc = encode_forms([a for _l, a, _h, _e0, _e1 in forms], objdump=objdump)
+    return [(l, h, enc[a]) for l, a, h, _e0, _e1 in forms if enc[a] != h]
+
+
+def encoding_check():
+    """The `hx` every row EXECUTES is the assembly of the `asm` that NAMES it —
+    on every disassembler this box has — driven red first."""
+    tools = [("LLVM (PATH)", "objdump")]
+    if os.path.exists(GNU_OBJDUMP):
+        tools.append(("GNU binutils", GNU_OBJDUMP))
+    else:
+        print("  ⚠️ GNU objdump is not on this box; the wrapped-column format is "
+              "NOT exercised here. It is exercised on the x86-64 runner.")
+    for name, tool in tools:
+        bad = _disagreements(P2_FORMS, tool)
+        if bad:
+            print("⛔ oracle-encoding gate: FAIL under %s — the `asm` column and "
+                  "the `hx` that RUNS are different instructions:" % name)
+            for l, h, g in bad:
+                print("    %s: declared=%s  assembler=%s" % (l, h, g))
+            return 1
+        print("  ✔ %-14s %d forms: every `hx` is the assembly of its own `asm`"
+              % (name + ":", len(P2_FORMS)))
+
+    # ⭐ RED FIRST, AND THE THIRD ARM IS THE ONE THAT MATTERS. A control drawn
+    # from the same half of the space is silent: arms 1 and 3 are ordinary short
+    # forms and would BOTH have passed against the padding-dependent parser this
+    # gate was born from. Arm 2 perturbs the WIDEST row, in the one dimension a
+    # column parser can be frozen in.
+    # ([[feedback-a-control-can-share-the-blind-spot]])
+    widest = max(P2_FORMS, key=lambda r: len(r[2]))
+    arms = [
+        ("one byte flipped in an ordinary short form",
+         lambda l, h: "660f6f04" if l == "movdqa" else h),
+        ("the WIDEST row (`%s`, %d bytes) truncated by its LAST byte — the "
+         "padding blind spot" % (widest[0], len(widest[2]) // 2),
+         lambda l, h: h[:-2] if l == widest[0] else h),
+        ("a row carrying a DIFFERENT real instruction's encoding "
+         "(`pxor` given `paddd`'s bytes)",
+         lambda l, h: "660ffec1" if l == "pxor" else h),
+    ]
+    for why, mutate in arms:
+        planted = [(l, a, mutate(l, h), e0, e1) for l, a, h, e0, e1 in P2_FORMS]
+        if not _disagreements(planted, "objdump"):
+            print("⛔ oracle-encoding gate: RED ARM SILENT — %s was NOT caught, "
+                  "so this gate is not watching what it claims to." % why)
+            return 1
+        print("  ✔ red arm caught: %s" % why)
+    print("oracle-encoding gate: CLEAN — %d forms, %d disassembler(s), 3 red arms"
+          % (len(P2_FORMS), len(tools)))
+    return 0
+
+
 def main():
+    if "--check-encodings" in sys.argv:
+        return encoding_check()
     if "--p2" in sys.argv:
         return p2_run()
     check = "--check" in sys.argv

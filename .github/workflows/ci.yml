@@ -94,6 +94,15 @@ jobs:
       - name: Encoding cross-check (every `Instr.len` against a real assembler)
         run: python3 scripts/check_encodings.py
 
+      # ⭐⭐ D128. The availability table keys itself by the `asm` column and
+      # MEASURES through the `hx` column, and until this step nothing said they
+      # were the same instruction. Needs no ACL2 — clang and objdump only — so it
+      # runs here rather than behind the oracle. Red-first, and on BOTH
+      # disassemblers where the runner has them (GNU wraps its byte column at
+      # seven bytes where LLVM does not; D89).
+      - name: Oracle probe encodings — the `hx` that RUNS is the `asm` that NAMES it
+        run: python3 scripts/oracle_availability.py --check-encodings
+
       # ⛔ THIS STEP WAS NAMED "seven planted bugs" UNTIL P1 BATCH 14, when there
       # were thirty-eight. The banner the command PRINTS has been derived from
       # `selftestArms.length` since D29 caught exactly this drift one layer down;
