@@ -8107,3 +8107,80 @@ not the verdict easier to reach.** That is now `docs/QUEUE.md` item 4, rewritten
 `@floor`" to what the measurements actually say. ⛔ Batch 32 stays on its branch — but for a
 recorded, measured reason with a named next act, which is a different thing from waiting on
 a quiet box that was never going to come.
+
+## D143 — `probe_bucket` was not a narrow rule, it was a SECOND rule, and the gate that should have seen it was checking the vocabulary
+
+`docs/QUEUE.md` has carried *"widen `probe_bucket` — it expresses 5 of 18 census buckets"* since
+D128, with `vzeroupper` (`AVX (state)`, 1,241 instructions, the only pair x86isa implements that no
+probe can ask about) as the reason. Reading it for the first time rather than inheriting it: the
+shape of the item is wrong.
+
+### 1. THE CENSUS ALREADY HAS A TOTAL RULE, AND IT ALREADY ANSWERS
+
+`demand_census.isa_bucket(mn, ops, kind)` produced the DEMAND side of the join, is total, and
+returns `AVX (state)` for `vzeroupper` out of the very table the census keeps *"for operand-free
+AVX state instructions: the width rules cannot see them, because there are no operands to read a
+width off"*. `oracle_availability.probe_bucket` read the register file off the operands and
+returned `None` for anything without one.
+
+⇒ **Two functions for one partition**, and the join between them is the thing the whole
+availability census rests on. ⛔ MEASURED over all 265 probe rows before touching anything: the two
+agree on **256 of the 256 rows both classify, and disagree on none.**
+
+⇒ 🔑 **THAT AGREEMENT IS WHY IT SURVIVED, AND WHY IT COULD NOT BE SEEN.** `p2_roster.py` already
+gated this and the gate is honest about what it checks — *"every probe bucket is a census bucket"*
+— which is a check on the **VOCABULARY**. It passes whenever both names exist, and would pass with
+the two rules assigning the same row to different buckets. A duplicate born in agreement is
+invisible to a name check and diverges on the next ordinary append to either table.
+[[feedback-duplicate-born-in-agreement]]
+
+### 2. SO IT DELEGATES, AND THE ARM TESTS THE DELEGATION AND NOT THE AGREEMENT
+
+`probe_bucket` now calls `demand_census.isa_bucket`. Every existing bucket arm still passes — they
+would pass against a second rule too, which is the point. The new arm STUBS the census's function
+and requires `probe_bucket`'s answer to move with it. Driven red by re-introducing a local rule
+that agrees with the census on every current row — the exact shape of the defect being removed:
+
+```
+⛔ probe_bucket IS demand_census.isa_bucket, not a rule that agrees with it
+   (got 'SSE-legacy (xmm)' from a stubbed census rule — there is a second bucket rule again)
+```
+
+### 3. AND THE `None` WAS DOING TWO JOBS
+
+`probe_bucket` returned `None` for a row with no vector operand, and `measured_availability`
+skipped it. So the set of rows the availability census does not ask about was *"rows with no
+`%xmm`"* — a DEFAULT wearing a decision's clothes, whose nine members each inherited an accident
+rather than a ruling. Naming the bucket and deciding whether the row is a question are different
+jobs; the second one now lives in `NOT_AN_AVAILABILITY_QUESTION`, a declared list with a reason per
+entry, gated for orphans. [[feedback-a-declared-list-inherits-its-default]]
+
+⛔⛔ **AND THREE OF THE NINE TURNED OUT TO HAVE MEASURED REASONS — which is what stopped this from
+being a wholesale delegation.** Computing the delegated table before changing anything:
+
+```
++ ('lock',     'GPR/other (unclassified)')   ← `asm.split()[0]` is the PREFIX, not a mnemonic:
+                                               a phantom key no census row can ever match
++ ('movq',     'GPR/other (unclassified)')   ← `movq %gs:0x28, %rax`; the census buckets it by
+                                               kind=segment, a datum the asm TEXT cannot carry,
+                                               so it joins against ordinary `movq` demand
++ ('movabsq',  'mov imm64 / movabs (P2 addition 3)')  ← not one of the census's MISS buckets at
+                                               all, so `p2_roster`'s vocabulary gate goes red
+```
+
+⇒ 🔑 **A KEY DERIVED FROM A STRING IS ONLY AS GOOD AS WHAT THE STRING CARRIES**, and `kind` is not
+in it. [[feedback-a-join-on-a-lossy-key]] The other six (`endbr64`, `prefetcht0`, `prefetchnta`,
+`emms`, and the two `CONTROL:` rows) map to real census buckets under the census's own rule, so
+their verdicts ARE availability facts this table could carry. They stay excluded **only because
+they were excluded yesterday**, and the list says so in those words rather than inventing a reason:
+ruling on them widens what `measured_availability` means and moves the roster, which is a batch and
+not a side effect of a bucket repair.
+[[feedback-a-category-is-a-hypothesis-about-its-members]]
+
+### 4. WHAT THIS COMMIT DOES NOT DO
+
+`measured_availability()` returns **254 keys before and 254 after** — this is a repair of the RULE,
+not of the subject. `vzeroupper` now buckets as `AVX (state)` and is therefore askable, but **no
+probe for it has been run**: its `hx` must come from `clang` like every other row's and its verdict
+from an ACL2 pass. Until then the unasked remainder still reads 1 implemented pair / 1,241
+instructions, and the census's `AVX (state)` column is unchanged.

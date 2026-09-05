@@ -41,6 +41,20 @@ Usage:  oracle_availability.py [--check] [--selftest]
 """
 import collections, os, re, subprocess, sys, tempfile
 
+# ⭐⭐⭐ THE BUCKET RULE IS THE CENSUS'S, IMPORTED — NOT A SECOND ONE THAT AGREES
+# WITH IT (D143). `demand_census.isa_bucket` is the TOTAL rule that produced the
+# demand side of the join; computing the probe side with a different function is
+# two rules for one partition, and the gate that was supposed to notice checks
+# the VOCABULARY (is every probe bucket a census bucket) and not the RULE, so it
+# passes whenever both names exist. Measured before the change: the two agreed on
+# 256 of 256 rows both classified, and disagreed on none — which is exactly why a
+# duplicate born in agreement survives to diverge on the next ordinary append.
+# ⛔ The import is safe in this direction only: `demand_census` imports nothing
+# local and guards its own `main`, while `p2_roster` imports both.
+# [[feedback-duplicate-born-in-agreement]] [[feedback-a-join-on-a-lossy-key]]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import demand_census as _DC
+
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
 ACL2 = os.environ.get("ACL2", os.path.join(root, "vendor", "acl2", "saved_acl2"))
@@ -1118,9 +1132,14 @@ def p2_structure_check(forms=None, quiet=False):
 
     keys = collections.defaultdict(list)
     for label, asm, _hx, _e0, _e1 in forms:
-        bucket = probe_bucket(asm)
-        if bucket is not None:
-            keys[(asm.split()[0], bucket)].append(label)
+        # ⛔ THE SAME SUBJECT AS `measured_availability`, and by the same declared
+        # list. This check is about the keys that TABLE publishes; scoping it with
+        # a different rule would police a set nobody publishes and leave a fold in
+        # the set that is published. (Until D143 both were scoped by `bucket is
+        # not None`, which agreed only because one accident drove both.)
+        if label in NOT_AN_AVAILABILITY_QUESTION:
+            continue
+        keys[(asm.split()[0], probe_bucket(asm))].append(label)
     folded = sorted((k, v) for k, v in keys.items() if len(v) > 1)
 
     if problems:
@@ -1441,26 +1460,60 @@ def main():
 # marking a buildable row unbuildable reads as caution, not as a mistake, and it
 # would have removed a rank from the next head's list with a reason that looked
 # measured. It was caught by reading the OUTPUT of the fix rather than its intent.
-BUCKET_OF_PROBE = [
-    ("%mm",  "MMX (mm)"),
-    ("%zmm", "AVX-512 (zmm/k)"),
-    ("%ymm", "AVX2/AVX (ymm)"),
-]
+# ⛔⛔ THE ROWS THAT ARE NOT AN AVAILABILITY QUESTION, DECLARED WITH THE REASON
+# EACH ONE IS OUT (D143). Until now these fell out silently: the old
+# operand-reading rule returned `None` for anything with no vector register, and
+# `measured_availability` skipped it. That is a DEFAULT wearing a decision's
+# clothes — the set it produced was "rows with no `%xmm`", and every member's
+# exclusion inherited that accident rather than a ruling.
+#
+# ⚠️ THREE OF THEM ARE OUT FOR A MEASURED REASON, and the measurement is what
+# stopped this file from delegating wholesale:
+#   · `ADD2:lock incl (%rbx)` — `asm.split()[0]` is the PREFIX `lock`, so the key
+#     would be the phantom mnemonic `("lock", …)`, which no census row can match.
+#   · `ADD1:movq %gs:0x28, %rax` — the census buckets this by KIND (`segment`),
+#     a datum the asm TEXT cannot carry; keyed off the text it lands in
+#     `GPR/other` and joins against ordinary `movq` demand, pricing one thing
+#     with another's.
+#   · `ADD3:movabsq …` — its bucket is `mov imm64 / movabs (P2 addition 3)`,
+#     which is NOT one of the census's MISS buckets at all, so there is no demand
+#     row for it to join and `p2_roster`'s vocabulary gate would go red on it.
+#
+# ⚠️ THE OTHER SIX ARE OUT ONLY BECAUSE THEY WERE OUT YESTERDAY, and that is said
+# rather than dressed up: `endbr64`, `prefetcht0`, `prefetchnta`, `emms` and the
+# two `CONTROL:` rows all map to real census buckets under the census's own rule,
+# so their verdicts ARE availability facts this table could carry. Ruling on them
+# widens what `measured_availability` means and moves the roster; it is
+# `docs/QUEUE.md`'s item, not a side effect of a bucket repair.
+# [[feedback-a-declared-list-inherits-its-default]]
+# [[feedback-a-category-is-a-hypothesis-about-its-members]]
+NOT_AN_AVAILABILITY_QUESTION = {
+    "ADD2:lock incl":  "the key's mnemonic would be the prefix `lock`",
+    "ADD1:mov %gs:":   "the census buckets it by kind=segment, which the asm text cannot carry",
+    "ADD3:movabsq":    "its bucket is not one of the census's MISS buckets",
+    "CONTROL:mov":     "a harness control, not a census question — unruled, see QUEUE",
+    "CONTROL:movnti":  "a harness control, not a census question — unruled, see QUEUE",
+    "endbr64":         "maps to CET-IBT under the census rule — unruled, see QUEUE",
+    "prefetcht0":      "maps to PREFETCH under the census rule — unruled, see QUEUE",
+    "prefetchnta":     "maps to PREFETCH under the census rule — unruled, see QUEUE",
+    "emms":            "maps to GPR/other under the census rule — unruled, see QUEUE",
+}
 
 
 def probe_bucket(asm):
-    """The census ISA bucket a probe form belongs to, or None for a form that is
-    not a vector row at all (the GPR controls and the three scalar additions).
+    """The census ISA bucket a probe form belongs to — the CENSUS's own rule.
 
-    ⚠️ READ OFF THE OPERANDS, which is where the register FILE actually is — the
-    mnemonic cannot say it (`movq` is three instructions in three files) and the
-    probe's label is a tag, not a datum."""
-    for tok, bucket in BUCKET_OF_PROBE:
-        if tok in asm:
-            return bucket
-    if "%xmm" not in asm:
-        return None
-    return "VEX-128 (v… xmm)" if asm.split()[0].startswith("v") else "SSE-legacy (xmm)"
+    ⛔ THIS IS `demand_census.isa_bucket`, CALLED, not a rule that agrees with it.
+    The demand side of the join is bucketed by that function; a second function
+    here would be a second definition of one partition, and the two would diverge
+    on whichever table was appended to next.
+
+    ⚠️ It is TOTAL — every form gets a bucket. Which forms are an availability
+    QUESTION is a separate matter and lives in `NOT_AN_AVAILABILITY_QUESTION`,
+    where each exclusion carries its reason. Conflating the two is what made the
+    old `None` return a silent default."""
+    toks = asm.split(None, 1)
+    return _DC.isa_bucket(toks[0], toks[1] if len(toks) > 1 else "")
 
 
 def measured_availability():
@@ -1482,10 +1535,12 @@ def measured_availability():
     resolving it silently would bury it."""
     out, seen = {}, {}
     for label, asm, _hx, _e0, e1 in P2_FORMS:
-        bucket = probe_bucket(asm)
-        if bucket is None:
+        # ⛔ SKIPPED BY A DECLARED LABEL WITH A REASON, never by a bucket that
+        # came back empty. A rule that returns nothing and a decision not to ask
+        # are different facts, and only one of them can be audited.
+        if label in NOT_AN_AVAILABILITY_QUESTION:
             continue
-        key = (asm.split()[0], bucket)
+        key = (asm.split()[0], probe_bucket(asm))
         if key in seen and seen[key][1] != e1:
             raise SystemExit(
                 "⛔ oracle-availability: %r is measured %s as %r and %s as %r. "

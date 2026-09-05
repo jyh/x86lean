@@ -856,7 +856,16 @@ def selftest():
                         ("vpaddd %ymm1, %ymm2, %ymm0", "AVX2/AVX (ymm)"),
                         ("vpxor %xmm1, %xmm2, %xmm0",  "VEX-128 (v… xmm)"),
                         ("movq %mm1, %mm0",            "MMX (mm)"),
-                        ("movl %ecx, (%rbx)",          None)):
+                        # ⭐ D143: the operand-free AVX state form, which the old
+                        # operand-reading rule could not express at all and which
+                        # carries the only implemented pair left in the census.
+                        ("vzeroupper",                 "AVX (state)"),
+                        # ⛔ AND THE GPR CONTROL NOW GETS A BUCKET. It used to
+                        # read `None`, and that `None` was doing two jobs: naming
+                        # the bucket AND deciding the row was not a question.
+                        # The second job moved to a declared list; this arm now
+                        # says what the census's rule actually calls the row.
+                        ("movl %ecx, (%rbx)",          "GPR/other (unclassified)")):
         got = OA.probe_bucket(asm_s)
         ok = got == want
         say(("  ✔ " if ok else "  ⛔ ") +
@@ -864,6 +873,41 @@ def selftest():
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append("bucket:" + asm_s)
+    # ⭐⭐⭐ AND THE ARM THAT TESTS THE DELEGATION RATHER THAN THE AGREEMENT (D143).
+    # Every arm above would pass just as well against a SECOND rule that happens
+    # to agree — which is precisely the state this repository was in until today:
+    # measured, the two rules agreed on 256 of 256 probe rows and disagreed on
+    # none, so agreement proves nothing about whether there is one rule or two.
+    # This moves the census's function out from under `probe_bucket` and requires
+    # the answer to move with it.
+    _real = DC.isa_bucket
+    try:
+        DC.isa_bucket = lambda mn, ops, kind="plain": "SENTINEL"
+        got = OA.probe_bucket("pmaddwd %xmm1, %xmm0")
+    finally:
+        DC.isa_bucket = _real
+    ok = got == "SENTINEL"
+    say(("  ✔ " if ok else "  ⛔ ") +
+        "probe_bucket IS demand_census.isa_bucket, not a rule that agrees with it"
+        + ("" if ok else f"   (got {got!r} from a stubbed census rule — there is a "
+                         f"second bucket rule in oracle_availability again)"))
+    if not ok:
+        bad.append("bucket-delegation")
+
+    # ⛔ AND THE EXCLUSIONS ARE A DECLARED LIST, SO ITS MEMBERS MUST EXIST. A label
+    # that no longer names a probe row excludes nothing and reads as a decision
+    # that is still in force — the stale half of a declared list, which points the
+    # unpoliced way ([[feedback-a-declared-list-inherits-its-default]]).
+    labels = {l for l, _a, _h, _e0, _e1 in OA.P2_FORMS}
+    orphan = sorted(set(OA.NOT_AN_AVAILABILITY_QUESTION) - labels)
+    ok = not orphan
+    say(("  ✔ " if ok else "  ⛔ ") +
+        f"every excluded label names a live probe row "
+        f"({len(OA.NOT_AN_AVAILABILITY_QUESTION)} excluded of {len(labels)})"
+        + ("" if ok else f"   ORPHAN {orphan}"))
+    if not ok:
+        bad.append("exclusion-orphan")
+
     # ⛔ AND THE BUCKET NAMES MUST BE THE CENSUS'S OWN, spelled identically.  Two
     # vocabularies for one partition is the second source that goes stale, and it
     # would fail SILENTLY here — every lookup missing, every row "not measured",

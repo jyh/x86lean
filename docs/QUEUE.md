@@ -32,32 +32,22 @@ THE UNASKED REMAINDER    172 pairs / 18,032 instructions
 finished except for what the probe cannot express.
 
 ### P2 open items, in order
-1. **`probe_bucket` is not a narrow rule, it is a SECOND rule** — designed 2026-09-05, unbuilt.
-   It expresses 5 of 18 census buckets; `AVX (state)` is the one that costs measurably
-   (`vzeroupper`, 1,241 instructions, x86isa implements it, and no probe can carry its key —
-   D128 §5, D138 §3). The item has been carried as *"widen it"*, which is the wrong shape.
-   `demand_census.isa_bucket(mn, ops, kind)` is the census's own TOTAL rule and already returns
-   `AVX (state)` for `vzeroupper`, out of the very table the census keeps for operand-free forms.
-   ⇒ **The fix is delegation, not another case.** MEASURED over all 265 probe rows before writing
-   this: the two rules **agree on 256 of 256 rows both classify, and disagree on none**; the other
-   9 are rows `probe_bucket` returns `None` for.
-   - ⛔ **And the agreement is why the duplication survived.** `p2_roster.py`'s gate checks that
-     every probe bucket is a census bucket — a check on the VOCABULARY, not on the RULE. It passes
-     whenever both names exist, so it cannot see the two rules assign a row differently. A
-     duplicate born in agreement diverges on the next ordinary append to either table
-     ([[feedback-duplicate-born-in-agreement]]).
-   - ⚠️ **The delegation is not a one-liner, and the reason is a lossy key.** Two probe rows carry
-     a `kind` the asm TEXT cannot express — `movq %gs:0x28, %rax` is `segment` and `lock incl
-     (%rbx)` is `lock` — and the census buckets them by that kind. Delegating with `kind="plain"`
-     would file both under `GPR/other (unclassified)` and join them against the wrong demand. The
-     probe table therefore needs a declared `kind` column for those rows; deriving the kind from
-     the text would be a THIRD rule with the same defect one level down.
-   - The remaining `None` rows are CONTROLS (`CONTROL:mov`, `CONTROL:movnti`) and belong in an
-     explicit, reasoned exclusion list — not in a `return None` fallthrough, which is a default
-     wearing a rule's clothes.
-   - Exit: `vzeroupper` probed, its verdict surviving into `measured_availability()`, and the
-     unasked remainder's *implemented* column at **0 pairs**. Then `p2_roster`'s vocabulary gate
-     gains a RULE arm: a row whose two rules would bucket it differently must go red.
+1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
+   `probe_bucket` now calls `demand_census.isa_bucket`, the census's own total rule, instead of
+   being a second rule that agreed with it on 256 of 256 rows. `vzeroupper` buckets as
+   `AVX (state)`, so the key it needs now exists. The `None` return that used to decide BOTH the
+   bucket and whether a row was a question is split: `NOT_AN_AVAILABILITY_QUESTION` is a declared
+   list with a reason per entry, gated for orphans, and the delegation itself is gated by an arm
+   that stubs the census's function and requires the answer to move.
+   ⛔ **What remains, and it needs the oracle**: a probe row for `vzeroupper` — `hx` from `clang`
+   like every other row's, verdict from an ACL2 pass at CR4=0x600 — after which the unasked
+   remainder's *implemented* column goes from 1 pair / 1,241 instructions to **0**, and the
+   availability census is finished in the sense D138 could not reach.
+   ⚠️ Six rows stay excluded ONLY because they were excluded yesterday (`endbr64`, `prefetcht0`,
+   `prefetchnta`, `emms`, and the two `CONTROL:` rows). Each maps to a real census bucket under the
+   census's rule, so each verdict IS an availability fact this table could carry. Ruling on them
+   widens what `measured_availability()` means and moves the roster — a batch, not a side effect.
+
 2. **Land the buildable groups the census has surfaced** — the ordinary batch work.
 3. **The kernel-delta gate** stays the merge gate; the absolute ceilings ride beside every merge as
    readings, never as a gate (helm 2026-09-04 21:42).
