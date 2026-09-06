@@ -928,6 +928,59 @@ P2_FORMS = [
     # 2026-09-05T20:33:02Z.
     ("cvtsi2sdq",      "cvtsi2sdq %rax, %xmm0",             "f2480f2ac0",      "refuses", "executes"),
     ("cvtsi2ssq",      "cvtsi2ssq %rax, %xmm0",             "f3480f2ac0",      "refuses", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # P2 BATCH 33 — `vzeroupper`, RANK 1 OF THE UNASKED LIST SINCE BATCH 26 AND
+    # SKIPPED THREE TIMES (D128 §5, D138 §3) because `probe_bucket` read the
+    # bucket off the OPERANDS and this form has none, so a probe for it ran, had
+    # its verdict DISCARDED, and left the pair exactly as unasked as before.
+    # D143 delegated `probe_bucket` to the census's own rule, which buckets it
+    # `AVX (state)` out of the table the census keeps for operand-free forms.
+    # 1,241 instructions; the ONLY pair x86isa implements that had never been
+    # asked.
+    #
+    # ⛔ `hx` FROM `clang`, NOT TYPED: `c5f877`, and BOTH disassemblers agree
+    # (LLVM `objdump` and GNU `objdump` — D128's gate re-derives it every run).
+    #
+    # ⭐ AND THAT x86isa IMPLEMENTS IT WAS CHECKED AT THE OBJECT, not inherited
+    # from D138's reading of the catalogue: `inst-listing.lisp:9040` names
+    # `x86-vzeroupper` as the VEX.128 form's semantic function, and the function
+    # is DEFINED at `machine/instructions/fp/non-arith.lisp:50`. A catalogue can
+    # name a function that does not exist; this one does.
+    # [[feedback-the-oracle-is-evidence-not-the-specification]]
+    #
+    # ⚠️⚠️ THE DECLARATION, AND IT IS "REFUSES" IN BOTH ARMS — which is NOT what
+    # "x86isa implements it" would lead you to predict, and is the reason to write
+    # it down before running. The listing's exception spec is
+    # `(CHK-EXC :TYPE-8 (:AVX))`, and this probe's enabled arm sets
+    # `CR4 = #x600` — OSFXSR | OSXMMEXCPT. **Bit 18, OSXSAVE, is not among them**,
+    # so the AVX feature check cannot pass and the form should refuse at the very
+    # CR4 the differential itself runs under. If that is right, the pair moves
+    # from "implemented and never asked" to "implemented and not reachable under
+    # this driver", which is a different fact about the same 1,241 instructions.
+    # ⛔ DECLARATION SEALED BEFORE ACL2 RAN: sha256 of the row below
+    # = 5dd51ed13de0175902fd23c41f60e8a9c285265fe1b998ded649e128c9818623,
+    # 2026-09-05T23:50:22Z.
+    #
+    # ⛔⛔ AND THE DECLARATION WAS REFUTED BY THE RUN: measured `(refuses,
+    # EXECUTES)`. The gate printed `vzeroupper: declared (refuses, refuses),
+    # MEASURED (refuses, executes)` and went red, which is the seal doing its job
+    # — a prediction written after the fact would have been right by construction.
+    #
+    # ⇒ 🔑 THE ORACLE'S CATALOGUE DECLARES AN EXCEPTION CHECK ITS EXECUTION DOES
+    # NOT PERFORM. `inst-listing.lisp` gives this form `(CHK-EXC :TYPE-8 (:AVX))`,
+    # and `x86-vzeroupper` executes with `CR4 = #x600`, in which OSXSAVE (bit 18)
+    # is clear and AVX therefore cannot be enabled on real hardware. The reasoning
+    # that produced the prediction was sound about the SPEC and wrong about the
+    # MACHINE. [[feedback-the-oracle-is-evidence-not-the-specification]]
+    #
+    # ⚠️ AND THE CONSEQUENCE IS A NOTE FOR WHOEVER MODELS THIS FORM, not a note
+    # about this probe: an x86lean `vzeroupper` that DOES gate on CR4.OSXSAVE will
+    # DISAGREE with this oracle on a machine where AVX is off, and the
+    # differential will call that disagreement the model's. It is the oracle's.
+    # A differential is blind to nothing here — it is the shared-rule case in
+    # reverse, where the oracle implements FEWER rules than the spec.
+    # [[feedback-two-defects-that-cancel-survive-a-green-run]]
+    ("vzeroupper",     "vzeroupper",              "c5f877",       "refuses",  "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),

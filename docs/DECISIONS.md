@@ -8184,3 +8184,89 @@ not of the subject. `vzeroupper` now buckets as `AVX (state)` and is therefore a
 probe for it has been run**: its `hx` must come from `clang` like every other row's and its verdict
 from an ACL2 pass. Until then the unasked remainder still reads 1 implemented pair / 1,241
 instructions, and the census's `AVX (state)` column is unchanged.
+
+## D144 — P2 BATCH 33: `vzeroupper` asked at last, my declaration refuted by the run, and the availability census finished without a qualifier
+
+`vzeroupper` has been rank 1 of `p2_roster.py --unprobed` since batch 26 and was **skipped three
+times on purpose** (D128 §5, D138 §3): `probe_bucket` read the ISA bucket off the OPERANDS and this
+form has none, so a probe for it would run, have its verdict discarded, and leave the pair exactly
+as unasked as before. D143 delegated that function to the census's own rule, which buckets it
+`AVX (state)`. The key exists, so the question can be put.
+
+### 1. THE ROW, AND THE TWO THINGS CHECKED AT THE OBJECT RATHER THAN INHERITED
+
+`hx = c5f877`, from `clang`, agreed by **both** disassemblers (LLVM and GNU `objdump`), and
+re-derived by D128's gate at every CI run — 266 forms now.
+
+⭐ **That x86isa IMPLEMENTS it was re-checked, not taken from D138.** `inst-listing.lisp:9040`
+names `x86-vzeroupper` as the VEX.128 form's semantic function *(the VEX.256 sibling `VZEROALL`
+carries `NIL` in the same column)*, and the function is **defined** at
+`machine/instructions/fp/non-arith.lisp:50`. A catalogue can name a function that does not exist;
+this one does. [[feedback-the-oracle-is-evidence-not-the-specification]]
+
+### 2. THE DECLARATION WAS SEALED, AND THE RUN REFUTED IT
+
+Declared before ACL2 ran, sha256-sealed in the source with its timestamp: **`(refuses, refuses)`**.
+The reasoning: the listing gives this form `(CHK-EXC :TYPE-8 (:AVX))`, and this probe's enabled arm
+sets `CR4 = #x600` — OSFXSR | OSXMMEXCPT. **Bit 18, OSXSAVE, is not among them**, so AVX cannot be
+enabled and the form should refuse at the very CR4 the differential runs under.
+
+```
+⛔ vzeroupper: declared (refuses, refuses), MEASURED (refuses, executes)
+```
+
+⇒ 🔑 **THE ORACLE'S CATALOGUE DECLARES AN EXCEPTION CHECK ITS EXECUTION DOES NOT PERFORM.** The
+reasoning was sound about the SPEC and wrong about the MACHINE, and the seal is what made that
+visible: a prediction written after the run would have been right by construction, and the
+interesting half — that x86isa does not gate this form on CR4.OSXSAVE — would have gone unrecorded.
+
+⛔ **AND THE CONSEQUENCE IS FOR WHOEVER MODELS THE FORM, not for this probe.** An x86lean
+`vzeroupper` that DOES gate on `CR4.OSXSAVE` will disagree with this oracle on a machine where AVX
+is off, and the differential will report that as the MODEL's disagreement. It is the oracle's.
+[[feedback-two-defects-that-cancel-survive-a-green-run]]
+
+### 3. ⛔⛔ AND A HARDER WARNING, BECAUSE "ASKABLE" IS NOT "BUILDABLE"
+
+`vzeroupper` zeroes `YMM[255:128]` of every register. This model has no YMM registers — the
+census's own `EXT_SCOPE` says `"AVX (state)": False`, and `"AVX2/AVX (ymm)": False` beside it.
+
+⇒ **A differential vector for `vzeroupper` against a model with no upper halves would AGREE, and
+the agreement would be about the absence of the state rather than about the semantics.** Every
+observable the harness compares — GPRs, flags, the xmm low quadwords, memory — is untouched by the
+instruction on both sides. The vector would pass, the coverage table would gain a row, and nothing
+would have been tested. [[feedback-unobserved-regions-report-agreement]]
+[[feedback-a-dimension-with-no-parameter-is-frozen]] The 1,241 instructions are now ASKED; they are
+not now BUILDABLE, and the gap between those two words is a register file.
+
+### 4. THE REBUILD WAS CONTROLLED, AND THAT IS THE WHOLE RECEIPT
+
+`docs/P2-ROSTER.md` is generated and CI requires byte equality. Regenerated, the diff is **six
+lines**, and every one of them moves by exactly `+1` pair and `±1,241` instructions:
+
+```
+| the oracle EXECUTES         | 140 → 141 | 161,448 → 162,689 | 39.1% → 39.4% |
+| **probed so far**           | 222 → 223 | 378,610 → 379,851 | 91.8% → 92.1% |   (asked-at-bucket table)
+| the oracle EXECUTES         | 128 → 129 | 133,101 → 134,342 | 32.3% → 32.6% |
+| **probed so far**           | 216 → 217 | 302,978 → 304,219 | 73.4% → 73.7% |
+| not asked at its own bucket |           | 109,500 → 108,259 | 26.5% → 26.2% |
+```
+
+`the oracle REFUSES` does not move at all. Nothing outside those six lines moves. That is the
+controlled-rebuild rule this repository already carries for the census corpus, applied to a
+generated roster: **per-column totals accounted for, and zero rows changed but the one added.**
+
+### 5. WHERE THE CENSUS STANDS
+
+```
+THE UNASKED REMAINDER    171 pairs / 16,791 instructions      (was 172 / 18,032)
+   x86isa IMPLEMENTS       0 pairs /      0
+   x86isa DOES NOT       171 pairs / 16,791
+   NOT RESOLVED            0 pairs /      0
+```
+
+⭐⭐ **Every pair x86isa implements has now been asked.** D138 could only reach *"every implemented
+pair that CAN be asked"* — a sentence with a qualifier doing real work, hiding 1,241 instructions
+behind a limitation of the probe rather than of the oracle. The qualifier is gone.
+
+⚠️ This supersedes D143 §4's *"until then the unasked remainder still reads 1 implemented pair /
+1,241"*, which was true when it was written one commit earlier.

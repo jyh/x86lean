@@ -18,18 +18,21 @@ Exit criterion — one differential run of the 20 forms with zero unexplained di
 Roster growth to the census's scalar demand, with the vector table, the encoding gates and the
 kernel-cost discipline built along the way.
 
-## P2 — the vector campaign · **LIVE** (31 batches)
+## P2 — the vector campaign · **LIVE** (33 batches)
 Extending the model and the oracle-availability census across the SIMD/FP buckets.
 
-**Where it stands** (`scripts/p2_oracle_support.py`, `scripts/p2_roster.py`):
+**Where it stands** — ⚠️ HAND-COPIED from the tools named, so it is a claim and not a reading;
+re-run them rather than quoting this block (`python3 scripts/p2_oracle_support.py`):
 ```
-THE UNASKED REMAINDER    172 pairs / 18,032 instructions
-   x86isa IMPLEMENTS       1 pair  /  1,241   — vzeroupper, and NOT askable (below)
+THE UNASKED REMAINDER    171 pairs / 16,791 instructions      (was 172 / 18,032 before batch 33)
+   x86isa IMPLEMENTS       0 pairs /      0
    x86isa DOES NOT       171 pairs / 16,791
    NOT RESOLVED            0 pairs /      0
 ```
-⇒ **Every implemented pair that can be asked has been asked** (D138). The availability census is
-finished except for what the probe cannot express.
+⇒ ⭐⭐ **EVERY PAIR x86isa IMPLEMENTS HAS NOW BEEN ASKED** (D144). D138 could only reach *"every
+implemented pair that CAN be asked"*, with `vzeroupper` / `AVX (state)` — 1,241 instructions —
+outside the probe's reach for three batches. The availability census is finished without a
+qualifier.
 
 ### P2 open items, in order
 1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
