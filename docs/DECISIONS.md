@@ -9693,3 +9693,171 @@ the null" would be a fact about the comparison rather than about the counter.
    running at all. `None` now compares as infinitely bad.
 🔑 Both defects were in the ARMS, not the subject, for the second batch running. A harness that only
 ever confirms is the one to distrust; these two ran red before anything green was believed.
+
+## D156 — QUEUE item 10 discharged: the orphan probe was looking in the one place a killed timing job never leaves an orphan, and the post-flight report then called my own live job an orphan
+
+Item 10's pre-flight half has run since D151: a timing run looks for its own orphans before believing
+its numbers. What remained was the POST-flight — *"re-run the orphan probe after a job is killed,
+since that is when orphans are made."* Building it broke two of my assumptions and one pre-existing
+arm, all of them in the direction of a report that reads as authoritative and is not.
+
+### 1. ⛔⛔ THE DEFECT: ONE PRODUCER NAMED, THIRTEEN EXISTING
+
+`foreign_builds` decided whether a Lean process belonged to another campaign like this:
+
+```python
+if rp == want or rp.startswith(want + os.sep) or "x86lean-history" in rp:
+    continue        # ours
+```
+
+`"x86lean-history"` is the temp prefix of ONE of the **thirteen** `mkdtemp` producers that were
+in `scripts/` when this was found. (There are fourteen after this batch; the fourteenth is the
+declared foreign fixture in §3, and the arm prints its own count rather than carrying one here.)
+The merge gate and the drift gate profile their worktrees under **`x86lean-delta-`**. Measured, one
+real process per prefix, with both controls in the same run:
+
+```
+  temp tree prefix           counted FOREIGN?   produced by
+  x86lean-history-             no (excluded)    kernel_delta_history.py:560   (negative control)
+  x86lean-delta-                      YES ⛔    kernel_delta.py:432  (the MERGE and DRIFT gates)
+  x86lean-budgetprobe-                YES ⛔    kernel_delta.py:939
+  some-other-seat-                    YES ✅    a genuinely foreign tree      (positive control)
+```
+
+🔑 **A declared list's gaps all fall the way its default points**, and here the default was "another
+campaign's build". [[feedback-a-declared-list-inherits-its-default]]
+
+### 2. AND IT WAS WRONG IN BOTH DIRECTIONS AT ONCE — WHICH IS ITEM 10'S SUBJECT EXACTLY
+
+`repo_orphans` asked whether a process's cwd was `== the repo root, exactly`. A killed timing job
+does not leave orphans in the repo root: `kernel_cost.py` does `os.chdir(root)` and the delta gate
+passes `--root <worktree>`, so the children run in a **worktree under TMPDIR**. An orphaned profiler
+was therefore **invisible** to the probe that hunts my own orphans and **counted** by the probe that
+hunts other campaigns' builds, simultaneously. The one process class item 10 exists to catch was the
+class both probes misfiled, in opposite directions.
+
+### 3. THE FIX: STRUCTURAL FIRST, SYMMETRIC, AND NAME-BASED ONLY WHERE NOTHING ELSE SURVIVES
+
+`_own_tree(rp, want)`, one place, used by both probes:
+
+1. the repo itself or anything under it;
+2. **the main tree seen FROM a worktree** — `want` is the tree being profiled, which during a delta
+   run IS a worktree, so without this the main repository counts as another campaign's tree while
+   its own gate profiles a worktree of it;
+3. **STRUCTURAL, name-free** — a detached worktree of this repo carries a `.git` FILE whose `gitdir:`
+   points inside this repo's `--git-common-dir`;
+4. **name-based, last, and only when the directory is GONE** — the post-kill case where nothing
+   structural is left to read.
+
+⛔ **The first spelling of (4) had no "gone" condition and claimed every `x86lean-*` temp directory.
+It promptly reclassified this selftest's own foreign fixture (`x86lean-fake-lean-`, a scratch dir
+that deliberately impersonates another campaign) as this seat's, turning a passing arm RED.** The arm
+was right and my rule was too broad. A refusal is a design hint before it is an exemption, and the
+narrower rule is also the more accurate description of what the fallback is for.
+[[feedback-a-gate-that-refuses-names-a-cheaper-build]]
+
+⭐ The convention the fallback rests on is **gated against the source**: an arm reads every
+`mkdtemp(prefix=…)` in `scripts/` and requires it to start with `TMP_PREFIX` **or** to appear in
+`FOREIGN_FIXTURES`, a declared list with a reason per entry — and it also refuses a STALE entry that
+no longer appears in the source, so the exemption list cannot quietly grow.
+
+### 4. ⭐⭐⭐ THE FINDING THAT MATTERS MOST: "ppid 1" IS NOT "ORPHANED", AND I NEARLY ACTED ON IT
+
+The probe's rule is *ppid == 1 and cwd in my trees*. In production tonight, within ten minutes:
+
+```
+  pid 37925  Python  up 00:51  cwd = repo   REAL orphan — child of a selftest I had killed
+  pid 91860  Python  up 00:17  cwd = repo   ⛔ MY OWN LIVE SELFTEST, running, wanted
+  pid 91898  Python  up 01:30  cwd = repo   REAL orphan — child of the next kill
+  pid 61710  lake    up 00:25  cwd = repo   REAL orphan — a build left by that kill
+```
+
+The report labelled all four **"MINE, ORPHANED"** and said *"these survived a job of mine."* Three
+of those readings were correct. The second was my own selftest, launched with `nohup … &` — **every
+deliberately backgrounded job in this harness is reparented to init exactly like a stranded one**,
+because the launching shell always exits. I had killed a real orphan by pid one minute earlier, so
+the reading arrived pre-endorsed by its own track record; I was one command from killing a live job
+on the strength of it.
+
+⇒ 🔑 **A signal that is right three times out of four is the dangerous kind, and the fourth case is
+indistinguishable from the inside.** This is math's 22:45 near-miss (a `pkill -f bus_watch.sh` would
+have blinded six seats) arriving in the tool built to prevent it, one layer down: there the
+discriminator was cwd, here cwd is not enough and there is no discriminator at all.
+
+Two changes, and neither pretends to resolve what cannot be resolved:
+* `repo_orphans` **never names the calling process**. A probe run as a background job is ppid 1 like
+  everything else, and the caller reading a report it asked for is the reader least likely to doubt
+  it. (The pre-existing held-out arm already excluded `os.getpid()` for a *parented* process; that
+  exclusion was one case short.)
+* the report says **"MINE, ppid 1"**, states in the output that ppid 1 is true of every backgrounded
+  job as well as every orphan, and requires confirming a process is unwanted **before** killing it
+  by pid. It never kills. [[feedback-enumerate-is-not-attribute]]
+
+### 5. WHY IT REPORTS AND NEVER REAPS
+
+Every seat on this box runs identical command lines from identical paths — `sh
+~/Documents/seat/watch/bus_watch.sh` is byte-for-byte the same at six seats — so a name-matched sweep
+at one seat's exit selects the WHOLE FLEET's watches, silently, discoverable only at the next boot;
+and the boot brief's own warning that a relit seat "boots blind until this runs" would have made the
+injury look like the ordinary relight condition. math came one command from that tonight and stopped
+because it attributed by cwd first; its six hits included this seat's own watch, pid 91614.
+[[feedback-a-process-filter-matches-its-own-waiter]]
+
+### 6. ARMS ADDED, each creating its own condition with a real process
+
+```
+  3d(a) a Lean build in a REAL detached worktree (x86lean-delta-) is NOT counted foreign
+        — a plain temp dir would exercise the NAME rule while claiming to test the structural one
+  3d(b) a genuinely foreign tree IS counted          (the control that keeps 3d(a) honest)
+  3d(c) a process whose worktree DIRECTORY WAS REMOVED is still recognised as mine
+        — reported INAPPLICABLE, not green, if lsof cannot report a deleted cwd on this
+          platform; on this box it HAD input and passed, so the fallback is exercised
+  3e    every mkdtemp prefix in scripts/ obeys the convention or is a DECLARED fixture,
+        read from the source, with stale declarations refused too
+  3f    a real ppid-1 process in a delta-gate WORKTREE is reported as MINE …
+        … and is NOT also counted as another campaign's build
+  3g    the post-flight probe returns 0 when nothing of mine is left detached — the caller's
+        own pid included, since a backgrounded probe is itself ppid 1
+```
+
+### 7. ⭐⭐ AND THE NEW PROBE IMMEDIATELY CAUGHT THE SELFTEST ITSELF MAKING ORPHANS
+
+Arm 3g went red on the first full run, and it was right. The fake-`lean` fixture every process arm
+uses is a two-line shell script:
+
+```sh
+#!/bin/sh
+sleep 40
+```
+
+`Popen` starts the **shell**; the shell starts `sleep` as its child. `pr.kill()` kills the shell, and
+the `sleep` is reparented to init — a ppid-1 process with its cwd in one of my trees, for forty
+seconds, on every arm that used the fixture. Measured directly rather than inferred: `sh 54864` had
+child `55138`; after killing 54864, `55138` survives with **ppid 1**.
+
+⇒ **Two of the leaking arms PREDATE this batch.** The probe built to find orphans left by killed jobs
+found them being manufactured by the selftest that tests it, and the leak was invisible until
+something asked the question at the right moment — the fixtures' processes expire after 40 s, so any
+later check reads clean. Fixed with `exec sleep 40`, which replaces the shell rather than parenting a
+child, so killing the pid kills the process there actually is.
+🔑 A cleanup that kills a *wrapper* has not killed the work. [[feedback-a-running-script-is-an-open-file-handle]]
+
+### 8. WHAT MY OWN ARMS GOT WRONG
+
+⛔ **Two of my own arms were wrong before the subject was.** Arm 3f first created its process in a
+bare temp directory, which under the corrected (narrowed) rule is correctly NOT this seat's — the arm
+was asserting the over-broad rule I had just removed. And arm 3g read `post_flight()` immediately
+after 3f sent SIGKILL, before init had reaped the process, so a correct tool failed a racing control;
+it now waits for the pid to actually vanish.
+🔑 For the third batch running, the defects were in the ARMS rather than in the subject. That is what
+a harness that can go red is for.
+
+### 9. RECEIPTS
+
+`python3 scripts/kernel_cost.py --selftest` → **PASS (21 arms)**, ~11 min, none INAPPLICABLE.
+`--post-flight` immediately after that run: **0 ppid-1 processes in my trees, 0 builds in other
+trees** — which it was NOT before the `exec` fix, so the fixture leak is closed and the probe says so.
+⚠️ The ceiling control printed *"UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING THE
+CEILINGS"*: the box was loaded (load 12-15 all evening) and that arm refused rather than guessed,
+which is the behaviour D111 registered. It is a refusal, not a pass, and is recorded as one.
+⚠️ Local and arm64. Actions still refuses every job on this account for billing.

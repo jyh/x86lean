@@ -383,12 +383,44 @@ qualifier.
    applied to the sentence I was writing at the time.
    [[feedback-a-single-reading-is-about-its-run]] [[feedback-ungated-prose-overclaims]]
 
-10. **A post-flight orphan check, and a contention count in every reading (D151).** The stamp half
-    is DONE — `conditions()` now counts `lean`/`lake` processes whose cwd is OUTSIDE this repository
-    and sets `contended`, so the helm's rule of 09/05 (*a reading taken under contention must be
-    marked CONTENDED in its own receipt*) is enforced by the tool rather than by whoever writes the
-    receipt. What remains is the POST-flight: re-run the orphan probe after a job is killed, since
-    that is when orphans are made.
+10. **A post-flight orphan check, and a contention count in every reading (D151).** ⭐⭐⭐ **DONE
+    (D156, 2026-09-05)** — `python3 scripts/kernel_cost.py --post-flight`, rc 0 nothing of mine ·
+    1 my orphans survive · **2 the probe could not look** (never a clean bill). It REPORTS and never
+    kills: every seat on this box runs identical command lines from identical paths, so a
+    name-matched sweep at one seat's exit selects the whole fleet's watches — math came one command
+    from that at 22:45 and its six hits included this seat's own watch (pid 91614).
+    ⛔⛔ **AND BUILDING IT FOUND THE PROBE LOOKING IN THE ONE PLACE A KILLED TIMING JOB NEVER LEAVES
+    AN ORPHAN.** `foreign_builds` excluded temp trees by the substring `"x86lean-history"` — ONE of
+    the **thirteen** `mkdtemp` producers in `scripts/`; the merge gate and the drift gate use
+    `x86lean-delta-`. Measured with a real process per prefix and both controls: history excluded,
+    delta counted, budgetprobe counted, a genuinely foreign tree counted. Since `kernel_cost.py`
+    does `os.chdir(root)` and the delta gate passes `--root <worktree>`, an orphaned profiler was
+    **invisible to `repo_orphans`** (whose test was cwd == the repo root, exactly) **and counted as
+    someone else's build** — the one class item 10 exists to catch, misfiled by both probes in
+    opposite directions.
+    ⇒ `_own_tree()` is now the single decider: the repo · the MAIN tree seen from a worktree (else
+    the repository counts as foreign while its own gate profiles a worktree of it) · a STRUCTURAL
+    name-free test (a worktree of this repo carries a `.git` FILE whose `gitdir:` points into this
+    repo's common git dir) · and last, a name fallback **only where the directory is GONE**, the one
+    case nothing structural survives. An arm reads every `mkdtemp(prefix=…)` in `scripts/` and
+    requires the convention or a DECLARED fixture (stale declarations refused too).
+    ⛔ The first spelling of that fallback claimed every `x86lean-*` temp dir and reddened a correct
+    pre-existing arm whose fixture deliberately impersonates a foreign tree; the refusal named the
+    narrower rule.
+    ⭐⭐⭐ **AND THE REPORT ITSELF HAD TO BE CORRECTED: "ppid 1" IS NOT "ORPHANED".** In production it
+    caught three real orphans by pid — and, between two of them, labelled **this seat's own live,
+    running selftest** an orphan, because `nohup … &` reparents a wanted job to init exactly like a
+    stranded one. Three right readings pre-endorsed the fourth. ⇒ `repo_orphans` never names the
+    CALLING process, and the report states the ambiguity instead of asserting an orphan. It kills
+    nothing; killing is by pid after confirming the process is unwanted.
+    ⭐⭐ **AND THE NEW PROBE CAUGHT THE SELFTEST MANUFACTURING ORPHANS — in two arms that PREDATE
+    it.** The fake-`lean` fixture was `#!/bin/sh` + `sleep 40`, so `Popen` started the SHELL and the
+    `sleep` was its child; killing the shell reparented the sleep to init for 40 s. Measured: sh
+    54864 → child 55138, and 55138 survives the kill with ppid 1. Fixed with `exec sleep 40`.
+    🔑 A cleanup that kills a WRAPPER has not killed the work, and the leak was invisible to any
+    later check because the fixtures expire.
+    ⚠️ `kernel_cost.py --selftest` is a LONG gate (>10 min; it profiles real trees) and is
+    deliberately not in `ci_local`'s portable list.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
 `docs/SOFT-FLOAT-COMMISSION.md` — opened 2026-09-05, with its premise tested at the object, its

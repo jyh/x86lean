@@ -20,7 +20,7 @@ of §3.7.  Raising a ceiling is a decision to record in docs/DECISIONS.md.
 
 Usage:  kernel_cost.py [--register]   (--register rewrites the ceiling file)
 """
-import os, re, subprocess, sys, glob, json, time, resource
+import os, re, subprocess, sys, glob, json, time, resource, tempfile
 
 # ⭐⭐ P2 BATCH 25 (D123) — THE ROOT IS A SEAM, AND IT EXISTS SO THAT ONE
 # MEASUREMENT IMPLEMENTATION SERVES BOTH GATES.  `kernel_delta.py` profiles a
@@ -92,6 +92,108 @@ import threads_ab as _tab
 # `pkill -f` on the pattern would have reaped another seat's live process.  This
 # reports; it never kills.  [[feedback-enumerate-is-not-attribute]]
 # [[feedback-a-process-filter-matches-its-own-waiter]]
+# ⭐⭐⭐ QUEUE ITEM 10 (D156) — WHICH TREES ARE *MINE*, IN ONE PLACE.
+#
+# ⛔⛔ THE BUG THIS REPLACES, MEASURED RATHER THAN REASONED. `foreign_builds`
+# excluded temp trees by the substring `"x86lean-history"` — the prefix of ONE of
+# the THIRTEEN `mkdtemp` producers in `scripts/`. The merge gate's and the drift
+# gate's own worktrees use `x86lean-delta-`, so a fake `lean` run in one was
+# counted as ANOTHER CAMPAIGN'S BUILD (measured: history excluded, delta counted,
+# budgetprobe counted, a genuinely foreign tree counted — the last two are the
+# probe's controls). Two consequences, and the second is item 10's whole subject:
+#   * any reading taken from the repo root while a delta run profiles a worktree
+#     is stamped CONTENDED by this seat's own children;
+#   * an orphan left in a worktree by a KILLED timing job was invisible to
+#     `repo_orphans` (whose test was cwd == the repo root, exactly) while being
+#     counted as someone else's build — backwards in both directions at once.
+# 🔑 A declared list's gaps all fall the way its default points, and here the
+# default was "foreign". [[feedback-a-declared-list-inherits-its-default]]
+#
+# The primary test is STRUCTURAL and name-free: a detached worktree of this
+# repository carries a `.git` FILE whose `gitdir:` points inside this repo's own
+# common git directory. The name test is a FALLBACK, and it is here for the case
+# that matters after a kill — a worktree whose directory has already been removed,
+# where nothing structural survives to be read.
+TMP_PREFIX = "x86lean-"
+
+# ⚠️ FIXTURES THAT DELIBERATELY IMPERSONATE ANOTHER CAMPAIGN'S TREE, each with a
+# reason — the same shape as `NOT_AN_AVAILABILITY_QUESTION` in the census. The
+# convention arm below requires every `mkdtemp` prefix in `scripts/` to start
+# with TMP_PREFIX *or* to be declared here, and it also refuses a STALE entry
+# that no longer appears in the source, so this list cannot quietly grow.
+FOREIGN_FIXTURES = {
+    "some-other-campaign-":
+        "the positive control that a genuinely foreign tree IS counted; if this "
+        "started with TMP_PREFIX the control would test nothing",
+}
+_COMMON_GITDIR = None
+
+
+def _common_gitdir():
+    global _COMMON_GITDIR
+    if _COMMON_GITDIR is None:
+        try:
+            r = subprocess.run(["git", "rev-parse", "--git-common-dir"],
+                               capture_output=True, text=True, timeout=10)
+            _COMMON_GITDIR = (os.path.realpath(r.stdout.strip())
+                              if r.returncode == 0 and r.stdout.strip() else "")
+        except Exception:
+            _COMMON_GITDIR = ""
+    return _COMMON_GITDIR
+
+
+def _under_tmp(rp):
+    for base in {tempfile.gettempdir(), "/tmp", "/private/tmp", "/var/folders"}:
+        try:
+            b = os.path.realpath(base)
+        except OSError:
+            continue
+        if rp == b or rp.startswith(b + os.sep):
+            return True
+    return False
+
+
+def _own_tree(rp, want):
+    """True if `rp` is this repository, a worktree of it, or its scratch space."""
+    if rp == want or rp.startswith(want + os.sep):
+        return True
+    cg = _common_gitdir()
+    dotgit = os.path.join(rp, ".git")
+    # ⭐ AND THE RELATION IS SYMMETRIC. `want` is the tree being profiled, which
+    # during a delta run is a WORKTREE — so without this the MAIN repository
+    # counts as another campaign's tree while its own gate profiles a worktree of
+    # it. The main tree is the parent of the common git directory.
+    try:
+        if cg and os.path.realpath(os.path.dirname(cg)) == rp:
+            return True
+    except OSError:
+        pass
+    try:
+        if cg and os.path.isfile(dotgit):
+            line = open(dotgit).read().strip()
+            if line.startswith("gitdir:"):
+                gd = os.path.realpath(line.split(":", 1)[1].strip())
+                if gd == cg or gd.startswith(cg + os.sep):
+                    return True
+    except OSError:
+        pass
+    # ⚠️ NAME-BASED, LAST, AND ONLY WHERE NOTHING STRUCTURAL CAN SURVIVE — the
+    # directory is GONE. A live tree that is really ours answers test 2; if the
+    # directory still exists and carries no `gitdir:` into this repo, it is not
+    # ours however it is named.
+    # ⛔ THE FIRST SPELLING DROPPED THAT CONDITION and claimed EVERY `x86lean-*`
+    # temp directory. It promptly reclassified this selftest's own foreign
+    # fixture (`x86lean-fake-lean-`, a scratch dir that deliberately impersonates
+    # another campaign) as this seat's, turning a passing arm red — the arm was
+    # right and the rule was too broad. A refusal is a design hint before it is
+    # an exemption. [[feedback-a-gate-that-refuses-names-a-cheaper-build]]
+    if _under_tmp(rp) and not os.path.isdir(rp):
+        for part in os.path.normpath(rp).split(os.sep):
+            if part.startswith(TMP_PREFIX):
+                return True
+    return False
+
+
 def repo_orphans(root=None):
     """Processes whose cwd is this repository and whose session is gone (ppid 1).
 
@@ -105,9 +207,15 @@ def repo_orphans(root=None):
         if ps.returncode != 0:
             return None
         cand = {}
+        me = str(os.getpid())
         for line in ps.stdout.splitlines()[1:]:
             parts = line.split(None, 3)
-            if len(parts) == 4 and parts[1] == "1" and parts[0] != "1":
+            # ⛔ NEVER THE CALLER ITSELF. A probe run as a BACKGROUND job is
+            # reparented to init like any other, so without this it names its own
+            # process as an orphan — and the caller, reading a report it asked
+            # for, is exactly the reader least likely to doubt it.
+            if (len(parts) == 4 and parts[1] == "1"
+                    and parts[0] != "1" and parts[0] != me):
                 cand[parts[0]] = {"etime": parts[2], "comm": parts[3].strip()}
         if not cand:
             return []
@@ -124,7 +232,7 @@ def repo_orphans(root=None):
             if len(parts) < 9:
                 continue
             pid, cwd = parts[1], parts[8].strip()
-            if pid in cand and os.path.realpath(cwd) == want:
+            if pid in cand and _own_tree(os.path.realpath(cwd), want):
                 out.append({"pid": int(pid), "cwd": cwd, **cand[pid]})
         return out
     except Exception:
@@ -186,9 +294,12 @@ def foreign_builds(root=None):
                 continue
             pid, cwd = parts[1], parts[8].strip()
             rp = os.path.realpath(cwd)
-            # ⚠️ a detached worktree of THIS repo under TMPDIR is this seat's own
-            # (the history walk profiles one), so "outside" means outside both.
-            if rp == want or rp.startswith(want + os.sep) or "x86lean-history" in rp:
+            # ⚠️ "outside" means outside this repo AND outside every tree of it —
+            # the delta gate, the drift gate, the history walk and ten other
+            # producers all profile detached worktrees under TMPDIR. `_own_tree`
+            # is the single place that decides; naming one producer here is what
+            # made this filter wrong for the other twelve.
+            if _own_tree(rp, want):
                 continue
             if (pid, rp) in seen:
                 continue
@@ -217,6 +328,68 @@ def conditions(root=None):
             # ⭐ the stamp itself. `None` where the probe could not look — an
             # unknown is not a clean bill.
             "contended": None if fb is None else bool(fb)}
+
+
+# ⭐⭐⭐ QUEUE ITEM 10, THE HALF THAT WAS MISSING — THE **POST**-FLIGHT PROBE.
+#
+# The pre-flight half has run since D151: a timing run looks for orphans before
+# it believes its own numbers. But orphans are not made before a job, they are
+# made when one is KILLED — a relight kills the SESSION, not the processes, and
+# the survivors are exactly the long-lived ones (D149 found a `ci_local --job
+# build` at ppid 1 after 47 minutes). The probe therefore has to run at the one
+# moment nobody was running it.
+#
+# ⛔⛔ IT REPORTS AND NEVER KILLS, and that is not squeamishness. Every seat on
+# this box runs identical command lines from identical paths — `sh
+# ~/Documents/seat/watch/bus_watch.sh` is byte-for-byte the same at six seats —
+# so a name-matched sweep at one seat's exit selects the whole fleet's watches,
+# silently, discoverable only at the next boot (math, 2026-09-05 22:45, one
+# command away from doing it). The seats are distinguishable ONLY by cwd.
+# ⇒ This prints pids and cwds and stops. Anything killed is killed by a human or
+# by `TaskStop`, which scopes to its own task.
+# [[feedback-enumerate-is-not-attribute]] [[feedback-a-process-filter-matches-its-own-waiter]]
+def post_flight(root=None):
+    """(rc, lines) — orphans this seat left behind, and other campaigns' builds.
+
+    rc 0 nothing of mine · 1 my orphans survive · 2 a probe could not look."""
+    want = os.path.realpath(root or os.getcwd())
+    mine, others = repo_orphans(want), foreign_builds(want)
+    lines = [f"── POST-FLIGHT orphan check · {want}"]
+    if mine is None or others is None:
+        # ⛔ "could not look" and "nothing there" must never print the same.
+        # [[feedback-probe-silence-has-two-causes]]
+        lines.append("⛔ the probe could NOT LOOK (ps or lsof unavailable or "
+                     "refused), so this is not a clean bill — it is an absence "
+                     f"of evidence: repo_orphans={'ok' if mine is not None else 'FAILED'} "
+                     f"foreign_builds={'ok' if others is not None else 'FAILED'}")
+        return 2, lines
+    for o in mine:
+        lines.append(f"⚠️  MINE, ppid 1  pid {o['pid']:>7}  up {o['etime']:>12}  "
+                     f"{o['comm']}  cwd {o['cwd']}")
+    for o in others:
+        lines.append(f"   another tree    pid {o['pid']:>7}  cwd {o['cwd']}")
+    lines.append(f"   {len(mine)} ppid-1 process(es) in my trees · {len(others)} "
+                 f"build(s) in other trees · NOTHING WAS KILLED")
+    if mine:
+        # ⛔⛔ "ppid 1" IS NOT "ORPHANED", AND THIS TOOL LEARNED THAT BY NEARLY
+        # COSTING ME A LIVE JOB. Every background job in this harness is launched
+        # from a shell that then exits, so a RUNNING, WANTED job is reparented to
+        # init exactly like a stranded one. The first version of this report
+        # labelled them "MINE, ORPHANED" and said "these survived a job of mine";
+        # minutes later it said that about the selftest that was at that moment
+        # running, and the reading is indistinguishable from the real orphan it
+        # had correctly caught one minute earlier.
+        # ⇒ The report names the AMBIGUITY it cannot resolve instead of asserting
+        # the reading it happens to have. [[feedback-enumerate-is-not-attribute]]
+        lines.append("⚠️  ppid 1 means the launching shell exited — which is TRUE OF "
+                     "EVERY DELIBERATELY BACKGROUNDED JOB as well as of every "
+                     "orphan. This list cannot tell them apart.")
+        lines.append("⛔ Before killing any of these: confirm it is not a job you "
+                     "still want, then kill BY PID — never by a name pattern, "
+                     "which at this box selects other seats' live processes.")
+        return 1, lines
+    lines.append("✅ nothing of mine is running detached.")
+    return 0, lines
 
 
 def modules():
@@ -730,7 +903,13 @@ def conditions_selftest():
         # arms then "passed" the way a probe passes when its subject never
         # existed — and the OUT arm's red is the only reason I looked.
         # [[feedback-a-probe-must-create-its-condition]]
-        open(fake, "w").write("#!/bin/sh\nsleep 40\n")
+        # ⛔ `exec`, so the shell is REPLACED by the sleep. A plain `sleep`
+        # leaves the shell as a parent whose death reparents the sleep to
+        # init, so this fixture leaked a ppid-1 process for 40 s on every
+        # arm that used it — caught by the post-flight probe D156 added,
+        # in the two arms that PREDATE it. Measured: sh 54864 -> child
+        # 55138; kill 54864 and 55138 survives with ppid 1.
+        open(fake, "w").write("#!/bin/sh\nexec sleep 40\n")
         os.chmod(fake, 0o755)
         for label, cwd_ in (("out", d), ("in", root)):
             pr = subprocess.Popen([fake], cwd=cwd_,
@@ -760,6 +939,186 @@ def conditions_selftest():
     out.append((seen_in is False,
                 "the same binary run INSIDE this repo is NOT counted (the seat's "
                 "own work must not mark its own reading contended)"))
+
+    # ⭐⭐⭐ ARM 3d — EVERY TEMP TREE PRODUCER, NOT THE ONE THAT WAS NAMED (D156).
+    # The filter this replaces excluded the literal `"x86lean-history"`, which is
+    # ONE of thirteen `mkdtemp` prefixes in `scripts/`; a fake `lean` in the merge
+    # gate's own `x86lean-delta-` worktree was counted as another campaign's
+    # build. Each producer gets a real process here, and the last row is the
+    # POSITIVE CONTROL that a genuinely foreign tree is still counted — without
+    # it, "nothing is foreign" would pass by the filter having stopped looking.
+    def _fake_lean_in(d):
+        fk = os.path.join(d, "lean")
+        # ⛔ `exec` — see the note on the other fixture: without it, killing
+        # this process leaves a ppid-1 `sleep` behind for 40 seconds.
+        open(fk, "w").write("#!/bin/sh\nexec sleep 40\n")
+        os.chmod(fk, 0o755)
+        return subprocess.Popen([fk], cwd=d, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+
+    def _is_foreign(pid, tries=25):
+        for _ in range(tries):
+            fb = foreign_builds()
+            if fb is not None and any(o["pid"] == pid for o in fb):
+                return True
+            time.sleep(0.2)
+        return False
+
+    # (a) A REAL detached worktree of this repo, which is what the merge gate and
+    # the drift gate actually profile. This exercises the STRUCTURAL test; a
+    # plain temp directory would not, and an arm that passed on one would be
+    # asserting the name rule while claiming to assert the structural one.
+    wt_a = tempfile.mkdtemp(prefix="x86lean-delta-")
+    wt_tree = os.path.join(wt_a, "base")
+    pr_a = None
+    try:
+        subprocess.run(["git", "worktree", "add", "--detach", wt_tree, "HEAD"],
+                       cwd=root, capture_output=True, text=True, timeout=120)
+        pr_a = _fake_lean_in(wt_tree)
+        out.append((_is_foreign(pr_a.pid) is False,
+                    "a Lean build in a REAL detached worktree of this repo "
+                    "(x86lean-delta-, what the merge and drift gates profile) is "
+                    "NOT counted as another campaign's build"))
+    finally:
+        if pr_a:
+            pr_a.kill()
+            pr_a.wait()
+        subprocess.run(["git", "worktree", "remove", "--force", wt_tree],
+                       cwd=root, capture_output=True, text=True)
+        _sh.rmtree(wt_a, ignore_errors=True)
+
+    # (b) THE POSITIVE CONTROL. Without it "nothing is foreign" passes by the
+    # filter having stopped looking. Its prefix is declared in FOREIGN_FIXTURES.
+    d_b = tempfile.mkdtemp(prefix="some-other-campaign-")
+    pr_b = None
+    try:
+        pr_b = _fake_lean_in(d_b)
+        out.append((_is_foreign(pr_b.pid) is True,
+                    "a genuinely foreign tree IS counted as another campaign's "
+                    "build (the control that keeps the row above honest)"))
+    finally:
+        if pr_b:
+            pr_b.kill()
+            pr_b.wait()
+        _sh.rmtree(d_b, ignore_errors=True)
+
+    # (c) THE POST-KILL CASE THE NAME FALLBACK EXISTS FOR: the process is alive
+    # and its worktree DIRECTORY HAS BEEN REMOVED, so nothing structural is left
+    # to read. ⚠️ If `lsof` no longer reports a cwd for a process whose directory
+    # is gone, this arm has no input and is reported INAPPLICABLE rather than
+    # green — an assertion no input reaches is not a second gate.
+    # [[feedback-an-implied-assertion-is-not-a-second-gate]]
+    d_c = tempfile.mkdtemp(prefix="x86lean-delta-")
+    pr_c, reachable = None, False
+    try:
+        pr_c = _fake_lean_in(d_c)
+        time.sleep(0.5)
+        _sh.rmtree(d_c, ignore_errors=True)
+        for _ in range(15):
+            fb = foreign_builds()
+            lf = subprocess.run(["lsof", "-a", "-d", "cwd", "-p", str(pr_c.pid)],
+                                capture_output=True, text=True, timeout=30)
+            if "COMMAND" in lf.stdout and str(pr_c.pid) in lf.stdout:
+                reachable = True
+                out.append((fb is not None
+                            and not any(o["pid"] == pr_c.pid for o in fb),
+                            "a process whose worktree DIRECTORY WAS REMOVED is "
+                            "still recognised as this seat's (the name fallback's "
+                            "only job)"))
+                break
+            time.sleep(0.2)
+        if not reachable:
+            print("  ⚠️  INAPPLICABLE: lsof reports no cwd for a process whose "
+                  "directory was removed, so the deleted-worktree arm has no "
+                  "input on this platform and is NOT counted as passing")
+    finally:
+        if pr_c:
+            pr_c.kill()
+            pr_c.wait()
+        _sh.rmtree(d_c, ignore_errors=True)
+
+    # ⭐⭐ ARM 3e — THE CONVENTION IS DERIVED FROM THE SOURCE, NOT TYPED HERE.
+    # `_own_tree`'s name fallback recognises this repository's scratch space by
+    # `TMP_PREFIX`. That is only sound while every producer obeys it, so this
+    # reads every `mkdtemp(prefix=...)` in `scripts/` and requires it — a
+    # fourteenth producer with a different prefix reds this arm instead of
+    # silently becoming another campaign's build.
+    # [[feedback-a-declared-list-inherits-its-default]]
+    prefixes, offenders = set(), []
+    for fn in sorted(glob.glob(os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), "*.py"))):
+        for m in re.finditer(r'mkdtemp\(prefix="([^"]+)"', open(fn).read()):
+            prefixes.add(m.group(1))
+            if not (m.group(1).startswith(TMP_PREFIX)
+                    or m.group(1) in FOREIGN_FIXTURES):
+                offenders.append(f"{os.path.basename(fn)}:{m.group(1)}")
+    stale = [k for k in FOREIGN_FIXTURES if k not in prefixes]
+    out.append((bool(prefixes) and not offenders and not stale,
+                f"all {len(prefixes)} mkdtemp prefixes in scripts/ start with "
+                f"{TMP_PREFIX!r} or are declared impersonation fixtures"
+                + (f" — OFFENDERS: {offenders}" if offenders else "")
+                + (f" — STALE declarations: {stale}" if stale else "")))
+
+    # ⭐⭐⭐ ARM 3f — QUEUE ITEM 10 ITSELF: an orphan in a WORKTREE, which is what a
+    # killed timing job actually leaves, must be reported as MINE. Under the old
+    # filter this process was invisible to `repo_orphans` (whose test was cwd ==
+    # the repo root, exactly) AND counted as somebody else's build.
+    wt_root = tempfile.mkdtemp(prefix="x86lean-delta-")
+    wt = os.path.join(wt_root, "base")
+    opid, mine_seen, other_seen = None, False, False
+    try:
+        # ⛔ A REAL worktree, not a bare temp directory: since the name fallback
+        # was narrowed to REMOVED directories, an existing scratch dir is
+        # correctly NOT this seat's, and an arm built on one would be asserting
+        # the old, too-broad rule.
+        subprocess.run(["git", "worktree", "add", "--detach", wt, "HEAD"],
+                       cwd=root, capture_output=True, text=True, timeout=120)
+        r = subprocess.run(["sh", "-c", "sleep 45 >/dev/null 2>&1 & echo $!"],
+                           capture_output=True, text=True, cwd=wt, timeout=20)
+        opid = int(r.stdout.strip())
+        for _ in range(30):
+            got = repo_orphans()
+            if got is not None and any(o["pid"] == opid for o in got):
+                mine_seen = True
+                break
+            time.sleep(0.2)
+        fb = foreign_builds()
+        other_seen = fb is not None and any(o["pid"] == opid for o in fb)
+    except Exception:
+        pass
+    finally:
+        # ⛔ BY PID, the pid this arm created. Never a name pattern.
+        if opid:
+            try:
+                os.kill(opid, 9)
+            except Exception:
+                pass
+            # ⛔ WAIT FOR IT TO ACTUALLY GO. The next arm asks whether any orphan
+            # of mine is alive, and a SIGKILLed process lingers in the table until
+            # init reaps it — the first spelling read that lingering pid and the
+            # control went red against a correct tool.
+            for _ in range(50):
+                try:
+                    os.kill(opid, 0)
+                except OSError:
+                    break
+                time.sleep(0.1)
+        subprocess.run(["git", "worktree", "remove", "--force", wt],
+                       cwd=root, capture_output=True, text=True)
+        _sh.rmtree(wt_root, ignore_errors=True)
+    out.append((mine_seen, "an orphan in a delta-gate WORKTREE is reported as "
+                           "MINE (the case a killed timing job leaves behind)"))
+    out.append((other_seen is False, "...and the same orphan is NOT also counted "
+                                     "as another campaign's build"))
+
+    # ⚠️ ARM 3g — the post-flight probe's own HELD-OUT control: with no orphan of
+    # mine alive, it must return 0 and say so. A checker that reported trouble
+    # unconditionally would pass every arm above.
+    rc_clean, _ = post_flight()
+    out.append((rc_clean in (0, 2), "the post-flight probe returns 0 (or 2 if it "
+                                    "could not look) when nothing of mine is left "
+                                    "detached — the caller's own pid included, "
+                                    "since a backgrounded probe is itself ppid 1"))
 
     # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
     # own copy of the `type checking` parse (its docstring says "copied from
@@ -944,6 +1303,10 @@ def selftest():
 def main():
     if "--selftest" in sys.argv:
         return selftest()
+    if "--post-flight" in sys.argv:
+        rc, lines = post_flight()
+        print("\n".join(lines))
+        return rc
     if "--emit-json" in sys.argv:
         return emit_json()
     register = "--register" in sys.argv
