@@ -11761,3 +11761,47 @@ writer's author has no reason to look here. The head must now sit INSIDE the ste
 `base ≤ head_of_row ≤ child`. The two real `--no-ff` ritual rows still pass, and their control arm
 says so; a red-first arm plants the earlier head and requires the refusal.
 [[feedback-a-join-on-a-lossy-key]] [[feedback-the-burden-is-on-the-departure]]
+
+## D176 — a forty-five minute green produced 613 bytes, and the gate's own scope statement was in the part that was thrown away
+
+`kernel-delta-redfirst` at its new `--repeats 4` ran for 45 minutes and **passed** — the first time
+that job has ever been green on this box. This is what the runner wrote:
+
+```
+   ── [1/1] Delta gate driven on real trees (identical-trees control + planted constructor)
+      ✔
+```
+
+613 bytes in total. Everything arm 1 printed — its family-wise cut, the bias it can detect at 90 %
+power, the box stamp, the drift, and **the list of twelve units it cannot police** — went into a
+captured string and was dropped, because the step passed.
+
+⇒ 🔑 **D94 GAVE THIS FILE HALF A LAW.** *A gate that refuses must say what it saw* is written into
+`ci_local.py` and was honoured. The mirror was never stated: **a gate that PASSES WITH
+QUALIFICATIONS must also say what it saw, and the runner is what decides whether it can.** A scope
+statement exists precisely to qualify a green, so printing output only on red makes it unreachable
+in exactly the case it was written for. The whole of D171 §4 — the arm naming the units its own
+verdict does not cover — is invisible through this runner. The previous head's RED was legible only
+because it was red.
+
+⛔ **And the same line carried a second defect**: with `capture_output=True` a 45-minute step prints
+nothing while it runs, so a watcher cannot tell *running* from *hung*. I resorted to `ps` and a
+worktree listing twice today to answer a question the runner should have answered.
+
+`run_step()` streams the child's output as it arrives, prefixed `│` so it is attributable to its
+step, and keeps a 30-line tail for the failure summary D94 requires. It is a **callable surface**
+with three arms of its own — a passing step's output is returned, all of it is returned, and a
+failing step returns its rc with both streams merged.
+
+⚠️ **The cost is noise and it is accepted rather than hidden**: `--job build` now streams 34 steps.
+That is what this seat's standing order to redirect a long run to a FILE and filter the file is
+for. **Silence is a defect; noise is a filter problem**, and only one of the two can hide a finding.
+[[feedback-a-gate-that-refuses-must-say-what-it-saw]] [[feedback-read-what-the-instrument-measured]]
+
+### THE RECEIPT THIS RECORD EXISTS BESIDE
+
+`ci_local --job kernel-delta-redfirst` — **CLEAN**, both arms, at `--repeats 4`, on `043348c`. The
+job that had never been seen to pass, passes: the identical-trees control does not convict two
+copies of one commit, and the 512-planted-constructor arm still fails as it must. ⚠️ Stated with its
+limit: this run's verdict is all the runner preserved, so the arm's own scope lines for THIS run are
+gone. That is the defect above, and it is why the next such run will read differently.
