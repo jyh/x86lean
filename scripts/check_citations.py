@@ -140,9 +140,61 @@ def selftest():
 # reused after this gate existed, which is the thing it is here to stop.
 KNOWN_DUPLICATE_D = {"123": 2}
 
+# ⛔⛔ THE PATTERN MUST MATCH EVERY SHAPE THE FILE ACTUALLY USES, AND MUST SAY SO
+# WHEN IT DOES NOT.  This read `^## D(\d+) ` — with a trailing SPACE — for its
+# whole life, and four real headings (`## D38`, `## D39`, `## D40`, `## D41`) put
+# their title on the NEXT line and so end at the digit.  The gate saw 141 of 145
+# distinct numbers and printed a count that read like a total, so a second
+# `## D38` would have been invisible to the one check this function exists to
+# make.  ⇒ 🔑 A GATE THAT CANNOT SEE PART OF ITS SUBJECT REPORTS AGREEMENT ABOUT
+# THE PART IT CAN SEE, and its own printed denominator is where that shows.
+# The pattern now accepts both shapes, and `check_decision_numbers` REFUSES if any
+# line beginning `## D<digits>` is not matched by it — so the next new heading
+# shape fails loudly instead of silently leaving the census.
+# [[feedback-unobserved-regions-report-agreement]]
+D_HEAD = re.compile(r"^## D(\d+)(?=\s|$)")
+D_HEAD_LOOSE = re.compile(r"^## D\d+.*$")
+
+
+# ⛔ AND THE SAME DEFECT MIRRORED: a heading QUOTED INSIDE A FENCE IS NOT A
+# HEADING.  D147 documents the bare `## D38` shape by showing it, and the first
+# repair of this gate then read that quotation as a second claimant and refused —
+# a gate that fails whenever the file explains the gate.  Fences are skipped;
+# an ODD number of fence lines is itself a refusal, because "skip what is inside
+# a fence" with an unterminated fence silently swallows the rest of the file,
+# which is the blindness this whole entry is about, one layer down.
+def _outside_fences(text):
+    lines, out, inside, fences = text.split("\n"), [], False, 0
+    for ln in lines:
+        if ln.startswith("```"):
+            fences += 1
+            inside = not inside
+            continue
+        if not inside:
+            out.append(ln)
+    return out, fences
+
+
 def check_decision_numbers():
     text = open("docs/DECISIONS.md").read()
-    heads = re.findall(r"^## D(\d+) ", text, re.M)
+    body, fences = _outside_fences(text)
+    if fences % 2:
+        print("⛔ DECISION NUMBERS — docs/DECISIONS.md has %d fence lines, an ODD "
+              "number, so a fence is unterminated and every heading after it "
+              "would be skipped in silence." % fences)
+        return 1
+    heads = [m.group(1) for m in (D_HEAD.match(l) for l in body) if m]
+    loose = [l for l in body if D_HEAD_LOOSE.match(l)]
+    if len(loose) != len(heads):
+        seen = set()
+        unmatched = [l for l in loose
+                     if not D_HEAD.match(l) and not (l in seen or seen.add(l))]
+        print("⛔ DECISION NUMBERS — %d lines begin `## D<digits>` but only %d are "
+              "matched by the heading pattern, so the distinct-number census "
+              "silently omits the rest." % (len(loose), len(heads)))
+        for l in unmatched[:8]:
+            print("    unmatched: %r" % l)
+        return 1
     dups = {n: c for n, c in collections.Counter(heads).items() if c > 1}
     if dups != KNOWN_DUPLICATE_D:
         new = {n: c for n, c in dups.items() if KNOWN_DUPLICATE_D.get(n) != c}
@@ -189,6 +241,62 @@ def selftest_decision_numbers():
             ok = False
         else:
             print("  \u2714 red arm caught: a THIRD D123 (the exemption is exact)")
+        # ⭐ arm 3: THE SHAPE THAT WAS INVISIBLE.  A duplicate planted in the
+        # BARE form (`## D38`, title on the next line) is the exact defect this
+        # gate could not see; the arm exists so the repair cannot silently
+        # regress. [[feedback-a-gate-is-not-exempt-from-its-own-defect]]
+        bare = re.search(r"^## D(\d+)$", saved, re.M)
+        if bare is None:
+            print("  \u26a0 arm 3 SKIPPED: the shipped file no longer uses the "
+                  "bare `## D<n>` heading shape, so this arm has no subject")
+        else:
+            open(target, "w").write(saved + "\n## D%s\n\na planted second "
+                                    "claimant in the BARE heading shape\n"
+                                    % bare.group(1))
+            if check_decision_numbers() == 0:
+                print("  \u2716 red arm SILENT: a duplicate in the BARE heading "
+                      "shape was not caught")
+                ok = False
+            else:
+                print("  \u2714 red arm caught: a second bare `## D%s`"
+                      % bare.group(1))
+        # ⭐ arm 5: a heading QUOTED INSIDE A FENCE is not a claimant.  The
+        # control is arm 5b: the identical text OUTSIDE the fence must still be
+        # caught, or this arm has merely switched the census off.
+        # [[feedback-a-probe-must-create-its-condition]]
+        dupn = re.search(r"^## D(\d+)", saved, re.M).group(1)
+        open(target, "w").write(saved + "\n```\n## D%s\n```\n" % dupn)
+        if check_decision_numbers() != 0:
+            print("  \u2716 arm 5: a heading quoted inside a fence was counted as "
+                  "a second claimant")
+            ok = False
+        else:
+            print("  \u2714 arm 5: a heading inside a fence is not a claimant")
+        open(target, "w").write(saved + "\n## D%s\n" % dupn)
+        if check_decision_numbers() == 0:
+            print("  \u2716 arm 5b CONTROL SILENT: the same heading OUTSIDE a "
+                  "fence was not caught, so the fence rule switched the census off")
+            ok = False
+        else:
+            print("  \u2714 arm 5b control: the same heading outside a fence IS "
+                  "caught")
+        # ⭐ arm 6: an UNTERMINATED fence must refuse, not swallow the rest.
+        open(target, "w").write(saved + "\n```\n")
+        if check_decision_numbers() == 0:
+            print("  \u2716 arm 6 SILENT: an unterminated fence passed")
+            ok = False
+        else:
+            print("  \u2714 arm 6: an unterminated fence refuses")
+        # ⭐ arm 4: a heading shape the pattern does NOT know must REFUSE rather
+        # than quietly drop out of the census — the failure mode this repair is
+        # about.
+        open(target, "w").write(saved + "\n## D9999:a shape with no separator\n")
+        if check_decision_numbers() == 0:
+            print("  \u2716 red arm SILENT: an unmatched `## D<digits>` line left "
+                  "the census without a word")
+            ok = False
+        else:
+            print("  \u2714 red arm caught: an unmatched heading shape refuses")
     finally:
         open(target, "w").write(saved)
     # the control: unplanted, it must pass

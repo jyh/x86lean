@@ -1192,4 +1192,12 @@ def main():
     return rc
 
 
-sys.exit(main())
+# ⛔ GUARDED 2026-09-05 (D148) SO THIS GATE CAN BE IMPORTED RATHER THAN COPIED.
+# `deterministic_cost.py` needs the SAME resolution rule this gate applies, and
+# the repository already carries one copy of the band arithmetic beside the
+# original (`delta_band_calibration.v_band`). A third copy would have been born
+# in agreement and diverged on the next ordinary edit
+# ([[feedback-a-duplicate-born-in-agreement]]). Run as a script this is
+# unchanged: `python3 scripts/kernel_delta.py ...` still enters `main()`.
+if __name__ == "__main__":
+    sys.exit(main())

@@ -204,6 +204,36 @@ jobs:
           python3 scripts/check_citations.py --selftest
           python3 scripts/check_citations.py
 
+      # D146: `scripts/deterministic_cost.py` measures the two candidate
+      # DETERMINISTIC proxies for the kernel-delta gate (elaborator heartbeats,
+      # which D146 refuted with a plant, and the kernel's own `[kernel] unfolded
+      # declarations` counters, which are the live candidate). The measurement
+      # itself needs a worktree walk and does not belong in CI; its REWRITER
+      # does, because that is the part that can silently drop work.
+      # ⛔ It wrapped two PROSE lines that begin with the word `theorem` at
+      # column 0 inside doc comments — the wrapper landed inside the comment
+      # where it is inert, the module still compiled, and two declarations would
+      # have gone unmeasured in a table that looked complete. The arms include
+      # the two real shapes out of `Tests/Coverage.lean`, a positive control
+      # (the same names OUTSIDE a comment must still be wrapped), and the two
+      # refusals that caught it (a wrapped name that never reports; any
+      # elaboration error).
+      # ⛔ THE STEP NAME CARRIES NO ARM COUNT. It said "(17 arms)" for one
+      # sitting and the selftest grew to 23 in the next, so the name became a
+      # false claim about its own step — the shape of
+      # [[feedback-a-citation-is-an-ungated-claim]]. The tool prints `N/N arms
+      # pass` and that number is derived; a number typed here is not.
+      - name: Deterministic-cost rewriter, diagnostics parser and sign statistic
+        run: python3 scripts/deterministic_cost.py --selftest
+
+      # QUEUE item 4c (D148): `scripts/threads_ab.py` measures whether the gated
+      # number's variance is an artefact of Lean's own within-module parallelism.
+      # The MEASUREMENT needs a quiet box and does not belong in CI; its parse
+      # and its positive-control logic do, because a control that silently stops
+      # scoring turns the whole A/B into a table of tidy numbers about nothing.
+      - name: Threads A/B parse and positive-control logic
+        run: python3 scripts/threads_ab.py --selftest
+
       # P1 BATCH 16 (D47): the README's headline numbers, gated against the
       # GENERATED coverage table and the per-batch differential records. They
       # had been stale for four batches — and the sentence beneath them said

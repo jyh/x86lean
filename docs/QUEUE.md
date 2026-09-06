@@ -55,7 +55,8 @@ qualifier.
 3. **The kernel-delta gate** stays the merge gate; the absolute ceilings ride beside every merge as
    readings, never as a gate (helm 2026-09-04 21:42).
 4. **The gated unit is noisier than the budget it is gated against** (D141 opened it, D142 settled
-   what it is). MEASURED, two runs an hour apart on the same box:
+   what it is, **D146 refuted the proposed remedy and named a better one**). MEASURED, two runs an
+   hour apart on the same box:
    - `kernel_delta.py --base c372d80 --head c372d80` — **the same commit on both sides** — read
      `Tests.Coverage` at −2,150 ms with a ±2,474 band against a 1,980 ms budget, and returned `ok`.
      The instrument invented a difference larger than the allowance it was policing.
@@ -64,37 +65,83 @@ qualifier.
    - ⛔⛔ **AND THE CLAIM THAT USED TO BE THIS ITEM WAS WRONG TWICE, IN BOTH DIRECTIONS.** First:
      *"a floor is a MINIMUM allowance, so it can only be too generous."* Then, corrected off the
      batch run: *"three units' budgets are under what this box invents."* The control passed all
-     three, with bands 3-5× smaller (`X86.Basic` ±34.7 → ±10.9; `X86.Semantics` ±6.7 → ±2.6;
-     `X86.Value` ±14.1 → ±2.6). ⇒ 🔑 **"the box's noise" is not a property of the box**, it varies
-     several-fold between runs, and no single run supports a sentence about it.
+     three, with bands 3-5× smaller. ⇒ 🔑 **"the box's noise" is not a property of the box**, it
+     varies several-fold between runs, and no single run supports a sentence about it.
      [[feedback-a-single-reading-is-about-its-run]]
    - ⇒ The item is NOT "re-derive `@floor`" and NOT "widen a budget". It is: **reduce the variance
-     of the measurement, or gate a quantity that has less of it.** `Tests.Coverage` is ~25 s of
-     kernel `decide` over a table and carries ~8-12% run-to-run variation; its budget is 7.2%. No
-     number of repeats fixes a budget under the instrument's own drift.
-   - ⚠️ Any budget re-derivation must come from `docs/kernel-delta-history-2026-09-04.jsonl` — a
-     walk over twelve commits that predates every batch now waiting on the gate. Deriving one from
-     the runs above would be deriving the allowance from the thing it checks.
+     of the measurement, or gate a quantity that has less of it.**
+
+   ### 4a. ⛔⛔ THE HEARTBEAT PROXY IS REFUTED — do not re-open it (D146)
+   Heartbeats ARE exactly deterministic (103/103 declarations identical on two runs of one tree),
+   and they are **blind to the growth this gate exists to catch**. Planted, in ninety seconds, with
+   a checked module whose source is byte-identical across arms and only the data changing:
+   `N=2000/4000/8000` → heartbeats **12,084 / 12,084 / 12,084**, kernel `type checking`
+   **82 / 229 / 460 ms**. The positive control in the same run (source grows, data held) moves the
+   count 12,084 → 225,043, so the instrument is live and is measuring the wrong thing.
+   **Heartbeats measure the SOURCE elaborated; the gate measures the DATA reduced**, because
+   `decide`'s evaluation is kernel work and the kernel is not charged heartbeats. The corpus agrees
+   independently: batches 17 and 18 changed seven `.lean` files each and moved the proxy by
+   **−29 and +14 out of 4.9 million**. And `--threads 1` changes a heartbeat count by 0.052%, so
+   even the determinism is per-configuration, not per-machine.
+   ⚠️ Also settled: **the kernel reference cannot referee a proxy in its present state.** Of the
+   eleven adjacent pairs in the history, it resolves **two**, and one of those two changed no
+   `.lean` file at all and reads −350 ms.
+
+   ### 4b. ⭐⭐⭐ THE LIVE CANDIDATE: the counter the kernel keeps about itself
+   `set_option diagnostics true` reports, per declaration, `[kernel] unfolded declarations` — the
+   KERNEL's own reduction counters. On the same synthetic arms it is **exactly linear in the data**
+   (`Bool.casesOn ↦ 6,002 / 12,002 / 24,002`), and on the real module its per-declaration ratio to
+   kernel milliseconds spans **4.1×** where heartbeats span **63.5×**.
+   **The twelve-commit walk is RUN** (`scripts/deterministic_cost.py`, readings committed at
+   `docs/deterministic-cost-history-2026-09-05.jsonl`, one pass per commit because the instrument is
+   deterministic) — ⛔ **and D148 struck out two of its four columns.** What the walk reports now,
+   with the referee delegating to the merge gate's own band instead of a rule it invented:
+   ```
+                            no-op commits reading   sign agreement,      ms per 1k unit, over
+                            EXACTLY ZERO            OWN live pairs       the pairs RESOLVED
+     KERNEL unfoldings      5 of 5                  6 / 6  ⛔ and so      7.65  (1 pair of 11)
+     elaborator heartbeats  3 of 5  (+20, -8)       7 / 8     does a     22.01  (1 pair of 11)
+                                                              CONSTANT
+   ⛔ the heartbeat row read `5 / 6` while the header said "6 live pairs" for both: that is
+   heartbeats scored over the KERNEL COUNTER's live set. Heartbeats move on 8 of the 11 pairs.
+   [[feedback-a-borrowed-denominator-invents-its-own-gap]]
+   ```
+   ⛔⛔ **THE SIGN COLUMN CARRIES NO EVIDENCE (D148 §1).** Δproxy is positive on all six live pairs —
+   this corpus only ever adds work — so the statistic is `sum(Δkernel > 0)` under another name and a
+   constant `+1` proxy scores the same 6/6. The walk now prints the null model's score beside it.
+   ⛔⛔ **AND THE REFEREE WAS A SECOND RULE (D148 §2)**, `|Δkernel| > summed sweep ranges`, LOOSER
+   than the gate this repository merges on and with a measured false positive: it called RESOLVED a
+   pair that changes no `.lean` file, where the truth is zero. On the gate's own band it resolves
+   **1 of 11** pairs and 0 of 5 no-ops, and the `ms per 1k` figure is the single value 7.65.
+   ⭐ **WHAT SURVIVES IS THE HALF THAT WAS MEASURED AGAINST A KNOWN TRUTH**: exact linearity on a
+   plant (6,002 / 12,002 / 24,002), five no-op commits at exactly zero across loads 13 → 95, and a
+   4.1× cross-declaration ratio spread against heartbeats' 63.5×. Also measured: ~2× elaboration
+   cost with diagnostics on (30 s → 62 s for `Tests.Coverage`).
+   ⛔ NOT measured: **machine independence** (a prediction until a second machine reads it — the same
+   status `ci.yml` gives its ratio budgets), and **no budget has been derived**: a calibration
+   resting on one resolved pair is not a second source. **Do not gate on it before that.**
+   [[feedback-widening-a-gate-needs-a-second-source]] [[feedback-a-claim-the-vectors-cannot-distinguish]]
+
+   ### 4c. ⭐ THE THIRD ROUTE — the instrument is BUILT and its arms are green; the RUN waits on a quiet box
+   The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and
+   `user` is 2× `real`: **Lean elaborates this file in PARALLEL and every gated number is a per-task
+   WALL-CLOCK reading taken under contention.** `scripts/kernel_cost.py` never passes
+   `lean -j/--threads`, so it takes the default. `--threads 1` changes how the SAME quantity is
+   measured rather than which quantity is gated, so no budget is derived from the thing it checks.
+   **`scripts/threads_ab.py`** runs it: two arms, interleaved A,B / B,A by round over four gated
+   units, every reading carrying its own load, a positive control in the same run (a plant whose
+   DATA is 4× bigger must read ≥2× bigger in EACH arm, or that arm's low variance is the variance of
+   an instrument that stopped responding), and **three quantities from the same passes** — the gated
+   `type checking`, the child's `user` CPU time, and its `real` wall time. `kernel_cost.py` profiles
+   ONE MODULE PER `lean` PROCESS, so `user` is already a per-unit quantity: if it is materially
+   quieter than the gated number, that is a fifth route measured for free. Selftest: 8 arms, green.
+   ⛔ **BLOCKED ON AN EXTERNAL EVENT, AND ONLY THAT**: the box read 0.0-0.1% idle with 55-64% SYSTEM
+   time and a 1-minute load of 155-282 on other seats' builds through the whole sitting (D149). Five
+   predictions are SEALED on the bus at 19:3x, before any reading, with the rule that scores them.
+   Run it on a quiet box; do not re-derive the predictions afterwards.
+   - ⚠️ Any budget re-derivation must still come from `docs/kernel-delta-history-2026-09-04.jsonl`.
+     Deriving one from the runs above would be deriving the allowance from the thing it checks.
      [[feedback-widening-a-gate-needs-a-second-source]]
-   - ⭐⭐ **A LEAD, PROBED FAR ENOUGH TO BE WORTH THE NEXT HEAD'S TIME AND NO FURTHER.** Lean charges
-     HEARTBEATS for the elaborator's `whnf`, and a heartbeat count is **deterministic** — same tree,
-     same number, every run, on any machine. Measured on this box: a `decide` over a 600-element
-     `BitVec` fold under `set_option maxHeartbeats 1000` fails with *"(deterministic) timeout at
-     `whnf`, maximum number of heartbeats (1000) has been reached"*, and it fails **in the
-     elaborator**, before the kernel re-checks the same term. So a `maxHeartbeats` ceiling is a
-     zero-variance, machine-independent gate — everything the millisecond ceilings could not be
-     (D111, D122), and it would travel to a runner, which is the portability claim `ci.yml` still
-     labels a prediction.
-     - ⛔ **AND THE OPEN QUESTION IS EXACTLY WHAT MAKES IT A LEAD AND NOT A PLAN.** Heartbeats are
-       charged for the ELABORATOR's reduction; the gate this repository runs is on the profiler's
-       `type checking` phase, which is the KERNEL's. `decide` does the work TWICE — once in the
-       elaborator (charged, deterministic) and once in the kernel (timed, not charged) — and
-       whether the two track each other **across the changes this gate exists to catch** is
-       unmeasured. ⚠️ Do not build on it before measuring that.
-     - ⭐ The measurement needs no new corpus: `docs/kernel-delta-history-2026-09-04.jsonl` already
-       holds kernel times for twelve commits. Walk the same twelve for heartbeat counts and
-       correlate. A proxy that tracks on twelve real commits is evidence; the argument above is
-       not. [[feedback-two-readings-are-not-two-witnesses]]
 
 5. **Arm 1's number is gated — DISCHARGED (D145).** The identical-trees control's invented delta
    now splits in two: an ASSERTION that it sits inside the run's own band (a difference the run
@@ -107,6 +154,24 @@ qualifier.
    delta has ever run on. The first job that completes there prices it, and the number to read off
    is the gate's own `~N repeats a side would decide it` line. Blocked: GitHub Actions refuses every
    job on this account for billing (desk FH).
+
+7. **The gate's conditions line records a LOAD and that is not enough (D149).** Measured this
+   sitting: a 1-minute load of 282 with `top` reading **0.0% idle**, 44% user / 55% SYSTEM, and one
+   `lean` at 160% CPU — the load was dominated by short-lived runnable processes, not by compute, so
+   readings taken at "load 282" and at "load 40" can describe the same machine. `threads_ab.py`
+   already records **idle %** beside the load and returns `None` rather than a default when it
+   cannot read it. `scripts/kernel_cost.py` and the history walk still record load alone; porting
+   the field is additive to their JSONL and cheap. ⚠️ It changes no verdict — it makes the
+   conditions of every future reading comparable, which is the whole reason D142's two afternoons
+   could not be told apart. [[feedback-a-measurement-without-its-conditions]]
+
+8. **A timing run must first look for the seat's own orphans (D149).** A `ci_local --job build`
+   from a dead session was found running 47 minutes with ppid 1, and no instrument this seat owns
+   could see it. The cheap form is a pre-flight in `kernel_cost.py` / `kernel_delta.py`: list
+   processes whose cwd is this repository and whose session is gone, and REFUSE (or record them in
+   the reading) rather than profile beside them. ⛔ Attribute by cwd, never by command name, and
+   never `pkill -f` a pattern the seat's own tools carry.
+   [[feedback-enumerate-is-not-attribute]] [[feedback-a-process-filter-matches-its-own-waiter]]
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
 `docs/SOFT-FLOAT-COMMISSION.md` — opened 2026-09-05, with its premise tested at the object, its

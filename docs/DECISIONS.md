@@ -8318,3 +8318,487 @@ made unreachable, the scope list silently emptied, and the scope threshold slipp
 to the band — **all four caught**, and the last two only by the line assertion.
 
 `--selftest` is 30 arms (was 28).
+
+## D146 — QUEUE item 4: the heartbeat proxy is REFUTED BY A PLANT, and the counter the kernel keeps about itself is the one that measures the gated quantity
+
+QUEUE item 4 handed this seat a lead: Lean charges HEARTBEATS for the elaborator's `whnf`, a
+heartbeat count is deterministic, so a `maxHeartbeats` ceiling would be the zero-variance,
+machine-independent gate the millisecond ceilings could not be (D111, D122). The item recorded its
+own open question honestly — *"heartbeats are charged in the ELABORATOR, the gate is on the KERNEL,
+and whether the two track each other across the changes this gate exists to catch is UNMEASURED"* —
+and ordered a correlation walk over the twelve commits in
+`docs/kernel-delta-history-2026-09-04.jsonl`.
+
+**The walk was run and it is reported below, but it is not what decided this.** A correlation study
+is what you run on a hypothesis that has survived a refutation attempt, and the refutation was
+cheaper than the walk by two orders of magnitude.
+
+### 1. THE PREMISE IS THINNER THAN THE SENTENCE THAT CARRIED IT, IN THREE DIRECTIONS
+
+**(a) Back-to-back, it holds.** `Tests/Coverage.lean`, rewritten so every top-level declaration
+reports `IO.getNumHeartbeats` either side of its own elaboration, run twice on one tree: **103 of
+103 declarations identical, module total `4,984,106` both times.** Same at the walk's first commit.
+
+**(b) ⛔ "Any machine" is FALSE as stated, and the counter-example costs one run.** The same tree
+under `lean --threads 1` reads **`4,981,523`** — every one of the 103 declarations differs, by 2 to
+30 heartbeats each, for −0.052% overall. Heartbeats are deterministic *per toolchain
+configuration*, not per tree. That does not hurt a Δ gate, whose two sides run in one
+configuration; it does refute the portability half of the claim, which was the half the proposal
+was FOR. ⇒ 🔑 *a premise inherited as one sentence usually has two halves, and the half that
+motivated the work is not always the half that was measured.*
+
+**(c) ⛔⛔ AND NOT EVEN ACROSS MACHINE STATES — WHICH MY OWN DETERMINISM ARM COULD NOT SEE.** Two
+commits in the walk change **zero `.lean` files**, so their Lean input is byte-identical:
+
+```
+  320cb45 → 762da1a   Δheartbeats  +20      Δkernel-unfoldings  0     (load 42 → 95)
+  a5326fd → 873a4d9   Δheartbeats   -8      Δkernel-unfoldings  0     (load 91 → 77)
+```
+
+Identical input, a heartbeat count that moves. The cause is the same parallelism §9 is about:
+Lean elaborates commands on several threads, `IO.getNumHeartbeats` is a THREAD-LOCAL counter, and a
+`stop − start` around `elabCommand` therefore attributes whatever the scheduler happened to do on
+that thread. Under load 95 the attribution shifts.
+
+⛔ **The arm I wrote to prove determinism ran the two measurements BACK TO BACK**, on a machine in
+the same state, and passed 103/103 — the one condition under which the defect cannot appear.
+⇒ 🔑 **a reproducibility arm that repeats immediately shares the blind spot it is meant to expose;
+the machine state has to differ between the two readings, and the corpus's own no-op commits are a
+free way to make it differ.** [[feedback-a-control-can-share-the-blind-spot]] The kernel counter
+read **exactly zero on both of those pairs**, at loads from 13 to 95, which is what a deterministic
+count of the kernel's own work looks like.
+
+### 2. ⛔⛔ THE REFUTATION, PLANTED RATHER THAN INFERRED
+
+Two modules, ninety seconds. `Data.lean` holds `bigList : List Nat`; `Check.lean` holds
+`theorem scan : bigList.all (fun n => n < 1000000) = true := by decide`. **`Check.lean` is
+byte-identical across the three arms; only the DATA it reduces changes.**
+
+```
+  N=2000   heartbeats  12,084     kernel `type checking`   82 ms    tactic execution  122 ms
+  N=4000   heartbeats  12,084     kernel `type checking`  229 ms    tactic execution  249 ms
+  N=8000   heartbeats  12,084     kernel `type checking`  460 ms    tactic execution  520 ms
+```
+
+**The heartbeat count is not approximately flat — it is the same integer three times, while the
+gated quantity grows 5.6×.**
+
+⭐ **AND THE PROBE CARRIES ITS POSITIVE CONTROL IN THE SAME RUN**, because a flat reading is exactly
+what a broken instrument prints. Hold the data at N=2000 and grow the module's SOURCE instead (eight
+more theorems over the same list): heartbeats **12,084 → 225,043**, an 18.6× move. The instrument
+is live; it is measuring the wrong thing. [[feedback-a-probe-must-create-its-condition]]
+
+### 3. THE MECHANISM, WHICH IS WHY THE LEAD LOOKED SO GOOD
+
+`decide`'s evaluation of `Decidable.decide p` is **kernel** reduction, and the kernel is not charged
+heartbeats — twice over: once inside the tactic and once when `addDecl` re-checks the term. What the
+elaborator IS charged for is elaborating the surrounding source: the statement, the instances, the
+`match` compilation. So:
+
+> **Heartbeats measure the size of the SOURCE being elaborated. The gate measures the size of the
+> DATA being reduced.** They are two different quantities that happen to grow together whenever a
+> batch does both at once, which is what made the lead survive a plausibility check.
+
+⛔ The evidence QUEUE item 4 recorded — *"a `decide` under `maxHeartbeats 1000` fails `(deterministic)
+timeout at whnf` in the elaborator"* — is TRUE and is fully compatible with this refutation: what
+exceeded 1,000 was the fixed elaboration cost, not the fold. A reading can be correct and still not
+be evidence for the sentence it is quoted under. [[feedback-two-readings-are-not-two-witnesses]]
+
+### 4. THE CORPUS SAYS THE SAME THING, INDEPENDENTLY
+
+The twelve-commit walk (`scripts/deterministic_cost.py`, one deterministic pass per commit — a
+deterministic instrument needs no repeats, which is the one economy the proposal really did deliver):
+
+```
+commit        heartbeats        Δhb    kernel ms   Δkernel     .lean files changed
+144e9a3cf      4,792,823                   19350
+4f6766b9b      4,858,743    +65,920        19650      +300     8   (Coverage.lean +15/-3)
+76cb51bd0      4,887,300    +28,557        20150      +500     8
+3769ea0c1      4,887,300         +0        19900      -250     0
+0f929e3e5      4,887,271        -29        20500      +600     7   (13 new vectors, Coverage +2/-2)
+320cb4572      4,887,285        +14        20600      +100     7   ( 2 new vectors, Coverage +2/-2)
+762da1add      4,887,285         +0        20650       +50     0
+a5326fd04      4,939,878    +52,593        20750      +100     7
+873a4d9ea      4,939,878         +0        20750        +0     0
+0f7baee50      4,959,784    +19,906        21200      +450     7
+e57c99fdf      4,959,784         +0        21250       +50     0
+5c0159983      4,959,784         +0        20900      -350     0
+```
+
+⛔ **Batches 17 and 18 changed seven `.lean` files each and moved the proxy by −29 and +14 out of
+4.9 million.** What they added was vectors — data — and the coverage theorems' source barely moved.
+Batch 14 moved it by 65,920, and what batch 14 added was fifteen lines of `Tests/Coverage.lean`.
+The corpus and the plant agree, from independent origins.
+
+### 5. ⭐⭐ FIVE ZEROS, NOT ONE — AND THE REFEREE CANNOT REFEREE
+
+`scripts/kernel_delta_history.py`'s docstring names ONE negative control, *"`e57c99f` (D122) changes
+`docs/DECISIONS.md` and nothing else"*. **There are five.** `3769ea0`, `762da1a`, `873a4d9`,
+`e57c99f` and `5c01599` each change zero `.lean` files. (The budget derivation was never wrong: its
+code builds a `zero_lean` SET and finds all five. Only the prose under-counted — which is the
+direction nobody audits. [[feedback-under-claims-are-unpoliced]])
+
+On all five, **Δheartbeats is exactly 0**. On the same five, the kernel instrument reads
+**−250, +50, +0, +50, −350 ms** — a 400 ms span of pure invention on a unit whose budget is 1,764 ms.
+
+⛔⛔ **AND THE STATISTIC THAT MATTERS MOST FOR ANY FUTURE PROXY WORK.** Of the eleven adjacent pairs,
+the kernel reference can resolve — |Δkernel| larger than the two commits' own sweep spreads —
+**two.** One of those two is `e57c99f → 5c01599`, which changed **no `.lean` file at all** and reads
+−350 ms. ⇒ 🔑 **the kernel walk resolves exactly ONE real pair in eleven, and "resolves" a no-op
+commit as a 350 ms improvement.** A proxy cannot be validated against a referee in that state: the
+REFERENCE's noise sets a floor on how unstable any ratio to it can look, so a wide spread would have
+been a fact about the referee. That is why §2's plant, which needs no referee at all, is what
+decided this. [[feedback-a-normalisation-needs-its-denominator-to-vary-the-same-way]]
+
+### 6. ⭐⭐⭐ WHAT REPLACES IT: THE COUNTER THE KERNEL KEEPS ABOUT ITSELF
+
+Found while measuring §2's mechanism. `set_option diagnostics true` makes Lean report, per
+declaration, a `[kernel] unfolded declarations` table — the KERNEL's own reduction counters. On the
+same three synthetic arms:
+
+```
+  N=2000   [kernel] Bool.casesOn ↦  6,002     N=4000 ↦ 12,002     N=8000 ↦ 24,002
+```
+
+**Exactly linear in the data, to the unit.** It is deterministic, it is a count and not a time, and
+it is a count of the work the gated phase actually does.
+
+On the real module, per declaration, against the kernel milliseconds measured in the SAME run
+(27 declarations over 150 ms):
+
+```
+  ms per 1,000,000 KERNEL UNFOLDINGS    min 1,627   median 4,255   max 6,590    spread  4.1x
+  ms per 1,000 ELABORATOR HEARTBEATS    min  2.62   median 10.97   max 165.99   spread 63.5x
+```
+
+and a good part of the 4.1× is the millisecond column's own ±25–50% run-to-run noise, which is on
+both ends of it.
+
+**Determinism on the real module, asserted before any commit-to-commit number was believed:**
+`Tests.Coverage` measured twice on one tree, **103 of 103 declarations identical, module total
+`6,311,170` both times**. Of 6.31 M unfoldings, **10** are unattributed to any declaration, and the
+tool prints that number rather than folding it into a total.
+
+⭐⭐ **AND THE FULL WALK SEPARATES THE TWO PROXIES EXACTLY WHERE THE MECHANISM SAYS IT SHOULD.**
+Twelve commits, both columns from ONE pass each (a deterministic instrument needs no repeats — the
+one economy the proposal really did deliver: this walk is 12 passes where the millisecond gate at
+`--repeats 6` is 12 profile passes for ONE commit pair):
+
+```
+commit        heartbeats      Δhb    kernel unfoldings       Δku   kernel ms   what changed
+144e9a3cf      4,817,186                   6,311,170              19350
+4f6766b9b      4,883,740  +66,554          6,410,419   +99,249    19650  +300  batch 14 (+15 src ln)
+76cb51bd0      4,912,750  +29,010          6,485,433   +75,014    20150  +500  batch 15
+3769ea0c1      4,912,750       +0          6,485,433        +0    19900  -250  NO .lean file
+0f929e3e5      4,912,738      -12          6,666,666  +181,233    20500  +600  batch 17 (13 vectors)
+320cb4572      4,912,752      +14          6,697,891   +31,225    20600  +100  batch 18 ( 2 vectors)
+762da1add      4,912,772      +20          6,697,891        +0    20650   +50  NO .lean file
+a5326fd04      4,964,997  +52,225          6,740,241   +42,350    20750  +100  batch 20
+873a4d9ea      4,964,989       -8          6,740,241        +0    20750    +0  NO .lean file
+0f7baee50      4,985,436  +20,447          6,799,095   +58,854    21200  +450  batch 22
+e57c99fdf      4,985,436       +0          6,799,095        +0    21250   +50  NO .lean file
+5c0159983      4,985,436       +0          6,799,095        +0    20900  -350  NO .lean file
+```
+
+⛔⛔ **Batch 17 added thirteen vectors. Heartbeats moved by TWELVE, downwards. The kernel's own
+counter moved by 181,233 — and the millisecond reading for that same commit, +600 ms, sits INSIDE
+its own ±1,000 ms band and says nothing at all.** Batch 18 is the same shape one order smaller.
+Three instruments separated on one row.
+
+**Scored over the whole walk:**
+
+```
+                              no-op commits reading    sign agreement on    ms per 1k unit
+                              EXACTLY ZERO             the pairs that moved (6 live pairs)
+  KERNEL unfoldings           5 of 5                   6 / 6                2.36 – 7.65   (3.2x)
+  elaborator heartbeats       3 of 5  (+20, -8)        5 / 6                -50000 … +7143
+```
+
+⚠️ And the 3.2× is an UPPER bound on the kernel counter's own scatter, not a measurement of it: the
+denominator resolves 2 of 11 pairs (§5), so most of that spread is the referee's noise sitting in
+the ratio. Saying "3.2×" without that sentence would be quoting the referee as if it were the
+subject. [[feedback-a-normalisation-needs-its-denominator-to-vary-the-same-way]]
+
+⚠️ **WHAT IS MEASURED AND WHAT IS NOT.** Measured: exact linearity in data on a plant; determinism
+on the real module; a 4.1× cross-declaration ratio spread against heartbeats' 63.5×; the six walk
+rows above; a cost of ~2× elaboration wall-clock with `diagnostics true` (30 s → 62 s on
+`Tests.Coverage`). **Not measured: machine independence**, which is a prediction until a second
+machine reads it — the same status `ci.yml` already gives the portability of its ratio budgets —
+and **no budget has been derived**, which needs the full walk as its second source and not these
+rows. ⛔ Do not gate on it before that. [[feedback-widening-a-gate-needs-a-second-source]]
+
+### 7. ⛔ TWO DEFECTS OF MY OWN, BOTH CAUGHT BY ARMS I WROTE FOR THE PURPOSE
+
+**(a) The rewriter wrapped prose.** `Tests/Coverage.lean` carries two doc-comment lines that begin
+with the word `theorem` at column 0 (*"theorem does not compile, which is how it is known to have
+teeth"*, *"theorem names NEITHER"*). A regex for a declaration matched both; the wrapper landed
+INSIDE the comment, where it is inert; the module still compiled; and two declarations would have
+gone unmeasured in a table that looked complete. **It was caught only because `read_messages`
+refuses when a wrapped name never reports** — not by a parse error, not by a count that looked
+wrong. The rule a regex cannot have is now a comment-and-string scanner, with six arms including a
+positive control (the same names OUTSIDE a comment must still be wrapped) and a report of what was
+excluded. [[feedback-a-tool-has-no-concept-of-not-applicable]]
+
+**(b) My own sign statistic counted silence as agreement.** `sign agreement: 8/11` — with
+`(dh > 0) == (dk > 0)`, the five pairs where the proxy read EXACTLY ZERO scored three agreements,
+because `False == False` whenever Δkernel happened to be ≤ 0. **The pairs that most damn the proxy
+were being counted in its favour.** Over the six pairs where the proxy moved at all it is 5/6, and
+only one of those six is resolvable by the referee, so the statistic was close to vacuous in both
+directions. It now excludes and names the silent pairs. ⇒ 🔑 *a summary statistic must exclude the
+cases where the instrument said nothing; "no reading" and "a reading that agrees" are the same
+number to every naive comparison.*
+
+### 8. THE FIVE PREDICTIONS, SEALED ON THE BUS BEFORE THE WALK REPORTED, SCORED
+
+1. deterministic at the first commit — **RIGHT AS ASKED, AND THE QUESTION WAS TOO EASY** (103/103
+   back to back). Two no-op commits later in the same walk moved the count by +20 and −8 on
+   byte-identical Lean input (§1c). I sealed the prediction my own arm was shaped to confirm.
+2. the no-op pair reads exactly 0 — **RIGHT, and understated**: there were five no-op pairs, all 0.
+3. the ratio spans more than 3× — **RIGHT IN VERDICT, WRONG IN KIND.** I predicted an unstable
+   ratio; the truth is that the proxy reads ZERO on data-only batches, so the ratio is not unstable
+   but undefined. A prediction can be scored correct and still have described the wrong world.
+4. fewer than half the pairs resolvable — **RIGHT, and by more than I expected**: 2 of 11, one of
+   them a no-op commit.
+5. sign agreement ≥ 8/11 — **RIGHT ON THE NUMBER AND THE NUMBER WAS BROKEN** (§7b). ⛔ This is the
+   one to remember: I sealed a prediction against a statistic I had not audited, it came out exactly
+   as predicted, and the agreement was manufactured by a defect. **A confirmed prediction is not a
+   checked statistic**, and a sealed forecast protects against hindsight, not against a bad ruler.
+
+### 9. THE THIRD ROUTE, RECORDED AND NOT YET MEASURED
+
+The profiler's cumulative block for one `Tests.Coverage` run reads `tactic execution 47.8s` against
+`type checking 26.2s`, and `user` time is 2× `real`: **Lean elaborates this file's commands in
+PARALLEL, and every gated number is a per-task WALL-CLOCK reading taken while those tasks contend
+with each other and with whatever else is on the box.** `scripts/kernel_cost.py` never passes
+`lean -j/--threads`, so it takes the default. Pinning `--threads 1` changes how the SAME quantity is
+measured rather than which quantity is gated, and it is an A/B in one interleaved session. It is not
+run here and it is not claimed to work; it is the cheapest untried thing and it belongs to the next
+sitting.
+
+**Tools.** `scripts/deterministic_cost.py` (17 arms), which measures both candidate proxies in ONE
+pass — they must be measured together, because `diagnostics true` adds bookkeeping the elaborator is
+charged for (+25,408 heartbeats, +0.51%), so a heartbeat count taken without it cannot sit in the
+same row as an unfolding count taken with it.
+
+## D147 — the duplicate-D gate could not see four of its own subject's headings, and its printed count was the only place that showed
+
+Found by running `scripts/check_citations.py` over this sitting's edits and reading the line it
+prints on success rather than its exit code:
+
+```
+  ✔ decision numbers: 142 headings, 141 distinct
+```
+
+`docs/DECISIONS.md` has **146** headings and **145** distinct numbers.
+
+### THE CAUSE
+
+`check_decision_numbers` matched `^## D(\d+) ` — **with a trailing space**. Four entries put their
+title on the line BELOW the heading:
+
+```
+## D38
+
+**An absolute kernel-time ceiling on a table-driven module is a chore, not a gate …**
+```
+
+so their heading line ends at the digit and the pattern misses it. D38, D39, D40 and D41 have been
+outside this gate's census since it was written.
+
+### WHY IT MATTERS MORE THAN FOUR ROWS
+
+The function exists to do ONE thing: refuse when two sections claim one decision number, because
+*"a number that names two decisions is a citation that resolves to whichever the reader finds
+first"*. For those four numbers it could not have refused. A second `## D38` would have passed
+silently, and the `✔` line would have said `141 distinct` with the same confidence it says it now.
+⇒ 🔑 **a gate that cannot see part of its subject reports agreement about the part it can see, and
+its own printed denominator is the only place the gap is visible** — which is exactly why the count
+is printed, and exactly why nobody had read it against the file.
+[[feedback-unobserved-regions-report-agreement]]
+
+### THE REPAIR, AND WHY IT IS TWO CHANGES AND NOT ONE
+
+**(a)** The pattern accepts both shapes: `^## D(\d+)(?=\s|$)`.
+
+**(b)** ⭐⭐ And the gate now REFUSES when any line beginning `## D<digits>` is not matched by that
+pattern, naming the lines it could not read. Fixing only (a) would repair today's four and leave the
+NEXT heading shape to drop out of the census in the same silence. A pattern is a claim about a file
+that changes; the refusal is what makes a mismatch loud. [[feedback-a-declared-list-inherits-its-default]]
+
+**(c)** ⛔⛔ **AND THE FIRST REPAIR BROKE ON THIS ENTRY, WHICH IS THE HALF WORTH READING.** The
+paragraph above documents the bare shape by SHOWING it, inside a fence. The widened pattern read
+that quotation as a second claimant and the gate refused — *a gate that fails whenever the file
+explains the gate*. The census now skips fenced blocks. ⇒ 🔑 **widening a pattern moves the error
+from false-negative to false-positive; both directions have to be armed, and the input that finds
+the second one is the documentation of the first.** [[feedback-measure-a-gates-error-rates]]
+
+⚠️ And skipping fences opens its own hole — an UNTERMINATED fence would swallow every heading after
+it, in exactly the silence this entry is about, one layer down. An odd number of fence lines is
+therefore itself a refusal.
+
+Six red arms, all planted **in a copy of the shipped file** rather than a fixture: a duplicate of an
+ordinary number; a third `D123` (the frozen exemption is exact, not a tolerance); a duplicate in the
+BARE heading shape; a `## D9999:` heading in a shape the pattern does not know; a heading quoted
+inside a fence, which must NOT count — **with its control beside it**, the identical heading outside
+a fence, which must still be caught, or the fence rule has merely switched the census off; and an
+unterminated fence. The bare arm SKIPS with a warning if the shipped file ever stops using that
+shape, so it cannot pass by having no subject.
+
+`check_citations.py` now reads `147 headings, 146 distinct`.
+
+## D148 — the corpus never supported the kernel-unfolding proxy the way the table said: a sign statistic a null model matches, and a referee that was a SECOND rule looser than the gate it refereed
+
+D146 refuted the heartbeat proxy with a plant and named the kernel's own `[kernel] unfolded
+declarations` counters as the live candidate. Its evidence came in four parts, and the entry was
+careful about two of them — *"NOT measured: machine independence, and no budget has been derived"*.
+This entry is about the other two, which were presented as corroboration and are not.
+
+⚠️ **Nothing here revives heartbeats and nothing here convicts the kernel counter.** Two of D146's
+four legs stand exactly as measured. What falls is the CORPUS leg, which is the one a reader would
+have quoted as "and it tracks the real thing on twelve real commits".
+
+### 1. THE SIGN STATISTIC IS MATCHED BY A NULL MODEL, SO IT CARRIES NO EVIDENCE
+
+The walk reported **sign agreement 6/6** over the pairs where the proxy moved, against heartbeats'
+5/6, and D143's law was already applied to it: pairs where the proxy read exactly zero are excluded,
+because scoring silence as agreement is how an 8/11 was manufactured once already.
+
+⛔ **AND THE COMPARISON ROW BORROWED THE OTHER ROW'S DENOMINATOR.** The table's header says
+"6 live pairs" for BOTH metrics. Heartbeats move on **eight** of the eleven pairs, not six; scored
+on its own live set the heartbeat row reads **7/8**, not 5/6. The 5/6 is heartbeats scored over the
+KERNEL COUNTER's live pairs — a real quantity, but not the one the row's header names, and the two
+rows are then not comparable in the column that invites comparison. Re-run
+`--metric hb` and the tool now prints 7/8 with its own denominator.
+[[feedback-a-borrowed-denominator-invents-its-own-gap]]
+
+⚠️ It changes no conclusion, and that is the point worth keeping: **both rows fail the null model
+anyway**, by different routes. The kernel counter is one-sided, so the tool refuses the statistic
+outright; heartbeats ARE two-sided and still only match what a constant scores (7/8 either way), so
+the tool's second branch fires. A gate that can only speak one way would have caught one of them.
+
+That exclusion was right and it was not enough. **Δproxy is positive on every one of the six live
+pairs** — a corpus of batches that only ever add rows has no negative to offer — so the statistic is
+`sum(Δkernel > 0)` wearing the proxy's name:
+
+```
+  sign agreement over the 6 pairs where the proxy MOVED:  6/6
+  NULL MODEL — the best CONSTANT-SIGN proxy scores        6/6   on the same pairs
+```
+
+A proxy that printed `+1` unconditionally scores the same 6/6. ⇒ 🔑 **A STATISTIC A NULL MODEL
+MATCHES IS NOT A MEASUREMENT OF THE SUBJECT; IT IS A DESCRIPTION OF THE REFERENCE COLUMN.** The
+walk now computes and prints the null model's score beside the proxy's, and says out loud when the
+proxy moved in one direction only. [[feedback-a-claim-the-vectors-cannot-distinguish]]
+[[feedback-refute-a-proxy-with-a-plant]]
+
+### 2. ⛔⛔ THE REFEREE WAS A SECOND RULE, AND IT DISAGREED WITH THE GATE IN THE FLATTERING DIRECTION
+
+The walk decided which pairs its kernel reference could resolve with a rule it invented:
+`|Δkernel| > the two commits' summed sweep RANGES`. The repository already merges on a different
+one — `kernel_delta.verdict`'s band, `K_SIGMA` standard errors of the difference of medians, chosen
+in D141 on measured error rates. Two rules, one subject.
+
+They disagree, and the corpus contains the pair that shows how:
+
+```
+  pair                     Δkernel  band K*se  range b+h   range rule   gate's band
+  873a4d9ea→0f7baee50         +450        280        300          yes           yes   real change
+  e57c99fdf→5c0159983         -350        376        300          yes            NO   NO .lean changed
+```
+
+⛔ **The second pair changes `docs/DECISIONS.md`, `docs/P2-ROSTER.md` and
+`scripts/oracle_availability.py` — NOT ONE `.lean` FILE.** Its Lean input is byte-identical, so its
+true Δkernel is ZERO, and the walk's own rule called it *resolved*. **A measured false positive, on
+the one class of pair in this corpus whose truth is known.** The gate's band declines it (376 > 350)
+and keeps the real pair, so the repair costs no resolution the corpus had.
+
+⛔⛔ **AND THE MECHANISM IS THE PROFILER'S OWN ROUNDING, WHICH MAKES THIS NOT A ONE-OFF.** The
+summed-range rule is not uniformly looser — on nine of the eleven pairs its threshold is HIGHER than
+the band's (1200 vs 1078, 1000 vs 886, …), so it is usually the *stricter* rule. It becomes looser
+in exactly one circumstance: **a side whose repeated readings happen to be EQUAL contributes zero
+range, and the rule reads that as a noiseless side.** Here `5c01599`'s two sweeps both read
+`20900.0`. Lean's profiler prints three significant figures, so a module at ~21 s is quantized to
+100 ms — D146 §9 wrote that quantum down as a thing to watch, and this is it biting: two readings
+agreeing to the printed digit is common, and it is not evidence of a quiet box. The band's `se`
+takes the OTHER side's variance and the median factor and survives it.
+⇒ 🔑 *a noise estimate that can reach exactly zero will reach it by rounding, and every rule built
+on it inherits a confident verdict at that moment.*
+
+⇒ 🔑 **A SECOND RULE INVENTED BESIDE A SHIPPED ONE DOES NOT MERELY DUPLICATE IT — IT DISAGREES, AND
+THE DISAGREEMENT LANDS WHERE NOBODY IS LOOKING.** D143 caught this shape in `probe_bucket`, where
+the second rule agreed on 256 of 256 rows and the danger was future divergence. Here the divergence
+had already happened and was manufacturing evidence on the day it was written.
+[[feedback-a-duplicate-born-in-agreement]]
+
+**The repair is delegation, not correction.** `scripts/kernel_delta.py`'s `sys.exit(main())` is now
+guarded by `if __name__ == "__main__":` — behaviour under `python3 scripts/kernel_delta.py` is
+unchanged — and `deterministic_cost.resolves()` calls the gate's own `resolution()` and reads
+`K_SIGMA` off the imported module at CALL time. The arm that proves it is delegation and not
+agreement STUBS `kernel_delta.resolution` and requires the walk's answer to move; a second arm
+drives the exact shape of the removed defect (a pair the summed-range rule resolves and the band
+declines); a third requires a side with fewer than two readings to be REFUSED rather than resolved.
+
+### 3. WHAT THE CORPUS ACTUALLY SAYS, ON THE GATE'S OWN RULE
+
+```
+                                       old rule      gate's band
+  pairs the kernel reference resolves      2/11             1/11
+  no-op pairs falsely called resolved       1/5              0/5
+  live pairs (Δproxy ≠ 0) that it resolves  1/6              1/6
+```
+
+⇒ **The `ms per 1k proxy units` calibration rests on ONE pair.** The printed range `2.36 – 7.65`
+(spread 3.2×) is computed over pairs the referee cannot resolve at all; over the resolved set it is
+the single value **7.65**. QUEUE item 4b already said "an UPPER bound polluted by a referee that
+resolves 2 of 11 pairs" — the caveat was attached to that column and to no other, and the sign
+column beside it was read as independent corroboration. ⇒ 🔑 *a caveat attached to one column of a
+table is read as not applying to the others.* [[feedback-under-claims-are-unpoliced]]
+
+### 4. WHAT SURVIVES, STATED SO IT IS NOT LOST IN THE CORRECTION
+
+- **Exact linearity on a plant**: `Bool.casesOn ↦ 6,002 / 12,002 / 24,002` at N = 2000/4000/8000
+  with the checked module byte-identical. This is a measurement of the proxy against a change whose
+  truth is KNOWN, which is precisely what the corpus cannot offer.
+- **Five no-op commits at exactly zero**, at machine loads from 13 to 95 — the instrument's own zero,
+  taken across differing machine states rather than back to back (D146 §1(c)'s lesson).
+- Both are stronger evidence than any correlation over eleven pairs a referee resolves once.
+
+### 5. WHAT IS STILL NOT MEASURED
+
+- **The referee's false-NEGATIVE rate.** No pair in this corpus has a known NON-zero truth, so the
+  band rule is measured in one direction only, and the walk now prints that limitation rather than
+  leaving a one-sided error rate to read as an error rate. [[feedback-measure-a-gates-error-rates]]
+- **Machine independence** of the kernel counter — unchanged from D146, a prediction until a second
+  machine reads it.
+- **A budget.** Unchanged and now more so: a calibration resting on one resolved pair is not a
+  second source. Do not gate on it. [[feedback-widening-a-gate-needs-a-second-source]]
+
+## D149 — a dead session's orphan is a term in every wall-clock gate this repository owns
+
+At 19:29 this seat found `scripts/ci_local.py --job build` running with **ppid 1**, forty-seven
+minutes old, with a live child (`oracle_availability.py --check-encodings`). It was started at
+**18:42:25** — the same minute as the previous head's last file write — and it outlived the session
+that launched it. Attributed by `lsof` cwd (`/Users/jyh/projects/claude/x86lean`), not by command
+name, and killed BY PID. [[feedback-enumerate-is-not-attribute]]
+[[feedback-a-process-filter-matches-its-own-waiter]]
+
+**Why this is a measurement entry and not housekeeping.** This repository's merge gate is the CHANGE
+in kernel `type checking` WALL-CLOCK time. D142 measured the same tree reading 27,600 and 25,500 ms
+on two afternoons with no code between them and attributed the difference to "the box". Tonight a
+piece of "the box" had a pid, a cwd and an owner — and **every instrument this seat has was blind to
+it**, because the conditions line records LOAD. A load average says something is running; it never
+says what, or whose, or that it is this seat's own work from an hour ago.
+
+⇒ 🔑 **A GATE WHOSE READING IS WALL-CLOCK IS ROBBED BY WHATEVER SHARES ITS BOX, AND THE LIKELIEST
+THIEF IS THE SEAT'S OWN PREDECESSOR.** A relight kills the session, not the processes.
+
+⚠️ **And a banked timing died with it.** The bank says `ci_local --job build` is 2-4 minutes. Step 6
+of 27 alone ran 47 minutes on the orphan and had not finished in 10 on this seat's own run, while
+the 1-minute load went 39 → 52 → 282 on other seats' builds and `top` read **0.0% idle with 55-64%
+in SYSTEM time**. The banked figure was taken on a quiet box and carries no record of that.
+[[feedback-a-measurement-without-its-conditions]]
+
+⛔ **A load average is the wrong conditions metric on this box, and this is the second time tonight
+it misled.** At load 282 the actual CPU was ~44% user / ~55% sys with one `lean` at 160% — the
+number is dominated by runnable short-lived processes, not by compute. Any future conditions line
+that wants to mean something should carry **idle %** beside the load.
