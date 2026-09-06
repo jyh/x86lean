@@ -162,12 +162,30 @@ def level_table(rows, extract, decl_names):
 # must see both.  [[feedback-audit-the-premise-of-a-right-decision]]
 # [[feedback-the-burden-is-on-the-departure]]
 def transfer_ratios(metas, shipped, cand, units_, noise_abs):
-    """{unit: Δcand/Δms} over LIVE pairs whose ms move clears the noise floor."""
+    """({unit: Δcand/Δms}, used, dropped, skipped, flipped) over LIVE pairs.
+
+    ⛔ A UNIT WITH NO MEASURED NOISE IS SKIPPED, NOT GIVEN A FLOOR OF ZERO.  The
+    first version wrote `noise_abs.get(u, [0.0])`, so a unit with only one
+    reading per commit — no repeatability data at all — got a floor of 0 and
+    every pair, including pure noise, was accepted as signal.  A default fills a
+    gap in the direction nobody polices, and here it manufactured transfer ratios
+    out of noise for exactly the units the corpus knows least about.
+    [[feedback-a-declared-list-inherits-its-default]]
+
+    ⛔ AND A NEGATIVE RATIO IS A FINDING, NOT SOMETHING TO `abs()` AWAY.  It means
+    the two instruments disagree about the DIRECTION of a real change — the
+    candidate went down where the gated number went up.  Dividing an MDR by its
+    magnitude would turn that into a confident correction.  Such units are
+    reported as flipped and left without a ratio."""
     ms, cd = metas.get(shipped), metas.get(cand)
     if not ms or not cd:
-        return {}, 0, 0
-    out, used, dropped = {}, 0, 0
+        return {}, 0, 0, 0, []
+    out, used, dropped, skipped, flipped = {}, 0, 0, 0, []
     for u in units_:
+        floor = noise_abs.get(u)
+        if not floor:
+            skipped += 1
+            continue
         rs = []
         for a, b in zip(ms["seq"], ms["seq"][1:]):
             if b in ms["zero_lean"]:
@@ -177,14 +195,18 @@ def transfer_ratios(metas, shipped, cand, units_, noise_abs):
             if None in (aa, ba, ab, bb):
                 continue
             d_ms, d_c = ba - aa, bb - ab
-            if abs(d_ms) <= max(noise_abs.get(u, [0.0])):
+            if abs(d_ms) <= max(floor):
                 dropped += 1
                 continue
             rs.append(d_c / d_ms)
             used += 1
         if rs:
-            out[u] = statistics.median(rs)
-    return out, used, dropped
+            m = statistics.median(rs)
+            if m <= 0:
+                flipped.append(u)
+            else:
+                out[u] = m
+    return out, used, dropped, skipped, flipped
 
 
 # ⭐⭐ THE SELFTEST, AND THE TWO ARMS THAT MAKE THE ABSOLUTE COLUMN REAL.
@@ -219,7 +241,7 @@ REAL_COMMITS = ["144e9a3", "4f6766b", "76cb51b", "3769ea0", "0f929e3", "320cb45"
 # [[feedback-a-control-can-share-the-blind-spot]]
 def _fake_rows(level_ms, noise_ms, level_user, noise_user,
                step_ms=1.0, step_user=None, spike_at=None,
-               spike_ms=0.0, spike_user=0.0):
+               spike_ms=0.0, spike_user=0.0, lonely_unit=False):
     """Two sweeps over six real commits, with the noise AND the signal placed by
     hand.  `step_*` is the per-commit increment — the SIGNAL — so a fixture can
     make the candidate carry the whole change (`step_user == step_ms`) or be
@@ -245,6 +267,14 @@ def _fake_rows(level_ms, noise_ms, level_user, noise_user,
                               "real_s": (level_user + sgn * noise_user / 2.0 + i * step_user
                                          + (spike_user if (spike_at is not None and i >= spike_at) else 0.0)) / 1000.0}},
             })
+            if lonely_unit and sweep == 0:
+                # ⛔ a unit present in ONE sweep only: it has a LEVEL but no
+                # measurable noise, which is the gap the floor default used to
+                # fill with zero.
+                rows[-1]["modules"]["Z"] = 5000.0 + i * 500.0
+                rows[-1]["cpu"]["Z"] = {"user_s": (5000.0 + i * 500.0) / 1000.0,
+                                        "sys_s": 0.0,
+                                        "real_s": (5000.0 + i * 500.0) / 1000.0}
     return rows
 
 
@@ -357,6 +387,10 @@ def selftest():
         return _fake_rows(100000.0, noise_ms, 100000.0, noise_user, step_ms=0.0,
                           step_user=0.0, spike_at=4,
                           spike_ms=spike_ms, spike_user=spike_user)
+    def spiked_lonely():
+        return _fake_rows(100000.0, 1000.0, 100000.0, 1000.0, step_ms=0.0,
+                          step_user=0.0, spike_at=4, spike_ms=5000.0,
+                          spike_user=5000.0, lonely_unit=True)
     mdr_cases = [
         # twice the noise but the candidate hears the change TWICE as loudly:
         # 2 x 2000 / 2.0 == 2 x 1000, so sensitivity is EQUAL and the percentage
@@ -457,14 +491,32 @@ def selftest():
     if not ok:
         print("     got: " + (line[0].strip() if line else "(no error-rate row)"))
 
-    n = 5 + len(mdr_cases) + 3 + 2 + 1
+    # ⛔ ARM 11 — A UNIT WITH NO MEASURED NOISE GETS NO TRANSFER RATIO.  The
+    # floor used to default to 0 for such a unit, so pure noise was accepted as
+    # signal for exactly the units the corpus knows least about.
+    # [[feedback-a-declared-list-inherits-its-default]]
+    rc, out = _run_on(spiked_lonely())
+    ok = rc == 0 and "skipped for having no measured noise" in out
+    arm(ok, "a unit with no repeatability data is SKIPPED, not given a noise "
+            "floor of zero")
+
+    # ⛔ ARM 12 — THE TWO ARMS MOVING IN OPPOSITE DIRECTIONS IS A FINDING.  A
+    # negative ratio must not be abs()'d into a confident correction.
+    rc, out = _run_on(_fake_rows(100000.0, 1000.0, 100000.0, 1000.0, step_ms=0.0,
+                                 step_user=0.0, spike_at=4,
+                                 spike_ms=5000.0, spike_user=-5000.0))
+    ok = rc == 0 and "OPPOSITE directions" in out and "UNDECIDED" in out
+    arm(ok, "a unit where the candidate moves OPPOSITE to the shipped arm is "
+            "reported flipped and left UNDECIDED, not corrected by |ratio|")
+
+    n = 5 + len(mdr_cases) + 3 + 2 + 1 + 2
     if bad:
         print(f"user-cost-budget selftest: FAIL ({len(bad)} of {n} arms)")
         return 1
     print(f"user-cost-budget selftest: PASS ({n} arms — the denominator artifact, "
           "its held-out control, the partial corpus, the inexpressible unit, "
           "the shared rule, MDR deciding in all three directions, and signal "
-          "transfer deciding in both plus its noise-floor refusal, and the tie-count that guards the comparison's own bias, and the live/no-op split)")
+          "transfer deciding in both plus its noise-floor refusal, and the tie-count that guards the comparison's own bias, the live/no-op split, the unit with no measured noise, and the arms moving in opposite directions)")
     return 0
 
 
@@ -700,24 +752,37 @@ def main():
     # regressions; an arm with a larger MDR has bought its quiet by going deaf.
     SHIP = "type checking ms  (SHIPPED)"
     CAND = "child user CPU    (CANDIDATE)"
-    tr, tr_used, tr_dropped = transfer_ratios(
+    tr, tr_used, tr_dropped, tr_skipped, tr_flipped = transfer_ratios(
         metas, SHIP, CAND, sorted(shipped_units & cand_units),
         abstab[SHIP])
     print(f"\n── MINIMUM DETECTABLE REGRESSION ── budget% x level, in ms.  "
           f"LOWER IS BETTER.")
+    # ⛔ THE PROVENANCE LINE PRINTS UNCONDITIONALLY.  The first version reported
+    # `skipped` and `flipped` only inside the branch where SOME unit still had a
+    # ratio — so a corpus in which EVERY unit's two arms moved in opposite
+    # directions fell through to "no transfer ratio could be measured" and the
+    # flip, the most interesting thing in the run, was never mentioned.
+    # A diagnostic that only prints when the news is good is not a diagnostic.
+    # [[feedback-a-sentence-missing-case-reads-as-empty]]
+    bits = [f"{tr_used} pair(s) used", f"{tr_dropped} below the ms noise floor"]
+    if tr_skipped:
+        bits.append(f"{tr_skipped} unit(s) skipped for having no measured noise")
+    if tr_flipped:
+        bits.append(f"⛔ {len(tr_flipped)} unit(s) whose two arms moved in "
+                    f"OPPOSITE directions ({', '.join(tr_flipped)}) — left "
+                    f"UNDECIDED rather than corrected by |ratio|")
+    print("   transfer: " + "; ".join(bits) + ".")
     if tr:
         allr = sorted(tr.values())
         print(f"   ⚠️ the RAW columns assume a change moves each arm by the same "
               f"milliseconds. Measured, it does not: Δuser/Δms has median "
-              f"{statistics.median(allr):.2f} over {len(tr)} units "
-              f"({tr_used} pairs used, {tr_dropped} below the ms noise floor). "
-              f"The CORRECTED column divides by each unit's own ratio and is the "
-              f"one the verdict reads.")
+              f"{statistics.median(allr):.2f} over {len(tr)} unit(s). The "
+              f"CORRECTED column divides by each unit's own ratio and is the one "
+              f"the verdict reads.")
     else:
-        print(f"   ⛔ NO TRANSFER RATIO COULD BE MEASURED ({tr_dropped} pairs all "
-              f"below the ms noise floor). The verdict below therefore rests on "
-              f"the UNTESTED assumption that both arms move by the same "
-              f"milliseconds — say so wherever it is quoted.")
+        print(f"   ⛔ NO USABLE TRANSFER RATIO. Every verdict below is therefore "
+              f"UNDECIDED rather than resting on the untested assumption that "
+              f"both arms move by the same milliseconds.")
     print(f"   {'unit':<40} {'SHIPPED':>11} {'cand RAW':>11} {'Δu/Δms':>8} "
           f"{'cand CORR':>11}   verdict")
     wins = {"SHIPPED": 0, "CANDIDATE": 0, "tie": 0, "n/a": 0, "unknown": 0}
