@@ -168,6 +168,43 @@ qualifier.
    merge commit (D164) or `--gap` goes red. ⚠️ Re-run `p2_batch_size.py` first: the affordable batch
    GROWS with the roster, so yesterday's number is a floor.
 
+   ⛔⛔⛔ **THREE BRANCHES NOW WAIT ON ONE UNWATCHED CONDITION — "A QUIET BOX" — AND NOTHING IN THIS
+   REPOSITORY REPORTS WHEN IT ARRIVES (2026-09-06).**
+   ```
+     p2-batch32-fp-compares  3a811fb  09-05  UNMEASURABLE verdict; the batch MAY fail
+     es3-anchor-theorems     d9d7923  09-06  green; owes the landing ritual's measurement
+   ```
+   `es3-anchor-theorems` carries TWO landings on one measurement: the pre-state anchor theorems
+   (row ES item (3)'s step 2) and the roster-docstring gate below. Both are green and both are
+   `.lean`, so `--gap` demands a real `kernel_delta` before either merges.
+   ⇒ 🔑 **A PRECONDITION NOBODY WATCHES IS A PRECONDITION NOBODY MEETS.** The condition is stated
+   in three commit messages and in this row, and the only thing that would tell us it has arrived
+   is somebody running `uptime` while remembering these branches exist. Quiet reference is
+   `load1 ≈ 4.5` (`docs/kernel-delta-history-2026-09-04.jsonl`); at 12–14 every unit reads
+   ×1.14–×1.18 high, and the box was at **14.23 of 14 cpus** when these were held.
+   ⚠️ Held for PRECEDENCE as much as for noise: the council of 09-06 13:49 made SaltBench
+   precedence FIRST for 48 h (to ~09-08 13:45) and x86lean is fourth; a two-tree profile
+   saturates the box the first-precedence campaign is using.
+   [[feedback-a-gate-whose-precondition-is-a-discipline]] [[feedback-a-leak-filed-as-housekeeping]]
+
+   ⛔⛔ **AND `movmskps` IS BUILDABLE WORK THE MODEL HAS ALREADY HALF-BUILT — the whole of today's
+   buildable-today residue (1 pair / 53 instructions).** `Op.vmovmsk` carries a `.ps` kind whose
+   `Op.mnemonic` prints `movmskps` (the batch-36 field change), but `movmskps` is NOT in
+   `rosterP0`, has no coverage row and no vector. Its sibling `pmovmskb` IS a roster entry, so ONE
+   constructor is both named-per-kind and not.
+   ⇒ It escaped because `rosterP0`'s docstring claimed a gate against *"the set of `Op.mnemonic`
+   values"* that does not exist — the theorems compare `rosterP0` to `tableP0`, a second
+   hand-maintained list — and that claim **could not have been true**: the roster names `jcc`,
+   `setcc`, `cmovcc` as FORMS while `Op.mnemonic` yields the ~48 condition spellings.
+   ⇒ 🔑 **A CLAIM FALSIFIED IN BULK BY DESIGN IS A CLAIM NOBODY WILL EVER TEST, AND THE ONE REAL
+   VIOLATION HIDES INSIDE THE NOISE OF THE INTENDED ONES.**
+   ⭐ The gate is built and driven red-first on `es3-anchor-theorems`, with the gap carried as a
+   DECLARED entry (`declaredUnclaimedKindMnemonics`) plus an ORPHAN arm so it must be deleted when
+   claimed. **The repair itself is a batch**: roster entry + coverage row + vector + differential
+   run, after which the declared list empties and the buildable residue reaches 0 — which is the
+   arm-C ripening question, so this one pair is worth more than its 53 instructions.
+   [[feedback-a-citation-is-an-ungated-claim]] [[feedback-under-claims-are-unpoliced]]
+
    ⛔⛔ **AND A COMPLETE BATCH IS SITTING UNLANDED ON A BRANCH — `p2-batch32-fp-compares`
    (`3a811fb`, 2026-09-05).** It builds `comiss`/`comisd`/`ucomiss`/`ucomisd` — FOUR of
    sub-group A's twelve pairs, 2,256 instructions — with a green differential. It is held off
