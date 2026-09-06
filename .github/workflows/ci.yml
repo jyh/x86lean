@@ -234,6 +234,48 @@ jobs:
       - name: Threads A/B parse and positive-control logic
         run: python3 scripts/threads_ab.py --selftest
 
+      # QUEUE item 4d (D151): `scripts/user_cost_budget.py` scores the child's
+      # `user` CPU — recorded per module by `kernel_cost.py` at zero extra cost —
+      # against the profiler's `type checking` ms that the merge gate reads, over
+      # a re-run of the SAME twelve-commit walk the shipped budgets came from.
+      # The WALK needs a worktree and ~70 minutes and does not belong in CI. The
+      # REPORT does, and specifically its two arithmetic traps:
+      # ⛔ `user` charges elaboration AND kernel, so on `Tests.Coverage` it is a
+      # ~57,000 ms number where the gated one is ~25,000 ms. A report in
+      # PERCENTAGES ALONE would announce a 2.3x tightening for a candidate
+      # carrying exactly the same milliseconds of noise — an improvement
+      # manufactured by a larger denominator. The arms plant precisely that case
+      # and require it to read `abs 1.00x`, with a held-out arm (a genuinely
+      # steadier candidate) that must read tighter on BOTH columns.
+      # ⛔ And `getrusage` accounts per PROCESS while the gate has per-DECLARATION
+      # budgets, so four of the twenty-three gated units are not expressible by
+      # the candidate at all; an arm requires them NAMED rather than omitted,
+      # because a table that drops them reports agreement about units nobody
+      # measured.
+      - name: User-CPU budget report (denominator artifact, coverage, shared rule)
+        run: python3 scripts/user_cost_budget.py --selftest
+
+      # D151: `scripts/kernel_delta_budget.txt` opens with "DO NOT EDIT BY HAND:
+      # every number below is derived" — and until now NOTHING CHECKED THAT. The
+      # committed corpus is right there beside it, so the claim costs a second to
+      # make true: re-register from `docs/kernel-delta-history-2026-09-04.jsonl`
+      # and require the bytes to match.
+      # ⛔ WHAT THIS PROVES, EXACTLY, because the distinction has bitten this
+      # repository before: it proves the FILE IS THE SCRIPT'S OUTPUT on the
+      # committed readings — i.e. nobody hand-edited a budget and the rule has not
+      # drifted from the numbers it produced. It proves NOTHING about whether the
+      # rule is the right rule, and a byte-for-byte re-derivation gate that is read
+      # as saying more than that is how a generated file's hand-written paragraph
+      # comes to read as generated. [[feedback-a-derivation-gate-wraps-a-false-sentence]]
+      # ⚠️ It also pins the `budget_info` refactor (D151), which made ONE rule serve
+      # the shipped quantity and item 4d's candidate: if that extraction had moved
+      # the rule by a rounding step, this step is what would have said so.
+      - name: Delta budgets are DERIVED from the committed corpus, not hand-written
+        run: |
+          python3 scripts/kernel_delta_history.py --register-budget /tmp/kdb-check.txt \
+            --readings docs/kernel-delta-history-2026-09-04.jsonl
+          diff scripts/kernel_delta_budget.txt /tmp/kdb-check.txt
+
       # P1 BATCH 16 (D47): the README's headline numbers, gated against the
       # GENERATED coverage table and the per-batch differential records. They
       # had been stale for four batches — and the sentence beneath them said

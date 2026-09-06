@@ -20,7 +20,7 @@ of §3.7.  Raising a ceiling is a decision to record in docs/DECISIONS.md.
 
 Usage:  kernel_cost.py [--register]   (--register rewrites the ceiling file)
 """
-import os, re, subprocess, sys, glob, json, time
+import os, re, subprocess, sys, glob, json, time, resource
 
 # ⭐⭐ P2 BATCH 25 (D123) — THE ROOT IS A SEAM, AND IT EXISTS SO THAT ONE
 # MEASUREMENT IMPLEMENTATION SERVES BOTH GATES.  `kernel_delta.py` profiles a
@@ -58,6 +58,94 @@ CEIL_FILE = os.environ.get("X86LEAN_CEIL_FILE", "scripts/kernel_ceilings.txt")
 HEADROOM = 3.0
 FLOOR_MS = 50   # below this, timing noise dominates and a ratio is meaningless
 
+# ⭐⭐ QUEUE ITEM 7 (D151) — THE CONDITIONS LINE RECORDED A LOAD, AND A LOAD IS
+# NOT THE QUANTITY A WALL-CLOCK READING COMPETES WITH.
+#
+# D149 measured it on this box: a 1-minute load of 282 with `top` reading 0.0%
+# idle, 44% user / 55% SYSTEM and exactly one `lean` at 160% CPU — the load was
+# dominated by short-lived runnable processes, not by compute.  A reading taken
+# at "load 282" and one taken at "load 40" can describe the same machine, which
+# is precisely why D142's two afternoons could not be told apart.
+#
+# ⛔ THE PROBE IS NOT REIMPLEMENTED HERE.  `threads_ab.idle_pct` already exists,
+# already returns `None` rather than a default on a failed read, and a second
+# copy of it would agree with the first until the next ordinary append to either.
+# [[feedback-duplicate-born-in-agreement]]
+# ⚠️ The delegation is the direction it is for a reason: importing THIS module
+# from elsewhere would run its module-level `os.chdir(root)` and re-parse the
+# IMPORTER's argv for `--root`.  The dependency points at the side-effect-free
+# module.  (The `type checking` parse is still duplicated in `threads_ab`; the
+# two are behaviourally identical today and `--selftest` now holds them to that.)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import threads_ab as _tab
+
+
+# ⭐⭐ QUEUE ITEM 8 (D151) — A TIMING RUN MUST FIRST LOOK FOR THE SEAT'S OWN
+# ORPHANS.  A `ci_local --job build` from a dead session was found running 47
+# minutes at ppid 1 (D149), and no instrument this seat owned could see it: it
+# contributed to every wall-clock reading taken beside it and to none of their
+# recorded conditions.  A relight kills the SESSION, not the processes, and the
+# survivors are exactly the long-lived ones.
+#
+# ⛔ ATTRIBUTE BY CWD, NEVER BY COMMAND NAME.  The orphan found at this seat's
+# last exit had a command line identical to the seat's OWN armed bus watch, so a
+# `pkill -f` on the pattern would have reaped another seat's live process.  This
+# reports; it never kills.  [[feedback-enumerate-is-not-attribute]]
+# [[feedback-a-process-filter-matches-its-own-waiter]]
+def repo_orphans(root=None):
+    """Processes whose cwd is this repository and whose session is gone (ppid 1).
+
+    Returns a list of dicts, or None if the probe itself could not run — a
+    conditions field that reads "no orphans" because `lsof` was missing is worse
+    than an absent one.  [[feedback-probe-silence-has-two-causes]]"""
+    want = os.path.realpath(root or os.getcwd())
+    try:
+        ps = subprocess.run(["ps", "-eo", "pid,ppid,etime,comm"],
+                            capture_output=True, text=True, timeout=20)
+        if ps.returncode != 0:
+            return None
+        cand = {}
+        for line in ps.stdout.splitlines()[1:]:
+            parts = line.split(None, 3)
+            if len(parts) == 4 and parts[1] == "1" and parts[0] != "1":
+                cand[parts[0]] = {"etime": parts[2], "comm": parts[3].strip()}
+        if not cand:
+            return []
+        lf = subprocess.run(["lsof", "-a", "-d", "cwd", "-p", ",".join(cand)],
+                            capture_output=True, text=True, timeout=60)
+        # ⚠️ `lsof` exits non-zero when ANY named pid is gone, which is routine
+        # over a 1,100-pid list.  Its stdout is still valid, so the exit code is
+        # not a refusal here; an empty stdout with no header is.
+        if "COMMAND" not in lf.stdout:
+            return None
+        out = []
+        for line in lf.stdout.splitlines()[1:]:
+            parts = line.split(None, 8)
+            if len(parts) < 9:
+                continue
+            pid, cwd = parts[1], parts[8].strip()
+            if pid in cand and os.path.realpath(cwd) == want:
+                out.append({"pid": int(pid), "cwd": cwd, **cand[pid]})
+        return out
+    except Exception:
+        return None
+
+
+def _sentinel(v):
+    """-1.0 for an unreadable load, for the legacy top-level fields only."""
+    return -1.0 if v is None else v
+
+
+def conditions(root=None):
+    """The conditions a reading must be quoted with.  `None` never a default."""
+    try:
+        la1, la5, _ = os.getloadavg()
+    except OSError:
+        la1, la5 = None, None
+    return {"load1": la1, "load5": la5, "idle_pct": _tab.idle_pct(),
+            "orphans": repo_orphans(root)}
+
+
 def modules():
     fs = sorted(glob.glob("X86/*.lean")) + ["X86.lean", "X86Native.lean"] \
          + sorted(glob.glob("Tests/*.lean")) + ["Tests.lean"]
@@ -66,10 +154,53 @@ def modules():
 def mod_name(f):
     return f[:-5].replace("/", ".")
 
-def kernel_ms(f):
+# ⭐⭐⭐ QUEUE ITEM 4d (D151) — THE PER-UNIT CPU TIME WAS IN EVERY PASS ALREADY.
+#
+# This function runs ONE `lean` process per module, so the CPU that process
+# burns is ALREADY a per-unit quantity: `getrusage(RUSAGE_CHILDREN)` differenced
+# across the `subprocess.run` costs nothing, needs no second invocation, and
+# belongs to exactly the pass whose milliseconds sit beside it.  D150 measured
+# it against the number this gate reads, five profiles of ONE unchanged tree:
+#
+#     profiler `type checking`   51,400 / 42,700 / 28,900 / 31,000 / 42,700 ms
+#     child `user` CPU               56.99 / 58.05 / 55.98 / 56.69 / 57.24 s
+#
+# — a 52.7% range against a 3.6% one, policing a 1,764 ms budget.
+#
+# ⛔ RECORDING IT IS NOT GATING ON IT, and that difference is the whole of item
+# 4d.  `user` charges ELABORATION AND KERNEL where the gated number charges the
+# kernel alone, so it is a DIFFERENT QUANTITY, not a better reading of the same
+# one: every budget in `kernel_ceilings.txt` and `kernel_delta_budget.txt` would
+# have to be re-derived from a SECOND SOURCE before it could carry a gate, and
+# deriving one from the runs that recommended it would be deriving the allowance
+# from the thing it checks.
+# [[feedback-widening-a-gate-needs-a-second-source]]
+#
+# ⚠️ RUSAGE_CHILDREN IS CUMULATIVE over every descendant this process has
+# reaped, so this difference is THIS invocation's only because the profiling
+# loop is sequential and reaps nothing else inside the window.  If that loop is
+# ever parallelised, the field silently attributes one module's CPU to whichever
+# module happened to be differencing — it must then move to a per-child `wait4`
+# or be deleted.  A reading whose precondition has quietly lapsed is worse than
+# no reading, because it still prints.
+def profile_module(f):
+    """One profiler pass over one module.
+
+    Returns {"ms", "user_s", "sys_s", "real_s"}.  `kernel_ms` is the thin
+    wrapper the ceiling gate and the delta gate both call, so there is exactly
+    ONE `lean` invocation per module and exactly one implementation of the
+    parse — a second copy of either agrees until the next ordinary append.
+    """
+    ru0 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    t0 = time.time()
     r = subprocess.run(
         ["lake", "env", "lean", "-D", "profiler=true", "-D", "profiler.threshold=100000", f],
         capture_output=True, text=True)
+    real_s = time.time() - t0
+    ru1 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    cpu = {"user_s": ru1.ru_utime - ru0.ru_utime,
+           "sys_s": ru1.ru_stime - ru0.ru_stime,
+           "real_s": real_s}
     if r.returncode != 0:
         print(f"⛔ {f} did not compile:\n{r.stdout}\n{r.stderr}")
         sys.exit(2)
@@ -88,12 +219,19 @@ def kernel_ms(f):
         # silently read as zero — the distinction is the whole difference
         # between "nothing to check" and "we did not look".
         if "cumulative profiling times" in blob:
-            return 0.0
+            cpu["ms"] = 0.0
+            return cpu
         print(f"⛔ {f}: the profiler produced no cumulative block at all. "
               f"A missing reading is not a zero.")
         sys.exit(2)
     v = float(m.group(1))
-    return v * 1000 if m.group(2) == "s" else v
+    cpu["ms"] = v * 1000 if m.group(2) == "s" else v
+    return cpu
+
+
+def kernel_ms(f):
+    """The gated quantity, unchanged: the profiler's cumulative `type checking`."""
+    return profile_module(f)["ms"]
 
 # ⭐ THE DENOMINATOR FOR A TABLE-DRIVEN MODULE, AND WHY IT CAN BE TRUSTED.
 #
@@ -362,22 +500,50 @@ def emit_json():
                          f"below would be about a tree that does not compile.\n"
                          f"{b.stdout}\n{b.stderr}\n")
         return 2
-    mods, decls, missing = {}, {}, []
+    # ⭐ The conditions are sampled BEFORE the measurement and again after it,
+    # and both are recorded.  D150: a sample taken before a 56-second reading
+    # describes a different minute — round 0 began at 40.1% idle, ended with the
+    # box at 0.0%, and was the highest of five readings on one tree.  One sample
+    # cannot say which minute the number belongs to; two bound it.
+    cond_before = conditions()
+    mods, cpu, decls, missing = {}, {}, {}, []
     for f in modules():
-        mods[mod_name(f)] = kernel_ms(f)
+        r = profile_module(f)
+        mods[mod_name(f)] = r["ms"]
+        cpu[mod_name(f)] = {k: r[k] for k in ("user_s", "sys_s", "real_s")}
     for m in want:
         f = [x for x in modules() if mod_name(x) == m]
         if not f:
             missing.append(m)
             continue
         decls[m] = {name: ms for _l, name, ms in per_declaration(f[0])}
-    try:
-        la1, la5, _ = os.getloadavg()
-    except OSError:
-        la1, la5 = -1.0, -1.0
-    print(json.dumps({"root": os.getcwd(), "load1": la1, "load5": la5,
+    cond_after = conditions()
+    print(json.dumps({"root": os.getcwd(),
+                      # ⚠️ `load1`/`load5` KEEP their place, their meaning (the
+                      # load BEFORE the pass) AND their -1.0 sentinel.
+                      # `docs/kernel-delta-history-2026-09-04.jsonl` is read by
+                      # `--analyse`, and a field that changes place between two
+                      # halves of one corpus is a corpus that cannot be analysed
+                      # as one.
+                      # [[feedback-a-positional-index-bets-the-record-wont-grow]]
+                      # ⛔ AND THE SENTINEL IS NOT "TIDIED" TO `None` HERE, even
+                      # though D149's rule (`None`, never a default) is the right
+                      # one and the new `conditions_*` fields obey it.  Three
+                      # analysers format this field with `:.2f`
+                      # (`kernel_delta.py:412,444`, `kernel_delta_history.py:136,532`)
+                      # and would raise on a `None` — a probe failure would then
+                      # surface as a crash in a DIFFERENT tool reading the corpus
+                      # months later.  The honest `None` lives in
+                      # `conditions_before/after`, which no formatter touches.
+                      "load1": _sentinel(cond_before["load1"]),
+                      "load5": _sentinel(cond_before["load5"]),
                       "t": time.time(), "modules": mods, "decls": decls,
-                      "missing": missing}))
+                      "missing": missing,
+                      # ⭐ QUEUE item 4d's candidate quantity, and items 7/8's
+                      # conditions.  Additive: nothing above changed meaning.
+                      "cpu": cpu,
+                      "conditions_before": cond_before,
+                      "conditions_after": cond_after}))
     return 0
 
 
@@ -402,6 +568,114 @@ def read_ceilings():
                 print(f"⛔ unparseable ceiling line: {line!r}")
                 sys.exit(2)
     return d, decls, tails
+
+# ⭐⭐ THE ARMS FOR THE THREE THINGS ADDED BY QUEUE ITEMS 4d / 7 / 8 (D151).
+#
+# All four are IN-PROCESS and cost under five seconds together, which is the
+# only reason they can live inside a ~6-minute selftest rather than beside it in
+# a step nobody runs.  A gate behind a step that is skipped is silent, and
+# silence reads as green.  [[feedback-a-gate-behind-a-failing-step-is-silent]]
+# [[feedback-make-the-probe-cheap]]
+def conditions_selftest():
+    """Returns a list of (ok, name).  Each arm creates the condition it tests."""
+    out = []
+
+    # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
+    # claims to get its idle % from `threads_ab.idle_pct` rather than from a
+    # second copy.  A comment naming a delegate reads AS the delegation.  So the
+    # delegate is STUBBED and the answer must MOVE.
+    # [[feedback-a-citation-is-an-ungated-claim]]
+    real = _tab.idle_pct
+    try:
+        _tab.idle_pct = lambda: 424242.0
+        moved = conditions()["idle_pct"] == 424242.0
+    finally:
+        _tab.idle_pct = real
+    out.append((moved, "the idle % is really read through threads_ab.idle_pct "
+                       "(delegate stubbed; the answer must move)"))
+
+    # ⭐ ARM 2 — THE ORPHAN PROBE CREATES ITS OWN CONDITION.  A probe that finds
+    # nothing on a clean box has told you nothing: it cannot distinguish "no
+    # orphans" from "cannot see orphans".  So make a REAL one — a child whose
+    # parent exits, leaving it reparented to pid 1 with its cwd in this
+    # repository — and require the probe to name it BY PID.
+    # [[feedback-a-probe-must-create-its-condition]] [[feedback-probe-silence-has-two-causes]]
+    orphan_pid, found = None, False
+    try:
+        r = subprocess.run(["sh", "-c", "sleep 45 >/dev/null 2>&1 & echo $!"],
+                           capture_output=True, text=True, cwd=root, timeout=20)
+        orphan_pid = int(r.stdout.strip())
+        for _ in range(30):            # reparenting is not instantaneous
+            got = repo_orphans()
+            if got is not None and any(o["pid"] == orphan_pid for o in got):
+                found = True
+                break
+            time.sleep(0.2)
+    except Exception:
+        found = False
+    finally:
+        # ⛔ KILLED BY PID, the pid THIS arm created and no other.  Never
+        # `pkill -f` a pattern — the seat's own tools carry the same patterns as
+        # the processes it is hunting, which is how a sweep reaps a live seat.
+        # [[feedback-a-process-filter-matches-its-own-waiter]]
+        if orphan_pid:
+            try:
+                os.kill(orphan_pid, 9)
+            except Exception:
+                pass
+    out.append((found, "the orphan probe FINDS a real orphan it created "
+                       "(ppid 1, cwd = this repo), by pid"))
+
+    # ⚠️ ARM 3 — THE HELD-OUT ARM, and it is the one that keeps the probe usable.
+    # A probe that reported every process whose cwd is this repository would
+    # name the seat's OWN live tools on every reading, and a conditions field
+    # that always fires is one nobody reads.  This process is itself a live,
+    # properly-parented process with its cwd in the repo, so it is the control
+    # the probe must NOT report.  [[feedback-a-control-can-share-the-blind-spot]]
+    got = repo_orphans()
+    quiet = got is not None and not any(o["pid"] == os.getpid() for o in got)
+    out.append((quiet, "the orphan probe does NOT report this live, parented "
+                       "process whose cwd is also this repo"))
+
+    # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
+    # own copy of the `type checking` parse (its docstring says "copied from
+    # kernel_cost.kernel_ms").  The copy cannot simply be deleted: importing
+    # THIS module would run its module-level `os.chdir(root)` and re-read the
+    # importer's argv for `--root`.  So the two are held to agreement instead,
+    # on the cases that differ between plausible implementations — the `s` vs
+    # `ms` unit, the real zero, and the missing block that must NOT read as one.
+    # [[feedback-duplicate-born-in-agreement]] [[feedback-two-readings-are-not-two-witnesses]]
+    cases = [
+        ("cumulative profiling times\n    type checking 1.5s\n", 1500.0),
+        ("cumulative profiling times\n    type checking 250ms\n", 250.0),
+        ("cumulative profiling times\n    elaboration 3ms\n", 0.0),   # a real zero
+        ("lean: something exploded\n", None),                          # NOT a zero
+    ]
+    agree = True
+    for blob, want in cases:
+        m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
+        if m:
+            mine = float(m.group(1)) * (1000 if m.group(2) == "s" else 1)
+        else:
+            mine = 0.0 if "cumulative profiling times" in blob else None
+        theirs = _tab.parse_type_checking(blob)
+        if mine != want or theirs != want:
+            agree = False
+    out.append((agree, "kernel_cost's and threads_ab's `type checking` parses "
+                       "still agree (units, a real zero, and a missing block)"))
+
+    # ⚠️ ARM 5 — THE LEGACY SENTINEL SURVIVES A FAILED PROBE.  Three analysers
+    # format the top-level `load1` with `:.2f`; a `None` there would surface as a
+    # crash in a different tool reading the corpus months later.
+    try:
+        sentinel_ok = (_sentinel(None) == -1.0 and f"{_sentinel(None):.2f}" == "-1.00"
+                       and _sentinel(3.5) == 3.5)
+    except Exception:
+        sentinel_ok = False
+    out.append((sentinel_ok, "an unreadable load still formats for the legacy "
+                             "`:.2f` readers (-1.0, not None)"))
+    return out
+
 
 def selftest():
     """⛔ DRIVE THE PER-DECLARATION GATE RED, EACH FAILURE MODE ALONE.
@@ -528,10 +802,17 @@ def selftest():
             print("     " + line)
     if not ok:
         bad.append("control")
+    # ⭐ the conditions/CPU/orphan arms (items 4d, 7, 8) — cheap and in-process
+    cond_arms = conditions_selftest()
+    for cok, cname in cond_arms:
+        print(("  ✔ " if cok else "  ⛔ ") + cname)
+        if not cok:
+            bad.append(cname)
+    n = len(arms) + len(load_arms) + 1 + len(cond_arms)
     if bad:
-        print(f"kernel-cost selftest: FAIL ({len(bad)} of {len(arms)+len(load_arms)+1} arms)")
+        print(f"kernel-cost selftest: FAIL ({len(bad)} of {n} arms)")
         return 1
-    print(f"kernel-cost selftest: PASS ({len(arms)+len(load_arms)+1} arms — every way this gate "
+    print(f"kernel-cost selftest: PASS ({n} arms — every way this gate "
           f"could stop looking, driven separately, plus the control)")
     return 0
 
@@ -735,4 +1016,14 @@ def main():
     print("kernel-cost gate: CLEAN")
     return 0
 
-sys.exit(main())
+
+# ⛔⛔ THE GUARD IS LOAD-BEARING (D151).  Without it, `import kernel_cost` RAN THE
+# WHOLE GATE — a two-minute profiling pass and a `sys.exit` — so the module could
+# not be imported by its own selftest, by a probe, or by any future tool.  I hit
+# this while writing the arms below and the symptom was a probe that appeared to
+# hang: it was profiling the development.  `kernel_delta.py` was given the same
+# guard by D148 for the same reason, which is the tell — the defect was already
+# named once in this repository and its sibling was never swept for.
+# [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+if __name__ == "__main__":
+    sys.exit(main())

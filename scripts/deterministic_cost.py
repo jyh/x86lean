@@ -856,4 +856,12 @@ def main():
     return walk()
 
 
-sys.exit(main())
+
+# ⛔ GUARDED (D151's sweep).  An unguarded `sys.exit(main())` means `import <this
+# module>` RUNS the tool and then exits the importer — `kernel_cost.py` cost a
+# two-minute profiling pass and a killed probe before this was noticed, and
+# `kernel_delta.py` had already been given the same guard by D148.  Two prior
+# namings and the siblings were never swept for.
+# [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+if __name__ == "__main__":
+    sys.exit(main())

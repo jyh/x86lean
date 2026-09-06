@@ -306,8 +306,22 @@ def analyse(path, decl_names):
 # MULT is then the smallest multiple at which EVERY batch in the window passes,
 # rounded up: a gate registered at a multiple that would have failed a batch
 # which actually landed is a gate calibrated to reject its own history.
-def register_budget(path, out, decl_names, mult=None, floor=None):
-    rows = [json.loads(l) for l in open(path) if l.strip().startswith("{")]
+# ⭐⭐⭐ THE RULE, EXTRACTED SO THERE IS EXACTLY ONE OF IT (D151, QUEUE item 4d).
+#
+# `register_budget` used to BE this computation.  Item 4d needs the same rule
+# applied to a DIFFERENT QUANTITY — the child's `user` CPU instead of the
+# profiler's `type checking` ms — and the tempting way to get that is a second
+# copy with the extractor swapped.  D148 §2 is exactly what that costs: a
+# referee invented beside a shipped rule turned out to be LOOSER than the gate it
+# refereed, and it disagreed in the flattering direction.
+#
+# ⇒ ONE RULE, PARAMETERISED BY THE QUANTITY.  `extract(reading, decl_names) ->
+# {unit: value}` is the only thing that varies, so any difference between the
+# shipped budgets and a candidate's is a difference between the QUANTITIES and
+# cannot be a difference between two implementations of the rule.
+# [[feedback-duplicate-born-in-agreement]] [[feedback-widening-a-gate-needs-a-second-source]]
+def budget_info(rows, extract, decl_names):
+    """(info, meta) for one quantity.  No file is written and nothing is gated."""
     order, per = [], {}
     for r in rows:
         per.setdefault(r["commit"], []).append(r)
@@ -316,8 +330,8 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
     seq = order
     med, spread = {}, {}
     for c in seq:
-        us = [units(r, decl_names) for r in per[c]]
-        keys = set().union(*[set(u) for u in us])
+        us = [extract(r, decl_names) for r in per[c]]
+        keys = set().union(*[set(u) for u in us]) if us else set()
         med[c] = {k: statistics.median([u[k] for u in us if k in u]) for k in keys}
         spread[c] = {k: (max(v) - min(v)) if len(v := [u[k] for u in us if k in u]) > 1
                      else 0.0 for k in keys}
@@ -327,7 +341,25 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
                             cwd=ROOT, capture_output=True, text=True).stdout.split()
         if not any(x.endswith(".lean") for x in ch):
             zero_lean.add(b)
-    all_u = sorted(set().union(*[set(med[c]) for c in seq]))
+    all_u = sorted(set().union(*[set(med[c]) for c in seq])) if seq else []
+    info = _unit_info(seq, med, spread, all_u, zero_lean)
+    meta = {"seq": seq, "med": med, "spread": spread, "zero_lean": zero_lean,
+            "all_u": all_u, "rows": len(rows)}
+    if info:
+        meta["need"] = max(i["worst"] / i["cand"] for i in info.values())
+        meta["binding"] = max(info, key=lambda u: info[u]["worst"] / info[u]["cand"])
+        # the @floor candidate: the worst within-commit spread among SMALL units
+        SMALL_MS = 50.0
+        worst_spread = 0.0
+        for c in seq:
+            for u in all_u:
+                if u in med[c] and med[c][u] <= SMALL_MS:
+                    worst_spread = max(worst_spread, spread[c].get(u, 0.0))
+        meta["floor_candidate"] = max(math.ceil(worst_spread), 1.0)
+    return info, meta
+
+
+def _unit_info(seq, med, spread, all_u, zero_lean):
     info = {}
     for u in all_u:
         rels, ctrl, noise = [], [], []
@@ -353,8 +385,15 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
                    "noise": max(noise) if noise else 0.0,
                    "worst": worst, "worst_commit": worst_c[:9],
                    "base": statistics.median([med[c][u] for c in seq if u in med[c]])}
-    need = max(i["worst"] / i["cand"] for i in info.values())
-    binding = max(info, key=lambda u: info[u]["worst"] / info[u]["cand"])
+    return info
+
+
+def register_budget(path, out, decl_names, mult=None, floor=None):
+    rows = [json.loads(l) for l in open(path) if l.strip().startswith("{")]
+    info, meta = budget_info(rows, units, decl_names)
+    seq, med, spread = meta["seq"], meta["med"], meta["spread"]
+    all_u, zero_lean = meta["all_u"], meta["zero_lean"]
+    need, binding = meta["need"], meta["binding"]
     # ⛔⛔ THE FIRST GENERATION OF THIS FILE REGISTERED `MULT = ceil(need)` — 1.4
     # against a needed 1.40 — AND THAT IS A GATE WITH ZERO HEADROOM ON THE UNIT
     # THAT BINDS IT. `vectorCoverage`'s worst batch in the window would have sat
@@ -403,13 +442,7 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
         # than the worst this walk saw SHOULD refuse rather than pass; padding the
         # floor to prevent that would buy silence with the one verdict that says
         # the instrument could not see.
-        SMALL_MS = 50.0
-        worst_spread = 0.0
-        for c in seq:
-            for u in all_u:
-                if u in med[c] and med[c][u] <= SMALL_MS:
-                    worst_spread = max(worst_spread, spread[c].get(u, 0.0))
-        floor = max(math.ceil(worst_spread), 1.0)
+        floor = meta["floor_candidate"]
     with open(out, "w") as fh:
         fh.write(f"""# KERNEL-TIME DELTA BUDGETS — GENERATED by
 # `scripts/kernel_delta_history.py --register-budget`, from a measured walk over
@@ -540,4 +573,12 @@ def main():
     return analyse(out, decl_names)
 
 
-sys.exit(main())
+
+# ⛔ GUARDED (D151's sweep).  An unguarded `sys.exit(main())` means `import <this
+# module>` RUNS the tool and then exits the importer — `kernel_cost.py` cost a
+# two-minute profiling pass and a killed probe before this was noticed, and
+# `kernel_delta.py` had already been given the same guard by D148.  Two prior
+# namings and the siblings were never swept for.
+# [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+if __name__ == "__main__":
+    sys.exit(main())
