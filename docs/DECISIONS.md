@@ -10521,6 +10521,69 @@ declines elsewhere. Ordering is the honest fix.
 [[feedback-a-staleness-stamp-hashes-only-one-half]] [[feedback-two-defects-that-cancel]]
 [[feedback-a-gate-behind-a-failing-step-is-silent]]
 
+### 5d. ⛔ `TaskStop` SKIPS A TOOL'S CLEANUP, AND kernel_delta LEAKS TWO WORKTREES PER KILL
+
+`kernel_delta.measure()` creates two detached worktrees and removes them in a `finally`. Killing
+the process — which is what a harness `TaskStop` does — never runs that block, so **each killed run
+leaves two worktrees registered in `git worktree list` and two trees on disk.**
+
+Found by counting rather than by noticing: `git worktree list` showed three `x86lean-delta-*`
+PAIRS while only one run was live. The live one was `base e6dd9c6 → head 5c18c59` (this batch's
+merge gate). Of the other two, `base 9aaf7e7 → head e6dd9c6` is **exactly the pair the accidental
+`--help` run would have built** before I stopped it (§5.1), so that leak is mine; the third pair
+names commits from an earlier session and predates this seat.
+
+⇒ 🔑 **A `finally` IS NOT A CLEANUP GUARANTEE WHEN THE PROCESS CAN BE KILLED FROM OUTSIDE.** The
+cost here is small and bounded — stale worktree registrations and disk — but the shape is not: a
+tool whose only cleanup path is in-process leaves its garbage precisely on the runs that went
+wrong, which are the runs a successor is most likely to be re-doing. **A killed run is the normal
+case for a long measurement, not the exception**, so the sweep belongs at the START of the next
+run — `git worktree prune` plus a removal of any `x86lean-delta-*` this repo still lists — not only
+at the end of a run that may not reach its end.
+⚠️ AND THE SWEEP MUST NOT TOUCH A LIVE PAIR: the discriminator is the (base, head) revs, which name
+what a run is measuring, so a cleanup keyed on directory age alone would kill a slow live run.
+
+### 5e. ⭐⭐⭐ THE MERGE GATE, IN THREE DRAWS — AND THE THIRD INSTANCE OF THE RE-ROLL LAW
+
+`kernel_delta --base master --head 5c18c59 --repeats 5`, three times over the same PINNED revs:
+
+```
+  unit                                  draw 1            draw 2            draw 3
+  Tests.Anchors                         +98  ±80.9  UNM   +29  ±190.7 UNM   +3.0 ±39.4  ok
+  Tests.Coverage @decl vectorCoverage   +130 ±859.8 UNM   +100 ±56.9  ok    +70  ±680.9 UNM
+  X86.Syntax                            +12  ±24.5  ok    +18  ±93.6  UNM   +19  ±21.1  ok
+  X86.Theorems                          +40  ±94.4  ok    +60  ±203.1 UNM   +29  ±68.5  ok
+  X86.Basic / X86.State / X86.Value     ok                UNM               ok
+  loads during the passes               9-16              17-22             9-14
+  units refusing                        2 of 23           6 of 23           1 of 23
+```
+
+**EVERY UNIT HAS READ `ok` IN AT LEAST ONE DRAW, AND NO UNIT EXCEEDED ITS BUDGET IN ANY DRAW.** The
+gate never returned rc 1. That is the merge case, and it is stated as three draws rather than
+laundered into one pass — three `UNMEASURABLE` results do not add up to a verdict, but a unit that
+reads `ok` on a quiet box and refuses on a loud one has been measured.
+
+⭐ **`Tests.Anchors` IS THE WHOLE ARGUMENT FOR HAVING RE-RUN.** Draw 1 put it at **+98 against a
+125.6 budget — 75% of its allowance, the tightest margin in the table**, and it is a module this
+batch does not edit. Had I landed on one draw I would have recorded a near-miss that wanted
+watching. Three draws read **+98 → +29 → +3.0**: it converges to zero and the first reading was
+noise. ⇒ **A MARGIN IS A READING TOO**, and the number that most deserves a second draw is not the
+one that refuses loudest but the one that passes — or nearly fails — narrowest.
+[[feedback-a-pass-at-97-percent-is-not-headroom]]
+
+⛔ **AND THE RE-ROLL LAW NOW HAS THREE INDEPENDENT INSTANCES IN ONE SESSION** (§3b's two, plus these
+three draws). Draw 2 ran on a box at load 17-22 and refused **six** units; draw 3 at load 9-14
+refused **one**, and it was not one of draw 1's two. The refusing SET tracks the box at the minute
+of the run, not the commit and not the unit. ⇒ the operational rule stands and is now cheap to
+state: **re-run before doing anything else, and never plan around `repeats_to_decide`** — across
+five draws tonight it was wrong in both directions every time it was checkable.
+
+⭐ WHAT THE THREE DRAWS SAY ABOUT THE BATCH ITSELF, WHICH IS WHAT THEY WERE ASKED: `X86.Syntax`
+**+12 / +18 / +19** against a 47.1 budget. Step 1 isolated the two FIELDS at **−5.0** on that same
+unit, so the ~+15 ms is the three new CONSTRUCTORS and not the fields — a decomposition that exists
+only because the field change was committed separately, which is what QUEUE 2b's "price it first"
+order actually bought.
+
 ### 6. A THIRD MEASUREMENT OF THE ENCODING TABLE, UNASKED FOR AND FREE
 
 QUEUE 2b's table was measured twice. Assembling the fifteen forms step 2 needs with
