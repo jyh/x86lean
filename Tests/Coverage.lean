@@ -56,6 +56,79 @@ theorem table_rows_distinct :
 
 theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
+/-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
+
+`rosterP0`'s docstring said `Tests/Coverage.lean` *"checks that this list and the
+set of `Op.mnemonic` values agree, so the coverage table cannot drift from the
+AST"*.  The two theorems above check it against `tableP0` — a second
+hand-maintained list — and **nothing quantified over what `Op.mnemonic` can
+produce**.
+
+⛔ AND THE CLAIM COULD NOT HAVE BEEN TRUE.  The condition families are
+deliberately abstracted: the roster names `jcc`, `setcc` and `cmovcc` as FORMS,
+while `Op.mnemonic` yields the ~48 spellings (`je`, `sete`, `cmovne`, …).  A gate
+written to those words reports forty-eight mismatches on its first run, every one
+of them intended.
+⇒ 🔑 **A CLAIM FALSIFIED IN BULK BY DESIGN IS A CLAIM NOBODY WILL EVER TEST, AND
+THE ONE REAL VIOLATION HIDES INSIDE THE NOISE OF THE INTENDED ONES.**
+
+⭐ SO THIS GATE IS STATED WHERE THE CLAIM IS ACTUALLY MEANT: over the kind enums
+whose KINDS ARE THEMSELVES ROSTER ENTRIES.  Measured over every such enum with an
+`all` list, all are clean but one:
+```
+   VMovKind [] · VShufpKind [] · RepPrefix [] · MulDivKind [] · DShiftKind []
+   VMovMskKind ["movmskps"]        <- the gap
+```
+`VMovMskKind` has two kinds; its sibling `pmovmskb` IS a roster entry and
+`movmskps` is not — so ONE constructor is both named-per-kind and not.  The model
+can express and print a form the coverage table does not name and no vector
+exercises, and the direction is the unpoliced one: the AST is WIDER than the
+claim, which looks like modesty.
+
+⛔ CARRIED AS A DECLARED EXCEPTION WITH ITS DATE, NEVER AS AN ABSENCE, because an
+absence is what let it sit here.  Claiming `movmskps` is a batch (a roster entry,
+a coverage row, a vector, a differential run); the day it lands, this list
+empties and `unclaimed_kind_mnemonics_are_exactly_the_declared_ones` fails until
+the entry is deleted — which is the point.  -/
+def declaredUnclaimedKindMnemonics : List String :=
+  -- 2026-09-06: implemented as a `VMovMskKind` kind (the batch-36 field change)
+  -- and never claimed. 53 instructions of demand; `p2_residue.py` prints it as
+  -- the WHOLE buildable-today residue.
+  ["movmskps"]
+
+/-- Every mnemonic the roster-bearing kind enums can produce is either NAMED by
+the roster or DECLARED above with a reason.  No wildcard: a new kind is in
+neither list and fails here. -/
+theorem kind_mnemonics_are_named_or_declared :
+    ((VMovKind.all.map VMovKind.mnemonic
+      ++ VShufpKind.all.map VShufpKind.mnemonic
+      ++ VMovMskKind.all.map VMovMskKind.mnemonic
+      ++ RepPrefix.all.map RepPrefix.mnemonic
+      ++ MulDivKind.all.map MulDivKind.mnemonic
+      ++ DShiftKind.all.map DShiftKind.mnemonic).all (fun m =>
+        rosterP0.contains m || declaredUnclaimedKindMnemonics.contains m)) = true := by
+  decide
+
+/-- ⭐ AND THE DECLARED LIST IS EXACTLY THE UNCLAIMED ONES — gated for ORPHANS in
+the other direction, so an entry left behind after its batch lands is a RED and
+not a comment nobody re-reads.  This is the half that makes the exception list
+shrink on its own. -/
+theorem unclaimed_kind_mnemonics_are_exactly_the_declared_ones :
+    (declaredUnclaimedKindMnemonics.all (fun m => !(rosterP0.contains m))) = true := by
+  decide
+
+/-! ⚠️ AND ITS VACUITY IS THE RIGHT VACUITY, which is worth saying because the
+usual instinct is to guard against it.  A first draft of this block also asserted
+`declaredUnclaimedKindMnemonics.length = 1` — a non-vacuity guard — and that
+theorem FIRES ON ITS OWN REPAIR: claiming `movmskps` empties the list, which is
+the good event, and the guard would have gone red for it.
+⇒ 🔑 A NON-VACUITY GUARD OVER A BACKLOG CONVICTS WHOEVER CLEARS THE BACKLOG.
+Here the emptiness IS the success condition, so the theorem above is allowed to
+become vacuous — and when it does, `kind_mnemonics_are_named_or_declared` is
+carrying the whole claim on its own, which is exactly what should happen.
+[[feedback-an-arm-whose-fixture-is-the-backlog]] -/
+
+
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are).
