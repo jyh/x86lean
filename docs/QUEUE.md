@@ -168,12 +168,25 @@ qualifier.
    merge commit (D164) or `--gap` goes red. ⚠️ Re-run `p2_batch_size.py` first: the affordable batch
    GROWS with the roster, so yesterday's number is a floor.
 
-   ⛔⛔⛔ **THREE BRANCHES NOW WAIT ON ONE UNWATCHED CONDITION — "A QUIET BOX" — AND NOTHING IN THIS
-   REPOSITORY REPORTS WHEN IT ARRIVES (2026-09-06).**
+   ⛔⛔⛔ **FOUR BRANCHES ARE UNMERGED AND THEY ARE NOT IN THE SAME STATE — ENUMERATED, BECAUSE MY
+   FIRST DRAFT OF THIS ROW SAID "THREE" AND LISTED TWO (2026-09-06).**
    ```
-     p2-batch32-fp-compares  3a811fb  09-05  UNMEASURABLE verdict; the batch MAY fail
-     es3-anchor-theorems     d9d7923  09-06  green; owes the landing ritual's measurement
+     es3-anchor-theorems     d9d7923  09-06  GREEN; owes the landing ritual's measurement
+     p2-batch32-fp-compares  3a811fb  09-05  UNMEASURABLE verdict — the batch MAY FAIL
+     p2-batch23-pmovmskb     f7ead14  09-04  finished; `pmovmskb` IS in the roster ⇒ content LANDED
+     p2-batch35-moves        73bc95c  09-06  `movapd`/`movupd` ARE in the roster ⇒ content LANDED
+                                             (squashed onto master; the branch is a leftover ref)
    ```
+   ⇒ ⭐ **ONLY TWO OF THE FOUR ARE ACTUALLY WAITING**, and the other two are refs whose work is
+   already on `master` — checked by asking the ROSTER whether each branch's mnemonics are claimed,
+   not by reading the branch names. ⛔ **A LIST OF "HELD BRANCHES" DERIVED FROM
+   `merge-base --is-ancestor` COUNTS SQUASHED WORK AS OUTSTANDING**, in the direction that invents
+   a backlog; two of these four would have been re-derived by whoever believed the count.
+   ⚠️ I wrote the number before measuring it, in the row about numbers written before they are
+   measured. [[feedback-a-complete-count-of-a-subset]] [[feedback-prose-written-before-the-measurement]]
+
+   ⛔⛔ **AND THE TWO THAT ARE WAITING WAIT ON ONE UNWATCHED CONDITION — "A QUIET BOX" — WHICH
+   NOTHING IN THIS REPOSITORY REPORTS THE ARRIVAL OF.**
    `es3-anchor-theorems` carries TWO landings on one measurement: the pre-state anchor theorems
    (row ES item (3)'s step 2) and the roster-docstring gate below. Both are green and both are
    `.lean`, so `--gap` demands a real `kernel_delta` before either merges.
