@@ -418,7 +418,28 @@ qualifier.
    ⛔ Portability unmeasured, as for every candidate in item 4. One box, arm64. The frozen-tree run
    is ONE session on ONE night and its n=6 column rests on five splits.
 
-   ### 4g. ⭐⭐⭐ THE DRIFT GATE IS BUILT AND REGISTERED (D154) — what is left is RECORDING, not design
+   ### 4g. ⭐⭐⭐ THE DRIFT GATE — (a) THE FIXED POINT IS GONE (D161); THE UNIT MISMATCH IS WHAT REMAINS
+
+✅ **4g(a) DISCHARGED 2026-09-06 (D161).** The ledger is re-keyed on `base` alone. `allowance` is
+`f(parent tree, budget registry)`, so it never depended on the produced sha — the fixed point was
+in the KEY, not the data. Selftest 18/18 with 10 distinct plants; fork check driven red on the real
+ledger. ⛔ A proposed refusal clause for a re-cut branch was REFUTED and NOT added: two children of
+one base are priced from the same tree, so their allowances are identical.
+
+⛔⛔ **4g(b) IS THE REAL BLOCKER AND IT IS NOT THE KEY — THE UNITS DISAGREE.** The ledger wants one
+row per first-parent COMMIT; the gate produces one delta per BATCH. Batch 36 landed as FIVE
+commits, so its merge-gate run yields one row spanning five steps and the walk reports four
+missing. Squashing reconciles them (batch 35's route) at the cost of the per-commit history that
+made batch 36's price auditable.
+⭐ **THE FIX IS THE LANDING RITUAL, NOT THE GATE: merge batches with `--no-ff`.** A merge commit is
+exactly ONE first-parent step per batch and preserves every commit on the branch. Do this from the
+next batch; batch 36 was fast-forwarded and is five steps.
+⚠️ Then the backfill: the gap is **48** commits (40 at 03:27, 43 at 05:3x, 48 after batch 36 — it
+grows with every landing, which is why the cheapest moment to record a row is the merge it belongs
+to).
+
+#### (the original 4g note)
+### 4g-orig. THE DRIFT GATE IS BUILT AND REGISTERED (D154) — what is left is RECORDING, not design
    `scripts/kernel_drift.py`: a SECOND gate beside the per-batch gate, judging a window of k landed
    batches against the SUM of the per-step budgets, read from `docs/delta-allowance-ledger.jsonl`
    (11 steps x 23 units backfilled from the 09/04 walk). Selftest **16 arms, control first, 9
@@ -578,7 +599,9 @@ qualifier.
     ⚠️ `kernel_cost.py --selftest` is a LONG gate (>10 min; it profiles real trees) and is
     deliberately not in `ci_local`'s portable list.
 
-### 2b. ⭐⭐ P2 BATCH 36 — THE SIX MOVES, SPECIFIED AND PRICED; THE ENCODING TABLE RE-MEASURED 09/06
+### 2b. ✅ **DISCHARGED 2026-09-06** — P2 BATCH 36 LANDED (master `f46de06`, D160, differential record 21). Six mnemonics, 15 vectors, all six wrong-model arms caught. The field price came back NOT dear and the duplicated-rule fallback was refused; the cited hazard was about a RECORD, not an inductive constructor. Kept below as the batch's specification.
+
+#### (the original 2b specification)
 `movhlps` 1,341 · `movhpd` 556 · `movddup` 506 · `movlhps` 340 · `movlpd` 274 · `movlps` 101.
 **PRICE: inside the gate on two independent runs of `p2_batch_size.py`** — 6 mnemonics read 6.2%
 (02:0x) and 9.0% (03:3x) against a 15.7% budget.
