@@ -8914,3 +8914,172 @@ Its residue is the finding in §1 and the candidate in §3, both of which came o
   ⚠️ Correlations from this run are readings, not the argument: over n=5, `corr(type checking,
   mean load) = 0.70` and `corr(user CPU, mean load) = 0.32`. n=5 supports neither on its own; they
   are recorded because they point the same way as the mechanism and the CV table, which do.
+
+## D151 — QUEUE items 7 and 8 discharged, item 4d's instrument built, and its deciding statistic refuted by the control that was built beside it
+
+The sitting's commissioned item was 4d: price the child's `user` CPU as the gated quantity in place
+of the profiler's cumulative `type checking`, which D150 measured swinging 22,500 ms on ONE
+unchanged tree against a 1,764 ms budget. What 4d owed before it could gate: a SECOND SOURCE for its
+budgets — never `docs/threads-ab-2026-09-05.jsonl`, the corpus that nominated it — and a second
+machine for the portability claim every candidate here still owes.
+
+**CONDITIONS, because this entry is largely about conditions.** Every reading tonight was taken on a
+box shared with the math seat's salt builds: 1-minute load 10 → 98, CPU idle 0.0 → 66%. That is
+recorded per reading now rather than remembered, and the corpus is named `…-CONTENDED-…` rather than
+labelled by hand.
+
+### 1. WHAT LANDED, AND WHAT DELIBERATELY DID NOT
+
+`kernel_cost.py`'s `profile_module()` records the child's `user`/`sys`/`real` from
+`getrusage(RUSAGE_CHILDREN)` around the ONE `lean` invocation per module, so the CPU figure belongs
+to exactly the pass whose milliseconds sit beside it. It costs nothing: D150's point was that the
+quantity was in every pass already.
+
+⛔ **RECORDING IS NOT GATING, and that restraint is the item.** `scripts/user_cost_budget.py` scores
+the candidate and gates nothing. Item 4d is not discharged by this entry.
+
+Items **7** (idle % in the conditions, sampled BEFORE and AFTER the pass — D150 measured one sample
+describing a different minute) and **8** (the orphan pre-flight, attributing by cwd and never by
+command name) are DISCHARGED.
+
+### 2. ⛔⛔ THE DECIDING STATISTIC HAD A PREMISE, AND THE CONTROL BESIDE IT REFUTED THE PREMISE
+
+"14.6× tighter" cannot decide a gate. `user` charges Lean's startup, import loading and elaboration
+as well as the kernel, so on `Tests.Coverage` it is a ~57,000 ms number where the gated one is
+~25,000 ms, and on a small module it is nearly all constant. **A constant addend shrinks the
+relative noise and shrinks the relative SIGNAL by the very same factor**, so a candidate can read
+twice as quiet and catch nothing extra. The comparison was therefore re-cast as MINIMUM DETECTABLE
+REGRESSION — `budget% × level`, in milliseconds, lower is better.
+
+MDR carried its own assumption, and it was written into the code as "doing work": that X ms of extra
+kernel work adds about X ms to the child's CPU time, so the two arms' milliseconds are the same
+scale. **The first run that printed both columns measured `Δuser/Δms` at 8.3, not 1.0.** A real
+change moves the child's CPU several times the milliseconds it moves `type checking`, because it
+moves elaboration too.
+
+⇒ a candidate whose budget is 3× larger but which hears the signal 8× louder is MORE sensitive, and
+the uncorrected table said the opposite in **16 of 23 rows**. The deciding column is now
+`MDR / transfer`, and the raw column is kept beside it because the correction is an estimate with
+real spread (interquartile 2.0–13.7).
+
+```
+  contended corpus, 14 readings      raw:        better  1 · WORSE 16
+                                     corrected:  better  1 · WORSE  2 · UNDECIDED 14 · inexpressible 6
+```
+⇒ **the contended corpus cannot decide item 4d**: 106 of 114 pairs sit below the ms noise floor, so
+most units have no measurable transfer ratio at all. That is the honest verdict, and saying it is
+the point. [[feedback-audit-the-premise-of-a-right-decision]] [[feedback-the-burden-is-on-the-departure]]
+
+### 3. ⛔ FOUR OF THE TWENTY-THREE GATED UNITS CANNOT BE EXPRESSED BY THE CANDIDATE, EVER
+
+`getrusage` accounts per PROCESS; `kernel_cost.py` profiles one process per MODULE; so there is no
+per-DECLARATION CPU time to be had. `Tests.Coverage @decl memDestSweep`,
+`@decl pre_states_have_a_returnable_frame`, `@decl vectorCoverage` and `@residue` are outside the
+candidate's reach and no re-run of any walk will supply them. A hybrid gate leaves the three tightest
+per-declaration budgets on the noisy instrument. This is structural, not a gap in the corpus, and the
+report NAMES the rows rather than omitting them — a table that dropped them would report agreement
+about units nobody measured. [[feedback-unobserved-regions-report-agreement]]
+
+### 4. ⭐⭐ A FINDING ABOUT THE GATE THAT NEEDS NO CANDIDATE AT ALL
+
+The same tool, over the same twelve commits, on the same box:
+
+```
+  docs/kernel-delta-history-2026-09-04.jsonl   median within-commit spread   3.51%   (n=252)
+  the 09/05 re-walk                                                        25.63%   (n= 42)
+                                                                            7.30×
+```
+The 09/04 corpus is the one `scripts/kernel_delta_budget.txt` is DERIVED from. ⇒ **the budgets this
+repository merges on rest on a quieter afternoon than an ordinary one.** ⛔ And that is not a licence
+to widen them: re-deriving from the noisier corpus would be deriving the allowance from a measurement
+of contention. Two days are not a distribution over days. Filed as QUEUE item 9.
+[[feedback-a-single-reading-is-about-its-run]]
+
+### 5. ⚠️ THE SEALED PREDICTIONS, AND WHY A GOOD SCORE HERE WOULD NOT BE A CONFIRMATION
+
+Five predictions were sealed on the bus at 20:2x, each naming the printed statistic it would be
+scored on, before the corpus landed. On the contended corpus and the RAW statistic they score 5/5.
+**That score is not evidence, and recording why is more useful than the score.** Three of the five
+(P1, P2, P3) are scored on MDR or on the relative/absolute split — and MDR's premise was refuted, by
+a control in the same run, after the seal was written. A prediction confirmed by a statistic whose
+premise the same run overturns is [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]] in
+its purest form: D148 sealed 8/11 and got 8/11 off a rule that scored SILENCE as agreement. The seal
+is scored properly against the quiet corpus, on the CORRECTED statistic, and the score is reported
+with that caveat attached.
+
+### 6. THE HARNESS LESSONS, WHICH COST MORE OF THE EVENING THAN THE MEASUREMENT
+
+- ⛔⛔ **TWO PLANT PROBES REPORTED EVERY DEFECT CAUGHT WHILE THEIR HARNESS WAS BROKEN.** A mutated
+  copy in a temp directory could not import its siblings; the rebuilt one was not a git repo, so
+  `git rev-parse` returned empty and the same arm died first on every run. The unplanted CONTROL
+  failed in both, and it is the only thing that distinguished a caught defect from an ImportError
+  wearing a finding's clothes. The tell on the second was sharper than the first: **every plant
+  reported caught by the SAME arm.** Fixed by running the control FIRST and after every restore, and
+  by printing which arm caught each plant and counting the DISTINCT arms.
+  Final: 10 planted, 10 caught, 7 distinct arms. [[feedback-a-plant-probes-control-comes-first]]
+- ⛔ **A NEGATIVE ARM PASSES VACUOUSLY WHEN ITS SUBJECT NEVER EXISTED.** Testing the contention
+  stamp, the fake build was `/bin/sleep` copied to a file named `lean` — and macOS KILLS a copied
+  platform binary on exec, because the copy has lost its code signature. The positive arm went red
+  and I looked; the held-out arm ("the same binary inside the repo is NOT counted") went GREEN and
+  would have forever, because "not counted" is also what you get when there is nothing to count.
+- ⛔ **THREE STATISTICS WERE SILENT WHEN FIRST PLANTED** and each has an arm now: the exact-zero
+  tie count (which guards a bias that flatters the shipped arm, i.e. my own sealed answer), the
+  live/no-op split, and the transfer correction itself. ⚠️ The live/no-op arm was silent even after
+  it was written, because it planted its outlier on a LIVE pair; collapsing the split only shows
+  when the NO-OP pair carries the biggest move — which is the real corpus's own situation.
+- ⛔ **A FIXTURE BUILT ON REAL COMMITS INHERITS THEIR REAL DIFF STRUCTURE.** The MDR fixtures plant a
+  spike at pair 3→4 rather than 2→3 because `76cb51b..3769ea0` changes no `.lean` file, so the whole
+  planted signal was scored as CONTROL noise and discarded as a no-op — the fixture then read
+  UNDECIDED for a reason that had nothing to do with the code under test.
+- ⛔ **AND THE FIRST DRAFT OF THIS WORK'S COMMIT MESSAGE CLAIMED A FIX THAT WAS NEVER MADE.** The
+  repeatability header said "the median over the twelve trees" on a corpus with two; I described the
+  defect in prose and never edited the line. Caught only by re-grepping my own message's claims
+  against the tree. ⇒ **verify a commit message's factual claims the way a gate would, not the way
+  an author remembers.** [[feedback-a-citation-is-an-ungated-claim]]
+
+### 7. ⛔ A GUARD FIVE SCRIPTS WERE MISSING, AND WHY IT IS A SIBLING FAILURE
+
+`import kernel_cost` RAN THE WHOLE GATE — a two-minute profiling pass, then `sys.exit` — which is how
+this was found, from a probe that appeared to hang. D148 had given `kernel_delta.py` that exact guard
+for that exact reason and swept nothing; five more scripts were unguarded (`ci_local`,
+`deterministic_cost`, `kernel_delta_history`, `census_redprobe`, `check_readme_lean`). All eight are
+now verified importable. ⇒ when a defect's repair is a one-line idiom, the sweep is a grep for that
+idiom's ABSENCE across the repo, and it costs a minute.
+[[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 8. ONE RULE, TWO QUANTITIES
+
+`kernel_delta_history.budget_info()` is extracted from `register_budget` so the candidate cannot be
+scored by a rule invented beside the shipped one — D148 §2 recorded what that costs: a referee looser
+than the gate it refereed, disagreeing in the flattering direction. Proof the extraction did not move
+the rule: `kernel_delta_budget.txt` regenerates BYTE-IDENTICAL from the committed 09/04 corpus, and
+that check is now a CI step, because the file's own header said "DO NOT EDIT BY HAND: every number
+below is derived" and nothing checked it. ⚠️ The step proves the FILE IS THE SCRIPT'S OUTPUT. It
+proves nothing about the rule being right, and it says so.
+[[feedback-a-derivation-gate-wraps-a-false-sentence]]
+
+### 9. THE FLEET INCIDENT, AND THE ONE THING IN IT THAT IS MINE TO CARRY
+
+The walk collided with the crown's campaign on a shared box. The helm ruled by precedence, then
+AMENDED its own ruling ninety minutes later on math's better discriminator — *the party whose numbers
+contention merely SLOWS yields to the party whose numbers contention INVALIDATES, regardless of
+precedence*. Mine to carry: I stopped the walk at 14 of 24 and **the stop produced an orphaned `lean`
+holding a deleted worktree** — the exact class QUEUE item 8 names, forty minutes after I shipped the
+check that detects it. Caught by running my own pre-flight on myself, attributed by cwd, killed by
+pid. ⇒ **the pre-flight runs before a run, and stopping a job is where orphans are MADE.** A
+post-flight is QUEUE item 10.
+
+The helm's general rule is now enforced by the tool rather than by whoever writes the receipt:
+`conditions()` counts `lean`/`lake` processes whose cwd is OUTSIDE this repository and sets
+`contended`. ⚠️ The command name says WHAT the work is; the CWD says WHOSE. That is the reverse of
+`repo_orphans`, which must never match on command name because it feeds a decision about KILLING —
+the orphan found at this seat's last exit had a command line identical to its own armed bus watch.
+
+### 10. WHAT REMAINS
+
+- The quiet re-walk, which is what actually decides 4d, and the seal scored against it on the
+  corrected statistic.
+- **Portability, for every candidate this queue item has considered.** One box, arm64. `ci.yml`
+  already records the same tree reading 1.7×–3.1× slower on a runner DEPENDING ON THE MODULE, which
+  is precisely the shape that breaks a percentage. The report prints this as an unmeasured debt
+  rather than a caveat in prose.

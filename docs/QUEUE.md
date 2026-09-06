@@ -166,6 +166,29 @@ qualifier.
      Deriving one from the runs above would be deriving the allowance from the thing it checks.
      [[feedback-widening-a-gate-needs-a-second-source]]
 
+   ### 4e. ⛔⛔ 4d's DECIDING STATISTIC HAD A PREMISE, AND THE CONTROL BESIDE IT REFUTED IT (D151)
+   "14.6x tighter" cannot decide a gate, because **a percentage of `user` is not a percentage of
+   kernel time**: `user` charges Lean's startup, import loading and elaboration too, so on
+   `Tests.Coverage` it is a ~57,000 ms number where the gated one is ~25,000 ms and on a small
+   module it is almost all constant. The comparison was therefore re-cast as MINIMUM DETECTABLE
+   REGRESSION, `budget% x level`, in milliseconds — and THAT carried an assumption, written into the
+   code as "doing work": that X ms of extra kernel work adds about X ms to the child's CPU.
+   ⭐ **Measured on the first run that printed both: `Δuser/Δms` is 8.3, not 1.0.** A real change
+   moves the child's CPU several times the milliseconds it moves `type checking`, because it moves
+   elaboration too. A candidate whose budget is 3x larger but which hears the signal 8x louder is
+   MORE sensitive, and the uncorrected table said the opposite in 16 of 23 rows.
+   ⇒ the deciding column is `MDR / transfer`, and on the contended corpus the answer is
+   **better 1 · worse 2 · UNDECIDED 14 · inexpressible 6** — i.e. **that corpus cannot decide the
+   item**, because 106 of 114 pairs sit below the ms noise floor and no transfer ratio exists for
+   most units. A quiet re-walk is what decides it.
+   [[feedback-audit-the-premise-of-a-right-decision]] [[feedback-the-burden-is-on-the-departure]]
+
+   ⛔ **AND FOUR OF THE TWENTY-THREE GATED UNITS ARE NOT EXPRESSIBLE BY THE CANDIDATE AT ALL** —
+   `Tests.Coverage @decl x3` and `@residue`. `getrusage` accounts per PROCESS and `kernel_cost.py`
+   runs one process per MODULE, so no re-run of any walk will ever supply a per-DECLARATION CPU
+   time. A hybrid gate leaves the three tightest per-declaration budgets on the noisy instrument.
+   This is structural, not a gap in the corpus. [[feedback-unobserved-regions-report-agreement]]
+
 5. **Arm 1's number is gated — DISCHARGED (D145).** The identical-trees control's invented delta
    now splits in two: an ASSERTION that it sits inside the run's own band (a difference the run
    cannot explain as its own noise is a BIAS, box-independent, and reds), and a printed SCOPE list
@@ -178,7 +201,7 @@ qualifier.
    is the gate's own `~N repeats a side would decide it` line. Blocked: GitHub Actions refuses every
    job on this account for billing (desk FH).
 
-7. **The gate's conditions line records a LOAD and that is not enough (D149).** Measured this
+7. **The gate's conditions line records a LOAD and that is not enough (D149).** · **DISCHARGED (D151)** Measured this
    sitting: a 1-minute load of 282 with `top` reading **0.0% idle**, 44% user / 55% SYSTEM, and one
    `lean` at 160% CPU — the load was dominated by short-lived runnable processes, not by compute, so
    readings taken at "load 282" and at "load 40" can describe the same machine. `threads_ab.py`
@@ -188,13 +211,37 @@ qualifier.
    conditions of every future reading comparable, which is the whole reason D142's two afternoons
    could not be told apart. [[feedback-a-measurement-without-its-conditions]]
 
-8. **A timing run must first look for the seat's own orphans (D149).** A `ci_local --job build`
+8. **A timing run must first look for the seat's own orphans (D149).** · **DISCHARGED (D151)**
+   ⚠️ Discharged with a caveat the discharge itself produced: the pre-flight runs BEFORE a run, and
+   **stopping a job is where orphans are made**. Killing the walk at the helm's word left an
+   orphaned `lean` holding a deleted worktree — the exact class this item names, produced forty
+   minutes after the check that detects it shipped. A post-flight is not yet written. A `ci_local --job build`
    from a dead session was found running 47 minutes with ppid 1, and no instrument this seat owns
    could see it. The cheap form is a pre-flight in `kernel_cost.py` / `kernel_delta.py`: list
    processes whose cwd is this repository and whose session is gone, and REFUSE (or record them in
    the reading) rather than profile beside them. ⛔ Attribute by cwd, never by command name, and
    never `pkill -f` a pattern the seat's own tools carry.
    [[feedback-enumerate-is-not-attribute]] [[feedback-a-process-filter-matches-its-own-waiter]]
+
+9. ⭐⭐ **THE SHIPPED BUDGETS REST ON A QUIETER DAY THAN AN ORDINARY ONE (D151).** Measured, not
+   inferred: the SAME tool over the SAME twelve commits, re-walked on 09/05, reads a median
+   within-commit spread of **25.63%** against the 09/04 corpus's **3.51%** — **7.30x** — and the
+   09/04 corpus is the one `scripts/kernel_delta_budget.txt` is derived from
+   (`user_cost_budget.py --readings NEW --baseline docs/kernel-delta-history-2026-09-04.jsonl`).
+   ⛔ This is a finding about the GATE and it is independent of every candidate: whatever quantity
+   ends up gated, a budget calibrated on an unrepresentatively quiet afternoon is tighter than the
+   instrument supports on an ordinary one.
+   ⚠️ ⛔ **AND IT IS NOT A LICENCE TO WIDEN.** Re-deriving the budgets from the noisier corpus would
+   be deriving the allowance from a measurement of contention, which is the same defect one level
+   out. Two readings of two days are not a distribution over days.
+   [[feedback-widening-a-gate-needs-a-second-source]] [[feedback-a-single-reading-is-about-its-run]]
+
+10. **A post-flight orphan check, and a contention count in every reading (D151).** The stamp half
+    is DONE — `conditions()` now counts `lean`/`lake` processes whose cwd is OUTSIDE this repository
+    and sets `contended`, so the helm's rule of 09/05 (*a reading taken under contention must be
+    marked CONTENDED in its own receipt*) is enforced by the tool rather than by whoever writes the
+    receipt. What remains is the POST-flight: re-run the orphan probe after a job is killed, since
+    that is when orphans are made.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
 `docs/SOFT-FLOAT-COMMISSION.md` — opened 2026-09-05, with its premise tested at the object, its
