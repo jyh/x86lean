@@ -698,19 +698,36 @@ def step (i : Instr) (s : Cpu) : Cpu :=
 
   -- ⭐⭐ PMOVMSKB (SDM Vol. 2B) — the sign bit of each of sixteen bytes, gathered.
   --
-  -- ⚠️ WRITTEN AS A FOLD OVER `List.range 16` rather than sixteen `|||` terms so
-  -- the LANE COUNT is derived from the width, as `vlanes` derives it — a literal
-  -- sixteen repeated in the body is a place for a typo no type can catch.
+  -- ⚠️ WRITTEN AS A FOLD rather than as N `|||` terms so the LANE COUNT is
+  -- derived from the width, as `vlanes` derives it — a literal repeated in the
+  -- body is a place for a typo no type can catch.
+  --
+  -- ⭐⭐ P2 BATCH 37 TOOK THAT COMMENT UP ON ITS OWN WARNING.  The body said
+  -- `List.range 16` and `8 * i + 7`, so the sixteen and the eight were literals
+  -- in exactly the position the sentence above calls a hazard — harmless while
+  -- there was ONE kind, and the second kind is the change that would have paid
+  -- for it.  Both now come from `VMovMskKind.laneBits`, which is the kind's whole
+  -- semantic content: `pmovmskb` reduces 16 byte lanes, `movmskps` 4 dword lanes,
+  -- and NOTHING ELSE about the two forms differs.
+  --   result bit i  =  src bit (w * i + (w - 1)),  for i < 128 / w
+  -- ⚠️ DECIDED ON K BEFORE IT WAS WRITTEN, not derived from the SDM's prose:
+  -- `movmskps_r32_xmm.k` is `concatenateMInt(mi(60,0), <bits 128,160,192,224 of
+  -- the 256-bit parent>)`.  K indexes the YMM parent big-endian, so those four
+  -- are little-endian xmm bits 127, 95, 63 and 31 — the sign of each dword lane,
+  -- lane 0 landing in result bit 0 — and `pmovmskb`'s sixteen are 127, 119, …, 7
+  -- under the same reading, which is what the pre-batch-37 body computed.
   --
   -- ⚠️ `.d` AND NOT `.q`: the 32-bit write zero-extends to 64 by SDM Vol. 1
   -- §3.4.1.1, which `setReg` already implements, so the upper bits are cleared by
   -- the RULE THIS MODEL ALREADY HAS rather than by a special case here.  That is
-  -- also why `Op.vmovmsk` carries no width — see its docstring.
-  | .vmovmsk dst src =>
+  -- also why `Op.vmovmsk` carries no width — see its docstring, where batch 37
+  -- re-measured the claim for `movmskps` instead of inheriting it.
+  | .vmovmsk k dst src =>
       let v := s.getXmm src
+      let w := k.laneBits
       let mask : Val :=
-        (List.range 16).foldl
-          (fun acc i => acc ||| (((v >>> (8 * i + 7)) &&& 1).setWidth 64 <<< i)) 0
+        (List.range (128 / w)).foldl
+          (fun acc i => acc ||| (((v >>> (w * i + (w - 1))) &&& 1).setWidth 64 <<< i)) 0
       (s.setReg .d dst mask).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).

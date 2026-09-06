@@ -2641,7 +2641,7 @@ misreading of "a mask of the bytes", and it agrees with the real model on any by
 whose top and bottom bits happen to match. -/
 def wrongPmovmskbLowBit (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vmovmsk dst src =>
+  | .vmovmsk _ dst src =>
       let v := s.getXmm src
       let mask : Val := (List.range 16).foldl
         (fun acc k => acc ||| (((v >>> (8 * k)) &&& 1).setWidth 64 <<< k)) 0
@@ -2653,7 +2653,7 @@ is invisible on any source whose mask is a palindrome, and identical on an
 all-zero or all-ones source. -/
 def wrongPmovmskbReversed (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vmovmsk dst src =>
+  | .vmovmsk _ dst src =>
       let v := s.getXmm src
       let mask : Val := (List.range 16).foldl
         (fun acc k => acc ||| (((v >>> (8 * (15 - k) + 7)) &&& 1).setWidth 64 <<< k)) 0
@@ -2666,7 +2666,7 @@ already holds something above bit 15, so what refutes it is the pre-state's
 register contents and not the instruction. -/
 def wrongPmovmskbMerges (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vmovmsk dst src =>
+  | .vmovmsk _ dst src =>
       let v := s.getXmm src
       let mask : Val := (List.range 16).foldl
         (fun acc k => acc ||| (((v >>> (8 * k + 7)) &&& 1).setWidth 64 <<< k)) 0

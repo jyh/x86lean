@@ -540,6 +540,60 @@ width, so there is nothing here for a width to disagree with. -/
 def VShufKind.mnemonic : VShufKind → String
   | .d => "pshufd" | .lw => "pshuflw" | .hw => "pshufhw"
 
+/-- ⭐⭐ P2 BATCH 37 — WHICH LANE WIDTH A SIGN-MASK REDUCES, i.e. WHICH
+MNEMONIC.  `Op.vmovmsk` carried no field at all until this batch: it was built for
+`pmovmskb` alone (batch 23) and its lane count was the literal sixteen.
+
+`movmskps` is the SAME REDUCTION at a different lane width — one sign bit per
+32-bit lane instead of one per byte — so it is a KIND on the existing constructor
+and not a new one.  The two are held apart by their BYTES (`66 0f d7` against
+`0f 50`), which `scripts/check_encodings.py` is the instrument for.
+
+⚠️ **THE LANE COUNT IS DERIVED FROM `laneBits`, NOT WRITTEN.**  `Op.vmovmsk`'s
+semantics folded over a literal `List.range 16`, and the comment beside it already
+said why that was a hazard — *"a literal sixteen repeated in the body is a place
+for a typo no type can catch"*.  A second kind is exactly the change that would
+have paid that price, so the count is `128 / laneBits` and appears once.
+
+⛔ **AND THERE IS STILL NO WIDTH FIELD, MEASURED ON THIS MNEMONIC RATHER THAN
+INHERITED FROM `pmovmskb`'s.**  The `r32`/`r64` question has to be asked again for
+every mnemonic that has both rows, because the answer is a fact about the
+ASSEMBLER and not about the family: `movmskps %xmm1,%eax` and `movmskps %xmm1,%rax`
+both assemble to `0f50c1` (measured with `clang -target x86_64-unknown-linux-gnu`,
+the assembler `check_encodings.py` uses), exactly as `pmovmskb`'s two rows both give
+`660fd7c1`.  K agrees on the other side — `movmskps_r32_xmm.k` and
+`movmskps_r64_xmm.k` are the identical `concatenateMInt(mi(60,0), …)` — so the two
+SDM rows are one semantics AND one encoding here too.
+[[feedback-inherited-diagnosis-is-a-hypothesis]] [[feedback-a-batch-cannot-be-sampled]] -/
+inductive VMovMskKind where
+  /-- `pmovmskb` (`66 0F D7 /r`): one sign bit per BYTE, sixteen lanes. -/
+  | b
+  /-- `movmskps` (`0F 50 /r`): one sign bit per 32-bit lane, four lanes.
+  ⚠️ `movmskpd` (`66 0F 50 /r`) is a third member this type does not have: it
+  has ZERO measured demand in the census, and an absence falls the way the default
+  points, so it is declined HERE in writing rather than left unmentioned. -/
+  | ps
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Every kind, so a claim can be made about the TYPE rather than about a list of
+literals someone remembered to update — `VMovKind.all`'s reason, and batch 35's. -/
+def VMovMskKind.all : List VMovMskKind := [.b, .ps]
+
+/-- The assembler spelling.
+
+⚠️ TWO LITERALS AND NOT A CONCATENATION, for `quadMnemonic`'s reason: this string
+is walked character by character inside a kernel `decide`.
+[[feedback-prose-in-a-kernel-reduced-string-is-a-cost]] -/
+def VMovMskKind.mnemonic : VMovMskKind → String
+  | .b => "pmovmskb" | .ps => "movmskps"
+
+/-- The WIDTH OF ONE LANE in bits, which is the whole semantic content of the
+kind: the lane COUNT is `128 / laneBits` and the sign bit of lane `i` sits at
+`laneBits * i + (laneBits - 1)`.  Both are derived in `X86.Semantics` and written
+nowhere else. -/
+def VMovMskKind.laneBits : VMovMskKind → Nat
+  | .b => 8 | .ps => 32
+
 /-- The one-operand mnemonics. -/
 inductive UnKind where
   | inc | dec | neg | not
@@ -1327,7 +1381,7 @@ inductive Op where
   ⇒ 🔑 A width field here would be a field no encoding can set and no semantics can
   read. The 32-bit write already zero-extends to 64 by SDM Vol. 1 §3.4.1.1, which
   `Cpu.setReg .d` implements — so the rule is INHERITED rather than restated. -/
-  | vmovmsk (dst : GPR) (src : XmmReg)
+  | vmovmsk (k : VMovMskKind) (dst : GPR) (src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1937,7 +1991,7 @@ def Op.mnemonic : Op → String
   | .vmovhl d _ _ => match d with | .lo => "movhlps" | .hi => "movlhps"
   | .vddupR .. | .vddupM .. => "movddup"
   | .prefetch h _ => h.mnemonic
-  | .vmovmsk .. => "pmovmskb"
+  | .vmovmsk k .. => k.mnemonic
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
   -- AT&T spelling, and they are unrelated: this one is `f2 0f 10`. The model
   -- does not carry the string form, so nothing here is ambiguous — but the day

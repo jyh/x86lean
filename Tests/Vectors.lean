@@ -2584,9 +2584,9 @@ def vectors : List Vec :=
   -- (660fd7c1), so a second vector would be the first one under another name —
   -- a duplicate born in agreement, not a second test.
   , { id := "pmovmskb_x1_eax", mnemonic := "pmovmskb", asm := "pmovmskb %xmm1, %eax"
-    , bytes := "660fd7c1", instr := ⟨.vmovmsk .rax .x1, 4⟩ }
+    , bytes := "660fd7c1", instr := ⟨.vmovmsk .b .rax .x1, 4⟩ }
   , { id := "pmovmskb_x5_ecx", mnemonic := "pmovmskb", asm := "pmovmskb %xmm5, %ecx"
-    , bytes := "660fd7cd", instr := ⟨.vmovmsk .rcx .x5, 4⟩ }
+    , bytes := "660fd7cd", instr := ⟨.vmovmsk .b .rcx .x5, 4⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
