@@ -74,7 +74,7 @@ holds this literal and that table together.
 counts what a disassembler PRINTS.  ⛔ `pshufw` is the same opcode's FOURTH
 prefix (none) and is NOT a row: it takes MMX operands and this model has no MMX
 register file, so a row for it would claim a form the model cannot execute. -/
-theorem roster_size_is_144 : rosterSize = 144 := by decide
+theorem roster_size_is_146 : rosterSize = 146 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -93,7 +93,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_977 : vectorCount = 977 := by decide
+theorem vector_count_is_985 : vectorCount = 985 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -113,13 +113,30 @@ quietly licence a wrong `movdqa`. -/
 theorem vmov_kind_irrelevant (k k' : VMovKind) (d s' : XmmReg) (n : Nat) (c : Cpu) :
     step ⟨.vmov k d s', n⟩ c = step ⟨.vmov k' d s', n⟩ c := rfl
 
-/-- ⭐ AND THE OTHER HALF, STATED WHERE IT BITES: at MEMORY the four kinds are
-NOT one operation, and the partition that separates them is `VMovKind.aligned`.
-Written as a claim about the derived flag rather than as four separate cases, so
-a fifth mnemonic cannot be added without answering the question. -/
+/-- ⭐⭐ THE ENUMERATION IS COMPLETE BY CONSTRUCTION. `cases` is exhaustive, so a
+new `VMovKind` constructor makes THIS fail to compile — which is what lets the
+theorem below quantify over `VMovKind.all` and mean "every kind". -/
+theorem vmov_kinds_are_all_listed : ∀ k : VMovKind, VMovKind.all.contains k = true := by
+  intro k; cases k <;> decide
+
+/-- ⭐ AND THE OTHER HALF, STATED WHERE IT BITES: at MEMORY the kinds are NOT one
+operation, and the partition that separates them is `VMovKind.aligned`.
+
+⛔⛔ THIS THEOREM USED TO BE FOUR LITERALS AND ITS DOCSTRING CLAIMED OTHERWISE —
+*"written as a claim about the derived flag rather than as four separate cases,
+so a fifth mnemonic cannot be added without answering the question."* P2 batch 35
+added a FIFTH and a SIXTH (`movapd`, `movupd`) and this theorem stayed TRUE,
+GREEN and SILENT about both. The sentence described the theorem its author meant
+to write, and a reader checking whether the rule was gated would have read the
+sentence. ⇒ 🔑 **prose asserting that a check is exhaustive reads AS the
+exhaustiveness check.** It is now quantified over `VMovKind.all`, which
+`vmov_kinds_are_all_listed` holds to the TYPE, so the aligned/unaligned split is
+a claim about every kind there is and a new one cannot pass unanswered.
+[[feedback-a-citation-is-an-ungated-claim]] [[feedback-under-claims-are-unpoliced]] -/
 theorem vmov_alignment_is_by_kind :
-    (VMovKind.dqa.aligned && VMovKind.aps.aligned
-     && !VMovKind.dqu.aligned && !VMovKind.ups.aligned) = true := by decide
+    (VMovKind.all.filter VMovKind.aligned == [.dqa, .aps, .apd]
+     && VMovKind.all.filter (fun k => !k.aligned) == [.dqu, .ups, .upd]
+     && VMovKind.all.length == 6) = true := by decide
 
 /-! ### ⛔ THE PRODUCT THAT WAS GROWING, AND WHAT IT ACTUALLY WAS
 
@@ -1024,6 +1041,12 @@ theorem memDestSweep :
           -- vocabulary gap does not discriminate between the forms that fall
           -- into it.
           ("movaps", false), ("movups", false),
+          -- ⭐ P2 BATCH 35 — the `66` spellings fall into the SAME vocabulary gap
+          -- as the `ps` ones and for the identical reason: their store shape is
+          -- `m,x`, and the loose rule cannot see it because `x` is not a
+          -- general-purpose register.  Listed rather than defaulted, because a
+          -- declared list's gaps all fall the way its default points.
+          ("movapd", false), ("movupd", false),
           ("movss", false), ("movsd", false),
           -- ⭐ P2 BATCH 20 — `movhps` joins in the SAME direction, for the same
           -- vocabulary reason: its store shape is `m,x`, which the loose rule
@@ -1110,6 +1133,12 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- is not about the WIDTH of the store either — it is `x` the loose rule
          -- cannot say, at any width.
          ("movaps", false), ("movups", false),
+         -- ⭐ P2 BATCH 35 — `movapd`/`movupd`, the same gap again.  ⚠️ THIS LIST
+         -- AND THE ONE IN `memDestSweep` ARE TWO COPIES THAT MUST AGREE, and the
+         -- type error that sent me here is the only thing that says so: adding a
+         -- row to one and not the other does not fail as a wrong ANSWER, it
+         -- fails as a mismatched TYPE, several hundred lines from the edit.
+         ("movapd", false), ("movupd", false),
          ("movss", false), ("movsd", false),
          ("movhps", false)] := by
   have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1

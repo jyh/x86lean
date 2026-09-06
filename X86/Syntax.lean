@@ -163,6 +163,17 @@ inductive VMovKind where
   | aps
   /-- `movups` — `0f 10` / `0f 11`. Unaligned permitted. -/
   | ups
+  /-- ⭐ P2 BATCH 35 — `movapd` — `66 0f 28` / `66 0f 29`. Aligned.
+
+  ⚠️ THE `66` IS A MANDATORY PREFIX, NOT AN OPERAND-SIZE OVERRIDE. `0f 28` with
+  no prefix is `movaps` and with `66` it is `movapd`; the prefix SELECTS THE
+  MNEMONIC and changes nothing this model can observe about the transfer. Both
+  move all 128 bits and both fault on a misaligned memory operand, so the pair
+  stands to `movaps` exactly as `movdqa` does — a spelling a disassembler
+  prints, held apart by the encoding gate and not by the differential. -/
+  | apd
+  /-- ⭐ P2 BATCH 35 — `movupd` — `66 0f 10` / `66 0f 11`. Unaligned permitted. -/
+  | upd
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- ⭐⭐ P2 BATCH 22 — the PREFETCH locality hint (SDM Vol. 2B, PREFETCHh).
@@ -196,12 +207,29 @@ def PrefetchHint.mnemonic : PrefetchHint → String
 /-- Whether this mnemonic requires a 16-byte-aligned memory operand (SDM Vol. 2B,
 MOVDQA / MOVAPS: #GP(0) otherwise). ⚠️ DERIVED, never stored beside the kind. -/
 def VMovKind.aligned : VMovKind → Bool
-  | .dqa | .aps => true
-  | .dqu | .ups => false
+  | .dqa | .aps | .apd => true
+  | .dqu | .ups | .upd => false
 
 /-- The mnemonic a disassembler prints for this kind. -/
 def VMovKind.mnemonic : VMovKind → String
   | .dqa => "movdqa" | .dqu => "movdqu" | .aps => "movaps" | .ups => "movups"
+  | .apd => "movapd" | .upd => "movupd"
+
+/-- ⭐⭐ P2 BATCH 35 — EVERY KIND, so a claim about the alignment rule can be made
+about the TYPE rather than about a list of literals someone remembered to update.
+
+⛔ THIS EXISTS BECAUSE THE CLAIM THAT MOTIVATED IT WAS FALSE WHEN I ARRIVED.
+`Tests.vmov_alignment_is_by_kind` asserted the partition over `dqa`/`aps`/`dqu`/
+`ups` and its docstring said *"written as a claim about the derived flag rather
+than as four separate cases, so a fifth mnemonic cannot be added without
+answering the question."*  It is four separate cases. Adding `.apd` and `.upd`
+left the theorem TRUE, GREEN and SILENT about both — the prose described the
+theorem the author meant to write.  Paired with `vmov_kinds_are_all_listed`
+below, whose `cases` is exhaustive by construction, the enumeration now cannot
+fall behind the type: a seventh kind fails to compile rather than passing
+unmentioned.  [[feedback-a-declared-list-inherits-its-default]]
+[[feedback-a-citation-is-an-ungated-claim]] -/
+def VMovKind.all : List VMovKind := [.dqa, .dqu, .aps, .ups, .apd, .upd]
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE — THE PACKED-INTEGER BINARY OPERATIONS, and the LANE
 WIDTH is part of the kind rather than a `Size`.
@@ -1992,6 +2020,13 @@ def rosterP0 : List String :=
    -- OPCODES, and a model that printed one name for the other would be wrong
    -- about what it decoded.  `movss`/`movsd` are one row each.
    "movaps", "movups", "movss", "movsd",
+   -- ⭐⭐ P2 BATCH 35: the `pd` spellings of the two 128-bit moves.  `movapd` is
+   -- `66 0f 28`/`66 0f 29` and `movupd` is `66 0f 10`/`66 0f 11`, so the `66` is
+   -- a MANDATORY PREFIX selecting the mnemonic rather than an operand-size
+   -- override.  Two more ROWS for the same constructor, on the `movdqa`/`movaps`
+   -- rule: distinct opcodes, distinct printed names, and nothing this model can
+   -- observe distinguishes the transfers.
+   "movapd", "movupd",
    -- ⭐⭐ P2 BATCH 20: `movhps`, ONE row for BOTH directions — unlike
    -- `movdqa`/`movdqu` these are one mnemonic at two opcodes (`0f 16`/`0f 17`),
    -- so a disassembler prints the same name for each and the roster has one row.

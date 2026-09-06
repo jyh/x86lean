@@ -657,6 +657,18 @@ acc,imm · rh"
   , { mnemonic := "movups",
       shapes := "x,x · x,m · m,x", note := "no alignment rule",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPS" }
+  -- ⭐⭐ P2 BATCH 35 — THE `pd` SPELLINGS, and the `66` is a MANDATORY PREFIX.
+  -- `0f 28` with no prefix is `movaps`; with `66` it is `movapd`.  The prefix
+  -- selects the MNEMONIC and changes nothing this model can observe: both move
+  -- all 128 bits and both fault on a misaligned memory operand.  So these stand
+  -- to `movaps`/`movups` exactly as `movdqa`/`movdqu` do, and they are held
+  -- apart by `check_encodings.py` comparing BYTES rather than by any vector.
+  , { mnemonic := "movapd",
+      shapes := "x,x · x,m · m,x", note := "aligned, else #GP(0); the 66 spelling of movaps",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPD" }
+  , { mnemonic := "movupd",
+      shapes := "x,x · x,m · m,x", note := "no alignment rule; the 66 spelling of movups",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPD" }
   -- ⛔ AND THE TWO WHOSE DESTINATION RULE DEPENDS ON WHERE THE SOURCE LIVES.
   -- The shapes string says both halves, because a reader who saw only "x,x ·
   -- x,m · m,x" would have no way to know that the first two do DIFFERENT things

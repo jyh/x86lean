@@ -2612,6 +2612,41 @@ def vectors : List Vec :=
     , bytes := "0f104308"
     , instr := ⟨.vload .ups .x0 { base := some .rbx, disp := 8 }, 4⟩ }
 
+  -- ⭐⭐ P2 BATCH 35 — `movapd`/`movupd`, THE `66` SPELLINGS.
+  --
+  -- ⚠️ WHAT THESE VECTORS CAN AND CANNOT WITNESS, said here because the answer
+  -- is "less than it looks".  `movapd` and `movaps` move the same 128 bits under
+  -- the same alignment rule, so NO DIFFERENTIAL VECTOR DISTINGUISHES THEM — a
+  -- model that decoded `66 0f 28` as `movaps` would agree with this one on every
+  -- case here.  What holds the spellings apart is `check_encodings.py`, which
+  -- assembles each `asm` and compares BYTES, and the `66` is exactly the byte it
+  -- compares.  Same instrument, same reason, as the `movdqa`/`movaps` pair
+  -- (batch 11) and the four `PREFETCHh` hints (batch 22).
+  -- ⛔ The shapes are carried in FULL anyway — register, load, store, unaligned
+  -- load — rather than one token vector per mnemonic, because the roster claims
+  -- three shapes for each and a claimed shape with no vector is the under-claim
+  -- this repository does not police ([[feedback-under-claims-are-unpoliced]]).
+  -- ⛔ AND THERE IS NO UNALIGNED `movapd` VECTOR, for the reason there is no
+  -- unaligned `movaps` one: the oracle does not implement the #GP check (D91),
+  -- so such a vector would test the harness rather than the model.
+  , { id := "movapd_xx", mnemonic := "movapd", asm := "movapd %xmm1, %xmm0"
+    , bytes := "660f28c1", instr := ⟨.vmov .apd .x0 .x1, 4⟩ }
+  , { id := "movapd_x4x5", mnemonic := "movapd", asm := "movapd %xmm5, %xmm4"
+    , bytes := "660f28e5", instr := ⟨.vmov .apd .x4 .x5, 4⟩ }
+  , { id := "movupd_xx", mnemonic := "movupd", asm := "movupd %xmm1, %xmm0"
+    , bytes := "660f10c1", instr := ⟨.vmov .upd .x0 .x1, 4⟩ }
+  , { id := "movapd_load_m", mnemonic := "movapd", asm := "movapd (%rbx), %xmm0"
+    , bytes := "660f2803", instr := ⟨.vload .apd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movapd_store_m", mnemonic := "movapd", asm := "movapd %xmm0, (%rbx)"
+    , bytes := "660f2903", instr := ⟨.vstore .apd { base := some .rbx } .x0, 4⟩ }
+  , { id := "movupd_load_m", mnemonic := "movupd", asm := "movupd (%rbx), %xmm0"
+    , bytes := "660f1003", instr := ⟨.vload .upd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movupd_store_m", mnemonic := "movupd", asm := "movupd %xmm0, (%rbx)"
+    , bytes := "660f1103", instr := ⟨.vstore .upd { base := some .rbx } .x0, 4⟩ }
+  , { id := "movupd_load_unal", mnemonic := "movupd", asm := "movupd 8(%rbx), %xmm0"
+    , bytes := "660f104308"
+    , instr := ⟨.vload .upd .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+
   -- ⛔⛔ MOVSS / MOVSD — AND BOTH SHAPES MUST BE HERE OR NEITHER RULE IS TESTED.
   -- The register form PRESERVES the destination's upper bits and the memory form
   -- CLEARS them; a model that always merged and a model that always zeroed are

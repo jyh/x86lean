@@ -409,6 +409,22 @@ CLAIMS_NO_ROW = {
     "movabs_q":           "movabs is a distinct ENCODING of a row already claimed",
     "movabs_lo32_ones":   "movabs is a distinct ENCODING of a row already claimed",
     "movabs_hi32_ones":   "movabs is a distinct ENCODING of a row already claimed",
+    # ⭐ P2 BATCH 35 (the `pd` spellings of the two 128-bit moves), added in
+    # the SAME COMMIT as the vectors.  Eight entries, one visible line each,
+    # for the same reason the batch-15 block states: a prefix pattern would
+    # absorb the NEXT such vector silently.
+    # ⚠️ The reason is checked per member, not assumed from the group: all
+    # eight take an xmm operand (`%xmm0`/`%xmm1`/`%xmm4`,`%xmm5`), so the
+    # SIMD exclusion is true of each one rather than of the batch
+    # ([[feedback-a-category-is-a-hypothesis-about-its-members]]).
+    "movapd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movapd_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movapd_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movapd_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movupd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movupd_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movupd_load_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movupd_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
 }
 
 SIB_BASE_EXEMPT = set(CLAIMS_NO_ROW)
