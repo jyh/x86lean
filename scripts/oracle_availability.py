@@ -1018,6 +1018,59 @@ P2_FORMS = [
     # reverse, where the oracle implements FEWER rules than the spec.
     # [[feedback-two-defects-that-cancel-survive-a-green-run]]
     ("vzeroupper",     "vzeroupper",              "c5f877",       "refuses",  "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # 2026-09-06 — `pandn` AT `MMX (mm)`, THE LAST IMPLEMENTED PAIR THE
+    # AVAILABILITY CENSUS HAD NEVER ASKED.
+    #
+    # ⛔⛔ AND THE QUEUE ROW THAT SENT ME HERE WAS STALE IN BOTH HALVES.  Item 1
+    # said *"what remains, and it needs the oracle: a probe row for `vzeroupper`
+    # … after which the unasked remainder's implemented column goes from 1 pair /
+    # 1,241 instructions to 0, and the availability census is finished"*.  The
+    # `vzeroupper` row EXISTS, was run, and its sealed declaration was REFUTED by
+    # the run (it is the row above).  And the column did not go to 0: it reads
+    # **1 pair / 88** today, because `pandn` is covered at `xmm` (P2 batch 34) and
+    # SURFACED at `mm`, which is a different key.
+    # ⇒ 🔑 A PREDICTION ABOUT A TOTAL, WRITTEN BEFORE THE ACT, IS A PREDICTION
+    # THAT THE SET WILL NOT MOVE UNDERNEATH IT — and the act that discharges one
+    # row is exactly the kind of act that adds another.  Right in direction,
+    # wrong in value, and it read as arithmetic.
+    # [[feedback-a-census-is-per-key-not-per-name]]
+    #
+    # ⛔ `hx` FROM `clang`, NOT TYPED: `clang -target x86_64-unknown-linux-gnu`
+    # over ONE assembly unit containing both `pandn %mm1, %mm0` and, as a
+    # POSITIVE CONTROL ON MY OWN RECIPE, `pand %mm1, %mm0` — whose disassembly
+    # came back `0fdbc1`, byte-identical to the `pand_mmx` row already shipped
+    # here.  A recipe that reproduces a row already in the table is a recipe I
+    # can quote the other row from.
+    #
+    # ⭐ AND THE PREDICTION RESTS ON THE OBJECT, not on the catalogue's word.
+    # `inst-listing.lisp:11605` and `:11391` are IDENTICAL IN EVERY FIELD BUT THE
+    # OPCODE — same `:PFX :NO-PREFIX`, same `:FEAT '(:MMX)`, same
+    # `(ARG :OP1 '(P Q) :OP2 '(Q Q))`, same exception check
+    # `(CHK-EXC :TYPE-22-7 (:MMX))`, and the SAME semantic function
+    # `X86-PAND/PANDN/POR/PXOR-MMX`, which is DEFINED at
+    # `machine/instructions/logical.lisp:53`.  `pand %mm1, %mm0` is a MEASURED
+    # row here reading (executes, executes).
+    # ⇒ so this predicts (executes, executes) from a measured sibling reached
+    # through the same defined function, and what the probe actually tests is the
+    # DISPATCH of `0F DF` with no prefix — the one thing the two entries do not
+    # share.
+    #
+    # ⚠️ WHAT THIS PREDICTION IS WORTH, SAID BEFORE THE RUN: it is close to the
+    # null model for this table — every shipped MMX row executes in both arms
+    # EXCEPT `pshufw`, which refuses in both.  So a green here is weak evidence
+    # about the ORACLE and is not claimed as more.  It is exactly the evidence the
+    # CENSUS needs, whose question is not "is this surprising" but "has this pair
+    # been ASKED".  [[feedback-score-the-null-model]]
+    # ⚠️ AND MMX NEEDS NO CR4 BIT, so the two arms are expected to agree — which
+    # is why the MMX rows are this file's control that the CR4 arm changes the
+    # right thing, and why a DISAGREEMENT between the arms here would be a finding
+    # about the driver rather than about `pandn`.
+    #
+    # ⛔ DECLARATION SEALED BEFORE ACL2 RAN: sha256 of the row below
+    # = a8e42fdc011a58efee0b7624781e5a7cc3a2feba62096ca53748cca0efb8a542,
+    # 2026-09-06T20:55:40Z.
+    ("pandn_mmx",       "pandn %mm1, %mm0",                  "0fdfc1",        "executes", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),
