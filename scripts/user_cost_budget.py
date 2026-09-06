@@ -803,6 +803,57 @@ def main():
                     f"OPPOSITE directions ({', '.join(tr_flipped)}) — left "
                     f"UNDECIDED rather than corrected by |ratio|")
     print("   transfer: " + "; ".join(bits) + ".")
+
+    # ⛔⛔⛔ THE FLOOR CHOICE DECIDES THE ANSWER, SO THE ANSWER MUST SHOW ITS
+    # SENSITIVITY TO IT.  This report uses the WORST same-tree spread as each
+    # unit's noise floor, which is the conservative choice and the one D148 §2's
+    # scar argues for (a referee looser than the gate it refereed produced a
+    # measured false positive).  But on the real corpus that choice alone moves
+    # the count of usable pairs from 0 to 99:
+    #
+    #     floor = MAX same-tree spread      0 of 102 pairs clear
+    #     floor = MEDIAN                   49 of 102
+    #     floor = MIN                      99 of 102
+    #
+    # ⇒ 🔑 THE SIGNAL AND THE NOISE IN THIS CORPUS ARE THE SAME SIZE.
+    # `Tests.Coverage`'s largest real batch delta is 1,700 ms against a same-tree
+    # spread of 600 ms (median) to 2,600 ms (worst). Whether a batch is
+    # "resolvable" is therefore decided by which noise statistic is chosen, not
+    # by the readings — and a verdict printed without that is my choice wearing
+    # a measurement's clothes.
+    # ⛔ THE FLOOR IS NOT LOOSENED TO PRODUCE AN ANSWER. UNDECIDED is the honest
+    # output; the sensitivity is printed so the reader can see what it rests on.
+    # [[feedback-widening-a-gate-needs-a-second-source]]
+    # [[feedback-a-single-reading-is-about-its-run]]
+    alts = []
+    for label, f in (("MAX (used)", max), ("MEDIAN", statistics.median),
+                     ("MIN", min)):
+        used_a = tot_a = 0
+        for u_ in sorted(shipped_units & cand_units):
+            sp = abstab[SHIP].get(u_)
+            if not sp:
+                continue
+            fl = f(sp)
+            m0 = metas.get(SHIP)
+            if not m0:
+                continue
+            for a_, b_ in zip(m0["seq"], m0["seq"][1:]):
+                if b_ in m0["zero_lean"]:
+                    continue
+                x, y = m0["med"][a_].get(u_), m0["med"][b_].get(u_)
+                if x is None or y is None:
+                    continue
+                tot_a += 1
+                if abs(y - x) > fl:
+                    used_a += 1
+        alts.append(f"{label} {used_a}/{tot_a}")
+    print(f"   ⚠️ SENSITIVITY TO THE FLOOR — pairs clearing it: " + ";  ".join(alts))
+    if alts and alts[0].startswith("MAX (used) 0/"):
+        print(f"      ⇒ NOT ONE pair in this project's history clears the WORST "
+              f"same-tree spread, while most clear the best. The signal a batch "
+              f"produces and the noise one tree produces are THE SAME SIZE, which "
+              f"is the finding — and it is about the SHIPPED instrument, not "
+              f"about the candidate.")
     if tr:
         allr = sorted(tr.values())
         print(f"   ⚠️ the RAW columns assume a change moves each arm by the same "
