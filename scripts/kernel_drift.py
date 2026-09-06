@@ -244,6 +244,44 @@ def append_rows(path, rows, existing):
 # unpoliced, which is exactly where the next rot lands.
 # [[feedback-a-gate-is-not-exempt-from-its-own-defect]]
 # [[feedback-an-implied-assertion-is-not-a-second-gate]]
+# ⛔ A CALLABLE SURFACE, because the single-walk check next door spent four hours
+# RED on master for being an inline block in `main()` with nothing able to call
+# it (D162). Writing its successor the same way would be that defect surviving the
+# record that names it. [[feedback-a-gate-with-no-callable-surface]]
+def verify_ledger_all(ledger, decl_map, default_ms, budgets, floor, digest,
+                      docs_dir=None):
+    """(bad, checked, live, tags, n_rows) — every backfilled row, by its OWN tag."""
+    import delta_repair_price as drp
+    docs = docs_dir or os.path.join(ROOT, "docs")
+    tags = {}
+    for k, r in ledger.items():
+        tags.setdefault(str(r.get("source", "")), []).append(k)
+    bad, checked, n_rows = [], [], 0
+    for tag in sorted(t for t in tags if t.startswith("backfill:")):
+        path = os.path.join(docs, tag.split(":", 1)[1])
+        if not os.path.exists(path):
+            bad.append(f"   {len(tags[tag])} row(s) cite `{tag}` and that walk is "
+                       f"NOT in docs/ — the evidence for a committed row is gone, "
+                       f"so those allowances can never be re-derived")
+            continue
+        w = drp.load_walk(path)
+        ur = drp.unit_readings(w, decl_map)
+        order = w["order"]
+        want = {}
+        for i in range(len(order) - 1):
+            med = {u: statistics.median(v) for u, v in ur[order[i]].items()}
+            want[order[i]] = (order[i + 1],
+                              allowances_for(med, default_ms, budgets, floor))
+        bad += verify_ledger(want, ledger, tag, digest)
+        checked.append((tag, len(want)))
+        n_rows += len(want)
+    # ⛔ NAMED, NOT SKIPPED. A live `source=gate` row is not derivable from a walk
+    # — it came from the merge gate's own readings — so it is returned for the
+    # caller to PRINT, rather than quietly excluded from a green sentence.
+    live = [t for t in tags if not t.startswith("backfill:")]
+    return bad, checked, live, tags, n_rows
+
+
 def verify_ledger(want, ledger, tag, digest):
     """[discrepancy, ...] — empty iff the tagged rows ARE their own derivation.
 
@@ -654,6 +692,51 @@ def report(rows, unpriced, steps, ledger_rows, alloc, series_base,
 DIG = "0123456789abcdef"
 
 
+# ⭐⭐ WHAT A WALK'S LOAD MEANS, PRICED FROM COMMITTED EVIDENCE RATHER THAN FELT.
+# A backfilled allowance is a PERCENTAGE OF THE MEASURED base_ms, so a loud box
+# inflates the allowance with the reading, and the inflation is in the direction
+# that makes the drift window convict LESS. "load1 was 20" is a number a reader
+# cannot act on; the factor is.
+# ⛔ THE REFERENCE IS DERIVED FROM COMMITTED WALKS, NOT A LITERAL — two walks over
+# the SAME twelve commits at different loads are already in `docs/`, which is the
+# second source the factor needs. Measured 09/06: quiet (load1 median 4.51) → 12.27
+# is x1.14 median (p90 1.35), → 13.72 is x1.18 (p90 1.55), and EVERY unit's ratio
+# exceeds 1 — load makes nothing faster.
+# ⛔ AND IT IS PRINTED, NEVER GATED. A threshold on load average is the heuristic
+# D141 took out of this family of gates; this is a reading beside a reading.
+# [[feedback-a-measurement-without-its-conditions]] [[feedback-conservative-is-a-direction-not-a-margin]]
+LOAD_REFERENCE = [("docs/kernel-delta-history-2026-09-04.jsonl", "the quiet walk"),
+                  ("docs/kernel-delta-history-USER-CONTENDED-2026-09-05.jsonl",
+                   "the contended walk")]
+
+
+def load_context(walk_rows):
+    """Lines describing this walk's load beside the committed reference walks."""
+    loads = [r.get("load1") for r in walk_rows if r.get("load1") is not None]
+    if not loads:
+        return ["⚠️  this walk's readings carry no `load1`, so its conditions "
+                "cannot be stated — not 'it was quiet'."]
+    out = [f"walk load1: median {statistics.median(loads):.2f}, "
+           f"max {max(loads):.2f}, over {len(loads)} reading(s)"]
+    for path, what in LOAD_REFERENCE:
+        full = os.path.join(ROOT, path)
+        if not os.path.exists(full):
+            out.append(f"   ⚠️  {path} is absent, so {what} cannot be quoted — "
+                       f"the comparison is MISSING, not favourable.")
+            continue
+        rl = [json.loads(l).get("load1") for l in open(full) if l.strip()]
+        rl = [x for x in rl if x is not None]
+        if rl:
+            out.append(f"   vs {what}: load1 median {statistics.median(rl):.2f} "
+                       f"({os.path.basename(path)})")
+    out.append("   ⇒ a backfilled allowance is a PERCENTAGE OF THE MEASURED "
+               "base_ms, so a louder box buys a LARGER allowance. Measured "
+               "across these committed walks the shift is x1.14-x1.18 median "
+               "(p90 1.35-1.55) and no unit gets faster, so a window priced on "
+               "a loud box convicts LESS than one priced quiet.")
+    return out
+
+
 def _row(base, head, alloc, base_ms=None, digest=DIG, source="synthetic",
          conditions=None):
     # ⭐ `conditions` (D171): the per-pass (load1, secs) of the run that produced
@@ -928,14 +1011,53 @@ def selftest():
        f"...and a ledger recording EVERY step empties all {len(empt)} buckets, so the "
        "counts are about the ledger and not a constant", plant="full ledger")
     # ...and removing ONE known `.lean` step must put exactly one back.
-    if g_buckets["lean"]:
+    # ⛔⛔ THIS ARM AND THE ONE BELOW USED TO READ `g_buckets["lean"]` — the
+    # UNRECORDED `.lean` steps — and on 09/06 the five-step backfill emptied that
+    # bucket and BOTH ARMS SILENTLY STOPPED RUNNING. The suite stayed green and
+    # its arm count went UP; the only thing that said so was the DISTINCT-PLANT
+    # list losing two entries. An arm whose precondition is "the repository is
+    # currently in arrears" is an arm that switches off exactly when the work it
+    # guards has been done.
+    # ⇒ the subject is now every `.lean`-changing step ON THE CHAIN, recorded or
+    # not, which is a property of the history and cannot be discharged.
+    # [[feedback-a-gate-whose-precondition-is-a-discipline]]
+    # [[feedback-probe-silence-has-two-causes]]
+    lean_steps = [(b, h) for b, h in g_steps if _touches(b, h, ["*.lean"])]
+    ok(bool(lean_steps),
+       f"CONTROL — the chain carries {len(lean_steps)} `.lean`-changing step(s) "
+       f"for the two arms below to use, independently of what the ledger records")
+    # ⛔ AND IT MUST NOT BE THE ANCHOR'S OWN STEP. `gap_anchor` takes the EARLIEST
+    # ledger base on the chain, so deleting that row does not open a gap — it moves
+    # the window forward and EVERY bucket reads zero. The re-armed form of this arm
+    # picked the first `.lean` step, which IS the anchor, and went red for that
+    # reason rather than for a defect.
+    lean_pick = next((p for p in reversed(lean_steps) if p[0] != g_anchor), None)
+    ok(lean_pick is not None,
+       "CONTROL — a `.lean` step exists that is NOT the anchor's own, so the arm "
+       "below tests a GAP rather than a moved window")
+    if lean_pick:
         one = dict(full)
-        del one[g_buckets["lean"][0][0]]
+        del one[lean_pick[0]]
         _, _, b1 = gap(one, "HEAD")
         ok(len(b1["lean"]) == 1 and not b1["profiler"] and not b1["neither"]
            and not b1["unclassified"],
            "...and deleting ONE row for a `.lean`-changing step puts exactly that "
            "step, in that bucket, back", plant="one lean step")
+
+    # ⚠️ THE BEHAVIOUR THE ARM ABOVE TRIPPED OVER, RECORDED SO IT IS KNOWN RATHER
+    # THAN REDISCOVERED: losing the EARLIEST row does not report a gap. The window
+    # simply starts later and every bucket reads zero — a narrowed observation does
+    # not say "unknown", it says "nothing unrecorded".
+    # [[feedback-unobserved-regions-report-agreement]]
+    _noanchor = dict(full)
+    del _noanchor[g_anchor]
+    _a2, _s2, _b2 = gap(_noanchor, "HEAD")
+    ok(_a2 != g_anchor and not any(_b2.values()) and len(_s2) < len(g_steps),
+       f"KNOWN BEHAVIOUR — deleting the ANCHOR's row moves the window "
+       f"({g_anchor[:9]} → {_a2[:9]}, {len(g_steps)} → {len(_s2)} steps) and every "
+       f"bucket reads zero: a coverage LOSS that looks like a clean gap. `--gap` "
+       f"prints the anchor and the commits before it for that reason",
+       plant="anchor row deleted")
 
     # ── THE JOIN: `base` AND `head`, DRIVEN BOTH WAYS (D171) ──────────────────
     # ⛔ Every commit below is DERIVED from the live chain, never typed: an arm
@@ -951,8 +1073,8 @@ def selftest():
            for b, h, r in ritual),
        "...and accepted FOR THAT REASON — the separating diff moves no reading — "
        "rather than by a sha comparison that happened to hold")
-    if g_buckets["lean"]:
-        lb, lh = g_buckets["lean"][0]
+    if lean_pick:
+        lb, lh = lean_pick
         ok(not records_step({"head": lb}, lb, lh),
            "RED-FIRST — a row whose head is separated from the chain's child by a "
            "`.lean` diff does NOT record the step, even though it is reachable",
@@ -1012,6 +1134,59 @@ def selftest():
        and _row("a", "b", {"M": 1.0}, conditions=c)["conditions"] is c,
        "...and a row written without conditions OMITS the key rather than "
        "carrying an empty one that reads as 'measured, and quiet'")
+
+    # ── EVERY BACKFILLED ROW IS DERIVED, NOT JUST THE NAMED WALK'S (D174) ─────
+    # ⛔ READ FROM THE SHIPPED REGISTRY, not from a synthetic one: this arm's
+    # subject is the COMMITTED ledger, so its digest and budgets must be the ones
+    # the committed rows were priced against, or every row would read "priced
+    # against another registry" and the arm would be about the fixture.
+    _bf = kd.BUDGET_FILE
+    _default_ms, _budgets, _floor = kd.read_budgets(_bf)
+    _digest = budget_digest(_bf)
+    _dm = kd.gated_declarations()
+    _bad, _checked, _live, _tags, _nrows = verify_ledger_all(
+        real, _dm, _default_ms, _budgets, _floor, _digest)
+    _bfill = sum(len(v) for t, v in _tags.items() if t.startswith("backfill:"))
+    ok(not _bad and _nrows == _bfill and _bfill > 0,
+       f"CONTROL — every one of the {_bfill} backfilled ledger row(s), across "
+       f"{len(_checked)} walk(s), re-derives from the walk IT names "
+       f"({_nrows} checked)")
+    ok(len(_checked) >= 2,
+       f"...and it followed {len(_checked)} distinct walks, so the arm is not one "
+       f"filename wearing a plural — a single-walk ledger could not tell them apart")
+    ok(sum(len(_tags[t]) for t in _live) + _bfill == len(real),
+       f"...and the {sum(len(_tags[t]) for t in _live)} non-backfill row(s) are "
+       f"NAMED rather than dropped: named + derived = {len(real)}, the whole ledger")
+    # ⛔ THE ROW WHOSE EVIDENCE IS GONE. A committed allowance whose walk has been
+    # deleted can never be re-derived, and under a gate told ONE filename it would
+    # simply never be looked at.
+    _bad2, _, _, _, _ = verify_ledger_all(real, _dm, _default_ms, _budgets, _floor,
+                                          _digest, docs_dir="/nonexistent-docs-dir")
+    ok(_bad2 and all("evidence for a committed row is gone" in b for b in _bad2),
+       "RED-FIRST — a backfilled row whose walk is MISSING refuses and says the "
+       "evidence is gone, rather than passing unexamined", plant="walk deleted")
+
+    # ── THE LOAD CONTEXT (D174) — including the branch a missing file takes ───
+    lc = load_context([{"load1": 10.0}, {"load1": 20.0}])
+    ok(lc and "median 15.00" in lc[0] and "max 20.00" in lc[0],
+       "CONTROL — the load context reports this walk's own median and max")
+    ok(sum(1 for l in lc if " vs " in l) == len(LOAD_REFERENCE),
+       f"CONTROL — it quotes all {len(LOAD_REFERENCE)} committed reference walk(s), "
+       f"so the factor has a second source and not a remembered number")
+    lc2 = load_context([{"secs": 9}, {"secs": 9}])
+    ok(len(lc2) == 1 and "cannot be stated" in lc2[0] and "not 'it was quiet'" in lc2[0],
+       "RED-FIRST — readings with NO load1 say the conditions cannot be stated, "
+       "rather than printing nothing (which reads as quiet)", plant="no load1")
+    _real = LOAD_REFERENCE[:]
+    try:
+        globals()["LOAD_REFERENCE"] = [("docs/does-not-exist.jsonl", "a gone walk")]
+        lc3 = load_context([{"load1": 1.0}])
+    finally:
+        globals()["LOAD_REFERENCE"] = _real
+    ok(any("MISSING, not favourable" in l for l in lc3),
+       "RED-FIRST — an ABSENT reference walk is reported as a missing comparison, "
+       "not silently dropped so the walk looks unremarkable",
+       plant="absent reference")
 
     # ── THE EXEMPTION ARGUMENT, DRIVEN BOTH WAYS (D171) ───────────────────────
     # ⛔ The bucket these arms guard used to be an `else`, so there was nothing to
@@ -1193,6 +1368,38 @@ def main():
     # `effective(budget, that step's own base, floor)` — and it is stated here so
     # it can be corrected rather than only recomputed.
     # [[feedback-a-derivation-gate-wraps-a-false-sentence]]
+    # ⛔⛔ `--verify-ledger <ONE FILE>` VERIFIED A SUBSET AND PRINTED A COMPLETE
+    # SENTENCE (D174). It filters the ledger by `source == backfill:<that file>`,
+    # so rows written from any OTHER walk are not examined — and it says
+    # "✅ ledger DERIVED: 11 steps ... equal to the committed ledger", which reads
+    # as a statement about the ledger. It is a statement about 11 of its rows.
+    # Adding five rows from four new walks left them derivable by nothing, and the
+    # CI step names the ONE walk file by literal, so it would never have grown.
+    # ⇒ 🔑 THE LEDGER'S OWN ROWS NAME THEIR EVIDENCE in `source`. The gate follows
+    # that pointer instead of being told a filename, so a walk added tomorrow is
+    # covered without editing the workflow, and a row whose walk is GONE refuses
+    # rather than passing unexamined.
+    # [[feedback-a-complete-count-of-a-subset]]
+    # [[feedback-a-gate-named-by-a-literal-stops-seeing-renamed-work]]
+    if "--verify-ledger-all" in sys.argv:
+        ledger = load_ledger(ledger_path)
+        bad, checked, live, tags, n_rows = verify_ledger_all(
+            ledger, decl_map, default_ms, budgets, floor, digest)
+        if bad:
+            refuse(f"⛔ the ledger is not what its own derivation produces "
+                   f"({len(bad)} discrepancies):\n" + "\n".join(bad[:40]) +
+                   f"\n   Regenerate with --backfill; do not edit it.")
+        print(f"✅ ledger DERIVED, EVERY BACKFILLED ROW: {n_rows} row(s) across "
+              f"{len(checked)} walk(s) re-derived and equal to the committed "
+              f"ledger, against registry {digest}.")
+        for tag, n in checked:
+            print(f"     {n:2d} row(s)  {tag}")
+        for t in sorted(live):
+            print(f"     {len(tags[t]):2d} row(s)  source={t!r} — NOT derivable "
+                  f"from a walk (the merge gate's own readings); named here "
+                  f"rather than excluded from the sentence above")
+        return 0
+
     walk_v = kd.arg("--verify-ledger")
     if walk_v:
         import delta_repair_price as drp
@@ -1212,9 +1419,17 @@ def main():
                    f"({len(bad)} discrepancies):\n" + "\n".join(bad[:40]) +
                    f"\n   Regenerate it with --backfill; do not edit it.")
         n_u = sum(len(a) for _, a in want.values())
+        # ⛔ THE SCOPE IS IN THE SENTENCE NOW. This verifies the rows tagged with
+        # THIS walk and no others; without the count of what it left alone, an
+        # 11-of-18 check reads as a whole-ledger receipt (D174).
+        others = sum(1 for r in load_ledger(ledger_path).values()
+                     if r.get("source") != tag)
         print(f"✅ ledger DERIVED: {len(want)} steps x {n_u // max(len(want), 1)} units "
               f"= {n_u} allowances re-derived from {os.path.basename(walk_v)} and "
               f"equal to the committed ledger, against registry {digest}.")
+        print(f"⚠️  SCOPE: {others} further ledger row(s) carry a DIFFERENT source "
+              f"and were not examined here. Use --verify-ledger-all, which "
+              f"follows each row's own `source` and covers all of them.")
         return 0
 
     # ⭐⭐ THE LANDING RITUAL'S GATE (D164). It does NOT judge kernel time; it
@@ -1235,8 +1450,17 @@ def main():
                        len(buckets["neither"]))
         nu = len(buckets["unclassified"])
         print(f"── DRIFT GAP from anchor {anchor[:9]} over {len(steps)} "
-              f"first-parent step(s); {len(steps) - nl - npr - nn} recorded, "
-              f"{nl + npr + nn + nu} not")
+              # ⛔ `nu` WAS MISSING FROM THIS SUBTRACTION when the fourth bucket
+              # was added, so `recorded` counted the unclassified steps as
+              # recorded. Invisible while nu == 0, which is every day until the
+              # one it matters. [[feedback-a-ratio-survives-a-doubling]]
+              f"first-parent step(s); {len(steps) - nl - npr - nn - nu} recorded, "
+              f"{nl + npr + nn + nu} not"
+              # ⛔ AND THE COMMITS BEFORE THE ANCHOR ARE OUTSIDE THIS AUDIT.
+              # Losing the earliest row does not open a gap, it SHRINKS the
+              # window; a coverage loss nobody prints looks exactly like a pass.
+              + (f"\n   ⚠️  {len(kd.git('rev-list', '--first-parent', anchor).splitlines()) - 1}"
+                 f" commit(s) precede the anchor and are OUTSIDE this audit"))
         print(f"   {nl:3d}  change a `.lean` file          ⇐ GATED: each needs a real "
               f"measurement")
         for b, h in buckets["lean"]:
@@ -1333,6 +1557,9 @@ def main():
                                      "why": "walk sweeps, not gate passes; too "
                                             "few points per commit for a drift "
                                             "slope"}))
+        if walk:
+            for l in load_context(w["rows"]):
+                print("   " + l)
         for r in rows:
             r["t"] = int(time.time())
             r["box"] = kd.box_stamp()

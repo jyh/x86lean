@@ -531,10 +531,15 @@ jobs:
       # one thing the budget file's own history says not to ship.
       # ⚠️ It proves the file matches its derivation, never that the derivation is
       # right; the rule is printed at the check for that reason.
+      # ⛔⛔ NAMED ONE WALK FILE BY LITERAL UNTIL 09/06 (D174), and it verified the
+      # 11 rows tagged with THAT walk while printing "equal to the committed
+      # ledger". The five rows the drift backfill added from four other walks were
+      # derivable by nothing, and this step would never have grown to cover them:
+      # a gate named by a literal stops seeing renamed work. `--verify-ledger-all`
+      # follows each ROW's own `source` tag instead, so a walk added tomorrow is
+      # covered without editing this file, and a row whose walk is GONE refuses.
       - name: Drift allowance ledger is DERIVED from the committed readings
-        run: |
-          python3 scripts/kernel_drift.py \
-            --verify-ledger docs/kernel-delta-history-2026-09-04.jsonl
+        run: python3 scripts/kernel_drift.py --verify-ledger-all
 
       # ⭐⭐ THE LANDING RITUAL'S OWN GATE (D164). Everything above judges kernel
       # TIME; this one judges whether the ledger is still being KEPT, which is the

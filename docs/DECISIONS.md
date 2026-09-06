@@ -11649,3 +11649,91 @@ the runner** — it runs the steps directly. So its guard had no driver at all, 
 `main()` has no callable surface to give one. `check_argv()` is a function, `ci_local.py --selftest`
 drives six arms over it, and the workflow now runs that selftest as a step of the `build` job.
 [[feedback-a-gate-with-no-callable-surface]]
+
+## D174 — the five-step drift backfill, and the derivation gate that verified eleven rows while printing a sentence about the ledger
+
+The five unrecorded `.lean` steps (P2 batches 23, 34, 35 and 36's two halves) are priced, and
+`--gap` reads **0 against a ceiling of 0**. What the backfill turned up on the way is worth more
+than the rows.
+
+### 1. FOUR DISJOINT SPANS, FOUR WALKS — AND WHY THAT IS A REFUSAL NOW, NOT A CONVENTION
+
+`--backfill` writes a row for each CONSECUTIVE pair of a walk's `order`. The five steps are **four
+disjoint spans** of the chain (23 · 34 · 35 · 36a+36b), so one walk over all nine commits would
+have written four correct rows **and three bogus ones across the gaps between spans** — whose bases
+are real chain commits, so under the `base`-only join D171 removed they would have read as
+recorded, and the gap would have reported itself closed. One walk per span, verified before the
+rows were written: 5 rows produced, exactly the 5 wanted steps, zero bogus.
+
+⚠️ `--out` is opened in APPEND mode, so the four walks must not share a file either.
+
+### 2. ⛔⛔ THE DERIVATION GATE VERIFIED A SUBSET AND SAID SO IN A COMPLETE SENTENCE
+
+`--verify-ledger <file>` filters ledger rows by `source == backfill:<that file>`. With the five new
+rows written, it re-derived **11 of 18** and printed:
+
+> ✅ ledger DERIVED: 11 steps × 23 units = 253 allowances re-derived … **and equal to the committed
+> ledger**
+
+The five rows this session added were derivable by nothing, and **the CI step names that one walk
+file by literal**, so it would never have grown to cover them. A gate told a filename stops seeing
+work that arrives under a different one.
+
+⇒ 🔑 **THE LEDGER'S OWN ROWS NAME THEIR EVIDENCE.** `--verify-ledger-all` follows each row's
+`source` tag instead of being told a path: a walk added tomorrow is covered without editing the
+workflow, a row whose walk has been DELETED refuses (the evidence for a committed allowance is
+gone), and the two live `source=gate` rows — not derivable from any walk — are **named with their
+count** rather than quietly excluded from a green sentence. 16 backfilled + 2 live = 18, the whole
+ledger. The single-file mode survives and now prints its own scope.
+[[feedback-a-complete-count-of-a-subset]] [[feedback-a-gate-named-by-a-literal-stops-seeing-renamed-work]]
+
+### 3. ⛔⛔⛔ THE BACKFILL SILENTLY DISARMED TWO RED-FIRST ARMS — MY OWN WORK, CAUGHT BY A LIST
+
+Two arms were guarded by `if g_buckets["lean"]:` — the *unrecorded* `.lean` steps. **Emptying that
+bucket is exactly what this batch of work did**, so both stopped running. The suite stayed CLEAN and
+its arm count went **up**; the only thing that said anything was the DISTINCT-PLANT list falling
+from 33 to 32.
+
+⇒ 🔑 **AN ARM WHOSE PRECONDITION IS "THE REPOSITORY IS CURRENTLY IN ARREARS" SWITCHES OFF EXACTLY
+WHEN THE WORK IT GUARDS GETS DONE** — and it switches off in the direction that reports success.
+Both now draw on every `.lean`-changing step ON THE CHAIN, recorded or not: a property of the
+history, which cannot be discharged. A control asserts the chain carries some (12).
+[[feedback-a-gate-whose-precondition-is-a-discipline]] [[feedback-probe-silence-has-two-causes]]
+
+### 4. ⚠️ AND THE RE-ARMED FORM WENT RED FOR A REASON THAT IS ITSELF THE FINDING
+
+Re-armed on the first `.lean` step, the arm failed. That step's base **is the anchor**, and
+`gap_anchor` takes the earliest ledger base on the chain — so deleting its row does not open a gap,
+it **moves the window forward and every bucket reads zero**:
+
+```
+   delete the FIRST lean step (= the anchor)   anchor 144e9a3cf → 4f6766b9b   all buckets 0
+   delete the LAST                             anchor unchanged               lean = 1  ✔
+```
+
+A narrowed observation does not report *unknown*; it reports *nothing unrecorded*. Losing the
+earliest ledger row is a **coverage loss that looks like a clean gap**. The arm now picks a
+non-anchor step, a second arm records the anchor behaviour so it is known rather than rediscovered,
+and `--gap` prints how many commits precede the anchor and are outside the audit.
+[[feedback-unobserved-regions-report-agreement]]
+
+⛔ Found in the same place: `recorded` was computed as `len(steps) − nl − npr − nn`, which never
+subtracted the `unclassified` bucket D171 added — so an unclassified step would have been counted
+as **recorded**. Invisible while that count is zero, which is every day until the one it matters.
+
+### 5. THE CONDITIONS THESE ROWS WERE MEASURED UNDER, PRICED RATHER THAN FELT
+
+```
+   b23  load1 median 15.44 (max 16.42)      b34  20.49 (31.16)
+   b35  12.60 (20.73)                       b36  14.95 (20.08)
+   committed reference: the quiet walk 4.51 · the contended walk 13.72
+```
+
+A backfilled allowance is a **percentage of the measured `base_ms`**, so a louder box buys a larger
+allowance. Priced from two walks already in `docs/` over the SAME twelve commits: the shift is
+**×1.14 median (p90 1.35)** at load 12.3 and **×1.18 (p90 1.55)** at load 13.7, and **every unit's
+ratio exceeds 1** — load makes nothing faster. These five rows were taken at load 12.6–20.5, so
+their allowances are generous by roughly a fifth, **in the direction that makes the drift window
+convict LESS**. That is stated, printed by the tool beside every backfill, and deliberately **not
+gated**: a threshold on load average is the heuristic D141 took out of this family of gates.
+[[feedback-conservative-is-a-direction-not-a-margin]]

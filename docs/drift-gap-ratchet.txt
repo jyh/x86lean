@@ -6,4 +6,4 @@
 # same commit (also red until it does).
 # ⚠️ It is NOT a kernel-time judgement. It says only whether the ledger is
 # still being kept — which is the precondition every drift verdict rests on.
-lean_missing_max 5
+lean_missing_max 0
