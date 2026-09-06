@@ -2584,9 +2584,9 @@ def vectors : List Vec :=
   -- (660fd7c1), so a second vector would be the first one under another name —
   -- a duplicate born in agreement, not a second test.
   , { id := "pmovmskb_x1_eax", mnemonic := "pmovmskb", asm := "pmovmskb %xmm1, %eax"
-    , bytes := "660fd7c1", instr := ⟨.vmovmsk .rax .x1, 4⟩ }
+    , bytes := "660fd7c1", instr := ⟨.vmovmsk .b .rax .x1, 4⟩ }
   , { id := "pmovmskb_x5_ecx", mnemonic := "pmovmskb", asm := "pmovmskb %xmm5, %ecx"
-    , bytes := "660fd7cd", instr := ⟨.vmovmsk .rcx .x5, 4⟩ }
+    , bytes := "660fd7cd", instr := ⟨.vmovmsk .b .rcx .x5, 4⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
@@ -2736,6 +2736,14 @@ def vectors : List Vec :=
     , bytes := "660f62c1", instr := ⟨.vbin .unpckld .x0 .x1, 4⟩ }
   , { id := "punpcklqdq_xx", mnemonic := "punpcklqdq", asm := "punpcklqdq %xmm1, %xmm0"
     , bytes := "660f6cc1", instr := ⟨.vbin .unpcklq .x0 .x1, 4⟩ }
+  , { id := "unpcklps_xx", mnemonic := "unpcklps", asm := "unpcklps %xmm1, %xmm0"
+    , bytes := "0f14c1", instr := ⟨.vbin .unpcklps .x0 .x1, 3⟩ }
+  , { id := "unpckhps_xx", mnemonic := "unpckhps", asm := "unpckhps %xmm1, %xmm0"
+    , bytes := "0f15c1", instr := ⟨.vbin .unpckhps .x0 .x1, 3⟩ }
+  , { id := "unpcklpd_xx", mnemonic := "unpcklpd", asm := "unpcklpd %xmm1, %xmm0"
+    , bytes := "660f14c1", instr := ⟨.vbin .unpcklpd .x0 .x1, 4⟩ }
+  , { id := "unpckhpd_xx", mnemonic := "unpckhpd", asm := "unpckhpd %xmm1, %xmm0"
+    , bytes := "660f15c1", instr := ⟨.vbin .unpckhpd .x0 .x1, 4⟩ }
   , { id := "punpckhbw_xx", mnemonic := "punpckhbw", asm := "punpckhbw %xmm1, %xmm0"
     , bytes := "660f68c1", instr := ⟨.vbin .unpckhb .x0 .x1, 4⟩ }
   , { id := "punpckhwd_xx", mnemonic := "punpckhwd", asm := "punpckhwd %xmm1, %xmm0"
@@ -2953,6 +2961,17 @@ def vectors : List Vec :=
   -- harness — `pand 8(%rbx),%xmm0` is refused by the oracle at all 88 in the
   -- same run — so "the oracle cannot see it" is excluded by a positive control
   -- rather than assumed.  The rule is `vshufm_unaligned_faults`.
+  -- ⭐⭐⭐ P2 BATCH 37 — the two-source shuffles at both operand shapes.
+  -- ⚠️ `0x1b` is LLVM's own example immediate, so the anchors in `Tests.Anchors`
+  -- can quote a THIRD source for the expected answer instead of re-deriving it.
+  , { id := "shufps_xx", mnemonic := "shufps", asm := "shufps $0x1b, %xmm1, %xmm0"
+    , bytes := "0fc6c11b", instr := ⟨.vshufp .ps .x0 .x1 0x1b, 4⟩ }
+  , { id := "shufpd_xx", mnemonic := "shufpd", asm := "shufpd $0x1, %xmm1, %xmm0"
+    , bytes := "660fc6c101", instr := ⟨.vshufp .pd .x0 .x1 0x1, 5⟩ }
+  , { id := "shufps_m", mnemonic := "shufps", asm := "shufps $0x1b, (%rbx), %xmm0"
+    , bytes := "0fc6031b", instr := ⟨.vshufpm .ps .x0 { base := some .rbx } 0x1b, 4⟩ }
+  , { id := "shufpd_m", mnemonic := "shufpd", asm := "shufpd $0x1, (%rbx), %xmm0"
+    , bytes := "660fc60301", instr := ⟨.vshufpm .pd .x0 { base := some .rbx } 0x1, 5⟩ }
   , { id := "pshufd_m_rev", mnemonic := "pshufd", asm := "pshufd $0x1b, (%rbx), %xmm0"
     , bytes := "660f70031b", instr := ⟨.vshufm .d .x0 { base := some .rbx } 0x1b, 5⟩ }
   , { id := "pshufd_mw_rev", mnemonic := "pshufd", asm := "pshufd $0x1b, -16(%rbx), %xmm0"
@@ -3020,6 +3039,14 @@ def vectors : List Vec :=
     , bytes := "660f6203", instr := ⟨.vbinm .unpckld .x0 { base := some .rbx }, 4⟩ }
   , { id := "punpcklqdq_m", mnemonic := "punpcklqdq", asm := "punpcklqdq (%rbx), %xmm0"
     , bytes := "660f6c03", instr := ⟨.vbinm .unpcklq .x0 { base := some .rbx }, 4⟩ }
+  , { id := "unpcklps_m", mnemonic := "unpcklps", asm := "unpcklps (%rbx), %xmm0"
+    , bytes := "0f1403", instr := ⟨.vbinm .unpcklps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "unpckhps_m", mnemonic := "unpckhps", asm := "unpckhps (%rbx), %xmm0"
+    , bytes := "0f1503", instr := ⟨.vbinm .unpckhps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "unpcklpd_m", mnemonic := "unpcklpd", asm := "unpcklpd (%rbx), %xmm0"
+    , bytes := "660f1403", instr := ⟨.vbinm .unpcklpd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "unpckhpd_m", mnemonic := "unpckhpd", asm := "unpckhpd (%rbx), %xmm0"
+    , bytes := "660f1503", instr := ⟨.vbinm .unpckhpd .x0 { base := some .rbx }, 4⟩ }
   , { id := "punpckhbw_m", mnemonic := "punpckhbw", asm := "punpckhbw (%rbx), %xmm0"
     , bytes := "660f6803", instr := ⟨.vbinm .unpckhb .x0 { base := some .rbx }, 4⟩ }
   , { id := "punpckhwd_m", mnemonic := "punpckhwd", asm := "punpckhwd (%rbx), %xmm0"

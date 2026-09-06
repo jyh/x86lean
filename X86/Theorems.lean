@@ -1817,6 +1817,65 @@ theorem bitwise_complement_mnemonics_are_distinct :
       .orps, .orpd, .xorps, .xorpd].map VBinKind.mnemonic).eraseDups.length = 9 := by
   decide
 
+/-! ### ⭐⭐ P2 BATCH 37 — THE FOUR UNPACK SPELLINGS
+
+The batch-19/batch-34 claim in its fourth instance, and the one a reader should
+doubt: four new kinds, all four asserted to be operations the model already had.
+If that is false the coverage table publishes four wrong rows, and **no
+differential vector would say so** — each spelling is tested only against the
+oracle, never against its sibling, so a model decoding `0f 14` as `punpckldq`
+scores identically on every case in the table.  The bytes are held apart by
+`scripts/check_encodings.py`; the semantics is held together here. -/
+
+/-- ⛔⛔ DECIDED ON K'S LEAF SEQUENCE, AND ITS TEXT SAYS OTHERWISE FOR TWO OF THE
+FOUR.  Whitespace-normalised, `unpcklpd`/`punpcklqdq` and `unpckhpd`/`punpckhqdq`
+are byte-identical (207 chars) while `unpcklps`/`punpckldq` and
+`unpckhps`/`punpckhdq` differ at char 122 of 345 — pure re-association of
+`concatenateMInt`, which is associative on bit strings.  ⇒ a byte comparison over
+the four reports *two spellings, two new semantics*, a self-consistent wrong
+design with a ready-made `ps`/`pd` explanation.  Under the leaf normal form all
+four agree and three controls differ.  ⭐ LLVM's disassembler agrees
+independently of K, printing one operand comment for each pair. -/
+@[simp] theorem unpack_aliases_are_their_integer_siblings (a b : BitVec 128) :
+    vbinApply .unpcklps a b = vbinApply .unpckld a b ∧
+    vbinApply .unpckhps a b = vbinApply .unpckhd a b ∧
+    vbinApply .unpcklpd a b = vbinApply .unpcklq a b ∧
+    vbinApply .unpckhpd a b = vbinApply .unpckhq a b := by
+  refine ⟨rfl, rfl, rfl, rfl⟩
+
+/-- ⚠️ AND THE FOUR ARE FOUR SPELLINGS OF FOUR DISTINCT OPERATIONS, not one under
+four names.  ⛔ THIS IS THE ARM THE PREVIOUS THEOREM CANNOT PROVIDE: routing every
+new kind to a SINGLE sibling would satisfy `unpack_aliases_...` for whichever one
+it named, and this refuses it — the four siblings are pairwise different
+functions, so a mis-routed spelling lands on a sibling that disagrees.
+
+⛔⛔ THE WITNESS IS CHOSEN, AND THE OBVIOUS ONE IS SILENT ON THE LAST CONJUNCT.
+This was first written with `⟨0, 1, …⟩`, which satisfies the first THREE and makes
+the fourth FALSE: `1` lies entirely in the LOW half, so `unpckhd` and `unpckhq`
+both read nothing but zeros and AGREE.  Had the theorem been written with only the
+three conjuncts that passed — a natural thing to do — it would have been green and
+blind to exactly the pair a mis-routed `unpckhps`/`unpckhpd` lands on.
+⇒ 🔑 a witness drawn from the same half of the space as everything else is silent
+in the dimension the claim is about.  Every lane here is distinct and non-zero in
+BOTH halves, so all four operations give four different answers, and the
+destination-first order is visible too.
+[[feedback-a-control-can-share-the-blind-spot]] -/
+theorem unpack_siblings_are_pairwise_distinct :
+    ∃ a b : BitVec 128,
+      vbinApply .unpckld a b ≠ vbinApply .unpcklq a b ∧
+      vbinApply .unpckld a b ≠ vbinApply .unpckhd a b ∧
+      vbinApply .unpcklq a b ≠ vbinApply .unpckhq a b ∧
+      vbinApply .unpckhd a b ≠ vbinApply .unpckhq a b := by
+  refine ⟨0x000000A4000000A3000000A2000000A1, 0x000000B4000000B3000000B2000000B1,
+    by decide, by decide, by decide, by decide⟩
+
+/-- ⚠️ The four spellings are four roster rows, which is a claim about what a
+disassembler PRINTS and not about the semantics shared above. -/
+theorem unpack_spelling_mnemonics_are_distinct :
+    ([VBinKind.unpcklps, .unpckhps, .unpcklpd, .unpckhpd,
+      .unpckld, .unpckhd, .unpcklq, .unpckhq].map VBinKind.mnemonic).eraseDups.length = 8 := by
+  decide
+
 end Batch34
 
 end X86

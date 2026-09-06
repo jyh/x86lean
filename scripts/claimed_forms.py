@@ -317,6 +317,25 @@ CLAIMS_NO_ROW = {
     "pandn_m_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "andnps_m_unal": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "pcmpgtb_x2x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐⭐ P2 BATCH 37 — the `ps`/`pd` unpack spellings at both shapes, and
+    # `movmskps`.  The reason is the SAME one `pmovmskb_x1_eax` carries and it was
+    # CHECKED against that row rather than assumed from the neighbours: every one
+    # of these names an xmm operand, which is what the P1 roster excludes by
+    # derivation.  ⚠️ `movmskps` writes a GPR, so "excludes xmm operands" has to be
+    # read as "names one at all" — exactly as it already is for `pmovmskb`, whose
+    # destination is also a GPR. [[feedback-a-category-is-a-hypothesis-about-its-members]]
+    "unpcklps_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpcklps_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpckhps_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpckhps_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpcklpd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpcklpd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpckhpd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "unpckhpd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufps_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufpd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufps_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufpd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 15 (the packed binary group's MEMORY shape), added in the
     # SAME COMMIT as the vectors — D106's cost, not re-paid.  Twenty-two
     # entries written out rather than matched by a prefix: a pattern would

@@ -1847,4 +1847,99 @@ theorem shld_zero_count_writes_dest_and_no_flag :
     let w := step ⟨.dshift .shld .d (.reg .rax) .rcx (.imm8 0), 4⟩ s
     (w.regs.get .rax, w.flags, w.rip) = (0x0000ABCD, s.flags, 0x400004) := by decide
 
+/-! ## ⭐⭐ P2 BATCH 37 — MOVMSKPS, AND THE CONTROL THAT SAYS PMOVMSKB DID NOT MOVE
+
+`Op.vmovmsk` was built for `pmovmskb` alone and its lane count was a literal
+sixteen; batch 37 made both the count and the sign-bit offset come from
+`VMovMskKind.laneBits`.  A generalisation like that has TWO ways to be wrong — the
+new kind, and the old one — so the old kind is anchored here beside the new one,
+on the SAME source, and the two answers must differ. -/
+
+/-- The source, chosen so that neither a lane-order nor a lane-width error can
+hide: the four dword lanes have signs 1,0,1,0 from the top, and the sixteen byte
+lanes are NOT a palindrome.
+  lane 3 = 0x80000000 · lane 2 = 0x7fffffff · lane 1 = 0xffffffff · lane 0 = 1 -/
+private def s_movmsk : Cpu :=
+  (mk {} {} {} 0 Oracle.zero).setXmm .x1 0x800000007fffffffffffffff00000001
+
+/-- ⭐ MOVMSKPS: one sign bit per 32-bit lane, lane 0 in result bit 0.
+Signs from lane 3 down are 1,0,1,0, so the mask is `0b1010`.
+⚠️ DECIDED ON K FIRST: `movmskps_r32_xmm.k` reads bits 128/160/192/224 of the
+256-bit parent, which big-endian are xmm bits 127, 95, 63, 31. -/
+theorem movmskps_is_the_dword_sign_mask :
+    ((step ⟨.vmovmsk .ps .rax .x1, 3⟩ s_movmsk).regs.get .rax) = 0xA := by decide
+
+/-- ⭐⭐ THE CONTROL, IN THE SAME RUN AT THE SAME FIELD: `pmovmskb` on the SAME
+source must still give the PRE-BATCH-37 answer.  Bytes 15..0 have signs
+1000 0111 1111 0000, so the mask is `0x87F0`.  If the generalisation broke the
+byte lane count or the shift, this is what says so — and it fires ALONE, measured
+by planting `laneBits .b := 16` and watching only this and the derived-count
+theorem go red. -/
+theorem pmovmskb_survived_the_generalisation :
+    ((step ⟨.vmovmsk .b .rax .x1, 4⟩ s_movmsk).regs.get .rax) = 0x87F0 := by decide
+
+/-- ⭐ AND THE TWO MUST DISAGREE HERE, or both anchors above would be satisfied by
+one frozen answer and neither would be evidence about its own kind.
+[[feedback-a-probe-must-create-its-condition]] -/
+theorem movmsk_kinds_disagree_on_this_source :
+    ((step ⟨.vmovmsk .ps .rax .x1, 3⟩ s_movmsk).regs.get .rax)
+      ≠ ((step ⟨.vmovmsk .b .rax .x1, 4⟩ s_movmsk).regs.get .rax) := by decide
+
+/-- ⛔ THE LANE COUNT IS DERIVED FROM `laneBits`, so state what it derives TO.
+A third kind cannot be added without this line being read. -/
+theorem movmsk_lane_counts_are_derived :
+    (VMovMskKind.all.map (fun k => 128 / k.laneBits)) = [16, 4] := by decide
+
+/-! ## ⭐⭐⭐ P2 BATCH 37 — SHUFPS AND SHUFPD, THE ONLY NEW SEMANTICS IN THE BATCH
+
+The immediate `0x1b` is LLVM's own example, so the expected answer below is read
+off a THIRD source rather than re-derived from the rule being tested: `objdump`
+renders `shufps $0x1b,%xmm1,%xmm0` as `xmm0 = xmm0[3,2],xmm1[1,0]` and
+`shufpd $0x1,%xmm1,%xmm0` as `xmm0 = xmm0[1],xmm1[0]`. -/
+
+/-- Both operands have four DISTINCT non-zero lanes, and the two registers share
+no lane value.  ⛔ THAT IS WHAT MAKES THE OPERAND ORDER VISIBLE: with `a = b` —
+or with either operand zero — a model that read the SOURCE where this one reads
+the DESTINATION is bit-identical to this one, and the anchor would pass about the
+wrong function. -/
+private def s_shufp : Cpu :=
+  ((mk {} {} {} 0 Oracle.zero).setXmm .x0 0x000000A3000000A2000000A1000000A0).setXmm
+    .x1 0x000000B3000000B2000000B1000000B0
+
+/-- ⭐ `shufps $0x1b`: `imm = 0b00_01_10_11`, so lane0 ← DEST[3], lane1 ← DEST[2],
+lane2 ← SRC[1], lane3 ← SRC[0] — i.e. `A3 A2 B1 B0` from lane 0 up, which is
+LLVM's `xmm0[3,2],xmm1[1,0]`. -/
+theorem shufps_matches_the_disassembler :
+    ((step ⟨.vshufp .ps .x0 .x1 0x1b, 4⟩ s_shufp).getXmm .x0)
+      = 0x000000B0000000B1000000A2000000A3 := by decide
+
+/-- ⭐ `shufpd $0x1`: `imm[0] = 1` ⇒ qword0 ← DEST[1]; `imm[1] = 0` ⇒ qword1 ←
+SRC[0].  LLVM's `xmm0[1],xmm1[0]`. -/
+theorem shufpd_matches_the_disassembler :
+    ((step ⟨.vshufp .pd .x0 .x1 0x1, 5⟩ s_shufp).getXmm .x0)
+      = 0x000000B1000000B0000000A3000000A2 := by decide
+
+/-- ⛔⛔ THE ANCHOR THAT REFUTES THE OPERAND SWAP, stated as a DISAGREEMENT rather
+than as a second expected value: shuffling `x1` by `x0` must not give what
+shuffling `x0` by `x1` gives.  The swap is the plausible wrong model for a
+two-source shuffle — `vshufpsAux`'s `if i < 2 then a else b` is the only line that
+decides it — and no vector in the table pairs a form with its own operands
+reversed, so nothing else here would say. -/
+theorem shufps_is_not_its_operand_swap :
+    ((step ⟨.vshufp .ps .x0 .x1 0x1b, 4⟩ s_shufp).getXmm .x0)
+      ≠ ((step ⟨.vshufp .ps .x1 .x0 0x1b, 4⟩ s_shufp).getXmm .x1) := by decide
+
+/-- ⚠️ AND `shufpd` READS ONLY THE IMMEDIATE'S LOW TWO BITS, so the SDM's
+`imm8[7:2]` are ignored.  Stated because a vector varying those bits would look
+like coverage and witness nothing. -/
+theorem shufpd_ignores_the_high_immediate_bits :
+    ((step ⟨.vshufp .pd .x0 .x1 0x1, 5⟩ s_shufp).getXmm .x0)
+      = ((step ⟨.vshufp .pd .x0 .x1 0xFD, 5⟩ s_shufp).getXmm .x0) := by decide
+
+/-- ⚠️ ...AND `shufps` READS ALL EIGHT, which is the other half of that claim and
+what stops the sentence above reading as a fact about shuffles in general. -/
+theorem shufps_reads_the_whole_immediate :
+    ((step ⟨.vshufp .ps .x0 .x1 0x1b, 4⟩ s_shufp).getXmm .x0)
+      ≠ ((step ⟨.vshufp .ps .x0 .x1 0xdb, 4⟩ s_shufp).getXmm .x0) := by decide
+
 end X86.Tests

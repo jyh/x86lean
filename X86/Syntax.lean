@@ -319,6 +319,27 @@ inductive VBinKind where
   green run on them. -/
   | unpcklb | unpcklw | unpckld | unpcklq
   | unpckhb | unpckhw | unpckhd | unpckhq
+  /-- ⭐⭐ P2 BATCH 37 — THE `ps`/`pd` SPELLINGS OF FOUR UNPACKS.  Batch 34's
+  shape exactly: the SAME function at another opcode, so they join `vbinApply`'s
+  arm rather than copying it, and they are separate KINDS because the BYTES
+  differ (`0f 14` against `66 0f 62`).
+
+  ⛔⛔ THE IDENTITY WAS DECIDED ON K'S LEAF SEQUENCE, NOT ON ITS TEXT, AND THE
+  TEXT WOULD HAVE SAID SOMETHING ELSE.  Whitespace-normalised, the two `pd` pairs
+  are byte-identical and the two `ps` pairs DIFFER at char 122 of 345 — the
+  difference being pure RE-ASSOCIATION of `concatenateMInt`, which is associative
+  on bit strings.  Under the leaf-sequence normal form all four pairs are
+  identical and three controls (`unpcklps`/`unpckhps`, `unpcklpd`/`unpcklps`,
+  `punpckldq`/`punpcklqdq`) DIFFER.
+  ⇒ 🔑 a byte comparison over the four would have reported *two spellings, two new
+  semantics* — a self-consistent WRONG design with a ready-made `ps`/`pd`
+  explanation attached.  A comparison that fails on HALF a set invites a theory of
+  the half.  ⭐ A THIRD SOURCE agrees independently of K: LLVM's disassembler
+  prints the same operand comment for each pair (`unpcklps` and `punpckldq` both
+  `xmm0[0],xmm1[0],xmm0[1],xmm1[1]`).
+  [[feedback-a-generated-files-text-is-not-its-meaning]]
+  [[feedback-the-third-source-turns-a-disagreement-into-a-finding]] -/
+  | unpcklps | unpckhps | unpcklpd | unpckhpd
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 17 — THE PACKED COMPARES (SDM Vol. 2B,
   PCMPEQB/W/D and PCMPGTB/W/D).  They join `VBinKind` rather than taking a kind of
   their own, and the reason is that they ARE packed binary operations: two XMM
@@ -410,6 +431,10 @@ def VBinKind.mnemonic : VBinKind → String
   | .unpckld => "punpckldq" | .unpcklq => "punpcklqdq"
   | .unpckhb => "punpckhbw" | .unpckhw => "punpckhwd"
   | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
+  -- P2 BATCH 37: four spellings of operations two lines above.  The BYTES differ,
+  -- so they are four roster rows; the semantics is shared by not branching.
+  | .unpcklps => "unpcklps" | .unpckhps => "unpckhps"
+  | .unpcklpd => "unpcklpd" | .unpckhpd => "unpckhpd"
   | .cmpeqb => "pcmpeqb" | .cmpeqw => "pcmpeqw" | .cmpeqd => "pcmpeqd"
   | .cmpgtb => "pcmpgtb" | .cmpgtw => "pcmpgtw" | .cmpgtd => "pcmpgtd"
   | .packuswb => "packuswb"
@@ -539,6 +564,102 @@ the shifts, the letter in the name (`d`/`lw`/`hw`) is the KIND and not a lane
 width, so there is nothing here for a width to disagree with. -/
 def VShufKind.mnemonic : VShufKind → String
   | .d => "pshufd" | .lw => "pshuflw" | .hw => "pshufhw"
+
+/-- ⭐⭐⭐ P2 BATCH 37 — THE TWO-SOURCE SHUFFLE, AND WHY IT IS NOT A `VShufKind`.
+
+`shufps` and `shufpd` are 88% of this batch's demand (1,545 + 70 of 1,833) and the
+only new SEMANTICS in it.  ⛔⛔ **`VShufKind` IS THE WRONG HOME AND THE REASON IS
+STRUCTURAL, NOT STYLISTIC**: every member of that kind selects lanes from ONE
+source (`pshufd` permutes its source; `pshuflw`/`pshufhw` permute half of it and
+copy the other half THROUGH from the same source).  These read BOTH operands —
+the low half of the result comes from the DESTINATION and the high half from the
+SOURCE — so `vshufApply`, whose signature takes a single `src`, could not express
+them at any kind.  A new constructor, not a new member.
+
+⭐ K DECIDES BOTH, and the bit order is K's big-endian read against the SDM's
+`Select4`:
+```
+   shufps   lane0 ← DEST[imm[1:0]]   lane1 ← DEST[imm[3:2]]
+            lane2 ← SRC [imm[5:4]]   lane3 ← SRC [imm[7:6]]
+   shufpd   qword0 ← DEST[imm[0]]    qword1 ← SRC[imm[1]]
+```
+⭐ CONFIRMED BY A THIRD SOURCE before a line was written: LLVM disassembles
+`shufps $0x1b,%xmm1,%xmm0` as `xmm0 = xmm0[3,2],xmm1[1,0]` and
+`shufpd $0x1,%xmm1,%xmm0` as `xmm0 = xmm0[1],xmm1[0]` — both exactly this rule.
+
+⚠️ BOTH PRESERVE THE YMM UPPER 128 (legacy SSE), which K writes explicitly as
+`extractMInt(R3, 0, 128)`.  This model's `XmmReg` is 128 bits wide, so that half
+of the rule is carried by the TYPE and there is nothing here to state it. -/
+inductive VShufpKind where
+  /-- `shufps` (`0F C6 /r ib`): four 32-bit lanes, two from each operand. -/
+  | ps
+  /-- `shufpd` (`66 0F C6 /r ib`): two 64-bit lanes, one from each operand.
+  ⚠️ Only the low TWO bits of the immediate are read; the SDM's `imm8[7:2]` are
+  ignored, so a vector varying them cannot witness anything. -/
+  | pd
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Every two-source shuffle spelling, so a claim can be made about the TYPE. -/
+def VShufpKind.all : List VShufpKind := [.ps, .pd]
+
+/-- The assembler spelling.  Two literals, not a concatenation (`quadMnemonic`'s
+reason: this is walked character by character inside a kernel `decide`). -/
+def VShufpKind.mnemonic : VShufpKind → String
+  | .ps => "shufps" | .pd => "shufpd"
+
+/-- ⭐⭐ P2 BATCH 37 — WHICH LANE WIDTH A SIGN-MASK REDUCES, i.e. WHICH
+MNEMONIC.  `Op.vmovmsk` carried no field at all until this batch: it was built for
+`pmovmskb` alone (batch 23) and its lane count was the literal sixteen.
+
+`movmskps` is the SAME REDUCTION at a different lane width — one sign bit per
+32-bit lane instead of one per byte — so it is a KIND on the existing constructor
+and not a new one.  The two are held apart by their BYTES (`66 0f d7` against
+`0f 50`), which `scripts/check_encodings.py` is the instrument for.
+
+⚠️ **THE LANE COUNT IS DERIVED FROM `laneBits`, NOT WRITTEN.**  `Op.vmovmsk`'s
+semantics folded over a literal `List.range 16`, and the comment beside it already
+said why that was a hazard — *"a literal sixteen repeated in the body is a place
+for a typo no type can catch"*.  A second kind is exactly the change that would
+have paid that price, so the count is `128 / laneBits` and appears once.
+
+⛔ **AND THERE IS STILL NO WIDTH FIELD, MEASURED ON THIS MNEMONIC RATHER THAN
+INHERITED FROM `pmovmskb`'s.**  The `r32`/`r64` question has to be asked again for
+every mnemonic that has both rows, because the answer is a fact about the
+ASSEMBLER and not about the family: `movmskps %xmm1,%eax` and `movmskps %xmm1,%rax`
+both assemble to `0f50c1` (measured with `clang -target x86_64-unknown-linux-gnu`,
+the assembler `check_encodings.py` uses), exactly as `pmovmskb`'s two rows both give
+`660fd7c1`.  K agrees on the other side — `movmskps_r32_xmm.k` and
+`movmskps_r64_xmm.k` are the identical `concatenateMInt(mi(60,0), …)` — so the two
+SDM rows are one semantics AND one encoding here too.
+[[feedback-inherited-diagnosis-is-a-hypothesis]] [[feedback-a-batch-cannot-be-sampled]] -/
+inductive VMovMskKind where
+  /-- `pmovmskb` (`66 0F D7 /r`): one sign bit per BYTE, sixteen lanes. -/
+  | b
+  /-- `movmskps` (`0F 50 /r`): one sign bit per 32-bit lane, four lanes.
+  ⚠️ `movmskpd` (`66 0F 50 /r`) is a third member this type does not have: it
+  has ZERO measured demand in the census, and an absence falls the way the default
+  points, so it is declined HERE in writing rather than left unmentioned. -/
+  | ps
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Every kind, so a claim can be made about the TYPE rather than about a list of
+literals someone remembered to update — `VMovKind.all`'s reason, and batch 35's. -/
+def VMovMskKind.all : List VMovMskKind := [.b, .ps]
+
+/-- The assembler spelling.
+
+⚠️ TWO LITERALS AND NOT A CONCATENATION, for `quadMnemonic`'s reason: this string
+is walked character by character inside a kernel `decide`.
+[[feedback-prose-in-a-kernel-reduced-string-is-a-cost]] -/
+def VMovMskKind.mnemonic : VMovMskKind → String
+  | .b => "pmovmskb" | .ps => "movmskps"
+
+/-- The WIDTH OF ONE LANE in bits, which is the whole semantic content of the
+kind: the lane COUNT is `128 / laneBits` and the sign bit of lane `i` sits at
+`laneBits * i + (laneBits - 1)`.  Both are derived in `X86.Semantics` and written
+nowhere else. -/
+def VMovMskKind.laneBits : VMovMskKind → Nat
+  | .b => 8 | .ps => 32
 
 /-- The one-operand mnemonics. -/
 inductive UnKind where
@@ -1327,7 +1448,7 @@ inductive Op where
   ⇒ 🔑 A width field here would be a field no encoding can set and no semantics can
   read. The 32-bit write already zero-extends to 64 by SDM Vol. 1 §3.4.1.1, which
   `Cpu.setReg .d` implements — so the rule is INHERITED rather than restated. -/
-  | vmovmsk (dst : GPR) (src : XmmReg)
+  | vmovmsk (k : VMovMskKind) (dst : GPR) (src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1514,6 +1635,19 @@ inductive Op where
   which it becomes differentially validatable is named and priced: the `vbin`
   memory shape, where the oracle DOES check. -/
   | vshufm (k : VShufKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
+  /-- ⭐⭐⭐ P2 BATCH 37 — `SHUFPS`/`SHUFPD` between registers (`0F C6 /r ib`,
+  `66 0F C6 /r ib`).  See `VShufpKind` for why this is not `Op.vshuf` at a new
+  kind: these read BOTH operands, and `vshufApply` takes one source.
+
+  ⚠️ THE DESTINATION IS READ AS WELL AS WRITTEN, which no other shuffle here does
+  — `Op.vshuf`'s destination is overwritten without being consulted.  So a frame
+  lemma or a wrong model that treats the destination as write-only is wrong for
+  this constructor and right for that one. -/
+  | vshufp  (k : VShufpKind) (dst src : XmmReg) (sel : BitVec 8)
+  /-- ⭐⭐ P2 BATCH 37 — the same at a 128-bit MEMORY source, with the Type-4
+  16-byte `#GP` every other 128-bit memory operand in this model carries (D110).
+  ⚠️ The DESTINATION register is still read; only the SOURCE moves to memory. -/
+  | vshufpm (k : VShufpKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE
   (`66 0F ..` with a memory ModRM), the second operand shape of the nineteen
   operations `Op.vbin` has carried since batches 5 and 7.
@@ -1672,6 +1806,8 @@ def opOperands : Op → List Operand
   -- names its address so the lock and segment walks see it.
   | .vshuf .. => []
   | .vshufm _ _ ea _ => [.mem ea]
+  | .vshufp .. => []
+  | .vshufpm _ _ ea _ => [.mem ea]
   -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
   | .vbinm _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
@@ -1799,6 +1935,9 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 14: `lock pshufd` is not a form the SDM lists.
   | .vshuf .. => false
   | .vshufm _ _ ea _ => ea.lock
+  -- P2 BATCH 37: `lock shufps` is not a form the SDM lists, as for `pshufd`.
+  | .vshufp .. => false
+  | .vshufpm _ _ ea _ => ea.lock
   -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
   | .vbinm _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
@@ -1937,7 +2076,7 @@ def Op.mnemonic : Op → String
   | .vmovhl d _ _ => match d with | .lo => "movhlps" | .hi => "movlhps"
   | .vddupR .. | .vddupM .. => "movddup"
   | .prefetch h _ => h.mnemonic
-  | .vmovmsk .. => "pmovmskb"
+  | .vmovmsk k .. => k.mnemonic
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
   -- AT&T spelling, and they are unrelated: this one is `f2 0f 10`. The model
   -- does not carry the string form, so nothing here is ambiguous — but the day
@@ -1956,6 +2095,7 @@ def Op.mnemonic : Op → String
   -- the three shift shapes do: the mandatory prefix names the operation and the
   -- source's provenance is in the operands.
   | .vshuf k .. | .vshufm k .. => k.mnemonic
+  | .vshufp k .. | .vshufpm k .. => k.mnemonic
   | .vmovq .. => "movq"
   -- ⭐ P2 BATCH 15: BOTH operand shapes read the SAME table, which is now a
   -- function beside the kind rather than a `match` inside this one.  A copy here
@@ -2194,7 +2334,18 @@ def rosterP0 : List String :=
    -- its bitwise members.  The partition is checked by reproducing the
    -- commission's own published 12/6,619, 2/898 and 26/29,408 from the census.
    "pandn", "andnps", "andnpd",
-   "andps", "andpd", "orps", "orpd", "xorps", "xorpd"]
+   "andps", "andpd", "orps", "orpd", "xorps", "xorpd",
+   -- ⭐⭐ P2 BATCH 37 — the `ps`/`pd` unpack spellings and the dword sign-mask.
+   -- The four unpacks are spellings of operations already here (held together by
+   -- `unpack_aliases_are_their_integer_siblings`, held apart by their bytes);
+   -- `movmskps` is a new KIND on `Op.vmovmsk`, the same reduction at 32-bit lanes.
+   -- ⛔ ONE row for `movmskps` and not two: its r32 and r64 spellings assemble to
+   -- the IDENTICAL bytes (`0f50c1`), measured on this mnemonic rather than
+   -- inherited from `pmovmskb`'s.
+   "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
+   -- ⭐⭐⭐ P2 BATCH 37 — the two-source shuffles, 88% of the batch's demand and
+   -- the only NEW SEMANTICS in it.  One row each, both operand shapes.
+   "shufps", "shufpd"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

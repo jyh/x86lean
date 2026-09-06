@@ -482,6 +482,41 @@ def vshufApply (k : VShufKind) (src : BitVec 128) (sel : BitVec 8) : BitVec 128 
   | .lw => vselect 16 src sel.toNat 0 ||| ((src >>> 64) <<< 64)
   | .hw => vselect 16 src sel.toNat 4 ||| ((src <<< 64) >>> 64)
 
+/-- ⭐⭐⭐ P2 BATCH 37 — `shufps`, folded lane by lane.  Lanes 0-1 are read from
+`a` (the DESTINATION) and lanes 2-3 from `b` (the SOURCE); lane `i`'s 2-bit
+selector is the immediate's field `i`, and it indexes the FOUR lanes of whichever
+operand that lane reads.
+
+⚠️ `if i < 2 then a else b` IS THE WHOLE TWO-SOURCE CONTENT, and it is the one
+line a reader coming from `vselectAux` must not skim: that combinator has a single
+`src` and this one switches operand at the halfway point.  Getting it backwards
+produces a model that is bit-identical to this one whenever `a = b`. -/
+private def vshufpsAux (a b : BitVec 128) (sel : Nat) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      let src := if i < 2 then a else b
+      (vshufpsAux a b sel i)
+        ||| (((src.extractLsb' (((sel >>> (2 * i)) % 4) * 32) 32).setWidth 128)
+              <<< (i * 32))
+
+/-- ⭐⭐ THE TWO-SOURCE SHUFFLE COMBINATOR.  `a` is the DESTINATION and `b` the
+SOURCE at both operand shapes, the same convention `vbinApply`'s unpack arm uses.
+
+⛔ THE FOUR IS THE IMMEDIATE'S FIELD COUNT (8 bits over 2), not `128 / w` —
+`vselect`'s reason, restated because this combinator folds a different count for
+each kind: `ps` writes four 32-bit lanes and `pd` writes two 64-bit ones, and
+`pd` reads only the immediate's LOW TWO BITS.
+
+⚠️ `shufpd` IS WRITTEN OUT RATHER THAN FOLDED.  Two lanes and two one-bit
+selectors is a fold whose recursion would be longer than the thing it computes,
+and a fold here would put a `%` and a shift on the kernel's path for no reuse. -/
+def vshufpApply (k : VShufpKind) (a b : BitVec 128) (sel : BitVec 8) : BitVec 128 :=
+  match k with
+  | .ps => vshufpsAux a b sel.toNat 4
+  | .pd =>
+      ((a.extractLsb' ((sel.toNat % 2) * 64) 64).setWidth 128)
+        ||| (((b.extractLsb' (((sel.toNat >>> 1) % 2) * 64) 64).setWidth 128) <<< 64)
+
 /-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
 lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
 instruction is named for: a negative word becomes 0, not 255. -/
@@ -535,12 +570,18 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   -- ⭐ THE UNPACKS: `a` is the DESTINATION and takes the low half of each pair.
   | .unpcklb => vunpack 8  false a b
   | .unpcklw => vunpack 16 false a b
-  | .unpckld => vunpack 32 false a b
-  | .unpcklq => vunpack 64 false a b
+  -- ⭐ P2 BATCH 37: the `ps`/`pd` spellings JOIN the arm they are identical to,
+  -- rather than copying it — batch 34's rule, and for its reason: a second
+  -- `vunpack 32 false a b` under another name would diverge the day one of them
+  -- is corrected.  `unpcklps` IS `punpckldq` at 32-bit lanes and `unpcklpd` IS
+  -- `punpcklqdq` at 64, decided on K's leaf sequence (the TEXT of two of the four
+  -- differs, by pure re-association) and confirmed by LLVM's disassembler.
+  | .unpckld | .unpcklps => vunpack 32 false a b
+  | .unpcklq | .unpcklpd => vunpack 64 false a b
   | .unpckhb => vunpack 8  true  a b
   | .unpckhw => vunpack 16 true  a b
-  | .unpckhd => vunpack 32 true  a b
-  | .unpckhq => vunpack 64 true  a b
+  | .unpckhd | .unpckhps => vunpack 32 true  a b
+  | .unpckhq | .unpckhpd => vunpack 64 true  a b
   -- ⭐⭐⭐ P2 BATCH 17 — THE PACKED COMPARES.  A lane becomes ALL ONES or all
   -- zeros; `-1` is `allOnes` at every width `vlanes` is called at here, exactly
   -- as it is in `vshiftLane`'s sign-fill arm.
@@ -698,19 +739,36 @@ def step (i : Instr) (s : Cpu) : Cpu :=
 
   -- ⭐⭐ PMOVMSKB (SDM Vol. 2B) — the sign bit of each of sixteen bytes, gathered.
   --
-  -- ⚠️ WRITTEN AS A FOLD OVER `List.range 16` rather than sixteen `|||` terms so
-  -- the LANE COUNT is derived from the width, as `vlanes` derives it — a literal
-  -- sixteen repeated in the body is a place for a typo no type can catch.
+  -- ⚠️ WRITTEN AS A FOLD rather than as N `|||` terms so the LANE COUNT is
+  -- derived from the width, as `vlanes` derives it — a literal repeated in the
+  -- body is a place for a typo no type can catch.
+  --
+  -- ⭐⭐ P2 BATCH 37 TOOK THAT COMMENT UP ON ITS OWN WARNING.  The body said
+  -- `List.range 16` and `8 * i + 7`, so the sixteen and the eight were literals
+  -- in exactly the position the sentence above calls a hazard — harmless while
+  -- there was ONE kind, and the second kind is the change that would have paid
+  -- for it.  Both now come from `VMovMskKind.laneBits`, which is the kind's whole
+  -- semantic content: `pmovmskb` reduces 16 byte lanes, `movmskps` 4 dword lanes,
+  -- and NOTHING ELSE about the two forms differs.
+  --   result bit i  =  src bit (w * i + (w - 1)),  for i < 128 / w
+  -- ⚠️ DECIDED ON K BEFORE IT WAS WRITTEN, not derived from the SDM's prose:
+  -- `movmskps_r32_xmm.k` is `concatenateMInt(mi(60,0), <bits 128,160,192,224 of
+  -- the 256-bit parent>)`.  K indexes the YMM parent big-endian, so those four
+  -- are little-endian xmm bits 127, 95, 63 and 31 — the sign of each dword lane,
+  -- lane 0 landing in result bit 0 — and `pmovmskb`'s sixteen are 127, 119, …, 7
+  -- under the same reading, which is what the pre-batch-37 body computed.
   --
   -- ⚠️ `.d` AND NOT `.q`: the 32-bit write zero-extends to 64 by SDM Vol. 1
   -- §3.4.1.1, which `setReg` already implements, so the upper bits are cleared by
   -- the RULE THIS MODEL ALREADY HAS rather than by a special case here.  That is
-  -- also why `Op.vmovmsk` carries no width — see its docstring.
-  | .vmovmsk dst src =>
+  -- also why `Op.vmovmsk` carries no width — see its docstring, where batch 37
+  -- re-measured the claim for `movmskps` instead of inheriting it.
+  | .vmovmsk k dst src =>
       let v := s.getXmm src
+      let w := k.laneBits
       let mask : Val :=
-        (List.range 16).foldl
-          (fun acc i => acc ||| (((v >>> (8 * i + 7)) &&& 1).setWidth 64 <<< i)) 0
+        (List.range (128 / w)).foldl
+          (fun acc i => acc ||| (((v >>> (w * i + (w - 1))) &&& 1).setWidth 64 <<< i)) 0
       (s.setReg .d dst mask).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
@@ -847,6 +905,22 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         s.halt (.byDesign
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (vshufApply k (s.readMem128 a) sel)).setRip nr
+
+  -- ⭐⭐⭐ P2 BATCH 37 — THE TWO-SOURCE SHUFFLES.  ⚠️ THE DESTINATION IS READ:
+  -- `s.getXmm dst` appears as the FIRST argument, and it is not decoration —
+  -- lanes 0-1 of the result come from it.  Every other shuffle arm above
+  -- overwrites its destination without consulting it.
+  | .vshufp k dst src sel =>
+      (s.setXmm dst (vshufpApply k (s.getXmm dst) (s.getXmm src) sel)).setRip nr
+
+  -- ⛔ AND THE SAME 16-BYTE `#GP` (D110).  ⚠️ The MEMORY operand is the SOURCE,
+  -- so the destination register is still read for lanes 0-1.
+  | .vshufpm k dst ea sel =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vshufpApply k (s.getXmm dst) (s.readMem128 a) sel)).setRip nr
 
   -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
   --
