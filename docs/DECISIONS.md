@@ -10931,3 +10931,169 @@ gate the way `--verify-ledger` was written would be the defect surviving the sit
      UNPARSEABLE, which the caller refuses on rather than treating as absent
 ```
 Selftest: **37 arms, 37 green, 23 distinct plants** (18 / 10 at this session's boot).
+
+## D165 — batch 35's `@residue` +1435: the attribution made from readings already on disk, and the named suspect refuted
+
+Item 4 of the standing order — *"batch 35's `@residue` +1435 ms attribution is STILL UNMADE"* — has
+been inherited three times and deferred three times, priced each time as a measurement. **It needed
+no measurement.** `kernel_delta`'s saved readings blob already carries `decls[module][name]` for
+every declaration the profiler emits, not only the gated ones, and batch 35's blob was on disk.
+[[feedback-the-quiet-quantity-was-already-in-the-pass]]
+
+### 1. THE NAMED SUSPECT IS REFUTED AT THE OBJECT
+D159 wrote that the +1435 is *"plausibly the §4 gate repair — `vmov_alignment_is_by_kind` now
+quantifies over `VMovKind.all` by `cases` rather than four literals"*.
+
+**`vmov_alignment_is_by_kind` does not appear in the `decls` map of ANY of the twelve readings**,
+six a side. The profiler emits a declaration only above a **100 ms** threshold (base's smallest
+emitted reading is 144 ms, head's is 100 ms), so that theorem costs **under 100 ms on both sides**
+and cannot be a 1,435 ms item. The suspect was named from what CHANGED in the batch, which is
+where a plausible cause comes from; the readings were never asked.
+
+### 2. THE DECOMPOSITION, WITH ITS IDENTITY CHECKED PER READING
+⛔ Buckets computed over ONE shared name set (a declaration absent on a side counts 0), and the
+identity `residue == ungated + unemitted` **verified in all twelve readings** before any median was
+taken — a split whose parts do not reconstruct the whole is arithmetic the author invented.
+```
+  bucket                          base       head      delta
+  Tests.Coverage TOTAL         25100.0    26700.0    +1600.0
+    gated declarations          9305.0     9570.0     +265.0
+    @residue                   15715.0    17150.0    +1435.0   ⇐ the number in question
+      ungated decls ≥ 100 ms   14286.0    14509.0     +223.0
+      in NO declaration block    1360.0     2088.0     +728.0   ⇐ the largest identified part
+```
+⇒ ⭐⭐ **THE BIGGEST IDENTIFIED COMPONENT IS NOT A DECLARATION AT ALL.** `@residue` is
+`module total − gated declarations`, so it contains everything the profiler does not attribute to a
+`type checking` block — elaboration, imports, the file's top level. **No per-declaration repair can
+reach +728 ms of it**, which is why every attempt to name a theorem was going to fail.
+
+### 3. ⛔ AND THE DECOMPOSITION IS SMALLER THAN THE AGGREGATION CHOICE
+```
+  median(ungated)Δ + median(unemitted)Δ = +951    vs   median(residue)Δ = +1435
+  MEANS, which do sum:  residue +1130 = ungated +414 + unemitted +716
+```
+Medians do not sum — that is a property of medians, not an error — but **the gap is 484 ms and the
+median and mean of the same residue delta differ by 305 ms**. The quantity being attributed is
+smaller than the spread between two defensible ways of aggregating it.
+⇒ 🔑 **AN ATTRIBUTION IS ONLY AS SHARP AS THE AGGREGATION IT SURVIVES.** Reporting "+1435, of which
++728 is X" would imply a precision the six passes do not carry; the honest statement is that the
+residue's growth is **dominated by cost outside every declaration block**, at roughly +700 ms by
+both aggregations, and that the rest is not resolvable at this repeat count.
+[[feedback-a-single-reading-is-about-its-run]] [[feedback-conservative-is-a-direction-not-a-margin]]
+
+### 4. ⭐ AND AN INSTRUMENT FINDING THAT WILL BITE ANY FUTURE ATTRIBUTION
+Three declarations appear at head and not at base, worth 100/131/135 ms — which reads as new work
+and is not. They are `cmpxchg_vectors_never_target_the_accumulator`,
+`dshift_memory_vectors_at_w_are_immediate_only` and `loop_covers_all_three_predicates`: pre-existing
+theorems about `cmpxchg`, `dshift` and `loop`, untouched by a batch about `movapd`/`movupd`. They
+**crossed the 100 ms emit threshold**, and they did so in only 1 or 2 of the six head passes:
+```
+  dshift_memory_vectors_at_w_are_immediate_only   base [-,-,-,-,-,-]   head [160, -, -, -, 102, -]
+```
+⇒ 🔑 **A THRESHOLDED PROFILER MAKES A DECLARATION'S FIRST CROSSING LOOK LIKE ITS ENTIRE COST
+APPEARING FROM NOWHERE**, and near the threshold the crossing is *noise*, not a level. It does not
+corrupt the module total, but it moves cost between the decomposition's buckets — so per-declaration
+attribution is structurally unreliable for anything within a factor of ~2 of the threshold.
+
+### 5. ⛔⛔ AND THEN THE FREE COMPARISON REFUTED §4's SUCCESSOR HYPOTHESIS — MINE — IN ONE PASS
+
+The paragraph that stood here asked *"is ~+700 ms per batch of non-declaration cost a LEVEL?"* and
+priced the answer at zero new measurement, because every saved readings blob is on disk. It was
+answered before it was published. **Seven real base→head pairs, the same decomposition:**
+```
+   base→head                 n     @residueΔ   ungatedΔ   unemittedΔ    unemitted base→head
+   5c01599→e090bc2  (b23)   3/3       -60.0       +3.0        -63.0     1220 →  1157
+   e6dd9c6→abe83b8  (36a)   3/3       +90.0     -796.0        +12.0     1382 →  1394
+   c372d80→3a811fb  (b32)   6/6      +735.0     +631.0        +39.0     1578 →  1617
+   e6dd9c6→5c18c59  (b36)   5/5      +600.0     +552.0       -262.0     1792 →  1530
+   26eb0b6→73bc95c  (b35)   6/6     +1435.0     +223.0       +728.0     1360 →  2088
+   c372d80→9cf72aa          3/3     +3000.0     +484.0      +2668.0     1045 →  3713
+```
+⇒ **`+728` IS NOT A LEVEL AND IT IS NOT AN ATTRIBUTION — IT IS NOISE.** The bucket's *base* value
+is stable across every pair (1,045–1,792 ms). Its *delta* spans **−262 to +2,668**. A bucket whose
+pass-to-pass movement is larger than the bucket cannot carry a 728 ms explanation.
+⛔ `ungatedΔ` is no better: **−796** on batch 36's step 1, a commit that added two fields.
+
+⇒ 🔑 **THE HONEST VERDICT ON THE WHOLE ITEM: batch 35's `@residue` +1435 CANNOT BE ATTRIBUTED,
+AND THE REASON IS NOT A MISSING MEASUREMENT BUT THAT EVERY COMPONENT OF THE RESIDUE MOVES MORE
+THAN THE NUMBER BEING EXPLAINED.** Three sittings deferred this as work to be done. It was work
+that could not succeed, and one hour of already-paid readings says so.
+⚠️ Stated with its conditions: the seven pairs are different nights, loads and repeat counts
+(3–6 a side), so the spread above is an upper bound on how well any of them is resolved — which is
+the finding, not a caveat against it. [[feedback-a-measurement-without-its-conditions]]
+
+### 6. WHAT ACTUALLY REMAINS
+**Not an attribution — a resolution question.** `@residue` is gated at 2,184 ms and its
+constituents move ±700–2,700 between runs, so the gate is watching a quantity it cannot resolve.
+That is item 4's territory (*"the gated unit is noisier than the budget it is gated against"*),
+and this is the first per-COMPONENT evidence for it rather than per-module. ⛔ Do NOT buy repeats:
+D153 measured the spread saturating at n≈3–4. The route with a floor is to gate the DECLARATIONS,
+where the base values are stable, and stop gating the difference of two large numbers.
+[[feedback-a-total-cannot-see-its-parts]] [[feedback-match-the-gate-units-to-the-growth-law]]
+
+## D166 — the null run the landing ritual paid for, and a band set by one pass in ten
+
+QUEUE 4g(b)'s first live ledger row needed a merge-gate measurement, and the branch it measured
+changed **no `.lean` file** (`git diff --name-only master c121563 -- '*.lean'` is empty). So the
+run is a **null**: the true delta is exactly zero for every unit, known before the readings arrived.
+That makes it the most informative run this gate has produced, because it is the only kind where
+the answer is known independently of the instrument.
+
+### 1. WHAT THE INSTRUMENT SAID ABOUT A KNOWN ZERO (repeats 5, loads 7.8–15.9)
+```
+  Tests.Coverage             -400.0  ±4651.2   budget 1922.4   UNMEASURABLE
+  Tests.Coverage @residue     +40.0  ±4205.9   budget 2293.5   UNMEASURABLE
+  X86.Syntax                   +5.0    ±53.4   budget   47.7   UNMEASURABLE
+  Tests.Vectors                +2.4     ±6.0   budget    7.6   UNMEASURABLE
+  ...19 other units ok
+```
+⭐ **Every point estimate is at or near zero — the instrument's ACCURACY is fine.** What fails is
+its RESOLUTION: the bands are 2.4× and 1.8× the budgets they are compared against.
+⭐ And the gate **refused rather than passing**, which is the right behaviour and worth recording
+against D146's control, where an identical-trees run *returned `ok`* while inventing a −2,150 ms
+difference against a 1,980 ms budget. A null that refuses is a better instrument than a null that
+passes. ⚠️ D146's run was not re-executed here, so this compares two records, not two runs.
+
+### 2. ⭐⭐ THE BAND IS SET BY ONE PASS IN TEN, AND THAT IS MEASURED, NOT EYEBALLED
+Leave-one-out over **all ten** passes (both sides, so the drop is not chosen to flatter one):
+```
+  Tests.Coverage        band with all 10 passes                ±4651
+     dropping any of the other nine                     ±4650 – ±5932
+     dropping head pass 5 (load 15.89, read 35600)             ± 817     ⇐ 5.7x collapse
+  Tests.Coverage @residue                     ±4206  →  ± 763  on the same drop
+```
+The other nine head/base readings span 25,900–27,200; that one reads **35,600**. With it removed
+the band (±817) sits **below** the budget (1,922) and the gate would have returned `ok` — correctly,
+on a run whose true answer is zero.
+
+### 3. ⛔⛔ AND THE OBVIOUS RULE IS REFUTED BY THE CORPUS ALREADY ON DISK
+The contaminated pass has the highest `load1` of the ten (15.89 vs 7.8–12.8), which suggests
+excluding passes by load. **`kernel_cost` has recorded `load1` per pass all along**, so the
+hypothesis is testable for free:
+
+* **The committed walk** (`docs/kernel-delta-history-2026-09-04.jsonl`, 12 commits × 2 passes):
+  within a tree, the higher-load pass reads higher in **6 of 11** pairs. **That is chance.**
+* **Tonight's own two sides disagree**: base (loads 8.99–12.61) is 3 concordant / 7 discordant —
+  no signal at all; head is 9/9, and monotone even with the outlier removed.
+
+⇒ **load1 does not predict a reading, and a load-based exclusion is not licensed by anything here.**
+⛔ AND THE CORPUS CANNOT SETTLE IT EITHER WAY: **every load in the committed walk is between 3.75
+and 5.57.** It has no observations anywhere near 15.9, so its "no effect" is a statement about a
+region the tail does not live in — an unobserved region reporting agreement.
+[[feedback-unobserved-regions-report-agreement]]
+
+⛔ **And "drop the worst pass" is not available as a rule at all**: it derives the verdict from the
+readings it is judging. A load threshold decided BEFORE a pass is read is a different object and is
+checkable — but on n=1 it would be a rule fitted to one point.
+[[feedback-widening-a-gate-needs-a-second-source]] [[feedback-a-single-reading-is-about-its-run]]
+
+### 4. WHAT WOULD ACTUALLY DECIDE IT, AND IT ACCRUES FOR FREE
+The blob every merge gate writes already carries `(load1, per-unit ms)` for every pass, and it is
+thrown away with the session scratchpad. **Persist a per-pass `(load1, secs, module ms)` summary
+beside each ledger row** — a few hundred bytes per landing — and the corpus that can test a
+load-exclusion rule builds itself out of work already being done, at loads that actually occur.
+Until then this is one observation, and it is recorded as one. [[feedback-a-landed-corpus-cannot-measure-detection]]
+
+⇒ This is also the first per-RUN evidence for QUEUE item 4 with a known ground truth, and it agrees
+with D165's per-COMPONENT evidence from a different direction: `@residue`'s +728 there and its
+±4,206 here are the same phenomenon seen twice.

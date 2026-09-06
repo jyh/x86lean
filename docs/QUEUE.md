@@ -170,6 +170,38 @@ qualifier.
 
 3. **The kernel-delta gate** stays the merge gate; the absolute ceilings ride beside every merge as
    readings, never as a gate (helm 2026-09-04 21:42).
+   ### 4i. ⭐⭐ A NULL RUN WITH KNOWN GROUND TRUTH, AND A BAND SET BY ONE PASS IN TEN (D166)
+
+The 4g(b) landing's merge gate measured a branch changing **no `.lean` file**, so the true delta was
+exactly zero for every unit — the only kind of run where the answer is known independently of the
+instrument. At repeats 5:
+```
+   Tests.Coverage           -400.0  ±4651.2   budget 1922.4   UNMEASURABLE
+   Tests.Coverage @residue   +40.0  ±4205.9   budget 2293.5   UNMEASURABLE
+   X86.Syntax                 +5.0    ±53.4   budget   47.7   UNMEASURABLE
+```
+⭐ **Accuracy is fine — every point estimate is at or near zero. RESOLUTION is what fails**, at
+2.4x and 1.8x the budgets. And the gate REFUSED rather than passing, unlike D146's identical-trees
+control which returned `ok` while inventing −2,150 ms.
+
+⭐⭐ **Leave-one-out over all ten passes**: dropping any of nine leaves the band at ±4650–5932;
+dropping ONE head pass (load 15.89, read 35,600 against 25,900–27,200 for the rest) collapses it to
+**±817** — below the budget, where the gate would correctly have said `ok`.
+
+⛔⛔ **AND THE OBVIOUS LOAD-EXCLUSION RULE IS REFUTED BY THE CORPUS ALREADY ON DISK.** Within a
+tree, the higher-`load1` pass reads higher in **6 of 11** pairs of the committed walk — chance —
+and tonight's own two sides disagree (base 3 concordant / 7 discordant; head 9/0). ⛔ Nor can the
+corpus settle it: **every load in the committed walk is 3.75–5.57**, so it has no observation
+anywhere near 15.9 and its silence is about a region the tail does not live in.
+⛔ "Drop the worst pass" is not available at all — it derives the verdict from the readings it
+judges.
+
+⇒ **THE CHEAP THING THAT WOULD DECIDE IT, AND IT ACCRUES FROM WORK ALREADY DONE**: every merge
+gate's blob already carries `(load1, secs, per-unit ms)` per pass and is thrown away with the
+session scratchpad. Persist a per-pass summary beside each ledger row — a few hundred bytes per
+landing — and the corpus that can test a load-based exclusion builds itself, at loads that actually
+occur. Until then this is ONE observation and is recorded as one.
+
 4. **The gated unit is noisier than the budget it is gated against** (D141 opened it, D142 settled
    what it is, **D146 refuted the proposed remedy and named a better one**). MEASURED, two runs an
    hour apart on the same box:
@@ -513,6 +545,40 @@ and keeps it.)*
    (c) **A measured window on real trees** beyond the k=2 receipt in D154 §8.
    ⛔ It CANNOT convict where the per-batch gate passed — its whole power is over what that gate
    REFUSED. Never propose it as a replacement.
+
+   ### 4h. ✅ BATCH 35's `@residue` +1435 — ANSWERED, AND THE ANSWER IS THAT IT CANNOT BE ATTRIBUTED (D165)
+
+⛔ **THIS ROW EXISTED ONLY IN BANK PROSE FOR THREE SITTINGS**, inherited and deferred each time,
+which is precisely the failure this queue's own header was written about. It is here now because
+it is *closed*, and a closed item that lives in a bank is re-opened by the next reader.
+
+**The named suspect is refuted at the object.** D159 proposed `vmov_alignment_is_by_kind` (the §4
+gate repair). That theorem is **absent from the `decls` map of all twelve readings**, six a side —
+the profiler emits nothing under **100 ms** — so it cannot be a 1,435 ms item.
+
+**And no other declaration can be it either.** Decomposed with the identity `residue == ungated +
+unemitted` verified per reading: `ungated ≥100 ms` +223, **in NO declaration block +728**. Then the
+same decomposition over **seven** saved base→head blobs — zero new measurement, they were all on
+disk:
+```
+   unemitted BASE across all seven:   1,045 – 1,792 ms      (stable)
+   unemitted DELTA across all seven:   −262 – +2,668 ms     (b35's +728 sits mid-range)
+   ungated  DELTA:  −796 on batch 36 step 1, a commit that added two fields
+```
+⇒ 🔑 **EVERY COMPONENT OF THE RESIDUE MOVES MORE THAN THE NUMBER BEING EXPLAINED.** Three sittings
+deferred this as work to be done; it was work that could not succeed, and an hour of readings
+already paid for says so.
+
+⭐ **INSTRUMENT FINDING THAT OUTLIVES THE ROW**: the profiler's 100 ms emit threshold makes a
+declaration's FIRST CROSSING look like its whole cost appearing from nowhere. Three untouched
+theorems (`cmpxchg…`, `dshift…`, `loop…`) "appeared" at head worth 100/131/135 ms — in 1 or 2 of six
+passes. Per-declaration attribution is unreliable within ~2× of the threshold.
+
+⇒ **WHAT IS LEFT IS ITEM 4's QUESTION, NOT THIS ONE**: `@residue` is gated at 2,184 ms while its
+constituents swing ±700–2,700 between runs, so the gate watches a quantity it cannot resolve — the
+first per-COMPONENT evidence for item 4 rather than per-module. ⛔ Do not buy repeats (D153: the
+spread saturates at n≈3–4). The route with a floor is to gate the DECLARATIONS, whose base values
+are stable, instead of the difference of two large numbers.
 
    ### 4e. ⛔⛔ 4d's DECIDING STATISTIC HAD A PREMISE, AND THE CONTROL BESIDE IT REFUTED IT (D151)
    "14.6x tighter" cannot decide a gate, because **a percentage of `user` is not a percentage of
