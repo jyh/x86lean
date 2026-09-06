@@ -146,7 +146,7 @@ usage:
   kernel_delta.py --selftest                 the comparison arms (seconds)
   kernel_delta.py --selftest-measure         the two arms that need real trees
 """
-import os, re, sys, math, json, time, shutil, socket, platform, statistics, subprocess, tempfile
+import os, re, sys, math, json, time, shutil, socket, platform, statistics, subprocess, tempfile, random
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KCOST = os.path.join(ROOT, "scripts", "kernel_cost.py")
@@ -316,6 +316,134 @@ def resolution(bs, hs):
     return MEDIAN_SE_FACTOR * math.sqrt(var)
 
 
+# ⭐⭐⭐ THE CUT-OFF FOR THE *IDENTICAL-TREES* TEST, WHICH IS NOT `K_SIGMA` (D171).
+#
+# ⛔⛔ WHAT WAS WRONG, MEASURED RATHER THAN ARGUED. `selftest_measure`'s bias arm
+# asked `|d| > K_SIGMA * se` of EVERY unit and red the whole job if ANY unit
+# fired. Two things make that not a ±2σ test:
+#
+#   (a) `se` is ESTIMATED FROM THE SAME TWO READINGS. At `--repeats 2` there are
+#       two samples a side, so the noise estimate has one degree of freedom and a
+#       normal critical value is wildly anti-conservative — the textbook
+#       t(0.975, 1) is 12.7, not 2. The per-unit false-positive rate on identical
+#       trees is **12.91%**, not the 4.55% the "±2σ" language implies.
+#   (b) IT IS ASKED OF 23 UNITS AND COMBINED WITH `OR`. A per-unit rate of 12.91%
+#       over the 23 units this repository profiles is a family-wise **95.8%**.
+#
+#   ⇒ the job `ci_local --job kernel-delta-redfirst` reds on a PERFECTLY QUIET BOX,
+#     with two identical trees, 95.8% of the time. It passed 4.2% of the time, and
+#     nobody had ever run it. The four units that fired on 09/06 are exactly what
+#     the null predicts (2.97 expected, P(>=4) = 34.5%), in mixed signs, at ratios
+#     of 1.17x and 2.8x the band — the shape of a marginal false positive, not of
+#     a bias. [[feedback-inherited-diagnosis-is-a-hypothesis]]
+#
+# 📊 AND IT IS MEASURED, NOT ONLY DERIVED. Arm 1 was run for real at `c61d7f5`,
+# `--repeats 4`, 23 units (log: 8 passes, load 9.0-21.6). Re-judging THOSE SAME
+# READINGS both ways:
+#     --repeats 4   OLD rule fires on 1 of 23 (`X86.State` +5.6 ms at 2.59x se)
+#                   ⇒ RED.   NEW rule fires on 0 ⇒ passes.
+#     --repeats 2   all 36 sub-samples of the same readings: OLD reds 29/36 = 81%,
+#                   NEW reds 2/36 = 6% against its 5% target.
+# ⚠️ The 81% is a resampling of ONE run, so it says what THIS run would have told
+# the CI job at its own `--repeats 2` — it is not 36 independent afternoons, and it
+# is quoted as the smaller claim it is.
+#
+# 🔑 A PER-UNIT BAND IS NOT A RUN-WIDE CLAIM. The sentence the arm prints —
+# "identical trees produced no difference THE RUN cannot explain" — quantifies
+# over every unit, so its threshold has to as well. A gate that asks one question
+# 21 times and reds on any answer has 21 chances to be wrong and one to be right.
+#
+# ⭐ AND THE NULL IS EXACT AT n = 2, WHICH IS THE REPEAT COUNT CI USES. With two
+# readings a side the median IS the mean, so with b, h iid:
+#       d = mean(h) - mean(b) ~ N(0, sigma^2)
+#       se = F * sqrt(u^2 + v^2) / 2,   u = b1-b2, v = h1-h2 ~ N(0, 2 sigma^2)
+#   and d is independent of (u, v) because cov(x1+x2, x1-x2) = 0. Writing
+#   c = K*F/sqrt(2), the fire condition is |Z| > c*sqrt(X) with X ~ chi2_2, and
+#       P(fire) = INT 2*Phi(-c*sqrt(x)) * (1/2) e^(-x/2) dx = 1 - c/sqrt(1+c^2)
+#   by parts. That inverts in closed form, so the cut is DERIVED, not tuned.
+# ⛔ THE SECOND SOURCE IS THE GATE. The closed form is checked against a Monte
+# Carlo over the SHIPPED `resolution()` in `--selftest`, and their agreement is
+# the arm — a threshold derived from the thing it thresholds would be the defect
+# this file already records three times.
+# [[feedback-widening-a-gate-needs-a-second-source]]
+# [[feedback-two-readings-are-not-two-witnesses]]
+BIAS_ALPHA = 0.05           # family-wise, over ALL units, per run
+_BIAS_CUT_CACHE = {}
+
+
+def bias_cut(n, units, alpha=BIAS_ALPHA):
+    """The `|d| / se` cut-off whose FAMILY-WISE false-positive rate over `units`
+    units is `alpha`, on identical trees, at `n` readings a side.
+
+    Exact at n = 2 (the closed form above). For n > 2 the median is not the mean
+    and there is no closed form, so the quantile is taken from a SEEDED Monte
+    Carlo over `resolution()` itself — deterministic run to run, and checked
+    against the closed form at n = 2 by `--selftest`."""
+    if units < 1 or n < 2:
+        return float("inf")
+    key = (n, units, round(alpha, 6))
+    if key in _BIAS_CUT_CACHE:
+        return _BIAS_CUT_CACHE[key]
+    q = 1.0 - (1.0 - alpha) ** (1.0 / units)      # Sidak, per unit
+    if n == 2:
+        c = (1.0 - q) / math.sqrt(q * (2.0 - q))
+        cut = c * math.sqrt(2.0) / MEDIAN_SE_FACTOR
+    else:
+        cut = _bias_null_quantile(n, 1.0 - q)
+    _BIAS_CUT_CACHE[key] = cut
+    return cut
+
+
+def _bias_null_draws(n, trials, seed, shift=0.0):
+    """|d|/se on identical trees (plus an optional true bias), through the
+    SHIPPED statistic. The ratio is location- and scale-free, so standard
+    normals are not an assumption about milliseconds."""
+    rng = random.Random(seed)
+    out = []
+    for _ in range(trials):
+        bs = [rng.gauss(0.0, 1.0) for _ in range(n)]
+        hs = [rng.gauss(0.0, 1.0) + shift for _ in range(n)]
+        se = resolution(bs, hs)
+        if se in (0.0, float("inf")):
+            continue
+        out.append(abs(statistics.median(hs) - statistics.median(bs)) / se)
+    return out
+
+
+def _bias_null_quantile(n, p, trials=120000, seed=20260906):
+    xs = sorted(_bias_null_draws(n, trials, seed))
+    return xs[min(len(xs) - 1, int(math.ceil(p * len(xs))) - 1)]
+
+
+# ⛔ A SAFETY BOUND IS FREE TO A GATE THAT NEVER SPEAKS, so the arm carries its
+# LIVENESS bound too and prints it. `bias_detectable` is the smallest true bias,
+# in units of one pass's standard deviation, that the calibrated cut catches with
+# probability `power` at `n` repeats. Measured over the same generator as the
+# cut. MEASURED, not guessed, and it refuted the figure this comment first
+# carried: at n = 2 the answer is **30.6x** one pass's own spread, where the
+# draft said ~17. The CI job's `--repeats 2` buys an arm
+# that cannot see anything, and a green from a blind arm is a VOID, not a pass.
+# [[feedback-measure-a-gates-error-rates]]
+def bias_detectable(n, cut, power=0.90, trials=20000, seed=71):
+    lo, hi = 0.0, 1.0
+    def hit(d):
+        xs = _bias_null_draws(n, trials, seed, shift=d)
+        return sum(1 for x in xs if x > cut) / max(1, len(xs))
+    for _ in range(40):
+        if hit(hi) >= power:
+            break
+        lo, hi = hi, hi * 2.0
+        if hi > 4096.0:
+            return float("inf")
+    for _ in range(18):
+        mid = (lo + hi) / 2.0
+        if hit(mid) >= power:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
 def repeats_to_decide(n, se, margin):
     """How many repeats a side would need for K*se to clear `margin`.
 
@@ -426,7 +554,22 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
     ⚠️ THE ALTERNATION IS THE METHOD AND NOT A FLOURISH. Profiling one tree three
     times and then the other three times measures the difference between the
     first half of the run and the second half as surely as it measures the
-    difference between the trees; interleaving makes a monotone drift cancel."""
+    difference between the trees.
+
+    ⛔⛔ AND `ABAB` DOES NOT CANCEL A MONOTONE DRIFT — this docstring said it did,
+    for as long as the function has existed, and it is arithmetically false. Under
+    ABAB the base sits at passes 1, 3, ..., 2n-1 and the head at 2, 4, ..., 2n, so
+    the head's median is exactly ONE PASS later than the base's at EVERY repeat
+    count: a drift of s ms per pass lands as a bias of exactly s ms, which no
+    number of repeats reduces. Driven with the noise switched off, the old order
+    returned -30.00 ms against a -30.00 ms/pass drift. The order is now ABBA —
+    the pair reverses every repeat — which cancels a LINEAR drift exactly (0.00 ms
+    on the same probe) and a curved one only partly. That limit is stated rather
+    than implied: this is a reduction, not an immunity.
+    ⭐ The repo already knew: `kernel_delta_history.py` sweeps forward then REVERSE
+    for this exact reason, and has since it was written. Two tools, one repo, and
+    the one with the wrong design carried the sentence asserting the right one.
+    [[feedback-a-citation-is-an-ungated-claim]]"""
     decl_map = gated_declarations()
     decl_mods = sorted(decl_map)
     tmp = keep or tempfile.mkdtemp(prefix="x86lean-delta-")
@@ -440,8 +583,9 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
         if plant:
             plant(head_wt)
         readings = {"base": [], "head": []}
-        for _ in range(repeats):
-            for side, wt in (("base", base_wt), ("head", head_wt)):
+        pair = (("base", base_wt), ("head", head_wt))
+        for rep in range(repeats):
+            for side, wt in (pair if rep % 2 == 0 else pair[::-1]):
                 t0 = time.time()
                 r = profile(wt, decl_mods)
                 r["secs"] = round(time.time() - t0, 1)
@@ -782,6 +926,110 @@ def selftest_measure_judgement():
     return names, bad
 
 
+# ⭐⭐⭐ THE ARMS FOR THE IDENTICAL-TREES CUT (D171). NO MEASUREMENT IN ANY OF THEM:
+# they drive the SHIPPED `resolution()` and the SHIPPED median difference over
+# generated draws, so a green here is about the RULE and says nothing about the
+# profiler. The order matters — the control comes first, because a broken
+# generator reds every arm after it and the reds would read as findings.
+# [[feedback-a-plant-probes-control-comes-first]]
+def bias_cut_arms(units=23, trials=40000):
+    names, bad = [], []
+
+    def arm(name, ok, detail):
+        names.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name + " — " + detail)
+        if not ok:
+            bad.append(name)
+
+    def famrate(xs, cut):
+        per = sum(1 for x in xs if x > cut) / max(1, len(xs))
+        return 1.0 - (1.0 - per) ** units
+
+    # ── CONTROL. One generator, drawn once, feeding BOTH rules and every arm
+    #    below: the comparison must not be two experiments.
+    null2 = _bias_null_draws(2, trials, seed=31337)
+    null6 = _bias_null_draws(6, trials, seed=31338)
+    cut2, cut6 = bias_cut(2, units), bias_cut(6, units)
+    cal2 = famrate(null2, cut2)
+    arm("CONTROL: the calibrated cut hits its stated family-wise rate",
+        0.030 <= cal2 <= 0.075,
+        f"{cal2:.1%} of runs red on identical trees at --repeats 2, "
+        f"target {BIAS_ALPHA:.0%} (cut {cut2:.2f})")
+
+    # ── RED-FIRST: the rule this replaced, over the SAME draws. If this ever
+    #    goes quiet the defect has been reintroduced and the arm above cannot
+    #    tell — a calibrated rule and a broken one both pass a 5% check.
+    ship2 = famrate(null2, K_SIGMA)
+    arm("RED-FIRST: the OLD rule (K_SIGMA) reds on a quiet box, on the same draws",
+        ship2 >= 0.80,
+        f"{ship2:.1%} of runs red with two identical trees and no box noise at "
+        f"all — that is the `kernel-delta-redfirst` job as it shipped, and it is "
+        f"why it had never been seen to pass")
+
+    # ── LIVENESS. A safety bound is free to a gate that never speaks.
+    hit6 = sum(1 for x in _bias_null_draws(6, trials, seed=31339, shift=4.0)
+               if x > cut6) / max(1, trials)
+    arm("LIVENESS: the calibrated rule still catches a real 4x-spread bias",
+        hit6 >= 0.90,
+        f"caught {hit6:.1%} of the time at --repeats 6 (cut {cut6:.2f})")
+
+    # ── TWO ROUTES, and their agreement IS the arm. The shipped cut at n = 2 is
+    #    a closed form; the check is a Monte Carlo through `resolution()` itself.
+    q = 1.0 - (1.0 - BIAS_ALPHA) ** (1.0 / units)
+    mc2 = _bias_null_quantile(2, 1.0 - q, trials=trials, seed=31340)
+    agree = abs(mc2 - cut2) / cut2
+    arm("TWO ROUTES: the closed form and a Monte Carlo agree at n = 2",
+        agree < 0.08,
+        f"closed form {cut2:.2f} vs Monte Carlo {mc2:.2f} ({agree:.1%} apart)")
+
+    # ── THE VOID RULE FIRES, AND IS NOT ALWAYS ON. A probe must create its
+    #    condition in both directions, or it is reporting its default.
+    d2, d6 = bias_detectable(2, cut2, trials=8000), bias_detectable(6, cut6, trials=8000)
+    arm("the VOID rule fires at --repeats 2 and stays silent at --repeats 6",
+        d2 > 8.0 and d6 <= 8.0,
+        f"smallest catchable bias {d2:.1f}x spread at n=2 (VOID) vs {d6:.1f}x at "
+        f"n=6 (live)")
+
+    # ⚠️ `units` here is the count this repository profiled on 09/06 and the arms
+    # are about the RULE, not about that number: the shipped gate calls
+    # `bias_cut(repeats, len(keys))` with the count the run actually saw. So the
+    # arm that matters is the DIRECTION — a bigger family must buy a bigger cut,
+    # or the correction is decorative.
+    arm("the cut RISES with the family size, so the correction is not decorative",
+        bias_cut(2, 1) < bias_cut(2, 8) < bias_cut(2, 23) < bias_cut(2, 100),
+        f"cut at --repeats 2: {bias_cut(2,1):.1f} (1 unit) → {bias_cut(2,8):.1f} (8) "
+        f"→ {bias_cut(2,23):.1f} (23) → {bias_cut(2,100):.1f} (100)")
+
+    # ── THE ORDERING, driven on the shipped statistic. ABAB leaves exactly one
+    #    pass of a linear drift; ABBA leaves none. The no-drift control comes
+    #    with it so a zero here cannot be the probe failing to drift at all.
+    def lay(order, reps):
+        seq = []
+        for r in range(reps):
+            seq += ["base", "head"] if (order == "ABAB" or r % 2 == 0) else ["head", "base"]
+        return seq
+
+    def delta(order, reps, drift):
+        v = {"base": [], "head": []}
+        for p, side in enumerate(lay(order, reps), 1):
+            v[side].append(1000.0 + drift * p)
+        return statistics.median(v["head"]) - statistics.median(v["base"])
+
+    ctl = max(abs(delta(o, r, 0.0)) for o in ("ABAB", "ABBA") for r in (2, 4, 6))
+    abab = [delta("ABAB", r, -30.0) for r in (2, 3, 4, 6)]
+    abba = [abs(delta("ABBA", r, -30.0)) for r in (2, 4, 6)]
+    arm("ORDERING control: with NO drift both orders return exactly zero",
+        ctl < 1e-9, f"worst |delta| {ctl:.2e} ms")
+    arm("ORDERING: ABAB leaves exactly ONE pass of a monotone drift, at every n",
+        all(abs(d + 30.0) < 1e-9 for d in abab),
+        "deltas " + ", ".join(f"{d:+.2f}" for d in abab) +
+        " ms against a -30.00 ms/pass drift")
+    arm("ORDERING: ABBA — what `measure()` now does — cancels it exactly",
+        all(d < 1e-9 for d in abba),
+        "worst |delta| " + f"{max(abba):.2e} ms on the same drift")
+    return names, bad
+
+
 def selftest():
     """⛔ EVERY WAY THE COMPARISON COULD STOP LOOKING, DRIVEN SEPARATELY.
 
@@ -979,6 +1227,10 @@ def selftest():
         bad.append(arms[-1])
     shutil.rmtree(probe, ignore_errors=True)
 
+    bn, bb = bias_cut_arms()
+    arms.extend(bn)
+    bad.extend(bb)
+
     jn, jb = selftest_measure_judgement()
     arms.extend(jn)
     bad.extend(jb)
@@ -1109,25 +1361,69 @@ def selftest_measure():
     #      Asserting it would red on a busy box, which is the defect D141 took out
     #      of this same arm. [[feedback-a-machine-calibrated-gate-belongs-where-it-is-calibrated]]
     biased, unclear = [], []
+    cut = bias_cut(repeats, len(keys))
+    detectable = bias_detectable(repeats, cut)
     for k in sorted(keys):
         bs = [x[k] for x in us["base"]]
         hs = [x[k] for x in us["head"]]
         d, se = per_unit[k], resolution(bs, hs)
-        if se not in (float("inf"),) and abs(d) > K_SIGMA * se:
-            biased.append((k, d, K_SIGMA * se))
+        if se not in (float("inf"),) and abs(d) > cut * se:
+            biased.append((k, d, cut * se))
         bud = effective(budgets.get(k, default_ms), statistics.median(bs), floor) \
             if (k in budgets or default_ms is not None) else None
         if bud is not None and abs(d) > bud:
             unclear.append((k, d, bud))
     ok_bias = not biased
+    # ⛔ NOT A TASTE THRESHOLD. "Is this arm informative?" is answered against the
+    # BUDGET FILE — a second source — and not against a number I liked: the arm
+    # polices unit u only if the smallest bias it would report there, `cut * se_u`,
+    # is SMALLER than the allowance the gate hands that unit. Where it is larger,
+    # a bias big enough to flip a verdict would have passed this arm in silence.
+    # [[feedback-widening-a-gate-needs-a-second-source]]
+    unpoliced = []
+    for k in sorted(keys):
+        bs = [x[k] for x in us["base"]]
+        se_k = resolution(bs, [x[k] for x in us["head"]])
+        bud_k = effective(budgets.get(k, default_ms), statistics.median(bs), floor) \
+            if (k in budgets or default_ms is not None) else None
+        if bud_k is not None and (se_k == float("inf") or cut * se_k > bud_k):
+            unpoliced.append((k, cut * se_k, bud_k))
+    blind = len(unpoliced) == len([k for k in keys
+                                   if k in budgets or default_ms is not None])
     print(("  ✔ " if ok_bias else "  ⛔ ") +
           f"the invented delta sits inside this run's own band on all "
           f"{len(keys)} units — identical trees produced no difference the run "
           f"cannot explain as its own noise")
+    # ⛔ THE ARM MUST SAY WHAT IT COULD HAVE SEEN. Its cut is family-wise over
+    # every unit, so it is NOT K_SIGMA, and at small `--repeats` it is enormous.
+    # Printing the cut without the power beside it would be the same ungated
+    # reassurance the old ±2σ wording was.
+    print(f"      ℹ️  cut |d| > {cut:.2f}·se per unit (NOT K_SIGMA={K_SIGMA}): "
+          f"family-wise {BIAS_ALPHA:.0%} over {len(keys)} units at --repeats "
+          f"{repeats}; this arm catches a real bias of "
+          + (f"{detectable:.1f}× one pass's own spread at 90% power"
+             if detectable != float("inf") else "NO size at 90% power")
+          + ".")
+    if unpoliced:
+        print(f"      {'⚠️  VOID, NOT A PASS' if blind else '⚠️  PARTIAL'}: on "
+              f"{len(unpoliced)} unit(s) the smallest bias this arm would report "
+              f"is LARGER than that unit's own allowance, so a bias big enough to "
+              f"flip a verdict passes it in silence"
+              + (". EVERY budgeted unit is in that state, so the ✔ above is the "
+                 "arm saying nothing." if blind else ":"))
+        for k, thr, bud in unpoliced[:6]:
+            print(f"         · {k}: would report only a bias above "
+                  f"±{thr:.1f} ms, against a {bud:.1f} ms allowance")
+        if len(unpoliced) > 6:
+            print(f"         · … and {len(unpoliced)-6} more")
+        print(f"      ⇒ raise --repeats (the cut falls {bias_cut(repeats, len(keys)):.1f} "
+              f"→ {bias_cut(max(repeats*2, 4), len(keys)):.1f} at "
+              f"--repeats {max(repeats*2, 4)}), or read this arm as unrun.")
     if not ok_bias:
         bad.append("identical-trees BIAS")
         for k, d, band in biased:
-            print(f"      ⛔ {k}: invented {d:+.1f} ms with a band of only ±{band:.1f} "
+            print(f"      ⛔ {k}: invented {d:+.1f} ms against a family-wise cut of "
+                  f"±{band:.1f} "
                   f"— a systematic difference between two copies of ONE commit, "
                   f"which rides inside every delta this gate reports")
     if unclear:
@@ -1137,8 +1433,16 @@ def selftest_measure():
         for k, d, bud in unclear:
             print(f"         · {k}: invented {d:+.1f} ms against a {bud:.1f} ms budget")
     else:
-        print(f"      ✔ and it clears every unit's budget, so no verdict this run "
-              f"prints is scoped by the box's own noise")
+        # ⛔ THIS ✔ SITS DIRECTLY UNDER THE UNPOLICED LIST AND MUST NOT READ AS
+        # CANCELLING IT. They are different quantities: this one says the delta
+        # the run OBSERVED is small, the list above says the smallest delta the
+        # arm COULD HAVE REPORTED is large. A reassuring line beside a warning is
+        # how the warning stops being read.
+        # [[feedback-ungated-prose-overclaims]]
+        print(f"      ✔ and the invented delta this run OBSERVED clears every "
+              f"unit's budget — which is NOT the claim above it: that the arm "
+              f"could SEE a bias worth that budget. This line is about what "
+              f"happened; that one is about what would have been reported.")
     if not ok0:
         bad.append("identical-trees control")
         for l in lines0:

@@ -611,4 +611,16 @@ jobs:
           build: false
           test: false
       - name: Delta gate driven on real trees (identical-trees control + planted constructor)
-        run: python3 scripts/kernel_delta.py --selftest-measure --repeats 2
+        # ⛔ `--repeats 2` UNTIL 09/06 (D171), AND AT TWO THE NEGATIVE CONTROL IS
+        # BLIND: the family-wise cut over 23 units is 16.9 estimated SEs, so the
+        # smallest bias arm 1 could report is ~32x one pass's own spread. Measured
+        # against the budget file on the real c61d7f5 readings: at two, 19 of the
+        # 23 budgeted units are UNPOLICED (a bias bigger than their whole allowance
+        # passes in silence); at four, 4.0 and 12 of 23. ⚠️ FOUR DOES NOT FIX IT —
+        # it halves it, and the arm now NAMES the units it cannot police instead of
+        # printing a bare tick over them. Some (X86Native, 68x) are unresolvable at
+        # any repeat count this job can afford; that is D152's R = band/allowance.
+        # PRICE, measured on this box: arm 1 at --repeats 4 is 2 worktree builds +
+        # 8 profile passes = ~22 min, and the job runs `measure` twice, so ~45 min
+        # against ~22 at two. That is the cost of the control being a control.
+        run: python3 scripts/kernel_delta.py --selftest-measure --repeats 4
