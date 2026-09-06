@@ -8270,3 +8270,51 @@ behind a limitation of the probe rather than of the oracle. The qualifier is gon
 
 ⚠️ This supersedes D143 §4's *"until then the unasked remainder still reads 1 implemented pair /
 1,241"*, which was true when it was written one commit earlier.
+
+## D145 — the identical-trees control's own number, gated at last: a BIAS can red, a LOUD BOX only scopes
+
+D142 measured this box inventing **−2,150 ms** between two copies of one commit, on a unit with a
+1,980 ms budget, and `--selftest-measure`'s arm 1 **passed**. The arm has printed that number since
+the gate was built, under the words *"that is what this box invents between two copies of one
+commit, and every budget has to clear it"* — and nothing has ever compared it with a budget. A
+sentence saying a number matters is not a check that it does.
+
+### 1. TWO DIFFERENT THINGS ARE DONE WITH IT, AND CONFLATING THEM IS WHY IT WAS INERT
+
+**(a) An assertion, and it is about the CODE rather than the box.** Identical trees have a true
+delta of exactly zero, so the invented delta must sit inside the run's OWN band: `|delta| > K·se`
+means the run produced a difference **its own noise model cannot explain** — a systematic
+difference between the two sides, which no amount of load excuses and which would ride inside every
+delta the gate reports. That is box-independent, so it may red, and it does.
+
+**(b) A scope statement, printed and not asserted.** The budgets this box's invented delta does NOT
+clear today. Those units' verdicts this afternoon are worth exactly as much as the box is quiet,
+and a reader of any `CLEAN` should see that list beside it. ⛔ Asserting it would red on a busy box,
+which is the defect D141 took out of this same arm — the distinction between the two halves is the
+whole content of this entry.
+
+On D142's control the two land differently and correctly: `|−2,150| < ±2,474`, so **no bias** — that
+run showed noise, not a broken instrument — while the scope line would have named `Tests.Coverage`
+as a unit whose budget the box's own invention exceeded that afternoon.
+
+### 2. THE ARMS, AND THE ONE THAT CAUGHT MY OWN DECLARATION
+
+Two cases added to the stubbed judgement suite (no tree profiled):
+- a **+200 ms** difference with a **±20 ms** band — far under the 1,778 ms budget, so the gate says
+  CLEAN and the old arm was happy — must RED. It is the case the old arm could not see, because it
+  compared only the rc.
+- a **−2,000 ms** difference inside a **±5,524 ms** band — over the budget, but the box is loud, not
+  biased — must PASS, printing the scope line.
+
+⛔ **And the second case was declared `CLEAN` in its first draft.** The condition check added one
+edit earlier refused it: a ±5,524 band around −2,000 straddles a 1,778 budget, so the gate returns
+UNMEASURABLE. The arm was testing a branch its own name did not describe — **the exact defect the
+verdict column had just been introduced to prevent, caught on the case that introduced it.**
+
+⇒ Each case now declares BOTH the verdict it must produce AND the LINE it must print, because the
+scope list and the bias message are arm 1's real output and a case that stopped producing one would
+otherwise stay green on its rc alone. Four planted defects — the assertion neutered, the bias test
+made unreachable, the scope list silently emptied, and the scope threshold slipped from the budget
+to the band — **all four caught**, and the last two only by the line assertion.
+
+`--selftest` is 30 arms (was 28).

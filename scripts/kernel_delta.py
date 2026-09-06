@@ -672,18 +672,40 @@ def selftest_measure_judgement():
         # ⛔ THE ONE THAT MUST RED: identical trees have a true delta of exactly
         # zero, so a conviction there would make every red this gate ever printed
         # suspect. It is the only outcome arm 1 may reject.
-        ("identical trees CONVICTED must fail arm 1", "FAILED",
+        ("identical trees CONVICTED must fail arm 1", "FAILED", "worst unit delta",
          _stub_readings([24700, 24710, 24690], [40000, 40010, 39990]), True),
-        ("identical trees CLEAN passes arm 1", "CLEAN",
+        ("identical trees CLEAN passes arm 1", "CLEAN", "clears every unit's budget",
          _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), False),
         # ⚠️ AND THE ONE D141 CHANGED. A refusal on identical trees is a fact
         # about the BOX at that many repeats, not a defect in the gate; requiring
         # rc 0 here made the arm red whenever another seat was building, and an
         # arm that reds for a reason outside the code is an arm nobody reads.
         ("identical trees REFUSED reports the box and passes arm 1", "UNMEASURABLE",
+         "statement about THIS BOX",
          _stub_readings([24700, 21000, 28000], [24700, 20500, 28500]), False),
+        # ⛔⛔ THE BIAS ARM (D145). A +200 ms difference between two copies of one
+        # commit, with a band of ±20: far under the 1,778 ms budget, so the gate
+        # says CLEAN and arm 1's verdict check is happy — and the run has still
+        # produced a systematic difference its own noise cannot explain, which
+        # rides inside every delta this gate reports. That is the case the old
+        # arm could not see, because it only ever compared the rc.
+        ("a BIAS on identical trees reds arm 1 even when the gate says CLEAN",
+         "CLEAN", "a systematic difference between two copies of ONE commit",
+         _stub_readings([24700, 24710, 24690], [24900, 24910, 24890]), True),
+        # ⚠️ AND THE OTHER DIRECTION, WHICH MUST NOT RED: an invented delta of
+        # −2,000 ms — over the 1,778 ms budget — but inside a ±5,500 band. The box
+        # is loud, not biased. It prints a SCOPE line and passes, because redding
+        # here is the defect D141 removed from this same arm.
+        # ⚠️ DECLARED `CLEAN` IN THE FIRST DRAFT AND THE CONDITION CHECK REFUSED
+        # IT: a ±5,524 band around −2,000 straddles a 1,778 budget, so the gate
+        # returns UNMEASURABLE, not CLEAN. The arm was testing a branch its name
+        # did not describe — the same defect this case list was given the verdict
+        # column to prevent, caught on the case that introduced it.
+        ("a LOUD box scopes arm 1 rather than redding it",
+         "UNMEASURABLE", "SCOPE, not a failure",
+         _stub_readings([22000, 24700, 27400], [20000, 22700, 25400]), False),
     ]
-    for name, want_verdict, data, want_bad in cases:
+    for name, want_verdict, want_line, data, want_bad in cases:
         measure = lambda *a, **k: data
         argv = sys.argv[:]
         sys.argv = ["kernel_delta.py", "--selftest-measure", "--repeats", "3", "--plant", "1"]
@@ -693,15 +715,27 @@ def selftest_measure_judgement():
                 selftest_measure()
         finally:
             sys.argv, measure = argv, real
-        arm1 = [l for l in buf.getvalue().splitlines() if "identical trees ⇒" in l]
+        out = buf.getvalue()
+        # ⛔ THE WHOLE ARM-1 BLOCK, not only its verdict line: the bias check and
+        # the scope line are arm 1's output too, and a case that drove one of them
+        # would have gone unread by a filter that keeps only the ⇒ line.
+        arm1 = [l for l in out.splitlines()
+                if "identical trees" in l or "invented" in l]
         got_bad = any(l.startswith("  ⛔") for l in arm1)
         made_it = any(want_verdict in l for l in arm1)
-        ok = got_bad == want_bad and made_it
+        # ⛔ AND THE LINE THE CASE EXISTS TO PRODUCE. The scope list and the bias
+        # message are arm 1's real output; a case that stopped producing one would
+        # otherwise stay green on its rc alone, which is exactly how the verdict
+        # column came to be needed one edit earlier.
+        said_it = want_line in out
+        ok = got_bad == want_bad and made_it and said_it
         names.append(name)
         print(("  ✔ " if ok else "  ⛔ ") + name +
               ("" if ok else
                (f"   (these readings produced no {want_verdict}, so the arm tested "
                 f"another branch under this name)" if not made_it else
+               f"   (arm 1 never printed {want_line!r}, so the behaviour this case "
+               f"is named for did not happen)" if not said_it else
                 f"   (arm 1 said {'⛔' if got_bad else '✔'}, wanted "
                 f"{'⛔' if want_bad else '✔'})")))
         if not ok:
@@ -1014,6 +1048,60 @@ def selftest_measure():
         for l in lines0:
             if "·" in l or "UNMEASURABLE" in l:
                 print("      " + l)
+
+    # ⭐⭐⭐ THE NUMBER THIS ARM PRINTED FOR NINE BATCHES AND NOBODY CHECKED (D142).
+    # Arm 1 has always said "worst unit delta N ms — that is what this box invents
+    # between two copies of one commit, and every budget has to clear it", and
+    # then nothing compared N with any budget. On 2026-09-05 N was 2,150 ms on
+    # `Tests.Coverage` against a 1,980 ms budget, and the arm passed.
+    #
+    # ⛔ TWO DIFFERENT THINGS ARE DONE WITH IT, and conflating them is what made
+    # the old line inert:
+    #
+    #  (a) AN ASSERTION, and it is about the CODE rather than the box. Identical
+    #      trees have a true delta of exactly zero, so the invented delta must sit
+    #      inside the run's OWN band. |delta| > K*se means this run produced a
+    #      difference its own noise model cannot explain — a BIAS between the two
+    #      sides, which no amount of load can excuse and which would sit inside
+    #      every verdict the gate prints. That is box-independent, so it can red.
+    #
+    #  (b) A SCOPE STATEMENT, printed and not asserted: the budgets this box's
+    #      invented delta does NOT clear today. Those are the units whose verdicts
+    #      this afternoon are worth exactly as much as the box is quiet, and a
+    #      reader of any CLEAN the gate prints should see that list beside it.
+    #      Asserting it would red on a busy box, which is the defect D141 took out
+    #      of this same arm. [[feedback-a-machine-calibrated-gate-belongs-where-it-is-calibrated]]
+    biased, unclear = [], []
+    for k in sorted(keys):
+        bs = [x[k] for x in us["base"]]
+        hs = [x[k] for x in us["head"]]
+        d, se = per_unit[k], resolution(bs, hs)
+        if se not in (float("inf"),) and abs(d) > K_SIGMA * se:
+            biased.append((k, d, K_SIGMA * se))
+        bud = effective(budgets.get(k, default_ms), statistics.median(bs), floor) \
+            if (k in budgets or default_ms is not None) else None
+        if bud is not None and abs(d) > bud:
+            unclear.append((k, d, bud))
+    ok_bias = not biased
+    print(("  ✔ " if ok_bias else "  ⛔ ") +
+          f"the invented delta sits inside this run's own band on all "
+          f"{len(keys)} units — identical trees produced no difference the run "
+          f"cannot explain as its own noise")
+    if not ok_bias:
+        bad.append("identical-trees BIAS")
+        for k, d, band in biased:
+            print(f"      ⛔ {k}: invented {d:+.1f} ms with a band of only ±{band:.1f} "
+                  f"— a systematic difference between two copies of ONE commit, "
+                  f"which rides inside every delta this gate reports")
+    if unclear:
+        print(f"      ⚠️  SCOPE, not a failure: this box's invented delta exceeds "
+              f"{len(unclear)} unit(s) own budget today, so a verdict on those "
+              f"units is worth what the box is quiet:")
+        for k, d, bud in unclear:
+            print(f"         · {k}: invented {d:+.1f} ms against a {bud:.1f} ms budget")
+    else:
+        print(f"      ✔ and it clears every unit's budget, so no verdict this run "
+              f"prints is scoped by the box's own noise")
     if not ok0:
         bad.append("identical-trees control")
         for l in lines0:

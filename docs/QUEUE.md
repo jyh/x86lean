@@ -77,13 +77,13 @@ qualifier.
      the runs above would be deriving the allowance from the thing it checks.
      [[feedback-widening-a-gate-needs-a-second-source]]
 
-5. **Arm 1 prints the number nobody gates.** `--selftest-measure`'s identical-trees control
-   reports *"worst unit delta N ms — that is what this box invents between two copies of one
-   commit, and every budget has to clear it"*, and then nothing checks N against any budget. In
-   D142's control N was 2,150 ms against a 1,980 ms budget and the arm passed. The arm should say
-   which budgets the invented delta does NOT clear, and that list is the honest scope statement for
-   every verdict the gate prints that day. ⚠️ It must not simply RED on a busy box — that is the
-   defect D141 removed from this same arm.
+5. **Arm 1's number is gated — DISCHARGED (D145).** The identical-trees control's invented delta
+   now splits in two: an ASSERTION that it sits inside the run's own band (a difference the run
+   cannot explain as its own noise is a BIAS, box-independent, and reds), and a printed SCOPE list
+   of the budgets it does not clear today (asserting that would red on a busy box, which is the
+   defect D141 removed from this same arm). Four planted defects caught, two of them only by the
+   new requirement that each case declare the LINE it must print and not just its verdict.
+
 6. **`--repeats` in CI is a guess** (D141 §9). `.github/workflows/ci.yml` asks for 6 on a runner no
    delta has ever run on. The first job that completes there prices it, and the number to read off
    is the gate's own `~N repeats a side would decide it` line. Blocked: GitHub Actions refuses every
