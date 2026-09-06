@@ -654,10 +654,19 @@ def report(rows, unpriced, steps, ledger_rows, alloc, series_base,
 DIG = "0123456789abcdef"
 
 
-def _row(base, head, alloc, base_ms=None, digest=DIG, source="synthetic"):
-    return {"base": base, "head": head, "allowance": dict(alloc),
-            "base_ms": dict(base_ms or alloc), "budget_digest": digest,
-            "source": source, "t": 0, "box": "synthetic"}
+def _row(base, head, alloc, base_ms=None, digest=DIG, source="synthetic",
+         conditions=None):
+    # ⭐ `conditions` (D171): the per-pass (load1, secs) of the run that produced
+    # this row, plus its drift. A row keeps MEDIANS, and medians cannot show that
+    # a run drifted — which is exactly the defect this session found in the arm
+    # that reads them. Absent rather than empty when the readings predate the pass
+    # stamp: an invented order would print a drift figure that looks measured.
+    r = {"base": base, "head": head, "allowance": dict(alloc),
+         "base_ms": dict(base_ms or alloc), "budget_digest": digest,
+         "source": source, "t": 0, "box": "synthetic"}
+    if conditions is not None:
+        r["conditions"] = conditions
+    return r
 
 
 def _steps(n):
@@ -959,6 +968,51 @@ def selftest():
        "RED-FIRST — a row with a missing, null or empty head records NOTHING; an "
        "absent field must not read as a match", plant="headless row")
 
+    # ── THE CONDITIONS A ROW CARRIES (D171, queue item 3) ─────────────────────
+    _fake = {"decl_map": {}, "readings": {
+        "base": [{"modules": {"M": 100.0 + 10 * i}, "decls": {}, "load1": 1.0,
+                  "secs": 9, "pass": p, "side": "base"}
+                 for i, p in enumerate((1, 4, 5, 8))],
+        "head": [{"modules": {"M": 105.0 + 10 * i}, "decls": {}, "load1": 2.0,
+                  "secs": 9, "pass": p, "side": "head"}
+                 for i, p in enumerate((2, 3, 6, 7))]}}
+    c = kd.pass_conditions(_fake)
+    ok(c.get("passes") and [p["pass"] for p in c["passes"]] == [1, 2, 3, 4, 5, 6, 7, 8],
+       "CONTROL — the conditions summary orders passes by their STAMPED global "
+       "index, across both sides, not by the order they sit in the readings dict")
+    # ⛔ THE EXPECTED SLOPE IS THE EXACT ONE, NOT A TOLERANCE AROUND A GUESS. The
+    # first form of this arm asserted `|slope - 10*4/7| < 2.0`; the true least
+    # squares slope of the planted series is 200/42 = 4.762, and 10*4/7 = 5.714 —
+    # so the arm PASSED on a wrong prediction that its own tolerance was wide
+    # enough to hide. Computed from the plant instead, and asserted to 1e-9.
+    # [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]]
+    _pts = sorted([(r["pass"], r["modules"]["M"])
+                   for side in ("base", "head") for r in _fake["readings"][side]])
+    _mx = statistics.mean([p for p, _ in _pts])
+    _my = statistics.mean([v for _, v in _pts])
+    _want = (sum((p - _mx) * (v - _my) for p, v in _pts)
+             / sum((p - _mx) ** 2 for p, _ in _pts))
+    ok(c.get("drift", {}).get("ms_per_pass") is not None
+       and abs(c["drift"]["ms_per_pass"] - round(_want, 3)) < 1e-9,
+       f"...and it recovers the planted drift EXACTLY: "
+       f"{c.get('drift', {}).get('ms_per_pass')} ms/pass on "
+       f"`{c.get('drift', {}).get('worst_unit')}`, against {_want:.6f} computed "
+       f"from the plant and stored at 3 dp", plant="planted drift")
+    _stripped = {"decl_map": {}, "readings": {
+        "base": [{k: v for k, v in r.items() if k != "pass"}
+                 for r in _fake["readings"]["base"]],
+        "head": [{k: v for k, v in r.items() if k != "pass"}
+                 for r in _fake["readings"]["head"]]}}
+    c2 = kd.pass_conditions(_stripped)
+    ok(c2.get("passes") is None and "pre-D171" in c2.get("why", ""),
+       "RED-FIRST — readings with NO pass stamp report ABSENT with a reason, not "
+       "an invented order and a drift figure that would look measured",
+       plant="unstamped readings")
+    ok("conditions" not in _row("a", "b", {"M": 1.0})
+       and _row("a", "b", {"M": 1.0}, conditions=c)["conditions"] is c,
+       "...and a row written without conditions OMITS the key rather than "
+       "carrying an empty one that reads as 'measured, and quiet'")
+
     # ── THE EXEMPTION ARGUMENT, DRIVEN BOTH WAYS (D171) ───────────────────────
     # ⛔ The bucket these arms guard used to be an `else`, so there was nothing to
     # drive: every path was exempt and the arm would have been "does the default
@@ -1249,7 +1303,8 @@ def main():
             med = {u: statistics.median(v) for u, v in base_units.items()}
             rows.append(_row(data["base_rev"], data["head_rev"],
                              allowances_for(med, default_ms, budgets, floor),
-                             base_ms=med, digest=digest, source="gate"))
+                             base_ms=med, digest=digest, source="gate",
+                             conditions=kd.pass_conditions(data)))
         walk = kd.arg("--backfill")
         if walk:
             import delta_repair_price as drp
@@ -1258,10 +1313,26 @@ def main():
             order = w["order"]
             for i in range(len(order) - 1):
                 med = {u: statistics.median(v) for u, v in ur[order[i]].items()}
+                # ⛔ THE BACKFILL'S CONDITIONS HAVE A DIFFERENT SHAPE AND SAY SO.
+                # A walk visits each commit once per SWEEP, so its readings are
+                # not the gate's alternating passes; and two sweeps give two
+                # points per commit, from which a slope is not a drift
+                # measurement. The `why` field states that instead of leaving the
+                # key absent, because an absent key reads as "not applicable" and
+                # a blank one reads as "measured, and quiet".
+                # [[feedback-a-tool-has-no-concept-of-not-applicable]]
                 rows.append(_row(order[i], order[i + 1],
                                  allowances_for(med, default_ms, budgets, floor),
                                  base_ms=med, digest=digest,
-                                 source=f"backfill:{os.path.basename(walk)}"))
+                                 source=f"backfill:{os.path.basename(walk)}",
+                                 conditions={
+                                     "passes": [{"sweep": r.get("sweep"),
+                                                 "load1": round(r.get("load1", 0.0), 2),
+                                                 "secs": r.get("secs")}
+                                                for r in w["by"][order[i]]],
+                                     "why": "walk sweeps, not gate passes; too "
+                                            "few points per commit for a drift "
+                                            "slope"}))
         for r in rows:
             r["t"] = int(time.time())
             r["box"] = kd.box_stamp()

@@ -589,6 +589,15 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
                 t0 = time.time()
                 r = profile(wt, decl_mods)
                 r["secs"] = round(time.time() - t0, 1)
+                # ⛔ THE GLOBAL PASS INDEX, STAMPED RATHER THAN RECONSTRUCTED
+                # (D171). `readings` is grouped BY SIDE, so the wall-clock order
+                # across the two sides is not recoverable from it without knowing
+                # this loop's ordering rule — and that rule just changed from ABAB
+                # to ABBA. A consumer that re-derived it would have been silently
+                # wrong for every run written before the change.
+                # [[feedback-an-unrecorded-rule-cannot-be-audited]]
+                r["pass"] = len(readings["base"]) + len(readings["head"]) + 1
+                r["side"] = side
                 readings[side].append(r)
                 print(f"  pass {side:<4} load1={r['load1']:.2f}  {r['secs']:>4.0f}s  "
                       f"Tests.Coverage={r['modules'].get('Tests.Coverage', 0):.0f}  "
@@ -603,6 +612,59 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
                 subprocess.run(["git", "worktree", "remove", "--force", wt],
                                cwd=ROOT, capture_output=True, text=True)
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ⭐⭐ THE CONDITIONS A ROW HAS TO CARRY, AND WHY MEDIANS ARE NOT ENOUGH (D171).
+#
+# A ledger row keeps `base_ms` (the medians) and ONE `box` stamp taken when the row
+# was written. Neither can tell a later reader whether the run was quiet or loud,
+# and NEITHER CAN SHOW A DRIFT — which is the failure this same session found: over
+# one 8-pass run, 20 of 23 units sloped the same way, the largest at +295 ms/pass,
+# and under the old ABAB order that landed as a standing bias inside every delta.
+# The only reason it was visible at all is that the raw readings happened to be
+# saved to a scratch file. A row that outlives the readings must carry the shape.
+# [[feedback-a-measurement-without-its-conditions]]
+# [[feedback-a-counterbalance-must-be-symmetric]]
+def pass_conditions(data):
+    """Per-pass (pass, side, load1, secs) plus the run's drift, compactly.
+
+    ⚠️ Per-pass PER-UNIT milliseconds are deliberately NOT stored: 23 units x 8
+    passes x every row is a ledger nobody opens. The drift statistic is the part a
+    reader acts on, and it is stored with the unit it belongs to — a slope with no
+    unit name is a number a reader cannot act on."""
+    rs = sorted([r for side in ("base", "head") for r in data["readings"][side]],
+                key=lambda r: r.get("pass", 0))
+    if not rs or any("pass" not in r for r in rs):
+        # ⛔ ABSENT, NOT ZERO. Readings taken before the pass stamp existed cannot
+        # have their order recovered, and a fabricated order would produce a drift
+        # figure that looks measured.
+        return {"passes": None, "why": "readings carry no pass index (pre-D171)"}
+    out = {"passes": [{"pass": r["pass"], "side": r["side"],
+                       "load1": round(r.get("load1", 0.0), 2),
+                       "secs": r.get("secs")} for r in rs]}
+    units, slopes = {}, []
+    for r in rs:
+        for u, v in units_of(r, data["decl_map"]).items():
+            units.setdefault(u, []).append((r["pass"], v))
+    for u, pts in units.items():
+        if len(pts) < 3:
+            continue
+        mx = statistics.mean([p for p, _ in pts])
+        my = statistics.mean([v for _, v in pts])
+        den = sum((p - mx) ** 2 for p, _ in pts)
+        if den:
+            slopes.append((u, sum((p - mx) * (v - my) for p, v in pts) / den, my))
+    if slopes:
+        worst = max(slopes, key=lambda t: abs(t[1]))
+        up = sum(1 for _, sl, _ in slopes if sl > 0)
+        # 3 dp, not 2: the arm that checks this compares against the STORED value,
+        # and at 2 dp a slope of 4.762 stores as 4.76 — a rounding the first form
+        # of that arm hid inside a tolerance wide enough to also hide a wrong
+        # prediction. The precision is now part of the contract.
+        out["drift"] = {"worst_unit": worst[0], "ms_per_pass": round(worst[1], 3),
+                        "pct_of_median": round(100 * worst[1] / worst[2], 3) if worst[2] else None,
+                        "units_sloping_up": up, "units": len(slopes)}
+    return out
 
 
 def verdict(data, default_ms, budgets, floor=None, quiet=False):

@@ -11560,3 +11560,53 @@ The five `.lean` backfill runs themselves (batches 23, 34, 35, 36a, 36b) are sti
 gap ratchet still reads 5 and is exact. §7 is the precondition for doing them safely, and §6 is the
 argument for the 43 the walk does not need to visit — **one contiguous span per walk**, which is
 now a refusal rather than a convention.
+
+## D172 — queue item 3: a ledger row keeps medians, and medians cannot show that the run drifted
+
+D171 found a real drift on this box — 20 of 23 units sloping one way over an 8-pass run, the
+largest at **+295 ms/pass** — and under the old `ABAB` order that landed as a standing bias inside
+every delta the gate reported. **The only reason it was visible is that the raw readings happened to
+be saved to a scratch file.** A ledger row keeps `base_ms` (the medians) and one `box` stamp taken
+when the row was written; neither can distinguish a quiet run from a drifting one, and the row
+outlives the readings. That is queue item 3, and D171 is its argument.
+
+### 1. THE PASS INDEX IS STAMPED, NOT RECONSTRUCTED
+
+`measure()` groups readings BY SIDE, so the wall-clock order across the two sides is not recoverable
+from the stored blob without knowing the loop's ordering rule — **and that rule just changed from
+`ABAB` to `ABBA` in D171.** A consumer that re-derived the order would have been silently wrong for
+every run written before the change, in a way nothing would report. Each reading now carries its own
+global `pass` and its `side`. [[feedback-an-unrecorded-rule-cannot-be-audited]]
+
+### 2. WHAT A ROW CARRIES, AND WHAT IT DELIBERATELY DOES NOT
+
+`pass_conditions()` returns the per-pass `(pass, side, load1, secs)` plus one drift summary: the
+worst unit **by name**, its slope in ms/pass and as a percentage of its own median, and how many of
+the profiled units slope the same way. Per-pass PER-UNIT milliseconds are **not** stored — 23 units
+× 8 passes × every row is a ledger nobody opens — and the slope is stored with the unit it belongs
+to, because a slope with no unit name is a number a reader cannot act on.
+
+⛔ **Absent, never blank, in three places.** Readings with no `pass` stamp (anything written before
+this change) report `passes: None` with a stated `why`, rather than an invented order and a drift
+figure that would look measured. A row written without conditions **omits the key** rather than
+carrying an empty one that reads as *"measured, and quiet"*. And the backfill path — whose walk
+visits each commit once per SWEEP, giving too few points per commit for a slope — records its
+`(sweep, load1, secs)` and says so in its own `why`, instead of leaving the field absent where
+absence would read as *not applicable*. [[feedback-a-tool-has-no-concept-of-not-applicable]]
+
+### 3. ⛔ AND THE ARM THAT CHECKS IT PASSED ON A WRONG PREDICTION FIRST
+
+The drift arm plants a known series and asserts the recovered slope. Its first form asserted
+`|slope − 10·4/7| < 2.0`. The true least-squares slope of that plant is `200/42 = 4.762`; my
+predicted `10·4/7` is **5.714**. The arm was green — the tolerance was wide enough to cover a
+prediction that was wrong by 20%.
+
+Recomputed from the plant itself and asserted to `1e-9`, it then went RED against the stored
+`4.76` — catching that the summary rounded to 2 dp. Storage is 3 dp now and **the assertion is
+against the stored value**, so the precision is part of the contract rather than something a fat
+tolerance hides.
+
+⇒ 🔑 **A TOLERANCE WIDE ENOUGH TO ABSORB NOISE IS WIDE ENOUGH TO ABSORB A WRONG EXPECTED VALUE**,
+and the wrong value is the one nothing else will ever check. Compute the expectation FROM THE PLANT,
+in the arm, and assert it tightly enough that the storage format is part of what is being asserted.
+[[feedback-a-confirmed-prediction-is-not-a-checked-statistic]]
