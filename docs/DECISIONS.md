@@ -9083,3 +9083,107 @@ the orphan found at this seat's last exit had a command line identical to its ow
   already records the same tree reading 1.7×–3.1× slower on a runner DEPENDING ON THE MODULE, which
   is precisely the shape that breaks a percentage. The report prints this as an unmeasured debt
   rather than a caveat in prose.
+
+## D152 — QUEUE item 4d answered: do not adopt `user` CPU, its motivating number does not reproduce, and the corpus cannot decide the question the item was really asking
+
+D151 built the instrument and refuted the deciding statistic's premise. This entry is the
+measurement it was built for: the twelve-commit walk re-run with the CPU fields recorded, 24
+readings, 12 trees with repeats, the same commits `scripts/kernel_delta_budget.txt` is derived from.
+
+**CONDITIONS**: loads 9–15, CPU idle 30–65%, the math seat's two salt builds present throughout and
+STAMPED `contended` by the tool rather than remembered — the helm's rule of 09/05, as code.
+
+### 1. ⛔⛔ THE VERDICT: DO NOT ADOPT `user` CPU
+
+```
+                       ms rel%   user rel%   rel×      ms abs   user abs   abs×
+  Tests.Coverage          2.69        2.05   1.31       600ms     1159ms   0.52
+  X86.Theorems            3.44        3.02   1.14        32ms      152ms   0.21
+  X86.Syntax              5.52        5.01   1.10        13ms      149ms   0.09
+  Tests.Anchors           3.87        5.00   0.77        20ms      120ms   0.17
+  Tests.Nonvacuity        2.59        4.53   0.57         4ms       34ms   0.10
+  median, all units       4.82        3.41   1.41         2ms       16ms   0.14
+```
+
+**D150's 14.6× does not reproduce — not even on `Tests.Coverage`, the one unit it was measured on**,
+where the twelve-tree corpus reads **1.31×**. The candidate is worse in ABSOLUTE terms on every unit
+and worse in RELATIVE terms on two. D150's five profiles were taken on an evening when the shipped
+arm swung 52.7% on one tree; tonight it swings 2.69% on that same tree.
+⇒ 🔑 **a ratio between two instruments is a reading of the WORSE one's night.** My own card said the
+spread is a single reading too; it applies to the headline number of the entry that proposed this
+work. [[feedback-a-single-reading-is-about-its-run]]
+
+⛔ **AND THE CONTROL KILLS THE MECHANISM.** `real_s` — the same child's wall clock — is as tight as
+`user_s` (2.57% vs 2.05% on `Tests.Coverage`; 16 ms vs 16 ms median absolute). Whatever small
+advantage exists comes from measuring the WHOLE PROCESS rather than trusting the profiler's internal
+attribution, NOT from CPU accounting being robust to contention. Sealed as P5 in the opposite
+direction, and refuted.
+
+Add the structural limit — **4 of 23 gated units can never be expressed** by a per-process
+measurement, including the three tightest per-declaration budgets — and the case closes. A 1.3×
+relative gain, negative in absolute terms, on 19 of 23 units, is not worth re-deriving every budget
+in the repository from a second source.
+
+### 2. ⭐⭐⭐ THE FINDING THAT OUTLIVES THE CANDIDATE: THE SIGNAL AND THE NOISE ARE THE SAME SIZE
+
+```
+  pairs clearing the noise floor:   floor = MAX same-tree spread (used)    0 of 102
+                                    floor = MEDIAN                        49 of 102
+                                    floor = MIN                           99 of 102
+```
+`Tests.Coverage`'s largest real batch delta in this history is **1,700 ms** against a same-tree
+spread of **600 ms (median) to 2,600 ms (worst)**. ⇒ whether a batch is "resolvable" is decided by
+which noise statistic one picks, not by the readings.
+
+That is the honest answer to what item 4 was really asking, and it is about the SHIPPED instrument,
+not the candidate: **the gate is trying to resolve changes the same size as its own noise.** No
+choice of quantity among those measured fixes that — heartbeats are blind (D146), `--threads 1`
+leaves 17% (D150), `user` is 1.3× (here). The kernel-unfolding counter (4b) remains the only
+candidate that reads exactly zero on a no-op, and it is the only one not yet refuted.
+
+⛔ The floor was NOT loosened to produce an answer. UNDECIDED is the output; the sensitivity is
+printed beside it, because a verdict without it is a choice wearing a measurement's clothes.
+
+### 3. THE SEAL, SCORED ON WHAT IT NAMED
+
+| | prediction (sealed 20:2x, before any reading) | measured | verdict |
+|---|---|---|---|
+|P1| relative tightening ≥ 2.00× | **1.41×** | ⛔ **REFUTED** |
+|P2| absolute tightening < relative | 0.14× vs 1.41× | ✅ confirmed |
+|P3| MDR: candidate WORSE on ≥ 8 of 19 | raw: 17 of 17; corrected: all UNDECIDED | ⚠️ confirmed on the statistic as SEALED, void on the corrected one |
+|P4| MDR: candidate BETTER on `Tests.Coverage` | worse, raw and corrected | ⛔ **REFUTED** |
+|P5| `real_s` noisier than `user_s` | 16 ms vs 16 ms — equal | ⛔ **REFUTED** |
+
+⛔⛔ **AND THE SCORE ON THE PARTIAL CORPUS WOULD HAVE BEEN 5/5.** Every one of these was checked
+against the 14-reading contended corpus first, and every one appeared confirmed. Three of five
+reverse on the completed walk. ⇒ 🔑 **a prediction scored against a partial corpus is scored against
+the conditions that truncated it**, and a seal is only worth what its denominator is.
+[[feedback-a-confirmed-prediction-is-not-a-checked-statistic]] [[feedback-a-batch-cannot-be-sampled]]
+
+### 4. ⛔ A CLAIM I POSTED TWICE AS "FIRM", WITHDRAWN
+
+QUEUE item 9 was filed and posted on the bus twice: *"the shipped budgets rest on a day 7.30×
+quieter than an ordinary one."* Measured on the completed corpus: **1.37×**. The 7.30× came from the
+14-reading contended partial — n=42, one reading taken at load 98. There is nothing to act on and
+the row is kept only so the withdrawal is as findable as the claim.
+🔑 The comment in my own tool, three lines from the number, read *"It is one extra pair of days, not
+a distribution over days."* **The discipline was written down and not applied to the sentence being
+written beside it.** [[feedback-ungated-prose-overclaims]]
+
+### 5. THE TIE-COUNT EARNED ITS PLACE
+
+The shipped arm has **9 exact-zero spreads of 252** — Lean's profiler prints three significant
+figures, so two sweeps of one tree can print the identical string — against the candidate's **0 of
+228**. That biases the shipped arm to look steadier, which is the direction of §1's conclusion. It
+is printed so the conclusion can be discounted for it rather than trusted through it.
+[[feedback-a-noise-estimate-that-can-reach-zero]]
+
+### 6. WHAT REMAINS
+
+- **Item 4 is not closed by this.** 4a (heartbeats) and 4c (`--threads 1`) are refuted, 4d is
+  refuted here; **4b — the kernel's own unfolded-declaration counter — is the survivor** and still
+  owes a budget from a second source and a second machine.
+- **Portability remains unmeasured for every candidate.** One box, arm64.
+- §2 suggests the question may not be "which quantity" at all: if the signal and the noise are the
+  same size, the repair is to make the DELTA bigger relative to the noise — more repeats, or a gate
+  on an accumulated multi-batch drift rather than on one batch. Neither is priced.

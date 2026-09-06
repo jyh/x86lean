@@ -144,7 +144,7 @@ qualifier.
    It reaches 1.66 only when the box has cores free. *"user is 2x real" is a property of Lean plus
    IDLE CORES, quoted as a property of the code.* [[feedback-a-single-reading-is-about-its-run]]
 
-   ### 4d. ⭐⭐⭐ THE LIVE CANDIDATE, AND IT WAS ALREADY IN EVERY PASS (D150)
+   ### 4d. ⛔⛔ REFUTED (D152) — the 14.6x does not reproduce; see the verdict block below
    `kernel_cost.py` runs **one `lean` process per module**, so `getrusage(RUSAGE_CHILDREN)` yields a
    **per-unit CPU time** at zero extra cost. Five profiles of ONE tree, `Tests.Coverage`:
    ```
@@ -165,6 +165,33 @@ qualifier.
    - ⚠️ Any budget re-derivation must still come from `docs/kernel-delta-history-2026-09-04.jsonl`.
      Deriving one from the runs above would be deriving the allowance from the thing it checks.
      [[feedback-widening-a-gate-needs-a-second-source]]
+
+   ### 4d-VERDICT. ⛔⛔ DO NOT ADOPT `user` CPU (D152, 24 readings, 12 trees)
+   ```
+                          ms rel%   user rel%   rel x     ms abs   user abs   abs x
+     Tests.Coverage          2.69        2.05    1.31      600ms     1159ms    0.52
+     Tests.Anchors           3.87        5.00    0.77       20ms      120ms    0.17
+     median, all units       4.82        3.41    1.41        2ms       16ms    0.14
+   ```
+   **D150's 14.6x does not reproduce, not even on `Tests.Coverage` where it was measured** — that
+   evening the SHIPPED arm swung 52.7% on one tree; on the completed walk it swings 2.69% on the
+   same tree. A ratio between two instruments is a reading of the worse one's night.
+   ⛔ And `real_s` (the CONTROL) is as tight as `user_s`, so the small advantage is measuring the
+   WHOLE PROCESS, not CPU accounting — which refutes the mechanism as well as the size.
+   ⇒ a 1.3x relative gain, NEGATIVE in absolute terms, on 19 of 23 units, is not worth re-deriving
+   every budget in the repository from a second source. **4b (the kernel unfolding counter) is the
+   only surviving candidate.**
+
+   ### 4f. ⭐⭐⭐ THE FINDING THAT OUTLIVES EVERY CANDIDATE (D152)
+   Pairs clearing the noise floor, over the project's whole twelve-commit history:
+   **MAX same-tree spread 0 of 102 · MEDIAN 49 of 102 · MIN 99 of 102.**
+   `Tests.Coverage`'s largest real batch delta is 1,700 ms against a same-tree spread of 600 ms
+   (median) to 2,600 ms (worst). ⇒ **the gate is trying to resolve changes THE SAME SIZE as its own
+   noise**, and whether a batch is "resolvable" is decided by which noise statistic is picked.
+   ⛔ Do not loosen the floor to escape this; UNDECIDED is the honest output.
+   ⇒ the repair may not be "which quantity" at all, but making the DELTA bigger relative to the
+   noise — more repeats, or gating an accumulated multi-batch drift rather than one batch. Neither
+   is priced.
 
    ### 4e. ⛔⛔ 4d's DECIDING STATISTIC HAD A PREMISE, AND THE CONTROL BESIDE IT REFUTED IT (D151)
    "14.6x tighter" cannot decide a gate, because **a percentage of `user` is not a percentage of
@@ -223,18 +250,17 @@ qualifier.
    never `pkill -f` a pattern the seat's own tools carry.
    [[feedback-enumerate-is-not-attribute]] [[feedback-a-process-filter-matches-its-own-waiter]]
 
-9. ⭐⭐ **THE SHIPPED BUDGETS REST ON A QUIETER DAY THAN AN ORDINARY ONE (D151).** Measured, not
-   inferred: the SAME tool over the SAME twelve commits, re-walked on 09/05, reads a median
-   within-commit spread of **25.63%** against the 09/04 corpus's **3.51%** — **7.30x** — and the
-   09/04 corpus is the one `scripts/kernel_delta_budget.txt` is derived from
-   (`user_cost_budget.py --readings NEW --baseline docs/kernel-delta-history-2026-09-04.jsonl`).
-   ⛔ This is a finding about the GATE and it is independent of every candidate: whatever quantity
-   ends up gated, a budget calibrated on an unrepresentatively quiet afternoon is tighter than the
-   instrument supports on an ordinary one.
-   ⚠️ ⛔ **AND IT IS NOT A LICENCE TO WIDEN.** Re-deriving the budgets from the noisier corpus would
-   be deriving the allowance from a measurement of contention, which is the same defect one level
-   out. Two readings of two days are not a distribution over days.
-   [[feedback-widening-a-gate-needs-a-second-source]] [[feedback-a-single-reading-is-about-its-run]]
+9. ⛔⛔ **WITHDRAWN THE SAME EVENING IT WAS FILED — "the budgets rest on a day 7.30x quieter" was
+   an artefact of a 14-reading CONTENDED partial corpus (D151).**
+   Filed at 21:0x off the interrupted walk (n=42 unit-readings, one of them taken at load 98) and
+   posted on the bus TWICE as "already firm". The completed 24-reading walk over the same twelve
+   commits reads **4.82% against the 09/04 corpus's 3.51% — 1.37x, not 7.30x.**
+   ⇒ the shipped budgets do NOT rest on an unrepresentatively quiet afternoon. There is nothing to
+   act on here, and the row is kept only so the withdrawal is as findable as the claim.
+   🔑 **I called a number firm off a partial corpus while my own tool's comment beside it said "one
+   extra pair of days, not a distribution over days."** The discipline was written down and not
+   applied to the sentence I was writing at the time.
+   [[feedback-a-single-reading-is-about-its-run]] [[feedback-ungated-prose-overclaims]]
 
 10. **A post-flight orphan check, and a contention count in every reading (D151).** The stamp half
     is DONE — `conditions()` now counts `lean`/`lake` processes whose cwd is OUTSIDE this repository
