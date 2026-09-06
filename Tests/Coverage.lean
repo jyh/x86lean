@@ -644,6 +644,124 @@ theorem memory_window_margin_is_fixed :
     (preStates 1 8).all (fun s =>
       s.mem.read 0x1ff0 == 0xA0 && s.mem.read 0x2008 == 0xB8) = true := by decide
 
+/-! ### ⭐⭐ THE PRE-STATE'S FIXED ADDRESSES, MADE CHECKABLE (2026-09-06, row ES item 3)
+
+These four registers and two segment bases are the only addresses `mkPre` fixes,
+and until now every claim about them was a COMMENT: *"RBX and RSP are fixed so
+the memory windows mean the same thing in every vector"*, *"`fsBase + 0x28 =
+0x2000`"*, *"forty bytes apart, so no width overlaps the other, and one step in
+EITHER direction stays inside the watched window"*.
+
+⛔ THE REASON TO CONVERT THEM NOW IS NOT TIDINESS.  The hardware co-simulation
+fork (`docs/COSIM-DESIGN.md` §7.2) turns on whether these addresses can be MOVED:
+both `0x1fe0` and `0x7fe0` are below the 0x10000 floor that Linux AND Windows put
+under a user mapping, so a hardware runner either lowers a sysctl (Linux only) or
+relocates — and relocation is a rewrite of ~200 literal sites in which `0x8000`
+is BOTH the stack pointer AND the 16-bit sign boundary of the `adversarial`
+sweep.  A blind rename would silently change WHAT IS TESTED while appearing to
+change only WHERE IT RUNS.
+
+⇒ ⭐ AND MY OWN FIRST ANSWER WAS THE MORE EXPENSIVE HALF.  §7.7 recommended
+NAMING the anchors — turning the literals into `def`s — and naming is not what
+buys the safety, because a renamed constant is still one edit away from a wrong
+relocation and nothing would say so.  What buys it is a THEOREM that reads the
+anchors OUT OF THE PRE-STATES and states their relationship to `windows`: get a
+relocation wrong afterwards and the KERNEL says so, whether the addresses are
+literals or names.  The names cost kernel time in a `decide`-hot fold; the
+theorems cost none of the hot path and are strictly stronger.
+⇒ 🔑 A REFACTOR AND AN ASSERTION ARE NOT TWO ROUTES TO THE SAME PLACE — the
+assertion is what makes the refactor SAFE, so it is the half to buy first, and
+the half to buy if only one is bought.
+
+⚠️ Every one of these reads the anchors from `preStates`.  A list of the six
+addresses written out here would be a COPY of `mkPre`, not a reading of it, and
+two copies of one fact agree exactly when both are wrong. -/
+
+/-- ⭐⭐ EVERY ADDRESS `mkPre` FIXES LANDS IN A WATCHED WINDOW, with its widest
+access fitting.  `segmentedAddressesLandInAWatchedWindow` says this of the eight
+SEGMENTED vectors' computed addresses; nothing said it of the anchors themselves,
+so `rsi`, `rdi` and the two segment bases were resting on a comment.
+
+⚠️ Eight bytes for every anchor, which is STRICTER than the truth for the narrow
+accesses — the direction a bound may err in. -/
+theorem anchors_land_in_a_watched_window :
+    ((preStates 1 8).all (fun s =>
+      [s.regs.rsi, s.regs.rbx, s.regs.rdi, s.regs.rsp,
+       s.fsBase + 0x28, s.gsBase + 0x28].all (fun a =>
+        windows.any (fun w =>
+          w.base ≤ a && a + 8 ≤ w.base + BitVec.ofNat 64 w.len)))) = true := by
+  decide
+
+/-- ⭐⭐⭐ AND EACH ANCHOR SITS AT A DECLARED OFFSET FROM ITS WINDOW'S BASE — OR
+AT A DECLARED DEPARTURE FROM ONE.  This is the theorem that makes a relocation
+two numbers: change the two `windows` bases and every fixed address must follow
+by exactly these offsets, or this goes red.
+
+⛔⛔ MY FIRST VERSION OF THIS THEOREM WAS FALSE AND THE KERNEL SAID SO, which is
+the whole reason it is worth having.  I wrote it as a property of `mkPre` and
+then quantified it over `preStates` — **a superset**.  Four of these states are
+built by `mkStringPtr` and deliberately put RSI and RDI at width boundaries
+(`0x1fff`/`0x7fff`, `0x2000`/`0x8000`), because P1 batch 15 needed a string
+pointer that CROSSES one.
+⇒ 🔑 A CLAIM ABOUT ONE CONSTRUCTOR, ASSERTED OVER A LIST THAT SEVERAL
+CONSTRUCTORS FEED, IS A CLAIM ABOUT THE WRONG SUBJECT — and the direction it
+fails in is the loud one only because a kernel was checking.  Written as prose it
+would have read as true, because `mkPre` really does fix those registers.
+
+⭐ AND THE REPAIR IS STRONGER THAN THE CLAIM I MEANT TO MAKE.  Rather than
+narrowing the subject back to `mkPre`, the departures are NAMED: RSI and RDI may
+be the anchor **or** one of the two boundary values, each written as an offset
+from a window base so it relocates with everything else.  A NEW constructor that
+quietly moves an anchor to some fourth value now goes red here, which the
+`mkPre`-only version would have permitted in silence.
+
+⛔ THE `| _ => false` ARM IS LOAD-BEARING.  A wildcard returning `true` would
+make the whole claim vacuous the day `windows` grows a third entry — the shape
+whose gaps all fall the silent way — so a changed window COUNT fails here rather
+than passing by not applying. -/
+theorem anchors_are_declared_offsets_or_declared_departures :
+    ((preStates 1 8).all (fun s =>
+      match windows with
+      | [d, k] =>
+          -- Never moved by any constructor in this file.
+          s.regs.rbx == d.base + 0x20 && s.regs.rsp == k.base + 0x20
+            && s.fsBase == d.base - 0x08 && s.gsBase == d.base + 0x08
+          -- Moved, deliberately, by `mkStringPtr` and to exactly these two
+          -- width boundaries — one in each window.
+            && (s.regs.rsi == d.base + 0x08
+                || s.regs.rsi == d.base + 0x1f || s.regs.rsi == d.base + 0x20)
+            && (s.regs.rdi == d.base + 0x30
+                || s.regs.rdi == k.base + 0x1f || s.regs.rdi == k.base + 0x20)
+      | _ => false)) = true := by
+  decide
+
+/-- ⭐ AND THE TWO SEGMENT BASES REACH THE OPERANDS THEY WERE CHOSEN TO REACH.
+`mkPre`'s note says *"`fsBase + 0x28 = 0x2000` and `gsBase + 0x28 = 0x2010` — the
+two swept operands in the data window"*, and that sentence is the entire reason
+the FS and GS cases address anything meaningful.  A base edited to a plausible
+neighbour would leave both segment vectors reading margin bytes, which both
+models would render identically.
+
+⚠️ THE GS HALF IS STATED ABOUT THE ADDRESS, NOT ABOUT RDI, and that is the same
+correction as above rather than a stylistic choice: `0x2010` is where the swept
+operand LIVES, and RDI merely points there in the states `mkPre` builds.  My
+first version compared `gsBase + 0x28` to `s.regs.rdi` and the kernel refuted it
+on the two string-boundary states — where RDI is somewhere else on purpose and
+the operand has not moved at all. -/
+theorem segment_bases_reach_their_declared_operands :
+    ((preStates 1 8).all (fun s =>
+      match windows with
+      | [d, _] => s.fsBase + 0x28 == d.base + 0x20 && s.gsBase + 0x28 == d.base + 0x30
+      | _ => false)) = true := by
+  decide
+
+/-- ⚠️ AND THE TWO BASES DIFFER, which is what makes FS and GS distinguishable at
+all.  `mkPre`'s note argues it — *"with one base for both, a model that read GS's
+base for an FS access would agree in every case"* — and an argument is not a
+gate. -/
+theorem segment_bases_are_distinct :
+    ((preStates 1 8).all (fun s => s.fsBase != s.gsBase)) = true := by decide
+
 /-- ⭐ SOME VECTOR PUTS A MEMORY OPERAND IN A `cmp` DESTINATION.  This is the
 shape a `cmp` that writes its result back is invisible without — the harness
 selftest's hard arm was run with these vectors deleted and caught NOTHING
