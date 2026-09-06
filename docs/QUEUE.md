@@ -122,6 +122,28 @@ qualifier.
    resting on one resolved pair is not a second source. **Do not gate on it before that.**
    [[feedback-widening-a-gate-needs-a-second-source]] [[feedback-a-claim-the-vectors-cannot-distinguish]]
 
+   ⭐⭐⭐ **D155 (2026-09-05) — THE WINDOW LIFTS THE FIRST HALF OF THAT BLOCKER, AND REFUTES THE 7.65.**
+   `scripts/unfolding_calibration.py` (selftest 7 arms, control first, 5 distinct arms catching a
+   plant) reads the SAME walks over WINDOWS instead of adjacent pairs — the join is exact, the same
+   twelve commits in the same order, checked before computing. Resolution rises from **1 of 11 at
+   k=1 to 4 of 4 at k=8**, so the calibration has dozens of windows instead of one.
+   ⛔⛔ **AND THE CONSTANT MOVES BY HALF AS IT STOPS FILTERING ITS OWN EVIDENCE**: 7.65 at k=1 (one
+   surviving window), then 2.55/3.23/3.30 entering at k=3-4, settling at **2.39-4.12, median 3.38**
+   over the k>=8 rows where EVERY window resolves and nothing is selected.
+   ⇒ **D148's 7.65 is the k=1 number, ~2x the unselected value; a budget set from it would have been
+   twice too generous.** A ratio computed only over the windows that RESOLVED is computed over the
+   windows with the biggest deltas, and a single value carries no denominator to say so. The tool
+   prints the resolved FRACTION beside every ratio and marks the rows where it is 1.0.
+   ⛔ **THE SECOND SOURCE STILL DOES NOT CONFIRM — SO THIS ITEM STAYS SHUT.** The loaded night never
+   reaches full resolution (0 of 1 at k=11), spans **-5.90 to +37.05**, and carries **6 sign
+   inversions of 106** where kernel time falls while unfoldings rise (the quiet night: 0 of 96).
+   Machine independence remains unmeasured; there is no second machine.
+   ⭐ Scored over the SAME resolved set (p90/p10, lower better): **ku 2.66 / 5.42 · heartbeats
+   INCOHERENT (p10 negative) · the per-batch null 11.02 / 26.94**. The null is what the merge gate's
+   own budget assumes, so the counter predicts kernel cost 4-5x better than the allowance the
+   repository currently gates on. One selftest arm exists so the scoring CAN lose, and it does.
+   ⚠️ The ten unselected windows OVERLAP and are not ten independent observations.
+
    ### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
    The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and
    `user` is 2× `real`: **Lean elaborates this file in PARALLEL and every gated number is a per-task

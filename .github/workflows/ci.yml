@@ -226,6 +226,18 @@ jobs:
       - name: Deterministic-cost rewriter, diagnostics parser and sign statistic
         run: python3 scripts/deterministic_cost.py --selftest
 
+      # QUEUE item 4b (D155): the same counter, calibrated over WINDOWS instead of
+      # adjacent pairs. Its load-bearing rule is that a ratio computed only over
+      # the windows that RESOLVED is computed over the windows with the biggest
+      # deltas — so the tool reports the resolved FRACTION beside every ratio and
+      # marks the rows where it is 1.0. The arms plant that selection and require
+      # the k=1 ratio to sit above the unselected one.
+      # ⛔ One arm exists so the scoring can lose: on a corpus where cost really is
+      # per-batch, the NULL must beat the counter. Without it, "ku beats the null"
+      # would be a fact about the comparison rather than about the counter.
+      - name: Unfolding calibration — the selection rule and the null, driven red
+        run: python3 scripts/unfolding_calibration.py --selftest
+
       # QUEUE item 4c (D148): `scripts/threads_ab.py` measures whether the gated
       # number's variance is an artefact of Lean's own within-module parallelism.
       # The MEASUREMENT needs a quiet box and does not belong in CI; its parse

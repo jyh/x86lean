@@ -9592,3 +9592,104 @@ the decision note in front of them.
 ⚠️ **Twelve of the twenty-three units are FLOOR-BOUND on this window** (`allow` exactly 12.0 = 2 x 6),
 so more than half the table cannot distinguish the two spellings at all — the same blind half §2
 measured at ~48% across the whole walk.
+
+## D155 — QUEUE item 4b: the window turns one resolved pair into dozens, and D148's calibration constant turns out to be a SELECTION, roughly twice the unselected value
+
+D148 left item 4b blocked by a sentence of its own: *"no budget has been derived: a calibration
+resting on ONE resolved pair is not a second source. Do not gate on it before that."* On the gate's
+own band the kernel reference resolved **1 of 11 adjacent pairs**, and `ms per 1k unfoldings` was
+therefore the single value **7.65**.
+
+D154's drift gate supplies what was missing at no cost: a k-batch window's delta grows with k against
+a band that does not, so windows resolve where adjacent pairs refuse. `scripts/unfolding_calibration.py`
+reads the SAME committed walks over windows instead of pairs. Selftest **7 arms, control first, 5
+distinct arms catching a plant**. The join is exact — the deterministic-cost walk and both
+kernel-delta walks cover the same twelve commits in the same order, checked before anything was
+computed — and counters are flattened by `kd.units_of`'s own partition so a ratio's numerator and
+denominator describe the same quantity.
+
+### 1. ⭐⭐⭐ THE RATIO FALLS BY HALF AS THE WINDOW STOPS FILTERING ITS OWN EVIDENCE
+
+Quiet night (09/04), module `Tests.Coverage`, the denominator D148 used:
+
+```
+   k   cases  resolved  frac   ratios (ms per 1k unfoldings)
+   1      11         1  0.09   [7.65]                            <- D148's single value
+   2      10         3  0.30   [7.65 8.50]
+   3       9         4  0.44   [2.55 3.32 5.43 8.50]             <- low values start entering
+   4       8         6  0.75   [2.55 3.23 3.30 3.34 5.93 5.93]
+   8       4         4  1.00   [3.19 3.26 3.51 3.99]   ← UNSELECTED
+   9       3         3  1.00   [2.39 3.79 4.12]        ← UNSELECTED
+  10       2         2  1.00   [3.22 3.89]             ← UNSELECTED
+  11       1         1  1.00   [3.18]                  ← UNSELECTED
+```
+
+⛔⛔ **A RATIO COMPUTED ONLY OVER THE WINDOWS THAT RESOLVED IS COMPUTED OVER THE WINDOWS WITH THE
+BIGGEST DELTAS.** At k=1 exactly one window clears its band — necessarily the one with the largest
+|delta| relative to it — and it reads 7.65. As k rises and the band stops dominating, the newly
+admitted windows carry LOW ratios and the median falls by half. **At k>=8 every window resolves, so
+nothing is filtered at all**, and the calibration sits at **2.39 - 4.12, median 3.38**.
+
+⇒ **D148's 7.65 is the k=1 number and is roughly 2x the unselected value. A budget set from it would
+have been about twice too generous.** The reading was not wrong; it was a reading of the one case
+that survived a filter correlated with the quantity being measured — and nothing in its output said
+so, because a single value carries no denominator.
+🔑 **The resolved FRACTION is the only thing that distinguishes a calibration from a selection**, so
+the tool prints it beside every ratio and marks the rows where it is 1.0.
+[[feedback-a-landed-corpus-cannot-measure-detection]] [[feedback-read-what-the-instrument-measured]]
+
+⚠️ **The ten unselected windows are not ten independent measurements.** Over twelve commits the
+k=8..11 windows overlap heavily and share most of their span, so they are closer to one or two
+independent observations wearing ten names. The tightness of [2.39 … 4.12] is weaker evidence than
+its spread suggests. [[feedback-two-readings-are-not-two-witnesses]]
+
+### 2. ⛔ THE SECOND SOURCE STILL DOES NOT CONFIRM IT — SO THE ITEM STAYS SHUT
+
+The loaded night (09/05, load ~12) **never reaches full resolution** — 0 of 1 at k=11 — and its
+ratios span **-5.90 to +37.05**, with **6 sign inversions of 106** resolved cases where kernel time
+falls while unfoldings rise. The quiet night has **0 of 96**.
+
+```
+  quiet  night, UNSELECTED (k>=8)    2.39 - 4.12, 10 windows, median 3.38
+  loaded night, best case (k=8)      3.96 - 13.23, 3 of 4 windows, NEVER unselected
+```
+
+⇒ The blocker's first half is LIFTED — dozens of resolved windows instead of one. Its second half is
+NOT: two nights on ONE box disagree by more than a budget's margin would tolerate, and machine
+independence remains unmeasured because there is no second machine (Actions refuses every job on this
+account for billing). **Do not gate on it.** The item's status is unchanged; what changed is that its
+reason is now measured instead of assumed, and its headline constant is known to be inflated.
+
+### 3. THE COUNTER BEATS THE NULL, AND THE NULL IS THE ONE THE GATE CURRENTLY USES
+
+D148's head-to-head was scored on a borrowed denominator. All three predictors are now scored over
+exactly the same resolved windows. A predictor is good if its per-window ratio is CONSTANT, so the
+figure of merit is p90/p10, lower better:
+
+```
+                                  09/04 (quiet)   09/05 (loaded)
+  ms per 1k unfoldings (ku)            2.66            5.42
+  ms per 1k heartbeats  (hb)        INCOHERENT      INCOHERENT     (p10 negative)
+  ms per BATCH  (the null)            11.02           26.94
+```
+
+⭐ **The null is not a straw man: `ms per batch` is exactly what the merge gate's per-batch budget
+assumes.** Beating it by 4.1x / 5.0x is the claim that a ku-based allowance would predict kernel cost
+better than the allowance this repository currently gates on. Heartbeats stay incoherent — D146's
+refutation reproduced, this time on a shared denominator.
+
+⛔ **And one selftest arm exists so that the scoring can LOSE.** On a synthetic corpus where cost
+really is per-batch and the counter is noise, the NULL must win; it does. Without that arm, "ku beats
+the null" would be a fact about the comparison rather than about the counter.
+[[feedback-score-the-null-model]] [[feedback-refute-a-proxy-with-a-plant]]
+
+### 4. ⛔ TWO OF MY OWN ARMS WERE WRONG, AND BOTH FAILED CLOSED
+
+1. The control asserted the recovered constant was **5.0** on a corpus whose true constant was
+   **5000** — my construction multiplied by 1000 twice. The arm was wrong, the tool was right, and it
+   went red on the first run.
+2. The null arm CRASHED rather than failing: an incoherent spread returns `None`, and `None < float`
+   raises. A comparison that throws is not a failed assertion — it stops the remaining arms from
+   running at all. `None` now compares as infinitely bad.
+🔑 Both defects were in the ARMS, not the subject, for the second batch running. A harness that only
+ever confirms is the one to distrust; these two ran red before anything green was believed.
