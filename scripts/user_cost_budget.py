@@ -241,7 +241,8 @@ REAL_COMMITS = ["144e9a3", "4f6766b", "76cb51b", "3769ea0", "0f929e3", "320cb45"
 # [[feedback-a-control-can-share-the-blind-spot]]
 def _fake_rows(level_ms, noise_ms, level_user, noise_user,
                step_ms=1.0, step_user=None, spike_at=None,
-               spike_ms=0.0, spike_user=0.0, lonely_unit=False):
+               spike_ms=0.0, spike_user=0.0, lonely_unit=False,
+               reexport_unit=False):
     """Two sweeps over six real commits, with the noise AND the signal placed by
     hand.  `step_*` is the per-commit increment — the SIGNAL — so a fixture can
     make the candidate carry the whole change (`step_user == step_ms`) or be
@@ -267,6 +268,15 @@ def _fake_rows(level_ms, noise_ms, level_user, noise_user,
                               "real_s": (level_user + sgn * noise_user / 2.0 + i * step_user
                                          + (spike_user if (spike_at is not None and i >= spike_at) else 0.0)) / 1000.0}},
             })
+            if reexport_unit:
+                # ⛔ a pure re-export module: it type-checks NOTHING, so the
+                # SHIPPED arm reads 0.0 ms, while the candidate still records the
+                # CPU the `lean` process burned importing. Without this unit no
+                # fixture can tell "the candidate cannot express it" apart from
+                # "the shipped arm has no base", which is the pair that gave two
+                # different inexpressible counts in one report.
+                rows[-1]["modules"]["R"] = 0.0
+                rows[-1]["cpu"]["R"] = {"user_s": 0.2, "sys_s": 0.0, "real_s": 0.2}
             if lonely_unit and sweep == 0:
                 # ⛔ a unit present in ONE sweep only: it has a LEVEL but no
                 # measurable noise, which is the gap the floor default used to
@@ -333,13 +343,19 @@ def selftest():
     # ⛔ ARM 4 — A UNIT THE CANDIDATE CANNOT EXPRESS IS NAMED.  The real corpus's
     # `@decl` units have no per-process CPU and never will; a silent omission
     # would report agreement about units nobody measured.
-    rows = _fake_rows(1000.0, 100.0, 1000.0, 10.0)
+    rows = _fake_rows(1000.0, 100.0, 1000.0, 10.0, reexport_unit=True)
     for r in rows:
         r["decls"] = {"M": {"memDestSweep": 400.0}}
     rc, out = _run_on(rows)
+    # ⚠️ AND THE TWO PLACES THAT COUNT THEM MUST AGREE.  COVERAGE said 4 and the
+    # MDR table said 6 on the real corpus, because "the candidate cannot express
+    # this" and "the SHIPPED arm reads 0 ms here" were wearing one label. Two
+    # numbers for one fact in one report is a defect even when both are printed.
     arm(rc == 0 and "NOT EXPRESSIBLE: M @decl memDestSweep" in out
-        and "NOT EXPRESSIBLE: M @residue" in out,
-        "a gated unit the candidate cannot express is NAMED, not omitted")
+        and "NOT EXPRESSIBLE: M @residue" in out
+        and "INTERNAL DISAGREEMENT" not in out,
+        "a gated unit the candidate cannot express is NAMED, not omitted — and "
+        "COVERAGE's count agrees with the MDR table's")
 
     # ⛔ ARM 5 — THE RULE IS THE SHIPPED ONE.  Stub `kdh.budget_info` and require
     # the DERIVED BUDGETS table to move.  A docstring naming a delegate reads AS
@@ -800,7 +816,8 @@ def main():
               f"both arms move by the same milliseconds.")
     print(f"   {'unit':<40} {'SHIPPED':>11} {'cand RAW':>11} {'Δu/Δms':>8} "
           f"{'cand CORR':>11}   verdict")
-    wins = {"SHIPPED": 0, "CANDIDATE": 0, "tie": 0, "n/a": 0, "unknown": 0}
+    wins = {"SHIPPED": 0, "CANDIDATE": 0, "tie": 0, "n/a": 0, "unknown": 0,
+            "no-base": 0}
     for u in sorted(shipped_units):
         mdr = {}
         for name in (SHIP, CAND):
@@ -809,8 +826,19 @@ def main():
         a, b = mdr[SHIP], mdr[CAND]
         ratio = tr.get(u)
         corr = (b / abs(ratio)) if (b is not None and ratio) else None
-        if a is None or b is None:
+        # ⛔ TWO DIFFERENT FACTS WERE WEARING ONE LABEL, and the tell was that
+        # this table said "cannot express 6" while COVERAGE above said 4.  The
+        # other two are `Tests` and `X86`: pure re-export modules that type-check
+        # NOTHING, so the SHIPPED arm's level is 0.0 and a percentage budget on it
+        # is meaningless — the CANDIDATE expresses them perfectly well (a `lean`
+        # process still burns CPU importing).  Reporting that as a failure of the
+        # candidate is an under-claim against the candidate, and an under-claim
+        # looks like modesty.  [[feedback-under-claims-are-unpoliced]]
+        if b is None:
             v, key = "candidate CANNOT express this unit", "n/a"
+        elif a is None:
+            v, key = ("the SHIPPED arm reads 0 ms here (a re-export module) — "
+                      "no percentage budget exists to compare against"), "no-base"
         elif corr is None:
             v, key = "⚠️ no transfer ratio — UNDECIDED", "unknown"
         elif corr < a * 0.95:
@@ -828,7 +856,13 @@ def main():
     print(f"\n   ⇒ over {len(shipped_units)} gated units: candidate better on "
           f"{wins['CANDIDATE']}, WORSE on {wins['SHIPPED']}, tied on {wins['tie']}, "
           f"UNDECIDED for want of a transfer ratio {wins['unknown']}, "
-          f"cannot express {wins['n/a']}.")
+          f"cannot express {wins['n/a']}, shipped arm has no base "
+          f"{wins['no-base']}.")
+    # ⚠️ the two counts must agree, and they did not until the row above split.
+    if wins["n/a"] != len(missing):
+        print(f"   ⛔ INTERNAL DISAGREEMENT: COVERAGE named {len(missing)} "
+              f"inexpressible unit(s), this table counted {wins['n/a']}. One of "
+              f"the two is wrong.")
 
     # ── 6b. SIGNAL TRANSFER: DOES THE CANDIDATE HEAR A REAL CHANGE? ────────
     # ⭐⭐⭐ MDR PRICES SENSITIVITY FROM THE BUDGET.  This measures it directly,
