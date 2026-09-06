@@ -74,7 +74,7 @@ holds this literal and that table together.
 counts what a disassembler PRINTS.  ⛔ `pshufw` is the same opcode's FOURTH
 prefix (none) and is NOT a row: it takes MMX operands and this model has no MMX
 register file, so a row for it would claim a form the model cannot execute. -/
-theorem roster_size_is_146 : rosterSize = 146 := by decide
+theorem roster_size_is_152 : rosterSize = 152 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -93,7 +93,7 @@ THIS literal — a number Lean proves equal to `vectors.length` — rather than
 counting the table itself and possibly getting it wrong. -/
 def vectorCount : Nat := vectors.length
 
-theorem vector_count_is_985 : vectorCount = 985 := by decide
+theorem vector_count_is_1000 : vectorCount = 1000 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -133,6 +133,45 @@ exhaustiveness check.** It is now quantified over `VMovKind.all`, which
 `vmov_kinds_are_all_listed` holds to the TYPE, so the aligned/unaligned split is
 a claim about every kind there is and a new one cannot pass unanswered.
 [[feedback-a-citation-is-an-ungated-claim]] [[feedback-under-claims-are-unpoliced]] -/
+theorem vhalf_are_all_listed : ∀ h : VHalf, VHalf.all.contains h = true := by
+  intro h; cases h <;> decide
+
+theorem vquad_are_all_listed : ∀ k : VQuadKind, VQuadKind.all.contains k = true := by
+  intro k; cases k <;> decide
+
+/-- ⭐⭐ P2 BATCH 36 — THE FOUR HALF-MOVE SPELLINGS ARE FOUR DISTINCT NAMES, stated
+over the TYPES rather than over four literals someone remembered to write.  With
+`vhalf_are_all_listed` and `vquad_are_all_listed` above, a new half or a new
+spelling cannot be added without answering this. -/
+theorem quad_mnemonics_are_distinct :
+    ((VHalf.all.flatMap fun h => VQuadKind.all.map (quadMnemonic h)).eraseDups.length == 4)
+      = true := by decide
+
+/-- ⭐⭐⭐ P2 BATCH 36 — THE CLAIM THE DIFFERENTIAL CANNOT MAKE: the spelling is
+ARCHITECTURALLY INERT.  `VQuadKind` is the mandatory prefix, the prefix selects
+only the MNEMONIC, and so `step` must give the same answer for both members of a
+pair at every state.
+
+⛔⛔ NO VECTOR CAN WITNESS THIS, and that is why it is a theorem.  No differential
+vector tests a spelling against its sibling, so a model that decoded `66 0f 12` as
+`movlps` would score IDENTICALLY on every case in the table — the same hole batch
+35 recorded for `movapd`, and batch 19's reason for proving the `andps`/`pand`
+identity rather than testing it.  The bytes are held apart by
+`scripts/check_encodings.py`; the SEMANTICS is held together here.
+
+⚠️ MEASURED ON K BEFORE IT WAS WRITTEN, not derived from the prefix rule:
+`movlps`/`movlpd` and `movhps`/`movhpd` are bit-identical in all four positions of
+`vendor/k-x86-64`'s rules (D160). -/
+theorem quad_spelling_is_inert (h : VHalf) (k k' : VQuadKind)
+    (d : XmmReg) (ea : Ea) (len : Nat) (s : Cpu) :
+    step ⟨.vloadq h k d ea, len⟩ s = step ⟨.vloadq h k' d ea, len⟩ s := by
+  cases h <;> rfl
+
+theorem quad_store_spelling_is_inert (h : VHalf) (k k' : VQuadKind)
+    (ea : Ea) (r : XmmReg) (len : Nat) (s : Cpu) :
+    step ⟨.vstoreq h k ea r, len⟩ s = step ⟨.vstoreq h k' ea r, len⟩ s := by
+  cases h <;> rfl
+
 theorem vmov_alignment_is_by_kind :
     (VMovKind.all.filter VMovKind.aligned == [.dqa, .aps, .apd]
      && VMovKind.all.filter (fun k => !k.aligned) == [.dqu, .ups, .upd]
@@ -764,6 +803,11 @@ def isMemDestVector (v : Vec) : Bool :=
     -- the store writes eight bytes of memory, the load does not.
     | .vloadq .. => false
     | .vstoreq .. => true
+    -- ⭐ P2 BATCH 36, added in the SAME COMMIT as the constructors, which is what
+    -- this function's own doc comment asks for.  NONE of the three is a memory
+    -- destination: the cross moves have no memory operand at all, and
+    -- `vddupM`'s `Ea` is its SOURCE — the distinction `vshiftm` established.
+    | .vmovhl .. | .vddupR .. | .vddupM .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
     -- does not even READ.
@@ -1051,7 +1095,8 @@ theorem memDestSweep :
           -- ⭐ P2 BATCH 20 — `movhps` joins in the SAME direction, for the same
           -- vocabulary reason: its store shape is `m,x`, which the loose rule
           -- cannot see because `x` is not a general-purpose register.
-          ("movhps", false)])
+          ("movhps", false), ("movhpd", false), ("movlps", false),
+          ("movlpd", false)])
      && tableP0.all (fun r => !claimsMemDest r || hasMemDestVector r.mnemonic)
      && ((memDestMnemonics.filter (fun m =>
             !(tableP0.any (fun r => r.mnemonic == m && claimsMemDest r)))) == [])) = true := by
@@ -1140,7 +1185,8 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- fails as a mismatched TYPE, several hundred lines from the edit.
          ("movapd", false), ("movupd", false),
          ("movss", false), ("movsd", false),
-         ("movhps", false)] := by
+         ("movhps", false), ("movhpd", false), ("movlps", false),
+          ("movlpd", false)] := by
   have h := memDestSweep; simp only [Bool.and_eq_true, beq_iff_eq] at h; exact h.1.1
 
 /-- ⭐ EVERY MEMORY-DESTINATION CLAIM IN THE TABLE IS BACKED BY A VECTOR THAT

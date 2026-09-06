@@ -2487,6 +2487,63 @@ def vectors : List Vec :=
     , bytes := "0f176b08"
     , instr := ⟨.vstoreq .hi .ps { base := some .rbx, disp := 8 } .x5, 4⟩ }
 
+  -- ⭐⭐ P2 BATCH 36 — THE REST OF THE HALF-MOVES AND THE TWO CROSS MOVES.
+  --
+  -- ⛔ EVERY `bytes` BELOW CAME FROM `clang -target x86_64-unknown-linux-gnu`,
+  -- disassembled; none was typed.  That is a THIRD independent measurement of
+  -- QUEUE 2b's encoding table, and it agreed with both earlier ones exactly.
+  --
+  -- ⚠️ THE UNALIGNED DISPLACEMENT IS FOUR AND NOT EIGHT, for D119's reason: an
+  -- 8-byte displacement is still 8-byte aligned and so cannot tell `no alignment
+  -- rule at all` from `an 8-byte rule`.
+  --
+  -- ⭐ WHAT MAKES THESE VECTORS WITNESSES rather than decoration: `xmmPattern`
+  -- gives every register a non-zero value in BOTH halves and fills per register
+  -- INDEX, so xmm0 ≠ xmm1 in every pre-state.  A model that zeroes the preserved
+  -- half, or that reads the destination's own half instead of the source's,
+  -- differs here — on a table that zeroed either half both would score 0 and the
+  -- run would report green about a model that destroys half a register.
+  , { id := "movlps_load_m", mnemonic := "movlps", asm := "movlps (%rbx), %xmm0"
+    , bytes := "0f1203", instr := ⟨.vloadq .lo .ps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "movlps_load_unal4", mnemonic := "movlps", asm := "movlps 4(%rbx), %xmm0"
+    , bytes := "0f124304"
+    , instr := ⟨.vloadq .lo .ps .x0 { base := some .rbx, disp := 4 }, 4⟩ }
+  , { id := "movlps_store_m", mnemonic := "movlps", asm := "movlps %xmm0, (%rbx)"
+    , bytes := "0f1303", instr := ⟨.vstoreq .lo .ps { base := some .rbx } .x0, 3⟩ }
+  , { id := "movlps_store_x5", mnemonic := "movlps", asm := "movlps %xmm5, 8(%rbx)"
+    , bytes := "0f136b08"
+    , instr := ⟨.vstoreq .lo .ps { base := some .rbx, disp := 8 } .x5, 4⟩ }
+  -- ⚠️ THE `pd` SPELLINGS ARE HERE FOR THE ENCODING GATE, NOT FOR THE
+  -- DIFFERENTIAL.  They are bit-identical to their `ps` siblings on K, so a
+  -- model that decoded `66 0f 12` as `movlps` would score the same on every
+  -- case; `check_encodings.py` compares the BYTES, and the `66` is the byte.
+  , { id := "movlpd_load_m", mnemonic := "movlpd", asm := "movlpd (%rbx), %xmm0"
+    , bytes := "660f1203", instr := ⟨.vloadq .lo .pd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movlpd_store_m", mnemonic := "movlpd", asm := "movlpd %xmm0, (%rbx)"
+    , bytes := "660f1303", instr := ⟨.vstoreq .lo .pd { base := some .rbx } .x0, 4⟩ }
+  , { id := "movhpd_load_m", mnemonic := "movhpd", asm := "movhpd (%rbx), %xmm0"
+    , bytes := "660f1603", instr := ⟨.vloadq .hi .pd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movhpd_store_m", mnemonic := "movhpd", asm := "movhpd %xmm0, (%rbx)"
+    , bytes := "660f1703", instr := ⟨.vstoreq .hi .pd { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ THE CROSS MOVES.  Two registers each, and %xmm5 as a second source for
+  -- D90's reason: a model with FIXED register fields is bit-identical to the
+  -- real one on a table where every vector moves xmm1 into xmm0.
+  , { id := "movhlps_x1", mnemonic := "movhlps", asm := "movhlps %xmm1, %xmm0"
+    , bytes := "0f12c1", instr := ⟨.vmovhl .lo .x0 .x1, 3⟩ }
+  , { id := "movhlps_x5", mnemonic := "movhlps", asm := "movhlps %xmm5, %xmm0"
+    , bytes := "0f12c5", instr := ⟨.vmovhl .lo .x0 .x5, 3⟩ }
+  , { id := "movlhps_x1", mnemonic := "movlhps", asm := "movlhps %xmm1, %xmm0"
+    , bytes := "0f16c1", instr := ⟨.vmovhl .hi .x0 .x1, 3⟩ }
+  , { id := "movlhps_x5", mnemonic := "movlhps", asm := "movlhps %xmm5, %xmm0"
+    , bytes := "0f16c5", instr := ⟨.vmovhl .hi .x0 .x5, 3⟩ }
+  , { id := "movddup_r", mnemonic := "movddup", asm := "movddup %xmm1, %xmm0"
+    , bytes := "f20f12c1", instr := ⟨.vddupR .x0 .x1, 4⟩ }
+  , { id := "movddup_m", mnemonic := "movddup", asm := "movddup (%rbx), %xmm0"
+    , bytes := "f20f1203", instr := ⟨.vddupM .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movddup_m8_x5", mnemonic := "movddup", asm := "movddup 8(%rbx), %xmm5"
+    , bytes := "f20f126b08"
+    , instr := ⟨.vddupM .x5 { base := some .rbx, disp := 8 }, 5⟩ }
+
   -- ⭐⭐ P2 BATCH 22 — PREFETCHh.  466 instructions (nta 315, t0 151).
   --
   -- ⚠️⚠️ WHAT THESE VECTORS PROVE IS NARROW, AND SAYING SO IS THE POINT.  The form

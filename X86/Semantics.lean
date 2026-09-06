@@ -655,6 +655,35 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .hi => (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
       | .lo => (s.writeMem .q a ((s.getXmm src).setWidth 64)).setRip nr
 
+  -- ⭐⭐ MOVHLPS / MOVLHPS (SDM Vol. 2B) — ONE RULE, because they are duals: `d`
+  -- is the half of the DESTINATION written, and the half READ is the OPPOSITE.
+  -- ⚠️ CONFIRMED ON K, not read off the manual: `movhlps R1,R2` is
+  -- `R2[0,192) ++ R1[128,192)` and `movlhps R1,R2` is
+  -- `R2[0,128) ++ R1[192,256) ++ R2[192,256)` — MSB-indexed, so `[128,192)` is
+  -- the xmm HIGH quadword and `[192,256)` the low.
+  | .vmovhl d dst src =>
+      let cur := s.getXmm dst
+      let sv  := s.getXmm src
+      match d with
+      -- movhlps: dst[63:0] ← src[127:64]; dst[127:64] PRESERVED.
+      | .lo => (s.setXmm dst ((((cur >>> 64).setWidth 64).setWidth 128 <<< 64)
+                              ||| ((sv >>> 64).setWidth 64).setWidth 128)).setRip nr
+      -- movlhps: dst[127:64] ← src[63:0]; dst[63:0] PRESERVED.
+      | .hi => (s.setXmm dst ((((sv.setWidth 64).setWidth 128) <<< 64)
+                              ||| (cur.setWidth 64).setWidth 128)).setRip nr
+
+  -- ⭐⭐ MOVDDUP (SDM Vol. 2B) — BOTH halves receive the source's LOW quadword,
+  -- so this is the one form of the batch that PRESERVES NOTHING.
+  | .vddupR dst src =>
+      let lo := ((s.getXmm src).setWidth 64).setWidth 128
+      (s.setXmm dst ((lo <<< 64) ||| lo)).setRip nr
+  | .vddupM dst ea =>
+      let a := ea.addr s nr
+      -- ⚠️ `readMem .q`, the same 64-bit path the half-moves use: a second route
+      -- to the same bytes is a place for the two to disagree.
+      let m := (s.readMem .q a).setWidth 128
+      (s.setXmm dst ((m <<< 64) ||| m)).setRip nr
+
   -- ⭐⭐ PREFETCHh (SDM Vol. 2B) — ADVANCE RIP AND DO NOTHING ELSE.
   --
   -- ⛔ THE ADDRESS IS NOT COMPUTED HERE, and that is deliberate rather than an

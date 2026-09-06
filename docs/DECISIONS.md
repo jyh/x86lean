@@ -10296,3 +10296,187 @@ plausibly the §4 gate repair — `vmov_alignment_is_by_kind` now quantifies ove
 `VMovKind.all` by `cases` rather than four literals — and not the `movapd`/`movupd`
 semantics at all. That attribution is UNMADE and is the first thing to measure next.
 [[feedback-a-single-reading-is-about-its-run]] [[feedback-a-total-cannot-see-its-parts]]
+
+## D160 — QUEUE 2b, step 1: the field change that was priced before the semantics, and an inherited hazard that was about a different kind of thing
+
+QUEUE 2b's first order was not to write semantics. It was: *"⛔ THIS MODIFIES `vloadh`/
+`vstoreh`, WHICH IS THE EXPENSIVE PART AND MUST BE PRICED FIRST. Two fields on an existing
+constructor blew three unrelated record proofs before."* This note records what the price
+turned out to be, and — more usefully — that the citation behind the fear was about a
+different kind of object than the one it was pointed at.
+
+### 1. THE INHERITED HAZARD WAS ABOUT A RECORD; THE SUBJECT IS AN INDUCTIVE
+
+`[[feedback-a-state-field-costs-every-record-proof]]` records a real and expensive event:
+two `BitVec 64` fields on **`Cpu`** took three inherited `bsf`/`bsr` frame lemmas over the
+heartbeat limit at once, because those proofs closed by `rfl` over the whole record and a
+whole-record `rfl` costs O(fields).
+
+`vloadh` is not a record. It is a **constructor of the `Op` inductive**, where a `match` is
+compiled and a field is not walked by a defeq check over every sibling. The two cost shapes
+are not the same, and the tree already carried the evidence: **`vload`/`vstore` have carried
+a `VMovKind` field since batch 3 and cost nothing for it.** The queue's warning was worth
+obeying — the price was unmeasured and the fallback was real — but the *mechanism* it named
+could not have applied, and reading it as though it did would have bought the duplicated-rule
+fallback for a hazard that was never in this position.
+⇒ 🔑 **A CITED HAZARD IS A CLAIM ABOUT A MECHANISM, AND A MECHANISM HAS A SUBJECT.** Check
+that the new subject is the same KIND of thing before paying the remedy.
+[[feedback-inherited-diagnosis-is-a-hypothesis]]
+
+### 2. WHAT WAS MEASURED, AND WHY IT IS A COMMIT OF ITS OWN
+
+`abe83b8` changes the fields and NOTHING else: `vloadh`/`vstoreh` become `vloadq`/`vstoreq`
+carrying `VHalf` (which quadword is written, hence which is PRESERVED) and `VQuadKind` (the
+mandatory prefix, i.e. the spelling); the same six vectors are respelled `.hi .ps`; the
+mnemonic they produce is still `movhps`; the roster, the coverage table and the differential
+do not move. Splitting it from the semantics is what makes the reading a fact about the
+FIELDS rather than about the fields and six mnemonics together.
+
+`kernel_delta.py --base e6dd9c6 --head abe83b8 --repeats 3`, passes alternated, one session:
+
+```
+  X86.Syntax                       244.0 → 239.0    -5.0  ±7.6     budget  45.6   ok
+  X86.Semantics                     14.6 →  14.2    -0.4  ±1.8     budget   6.0   ok
+  X86.Theorems                    1020.0 → 990.0   -30.0  ±263.8   budget 186.7   UNMEASURABLE
+  X86.Value                         28.8 →  25.9    -2.9  ±15.3    budget   6.1   UNMEASURABLE
+  Tests.Coverage @decl vectorCoverage 1950 → 1890  -60.0  ±1689.2  budget 306.1   UNMEASURABLE
+  Tests.Coverage @residue          15780 → 15870   +90.0  ±2900.7  budget 2193.4  UNMEASURABLE
+  (every other unit ok)                                                     overall rc 3
+```
+
+### 3. THE VERDICT IS `UNMEASURABLE`, AND THAT IS NOT THE SAME AS "EXPENSIVE"
+
+Four units refused. Every one of them refused because its BAND straddles, never because its
+delta exceeds: the largest positive delta in the whole table is `@residue` at **+90 ms
+against a budget of 2,193**, and three of the four refusing units have **negative** point
+estimates. The two modules the commit actually EDITS — `X86.Syntax`, where the constructors
+live, and `X86.Semantics`, where the rule does — are both **decided `ok`**, and both read
+NEGATIVE.
+
+⭐ And the unit where the inherited hazard would have appeared if it applied is
+`X86.Theorems`, the module holding the frame lemmas. It read **-30.0 ms**. The hazard did
+not materialise, in the one place it would have shown.
+
+⛔ WHAT THIS RUN DOES NOT SAY. It does not say the commit is under budget on those four
+units; a band that straddles is a statement about the run. It is not quoted as a pass, the
+allowance was not widened to make it one, and the design decision below rests on the two
+DECIDED units plus the sign of the third, not on the refusals.
+
+⚠️ AND THE BOX CANNOT BE QUIETED INTO AGREEING. Loads during the passes ran 9.28–18.66 on
+14 cpus, and most of that is the profiling build itself saturating the machine. "Wait for a
+quiet box" is not available to an instrument whose own measurement is the load — which is
+why the tool's first suggestion is repeats, and why the standing order is to RE-RUN a
+refusal rather than wait on one. A second run at 5 repeats a side was taken for exactly that
+reason.
+
+⇒ **THE DESIGN DECISION: arm A, the two-field constructors. The duplicated-rule fallback is
+NOT taken.** Nothing in the measurement priced it dear, and the fallback's cost — two more
+constructors and a second copy of a rule that must agree with the first — is the shape this
+repository has repeatedly recorded as a drift waiting to happen.
+
+### 3b. ⭐⭐⭐ THE RE-RUN, AND WHAT IT SAYS ABOUT THE INSTRUMENT RATHER THAN THE COMMIT
+
+The standing order is to RE-RUN a refusing `kernel_delta` before waiting for a quiet box.
+Obeyed here at 5 repeats a side, same two revs, same box, forty minutes later:
+
+```
+  UNIT                                  run 1 (3 reps)          run 2 (5 reps)
+  Tests.Coverage @decl vectorCoverage   ±1689.2  UNMEASURABLE   ±51.6    ok
+  Tests.Coverage @residue               ±2900.7  UNMEASURABLE   ±2239.3  ok
+  X86.Theorems                          ±263.8   UNMEASURABLE   ±48.8    ok
+  X86.Value                             ±15.3    UNMEASURABLE   ±2.1     ok
+  Tests.Coverage @decl memDestSweep     ±105.0   ok             ±1244.4  UNMEASURABLE
+```
+
+**Every unit that refused in run 1 passes in run 2, and the ONE unit run 1 decided is the
+only one run 2 refuses.** The two refusing sets are disjoint. Nothing about the commit
+changed between them — the revs were pinned — and nothing about the box changed that was
+under anyone's control.
+
+⇒ 🔑 **A REFUSAL IS NOT A PROPERTY OF THE UNIT ANY MORE THAN OF THE BOX.** The bank already
+recorded that the BAND is not a property of the box (one unit moved 20× in a day off an
+identical base). This is the next term in the same law: which units refuse is re-rolled every
+run, so "unit X is the noisy one" is a sentence about a run, and a plan built on it —
+tightening X, excluding X, buying repeats *for X* — is aimed at last night's dice.
+
+⛔⛔ AND THE TOOL'S OWN REPEAT PROJECTION IS PART OF THE SAME PROBLEM. Run 1 told me
+`vectorCoverage` needed **~64 repeats a side** to decide. **Five decided it**, with a band 33×
+smaller. In the other direction `memDestSweep`, decided at three repeats, now claims to need
+29. The projection is a `1/sqrt(n)` extrapolation from the single run's own band — so it
+inherits exactly the instability it is being used to plan around, and it always names a
+price. ⇒ **A PROJECTION COMPUTED FROM AN UNSTABLE ESTIMATE IS NOT A PLAN, IT IS THAT ESTIMATE
+WEARING A UNIT OF WORK.** Quoting "~64 repeats" as a reason to give up on a unit would have
+been the cheapest possible way to abandon a measurement that in fact cost one more run.
+[[feedback-a-projection-with-no-floor-always-names-a-price]]
+[[feedback-a-single-reading-is-about-its-run]]
+
+⭐ WHAT THE TWO RUNS SAY TOGETHER ABOUT THE COMMIT, WHICH IS THE QUESTION THEY WERE ASKED:
+across both, **every one of the 22 units has been read `ok` in at least one run**, no unit
+produced a delta near its budget in either, and the largest positive delta anywhere in either
+table is +90 ms against a 2,193 ms budget. That is as strong as this instrument gets, and it
+is stated as two runs rather than as one pass.
+
+### 4. K DECIDED THE SEMANTICS, AND IT CONFIRMED THE DESIGN'S LOAD-BEARING CLAIM
+
+`vendor/k-x86-64` carries all eight forms of the group. Decoding its 256-bit parent
+(MSB-indexed `extractMInt`, so `[128,192)` is the xmm HIGH quadword and `[192,256)` the low):
+
+```
+  movlps/movlpd xmm,m64   parent[0,192) ++ Mem64                    LOW  written, high preserved
+  movhps/movhpd xmm,m64   parent[0,128) ++ Mem64 ++ parent[192,256) HIGH written, low  preserved
+  movlps/movlpd m64,xmm   stores parent[192,256)                    the LOW  quadword
+  movhps/movhpd m64,xmm   stores parent[128,192)                    the HIGH quadword
+  movhlps R1,R2   R2[0,192) ++ R1[128,192)      dst LOW  <- src HIGH, dst high preserved
+  movlhps R1,R2   R2[0,128) ++ R1[192,256) ++ R2[192,256)  dst HIGH <- src LOW, dst low preserved
+  movddup R1,R2   R2[0,128) ++ R1[192,256) ++ R1[192,256)  BOTH halves <- src's LOW
+```
+
+⭐⭐ The `ps` and `pd` members are **bit-identical in all four positions**. That is the
+entire justification for `VQuadKind` being a KIND rather than a pair of constructors, and it
+is now MEASURED on a third source rather than asserted from the prefix rule. It also
+re-confirms the inherited batch-20 `movhps` rule against a source **batch 20 did not use** —
+batch 20 cited the SDM and the oracle.
+⚠️ NO DIFFERENTIAL VECTOR CAN SEE THIS CLAIM, because no vector tests a spelling against its
+sibling. It is batch 19's `.andps`-routed-to-OR shape and it belongs in a THEOREM, which is
+step 2's work and is named in the queue there.
+
+⚠️ AND THE `.lo`/`.pd` BRANCHES ARE WRITTEN BUT NOT WITNESSED. No vector in `abe83b8`
+reaches them. They are confirmed by K, which is a reading; they become tested when step 2
+adds the vectors. An unreached branch is not a gated branch.
+[[feedback-an-implied-assertion-is-not-a-second-gate]]
+
+### 5. THREE DEFECTS OF MINE, AND THE FIRST IS A FAMILY RATHER THAN AN INCIDENT
+
+1. **`kernel_delta.py --help` is not a help flag — it started a real measurement.** This is
+   the previous head's `ci_local.py --help` defect (its §5.4) in a sibling script, one seat
+   later. Two scripts now share the shape, so it is a FAMILY: this repository's tools parse
+   `sys.argv` for their own flags and treat everything else as "run". I killed it, verified
+   the tree clean and nothing detached, and read the CLI out of `main()` instead.
+   ⇒ 🔑 **NAMING A DEFECT IS NOT SWEEPING FOR ITS SIBLINGS**, and the sweep that was owed
+   here was owed to a note that had already been written.
+   [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+2. **I recomputed the batch's demand with a second rule and got six wrong numbers.** Summing
+   `miss_all` over all ten census columns read `movhlps` 1,661 where the queue says 1,341,
+   and five more the same way. The queue is RIGHT: `p2_roster.demand()` pools only columns
+   whose declared class is `asm`, *"never with the compiler columns, and never with the
+   kernel"*. Excluding the three compiler columns reproduces all six figures exactly. This
+   is the D143 `probe_bucket` shape — a second filter sharing a tool's PURPOSE and not its
+   RULE — and I wrote it one step after reading the previous head's §4 warning about writing
+   exactly that. ⛔ The tell was there and I nearly walked past it: `movhps` read **0**, and
+   a mnemonic with 3,672 instructions of demand reading zero is either a broken probe or a
+   fact — here it was a fact (`miss_all` is UNCOVERED demand, and `movhps` is built), but it
+   was the thing that made me check the rule. [[feedback-two-readings-are-not-two-witnesses]]
+3. **A wrapper's exit code masked the tool's.** The background job reported *"completed
+   (exit code 0)"* while `kernel_delta` had returned **3**: my command ended in a `tail`, and
+   a compound command exits with its LAST member. The rc was only visible because the same
+   line had appended `echo "rc=$?"` to the log. ⇒ a run whose verdict lives in a return code
+   must capture that code AT the call, or the notification reports the formatting step.
+
+### 6. A THIRD MEASUREMENT OF THE ENCODING TABLE, UNASKED FOR AND FREE
+
+QUEUE 2b's table was measured twice. Assembling the fifteen forms step 2 needs with
+`clang -target x86_64-unknown-linux-gnu` and disassembling makes a third, and it agrees
+exactly. LLVM's own operand comments carry the semantics as well — `movhlps: xmm0 =
+xmm1[1],xmm0[1]`, `movlhps: xmm0 = xmm0[0],xmm1[0]`, `movddup: xmm0 = xmm1[0,0]` — which is
+a fourth witness to the half-selection rules, from the assembler rather than from K or the
+SDM.

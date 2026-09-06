@@ -1253,6 +1253,40 @@ inductive Op where
   zeroes, and it is caught only by a pre-state whose low quadword is non-zero. -/
   | vloadq  (h : VHalf) (k : VQuadKind) (dst : XmmReg) (ea : Ea)
   | vstoreq (h : VHalf) (k : VQuadKind) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐ P2 BATCH 36 — `movhlps` / `movlhps`, THE TWO CROSS HALF-MOVES.
+  `0f 12` and `0f 16` at **mod=11**; 1,341 and 340 instructions.
+
+  ⛔⛔ THESE ARE NOT THE REGISTER FORMS OF `vloadq`, AND THAT IS THE WHOLE POINT.
+  The ModRM `mod` field selects the MNEMONIC here, not merely the operand shape:
+  `0f 12` is `movlps` at memory and `movhlps` at a register, which are different
+  instructions moving different halves. That is why `vloadq`/`vstoreq` have no
+  `x,x` shape — its absence is the ENCODING and not a convenience.
+
+  ⭐ ONE FIELD AND ONE RULE FOR BOTH, because they are duals: `d` is the half of
+  the DESTINATION that is written, and the half READ is always the OPPOSITE one.
+  `d = .lo` is `movhlps` (dst[63:0] ← src[127:64]); `d = .hi` is `movlhps`
+  (dst[127:64] ← src[63:0]). Writing them as two constructors would be two copies
+  of one rule that must agree.
+
+  ⭐ THE PRESERVED HALF IS THE CONTENT, as it is for `vloadq`: each writes one
+  half and leaves the other alone, so the plausible wrong model is the one that
+  reads the destination's OWN half rather than the opposite one. -/
+  | vmovhl (d : VHalf) (dst src : XmmReg)
+  /-- ⭐⭐ P2 BATCH 36 — `movddup`, register source (`f2 0f 12`, mod=11). 506
+  instructions.
+
+  ⛔ IT IS THE ONE FORM OF THIS BATCH THAT PRESERVES NOTHING: both halves of the
+  destination are written, and both get the SOURCE'S LOW quadword. So the
+  plausible wrong model inverts for it — for every other form in the batch the
+  mistake is ZEROING the half that should be preserved, and here it is
+  PRESERVING a half that should be written. -/
+  | vddupR (dst src : XmmReg)
+  /-- ⭐⭐ P2 BATCH 36 — `movddup`, memory source (`f2 0f 12`, mod≠11).
+
+  ⚠️ TWO CONSTRUCTORS AND NOT AN OPERAND, for `vload`/`vstore`'s reason: an
+  operand type admitting either would let the model spell shapes no encoding
+  produces. `movddup` is the only member of this batch with BOTH forms. -/
+  | vddupM (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐ P2 BATCH 22 — `PREFETCHh` (SDM Vol. 2B). 466 instructions across
   `prefetchnta` (315) and `prefetcht0` (151).
 
@@ -1614,6 +1648,9 @@ def opOperands : Op → List Operand
   -- `movhps` names an address exactly as `vload`/`vstore` do, so the segment and
   -- lock gates see it with no new rule.
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => [.mem ea]
+  -- ⚠️ Two register files and no address: the cross moves name no `Ea` at all.
+  | .vmovhl .. | .vddupR .. => []
+  | .vddupM _ ea => [.mem ea]
   -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
   | .prefetch _ ea => [.mem ea]
   -- No memory operand at all: two register files, no address.
@@ -1748,6 +1785,8 @@ def Op.anyLocked : Op → Bool
   | .vmov .. | .vbin .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
+  | .vmovhl .. | .vddupR .. => false
+  | .vddupM _ ea => ea.lock
   | .prefetch _ ea => ea.lock
   | .vmovmsk .. => false
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
@@ -1892,6 +1931,11 @@ def Op.mnemonic : Op → String
   -- ⚠️ THE SPELLING IS THE (half, prefix) PAIR, and both directions of a given
   -- pair print the same name: `0f 16` and `0f 17` are both `movhps`.
   | .vloadq h k _ _ | .vstoreq h k _ _ => quadMnemonic h k
+  -- ⚠️ THE HALF NAMES THE MNEMONIC, and the two names are crossed relative to
+  -- it: writing the LOW half is `movhlps`, because the SOURCE half is the high
+  -- one and the mnemonic is named for the move, not for the destination.
+  | .vmovhl d _ _ => match d with | .lo => "movhlps" | .hi => "movlhps"
+  | .vddupR .. | .vddupM .. => "movddup"
   | .prefetch h _ => h.mnemonic
   | .vmovmsk .. => "pmovmskb"
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
@@ -2088,6 +2132,11 @@ def rosterP0 : List String :=
    -- `movdqa`/`movdqu` these are one mnemonic at two opcodes (`0f 16`/`0f 17`),
    -- so a disassembler prints the same name for each and the roster has one row.
    "movhps",
+   -- ⭐⭐ P2 BATCH 36: the rest of the half-move family.  SIX rows, because the
+   -- roster counts what a disassembler PRINTS and the ModRM `mod` field selects
+   -- the MNEMONIC here — `0f 12` prints `movlps` at memory and `movhlps` at a
+   -- register, which is a different instruction and not a different shape.
+   "movhpd", "movlps", "movlpd", "movhlps", "movlhps", "movddup",
    -- ⭐⭐ P2 BATCH 22: TWO rows for one semantics — the roster counts what a
    -- disassembler PRINTS, and `0f 18` prints a name per `/reg` value.  Only the
    -- two with measured demand are modelled; see `PrefetchHint`.

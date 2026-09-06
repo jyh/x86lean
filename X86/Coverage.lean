@@ -686,6 +686,33 @@ acc,imm · rh"
       shapes := "x,m · m,x",
       note := "the HIGH quadword only; the low half is PRESERVED, not zeroed; 8-byte operand, so no alignment rule (measured, D119)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHPS" }
+  -- ⭐⭐ P2 BATCH 36 — THE REST OF THE HALF-MOVES.  `movhps` above was one of
+  -- seven forms sharing two opcodes; the `mod` field selects which.  Six rows,
+  -- because the roster counts what a disassembler PRINTS.
+  , { mnemonic := "movhpd",
+      shapes := "x,m · m,x",
+      note := "movhps with a 66 prefix; the HIGH quadword, low half PRESERVED — bit-identical to movhps on K, a spelling the encoding gate holds apart",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHPD" }
+  , { mnemonic := "movlps",
+      shapes := "x,m · m,x",
+      note := "the LOW quadword; the high half is PRESERVED, not zeroed; 8-byte operand, so no alignment rule",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVLPS" }
+  , { mnemonic := "movlpd",
+      shapes := "x,m · m,x",
+      note := "movlps with a 66 prefix; bit-identical to it on K",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVLPD" }
+  , { mnemonic := "movhlps",
+      shapes := "x,x",
+      note := "0f 12 at mod=11, where the SAME opcode at memory is movlps; dst LOW <- src HIGH, dst high PRESERVED",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHLPS" }
+  , { mnemonic := "movlhps",
+      shapes := "x,x",
+      note := "0f 16 at mod=11, where the SAME opcode at memory is movhps; dst HIGH <- src LOW, dst low PRESERVED",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVLHPS" }
+  , { mnemonic := "movddup",
+      shapes := "x,x · x,m",
+      note := "the only form of the group that PRESERVES NOTHING: both halves receive the source's low quadword",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDDUP" }
   -- ⭐⭐ P2 BATCH 22 — PREFETCHh.  TWO rows, ONE semantics: the `/reg` field
   -- picks the locality hint, the hint is architecturally invisible, and the
   -- roster counts what a disassembler PRINTS.  ⚠️ `m` here is neither read nor
