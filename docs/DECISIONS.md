@@ -11610,3 +11610,42 @@ tolerance hides.
 and the wrong value is the one nothing else will ever check. Compute the expectation FROM THE PLANT,
 in the arm, and assert it tightly enough that the storage format is part of what is being asserted.
 [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]]
+
+## D173 — the two tools whose answer to an unrecognised request was to start their most expensive path
+
+Typed at 11:0x by a relit head, from this repository's own bank, which names the job by that
+spelling: `python3 scripts/ci_local.py --list-jobs`. There is no such flag — the real one is
+`--jobs`. `arg()` scans for flags it knows and ignores the rest, so `job` fell to its default
+`"build"` and **the tool began running all 33 steps of the build job** in answer to a request for a
+listing. The same shape is in `kernel_delta.py`, where the default path is worse: `--help` fell
+through to the merge gate and started profiling two worktrees.
+
+⇒ 🔑 **`--help` AND A LISTING FLAG ARE THE FIRST THINGS A RELIT HEAD TYPES, AND THEY ARE THE TWO
+PLACES WHERE "IGNORE WHAT YOU DO NOT UNDERSTAND" SPENDS THE MOST.** A tool that answers an
+unrecognised request by doing its most expensive thing is worse than one that refuses, because the
+refusal is instant and the misfire is not — and the misfire looks like the tool working.
+
+Both now refuse, naming what they saw and what they know, and both suggest the flag that was
+probably meant. `--help` prints the docstring. **Positionals are refused too**: neither tool takes
+one, so a bare word is a mistyped flag or a glob that expanded.
+
+### ⛔ AND THE GUARD'S OWN RED-FIRST ARM FOUND THE HALF I HAD MISSED
+
+The first form skipped the argument after a value-taking flag and never checked that one was there.
+`kernel_delta.py --repeats` — flag present, value absent — **passed the guard**, and `arg()` then
+returned the DEFAULT `3`. A flag whose value went missing is the same silent-default defect one
+level in, and it would have run a measurement at a setting nobody asked for while printing nothing.
+Both tools now refuse a dangling value-taking flag and say what the default would have been.
+
+The arms that matter are the two CONTROLS, not the refusals: `--repeats 6` and `--job build --to 7`
+must be ACCEPTED, and a value that itself looks like a flag (`--head --selftest`) must still be
+consumed as a value. A guard like this fails by being too strict, and that direction breaks correct
+invocations rather than announcing itself.
+
+### THE ARM IS WHERE THE TOOL IS NEVER OTHERWISE RUN
+
+`ci_local.py` is how every gate in the workflow is exercised on a developer box, and **CI never runs
+the runner** — it runs the steps directly. So its guard had no driver at all, and an inline block in
+`main()` has no callable surface to give one. `check_argv()` is a function, `ci_local.py --selftest`
+drives six arms over it, and the workflow now runs that selftest as a step of the `build` job.
+[[feedback-a-gate-with-no-callable-surface]]

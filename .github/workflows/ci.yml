@@ -117,6 +117,14 @@ jobs:
       - name: Shard partition gate (shards 1..6 name every selftest arm exactly once)
         run: lake env .lake/build/bin/x86lean-diff selftest-shards 6
 
+      # ⛔ THE LOCAL RUNNER'S ARGUMENT READER, DRIVEN RED (D173). `ci_local.py` is
+      # how every gate in this workflow is exercised on a developer box, and an
+      # unrecognised flag used to make it RUN `--job build` instead of answering.
+      # The guard is armed here because the runner itself is never run by CI, so
+      # nothing else would ever drive it.
+      - name: The local CI runner refuses an unknown flag instead of running a job
+        run: python3 scripts/ci_local.py --selftest
+
       - name: The CI matrix agrees with the shard count it passes
         run: python3 scripts/check_ci_shards.py
 
