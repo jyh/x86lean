@@ -182,16 +182,89 @@ qualifier.
    every budget in the repository from a second source. **4b (the kernel unfolding counter) is the
    only surviving candidate.**
 
-   ### 4f. ⭐⭐⭐ THE FINDING THAT OUTLIVES EVERY CANDIDATE (D152)
-   Pairs clearing the noise floor, over the project's whole twelve-commit history:
-   **MAX same-tree spread 0 of 102 · MEDIAN 49 of 102 · MIN 99 of 102.**
-   `Tests.Coverage`'s largest real batch delta is 1,700 ms against a same-tree spread of 600 ms
-   (median) to 2,600 ms (worst). ⇒ **the gate is trying to resolve changes THE SAME SIZE as its own
-   noise**, and whether a batch is "resolvable" is decided by which noise statistic is picked.
-   ⛔ Do not loosen the floor to escape this; UNDECIDED is the honest output.
-   ⇒ the repair may not be "which quantity" at all, but making the DELTA bigger relative to the
-   noise — more repeats, or gating an accumulated multi-batch drift rather than one batch. Neither
-   is priced.
+   ### 4f. ⭐⭐⭐ PRICED (D153) — the repair is the WINDOW and it is free; repeats SATURATE at n≈3-4
+   D152's finding — the gate resolves changes the size of its own noise — is priced on the one axis
+   both untried repairs move: **R = band / allowance** (`R < 1`: the instrument can see a change the
+   size of the change the gate is willing to PERMIT). Tool: `scripts/delta_repair_price.py`, which
+   IMPORTS the gate's own rules (selftest 10 arms, unplanted control first, 8 distinct arms catching
+   plants). Corpus: the TWO independent walks over the same twelve commits 23 h apart, plus 16
+   readings of one frozen tree (`docs/repeat-scaling-2026-09-05.jsonl`).
+   ```
+     median R over the 23 gated units    09/04 (load 4.5) 0.21    09/05 (load 12.3) 0.29
+     units that cannot resolve their allowance        0%                       18%
+   ```
+   ⚠️ The two nights disagree about whether the gate works — same trees, same instrument.
+
+   ⭐ **REPAIR B (accumulated multi-batch drift) — RECOMMENDED, free, and the only one that raises
+   resolution.** Over k=1→11 the allowance grows **11.4x / 11.2x** while the band moves only
+   **1.01x / 1.43x**, so R falls to **0.11x / 0.23x**. The loaded night's refusal rate falls
+   17% → 6% → 3% → 1% → 0% at k=1..5. It costs **no extra profiling** — the gate already reads two
+   trees, they are just further apart — and pays in LATENCY (caught k batches late) and ATTRIBUTION
+   (a window, not a commit).
+   ⛔ Its premise needed correcting and survives: the band is NOT k-independent (1.43x on the loaded
+   night — trees at the ends of a longer window differ in LEVEL and the spread travels with it).
+   The true claim is that the allowance grows an order of magnitude faster.
+   ⛔⛔ **Both walks return ZERO `OVER` at every k** (the twelve commits landed), so the corpus
+   measures REFUSAL and never DETECTION. The lever is demonstrated on a plant sized to the band in
+   closed form: a corpus over budget every batch is UNMEASURABLE at k=1 and k=2 and **CONVICTED
+   9 of 9 at exactly the predicted k=3**. [[feedback-an-implied-assertion-is-not-a-second-gate]]
+   ⚠️ Arithmetic limit, since the R numbers hide it: with the allowance SUMMED per step, the drift
+   gate cannot convict where the per-batch gate passes. Its power is entirely over what the
+   per-batch gate REFUSED (17% on the loaded night) ⇒ a SECOND gate beside the first, not a
+   replacement.
+   ⛔⛔ **THE CHEAP SPELLING IS REFUTED.** Caching the anchor instead of re-profiling it halves the
+   work and **manufactures 9 convictions the same-session comparison calls `ok`** (OVER 0 → 9;
+   UNMEAS 43 → 71) — regressions made out of the difference between two nights, judged by a band
+   that does not know the nights differ. Re-profile the anchor.
+
+   ⛔⛔ **REPAIR A IS NOT A RESOLUTION REPAIR — the spread SATURATES.** `repeats_to_decide` models
+   the band as falling like `1/sqrt(n)` without limit, so it always names a finite N. Measured on
+   16 readings of one frozen tree, `rms |d|` over all splits:
+   ```
+                              n=1     n=2     n=3     n=4     n=6
+     Tests.Coverage         585.9   326.7   104.4   104.1   109.5     <- flat from n=3
+     1/sqrt(n) would give   585.9   414.3   338.3   293.0   239.2
+     @decl vectorCoverage   131.3   105.0    25.4    16.2    17.0     <- flat from n=3
+     X86.Theorems           213.7   124.0    51.9    39.2     7.7     <- still falling
+   ```
+   n=2→3 falls FASTER than the model (the median starts rejecting outliers — this run has a 25,800
+   reading against a level of 23,800); past n≈3-4 it FLATTENS on the units with the most at stake.
+   **The projection cannot express a floor, so it keeps naming N for a question no N answers.**
+   ⛔ And its headline number is the wrong one anyway: the worst case on the 09/05 walk asks for
+   **587,413 repeats a side (32,210 h for one merge)** with a margin of **+4.4 ms against a budget
+   of 1,695.6** — a commit on its line, a fact about the commit, not the instrument. Margin-free:
+   the QUIET night needs **none**; the loaded night has 45 of 253 cases with R>=1, p90 = 19 a side
+   = 63 min a merge. ⇒ its price is set by the night, not the code.
+   ⛔ `repeats_to_decide` returns `max(n + 1, ceil(need))`, so it can never report "fewer than
+   three" or "none" — over an already-resolved corpus it prints a median of 3, the function's floor
+   wearing a price's clothes.
+
+   ⭐⭐ **What repeats DO buy is BAND HONESTY at small n** — on a frozen tree the true delta is 0, so
+   every `|d|` is the gate's own error (a nominal 2σ band should be exceeded ~4.6%):
+   ```
+       order        n    obs    |d| > band    worst |d|/band
+       block        2    273    35 (12.8%)             9.03
+       block        3    231    16 ( 6.9%)             1.89
+       block        4    189     8 ( 4.2%)             1.26
+       alternate    2    273    35 (12.8%)             7.58
+       alternate    4    189     7 ( 3.7%)             1.47
+   ```
+   The mechanism is serial DRIFT, not quantization (checked and refuted: the only exactly-zero bands
+   are `X86`/`Tests`, the content-free aggregators). Signature: `X86.Memory` base [13.0, 13.1] head
+   [11.4, 11.5] — each side tight, the sides 1.6 apart, tracking load 16 → 9 across the run.
+   ⛔ The gate's ALTERNATED order and a block split are INDISTINGUISHABLE at m=16 (12.8/12.8,
+   6.9/6.5, 4.2/3.7). Read at m=8 this looked like "alternation is worse at n=3 and n=4" on cells of
+   6 and 1 events; it is not.
+   ⚠️ n=2 runs in the history walks and in `--selftest-measure` (CI passes `--repeats 2`). The MERGE
+   gate defaults to 3 (`kernel_delta.py:1185`) and CI runs 6, so the gate itself sits inside
+   `delta_band_calibration.py`'s swept range — which starts at n=3 and draws i.i.d. Gaussian, and so
+   cannot see any of the above.
+
+   ⇒ **THE NEXT STEP, AND IT IS A BATCH, NOT A TACK-ON**: build the drift gate beside the per-batch
+   gate (anchor policy, summed accumulated allowance, its own red probes). Do NOT buy repeats for
+   resolution. NEITHER REPAIR IS BUILT — D153 prices them.
+   ⛔ Portability unmeasured, as for every candidate in item 4. One box, arm64. The frozen-tree run
+   is ONE session on ONE night and its n=6 column rests on five splits.
 
    ### 4e. ⛔⛔ 4d's DECIDING STATISTIC HAD A PREMISE, AND THE CONTROL BESIDE IT REFUTED IT (D151)
    "14.6x tighter" cannot decide a gate, because **a percentage of `user` is not a percentage of
