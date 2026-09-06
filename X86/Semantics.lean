@@ -535,12 +535,18 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   -- ⭐ THE UNPACKS: `a` is the DESTINATION and takes the low half of each pair.
   | .unpcklb => vunpack 8  false a b
   | .unpcklw => vunpack 16 false a b
-  | .unpckld => vunpack 32 false a b
-  | .unpcklq => vunpack 64 false a b
+  -- ⭐ P2 BATCH 37: the `ps`/`pd` spellings JOIN the arm they are identical to,
+  -- rather than copying it — batch 34's rule, and for its reason: a second
+  -- `vunpack 32 false a b` under another name would diverge the day one of them
+  -- is corrected.  `unpcklps` IS `punpckldq` at 32-bit lanes and `unpcklpd` IS
+  -- `punpcklqdq` at 64, decided on K's leaf sequence (the TEXT of two of the four
+  -- differs, by pure re-association) and confirmed by LLVM's disassembler.
+  | .unpckld | .unpcklps => vunpack 32 false a b
+  | .unpcklq | .unpcklpd => vunpack 64 false a b
   | .unpckhb => vunpack 8  true  a b
   | .unpckhw => vunpack 16 true  a b
-  | .unpckhd => vunpack 32 true  a b
-  | .unpckhq => vunpack 64 true  a b
+  | .unpckhd | .unpckhps => vunpack 32 true  a b
+  | .unpckhq | .unpckhpd => vunpack 64 true  a b
   -- ⭐⭐⭐ P2 BATCH 17 — THE PACKED COMPARES.  A lane becomes ALL ONES or all
   -- zeros; `-1` is `allOnes` at every width `vlanes` is called at here, exactly
   -- as it is in `vshiftLane`'s sign-fill arm.

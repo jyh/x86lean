@@ -32,7 +32,7 @@ declaration in CI.
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
   it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
   oracle. Single-threaded, one instruction at a time.
-- **Instructions.** 152 mnemonics in 1000 differentially tested forms, covering
+- **Instructions.** 157 mnemonics in 1010 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. Forty-seven of those
   mnemonics are SIMD (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar

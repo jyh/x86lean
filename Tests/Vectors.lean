@@ -2587,6 +2587,13 @@ def vectors : List Vec :=
     , bytes := "660fd7c1", instr := ⟨.vmovmsk .b .rax .x1, 4⟩ }
   , { id := "pmovmskb_x5_ecx", mnemonic := "pmovmskb", asm := "pmovmskb %xmm5, %ecx"
     , bytes := "660fd7cd", instr := ⟨.vmovmsk .b .rcx .x5, 4⟩ }
+  -- ⭐⭐ P2 BATCH 37 — MOVMSKPS, the same reduction at 32-bit lanes.  ⛔ NO r64
+  -- VECTOR, for `pmovmskb`'s reason and measured on THIS mnemonic: `%rax` gives
+  -- the identical `0f50c1`, so an r64 row would be this one under another name.
+  , { id := "movmskps_x1_eax", mnemonic := "movmskps", asm := "movmskps %xmm1, %eax"
+    , bytes := "0f50c1", instr := ⟨.vmovmsk .ps .rax .x1, 3⟩ }
+  , { id := "movmskps_x5_ecx", mnemonic := "movmskps", asm := "movmskps %xmm5, %ecx"
+    , bytes := "0f50cd", instr := ⟨.vmovmsk .ps .rcx .x5, 3⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
@@ -2736,6 +2743,14 @@ def vectors : List Vec :=
     , bytes := "660f62c1", instr := ⟨.vbin .unpckld .x0 .x1, 4⟩ }
   , { id := "punpcklqdq_xx", mnemonic := "punpcklqdq", asm := "punpcklqdq %xmm1, %xmm0"
     , bytes := "660f6cc1", instr := ⟨.vbin .unpcklq .x0 .x1, 4⟩ }
+  , { id := "unpcklps_xx", mnemonic := "unpcklps", asm := "unpcklps %xmm1, %xmm0"
+    , bytes := "0f14c1", instr := ⟨.vbin .unpcklps .x0 .x1, 3⟩ }
+  , { id := "unpckhps_xx", mnemonic := "unpckhps", asm := "unpckhps %xmm1, %xmm0"
+    , bytes := "0f15c1", instr := ⟨.vbin .unpckhps .x0 .x1, 3⟩ }
+  , { id := "unpcklpd_xx", mnemonic := "unpcklpd", asm := "unpcklpd %xmm1, %xmm0"
+    , bytes := "660f14c1", instr := ⟨.vbin .unpcklpd .x0 .x1, 4⟩ }
+  , { id := "unpckhpd_xx", mnemonic := "unpckhpd", asm := "unpckhpd %xmm1, %xmm0"
+    , bytes := "660f15c1", instr := ⟨.vbin .unpckhpd .x0 .x1, 4⟩ }
   , { id := "punpckhbw_xx", mnemonic := "punpckhbw", asm := "punpckhbw %xmm1, %xmm0"
     , bytes := "660f68c1", instr := ⟨.vbin .unpckhb .x0 .x1, 4⟩ }
   , { id := "punpckhwd_xx", mnemonic := "punpckhwd", asm := "punpckhwd %xmm1, %xmm0"
@@ -3020,6 +3035,14 @@ def vectors : List Vec :=
     , bytes := "660f6203", instr := ⟨.vbinm .unpckld .x0 { base := some .rbx }, 4⟩ }
   , { id := "punpcklqdq_m", mnemonic := "punpcklqdq", asm := "punpcklqdq (%rbx), %xmm0"
     , bytes := "660f6c03", instr := ⟨.vbinm .unpcklq .x0 { base := some .rbx }, 4⟩ }
+  , { id := "unpcklps_m", mnemonic := "unpcklps", asm := "unpcklps (%rbx), %xmm0"
+    , bytes := "0f1403", instr := ⟨.vbinm .unpcklps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "unpckhps_m", mnemonic := "unpckhps", asm := "unpckhps (%rbx), %xmm0"
+    , bytes := "0f1503", instr := ⟨.vbinm .unpckhps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "unpcklpd_m", mnemonic := "unpcklpd", asm := "unpcklpd (%rbx), %xmm0"
+    , bytes := "660f1403", instr := ⟨.vbinm .unpcklpd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "unpckhpd_m", mnemonic := "unpckhpd", asm := "unpckhpd (%rbx), %xmm0"
+    , bytes := "660f1503", instr := ⟨.vbinm .unpckhpd .x0 { base := some .rbx }, 4⟩ }
   , { id := "punpckhbw_m", mnemonic := "punpckhbw", asm := "punpckhbw (%rbx), %xmm0"
     , bytes := "660f6803", instr := ⟨.vbinm .unpckhb .x0 { base := some .rbx }, 4⟩ }
   , { id := "punpckhwd_m", mnemonic := "punpckhwd", asm := "punpckhwd (%rbx), %xmm0"

@@ -725,6 +725,27 @@ acc,imm · rh"
   , { mnemonic := "prefetcht0",
       shapes := "m", note := "as prefetchnta",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PREFETCHh" }
+  -- ⭐⭐ P2 BATCH 37 — the `ps`/`pd` unpack spellings.  FOUR rows and not four
+  -- notes about one row: the roster counts what a disassembler PRINTS, and these
+  -- are four names at four opcodes.  The semantics is the sibling's, exactly.
+  , { mnemonic := "unpcklps",
+      shapes := "x,x · x,m", note := "unpckldq's 32-bit interleave at 0f 14; identity proved, not vectored; D169",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKLPS" }
+  , { mnemonic := "unpckhps",
+      shapes := "x,x · x,m", note := "punpckhdq's 32-bit interleave at 0f 15; identity proved, not vectored; D169",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKHPS" }
+  , { mnemonic := "unpcklpd",
+      shapes := "x,x · x,m", note := "punpcklqdq's 64-bit interleave at 66 0f 14; identity proved, not vectored; D169",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKLPD" }
+  , { mnemonic := "unpckhpd",
+      shapes := "x,x · x,m", note := "punpckhqdq's 64-bit interleave at 66 0f 15; identity proved, not vectored; D169",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKHPD" }
+  -- ⭐⭐ P2 BATCH 37 — MOVMSKPS.  ONE row, for PMOVMSKB's reason and MEASURED
+  -- rather than inherited: `movmskps %xmm1,%eax` and `%rax` both give `0f50c1`.
+  , { mnemonic := "movmskps",
+      shapes := "r,x",
+      note := "bit i is the sign bit of 32-bit lane i; bits above 3 zero; D169",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVMSKPS" }
   -- ⭐⭐ P2 BATCH 23 — PMOVMSKB.  ONE row: the r32 and r64 spellings share an
   -- encoding (both assemble to 660fd7c1), so a disassembler prints one name.
   , { mnemonic := "pmovmskb",

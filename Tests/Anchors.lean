@@ -1847,4 +1847,47 @@ theorem shld_zero_count_writes_dest_and_no_flag :
     let w := step ⟨.dshift .shld .d (.reg .rax) .rcx (.imm8 0), 4⟩ s
     (w.regs.get .rax, w.flags, w.rip) = (0x0000ABCD, s.flags, 0x400004) := by decide
 
+/-! ## ⭐⭐ P2 BATCH 37 — MOVMSKPS, AND THE CONTROL THAT SAYS PMOVMSKB DID NOT MOVE
+
+`Op.vmovmsk` was built for `pmovmskb` alone and its lane count was a literal
+sixteen; batch 37 made both the count and the sign-bit offset come from
+`VMovMskKind.laneBits`.  A generalisation like that has TWO ways to be wrong — the
+new kind, and the old one — so the old kind is anchored here beside the new one,
+on the SAME source, and the two answers must differ. -/
+
+/-- The source, chosen so that neither a lane-order nor a lane-width error can
+hide: the four dword lanes have signs 1,0,1,0 from the top, and the sixteen byte
+lanes are NOT a palindrome.
+  lane 3 = 0x80000000 · lane 2 = 0x7fffffff · lane 1 = 0xffffffff · lane 0 = 1 -/
+private def s_movmsk : Cpu :=
+  (mk {} {} {} 0 Oracle.zero).setXmm .x1 0x800000007fffffffffffffff00000001
+
+/-- ⭐ MOVMSKPS: one sign bit per 32-bit lane, lane 0 in result bit 0.
+Signs from lane 3 down are 1,0,1,0, so the mask is `0b1010`.
+⚠️ DECIDED ON K FIRST: `movmskps_r32_xmm.k` reads bits 128/160/192/224 of the
+256-bit parent, which big-endian are xmm bits 127, 95, 63, 31. -/
+theorem movmskps_is_the_dword_sign_mask :
+    ((step ⟨.vmovmsk .ps .rax .x1, 3⟩ s_movmsk).regs.get .rax) = 0xA := by decide
+
+/-- ⭐⭐ THE CONTROL, IN THE SAME RUN AT THE SAME FIELD: `pmovmskb` on the SAME
+source must still give the PRE-BATCH-37 answer.  Bytes 15..0 have signs
+1000 0111 1111 0000, so the mask is `0x87F0`.  If the generalisation broke the
+byte lane count or the shift, this is what says so — and it fires ALONE, measured
+by planting `laneBits .b := 16` and watching only this and the derived-count
+theorem go red. -/
+theorem pmovmskb_survived_the_generalisation :
+    ((step ⟨.vmovmsk .b .rax .x1, 4⟩ s_movmsk).regs.get .rax) = 0x87F0 := by decide
+
+/-- ⭐ AND THE TWO MUST DISAGREE HERE, or both anchors above would be satisfied by
+one frozen answer and neither would be evidence about its own kind.
+[[feedback-a-probe-must-create-its-condition]] -/
+theorem movmsk_kinds_disagree_on_this_source :
+    ((step ⟨.vmovmsk .ps .rax .x1, 3⟩ s_movmsk).regs.get .rax)
+      ≠ ((step ⟨.vmovmsk .b .rax .x1, 4⟩ s_movmsk).regs.get .rax) := by decide
+
+/-- ⛔ THE LANE COUNT IS DERIVED FROM `laneBits`, so state what it derives TO.
+A third kind cannot be added without this line being read. -/
+theorem movmsk_lane_counts_are_derived :
+    (VMovMskKind.all.map (fun k => 128 / k.laneBits)) = [16, 4] := by decide
+
 end X86.Tests

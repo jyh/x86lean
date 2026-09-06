@@ -2824,6 +2824,17 @@ def wrongUnpackHalf (i : Instr) (s : Cpu) : Cpu :=
         | .unpckld => .unpckhd | .unpcklq => .unpckhq
         | .unpckhb => .unpcklb | .unpckhw => .unpcklw
         | .unpckhd => .unpckld | .unpckhq => .unpcklq
+        -- ⛔⛔ P2 BATCH 37 — THE FOUR NEW SPELLINGS ARE FLIPPED HERE TOO, and
+        -- adding them is not cosmetic.  The catch-all below would have taken
+        -- them, so this arm would have been SELECTED for the four new vectors
+        -- (their mnemonics contain `unpck`), RUN, and been bit-identical to the
+        -- good model on every one — scoring 0 and reading exactly like an arm
+        -- that was exercised and found nothing.  ⇒ 🔑 a catch-all is where a new
+        -- member goes to be silently exempted from the gate that covers its
+        -- family. [[feedback-a-declared-list-inherits-its-default]]
+        -- [[feedback-an-implied-assertion-is-not-a-second-gate]]
+        | .unpcklps => .unpckhps | .unpckhps => .unpcklps
+        | .unpcklpd => .unpckhpd | .unpckhpd => .unpcklpd
         | other => other
       step ⟨.vbin k' d s', i.len⟩ s
   | _ => step i s
@@ -2836,8 +2847,15 @@ def wrongUnpackOrder (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
   | .vbin k d s' =>
       match k with
+      -- ⛔ P2 BATCH 37 adds the four spellings HERE TOO.  This match names its
+      -- members and falls to `| _ => step i s` — the GOOD model — so an omitted
+      -- kind is not a compile error but a silently inert arm, the same defect as
+      -- `wrongUnpackHalf`'s catch-all one screenful up and found by grepping for
+      -- the shape rather than by noticing it.
+      -- [[feedback-naming-a-defect-is-not-finding-its-siblings]]
       | .unpcklb | .unpcklw | .unpckld | .unpcklq
-      | .unpckhb | .unpckhw | .unpckhd | .unpckhq =>
+      | .unpckhb | .unpckhw | .unpckhd | .unpckhq
+      | .unpcklps | .unpckhps | .unpcklpd | .unpckhpd =>
           -- swap the two operands: `vunpack` puts its FIRST argument low
           (s.setXmm d (vbinApply k (s.getXmm s') (s.getXmm d))).setRip
             (s.rip + BitVec.ofNat 64 i.len)

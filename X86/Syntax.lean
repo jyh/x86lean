@@ -319,6 +319,27 @@ inductive VBinKind where
   green run on them. -/
   | unpcklb | unpcklw | unpckld | unpcklq
   | unpckhb | unpckhw | unpckhd | unpckhq
+  /-- ⭐⭐ P2 BATCH 37 — THE `ps`/`pd` SPELLINGS OF FOUR UNPACKS.  Batch 34's
+  shape exactly: the SAME function at another opcode, so they join `vbinApply`'s
+  arm rather than copying it, and they are separate KINDS because the BYTES
+  differ (`0f 14` against `66 0f 62`).
+
+  ⛔⛔ THE IDENTITY WAS DECIDED ON K'S LEAF SEQUENCE, NOT ON ITS TEXT, AND THE
+  TEXT WOULD HAVE SAID SOMETHING ELSE.  Whitespace-normalised, the two `pd` pairs
+  are byte-identical and the two `ps` pairs DIFFER at char 122 of 345 — the
+  difference being pure RE-ASSOCIATION of `concatenateMInt`, which is associative
+  on bit strings.  Under the leaf-sequence normal form all four pairs are
+  identical and three controls (`unpcklps`/`unpckhps`, `unpcklpd`/`unpcklps`,
+  `punpckldq`/`punpcklqdq`) DIFFER.
+  ⇒ 🔑 a byte comparison over the four would have reported *two spellings, two new
+  semantics* — a self-consistent WRONG design with a ready-made `ps`/`pd`
+  explanation attached.  A comparison that fails on HALF a set invites a theory of
+  the half.  ⭐ A THIRD SOURCE agrees independently of K: LLVM's disassembler
+  prints the same operand comment for each pair (`unpcklps` and `punpckldq` both
+  `xmm0[0],xmm1[0],xmm0[1],xmm1[1]`).
+  [[feedback-a-generated-files-text-is-not-its-meaning]]
+  [[feedback-the-third-source-turns-a-disagreement-into-a-finding]] -/
+  | unpcklps | unpckhps | unpcklpd | unpckhpd
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 17 — THE PACKED COMPARES (SDM Vol. 2B,
   PCMPEQB/W/D and PCMPGTB/W/D).  They join `VBinKind` rather than taking a kind of
   their own, and the reason is that they ARE packed binary operations: two XMM
@@ -410,6 +431,10 @@ def VBinKind.mnemonic : VBinKind → String
   | .unpckld => "punpckldq" | .unpcklq => "punpcklqdq"
   | .unpckhb => "punpckhbw" | .unpckhw => "punpckhwd"
   | .unpckhd => "punpckhdq" | .unpckhq => "punpckhqdq"
+  -- P2 BATCH 37: four spellings of operations two lines above.  The BYTES differ,
+  -- so they are four roster rows; the semantics is shared by not branching.
+  | .unpcklps => "unpcklps" | .unpckhps => "unpckhps"
+  | .unpcklpd => "unpcklpd" | .unpckhpd => "unpckhpd"
   | .cmpeqb => "pcmpeqb" | .cmpeqw => "pcmpeqw" | .cmpeqd => "pcmpeqd"
   | .cmpgtb => "pcmpgtb" | .cmpgtw => "pcmpgtw" | .cmpgtd => "pcmpgtd"
   | .packuswb => "packuswb"
@@ -2248,7 +2273,16 @@ def rosterP0 : List String :=
    -- its bitwise members.  The partition is checked by reproducing the
    -- commission's own published 12/6,619, 2/898 and 26/29,408 from the census.
    "pandn", "andnps", "andnpd",
-   "andps", "andpd", "orps", "orpd", "xorps", "xorpd"]
+   "andps", "andpd", "orps", "orpd", "xorps", "xorpd",
+   -- ⭐⭐ P2 BATCH 37 — the `ps`/`pd` unpack spellings and the dword sign-mask.
+   -- The four unpacks are spellings of operations already here (held together by
+   -- `unpack_aliases_are_their_integer_siblings`, held apart by their bytes);
+   -- `movmskps` is a new KIND on `Op.vmovmsk`, the same reduction at 32-bit lanes.
+   -- ⛔ ONE row for `movmskps` and not two: its r32 and r64 spellings assemble to
+   -- the IDENTICAL bytes (`0f50c1`), measured on this mnemonic rather than
+   -- inherited from `pmovmskb`'s.
+   "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
+   "movmskps"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`
