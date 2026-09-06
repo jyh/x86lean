@@ -320,6 +320,17 @@ def analyse(path, decl_names):
 # shipped budgets and a candidate's is a difference between the QUANTITIES and
 # cannot be a difference between two implementations of the rule.
 # [[feedback-duplicate-born-in-agreement]] [[feedback-widening-a-gate-needs-a-second-source]]
+# ⭐ THE REGISTERED MULTIPLE, AS A FUNCTION, for the same reason `budget_info`
+# is one: item 4d's report prices each arm's MDR as `budget% x level`, and a `2.0`
+# typed there is a copy of this rule that agrees until someone re-registers at a
+# different multiple. One rule, every caller.
+# [[feedback-duplicate-born-in-agreement]]
+def registered_mult(need):
+    """The smallest multiple at which every batch in the window passes, floored
+    at 2.0 so the unit that BINDS the gate keeps headroom (see the note below)."""
+    return max(2.0, math.ceil(need * 10) / 10.0)
+
+
 def budget_info(rows, extract, decl_names):
     """(info, meta) for one quantity.  No file is written and nothing is gated."""
     order, per = [], {}
@@ -403,7 +414,7 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
     # STATED and larger, and the file prints both numbers and the margin between
     # them rather than describing a rule its own value does not follow.
     if mult is None:
-        mult = max(2.0, math.ceil(need * 10) / 10.0)
+        mult = registered_mult(need)
     if floor is None:
         # ⛔⛔ THE FIRST VERSION OF THIS RULE TOOK THE WORST ABSOLUTE CONTROL DELTA
         # OVER **ALL** UNITS AND IT GENERATED A FLOOR OF 800 ms — `Tests.Coverage`'s

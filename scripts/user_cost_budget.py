@@ -750,6 +750,21 @@ def main():
     # percentages, that make the two arms commensurable.
     # ⛔ LOWER IS BETTER HERE. An arm with a smaller MDR catches smaller
     # regressions; an arm with a larger MDR has bought its quiet by going deaf.
+    # ⛔⛔ ONE FIXED MULTIPLE, SHARED BY BOTH ARMS — and the alternative was tried
+    # and REFUTED in the same sitting.  Using each arm's OWN registered multiple
+    # (`kernel_delta_history.registered_mult(need)`, the shipped rule) makes the
+    # comparison VACUOUS: that multiple is calibrated so the gate never rejects a
+    # batch that actually landed, i.e. `mult ~ need = worst/cand`, so
+    # `MDR = cand x mult x level` collapses to the WORST HISTORICAL MOVE and is
+    # the same for any arm measuring the same history.  Driven on the fixtures it
+    # read 5,025 ms against 5,005 ms — both just the planted 5,000 ms spike — and
+    # two arms designed to differ by 5x reported "no difference".
+    # ⇒ comparing INSTRUMENTS needs a multiple that does not absorb each
+    # instrument's own worst case.  2.0 is the shipped floor and is applied
+    # identically to both arms, so it cancels out of every ratio in the verdict
+    # column and none of the conclusions depend on its value.
+    # [[feedback-a-normalisation-needs-its-denominator-to-vary-the-same-way]]
+    MULT = 2.0
     SHIP = "type checking ms  (SHIPPED)"
     CAND = "child user CPU    (CANDIDATE)"
     tr, tr_used, tr_dropped, tr_skipped, tr_flipped = transfer_ratios(
@@ -790,7 +805,7 @@ def main():
         mdr = {}
         for name in (SHIP, CAND):
             i, lv = infos.get(name, {}).get(u), levels[name].get(u)
-            mdr[name] = i["cand"] * 2.0 * lv / 100.0 if (i and lv) else None
+            mdr[name] = i["cand"] * MULT * lv / 100.0 if (i and lv) else None
         a, b = mdr[SHIP], mdr[CAND]
         ratio = tr.get(u)
         corr = (b / abs(ratio)) if (b is not None and ratio) else None
