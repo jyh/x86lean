@@ -10059,3 +10059,140 @@ is waiting for — so the two should be re-run together.
 `vectorCoverage` affords about **24 vectors per batch**; this batch spent **21**. The next vector
 batch on this declaration has no room, whatever it contains. "Size it by vector count" stops being
 advice at that point. [[feedback-a-pass-at-97-percent-is-not-headroom]]
+
+---
+
+## D158 — QUEUE item 2a: the sizing rule was keyed to the wrong quantity, the allowance was never a constant, and both errors read as arithmetic
+
+My gate handed me an order and a rule to size it by, in the same words my bank and
+`docs/QUEUE.md` both carried: *"`vectorCoverage` affords ~24 vectors a batch (~11 ms each
+against 260.6) and batch 34 spent 21, so 15 mnemonics at both operand shapes will NOT fit —
+split the group."* Every number in that sentence is a real reading. Its conclusion is
+right. I split the group. **And the rule is wrong in two independent ways, either of which
+would have cost a night's build.**
+
+### 1. THE DECLARATION DOES NOT COST BY THE VECTOR
+
+`X86.Tests.vectorCoverage` is not a sweep over vectors — it stopped being one at D105, when
+a kernel SEARCH became a kernel CHECK of a generated certificate. Its four conjuncts:
+
+```
+  mnemonicRuns == vectorRunIdx.map (fun i => tableMnemonics.getD i "")   O(runs x rows)
+  (List.range rosterSize).all (fun i => vectorRunIdx.contains i)         O(rows x runs)
+  vectorRunIdx.all (fun i => i < rosterSize)                             O(runs)
+  vectorRunIdx.eraseDups.length == rosterSize                            O(runs^2)
+```
+
+The VECTORS enter once, linearly, through `collapseAdjacent`, and that is the term the
+kernel barely charges for. ⇒ the growth law is **quadratic in (rows x runs) and flat in
+vectors.**
+
+Measured on a plant (`scripts/p2_batch_size.py`) whose two candidate models predict
+**opposite signs**, so the run was free to refute me:
+
+```
+  arm                          measured Δ    per-VECTOR model    per-ROW model
+  +30 vectors, +0 mnemonics        −10 ms    predicts +330       predicts +160
+  +15 mnemonics, +15 vectors      +370 ms    predicts +165       predicts +340
+```
+
+A vector costs **0.0 ms**. A mnemonic costs **~25 ms** — and that is what batch 34 itself
+paid (230/9 = 25.6) and what the twelve-commit history in
+`docs/kernel-delta-history-2026-09-04.jsonl` pays (22.5 by least squares over 12 commits,
+27.3 by endpoints). **The per-ROW price reproduces on three independent routes; the
+per-VECTOR price does not survive a change of mix**, and that is exactly what happened:
+batch 34's mix was 21 vectors over 9 mnemonics where the history's is 61 over 13, so
+dividing by vectors gave 11 ms where the corpus gives 5.4.
+
+⭐ The positive control is the second witness to the law rather than a formality: doubling
+every dimension reads **4.13x**, not 2x. A quadratic instrument announcing itself.
+
+⇒ 🔑 **A PRICE DIVIDED OUT OF ONE BATCH IS KEYED TO WHATEVER THAT BATCH'S RATIO HAPPENED TO
+BE.** It reads as arithmetic because the division is real. The defect is not in the
+division; it is that nothing recorded which of the several quantities a batch grows was the
+one being charged for. [[feedback-match-the-gate-units-to-the-growth-law]]
+[[feedback-a-total-cannot-see-its-parts]]
+
+⚠️ **And the practical consequence points the opposite way from the advice.** The handed-on
+rule says *reduce the VECTOR count* — i.e. take all 15 mnemonics at one operand shape
+instead of two. Under it that batch is 15 vectors, ~165 ms, comfortably inside. Under the
+measured law it is 15 mnemonics, ~375 ms, and blows the gate. **The one repair the rule
+recommends is the one that does not work.**
+
+### 2. `260.6` WAS NEVER AN ALLOWANCE
+
+`scripts/kernel_delta_budget.txt` sets `Tests.Coverage @decl vectorCoverage 15.7%` — a
+**percentage of the base**. 260.6 was that percentage times one particular base, quoted
+onward as a constant, by me among others.
+
+The direction of that error is not the one intuition offers. Marginal cost grows like `R`
+while a percentage budget grows like `R^2`, so
+
+```
+  k_max ≈ 0.157 · R·U / (U + 2R)  ≈  0.074 · R      (at U ≈ 1.8R)
+        ≈ 10 mnemonics at R=144 · 15 at R=200 · 22 at R=300
+```
+
+**The affordable batch GROWS with the roster.** Read with the frozen 260.6, the same
+quadratic law says batch sizes shrink toward zero and the merge gate must be redesigned
+before the campaign can continue — an alarm I had begun to write down before I opened the
+budget file. It is an artefact of freezing a percentage into a number.
+[[feedback-a-citation-is-an-ungated-claim]]
+
+### 3. WHAT LICENSES SIZING A BATCH ON A SYNTHETIC PLANT
+
+Nothing, until it reproduces a real one. `--calibrate` replays P2 batch 34's own transition
+(134/239/954 → 144/260/977) and requires the plant to reproduce the `+230.0 ms` that
+`kernel_delta.py` actually measured. Three runs: **+210, +240, +240** — 0.91x, 1.04x, 1.04x.
+The plant's absolute LEVEL is synthetic (its strings are `m0..mN`; it carries no other
+declaration); only its RATIOS transfer, and the calibration is what says they do.
+[[feedback-a-ratio-travels-where-a-ceiling-cannot]]
+
+**THE ANSWER: 8 mnemonics at both operand shapes.**
+
+```
+   6 mnemonics  +120 ms   6.2% of base   ✅ clean
+   8 mnemonics  +210 ms  10.9% of base   ✅ clean, band included
+  10 mnemonics  +310 ms  16.1% of base   ⛔ over the 15.7% budget
+```
+
+A CLEAN `ok` needs `delta + K·se < budget` with K=2, not merely `delta < budget` — the
+difference between a pass and the UNMEASURABLE that has held `p2-batch32-fp-compares` off
+master since 09/05 and left batch 34's own verdict unresolved. 10 is inside the budget and
+outside the band; 8 is inside both.
+
+### 4. WHAT I GOT WRONG
+
+1. **I published `+945 ms` for the 15-mnemonic arm from an n=2 median.** It contradicted my
+   own quadratic model by 2x and I wrote it into a table anyway. Re-run at n=4: **+395**,
+   which the model predicts at +447. The arm that disagrees with the model is the one that
+   needed the repeats, and I had D153's "the spread saturates at n≈3-4" in my own memory
+   bank while reading a two-point median.
+   ⇒ and the two n=2 sweeps disagreed with each other elsewhere too (k=12: +300 then +430).
+   [[feedback-a-single-reading-is-about-its-run]]
+2. **My first harness reported CONTROL FAILED on a working plant.** The parser looked for
+   `type checking took` where the cumulative block prints `type checking 1.99s`. The control
+   caught it before a single arm was read — which is the whole reason the control runs
+   first — but I had written the regex off a per-declaration line I had seen and the
+   cumulative line I had not. [[feedback-a-plant-probes-control-comes-first]]
+3. **The plant would not compile and the reason was in the file I was copying from.**
+   `maximum recursion depth has been reached`: `Tests/Coverage.lean` sets `maxRecDepth 40000`
+   at line 38 and I had copied the theorem without the options that make it checkable.
+4. **I began writing the "batch sizes shrink toward zero" alarm before opening the budget
+   file.** The prose was two sentences in when the percentage refuted it. That is the
+   [[feedback-prose-written-before-the-measurement]] card recommitted, four batches after I
+   wrote it, in the same shape: an explanation authored ahead of the number.
+
+### 5. THE GATE, AND WHY IT IS PROSE THAT IS GATED
+
+The defect was never a wrong measurement. It was a **sentence** — keyed to the wrong
+quantity, sitting in the most-read planning doc, reproduced verbatim into two banks because
+it read like arithmetic. No timing gate could see it. So `--check` (in `ci.yml`, three arms,
+no Lean toolchain needed) gates the queue's own law — *a row's PRICE is a derived number or
+it is absent, and prices name the tool that prints them* — for this one price, plus the two
+inputs whose renaming would leave the tool reading a default. **Probed both ways**: red
+first (rc 1, "QUEUE.md states a batch size without naming the tool that derives it"), then
+green after the row was rewritten. `--selftest` is 6/6 with a control first and a **LYING
+plant** among the arms — a shape whose theorem is FALSE, which `lean` must REFUSE, because a
+run in which the kernel checked nothing would otherwise time out at a plausible number.
+[[feedback-ungated-prose-overclaims]] [[feedback-a-certificate-the-kernel-checks]]

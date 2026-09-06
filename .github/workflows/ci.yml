@@ -366,6 +366,19 @@ jobs:
           python3 scripts/p2_residue.py --selftest
           python3 scripts/p2_residue.py --check
 
+      # ⭐⭐ D158. The batch-size price. The TIMING arms need a Lean toolchain and
+      # are a local instrument (`--selftest`, `--calibrate`); what runs here is the
+      # cheap half, and it is the half that would have caught the defect. The rule
+      # this replaced was never a wrong measurement — it was PROSE, keyed to the
+      # wrong quantity, sitting in the most-read planning doc and copied verbatim
+      # into two banks because it read like arithmetic. Arm 3 makes the queue's own
+      # law ("a price names the tool that prints it") enforceable for this price;
+      # arms 1-2 fire if the budget line is renamed or the pinned literals move,
+      # either of which would leave the sizing tool reading a default.
+      - name: The vector batch-size price names its tool, and its inputs still parse
+        run: |
+          python3 scripts/p2_batch_size.py --check
+
       # ⭐⭐ P2 BATCH 12 (D105). The run-index CERTIFICATE that `vectorCoverage`
       # checks. Same discipline as the coverage table one step below, and for a
       # stronger reason: this file is IMPORTED BY THE MODEL TIER, so a stale one

@@ -95,7 +95,24 @@ qualifier.
      ⚠️ Two of them are NOT their integer siblings: `shufps` takes two lanes from the
      destination and two from the source (unlike `pshufd`, which takes four from one source),
      and `shufpd` selects one from each. The rest are moves and interleaves the model already
-     expresses. Price the batch by VECTOR COUNT before starting — see the warning below.
+     expresses.
+     ⭐⭐ **SPLIT IT 8 + 7, BY SEMANTIC KIND AND NOT BY DEMAND (D158).** 8 is what the
+     declaration affords (item 2a; `p2_batch_size.py`), and splitting by KIND rather than by
+     the demand ranking puts the whole new-semantics risk in the second batch instead of
+     spreading it over both:
+     ```
+       BATCH 35 — the moves, 8 mnemonics / 5,651 instructions.  NO new semantics: every one
+         is an addressing or lane-position variant of a move the model already executes.
+         movapd 2420 · movhlps 1341 · movhpd 556 · movddup 506 · movlhps 340 · movlpd 274 ·
+         movupd 113 · movlps 101
+       BATCH 36 — the lane selectors, 7 mnemonics / 1,833 instructions.  ALL the new
+         semantics, and the two the warning above is about.
+         shufps 1545 · shufpd 70 · unpcklps 64 · movmskps 53 · unpcklpd 45 · unpckhps 40 ·
+         unpckhpd 16
+     ```
+     ⇒ by demand the top 8 would have pulled `shufps` (rank 2) into batch 35 and left it
+     carrying the one genuinely new rule; by kind, batch 35 is 76% of the instructions and
+     none of the risk.
 
    ⛔⛔ **AND A COMPLETE BATCH IS SITTING UNLANDED ON A BRANCH — `p2-batch32-fp-compares`
    (`3a811fb`, 2026-09-05).** It builds `comiss`/`comisd`/`ucomiss`/`ucomisd` — FOUR of
@@ -107,13 +124,46 @@ qualifier.
    nor this row mentioned it, so "take sub-group A as a batch" was advice to build a third of
    something already built. ⚠️ Its 8 vectors cost ~375 ms each; batch 23's 2 cost ~290. A
    batch's kernel price is set by its VECTOR COUNT, so size the next one against that first.
-2a. ⛔⛔ **`vectorCoverage` HAS ROOM FOR ABOUT THREE MORE VECTORS, AND THAT IS ARITHMETIC (D157).**
-   Batch 34's delta gate refused on this declaration: `+230.0` against a budget of `260.6`, band
-   `±39.2`. At ~11 ms per vector the allowance affords ~24 vectors per batch and batch 34 spent 21.
-   ⇒ **the next vector batch on this declaration does not have room, whatever it contains.** The
-   move half (item 2) is 15 mnemonics; at both operand shapes that is 30+ vectors and it will not
-   fit. Split it, or repair the unit first (item 4).
-   ⛔ Do NOT buy repeats to resolve it — D153 measured the spread SATURATING at n≈3-4, and
+2a. ⭐⭐⭐ **THE SIZING RULE WAS KEYED TO THE WRONG QUANTITY, AND THE ALLOWANCE IS NOT A
+   CONSTANT (D158). Priced now by `python3 scripts/p2_batch_size.py` (selftest 6/6, control
+   first, a LYING plant among the arms; `--check` in CI).**
+   ```
+     THE NEXT BATCH FITS 8 NEW MNEMONICS at both operand shapes.
+       8 mnemonics -> +210 ms = 10.9% of base   ✅ clean, band included
+      10 mnemonics -> +310 ms = 16.1% of base   ⛔ over the 15.7% budget
+     Calibrated against a REAL batch: replaying P2 batch 34's own transition
+     (134/239/954 -> 144/260/977) the plant reads +240 vs the +230.0 `kernel_delta.py`
+     measured — 1.04x. The plant's LEVEL is synthetic; only its RATIOS transfer.
+   ```
+   ⛔⛔ **WHAT THIS ROW SAID UNTIL 09/06, REPRODUCED VERBATIM INTO TWO BANKS:** *"`vectorCoverage`
+   has room for about three more vectors, and that is arithmetic — at ~11 ms per vector the
+   allowance affords ~24 vectors per batch and batch 34 spent 21."* Every number in it is a real
+   reading and its conclusion (*the move half will not fit; split it*) is RIGHT. It is still wrong
+   where it counts, in TWO independent ways:
+   * **`vectorCoverage` does not cost by the vector.** Read its four conjuncts: conjunct 2 is
+     `rosterSize` membership tests over a list of runs (O(rows x runs)), conjunct 4's `eraseDups`
+     is O(runs^2), conjunct 1's `getD` is O(rows) per run. Vectors enter ONCE, linearly, through
+     `collapseAdjacent`. ⇒ the law is **quadratic in (rows x runs) and FLAT IN VECTORS**. Measured
+     with the two models predicting OPPOSITE SIGNS, so the run could lose: **+30 vectors with no
+     new mnemonic costs −10 ms; +15 mnemonics costs +370 ms.** A mnemonic costs ~25 ms — which is
+     what batch 34 itself paid (230/9 = 25.6) and what the twelve-commit history pays (22.5 by
+     least squares, 27.3 by endpoints). The per-ROW price reproduces on three independent routes;
+     the per-VECTOR price does not survive a change of mix, and batch 34's mix (21 vectors over 9
+     mnemonics) was half the history's. ⭐ The positive control is the second witness: doubling
+     every dimension reads **4.13x**, not 2x.
+     ⇒ 🔑 **a price divided out of one batch is keyed to whatever that batch's ratio happened to
+     be**, and it reads as arithmetic because the division is real.
+   * **`260.6 ms` IS NOT THE ALLOWANCE.** `scripts/kernel_delta_budget.txt` sets
+     `Tests.Coverage @decl vectorCoverage 15.7%` — a PERCENTAGE OF THE BASE. 260.6 was that
+     percentage times one particular base, quoted onward as a constant. And the direction of the
+     error is the opposite of the intuition: marginal cost grows like R while a percentage budget
+     grows like R^2, so `k_max ≈ 0.157·R·U/(U+2R) ≈ 0.074·R` — **the affordable batch GROWS with
+     the roster** (~10 mnemonics at R=144, ~15 at R=200, ~22 at R=300). Read with the frozen
+     260.6, the same arithmetic says batch sizes shrink toward zero and the gate needs redesigning
+     soon; that alarm was an artefact of freezing a percentage into a number.
+   [[feedback-match-the-gate-units-to-the-growth-law]] [[feedback-a-total-cannot-see-its-parts]]
+   [[feedback-a-citation-is-an-ungated-claim]] [[feedback-a-ratio-travels-where-a-ceiling-cannot]]
+   ⛔ Do NOT buy repeats to resolve a refusal — D153 measured the spread SATURATING at n≈3-4, and
    `repeats_to_decide`'s "~5 repeats a side" is a `1/sqrt(n)` projection with no floor.
    ⚠️ `X86.Coverage` also refused, at `+0.5` against a `@floor 6` budget with an `±8.5` band. That
    one is item 4 itself and no repeat count fixes it.
