@@ -142,6 +142,51 @@ def level_table(rows, extract, decl_names):
     return {k: statistics.median(v) for k, v in per.items()}
 
 
+# ⭐⭐⭐ THE TRANSFER RATIO, AND WHY IT IS NOT A DIAGNOSTIC BUT AN INPUT.
+#
+# MDR (below) prices each arm as `budget% x level` and compares the answers in
+# milliseconds.  That comparison carries an ASSUMPTION, stated in the code when
+# it was written: that X ms of extra kernel work adds about X ms to the child's
+# CPU time, so the two arms' millisecond scales are the same scale.
+#
+# ⛔ THE FIRST RUN THAT PRINTED BOTH REFUTED IT.  Measured over the pairs whose
+# ms move clears the noise floor, `Δuser / Δms` came out at **9.23**, not 1.0 —
+# a real change moves the child's CPU by several times the milliseconds it moves
+# the profiler's `type checking`, because it moves ELABORATION too.  A candidate
+# whose budget is 3x larger but which hears the signal 9x louder is MORE
+# sensitive, not less, and the uncorrected table said the opposite.
+#
+# ⇒ the deciding column is `MDR / transfer` — the smallest change measured in the
+# SHIPPED arm's own units that each arm would notice.  The raw column is kept
+# beside it because the correction is an estimate with real spread and the reader
+# must see both.  [[feedback-audit-the-premise-of-a-right-decision]]
+# [[feedback-the-burden-is-on-the-departure]]
+def transfer_ratios(metas, shipped, cand, units_, noise_abs):
+    """{unit: Δcand/Δms} over LIVE pairs whose ms move clears the noise floor."""
+    ms, cd = metas.get(shipped), metas.get(cand)
+    if not ms or not cd:
+        return {}, 0, 0
+    out, used, dropped = {}, 0, 0
+    for u in units_:
+        rs = []
+        for a, b in zip(ms["seq"], ms["seq"][1:]):
+            if b in ms["zero_lean"]:
+                continue
+            aa, ba = ms["med"][a].get(u), ms["med"][b].get(u)
+            ab, bb = cd["med"][a].get(u), cd["med"][b].get(u)
+            if None in (aa, ba, ab, bb):
+                continue
+            d_ms, d_c = ba - aa, bb - ab
+            if abs(d_ms) <= max(noise_abs.get(u, [0.0])):
+                dropped += 1
+                continue
+            rs.append(d_c / d_ms)
+            used += 1
+        if rs:
+            out[u] = statistics.median(rs)
+    return out, used, dropped
+
+
 # ⭐⭐ THE SELFTEST, AND THE TWO ARMS THAT MAKE THE ABSOLUTE COLUMN REAL.
 #
 # The report above claims two things a reader cannot check by reading it: that
@@ -155,8 +200,26 @@ def level_table(rows, extract, decl_names):
 REAL_COMMITS = ["144e9a3", "4f6766b", "76cb51b", "3769ea0", "0f929e3", "320cb45"]
 
 
+# ⛔⛔ THE FIXTURES CARRY A **SPIKE**, NOT A UNIFORM RAMP, AND THE REASON IS
+# STRUCTURAL — I found it by failing to write them without one.
+#
+# The corrected MDR needs two things of a corpus AT ONCE: a budget dominated by
+# NOISE (otherwise `cand%` is just the median step, and MDR/transfer cancels to
+# `2 x step_ms` for BOTH arms — every unit reads "no difference" and the table
+# decides nothing), and at least one pair whose ms move CLEARS the noise floor
+# (otherwise no transfer ratio exists to correct by).  With a UNIFORM step those
+# two demands contradict each other: noise-dominated means noise > step, and the
+# floor needs step > noise.
+#
+# Real batch history is not uniform — most commits barely move a unit and a few
+# move it a lot — so the fixture is shaped the same way: flat, with ONE spike.
+# The flat part sets the budget from noise; the spike measures the transfer.
+# A fixture that could not reproduce that shape would have been testing an
+# instrument no real corpus can drive.
+# [[feedback-a-control-can-share-the-blind-spot]]
 def _fake_rows(level_ms, noise_ms, level_user, noise_user,
-               step_ms=1.0, step_user=None):
+               step_ms=1.0, step_user=None, spike_at=None,
+               spike_ms=0.0, spike_user=0.0):
     """Two sweeps over six real commits, with the noise AND the signal placed by
     hand.  `step_*` is the per-commit increment — the SIGNAL — so a fixture can
     make the candidate carry the whole change (`step_user == step_ms`) or be
@@ -173,13 +236,14 @@ def _fake_rows(level_ms, noise_ms, level_user, noise_user,
             sgn = 1 if sweep == 0 else -1
             rows.append({
                 "commit": sha, "sweep": sweep, "load1": 1.0, "load5": 1.0,
-                "modules": {"M": level_ms + sgn * noise_ms / 2.0 + i * step_ms},
+                "modules": {"M": level_ms + sgn * noise_ms / 2.0 + i * step_ms
+                                 + (spike_ms if (spike_at is not None and i >= spike_at) else 0.0)},
                 "decls": {}, "missing": [],
-                "cpu": {"M": {"user_s": (level_user + sgn * noise_user / 2.0
-                                         + i * step_user) / 1000.0,
+                "cpu": {"M": {"user_s": (level_user + sgn * noise_user / 2.0 + i * step_user
+                                         + (spike_user if (spike_at is not None and i >= spike_at) else 0.0)) / 1000.0,
                               "sys_s": 0.0,
-                              "real_s": (level_user + sgn * noise_user / 2.0
-                                         + i * step_user) / 1000.0}},
+                              "real_s": (level_user + sgn * noise_user / 2.0 + i * step_user
+                                         + (spike_user if (spike_at is not None and i >= spike_at) else 0.0)) / 1000.0}},
             })
     return rows
 
@@ -279,18 +343,32 @@ def selftest():
     # is driven on the SAME three fixtures and must reach a different verdict on
     # each. Without the third case an MDR that simply never says WORSE would pass.
     # [[feedback-probe-gates-both-ways]] [[feedback-under-claims-are-unpoliced]]
+    # flat + one spike; the budget comes from the NOISE, the transfer from the
+    # SPIKE. See the note on `_fake_rows` for why a uniform ramp cannot do both.
+    # ⛔ `spike_at=4` IS NOT ARBITRARY: it places the jump on pair 3->4, which
+    # among these six real commits actually CHANGES `.lean` files. At `spike_at=3`
+    # the jump landed on 76cb51b..3769ea0, a pair git reports as touching NO
+    # `.lean` file — so `budget_info` scored the whole spike as CONTROL noise and
+    # the transfer step discarded it as a no-op. The fixture then read
+    # "UNDECIDED" for a reason that had nothing to do with the code under test.
+    # ⇒ a fixture built on real commits inherits their real diff structure, and
+    # a planted signal has to be planted where the corpus says work happened.
+    def spiked(noise_ms, noise_user, spike_ms, spike_user):
+        return _fake_rows(100000.0, noise_ms, 100000.0, noise_user, step_ms=0.0,
+                          step_user=0.0, spike_at=4,
+                          spike_ms=spike_ms, spike_user=spike_user)
     mdr_cases = [
-        # same absolute noise, 2x level: the % table says 2x tighter, MDR must
-        # say the two instruments catch the SAME regression.
-        (_fake_rows(1000.0, 100.0, 2000.0, 100.0), "no difference",
-         "a 2x level with the same absolute noise is NO improvement in MDR"),
-        # genuinely steadier: MDR must prefer the candidate.
-        (_fake_rows(1000.0, 100.0, 1000.0, 10.0), "candidate better",
-         "a genuinely steadier candidate wins on MDR"),
-        # same RELATIVE noise on a 3x level: equally tight in %, but it takes 3x
-        # the real work to move it — MDR must call this WORSE.
-        (_fake_rows(1000.0, 100.0, 3000.0, 300.0), "candidate WORSE",
-         "a candidate equally tight in % but on a 3x level is WORSE on MDR"),
+        # twice the noise but the candidate hears the change TWICE as loudly:
+        # 2 x 2000 / 2.0 == 2 x 1000, so sensitivity is EQUAL and the percentage
+        # table's flattering "2x tighter" must not survive the correction.
+        (spiked(1000.0, 2000.0, 5000.0, 10000.0), "no difference",
+         "twice the noise but twice the signal is NO change in sensitivity"),
+        # genuinely steadier at equal transfer: the candidate wins.
+        (spiked(1000.0, 200.0, 5000.0, 5000.0), "candidate better",
+         "a genuinely steadier candidate at equal transfer wins on MDR"),
+        # five times the noise at equal transfer: it must be called WORSE.
+        (spiked(200.0, 1000.0, 5000.0, 5000.0), "candidate WORSE",
+         "five times the noise at equal transfer is WORSE on MDR"),
     ]
     for rows_, want, label in mdr_cases:
         rc, out = _run_on(rows_)
@@ -348,14 +426,45 @@ def selftest():
     if not ok:
         print("     got: " + (line[0].strip() if line else "(no zero-count row)"))
 
-    n = 5 + len(mdr_cases) + 3 + 2
+    # ⛔ ARM 10 — THE LIVE / NO-OP SPLIT IS REAL.  `budget_info`'s `worst` runs
+    # over ALL pairs, no-ops included, so printing it beside `ctrl` as "worst
+    # REAL move" produced three rows reading `no-op == real, ratio 1.00x` —
+    # identical numbers in adjacent fields, which is what one arm wearing two
+    # names looks like.  A plant probe found the repaired split UNGATED, so:
+    # the spiked fixture puts its whole signal on a pair that changes `.lean`,
+    # and the no-op column must therefore stay far BELOW the live one.
+    # [[feedback-two-arms-that-agree-to-the-case]]
+    # ⛔ THE FIXTURE PUTS THE BIGGEST MOVE ON A **NO-OP** PAIR, and the first
+    # version of this arm did the opposite and was SILENT.  Collapsing the split
+    # makes the LIVE column absorb the no-op pairs; when the biggest move is
+    # already on a live pair the maximum does not change and the arm sees
+    # nothing.  The defect is only visible when the no-op pair is the one
+    # carrying the outlier — which is also the real corpus's situation, where
+    # the shipped instrument's worst apparent move IS on a commit that changed
+    # no `.lean` file.  [[feedback-a-probe-must-create-its-condition]]
+    rc, out = _run_on(_fake_rows(100000.0, 200.0, 100000.0, 200.0,
+                                 step_ms=1000.0, step_user=1000.0,
+                                 spike_at=3, spike_ms=20000.0, spike_user=20000.0))
+    line = [l for l in out.splitlines() if "type checking ms" in l and "NO-OP" in l]
+    ok = False
+    if rc == 0 and line:
+        import re as _re
+        nums = _re.findall(r"([\d.]+)%", line[0])
+        ok = len(nums) >= 2 and float(nums[0]) > 5.0 * float(nums[1])
+    arm(ok, "the worst NO-OP move and the worst LIVE move are scored over "
+            "DIFFERENT pairs (an outlier planted on a NO-OP pair must not leak "
+            "into the live column)")
+    if not ok:
+        print("     got: " + (line[0].strip() if line else "(no error-rate row)"))
+
+    n = 5 + len(mdr_cases) + 3 + 2 + 1
     if bad:
         print(f"user-cost-budget selftest: FAIL ({len(bad)} of {n} arms)")
         return 1
     print(f"user-cost-budget selftest: PASS ({n} arms — the denominator artifact, "
           "its held-out control, the partial corpus, the inexpressible unit, "
           "the shared rule, MDR deciding in all three directions, and signal "
-          "transfer deciding in both plus its noise-floor refusal, and the tie-count that guards the comparison's own bias)")
+          "transfer deciding in both plus its noise-floor refusal, and the tie-count that guards the comparison's own bias, and the live/no-op split)")
     return 0
 
 
@@ -411,8 +520,15 @@ def main():
     tables = {name: spread_table(rows, ex, decl_names) for name, ex in arms}
     abstab = {name: spread_table(rows, ex, decl_names, absolute=True) for name, ex in arms}
     levels = {name: level_table(rows, ex, decl_names) for name, ex in arms}
-    print(f"\n── REPEATABILITY ── same tree, two sweeps ~20 min apart; the median "
-          f"over the twelve trees")
+    # ⛔ THE COUNT IS COUNTED, NOT TYPED.  This header said "the median over the
+    # twelve trees" on a corpus that had TWO trees with repeats — a number
+    # written when the walk was designed and still standing when the walk was
+    # cut short at 14 readings.  A printed count that no one computes is a claim
+    # the output makes on the tool's behalf.
+    # [[feedback-a-citation-is-an-ungated-claim]] [[feedback-ungated-prose-overclaims]]
+    n_trees = max((len(v) for v in tables[arms[0][0]].values()), default=0)
+    print(f"\n── REPEATABILITY ── same tree, {n_trees} tree(s) with repeated "
+          f"readings ~20 min apart; the median over them")
     print(f"   {'unit':<44} " + " ".join(f"{n.split('(')[0].strip():>26}" for n, _ in arms))
     print(f"   {'':<44} " + " ".join(f"{'level    abs      rel':>26}" for _ in arms))
     for u in sorted(shipped_units):
@@ -470,10 +586,10 @@ def main():
     # ── 3. BUDGETS, by the SHIPPED rule ────────────────────────────────────
     print(f"\n── DERIVED BUDGETS ── one rule (kernel_delta_history.budget_info), "
           f"three quantities")
-    infos = {}
+    infos, metas = {}, {}
     for name, ex in arms:
         try:
-            infos[name], _ = kdh.budget_info(rows, ex, decl_names)
+            infos[name], metas[name] = kdh.budget_info(rows, ex, decl_names)
         except Exception as e:
             print(f"   ⛔ {name}: {type(e).__name__}: {e}")
     print(f"   {'unit':<46} " + " ".join(f"{n.split('(')[0].strip():>14}" for n, _ in arms))
@@ -489,16 +605,33 @@ def main():
     # [[feedback-measure-a-gates-error-rates]]
     print(f"\n── ERROR RATES ── on the corpus's own no-op pairs (truth = 0) and "
           f"live pairs")
+    # ⛔⛔ `worst` FROM `budget_info` IS OVER **ALL** PAIRS, NO-OPS INCLUDED, so
+    # printing it as "worst REAL move" beside `ctrl` produced three rows reading
+    # `worst no-op == worst real, ratio 1.00x` — identical numbers in adjacent
+    # fields, which is what one arm wearing two names looks like. The live-only
+    # worst is computed here from the same meta rather than by widening
+    # `budget_info`, whose output the SHIPPED budgets are derived from.
+    # [[feedback-two-arms-that-agree-to-the-case]]
     for name, ex in arms:
-        i = infos.get(name)
-        if not i:
+        i, meta = infos.get(name), metas.get(name)
+        if not i or not meta:
             continue
         noop = [v["ctrl"] for v in i.values()]
-        live = [abs(v["worst"]) for v in i.values()]
-        print(f"   {name:<32} worst apparent move on a NO-OP commit "
-              f"{max(noop):7.2f}%   worst REAL move {max(live):7.2f}%   "
-              f"ratio {max(live) / max(noop):5.2f}x" if max(noop) > 0 else
-              f"   {name:<32} no-op moves all exactly 0")
+        live = []
+        for u in i:
+            for a, b in zip(meta["seq"], meta["seq"][1:]):
+                if b in meta["zero_lean"]:
+                    continue
+                ba, bb = meta["med"][a].get(u), meta["med"][b].get(u)
+                if ba and bb and ba > 0:
+                    live.append(abs(100.0 * (bb - ba) / ba))
+        if not live:
+            print(f"   {name:<32} ⛔ no LIVE pairs in this corpus")
+            continue
+        wn, wl = max(noop) if noop else 0.0, max(live)
+        r = f"   ratio {wl / wn:5.2f}x" if wn > 0 else "   (no-op moves all exactly 0)"
+        print(f"   {name:<32} worst on a NO-OP commit {wn:7.2f}%   "
+              f"worst on a LIVE commit {wl:7.2f}%{r}")
 
     # ── 5. THE SHIPPED QUANTITY, MEASURED TWICE ────────────────────────────
     # ⭐⭐ THIS WALK RE-MEASURES THE SAME `type checking` MS THE 09/04 WALK DID,
@@ -565,35 +698,56 @@ def main():
     # percentages, that make the two arms commensurable.
     # ⛔ LOWER IS BETTER HERE. An arm with a smaller MDR catches smaller
     # regressions; an arm with a larger MDR has bought its quiet by going deaf.
-    print(f"\n── MINIMUM DETECTABLE REGRESSION ── budget% x level, in ms of extra "
-          f"work.  LOWER IS BETTER.")
-    print(f"   {'unit':<44} " + " ".join(f"{n.split('(')[0].strip():>16}" for n, _ in arms)
-          + "   verdict")
-    wins = {"SHIPPED": 0, "CANDIDATE": 0, "tie": 0, "n/a": 0}
+    SHIP = "type checking ms  (SHIPPED)"
+    CAND = "child user CPU    (CANDIDATE)"
+    tr, tr_used, tr_dropped = transfer_ratios(
+        metas, SHIP, CAND, sorted(shipped_units & cand_units),
+        abstab[SHIP])
+    print(f"\n── MINIMUM DETECTABLE REGRESSION ── budget% x level, in ms.  "
+          f"LOWER IS BETTER.")
+    if tr:
+        allr = sorted(tr.values())
+        print(f"   ⚠️ the RAW columns assume a change moves each arm by the same "
+              f"milliseconds. Measured, it does not: Δuser/Δms has median "
+              f"{statistics.median(allr):.2f} over {len(tr)} units "
+              f"({tr_used} pairs used, {tr_dropped} below the ms noise floor). "
+              f"The CORRECTED column divides by each unit's own ratio and is the "
+              f"one the verdict reads.")
+    else:
+        print(f"   ⛔ NO TRANSFER RATIO COULD BE MEASURED ({tr_dropped} pairs all "
+              f"below the ms noise floor). The verdict below therefore rests on "
+              f"the UNTESTED assumption that both arms move by the same "
+              f"milliseconds — say so wherever it is quoted.")
+    print(f"   {'unit':<40} {'SHIPPED':>11} {'cand RAW':>11} {'Δu/Δms':>8} "
+          f"{'cand CORR':>11}   verdict")
+    wins = {"SHIPPED": 0, "CANDIDATE": 0, "tie": 0, "n/a": 0, "unknown": 0}
     for u in sorted(shipped_units):
-        cells, mdr = [], {}
-        for name, _ in arms:
-            i = infos.get(name, {}).get(u)
-            lv = levels[name].get(u)
-            if i and lv:
-                mdr[name] = i["cand"] * 2.0 * lv / 100.0   # MULT 2.0, as shipped
-                cells.append(f"{mdr[name]:>15.0f}ms")
-            else:
-                cells.append(f"{'—':>16}")
-        a = mdr.get("type checking ms  (SHIPPED)")
-        b = mdr.get("child user CPU    (CANDIDATE)")
+        mdr = {}
+        for name in (SHIP, CAND):
+            i, lv = infos.get(name, {}).get(u), levels[name].get(u)
+            mdr[name] = i["cand"] * 2.0 * lv / 100.0 if (i and lv) else None
+        a, b = mdr[SHIP], mdr[CAND]
+        ratio = tr.get(u)
+        corr = (b / abs(ratio)) if (b is not None and ratio) else None
         if a is None or b is None:
             v, key = "candidate CANNOT express this unit", "n/a"
-        elif b < a * 0.95:
-            v, key = f"candidate better ({a / b:.2f}x)", "CANDIDATE"
-        elif a < b * 0.95:
-            v, key = f"⛔ candidate WORSE ({b / a:.2f}x)", "SHIPPED"
+        elif corr is None:
+            v, key = "⚠️ no transfer ratio — UNDECIDED", "unknown"
+        elif corr < a * 0.95:
+            v, key = f"candidate better ({a / corr:.2f}x)", "CANDIDATE"
+        elif a < corr * 0.95:
+            v, key = f"⛔ candidate WORSE ({corr / a:.2f}x)", "SHIPPED"
         else:
             v, key = "no difference", "tie"
         wins[key] += 1
-        print(f"   {u:<44} " + " ".join(cells) + f"   {v}")
+        print(f"   {u:<40} "
+              f"{(f'{a:.0f}ms' if a is not None else '—'):>11} "
+              f"{(f'{b:.0f}ms' if b is not None else '—'):>11} "
+              f"{(f'{ratio:.2f}' if ratio else '—'):>8} "
+              f"{(f'{corr:.0f}ms' if corr is not None else '—'):>11}   {v}")
     print(f"\n   ⇒ over {len(shipped_units)} gated units: candidate better on "
           f"{wins['CANDIDATE']}, WORSE on {wins['SHIPPED']}, tied on {wins['tie']}, "
+          f"UNDECIDED for want of a transfer ratio {wins['unknown']}, "
           f"cannot express {wins['n/a']}.")
 
     # ── 6b. SIGNAL TRANSFER: DOES THE CANDIDATE HEAR A REAL CHANGE? ────────
@@ -694,8 +848,8 @@ def main():
         cut = statistics.median(usable.values())
         busy = {c for c, v in usable.items() if v <= cut}
         quiet = {c for c, v in usable.items() if v > cut}
-        print(f"\n── MECHANISM ── the same twelve trees split by how idle the box "
-              f"was (cut at {cut:.1f}% idle)")
+        print(f"\n── MECHANISM ── the same {len(usable)} trees split by how idle "
+              f"the box was (cut at {cut:.1f}% idle)")
         print(f"   {'arm':<32} {'busier half':>18} {'quieter half':>18}   n={len(busy)}/{len(quiet)}")
         for name, ex in arms:
             halves = []

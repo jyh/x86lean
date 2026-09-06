@@ -131,6 +131,74 @@ def repo_orphans(root=None):
         return None
 
 
+# ⭐⭐ THE HELM'S RULE OF 2026-09-05, AS CODE RATHER THAN AS ETIQUETTE.
+#
+# Ruled after two campaigns collided on this box: *"when two campaigns contend
+# for a box, the party whose numbers contention merely SLOWS yields to the party
+# whose numbers contention INVALIDATES"*, and — the half this function exists for
+# — a reading taken under contention **must be marked CONTENDED in its own
+# receipt**, because a number reported without that label is the reassuring
+# direction again.
+#
+# ⛔ A LABEL THAT DEPENDS ON SOMEONE REMEMBERING IS NOT A LABEL.  The seat that
+# takes the reading is the seat least able to see the other campaign: my own
+# tools recorded load and idle% all evening and could not say that the load WAS
+# another seat's salt build in `seats/math/salt`.  "The box was busy" and "the
+# box was busy with two other trees" are the difference between a number you can
+# compare and a number you can only quote.
+#
+# ⚠️ THE TWO FILTERS DO DIFFERENT JOBS AND THE DISTINCTION IS THE WHOLE DESIGN.
+# The COMMAND NAME answers *what kind of work is this* (a Lean build); the CWD
+# answers *whose it is*.  `repo_orphans` above must never filter by command name
+# because it feeds a decision about KILLING, and this seat's own tools carry the
+# same command lines as the processes it hunts.  This function only COUNTS, and
+# it kills nothing.  [[feedback-enumerate-is-not-attribute]]
+def foreign_builds(root=None):
+    """Lean/lake processes whose cwd is OUTSIDE this repository.
+
+    Returns a list of {pid, cwd}, or None if the probe could not run — never []
+    on failure, because "no other builds" and "could not look" must not be the
+    same reading.  [[feedback-probe-silence-has-two-causes]]"""
+    want = os.path.realpath(root or os.getcwd())
+    try:
+        ps = subprocess.run(["ps", "-eo", "pid,comm,args"],
+                            capture_output=True, text=True, timeout=20)
+        if ps.returncode != 0:
+            return None
+        pids = []
+        for line in ps.stdout.splitlines()[1:]:
+            parts = line.split(None, 2)
+            if len(parts) < 3:
+                continue
+            pid, args = parts[0], parts[2]
+            if re.search(r"(^|/)(lean|lake)( |$)", args) and pid != str(os.getpid()):
+                pids.append(pid)
+        if not pids:
+            return []
+        lf = subprocess.run(["lsof", "-a", "-d", "cwd", "-p", ",".join(pids)],
+                            capture_output=True, text=True, timeout=60)
+        if "COMMAND" not in lf.stdout:
+            return None
+        out, seen = [], set()
+        for line in lf.stdout.splitlines()[1:]:
+            parts = line.split(None, 8)
+            if len(parts) < 9:
+                continue
+            pid, cwd = parts[1], parts[8].strip()
+            rp = os.path.realpath(cwd)
+            # ⚠️ a detached worktree of THIS repo under TMPDIR is this seat's own
+            # (the history walk profiles one), so "outside" means outside both.
+            if rp == want or rp.startswith(want + os.sep) or "x86lean-history" in rp:
+                continue
+            if (pid, rp) in seen:
+                continue
+            seen.add((pid, rp))
+            out.append({"pid": int(pid), "cwd": rp})
+        return out
+    except Exception:
+        return None
+
+
 def _sentinel(v):
     """-1.0 for an unreadable load, for the legacy top-level fields only."""
     return -1.0 if v is None else v
@@ -142,8 +210,13 @@ def conditions(root=None):
         la1, la5, _ = os.getloadavg()
     except OSError:
         la1, la5 = None, None
+    fb = foreign_builds(root)
     return {"load1": la1, "load5": la5, "idle_pct": _tab.idle_pct(),
-            "orphans": repo_orphans(root)}
+            "orphans": repo_orphans(root),
+            "foreign_builds": fb,
+            # ⭐ the stamp itself. `None` where the probe could not look — an
+            # unknown is not a clean bill.
+            "contended": None if fb is None else bool(fb)}
 
 
 def modules():
@@ -636,6 +709,57 @@ def conditions_selftest():
     quiet = got is not None and not any(o["pid"] == os.getpid() for o in got)
     out.append((quiet, "the orphan probe does NOT report this live, parented "
                        "process whose cwd is also this repo"))
+
+    # ⭐⭐ ARM 3b / 3c — THE CONTENTION STAMP, DRIVEN BOTH WAYS BY A REAL PROCESS.
+    # A stamp that is never exercised is a field, not a label. These create a
+    # process that LOOKS like a Lean build (the command name says WHAT) and put
+    # it first outside this repository and then inside it (the cwd says WHOSE),
+    # requiring the stamp to flip. Without the second arm a probe that reported
+    # every Lean process anywhere would pass — and it would mark this seat's own
+    # profiling run CONTENDED on every reading, which is a label nobody reads.
+    # [[feedback-a-probe-must-create-its-condition]]
+    # [[feedback-a-control-can-share-the-blind-spot]]
+    import tempfile, shutil as _sh
+    d = tempfile.mkdtemp(prefix="x86lean-fake-lean-")
+    fake = os.path.join(d, "lean")
+    seen_out = seen_in = None
+    try:
+        # ⛔ NOT a copy of /bin/sleep: macOS kills a copied PLATFORM BINARY on
+        # exec because the copy has lost its code signature, so the first version
+        # of this arm launched a process that was dead within milliseconds. Both
+        # arms then "passed" the way a probe passes when its subject never
+        # existed — and the OUT arm's red is the only reason I looked.
+        # [[feedback-a-probe-must-create-its-condition]]
+        open(fake, "w").write("#!/bin/sh\nsleep 40\n")
+        os.chmod(fake, 0o755)
+        for label, cwd_ in (("out", d), ("in", root)):
+            pr = subprocess.Popen([fake], cwd=cwd_,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                hit = False
+                for _ in range(25):
+                    fb = foreign_builds()
+                    if fb is not None and any(o["pid"] == pr.pid for o in fb):
+                        hit = True
+                        break
+                    time.sleep(0.2)
+                if label == "out":
+                    seen_out = hit
+                else:
+                    seen_in = hit
+            finally:
+                pr.kill()
+                pr.wait()
+    except Exception:
+        pass
+    finally:
+        _sh.rmtree(d, ignore_errors=True)
+    out.append((seen_out is True,
+                "a Lean-looking build OUTSIDE this repo is counted, and the "
+                "reading is stamped CONTENDED"))
+    out.append((seen_in is False,
+                "the same binary run INSIDE this repo is NOT counted (the seat's "
+                "own work must not mark its own reading contended)"))
 
     # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
     # own copy of the `type checking` parse (its docstring says "copied from
