@@ -122,7 +122,7 @@ qualifier.
    resting on one resolved pair is not a second source. **Do not gate on it before that.**
    [[feedback-widening-a-gate-needs-a-second-source]] [[feedback-a-claim-the-vectors-cannot-distinguish]]
 
-   ### 4c. ⭐ THE THIRD ROUTE — the instrument is BUILT and its arms are green; the RUN waits on a quiet box
+   ### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
    The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and
    `user` is 2× `real`: **Lean elaborates this file in PARALLEL and every gated number is a per-task
    WALL-CLOCK reading taken under contention.** `scripts/kernel_cost.py` never passes
@@ -135,10 +135,33 @@ qualifier.
    `type checking`, the child's `user` CPU time, and its `real` wall time. `kernel_cost.py` profiles
    ONE MODULE PER `lean` PROCESS, so `user` is already a per-unit quantity: if it is materially
    quieter than the gated number, that is a fifth route measured for free. Selftest: 8 arms, green.
-   ⛔ **BLOCKED ON AN EXTERNAL EVENT, AND ONLY THAT**: the box read 0.0-0.1% idle with 55-64% SYSTEM
-   time and a 1-minute load of 155-282 on other seats' builds through the whole sitting (D149). Five
-   predictions are SEALED on the bus at 19:3x, before any reading, with the rule that scores them.
-   Run it on a quiet box; do not re-derive the predictions afterwards.
+   ⭐ **RUN, 60 readings, `docs/threads-ab-2026-09-05.jsonl`; five sealed predictions scored 3/5.**
+   `--threads 1` moves the gated LEVEL to **0.76x** and the spread from CV 23.7% to 17.2%, for
+   **1.62x the wall time**. A real effect in the predicted direction that does not solve the
+   problem: an instrument still swinging 17% cannot police a 7% budget. **Route closed.**
+   ⛔ **AND ITS PREMISE WAS REFUTED.** *"`user` is 2x `real`, so Lean elaborates this file in
+   PARALLEL"* — per reading the default arm's u/r was **1.01, 1.17, 1.66, 1.50, 1.17**, median 1.17.
+   It reaches 1.66 only when the box has cores free. *"user is 2x real" is a property of Lean plus
+   IDLE CORES, quoted as a property of the code.* [[feedback-a-single-reading-is-about-its-run]]
+
+   ### 4d. ⭐⭐⭐ THE LIVE CANDIDATE, AND IT WAS ALREADY IN EVERY PASS (D150)
+   `kernel_cost.py` runs **one `lean` process per module**, so `getrusage(RUSAGE_CHILDREN)` yields a
+   **per-unit CPU time** at zero extra cost. Five profiles of ONE tree, `Tests.Coverage`:
+   ```
+     profiler `type checking`   51,400 / 42,700 / 28,900 / 31,000 / 42,700 ms   range 52.7% of median
+     child `user` CPU               56.99 / 58.05 / 55.98 / 56.69 / 57.24 s     range  3.6% of median
+   ```
+   ⇒ the gated number's spread on one tree is **22,500 ms against a 1,764 ms budget — 12.8x the
+   allowance it polices**; the CPU time from the same invocations is **14.6x tighter** in relative
+   terms, and quieter on **12 of 12** subject-arm pairs with the plant control passing for it in
+   both arms.
+   ⛔ **Three things before anyone gates on it.** (1) It changes WHAT is gated, not how it is
+   measured — `user` is elaboration AND kernel, so every budget needs re-derivation **from a second
+   source**, never from these readings. (2) It is quieter, not deterministic: 3.6% is not 0%, and
+   the kernel-unfolding counter (4b) is still the only candidate that reads exactly zero on a no-op.
+   (3) Machine independence unmeasured, as for every candidate.
+   ⇒ **THE RANKING FOR THE NEXT HEAD**: 4d is cheapest and biggest (no new instrument, 14.6x);
+   4b is the only deterministic one but needs a budget and a second machine; 4c is closed.
    - ⚠️ Any budget re-derivation must still come from `docs/kernel-delta-history-2026-09-04.jsonl`.
      Deriving one from the runs above would be deriving the allowance from the thing it checks.
      [[feedback-widening-a-gate-needs-a-second-source]]

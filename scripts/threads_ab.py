@@ -153,6 +153,13 @@ PLANT_SRC = """\
 -- DATA.  Unlike D146's two-module form this keeps the size in the source: the
 -- control's question is only whether the reading still MOVES with the work, and
 -- a reading that moves cannot be a frozen instrument.
+-- ⛔ `maxRecDepth` is REQUIRED and its absence is not a small thing: without it
+-- the elaborator aborts with "maximum recursion depth has been reached", the
+-- profiler still prints a cumulative block with a `type checking` line of
+-- 0.227ms, and a parse that only looked for that line would have recorded the
+-- FAILURE as a tiny reading.  `profile()` refuses on a non-zero exit, which is
+-- why this surfaced as an error instead of as a very quiet control.
+set_option maxRecDepth 200000
 def bigList : List Nat := List.range %d
 
 theorem scan : bigList.all (fun n => n < 1000000) = true := by decide
@@ -160,10 +167,17 @@ theorem scan : bigList.all (fun n => n < 1000000) = true := by decide
 
 
 def plant_dir():
+    """⛔ The plant lives outside the project but is COMPILED FROM IT: `lake env`
+    resolves against the working directory, so the paths handed to `profile()`
+    are absolute and the cwd stays `ROOT`. A control that runs in a different
+    environment from the units is not a control for them."""
     d = tempfile.mkdtemp(prefix="x86lean-threads-ab-")
+    out = {}
     for n, tag in ((PLANT_SMALL, "small"), (PLANT_BIG, "big")):
-        open(os.path.join(d, "Plant_%s.lean" % tag), "w").write(PLANT_SRC % n)
-    return d
+        f = os.path.join(d, "Plant_%s.lean" % tag)
+        open(f, "w").write(PLANT_SRC % n)
+        out[tag] = f
+    return d, out
 
 
 def stats(xs):
@@ -178,7 +192,7 @@ def stats(xs):
 
 
 def run(rounds, units, out_path):
-    plant = plant_dir()
+    plant, plant_files = plant_dir()
     readings = []
     print("QUEUE item 4c — %d rounds, arms {default, --threads 1}, alternated.\n"
           "units: %s\nplant: %s (N=%d, N=%d)\nload at start: %.2f\n"
@@ -200,7 +214,7 @@ def run(rounds, units, out_path):
                          else "%5.1f%%" % r["idle_before"]))
                 sys.stdout.flush()
             for tag in ("small", "big"):
-                r = profile("Plant_%s.lean" % tag, th, cwd=plant)
+                r = profile(plant_files[tag], th)
                 r.update(round=rd, arm=label, kind="plant:" + tag)
                 readings.append(r)
                 print("  r%d %-11s %-24s %8.0f ms  real %6.2fs   [control]"
@@ -310,24 +324,39 @@ def report(readings, fields=None):
     # stopped responding to the work is not a win, and its CV column would look
     # exactly like one.
     print("")
-    for a in arms:
-        sm = table.get(("type_checking_ms", "plant:small", "Plant_small.lean", a))
-        bg = table.get(("type_checking_ms", "plant:big", "Plant_big.lean", a))
-        if not sm or not bg or not sm["median"]:
-            print("  \u26a0 CONTROL INCOMPLETE for arm %s — no verdict is available"
-                  % a)
-            ok = False
-            continue
-        ratio = bg["median"] / sm["median"]
-        if ratio < PLANT_MIN_RATIO:
-            print("  \u2716 CONTROL FAILED for arm %s: the %dx plant reads only "
-                  "%.2fx bigger — this arm's reading is not tracking the work, "
-                  "so its variance says nothing"
-                  % (a, PLANT_BIG // PLANT_SMALL, ratio))
-            ok = False
-        else:
-            print("  \u2714 control %s: the %dx plant reads %.2fx bigger (>= %.1f)"
-                  % (a, PLANT_BIG // PLANT_SMALL, ratio, PLANT_MIN_RATIO))
+    # ⛔ THE CONTROL IS LOOKED UP BY KIND, NOT BY PATH. The plant lives in a
+    # temporary directory whose name changes every run, so a path-keyed lookup
+    # would miss silently and print "CONTROL INCOMPLETE" for a control that ran.
+    # A lookup that cannot find its subject must not be able to look like one
+    # that found nothing to say. [[feedback-a-positional-index-bets-the-record-wont-grow]]
+    # ⛔⛔ THE CONTROL SCORES EVERY FIELD, NOT ONLY THE GATED ONE. This run's
+    # whole result is that a DIFFERENT field (`user_s`) is far quieter than the
+    # gated one — and "quieter" is what a field that stopped responding also
+    # looks like. A control that covers only the incumbent quantity leaves the
+    # candidate uncontrolled, which is exactly the position the incumbent was in
+    # before anyone measured it. [[feedback-a-probe-must-create-its-condition]]
+    kindpath = {k: pth for k, pth in keys}
+    for field, _blurb in fields:
+        for a in arms:
+            sm = table.get((field, "plant:small", kindpath.get("plant:small"), a))
+            bg = table.get((field, "plant:big", kindpath.get("plant:big"), a))
+            if not sm or not bg or not sm["median"]:
+                print("  \u26a0 CONTROL INCOMPLETE for %s / arm %s — no verdict "
+                      "is available" % (field, a))
+                ok = False
+                continue
+            ratio = bg["median"] / sm["median"]
+            if ratio < PLANT_MIN_RATIO:
+                print("  \u2716 CONTROL FAILED for %s / arm %s: the %dx plant "
+                      "reads only %.2fx bigger — this field is not tracking the "
+                      "work, so its variance says nothing"
+                      % (field, a, PLANT_BIG // PLANT_SMALL, ratio))
+                ok = False
+            else:
+                print("  \u2714 control %-18s %-11s the %dx plant reads %.2fx "
+                      "bigger (>= %.1f)"
+                      % (field, a, PLANT_BIG // PLANT_SMALL, ratio,
+                         PLANT_MIN_RATIO))
     loads = [r["load_before"] for r in readings if "load_before" in r]
     idles = [r["idle_before"] for r in readings if r.get("idle_before") is not None]
     if loads:
@@ -409,9 +438,24 @@ def selftest():
     return 0 if ok else 1
 
 
+# ⭐ A MEASUREMENT THAT COST TWENTY MINUTES MUST BE RE-JUDGEABLE IN SECONDS.
+# D146 §8 is the seat's own scar: a delta run that omitted `--out` could not be
+# re-judged against a changed rule and had to be re-measured on a different
+# afternoon, on a different box state. Every reading here is written to JSONL and
+# `--analyse` re-runs the whole report over it with no `lean` invoked.
+# [[feedback-a-gate-that-refuses-must-say-what-it-saw]]
 def main():
     if "--selftest" in sys.argv:
         return selftest()
+    if "--analyse" in sys.argv:
+        path = arg("--analyse")
+        rs = [json.loads(l) for l in open(path) if l.strip().startswith("{")]
+        if not rs:
+            print("⛔ %s holds no readings." % path)
+            return 2
+        print("re-judging %d saved readings from %s (no measurement taken)"
+              % (len(rs), path))
+        return 0 if report(rs) else 1
     rounds = int(arg("--rounds", "5"))
     units = arg("--units", " ".join(UNITS)).split()
     out = arg("--out", os.path.join(ROOT, "docs",

@@ -8802,3 +8802,115 @@ in SYSTEM time**. The banked figure was taken on a quiet box and carries no reco
 it misled.** At load 282 the actual CPU was ~44% user / ~55% sys with one `lean` at 160% — the
 number is dominated by runnable short-lived processes, not by compute. Any future conditions line
 that wants to mean something should carry **idle %** beside the load.
+
+## D150 — QUEUE item 4c measured: `--threads 1` is not the repair, and the same passes were already carrying a per-unit quantity 14.6× tighter than the one the gate reads
+
+Five predictions were SEALED on the bus at 19:3x with their scoring rule, before any reading, and
+the run's readings are committed at `docs/threads-ab-2026-09-05.jsonl` so this entry can be
+re-judged in seconds (`threads_ab.py --analyse FILE`) rather than re-measured on another afternoon
+— D146 §8's scar, paid once already. Five rounds, arms `default` and `lean --threads 1`, alternated
+A,B / B,A, four gated units and a two-size plant in every round, 60 readings.
+
+**CONDITIONS, because this entry is about conditions**: 1-minute load 16.6 – 62.3 (median 27.9),
+CPU idle **0.0 – 48.4%** (median 19.8), recorded per reading. The box was shared with other seats'
+builds throughout. Every control passed in both arms and for all three fields (below), so the
+variance figures are about the instrument and not about an instrument that stopped responding.
+
+### 1. ⛔⛔ THE READING THAT MATTERS MORE THAN THE ARMS
+
+Five `default` profiles of **the same tree**, `Tests.Coverage`:
+
+```
+  round        type checking     user CPU      load(before→after)   idle before
+    0             51,400 ms       56.99 s        46.5 → 59.0           40.1%
+    1             42,700 ms       58.05 s        42.9 → 44.8            0.6%
+    2             28,900 ms       55.98 s        37.9 → 29.3           20.2%
+    3             31,000 ms       56.69 s        16.6 → 24.8           24.9%
+    4             42,700 ms       57.24 s        22.2 → 28.4            0.8%
+
+  range / median      52.7%                3.6%
+```
+
+⇒ 🔑 **THE GATED NUMBER'S SPREAD ON ONE TREE WAS 22,500 ms AGAINST A 1,764 ms BUDGET — 12.8× the
+allowance the gate is policing** — while the child's total CPU time for the same passes moved 2.07 s
+on a 57 s median. D142 established this problem at 2,100 ms across two afternoons; an evening on a
+shared box makes it an order of magnitude worse, and the two quantities were being produced by the
+same `lean` invocations the whole time.
+
+### 2. THE SEAL, SCORED ON WHAT IT NAMED
+
+| | prediction | measured | verdict |
+|---|---|---|---|
+|P1| default u/r > 1.4, falling to < 1.15 under `--threads 1` | **1.17** → 0.77 | ⛔ **REFUTED** |
+|P2| median `real` under `--threads 1` ≥ 1.3× | 1.62 paired / 1.39 arm-median | ✅ confirmed |
+|P3| median `type checking` ratio B/A < 0.95 | 0.93 paired / 0.76 arm-median | ✅ confirmed |
+|P4| CV of `type checking` under `--threads 1` < 0.5× default | **0.73** | ⛔ **REFUTED** |
+|P5| `user` CPU quieter than the gated number in BOTH arms | **12 of 12** | ✅ confirmed |
+
+⛔ **P1 IS THE INTERESTING FAILURE, AND IT REFUTES THE ROUTE'S PREMISE AS INHERITED.** QUEUE item 4c
+carried *"`user` is 2× `real`, so Lean elaborates this file in PARALLEL"*. Per reading the default
+arm's u/r was **1.01, 1.17, 1.66, 1.50, 1.17** — it reaches 1.66 only when the box has cores free
+and falls to 1.01 when it does not. ⇒ 🔑 *"user is 2× real" is not a property of Lean; it is a
+property of Lean plus idle cores, and it was quoted as a property of the code.* A premise measured
+once on a quiet box became a standing sentence about the compiler.
+[[feedback-a-single-reading-is-about-its-run]]
+
+⛔ **P4 IS SCORED ON THE STATISTIC IT NAMED, NOT ON THE ONE THAT WOULD PASS.** The seal said CV, and
+CV gives 17.24 / 23.66 = **0.73**, short of the 0.5 it claimed. The drift-robust estimator this run
+also prints — each arm's median |consecutive-round difference| as a share of its own median — gives
+**6.90 / 23.89 = 0.29**, which would clear the threshold, and on a box whose load moved 16.6 → 62.3
+that estimator is the more trustworthy of the two. **Both numbers are reported and the seal is
+scored on the one it wrote down.** Choosing the estimator after seeing the data is how a prediction
+becomes right by construction, which is the defect D144 caught in this seat two entries ago.
+
+### 3. ⭐⭐⭐ WHAT REPLACES THE ROUTE: THE QUANTITY THAT WAS ALREADY IN THE PASS
+
+`kernel_cost.py` runs **one `lean` process per module**, so `getrusage(RUSAGE_CHILDREN)` already
+yields a **per-unit** CPU time at zero extra cost. Against the profiler's `type checking`:
+
+```
+  CV% over 5 readings          type checking      user CPU     ratio
+  Tests.Coverage   default          23.66            1.33       0.06
+  Tests.Coverage   threads=1        17.24            3.12       0.18
+  X86.Basic        default          18.44            6.38       0.35
+  X86.Basic        threads=1        65.07            7.92       0.12
+  X86.Semantics    default          79.10            6.58       0.08
+  X86.Value        threads=1        46.11            5.64       0.12
+```
+
+Twelve of twelve subject×arm pairs, and the plant control passes for `user` in both arms (a 4× plant
+reads 3.59× and 3.49× bigger), so this is not the quiet of an instrument that stopped listening.
+
+⚠️ **AND THE THREE THINGS THIS DOES NOT SETTLE, BEFORE ANYONE GATES ON IT.**
+1. **It changes WHAT is gated, not how it is measured** — the opposite of `--threads 1`'s one virtue.
+   `user` is the whole module's CPU (elaboration *and* kernel); the gate today is the kernel phase
+   alone. Every budget in `kernel_ceilings.txt` and `kernel_delta_budget.txt` would need
+   re-derivation **from a second source**, never from these readings.
+   [[feedback-widening-a-gate-needs-a-second-source]]
+2. **It is quieter, not deterministic.** 3.6% is not 0%. The kernel-unfolding counter (D146, D148)
+   remains the only candidate that reads *exactly* zero on a no-op; its problem is the opposite one
+   — no budget and no second machine.
+3. **Machine independence is unmeasured**, exactly as for every other candidate.
+
+### 4. WHAT `--threads 1` ACTUALLY BOUGHT, SO THE ROUTE IS CLOSED WITH A NUMBER
+
+The gated level falls to **0.76×** and the spread from CV 23.7% to 17.2%, for **1.62× the wall
+time**. That is a real effect in the predicted direction and it does not solve the problem: a gate
+whose instrument still swings 17% cannot police a 7% budget. ⇒ **Route 4c is measured and closed.**
+Its residue is the finding in §1 and the candidate in §3, both of which came out of the same run.
+
+### 5. TWO SMALLER THINGS THE RUN TAUGHT, BOTH ABOUT INSTRUMENTS
+
+- ⛔ **A FAILED ELABORATION STILL PRINTS A CUMULATIVE BLOCK.** The plant's first version omitted
+  `set_option maxRecDepth`; Lean aborted with *"maximum recursion depth has been reached"* and the
+  profiler **still printed `type checking 0.227ms`**. A parse that looked only for that line would
+  have filed a failed run as a very fast one. `profile()` refuses on a non-zero exit, which is the
+  only reason this surfaced as an error instead of as a very quiet control.
+  ⇒ *the presence of a profiler block is not evidence that the module was checked.*
+- ⚠️ **A CONDITIONS SAMPLE TAKEN BEFORE A 56-SECOND MEASUREMENT DESCRIBES A DIFFERENT MINUTE.**
+  Round 0 began at 40.1% idle and ended with the box at 0.0%; its reading is the highest of the
+  five. `load_before`/`load_after` bracket the run, `idle` does not yet. For a unit this long the
+  conditions must be sampled during, or at both ends.
+  ⚠️ Correlations from this run are readings, not the argument: over n=5, `corr(type checking,
+  mean load) = 0.70` and `corr(user CPU, mean load) = 0.32`. n=5 supports neither on its own; they
+  are recorded because they point the same way as the mechanism and the CV table, which do.
