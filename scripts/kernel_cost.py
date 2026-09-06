@@ -330,6 +330,54 @@ def conditions(root=None):
             "contended": None if fb is None else bool(fb)}
 
 
+# ⛔⛔ THE OTHER HALF OF "WHAT DID I LEAVE BEHIND", ADDED 2026-09-06 (D163).
+# `kernel_delta.measure()` adds TWO detached worktrees per run and removes them
+# on its way out. A run that is KILLED does not get there — and killing a timing
+# run is the ordinary case, not the exotic one, because it is the longest thing
+# a seat starts. The registrations then survive in `.git/worktrees` and the
+# checkouts survive on disk.
+# ⚠️ IT HAS HAPPENED AT LEAST TWICE AND WAS FILED AS HOUSEKEEPING BOTH TIMES.
+# `docs/DIFFERENTIAL-P2-BATCH19.md` records `x86lean-delta-9ceaj7ek/{base,head}`
+# plus `/private/tmp/x86ci` as *"housekeeping, not a complaint"*; on 09/06 this
+# seat found `/private/tmp/x86ci` STILL THERE (149 MB, from the batch-12 era)
+# beside four more it had just made — **293 MB across five stale checkouts**.
+# ⇒ 🔑 **A LEAK FILED AS HOUSEKEEPING IS A LEAK NOBODY OWNS**, and the instrument
+# a head actually runs to ask the question answered an ADJACENT one: `post_flight`
+# said `✅ nothing of mine is running detached` — true, and read as "nothing of
+# mine is left behind". Its own header says "orphan check".
+# ⛔ REPORTS, NEVER REMOVES, for the same reason the process half does not kill:
+# a LIVE `kernel_delta` legitimately holds two of these, and this probe cannot
+# tell a live one from a stranded one any more than `ppid 1` can. It names the
+# ambiguity. [[feedback-enumerate-is-not-attribute]]
+# [[feedback-a-tool-has-no-concept-of-not-applicable]]
+def stale_worktrees(root=None):
+    """[{path, rev, exists}] — checkouts registered to this repo besides the main
+    one. None if git could not look (an absence of evidence, not a clean bill)."""
+    want = os.path.realpath(root or os.getcwd())
+    try:
+        r = subprocess.run(["git", "worktree", "list", "--porcelain"], cwd=want,
+                           capture_output=True, text=True, timeout=20)
+        if r.returncode != 0:
+            return None
+    except Exception:
+        return None
+    out, cur, first = [], {}, True
+    for line in r.stdout.splitlines() + [""]:
+        if not line.strip():
+            if cur:
+                if first:
+                    first = False           # the main working tree is not stale
+                else:
+                    pth = cur.get("worktree", "")
+                    out.append({"path": pth, "rev": cur.get("HEAD", "")[:9],
+                                "exists": os.path.isdir(pth)})
+            cur = {}
+            continue
+        k, _, v = line.partition(" ")
+        cur[k] = v
+    return out
+
+
 # ⭐⭐⭐ QUEUE ITEM 10, THE HALF THAT WAS MISSING — THE **POST**-FLIGHT PROBE.
 #
 # The pre-flight half has run since D151: a timing run looks for orphans before
@@ -354,22 +402,37 @@ def post_flight(root=None):
     rc 0 nothing of mine · 1 my orphans survive · 2 a probe could not look."""
     want = os.path.realpath(root or os.getcwd())
     mine, others = repo_orphans(want), foreign_builds(want)
+    trees = stale_worktrees(want)
     lines = [f"── POST-FLIGHT orphan check · {want}"]
-    if mine is None or others is None:
+    if mine is None or others is None or trees is None:
         # ⛔ "could not look" and "nothing there" must never print the same.
         # [[feedback-probe-silence-has-two-causes]]
         lines.append("⛔ the probe could NOT LOOK (ps or lsof unavailable or "
                      "refused), so this is not a clean bill — it is an absence "
                      f"of evidence: repo_orphans={'ok' if mine is not None else 'FAILED'} "
-                     f"foreign_builds={'ok' if others is not None else 'FAILED'}")
+                     f"foreign_builds={'ok' if others is not None else 'FAILED'} "
+                     f"stale_worktrees={'ok' if trees is not None else 'FAILED'}")
         return 2, lines
     for o in mine:
         lines.append(f"⚠️  MINE, ppid 1  pid {o['pid']:>7}  up {o['etime']:>12}  "
                      f"{o['comm']}  cwd {o['cwd']}")
     for o in others:
         lines.append(f"   another tree    pid {o['pid']:>7}  cwd {o['cwd']}")
+    for t in trees:
+        lines.append(f"⚠️  WORKTREE      {t['rev']}  "
+                     f"{'' if t['exists'] else '(DIRECTORY GONE) '}{t['path']}")
     lines.append(f"   {len(mine)} ppid-1 process(es) in my trees · {len(others)} "
-                 f"build(s) in other trees · NOTHING WAS KILLED")
+                 f"build(s) in other trees · {len(trees)} extra worktree(s) "
+                 f"registered · NOTHING WAS KILLED OR REMOVED")
+    if trees:
+        # ⛔ THE SAME AMBIGUITY AS `ppid 1`, NAMED RATHER THAN RESOLVED.
+        lines.append("⚠️  A RUNNING `kernel_delta` HOLDS TWO OF THESE legitimately, so "
+                     "this list cannot tell a live measurement from a killed one's "
+                     "leavings. Check that no timing run is in flight first.")
+        lines.append("⛔ Then, per path: `git worktree remove --force <path>`. "
+                     "`git worktree prune` alone drops only registrations whose "
+                     "DIRECTORY is already gone, and these usually still exist — "
+                     "the disk is the larger half (293 MB across five on 09/06).")
     if mine:
         # ⛔⛔ "ppid 1" IS NOT "ORPHANED", AND THIS TOOL LEARNED THAT BY NEARLY
         # COSTING ME A LIVE JOB. Every background job in this harness is launched
@@ -388,7 +451,10 @@ def post_flight(root=None):
                      "still want, then kill BY PID — never by a name pattern, "
                      "which at this box selects other seats' live processes.")
         return 1, lines
-    lines.append("✅ nothing of mine is running detached.")
+    if trees:
+        return 1, lines
+    lines.append("✅ nothing of mine is running detached, and no worktree of mine "
+                 "is registered beyond the main checkout.")
     return 0, lines
 
 
@@ -1119,6 +1185,63 @@ def conditions_selftest():
                                     "could not look) when nothing of mine is left "
                                     "detached — the caller's own pid included, "
                                     "since a backgrounded probe is itself ppid 1"))
+
+    # ⚠️ ARM 3h — THE WORKTREE HALF (D163), CONTROL FIRST AND THEN PLANTED. The
+    # arm above is the control: with no extra checkout registered, `stale_worktrees`
+    # is empty and the probe is clean. ⛔ Without the plant below that silence has
+    # two causes, and "the repo happens to have no worktrees" is the likelier one.
+    # [[feedback-a-probe-must-create-its-condition]]
+    import shutil as _sh_wt
+    wt_clean = stale_worktrees()
+    out.append((wt_clean == [], "CONTROL — no extra worktree is registered, so the "
+                                "probe's silence is about the repository"))
+    _wt = tempfile.mkdtemp(prefix="x86lean-postflight-arm-")
+    _wtp = os.path.join(_wt, "wt")
+    try:
+        subprocess.run(["git", "worktree", "add", "--detach", _wtp, "HEAD"],
+                       cwd=root, capture_output=True, text=True, timeout=120)
+        seen = stale_worktrees() or []
+        out.append((any(os.path.realpath(t["path"]) == os.path.realpath(_wtp)
+                        for t in seen),
+                    "a registered extra worktree IS FOUND and named by path — the "
+                    "leaving `kernel_delta` makes two of when it is killed"))
+        rc_wt, ln_wt = post_flight()
+        out.append((rc_wt == 1 and any("WORKTREE" in l for l in ln_wt),
+                    "...and the post-flight VERDICT goes to 1 for it, so a stale "
+                    "checkout can no longer ride under `nothing of mine is running "
+                    "detached` — which was TRUE while 293 MB sat in five of them"))
+    finally:
+        subprocess.run(["git", "worktree", "remove", "--force", _wtp],
+                       cwd=root, capture_output=True, text=True, timeout=120)
+        _sh_wt.rmtree(_wt, ignore_errors=True)
+    # ⭐ AND THE OTHER SHAPE, or the report has a branch nothing reaches. A
+    # registration whose DIRECTORY is gone is the only case `git worktree prune`
+    # alone would clear, and the message above distinguishes it — so it needs an
+    # input. The plant above sits under $TMPDIR exactly like the real leak, which
+    # is why this second one varies the dimension that plant holds fixed.
+    # [[feedback-a-control-can-share-the-blind-spot]]
+    # [[feedback-an-implied-assertion-is-not-a-second-gate]]
+    _wt2 = tempfile.mkdtemp(prefix="x86lean-postflight-gone-")
+    _wtp2 = os.path.join(_wt2, "wt")
+    try:
+        subprocess.run(["git", "worktree", "add", "--detach", _wtp2, "HEAD"],
+                       cwd=root, capture_output=True, text=True, timeout=120)
+        _sh_wt.rmtree(_wt2, ignore_errors=True)          # the directory, not the registration
+        gone = [t for t in (stale_worktrees() or [])
+                if os.path.realpath(t["path"]) == os.path.realpath(_wtp2)]
+        out.append((len(gone) == 1 and gone[0]["exists"] is False,
+                    "a registration whose DIRECTORY IS GONE is found and flagged as "
+                    "such — the one case `git worktree prune` alone would clear"))
+    finally:
+        subprocess.run(["git", "worktree", "prune"], cwd=root,
+                       capture_output=True, text=True, timeout=120)
+        _sh_wt.rmtree(_wt2, ignore_errors=True)
+
+    # ⛔ AND THE RESTORE IS ITSELF AN ARM: an arm that leaves its plant behind
+    # makes every later run of this selftest report the plant as a finding.
+    out.append((stale_worktrees() == [], "...and the plant is REMOVED, so this "
+                                         "selftest does not leave the very leak it "
+                                         "was written to catch"))
 
     # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
     # own copy of the `type checking` parse (its docstring says "copied from

@@ -418,7 +418,35 @@ qualifier.
    ⛔ Portability unmeasured, as for every candidate in item 4. One box, arm64. The frozen-tree run
    is ONE session on ONE night and its n=6 column rests on five splits.
 
-   ### 4g. ⭐⭐⭐ THE DRIFT GATE — (a) THE FIXED POINT IS GONE (D161); THE UNIT MISMATCH IS WHAT REMAINS
+   ### 4g. ⭐⭐⭐ THE DRIFT GATE — (a) AND (b) BOTH DISCHARGED; WHAT REMAINS IS FIVE MEASUREMENTS
+
+✅✅ **4g(b) DISCHARGED 2026-09-06 (D164).** The `--no-ff` landing ritual is proven end to end on a
+throwaway branch WITH ITS NEGATIVE CONTROL (a 2-commit branch became ONE first-parent step; the walk
+priced 23 units with no missing step; deleting that one row made the SAME walk refuse rc 2). The row
+rides **inside** the merge commit, so recording needs no commit of its own:
+```
+   git merge --no-ff --no-commit <branch>
+   python3 scripts/kernel_drift.py --record --readings <merge-gate json>
+   git add docs/delta-allowance-ledger.jsonl && git commit
+```
+⛔ **AND IT IS GATED, BECAUSE IT IS A DISCIPLINE.** `kernel_drift.py --gap` against
+`docs/drift-gap-ratchet.txt`, on the CI list (`kernel-delta` job, step 4). A batch landed without
+its row raises the gated count and goes red naming the ritual; a backfill that lowers it must lower
+the ratchet in the same commit (that refuses too — slack is where the next unrecorded landing
+hides). Selftest **37 arms / 23 distinct plants**, up from 18 / 10.
+
+⭐⭐⭐ **AND THE BACKFILL IS FIVE PROFILING RUNS, NOT FIFTY.** *"The gap is 48 commits"* was the
+inherited framing and it is a total that cannot see its parts. Measured at `79bb658` (51 steps):
+```
+    5  change a `.lean` file      ⇐ batches 23, 34, 35, 36a, 36b — a REAL measurement each
+    5  change no `.lean` but DO change scripts/kernel_cost.py or the budget registry
+                                  ⇐ they move the READING or the ALLOWANCE without moving
+                                    the code, so "nothing to price" is FALSE for them
+   41  change none of the above   ⇐ an exemption CANDIDATE; the tool exempts nothing
+```
+⛔ The obvious exemption — *no `.lean` change ⇒ no kernel delta* — is **wrong for the middle five**,
+which is why the tool prints three numbers instead of one. Writing and gating that argument is what
+is actually left. [[feedback-a-total-cannot-see-its-parts]]
 
 ✅ **4g(a) DISCHARGED 2026-09-06 (D161).** The ledger is re-keyed on `base` alone. `allowance` is
 `f(parent tree, budget registry)`, so it never depended on the produced sha — the fixed point was
@@ -426,17 +454,12 @@ in the KEY, not the data. Selftest 18/18 with 10 distinct plants; fork check dri
 ledger. ⛔ A proposed refusal clause for a re-cut branch was REFUTED and NOT added: two children of
 one base are priced from the same tree, so their allowances are identical.
 
-⛔⛔ **4g(b) IS THE REAL BLOCKER AND IT IS NOT THE KEY — THE UNITS DISAGREE.** The ledger wants one
-row per first-parent COMMIT; the gate produces one delta per BATCH. Batch 36 landed as FIVE
-commits, so its merge-gate run yields one row spanning five steps and the walk reports four
-missing. Squashing reconciles them (batch 35's route) at the cost of the per-commit history that
-made batch 36's price auditable.
-⭐ **THE FIX IS THE LANDING RITUAL, NOT THE GATE: merge batches with `--no-ff`.** A merge commit is
-exactly ONE first-parent step per batch and preserves every commit on the branch. Do this from the
-next batch; batch 36 was fast-forwarded and is five steps.
-⚠️ Then the backfill: the gap is **48** commits (40 at 03:27, 43 at 05:3x, 48 after batch 36 — it
-grows with every landing, which is why the cheapest moment to record a row is the merge it belongs
-to).
+*(4g(b)'s original statement, kept because its diagnosis was right and its ARITHMETIC was off by
+one: the ledger wants one row per first-parent COMMIT and the gate produces one delta per BATCH.
+Measured at the object, batch 36's span `e6dd9c6 → 5c18c59` is **four** first-parent steps, not
+five, and its THREE paid draws can price exactly ONE of them. Squashing reconciles the units at the
+cost of the per-commit history that made batch 36's price decomposable; `--no-ff` reconciles them
+and keeps it.)*
 
 #### (the original 4g note)
 ### 4g-orig. THE DRIFT GATE IS BUILT AND REGISTERED (D154) — what is left is RECORDING, not design
