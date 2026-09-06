@@ -11170,3 +11170,228 @@ driven red by routing one kind to another.
 names the ritual.
 ⚠️ `p2_batch_size.py` must be re-run against the tree of the day before sizing: D158's law is that
 the affordable batch GROWS with the roster, so yesterday's number is a floor, not a ceiling.
+
+---
+
+## D168 — P2 batch 37 step 1: the `vmovmsk` field change, and the literal the comment beside it had already called a hazard
+
+D167 ordered the field change as its own commit, on D160's proven shape: splitting it from
+the semantics is what makes the reading a fact about the FIELD. `5dc2a13` changes the fields
+and nothing else — roster, coverage table, differential and `rosterP0` do not move, and
+`movmskps` is not yet a claimed form.
+
+### 1. THE PRICE: FREE, AND THE CONFOUND POINTS THE WRONG WAY
+
+`kernel_delta.py --base c61d7f5 --head 5dc2a13 --repeats 3`, passes alternated, one session:
+
+```
+  X86.Syntax        274.0 → 260.0   -14.0  ±16.5   budget 51.2   ok
+  X86.Semantics      14.9 →  15.9    +1.0   ±2.7   budget  6.0   ok
+  Tests.Coverage  28300.0→26500.0 -1800.0 ±2579.3  budget 2037.6 ok
+  Tests.Nonvacuity  143.0 → 136.0    -7.0 ±148.2   budget 49.0   UNMEASURABLE ⛔
+  (every other unit ok)                                          overall rc 3
+```
+The one refusal is a band, not a cost: `Tests.Nonvacuity`'s ±148 is larger than the 143 ms
+module it is about. ⇒ a ceiling whose margin is under the machine's own spread reports the
+machine. D160's verdict verbatim: UNMEASURABLE is not the same as expensive.
+
+⭐ AND THE LOAD CONFOUND IS CONSERVATIVE, which is worth stating because it usually is not:
+the head's three passes ran at mean load **14.58** against the base's **13.06**, and still
+read LOWER. The reading that says "the field is free" was taken under conditions biased
+against it. [[feedback-conservative-is-a-direction-not-a-margin]]
+[[feedback-a-measurement-without-its-conditions]]
+
+### 2. ⭐⭐ THE COMMENT THAT NAMED THE HAZARD AND THEN COMMITTED IT
+
+`Op.vmovmsk`'s semantics was written as a fold "rather than sixteen `|||` terms so the LANE
+COUNT is derived from the width — a literal sixteen repeated in the body is a place for a
+typo no type can catch." The body then read `List.range 16` and `8 * i + 7`: the sixteen AND
+the eight were literals in exactly the position that sentence calls a hazard.
+
+Harmless while there was one kind. The second kind is the change that pays for it — and a
+reader auditing whether the count was derived would have read the sentence and stopped.
+⇒ 🔑 **A COMMENT THAT NAMES A HAZARD IS NOT A DEFENCE AGAINST IT**, and it is worse than
+silence, because it describes the code its author meant to write. Both literals now come
+from `VMovMskKind.laneBits`: `result bit i = src bit (w*i + (w-1))`, for `i < 128 / w`.
+[[feedback-a-citation-is-an-ungated-claim]]
+
+### 3. ⛔ THE r32/r64 QUESTION WAS RE-ASKED, NOT INHERITED
+
+D167 was explicit that `pmovmskb`'s answer must not carry over, because the answer is a fact
+about the ASSEMBLER and not about the family. Measured with the assembler
+`check_encodings.py` uses: `movmskps %xmm1,%eax` and `movmskps %xmm1,%rax` both give
+`0f50c1`. K agrees on the other side — `movmskps_r32_xmm.k` and `movmskps_r64_xmm.k` are the
+identical `concatenateMInt(mi(60,0), …)`. So one row, and the reason is measured twice.
+[[feedback-a-batch-cannot-be-sampled]]
+
+### 4. THE PROBE, ITS CONTROL, AND THREE PLANTS
+
+A generalisation has two ways to be wrong — the new kind and the old one — so the old kind is
+anchored beside the new one on the SAME source, and the two must disagree:
+```
+  movmskps on a source with signs 1,0,1,0 per dword lane   = 0xA      ✔ by `decide`
+  pmovmskb on the SAME source, the pre-batch-37 answer     = 0x87F0   ✔ (the control)
+  the two kinds DISAGREE there                                        ✔
+  plant `.ps` laneBits 32→16                     ⇒ RED, 2 arms
+  plant `.b`  laneBits  8→16                     ⇒ RED, 2 arms — the control fires ALONE
+  plant sign bit `w*i+(w-1)` → `w*i`             ⇒ RED, both arms
+```
+The middle plant is the one that matters: it proves the control is not riding on its
+neighbours. [[feedback-a-plant-probes-control-comes-first]]
+
+---
+
+## D169 — P2 batch 37 step 2: four inert spellings, and a witness that was silent on its own last conjunct
+
+Four `VBinKind` members joining the `vunpack` arms they are identical to (batch 34's shape),
+plus the `.ps` member D168 added. Five roster rows, ten vectors, no new function.
+
+### 1. THE IDENTITY IS A THEOREM BECAUSE NO VECTOR CAN WITNESS IT
+
+Each spelling is tested only against the oracle, never against its sibling, so a model
+decoding `0f 14` as `punpckldq` scores identically on every case in the table. Bytes held
+apart by `check_encodings.py` (CLEAN over 1014 forms); semantics held together by
+`unpack_aliases_are_their_integer_siblings`.
+
+⭐ THREE SOURCES AGREE AND THE TEXT OF ONE DISAGREES — re-derived here with an independently
+written parser, though K's files are ONE origin however many instruments read them:
+```
+  K, leaf sequence     all four IDENTICAL; three controls DIFFER
+  K, byte comparison   TWO identical, two differ at char 122 of 345 (pure re-association)
+  LLVM's disassembler  one operand comment per pair
+```
+The byte comparison splits 2/2 along `ps`/`pd` — a self-consistent WRONG design with its own
+explanation attached. [[feedback-two-readings-are-not-two-witnesses]]
+
+### 2. ⛔⛔ THE WITNESS THAT PASSED THREE CONJUNCTS AND WAS BLIND ON THE FOURTH
+
+`unpack_siblings_are_pairwise_distinct` was first written `⟨0, 1, …⟩`. That satisfies the
+first three and makes the fourth FALSE: `1` lies entirely in the LOW half, so `unpckhd` and
+`unpckhq` both read zeros and AGREE. `decide` caught it — but had the theorem been written
+with only the three conjuncts that passed, a natural thing to do, it would have been GREEN
+and blind to exactly the pair a mis-routed `unpckhps`/`unpckhpd` lands on.
+⇒ 🔑 **A WITNESS DRAWN FROM THE SAME HALF OF THE SPACE AS EVERYTHING ELSE IS SILENT IN THE
+DIMENSION THE CLAIM IS ABOUT.** [[feedback-a-control-can-share-the-blind-spot]]
+
+### 3. ⛔⛔ TWO WRONG-MODEL ARMS WOULD HAVE RUN ON THE NEW VECTORS AND BEEN NO-OPS
+
+`wrongUnpackHalf` ends in `| other => other`; `wrongUnpackOrder` names its eight members and
+falls to `| _ => step i s` — the GOOD model. The four new mnemonics contain `unpck`, so both
+arms would have been SELECTED for the new vectors, RUN, and been bit-identical to the good
+model on every one: scoring 0 and reading exactly like an arm that was exercised and found
+nothing. Both extended.
+⇒ 🔑 **A CATCH-ALL IS WHERE A NEW MEMBER GOES TO BE SILENTLY EXEMPTED FROM THE GATE THAT
+COVERS ITS FAMILY.** The second was found by grepping the file for the SHAPE after fixing the
+first. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+⚠️ **AND THE SAME SHAPE IS CORRECT ONE FILE AWAY.** `Tests.Coverage.isVShiftForm` also ends
+in `| _ => false`, and the two new constructors were deliberately NOT added to it: all four
+consumers of `vshiftVectors` match on `.vshifti`/`.vshiftx`/`.vshiftm` only, so an added
+member would be inert and would cost kernel walk. ⇒ the discriminator is whether anything
+downstream ASKS a question of the omitted member — in `Main.lean` the omission was still
+selected and SCORED, so its silence was reported as evidence; here nothing asks.
+
+### 4. THE COUNTS ARE HAND-DERIVED AND CHECKED, NOT READ BACK
+
+`roster_size_is_159` and `vector_count_is_1014` were written from what the batch INTENDED to
+add; `decide` checking them against the tables is what makes two sources agree. Deriving them
+from the tables would have made the gate confirm whatever the tables held.
+`claimed_forms.py` then arrived at the same pair independently, from the vectors' AT&T text
+and the rows' encodings. [[feedback-widening-a-gate-needs-a-second-source]]
+
+---
+
+## D170 — P2 batch 37 step 3: the two-source shuffles land, and `movmskps` does not — the availability gate scored a form the oracle never ran as available
+
+Step 3 is `shufps` and `shufpd`, 88% of the batch's demand and its only new semantics. They
+landed. `movmskps`, which D168 built the field for and D169 claimed, did NOT — and finding
+out why cost the batch its most useful hour.
+
+### 1. THE TWO-SOURCE SHUFFLES ARE A NEW CONSTRUCTOR, AND THE REASON IS STRUCTURAL
+
+`VShufKind`'s every member selects from ONE source; `vshufApply`'s signature takes a single
+`src`. `shufps` reads BOTH operands (lanes 0-1 from the destination, 2-3 from the source), so
+it could not be expressed at any kind of that type. `Op.vshufp`/`Op.vshufpm` and
+`VShufpKind`. D167 called this and it holds at the object.
+
+⚠️ AND THE DESTINATION IS READ, which no other shuffle here does — `Op.vshuf` overwrites its
+destination without consulting it. A frame lemma or wrong model that treats the destination
+as write-only is right for that constructor and wrong for this one.
+
+⭐ THREE SOURCES BEFORE A LINE WAS WRITTEN: K's rules decode to lane0←DEST[imm[1:0]],
+lane1←DEST[imm[3:2]], lane2←SRC[imm[5:4]], lane3←SRC[imm[7:6]] for `ps` and qword0←DEST[imm[0]],
+qword1←SRC[imm[1]] for `pd`; the SDM's `Select4`; and LLVM, which renders
+`shufps $0x1b,%xmm1,%xmm0` as `xmm0 = xmm0[3,2],xmm1[1,0]`. The anchors quote LLVM's own
+example immediate, so their expected values are read off a source independent of the rule
+under test.
+
+⛔ The plants: swapping `vshufpsAux`'s `if i < 2 then a else b` reds 3 arms; making `shufpd`
+read imm[1] for qword 0 reds 3 arms.
+
+### 2. ⛔⛔⛔ THE FINDING: `movmskps` STALLS ON THE ORACLE, AND TWO GATES CALLED IT FINE
+
+The differential returned **unexplained=464**, every one of them `movmskps`. Measured at the
+object, over 88 pre-states per vector:
+```
+   movmskps_x1_eax   88/88  RIP NEVER ADVANCES, refused-flag = 0
+   movmskps_x5_ecx   88/88  RIP NEVER ADVANCES, refused-flag = 0
+   pmovmskb_x1/x5    88/88  executes      ← same constructor, same shape
+   unpcklps_xx/_m    88/88  executes      ← also a NO-PREFIX SSE form
+   shufps/shufpd     88/88  executes, and MATCHED
+```
+Two positive controls in the SAME run, chosen to differ in the two dimensions a reader would
+blame: the constructor, and the prefix/feature class. So the stall is a fact about this
+MNEMONIC. x86isa defines `x86-movmskps-sse` and `inst-listing.lisp` carries the entry, so
+this is not a missing implementation but an unreachable one; running it down inside x86isa is
+not this batch's work.
+
+⛔ **AND IT IS THE ONLY FORM IN THE TABLE THAT STALLS WITH THE REFUSAL FLAG CLEAR.** Every
+other non-advancing form — `div`, `idiv`, `call_ind`, the `_unal` alignment vectors — sets
+`refused=1`. (The `rep_*` forms also leave RIP unadvanced with the flag clear, but that is
+their SEMANTICS, D46.) Because the flag was clear, the differential classified 464 field
+mismatches as `spec` — i.e. as THIS MODEL being wrong about a rule the oracle never evaluated.
+
+### 3. ⛔⛔ AND THE GATE THAT EXISTS TO PREVENT EXACTLY THIS SAID `executes 88/88`
+
+`oracle_availability.py` is the instrument P1 batch 21 built so the unavailable list would be
+MEASURED rather than declared — its docstring: *"a declared list inherits the direction of its
+default … every gap in it INVENTS work."* Asked about `movmskps`, it answered **executes,
+88 executed, 0 refused**, while the differential was producing 464 mismatches for the same
+form on the same oracle.
+
+Its classifier was `if refused=1 then refused else EXECUTED`. **`executed` was a residual, not
+a measurement.** A case that neither refused nor ran fell into it.
+⇒ 🔑 **A TWO-VALUED CLASSIFIER OVER A THREE-VALUED WORLD SCORES THE UNSEEN STATE AS WHICHEVER
+VALUE IS THE RESIDUAL** — and here the residual was SUCCESS, in the one gate whose stated
+purpose is to stop unavailable work from being invented. The gate was not merely blind; it
+was blind in the direction that manufactures work.
+[[feedback-a-tool-has-no-concept-of-not-applicable]] [[feedback-a-route-cannot-see-its-subject]]
+[[feedback-under-claims-are-unpoliced]]
+
+**REPAIRED, three-valued: refuses · executes · stalls**, where a stall is `rip UNCHANGED`.
+`movmskps` is declared `stalls` and the gate now measures it. ⚠️ The test is `rip unchanged`
+and NOT `rip == entry + len`, because a jump, a taken branch, or a `rep` signalling another
+iteration would fail the stricter one; no such form is in `FORMS` today and the comment says
+so for the head who adds one. The ten BMI forms and `movnti` still read `refuses` in the same
+run — the positive control that the new branch did not swallow the refusal class — and both
+`executes` controls still execute.
+
+### 4. WHAT THE MODEL KEEPS, AND WHAT IT NO LONGER CLAIMS
+
+`VMovMskKind.ps`, its semantics and its five anchors STAY: the model computes `movmskps`
+correctly and the kernel checks that against K and LLVM. The **roster row and its two vectors
+are withdrawn**, because in this repository a roster row means *differentially tested* and it
+is not. 158 mnemonics / 1012 vectors, not 159 / 1014.
+⇒ this is `movnti`'s precedent (D59, D61) applied to a form the model can execute: available
+work is what the ORACLE can witness, and a row that cannot be witnessed is a claim, not a
+measurement. The day x86isa executes it, the availability gate goes RED — declared `stalls`,
+measured `executes` — and names the row that can then land.
+
+### 5. ⚠️ AND THE BATCH ASSUMED ORACLE SUPPORT FROM A SIBLING
+
+`movmskps` was never probed before being claimed. `pmovmskb` works, it is the same
+constructor at the same shape, and that was allowed to stand for evidence. The declared list
+never named `movmskps`, so nothing looked.
+⇒ 🔑 **ORACLE SUPPORT IS PER ITEM.** Seven of seven executing does not license the eighth, and
+here the eighth was the one the batch had already built a field for.
+[[feedback-a-batch-cannot-be-sampled]] [[feedback-a-declared-list-inherits-its-default]]

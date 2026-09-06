@@ -729,23 +729,17 @@ acc,imm · rh"
   -- notes about one row: the roster counts what a disassembler PRINTS, and these
   -- are four names at four opcodes.  The semantics is the sibling's, exactly.
   , { mnemonic := "unpcklps",
-      shapes := "x,x · x,m", note := "unpckldq's 32-bit interleave at 0f 14; identity proved, not vectored; D169",
+      shapes := "x,x · x,m", note := "punpckldq's lanes at 0f 14; identity proved, not vectored; D169",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKLPS" }
   , { mnemonic := "unpckhps",
-      shapes := "x,x · x,m", note := "punpckhdq's 32-bit interleave at 0f 15; identity proved, not vectored; D169",
+      shapes := "x,x · x,m", note := "punpckhdq's lanes at 0f 15; identity proved, not vectored; D169",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKHPS" }
   , { mnemonic := "unpcklpd",
-      shapes := "x,x · x,m", note := "punpcklqdq's 64-bit interleave at 66 0f 14; identity proved, not vectored; D169",
+      shapes := "x,x · x,m", note := "punpcklqdq's lanes at 66 0f 14; identity proved, not vectored; D169",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKLPD" }
   , { mnemonic := "unpckhpd",
-      shapes := "x,x · x,m", note := "punpckhqdq's 64-bit interleave at 66 0f 15; identity proved, not vectored; D169",
+      shapes := "x,x · x,m", note := "punpckhqdq's lanes at 66 0f 15; identity proved, not vectored; D169",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B UNPCKHPD" }
-  -- ⭐⭐ P2 BATCH 37 — MOVMSKPS.  ONE row, for PMOVMSKB's reason and MEASURED
-  -- rather than inherited: `movmskps %xmm1,%eax` and `%rax` both give `0f50c1`.
-  , { mnemonic := "movmskps",
-      shapes := "r,x",
-      note := "bit i is the sign bit of 32-bit lane i; bits above 3 zero; D169",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVMSKPS" }
   -- ⭐⭐ P2 BATCH 23 — PMOVMSKB.  ONE row: the r32 and r64 spellings share an
   -- encoding (both assemble to 660fd7c1), so a disassembler prints one name.
   , { mnemonic := "pmovmskb",
@@ -816,6 +810,18 @@ acc,imm · rh"
   -- PREDICATE — which is exactly why the rule is ALSO a theorem
   -- (`vshufm_unaligned_faults`).  A rule that lives only in this column is a
   -- rule no gate reads.
+  -- ⭐⭐⭐ P2 BATCH 37 — the TWO-SOURCE shuffles.  ⚠️ Their `note` says the
+  -- destination is READ, which is the one word that separates them from the row
+  -- below: `pshufd`'s note says the destination is NOT read, and the two rows sit
+  -- together precisely so a reader meets the difference.
+  , { mnemonic := "shufps",
+      shapes := "x,x,i · x,m,i",
+      note := "lanes 0-1 from the DEST by imm[3:0], 2-3 from the source by imm[7:4]; the DEST is READ; D170",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHUFPS" }
+  , { mnemonic := "shufpd",
+      shapes := "x,x,i · x,m,i",
+      note := "qword 0 from the DEST by imm[0], 1 from the source by imm[1]; imm[7:2] ignored; the DEST is READ; D170",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHUFPD" }
   , { mnemonic := "pshufd",
       shapes := "x,x,i · x,m,i",
       note := "four 32-bit lanes selected by the immediate's four 2-bit fields, field j to lane j; the whole register is written and the destination is not read; m must be 16-byte aligned, else #GP(0) — proved, not vectored (D110)",

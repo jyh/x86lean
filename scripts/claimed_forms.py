@@ -332,8 +332,10 @@ CLAIMS_NO_ROW = {
     "unpcklpd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "unpckhpd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "unpckhpd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
-    "movmskps_x1_eax": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
-    "movmskps_x5_ecx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufps_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufpd_xx": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufps_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "shufpd_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 15 (the packed binary group's MEMORY shape), added in the
     # SAME COMMIT as the vectors — D106's cost, not re-paid.  Twenty-two
     # entries written out rather than matched by a prefix: a pattern would

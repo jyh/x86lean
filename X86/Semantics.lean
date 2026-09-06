@@ -482,6 +482,41 @@ def vshufApply (k : VShufKind) (src : BitVec 128) (sel : BitVec 8) : BitVec 128 
   | .lw => vselect 16 src sel.toNat 0 ||| ((src >>> 64) <<< 64)
   | .hw => vselect 16 src sel.toNat 4 ||| ((src <<< 64) >>> 64)
 
+/-- ⭐⭐⭐ P2 BATCH 37 — `shufps`, folded lane by lane.  Lanes 0-1 are read from
+`a` (the DESTINATION) and lanes 2-3 from `b` (the SOURCE); lane `i`'s 2-bit
+selector is the immediate's field `i`, and it indexes the FOUR lanes of whichever
+operand that lane reads.
+
+⚠️ `if i < 2 then a else b` IS THE WHOLE TWO-SOURCE CONTENT, and it is the one
+line a reader coming from `vselectAux` must not skim: that combinator has a single
+`src` and this one switches operand at the halfway point.  Getting it backwards
+produces a model that is bit-identical to this one whenever `a = b`. -/
+private def vshufpsAux (a b : BitVec 128) (sel : Nat) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      let src := if i < 2 then a else b
+      (vshufpsAux a b sel i)
+        ||| (((src.extractLsb' (((sel >>> (2 * i)) % 4) * 32) 32).setWidth 128)
+              <<< (i * 32))
+
+/-- ⭐⭐ THE TWO-SOURCE SHUFFLE COMBINATOR.  `a` is the DESTINATION and `b` the
+SOURCE at both operand shapes, the same convention `vbinApply`'s unpack arm uses.
+
+⛔ THE FOUR IS THE IMMEDIATE'S FIELD COUNT (8 bits over 2), not `128 / w` —
+`vselect`'s reason, restated because this combinator folds a different count for
+each kind: `ps` writes four 32-bit lanes and `pd` writes two 64-bit ones, and
+`pd` reads only the immediate's LOW TWO BITS.
+
+⚠️ `shufpd` IS WRITTEN OUT RATHER THAN FOLDED.  Two lanes and two one-bit
+selectors is a fold whose recursion would be longer than the thing it computes,
+and a fold here would put a `%` and a shift on the kernel's path for no reuse. -/
+def vshufpApply (k : VShufpKind) (a b : BitVec 128) (sel : BitVec 8) : BitVec 128 :=
+  match k with
+  | .ps => vshufpsAux a b sel.toNat 4
+  | .pd =>
+      ((a.extractLsb' ((sel.toNat % 2) * 64) 64).setWidth 128)
+        ||| (((b.extractLsb' (((sel.toNat >>> 1) % 2) * 64) 64).setWidth 128) <<< 64)
+
 /-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
 lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
 instruction is named for: a negative word becomes 0, not 255. -/
@@ -870,6 +905,22 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         s.halt (.byDesign
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (vshufApply k (s.readMem128 a) sel)).setRip nr
+
+  -- ⭐⭐⭐ P2 BATCH 37 — THE TWO-SOURCE SHUFFLES.  ⚠️ THE DESTINATION IS READ:
+  -- `s.getXmm dst` appears as the FIRST argument, and it is not decoration —
+  -- lanes 0-1 of the result come from it.  Every other shuffle arm above
+  -- overwrites its destination without consulting it.
+  | .vshufp k dst src sel =>
+      (s.setXmm dst (vshufpApply k (s.getXmm dst) (s.getXmm src) sel)).setRip nr
+
+  -- ⛔ AND THE SAME 16-BYTE `#GP` (D110).  ⚠️ The MEMORY operand is the SOURCE,
+  -- so the destination register is still read for lanes 0-1.
+  | .vshufpm k dst ea sel =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vshufpApply k (s.getXmm dst) (s.readMem128 a) sel)).setRip nr
 
   -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
   --

@@ -63,8 +63,14 @@ ACL2 = os.environ.get("ACL2", os.path.join(root, "vendor", "acl2", "saved_acl2")
 # the run below is what the oracle says.  The bytes are clang's, not mine
 # (`clang -target x86_64-unknown-linux-gnu`), and the asm is beside them so a
 # reader can re-assemble any line.
+# ⭐ The address every probe case enters at, and where its bytes are placed.  ONE
+# name, because the stall test in `measure` compares against it and a second
+# literal would drift from the one `rewrite` uses.
+ENTRY_RIP = 0x400000
+
 FORMS = [
     # (mnemonic,   asm,                       bytes,                expect)
+    # ⚠️ `expect` is now THREE-VALUED: refuses · executes · stalls (D170).
     ("andn",    "andnl %ecx, %edx, %eax",   "c4e268f2c1",         "refuses"),
     ("bextr",   "bextrl %ecx, %edx, %eax",  "c4e270f7c2",         "refuses"),
     ("blsmsk",  "blsmskl %ecx, %eax",       "c4e278f3d1",         "refuses"),
@@ -76,6 +82,17 @@ FORMS = [
     ("rorx",    "rorxl $3, %ecx, %eax",     "c4e37bf0c103",       "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
+    # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the
+    # first entry here that had to be MEASURED because a sibling suggested
+    # otherwise.  `pmovmskb` is the same constructor at the same operand shape
+    # and executes 88/88; `unpcklps` is also a NO-PREFIX SSE form and executes
+    # 88/88 — both in the SAME differential run.  So the refusal is a fact about
+    # this MNEMONIC, not about its prefix class, its feature bit or its shape.
+    # ⚠️ AND IT IS SILENT: x86isa leaves RIP unadvanced with its `refused` flag
+    # CLEAR — the only form in the table that does — so the differential filed
+    # 464 field mismatches as `spec`, i.e. as this model being wrong about a rule
+    # the oracle never evaluated.
+    ("movmskps", "movmskps %xmm1, %eax",     "0f50c1",             "stalls"),
     # ⭐ THE POSITIVE CONTROL — identical shape and address to `movnti`.
     ("CONTROL:mov", "movl %ecx, (%rbx)",    "890b",               "executes"),
     # ⭐ AND A SECOND CONTROL AT THIS BATCH'S OWN FORM, so a run that has stopped
@@ -165,7 +182,7 @@ def rewrite(case, i, tag, hexbytes):
     # the instruction bytes live at RIP in the :mem alist; replace exactly the
     # ones this case had and append the rest.
     def repl(m):
-        return " ".join("(#x%016x . %s)" % (0x400000 + k, b[k]) for k in range(len(b)))
+        return " ".join("(#x%016x . %s)" % (ENTRY_RIP + k, b[k]) for k in range(len(b)))
     # ⛔⛔ P2 ITEM 2: THE `:mem` LINE IS FOUND BY CONTENT, NOT BY INDEX.  This
     # said `c[4]`, and `c[4]` was the `:mem` line until P2 batch 1 inserted a
     # `:fsbase`/`:gsbase` line into the record — after which `c[4]` is `:rflags`
@@ -181,7 +198,7 @@ def rewrite(case, i, tag, hexbytes):
         sys.exit(2)
     c[mem_i] = re.sub(r'\(#x0000000000400000 \. #x[0-9a-f]{2}\)(?: \(#x00000000004000[0-9a-f]{2} \. #x[0-9a-f]{2}\))*',
                       repl, c[mem_i], count=1)
-    if "#x%016x" % (0x400000 + len(b) - 1) not in c[mem_i]:
+    if "#x%016x" % (ENTRY_RIP + len(b) - 1) not in c[mem_i]:
         print("⛔ could not place %d instruction bytes at RIP for %s" % (len(b), tag))
         sys.exit(2)
     return "".join(c)
@@ -222,10 +239,28 @@ def measure(forms):
         if l.startswith("CASE "):
             cur = re.search(r"id=(\S+)", l).group(1).rsplit("/", 1)[0]
         elif l.startswith("POST ") and cur:
-            e, r = res.get(cur, (0, 0))
+            e, r, st = res.get(cur, (0, 0, 0))
+            # ⛔⛔ P2 BATCH 37 (D170) — THREE-VALUED, AND IT USED TO BE TWO.
+            # This read `if refused=1 then refused else EXECUTED`, so `executed`
+            # was a RESIDUAL and not a measurement: a case that neither refused
+            # nor ran was scored as available.  `movmskps` is the first form to
+            # occupy that third state — x86isa leaves RIP unadvanced with the
+            # refusal flag CLEAR — and this gate reported it `executes 88/88`
+            # while the differential produced 464 field mismatches for it.
+            # ⇒ 🔑 A TWO-VALUED CLASSIFIER OVER A THREE-VALUED WORLD SCORES THE
+            # UNSEEN STATE AS WHICHEVER VALUE IS THE RESIDUAL, and here the
+            # residual was SUCCESS — in the one gate whose stated purpose is to
+            # stop unavailable work from being invented.
+            # ⚠️ A STALL IS `rip UNCHANGED`, not `rip != entry + len`: a form
+            # whose meaning is to move RIP elsewhere (a jump, a taken branch, or
+            # a `rep` signalling another iteration by NOT advancing — D46) would
+            # be misread by the stricter test.  No such form is in `FORMS` today;
+            # one added later must be read against this comment.
+            rip = re.search(r"rip=([0-9a-f]+)", l)
             if re.search(r"refused=1", l): r += 1
+            elif rip and int(rip.group(1), 16) == ENTRY_RIP: st += 1
             else: e += 1
-            res[cur] = (e, r)
+            res[cur] = (e, r, st)
             cur = None
     return res, len(sel)
 
@@ -233,18 +268,20 @@ def report(forms, res, n, quiet=False):
     bad = []
     for mn, asm, _b, exp in forms:
         tag = tag_of(mn)
-        e, r = res.get(tag, (0, 0))
-        if e + r != n:
+        e, r, st = res.get(tag, (0, 0, 0))
+        if e + r + st != n:
             bad.append((mn, "produced %d records, expected %d — a missing reading "
-                            "is not a refusal" % (e + r, n)))
+                            "is not a refusal" % (e + r + st, n)))
             continue
-        got = "refuses" if r == n else ("executes" if e == n else "MIXED")
+        got = ("refuses" if r == n else "executes" if e == n
+               else "stalls" if st == n else "MIXED")
         if got != exp:
-            bad.append((mn, "declared %s, MEASURED %s (executed %d, refused %d of %d)"
-                        % (exp, got, e, r, n)))
+            bad.append((mn, "declared %s, MEASURED %s (executed %d, refused %d, "
+                            "stalled %d of %d)" % (exp, got, e, r, st, n)))
         if not quiet:
             mark = "✔" if got == exp else "⛔"
-            print(f"  {mark} {mn:22s} {asm:26s} {got:9s} ({e} executed, {r} refused)")
+            print(f"  {mark} {mn:22s} {asm:26s} {got:9s} "
+                  f"({e} executed, {r} refused, {st} stalled)")
     return bad
 
 

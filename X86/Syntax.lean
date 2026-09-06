@@ -565,6 +565,48 @@ width, so there is nothing here for a width to disagree with. -/
 def VShufKind.mnemonic : VShufKind → String
   | .d => "pshufd" | .lw => "pshuflw" | .hw => "pshufhw"
 
+/-- ⭐⭐⭐ P2 BATCH 37 — THE TWO-SOURCE SHUFFLE, AND WHY IT IS NOT A `VShufKind`.
+
+`shufps` and `shufpd` are 88% of this batch's demand (1,545 + 70 of 1,833) and the
+only new SEMANTICS in it.  ⛔⛔ **`VShufKind` IS THE WRONG HOME AND THE REASON IS
+STRUCTURAL, NOT STYLISTIC**: every member of that kind selects lanes from ONE
+source (`pshufd` permutes its source; `pshuflw`/`pshufhw` permute half of it and
+copy the other half THROUGH from the same source).  These read BOTH operands —
+the low half of the result comes from the DESTINATION and the high half from the
+SOURCE — so `vshufApply`, whose signature takes a single `src`, could not express
+them at any kind.  A new constructor, not a new member.
+
+⭐ K DECIDES BOTH, and the bit order is K's big-endian read against the SDM's
+`Select4`:
+```
+   shufps   lane0 ← DEST[imm[1:0]]   lane1 ← DEST[imm[3:2]]
+            lane2 ← SRC [imm[5:4]]   lane3 ← SRC [imm[7:6]]
+   shufpd   qword0 ← DEST[imm[0]]    qword1 ← SRC[imm[1]]
+```
+⭐ CONFIRMED BY A THIRD SOURCE before a line was written: LLVM disassembles
+`shufps $0x1b,%xmm1,%xmm0` as `xmm0 = xmm0[3,2],xmm1[1,0]` and
+`shufpd $0x1,%xmm1,%xmm0` as `xmm0 = xmm0[1],xmm1[0]` — both exactly this rule.
+
+⚠️ BOTH PRESERVE THE YMM UPPER 128 (legacy SSE), which K writes explicitly as
+`extractMInt(R3, 0, 128)`.  This model's `XmmReg` is 128 bits wide, so that half
+of the rule is carried by the TYPE and there is nothing here to state it. -/
+inductive VShufpKind where
+  /-- `shufps` (`0F C6 /r ib`): four 32-bit lanes, two from each operand. -/
+  | ps
+  /-- `shufpd` (`66 0F C6 /r ib`): two 64-bit lanes, one from each operand.
+  ⚠️ Only the low TWO bits of the immediate are read; the SDM's `imm8[7:2]` are
+  ignored, so a vector varying them cannot witness anything. -/
+  | pd
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Every two-source shuffle spelling, so a claim can be made about the TYPE. -/
+def VShufpKind.all : List VShufpKind := [.ps, .pd]
+
+/-- The assembler spelling.  Two literals, not a concatenation (`quadMnemonic`'s
+reason: this is walked character by character inside a kernel `decide`). -/
+def VShufpKind.mnemonic : VShufpKind → String
+  | .ps => "shufps" | .pd => "shufpd"
+
 /-- ⭐⭐ P2 BATCH 37 — WHICH LANE WIDTH A SIGN-MASK REDUCES, i.e. WHICH
 MNEMONIC.  `Op.vmovmsk` carried no field at all until this batch: it was built for
 `pmovmskb` alone (batch 23) and its lane count was the literal sixteen.
@@ -1593,6 +1635,19 @@ inductive Op where
   which it becomes differentially validatable is named and priced: the `vbin`
   memory shape, where the oracle DOES check. -/
   | vshufm (k : VShufKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
+  /-- ⭐⭐⭐ P2 BATCH 37 — `SHUFPS`/`SHUFPD` between registers (`0F C6 /r ib`,
+  `66 0F C6 /r ib`).  See `VShufpKind` for why this is not `Op.vshuf` at a new
+  kind: these read BOTH operands, and `vshufApply` takes one source.
+
+  ⚠️ THE DESTINATION IS READ AS WELL AS WRITTEN, which no other shuffle here does
+  — `Op.vshuf`'s destination is overwritten without being consulted.  So a frame
+  lemma or a wrong model that treats the destination as write-only is wrong for
+  this constructor and right for that one. -/
+  | vshufp  (k : VShufpKind) (dst src : XmmReg) (sel : BitVec 8)
+  /-- ⭐⭐ P2 BATCH 37 — the same at a 128-bit MEMORY source, with the Type-4
+  16-byte `#GP` every other 128-bit memory operand in this model carries (D110).
+  ⚠️ The DESTINATION register is still read; only the SOURCE moves to memory. -/
+  | vshufpm (k : VShufpKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE
   (`66 0F ..` with a memory ModRM), the second operand shape of the nineteen
   operations `Op.vbin` has carried since batches 5 and 7.
@@ -1751,6 +1806,8 @@ def opOperands : Op → List Operand
   -- names its address so the lock and segment walks see it.
   | .vshuf .. => []
   | .vshufm _ _ ea _ => [.mem ea]
+  | .vshufp .. => []
+  | .vshufpm _ _ ea _ => [.mem ea]
   -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
   | .vbinm _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
@@ -1878,6 +1935,9 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 14: `lock pshufd` is not a form the SDM lists.
   | .vshuf .. => false
   | .vshufm _ _ ea _ => ea.lock
+  -- P2 BATCH 37: `lock shufps` is not a form the SDM lists, as for `pshufd`.
+  | .vshufp .. => false
+  | .vshufpm _ _ ea _ => ea.lock
   -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
   | .vbinm _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
@@ -2035,6 +2095,7 @@ def Op.mnemonic : Op → String
   -- the three shift shapes do: the mandatory prefix names the operation and the
   -- source's provenance is in the operands.
   | .vshuf k .. | .vshufm k .. => k.mnemonic
+  | .vshufp k .. | .vshufpm k .. => k.mnemonic
   | .vmovq .. => "movq"
   -- ⭐ P2 BATCH 15: BOTH operand shapes read the SAME table, which is now a
   -- function beside the kind rather than a `match` inside this one.  A copy here
@@ -2282,7 +2343,9 @@ def rosterP0 : List String :=
    -- the IDENTICAL bytes (`0f50c1`), measured on this mnemonic rather than
    -- inherited from `pmovmskb`'s.
    "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
-   "movmskps"]
+   -- ⭐⭐⭐ P2 BATCH 37 — the two-source shuffles, 88% of the batch's demand and
+   -- the only NEW SEMANTICS in it.  One row each, both operand shapes.
+   "shufps", "shufpd"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

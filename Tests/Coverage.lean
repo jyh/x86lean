@@ -80,7 +80,8 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- the semantics being shared is a DIFFERENT claim (proved in `X86.Theorems`).
 -- ⛔ `movmskps` is ONE row, not two: its r32 and r64 spellings assemble to the
 -- identical `0f50c1`, measured on this mnemonic rather than inherited.
-theorem roster_size_is_157 : rosterSize = 157 := by decide
+-- P2 BATCH 37 adds SEVEN in total: the five above plus `shufps` and `shufpd`.
+theorem roster_size_is_158 : rosterSize = 158 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -106,7 +107,8 @@ def vectorCount : Nat := vectors.length
 -- against `vectors.length` is what makes the two sources agree.  Deriving it from
 -- the table would have made the gate confirm whatever the table happened to hold.
 -- [[feedback-widening-a-gate-needs-a-second-source]]
-theorem vector_count_is_1010 : vectorCount = 1010 := by decide
+-- ...and FOURTEEN vectors: the ten above plus the two shuffles at both shapes.
+theorem vector_count_is_1012 : vectorCount = 1012 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -837,7 +839,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- ⭐ P2 VECTOR WAVE, BATCH 14, added in the SAME COMMIT as the constructors.
     -- Neither permute shape is a memory destination: `vshufm`'s memory operand
     -- is its SOURCE, exactly as `vshiftm`'s is its count.
-    | .vshuf .. | .vshufm .. => false
+    -- P2 BATCH 37: the two-source shuffles are not memory destinations either —
+    -- `vshufpm`'s memory operand is its SOURCE, as `vshufm`'s is.  Added in the
+    -- same commit as the constructors, which is what this function's doc asks.
+    | .vshuf .. | .vshufm .. | .vshufp .. | .vshufpm .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 15, added in the SAME COMMIT as the constructor.
     -- `vbinm`'s memory operand is its SOURCE; the destination is always an XMM
     -- register, so this is not a memory-destination form either.
