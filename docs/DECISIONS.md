@@ -10778,3 +10778,156 @@ nobody can execute, and `python3 scripts/ci_local.py --job kernel-delta --to 6` 
 subset into a stated one; it does not turn one command into four. The `selftest` job (~2h15m sharded
 six ways) and `kernel-delta-redfirst` (four builds) are priced out of a per-batch ritual, and saying
 so beside the receipt is the whole of what changed. [[feedback-a-gate-whose-precondition-is-a-discipline]]
+
+## D163 — the post-flight probe answered an adjacent question, and 293 MB were sitting in the gap
+
+`kernel_cost.py --post-flight` is what a head runs at boot and at exit to ask *"did I leave anything
+behind?"*. It printed, all session:
+
+```
+   0 ppid-1 process(es) in my trees · 0 build(s) in other trees · NOTHING WAS KILLED
+✅ nothing of mine is running detached.
+```
+
+**True, and answering a narrower question than the one being asked.** `git worktree list` at the same
+moment showed FIVE checkouts registered to this repository beyond the main one:
+
+```
+  /private/tmp/x86ci                                    f45aa6c   149 MB   (the batch-12 era)
+  …/T/x86lean-delta-6inj80fs/{base,head}   e39abc2/eb14280    51 MB
+  …/T/x86lean-delta-p3yvdbuv/{base,head}   e39abc2/eb14280    93 MB
+                                                              ─────
+                                                              293 MB
+```
+
+`kernel_delta.measure()` adds two detached worktrees per run and removes them on the way out; a run
+that is **killed** never gets there, and a timing run is the longest thing a seat starts, so it is
+the likeliest thing to be killed. Four of the five above are mine, from two `kernel-delta` jobs I
+stopped this session. The fifth is not new.
+
+⛔⛔ **AND IT WAS FILED AS HOUSEKEEPING ONCE ALREADY.** `docs/DIFFERENTIAL-P2-BATCH19.md:221` records
+the identical finding — *"two full checkouts left behind by an EARLIER delta run … plus
+`/private/tmp/x86ci`"* — under the heading *"Housekeeping, not a complaint"*. That was 17 batches
+ago. `/private/tmp/x86ci` is still there in the list above.
+⇒ 🔑 **A LEAK FILED AS HOUSEKEEPING IS A LEAK NOBODY OWNS.** Naming it in a batch record puts it
+where nothing re-reads; the only durable place for it is the probe a head runs anyway.
+
+### THE REPAIR, AND WHAT IT DELIBERATELY DOES NOT DO
+`stale_worktrees()` beside `repo_orphans()` and `foreign_builds()`; `post_flight` returns **1** when
+either half is non-empty, and the ✅ line now says *"and no worktree of mine is registered beyond the
+main checkout"*. It **reports and never removes**, for the same measured reason the process half
+never kills: **a live `kernel_delta` legitimately holds two of these**, and this probe cannot tell a
+live measurement from a killed one's leavings any more than `ppid 1` can tell a wanted background
+job from a stranded one. It names the ambiguity and prints the per-path command.
+⚠️ It also prints `(DIRECTORY GONE)`, because that is the only case `git worktree prune` alone would
+clear — and the usual case is the other one, where the disk is still occupied.
+
+### THE ARMS (3h), CONTROL FIRST
+```
+  CONTROL   stale_worktrees() = []              post_flight rc=0
+  PLANT     a registered extra worktree         FOUND by path, rc=1, line names it
+  PLANT     a registration whose DIRECTORY IS GONE   flagged `exists=False`
+  RESTORE   removed and pruned                  rc=0, stale_worktrees() = []
+```
+⭐ The second plant exists because the first shares the real leak's dimension — both sit under
+`$TMPDIR` — and the report has a branch (`DIRECTORY GONE`) that no input would otherwise reach.
+[[feedback-a-control-can-share-the-blind-spot]] [[feedback-an-implied-assertion-is-not-a-second-gate]]
+⭐ The RESTORE is itself an arm: a selftest that left its plant registered would make every later run
+report the plant as a finding — the gate manufacturing the leak it was written to catch.
+
+## D164 — QUEUE 4g(b): the `--no-ff` ritual proven with its control, and the gate that makes it survive being forgotten
+
+4g(b) was handed on as *"ONE FLAG"*: merge batches with `--no-ff` so the ledger's unit (a
+first-parent commit) matches the gate's unit (a batch). The flag is right. It is not the whole
+repair, and two things had to be measured before a batch rode on it.
+
+### 1. ⭐ THE DEFECT, MEASURED RATHER THAN RESTATED
+Batch 36's merge gate measured the span `e6dd9c6 → 5c18c59` and paid for **three draws** of it. That
+span, fast-forwarded, became **four** first-parent steps:
+```
+   abe83b8  BATCH 36 step 1 of 2: the half-move FIELD CHANGE
+   579dbd3  BATCH 36 step 2 of 2: the six half-moves
+   c10382b  tail: the census regenerated
+   5c18c59  tail: the P2 roster re-derived
+```
+⇒ **three paid measurements can price ONE of the four steps they cover** — the row is keyed at the
+base, and the base of steps 2-4 was never measured. That is the unit mismatch, in units.
+
+### 2. ⭐⭐ THE RITUAL, REHEARSED END TO END ON A THROWAWAY BRANCH, WITH ITS NEGATIVE CONTROL
+⛔ Rehearsed rather than reasoned about, because D161 removed the fixed point *in the key* and the
+question that decides the ritual is a different one: **the ledger is a tracked file, so does writing
+the row need a commit of its own?** It does not — and that is what `--no-ff --no-commit` buys:
+
+```
+  git merge --no-ff --no-commit <branch>
+  python3 scripts/kernel_drift.py --record --readings <merge-gate json>
+  git add docs/delta-allowance-ledger.jsonl && git commit
+```
+The row rides **inside** the merge commit. Measured on a 2-commit branch off master, with real
+batch-36 draw-3 readings relabelled to the rehearsal:
+```
+  WINDOW  79bb658 → 28746fd   ⇒ 1 first-parent step        (was: 2 commits)
+  LEDGER  12 rows; the live one keyed 79bb658, source=gate
+  ✅ ACCUMULATED over 1 step: 23 units priced, 0 unpriced, NO missing step
+  ✅ CONTROL — with that one row deleted the SAME walk refuses rc 2
+```
+⛔ The control is the half that matters: without it, "the walk found no missing step" is equally
+consistent with a walk that never checks. And the 12 rows confirm on the real ledger what the new
+B2 arm predicts — **a `source=gate` row and the eleven `backfill:` rows coexist**, so the ritual and
+the backfill are not mutually exclusive.
+
+### 3. ⛔⛔ AND THE FLAG IS A DISCIPLINE, WHICH IS THE FAILURE MODE THIS REPOSITORY KEEPS RE-LEARNING
+Fast-forwarding costs nothing visible: tests pass, the merge gate passes, the bank reads clean. The
+only instrument that would report the new hole is the drift gate — **which the hole disables**. The
+head who wrote *"the fix is `--no-ff`"* had fast-forwarded batch 36 four commits earlier in the same
+session. A paragraph in the queue will not survive that.
+[[feedback-a-gate-whose-precondition-is-a-discipline]]
+
+**`kernel_drift.py --gap` + `docs/drift-gap-ratchet.txt`.** It judges no kernel time; it judges
+whether the ledger is still being kept.
+
+### 4. ⭐⭐⭐ AND MEASURING IT RE-PRICED THE BACKFILL BY 10×
+The inherited number was *"the gap is 48 commits and grows with every landing"*, which prices the
+backfill at ~50 profiling runs — hours, and the reason item 3 kept being deferred. It is **51 steps
+at `79bb658`, and they are three populations**:
+```
+    5  change a `.lean` file       ⇐ batches 23, 34, 35, 36a, 36b. A REAL measurement each.
+    5  change no `.lean` but DO change scripts/kernel_cost.py or the budget registry
+                                   ⇐ these move the READING or the ALLOWANCE without moving
+                                     the code, so "nothing to price" is FALSE for them.
+   41  change none of the above    ⇐ an exemption CANDIDATE, and nothing in the tool treats
+                                     it as zero.
+```
+⇒ 🔑 **A TOTAL CANNOT SEE ITS PARTS.** The backfill is **five** profiling runs plus a written
+argument, not fifty. ⛔ And the second bucket is the one that would have been assumed away: the
+obvious exemption is *"no `.lean` change ⇒ no kernel delta"*, and it is wrong for exactly those five
+— which is why the tool prints three numbers and exempts none of them.
+[[feedback-a-total-cannot-see-its-parts]] [[feedback-the-burden-is-on-the-departure]]
+[[feedback-a-category-is-a-hypothesis-about-its-members]]
+
+### 5. WHY THE GATE IS ON ONE BUCKET, AND WHY BOTH DIRECTIONS REFUSE
+Gated: the `.lean` count. **That is the quantity ordinary work does not move** — a docs commit grows
+the chain and leaves it alone, so the gate is not a chore; a batch landed without its row raises it
+by one and goes red, naming the ritual rather than a wider ceiling.
+[[feedback-match-the-gate-units-to-the-growth-law]]
+
+Both directions refuse. A ceiling that only complains upward rots upward: a backfill that removes
+four holes would leave a ratchet claiming four holes that are gone, and **the next unrecorded
+landing hides inside that slack**. Lowering it is one line in the commit that earned it.
+[[feedback-under-claims-are-unpoliced]]
+
+### 6. THE ARMS (B3), AND ONE OF THEM IS D162 APPLIED TO ITSELF
+⛔ `read_ratchet` and `judge_ratchet` are FUNCTIONS, not an inline block in `main()` — writing this
+gate the way `--verify-ledger` was written would be the defect surviving the sitting that named it.
+```
+  CONTROL  the anchor is a step boundary on the walked chain, not a written-down name
+  the three buckets PARTITION the steps: 11 recorded + 51 missing = 62   ⇐ an INVARIANT,
+     never the literal 51, which the next commit would falsify and someone would EDIT
+  a ledger with NO base on the chain REFUSES — a wrong ledger, not an empty gap
+  a ledger recording EVERY step empties all three buckets   ⇐ or "5" might be a constant
+  deleting ONE row for a `.lean` step puts exactly that step, in that bucket, back
+  gap == ceiling silent · gap > ceiling refuses naming the ritual · gap < ceiling ALSO refuses
+  an ABSENT ratchet reads None · a written one reads back 7 · a line with NO number is
+     UNPARSEABLE, which the caller refuses on rather than treating as absent
+```
+Selftest: **37 arms, 37 green, 23 distinct plants** (18 / 10 at this session's boot).

@@ -528,6 +528,20 @@ jobs:
           python3 scripts/kernel_drift.py \
             --verify-ledger docs/kernel-delta-history-2026-09-04.jsonl
 
+      # ⭐⭐ THE LANDING RITUAL'S OWN GATE (D164). Everything above judges kernel
+      # TIME; this one judges whether the ledger is still being KEPT, which is the
+      # precondition every drift verdict rests on. `--no-ff` at merge is a
+      # discipline, and a gate whose precondition is a discipline is switched off
+      # by the first head who forgets — the only thing that would have reported
+      # the resulting hole is the drift gate, which the hole disables.
+      # ⛔ IT GATES ONE BUCKET — steps that change a `.lean` file — because that is
+      # the count ORDINARY WORK DOES NOT MOVE. A docs commit grows the chain and
+      # leaves this number alone; a batch landed without its row raises it by one
+      # and goes red. Both directions refuse: slack in the ceiling is exactly
+      # where the next unrecorded landing would hide.
+      - name: The drift ledger is still being kept (the --no-ff landing ritual)
+        run: python3 scripts/kernel_drift.py --gap
+
       # ⛔ THIS TOOL'S TEN ARMS HAD NEVER RUN IN CI (found 09/05). It prices the
       # repairs D153 chose between and now DELEGATES its verdict rule to the gate
       # (`kd.judge_delta`), so a divergence between the two would be a divergence
