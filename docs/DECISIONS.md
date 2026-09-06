@@ -11097,3 +11097,76 @@ Until then this is one observation, and it is recorded as one. [[feedback-a-land
 ⇒ This is also the first per-RUN evidence for QUEUE item 4 with a known ground truth, and it agrees
 with D165's per-COMPONENT evidence from a different direction: `@residue`'s +728 there and its
 ±4,206 here are the same phenomenon seen twice.
+
+## D167 — P2 batch 37 specified at the object: four of its seven mnemonics are inert spellings, and a text diff would have said otherwise
+
+`p2_residue.py` on today's tree: **7 pairs / 1,833 instructions need no rounding rule at all** —
+`shufps` 1545 · `shufpd` 70 · `unpcklps` 64 · `movmskps` 53 · `unpcklpd` 45 · `unpckhps` 40 ·
+`unpckhpd` 16. That is D158's planned split, unchanged by the two batches since. The batch was
+handed on as *"ALL the new semantics"*. Measured against the model and against K, it is three
+different kinds of work in very unequal proportions.
+
+### 1. ⭐⭐ FOUR OF THE SEVEN ARE BIT-IDENTICAL TO `VBinKind` MEMBERS ALREADY IN THE MODEL
+```
+   unpcklps ≡ punpckldq      unpckhps ≡ punpckhdq
+   unpcklpd ≡ punpcklqdq     unpckhpd ≡ punpckhqdq
+```
+⇒ the batch-19/batch-36 shape exactly: separate KINDS because the BYTES differ, semantics shared by
+not branching, held apart by `check_encodings.py` and held together by a THEOREM — and **no
+differential vector can witness the identity**, which is why it must be a theorem.
+Their whole demand is **165 instructions of 1,833**.
+
+### 2. ⛔⛔ AND A TEXT DIFF OF K'S OWN FILES SAYS TWO OF THE FOUR ARE DIFFERENT
+Whitespace-normalised, the generated rule bodies compare:
+```
+   unpcklpd vs punpcklqdq    IDENTICAL   (207 chars)
+   unpckhpd vs punpckhqdq    IDENTICAL   (207 chars)
+   unpcklps vs punpckldq     DIFFER at char 122   (345 chars each)
+   unpckhps vs punpckhdq     DIFFER at char 122   (345 chars each)
+```
+The difference is **pure re-association**: `concat(concat(concat(a,b),c),d)` against
+`concat(concat(a,b),concat(c,d))`. `concatenateMInt` is associative on bit strings, so the normal
+form is the left-to-right sequence of LEAVES, and under it all four pairs are identical — with the
+controls (`unpcklps` vs `unpckhps`, `unpcklpd` vs `unpcklps`) differing:
+```
+   unpcklps / punpckldq  →  R2[0,128) · R1[192,224) · R2[192,224) · R1[224,256) · R2[224,256)
+   unpcklpd / punpcklqdq →  R2[0,128) · R1[192,256) · R2[192,256)
+```
+⇒ 🔑 **A GENERATED FILE'S TEXT IS NOT ITS MEANING WHEN THE OPERATOR IS ASSOCIATIVE.** Two
+stratification runs emitted the same function with different parse trees.
+⛔ **And the failure would have been worse than a false negative**: the two `pd` pairs matched
+textually and the two `ps` pairs did not, so a byte comparison over the four reads as *"two are
+spellings, two are new semantics"* — a plausible, self-consistent, wrong design with an apparent
+`ps`/`pd` explanation attached. **A comparison that fails on HALF a set invites a theory of the
+half.** [[feedback-two-readings-are-not-two-witnesses]] [[feedback-a-partition-says-nothing-about-its-complement]]
+
+### 3. ONE IS A FIELD CHANGE, AND THE MODEL ALREADY HAS THE SHAPE
+`movmskps` is `vmovmsk (dst : GPR) (src : XmmReg)` — the constructor `pmovmskb` already uses — with
+a KIND added (byte-signs vs `ps` lane-signs). K writes `concat(mi(60,0), <4 bits>)`, so the 32-bit
+write zero-extends by the rule the model already obeys; the `r32`/`r64` rows are one semantics, and
+whether they are also one ENCODING must be measured with `check_encodings.py` as `pmovmskb`'s were,
+not inherited from it. **53 instructions.**
+
+### 4. AND THE WHOLE RISK IS IN TWO MNEMONICS THAT ARE ALSO 88% OF THE DEMAND
+`shufps` (1,545) and `shufpd` (70) read **both** operands — unlike `pshufd`, which the existing
+`vshuf`/`VShufKind` expresses and which selects four lanes from ONE source. So `VShufKind` is the
+wrong home: a new constructor is needed, not a new kind. K decides both, and the imm bit order is
+K's big-endian, verified against the SDM's `Select4`:
+```
+   shufps  lane0,lane1 ← DEST selected by imm[1:0], imm[3:2]
+           lane2,lane3 ← SRC  selected by imm[5:4], imm[7:6]
+   shufpd  qword0 ← DEST[imm[0]]      qword1 ← SRC[imm[1]]
+   both PRESERVE the YMM upper 128 (legacy SSE), which K writes explicitly as R2[0,128)
+```
+
+### 5. THE ORDER, AND IT FOLLOWS D160'S PROVEN SHAPE
+**Step 1 — the field change alone**, isolable and measurable: the `vmovmsk` kind, nothing else.
+D160 established this is what buys a price decomposition (`X86.Syntax` +12/+18/+19 for the batch
+against −5.0 for the fields alone ⇒ the ~+15 ms is the constructors).
+**Step 2 — the four inert spellings + `movmskps`**, with `shuf_spelling_is_inert`-style theorems
+driven red by routing one kind to another.
+**Step 3 — `shufps`/`shufpd`**, the new constructor, where every wrong-model arm belongs.
+⛔ **Land it `--no-ff` with `--record` inside the merge commit** (D164), or `--gap` goes red and
+names the ritual.
+⚠️ `p2_batch_size.py` must be re-run against the tree of the day before sizing: D158's law is that
+the affordable batch GROWS with the roster, so yesterday's number is a floor, not a ceiling.

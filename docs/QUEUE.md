@@ -114,6 +114,31 @@ qualifier.
      carrying the one genuinely new rule; by kind, batch 35 is 76% of the instructions and
      none of the risk.
 
+   ⭐⭐⭐ **THE NEXT BATCH IS SPECIFIED AT THE OBJECT (D167, 2026-09-06) — `p2_residue.py` today:
+   7 pairs / 1,833 instructions, needing no rounding rule.** `shufps` 1545 · `shufpd` 70 ·
+   `unpcklps` 64 · `movmskps` 53 · `unpcklpd` 45 · `unpckhps` 40 · `unpckhpd` 16. It was handed on
+   as *"ALL the new semantics"*; measured, it is three kinds of work in very unequal proportions:
+   ```
+      4 mnemonics are BIT-IDENTICAL to VBinKind members already in the model      165 instr
+          unpcklps≡punpckldq  unpckhps≡punpckhdq  unpcklpd≡punpcklqdq  unpckhpd≡punpckhqdq
+      1 mnemonic is a FIELD CHANGE on `vmovmsk` (a kind: byte-signs vs ps)          53 instr
+      2 mnemonics are GENUINELY NEW SEMANTICS reading BOTH operands              1,615 instr
+          shufps · shufpd — and that is 88% of the batch's demand
+   ```
+   ⛔⛔ **AND A TEXT DIFF OF K's FILES WOULD HAVE SAID TWO OF THE FOUR ARE DIFFERENT.** The `ps`
+   pairs' rule bodies differ at char 122 by **pure re-association** (`concatenateMInt` is
+   associative); under the leaf-sequence normal form all four are identical, with controls
+   differing. The two `pd` pairs matched textually and the two `ps` pairs did not ⇒ a byte
+   comparison reads as *"two spellings, two new semantics"*, a self-consistent wrong design with a
+   ready-made `ps`/`pd` explanation. **A comparison that fails on HALF a set invites a theory of
+   the half.**
+   ⇒ **ORDER**: (1) the `vmovmsk` field change ALONE, isolable and measurable (D160's proven
+   shape); (2) the four inert spellings + `movmskps`, with an inertness THEOREM driven red by
+   routing one kind to another — no vector can witness the identity; (3) `shufps`/`shufpd`, the new
+   constructor, where every wrong-model arm belongs. ⛔ Land it `--no-ff` with `--record` inside the
+   merge commit (D164) or `--gap` goes red. ⚠️ Re-run `p2_batch_size.py` first: the affordable batch
+   GROWS with the roster, so yesterday's number is a floor.
+
    ⛔⛔ **AND A COMPLETE BATCH IS SITTING UNLANDED ON A BRANCH — `p2-batch32-fp-compares`
    (`3a811fb`, 2026-09-05).** It builds `comiss`/`comisd`/`ucomiss`/`ucomisd` — FOUR of
    sub-group A's twelve pairs, 2,256 instructions — with a green differential. It is held off
