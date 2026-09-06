@@ -10472,6 +10472,55 @@ adds the vectors. An unreached branch is not a gated branch.
    line had appended `echo "rc=$?"` to the log. ⇒ a run whose verdict lives in a return code
    must capture that code AT the call, or the notification reports the formatting step.
 
+### 5b. ⛔⛔ THE EXIT-CODE DEFECT RECURRED A THIRD TIME AND IS NOW A FLEET ITEM
+
+§5.3 above recorded a wrapper's exit code masking the tool's. **It happened again two hours
+later**, reading `rc=0` from `check_readme_snapshot.py | tail -4` while the script was printing a
+red — and it had ALREADY happened at this seat's boot, where `timeout 300 python3
+scripts/kernel_cost.py --post-flight` died with `timeout: command not found` (macOS has no
+`timeout`; it is `gtimeout`). Three in one session, at one seat.
+
+The helm hit the identical `timeout` defect independently the same night and called it the fourth
+instance fleet-wide; on this seat's correction the count went to **seven**, and jas added an eighth
+from a third tool within the hour. It is promoted out of the starved-instrument class into its own
+07:41 pack item, split into two carriers: **(a) the SUBJECT is wrong** and **(b) THE EXIT CODE IS
+NOT THE ONE YOU WANT.**
+
+⇒ 🔑 **THE REASON IT KEEPS HAPPENING IS THAT THE WRAPPER IS WRITTEN FOR READABILITY.** `timeout`,
+`| tail`, `| head` are all added to make output legible, and every one of them becomes a NEW LAST
+COMMAND — so the formatting step silently becomes the thing whose status is reported. Vigilance is
+not the fix; the fix is mechanical: `cmd > log 2>&1; rc=$?` **before** anything is piped anywhere,
+or `set -o pipefail`, and never an `echo` between a command and the `$?` that is supposed to be its.
+⛔ `| head` is the worst of the three, because this repository has already recorded it TRUNCATING a
+probe's input and producing a refutation of a design that was fine.
+
+### 5c. ⭐⭐ A STALENESS GATE THAT PASSED BECAUSE BOTH ITS INPUTS WERE STALE
+
+`ci_local` step **12** (the census staleness check) went **✔** on the run where step **32** (*"the
+coverage table is GENERATED, not written"*) went **⛔**. On the next run, with nothing about the
+census changed, step 12 **failed**: *"generated against a model of 146 mnemonics … it is now 152."*
+
+The cause is not a bug in either gate. `demand_census.py` reads the model set **from
+`docs/COVERAGE.md`** — its own comment says so, *"read from the GENERATED coverage table"* — and
+`docs/COVERAGE.md` is itself a generated artifact whose freshness is what step 32 checks. On the
+first run both were stale in the same direction, **so they agreed, and agreement is what this gate
+reports as fresh.** Regenerating the coverage table is what made the census's staleness visible.
+
+⇒ 🔑 **A STALENESS GATE IS ONLY AS FRESH AS THE ARTIFACT IT READS THE TRUTH FROM, AND HERE THAT
+ARTIFACT'S OWN FRESHNESS IS CHECKED TWENTY STEPS LATER IN THE SAME SUITE.** Step 12 issues a verdict
+whose precondition step 32 has not yet established. Across runs the suite self-corrects — the next
+run catches it, which is exactly what happened — but **within a run the ✔ is about a stale input**,
+and a reader who saw `12 ✔ / 32 ⛔` would reasonably conclude the census was fine and only the table
+needed regenerating. Both needed it.
+
+⚠️ THE CHEAP REPAIR IS ORDERING, NOT LOGIC: any gate that derives truth from a generated artifact
+must run AFTER the gate that proves that artifact current. The alternative — having `demand_census`
+read `rosterP0` from the Lean source rather than from the rendered table — trades one derived input
+for a second route to the same list, which is the duplicate-born-in-agreement shape this repository
+declines elsewhere. Ordering is the honest fix.
+[[feedback-a-staleness-stamp-hashes-only-one-half]] [[feedback-two-defects-that-cancel]]
+[[feedback-a-gate-behind-a-failing-step-is-silent]]
+
 ### 6. A THIRD MEASUREMENT OF THE ENCODING TABLE, UNASKED FOR AND FREE
 
 QUEUE 2b's table was measured twice. Assembling the fifteen forms step 2 needs with
