@@ -37,7 +37,7 @@ runs the same afternoon.
 usage: ci_local.py [--job build] [--list] [--jobs] [--from N] [--to N]
 ⚠️ ONE JOB PER INVOCATION, and `--jobs` lists what that leaves out.
 """
-import os, re, subprocess, sys
+import collections, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WF = os.path.join(ROOT, ".github", "workflows", "ci.yml")
@@ -147,6 +147,45 @@ KNOWN_FLAGS = {"--job", "--jobs", "--list", "--from", "--to", "--help",
 VALUED_FLAGS = {"--job", "--from", "--to"}
 
 
+# ⭐⭐⭐ THE STEP RUNS WITH ITS OUTPUT STREAMED, NOT CAPTURED (D176).
+#
+# ⛔ WHAT THIS REPLACES, MEASURED. `kernel-delta-redfirst` at `--repeats 4` took 45
+# minutes and this runner produced **613 bytes**: a step name, a `✔`, and the scope
+# footer. Everything the gate printed — its family-wise cut, the bias it could
+# detect at 90 % power, the box stamp, the drift, and the list of TWELVE UNITS IT
+# CANNOT POLICE — was captured into a variable and dropped, because the step
+# PASSED.
+#
+# 🔑 D94 GAVE THIS FILE HALF A LAW: *a gate that refuses must say what it saw.* The
+# mirror was missing and it is the half that bites here — **A GATE THAT PASSES WITH
+# QUALIFICATIONS MUST ALSO SAY WHAT IT SAW, AND THE RUNNER IS WHAT DECIDES.** A
+# scope statement exists precisely to qualify a green, so showing output only on
+# red makes it unreachable exactly when it applies. The previous head's RED was
+# legible only because it was red.
+#
+# ⛔ AND THE SECOND DEFECT IN THE SAME LINE: with `capture_output=True` a 45-minute
+# step prints NOTHING while it runs, so a watcher cannot tell running from hung.
+#
+# ⚠️ THE COST IS NOISE, AND IT IS ACCEPTED RATHER THAN HIDDEN: `--job build` now
+# streams 34 steps' output. That is what the standing order to redirect a long run
+# to a FILE and filter the file is for. Silence is a defect; noise is a filter
+# problem. [[feedback-a-gate-that-refuses-must-say-what-it-saw]]
+# [[feedback-read-what-the-instrument-measured]]
+def run_step(cmd, echo=True):
+    """(rc, last 30 lines) — streams the child's output as it arrives."""
+    p = subprocess.Popen(["bash", "-e", "-c", cmd], cwd=ROOT, text=True,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         bufsize=1)
+    tail = collections.deque(maxlen=30)
+    for line in p.stdout:
+        line = line.rstrip("\n")
+        tail.append(line)
+        if echo:
+            print("   │ " + line, flush=True)
+    p.wait()
+    return p.returncode, list(tail)
+
+
 def check_argv(argv=None):
     av = sys.argv[1:] if argv is None else argv
     bad, dangling, skip = [], None, False
@@ -185,6 +224,26 @@ def check_argv(argv=None):
 # driven and its neighbours lend it their green (D162's finding, in this file).
 # [[feedback-a-gate-with-no-callable-surface]]
 def selftest():
+    # ── run_step: the half of D94 that was missing (D176) ─────────────────────
+    rc_ok, tail_ok = run_step("echo 'SCOPE: 12 units unpoliced'; echo second", echo=False)
+    rc_bad, tail_bad = run_step("echo before; echo to-stderr >&2; exit 3", echo=False)
+    step_arms = [
+        (rc_ok == 0 and "SCOPE: 12 units unpoliced" in tail_ok,
+         "CONTROL — a PASSING step's own output is returned, not discarded: that "
+         "is the half of D94 this runner was missing, and a 45-minute green once "
+         "produced 613 bytes"),
+        (len(tail_ok) == 2,
+         "...and every line of it, not only the last"),
+        (rc_bad == 3 and "before" in tail_bad and "to-stderr" in tail_bad,
+         "RED-FIRST — a FAILING step returns its rc and BOTH streams, so a "
+         "diagnosis is not a second run"),
+    ]
+    bad0 = []
+    for ok_, name in step_arms:
+        print(("  ✔ " if ok_ else "  ⛔ ") + name)
+        if not ok_:
+            bad0.append(name)
+
     cases = [(["--jobs"], 0, "CONTROL — a known flag is accepted"),
              (["--job", "build", "--to", "7"], 0,
               "CONTROL — value-taking flags' VALUES are not read as flags"),
@@ -196,7 +255,7 @@ def selftest():
              (["--job"], 2,
               "RED-FIRST — a value-taking flag with NO value refuses"),
              (["build"], 2, "RED-FIRST — a bare positional refuses")]
-    bad = []
+    bad = list(bad0)
     for av, want, name in cases:
         rc = check_argv(av)
         ok = rc == want
@@ -206,8 +265,9 @@ def selftest():
     if bad:
         print(f"ci_local selftest: FAIL ({len(bad)} of {len(cases)} arms)")
         return 1
-    print(f"ci_local selftest: CLEAN ({len(cases)} arms — the ARGUMENT READER "
-          f"only. No job is run by any of them.)")
+    print(f"ci_local selftest: CLEAN ({len(cases) + len(step_arms)} arms — the "
+          f"ARGUMENT READER and the STEP RUNNER only. No CI job is run by any of "
+          f"them.)")
     return 0
 
 
@@ -266,16 +326,15 @@ def main():
             continue
         ran += 1
         print(f"── [{i}/{len(runnable)}] {s['name']}", flush=True)
-        r = subprocess.run(["bash", "-e", "-c", s["run"]], cwd=ROOT,
-                           capture_output=True, text=True)
-        if r.returncode == 0:
+        rc, tail = run_step(s["run"])
+        if rc == 0:
             print("   ✔", flush=True)
         else:
             # ⛔ A GATE THAT REFUSES MUST SAY WHAT IT SAW (D94): the failing
             # step's own output is the reading a head needs, and re-running it
             # by hand is how a diagnosis cycle gets spent twice.
-            print(f"   ⛔ FAILED (rc {r.returncode})", flush=True)
-            for l in (r.stdout + r.stderr).splitlines()[-30:]:
+            print(f"   ⛔ FAILED (rc {rc})", flush=True)
+            for l in tail:
                 print("      " + l)
             bad.append(s["name"])
     others = [j for j in all_jobs if j != job]
