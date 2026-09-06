@@ -10669,3 +10669,112 @@ class: an instrument that degrades monotonically with the work it watches. After
 **48** — and five of those five are mine, landed in the same session that read the warning.
 ⇒ the backfill that pays for this grows with every landing, so the cheapest moment to record a row
 is always the merge it belongs to, and always was.
+
+## D162 — the derivation gate D161 broke, why nothing said so, and the arm that now would
+
+D161 re-keyed the drift ledger from `(base, head)` to `base` and its record reads *"All 11 committed
+rows load unchanged"*, *"selftest 18/18, 10 distinct plants"*, *"`ci_local` CLEAN 33/33 after the
+change"*. **Every one of those sentences is true.** Master still shipped a red gate for four hours.
+
+### 1. THE OBJECT
+
+`kernel_drift.py --verify-ledger docs/kernel-delta-history-2026-09-04.jsonl` is a CI step
+(`.github/workflows/ci.yml:527`). At master `eb14280` it returned **rc 2, 22 discrepancies**:
+
+```
+   144e9a3cf→4f6766b9b  ABSENT from the ledger        ← x11, every step of the walk
+   3→2   in the ledger under backfill:… but not a step of that walk    ← x11
+```
+
+`want` was built keyed on `(order[i], order[i+1])` — a TUPLE — and joined against
+`load_ledger`'s output, which D161 re-keyed to a bare `base` STRING. No key ever matched, so all 11
+derived steps read ABSENT and all 11 stored rows read surplus. The `3→2` renders `key[0][:9]` and
+`key[1][:9]` of a *string*: characters 0 and 1 of a sha. **The gate could not have passed on any
+input.**
+
+⭐ **CAUSE PINNED AT THE OBJECT, NOT INFERRED.** Same command, same ledger, two worktrees:
+
+```
+  f46de06  (D161's parent)   rc 0   ✅ 11 steps x 23 units = 253 allowances re-derived
+  e39abc2  (D161 itself)     rc 2   ⛔ 22 discrepancies
+```
+
+### 2. ⛔⛔ WHY THREE GREEN RECEIPTS ALL MISSED IT, AND THE TWO REASONS ARE DIFFERENT
+
+**(a) `ci_local` RUNS ONE JOB OF FOUR.** `ci_local.py` defaults to `--job build` — 33 steps, hence
+"33/33". The drift gate and its ledger derivation live in the **`kernel-delta`** job. `ci_local`
+parses `ci.yml` precisely so its STEP list cannot go stale, and its own docstring warns that the
+per-batch discipline runs *"a SUBSET of this workflow"*. That warning is about steps. The same
+defect sits one level up in JOBS, unstated, and "33/33" reads as a whole-workflow receipt because
+the denominator is the only number in it.
+⇒ 🔑 **A COMPLETE COUNT OF A SUBSET IS INDISTINGUISHABLE FROM A COMPLETE COUNT.** `n/n` says the
+list was finished; it never says what the list was.
+*(Measured, so the shape is on the record: `build` 33 · `selftest` 2 · `kernel-delta` 7 ·
+`kernel-delta-redfirst` 1. Six of the seven `kernel-delta` steps are pure-python and take seconds.)*
+
+**(b) THE GATE HAD NO CALLABLE SURFACE.** `--verify-ledger` was an inline block inside `main()`.
+A selftest calls functions; there was no function. So the 18 arms sat beside it, green about the
+ARITHMETIC, reading as though they were green about the FILE.
+⇒ 🔑 **A GATE WITH NO CALLABLE SURFACE CANNOT BE ARMED**, and an unarmed gate's neighbours lend it
+their green.
+
+### 3. THE REPAIR IS THE EXTRACTION, AND ITS PROOF IS A PLANT
+
+`verify_ledger(want, ledger, tag, digest)` is now a function; `main()` builds `want` as
+`{base: (head, allowances)}` — the shape `load_ledger` actually produces — and delegates. Section
+**B2** of the selftest, 8 arms, control first:
+
+* ⭐ **every ledger in it is written with `append_rows` and read back with `load_ledger`** — the
+  shipped producer and consumer — so the key shape under test comes from the ARTIFACT, never from
+  the test's own hand. A section that built its dict directly would have adopted whatever key D161
+  chose and agreed with the bug. [[feedback-a-duplicate-born-in-agreement]]
+* the plants: an edited allowance · a missing step · a surplus row under the same tag · a foreign
+  budget registry · **a rotted `head`** — the field D161 demoted to audit-only, hence the field
+  nothing else would report rotting.
+* ⛔ **and the load-bearing negative control**: a `source="gate"` row beside the backfill is
+  INVISIBLE to this gate, with its positive control (the same row re-tagged IS caught). Without
+  that arm the ledger could hold backfilled rows or live rows but never both — which would make the
+  landing ritual and the 48-commit backfill mutually exclusive.
+
+**DRIVEN RED ON THE REAL DEFECT.** `load_ledger`/`append_rows` re-keyed back to the pre-D161 tuple:
+selftest **rc 1, five B2 arms fire, control first**. Restored: **26 arms, 26 green, 16 distinct
+plants** (was 18 / 10). ⭐ **Under that plant the eighteen pre-existing arms stayed GREEN** — the
+measurement of how blind the old selftest was to this class, rather than a claim about it.
+
+### 4. WHAT THIS COSTS THE ORDER IT INTERRUPTED
+
+The relight order was to land the next batch `--no-ff` and write the ledger's first LIVE row. That
+row would have gone into a ledger whose derivation gate was red, under a receipt that would not have
+looked at it. The order is unchanged; it is one gate less blind.
+[[feedback-a-gate-behind-a-failing-step-is-silent]] [[feedback-verify-what-the-build-command-builds]]
+[[feedback-a-gate-is-not-exempt-from-its-own-defect]]
+
+### 5. THE SCOPE REPAIR IN `ci_local`, AND A SIBLING FOUND ONE LINE AWAY
+
+`ci_local.py` now parses the workflow's JOB list the same way it already parsed its STEP list, and
+every receipt carries what it left out:
+
+```
+ci_local: CLEAN (6 of 7 steps of CI job 'kernel-delta' RAN, steps 1-6 of 7 selected by --from/--to)
+⚠️  SCOPE: this ran CI job 'kernel-delta' ONLY. The workflow has 4 jobs; NOT RUN here:
+    build (33 steps), selftest (2 steps), kernel-delta-redfirst (1 steps).
+```
+An unknown `--job` now refuses and names the four. `--jobs` lists them with their step counts.
+
+⛔ **AND THE SAME CLASS WAS SITTING ONE LINE BELOW.** `--from 99` ran ZERO steps and printed
+`CLEAN (7 steps of CI job 'kernel-delta')` — the number was the length of the LIST, not of what
+executed, which is the identical substitution as `33/33` for the workflow. It now refuses when the
+selection is empty, and a partial run says which steps it selected. **Found by grepping the file I
+was already editing for the shape I had just named**, not by a second sitting.
+[[feedback-naming-a-defect-is-not-finding-its-siblings]] [[feedback-read-what-the-instrument-measured]]
+
+⭐ **`--to N` ADDED, AND IT IS WHAT MAKES THE NEW DISCIPLINE TYPEABLE.** `kernel-delta` is six
+pure-python gates (seconds, all six green here) and one full two-tree profiling run — the merge
+gate. Without a way to name the cheap prefix, *"run the drift gates before merging"* is advice
+nobody can execute, and `python3 scripts/ci_local.py --job kernel-delta --to 6` now is that command.
+[[feedback-make-the-probe-cheap]]
+
+⚠️ **WHAT IS STILL NOT GATED**: nothing makes a head RUN the other three jobs. This turns a silent
+subset into a stated one; it does not turn one command into four. The `selftest` job (~2h15m sharded
+six ways) and `kernel-delta-redfirst` (four builds) are priced out of a per-batch ritual, and saying
+so beside the receipt is the whole of what changed. [[feedback-a-gate-whose-precondition-is-a-discipline]]

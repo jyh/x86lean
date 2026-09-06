@@ -216,6 +216,54 @@ def append_rows(path, rows, existing):
             f.write(json.dumps(r, sort_keys=True) + "\n")
 
 
+# ⛔⛔ EXTRACTED FROM `main()` 2026-09-06, AND THE EXTRACTION IS THE REPAIR.
+# This ran as an inline block inside `--verify-ledger`, which is precisely why it
+# had NO SELFTEST ARM: a selftest calls functions, and there was no function to
+# call. D161 re-keyed `load_ledger` from `(base, head)` to `base` and this block
+# kept building its `want` on TUPLES, so every `have.get(key)` missed, all 11
+# steps read ABSENT, and the surplus loop rendered a STRING key as `3→2` — the
+# first two characters of a sha. Master shipped it RED for four hours.
+# ⇒ 🔑 **A GATE WITH NO CALLABLE SURFACE CANNOT BE ARMED**, and the selftest
+# beside it (18 arms, 10 plants) was green throughout — its greenness was about
+# the arithmetic, and read as though it were about the file.
+# ⚠️ `head` IS COMPARED HERE even though D161 demoted it to audit-only. That is
+# deliberate and it is the widening: the derivation produces `head`, so a
+# derivation gate that ignores it leaves the one field D161 stopped reading
+# unpoliced, which is exactly where the next rot lands.
+# [[feedback-a-gate-is-not-exempt-from-its-own-defect]]
+# [[feedback-an-implied-assertion-is-not-a-second-gate]]
+def verify_ledger(want, ledger, tag, digest):
+    """[discrepancy, ...] — empty iff the tagged rows ARE their own derivation.
+
+    `want` is {base: (head, {unit: allowance})}, keyed the way `load_ledger`
+    keys, because the two dicts are joined. ⛔ A caller that builds `want` with
+    its own key shape is a duplicate born in agreement — it matches on the day
+    it is written and misses silently on the next re-key.
+    [[feedback-a-duplicate-born-in-agreement]]"""
+    have = {k: r for k, r in ledger.items() if r.get("source") == tag}
+    bad = []
+    for base, (head, alw) in sorted(want.items()):
+        got = have.get(base)
+        if got is None:
+            bad.append(f"   {base[:9]}→{head[:9]}  ABSENT from the ledger")
+            continue
+        if got.get("budget_digest") != digest:
+            bad.append(f"   {base[:9]}→{head[:9]}  priced against registry "
+                       f"{got.get('budget_digest')}, this run reads {digest}")
+        if got.get("head") != head:
+            bad.append(f"   {base[:9]}→{head[:9]}  head: ledger "
+                       f"{str(got.get('head'))[:9]} vs derived {head[:9]}")
+        for u in sorted(set(alw) | set(got["allowance"])):
+            a, b = alw.get(u), got["allowance"].get(u)
+            if a is None or b is None or abs(a - b) > 1e-9:
+                bad.append(f"   {base[:9]}→{head[:9]}  {u}: ledger {b} vs "
+                           f"derived {a}")
+    for base in sorted(set(have) - set(want)):
+        bad.append(f"   {base[:9]}→{str(have[base].get('head'))[:9]}  in the "
+                   f"ledger under {tag} but not a step of that walk")
+    return bad
+
+
 def allowances_for(base_units, default_ms, budgets, floor):
     """{unit: allowance ms} for ONE step, at that step's OWN base reading."""
     return {u: kd.effective(budgets.get(u, default_ms), ms, floor)
@@ -509,6 +557,80 @@ def selftest():
            "...and a NON-conflicting step still appends, so the arm above is the "
            "conflict and not a store that never writes")
 
+    # ── B2. THE DERIVATION GATE — THE ONE THAT HAD NO ARM UNTIL TODAY ─────────
+    # ⛔⛔ `--verify-ledger` shipped RED on master for four hours (found 09/06) and
+    # NOTHING said so: it was an inline block in `main()`, so there was no
+    # function for an arm to call, and the 18 green arms above were about the
+    # ARITHMETIC while reading as though they were about the FILE.
+    # ⭐ EVERY LEDGER BELOW IS WRITTEN WITH `append_rows` AND READ WITH
+    # `load_ledger` — the shipped producer and consumer — so the key shape under
+    # test comes from the artifact and never from this test's own hand. Had this
+    # section built its dict directly, it would have adopted whatever key D161
+    # chose and agreed with the bug.
+    # [[feedback-a-gate-is-not-exempt-from-its-own-defect]]
+    # [[feedback-a-duplicate-born-in-agreement]]
+    print("\nB2. THE DERIVATION GATE — a written ledger, read back by the shipped "
+          "reader:")
+    TAG = "backfill:walk.jsonl"
+    vst = _steps(3)
+    vwant = {b: (h, {"M": 100.0, "N": 40.0}) for b, h in vst}
+
+    def _written(rows):
+        """rows → a ledger dict, THROUGH the file and the shipped reader."""
+        d = tempfile.mkdtemp()
+        lp = os.path.join(d, "led.jsonl")
+        append_rows(lp, rows, {})
+        return load_ledger(lp)
+
+    good = [_row(b, h, {"M": 100.0, "N": 40.0}, source=TAG) for b, h in vst]
+    ok(verify_ledger(vwant, _written(good), TAG, DIG) == [],
+       "CONTROL FIRST — a ledger that IS its derivation reports NO discrepancy "
+       "(this is the arm master was failing)")
+
+    def red(rows, want, needle, what, plant):
+        bad = verify_ledger(want, _written(rows), TAG, DIG)
+        ok(bool(bad) and any(needle in b for b in bad),
+           f"{what} — refused naming `{needle}`" if bad else what, plant=plant)
+
+    red([_row(b, h, {"M": 100.0 + (11.0 if i == 1 else 0.0), "N": 40.0},
+              source=TAG) for i, (b, h) in enumerate(vst)],
+        vwant, "M: ledger 111.0 vs derived 100.0",
+        "a hand-edited ALLOWANCE is caught, and the message names the unit and "
+        "both numbers", "edited allowance")
+    red(good[:2], vwant, "ABSENT from the ledger",
+        "a step the walk derives but the ledger lacks is ABSENT, not a cheaper "
+        "window", "missing step")
+    red(good + [_row(_steps(9)[8][0], _steps(9)[8][1], {"M": 100.0, "N": 40.0},
+                     source=TAG)],
+        vwant, "not a step of that walk",
+        "a surplus row UNDER THE SAME TAG is caught — a ledger may not carry a "
+        "backfilled step the walk does not contain", "surplus row")
+    red([_row(b, h, {"M": 100.0, "N": 40.0}, digest="deadbeefdeadbeef",
+              source=TAG) for b, h in vst],
+        vwant, "priced against registry",
+        "a row priced against a FOREIGN budget registry is caught", "foreign registry")
+    # ⭐ THE FIELD D161 DEMOTED. `head` is audit-only to the verdict, which is
+    # exactly why nothing else would report it rotting.
+    red([_row(b, "0" * 40, {"M": 100.0, "N": 40.0}, source=TAG) for b, h in vst],
+        vwant, "head: ledger 000000000",
+        "a row whose audit-only `head` disagrees with the walk is caught",
+        "rotted head")
+    # ⛔ AND THE ARM THAT DECIDES WHETHER A LIVE ROW CAN EVER BE RECORDED. The
+    # first `--record` at a merge writes `source="gate"`; if this gate counted it
+    # as a surplus row, the ledger could hold backfill OR live rows but never
+    # both, and the 48-commit backfill would be unable to coexist with the
+    # landing ritual that ends it. NEGATIVE CONTROL, and it is load-bearing.
+    live = _row(_steps(9)[7][0], _steps(9)[7][1], {"M": 1.0}, source="gate")
+    ok(verify_ledger(vwant, _written(good + [live]), TAG, DIG) == [],
+       "a LIVE `source=gate` row beside the backfill is INVISIBLE to this gate, "
+       "so the two kinds of row coexist")
+    # ...and its positive control, or the arm above only proves the tag filter
+    # rejects everything. [[feedback-a-probe-must-create-its-condition]]
+    ok(bool(verify_ledger(vwant, _written(good + [dict(live, source=TAG)]),
+                          TAG, DIG)),
+       "...while THE SAME ROW re-tagged as backfill IS caught, so the arm above "
+       "is the tag and not a filter that matches nothing", plant="tag filter")
+
     # ── C. THE ANCHOR IS PROFILED, NEVER READ FROM THE LEDGER ──────────────────
     print("\nC. THE ANCHOR — re-profiled every run, and the ledger's readings are "
           "dead to the verdict:")
@@ -630,31 +752,14 @@ def main():
         want = {}
         for i in range(len(order) - 1):
             med = {u: statistics.median(v) for u, v in ur[order[i]].items()}
-            want[(order[i], order[i + 1])] = allowances_for(
-                med, default_ms, budgets, floor)
-        have = {k: r for k, r in ledger.items() if r.get("source") == tag}
-        bad = []
-        for key, alw in want.items():
-            got = have.get(key)
-            if got is None:
-                bad.append(f"   {key[0][:9]}→{key[1][:9]}  ABSENT from the ledger")
-                continue
-            if got.get("budget_digest") != digest:
-                bad.append(f"   {key[0][:9]}→{key[1][:9]}  priced against registry "
-                           f"{got.get('budget_digest')}, this run reads {digest}")
-            for u in sorted(set(alw) | set(got["allowance"])):
-                a, b = alw.get(u), got["allowance"].get(u)
-                if a is None or b is None or abs(a - b) > 1e-9:
-                    bad.append(f"   {key[0][:9]}→{key[1][:9]}  {u}: ledger {b} vs "
-                               f"derived {a}")
-        for key in set(have) - set(want):
-            bad.append(f"   {key[0][:9]}→{key[1][:9]}  in the ledger under {tag} but "
-                       f"not a step of that walk")
+            want[order[i]] = (order[i + 1],
+                              allowances_for(med, default_ms, budgets, floor))
+        bad = verify_ledger(want, ledger, tag, digest)
         if bad:
             refuse(f"⛔ the ledger is not what its own derivation produces "
                    f"({len(bad)} discrepancies):\n" + "\n".join(bad[:40]) +
                    f"\n   Regenerate it with --backfill; do not edit it.")
-        n_u = sum(len(a) for a in want.values())
+        n_u = sum(len(a) for _, a in want.values())
         print(f"✅ ledger DERIVED: {len(want)} steps x {n_u // max(len(want), 1)} units "
               f"= {n_u} allowances re-derived from {os.path.basename(walk_v)} and "
               f"equal to the committed ledger, against registry {digest}.")

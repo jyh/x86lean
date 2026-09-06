@@ -34,7 +34,8 @@ runs the same afternoon.
     (`kernel_cost.py`, and see `kernel_delta.py`'s own jobs), so this list is
     exactly the portable half.
 
-usage: ci_local.py [--job build] [--list] [--from N]
+usage: ci_local.py [--job build] [--list] [--jobs] [--from N] [--to N]
+⚠️ ONE JOB PER INVOCATION, and `--jobs` lists what that leaves out.
 """
 import os, re, subprocess, sys
 
@@ -98,8 +99,47 @@ def steps(job):
     return out
 
 
+# ⛔⛔ ADDED 2026-09-06 (D162), AND IT IS A SCOPE REPAIR, NOT A FEATURE.
+# `--job build` is 33 of this workflow's 43 runnable steps, and the summary line
+# said `CLEAN (33 steps of CI job 'build')` — accurate, and read for two days as
+# a whole-workflow receipt, because **a complete count of a subset is
+# indistinguishable from a complete count**: `n/n` says the list was finished,
+# never what the list was. A drift gate red on master survived three such
+# receipts. The denominator now carries its scope and NAMES what did not run.
+# ⛔ DERIVED FROM `ci.yml`, like the step list — a hand-typed roster of jobs is
+# the same duplicate-born-in-agreement this file exists to avoid.
+# [[feedback-a-gate-behind-a-failing-step-is-silent]]
+def jobs():
+    """[job name, ...] in workflow order — every key at two spaces under `jobs:`."""
+    out, in_jobs = [], False
+    for ln in open(WF).read().splitlines():
+        if re.match(r"^jobs:\s*$", ln):
+            in_jobs = True
+            continue
+        if in_jobs:
+            if ln.strip() and not ln.startswith(" "):
+                break
+            m = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", ln)
+            if m:
+                out.append(m.group(1))
+    if not out:
+        print(f"⛔ no jobs parsed from {WF}. A runner that cannot see the "
+              f"workflow's jobs cannot say what its receipt leaves out.")
+        sys.exit(2)
+    return out
+
+
 def main():
+    all_jobs = jobs()
+    if "--jobs" in sys.argv:
+        for j in all_jobs:
+            print(f"  {j:24s} {len([x for x in steps(j) if 'run' in x])} runnable step(s)")
+        return 0
     job = arg("--job", "build")
+    if job not in all_jobs:
+        print(f"⛔ {job!r} is not a job of {WF}. It has {len(all_jobs)}: "
+              + ", ".join(all_jobs))
+        return 2
     st = steps(job)
     runnable = [s for s in st if "run" in s]
     skipped = [s for s in st if "run" not in s]
@@ -110,13 +150,31 @@ def main():
             print(f"  -  SKIPPED ({s['kind']}): {s['name']}")
         return 0
     start = int(arg("--from", "1"))
+    # ⚠️ `--to` EXISTS BECAUSE A JOB IS NOT UNIFORM IN PRICE. `kernel-delta`'s
+    # seven steps are six pure-python gates (seconds) and one full two-tree
+    # profiling run (the merge gate, minutes-to-an-hour). Without a way to name
+    # the cheap prefix, "run the drift gates before merging" is a command nobody
+    # can type, and a discipline expensive to exercise gets exercised less.
+    # [[feedback-make-the-probe-cheap]]
+    end = int(arg("--to", str(len(runnable))))
     print(f"CI job {job!r}: {len(runnable)} runnable step(s); "
           f"{len(skipped)} skipped as runner setup "
           + ", ".join(f"`{s['name']}`" for s in skipped))
-    bad = []
+    # ⛔ `--from N` PAST THE END PRINTED `CLEAN (7 steps of CI job ...)` HAVING
+    # RUN NONE — found 09/06 while repairing the job-scope defect one line above,
+    # and it is the SAME class inside the same file: the number in the receipt was
+    # the length of the LIST, not of what executed. A skip is not a pass.
+    # [[feedback-read-what-the-instrument-measured]]
+    # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+    if start > len(runnable) or end < start:
+        print(f"⛔ --from {start} --to {end} selects NONE of job {job!r}'s "
+              f"{len(runnable)} step(s). Running nothing is not a clean run.")
+        return 2
+    bad, ran = [], 0
     for i, s in enumerate(runnable, 1):
-        if i < start:
+        if i < start or i > end:
             continue
+        ran += 1
         print(f"── [{i}/{len(runnable)}] {s['name']}", flush=True)
         r = subprocess.run(["bash", "-e", "-c", s["run"]], cwd=ROOT,
                            capture_output=True, text=True)
@@ -130,12 +188,25 @@ def main():
             for l in (r.stdout + r.stderr).splitlines()[-30:]:
                 print("      " + l)
             bad.append(s["name"])
+    others = [j for j in all_jobs if j != job]
+    scope = (f"\n⚠️  SCOPE: this ran CI job {job!r} ONLY. The workflow has "
+             f"{len(all_jobs)} jobs; NOT RUN here: "
+             + ", ".join(f"{j} ({len([x for x in steps(j) if 'run' in x])} steps)"
+                         for j in others)
+             + f".\n    Quote this line with the count, or the count reads as the "
+               f"whole workflow.")
+    # the count in a receipt is what RAN, never what was listed.
+    of = (f"{ran} of {len(runnable)} steps" if ran != len(runnable)
+          else f"all {len(runnable)} steps")
     if bad:
-        print(f"\n⛔ ci_local: {len(bad)} of {len(runnable)} step(s) FAILED: "
-              + "; ".join(bad))
+        print(f"\n⛔ ci_local: {len(bad)} of the {ran} step(s) RUN in job "
+              f"{job!r} FAILED: " + "; ".join(bad) + scope)
         return 1
-    print(f"\nci_local: CLEAN ({len(runnable)} steps of CI job {job!r}, on THIS "
-          f"box — an arm64 macOS run is not a receipt for the x86-64 runner)")
+    print(f"\nci_local: CLEAN ({of} of CI job {job!r} RAN"
+          + (f", steps {start}-{min(end, len(runnable))} of {len(runnable)} "
+             f"selected by --from/--to" if ran != len(runnable) else "")
+          + f"; on THIS box — an arm64 macOS run is not a receipt for the "
+            f"x86-64 runner)" + scope)
     return 0
 
 
