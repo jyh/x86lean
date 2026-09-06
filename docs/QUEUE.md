@@ -578,6 +578,67 @@ qualifier.
     ⚠️ `kernel_cost.py --selftest` is a LONG gate (>10 min; it profiles real trees) and is
     deliberately not in `ci_local`'s portable list.
 
+### 2b. ⭐⭐ P2 BATCH 36 — THE SIX MOVES, SPECIFIED AND PRICED; THE ENCODING TABLE RE-MEASURED 09/06
+`movhlps` 1,341 · `movhpd` 556 · `movddup` 506 · `movlhps` 340 · `movlpd` 274 · `movlps` 101.
+**PRICE: inside the gate on two independent runs of `p2_batch_size.py`** — 6 mnemonics read 6.2%
+(02:0x) and 9.0% (03:3x) against a 15.7% budget.
+⚠️ **QUOTE THE AGREEMENT, NOT A RUN.** The tool was NON-MONOTONE at 03:3x (8 → 16.0% ⛔OVER while
+10 → 15.5% ⚠UNMEASURABLE) and its 8-mnemonic verdict FLIPPED between runs (clean → OVER). Its plant
+is noise-dominated at this resolution exactly as the delta gate's band is. The two runs agree only
+that **6 is clean and 15 is over**; batch 36 is inside both, and `k_max` is not a number to quote.
+
+**THE ENCODING TABLE, RE-MEASURED 09/06 (clang -target x86_64, disassembled) — do not re-derive it
+from the manual, and do not inherit it on trust either; this is the second independent measurement:**
+```
+  0f 12  mem  movlps   xmm0 = mem[0,1],xmm0[2,3]     0f 13  mem  movlps  (store)
+  66 ..  mem  movlpd   xmm0 = mem[0],xmm0[1]         66 0f 13    movlpd  (store)
+  0f 16  mem  movhps   xmm0 = xmm0[0,1],mem[0,1]     0f 17  mem  movhps  (HAVE)
+  66 ..  mem  movhpd   xmm0 = xmm0[0],mem[0]         66 0f 17    movhpd  (store)
+  0f 12  REG  movhlps  xmm0 = xmm1[1],xmm0[1]        dst LOW  <- src HIGH, dst high PRESERVED
+  0f 16  REG  movlhps  xmm0 = xmm0[0],xmm1[0]        dst HIGH <- src LOW,  dst low  PRESERVED
+  f2 0f 12  REG and mem  movddup  xmm0 = xmm1[0,0]   BOTH halves <- the low quadword
+```
+⇒ **the ModRM `mod` field selects the MNEMONIC, not merely the operand shape**: `0f 12` is four
+mnemonics and `0f 16` is two. New vocabulary for this model, and the reason these six are not the
+spelling change `movapd` was.
+⭐⭐ **AND IT RETROACTIVELY JUSTIFIES A CHOICE ALREADY IN THE TREE.** `movlps`/`movhps` have **no
+register-to-register encoding at all** — mod=11 is a DIFFERENT MNEMONIC — so `vloadh`/`vstoreh`
+being two constructors with no `x,x` shape is not a convenience, it is the encoding. The low pair
+must be built the same way. `movddup` is the only one of the six with both forms.
+
+**THE CONSTRUCTOR DESIGN (proposed, not built).** Two small enums carry four of the six, by the
+`movdqa`/`movaps` rule this repository already uses — same semantics, different bytes ⇒ a KIND, and
+the semantics is shared by NOT branching:
+```
+  inductive VHalf     where | lo | hi     -- which quadword of the DESTINATION is written
+  inductive VQuadKind where | ps | pd     -- the mandatory prefix (none / 66), i.e. the spelling
+  | vloadq  (h : VHalf) (k : VQuadKind) (dst : XmmReg) (ea : Ea)   -- movhps movhpd movlps movlpd
+  | vstoreq (h : VHalf) (k : VQuadKind) (ea : Ea) (src : XmmReg)   -- 0f 13 / 0f 17
+  | vmovhl  (d : VHalf) (dst src : XmmReg)   -- d=.lo movhlps · d=.hi movlhps (duals, one rule)
+  | vddupR  (dst src : XmmReg)               -- f2 0f 12 mod=11
+  | vddupM  (dst : XmmReg) (ea : Ea)         -- f2 0f 12 mem
+```
+⛔ **THIS MODIFIES `vloadh`/`vstoreh`, WHICH IS THE EXPENSIVE PART AND MUST BE PRICED FIRST.** Two
+fields on an existing constructor blew three unrelated record proofs before
+([[feedback-a-state-field-costs-every-record-proof]]). Measure that before writing semantics; if it
+is dear, the fallback is to leave `vloadh`/`vstoreh` untouched and add the low pair beside them,
+paying a duplicated rule instead of a proof sweep.
+⛔ **AND `VMovKind`'s DOCSTRING ARGUES AGAINST A KIND HERE — READ IT BEFORE OVERRIDING IT.**
+`vloadh`'s comment says it is deliberately NOT a `VMovKind` because that kind's whole content is the
+16-byte alignment rule and this form has none (8-byte operand, Exception Type 5, MEASURED on the
+oracle at three alignments with a two-sided control, D119). `VQuadKind` is a DIFFERENT field whose
+content is the prefix byte and therefore the mnemonic — which is meaningful where an `aligned`
+answer would not have been. That distinction is the argument; if it does not survive contact with
+the build, the kind is wrong and not the docstring.
+⚠️ **THE PRESERVED HALF IS THE CONTENT, AS IT WAS FOR `movhps`.** Every one of the four half-moves
+preserves the other half, so the plausible wrong model is the one that ZEROES it, and it is
+invisible on any pre-state whose untouched half is already zero — `xmmPattern` must give both halves
+non-zero values or the arm scores 0 and reports green about a model that destroys half a register.
+`movddup` is the exception: it writes both halves, so its wrong-model arm is the one that preserves.
+⚠️ Keep every new `Row.shapes` string SHORT — that field is walked character by character inside a
+kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
+The prose goes in `note`, which is not reduced.
+
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
 `docs/SOFT-FLOAT-COMMISSION.md` — opened 2026-09-05, with its premise tested at the object, its
 scope re-measured, and a refuter pass run against it in the same sitting.
