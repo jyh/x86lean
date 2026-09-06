@@ -24,11 +24,28 @@ Extending the model and the oracle-availability census across the SIMD/FP bucket
 **Where it stands** — ⚠️ HAND-COPIED from the tools named, so it is a claim and not a reading;
 re-run them rather than quoting this block (`python3 scripts/p2_oracle_support.py`):
 ```
-THE UNASKED REMAINDER    171 pairs / 16,791 instructions      (was 172 / 18,032 before batch 33)
-   x86isa IMPLEMENTS       0 pairs /      0
+THE UNASKED REMAINDER    172 pairs / 16,879 instructions   (2026-09-06, after batch 34)
+   x86isa IMPLEMENTS       1 pairs /     88     ⇐ pandn @ MMX (mm)
    x86isa DOES NOT       171 pairs / 16,791
    NOT RESOLVED            0 pairs /      0
 ```
+⛔⛔ **D144's "EVERY PAIR x86isa IMPLEMENTS HAS NOW BEEN ASKED" HAS A QUALIFIER, AND BATCH 34
+EXPOSED IT WITHOUT CREATING IT.** The remainder loop takes each mnemonic's **DOMINANT** bucket
+(`p2_roster.dominant_bucket` = `most_common(1)`) and skips the mnemonic entirely if THAT pair is
+measured. So the table shows **at most one bucket per mnemonic**, and every non-dominant bucket has
+never been in its denominator at all.
+`pandn` had demand at two buckets — SSE-legacy 2,980 and MMX 88 — so SSE-legacy was dominant and
+measured, and the MMX pair was invisible. Batch 34 covered the SSE-legacy demand, which took it to
+zero, which promoted MMX to dominant, which made a pair that was ALWAYS unasked appear as new work.
+⇒ 🔑 **a census keyed by "the biggest bucket per name" reports about names, not keys** — and
+covering a mnemonic can only ever reveal its next bucket, never add one. The honest statement is
+*"every DOMINANT pair x86isa implements has been asked"*; the size of the unobserved region is
+every mnemonic whose demand straddles buckets (the tool prints 3,991 instructions sitting at
+mnemonics' other buckets).
+⚠️ **This is a finding about the TOOL, not a regression.** Two candidate repairs, neither taken
+here: enumerate every (mnemonic, bucket) pair with demand rather than the dominant one, or keep the
+dominant-bucket view and print the count of non-dominant pairs beside it so the blind spot has a
+number. [[feedback-a-census-is-per-key-not-per-name]]
 ⇒ ⭐⭐ **EVERY PAIR x86isa IMPLEMENTS HAS NOW BEEN ASKED** (D144). D138 could only reach *"every
 implemented pair that CAN be asked"*, with `vzeroupper` / `AVX (state)` — 1,241 instructions —
 outside the probe's reach for three batches. The availability census is finished without a
@@ -52,6 +69,55 @@ qualifier.
    widens what `measured_availability()` means and moves the roster — a batch, not a side effect.
 
 2. **Land the buildable groups the census has surfaced** — the ordinary batch work.
+   ⭐⭐⭐ **THE GROUP IS NAMED AND DERIVED NOW (D157).** This row asked for "the buildable
+   groups" for three sittings and named none, because the P2 roster's ranked table prints its
+   top FORTY rows and every unclaimed row there that EXECUTES is either VEX or scalar FP. The
+   residue reads as blocked on one of two large additions. It is not:
+   ```
+     64 unclaimed SSE-legacy (xmm) pairs EXECUTE   47,965 instructions
+   − 40 that are the soft-float commission's       36,925
+   = 24 needing NO rounding rule at all            11,040
+   ```
+   ⚠️ **THOSE ARE THE PRE-BATCH FIGURES AND THE TOOL NO LONGER PRINTS THEM.** A covered
+   mnemonic's gap demand is zero, so claiming the nine moved the total to `55 pairs / 44,409`
+   the moment they landed. Re-run the tool for today's residue; read `47,965` as a reading
+   dated 2026-09-06, not as something to reproduce.
+   ⇒ 🔑 **a category named for what it contains says nothing about its complement** — these
+   read as "FP" only because their mnemonics end in `ps`/`pd`, and `xorps` rounds nothing.
+   Priced by `python3 scripts/p2_residue.py` (3 gates, selftest 4/4, control first), whose
+   third gate re-derives the commission's published sub-group totals from the live census.
+   - ✅ **The BITWISE half LANDED as P2 batch 34** — `pandn`/`andnps`/`andnpd` and the
+     `ps`/`pd` spellings of AND/OR/XOR, 9 rows, 3,556 instructions.
+   - ⭐ **NEXT, and the tool prints it:** the MOVE half — 15 pairs, **7,484 instructions**,
+     `movapd` 2,420 · `shufps` 1,545 · `movhlps` 1,341 · `movhpd` 556 · `movddup` 506 ·
+     `movlhps` 340 · `movlpd` 274 · `movupd` 113 · `movlps` 101 · `shufpd` 70 · `unpcklps` 64 ·
+     `movmskps` 53 · `unpcklpd` 45 · `unpckhps` 40 · `unpckhpd` 16. No rounding, no new state.
+     ⚠️ Two of them are NOT their integer siblings: `shufps` takes two lanes from the
+     destination and two from the source (unlike `pshufd`, which takes four from one source),
+     and `shufpd` selects one from each. The rest are moves and interleaves the model already
+     expresses. Price the batch by VECTOR COUNT before starting — see the warning below.
+
+   ⛔⛔ **AND A COMPLETE BATCH IS SITTING UNLANDED ON A BRANCH — `p2-batch32-fp-compares`
+   (`3a811fb`, 2026-09-05).** It builds `comiss`/`comisd`/`ucomiss`/`ucomisd` — FOUR of
+   sub-group A's twelve pairs, 2,256 instructions — with a green differential. It is held off
+   `master` by a kernel-cost verdict of **UNMEASURABLE**, whose honest reading was that the
+   batch MAY FAIL: `+2,900` on a `24,700` base is `+11.7%` against a `7.2%` budget, and the
+   run's spread between repeats of the SAME tree (3,400 ms) exceeded the budget (1,778 ms).
+   ⇒ **it waits on a QUIET-BOX measurement and on nothing else.** Neither the P3 commission
+   nor this row mentioned it, so "take sub-group A as a batch" was advice to build a third of
+   something already built. ⚠️ Its 8 vectors cost ~375 ms each; batch 23's 2 cost ~290. A
+   batch's kernel price is set by its VECTOR COUNT, so size the next one against that first.
+2a. ⛔⛔ **`vectorCoverage` HAS ROOM FOR ABOUT THREE MORE VECTORS, AND THAT IS ARITHMETIC (D157).**
+   Batch 34's delta gate refused on this declaration: `+230.0` against a budget of `260.6`, band
+   `±39.2`. At ~11 ms per vector the allowance affords ~24 vectors per batch and batch 34 spent 21.
+   ⇒ **the next vector batch on this declaration does not have room, whatever it contains.** The
+   move half (item 2) is 15 mnemonics; at both operand shapes that is 30+ vectors and it will not
+   fit. Split it, or repair the unit first (item 4).
+   ⛔ Do NOT buy repeats to resolve it — D153 measured the spread SATURATING at n≈3-4, and
+   `repeats_to_decide`'s "~5 repeats a side" is a `1/sqrt(n)` projection with no floor.
+   ⚠️ `X86.Coverage` also refused, at `+0.5` against a `@floor 6` budget with an `±8.5` band. That
+   one is item 4 itself and no repeat count fixes it.
+
 3. **The kernel-delta gate** stays the merge gate; the absolute ceilings ride beside every merge as
    readings, never as a gate (helm 2026-09-04 21:42).
 4. **The gated unit is noisier than the budget it is gated against** (D141 opened it, D142 settled

@@ -510,9 +510,20 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   -- The bitwise trio: lane-independent, so they do not go through `vlanes` at
   -- all.  Routing them through a one-lane call would be a claim that the SDM
   -- defines them lane-wise, which it does not.
-  | .xor  => a ^^^ b
-  | .and  => a &&& b
-  | .or   => a ||| b
+  -- ⭐ P2 BATCH 34.  The `ps`/`pd` spellings are the SAME function at another
+  -- opcode, so they join the arm rather than copying it: nine new kinds, three
+  -- new arms.  A second `a &&& b` under another name would diverge the day one
+  -- of them is corrected ([[feedback-a-duplicate-born-in-agreement]]).
+  | .xor | .xorps | .xorpd => a ^^^ b
+  | .and | .andps | .andpd => a &&& b
+  | .or  | .orps  | .orpd  => a ||| b
+  -- ⛔⛔ THE DESTINATION IS COMPLEMENTED, NOT THE SOURCE (SDM Vol. 2B, PANDN:
+  -- `DEST ← (NOT DEST) AND SRC`), and `a` is the destination at both operand
+  -- shapes.  `a &&& (~~~b)` is the model the mnemonic suggests and it is a
+  -- different function wherever the operands differ — planted as
+  -- `wrongAndnComplementsSource`.  ⭐ K agrees independently: `pandn_xmm_xmm.k`
+  -- is `andMInt(negMInt(DEST), SRC)`.
+  | .andn | .andnps | .andnpd => (~~~a) &&& b
   | .addb => vlanes 8  (· + ·) a b
   | .addw => vlanes 16 (· + ·) a b
   | .addd => vlanes 32 (· + ·) a b

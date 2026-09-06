@@ -796,6 +796,50 @@ acc,imm · rh"
       shapes := "x,x,i · x,m,i",
       note := "the source's four HIGH words selected into the high quadword, its LOW quadword copied through; disjoint from pshuflw's half; m 16-byte aligned, else #GP(0) (D110)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFHW" }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 34 — THE BITWISE COMPLEMENT.  Nine mnemonics that
+  -- need no rounding, no MXCSR and no new state; the `ps`/`pd` spellings are the
+  -- same function at a different opcode, which is why their `note` says so
+  -- rather than restating the operation.
+  --
+  -- ⛔ `shapes` STAYS TWO TOKENS.  It is walked character by character inside a
+  -- kernel `decide` at ~5 ms per character, and this column has refused a batch
+  -- over documentation twice (D94, D102).  The asymmetry goes in `note`.
+  , { mnemonic := "pandn",
+      shapes := "x,x · x,m",
+      note := "(NOT DEST) AND SRC — the DESTINATION is complemented, not the source, so DEST AND (NOT SRC) is a different function wherever the operands differ; confirmed on K (pandn_xmm_xmm.k reads andMInt(negMInt(DEST), SRC)) as well as the SDM; m must be 16-byte aligned, else #GP(0)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PANDN" }
+  , { mnemonic := "andnps",
+      shapes := "x,x · x,m",
+      note := "(NOT DEST) AND SRC, bit for bit what pandn does, at opcode 0f 55 instead of 66 0f df; single-precision only in its name — it reads no exponent and rounds nothing",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDNPS" }
+  , { mnemonic := "andnpd",
+      shapes := "x,x · x,m",
+      note := "(NOT DEST) AND SRC, bit for bit what pandn does, at opcode 66 0f 55; double-precision only in its name",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDNPD" }
+  , { mnemonic := "andps",
+      shapes := "x,x · x,m",
+      note := "bitwise AND of the whole 128 bits, bit for bit what pand does, at opcode 0f 54 instead of 66 0f db; the three are distinct ENCODINGS, which is why they are three rows and not one",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDPS" }
+  , { mnemonic := "andpd",
+      shapes := "x,x · x,m",
+      note := "bitwise AND of the whole 128 bits, bit for bit what pand does, at opcode 66 0f 54",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDPD" }
+  , { mnemonic := "orps",
+      shapes := "x,x · x,m",
+      note := "bitwise OR of the whole 128 bits, bit for bit what por does, at opcode 0f 56",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ORPS" }
+  , { mnemonic := "orpd",
+      shapes := "x,x · x,m",
+      note := "bitwise OR of the whole 128 bits, bit for bit what por does, at opcode 66 0f 56",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ORPD" }
+  , { mnemonic := "xorps",
+      shapes := "x,x · x,m",
+      note := "bitwise XOR of the whole 128 bits, bit for bit what pxor does, at opcode 0f 57; the commonest member of this group in the corpus and the idiom that zeroes an XMM register",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XORPS" }
+  , { mnemonic := "xorpd",
+      shapes := "x,x · x,m",
+      note := "bitwise XOR of the whole 128 bits, bit for bit what pxor does, at opcode 66 0f 57",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XORPD" }
   ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to

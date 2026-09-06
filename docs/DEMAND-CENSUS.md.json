@@ -1,16 +1,12 @@
 {
  "cc1": {
   "total": 5379923,
-  "covered": 5375792,
-  "pct": 99.92321451440847,
+  "covered": 5376967,
+  "pct": 99.94505497569389,
   "miss": [
    [
     "endbr64",
     1490
-   ],
-   [
-    "xorps",
-    988
    ],
    [
     "shufpd",
@@ -23,10 +19,6 @@
    [
     "cvtsi2sd",
     156
-   ],
-   [
-    "pandn",
-    141
    ],
    [
     "shufps",
@@ -61,10 +53,6 @@
     28
    ],
    [
-    "orps",
-    27
-   ],
-   [
     "cmpxchgq (lock operand)",
     24
    ],
@@ -91,10 +79,6 @@
    [
     "divss",
     17
-   ],
-   [
-    "andps",
-    16
    ],
    [
     "rdsspq",
@@ -161,8 +145,24 @@
     3
    ],
    [
-    "andnps",
-    3
+    "hlt",
+    2
+   ],
+   [
+    "rdrandl",
+    2
+   ],
+   [
+    "cvttss2si",
+    2
+   ],
+   [
+    "cvtsi2sdq",
+    2
+   ],
+   [
+    "comiss",
+    2
    ]
   ],
   "miss_all": {
@@ -172,7 +172,6 @@
    "movapd": 8,
    "ucomisd": 8,
    "movhlps": 291,
-   "xorps": 988,
    "shufpd": 323,
    "cpuid": 51,
    "xgetbv": 1,
@@ -192,15 +191,11 @@
    "cvtsi2ssl": 3,
    "shufps": 83,
    "cvttss2si": 2,
-   "pandn": 141,
    "pmuludq": 8,
    "cvttsd2si": 18,
    "movlpd": 23,
    "pinsrw": 3,
    "cvtsi2sdl": 6,
-   "orps": 27,
-   "andnps": 3,
-   "andps": 16,
    "comisd": 18,
    "subsd": 10,
    "addss": 10,
@@ -227,7 +222,7 @@
    "cells_covered": {
     "CA": 491,
     "AC": 136972,
-    "CC": 5211170,
+    "CC": 5212345,
     "U": 27159
    },
    "name_route_asm": 136972,
@@ -235,7 +230,7 @@
    "total": 5379923
   },
   "ext": {
-   "SSE-legacy (xmm)": 2451,
+   "SSE-legacy (xmm)": 1276,
    "CPUID": 51,
    "XSAVE": 1,
    "LOCK prefix (P2 addition 2)": 82,
@@ -247,7 +242,7 @@
   },
   "ext_covered": {
    "GPR/other (unclassified)": 5239774,
-   "SSE-legacy (xmm)": 128403,
+   "SSE-legacy (xmm)": 129578,
    "mov imm64 / movabs (P2 addition 3)": 7234,
    "BMI1": 364,
    "PREFETCH": 4,
@@ -272,9 +267,6 @@
    },
    "movhlps": {
     "SSE-legacy (xmm)": 291
-   },
-   "xorps": {
-    "SSE-legacy (xmm)": 988
    },
    "shufpd": {
     "SSE-legacy (xmm)": 323
@@ -348,9 +340,6 @@
    "cvttss2si": {
     "SSE-legacy (xmm)": 2
    },
-   "pandn": {
-    "SSE-legacy (xmm)": 141
-   },
    "pmuludq": {
     "SSE-legacy (xmm)": 8
    },
@@ -365,15 +354,6 @@
    },
    "cvtsi2sdl": {
     "SSE-legacy (xmm)": 6
-   },
-   "orps": {
-    "SSE-legacy (xmm)": 27
-   },
-   "andnps": {
-    "SSE-legacy (xmm)": 3
-   },
-   "andps": {
-    "SSE-legacy (xmm)": 16
    },
    "comisd": {
     "SSE-legacy (xmm)": 18
@@ -410,8 +390,8 @@
  },
  "coreutils": {
   "total": 879551,
-  "covered": 863612,
-  "pct": 98.18782537908547,
+  "covered": 863625,
+  "pct": 98.18930340594235,
   "miss": [
    [
     "endbr64",
@@ -625,13 +605,11 @@
    "vpxord": 2,
    "vpternlogd": 6,
    "movhlps": 19,
-   "xorpd": 3,
    "ucomisd": 6,
    "cvttsd2si": 19,
    "movapd": 21,
    "subsd": 8,
    "comisd": 48,
-   "pandn": 3,
    "cvtsi2sdq": 3,
    "fldz": 39,
    "fchs": 10,
@@ -651,15 +629,8 @@
    "fdivs": 1,
    "pinsrw": 2,
    "cmpltsd": 1,
-   "andpd": 1,
-   "andnpd": 1,
-   "orpd": 1,
    "cmpltss": 1,
    "cvtss2sd": 1,
-   "xorps": 1,
-   "andps": 1,
-   "andnps": 1,
-   "orps": 1,
    "ucomiss": 1,
    "fcmovnbe": 1,
    "stmxcsr": 2,
@@ -691,7 +662,7 @@
    "cells_covered": {
     "CA": 331,
     "AC": 792,
-    "CC": 847819,
+    "CC": 847832,
     "U": 14670
    },
    "name_route_asm": 1155,
@@ -701,7 +672,7 @@
   "ext": {
    "CET-IBT": 11626,
    "GPR/other (unclassified)": 1085,
-   "SSE-legacy (xmm)": 1922,
+   "SSE-legacy (xmm)": 1909,
    "CPUID": 28,
    "XSAVE": 2,
    "VEX-128 (v\u2026 xmm)": 152,
@@ -712,7 +683,7 @@
   },
   "ext_covered": {
    "GPR/other (unclassified)": 835599,
-   "SSE-legacy (xmm)": 19597,
+   "SSE-legacy (xmm)": 19610,
    "segment base %fs:/%gs: (P2 addition 1)": 7044,
    "mov imm64 / movabs (P2 addition 3)": 1332,
    "486": 28,
@@ -878,9 +849,6 @@
    "movhlps": {
     "SSE-legacy (xmm)": 19
    },
-   "xorpd": {
-    "SSE-legacy (xmm)": 3
-   },
    "ucomisd": {
     "SSE-legacy (xmm)": 6
    },
@@ -895,9 +863,6 @@
    },
    "comisd": {
     "SSE-legacy (xmm)": 48
-   },
-   "pandn": {
-    "SSE-legacy (xmm)": 3
    },
    "cvtsi2sdq": {
     "SSE-legacy (xmm)": 3
@@ -956,31 +921,10 @@
    "cmpltsd": {
     "SSE-legacy (xmm)": 1
    },
-   "andpd": {
-    "SSE-legacy (xmm)": 1
-   },
-   "andnpd": {
-    "SSE-legacy (xmm)": 1
-   },
-   "orpd": {
-    "SSE-legacy (xmm)": 1
-   },
    "cmpltss": {
     "SSE-legacy (xmm)": 1
    },
    "cvtss2sd": {
-    "SSE-legacy (xmm)": 1
-   },
-   "xorps": {
-    "SSE-legacy (xmm)": 1
-   },
-   "andps": {
-    "SSE-legacy (xmm)": 1
-   },
-   "andnps": {
-    "SSE-legacy (xmm)": 1
-   },
-   "orps": {
     "SSE-legacy (xmm)": 1
    },
    "ucomiss": {
@@ -1055,8 +999,8 @@
  },
  "glibc": {
   "total": 603554,
-  "covered": 537834,
-  "pct": 89.11116486677248,
+  "covered": 540715,
+  "pct": 89.58850409408272,
   "miss": [
    [
     "movapd",
@@ -1123,10 +1067,6 @@
     879
    ],
    [
-    "andpd",
-    862
-   ],
-   [
     "vmovdqu64",
     821
    ],
@@ -1145,10 +1085,6 @@
    [
     "vzeroupper",
     662
-   ],
-   [
-    "andps",
-    654
    ],
    [
     "vpcmpeqd",
@@ -1207,16 +1143,24 @@
     443
    ],
    [
-    "pandn",
-    411
-   ],
-   [
     "vfmaddsd",
     405
    ],
    [
     "vmovdqa64",
     401
+   ],
+   [
+    "vpandn",
+    387
+   ],
+   [
+    "vfmadd213sd",
+    376
+   ],
+   [
+    "addpd",
+    372
    ]
   ],
   "miss_all": {
@@ -1262,16 +1206,12 @@
    "fildl": 43,
    "fscale": 9,
    "movapd": 4088,
-   "andpd": 862,
    "ucomisd": 726,
    "addsd": 3079,
-   "orpd": 178,
    "mulsd": 3369,
    "subsd": 1868,
-   "andps": 654,
    "ucomiss": 539,
    "addss": 343,
-   "orps": 209,
    "mulss": 486,
    "subss": 153,
    "fnstcw": 57,
@@ -1300,10 +1240,8 @@
    "ldmxcsr": 143,
    "comisd": 606,
    "fcompi": 190,
-   "xorpd": 375,
    "cvtss2sd": 74,
    "psubusb": 4,
-   "xorps": 93,
    "fmul": 599,
    "faddp": 474,
    "flds": 220,
@@ -1317,7 +1255,6 @@
    "pause": 12,
    "movntdq": 28,
    "sfence": 19,
-   "pandn": 411,
    "fildll": 11,
    "fsubrp": 169,
    "fstpl": 16,
@@ -1407,13 +1344,11 @@
    "unpcklpd": 93,
    "frndint": 30,
    "fpatan": 24,
-   "andnpd": 30,
    "cvtsi2sdl": 5,
    "cmpnlesd": 15,
    "cvtsd2ss": 136,
    "cvtsi2ssl": 2,
    "cmpnless": 7,
-   "andnps": 69,
    "fsqrt": 45,
    "fcmovnbe": 8,
    "fcmovne": 11,
@@ -1697,10 +1632,10 @@
     "AA": 20563
    },
    "cells_covered": {
-    "AA": 13396,
+    "AA": 14156,
     "CA": 8984,
-    "AC": 36789,
-    "CC": 469884,
+    "AC": 37049,
+    "CC": 471745,
     "U": 8781
    },
    "name_route_asm": 76182,
@@ -1709,7 +1644,7 @@
   },
   "ext": {
    "CET-IBT": 85,
-   "SSE-legacy (xmm)": 22612,
+   "SSE-legacy (xmm)": 19731,
    "SYSCALL": 544,
    "LOCK prefix (P2 addition 2)": 672,
    "GPR/other (unclassified)": 6334,
@@ -1729,7 +1664,7 @@
   },
   "ext_covered": {
    "GPR/other (unclassified)": 488427,
-   "SSE-legacy (xmm)": 40906,
+   "SSE-legacy (xmm)": 43787,
    "segment base %fs:/%gs: (P2 addition 1)": 6130,
    "486": 191,
    "mov imm64 / movabs (P2 addition 3)": 1415,
@@ -1884,17 +1819,11 @@
    "movapd": {
     "SSE-legacy (xmm)": 4088
    },
-   "andpd": {
-    "SSE-legacy (xmm)": 862
-   },
    "ucomisd": {
     "SSE-legacy (xmm)": 726
    },
    "addsd": {
     "SSE-legacy (xmm)": 3079
-   },
-   "orpd": {
-    "SSE-legacy (xmm)": 178
    },
    "mulsd": {
     "SSE-legacy (xmm)": 3369
@@ -1902,17 +1831,11 @@
    "subsd": {
     "SSE-legacy (xmm)": 1868
    },
-   "andps": {
-    "SSE-legacy (xmm)": 654
-   },
    "ucomiss": {
     "SSE-legacy (xmm)": 539
    },
    "addss": {
     "SSE-legacy (xmm)": 343
-   },
-   "orps": {
-    "SSE-legacy (xmm)": 209
    },
    "mulss": {
     "SSE-legacy (xmm)": 486
@@ -2022,17 +1945,11 @@
    "fcompi": {
     "x87 (st)": 190
    },
-   "xorpd": {
-    "SSE-legacy (xmm)": 375
-   },
    "cvtss2sd": {
     "SSE-legacy (xmm)": 74
    },
    "psubusb": {
     "SSE-legacy (xmm)": 4
-   },
-   "xorps": {
-    "SSE-legacy (xmm)": 93
    },
    "fmul": {
     "x87 (st)": 599
@@ -2090,9 +2007,6 @@
    },
    "sfence": {
     "SSE (fence)": 19
-   },
-   "pandn": {
-    "SSE-legacy (xmm)": 411
    },
    "fildll": {
     "GPR/other (unclassified)": 11
@@ -2388,9 +2302,6 @@
    "fpatan": {
     "GPR/other (unclassified)": 24
    },
-   "andnpd": {
-    "SSE-legacy (xmm)": 30
-   },
    "cvtsi2sdl": {
     "SSE-legacy (xmm)": 5
    },
@@ -2405,9 +2316,6 @@
    },
    "cmpnless": {
     "SSE-legacy (xmm)": 7
-   },
-   "andnps": {
-    "SSE-legacy (xmm)": 69
    },
    "fsqrt": {
     "GPR/other (unclassified)": 45
@@ -3274,8 +3182,8 @@
  },
  "dav1d": {
   "total": 303830,
-  "covered": 194144,
-  "pct": 63.898890827107266,
+  "covered": 194555,
+  "pct": 64.03416384162196,
   "miss": [
    [
     "vmovdqa",
@@ -3603,7 +3511,6 @@
    "pmulld": 410,
    "phaddw": 353,
    "pmaxsd": 230,
-   "pandn": 411,
    "pmullw": 452,
    "movlhps": 18,
    "pmulhw": 118,
@@ -3747,10 +3654,10 @@
     "AA": 181083
    },
    "cells_covered": {
-    "AA": 78224,
-    "CA": 3599,
-    "AC": 18680,
-    "CC": 92684,
+    "AA": 78615,
+    "CA": 3611,
+    "AC": 18682,
+    "CC": 92690,
     "U": 957
    },
    "name_route_asm": 205783,
@@ -3761,7 +3668,7 @@
    "CET-IBT": 691,
    "CPUID": 1,
    "XSAVE": 1,
-   "SSE-legacy (xmm)": 15890,
+   "SSE-legacy (xmm)": 15479,
    "AVX2/AVX (ymm)": 47468,
    "VEX-128 (v\u2026 xmm)": 12553,
    "AVX (state)": 679,
@@ -3771,7 +3678,7 @@
   },
   "ext_covered": {
    "GPR/other (unclassified)": 141947,
-   "SSE-legacy (xmm)": 51471,
+   "SSE-legacy (xmm)": 51882,
    "segment base %fs:/%gs: (P2 addition 1)": 216,
    "BMI1": 297,
    "486": 6,
@@ -4426,9 +4333,6 @@
    "pmaxsd": {
     "SSE-legacy (xmm)": 230
    },
-   "pandn": {
-    "SSE-legacy (xmm)": 411
-   },
    "pmullw": {
     "SSE-legacy (xmm)": 452
    },
@@ -4869,8 +4773,8 @@
  },
  "ffmpeg": {
   "total": 3116986,
-  "covered": 2952316,
-  "pct": 94.71701188263278,
+  "covered": 2953923,
+  "pct": 94.76856809751472,
   "miss": [
    [
     "endbr64",
@@ -5049,14 +4953,10 @@
    "comisd": 430,
    "cvtsi2sdl": 222,
    "minsd": 13,
-   "xorps": 392,
    "addss": 4384,
    "sqrtss": 126,
    "subss": 2132,
    "cmpltss": 27,
-   "andps": 277,
-   "andnps": 38,
-   "orps": 39,
    "comiss": 614,
    "subsd": 1305,
    "cvtsi2ssl": 138,
@@ -5072,13 +4972,9 @@
    "cvtsi2ssq": 4,
    "emms": 55,
    "cmpnless": 12,
-   "andpd": 62,
    "cmpless": 1,
    "cmpnltss": 11,
-   "xorpd": 60,
    "maxsd": 41,
-   "andnpd": 7,
-   "orpd": 7,
    "cmpltsd": 4,
    "cmpnlesd": 12,
    "cmpnltsd": 2,
@@ -5214,7 +5110,6 @@
    "vpsrlw": 212,
    "pavgw": 470,
    "vpavgw": 189,
-   "pandn": 813,
    "pmaxub": 152,
    "vpackuswb": 542,
    "vpsubusb": 560,
@@ -5421,6 +5316,7 @@
    "pcmpeqb (vector operand)": 6,
    "pcmpeqd (vector operand)": 16,
    "pcmpeqw (vector operand)": 23,
+   "pandn (vector operand)": 88,
    "psubd (vector operand)": 4,
    "pcmpgtd (vector operand)": 2,
    "pmovmskb (vector operand)": 15
@@ -5434,10 +5330,10 @@
     "AA": 227546
    },
    "cells_covered": {
-    "AA": 109212,
-    "CA": 97,
-    "AC": 122474,
-    "CC": 2705348,
+    "AA": 110064,
+    "CA": 99,
+    "AC": 122480,
+    "CC": 2706095,
     "U": 15185
    },
    "name_route_asm": 355174,
@@ -5446,7 +5342,7 @@
   },
   "ext": {
    "CET-IBT": 11236,
-   "SSE-legacy (xmm)": 54059,
+   "SSE-legacy (xmm)": 52452,
    "GPR/other (unclassified)": 84,
    "LOCK prefix (P2 addition 2)": 88,
    "VEX-128 (v\u2026 xmm)": 33492,
@@ -5464,7 +5360,7 @@
    "GPR/other (unclassified)": 2781708,
    "segment base %fs:/%gs: (P2 addition 1)": 27187,
    "486": 9449,
-   "SSE-legacy (xmm)": 130891,
+   "SSE-legacy (xmm)": 132498,
    "mov imm64 / movabs (P2 addition 3)": 2939,
    "BMI1": 139,
    "BMI2": 2,
@@ -5517,9 +5413,6 @@
    "minsd": {
     "SSE-legacy (xmm)": 13
    },
-   "xorps": {
-    "SSE-legacy (xmm)": 392
-   },
    "addss": {
     "SSE-legacy (xmm)": 4384
    },
@@ -5531,15 +5424,6 @@
    },
    "cmpltss": {
     "SSE-legacy (xmm)": 27
-   },
-   "andps": {
-    "SSE-legacy (xmm)": 277
-   },
-   "andnps": {
-    "SSE-legacy (xmm)": 38
-   },
-   "orps": {
-    "SSE-legacy (xmm)": 39
    },
    "comiss": {
     "SSE-legacy (xmm)": 614
@@ -5588,26 +5472,14 @@
    "cmpnless": {
     "SSE-legacy (xmm)": 12
    },
-   "andpd": {
-    "SSE-legacy (xmm)": 62
-   },
    "cmpless": {
     "SSE-legacy (xmm)": 1
    },
    "cmpnltss": {
     "SSE-legacy (xmm)": 11
    },
-   "xorpd": {
-    "SSE-legacy (xmm)": 60
-   },
    "maxsd": {
     "SSE-legacy (xmm)": 41
-   },
-   "andnpd": {
-    "SSE-legacy (xmm)": 7
-   },
-   "orpd": {
-    "SSE-legacy (xmm)": 7
    },
    "cmpltsd": {
     "SSE-legacy (xmm)": 4
@@ -6172,10 +6044,6 @@
     "VEX-128 (v\u2026 xmm)": 159,
     "AVX2/AVX (ymm)": 30
    },
-   "pandn": {
-    "SSE-legacy (xmm)": 725,
-    "MMX (mm)": 88
-   },
    "pmaxub": {
     "SSE-legacy (xmm)": 146,
     "MMX (mm)": 6
@@ -6522,6 +6390,9 @@
    "pcmpeqw": {
     "MMX (mm)": 23
    },
+   "pandn": {
+    "MMX (mm)": 88
+   },
    "vphaddubq": {
     "VEX-128 (v\u2026 xmm)": 4
    },
@@ -6788,8 +6659,8 @@
  },
  "vlc-codec": {
   "total": 151688,
-  "covered": 149739,
-  "pct": 98.71512578450503,
+  "covered": 149854,
+  "pct": 98.7909392964506,
   "miss": [
    [
     "endbr64",
@@ -6840,16 +6711,8 @@
     39
    ],
    [
-    "pandn",
-    34
-   ],
-   [
     "comiss",
     27
-   ],
-   [
-    "andpd",
-    26
    ],
    [
     "divsd",
@@ -6864,23 +6727,11 @@
     22
    ],
    [
-    "andps",
-    20
-   ],
-   [
     "cmpnleps",
     16
    ],
    [
-    "andnps",
-    16
-   ],
-   [
     "cmpnlepd",
-    15
-   ],
-   [
-    "andnpd",
     15
    ],
    [
@@ -6950,30 +6801,44 @@
    [
     "cvttpd2dq",
     4
+   ],
+   [
+    "cvtsi2sdq",
+    4
+   ],
+   [
+    "divss",
+    3
+   ],
+   [
+    "subss",
+    3
+   ],
+   [
+    "pextrw",
+    2
+   ],
+   [
+    "pinsrw",
+    2
    ]
   ],
   "miss_all": {
    "endbr64": 813,
-   "pandn": 34,
    "pextrw": 2,
    "shufps": 46,
-   "andps": 20,
    "cmpnleps": 16,
-   "andnps": 16,
    "movlps": 4,
    "ucomiss": 10,
    "unpcklpd": 4,
    "movapd": 22,
-   "andpd": 26,
    "cmpnlepd": 15,
-   "andnpd": 15,
    "ucomisd": 5,
    "cvtsi2sd": 60,
    "divsd": 25,
    "comisd": 15,
    "comiss": 27,
    "mulss": 75,
-   "orps": 1,
    "addss": 88,
    "cvttss2si": 85,
    "cvtss2sd": 39,
@@ -7002,7 +6867,6 @@
    "cvtsi2sdq": 4,
    "subps": 1,
    "subss": 3,
-   "xorps": 3,
    "movlhps": 1,
    "subl (lock operand)": 6,
    "addl (lock operand)": 6
@@ -7014,8 +6878,8 @@
     "CA": 282
    },
    "cells_covered": {
-    "CA": 212,
-    "CC": 148509,
+    "CA": 244,
+    "CC": 148592,
     "U": 1018
    },
    "name_route_asm": 0,
@@ -7024,7 +6888,7 @@
   },
   "ext": {
    "CET-IBT": 813,
-   "SSE-legacy (xmm)": 1116,
+   "SSE-legacy (xmm)": 1001,
    "GPR/other (unclassified)": 8,
    "LOCK prefix (P2 addition 2)": 12
   },
@@ -7032,15 +6896,12 @@
    "GPR/other (unclassified)": 143598,
    "mov imm64 / movabs (P2 addition 3)": 135,
    "segment base %fs:/%gs: (P2 addition 1)": 461,
-   "SSE-legacy (xmm)": 5405,
+   "SSE-legacy (xmm)": 5520,
    "486": 140
   },
   "miss_by_ext": {
    "endbr64": {
     "CET-IBT": 813
-   },
-   "pandn": {
-    "SSE-legacy (xmm)": 34
    },
    "pextrw": {
     "SSE-legacy (xmm)": 2
@@ -7048,13 +6909,7 @@
    "shufps": {
     "SSE-legacy (xmm)": 46
    },
-   "andps": {
-    "SSE-legacy (xmm)": 20
-   },
    "cmpnleps": {
-    "SSE-legacy (xmm)": 16
-   },
-   "andnps": {
     "SSE-legacy (xmm)": 16
    },
    "movlps": {
@@ -7069,13 +6924,7 @@
    "movapd": {
     "SSE-legacy (xmm)": 22
    },
-   "andpd": {
-    "SSE-legacy (xmm)": 26
-   },
    "cmpnlepd": {
-    "SSE-legacy (xmm)": 15
-   },
-   "andnpd": {
     "SSE-legacy (xmm)": 15
    },
    "ucomisd": {
@@ -7095,9 +6944,6 @@
    },
    "mulss": {
     "SSE-legacy (xmm)": 75
-   },
-   "orps": {
-    "SSE-legacy (xmm)": 1
    },
    "addss": {
     "SSE-legacy (xmm)": 88
@@ -7188,9 +7034,6 @@
     "SSE-legacy (xmm)": 1
    },
    "subss": {
-    "SSE-legacy (xmm)": 3
-   },
-   "xorps": {
     "SSE-legacy (xmm)": 3
    },
    "movlhps": {
@@ -7455,8 +7298,8 @@
  },
  "vpx": {
   "total": 722331,
-  "covered": 648488,
-  "pct": 89.77712433773436,
+  "covered": 649722,
+  "pct": 89.94796014569498,
   "miss": [
    [
     "psubusw",
@@ -7509,10 +7352,6 @@
    [
     "vpaddw",
     1243
-   ],
-   [
-    "pandn",
-    1182
    ],
    [
     "pmuldq",
@@ -7617,6 +7456,10 @@
    [
     "pshufb",
     267
+   ],
+   [
+    "vextracti128",
+    266
    ]
   ],
   "miss_all": {
@@ -7666,11 +7509,9 @@
    "pmulhuw": 1391,
    "pmaxsw": 574,
    "psubusw": 16851,
-   "pandn": 1182,
    "palignr": 711,
    "pshufb": 267,
    "movapd": 511,
-   "xorpd": 4,
    "cvttsd2si": 242,
    "pmulhw": 187,
    "packssdw": 1861,
@@ -7713,7 +7554,6 @@
    "psubsb": 112,
    "paddsb": 172,
    "shufps": 854,
-   "xorps": 4,
    "psubsw": 399,
    "vpcmpeqd": 9,
    "vpbroadcastb": 6,
@@ -7790,15 +7630,12 @@
    "movlpd": 11,
    "unpckhpd": 8,
    "subpd": 22,
-   "andpd": 35,
    "sqrtsd": 13,
    "movhlps": 626,
    "cmpltpd": 1,
    "addpd": 20,
    "divpd": 10,
    "cmplesd": 2,
-   "andnpd": 4,
-   "orpd": 4,
    "pblendw": 26,
    "pminub": 20,
    "mulps": 6,
@@ -7806,7 +7643,6 @@
    "unpckhps": 4,
    "mulss": 50,
    "cmpltss": 1,
-   "andps": 1,
    "cvtsi2ss": 36,
    "comiss": 10,
    "divss": 16,
@@ -7855,11 +7691,11 @@
     "AA": 181880
    },
    "cells_covered": {
-    "AA": 131124,
-    "CA": 71350,
-    "AC": 28439,
-    "CC": 404408,
-    "U": 13167
+    "AA": 131282,
+    "CA": 71963,
+    "AC": 28445,
+    "CC": 404848,
+    "U": 13184
    },
    "name_route_asm": 213742,
    "body_route_asm": 263210,
@@ -7868,7 +7704,7 @@
   "ext": {
    "CET-IBT": 2345,
    "GPR/other (unclassified)": 19,
-   "SSE-legacy (xmm)": 56516,
+   "SSE-legacy (xmm)": 55282,
    "CPUID": 12,
    "XSAVE": 8,
    "VEX-128 (v\u2026 xmm)": 2738,
@@ -7881,7 +7717,7 @@
   },
   "ext_covered": {
    "GPR/other (unclassified)": 434487,
-   "SSE-legacy (xmm)": 212007,
+   "SSE-legacy (xmm)": 213241,
    "segment base %fs:/%gs: (P2 addition 1)": 1551,
    "mov imm64 / movabs (P2 addition 3)": 380,
    "486": 12,
@@ -8043,9 +7879,6 @@
    "psubusw": {
     "SSE-legacy (xmm)": 16851
    },
-   "pandn": {
-    "SSE-legacy (xmm)": 1182
-   },
    "palignr": {
     "SSE-legacy (xmm)": 711
    },
@@ -8054,9 +7887,6 @@
    },
    "movapd": {
     "SSE-legacy (xmm)": 511
-   },
-   "xorpd": {
-    "SSE-legacy (xmm)": 4
    },
    "cvttsd2si": {
     "SSE-legacy (xmm)": 229,
@@ -8206,9 +8036,6 @@
    },
    "shufps": {
     "SSE-legacy (xmm)": 854
-   },
-   "xorps": {
-    "SSE-legacy (xmm)": 4
    },
    "psubsw": {
     "SSE-legacy (xmm)": 399
@@ -8459,9 +8286,6 @@
    "subpd": {
     "SSE-legacy (xmm)": 22
    },
-   "andpd": {
-    "SSE-legacy (xmm)": 35
-   },
    "sqrtsd": {
     "SSE-legacy (xmm)": 13
    },
@@ -8479,12 +8303,6 @@
    },
    "cmplesd": {
     "SSE-legacy (xmm)": 2
-   },
-   "andnpd": {
-    "SSE-legacy (xmm)": 4
-   },
-   "orpd": {
-    "SSE-legacy (xmm)": 4
    },
    "pblendw": {
     "SSE-legacy (xmm)": 26
@@ -8505,9 +8323,6 @@
     "SSE-legacy (xmm)": 50
    },
    "cmpltss": {
-    "SSE-legacy (xmm)": 1
-   },
-   "andps": {
     "SSE-legacy (xmm)": 1
    },
    "cvtsi2ss": {
@@ -8629,8 +8444,8 @@
  },
  "x264": {
   "total": 377330,
-  "covered": 328984,
-  "pct": 87.18734264436965,
+  "covered": 329173,
+  "pct": 87.23743142607267,
   "miss": [
    [
     "movq (vector operand)",
@@ -8817,14 +8632,9 @@
    "pminub": 40,
    "movapd": 289,
    "cmplesd": 28,
-   "andpd": 36,
-   "andnpd": 26,
-   "orpd": 28,
    "comiss": 168,
    "subss": 122,
    "sqrtss": 8,
-   "andps": 18,
-   "orps": 4,
    "cvtsi2ssl": 87,
    "cvtsi2sdl": 118,
    "cvtsi2sdq": 116,
@@ -8835,7 +8645,6 @@
    "minss": 10,
    "maxsd": 122,
    "sqrtsd": 30,
-   "xorpd": 2,
    "paddsw": 149,
    "palignr": 242,
    "pmaddubsw": 365,
@@ -8942,7 +8751,6 @@
    "vpermt2w": 8,
    "vptestmd": 15,
    "ktestw": 10,
-   "pandn": 73,
    "pavgb": 272,
    "pmaxub": 10,
    "vpblendvb": 5,
@@ -8978,7 +8786,6 @@
    "vmovdqu16": 12,
    "vbroadcasti32x8": 9,
    "kshiftrd": 9,
-   "xorps": 2,
    "vmovaps": 71,
    "vxorps": 4,
    "rorxl": 2,
@@ -9160,10 +8967,10 @@
     "AA": 72569
    },
    "cells_covered": {
-    "AA": 33624,
+    "AA": 33700,
     "CA": 442,
-    "AC": 29780,
-    "CC": 263342,
+    "AC": 29781,
+    "CC": 263454,
     "U": 1796
    },
    "name_route_asm": 105819,
@@ -9172,7 +8979,7 @@
   },
   "ext": {
    "CET-IBT": 1168,
-   "SSE-legacy (xmm)": 11995,
+   "SSE-legacy (xmm)": 11806,
    "LOCK prefix (P2 addition 2)": 2,
    "GPR/other (unclassified)": 83,
    "MMX (mm)": 15664,
@@ -9189,7 +8996,7 @@
    "GPR/other (unclassified)": 294536,
    "segment base %fs:/%gs: (P2 addition 1)": 450,
    "mov imm64 / movabs (P2 addition 3)": 237,
-   "SSE-legacy (xmm)": 32694,
+   "SSE-legacy (xmm)": 32883,
    "PREFETCH": 178,
    "486": 760,
    "BMI1": 29,
@@ -9288,15 +9095,6 @@
    "cmplesd": {
     "SSE-legacy (xmm)": 28
    },
-   "andpd": {
-    "SSE-legacy (xmm)": 36
-   },
-   "andnpd": {
-    "SSE-legacy (xmm)": 26
-   },
-   "orpd": {
-    "SSE-legacy (xmm)": 28
-   },
    "comiss": {
     "SSE-legacy (xmm)": 168
    },
@@ -9305,12 +9103,6 @@
    },
    "sqrtss": {
     "SSE-legacy (xmm)": 8
-   },
-   "andps": {
-    "SSE-legacy (xmm)": 18
-   },
-   "orps": {
-    "SSE-legacy (xmm)": 4
    },
    "cvtsi2ssl": {
     "SSE-legacy (xmm)": 87
@@ -9376,9 +9168,6 @@
    },
    "sqrtsd": {
     "SSE-legacy (xmm)": 30
-   },
-   "xorpd": {
-    "SSE-legacy (xmm)": 2
    },
    "paddsw": {
     "SSE-legacy (xmm)": 115,
@@ -9816,9 +9605,6 @@
    "ktestw": {
     "AVX-512 (zmm/k)": 10
    },
-   "pandn": {
-    "SSE-legacy (xmm)": 73
-   },
    "pavgb": {
     "SSE-legacy (xmm)": 169,
     "MMX (mm)": 103
@@ -9949,9 +9735,6 @@
    },
    "kshiftrd": {
     "AVX-512 (zmm/k)": 9
-   },
-   "xorps": {
-    "SSE-legacy (xmm)": 2
    },
    "vmovaps": {
     "VEX-128 (v\u2026 xmm)": 10,
@@ -10446,13 +10229,13 @@
  },
  "_asm_pooled": {
   "total": 4784269,
-  "covered": 4371629,
-  "pct": 91.37506691199847,
+  "covered": 4375185,
+  "pct": 91.44939383634156,
   "ext": {
    "CET-IBT": 16488,
    "CPUID": 15,
    "XSAVE": 11,
-   "SSE-legacy (xmm)": 146478,
+   "SSE-legacy (xmm)": 142922,
    "AVX2/AVX (ymm)": 108554,
    "VEX-128 (v\u2026 xmm)": 62252,
    "AVX (state)": 1241,

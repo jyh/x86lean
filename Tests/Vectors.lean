@@ -3044,6 +3044,88 @@ def vectors : List Vec :=
     , bytes := "660f67c1", instr := ⟨.vbin .packuswb .x0 .x1, 4⟩ }
   , { id := "packuswb_m", mnemonic := "packuswb", asm := "packuswb (%rbx), %xmm0"
     , bytes := "660f6703", instr := ⟨.vbinm .packuswb .x0 { base := some .rbx }, 4⟩ }
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 34 — THE BITWISE COMPLEMENT.  Nine mnemonics,
+  -- both operand shapes each.
+  --
+  -- ⛔⛔ AND THE FIRST THING WRITTEN HERE WAS FALSE, CAUGHT BY READING THE
+  -- FUNCTION THAT BUILDS THE STATES.  It said: *"the DIAGONAL pre-states cannot
+  -- see `ANDN`'s asymmetry — `diag` sets xmm0 = xmm1, where `(NOT a) AND a` and
+  -- `a AND (NOT a)` are both zero — so read a score below 88 as that, and not as
+  -- a weak rule."*  Every clause of that is wrong, and it was ready to explain a
+  -- number before the number existed.
+  --
+  -- `diag` is `mkPre a a 0`: it makes the two GENERAL-PURPOSE operand values
+  -- equal.  The XMM file is not built from them directly — `xmmPattern` gives
+  -- register `r` the value `(a + r.index) : (c XOR r.index * 0x1111…)`, so the
+  -- registers differ BY INDEX, by construction, precisely so that a model
+  -- ignoring its operand fields is catchable.  Computed over all twenty diagonal
+  -- states: xmm0 = xmm1 in ZERO of them, and the swapped model disagrees with
+  -- this one in all twenty.
+  -- ⇒ the swap is expected to be caught at EVERY pre-state, and a score below 88
+  -- would be a finding about the harness rather than a fact about the diagonal.
+  -- 🔑 A sentence that explains a measurement you have not taken will fit
+  -- whatever arrives.  [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]]
+  , { id := "pandn_xx", mnemonic := "pandn", asm := "pandn %xmm1, %xmm0"
+    , bytes := "660fdfc1", instr := ⟨.vbin .andn .x0 .x1, 4⟩ }
+  , { id := "andnps_xx", mnemonic := "andnps", asm := "andnps %xmm1, %xmm0"
+    , bytes := "0f55c1", instr := ⟨.vbin .andnps .x0 .x1, 3⟩ }
+  , { id := "andnpd_xx", mnemonic := "andnpd", asm := "andnpd %xmm1, %xmm0"
+    , bytes := "660f55c1", instr := ⟨.vbin .andnpd .x0 .x1, 4⟩ }
+  , { id := "andps_xx", mnemonic := "andps", asm := "andps %xmm1, %xmm0"
+    , bytes := "0f54c1", instr := ⟨.vbin .andps .x0 .x1, 3⟩ }
+  , { id := "andpd_xx", mnemonic := "andpd", asm := "andpd %xmm1, %xmm0"
+    , bytes := "660f54c1", instr := ⟨.vbin .andpd .x0 .x1, 4⟩ }
+  , { id := "orps_xx", mnemonic := "orps", asm := "orps %xmm1, %xmm0"
+    , bytes := "0f56c1", instr := ⟨.vbin .orps .x0 .x1, 3⟩ }
+  , { id := "orpd_xx", mnemonic := "orpd", asm := "orpd %xmm1, %xmm0"
+    , bytes := "660f56c1", instr := ⟨.vbin .orpd .x0 .x1, 4⟩ }
+  , { id := "xorps_xx", mnemonic := "xorps", asm := "xorps %xmm1, %xmm0"
+    , bytes := "0f57c1", instr := ⟨.vbin .xorps .x0 .x1, 3⟩ }
+  , { id := "xorpd_xx", mnemonic := "xorpd", asm := "xorpd %xmm1, %xmm0"
+    , bytes := "660f57c1", instr := ⟨.vbin .xorpd .x0 .x1, 4⟩ }
+  -- ⚠️ A SECOND REGISTER PAIR, for the reason `paddd_x2x3` exists: with every
+  -- vector moving xmm1 into xmm0, a model that ignores its operand fields is
+  -- bit-identical to this one.  `pandn` carries it because it is the member
+  -- whose operands are not interchangeable.
+  , { id := "pandn_x2x3", mnemonic := "pandn", asm := "pandn %xmm3, %xmm2"
+    , bytes := "660fdfd3", instr := ⟨.vbin .andn .x2 .x3, 4⟩ }
+  , { id := "pandn_m", mnemonic := "pandn", asm := "pandn (%rbx), %xmm0"
+    , bytes := "660fdf03", instr := ⟨.vbinm .andn .x0 { base := some .rbx }, 4⟩ }
+  , { id := "andnps_m", mnemonic := "andnps", asm := "andnps (%rbx), %xmm0"
+    , bytes := "0f5503", instr := ⟨.vbinm .andnps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "andnpd_m", mnemonic := "andnpd", asm := "andnpd (%rbx), %xmm0"
+    , bytes := "660f5503", instr := ⟨.vbinm .andnpd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "andps_m", mnemonic := "andps", asm := "andps (%rbx), %xmm0"
+    , bytes := "0f5403", instr := ⟨.vbinm .andps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "andpd_m", mnemonic := "andpd", asm := "andpd (%rbx), %xmm0"
+    , bytes := "660f5403", instr := ⟨.vbinm .andpd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "orps_m", mnemonic := "orps", asm := "orps (%rbx), %xmm0"
+    , bytes := "0f5603", instr := ⟨.vbinm .orps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "orpd_m", mnemonic := "orpd", asm := "orpd (%rbx), %xmm0"
+    , bytes := "660f5603", instr := ⟨.vbinm .orpd .x0 { base := some .rbx }, 4⟩ }
+  , { id := "xorps_m", mnemonic := "xorps", asm := "xorps (%rbx), %xmm0"
+    , bytes := "0f5703", instr := ⟨.vbinm .xorps .x0 { base := some .rbx }, 3⟩ }
+  , { id := "xorpd_m", mnemonic := "xorpd", asm := "xorpd (%rbx), %xmm0"
+    , bytes := "660f5703", instr := ⟨.vbinm .xorpd .x0 { base := some .rbx }, 4⟩ }
+  -- ⭐⭐ AND THE ALIGNMENT RULE GAINS EVIDENCE AT A SECOND PREFIX CLASS.  D110
+  -- could price the 16-byte `#GP` against a RUN at exactly three forms, because
+  -- x86isa implements the check in one file — `logical.lisp` — which it read as
+  -- `pand`/`por`/`pxor`.  ⭐ That file's function is
+  -- `x86-andp?/andnp?/orp?/xorp?/pand/pandn/por/pxor-Op/En-RM`, ONE body serving
+  -- all twelve of these mnemonics, and the `:memory-address-is-not-16-byte-
+  -- aligned` branch is inside it — read in the body, not off its doc comment.
+  --
+  -- ⛔ SO WHY ONLY TWO MORE, AND NOT NINE.  Both sides share their rule: the
+  -- Lean branch is `.vbinm`'s, taken before `vbinApply` and independent of the
+  -- kind, and the ACL2 branch is that one function's.  Nine unaligned vectors
+  -- would be one test wearing nine names.  What DOES vary is the opcode dispatch
+  -- reaching that body, and its live dimension is the mandatory prefix — so the
+  -- two carried here are one prefixed (`66 0f df`) and one bare (`0f 55`).
+  -- [[feedback-a-control-can-share-the-blind-spot]]
+  , { id := "pandn_m_unal", mnemonic := "pandn", asm := "pandn 0x8(%rbx), %xmm0"
+    , bytes := "660fdf4308", instr := ⟨.vbinm .andn .x0 { base := some .rbx, disp := 8 }, 5⟩ }
+  , { id := "andnps_m_unal", mnemonic := "andnps", asm := "andnps 0x8(%rbx), %xmm0"
+    , bytes := "0f554308", instr := ⟨.vbinm .andnps .x0 { base := some .rbx, disp := 8 }, 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

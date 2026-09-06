@@ -285,6 +285,43 @@ inductive VBinKind where
   at 5,613 instructions. A batch sampled at `packuswb` — its own sibling — would
   have been written against an oracle that cannot run two thirds of the group. -/
   | packuswb
+  /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 34 — THE BITWISE COMPLEMENT, and the group is
+  named by what it does NOT need rather than by an extension.
+
+  Nine mnemonics that operate on XMM registers and are **pure bit manipulation**:
+  no rounding, no MXCSR, no lane width, no new state.  They are the part of the
+  SSE-legacy residue that the soft-float commission's forty pairs do not cover —
+  measured, 24 pairs / 11,040 instructions, of which these nine are the bitwise
+  half (D157).  Being FP-TYPED is not the same as being FP-VALUED: `xorps` reads
+  no exponent and writes no rounded result, and neither does any member here.
+
+  ⛔⛔ **`ANDN` IS ASYMMETRIC AND THAT IS THE WHOLE OPERATION.** SDM Vol. 2B
+  (PANDN/ANDNPS/ANDNPD): `DEST ← (NOT DEST) AND SRC`.  The destination is
+  complemented, **not** the source.  The model a reader writes from the mnemonic
+  is `DEST AND (NOT SRC)`, which is a different function everywhere the two
+  operands differ, and `wrongAndnComplementsSource` is that model planted.
+  ⭐ CONFIRMED ON A SECOND, INDEPENDENT SOURCE before this was written: K's
+  `pandn_xmm_xmm.k` reads `andMInt(negMInt(DEST), SRC)`, and `negMInt` is bitwise
+  NOT rather than arithmetic negation — read off `sbbb_rh_imm8.k`, where
+  `a + negMInt(b)` is the CF=1 arm of `a - b - CF` and so can only be one's
+  complement.  A rule this easy to get backwards is not taken from one reading
+  ([[feedback-two-readings-are-not-two-witnesses]]).
+
+  ⚠️ **SIX OF THE NINE ARE NEW ENCODINGS OF AN OPERATION ALREADY HERE**, and they
+  are separate KINDS rather than a field because the bytes differ — `pand` is
+  `66 0f db`, `andps` is `0f 54`, `andpd` is `66 0f 54`, all three measured on the
+  assembler.  That is the `movdqa`/`movaps` rule (`VMovKind`), not the
+  `pmovmskb` r32/r64 one: batch 18 refused a width field because the two
+  spellings emitted IDENTICAL bytes, so no encoding could set it.  Here every
+  spelling is distinguishable, and the `synonym collapse` gate is what would say
+  otherwise.
+
+  ⚠️ Their SEMANTICS is shared by NOT branching on the kind — `vbinApply` gives
+  `.and`, `.andps` and `.andpd` one arm — so nine kinds add three arms and one new
+  function.  A second copy of `a &&& b` under another name is a duplicate born in
+  agreement ([[feedback-a-duplicate-born-in-agreement]]). -/
+  | andn | andnps | andnpd
+  | andps | andpd | orps | orpd | xorps | xorpd
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -302,6 +339,13 @@ def VBinKind.mnemonic : VBinKind → String
   | .cmpeqb => "pcmpeqb" | .cmpeqw => "pcmpeqw" | .cmpeqd => "pcmpeqd"
   | .cmpgtb => "pcmpgtb" | .cmpgtw => "pcmpgtw" | .cmpgtd => "pcmpgtd"
   | .packuswb => "packuswb"
+  -- P2 BATCH 34: one spelling per kind.  ⚠️ `pandn`, `andnps` and `andnpd` are
+  -- ONE function at three opcodes, so they share `vbinApply`'s arm and differ
+  -- only here and in the bytes a vector carries.
+  | .andn => "pandn"   | .andnps => "andnps" | .andnpd => "andnpd"
+  | .andps => "andps"  | .andpd => "andpd"
+  | .orps => "orps"    | .orpd => "orpd"
+  | .xorps => "xorps"  | .xorpd => "xorpd"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
@@ -1996,7 +2040,20 @@ def rosterP0 : List String :=
    "pcmpeqb", "pcmpeqw", "pcmpeqd", "pcmpgtb", "pcmpgtw", "pcmpgtd",
    -- ⭐ P2 VECTOR WAVE, BATCH 18: `packuswb`, the ONE member of the pack group the
    -- oracle can execute.  `packsswb` and `packssdw` refuse at every pre-state.
-   "packuswb"]
+   "packuswb",
+   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 34: the bitwise complement, NINE rows.  They are
+   -- `VBinKind` members, so both operand shapes come from the constructors that
+   -- already existed — but the roster counts mnemonics a disassembler PRINTS, and
+   -- these are nine distinct opcodes printing nine distinct names.
+   --
+   -- ⭐ THE GROUP WAS DERIVED, NOT RANKED (D157).  It is exactly the bitwise half
+   -- of the SSE-legacy residue the soft-float commission does NOT cover: the 64
+   -- unclaimed pairs the oracle EXECUTES, minus the commission's 40, leaves 24
+   -- pairs / 11,040 instructions that need no rounding at all, and these nine are
+   -- its bitwise members.  The partition is checked by reproducing the
+   -- commission's own published 12/6,619, 2/898 and 26/29,408 from the census.
+   "pandn", "andnps", "andnpd",
+   "andps", "andpd", "orps", "orpd", "xorps", "xorpd"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

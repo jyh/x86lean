@@ -1704,8 +1704,23 @@ variable {s : Cpu} {len : Nat}
 the same address — x86isa implements the 16-byte `#GP` in `logical.lisp`, and
 only there — so `pand_m_unal`, `por_m_unal` and `pxor_m_unal` are vectors in which
 BOTH models refuse, `bothRefused` reports agreement, and the rule is carried by a
-RUN as well as by this theorem. At the other sixteen kinds it is theorem-only,
-and the split is a fact about x86isa's source tree rather than a judgement. -/
+RUN as well as by this theorem.
+
+⛔⛔ **AND THAT SENTENCE'S SECOND HALF WAS TRUE WHEN WRITTEN AND IS NOT NOW.** It
+went on: *"at the other sixteen kinds it is theorem-only, and the split is a fact
+about x86isa's source tree rather than a judgement."* Both clauses read as a
+reason not to look again — and the fact about the source tree is larger than the
+three the sentence names. `logical.lisp`'s function is
+`x86-andp?/andnp?/orp?/xorp?/pand/pandn/por/pxor-Op/En-RM`: ONE body, serving
+TWELVE mnemonics, with the `:memory-address-is-not-16-byte-aligned` branch inside
+it — read in the body, not off its doc comment. P2 batch 34 claims the other nine,
+so the run-backed set is twelve of twenty-eight kinds, not three of nineteen.
+⚠️ Only two more vectors were added for it, not nine: both sides share their rule
+(this theorem is generic in `k`; ACL2's is one function), so the extra seven would
+be one test wearing seven names. What varies is the DISPATCH, whose live dimension
+is the mandatory prefix — hence one prefixed and one bare.
+🔑 A justification for an exclusion outlives the condition that made it true.
+[[feedback-a-justification-outlives-its-condition]] -/
 theorem vbinm_unaligned_faults (k : VBinKind) (d : XmmReg) (ea : Ea) (h : Live s)
     (hl : ea.lock = false)
     (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
@@ -1735,5 +1750,73 @@ theorem vbinm_is_vbin_with_a_loaded_operand (k : VBinKind) (d : XmmReg) (ea : Ea
         Op.anyLocked, Op.lockable]
 
 end Batch15
+
+/-! ## P2 BATCH 34 — the bitwise complement
+
+The batch's whole semantic content is one asymmetry, so it is stated here as
+theorems rather than left to a comment and a differential score. -/
+namespace Batch34
+
+variable {s : Cpu} {len : Nat}
+
+/-- ⛔⛔ `ANDN` COMPLEMENTS ITS DESTINATION, NOT ITS SOURCE — the rule, as an
+equation the kernel checks rather than a sentence in a docstring.
+
+⚠️ Stated for all three spellings at once, which is itself the claim that they
+are one function: `pandn`, `andnps` and `andnpd` differ in their bytes and in
+nothing else. -/
+@[simp] theorem vbinApply_andn (a b : BitVec 128) :
+    vbinApply .andn a b = (~~~a) &&& b ∧
+    vbinApply .andnps a b = (~~~a) &&& b ∧
+    vbinApply .andnpd a b = (~~~a) &&& b := by
+  refine ⟨rfl, rfl, rfl⟩
+
+/-- ⭐⭐ AND THE SWAPPED MODEL IS A DIFFERENT FUNCTION — a WITNESS, not an
+appeal to plausibility.
+
+⚠️ This is the theorem the differential score cannot give: an arm's count says
+how often two models happened to disagree on the pre-states that exist, which is
+a joint fact about the model and the table
+([[feedback-a-wrong-models-score-is-a-joint-fact]]). This says they differ at
+all, once, for reasons no pre-state table can affect. -/
+theorem andn_is_not_its_operand_swap :
+    ∃ a b : BitVec 128, (~~~a) &&& b ≠ a &&& (~~~b) := by
+  exact ⟨0, 1, by decide⟩
+
+/-- ⭐⭐ AND SO IS THE `NAND` READING, for the same reason and with its own
+witness. ⚠️ The two wrong models are not each other: they coincide only where
+`a = b`, and `xmmPattern` puts no such pre-state in the table — which is why both
+are planted, and why the reason is stated as an equation here rather than as a
+claim about how often each fires. -/
+theorem andn_is_not_nand :
+    ∃ a b : BitVec 128, (~~~a) &&& b ≠ ~~~(a &&& b) := by
+  exact ⟨0, 0, by decide⟩
+
+/-- ⭐ THE SIX ALIAS SPELLINGS ARE THEIR INTEGER SIBLINGS, EXACTLY.
+
+⛔ THIS IS THE BATCH'S OTHER CLAIM AND IT IS THE ONE A READER SHOULD DOUBT: nine
+new kinds, and six of them are asserted to be operations the model already had.
+If that is false the coverage table publishes six wrong rows, and no differential
+vector would say so — each spelling is tested only against the oracle, never
+against its sibling. So it is a theorem. -/
+@[simp] theorem bitwise_aliases_are_their_integer_siblings (a b : BitVec 128) :
+    vbinApply .andps a b = vbinApply .and a b ∧
+    vbinApply .andpd a b = vbinApply .and a b ∧
+    vbinApply .orps  a b = vbinApply .or  a b ∧
+    vbinApply .orpd  a b = vbinApply .or  a b ∧
+    vbinApply .xorps a b = vbinApply .xor a b ∧
+    vbinApply .xorpd a b = vbinApply .xor a b := by
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
+
+/-- ⚠️ AND THE NINE ARE NINE, not one under nine names: the mnemonics a
+disassembler prints are distinct, which is what makes them nine roster rows.
+⛔ The SEMANTICS being shared is not the same claim as the SPELLING being shared,
+and this repository counts rows by what is printed. -/
+theorem bitwise_complement_mnemonics_are_distinct :
+    ([VBinKind.andn, .andnps, .andnpd, .andps, .andpd,
+      .orps, .orpd, .xorps, .xorpd].map VBinKind.mnemonic).eraseDups.length = 9 := by
+  decide
+
+end Batch34
 
 end X86

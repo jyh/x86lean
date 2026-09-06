@@ -347,6 +347,25 @@ jobs:
       - name: P2 roster is DERIVED from K + the census, not written
         run: python3 scripts/p2_roster.py --check
 
+      # ⭐⭐⭐ P2 BATCH 34 (D157). THE BUILDABLE RESIDUE, AND THE SPLIT THAT SAYS
+      # WHICH OF IT NEEDS A ROUNDING RULE. The queue asked for "the buildable
+      # groups the census has surfaced" for three sittings and named none,
+      # because the roster's ranked table shows its top forty rows and every
+      # unclaimed row there is VEX or scalar FP. The residue is not blocked on
+      # either: 24 of the 64 unclaimed SSE-legacy pairs that EXECUTE need no
+      # rounding at all.
+      #
+      # ⛔ ITS THIRD GATE IS THE ONE TO KEEP. It re-derives the soft-float
+      # commission's own PUBLISHED sub-group totals from the live census and
+      # refuses if they move — the defect that commission's §2 records about
+      # itself, where its price grew 44% while it sat docketed because the price
+      # was a sentence and not a derived number. What it proves is that the
+      # document and the census AGREE, not that either is right.
+      - name: The buildable residue's rounding split, driven red-first
+        run: |
+          python3 scripts/p2_residue.py --selftest
+          python3 scripts/p2_residue.py --check
+
       # ⭐⭐ P2 BATCH 12 (D105). The run-index CERTIFICATE that `vectorCoverage`
       # checks. Same discipline as the coverage table one step below, and for a
       # stronger reason: this file is IMPORTED BY THE MODEL TIER, so a stale one

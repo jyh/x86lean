@@ -2883,6 +2883,87 @@ def wrongVbinmOperandsSwapped (i : Instr) (s : Cpu) : Cpu :=
       else (s.setXmm dst (vbinApply k (s.readMem128 a) (s.getXmm dst))).setRip nr
   | _ => step i s
 
+/-- ⛔⛔⛔ P2 BATCH 34, ARM 1 — `ANDN` COMPLEMENTS ITS SOURCE INSTEAD OF ITS
+DESTINATION: `a &&& (~~~b)` where the SDM says `(NOT DEST) AND SRC`.
+
+⚠️ THIS IS NOT A STRAWMAN — it is what the mnemonic reads like. "AND NOT" puts
+the negation next to the second operand in English and in AT&T's operand order
+the second operand is the DESTINATION, so both readings are available and only
+one is the instruction.
+
+⛔ AND THE PARAGRAPH THAT STOOD HERE WAS WRONG. It said this arm is invisible on
+the whole diagonal of `preStates`, because `diag` sets xmm0 = xmm1 and both
+models then return zero. `diag` equalises the two GPR operand values; the XMM
+file is filled by `xmmPattern`, which gives register `r` the value
+`(a + r.index) : (c XOR r.index * 0x1111…)` — distinct per register BY
+CONSTRUCTION. Computed over the twenty diagonal states: xmm0 = xmm1 in NONE of
+them and this arm disagrees with the model in ALL of them.
+⇒ so the diagonal is not where this arm goes blind, and any figure below the
+maximum is about something else.
+
+⭐ MEASURED, not predicted: this arm is caught in **504 disagreements**. ⛔ AND THE
+PER-VECTOR DECOMPOSITION IS NOT MEASURED, so none is asserted here — writing one
+would be the same defect as the paragraph this replaced, arriving a second time
+by the same route. The register shapes carry operands that differ by
+construction; the memory shapes compare a register against a memory value and
+nothing here has checked how often those coincide. If a successor wants the
+split, run the arm per vector; do not read it off this comment. -/
+def wrongAndnComplementsSource (i : Instr) (s : Cpu) : Cpu :=
+  let an (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
+    match k with
+    | .andn | .andnps | .andnpd => a &&& (~~~b)
+    | _ => vbinApply k a b
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbin k dst src => (s.setXmm dst (an k (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (an k (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
+/-- ⛔⛔ P2 BATCH 34, ARM 2 — `ANDN` READ AS `NAND`: `~~~(a &&& b)`, the negation
+applied to the RESULT rather than to the destination.
+
+⚠️ The other available misreading of the same three letters, and one that does
+not depend on operand order at all.
+
+⛔⛔ **BUT IT IS NOT AN INDEPENDENT DETECTOR ON THIS TABLE, AND THE RUN SAID SO.**
+A first draft of this paragraph called the two arms "complementary by
+construction", because arm 1 was believed blind on the diagonal. Both halves were
+wrong. Measured, over all 60 register-shape pre-states: arm 1 fires on 60, arm 2
+fires on 60, and the INTERSECTION is 60 — **they are refuted on exactly the same
+cases**, and both report `504` disagreements in `xmm0` because that count is a
+property of how many ANDN cases the vector table executes, not of either arm's
+discrimination.
+⇒ What the pair buys is the refutation of two DISTINCT misreadings; what it does
+NOT buy is a second set of covered cases. Identical counts in identical fields
+are the signature to check, not to celebrate
+([[feedback-two-arms-that-agree-to-the-case]]), and here the check says the
+duplication is in the COVERAGE and not in the models.
+
+⛔ NO LANE-WIDTH ARM IS PLANTED FOR THIS GROUP, AND THAT IS A STATEMENT, NOT AN
+OMISSION. Every member is bit-independent, so a model that computed `andps` over
+four 32-bit lanes, or `andpd` over two 64-bit ones, is not merely hard to catch —
+it is the SAME FUNCTION, and no pre-state can distinguish it. An arm no input can
+reach is not a second gate ([[feedback-an-implied-assertion-is-not-a-second-gate]]),
+so the budget goes to arms that can fire. This is also the reason the nine kinds
+may share three arms in `vbinApply`: the sharing is forced by the semantics, not
+chosen for brevity. -/
+def wrongAndnNand (i : Instr) (s : Cpu) : Cpu :=
+  let an (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
+    match k with
+    | .andn | .andnps | .andnpd => ~~~(a &&& b)
+    | _ => vbinApply k a b
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vbin k dst src => (s.setXmm dst (an k (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vbinm k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then step i s
+      else (s.setXmm dst (an k (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | _ => step i s
+
 /-- ⛔⛔⛔ P2 BATCH 17, ARM 1 — `pcmpgt` COMPARED AS UNSIGNED. Lean's `<` on
 `BitVec` IS unsigned, so this is not a strawman: it is what a model written
 without noticing the SDM's word "signed" compiles to, and it type-checks.
@@ -3249,7 +3330,13 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("packuswb truncates instead of saturating",
      wrongPackuswbTruncates, "xmm0")
   , ("packuswb reads its source as UNSIGNED, clamping negatives to 255",
-     wrongPackuswbUnsignedSource, "xmm0") ]
+     wrongPackuswbUnsignedSource, "xmm0")
+  -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 34 — the bitwise complement.  ⚠️ BOTH NAMES
+  -- CONTAIN `andn`, so one filter selects both, which is the D116 §5 rule.
+  , ("andn complements its SOURCE instead of its destination",
+     wrongAndnComplementsSource, "xmm0")
+  , ("andn is read as NAND, complementing the result instead of the destination",
+     wrongAndnNand, "xmm0") ]
 
 /-- ⭐⭐ THE SHARD SELECTION, DEFINED ONCE.  `selftest-shard` runs the arms these
 indices name, and `selftest-shards` checks these indices — so the gate exercises
@@ -4067,7 +4154,7 @@ constants would have scored it 88 of 88 and reported green about a model that \
 does not saturate at all ⇒ A WRONG MODEL'S SCORE IS A JOINT FACT ABOUT THE MODEL \
 AND THE PRE-STATES.  ⛔ And it is not `vlanes`: this is the first operation here \
 that NARROWS, so lane i of the result is not a function of lane i of the \
-operands (see D117); 16 — `movhps`, AND THE HALF THAT DOES NOT MOVE.  One roster row for BOTH directions (one mnemonic at two opcodes, `0f 16` and `0f 17`), 6 vectors, two constructors, NO new state, 3,672 instructions.  ⭐ THE FIRST MEMBER OF A GROUP THE RESIDUE HAD BEEN REPORTING AS ABSENT: batch 19 measured six never-asked scalar-SSE-FP mnemonics worth 26,757 instructions, which a bank's closing sentence had partitioned two ways — `refuses or VEX` — for a three-valued remainder, and a category with no slot in the sentence reads as EMPTY rather than as unhandled (D118).  `movhps` is the one of the six needing no floating-point arithmetic at all; the other five need a soft-float IEEE-754 layer over `BitVec` plus MXCSR, because Lean's `Float` is an opaque extern the kernel cannot reduce.  ⛔ THE CONTENT IS THE HALF THAT DOES NOT MOVE: the load writes `dst[127:64]` and PRESERVES `dst[63:0]`, so the plausible wrong model is the one that CLEARS the low half — the exact MIRROR of D93, where the oracle MERGED what the SDM clears, the direction of the plausible error reversing with the rule.  It is caught in 152 cases, and that number is a joint fact about the model and the PRE-STATES: what refutes it is `xmmPattern` giving xmm0 a non-zero low quadword, and a table that zeroed the destination would have scored it 0 and reported green about a model that destroys half the register on every load.  ⛔ NO ALIGNMENT RULE, MEASURED RATHER THAN ASSERTED: the operand is eight bytes (Type 5), and D110 is why that sentence is not left to a comment — there `NO ALIGNMENT CHECK … the absence is the rule` was written about a group that DID have one.  Both directions execute at 16-, 8- and 4-byte alignment in a run where `pand 0x8(%rbx)` REFUSES and `pand (%rbx)` EXECUTES, so the harness demonstrably CAN see an alignment refusal and this silence is a reading.  ⚠️ The unaligned vectors sit at displacement FOUR, not eight: eight is still 8-byte aligned and could not tell `no rule at all` from `an 8-byte rule` (see D119); 17 — `PREFETCHh`, THE FORM THAT CHANGES NOTHING.  `prefetchnta` and `prefetcht0` at a memory operand, two roster rows, 4 vectors, one constructor, no new state, 466 instructions — found by batch 21's CENSUS, which measured the unprobed remainder instead of declaring it empty, so nobody knew it was buildable.  ⚠️ WHAT THE VECTORS PROVE IS NARROW AND THE RECORD SAYS SO: the form changes no architectural state, so the differential can witness only that BOTH models leave every watched register, flag and window alone and advance RIP by the right length.  That is the claim `prefetch` makes, and a model that read the memory, faulted on it, or mis-computed the length breaks it — but a form that writes nothing is one whose vectors agree with almost any wrong model, so the two arms are what stop the agreement being vacuous.  ⛔ AND NO ARM IS PLANTED FOR THE LOCALITY HINT: it is architecturally invisible, so no vector that can exist would distinguish it, and an arm no vector can distinguish is a FALSE ENTRY in the gate's own inventory (D91).  The spellings are held apart by `check_encodings.py`, which assembles each `asm` and compares bytes — the instrument that can actually see a `/reg` field.  ⛔⛔ TWO ROWS AND NOT FOUR, AND THE KERNEL-COST GATE NAMED THE CHEAPER BUILD: four hints put `Tests.Coverage`'s residue 700 ms over its ceiling, and `prefetcht1`/`prefetcht2` have ZERO measured demand, so modelling them was completionism rather than demand — the instinct this roster declines at `pshufw`.  The refusal named a cheaper build and the cheaper build was the more honest one (see D121); 18 — `PMOVMSKB`, THE LAST FORM IN THE MEASURED RESIDUE NEEDING NO NEW VOCABULARY.  One roster row, 2 vectors, one constructor, no new state, 453 instructions.  ⭐⭐ NO WIDTH FIELD, ON TWO INDEPENDENT SOURCES: the SDM lists `r32` and `r64` rows, but K gives both the identical value and the ASSEMBLER emits the SAME BYTES (`660fd7c1`) for `%eax` and `%rax` — REX.W buys nothing when the result is zero-extended, so the two spellings are the same instruction and a width field would be one no encoding can set and no semantics can read.  The 32-bit write already zero-extends by SDM Vol. 1 3.4.1.1, so the rule is INHERITED rather than restated, and there is no r64 vector because it would be the first one under another name.  ⚠️ Two of its three arms score LOW for reasons about the PRE-STATES rather than the instruction — a reversed mask is invisible on a palindrome, and a merging model is invisible unless the destination already holds bits above 15.  ⛔⛔ AND THE BATCH IS NOT ON `master`: its differential is green and its kernel-cost gate is RED IN BAND, because the `X86.Syntax` ceiling has TWO MILLISECONDS of headroom (the parent passes at 198 of 200) and one constructor costs eight — so the next batch adding any constructor crosses it too, whatever it is (see D122).\n\n\
+operands (see D117); 16 — `movhps`, AND THE HALF THAT DOES NOT MOVE.  One roster row for BOTH directions (one mnemonic at two opcodes, `0f 16` and `0f 17`), 6 vectors, two constructors, NO new state, 3,672 instructions.  ⭐ THE FIRST MEMBER OF A GROUP THE RESIDUE HAD BEEN REPORTING AS ABSENT: batch 19 measured six never-asked scalar-SSE-FP mnemonics worth 26,757 instructions, which a bank's closing sentence had partitioned two ways — `refuses or VEX` — for a three-valued remainder, and a category with no slot in the sentence reads as EMPTY rather than as unhandled (D118).  `movhps` is the one of the six needing no floating-point arithmetic at all; the other five need a soft-float IEEE-754 layer over `BitVec` plus MXCSR, because Lean's `Float` is an opaque extern the kernel cannot reduce.  ⛔ THE CONTENT IS THE HALF THAT DOES NOT MOVE: the load writes `dst[127:64]` and PRESERVES `dst[63:0]`, so the plausible wrong model is the one that CLEARS the low half — the exact MIRROR of D93, where the oracle MERGED what the SDM clears, the direction of the plausible error reversing with the rule.  It is caught in 152 cases, and that number is a joint fact about the model and the PRE-STATES: what refutes it is `xmmPattern` giving xmm0 a non-zero low quadword, and a table that zeroed the destination would have scored it 0 and reported green about a model that destroys half the register on every load.  ⛔ NO ALIGNMENT RULE, MEASURED RATHER THAN ASSERTED: the operand is eight bytes (Type 5), and D110 is why that sentence is not left to a comment — there `NO ALIGNMENT CHECK … the absence is the rule` was written about a group that DID have one.  Both directions execute at 16-, 8- and 4-byte alignment in a run where `pand 0x8(%rbx)` REFUSES and `pand (%rbx)` EXECUTES, so the harness demonstrably CAN see an alignment refusal and this silence is a reading.  ⚠️ The unaligned vectors sit at displacement FOUR, not eight: eight is still 8-byte aligned and could not tell `no rule at all` from `an 8-byte rule` (see D119); 17 — `PREFETCHh`, THE FORM THAT CHANGES NOTHING.  `prefetchnta` and `prefetcht0` at a memory operand, two roster rows, 4 vectors, one constructor, no new state, 466 instructions — found by batch 21's CENSUS, which measured the unprobed remainder instead of declaring it empty, so nobody knew it was buildable.  ⚠️ WHAT THE VECTORS PROVE IS NARROW AND THE RECORD SAYS SO: the form changes no architectural state, so the differential can witness only that BOTH models leave every watched register, flag and window alone and advance RIP by the right length.  That is the claim `prefetch` makes, and a model that read the memory, faulted on it, or mis-computed the length breaks it — but a form that writes nothing is one whose vectors agree with almost any wrong model, so the two arms are what stop the agreement being vacuous.  ⛔ AND NO ARM IS PLANTED FOR THE LOCALITY HINT: it is architecturally invisible, so no vector that can exist would distinguish it, and an arm no vector can distinguish is a FALSE ENTRY in the gate's own inventory (D91).  The spellings are held apart by `check_encodings.py`, which assembles each `asm` and compares bytes — the instrument that can actually see a `/reg` field.  ⛔⛔ TWO ROWS AND NOT FOUR, AND THE KERNEL-COST GATE NAMED THE CHEAPER BUILD: four hints put `Tests.Coverage`'s residue 700 ms over its ceiling, and `prefetcht1`/`prefetcht2` have ZERO measured demand, so modelling them was completionism rather than demand — the instinct this roster declines at `pshufw`.  The refusal named a cheaper build and the cheaper build was the more honest one (see D121); 18 — `PMOVMSKB`, THE LAST FORM IN THE MEASURED RESIDUE NEEDING NO NEW VOCABULARY.  One roster row, 2 vectors, one constructor, no new state, 453 instructions.  ⭐⭐ NO WIDTH FIELD, ON TWO INDEPENDENT SOURCES: the SDM lists `r32` and `r64` rows, but K gives both the identical value and the ASSEMBLER emits the SAME BYTES (`660fd7c1`) for `%eax` and `%rax` — REX.W buys nothing when the result is zero-extended, so the two spellings are the same instruction and a width field would be one no encoding can set and no semantics can read.  The 32-bit write already zero-extends by SDM Vol. 1 3.4.1.1, so the rule is INHERITED rather than restated, and there is no r64 vector because it would be the first one under another name.  ⚠️ Two of its three arms score LOW for reasons about the PRE-STATES rather than the instruction — a reversed mask is invisible on a palindrome, and a merging model is invisible unless the destination already holds bits above 15.  ⛔⛔ IT WAS HELD OFF `master` BY AN IN-BAND RED — its differential was green and its kernel-cost gate refused, the `X86.Syntax` ceiling having TWO MILLISECONDS of headroom (the parent passing at 198 of 200) against a constructor costing eight.  ⚠️ IT HAS SINCE LANDED, and this sentence said otherwise for eleven batches: it read `THE BATCH IS NOT ON master` in the published coverage document while `pmovmskb` sat in the roster it tabulates.  A STATUS written in the past tense of a batch is a claim that keeps being asserted every time the document is generated, and nothing regenerates its truth — the absolute ceilings it appeals to were retired as a merge gate by the helm on 2026-09-04 and are readings now (see D122, D157); 19 — THE BITWISE COMPLEMENT, A GROUP THAT WAS NEVER BLOCKED.  `pandn`/`andnps`/`andnpd` and the `ps`/`pd` spellings of AND/OR/XOR: nine roster rows, 21 vectors, ONE new function, NO new constructor and NO new state, 3,556 instructions.  ⭐⭐⭐ THE GROUP WAS DERIVED AS THE COMPLEMENT OF A CORRECT PARTITION.  The P2 roster's ranked table prints its top FORTY rows, where every unclaimed row the oracle executes is either VEX or scalar FP, so the residue reads as blocked on one of two large additions.  It was not: of the 64 unclaimed SSE-legacy pairs that EXECUTE (47,965 instructions), 40 are the soft-float commission's, leaving 24 pairs and 11,040 instructions that need NO rounding rule at all ⇒ A CATEGORY NAMED FOR WHAT IT CONTAINS SAYS NOTHING ABOUT ITS COMPLEMENT, and these members read as FP in a ranked table only because their mnemonics end in `ps`/`pd`.  Being FP-TYPED is not being FP-VALUED: `xorps` reads no exponent and rounds nothing.  The split is DERIVED and GATED by `scripts/p2_residue.py`, whose third gate re-derives the commission's own published sub-group totals from the live census and refuses if they move.  ⛔⛔ `ANDN` IS ASYMMETRIC AND THAT IS THE WHOLE BATCH: `DEST <- (NOT DEST) AND SRC`, the DESTINATION complemented and not the source, confirmed on K before a line was written — `pandn_xmm_xmm.k` is `andMInt(negMInt(DEST), SRC)`, and `negMInt` is one's complement rather than arithmetic negation, read off `sbbb_rh_imm8.k` where `a + negMInt(b)` is the CF=1 arm of `a - b - CF`.  ⚠️ SIX OF THE NINE ARE NEW ENCODINGS OF AN OPERATION ALREADY HERE, separate KINDS because the BYTES differ (`pand` `66 0f db`, `andps` `0f 54`, `andpd` `66 0f 54`) — the `movdqa`/`movaps` rule and not the `pmovmskb` one, where identical bytes forbade a field.  Their semantics is shared by NOT branching, so nine kinds add three arms; and because NO differential vector tests a spelling against its sibling, the identity is a THEOREM, driven red by routing `.andps` to OR.  ⛔ AND THE BATCH'S OWN PROSE WAS WRONG ONCE, IN THE DIRECTION THAT EXPLAINS A MEASUREMENT NOT YET TAKEN: three comments said the swap arm is invisible on the DIAGONAL pre-states because `diag` sets xmm0 = xmm1.  `diag` equalises the two GENERAL-PURPOSE operand values; `xmmPattern` fills the XMM file per REGISTER INDEX, so xmm0 = xmm1 in ZERO of the twenty diagonal states and the swapped model disagrees in all twenty (see D157)..\n\n\
 The mnemonic count is `rosterSize` rather than a literal, so it cannot drift \
 from the AST the way the sentence it replaced had.\n\n\
 Tiers: T-exact " ++ toString e ++ " · T-frame " ++ toString f ++ " · T-absent " ++

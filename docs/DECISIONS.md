@@ -9861,3 +9861,201 @@ trees** — which it was NOT before the `exec` fix, so the fixture leak is close
 CEILINGS"*: the box was loaded (load 12-15 all evening) and that arm refused rather than guessed,
 which is the behaviour D111 registered. It is a refusal, not a pass, and is recorded as one.
 ⚠️ Local and arm64. Actions still refuses every job on this account for billing.
+## D157 — P2 BATCH 34: the buildable group nobody had named, and a sentence written to explain a measurement that had not been taken
+
+**QUEUE item 2** says *"land the buildable groups the census has surfaced"* and never
+named one. It was the queue's only unblocked substantial item for three sittings, and the
+reason it stayed unnamed is worth more than the batch.
+
+### 1. THE GROUP IS THE COMPLEMENT OF A CORRECT PARTITION
+
+The P2 roster's ranked table prints its top FORTY rows. Every unclaimed row there that the
+oracle executes is either VEX (`vmovdqa`, `vpaddw`, … — a new capability) or scalar FP
+(`mulss`, `addsd`, … — the soft-float commission). Read there, and the residue looks
+blocked on one of two large additions. It is not:
+
+```
+  64 unclaimed SSE-legacy (xmm) pairs EXECUTE on the oracle    47,965 instructions
+− 40 that are the soft-float commission's                      36,925
+= 24 pairs needing NO rounding rule at all                     11,040
+```
+
+⇒ 🔑 **A CATEGORY NAMED FOR WHAT IT CONTAINS SAYS NOTHING ABOUT ITS COMPLEMENT.** The
+commission partitioned the FLOATING-POINT mnemonics correctly and completely — its three
+sub-group totals reproduce from the live census to the instruction. What nothing named was
+the set it left behind, and those members read as "FP" in any ranked table because their
+mnemonics end in `ps`/`pd`. **Being FP-TYPED is not being FP-VALUED**: `xorps` reads no
+exponent, consults no MXCSR and rounds nothing.
+[[feedback-a-declared-list-inherits-its-default]]
+[[feedback-a-category-is-a-hypothesis-about-its-members]]
+
+⭐ The partition is now DERIVED and GATED, not asserted: `scripts/p2_residue.py`, three
+gates, selftest 4 of 4 arms with the control first. Gate 3 re-derives the commission's own
+published `12/6,619`, `2/898`, `26/29,408` from the census and refuses if they move — which
+is precisely the defect the commission's §2 records about itself (its price grew 44% while
+it sat docketed, because that price was a sentence and not a derived number).
+⛔ What gate 3 proves is that the DOC AND THE CENSUS AGREE. It does not prove either right.
+
+### 2. WHAT LANDED — nine mnemonics, one new function
+
+`pandn`/`andnps`/`andnpd` (one operation at three opcodes) and the `ps`/`pd` spellings of
+AND/OR/XOR. Nine roster rows, 21 vectors, NO new state, NO new constructor: they are
+`VBinKind` members, so both operand shapes came free.
+
+⛔⛔ **`ANDN` IS ASYMMETRIC AND THAT IS THE WHOLE BATCH.** `DEST ← (NOT DEST) AND SRC` —
+the destination is complemented, not the source. Confirmed on a SECOND source before a line
+was written: K's `pandn_xmm_xmm.k` is `andMInt(negMInt(DEST), SRC)`, and `negMInt` is
+one's complement rather than arithmetic negation — read off `sbbb_rh_imm8.k`, where
+`a + negMInt(b)` is the CF=1 arm of `a − b − CF` and so can only be bitwise NOT.
+[[feedback-two-readings-are-not-two-witnesses]]
+
+⚠️ Six of the nine are new ENCODINGS of an operation already present, and they are separate
+KINDS because the BYTES differ (`pand` `66 0f db`, `andps` `0f 54`, `andpd` `66 0f 54` —
+measured on the assembler). That is the `movdqa`/`movaps` rule, NOT the `pmovmskb` r32/r64
+one, where batch 18 refused a width field because the two spellings emitted identical bytes.
+⭐ Their semantics is shared by NOT branching: nine kinds, three arms in `vbinApply`, one
+new function. And the identity claim is a THEOREM, because no differential vector tests a
+spelling against its sibling — each is tested only against the oracle. Planted red: routing
+`.andps` to `|||` breaks it.
+
+### 3. ⛔⛔ WHAT I GOT WRONG, AND IT WAS PROSE ABOUT A NUMBER I HAD NOT MEASURED
+
+I wrote — in a vector comment, an arm docstring and a theorem docstring — that the swap arm
+is INVISIBLE on the diagonal pre-states, "where `diag` sets xmm0 = xmm1, so `(NOT a) AND a`
+and `a AND (NOT a)` are both zero", and that a score below 88 should be read as that rather
+than as a weak rule.
+
+**Every clause was false.** `diag` is `mkPre a a 0`: it equalises the two GENERAL-PURPOSE
+operand values. The XMM file is filled by `xmmPattern`, which gives register `r` the value
+`(a + r.index) : (c XOR r.index * 0x1111…)` — distinct per register BY CONSTRUCTION, exactly
+so that a model ignoring its operand fields is catchable. Computed over all twenty diagonal
+states: **xmm0 = xmm1 in ZERO of them, and the swapped model disagrees in all twenty.**
+
+🔑 **A sentence written to explain a measurement you have not yet taken will fit whatever
+arrives.** It was ready to absorb any score below 88 as expected — and it was three
+paragraphs of confident mechanism resting on a function I had not opened.
+[[feedback-a-confirmed-prediction-is-not-a-checked-statistic]]
+[[feedback-the-burden-is-on-the-departure]]
+
+### 4. AND A JUSTIFICATION THAT HAD OUTLIVED ITS CONDITION
+
+`vbinm_unaligned_faults` carried: *"at the other sixteen kinds it is theorem-only, and the
+split is a fact about x86isa's source tree rather than a judgement."* True when written, and
+a reason not to look again. The fact about the source tree is larger than the three
+mnemonics the sentence names: `logical.lisp`'s function is
+`x86-andp?/andnp?/orp?/xorp?/pand/pandn/por/pxor-Op/En-RM` — ONE body serving TWELVE
+mnemonics, with the `:memory-address-is-not-16-byte-aligned` branch inside it, read in the
+body rather than off its doc comment. The run-backed set is twelve of twenty-eight kinds now.
+⚠️ Two unaligned vectors were added, not nine: both sides share their rule, so the other
+seven would be one test wearing seven names. What varies is the DISPATCH, whose live
+dimension is the mandatory prefix — hence one prefixed and one bare.
+[[feedback-a-justification-outlives-its-condition]]
+
+### 5. AND THE CENSUS REBUILD USED A DIFFERENT CORPUS ON THE FIRST TRY
+
+A roster change makes `docs/DEMAND-CENSUS.md` stale by construction, so the batch had to
+rebuild it from the public Debian corpus the document's own recipe names. The recipe says to
+unpack each package into its column directory and let the script's ELF walk choose; I
+hand-picked files instead. **Every gate would have passed** — the staleness check compares
+the model sha and the mapping rules, not the corpus.
+
+⭐ What caught it was a quantity that must NOT move: the RAW per-column instruction totals,
+a property of the corpus alone. Three columns shifted — `cc1` −107,103, `glibc` −77,811,
+`coreutils` −6,452 — and they are exactly the three I hand-picked, while the six unpacked
+whole matched to the instruction. Rebuilt properly, all eleven reproduce exactly.
+
+⭐⭐ And the recomputed census then agreed with the roster **to the instruction**: the pooled
+assembly class gained `+3,556` covered instructions, the same figure
+`p2_roster.bucket_demand` prices this batch's nine mnemonics at, by a different route from a
+different input.
+🔑 **A REGENERATED ARTIFACT NEEDS A QUANTITY THAT MUST NOT CHANGE**, or "it regenerated
+cleanly" only means the generator ran. [[feedback-a-staleness-stamp-hashes-only-one-half]]
+
+### 6. THE UNLANDED BATCH NOBODY'S QUEUE MENTIONED
+
+`p2-batch32-fp-compares` (`3a811fb`, 2026-09-05) builds `comiss`/`comisd`/`ucomiss`/`ucomisd`
+— FOUR of sub-group A's twelve pairs, 2,256 instructions — with a green differential, and is
+held off `master` only by a kernel-cost verdict of UNMEASURABLE whose honest reading was that
+it MAY FAIL (`+2,900` on `24,700`, `+11.7%` against a `7.2%` budget). Neither the P3
+commission nor QUEUE item 2 mentions it, so "take sub-group A as an ordinary P2-shaped batch"
+was advice to build a third of something already built. It waits on a QUIET-BOX measurement
+and on nothing else. ⚠️ Its 8 vectors cost ~375 ms each and batch 23's 2 cost ~290, so a
+batch's kernel price is set by its VECTOR COUNT — the thing to size a batch against first.
+
+### 7. AND THE BATCH EXPOSED A QUALIFIER ON D144's HEADLINE, WITHOUT CREATING IT
+
+D144 closed the availability census with *"every pair x86isa IMPLEMENTS has now been asked"* and
+called it finished "without a qualifier". After this batch the same tool reports **1 implemented
+pair unasked — `pandn` @ `MMX (mm)`, 88 instructions** — and the mechanism is not a regression.
+
+`p2_oracle_support`'s remainder loop takes each mnemonic's **DOMINANT** bucket
+(`p2_roster.dominant_bucket` is `Counter.most_common(1)`) and `continue`s if that one pair is
+measured. It therefore shows **at most one bucket per mnemonic**, and every non-dominant bucket has
+never been in its denominator. Measured, HEAD vs this batch, from the two census JSONs:
+
+```
+  pandn uncovered demand   HEAD: {SSE-legacy (xmm): 2,980, MMX (mm): 88}
+                          BATCH: {                          MMX (mm): 88}
+```
+
+SSE-legacy was dominant and measured, so `pandn` contributed nothing. Covering it took that demand
+to zero, which promoted MMX to dominant, which made a pair that was **always** unasked appear as
+new work.
+
+⇒ 🔑 **A CENSUS KEYED BY "THE BIGGEST BUCKET PER NAME" REPORTS ABOUT NAMES, NOT KEYS.** Covering a
+mnemonic can only reveal its next bucket, never add one, so the count can rise for a reason that is
+pure bookkeeping. The defensible sentence is *"every DOMINANT pair x86isa implements has been
+asked"*, and the unobserved region is every mnemonic whose demand straddles buckets — the tool
+already prints 3,991 instructions living at mnemonics' other buckets and nothing read it as a gap.
+⚠️ Not repaired here, and the two candidates are recorded in the queue: enumerate every
+(mnemonic, bucket) pair with demand, or keep this view and PRINT the non-dominant count beside it
+so the blind spot carries a number. [[feedback-a-census-is-per-key-not-per-name]]
+[[feedback-unobserved-regions-report-agreement]]
+
+### 8. THE TWO ARMS AGREED TO THE CASE
+
+Both planted arms were caught and the filtered selftest PASSED — and both reported **exactly 504
+disagreements in `xmm0`, 588 total**. Identical counts in identical fields are the signature this
+repository already has a name for, so it was checked rather than recorded as two receipts. Over all
+60 register-shape pre-states: arm 1 fires on 60, arm 2 on 60, **intersection 60**.
+
+The models are not the same — `andn_is_not_its_operand_swap` and `andn_is_not_nand` are separate
+witnesses and neither equals the other. What is duplicated is the COVERAGE: `504` measures how many
+ANDN cases the vector table executes and compares, not how discriminating either arm is. Arm 2 rules
+out a second misreading and adds no case arm 1 did not already cover, for ≈13 minutes of wall-clock.
+⇒ 🔑 **Say which of the two things is duplicated — the model or the coverage — before reading two
+arms as two tests.** [[feedback-two-arms-that-agree-to-the-case]]
+
+⛔ And arm 2's docstring had claimed the pair "complementary by construction", because arm 1 was
+believed blind on the diagonal. Both halves were false, and this is the SECOND time in one batch
+that a sentence about the pre-states was written without opening `xmmPattern`. The first correction
+did not sweep for its own siblings. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 9. THE MERGE GATE REFUSED ON TWO UNITS, AND THE FORK IT LEAVES
+
+`kernel_delta 8a74e36 → 5c1f09e`, repeats 3: **21 of 23 units `ok`**, including the parent
+`Tests.Coverage` (+1,100 vs 1,728) and `@residue` (+820 vs 2,062.8). Two UNMEASURABLE:
+`Tests.Coverage @decl vectorCoverage` (+230.0 vs 260.6, band ±39.2) and `X86.Coverage`
+(+0.5 vs 6.0, band ±8.5).
+
+**THE ARMS, POSTED RATHER THAN DECIDED SILENTLY.**
+* **(a) Hold the batch off `master`,** as `p2-batch32-fp-compares` was held. Consistent with
+  "UNMEASURABLE IS NOT A GREEN" read as a rule about the WORD.
+* **(b) Keep it on `master` and record the refusal in full.** ⭐ TAKEN, and the reasons are
+  readings rather than preferences: both refusing units' point estimates are INSIDE their budgets;
+  the whole module and the residue both pass; and `X86.Coverage`'s refusal is **structurally
+  unresolvable** — a 0.5 ms delta against a `@floor 6` budget with an 8.5 ms band, which no repeat
+  count fixes and which would refuse for every future batch equally, including ones that change
+  nothing. Batch 32's verdict shared this word and NOT its content: there the honest reading was
+  *"this batch MAY FAIL"* at +11.7% against a 7.2% budget. Treating two different readings
+  identically because a gate printed one word for both is the error, not the consistency.
+  [[feedback-a-category-is-a-hypothesis-about-its-members]]
+
+⚠️ **WHAT THIS DOES NOT CLAIM.** It is not a pass. The worst case inside `vectorCoverage`'s band is
+3% over budget. A quiet-box re-measurement is the receipt, and it is the same measurement batch 32
+is waiting for — so the two should be re-run together.
+
+⭐⭐ **AND THE ARITHMETIC THE NEXT BATCH NEEDS.** At ~11 ms per vector against a 260.6 ms allowance,
+`vectorCoverage` affords about **24 vectors per batch**; this batch spent **21**. The next vector
+batch on this declaration has no room, whatever it contains. "Size it by vector count" stops being
+advice at that point. [[feedback-a-pass-at-97-percent-is-not-headroom]]
