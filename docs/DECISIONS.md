@@ -10592,3 +10592,80 @@ exactly. LLVM's own operand comments carry the semantics as well — `movhlps: x
 xmm1[1],xmm0[1]`, `movlhps: xmm0 = xmm0[0],xmm1[0]`, `movddup: xmm0 = xmm1[0,0]` — which is
 a fourth witness to the half-selection rules, from the assembler rather than from K or the
 SDM.
+
+## D161 — QUEUE 4g(a): the drift ledger's fixed point removed by re-keying, my own safeguard refuted, and the NEXT blocker named at the object
+
+D159 recorded that `--record` has a fixed point: the ledger is TRACKED, so writing step N's row is
+itself a commit, and that commit is a first-parent step needing a row. Three candidate escapes were
+listed and none taken. The helm's 05:33 audit added an observation — that a row keyed to the DIFF
+rather than to the produced commit would not have the fixed point — and left the call here.
+
+### 1. THE READ, AND IT SAYS MORE THAN THE OBSERVATION ASSUMED
+
+Every budget in `kernel_delta_budget.txt` is a PERCENTAGE (22 of 22; `@floor` is the only absolute),
+and the file's own prose says *"a step's allowance depends on the tree that step STARTED FROM"* and
+*"the per-batch gate already computed each step's allowance when that step merged, against exactly
+THAT STEP'S OWN BASE."* `--record`'s implementation agrees: it derives the row's `allowance` from
+`data["readings"]["base"]` alone, and uses `head_rev` only to fill a field.
+
+⇒ **`allowance(step N) = f(parent tree, budget registry)`, and BOTH inputs exist before the child
+is made.** The fixed point was never in the data. It was in the KEY — `(base, head)` names the sha
+the step produces. `--first-parent` makes `base → head` a function on the walked chain, so `base`
+identifies the step by itself.
+
+**The repair, in full:** `key = (r["base"], r["head"])` → `key = r["base"]` in `load_ledger` and
+`append_rows`; index by `s[0]` in `accumulated_allowance`; `head` stays in the row as audit-only,
+beside `base_ms`, which is where it belonged. All 11 committed rows load unchanged under the new
+key.
+
+### 2. ⛔ AND MY OWN SAFEGUARD WAS REFUTED BY THE FACT THAT MOTIVATED IT
+
+I posted a refusal clause with it: *"a re-cut branch can give one base two children, and a gate
+that silently picked either would be pricing one step with another's allowance."* **That is false.**
+Two children of one base are priced from the SAME tree, so their allowances are **identical** and
+either row sums the window correctly. I reasoned about the key's uniqueness while holding the very
+fact — allowance is a function of the base — that made the collision harmless, and failed to carry
+it three sentences.
+
+⇒ 🔑 **A SAFEGUARD ADDED FOR A COLLISION IS A CLAIM ABOUT WHAT THE COLLISION WOULD COST, AND THAT
+CLAIM IS SEPARATELY CHECKABLE.** Mine cost nothing. Worse, a blanket refusal on a duplicate `base`
+would have been actively wrong: it would reject the benign same-night case. What genuinely differs
+between two rows for one base is the NIGHT `base_ms` was measured, and `load_ledger`'s existing fork
+check has always caught exactly that — its own message reads *"Two readings of the same step are two
+nights, not two witnesses."* **The rule needed no change at all.**
+[[feedback-a-remedy-is-an-ungated-claim]] [[feedback-a-state-added-for-a-defect]]
+
+### 3. DRIVEN RED, NOT ASSERTED
+
+`--selftest`: **18 arms, 18 green, 10 DISTINCT arms caught a plant** — including `missing step`,
+`foreign registry`, `partial pricing` and `write-before-check`, so the refusal paths survive the
+re-key. ⚠️ Every fixture was updated to the new contract (keyed by the step's base) rather than the
+lookup being relaxed to accept either shape: an "accepts both" reader cannot see the next silent
+change, which is the rule `lib-liveness`'s arity arm was repaired to elsewhere in the fleet.
+And the fork check was driven red on the REAL ledger — a planted twelfth row, same base, doubled
+allowance — which refuses rc 2 naming both rows and their nights.
+
+### 4. ⛔⛔ THE NEXT BLOCKER, WHICH IS NOT THE KEY AND IS BIGGER THAN IT
+
+The fixed point is gone; the ledger is still unwritable in practice, for a reason the key change
+does not touch. **The ledger wants one row per first-parent COMMIT. The gate that produces
+allowances measures one delta per BATCH**, and a batch is not one commit — batch 36 landed as
+FIVE, deliberately unsquashed so that D160's price decomposition survives in history. So a merge
+gate run over `master → head` yields ONE row spanning five steps, and the window walk then reports
+four of them missing.
+
+⇒ **THE UNIT OF THE LEDGER AND THE UNIT OF THE MEASUREMENT DISAGREE**, and squashing to reconcile
+them (batch 35's route) pays for it by destroying exactly the per-commit history that made batch
+36's price auditable. ⭐ **The clean answer is neither: land batches with `--no-ff`.** A merge
+commit is exactly ONE first-parent step per batch while preserving every individual commit on the
+branch — the ledger gets one row per batch, and the decomposition survives. Batch 36 was merged
+fast-forward, so it is five steps; that was the wrong call for this gate and is the first thing to
+change about the landing ritual.
+
+### 5. THE COMPOUNDING, MEASURED A THIRD TIME BY THE THING CAUSING IT
+
+D159 recorded the gap at **40** commits (03:27). The helm measured **43** (05:3x) and named the
+class: an instrument that degrades monotonically with the work it watches. After batch 36 it is
+**48** — and five of those five are mine, landed in the same session that read the warning.
+⇒ the backfill that pays for this grows with every landing, so the cheapest moment to record a row
+is always the merge it belongs to, and always was.

@@ -148,9 +148,26 @@ def budget_digest(path):
 # THE LEDGER
 # ══════════════════════════════════════════════════════════════════════════════
 def load_ledger(path):
-    """{(base, head): row}. Refuses on a step recorded twice with different
-    allowances — the second recording is not a confirmation, it is a fork, and
-    picking one silently prices the window with whichever night was read last."""
+    """{base: row}. Refuses on a step recorded twice with different allowances —
+    the second recording is not a confirmation, it is a fork, and picking one
+    silently prices the window with whichever night was read last.
+
+    ⭐⭐ KEYED ON `base` ALONE, WHICH IS WHAT BREAKS THE FIXED POINT (D161). The
+    ledger is TRACKED, so writing step N's row is itself a commit and therefore a
+    first-parent step needing a row — while the key named the sha the step
+    PRODUCES. It does not have to: every budget is a percentage and `allowance`
+    is `f(base tree, budget registry)`, both of which exist BEFORE the child is
+    made, so a row can ride in its own step's commit once the key stops naming
+    the child. `--first-parent` makes `base → head` a function on the walked
+    chain, so `base` identifies the step.
+
+    ⛔ AND NO NEW REFUSAL IS NEEDED FOR A RE-CUT BRANCH, though one was proposed.
+    Two children of one base are priced from the SAME tree, so their allowances
+    are IDENTICAL and either row sums the window correctly. What genuinely
+    differs between two rows for one base is the NIGHT `base_ms` was measured on
+    — which is what the fork check below has always caught. A blanket refusal on
+    a duplicate `base` would have been strictly worse: it would reject the benign
+    same-night case this rule deliberately permits."""
     if not os.path.exists(path):
         return {}
     by = {}
@@ -159,7 +176,7 @@ def load_ledger(path):
         if not line:
             continue
         r = json.loads(line)
-        key = (r["base"], r["head"])
+        key = r["base"]
         prev = by.get(key)
         if prev is not None and prev["allowance"] != r["allowance"]:
             refuse(_fork_msg(key, prev, r, ln))
@@ -171,7 +188,7 @@ def _fork_msg(key, prev, new, ln=None):
     def who(r):
         return (f"{r.get('source', '?')}  t={r.get('t', '?')}  "
                 f"{str(r.get('box', ''))[:60]}")
-    return (f"⛔ step {key[0][:9]}→{key[1][:9]} is priced TWICE with different "
+    return (f"⛔ the step out of {str(key)[:9]} is priced TWICE with different "
             f"allowances:\n"
             f"   {who(prev)}\n"
             f"   {who(new)}{f' (line {ln})' if ln else ''}\n"
@@ -188,7 +205,7 @@ def _fork_msg(key, prev, new, ln=None):
 def append_rows(path, rows, existing):
     seen = dict(existing)
     for r in rows:
-        key = (r["base"], r["head"])
+        key = r["base"]
         prev = seen.get(key)
         if prev is not None and prev["allowance"] != r["allowance"]:
             refuse(_fork_msg(key, prev, r))
@@ -225,14 +242,14 @@ def accumulated_allowance(steps, ledger, digest):
 
     ⛔ Never k x one budget: each term is the allowance that step was entitled to
     against its own base, read from the row written when it merged."""
-    missing = [s for s in steps if s not in ledger]
+    missing = [s for s in steps if s[0] not in ledger]
     if missing:
         refuse(f"⛔ the ledger is missing {len(missing)} of {len(steps)} steps in this "
                f"window, so its allowance cannot be summed:\n" +
                "".join(f"   {b[:9]} → {h[:9]}\n" for b, h in missing) +
                f"   A missing step is not a cheaper window. Record it with --record "
                f"at merge, or --backfill it from a committed walk.")
-    rows = [ledger[s] for s in steps]
+    rows = [ledger[s[0]] for s in steps]
     for s, r in zip(steps, rows):
         if r.get("budget_digest") != digest:
             refuse(f"⛔ step {s[0][:9]}→{s[1][:9]} was priced against budget registry "
@@ -376,7 +393,7 @@ def selftest():
     # [[feedback-a-plant-probes-control-comes-first]]
     print("CONTROL — an unplanted window must be CLEAN and must fire no arm:")
     st = _steps(4)
-    led = {s: _row(*s, {"M": 100.0}) for s in st}
+    led = {s[0]: _row(*s, {"M": 100.0}) for s in st}
     alloc, unpriced, rows_l = accumulated_allowance(st, led, DIG)
     sb = {"M": _series(1000.0, 5.0, 4)}
     sh = {"M": _series(1000.0, 5.0, 4, drift=10.0)}
@@ -391,7 +408,7 @@ def selftest():
     # sum = 10+20+40+80 = 150 ; k x anchor = 4 x 10 = 40.  The delta is placed
     # BETWEEN them, so the two spellings give OPPOSITE verdicts on one reading.
     bases = [100.0, 200.0, 400.0, 800.0]
-    grow = {s: _row(*s, {"G": 0.10 * b}, base_ms={"G": b})
+    grow = {s[0]: _row(*s, {"G": 0.10 * b}, base_ms={"G": b})
             for s, b in zip(st, bases)}
     a_sum, _, _ = accumulated_allowance(st, grow, DIG)
     flat = 4 * 0.10 * bases[0]
@@ -413,7 +430,7 @@ def selftest():
     # only the growing case would have left the arm above reading as "the sum is
     # the larger number", which is false in an eighth of cases.
     # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
-    shrink = {s: _row(*s, {"S": 0.10 * b}, base_ms={"S": b})
+    shrink = {s[0]: _row(*s, {"S": 0.10 * b}, base_ms={"S": b})
               for s, b in zip(st, reversed(bases))}
     a_shr, _, _ = accumulated_allowance(st, shrink, DIG)
     flat_s = 4 * 0.10 * bases[-1]
@@ -431,7 +448,7 @@ def selftest():
     # spellings must agree EXACTLY. Without this, the arm above is satisfied by a
     # gate that simply always takes the larger number.
     # [[feedback-a-control-can-share-the-blind-spot]]
-    floorb = {s: _row(*s, {"F": 6.0}, base_ms={"F": b}) for s, b in zip(st, bases)}
+    floorb = {s[0]: _row(*s, {"F": 6.0}, base_ms={"F": b}) for s, b in zip(st, bases)}
     a_fl, _, _ = accumulated_allowance(st, floorb, DIG)
     ok(a_fl["F"] == 4 * 6.0,
        "a FLOOR-BOUND unit sums to exactly k x the floor (24) — the two spellings "
@@ -441,9 +458,9 @@ def selftest():
     print("\nB. THE LEDGER — a gap is a refusal, not a zero:")
     for tag, what, mutate in (
         ("missing step", "a MISSING step refuses and names it",
-         lambda d: d.pop(st[2])),
+         lambda d: d.pop(st[2][0])),
         ("foreign registry", "a step priced against a DIFFERENT budget registry refuses",
-         lambda d: d.__setitem__(st[1], _row(*st[1], {"M": 100.0}, digest="beef"))),
+         lambda d: d.__setitem__(st[1][0], _row(*st[1], {"M": 100.0}, digest="beef"))),
     ):
         d = dict(led)
         mutate(d)
@@ -463,7 +480,7 @@ def selftest():
     # a unit absent from SOME steps is UNPRICED and REPORTED — never silently
     # dropped, and never given the whole window's allowance from a partial sum.
     part = dict(led)
-    part[st[1]] = _row(*st[1], {"M": 100.0, "P": 50.0})
+    part[st[1][0]] = _row(*st[1], {"M": 100.0, "P": 50.0})
     a_p, unp, _ = accumulated_allowance(st, part, DIG)
     ok("P" not in a_p and unp.get("P") == 1,
        "a unit present at 1 of 4 steps is UNPRICED and counted, not summed to a "
@@ -499,9 +516,9 @@ def selftest():
     # fields under test. `gb`/`gh` are used because their delta (90) is resolvable
     # against their band (~4): a delta the band swallows can never be convicted by
     # ANY allowance, so it cannot witness that the allowance was read.
-    big = {s: _row(*s, {"G": 100.0}) for s in st}                      # sum 400
-    pois = {s: _row(*s, {"G": 100.0}, base_ms={"G": 10_000.0}) for s in st}
-    small = {s: _row(*s, {"G": 10.0}) for s in st}                     # sum  40
+    big = {s[0]: _row(*s, {"G": 100.0}) for s in st}                      # sum 400
+    pois = {s[0]: _row(*s, {"G": 100.0}, base_ms={"G": 10_000.0}) for s in st}
+    small = {s[0]: _row(*s, {"G": 10.0}) for s in st}                     # sum  40
     a_big, _, _ = accumulated_allowance(st, big, DIG)
     a_pois, _, _ = accumulated_allowance(st, pois, DIG)
     a_small, _, _ = accumulated_allowance(st, small, DIG)
@@ -539,7 +556,7 @@ def selftest():
     seen = {}
     for k in range(1, predicted + 2):
         stk = _steps(k)
-        ledk = {s: _row(*s, {"D": per_step_alloc}) for s in stk}
+        ledk = {s[0]: _row(*s, {"D": per_step_alloc}) for s in stk}
         ak, _, _ = accumulated_allowance(stk, ledk, DIG)
         db = {"D": _series(1000.0, spread, n)}
         dh = {"D": _series(1000.0, spread, n, drift=k * over_per_step)}
@@ -552,7 +569,7 @@ def selftest():
     # the null arm: the same window with NO drift must stay `ok` at that k, or
     # "convicted at k" is just "everything converts once the window is long".
     stk = _steps(predicted)
-    ledk = {s: _row(*s, {"D": per_step_alloc}) for s in stk}
+    ledk = {s[0]: _row(*s, {"D": per_step_alloc}) for s in stk}
     ak, _, _ = accumulated_allowance(stk, ledk, DIG)
     v_null = judge_window({"D": _series(1000.0, spread, n)},
                           {"D": _series(1000.0, spread, n)}, ak)[0]["verdict"]
