@@ -129,7 +129,97 @@ def jobs():
     return out
 
 
+# ⛔⛔ AN UNKNOWN FLAG USED TO START THE MOST EXPENSIVE DEFAULT PATH (D173).
+# `arg()` scans for a flag it knows and ignores everything else, so `--list-jobs`
+# — a plausible spelling of the real `--jobs` — matched nothing, `job` fell to its
+# default `"build"`, and the tool began RUNNING all 33 steps of the build job. A
+# relit head typed exactly that at 11:0x and the job started under it.
+#
+# 🔑 THE SHAPE: `--help` and a listing flag are the FIRST things a new or relit
+# head types, and they are the two places where "ignore what you do not
+# understand" spends the most. A tool that answers an unrecognised request by
+# doing its most expensive thing is worse than one that refuses, because the
+# refusal is instant and the misfire is not.
+# ⛔ POSITIONALS ARE REFUSED TOO, and that is deliberate: this tool takes none, so
+# a bare word is a mistyped flag or a shell glob that expanded.
+KNOWN_FLAGS = {"--job", "--jobs", "--list", "--from", "--to", "--help",
+               "-h", "--selftest"}
+VALUED_FLAGS = {"--job", "--from", "--to"}
+
+
+def check_argv(argv=None):
+    av = sys.argv[1:] if argv is None else argv
+    bad, dangling, skip = [], None, False
+    for a in av:
+        if skip:
+            skip = False
+            continue
+        if a in VALUED_FLAGS:
+            skip, dangling = True, a
+            continue
+        dangling = None
+        if a in KNOWN_FLAGS:
+            continue
+        bad.append(a)
+    if skip:
+        # ⛔ THE HALF THE FIRST FORM MISSED, found by the sibling guard's own
+        # red-first arm in `kernel_delta.py`: `--job` with nothing after it fell
+        # through and `arg()` returned the DEFAULT job. A flag whose value went
+        # missing is the same silent default one level in.
+        print(f"⛔ {dangling!r} takes a value and none follows it. `arg()` would "
+              f"have returned its DEFAULT, so this would have run a job you did "
+              f"not name.")
+        return 2
+    if bad:
+        print(f"⛔ unrecognised argument(s): {', '.join(repr(b) for b in bad)}.\n"
+              f"   This tool RUNS CI jobs, so an ignored flag would have started "
+              f"the default one (`--job build`, 33 steps) instead of answering "
+              f"you. Known: {', '.join(sorted(KNOWN_FLAGS))}.\n"
+              f"   Did you mean `--jobs` (list the jobs) or `--list` (list one "
+              f"job's steps)?")
+        return 2
+    return 0
+
+
+# ⛔ A CALLABLE SURFACE AND AN ARM, because an inline block in `main()` cannot be
+# driven and its neighbours lend it their green (D162's finding, in this file).
+# [[feedback-a-gate-with-no-callable-surface]]
+def selftest():
+    cases = [(["--jobs"], 0, "CONTROL — a known flag is accepted"),
+             (["--job", "build", "--to", "7"], 0,
+              "CONTROL — value-taking flags' VALUES are not read as flags"),
+             (["--job", "--list"], 0,
+              "...and a value that LOOKS like a flag is consumed as a value"),
+             (["--list-jobs"], 2,
+              "RED-FIRST — an unknown flag REFUSES instead of running `--job "
+              "build`, all 33 steps (this is the call a relit head made on 09/06)"),
+             (["--job"], 2,
+              "RED-FIRST — a value-taking flag with NO value refuses"),
+             (["build"], 2, "RED-FIRST — a bare positional refuses")]
+    bad = []
+    for av, want, name in cases:
+        rc = check_argv(av)
+        ok = rc == want
+        print(("  ✔ " if ok else "  ⛔ ") + name + ("" if ok else f"  (rc={rc}, wanted {want})"))
+        if not ok:
+            bad.append(name)
+    if bad:
+        print(f"ci_local selftest: FAIL ({len(bad)} of {len(cases)} arms)")
+        return 1
+    print(f"ci_local selftest: CLEAN ({len(cases)} arms — the ARGUMENT READER "
+          f"only. No job is run by any of them.)")
+    return 0
+
+
 def main():
+    if "--selftest" in sys.argv:
+        return selftest()
+    rc = check_argv()
+    if rc:
+        return rc
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return 0
     all_jobs = jobs()
     if "--jobs" in sys.argv:
         for j in all_jobs:

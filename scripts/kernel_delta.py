@@ -1289,6 +1289,31 @@ def selftest():
         bad.append(arms[-1])
     shutil.rmtree(probe, ignore_errors=True)
 
+    # ── THE ARGUMENT READER (D173): an ignored flag started a profiling run ────
+    def argv_arm(av, want_rc, name, plant=None):
+        rc, _ = check_argv(av)
+        arms.append(name)
+        print(("  ✔ " if rc == want_rc else "  ⛔ ") + name +
+              ("" if rc == want_rc else f"   (rc={rc}, wanted {want_rc})"))
+        if rc != want_rc:
+            bad.append(name)
+
+    argv_arm(["--selftest"], 0, "CONTROL — a known flag is accepted")
+    argv_arm(["--repeats", "6"], 0,
+             "CONTROL — a value-taking flag's VALUE is not read as a flag "
+             "(`--repeats 6`), which is how this guard breaks a correct call")
+    argv_arm(["--head", "--selftest"], 0,
+             "...and a value that LOOKS like a flag is still consumed as a value")
+    argv_arm(["--list-jobs"], 2,
+             "RED-FIRST — an unknown flag REFUSES instead of falling through to "
+             "the two-worktree profiling run")
+    argv_arm(["--repeats"], 2,
+             "RED-FIRST — a value-taking flag with NO value refuses rather than "
+             "silently using the default")
+    argv_arm(["build"], 2,
+             "RED-FIRST — a bare positional refuses; this tool takes none, so a "
+             "bare word is a mistyped flag or an expanded glob")
+
     bn, bb = bias_cut_arms()
     arms.extend(bn)
     bad.extend(bb)
@@ -1570,7 +1595,63 @@ def selftest_measure():
     return 0
 
 
+# ⛔⛔ THE SAME UNKNOWN-FLAG DEFECT AS `ci_local.py`, AND HERE THE DEFAULT PATH IS
+# A TWO-TREE PROFILING RUN (D173). `arg()` ignores what it does not know, so
+# `kernel_delta.py --help` fell straight through to the merge gate and began
+# profiling two worktrees — minutes to an hour — in answer to a request for the
+# usage text. `--help` is the first thing a relit head types.
+# ⛔ THE VALUE-TAKING FLAGS MUST BE LISTED, or their VALUE is read as an unknown
+# flag and a correct invocation refuses. Both halves are driven in --selftest.
+# [[feedback-a-gate-that-refuses-must-say-what-it-saw]]
+KNOWN_FLAGS = {"--selftest", "--selftest-measure", "--budget", "--readings",
+               "--head", "--base", "--repeats", "--out", "--save-readings",
+               "--plant", "--help", "-h"}
+VALUED_FLAGS = {"--budget", "--readings", "--head", "--base", "--repeats",
+                "--out", "--save-readings", "--plant"}
+
+
+def check_argv(argv=None):
+    """(rc, message) — 0 and None when every argument is recognised."""
+    av = sys.argv[1:] if argv is None else argv
+    bad, dangling, skip = [], None, False
+    for a in av:
+        if skip:
+            skip = False
+            continue
+        if a in VALUED_FLAGS:
+            skip = True
+            dangling = a          # cleared by the next argument, if there is one
+            continue
+        dangling = None
+        if a in KNOWN_FLAGS:
+            continue
+        bad.append(a)
+    if skip:
+        # ⛔ FOUND BY THIS GUARD'S OWN RED-FIRST ARM, which is why it is here:
+        # `--repeats` with nothing after it passed the first form of this check,
+        # and `arg()` then returned the DEFAULT. A flag whose value went missing
+        # is the same silent-default defect one level in.
+        return 2, (f"⛔ {dangling!r} takes a value and none follows it. "
+                   f"`arg()` would have returned this flag's DEFAULT, so the run "
+                   f"would have used a setting you did not ask for and said "
+                   f"nothing.")
+    if bad:
+        return 2, (f"⛔ unrecognised argument(s): "
+                   f"{', '.join(repr(b) for b in bad)}.\n"
+                   f"   This gate's DEFAULT path profiles two worktrees, so an "
+                   f"ignored flag would have started a run of minutes, not "
+                   f"answered you. Known: {', '.join(sorted(KNOWN_FLAGS))}.")
+    return 0, None
+
+
 def main():
+    rc, msg = check_argv()
+    if rc:
+        print(msg)
+        return rc
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return 0
     if "--selftest" in sys.argv:
         return selftest()
     if "--selftest-measure" in sys.argv:
