@@ -11737,3 +11737,27 @@ their allowances are generous by roughly a fifth, **in the direction that makes 
 convict LESS**. That is stated, printed by the tool beside every backfill, and deliberately **not
 gated**: a threshold on load average is the heuristic D141 took out of this family of gates.
 [[feedback-conservative-is-a-direction-not-a-margin]]
+
+## D175 — the join accepted a row whose head sits before its own base
+
+D171 replaced the ledger's `base`-only join with the READING invariant: a row prices step
+`base → child` when its `head` is reachable from the child and nothing between them can move a
+reading. Re-reading it while a long job ran, the bound is one-sided — `rh` was required to be at or
+before the child and **never required to be at or after the base**. Measured on the real chain:
+
+```
+   step 0338526 → 043348c,  row head 939a073 (the commit BEFORE the base)
+   records_step(...) = True
+```
+
+Such a row claims to price a step off a measurement taken from a point earlier than the step
+begins. **Neither shipped writer can produce one** — `--backfill` uses `order[i+1]` and `--record`
+uses the run's own `head_rev` — and that is exactly why it would have sat there indefinitely.
+
+⇒ 🔑 **A JOIN IS WHAT DECIDES WHETHER A ROW COUNTS, SO IT MUST REJECT AN INCOHERENT ROW ON ITS OWN
+TERMS, NOT LEAN ON TODAY'S WRITERS NEVER PRODUCING ONE.** The correctness of a reader that rests on
+a property of the current writers is a correctness that a new writer silently removes — and the
+writer's author has no reason to look here. The head must now sit INSIDE the step:
+`base ≤ head_of_row ≤ child`. The two real `--no-ff` ritual rows still pass, and their control arm
+says so; a red-first arm plants the earlier head and requires the refusal.
+[[feedback-a-join-on-a-lossy-key]] [[feedback-the-burden-is-on-the-departure]]

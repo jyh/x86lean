@@ -468,12 +468,19 @@ def records_step(rec, base, head):
         return False
     if rh == head:
         return True
-    # the ritual's shape, and NOT a general licence: the row's head must be
-    # REACHABLE from the chain's child (so it is the merged branch, not some
-    # other commit that happens to be cheap to diff against) ...
-    if subprocess.run(["git", "merge-base", "--is-ancestor", rh, head],
-                      cwd=ROOT, capture_output=True).returncode != 0:
-        return False
+    # the ritual's shape, and NOT a general licence. The row's head must sit
+    # INSIDE the step: at or after the base, and at or before the chain's child.
+    # ⛔ THE LOWER BOUND WAS MISSING and a row whose head is a commit BEFORE its
+    # own base was ACCEPTED — it would claim to price `base → child` off a
+    # measurement taken from a point earlier than `base` entirely. Not reachable
+    # from either shipped writer (`--backfill` uses order[i+1], `--record` uses
+    # the run's own head_rev), which is exactly why it would have sat here: the
+    # join is what DECIDES whether a row counts, so it must reject an incoherent
+    # row rather than rely on today's writers never producing one.
+    for lo, hi in ((base, rh), (rh, head)):
+        if subprocess.run(["git", "merge-base", "--is-ancestor", lo, hi],
+                          cwd=ROOT, capture_output=True).returncode != 0:
+            return False
     # ... and nothing between them may move a reading.
     return not _touches(rh, head, ["*.lean"] + PROFILER_PATHS)
 
@@ -1085,6 +1092,17 @@ def selftest():
            "RED-FIRST — a row whose head is NOT reachable from the chain's child "
            "does not record the step, however small the diff",
            plant="head off the span")
+    # ⛔ THE LOWER BOUND. A head BEFORE its own base was accepted until 09/06:
+    # `rh` was only required to be reachable FROM the child, never to be at or
+    # after the base, so a row could price a step off a measurement taken earlier
+    # than the step begins.
+    if g_buckets["neither"]:
+        _eb, _eh = g_buckets["neither"][-1]
+        _before = kd.git("rev-parse", _eb + "^")
+        ok(not records_step({"head": _before}, _eb, _eh),
+           "RED-FIRST — a row whose head is a commit BEFORE its own base records "
+           "NOTHING: the head must sit INSIDE the step, not merely upstream of "
+           "the child", plant="head before the base")
     ok(not records_step({}, "x", "y") and not records_step({"head": None}, "x", "y")
        and not records_step({"head": ""}, "x", "y"),
        "RED-FIRST — a row with a missing, null or empty head records NOTHING; an "
