@@ -231,6 +231,52 @@ unmentioned.  [[feedback-a-declared-list-inherits-its-default]]
 [[feedback-a-citation-is-an-ungated-claim]] -/
 def VMovKind.all : List VMovKind := [.dqa, .dqu, .aps, .ups, .apd, .upd]
 
+/-- ⭐⭐ P2 BATCH 36 — WHICH QUADWORD OF THE DESTINATION A HALF-MOVE WRITES.
+
+The four half-moves (`movlps` `movlpd` `movhps` `movhpd`) differ from one another
+in exactly two independent ways, and this is the one with SEMANTIC content: the
+half that is written, and therefore the half that is PRESERVED. -/
+inductive VHalf where
+  /-- The LOW quadword is written; `dst[127:64]` is preserved. `0f 12` / `0f 13`. -/
+  | lo
+  /-- The HIGH quadword is written; `dst[63:0]` is preserved. `0f 16` / `0f 17`. -/
+  | hi
+  deriving DecidableEq, Repr
+
+/-- ⭐⭐ P2 BATCH 36 — THE MANDATORY PREFIX OF A HALF-MOVE, i.e. ITS SPELLING.
+
+⚠️ THIS IS A DIFFERENT FIELD FROM `VMovKind` AND THE DIFFERENCE IS THE ARGUMENT
+FOR IT. `VMovKind`'s entire content is `VMovKind.aligned` — the 16-byte #GP rule —
+and `vloadq`'s docstring is right that a half-move has no such rule to carry (an
+8-byte operand is Exception Type 5, MEASURED on the oracle at three alignments
+with a two-sided control, D119). `VQuadKind`'s content is the PREFIX BYTE, and
+the prefix selects the MNEMONIC: `0f 12` is `movlps` and `66 0f 12` is `movlpd`.
+That is meaningful where an `aligned` answer would not have been, which is why
+this is a kind and not a fifth and sixth constructor. -/
+inductive VQuadKind where
+  /-- No prefix — the `ps` spelling. -/
+  | ps
+  /-- `66` — the `pd` spelling. -/
+  | pd
+  deriving DecidableEq, Repr
+
+/-- Every half, so a claim can be made about the TYPE rather than about a list of
+literals someone remembered to update — `VMovKind.all`'s reason, and batch 35's. -/
+def VHalf.all : List VHalf := [.lo, .hi]
+
+/-- Every spelling, for the same reason. -/
+def VQuadKind.all : List VQuadKind := [.ps, .pd]
+
+/-- The mnemonic a disassembler prints for a half-move.
+
+⚠️ FOUR LITERALS AND NOT A CONCATENATION. This string is walked character by
+character inside a kernel `decide`, and building it with `++` would put that
+work on the hot path — the cost this repository has already paid twice.
+[[feedback-prose-in-a-kernel-reduced-string-is-a-cost]] -/
+def quadMnemonic : VHalf → VQuadKind → String
+  | .lo, .ps => "movlps" | .lo, .pd => "movlpd"
+  | .hi, .ps => "movhps" | .hi, .pd => "movhpd"
+
 /-- ⭐⭐⭐ P2 VECTOR WAVE — THE PACKED-INTEGER BINARY OPERATIONS, and the LANE
 WIDTH is part of the kind rather than a `Size`.
 
@@ -1175,9 +1221,16 @@ inductive Op where
   HIGH quadword that moves. On a load `dst[127:64] ← m64` and **`dst[63:0] is
   PRESERVED`**; on a store `m64 ← src[127:64]`.
 
-  ⛔ IT IS DELIBERATELY NOT A `VMovKind`, and that is not a naming choice. That
-  kind's entire content is `VMovKind.aligned` — the 16-byte #GP rule — and this
-  form HAS no such rule: its memory operand is eight bytes, so SDM Exception
+  ⭐⭐ P2 BATCH 36 WIDENED THIS PAIR FROM `movhps` TO ALL FOUR HALF-MOVES, and the
+  two new fields are the two independent ways they differ: `VHalf` (which
+  quadword is written, and therefore which is PRESERVED) and `VQuadKind` (the
+  mandatory prefix, i.e. the spelling). `mod` selects the MNEMONIC here and not
+  merely the operand shape — `0f 12` is four different mnemonics — which is why
+  these are not the pure spelling change `movapd` was.
+
+  ⛔ IT IS STILL DELIBERATELY NOT A `VMovKind`, and that is not a naming choice.
+  That kind's entire content is `VMovKind.aligned` — the 16-byte #GP rule — and
+  this form HAS no such rule: its memory operand is eight bytes, so SDM Exception
   Type 5 applies and no alignment is required. Giving it a `VMovKind` would force
   a fifth constructor whose `aligned` answer is meaningless, and a field whose
   value means nothing is read by someone eventually. ⚠️ MEASURED, not read off
@@ -1188,15 +1241,18 @@ inductive Op where
 
   ⚠️ TWO CONSTRUCTORS, for exactly the reason `vload`/`vstore` are two: an
   operand pair admitting `mem` on both sides could spell `movhps (%rax),(%rbx)`,
-  which no encoding produces.
+  which no encoding produces. ⭐ AND THE ENCODING RETROACTIVELY JUSTIFIES IT:
+  these four mnemonics have NO register-to-register form at all — at `mod=11`
+  the same opcode is a DIFFERENT mnemonic (`movhlps`, `movlhps`) — so the absence
+  of an `x,x` shape here is the encoding rather than a convenience.
 
   ⭐ THE PRESERVED HALF IS THE CONTENT. A model that CLEARS `dst[63:0]` instead of
   preserving it is bit-identical to this one wherever the low half is already
   zero — the mirror of the `movd`-into-XMM defect (D93), where the oracle merged
   what the SDM clears. Here the SDM preserves, so the wrong model is the one that
   zeroes, and it is caught only by a pre-state whose low quadword is non-zero. -/
-  | vloadh  (dst : XmmReg) (ea : Ea)
-  | vstoreh (ea : Ea) (src : XmmReg)
+  | vloadq  (h : VHalf) (k : VQuadKind) (dst : XmmReg) (ea : Ea)
+  | vstoreq (h : VHalf) (k : VQuadKind) (ea : Ea) (src : XmmReg)
   /-- ⭐⭐ P2 BATCH 22 — `PREFETCHh` (SDM Vol. 2B). 466 instructions across
   `prefetchnta` (315) and `prefetcht0` (151).
 
@@ -1557,7 +1613,7 @@ def opOperands : Op → List Operand
   | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
   -- `movhps` names an address exactly as `vload`/`vstore` do, so the segment and
   -- lock gates see it with no new rule.
-  | .vloadh _ ea | .vstoreh ea _ => [.mem ea]
+  | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => [.mem ea]
   -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
   | .prefetch _ ea => [.mem ea]
   -- No memory operand at all: two register files, no address.
@@ -1691,7 +1747,7 @@ def Op.anyLocked : Op → Bool
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
   | .vmov .. | .vbin .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
-  | .vloadh _ ea | .vstoreh ea _ => ea.lock
+  | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .prefetch _ ea => ea.lock
   | .vmovmsk .. => false
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
@@ -1833,8 +1889,9 @@ def Op.mnemonic : Op → String
   -- names them. See `VMovKind`.
   | .vmov k .. => k.mnemonic
   | .vload k .. | .vstore k .. => k.mnemonic
-  -- ⚠️ ONE spelling for both directions: `0f 16` and `0f 17` are both `movhps`.
-  | .vloadh .. | .vstoreh .. => "movhps"
+  -- ⚠️ THE SPELLING IS THE (half, prefix) PAIR, and both directions of a given
+  -- pair print the same name: `0f 16` and `0f 17` are both `movhps`.
+  | .vloadq h k _ _ | .vstoreq h k _ _ => quadMnemonic h k
   | .prefetch h _ => h.mnemonic
   | .vmovmsk .. => "pmovmskb"
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in

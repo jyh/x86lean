@@ -637,15 +637,23 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- ⚠️ COMPOSED FROM `readMem .q` / `writeMem .q`, the same 64-bit path
   -- `readMem128` is built from, rather than a new primitive — a second route to
   -- the same bytes is a place for the two to disagree.
-  | .vloadh dst ea =>
+  -- ⚠️ THE SPELLING IS DISCARDED, and it must be: `VQuadKind` is the prefix byte
+  -- and the prefix selects only the NAME.  A `step` that branched on it would be
+  -- modelling the disassembler.  The halves are held apart by `check_encodings.py`,
+  -- which is the instrument that can see a prefix.
+  | .vloadq h _ dst ea =>
       let a := ea.addr s nr
+      let m := (s.readMem .q a).setWidth 128
+      match h with
       -- high ← m64; low ← the destination's own low quadword, PRESERVED.
-      let hi := ((s.readMem .q a).setWidth 128) <<< 64
-      let lo := ((s.getXmm dst).setWidth 64).setWidth 128
-      (s.setXmm dst (hi ||| lo)).setRip nr
-  | .vstoreh ea src =>
+      | .hi => (s.setXmm dst ((m <<< 64) ||| ((s.getXmm dst).setWidth 64).setWidth 128)).setRip nr
+      -- low ← m64; high ← the destination's own high quadword, PRESERVED.
+      | .lo => (s.setXmm dst (((((s.getXmm dst) >>> 64).setWidth 64).setWidth 128 <<< 64) ||| m)).setRip nr
+  | .vstoreq h _ ea src =>
       let a := ea.addr s nr
-      (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
+      match h with
+      | .hi => (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
+      | .lo => (s.writeMem .q a ((s.getXmm src).setWidth 64)).setRip nr
 
   -- ⭐⭐ PREFETCHh (SDM Vol. 2B) — ADVANCE RIP AND DO NOTHING ELSE.
   --

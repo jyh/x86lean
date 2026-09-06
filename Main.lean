@@ -2470,7 +2470,7 @@ misreading of "MOVHPS moves 64 bits", and it is caught wherever the loaded value
 and the destination's own halves differ. -/
 def wrongMovhpsLoadsLow (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vloadh d ea =>
+  | .vloadq .hi _ d ea =>
       let nr := s.rip + BitVec.ofNat 64 i.len
       let a := ea.addr s nr
       let hi := (((s.getXmm d) >>> 64).setWidth 64).setWidth 128 <<< 64
@@ -2487,7 +2487,7 @@ score is a joint fact about the model and the pre-states (D117).
 the SDM PRESERVES, so the plausible wrong model is the one that zeroes. -/
 def wrongMovhpsClearsLow (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vloadh d ea =>
+  | .vloadq .hi _ d ea =>
       let nr := s.rip + BitVec.ofNat 64 i.len
       let a := ea.addr s nr
       (s.setXmm d (((s.readMem .q a).setWidth 128) <<< 64)).setRip nr
@@ -2495,10 +2495,10 @@ def wrongMovhpsClearsLow (i : Instr) (s : Cpu) : Cpu :=
 
 /-- ⛔ THE STORE WRITES THE **LOW** QUADWORD. The store-side twin of
 `wrongMovhpsLoadsLow`, and it needs its own arm because the load arms cannot
-reach `vstoreh` at all. -/
+reach `vstoreq` at all. -/
 def wrongMovhpsStoresLow (i : Instr) (s : Cpu) : Cpu :=
   match i.op with
-  | .vstoreh ea r =>
+  | .vstoreq .hi _ ea r =>
       let nr := s.rip + BitVec.ofNat 64 i.len
       let a := ea.addr s nr
       (s.writeMem .q a ((s.getXmm r).setWidth 64)).setRip nr

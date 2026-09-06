@@ -762,8 +762,8 @@ def isMemDestVector (v : Vec) : Bool :=
     -- ⭐ P2 BATCH 20, added in the SAME COMMIT as the constructors, which is what
     -- this function's own doc comment asks for.  `movhps` splits the same way:
     -- the store writes eight bytes of memory, the load does not.
-    | .vloadh .. => false
-    | .vstoreh .. => true
+    | .vloadq .. => false
+    | .vstoreq .. => true
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
     -- does not even READ.
