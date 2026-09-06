@@ -24,7 +24,7 @@ Extending the model and the oracle-availability census across the SIMD/FP bucket
 **Where it stands** — ⚠️ HAND-COPIED from the tools named, so it is a claim and not a reading;
 re-run them rather than quoting this block (`python3 scripts/p2_oracle_support.py`):
 ```
-THE UNASKED REMAINDER    172 pairs / 16,879 instructions   (2026-09-06, after batch 34)
+THE UNASKED REMAINDER    172 pairs / 16,879 instructions   (2026-09-06, after batch 35)
    x86isa IMPLEMENTS       1 pairs /     88     ⇐ pandn @ MMX (mm)
    x86isa DOES NOT       171 pairs / 16,791
    NOT RESOLVED            0 pairs /      0
@@ -183,6 +183,20 @@ qualifier.
      batch run: *"three units' budgets are under what this box invents."* The control passed all
      three, with bands 3-5× smaller. ⇒ 🔑 **"the box's noise" is not a property of the box**, it
      varies several-fold between runs, and no single run supports a sentence about it.
+     [[feedback-a-single-reading-is-about-its-run]]
+   - ⭐⭐ **AND THE BAND MOVED 20x ON ONE UNIT IN ONE DAY, OFF AN IDENTICAL BASE READING** (batch
+     35, 09/06). `Tests.Coverage @decl vectorCoverage`, six passes a side both nights:
+     ```
+       09/06 02:0x   base 1850   head 1880   delta  +30.0   band +-657.3   UNMEASURABLE
+       09/06 03:1x   base 1850   head 1915   delta  +65.0   band  +-32.0   ok  (budget 290.4)
+     ```
+     Same unit, same budget, same repeats, **the same base median of 1850**, and a band that fell
+     from 2.3x the budget to 0.11x of it. The second run resolved a delta the first could not see
+     at all. ⇒ this is the sharpest instance yet of *"the box's noise is not a property of the
+     box"*: it is not a constant to be designed around but a per-run quantity, and a single
+     night's refusal says nothing about whether the NEXT run can decide the same commit.
+     ⚠️ It also means `repeats_to_decide` was answering the wrong question on the first night —
+     no repeat count would have helped, because a different run resolved it at n=6.
      [[feedback-a-single-reading-is-about-its-run]]
    - ⇒ The item is NOT "re-derive `@floor`" and NOT "widen a budget". It is: **reduce the variance
      of the measurement, or gate a quantity that has less of it.**
@@ -421,9 +435,35 @@ qualifier.
    not about this gate, and not yet acted on.
 
    **WHAT IS LEFT, in order:**
-   (a) **`--record` at merge.** The gate is free only if the per-batch gate writes each step's
-       allowance as it lands; until then every window is backfilled and RETROSPECTIVE. One call to
-       `kernel_drift.py --record --readings <the blob `kernel_delta --out` already writes>`.
+   (a) ⛔⛔ **`--record` AT MERGE IS NOT "ONE CALL", AND THE LEDGER IS A DEAD LETTER UNTIL IT IS.**
+       Priced as one call for two sittings. Measured 09/06, and both halves are wrong:
+
+       **(i) THE LEDGER STOPPED 40 COMMITS AGO AND NOTHING NOTICED.** Its 11 rows are all
+       `backfill:`, ending at `5c0159983`; master was 40 commits past that before batch 35.
+       `window_steps` is `rev-list --first-parent`, so all 40 are steps, and the gate's own law is
+       that **a gap is a REFUSAL, not a zero**. Demonstrated, rc 2, no profiling:
+       `kernel_drift.py --anchor 51e760b --head 26eb0b6` → *"the ledger is missing 1 of 1 steps"*.
+       ⇒ the second gate this repository built to answer item 4's refusals **cannot adjudicate any
+       recent window at all**, and could not on the day it shipped. Nothing complained because the
+       only thing that would have complained is the gate itself.
+       🔑 **An unrecorded landing does not merely fail to help — it extends a dead zone.**
+
+       **(ii) AND RECORDING HAS A FIXED POINT.** The ledger is a TRACKED file, so writing step
+       N's row is a commit, and that commit is itself a first-parent step needing a row — whose
+       recording is another commit, and so on. This is not hypothetical: **D154's own commit
+       (`491dcff`), the one that wrote the 11 rows, has no row of its own**, and there is no
+       exemption path in `window_steps` or `accumulated_allowance` for a commit that changes no
+       `.lean`. A design that terminates must break the recursion somewhere. Candidates, none
+       taken here: exempt commits with no `.lean` change (needs an argument that their kernel
+       delta is zero, not an assumption); key rows by TREE rather than commit; or let the ledger
+       lag one commit and price each recording commit from the **head** readings the SAME blob
+       already carries — free, since that tree was profiled — recorded by the next `--record`.
+       ⚠️ Whichever is chosen, the row's key is an **adjacent (parent, child) pair** (all 11 rows
+       are adjacent; master has 0 merge commits) and `--record` keys off the blob's
+       `base_rev`/`head_rev`. So **the commit that lands must be the commit that was measured** —
+       a three-commit branch measured base→tip produces a row matching no step. Batch 35 was
+       squashed to one commit for this reason; the constraint had been silently satisfied by every
+       earlier batch and only bites once anything is recorded.
    (b) **Choose k and register the window as a check.** k is a latency/attribution trade, not a
        resolution knob: refusal falls 17% → 6% → 3% → 1% → 0% at k=1..5 on the loaded night.
    (c) **A measured window on real trees** beyond the k=2 receipt in D154 §8.

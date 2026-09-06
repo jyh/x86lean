@@ -10196,3 +10196,103 @@ green after the row was rewritten. `--selftest` is 6/6 with a control first and 
 plant** among the arms — a shape whose theorem is FALSE, which `lean` must REFUSE, because a
 run in which the kernel checked nothing would otherwise time out at a plausible number.
 [[feedback-ungated-prose-overclaims]] [[feedback-a-certificate-the-kernel-checks]]
+
+## D159 — P2 BATCH 35 lands, and the second gate built to answer item 4's refusals turns out to have been unusable since the day it shipped
+
+Batch 35's tail was mechanical and it is done: the census regenerated, three derived
+artifacts repaired, `ci_local` CLEAN 33 of 33 on master at `0c392cf`. Two things came out
+of the tail that are worth more than the batch.
+
+### 1. THE CENSUS RECIPE REPRODUCES, AND THAT SENTENCE HAD NEVER BEEN TESTED
+
+`docs/DEMAND-CENSUS.md` says its recipe exists *"so the number can be re-derived rather
+than believed"*. Until 09/06 that was itself a belief: no head had re-downloaded the
+corpus, so the document's central self-claim had exactly the status of the claims it warns
+about. Rebuilt whole — all 19 documented packages, ~250 MB, the fetch refusing and naming
+any package it could not get rather than proceeding on a subset. **It reproduces**, on two
+checks whose sources are independent of each other:
+
+* per-column ELF counts match the committed census in **all 10 columns exactly**
+  (2 / 106 / 28 / 1 / 2 / 52 / 19 / 1 / 1 / 1);
+* the assembly-class demand this batch had already published — `movapd` **2,420** ·
+  `movupd` **113**, sum **2,533** — recomputes EXACTLY off the new corpus through
+  `_classify`, which keys by the **objdump mnemonic** and is therefore independent of the
+  model whose growth made the census stale in the first place.
+
+The second is the stronger: a number the batch committed to before the corpus existed on
+this box, re-derived from bytes fetched afterwards. With the corpus held identical, the
+census's movement is attributable to the model alone — "not mapped at all" fell in every
+column and rose in none.
+
+⛔ **AND MY FIRST READING OF THE REBUILD WAS WRONG, BY THE RULE THIS REPOSITORY ALREADY
+OWNS.** An ad-hoc ELF counter read glibc 29 / dav1d 2 / ffmpeg 4 / vpx 3 against the
+committed 28 / 1 / 2 / 1, and I was six objects from filing a corpus-drift finding. All six
+were **symlinks** (`libdav1d.so.7` beside `libdav1d.so.7.0.0`). `elf_targets` already
+refuses them — it skips links and dedupes by inode, under a docstring about this precise
+defect. I had written a SECOND filter that shared the tool's purpose and not its rule,
+which is the shape D143 repaired in `probe_bucket`. 🔑 **When a count disagrees with a
+committed count, recount with the tool's own function before believing your own.**
+
+### 2. ⛔⛔ THE DRIFT GATE HAS NEVER BEEN ABLE TO ADJUDICATE ANYTHING
+
+D154 (09/05) built `kernel_drift.py` as the answer to item 4's refusals, and the reasoning
+is sound and measured: over k=1→11 the accumulated allowance grows **11.4× / 11.2×** while
+the band moves only **1.01× / 1.43×**, so the resolution ratio falls to 0.11× / 0.23×, at
+**zero extra profiling**. Its whole power is over what the per-batch gate REFUSED.
+
+It cannot be run. Demonstrated, rc 2, no profiling:
+
+```
+  $ python3 scripts/kernel_drift.py --anchor 51e760b --head 26eb0b6
+  ⛔ the ledger is missing 1 of 1 steps in this window ...
+```
+
+`docs/delta-allowance-ledger.jsonl` holds **11 rows, every one `backfill:`**, ending at
+`5c0159983` — and master was **40 commits past that** before batch 35 landed.
+`window_steps` is `rev-list --first-parent`, so all 40 are steps, and the gate's own law is
+that **a gap is a REFUSAL, not a zero**. So every window reaching back across them refuses,
+and did on the day the gate shipped.
+
+⇒ 🔑 **AN UNRECORDED LANDING DOES NOT MERELY FAIL TO HELP — IT EXTENDS A DEAD ZONE**, and
+nothing complained for 40 commits because the only instrument that would complain is the
+one the gap disables. A gate whose precondition is maintained by a separate discipline is
+disabled by the first person who forgets, and reports nothing while it is.
+
+⛔ **AND `--record` IS NOT THE "ONE CALL" THE QUEUE PRICED — IT HAS A FIXED POINT.** The
+ledger is a TRACKED file, so writing step N's row is a commit, and that commit is itself a
+first-parent step needing a row. This is not hypothetical: **D154's own commit `491dcff`,
+the one that wrote the 11 rows, has no row of its own**, and there is no exemption in
+`window_steps` or `accumulated_allowance` for a commit that changes no `.lean`. Candidates
+for breaking the recursion are recorded in QUEUE 4g(a); none is taken here, because
+choosing one is a design decision and I found the problem at the end of a batch rather than
+at the start of a sitting.
+
+⚠️ **An operational constraint fell out of the same reading, and it had been silently
+satisfied until now.** A ledger row's key is an **adjacent (parent, child) pair** — all 11
+are adjacent, and master carries 0 merge commits — while `--record` keys the row off the
+readings blob's `base_rev`/`head_rev`. So **the commit that lands must be the commit that
+was measured**: a three-commit branch measured base→tip yields a row matching no step.
+Batch 35 was therefore squashed to one commit and its tree verified byte-identical to the
+measured commit (`git diff 73bc95c HEAD` empty) before landing.
+
+### 3. THE BATCH'S OWN VERDICT, AND THE BAND THAT MOVED 20× IN A DAY
+
+```
+  Tests.Coverage @decl vectorCoverage   base 1850  head 1915  delta +65.0  ±32.0  budget 290.4  ok
+```
+
+The unit D158 is about, and the one that read `+30.0 ± 657.3 UNMEASURABLE` the night
+before **off the same base median of 1850**, resolved cleanly at ±32 — a band that fell
+from 2.3× the budget to 0.11× of it, same repeats, same box, one day apart. The gate's
+overall verdict is still **UNMEASURABLE (rc 3)**: `Tests.Coverage`, `@residue` and
+`pre_states_have_a_returnable_frame` have bands that straddle their budgets. ⚠️ **Every
+unit's point estimate is UNDER its budget; not one delta exceeds its allowance.** The
+refusals are all "the band straddles", never "the delta exceeds", and rc 3 is deliberately
+not rc 1 — *reported as `ok` it is a pass nobody measured, and reported as OVER it is a
+conviction built out of noise*. It is recorded here as neither.
+
+⚠️ The largest single cost is **`@residue` +1435 ms (band ±815, budget 2184)**, which is
+plausibly the §4 gate repair — `vmov_alignment_is_by_kind` now quantifies over
+`VMovKind.all` by `cases` rather than four literals — and not the `movapd`/`movupd`
+semantics at all. That attribution is UNMADE and is the first thing to measure next.
+[[feedback-a-single-reading-is-about-its-run]] [[feedback-a-total-cannot-see-its-parts]]
