@@ -3,7 +3,8 @@
 A **user-level x86-64 ISA semantics in Lean 4** — definitional, executable,
 kernel-checked, and differentially validated against public executable models
 and (from P1) against real hardware. Built from **public sources only** and
-intended to be permissively licensed and published.
+licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)); the repository is
+private until its publication approval lands, and is built to be published.
 
 See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
 [`TRUSTBASE.md`](TRUSTBASE.md) for what is proven and what is trusted,

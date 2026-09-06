@@ -11395,3 +11395,168 @@ never named `movmskps`, so nothing looked.
 ⇒ 🔑 **ORACLE SUPPORT IS PER ITEM.** Seven of seven executing does not license the eighth, and
 here the eighth was the one the batch had already built a field for.
 [[feedback-a-batch-cannot-be-sampled]] [[feedback-a-declared-list-inherits-its-default]]
+
+## D171 — the red-first job that had never been run: a ±2σ test asked 23 times, and an alternation that does not cancel what its comment says it cancels
+
+**The inherited order:** *"attribute the `ci_local --job kernel-delta-redfirst` RED at `c61d7f5`
+(its failing arm compares two copies of ONE commit, so it is the box, not batch 37, but it is
+unowned and nobody here had ever run that job)."* The conclusion — not batch 37's — is right. The
+**cause** handed on with it is wrong, and the difference decides the remedy: "the box" is fixed by
+waiting for quiet, and this cannot be.
+
+### 1. ⛔⛔⛔ THE JOB REDS ON A PERFECTLY QUIET BOX, 95.8% OF THE TIME
+
+`selftest_measure`'s arm 1 profiles two worktrees of the SAME commit and asserts, per unit,
+`|median(head) − median(base)| > K_SIGMA · se` — with `se` estimated from the same readings, and
+the job redding if ANY unit fires. Two things make that not a ±2σ test:
+
+* **`se` has one degree of freedom.** At the CI job's `--repeats 2` there are two readings a side.
+  A normal critical value against an SE estimated from two points is wildly anti-conservative —
+  the textbook `t(0.975, 1)` is **12.7**, not 2.
+* **The question is asked of 23 units and combined with `OR`.**
+
+At `n = 2` the null is exact in closed form. With `d = mean(h) − mean(b) ~ N(0, σ²)`,
+`u = b₁−b₂`, `v = h₁−h₂ ~ N(0, 2σ²)`, and `d` independent of `(u, v)` because
+`cov(x₁+x₂, x₁−x₂) = 0`, writing `c = K·F/√2` (F = `MEDIAN_SE_FACTOR`):
+
+```
+    P(fire) = ∫ 2Φ(−c√x) · ½e^(−x/2) dx  =  1 − c/√(1+c²)          (by parts)
+```
+
+| route | per-unit rate at K=2, n=2 |
+|---|---|
+| closed form above | **12.91 %** |
+| quadrature over the χ²₂ density | 12.91 % |
+| Monte Carlo through the shipped `resolution()`, 400 k | 12.86 % |
+| what the "±2σ" wording implies | 4.55 % |
+
+Over 23 units: **95.8 % family-wise.** The job passed **4.2 %** of the time. The four units that
+fired on 09/06 are what the null predicts — 2.97 expected, `P(≥4) = 34.5 %` — in **mixed signs**,
+at 1.17× and 2.8× their bands, which is the shape of a marginal false positive and not of a bias.
+
+⇒ 🔑 **A PER-UNIT BAND IS NOT A RUN-WIDE CLAIM.** The sentence the arm prints — *"identical trees
+produced no difference THE RUN cannot explain"* — quantifies over every unit, so its threshold has
+to as well. A gate that asks one question 23 times and reds on any answer has 23 chances to be
+wrong and one to be right. **And it survived because nobody had ever run it**: a 95.8 %-red gate
+that is never invoked looks exactly like a gate.
+
+### 2. THE MEASUREMENT, AND THE SAME READINGS JUDGED BOTH WAYS
+
+Arm 1 run for real at `c61d7f5`, `--repeats 4`, 23 units, 8 passes, load 9.0–21.6:
+
+```
+  --repeats 4   OLD rule  1 of 23 fire (X86.State +5.6 ms at 2.59x se)   ⇒ RED
+                NEW rule  0 of 23 fire                                    ⇒ passes
+  --repeats 2   all 36 sub-samples of THOSE SAME readings:
+                OLD reds 29/36 = 81%      NEW reds 2/36 = 6%  (target 5%)
+```
+
+⚠️ The 81 % is a **resampling of one run** — what this run would have told the CI job at its own
+`--repeats 2`, not 36 independent afternoons. It is quoted as the smaller claim it is; the 95.8 %
+is the long-run figure and it comes from the null, not from the box.
+
+### 3. THE REPAIR: A CUT DERIVED FROM THE NULL, AND ITS SECOND SOURCE IS THE GATE
+
+`bias_cut(n, units, α)` — Šidák per-unit target `q = 1 − (1−α)^(1/units)`, inverted through the
+closed form at `n = 2` (`c = (1−q)/√(q(2−q))`, `K = c√2/F`) and through a seeded Monte Carlo over
+`resolution()` itself for `n > 2`. **The two routes agree to 2.1 % at `n = 2` and that agreement is
+an arm** — a threshold derived from the thing it thresholds is the defect this file already
+records three times. `K_SIGMA` is untouched: the merge gate's per-unit band answers a different
+question, and `delta_band_calibration.py --check` still reads `K_SIGMA = 2` and passes.
+
+### 4. ⛔ AND BOTH ERROR RATES ARE CARRIED, BECAUSE A SAFETY BOUND IS FREE TO A SILENT GATE
+
+Swept over the SAME generated draws, family-wise over 23 units:
+
+```
+   n   cut    OLD FP    NEW FP    power at a bias of 1σ / 2σ / 4σ / 8σ
+   2  16.88   95.8%      5.0%        0.5%   1.2%   4.1%  14.8%
+   3   5.51   84.9%      5.0%        1.0%   4.7%  28.7%  88.9%
+   4   4.04   71.6%      5.0%        2.0%  12.7%  68.7%  99.9%
+   6   3.42   65.3%      5.0%        4.3%  32.3%  96.4% 100.0%
+```
+
+⇒ **at `--repeats 2` the arm is bad in BOTH directions**: 95.8 % false red, and blind to any bias
+under ~32× one pass's spread. The CI job is raised to `--repeats 4` (measured price: ~22 min → ~45
+min, because the job runs `measure` twice). And the arm now prints its unpoliced set — derived
+against the BUDGET FILE, not against a number I liked: every unit where `cut · se` exceeds that
+unit's own allowance, i.e. where a bias big enough to flip a verdict passes the arm in silence.
+
+⛔⛔ **AND THAT NUMBER REFUTED THE SENTENCE I HAD ALREADY WRITTEN.** The draft of this section and
+of the workflow comment said the cut at `--repeats 2` exceeds *every* unit's allowance. Computed
+against the budget file on the real `c61d7f5` readings:
+
+```
+   --repeats 2  (cut 16.88)   19 of 23 budgeted units UNPOLICED   worst 23x its allowance
+   --repeats 4  (cut  4.04)   12 of 23 budgeted units UNPOLICED   worst 68x (X86Native)
+```
+
+**Four does not fix it, it halves it.** Some units (`X86Native` at 68×) cannot be policed at any
+repeat count this job can afford — which is D152's `R = band / allowance` arriving in a second
+place. The deliverable is therefore not "the arm is now sound" but "the arm now NAMES the units it
+cannot police", where before it printed one tick over all 23.
+[[feedback-prose-written-before-the-measurement]]
+
+### 5. ⛔⛔ A SECOND DEFECT IN THE SAME FUNCTION: `ABAB` DOES NOT CANCEL A DRIFT
+
+`measure()`'s docstring has said since it was written that *"interleaving makes a monotone drift
+cancel"*. It is arithmetically false. Under `ABAB` the base sits at passes 1, 3, …, 2n−1 and the
+head at 2, 4, …, 2n, so the head's median is exactly **one pass later** at EVERY repeat count: a
+drift of `s` ms/pass lands as a bias of exactly `s`, and no number of repeats reduces it. Driven
+with the noise switched off, the old order returns **−30.00 ms** against a −30.00 ms/pass drift;
+`ABBA` returns **0.00**.
+
+**And the drift is real on this box.** The same 8-pass run, regressed on pass index: **20 of 23
+units slope one way**, the largest `Tests.Coverage @residue` at **+295 ms/pass** (+1.75 % of its
+median). Under the old order that is a +295 ms standing bias riding inside every delta the gate
+reports — in the direction that makes a head look cheaper than its base.
+
+⭐ **The repository already knew.** `kernel_delta_history.py` sweeps forward then REVERSE for
+exactly this reason and has since it was written. Two tools, one repo, and the one with the wrong
+design carried the sentence asserting the right one. The limit is stated rather than implied:
+`ABBA` cancels a LINEAR drift exactly and a curved one only partly.
+[[feedback-a-citation-is-an-ungated-claim]]
+
+### 6. THE DRIFT GATE'S EXEMPTION BUCKET WAS AN `else`
+
+`kernel_drift.py --gap` splits the unrecorded steps three ways and the third was
+`else:` — "changes no `.lean` and neither profiler path". An `else` is not an argument, it is
+whatever is left, and **its gaps all fall to `exempt`, the direction that reports no work.**
+`lean-toolchain` and `lake-manifest.json` change every unit's reading and touch no `.lean`: both
+were exempt by default. No step in the current window touches either, so this corrects a **latent**
+hole and the counts (5 / 5 / 43) are unchanged — which is the point.
+
+The default is inverted: `EXEMPT_RULES` is an allowlist of path prefixes each carrying its reason,
+a step is exempt only when EVERY path it touches is argued, and anything else lands in a fourth
+bucket `unclassified` that **refuses**, with no ratchet, because the correct number of un-argued
+exemptions is zero. The `scripts/` rule is sound for a stated reason: `*.lean` is tested FIRST, so
+a generator can only reach a reading by regenerating a `.lean`, and that regeneration is itself a
+`.lean` diff already bucketed. [[feedback-a-declared-list-inherits-its-default]]
+
+### 7. ⛔ THE LEDGER WAS JOINED ON `base` ALONE, AND `head` WAS NEVER READ
+
+`gap()` said `if b in ledger: continue`. A row whose `base` sat on the chain closed that step **no
+matter what span it had priced**. The path that produces a wrong one is the path this file's own
+usage line recommends: `--backfill` rows the CONSECUTIVE pairs of a walk's `order`, and the
+five-step backfill is **four disjoint spans** — one walk over all nine commits writes four correct
+rows and three bogus ones whose bases are real chain commits. The gap would have read CLOSED.
+[[feedback-a-join-on-a-lossy-key]]
+
+**⭐⭐ And my first repair was wrong, which is how the rule got its shape.** Requiring
+`rec["head"] == h` refused two rows *already in the committed ledger* — and the object refuted the
+check, not the rows. The `--no-ff` ritual measures the BRANCH TIP and writes the row INSIDE the
+merge, so the row's head is the merge's second parent while the chain's child is the merge. Their
+**trees are not equal either**: they differ by exactly the ledger row the ritual just wrote.
+
+⇒ 🔑 **THE INVARIANT IS NOT THE COMMIT AND NOT THE TREE, IT IS THE READING.** A row prices this
+step if what separates its head from the chain's child cannot move a reading — head reachable from
+the child, and no `.lean` and no profiler path between them. Measured: 11 rows name the child
+exactly, 2 are the ritual's shape, and in both the separating diff is
+`docs/delta-allowance-ledger.jsonl` alone. [[feedback-the-burden-is-on-the-departure]]
+
+### 8. WHAT IS NOT DONE
+
+The five `.lean` backfill runs themselves (batches 23, 34, 35, 36a, 36b) are still unmeasured; the
+gap ratchet still reads 5 and is exact. §7 is the precondition for doing them safely, and §6 is the
+argument for the 43 the walk does not need to visit — **one contiguous span per walk**, which is
+now a refusal rather than a convention.

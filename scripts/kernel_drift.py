@@ -120,6 +120,7 @@ import json
 import math
 import os
 import statistics
+import subprocess
 import sys
 import tempfile
 import time
@@ -327,11 +328,116 @@ def window_steps(anchor, head):
 # this file treats it as zero, because "a docs commit cannot change kernel time"
 # is an argument someone still has to write and gate.
 # [[feedback-the-burden-is-on-the-departure]]
-PROFILER_PATHS = ["scripts/kernel_cost.py", "scripts/kernel_delta_budget.txt"]
+# ⛔⛔ `lean-toolchain` AND `lake-manifest.json` WERE ADDED 09/06 (D171) AND THEY
+# WERE THE HOLE. A toolchain bump changes EVERY unit's reading and touches no
+# `.lean` file, so under the two-name list it fell to the exemption bucket — the
+# one direction nobody polices. No step in the current window touches either, so
+# this corrects a LATENT hole rather than a live miscount, and the bucket counts
+# below are unchanged by it. That is the point: it was exempt by DEFAULT, and a
+# default is not an argument. [[feedback-a-declared-list-inherits-its-default]]
+PROFILER_PATHS = ["scripts/kernel_cost.py", "scripts/kernel_delta_budget.txt",
+                  "lean-toolchain", "lake-manifest.json"]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE EXEMPTION ARGUMENT — AN ALLOWLIST, BECAUSE THE OTHER SHAPE IS A DEFAULT
+# ══════════════════════════════════════════════════════════════════════════════
+# ⛔⛔ THE BUCKET USED TO BE `else:` — "changes no `.lean` and none of the two
+# profiler paths" — and an `else` is not an argument, it is whatever is left. Its
+# gaps ALL fall to "exempt", which is the direction that reports no work. A path
+# nobody had thought of (a toolchain pin, a vendored input, a new generated
+# artifact) was exempt the moment it existed, silently, and the only instrument
+# that would have said so was this one.
+#
+# ⇒ THE DEFAULT IS INVERTED. A step is exempt only when EVERY path it touches is
+# matched by a rule below WITH A REASON. Anything unmatched lands in
+# `unclassified`, which is NOT exempt and which REFUSES — once, until a human
+# writes the rule. The ceiling for it is zero and there is no ratchet, because
+# the correct number of un-argued exemptions is none.
+#
+# ⭐ AND THE CLASSIFIER'S ORDER DOES HALF THE WORK. `*.lean` is tested FIRST, so
+# no rule here can ever see a `.lean` file — including a GENERATED one. That is
+# what makes the `scripts/*.py` rule sound: a gate or an analyser can only reach
+# a kernel-time reading by regenerating a `.lean`, and the regeneration is itself
+# a `.lean` diff this classifier has already bucketed. The rule below states that
+# rather than assuming it.
+EXEMPT_RULES = [
+    ("docs/", "a record or a document. `lake` reads nothing under docs/, and a "
+              "`.lean` under it would have been bucketed as `.lean` first."),
+    (".github/", "chooses WHICH gates run. A workflow file is not an input to "
+                 "`lake` and cannot move an elaboration reading."),
+    (".githooks/", "a commit-message scrub. Never read by `lake`."),
+    ("scripts/", "a gate or an analyser (the profiler and the budget registry are "
+                 "bucketed ABOVE this rule). Such a script can reach a reading "
+                 "only by REGENERATING a `.lean` file, and that regeneration is "
+                 "itself a `.lean` diff, bucketed first."),
+    ("README.md", "prose."),
+    ("PROVENANCE.md", "prose."),
+    ("TRUSTBASE.md", "prose."),
+    (".gitignore", "inert."),
+]
+
+
+def _touches_list_has(path):
+    """PROFILER_PATHS membership, as a function so an arm can assert it without
+    re-typing the list — a second copy of a roster is a duplicate born in
+    agreement. [[feedback-a-duplicate-born-in-agreement]]"""
+    return path in PROFILER_PATHS
+
+
+def exempt_reason(path):
+    """The stated reason this path cannot move a kernel-time reading, or None."""
+    for prefix, why in EXEMPT_RULES:
+        if path == prefix or (prefix.endswith("/") and path.startswith(prefix)):
+            return why
+    return None
+
+
+def _changed_paths(base, head):
+    return [p for p in kd.git("diff", "--name-only", base, head).split("\n") if p.strip()]
 
 
 def _touches(base, head, paths):
     return bool(kd.git("diff", "--name-only", base, head, "--", *paths).strip())
+
+
+# ⛔⛔ THE JOIN WAS ON `base` ALONE, AND `head` WAS WRITTEN AND NEVER READ (D171).
+# `gap()` said `if b in ledger: continue`, so ANY row whose base sat on the chain
+# closed that base's step no matter what span it had actually priced. The path
+# that produces a wrong one is the path this file's own usage line recommends:
+# `--backfill` rows the CONSECUTIVE pairs of a walk's `order`, and the five-step
+# backfill it reports is FOUR DISJOINT SPANS, so a single walk over all nine
+# commits would write four correct rows and three bogus ones — whose bases are
+# real chain commits, so the gap would have read CLOSED.
+# [[feedback-a-join-on-a-lossy-key]]
+#
+# ⭐⭐ AND THE FIRST VERSION OF THIS CHECK WAS WRONG, WHICH IS HOW THE RULE BELOW
+# GOT ITS SHAPE. Requiring `rec["head"] == h` refused TWO rows already in the
+# committed ledger — and the object refuted the check, not the rows. The `--no-ff`
+# landing ritual measures the BRANCH TIP and then writes the row INSIDE the merge
+# commit, so the row's head is the merge's SECOND parent and the chain's child is
+# the merge itself. Their trees are not equal either: they differ by exactly the
+# ledger row the ritual just wrote.
+# ⇒ 🔑 THE INVARIANT IS NOT THE COMMIT AND NOT THE TREE, IT IS THE READING. A
+# reading is a function of the `.lean` sources and of the profiler; a row prices
+# this step if what separates its head from the chain's child cannot move either.
+# Measured on the real ledger: 11 rows name the child exactly, 2 are the ritual's
+# shape, and the diff in both is `docs/delta-allowance-ledger.jsonl` alone.
+# [[feedback-the-burden-is-on-the-departure]] [[feedback-inherited-diagnosis-is-a-hypothesis]]
+def records_step(rec, base, head):
+    """Does this ledger row price the step `base` → `head`?"""
+    rh = rec.get("head")
+    if not isinstance(rh, str) or not rh:
+        return False
+    if rh == head:
+        return True
+    # the ritual's shape, and NOT a general licence: the row's head must be
+    # REACHABLE from the chain's child (so it is the merged branch, not some
+    # other commit that happens to be cheap to diff against) ...
+    if subprocess.run(["git", "merge-base", "--is-ancestor", rh, head],
+                      cwd=ROOT, capture_output=True).returncode != 0:
+        return False
+    # ... and nothing between them may move a reading.
+    return not _touches(rh, head, ["*.lean"] + PROFILER_PATHS)
 
 
 def gap_anchor(ledger, head="HEAD"):
@@ -353,16 +459,43 @@ def gap(ledger, head="HEAD"):
                f"there is no anchor to measure a gap from. A ledger disjoint from "
                f"the branch it prices is not an empty gap — it is a wrong ledger.")
     steps = window_steps(anchor, head)
-    out = {"lean": [], "profiler": [], "neither": []}
+    out = {"lean": [], "profiler": [], "neither": [], "unclassified": []}
     for b, h in steps:
-        if b in ledger:
-            continue
+        # ⛔⛔ THE JOIN IS ON `base` AND `head`, NOT ON `base` ALONE (D171). This
+        # read `if b in ledger: continue`, so a row whose `base` sits on the chain
+        # marked its step recorded NO MATTER WHAT ITS `head` SAID — the `head`
+        # field was written, stored, and never read. That is a join on a lossy
+        # key: it prices one step with another's allowance and reads as an
+        # ordinary row.
+        # ⛔ AND THE PATH THAT PRODUCES IT IS THE ONE THIS FILE ASKS A HEAD TO
+        # WALK. `--backfill` rows the CONSECUTIVE pairs of a walk's `order`, so a
+        # walk covering four disjoint spans of the chain (which is exactly the
+        # shape of the five-step backfill this gate reports) writes a correct row
+        # for each span AND a bogus row across each gap between them. The bogus
+        # rows' bases are real chain commits, so under the old join they closed
+        # steps nobody measured — and the gap gate would have reported the
+        # backfill complete. [[feedback-a-join-on-a-lossy-key]]
+        rec = ledger.get(b)
+        if rec is not None:
+            if records_step(rec, b, h):
+                continue
+            refuse(f"⛔ ledger row for base {b[:9]} names head "
+                   f"{str(rec.get('head'))[:9]}, which is neither this base's "
+                   f"first-parent child {h[:9]} nor a commit reachable from it "
+                   f"that differs only in the record. The row prices a span that "
+                   f"is not this step — a WRONG row, not a recorded one. A "
+                   f"`--backfill` walk whose `order` jumps between disjoint spans "
+                   f"writes exactly this; backfill ONE CONTIGUOUS SPAN PER WALK.")
         if _touches(b, h, ["*.lean"]):
             out["lean"].append((b, h))
         elif _touches(b, h, PROFILER_PATHS):
             out["profiler"].append((b, h))
         else:
-            out["neither"].append((b, h))
+            # ⛔ EVERY path must be argued, not merely the step. One unrecognised
+            # file in an otherwise-documentary commit is exactly the shape the
+            # `else` used to swallow.
+            unknown = [p for p in _changed_paths(b, h) if exempt_reason(p) is None]
+            (out["neither"] if not unknown else out["unclassified"]).append((b, h))
     return anchor, steps, out
 
 
@@ -767,7 +900,7 @@ def selftest():
     # asserting `51` would be red by tomorrow and would be *edited* rather than
     # read. [[feedback-a-gate-is-not-exempt-from-its-own-defect]]
     ok(n_recorded + n_missing == len(g_steps) and n_recorded == len(real),
-       f"the three buckets PARTITION the unrecorded steps — "
+       f"the {len(g_buckets)} buckets PARTITION the unrecorded steps — "
        f"{n_recorded} recorded + {n_missing} missing = {len(g_steps)} steps, and "
        f"every ledger row is used exactly once")
     # a ledger disjoint from the branch is a WRONG ledger, not an empty gap.
@@ -783,16 +916,98 @@ def selftest():
     full = {b: _row(b, h, {"M": 1.0}) for b, h in g_steps}
     _, _, empt = gap(full, "HEAD")
     ok(all(not v for v in empt.values()),
-       "...and a ledger recording EVERY step empties all three buckets, so the "
+       f"...and a ledger recording EVERY step empties all {len(empt)} buckets, so the "
        "counts are about the ledger and not a constant", plant="full ledger")
     # ...and removing ONE known `.lean` step must put exactly one back.
     if g_buckets["lean"]:
         one = dict(full)
         del one[g_buckets["lean"][0][0]]
         _, _, b1 = gap(one, "HEAD")
-        ok(len(b1["lean"]) == 1 and not b1["profiler"] and not b1["neither"],
+        ok(len(b1["lean"]) == 1 and not b1["profiler"] and not b1["neither"]
+           and not b1["unclassified"],
            "...and deleting ONE row for a `.lean`-changing step puts exactly that "
            "step, in that bucket, back", plant="one lean step")
+
+    # ── THE JOIN: `base` AND `head`, DRIVEN BOTH WAYS (D171) ──────────────────
+    # ⛔ Every commit below is DERIVED from the live chain, never typed: an arm
+    # naming a sha is an arm that stops being about this branch.
+    ritual = [(b, h, real[b]) for b, h in g_steps
+              if b in real and real[b].get("head") != h]
+    ok(all(records_step(r, b, h) for b, h, r in ritual),
+       f"CONTROL — the {len(ritual)} row(s) written by the `--no-ff` landing "
+       f"ritual ARE accepted: their head is the merge's second parent, reachable "
+       f"from the chain's child and separated from it by no `.lean` and no "
+       f"profiler path")
+    ok(all(_touches(r["head"], h, ["*.lean"] + PROFILER_PATHS) is False
+           for b, h, r in ritual),
+       "...and accepted FOR THAT REASON — the separating diff moves no reading — "
+       "rather than by a sha comparison that happened to hold")
+    if g_buckets["lean"]:
+        lb, lh = g_buckets["lean"][0]
+        ok(not records_step({"head": lb}, lb, lh),
+           "RED-FIRST — a row whose head is separated from the chain's child by a "
+           "`.lean` diff does NOT record the step, even though it is reachable",
+           plant="head short of a .lean step")
+    if len(g_steps) > 2:
+        b0, h0 = g_steps[0]
+        ok(not records_step({"head": g_steps[-1][1]}, b0, h0),
+           "RED-FIRST — a row whose head is NOT reachable from the chain's child "
+           "does not record the step, however small the diff",
+           plant="head off the span")
+    ok(not records_step({}, "x", "y") and not records_step({"head": None}, "x", "y")
+       and not records_step({"head": ""}, "x", "y"),
+       "RED-FIRST — a row with a missing, null or empty head records NOTHING; an "
+       "absent field must not read as a match", plant="headless row")
+
+    # ── THE EXEMPTION ARGUMENT, DRIVEN BOTH WAYS (D171) ───────────────────────
+    # ⛔ The bucket these arms guard used to be an `else`, so there was nothing to
+    # drive: every path was exempt and the arm would have been "does the default
+    # still default". The rules are an allowlist now, so each direction is real.
+    ok(all(w.strip() for _, w in EXEMPT_RULES) and len(EXEMPT_RULES) >= 4,
+       f"CONTROL — every one of the {len(EXEMPT_RULES)} exemption rules carries a "
+       f"stated reason (a rule with no reason is an `else` wearing a name)")
+    ok(exempt_reason("docs/DECISIONS.md") is not None
+       and exempt_reason("scripts/ci_local.py") is not None
+       and exempt_reason(".github/workflows/ci.yml") is not None,
+       "CONTROL — the three path shapes the real window is made of ARE argued, so "
+       "the arms below cannot pass by the rules matching nothing")
+    # ⛔ THE FALSIFIERS. Each of these moves EVERY unit's reading and touches no
+    # `.lean` file, which is exactly the combination the old `else` sent to
+    # "exempt". They must not be exempt.
+    falsifiers = ["lean-toolchain", "lake-manifest.json", "vendor/blas.c",
+                  "Tests/generated.txt", "toolchain/leanc"]
+    unargued = [p for p in falsifiers if exempt_reason(p) is None]
+    ok(len(unargued) == len(falsifiers),
+       "RED-FIRST — a toolchain pin, a manifest, a vendored source and an "
+       "unrecognised artifact are ALL unargued: " + ", ".join(unargued),
+       plant="falsifier paths")
+    ok(exempt_reason("lean-toolchain") is None
+       and _touches_list_has("lean-toolchain"),
+       "...and `lean-toolchain` is ALSO named in PROFILER_PATHS, so it is priced "
+       "as moving the reading rather than merely refused as unknown",
+       plant="toolchain in PROFILER_PATHS")
+    # ⛔ AND THE COMPOSITION, not only the predicate: a step whose diff carries one
+    # unargued path must leave the exempt bucket even when every other path in it
+    # is argued. One unrecognised file in a documentary commit is the shape.
+    if g_buckets["neither"]:
+        victim = g_buckets["neither"][0]
+        real_paths = _changed_paths
+        try:
+            globals()["_changed_paths"] = (
+                lambda b, h: (real_paths(b, h) + ["vendor/sneaky.c"])
+                if (b, h) == victim else real_paths(b, h))
+            _, _, planted = gap(real, "HEAD")
+        finally:
+            globals()["_changed_paths"] = real_paths
+        ok(victim in planted["unclassified"] and victim not in planted["neither"]
+           and len(planted["unclassified"]) == 1,
+           "RED-FIRST — ONE unargued path in an otherwise fully-argued step moves "
+           "that step, and only that step, out of EXEMPT and into UNCLASSIFIED",
+           plant="one unargued path")
+    _, _, live = gap(real, "HEAD")
+    ok(not live["unclassified"],
+       f"...and with nothing planted the real window has 0 unclassified steps, so "
+       f"the arm above measured the plant and not a standing red")
     # ── the ratchet, both directions, and its unparseable case ────────────────
     ok(judge_ratchet(5, 5) is None, "CONTROL — gap == ceiling is silent")
     ok("landed WITHOUT its ledger row" in (judge_ratchet(6, 5) or ""),
@@ -964,9 +1179,10 @@ def main():
         anchor, steps, buckets = gap(ledger, kd.arg("--head", "HEAD"))
         nl, npr, nn = (len(buckets["lean"]), len(buckets["profiler"]),
                        len(buckets["neither"]))
+        nu = len(buckets["unclassified"])
         print(f"── DRIFT GAP from anchor {anchor[:9]} over {len(steps)} "
               f"first-parent step(s); {len(steps) - nl - npr - nn} recorded, "
-              f"{nl + npr + nn} not")
+              f"{nl + npr + nn + nu} not")
         print(f"   {nl:3d}  change a `.lean` file          ⇐ GATED: each needs a real "
               f"measurement")
         for b, h in buckets["lean"]:
@@ -974,8 +1190,32 @@ def main():
         print(f"   {npr:3d}  change no `.lean` but DO change {' or '.join(PROFILER_PATHS)}")
         print(f"        ⚠️  these move the READING or the ALLOWANCE without moving "
               f"the code, so 'nothing to price' is FALSE for them")
-        print(f"   {nn:3d}  change none of the above       ⚠️  an exemption CANDIDATE; "
-              f"nothing here treats it as zero")
+        print(f"   {nn:3d}  EXEMPT — every path argued by a rule in EXEMPT_RULES")
+        seen = {}
+        for b, h in buckets["neither"]:
+            for p in _changed_paths(b, h):
+                why = exempt_reason(p)
+                seen.setdefault(why, set()).add(p)
+        for why, ps in sorted(seen.items(), key=lambda kv: -len(kv[1])):
+            print(f"        · {len(ps):2d} path(s) — {why}")
+            print(f"          {', '.join(sorted(ps)[:6])}"
+                  + (f", … (+{len(ps)-6})" if len(ps) > 6 else ""))
+        print(f"   {nu:3d}  UNCLASSIFIED                   "
+              + ("⛔ NOT exempt — see below" if nu else
+                 "✅ nothing unargued; the exemption is an allowlist, not an `else`"))
+        for b, h in buckets["unclassified"]:
+            unknown = [p for p in _changed_paths(b, h) if exempt_reason(p) is None]
+            print(f"        ⛔ {b[:9]} → {h[:9]}  unargued: {', '.join(unknown[:5])}")
+        # ⛔ NO RATCHET HERE, DELIBERATELY. A ratchet exists so a gate on a
+        # quantity the WORK consumes is not a chore; the correct number of
+        # un-argued exemptions is ZERO and stays zero, so a ceiling would only
+        # be somewhere for one to hide. [[feedback-match-the-gate-units-to-the-growth-law]]
+        if nu:
+            refuse(f"⛔ {nu} step(s) touch a path no rule in EXEMPT_RULES argues "
+                   f"about. They are NOT exempt: an unrecognised path is where a "
+                   f"toolchain pin, a vendored input or a new generated artifact "
+                   f"would arrive, and each of those moves every reading. Add a "
+                   f"rule WITH ITS REASON to EXEMPT_RULES, or price the step.")
         ratchet_p = kd.arg("--ratchet", RATCHET)
         if "--write-ratchet" in sys.argv:
             with open(ratchet_p, "w") as f:
