@@ -76,6 +76,25 @@ qualifier.
      walk over twelve commits that predates every batch now waiting on the gate. Deriving one from
      the runs above would be deriving the allowance from the thing it checks.
      [[feedback-widening-a-gate-needs-a-second-source]]
+   - ⭐⭐ **A LEAD, PROBED FAR ENOUGH TO BE WORTH THE NEXT HEAD'S TIME AND NO FURTHER.** Lean charges
+     HEARTBEATS for the elaborator's `whnf`, and a heartbeat count is **deterministic** — same tree,
+     same number, every run, on any machine. Measured on this box: a `decide` over a 600-element
+     `BitVec` fold under `set_option maxHeartbeats 1000` fails with *"(deterministic) timeout at
+     `whnf`, maximum number of heartbeats (1000) has been reached"*, and it fails **in the
+     elaborator**, before the kernel re-checks the same term. So a `maxHeartbeats` ceiling is a
+     zero-variance, machine-independent gate — everything the millisecond ceilings could not be
+     (D111, D122), and it would travel to a runner, which is the portability claim `ci.yml` still
+     labels a prediction.
+     - ⛔ **AND THE OPEN QUESTION IS EXACTLY WHAT MAKES IT A LEAD AND NOT A PLAN.** Heartbeats are
+       charged for the ELABORATOR's reduction; the gate this repository runs is on the profiler's
+       `type checking` phase, which is the KERNEL's. `decide` does the work TWICE — once in the
+       elaborator (charged, deterministic) and once in the kernel (timed, not charged) — and
+       whether the two track each other **across the changes this gate exists to catch** is
+       unmeasured. ⚠️ Do not build on it before measuring that.
+     - ⭐ The measurement needs no new corpus: `docs/kernel-delta-history-2026-09-04.jsonl` already
+       holds kernel times for twelve commits. Walk the same twelve for heartbeat counts and
+       correlate. A proxy that tracks on twelve real commits is evidence; the argument above is
+       not. [[feedback-two-readings-are-not-two-witnesses]]
 
 5. **Arm 1's number is gated — DISCHARGED (D145).** The identical-trees control's invented delta
    now splits in two: an ASSERTION that it sits inside the run's own band (a difference the run
