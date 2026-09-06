@@ -59,10 +59,39 @@ qualifier.
    bucket and whether a row was a question is split: `NOT_AN_AVAILABILITY_QUESTION` is a declared
    list with a reason per entry, gated for orphans, and the delegation itself is gated by an arm
    that stubs the census's function and requires the answer to move.
-   ⛔ **What remains, and it needs the oracle**: a probe row for `vzeroupper` — `hx` from `clang`
-   like every other row's, verdict from an ACL2 pass at CR4=0x600 — after which the unasked
-   remainder's *implemented* column goes from 1 pair / 1,241 instructions to **0**, and the
-   availability census is finished in the sense D138 could not reach.
+   ✅✅ **DISCHARGED 2026-09-06. THE AVAILABILITY CENSUS IS FINISHED: the unasked remainder's
+   implemented column reads `0 pairs / 0 instructions / 0.0%`** (`p2_oracle_support.py`), so every
+   pair x86isa implements has been ASKED. 171 pairs remain unasked and x86isa implements none of
+   them — asking is impossible, not merely undone.
+
+   ⛔⛔ **AND THIS ROW WAS STALE IN BOTH HALVES, WHICH IS THE SECOND TIME TODAY THE SAME SHAPE COST
+   A RE-DERIVATION.** It read *"what remains, and it needs the oracle: a probe row for
+   `vzeroupper` … after which the implemented column goes from 1 pair / 1,241 instructions to 0,
+   and the availability census is finished"*.
+   * **The `vzeroupper` row already existed, had been run, and its sealed declaration had been
+     REFUTED by the run** (P2 batch 33; the finding is written at its site — the oracle's catalogue
+     declares an exception check its execution does not perform).
+   * **And the column did not go to 0. It read `1 pair / 88` — a DIFFERENT pair**: `pandn` at
+     `MMX (mm)`, surfaced because P2 batch 34 claimed `pandn` at `xmm`, which is another key.
+   ⇒ 🔑 **A PREDICTION ABOUT A TOTAL IS A PREDICTION THAT THE SET WILL NOT MOVE UNDERNEATH IT —
+   and the act that discharges one row is exactly the kind of act that adds another.** Right in
+   direction, wrong in value, and it read as arithmetic because the subtraction was real.
+   [[feedback-a-census-is-per-key-not-per-name]]
+
+   ⭐ **WHAT ACTUALLY FINISHED IT:** one probe row, `pandn %mm1, %mm0` / `0fdfc1`, `hx` from
+   `clang` with `pand %mm1, %mm0` in the same assembly unit as a POSITIVE CONTROL ON THE RECIPE
+   (it came back `0fdbc1`, byte-identical to the `pand_mmx` row already shipped). Declaration
+   SEALED before ACL2 ran, predicted `(executes, executes)` from `inst-listing.lisp`'s two entries
+   being identical in every field but the opcode and sharing a semantic function that is DEFINED —
+   measured `(executes, executes)`, gate CLEAN.
+   ⚠️ **And what that prediction was worth was written down BEFORE the run and is not upgraded
+   now**: it is close to the null model for this table (every shipped MMX row executes in both
+   arms except `pshufw`), so the green is weak evidence about the ORACLE. It is exactly the
+   evidence the CENSUS needs, whose question is *"has this pair been ASKED"*.
+   ⭐ **COST: 16 SECONDS.** This row said *"it needs the oracle"* for three sittings, which read as
+   a heavyweight blocker. Both CR4 arms over all 256 rows are a 16-second run.
+   [[feedback-inherited-diagnosis-is-a-hypothesis]] [[feedback-make-the-probe-cheap]]
+
    ⚠️ Six rows stay excluded ONLY because they were excluded yesterday (`endbr64`, `prefetcht0`,
    `prefetchnta`, `emms`, and the two `CONTROL:` rows). Each maps to a real census bucket under the
    census's rule, so each verdict IS an availability fact this table could carry. Ruling on them
