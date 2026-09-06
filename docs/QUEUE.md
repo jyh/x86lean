@@ -262,9 +262,35 @@ qualifier.
 
    ⇒ **THE NEXT STEP, AND IT IS A BATCH, NOT A TACK-ON**: build the drift gate beside the per-batch
    gate (anchor policy, summed accumulated allowance, its own red probes). Do NOT buy repeats for
-   resolution. NEITHER REPAIR IS BUILT — D153 prices them.
+   resolution. **⭐ BUILT 2026-09-05 as D154 — see 4g.**
    ⛔ Portability unmeasured, as for every candidate in item 4. One box, arm64. The frozen-tree run
    is ONE session on ONE night and its n=6 column rests on five splits.
+
+   ### 4g. ⭐⭐⭐ THE DRIFT GATE IS BUILT AND REGISTERED (D154) — what is left is RECORDING, not design
+   `scripts/kernel_drift.py`: a SECOND gate beside the per-batch gate, judging a window of k landed
+   batches against the SUM of the per-step budgets, read from `docs/delta-allowance-ledger.jsonl`
+   (11 steps x 23 units backfilled from the 09/04 walk). Selftest **16 arms, control first, 9
+   distinct arms catching a plant**; the ledger's derivation and `delta_repair_price.py`'s ten arms
+   are now on the CI gate list too — the latter had never run there at all.
+   ⛔⛔ **THE `k x one budget` SPELLING IS WRONG IN BOTH DIRECTIONS**, and the reason first written
+   for forbidding it was wrong: over the walk's 1,518 cases, **468 (30.8%) sum > flat** (too tight)
+   but **187 (12.3%) sum < flat** (too GENEROUS — it acquits accumulated drift). The trees do not
+   only grow, so "it can only over-convict" was false. The selftest plants BOTH directions.
+   ⚠️ **~48% of gated cases are FLOOR-BOUND** (percentage under `@floor 6`), so the two spellings are
+   identical by construction on half the corpus and the median ratio is 1.0000 at every k. That also
+   means half the units are gated by an ABSOLUTE millisecond number while the budget file's header
+   argues *"the units are percentages BECAUSE a percentage travels"* — a finding about the REGISTRY,
+   not about this gate, and not yet acted on.
+
+   **WHAT IS LEFT, in order:**
+   (a) **`--record` at merge.** The gate is free only if the per-batch gate writes each step's
+       allowance as it lands; until then every window is backfilled and RETROSPECTIVE. One call to
+       `kernel_drift.py --record --readings <the blob `kernel_delta --out` already writes>`.
+   (b) **Choose k and register the window as a check.** k is a latency/attribution trade, not a
+       resolution knob: refusal falls 17% → 6% → 3% → 1% → 0% at k=1..5 on the loaded night.
+   (c) **A measured window on real trees** beyond the k=2 receipt in D154 §8.
+   ⛔ It CANNOT convict where the per-batch gate passed — its whole power is over what that gate
+   REFUSED. Never propose it as a replacement.
 
    ### 4e. ⛔⛔ 4d's DECIDING STATISTIC HAD A PREMISE, AND THE CONTROL BESIDE IT REFUTED IT (D151)
    "14.6x tighter" cannot decide a gate, because **a percentage of `user` is not a percentage of

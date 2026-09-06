@@ -90,22 +90,11 @@ def unit_readings(walk, decl_map):
 # entitled to its own budget against its own base, so the accumulated allowance
 # is the SUM of those k, not k times the first.  Computing it at the call site
 # keeps that decision visible instead of buried in a helper.
-def judge(bs, hs, budget_ms):
-    if not bs or not hs:
-        return None
-    d = statistics.median(hs) - statistics.median(bs)
-    se = kd.resolution(bs, hs)
-    band = kd.K_SIGMA * se
-    if d - band > budget_ms:
-        v = "OVER"
-    elif d + band < budget_ms:
-        v = "ok"
-    else:
-        v = "UNMEASURABLE"
-    n_side = min(len(bs), len(hs))
-    need = kd.repeats_to_decide(n_side, se, abs(d - budget_ms))
-    return {"d": d, "se": se, "band": band, "budget": budget_ms, "verdict": v,
-            "need": need, "n": n_side, "margin": d - budget_ms}
+# ⛔ MOVED INTO THE GATE (D154) AND DELEGATED HERE. This was the second copy of
+# the three-way rule; `kernel_drift.py` would have been the third. The pricing
+# tool must judge EXACTLY as the gate judges or its R numbers price a rule the
+# repository does not merge on, so the delegation is the point and not a tidy-up.
+judge = kd.judge_delta
 
 
 def budget_for(unit, base_ms, default_ms, budgets, floor):

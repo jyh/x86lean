@@ -329,6 +329,43 @@ def repeats_to_decide(n, se, margin):
     return max(n + 1, int(math.ceil(need)))
 
 
+# ⭐⭐⭐ THE THREE-WAY VERDICT FOR **ONE** UNIT, IN ONE PLACE (D154).
+#
+# `verdict()` below judges a whole readings blob and prints a report; this is the
+# rule it applies, per unit, with nothing printed. It is factored out because the
+# repository now has THREE callers of the same six lines — this gate, the pricing
+# tool (`delta_repair_price.judge`), and the DRIFT gate (`kernel_drift.py`) — and
+# a third copy would have been born in agreement with the other two and diverged
+# on the next ordinary append.
+# [[feedback-a-duplicate-born-in-agreement]]
+#
+# ⛔ THE MIDDLE VERDICT IS NOT A ROUNDING CASE. `UNMEASURABLE` means the band
+# straddles the allowance, so THIS RUN cannot say which side the delta is on. It
+# must never be collapsed into either neighbour: reported as `ok` it is a pass
+# nobody measured, and reported as `OVER` it is a conviction built out of noise.
+def judge_delta(bs, hs, budget_ms):
+    """One unit's verdict: {d, se, band, budget, verdict, need, n, margin} or None.
+
+    `budget_ms` is passed IN rather than computed here, because the accumulated
+    allowance of a k-batch window is not one budget and the decision of what a
+    window is entitled to belongs at the call site, where it can be read."""
+    if not bs or not hs:
+        return None
+    d = statistics.median(hs) - statistics.median(bs)
+    se = resolution(bs, hs)
+    band = K_SIGMA * se
+    if d - band > budget_ms:
+        v = "OVER"
+    elif d + band < budget_ms:
+        v = "ok"
+    else:
+        v = "UNMEASURABLE"
+    n_side = min(len(bs), len(hs))
+    return {"d": d, "se": se, "band": band, "budget": budget_ms, "verdict": v,
+            "need": repeats_to_decide(n_side, se, abs(d - budget_ms)),
+            "n": n_side, "margin": d - budget_ms}
+
+
 def profile(worktree, decl_mods):
     r = subprocess.run([sys.executable, KCOST, "--emit-json", "--root", worktree,
                         "--decl-modules", ",".join(decl_mods)],

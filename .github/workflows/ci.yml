@@ -463,6 +463,35 @@ jobs:
       - name: Delta-gate comparison and budget file, driven red
         run: python3 scripts/kernel_delta.py --selftest
 
+      # ⭐⭐ THE SECOND GATE'S OWN RED-FIRST DRIVE (D154). The drift gate judges a
+      # WINDOW of landed batches against the SUM of the per-step budgets, and the
+      # two ways that sum can be got wrong are both planted here: `k x one budget`
+      # under-allows a growing window (30.8% of real cases) and over-allows a
+      # shrinking one (12.3%), so there is an arm for each direction rather than
+      # one for the direction that happens to be commoner.
+      # ⛔ NO ARM COUNT IN THIS NAME — the command prints its own.
+      - name: Drift-gate arithmetic and ledger, driven red
+        run: python3 scripts/kernel_drift.py --selftest
+
+      # ⭐ THE LEDGER IS DERIVED, AND THIS SAYS SO. Every backfilled allowance is
+      # recomputed from the committed walk and required to match. Without it the
+      # window's allowance is a hand-editable number in a data file, which is the
+      # one thing the budget file's own history says not to ship.
+      # ⚠️ It proves the file matches its derivation, never that the derivation is
+      # right; the rule is printed at the check for that reason.
+      - name: Drift allowance ledger is DERIVED from the committed readings
+        run: |
+          python3 scripts/kernel_drift.py \
+            --verify-ledger docs/kernel-delta-history-2026-09-04.jsonl
+
+      # ⛔ THIS TOOL'S TEN ARMS HAD NEVER RUN IN CI (found 09/05). It prices the
+      # repairs D153 chose between and now DELEGATES its verdict rule to the gate
+      # (`kd.judge_delta`), so a divergence between the two would be a divergence
+      # between what the repository merges on and what it prices — and nothing was
+      # watching for it. "Not on the gate list" is where a red hides.
+      - name: Delta repair pricing agrees with the gate it prices, driven red
+        run: python3 scripts/delta_repair_price.py --selftest
+
       # ⭐ THE FREE NUMBER IN THE RULE, GATED (D141). `K_SIGMA` decides how far
       # from its budget a delta must sit before this gate will call it, and a
       # free number in a gate is the kind that gets chosen by what it says about

@@ -1,0 +1,699 @@
+#!/usr/bin/env python3
+"""THE DRIFT GATE — the SECOND kernel-time gate, over a WINDOW of landed batches.
+
+⚖️ **THE ANSWER TO QUEUE ITEM 4f (D153, priced), BUILT AS D154.** The per-batch
+delta gate (`kernel_delta.py`) stays the merge gate and is not touched. This runs
+BESIDE it, over the last k batches instead of the last one.
+
+## WHY A SECOND GATE AND NOT A REPLACEMENT
+
+D152's finding, in one number: `R = band / allowance`. `R < 1` means the
+instrument can see a change the size of the change the gate is willing to permit.
+Measured over 23 gated units on two nights: **R = 0.21 (quiet) and 0.29 (loaded)**,
+and on the loaded night **18% of units could not resolve their own allowance at
+all**. The per-batch gate spends those cases on `UNMEASURABLE` — a refusal, not a
+verdict.
+
+Widening the window fixes the RATIO and nothing else. Over k=1→11 on two
+independent walks the accumulated allowance grows **11.4x / 11.2x** while the band
+moves only **1.01x / 1.43x**, so R falls to **0.11x / 0.23x**. It costs ZERO extra
+profiling: this gate reads two trees exactly as the per-batch gate does, they are
+just further apart.
+
+⛔⛔ **AND IT CANNOT CONVICT WHERE THE PER-BATCH GATE PASSES.** With the allowance
+summed per step, a window that spent under budget every batch is under the summed
+budget by construction. Its whole power is over what the per-batch gate REFUSED
+(17% of cases on the loaded night). That is why it is a SECOND gate: as a
+replacement it would be strictly weaker, and as a tighter gate wearing a repair's
+name it would convict by arithmetic. What it BUYS is latency and attribution —
+a regression is caught k batches late and attributed to a window, not a commit.
+
+## THE ALLOWANCE — THE SUM OF THE PER-STEP BUDGETS, NEVER k x ONE BUDGET
+
+Every budget in `kernel_delta_budget.txt` is a PERCENTAGE (22 of 22; the only
+absolute line is `@floor`), so a step's allowance depends on the tree that step
+started from. A k-batch window is entitled to the sum of the k budgets each batch
+was entitled to, each computed against ITS OWN base.
+
+⛔ `k * effective(budget, base_at_anchor)` is NOT that sum. MEASURED over the
+1,518 (window, unit) cases of the 09/04 walk, the ratio (true sum) / (k x anchor)
+runs **p90 1.033, max 1.185**, and per-k it rises with the window to **p90
+1.09-1.10 and max 1.18-1.20** by k=10. Shipping the flat spelling would under-allow
+the top decile by a fifth and call the shortfall a regression — convictions
+manufactured by the design's own arithmetic.
+[[feedback-widening-a-gate-needs-a-second-source]]
+
+⛔⛔ **AND THE DIFFERENCE IS NOT ONE-DIRECTIONAL — this file said it was, and the
+cross-check refuted it in the same sitting.** The stated reason was *"the tree
+grows across the window, so every later step is entitled to more than the anchor
+was."* The trees do not only grow: of the 1,518 cases, **468 (30.8%) have sum >
+flat, 187 (12.3%) have sum < flat**, and 863 are exactly equal. So the flat
+spelling is not merely a conservative gate that can only over-convict — in an
+eighth of cases it is too GENEROUS and lets accumulated drift through. That
+strengthens the case for the sum and destroys the reason first given for it.
+🔑 An "it can only err in the safe direction" premise is the one to measure.
+[[feedback-conservative-is-a-direction-not-a-margin]]
+
+⚠️ The median ratio is 1.0000, and that is not evidence the difference is small:
+**~48% of gated cases are FLOOR-BOUND** (their percentage falls under `@floor 6`,
+so `effective` returns the constant 6 and the sum IS exactly k x 6). Half the
+corpus agrees by construction and cannot report on the other half. The selftest
+therefore plants BOTH cases — a growing unit where the two spellings differ, and a
+floor-bound unit where they must agree exactly.
+
+## WHERE THE PER-STEP BUDGETS COME FROM — THE LEDGER
+
+This gate profiles two trees. It does not profile the k-1 trees in between, so it
+cannot measure their bases. It does not need to: **the per-batch gate already
+computed each step's allowance when that step merged**, against exactly that
+step's own base. The ledger is that number, written down.
+
+`docs/delta-allowance-ledger.jsonl`, one row per landed step:
+
+    {"base": <sha>, "head": <sha>, "t": ..., "box": ..., "source": ...,
+     "budget_digest": <sha256/16 of the registry that produced these>,
+     "allowance": {unit: ms},     <- the verdict input
+     "base_ms":   {unit: ms}}     <- AUDIT ONLY, never read for a verdict
+
+⛔⛔ **THE ANCHOR IS RE-PROFILED EVERY RUN AND NEVER CACHED.** The refuted cheap
+spelling of this design reads the anchor's TIMING from a previous session instead
+of profiling it: it halves the work and **manufactures 9 convictions that the
+same-session comparison calls `ok`** (OVER 0 → 9, UNMEASURABLE 43 → 71) —
+regressions made out of the difference between two nights, judged by a band that
+does not know the nights differ. The ledger holds ALLOWANCES, which are policy
+numbers, never the readings the delta is computed from. `base_ms` is carried so
+the allowance can be audited and re-derived, and it is dead to every verdict path;
+the selftest perturbs it 10x and requires nothing to move, with a positive control
+that perturbing `allowance` DOES move the verdict, so that silence is informative.
+
+⛔ **A GAP IN THE WINDOW IS A REFUSAL, NOT A ZERO.** A step with no ledger row
+cannot be priced, and a window missing a step's allowance is not a cheaper window.
+Likewise a row whose `budget_digest` differs: summing allowances derived from two
+different registries prices one thing with another's rule.
+[[feedback-a-join-on-a-lossy-key]]
+
+## WHAT IT DOES NOT DO
+
+* It does not measure DETECTION on this repository's history. Both recorded walks
+  return **zero OVER at every k** — the twelve commits landed, so they are all in
+  budget, and a statistic computed over history is computed over things that
+  PASSED. The lever is demonstrated where it can be: on a plant sized to the band
+  in closed form, whose flip point is stated BEFORE the run.
+  [[feedback-a-landed-corpus-cannot-measure-detection]]
+* It does not buy repeats for resolution. The spread SATURATES at n≈3-4
+  (585.9 → 326.7 → 104.4 → 104.1 → 109.5 where 1/sqrt(n) predicts 338 at n=3), so
+  the projection that names a finite N names it for a question no N answers (D153).
+* Its allowances for the backfilled steps are RETROSPECTIVE — computed from a
+  recorded walk, not by the gate that let those batches merge, because this gate
+  did not exist then. Every row says which, and the report counts them.
+
+usage:
+  kernel_drift.py --anchor <rev> [--head HEAD] [--repeats N]   the gate
+  kernel_drift.py --record --readings <kernel_delta --out json> [--ledger P]
+  kernel_drift.py --backfill <walk.jsonl> [--ledger P]
+  kernel_drift.py --selftest
+exit: 0 CLEAN · 1 OVER · 2 REFUSED · 3 UNMEASURABLE
+"""
+import hashlib
+import json
+import math
+import os
+import statistics
+import sys
+import tempfile
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import kernel_delta as kd                              # noqa: E402  the gate itself
+
+ROOT = os.path.dirname(HERE)
+LEDGER = os.path.join(ROOT, "docs", "delta-allowance-ledger.jsonl")
+
+
+def refuse(msg, rc=2):
+    print(msg)
+    sys.exit(rc)
+
+
+# ── the registry digest ──────────────────────────────────────────────────────
+# ⛔ DERIVED FROM THE SHIPPED FILE, never a literal. A gate is not exempt from
+# the defect it polices, and a pinned digest written by hand is a stale literal
+# in an anti-staleness check. [[feedback-a-gate-is-not-exempt-from-its-own-defect]]
+def budget_digest(path):
+    return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE LEDGER
+# ══════════════════════════════════════════════════════════════════════════════
+def load_ledger(path):
+    """{(base, head): row}. Refuses on a step recorded twice with different
+    allowances — the second recording is not a confirmation, it is a fork, and
+    picking one silently prices the window with whichever night was read last."""
+    if not os.path.exists(path):
+        return {}
+    by = {}
+    for ln, line in enumerate(open(path), 1):
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        key = (r["base"], r["head"])
+        prev = by.get(key)
+        if prev is not None and prev["allowance"] != r["allowance"]:
+            refuse(_fork_msg(key, prev, r, ln))
+        by[key] = r
+    return by
+
+
+def _fork_msg(key, prev, new, ln=None):
+    def who(r):
+        return (f"{r.get('source', '?')}  t={r.get('t', '?')}  "
+                f"{str(r.get('box', ''))[:60]}")
+    return (f"⛔ step {key[0][:9]}→{key[1][:9]} is priced TWICE with different "
+            f"allowances:\n"
+            f"   {who(prev)}\n"
+            f"   {who(new)}{f' (line {ln})' if ln else ''}\n"
+            f"   A step has ONE allowance — the one it was entitled to when it "
+            f"merged. Two readings of the same step are two nights, not two "
+            f"witnesses; keep the row that gated it and delete the other.")
+
+
+# ⛔ CHECKED BEFORE ANYTHING IS WRITTEN. The first spelling appended the rows and
+# then re-read the file, so a conflicting `--record` left the bad row ON DISK and
+# every later run refused until someone hand-edited the ledger — a gate that
+# corrupts its own data store and then declines to work. Found by probing the
+# record path rather than by reading it. [[feedback-probe-gates-both-ways]]
+def append_rows(path, rows, existing):
+    seen = dict(existing)
+    for r in rows:
+        key = (r["base"], r["head"])
+        prev = seen.get(key)
+        if prev is not None and prev["allowance"] != r["allowance"]:
+            refuse(_fork_msg(key, prev, r))
+        seen[key] = r
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "a") as f:
+        for r in rows:
+            f.write(json.dumps(r, sort_keys=True) + "\n")
+
+
+def allowances_for(base_units, default_ms, budgets, floor):
+    """{unit: allowance ms} for ONE step, at that step's OWN base reading."""
+    return {u: kd.effective(budgets.get(u, default_ms), ms, floor)
+            for u, ms in base_units.items()}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE WINDOW
+# ══════════════════════════════════════════════════════════════════════════════
+def window_steps(anchor, head):
+    """[(base, head), ...] — the first-parent steps from anchor to head."""
+    out = kd.git("rev-list", "--first-parent", "--reverse", f"{anchor}..{head}")
+    revs = [r for r in out.splitlines() if r.strip()]
+    if not revs:
+        refuse(f"⛔ no commits between {anchor[:9]} and {head[:9]}. A window of zero "
+               f"batches has nothing to accumulate; this gate is not the per-batch "
+               f"gate and must not stand in for it.")
+    chain = [kd.git("rev-parse", anchor)] + revs
+    return [(chain[i], chain[i + 1]) for i in range(len(chain) - 1)]
+
+
+def accumulated_allowance(steps, ledger, digest):
+    """({unit: ms}, unpriced, rows) — the SUM of the per-step budgets.
+
+    ⛔ Never k x one budget: each term is the allowance that step was entitled to
+    against its own base, read from the row written when it merged."""
+    missing = [s for s in steps if s not in ledger]
+    if missing:
+        refuse(f"⛔ the ledger is missing {len(missing)} of {len(steps)} steps in this "
+               f"window, so its allowance cannot be summed:\n" +
+               "".join(f"   {b[:9]} → {h[:9]}\n" for b, h in missing) +
+               f"   A missing step is not a cheaper window. Record it with --record "
+               f"at merge, or --backfill it from a committed walk.")
+    rows = [ledger[s] for s in steps]
+    for s, r in zip(steps, rows):
+        if r.get("budget_digest") != digest:
+            refuse(f"⛔ step {s[0][:9]}→{s[1][:9]} was priced against budget registry "
+                   f"{r.get('budget_digest')} and this run reads {digest}. Summing "
+                   f"allowances from two registries prices the window with a rule it "
+                   f"was never judged by; re-record the window's steps.")
+    # a unit must be priced at EVERY step or it is not priced for the window: the
+    # gaps of a declared list all fall the way its default points, and here that
+    # direction is a larger allowance nobody registered.
+    per_step = [r["allowance"] for r in rows]
+    everywhere = set(per_step[0]).intersection(*per_step[1:]) if per_step else set()
+    anywhere = set().union(*per_step) if per_step else set()
+    alloc = {u: sum(a[u] for a in per_step) for u in everywhere}
+    unpriced = {u: sum(1 for a in per_step if u in a) for u in anywhere - everywhere}
+    return alloc, unpriced, rows
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE VERDICT
+# ══════════════════════════════════════════════════════════════════════════════
+def unit_series(readings, decl_map):
+    """{unit: [ms, ...]} over one side's readings, by the GATE's own flattening."""
+    out = {}
+    for r in readings:
+        for u, v in kd.units_of(r, decl_map).items():
+            out.setdefault(u, []).append(v)
+    return out
+
+
+def judge_window(series_base, series_head, alloc):
+    rows = []
+    for u in sorted(set(series_base) & set(series_head) & set(alloc)):
+        j = kd.judge_delta(series_base[u], series_head[u], alloc[u])
+        if j:
+            j["unit"] = u
+            rows.append(j)
+    return rows
+
+
+def report(rows, unpriced, steps, ledger_rows, alloc, series_base,
+           default_ms, budgets, floor, quiet=False):
+    """(rc, lines). Prints the flat allowance beside the summed one, because the
+    difference between them is what this design turns on and a number no output
+    carries is a claim no reader can check."""
+    lines, k = [], len(steps)
+    out = lines.append
+    backfilled = sum(1 for r in ledger_rows
+                     if str(r.get("source", "")).startswith("backfill"))
+    out(f"── DRIFT over {k} batches  {steps[0][0][:9]} → {steps[-1][1][:9]}")
+    out(f"   allowance = the SUM of {k} per-step budgets"
+        f"{f' ({backfilled} backfilled, retrospective)' if backfilled else ''}")
+    over = [r for r in rows if r["verdict"] == "OVER"]
+    unmeas = [r for r in rows if r["verdict"] == "UNMEASURABLE"]
+    # ⛔ THE `flat` COLUMN IS A CROSS-NIGHT COMPARISON AND MUST SAY SO. It is
+    # k x the budget computed from THIS run's anchor profile, while `allow` sums
+    # allowances priced on the nights those steps merged. The ratio therefore
+    # carries the difference between those nights as well as the trees' growth,
+    # and a reader who takes it for the growth alone is reading a join on a lossy
+    # key. The clean measurement of the two spellings is D154 §2, computed inside
+    # ONE walk. Only `allow` reaches the verdict; `flat` is a diagnostic.
+    # [[feedback-two-readings-are-not-two-witnesses]] [[feedback-a-join-on-a-lossy-key]]
+    out(f"   ⚠️  `flat` = k x the budget from THIS run's anchor; `allow` was priced "
+        f"on the steps' own nights — their ratio is not growth alone.")
+    out(f"   {'unit':<46} {'delta':>10} {'band':>9} {'allow':>10} {'flat':>10} "
+        f"{'sum/flat':>8}  verdict")
+    for r in sorted(rows, key=lambda r: -(r["margin"])):
+        base_med = statistics.median(series_base[r["unit"]])
+        flat = k * kd.effective(budgets.get(r["unit"], default_ms), base_med, floor)
+        ratio = (r["budget"] / flat) if flat > 0 else float("nan")
+        mark = {"OVER": "⛔ OVER", "UNMEASURABLE": "⚠️  UNMEASURABLE",
+                "ok": "   ok"}[r["verdict"]]
+        if quiet and r["verdict"] == "ok":
+            continue
+        out(f"   {r['unit']:<46} {r['d']:>10.1f} {r['band']:>9.1f} "
+            f"{r['budget']:>10.1f} {flat:>10.1f} {ratio:>8.3f}  {mark}")
+    if unpriced:
+        out(f"   ⚠️  {len(unpriced)} unit(s) UNPRICED over this window and therefore "
+            f"NOT judged here — each is priced by the per-batch gate:")
+        for u, n in sorted(unpriced.items()):
+            out(f"      {u:<46} present at {n}/{k} steps")
+    out(f"   {len(rows)} judged · {len(over)} OVER · {len(unmeas)} UNMEASURABLE · "
+        f"{len(unpriced)} unpriced")
+    out(f"   {kd.box_stamp()}")
+    if over:
+        out("⛔ DRIFT FAILED — accumulated kernel time over the window exceeds the sum "
+            "of the budgets those batches were entitled to. The per-batch gate passed "
+            "each of them; this is what it could not see.")
+        rc = 1
+    elif unmeas:
+        out("⚠️  DRIFT UNMEASURABLE on some units — the band straddles the accumulated "
+            "allowance. That is a statement about this run, not about the window.")
+        rc = 3
+    else:
+        out("✅ DRIFT CLEAN over the window.")
+        rc = 0
+    return rc, lines
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SELFTEST — the control runs FIRST, and every plant is sized in closed form
+# ══════════════════════════════════════════════════════════════════════════════
+DIG = "0123456789abcdef"
+
+
+def _row(base, head, alloc, base_ms=None, digest=DIG, source="synthetic"):
+    return {"base": base, "head": head, "allowance": dict(alloc),
+            "base_ms": dict(base_ms or alloc), "budget_digest": digest,
+            "source": source, "t": 0, "box": "synthetic"}
+
+
+def _steps(n):
+    # ⛔ DISTINGUISHABLE IN THE FIRST NINE CHARACTERS, because every refusal in
+    # this file names a step by `sha[:9]`. Sequential integers rendered as 40 hex
+    # digits are all `000000000` there, and an arm asserting that a refusal names
+    # the missing step would pass while it named the wrong one.
+    shas = [hashlib.sha1(str(i).encode()).hexdigest() for i in range(n + 1)]
+    return [(shas[i], shas[i + 1]) for i in range(n)]
+
+
+def _series(level, spread, n, drift=0.0):
+    """n readings around `level`, spread fixed so the band is reproducible."""
+    return [level + drift + (spread if i % 2 else -spread) for i in range(n)]
+
+
+def selftest():
+    fails, caught, arms = [], [], []
+
+    # `plant` is the arm's SHORT NAME, appended when it fires. The summary joins
+    # them, so the list of what this selftest catches is derived from the arms
+    # that ran and cannot go stale against a hand-written sentence.
+    def ok(cond, what, plant=None):
+        print(f"  {'✔' if cond else '✘'} {what}")
+        arms.append(what)
+        if not cond:
+            fails.append(what)
+        elif plant:
+            caught.append(plant)
+
+    # ── THE CONTROL, FIRST. A harness that reds everything reds every plant too,
+    # and a plant probe whose control was never run has told you nothing.
+    # [[feedback-a-plant-probes-control-comes-first]]
+    print("CONTROL — an unplanted window must be CLEAN and must fire no arm:")
+    st = _steps(4)
+    led = {s: _row(*s, {"M": 100.0}) for s in st}
+    alloc, unpriced, rows_l = accumulated_allowance(st, led, DIG)
+    sb = {"M": _series(1000.0, 5.0, 4)}
+    sh = {"M": _series(1000.0, 5.0, 4, drift=10.0)}
+    rows = judge_window(sb, sh, alloc)
+    ok(alloc == {"M": 400.0}, "the accumulated allowance is the SUM of 4 steps (400)")
+    ok(rows and rows[0]["verdict"] == "ok" and not unpriced,
+       "a clean window is `ok`, with nothing unpriced")
+
+    # ── A. THE ALLOWANCE ARITHMETIC ────────────────────────────────────────────
+    print("\nA. THE ALLOWANCE — the sum of the per-step budgets, never k x one:")
+    # A GROWING tree: each step is entitled to 10% of a base that rises 100→800.
+    # sum = 10+20+40+80 = 150 ; k x anchor = 4 x 10 = 40.  The delta is placed
+    # BETWEEN them, so the two spellings give OPPOSITE verdicts on one reading.
+    bases = [100.0, 200.0, 400.0, 800.0]
+    grow = {s: _row(*s, {"G": 0.10 * b}, base_ms={"G": b})
+            for s, b in zip(st, bases)}
+    a_sum, _, _ = accumulated_allowance(st, grow, DIG)
+    flat = 4 * 0.10 * bases[0]
+    ok(abs(a_sum["G"] - 150.0) < 1e-9 and abs(flat - 40.0) < 1e-9,
+       f"a growing window sums to {a_sum['G']:.0f} where k x anchor is {flat:.0f} "
+       f"({a_sum['G'] / flat:.2f}x)")
+    gb = {"G": _series(1000.0, 2.0, 4)}
+    gh = {"G": _series(1000.0, 2.0, 4, drift=90.0)}     # 40 < 90 < 150
+    v_sum = judge_window(gb, gh, a_sum)[0]["verdict"]
+    v_flat = judge_window(gb, gh, {"G": flat})[0]["verdict"]
+    ok(v_sum == "ok" and v_flat == "OVER",
+       f"a delta of 90 is `{v_sum}` against the summed allowance and `{v_flat}` "
+       f"against k x one budget — the flat spelling CONVICTS what the window was "
+       f"entitled to spend", plant="flat-allowance conviction")
+
+    # ⛔ THE OTHER DIRECTION, AND IT IS 12.3% OF THE REAL CORPUS. A window whose
+    # trees SHRINK is entitled to LESS than k x the anchor's budget, so there the
+    # flat spelling is too GENEROUS and lets accumulated drift through. Planting
+    # only the growing case would have left the arm above reading as "the sum is
+    # the larger number", which is false in an eighth of cases.
+    # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+    shrink = {s: _row(*s, {"S": 0.10 * b}, base_ms={"S": b})
+              for s, b in zip(st, reversed(bases))}
+    a_shr, _, _ = accumulated_allowance(st, shrink, DIG)
+    flat_s = 4 * 0.10 * bases[-1]
+    sb_s = {"S": _series(1000.0, 2.0, 4)}
+    sh_s = {"S": _series(1000.0, 2.0, 4, drift=200.0)}     # 150 < 200 < 320
+    v_shr = judge_window(sb_s, sh_s, a_shr)[0]["verdict"]
+    v_flt = judge_window(sb_s, sh_s, {"S": flat_s})[0]["verdict"]
+    ok(a_shr["S"] < flat_s and v_shr == "OVER" and v_flt == "ok",
+       f"a SHRINKING window sums to {a_shr['S']:.0f} where k x anchor is "
+       f"{flat_s:.0f}: a delta of 200 is `{v_shr}` on the sum and `{v_flt}` on the "
+       f"flat spelling — the flat gate is too GENEROUS here, not too tight",
+       plant="flat-allowance acquittal")
+
+    # THE POSITIVE CONTROL FOR THAT ARM: where the budget is FLOOR-BOUND the two
+    # spellings must agree EXACTLY. Without this, the arm above is satisfied by a
+    # gate that simply always takes the larger number.
+    # [[feedback-a-control-can-share-the-blind-spot]]
+    floorb = {s: _row(*s, {"F": 6.0}, base_ms={"F": b}) for s, b in zip(st, bases)}
+    a_fl, _, _ = accumulated_allowance(st, floorb, DIG)
+    ok(a_fl["F"] == 4 * 6.0,
+       "a FLOOR-BOUND unit sums to exactly k x the floor (24) — the two spellings "
+       "agree where they must, so the arm above is not 'always take the larger'")
+
+    # ── B. THE LEDGER REFUSES RATHER THAN INVENTING ────────────────────────────
+    print("\nB. THE LEDGER — a gap is a refusal, not a zero:")
+    for tag, what, mutate in (
+        ("missing step", "a MISSING step refuses and names it",
+         lambda d: d.pop(st[2])),
+        ("foreign registry", "a step priced against a DIFFERENT budget registry refuses",
+         lambda d: d.__setitem__(st[1], _row(*st[1], {"M": 100.0}, digest="beef"))),
+    ):
+        d = dict(led)
+        mutate(d)
+        try:
+            accumulated_allowance(st, d, DIG)
+            ok(False, what, plant=tag)
+        except SystemExit as e:
+            ok(e.code == 2, what, plant=tag)
+    # ...and the positive control: the UNMUTATED ledger must NOT refuse, or every
+    # refusal above is the harness refusing and not the rule.
+    try:
+        accumulated_allowance(st, led, DIG)
+        ok(True, "...and the complete, consistent ledger does NOT refuse")
+    except SystemExit:
+        ok(False, "...and the complete, consistent ledger does NOT refuse")
+
+    # a unit absent from SOME steps is UNPRICED and REPORTED — never silently
+    # dropped, and never given the whole window's allowance from a partial sum.
+    part = dict(led)
+    part[st[1]] = _row(*st[1], {"M": 100.0, "P": 50.0})
+    a_p, unp, _ = accumulated_allowance(st, part, DIG)
+    ok("P" not in a_p and unp.get("P") == 1,
+       "a unit present at 1 of 4 steps is UNPRICED and counted, not summed to a "
+       "partial allowance", plant="partial pricing")
+
+    # ⛔ THE REFUSAL MUST LAND BEFORE THE WRITE. The first spelling of --record
+    # appended the rows and THEN re-read the file to check them, so a conflicting
+    # record left the bad row on disk and every later run refused until a human
+    # edited the ledger. A gate that corrupts its own store and then declines to
+    # work is worse than one that simply declines.
+    with tempfile.TemporaryDirectory() as td:
+        lp = os.path.join(td, "led.jsonl")
+        append_rows(lp, [_row(*st[0], {"M": 100.0}, source="first")], {})
+        before = open(lp).read()
+        try:
+            append_rows(lp, [_row(*st[0], {"M": 999.0}, source="second")],
+                        load_ledger(lp))
+            ok(False, "a conflicting record REFUSES BEFORE writing",
+               plant="write-before-check")
+        except SystemExit as e:
+            ok(e.code == 2 and open(lp).read() == before,
+               "a conflicting record REFUSES and leaves the ledger BYTE-UNCHANGED",
+               plant="write-before-check")
+        append_rows(lp, [_row(*st[1], {"M": 100.0})], load_ledger(lp))
+        ok(len(load_ledger(lp)) == 2,
+           "...and a NON-conflicting step still appends, so the arm above is the "
+           "conflict and not a store that never writes")
+
+    # ── C. THE ANCHOR IS PROFILED, NEVER READ FROM THE LEDGER ──────────────────
+    print("\nC. THE ANCHOR — re-profiled every run, and the ledger's readings are "
+          "dead to the verdict:")
+    # ONE pair of readings, judged against three ledgers that differ ONLY in the
+    # fields under test. `gb`/`gh` are used because their delta (90) is resolvable
+    # against their band (~4): a delta the band swallows can never be convicted by
+    # ANY allowance, so it cannot witness that the allowance was read.
+    big = {s: _row(*s, {"G": 100.0}) for s in st}                      # sum 400
+    pois = {s: _row(*s, {"G": 100.0}, base_ms={"G": 10_000.0}) for s in st}
+    small = {s: _row(*s, {"G": 10.0}) for s in st}                     # sum  40
+    a_big, _, _ = accumulated_allowance(st, big, DIG)
+    a_pois, _, _ = accumulated_allowance(st, pois, DIG)
+    a_small, _, _ = accumulated_allowance(st, small, DIG)
+    v_big = judge_window(gb, gh, a_big)[0]["verdict"]
+    v_pois = judge_window(gb, gh, a_pois)[0]["verdict"]
+    v_small = judge_window(gb, gh, a_small)[0]["verdict"]
+    ok(a_pois == a_big and v_pois == v_big,
+       f"the ledger's `base_ms` perturbed 10x moves NOTHING (`{v_pois}`) — the "
+       f"delta comes from this run's profile, never from a recorded reading",
+       plant="dead base_ms")
+    # ⛔ and its positive control, or the silence above proves only that nothing
+    # reads the ledger at all. [[feedback-a-probe-must-create-its-condition]]
+    ok(v_big == "ok" and v_small == "OVER",
+       f"...while perturbing `allowance` alone moves the SAME readings from "
+       f"`{v_big}` to `{v_small}`, so the arm above is a fact about the field and "
+       f"not about a ledger nobody reads")
+
+    # ── D. DETECTION, ON A PLANT, WITH THE FLIP POINT STATED FIRST ─────────────
+    # ⛔ The corpus cannot supply this: every commit in it landed, so it is over
+    # budget nowhere and the k-curve measures REFUSAL, never DETECTION.
+    print("\nD. DETECTION — a plant over budget every batch, flip point predicted "
+          "BEFORE the run:")
+    # ⛔ SIZED SO THE FLIP IS NOT AT k=2. With a surplus that clears the band in
+    # one step there is exactly ONE sub-flip observation, and 'not convicted
+    # below k' rests on a single cell. The surplus here is a fraction of the
+    # band, so three windows sit below the flip and each is checked.
+    per_step_alloc, over_per_step, spread, n = 10.0, 15.0, 8.0, 4
+    band = kd.K_SIGMA * kd.resolution(_series(1000.0, spread, n),
+                                      _series(1000.0, spread, n))
+    # OVER needs  d - band > alloc, with d = k*over and alloc = k*per_step:
+    #   k*(over - per_step) > band  =>  k > band / (over - per_step)
+    predicted = int(math.floor(band / (over_per_step - per_step_alloc))) + 1
+    print(f"     band={band:.2f}  surplus/batch={over_per_step - per_step_alloc:.1f}"
+          f"  ⇒ PREDICTED first conviction at k={predicted}")
+    seen = {}
+    for k in range(1, predicted + 2):
+        stk = _steps(k)
+        ledk = {s: _row(*s, {"D": per_step_alloc}) for s in stk}
+        ak, _, _ = accumulated_allowance(stk, ledk, DIG)
+        db = {"D": _series(1000.0, spread, n)}
+        dh = {"D": _series(1000.0, spread, n, drift=k * over_per_step)}
+        seen[k] = judge_window(db, dh, ak)[0]["verdict"]
+    ok(all(seen[k] != "OVER" for k in range(1, predicted)),
+       f"below the predicted k the plant is NOT convicted "
+       f"({', '.join(f'k={k}:{seen[k]}' for k in range(1, predicted))})", plant="sub-flip silence")
+    ok(seen[predicted] == "OVER",
+       f"...and it IS convicted at exactly the predicted k={predicted}", plant="at-flip conviction")
+    # the null arm: the same window with NO drift must stay `ok` at that k, or
+    # "convicted at k" is just "everything converts once the window is long".
+    stk = _steps(predicted)
+    ledk = {s: _row(*s, {"D": per_step_alloc}) for s in stk}
+    ak, _, _ = accumulated_allowance(stk, ledk, DIG)
+    v_null = judge_window({"D": _series(1000.0, spread, n)},
+                          {"D": _series(1000.0, spread, n)}, ak)[0]["verdict"]
+    ok(v_null == "ok",
+       f"...while a NULL window of the same length is `{v_null}` — the conviction "
+       f"is the drift, not the window")
+
+    # ── E. THE BAND ────────────────────────────────────────────────────────────
+    print("\nE. THE BAND — one reading a side cannot estimate its own noise:")
+    v1 = judge_window({"M": [1000.0]}, {"M": [1500.0]}, alloc)[0]
+    ok(v1["verdict"] == "UNMEASURABLE" and v1["band"] == float("inf"),
+       "a single reading a side is UNMEASURABLE (infinite band), never silently "
+       "decided — a 500 ms delta against a 400 ms allowance included", plant="single-reading refusal")
+
+    print()
+    if fails:
+        print(f"⛔ drift-gate selftest: {len(fails)} FAILED")
+        for f in fails:
+            print(f"   ✘ {f}")
+        return 1
+    print(f"  {len(arms)} arms, {len(arms) - len(fails)} green; {len(caught)} "
+          f"DISTINCT arms caught a plant: {', '.join(caught)}")
+    print(f"drift-gate selftest: CLEAN — the ARITHMETIC and the LEDGER only, with "
+          f"NO measurement in any arm. A green here says nothing about whether the "
+          f"profiler can see a code change; that is the per-batch gate's "
+          f"--selftest-measure.")
+    return 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+def main():
+    if "--selftest" in sys.argv:
+        return selftest()
+    budget_file = kd.arg("--budget", kd.BUDGET_FILE)
+    default_ms, budgets, floor = kd.read_budgets(budget_file)
+    decl_map = kd.gated_declarations()
+    digest = budget_digest(budget_file)
+    ledger_path = kd.arg("--ledger", LEDGER)
+
+    # ⭐ THE LEDGER IS DERIVED, AND THIS IS WHAT SAYS SO. Same discipline as the
+    # budget file: re-derive every backfilled allowance from the committed walk
+    # and require equality, so a hand-edited allowance cannot ride in under a
+    # generated header. It compares the NUMBERS, not the bytes, because `t` and
+    # `box` are provenance and legitimately differ per append.
+    # ⚠️ WHAT IT PROVES AND WHAT IT DOES NOT: that the file matches its
+    # derivation, never that the derivation is right. The rule is one line —
+    # `effective(budget, that step's own base, floor)` — and it is stated here so
+    # it can be corrected rather than only recomputed.
+    # [[feedback-a-derivation-gate-wraps-a-false-sentence]]
+    walk_v = kd.arg("--verify-ledger")
+    if walk_v:
+        import delta_repair_price as drp
+        w = drp.load_walk(walk_v)
+        ur = drp.unit_readings(w, decl_map)
+        order = w["order"]
+        ledger = load_ledger(ledger_path)
+        tag = f"backfill:{os.path.basename(walk_v)}"
+        want = {}
+        for i in range(len(order) - 1):
+            med = {u: statistics.median(v) for u, v in ur[order[i]].items()}
+            want[(order[i], order[i + 1])] = allowances_for(
+                med, default_ms, budgets, floor)
+        have = {k: r for k, r in ledger.items() if r.get("source") == tag}
+        bad = []
+        for key, alw in want.items():
+            got = have.get(key)
+            if got is None:
+                bad.append(f"   {key[0][:9]}→{key[1][:9]}  ABSENT from the ledger")
+                continue
+            if got.get("budget_digest") != digest:
+                bad.append(f"   {key[0][:9]}→{key[1][:9]}  priced against registry "
+                           f"{got.get('budget_digest')}, this run reads {digest}")
+            for u in sorted(set(alw) | set(got["allowance"])):
+                a, b = alw.get(u), got["allowance"].get(u)
+                if a is None or b is None or abs(a - b) > 1e-9:
+                    bad.append(f"   {key[0][:9]}→{key[1][:9]}  {u}: ledger {b} vs "
+                               f"derived {a}")
+        for key in set(have) - set(want):
+            bad.append(f"   {key[0][:9]}→{key[1][:9]}  in the ledger under {tag} but "
+                       f"not a step of that walk")
+        if bad:
+            refuse(f"⛔ the ledger is not what its own derivation produces "
+                   f"({len(bad)} discrepancies):\n" + "\n".join(bad[:40]) +
+                   f"\n   Regenerate it with --backfill; do not edit it.")
+        n_u = sum(len(a) for a in want.values())
+        print(f"✅ ledger DERIVED: {len(want)} steps x {n_u // max(len(want), 1)} units "
+              f"= {n_u} allowances re-derived from {os.path.basename(walk_v)} and "
+              f"equal to the committed ledger, against registry {digest}.")
+        return 0
+
+    if "--record" in sys.argv or "--backfill" in sys.argv:
+        rows = []
+        saved = kd.arg("--readings")
+        if saved:
+            data = json.load(open(saved))
+            base_units = {}
+            for r in data["readings"]["base"]:
+                for u, v in kd.units_of(r, data.get("decl_map", decl_map)).items():
+                    base_units.setdefault(u, []).append(v)
+            med = {u: statistics.median(v) for u, v in base_units.items()}
+            rows.append(_row(data["base_rev"], data["head_rev"],
+                             allowances_for(med, default_ms, budgets, floor),
+                             base_ms=med, digest=digest, source="gate"))
+        walk = kd.arg("--backfill")
+        if walk:
+            import delta_repair_price as drp
+            w = drp.load_walk(walk)
+            ur = drp.unit_readings(w, decl_map)
+            order = w["order"]
+            for i in range(len(order) - 1):
+                med = {u: statistics.median(v) for u, v in ur[order[i]].items()}
+                rows.append(_row(order[i], order[i + 1],
+                                 allowances_for(med, default_ms, budgets, floor),
+                                 base_ms=med, digest=digest,
+                                 source=f"backfill:{os.path.basename(walk)}"))
+        for r in rows:
+            r["t"] = int(time.time())
+            r["box"] = kd.box_stamp()
+        append_rows(ledger_path, rows, load_ledger(ledger_path))
+        print(f"ledger ← {len(rows)} step(s) → {ledger_path}")
+        return 0
+
+    anchor = kd.arg("--anchor")
+    if not anchor:
+        print(__doc__)
+        return 2
+    head = kd.arg("--head", "HEAD")
+    steps = window_steps(anchor, head)
+    ledger = load_ledger(ledger_path)
+    alloc, unpriced, ledger_rows = accumulated_allowance(steps, ledger, digest)
+    print(f"── DRIFT: re-profiling the anchor {steps[0][0][:9]} and the head "
+          f"{steps[-1][1][:9]} in ONE session ({len(steps)} batches)")
+    data = kd.measure(steps[0][0], head, int(kd.arg("--repeats", "3")))
+    sb = unit_series(data["readings"]["base"], data["decl_map"])
+    sh = unit_series(data["readings"]["head"], data["decl_map"])
+    rows = judge_window(sb, sh, alloc)
+    rc, lines = report(rows, unpriced, steps, ledger_rows, alloc, sb,
+                       default_ms, budgets, floor)
+    print("\n".join(lines))
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

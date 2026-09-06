@@ -9386,3 +9386,209 @@ bands (median gap/band 0.35), and the worst — `X86Native`, `d_A −0.6` agains
 own anchor policy, accumulated-allowance rule and red probes — a batch, not a tack-on.
 ⛔ Portability unmeasured, as for every candidate in item 4. One box, arm64.
 ⛔ The frozen-tree run is ONE session on ONE night, and its n=6 column rests on five splits.
+
+## D154 — QUEUE item 4f BUILT: the drift gate ships as a second gate, and the "flat" allowance it forbids is wrong in BOTH directions, not just the conservative one
+
+D153 priced item 4f and chose **repair B** — gate the accumulated drift of a WINDOW of k landed
+batches, beside the per-batch gate rather than instead of it. This entry builds it:
+`scripts/kernel_drift.py`, the allowance ledger it reads, and the two CI gates that keep the ledger
+honest. Nothing in `kernel_delta.py`'s verdict path changed; the merge gate is untouched.
+
+### 1. THE ALLOWANCE IS THE SUM OF THE PER-STEP BUDGETS, AND THE LEDGER IS WHERE THEY COME FROM
+
+Every budget in `kernel_delta_budget.txt` is a PERCENTAGE (22 of 22 units; the only absolute line is
+`@floor`), so a step's allowance depends on the tree that step started from. The gate profiles two
+trees and cannot measure the k−1 trees between them — and does not need to: **the per-batch gate
+already computed each step's allowance when that step merged**, against exactly that step's own base.
+`docs/delta-allowance-ledger.jsonl` is that number written down, one row per landed step, carrying
+the allowance (the verdict input), the base reading (AUDIT ONLY), and a digest of the registry that
+priced it. Backfilled for the 09/04 walk's eleven steps: **11 steps x 23 units = 253 allowances**,
+registry `18bdabbfe9cf597e`.
+
+⛔ Summing allowances priced against two different registries prices a window with a rule it was
+never judged by, so a digest mismatch is a refusal. So is a missing step: **a gap in the window is
+not a cheaper window.** [[feedback-a-join-on-a-lossy-key]]
+
+### 2. ⛔⛔ THE FORBIDDEN SPELLING IS WRONG IN BOTH DIRECTIONS — AND I HAD WRITTEN DOWN THE WRONG REASON
+
+D153 and my own first docstring justified `sum of per-step budgets` over `k x one budget` like this:
+*"the tree grows across the window, so every later step is entitled to more than the anchor was"* —
+i.e. the flat spelling is merely CONSERVATIVE, too tight, able only to over-convict.
+
+**The cross-check refuted that in the same sitting.** Over the 1,518 (window, unit) cases of the
+09/04 walk:
+
+```
+  sum > flat   468 of 1518   30.8%    the flat gate is too TIGHT — manufactures convictions
+  sum = flat   863 of 1518   56.9%    floor-bound, and identical by construction
+  sum < flat   187 of 1518   12.3%    the flat gate is too GENEROUS — lets drift through
+  ratio sum/flat: median 1.0000 · p90 1.0334 · max 1.1853   (per-k: p90 1.09-1.10 by k=10)
+```
+
+The trees do not only grow. In an eighth of cases the flat window would ACQUIT accumulated drift
+that the summed allowance convicts, so the error is not one an "it can only be too strict" argument
+covers. 🔑 **An "it can only err in the safe direction" premise is exactly the one to measure**, and
+a correct decision is the least-inspected place to leave a wrong reason.
+[[feedback-conservative-is-a-direction-not-a-margin]] [[feedback-audit-the-premise-of-a-right-decision]]
+
+⚠️ And the median ratio is **1.0000 at every k**, which is not evidence the difference is small:
+**~48% of gated cases are FLOOR-BOUND** — their percentage falls under `@floor 6`, so `effective`
+returns the constant 6 and the sum IS exactly k x 6. Half the corpus agrees by construction and can
+say nothing about the other half. A summary statistic over a corpus half of which cannot vary reports
+the frozen half. [[feedback-defects-hide-where-nothing-varies]]
+
+### 3. THE LEDGER AGREES WITH AN INDEPENDENT ROUTE ON 1,518 OF 1,518 CASES
+
+The ledger's accumulated allowance was checked against `delta_repair_price.repair_b`'s own arithmetic
+computed straight from the raw readings — a different code path, written for a different purpose:
+
+```
+  cases compared             1518
+  mismatches (> 1e-9 ms)        0
+  worst absolute difference  0.000e+00 ms
+```
+
+⚠️ Two routes, not two witnesses: both read the same walk file and both call `kd.effective`. What
+this rules out is a transcription or summation defect in the ledger, not a wrong rule shared by both.
+[[feedback-two-readings-are-not-two-witnesses]]
+
+### 4. THE ANCHOR IS RE-PROFILED EVERY RUN, AND THE ARM THAT PROVES IT CARRIES ITS OWN CONTROL
+
+D153 measured the cheap spelling and refuted it: caching the anchor's TIMING instead of profiling it
+**manufactures 9 convictions the same-session comparison calls `ok`** (OVER 0 → 9, UNMEASURABLE
+43 → 71). So the ledger holds ALLOWANCES — policy numbers — and never the readings a delta is
+computed from. `base_ms` rides along for audit and is dead to every verdict path.
+
+⛔ An arm asserting "perturbing `base_ms` changes nothing" is satisfied by a gate that reads no
+ledger at all. It is therefore paired with a positive control on the SAME readings: perturbing
+`allowance` alone moves the verdict `ok` → `OVER`. Silence is only evidence once something has been
+shown to speak. [[feedback-a-probe-must-create-its-condition]]
+
+### 5. THE SELFTEST — 18 ARMS, THE CONTROL FIRST, 10 DISTINCT ARMS CATCHING A PLANT
+
+`python3 scripts/kernel_drift.py --selftest`, ~0.1 s, no measurement in any arm — and it says so,
+because a green here says nothing about whether the profiler can see a code change.
+
+```
+  CONTROL (first)  an unplanted window is `ok`, sums to k x its steps, nothing unpriced
+  A  flat-allowance CONVICTION   growing window: delta 90 is `ok` on the sum (150), `OVER` on flat (40)
+  A  flat-allowance ACQUITTAL    shrinking window: delta 200 is `OVER` on the sum (150), `ok` on flat (320)
+  A  floor-bound agreement       the two spellings are EXACTLY equal where the floor binds
+  B  missing step / foreign registry / partial pricing   each REFUSES, rc 2, naming what it saw
+  B  a conflicting record REFUSES *before* writing, leaving the ledger byte-unchanged
+  C  dead `base_ms` (10x) + its positive control on `allowance`
+  D  detection on a plant: band 16.37, surplus 5.0/batch ⇒ PREDICTED flip at k=4, stated first;
+     UNMEASURABLE at k=1,2,3 and OVER at exactly k=4; a NULL window of the same length stays `ok`
+  E  one reading a side is UNMEASURABLE (infinite band), 500 ms delta against a 400 ms allowance included
+```
+
+⛔ **The detection arm cannot come from the corpus.** Both recorded walks return **zero OVER at every
+k** — the twelve commits landed, so they are in budget everywhere, and the k-curve measures REFUSAL,
+never DETECTION. The flip point is computed in closed form from the gate's own band and asserted
+BEFORE the sweep, so a "best k" search cannot pass it.
+[[feedback-a-landed-corpus-cannot-measure-detection]]
+
+⛔ **Two of my own arms were wrong and the harness caught them, not me.** (i) The positive control in
+C was written against readings whose drift (10) sat under their own band (10.2), so `d − band` was
+NEGATIVE and NO allowance could ever have convicted them — the arm could not have gone green for any
+correct gate, and it went red on the first run. (ii) The detection plant was first sized so the flip
+landed at **k=2**, leaving exactly ONE sub-flip observation; "not convicted below k" then rests on a
+single cell. Re-sized to flip at k=4, three windows sit below it and each is checked.
+[[feedback-a-plant-probes-control-comes-first]] [[feedback-size-the-plant-to-the-gate-not-the-phenomenon]]
+
+⛔ **A THIRD DEFECT WAS FOUND BY PROBING THE `--record` PATH RATHER THAN READING IT**, and it was
+the worst of the four: the first spelling APPENDED the new rows and THEN re-read the file to check
+them. A conflicting record therefore refused *correctly* — after leaving the bad row on disk, so
+every later run refused too, until a human hand-edited the ledger. A gate that corrupts its own data
+store and then declines to work is worse than one that simply declines. The check now runs before
+the write, and the arm asserts the file is BYTE-UNCHANGED after a refusal, with a positive control
+that a non-conflicting step still appends. [[feedback-probe-gates-both-ways]]
+
+⛔ A fourth defect was cosmetic and would have hidden a real one: the synthetic step shas were
+sequential integers in 40 hex digits, so **every one of them renders as `000000000`** in the `sha[:9]`
+that every refusal prints. An arm asserting "the refusal NAMES the missing step" passed while the
+refusal named an indistinguishable string. Now `sha1(i)`.
+
+### 6. WHAT THIS GATE CANNOT DO, STATED SO IT IS NOT ASSUMED
+
+* **It cannot convict where the per-batch gate passed.** With the allowance summed per step, a window
+  under budget every batch is under the summed budget by construction. Its whole power is over what
+  the per-batch gate REFUSED — 17% of cases on the loaded night, 0% on the quiet one. A SECOND gate,
+  never a replacement: as a replacement it is strictly weaker.
+* **It buys latency and attribution, not sensitivity.** A regression is caught k batches late and
+  attributed to a window rather than a commit.
+* **It does not buy repeats.** The spread SATURATES at n≈3-4 (D153); the projection that names a
+  finite N cannot express a floor.
+* **Its backfilled allowances are RETROSPECTIVE** — computed from a committed walk, not by the gate
+  that let those batches merge, because this gate did not exist then. Every row carries `source`, and
+  the report prints how many of its steps are backfilled.
+* **Portability is unmeasured.** One box, arm64. And ~48% of units are gated by an absolute 6 ms
+  floor, so for those the budget file's own argument — *"the units are percentages BECAUSE a
+  percentage travels"* — does not apply. That is a finding about the EXISTING registry, not this gate.
+
+### 7. GATES REGISTERED
+
+```
+  Drift-gate arithmetic and ledger, driven red          kernel_drift.py --selftest
+  Drift allowance ledger is DERIVED                     kernel_drift.py --verify-ledger <walk>
+  Delta repair pricing agrees with the gate it prices   delta_repair_price.py --selftest
+```
+
+⛔ The third was found **off the gate list entirely**: `delta_repair_price.py`'s ten arms had never
+run in CI. It now delegates its verdict rule to `kd.judge_delta`, so a divergence between what the
+repository merges on and what it prices would be exactly the kind of drift nothing was watching for.
+"Not on the gate list" is where a red hides. [[feedback-a-gate-behind-a-failing-step-is-silent]]
+
+The verify-ledger gate was probed in BOTH directions before being registered: green on the committed
+ledger (253 allowances), red on one allowance edited by +0.5 ms, red on a deleted step.
+[[feedback-probe-gates-both-ways]]
+
+⛔ The three-way verdict rule now lives in ONE place, `kd.judge_delta`, called by the gate, the
+pricing tool and the drift gate. It was about to become a third copy born in agreement.
+[[feedback-a-duplicate-born-in-agreement]]
+
+⚠️ **None of these have run on a runner.** GitHub Actions still refuses every job on this account for
+billing (desk FH), so every receipt here is local and arm64.
+
+### 8. THE GATE RUN ON REAL TREES — a k=2 window, two trees profiled in one session
+
+`kernel_drift.py --anchor 144e9a3cf --head 76cb51bd0 --repeats 2`, four passes, ~5.5 min.
+
+```
+  pass base load1=10.17    97s  Tests.Coverage=21800  X86.Syntax=237.0
+  pass head load1=13.49   108s  Tests.Coverage=23700  X86.Syntax=239.0
+  pass base load1=11.95    67s  Tests.Coverage=23400  X86.Syntax=212.0
+  pass head load1=13.94    65s  Tests.Coverage=22300  X86.Syntax=216.0
+
+  23 judged · 0 OVER · 1 UNMEASURABLE · 0 unpriced
+  BOX yukon.lan · macOS-26.6.2-arm64 · 14 cpus · load(1/5/15) 12.10/11.97/10.60 · 22:45:50 PDT
+```
+
+⭐ **D152's finding is visible in the one refusal.** `Tests.Coverage` reads delta **400.0** against a
+band of **2,664.6** and an accumulated allowance of **2,808.0** — R = 0.95, just under one, so at k=2
+the band still very nearly spans the whole allowance and the gate cannot say which side the window is
+on. Everything else resolved. That is the gate behaving exactly as D153 priced it: at k=1 this unit
+is unresolvable on a loaded night, at k=2 it is marginal, and the refusal rate falls with k.
+
+⚠️ **The box was loaded and the two base passes disagree by 7%** — 21,800 and 23,400 on the SAME
+tree — which is where that 2,664.6 band comes from. This is one run on one loaded night; it is not a
+statement about the instrument in general. [[feedback-a-single-reading-is-about-its-run]]
+
+⛔⛔ **AND HERE IS A TRAP THIS REPORT SETS FOR ITS OWN READER, WHICH I NEARLY WALKED INTO.** Every
+`sum/flat` ratio on this window is ≤ 1.000 — 1.000 on the twelve floor-bound units, and 0.772 to
+0.922 on the eleven percentage-bound ones. Read naively that is a beautiful real-data confirmation of
+§2's finding that the flat spelling can be too GENEROUS, and in exactly the direction my first
+reasoning denied. **It is not clean evidence of that, and I will not bank it as such.** `flat` is
+k x the budget computed from TONIGHT's anchor profile, while `allow` sums allowances priced from the
+09/04 walk. The ratio therefore carries the difference between two nights — and tonight's box is the
+loaded one, so tonight's anchor reads high and inflates `flat` — as well as any growth in the trees.
+The clean measurement of the two spellings is §2's, computed entirely INSIDE one walk.
+🔑 A ratio whose numerator and denominator come from different sessions measures the sessions too,
+and it will happily agree with whatever you were hoping to confirm.
+[[feedback-two-readings-are-not-two-witnesses]] [[feedback-a-join-on-a-lossy-key]]
+⇒ The report now prints that caveat itself, on every run, rather than leaving it to a reader who has
+the decision note in front of them.
+
+⚠️ **Twelve of the twenty-three units are FLOOR-BOUND on this window** (`allow` exactly 12.0 = 2 x 6),
+so more than half the table cannot distinguish the two spellings at all — the same blind half §2
+measured at ~48% across the whole walk.
