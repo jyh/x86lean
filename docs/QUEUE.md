@@ -52,6 +52,64 @@ outside the probe's reach for three batches. The availability census is finished
 qualifier.
 
 ### P2 open items, in order
+
+0. ⛔⛔⛔ **THE AVAILABILITY CENSUS STILL ANSWERS "EXECUTES" FOR `movmskps`, AND THAT IS WHY TWO
+   CARRIERS COMMISSIONED A BATCH THAT WOULD UNDO D170.** Opened 2026-09-08 by paris, measured at
+   the object, no ACL2 run needed — the whole finding is readable in `scripts/oracle_availability.py`.
+
+   **What the record already says.** D170 measured `movmskps` STALLING on x86isa (88/88, RIP never
+   advanced, refused-flag CLEAR) and ruled that the model KEEPS `VMovMskKind.ps`, its semantics and
+   its five anchors but does **not** claim it, *because a roster row here means differentially
+   tested*. `FORMS` (line ~95) carries `("movmskps", …, "stalls")` with that reasoning in full.
+
+   **What is still live.** D170's three-valued repair landed in `FORMS` and **not in `P2_FORMS`**,
+   which is the table the availability answer is actually built from:
+   ```
+   line   41   measure_cr4:  got[tag] = "refuses" if refused == 1 else "executes"
+               ⇒ NO RIP TEST, NO STALL STATE — the two-valued classifier D170's own
+                 headline condemns, 850 lines above the row that condemns it.
+   line  917   P2_FORMS:     ("movmskps", "movmskps %xmm1, %eax", "0f50c1", "refuses", "executes")
+   line 1680   the (mnemonic, bucket) availability map is built from **e1** — that "executes".
+   ```
+   `movmskps` is **not** in `NOT_AN_AVAILABILITY_QUESTION`, so nothing excludes it; and **no gate
+   compares `FORMS` against `P2_FORMS`**, so one file declares `stalls` at line 95 and `executes`
+   at line 917 and nothing has ever looked at both.
+
+   ⇒ 🔑 **THE CENSUS IS THE THING THAT ANSWERS "WHAT CAN WE BUILD", SO A DEFECT LEFT IN THE CENSUS
+   TABLE BECOMES A WORK ORDER.** The "1 pair / 53 instructions buildable" residue, the bank's §5
+   "violation", and the relight gate's ⭐ *"claim `movmskps` — the WHOLE buildable-today residue"*
+   are all one reading of `e1`. Acting on it would have re-added the roster row D170 removed.
+   ⇒ 🔑 **AND A FORM'S ABSENCE FROM A ROSTER IS EVIDENCE OF NOTHING UNTIL YOU READ THE DECISION
+   THAT PUT IT THERE.** The absence looked like an escape because the reason lived in a different
+   document — the same shape as this queue's own owed-item refutations, one level up.
+
+   ⚠️ **`P2_FORMS` IS NOT SIMPLY WRONG AND SAYING SO WOULD MISS THE POINT.** Under `measure_cr4`'s
+   vocabulary "executes" is a TRUE statement about the refused flag and a FALSE statement about the
+   world. The defect is the classifier's VALUE SET, not the row
+   ([[feedback-a-classifiers-value-set-is-a-claim]], the card written FROM D170 — and the defect it
+   names survived in the sibling table, which is [[feedback-naming-a-defect-is-not-finding-its-siblings]]:
+   grep the same file for the same shape before writing the decision note).
+
+   **THE REPAIR, ORDERED, AND WHY IT IS NOT DONE HERE.**
+   (a) `measure_cr4`'s emitted ACL2 form must print RIP as well as `flg`/`refused`, and the
+       classifier must gain the stall test `measure` already has (compare against `ENTRY_RIP`).
+       ⛔ **This needs an ACL2 run to verify and the box is at load 10.15/14 against a quiet 4.5,
+       with SaltBench holding precedence — so it is NOT started rather than started unverified.**
+   (b) only then can `P2_FORMS`'s `movmskps` row declare `stalls` and be MEASURED as such.
+       ⚠️ That row is inside the block SEALED at `sha256 = 6e8474ff…`, 2026-09-05T20:02:18Z. The
+       seal is enforced by NO gate (it appears only here and in D170's neighbourhood), so the
+       question is integrity, not mechanism: **record the sealed declaration's refutation, do not
+       retro-fit it.** A seal exists to stop a declaration being fitted to a measurement; D170's
+       measurement came AFTER, and refuting a sealed row is the honest outcome, not a violation.
+   (c) a cross-table gate — `FORMS` and `P2_FORMS` must not declare contradictory verdicts for the
+       same mnemonic. **Pure string work, microseconds, the `p2_structure_check` precedent**, and
+       it is the gate that would have caught this on the day D170 landed. ⛔ It goes RED on the
+       shipped tree today, so it lands WITH (a)+(b) and not before — a gate landed with its one
+       real violation filed as an exception is [[feedback-a-declared-list-inherits-its-default]].
+
+   ⛔ **UNTIL (a)–(c) LAND, `movmskps` IS NOT AVAILABLE WORK AND THE RESIDUE IS NOT "1 pair".**
+   Any head reading a buildable-today count that includes it is reading `e1`.
+
 1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
    `probe_bucket` now calls `demand_census.isa_bucket`, the census's own total rule, instead of
    being a second rule that agreed with it on 256 of 256 rows. `vzeroupper` buckets as
