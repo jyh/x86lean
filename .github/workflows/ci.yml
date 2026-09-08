@@ -66,6 +66,16 @@ on:
   pull_request:
   workflow_dispatch:
 
+# THROTTLE (the Captain, 2026-09-07 17:4x: "let's throttle the CIs"). Measured before this edit: the
+# selftest matrix is three jobs of 68-88 min EACH, fired on EVERY push to EVERY branch (18 CI runs in
+# the 48 h before the Actions budget ran out at 19:05Z 09-06). The 6-min build and the 5-s scrub are
+# not the bill. RULE: a branch push runs the BUILD ONLY; the matrix and kernel-delta run on a PULL
+# REQUEST (the merge gate under the fleet's branch -> CI green -> merge law) and on manual dispatch.
+# A newer push to the same ref cancels the older run, so a PR with ten pushes buys one matrix, not ten.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -443,6 +453,7 @@ jobs:
   # arms, which is exactly the failure this gate exists to prevent.
   selftest:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -493,6 +504,7 @@ jobs:
   # a gate nobody reads.
   kernel-delta:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -614,6 +626,7 @@ jobs:
   # printed: base and head at the SAME commit, which must be CLEAN.
   kernel-delta-redfirst:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
         with:
