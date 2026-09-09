@@ -278,6 +278,34 @@ def instrument(text, report=None):
                 if lines[k].startswith('/--'):
                     j = k
                     continue
+            # ⛔⛔ `--` LINE COMMENTS BETWEEN A DOC COMMENT AND ITS DECLARATION.
+            # This loop walked past attributes and doc comments but stopped at a `--`
+            # line, so `hb_count "n" in` was spliced BETWEEN a `/-- … -/` and the
+            # declaration it documents — leaving the doc comment with nothing to
+            # attach to. Lean then refuses the whole module:
+            #     unexpected token 'hb_count'; expected 'theorem' …
+            # ⇒ **THE ku INSTRUMENT HAD BEEN BROKEN ON THIS REPOSITORY'S OWN TREE SINCE
+            # 2026-09-06 AND NOBODY KNEW**, because every walk taken since was over the
+            # 09-04/09-05 corpus commits, which predate the `--` lines that trigger it.
+            # Measured: 0 broken sites at 144e9a3c and 5c015998, 1 from 7103ff8 to HEAD
+            # (`roster_size_is_158`).
+            # ⇒ 🔑 **A TOOL EXERCISED ONLY ON ITS HISTORICAL CORPUS IS NOT TESTED
+            # AGAINST THE TREE, AND THE CORPUS IS EXACTLY WHERE IT CANNOT BREAK.**
+            # ⚠️ SURGICAL ON PURPOSE: the walk moves past `--` lines ONLY when doing so
+            # reaches a DOC comment. A declaration preceded by ordinary line comments and
+            # no doc comment keeps its previous insertion point, so this cannot silently
+            # relocate any site that was already correct.
+            if prev.lstrip().startswith('--'):
+                c = j - 1
+                while c >= 0 and lines[c].lstrip().startswith('--'):
+                    c -= 1
+                if c >= 0 and lines[c].rstrip().endswith('-/'):
+                    k = c
+                    while k >= 0 and not lines[k].lstrip().startswith('/-'):
+                        k -= 1
+                    if k >= 0 and lines[k].startswith('/--'):
+                        j = k
+                        continue
             break
         sites.append((j, m.group(2)))
     seen = [s for s, _ in sites]
@@ -788,6 +816,28 @@ def selftest():
     i = ls.index('hb_count "d" in')
     arm("both prefixes at once are stepped over",
         ls[i + 1] == "/-- doc -/", ls[i:i + 4])
+
+    # ⛔⛔ THE ARM FOR THE DEFECT THAT BROKE THIS TOOL ON ITS OWN TREE FOR THREE DAYS.
+    # `--` line comments between a doc comment and its declaration stopped the walk-up,
+    # so `hb_count` was spliced BETWEEN `/-- … -/` and the theorem and Lean refused the
+    # module. Measured: 0 broken sites at the 09-04/09-05 corpus commits, 1 from
+    # 7103ff8 to HEAD — so every walk taken since 09-06 would have failed, and none was.
+    t, names = instrument("import X86\n/-- doc -/\n-- a note\n-- another note\n"
+                          "theorem g : True := trivial\n")
+    ls = t.split("\n")
+    i = ls.index('hb_count "g" in')
+    arm("the wrapper steps over `--` lines to precede the DOC COMMENT — the real tree's "
+        "shape since 2026-09-06, and what made Lean refuse the whole module",
+        ls[i + 1] == "/-- doc -/", ls[i:i + 5])
+
+    # ⚠️ CONTROL — the walk crosses `--` lines ONLY to reach a doc comment. With no doc
+    # comment above them the insertion point must NOT move, or this repair would silently
+    # relocate every site that was already correct.
+    t, names = instrument("import X86\n-- just a note\ntheorem h : True := trivial\n")
+    ls = t.split("\n")
+    i = ls.index('hb_count "h" in')
+    arm("CONTROL — `--` lines with NO doc comment above them do not move the site",
+        ls[i + 1].startswith("theorem h"), ls[i:i + 3])
 
     _t, names = instrument("import X86\ndef e := 1\nprivate def f := 2\n"
                            "  def notTopLevel := 3\n")
