@@ -444,15 +444,17 @@ def walk():
             git("checkout", "--detach", c, cwd=wt)
             t0 = time.time()
             hb, err = measure(wt, module)
-            la1, la5, _ = os.getloadavg()
+            la1, la5, la_src = loadavg()
             rec = {"commit": git("rev-parse", c), "module": module,
                    "hb": hb["hb"] if hb else None, "ku": hb["ku"] if hb else None,
                    "orphans": hb["orphans"] if hb else None,
                    "error": err, "load1": la1, "load5": la5,
+                   "load_source": la_src,
                    "secs": round(time.time() - t0, 1), "t": time.time()}
             fh.write(json.dumps(rec) + "\n")
             fh.flush()
-            print(f"{c[:9]}  {rec['secs']:5.1f}s  load1={la1:5.2f}  "
+            _l = f"{la1:5.2f}" if la1 is not None else " none"
+            print(f"{c[:9]}  {rec['secs']:5.1f}s  load1={_l}  "
                   f"decls={len(hb['hb']) if hb else 0:4d}  "
                   f"heartbeats={sum(hb['hb'].values()) if hb else 0:,}  "
                   f"kernel-unfoldings={sum(hb['ku'].values()) if hb else 0:,}"
@@ -464,6 +466,31 @@ def walk():
                        cwd=ROOT, capture_output=True, text=True)
     print(f"\nreadings → {out}")
     return analyse(out)
+
+
+def loadavg():
+    """(1-min, 5-min, source) load average, or (None, None, reason) where the
+    platform has no such notion.
+
+    ⛔⛔ **NEVER ZERO ON FAILURE, AND THIS IS THE ONE THAT WOULD HAVE COST
+    SOMETHING.** `os.getloadavg()` is POSIX-only and raises `AttributeError` on
+    Windows — the platform of the second machine the Captain allocated for item
+    4b. The obvious repair, a `try/except` returning `0.0`, would have written
+    **"load1": 0.0** into every reading taken there, and `load1` is exactly the
+    covariate this campaign's usability rules are argued over: D179's retired
+    rule 4 thresholded it, and every night's census prints its median. ⇒ 🔑 **A
+    MISSING MEASUREMENT DEFAULTED TO ZERO DOES NOT READ AS MISSING — IT READS AS
+    THE MOST FAVOURABLE POSSIBLE OBSERVATION**, a perfectly idle box, on the
+    machine chosen precisely because it is quiet. The absence must be recorded
+    AS an absence, with its reason, and every consumer must be able to see it.
+    [[feedback-a-tool-has-no-concept-of-not-applicable]]
+    [[feedback-a-measurement-without-its-conditions]]
+    """
+    try:
+        a, b, _ = os.getloadavg()
+        return a, b, "os.getloadavg"
+    except (AttributeError, OSError) as e:
+        return None, None, f"unavailable on this platform ({type(e).__name__})"
 
 
 def kernel_readings(path, module):
@@ -867,6 +894,30 @@ def selftest():
     arm("a side with fewer than two readings is REFUSED, not resolved",
         resolves([100.0], [220.0, 420.0]) == (None, float("inf")),
         resolves([100.0], [220.0, 420.0]))
+
+    # ⛔⛔ THE LOAD-ABSENCE CONTRACT, DRIVEN BY BREAKING THE PLATFORM CALL.
+    #     The tempting repair for a POSIX-only API is `except: return 0.0`, and on
+    #     the second machine that writes "load1": 0.0 -- a PERFECTLY IDLE BOX --
+    #     into the covariate this campaign's usability rules are argued over. The
+    #     arm asserts the absence is recorded AS an absence, with a reason.
+    _real = os.getloadavg
+
+    def _boom():
+        raise AttributeError("simulated: no getloadavg on this platform")
+
+    try:
+        os.getloadavg = _boom
+        a, b, srcname = loadavg()
+        arm("a platform without getloadavg yields None, never 0.0",
+            a is None and b is None, f"got {a!r},{b!r}")
+        arm("and it NAMES the reason, so a consumer can see the absence",
+            isinstance(srcname, str) and "unavailable" in srcname, f"got {srcname!r}")
+    finally:
+        os.getloadavg = _real
+    a, b, srcname = loadavg()
+    arm("CONTROL - with the platform call restored, a real reading returns numbers",
+        isinstance(a, float) and isinstance(b, float) and srcname == "os.getloadavg",
+        f"got {a!r},{b!r},{srcname!r}")
 
     print(f"\n{ok}/{n} arms pass")
     return 0 if ok == n else 1
