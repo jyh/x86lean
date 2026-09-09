@@ -302,6 +302,41 @@ def selftest():
         elif plant:
             caught.append(plant)
 
+    # ── walk_origins: provenance FROM THE DATA, and the arms are the shapes that
+    # actually occur. The -1.0 arm is the one that matters: the first version of this
+    # function tested `load1 is None` and would have called a kenai walk POSIX.
+    import tempfile as _tf, os as _os
+    def _origins_walk(rows):
+        fd, p = _tf.mkstemp(prefix="x86lean-origins-", suffix=".jsonl"); _os.close(fd)
+        with open(p, "w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
+        return p
+    _paths = []
+    try:
+        p_win = _origins_walk([{"load1": -1.0, "conditions_before": {"load1": None},
+                        "cpu": {"M": {"user_s": None, "sys_s": None, "real_s": 1.0}}}] * 3)
+        p_posix = _origins_walk([{"load1": 4.5, "cpu": {"M": {"user_s": 2.0, "sys_s": 0.1,
+                                                      "real_s": 2.2}}}] * 3)
+        p_named = _origins_walk([{"origin": "kenai-x86_64", "load1": -1.0}] * 2)
+        p_mixed = _origins_walk([{"load1": -1.0}, {"load1": 4.5}])
+        _paths = [p_win, p_posix, p_named, p_mixed]
+        ok("non-POSIX" in " ".join(walk_origins(p_win)),
+           "walk_origins reads a load1 of -1.0 with absent rusage as NON-POSIX — the "
+           "sentinel is a NUMBER, and testing `is None` called this corpus POSIX")
+        ok("POSIX" in " ".join(walk_origins(p_posix))
+           and "non-POSIX" not in " ".join(walk_origins(p_posix)),
+           "CONTROL — a real load column with real rusage reads as POSIX, so the arm "
+           "above is a measurement and not a function that always says non-POSIX")
+        ok(walk_origins(p_named) == {"kenai-x86_64"},
+           "an explicit `origin` field WINS over every inference")
+        ok("INDETERMINATE" in " ".join(walk_origins(p_mixed)),
+           "mixed load evidence is INDETERMINATE, not silently resolved to either side")
+    finally:
+        for p in _paths:
+            try: _os.unlink(p)
+            except OSError: pass
+
     U = "M"
     # ── CONTROL FIRST: ms EXACTLY proportional to unfoldings, no noise.
     print("CONTROL — a corpus where ms = 5.0 x (ku/1000) exactly:")
@@ -426,10 +461,29 @@ def walk_origins(path):
     named = {r["origin"] for r in rows if r.get("origin")}
     if named:
         return named
-    if rows and all(r.get("load1") is None for r in rows):
-        out.add("unnamed, non-POSIX (all-None load column)")
-    elif rows:
-        out.add("unnamed, POSIX (load column present)")
+    if not rows:
+        return out
+    # ⛔⛔ THE FIRST VERSION OF THIS FUNCTION TESTED `load1 is None` AND WAS WRONG FOR THE
+    # VERY CORPUS IT WAS WRITTEN FOR. `kernel_delta_history` rows carry the TOP-LEVEL
+    # `load1` produced by `kernel_cost._sentinel()`, which is **-1.0**, not null, off
+    # POSIX. I had corrected exactly this belief in the night's seal an hour earlier —
+    # "null" came from D185, which measured `deterministic_cost.py`, a DIFFERENT producer
+    # — and then wrote the uncorrected version into code.
+    # ⇒ 🔑 **CORRECTING A BELIEF IN PROSE DOES NOT CORRECT THE CODE WRITTEN FROM IT.**
+    # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+    # Three signals, strongest first; all are consequences of the platform, not labels.
+    if all(all(c.get("user_s") is None for c in r.get("cpu", {}).values())
+           for r in rows if r.get("cpu")) and any(r.get("cpu") for r in rows):
+        out.add("unnamed, non-POSIX (rusage absent from every reading)")
+    elif all((r.get("conditions_before") or {}).get("load1") is None
+             and r.get("conditions_before") is not None for r in rows):
+        out.add("unnamed, non-POSIX (the honest load field is null throughout)")
+    elif all(r.get("load1") == -1.0 for r in rows):
+        out.add("unnamed, non-POSIX (load sentinel -1.0 throughout)")
+    elif all(isinstance(r.get("load1"), float) and r["load1"] >= 0 for r in rows):
+        out.add("unnamed, POSIX (a real load column)")
+    else:
+        out.add("unnamed, INDETERMINATE (mixed load evidence)")
     return out
 
 
