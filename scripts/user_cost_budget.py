@@ -81,7 +81,7 @@ usage: user_cost_budget.py --readings FILE [--baseline FILE] [--decl-names a,b,c
        SHIPPED quantity only, so the two corpora are a matched pair for that arm
        and their difference is a difference between two DAYS on one box.
 """
-import os, sys, json, statistics
+import os, re, sys, json, statistics
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
@@ -274,6 +274,41 @@ def _fake_rows(level_ms, noise_ms, level_user, noise_user,
     import subprocess as sp
     shas = [sp.run(["git", "rev-parse", c], cwd=ROOT, capture_output=True,
                    text=True).stdout.strip() for c in REAL_COMMITS]
+    # ⛔⛔ REFUSE A SHA THAT DID NOT RESOLVE. THIS COST FIVE DAYS OF RED CI.
+    # MEASURED IN A REAL `--depth 1` CLONE, not assumed: `git rev-parse 144e9a3`
+    # on a commit the clone does not have exits 128 and **ECHOES ITS ARGUMENT** on
+    # stdout — so this comprehension kept the 7-character string `144e9a3`. The
+    # fixture then carried six ids that are DISTINCT but are not commits, and 7 of
+    # 16 arms lost their transfer ratio and their error-rate row while the child
+    # still exited 0.
+    # ⚠️ MY FIRST GUARD HERE TESTED `if not s` — I had assumed rev-parse returned
+    #    EMPTY. It does not, so the guard did not fire, and a probe said so before
+    #    this comment could become a durable false explanation. The signature of a
+    #    shallow clone is **echo**, not silence.
+    # WHERE IT HAPPENS: `actions/checkout@v4` defaults to fetch-depth 1 and the
+    # `build` job did not override it. The sibling gate in this directory has
+    # refused shallow clones BY NAME since it was written — *"a delta gate on a
+    # one-commit checkout scans one commit and reports success"* — and this tool,
+    # which also needs real history, had no such guard.
+    # ⇒ **NAMING A DEFECT IS NOT FINDING ITS SIBLINGS.**
+    # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+    unresolved = [c for c, s in zip(REAL_COMMITS, shas)
+                  if not re.fullmatch(r"[0-9a-f]{40}", s or "")]
+    if unresolved:
+        raise SystemExit(
+            f"⛔ user_cost_budget selftest CANNOT BUILD ITS FIXTURE: git did not "
+            f"resolve {len(unresolved)} of {len(REAL_COMMITS)} commits to a full sha "
+            f"({', '.join(unresolved)}).\n"
+            f"   THAT IS WHAT A SHALLOW CLONE LOOKS LIKE — rev-parse echoes the "
+            f"argument instead of resolving it. CI must check out with "
+            f"`fetch-depth: 0` for this job.\n"
+            f"   Refusing rather than running arms on ids that are not commits, "
+            f"which is how this failed silently for five days.")
+    if len(set(shas)) != len(shas):
+        raise SystemExit(
+            f"⛔ user_cost_budget selftest fixture: the {len(REAL_COMMITS)} commits "
+            f"resolved to only {len(set(shas))} distinct sha(s). Adjacent-pair arms "
+            f"need distinct commits; refusing rather than reporting arms that cannot fire.")
     rows = []
     for sweep in (0, 1):
         for i, sha in enumerate(shas):

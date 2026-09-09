@@ -12,6 +12,15 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
   `github.com/jyh/x86lean`, **PRIVATE** (measured with `gh`, `isPrivate: true`), and `local` =
   the bare repo on the backup volume. ⛔ **PUSH BOTH AT EVERY LANDING** (the Captain's row-ES
   order of 09/03).
+  ⛔⛔ **AND A LANDING IS NOT ALWAYS A SEAT'S PUSH — MEASURED 2026-09-09.** A pull request merged
+  in the GitHub UI lands on `origin` **and on nothing else**: no seat runs a command, so the
+  row-ES discipline never fires and the `local` tier silently falls behind. Measured at the object
+  that day — `evidence` merged PR #1 at 11:15 and `local` sat one commit behind `origin` until the
+  next seat push happened to carry it. ⇒ 🔑 ***A RULE PHRASED AS "DO X AT EVERY LANDING" IS ONLY
+  AS GOOD AS THE ASSUMPTION THAT EVERY LANDING PASSES THROUGH A HAND THAT CAN DO X.***
+  ⇒ **After any merge you did not perform: `git fetch origin && git push local
+  origin/master:master` before trusting the tiers.** Nothing polls this; the divergence is
+  invisible until someone compares the two `ls-remote`s, which is how it was found.
   ⛔ *This bullet read "the scrub gates are ported before the first push to any public remote.
   **No remote exists yet.**" until 2026-09-09 — false for six days, in the first file every
   session in this repo reads.* **AND BOTH HALVES OF IT WERE FALSE TOGETHER, WHICH IS WHY

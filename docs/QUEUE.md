@@ -31,7 +31,36 @@ BECAUSE IT RETIRES THE HABIT OF LOOKING.*** Two lives of banks recorded "every g
 of the LOCAL gates they ran, and silent about the one they had been told was dead.
 [[feedback-a-gate-behind-a-failing-step-is-silent]]
 
-**THE FAILING STEP,** narrowed but **NOT yet diagnosed**, and it is stated at exactly that depth:
+### ⚖️ DIAGNOSED AND REPAIRED 2026-09-09, AND THE CAUSE WAS A CHECKOUT
+`actions/checkout@v4` **defaults to `fetch-depth: 1`**, and the `build` job did not override it.
+`user_cost_budget`'s selftest builds its fixture from **six REAL commits** via `git rev-parse`.
+⛔ **Measured in a real `--depth 1` clone, not assumed: `git rev-parse 144e9a3` on a commit the
+clone lacks exits 128 and ECHOES ITS ARGUMENT on stdout.** So the fixture carried six ids that are
+DISTINCT but are not commits, 7 of 16 arms lost their transfer ratio and error-rate row, and **the
+child still exited 0 throughout.**
+```
+  local, with the six ids replaced by unresolvable ones ....  FAIL 7 of 16   ← reproduced exactly
+  local, unmodified, python 3.12 / 3.13 / 3.14 ............  PASS 16/16
+  a real `git clone --depth 1` of this repo ................  now REFUSES, naming fetch-depth
+```
+⇒ 🔑 **A FIXTURE THAT SILENTLY DEGENERATES DOES NOT LOOK BROKEN — IT LOOKS LIKE A MEASUREMENT WITH
+NOTHING TO SAY.** Seven arms reported "no transfer line" and not one could say why.
+⛔ **AND THE SIBLING WAS ALREADY GUARDED.** `check_private_paths` has refused shallow clones BY NAME
+since it was written — *"a delta gate on a one-commit checkout scans one commit and reports
+success"* — and two other jobs in `ci.yml` already carry `fetch-depth: 0` under a comment saying it
+is LOAD-BEARING. ⇒ **NAMING A DEFECT IS NOT FINDING ITS SIBLINGS.**
+⚠️ **AND MY FIRST GUARD WAS WRONG:** it tested `if not s`, on the assumption that rev-parse returns
+EMPTY. It returns an ECHO, so the guard did not fire — caught by a probe **before** the false
+mechanism became a durable comment. The signature of a shallow clone is echo, not silence.
+
+**TWO REPAIRS, both driven:** `fetch-depth: 0` on the `build` job, and the fixture now REFUSES any
+id that is not a resolved 40-hex sha (and refuses non-distinct ids), naming the remedy in its own
+message. Verified: rc 1 in a real shallow clone, rc 0 in a full one.
+
+*(Kept below as first written, because the value of this row is that it was filed at the depth it
+had been measured to and not one word deeper.)*
+
+**THE FAILING STEP,** narrowed but **NOT yet diagnosed** *(as of the filing; see above)*, stated at exactly that depth:
 `python3 scripts/user_cost_budget.py --selftest` → **FAIL (7 of 16 arms)**.
 ```
   locally   PASS 16/16 under python 3.12.13, 3.13.1 AND 3.14.4   ⇒ NOT a Python-version defect

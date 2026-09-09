@@ -80,7 +80,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # ⛔⛔ `fetch-depth: 0` IS LOAD-BEARING HERE TOO, AND ITS ABSENCE COST FIVE
+      # DAYS OF RED. `actions/checkout@v4` defaults to depth 1. The User-CPU budget
+      # step builds its fixture from six REAL commits via `git rev-parse`; on a
+      # depth-1 clone those resolve to EMPTY STRINGS, six commits collapse into
+      # one, and 7 of 16 arms lose their transfer ratio while the child still
+      # exits 0. Two other jobs in this file already carry this line with a comment
+      # saying it is load-bearing — the sibling was never swept for.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: leanprover/lean-action@v1
         with:
           auto-config: false
