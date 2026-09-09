@@ -98,6 +98,18 @@ import os, re, sys, json, time, shutil, tempfile, subprocess, statistics
 # the same shape, found the same hour, as the one absolute POSIX path in
 # `score_calibration_night.py`. A portability defect is invisible until the second
 # machine exists, and then it is the first thing that breaks.
+#
+# ⛔ AND THE SAME DEFECT HAS TWO DIRECTIONS, WHICH I LEARNED BY FIXING ONLY ONE.
+# With every `open()` repaired the walk got FURTHER on Windows and died again --
+# this time on `print()`, because the locale default governs stdout too and this
+# file prints unicode. ⇒ **NAMING A DEFECT IS NOT FINDING ITS SIBLINGS**: the read
+# side and the write side are one defect with one cause, and repairing the half
+# that happened to fail first bought exactly one more line of progress.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
