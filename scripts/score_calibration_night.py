@@ -188,6 +188,20 @@ if "--census" in sys.argv:
     print()
     print("bound = %.4f%%, the QUIET night's own MAX per-commit p95, derived at run time."
           % (100 * GATE))
+    # ⚖️ HELM RULING 2026-09-09 (council close), printed BESIDE the column it governs
+    # rather than only in the queue -- a rule that lives one document away from the
+    # number it qualifies is a rule the reader of the number never sees.
+    print("⚖️ `load1>21` IS A DIAGNOSTIC COLUMN, NOT A CRITERION. D179 rule 4 was RETIRED")
+    print("   as a discard condition by helm ruling 2026-09-09: it disagreed with this gate")
+    print("   on 2 of 4 nights, and D179 itself measured that LOAD DOES NOT PREDICT SPREAD,")
+    print("   so it was a proxy whose predictive premise its own study refuted. THE `vs bound`")
+    print("   COLUMN DECIDES; this one is reported and never acted on.")
+    # ⛔ THE n=1 CAVEAT IS NOT REPEATED HERE: the block below already states it, and a
+    # second copy is a duplicate born in agreement -- it diverges on the next ordinary
+    # append and the reader cannot tell which is current. Only the NEW consequence is
+    # added, because retirement changed it: the gate is now unaccompanied.
+    print("   ⇒ retiring rule 4 left THIS gate alone in the field, so the caveat below is")
+    print("     no longer one opinion of two -- its error rate is the discard decision's.")
     print("⛔ THE BOUND HAS n=1 IN ITS CALIBRATION and the quiet night therefore passes by")
     print("   EQUALITY, by construction. 'Everything else fails' is partly definitional and")
     print("   is stated that way rather than read as four independent verdicts.")

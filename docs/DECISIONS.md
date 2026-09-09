@@ -12085,6 +12085,29 @@ MADE of is the one that should decide whether a night carries a verdict. That is
 ruling on item 4's keep-rule and it is filed as a recommendation, because I am the
 party whose measurement produces it.
 
+### ⚖️ RULED THE SAME DAY — helm, 2026-09-09 at council close
+**THE USABILITY GATE GOVERNS a calibration night. Rule 4 is RETIRED as a discard
+criterion and kept as a DIAGNOSTIC COLUMN only.** Landed at both sites (here and
+`docs/QUEUE.md` item 4's keep-rule, rule 4).
+
+⭐ **THE HELM'S GROUND IS BETTER THAN MINE, AND IT IS RECORDED AS SUCH.** I argued from
+what each rule is BUILT FROM. The helm argued that D179 itself measured that load does
+not predict spread, so **rule 4 is a proxy whose predictive premise its own study
+refuted** — and then turned this section's own line 69 back on it: *a source that cannot
+carry a verdict cannot withhold one either.* ⇒ 🔑 ***I WROTE THE SENTENCE THAT DECIDED
+THE CONFLICT AND DID NOT SEE THAT IT DECIDED IT*** — I filed the disagreement as needing
+a ruling while holding, three paragraphs up, the argument that settles it.
+[[feedback-audit-the-premise-of-a-right-decision]] The decision to send it up was still
+correct; a party grading its own measurement is the wrong grader even when it is right.
+
+⚠️ **AND THE RULING SHRINKS THE EVIDENCE BASE, WHICH IS NOT A REASON TO REFUSE IT BUT IS
+A COST TO CARRY.** Rule 4 was the only SECOND opinion the discard decision had. What
+remains is a bound with **n = 1** in its calibration, passing by construction on the very
+night that defines it (§3, first caveat). The helm named strengthening that calibration
+as the next item on the gate. ⇒ **Retiring the wrong rule leaves the right rule alone in
+the field, and a lone rule's error rate is the whole system's.**
+[[feedback-measure-a-gates-error-rates]]
+
 ### 3. THE CAVEATS, FIRST RATHER THAN LAST
 * **The bound has n = 1 in its calibration.** It is the quiet night's own maximum, so
   the quiet night passes BY EQUALITY and by construction. "Everything else fails" is

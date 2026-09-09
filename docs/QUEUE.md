@@ -810,8 +810,24 @@ occur. Until then this is ONE observation and is recorded as one.
         `r = +0.38` at **n = 40** would be `p ≈ 0.016`. ⇒ **Rule 3 is falsifiable by collecting more
         commit-pairs**, and a rule with a stated falsification condition is one someone can actually
         argue with [[feedback-conservative-is-a-direction-not-a-margin]].
-     4. **ONE QUALIFYING CONDITION EXISTS TODAY: any pass recording `load1 > 21`** — outside every
-        calibration corpus, where the only readings available are ~5× worse.
+     4. ⚖️⚖️ **RETIRED AS A DISCARD CRITERION — HELM RULING, 2026-09-09 (council close). KEPT AS A
+        DIAGNOSTIC COLUMN ONLY.** The rule read *"one qualifying condition exists today: any pass
+        recording `load1 > 21`."* **It no longer qualifies anything.** ⛔ **THE USABILITY GATE
+        GOVERNS whether a calibration night carries a verdict**, and this rule is reported beside it
+        as a reading, never as a permission or a refusal.
+        **THE HELM'S GROUND, recorded because it is better than the argument I made:** D179 itself
+        measured that **load does not predict spread**, so rule 4 is a **proxy whose predictive
+        premise its own study refuted** — and my own line 69 applies to it, *a source that cannot
+        carry a verdict cannot withhold one either.* I framed the conflict below and did not see
+        that my own sentence decided it.
+        ⚠️ **NOT A REASON TO HOLD, AND THE HELM NAMED IT AS THE NEXT ITEM:** the usability gate is
+        calibrated at **n = 1** and is knife-edge (§3 caveat, and my standing RISK line). Retiring
+        rule 4 removes the only SECOND OPINION the discard decision had, which makes strengthening
+        that calibration **more** urgent, not less. ⇒ **A retirement that leaves one rule alone in
+        the field raises the price of that rule being wrong.**
+        📌 **The conflict as measured is kept below rather than deleted, because a retired rule
+        whose reason is deleted comes back.** [[feedback-a-blocked-items-method-is-unexamined]]
+
         ⛔⛔ **AND IT DISAGREES WITH THE USABILITY GATE ON TWO OF FOUR NIGHTS (D180, 2026-09-09).**
         `USER2` (load1 8.95-20.89) and `NIGHT3` (3.96-10.94) each record **ZERO** passes above 21,
         so this rule permits no discard on either — while the sealed usability gate calls both
@@ -820,10 +836,11 @@ occur. Until then this is ONE observation and is recorded as one.
         the gate is built from **SPREAD**; and D179 itself measured that load does not predict
         spread. **So the disagreement is the direct consequence of a result this campaign already
         published — nobody had noticed both rules were live.**
-        ⇒ ⚖️ **RECOMMENDED, NOT IMPOSED** (the party whose measurement produces a ruling is the
-        wrong party to make it): this rule is a **boundary-of-calibration** rule, as its own next
-        sentence says, and was never a usability test. The gate built from the quantity the band is
-        MADE of should be what decides whether a night carries a verdict.
+        ⇒ ⚖️ **RECOMMENDED 2026-09-09, RULED THE SAME DAY** (the party whose measurement produces a
+        ruling is the wrong party to make it — so it went to the helm and the helm ruled it): this
+        rule is a **boundary-of-calibration** rule, as its own next sentence says, and was never a
+        usability test. The gate built from the quantity the band is MADE of is what decides
+        whether a night carries a verdict. **✅ SETTLED — see the ruling at the head of this rule.**
         [[feedback-which-statistic-the-consumer-reads]] ⚠️ It is a
         **boundary-of-calibration** rule, NOT a claim that load 25 is bad: the knee between 21 and
         98 is **UNLOCATED** (CONTEND has two pairs and its own ordering is inverted), and this rule
