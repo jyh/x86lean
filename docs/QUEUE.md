@@ -1340,6 +1340,25 @@ occur. Until then this is ONE observation and is recorded as one.
    ⚠️ **And the retracted entry passed every gate**, because no gate in this repo joins a prose claim
    about a corpus to the tool that consumes it. It was landed, pushed to both tiers, and wrong.
 
+   #### ⚡ THE FOURTH CALIBRATION NIGHT IS IN FLIGHT ON KENAI (2026-09-09 13:37 PDT)
+   Authorised by the 39th helm head with three conditions. **SEAL (committed BEFORE the
+   first pass, per D179 rule 1): `docs/seals/2026-09-09-4b-fourth-calibration-night-KENAI.md`,
+   tooling pinned `74dff4f`, walk running at `0b90cac`.** Twelve pinned commits, `--sweeps 2`,
+   band to quote `k >= 8`, gate MAX per-commit p95 <= 14.2259% judged FIRST, polled in
+   flight with `--early`.
+   ⛔ **THE SEAL CARRIES TWO AMENDMENTS, BOTH WRITTEN WITH ZERO READINGS OF THIS NIGHT IN
+   EXISTENCE** — the tooling pin had to move because at `009688b` the night was IMPOSSIBLE
+   (three port defects, D186), and `--early` was measured to be unable to speak before
+   reading 13 of 24 in the sealed non-interleaved order. **No parameter that could bias a
+   result was touched.**
+   ⚠️ **WHATEVER IT RETURNS, IT CANNOT UNBLOCK 4b** — it can supply the SECOND USABLE NIGHT
+   (the source half) and it is still not evidence that the counter TRACKS KERNEL TIME. A
+   pass will not be reported as "4b is unblocked".
+   ✅ **Comparability checked rather than assumed:** the port's `mod_name` repair is a
+   measured NO-OP over the real 19-file list on POSIX (0 names differ, no backslashes), and
+   the emitted `cpu` dict keeps its three keys, so the yukon corpora this night is compared
+   against cannot have moved.
+
 ### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
    The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and
    `user` is 2× `real`: **Lean elaborates this file in PARALLEL and every gated number is a per-task
