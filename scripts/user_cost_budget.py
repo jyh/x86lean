@@ -324,6 +324,29 @@ def _run_on(rows, extra=()):
         os.unlink(p)
 
 
+def _why(rc, out, missing):
+    """What a failed arm SAW, not merely what it wanted.
+
+    ⛔⛔ WHY THIS EXISTS. Every arm below reported `(no transfer line)` — or
+    `(no M row)`, `(no error-rate row)` — whenever its pattern did not match.
+    That string is printed on TWO completely different events: the child ran fine
+    and produced no such line, **or the child DIED**. `rc` was captured and never
+    shown. On 2026-09-09 this selftest failed 7 of 16 arms in CI while passing
+    16/16 on three local Pythons, and every failing arm printed one of those
+    strings — so the CI log named the SYMPTOM seven times and the CAUSE zero
+    times, and the red stood on `master` for five days.
+    ⇒ 🔑 **A REFUSAL THAT CANNOT NAME WHAT IT SAW TURNS A REMOTE FAILURE INTO A
+    LOCAL RE-RUN — AND WHEN THE FAILURE IS *ONLY* REMOTE, INTO NOTHING AT ALL.**
+    [[feedback-a-gate-that-refuses-must-say-what-it-saw]]
+    """
+    bits = [f"{missing}  (child rc={rc})"]
+    if rc != 0:
+        tail = [l for l in (out or "").splitlines() if l.strip()][-6:]
+        bits.append("     child output tail:")
+        bits += [f"       {l[:160]}" for l in tail]
+    return "\n".join(bits)
+
+
 def selftest():
     bad = []
 
@@ -449,7 +472,7 @@ def selftest():
         ok = rc == 0 and line and want in line[0]
         arm(ok, label)
         if not ok:
-            print("     got: " + (line[0].strip() if line else "(no M row)"))
+            print("     got: " + (line[0].strip() if line else _why(rc, out, "(no M row)")))
 
     # ⭐⭐ ARM 7 — SIGNAL TRANSFER DECIDES BOTH WAYS.  The statistic that could
     # kill the candidate outright must be shown able to say both "carries it all"
@@ -465,7 +488,7 @@ def selftest():
         ok = rc == 0 and line and want in line[0]
         arm(ok, label)
         if not ok:
-            print("     got: " + (line[0].strip() if line else "(no transfer line)"))
+            print("     got: " + (line[0].strip() if line else _why(rc, out, "(no transfer line)")))
 
     # ⚠️ ARM 8 — AND A CHANGE BELOW THE NOISE FLOOR IS DROPPED, NOT DIVIDED.
     # A ratio whose denominator is noise is a ratio about noise, and it would
@@ -488,7 +511,7 @@ def selftest():
     ok = rc == 0 and line and "biases this arm" in line[0] and " 0 of " not in line[0]
     arm(ok, "ties in the SHIPPED arm are COUNTED and flagged as a bias")
     if not ok:
-        print("     got: " + (line[0].strip() if line else "(no zero-count row)"))
+        print("     got: " + (line[0].strip() if line else _why(rc, out, "(no zero-count row)")))
     # ⚠️ and the held-out arm: with real noise the count must be zero, or the
     # flag fires on every run and stops being read.
     rc, out = _run_on(_fake_rows(1000.0, 100.0, 1000.0, 10.0))
@@ -496,7 +519,7 @@ def selftest():
     ok = rc == 0 and line and "biases this arm" not in line[0]
     arm(ok, "with real noise the tie-count is silent (it does not cry wolf)")
     if not ok:
-        print("     got: " + (line[0].strip() if line else "(no zero-count row)"))
+        print("     got: " + (line[0].strip() if line else _why(rc, out, "(no zero-count row)")))
 
     # ⛔ ARM 10 — THE LIVE / NO-OP SPLIT IS REAL.  `budget_info`'s `worst` runs
     # over ALL pairs, no-ops included, so printing it beside `ctrl` as "worst
@@ -527,7 +550,7 @@ def selftest():
             "DIFFERENT pairs (an outlier planted on a NO-OP pair must not leak "
             "into the live column)")
     if not ok:
-        print("     got: " + (line[0].strip() if line else "(no error-rate row)"))
+        print("     got: " + (line[0].strip() if line else _why(rc, out, "(no error-rate row)")))
 
     # ⛔ ARM 11 — A UNIT WITH NO MEASURED NOISE GETS NO TRANSFER RATIO.  The
     # floor used to default to 0 for such a unit, so pure noise was accepted as
