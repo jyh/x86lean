@@ -1662,24 +1662,71 @@ PRECONDITION THAT IS MET**, and only looking distinguishes them
 ⇒ **Row ES parts (1) and (2) were discharged on 09/03-09/04 and the row never learned
 it.** Recorded so it can be closed rather than re-issued.
 
-### PUB-1. ⚖️ **THE HISTORY CARRIES 7 PRIVATE-RECORD PATHS. THE TREE NO LONGER DOES.**
-`--range <root>..HEAD` reads **7**; `--tree` reads **0**. The difference is exactly
-what a delta gate is: it charges the commit that ADDS a path and cannot charge, or
-absolve, the tree for what it later does with it. Five distinct sites were repaired
-2026-09-09 (a seat-repo brief cited twice, two fleet records, and one shared-script
-path that appeared in both `docs/DECISIONS.md` and `scripts/kernel_cost.py`), each
-rewritten as a ROLE or a bare filename per the council's own remedy.
+### PUB-1. ⚖️ **RULED "ACCEPT" 2026-09-09 — AND THE SEVEN IT WAS RULED ON WAS NOT A
+### HISTORY READING. IT IS EIGHT, AND THE EIGHTH COULD NOT HAVE BEEN SEEN.**
 
-⛔ **WHETHER THAT HISTORY IS REWRITTEN BEFORE PUBLICATION IS THE CAPTAIN'S CALL AND
-NOT THE SEAT'S.** It is recorded here rather than settled because the fleet has a
-precedent pointing BOTH ways and the seat that found the defect is the worst party to
-choose between them: salt's 08/16 purge rewrote history, and salt's own 08/30 ruling
-on the same gate was **ACCEPT AND RECORD, NO HISTORY REWRITE**. x86lean is PRIVATE
-today, so nothing has leaked and this is an owed repair rather than a breach — the
-same distinction the fleet map draws for morpho's `loca` remote.
-**RELEASE CONDITION:** the Captain's word on rewrite-vs-accept. **OWNER:** the Captain.
-**RE-MEASURE:** at the publication gate, whenever that is reached — and `--tree` and
-`--messages` must be green on the day, which they are now.
+**THE RULING (the Captain, 2026-09-09): "#1 accept."** Over rewrite. The helm leaned
+rewrite; the ruling is his, and salt's own 08/30 precedent on this same gate was the
+same — ACCEPT AND RECORD, NO HISTORY REWRITE. **That half is settled and is not
+reopened by anything below.**
+
+⛔⛔ **WHAT THIS ENTRY SAID BEFORE, AND WHY IT WAS WRONG.** It read: *"`--range
+<root>..HEAD` reads 7; `--tree` reads 0. The difference is exactly what a delta gate
+is: it charges the commit that ADDS a path and cannot charge, or absolve, the tree for
+what it later does with it."* **The sentence is a correct description of a delta gate
+and a false description of this command.** Measured at the object 2026-09-09:
+
+```
+  --range <root>..HEAD   at f0c2e68 ....  7        <- the number that was ruled on
+  --range <root>..HEAD   at bd15856 ....  0        <- its child, one commit later
+  --range <root>..HEAD   at HEAD ......   0
+  --history              at HEAD ......   8  across 4 commits
+```
+
+`added_lines()` runs `git diff A..B`, and **a two-dot diff is a NET DIFFERENCE BETWEEN
+TWO TREES**, not a union of what the commits between them added. So it is blind to:
+
+* **(a) anything added and later REPAIRED inside the range.** The repair erases the
+  debt from the arm that exists to record it. That is why the 7 became 0 at the very
+  commit that repaired the tree — while every blob stayed in the history a clone gets.
+* **(b) anything in the range's FIRST commit that was never touched again.** A file
+  byte-identical at both endpoints contributes no `+` line. **For `<root>..HEAD` that
+  is the WHOLE ROOT COMMIT.** Driven: `git diff <root> f0c2e68 -- CLAUDE.md` is empty,
+  and that file carried a full path to a seat brief at BOTH ends.
+
+⇒ 🔑 ***THE FILE ARM OF `--range <root>..HEAD` IS A TREE SCAN WEARING A HISTORY SCAN'S
+NAME.*** It is strictly WEAKER than `--tree`: everything it sees at HEAD, `--tree` also
+sees, and `--tree` additionally sees the files it drops. **The 7 was tree residue.**
+
+⚠️ **NOT A WIDER INDICTMENT, STATED SO IT IS NOT READ AS ONE.** CI's delta arm scans
+`<before>..HEAD` for ONE push, where the net difference and "what this push adds"
+coincide; the tree arm covers what it drops; the message arm was never a net diff
+(`git log` is per-commit). **Every live gate is sound.** The defect is confined to the
+AUDIT form — which is exactly the form whose number reached a ruling.
+
+### ⛔ THE SCOPE STOP, AND WHY THE BASELINE IS NOT WRITTEN
+The helm's routing carried a stop: *"Baseline EXACTLY the seven he was shown — if the
+scan ratifies more, STOP and file the scope on the register."* **It ratifies eight**,
+7 of which are his seven. The eighth is `CLAUDE.md` **at the root commit** `7f8aae25`,
+citing the seat's plan brief by full path; it sat there 188 commits, was repaired in
+the tree by `bd15856` as part of an unrelated sweep, and **appears in no reading of
+the seven because the arm that produced them could not see the root commit.**
+
+⛔ **AND THE MECHANISM THE RULING NAMES CANNOT RECORD THE DEBT EITHER.** `--tree` and
+`--messages` both legitimately read **0**, so `--write-baseline` on either writes an
+EMPTY file; there is no `--range` baseline. The arm that can record it — `--history`,
+with `private_paths_history_baseline.tsv` keyed on (sha, file, line-sha16) — was built
+2026-09-09 in the same act as this measurement and is deliberately **NOT wired into CI
+until the baseline is written**, because an unbaselined arm correctly reds every build.
+
+**RELEASE CONDITION:** the Captain's word on (i) whether the accept covers the eighth
+site and (ii) recording it via the `--history` baseline. **OWNER:** the Captain.
+**FILED:** blocked-on-captain register `pub1-baseline-scope`, since 2026-09-09.
+**RE-MEASURE:** at the publication gate — and `--tree` and `--messages` must be green
+on the day, which they are now.
+**DERIVATION:** `docs/DECISIONS.md` D182. **DECLARED MEANWHILE:**
+`docs/PUBLISH-CHECKLIST.md`, so the debt is declared rather than discovered even while
+the recording act waits.
 
 ### PUB-2. ⚠️ **AN ELEVENTH HAND-COPY OF A SNAPSHOT THAT MOVES — NAMED, NOT FIXED.**
 The ported gate's own output carries the warning: *"ROOTS ARE A HAND-COPIED SNAPSHOT

@@ -12187,3 +12187,145 @@ disagreement rate — with the window sizes beside it. Two arms drive it in both
 directions (a single-signed set RAISES the warning; a set containing a negative Δku does
 NOT), because a warning no input can contradict is not an arm
 [[feedback-an-implied-assertion-is-not-a-second-gate]].
+
+---
+
+## D182 — the number PUB-1 was ruled on measured the tree, not the history, and the arm that produced it could not see the repository's first commit
+
+**LANE.** Personal. Committed history and one gate script; no box, no build, no ACL2. ~30 s
+of git, plus the self-test's scratch repositories.
+
+### 1. WHAT I WAS SENT TO DO
+The Captain ruled PUB-1 **"#1 accept"** — accept the historical private-record paths rather
+than rewrite history — and the helm's routing carried an execution shape and a stop:
+
+> *Execute the saltbench shape: the paths into `check_private_paths --write-baseline` as
+> recorded debt + a PUBLISH-CHECKLIST debt section; no rewrite.* ⛔ *Baseline EXACTLY the
+> seven he was shown — if the scan ratifies more, STOP and file the scope on the register.*
+
+The premise everywhere — this repo's `CLAUDE.md`, its QUEUE, the bus post, the ruling — was
+*"`--range <root>..HEAD` reads 7 — historical commits that ADDED paths since repaired in the
+tree; `--tree` reads 0."*
+
+### 2. ⛔ THE FIRST COMMAND I RAN DISAGREED WITH THE RULING'S PREMISE
+```
+  --range <root>..HEAD   at HEAD (bacd5a3) ....... 0 paths     (192 messages, 84187 added lines)
+```
+Not 7. **Zero.** And a green where the record says seven is a suspect
+[[feedback-fast-green-is-a-suspect]], so nothing was baselined until it was explained.
+
+Walked back one commit at a time:
+```
+  root..bd15856^ (f0c2e68) ...  7      <- the number that was ruled on
+  root..bd15856  ............   0      <- its child
+  root..HEAD ................   0
+```
+`bd15856` is the commit that PORTED the gate **and repaired five tree sites in the same act.**
+
+### 3. THE MECHANISM, AND IT IS TWO MECHANISMS
+`added_lines()` runs `git diff --unified=0 <range>`. **A two-dot diff is a NET DIFFERENCE
+BETWEEN TWO TREES**, not the union of what the commits between them added. Two consequences,
+and the second is worse than the first:
+
+**(a) A path ADDED and later REPAIRED inside the range contributes nothing.** The repair
+erases the debt from the very arm meant to record it. This is why 7 became 0.
+
+**(b) Anything in the range's FIRST commit that was never touched again contributes
+nothing**, because the file is byte-identical at both endpoints. **For `<root>..HEAD` that is
+the entire root commit.** Driven:
+```
+  git diff <root> f0c2e68 -- CLAUDE.md   ->   EMPTY
+  git show <root>:CLAUDE.md   | grep ... ->   carries a full path to the seat's plan brief
+  git show f0c2e68:CLAUDE.md  | grep ... ->   carries it still
+```
+⇒ 🔑 ***THE FILE ARM OF `--range <root>..HEAD` IS A TREE SCAN WEARING A HISTORY SCAN'S NAME.***
+It is strictly WEAKER than `--tree`: everything it sees at HEAD, `--tree` sees too, and
+`--tree` additionally sees the files it drops. **The "7" was the tree residue of a commit that
+had not yet been repaired** — the same quantity `--tree` reports, read through the wrong arm
+and given history's name.
+
+### 4. ⚠️ WHAT IS **NOT** WRONG — BOUNDED BEFORE IT IS REPORTED
+This is not an indictment of the gate. Measured at `.github/workflows/scrub.yml`:
+* the **delta** arm scans `<before>..HEAD` for ONE push, where the net difference and "what
+  this push adds" coincide to within the push's own reverts — **sound for its job**;
+* the **tree** arm covers everything at HEAD, including what the delta arm drops;
+* the **message** arm was never a net diff at all — `git log` is per-commit.
+
+**Every live gate is sound.** The defect is confined to the AUDIT form, the long range — which
+is exactly the form whose number reached a ruling. [[feedback-a-citation-is-an-ungated-claim]]:
+the sentence *"it charges the commit that ADDS a path"* is a true description of a delta gate
+and a false description of this command, and it read as the gate's own documentation.
+
+### 5. THE TRUE HISTORY, AND THE EIGHTH SITE
+Built `--history`: for each commit reachable from HEAD, diff against **its own parent** (the
+empty tree for the root; for a merge, the INTERSECTION of the per-parent added sets, which is
+exactly content present in the merge and in no parent).
+```
+  8 findings across 4 commits
+    7f8aae25 (ROOT)  CLAUDE.md               a path into a private-record repo   <- NEW
+    1e92366a         docs/DECISIONS.md       a path into a private-record repo
+    8a74e368         docs/DECISIONS.md       path + kit run surface  (one line, two shapes)
+    8a74e368         scripts/kernel_cost.py  path + kit run surface  (one line, two shapes)
+    ac25095b         docs/COSIM-DESIGN.md    two rootless paths
+    7103ff86 (merge) NOT CHARGED — introduced no content of its own
+```
+**Seven of the eight are exactly the Captain's seven.** The eighth is the root commit's own
+`CLAUDE.md`, which cited the seat's plan brief by full path, sat there **188 commits**, and was
+repaired in the tree by `bd15856` inside an unrelated sweep — **without ever being counted**,
+because the arm that counted could not see it. [[feedback-unobserved-regions-report-agreement]]:
+the region was not reported as unknown; it was silently reported as clean.
+
+### 6. ⛔ THE STOP, TAKEN
+The helm's condition fired. The scan ratifies **more, and a different set**. **No baseline was
+written.** Filed on the blocked-on-captain register as `pub1-baseline-scope` (since 2026-09-09),
+because two things are his and neither is mine:
+1. whether "accept" covers a site he was never shown;
+2. **the recording mechanism itself** — `--tree` and `--messages` both legitimately read 0, so
+   `--write-baseline` on either writes an EMPTY file, and there is no `--range` baseline. The
+   act the routing names **cannot record this debt**. Only `--history` can.
+
+⇒ 🔑 ***A RULING'S EXECUTION SHAPE CAN NAME A MECHANISM THAT DOES NOT REACH ITS SUBJECT, AND
+THE RULING STILL READS AS COMPLETE.*** "Put the paths into `--write-baseline`" is a sentence
+that would have run, exited 0, and written a file recording NOTHING — a green receipt for an
+act that did not happen. [[feedback-a-complete-count-of-a-subset]]
+
+**What was NOT blocked and therefore landed:** `docs/PUBLISH-CHECKLIST.md`, which declares the
+debt at its true scope with the eighth row marked as not-yet-ruled. That page is the half of
+the ruling that actually serves its purpose — *declared, not discovered on flip day.*
+
+### 7. THE ARM, AND WHAT DRIVING IT COST
+`--history`, baseline `private_paths_history_baseline.tsv` keyed on **(sha, file, line-sha16)**.
+⛔ **A tree repair never shrinks it** — that is the entire point; the tree ratchet records what
+the tree keeps, this records what history keeps regardless.
+
+**11 break-probes, 10 RED**, pristine copy taken ONCE before any probe and the control re-run
+after each [[feedback-a-plant-probes-control-comes-first]]. Two are DIFFERENTIAL — they fail if
+the two-dot form ever stops being blind, so the arms document the defect as well as the fix.
+
+⭐ **THREE OF THE ARMS WERE TAUTOLOGIES AND ONLY THE PROBES SAID SO:**
+```
+  (i)   arm (f) recomputed the ratchet key with history_key() and compared it with
+        history_key() -- so probes dropping the FILE, then the LINE, from the key both
+        left the self-test GREEN.  A function used on BOTH SIDES of a comparison cannot
+        be tested by that comparison.  Replaced with LITERAL distinctness assertions.
+  (ii)  no arm could run history_mode() at all -- its baseline path was a module constant
+        a test cannot touch -- so disabling the unarmed-fatal branch was SILENT.  The
+        path is now an argument: the mode has a callable surface.
+  (iii) even then the probe stayed silent, because UNARMED and REGRESSED both return 1.
+        The arm now asserts what the refusal SAYS, which is the half a reader acts on.
+```
+⇒ 🔑 ***AN ARM THAT RE-DERIVES THE RULE IT IS CHECKING ASSERTS NOTHING, AND IT LOOKS EXACTLY
+LIKE AN ARM THAT PASSES.*** [[feedback-a-derivation-gate-wraps-a-false-sentence]]
+[[feedback-a-gate-with-no-callable-surface]] — and the first repair of (i) was itself a
+tautology, caught only because the probe was re-run after the fix rather than the gate re-read.
+[[feedback-verify-what-the-build-command-builds]]
+
+⚠️ **DECLARED, NOT CLAIMED:** the eleventh probe — removing the shallow-clone guard — leaves the
+self-test green, because that guard lives in `main()` and no self-test in a normal repository
+reaches it. It is the same unarmed guard `--range` has carried since the port. Named at the
+site rather than left to be found.
+
+### 8. NOT WIRED INTO CI, AND THAT IS A RULING AND NOT AN OVERSIGHT
+`--history` has no baseline, so it correctly refuses. Writing that baseline **is** the accepted-
+debt act, and that act is blocked on §6. The wiring and the baseline land in ONE commit when he
+rules. Wiring first reds every build; baselining first answers his question for him.

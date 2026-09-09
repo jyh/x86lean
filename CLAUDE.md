@@ -22,9 +22,28 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
   FALSELY DENIED IS AN UNGATED CLAIM WEARING A GATE'S CLOTHES.**
 - Scrub CI (`.github/workflows/scrub.yml`) runs BOTH gates: `check_commit_trailers.py` over the
   FULL history every push, and `check_private_paths.py` in three arms (delta · tree · messages).
-  ⚠️ `--range <root>..HEAD` still reads 7 — historical commits that ADDED paths since repaired
-  in the tree. Rewriting that history before publication is the CAPTAIN'S call, not the seat's;
-  salt's own precedent (08/30) was ACCEPT AND RECORD, NO REWRITE. Filed in `docs/QUEUE.md`.
+  ⛔ *This bullet read "`--range <root>..HEAD` still reads 7 — historical commits that ADDED
+  paths since repaired in the tree" until 2026-09-09, when it was measured at the object. **THE
+  SENTENCE WAS FALSE IN ITS SUBJECT, NOT ITS NUMBER**, and the number was quoted into a QUEUE
+  entry, a fleet-bus post and a Captain's ruling before anyone ran the command again.* `git diff
+  A..B` is a **NET DIFFERENCE BETWEEN TWO TREES**, so the file arm of a long `--range` cannot see
+  (a) a path added and later repaired inside the range — the repair erases it from the very arm
+  meant to record it — or (b) anything in the range's FIRST commit that was never touched again,
+  **which for `<root>..HEAD` is the entire root commit.** ⇒ 🔑 ***THE FILE ARM OF `--range
+  <root>..HEAD` IS A TREE SCAN WEARING A HISTORY SCAN'S NAME, and it is strictly WEAKER than
+  `--tree`.*** The "7" was the TREE RESIDUE of a commit not yet repaired; it read **0** the moment
+  the tree was repaired, while every blob stayed in the history a clone receives.
+  ✅ **`--history` is the arm that answers the question** (per-commit, diffed against each commit's
+  own parent; merges charged only for content no parent carries). It measures **8** findings across
+  **4** commits — the seven, plus **the root commit's own CLAUDE.md**, which was structurally
+  invisible to the arm that produced the number and was never shown to the Captain.
+  ⚠️ **The CI arms are NOT affected and this is not a wider indictment:** CI's delta arm scans one
+  push, where the net difference and "what this push adds" coincide; the tree arm covers what it
+  drops; the message arm was never a net diff at all (`git log` is per-commit). The defect is
+  confined to the AUDIT form — the one whose number was quoted.
+  PUB-1 (accept vs rewrite) was ruled **ACCEPT** by the Captain 2026-09-09; salt's own precedent
+  (08/30) was the same. The recording act is BLOCKED on his word about the eighth site — filed in
+  `docs/QUEUE.md`, on the blocked-on-captain register, and derived in `docs/DECISIONS.md` D182.
 - Sources are PUBLIC ONLY, each with its licence in PROVENANCE.md from commit 1: Intel SDM
   (reading), ACL2 x86isa (BSD-3), K x86-64 (NCSA), Sail x86 (BSD), XED (Apache-2.0).
 - THIS SEAT NEVER OPENS AN EMPLOYER-LANE TREE (loca, holl, pcc-bios, safe_dav1d, safe_gif).
