@@ -58,7 +58,9 @@ usage: threads_ab.py [--rounds N] [--out FILE] [--units "a.lean b.lean"]
        threads_ab.py --selftest
 """
 
-import json, os, re, resource, statistics, subprocess, sys, tempfile, time
+import json, os, re, statistics, subprocess, sys, tempfile, time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from portable import child_cpu, sub_cpu  # noqa: E402
 import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
@@ -139,11 +141,11 @@ def profile(path, threads, cwd=ROOT):
         cmd += ["--threads", str(threads)]
     cmd += ["-D", "profiler=true", "-D", "profiler.threshold=100000", path]
     l0, idle0 = loadavg(), idle_pct()
-    ru0 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    ru0 = child_cpu()          # (user_s, sys_s, source) — absent off POSIX
     t0 = time.time()
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     wall = time.time() - t0
-    ru1 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    ru1 = child_cpu()
     l1 = loadavg()
     if r.returncode != 0:
         raise RuntimeError("%s did not compile under %r:\n%s\n%s"
@@ -154,8 +156,8 @@ def profile(path, threads, cwd=ROOT):
                            "under %r. A missing reading is not a zero." % (path, cmd))
     return {"path": path, "threads": threads, "type_checking_ms": ms,
             "real_s": wall,
-            "user_s": ru1.ru_utime - ru0.ru_utime,
-            "sys_s": ru1.ru_stime - ru0.ru_stime,
+            "user_s": sub_cpu(ru0[0], ru1[0]),
+            "sys_s": sub_cpu(ru0[1], ru1[1]),
             "load_before": l0, "load_after": l1, "idle_before": idle0}
 
 

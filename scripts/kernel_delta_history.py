@@ -71,7 +71,7 @@ if __name__ == "__main__":
     from portable import strict_flags as _strict_flags
     _strict_flags(__file__)
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-from portable import utf8_stdio, loadavg, fmt_load  # noqa: E402
+from portable import utf8_stdio, loadavg, fmt_load, require_utf8_mode  # noqa: E402
 # ⛔ CALLED AT IMPORT, and that is deliberate where `os.chdir` at import is not:
 # it changes no state a caller depends on -- only the ENCODING of streams any
 # caller would also want as utf-8 -- and it must be in effect before the first
@@ -665,6 +665,10 @@ def selftest():
 
 
 def main():
+    # ⛔ ASKED HERE, NOT ASSUMED: this walk spawns `kernel_cost.py` per reading and the
+    # child inherits the environment, so ONE check at the driver covers the whole run.
+    # Off UTF-8 the child dies mid-walk with a UnicodeDecodeError, AFTER writing rows.
+    require_utf8_mode("the delta-history walk")
     decl_names = [x for x in (arg("--decl-names") or
                               "memDestSweep,pre_states_have_a_returnable_frame,"
                               "vectorCoverage").split(",") if x]

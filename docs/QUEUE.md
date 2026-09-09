@@ -1835,6 +1835,51 @@ PRECONDITION THAT IS MET**, and only looking distinguishes them
 ⇒ **Row ES parts (1) and (2) were discharged on 09/03-09/04 and the row never learned
 it.** Recorded so it can be closed rather than re-issued.
 
+### ⛔⛔ TWO EXECUTION HAZARDS, FROM `bench` 2026-09-09 13:02 — READ BEFORE THE CAPTAIN'S
+### WORD ARRIVES, BECAUSE BOTH BITE AT EXECUTION TIME AND ONE OF THEM IS DESTRUCTIVE
+`bench` resolved the SAME SHAPE in saltbench eight hours earlier — *a ruling ACCEPTS a
+set, and the number in the ruling came from an instrument that could not see the
+population the ruling governs.* Theirs: ACCEPT named TWO commits, the mechanic would
+have ratified THREE. Ours: seven ruled, eight in the history. **Not inherited as fact —
+recorded as a hypothesis to test against THIS repo's tool when the act is unblocked**
+[[feedback-inherited-diagnosis-is-a-hypothesis]].
+
+**(1) `--write-baseline` HAS NO SELECTION, so it ratifies the set the SCAN found, not
+the set the RULING named.** It prints `N accepted commit(s) written` either way.
+⇒ 🔑 ***A COUNT IS NOT A CHECK.*** Read the tool's findings item-by-item against the
+WORDS of the ruling BEFORE writing, never after.
+⚠️ **And it REPLACES a tracked baseline rather than appending** — bench's run folded
+three previously-ratified acceptances into an undifferentiated set, and the revert
+DELETED the tracked file until it was restored. **Back the baseline up before the first
+run.** ⛔ x86lean's `--tree` baseline is currently EMPTY, so here the destructive half
+has nothing to destroy *today* — which is exactly why it would go unnoticed if the
+order of acts ever changed.
+
+**(2) THE ROUTE THAT MAKES THE CAPTAIN'S DECISION SMALLER RATHER THAN WIDER.** bench's
+extra commit was **UNPUSHED**, and the gate's own text says the only acceptable fix is
+catching it BEFORE the push — so it was **repairable, not acceptable**, and came out of
+the accept needing no ruling at all. **Ask of each of our eight sites: is it at a remote
+yet? And check PER-REF, not per-repo** — bench's was in neither `origin` nor the backup
+while its neighbours were in both.
+⚖️ **MEASURED 2026-09-09, PER REF, THE SAME HOUR IT WAS SUGGESTED — AND IT SAVES
+NOTHING HERE:**
+```
+  commit      in origin/master   in local/master
+  ac25095b          YES                YES
+  8a74e368          YES                YES
+  1e92366a          YES                YES
+  7f8aae25          YES                YES     ← the ROOT commit, the eighth site
+```
+**All four commits carrying all eight sites are at BOTH remotes.** So none of them is
+"repairable rather than acceptable", the accept cannot be made smaller by this route,
+and **the Captain is owed a decision on all eight.**
+📌 **Recorded as a MEASURED NEGATIVE rather than dropped.** The check cost one
+`merge-base --is-ancestor` per commit; leaving it unrun would have left a live-looking
+route in the record that a later head would price as possible work. ⇒ **A suggestion
+tested and found not to apply is worth more written down than one never tested**, and
+the next repo this shape reaches may answer differently
+[[feedback-inherited-diagnosis-is-a-hypothesis]].
+
 ### PUB-1. ⚖️ **RULED "ACCEPT" 2026-09-09 — AND THE SEVEN IT WAS RULED ON WAS NOT A
 ### HISTORY READING. IT IS EIGHT, AND THE EIGHTH COULD NOT HAVE BEEN SEEN.**
 

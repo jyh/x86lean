@@ -128,3 +128,117 @@ reason. **That is a real possible outcome of this run and I am not hoping agains
 * **I will not report a pass as "4b is unblocked".**
 
 SEALED 2026-09-09 (PDT), at tooling sha 009688b, before any reading of this night exists.
+
+---
+
+# ⛔⛔ AMENDMENT 1 — MADE BEFORE THE NIGHT'S FIRST READING EXISTS, AND FORCED BY A
+# MECHANICAL FAILURE RATHER THAN BY ANY OUTCOME
+
+**State when this was written: ZERO readings of this night exist.** The walk has not
+been started. What follows was produced by the **smoke test this seal declared in
+advance** — one `kernel_cost.py --emit-json` on kenai, which the seal defined as having
+only two possible outcomes, "the profiler runs" and "it does not". **It did not.**
+⇒ Nothing here is selection on a result, because there is no result to select on.
+
+## 1. THE PINNED TOOLING SHA MOVES, AND WHY THAT IS NOT A LOOSENED SEAL
+The seal pinned tooling at **`009688b`**. At `009688b` **this night was impossible** —
+not degraded, impossible: the profiler died before producing a single reading. The pin
+moves to the sha recorded at the bottom of this amendment. **Every parameter that could
+bias a result — the twelve commits, `--sweeps 2`, `k >= 8`, the counters corpus, the
+gate and its bound, the predictions — is UNCHANGED.**
+
+## 2. THREE PORT DEFECTS, IN THE ORDER THEY WERE FOUND — AND TWO OF THEM WERE HIDING EACH OTHER
+```
+ (a) kernel_cost.py imported `resource` (POSIX-only) at MODULE level
+     -> ModuleNotFoundError at import, before main(), so none of the file's own
+        careful per-reading guards could ever run.
+ (b) mod_name(f) = f[:-5].replace("/", ".")  -- a LOGICAL name built from a PATH.
+     glob returns os.sep, so on kenai every module was `X86\Basic`, `Tests\Coverage`.
+     `--decl-modules Tests.Coverage` is matched against mod_name's output, so the
+     declaration set came back EMPTY.
+ (c) 193 open() calls in scripts/ (42 on this route) pass no encoding=, so they
+     inherit cp1252 on Windows -> UnicodeDecodeError on this repo's non-ASCII sources.
+```
+⛔⛔ **(b) WAS MASKING (c), AND THE FIRST SMOKE TEST "PASSED" BECAUSE OF IT.** With the
+module names wrong, the declaration lookup found nothing, so `per_declaration()` — the
+function whose `open(f)` raises — **was never called.** Repairing (b) is what made (c)
+appear. ⇒ 🔑 ***A RUN THAT SUCCEEDS BECAUSE ONE DEFECT PREVENTED ANOTHER FROM EXECUTING
+IS INDISTINGUISHABLE FROM A RUN THAT WORKS*** [[feedback-two-defects-that-cancel]].
+⚠️ **AND THEIR SEVERITIES ARE NOT EQUAL, so they are not filed as one:** (a) and (c)
+**crash** — loud, and incapable of producing a wrong number. **(b) is silent**: the walk
+would have completed, written a full 24-row corpus, and compared as though it had
+measured nothing. **(b) is the one that would have cost a night and a false result.**
+
+## 3. ⛔ A CORRECTION TO THIS SEAL'S OWN PORT-HOLE PARAGRAPH
+The seal states *"every row of this walk will carry `load1: null`"*. **MEASURED: it will
+carry `-1.0`.** `kernel_cost._sentinel()` deliberately writes `-1.0` into the legacy
+top-level `load1`/`load5` fields, and an existing selftest arm asserts exactly that.
+**I inherited "null" from D185, which measured `deterministic_cost.py` — a DIFFERENT
+producer — and applied it to this one without checking**
+[[feedback-two-readings-are-not-two-witnesses]].
+⚠️ **The conclusion of that paragraph is UNCHANGED and was checked again, not assumed:**
+the usability gate reads SPREAD, rule 3 forbids a load discard, rule 4 is retired to a
+diagnostic. **But `-1.0` is worse than `null` in one specific way that must be said: it
+is a NUMBER, so any consumer that medians or maxes the load column will silently fold
+`-1.0` in as if it were a reading**, where `null` would have refused. The `load1 > 21`
+diagnostic column will therefore read this night as quiet. **It is a diagnostic and
+cannot change a verdict — but it is not a truthful diagnostic and I am not quoting it.**
+
+## 4. THE RECIPE GAINS ONE PINNED ENVIRONMENT VARIABLE
+```
+  $env:PYTHONUTF8 = "1"        on the kenai leg, for every invocation
+```
+PEP 540 UTF-8 Mode. It repairs all 193 sites at once **and makes Windows read exactly as
+the machine this corpus is compared against**, which is convergence, not divergence.
+⛔ **AND IT IS NOT LEFT AS A THING TO REMEMBER.** `portable.require_utf8_mode()` now
+REFUSES, naming what it saw and the remedy, and the walk driver calls it before the first
+checkout — one check covers the run because the profiler is a child and inherits the
+environment. **A precondition that lives in someone's memory is not a precondition**
+[[feedback-a-gate-whose-precondition-is-a-discipline]].
+
+## 5. WHAT THE SMOKE TEST FINALLY MEASURED, AND IT IS THE PARITY THIS NIGHT NEEDS
+```
+  module keys      X86.Basic, X86.Coverage, X86.Flags, ...   backslash present: NO
+  decls            {"Tests.Coverage": 28 declarations}       (was: empty)
+  profiler         runs, 57.7 s for one tree
+```
+⚠️ **28 is NOT compared to D185's 103 and must not be**: different tool, different
+commit. The parity that matters is per-commit across the walk and only the walk can
+measure it.
+
+## 6. PREDICTIONS — UNCHANGED, AND P3 IS NOW PARTLY RESOLVED AGAINST ME
+P1 and P2 stand exactly as sealed. **P3 (`the walk completes without a portability
+crash`) was sealed MODERATE-HIGH with the words *"~25 scripts are unported. A second hole
+on this route would refute P3 and is the single most likely way this night dies."*
+THREE holes were on this route, not one.** The prediction's *reasoning* was right and its
+*confidence was too high*; that is recorded here rather than quietly re-rated, and P3 is
+now re-sealed at **MODERATE** for the walk that follows.
+
+AMENDED 2026-09-09 (PDT), before the walk's first reading.
+
+---
+
+# ⚠️ AMENDMENT 2 — WHAT THE IN-FLIGHT GATE CAN AND CANNOT DO, MEASURED BEFORE THE RUN
+Still zero readings of this night. The `--early` form was driven against BOTH existing
+walks, truncated to a growing prefix, with the discarded night 3 as a positive control:
+```
+  rows      quiet night (passes)          night 3 (known FAIL, 3.89x)
+   2, 6     "NOTHING to read. Not a pass"  "NOTHING to read. Not a pass"
+  13        not failed                     not failed
+  24        not failed                     ⛔ "ABORT IS SOUND HERE"
+```
+⛔ **SO THE EARLY GATE CANNOT SPEAK IN THE FIRST HALF OF THIS RUN.** Under `--sweeps 2`
+in the default order the walk goes forward then reverse, so **no commit owns a completed
+pair until reading 13 of 24** — `kernel_delta_history`'s own selftest says exactly this
+and I confirmed it against the corpora rather than trusting it.
+✅ **THE TOOL HAS A REMEDY AND I AM DELIBERATELY NOT USING IT.** `--interleave` gives the
+first commit both readings by reading 2. **It would also change the walk ORDER, and both
+existing walks are non-interleaved.** The reverse sweep is what cancels monotone drift in
+machine conditions; changing it would make this night incomparable to the two it exists
+to be compared with. **Comparability wins, and the cost is stated rather than absorbed.**
+⇒ **`--early` here buys the ability to abort a doomed SECOND half — about half a night —
+not to avoid one.** That is worth having and it is not what "gated in flight" would
+normally imply, so it is written down at its true size.
+📌 And the refusal at rows 2 and 6 is the behaviour I wanted to confirm most: it says
+*"NOTHING to read. That is not a pass"* rather than returning a green from an empty set
+[[feedback-an-unparseable-gate-file-reports-failure-not-absence]].

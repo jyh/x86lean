@@ -88,6 +88,86 @@ def fmt_load(v, width=0):
     return f"{v:{width}.2f}" if width else f"{v:.2f}"
 
 
+def require_utf8_mode(what="this tool"):
+    """REFUSE where Python's default text encoding is not UTF-8. Returns the encoding.
+
+    ⛔⛔ THIS EXISTS BECAUSE THE REMEDY WAS OTHERWISE A THING SOMEONE HAS TO REMEMBER.
+    193 `open()` calls in `scripts/` (42 on the calibration night's own route) pass no
+    `encoding=`, so they inherit the locale's — UTF-8 on macOS and Linux, **cp1252 on
+    Windows**. This repository's sources are full of non-ASCII, so on kenai
+    `per_declaration()` died with
+        UnicodeDecodeError: 'charmap' codec can't decode byte 0x8f
+    `PYTHONUTF8=1` (PEP 540 UTF-8 Mode) fixes all 193 at once and makes Windows behave
+    exactly as the machine the corpus is compared against — which is what a
+    cross-machine measurement wants. But an env var is a DISCIPLINE, and the first
+    person who forgets it switches the remedy off.
+    ⇒ 🔑 **A PRECONDITION THAT LIVES IN SOMEONE'S MEMORY IS NOT A PRECONDITION.** So the
+    tool asks, and refuses with the remedy in the message.
+    [[feedback-a-gate-whose-precondition-is-a-discipline]]
+
+    ⚠️ THE FAILURE DIRECTION WITHOUT THIS IS LOUD, NOT SILENT — a pure-ASCII file reads
+    correctly under cp1252 and a non-ASCII one raises. That is why it went unnoticed for
+    the life of the repo and why it is survivable: it cannot produce a WRONG NUMBER, only
+    a crash. Contrast `mod_name`, found the same hour, which silently produced an empty
+    declaration set. Stated so the two are not filed as one severity.
+    """
+    import locale
+    enc = (locale.getpreferredencoding(False) or "").lower().replace("_", "-")
+    if enc not in ("utf-8", "utf8"):
+        raise SystemExit(
+            f"⛔ {what}: Python's default text encoding here is {enc!r}, not UTF-8.\n"
+            f"   REFUSING rather than reading this repository's non-ASCII sources through\n"
+            f"   a codec that cannot represent them — 193 open() calls in scripts/ pass no\n"
+            f"   encoding= and would inherit it.\n"
+            f"   REMEDY: set PYTHONUTF8=1 (PEP 540). PowerShell: $env:PYTHONUTF8=\"1\"")
+    return enc
+
+
+def child_cpu():
+    """Cumulative reaped-child (user_s, sys_s, source), or (None, None, reason).
+
+    ⛔⛔ THE SECOND CONSUMER-SIDE PORT HOLE, AND IT KILLED A RUN BEFORE IT STARTED.
+    `resource` is a POSIX-only module, imported at MODULE level by `kernel_cost.py`
+    and `threads_ab.py`, so on Windows they died at `import` — before `main()`, and
+    therefore before any of the careful per-reading guards they contain could run:
+        ModuleNotFoundError: No module named 'resource'
+    ⇒ 🔑 **A MODULE-LEVEL IMPORT OF A PLATFORM-ONLY MODULE IS A PORTABILITY DEFECT
+    THAT NO AMOUNT OF CARE INSIDE THE FILE CAN REACH.**
+
+    ⚠️ AND WHAT IT MEASURES IS NOT THE GATED QUANTITY, WHICH IS WHY THIS IS SAFE.
+    The gated number is `type checking` parsed from Lean's own profiler output
+    (`kernel_cost.kernel_ms`). `user_s`/`sys_s` are the CPU-time companions. So an
+    absent rusage costs a diagnostic, never the gate — checked before writing this,
+    not assumed.
+
+    ⛔ NEVER ZERO, for `loadavg`'s reason one level over: 0.0 s of child CPU is not
+    "unknown", it is "the compiler did no work" — the most favourable reading
+    available, on the machine chosen because it is fast.
+    [[feedback-a-tool-has-no-concept-of-not-applicable]]
+
+    ⚠️ There is no stdlib substitute on Windows: `os.times()` reports children_user
+    and children_system as 0.0 there by documented design — i.e. the one obvious
+    replacement IS the defect this docstring forbids.
+    """
+    try:
+        import resource
+    except ImportError as e:
+        return None, None, f"unavailable on this platform ({type(e).__name__})"
+    ru = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return ru.ru_utime, ru.ru_stime, "resource.getrusage"
+
+
+def sub_cpu(a, b):
+    """b - a for two child_cpu() readings, absent if either end is absent.
+
+    ⛔ An absent endpoint makes the DIFFERENCE absent. Treating a missing baseline
+    as zero would report the whole cumulative total as this invocation's cost.
+    """
+    if a is None or b is None:
+        return None
+    return b - a
+
+
 def machine_id(root=None):
     """What machine and toolchain produced a reading.
 
@@ -214,6 +294,53 @@ def selftest() -> int:
        "PLANTED RED - the pre-repair expression f\"{None:.2f}\" really does raise "
        "TypeError, so the four guards are covering a live crash and not a "
        "hypothetical one [[feedback-a-probe-must-create-its-condition]]")
+
+    # ---- child_cpu / sub_cpu: the rusage half of the same port -------------
+    u, s_, src = child_cpu()
+    if sys.platform != "win32":
+        ok(isinstance(u, float) and isinstance(s_, float) and src == "resource.getrusage",
+           "CONTROL - on POSIX child_cpu returns real floats (else every arm "
+           "below would pass on a function that always returns None)")
+    _saved = sys.modules.get("resource", "absent")
+    try:
+        sys.modules["resource"] = None      # makes `import resource` raise ImportError
+        a, b, why = child_cpu()
+        ok(a is None and b is None,
+           "no `resource` module -> (None, None), NEVER 0.0 - a zero here reads "
+           "as 'the compiler did no work'")
+        ok("unavailable" in why, "and the reason is NAMED, as loadavg's is")
+    finally:
+        if _saved == "absent":
+            sys.modules.pop("resource", None)
+        else:
+            sys.modules["resource"] = _saved
+    # ---- require_utf8_mode ------------------------------------------------
+    import locale as _loc
+    _real_enc = _loc.getpreferredencoding
+    try:
+        _loc.getpreferredencoding = lambda do_setlocale=True: "cp1252"
+        refused = False
+        try:
+            require_utf8_mode("probe")
+        except SystemExit as e:
+            refused = "PYTHONUTF8=1" in str(e) and "cp1252" in str(e)
+        ok(refused,
+           "PLANTED RED - a cp1252 default is REFUSED, and the message names BOTH what "
+           "it saw and the remedy [[feedback-a-gate-that-refuses-must-say-what-it-saw]]")
+        _loc.getpreferredencoding = lambda do_setlocale=True: "UTF-8"
+        ok(require_utf8_mode("probe") == "utf-8",
+           "CONTROL - a UTF-8 default passes and is normalised, so the arm above is a "
+           "measurement and not a function that always refuses")
+    finally:
+        _loc.getpreferredencoding = _real_enc
+
+    ok(sub_cpu(1.0, 3.5) == 2.5, "sub_cpu differences two present readings")
+    ok(sub_cpu(None, 3.5) is None and sub_cpu(1.0, None) is None,
+       "an ABSENT endpoint makes the DIFFERENCE absent - treating a missing "
+       "baseline as 0 would report the whole cumulative total as this call's cost")
+    ok(sub_cpu(None, 3.5) != 0.0 and sub_cpu(None, 3.5) is not False,
+       "PLANTED RED - and it is None rather than any falsy stand-in, so a "
+       "consumer's `or 0.0` is the only way a zero can come back")
 
     ok(utf8_stdio() is None, "utf8_stdio is idempotent and returns nothing")
 

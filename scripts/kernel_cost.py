@@ -20,7 +20,7 @@ of §3.7.  Raising a ceiling is a decision to record in docs/DECISIONS.md.
 
 Usage:  kernel_cost.py [--register]   (--register rewrites the ceiling file)
 """
-import os, re, subprocess, sys, glob, json, time, resource, tempfile
+import os, re, subprocess, sys, glob, json, time, tempfile
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -32,6 +32,8 @@ if __name__ == "__main__":
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from portable import strict_flags as _strict_flags
     _strict_flags(__file__)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from portable import child_cpu, sub_cpu  # noqa: E402
 
 # ⭐⭐ P2 BATCH 25 (D123) — THE ROOT IS A SEAM, AND IT EXISTS SO THAT ONE
 # MEASUREMENT IMPLEMENTATION SERVES BOTH GATES.  `kernel_delta.py` profiles a
@@ -479,7 +481,23 @@ def modules():
     return [f for f in fs if os.path.exists(f)]
 
 def mod_name(f):
-    return f[:-5].replace("/", ".")
+    """`X86/Basic.lean` -> `X86.Basic`. A LOGICAL name, not a path.
+
+    ⛔⛔ THIS READ `f[:-5].replace("/", ".")` UNTIL 2026-09-09 AND WAS WRONG ON
+    WINDOWS IN THE QUIETEST POSSIBLE WAY. `glob.glob("X86/*.lean")` returns
+    `os.sep`-joined paths, so on kenai every module came back as `X86\\Basic`,
+    `Tests\\Coverage`. Measured in the smoke test that preceded the fourth
+    calibration night:
+        {"modules": {"X86\\Basic": 109.0, ..., "Tests\\Anchors": 704.0, ...}}
+    ⇒ The keys of a kenai walk would not have matched the keys of a yukon walk,
+    and `--decl-modules Tests.Coverage` is matched against THIS function's output
+    (line ~846), so the declaration set would have come back EMPTY.
+    ⇒ 🔑 **A NAME DERIVED FROM A PATH CARRIES THE PLATFORM'S SEPARATOR INTO A
+    NAMESPACE THAT HAS NONE** — and the walk would have completed, written a full
+    corpus, and compared as though it had measured nothing.
+    [[feedback-a-route-cannot-see-its-subject]]
+    """
+    return f[:-5].replace("\\", "/").replace("/", ".")
 
 # ⭐⭐⭐ QUEUE ITEM 4d (D151) — THE PER-UNIT CPU TIME WAS IN EVERY PASS ALREADY.
 #
@@ -518,16 +536,18 @@ def profile_module(f):
     ONE `lean` invocation per module and exactly one implementation of the
     parse — a second copy of either agrees until the next ordinary append.
     """
-    ru0 = resource.getrusage(resource.RUSAGE_CHILDREN)
+    u0, s0, _cpu_src = child_cpu()
     t0 = time.time()
     r = subprocess.run(
         ["lake", "env", "lean", "-D", "profiler=true", "-D", "profiler.threshold=100000", f],
         capture_output=True, text=True)
     real_s = time.time() - t0
-    ru1 = resource.getrusage(resource.RUSAGE_CHILDREN)
-    cpu = {"user_s": ru1.ru_utime - ru0.ru_utime,
-           "sys_s": ru1.ru_stime - ru0.ru_stime,
-           "real_s": real_s}
+    u1, s1, _ = child_cpu()
+    # ⛔ ABSENT, NOT ZERO — and `real_s` is unaffected because `time.time()` is
+    # everywhere. So off POSIX this reading loses its CPU companions and keeps
+    # the wall clock AND the gated `ms`, which is the whole point.
+    cpu = {"user_s": sub_cpu(u0, u1), "sys_s": sub_cpu(s0, s1),
+           "real_s": real_s, "cpu_source": _cpu_src}
     if r.returncode != 0:
         print(f"⛔ {f} did not compile:\n{r.stdout}\n{r.stderr}")
         sys.exit(2)
@@ -1295,6 +1315,20 @@ def conditions_selftest():
         sentinel_ok = False
     out.append((sentinel_ok, "an unreadable load still formats for the legacy "
                              "`:.2f` readers (-1.0, not None)"))
+
+    # ⚠️ ARM 6 — A MODULE NAME IS LOGICAL AND CARRIES NO PLATFORM SEPARATOR.
+    # `glob` returns `os.sep`-joined paths, so before 2026-09-09 every module on
+    # Windows came back as `X86\Basic` and `--decl-modules Tests.Coverage`
+    # matched NOTHING. The walk would still have completed and written a corpus.
+    # ⛔ THE BACKSLASH CASES ARE THE ARM: the forward-slash ones passed for the
+    # whole life of the defect, so a probe built only from them proves nothing.
+    bs = chr(92)
+    name_ok = (mod_name("X86/Basic.lean") == "X86.Basic"
+               and mod_name(f"X86{bs}Basic.lean") == "X86.Basic"
+               and mod_name(f"Tests{bs}Coverage.lean") == "Tests.Coverage"
+               and mod_name("X86.lean") == "X86")
+    out.append((name_ok, "a module name is the same on both platforms — "
+                         f"`X86{bs}Basic.lean` and `X86/Basic.lean` both give X86.Basic"))
     return out
 
 
