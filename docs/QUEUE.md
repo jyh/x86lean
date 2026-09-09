@@ -874,6 +874,37 @@ occur. Until then this is ONE observation and is recorded as one.
    reaches full resolution (0 of 1 at k=11), spans **-5.90 to +37.05**, and carries **6 sign
    inversions of 106** where kernel time falls while unfoldings rise (the quiet night: 0 of 96).
    Machine independence remains unmeasured; there is no second machine.
+
+   #### ⭐⭐⭐ 4b-LOAD (2026-09-09) — **THE "LOADED NIGHT" IS NOT A LOAD-~12 NIGHT. IT IS A LOAD-~60
+   #### NIGHT, AND THAT MAY MAKE THIS BLOCKER SOFTER THAN IT READS.**
+   `unfolding_calibration.py`'s own docstring calls its second source *"the loaded night (09/05,
+   **load ~12**)"*. Measured at the corpus it names, `docs/deterministic-cost-history-2026-09-05.jsonl`:
+```
+     load1   min 13.18    median 59.94    max 95.26      rows at load1 <= 21:  4 of 12
+```
+   ⇒ **The label understates its own condition by ~5x at the median.** And that is decisive HERE
+   rather than pedantic, because D179 (item 4) measured what load actually does: **at load1 <= 21
+   there is no spread penalty at all** (`r = +0.041`), while the only corpus in this repo reaching
+   load ~60-98 runs **~5x wider** (median between-sweep spread 21.9% against 4.3%).
+   ⇒ ⛔ **SO THE TWO NIGHTS ARE NOT "ONE BOX, TWO NIGHTS". THEY ARE ONE BOX IN TWO DIFFERENT
+   REGIMES** — one inside the range every other corpus was taken in, one far outside it — and the
+   disagreement between them is a much weaker indictment of the kernel-unfolding counter than the
+   sentence above reads as.
+   ⚠️ **I EXPECTED THE OPPOSITE AND SAY SO.** I went looking because D179 says load ~12 is harmless,
+   which would have made the dismissal of the loaded night *unsupported*. The measurement refuted my
+   hypothesis and supported the dismissal **better than its own docstring did**. Recorded because a
+   refuted prediction is stronger evidence than a confirmed one
+   [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]].
+   📌 **WHAT THIS TURNS THE BLOCKER INTO — a SPECIFIED experiment instead of "get a second machine":**
+   **re-walk the twelve commits with every reading at `load1 <= 21`** and score the ratio against the
+   quiet night's `2.39-4.12, median 3.38`. If it lands in that band, 4b's second-source objection is
+   answered ON ONE MACHINE and the only remaining gap is machine independence. If it does not, the
+   counter genuinely does not travel and 4b closes for a measured reason instead of an inherited one.
+   ⚠️ **COST AND HONESTY:** the walk is 12 `lean` profiles (~60-120 s each in the record, so ~20 min)
+   and it IS a profiling job — it needs the box, so it is NOT box-free like the rest of today's work.
+   ⇒ **OWNER:** paris. **RELEASE:** a sitting with the box. **⛔ AND IT DOES NOT INHERIT ITEM 4's
+   WITHDRAWN CONDITION** — this one needs low load for a MEASURED reason (the >21 regime is the one
+   place spread demonstrably blows up), which is exactly the distinction D179 draws.
    ⭐ Scored over the SAME resolved set (p90/p10, lower better): **ku 2.66 / 5.42 · heartbeats
    INCOHERENT (p10 negative) · the per-batch null 11.02 / 26.94**. The null is what the merge gate's
    own budget assumes, so the counter predicts kernel cost 4-5x better than the allowance the
