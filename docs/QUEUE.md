@@ -1599,6 +1599,57 @@ measured, and inventing one would repeat exactly the defect §2 of the commissio
    CALL SHAPE IS UNIFORM, AND THE ONE SITE THAT DIFFERS IS THE ONE THE REWRITE CANNOT SEE.** Caught
    by the gates in one run, which is the system working; `prefix` now defaults.
 
+## PUB — PUBLICATION HYGIENE · **ONE ITEM OPEN, AND IT IS THE CAPTAIN'S**
+
+Opened 2026-09-09 by paris, taking row ES. This section exists because the row's
+routing named a precondition — *"push only after `check_private_paths.py --range` is
+clean"* — **and the script did not exist in this repository.** It exists in ten sibling
+trees; none of them is x86lean. So all 188 commits and every push this repo has made
+went out with that gate **ABSENT, not passing**.
+⇒ 🔑 **A PRECONDITION NAMING A TOOL THAT IS NOT INSTALLED READS EXACTLY LIKE A
+PRECONDITION THAT IS MET**, and only looking distinguishes them
+[[feedback-an-owed-item-is-evidence-of-absence]].
+
+**WHAT IS ALREADY TRUE, MEASURED AT THE OBJECT (not inferred from the row):**
+```
+  origin   github.com/jyh/x86lean   isPrivate TRUE   created 2026-09-03T16:03:49Z
+  local    the bare repo on the backup volume; both tiers equal at every landing
+  LICENSE  Apache-2.0, 202 lines · README:6 names it with a link
+  --messages   188 of 188 clean   ⇒ NO commit message in this history has EVER
+                                    cited the private record. That is an INVARIANT.
+  --tree       GREEN with an EMPTY baseline (salt carries four accepted lines)
+```
+⇒ **Row ES parts (1) and (2) were discharged on 09/03-09/04 and the row never learned
+it.** Recorded so it can be closed rather than re-issued.
+
+### PUB-1. ⚖️ **THE HISTORY CARRIES 7 PRIVATE-RECORD PATHS. THE TREE NO LONGER DOES.**
+`--range <root>..HEAD` reads **7**; `--tree` reads **0**. The difference is exactly
+what a delta gate is: it charges the commit that ADDS a path and cannot charge, or
+absolve, the tree for what it later does with it. Five distinct sites were repaired
+2026-09-09 (a seat-repo brief cited twice, two fleet records, and one shared-script
+path that appeared in both `docs/DECISIONS.md` and `scripts/kernel_cost.py`), each
+rewritten as a ROLE or a bare filename per the council's own remedy.
+
+⛔ **WHETHER THAT HISTORY IS REWRITTEN BEFORE PUBLICATION IS THE CAPTAIN'S CALL AND
+NOT THE SEAT'S.** It is recorded here rather than settled because the fleet has a
+precedent pointing BOTH ways and the seat that found the defect is the worst party to
+choose between them: salt's 08/16 purge rewrote history, and salt's own 08/30 ruling
+on the same gate was **ACCEPT AND RECORD, NO HISTORY REWRITE**. x86lean is PRIVATE
+today, so nothing has leaked and this is an owed repair rather than a breach — the
+same distinction the fleet map draws for morpho's `loca` remote.
+**RELEASE CONDITION:** the Captain's word on rewrite-vs-accept. **OWNER:** the Captain.
+**RE-MEASURE:** at the publication gate, whenever that is reached — and `--tree` and
+`--messages` must be green on the day, which they are now.
+
+### PUB-2. ⚠️ **AN ELEVENTH HAND-COPY OF A SNAPSHOT THAT MOVES — NAMED, NOT FIXED.**
+The ported gate's own output carries the warning: *"ROOTS ARE A HAND-COPIED SNAPSHOT
+of a fleet map that lives OUTSIDE these repos and MOVES. Last reconciled 2026-09-08 by
+evidence (PM); next re-measure due 2026-10-08."* Porting it here made that reconcile
+duty one repository wider **without anyone deciding it**. Not a defect in the port —
+the alternative was no gate — but a cost that should be visible in October rather than
+discovered then. ⇒ **A TOOL THAT WARNS ABOUT ITS OWN STALENESS STILL NEEDS SOMEONE TO
+COUNT ITS COPIES.**
+
 ## DEFERRED, by ruling — not by silence
 - **Arm C, the K-backed second oracle** — DEFERRED at the council (minute 2026-09-05 item 2(a)).
   The condition of the deferral is that **the hole is printed beside every coverage number**.

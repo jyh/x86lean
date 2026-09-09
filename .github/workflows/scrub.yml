@@ -31,3 +31,60 @@ jobs:
         run: python3 scripts/check_commit_trailers.py --self-test
       - name: Full history
         run: python3 scripts/check_commit_trailers.py --range HEAD
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # PATHS INTO THE PRIVATE RECORD (council 2026-08-25, the firewall line).
+  # ⛔ PORTED FROM salt 2026-09-09, SIX DAYS LATE, AND THE LATENESS IS THE POINT.
+  # Row ES's routing said "push only after `check_private_paths.py --range` is
+  # clean". The script did not exist in this repository — it exists in ten
+  # sibling trees and none of them is x86lean — so all 188 commits and every push
+  # went out with the gate ABSENT, not passing. A precondition naming a tool that
+  # is not installed reads exactly like a precondition that is met.
+  # On its first run it found 8 findings in the tree and 7 across the history.
+  #
+  # ⭐ THE THREE ARMS ARE salt's, AND THE REASON THERE ARE THREE IS salt's TOO: a
+  # DELTA gate charges the commit that ADDS a private path and cannot charge the
+  # tree for KEEPING one, nor history for keeping a violating MESSAGE. Measured
+  # across the fleet on 08/29, residue survived a delta gate's own next green.
+  #
+  # ✅ x86lean's POSITION IS STRONGER THAN salt's AND IS STATED SO IT CAN BE
+  # CHECKED: `--messages` reads 188 of 188 clean, so "no commit message in this
+  # history has ever cited the private record" is an INVARIANT here, not a
+  # difference; and `--tree` is green with an EMPTY baseline, where salt carries
+  # four accepted July-era lines. No baseline file is written by this repo — the
+  # tool offers `--write-baseline` and calls it "a reviewed act, not a fix", and
+  # the five real sites were REPAIRED instead.
+  # ⚠️ WHAT IS OWED AND IS NOT FIXED HERE: `--range <root>..HEAD` still reads 7,
+  # because those paths entered in past commits and a delta gate reads diffs. The
+  # tree no longer carries them. Whether that history is rewritten before
+  # publication is the Captain's call — salt's own precedent (08/30) was ACCEPT
+  # AND RECORD, NO REWRITE — and it is filed as a pre-publication item rather
+  # than settled by the seat that found it.
+  private-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gate self-test (drives every FAIL path before any scan may pass)
+        run: python3 scripts/check_private_paths.py --self-test
+      - name: Scan the pushed delta
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # ⛔ THE FALLBACK IS A CONTROL PATH. On a new branch or a first push
+          # `BEFORE` is all-zeros, and reaching back a fixed number of commits
+          # would scan PRE-REPAIR history and red permanently on findings this
+          # repo has already fixed in the tree. Fall back to the tree arm, which
+          # asks the question that actually matters for a push: is the tree clean?
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            python3 scripts/check_private_paths.py --range "$BEFORE..HEAD"
+          else
+            echo "no usable BEFORE — falling back to the tree arm, declared not silent"
+            python3 scripts/check_private_paths.py --tree
+          fi
+      - name: Tree ratchet (residue the delta gate already fired on must not survive)
+        run: python3 scripts/check_private_paths.py --tree
+      - name: Message ratchet (a violating message must not launder into the next base)
+        run: python3 scripts/check_private_paths.py --messages

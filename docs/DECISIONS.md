@@ -1,7 +1,7 @@
 # P0 decisions
 
 Decisions taken while executing P0 that **depart from, or sharpen, plan v1**
-(`~/projects/claude/seat/briefs/2026-09-02-PLAN-x86lean-v1.md`). Each says what
+(the seat repo's plan brief, `2026-09-02-PLAN-x86lean-v1.md`). Each says what
 was decided, why, and what it would cost to reverse. A decision not written down
 here is not a decision; it is a habit.
 
@@ -9795,8 +9795,9 @@ Two changes, and neither pretends to resolve what cannot be resolved:
 
 ### 5. WHY IT REPORTS AND NEVER REAPS
 
-Every seat on this box runs identical command lines from identical paths — `sh
-~/Documents/seat/watch/bus_watch.sh` is byte-for-byte the same at six seats — so a name-matched sweep
+Every seat on this box runs identical command lines from identical paths — the fleet's
+shared bus-watch script (`bus_watch.sh`, run from the kit) is byte-for-byte the same at six seats —
+so a name-matched sweep
 at one seat's exit selects the WHOLE FLEET's watches, silently, discoverable only at the next boot;
 and the boot brief's own warning that a relit seat "boots blind until this runs" would have made the
 injury look like the ordinary relight condition. math came one command from that tonight and stopped

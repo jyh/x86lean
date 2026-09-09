@@ -15,7 +15,7 @@ mean.**
 `SIGSEGV`. **This document names KENAI five times and never once names kenai's operating system.**
 
 **Kenai is Windows 11 on an AMD Ryzen 7 8700F, and WSL is not installed on it.** Measured by
-flask on 2026-08-28 (`fleet/FOR-JAS-wsl-is-absent-on-kenai-2026-08-28.md`):
+flask on 2026-08-28 (a fleet record, `FOR-JAS-wsl-is-absent-on-kenai-2026-08-28.md`):
 
 ```
 Get-WindowsOptionalFeature Microsoft-Windows-Subsystem-Linux  -> State: Disabled
@@ -192,7 +192,7 @@ footnote.*
 
 **§1 argues that co-simulation is worth building because *"silicon is not a reading"*. That
 argument assumes the silicon is running inside its own specification. Kenai's is not, on the
-last evidence the fleet has.** **[measured, 2026-07-27, `fleet/KENAI-hardware-fault-2026-07-27.md`]**
+last evidence the fleet has.** **[measured, 2026-07-27, a fleet record: `KENAI-hardware-fault-2026-07-27.md`]**
 
 ```
 Microsoft-Windows-WHEA-Logger Id 18  ×3 in one day, all at IDLE

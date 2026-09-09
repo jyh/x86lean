@@ -388,8 +388,9 @@ def stale_worktrees(root=None):
 # moment nobody was running it.
 #
 # ⛔⛔ IT REPORTS AND NEVER KILLS, and that is not squeamishness. Every seat on
-# this box runs identical command lines from identical paths — `sh
-# ~/Documents/seat/watch/bus_watch.sh` is byte-for-byte the same at six seats —
+# this box runs identical command lines from identical paths — the fleet's shared
+# bus-watch script (`bus_watch.sh`, run from the kit) is byte-for-byte the same at
+# six seats —
 # so a name-matched sweep at one seat's exit selects the whole fleet's watches,
 # silently, discoverable only at the next boot (math, 2026-09-05 22:45, one
 # command away from doing it). The seats are distinguishable ONLY by cwd.
