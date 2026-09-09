@@ -920,6 +920,20 @@ occur. Until then this is ONE observation and is recorded as one.
    ⛔ **THE SECOND SOURCE STILL DOES NOT CONFIRM — SO THIS ITEM STAYS SHUT.** The loaded night never
    reaches full resolution (0 of 1 at k=11), spans **-5.90 to +37.05**, and carries **6 sign
    inversions of 106** where kernel time falls while unfoldings rise (the quiet night: 0 of 96).
+   ⚖️ **THE SIGN-INVERSION HALF IS RETIRED AS EVIDENCE (D181, 2026-09-09).** Among resolved cases
+   with a non-zero Δku, **Δku > 0 in 106 of 106 (and 96 of 96)** — it is NEVER negative, because this
+   corpus only ever accumulates work. ⇒ 🔑 **"A SIGN INVERSION" IS EXACTLY "Δms < 0", SO THE
+   STATISTIC HAS NO SECOND DIRECTION**: it counts windows on which the NOISY side read negative,
+   wearing a two-sided name. All six sit at **k=2,3,4 and none at k>=5**, i.e. where the true delta
+   is smallest, on the corpus D180 measured at **3.56x** the usable bound. ⛔ This is the SAME defect
+   D148 §1 struck out of the sign-AGREEMENT column, surviving four days in the column beside it
+   ([[feedback-naming-a-defect-is-not-finding-its-siblings]]). ⚠️ **A first hypothesis — that the
+   inversions were the just-resolved cases — was REFUTED and is recorded: their margin percentiles
+   are 16/40/43/45/82/86, so two cleared their band by more than 80% of resolved cases do.**
+   ⛔ **NONE OF THIS CONFIRMS THE COUNTER AND THE ITEM STAYS SHUT** — machine independence is still
+   unmeasured and there is still no second USABLE night. What changes is that the evidence AGAINST
+   is now accounted for, so a future night's job is to supply confirmation rather than to explain
+   away a disagreement that was never a disagreement.
    Machine independence remains unmeasured; there is no second machine.
    ⚖️⚖️ **RE-DIAGNOSED 2026-09-09 (D180), AND THE ITEM STAYS SHUT ANYWAY.** The paragraph above has
    been read as evidence about the COUNTER. Run this repository's own sealed usability gate over

@@ -12105,3 +12105,85 @@ party whose measurement produces it.
   owes the same usability bar is an open question, filed, not answered** — the honest
   alternative to either quietly excluding them or quietly convicting them
   [[feedback-a-justification-outlives-its-condition]].
+
+---
+
+## D181 — item 4b's last standing evidence against the counter is a statistic with only one direction, measured on the corpus D180 showed is unusable
+
+**LANE.** Personal. Committed corpora only; no box, no build, no ACL2. ~0.3 s.
+
+### 1. WHAT D180 LEFT OPEN, AND WHY IT WAS WORTH ONE MORE PASS
+D180 re-diagnosed 4b's blocker — the second source **fails the usability gate at 3.56×**
+— and said plainly what it did NOT do: *"the 6 sign inversions stay unexplained."* That
+was the last piece of evidence pointing AT the kernel-unfolding counter rather than at
+the corpus, so it is the one worth finishing. Item 4b states it as: *"carries **6 sign
+inversions of 106** where kernel time falls while unfoldings rise (the quiet night:
+0 of 96)."*
+
+### 2. ⛔ THE FIRST HYPOTHESIS WAS REFUTED, AND IT IS RECORDED BECAUSE IT WAS MINE
+**Hypothesis:** the inversions are the just-resolved cases — windows where `|Δms|`
+barely cleared its band, so the noisy side decided the sign. Measured, as the margin
+`|d| / band` of each inverted case against the consistent ones:
+```
+  USER2   inverted   margin: min 1.20  median 1.86  max 5.19
+          consistent margin: min 1.01  median 2.31  max 15.56
+          each inversion's margin PERCENTILE among resolved cases:
+                       16, 40, 43, 45, 82, 86
+```
+⇒ **REFUTED.** The inversions are spread across the margin distribution and **two of the
+six cleared their band by more than 80% of resolved cases do**. A median ratio of 0.81×
+is not the ~1.0 clustering the hypothesis predicts. **"Noise-dominated" is not the
+mechanism.** [[feedback-an-expectation-written-from-intent]]
+
+### 3. ⛔⛔ THE CONTROL I RAN NEXT IS THE ACTUAL FINDING, AND IT DISSOLVES THE STATISTIC
+Before reading anything into the direction of the inverted cases — all six carry
+`Δms < 0` — I asked whether an inversion **can** go the other way in this corpus:
+```
+                  resolved cases with a non-zero Δku      Δku > 0     Δku < 0
+  QUIET                          96                          96          0
+  USER2                         106                         106          0
+```
+⇒ 🔑 ***Δku IS NEVER NEGATIVE, BECAUSE THIS CORPUS ONLY EVER ACCUMULATES WORK. SO "A
+SIGN INVERSION" IS EXACTLY "Δms < 0", AND THE STATISTIC HAS NO SECOND DIRECTION.*** It
+is not a disagreement rate between two instruments; it is **a count of windows on which
+the NOISY side read negative**, wearing a two-sided name.
+
+⛔⛔ **AND THIS IS THE SAME DEFECT D148 §1 ALREADY CAUGHT ONE STEP ALONG.** D148 struck
+out the sign-AGREEMENT column for exactly this reason — *"Δproxy is positive on all six
+live pairs, so the statistic is `sum(Δkernel > 0)` under another name"* — and the fix
+(print the null model beside it) was applied to that column and **not** to its sibling.
+⇒ 🔑 **A DEFECT NAMED IN ONE COLUMN SURVIVED IN THE COLUMN BESIDE IT, IN THE SAME
+TABLE, FOR FOUR DAYS.** [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 4. ⇒ WHAT THE SIX INVERSIONS ACTUALLY ARE
+Six windows, **all at k = 2, 3, 4 and none at k ≥ 5** (quiet night: none at any k), on
+which the millisecond reading came back NEGATIVE over a span where work strictly
+accumulated. The counter cannot be the party at fault: it is exactly deterministic here
+— **byte-identical across a 2.4×–9× load ratio**, measured 09/09 — and monotone across
+every one of these windows. **A negative Δms over a window where work only accumulates
+is an artifact of the noisy side**, and it appears only at the small window sizes where
+the true delta is smallest, on the corpus D180 measured at 3.56× the usable bound.
+
+⇒ ⚖️ **SO 4b's LAST STANDING PIECE OF EVIDENCE AGAINST THE COUNTER IS ANOTHER READING
+OF THE SAME USABILITY FAILURE.** Combined with D180: the second source did not confirm
+because it could not carry a verdict, and its one specific indictment is a one-directional
+statistic concentrated where its own instrument is weakest.
+
+### 5. ⛔ WHAT THIS DOES NOT DO — AND IT IS THE SAME SENTENCE AS D180'S
+**IT SUPPLIES NO EVIDENCE FOR THE COUNTER AND ITEM 4b IS NOT UNBLOCKED.** Machine
+independence is still unmeasured and there is still no second machine; there is still no
+second USABLE night. What has changed is that **the evidence AGAINST is now fully
+accounted for**, so a future night's job is to supply confirmation rather than to
+explain away a disagreement that was never a disagreement.
+⚠️ And the pattern of the last two days says to distrust exactly this feeling: three
+times this week a blocker dissolved on measurement and each time the temptation was to
+read "the objection is gone" as "the thing is proven". It is not.
+[[feedback-a-blocked-repair-blocks-a-design]]
+
+### 6. WHAT LANDED IN THE TOOL
+`report()`'s sign-inversion line now **prints its own denominator problem**: when Δku is
+single-signed it says so, names the count, and says the number is not a two-sided
+disagreement rate — with the window sizes beside it. Two arms drive it in both
+directions (a single-signed set RAISES the warning; a set containing a negative Δku does
+NOT), because a warning no input can contradict is not an arm
+[[feedback-an-implied-assertion-is-not-a-second-gate]].

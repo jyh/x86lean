@@ -223,10 +223,27 @@ def report(name, cases, module):
         print(f"    ⚠️  these windows OVERLAP and are not independent observations")
     else:
         print("  ⇒ no k reaches full resolution: every ratio here is SELECTED")
-    neg = sum(1 for c in cases if c["resolved"] and c["dku"]
-              and (c["d"] / c["dku"]) < 0)
-    print(f"  sign inversions (Δms and Δku disagree): {neg} of "
-          f"{sum(1 for c in cases if c['resolved'] and c['dku'])} resolved cases")
+    # ⛔⛔ THE SIGN-INVERSION STATISTIC HAS ONLY ONE DIRECTION, AND IT MUST SAY SO.
+    # D148 §1 already caught this shape in the sign-AGREEMENT statistic: Δproxy is
+    # positive on every live pair, so "sign agreement" was `sum(Δkernel > 0)` under
+    # another name. **The INVERSION statistic has the identical defect and nobody had
+    # noticed.** Measured 2026-09-09 (D181): among resolved cases with a non-zero Δku,
+    # **Δku > 0 in 96 of 96 on the quiet night and 106 of 106 on the loaded one — Δku
+    # is NEVER negative**, because this corpus only ever accumulates work. So an
+    # "inversion" can only ever be `Δms < 0`, and the count is a count of windows
+    # where the NOISY side read negative. It carries nothing about agreement.
+    # ⇒ The line now prints its own denominator problem rather than reading as a
+    # two-sided disagreement rate. [[feedback-a-claim-the-vectors-cannot-distinguish]]
+    res_nz = [c for c in cases if c["resolved"] and c["dku"]]
+    neg = sum(1 for c in res_nz if (c["d"] / c["dku"]) < 0)
+    dku_neg = sum(1 for c in res_nz if c["dku"] < 0)
+    print(f"  sign inversions (Δms and Δku disagree): {neg} of {len(res_nz)} resolved cases")
+    if res_nz and dku_neg == 0:
+        ks = sorted({c["k"] for c in res_nz if (c["d"] / c["dku"]) < 0})
+        print(f"    ⚠️  Δku < 0 in 0 of {len(res_nz)} of them, so an inversion can ONLY be "
+              f"Δms < 0: this is a count of windows where the NOISY side read negative, "
+              f"NOT a two-sided disagreement rate"
+              + (f" (all at k={ks}, where the true delta is smallest)" if ks else ""))
     print(f"  PREDICTORS over the same resolved set (figure of merit: p90/p10, lower is better)")
     for nm, s in score_predictors(cases).items():
         if s is None:
@@ -255,6 +272,12 @@ def _walk(levels, reps=2, jitter=0.0, unit="M"):
 def _ur(walk, unit="M"):
     return {c: {unit: [r["modules"][unit] for r in rows]}
             for c, rows in walk["by"].items()}
+
+
+def _sign_warn_fires(cases):
+    """True iff report() would print the one-direction warning for `cases`."""
+    res = [c for c in cases if c["resolved"] and c["dku"]]
+    return bool(res) and sum(1 for c in res if c["dku"] < 0) == 0
 
 
 def selftest():
@@ -355,6 +378,23 @@ def selftest():
         return 1
     print(f"  {len(arms)} arms, {len(arms) - len(fails)} green; {len(caught)} DISTINCT "
           f"arms caught a plant: {', '.join(caught)}")
+    # ⛔ D181's arm: the one-direction warning must fire when Δku is single-signed
+    # and must NOT fire when it is not. Without the second drive the warning would be
+    # an assertion no input can contradict [[feedback-an-implied-assertion-is-not-a-second-gate]].
+    _one = [{"resolved": True, "dku": +5, "d": -1.0, "k": 2, "band": 0.1},
+            {"resolved": True, "dku": +7, "d": +9.0, "k": 3, "band": 0.1}]
+    _two = _one + [{"resolved": True, "dku": -3, "d": +2.0, "k": 4, "band": 0.1}]
+    _a = _sign_warn_fires(_one)
+    _b = _sign_warn_fires(_two)
+    print(("  \u2714 " if _a else "  \u2716 ") +
+          "RED-FIRST — a single-signed Δku set RAISES the one-direction warning, so "
+          "the inversion count is never read as a two-sided disagreement rate")
+    print(("  \u2714 " if not _b else "  \u2716 ") +
+          "CONTROL — a set containing a NEGATIVE Δku does NOT raise it, so the warning "
+          "is a measurement and not a constant")
+    if not _a or _b:
+        return 1
+
     print("unfolding-calibration selftest: CLEAN — the SELECTION rule and the "
           "predictor scoring only; no walk is read and no tree is profiled.")
     return 0
