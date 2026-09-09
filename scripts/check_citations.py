@@ -308,13 +308,154 @@ def selftest_decision_numbers():
     return ok
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# ⭐⭐ THE OTHER HALF: A D-NUMBER MUST NAME A DECISION THAT EXISTS.
+#
+# The arm above asks whether a number names ONE decision. Nothing asked whether
+# it names ANY. ⛔ MEASURED 2026-09-09: `D178` and `D179` were cited NINETEEN
+# times in `docs/QUEUE.md` and appeared NOWHERE in `docs/DECISIONS.md`. Both were
+# real rulings that had landed the same day; what was missing was any way to reach
+# them from the record that numbers them, and nothing looked. The duplicate arm
+# could not see it — a number with ZERO headings is not a number with TWO.
+#
+# ⛔ THE EXCLUSION RULE I ALMOST SHIPPED WOULD HAVE BEEN WORSE THAN THE DEFECT.
+# The one false positive in the corpus is `D0`, an OPCODE byte in a shift block,
+# written inside backticks — so "skip matches inside backticks" was the obvious
+# filter. Measured before adopting it: **24 of the 25 backticked D-numbers are
+# GENUINE citations.** The filter would have deleted 24 true positives to remove
+# one false one. ⇒ 🔑 A FILTER CHOSEN FOR THE CASE IN FRONT OF YOU IS FITTED TO
+# THAT CASE [[feedback-a-filter-chosen-for-brevity-deletes-the-answer]].
+#
+# So exclusions are a DECLARED LIST WITH A REASON PER ENTRY, gated for orphans —
+# the `NOT_AN_AVAILABILITY_QUESTION` idiom this repository already uses. An entry
+# whose number later RESOLVES, or whose citation disappears, fails: the list
+# cannot rot into a permission [[feedback-a-declared-list-inherits-its-default]].
+NOT_A_DECISION_NUMBER = {
+    "D0":   "an OPCODE byte, not a decision. The shift block is written `D0`-`D3` "
+            "in docs/DIFFERENTIAL-P1-BATCH8.md. Decision numbers start at D1.",
+    "D140": "written on the UNMERGED branch `p2-batch32-fp-compares`, and "
+            "docs/DECISIONS.md already carries a note saying so at the citation "
+            "site. It is pending, not phantom — and this entry must be removed "
+            "when that branch lands.",
+}
+
+D_CITE = re.compile(r'\bD(\d{1,3})\b')
+D_SOURCES = sorted(glob.glob("docs/*.md") + glob.glob("docs/seals/*.md")
+                   + glob.glob("scripts/*.py") + glob.glob(".github/workflows/*.yml")
+                   + ["README.md", "CLAUDE.md", "TRUSTBASE.md", "PROVENANCE.md"])
+
+
+def check_decision_references():
+    """Every D-number cited anywhere must head a section in DECISIONS.md."""
+    # ⚠️ `D_HEAD` is anchored with `^` and NOT compiled with re.MULTILINE — it is
+    # applied PER LINE by its other caller. Running it over the whole file matched
+    # nothing and this arm reported "no headings found", i.e. its own refusal path,
+    # on a file with 180 of them. Caught by running it; the refusal path was right
+    # and the reading was wrong. Fences are skipped for the same reason the sibling
+    # skips them: a heading QUOTED inside a fence is not a heading.
+    lines, fences = _outside_fences(open("docs/DECISIONS.md").read())
+    if fences % 2:
+        print("⛔ docs/DECISIONS.md has an ODD number of fence lines; skipping "
+              "fenced content would swallow the rest of the file. REFUSING.")
+        return 2
+    heads = {m.group(1) for ln in lines for m in [D_HEAD.match(ln)] if m}
+    if not heads:
+        print("⛔ no `## D<n>` headings found in docs/DECISIONS.md. A gate that "
+              "cannot find its subject reports a FAILURE, not a pass.")
+        return 2
+    seen, dangling = set(), {}
+    for f in D_SOURCES:
+        if not os.path.exists(f) or f.endswith("check_citations.py"):
+            continue
+        for i, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+            if f == "docs/DECISIONS.md" and D_HEAD_LOOSE.match(line):
+                continue
+            for m in D_CITE.finditer(line):
+                d = "D" + m.group(1)
+                seen.add(d)
+                if m.group(1) in heads or d in NOT_A_DECISION_NUMBER:
+                    continue
+                dangling.setdefault(d, []).append(f"{f}:{i}")
+    # the exclusions may not rot: each must still be cited, and must still not resolve
+    rot = []
+    for d, why in NOT_A_DECISION_NUMBER.items():
+        if d[1:] in heads:
+            rot.append(f"{d} NOW RESOLVES to a heading — remove it from the list "
+                       f"({why[:60]}…)")
+        if d not in seen:
+            rot.append(f"{d} is no longer cited anywhere — remove it from the list")
+    for r in rot:
+        print(f"⛔ STALE EXCLUSION: {r}")
+    for d, sites in sorted(dangling.items()):
+        print(f"⛔ {d} is cited {len(sites)} time(s) and heads NO section in "
+              f"docs/DECISIONS.md — e.g. {sites[0]}")
+    if dangling or rot:
+        print("   A decision number is a CITATION, and a citation reads as the "
+              "thing it names. Write the entry, or declare the token in "
+              "NOT_A_DECISION_NUMBER with a reason.")
+        return 1
+    print(f"  ✔ decision references: {len(seen)} distinct D-number(s) cited across "
+          f"{len(D_SOURCES)} files, every one heads a section; "
+          f"{len(NOT_A_DECISION_NUMBER)} declared non-decision token(s), each still "
+          f"cited and still unresolved")
+    return 0
+
+
+def selftest_decision_references():
+    """Drive the dangling-reference arm both ways, on a real file."""
+    target = "docs/COSIM-DESIGN.md"
+    saved = open(target, encoding="utf-8").read()
+    ok = True
+    try:
+        for label, line, expect_red in [
+            ("dangling", "\n\nAs ruled in D997, this is settled.\n", True),
+            ("real",     "\n\nAs ruled in D141, this is settled.\n", False),
+            ("declared", "\n\nThe shift block is `D0`-`D3`.\n", False),
+        ]:
+            open(target, "w", encoding="utf-8").write(saved + line)
+            r = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
+            red = ("heads NO section" in r.stdout)
+            if red != expect_red:
+                print(f"  \u2716 decision-refs {label}: expected "
+                      f"{'a failure' if expect_red else 'a pass'}, got rc {r.returncode}")
+                ok = False
+            else:
+                print(f"  \u2714 decision-refs {label}: "
+                      f"{'caught' if red else 'correctly not flagged'}")
+    finally:
+        open(target, "w", encoding="utf-8").write(saved)
+    # the anti-rot arm: an exclusion that RESOLVES must fail
+    _l, _f = _outside_fences(open("docs/DECISIONS.md").read())
+    real = max((m.group(1) for ln in _l for m in [D_HEAD.match(ln)] if m), key=int)
+    NOT_A_DECISION_NUMBER["D" + real] = "PLANT"
+    try:
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = check_decision_references()
+        caught = rc != 0 and "NOW RESOLVES" in buf.getvalue()
+    finally:
+        del NOT_A_DECISION_NUMBER["D" + real]
+    print(("  \u2714 " if caught else "  \u2716 ") +
+          "decision-refs anti-rot: an exclusion whose number RESOLVES fails, so the "
+          "declared list cannot rot into a permission")
+    return ok and caught
+
+
 if "--selftest" in sys.argv:
     if not selftest_decision_numbers():
+        sys.exit(1)
+    if not selftest_decision_references():
         sys.exit(1)
     selftest()
 
 if check_decision_numbers():
     sys.exit(1)
+
+
+_rc = check_decision_references()
+if _rc:
+    sys.exit(_rc)
 
 bad, checked = [], 0
 for src in SOURCES:

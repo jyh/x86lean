@@ -11979,7 +11979,23 @@ less ([[feedback-make-the-probe-cheap]]).
 
 ---
 
-## D178 / D179 — RECORDED IN `docs/QUEUE.md`, AND THIS POINTER EXISTS BECAUSE THEY WERE NOT
+## D178 — recorded in `docs/QUEUE.md` § item 0b(6); this pointer exists because it was not
+
+See D179 below: the two were found together and share one account, written there.
+
+## D179 — recorded in `docs/QUEUE.md` § item 4's keep-rule; this pointer exists because it was not
+
+⛔⛔ **AND THE FIRST FORM OF THIS ENTRY WAS ITSELF THE DEFECT IT DOCUMENTS.** It was
+written as a single heading, `## D178 / D179 — …`. The SHIPPED parser in
+`scripts/check_citations.py` is `^## D(\d+)(?=\s|$)` — it captures the FIRST number
+and stops. Measured immediately after: the gate saw **178** headings, with `D178`
+present and **`D179` absent**. So the entry that existed to make two numbers reachable
+made exactly one of them reachable, and `D_HEAD_LOOSE` matched the line so nothing
+refused. ⇒ 🔑 **A REPAIR WRITTEN IN A SHAPE ITS OWN GATE CANNOT PARSE IS NOT A REPAIR**,
+and the only reason this was caught is that the next step was reading that parser
+[[feedback-unobserved-regions-report-agreement]]. Split into two headings, each
+in the shape the parser actually accepts.
+
 
 Measured 2026-09-09: **`D178` and `D179` are cited nineteen times in `docs/QUEUE.md`
 and appear nowhere in this file.** Both are real rulings that landed on 09/09 —
