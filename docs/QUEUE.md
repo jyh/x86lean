@@ -787,11 +787,29 @@ occur. Until then this is ONE observation and is recorded as one.
      3. **NO DISCARD ON THE OUTCOME — AND NO DISCARD ON LOAD EITHER.** A discard needs a covariate
         that PREDICTS; measured above, this campaign has none in [3.9, 20.9]. A "the box was busy"
         re-run would be selection on the outcome wearing a covariate's clothes.
-        ⛔⛔ **THIS RULE'S STATED REASON IS INCOMPLETE — SEE 4b-LOAD, SAME DAY.** The `r = +0.041`
-        above is computed over **MEDIAN** spreads, and load DOES predict the **TAIL** (2.1x-3.2x
-        from p95 up, measured on the adjacent-commit deltas). The gate's band is a tail statistic.
-        **The rule may still be right and rules 1/2/5/6/7 are untouched — but do not quote this
-        reason as settled**, and re-run the covariate test against p95/p99 before relying on it.
+        ⚖️ **REASON REPAIRED THE SAME DAY; THE RULE ITSELF STANDS.** The `r = +0.041` above is
+        computed over **MEDIAN** spreads, and *"no covariate predicts"* was therefore a claim about
+        the body of a distribution whose consumer reads the **tail**. Re-run at every statistic over
+        the same 24 commit-pairs, `load1` [3.88, 20.89]:
+```
+             statistic     r(load)   r(Δload)      two-sided p on the best of each row
+             p50            -0.243     +0.041      0.253 / 0.849
+             p90            +0.074     +0.338              0.106
+             p95            +0.160     +0.380              0.067   ← the strongest signal here
+             max            +0.353     +0.316      0.091 / ~0.13
+             n = 24, df = 22; the 5% critical |r| is ~0.404 and NOTHING reaches it.
+```
+        ⇒ **The correlation RISES monotonically with the statistic — 8-9x from p50 to p95 — so the
+        old reason was genuinely misleading.** ⇒ **AND NO COVARIATE REACHES SIGNIFICANCE ANYWAY**,
+        with the best at `p = 0.067` **across six statistics tested**, which under any multiplicity
+        correction is comfortably nothing [[feedback-a-per-unit-threshold-asked-n-times]].
+        ⇒ ⚖️ **SO RULE 3 SURVIVES WITH A HONEST REASON INSTEAD OF A FALSE ONE:** *a discard needs a
+        covariate that predicts; the best candidate is a TAIL correlation (Δload vs p95, r = +0.38)
+        that does not reach significance at n = 24.* **Not** *"nothing predicts"*.
+        📌 **AND IT NOW NAMES WHAT WOULD OVERTURN IT, which the old reason could not:** the same
+        `r = +0.38` at **n = 40** would be `p ≈ 0.016`. ⇒ **Rule 3 is falsifiable by collecting more
+        commit-pairs**, and a rule with a stated falsification condition is one someone can actually
+        argue with [[feedback-conservative-is-a-direction-not-a-margin]].
      4. **ONE QUALIFYING CONDITION EXISTS TODAY: any pass recording `load1 > 21`** — outside every
         calibration corpus, where the only readings available are ~5× worse. ⚠️ It is a
         **boundary-of-calibration** rule, NOT a claim that load 25 is bad: the knee between 21 and
