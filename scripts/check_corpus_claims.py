@@ -181,6 +181,56 @@ def claim_sites(files):
     return out
 
 
+# ── ARM D: A FIGURE STATED BESIDE A CORPUS ───────────────────────────────────
+# The header names this as absent: three kernel-delta walks share ONE role and one
+# schema, so arm C cannot tell them apart — only a FIGURE can. D151's "contended
+# corpus, 14 readings" was the ONLY thing that identified `USER-CONTENDED` when its
+# path went stale, and I nearly filed a SECOND false defect off a different figure
+# in the same hour (reading "2 tree(s) with repeated readings" as a commit count;
+# counted directly, that corpus carries 12 distinct commits with sweep 1 truncated
+# at 2). So figures beside corpora both rescue and mislead.
+#
+# ⛔⛔ SCOPED TO `scripts/*.py`, AND THE SCOPE IS THE WHOLE DESIGN. A TOOL'S
+# DOCSTRING DESCRIBES THE INPUTS IT READS NOW; A DECISION ENTRY DESCRIBES A PAST
+# MEASUREMENT. Gating `docs/DECISIONS.md` would convict the record for being
+# history — measured: it says `delta-allowance-ledger.jsonl` "holds 11 rows" and the
+# file holds 18 today, which is a TRUE statement about the day it was written and
+# would be this gate's first false positive.
+# [[feedback-a-justification-outlives-its-condition]]
+#
+# ⚠️ ITS MEASURED REACH IS THREE SITES, ALL IN `band_load_analysis.py`, AND THAT IS
+# STATED RATHER THAN LEFT TO BE DISCOVERED. The other figures beside corpora in
+# scripts/ are approximate (`load1 ~4.5`) or derived statistics (`n=252`), neither
+# of which is a property of the corpus. A gate whose reach is three lines is worth
+# having when those three lines are a hand-copied snapshot of files that can be
+# replaced — `kernel-delta-history-DISCARDED-night3` is evidence that walks do get
+# re-taken — but it is not worth over-claiming. [[feedback-a-complete-count-of-a-subset]]
+LOAD_RANGE = re.compile(
+    r'(docs/[A-Za-z0-9_.-]+\.jsonl)\s*`?\s+load1\s+(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)')
+
+
+def figure_claims(files):
+    """[(path, lo, hi, file, line)] — every declared load1 range beside a corpus."""
+    out = []
+    for f in files:
+        if not f.startswith("scripts/") or not f.endswith(".py"):
+            continue
+        text = open(f, encoding="utf-8", errors="replace").read()
+        spans = fixture_spans(f, text)
+        for i, line in enumerate(text.splitlines(), 1):
+            if any(a <= i <= b for a, b, _n in spans):
+                continue
+            for m in LOAD_RANGE.finditer(line):
+                out.append((m.group(1), float(m.group(2)), float(m.group(3)), f, i))
+    return out
+
+
+def load_range_of(path):
+    with open(path) as fh:
+        v = [json.loads(l)["load1"] for l in fh if l.strip()]
+    return (min(v), max(v)) if v else None
+
+
 def run():
     os.chdir(ROOT)
     files = sorted({p for pat in PROSE for p in glob.glob(pat)})
@@ -239,6 +289,25 @@ def run():
                        f"{claimed!r} corpus — but that file measures as {actual!r}.")
     print(f"arm C: {len(claims)} explicit role binding(s) checked against "
           f"{len(ROLE_FLAGS)} flag(s), each anchored at its defining site")
+
+    # ── ARM D: declared load1 ranges must match the corpus ───────────────────
+    figs = figure_claims(files)
+    for path, lo, hi, f, i in figs:
+        if not os.path.exists(path):
+            continue                       # arm A owns absence
+        real = load_range_of(path)
+        if real is None:
+            bad.append(f"⛔ ARM D  {f}:{i} states a load1 range for {path}, which has NO rows.")
+            continue
+        # compare at the PRECISION THE CLAIM IS WRITTEN TO, not at full precision:
+        # a table printing 3.11 is not claiming 3.1104, and demanding equality at
+        # full precision would red on a true sentence.
+        if round(real[0], 2) != round(lo, 2) or round(real[1], 2) != round(hi, 2):
+            bad.append(f"⛔ ARM D  {f}:{i} states {path} spans load1 {lo}-{hi}; the "
+                       f"file measures {real[0]:.2f}-{real[1]:.2f}.")
+    print(f"arm D: {len(figs)} declared load1 range(s) recomputed from the corpora "
+          f"(scripts/ only — a decision entry records a PAST measurement and is "
+          f"deliberately out of scope)")
 
     if bad:
         print()
@@ -383,7 +452,44 @@ def selftest():
            f"CONTROL — a path more than WINDOW={WINDOW} chars from the flag is NOT "
            f"read as its argument")
 
-    n_expected = 9
+    # ---- arm D: the figure join, both directions and its SCOPE ------------
+    walk_real = load_range_of(walks[0]) if walks else None
+    if walk_real:
+        d = scratch.mkdtemp("x86lean-armd-")
+        wrong = os.path.join(d, "wrong.py")
+        open(wrong, "w").write(
+            f'"""{walks[0]}   load1  {walk_real[0]+5:.2f} - {walk_real[1]+5:.2f}"""\n')
+        right = os.path.join(d, "right.py")
+        open(right, "w").write(
+            f'"""{walks[0]}   load1  {walk_real[0]:.2f} - {walk_real[1]:.2f}"""\n')
+        # figure_claims only reads scripts/*.py, so drive the comparison directly
+        def mismatch(path_py):
+            for pth, lo, hi, _f, _i in [(m.group(1), float(m.group(2)), float(m.group(3)),
+                                         path_py, 1)
+                                        for m in LOAD_RANGE.finditer(open(path_py).read())]:
+                r = load_range_of(pth)
+                if round(r[0], 2) != round(lo, 2) or round(r[1], 2) != round(hi, 2):
+                    return True
+            return False
+        ok(mismatch(wrong),
+           "a WRONG declared load1 range beside a corpus is caught", plant="figure-wrong")
+        ok(not mismatch(right),
+           "CONTROL — the CORRECT range is not flagged, so the arm is not simply "
+           "refusing every figure it sees")
+        ok(len(figure_claims(["docs/DECISIONS.md", "docs/QUEUE.md"])) == 0,
+           "CONTROL — the SCOPE RULE holds: a figure in the historical record is out "
+           "of scope by construction, not by an exception list. Gating DECISIONS.md "
+           "would convict a record for being history")
+        # ⛔ NOT labelled a plant: it asserts something is NOT flagged, which is a
+        # CONTROL. Calling it a red arm would inflate the distinct-plant count — the
+        # exact over-claim the count below exists to prevent.
+        n_live = len(figure_claims(sorted(glob.glob("scripts/*.py"))))
+        ok(n_live == 3,
+           f"CONTROL — arm D's reach is {n_live} live site(s); the count is asserted so "
+           f"a regex that silently stopped matching would RED instead of reporting a "
+           f"clean zero [[feedback-a-complete-count-of-a-subset]]")
+
+    n_expected = 10
     ok(len(_FIRED) == n_expected,
        f"CONTROL — {len(_FIRED)} distinct red arms fired of {n_expected} declared. "
        f"A broken harness reds every plant; the count is what says the arms are "
