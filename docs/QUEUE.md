@@ -307,9 +307,17 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    ⇒ 🔑 **AND THE REMEDY REFUTED ITSELF.** Run 2 refused with *"~6 repeats a side would decide it"*.
    Run 3 ran exactly 6 and came back with MORE unmeasurable units (3, not 2) and a worse projection:
    *"~33"* and *"~69 repeats a side"*. Doubling `n` did not shrink the band, because the spread is
-   not Gaussian noise that averages out — it is **rare load excursions from other seats on a shared
-   box**: the two worst passes read `Tests.Coverage` 30,600 and 27,400 at `load1` **11.52** and
-   **12.04**, against ~25,700 at load ~6.
+   not Gaussian noise that averages out — it was attributed to **rare load excursions from other
+   seats on a shared box**: the two worst passes read `Tests.Coverage` 30,600 and 27,400 at `load1`
+   **11.52** and **12.04**, against ~25,700 at load ~6.
+   ⛔ **AND THAT MECHANISM WAS ITSELF REFUTED 2026-09-09 (D179).** Load moves the LEVEL of a
+   reading and not the SPREAD (r = +0.041 for load variation, −0.243 for load level, over 24 paired
+   readings in load1 [3.9, 20.9]); the two passes called excursions read 1.19× and 1.07× the quiet
+   level, **inside the p10–p90 of the ROUTINE 1.078–1.246 shift**. They were the box behaving
+   normally at load 12. ⇒ **The REFUTATION of `repeats_to_decide` stands and is unaffected — only
+   the EXPLANATION offered for it was wrong.** ⇒ 🔑 **A CORRECT FINDING CARRIES ITS EXPLANATION
+   ALONG UNINSPECTED: nobody re-audits the "because" clause of a sentence whose main claim was
+   verified** ([[feedback-audit-the-premise-of-a-right-decision]]).
    ⇒ **`repeats_to_decide` has no floor, so it always names a price**; it is a projection under an
    assumption this box violates ([[feedback-a-projection-with-no-floor-always-names-a-price]]).
    ⛔ **DO NOT QUOTE IT AND DO NOT SPEND THE BOX ON IT.** A fourth run chosen after seeing three
@@ -625,9 +633,11 @@ occur. Until then this is ONE observation and is recorded as one.
                      and pre_states_…frame    delta   -40   band ±1304.8   ⇒ "~69"; 3 units, not 2
      ```
      **`n` was doubled exactly as advised and the advice got worse.** A 1/sqrt(n) projection assumes
-     the spread is noise that averages out; here it is **rare load excursions from other seats on a
-     shared box** — the two worst passes read `Tests.Coverage` 30,600 and 27,400 at `load1` **11.52**
-     and **12.04**, against ~25,700 at load ~6. ⇒ 🔑 **A PROJECTION WITH NO FLOOR ALWAYS NAMES A
+     the spread is noise that averages out; here it was attributed to **rare load excursions from
+     other seats on a shared box** — the two worst passes read `Tests.Coverage` 30,600 and 27,400 at
+     `load1` **11.52** and **12.04**, against ~25,700 at load ~6. ⛔ **THAT ATTRIBUTION IS REFUTED
+     BELOW (D179): those two readings are the ROUTINE ~14% level shift, not an excursion.** The
+     refutation of `repeats_to_decide` is untouched; only its explanation was wrong. ⇒ 🔑 **A PROJECTION WITH NO FLOOR ALWAYS NAMES A
      PRICE, AND OBEYING IT IS NOT A TEST OF IT** ([[feedback-a-projection-with-no-floor-always-names-a-price]]).
    - ⚠️⚠️ **AND A TENSION THIS ITEM SHOULD OWN RATHER THAN LEAVE IMPLICIT.** The 09/06 entry above
      resolves a unit by RE-RUNNING at the same `n` and takes the second run's verdict. If the band is
@@ -1110,8 +1120,11 @@ are stable, instead of the difference of two large numbers.
    would decide it` line."* **Do not read that number off.** Measured on this box the same evening
    (item 4, third instance): the gate advised `~6` at n=3; obeying it produced `~33` and `~69` at
    n=6, over three unmeasurable units instead of two. **The projection moved the wrong way when
-   obeyed**, because it models the spread as noise that averages out and the spread here is rare
-   load excursions.
+   obeyed**, because it models the spread as noise that averages out and the spread here is not.
+   ⚠️ **THIS SENTENCE ENDED "…and the spread here is rare load excursions" UNTIL D179 (2026-09-09)
+   MEASURED THAT EXPLANATION AND REFUTED IT.** The correction is made HERE, in a blocked item's
+   method, for this entry's own stated reason: **a blocked item's method is the least-inspected text
+   in a queue**, and a refuted CAUSE inside a correct refutation is less inspected still.
    ⇒ 🔑 **A BLOCKED ITEM'S METHOD IS THE LEAST-INSPECTED TEXT IN A QUEUE.** Nobody re-reads the
    recipe for work nobody can start, so a refuted method sits there looking like a plan and is
    followed on the day the block lifts — by which time the measurement that refuted it is a hundred
