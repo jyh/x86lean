@@ -189,20 +189,20 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 105 | 123,366 | 30.7% |
+| the oracle EXECUTES | 106 | 139,854 | 34.8% |
 | the oracle REFUSES | 88 | 169,877 | 42.3% |
-| the oracle STALLS | 2 | 77 | 0.0% |
-| **probed so far** | 195 | **293,320** | **73.0%** |
-| not asked at its own bucket | | 108,171 | 26.9% |
+| the oracle STALLS | 3 | 241 | 0.1% |
+| **probed so far** | 197 | **309,972** | **77.2%** |
+| not asked at its own bucket | | 91,519 | 22.8% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-75,544 instructions, 18.8% of the gap** — that is
+58,892 instructions, 14.7% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
 
 So of the demand probed, **41% has an oracle** by mnemonic and
-**42%** by bucket — after a one-line change to the
+**45%** by bucket — after a one-line change to the
 pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms

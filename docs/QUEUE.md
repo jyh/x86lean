@@ -414,10 +414,45 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    UNAVAILABILITY**, which is the direction that INVENTS work. It is also one of the three stalling
    forms D177 found only by the full 267-row sweep.
 
-   📌 **RECOMMENDATION FOR THE BATCH (not taken here, deliberately — a roster move deserves its own
-   gates):** rule in all six; `NOT_AN_AVAILABILITY_QUESTION` keeps only the three entries with
-   STRUCTURAL reasons (`ADD1`/`ADD2`/`ADD3`), and gains an arm that **refuses on any entry whose
-   reason is "unruled"** — so the list cannot grow a fourth unpriced member.
+   ### 1b. ✅✅ **THE BATCH IS TAKEN AND LANDED (2026-09-09). FIVE OF SIX RULED IN; THE SIXTH HAD A
+   ### REAL REASON AND ONLY A GATE COULD SAY SO.**
+   `NOT_AN_AVAILABILITY_QUESTION` now holds **four** entries, every one of them a fact about the
+   KEY, and gains `assert_no_unruled_exclusions()` — which **refuses** (not warns) on any reason
+   containing `unruled` / `see QUEUE` / `for now` / `TODO` / `pending`. Red-probed on all four
+   phrasings, **with a control proving it does NOT refuse a structural reason**, so it is a gate
+   against the SHAPE that produced the six and not a denylist of the six.
+
+   ⛔⛔ **AND MY RULING WAS TOO BROAD BY EXACTLY ONE ROW, WHICH IS THE BEST THING THAT HAPPENED HERE.**
+   I ruled in all six. `p2_roster --selftest` went RED: **`every probe bucket is a census bucket …
+   STRAY ['SSE2 (nt store)']`** — `CONTROL:movnti`'s bucket is not one the census names. That is a
+   STRUCTURAL fact, the same shape as `ADD3:movabsq`'s existing reason two lines above it, and **it
+   had never been written down anywhere.**
+   ⇒ 🔑 **"UNRULED" IS NOT A WEAK REASON, IT IS THE ABSENCE OF ONE — AND IT HIDES THE ROWS THAT DO
+   HAVE A REASON AMONG THE ROWS THAT DO NOT.** Five were rulable on sight once priced; the sixth
+   needed a gate to articulate, **and the gate could not speak until someone attempted the ruling.**
+   ⇒ **A deferral label is worse than a wrong label: a wrong one can be refuted, a deferral cannot
+   even be tested** [[feedback-a-category-is-a-hypothesis-about-its-members]].
+
+   **WHAT MOVED IN THE PUBLISHED ROSTER** (`docs/P2-ROSTER.md`, regenerated; the gate is byte-exact):
+```
+     the oracle EXECUTES      105 → 106 pairs    123,366 → 139,854   30.7% → 34.8%   (+16,488 endbr64)
+     the oracle STALLS          2 →   3 pairs         77 →     241    0.0% →  0.1%   (+164 emms)
+     probed so far            195 → 197 pairs    293,320 → 309,972   73.0% → 77.2%
+     not asked at its bucket                     108,171 →  91,519   26.9% → 22.8%
+     by-mnemonic ahead of by-bucket               75,544 →  58,892   18.8% → 14.7%
+     of demand probed, by bucket                                        42% → 45%
+```
+   ⇒ **The campaign's headline probed-so-far coverage rises 4.2 points on verdicts that were ALREADY
+   MEASURED and were being withheld by a list nobody had priced.** ⚠️ **This is an UNDER-claim being
+   corrected, not a new claim** — every one of these verdicts predates today
+   ([[feedback-under-claims-are-unpoliced]]). And it does **not** make `endbr64` buildable: its
+   blocker is that **K has no rule**, which is a semantics-source constraint, untouched.
+   ⚠️ `p2_oracle_support`'s `absent from catalogue` rises 5 → 10 — the new keys are not in x86isa's
+   catalogue-keyed set. Prediction accuracy is UNCHANGED at 249/251 (99.2%), because none of them
+   became scorable. Reported, not repaired: whether that is a naming mismatch or a real gap in the
+   oracle's own record is a separate question and nobody has asked it.
+   ✅ Gates: `ci_local --job build` **34/34 rc=0** · `p2_roster --selftest` **74 arms PASS** ·
+   `p2_roster --check` byte-exact · `p2_residue --check` rc=0 · `kernel_drift --gap` 0 unrecorded.
 
    ⛔⛔ **AND THE METHOD, WRITTEN DOWN BECAUSE THREE OF MY FIRST FOUR READINGS WERE VACUOUS AND EACH
    ONE LOOKED LIKE AN ANSWER.** Whoever takes this batch must not re-run them:

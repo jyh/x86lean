@@ -1929,17 +1929,61 @@ def main():
 # `docs/QUEUE.md`'s item, not a side effect of a bucket repair.
 # [[feedback-a-declared-list-inherits-its-default]]
 # [[feedback-a-category-is-a-hypothesis-about-its-members]]
+# ⛔⛔ THE SIX "unruled" ENTRIES WERE RULED IN 2026-09-09 (QUEUE 1a), AFTER BEING
+# PRICED AGAINST DEMAND FOR THE FIRST TIME.  They had been excluded, in the
+# queue's own words, "ONLY because they were excluded yesterday" — and the list
+# turned out to contain **`endbr64`, the largest single row in the whole demand
+# census (29,689 instructions) and rank 1 of `P2-ROSTER.md`'s demand-without-
+# supply** — plus **`emms`, whose verdict is `stalls`**, i.e. an UNAVAILABILITY
+# the census could not see, which is the direction that INVENTS work.
+# ⇒ 🔑 **AN EXCLUSION LIST IS A CLAIM ABOUT EVERY ROW ON IT, AND NOBODY PRICES A
+# LIST OF THINGS THEY HAVE DECIDED NOT TO ASK ABOUT.**  Four of the six carry <=2
+# instructions of demand and really were inert; the list read as UNIFORMLY inert
+# because it had never once been joined to the demand side
+# ([[feedback-a-category-is-a-hypothesis-about-its-members]]).
+#
+# ⚠️ WHAT REMAINS HERE IS EXACTLY THE ENTRIES WITH A **STRUCTURAL** REASON — a
+# fact about the KEY, not a decision deferred.  `assert_no_unruled_exclusions()`
+# below refuses if a fourth kind ever appears, because "unruled, see QUEUE" is
+# how the last six got here and stayed for a month.
 NOT_AN_AVAILABILITY_QUESTION = {
     "ADD2:lock incl":  "the key's mnemonic would be the prefix `lock`",
     "ADD1:mov %gs:":   "the census buckets it by kind=segment, which the asm text cannot carry",
     "ADD3:movabsq":    "its bucket is not one of the census's MISS buckets",
-    "CONTROL:mov":     "a harness control, not a census question — unruled, see QUEUE",
-    "CONTROL:movnti":  "a harness control, not a census question — unruled, see QUEUE",
-    "endbr64":         "maps to CET-IBT under the census rule — unruled, see QUEUE",
-    "prefetcht0":      "maps to PREFETCH under the census rule — unruled, see QUEUE",
-    "prefetchnta":     "maps to PREFETCH under the census rule — unruled, see QUEUE",
-    "emms":            "maps to GPR/other under the census rule — unruled, see QUEUE",
+    # ⭐ THE SIXTH ROW OF QUEUE 1a, PUT BACK — AND IT IS THE ONLY ONE THAT TURNED
+    # OUT TO HAVE A REAL REASON.  I ruled in all six; `p2_roster --selftest`'s
+    # "every probe bucket is a census bucket" arm went RED with
+    # `STRAY ['SSE2 (nt store)']`.  That is a STRUCTURAL fact about the key —
+    # the same shape as `ADD3:movabsq` two lines up — and it had never been
+    # written down, because all six sat under one non-reason.
+    # ⇒ 🔑 **"UNRULED" IS NOT A WEAK REASON, IT IS THE ABSENCE OF ONE, AND IT HIDES
+    # THE ROWS THAT DO HAVE ONE AMONG THE ROWS THAT DO NOT.** Five of six were
+    # rulable on sight once priced; this one needed a gate to articulate, and the
+    # gate could only speak once someone tried the ruling.
+    "CONTROL:movnti":  "its bucket `SSE2 (nt store)` is not one of the census's buckets",
 }
+
+# ⚠️ THE WORD IS MATCHED, NOT THE ROWS.  A list of the six that were removed would
+# be a gate against history; this is a gate against the SHAPE that produced them.
+UNRULED_MARKERS = ("unruled", "see QUEUE", "for now", "TODO", "pending")
+
+
+def assert_no_unruled_exclusions():
+    """⛔ An exclusion whose reason is a DEFERRAL is not an exclusion, it is a
+    silence with a comment on it.  Refuses rather than warning: a warning in a
+    gate nobody reads is how the previous six survived
+    ([[feedback-a-declared-list-inherits-its-default]])."""
+    bad = [(k, v) for k, v in NOT_AN_AVAILABILITY_QUESTION.items()
+           if any(m.lower() in v.lower() for m in UNRULED_MARKERS)]
+    if bad:
+        raise SystemExit(
+            "⛔ oracle-availability: %d exclusion(s) in NOT_AN_AVAILABILITY_QUESTION give a "
+            "DEFERRAL rather than a structural reason:\n%s\n"
+            "  Each row excluded this way is silently reported as 'not an availability "
+            "question' by `measured_availability()`. Price it against demand and RULE, or "
+            "give a reason about the KEY. QUEUE 1a is the precedent: the last such list held "
+            "the campaign's single largest demand row for a month."
+            % (len(bad), "\n".join("    %-18s %s" % (k, v) for k, v in bad)))
 
 
 def probe_bucket(asm):
