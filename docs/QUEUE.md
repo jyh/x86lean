@@ -53,7 +53,34 @@ qualifier.
 
 ### P2 open items, in order
 
-0. ⛔⛔⛔ **THE AVAILABILITY CENSUS STILL ANSWERS "EXECUTES" FOR `movmskps`, AND THAT IS WHY TWO
+0. ✅✅ **DISCHARGED 2026-09-08 (D177) — (a), (b) AND (c) ALL LANDED, AND THE DEFECT HAD FOUR MORE
+   HOMES THAN THIS ITEM NAMED.** The buildable residue is now **0 pairs / 0 instructions**, derived
+   rather than predicted. `measure_cr4` gained the stall test — and the OBVIOUS port of `measure`'s
+   regex would have re-created D170's defect inside the repair for D170, because that sibling reads
+   the DRIVER's hex output while this one prints in ACL2's ambient base, **measured to be 10**; RIP
+   is now printed twice, the second copy computed in ACL2 as a base-independent 0/1, cross-checked
+   every record. The sealed rows are **byte-unchanged**; `REFUTED_BY_MEASUREMENT` records the
+   refutation beside them and `p2_run` scores against the RECORDED MEASUREMENT, so a row that starts
+   executing tomorrow goes red rather than being excused. The cross-table gate joins on **bytes**,
+   not names (a mnemonic legitimately differs by bucket), reports **VACUOUS** on an empty domain,
+   and its measured reach is **1 shared encoding of 18 vs 227 mnemonics** — its whole domain is its
+   own founding case, which is stated rather than left implied.
+   ⭐ **THE SWEEP FOUND TWO MORE STALLING ROWS**: `vmovmskps_v` (the sibling nothing asked about) and
+   **`emms`**, declared `(executes, executes)` and stalling under BOTH CR4 arms — found ONLY by the
+   full 267-row run, not by the four-form probe that confirmed the other two
+   ([[feedback-a-batch-cannot-be-sampled]]).
+   ⛔ **AND THE SAME RESIDUAL HAD FIVE HOMES, OF WHICH THIS ITEM NAMED ONE**: the classifier;
+   `oracle_note`, which rendered a stall as **"⚠️ not measured"** — the exact string that
+   re-commissions the work D170 refuted; BOTH of `p2_roster`'s accountings, which published it as
+   **"the oracle REFUSES"**; and `p2_residue`'s `NO_ROUNDING`, which called it **BUILDABLE TODAY**.
+   ⇒ 🔑 **A CONSERVATION GATE CANNOT SEE A MISCLASSIFICATION, ONLY A LOSS** — the by-bucket totals
+   conserved perfectly while 77 instructions sat under the wrong verdict.
+   ⚠️ **`docs/P2-ROSTER.md` was ALREADY stale at HEAD** (committed `EXECUTES 106` vs derived `107`,
+   measured with the change stashed); that drift and D177's own −2/+2 are recorded separately in
+   D177 so neither is attributed to the other. All seven gates rc=0; no `.lean` changed.
+   *(The original statement follows, unedited.)*
+
+   ⛔⛔⛔ **THE AVAILABILITY CENSUS STILL ANSWERS "EXECUTES" FOR `movmskps`, AND THAT IS WHY TWO
    CARRIERS COMMISSIONED A BATCH THAT WOULD UNDO D170.** Opened 2026-09-08 by paris, measured at
    the object, no ACL2 run needed — the whole finding is readable in `scripts/oracle_availability.py`.
 
@@ -109,6 +136,7 @@ qualifier.
 
    ⛔ **UNTIL (a)–(c) LAND, `movmskps` IS NOT AVAILABLE WORK AND THE RESIDUE IS NOT "1 pair".**
    Any head reading a buildable-today count that includes it is reading `e1`.
+   ✅ **(a), (b) and (c) LANDED 2026-09-08 (D177). The residue is 0 pairs, derived.**
 
 1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
    `probe_bucket` now calls `demand_census.isa_bucket`, the census's own total rule, instead of

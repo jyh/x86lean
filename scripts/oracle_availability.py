@@ -1104,9 +1104,25 @@ def measure_cr4(forms, ctrs):
             " (x86 (!xmmi-size 16 0 #x%032x x86))"
             " (x86 (!xmmi-size 16 1 #x%032x x86))"
             " (x86 (x86-fetch-decode-execute x86)))"
-            ' (prog2$ (cw "P2RESULT tag=%s flg=~x0 refused=~x1~%%" flg'
-            " (if (or (ms x86) (fault x86)) 1 0)) x86))"
-            % (ctrs, mem, XMM0_NZ, XMM1_NZ, tag_of(label)))
+            # ⛔⛔ D177 / QUEUE item 0(a) — RIP IS PRINTED **TWICE**, AND THE SECOND
+            # COPY IS THE ONE THE CLASSIFIER READS.  `stalled` is computed BY ACL2
+            # as a 0/1, so it means the same thing in every print-base; `rip` is the
+            # raw value, kept because a gate that refuses must be able to say what it
+            # saw.  They are cross-checked below and a DISAGREEMENT IS THE FINDING.
+            # ⚠️ WHY NOT JUST PARSE `rip`, WHICH IS WHAT `measure` DOES.  `measure`
+            # reads the DRIVER's output, and the driver prints rip through
+            # `x86l-hex(...,16)` (x86isa_driver.lisp:158) — so its
+            # `rip=([0-9a-f]+)` + `int(...,16)` is right THERE.  This function builds
+            # a standalone drive that never loads the driver, so `~x` prints in ACL2's
+            # ambient print-base, MEASURED to be 10 (`~x` of 255 came back "255", not
+            # "ff").  Copying the sibling regex here would compute
+            # int("4194304",16) = 68174084, miss ENTRY_RIP, fall to the residual and
+            # score the stall as `executes` — D170's exact defect, re-created inside
+            # the repair for D170.  [[feedback-two-readings-are-not-two-witnesses]]
+            ' (prog2$ (cw "P2RESULT tag=%s flg=~x0 refused=~x1 rip=~x2 stalled=~x3~%%" flg'
+            " (if (or (ms x86) (fault x86)) 1 0) (rip x86)"
+            " (if (equal (rip x86) #x%06x) 1 0)) x86))"
+            % (ctrs, mem, XMM0_NZ, XMM1_NZ, tag_of(label), ENTRY_RIP))
     tmp = tempfile.mkdtemp(prefix="x86lean-p2-")
     drive = os.path.join(tmp, "drive.lsp")
     open(drive, "w").write("\n".join(lines) + "\n")
@@ -1115,9 +1131,33 @@ def measure_cr4(forms, ctrs):
         subprocess.run([ACL2], stdin=open(drive), stdout=fh,
                        stderr=subprocess.STDOUT)
     got = {}
-    for m in re.finditer(r"P2RESULT tag=(\S+) flg=(\S+) refused=(\d)",
-                         open(out).read()):
-        got[m.group(1)] = "refuses" if m.group(3) == "1" else "executes"
+    text = open(out).read()
+    # ⛔ THREE-VALUED, IN D170's ORDER: refused first, then stalled, then the
+    # residual.  Before D177 this line was `refuses if refused else executes` —
+    # the two-valued classifier D170's own headline condemns, still live in the
+    # table the availability answer is BUILT from while `FORMS` 800 lines above
+    # already declared `movmskps` a stall.
+    # ⭐ THE CROSS-ARM: `rip == ENTRY_RIP` (parsed here, base-dependent) and
+    # `stalled` (computed in ACL2, base-independent) are two INDEPENDENT routes to
+    # one fact.  They must agree.  If ACL2's print-base ever moves, the parsed
+    # route silently starts answering "executes" for every stall and the computed
+    # route does not — so the disagreement is what makes a base change LOUD
+    # instead of turning this gate back into the thing it was built to replace.
+    for m in re.finditer(r"P2RESULT tag=(\S+) flg=(\S+) refused=(\d) "
+                         r"rip=(\d+) stalled=(\d)", text):
+        tag, refused, rip_dec, stalled = (m.group(1), m.group(3),
+                                          int(m.group(4)), m.group(5) == "1")
+        if (rip_dec == ENTRY_RIP) != stalled:
+            raise SystemExit(
+                "⛔ measure_cr4: the two RIP routes DISAGREE for %s — parsed "
+                "rip=%d (ENTRY_RIP=%d ⇒ stalled=%s) but ACL2 computed stalled=%s. "
+                "The print-base almost certainly moved; a stall would now be "
+                "scored as the residual `executes`. REFUSING rather than "
+                "returning a table that reads fine."
+                % (tag, rip_dec, ENTRY_RIP, rip_dec == ENTRY_RIP, stalled))
+        got[tag] = ("refuses" if refused == "1"
+                    else "stalls" if stalled
+                    else "executes")
     return got
 
 
@@ -1305,10 +1345,15 @@ def p2_structure_check(forms=None, quiet=False):
 
 
 def p2_run():
-    bad, rows = [], []
+    bad, rows, refuted_seen = [], [], []
     # ⭐ STRUCTURE BEFORE MEASUREMENT: pure string work, microseconds,
     # and if it fails every reading below is misattributed anyway.
     if p2_structure_check():
+        return 1
+    # ⭐ AND THE CROSS-TABLE GATE BESIDE IT, for the same reason: pure string work,
+    # and if the two tables contradict each other every reading below is scored
+    # against a declaration the other table already denies.
+    if forms_vs_p2forms_check():
         return 1
     if p2_operand_control():
         return 1
@@ -1321,6 +1366,26 @@ def p2_run():
             bad.append((label, "a reading is MISSING, and a missing reading is "
                                "not a refusal"))
             continue
+        # ⛔⛔ THE REFUTATION IS SCORED HERE, AND IT IS NOT A SUPPRESSION.
+        # The sealed `e0`/`e1` stay exactly as sealed; a row this table names is
+        # compared against the MEASURED pair instead, and the run prints it as
+        # REFUTED rather than as a tick.  A refutation that rendered as ✔ would be
+        # a green wearing a correction's name — the gate would stop being able to
+        # tell "we measured this and wrote it down" from "this agrees".
+        # ⚠️ AND IT STILL FAILS IF THE MEASUREMENT MOVES AGAIN: the comparison is
+        # against the recorded measurement, not a wildcard, so a row that starts
+        # executing tomorrow goes red here rather than being permanently excused
+        # ([[feedback-a-justification-outlives-its-condition]]).
+        if label in REFUTED_BY_MEASUREMENT:
+            r0, r1 = (REFUTED_BY_MEASUREMENT[label].e0,
+                      REFUTED_BY_MEASUREMENT[label].e1)
+            if (g0, g1) != (r0, r1):
+                bad.append((label, "REFUTED as (%s, %s) but MEASURED (%s, %s) — "
+                                   "the recorded refutation is itself now stale"
+                            % (r0, r1, g0, g1)))
+            else:
+                refuted_seen.append(label)
+            continue
         if (g0, g1) != (e0, e1):
             bad.append((label, "declared (%s, %s), MEASURED (%s, %s)"
                         % (e0, e1, g0, g1)))
@@ -1328,17 +1393,44 @@ def p2_run():
     print("P2 oracle availability — ACL2 x86isa, one reading per form per CR4 arm\n")
     print(f"  {'form':18s} {'asm':32s} {'CR4=0':>10s} {'CR4=0x600':>11s}")
     for label, asm, e0, e1, g0, g1 in rows:
-        mark = "✔" if (g0, g1) == (e0, e1) else "⛔"
+        # ⚖ IS ITS OWN MARK.  A refuted row does not agree with its declaration
+        # and must not print the character that means "agrees"; it also is not a
+        # failure.  Three states, three marks.
+        mark = ("⚖" if label in REFUTED_BY_MEASUREMENT
+                else "✔" if (g0, g1) == (e0, e1) else "⛔")
         print(f"  {mark} {label:16s} {asm:32s} {g0:>10s} {g1:>11s}")
+    # ⛔ A REFUTATION THAT NOBODY PRINTS IS A SUPPRESSION, and one that is never
+    # EXERCISED is a standing excuse nothing tests.  Both are reported.
+    unseen = sorted(set(REFUTED_BY_MEASUREMENT) - set(refuted_seen))
+    if unseen:
+        bad.append(("REFUTATION TABLE", "these labels are recorded as refuted but "
+                    "produced no scored reading this run, so their entries "
+                    "excused nothing and cannot be trusted: %s" % ", ".join(unseen)))
+    if refuted_seen:
+        print("\n⚖ SEALED DECLARATIONS REFUTED BY MEASUREMENT (%d) — the sealed "
+              "rows are UNCHANGED; the refutation is recorded beside them:"
+              % len(refuted_seen))
+        for lb in refuted_seen:
+            r0, r1, why = REFUTED_BY_MEASUREMENT[lb]  # namedtuple unpack
+            d0, d1 = next((a, b) for l, _a, _h, a, b in P2_FORMS if l == lb)
+            print(f"    {lb}: sealed ({d0}, {d1})  MEASURED ({r0}, {r1})")
+            print(f"        {why}")
     if bad:
         print("\n⛔ P2 oracle-availability gate: FAIL")
         for mn, why in bad:
             print(f"    {mn}: {why}")
         return 1
-    print("\nP2 oracle-availability gate: CLEAN — every declaration matches the "
-          "oracle's own behaviour under BOTH CR4 settings, the always-executes "
-          "control executed in both arms, and the always-refuses control refused "
-          "in both.")
+    # ⛔ THE SENTENCE COUNTS THE REFUTATIONS INSTEAD OF CLAIMING THEY DO NOT
+    # EXIST.  It read "every declaration matches the oracle's own behaviour under
+    # BOTH CR4 settings" — which the three rows printed directly above it
+    # contradict.  A summary line is read far more often than the table it
+    # summarises, so an over-claim there is the one that travels
+    # ([[feedback-ungated-prose-overclaims]], [[feedback-a-citation-is-an-ungated-claim]]).
+    print("\nP2 oracle-availability gate: CLEAN — %d of %d declarations match the "
+          "oracle's own behaviour under BOTH CR4 settings and %d are REFUTED and "
+          "recorded above (sealed rows unchanged); the always-executes control "
+          "executed in both arms, and the always-refuses control refused in both."
+          % (len(rows) - len(refuted_seen), len(rows), len(refuted_seen)))
     return 0
 
 # ⭐⭐⭐ THE COLUMN THAT RUNS AND THE COLUMN THAT NAMES IT (D128).
@@ -1433,6 +1525,65 @@ def encoding_check():
     # sees ([[feedback-a-gate-behind-a-failing-step-is-silent]]).
     if p2_structure_check():
         return 1
+    # ⭐⭐ QUEUE 0(c) RIDES HERE TOO, and here ESPECIALLY: this is the entry point
+    # CI runs, and the contradiction this gate exists to catch is invisible to
+    # every ACL2-bearing path because those paths MEASURE rather than compare.
+    if forms_vs_p2forms_check():
+        return 1
+    # ⭐ RED FIRST FOR THE CROSS-TABLE GATE, before its neighbour's arms.  Arm 1
+    # plants the exact defect that was live on this tree until today — a P2 row
+    # declaring `executes` for bytes `FORMS` calls `stalls`.  Arm 2 plants the
+    # OPPOSITE direction, because a gate tested in one direction only is an
+    # assertion about the half somebody happened to break
+    # ([[feedback-probe-gates-both-ways]]).  Arm 3 removes the REFUTATION and
+    # requires the gate to go red on the shipped tables — which is what makes the
+    # green below evidence that the refutation is doing the work, and not that the
+    # tables were trivially consistent all along.
+    # ⚠️ EVERY ARM TARGETS `movmskps`, AND NOT BY PREFERENCE.  Measured: `FORMS`
+    # and `P2_FORMS` share exactly ONE mnemonic and one encoding — 18 against 227
+    # mnemonics, intersection `{movmskps}`.  An arm planted anywhere else does not
+    # join, so it plants NOTHING and the gate is silent for a reason that has
+    # nothing to do with the gate ([[feedback-a-probe-must-create-its-condition]]).
+    # ⛔ MY FIRST TWO ARMS BOTH FAILED THIS WAY and the failure is kept here rather
+    # than tidied away: arm 1 planted a P2 value the REFUTATION then overrode back
+    # to agreement, and arm 2 planted into `xorpd`, which `FORMS` does not carry.
+    # Both printed "RED ARM SILENT", which is the gate's arm-checker working.
+    def _p2_with(rows, label, e1v):
+        return [(l, a, h, e0, e1v) if l == label else (l, a, h, e0, e1)
+                for l, a, h, e0, e1 in rows]
+
+    def _forms_with(rows, mn, ev):
+        return [(m, a, h, ev) if m == mn else (m, a, h, e) for m, a, h, e in rows]
+
+    xt_arms = [
+        ("the REFUTATION emptied — the shipped tree's OWN contradiction, which is "
+         "what proves the refutation is load-bearing and not decorative",
+         lambda f, p, r: (f, p, {})),
+        ("FORMS flipped to `executes` for bytes the refuted P2 row calls `stalls` "
+         "(the opposite direction to the live defect)",
+         lambda f, p, r: (_forms_with(f, "movmskps", "executes"), p, r)),
+        ("a direct P2/FORMS clash with NO override in play (`refuses` vs `stalls`)",
+         lambda f, p, r: (f, _p2_with(p, "movmskps", "refuses"), {})),
+    ]
+    for why, plant in xt_arms:
+        if not forms_vs_p2forms_check(*plant(list(FORMS), list(P2_FORMS),
+                                             dict(REFUTED_BY_MEASUREMENT)),
+                                      quiet=True):
+            print("⛔ cross-table gate: RED ARM SILENT — %s was NOT caught, so "
+                  "this gate is not watching what it claims to." % why)
+            return 1
+        print("  ✔ red arm caught: %s" % why)
+    # ⚠️ AND THE VACUITY ARM, because the three above all pass on a gate that
+    # refuses everything, and none of them can see an EMPTY domain.
+    if not forms_vs_p2forms_check([], list(P2_FORMS), {}, quiet=True):
+        print("⛔ cross-table gate: an EMPTY FORMS table passed — the gate can "
+              "become vacuous without saying so.")
+        return 1
+    print("  ✔ red arm caught: an empty domain reports VACUOUS rather than green")
+    if forms_vs_p2forms_check(quiet=True):
+        print("⛔ cross-table gate: the SHIPPED tables fail their own check.")
+        return 1
+    print("  ✔ control: the shipped tables pass the same check unplanted")
     # ⭐ RED FIRST, AND THE SECOND ARM IS THE ONE THAT MATTERS.  Arm 1 plants two
     # rows with the SAME LABEL — the live `vpsubw` defect's own shape, and one a
     # reader could in principle spot.  Arm 2 plants two rows whose labels are
@@ -1659,8 +1810,148 @@ def probe_bucket(asm):
     return _DC.isa_bucket(toks[0], toks[1] if len(toks) > 1 else "")
 
 
+def forms_vs_p2forms_check(forms=None, p2forms=None, refuted=None, quiet=False):
+    """⛔⛔ THE CROSS-TABLE GATE — QUEUE item 0(c), D177.
+
+    `FORMS` and `P2_FORMS` are two tables in ONE FILE that both answer "what does
+    x86isa do with these bytes", and until now nothing compared them.  D170's
+    three-valued repair landed in `FORMS` (line ~95, `movmskps` -> `stalls`) and
+    not in `P2_FORMS` (line ~917, the same bytes -> `executes`), and the
+    availability map is built from the second.  The contradiction sat 850 lines
+    apart in one file for two days and was found by reading, not by a gate.
+
+    ⇒ 🔑 THIS IS THE GATE THAT WOULD HAVE CAUGHT IT ON THE DAY D170 LANDED, and
+      it is pure string work — microseconds, no ACL2, so it runs on the CI entry
+      point where the oracle is absent ([[feedback-a-gate-behind-a-failing-step-is-silent]]).
+
+    ⚠️ THE JOIN KEY IS (mnemonic, ENCODING), NOT THE MNEMONIC ALONE, and that is a
+    DEPARTURE from the QUEUE's wording ("the same mnemonic") that has to earn
+    itself.  A mnemonic can legitimately hold different verdicts at different
+    buckets — `pandn` executes at `xmm` and at `mm` are two separate facts, and
+    `FORMS` carries one row per mnemonic.  Joining on the mnemonic alone would
+    manufacture contradictions out of that, which is the lossy key this repo has
+    already paid for once ([[feedback-a-join-on-a-lossy-key]]).  The BYTES are the
+    exact key: the same encoding under the same CR4 must get the same verdict.
+
+    ⛔ AND THE BLIND SPOT IS PRINTED RATHER THAN LEFT IMPLICIT.  A stricter key
+    means some shared mnemonics do not join at all, and an unjoined pair is
+    UNCHECKED, not agreed.  A too-narrow observation does not report "unknown" —
+    it positively claims agreement about a region it never looked at
+    ([[feedback-unobserved-regions-report-agreement]]), so the count of shared
+    mnemonics that did NOT join is reported on every run.
+
+    ⚠️ BOTH SIDES ARE COMPARED AT CR4_ON.  `FORMS`'s `expect` is the verdict under
+    the differential's own conditions (`check_driver_cr4.py` is the gate that says
+    the driver runs at CR4=0x600), which is `P2_FORMS`'s `e1` column, not `e0`."""
+    forms = FORMS if forms is None else forms
+    p2forms = P2_FORMS if p2forms is None else p2forms
+    refuted = REFUTED_BY_MEASUREMENT if refuted is None else refuted
+
+    p2 = {}
+    for label, asm, hx, _e0, e1 in p2forms:
+        v = refuted[label].e1 if label in refuted else e1
+        p2.setdefault((asm.split()[0], hx.lower()), []).append((label, v))
+
+    bad, joined = [], 0
+    for mn, _asm, hx, expect in forms:
+        rows = p2.get((mn, hx.lower()))
+        if not rows:
+            continue
+        joined += 1
+        for label, v in rows:
+            if v != expect:
+                bad.append("%s / %s [%s]: FORMS declares %r, P2_FORMS declares %r "
+                           "for the SAME BYTES" % (mn, label, hx, expect, v))
+
+    f_mn = {mn for mn, _a, _h, _e in forms}
+    p_mn = {asm.split()[0] for _l, asm, _h, _e0, _e1 in p2forms}
+    joined_mn = {mn for (mn, _hx) in p2 if mn in f_mn}
+    unjoined = sorted((f_mn & p_mn) - joined_mn)
+
+    # ⛔⛔ A GATE WITH AN EMPTY DOMAIN PASSES EVERYTHING, AND SILENTLY.  These two
+    # tables overlap in exactly ONE encoding today (`movmskps` / `0f50c1`) — which
+    # is precisely the pair that was contradictory, so the gate's whole reach is
+    # its own founding case.  If a future edit drops that overlap to zero this
+    # gate would go GREEN forever while checking nothing, which is the failure it
+    # exists to prevent, wearing a tick ([[feedback-a-complete-count-of-a-subset]]).
+    # ⚠️ Reported as a DISTINCT failure, not as a contradiction: it is a fact about
+    # the gate's REACH, and a reader must not read it as two tables disagreeing.
+    if joined == 0:
+        bad.append("VACUOUS: FORMS and P2_FORMS share no encoding, so this gate "
+                   "compared nothing. This is a finding about the gate's reach, "
+                   "NOT a contradiction between the tables.")
+
+    if not quiet:
+        print(("  ✔ " if not bad else "  ⛔ ") +
+              "FORMS vs P2_FORMS: %d encodings in both tables agree" % joined +
+              ("" if not bad else "   %d CONTRADICTION(S)" % len(bad)))
+        for b in bad:
+            print("      ⛔ %s" % b)
+        # ⚠️ NOT a failure — a NUMBER for the region this key cannot see.
+        print("     (%d mnemonic(s) in both tables did not join on an encoding "
+              "and are UNCHECKED, not agreed%s)"
+              % (len(unjoined), "" if not unjoined else ": " + ", ".join(unjoined)))
+    return bad
+
+
+# ⛔⛔⛔ THE REFUTATION TABLE — QUEUE item 0(b), D177 (2026-09-08).
+#
+# `P2_FORMS`'s `e0`/`e1` are DECLARATIONS, sealed at `sha256 = 6e8474ff…`
+# 2026-09-05T20:02:18Z BEFORE the runs that score them.  A seal exists to stop a
+# declaration being fitted to a measurement, so when a measurement refutes one
+# the honest move is to RECORD THE REFUTATION, NOT TO EDIT THE SEALED ROW.  The
+# rows below are therefore left exactly as sealed and are overridden here, in the
+# open, with the evidence and the date attached.
+#
+# ⇒ 🔑 A FUNCTION NAMED `measured_availability` THAT RETURNS A SEALED PREDICTION
+#   IS A CITATION WEARING A MEASUREMENT'S NAME.  That is the actual defect item 0
+#   describes; `movmskps` is one symptom of it and `vmovmskps_v` is a second that
+#   nothing had looked for ([[feedback-a-citation-is-an-ungated-claim]],
+#   [[feedback-naming-a-defect-is-not-finding-its-siblings]]).
+#
+# ⚠️ THE SEALED VALUES ARE NOT "WRONG".  Under `measure_cr4`'s pre-D177 vocabulary
+# `executes` was a TRUE statement about the refusal flag and a FALSE statement
+# about the world.  The defect was the classifier's VALUE SET, which is why the
+# repair is (a) a third value and only then (b) this table
+# ([[feedback-a-classifiers-value-set-is-a-claim]]).
+# ⚠️ THE VALUE IS A NAMED RECORD, NOT A BARE TUPLE, AND THAT IS A REPAIR OF A
+# DEFECT THIS TABLE ALREADY CAUSED.  It started as `(verdict, why)`; adding the
+# CR4=0 arm made it `(e0, e1, why)`, and a consumer in `p2_roster.py` kept its
+# positional `[0]` — which silently stopped meaning "the verdict" and started
+# meaning "the CR4=0 verdict".  It did not crash: it published `refuses` for two
+# refuted rows and a STALLS count of 1 where the answer is 3, which is a number a
+# reader would accept.  ⇒ 🔑 A POSITIONAL INDEX IS A BET THAT THE RECORD WILL NOT
+# GROW, AND THE PAYOUT IS A PLAUSIBLE WRONG NUMBER rather than an error
+# ([[feedback-a-positional-index-bets-the-record-wont-grow]]).  Fields are named
+# so the next arm added here cannot repeat it.
+Refutation = collections.namedtuple("Refutation", "e0 e1 why")
+REFUTED_BY_MEASUREMENT = {
+    "movmskps": Refutation("refuses", "stalls",
+        "D170 2026-09-06: 88/88 readings, RIP never advanced from ENTRY_RIP with "
+        "the refusal flag CLEAR. Re-measured D177 2026-09-08 by the repaired "
+        "three-valued `measure_cr4` in a run that also produced `refuses` and "
+        "`executes`, so the classifier was not stuck on one value."),
+    "vmovmskps_v": Refutation("refuses", "stalls",
+        "D177 2026-09-08: THE SIBLING D170 NEVER RULED ON. Same movmsk shape "
+        "(writes a GPR, not a vector register). Found by asking for it directly "
+        "rather than by any gate."),
+    "emms": Refutation("stalls", "stalls",
+        "D177 2026-09-08: FOUND ONLY BY THE FULL 267-ROW SWEEP, not by the "
+        "four-form probe that confirmed the other two — which is why the sweep "
+        "was run. Declared (executes, executes) and stalls under BOTH CR4 arms. "
+        "It sits in NOT_AN_AVAILABILITY_QUESTION, so it moves no availability "
+        "answer; its DECLARATION was still false and nothing had asked."),
+}
+
+
 def measured_availability():
-    """{(mnemonic, bucket): "executes" | "refuses"} — the CR4-ENABLED arm.
+    """{(mnemonic, bucket): "executes" | "refuses" | "stalls"} — CR4-ENABLED arm.
+
+    ⛔ THREE-VALUED SINCE D177.  It was declared two-valued here while `FORMS`
+    800 lines above already carried `stalls`, and a two-valued classifier over a
+    three-valued world scores the unseen state as whichever value is the
+    RESIDUAL — here `executes`, i.e. AVAILABLE, in the one table whose stated
+    purpose is to stop unavailable work from being invented.
 
     ⚠️ CR4=0x600 is the arm to read because it is the condition the differential
     itself runs under (`scripts/check_driver_cr4.py` is the gate that says so).
@@ -1683,6 +1974,9 @@ def measured_availability():
         # are different facts, and only one of them can be audited.
         if label in NOT_AN_AVAILABILITY_QUESTION:
             continue
+        # ⛔ THE SEALED DECLARATION IS OVERRIDDEN HERE, NOT EDITED THERE.
+        if label in REFUTED_BY_MEASUREMENT:
+            e1 = REFUTED_BY_MEASUREMENT[label].e1
         key = (asm.split()[0], probe_bucket(asm))
         if key in seen and seen[key][1] != e1:
             raise SystemExit(

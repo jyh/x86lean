@@ -11805,3 +11805,128 @@ job that had never been seen to pass, passes: the identical-trees control does n
 copies of one commit, and the 512-planted-constructor arm still fails as it must. ⚠️ Stated with its
 limit: this run's verdict is all the runner preserved, so the arm's own scope lines for THIS run are
 gone. That is the defect above, and it is why the next such run will read differently.
+
+## D177 — QUEUE item 0 (a)+(b)+(c): the census answered "executes" for a form the oracle never runs, and the two-valued classifier it came from had four more homes
+
+QUEUE item 0 asked for three things and each was taken in order. What the item did not know is that
+the defect it names — **a two-valued classifier over a three-valued world, scoring the unseen state
+as the residual** — was live in **five** places, of which it named one.
+
+### (a) the classifier — and the port that would have re-created the defect it repairs
+
+`measure_cr4`'s emitted ACL2 form printed `flg` and `refused` and no RIP, so `executes` was a
+RESIDUAL. The repair is the stall test `measure` has carried since D170.
+
+⛔ **THE OBVIOUS PORT IS WRONG, AND WRONG SILENTLY.** `measure` reads the DRIVER's output, and the
+driver prints RIP through `x86l-hex(…, 16)` (`x86isa_driver.lisp:158`); its
+`rip=([0-9a-f]+)` + `int(…, 16)` is correct **there**. `measure_cr4` builds a standalone drive that
+never loads the driver, so `~x` prints in ACL2's ambient print-base. **Measured, not assumed:** a
+probe printing `255` came back `255`, not `ff` — base 10.
+
+```
+  ENTRY_RIP           = 0x400000 = 4194304
+  ACL2 would print      rip=4194304
+  int("4194304", 16)  = 68174084  ≠ ENTRY_RIP
+  ⇒ the stall misses the `elif`, falls to the `else`, and is scored `executes`
+```
+
+⇒ 🔑 **D170's EXACT DEFECT, RE-CREATED INSIDE THE REPAIR FOR D170, BY COPYING A SIBLING THAT WAS
+RIGHT WHERE IT LIVED.** [[feedback-two-readings-are-not-two-witnesses]]
+
+So RIP is printed **twice**: `rip` raw, and `stalled` computed **in ACL2** as a 0/1, which means the
+same thing in every print-base. The classifier reads the base-independent one; the two are
+cross-checked on every record and a disagreement **refuses**, so a future base change is loud
+instead of returning the residual.
+
+**VERIFIED BY EXECUTION, with the controls first.** One run produced all three values —
+`refuses` · `executes` · `stalls` — so the classifier was not stuck: `xorpd` executes under CR4_ON
+and refuses under CR4_OFF (CR4-dependence is real), `pcmpeqd_mmx` executes under both.
+
+### (b) the refutation — recorded, not retro-fitted
+
+`P2_FORMS`'s `e0`/`e1` are sealed at `sha256 = 6e8474ff…`. The item's own ruling is *record the
+refutation, do not retro-fit it*, and that is what `REFUTED_BY_MEASUREMENT` does: **the sealed rows
+are byte-unchanged** and are overridden in the open, with evidence and a date. `p2_run` scores a
+refuted row against its RECORDED MEASUREMENT — not a wildcard — so a row that starts executing
+tomorrow goes red rather than being permanently excused, and prints `⚖`, never `✔`.
+
+⇒ 🔑 **A FUNCTION NAMED `measured_availability` THAT RETURNS A SEALED PREDICTION IS A CITATION
+WEARING A MEASUREMENT'S NAME.** That is the defect; `movmskps` was one symptom.
+
+### ⭐ THE SWEEP, AND WHY A SAMPLE WOULD HAVE MISSED TWO OF THREE
+
+D170 knew one stalling row. A four-form probe found a second — **`vmovmskps_v`**, the sibling
+nothing had asked about. The full 267-row run found a third: **`emms`**, declared
+`(executes, executes)`, measured `(stalls, stalls)` under BOTH CR4 arms.
+
+⇒ 🔑 **THE FOUR-FORM PROBE WAS A SAMPLE OF A BATCH, AND SEVEN OF SEVEN NEVER LICENSED THE EIGHTH**
+([[feedback-a-batch-cannot-be-sampled]]). `emms` sits in `NOT_AN_AVAILABILITY_QUESTION`, so it moves
+no availability answer — **its declaration was still false and nothing had asked.**
+
+### (c) the cross-table gate, joined on bytes rather than on names
+
+`FORMS` and `P2_FORMS` both answer "what does x86isa do with these bytes" and nothing compared them:
+`stalls` at line ~95 and `executes` at line ~917, 850 lines apart in ONE file, for two days.
+
+⚠️ **The join key is (mnemonic, ENCODING), a departure from the item's wording** ("the same
+mnemonic"): a mnemonic legitimately holds different verdicts at different buckets — `pandn` at `xmm`
+and at `mm` — so joining on the name manufactures contradictions ([[feedback-a-join-on-a-lossy-key]]).
+
+⛔ **MEASURED, AND IT IS THE GATE'S MOST IMPORTANT NUMBER: the two tables share exactly ONE
+mnemonic** — 18 against 227, intersection `{movmskps}`. **The gate's entire reach today is its own
+founding case.** So it prints the count of shared mnemonics that did not join (0), and an empty
+domain reports **VACUOUS** rather than green — a gate that can silently stop checking anything is
+the failure it exists to prevent, wearing a tick.
+
+**Its first two red arms were silent, and both were my design errors, kept in the file:** arm 1
+planted a P2 value the refutation then overrode back to agreement; arm 2 planted into `xorpd`, which
+`FORMS` does not carry. ⇒ **a plant must create its condition, and the arm-checker is what said so.**
+
+### ⛔⛔ THE FOUR OTHER HOMES OF THE SAME RESIDUAL — none named by the item
+
+| site | what it did with `stalls` |
+|---|---|
+| `measure_cr4`'s classifier | scored it `executes` — item 0(a) |
+| `oracle_note` (roster renderer) | rendered it **"⚠️ not measured"** |
+| `p2_roster` by-MNEMONIC count | `else:` → published it as **"the oracle REFUSES"** |
+| `p2_roster` by-BUCKET count | `else:` → same, and **the conservation law could not see it** |
+| `p2_residue`'s `NO_ROUNDING` | declared `movmskps` rounding-free ⇒ **BUILDABLE TODAY** |
+
+The renderer is the one that closes the loop: **"not measured" reads as an invitation to go
+measure** — which is precisely the work order the relight gate carried and D170 had already refuted.
+⇒ 🔑 **A RENDERER THAT COLLAPSES A KNOWN NEGATIVE INTO "UNKNOWN" RE-COMMISSIONS THE WORK THAT
+NEGATIVE WAS RECORDED TO PREVENT.**
+
+⇒ 🔑 And the by-bucket site gives the sharper law: **A CONSERVATION GATE CANNOT SEE A
+MISCLASSIFICATION, ONLY A LOSS.** The totals conserved perfectly while 77 instructions were filed
+under the wrong verdict, because a residual always conserves — into the wrong bucket.
+
+⇒ 🔑 **A CORRECTION APPLIED AT ONE READER OF A TABLE IS NOT APPLIED TO THE TABLE.** Two independent
+accountings read `P2_FORMS`; repairing the one the item named left the one that PUBLISHES still
+wrong. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### ⛔ THE DEFECT I INTRODUCED, AND WHY IT DID NOT CRASH
+
+Adding the CR4=0 arm grew the refutation record from `(verdict, why)` to `(e0, e1, why)`. A consumer
+in `p2_roster.py` kept its positional `[0]`, which **silently stopped meaning "the verdict" and
+started meaning "the CR4=0 verdict"**. It published `refuses` for two refuted rows and a STALLS
+count of **1** where the answer is **3** — a number a reader accepts.
+⇒ 🔑 **A POSITIONAL INDEX IS A BET THAT THE RECORD WILL NOT GROW, AND THE PAYOUT IS A PLAUSIBLE
+WRONG NUMBER RATHER THAN AN ERROR** ([[feedback-a-positional-index-bets-the-record-wont-grow]]).
+Fixed at the cause: the record is a `namedtuple` and every consumer reads `.e1`.
+
+### the result
+
+**THE BUILDABLE RESIDUE IS 0 PAIRS / 0 INSTRUCTIONS**, which is what the previous bank predicted and
+could not yet derive. The relight gate's ⭐ order — *"claim `movmskps`, the WHOLE buildable-today
+residue"* — was a reading of `e1`, and acting on it would have re-added the roster row D170 removed.
+
+⚠️ **`docs/P2-ROSTER.md` WAS ALREADY STALE BEFORE ANY OF THIS**, and the two deltas are kept apart so
+neither is attributed to the other. Measured with the change stashed: committed `EXECUTES 106 /
+123,355` against derived `107 / 123,443` **at HEAD** — a pre-existing drift of +1 mnemonic / +88
+instructions. D177's own effect is −2 EXECUTES and +2 STALLS in the by-bucket table (77 instructions
+moving out of REFUSES, where they had never belonged).
+
+Gates: `--check-encodings` · `--p2` · `p2_roster --check` · `--selftest` · `p2_residue` ·
+`--selftest` · `p2_oracle_support` — **all rc=0**. No `.lean` changed ⇒ delta ledger EXEMPT, nothing
+profiled.

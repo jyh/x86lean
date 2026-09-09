@@ -76,7 +76,19 @@ NO_ROUNDING = {
     "movhpd": "move", "movhlps": "move", "movlhps": "move", "movddup": "move",
     "unpcklps": "move", "unpcklpd": "move", "unpckhps": "move",
     "unpckhpd": "move", "shufps": "move", "shufpd": "move",
-    "movmskps": "move",
+    # ⛔⛔ `movmskps` WAS HERE AND IS DELIBERATELY GONE (D177).  It was classified
+    # `move`, needing no rounding rule, and therefore counted as BUILDABLE TODAY —
+    # which is how a form x86isa cannot execute came to be the whole "buildable
+    # residue" the relight gate ordered claimed.  It STALLS (D170, re-measured
+    # D177): RIP never advances and the refusal flag stays clear, so it cannot be
+    # differentially tested, and a roster row here means differentially tested.
+    # ⚠️ NOT MOVED TO `ROUNDING` — it needs no rounding rule either.  It is not a
+    # member of this partition at all, and forcing it into one of two halves is
+    # what a two-valued world does to a third state
+    # ([[feedback-a-partition-says-nothing-about-its-complement]]).
+    # ⇒ GATE 1 above is what caught this, unprompted, the moment the availability
+    # map stopped calling it `executes` — the declared list and the measurement
+    # disagreeing is exactly what it is for.
 }
 
 
@@ -267,17 +279,34 @@ def selftest():
         ROUNDING.clear(); ROUNDING.update(saved)
 
     # PLANT 2 — an unclassified pair (gate 2), the default-inheriting defect.
-    saved_n = dict(NO_ROUNDING)
+    # ⛔⛔ THIS ARM'S FIXTURE WAS THE BACKLOG, AND CLEARING THE BACKLOG BROKE IT.
+    # It read `next(m for m in NO_ROUNDING if m in res)` — a member of the
+    # rounding-free list that is still unclaimed.  D177 removed `movmskps`, which
+    # was the LAST such member, and the arm did not fail: it raised
+    # `StopIteration` and took the whole selftest down with it.  ⇒ 🔑 AN ARM WHOSE
+    # FIXTURE IS THE WORK REMAINING CONVICTS WHOEVER FINISHES THE WORK, and it
+    # reports that as a crash rather than as a finding
+    # ([[feedback-an-arm-whose-fixture-is-the-backlog]]).
+    # ⇒ THE PRECONDITION IS NOW THE WEAKEST ONE THE GATE ACTUALLY NEEDS: gate 2
+    # fires on a residue pair named by NEITHER list, so any residue member will
+    # do, whichever list currently declares it.  And an EMPTY residue is stated
+    # rather than passed — a plant that cannot be armed has proved nothing.
+    saved_n, saved_r = dict(NO_ROUNDING), dict(ROUNDING)
     try:
-        drop = next(m for m in NO_ROUNDING if m in res)
-        del NO_ROUNDING[drop]
-        if any("unclassified" in b for b in check(uni, res, verbose=False)):
-            fired += 1
-            print("  ✔ plant 2 caught: a residue pair no list names")
+        drop = next(iter(sorted(res)), None)
+        if drop is None:
+            print("  ⚠️ plant 2 CANNOT BE ARMED: the residue is empty, so no pair "
+                  "can be made unclassified — said rather than counted as fired")
         else:
-            print("  ⛔ plant 2 NOT caught: an unclassified pair passed")
+            NO_ROUNDING.pop(drop, None); ROUNDING.pop(drop, None)
+            if any("unclassified" in b for b in check(uni, res, verbose=False)):
+                fired += 1
+                print(f"  ✔ plant 2 caught: a residue pair no list names ({drop})")
+            else:
+                print("  ⛔ plant 2 NOT caught: an unclassified pair passed")
     finally:
         NO_ROUNDING.clear(); NO_ROUNDING.update(saved_n)
+        ROUNDING.clear(); ROUNDING.update(saved_r)
 
     # PLANT 3 — a pair moved between sub-groups (gate 3).  It keeps the pair
     # count of neither group right, so it must move a published total.

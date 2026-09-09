@@ -114,9 +114,19 @@ def oracle_note(verdict):
     **UNMEASURED**, and it must not read as available: a declared list inherits
     the direction of its default, and `available` is the default that invents
     work. ⭐ A FUNCTION so the three bands can be driven by an arm, for the reason
-    `mmx_note` is one."""
+    `mmx_note` is one.
+
+    ⛔⛔ FOUR BANDS SINCE D177, AND THE FOURTH IS NOT COSMETIC.  `stalls` used to
+    fall through to "not measured", which is the WRONG DIRECTION in the one way
+    that costs work: a stall IS measured — it is measured as UNAVAILABLE — and
+    "not measured" reads as an invitation to go measure it.  That is exactly the
+    loop that produced the relight gate's ⭐ order to "claim `movmskps`, the whole
+    buildable-today residue", a work order D170 had already refuted five days
+    earlier.  ⇒ 🔑 A RENDERER THAT COLLAPSES A KNOWN NEGATIVE INTO "UNKNOWN"
+    RE-COMMISSIONS THE WORK THAT NEGATIVE WAS RECORDED TO PREVENT."""
     return ("⛔ **REFUSES**" if verdict == "refuses" else
             "✔" if verdict == "executes" else
+            "⛔ **STALLS**" if verdict == "stalls" else
             "⚠️ not measured")
 
 
@@ -361,8 +371,13 @@ def attribute_by_bucket(vec, per_ext, avail):
         the unasked pile.  ⇒ 🔑 a total is gated by a CONSERVATION LAW, which
         cannot be satisfied by drifting, where a threshold can.
     """
-    bex = brf = unattr = 0
-    bex_keys = brf_keys = 0
+    # ⛔ D177 — A THIRD COUNTER, AND THE CONSERVATION LAW BELOW IS WHY THIS ONE
+    # COULD NOT JUST BE LEFT IN THE RESIDUAL.  `else -> brf` published a stalling
+    # pair as "the oracle REFUSES"; the totals still conserved, because a residual
+    # always conserves — it just conserves into the wrong bucket.  ⇒ 🔑 A
+    # CONSERVATION GATE CANNOT SEE A MISCLASSIFICATION, only a LOSS.
+    bex = brf = bst = unattr = 0
+    bex_keys = brf_keys = bst_keys = 0
     for mn in vec:
         buckets = per_ext.get(mn, {})
         if sum(buckets.values()) != vec[mn]:
@@ -378,14 +393,16 @@ def attribute_by_bucket(vec, per_ext, avail):
                 unattr += bocc
             elif v == "executes":
                 bex += bocc; bex_keys += 1
+            elif v == "stalls":
+                bst += bocc; bst_keys += 1
             else:
                 brf += bocc; brf_keys += 1
-    if bex + brf + unattr != sum(vec.values()):
+    if bex + brf + bst + unattr != sum(vec.values()):
         raise SystemExit(
             "⛔ p2_roster: per-bucket attribution does not conserve — %d + %d + %d "
-            "!= %d. An instruction was counted twice or dropped."
-            % (bex, brf, unattr, sum(vec.values())))
-    return bex, brf, unattr, bex_keys, brf_keys
+            "+ %d != %d. An instruction was counted twice or dropped."
+            % (bex, brf, bst, unattr, sum(vec.values())))
+    return bex, brf, bst, unattr, bex_keys, brf_keys, bst_keys
 
 
 def write(d, b, fh):
@@ -564,16 +581,37 @@ not by this table's sort — but the row count is DERIVED now, and it is
         mn = label.split("_")[0]
         if mn in verdict and verdict[mn] != e1:
             conflict.add(mn)
+        # ⛔⛔ D177 — THE REFUTATION IS CONSULTED HERE TOO, AND IT WAS THE FOURTH
+        # SITE.  This loop reads `P2_FORMS`'s SEALED `e1` directly rather than
+        # going through `measured_availability`, so the refutation that fixed the
+        # availability map did not reach the PUBLISHED table at all: measured
+        # after the (b) repair landed, this loop still answered `executes` for
+        # both `movmskps` and `vmovmskps`.
+        # ⇒ 🔑 A CORRECTION APPLIED AT ONE READER OF A TABLE IS NOT APPLIED TO THE
+        #   TABLE.  Two independent accountings read `P2_FORMS`; repairing the one
+        #   named in the QUEUE left the one that PUBLISHES still wrong, and it
+        #   publishes to the document a human reads
+        #   ([[feedback-naming-a-defect-is-not-finding-its-siblings]]).
+        if label in OA.REFUTED_BY_MEASUREMENT:
+            e1 = OA.REFUTED_BY_MEASUREMENT[label].e1
         verdict[mn] = "refuses" if mn in conflict else e1
-    ex = rf = 0
-    ex_names, rf_names = [], []
+    # ⛔ THREE COUNTERS, NOT TWO.  This read `if executes … else refuses`, so a
+    # `stalls` would have been PUBLISHED AS "the oracle REFUSES" — a false
+    # statement about the world, not merely an imprecise one: x86isa leaves RIP
+    # unadvanced with the refusal flag CLEAR, which is the opposite of refusing.
+    # Same residual shape as `measure_cr4`'s classifier and `oracle_note`'s bands,
+    # third instance in one repair ([[feedback-a-classifiers-value-set-is-a-claim]]).
+    ex = rf = st = 0
+    ex_names, rf_names, st_names = [], [], []
     for mn, v in sorted(verdict.items()):
         occ = vec.get(mn, 0)
         if v == "executes":
             ex += occ; ex_names.append(mn)
+        elif v == "stalls":
+            st += occ; st_names.append(mn)
         else:
             rf += occ; rf_names.append(mn)
-    probed = ex + rf
+    probed = ex + rf + st
 
     # ══════════════════════════════════════════════════════════════════════
     # ⭐⭐⭐ THE SECOND ACCOUNTING — D134.  The table above answers "how much
@@ -597,7 +635,8 @@ not by this table's sort — but the row count is DERIVED now, and it is
     # sums to `vec`'s per-mnemonic demand for ALL 564 mnemonics, 412,478 both
     # ways, so nothing here is rescaled and no borrowed denominator can invent a
     # gap ([[feedback-a-borrowed-denominator-invents-its-own-gap]]).
-    bex, brf, unattr, bex_keys, brf_keys = attribute_by_bucket(vec, per_ext, avail)
+    bex, brf, bst, unattr, bex_keys, brf_keys, bst_keys = attribute_by_bucket(
+        vec, per_ext, avail)
     # ⛔⛔ THE PARAGRAPH BELOW CARRIED THREE FIGURES AS LITERALS, AND TWO OF THEM
     # WERE FALSE IN THE COMMIT THAT INTRODUCED THEM (`00dd9ea`: the table beside
     # the prose said REFUSES **11** and ranked `pmaddwd` **5th**, while the prose
@@ -632,7 +671,15 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 |---|---|---|---|
 | the oracle EXECUTES | {len(ex_names)} | {ex:,} | {100.0*ex/b['total_uncovered']:.1f}% |
 | the oracle REFUSES | {len(rf_names)} | {rf:,} | {100.0*rf/b['total_uncovered']:.1f}% |
-| **probed so far** | {len(ex_names)+len(rf_names)} | **{probed:,}** | **{100.0*probed/b['total_uncovered']:.1f}%** |
+| the oracle STALLS | {len(st_names)} | {st:,} | {100.0*st/b['total_uncovered']:.1f}% |
+| **probed so far** | {len(ex_names)+len(rf_names)+len(st_names)} | **{probed:,}** | **{100.0*probed/b['total_uncovered']:.1f}%** |
+
+⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
+unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
+cannot be differentially tested, and a roster row here means differentially
+tested. It was published as REFUSES until this row existed, which is wrong about
+the machine, and before that as EXECUTES, which invented buildable work. The
+{len(st_names)} stalling mnemonic(s): `{'`, `'.join(st_names) or '(none)'}`.
 
 ⛔⛔ **AND THAT IS NOT THE COVERAGE NUMBER.** A mnemonic gets one verdict, so the
 table above carries a mnemonic's WHOLE demand on a reading taken at ONE of its
@@ -646,17 +693,18 @@ question the differential actually depends on is whether the demand has a verdic
 |---|---|---|---|
 | the oracle EXECUTES | {bex_keys} | {bex:,} | {100.0*bex/b['total_uncovered']:.1f}% |
 | the oracle REFUSES | {brf_keys} | {brf:,} | {100.0*brf/b['total_uncovered']:.1f}% |
-| **probed so far** | {bex_keys+brf_keys} | **{bex+brf:,}** | **{100.0*(bex+brf)/b['total_uncovered']:.1f}%** |
+| the oracle STALLS | {bst_keys} | {bst:,} | {100.0*bst/b['total_uncovered']:.1f}% |
+| **probed so far** | {bex_keys+brf_keys+bst_keys} | **{bex+brf+bst:,}** | **{100.0*(bex+brf+bst)/b['total_uncovered']:.1f}%** |
 | not asked at its own bucket | | {unattr:,} | {100.0*unattr/b['total_uncovered']:.1f}% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-{probed-bex-brf:,} instructions, {100.0*(probed-bex-brf)/b['total_uncovered']:.1f}% of the gap** — that is
+{probed-bex-brf-bst:,} instructions, {100.0*(probed-bex-brf-bst)/b['total_uncovered']:.1f}% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
 
 So of the demand probed, **{100.0*ex/probed:.0f}% has an oracle** by mnemonic and
-**{100.0*bex/(bex+brf):.0f}%** by bucket — after a one-line change to the
+**{100.0*bex/(bex+brf+bst):.0f}%** by bucket — after a one-line change to the
 pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
@@ -836,8 +884,15 @@ def selftest():
     # A declared list inherits the direction of its default, and `available` is
     # the default that invents work — a rank a head then spends a batch
     # discovering it cannot build.
+    # ⛔ THE `stalls` BAND IS ARMED HERE (D177) AND NOT LEFT IMPLIED.  It was
+    # added to a renderer whose three other bands each had an arm; an unarmed
+    # fourth band borrows their green ([[feedback-an-implied-assertion-is-not-a-second-gate]]).
+    # The arm that MATTERS is the last one: `stalls` must not render as "not
+    # measured", because that is the exact string that re-commissions the work
+    # D170 refuted, and it is what this band did before it existed.
     for verdict, want in (("refuses", "⛔ **REFUSES**"),
                           ("executes", "✔"),
+                          ("stalls", "⛔ **STALLS**"),
                           (None, "⚠️ not measured"),
                           ("", "⚠️ not measured")):
         got = oracle_note(verdict)
@@ -908,6 +963,21 @@ def selftest():
     if not ok:
         bad.append("exclusion-orphan")
 
+    # ⛔ AND THE REFUTATION TABLE IS A DECLARED LIST TOO (D177), so it gets the
+    # same treatment its neighbour gets.  A refutation naming a label that no
+    # longer exists overrides nothing while reading as a live correction — and
+    # this list points the DANGEROUS way: its whole purpose is to turn an
+    # `executes` into a `stalls`, so a silently-inert entry hands back the
+    # available-by-default answer it was written to stop.
+    r_orphan = sorted(set(OA.REFUTED_BY_MEASUREMENT) - labels)
+    ok = not r_orphan
+    say(("  ✔ " if ok else "  ⛔ ") +
+        f"every refuted label names a live probe row "
+        f"({len(OA.REFUTED_BY_MEASUREMENT)} refuted of {len(labels)})"
+        + ("" if ok else f"   ORPHAN {r_orphan}"))
+    if not ok:
+        bad.append("refutation-orphan")
+
     # ⛔ AND THE BUCKET NAMES MUST BE THE CENSUS'S OWN, spelled identically.  Two
     # vocabularies for one partition is the second source that goes stale, and it
     # would fail SILENTLY here — every lookup missing, every row "not measured",
@@ -967,9 +1037,14 @@ def selftest():
             _vec[_mn] += _occ
     # the CONTROL first: unplanted, it must return and conserve.
     try:
-        _bex, _brf, _un, _ek, _rk = attribute_by_bucket(_vec, per_ext, av)
+        _bex, _brf, _bst, _un, _ek, _rk, _sk = attribute_by_bucket(
+            _vec, per_ext, av)
+        # ⚠️ `_bst` IS IN THE PRINTED SUM, not only in the assertion.  A message
+        # that omits a term still reads as a conservation receipt while its own
+        # arithmetic no longer closes — prose that names a check reads AS the
+        # check ([[feedback-a-citation-is-an-ungated-claim]]).
         say(f"  ✔ per-bucket attribution conserves: {_bex:,} + {_brf:,} + "
-              f"{_un:,} = {sum(_vec.values()):,}")
+              f"{_bst:,} + {_un:,} = {sum(_vec.values()):,}")
     except SystemExit as e:
         say("  ⛔ the SHIPPED attribution already fails: %s" % e)
         bad.append("attrib-control")
@@ -1013,7 +1088,8 @@ def selftest():
                   "path cannot be armed this run — say so rather than pass")
         else:
             _av2 = dict(av); _av2[_unasked] = "executes"
-            _b2, _r2, _u2, _e2, _k2 = attribute_by_bucket(_vec, per_ext, _av2)
+            _b2, _r2, _s2, _u2, _e2, _k2, _sk2 = attribute_by_bucket(
+                _vec, per_ext, _av2)
             _moved = _u2 < _un and _b2 > _bex
             say(("  ✔ " if _moved else "  ⛔ ") +
                   f"positive control: answering for the unasked pair "

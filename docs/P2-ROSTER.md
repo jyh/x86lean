@@ -167,9 +167,17 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 141 | 151,702 | 37.8% |
+| the oracle EXECUTES | 138 | 151,459 | 37.7% |
 | the oracle REFUSES | 82 | 217,162 | 54.1% |
+| the oracle STALLS | 3 | 243 | 0.1% |
 | **probed so far** | 223 | **368,864** | **91.8%** |
+
+⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
+unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
+cannot be differentially tested, and a roster row here means differentially
+tested. It was published as REFUSES until this row existed, which is wrong about
+the machine, and before that as EXECUTES, which invented buildable work. The
+3 stalling mnemonic(s): `emms`, `movmskps`, `vmovmskps`.
 
 ⛔⛔ **AND THAT IS NOT THE COVERAGE NUMBER.** A mnemonic gets one verdict, so the
 table above carries a mnemonic's WHOLE demand on a reading taken at ONE of its
@@ -181,13 +189,14 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 106 | 123,355 | 30.7% |
+| the oracle EXECUTES | 105 | 123,366 | 30.7% |
 | the oracle REFUSES | 88 | 169,877 | 42.3% |
-| **probed so far** | 194 | **293,232** | **73.0%** |
-| not asked at its own bucket | | 108,259 | 27.0% |
+| the oracle STALLS | 2 | 77 | 0.0% |
+| **probed so far** | 195 | **293,320** | **73.0%** |
+| not asked at its own bucket | | 108,171 | 26.9% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-75,632 instructions, 18.8% of the gap** — that is
+75,544 instructions, 18.8% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
