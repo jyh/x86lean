@@ -1436,6 +1436,25 @@ occur. Until then this is ONE observation and is recorded as one.
    THE GATE GATES, taken on one night per box, so the reversal cost is kept at one document.
    **If the helm or the Captain prefers ARM B, it reverses by editing this entry.**
 
+   #### ⚡ NIGHT 5 IS RUNNING ON KENAI (2026-09-09 ~15:0x PDT) — A SAME-MACHINE REPEAT
+   **SEAL, committed before the first pass: `docs/seals/2026-09-09-4b-fifth-night-KENAI-repeatability.md`,
+   tooling pinned `88b3a54`.** Same twelve commits, same order, `--sweeps 2`, same counters,
+   same gate. Only the output path differs.
+   ⛔ **IT ADDRESSES BLOCKER (b), NOT (a), AND MUST NOT BE QUOTED AS A SECOND SOURCE.** A
+   repeat on the same box with the same corpus is a REPEATABILITY test. D187 already showed
+   (a) is unsatisfiable by a second machine; this asks the other question — **does the
+   counter TRACK KERNEL TIME**, which is what 4b actually rests on.
+   ⭐ **IT WOULD BE THE CAMPAIGN'S FIRST CLEAN SAME-MACHINE REPEAT:** the only prior
+   same-machine pair is the quiet night and night 3, and night 3 was DISCARDED for failing
+   the usability gate, so a usable repeat has never existed on either box.
+   **SEALED: Q1** passes the gate (MODERATE-HIGH); **Q2** the k>=8 CV is below 6% (MODERATE);
+   **Q3** the band OVERLAPS night 4's 4.37-5.26 (MODERATE-HIGH).
+   ⛔ **Q3 REFUTED WOULD CLOSE 4b FOR A MEASURED REASON** — same box, same corpus, same
+   tooling, so **there is no clock difference available to explain it away.** That is exactly
+   why this experiment is the right one and why night 4's refutation clause was not.
+   ⚠️ **The hypothesis under test was generated POST-HOC today**, which is why it is
+   pre-registered before its test rather than banked as a finding.
+
    #### 📌 THE FIRST THING IN SIX ENTRIES POINTING **FOR** THE COUNTER — AND IT IS A HYPOTHESIS
 ```
      quiet night (yukon)   k>=8 band 2.39-4.12   SPREAD 1.72x   CV 14.2%
