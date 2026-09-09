@@ -569,8 +569,18 @@ def judge_ratchet(nl, want, ledger_rel="docs/delta-allowance-ledger.jsonl"):
         return (f"⛔ {nl} unrecorded `.lean` step(s) against a ceiling of {want}. "
                 f"A batch landed WITHOUT its ledger row — the fix is the landing "
                 f"ritual, not the ceiling:\n"
+                # ⛔ THE `--base` IS IN THIS MESSAGE BECAUSE THIS MESSAGE IS THE
+                # RITUAL A HEAD ACTUALLY READS — it is printed at the exact moment
+                # someone is about to perform it, which the doc copy is not. It
+                # named no base until 2026-09-08, and `kernel_delta`'s default
+                # takes the BRANCH'S FORK POINT, which is this ledger's key only
+                # when the branch was just cut. A branch owing a measurement has
+                # been waiting, so master has moved, so the default is wrong in
+                # the case this refusal fires in.
+                f"     python3 scripts/kernel_delta.py --base $(git rev-parse HEAD) \\\n"
+                f"         --head <branch> --out R.json      # PIN THE BASE\n"
                 f"     git merge --no-ff --no-commit <branch>\n"
-                f"     python3 scripts/kernel_drift.py --record --readings <merge-gate json>\n"
+                f"     python3 scripts/kernel_drift.py --record --readings R.json\n"
                 f"     git add {ledger_rel} && git commit\n"
                 f"   so the row rides INSIDE the merge commit and needs no commit "
                 f"of its own.")

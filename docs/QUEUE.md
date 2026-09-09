@@ -169,6 +169,44 @@ qualifier.
    ⇒ **REGISTERED HERE, ON A SWEPT SURFACE, RATHER THAN LEFT IN THE BUS POST that announced D177** —
    this queue's own law: a block in a bus post is not registered.
 
+0c. ⛔⛔ **`es3-anchor-theorems` IS BLOCKED ON AN UNDECIDABLE BAND, NOT ON A BUDGET — AND THE GATE'S
+   OWN "MORE REPEATS" REMEDY WAS REFUTED BY THE RUN IT RECOMMENDED.** Measured 2026-09-08 by paris on
+   a box that was genuinely quiet at the start (load 3.49, after 50 orphaned `wi-test` loops were
+   reaped). **Three runs, and the branch is NOT landed.**
+```
+   run  base       repeats  Tests.Coverage        band      budget   rc  verdict
+    1   7103ff865     3     delta  +300         ±1108.5    1864.8    0   ok            (WRONG KEY)
+    2   cad06778      3     delta  +200         ±2470.1    1843.2    3   UNMEASURABLE
+    3   cad06778      6     delta  +800         ±1916.7    1836.0    3   UNMEASURABLE  (3 units)
+```
+   ⇒ 🔑 **RUNS 1 AND 2 MEASURE THE SAME PHYSICAL `.lean` DELTA** — `7103ff865..cad06778` touches no
+   `.lean` and no profiler/budget/ceiling file, measured with a positive control on the range. **The
+   verdict flipped `ok` → `UNMEASURABLE` on pure noise**, and run 1's green is therefore not evidence
+   about this commit. **It would have shipped as a verdict if an unrelated key error had not forced a
+   re-run** ([[feedback-a-single-reading-is-about-its-run]]).
+
+   ⇒ 🔑 **AND THE REMEDY REFUTED ITSELF.** Run 2 refused with *"~6 repeats a side would decide it"*.
+   Run 3 ran exactly 6 and came back with MORE unmeasurable units (3, not 2) and a worse projection:
+   *"~33"* and *"~69 repeats a side"*. Doubling `n` did not shrink the band, because the spread is
+   not Gaussian noise that averages out — it is **rare load excursions from other seats on a shared
+   box**: the two worst passes read `Tests.Coverage` 30,600 and 27,400 at `load1` **11.52** and
+   **12.04**, against ~25,700 at load ~6.
+   ⇒ **`repeats_to_decide` has no floor, so it always names a price**; it is a projection under an
+   assumption this box violates ([[feedback-a-projection-with-no-floor-always-names-a-price]]).
+   ⛔ **DO NOT QUOTE IT AND DO NOT SPEND THE BOX ON IT.** A fourth run chosen after seeing three
+   verdicts is fishing, not measurement.
+
+   **STATE: the merge was made and UNWOUND** (`git reset --hard cad0677`); the branch is intact at
+   `d9d792319` and `--gap` reads rc 0. Nothing half-landed. This is the same state
+   `p2-batch32-fp-compares` has been in since 09-05 — **two branches now blocked on the same
+   condition, which makes it a property of the INSTRUMENT ON THIS BOX, not of either branch.**
+   **RELEASE CONDITION:** a genuinely idle box (no other seat profiling), or a gate change ruled
+   elsewhere — *not* more repeats. **OWNER:** paris. **RE-MEASURE:** next sitting that finds the box
+   idle; check `uptime` AND that no other seat is running a wave.
+   ⚠️ **The `.lean` deltas themselves look small and benign in all three runs** (+200/+300/+800 ms on
+   a ~25,700 ms unit, against budgets ~1,840). **That is a reading, not a verdict**, and it must not
+   be quoted as one — which is the entire distinction this gate exists to enforce.
+
 1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
    `probe_bucket` now calls `demand_census.isa_bucket`, the census's own total rule, instead of
    being a second rule that agreed with it on 256 of 256 rows. `vzeroupper` buckets as
@@ -678,10 +716,27 @@ throwaway branch WITH ITS NEGATIVE CONTROL (a 2-commit branch became ONE first-p
 priced 23 units with no missing step; deleting that one row made the SAME walk refuse rc 2). The row
 rides **inside** the merge commit, so recording needs no commit of its own:
 ```
+   python3 scripts/kernel_delta.py --base $(git rev-parse HEAD) --head <branch> --out R.json
    git merge --no-ff --no-commit <branch>
-   python3 scripts/kernel_drift.py --record --readings <merge-gate json>
+   python3 scripts/kernel_drift.py --record --readings R.json
    git add docs/delta-allowance-ledger.jsonl && git commit
 ```
+⛔⛔ **THE `--base` IS PINNED, AND IT IS PINNED BECAUSE THE RITUAL WITHOUT IT IS WRONG IN EXACTLY THE
+CASE THE RITUAL EXISTS FOR** (2026-09-08, paris, landing `es3-anchor-theorems`). The recipe used to
+be three commands and named no base. Followed literally, `kernel_delta`'s default
+`resolve_base(head)` takes the **branch's FORK POINT** — but this ledger keys on the **first-parent
+step**, whose base is the merge's FIRST PARENT. Those are the same commit **only when the branch was
+just cut from master's tip.** A branch that OWES a measurement has by definition been waiting, so
+master has advanced, so the default is wrong — and `--gap` refuses the row with *"names head X, which
+is neither this base's first-parent child Y nor a commit reachable from it"*.
+⇒ 🔑 **A RECIPE THAT PINS ITS STEPS BUT NOT ITS SELECTION INHERITS WHATEVER THE TOOL DEFAULTS TO, AND
+A DEFAULT IS ONLY EVER RIGHT IN THE CASE ITS AUTHOR HAD IN MIND**
+([[feedback-a-recipe-that-pins-inputs-but-not-selection]]).
+⚠️ **AND THE TEMPTING WRONG FIX IS TO RE-KEY THE ROW.** Where master's advance touches no `.lean` and
+no profiler file the readings ARE physically valid for the step, and this file already makes that
+argument for the HEAD side. It is still wrong: the row would assert a base its measurement never
+used, and the alternative — widening `records_step` symmetrically — derives a gate's new allowance
+from the row it just rejected ([[feedback-widening-a-gate-needs-a-second-source]]). **Re-measure.**
 ⛔ **AND IT IS GATED, BECAUSE IT IS A DISCIPLINE.** `kernel_drift.py --gap` against
 `docs/drift-gap-ratchet.txt`, on the CI list (`kernel-delta` job, step 4). A batch landed without
 its row raises the gated count and goes red naming the ritual; a backfill that lowers it must lower
