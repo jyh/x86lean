@@ -12370,8 +12370,10 @@ untouched here.
 
 ### 2. ⭐⭐ THE DESIGN DECISION THAT DECIDED THE PRICE
 Item 4b's `ku` readings come from `lake env lean` against a built worktree, so reproducing the
-committed twelve-commit walk on kenai needs **elan + a full mathlib build on a box with no Lean
-toolchain at all**. Measured before committing to that:
+committed twelve-commit walk on kenai needs a toolchain and a build on a box that had no Lean at
+all. ⛔⛔ **THIS SENTENCE READ "elan + a full mathlib build" AND THAT PRICE WAS WRONG BY ORDERS OF
+MAGNITUDE — SEE §7, ADDED LATER THE SAME DAY.** It is corrected rather than deleted because the
+decision below was justified on it. Measured before committing to that:
 
 ```
   kenai, probed 2026-09-09 ......  git ✅   python 3.12 ✅   1,707 GB free ✅   25 GB RAM free
@@ -12431,8 +12433,8 @@ what led to the `num:` check that is now the real guard. ⇒ **The probe that wo
 where the design question was**, twice in one day.
 
 ### 5. ⛔⛔ WHAT THIS DOES **NOT** SHOW, AND 4b STAYS SHUT
-* **NOT the corpus.** A plant is not the twelve committed commits. The corpus leg on kenai still
-  needs mathlib there, and that price is now known and quotable rather than assumed.
+* **NOT the corpus.** A plant is not the twelve committed commits. ⚠️ **This bullet priced the
+  corpus leg as "still needs mathlib there" and that is FALSE — see §7.**
 * **NOT a budget.** 4b's other half — a budget from a second SOURCE — is untouched, as the
   Captain's ruling said.
 * **NOT a second usable night.** D180 stands: there is exactly one, and D181 removed an
@@ -12517,3 +12519,97 @@ right size has: for n distinct values the share of resamples whose max equals th
 0.651, and the arm now reds at n/2 **and** at 2n. ⇒ 🔑 **A HAZARD NAMED IN A DOCSTRING AND TESTED
 BY NOTHING IS AN UNGATED CLAIM, AND WRITING THE WARNING IS WHAT MAKES IT FEEL HANDLED.**
 [[feedback-a-citation-is-an-ungated-claim]]
+
+### 7. ⛔⛔ ADDED THE SAME DAY: §2's PRICE WAS WRONG, AND IT WAS AN INHERITED ASSUMPTION I NEVER CHECKED
+§2 justified the mathlib-free plant partly by the cost of the alternative: *"elan plus a full
+mathlib build."* **This repository has no mathlib dependency.** Measured at the object:
+
+```
+  lakefile.toml ........ "NO MATHLIB DEPENDENCY IN THE MODEL LIBRARY" -- in capitals, since D1
+  lake-manifest.json ... 0 dependency packages
+  .lake/packages ....... does not exist
+  kenai: clone + `lake build` of every default target ....... 50.4 SECONDS
+```
+
+⇒ 🔑 **I INHERITED THE COST FROM HOW THE EXISTING READINGS HAPPENED TO BE PRODUCED, NOT FROM WHAT
+THE WORK REQUIRED** — then repeated the figure in a decision entry, a queue item and two bus posts
+before anyone could check it. [[feedback-inherited-diagnosis-is-a-hypothesis]]
+
+⭐ **THE DESIGN CONCLUSION OF §2 SURVIVES AND ITS STATED REASON DOES NOT.** Running the cheap
+refuting experiment first was right, and is right whenever refutation is cheaper than confirmation
+— but the *sizes* I gave the two arms were invented.
+[[feedback-audit-the-premise-of-a-right-decision]] ⇒ **The corpus leg was affordable all along**,
+so it was run: D185.
+
+---
+
+## D185 — the corpus leg ran, and the kernel unfolding counter is identical on 1,236 declaration readings across two machines
+
+**LANE.** Personal. Two machines; a Lean-core-only build on each, no mathlib, no ACL2. The kenai
+walk was ~14 min of wall clock for twelve commits.
+
+### 1. WHY THIS EXISTS AT ALL — D183's DECLARED GAP
+D183 measured machine independence **on a plant** and said so in capitals: *"NOT the corpus. A
+plant is not the twelve committed commits."* It also priced the corpus leg as needing a mathlib
+build, **which was false** (D183 §7). Once that was measured rather than assumed, the leg was
+affordable and there was no reason not to run it.
+
+### 2. THE READING
+`scripts/deterministic_cost.py` over the **same twelve commits** as the committed 2026-09-05 walk,
+module `Tests.Coverage`, on kenai — compared per commit and per declaration by
+`ku_machine_independence.py --corpus`:
+
+```
+  12 of 12 commits   103 of 103 declarations each   1,236 readings
+  ✅ IDENTICAL, every counter, every commit
+     e.g. 144e9a3c 6,311,170 · 0f929e3e 6,666,666 · 873a4d9e 6,740,241 · 5c015998 6,799,095
+```
+
+⭐ **And kenai reproduced the instrument's own zero:** the five no-op commits — those touching no
+`.lean` file — read **ΔKERNEL unfoldings = +0 exactly**, as they do on yukon. *A probe that cannot
+show its zero has not shown its one*, and it now shows it on both machines.
+Sealed: `docs/deterministic-cost-KENAI-2026-09-09.jsonl`.
+
+### 3. ⛔ PROVENANCE — AND THE COMPARISON TOOL REFUSED TO ASSUME IT
+Both walks predate the `origin` field (added hours later), so **the tool declared its central
+assumption UNCHECKED rather than asserting it** — the path built for exactly this file. The
+provenance is therefore supplied here, and one half of it is **in-band**:
+
+```
+  committed 09/05 walk    load1 present, range 13.18 - 95.26   (a POSIX box)
+  kenai walk today        load1 None on EVERY row, load_source "unavailable on this platform"
+```
+
+`os.getloadavg()` exists on every POSIX box, so **an all-None load column cannot have been produced
+on yukon.** The two sides are demonstrably different platforms *from the data*, independently of
+the out-of-band fact that I drove one of them over ssh. ⇒ 🔑 **THE FIELD ADDED TO RECORD AN ABSENCE
+HONESTLY TURNED OUT TO BE A PROVENANCE SIGNATURE** — because it is absent for a reason only one
+platform has.
+
+### 4. ⭐ A SECOND READING NOBODY ASKED FOR, AND IT BEARS ON THE REAL BOTTLENECK
+Per-commit wall clock, same work, same twelve commits:
+
+```
+  yukon (09/05 walk) .....  52 - 677 s     a 13x spread, the 677 taken at load1 95
+  kenai (today) ..........  54 -  95 s     a 1.8x spread
+```
+
+D184 established that the usability gate excluding every candidate night is **not** the fragile
+part, so the bottleneck for item 4b's remaining half is genuinely *"no quiet enough box"*. **kenai's
+spread is 7x tighter than yukon's on identical work.** That is not a calibration night and must not
+be quoted as one — the ku counter is deterministic and load-insensitive, so this timing says
+nothing about ku. **It is a reason to run the next calibration night there**, and it is offered as
+a routing rather than a result.
+
+### 5. ⛔⛔ WHAT IS STILL NOT TRUE, AND 4b STAYS SHUT
+Machine independence is now measured **on the corpus, not just a plant** — the strongest form
+available: same Lean commit, different architecture *and* operating system, exact integer equality
+on 1,236 readings. **That was ONE of item 4b's two named blockers.** The other is untouched:
+
+* **no budget from a second SOURCE**, which needs a second *usable* calibration night;
+* and none of this is evidence that the counter **tracks kernel time**, which is the claim 4b
+  actually rests on.
+
+⇒ **D180, D181, D183, D184 and now D185 have each removed an indictment or an unknown. Not one has
+supplied evidence FOR the counter.** Five in a row read like momentum. They are not, and the seat
+that produced all five is saying so.

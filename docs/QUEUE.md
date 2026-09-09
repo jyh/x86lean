@@ -970,13 +970,28 @@ occur. Until then this is ONE observation and is recorded as one.
    refusal when both platform triples are equal, and a short-harvest refusal against the block's
    own declared `num:`. 8 break-probes, 8 red.
    ⛔⛔ **WHAT IT DOES NOT DO, SAID HERE BECAUSE THIS IS THE PARAGRAPH THAT WILL BE QUOTED:** it
-   measures a PLANT, not the twelve committed commits (that leg still needs mathlib on kenai, a
-   price now known rather than assumed); it derives NO budget; and it supplies **no confirmation
+   measures a PLANT, not the twelve committed commits (⛔ that leg was priced here as "needs mathlib
+   on kenai" and this repo HAS NO MATHLIB DEPENDENCY — clone + full build measured at 50.4 s;
+   corrected in D183 §7, and the leg was then run: D185); it derives NO budget; and it supplies **no confirmation
    that the counter tracks kernel time**, which is the claim 4b actually rests on. **The other
    blocker half — a budget from a second SOURCE — is UNTOUCHED, as the Captain's ruling said.**
-   ⇒ **4b STAYS SHUT.** D180, D181 and now D183 have each removed an indictment or an unknown;
-   **not one of them has supplied evidence FOR the counter.** Reading the three together as "4b
-   is nearly done" is the misreading to guard, and the seat that produced all three says so.
+   ⚖️⚖️ **AND THE CORPUS LEG RAN THE SAME DAY (D185): IDENTICAL ON 1,236 DECLARATION READINGS,
+   12 of 12 commits, 103 of 103 declarations each**, same Lean commit, different architecture AND
+   operating system. kenai also reproduced the instrument's own zero — the five no-op commits read
+   ΔKERNEL unfoldings = +0 exactly. ⇒ **MACHINE INDEPENDENCE, THE FIRST OF 4b's TWO NAMED
+   BLOCKERS, IS MEASURED ON THE CORPUS AND NOT MERELY ON A PLANT.**
+   ⇒ **4b STAYS SHUT ANYWAY.** The second blocker — **a budget from a second SOURCE**, needing a
+   second USABLE calibration night — is untouched, and none of this is evidence that the counter
+   TRACKS KERNEL TIME, which is the claim 4b actually rests on. D180, D181, D183, D184 and D185
+   have each removed an indictment or an unknown; **not one has supplied evidence FOR the
+   counter.** Five in a row read like momentum. They are not, and the seat that produced all five
+   says so.
+   ⭐ **ROUTING, NOT A RESULT:** on identical work kenai's per-commit wall clock spans 54-95 s
+   against yukon's 52-677 s — a **7x tighter spread**. D184 showed the gate excluding every
+   candidate night is not the fragile part, so the bottleneck is genuinely "no quiet enough box".
+   **That is a reason to run the next calibration night on kenai.** ⛔ It is NOT a calibration
+   night and must not be quoted as one: the ku counter is deterministic and load-insensitive, so
+   this timing says nothing about ku.
    ⚖️⚖️ **RE-DIAGNOSED 2026-09-09 (D180), AND THE ITEM STAYS SHUT ANYWAY.** The paragraph above has
    been read as evidence about the COUNTER. Run this repository's own sealed usability gate over
    every committed walk — `python3 scripts/score_calibration_night.py --census`, ~0.2 s, no box —
