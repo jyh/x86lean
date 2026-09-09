@@ -355,3 +355,25 @@ place, and it is recorded rather than left as an impression.
 
 SEALED RESULT WRITTEN 2026-09-09, after the gate was judged and before any re-run was
 considered. **NO RE-RUN IS PERMITTED: the night completed and carries a verdict** (amendment 3).
+
+---
+
+# ⚠️ POST-RUN NOTE — THIS SEAL PUT CI/build RED FOR FOUR COMMITS, CORRECTLY
+`check_corpus_claims` arm A reds on a citation to a corpus that is not in the tree, and this
+seal's `out:` line names its corpus **before the walk that produces it has run** — which is
+exactly what D179 rule 1 requires. So from `b18083d` (the seal) to `59d981f` (the corpus),
+CI/build was RED on:
+```
+  ⛔ ARM A  …-KENAI.md:33 cites docs/kernel-delta-history-KENAI-2026-09-09.jsonl,
+            which does not exist in the tree.
+```
+⇒ 🔑 ***"DECLARE THE OUTPUT BEFORE THE RUN" AND "A CITATION TO A CORPUS READS AS THE CORPUS"
+CANNOT BOTH HOLD IN THAT WINDOW.*** Two good disciplines, in direct conflict, by construction.
+⚖️ **RESOLVED IN FAVOUR OF THE GATE. The seal pays.** Exempting `docs/seals/` would blind the
+arm inside the files that make the most confident claims; landing a placeholder corpus would
+fabricate a corpus to satisfy a gate about corpora. **The red is accepted and declared.**
+⛔ **AND I DID NOT NOTICE FOR FOUR COMMITS.** I found it only by deliberately reading CI at
+the end — the exact habit the boot brief's struck item (6) had suppressed for five days.
+**The discipline worked, and it worked LAST**, which is not where you want it.
+⇒ **ANY FUTURE SEAL OF THIS SHAPE MUST SAY SO IN ITS OWN TEXT AT SEALING TIME**, so the next
+head reads a declared cost rather than diagnosing a fresh red. Noted in the gate's source too.

@@ -269,6 +269,21 @@ def run():
         print(f"    {r:<11s} {n} corpus/corpora")
 
     # ── ARM A: existence ─────────────────────────────────────────────────────
+    # ⚠️⚠️ A KNOWN, CORRECT, TRANSIENT RED — DO NOT "FIX" IT BY WEAKENING THIS ARM.
+    # D179 rule 1 requires a calibration night's seal to declare its `out:` corpus path
+    # BEFORE the walk runs. For the whole window between the seal's commit and the
+    # corpus's commit — 4 commits and ~40 minutes on 2026-09-09 — that path does not
+    # exist, and this arm correctly reds:
+    #     ⛔ ARM A docs/seals/…-KENAI.md:33 cites docs/kernel-delta-history-KENAI-….jsonl
+    # ⇒ 🔑 **TWO GOOD DISCIPLINES IN DIRECT CONFLICT: "declare the output before the run"
+    # and "a citation to a corpus reads as the corpus" CANNOT both hold in that window.**
+    # ⚖️ RESOLVED IN FAVOUR OF THIS GATE, and the seal carries the cost: the red is
+    # ACCEPTED and DECLARED in the seal, never silenced here. The alternatives are worse —
+    # exempting docs/seals/ would blind the arm to real stale citations in exactly the
+    # files that make the most confident claims, and landing a placeholder corpus beside
+    # the seal would fabricate a corpus to satisfy a gate about corpora.
+    # 📌 The cost is real and bounded: CI/build is RED from the seal's commit until the
+    # corpus lands. Say so when sealing, so the next head does not diagnose it afresh.
     cites = scan(files)
     exempt = [c for c in cites if c[4] is not None and not os.path.exists(c[0])]
     for path, f, i, _line, fx in cites:
