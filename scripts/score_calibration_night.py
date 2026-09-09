@@ -4,6 +4,17 @@
 Refuses to print the band if the gate fails, because seeing it is the selection
 D179 forbids."""
 import json, collections, statistics as st, subprocess, sys, os
+
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
+# `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
+# flag did not fail — it RAN. Measured 2026-09-09: `threads_ab.py` given a bogus
+# flag started `lake env lean -D profiler=true`, saturated a core for 300+ s on a
+# shared machine, and orphaned past its caller. See portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
 # ⛔ DERIVED, NOT TYPED. This line read `os.chdir("/Users/…/x86lean")` until 2026-09-09:
 # the ONE script of twenty that hardcoded an absolute POSIX path where every sibling
 # derives it from __file__. Latent while one machine ran everything — and the Captain

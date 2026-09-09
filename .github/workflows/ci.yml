@@ -147,6 +147,17 @@ jobs:
       - name: The CI matrix agrees with the shard count it passes
         run: python3 scripts/check_ci_shards.py
 
+      # ⛔ A SCRIPT HANDED AN UNKNOWN FLAG MUST REFUSE, NOT RUN. Measured 2026-09-09:
+      # 32 of 42 scripts fell through to their main path, so a mistyped flag made a
+      # gate print CLEAN about the wrong subject — and made `threads_ab.py` start a
+      # 300-second profiler run that orphaned past its caller. The gate is STATIC:
+      # it reads source and never invokes anything, because the census that found
+      # this by invoking is what started that profiler.
+      - name: Flag strictness (an unknown flag must refuse, not run)
+        run: |
+          python3 scripts/check_flag_strictness.py --selftest
+          python3 scripts/check_flag_strictness.py
+
       # ⭐ P1 SEAL (D68). Tests.Coverage is gated PER DECLARATION now, in absolute
       # milliseconds, because D62 proved the ROW is not its unit and every
       # refinement since batch 14 went into the margin instead of the

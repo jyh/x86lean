@@ -36,6 +36,17 @@ Usage:  cr4_parse_redprobe.py        (exit 0 iff every plant fires exactly right
 """
 import os, sys, types
 
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS — see portable.strict_flags.
+# A script that declares no flags is the SHARPEST case: it ignores anything and
+# runs its main path, so a mistyped flag produced a confident green about a
+# subject nobody asked about (measured: check_encodings.py --self-test -> rc 0,
+# "synonym collapse: CLEAN", having never run its self-test).
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 # ⛔ DERIVED, NOT HARD-CODED: a probe that only runs from one absolute path is a
 # probe that stops being run.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

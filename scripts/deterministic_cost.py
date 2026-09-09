@@ -87,6 +87,17 @@ usage:
 """
 import os, re, sys, json, time, shutil, tempfile, subprocess, statistics, platform
 
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
+# `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
+# flag did not fail — it RAN. Measured 2026-09-09: `threads_ab.py` given a bogus
+# flag started `lake env lean -D profiler=true`, saturated a core for 300+ s on a
+# shared machine, and orphaned past its caller. See portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 # ⛔⛔ EVERY `open()` IN THIS FILE NAMES ITS ENCODING, AND THE REASON IS A SECOND
 # MACHINE. Python's default text encoding is LOCALE-DEPENDENT: UTF-8 on this Mac,
 # **cp1252 on Windows**. Lean sources are full of unicode, so on the box the

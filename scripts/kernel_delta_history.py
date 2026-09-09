@@ -59,6 +59,17 @@ usage: kernel_delta_history.py --commits c1,c2,...  [--sweeps 2] [--interleave] 
 import os, sys, json, math, time, subprocess, tempfile, shutil, statistics
 import os as _os
 import sys as _sys
+
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
+# `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
+# flag did not fail — it RAN. Measured 2026-09-09: `threads_ab.py` given a bogus
+# flag started `lake env lean -D profiler=true`, saturated a core for 300+ s on a
+# shared machine, and orphaned past its caller. See portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 from portable import utf8_stdio, loadavg  # noqa: E402
 # ⛔ CALLED AT IMPORT, and that is deliberate where `os.chdir` at import is not:

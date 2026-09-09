@@ -42,6 +42,17 @@ Usage:  oracle_availability.py [--check] [--selftest]
 import collections, os, re, subprocess, sys, tempfile
 import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
+# `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
+# flag did not fail — it RAN. Measured 2026-09-09: `threads_ab.py` given a bogus
+# flag started `lake env lean -D profiler=true`, saturated a core for 300+ s on a
+# shared machine, and orphaned past its caller. See portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 # ⭐⭐⭐ THE BUCKET RULE IS THE CENSUS'S, IMPORTED — NOT A SECOND ONE THAT AGREES
 # WITH IT (D143). `demand_census.isa_bucket` is the TOTAL rule that produced the
 # demand side of the join; computing the probe side with a different function is

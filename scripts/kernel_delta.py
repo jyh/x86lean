@@ -148,6 +148,17 @@ usage:
 """
 import os, re, sys, math, json, time, shutil, socket, platform, statistics, subprocess, tempfile, random
 
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
+# `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
+# flag did not fail — it RAN. Measured 2026-09-09: `threads_ab.py` given a bogus
+# flag started `lake env lean -D profiler=true`, saturated a core for 300+ s on a
+# shared machine, and orphaned past its caller. See portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KCOST = os.path.join(ROOT, "scripts", "kernel_cost.py")
 BUDGET_FILE = os.environ.get("X86LEAN_DELTA_BUDGET",

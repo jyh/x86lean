@@ -21,6 +21,17 @@ usage: delta_band_calibration.py --table    the full sweep, all three rules
 """
 import math, random, statistics, sys, os
 
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
+# `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
+# flag did not fail — it RAN. Measured 2026-09-09: `threads_ab.py` given a bogus
+# flag started `lake env lean -D profiler=true`, saturated a core for 300+ s on a
+# shared machine, and orphaned past its caller. See portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 _kd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernel_delta.py")
 
