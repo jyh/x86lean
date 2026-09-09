@@ -138,6 +138,37 @@ qualifier.
    Any head reading a buildable-today count that includes it is reading `e1`.
    ✅ **(a), (b) and (c) LANDED 2026-09-08 (D177). The residue is 0 pairs, derived.**
 
+0b. ⛔ **THE SWEEP THAT VERIFIED D177's "FIVE HOMES" FOUND TWO MORE, AND D177 IS THEREFORE AN
+   UNDER-CLAIM.** Opened 2026-09-08 by paris immediately after D177 landed, by grepping the
+   defect's SHAPE repo-wide rather than trusting the note
+   ([[feedback-a-sibling-sweep-inherits-its-scope]]). No ACL2 run needed; both are readable.
+
+   **(6) `scripts/check_driver_cr4.py` — the same two-valued classifier, LATENT.** Its counter is a
+   2-tuple `e, r = res.get(cur, (0, 0))` with **no stall state**, and its verdict is
+   `refuses if r == n else executes if e == n else MIXED`. A stalling form in its list would be
+   scored `executes` — D170's defect exactly. **It is unpoliced BY LUCK: its `FORMS` list is six
+   rows (`movdqa`, `paddd`, `movdqu`, `pxor`, and two CONTROLs) and contains none of the three
+   known stalling forms.** ⇒ 🔑 **A DEFECT ABSENT ONLY BECAUSE THE INPUT SET HAPPENS TO EXCLUDE IT
+   IS NOT FIXED, AND THE NEXT ROW ADDED TO THAT LIST IS WHAT DECIDES.** This is the gate that
+   certifies the differential runs at CR4=0x600, so a wrong verdict here misprices every run below it.
+
+   **(7) `scripts/claimed_forms.py`'s `UNAVAILABLE` — under-inclusive, live.** It is built by regex
+   over `FORMS` selecting `exp == "refuses"`, so a `stalls` row is excluded. **Measured: 18 rows
+   parsed, 10 in UNAVAILABLE, and `movmskps` — the one form in `FORMS` the oracle demonstrably
+   cannot run — is NOT among them.** The set whose whole meaning is "the oracle cannot run this"
+   excludes the clearest member of it.
+   ⚠️ **The gate passes rc=0 today**, so nothing is currently mis-reported; this is recorded as a
+   defect in the RULE, not as a live wrong number. ⇒ 🔑 **AN UNDER-CLAIM IS THE UNPOLICED
+   DIRECTION** — an over-claim looks like a mistake and an under-claim looks like caution
+   ([[feedback-under-claims-are-unpoliced]]).
+
+   ⛔ **NOT FIXED IN D177 AND THE REASON IS SCOPE, NOT DIFFICULTY.** Both were found while a
+   profiling run for `es3-anchor-theorems` was in flight; the landing ritual needs a clean tree, and
+   starting two more repairs mid-flight is how a merge ritual acquires an unrelated diff. (7) is
+   pure string work. (6) wants an ACL2 run to verify, like 0(a) did.
+   ⇒ **REGISTERED HERE, ON A SWEPT SURFACE, RATHER THAN LEFT IN THE BUS POST that announced D177** —
+   this queue's own law: a block in a bus post is not registered.
+
 1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
    `probe_bucket` now calls `demand_census.isa_bucket`, the census's own total rule, instead of
    being a second rule that agreed with it on 256 of 256 rows. `vzeroupper` buckets as

@@ -11930,3 +11930,19 @@ moving out of REFUSES, where they had never belonged).
 Gates: `--check-encodings` · `--p2` · `p2_roster --check` · `--selftest` · `p2_residue` ·
 `--selftest` · `p2_oracle_support` — **all rc=0**. No `.lean` changed ⇒ delta ledger EXEMPT, nothing
 profiled.
+
+### D177 addendum (same sitting) — "five homes" was an under-claim; the sweep found seven
+
+Written into D177 as a count, then verified by grepping the SHAPE repo-wide instead of trusting the
+sentence — which is what my own note told me to do and is not the same act as writing the note.
+
+* **(6) `check_driver_cr4.py`** carries the identical two-valued classifier (a 2-tuple `(e, r)`, no
+  stall state). It is silent only because its six-row `FORMS` list contains none of the three known
+  stalling forms. ⇒ 🔑 **A DEFECT ABSENT ONLY BECAUSE THE INPUT SET EXCLUDES IT IS NOT FIXED.**
+* **(7) `claimed_forms.py`'s `UNAVAILABLE`** selects `exp == "refuses"` and so drops `movmskps`:
+  measured 18 rows, 10 unavailable, and the one form known not to run is outside the set that means
+  "cannot run". The gate passes today, so this is a defect in the RULE and not a wrong number yet.
+
+⇒ 🔑 **A COUNT INSIDE A DECISION NOTE IS A CLAIM WITH NO GATE ON IT**, and this one pointed the
+unpoliced way: five instead of seven reads as thoroughness. Both are registered as QUEUE item 0b
+rather than left in the bus post that announced D177.
