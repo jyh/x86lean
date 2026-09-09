@@ -87,6 +87,18 @@ usage:
 """
 import os, re, sys, json, time, shutil, tempfile, subprocess, statistics
 
+# ⛔⛔ EVERY `open()` IN THIS FILE NAMES ITS ENCODING, AND THE REASON IS A SECOND
+# MACHINE. Python's default text encoding is LOCALE-DEPENDENT: UTF-8 on this Mac,
+# **cp1252 on Windows**. Lean sources are full of unicode, so on the box the
+# Captain allocated for item 4b this file died at `open(src).read()` with
+# `UnicodeDecodeError: 'charmap' codec can't decode byte 0x8f`, before taking a
+# single reading. ⇒ 🔑 **A LOCALE-DEFAULTED `open()` IS A HIDDEN DEPENDENCY ON THE
+# MACHINE, AND A WALK WHOSE WHOLE PURPOSE IS CROSS-MACHINE COMPARISON IS THE LAST
+# PLACE IT CAN SURVIVE.** It was invisible for as long as there was one machine —
+# the same shape, found the same hour, as the one absolute POSIX path in
+# `score_calibration_night.py`. A portability defect is invisible until the second
+# machine exists, and then it is the first thing that breaks.
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ⛔⛔ THE RESOLUTION RULE IS THE SHIPPED GATE'S, IMPORTED, NOT RE-DERIVED (D148).
@@ -292,7 +304,7 @@ def _diag_counts(text):
 def read_messages(path, expect_names):
     """Parse `lean --json`: per declaration, heartbeats AND kernel unfoldings."""
     hbs, diags, errors = [], [], []
-    for l in open(path):
+    for l in open(path, encoding="utf-8"):
         l = l.strip()
         if not l:
             continue
@@ -359,7 +371,7 @@ def measure(worktree, module):
                          f"below would be about a tree that does not compile.\n"
                          f"{b.stdout[-2000:]}\n{b.stderr[-2000:]}")
     excluded = []
-    text, names = instrument(open(src).read(), report=excluded)
+    text, names = instrument(open(src, encoding="utf-8").read(), report=excluded)
     if excluded:
         print(f"  ⚠️ {len(excluded)} line(s) matched the declaration shape INSIDE a "
               f"comment or string and were excluded:")
@@ -367,9 +379,9 @@ def measure(worktree, module):
             print(f"       {module}:{ln}  {txt}")
     tmp = os.path.join(tempfile.gettempdir(),
                        f"hb-{module.replace('.', '-')}-{os.getpid()}.lean")
-    open(tmp, "w").write(text)
+    open(tmp, "w", encoding="utf-8").write(text)
     jsn = tmp + ".json"
-    with open(jsn, "w") as fh:
+    with open(jsn, "w", encoding="utf-8") as fh:
         r = subprocess.run(["lake", "env", "lean", "--json", tmp],
                            cwd=worktree, stdout=fh, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
@@ -390,7 +402,7 @@ def walk():
     wt = tempfile.mkdtemp(prefix="x86lean-hb-")
     shutil.rmtree(wt)
     git("worktree", "add", "--detach", wt, commits[0])
-    fh = open(out, "a")
+    fh = open(out, "a", encoding="utf-8")
     try:
         if "--determinism" in sys.argv:
             # ⭐ THE INSTRUMENT'S OWN ZERO, asserted on the real module before any
@@ -454,7 +466,7 @@ def kernel_readings(path, module):
     [[feedback-a-normalisation-needs-its-denominator-to-vary-the-same-way]]"""
     per = {}
     order = []
-    for l in open(path):
+    for l in open(path, encoding="utf-8"):
         l = l.strip()
         if not l.startswith("{"):
             continue
@@ -508,7 +520,7 @@ def sign_stats(pairs, resolved_keys):
 
 
 def analyse(path):
-    rows = [json.loads(l) for l in open(path) if l.strip().startswith("{")]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip().startswith("{")]
     if not rows:
         print(f"⛔ {path} holds no readings.")
         return 2
@@ -752,7 +764,7 @@ def selftest():
     # reports must be a REFUSAL, not a shorter table.
     import tempfile as _tf
     p = os.path.join(_tf.gettempdir(), f"hb-selftest-{os.getpid()}.json")
-    open(p, "w").write(json.dumps({
+    open(p, "w", encoding="utf-8").write(json.dumps({
         "data": "HBCOUNT a 5", "severity": "information",
         "pos": {"line": 1, "column": 0}, "endPos": {"line": 2, "column": 0}}) + "\n")
     try:
@@ -762,7 +774,7 @@ def selftest():
         arm("a wrapped declaration that never reports is refused",
             "missing=['b']" in str(e), str(e)[:120])
     # and an error message in the stream is a refusal even if every name reports
-    open(p, "w").write(
+    open(p, "w", encoding="utf-8").write(
         json.dumps({"data": "HBCOUNT a 5", "severity": "information",
                     "pos": {"line": 1, "column": 0}, "endPos": {"line": 2, "column": 0}}) + "\n"
         + json.dumps({"data": "boom", "severity": "error",

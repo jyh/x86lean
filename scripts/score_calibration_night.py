@@ -4,7 +4,13 @@
 Refuses to print the band if the gate fails, because seeing it is the selection
 D179 forbids."""
 import json, collections, statistics as st, subprocess, sys, os
-os.chdir("/Users/jyh/projects/claude/x86lean")
+# ⛔ DERIVED, NOT TYPED. This line read `os.chdir("/Users/…/x86lean")` until 2026-09-09:
+# the ONE script of twenty that hardcoded an absolute POSIX path where every sibling
+# derives it from __file__. Latent while one machine ran everything — and the Captain
+# allocated a SECOND machine for item 4b the same week, on which this import fails
+# before main() is entered. ⇒ A PORTABILITY DEFECT IS INVISIBLE UNTIL THE SECOND
+# MACHINE EXISTS, AND THEN IT IS THE FIRST THING THAT BREAKS.
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ⭐⭐ `--early PATH` — THE CHEAP FORM OF THIS GATE, EVALUABLE WHILE THE RUN IS IN
 # FLIGHT.  The third night's seal said the remedy in its own post-mortem: "a gate
