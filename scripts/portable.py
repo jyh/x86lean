@@ -67,6 +67,27 @@ def loadavg():
         return None, None, f"unavailable on this platform ({type(e).__name__})"
 
 
+def fmt_load(v, width=0):
+    """Format a load reading for HUMAN OUTPUT, where the reading may not exist.
+
+    ⛔⛔ THIS EXISTS BECAUSE `loadavg()` WAS PORTED AND ITS CONSUMERS WERE NOT.
+    `loadavg()` returns `None` off POSIX deliberately, and its own selftest
+    asserts that the reason is named *"so a consumer sees the absence"*. Four
+    consumers in two files then wrote `f"{r['load1']:.2f}"` — and
+    `format(None, '.2f')` raises `TypeError`, so on Windows the walk died on its
+    FIRST reading, after writing that reading to disk.
+    ⇒ 🔑 **MAKING A PRODUCER HONEST ABOUT AN ABSENCE MOVES THE DEFECT TO EVERY
+    CONSUMER THAT STILL ASSUMES THE OLD CONTRACT.** The port was measured at the
+    producer and declared done; nothing checked who read it.
+    [[feedback-a-tool-has-no-concept-of-not-applicable]]
+
+    Renders `None` as `none` — never `0.00`, for the reason `loadavg()` gives.
+    """
+    if v is None:
+        return "none".rjust(width) if width else "none"
+    return f"{v:{width}.2f}" if width else f"{v:.2f}"
+
+
 def machine_id(root=None):
     """What machine and toolchain produced a reading.
 
@@ -173,6 +194,26 @@ def selftest() -> int:
            "would pass on a function that always returns None)")
     else:
         ok(loadavg()[0] is None, "on a platform without getloadavg, the value is None")
+
+    # ---- fmt_load: the consumers' half of the loadavg port -----------------
+    ok(fmt_load(None) == "none",
+       "fmt_load(None) -> 'none' — the absence SURVIVES into the output")
+    ok("0" not in fmt_load(None),
+       "and it is NEVER 0.00 — a defaulted zero reads as a perfectly idle box")
+    ok(fmt_load(None, 5) == " none" and len(fmt_load(None, 5)) == 5,
+       "an absent reading still occupies its column, so a table stays aligned")
+    ok(fmt_load(1.239) == "1.24" and fmt_load(12.3, 6) == " 12.30",
+       "CONTROL - a real reading still formats to 2dp, padded on request (else "
+       "every arm above would pass on a function that always returns 'none')")
+    planted = False
+    try:
+        f"{None:.2f}"          # the EXACT expression at the four repaired sites
+    except TypeError:
+        planted = True
+    ok(planted,
+       "PLANTED RED - the pre-repair expression f\"{None:.2f}\" really does raise "
+       "TypeError, so the four guards are covering a live crash and not a "
+       "hypothetical one [[feedback-a-probe-must-create-its-condition]]")
 
     ok(utf8_stdio() is None, "utf8_stdio is idempotent and returns nothing")
 

@@ -158,6 +158,8 @@ if __name__ == "__main__":
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from portable import strict_flags as _strict_flags
     _strict_flags(__file__)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from portable import fmt_load  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KCOST = os.path.join(ROOT, "scripts", "kernel_cost.py")
@@ -552,7 +554,11 @@ def box_stamp():
     try:
         la1, la5, la15 = os.getloadavg()
         load = f"{la1:.2f}/{la5:.2f}/{la15:.2f}"
-    except OSError:
+    except (AttributeError, OSError):
+        # ⛔ AttributeError, NOT JUST OSError: off POSIX `os.getloadavg` does not
+        # EXIST, so the POSIX-only failure mode is an AttributeError and this
+        # `except` never fired. `kernel_cost.py` already carried both; this file
+        # did not. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
         load = "unavailable"
     return (f"BOX {socket.gethostname()} · {platform.platform()} · "
             f"{os.cpu_count()} cpus · load(1/5/15) {load} · "
@@ -610,7 +616,7 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
                 r["pass"] = len(readings["base"]) + len(readings["head"]) + 1
                 r["side"] = side
                 readings[side].append(r)
-                print(f"  pass {side:<4} load1={r['load1']:.2f}  {r['secs']:>4.0f}s  "
+                print(f"  pass {side:<4} load1={fmt_load(r['load1'])}  {r['secs']:>4.0f}s  "
                       f"Tests.Coverage={r['modules'].get('Tests.Coverage', 0):.0f}  "
                       f"X86.Syntax={r['modules'].get('X86.Syntax', 0):.1f}", flush=True)
         return {"base_rev": git("rev-parse", base_rev),
@@ -651,7 +657,15 @@ def pass_conditions(data):
         # figure that looks measured.
         return {"passes": None, "why": "readings carry no pass index (pre-D171)"}
     out = {"passes": [{"pass": r["pass"], "side": r["side"],
-                       "load1": round(r.get("load1", 0.0), 2),
+                       # ⛔ ABSENT STAYS ABSENT — the same rule the comment
+                       # four lines up states for `passes`. This read
+                       # `round(r.get("load1", 0.0), 2)`, which BOTH crashed on a
+                       # ported producer's None (`round(None, 2)` is a TypeError)
+                       # AND, where it did not crash, wrote 0.00 — a perfectly
+                       # idle box — into the covariate this campaign's usability
+                       # rules are argued over.
+                       "load1": (None if r.get("load1") is None
+                                 else round(r["load1"], 2)),
                        "secs": r.get("secs")} for r in rs]}
     units, slopes = {}, []
     for r in rs:
@@ -695,7 +709,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
     p(f"base {data['base_rev'][:9]}   head {data['head_rev'][:9]}"
       + ("   ⚠️ PLANTED HEAD — this run is a PROBE" if data.get("planted") else ""))
     p(f"repeats per side: {len(sides['base'])} (passes alternated base/head)")
-    p(f"loads: " + " ".join(f"{r['load1']:.2f}" for s in ("base", "head")
+    p(f"loads: " + " ".join(fmt_load(r['load1']) for s in ("base", "head")
                             for r in data["readings"][s]))
     all_units = sorted(set().union(*[set(u) for u in sides["base"] + sides["head"]]))
     p()

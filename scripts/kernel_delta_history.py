@@ -71,7 +71,7 @@ if __name__ == "__main__":
     from portable import strict_flags as _strict_flags
     _strict_flags(__file__)
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-from portable import utf8_stdio, loadavg  # noqa: E402
+from portable import utf8_stdio, loadavg, fmt_load  # noqa: E402
 # ⛔ CALLED AT IMPORT, and that is deliberate where `os.chdir` at import is not:
 # it changes no state a caller depends on -- only the ENCODING of streams any
 # caller would also want as utf-8 -- and it must be in effect before the first
@@ -154,7 +154,7 @@ def analyse(path, decl_names):
     seq = [c for c in order]
     print(f"readings: {len(rows)} over {len(seq)} commits "
           f"({len(rows)//max(len(seq),1)} sweeps)")
-    print(f"loads seen: " + " ".join(f"{r['load1']:.2f}" for r in rows))
+    print(f"loads seen: " + " ".join(fmt_load(r['load1']) for r in rows))
     med = {}
     for c in seq:
         us = [units(r, decl_names) for r in per[c]]
@@ -703,7 +703,7 @@ def main():
             r["secs"] = round(time.time() - t0, 1)
             fh.write(json.dumps(r) + "\n")
             fh.flush()
-            print(f"sweep {s}  {c[:9]}  load1={r['load1']:.2f}  "
+            print(f"sweep {s}  {c[:9]}  load1={fmt_load(r['load1'])}  "
                   f"{r['secs']:.0f}s  Tests.Coverage={r['modules'].get('Tests.Coverage',0):.0f}  "
                   f"X86.Syntax={r['modules'].get('X86.Syntax',0):.1f}", flush=True)
     finally:

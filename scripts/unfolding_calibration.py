@@ -411,6 +411,60 @@ def selftest():
     return 0
 
 
+def walk_origins(path):
+    """What machines a walk says it came from — from the DATA, never assumed.
+
+    Two signals, in order of strength:
+      * `origin`      — added 2026-09-09; walks written before it lack the field.
+      * `load_source` — an ALL-None load column cannot have been produced on a
+                        POSIX box, because `os.getloadavg()` exists on every one.
+                        D185 §3: the field added to record an absence honestly
+                        turned out to be a provenance signature.
+    """
+    out = set()
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    named = {r["origin"] for r in rows if r.get("origin")}
+    if named:
+        return named
+    if rows and all(r.get("load1") is None for r in rows):
+        out.add("unnamed, non-POSIX (all-None load column)")
+    elif rows:
+        out.add("unnamed, POSIX (load column present)")
+    return out
+
+
+def provenance_note(origins):
+    """⛔⛔ THIS REPLACED A HARD-CODED SENTENCE THAT WAS FALSE BY THE TIME IT MATTERED.
+
+    Until 2026-09-09 `main()` ended with an unconditional
+        "One box, arm64. Machine independence is UNMEASURED and remains item 4b's
+         standing blocker; this tool cannot address it."
+    printed regardless of which walk had just been read. It was written when it was
+    true, and D183 (a plant) then D185 (the corpus: 1,236 declaration readings, 12
+    of 12 commits, exact integer equality across arm64-macOS and x86_64-Windows)
+    made both halves wrong — while the tool went on asserting the blocker that the
+    runs beneath it existed to help clear.
+    ⇒ 🔑 **A TOOL'S OUTPUT IS READ BY PEOPLE WHO WILL NOT READ ITS SOURCE, SO A
+    STALE SENTENCE IN A FOOTER IS QUOTED WHERE A STALE COMMENT IS NOT.**
+    So this one is DERIVED from the walks actually read, and the part that is still
+    a standing claim is stated as what it is.
+    """
+    who = ", ".join(sorted(origins)) or "no walk read"
+    return (f"\n📌 walk provenance, from the data: {who}"
+            f"\n⚠️  WHAT THIS TOOL STILL CANNOT ADDRESS, and it is not machine"
+            f" independence:\n"
+            f"    machine independence is MEASURED (D183 plant; D185 corpus, 1,236"
+            f" readings, exact\n"
+            f"    equality across arm64-macOS and x86_64-Windows). Item 4b's"
+            f" remaining blockers are\n"
+            f"    (a) no budget from a second SOURCE — a second USABLE calibration"
+            f" night — and\n"
+            f"    (b) no evidence that the counter TRACKS KERNEL TIME, which is the"
+            f" claim 4b rests on.\n"
+            f"    A band printed above is a reading from THIS walk; it is neither"
+            f" of those two things.")
+
+
 def main():
     if "--selftest" in sys.argv:
         return selftest()
@@ -428,12 +482,13 @@ def main():
               f"with no counters is not a calibration; check --module.")
         return 2
     units = [module] + [f"{module} @decl {n}" for n in names] + [f"{module} @residue"]
+    origins = set()
     for path in walks:
         w = drp.load_walk(path)
+        origins |= walk_origins(path)
         cs = windows(w, drp.unit_readings(w, decl_map), units, ku, hb)
         report(os.path.basename(path), cs, module)
-    print("\n⚠️  One box, arm64. Machine independence is UNMEASURED and remains "
-          "item 4b's standing blocker; this tool cannot address it.")
+    print(provenance_note(origins))
     return 0
 
 
