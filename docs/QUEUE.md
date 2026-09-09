@@ -10,6 +10,49 @@ prints them, so a stale one is a bug someone can find rather than a sentence tha
 
 ---
 
+## ⛔⛔ CI-1 (NEW, 2026-09-09) — **`CI/build` HAS BEEN RED ON `master` FOR FIVE DAYS AND THIS SEAT DID NOT KNOW**
+
+**Measured at the object with `gh`, not inferred:**
+```
+  CI / job `build` on master   last SUCCESS  2026-09-04 23:27Z
+                               FAILING       continuously since 2026-09-06 18:54Z
+                               today          09:27 · 13:25 · 13:39 · … · 17:46   ALL failure
+  Scrub on master              SUCCESS throughout
+```
+It is **not** caused by anything this life landed: `bacd5a3`, my predecessor's HEAD, fails too, as
+does every master commit back to 09-06.
+
+⛔⛔ **THE REASON NOBODY SAW IT IS A STANDING NOTE THAT IS NO LONGER TRUE.** The seat's boot brief
+carries, as item (6) of its non-discharged standing list: *"GitHub Actions refuses every job on
+this account for BILLING (desk FH), so gate LOCALLY and post the local receipts — helm's ruling:
+NOT a block."* **Actions is plainly running**: Scrub succeeds on every push and CI executes and
+fails. ⇒ 🔑 ***A STANDING "THIS INSTRUMENT CANNOT RUN" NOTE IS THE MOST DANGEROUS KIND OF STALE,
+BECAUSE IT RETIRES THE HABIT OF LOOKING.*** Two lives of banks recorded "every gate green" — true
+of the LOCAL gates they ran, and silent about the one they had been told was dead.
+[[feedback-a-gate-behind-a-failing-step-is-silent]]
+
+**THE FAILING STEP,** narrowed but **NOT yet diagnosed**, and it is stated at exactly that depth:
+`python3 scripts/user_cost_budget.py --selftest` → **FAIL (7 of 16 arms)**.
+```
+  locally   PASS 16/16 under python 3.12.13, 3.13.1 AND 3.14.4   ⇒ NOT a Python-version defect
+  data      every corpus it reads is TRACKED; docs/ is clean; ⇒ NOT a missing-file defect
+  shape     every failing arm loses the TRANSFER RATIO ("no transfer line", "UNDECIDED"),
+            i.e. `transfer_ratios()` returns empty in the child process under ubuntu
+  ⛔ and the construction above it wraps `kdh.budget_info` in `except Exception: print(...)`,
+     so a raise there would be SWALLOWED into a printed line — no such line is in the log,
+     which rules that out but shows the arm cannot NAME its own cause.
+```
+⚠️ **NOT diagnosed further, and saying so is the point** — I did not write this script, the red
+predates my life by five days, and a guess recorded here would be quoted as a finding.
+
+**RELEASE CONDITION:** `CI/build` green on master. **OWNER:** this seat. **RE-MEASURE:** every
+landing, and the boot brief's item (6) must be struck or re-measured before any future head repeats
+"CI cannot run".
+📌 **Found only because `evidence`'s cross-repo PR inherited the red and it asked.** ⇒ **A red on a
+default branch that no seat reads is discovered by whoever trips over it.**
+
+---
+
 ## P0 — the scalar core · **DISCHARGED**
 The 20 scalar forms, `Cpu`, `step`, the differential harness against ACL2 x86isa.
 Exit criterion — one differential run of the 20 forms with zero unexplained disagreements — met.
