@@ -222,6 +222,22 @@ jobs:
           python3 scripts/check_citations.py --selftest
           python3 scripts/check_citations.py
 
+      # 2026-09-09: the sibling of the step above, one level out. `check_citations`
+      # gates a comment that names a DECLARATION; this gates prose that names a
+      # DATA CORPUS. It exists because `b5d1522` measured `unfolding_calibration`'s
+      # `--counters` input and reported the answer as if it were the `--walk` one,
+      # landed, and pushed to both tiers: the arithmetic was right and the FILE was
+      # wrong, and no gate here joined a prose claim to the tool that consumes it.
+      # ⛔ The half with teeth is not the prose scan — it is the ROLE REFUSAL the
+      # gate exports into `load_walk`/`load_counters`, which before this ACCEPTED
+      # each other's corpora (one silently returning a well-formed 12-commit walk,
+      # the other an empty dict). `--selftest` drives 9 distinct red arms and the
+      # controls that prove they are distinct.
+      - name: Prose that names a data corpus agrees with the tool that consumes it
+        run: |
+          python3 scripts/check_corpus_claims.py --selftest
+          python3 scripts/check_corpus_claims.py
+
       # D146: `scripts/deterministic_cost.py` measures the two candidate
       # DETERMINISTIC proxies for the kernel-delta gate (elaborator heartbeats,
       # which D146 refuted with a plant, and the kernel's own `[kernel] unfolded

@@ -97,6 +97,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import kernel_delta as kd                                        # noqa: E402
 import delta_repair_price as drp                                 # noqa: E402
+import check_corpus_claims as _ccc                               # noqa: E402  the ROLE rule
 
 DEFAULT_MODULE = "Tests.Coverage"
 
@@ -119,11 +120,21 @@ def flatten(counter, module, names):
 
 
 def load_counters(path, module, names):
+    # ⛔⛔ THE ROLE IS MEASURED, NOT ASSUMED.  Before this check, handing this
+    # function a kernel-delta walk returned `({}, {})` SILENTLY — no row carries
+    # `module`, so the filter below dropped all of them and the caller saw an
+    # empty answer rather than a refusal.  An empty result and a wrong-corpus
+    # result are different facts and only one of them is recoverable.
+    # [[feedback-an-unparseable-gate-file-reports-failure-not-absence]]
+    rows = [json.loads(l) for l in open(path) if l.strip()]
+    role, why = _ccc.corpus_role(rows)
+    if role != "counters":
+        raise ValueError(
+            f"{path} is not a deterministic-cost corpus: it measures as {role!r} "
+            f"({why}). This is the --walk/--counters mix-up b5d1522 made in prose; "
+            f"see scripts/check_corpus_claims.py.")
     ku, hb = {}, {}
-    for line in open(path):
-        if not line.strip():
-            continue
-        r = json.loads(line)
+    for r in rows:
         if r.get("module") != module or r.get("error"):
             continue
         ku[r["commit"]] = flatten(r["ku"], module, names)

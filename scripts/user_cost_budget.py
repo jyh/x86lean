@@ -23,8 +23,30 @@ The budgets in `scripts/kernel_delta_budget.txt` were derived by
 `kernel_delta_history.py --register-budget` from a twelve-commit walk of the
 project's OWN history (`docs/kernel-delta-history-2026-09-04.jsonl`).  This
 script reads a re-run of THAT SAME WALK over THOSE SAME TWELVE COMMITS with the
-CPU fields recorded (`docs/kernel-delta-history-USER-2026-09-05.jsonl`).  So the
-candidate's budgets come from batch history, exactly as the shipped ones did,
+CPU fields recorded (`docs/kernel-delta-history-USER-CONTENDED-2026-09-05.jsonl`).
+
+⛔ THAT PATH READ `…-USER-2026-09-05.jsonl` UNTIL 2026-09-09, AND NO SUCH FILE HAS
+EVER EXISTED IN THIS REPOSITORY (`git log --all --diff-filter=A` over
+`docs/kernel-delta-history-USER*` adds exactly two: `USER2` and `USER-CONTENDED`).
+D151's own conditions paragraph records the rename that stranded it — "the corpus
+is named `…-CONTENDED-…` rather than labelled by hand" — and this docstring kept
+the pre-rename name.  ⇒ WHICH corpus it means was decided by SCORING, not by
+reading the label: D151 publishes "contended corpus, 14 readings", and this tool
+reports 14 readings on `USER-CONTENDED` and 24 on `USER2`.  Found by
+`scripts/check_corpus_claims.py`, the gate written for exactly this class after
+`b5d1522`.  [[feedback-only-the-contract-says-which-file]]
+
+⚠️ AND THE NEAR-MISS BESIDE IT, because it is the same defect one step further on.
+Reading this tool's own "2 tree(s) with repeated readings" line for CONTENDED, I
+was about to file a SECOND defect — that "THOSE SAME TWELVE COMMITS" is false of
+it too.  Counted directly, CONTENDED carries **12 distinct commits**: sweep 0 is
+complete at 12 and sweep 1 was interrupted at 2, which is why only two trees have
+a repeated reading.  "Trees with REPEATED readings" is not "distinct commits", so
+the sentence is TRUE.  A right-shaped measurement about the wrong object, caught
+by counting rather than by re-reading.
+[[feedback-a-partial-corpus-carries-its-interruption]]
+
+So the candidate's budgets come from batch history, exactly as the shipped ones did,
 and NOT from `docs/threads-ab-2026-09-05.jsonl` — the readings that nominated
 `user` in the first place.
 

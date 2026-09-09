@@ -48,6 +48,7 @@ import json, math, os, statistics, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import kernel_delta as kd                                   # noqa: E402  the gate itself
+import check_corpus_claims as _ccc                          # noqa: E402  the ROLE rule, one home
 
 BUDGET_FILE = os.path.join(HERE, "kernel_delta_budget.txt")
 
@@ -60,6 +61,21 @@ BUDGET_FILE = os.path.join(HERE, "kernel_delta_budget.txt")
 # curve about dictionary iteration.
 def load_walk(path):
     rows = [json.loads(l) for l in open(path) if l.strip()]
+    # ⛔⛔ THE ROLE IS MEASURED, NOT ASSUMED — and this refusal is the repair for
+    # `b5d1522`.  Before it, this function ACCEPTED
+    # `docs/deterministic-cost-history-2026-09-05.jsonl` and returned a
+    # well-formed 12-commit walk: both corpora carry `commit` and `t`, which is
+    # every key this loader touched.  A duck-typed loader cannot referee its own
+    # contract, so feeding it the wrong corpus produced NUMBERS rather than an
+    # error.  The rule is IMPORTED from the gate that owns it (D148 §2: a
+    # referee invented beside a shipped rule disagrees in the flattering
+    # direction).  [[feedback-only-the-contract-says-which-file]]
+    role, why = _ccc.corpus_role(rows)
+    if role != "walk":
+        raise ValueError(
+            f"{path} is not a kernel-delta walk: it measures as {role!r} ({why}). "
+            f"A tool that accepts the wrong corpus reports numbers about the wrong "
+            f"object; see scripts/check_corpus_claims.py.")
     order, seen = [], set()
     for r in sorted(rows, key=lambda r: (r.get("sweep", 0), r["t"])):
         if r["commit"] not in seen:
