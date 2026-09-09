@@ -82,6 +82,50 @@ default branch that no seat reads is discovered by whoever trips over it.**
 
 ---
 
+## ⛔ CI-2 (NEW, 2026-09-09) — **THE THROTTLE ROUTED THREE OF FOUR CI JOBS TO A TRIGGER THIS REPO HAD NEVER USED**
+
+**Measured with `gh`, all time:** `pull_request: 1 · push: 99`. The single pull request is **#1,
+opened by another seat today.** The throttle (the Captain, 2026-09-07: *"let's throttle the CIs"*)
+routed `selftest`, `kernel-delta` and `kernel-delta-redfirst` to
+`github.event_name == 'pull_request' || 'workflow_dispatch'`. **This campaign lands by direct push
+to `master`** — 10 of the last 15 commits are merges, all pushed, none via a PR.
+⇒ 🔑 ***THREE OF FOUR CI JOBS HAVE BEEN UNREACHABLE FOR THIS REPOSITORY'S ACTUAL WORKFLOW SINCE
+2026-09-07, AND THEY RAN FOR THE FIRST AND ONLY TIME TODAY, ON SOMEBODY ELSE'S PULL REQUEST.***
+⚠️ **The throttle was RIGHT and its trigger was wrong for this repo.** The matrix is three jobs of
+68-88 min each and the Actions budget had genuinely run out at 19:05Z 09-06; the cost argument is
+sound. What nobody checked is whether the surviving trigger is one this campaign ever pulls.
+⛔ **NOT REPAIRED HERE, DELIBERATELY.** The fix is a policy choice with a real bill attached
+(schedule? on-push-to-master only? a manual dispatch per landing?) and the throttle is the
+**Captain's**. Filed with the measurement so the choice is made on numbers.
+**RELEASE CONDITION:** a trigger this campaign actually fires. **OWNER:** the Captain (the throttle
+is his). **RE-MEASURE:** whenever the landing style changes.
+
+### ⛔ CI-2b — AND THE FIRST THING THAT RAN THERE WAS RED, BY MY HAND
+`kernel-delta`'s step *"Drift-gate arithmetic and ledger, driven red"* failed on that PR.
+Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my predecessor's HEAD),
+`rc 1` at HEAD. **Cause: I edited `CLAUDE.md`, and `EXEMPT_RULES` had no rule for it** — so the
+drift gate correctly refused an unargued path, exactly as designed (*"refuse once, until a human
+argues the path"*). ✅ **REPAIRED:** a rule with a stated reason (prose, read at boot, never by
+`lake`), 64 arms green. ⇒ **The gate worked; the invisibility is CI-2's, the red was mine.**
+
+### ⛔ CI-2c — THE SELF-TEST FLAG IS SPELLED TWO WAYS AND THE WRONG ONE READS **GREEN**
+```
+  --selftest     26 scripts        --self-test    4 scripts
+  ⛔ two of the four are MINE, added today, by copying the neighbour I was editing
+  MEASURED, the dangerous direction:
+     check_encodings.py  --self-test   ->  rc 0, prints "synonym collapse: CLEAN"
+     check_windows.py    --self-test   ->  rc 0, prints "✅ watch windows agree"
+     check_xmm_format.py --self-test   ->  rc 0, prints "✅ xmm record format agrees"
+  ...having run their MAIN analysis and never their self-test. kernel_drift refuses (rc 2).
+```
+⇒ 🔑 **A SWEEP THAT GUESSES THE FLAG GETS A GREEN THAT IS ABOUT A DIFFERENT SUBJECT.** I found it
+because my own sweep produced a false RED on the one script whose spelling I had guessed wrong —
+**the lucky direction.** ✅ My two scripts now accept both. ⛔ The other 28 are NAMED, NOT CHURNED:
+the real repair is that a script should REFUSE an unknown flag, which is 28 files of change and a
+decision about argparse-vs-`sys.argv` that belongs in one sitting, not in this one.
+
+---
+
 ## P0 — the scalar core · **DISCHARGED**
 The 20 scalar forms, `Cpu`, `step`, the differential harness against ACL2 x86isa.
 Exit criterion — one differential run of the 20 forms with zero unexplained disagreements — met.

@@ -210,7 +210,11 @@ def selftest() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="how much of the usability verdict is the bound's own noise?")
-    ap.add_argument("--self-test", action="store_true")
+    # ⛔ BOTH SPELLINGS — see ku_machine_independence.py for the measurement.
+    # 26 of 30 scripts here say `--selftest`; a sweep that guesses gets a false
+    # green from the scripts that ignore an unknown flag and run their main path.
+    ap.add_argument("--self-test", "--selftest", dest="self_test",
+                    action="store_true")
     args = ap.parse_args()
     if args.self_test:
         return selftest()

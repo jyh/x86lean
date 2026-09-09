@@ -369,7 +369,16 @@ def main() -> int:
     ap.add_argument("--corpus", nargs=2, metavar=("A.jsonl", "B.jsonl"),
                     help="compare two deterministic_cost walks from two machines, "
                          "per commit and per declaration")
-    ap.add_argument("--self-test", action="store_true")
+    # ⛔ BOTH SPELLINGS. This repository spells the flag `--selftest` in 26 of 30
+    # scripts and `--self-test` in four — two of which are this file and its
+    # sibling, added the same day, by copying the neighbour I happened to be
+    # editing. Measured: `check_encodings.py --self-test` exits 0 and prints
+    # "CLEAN" because it ignores the unknown flag and runs its MAIN analysis —
+    # a sweep that guesses the spelling gets a green that is about a different
+    # subject. Accepting both is one line; it costs nothing and removes this
+    # file from that hazard. [[feedback-read-what-the-instrument-measured]]
+    ap.add_argument("--self-test", "--selftest", dest="self_test",
+                    action="store_true")
     args = ap.parse_args()
 
     if args.self_test:

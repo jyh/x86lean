@@ -408,6 +408,15 @@ EXEMPT_RULES = [
                  "bucketed ABOVE this rule). Such a script can reach a reading "
                  "only by REGENERATING a `.lean` file, and that regeneration is "
                  "itself a `.lean` diff, bucketed first."),
+    # ⛔ ADDED 2026-09-09, BY THE GATE REFUSING. `CLAUDE.md` is this repo's project
+    # instruction file — prose read by a Claude session at boot and by nothing in
+    # the build. It was the FIRST unargued path this window ever carried, and the
+    # gate did exactly what it was built to do: refuse once, name the path, and
+    # wait for a human to argue it rather than widening an `else`. Recorded as the
+    # rule's provenance because "the gate went red and I added a rule" and "the
+    # gate went red and I loosened it" look identical in a diff.
+    ("CLAUDE.md", "the seat's project instructions. Prose: read by a session at "
+                  "boot, never by `lake`, and it declares no build input."),
     ("README.md", "prose."),
     ("PROVENANCE.md", "prose."),
     ("TRUSTBASE.md", "prose."),
