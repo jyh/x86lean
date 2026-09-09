@@ -126,6 +126,69 @@ decision about argparse-vs-`sys.argv` that belongs in one sitting, not in this o
 
 ---
 
+## ⛔ PORT (NEW, 2026-09-09) — **THE SECOND MACHINE IS REAL NOW, AND THE TREE IS NOT PORTED**
+
+Opened by paris when the 4b fourth calibration night's declared smoke test found **three**
+port defects on a route that a `portable.py`-adoption check had reported CLEAR.
+⇒ 🔑 ***"USES THE PORTABILITY MODULE" IS NOT A PORTABILITY MEASUREMENT — ALL THREE WERE IN
+SCRIPTS THAT IMPORT IT. THE ONLY MEASUREMENT IS RUNNING IT ON THE OTHER MACHINE.***
+Repaired at `74dff4f`: `child_cpu`/`sub_cpu`, `mod_name`, `require_utf8_mode`, and the two
+`resource` importers. What is below is what was NOT repaired, with its measurement.
+
+### PORT-1. ~179 unencoded `open()` calls, and why 42 were not fixed
+```
+  scripts/*.py, open() with no encoding=   193 total
+  on the calibration night's own route      42   (kernel_cost 14, kernel_delta 11,
+                                                  check_corpus_claims 9, others 8)
+```
+They inherit the locale's encoding — UTF-8 on macOS/Linux, **cp1252 on Windows** — and
+this repo's sources are full of non-ASCII.
+⚖️ **THE REMEDY SHIPPED IS `PYTHONUTF8=1` (PEP 540) PLUS A REFUSAL, NOT 42 EDITS**, and the
+reason is worth keeping: fixing 42 of 193 leaves a tree where some files are explicit and
+the rest inherit the locale — **harder to reason about than a uniform mode**, and it would
+read as "ported" at exactly the 42 sites someone would check.
+⛔ **THE FAILURE DIRECTION IS LOUD** — a pure-ASCII file reads correctly under cp1252 and a
+non-ASCII one raises. It cannot produce a wrong number. That is why this is P-low and why
+`mod_name`, which was SILENT, was fixed at the source instead.
+**RELEASE:** either Python 3.15's UTF-8 default arrives, or a mechanical pass adds
+`encoding="utf-8"` to all 193 in one act. **OWNER:** paris. **NOT** a partial pass.
+
+### PORT-2. `kernel_cost.py --selftest` IS NOT IN CI — 27 arms that only run by hand
+Measured: `command grep 'kernel_cost.py --selftest' .github/workflows/*.yml` → **nothing**,
+against `kernel_delta`, `kernel_delta_history`, `deterministic_cost`, `unfolding_calibration`,
+`threads_ab` and `user_cost_budget`, which ARE all wired.
+⛔ **`kernel_cost.py` is the profiler that produces EVERY gated number in this campaign**,
+and it is the one whose selftest nothing runs on a push. Its siblings are gated; the
+measurement they all depend on is not [[feedback-a-gate-behind-a-failing-step-is-silent]].
+⚠️ **NOT wired blind:** it takes ~18 min on this box, dominated by deliberate `sleep 40`
+fixtures in the orphan probe, and three of its arms are environment-dependent (PORT-3). It
+needs a time budget and PORT-3 fixed first, or it will red every build for a reason that is
+not about the code. **OWNER:** paris.
+
+### PORT-3. Three of those 27 arms fail because ANOTHER SEAT has a worktree here
+```
+  git worktree list
+    /Users/jyh/projects/claude/x86lean                      b18083d [master]
+    /private/tmp/.../claude-seats-evidence-saltworks/.../wt-x86
+                                        080cd3b [evidence/gate-canon-x86lean]
+```
+The orphan/contention probe asks *"is anything of mine left detached, and is the
+repository otherwise quiet"*. Its CONTROL arm is literally *"no extra worktree is
+registered, so the probe's silence is about the repository"* — **which cannot pass while a
+second seat legitimately holds a worktree in this repo.**
+⛔ **NOT REPAIRED, AND DELIBERATELY: that worktree is `evidence`'s LIVE work and is not
+mine to remove.** ⇒ 🔑 ***A SELFTEST WHOSE VERDICT DEPENDS ON WHAT ANOTHER SEAT IS DOING IS
+NOT A SELFTEST OF THIS CODE*** — it must distinguish "a worktree registered by another
+seat" from "a worktree I leaked", which is the same distinction the probe already makes
+correctly for PROCESSES [[feedback-enumerate-is-not-attribute]]. **OWNER:** paris.
+
+### PORT-4. Two `mkdtemp` prefixes do not conform, so a leak of theirs is misattributed
+`check_private_paths.py` uses `ppgate-selftest-` and `pphist-selftest-`; the orphan probe
+identifies this seat's own work by the `x86lean-` prefix. A temp dir either leaves would be
+read as another campaign's. From `eac47e8` (evidence's PR #1) and `31f2b5f` (D182) — **not
+from the port work, and named here rather than fixed in a commit about something else.**
+**OWNER:** paris. Small.
+
 ## P0 — the scalar core · **DISCHARGED**
 The 20 scalar forms, `Cpu`, `step`, the differential harness against ACL2 x86isa.
 Exit criterion — one differential run of the 20 forms with zero unexplained disagreements — met.

@@ -12613,3 +12613,78 @@ on 1,236 readings. **That was ONE of item 4b's two named blockers.** The other i
 ⇒ **D180, D181, D183, D184 and now D185 have each removed an indictment or an unknown. Not one has
 supplied evidence FOR the counter.** Five in a row read like momentum. They are not, and the seat
 that produced all five is saying so.
+
+## D186 — the fourth calibration night could not have run, and the smoke test that proved it passed the first time because two defects were cancelling
+
+**LANE.** Personal. Two machines. No employer material. Sources: this repository and the
+Python standard library's documented behaviour.
+
+### 1. WHY THIS EXISTS — A FORMALITY IN A SEAL TURNED OUT TO BE THE WHOLE VALUE
+The helm authorised a calibration night on kenai (2026-09-09) with three conditions, the
+third *"state the port hole rather than discover it"*. The seal declared, as a formality,
+**one** `kernel_cost.py --emit-json` reading on kenai *"to prove the profiler runs there at
+all"*, with only two possible outcomes. **It did not run.** Three defects were found, none
+of which the condition's own framing would have located.
+
+### 2. THE THREE
+```
+ (a) kernel_cost.py imported `resource` (POSIX-only) at MODULE level
+     -> ModuleNotFoundError at import, before main(), so none of that file's own
+        per-reading guards could ever execute.
+ (b) mod_name(f) = f[:-5].replace("/", ".")  -- a LOGICAL name built from a PATH.
+     `glob` returns os.sep-joined paths, so every module read `X86\Basic`,
+     `Tests\Coverage`; `--decl-modules Tests.Coverage` is matched against this
+     function's output, so the declaration set came back EMPTY.
+ (c) 193 `open()` calls in scripts/ (42 on this route) pass no encoding=, inheriting
+     cp1252 on Windows -> UnicodeDecodeError on this repo's non-ASCII sources.
+```
+
+### 3. ⛔⛔ THE FINDING: THE FIRST SMOKE TEST PASSED, AND THE PASS WAS THE PRODUCT OF (b) AND (c)
+The first run on kenai emitted a **complete JSON reading** and returned success. It did so
+**because of (b)**: with the module names wrong, the declaration lookup found nothing, so
+`per_declaration()` — the function holding the `open(f)` that raises — **was never
+entered.** Repairing (b) is what made (c) appear, on the very next run.
+⇒ 🔑 ***A RUN THAT SUCCEEDS BECAUSE ONE DEFECT PREVENTED ANOTHER FROM EXECUTING IS
+INDISTINGUISHABLE FROM A RUN THAT WORKS*** [[feedback-two-defects-that-cancel]].
+📌 This is the campaign's own recorded law arriving in a new place: it had been about a
+GATE being wrong twice. Here it is about a **PROBE** being right for two wrong reasons —
+and the probe was the thing standing between the campaign and a worthless night.
+
+### 4. ⚠️ THE SEVERITIES ARE NOT EQUAL AND THE RECORD MUST NOT FLATTEN THEM
+**(a) and (c) CRASH.** Loud, immediate, and incapable of producing a wrong number: off
+UTF-8 a pure-ASCII file still reads correctly and a non-ASCII one raises.
+**(b) IS SILENT.** The walk would have completed all 24 readings, written a full corpus,
+and been compared against two yukon walks **as though it had measured nothing** — because
+its unit keys would have matched none of theirs.
+⇒ **(b) is the one that would have cost a night AND produced a quotable false result**, and
+it is the one fixed at the source. (c) is met with a mode plus a refusal (PORT-1).
+
+### 5. ⛔ AND THE CONDITION AS FRAMED POINTED AWAY FROM ALL THREE
+The port hole was named to me as *"`kernel_delta_history` and `kernel_cost` use
+`portable.py` but ~25 other scripts do not"*. I checked that first, correctly, and
+reported the route CLEAR by that measure. **All three defects are in scripts that DO
+import `portable.py`.**
+⇒ 🔑 ***IMPORTING THE PORTABILITY MODULE IS EVIDENCE OF INTENT, NOT OF COVERAGE. THE ONLY
+PORTABILITY MEASUREMENT IS RUNNING IT ON THE OTHER MACHINE.***
+📌 The handed-on hole was a real one and it was **off-target**, which is exactly the shape
+this campaign already records: test an inherited diagnosis's SCOPE before acting on it
+[[feedback-inherited-diagnosis-is-a-hypothesis]].
+
+### 6. WHAT WAS BUILT, AND WHY A REFUSAL RATHER THAN A NOTE
+`portable.require_utf8_mode()` refuses off UTF-8, naming what it saw **and** the remedy;
+the walk driver calls it once, because the profiler is a child and inherits the
+environment. The alternative was to write `PYTHONUTF8=1` in the recipe and trust it.
+⇒ **A precondition that lives in someone's memory is not a precondition**
+[[feedback-a-gate-whose-precondition-is-a-discipline]].
+`portable.child_cpu`/`sub_cpu` follow `loadavg`'s law one level over: an ABSENT endpoint
+makes the DIFFERENCE absent, never `0.0` — a zero there does not read as "unknown", it
+reads as *the compiler did no work*.
+⭐ **AND THE `mod_name` ARM IS BUILT FROM THE BACKSLASH CASES.** The forward-slash cases
+passed for the entire life of the defect, so an arm made only of them proves nothing —
+the same reason `loadavg`'s arms carry a restored-call control.
+
+### 7. WHAT THIS SAYS ABOUT 4b: NOTHING
+No reading of the fourth night existed when any of this was found, and none of it is
+evidence for or against the kernel-unfolding counter. **It is the sixth entry in a row
+that removes an obstacle without supplying evidence FOR the counter**, and like the five
+before it, the seat producing it is saying so.
