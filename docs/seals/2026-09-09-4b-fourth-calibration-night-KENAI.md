@@ -248,3 +248,38 @@ normally imply, so it is written down at its true size.
 📌 And the refusal at rows 2 and 6 is the behaviour I wanted to confirm most: it says
 *"NOTHING to read. That is not a pass"* rather than returning a green from an empty set
 [[feedback-an-unparseable-gate-file-reports-failure-not-absence]].
+
+---
+
+# ⚖️ AMENDMENT 3 — THE RE-RUN POLICY FOR A MECHANICAL FAILURE, WRITTEN AT READING 3 OF 24
+Written **while the walk is in flight and before any commit has a completed pair**, so no
+gate reading and no band exists for this night. Recorded now precisely because deciding it
+later, with a partial corpus visible, is the thing D179 rule 3 forbids.
+
+**D179 rule 2 says `UNMEASURABLE` is a verdict, not a retry, and rule 3 forbids a discard
+on the outcome. Neither is in tension with what follows, and the distinction is the point:**
+
+| what happens | is it a verdict? | may it be re-run? |
+|---|---|---|
+| the walk completes 24 readings | **YES — that is the night** | ⛔ NO, whatever it scores |
+| the `--early` gate fires a definite FAIL | **YES, an abort on the sealed gate** | ⛔ NO |
+| a PORT/crash/kill stops the walk before 24 readings | **NO — no night happened** | ✅ yes, once repaired |
+
+⛔ **THE LINE, STATED SO IT CANNOT BE MOVED LATER: a mechanical failure is only a
+mechanical failure if it produces NO READING OF THE SEALED STATISTIC.** A crash is
+re-runnable because it yields no per-commit p95 and no band — nothing to select on. The
+moment a completed pair exists, its spread is DATA, and a re-run after seeing it would be
+selection on the outcome wearing a crash's clothes.
+⇒ **If the walk dies after any commit owns a completed pair, the partial corpus is
+PRESERVED AND REPORTED, and any re-run is declared a NEW night with its own seal**, never
+a continuation of this one.
+📌 **Why this is written at reading 3 and not at reading 24:** the smoke test already
+killed this night once for mechanical reasons and I expect more (P3 was re-sealed
+MODERATE). A policy written after a crash I am annoyed by, or after a partial corpus I can
+see, is not a policy [[feedback-a-blocked-items-method-is-unexamined]].
+⚠️ **And the ssh-drop case is a kill, not a crash:** the walk runs in the foreground of a
+connection this session holds, so my session ending kills it. That is the same class as the
+first launch, which Windows OpenSSH killed when its session closed — **no reading of the
+sealed statistic, therefore re-runnable, and stated here rather than argued for afterwards.**
+
+AMENDED 2026-09-09 at reading 3 of 24.
