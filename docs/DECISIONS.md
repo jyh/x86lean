@@ -12803,3 +12803,53 @@ independent reasons for the same design.
 answers *"reproducibly, to about 25%"*. That is not evidence FOR the counter in any strong
 sense. **Seventh in a row to remove an unknown and supply none** — though this one moved a
 number rather than only a diagnosis.
+
+## D189 — on the commit pair where the ms delta gate returned UNMEASURABLE twice, Δku is +235,042 against a measured zero band
+
+**LANE.** Personal. Measured on kenai; legitimate because `ku` was measured machine-independent
+(D185). Corpus `docs/ku-armA-decidability-probe-2026-09-09.jsonl`, `origin` in-band.
+
+### 1. WHY — THE CAMPAIGN'S CRITICAL PATH, NOT INSTRUMENT HYGIENE
+`docs/QUEUE.md` item 4: the delta gate is the MERGE gate, the ratchet gates `lean_missing_max 0`
+in both directions, **so a batch whose delta comes back UNMEASURABLE cannot land.** Two branches
+are held and P3 sub-group A would meet the same wall. The queue's own instruction is *"FIX THE
+INSTRUMENT before growing the queue of `.lean` work that cannot land."*
+
+### 2. THE READING, PRE-REGISTERED (`docs/seals/2026-09-09-armA-decidability-probe.md`)
+```
+  commit       KERNEL unfoldings        Δ         decls
+  7103ff865        7,633,242                       109
+  cad06778c        7,633,242           +0          109    ⇐ 0 .lean touched (the control)
+  d9d792319        7,868,284      +235,042         116    ⇐ 2 .lean touched
+```
+On the **identical** commit pair, from QUEUE 0c:
+```
+  ms gate, 3 repeats   +200 ms   band ±2470.1   budget 1843.2   rc 3 UNMEASURABLE
+  ms gate, 6 repeats   +800 ms   band ±1916.7   budget 1836.0   rc 3 UNMEASURABLE
+  ku                   +235,042  band  ±0                        DECIDABLE
+```
+⇒ 🔑 ***THE ms BAND IS 3-12x THE DELTA IT MEASURES; THE ku BAND IS EXACTLY ZERO, MEASURED ON
+THE ADJACENT NO-OP RANGE IN THE SAME RUN.*** UNMEASURABLE happens when `K*se` swallows the
+decision; with `se = 0` there is nothing to swallow it.
+⭐ **The zero is measured, not asserted from determinism** — and measured on the very range
+whose ms verdict flipped `ok` → `UNMEASURABLE` on pure noise between runs 1 and 2.
+
+### 3. ⛔ WHAT IT DOES NOT SHOW, HELD TO THE SEAL
+**No unfolding budget exists, so there is NO VERDICT and no direction is reported.**
+**Decidability is not accuracy** — a gate with a zero band always decides and can therefore
+always be confidently wrong; that is the next question and it is untouched. It does not answer
+blocker (b), and **it does not land the branch.**
+
+### 4. ⭐⭐ THE PROBE'S REAL FINDING WAS THE INSTRUMENT (repaired at `d6b5d98`)
+Its first run failed with `unexpected token 'hb_count'`. **`deterministic_cost.py` could not read
+this repository's own tree at any commit from `7103ff8` to HEAD, and had not for three days.**
+`--` line comments between a doc comment and its declaration stopped the rewriter's walk-up, so
+`hb_count` was spliced between `/-- … -/` and the theorem it documents. **0 broken sites at the
+09-04/09-05 corpus commits, 1 from 09-06 to HEAD.** Every walk taken since — D185's leg included
+— was over the corpus commits, **exactly the commits where it cannot break.**
+⇒ 🔑 ***A TOOL EXERCISED ONLY ON ITS HISTORICAL CORPUS IS NOT TESTED AGAINST THE TREE.***
+⚠️ D185's result stands (its commits are ones where the tool works), but the instrument could not
+have been run on anything landed since — which is precisely what ARM A needs.
+⚠️ **The refusal reported nothing:** the failure path prints `r.stderr` while `lean --json` writes
+diagnostics to STDOUT, redirected into the `.json` file. Structurally empty for the commonest
+failure. **Filed, not repaired here** [[feedback-a-gate-that-refuses-must-say-what-it-saw]].

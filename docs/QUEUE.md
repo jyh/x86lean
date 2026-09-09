@@ -477,6 +477,36 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    ⇒ **REGISTERED HERE, ON A SWEPT SURFACE, RATHER THAN LEFT IN THE BUS POST that announced D177** —
    this queue's own law: a block in a bus post is not registered.
 
+0b. ⚖️⚖️ **THE INSTRUMENT'S REMEDY IS MEASURED (D189, 2026-09-09) — AND THE ku INSTRUMENT WAS
+   ITSELF BROKEN ON THIS TREE FOR THREE DAYS BEFORE IT COULD BE MEASURED.**
+   Pre-registered: `docs/seals/2026-09-09-armA-decidability-probe.md`. On the **identical**
+   commit pair that 0c records as UNMEASURABLE twice:
+```
+     ms gate, 3 repeats   +200 ms    band ±2470.1   budget 1843.2   rc 3 UNMEASURABLE
+     ms gate, 6 repeats   +800 ms    band ±1916.7   budget 1836.0   rc 3 UNMEASURABLE
+     ku                   +235,042   band  ±0                        DECIDABLE
+     ku, no-op control    +0 EXACTLY (7103ff8..cad06778, 0 .lean touched)
+```
+   ⇒ 🔑 ***THE ms BAND IS 3-12x THE DELTA IT MEASURES; THE ku BAND IS EXACTLY ZERO, MEASURED
+   ON THE ADJACENT NO-OP RANGE IN THE SAME RUN.*** UNMEASURABLE is `K*se` swallowing the
+   decision; `se = 0` leaves nothing to swallow it. **The zero is MEASURED, not asserted from
+   determinism — and on the very range whose ms verdict flipped `ok` → `UNMEASURABLE` on pure
+   noise.**
+   ⛔ **NO BUDGET EXISTS, SO THERE IS NO VERDICT AND NO DIRECTION IS REPORTED**, and
+   **decidability is NOT accuracy**: a gate with a zero band always decides and can therefore
+   always be confidently wrong. **That is the next question and it is untouched.** This does
+   NOT land the branch.
+   ⛔⛔ **AND THE PROBE'S FIRST RUN FAILED: `deterministic_cost.py` could not read this
+   repository's own tree at any commit from `7103ff8` to HEAD, and had not for three days.**
+   `--` line comments between a doc comment and its declaration stopped the rewriter's
+   walk-up. **0 broken sites at the 09-04/09-05 corpus commits, 1 from 09-06 to HEAD** — and
+   every walk taken since was over the corpus commits, **exactly where it cannot break.**
+   ⇒ 🔑 ***A TOOL EXERCISED ONLY ON ITS HISTORICAL CORPUS IS NOT TESTED AGAINST THE TREE.***
+   Repaired `d6b5d98`, red-first arm + control, verified on the real tree. **D185 stands; the
+   instrument simply could not have been run on anything landed since.**
+   ⇒ **NEXT, AND IT IS NOW THE CAMPAIGN'S CRITICAL PATH:** derive an unfolding budget and ask
+   whether it is ACCURATE, not merely decidable.
+
 0c. ⛔⛔ **`es3-anchor-theorems` IS BLOCKED ON AN UNDECIDABLE BAND, NOT ON A BUDGET — AND THE GATE'S
    OWN "MORE REPEATS" REMEDY WAS REFUTED BY THE RUN IT RECOMMENDED.** Measured 2026-09-08 by paris on
    a box that was genuinely quiet at the start (load 3.49, after 50 orphaned `wi-test` loops were
