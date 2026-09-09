@@ -199,6 +199,14 @@ qualifier.
     2   cad06778      3     delta  +200         ±2470.1    1843.2    3   UNMEASURABLE
     3   cad06778      6     delta  +800         ±1916.7    1836.0    3   UNMEASURABLE  (3 units)
 ```
+   ⛔ **THIS IS AN INSTANCE OF ITEM 4, NOT A NEW ITEM — READ ITEM 4 FIRST.** Item 4 (*"the gated
+   unit is noisier than the budget it is gated against"*) has owned this condition since D141 and
+   already carries the stronger general fact: **the band is a PER-RUN quantity**, with a case on
+   09/06 where the same unit, same budget, same repeats and the same base median gave a band 20×
+   apart on two runs an hour apart. **The evidence below is contributed THERE**; what is 0c's own is
+   only the branch state. Recorded this way deliberately: a second home for one fact is a second
+   register that goes stale against the first ([[feedback-a-duplicate-born-in-agreement]]).
+
    ⇒ 🔑 **RUNS 1 AND 2 MEASURE THE SAME PHYSICAL `.lean` DELTA** — `7103ff865..cad06778` touches no
    `.lean` and no profiler/budget/ceiling file, measured with a positive control on the range. **The
    verdict flipped `ok` → `UNMEASURABLE` on pure noise**, and run 1's green is therefore not evidence
@@ -509,6 +517,32 @@ occur. Until then this is ONE observation and is recorded as one.
      ⚠️ It also means `repeats_to_decide` was answering the wrong question on the first night —
      no repeat count would have helped, because a different run resolved it at n=6.
      [[feedback-a-single-reading-is-about-its-run]]
+   - ⭐⭐⭐ **THIRD INSTANCE, AND THE FIRST DELIBERATE DOUBLING: `repeats_to_decide` REFUTED BY THE
+     RUN IT RECOMMENDED** (2026-09-08, landing `es3-anchor-theorems`). The projection is not merely
+     "answering the wrong question" — it moves the WRONG WAY when obeyed:
+     ```
+       run 2   n=3   Tests.Coverage @residue  delta  +250   band ±2377.9   ⇒ advised "~6 repeats"
+       run 3   n=6   Tests.Coverage @residue  delta +1170   band ±2377.9   ⇒ now advises "~33"
+                     and pre_states_…frame    delta   -40   band ±1304.8   ⇒ "~69"; 3 units, not 2
+     ```
+     **`n` was doubled exactly as advised and the advice got worse.** A 1/sqrt(n) projection assumes
+     the spread is noise that averages out; here it is **rare load excursions from other seats on a
+     shared box** — the two worst passes read `Tests.Coverage` 30,600 and 27,400 at `load1` **11.52**
+     and **12.04**, against ~25,700 at load ~6. ⇒ 🔑 **A PROJECTION WITH NO FLOOR ALWAYS NAMES A
+     PRICE, AND OBEYING IT IS NOT A TEST OF IT** ([[feedback-a-projection-with-no-floor-always-names-a-price]]).
+   - ⚠️⚠️ **AND A TENSION THIS ITEM SHOULD OWN RATHER THAN LEAVE IMPLICIT.** The 09/06 entry above
+     resolves a unit by RE-RUNNING at the same `n` and takes the second run's verdict. If the band is
+     a per-run quantity, that is legitimate physics — **and it is also, procedurally, selection on the
+     outcome.** Two runs, one UNMEASURABLE and one `ok`, and the one that is kept is the one that
+     decided. ⇒ 🔑 **"THE BAND IS PER-RUN" AND "RE-RUN UNTIL IT DECIDES" ARE THE SAME SENTENCE READ
+     TWO WAYS, AND ONLY A RULE FIXED IN ADVANCE TELLS THEM APART.** Nothing in this repo currently
+     says how many runs may be taken or which is kept. **Until it does, a verdict quoted after an
+     unrecorded number of runs is not gated** — and this seat declined a fourth run on those grounds
+     while noting the 09/06 precedent would have permitted it.
+     📌 **PROPOSED, NOT RULED:** declare the run count and the keep-rule BEFORE running (e.g. "one
+     run at n=6; UNMEASURABLE is a verdict, not a retry"), so a re-run is a stated exception with a
+     reason rather than the default.
+
    - ⇒ The item is NOT "re-derive `@floor`" and NOT "widen a budget". It is: **reduce the variance
      of the measurement, or gate a quantity that has less of it.**
 
