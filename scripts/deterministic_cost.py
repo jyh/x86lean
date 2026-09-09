@@ -857,6 +857,55 @@ def selftest():
     arm("and the excluded line is REPORTED, not dropped in silence",
         len(rep) == 1 and rep[0][0] == 3, rep)
 
+    # ⛔⛔⛔ THE ARM THAT RUNS AGAINST THE **TREE**, NOT AGAINST A FIXTURE.
+    # This selftest was already wired into CI and it did NOT catch the defect that made
+    # this tool unable to read `Tests/Coverage.lean` at every commit from 2026-09-06 to
+    # HEAD — for three days — because every arm above is a FIXTURE and every WALK taken
+    # in that window was over the 09-04/09-05 corpus, which is exactly the range that
+    # predates the source shape that breaks it.
+    # ⇒ 🔑 **A TOOL EXERCISED ONLY ON ITS HISTORICAL CORPUS IS NOT TESTED AGAINST THE
+    # TREE, AND THE CORPUS IS EXACTLY WHERE IT CANNOT BREAK.**
+    # This arm is STATIC — it needs no `lake`, no Lean and no worktree — so it can sit in
+    # CI beside the fixtures and still speak about the real file.
+    # [[feedback-a-tool-tested-only-on-its-corpus]]
+    real = os.path.join(ROOT, "Tests", "Coverage.lean")
+    if os.path.exists(real):
+        rt, rnames = instrument(open(real, encoding="utf-8").read())
+        rls = rt.split("\n")
+        # A doc comment must attach to a DECLARATION. If a wrapper lands directly after a
+        # `/-- … -/` close, the doc comment is orphaned and Lean refuses the whole module
+        # with `unexpected token 'hb_count'`.
+        # ⛔ THE ADJACENCY IS NOT THE LINE ABOVE. The first spelling of this arm tested
+        # `rls[i-1].endswith("-/")` and would have read GREEN on the very tree that was
+        # broken — because the defect puts `--` LINE COMMENTS between the doc comment and
+        # the wrapper, which is the entire mechanism. Caught only by running the arm
+        # against the PRE-FIX code, never by re-reading it.
+        # ⇒ 🔑 **A PROBE THAT WILL NOT GO RED IS WHERE THE DESIGN QUESTION IS.**
+        def _orphans(ls):
+            out = []
+            for i, l in enumerate(ls):
+                if not l.startswith('hb_count "'):
+                    continue
+                j = i - 1
+                while j >= 0 and (ls[j].strip() == "" or ls[j].lstrip().startswith("--")):
+                    j -= 1
+                if j >= 0 and ls[j].rstrip().endswith("-/"):
+                    k = j
+                    while k >= 0 and not ls[k].lstrip().startswith("/-"):
+                        k -= 1
+                    if k >= 0 and ls[k].startswith("/--"):
+                        out.append(i + 1)
+            return out
+        orphaned = _orphans(rls)
+        arm(f"THE TREE: instrumenting the real Tests/Coverage.lean orphans no doc comment "
+            f"({len(rnames)} declarations wrapped) — the arm whose absence cost three days",
+            not orphaned, orphaned[:5])
+        arm("CONTROL — the real file actually produced wrappers, so the arm above is not "
+            "passing on an empty set",
+            len(rnames) > 50, len(rnames))
+    else:
+        arm("THE TREE: Tests/Coverage.lean is present to instrument", False, real)
+
     _t, names = instrument("import X86\n/- block\ndef notADecl := 1\n-/\n"
                            "def real := 1\n")
     arm("a `def` inside a BLOCK comment is not wrapped", names == ["real"], names)
