@@ -161,9 +161,22 @@ against `kernel_delta`, `kernel_delta_history`, `deterministic_cost`, `unfolding
 and it is the one whose selftest nothing runs on a push. Its siblings are gated; the
 measurement they all depend on is not [[feedback-a-gate-behind-a-failing-step-is-silent]].
 ⚠️ **NOT wired blind:** it takes ~18 min on this box, dominated by deliberate `sleep 40`
-fixtures in the orphan probe, and three of its arms are environment-dependent (PORT-3). It
-needs a time budget and PORT-3 fixed first, or it will red every build for a reason that is
-not about the code. **OWNER:** paris.
+fixtures in the orphan probe, and three of its arms are environment-dependent (PORT-3, now
+DISCHARGED). It needs a time budget, or it will red every build for a reason that is not
+about the code. **OWNER:** paris.
+⛔⛔ **AND WHEN IT IS WIRED, IT NEEDS A *TREE* ARM AND NOT ONLY ITS FIXTURES — D189 IS THE
+PROOF.** `deterministic_cost.py --selftest` was ALREADY in CI throughout the three days that
+tool could not read `Tests/Coverage.lean`, and stayed green: **every arm was a fixture, and
+its real tree-reading path is only exercised by a WALK, which CI never runs.**
+⇒ 🔑 ***THE DANGEROUS SHAPE IS A CI ARM THAT IS FIXTURE-ONLY WHILE THE TOOL'S REAL WORK
+HAPPENS IN A PATH CI NEVER RUNS*** — not "the tool is untested".
+📌 **SWEPT for siblings, 2026-09-09.** The gates CI runs (`check_citations`, `check_encodings`,
+`k_roster`, `p2_residue`, `p2_batch_size`, `check_flag_strictness`) read the tree directly in
+CI and are therefore covered. The same fixture-only shape is carried by `kernel_delta` and
+`threads_ab` — **whose real paths were exercised by hand today anyway** (`kernel_cost
+--emit-json` ran clean at HEAD on kenai, 57.7 s, and it is what `kernel_delta` profiles
+through). ⇒ **`kernel_cost` is the one remaining instance with NO CI arm at all, which is this
+item.** [[feedback-a-tool-tested-only-on-its-corpus]]
 
 ### PORT-3. Three of those 27 arms fail because ANOTHER SEAT has a worktree here
 ```
