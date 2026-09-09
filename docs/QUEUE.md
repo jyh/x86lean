@@ -1358,7 +1358,7 @@ occur. Until then this is ONE observation and is recorded as one.
    ⚠️ **And the retracted entry passed every gate**, because no gate in this repo joins a prose claim
    about a corpus to the tool that consumes it. It was landed, pushed to both tiers, and wrong.
 
-   #### ⚡ THE FOURTH CALIBRATION NIGHT IS IN FLIGHT ON KENAI (2026-09-09 13:37 PDT)
+   #### ⚖️ THE FOURTH CALIBRATION NIGHT RAN AND IS RESOLVED (2026-09-09, D187)
    Authorised by the 39th helm head with three conditions. **SEAL (committed BEFORE the
    first pass, per D179 rule 1): `docs/seals/2026-09-09-4b-fourth-calibration-night-KENAI.md`,
    tooling pinned `74dff4f`, walk running at `0b90cac`.** Twelve pinned commits, `--sweeps 2`,
@@ -1376,6 +1376,33 @@ occur. Until then this is ONE observation and is recorded as one.
    measured NO-OP over the real 19-file list on POSIX (0 names differ, no backslashes), and
    the emitted `cpu` dict keeps its three keys, so the yukon corpora this night is compared
    against cannot have moved.
+
+   ⚖️ **RESULT — 24 readings, 36 min 23 s, EXIT 0. `docs/kernel-delta-history-KENAI-2026-09-09.jsonl`.**
+```
+     P1 usability gate  ✅ PASSED   per-commit p95 MAX 5.1% vs bound 14.2259% (2.8x inside)
+     P2 band overlaps   ⛔ REFUTED  kenai k>=8 4.37-5.26 vs quiet 2.39-4.12, DISJOINT
+     P3 no port crash   ✅ CONFIRMED (after D186's three repairs)
+```
+   ⭐ **THE CAMPAIGN HAS A SECOND USABLE CALIBRATION NIGHT FOR THE FIRST TIME** — the
+   usability half of the second-source blocker — **and it did not reproduce the budget.**
+   ⛔⛔ **AND THE SEAL'S OWN "WHAT WOULD REFUTE" CLAUSE WAS WRONG.** It said a disjoint band
+   would show the counter *"does not travel ACROSS MACHINES"*. **D185 measured that it
+   travels EXACTLY** (1,236 readings, exact integer equality). The band is `Δms/Δku`; `ku`
+   is the identical half; `ms` is a CLOCK, and kenai type-checks this project **1.20x**
+   slower than yukon (range 1.18-1.22 over 12 commits).
+   ⇒ 🔑 ***A BUDGET IN "ms PER 1k UNFOLDINGS" IS MACHINE-SPECIFIC BY CONSTRUCTION. TWO
+   MACHINES DISAGREEING ON IT IS THE EXPECTED RESULT, NOT EVIDENCE ABOUT THE COUNTER.***
+   ⇒ ⚖️ **SO THE SECOND-SOURCE BLOCKER IS UNSATISFIABLE BY A SECOND MACHINE, AND THAT IS
+   THIS NIGHT'S REAL PRODUCT.** A genuine second source must vary something OTHER than the
+   box — a different corpus, a different unit, or a different derivation on the same
+   machine — or the budget must be expressed in a machine-free quantity. **Third
+   re-diagnosis of this blocker** (D180 was the second); the words never changed and what
+   they could mean has, twice.
+   ⛔ **4b IS NOT UNBLOCKED AND THIS IS NOT EVIDENCE FOR THE COUNTER** — the sixth entry in
+   a row to remove an obstacle without supplying any.
+   📌 A POST-HOC correction by the measured 1.20 puts kenai's band at 3.64-4.38, which
+   OVERLAPS the quiet night's. **Labelled post-hoc, NOT a rescue of P2, and it earns a
+   pre-registered test and nothing before that.**
 
 ### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
    The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and

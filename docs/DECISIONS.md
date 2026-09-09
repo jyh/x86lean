@@ -12688,3 +12688,62 @@ No reading of the fourth night existed when any of this was found, and none of i
 evidence for or against the kernel-unfolding counter. **It is the sixth entry in a row
 that removes an obstacle without supplying evidence FOR the counter**, and like the five
 before it, the seat producing it is saying so.
+
+## D187 — the fourth calibration night passed the gate and refuted its own band, and the refutation says nothing about the counter because the quantity compared contains a clock
+
+**LANE.** Personal. kenai (x86_64-w64-windows-gnu) and yukon (arm64-macOS). Public sources only.
+
+### 1. THE RESULT
+Sealed before the first pass (`docs/seals/2026-09-09-4b-fourth-calibration-night-KENAI.md`,
+tooling pinned `74dff4f`, three amendments all written with zero readings in existence).
+24 readings, 36 min 23 s, EXIT 0.
+```
+  P1 usability gate   ✅ PASSED   per-commit p95 max 5.1% vs bound 14.2259%  (2.8x inside)
+  P2 band overlaps    ⛔ REFUTED  kenai k>=8 4.37-5.26 vs quiet 2.39-4.12, DISJOINT
+  P3 no port crash    ✅ CONFIRMED (after D186's three repairs)
+```
+⇒ **THE CAMPAIGN HAS A SECOND USABLE CALIBRATION NIGHT FOR THE FIRST TIME**, and it did
+not reproduce the budget.
+
+### 2. ⛔⛔ THE SEAL'S OWN REFUTATION CLAUSE WAS WRONG, AND I WROTE IT
+It said a disjoint band *"would say the kernel-unfolding counter does not travel ACROSS
+MACHINES … and would close 4b for a measured reason."*
+**D185 already measured that the counter travels exactly** — 1,236 declaration readings, 12
+of 12 commits, exact integer equality across the two architectures. The band is **Δms/Δku**
+and `ku` is the identical half. What moved is `ms`:
+```
+  Tests.Coverage level, kenai/yukon, 12 commits: median 1.20, range 1.18-1.22
+```
+⇒ 🔑 ***A BUDGET IN "ms PER 1k UNFOLDINGS" IS MACHINE-SPECIFIC BY CONSTRUCTION — ITS
+NUMERATOR IS A CLOCK. TWO MACHINES DISAGREEING ON IT IS THE EXPECTED RESULT, NOT EVIDENCE
+ABOUT THE COUNTER.***
+📌 **I sealed a prediction whose refutation I had mis-attributed in advance.** The
+prediction itself was fine and its verdict stands; the sentence saying what a refutation
+would MEAN was false when written, and it was written by the same head that had quoted
+D185 three paragraphs earlier [[feedback-a-wrong-models-score-is-a-joint-fact]].
+
+### 3. ⚖️ WHAT THIS DOES TO 4b: THE BLOCKER IS UNSATISFIABLE AS WRITTEN
+*"A budget from a second SOURCE"* cannot be satisfied by a second MACHINE, because the
+budget contains the first machine's clock. **Third re-diagnosis of this blocker** (D180 was
+the second): the words have not changed and what they could mean has, twice.
+⇒ **A real second source must vary something other than the box** — a different corpus, a
+different unit, or a different derivation on the SAME machine — or the budget must be
+expressed in a machine-free quantity, which is the direction 4b was always reaching for.
+⛔ **4b IS NOT UNBLOCKED AND THIS IS NOT EVIDENCE FOR THE COUNTER.** Sixth entry in a row
+that removes an obstacle or an unknown without supplying evidence FOR it; the seat that
+produced all six says so.
+
+### 4. 📌 A POST-HOC ANALYSIS, LABELLED, AND NOT A RESCUE
+kenai's band ÷ the measured 1.20 level ratio = 3.64–4.38 (median 3.84), which **overlaps**
+the quiet night's 2.39–4.12. Consistent with a pure clock scaling. **P2 remains refuted.**
+This was computed after seeing the number and is exactly the shape this campaign distrusts
+[[feedback-prose-written-before-the-measurement]]; it earns a pre-registered test on a
+second kenai night or a third machine, and nothing before that.
+
+### 5. ⚠️ AN INDEPENDENT READING: THE PER-PAIR DELTAS ARE AT THE NOISE FLOOR ON BOTH BOXES
+Adjacent-commit `Δms` runs −350 to +750 ms while the between-sweep p95 spread is ~3.6% of a
+~24,000 ms unit ≈ **870 ms**. Cross-machine per-pair ratios over the six pairs above 50 ms:
+**0.00, 0.40, 0.96, 1.00, 1.50, 3.50.** The band is stable only because a k-window sums k
+deltas — signal ~k, noise ~√k — which is why `k=1` is this tool's most-selected regime.
+Known in shape; the cross-machine spread is newly measured, and it is recorded rather than
+left as an impression.

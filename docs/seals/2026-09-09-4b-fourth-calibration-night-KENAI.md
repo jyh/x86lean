@@ -283,3 +283,75 @@ first launch, which Windows OpenSSH killed when its session closed — **no read
 sealed statistic, therefore re-runnable, and stated here rather than argued for afterwards.**
 
 AMENDED 2026-09-09 at reading 3 of 24.
+
+---
+
+# ⚖️ THE RESULT — 24 readings, 13:37:20 → 14:13:43 PDT (36 min 23 s), EXIT 0
+Corpus: `docs/kernel-delta-history-KENAI-2026-09-09.jsonl`. 12 commits × 2 sweeps, module
+keys dotted, declarations present on every row.
+
+## THE SEALED VERDICTS, IN THE SEALED ORDER
+```
+  P1  the night PASSES the usability gate            ✅ CONFIRMED
+      per-commit p95 spread: min 2.8%  median 3.6%  MAX 5.1%   bound 14.2259%
+      2.8x INSIDE the bound. Sealed at MODERATE; it was right.
+  P2  the k>=8 band lands INSIDE or OVERLAPPING 2.39-4.12      ⛔ REFUTED
+      quiet night (yukon)  k>=8 : 2.39 - 4.12   median 3.38   n=10
+      fourth night (kenai) k>=8 : 4.37 - 5.26   median 4.61   n=10
+      DISJOINT. Gap +0.25 ms per 1k unfoldings.
+  P3  the walk completes without a portability crash  ✅ CONFIRMED — after three
+      defects were found and repaired BEFORE the run. Re-sealed MODERATE, correctly.
+```
+⇒ **A SECOND USABLE NIGHT EXISTS FOR THE FIRST TIME.** That is the usability half of the
+second-source blocker, and it is the first time this campaign has had one.
+⇒ **AND IT DID NOT REPRODUCE THE BUDGET.**
+
+## ⛔⛔ BUT THIS SEAL'S OWN "WHAT WOULD REFUTE" CLAUSE IS WRONG, AND THAT IS THE FINDING
+It said a disjoint band *"would say the kernel-unfolding counter does not travel ACROSS
+MACHINES, which is a stronger negative than 4b currently records and would close 4b for a
+measured reason."* **It says no such thing, and I wrote it.**
+**The counter travels EXACTLY** — D185: 1,236 declaration readings, 12 of 12 commits, exact
+integer equality across arm64-macOS and x86_64-Windows. The band is **Δms / Δku**, and
+`ku` is the half that is identical. **The half that moved is `ms`: time on a particular
+box.** Measured on the same twelve trees, `Tests.Coverage` levels:
+```
+  kenai / yukon, per commit: 1.19 1.20 1.20 1.18 1.20 1.20 1.20 1.21 1.20 1.22 1.19 1.19
+                             median 1.20, range 1.18-1.22 over 12 independent commits
+```
+**kenai type-checks this project 20% slower than yukon, tightly.**
+⇒ 🔑 ***A BUDGET EXPRESSED AS "ms PER 1k UNFOLDINGS" IS MACHINE-SPECIFIC BY CONSTRUCTION,
+BECAUSE ITS NUMERATOR IS A CLOCK. TWO MACHINES DISAGREEING ON IT IS THE EXPECTED RESULT,
+NOT EVIDENCE ABOUT THE COUNTER.***
+⇒ ⚖️ **SO THE SECOND-SOURCE BLOCKER, AS WRITTEN, IS UNSATISFIABLE BY A SECOND MACHINE.**
+*"A budget from a second SOURCE"* cannot mean *"a second machine reproduces the first
+machine's number"*, because the number contains the first machine's clock. **This is the
+THIRD time this blocker has been re-diagnosed** (D180 was the second), and each time the
+words stayed the same while what they could possibly mean changed.
+
+## 📌 A POST-HOC ANALYSIS, LABELLED AS ONE BECAUSE IT WAS NOT PRE-REGISTERED
+Dividing the kenai band by the measured 1.20 level ratio:
+```
+  kenai band / 1.20 : 3.64 - 4.38  (median 3.84)
+  quiet band        : 2.39 - 4.12  (median 3.38)      OVERLAP: YES
+```
+**Consistent with a pure clock scaling.** ⛔ **This is NOT a rescue of P2 and must never be
+quoted as one.** P2 is refuted; this is an explanation offered after seeing the number,
+which is the shape this campaign distrusts most
+[[feedback-prose-written-before-the-measurement]]. It earns a PRE-REGISTERED test — a
+second night on kenai, or a third machine — and nothing before that.
+
+## ⚠️ AND AN INDEPENDENT WARNING THE SAME DATA CARRIES, ABOUT THE DELTA GATE
+Adjacent-commit `Δms` on `Tests.Coverage`, both machines: **−350 to +750 ms**. The
+per-commit between-sweep p95 spread is **3.6% median of a ~24,000 ms unit ≈ 870 ms**.
+⇒ **THE INDIVIDUAL DELTAS SIT AT OR BELOW THE NOISE FLOOR ON BOTH BOXES.** Cross-machine
+per-pair ratios over the 6 pairs whose yukon Δms exceeds 50 ms: **0.00, 0.40, 0.96, 1.00,
+1.50, 3.50** — median 0.96, and the range is meaningless.
+**The band is stable only because a k-window sums k deltas** (signal ~k, noise ~√k), which
+is why `k=1` is this tool's most-selected regime and `k>=8` is its unselected one. That was
+already known; what is new is the size of the cross-machine per-pair spread, measured.
+⚠️ **`kernel_delta` gates SINGLE commits.** This says nothing new about that gate's budget,
+which is derived differently — but it is the second reading today pointing at the same
+place, and it is recorded rather than left as an impression.
+
+SEALED RESULT WRITTEN 2026-09-09, after the gate was judged and before any re-run was
+considered. **NO RE-RUN IS PERMITTED: the night completed and carries a verdict** (amendment 3).
