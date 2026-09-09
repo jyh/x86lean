@@ -1020,10 +1020,27 @@ def residue_buckets(rows, claimed, noform):
               "An unavailable-set this file GUESSED at is the defect D61 is "
               "about.")
         sys.exit(2)
+    # ⛔⛔ `stalls` IS UNAVAILABLE TOO (D177 / QUEUE 0b(7)).  This read
+    # `exp == "refuses"` alone, which was total when `expect` had two values and
+    # became UNDER-INCLUSIVE the moment D170 added a third.  A stalling form is
+    # one x86isa leaves with RIP unadvanced and the refusal flag CLEAR: it neither
+    # refuses nor runs, so it cannot be a differential vector — which is exactly
+    # what this set means.
+    # ⇒ 🔑 THE FAILURE DIRECTION IS THE COSTLY ONE.  A row missing from
+    #   UNAVAILABLE is not merely unexplained: `work` below is
+    #   `unclaimed − noform − UNAVAILABLE − DECLINED`, and this file GATES that
+    #   bucket as empty while calling it "AVAILABLE WORK".  So a stalling form
+    #   would be COMMISSIONED — the same loop D177 closed in the census and the
+    #   roster renderer, arriving here by a third route.
+    # ⚠️ LATENT, NOT LIVE, AND SAID SO RATHER THAN DRESSED UP: measured today, no
+    #   `movmskps` row reaches `rows` at all (the P1 roster carries no xmm form),
+    #   so this repair moves NO published number — verified byte-identical output
+    #   before and after. It is a repair to the RULE, whose next stalling form
+    #   need not be SIMD ([[feedback-a-partition-says-nothing-about-its-complement]]).
     UNAVAILABLE = {mn for mn, exp in
                    re.findall(r'\(\s*"([^"]+)"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(\w+)"\s*\)',
                               _m.group(1))
-                   if exp == "refuses" and not mn.startswith("CONTROL")}
+                   if exp in _UNAVAILABLE_EXPECTS and not mn.startswith("CONTROL")}
     unc = [i for i in range(len(rows)) if i not in set(claimed)]
     nof = [i for i in unc if i in noform]
     bmi = [i for i in unc if rows[i]["base"] in UNAVAILABLE and i not in nof]
@@ -1054,6 +1071,76 @@ def read_published(path="docs/COVERAGE.md"):
     return tuple(int(g) for g in m.groups())
 
 
+# ⭐⭐ THE ARM FOR THE `UNAVAILABLE` RULE (D177 / QUEUE 0b(7)), AND IT IS
+# DELIBERATELY BUILD-FREE.
+#
+# The rule it guards is pure string work over `FORMS`, but this file's `selftest`
+# begins by BUILDING the vector table — so an arm placed there would be gated
+# behind a Lean build, on a shared box, and a discipline that is expensive to
+# exercise gets exercised less ([[feedback-make-the-probe-cheap]]).  This runs in
+# microseconds, needs no oracle and no build, and is called BEFORE that build so
+# it still fires when the build is unavailable.
+#
+# ⛔ WHAT IT WOULD CATCH.  `UNAVAILABLE` read `exp == "refuses"`, which was TOTAL
+# when `expect` had two values and became silently under-inclusive when D170 added
+# `stalls`.  A row missing from this set is not merely unexplained: `work` is
+# `unclaimed − noform − UNAVAILABLE − DECLINED`, and this file gates that bucket
+# as EMPTY while calling it AVAILABLE WORK — so a stalling form would be
+# COMMISSIONED.  Same loop D177 closed in the census and the roster renderer,
+# reached by a third route.
+# ⚠️ THE PLANT IS A SCALAR MNEMONIC ON PURPOSE.  The only stalling form today is
+# `movmskps`, which never reaches `rows` at all (no xmm form in the P1 roster), so
+# an arm drawn from the live table would pass under the OLD rule too and prove
+# nothing. The next stalling form need not be SIMD
+# ([[feedback-a-control-can-share-the-blind-spot]]).
+_UNAVAILABLE_EXPECTS = {"refuses", "stalls"}
+
+
+def unavailable_rule_check(quiet=False):
+    """Drive the UNAVAILABLE rule on synthetic FORMS text. Returns failures."""
+    # ⛔ THE FIXTURE CARRIES A NON-CONTROL `executes` ROW, AND THE FIRST VERSION
+    # DID NOT — which made this arm one-directional without saying so.  Its only
+    # `executes` row was `CONTROL:mov`, and the CONTROL filter drops that whatever
+    # the rule says, so an OVER-BROAD rule (`executes` wrongly counted
+    # unavailable) passed the arm untouched.  Measured before this line existed:
+    # red arm 1 caught, red arm 2 NOT CAUGHT.
+    # ⇒ 🔑 A CONTROL THAT IS EXCLUDED BY A DIFFERENT FILTER CANNOT WITNESS THE
+    #   RULE UNDER TEST ([[feedback-a-control-can-share-the-blind-spot]]).
+    block = ('    ("andn",     "andnl %ecx, %edx, %eax", "c4e268f2c1", "refuses"),\n'
+             '    ("frobnicz", "frobnicz %eax, %edx",    "0f0bcafe",   "stalls"),\n'
+             '    ("paddd",    "paddd %xmm1, %xmm0",     "660ffec1",   "executes"),\n'
+             '    ("CONTROL:mov", "movl %ecx, (%rbx)",   "890b",       "executes"),\n')
+    pat = r'\(\s*"([^"]+)"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(\w+)"\s*\)'
+    rows = re.findall(pat, block)
+    got = {mn for mn, e in rows
+           if e in _UNAVAILABLE_EXPECTS and not mn.startswith("CONTROL")}
+    bad = []
+    # the RED arm: the state the old rule got wrong
+    if "frobnicz" not in got:
+        bad.append("a form declared `stalls` is NOT in UNAVAILABLE — it would "
+                   "fall into `work` and be published as AVAILABLE WORK")
+    # the controls, because an over-broad rule passes the arm above
+    if "andn" not in got:
+        bad.append("a form declared `refuses` dropped OUT of UNAVAILABLE")
+    # the OTHER direction: an over-broad rule must not swallow a running form
+    if "paddd" in got:
+        bad.append("a form declared `executes` entered UNAVAILABLE — the rule is "
+                   "over-broad and would EXCUSE rows that are real work")
+    if "CONTROL:mov" in got:
+        bad.append("a CONTROL row entered UNAVAILABLE — controls are not census "
+                   "questions and must stay out however many verdicts exist")
+    if len(rows) != 4:
+        bad.append("the arm's own fixture did not parse (%d rows, expected 4) — "
+                   "a plant that does not parse tests nothing" % len(rows))
+    if not quiet:
+        print(("  ✔ " if not bad else "  ⛔ ") +
+              "UNAVAILABLE rule: `stalls` and `refuses` in, CONTROL out "
+              "(%d/4 fixture rows parsed)" % len(rows))
+        for b in bad:
+            print("      ⛔ %s" % b)
+    return bad
+
+
 def selftest():
     """Drive this gate RED before believing it green.
 
@@ -1063,6 +1150,10 @@ def selftest():
     (whether the published numbers match).  So each half is broken alone, and
     each must go red on its own.
     """
+    # ⭐ THE BUILD-FREE ARM FIRST, so it still fires when the build is not there.
+    if unavailable_rule_check():
+        print("⛔ selftest: the UNAVAILABLE rule arm went red.")
+        return 1
     import shutil
     tmp = tempfile.mkdtemp()
     a, l = os.path.join(tmp, "v.s"), os.path.join(tmp, "v.len")
@@ -1292,10 +1383,14 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="gate the numbers PUBLISHED in docs/COVERAGE.md "
                          "against the derivation")
+    ap.add_argument("--check-unavailable-rule", action="store_true",
+                    help="drive the UNAVAILABLE rule's arms (no build, no oracle)")
     ap.add_argument("--selftest", action="store_true",
                     help="drive the gate RED in both directions before "
                          "believing it green")
     args = ap.parse_args()
+    if args.check_unavailable_rule:
+        return 1 if unavailable_rule_check() else 0
     if args.selftest:
         return selftest()
 

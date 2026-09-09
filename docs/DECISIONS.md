@@ -11946,3 +11946,32 @@ sentence — which is what my own note told me to do and is not the same act as 
 ⇒ 🔑 **A COUNT INSIDE A DECISION NOTE IS A CLAIM WITH NO GATE ON IT**, and this one pointed the
 unpoliced way: five instead of seven reads as thoroughness. Both are registered as QUEUE item 0b
 rather than left in the bus post that announced D177.
+
+### D177 addendum 2 — 0b(7) discharged: a rule repair that moves no number, and an arm that was one-directional
+
+`claimed_forms.py` built `UNAVAILABLE` from `exp == "refuses"`. That was TOTAL when `expect` had two
+values and became under-inclusive the moment D170 added `stalls`. The cost is not "an unexplained
+row": `work` is `unclaimed − noform − UNAVAILABLE − DECLINED`, and this file **gates that bucket as
+empty while calling it AVAILABLE WORK** — so a stalling form would be COMMISSIONED. The same loop
+D177 closed in the census and in the roster renderer, reached by a third route.
+
+⚠️ **LATENT, AND SAID SO.** Measured: no `movmskps` row reaches `rows` at all (the P1 roster carries
+no xmm form), so the repair moves nothing — the tool's entire 261-line output is byte-identical
+before and after. It is a repair to the RULE, whose next stalling form need not be SIMD.
+
+⛔ **THE ARM I WROTE FOR IT WAS ONE-DIRECTIONAL, AND ONLY DRIVING IT SHOWED THAT.** The fixture's
+only `executes` row was `CONTROL:mov`, which the `startswith("CONTROL")` filter drops regardless of
+the rule — so the over-broad direction was untested while looking tested:
+
+```
+   pre-D177 rule (too narrow) ....... CAUGHT
+   over-broad (swallows executes) ... NOT CAUGHT      ← before a non-CONTROL `executes` row existed
+   after adding `paddd` executes .... all three drives CAUGHT, control green
+```
+
+⇒ 🔑 **A CONTROL THAT IS EXCLUDED BY A DIFFERENT FILTER CANNOT WITNESS THE RULE UNDER TEST.** It sits
+in the fixture, reads as coverage, and is removed from the rule's reach by an unrelated line.
+
+📌 The arm is build-free and runs FIRST inside `selftest`, before the Lean build that gates the rest
+of it — the rule is pure string work, and an arm behind a build is a discipline that gets exercised
+less ([[feedback-make-the-probe-cheap]]).

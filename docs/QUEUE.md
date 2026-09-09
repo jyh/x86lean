@@ -138,7 +138,27 @@ qualifier.
    Any head reading a buildable-today count that includes it is reading `e1`.
    ✅ **(a), (b) and (c) LANDED 2026-09-08 (D177). The residue is 0 pairs, derived.**
 
-0b. ⛔ **THE SWEEP THAT VERIFIED D177's "FIVE HOMES" FOUND TWO MORE, AND D177 IS THEREFORE AN
+0b. ⚖️ **(7) DISCHARGED 2026-09-08; (6) STILL OPEN.** The sweep that verified D177's "five homes"
+   found two more. **(7) `claimed_forms.py`'s `UNAVAILABLE` now reads `{refuses, stalls}`** — a
+   repair to the RULE that moves **no published number** (verified: the tool's whole 261-line output
+   is BYTE-IDENTICAL before and after, because no `movmskps` row reaches `rows` at all). It ships
+   with a **build-free arm**, `--check-unavailable-rule`, run first inside `selftest` so it fires
+   even when the Lean build is unavailable — the rule is pure string work and an arm behind a build
+   is a discipline nobody exercises ([[feedback-make-the-probe-cheap]]).
+   ⛔ **THE ARM'S FIRST FIXTURE WAS ONE-DIRECTIONAL AND SAID NOTHING ABOUT IT.** Its only `executes`
+   row was `CONTROL:mov`, which the CONTROL filter drops whatever the rule says — so an OVER-BROAD
+   rule passed untouched. Measured before the fix: narrow-rule arm CAUGHT, over-broad arm **NOT
+   CAUGHT**. A non-CONTROL `executes` row (`paddd`) was added and all three drives now fire.
+   ⇒ 🔑 **A CONTROL EXCLUDED BY A DIFFERENT FILTER CANNOT WITNESS THE RULE UNDER TEST**
+   ([[feedback-a-control-can-share-the-blind-spot]]).
+   ⛔ **(6) `check_driver_cr4.py` REMAINS OPEN and is NOT to be patched unverified.** It wants an
+   ACL2 run, and the seat that found it had released the box to systems with an explicit commitment
+   not to re-take it. Patching a gate's classifier without executing it is exactly what item 0(a)
+   refused to do. **RELEASE: any sitting with oracle access. OWNER: the next paris head.**
+
+   *(the original statement follows)*
+
+   ⛔ **THE SWEEP THAT VERIFIED D177's "FIVE HOMES" FOUND TWO MORE, AND D177 IS THEREFORE AN
    UNDER-CLAIM.** Opened 2026-09-08 by paris immediately after D177 landed, by grepping the
    defect's SHAPE repo-wide rather than trusting the note
    ([[feedback-a-sibling-sweep-inherits-its-scope]]). No ACL2 run needed; both are readable.
