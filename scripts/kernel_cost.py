@@ -1212,14 +1212,41 @@ def conditions_selftest():
     out.append((other_seen is False, "...and the same orphan is NOT also counted "
                                      "as another campaign's build"))
 
+    # ⛔⛔ THE BASELINE, AND WHY THESE ARMS NO LONGER ASSERT AN ABSOLUTE ZERO.
+    # Three arms below read `stale_worktrees() == []` and `post_flight() in (0,2)`.
+    # Both are claims about THE WHOLE REPOSITORY, and another seat may legitimately
+    # hold a worktree here — `evidence` did on 2026-09-09, and three arms went red
+    # for a reason that had nothing to do with this code.
+    # ⇒ 🔑 **A SELFTEST WHOSE VERDICT DEPENDS ON WHAT ANOTHER SEAT IS DOING IS NOT A
+    # SELFTEST OF THIS CODE.** So they measure the DELTA THIS SELFTEST CAUSES against
+    # a baseline taken first, which is the quantity they were always about.
+    # ⛔ The baseline is NOT filtered to "foreign" checkouts: `stale_worktrees` reports
+    # and never removes precisely because it cannot tell a live one from a stranded
+    # one, and a selftest may not invent a distinction the tool declines to make.
+    # [[feedback-enumerate-is-not-attribute]] [[feedback-a-complete-count-of-a-subset]]
+    _wt_paths = lambda: {os.path.realpath(t["path"]) for t in (stale_worktrees() or [])}
+    _base_wt = _wt_paths()
+    _nbase = len(_base_wt)
+
     # ⚠️ ARM 3g — the post-flight probe's own HELD-OUT control: with no orphan of
-    # mine alive, it must return 0 and say so. A checker that reported trouble
+    # mine alive it must return 0 and say so. A checker that reported trouble
     # unconditionally would pass every arm above.
     rc_clean, _ = post_flight()
-    out.append((rc_clean in (0, 2), "the post-flight probe returns 0 (or 2 if it "
-                                    "could not look) when nothing of mine is left "
-                                    "detached — the caller's own pid included, "
-                                    "since a backgrounded probe is itself ppid 1"))
+    if not _base_wt:
+        out.append((rc_clean in (0, 2),
+                    "the post-flight probe returns 0 (or 2 if it could not look) when "
+                    "nothing of mine is left detached — the caller's own pid included, "
+                    "since a backgrounded probe is itself ppid 1"))
+    else:
+        # ⛔ SCOPED, AND IT SAYS SO. The zero control cannot be taken while the
+        # repository legitimately holds a checkout this selftest did not make, so the
+        # probe is held to the weaker true statement instead of a false strong one.
+        out.append((rc_clean == 1,
+                    f"the post-flight probe REPORTS the {_nbase} worktree(s) already "
+                    f"registered here by something other than this selftest — ⚠️ the "
+                    f"ZERO control could not be taken on this box, so this arm is "
+                    f"weaker than the one it replaces and is not evidence the probe "
+                    f"can return 0"))
 
     # ⚠️ ARM 3h — THE WORKTREE HALF (D163), CONTROL FIRST AND THEN PLANTED. The
     # arm above is the control: with no extra checkout registered, `stale_worktrees`
@@ -1227,19 +1254,19 @@ def conditions_selftest():
     # two causes, and "the repo happens to have no worktrees" is the likelier one.
     # [[feedback-a-probe-must-create-its-condition]]
     import shutil as _sh_wt
-    wt_clean = stale_worktrees()
-    out.append((wt_clean == [], "CONTROL — no extra worktree is registered, so the "
-                                "probe's silence is about the repository"))
+    out.append((_wt_paths() == _base_wt,
+                f"CONTROL — the probe reports exactly the {_nbase} worktree(s) present "
+                f"before this selftest ran and no others, so what it says next is about "
+                f"the PLANT and not about the repository"))
     _wt = tempfile.mkdtemp(prefix="x86lean-postflight-arm-")
     _wtp = os.path.join(_wt, "wt")
     try:
         subprocess.run(["git", "worktree", "add", "--detach", _wtp, "HEAD"],
                        cwd=root, capture_output=True, text=True, timeout=120)
-        seen = stale_worktrees() or []
-        out.append((any(os.path.realpath(t["path"]) == os.path.realpath(_wtp)
-                        for t in seen),
-                    "a registered extra worktree IS FOUND and named by path — the "
-                    "leaving `kernel_delta` makes two of when it is killed"))
+        out.append((_wt_paths() == _base_wt | {os.path.realpath(_wtp)},
+                    "a registered extra worktree IS FOUND and named by path, and it is "
+                    "the ONLY thing that appeared — the leaving `kernel_delta` makes "
+                    "two of these when it is killed"))
         rc_wt, ln_wt = post_flight()
         out.append((rc_wt == 1 and any("WORKTREE" in l for l in ln_wt),
                     "...and the post-flight VERDICT goes to 1 for it, so a stale "
@@ -1274,9 +1301,9 @@ def conditions_selftest():
 
     # ⛔ AND THE RESTORE IS ITSELF AN ARM: an arm that leaves its plant behind
     # makes every later run of this selftest report the plant as a finding.
-    out.append((stale_worktrees() == [], "...and the plant is REMOVED, so this "
-                                         "selftest does not leave the very leak it "
-                                         "was written to catch"))
+    out.append((_wt_paths() == _base_wt,
+                "...and the plant is REMOVED — the registry is back to the baseline, so "
+                "this selftest does not leave the very leak it was written to catch"))
 
     # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
     # own copy of the `type checking` parse (its docstring says "copied from
