@@ -5,7 +5,29 @@ Refuses to print the band if the gate fails, because seeing it is the selection
 D179 forbids."""
 import json, collections, statistics as st, subprocess, sys, os
 os.chdir("/Users/jyh/projects/claude/x86lean")
-WALK = sys.argv[1]
+
+# ⭐⭐ `--early PATH` — THE CHEAP FORM OF THIS GATE, EVALUABLE WHILE THE RUN IS IN
+# FLIGHT.  The third night's seal said the remedy in its own post-mortem: "a gate
+# that can only fire after the experiment has finished is a VERDICT, not a gate …
+# declare TWO forms of every usability condition, a cheap one evaluable early on a
+# covariate and the full one at the end."
+#
+# ⭐ AND THE POINT THAT MAKES THIS SOUND RATHER THAN A SECOND, LOOSER TEST: the
+# AMENDED statistic is a MAX, and a max is MONOTONE in the readings seen so far.
+# Once any completed commit-pair exceeds the bound, no later reading can bring the
+# final max back under it.  So the early form is not a new test with its own error
+# rate — it is the SAME test, evaluated as soon as it is decidable, and asking it
+# after every commit adds no multiplicity whatever
+# ([[feedback-a-per-unit-threshold-asked-n-times]] does not bite here, and the
+# reason it does not is worth stating rather than assuming).
+# ⛔⛔ UNDER THE ORIGINALLY SEALED STATISTIC — the MEDIAN — THIS WOULD BE FALSE. A
+# running median can fall as data arrives, so an early median gate WOULD be a
+# different test carrying real multiplicity.  ⇒ 🔑 THE AMENDMENT THAT FIXED THE
+# GATE ALSO MADE IT EARLY-STOPPABLE, AND NOTHING NOTICED AT THE TIME.
+# ⛔ THE FORM IS ONE-SIDED AND SAYS SO: it can return a definite FAIL and never a
+# definite PASS. "NOT YET FAILED" is the only other answer it is entitled to.
+WALK = sys.argv[-1]
+EARLY = "--early" in sys.argv
 # ⛔⛔ AMENDED 2026-09-09, BEFORE THE SUBJECT'S DATA EXISTED (walk at 2 of 24) AND
 # ON A CONTROL RUN AGAINST OTHER NIGHTS — NOT on anything the third night produced.
 # THE SEALED GATE WAS "MEDIAN per-commit p95 <= 14.2%" AND IT COULD NOT FAIL THE
@@ -53,9 +75,98 @@ def per_commit_p95(path):
         loads += [r["load1"] for r in v]
     return out, loads
 
+def selftest(gate):
+    """Arms for the EARLY form. No box, no build: the committed corpora only."""
+    sys.path.insert(0, os.path.join(os.getcwd(), "scripts"))
+    import kernel_delta_history as kdh
+    bad = []
+
+    def ok(cond, what, plant=None):
+        print(f"   {'ok  ' if cond else '⛔ FAIL'} [{'RED ' if plant else 'CTRL'}] {what}")
+        if not cond:
+            bad.append(what)
+
+    NIGHT3 = "docs/kernel-delta-history-DISCARDED-night3-2026-09-09.jsonl"
+    n3, _ = per_commit_p95(NIGHT3)
+    ok(max(n3.values()) > gate,
+       "CONTROL — night 3 exceeds the bound at all; without that every arm below "
+       "would pass by being unreachable [[feedback-a-plant-probes-control-comes-first]]")
+    ok(max(qp95.values()) <= gate,
+       "CONTROL — the QUIET night, which DEFINES the bound, does not exceed it. A "
+       "gate must be probed for silence as well as noise "
+       "[[feedback-probe-gates-both-ways]]")
+
+    # monotonicity — the property that makes an early abort sound
+    vals = list(n3.values())
+    prefixes_ok = all(max(vals[:k]) <= max(vals) for k in range(1, len(vals) + 1))
+    ok(prefixes_ok,
+       "the running MAX over any prefix is <= the final MAX, so an early FAIL can "
+       "never be a false one. This is the whole licence for aborting early",
+       plant="max-monotone")
+    med_can_fall = any(st.median(vals[:k]) > st.median(vals)
+                       for k in range(1, len(vals) + 1))
+    ok(med_can_fall,
+       "RED-FIRST — a running MEDIAN over this same night DOES fall as data "
+       "arrives, so the ORIGINALLY SEALED statistic would NOT have licensed an "
+       "early abort. The amendment is what made the gate early-stoppable",
+       plant="median-not-monotone")
+
+    k_il, c_il, tot = first_fail(NIGHT3, gate, lambda C: kdh.visit_order(C, 2, True))
+    k_sw, c_sw, _ = first_fail(NIGHT3, gate, lambda C: kdh.visit_order(C, 2, False))
+    ok(k_il is not None and k_sw is not None and k_il < k_sw,
+       f"ON THE REAL NIGHT-3 READINGS: the gate could first fire at reading {k_il} "
+       f"of {tot} interleaved ({c_il}) against reading {k_sw} ({c_sw}) under the "
+       f"default order. Same readings, different arrival order",
+       plant="order-buys-earliness")
+    ok(k_sw > tot // 2,
+       "CONTROL — under the default order the first possible fire is past the "
+       "HALFWAY point of the run, which is the cost the interleave removes")
+    print("SELFTEST " + ("⛔ FAILED" if bad else "ok"))
+    return 1 if bad else 0
+
+
+def first_fail(path, gate, order):
+    """(reading index, commit) at which `order` first completes a pair over `gate`.
+
+    The readings are FIXED; only the order in which they arrive changes.  This is
+    what the walk order buys, computed rather than asserted."""
+    p95, _l = per_commit_p95(path)
+    rows = sorted([json.loads(l) for l in open(path)], key=lambda r: r["t"])
+    commits = [r["commit"] for r in rows if r["sweep"] == 0]
+    seen = collections.Counter()
+    for k, (_s, c) in enumerate(order(commits), 1):
+        seen[c] += 1
+        if seen[c] == 2 and p95.get(c[:8], 0) > gate:
+            return k, c[:8], len(rows)
+    return None, None, len(rows)
+
+
 qp95, _ql = per_commit_p95(QUIET)
 GATE = max(qp95.values())          # the quiet night's OWN maximum, at full precision
+
+if "--selftest" in sys.argv:
+    sys.exit(selftest(GATE))
+
 p95, loads = per_commit_p95(WALK)
+if EARLY:
+    if not p95:
+        print("⛔ no commit has a completed pair yet — the early gate has NOTHING to "
+              "read. That is not a pass.")
+        sys.exit(2)
+    worst_c = max(p95, key=p95.get)
+    worst = p95[worst_c]
+    print("EARLY USABILITY GATE — %d commit-pair(s) complete so far, load1 median %.2f"
+          % (len(p95), st.median(loads)))
+    print("  running MAX per-commit p95: %.2f%%  (worst so far: %s)  bound %.4f%%"
+          % (100 * worst, worst_c, 100 * GATE))
+    if worst > GATE:
+        print("  ⛔ FAILED, AND THE FAIL IS FINAL: the statistic is a MAX, so no later")
+        print("     reading can bring it back under the bound. ABORT IS SOUND HERE.")
+        sys.exit(1)
+    print("  ~ NOT YET FAILED. ⛔ THIS IS NOT A PASS — the form is ONE-SIDED and only")
+    print("    the full gate over every commit can pass a night.")
+    sys.exit(0)
+
 if len(p95) < 12:
     print("⛔ only %d commits have paired sweeps — the walk is INCOMPLETE. Not scored." % len(p95))
     sys.exit(2)

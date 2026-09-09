@@ -583,6 +583,21 @@ jobs:
       - name: The drift ledger is still being kept (the --no-ff landing ritual)
         run: python3 scripts/kernel_drift.py --gap
 
+      # 2026-09-09, the helm's item. `kernel_delta_history.py` had NO callable
+      # surface at all — 595 lines and not one arm — so its walk order had never
+      # been tested by anything. `visit_order` is now a pure function with its own
+      # arms, and the pair below is the deliverable: `--interleave` takes a
+      # commit's repeats back to back, and `score_calibration_night.py --early` is
+      # the one-sided form of the usability gate that ordering makes evaluable.
+      # ⭐ DERIVED, NOT QUOTED, inside the second selftest: on the real night-3
+      # readings the gate could first fire at reading 2 of 24 interleaved against
+      # reading 14 under the default order — the same readings, arriving in a
+      # different order. Both are build-free and read committed corpora only.
+      - name: Walk order, and the early one-sided form of the usability gate
+        run: |
+          python3 scripts/kernel_delta_history.py --selftest
+          python3 scripts/score_calibration_night.py --selftest
+
       # ⛔ THIS TOOL'S TEN ARMS HAD NEVER RUN IN CI (found 09/05). It prices the
       # repairs D153 chose between and now DELEGATES its verdict rule to the gate
       # (`kd.judge_delta`), so a divergence between the two would be a divergence

@@ -53,7 +53,7 @@ SHOWN ITS ONE.
 - Readings are appended to the output file AS THEY ARE TAKEN, one JSON object per
   line, so a walk interrupted at sweep 2 still leaves sweep 1 usable.
 
-usage: kernel_delta_history.py --commits c1,c2,...  [--sweeps 2] [--out FILE]
+usage: kernel_delta_history.py --commits c1,c2,...  [--sweeps 2] [--interleave] [--out FILE]
        kernel_delta_history.py --analyse FILE   (no measurement; prints the table)
 """
 import os, sys, json, math, time, subprocess, tempfile, shutil, statistics
@@ -536,6 +536,113 @@ def register_budget(path, out, decl_names, mult=None, floor=None):
     return 0
 
 
+# ── THE WALK ORDER ───────────────────────────────────────────────────────────
+def visit_order(commits, sweeps, interleave):
+    """[(sweep, commit)] in the order they are visited.
+
+    "sweeps"      forward over all N, then REVERSE, then forward…  (the default)
+    "interleaved" every repeat of a commit back to back, in forward order.
+
+    ⚖️ WHY BOTH EXIST, AND WHY THE COST OF THE SECOND WAS MEASURED BEFORE IT WAS
+    BUILT (2026-09-09).  The default's reversal is justified in this file's
+    docstring as cancelling "monotone drift in machine load" — a mechanism that
+    had never been scored.  Scored over the three committed 24-reading corpora,
+    against ELAPSED time, with each key normalised by its own night-median:
+
+        corpus    r(visit, level)   drift %/hour      r(visit, load1)
+        QUIET          -0.186          -3.75              +0.062
+        USER2          +0.243          +3.63              +0.236
+        NIGHT3         +0.088          +1.94              +0.279
+        n = 24 each; the 5% critical |r| at df=22 is ~0.404 and NOTHING reaches it,
+        and the three SIGNS DISAGREE.
+
+    ⇒ **No monotone drift is detectable, so the reversal is cancelling something
+    that has not been shown to exist.**  And taking the slopes at face value
+    anyway — which the correlations do not license — the bias interleaving would
+    put on an adjacent-commit delta is `slope x 2 x (seconds per reading)`:
+    **0.08% to 0.19% of level.**  ⭐ That bound does NOT grow with the number of
+    commits or the length of the night: under interleaving a commit's two
+    readings are always ~one reading apart, whatever N is.  Against per-commit
+    p95 spreads measured at 6%-83% on the same corpora, it is two to three orders
+    of magnitude below the noise it would sit in.
+
+    ⛔ SO A COUNTERBALANCED INTERLEAVE (`c1 c2 c2 c1 | c3 c4 c4 c3`) WAS DESIGNED
+    AND DROPPED.  It would cancel the drift exactly within each block at the cost
+    of making the gate speak after FOUR readings instead of two — and a safeguard
+    is not evidence that its absence would cost anything.  Here the absence was
+    measured and costs 0.2%.  [[feedback-a-state-added-for-a-defect]]
+
+    ⚠️ WHAT THIS DOES NOT SAY: that the two orders give the same answer on any
+    particular night.  It says the systematic term separating them is bounded and
+    small.  Every row records `walk_order`, so a corpus states which order
+    produced it instead of leaving a reader to infer it from the timestamps.
+    """
+    if sweeps < 1:
+        raise ValueError("a walk needs at least one sweep")
+    if interleave:
+        return [(s, c) for c in commits for s in range(sweeps)]
+    out = []
+    for s in range(sweeps):
+        seq = commits if s % 2 == 0 else list(reversed(commits))
+        out += [(s, c) for c in seq]
+    return out
+
+
+# ── THE ORDER'S OWN ARMS ─────────────────────────────────────────────────────
+def selftest():
+    """Pure: no worktree, no profile, no box.  `visit_order` is the whole subject."""
+    bad = []
+
+    def ok(cond, what, plant=None):
+        print(f"   {'ok  ' if cond else '⛔ FAIL'} [{'RED ' if plant else 'CTRL'}] {what}")
+        if not cond:
+            bad.append(what)
+
+    C = [f"c{i}" for i in range(5)]
+    sw = visit_order(C, 2, False)
+    il = visit_order(C, 2, True)
+
+    ok(sorted(sw) == sorted(il),
+       "CONTROL — the two orders are the SAME MULTISET of (sweep, commit): the "
+       "order changes WHEN a reading is taken, never WHICH readings are taken")
+    ok([c for _s, c in sw] == C + list(reversed(C)),
+       "CONTROL — the default is forward then REVERSE, unchanged")
+    ok([c for _s, c in il] == [c for c in C for _ in range(2)],
+       "the interleaved order takes a commit's repeats BACK TO BACK", plant="interleaved")
+    ok(len(visit_order(C, 3, True)) == 15 and
+       [c for _s, c in visit_order(C, 3, True)][:3] == ["c0"] * 3,
+       "interleaving generalises to --sweeps 3", plant="three-sweeps")
+    try:
+        visit_order(C, 0, False); fired = False
+    except ValueError:
+        fired = True
+    ok(fired, "a walk with ZERO sweeps is REFUSED, not silently empty "
+              "[[feedback-an-unparseable-gate-file-reports-failure-not-absence]]",
+       plant="zero-sweeps")
+
+    # ⭐ THE PROPERTY THE HELM ASKED FOR, DRIVEN: when can a per-commit gate first speak?
+    def first_pair(seq):
+        seen = {}
+        for k, (_s, c) in enumerate(seq, 1):
+            seen[c] = seen.get(c, 0) + 1
+            if seen[c] == 2:
+                return k
+        return None
+    N = len(C)
+    ok(first_pair(il) == 2,
+       "under --interleave the FIRST commit has both readings at reading 2, so a "
+       "per-commit gate is evaluable from the second reading", plant="early-2")
+    ok(first_pair(sw) == N + 1,
+       f"under the default NO commit has a pair until reading {N + 1} of {2 * N} — "
+       f"the gate cannot speak in the first half of the run at all", plant="early-late")
+    ok(first_pair(il) < first_pair(sw),
+       "CONTROL — the two arms above are compared in the same run, so the claim is "
+       "a DIFFERENCE and not two remembered numbers")
+
+    print("SELFTEST " + ("⛔ FAILED" if bad else "ok"))
+    return 1 if bad else 0
+
+
 def main():
     decl_names = [x for x in (arg("--decl-names") or
                               "memDestSweep,pre_states_have_a_returnable_frame,"
@@ -550,11 +657,14 @@ def main():
                                float(m) if m else None, float(f) if f else None)
     if "--analyse" in sys.argv:
         return analyse(arg("--analyse"), decl_names)
+    if "--selftest" in sys.argv:
+        return selftest()
     commits = [c for c in (arg("--commits") or "").split(",") if c]
     if not commits:
         print(__doc__)
         return 2
     sweeps = int(arg("--sweeps", "2"))
+    interleave = "--interleave" in sys.argv
     out = arg("--out", os.path.join(tempfile.gettempdir(), "kernel-delta-history.jsonl"))
     # ⛔ THE WORKTREE IS UNDER TMPDIR AND IS REMOVED AT THE END, PASS OR FAIL.
     wt = tempfile.mkdtemp(prefix="x86lean-history-")
@@ -562,20 +672,19 @@ def main():
     git("worktree", "add", "--detach", wt, commits[0])
     fh = open(out, "a")
     try:
-        for s in range(sweeps):
-            seq = commits if s % 2 == 0 else list(reversed(commits))
-            for c in seq:
-                git("checkout", "--detach", c, cwd=wt)
-                t0 = time.time()
-                r = profile(wt)
-                r["commit"] = git("rev-parse", c)
-                r["sweep"] = s
-                r["secs"] = round(time.time() - t0, 1)
-                fh.write(json.dumps(r) + "\n")
-                fh.flush()
-                print(f"sweep {s}  {c[:9]}  load1={r['load1']:.2f}  "
-                      f"{r['secs']:.0f}s  Tests.Coverage={r['modules'].get('Tests.Coverage',0):.0f}  "
-                      f"X86.Syntax={r['modules'].get('X86.Syntax',0):.1f}", flush=True)
+        for s, c in visit_order(commits, sweeps, interleave):
+            git("checkout", "--detach", c, cwd=wt)
+            t0 = time.time()
+            r = profile(wt)
+            r["commit"] = git("rev-parse", c)
+            r["sweep"] = s
+            r["walk_order"] = "interleaved" if interleave else "sweeps"
+            r["secs"] = round(time.time() - t0, 1)
+            fh.write(json.dumps(r) + "\n")
+            fh.flush()
+            print(f"sweep {s}  {c[:9]}  load1={r['load1']:.2f}  "
+                  f"{r['secs']:.0f}s  Tests.Coverage={r['modules'].get('Tests.Coverage',0):.0f}  "
+                  f"X86.Syntax={r['modules'].get('X86.Syntax',0):.1f}", flush=True)
     finally:
         fh.close()
         subprocess.run(["git", "worktree", "remove", "--force", wt],
