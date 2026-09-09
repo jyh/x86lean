@@ -166,8 +166,44 @@ def main():
     print("  p10 %.3f   median %.3f   p90 %.3f   %.0f%% read HIGHER under load"
           % (q(.1), q(.5), q(.9), 100 * sum(1 for r in ratios if r > 1) / len(ratios)))
 
+    # ⭐⭐ THE TAIL, ADDED 2026-09-09 AFTER THIS TOOL'S OWN CONCLUSION WAS FOUND
+    # TO BE ONE STATISTIC SHORT.  The paragraph below compares MEDIANS and p90s;
+    # the merge gate's band is built from a TAIL, and the two nights diverge
+    # exactly there.  Printing it here is not decoration: a tool that states a
+    # body-only conclusion goes on stating it long after the tail is known
+    # ([[feedback-ungated-prose-overclaims]]).
+    print("\nADJACENT-COMMIT |delta| — THE QUANTITY THE CALIBRATION CONSUMES:")
+    ordr = [c for c in data["QUIET"][0]]
+    dq, du = [], []
+    for a, b in zip(ordr, ordr[1:]):
+        for k in common:
+            va = [r["decls"].get(k[0], {}).get(k[1]) for r in data["QUIET"][0][a]]
+            vb = [r["decls"].get(k[0], {}).get(k[1]) for r in data["QUIET"][0][b]]
+            ua = [r["decls"].get(k[0], {}).get(k[1]) for r in data["USER2"][0][a]]
+            ub = [r["decls"].get(k[0], {}).get(k[1]) for r in data["USER2"][0][b]]
+            va, vb, ua, ub = ([x for x in y if x] for y in (va, vb, ua, ub))
+            if va and vb and ua and ub:
+                dq.append(abs(st.median(vb) - st.median(va)))
+                du.append(abs(st.median(ub) - st.median(ua)))
+    dq.sort(); du.sort()
+    print("  %-7s %7s %7s %7s %7s %7s %7s" % ("", "p50", "p75", "p90", "p95", "p99", "max"))
+    for tag, d in (("QUIET", dq), ("USER2", du)):
+        g = lambda p: d[int(p * (len(d) - 1))]
+        print("  %-7s %7.0f %7.0f %7.0f %7.0f %7.0f %7.0f"
+              % (tag, g(.5), g(.75), g(.9), g(.95), g(.99), d[-1]))
+    print("  %-7s" % "ratio", end="")
+    for p in (.5, .75, .9, .95, .99):
+        i = int(p * (len(dq) - 1))
+        print(" %7.2f" % (du[i] / dq[i] if dq[i] else float("nan")), end="")
+    print(" %7.2f" % (du[-1] / dq[-1] if dq[-1] else float("nan")))
+    print("  ⇒ THE RATIO RISES MONOTONICALLY WITH THE PERCENTILE: the nights agree in the")
+    print("    BODY and diverge in the TAIL, and a BAND is a tail statistic. So the")
+    print("    conclusion below is TRUE OF THE MEDIAN AND p90 AND NOT OF THE TAIL.")
+
     print("""
 ⇒ ⛔⛔ THE FINDING, AND IT CONTRADICTS ITEM 4's RELEASE CONDITION.
+  ⚠️ SCOPED, 2026-09-09: everything below is about the MEDIAN and p90. See the
+  percentile table above — load DOES fatten the tail 2.1x-3.2x from p95 up.
   Going from load ~5 to load ~12 raises the LEVEL of a reading by ~14% and does
   NOT widen the pass-to-pass spread at all.  A uniform level shift is exactly
   what a base-vs-head DELTA cancels.  Neither candidate covariate predicts the

@@ -787,6 +787,11 @@ occur. Until then this is ONE observation and is recorded as one.
      3. **NO DISCARD ON THE OUTCOME — AND NO DISCARD ON LOAD EITHER.** A discard needs a covariate
         that PREDICTS; measured above, this campaign has none in [3.9, 20.9]. A "the box was busy"
         re-run would be selection on the outcome wearing a covariate's clothes.
+        ⛔⛔ **THIS RULE'S STATED REASON IS INCOMPLETE — SEE 4b-LOAD, SAME DAY.** The `r = +0.041`
+        above is computed over **MEDIAN** spreads, and load DOES predict the **TAIL** (2.1x-3.2x
+        from p95 up, measured on the adjacent-commit deltas). The gate's band is a tail statistic.
+        **The rule may still be right and rules 1/2/5/6/7 are untouched — but do not quote this
+        reason as settled**, and re-run the covariate test against p95/p99 before relying on it.
      4. **ONE QUALIFYING CONDITION EXISTS TODAY: any pass recording `load1 > 21`** — outside every
         calibration corpus, where the only readings available are ~5× worse. ⚠️ It is a
         **boundary-of-calibration** rule, NOT a claim that load 25 is bad: the knee between 21 and
@@ -919,9 +924,50 @@ occur. Until then this is ONE observation and is recorded as one.
    The loaded night is USER2 — **and D179 measured USER2 against the quiet night on the SAME twelve
    commits and the SAME 27 declarations: median between-sweep spread 3.2% vs 4.3%, p90 11.3% vs
    11.1%.** Statistically indistinguishable.
-   ⇒ ⛔⛔ **THE TWO NIGHTS DIFFER IN THEIR CALIBRATION BAND BY ~3x (2.39-4.12 against 3.96-13.23)
-   WHILE THEIR MEASUREMENT NOISE IS INDISTINGUISHABLE. SO "IT WAS LOADED" DOES NOT EXPLAIN THE
-   DISAGREEMENT, AND NOTHING ELSE HAS BEEN PROPOSED.**
+   ⇒ **THE TWO NIGHTS DIFFER IN THEIR CALIBRATION BAND BY ~3x (2.39-4.12 against 3.96-13.23) WHILE
+   THEIR MEDIAN AND p90 NOISE ARE INDISTINGUISHABLE.**
+
+   ### ⭐⭐⭐ ANSWERED THE SAME DAY — AND THE ANSWER CORRECTS THIS ENTRY AND D179 BOTH
+   I wrote above that the noise *"is indistinguishable, so 'it was loaded' does not explain the
+   disagreement."* **That was one statistic short.** Measured on the adjacent-commit deltas the
+   calibration actually consumes — same 27 declarations, same 11 steps, n=297 each:
+```
+              p50    p75    p90    p95    p99    max        |adjacent-commit delta|, ms
+     QUIET     12     32     60     80    165    205
+     USER2     10     25     70    170    456    655
+     ratio   0.83   0.77   1.17   2.12   2.77   3.20        ← RISES MONOTONICALLY
+```
+   ⇒ 🔑 **THE TWO NIGHTS AGREE IN THE BODY — USER2 IS SLIGHTLY *BETTER* AT p50 AND p75 — AND
+   DIVERGE IN THE TAIL, 2.1x-3.2x FROM p95 UP. AND A *BAND* IS A TAIL STATISTIC.** That is the
+   whole explanation of the ~3x, it is load after all, and it was invisible to every statistic I
+   had quoted.
+   ⛔⛔ **SO BOTH OF MY CLAIMS TODAY WERE TOO BROAD IN THE SAME DIRECTION, AND FOR THE SAME
+   REASON.** D179 compared **median and p90** between-sweep spread and concluded *"load moves the
+   LEVEL and not the SPREAD"*. At those statistics that is exactly right and it stands. **What does
+   not stand is the generalisation** — "the spread" is not one number, and the consumer of these
+   readings does not read the median.
+   ⇒ 🔑 ***A DISTRIBUTION COMPARISON IS ONLY AS GOOD AS THE STATISTIC ITS CONSUMER USES. I COMPARED
+   TWO NIGHTS AT p50 AND p90, CALLED THEM INDISTINGUISHABLE, AND HANDED THAT TO A GATE THAT READS
+   THE TAIL.*** The same shape as today's other error one level down: **the right-shaped measurement
+   about the wrong object** — there the wrong FILE, here the wrong MOMENT of the distribution
+   [[feedback-only-the-contract-says-which-file]] [[feedback-read-what-the-instrument-measured]].
+
+   📌 **WHAT THIS COSTS D179's KEEP-RULE, STATED PLAINLY RATHER THAN QUIETLY REPAIRED.** Rule 3
+   says *"no discard on load, because a discard needs a covariate that predicts and this campaign
+   has none."* **That reasoning rests on `r = +0.041` computed over MEDIAN spreads.** Load does
+   predict the TAIL, and the merge gate's band is built from a tail. ⇒ **Rule 3's CONCLUSION may
+   still be right — a tail predictor is a far weaker basis for discarding a run than a body
+   predictor, and rules 1, 2, 5, 6 and 7 are untouched — but its stated REASON is now known to be
+   incomplete, and a rule defended by an incomplete reason is one nobody will re-examine**
+   [[feedback-audit-the-premise-of-a-right-decision]].
+   ⛔ **OWED, AND IT NEEDS NO BOX:** re-run D179's covariate test against the TAIL of the
+   between-sweep spread (p95/p99) rather than its median, and re-state rules 3 and 4 on the answer.
+   **OWNER:** paris. **This is the first thing to do at the next sitting** — ahead of any `.lean`
+   work, because it is the reason the `.lean` work cannot land.
+
+   ⚠️ **A REFUTED CANDIDATE, RECORDED SO IT IS NOT RE-TRIED:** thermal/temporal drift across the
+   night. Each declaration's LAST reading over its FIRST is **median 1.00 (quiet) and 0.99
+   (loaded)**, over spans of 0.4 h and 0.6 h. **There is no drift in either walk.**
    ⇒ 🔑 **4b's SECOND-SOURCE BLOCKER IS MISDIAGNOSED, NOT MERELY UNMET.** It is recorded as "two
    nights on one box disagree, one of them loaded", which reads as *understood and waiting for a
    second machine*. The load half is now refuted, so what it actually says is **the second source
