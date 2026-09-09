@@ -42,3 +42,45 @@ but its author could ever have checked it against the result. **A seal that only
 read is not a seal, it is a memory of having been careful.** Committed here BEFORE the walk it
 governs produced its first reading; `git log` on this path is the proof of order, which is the
 only property a seal actually has.
+
+---
+# ⛔⛔ AMENDMENT, MADE BEFORE THE SUBJECT'S DATA EXISTED — AND WHY IT IS NOT SELECTION
+
+**State when this was written: the walk had produced 4 of 24 readings and ZERO paired commits, so
+the third night's gate value and band had never been computed and could not have been.** The
+scorer had been run against it exactly once and refused: *"only 0 commits have paired sweeps."*
+The evidence for both repairs below comes ENTIRELY from the two nights whose answers were already
+known.
+
+## 1. THE SEALED GATE COULD NOT FAIL THE NIGHT IT WAS BUILT TO EXCLUDE
+Sealed as **"MEDIAN per-commit p95 <= 14.2%"**. Driven against the loaded night:
+```
+                       per-commit p95 spread      verdict under the SEALED gate
+    quiet   night      min 6.1  median 12.0  max 14.2      PASS
+    loaded  night      min 4.7  median  8.7  max 50.6      PASS   ⛔ AND IT MUST NOT
+```
+**The loaded night's MEDIAN is BELOW the quiet night's.** Its tail is 3.6x worse and the median
+never sees it. ⇒ 🔑 ***I BUILT A TAIL-GATE OUT OF A MEDIAN.*** That is the fourth instance today of
+one shape — the right-shaped measurement about the wrong object — and **the first caught before the
+data landed**, by the arm that required a night with a known answer to be rejected.
+⇒ **THE STATISTIC IS NOW THE MAX.** quiet 14.2% · loaded 50.6%.
+
+## 2. AND THE BOUND IS NOW DERIVED AT RUN TIME, BECAUSE A ROUNDED LITERAL REJECTED ITS OWN AUTHOR
+Typed as `0.142`, the gate **FAILED THE QUIET NIGHT** — the very night that defines the bound, whose
+true maximum is fractionally above 0.142 and merely *prints* as "14.2%".
+⇒ 🔑 ***A ROUNDED LITERAL IS A DIFFERENT THRESHOLD FROM THE QUANTITY IT WAS ROUNDED FROM, AND AT A
+KNIFE-EDGE BOUND THAT DIFFERENCE IS THE WHOLE GATE.*** Caught only by the control requiring the quiet
+night to PASS — an arm that exists because a gate must be probed for silence as well as for noise.
+The bound is now `max(per-commit p95)` read from `docs/kernel-delta-history-2026-09-04.jsonl` at run
+time: **14.2259%**, full precision, no margin invented.
+
+## 3. WHY AMENDING A SEAL HERE IS LEGITIMATE, STATED SO IT CAN BE DISPUTED
+A seal exists to stop a rule being fitted to a result. **Nothing here was fitted to a result**: the
+subject has produced no scorable data, both repairs are forced by nights whose values were already
+published, and both make the gate **STRICTER**, not looser — the loaded night went PASS → FAIL and
+nothing went FAIL → PASS. ⇒ **Repairing an instrument that provably cannot fail its intended target
+is not selection; it is the reason controls are run before the subject arrives.**
+⚠️ **The knife-edge is real and is not hidden:** the quiet night passes only by EQUALITY, so a single
+unlucky commit fails the third night. Deliberate — a FAIL means *"this night is unusable"*, never
+*"the counter is refuted"*, so strictness errs safe. ⛔ **If the third night fails, that is the
+reported result. It must NOT be re-run to a pass, and this paragraph is what forbids it.**
