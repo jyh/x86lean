@@ -84,3 +84,30 @@ is not selection; it is the reason controls are run before the subject arrives.*
 unlucky commit fails the third night. Deliberate — a FAIL means *"this night is unusable"*, never
 *"the counter is refuted"*, so strictness errs safe. ⛔ **If the third night fails, that is the
 reported result. It must NOT be re-run to a pass, and this paragraph is what forbids it.**
+
+---
+# ⚠️ A DESIGN FLAW IN THIS SEAL, VISIBLE MID-RUN AND RECORDED RATHER THAN PATCHED
+
+**The usability gate cannot be evaluated until the run is COMPLETE, so it can never save any of the
+run's cost.** It reads the between-sweep spread, and sweep 1 does not begin until sweep 0's twelve
+profiles are done — so at the halfway point there are **zero** paired commits and the gate has
+nothing to read. A night that is going to be rejected is rejected only after the whole bill is paid.
+```
+    measured at 5 of 24 readings:  paired commits 0/12   ⇒ gate UNEVALUABLE
+    load1 so far  3.96-9.31, median 7.41   against the quiet night's 3.11-6.80
+    secs/reading  median 91.3              against the quiet night's 53-86
+```
+⇒ 🔑 ***A GATE THAT CAN ONLY FIRE AFTER THE EXPERIMENT HAS FINISHED IS A VERDICT, NOT A GATE.***
+A real gate has a cheap early form on the same covariate — here: abort if the running median `load1`
+leaves the calibration night's own range — and this seal declared none.
+
+⛔ **AND I AM NOT ADDING ONE NOW.** By my own D179 rule 4 a discard needs a condition **declared in
+advance**, and the only numeric load rule on the books is `load1 > 21`; the observed 7.41 does not
+meet it. **Stopping this run on load would be discarding on a condition I never declared — the exact
+move the rule exists to forbid, made attractive by a prediction that it will fail.** ⇒ The run
+finishes and the gate reports whatever it reports.
+📌 **FOR THE NEXT DESIGN, and this is the reusable half:** declare TWO forms of every usability
+condition — a cheap one evaluable early on a covariate, and the full one at the end — and state the
+early one in the seal. Sweep ordering also matters: **interleaving the two sweeps per commit would
+make the gate evaluable from the second reading onward** at no extra cost. That is a real change to
+`kernel_delta_history`'s walk order and it is owed as a separate item, not smuggled in here.
