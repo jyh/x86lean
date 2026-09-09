@@ -111,3 +111,50 @@ condition — a cheap one evaluable early on a covariate, and the full one at th
 early one in the seal. Sweep ordering also matters: **interleaving the two sweeps per commit would
 make the gate evaluable from the second reading onward** at no extra cost. That is a real change to
 `kernel_delta_history`'s walk order and it is owed as a separate item, not smuggled in here.
+
+---
+# ⚖️ THE RESULT, SCORED 2026-09-09 09:58Z — **THE NIGHT FAILED ITS GATE. NO CALIBRATION VERDICT.**
+
+```
+  run          24/24 readings, WALK_RC=0, 0 leaked worktrees, 0 leaked temp dirs
+  conditions   load1 3.96-10.94, median 7.39      (the quiet night: 3.11-6.80)
+  covariate    per-commit p95 spread: min 7.6%  median 14.9%  MAX 55.4%
+  GATE         MAX per-commit p95 <= 14.2259%  ⇒  ⛔ FAILED at 55.4%
+  BAND         ⛔ NOT COMPUTED AND NOT LOOKED AT
+```
+**P1 — "the night PASSES the usability gate", sealed at HIGH confidence — REFUTED.**
+**P2 — the calibration band — NOT SCORED, correctly.** The gate failed, so the band was never
+computed. **That is the protocol working, not a gap in the result.**
+
+## ⭐ THE AMENDMENT DID NOT DECIDE THIS NIGHT — CHECKED, NOT ASSERTED
+The one question that says whether amending a seal mid-flight was legitimate:
+```
+   ORIGINAL sealed gate   MEDIAN p95 <= 14.2259%   night reads 14.9%   ⇒ FAIL
+   AMENDED gate           MAX    p95 <= 14.2259%   night reads 55.4%   ⇒ FAIL
+```
+⇒ **Same verdict under both.** The night is worse than the quiet night at the median (14.9% vs
+12.0%) AND at the max (55.4% vs 14.2%), so it does not fail on one bad commit alone — though
+`4f6766b9`'s 55.4% against a next-worst 19.0% does dominate the max, which is a max's known property
+and is stated rather than hidden.
+
+## ⛔ WHY P1 WAS WRONG, AND IT IS THE SAME DEFECT AS THE REST OF THE DAY
+I sealed HIGH confidence on **one `uptime` reading of 3.92 taken at the moment I pressed start.** The
+run then spanned **forty minutes** at load 3.96-10.94 while other seats worked.
+⇒ 🔑 ***A SINGLE CONDITION READING AT THE START IS NOT THE CONDITION OF A LONG RUN*** — the same law
+this campaign already holds about measurements ([[feedback-a-single-reading-is-about-its-run]]),
+applied to the CONDITIONS rather than to the readings, where I had never applied it.
+📌 The remedy is the one already recorded above: a cheap EARLY form of the usability condition,
+evaluable while the run is in flight, plus interleaved sweeps so the gate can speak from the second
+reading. **This night is the evidence that the missing early gate has a real price: ~35 minutes of a
+shared box for no calibration verdict.**
+
+## 📌 WHAT IT NEVERTHELESS BOUGHT
+1. **A measured usability window nobody had.** A night at load median **7.39** — barely 0.6 above the
+   quiet night's ceiling — is ALREADY unusable. The window is far tighter than "an idle box".
+2. **A gate-first protocol demonstrated end to end**, including that the band is genuinely not looked
+   at on a fail. That is the machinery D179 rule 3 needs and it now exists.
+3. **A sealed prediction refuted at HIGH confidence**, which is worth more than the three confirmed
+   ones earlier today [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]].
+⛔ **4b IS UNCHANGED: still exactly ONE usable calibration night.** This night is discarded on its
+covariate and must NOT be re-run to a pass — the seal forbids it and this section is where that
+prohibition is now load-bearing.

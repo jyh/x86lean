@@ -1015,6 +1015,30 @@ occur. Until then this is ONE observation and is recorded as one.
    experiment my own retracted entry specified.
    **OWNER:** paris. **RELEASE:** a sitting with an uncontended box — ⚠️ **and here that IS a
    measured requirement**, not item 4's withdrawn one: the whole design turns on the walk's tail.
+
+   #### ⚖️ ATTEMPT 1 — RUN 2026-09-09 09:26-09:58Z, **FAILED ITS GATE, NO CALIBRATION VERDICT**
+   Seal and full result: `docs/seals/2026-09-09-4b-third-calibration-night.md`, committed BEFORE the
+   first reading. Data kept as `docs/kernel-delta-history-DISCARDED-night3-2026-09-09.jsonl` —
+   **D179 rule 5: a discarded run absent from the record is indistinguishable from one that never
+   happened.** Scorer: `scripts/score_calibration_night.py`.
+```
+     24/24 readings, rc 0, 0 leaked worktrees/dirs.  load1 3.96-10.94, median 7.39
+     per-commit p95 spread   min 7.6%   median 14.9%   MAX 55.4%      (quiet night max 14.2%)
+     GATE  MAX p95 <= 14.2259%  ⇒ ⛔ FAILED.   BAND: NOT COMPUTED, NOT LOOKED AT.
+```
+   ⭐ **The pre-data amendment did NOT decide it** — under the ORIGINAL sealed (median) gate the night
+   also fails, 14.9% > 14.2%. **Same verdict both ways**, checked rather than asserted.
+   ⛔ **P1 was sealed at HIGH confidence and is REFUTED.** I based it on ONE `uptime` of 3.92 taken
+   as I pressed start; the run then spanned forty minutes at load 3.96-10.94. ⇒ 🔑 **A SINGLE
+   CONDITION READING AT THE START IS NOT THE CONDITION OF A LONG RUN** — this campaign's own law
+   about readings ([[feedback-a-single-reading-is-about-its-run]]), which nobody had applied to
+   CONDITIONS.
+   📌 **THE USABILITY WINDOW IS NOW MEASURED AND IT IS TIGHT:** load median **7.39**, barely 0.6
+   above the quiet night's ceiling, is ALREADY unusable. **"An idle box" was never precise enough to
+   act on; this is.** ⇒ **Attempt 2 must be gated on load DURING the run, not before it** — the early
+   form this seal was missing, whose absence cost ~35 min of a shared box for no verdict.
+   ⛔ **4b IS UNCHANGED: still exactly ONE usable calibration night.** This night must NOT be re-run
+   to a pass.
    ⇒ 🔑 **4b's SECOND-SOURCE BLOCKER IS MISDIAGNOSED, NOT MERELY UNMET.** It is recorded as "two
    nights on one box disagree, one of them loaded", which reads as *understood and waiting for a
    second machine*. The load half is now refuted, so what it actually says is **the second source
