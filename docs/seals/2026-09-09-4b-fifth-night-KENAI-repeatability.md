@@ -69,4 +69,8 @@ that Δms ≈ c·Δku is REPRODUCIBLE on a quiet box. **It does not supply a sec
 not make the budget machine-free, and it is not "4b unblocked".** I will not report it as any
 of those.
 
+## ⚡ THE PIN
+**TOOLING SHA FOR NIGHT 5: `88b3a5447741ca3a8179409ab28dbd79c190714e`** — this seal's own commit. kenai is reset to it
+before the walk starts, and the walk records the HEAD it actually ran at.
+
 SEALED 2026-09-09 (PDT), before any reading of this night exists.
