@@ -12446,3 +12446,74 @@ read as progress, which is why it is written this way — the same guard D181 as
 `%USERPROFILE%\.elan`** — no WSL, no tmux, SAC untouched, nothing on PATH for other users' shells.
 The plants live in `%TEMP%`. This is the minimum the allocation requires: the leg cannot run on a
 box with no Lean. Reported rather than assumed as covered by the ruling.
+
+---
+
+## D184 — the usability gate's n=1 caveat is true of the bound and false of most of its verdicts, and the rows it is true of are not the ones anyone was worried about
+
+**LANE.** Personal. Committed corpora only; no box, no build, no ACL2. ~2 s.
+
+### 1. THE COMMISSION
+The helm, ruling (3) at council close 2026-09-09, retired D179 rule 4 and left the usability gate
+governing alone — naming the consequence in the same breath: *"the gate is calibrated at n = 1 and
+knife-edge; strengthening that calibration is the next item on the gate."* This is that item.
+
+### 2. THE PROBLEM, STATED EXACTLY
+`MAX per-commit p95 <= B` where **B is the quiet night's own maximum** — one order statistic from
+one night. No margin was invented, and that was right: an allowance derived from the thing checked
+is how a gate stops being a gate. **The cost of that correct choice is that B carries the sampling
+variability of a maximum, and nothing recorded how large it is.**
+
+⛔⛔ **AND THE CAVEAT AS WRITTEN WAS ITSELF AN OVER-BROAD CLAIM.** Every site said *"the bound is
+n = 1 and knife-edge"* about the gate AS A WHOLE, while the corpora fail it at ratios spanning
+**1.10× to 4.44×**. ⇒ 🔑 **A SINGLE CAVEAT ATTACHED TO A GATE IS A CLAIM ABOUT EVERY ROW IT
+JUDGES, AND THE ROWS ARE NOT ALIKE.** [[feedback-a-category-is-a-hypothesis-about-its-members]]
+
+### 3. THE MEASUREMENT
+`scripts/gate_calibration_strength.py` bootstraps B from the quiet night's **own twelve** per-commit
+p95 values (20,000 draws, seed fixed and shown to matter):
+
+```
+  B = 14.2259%      bootstrap 5-95 range [13.3333%, 14.2259%]   low end 6.3% below B
+```
+
+Then each row's excess over B is reported **in units of that width** — how far above the bound it
+sits on the scale of the bound's own movement:
+
+```
+  DISCARDED-night3 ....  3.89x   46.1 widths   ROBUST (FAIL)
+  USER-CONTENDED ......  4.44x   54.8 widths   ROBUST (FAIL)
+  USER2 ...............  3.56x   40.7 widths   ROBUST (FAIL)
+  backfill-b23 ........  2.14x   18.1 widths   ROBUST (FAIL)
+  backfill-b36 ........  2.12x   17.8 widths   ROBUST (FAIL)
+  backfill-b34 ........  1.11x    1.8 widths   ROBUST (FAIL)   <- the caveat's real subjects
+  backfill-b35 ........  1.10x    1.6 widths   ROBUST (FAIL)   <-
+  2026-09-04 (quiet) ..  1.00x        —        DEFINITIONAL, never reported as a pass
+```
+
+⭐ **THE RESULT THAT MATTERS FOR 4b: the three nights D180 and D181 rest on fail by 40 to 55
+widths.** The knife-edge worry does not reach them at all. It was doing real work on exactly two
+backfill rows — **and neither of those is a calibration night anyone has cited.**
+⇒ **The caveat should be quoted PER ROW with its width, not as a blanket property of the gate.**
+
+### 4. ⛔⛔ WHAT THIS DOES NOT DO — AND ONE LIMIT IS IN THE DIRECTION THAT MATTERS
+* **WITHIN-night only.** Resampling one night's commits cannot produce the BETWEEN-night variance,
+  which is larger and still unmeasured. This is a **lower bound** on B's uncertainty.
+* ⛔ **THE INTERVAL IS ONE-SIDED, AND IT IS THE LESS USEFUL SIDE.** A bootstrap of a MAXIMUM cannot
+  exceed the observed maximum — every resample has max ≤ B. So it answers *"what if B were
+  TIGHTER"*, while **the direction that would turn a FAIL into a PASS is B being LOOSER**, which
+  this construction structurally cannot express.
+  ⇒ **So the ROBUST labels are a SCALE, not a confidence statement**, and the tool says so in its
+  own output rather than in prose beside it. The upward question is answered exactly and without
+  any resampling by the `vs B` ratio, which needed no interval at all — ⚠️ **the bootstrap's real
+  contribution is the WIDTH, not the verdict**, and I nearly reported it the other way round.
+
+### 5. THE ARMS
+**8 break-probes, 8 RED**, control re-run after each. Including the one that was not there first:
+⛔ **a probe that resampled at n/2 — the exact hazard the docstring warns about — left the
+self-test GREEN**, because no arm could see the resample size. The repair is a signature only the
+right size has: for n distinct values the share of resamples whose max equals the observed max is
+`1 - (1 - 1/n)^n` — **0.648 at n=12, 0.407 at n/2** — so the share reads k directly. Measured
+0.651, and the arm now reds at n/2 **and** at 2n. ⇒ 🔑 **A HAZARD NAMED IN A DOCSTRING AND TESTED
+BY NOTHING IS AN UNGATED CLAIM, AND WRITING THE WARNING IS WHAT MAKES IT FEEL HANDLED.**
+[[feedback-a-citation-is-an-ungated-claim]]

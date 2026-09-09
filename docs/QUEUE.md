@@ -820,11 +820,16 @@ occur. Until then this is ONE observation and is recorded as one.
         premise its own study refuted** — and my own line 69 applies to it, *a source that cannot
         carry a verdict cannot withhold one either.* I framed the conflict below and did not see
         that my own sentence decided it.
-        ⚠️ **NOT A REASON TO HOLD, AND THE HELM NAMED IT AS THE NEXT ITEM:** the usability gate is
-        calibrated at **n = 1** and is knife-edge (§3 caveat, and my standing RISK line). Retiring
-        rule 4 removes the only SECOND OPINION the discard decision had, which makes strengthening
-        that calibration **more** urgent, not less. ⇒ **A retirement that leaves one rule alone in
-        the field raises the price of that rule being wrong.**
+        ⚠️ **THE HELM NAMED THE NEXT ITEM AND IT IS NOW DONE (D184).** Retiring rule 4 left the
+        gate alone in the field, which raised the price of it being wrong. Measured:
+        **the n = 1 caveat is TRUE OF THE BOUND AND FALSE OF MOST OF ITS VERDICTS.** Bootstrapping
+        B over the quiet night's own twelve commits gives a width of 6.3%, and each row's excess
+        over B in units of that width is **1.6w to 54.8w**. ⭐ **The three nights D180/D181 rest on
+        fail by 40-55 widths — the knife-edge worry does not reach them at all**; it bites only on
+        two backfill rows nobody has cited. ⇒ **Quote the caveat PER ROW with its width, never as
+        a blanket property of the gate.** ⛔ Two limits, both weakening: WITHIN-night only, and the
+        interval is ONE-SIDED at the top (a bootstrap of a MAX cannot exceed the observed max), so
+        it cannot speak to B being LOOSER — the direction that would turn a FAIL into a PASS.
         📌 **The conflict as measured is kept below rather than deleted, because a retired rule
         whose reason is deleted comes back.** [[feedback-a-blocked-items-method-is-unexamined]]
 

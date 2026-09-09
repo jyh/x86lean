@@ -202,6 +202,11 @@ if "--census" in sys.argv:
     # added, because retirement changed it: the gate is now unaccompanied.
     print("   ⇒ retiring rule 4 left THIS gate alone in the field, so the caveat below is")
     print("     no longer one opinion of two -- its error rate is the discard decision's.")
+    print("⭐ AND THE CAVEAT BELOW IS NOW QUANTIFIED PER ROW (D184): `gate_calibration_strength.py`")
+    print("   bootstraps this bound over the quiet night's own commits (width 6.3%) and reports")
+    print("   each row's excess in units of that width -- 1.6w to 54.8w. The three nights the 4b")
+    print("   argument rests on fail by 40-55 widths, so 'knife-edge' does NOT describe them.")
+    print("   ⛔ Quote the caveat PER ROW with its width; as a blanket property it over-claims.")
     print("⛔ THE BOUND HAS n=1 IN ITS CALIBRATION and the quiet night therefore passes by")
     print("   EQUALITY, by construction. 'Everything else fails' is partly definitional and")
     print("   is stated that way rather than read as four independent verdicts.")
