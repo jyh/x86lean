@@ -811,7 +811,20 @@ occur. Until then this is ONE observation and is recorded as one.
         commit-pairs**, and a rule with a stated falsification condition is one someone can actually
         argue with [[feedback-conservative-is-a-direction-not-a-margin]].
      4. **ONE QUALIFYING CONDITION EXISTS TODAY: any pass recording `load1 > 21`** — outside every
-        calibration corpus, where the only readings available are ~5× worse. ⚠️ It is a
+        calibration corpus, where the only readings available are ~5× worse.
+        ⛔⛔ **AND IT DISAGREES WITH THE USABILITY GATE ON TWO OF FOUR NIGHTS (D180, 2026-09-09).**
+        `USER2` (load1 8.95-20.89) and `NIGHT3` (3.96-10.94) each record **ZERO** passes above 21,
+        so this rule permits no discard on either — while the sealed usability gate calls both
+        **UNUSABLE**, at 3.56x and 3.89x its bound. ⇒ 🔑 **THE CAMPAIGN HAS TWO RULES FOR "CAN THIS
+        NIGHT CARRY A VERDICT" AND THEY GIVE OPPOSITE ANSWERS.** This rule is built from **LOAD**;
+        the gate is built from **SPREAD**; and D179 itself measured that load does not predict
+        spread. **So the disagreement is the direct consequence of a result this campaign already
+        published — nobody had noticed both rules were live.**
+        ⇒ ⚖️ **RECOMMENDED, NOT IMPOSED** (the party whose measurement produces a ruling is the
+        wrong party to make it): this rule is a **boundary-of-calibration** rule, as its own next
+        sentence says, and was never a usability test. The gate built from the quantity the band is
+        MADE of should be what decides whether a night carries a verdict.
+        [[feedback-which-statistic-the-consumer-reads]] ⚠️ It is a
         **boundary-of-calibration** rule, NOT a claim that load 25 is bad: the knee between 21 and
         98 is **UNLOCATED** (CONTEND has two pairs and its own ordering is inverted), and this rule
         must not be quoted as if it were measured [[feedback-unobserved-regions-report-agreement]].
@@ -908,6 +921,19 @@ occur. Until then this is ONE observation and is recorded as one.
    reaches full resolution (0 of 1 at k=11), spans **-5.90 to +37.05**, and carries **6 sign
    inversions of 106** where kernel time falls while unfoldings rise (the quiet night: 0 of 96).
    Machine independence remains unmeasured; there is no second machine.
+   ⚖️⚖️ **RE-DIAGNOSED 2026-09-09 (D180), AND THE ITEM STAYS SHUT ANYWAY.** The paragraph above has
+   been read as evidence about the COUNTER. Run this repository's own sealed usability gate over
+   every committed walk — `python3 scripts/score_calibration_night.py --census`, ~0.2 s, no box —
+   and **the loaded night FAILS it at 3.56x** (MAX per-commit p95 50.57% against a 14.2259% bound),
+   on a full twelve-pair reading. ⇒ 🔑 **A SOURCE THAT CANNOT CARRY A VERDICT CANNOT WITHHOLD ONE
+   EITHER.** The blocker is not "a second source failed to confirm"; it is **"4b has never had a
+   second source of USABLE QUALITY"** — a different owed item with a different remedy, wearing the
+   same words. ⛔ **THIS SUPPLIES NO EVIDENCE FOR THE COUNTER and the item is NOT unblocked**: it
+   removes an indictment, the 6 sign inversions stay unexplained, and machine independence is
+   untouched. What changes is what the campaign is looking for.
+   ⚠️ The bound has **n=1** in its calibration (the quiet night's own maximum), so the quiet night
+   passes by EQUALITY and by construction; what is not definitional is the MAGNITUDE — 3.56x is not
+   a knife-edge miss. [[feedback-a-blocked-items-method-is-unexamined]]
 
    #### ⛔⛔ 4b-LOAD (2026-09-09) — **RETRACTED AND REPLACED WITHIN THE HOUR. THE FIRST VERSION OF
    #### THIS ENTRY MEASURED THE WRONG FILE.** The replacement is a stronger finding, not a weaker one.

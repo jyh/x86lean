@@ -111,6 +111,21 @@ def selftest(gate):
        "early abort. The amendment is what made the gate early-stoppable",
        plant="median-not-monotone")
 
+    # the census must be a CENSUS: every committed walk, or it is a selection
+    import glob as _g, subprocess as _sp
+    corpora = [f for f in _g.glob("docs/kernel-delta-history-*.jsonl") if ".analysis." not in f]
+    out = _sp.run([sys.executable, "scripts/score_calibration_night.py", "--census"],
+                  capture_output=True, text=True).stdout
+    missing = [f for f in corpora if os.path.basename(f)[:-6] not in out]
+    ok(corpora and not missing,
+       f"CONTROL — --census names all {len(corpora)} committed walks; a corpus it "
+       f"silently omitted would be a SELECTION wearing a census's name"
+       + (f" MISSING: {missing}" if missing else ""))
+    ok("n=1" in out and "definitional" in out,
+       "CONTROL — the census PRINTS that its bound has n=1 and that 'everything else "
+       "fails' is partly definitional, rather than leaving four verdicts to read as "
+       "four independent ones [[feedback-a-borrowed-denominator-invents-its-own-gap]]")
+
     k_il, c_il, tot = first_fail(NIGHT3, gate, lambda C: kdh.visit_order(C, 2, True))
     k_sw, c_sw, _ = first_fail(NIGHT3, gate, lambda C: kdh.visit_order(C, 2, False))
     ok(k_il is not None and k_sw is not None and k_il < k_sw,
@@ -146,6 +161,39 @@ GATE = max(qp95.values())          # the quiet night's OWN maximum, at full prec
 
 if "--selftest" in sys.argv:
     sys.exit(selftest(GATE))
+
+if "--census" in sys.argv:
+    # ⭐ EVERY committed walk against the SAME published bound, all of them printed.
+    # This is a CENSUS and not a selection: the corpora are enumerated by glob, the
+    # rule is the one already sealed, and every answer is reported including the
+    # inconvenient ones [[feedback-a-census-is-per-key-not-per-name]].
+    import glob
+    print("%-52s %6s %8s %9s %8s %9s" %
+          ("corpus", "pairs", "load med", "load1>21", "MAX p95", "vs bound"))
+    for f in sorted(glob.glob("docs/kernel-delta-history-*.jsonl")):
+        if ".analysis." in f:
+            continue
+        rows = [json.loads(l) for l in open(f) if l.strip()]
+        pp, ll = per_commit_p95(f)
+        if not pp:
+            print("%-52s %6s  %s" % (os.path.basename(f), 0,
+                  "no completed pair — NOT SCORED, and that is not a pass"))
+            continue
+        w = max(pp.values())
+        allld = [r["load1"] for r in rows]
+        print("%-52s %6d %8.2f %9d %7.2f%% %8.2fx  %s" %
+              (os.path.basename(f), len(pp), st.median(allld),
+               sum(1 for x in allld if x > 21), 100 * w, w / GATE,
+               "PASS" if w <= GATE else "FAIL"))
+    print()
+    print("bound = %.4f%%, the QUIET night's own MAX per-commit p95, derived at run time."
+          % (100 * GATE))
+    print("⛔ THE BOUND HAS n=1 IN ITS CALIBRATION and the quiet night therefore passes by")
+    print("   EQUALITY, by construction. 'Everything else fails' is partly definitional and")
+    print("   is stated that way rather than read as four independent verdicts.")
+    print("⛔ A row with few pairs is a WEAK reading, not a strong verdict: the pairs column")
+    print("   is printed so a 2-pair fail is never quoted as a 12-pair one.")
+    sys.exit(0)
 
 p95, loads = per_commit_p95(WALK)
 if EARLY:

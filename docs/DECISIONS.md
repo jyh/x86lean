@@ -11976,3 +11976,116 @@ in the fixture, reads as coverage, and is removed from the rule's reach by an un
 📌 The arm is build-free and runs FIRST inside `selftest`, before the Lean build that gates the rest
 of it — the rule is pure string work, and an arm behind a build is a discipline that gets exercised
 less ([[feedback-make-the-probe-cheap]]).
+
+---
+
+## D178 / D179 — RECORDED IN `docs/QUEUE.md`, AND THIS POINTER EXISTS BECAUSE THEY WERE NOT
+
+Measured 2026-09-09: **`D178` and `D179` are cited nineteen times in `docs/QUEUE.md`
+and appear nowhere in this file.** Both are real rulings that landed on 09/09 —
+`D178` discharged QUEUE 0b(6) (the driver's `POST init-error` scoring `executes` in
+both parsers), and `D179` ruled item 4's keep-rule and retired "an uncontended box"
+as its release condition. Their full text is at their queue items, which is where the
+work is; what was missing was any way to reach them from the record that numbers them.
+
+⇒ 🔑 **A DECISION NUMBER IS A CITATION, AND A CITATION TO A GATE READS AS THE GATE.**
+Nineteen references pointed at nothing in the file whose whole job is to hold them,
+and `check_citations.py` could not see it: that gate checks `` `identifier` `` followed
+by "in <path>", and a bare `D179` is neither. **This is the same class the corpus-claims
+gate was built for this morning, one level up** — a claim whose evidence is named but
+never joined. [[feedback-a-citation-is-an-ungated-claim]]
+
+⚠️ **NOT BACKFILLED, DELIBERATELY.** Writing D178/D179 entries here from the queue's
+prose would be a RECONSTRUCTION wearing a record's clothes, and the queue text is the
+contemporaneous account. A pointer is true; a reconstruction is a second source that
+agrees with the first because it was copied from it
+([[feedback-two-readings-are-not-two-witnesses]]). If the convention should be that
+every numbered decision has an entry here, that is a ruling, and it is not the seat
+that found the gap that should make it.
+
+---
+
+## D180 — the second source item 4b is blocked on FAILS this repository's own usability gate, and the campaign has been carrying two "is this night usable" rules that disagree
+
+**LANE.** Personal. Committed corpora only; no box, no build, no ACL2. ~0.2 s.
+
+### 1. WHAT WAS ASKED, AND WHY IT COST NOTHING TO ASK
+QUEUE item 4b's standing blocker reads: *"THE SECOND SOURCE STILL DOES NOT CONFIRM —
+so this item stays shut. The loaded night never reaches full resolution (0 of 1 at
+k=11), spans −5.90 to +37.05, and carries 6 sign inversions of 106."* That sentence
+has been read as evidence **about the kernel-unfolding counter**.
+
+The usability gate sealed on 09/09 judges whether a night can carry a verdict at all,
+on a covariate — MAX per-commit p95 spread against the quiet night's own maximum. It
+had been run on exactly one corpus: the night it was written for. **Nobody had run it
+on the corpus the blocker rests on.** `scripts/score_calibration_night.py --census`
+now runs it over every committed walk, by glob, and prints all of them:
+
+```
+  corpus                                    pairs  load med  >21   MAX p95  vs bound
+  kernel-delta-history-2026-09-04            12      4.51     0    14.23%    1.00x  PASS
+  kernel-delta-history-USER2-2026-09-05      12     12.27     0    50.57%    3.56x  FAIL
+  kernel-delta-history-DISCARDED-night3      12      7.39     0    55.38%    3.89x  FAIL
+  kernel-delta-history-USER-CONTENDED         2     13.72     3    63.13%    4.44x  FAIL
+  backfill-b23  2 / b34  2 / b35  2 / b36  3        —         —   30.4/15.8/15.6/30.1%  FAIL
+  bound = 14.2259%, the quiet night's own MAX, derived at run time.
+```
+
+⇒ ⭐⭐ **THE SECOND SOURCE FAILS AT 3.56×, ON A FULL TWELVE-PAIR READING.** So *"the
+loaded night does not confirm the quiet night"* is a comparison between a corpus that
+passes and one the repository's own later gate calls **unusable** — and a source that
+cannot carry a verdict cannot withhold one either. **4b's blocker is re-diagnosed: it
+is not that a second source failed to confirm, it is that 4b HAS NEVER HAD A SECOND
+SOURCE OF USABLE QUALITY.** Different remedy, same appearance.
+
+⛔⛔ **WHAT THIS DOES NOT DO, AND THE TEMPTATION IS TO LET IT.** It supplies NO evidence
+for the kernel-unfolding counter. It removes an indictment; it does not confirm
+anything, and item 4b stays shut. The 6 sign inversions are still unexplained — this
+says only that they were measured on a corpus 3.6× noisier than the one they were
+compared against.
+
+### 2. ⛔⛔ THE FINDING THAT OUTLIVES 4b: TWO USABILITY RULES, OPPOSITE ANSWERS
+D179 rule 4 names ONE qualifying discard condition: **any pass recording `load1 > 21`**.
+Measured against the census above:
+
+```
+  USER2    load1 8.95 - 20.89   ZERO readings above 21  ⇒ rule 4: NOT discardable
+                                MAX p95 3.56x the bound ⇒ gate  : UNUSABLE
+  NIGHT3   load1 3.96 - 10.94   ZERO readings above 21  ⇒ rule 4: NOT discardable
+                                MAX p95 3.89x the bound ⇒ gate  : UNUSABLE
+```
+⇒ 🔑 **THE CAMPAIGN HAS TWO RULES FOR "CAN THIS NIGHT CARRY A VERDICT" AND THEY GIVE
+OPPOSITE ANSWERS ON TWO OF FOUR NIGHTS.** Rule 4 is built from **LOAD**; the usability
+gate is built from **SPREAD**. And D179 itself measured that load does not predict
+spread (r = +0.041 at the median, and nothing reaching significance at any statistic).
+**So the disagreement is not a bug in either rule — it is the direct consequence of a
+result this campaign already published, and nobody had noticed the two rules were both
+live.** [[feedback-which-statistic-the-consumer-reads]]
+
+⇒ ⚖️ **THE READING I RECOMMEND AND DO NOT IMPOSE:** rule 4 is a
+**boundary-of-calibration** rule and says so at its own site; it was never a usability
+test and should not be quoted as one. The gate built from the quantity the band is
+MADE of is the one that should decide whether a night carries a verdict. That is a
+ruling on item 4's keep-rule and it is filed as a recommendation, because I am the
+party whose measurement produces it.
+
+### 3. THE CAVEATS, FIRST RATHER THAN LAST
+* **The bound has n = 1 in its calibration.** It is the quiet night's own maximum, so
+  the quiet night passes BY EQUALITY and by construction. "Everything else fails" is
+  partly definitional and the tool prints that line itself. What is NOT definitional is
+  the MAGNITUDE: 3.56×, 3.89×, 4.44× are not knife-edge misses.
+* **This was not a blind test.** I already knew from 09/09's own tail analysis that
+  USER2 diverges from QUIET in the tail (p95 ratio 2.12, p99 2.77, max 3.20). What
+  makes it admissible is that it is a **CENSUS** — every committed walk, enumerated by
+  glob, all answers printed, including the four backfills nobody asked about.
+* **`USER-CONTENDED`'s row rests on 2 completed pairs, not 12** (its second sweep was
+  interrupted at 2 of 12). The pairs column exists so a 2-pair fail is never quoted as
+  a 12-pair one [[feedback-a-partial-corpus-carries-its-interruption]].
+* ⚠️ **THE BACKFILL ROWS ARE OUT OF THE GATE'S DOMAIN AND I AM NAMING THAT RATHER THAN
+  RULING ON IT.** The four `backfill-b*` corpora produced drift-ledger rows for real
+  landings and three of the four fail — two of them marginally (1.10×, 1.11×), two at
+  ~2.1×. The gate was designed to judge a twelve-commit CALIBRATION NIGHT, not a
+  two-commit backfill, and applying it there is an extrapolation. **Whether a backfill
+  owes the same usability bar is an open question, filed, not answered** — the honest
+  alternative to either quietly excluding them or quietly convicting them
+  [[feedback-a-justification-outlives-its-condition]].
