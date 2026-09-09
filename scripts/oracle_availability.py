@@ -68,6 +68,12 @@ ACL2 = os.environ.get("ACL2", os.path.join(root, "vendor", "acl2", "saved_acl2")
 # literal would drift from the one `rewrite` uses.
 ENTRY_RIP = 0x400000
 
+# ⛔ BOTH FIELDS REQUIRED, AND `rip` PINNED TO THE PRODUCER'S WIDTH.  See the long
+# note in `measure`: these two patterns are what stop an unreadable record from
+# being scored as a successful execution.
+RE_REFUSED = re.compile(r"\brefused=([01])\b")
+RE_RIP = re.compile(r"\brip=([0-9a-f]{16})\b")
+
 FORMS = [
     # (mnemonic,   asm,                       bytes,                expect)
     # ⚠️ `expect` is now THREE-VALUED: refuses · executes · stalls (D170).
@@ -239,7 +245,7 @@ def measure(forms):
         if l.startswith("CASE "):
             cur = re.search(r"id=(\S+)", l).group(1).rsplit("/", 1)[0]
         elif l.startswith("POST ") and cur:
-            e, r, st = res.get(cur, (0, 0, 0))
+            e, r, st, un = res.get(cur, (0, 0, 0, 0))
             # ⛔⛔ P2 BATCH 37 (D170) — THREE-VALUED, AND IT USED TO BE TWO.
             # This read `if refused=1 then refused else EXECUTED`, so `executed`
             # was a RESIDUAL and not a measurement: a case that neither refused
@@ -256,11 +262,31 @@ def measure(forms):
             # a `rep` signalling another iteration by NOT advancing — D46) would
             # be misread by the stricter test.  No such form is in `FORMS` today;
             # one added later must be read against this comment.
-            rip = re.search(r"rip=([0-9a-f]+)", l)
-            if re.search(r"refused=1", l): r += 1
-            elif rip and int(rip.group(1), 16) == ENTRY_RIP: st += 1
+            # ⛔⛔ 2026-09-09 (QUEUE 0b(6) sibling sweep) — D170 MADE THIS
+            # THREE-VALUED AND LEFT THE RESIDUAL IN PLACE.  `executes` is still
+            # what a record falls to when nothing else matches, so a POST line
+            # the parser cannot read is still scored as a successful execution.
+            # MEASURED with a plant on 2026-09-09, before this repair: the
+            # driver's own `POST init-error` — emitted when `init-x86-state-64`
+            # FAILS, so the machine was never even built — read `executes` 6 of
+            # 6 here and 6 of 6 in `check_driver_cr4.py`, with a live control in
+            # the same run proving both loops were discriminating.
+            # ⇒ 🔑 MAKING A CLASSIFIER THREE-VALUED MOVED THE RESIDUAL WITHOUT
+            # REMOVING IT.  The strongest possible NON-reading was the strongest
+            # possible positive reading, one branch further down
+            # ([[feedback-a-classifiers-value-set-is-a-claim]]).
+            # ⚠️ AND `rip` IS PINNED TO SIXTEEN LOWERCASE HEX DIGITS.  The driver
+            # prints it through `x86l-hex(...,16)`, but D177's sibling parser had
+            # a producer at print-base 10, where `int("4194304",16)` misses
+            # ENTRY_RIP and scores a stall as an execution.  A base-10 rip does
+            # not match this pattern, so the gate refuses instead of agreeing
+            # ([[feedback-a-parser-is-correct-only-where-its-producer-is]]).
+            ref, rip = RE_REFUSED.search(l), RE_RIP.search(l)
+            if ref is None or rip is None: un += 1
+            elif ref.group(1) == "1": r += 1
+            elif int(rip.group(1), 16) == ENTRY_RIP: st += 1
             else: e += 1
-            res[cur] = (e, r, st)
+            res[cur] = (e, r, st, un)
             cur = None
     return res, len(sel)
 
@@ -268,10 +294,15 @@ def report(forms, res, n, quiet=False):
     bad = []
     for mn, asm, _b, exp in forms:
         tag = tag_of(mn)
-        e, r, st = res.get(tag, (0, 0, 0))
-        if e + r + st != n:
+        e, r, st, un = res.get(tag, (0, 0, 0, 0))
+        if e + r + st + un != n:
             bad.append((mn, "produced %d records, expected %d — a missing reading "
-                            "is not a refusal" % (e + r + st, n)))
+                            "is not a refusal" % (e + r + st + un, n)))
+            continue
+        if un:
+            bad.append((mn, "%d of %d POST records carry no parseable `refused=` / "
+                            "16-hex-digit `rip=` pair (the driver's `POST init-error` "
+                            "is one such line). NOT scored as an execution." % (un, n)))
             continue
         got = ("refuses" if r == n else "executes" if e == n
                else "stalls" if st == n else "MIXED")
@@ -1658,6 +1689,83 @@ def encoding_check():
     return 0
 
 
+def parse_arms():
+    """⭐ THE ARMS FOR `measure`'s PARSE, AND THEY RUN WITHOUT ACL2.
+
+    ⛔ THEY RUN FIRST, BEFORE `measure()`, DELIBERATELY.  Every other arm in this
+    selftest sits behind a full oracle run, so on any box without ACL2 the whole
+    selftest is skipped and these would be skipped with it — the `claimed_forms`
+    precedent from 0b(7): an arm behind an unavailable dependency is a discipline,
+    not a gate ([[feedback-a-gate-whose-precondition-is-a-discipline]]).
+
+    Returns (ok, n_arms, failures)."""
+    fails, arms = [], 0
+    m = re.search(r'"CASE id=~s0 len=~x1~%(POST [^~"]*)~%"',
+                  open("scripts/x86isa_driver.lisp").read())
+    if not m:
+        return False, 0, [("init-error plant", "could not derive the failure-POST "
+                           "literal from the driver — REFUSING rather than agreeing")]
+
+    def counts(post_line, k=3):
+        res, cur = {}, None
+        text = "".join("CASE id=probe/%d len=3\n%s\n" % (i, post_line) for i in range(k))
+        for l in text.splitlines():
+            if l.startswith("CASE "):
+                cur = re.search(r"id=(\S+)", l).group(1).rsplit("/", 1)[0]
+            elif l.startswith("POST ") and cur:
+                e, r, st, un = res.get(cur, (0, 0, 0, 0))
+                ref, rip = RE_REFUSED.search(l), RE_RIP.search(l)
+                if ref is None or rip is None: un += 1
+                elif ref.group(1) == "1": r += 1
+                elif int(rip.group(1), 16) == ENTRY_RIP: st += 1
+                else: e += 1
+                res[cur] = (e, r, st, un)
+                cur = None
+        return res.get("probe", (0, 0, 0, 0))
+
+    GOOD = "POST rax=0000000000000000 rip=%016x cf=0 refused=0"
+    for label, line, want in (
+        # ⚠️ THE TWO POSITIVE CONTROLS COME FIRST: without them "everything is
+        # unparseable" reads exactly like success
+        # ([[feedback-a-plant-probes-control-comes-first]]).
+        ("control: an advanced rip reads `executes`", GOOD % (ENTRY_RIP + 3), (3, 0, 0, 0)),
+        ("control: rip == ENTRY_RIP with refused=0 reads `stalls`", GOOD % ENTRY_RIP, (0, 0, 3, 0)),
+        ("the driver's %r must be UNPARSEABLE, never `executes`" % m.group(1),
+         m.group(1), (0, 0, 0, 3)),
+        ("a BASE-10 rip must be UNPARSEABLE, never `executes`",
+         "POST rax=0 rip=%d cf=0 refused=0" % ENTRY_RIP, (0, 0, 0, 3)),
+        ("a good rip with NO `refused=` must be UNPARSEABLE",
+         "POST rax=0 rip=%016x cf=0" % ENTRY_RIP, (0, 0, 0, 3)),
+        ("`refused=0` with NO `rip=` must be UNPARSEABLE",
+         "POST rax=0 cf=0 refused=0", (0, 0, 0, 3)),
+    ):
+        arms += 1
+        got = counts(line)
+        if got != want:
+            fails.append((label, "read (e,r,st,un)=%r, expected %r" % (got, want)))
+
+    # and `report` must turn an unparsed count into a REFUSAL THAT SAYS SO.
+    # ⛔⛔ THIS ARM CHECKED ONLY THE COUNT AND A PLANT WALKED PAST IT.  Disabling
+    # report()'s `if un:` branch entirely still reports every form — as `MIXED`,
+    # because 3 unparsed records equal neither n executions nor n refusals — so
+    # `len(bad) == len(FORMS)` held and the arm stayed green while the diagnosis
+    # was gone.  ⇒ 🔑 A GATE THAT REPORTS THE RIGHT COUNT FOR THE WRONG REASON
+    # IS A GATE THAT HAS STOPPED SAYING WHAT IT SAW, and `MIXED` sends the next
+    # head to look for a flaky oracle rather than an unreadable record
+    # ([[feedback-a-gate-that-refuses-must-say-what-it-saw]]).
+    arms += 1
+    v = report(FORMS, {tag_of(f[0]): (0, 0, 0, 3) for f in FORMS}, 3, quiet=True)
+    if len(v) != len(FORMS):
+        fails.append(("report() must refuse an all-unparsed run for EVERY form",
+                      "%d of %d forms reported it" % (len(v), len(FORMS))))
+    elif not all("no parseable" in why for _mn, why in v):
+        fails.append(("report()'s refusal must NAME the unparseable records",
+                      "reported, but %d of %d messages do not say what was seen: %r"
+                      % (sum(1 for _m, w in v if "no parseable" not in w), len(v),
+                         v[0][1][:90])))
+    return (not fails), arms, fails
+
+
 def main():
     if "--check-encodings" in sys.argv:
         return encoding_check()
@@ -1668,6 +1776,15 @@ def main():
         # ⭐ RED FIRST, BOTH DIRECTIONS.  A gate that has only ever been seen
         # green has not been seen at all — and this one has two failure
         # directions that need opposite handling, so both are driven.
+        ok, n_pa, pf = parse_arms()
+        if not ok:
+            print("⛔ selftest FAILED in the PARSE arms (these run before the oracle):")
+            for lab, why in pf:
+                print(f"    {lab}\n      {why}")
+            return 1
+        print(f"  ✔ {n_pa} parse arms, build-free and run BEFORE the oracle "
+              f"(2 positive controls, then `POST init-error`, a base-10 rip, "
+              f"each field missing alone, and report()'s refusal)")
         res, n = measure(FORMS)
         base = report(FORMS, res, n, quiet=True)
         if base:
@@ -1675,20 +1792,50 @@ def main():
             for mn, why in base: print(f"    {mn}: {why}")
             return 1
         arms = 0
+        # ⛔⛔ ROTATE THROUGH THREE VALUES, DO NOT FLIP TWO (2026-09-09, QUEUE
+        # 0b(6) sibling sweep).  These arms planted `refuses` <-> `executes` and
+        # skipped any row declaring anything else — so of the 18 rows in `FORMS`
+        # exactly ONE was planted by NEITHER arm, and it was **`movmskps`**: the
+        # row D170 added the third value FOR.  Its declaration could have been
+        # wrong in either direction and no arm here would have said a word.
+        # ⇒ 🔑 D170 TAUGHT THE CLASSIFIER AND THE TABLE A THIRD VALUE AND LEFT
+        # THE ARMS SPEAKING TWO, SO THE REPAIR'S OWN SUBJECT BECAME THE ONE ROW
+        # ITS GATE COULD NOT TEST ([[feedback-a-control-can-share-the-blind-spot]]).
+        # Rotation guarantees every row is planted with a value it does not hold.
+        VALS = ("refuses", "executes", "stalls")
+        ROT = {VALS[i]: VALS[(i + 1) % len(VALS)] for i in range(len(VALS))}
         for flip, direction in (("refuses", "a declared-unavailable form that starts executing"),
-                                ("executes", "a declared-available form that refuses")):
-            planted = [(mn, a, b, ("executes" if e == "refuses" else "refuses"))
-                       if e == flip else (mn, a, b, e) for mn, a, b, e in FORMS]
+                                ("executes", "a declared-available form that refuses"),
+                                ("stalls", "a declared-STALLING form that runs or refuses")):
+            planted = [(mn, a, b, ROT[e]) if e == flip else (mn, a, b, e)
+                       for mn, a, b, e in FORMS]
             bad = report(planted, res, n, quiet=True)
             want = sum(1 for f in FORMS if f[3] == flip)
+            if want == 0:
+                print(f"⛔ selftest arm FAILED — NO row in FORMS declares '{flip}', so "
+                      f"this arm plants nothing and reports nothing. An arm with an "
+                      f"empty fixture is not an arm.")
+                return 1
             if len(bad) != want:
-                print(f"⛔ selftest arm FAILED — planting the opposite claim on all "
+                print(f"⛔ selftest arm FAILED — planting the rotated claim on all "
                       f"{want} '{flip}' forms was reported by {len(bad)} of them. "
                       f"({direction} would go unreported.)")
                 return 1
             arms += 1
-            print(f"  ✔ red arm: {direction} is reported ({want} forms flipped, "
+            print(f"  ✔ red arm: {direction} is reported ({want} forms rotated, "
                   f"{len(bad)} reported)")
+        # ⚠️ AND THE COVERAGE CLAIM IS ASSERTED, NOT ASSUMED: every row must be
+        # planted by SOME arm, or a future value silently escapes all of them the
+        # way `stalls` just did ([[feedback-a-declared-list-inherits-its-default]]).
+        planted_rows = {f[0] for f in FORMS if f[3] in ROT}
+        missed = [f[0] for f in FORMS if f[0] not in planted_rows]
+        if missed:
+            print(f"⛔ selftest arm FAILED — {len(missed)} row(s) are planted by NO "
+                  f"arm and their declarations are unpoliced: {missed}")
+            return 1
+        arms += 1
+        print(f"  ✔ red arm: all {len(FORMS)} rows are planted by some arm "
+              f"(declarations: {sorted({f[3] for f in FORMS})})")
         # ⚠️ and the CONTROL must not be quietly satisfiable by a dead run
         empty = report(FORMS, {}, n, quiet=True)
         if len(empty) != len(FORMS):
@@ -1697,6 +1844,7 @@ def main():
             return 1
         print(f"  ✔ red arm: an EMPTY run is reported by all {len(FORMS)} forms, "
               f"not read as agreement")
+        arms += n_pa
         print(f"oracle-availability selftest: PASS ({arms + 1} red arms over "
               f"{len(FORMS)} forms x {n} pre-states)")
         return 0

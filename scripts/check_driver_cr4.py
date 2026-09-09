@@ -55,7 +55,7 @@ LANE.  Personal lane; ACL2 x86isa is BSD-3 and is CONSULTED BY EXECUTION.
 
 Usage:  check_driver_cr4.py [--selftest]
 """
-import os, re, subprocess, sys, tempfile
+import collections, os, re, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -78,15 +78,60 @@ CTRS_DEFCONST = "(defconst *x86l-ctrs* (list (cons #.*cr4* #x600)))"
 # a fresh set written here.
 N_PRE = 6
 
-# (label, asm, bytes, expect OFF, expect ON)
+# ⛔⛔ THE VOCABULARY IS THREE-VALUED (QUEUE 0b(6), 2026-09-09).  It was
+# `refuses | executes` with `executes` as the RESIDUAL, which is D170's defect
+# verbatim, sitting in the gate that CERTIFIES every differential run at
+# CR4=0x600.  It was unpoliced BY LUCK — the six rows below contained none of the
+# three known stalling forms — and 0b(6) recorded it as LATENT for that reason.
+# ⇒ 🔑 A DEFECT ABSENT ONLY BECAUSE THE INPUT SET HAPPENS TO EXCLUDE IT IS NOT
+# FIXED, AND THE NEXT ROW ADDED TO THAT LIST IS WHAT DECIDES.  So the repair adds
+# the row as well as the state: a third value nothing exercises is a branch no
+# input reaches, and a branch no input reaches is not a gate
+# ([[feedback-an-implied-assertion-is-not-a-second-gate]]).
+#
+# (label, asm, bytes, expect OFF, expect ON)   values: refuses | executes | stalls
 FORMS = [
     ("movdqa",  "movdqa (%rbx), %xmm0", "660f6f03", "refuses",  "executes"),
     ("paddd",   "paddd %xmm1, %xmm0",   "660ffec1", "refuses",  "executes"),
     ("movdqu",  "movdqu (%rbx), %xmm0", "f30f6f03", "refuses",  "executes"),
     ("pxor",    "pxor %xmm1, %xmm0",    "660fefc1", "refuses",  "executes"),
+    # ⭐ THE STALL CONTROL.  x86isa leaves RIP unadvanced with the refusal flag
+    # CLEAR for this form — D170 measured it 88/88 through `measure`, the same
+    # driver and the same `x86l-run-case` call site.  Its OFF reading was a
+    # SEALED PREDICTION here (refuses, on the OSFXSR #UD gate), scored below.
+    # It earns its place the way CONTROL:movnti does: without it the `stalls`
+    # branch is never taken and could be deleted without a single arm going red.
+    ("STALL:movmskps", "movmskps %xmm1, %eax", "0f50c1", "refuses", "stalls"),
     ("CONTROL:mov",    "movl %ecx, (%rbx)",    "890b",   "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)", "0fc30b", "refuses",  "refuses"),
 ]
+
+VALUES = ("refuses", "executes", "stalls")
+
+# ⛔⛔ AND THE PARSE IS STRICT, BECAUSE THE RESIDUAL WAS THE BUG.  Both fields are
+# REQUIRED.  A `POST` line that carries neither — the driver emits exactly one,
+# `POST init-error`, when `init-x86-state-64` fails — was scored `executes` by
+# the shipped parser here AND by `oracle_availability.measure`, MEASURED with a
+# plant on 2026-09-09: 6 of 6 records, in both, read as successful execution.
+# ⇒ 🔑 A CLASSIFIER'S RESIDUAL IS ITS REAL DEFAULT, AND MAKING IT THREE-VALUED
+# MOVED THE RESIDUAL WITHOUT REMOVING IT.  A total failure to build the machine
+# is the strongest possible NON-reading and it was the strongest possible
+# positive reading ([[feedback-a-classifiers-value-set-is-a-claim]]).
+# ⚠️ `rip` is pinned to SIXTEEN LOWERCASE HEX DIGITS on purpose.  The driver
+# prints it through `x86l-hex(...,16)`, but D177 nearly shipped a sibling parser
+# whose producer used ACL2's ambient print-base of 10, where `int("4194304",16)`
+# silently misses ENTRY_RIP and scores a stall as an execution.  Under this
+# pattern a base-10 rip does not match, so the gate REFUSES instead of agreeing
+# ([[feedback-a-parser-is-correct-only-where-its-producer-is]]).
+RE_REFUSED = re.compile(r"\brefused=([01])\b")
+RE_RIP = re.compile(r"\brip=([0-9a-f]{16})\b")
+
+Counts = collections.namedtuple("Counts", "executes refuses stalls unparsed")
+# ⚠️ A NAMEDTUPLE, NOT A TUPLE.  Growing the previous 2-tuple by one field is
+# exactly the edit that silently changed a meaning in `p2_roster` on 09/08 and
+# published a STALLS count of 1 where the answer was 3.  Every consumer here
+# reads by NAME ([[feedback-a-positional-index-bets-the-record-wont-grow]]).
+ZERO = Counts(0, 0, 0, 0)
 
 
 def die(msg):
@@ -105,6 +150,41 @@ def build_cases(pres, path):
     return len(body)
 
 
+def parse(text):
+    """{tag: Counts} over a driver transcript.  ⛔ PURE STRING WORK AND SEPARATE
+    FROM `run()` ON PURPOSE: the defect this function was rewritten for is a
+    PARSING defect, so its red arms must be able to fire without ACL2.  An arm
+    behind a 20-second oracle run is a discipline; an arm that runs in
+    microseconds is a gate ([[feedback-make-the-probe-cheap]])."""
+    res, cur = {}, None
+    for line in text.splitlines():
+        m = re.match(r"^CASE id=(\S+) len=", line)
+        if m:
+            cur = m.group(1).rsplit("/", 1)[0]
+            continue
+        if line.startswith("POST ") and cur:
+            c = res.get(cur, ZERO)
+            ref, rip = RE_REFUSED.search(line), RE_RIP.search(line)
+            if ref is None or rip is None:
+                # ⛔ NOT `executes`.  See the RE_REFUSED comment: this is the
+                # branch the whole repair exists for.
+                c = c._replace(unparsed=c.unparsed + 1)
+            elif ref.group(1) == "1":
+                c = c._replace(refuses=c.refuses + 1)
+            elif int(rip.group(1), 16) == OA.ENTRY_RIP:
+                # ⚠️ A STALL IS `rip UNCHANGED`, not `rip != entry + len` — a form
+                # whose meaning is to move RIP elsewhere (a jump, a taken branch,
+                # or a `rep` signalling another iteration by NOT advancing, D46)
+                # would be misread by the stricter test.  No such form is in
+                # `FORMS` today; one added later must be read against this line.
+                c = c._replace(stalls=c.stalls + 1)
+            else:
+                c = c._replace(executes=c.executes + 1)
+            res[cur] = c
+            cur = None
+    return res
+
+
 def run(cases_path, driver_path, out_path):
     acl2 = os.environ.get("ACL2", os.path.join(ROOT, "vendor/acl2/saved_acl2"))
     if not os.access(acl2, os.X_OK):
@@ -118,39 +198,37 @@ def run(cases_path, driver_path, out_path):
         "(x86l-run-all *x86lean-cases* x86 state)\n")
     with open(out_path, "w") as fh:
         subprocess.run([acl2], stdin=open(drive), stdout=fh, stderr=subprocess.STDOUT)
-    res, cur = {}, None
-    for line in open(out_path):
-        m = re.match(r"^CASE id=(\S+) len=", line)
-        if m:
-            cur = m.group(1).rsplit("/", 1)[0]
-            continue
-        if line.startswith("POST ") and cur:
-            e, r = res.get(cur, (0, 0))
-            if re.search(r"refused=1", line):
-                r += 1
-            else:
-                e += 1
-            res[cur] = (e, r)
-            cur = None
-    return res
+    return parse(open(out_path).read())
 
 
-def verdict(res, n, tag):
-    """(reading, why) per form — a MISSING reading is never read as a refusal."""
+def verdict(res, n, tag, forms=None):
+    """(reading, why) per form — a MISSING reading is never read as a refusal,
+    and an UNPARSEABLE one is never read as an execution."""
     out = {}
-    for label, _asm, _hx, _e0, _e1 in FORMS:
+    for label, _asm, _hx, _e0, _e1 in (FORMS if forms is None else forms):
         t = OA.tag_of(label)
-        e, r = res.get(t, (0, 0))
-        if e + r != n:
+        c = res.get(t, ZERO)
+        total = c.executes + c.refuses + c.stalls + c.unparsed
+        if total != n:
             out[label] = (None, "produced %d records of %d expected in arm %s — "
-                                "a missing reading is not a refusal" % (e + r, n, tag))
-        elif r == n:
+                                "a missing reading is not a refusal" % (total, n, tag))
+        elif c.unparsed:
+            # ⛔ REFUSE, LOUDLY, AND NAME THE COUNT.  A gate that discards what it
+            # saw turns a diagnosable failure into a re-run somewhere else
+            # ([[feedback-a-gate-that-refuses-must-say-what-it-saw]]).
+            out[label] = (None, "%d of %d POST records in arm %s carry no parseable "
+                                "`refused=` / 16-hex-digit `rip=` pair (the driver's "
+                                "`POST init-error` is one such line). NOT scored as "
+                                "an execution." % (c.unparsed, n, tag))
+        elif c.refuses == n:
             out[label] = ("refuses", "")
-        elif e == n:
+        elif c.executes == n:
             out[label] = ("executes", "")
+        elif c.stalls == n:
+            out[label] = ("stalls", "")
         else:
-            out[label] = ("MIXED", "%d executed, %d refused of %d in arm %s"
-                          % (e, r, n, tag))
+            out[label] = ("MIXED", "%d executed, %d refused, %d stalled of %d in arm %s"
+                          % (c.executes, c.refuses, c.stalls, n, tag))
     return out
 
 
@@ -201,6 +279,109 @@ def report(on, off, forms=None, quiet=False):
     return bad
 
 
+def parser_arms():
+    """⭐ THE ARMS FOR THE DEFECT 0b(6) NAMED, AND THEY NEED NO ORACLE.
+
+    Every one of these plants a condition and requires this file's own `parse`
+    to report it.  Two of the four are POSITIVE CONTROLS in the same run: without
+    them "everything is unparseable" and "everything is a stall" both look like
+    success ([[feedback-a-probe-must-create-its-condition]],
+    [[feedback-a-plant-probes-control-comes-first]]).
+
+    Returns (ok, n_arms, failures)."""
+    fails, arms = [], 0
+
+    # ⛔ THE PLANT'S SUBJECT IS DERIVED FROM THE SHIPPED DRIVER, NEVER TYPED HERE,
+    # for the same reason CTRS_DEFCONST is: a plant that quietly stops matching
+    # its subject gives an arm that passes about nothing.
+    m = re.search(r'"CASE id=~s0 len=~x1~%(POST [^~"]*)~%"', open(DRIVER).read())
+    if not m:
+        return False, 0, [("init-error plant",
+                           "could not derive the failure-POST literal from %s — the "
+                           "driver's emission changed and this arm cannot build its "
+                           "subject. REFUSING rather than reporting agreement." % DRIVER)]
+    init_err = m.group(1)
+
+    def transcript(post_line, k=3):
+        return "".join("CASE id=probe/%d len=3\n%s\n" % (i, post_line) for i in range(k))
+
+    GOOD = "POST rax=0000000000000000 rip=%016x cf=0 refused=0"
+
+    # ARM 1 (POSITIVE CONTROL, FIRST): a well-formed advanced rip is `executes`.
+    #   Without this the three arms below cannot be told from a dead parser.
+    c = parse(transcript(GOOD % (OA.ENTRY_RIP + 3))).get("probe", ZERO)
+    arms += 1
+    if c != Counts(executes=3, refuses=0, stalls=0, unparsed=0):
+        fails.append(("control: an advanced rip must read `executes`", repr(c)))
+
+    # ARM 2 (POSITIVE CONTROL): rip UNCHANGED with the refusal flag clear is a
+    #   STALL.  This is the branch the repair added; without an input that
+    #   reaches it, it could be deleted and no arm would go red.
+    c = parse(transcript(GOOD % OA.ENTRY_RIP)).get("probe", ZERO)
+    arms += 1
+    if c != Counts(executes=0, refuses=0, stalls=3, unparsed=0):
+        fails.append(("control: rip == ENTRY_RIP with refused=0 must read `stalls`", repr(c)))
+
+    # ARM 3 ⭐ THE DEFECT ITSELF: the driver's own init-failure line.
+    c = parse(transcript(init_err)).get("probe", ZERO)
+    arms += 1
+    if c != Counts(executes=0, refuses=0, stalls=0, unparsed=3):
+        fails.append((
+            "the driver's %r must be UNPARSEABLE, never `executes`" % init_err,
+            "%r — this is the shipped defect: a total failure to build the machine "
+            "scored as successful execution, in the gate that certifies every "
+            "differential run at CR4=0x600" % (c,)))
+
+    # ARM 4 ⭐ THE D177 NEAR-MISS, MADE PERMANENT: a base-10 rip.  If a future
+    #   producer prints rip in ACL2's ambient print-base, `int("4194304",16)`
+    #   misses ENTRY_RIP and a STALL is scored as an EXECUTION.  Under the strict
+    #   16-hex-digit pattern that line is unparseable and the gate refuses.
+    c = parse(transcript("POST rax=0 rip=%d cf=0 refused=0" % OA.ENTRY_RIP)).get("probe", ZERO)
+    arms += 1
+    if c != Counts(executes=0, refuses=0, stalls=0, unparsed=3):
+        fails.append((
+            "a BASE-10 rip must be UNPARSEABLE, never `executes`",
+            "%r — D177's near-miss: int('4194304',16) = 68174084 misses ENTRY_RIP, "
+            "falls to the residual, and scores a stall as an execution "
+            "([[feedback-a-parser-is-correct-only-where-its-producer-is]])" % (c,)))
+
+    # ⛔⛔ ARMS 6 AND 7 EXIST BECAUSE THE RED PROBE FOUND ARMS 1-5 BLIND TO A REAL
+    #   LOOSENING.  Planting `if rip is None:` in place of `if ref is None or rip
+    #   is None:` — dropping the `refused=` requirement entirely, so the rip alone
+    #   decides every record — fired NO ARM AT ALL.  None of the transcripts above
+    #   carries the one shape that would catch it: a well-formed rip with the
+    #   refusal field ABSENT.  `x86l-post` prints both fields today, so the
+    #   condition is unreachable from the CURRENT producer — which is precisely
+    #   the "unpoliced by luck" that 0b(6) exists to remove, one level down.
+    #   ⇒ 🔑 AN UNCAUGHT PLANT IS A FINDING ABOUT THE ARMS UNTIL PROVED OTHERWISE
+    #   ([[feedback-probe-silence-has-two-causes]]).  Both halves of the AND are
+    #   now armed separately, because a conjunction tested only as a whole is one
+    #   arm wearing two names.
+    c = parse(transcript("POST rax=0 rip=%016x cf=0" % OA.ENTRY_RIP)).get("probe", ZERO)
+    arms += 1
+    if c != Counts(executes=0, refuses=0, stalls=0, unparsed=3):
+        fails.append(("a POST line with a good rip but NO `refused=` must be UNPARSEABLE",
+                      "%r — the rip alone must never decide a record" % (c,)))
+
+    c = parse(transcript("POST rax=0 cf=0 refused=0")).get("probe", ZERO)
+    arms += 1
+    if c != Counts(executes=0, refuses=0, stalls=0, unparsed=3):
+        fails.append(("a POST line with `refused=0` but NO `rip=` must be UNPARSEABLE",
+                      "%r — without a rip the stall test cannot run, and a record "
+                      "the stall test could not read is not an execution" % (c,)))
+
+    # ARM 8: and `verdict` must turn an unparsed count into a REFUSAL, not a
+    #   reading — the counter being right is not the same as the caller using it.
+    #   ⚠️ THIS ARM DOES NOT GO THROUGH `parse`, so no plant in the parser can
+    #   reach it; it needs its own, and the red probe carries one.
+    v = verdict({OA.tag_of(l): Counts(0, 0, 0, 3) for l, *_ in FORMS}, 3, "PLANT")
+    arms += 1
+    if any(r is not None for r, _why in v.values()):
+        fails.append(("verdict() must report an all-unparsed arm for EVERY form",
+                      repr({k: v[k][0] for k in v})))
+    return (not fails), arms, fails
+
+
 def main():
     on, off, n = measure()
     bad = report(on, off)
@@ -221,16 +402,21 @@ def main():
         # without ever calling the code that does the reporting.  A red arm that
         # cannot fail is a green light wired to nothing
         # ([[feedback-a-claim-the-vectors-cannot-distinguish]]).
+        # ⚠️ ROTATE, DO NOT "INVERT".  The vocabulary is three-valued now, and a
+        # two-valued flip (`refuses` <-> `executes`) leaves a `stalls` row mapped
+        # to a value it never had — which still differs, so the arm passes, but
+        # it passes without ever planting a wrong STALL claim.  Rotation
+        # guarantees the planted value differs from the true one for EVERY row
+        # including the stall control ([[feedback-a-control-can-share-the-blind-spot]]).
+        rot = {VALUES[i]: VALUES[(i + 1) % len(VALUES)] for i in range(len(VALUES))}
         for which, idx in (("OFF", 3), ("ON", 4)):
             planted = []
             for f in FORMS:
                 lab, asm, hx, e0, e1 = f
                 if idx == 3:
-                    planted.append((lab, asm, hx,
-                                    "executes" if e0 == "refuses" else "refuses", e1))
+                    planted.append((lab, asm, hx, rot[e0], e1))
                 else:
-                    planted.append((lab, asm, hx, e0,
-                                    "executes" if e1 == "refuses" else "refuses"))
+                    planted.append((lab, asm, hx, e0, rot[e1]))
             got = report(on, off, planted, quiet=True)
             if len(got) != len(FORMS):
                 print(f"\n⛔ selftest arm FAILED — inverting every {which} declaration "
@@ -259,7 +445,17 @@ def main():
             return 1
         print(f"  ✔ red arm: an EMPTY run is reported by all {len(FORMS)} forms, "
               f"not read as agreement")
-        print(f"\ndriver-CR4 selftest: PASS ({arms + 1} red arms)")
+        arms += 1
+        ok, n_p, fails = parser_arms()
+        if not ok:
+            print("\n⛔ selftest FAILED in the PARSER arms:")
+            for lab, why in fails:
+                print(f"    {lab}\n      {why}")
+            return 1
+        print(f"  ✔ {n_p} parser arms (2 positive controls first, then the "
+              f"`POST init-error` and base-10-rip plants, then verdict's refusal)")
+        arms += n_p
+        print(f"\ndriver-CR4 selftest: PASS ({arms} red arms)")
         return 0
     if bad:
         print("\n⛔ driver-CR4 gate: FAIL")

@@ -181,10 +181,64 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    CAUGHT**. A non-CONTROL `executes` row (`paddd`) was added and all three drives now fire.
    ⇒ 🔑 **A CONTROL EXCLUDED BY A DIFFERENT FILTER CANNOT WITNESS THE RULE UNDER TEST**
    ([[feedback-a-control-can-share-the-blind-spot]]).
-   ⛔ **(6) `check_driver_cr4.py` REMAINS OPEN and is NOT to be patched unverified.** It wants an
-   ACL2 run, and the seat that found it had released the box to systems with an explicit commitment
-   not to re-take it. Patching a gate's classifier without executing it is exactly what item 0(a)
-   refused to do. **RELEASE: any sitting with oracle access. OWNER: the next paris head.**
+   ✅ **(6) DISCHARGED 2026-09-09 (D178), WITH THE ACL2 RUN IT ASKED FOR — AND IT WAS AN
+   UNDER-CLAIM TWICE OVER.** `check_driver_cr4.py`'s classifier is now three-valued and its
+   `FORMS` gains `STALL:movmskps`, because **a third value nothing exercises is a branch no input
+   reaches** ([[feedback-an-implied-assertion-is-not-a-second-gate]]). Sealed before any edit and
+   before any repaired run, scored after: **4 of 4 predictions held**, the ON-arm reading
+   re-measuring D170's 88/88 stall through a second script, and the OFF arm (`refuses`, on the
+   OSFXSR #UD gate) being the genuine one. Baseline 07:35Z green; repaired 07:43Z green;
+   **4 red arms → 11.**
+
+   ⛔⛔ **THE FIRST UNDER-CLAIM: THE RESIDUAL WAS STILL `executes`, AND D177 HAD NOT CLOSED IT.**
+   0b(6) named a *missing third value*. Measured with a plant on 2026-09-09 — the driver's own
+   **`POST init-error`** (emitted when `init-x86-state-64` FAILS, so the machine was never built,
+   carrying **neither** `refused=` nor `rip=`) — scored **`executes` 6 of 6** by
+   `check_driver_cr4.py` **and 6 of 6 by `oracle_availability.measure`, the D177-repaired
+   THREE-valued classifier**, with a live control in the same run proving both loops discriminating.
+   ⇒ 🔑 **MAKING A CLASSIFIER THREE-VALUED MOVED THE RESIDUAL WITHOUT REMOVING IT.** The strongest
+   possible NON-reading was the strongest possible positive reading, one branch further down
+   ([[feedback-a-classifiers-value-set-is-a-claim]]). Both parses now REQUIRE `refused=([01])` and a
+   **sixteen-hex-digit** `rip=`, and refuse — naming the count — otherwise. The width is not
+   decoration: under it a base-10 rip cannot match, so D177's near-miss becomes a refusal instead of
+   a stall scored as an execution ([[feedback-a-parser-is-correct-only-where-its-producer-is]]).
+
+   ⛔⛔ **THE SECOND UNDER-CLAIM: `oracle_availability`'s SELFTEST SPOKE TWO VALUES AND ITS TABLE
+   SPOKE THREE.** Its red arms planted `refuses` ⇄ `executes`, so of 18 rows exactly **ONE was
+   planted by NEITHER arm — `movmskps`, the row D170 added the third value FOR.** Its declaration
+   could have been wrong in either direction and no arm would have spoken.
+   ⇒ 🔑 **D170 TAUGHT THE CLASSIFIER AND THE TABLE A THIRD VALUE AND LEFT THE ARMS SPEAKING TWO, SO
+   THE REPAIR'S OWN SUBJECT BECAME THE ONE ROW ITS GATE COULD NOT TEST.** Now a three-value
+   ROTATION plus an assert that **every** row is planted by some arm, so a future fourth value
+   cannot escape the way `stalls` did ([[feedback-a-declared-list-inherits-its-default]]).
+   **3 red arms → 12**, 18 forms × 88 pre-states, and the parse arms run **BEFORE** the oracle so
+   they fire on a box with no ACL2 ([[feedback-a-gate-whose-precondition-is-a-discipline]]).
+
+   ⭐ **THE THIRD PARSE SITE WAS READ AND IS ALREADY SOUND — a positive finding, not an omission.**
+   `measure_cr4` matches with `re.finditer` over a full-shape pattern, so an unreadable line yields
+   **no record** rather than a wrong one; its caller reports the shortfall (*"a reading is
+   MISSING"*); and D177's cross-arm (parsed `rip` vs ACL2-computed `stalled`) makes a print-base
+   move LOUD. Three sites, three verdicts, all measured.
+
+   ⭐⭐ **AND THE ARMS WERE THEMSELVES RED-PROBED, WHICH IS WHERE THE REAL WORK WAS.**
+   `scripts/cr4_parse_redprobe.py` and `scripts/oa_parse_redprobe.py` plant defects into an
+   in-memory copy of each shipped module and require each to fire exactly the arms it should.
+   **Two arms exist only because a plant found silence:**
+   - an honest loosening (`refused=` no longer required) fired **NO ARM AT ALL** on the first
+     draft — no transcript carried a good rip with the refusal field absent. Arms 6 and 7 were
+     added for it, and P-G/P-H prove they are **two** arms, not one wearing two names
+     ([[feedback-probe-silence-has-two-causes]], [[feedback-two-arms-that-agree-to-the-case]]).
+   - disabling `report()`'s refusal branch also fired nothing: every form still reported, as
+     `MIXED`, so a count-only arm stayed green while the DIAGNOSIS was gone. ⇒ 🔑 **A GATE THAT
+     REPORTS THE RIGHT COUNT FOR THE WRONG REASON HAS STOPPED SAYING WHAT IT SAW**
+     ([[feedback-a-gate-that-refuses-must-say-what-it-saw]]).
+   **All seven arms are now fired by at least one plant, the positive controls included.**
+   ⚠️ Two plants CRASH rather than misreport (half a conjunction removed, then a `None`
+   dereferenced). A traceback is a louder red than a wrong number but it is **not an arm firing**,
+   and the probes record it as `CRASH` for exactly that reason.
+   ⚠️ **THREE OF NINE AUTHOR EXPECTATIONS WERE WRONG AND THE ARMS WERE RIGHT EACH TIME** — each
+   written from a plant's INTENT rather than from its reachable CONSEQUENCES. Corrected in place
+   with the reason, never quietly widened ([[feedback-prose-written-before-the-measurement]]).
 
    *(the original statement follows)*
 
