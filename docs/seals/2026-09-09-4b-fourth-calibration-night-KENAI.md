@@ -214,6 +214,12 @@ THREE holes were on this route, not one.** The prediction's *reasoning* was righ
 *confidence was too high*; that is recorded here rather than quietly re-rated, and P3 is
 now re-sealed at **MODERATE** for the walk that follows.
 
+## ⚡ THE PIN
+**TOOLING SHA FOR THIS NIGHT: `74dff4facfa827f0a854885c56eb5d325df64e5d`** — the commit carrying amendments 1 and 2
+and the three port repairs. This is the sha amendment 1 §1 refers to. kenai is
+reset to it before the walk starts, and the walk's own first line records the HEAD
+it actually ran at, so the claim is checkable against the run rather than trusted.
+
 AMENDED 2026-09-09 (PDT), before the walk's first reading.
 
 ---
