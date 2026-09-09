@@ -176,11 +176,22 @@ The orphan/contention probe asks *"is anything of mine left detached, and is the
 repository otherwise quiet"*. Its CONTROL arm is literally *"no extra worktree is
 registered, so the probe's silence is about the repository"* — **which cannot pass while a
 second seat legitimately holds a worktree in this repo.**
-⛔ **NOT REPAIRED, AND DELIBERATELY: that worktree is `evidence`'s LIVE work and is not
-mine to remove.** ⇒ 🔑 ***A SELFTEST WHOSE VERDICT DEPENDS ON WHAT ANOTHER SEAT IS DOING IS
-NOT A SELFTEST OF THIS CODE*** — it must distinguish "a worktree registered by another
-seat" from "a worktree I leaked", which is the same distinction the probe already makes
-correctly for PROCESSES [[feedback-enumerate-is-not-attribute]]. **OWNER:** paris.
+⛔ **THE WORKTREE IS NOT REMOVED, AND DELIBERATELY: it is `evidence`'s LIVE work.**
+⇒ 🔑 ***A SELFTEST WHOSE VERDICT DEPENDS ON WHAT ANOTHER SEAT IS DOING IS NOT A SELFTEST OF
+THIS CODE*** [[feedback-enumerate-is-not-attribute]].
+✅ **DISCHARGED 2026-09-09 at `f482a4a` — 4 of 27 → 1 of 27, with evidence's worktree still
+registered.**
+⛔ **AND THE FIX IS NOT IN `stale_worktrees`.** That function REPORTS and never removes,
+precisely because it cannot tell a live checkout from a stranded one, and it names the
+ambiguity on purpose. **A selftest may not invent a distinction the tool declines to make.**
+So the three arms now measure **the delta THIS SELFTEST CAUSES** against a baseline taken
+before it plants anything — the quantity they were always about. The plant arm got STRONGER
+on the way: it now asserts the planted path is the ONLY thing that appeared.
+⚠️ **One arm is honestly weaker and says so in its own text:** the zero control
+(`post_flight` returns 0) cannot be taken on a box whose repository legitimately holds a
+checkout, so it becomes *"reports exactly the N already present"* **and prints that it is
+not evidence the probe can return 0** [[feedback-a-gate-that-refuses-must-say-what-it-saw]].
+The strong form returns by itself the moment the baseline is empty. **OWNER:** paris.
 
 ### PORT-4. Two `mkdtemp` prefixes do not conform, so a leak of theirs is misattributed
 `check_private_paths.py` uses `ppgate-selftest-` and `pphist-selftest-`; the orphan probe
@@ -188,6 +199,13 @@ identifies this seat's own work by the `x86lean-` prefix. A temp dir either leav
 read as another campaign's. From `eac47e8` (evidence's PR #1) and `31f2b5f` (D182) — **not
 from the port work, and named here rather than fixed in a commit about something else.**
 **OWNER:** paris. Small.
+⛔ **AND IT IS BLOCKED ON A COLLISION, NOT ON EFFORT: `evidence` has a LIVE BRANCH on that
+exact file** (`evidence/gate-canon-x86lean`, `080cd3b`). Editing it on master now buys a
+conflict for another seat's in-flight work in order to fix two temp-dir prefixes.
+**RELEASE: evidence's branch lands or is abandoned.** Recorded so the next head does not
+read "small" as "do it now".
+📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
+"three environment-dependent arms" precondition is now met and this is what remains.
 
 ## P0 — the scalar core · **DISCHARGED**
 The 20 scalar forms, `Cpu`, `step`, the differential harness against ACL2 x86isa.
