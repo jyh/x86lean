@@ -384,6 +384,60 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    census's rule, so each verdict IS an availability fact this table could carry. Ruling on them
    widens what `measured_availability()` means and moves the roster — a batch, not a side effect.
 
+   ### 1a. ⭐⭐ THE SIX ARE NOW **PRICED** (2026-09-09) — AND THE LIST CONTAINS THE CAMPAIGN'S
+   ### NUMBER-ONE DEMAND ROW. Still a batch; no longer an unknown one.
+   Measured with no oracle and no box: every verdict is already in the shipped tables, and demand
+   comes from `docs/DEMAND-CENSUS.md.json`'s `miss_all` summed over all 12 corpora.
+```
+     probe form     (mnemonic, census bucket)          verdict    demand (instructions)
+     endbr64        ('endbr64', 'CET-IBT')             executes   ⭐ 29,689  — THE LARGEST ROW
+     emms           ('emms', 'GPR/other (unclass.)')   stalls     ⛔    165  — an UNAVAILABILITY
+     movntil        ('movntil', 'SSE2 (nt store)')     refuses           2
+     prefetcht0     ('prefetcht0', 'PREFETCH')         executes          0
+     prefetchnta    ('prefetchnta', 'PREFETCH')        executes          0
+     CONTROL:mov    ('movl', 'GPR/other (unclass.)')   executes          0
+     ⇒ measured_availability(): 256 keys -> 262, +6, ZERO conflicts and zero duplicates.
+```
+   ⛔⛔ **`endbr64` IS RANK 1 OF `docs/P2-ROSTER.md`'s "demand without supply" — 16,488 / 4.11% —
+   AND THE LARGEST SINGLE ROW IN THE WHOLE DEMAND CENSUS AT 29,689.** It is not modelled in any
+   `.lean`, the oracle EXECUTES it, and the table whose job is to say what the oracle can run has
+   been declining to look at it *because it was declining to look at it yesterday*.
+   ⚠️ **AND RULING IT IN WOULD NOT UNBLOCK IT** — its blocker is that **K has no rule** for it, which
+   is a SEMANTICS-SOURCE constraint and not an availability one. What the ruling buys is that the
+   campaign's biggest demand row stops being *silent* in the availability answer.
+   ⇒ 🔑 **AN EXCLUSION LIST IS A CLAIM ABOUT EVERY ROW ON IT, AND NOBODY PRICES A LIST OF THINGS
+   THEY HAVE DECIDED NOT TO ASK ABOUT.** Four of the six carry ≤2 instructions of demand and are
+   genuinely inert; the list read as uniformly inert because nobody had ever joined it to demand.
+   [[feedback-a-declared-list-inherits-its-default]] [[feedback-a-category-is-a-hypothesis-about-its-members]]
+   ⭐ **`emms` IS THE OTHER HALF AND IT POINTS THE OPPOSITE WAY:** its verdict is `stalls`, i.e. the
+   oracle CANNOT run it, and it carries 165 instructions of real demand. **The exclusion hides an
+   UNAVAILABILITY**, which is the direction that INVENTS work. It is also one of the three stalling
+   forms D177 found only by the full 267-row sweep.
+
+   📌 **RECOMMENDATION FOR THE BATCH (not taken here, deliberately — a roster move deserves its own
+   gates):** rule in all six; `NOT_AN_AVAILABILITY_QUESTION` keeps only the three entries with
+   STRUCTURAL reasons (`ADD1`/`ADD2`/`ADD3`), and gains an arm that **refuses on any entry whose
+   reason is "unruled"** — so the list cannot grow a fourth unpriced member.
+
+   ⛔⛔ **AND THE METHOD, WRITTEN DOWN BECAUSE THREE OF MY FIRST FOUR READINGS WERE VACUOUS AND EACH
+   ONE LOOKED LIKE AN ANSWER.** Whoever takes this batch must not re-run them:
+   1. *"Diff each consumer's stdout with the six ruled in."* → `p2_oracle_support` **never calls
+      `measured_availability()`** on that path, so IDENTICAL meant "the table was never consulted".
+   2. *"Plant an extra exclusion as a control."* → I excluded `movdqa`, whose key the default report
+      does not print, so the control **did not move and I nearly read that as the patch not
+      working**. A control must differ in a dimension the OUTPUT reports
+      [[feedback-a-control-can-share-the-blind-spot]].
+   3. *"Join the six against the demand census."* → my parser found **0 rows** (the JSON is keyed by
+      CORPUS, not a flat list), so every one of the six printed `demand NONE` — **the answer I was
+      half-expecting, produced by an empty input** [[feedback-a-route-cannot-see-its-subject]].
+   4. Then a control chosen from OUTSIDE the list's population (`paddd`, `movdqa`) read ABSENT —
+      correctly, because they are COVERED and a **miss** list cannot contain them by construction.
+   ⇒ 🔑 **THE ONLY CONTROL THAT WORKED WAS ONE DRAWN FROM THE LIST'S OWN POPULATION** (its top row,
+   round-tripped). ⇒ **When probing a filtered set, take the control from inside the filter** — a
+   control from outside it is testing the filter, not the lookup.
+   ⚠️ And note what all four share: **each produced a plausible number from a subject it had never
+   reached.** [[feedback-a-probe-must-create-its-condition]] [[feedback-read-what-the-instrument-measured]]
+
 2. **Land the buildable groups the census has surfaced** — the ordinary batch work.
    ⭐⭐⭐ **THE GROUP IS NAMED AND DERIVED NOW (D157).** This row asked for "the buildable
    groups" for three sittings and named none, because the P2 roster's ranked table prints its
