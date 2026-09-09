@@ -51,6 +51,36 @@ implemented pair that CAN be asked"*, with `vzeroupper` / `AVX (state)` — 1,24
 outside the probe's reach for three batches. The availability census is finished without a
 qualifier.
 
+### ⛔⛔⛔ READ THIS BEFORE PLANNING A BATCH — ITEM 4 IS THE CAMPAIGN'S CRITICAL PATH, NOT AN ANNOYANCE
+
+Established 2026-09-09 by paris, from three measurements and the ratchet file, after `es3-anchor-theorems`
+failed to land:
+```
+  docs/drift-gap-ratchet.txt ......... lean_missing_max 0, gated in BOTH directions
+  ⇒ EVERY first-parent step that changes a `.lean` file MUST carry a drift-ledger row
+  ⇒ a row comes from a delta measurement, and the delta gate is the MERGE gate
+  ⇒ so a batch whose delta comes back UNMEASURABLE (rc 3) CANNOT LAND
+```
+⇒ 🔑 **THE CAMPAIGN'S THROUGHPUT IS BOUNDED BY THE BOX'S PER-RUN BAND, NOT BY MODELLING EFFORT.**
+Item 4 is filed among the gate's housekeeping items and reads like instrument hygiene. It is not:
+**it sits across every `.lean` landing this repository can make.** Two branches are already held by
+it (`es3-anchor-theorems`, `p2-batch32-fp-compares`), and **P3 sub-group A — 12 pairs / 6,619
+instructions, on the record as BUILDABLE — would meet the same wall**, because it is `.lean` work
+like any other.
+
+⚠️ **STATED PRECISELY, BECAUSE THE OVER-CLAIM IS TEMPTING:** the gate is not always undecidable. It
+decided at n=3 on a quiet box the same evening, and item 4's 09/06 entry records a second run
+deciding what a first could not. The claim is **not** "the gate is broken" — it is that **the
+binding constraint on this campaign is a per-run property of a SHARED box**, and no amount of
+modelling, and no larger `n`, moves it.
+
+⇒ **THE COROLLARY FOR WHOEVER PLANS THE NEXT BATCH:** adding a fifth unmergeable branch is not a
+response to this diagnosis, it is a symptom of ignoring it. **Fix the instrument, or get an
+uncontended box, before growing the queue of `.lean` work that cannot land.**
+📌 This is the shape [[feedback-a-two-input-join-cannot-see-the-third-constraint]] names: the roster
+ranks work by DEMAND and BUILDABILITY and joins neither against the thing that would STOP its top
+item. The census can say "buildable" all it likes; the ledger decides what lands.
+
 ### P2 open items, in order
 
 0. ✅✅ **DISCHARGED 2026-09-08 (D177) — (a), (b) AND (c) ALL LANDED, AND THE DEFECT HAD FOUR MORE
