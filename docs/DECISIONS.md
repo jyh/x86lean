@@ -12747,3 +12747,59 @@ Adjacent-commit `Δms` runs −350 to +750 ms while the between-sweep p95 spread
 deltas — signal ~k, noise ~√k — which is why `k=1` is this tool's most-selected regime.
 Known in shape; the cross-machine spread is newly measured, and it is recorded rather than
 left as an impression.
+
+## D188 — the same box, twice, 52 minutes apart: the band reproduces WEAKLY and the tightness was a one-night accident
+
+**LANE.** Personal. kenai only, both nights. Public sources only.
+
+### 1. THE RESULT
+Sealed before the first pass (`docs/seals/2026-09-09-4b-fifth-night-KENAI-repeatability.md`,
+tooling pinned `88b3a54`). 24 readings, 37 min 23 s, EXIT 0.
+```
+  Q1 usability gate       ✅ CONFIRMED  MAX per-commit p95 11.9% vs bound 14.2259%
+  Q2 k>=8 CV below 6%     ⛔ REFUTED    CV 9.8%
+  Q3 band overlaps n4     ✅ CONFIRMED  overlap 4.89-5.26
+
+  quiet (yukon)  2.39-4.12  median 3.38  CV 14.2%
+  night 4 (kenai) 4.37-5.26  median 4.61  CV  5.5%
+  night 5 (kenai) 4.89-7.01  median 5.72  CV  9.8%
+```
+
+### 2. ⭐ A POST-HOC HYPOTHESIS, PRE-REGISTERED, AND REFUTED BY ITS OWN TEST IN FOUR HOURS
+D187 noticed that kenai's band was 2.6x tighter than yukon's (CV 5.5% vs 14.2%) and
+explicitly declined to bank it, naming it a hypothesis with an obvious cheap test. **Night 5
+ran that test and killed it.** The tightness was a one-night accident, not a property of the
+quiet box.
+📌 **This is the whole value of the discipline, and it is worth recording as a positive.**
+Six entries in a row had removed obstacles without supplying evidence, which is exactly the
+condition under which a seventh reading gets promoted to a finding. **Pre-registration is
+what stopped that**, and the cost of being right about it was one 37-minute walk.
+[[feedback-prose-written-before-the-measurement]] [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]]
+
+### 3. ⚠️ READ THE MARGIN, NOT THE VERDICT
+Q1 passed at **11.9% against a 14.2259% bound — 84% of it**, where night 4 sat at 36%. **The
+same box, two nights 52 minutes apart, and the between-sweep noise more than doubled.**
+A gate reported as PASSED twice conceals that one of the two nearly failed
+[[feedback-a-pass-at-97-percent-is-not-headroom]].
+
+### 4. ⇒ THE FINDING THE SEAL DID NOT ASK FOR, LABELLED AS SUCH
+Q3 was sealed as overlap/no-overlap and it overlaps; that goalpost is not moved. But:
+```
+  SAME box · SAME corpus · SAME tooling · 52 minutes apart
+  median band 4.61 -> 5.72 = 1.24x ; overlap 0.37 wide against night 5's own 2.12 range
+```
+⇒ 🔑 ***THE BUDGET IS NOT REPRODUCIBLE TO BETTER THAN ~25% ON ONE MACHINE, BEFORE ANY
+MACHINE DIFFERENCE ENTERS.*** Reproducible in the weak sense the seal asked; loose in the
+sense a budget needs.
+
+### 5. ⚖️ IT SHARPENS ARM A INSTEAD OF THREATENING IT
+**All of this variation lives in `ms`.** `Δku` is identical by construction across the two
+nights (the counters corpus was not re-walked) and was measured identical across the two
+machines (D185). ⇒ **The noisy half is exactly the half ARM A stops gating.** The clock is
+now known to be machine-dependent (D187), night-dependent (here), unable to separate a real
+commit from a no-op (D187), and the carrier of all of both nights' scatter — four
+independent reasons for the same design.
+⛔ **BLOCKER (b) IS NOT ANSWERED.** The night asked *"does the counter track kernel time"* and
+answers *"reproducibly, to about 25%"*. That is not evidence FOR the counter in any strong
+sense. **Seventh in a row to remove an unknown and supply none** — though this one moved a
+number rather than only a diagnosis.

@@ -1436,7 +1436,7 @@ occur. Until then this is ONE observation and is recorded as one.
    THE GATE GATES, taken on one night per box, so the reversal cost is kept at one document.
    **If the helm or the Captain prefers ARM B, it reverses by editing this entry.**
 
-   #### ⚡ NIGHT 5 IS RUNNING ON KENAI (2026-09-09 ~15:0x PDT) — A SAME-MACHINE REPEAT
+   #### ⚖️ NIGHT 5 RAN AND IS RESOLVED (2026-09-09, D188) — A SAME-MACHINE REPEAT
    **SEAL, committed before the first pass: `docs/seals/2026-09-09-4b-fifth-night-KENAI-repeatability.md`,
    tooling pinned `88b3a54`.** Same twelve commits, same order, `--sweeps 2`, same counters,
    same gate. Only the output path differs.
@@ -1454,6 +1454,37 @@ occur. Until then this is ONE observation and is recorded as one.
    why this experiment is the right one and why night 4's refutation clause was not.
    ⚠️ **The hypothesis under test was generated POST-HOC today**, which is why it is
    pre-registered before its test rather than banked as a finding.
+
+   ⚖️ **RESULT — 24 readings, 37 min 23 s, EXIT 0. `docs/kernel-delta-history-KENAI-NIGHT5-2026-09-09.jsonl`.**
+```
+     Q1 usability gate    ✅ CONFIRMED  MAX per-commit p95 11.9% vs bound 14.2259%
+     Q2 k>=8 CV below 6%  ⛔ REFUTED    CV 9.8%
+     Q3 band overlaps n4  ✅ CONFIRMED  overlap 4.89-5.26
+
+     quiet (yukon)   2.39-4.12  median 3.38  CV 14.2%
+     night 4 (kenai) 4.37-5.26  median 4.61  CV  5.5%
+     night 5 (kenai) 4.89-7.01  median 5.72  CV  9.8%
+```
+   ⭐ **THE POST-HOC TIGHTNESS HYPOTHESIS IS DEAD, KILLED BY ITS OWN TEST IN FOUR HOURS.**
+   Night 4's CV of 5.5% was a ONE-NIGHT ACCIDENT, not a property of the quiet box. **Had it
+   been banked as "the first evidence FOR the counter" — which seven obstacle-removals in a
+   row make tempting — it would have entered the record as a finding.** The pre-registration
+   is what stopped that, and being right about it cost one 37-minute walk.
+   ⚠️ **READ THE MARGIN:** Q1 passed at **84% of its bound**, where night 4 sat at 36%. Same
+   box, 52 minutes apart, and the between-sweep noise more than doubled. Two PASSes conceal
+   that one nearly failed [[feedback-a-pass-at-97-percent-is-not-headroom]].
+   ⇒ 🔑 **AND THE READING THE SEAL DID NOT ASK FOR:** same box, same corpus, same tooling,
+   **median band 4.61 → 5.72 = 1.24x.** ***THE BUDGET IS NOT REPRODUCIBLE TO BETTER THAN
+   ~25% ON ONE MACHINE, BEFORE ANY MACHINE DIFFERENCE ENTERS.***
+   ⚖️ **THIS SHARPENS ARM A RATHER THAN THREATENING IT.** All the variation lives in `ms`;
+   `Δku` is identical by construction across both nights and measured identical across both
+   machines. **The noisy half is exactly the half ARM A stops gating** — the clock is
+   machine-dependent (D187), night-dependent (D188), cannot separate a real commit from a
+   no-op (D187), and carries all of both nights' scatter. **Four independent reasons, one
+   design.**
+   ⛔ **BLOCKER (b) IS NOT ANSWERED:** *"does the counter track kernel time"* answers
+   *"reproducibly, to about 25%"*. Seventh entry in a row to remove an unknown and supply no
+   evidence FOR the counter.
 
    #### 📌 THE FIRST THING IN SIX ENTRIES POINTING **FOR** THE COUNTER — AND IT IS A HYPOTHESIS
 ```

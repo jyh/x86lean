@@ -74,3 +74,62 @@ of those.
 before the walk starts, and the walk records the HEAD it actually ran at.
 
 SEALED 2026-09-09 (PDT), before any reading of this night exists.
+
+---
+
+# ⚖️ THE RESULT — 24 readings, 14:29:36 → 15:06:59 PDT (37 min 23 s), EXIT 0
+Corpus: `docs/kernel-delta-history-KENAI-NIGHT5-2026-09-09.jsonl`.
+
+## THE SEALED VERDICTS, IN THE SEALED ORDER
+```
+  Q1  passes the usability gate                        ✅ CONFIRMED
+      per-commit p95: min 2.7%  median 7.5%  MAX 11.9%   bound 14.2259%
+      ⚠️ READ THE MARGIN, NOT THE VERDICT: 11.9% is 84% of the bound, against night
+         4's 5.1% (36%). The same box, two nights, and the noise more than doubled.
+  Q2  the k>=8 band's CV is BELOW 6%                    ⛔ REFUTED — CV 9.8%
+  Q3  the band OVERLAPS night 4's 4.37-5.26            ✅ CONFIRMED — overlap 4.89-5.26
+```
+```
+  quiet night (yukon)   2.39-4.12   median 3.38   SPREAD 1.72x   CV 14.2%
+  night 4 (kenai)       4.37-5.26   median 4.61   SPREAD 1.20x   CV  5.5%
+  night 5 (kenai)       4.89-7.01   median 5.72   SPREAD 1.43x   CV  9.8%
+```
+
+## ⭐ THE HYPOTHESIS IS DEAD, AND ITS DEATH IS THE POINT
+Night 4's CV of 5.5% was noticed **after** seeing the numbers, and I said so at the time and
+pre-registered it rather than banking it. **Its own test refuted it within four hours.**
+⇒ **The tightness was a ONE-NIGHT ACCIDENT.** kenai's Δms↔Δku proportionality is not 2.6x
+tighter than yukon's as a property of the box; night 5 on the same box reads CV 9.8%.
+📌 **This is the pre-registration working exactly as intended.** Had I banked night 4's 5.5%
+as "the first evidence FOR the counter" — which is precisely what six obstacle-removals in a
+row make tempting — it would have entered the record as a finding and been quoted.
+[[feedback-prose-written-before-the-measurement]]
+
+## ⚠️ AN ADDITIONAL READING, EXPLICITLY **NOT** A SEALED VERDICT
+Q3 was sealed as overlap/no-overlap and it overlaps; I am not moving that goalpost. But the
+same numbers carry something the seal did not ask:
+```
+  SAME box · SAME corpus · SAME tooling · two nights 52 minutes apart
+  median band  4.61 -> 5.72  =  1.24x
+  and the overlap is 0.37 wide against night 5's own 2.12 range
+```
+⇒ 🔑 ***THE BUDGET IS NOT REPRODUCIBLE TO BETTER THAN ~25% ON ONE MACHINE, BEFORE ANY
+MACHINE DIFFERENCE ENTERS.*** Reproducibility is real in the weak sense the seal asked for
+and LOOSE in the sense a budget would need.
+
+## ⚖️ WHAT THIS DOES TO 4b — AND IT SHARPENS ARM A RATHER THAN THREATENING IT
+**Every bit of this variation lives in `ms`.** `Δku` is not merely stable across the two
+nights, it is IDENTICAL BY CONSTRUCTION — the counters corpus was not re-walked, and the
+counter is deterministic and was measured identical across the two machines (D185).
+⇒ **The noisy half is exactly the half ARM A stops gating**, and the night-to-night 1.24x
+is a fourth independent reason to gate `Δku` in unfoldings rather than `ms per 1k unfoldings`:
+the clock is machine-dependent (D187), night-dependent (here), cannot separate a real commit
+from a no-op (D187 §ARM A), and carries the whole of both nights' scatter.
+⛔ **AND BLOCKER (b) IS NOT ANSWERED.** This night was aimed at *"does the counter track
+kernel time"* and what it returns is: **reproducibly, but only to ~25%.** That is not
+evidence FOR the counter in any strong sense, and I am not reporting it as such. **Seventh
+entry in a row that removes an unknown without supplying evidence FOR the counter** — and
+this one at least changed a number rather than only a diagnosis.
+
+SEALED RESULT WRITTEN 2026-09-09, after the gate was judged. **No re-run is permitted: the
+night completed and carries a verdict.**
