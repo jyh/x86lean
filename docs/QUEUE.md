@@ -986,6 +986,35 @@ occur. Until then this is ONE observation and is recorded as one.
    ⚠️ **A REFUTED CANDIDATE, RECORDED SO IT IS NOT RE-TRIED:** thermal/temporal drift across the
    night. Each declaration's LAST reading over its FIRST is **median 1.00 (quiet) and 0.99
    (loaded)**, over spans of 0.4 h and 0.6 h. **There is no drift in either walk.**
+
+   ### ⚖️ AND WHAT THIS DOES **NOT** DO: IT DOES NOT LIFT 4b's SECOND-SOURCE BLOCKER
+   The tempting reading is *"the loaded night's disagreement is explained, so the quiet night's
+   calibration stands and half the blocker is gone."* ⛔ **It is not, and the distinction is the
+   whole point.** An explanation for why a source must be EXCLUDED is not a second source.
+   ⇒ **What the blocker actually is, restated precisely:** *there is exactly ONE usable calibration
+   night, and a calibration resting on one night is not a second source* — which is the same
+   sentence D148 wrote about one resolved pair, one level up. The loaded night does not REFUTE the
+   kernel-unfolding counter; it is simply unusable, taken in a regime whose tail is 2.1x-3.2x wider
+   than the calibration's own. ⇒ 🔑 **RE-DIAGNOSED, NOT RELEASED — and saying so is the difference
+   between an item someone can finish and an item someone will quietly declare finished**
+   [[feedback-widening-a-gate-needs-a-second-source]].
+
+   📌 **THE EXPERIMENT IS NOW FULLY SPECIFIED, WHICH IT WAS NOT THIS MORNING.** It needs the box.
+   ```
+     1. a fresh `kernel_delta_history` walk over the SAME 12 commits, EVERY reading at load1 <= 21
+     2. gate the walk on its OWN TAIL before scoring it: p95 of the between-sweep spreads must sit
+        in the quiet night's range, or the night is UNUSABLE and is discarded ON THAT COVARIATE —
+        declared in advance, exactly as D179 rule 4 requires, and NOT on whether it agrees
+     3. score `unfolding_calibration.py --counters <the committed counters> --walk <the new walk>`
+        and compare the k>=8 unselected band against 2.39-4.12, median 3.38
+   ```
+   ⚠️ **STEP 2 IS THE ONE THAT MAKES IT AN EXPERIMENT RATHER THAN A THIRD OPINION** — without a
+   pre-declared usability gate on a covariate, "the third night agreed" is selection on the outcome
+   and D179 forbids it. ⛔ **AND THE COUNTERS ARE NOT RE-WALKED**: they are load-invariant (measured,
+   5 of 5 byte-identical across a 2.4x-9x load ratio), so re-walking them is the unrunnable
+   experiment my own retracted entry specified.
+   **OWNER:** paris. **RELEASE:** a sitting with an uncontended box — ⚠️ **and here that IS a
+   measured requirement**, not item 4's withdrawn one: the whole design turns on the walk's tail.
    ⇒ 🔑 **4b's SECOND-SOURCE BLOCKER IS MISDIAGNOSED, NOT MERELY UNMET.** It is recorded as "two
    nights on one box disagree, one of them loaded", which reads as *understood and waiting for a
    second machine*. The load half is now refuted, so what it actually says is **the second source
