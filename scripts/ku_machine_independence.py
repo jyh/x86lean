@@ -155,6 +155,75 @@ def instrument_is_live(readings: dict) -> bool:
     return len(set(seen)) == len(seen) and len(seen) > 1
 
 
+def load_corpus(path):
+    """A deterministic_cost walk as {commit8: {decl: count}}, plus its origin.
+
+    ⛔ THE ORIGIN IS PART OF THE READING. A walk file that does not say which
+    machine produced it cannot be checked for the one failure that would make a
+    machine-independence claim vacuous. Files written before the `origin` field
+    existed return None, and the comparison then REFUSES rather than assuming.
+    """
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    if not rows:
+        raise ValueError(f"{path} holds no readings — refused, never treated as agreement")
+    by = {r["commit"][:8]: (r.get("ku") or {}) for r in rows}
+    origins = {json.dumps(r.get("origin"), sort_keys=True) for r in rows if r.get("origin")}
+    if len(origins) > 1:
+        raise ValueError(f"{path} mixes {len(origins)} origins in one file — a walk is "
+                         f"one machine's reading, and this one is not")
+    org = json.loads(origins.pop()) if origins else None
+    return by, org
+
+
+def compare_corpus(a, b, org_a, org_b, name_a, name_b) -> int:
+    """Per-commit, per-declaration equality of two walks from two machines."""
+    if org_a is None or org_b is None:
+        print("⚠️  ONE OR BOTH WALKS PREDATE THE `origin` FIELD, so this tool cannot "
+              "verify they came from DIFFERENT machines.\n    The comparison is still "
+              "run, but its central assumption is UNCHECKED and must be supplied by "
+              "the operator, at the object, in the record.")
+    elif org_a.get("node") == org_b.get("node") and org_a.get("machine") == org_b.get("machine"):
+        print(f"⛔ REFUSED: both walks were produced on {org_a.get('node')} / "
+              f"{org_a.get('machine')}. Two readings from one machine are not two "
+              f"witnesses — they agree by sharing an origin, which is the exact shape "
+              f"of the result a machine-independence claim asserts.")
+        return 1
+    else:
+        print(f"  {name_a}: {org_a['node']} / {org_a['machine']} / {org_a['platform']}")
+        print(f"  {name_b}: {org_b['node']} / {org_b['machine']} / {org_b['platform']}")
+    shared = sorted(set(a) & set(b))
+    only = sorted(set(a) ^ set(b))
+    if not shared:
+        print("⛔ REFUSED: the two walks share NO commit — nothing was compared.")
+        return 1
+    bad = 0
+    tot_decls = 0
+    for c in shared:
+        da, db = a[c], b[c]
+        diff = [k for k in set(da) | set(db) if da.get(k) != db.get(k)]
+        tot_decls += len(set(da) | set(db))
+        flag = "✅" if not diff else f"⛔ {len(diff)} DIFFER"
+        print(f"    {c}  {len(da):4d} vs {len(db):4d} decls  "
+              f"{sum(da.values()):>12,} vs {sum(db.values()):>12,}   {flag}")
+        if diff:
+            bad += 1
+            for k in sorted(diff)[:5]:
+                print(f"        {k}: {da.get(k)} vs {db.get(k)}")
+    if only:
+        print(f"  ⚠️ {len(only)} commit(s) present on ONE side only — NOT scored, never "
+              f"silently dropped: {only[:6]}")
+    print()
+    if bad:
+        print(f"⛔ {bad} of {len(shared)} commits DISAGREE across machines.")
+        return 1
+    print(f"✅ IDENTICAL on every one of {tot_decls} declaration readings across "
+          f"{len(shared)} commits, on two different machines.")
+    print("⛔ AND THIS IS STILL NOT A RESULT FOR 4b: it says the COUNTER is portable, "
+          "not that it tracks kernel time. The budget-from-a-second-source half is "
+          "untouched and there is still one usable calibration night. 4b stays shut.")
+    return 0
+
+
 def selftest() -> int:
     failures = []
     mac = {"version": "Lean (version 4.32.0-rc1, arm64-apple-darwin24.6.0, commit abc123, Release)",
@@ -235,6 +304,48 @@ def selftest() -> int:
     if len(read_counters(full)) != 3:
         failures.append("a harvest matching the declared `num` must be accepted")
 
+    # ⛔⛔ THE CORPUS MODE'S OWN ARMS. Added with the mode, not after it: a verdict
+    #     function with no arms borrows its neighbours' green
+    #     [[feedback-a-gate-with-no-callable-surface]].
+    import contextlib as _c, io as _io
+    MAC = {"node": "yukon", "machine": "arm64", "platform": "macOS"}
+    WIN = {"node": "kenai", "machine": "AMD64", "platform": "Windows"}
+    W1 = {"aaaaaaaa": {"d1": 10, "d2": 20}}
+    W2 = {"aaaaaaaa": {"d1": 10, "d2": 20}}
+
+    def drive(a, b, oa, ob):
+        buf = _io.StringIO()
+        with _c.redirect_stdout(buf):
+            rc = compare_corpus(a, b, oa, ob, "A", "B")
+        return rc, buf.getvalue()
+
+    rc, said = drive(W1, W2, MAC, WIN)
+    if rc != 0 or "IDENTICAL" not in said:
+        failures.append(f"two agreeing walks from DIFFERENT machines must agree: {said[:120]}")
+    if "4b stays shut" not in said:
+        failures.append("a corpus agreement must carry the 'this is not a result for 4b' line — "
+                        "the tool's own guard against its most likely misreading")
+
+    rc, said = drive(W1, W2, MAC, dict(MAC))
+    if rc == 0 or "not two witnesses" not in said:
+        failures.append(f"two walks from ONE machine must be REFUSED as vacuous: {said[:120]}")
+
+    rc, said = drive(W1, {"aaaaaaaa": {"d1": 10, "d2": 21}}, MAC, WIN)
+    if rc == 0 or "d2: 20 vs 21" not in said:
+        failures.append(f"a differing declaration must RED and be NAMED: {said[:160]}")
+
+    rc, said = drive(W1, {"bbbbbbbb": {"d1": 10}}, MAC, WIN)
+    if rc == 0 or "share NO commit" not in said:
+        failures.append("walks sharing no commit must be REFUSED, not reported as agreement")
+
+    rc, said = drive(W1, {**W2, "cccccccc": {"d9": 1}}, MAC, WIN)
+    if rc != 0 or "ONE side only" not in said:
+        failures.append("a commit on one side only must be REPORTED, never silently dropped")
+
+    rc, said = drive(W1, W2, None, WIN)
+    if rc != 0 or "UNCHECKED" not in said:
+        failures.append("a walk with no origin must run but DECLARE its assumption unchecked")
+
     for f in failures:
         print(f"SELF-TEST FAIL: {f}")
     if failures:
@@ -242,7 +353,11 @@ def selftest() -> int:
     print("ku_machine_independence SELF-TEST: OK (control first; teeth named; "
           "the SAME-PLATFORM vacuity refusal driven; empty side refused; missing "
           "size reported; differing lean commit flagged; liveness both ways and "
-          "refused at n=1; parser takes the kernel block, never the elaborator's)")
+          "refused at n=1; parser takes the kernel block, never the elaborator's; "
+          "6 CORPUS-mode arms, each break-probed RED — same-machine pairing refused, "
+          "a differing declaration named, no-shared-commit refused, a one-sided commit "
+          "reported, a missing origin declared, and the 'not a result for 4b' guard "
+          "asserted as part of the output)")
     return 0
 
 
@@ -251,11 +366,19 @@ def main() -> int:
     ap.add_argument("--emit", metavar="DIR", help="write the plant sources to DIR")
     ap.add_argument("--read", nargs=2, metavar=("A.json", "B.json"),
                     help="compare two machines' recorded readings")
+    ap.add_argument("--corpus", nargs=2, metavar=("A.jsonl", "B.jsonl"),
+                    help="compare two deterministic_cost walks from two machines, "
+                         "per commit and per declaration")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
     if args.self_test:
         return selftest()
+    if args.corpus:
+        a, oa = load_corpus(args.corpus[0])
+        b, ob = load_corpus(args.corpus[1])
+        return compare_corpus(a, b, oa, ob, os.path.basename(args.corpus[0]),
+                              os.path.basename(args.corpus[1]))
     if args.emit:
         os.makedirs(args.emit, exist_ok=True)
         for n in SIZES:

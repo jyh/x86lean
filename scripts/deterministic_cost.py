@@ -85,7 +85,7 @@ usage:
                         [--kernel docs/kernel-delta-history-….jsonl]
   deterministic_cost.py --selftest
 """
-import os, re, sys, json, time, shutil, tempfile, subprocess, statistics
+import os, re, sys, json, time, shutil, tempfile, subprocess, statistics, platform
 
 # ⛔⛔ EVERY `open()` IN THIS FILE NAMES ITS ENCODING, AND THE REASON IS A SECOND
 # MACHINE. Python's default text encoding is LOCALE-DEPENDENT: UTF-8 on this Mac,
@@ -440,6 +440,8 @@ def walk():
             if bad:
                 raise SystemExit("⛔ a proposed proxy is NOT deterministic on this "
                                  "box.  Its premise is refuted; the walk is not run.")
+        origin = machine_id()          # read ONCE: it cannot change mid-walk
+        print(f"  origin: {origin['node']} / {origin['machine']} / {origin['platform']}")
         for c in commits:
             git("checkout", "--detach", c, cwd=wt)
             t0 = time.time()
@@ -449,7 +451,7 @@ def walk():
                    "hb": hb["hb"] if hb else None, "ku": hb["ku"] if hb else None,
                    "orphans": hb["orphans"] if hb else None,
                    "error": err, "load1": la1, "load5": la5,
-                   "load_source": la_src,
+                   "load_source": la_src, "origin": origin,
                    "secs": round(time.time() - t0, 1), "t": time.time()}
             fh.write(json.dumps(rec) + "\n")
             fh.flush()
@@ -466,6 +468,31 @@ def walk():
                        cwd=ROOT, capture_output=True, text=True)
     print(f"\nreadings → {out}")
     return analyse(out)
+
+
+def machine_id():
+    """What machine and toolchain produced a reading.
+
+    ⛔⛔ ADDED 2026-09-09, AFTER a cross-machine comparison had already been run
+    WITHOUT it. Until today every reading came from one box, so "which machine"
+    was context nobody had to write down. The moment a second machine exists, a
+    file of readings that does not name its origin makes the ONE check that
+    matters impossible: **two readings from the same machine agree because they
+    share an origin, and that is exactly the shape of the result a
+    machine-independence claim asserts** [[feedback-two-readings-are-not-two-witnesses]].
+    A comparison tool cannot refuse a vacuous pairing it cannot detect.
+    ⇒ 🔑 **A MEASUREMENT MUST CARRY THE CONDITION ITS CLAIM IS ABOUT.** The claim
+    here is about the MACHINE, so the machine is the field that was missing.
+    [[feedback-a-measurement-without-its-conditions]]
+    """
+    try:
+        lean = subprocess.run(["lake", "env", "lean", "--version"], cwd=ROOT,
+                              capture_output=True, text=True, timeout=60).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        lean = ""
+    return {"node": platform.node(), "platform": platform.platform(),
+            "machine": platform.machine(), "python": platform.python_version(),
+            "lean": lean}
 
 
 def loadavg():
@@ -918,6 +945,10 @@ def selftest():
     arm("CONTROL - with the platform call restored, a real reading returns numbers",
         isinstance(a, float) and isinstance(b, float) and srcname == "os.getloadavg",
         f"got {a!r},{b!r},{srcname!r}")
+
+    mid = machine_id()
+    arm("a reading's origin names node, machine and platform, none of them blank",
+        all(mid.get(k) for k in ("node", "machine", "platform")), f"got {mid}")
 
     print(f"\n{ok}/{n} arms pass")
     return 0 if ok == n else 1
