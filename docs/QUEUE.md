@@ -75,8 +75,15 @@ binding constraint on this campaign is a per-run property of a SHARED box**, and
 modelling, and no larger `n`, moves it.
 
 ⇒ **THE COROLLARY FOR WHOEVER PLANS THE NEXT BATCH:** adding a fifth unmergeable branch is not a
-response to this diagnosis, it is a symptom of ignoring it. **Fix the instrument, or get an
-uncontended box, before growing the queue of `.lean` work that cannot land.**
+response to this diagnosis, it is a symptom of ignoring it. **FIX THE INSTRUMENT before growing the
+queue of `.lean` work that cannot land.**
+⛔ **THIS SENTENCE READ "fix the instrument, OR GET AN UNCONTENDED BOX" UNTIL 2026-09-09, WHEN THE
+SECOND HALF WAS MEASURED AND WITHDRAWN (D179, item 4).** Load moves the LEVEL of a reading (~14%
+from load ~5 to ~12, which a base-vs-head delta cancels) and NOT the pass-to-pass spread the band is
+built from: r = +0.041 against load variation, −0.243 against load level, over 24 paired readings
+spanning load1 [3.9, 20.9]. Runs 2 and 3 of `es3-anchor-theorems` were taken on a box already quiet
+at load 3.49 and were UNMEASURABLE anyway. ⇒ **Waiting is not the remedy, and it is corrected HERE
+as well as at item 4 because this paragraph is the one a batch-planner reads first.**
 📌 This is the shape [[feedback-a-two-input-join-cannot-see-the-third-constraint]] names: the roster
 ranks work by DEMAND and BUILDABILITY and joins neither against the thing that would STOP its top
 item. The census can say "buildable" all it likes; the ledger decides what lands.
@@ -312,9 +319,14 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    `d9d792319` and `--gap` reads rc 0. Nothing half-landed. This is the same state
    `p2-batch32-fp-compares` has been in since 09-05 — **two branches now blocked on the same
    condition, which makes it a property of the INSTRUMENT ON THIS BOX, not of either branch.**
-   **RELEASE CONDITION:** a genuinely idle box (no other seat profiling), or a gate change ruled
-   elsewhere — *not* more repeats. **OWNER:** paris. **RE-MEASURE:** next sitting that finds the box
-   idle; check `uptime` AND that no other seat is running a wave.
+   ⛔⛔ **RELEASE CONDITION REPLACED 2026-09-09 (D179) — THE OLD ONE WAS MEASURED AND FALSIFIED.**
+   It read *"a genuinely idle box (no other seat profiling), or a gate change ruled elsewhere — not
+   more repeats"*, and the idle-box half has **no measured benefit**: see item 4's D179 entry, and
+   note that runs 2 and 3 here were taken at load 3.49 and returned UNMEASURABLE.
+   **RELEASE CONDITION: a gate change — 4b with a budget from a second source and a second machine,
+   or a ruling that the delta gate cannot decide deltas of this size.** **OWNER:** paris.
+   **RE-MEASURE:** when either lands. ⚠️ **NOT "the next idle sitting"** — that is the condition just
+   withdrawn, and leaving it here would let the branch keep reading as *waiting* rather than *owed*.
    ⚠️ **The `.lean` deltas themselves look small and benign in all three runs** (+200/+300/+800 ms on
    a ~25,700 ms unit, against budgets ~1,840). **That is a reading, not a verdict**, and it must not
    be quoted as one — which is the entire distinction this gate exists to enforce.
@@ -452,8 +464,11 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    ⚠️ I wrote the number before measuring it, in the row about numbers written before they are
    measured. [[feedback-a-complete-count-of-a-subset]] [[feedback-prose-written-before-the-measurement]]
 
-   ⛔⛔ **AND THE TWO THAT ARE WAITING WAIT ON ONE UNWATCHED CONDITION — "A QUIET BOX" — WHICH
-   NOTHING IN THIS REPOSITORY REPORTS THE ARRIVAL OF.**
+   ⛔⛔ **AND THE TWO THAT ARE WAITING WAITED ON ONE UNWATCHED CONDITION — "A QUIET BOX" — WHICH
+   NOTHING IN THIS REPOSITORY REPORTED THE ARRIVAL OF, AND WHICH D179 (2026-09-09) MEASURED AND
+   WITHDREW.** The paragraph below is kept because its LAW is right and outlived its example: ⇒ 🔑
+   a precondition nobody watches is a precondition nobody meets. **The sharper form D179 adds: a
+   precondition nobody MEASURED is worse, because it can be met and still buy nothing.**
    `es3-anchor-theorems` carries TWO landings on one measurement: the pre-state anchor theorems
    (row ES item (3)'s step 2) and the roster-docstring gate below. Both are green and both are
    `.lean`, so `--gap` demands a real `kernel_delta` before either merges.
@@ -623,9 +638,72 @@ occur. Until then this is ONE observation and is recorded as one.
      says how many runs may be taken or which is kept. **Until it does, a verdict quoted after an
      unrecorded number of runs is not gated** — and this seat declined a fourth run on those grounds
      while noting the 09/06 precedent would have permitted it.
-     📌 **PROPOSED, NOT RULED:** declare the run count and the keep-rule BEFORE running (e.g. "one
-     run at n=6; UNMEASURABLE is a verdict, not a retry"), so a re-run is a stated exception with a
-     reason rather than the default.
+     ⚖️⚖️ **RULED 2026-09-09 (D179), on the helm's word of 00:3x — AND THE MEASUREMENT CHANGED THE
+     RULE I WAS ABOUT TO WRITE.** I set out to permit a re-run when the box was busy: discarding on
+     a COVARIATE is not selection on the OUTCOME, and item 4 already named the covariate ("rare load
+     excursions from other seats"). **Before writing it I measured whether load predicts the band.
+     It does not.** `scripts/band_load_analysis.py` (committed, re-derivable, refuses if the pairing
+     breaks) reads three kernel-delta corpora already in this repo over the **SAME twelve commits**
+     and the **same 27 declarations**, each reading carrying its own `load1`:
+```
+       corpus       load1 range    pairs    n    median    p90     max
+       QUIET        3.11 -  6.80     12    324     4.3%   11.1%   52.3%
+       USER2        8.95 - 20.89     12    324     3.2%   11.3%   91.0%
+       CONTEND     10.45 - 98.42      2     54    21.9%   57.4%   78.3%
+
+       over the 24 pairs in load1 [3.9, 20.9] — the range every held branch was measured in:
+         r(Δload1 within a pair, spread) = +0.041
+         r(max load1 of a pair,  spread) = -0.243        spread stays in 1.9% - 6.9%
+       level shift USER2/QUIET, n=324:  p10 1.078  median 1.144  p90 1.246, 99% higher
+```
+     ⇒ 🔑 **LOAD MOVES THE *LEVEL* AND NOT THE *SPREAD*, AND A UNIFORM LEVEL SHIFT IS EXACTLY WHAT A
+     BASE-VS-HEAD DELTA CANCELS.** Going from load ~5 to load ~12 costs ~14% on the reading and
+     **nothing** on the pass-to-pass variability the band is built from.
+     ⛔ **AND THE MECHANISM THIS ITEM NAMES IS THE ORDINARY CASE, NOT AN EXCURSION.** The two passes
+     called "rare load excursions" read **1.19× and 1.07×** the quiet level — inside the p10–p90 of
+     the ROUTINE 1.078–1.246 shift measured over 324 paired readings. They were the box behaving
+     normally at load 12. ⇒ 🔑 **A PLAUSIBLE MECHANISM NAMED IN THE SAME BREATH AS A REAL FAILURE
+     GETS ADOPTED WITHOUT EVER BEING SCORED**, and this one had been carried since D141.
+     ⭐ **CORROBORATED INDEPENDENTLY BY THIS ITEM'S OWN RECORD:** runs 2 and 3 of `es3-anchor-theorems`
+     were taken on a box **genuinely quiet at the start (load 3.49**, after the orphaned `wi-test`
+     loops were reaped) and came back **UNMEASURABLE anyway.** Quiet was already tried and it is
+     already in the table above the tension.
+
+     ### ⚖️ THE KEEP-RULE, IN FORCE FROM THIS ENTRY
+     1. **DECLARE BEFORE RUNNING.** The ledger row records the pinned `--base <sha>`, the repeat
+        count `k`, and this rule, BEFORE the first pass. **A verdict from a run whose parameters
+        were not declared in advance is not quotable.**
+     2. **THE VERDICT IS THE DECLARED RUN'S. `UNMEASURABLE` IS A VERDICT, NOT A RETRY.**
+     3. **NO DISCARD ON THE OUTCOME — AND NO DISCARD ON LOAD EITHER.** A discard needs a covariate
+        that PREDICTS; measured above, this campaign has none in [3.9, 20.9]. A "the box was busy"
+        re-run would be selection on the outcome wearing a covariate's clothes.
+     4. **ONE QUALIFYING CONDITION EXISTS TODAY: any pass recording `load1 > 21`** — outside every
+        calibration corpus, where the only readings available are ~5× worse. ⚠️ It is a
+        **boundary-of-calibration** rule, NOT a claim that load 25 is bad: the knee between 21 and
+        98 is **UNLOCATED** (CONTEND has two pairs and its own ordering is inverted), and this rule
+        must not be quoted as if it were measured [[feedback-unobserved-regions-report-agreement]].
+     5. **EVERY RUN IS RECORDED, DISCARDED ONES INCLUDED,** with its reason. A discarded run absent
+        from the record is indistinguishable from a run that never happened.
+     6. **CAP: ONE DISCARD PER LANDING.** Beyond that the item is BLOCKED, not re-run — otherwise
+        "discard on load" becomes "re-run until lucky" [[feedback-a-per-unit-threshold-asked-n-times]].
+     7. **THE 09/06 PRECEDENT IS RETIRED, NOT RATIFIED.** It re-ran at the same `n` and kept the
+        second verdict; under this rule that is a discard with no qualifying condition, i.e. not
+        permitted. It stands as evidence ABOUT THE INSTRUMENT, never as a precedent for keeping.
+     ⇒ The 34th head's refusal of a fourth run was CORRECT, and is now correct BY RULE rather than
+     by scruple.
+
+     ### ⛔⛔ AND THE CONSEQUENCE THIS ITEM MUST CARRY: ITS RELEASE CONDITION IS RETIRED
+     **"An uncontended box" is withdrawn as item 4's release condition.** It has no measured benefit
+     at the load where every held run actually failed, and the campaign's own three runs falsify it
+     directly. **Three pieces of work — `es3-anchor-theorems`, `p2-batch32-fp-compares`, and P3
+     sub-group A — were held on a condition that would not have helped them.**
+     ⚠️ **THIS DOES NOT UNBLOCK THEM.** The band was undecidable on a quiet box too; the wall is
+     real and it is the INSTRUMENT. What changes is that **WAITING IS NOT THE REMEDY**, so the
+     branches must stop being priced as "blocked on an idle box". ⇒ **The live routes are 4b (the
+     kernel-unfolding counter, needing a budget from a second source and a second machine) or a GATE
+     RULING that the delta gate cannot decide deltas of this size and must be replaced.**
+     📌 **A BLOCK WHOSE RELEASE CONDITION IS UNMEASURED IS A BLOCK NOBODY IS WORKING ON** — it reads
+     as waiting rather than as owed work, and this one read that way for three days.
 
    - ⇒ The item is NOT "re-derive `@floor`" and NOT "widen a budget". It is: **reduce the variance
      of the measurement, or gate a quantity that has less of it.**
