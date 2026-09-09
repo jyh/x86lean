@@ -1404,6 +1404,53 @@ occur. Until then this is ONE observation and is recorded as one.
    OVERLAPS the quiet night's. **Labelled post-hoc, NOT a rescue of P2, and it earns a
    pre-registered test and nothing before that.**
 
+   #### ⚖️ THE DESIGN OF RECORD AFTER D187 — **ARM A: GATE Δku, IN UNFOLDINGS**
+   Posted as a fork with both arms on the bus 2026-09-09 and taken on my own recommendation
+   (the standing law: nothing blocks on the Captain; post both arms and proceed).
+   **THE PROBLEM D187 CREATED:** *"a budget from a second SOURCE"* cannot mean *"a second
+   machine reproduces the number"*, because the number is `ms per 1k unfoldings` and its
+   numerator is a CLOCK. So the budget's UNIT changes, not the machine.
+   ⭐ **THE MEASUREMENT THAT DECIDED IT WAS ALREADY IN THE COMMITTED CORPUS** — same eleven
+   adjacent pairs, same twelve commits:
+```
+     Δms (either box)   -350 .. +750 ms   against between-sweep noise ~870 ms
+                        ⇒ CANNOT separate a real commit from a no-op
+     Δku (both boxes)   EXACTLY 0 on all FIVE no-op commits
+                        31,225 · 42,350 · 58,854 · 75,014 · 99,249 · 181,233 on the six real
+                        ⇒ NO OVERLAP. Integer. Identical across both machines (D185).
+```
+   ⇒ 🔑 ***THE HALF OF THE RATIO THAT TRAVELS IS ALSO THE HALF THAT CAN SEPARATE A CHANGE
+   FROM A NO-OP. THE CLOCK IN THE NUMERATOR WAS ADDING NOISE AND A MACHINE DEPENDENCY AND
+   BUYING ONLY THE UNIT.***
+   **ARM A:** gate `Δku` directly with a budget in UNFOLDINGS; `ms/ku` survives only as a
+   per-machine INTERPRETATION constant, never as the gate. 4b's original appeal was
+   DETERMINISM — *"it reads exactly zero on a no-op"* — and that property belongs to `ku`.
+   **ARM B (not taken):** keep `ms/ku` and declare the budget per-machine. It concedes the
+   same point while keeping the machinery that forced the concession, and costs a
+   calibration night per box forever.
+   ⛔ **WHAT ARM A DOES NOT DO:** it does not answer 4b's other blocker — whether the counter
+   TRACKS KERNEL TIME. **It relocates it.** Gating unfoldings gates WORK; whether that work
+   is time is the open question, and Arm A makes the per-machine `ms/ku` constant the place
+   it is MONITORED rather than assumed.
+   📌 **RECORDED AS A DESIGN, NOT BUILT INTO A GATE, DELIBERATELY** — it is a change to WHAT
+   THE GATE GATES, taken on one night per box, so the reversal cost is kept at one document.
+   **If the helm or the Captain prefers ARM B, it reverses by editing this entry.**
+
+   #### 📌 THE FIRST THING IN SIX ENTRIES POINTING **FOR** THE COUNTER — AND IT IS A HYPOTHESIS
+```
+     quiet night (yukon)   k>=8 band 2.39-4.12   SPREAD 1.72x   CV 14.2%
+     fourth night (kenai)  k>=8 band 4.37-5.26   SPREAD 1.20x   CV  5.5%
+```
+   Same n, same k-window structure, same commits, same walk order. **The quieter box gives a
+   2.6x tighter Δms↔Δku proportionality** — what you would see if the scatter were
+   measurement noise and the underlying relation real.
+   ⛔ **NOT A RESULT: the windows OVERLAP and are not independent, and there is one night per
+   box.** ✅ **THE PRE-REGISTERED TEST IS OBVIOUS AND CHEAP: a second kenai night, sealed in
+   advance, predicting CV below ~6% again.** It is the cheapest decisive experiment this
+   campaign has left, and it is named here rather than banked as progress — six entries have
+   removed obstacles and supplied nothing, and reading the seventh as momentum is exactly the
+   error this campaign keeps recording [[feedback-a-partial-corpus-carries-its-interruption]].
+
 ### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
    The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and
    `user` is 2× `real`: **Lean elaborates this file in PARALLEL and every gated number is a per-task
