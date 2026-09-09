@@ -59,6 +59,7 @@ usage: threads_ab.py [--rounds N] [--out FILE] [--units "a.lean b.lean"]
 """
 
 import json, os, re, resource, statistics, subprocess, sys, tempfile, time
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -171,7 +172,7 @@ def plant_dir():
     resolves against the working directory, so the paths handed to `profile()`
     are absolute and the cwd stays `ROOT`. A control that runs in a different
     environment from the units is not a control for them."""
-    d = tempfile.mkdtemp(prefix="x86lean-threads-ab-")
+    d = scratch.mkdtemp(prefix="x86lean-threads-ab-")
     out = {}
     for n, tag in ((PLANT_SMALL, "small"), (PLANT_BIG, "big")):
         f = os.path.join(d, "Plant_%s.lean" % tag)

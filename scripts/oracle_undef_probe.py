@@ -58,6 +58,7 @@ PUBLIC SOURCE.  clang/LLVM assembles; ACL2 x86isa (BSD-3) executes.  Nothing fro
 either is copied.
 """
 import os, re, subprocess, sys, tempfile, collections
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -210,7 +211,7 @@ def main():
     subject_ids = [i for i, _ in forms]
     forms = forms + [(i, a) for i, a, _ in CONTROLS]
 
-    tmp = tempfile.mkdtemp(prefix="x86lean-probe-")
+    tmp = scratch.mkdtemp(prefix="x86lean-probe-")
     bytes_by_id = assemble(forms, tmp)
     pres = load_pre_states()
     cases_path = os.path.join(tmp, "probe.lsp")

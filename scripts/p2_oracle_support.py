@@ -226,7 +226,20 @@ def main():
     print("  wrong                  : %d" % miss)
     print("  ambiguous (not scored) : %d   — the pair carries opcodes x86isa "
           "splits on" % amb)
-    print("  absent from catalogue  : %d" % absent)
+    # ⚠️ "ABSENT FROM CATALOGUE" MEANS ABSENT FROM THE *COMPARABLE* KEY SPACE, NOT
+    # ABSENT FROM x86isa.  Measured 2026-09-09, after QUEUE 1b took this count from
+    # 5 to 10: all five new keys (`endbr64`, `emms`, `prefetcht0`, `prefetchnta`,
+    # `movl`) ARE present in `inst-listing.lisp`.  They fall out of `predict()`
+    # because `entry_bucket` buckets an entry by its ENCODING and returns None for
+    # anything that is not one of the SIMD/vector buckets this census names — so a
+    # scalar or CET or PREFETCH form is outside the comparison set by construction.
+    # ⇒ 🔑 THE LABEL READ AS "x86isa DOES NOT HAVE IT" AND MEANS "ITS ENTRY BUCKETS
+    # SOMEWHERE THIS JOIN CANNOT REACH" — two very different facts, and the first
+    # one would be a finding about the ORACLE while the second is a property of the
+    # KEY SPACE ([[feedback-a-join-on-a-lossy-key]]).
+    print("  absent from the comparable key space : %d   (in the listing, but "
+          "their encoding buckets outside the SIMD/vector set this join names — "
+          "NOT missing from x86isa)" % absent)
     if wrong:
         print("\n⛔ WHERE THE CATALOGUE DISAGREES WITH THE MACHINE — each of these "
               "is a finding about the ORACLE'S OWN RECORD, not a bad guess:")

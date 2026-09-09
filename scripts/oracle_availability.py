@@ -40,6 +40,7 @@ LANE.  Personal lane; ACL2 x86isa is BSD-3 and is CONSULTED BY EXECUTION.
 Usage:  oracle_availability.py [--check] [--selftest]
 """
 import collections, os, re, subprocess, sys, tempfile
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 # ⭐⭐⭐ THE BUCKET RULE IS THE CENSUS'S, IMPORTED — NOT A SECOND ONE THAT AGREES
 # WITH IT (D143). `demand_census.isa_bucket` is the TOTAL rule that produced the
@@ -226,7 +227,7 @@ def measure(forms):
         tag = tag_of(mn)
         for i, c in enumerate(sel):
             body.append(rewrite(c, i, tag, hexbytes))
-    tmp = tempfile.mkdtemp(prefix="x86lean-avail-")
+    tmp = scratch.mkdtemp(prefix="x86lean-avail-")
     cases = os.path.join(tmp, "cases.lsp")
     open(cases, "w").write('(in-package "X86ISA")\n(defconst *x86lean-cases*\n \'(\n'
                            + "".join(body) + "))\n")
@@ -1154,7 +1155,7 @@ def measure_cr4(forms, ctrs):
             " (if (or (ms x86) (fault x86)) 1 0) (rip x86)"
             " (if (equal (rip x86) #x%06x) 1 0)) x86))"
             % (ctrs, mem, XMM0_NZ, XMM1_NZ, tag_of(label), ENTRY_RIP))
-    tmp = tempfile.mkdtemp(prefix="x86lean-p2-")
+    tmp = scratch.mkdtemp(prefix="x86lean-p2-")
     drive = os.path.join(tmp, "drive.lsp")
     open(drive, "w").write("\n".join(lines) + "\n")
     out = os.path.join(tmp, "out.txt")
@@ -1241,7 +1242,7 @@ def p2_operand_control(arms=None):
             ' (prog2$ (cw "CTRLRESULT tag=%s flg=~x0 refused=~x1 xmm0=~x2~%%" flg'
             " (if (or (ms x86) (fault x86)) 1 0) (xmmi-size 16 0 x86)) x86))"
             % (CR4_ON, mem, x0, x1, tag_of(label)))
-    tmp = tempfile.mkdtemp(prefix="x86lean-p2ctrl-")
+    tmp = scratch.mkdtemp(prefix="x86lean-p2ctrl-")
     drive = os.path.join(tmp, "drive.lsp")
     open(drive, "w").write("\n".join(lines) + "\n")
     out = os.path.join(tmp, "out.txt")

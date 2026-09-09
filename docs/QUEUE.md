@@ -447,10 +447,21 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    corrected, not a new claim** — every one of these verdicts predates today
    ([[feedback-under-claims-are-unpoliced]]). And it does **not** make `endbr64` buildable: its
    blocker is that **K has no rule**, which is a semantics-source constraint, untouched.
-   ⚠️ `p2_oracle_support`'s `absent from catalogue` rises 5 → 10 — the new keys are not in x86isa's
-   catalogue-keyed set. Prediction accuracy is UNCHANGED at 249/251 (99.2%), because none of them
-   became scorable. Reported, not repaired: whether that is a naming mismatch or a real gap in the
-   oracle's own record is a separate question and nobody has asked it.
+   ✅ **AND THE ONE QUESTION 1b LEFT OPEN IS ANSWERED THE SAME DAY.** `p2_oracle_support`'s
+   `absent from catalogue` rose 5 → 10, and I flagged it as *"a naming mismatch or a real gap in the
+   oracle's own record — nobody has asked it"*. **Asked. It is neither a gap nor a mismatch: it is a
+   KEY-SPACE boundary, and the LABEL was the defect.** All five new keys are present in
+   `inst-listing.lisp` (`endbr64` ×2, `emms` ×2, `prefetcht0`, `prefetchnta`, `movnti`); they fall
+   out of `predict()` because **`entry_bucket` buckets an entry by its ENCODING** and returns `None`
+   for anything outside the SIMD/vector buckets this census names — so a CET, PREFETCH or scalar form
+   is outside the comparison set **by construction**, which is exactly what the header line already
+   said (*"1414 keys **carry a bucket this census names**"*) and what the count's own name did not.
+   ⇒ 🔑 **THE LABEL READ AS "x86isa DOES NOT HAVE IT" AND MEANT "ITS ENTRY BUCKETS SOMEWHERE THIS
+   JOIN CANNOT REACH."** The first would be a finding about the ORACLE; the second is a property of
+   the KEY SPACE, and only one of them is worth anyone's morning
+   ([[feedback-a-join-on-a-lossy-key]]). Renamed to `absent from the comparable key space`, with the
+   reason printed inline. Prediction accuracy UNCHANGED at 249/251 (99.2%) — none of them became
+   scorable, which is the same fact stated correctly.
    ✅ Gates: `ci_local --job build` **34/34 rc=0** · `p2_roster --selftest` **74 arms PASS** ·
    `p2_roster --check` byte-exact · `p2_residue --check` rc=0 · `kernel_drift --gap` 0 unrecorded.
 
@@ -875,43 +886,68 @@ occur. Until then this is ONE observation and is recorded as one.
    inversions of 106** where kernel time falls while unfoldings rise (the quiet night: 0 of 96).
    Machine independence remains unmeasured; there is no second machine.
 
-   #### ⭐⭐⭐ 4b-LOAD (2026-09-09) — **THE "LOADED NIGHT" IS NOT A LOAD-~12 NIGHT. IT IS A LOAD-~60
-   #### NIGHT, AND THAT MAY MAKE THIS BLOCKER SOFTER THAN IT READS.**
-   `unfolding_calibration.py`'s own docstring calls its second source *"the loaded night (09/05,
-   **load ~12**)"*. Measured at the corpus it names, `docs/deterministic-cost-history-2026-09-05.jsonl`:
-```
-     load1   min 13.18    median 59.94    max 95.26      rows at load1 <= 21:  4 of 12
-```
-   ⇒ **The label understates its own condition by ~5x at the median.** And that is decisive HERE
-   rather than pedantic, because D179 (item 4) measured what load actually does: **at load1 <= 21
-   there is no spread penalty at all** (`r = +0.041`), while the only corpus in this repo reaching
-   load ~60-98 runs **~5x wider** (median between-sweep spread 21.9% against 4.3%).
-   ⇒ ⛔ **SO THE TWO NIGHTS ARE NOT "ONE BOX, TWO NIGHTS". THEY ARE ONE BOX IN TWO DIFFERENT
-   REGIMES** — one inside the range every other corpus was taken in, one far outside it — and the
-   disagreement between them is a much weaker indictment of the kernel-unfolding counter than the
-   sentence above reads as.
-   ⚠️ **I EXPECTED THE OPPOSITE AND SAY SO.** I went looking because D179 says load ~12 is harmless,
-   which would have made the dismissal of the loaded night *unsupported*. The measurement refuted my
-   hypothesis and supported the dismissal **better than its own docstring did**. Recorded because a
-   refuted prediction is stronger evidence than a confirmed one
-   [[feedback-a-confirmed-prediction-is-not-a-checked-statistic]].
-   📌 **WHAT THIS TURNS THE BLOCKER INTO — a SPECIFIED experiment instead of "get a second machine":**
-   **re-walk the twelve commits with every reading at `load1 <= 21`** and score the ratio against the
-   quiet night's `2.39-4.12, median 3.38`. If it lands in that band, 4b's second-source objection is
-   answered ON ONE MACHINE and the only remaining gap is machine independence. If it does not, the
-   counter genuinely does not travel and 4b closes for a measured reason instead of an inherited one.
-   ⚠️ **COST AND HONESTY:** the walk is 12 `lean` profiles (~60-120 s each in the record, so ~20 min)
-   and it IS a profiling job — it needs the box, so it is NOT box-free like the rest of today's work.
-   ⇒ **OWNER:** paris. **RELEASE:** a sitting with the box. **⛔ AND IT DOES NOT INHERIT ITEM 4's
-   WITHDRAWN CONDITION** — this one needs low load for a MEASURED reason (the >21 regime is the one
-   place spread demonstrably blows up), which is exactly the distinction D179 draws.
-   ⭐ Scored over the SAME resolved set (p90/p10, lower better): **ku 2.66 / 5.42 · heartbeats
-   INCOHERENT (p10 negative) · the per-batch null 11.02 / 26.94**. The null is what the merge gate's
-   own budget assumes, so the counter predicts kernel cost 4-5x better than the allowance the
-   repository currently gates on. One selftest arm exists so the scoring CAN lose, and it does.
-   ⚠️ The ten unselected windows OVERLAP and are not ten independent observations.
+   #### ⛔⛔ 4b-LOAD (2026-09-09) — **RETRACTED AND REPLACED WITHIN THE HOUR. THE FIRST VERSION OF
+   #### THIS ENTRY MEASURED THE WRONG FILE.** The replacement is a stronger finding, not a weaker one.
 
-   ### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
+   **WHAT I FILED FIRST, AND IT WAS FALSE:** that *"the loaded night is a load-~60 night, not a
+   load-~12 one"*, from measuring `docs/deterministic-cost-history-2026-09-05.jsonl` (median `load1`
+   59.94). ⛔ **That file is the `--counters` input. "The loaded night" is the `--walk` input.**
+   `unfolding_calibration.py` takes TWO corpora and I measured the load of the wrong one.
+
+   ⭐ **AND THE COUNTERS' LOAD IS IRRELEVANT BY CONSTRUCTION, WHICH I THEN PROVED BY ACCIDENT.**
+   Acting on the false entry I started a re-walk of the counters at low load. Five commits in, against
+   the committed walk:
+```
+     144e9a3c  4f6766b9  76cb51bd  3769ea0c  0f929e3e     ku IDENTICAL: 5 of 5
+     load now  6.70 5.92 5.60 6.07 5.70   vs  then  16.08 15.52 13.18 13.40 53.02
+```
+   **The kernel-unfolding counters are byte-identical across a 2.4x-9x load ratio.** That is 4b's own
+   determinism property, now demonstrated against LOAD and not merely against repeats — the one thing
+   worth keeping from the false lead. ⇒ **A re-walk of the counters can never say anything about load,
+   so the experiment the retracted entry specified was unrunnable in principle.** The run was killed
+   at 5 of 12 rather than finished.
+
+   ⚖️ **THE LOADED NIGHT, IDENTIFIED AT THE OBJECT** by scoring each candidate walk and matching
+   D155's published figures rather than by reading a label:
+```
+     walk USER2 (load1 8.95-20.89, median 12.27)   k=8: [3.96 8.75 13.23], 3 of 4   ← MATCHES D155
+     walk CONTEND (load1 10.45-98.42)              k=8: [] , 0 of 4 at every k      ← not it
+```
+   ⇒ **The docstring's "load ~12" was RIGHT all along.** My correction was the error.
+
+   ### ⭐⭐⭐ AND THE CORRECTED FINDING IS THE ONE I ORIGINALLY WENT LOOKING FOR
+   The loaded night is USER2 — **and D179 measured USER2 against the quiet night on the SAME twelve
+   commits and the SAME 27 declarations: median between-sweep spread 3.2% vs 4.3%, p90 11.3% vs
+   11.1%.** Statistically indistinguishable.
+   ⇒ ⛔⛔ **THE TWO NIGHTS DIFFER IN THEIR CALIBRATION BAND BY ~3x (2.39-4.12 against 3.96-13.23)
+   WHILE THEIR MEASUREMENT NOISE IS INDISTINGUISHABLE. SO "IT WAS LOADED" DOES NOT EXPLAIN THE
+   DISAGREEMENT, AND NOTHING ELSE HAS BEEN PROPOSED.**
+   ⇒ 🔑 **4b's SECOND-SOURCE BLOCKER IS MISDIAGNOSED, NOT MERELY UNMET.** It is recorded as "two
+   nights on one box disagree, one of them loaded", which reads as *understood and waiting for a
+   second machine*. The load half is now refuted, so what it actually says is **the second source
+   disagrees for a reason nobody has named** — and a named-but-wrong cause is what stops anyone
+   looking for the right one.
+   ⇒ 📌 **THIS IS D179's OWN DEFECT, RECURRING ONE LEVEL DOWN AND FOUND BY D179's OWN MEASUREMENT:**
+   a plausible mechanism named in the same breath as a real failure, never scored, and load-shaped
+   both times [[feedback-audit-the-premise-of-a-right-decision]].
+   **NEXT, and it needs no box:** the two walks differ in something other than noise. Candidates that
+   can be read off the committed corpora — wall-clock `secs` per commit, `sweep` ordering, thermal
+   drift across the night, and which passes each walk's median was taken from. **OWNER:** paris.
+   ⚠️ **NOT "get a second machine"** — that is the OTHER half of 4b's blocker and it is untouched.
+
+   ### 📌 HOW THE ERROR WAS CAUGHT, BECAUSE IT WAS NOT BY RE-READING THE CLAIM
+   I caught it while reading `unfolding_calibration.py`'s **interface** to prepare the scoring
+   command — `--counters` and `--walk` are two different inputs — **an hour after filing, and only
+   because the next step happened to require the contract.** Nothing in my checking of the original
+   claim could have caught it: I verified the load figure against the file I had chosen, correctly,
+   and never against the tool's own input contract.
+   ⇒ 🔑 **A MEASUREMENT NAMES A FILE; ONLY THE CONSUMER'S CONTRACT SAYS WHETHER IT IS THE RIGHT
+   FILE.** Read the interface of the tool whose conclusion you are correcting, BEFORE filing the
+   correction [[feedback-read-what-the-instrument-measured]] [[feedback-a-route-cannot-see-its-subject]].
+   ⚠️ **And the retracted entry passed every gate**, because no gate in this repo joins a prose claim
+   about a corpus to the tool that consumes it. It was landed, pushed to both tiers, and wrong.
+
+### 4c. ⛔ THE THIRD ROUTE IS MEASURED AND CLOSED (D150) — and its premise was refuted with it
    The profiler's cumulative block reads `tactic execution 47.8s` against `type checking 26.2s`, and
    `user` is 2× `real`: **Lean elaborates this file in PARALLEL and every gated number is a per-task
    WALL-CLOCK reading taken under contention.** `scripts/kernel_cost.py` never passes
@@ -1404,6 +1440,47 @@ scope re-measured, and a refuter pass run against it in the same sitting.
 until kill-checks K3 (what a new `Cpu` field costs every record proof) and K4 (what a soft-float
 `mulsd` costs the kernel) are *measured*. B's price is not stated here because it has not been
 measured, and inventing one would repeat exactly the defect §2 of the commission records.
+
+8. ✅ **DISCHARGED SAME DAY (2026-09-09) — 591 MB OF SCRATCH DIRECTORIES, AND HALF THIS
+   REPOSITORY'S TOOLS NEVER CLEANED UP.** Found while checking worktree hygiene after killing a
+   run — not by looking for it.
+```
+     /T held 584 `x86lean-*` directories, 591 MB, dating to 09-03
+       368  x86lean-readme-*   (check_readme_lean — A CI STEP)
+        63  p2 · 63 avail · 40 cr4 · 27 p2ctrl · 7 probe · 1 vbin
+     audit of every mkdtemp in scripts/:
+       NO cleanup   check_driver_cr4 · check_encodings · check_readme_lean
+                    oracle_undef_probe · threads_ab · resolve_names
+       cleanup      claimed_forms · deterministic_cost · kernel_cost · kernel_delta
+                    kernel_delta_history · kernel_drift
+       partial      oracle_availability (3 mkdtemp, 1 cleanup)
+```
+   ⇒ 🔑 **HALF THE TOOLS CLEANED UP AND HALF DID NOT, AND NOTHING SAID WHICH** — so the habit was
+   never learned, only re-decided per tool, and a coin-flip per tool is what a 6/6 split looks like.
+   ⇒ 🔑 **AND 368 OF 584 CAME FROM ONE CI GATE: A LEAK IN A GATE SCALES WITH HOW OFTEN THE GATE IS
+   TRUSTED.** The tools run most often are the ones whose leaks matter, and they are exactly the ones
+   nobody re-reads.
+   ⚠️ **INVISIBLE IN EVERY DIRECTION THAT NORMALLY REPORTS:** nothing fails, no gate reddens, the
+   tree is clean, and the disk is not this seat's watch surface. Same shape as the fleet's orphaned
+   `wi-test` loops (bank 09/09 §6) — where the lesson was **a leak owned by no seat is a leak nobody
+   reaps.** ⇒ **These ARE this seat's, so this time the tools own it**
+   [[feedback-a-leak-filed-as-housekeeping]].
+   **REPAIR:** `scripts/scratch.py` — `scratch.mkdtemp(prefix)` registers an `atexit` removal, with
+   a **4-arm selftest** (normal exit · NONZERO exit · the `X86LEAN_KEEP_SCRATCH=1` hatch really
+   keeps · **and a control proving a plain `tempfile.mkdtemp` SURVIVES**, without which the arms
+   would pass on a machine that tidies `/T` itself and would be measuring the OS). Seven tools
+   rewired; 584 dirs reaped.
+   ✅ **VERIFIED END TO END:** a full `ci_local --job build` **plus** the ACL2 gate, the roster check
+   and the availability selftest now leave **0** `x86lean-*` directories and 1 worktree.
+   ⚠️ **THE PER-TOOL "KEEP ON FAILURE" DESIGN WAS TRIED FIRST AND DROPPED:** it needs a correct
+   failure path in each of six tools, and **a cleanup conditional on the thing most likely to be
+   wrong is a cleanup that does not run when it matters**
+   [[feedback-a-gate-whose-precondition-is-a-discipline]]. The env-var hatch is unconditional.
+   ⛔ **AND THE MECHANICAL REWIRING BROKE FIVE BUILD STEPS AT ONCE**, all from ONE call site:
+   `check_encodings.py` called `tempfile.mkdtemp()` with **no prefix**, while the other six passed
+   one, and my helper made `prefix` required. ⇒ 🔑 **A MECHANICAL REWRITE IS CORRECT ONLY WHERE THE
+   CALL SHAPE IS UNIFORM, AND THE ONE SITE THAT DIFFERS IS THE ONE THE REWRITE CANNOT SEE.** Caught
+   by the gates in one run, which is the system working; `prefix` now defaults.
 
 ## DEFERRED, by ruling — not by silence
 - **Arm C, the K-backed second oracle** — DEFERRED at the council (minute 2026-09-05 item 2(a)).

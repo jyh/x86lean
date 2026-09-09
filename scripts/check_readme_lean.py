@@ -25,6 +25,7 @@ file that compiles.  The limit is stated rather than left to be found.
 Usage:  check_readme_lean.py [--selftest]
 """
 import os, re, sys, subprocess, tempfile
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
@@ -56,7 +57,7 @@ def classify(b):
     return "fragment"
 
 def compile_block(src):
-    d = tempfile.mkdtemp(prefix="x86lean-readme-")
+    d = scratch.mkdtemp(prefix="x86lean-readme-")
     f = os.path.join(d, "Block.lean")
     open(f, "w").write(src)
     r = subprocess.run(["lake", "env", "lean", f],

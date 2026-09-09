@@ -13,6 +13,7 @@ It is the decode-trust column of the coverage table, made checkable for the 43
 forms the differential run actually executes.
 """
 import re, subprocess, sys, os, tempfile
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
@@ -154,7 +155,7 @@ def _selftest_parser():
 
 _selftest_parser()
 
-tmp = tempfile.mkdtemp()
+tmp = scratch.mkdtemp()
 asm, exp = os.path.join(tmp, "v.s"), os.path.join(tmp, "exp.txt")
 obj = os.path.join(tmp, "v.o")
 

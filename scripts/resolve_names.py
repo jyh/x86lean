@@ -40,6 +40,7 @@ verdict and buys nothing askable — 1,241 instructions of demand that this rout
 cannot reach ([[feedback-a-blocked-repair-blocks-a-design]]).
 """
 import json, os, re, subprocess, sys, tempfile
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LISTING = os.path.join(ROOT, "vendor", "acl2", "books", "projects", "x86isa",
@@ -64,7 +65,7 @@ def assemble(spellings):
     CONSECUTIVE before the results are zipped back onto the inputs — zipping two
     lists by position without checking they describe the same instructions is
     how a row gets another row's bytes."""
-    d = tempfile.mkdtemp()
+    d = scratch.mkdtemp()
     s, o = os.path.join(d, "n.s"), os.path.join(d, "n.o")
     open(s, "w").write(".text\n" + "\n".join(spellings) + "\n")
     r = subprocess.run(f"clang -target x86_64-unknown-linux-gnu -c {s} -o {o}",

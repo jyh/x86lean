@@ -56,6 +56,7 @@ LANE.  Personal lane; ACL2 x86isa is BSD-3 and is CONSULTED BY EXECUTION.
 Usage:  check_driver_cr4.py [--selftest]
 """
 import collections, os, re, subprocess, sys, tempfile
+import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -242,7 +243,7 @@ def measure():
     pres = OA.pre_states()[:N_PRE]
     if not pres:
         die("no pre-states recovered — a probe with no subject is not a measurement.")
-    tmp = tempfile.mkdtemp(prefix="x86lean-cr4-")
+    tmp = scratch.mkdtemp(prefix="x86lean-cr4-")
     cases = os.path.join(tmp, "cases.lsp")
     n = build_cases(pres, cases)
     print(f"── {len(FORMS)} forms x {len(pres)} real pre-states = {n} cases, "
