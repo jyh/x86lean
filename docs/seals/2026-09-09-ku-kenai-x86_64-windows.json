@@ -1,0 +1,45 @@
+{
+ "machine": "kenai",
+ "readings": {
+  "1000": {
+   "Add.add": 1000,
+   "HAdd.hAdd": 1000,
+   "List.casesOn": 2002,
+   "List.length._f": 1001,
+   "List.map._f": 1001,
+   "List.range.loop._f": 1001,
+   "List.range.loop.match_1": 1001,
+   "List.rec": 4004,
+   "Nat.casesOn": 1001,
+   "Nat.rec": 2002,
+   "instDecidableEqList.match_1": 2002
+  },
+  "2000": {
+   "Add.add": 2000,
+   "HAdd.hAdd": 2000,
+   "List.casesOn": 4002,
+   "List.length._f": 2001,
+   "List.map._f": 2001,
+   "List.range.loop._f": 2001,
+   "List.range.loop.match_1": 2001,
+   "List.rec": 8004,
+   "Nat.casesOn": 2001,
+   "Nat.rec": 4002,
+   "instDecidableEqList.match_1": 4002
+  },
+  "4000": {
+   "Add.add": 4000,
+   "HAdd.hAdd": 4000,
+   "List.casesOn": 8002,
+   "List.length._f": 4001,
+   "List.map._f": 4001,
+   "List.range.loop._f": 4001,
+   "List.range.loop.match_1": 4001,
+   "List.rec": 16004,
+   "Nat.casesOn": 4001,
+   "Nat.rec": 8002,
+   "instDecidableEqList.match_1": 8002
+  }
+ },
+ "version": "Lean (version 4.32.0-rc1, x86_64-w64-windows-gnu, commit b4812ae53eea93439ad5dce5a5c26591c31cb697, Release)"
+}

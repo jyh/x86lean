@@ -951,7 +951,27 @@ occur. Until then this is ONE observation and is recorded as one.
    unmeasured and there is still no second USABLE night. What changes is that the evidence AGAINST
    is now accounted for, so a future night's job is to supply confirmation rather than to explain
    away a disagreement that was never a disagreement.
-   Machine independence remains unmeasured; there is no second machine.
+   ⚖️⚖️ **MACHINE INDEPENDENCE: MEASURED 2026-09-09 ON A PLANT (D183). ONE NAMED UNKNOWN
+   REMOVED — AND THE ITEM STAYS SHUT.** The Captain allocated the second machine ("#2 yes use
+   kenai for 4b"). The kernel unfolding counters are **identical on every counter at every
+   size** across `arm64-apple-darwin24.6.0` and `x86_64-w64-windows-gnu` on the same Lean
+   commit — 11 counters x 3 sizes, exact integer equality, sealed at
+   `docs/seals/2026-09-09-ku-{yukon-arm64-darwin,kenai-x86_64-windows}.json`.
+   ⭐ **The plant is MATHLIB-FREE and LAKE-FREE (225 bytes), which is the whole reason this cost
+   a toolchain install instead of a mathlib build**: machine independence of a KERNEL counter is
+   a property of the kernel, so a cheap experiment that could REFUTE the claim outright was run
+   FIRST. Controls: liveness (counters must MOVE across sizes on each machine, and a frozen side
+   is refused), teeth (kenai's n=2001 against yukon's n=2000 reds on all eleven), a VACUITY
+   refusal when both platform triples are equal, and a short-harvest refusal against the block's
+   own declared `num:`. 8 break-probes, 8 red.
+   ⛔⛔ **WHAT IT DOES NOT DO, SAID HERE BECAUSE THIS IS THE PARAGRAPH THAT WILL BE QUOTED:** it
+   measures a PLANT, not the twelve committed commits (that leg still needs mathlib on kenai, a
+   price now known rather than assumed); it derives NO budget; and it supplies **no confirmation
+   that the counter tracks kernel time**, which is the claim 4b actually rests on. **The other
+   blocker half — a budget from a second SOURCE — is UNTOUCHED, as the Captain's ruling said.**
+   ⇒ **4b STAYS SHUT.** D180, D181 and now D183 have each removed an indictment or an unknown;
+   **not one of them has supplied evidence FOR the counter.** Reading the three together as "4b
+   is nearly done" is the misreading to guard, and the seat that produced all three says so.
    ⚖️⚖️ **RE-DIAGNOSED 2026-09-09 (D180), AND THE ITEM STAYS SHUT ANYWAY.** The paragraph above has
    been read as evidence about the COUNTER. Run this repository's own sealed usability gate over
    every committed walk — `python3 scripts/score_calibration_night.py --census`, ~0.2 s, no box —

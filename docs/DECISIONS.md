@@ -12352,3 +12352,97 @@ site rather than left to be found.
 `--history` has no baseline, so it correctly refuses. Writing that baseline **is** the accepted-
 debt act, and that act is blocked on §6. The wiring and the baseline land in ONE commit when he
 rules. Wiring first reds every build; baselining first answers his question for him.
+
+---
+
+## D183 — 4b's second machine, executed: the kernel unfolding counter is identical across arm64-macOS and x86_64-Windows, measured on a plant that cost a toolchain instead of a mathlib build
+
+**LANE.** Personal. Two machines (yukon arm64, kenai x86-64), no mathlib, no ACL2, no build.
+Wall clock ~12 min including the toolchain install on a box that had no Lean at all.
+
+### 1. THE ORDER
+The Captain, 2026-09-09: **"#2 yes use kenai for 4b."** An ALLOCATION — the question routed to
+this seat was feasibility, not whether. Constraints carried in: **kenai stays native** (no WSL,
+no tmux, SAC untouched), and the leg is driven over ssh **in PowerShell, never bash** (bench's
+row-IC law: a bash sweep reports kenai as EMPTY, byte-identical to clean). ⛔ The **budget from
+a second source** — 4b's other blocker half — was explicitly untouched by the ruling and is
+untouched here.
+
+### 2. ⭐⭐ THE DESIGN DECISION THAT DECIDED THE PRICE
+Item 4b's `ku` readings come from `lake env lean` against a built worktree, so reproducing the
+committed twelve-commit walk on kenai needs **elan + a full mathlib build on a box with no Lean
+toolchain at all**. Measured before committing to that:
+
+```
+  kenai, probed 2026-09-09 ......  git ✅   python 3.12 ✅   1,707 GB free ✅   25 GB RAM free
+                                   load 2% (a genuinely quiet box)
+                                   ⛔ elan ABSENT   lake ABSENT   lean ABSENT   repo ABSENT
+```
+
+⇒ **But machine independence of a KERNEL counter is a property of the kernel, and a bare `lean`
+can exhibit it.** The plant is **mathlib-free and lake-free**: 225 bytes, `set_option diagnostics
+true`, a `decide` over a list of known length.
+⇒ 🔑 ***A CHEAP EXPERIMENT THAT CAN REFUTE THE CLAIM OUTRIGHT IS WORTH MORE THAN AN EXPENSIVE ONE
+THAT WOULD CONFIRM IT, AND IT IS RUN FIRST FOR EXACTLY THAT REASON.*** Had the counters disagreed,
+4b would have died for the price of a toolchain download rather than a mathlib build.
+⚠️ **And the cost of the choice is carried, not buried:** this measures the counter on a PLANT.
+See §5.
+
+### 3. THE READING
+Same Lean commit `b4812ae5` on both sides; the platform triples differ in **architecture AND
+operating system**, which is the strongest contrast available in this fleet:
+
+```
+  yukon   Lean 4.32.0-rc1   arm64-apple-darwin24.6.0
+  kenai   Lean 4.32.0-rc1   x86_64-w64-windows-gnu
+```
+
+Plant sources transferred by `scp` and **hashed on both sides** (`3ebbaeba…`, `e1bad5a7…`,
+`4114c19f…`, 225 bytes each) — never regenerated remotely, because a line-ending difference is a
+different file.
+
+**RESULT: identical on every counter at every size — 11 counters × 3 sizes, exact integer
+equality.** `List.rec` 4004 / 8004 / 16004; `instDecidableEqList.match_1` 2002 / 4002 / 8002; and
+so through all eleven. Sealed at `docs/seals/2026-09-09-ku-{yukon-arm64-darwin,kenai-x86_64-windows}.json`.
+
+### 4. THE CONTROLS, BECAUSE PERFECT AGREEMENT IS THE EASIEST THING TO FAKE
+```
+  LIVENESS   counters MOVE across sizes on EACH machine independently.  Two FROZEN
+             instruments agree perfectly, and an agreement-only check cannot tell
+             that from the real thing.  Asserted, and the tool REFUSES a frozen side.
+  TEETH      kenai's n=2001 reading compared against yukon's n=2000: all eleven
+             counters DIFFER and the comparison REDS.  A one-element change moves
+             every counter, so the comparator is sensitive at the finest grain the
+             experiment has.
+  VACUITY    ⛔ the tool REFUSES two readings whose platform triples are EQUAL.  Two
+             readings from one machine are not two witnesses -- they agree because
+             they share an origin, which is the exact shape of the result claimed.
+             [[feedback-two-readings-are-not-two-witnesses]]
+  SHORTNESS  the kernel block declares `num: N`; a harvest that falls short RAISES.
+             A regex that silently stopped matching would report a partial set as
+             complete -- and being partial the same way on both machines, it would
+             still AGREE.  [[feedback-read-what-the-instrument-measured]]
+```
+`scripts/ku_machine_independence.py --self-test`: **8 break-probes, 8 RED**, control re-run after
+each. ⚠️ Two earlier probes were SILENT and both were arm defects, not tool defects: the
+empty-side guard overlapped the missing-size path on the exit code (fixed by asserting what the
+refusal SAYS), and the block-header check is redundant with the `[kernel]` line prefix — which is
+what led to the `num:` check that is now the real guard. ⇒ **The probe that would not go red is
+where the design question was**, twice in one day.
+
+### 5. ⛔⛔ WHAT THIS DOES **NOT** SHOW, AND 4b STAYS SHUT
+* **NOT the corpus.** A plant is not the twelve committed commits. The corpus leg on kenai still
+  needs mathlib there, and that price is now known and quotable rather than assumed.
+* **NOT a budget.** 4b's other half — a budget from a second SOURCE — is untouched, as the
+  Captain's ruling said.
+* **NOT a second usable night.** D180 stands: there is exactly one, and D181 removed an
+  indictment without supplying evidence.
+⇒ **This removes one NAMED UNKNOWN. It supplies no confirmation that the counter tracks kernel
+time, which is the claim 4b actually rests on.** ⚠️ I am the party who would most like this to
+read as progress, which is why it is written this way — the same guard D181 asked for.
+
+### 6. WHAT CHANGED ON KENAI, DECLARED
+`elan` v4.2.4 and toolchain `leanprover/lean4:v4.32.0-rc1`, installed **natively into
+`%USERPROFILE%\.elan`** — no WSL, no tmux, SAC untouched, nothing on PATH for other users' shells.
+The plants live in `%TEMP%`. This is the minimum the allocation requires: the leg cannot run on a
+box with no Lean. Reported rather than assumed as covered by the ruling.
