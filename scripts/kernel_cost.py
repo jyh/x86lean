@@ -319,7 +319,10 @@ def conditions(root=None):
     """The conditions a reading must be quoted with.  `None` never a default."""
     try:
         la1, la5, _ = os.getloadavg()
-    except OSError:
+    except (AttributeError, OSError):
+        # ⛔ AttributeError, NOT JUST OSError: on Windows `os.getloadavg` does not
+        # EXIST, so the old clause did not catch the case the second machine
+        # actually produces. `None` stays the value, per this function's own rule.
         la1, la5 = None, None
     fb = foreign_builds(root)
     return {"load1": la1, "load5": la5, "idle_pct": _tab.idle_pct(),
@@ -1322,6 +1325,15 @@ def selftest():
                  # ⚠️ AND THE HELD-OUT ARM: at a load INSIDE the band the refusal
                  # must NOT fire, or the gate has simply stopped gating.
                  ("the load INSIDE the band (must NOT refuse)", "1.00", None)]
+    # ⭐ A SIXTH ARM, ON ITS OWN SEAM: a platform with NO load average at all.
+    #    ⛔ It exists because the branch it drives was, for about ten minutes,
+    #    written so that an unknown load fell through to `if fail:` — reporting
+    #    "FAILED (over ceiling)" when a ceiling was breached and, with none
+    #    breached, it would have returned **CLEAN** for a reading whose conditions
+    #    are unknown. That is the exact defect the branch was added to fix,
+    #    reintroduced one line below it, and only DRIVING it showed that.
+    noload_arms = [("a platform with NO load average is UNMEASURABLE, not CLEAN",
+                    "UNMEASURABLE")]
     bad = []
     try:
         for name, mutate, expect in arms:
@@ -1349,6 +1361,20 @@ def selftest():
                 ok = r.returncode != 0 and expect in out
             print(("  ✔ " if ok else "  ⛔ ") + name +
                   ("" if ok else f"   (rc={r.returncode}, expected {expect!r})"))
+            if not ok:
+                bad.append(name)
+        for name, expect in noload_arms:
+            env = dict(os.environ, X86LEAN_NO_LOADAVG="1")
+            env.pop("X86LEAN_FAKE_LOADAVG", None)   # the fake would SUPPLY a load
+            r = subprocess.run([sys.executable, os.path.abspath(__file__)],
+                               capture_output=True, text=True, env=env)
+            out = r.stdout + r.stderr
+            # ⛔ rc 3 SPECIFICALLY, not merely non-zero: rc 1 is "over ceiling",
+            # and the whole point is that an unknown-conditions run must NOT be
+            # reported as a verdict about the commit.
+            ok = r.returncode == 3 and expect in out and "no load average" in out
+            print(("  ✔ " if ok else "  ⛔ ") + name +
+                  ("" if ok else f"   (rc={r.returncode}, wanted 3 + {expect!r})"))
             if not ok:
                 bad.append(name)
     finally:
@@ -1493,10 +1519,25 @@ def main():
     # is a batch with its own red probes, not a tack-on.
     CALIBRATED_LOAD = (0.0, 4.1)
     faked = os.environ.get("X86LEAN_FAKE_LOADAVG")
-    try:
-        la1, la5, _ = os.getloadavg()
-    except OSError:
-        la1, la5 = -1.0, -1.0
+    # ⚠️ A SECOND TEST SEAM, SAME DOCTRINE AS THE ONE BELOW: it can only make the
+    # verdict STRICTER (UNMEASURABLE), never turn a red into a pass, and it prints
+    # itself. It exists because the no-load-average branch fires on a PLATFORM,
+    # which this machine cannot become — so without it the branch is shipped
+    # tested-once-by-hand, which is what it was for about ten minutes.
+    if os.environ.get("X86LEAN_NO_LOADAVG"):
+        print("⚠️ LOAD AVERAGE SUPPRESSED by X86LEAN_NO_LOADAVG — this run is a PROBE "
+              "of the unknown-conditions branch and its figures are not a measurement.")
+        la1, la5, load_known = -1.0, -1.0, False
+    else:
+        try:
+            la1, la5, _ = os.getloadavg()
+            load_known = True
+        except (AttributeError, OSError):
+            # ⛔ AttributeError too, not just OSError: on Windows `os.getloadavg`
+            # does not EXIST, so the original clause did not catch the case the
+            # second machine actually produces.
+            la1, la5 = -1.0, -1.0
+            load_known = False
     if faked is not None:
         # ⚠️ A TEST SEAM THAT ANNOUNCES ITSELF.  `--selftest` needs to CREATE the
         # high-load condition rather than wait for one, so it can drive the
@@ -1507,8 +1548,18 @@ def main():
         la1 = float(faked)
         print(f"⚠️ LOAD AVERAGE OVERRIDDEN by X86LEAN_FAKE_LOADAVG={faked} — this "
               f"run is a PROBE and its figures are not a measurement of anything.")
-    load = "unavailable" if la1 < 0 else f"{la1:.2f} (1 min) / {la5:.2f} (5 min)"
-    unmeasurable = la1 > CALIBRATED_LOAD[1]
+    if faked is not None:
+        load_known = True          # the override SUPPLIES a load, and announces itself
+    load = "unavailable" if not load_known else f"{la1:.2f} (1 min) / {la5:.2f} (5 min)"
+    # ⛔⛔ AN UNKNOWN LOAD IS UNMEASURABLE, NOT MEASURABLE. This line read
+    # `unmeasurable = la1 > CALIBRATED_LOAD[1]` alone, and with the -1.0 sentinel
+    # that made a platform with NO load average come out as `False` -- i.e. FINE.
+    # ⇒ 🔑 THE ABSENCE OF A CONDITION WOULD HAVE READ AS THE MOST FAVOURABLE
+    #   POSSIBLE VALUE OF IT, in a gate whose whole purpose is to refuse readings
+    #   taken under conditions it cannot vouch for. This function's own docstring
+    #   two hundred lines up already says it: "the conditions a reading must be
+    #   quoted with. `None` never a default."
+    unmeasurable = (not load_known) or la1 > CALIBRATED_LOAD[1]
     # ⚠️ WHAT THIS LINE SAYS IS MEASURED, NOT INHERITED.  A first version quoted
     # scripts/kernel_ceilings.txt's "~15% high under load" — and batch 17 then
     # measured it: ordinary background load moves `Tests.Coverage` by NOTHING
@@ -1612,7 +1663,23 @@ def main():
     # this tool cannot tell a regression from an afternoon — and a red that names
     # the wrong culprit is worse than no red, since it trains a reader to
     # discount the next one.
-    if unmeasurable:
+    if unmeasurable and not load_known:
+        print("⛔ kernel-cost gate UNMEASURABLE — this platform has no load average, "
+              "so the CONDITIONS of the reading are unknown. The readings above are "
+              "printed and are NOT a verdict: a gate that refuses readings taken "
+              "under conditions it cannot vouch for cannot make an exception for "
+              "conditions it cannot SEE. Gate the DELTA between two trees measured "
+              "in one session instead (D111).")
+        # ⛔⛔ `return 3` — THE SAME EXIT CODE AS THE OTHER UNMEASURABLE BRANCH, and
+        # it is here because I left it out on the first write. Without it this
+        # branch FELL THROUGH to `if fail:` — so an unknown-conditions run reported
+        # rc 1 "FAILED (over ceiling)" when a ceiling was breached, and, worse,
+        # would have returned 0 "CLEAN" when none was. ⇒ 🔑 **I REINTRODUCED, ONE
+        # LINE BELOW, THE EXACT DEFECT THIS BRANCH WAS ADDED TO FIX**: an absent
+        # condition resolving to the most favourable available verdict. Caught by
+        # driving the branch instead of reading it.
+        return 3
+    elif unmeasurable:
         print(f"⛔ kernel-cost gate UNMEASURABLE — one-minute load was {la1:.2f}, "
               f"outside the band this tool's own effect measurement covers "
               f"(loads {CALIBRATED_LOAD[0]:.1f}-{CALIBRATED_LOAD[1]:.1f}). The "
