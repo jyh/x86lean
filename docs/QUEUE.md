@@ -941,9 +941,23 @@ are stable, instead of the difference of two large numbers.
    new requirement that each case declare the LINE it must print and not just its verdict.
 
 6. **`--repeats` in CI is a guess** (D141 §9). `.github/workflows/ci.yml` asks for 6 on a runner no
-   delta has ever run on. The first job that completes there prices it, and the number to read off
-   is the gate's own `~N repeats a side would decide it` line. Blocked: GitHub Actions refuses every
-   job on this account for billing (desk FH).
+   delta has ever run on. Blocked: GitHub Actions refuses every job on this account for billing
+   (desk FH).
+   ⛔⛔ **THIS ITEM'S STATED METHOD WAS REFUTED 2026-09-08 AND IS CORRECTED HERE RATHER THAN LEFT TO
+   BE FOLLOWED.** It used to end: *"the number to read off is the gate's own `~N repeats a side
+   would decide it` line."* **Do not read that number off.** Measured on this box the same evening
+   (item 4, third instance): the gate advised `~6` at n=3; obeying it produced `~33` and `~69` at
+   n=6, over three unmeasurable units instead of two. **The projection moved the wrong way when
+   obeyed**, because it models the spread as noise that averages out and the spread here is rare
+   load excursions.
+   ⇒ 🔑 **A BLOCKED ITEM'S METHOD IS THE LEAST-INSPECTED TEXT IN A QUEUE.** Nobody re-reads the
+   recipe for work nobody can start, so a refuted method sits there looking like a plan and is
+   followed on the day the block lifts — by which time the measurement that refuted it is a hundred
+   commits back ([[feedback-a-blocked-repair-blocks-a-design]], [[feedback-a-justification-outlives-its-condition]]).
+   ⇒ **WHAT TO DO INSTEAD when the runner is reachable:** run the gate on the runner at a FIXED,
+   PRE-DECLARED `n` and record the BAND it produces, several times. The question is not "what `n`
+   decides this commit" but **"what is this runner's band distribution"** — which is the quantity
+   item 4 says to reduce, and it cannot be read off a single refusal.
 
 7. **The gate's conditions line records a LOAD and that is not enough (D149).** · **DISCHARGED (D151)** Measured this
    sitting: a 1-minute load of 282 with `top` reading **0.0% idle**, 44% user / 55% SYSTEM, and one
