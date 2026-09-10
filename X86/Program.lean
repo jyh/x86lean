@@ -282,6 +282,22 @@ theorem step_jcc_mem (c : Cc) (d : Val) {s : Cpu} {len : Nat} (h : Live s) :
     · split <;> rfl
     · rfl
 
+/-- ⛔ THE LOAD'S MEMORY FRAME. A load writes no memory, and like `step_jcc_mem` this
+needs no side condition beyond liveness — the effective address is irrelevant to the
+frame, however wild it is. **That is the read-safety gap in one lemma: this model records
+WHAT WAS READ nowhere, so a load is indistinguishable from a no-op to any single-run
+memory invariant.** -/
+theorem step_mov_reg_mem_mem (sz : Size) (r : GPR) (ea : Ea) {s : Cpu} {len : Nat}
+    (h : Live s) (hl : ea.lock = false) :
+    (step ⟨.mov sz (.reg r) (.mem ea), len⟩ s).mem = s.mem := by
+  rw [step_mov_reg_mem sz r ea h hl]
+
+/-- The increment's memory frame — the sibling of `step_dec_reg_mem`, which shipped
+without it because the first routine that needed a frame used `dec` and not `inc`. -/
+theorem step_inc_reg_mem (sz : Size) (r : GPR) {s : Cpu} {len : Nat} (h : Live s) :
+    (step ⟨.un .inc sz (.reg r), len⟩ s).mem = s.mem := by
+  rw [step_inc_reg sz r h]
+
 /-! ## ⭐⭐ MEMORY SAFETY BY REGIONS — the council's design question (b)
 
 The council asked: explicit region invariants, or separation logic.  **The model

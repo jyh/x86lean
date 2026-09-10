@@ -473,4 +473,39 @@ theorem memcpy_bound_is_tight :
     (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).mem.read 0x4003
       ≠ (default : Mem).read 0x4003 := by decide
 
+/-! ## ⭐⭐⭐ PROBLEM 3 — THE FRAME TIER AT A SECOND INSTRUCTION COUNT, AND THE HALF THAT IS NOT STATABLE
+
+Problem 3 is the `strlen`-style scan: *"reads stay inside the buffer; writes nothing."*
+**Its two halves land in completely different places, and that is the finding.** -/
+
+/-- A scan loop, at 0x5000 — load, advance, count down, repeat. Four instructions where
+`countdown` has three, which is what makes it a second point for the frame tier's cost. -/
+def scan : Program := { code := [
+  (0x5000, ⟨.mov .b (.reg .rax) (.mem { base := some .rsi }), 2⟩),
+  (0x5002, ⟨.un .inc .q (.reg .rsi), 3⟩),
+  (0x5005, ⟨.un .dec .q (.reg .rcx), 3⟩),
+  (0x5008, ⟨.jcc .ne (BitVec.ofInt 64 (-10)), 2⟩)] }
+
+/-- **The scan writes no memory** — ∀ fuel, ∀ start state. A FRAME claim, so it goes to the
+frame tier and mentions no label and no branch, exactly like `countdown_writes_no_memory`. -/
+theorem scan_writes_no_memory (n : Nat) (s : Cpu) :
+    (runP scan n s).mem = s.mem := by
+  refine runP_invariant_instrs scan (fun t => t.mem = s.mem) ?_ ?_ n s rfl
+  · intro t e ht; unfold Cpu.halt; split <;> exact ht
+  · intro b i t hb ht
+    by_cases hl : Live t
+    · simp only [scan, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hb
+      rcases hb with ⟨_, h⟩|⟨_, h⟩|⟨_, h⟩|⟨_, h⟩ <;> subst h
+      · rw [step_mov_reg_mem_mem _ _ _ hl rfl]; exact ht
+      · rw [step_inc_reg_mem _ _ hl]; exact ht
+      · rw [step_dec_reg_mem _ _ hl]; exact ht
+      · rw [step_jcc_mem _ _ hl]; exact ht
+    · rw [step_stopped]; exact ht
+      simpa [Cpu.stopped, Live, Option.isSome_iff_ne_none] using hl
+
+/-- ⚠️ AND THE CONTROL: the scan really moves, so the frame claim is about executed
+instructions and not about a machine that never started. -/
+theorem scan_really_ran :
+    (runP scan 12 { rip := 0x5000, regs := Regs.set default .rcx 3 }).rip ≠ 0x5000 := by decide
+
 end Tests

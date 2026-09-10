@@ -379,3 +379,55 @@ nonvacuity theorems: the routine runs to completion (`rcx = 0`, `rip = 0x2016`, 
 **actually move** (`0xAA 0xBB 0xCC 0xDD` arrive at the destination from a SEEDED source, because a
 zero background cannot tell COPIED from NEVER-WRITTEN), and the four-byte bound is **TIGHT**.
 Axioms: `memcpy_safe` on exactly `[propext, Classical.choice, Quot.sound]`.
+
+
+---
+
+## ⭐⭐⭐ PROBLEM 3 — THE FRAME TIER PRICED, AND THE HALF THAT IS **NOT STATABLE**
+
+Problem 3 is the `strlen`-style scan: *"reads stay inside the buffer; writes nothing."* **Its two
+halves land in completely different places, and that is the finding.**
+
+### 1. ✅ "WRITES NOTHING" IS THE FRAME TIER, AND HERE THE CAPTAIN'S CRITERION IS MET
+`Tests.scan_writes_no_memory`, ∀ fuel ∀ start state, **no label and no branch reasoning.**
+```
+  countdown_writes_no_memory   3 instructions   14 lines
+  scan_writes_no_memory        4 instructions   14 lines
+```
+⛔ **THOSE EQUAL NUMBERS ARE A COINCIDENCE AND MUST NOT BE READ AS "CONSTANT IN INSTRUCTIONS".**
+`countdown`'s `simp only [...]` wraps onto TWO lines where `scan`'s fits on one, which exactly
+cancels `scan`'s extra `rcases` arm and `rw`. **The real cost is ONE LINE PER INSTRUCTION** — one
+alternative and one `rw` — on a fixed base of ~11.
+⇒ **At twenty instructions ≈ 31 lines.** Against the labelled tier's ~181. ⇒ 🔑 ***THE TIER, NOT
+THE LEMMA LIBRARY, IS WHAT DECIDES WHETHER THE TARGET IS MET*** — 1 line/instruction versus 8.1
+lines/label is a factor of eight, and no amount of lemma engineering moved the labelled tier by
+that much across four rounds.
+
+### 2. ⛔⛔ "READS STAY INSIDE THE BUFFER" IS NOT STATABLE AS A SINGLE-RUN INVARIANT
+`X86.Mem.read` is **TOTAL** — every one of the 2^64 addresses is defined. **A read outside the
+buffer has no observable consequence**: no fault, no trap, nothing the state records. The new
+`step_mov_reg_mem_mem` says it in one line — *a load's memory frame holds with no constraint on the
+effective address, however wild.*
+⇒ 🔑 ***THE MODEL RECORDS WHAT WAS WRITTEN AND NOWHERE RECORDS WHAT WAS READ, SO READ-SAFETY IS
+INVISIBLE TO EVERY INVARIANT OVER ONE RUN.***
+
+**The honest formulation is NON-INTERFERENCE (2-safety):** *the run's result depends only on the
+bytes inside the buffer* — i.e. two initial memories agreeing on the buffer produce agreeing runs.
+That is expressible with the existing `AgreeOutside` vocabulary, **but it quantifies over TWO RUNS**,
+and every combinator this interface has is single-run:
+```
+  runP_invariant · runP_safe · runP_invariant_instrs · runP_labels · runP_code
+      all of shape   ∀ n s, I s → I (runP p n s)
+  relational lemmas in the library:  Mem.readN_congr only — one READ, not one RUN
+```
+⇒ ⛔ **PROBLEM 3 NEEDS A SHAPE THE INTERFACE DOES NOT HAVE** (a `runP_congr`: if two states agree on
+everything the program reads, their runs agree). **This is a sizing finding, not a gap to patch by
+reflex** — and it is a direct consequence of decision (b)'s own premise: *the same totality that
+made separation logic pointless also makes read-safety unobservable in a single run.*
+
+### 3. 📌 AND THE FRAME PACK WAS FITTED TO THE FIRST ROUTINE THAT NEEDED IT
+The memory-frame lemmas shipped were `step_mov_reg_imm_mem`, `step_dec_reg_mem`, `step_jcc_mem` —
+**exactly `countdown`'s three instructions.** The scan needed a LOAD and an `inc`, and both were
+missing; `step_mov_reg_mem_mem` and `step_inc_reg_mem` are added here, two lines each.
+⇒ **Third instance of the same shape in two days** (`agreeOutside_write`, `region_disjoint_of_le`,
+now these): **a library grown one proof at a time contains exactly what the last proof needed.**
