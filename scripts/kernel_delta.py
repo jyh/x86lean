@@ -645,6 +645,7 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
         return {"base_rev": git("rev-parse", base_rev),
                 "head_rev": git("rev-parse", head_rev),
                 "planted": bool(plant), "box": box_stamp(),
+                "machine": socket.gethostname(),
                 "decl_map": decl_map, "readings": readings}
     finally:
         if keep is None:
@@ -740,6 +741,9 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
       f"{'range':>9}{'budget':>9}  VERDICT")
     fail, refuse, defaulted, flags, unresolved = False, False, [], [], []
     unregistered_new, unresolved_new = [], []
+    # ⛔ THE MACHINE THIS RUN WAS TAKEN ON. A reading without its box is not a
+    # reading, and no registered ceiling may be compared against one.
+    mach = run_machine(data)
     for u in all_units:
         bs = [x[u] for x in sides["base"] if u in x]
         hs = [x[u] for x in sides["head"] if u in x]
@@ -789,32 +793,41 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
         # twenty-second module gets in, and it is the failure the old behaviour was
         # over-correcting for.
         if not bs:
-            ceil = (ceilings or {}).get(u)
-            if ceil is None:
-                v, ceiltxt = "NEW — NO CEILING ⛔", "-"
+            # ⚖️⚖️ THE ARM REPORTS AND REFUSES. IT NEVER CONVICTS, AND IT NEVER
+            # COMPARES A CEILING ACROSS MACHINES. `fail` is deliberately never set
+            # below: a new module is a DECISION, and this gate cannot judge one.
+            entry = (ceilings or {}).get(u)
+            cm = entry[1] if entry else None
+            why = (None if entry is None else
+                   "machine-unknown" if cm is None else
+                   None if cm == mach else f"registered for {cm}")
+            if entry is None or why is not None or mach is None:
+                v, ceiltxt = "NEW — REFUSED ⛔", "-"
                 refuse = True
-                unregistered_new.append((u, h))
-                flags.append(f"NEW unit in head: {u} — head {h:.1f} ms on this "
-                             f"box, judged as NEW; NO CEILING REGISTERED")
+                unregistered_new.append(
+                    (u, h, "the run's own machine is unknown" if mach is None
+                     else "no ceiling registered" if entry is None
+                     else f"its ceiling is {why}, and a ceiling from another box "
+                          f"is not a loose bound — it is an unrelated number"))
+                flags.append(f"NEW unit in head: {u} — head {h:.1f} ms measured on "
+                             f"{mach or 'an UNKNOWN box'}; judged as NEW and REFUSED")
             else:
+                ceil = entry[0]
                 ceiltxt = f"{ceil:.1f}"
-                # ⭐ THE SAME three-way question the rest of this file asks, from
-                # THE SAME function — against the ceiling instead of a budget,
-                # and against the head's TOTAL rather than a delta.
-                w = three_way(h, band, ceil)
-                if w == "OVER":
-                    v, fail = "NEW OVER CEILING ⛔", True
-                elif w == "ok":
-                    v = "NEW ok (vs ceiling)"
+                # ⭐ The SAME three-way question the rest of the file asks, and the
+                # ONLY outcome that releases the refusal is a clean `ok`. Anything
+                # else refuses — an over-ceiling reading is NOT a conviction here.
+                if three_way(h, band, ceil) == "ok":
+                    v = f"NEW ok (ceiling {ceil:.1f} @on {cm})"
                 else:
-                    v = "NEW UNMEASURABLE ⛔"
+                    v = "NEW — REFUSED ⛔"
                     refuse = True
                     unresolved_new.append(
                         (u, h, ceil, band,
                          repeats_to_decide(len(hs), se, abs(h - ceil))))
-                flags.append(f"NEW unit in head: {u} — head {h:.1f} ms on this "
-                             f"box, judged as NEW against its registered "
-                             f"ceiling {ceil:.1f} ms")
+                flags.append(f"NEW unit in head: {u} — head {h:.1f} ms measured on "
+                             f"{mach}; judged as NEW against a ceiling registered "
+                             f"for THE SAME box ({ceil:.1f} ms @on {cm})")
             # ⚠️ THE COLUMNS SAY WHICH QUANTITY WAS JUDGED. `base` reads NEW and
             # `delta` reads `-` because for this unit the gate is NOT testing a
             # delta — printing `+9.8` under `delta` is exactly what made a total
@@ -899,10 +912,11 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
           f"noise it exists to see through. Buy repeats, quiet the box, or make "
           f"the commit cheaper — the third is the one a refusal most often means.")
     if unresolved_new:
-        p(f"⛔ delta gate UNMEASURABLE ON A NEW UNIT — the unit(s) below are new, "
-          f"so the quantity judged is the module's TOTAL cost against its "
-          f"registered ceiling, and this run's own band straddles that ceiling. "
-          f"The readings are printed and they are not a verdict.")
+        p(f"⛔ delta gate REFUSES ON A NEW UNIT — the unit(s) below carry a ceiling "
+          f"registered for THIS machine, and this run does not sit cleanly under "
+          f"it. ⚠️ THIS IS NOT A CONVICTION: a new module gets no verdict from this "
+          f"gate in either direction. The readings are printed and they are not a "
+          f"verdict.")
         for u, h, ceil, band, need in unresolved_new:
             margin = h - ceil
             if band == float("inf"):
@@ -918,23 +932,34 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
               f"(margin {margin:+.1f}), band ±{band:.1f} ⇒ {price}")
     if unregistered_new:
         rel = os.path.relpath(CEIL_FILE, ROOT)
-        p(f"⛔ delta gate REFUSES — {len(unregistered_new)} NEW unit(s) carry no "
-          f"registered ceiling. ⚠️ THIS IS NOT AN OVER-BUDGET FINDING and it is "
+        p(f"⛔ delta gate REFUSES — {len(unregistered_new)} NEW unit(s) cannot be "
+          f"judged by this gate. ⚠️ THIS IS NOT AN OVER-BUDGET FINDING and it is "
           f"deliberately not reported through that channel: a new module is a "
           f"DECISION, and a decision and a regression must not arrive wearing the "
-          f"same word. Nothing here says the module is too expensive — only that "
-          f"nobody has yet said what too expensive would be.")
-        for u, h in unregistered_new:
+          f"same word. Nothing here says the module is too expensive.")
+        p(f"⛔⛔ AND THE REASON IS STRUCTURAL, NOT A MISSING LINE IN A FILE. A new "
+          f"unit has exactly ONE reading. This gate's only sound comparison is a "
+          f"RATIO of two readings of the same unit ON THE SAME MACHINE, which "
+          f"divides out a per-module machine factor measured at 1.7x-3.1x. With "
+          f"one reading there is no ratio to take, so the gate reports and "
+          f"refuses rather than substituting the comparison it CAN make for the "
+          f"one it cannot.")
+        for u, h, why in unregistered_new:
             sug = max(h * kernel_cost.HEADROOM, float(kernel_cost.FLOOR_MS))
-            p(f"   · {u}: head {h:.1f} ms on THIS box. Register a ceiling by "
-              f"adding one line to {rel}:")
-            p(f"         {u} {sug:.0f}")
-            p(f"     (the registry's own rule, from its header and from "
-              f"`kernel_cost.py --register`: max(measured x "
-              f"{kernel_cost.HEADROOM:g}, {kernel_cost.FLOOR_MS}ms) — derived "
-              f"here, not retyped. CHOOSE the number; this is a suggestion "
-              f"carrying the same headroom every other line in that file has.)")
+            p(f"   · {u}: head {h:.1f} ms measured on {mach or 'an UNKNOWN box'} "
+              f"— {why}.")
+            p(f"     To register it, take the reading ON THE MACHINE THAT RUNS THIS "
+              f"GATE and add one line to {rel}:")
+            p(f"         {u} {sug:.0f} @on {mach or '<machine>'}")
+            p(f"     (headroom from the registry's own rule, derived not retyped: "
+              f"max(measured x {kernel_cost.HEADROOM:g}, {kernel_cost.FLOOR_MS}ms). "
+              f"⛔ THE `@on` IS LOAD-BEARING: an entry with no machine, or one for "
+              f"another box, is treated as ABSENT — never as a loose bound.)")
         n_reg, n_new = len(ceilings or {}), len(unregistered_new)
+        p(f"📌 Registering a new unit costs ONE MEASUREMENT ON THE GATE'S OWN "
+          f"MACHINE: land the module behind this refusal, read its cost from this "
+          f"gate's output on that box, and register that. A decision with a "
+          f"measurement behind it is what a new module should cost.")
         p(f"⛔ DO NOT RUN `kernel_cost.py --register` TO CLEAR THIS. It REWRITES "
           f"THE WHOLE FILE and would re-derive all {n_reg} existing ceiling(s) "
           f"from today's box, loosening every one of them to clear "
@@ -992,20 +1017,47 @@ def read_ceilings():
         return ceil
     for line in open(CEIL_FILE):
         p = line.split("#")[0].strip().split()
+        # ⚖️ THE MACHINE COLUMN (helm ruling as REPLACED, 2026-09-10). An optional
+        # trailing `@on <machine>` records the box a ceiling was measured on. An
+        # entry WITHOUT one is machine-unknown, and machine-unknown is treated as
+        # ABSENT by the new-unit arm — never as a loose bound.
+        mach = None
+        if len(p) >= 2 and p[-2] == "@on":
+            mach, p = p[-1], p[:-2]
         if len(p) == 4 and p[1] == "@decl":
-            ceil[f"{p[0]} @decl {p[2]}"] = float(p[3])
+            ceil[f"{p[0]} @decl {p[2]}"] = (float(p[3]), mach)
         elif len(p) == 3 and p[1] == "@tail":
-            ceil[f"{p[0]} @residue"] = float(p[2])
+            ceil[f"{p[0]} @residue"] = (float(p[2]), mach)
         elif len(p) == 2:
             try:
-                ceil[p[0]] = float(p[1])
+                ceil[p[0]] = (float(p[1]), mach)
             except ValueError:
                 pass
     return ceil
 
 
+def run_machine(data):
+    """The box a readings blob was taken on, or None if it cannot be established.
+
+    ⛔ None is not a soft failure: a reading whose machine is unknown can be
+    compared against no registered ceiling at all, because the whole point of the
+    column is that an absolute number is a fact about ONE box."""
+    m = data.get("machine")
+    if m:
+        return m
+    # Fallback for blobs written before the field existed: `box_stamp()` puts the
+    # hostname first, as `BOX <host> · <platform> · …`.
+    b = data.get("box") or ""
+    if b.startswith("BOX ") and " · " in b:
+        return b[4:].split(" · ")[0].strip() or None
+    return None
+
+
 def absolute_readings(data):
-    ceil = read_ceilings()
+    # ⚠️ The machine column is dropped HERE deliberately: this section prints
+    # READINGS, retired as a gate, so a cross-machine number is a curiosity
+    # rather than a verdict. The new-unit ARM is where the column binds.
+    ceil = {u: v[0] for u, v in read_ceilings().items()}
     print("\n--- ABSOLUTE READINGS (RETIRED AS A GATE, 09/04 21:42; box-stamped)")
     print(f"{'UNIT':<56}{'base':>10}{'head':>10}{'ceiling':>10}   base/head")
     # ⛔ THE CLOSING SENTENCE USED TO SAY "the unchanged parent was already over
@@ -1413,11 +1465,12 @@ def selftest():
     # module gets in. It is rewritten rather than kept: an arm asserting the
     # behaviour a ruling forbids is not a regression test, it is the defect with
     # a tick beside it.
-    def _new_unit(unit, ms, base_modules=None):
+    def _new_unit(unit, ms, base_modules=None, machine="BOXA"):
         """base has no reading for `unit`; head has one. Two readings a side, so
         the head's own spread is estimable and the band is not `inf`."""
         return {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False,
-                "box": "BOX synthetic — no measurement in this run", "decl_map": {},
+                "box": "BOX synthetic — no measurement in this run",
+                "machine": machine, "decl_map": {},
                 "readings": {"base": [{"modules": dict(base_modules or {}), "decls": {},
                                        "load1": 1.0}] * 2,
                              "head": [{"modules": dict(base_modules or {}, **{unit: ms}),
@@ -1427,49 +1480,56 @@ def selftest():
     # drift from it: `@default 23.3%`, `@floor 6`.
     REPO_DEFAULT, REPO_FLOOR = ("rel", 23.3), 6.0
 
-    run("⭐ a NEW unit under the REPOSITORY'S RELATIVE default is judged against "
-        "its REGISTERED CEILING, not against @floor",
+    run("⭐ a NEW unit under the REPOSITORY'S RELATIVE default is NOT judged "
+        "against @floor",
         _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 0, "judged as NEW",
-        floor=REPO_FLOOR, ceilings={"X86.Program": 50.0})
-    # ⛔ THE MUTATION CONTROL THE RULING ORDERED: the SAME arm with the ceiling
-    # REMOVED must REFUSE. Without this, "judged against its ceiling" would also
-    # be satisfied by a rule that waves every new unit through.
+        floor=REPO_FLOOR, ceilings={"X86.Program": (50.0, "BOXA")})
+    # ⛔ THE MUTATION CONTROL: the SAME arm with the ceiling REMOVED must REFUSE.
     run("⛔ the same NEW unit with its ceiling REMOVED REFUSES — and does not FAIL",
         _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 3,
         "THIS IS NOT AN OVER-BUDGET FINDING", floor=REPO_FLOOR, ceilings={})
-    # ⛔ THE CONVICTION DIRECTION. A ceiling that never convicts is not a ceiling,
-    # and the two arms above are both satisfied by one that cannot.
-    run("a NEW unit OVER its registered ceiling FAILS",
-        _new_unit("X86.Program", 500.0), REPO_DEFAULT, {}, 1, "NEW OVER CEILING",
-        floor=REPO_FLOOR, ceilings={"X86.Program": 50.0})
-    # ⛔ POINT 4 OF THE RULING, ASKED DIRECTLY: rc 0 on an unregistered new unit
-    # is the ONE forbidden outcome, and it must stay forbidden under the budget
-    # kind that used to deliver it.
+    # ⛔⛔ THE MACHINE COLUMN, WHICH IS THE HALF THE RULING WAS REPLACED FOR. A
+    # ceiling registered for ANOTHER box is not a loose bound — it is an unrelated
+    # number, because the local↔runner factor is PER MODULE (1.7×–3.1×) and so
+    # cannot be divided out. It must read as ABSENT.
+    run("⛔⛔ a ceiling registered for ANOTHER MACHINE is treated as ABSENT",
+        _new_unit("X86.Program", 10.0, machine="BOXA"), REPO_DEFAULT, {}, 3,
+        "is not a loose bound", floor=REPO_FLOOR,
+        ceilings={"X86.Program": (50.0, "BOXB")})
+    # ⛔ …and so is one with NO machine at all, which is every entry the registry
+    # carried before this column existed.
+    run("⛔ a ceiling with NO registered machine is treated as ABSENT",
+        _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 3,
+        "THIS IS NOT AN OVER-BUDGET FINDING", floor=REPO_FLOOR,
+        ceilings={"X86.Program": (50.0, None)})
+    # ⛔ AND THE RUN'S OWN MACHINE MUST BE KNOWN. A reading without its box cannot
+    # be compared against any ceiling, however well registered.
+    run("⛔ a run whose OWN machine is unknown refuses even with a matching ceiling",
+        {**_new_unit("X86.Program", 10.0), "machine": None, "box": "no box line"},
+        REPO_DEFAULT, {}, 3, "the run's own machine is unknown", floor=REPO_FLOOR,
+        ceilings={"X86.Program": (50.0, "BOXA")})
+    # ⛔⛔⛔ THE ARM THE REPLACED RULING TURNS ON: THIS GATE NEVER CONVICTS A NEW
+    # UNIT. A reading far over a same-machine ceiling REFUSES (rc 3); it must never
+    # come back rc 1, because a new module is a decision and not a regression.
+    run("⛔⛔ a NEW unit far OVER its same-machine ceiling REFUSES — it NEVER "
+        "convicts",
+        _new_unit("X86.Program", 500.0), REPO_DEFAULT, {}, 3, "NOT A CONVICTION",
+        floor=REPO_FLOOR, ceilings={"X86.Program": (50.0, "BOXA")})
+    # ⛔ POINT 4 OF THE RULING: rc 0 on an unregistered new unit is the ONE
+    # forbidden outcome, under the budget kind that used to deliver it.
     run("⛔ an unregistered NEW unit never returns rc 0 — not even under the "
         "ABSOLUTE default that used to pass it",
         _new_unit("N", 10.0), ("abs", 1000.0), {}, 3,
         "THIS IS NOT AN OVER-BUDGET FINDING", ceilings={})
-    # ⭐ THE FLAG ITSELF IS STILL RAISED — the old arm's one true claim, kept.
-    run("a unit NEW in head is still FLAGGED by name",
-        _new_unit("N", 10.0), ("abs", 1000.0), {}, 3, "NEW unit in head",
+    # ⭐ THE FLAG IS STILL RAISED, AND NOW CARRIES THE MACHINE.
+    run("a unit NEW in head is flagged BY NAME AND WITH ITS MACHINE",
+        _new_unit("N", 10.0), ("abs", 1000.0), {}, 3, "measured on BOXA",
         ceilings={})
-    # ⛔ A NEW unit's ceiling is judged with the SAME three-way question the rest
-    # of this file asks: a head reading whose own band straddles its ceiling is
-    # not a verdict either way.
-    run("a NEW unit whose band STRADDLES its ceiling REFUSES",
-        {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False,
-         "box": "BOX synthetic — no measurement in this run", "decl_map": {},
-         "readings": {"base": [{"modules": {}, "decls": {}, "load1": 1.0}] * 3,
-                      "head": [{"modules": {"N": 40.0}, "decls": {}, "load1": 1.0},
-                               {"modules": {"N": 60.0}, "decls": {}, "load1": 1.0},
-                               {"modules": {"N": 50.0}, "decls": {}, "load1": 1.0}]}},
-        REPO_DEFAULT, {}, 3, "NEW UNMEASURABLE", floor=REPO_FLOOR,
-        ceilings={"N": 50.0})
     # ⭐ AND THE DOMAIN CONTROL: a unit WITH a history is untouched by all of the
-    # above. The arm that proves the change is confined to the case it names.
+    # above — the arm that proves the change is confined to the case it names.
     run("a unit WITH a history is still judged on its DELTA, not its total",
         _synthetic({"M": 1000.0}, {"M": 1010.0}), REPO_DEFAULT, {}, 0, "ok",
-        floor=REPO_FLOOR, ceilings={"M": 1.0})
+        floor=REPO_FLOOR, ceilings={"M": (1.0, "BOXA")})
     run("a unit GONE from head is flagged",
         {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False, "box": "BOX synthetic",
          "decl_map": {}, "readings": {"base": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}] * 2,

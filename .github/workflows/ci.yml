@@ -527,11 +527,18 @@ jobs:
   # for a ratio to mean anything.
   #
   # ⚠️ THAT IS A PREDICTION AND THE FIRST RUN HERE IS ITS TEST, NOT ITS CONFIRMATION.
-  # This account's runner refuses every job for billing (desk FH), so no delta has
-  # ever been measured on any machine but the developer box.  Compare the first
-  # green here against `docs/DECISIONS.md` D123's local table before believing the
-  # portability claim; a percentage that reads the same on two machines is the
-  # evidence, and until then it is an argument.
+  # ✅ THE FIRST GREEN NOW EXISTS: run 34504734457 measured `5011d2b -> d57b18c`
+  # here, 6 repeats a side, `delta gate: CLEAN` (2026-09-10 17:02-17:31Z).
+  # ⇒ SO THE TEST IS NOW POSSIBLE AND IS STILL OWED: compare it against
+  # `docs/DECISIONS.md` D123's local table.  A percentage that reads the same on
+  # two machines is the evidence, and until then it is an argument.
+  # ⛔ THIS PARAGRAPH USED TO OPEN "This account's runner refuses every job for
+  # billing (desk FH), so no delta has ever been measured on any machine but the
+  # developer box."  THAT WAS STRUCK BY THE HELM 2026-09-09 AS FALSE -- Actions
+  # runs here.  It is corrected rather than deleted because the OWED CHECK below
+  # it is real and outlived its excuse: a standing "this instrument cannot run"
+  # note is a standing instruction not to look, and it kept a testable claim
+  # filed as untestable.
   #
   # ⚠️ `fetch-depth: 0` IS LOAD-BEARING.  The gate profiles the change's BASE, and
   # `actions/checkout`'s default shallow clone has no parent commit to check out —

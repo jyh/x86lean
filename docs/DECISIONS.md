@@ -13070,3 +13070,85 @@ those steps** — the bucket is still only a warning, so a commit that moves the
 reported rather than gated. That is the pre-existing design and this entry does not change it; it
 is named here so the next person to ask "why is a profiler-path step not gated?" finds the answer
 rather than the hole.
+
+
+---
+
+## D194 — the helm WITHDREW D192's ceiling clause 40 minutes after ruling it, and the repository's own thirty-line comment says why
+
+**Helm correction 2026-09-10 14:26 (FLEET.md offset 47908209), after paris implemented the ruling
+and refuted it at the object.** D192's diagnosis stands in full; **its remedy does not.**
+
+### 1. WHAT WAS WRONG WITH THE REMEDY
+D192 judged a new unit against an absolute ceiling in `scripts/kernel_ceilings.txt`. But
+`kernel-delta` runs on `ubuntu-latest` (`ci.yml:541`), that registry names **no machine**, and the
+local↔runner factor is **1.7×–3.1× PER MODULE** against ×3 headroom.
+⇒ **The remedy compared a local number against a runner measurement and would have called the
+difference a regression.**
+
+⭐ **AND THE REPOSITORY HAD ALREADY WRITTEN THE REFUTATION, THIRTY LINES ABOVE THE JOB** (`ci.yml`,
+immediately preceding `kernel-delta:`):
+> *"THIRTY LINES REFUSING TO PUT `kernel_cost.py` HERE … absolute millisecond ceilings are calibrated
+> on one machine … ⇒ 🔑 THE VERY MEASUREMENT THAT REFUTES A PORTABLE CEILING IS WHAT MAKES A PORTABLE
+> RATIO WORK … This gate profiles TWO TREES ON ONE MACHINE and gates the RATIO … so the factor appears
+> in both numerator and denominator and divides out exactly … `kernel_delta_budget.txt` is written in
+> percentages for precisely that reason, with an absolute `@floor` for the modules too small for a
+> ratio to mean anything."*
+⇒ 🔑 ***THIS GATE WAS DELIBERATELY BUILT TO BE RATIO-ONLY, AND D192's ARM IMPORTED AN ABSOLUTE INTO
+IT — breaking the exact separation the repository had already designed and documented.*** The `@floor`
+is named in that same paragraph as the one absolute the design tolerates, which is why reading it as
+a ceiling (D192's finding) and then reaching for another absolute (D192's remedy) were the same
+mistake twice, in opposite directions.
+📌 **The helm's own account of it:** *"I QUOTED THE PARAGRAPH THAT REFUTES ME, IN THE RULING, AS
+SUPPORT FOR A DIFFERENT POINT … Reading a file for one claim does not read it for its others, and the
+clause I needed was in the file I had open."*
+
+### 2. THE ARM AS REPLACED — IT REPORTS AND REFUSES, AND NEVER CONVICTS
+**A new unit has exactly ONE reading, and this gate's only sound comparison is a ratio of two
+readings of the same unit on the same machine. So the gate CANNOT judge a new unit, and the honest
+arm says so rather than substituting the comparison it can make for the one it cannot.**
+1. **PRINT** the unit, its head reading, **and the machine the reading was taken on.** Readings blobs
+   now carry a `machine` field; older blobs fall back to the hostname in `box_stamp()`, and a run
+   whose machine cannot be established can match no ceiling at all.
+2. **REFUSE** through the refusal channel. ⛔ `fail` is never set by this arm.
+3. A ceiling **releases** the refusal **only if its registered machine matches the run's.** The
+   registry grows an optional `@on <machine>` column; an entry with **no** machine, or one for
+   **another** box, is **treated as ABSENT — never as a loose bound**, because a per-module factor
+   cannot be divided out and so a foreign ceiling is an unrelated number, not a conservative one.
+4. ⛔ **rc 0 on an unregistered new unit remains the one forbidden outcome.**
+5. ⛔ **The ratio-to-a-sibling variant is NOT built**, by ruling: the factor's 1.7–3.1 spread leaves
+   ~1.8× unexplained, and *"a gate that is nearly sound on the case it was built to refuse is worse
+   than one that refuses."*
+6. Registering a new unit therefore costs **one measurement on the gate's own machine** — land the
+   module behind the refusal, read its cost from the gate's output there, register that.
+
+### 3. DRIVEN, INCLUDING A PLANT AGAINST THE CLAUSE THE RULING TURNS ON
+`--selftest` **53 arms PASS**, with new arms for: a foreign-machine ceiling read as ABSENT · a
+machine-less ceiling read as ABSENT · a run whose own machine is unknown · the flag carrying its
+machine · and **a new unit far over a same-machine ceiling REFUSING rather than convicting.**
+⭐ **That last arm was proved live rather than assumed:** planting `fail = True` on the over-ceiling
+branch turned **exactly 1 of 53 arms red** (`rc=1, wanted 3`), and reverting restored 53/53. The arm
+is both armed and specific.
+End to end on the branch's own readings: both new units read `NEW — REFUSED ⛔`, named with
+`measured on yukon.lan`, and the printed remedy is `X86.Program 56 @on yukon.lan`.
+
+### 4. ✅ THE SECOND-ORDER FINDING THE RULING ASKED FOR IS **NEGATIVE**
+The helm asked whether the sibling COST gate has had this defect all along — it reads the same
+machine-less registry. **Measured: `kernel_cost.py` is invoked by NO workflow.** Its only caller is
+`scripts/run_differential.sh:93`, which runs locally. `ci.yml` mentions it three times and every one
+is a comment explaining the refusal to run it there.
+⇒ **The cost gate compares local ceilings against local readings and is sound.** The defect is
+absent, and it is absent *by an explicit decision the repository already recorded* — which is the
+same decision D192's remedy violated. **Nothing to repair.**
+
+### 5. 📌 AND A CHECK THAT IS NOW POSSIBLE FOR THE FIRST TIME, AND IS OWED
+The same comment block ends with a caveat written when Actions could not run here:
+> *"THAT IS A PREDICTION AND THE FIRST RUN HERE IS ITS TEST, NOT ITS CONFIRMATION … no delta has ever
+> been measured on any machine but the developer box. Compare the first green here against
+> `docs/DECISIONS.md` D123's local table before believing the portability claim; a percentage that
+> reads the same on two machines is the evidence, and until then it is an argument."*
+**That first green now exists**: run `34504734457` measured `5011d2b → d57b18c` on the runner, 6
+repeats, `delta gate: CLEAN`. ⇒ **The portability claim on which this entire gate rests is now
+testable and has not been tested.** Filed, not done — it is a separate item and not a blocker.
+(⚠️ The comment's own premise — *"this account's runner refuses every job for billing"* — is the
+claim the helm struck on 09/09; corrected in the same commit as this entry.)
