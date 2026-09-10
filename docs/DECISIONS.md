@@ -12853,3 +12853,75 @@ have been run on anything landed since — which is precisely what ARM A needs.
 ⚠️ **The refusal reported nothing:** the failure path prints `r.stderr` while `lean --json` writes
 diagnostics to STDOUT, redirected into the `.json` file. Structurally empty for the commonest
 failure. **Filed, not repaired here** [[feedback-a-gate-that-refuses-must-say-what-it-saw]].
+
+---
+
+## D190 — the P2 proof interface: one relation, two tiers, regions over separation logic — and `run` could not express a loop
+
+**Council 2026-09-10 ruling ⑧** commissioned the proof interface and named two design questions
+as this seat's first. Both are answered in `docs/P2-PROOF-INTERFACE.md`; this entry records the
+decision and the measurement each rests on.
+
+### 1. ⛔⛔ THE PRIOR FINDING: `run` IS A STRAIGHT-LINE FOLD, AND IT FAILS SILENTLY
+`X86.run` is `List.foldl step`. `jcc` sets `rip` correctly; the driver never reads it back.
+Measured on `mov ecx,3 / L: dec ecx / jne L`:
+```
+  ecx = 2       (0 if it had looped — 2 is ONE pass)
+  rip = 0x1005  (= L: the branch WAS taken)
+  ms  = none    (the model did NOT stop)
+```
+⇒ 🔑 ***THE BRANCH IS TAKEN IN THE SEMANTICS AND IGNORED BY THE DRIVER, AND THE RESULT IS A
+WELL-FORMED `Cpu`.*** No safety property of a routine with a taken branch could be STATED, and
+nothing in the tree said so. **`run` is not wrong** — it is what the differential harness drives
+— but it is not an execution relation over a program. `X86.stepP` / `X86.runP` are.
+
+### 2. (a) LABELLED BLOCKS vs INDUCTIVE REACHABILITY — the fork dissolves
+They are one theorem seen from two sides; the real question is who pays the induction.
+`runP_invariant` pays it ONCE, in four lines, for every program and property. `atLabels I` is the
+definition `fun s => I s.rip s`, and `runP_labels` is `runP_invariant` **applied** — so there is
+no second logic, **no soundness theorem owed, and no gap to audit.**
+⭐ **THE THIRD TIER WAS A MEASUREMENT, NOT A PLAN.** The first proof attempted got stuck because
+knowing `p.at? s.rip` requires knowing `s.rip` — so even *"writes no memory"*, a property with
+nothing to do with control flow, dragged in a case analysis over every label.
+⇒ 🔑 ***A PROPERTY PRESERVED BY EVERY INSTRUCTION OF A PROGRAM IS AN INVARIANT OF THAT PROGRAM.***
+`runP_invariant_instrs` discharges frame claims with no labels and no branch reasoning, and that
+is where the "tens of lines" target is actually won.
+
+### 3. (b) REGIONS OVER SEPARATION LOGIC — decided by the model, not by taste
+`Mem.read` is TOTAL (all 2^64 addresses, zero background), an argued decision made because the
+harness must ENUMERATE a memory to ship it to x86isa. **Separation logic's `P * Q` splits a heap,
+and a total memory has nothing to split** — it would need a footprint or permission structure on
+`Cpu.mem`, changing the type **52 of 298 library theorems** speak about plus every load/store arm
+of `step`. Regions reuse what exists: `Mem.span` is already the touched-address set and
+`Mem.readN_congr` is already the frame lemma.
+⛔ **THE DEFERRAL, AS A CONDITION:** no procedure-modular frame rule. Right for five leaf
+routines; **wrong at a call graph, which is when to reopen this** — not a change of taste.
+
+### 4. ⭐ THE TARGET, MEASURED — and the nonvacuity is part of the deliverable
+`Tests/Program.lean`: the safety theorem is **13 lines**, quantified over every start state and
+every amount of fuel, about a routine that really loops (5 lines of definition, 5 of nonvacuity).
+**Both nonvacuity probes were driven RED first** — claiming `run` gives 3 fails, and claiming
+`runP` gives the fold's 2 fails, which is what proves the two drivers genuinely disagree.
+⛔ A "for all fuel, nothing bad happens" theorem is TRUE AND WORTHLESS about a program that halts
+on step one, and the whole reason this work exists is a driver that silently did the wrong thing
+[[feedback-a-probe-must-create-its-condition]].
+
+### 5. ⛔⛔ AND THE GATE DID NOT COVER THE NEW MODULE, WHILE PRINTING `CLEAN`
+`scripts/axiom_gate.sh` carried a **hand-written literal** of twelve module names. `X86.Program`
+was added to the library, the gate ran, did not cover it, and printed
+`axiom-gate: CLEAN — every declaration in [ …the twelve… ]`.
+⇒ 🔑 ***A GATE NAMED BY A LITERAL STOPS SEEING NEW WORK AND REPORTS CLEAN ABOUT THE HALF IT CAN
+STILL SEE.*** The banner even NAMED its scope, and a reader who did not know the library had
+thirteen modules had nothing to compare it against
+[[feedback-a-gate-named-by-a-literal-stops-seeing-renamed-work]].
+✅ **REPAIRED by DERIVATION, not by appending a thirteenth name:** the list is now read from
+`X86.lean`'s imports — the library root, which must import every module for `lake build X86` to
+build it — with two refusals carrying a control (a short list, and a missing known module), since
+a derivation that silently yields nothing would read GREEN. **Both refusals driven red, then
+restored green.** 13 modules now covered; axioms clean.
+
+### 6. WHAT THIS DOES NOT CLAIM
+The five problems are **proposed, not built** — one routine is proven, and it is the smallest of
+them. Termination is untouched and is not on the P2 path: these are safety properties, and "for
+all fuel" says nothing about a routine finishing. The memory frame pack is **17 of 92 forms**;
+the three that problem 1 needed are in `X86/Program.lean` and 75 are unstated.

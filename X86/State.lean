@@ -45,6 +45,19 @@ inductive MsErr where
   `unimplemented` would put a COVERED form in the `T-absent` tier and make the
   fidelity table lie in the one direction the table exists to prevent. -/
   | byDesign (what : String)
+  /-- ⭐⭐ P2 PROOF INTERFACE: **THERE IS NO INSTRUCTION AT THIS ADDRESS.**  A
+  fourth claim, distinct from all three above, and it earns its own constructor
+  by the `ud2` precedent recorded on `byDesign`: filing it under
+  `unimplemented` would say "a form outside the covered roster", and there is no
+  FORM here at all — the program counter has left the code.
+
+  ⛔ IT IS NOT AN ERROR, AND THAT IS THE POINT.  Running off the end of a
+  routine is how a routine RETURNS in the program-indexed relation
+  (`X86.stepP`), so this value is the NORMAL EXIT of a proof about a routine,
+  not a failure of one.  It is `Cpu.ms` and therefore stops the model, which is
+  exactly right: `step_stopped` then pins the state for every later step, which
+  is what makes "the routine has finished" a stable property under more fuel. -/
+  | outsideProgram (what : String)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The user-level x86-64 machine state. -/
