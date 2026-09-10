@@ -13148,7 +13148,67 @@ The same comment block ends with a caveat written when Actions could not run her
 > `docs/DECISIONS.md` D123's local table before believing the portability claim; a percentage that
 > reads the same on two machines is the evidence, and until then it is an argument."*
 **That first green now exists**: run `34504734457` measured `5011d2b → d57b18c` on the runner, 6
-repeats, `delta gate: CLEAN`. ⇒ **The portability claim on which this entire gate rests is now
-testable and has not been tested.** Filed, not done — it is a separate item and not a blocker.
+repeats, `delta gate: CLEAN`.
+⛔⛔ **AND I FILED IT AS "NOW TESTABLE", WHICH IS WRONG — CORRECTED WITHIN THE HOUR, SEE D195.** That
+commit pair changes **no `.lean` file at all**, so every delta in it is noise. It belongs to the
+CONTROL population, not to the real batches, and **a null pair cannot test whether a REAL delta's
+percentage is portable.** The check is still owed and is still not possible from that run.
 (⚠️ The comment's own premise — *"this account's runner refuses every job for billing"* — is the
 claim the helm struck on 09/09; corrected in the same commit as this entry.)
+
+
+---
+
+## D195 — the portability check is still not possible, the run I said enabled it measured nothing, and its cross-reference points at the wrong decision
+
+**Self-correction, 2026-09-10, within the hour.** D194 §5 recorded that `ci.yml`'s long-standing
+owed check — *"compare the first green here against D123's local table before believing the
+portability claim; a percentage that reads the same on two machines is the evidence, and until then
+it is an argument"* — had become possible because the runner produced its first green. **Three
+things are wrong with that, and I found them by trying to DO the check rather than by re-reading.**
+
+### 1. ⛔ THE FIRST GREEN MEASURED A NULL COMMIT PAIR
+Run `34504734457` measured `5011d2b → d57b18c`. **That pair changes no `.lean` file** — it is docs
+and scripts — so every delta it reports is noise about nothing:
+```
+  Tests.Coverage @residue   −145.0      X86.Syntax   −6.0      (all 23 units: ok)
+```
+⇒ 🔑 ***A NULL PAIR CANNOT TEST WHETHER A REAL DELTA'S PERCENTAGE IS PORTABLE.*** The claim under
+test is that a RATIO reads the same on two machines; with no code change the ratio is ~0/base on
+both, which is agreement that would hold however unportable the instrument was.
+[[feedback-a-claim-the-vectors-cannot-distinguish]] · [[feedback-unobserved-regions-report-agreement]]
+⚠️ **And no other runner run reaches the measuring step**: the branch's CI runs fail earlier, at
+`--gap`. So **zero real deltas have ever been measured off the developer box**, exactly as the
+comment said when it was written — the comment's premise about billing was false, but **its
+conclusion was still true, for a different reason.**
+
+### 2. ⭐ WHAT THE RUN *CAN* BE COMPARED TO, AND IT IS A SMALLER CLAIM
+D123's local table carries a **control population** — five commits in the window that touch no
+`.lean`:
+```
+  Tests.Coverage @residue   local controls  −270 −140 −140 −50 −15      runner  −145
+  X86.Syntax                local controls  −7.0 −4.5 +1.5 +3.5 +4.5    runner   −6.0
+```
+The runner's null readings sit **inside** the local control range on both units. That is a real
+datum about **NOISE MAGNITUDE**, and it is worth having — but note it is roughly **1×**, not the
+~2× the 1.7–2.4× speed factor would predict if noise scaled with the mean. ⇒ **Noise does not
+obviously scale with cost**, which is a hypothesis worth one measurement, not a conclusion.
+⛔ **It is NOT the portability test** and must not be filed as one.
+
+### 3. ⛔⛔ AND THE CROSS-REFERENCE IS AMBIGUOUS: THERE ARE **TWO** DECISIONS NUMBERED D123
+```
+  line 6026   ## D123 — the VEX-128 bucket, and a census that is not finished …
+  line 6077   ## D123 — the delta gate: a control set already in the record, and two numbers …
+```
+`ci.yml` says *"D123's local table"* and means the second. **A reader following it reaches the first**
+— a census of oracle availability with no delta table in it — which is where I went, and I briefly
+concluded the reference was simply wrong.
+⇒ 🔑 ***A DUPLICATE IDENTIFIER MAKES EVERY REFERENCE TO IT RESOLVE TO WHICHEVER COPY IS REACHED
+FIRST*** — the fleet's own law about self-contradicting documents, one level down.
+📌 **The repository already knew**: **D130**'s title is *"one key, two subjects: a probe tag that
+shared a reading, and **a decision number that shares a section**."* The duplicate was observed and
+recorded, and **the reference written afterwards still cites the ambiguous number.** Naming a defect
+is not fixing the citations that depend on it.
+⚠️ **Not renumbered here.** D123 is cited from `ci.yml`, from other decisions and from banks;
+renumbering is a sweep with its own gate, not a side-effect of this entry. **What is owed is a
+disambiguating citation** wherever the number is used — done in `ci.yml` in this commit.
