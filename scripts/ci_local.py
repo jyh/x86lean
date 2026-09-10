@@ -7,13 +7,28 @@
 `a5326fd`, `873a4d9`, `0f7baee`, `5c01599` and on the tree that merged batch 23.
 Five batches, each of whose records says "gates green", because:
 
-  * GitHub Actions refuses every job on this account for BILLING (desk FH), so no
-    CI run has ever executed it; and
+  * no CI run had ever executed it; and
   * the per-batch local discipline runs the gates named in
     `scripts/run_differential.sh`, which is a SUBSET of this workflow.
 
-⇒ 🔑 **A GATE THAT LIVES ONLY IN CI, ON AN ACCOUNT WHERE CI CANNOT RUN, IS A GATE
-NOBODY HAS.** The repository already knew the shape of this — *"a gate nobody has
+⛔⛔ THE FIRST BULLET USED TO READ *"GitHub Actions refuses every job on this
+account for BILLING (desk FH), so no CI run has ever executed it"*. **THAT IS
+FALSE AND IT WAS STRUCK BY THE HELM 2026-09-09 (39th head): Actions RUNS here.**
+What was true is narrower and was never this — a 09-07 throttle routed three of
+four jobs to `pull_request || workflow_dispatch` on a repo that lands by direct
+**push** (all-time push=99, pull_request=1), so those jobs were **UNREACHABLE,
+NOT REFUSED**.
+⇒ 🔑 ***A JOB THAT CANNOT BE TRIGGERED IS NEITHER GREEN NOR RED — IT IS ABSENT,
+AND EVERY SWEEP THAT READS CONCLUSIONS SEES NOTHING TO REPORT.*** A five-day red
+on `master` went unseen behind that sentence.
+⚠️ **AND THE STALE VERSION IS WORSE THAN A WRONG FACT: a standing "this
+instrument cannot run" note is a standing instruction NOT TO LOOK.** It is
+corrected rather than deleted because the reason this file exists survives the
+correction — the gate list ran locally or not at all — while the sentence that
+retired the habit of looking must not.
+
+⇒ 🔑 **A GATE THAT LIVES ONLY IN CI, ON AN ACCOUNT WHERE NOBODY READS CI, IS A
+GATE NOBODY HAS.** The repository already knew the shape of this — *"a gate nobody has
 ever seen run is not a gate"* (D104) — and the repair it made then was to fix the
 gates. The repair it did not make was to give a head one command that runs the
 whole list on the box that exists.
