@@ -156,7 +156,7 @@ your P2 interface*, and a hand-off that discovers its own sizing on the day stal
 
 | # | routine | safety property | exercises |
 |---|---|---|---|
-| 1 | `memset`-style fill | every store lands inside the destination buffer | regions, loop, frame tier |
+| 1 | `memset`-style fill | every store lands inside the destination buffer | ✅ **BUILT** — regions, loop, **labelled tier** (see below; the "frame tier" in this cell was wrong) |
 | 2 | `memcpy`-style copy | writes only `dst`; `src` unchanged | region **disjointness**, composition |
 | 3 | `strlen`-style scan | reads stay inside the buffer; writes nothing | read-safety, frame tier |
 | 4 | guarded array store | if the bounds check passes, the store is in range | **labelled** tier — positional |
@@ -178,3 +178,49 @@ case that the frame tier deliberately cannot reach.
 3. **Termination is not addressed and is not on the P2 path.** These are SAFETY
    properties: "for all fuel" says nothing about the routine finishing. Saying so
    here stops it being claimed later.
+
+---
+
+## ⚖️ PROBLEM 1 IS BUILT, AND IT REFUTES THIS DOCUMENT TWICE
+
+`Tests/Program.lean`, `fill_writes_only_in_buffer`: *the routine writes only inside its
+destination buffer*, ∀ fuel, ∀ initial memory. Axioms: the three standard ones.
+
+### ⛔ REFUTATION 1 — it is NOT a frame-tier problem, and this document said it was
+The table above sized problem 1 as "frame tier". **It cannot be.** The frame tier requires
+every instruction to preserve the invariant *from any state satisfying it*, and
+`mov rcx, 4` does not: it re-establishes the pointer/counter relation the loop body
+maintains, so from an arbitrary mid-loop state it breaks the invariant. ⇒ **The safety of
+this routine genuinely depends on WHERE the machine is.** The two-tier split is sound; my
+assignment of this problem to a tier was not, and it took writing the proof to find out
+[[feedback-inherited-diagnosis-is-a-hypothesis]].
+
+### ⛔⛔ REFUTATION 2 — THE TARGET IS MISSED, AND BY MORE THAN A LITTLE
+```
+  countdown (FRAME tier, no labels) .......   14 lines   ✅ "tens"
+  fill      (LABELLED tier, real safety) ..  152 lines   ⛔ against a target of "tens"
+     of which LABEL-DISPATCH boilerplate ..   64  (42%)
+     everything else ......................   88
+```
+⇒ 🔑 ***THE FRAME TIER HITS THE CAPTAIN'S CRITERION AND THE LABELLED TIER DOES NOT, AND
+THE GAP IS NOT THE SAFETY ARGUMENT.*** 42% is mechanically deriving *"at this `rip` the
+instruction is X"* and reducing the invariant's `if`-chain to this label's arm — the same
+twenty lines five times, differing only in a literal.
+⚠️ **Removing ALL of it still leaves 88**, so a dispatch tactic alone does not reach
+"tens". Said here so the next head does not build one expecting it to.
+⚠️ **NOT claimed: that 152 is the floor.** First proof, by the head that had just built
+the interface, dispatch not yet factored. The re-run is the experiment and has not been done.
+
+### ⇒ WHAT THIS BUYS: THE NEXT BUILD IS NAMED BY A MEASUREMENT
+A **label-dispatch combinator** — given a `Program` over concrete addresses, produce
+`at? L = some I` and the reduced invariant arm per label — removes ~64 lines here and
+about as many from every later problem, because **the cost is per LABEL, not per
+property**. That is the highest-value next item, and it is now sized rather than guessed.
+
+### 📌 AND SEVEN LEMMAS THE INTERFACE SHIPPED WITHOUT
+All seven are now in `X86/Program.lean`. The one that matters is **`agreeOutside_write`**
+— *a write inside the region preserves the frame* — which **is** the memory-safety
+argument for a store, and the region vocabulary shipped without it. ⇒ **Exactly the gap
+the sizing exercise existed to find**, and an argument for building problem 2 before
+declaring the vocabulary complete.
+

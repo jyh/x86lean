@@ -345,4 +345,47 @@ theorem readSize_of_agreeOutside_disjoint {R R' : BitVec 64 → Prop} {m m' : Me
   Mem.readN_congr m m' a sz.bytes
     (fun i hi => hfr _ (hdisj _ (hin i hi)))
 
+/-! ## ⭐⭐ THE VOCABULARY PROBLEM 1 NEEDED, AND DID NOT FIND HERE
+
+Every lemma below was written while proving `Tests.fill_writes_only_in_buffer` — the
+`memset`-style fill, problem 1 of the five — and every one is general.  They are here
+rather than in that test because **the second problem will need all seven**, and
+discovering them one at a time in each proof is how a "proof interface" turns out to be
+a pile of per-proof scaffolding.
+
+⚠️ **`agreeOutside_write` IS THE ONE THAT MATTERS**: it is the whole memory-safety
+argument for a store — *a write inside the region preserves the frame* — and the region
+vocabulary shipped without it, which is exactly the gap the sizing exercise existed to
+find. -/
+
+/-- A write INSIDE the region preserves the frame. -/
+theorem agreeOutside_write {R : BitVec 64 → Prop} {m0 m : Mem} (h : AgreeOutside R m0 m)
+    {a : BitVec 64} {v : BitVec 8} (hin : R a) : AgreeOutside R m0 (m.write a v) := by
+  intro x hx
+  have hne : x ≠ a := fun hh => hx (hh ▸ hin)
+  rw [Mem.read_write_ne _ _ _ _ hne]
+  exact h x hx
+
+@[simp] theorem halt_mem (s : Cpu) (e : MsErr) : (s.halt e).mem = s.mem := by
+  unfold Cpu.halt; split <;> rfl
+
+@[simp] theorem halt_rip (s : Cpu) (e : MsErr) : (s.halt e).rip = s.rip := by
+  unfold Cpu.halt; split <;> rfl
+
+@[simp] theorem halt_regs (s : Cpu) (e : MsErr) : (s.halt e).regs = s.regs := by
+  unfold Cpu.halt; split <;> rfl
+
+@[simp] theorem halt_flags (s : Cpu) (e : MsErr) : (s.halt e).flags = s.flags := by
+  unfold Cpu.halt; split <;> rfl
+
+theorem ofNat_succ_64 (k : Nat) :
+    BitVec.ofNat 64 (k + 1) = BitVec.ofNat 64 k + 1 := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add, Nat.add_mod]
+
+theorem live_of_not_stopped {s : Cpu} (h : ¬ s.stopped = true) : Live s := by
+  unfold Cpu.stopped at h
+  cases hm : s.ms with
+  | none => exact hm
+  | some e => rw [hm] at h; simp at h
+
 end X86
