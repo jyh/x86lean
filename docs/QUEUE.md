@@ -178,6 +178,38 @@ decision about argparse-vs-`sys.argv` that belongs in one sitting, not in this o
 
 ---
 
+### ✅⛔ CI-2d's INFERENCE IS REFUTED, 2026-09-10 — AND THE ENTRY ABOVE NAMED THIS EXACT HALF AS THE FALSIFIABLE ONE
+That entry separated what it had MEASURED from what it had INFERRED: *"That they will keep being
+cancelled is an INFERENCE from the landing rate, and it is the part that could be wrong if landings
+become rare."* **It was wrong, and it was wrong within six hours.** Measured at the object at boot:
+```
+  master  34504734457  16:52:17Z  2h17m00s  CI  9/9 SUCCESS  ← the three restored jobs COMPLETED
+  branch  34507962913  17:23:54Z  1h37m18s  CI  8/9          ← selftest (2)(3)(4) all SUCCESS
+```
+⇒ **The remedy the bank prescribed — keep `master` quiet longer than a working session — WORKED, the
+same afternoon, without `cancel-in-progress` being touched.** The residue is therefore narrower than
+filed: not *"the restored jobs never complete"* but *"they complete only across a window with no
+landing in it"*, which is a **scheduling** fact rather than a broken gate.
+📌 **Three duration points now, not one:** 3h49m (the outlier, PR #1) · 2h17m · 1h37m. CI-2's
+"68-88 min" remains wrong, but the spread is wider than the one run suggested and the ceiling is the
+number to plan against.
+⇒ 🔑 ***AN ENTRY THAT LABELS ITS OWN INFERENCE IS THE ONE THAT CAN BE CHEAPLY REFUTED*** — nothing
+here needed re-deriving, only re-reading, because the previous life wrote down which sentence to
+attack. **The habit is the finding.**
+⚠️ **STILL NOT REPAIRED, AND STILL THE CAPTAIN'S** (desk `JF`): the policy question is untouched. What
+changed is the price of doing nothing, which is lower than filed.
+
+### ⛔⛔ AND A READING RULE THIS SEAT LEARNED THE HARD WAY, 2026-09-10
+`p2-proof-interface`'s CI reads **`failure`** at the top of `gh run list`, and 8 of its 9 jobs are
+green. The red is `kernel-delta`, failing on `--gap`: **4 unrecorded `.lean` steps, which are exactly
+the branch's own four commits.** A branch's ledger row is designed to ride *inside the merge commit*,
+so a branch that has not merged **cannot** have the row and `--gap` **cannot** read 0 on it.
+⇒ 🔑 ***A GATE THAT IS RED FOR THE WHOLE DURATION OF A HOLD GIVES EVERY OTHER RED ON THAT BRANCH A
+PLACE TO HIDE.*** The top line reads `failure` either way, and it was benign here only because all
+nine job conclusions were read one by one. ⛔ **Filed as a READING RULE, not a repair**: suppressing
+`--gap` on branches would delete the gate's only report of an unpriced landing, which is the failure
+it exists for.
+
 ## ⛔ PORT (NEW, 2026-09-09) — **THE SECOND MACHINE IS REAL NOW, AND THE TREE IS NOT PORTED**
 
 Opened by paris when the 4b fourth calibration night's declared smoke test found **three**
@@ -279,7 +311,7 @@ a twenty-instruction routine provable in tens of lines, not thousands"* · *"par
 **It is built, it is green, and it is NOT HERE.**
 
 ```
-  branch   p2-proof-interface @ 19858f9   (pushed to BOTH tiers)
+  branch   p2-proof-interface @ 8edb452   (pushed to BOTH tiers)
   content  X86/Program.lean · Tests/Program.lean · docs/P2-PROOF-INTERFACE.md · D190 · D191
   status   HELD by the delta gate — the two NEW modules were convicted in TWO runs
 ```
@@ -305,11 +337,31 @@ has no ceiling (0 in the table, 0 in `scripts/kernel_ceilings.txt`). It was the 
 independent source and it pointed where I already wanted to go.
 ⇒ **Having proved my judgement on this exact question unreliable enough to invent evidence for it,
 I held the branch rather than act on it.**
-**RELEASE CONDITION:** a ruling on whether the delta gate needs a NEW-UNIT arm — for a unit with
-`base == 0` the gate compares a TOTAL COST against `@floor`, a number derived as the box's
-measurement resolution, while for every other unit it compares an INCREMENT. **OWNER:** the Captain
-or the helm — **NOT this seat**, which is the party the gate convicted. **Full derivation: D191, on
-the branch.**
+### ✅ THE FIRST RELEASE CONDITION WAS MET 2026-09-10 13:18 AND IS DISCHARGED
+It read: *"a ruling on whether the delta gate needs a NEW-UNIT arm … OWNER: the Captain or the helm
+— NOT this seat, which is the party the gate convicted."* **The helm ruled** (FLEET.md offset
+47777260), read the source itself, and found the mechanism worse than this seat had reported: the
+gate compares a new module's TOTAL cost against `@floor`, **a noise floor used as a ceiling**, and
+its own selftest had pinned the one budget kind under which that is invisible. **paris implemented;
+the design was the helm's.** Landed on `master` `1304132`, both tiers — **D192**, with **D193** as
+its sibling. `--selftest` 51 arms PASS; driven end to end on the readings that produced the
+conviction (`OVER BUDGET ⛔ rc 1` → `NEW — NO CEILING ⛔ rc 3`).
+
+### ⛔ THE BRANCH IS STILL HELD, ON A DIFFERENT AND NARROWER CONDITION
+Under the corrected gate `p2-proof-interface` **REFUSES (rc 3)** rather than failing: its two new
+modules carry no registered ceiling, and the gate prints the exact line to add for each. **That
+refusal is the arm working, not a fault.**
+**RELEASE CONDITION (NEW, 2026-09-10):** a ruling on whether the new-unit arm may register ABSOLUTE
+ceilings at all. ⛔ **The arm introduces the first NON-PORTABLE comparison into a gate that runs on
+two machines** — `kernel-delta`'s step 9 measures on `ubuntu-latest`, and against the recorded
+local↔runner factor of **1.7×–3.1× per module** the registry's **×3** headroom leaves no margin at
+the top of the range. Three options are posted and **none chosen**: (a) mint new-unit ceilings from
+a RUNNER reading; (b) wider headroom for new units; (c) the new-unit ceiling comparison local-only,
+CI reporting without judging.
+**OWNER:** the helm. **Registered on `blocked-on-helm` (paris), SINCE 2026-09-10.**
+⇒ ⛔ **NOT this seat, and for the same reason as before**: registering the two ceilings is precisely
+the act that clears this seat's own branch, which is the conflict the ruling deliberately separated.
+📌 **Full derivations: D192 and D193 on `master`; D190 and D191 on the branch.**
 
 ---
 
