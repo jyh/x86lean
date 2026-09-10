@@ -262,4 +262,44 @@ theorem fill_bound_is_tight :
   revert this
   decide
 
+/-! ## ⭐⭐⭐ THE DISJOINTNESS CHAIN, EXERCISED END TO END FOR THE FIRST TIME
+
+Design decision (b) chose REGIONS over separation logic, and deferred the question of whether
+the region vocabulary could actually carry a DISJOINTNESS argument. Nothing had exercised it:
+every disjointness lemma in `X86/Program.lean` took disjointness as a HYPOTHESIS.
+
+This is the first theorem in the campaign that runs the whole chain — a proved frame, an
+INTRODUCED disjointness, and the multi-byte read rule — and it is what decision (b) was chosen
+for. It is deliberately stated over the `fill` routine already proved, rather than waiting on
+`memcpy`'s seven-label frame: **the composition is what was untested, not the frame.**
+
+⚠️ **WHAT IT IS NOT.** This is not `memcpy` and does not claim to be. `memcpy`'s own frame proof
+is still owed; what is settled here is that a caller's buffer provably survives a callee's
+writes, which is the property the whole two-region design exists to deliver. -/
+
+/-- A buffer that lies entirely ABOVE the fill's destination is unchanged by the fill —
+for any operand size, at any address whose bytes all lie in that buffer, ∀ fuel, ∀ memory.
+
+The disjointness is **derived** from address arithmetic (`region_disjoint_of_le`), not assumed,
+and the no-wrap side conditions are the ones `region_wrap_defeats_order` proves necessary. -/
+theorem fill_preserves_disjoint_buffer
+    (d0 : BitVec 64) (m0 : Mem) (n : Nat) (b : BitVec 64) (len : Nat)
+    (hwd : d0.toNat + 4 ≤ 2^64) (hwb : b.toNat + len ≤ 2^64)
+    (hafter : d0.toNat + 4 ≤ b.toNat)
+    (sz : Size) (a : BitVec 64)
+    (hin : ∀ i, i < sz.bytes → Region b len (a + BitVec.ofNat 64 i)) :
+    m0.readSize sz a = (runP fill n (entry d0 m0)).mem.readSize sz a :=
+  readSize_of_agreeOutside_disjoint (fill_safe d0 m0 n)
+    (region_disjoint_of_le hwd hwb hafter) sz a hin
+
+/-- ⛔ **NONVACUITY: THE HYPOTHESIS SET IS SATISFIABLE.** A theorem whose side conditions
+cannot all hold at once is vacuously true and says nothing. Instantiated at concrete
+addresses — destination `0x100` (4 bytes), preserved buffer `0x200` (8 bytes) — every
+arithmetic hypothesis discharges, so the statement above has real instances. -/
+theorem fill_preserves_disjoint_nonvacuous (m0 : Mem) (n : Nat) (a : BitVec 64)
+    (hin : ∀ i, i < Size.b.bytes → Region 0x200 8 (a + BitVec.ofNat 64 i)) :
+    m0.readSize .b a = (runP fill n (entry 0x100 m0)).mem.readSize .b a :=
+  fill_preserves_disjoint_buffer 0x100 m0 n 0x200 8
+    (by simp) (by simp) (by simp) .b a hin
+
 end Tests
