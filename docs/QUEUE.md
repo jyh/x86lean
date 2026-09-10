@@ -100,6 +100,17 @@ sound. What nobody checked is whether the surviving trigger is one this campaign
 **RELEASE CONDITION:** a trigger this campaign actually fires. **OWNER:** the Captain (the throttle
 is his). **RE-MEASURE:** whenever the landing style changes.
 
+### ✅ CI-2 IS CLOSED — RULED AND EXECUTED AT COUNCIL 2026-09-10 (ruling ⑥, desk `JF`)
+**The measurement carried the decision**, in the Captain's words: *"That is not a rate limit, it is
+disabling."* `selftest`, `kernel-delta` and `kernel-delta-redfirst` are **back on push** (`f908ad7`).
+⛔ **AND THE COST ARGUMENT THAT JUSTIFIED THE THROTTLE IS GONE, NOT OVERRULED:** the repo went
+PUBLIC the same morning, and **Actions minutes are free on public repositories** — so the bill this
+row was filed to price no longer exists. ⇒ 🔑 ***A ROW BLOCKED ON A BUDGET CAN BE CLOSED BY A
+DECISION ABOUT SOMETHING ELSE ENTIRELY*** — the flip was ruled for publication reasons and
+discharged a CI row as a side effect. **Verify the three jobs actually run before trusting this**:
+they had never been reachable, so the first push after the restore is their first real evidence.
+**MEASURED at `f908ad7`: Scrub SUCCESS; CI `in_progress` at boot — the conclusion is owed a look.**
+
 ### ⛔ CI-2b — AND THE FIRST THING THAT RAN THERE WAS RED, BY MY HAND
 `kernel-delta`'s step *"Drift-gate arithmetic and ledger, driven red"* failed on that PR.
 Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my predecessor's HEAD),
@@ -2079,7 +2090,7 @@ measured, and inventing one would repeat exactly the defect §2 of the commissio
    CALL SHAPE IS UNIFORM, AND THE ONE SITE THAT DIFFERS IS THE ONE THE REWRITE CANNOT SEE.** Caught
    by the gates in one run, which is the system working; `prefix` now defaults.
 
-## PUB — PUBLICATION HYGIENE · **ONE ITEM OPEN, AND IT IS THE CAPTAIN'S**
+## PUB — PUBLICATION HYGIENE · **PUB-1 CLOSED 2026-09-10; PUB-2 OPEN (a counting duty, not a gate)**
 
 Opened 2026-09-09 by paris, taking row ES. This section exists because the row's
 routing named a precondition — *"push only after `check_private_paths.py --range` is
@@ -2209,6 +2220,20 @@ site and (ii) recording it via the `--history` baseline. **OWNER:** the Captain.
 **FILED:** blocked-on-captain register `pub1-baseline-scope`, since 2026-09-09.
 **RE-MEASURE:** at the publication gate — and `--tree` and `--messages` must be green
 on the day, which they are now.
+
+#### ✅ **RULED AND DISCHARGED 2026-09-10 — "#3 accept 8".**
+The Captain accepted the eighth site **as the same class as the seven**, and it was recorded
+with the arm that can see it: `--history` → `scripts/private_paths_history_baseline.tsv`,
+**8 findings across 4 commits, 13 lines, verified NOT EMPTY** (`64ecb39`). **No history
+rewritten**, per the accept and salt's 08/30 precedent. The repo flipped PUBLIC the same
+morning, **in that order** — baseline first, flip second.
+⇒ 🔑 ***THE FINDING'S VALUE WAS THE MECHANISM, NOT THE COUNT.*** Had the recording been taken
+through `--tree` or `--messages` — both of which legitimately read **0** — `--write-baseline`
+would have written an **EMPTY file and exited 0**, and the debt would have been "recorded" by a
+green run that ratified nothing. **The NOT-EMPTY check is the whole gate.**
+📌 Register entry `pub1-baseline-scope` cleared by paris 2026-09-10 16:05Z. ⇒ **A ruling
+executed by one hand does not clear the register entry filed by another** — it sat OPEN through
+the execution and the flip, and nothing would have closed it but a seat looking.
 **DERIVATION:** `docs/DECISIONS.md` D182. **DECLARED MEANWHILE:**
 `docs/PUBLISH-CHECKLIST.md`, so the debt is declared rather than discovered even while
 the recording act waits.
@@ -2225,5 +2250,8 @@ COUNT ITS COPIES.**
 ## DEFERRED, by ruling — not by silence
 - **Arm C, the K-backed second oracle** — DEFERRED at the council (minute 2026-09-05 item 2(a)).
   The condition of the deferral is that **the hole is printed beside every coverage number**.
-- **A public remote** — gated on the Captain's IARC approval (desk ET). The scrub gates are ported
-  before any push to a public remote; commit hygiene has been clean from commit 1.
+- **A public remote** — ✅ **NO LONGER DEFERRED: LANDED 2026-09-10** (council ruling ⑥, desk `JF`).
+  `github.com/jyh/x86lean` is PUBLIC, measured `isPrivate=false`. Both scrub gates were ported
+  BEFORE the flip and both are in CI (`check_commit_trailers` over full history every push;
+  `check_private_paths` in three arms); commit hygiene has been clean from commit 1 and
+  `--messages` reads **188 of 188 clean**, which is an invariant of this history and not a pass.

@@ -9,18 +9,35 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
 - PERSONAL lane. Destined to be PUBLIC: commit hygiene from commit 1 (no `Claude-Session:`
   trailers, no chat URLs; `Co-Authored-By` fine).
   **TWO REMOTES EXIST AND HAVE SINCE 2026-09-03T16:03:49Z**: `origin` =
-  `github.com/jyh/x86lean`, **PRIVATE** (measured with `gh`, `isPrivate: true`), and `local` =
-  the bare repo on the backup volume. ⛔ **PUSH BOTH AT EVERY LANDING** (the Captain's row-ES
-  order of 09/03).
+  `github.com/jyh/x86lean`, **PUBLIC since 2026-09-10 09:0x** (measured with `gh`,
+  `isPrivate: false`, by paris at boot the same morning), and `local` = the bare repo on the
+  backup volume. ⛔ **PUSH BOTH AT EVERY LANDING** (the Captain's row-ES order of 09/03).
+  ⛔ *This bullet read "**PRIVATE** (measured with `gh`, `isPrivate: true`)" until 2026-09-10.*
+  **THE FLIP IS COUNCIL RULING ⑥ OF 2026-09-10** (desk `JF`), in the Captain's words: *"To go
+  public, I want to include this under the umbrella of saltbench... Can we make x86lean public,
+  and make it clear in the README that this is developed as part of saltbench?"* — with *"Keep
+  paris separate"*: the SEMANTICS is this seat's artifact with its own provenance; the x86 SUITE
+  is a SaltBench item under `bench`. See README's **Part of SaltBench** section.
+  ⇒ 🔑 ***A STALE VISIBILITY CLAIM IS LOAD-BEARING IN THE PERMISSIVE DIRECTION*** — every other
+  staleness in this file costs a re-measurement, but a head that reads "private" here prices
+  every hygiene question wrong in the one direction that cannot be taken back after a push.
   ⛔⛔ **AND A LANDING IS NOT ALWAYS A SEAT'S PUSH — MEASURED 2026-09-09.** A pull request merged
   in the GitHub UI lands on `origin` **and on nothing else**: no seat runs a command, so the
   row-ES discipline never fires and the `local` tier silently falls behind. Measured at the object
   that day — `evidence` merged PR #1 at 11:15 and `local` sat one commit behind `origin` until the
   next seat push happened to carry it. ⇒ 🔑 ***A RULE PHRASED AS "DO X AT EVERY LANDING" IS ONLY
   AS GOOD AS THE ASSUMPTION THAT EVERY LANDING PASSES THROUGH A HAND THAT CAN DO X.***
-  ⇒ **After any merge you did not perform: `git fetch origin && git push local
+  ⇒ **After any landing you did not perform: `git fetch origin && git push local
   origin/master:master` before trusting the tiers.** Nothing polls this; the divergence is
-  invisible until someone compares the two `ls-remote`s, which is how it was found.
+  invisible until someone compares the two `ls-remote`s, which is how it was found — twice.
+  ⛔ **SECOND INSTANCE, 2026-09-10, AND IT WIDENS THE RULE FROM "MERGE" TO "LANDING":** the
+  council's own execution acts — `64ecb39` (the PUB-1 history baseline) and `f908ad7` (the public
+  flip) — were landed by the HELM at close, so again no seat ran the row-ES command and `local`
+  sat **2 commits behind** until paris measured it at boot. **A helm push is not a UI merge**, and
+  the 09/09 wording said "merge", so the rule as written did not cover the case that recurred.
+  ⇒ 🔑 ***THE TWO COMMITS THE FLEET MOST WANTED DURABLE WERE THE TWO THE DURABLE TIER DID NOT
+  HAVE*** — the backup tier is furthest behind exactly when an outside hand acts, which is exactly
+  when the landing matters most.
   ⛔ *This bullet read "the scrub gates are ported before the first push to any public remote.
   **No remote exists yet.**" until 2026-09-09 — false for six days, in the first file every
   session in this repo reads.* **AND BOTH HALVES OF IT WERE FALSE TOGETHER, WHICH IS WHY
