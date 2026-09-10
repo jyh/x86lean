@@ -13212,3 +13212,48 @@ is not fixing the citations that depend on it.
 ⚠️ **Not renumbered here.** D123 is cited from `ci.yml`, from other decisions and from banks;
 renumbering is a sweep with its own gate, not a side-effect of this entry. **What is owed is a
 disambiguating citation** wherever the number is used — done in `ci.yml` in this commit.
+
+
+---
+
+## D196 — the axiom gate's POPULATION is the library, and this campaign's four headline safety theorems are not in the library
+
+**Found 2026-09-10 by chasing a scope caveat I had written in my own bank an hour earlier instead of
+letting it stand.** A caveat one writes and does not chase is a finding one has decided not to have.
+
+### 1. MEASURED
+```
+  scripts/axiom_gate.sh:20   MODS="X86 $(grep -E '^import X86\.' X86.lean | awk '{print $2}')"
+  grep -c Tests scripts/axiom_gate.sh ....................................... 0
+  the campaign's DELIVERABLE safety theorems, ALL in `Tests.*`:
+      Tests.fill_safe · Tests.fill_writes_only_in_buffer
+      Tests.fill_preserves_disjoint_buffer · Tests.memcpy_safe · Tests.scan_writes_no_memory
+```
+⇒ 🔑 ***THE HEADLINE MEMORY-SAFETY RESULTS OF THIS CAMPAIGN ARE UNGATED FOR AXIOMS, BY ACCIDENT OF
+PLACEMENT.*** The `Tests` exemption is real and was made for a DIFFERENT reason: the plan confines
+`bv_decide`/`native_decide` to *"test executables and a separately labelled tier"*, because those run
+the COMPILED model. **A safety theorem is a deliverable, not a test executable**, and it inherited an
+exemption written for its neighbours.
+
+### 2. ✅ CURRENTLY BENIGN — MEASURED, NOT HOPED
+All of them depend on exactly `[propext, Classical.choice, Quot.sound]`, and the only
+`native_decide`/`bv_decide` string anywhere under `Tests/` sits inside a COMMENT in `Anchors.lean`.
+**Nothing is wrong today. Nothing would say so if it were** — a future head proving `memcpy_safe` by
+`native_decide` gets `ofReduceBool` in the deliverable and a gate that prints `CLEAN`.
+
+### 3. ⛔ IT IS A SIBLING OF THE DEFECT REPAIRED THE DAY BEFORE
+That repair found the gate naming **twelve module names by hand**, added a thirteenth module, and got
+`CLEAN — every declaration in [ …the twelve… ]`. It fixed the **DERIVATION** — the list now comes from
+`X86.lean`'s imports and cannot go stale — and it was driven red with two refusals and a control. It
+holds today (13 modules named). **Nobody then asked whether the POPULATION was the right one.**
+⇒ 🔑 ***A CORRECTLY DERIVED LIST OF THE WRONG POPULATION IS STILL THE WRONG POPULATION — and the
+derivation repair RAISES confidence in the number while leaving the scope untouched.*** The
+hand-written list at least looked like something a human had chosen, and might have chosen wrongly.
+
+### 4. ⛔ NOT REPAIRED, AND WHY
+Extending the gate over `Tests.*` needs a rule telling a DELIVERABLE from a TEST EXECUTABLE inside one
+namespace, and **no structural marker exists today.** Three arms, none chosen here: (a) a second,
+separately-labelled arm over `Tests.*` whose allowlist starts EMPTY, so every future entry is an
+argued exception rather than a silence; (b) move the safety theorems into a gated namespace; (c) mark
+deliverables by attribute and gate on that. **(a) is the recommendation** — additive and conservative
+— but it is gate policy and touches the plan's tier structure, so it is the helm's.
