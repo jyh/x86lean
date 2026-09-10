@@ -13016,3 +13016,57 @@ RULE THAT WAS WRONG.***
   against any number). The non-portability becomes live only at the moment a ceiling is registered
   — **which is exactly the act this commit declines to take.** The arm is safe to land precisely
   because the act it defers is the act that would make it non-portable.
+
+---
+
+## D193 — the drift gate's profiler bucket did not contain the file that computes the allowance, and the exemption that swallowed it had a sound argument that did not cover it
+
+**Found 2026-09-10 while landing D192, by sweeping for the sibling shape rather than by the gate
+firing.** The sweep was owed: the previous life's bank recorded *"other `scripts/` gates carry
+hand-written lists; none checked."*
+
+### 1. WHAT WAS WRONG
+`kernel_drift.py`'s `PROFILER_PATHS` is the bucket for steps that, in its own words, *"move the
+READING or the ALLOWANCE without moving the code, so 'nothing to price' is FALSE for them."* It
+listed `kernel_cost.py`, `kernel_delta_budget.txt`, `lean-toolchain`, `lake-manifest.json`.
+
+**`scripts/kernel_delta.py` was not in it** — the file containing `effective()`, `K_SIGMA` and the
+three-way rule, i.e. **the place the allowance is computed and every verdict decided.** It was
+matched instead by the `scripts/` exemption, whose stated reason is that such a script *"can reach
+a reading only by REGENERATING a `.lean` file, and that regeneration is itself a `.lean` diff,
+bucketed first."*
+
+⇒ 🔑 ***THAT ARGUMENT IS TRUE OF `check_private_paths.py` AND FALSE OF THE GATE ITSELF. AN
+ALLOWLIST RULE WHOSE REASON IS SOUND CAN STILL CATCH A FILE THE REASON DOES NOT COVER — and the
+rule then reads as though someone had considered that file.*** Checking that a member MATCHED a
+rule is a different act from checking the rule's REASON against that member, and only the first one
+is ever performed.
+
+📌 **This is the same hole as D171's**, one file over. D171 added `lean-toolchain` and
+`lake-manifest.json` after finding that a toolchain bump *"changes EVERY unit's reading and touches
+no `.lean` file"*. The identical sentence is true of the gate's own rule file, and the D171 repair
+did not sweep for it. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 2. THE SECOND ENTRY IS A CONSEQUENCE, NOT A MISS
+`scripts/kernel_ceilings.txt` also joins — but only because **D192 made it an allowance input to
+the delta gate, which it had never been before.** Before that commit it fed the retired absolute
+readings and nothing that judged. It is listed here because the commit that gives a file power over
+a verdict is the commit that owes it a bucket.
+
+### 3. THE EXEMPTION'S REASON IS NOW DERIVED
+The `scripts/` rule named its own carve-out by hand — *"(the profiler and the budget registry are
+bucketed ABOVE this rule)"* — a literal enumeration of a list defined 25 lines above it. It now
+builds that clause from `PROFILER_PATHS` itself, so **the sentence cannot again describe a scope
+the code does not have.** [[feedback-a-gate-named-by-a-literal-stops-seeing-renamed-work]]
+
+### 4. ⚠️ MEASURED BEFORE CHANGING IT: THIS CANNOT RED ANYTHING, AND THAT WAS CHECKED, NOT ASSUMED
+Reclassifying 152 historical first-parent steps is the kind of edit that reds a gate retroactively.
+Read at the object before the edit: `--gap`'s exit code is decided by `nl` (the `.lean` bucket)
+against the ratchet, and by `nu` (unclassified, which refuses). **`npr` — the profiler bucket — is
+printed with a warning and never sets a refusal.** Moving steps from `neither` to `profiler` moves
+them between two non-gating buckets.
+⇒ The change makes the report honest and cannot change a verdict. ⛔ **What it does NOT do is price
+those steps** — the bucket is still only a warning, so a commit that moves the allowance is still
+reported rather than gated. That is the pre-existing design and this entry does not change it; it
+is named here so the next person to ask "why is a profiler-path step not gated?" finds the answer
+rather than the hole.
