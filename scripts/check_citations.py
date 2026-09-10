@@ -348,6 +348,16 @@ NOT_A_DECISION_NUMBER = {
             "docs/DECISIONS.md already carries a note saying so at the citation "
             "site. It is pending, not phantom — and this entry must be removed "
             "when that branch lands.",
+    "D190": "the P2 proof interface's design decision, written on the HELD branch "
+            "`p2-proof-interface` (2026-09-10, council ruling 8). docs/QUEUE.md's "
+            "P2-IFACE row names the branch at the citation site and is deliberately "
+            "a POINTER, not a second copy: duplicating a design decision onto master "
+            "is how the two halves start to disagree. Remove when the branch lands.",
+    "D191": "the delta gate's new-unit finding — why `p2-proof-interface` is HELD "
+            "rather than landed — written on that same branch beside the work it "
+            "refuses. Its release condition is a ruling on the gate's new-unit arm, "
+            "and it is owned by the Captain or the helm rather than by this seat, "
+            "which is the party the gate convicted. Remove when the branch lands.",
 }
 
 D_CITE = re.compile(r'\bD(\d{1,3})\b')

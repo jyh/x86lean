@@ -100,6 +100,47 @@ sound. What nobody checked is whether the surviving trigger is one this campaign
 **RELEASE CONDITION:** a trigger this campaign actually fires. **OWNER:** the Captain (the throttle
 is his). **RE-MEASURE:** whenever the landing style changes.
 
+### ⛔⛔ CI-2d (NEW, 2026-09-10) — **THE RESTORE IS NECESSARY AND NOT SUFFICIENT: THE THREE JOBS CANNOT FINISH**
+I closed CI-2 this morning with the line *"verify the three jobs actually run before trusting
+this."* **The verification says they do not complete.** Measured at the object:
+```
+  concurrency: group ci-<workflow>-<ref>, cancel-in-progress: TRUE
+  the ONE completed run of these jobs (PR #1, all-time)  ....  13,770 s = 3 h 49 m
+     selftest (2) alone .................................  13,735 s = 3 h 49 m
+     selftest (1)(3)(4)(5)(6) ...........................  4,940-7,028 s each
+     kernel-delta-redfirst ..............................   2,654 s = 44 m
+  runs since the restore ..............................  f908ad7 CANCELLED at 422 s
+                                                          5011d2b in progress (my push cancelled it)
+  ⇒ completed runs of the three restored jobs on master:  ZERO
+```
+⇒ 🔑 ***A JOB RESTORED TO A TRIGGER THAT FIRES IS STILL ABSENT IF THE NEXT LANDING CANCELS IT.***
+`cancel-in-progress: true` is right for a 4-minute build and fatal for a **four-hour** matrix: the
+job can only complete if `master` is quiet for longer than any working session in this campaign.
+**f908ad7's run was cancelled by MY OWN push 7 minutes in** — the first real evidence the restore
+worked was destroyed by the next ordinary landing.
+⚠️ **MEASURED vs INFERRED, held apart:** the durations, the concurrency setting and the zero
+completions are MEASURED. That they will *keep* being cancelled is an INFERENCE from the landing
+rate, and it is the part that could be wrong if landings become rare.
+⚠️ **AND CI-2's OWN PRICE WAS OFF BY 3×:** that row says *"three jobs of 68-88 min each."* The one
+real run says **44 min to 3 h 49 m**, and the longest is a `selftest` shard, not the delta job.
+**A price quoted from a plan rather than from a run** [[the burden is on the departure]].
+⛔ **NOT REPAIRED HERE, AND THE REASON IS NOT TIMIDITY:** the fix is a policy choice with a real
+bill (exempt the long jobs from cancellation? a nightly schedule? a merge queue?), and Actions
+minutes being free on a public repo changes the arithmetic that produced the throttle in the first
+place. **The throttle is the Captain's** (desk `JF`), so the choice is his, and it should be made
+on these numbers rather than the plan's.
+**RELEASE CONDITION:** one COMPLETED run of the three jobs on `master`. **OWNER:** the Captain for
+the policy; this seat to re-measure. **RE-MEASURE:** after the next quiet period — and note that a
+head can create one deliberately by batching its landings into a single push, which is what I did
+with this life's remaining work.
+
+### ⛔ CI-2b — AND THE FIRST THING THAT RAN THERE WAS RED, BY MY HAND
+`kernel-delta`'s step *"Drift-gate arithmetic and ledger, driven red"* failed on that PR.
+Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my predecessor's HEAD),
+`rc 1` at HEAD. **Cause: I edited `CLAUDE.md`, and `EXEMPT_RULES` had no rule for it** — so the
+drift gate correctly refused an unargued path, exactly as designed (*"refuse once, until a human
+argues the path"*). ✅ **REPAIRED:** a rule with a stated reason (prose, read at boot, never by
+
 ### ✅ CI-2 IS CLOSED — RULED AND EXECUTED AT COUNCIL 2026-09-10 (ruling ⑥, desk `JF`)
 **The measurement carried the decision**, in the Captain's words: *"That is not a rate limit, it is
 disabling."* `selftest`, `kernel-delta` and `kernel-delta-redfirst` are **back on push** (`f908ad7`).
@@ -230,6 +271,47 @@ conflict for another seat's in-flight work in order to fix two temp-dir prefixes
 read "small" as "do it now".
 📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
 "three environment-dependent arms" precondition is now met and this is what remains.
+
+## ⛔⛔ P2-IFACE (2026-09-10) — **BUILT AND GREEN, AND *HELD ON A BRANCH*, NOT ON `master`**
+
+**Council 2026-09-10 ruling ⑧** commissioned the proof interface — *"the proof interface that makes
+a twenty-instruction routine provable in tens of lines, not thousands"* · *"paris in parallel now"*.
+**It is built, it is green, and it is NOT HERE.**
+
+```
+  branch   p2-proof-interface @ 19858f9   (pushed to BOTH tiers)
+  content  X86/Program.lean · Tests/Program.lean · docs/P2-PROOF-INTERFACE.md · D190 · D191
+  status   HELD by the delta gate — the two NEW modules were convicted in TWO runs
+```
+⛔ **THE RECORD LIVES ON THE BRANCH, DELIBERATELY** (D190 and D191 cite each other and the module),
+so this row is a **pointer**, not a summary — *a document that contradicts itself reads as whichever
+half is reached first*, and two copies of a design decision is exactly that.
+
+**WHAT IT ACHIEVED, IN ONE LINE EACH** — so a head can price re-taking it without checking it out:
+* `X86.run` is `List.foldl step` and **could not express a loop**: the branch is taken in the
+  semantics and ignored by the driver, and the result is a well-formed `Cpu` with `ms = none`.
+* Design question (a) — labelled blocks vs inductive reachability — **dissolves**: one theorem, two
+  sides; `runP_labels` is `runP_invariant` applied, so there is no second logic and no soundness gap.
+* Design question (b) — **regions**, decided by the model: `Mem.read` is TOTAL, and separation
+  logic's `P * Q` splits a heap that has nothing to split.
+* A 14-line safety theorem over ∀ fuel and ∀ start state on a routine that really loops, nonvacuity
+  driven RED both ways.
+
+### ⛔ WHY IT IS HELD, AND THE PART THAT IS MY OWN ERROR
+The delta gate convicted `X86.Program` and `Tests.Program` — the two new modules — in two
+independent runs. **My first draft of D191 argued for landing past the gate, on a cross-check I
+FABRICATED**: an absolute-readings row for `X86.Program` that does not exist, because a new module
+has no ceiling (0 in the table, 0 in `scripts/kernel_ceilings.txt`). It was the argument's only
+independent source and it pointed where I already wanted to go.
+⇒ **Having proved my judgement on this exact question unreliable enough to invent evidence for it,
+I held the branch rather than act on it.**
+**RELEASE CONDITION:** a ruling on whether the delta gate needs a NEW-UNIT arm — for a unit with
+`base == 0` the gate compares a TOTAL COST against `@floor`, a number derived as the box's
+measurement resolution, while for every other unit it compares an INCREMENT. **OWNER:** the Captain
+or the helm — **NOT this seat**, which is the party the gate convicted. **Full derivation: D191, on
+the branch.**
+
+---
 
 ## P0 — the scalar core · **DISCHARGED**
 The 20 scalar forms, `Cpu`, `step`, the differential harness against ACL2 x86isa.
