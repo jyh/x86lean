@@ -302,4 +302,175 @@ theorem fill_preserves_disjoint_nonvacuous (m0 : Mem) (n : Nat) (a : BitVec 64)
   fill_preserves_disjoint_buffer 0x100 m0 n 0x200 8
     (by simp) (by simp) (by simp) .b a hin
 
+/-! ## ⭐⭐⭐ PROBLEM 2 — `memcpy`, AND A SECOND POINT FOR THE LINE-COUNT MODEL
+
+The cost model in `docs/P2-PROOF-INTERFACE.md` — `19 fixed + ~7.6 per LABEL` — was fitted on
+ONE routine with FIVE labels, and the extrapolation to twenty rests on its linearity. **This
+routine has SEVEN**, so it is the first test of that linearity at a different label count.
+
+It also differs from `fill` in the way that matters for decision (b): TWO pointers advancing
+at different points in the loop, so the invariant carries a separate offset for each. -/
+
+/-- The routine, at 0x2000 — a four-byte copy:
+```
+  0x2000  mov  rcx, 4        (7)
+  0x2007  L: mov al, [rsi]   (2)
+  0x2009     mov [rdi], al   (2)
+  0x200B     inc rsi         (3)
+  0x200E     inc rdi         (3)
+  0x2011     dec rcx         (3)
+  0x2014     jne L           (2)   next = 0x2016, disp = 0x2007-0x2016 = -15
+  0x2016  (exit)
+``` -/
+def memcpy : Program := { code := [
+  (0x2000, ⟨.mov .q (.reg .rcx) (.imm 4), 7⟩),
+  (0x2007, ⟨.mov .b (.reg .rax) (.mem { base := some .rsi }), 2⟩),
+  (0x2009, ⟨.mov .b (.mem { base := some .rdi }) (.reg .rax), 2⟩),
+  (0x200B, ⟨.un .inc .q (.reg .rsi), 3⟩),
+  (0x200E, ⟨.un .inc .q (.reg .rdi), 3⟩),
+  (0x2011, ⟨.un .dec .q (.reg .rcx), 3⟩),
+  (0x2014, ⟨.jcc .ne (BitVec.ofInt 64 (-15)), 2⟩)] }
+
+def cpyEntry (s0 d0 : BitVec 64) (m0 : Mem) : Cpu :=
+  { rip := 0x2000, mem := m0,
+    regs := Regs.set (Regs.set default .rdi d0) .rsi s0 }
+
+/-- Two pointers, advanced at DIFFERENT points of the loop body, so each carries its own
+offset — the structural difference from `fill`'s single `Loop`. -/
+def CpyLoop (s0 d0 : BitVec 64) (os od c : Nat) (s : Cpu) : Prop :=
+  ∃ k : Nat, k < 4 ∧ s.regs.get .rsi = s0 + BitVec.ofNat 64 (k + os)
+           ∧ s.regs.get .rdi = d0 + BitVec.ofNat 64 (k + od)
+           ∧ s.regs.get .rcx = BitVec.ofNat 64 (c - k)
+           ∧ (c = 3 → s.flags.zf = decide (k = 3))
+
+def CpyInv (s0 d0 : BitVec 64) (m0 : Mem) (a : BitVec 64) (s : Cpu) : Prop :=
+  AgreeOutside (Region d0 4) m0 s.mem ∧ atTable
+    [(0x2000, fun s => s.regs.get .rdi = d0 ∧ s.regs.get .rsi = s0),
+     (0x2007, CpyLoop s0 d0 0 0 4), (0x2009, CpyLoop s0 d0 0 0 4),
+     (0x200B, CpyLoop s0 d0 0 0 4), (0x200E, CpyLoop s0 d0 1 0 4),
+     (0x2011, CpyLoop s0 d0 1 1 4), (0x2014, CpyLoop s0 d0 1 1 3)] a s
+
+set_option maxHeartbeats 1000000 in
+theorem memcpy_safe (s0 d0 : BitVec 64) (m0 : Mem) (n : Nat) :
+    AgreeOutside (Region d0 4) m0 (runP memcpy n (cpyEntry s0 d0 m0)).mem :=
+  (runP_code memcpy (CpyInv s0 d0 m0)
+    (fun s e hl h => by
+      have hh : s.halt e = { s with ms := some e } := by simp only [Cpu.halt, hl]
+      rw [hh]
+      exact ⟨h.1, atTable_of_congr (by
+        intro q hq
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
+        rcases hq with rfl|rfl|rfl|rfl|rfl|rfl|rfl <;> exact id) h.2⟩)
+    (by
+      intro a i s hmem hrip hl hI
+      simp only [memcpy, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hmem
+      obtain ⟨ha, hr⟩ := hI
+      rcases hmem with ⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩
+      · rw [step_mov_reg_imm .q .rcx 4 hl, hrip]
+        obtain ⟨hd0, hs0⟩ := hr
+        exact ⟨ha, show CpyLoop s0 d0 0 0 4 _ from
+          ⟨0, by decide, by simpa using hs0, by simpa using hd0, by simp, by simp⟩⟩
+      · obtain ⟨k, hk, hs, hd, hc, _⟩ := (hr : CpyLoop s0 d0 0 0 4 s)
+        rw [step_mov_reg_mem .b .rax { base := some .rsi } hl rfl,
+            show s.rip + BitVec.ofNat 64 2 = (0x2009 : BitVec 64) by rw [hrip]; rfl]
+        exact ⟨ha, show CpyLoop s0 d0 0 0 4 _ from ⟨k, hk,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hs,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
+      · obtain ⟨k, hk, hs, hd, hc, _⟩ := (hr : CpyLoop s0 d0 0 0 4 s)
+        rw [step_mov_mem_reg .b { base := some .rdi } .rax hl rfl,
+            show s.rip + BitVec.ofNat 64 2 = (0x200B : BitVec 64) by rw [hrip]; rfl]
+        refine ⟨?_, show CpyLoop s0 d0 0 0 4 _ from ⟨k, hk, hs, hd, hc, by simp⟩⟩
+        simp only [Ea.addr, show (({ base := some .rdi } : Ea)).offset s (0x200B : BitVec 64)
+          = s.regs.get .rdi by simp [Ea.offset], Mem.writeSize, Mem.writeN, Size.bytes]
+        exact agreeOutside_write ha ⟨k, hk, by simpa using hd⟩
+      · obtain ⟨k, hk, hs, hd, hc, _⟩ := (hr : CpyLoop s0 d0 0 0 4 s)
+        rw [step_inc_reg .q .rsi hl, hrip]
+        refine ⟨ha, show CpyLoop s0 d0 1 0 4 _ from ⟨k, hk, ?_,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
+        regcalc [Flags.addResult, hs, Nat.add_zero]
+        rw [ofNat_succ_64, BitVec.add_assoc]
+      · obtain ⟨k, hk, hs, hd, hc, _⟩ := (hr : CpyLoop s0 d0 1 0 4 s)
+        rw [step_inc_reg .q .rdi hl, hrip]
+        refine ⟨ha, show CpyLoop s0 d0 1 1 4 _ from ⟨k, hk,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hs, ?_,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
+        regcalc [Flags.addResult, hd, Nat.add_zero]
+        rw [ofNat_succ_64, BitVec.add_assoc]
+      · obtain ⟨k, hk, hs, hd, hc, _⟩ := (hr : CpyLoop s0 d0 1 1 4 s)
+        have h4 : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
+        rw [step_dec_reg .q .rcx hl, hrip]
+        refine ⟨ha, show CpyLoop s0 d0 1 1 3 _ from ⟨k, hk,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hs,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd, ?_, fun _ => ?_⟩⟩
+        · regcalc [Flags.subResult, hc]
+          rcases h4 with rfl|rfl|rfl|rfl <;> decide
+        · regcalc [Flags.dec, Flags.fromResult, hc]
+          rcases h4 with rfl|rfl|rfl|rfl <;> decide
+      · obtain ⟨k, hk, hs, hd, hc, hz⟩ := (hr : CpyLoop s0 d0 1 1 3 s)
+        have hzf := hz rfl
+        rw [step_jcc .ne (BitVec.ofInt 64 (-15)) hl (by intro _; rw [hrip]; decide)]
+        by_cases hb : s.flags.zf = true
+        · rw [show Cc.eval .ne s.flags = false by simp [Cc.eval, hb], if_neg (by simp), hrip]
+          exact ⟨ha, trivial⟩
+        · have hbf : s.flags.zf = false := by
+            cases hq : s.flags.zf with | true => exact absurd hq hb | false => rfl
+          have hk3 : k < 3 := by
+            rw [hbf] at hzf
+            have : ¬ (k = 3) := fun hh => by rw [hh] at hzf; simp at hzf
+            omega
+          rw [if_pos (by simp [Cc.eval, hbf]), hrip]
+          exact ⟨ha, show CpyLoop s0 d0 0 0 4 _ from
+            ⟨k + 1, by omega, by simpa using hs, by simpa using hd,
+             by rw [hc]; congr 1; omega, by simp⟩⟩)
+    n (cpyEntry s0 d0 m0) ⟨fun _ _ => rfl, show (cpyEntry s0 d0 m0).regs.get .rdi = d0
+      ∧ (cpyEntry s0 d0 m0).regs.get .rsi = s0 by
+        constructor <;> simp [cpyEntry, Regs.get_set_same, Regs.get_set_ne]⟩).1
+
+/-! ### ⛔ NONVACUITY FOR `memcpy_safe`, FROZEN AS THEOREMS
+
+`memcpy_safe` says the routine writes only inside `Region d0 4`. That is satisfied by a
+routine that writes NOTHING, and by a machine that halts on its first instruction. The
+theorems below are the ones that make the frame claim mean something, and they are
+theorems rather than `#eval`s so a regression in `stepP` cannot quietly restore the empty
+behaviour while the safety theorem stays green.
+
+⚠️ **The source memory is SEEDED, not empty** — a zero background cannot tell COPIED from
+NEVER-WRITTEN, which is the same trap problem 1 recorded. -/
+
+-- ⚠️ `decide` reduces these in the KERNEL, which needs a deeper recursion budget than
+-- the default; `#eval` compiles and does not. Raised for the group rather than per
+-- theorem, because `set_option ... in` cannot sit between a doc comment and its
+-- declaration.
+set_option maxRecDepth 100000
+
+/-- A seeded source: `0xAA 0xBB 0xCC 0xDD` at 0x3000. -/
+def cpySeeded : Mem :=
+  Mem.write (Mem.write (Mem.write (Mem.write default 0x3000 0xAA) 0x3001 0xBB)
+    0x3002 0xCC) 0x3003 0xDD
+
+/-- The loop really runs to completion: the counter reaches zero. -/
+theorem memcpy_loops : ((runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).regs.get .rcx) = 0 := by
+  decide
+
+/-- …and leaves at the exit address, stopped. -/
+theorem memcpy_exits :
+    (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).rip = 0x2016
+    ∧ (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).stopped = true := by decide
+
+/-- ⭐ THE BYTES ACTUALLY MOVE. Without this the frame theorem is satisfied by a no-op. -/
+theorem memcpy_really_copies :
+    (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).mem.read 0x4000 = 0xAA
+    ∧ (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).mem.read 0x4001 = 0xBB
+    ∧ (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).mem.read 0x4002 = 0xCC
+    ∧ (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).mem.read 0x4003 = 0xDD := by decide
+
+/-- ⛔⛔ **THE BOUND IS TIGHT.** The fourth byte IS written, so `Region d0 4` cannot be
+narrowed to three — a frame theorem with a region larger than the routine's real footprint
+is weaker than it looks, and this is what says the 4 is not slack. -/
+theorem memcpy_bound_is_tight :
+    (runP memcpy 40 (cpyEntry 0x3000 0x4000 cpySeeded)).mem.read 0x4003
+      ≠ (default : Mem).read 0x4003 := by decide
+
 end Tests

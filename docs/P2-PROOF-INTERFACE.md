@@ -342,3 +342,40 @@ instructions**, still not "tens". The ceiling does the work here, not the curve.
 proposition to state — only a normalisation to re-run, which is why a macro captured it and a lemma
 could not. **That is evidence for the tactic/VC-generator conclusion arriving from a new direction:
 the thing that paid this round was tactic-shaped work.**
+
+
+---
+
+## ⭐⭐⭐ PROBLEM 2 (`memcpy`) — THE LINEARITY CLAIM TESTED AT A SECOND LABEL COUNT
+
+Everything above extrapolates `19 fixed + ~7.6 per LABEL` **from one routine with five labels.**
+A model fitted at a single point and extrapolated four-fold is an argument, not a measurement.
+`memcpy` has **seven** labels, and a structurally harder invariant — TWO pointers advancing at
+different points in the loop body, so the assertion carries a separate offset for each.
+
+```
+  model from `fill` (5 labels):  19 + 7.6 x 7  ⇒  PREDICTED 72 lines
+  measured on `memcpy` (7):                       ACTUAL    76 lines   (8.1 / label)
+  blocks: 4 · 7 · 7 · 7 · 7 · 10 · 19            error: +5.6%
+```
+⇒ 🔑 ***THE LINEARITY HOLDS ACROSS ROUTINES AND LABEL COUNTS, TO WITHIN 6%.*** The twenty-label
+extrapolation now rests on two points at different counts rather than one, and the per-label
+constant came out **slightly HIGHER** (8.1 vs 7.6), which is the direction a harder invariant
+predicts — so the model is, if anything, optimistic.
+⇒ **At twenty labels: `19 + 8.1×20` = ~181 lines.** The conclusion is unchanged and is now
+supported by an independent routine: **no lemma library reaches "tens of lines"; it needs a tactic
+or a VC generator.**
+
+### ⭐ AND THE INTERFACE ITSELF CAME OUT WELL — THE SECOND ROUTINE COST ONE AUTHORING PASS
+`memcpy_safe` **went through on the first build attempt.** That is worth separating from the line
+count, because the two say different things:
+* **The interface WORKS for transfer.** `runP_code`, `atTable`, `agreeOutside_write`, `stepP_at`
+  and round 4's `regcalc` carried over to a new routine with no new library lemmas and no
+  fighting. The structure of `fill`'s proof was reusable line for line.
+* **And it still misses the Captain's criterion**, which is about LINES at twenty instructions,
+  not about author effort.
+⚠️ **A first-attempt pass is a suspect, and it was investigated rather than believed** — see the
+nonvacuity theorems: the routine runs to completion (`rcx = 0`, `rip = 0x2016`, stopped), the bytes
+**actually move** (`0xAA 0xBB 0xCC 0xDD` arrive at the destination from a SEEDED source, because a
+zero background cannot tell COPIED from NEVER-WRITTEN), and the four-byte bound is **TIGHT**.
+Axioms: `memcpy_safe` on exactly `[propext, Classical.choice, Quot.sound]`.
