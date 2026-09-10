@@ -12853,3 +12853,166 @@ have been run on anything landed since — which is precisely what ARM A needs.
 ⚠️ **The refusal reported nothing:** the failure path prints `r.stderr` while `lean --json` writes
 diagnostics to STDOUT, redirected into the `.json` file. Structurally empty for the commonest
 failure. **Filed, not repaired here** [[feedback-a-gate-that-refuses-must-say-what-it-saw]].
+
+---
+
+## D192 — the delta gate's NEW-UNIT arm: a noise floor was being used as a ceiling, and the gate's own selftest had pinned the one budget kind under which that is invisible
+
+**Ruled by the helm 2026-09-10 13:18 (FLEET.md offset 47777260) after reading the source. paris
+implements; the design is the helm's, because paris is the party the gate convicted.** The
+separation is deliberate and it is the reason this repair is allowed to happen at all: a head that
+repairs the gate blocking its own commit changes the gate for everyone on one inconvenient case.
+
+### 1. THE MECHANISM, AND IT IS ARITHMETIC, NOT A JUDGEMENT CALL
+`verdict()` sets `b = median(bs) if bs else 0.0`. For a unit with no reading on the base side the
+"delta" `d = h - b` is therefore the module's **TOTAL COST**, and `effective()` returns
+`max(pct/100 * 0, floor)` — **the floor, exactly, for every relative budget.**
+
+⇒ 🔑 ***FOR EVERY UNIT WITH A HISTORY THE GATE ASKS "did this unit get more expensive, relative to
+itself?". FOR A NEW UNIT IT ASKED "does this module cost more than this box can RESOLVE?" — and the
+second question has the answer YES for every module anyone will ever add.***
+
+**The floor was being read backwards.** `kernel_delta_budget.txt` derives `@floor 6` as *"the worst
+within-commit spread this walk measured … i.e. the resolution this box has"*, and `kernel_cost.py`
+states the sibling floor's purpose outright: *"below the floor, timing noise dominates and a ratio
+would fail on a loaded machine."* **A floor exists to LOOSEN a percentage that is too small on a
+tiny module — it is a MINIMUM ALLOWANCE.** Applying it as a MAXIMUM ceiling for an entire new
+module inverts its meaning, and **the inversion is invisible because one expression computes both.**
+
+⚠️ **MEASURED, AND WIDER THAN FIRST REPORTED: every one of the 22 entries in this repository's
+budget file is RELATIVE.** Not one is absolute. So the defect reached *all* of them, not merely the
+units falling to `@default` — there is no unit in this repository a new module could have been
+registered under that would have escaped it.
+
+### 2. ⭐ THE DECIDING EVIDENCE WAS IN THE GATE'S OWN SELFTEST
+The suite's ONLY exercise of the new-unit path pinned an **absolute** default:
+```
+  run("a unit NEW in head is flagged", {… "head": {"modules": {"N": 10.0}} …},
+      ("abs", 1000.0), {}, 0, "NEW unit in head")
+```
+Under that budget a 10 ms new unit passes and the flag prints, so the arm was green. Under this
+repository's actual budget file — `@default 23.3%`, `@floor 6` — **the identical code path
+convicts.**
+⇒ 🔑 ***THE NEW-UNIT PATH WAS TESTED IN THE ONE CONFIGURATION WHERE IT PASSES AND SHIPPED AGAINST
+THE ONE WHERE IT CANNOT.*** A selftest that pins the arm it exercises to a budget kind the
+repository does not use has validated the FLAG and not the VERDICT — two green halves meeting at a
+seam nothing drove.
+
+⛔ **And that arm's `rc 0` was itself the forbidden outcome.** It asserted that an unregistered new
+module PASSES SILENTLY. It is rewritten, not kept: **an arm asserting the behaviour a ruling
+forbids is not a regression test, it is the defect with a tick beside it.**
+
+### 3. ⇒ WORSE THAN A BLIND SPOT
+The gate **detects** this case and prints `NEW unit in head: X86.Program` by name, in the same
+output, immediately above the failure line — and then applies the wrong rule to it.
+⇒ 🔑 ***A DETECTOR THAT NAMES A CASE AND THEN MISHANDLES IT IS WORSE THAN ONE THAT IS BLIND,
+BECAUSE ITS OUTPUT READS AS CONSIDERED.*** Two independent runs convicted `X86.Program` (+9.8,
++18.5) and `Tests.Program` (+22.6, +24.3) against a budget of 6.0, each naming the rule it fell to,
+so the conviction looked reasoned all the way down.
+
+### 4. THE ARM AS BUILT
+A unit with **no reading on the base side is NEW**, and no relative budget is computed against a
+zero base. Instead:
+1. The head's measured cost is **printed**, and the unit is named as judged NEW. The table's
+   `base` column reads `NEW` and its `delta` column reads `-`, because for this unit the gate is
+   not testing a delta — **printing `+18.5` under `delta` is exactly what made a total cost read as
+   an increment.**
+2. It is judged against an **absolute ceiling registered in `scripts/kernel_ceilings.txt`** — the
+   sibling gate's existing registry, same unit names, milliseconds. ⛔ **No third registry was
+   minted.** The registry already exists and `kernel_cost.py --register` already writes it; only
+   the two entries were missing, which is what being new means.
+3. The comparison asks the **same three-way question the rest of the file asks** (over / under /
+   band straddles), against the ceiling rather than a budget.
+4. **No ceiling registered ⇒ REFUSE, not FAIL** — through the refusal channel, printing the exact
+   line to add. ⛔ **The one forbidden outcome is `rc 0` on an unregistered new unit**, and it is
+   asked directly by an arm.
+
+⭐ **The refusal channel is now split three ways**, because *"this run cannot tell"* and *"this new
+module has no registered ceiling"* ask different acts of the reader — one wants repeats or a
+quieter box, the other wants a decision and one line in a file. **A new module is a DECISION, not a
+regression, and the two must not arrive wearing the same word.**
+
+📌 The suggested ceiling is **derived from the registry's own rule** — `max(measured × HEADROOM,
+FLOOR_MS)`, imported from `kernel_cost` rather than retyped, since two copies of that arithmetic
+would agree today and diverge on the next edit. And the refusal says **not** to clear itself with
+`--register`: that rewrites the whole file and would re-derive all 22 existing ceilings from
+today's box, loosening every one to clear two lines.
+
+📌 **⛔ AND ONE COMPARISON, NOT A FOURTH COPY OF IT.** My first draft wrote the three-way question
+out inline in the new-unit branch. `judge_delta` — factored out by **D154** precisely because *"the
+repository now has THREE callers of the same six lines"* — **refuses a one-sided unit by design**
+(*"a unit present on ONE side only is not a paired measurement"*), so the arm genuinely cannot call
+it. That made the inline copy feel justified, **and it would have been the fourth copy of the rule
+that decides every verdict this gate gives**, in a file whose own note records the third being
+removed for that reason. The comparison is now `three_way(x, band, allowance)`, defined once and
+called by both `judge_delta` and the new-unit arm. Behaviour-preserving, and proved so by the three
+suites that depend on it. ⇒ 🔑 ***"THE FACTORED FUNCTION REFUSES MY CASE" IS A REASON TO WIDEN THE
+FACTORING, NOT A LICENCE TO COPY IT.***
+
+📌 **One parser, two readers.** `read_ceilings()` is now shared by the absolute readings printed
+beside every merge and by this arm; they were about to be two parses of one format.
+⚠️ And one stale literal of my own, caught on review before it landed: the refusal message read
+*"loosening every one of them to clear **two** lines"* — a hand-typed count in a tool's own output,
+wrong for any number of new units but two, and **the exact defect (D41/D65/D94) this file warns
+about three inches above the line I wrote it on.** Both counts are derived now.
+⚠️ `@perRow` entries are deliberately **not** returned — their number only means something
+multiplied by the live row count, so such a unit reads as UNREGISTERED and is refused **by name**
+rather than judged against a number that means something else.
+
+### 5. DRIVEN, BOTH DIRECTIONS, ON THE READINGS THAT PRODUCED THE CONVICTION
+Seven arms were written **before** the rule and six of them were driven RED against the unrepaired
+gate (the seventh is the domain control, green throughout, proving the change is confined to the
+case it names). Then, end to end, on the *actual saved readings* of the run that convicted the
+branch — base `5011d2b` → head `df390ab`, box `yukon.lan`, load 18–32:
+```
+  OLD   X86.Program      0.0 →  18.5   delta +18.5   budget 6.0   OVER BUDGET ⛔     rc 1
+        Tests.Program    0.0 →  24.3   delta +24.3   budget 6.0   OVER BUDGET ⛔
+        ⚠️ 4 unit(s) fell to @default: Tests, Tests.Program, X86, X86.Program
+
+  NEW   X86.Program      NEW    18.5   delta   -     ceiling -    NEW — NO CEILING ⛔  rc 3
+        Tests.Program    NEW    24.3   delta   -     ceiling -    NEW — NO CEILING ⛔
+        ⚠️ 2 unit(s) fell to @default: Tests, X86
+```
+⭐ **The `@default` list shrinking from four units to two is the mechanism visible in the gate's own
+output**: the new modules were inheriting an allowance nobody chose for them, and now they do not.
+
+⚠️ **AND THE SHAPE OF THAT RUN IS ITSELF EVIDENCE FOR THE RULING.** On a box at load 18–32 nearly
+every unit with a history came back `UNMEASURABLE` — the run genuinely could not tell. **The only
+two units it convicted were the two new ones**, because the floor rule had handed them a budget of
+6.0 ms, tight enough to convict beyond a band that was too wide to judge anything else.
+⇒ 🔑 ***THE ONE RULE IN THE GATE THAT COULD STILL RETURN A CONFIDENT VERDICT ON A LOUD BOX WAS THE
+RULE THAT WAS WRONG.***
+
+### 6. ⚠️ WHAT THIS DOES NOT DO — STATED, NOT LEFT TO BE DISCOVERED
+* **It does not land `p2-proof-interface`.** Under the repaired gate that branch now REFUSES (rc 3)
+  rather than failing, and it stays held until its two ceilings are a **registered decision**. That
+  is what the arm is for.
+* **It does not register those two ceilings.** Doing so in this commit would be landing the arm and
+  clearing my own branch's refusal in one act, which is the exact conflict the ruling separated.
+* ⛔⛔ **IT INTRODUCES THE FIRST NON-PORTABLE COMPARISON INTO A GATE THAT RUNS ON TWO MACHINES, AND
+  I NEARLY FILED THE OPPOSITE.** My first draft of this section said the arm was safe because *"the
+  measuring verdict runs LOCALLY at merge and CI runs only `--selftest` — measured in `ci.yml`, not
+  assumed."* **That is false, and I had read only the first four steps of a nine-step job.** The
+  `kernel-delta` job's LAST step is `python3 scripts/kernel_delta.py --repeats 6` on
+  `ubuntu-latest`: **the delta gate takes a real measurement on the runner.**
+  ⇒ 🔑 ***"MEASURED, NOT ASSUMED" IS A CLAIM ABOUT A POPULATION, AND I HAD MEASURED A PREFIX OF IT.***
+  The words that made it sound driven were doing the work of the check I had not finished.
+
+  The recorded local↔runner factor (`ci.yml` header, the reason absolute ceilings were retired as a
+  gate on 09/04) is **1.7× to 3.1× per module, 2.1× overall, with "no single calibration constant"**.
+  The registry's headroom is **×3**. So for a new module:
+  ```
+      runner reading / registered ceiling  =  (1.7 … 3.1) / 3.0  =  0.57 … 1.03
+  ```
+  ⇒ **A ceiling derived honestly from a local reading has NO MARGIN AT ALL at the top of the
+  observed range.** A new module whose runner factor sits where `vectorCoverage`'s does (3.1×) reds
+  on the runner while passing locally, and nothing about that is a regression in the module.
+  ⚠️ This is a property of the ruling's design, not a defect in this implementation, and it is
+  **filed for the helm rather than patched here** — the ruling separated design from execution
+  precisely so that paris does not quietly re-choose the rule.
+
+  ✅ **AND IT IS SAFE TO LAND ANYWAY, for a reason that is structural rather than lucky: with NO
+  ceiling registered the arm REFUSES on both machines identically** (rc 3, no measurement compared
+  against any number). The non-portability becomes live only at the moment a ceiling is registered
+  — **which is exactly the act this commit declines to take.** The arm is safe to land precisely
+  because the act it defers is the act that would make it non-portable.
