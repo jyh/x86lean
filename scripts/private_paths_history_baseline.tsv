@@ -1,0 +1,13 @@
+# private_paths_history_baseline.tsv -- ACCEPTED HISTORICAL DEBT: content a
+# commit INTRODUCED, which every clone receives whatever the tree now says.
+# sha<TAB>file<TAB>line-sha16<TAB>what.
+# A TREE REPAIR NEVER SHRINKS THIS FILE. Only a history rewrite does, and
+# that is a council act -- so a shrink here is a diff somebody must have ruled.
+1e92366a9f5d376726a71d42b26eeb7067cf1e99	docs/DECISIONS.md	f2bf1e5fb01a440f	a path into a private-record repo
+7f8aae25ab4639b7e0cf4e55420799d234cc59e2	CLAUDE.md	4baf911d5ae09deb	a path into a private-record repo
+8a74e36841a5aa4ce2e6e0f113857280c30d7ca1	docs/DECISIONS.md	9b08cd04b479c6a3	a path into a private-record repo
+8a74e36841a5aa4ce2e6e0f113857280c30d7ca1	docs/DECISIONS.md	9b08cd04b479c6a3	the kit run surface
+8a74e36841a5aa4ce2e6e0f113857280c30d7ca1	scripts/kernel_cost.py	966c0589062543de	a path into a private-record repo
+8a74e36841a5aa4ce2e6e0f113857280c30d7ca1	scripts/kernel_cost.py	966c0589062543de	the kit run surface
+ac25095b2ac8605c15b88eb30e51914798ddfdf6	docs/COSIM-DESIGN.md	9a1266202b86f68d	a rootless path into the private record (briefs-/fleet-shape)
+ac25095b2ac8605c15b88eb30e51914798ddfdf6	docs/COSIM-DESIGN.md	b09c32a9dab00231	a rootless path into the private record (briefs-/fleet-shape)
