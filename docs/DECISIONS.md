@@ -13015,3 +13015,41 @@ minting ceilings for new units, since none exist). **OWNER:** the Captain or the
 seat**, because I am the party the gate convicted, and a head that repairs the gate blocking its own
 commit has changed the gate's meaning for everyone on the strength of one inconvenient case.
 **RE-MEASURE:** on a quiet box; both runs here were taken at load 18-30.
+
+
+---
+
+## D197 — problems 2 and 3, and the finding that the TIER decides the line-count target
+
+⛔ **THIS ENTRY IS A POINTER, NOT A SUMMARY.** The derivations, the measurements and the
+pre-registrations live in `docs/P2-PROOF-INTERFACE.md` (sections "ROUND 4", "PROBLEM 2 (`memcpy`)"
+and "PROBLEM 3"), beside the proofs they describe. **Two copies of a design decision is the shape
+this campaign keeps paying for** — a document that contradicts itself reads as whichever half is
+reached first — so what follows is the index and the numbers, and nothing is restated that the
+design doc owns.
+
+⚠️ **NUMBERED D197 DELIBERATELY.** `master` reached **D196** while this branch held D190–D191, and
+`docs/DECISIONS.md` already carries **two decisions numbered D123** (the VEX-128 census and the delta
+gate), a duplicate D130's own title records and which sent a `ci.yml` citation to the wrong entry —
+see **D195**. Skipping to D197 costs nothing and does not make that worse.
+
+### THE RESULTS, WITH THEIR NUMBERS
+| # | what | where |
+|---|---|---|
+| Round 4 | pre-registered 57–61 lines / fall < 2.4; **measured 57, 7.6/label, fell 2.0**; refutation threshold ≤45 NOT reached | design doc, "ROUND 4" |
+| 2 | `memcpy_safe` at **7 labels: predicted 72, measured 76 (+5.6%)** — the linearity the 20-label extrapolation rests on, tested at a second count | "PROBLEM 2" |
+| 2 | `region_disjoint_of_le` + `region_wrap_defeats_order` — disjointness **derived**, its no-wrap hypothesis **proved necessary** by a kernel-checked wraparound witness | `X86/Program.lean` |
+| 3 | `scan_writes_no_memory` — the **FRAME tier ≈ 1 line/INSTRUCTION** ⇒ ~31 lines at twenty | "PROBLEM 3" |
+
+### ⇒ 🔑 THE ONE SENTENCE WORTH CARRYING OUT OF ALL OF IT
+***THE TIER, NOT THE LEMMA LIBRARY, DECIDES WHETHER THE CAPTAIN'S CRITERION IS MET*** — ~31 lines
+(frame) against ~181 (labelled) at twenty instructions, a factor of eight, while four rounds of lemma
+engineering moved the labelled tier by about a third of that. **And a property's tier is not obvious
+from its statement**: the design doc filed the `memset` fill as frame-tier and writing the proof
+refuted that.
+
+### ⛔ AND THE HALF OF PROBLEM 3 THAT IS NOT STATABLE
+`Mem.read` is TOTAL, so *"reads stay inside the buffer"* has no observable consequence in a single
+run. The honest form is **non-interference over TWO runs**, and all five combinators are single-run.
+**A sizing fact for GS, not a gap patched by reflex** — and a direct consequence of decision (b)'s own
+premise. Full argument in the design doc.
