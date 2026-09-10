@@ -3,13 +3,23 @@
 A **user-level x86-64 ISA semantics in Lean 4** — definitional, executable,
 kernel-checked, and differentially validated against public executable models
 and (from P1) against real hardware. Built from **public sources only** and
-licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)); the repository is
-private until its publication approval lands, and is built to be published.
+licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 
 See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
 [`TRUSTBASE.md`](TRUSTBASE.md) for what is proven and what is trusted,
 [`docs/DECISIONS.md`](docs/DECISIONS.md) for the P0 decisions and their reasons,
 and [`docs/COVERAGE.md`](docs/COVERAGE.md) for the generated coverage table.
+
+## Part of SaltBench
+
+x86lean is developed as part of [SaltBench](https://github.com/jyh/saltbench), a
+benchmark for machine-checked program construction. It supplies the formal
+x86-64 semantics that SaltBench's x86 assembly suite verifies against: a task in
+that suite asks for code meeting a natural-language requirement, and the referee
+is x86lean's kernel-checked `step` — a theorem about the resulting machine
+state, which no model can game. The x86 suite is planned, not yet built. Its
+problems will land here and in SaltBench together, after the current SaltBench
+suite completes.
 
 ## What this is
 

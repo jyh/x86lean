@@ -489,7 +489,6 @@ jobs:
   # arms, which is exactly the failure this gate exists to prevent.
   selftest:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -540,7 +539,6 @@ jobs:
   # a gate nobody reads.
   kernel-delta:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -677,7 +675,6 @@ jobs:
   # printed: base and head at the SAME commit, which must be CLEAN.
   kernel-delta-redfirst:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
         with:
