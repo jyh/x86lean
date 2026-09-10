@@ -477,10 +477,28 @@ theorem atTable_of_congr {tbl : List (BitVec 64 × (Cpu → Prop))} {a : BitVec 
       rw [hf] at h
       exact hs q (List.mem_of_find?_eq_some hf) h
 
+/-- ⭐ THE PER-INSTRUCTION REGISTER/FLAG UNFOLDING, PACKAGED ONCE (round 4, 2026-09-10).
+
+Every arithmetic instruction's invariant arm re-derives the same six-way unfolding —
+`Regs.get_set_same`, the write view, `Cpu.getReg`, the truncation, and the two `if_false`
+steps — and differs only in WHICH `Flags.*` lemma and WHICH hypothesis it carries. Those
+were spelled out at each site, costing two lines apiece.
+
+⚠️ **IT IS A MACRO, NOT A LEMMA, AND THAT IS THE FINDING.** The repetition is in the
+TACTIC SCRIPT, not in the mathematics: there is no proposition here to state, only a
+normalisation to re-run. A lemma cannot capture it, which is the same wall the line-count
+curve keeps hitting from the other side. -/
+syntax "regcalc" "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
+macro_rules
+  | `(tactic| regcalc [$xs,*]) =>
+    `(tactic| simp only [Regs.get_set_same, Value.writeView_q, Cpu.getReg, Value.trunc_q,
+        Bool.false_eq_true, if_false, $xs,*])
+
 /-- ⭐⭐⭐ THE DISPATCH, DONE ONCE. To preserve `I` it is enough to preserve it across
 each instruction the program CONTAINS, knowing the address it sits at — so the user
 never writes a `by_cases` on `rip`, never derives `at? L = some I`, and never handles
 the off-program case at all. -/
+
 theorem runP_code (p : Program) (I : BitVec 64 → Cpu → Prop)
     (hhalt : ∀ (s : Cpu) (e : MsErr), Live s → I s.rip s → I s.rip (s.halt e))
     (hstep : ∀ (a : BitVec 64) (i : Instr) (s : Cpu), (a, i) ∈ p.code → s.rip = a →

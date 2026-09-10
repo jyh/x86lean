@@ -188,8 +188,7 @@ theorem fill_safe (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
       simp only [fill, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hmem
       obtain ⟨ha, hr⟩ := hI
       rcases hmem with ⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩
-      · rw [step_mov_reg_imm .q .rcx 4 hl,
-            show s.rip + BitVec.ofNat 64 7 = (0x1007 : BitVec 64) by rw [hrip]; rfl]
+      · rw [step_mov_reg_imm .q .rcx 4 hl, hrip]
         have hr0 : s.regs.get .rdi = d0 := hr
         exact ⟨ha, show Loop d0 0 4 _ from ⟨0, by decide, by simpa using hr0, by simp, by simp⟩⟩
       · obtain ⟨k, hk, hd, hc, _⟩ := (hr : Loop d0 0 4 s)
@@ -200,31 +199,25 @@ theorem fill_safe (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
           = s.regs.get .rdi by simp [Ea.offset], Mem.writeSize, Mem.writeN, Size.bytes]
         exact agreeOutside_write ha ⟨k, hk, by simpa using hd⟩
       · obtain ⟨k, hk, hd, hc, _⟩ := (hr : Loop d0 0 4 s)
-        rw [step_inc_reg .q .rdi hl,
-            show s.rip + BitVec.ofNat 64 3 = (0x100C : BitVec 64) by rw [hrip]; rfl]
+        rw [step_inc_reg .q .rdi hl, hrip]
         refine ⟨ha, show Loop d0 1 4 _ from ⟨k, hk, ?_,
           by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
-        simp only [Regs.get_set_same, Value.writeView_q, Flags.addResult, Cpu.getReg,
-          Value.trunc_q, hd, Bool.false_eq_true, if_false, Nat.add_zero]
+        regcalc [Flags.addResult, hd, Nat.add_zero]
         rw [ofNat_succ_64, BitVec.add_assoc]
       · obtain ⟨k, hk, hd, hc, _⟩ := (hr : Loop d0 1 4 s)
         have h4 : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
-        rw [step_dec_reg .q .rcx hl,
-            show s.rip + BitVec.ofNat 64 3 = (0x100F : BitVec 64) by rw [hrip]; rfl]
+        rw [step_dec_reg .q .rcx hl, hrip]
         refine ⟨ha, show Loop d0 1 3 _ from ⟨k, hk,
           by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd, ?_, fun _ => ?_⟩⟩
-        · simp only [Regs.get_set_same, Value.writeView_q, Flags.subResult, Cpu.getReg,
-            Value.trunc_q, hc, Bool.false_eq_true, if_false]
+        · regcalc [Flags.subResult, hc]
           rcases h4 with rfl|rfl|rfl|rfl <;> decide
-        · simp only [Flags.dec, Flags.fromResult, Cpu.getReg, Value.trunc_q, hc,
-            Bool.false_eq_true, if_false]
+        · regcalc [Flags.dec, Flags.fromResult, hc]
           rcases h4 with rfl|rfl|rfl|rfl <;> decide
       · obtain ⟨k, hk, hd, hc, hz⟩ := (hr : Loop d0 1 3 s)
         have hzf := hz rfl
         rw [step_jcc .ne (BitVec.ofInt 64 (-10)) hl (by intro _; rw [hrip]; decide)]
         by_cases hb : s.flags.zf = true
-        · rw [show Cc.eval .ne s.flags = false by simp [Cc.eval, hb], if_neg (by simp),
-              show s.rip + BitVec.ofNat 64 2 = (0x1011 : BitVec 64) by rw [hrip]; rfl]
+        · rw [show Cc.eval .ne s.flags = false by simp [Cc.eval, hb], if_neg (by simp), hrip]
           exact ⟨ha, trivial⟩
         · have hbf : s.flags.zf = false := by
             cases hq : s.flags.zf with | true => exact absurd hq hb | false => rfl
@@ -232,9 +225,7 @@ theorem fill_safe (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
             rw [hbf] at hzf
             have : ¬ (k = 3) := fun hh => by rw [hh] at hzf; simp at hzf
             omega
-          rw [if_pos (by simp [Cc.eval, hbf]),
-              show s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 (-10) = (0x1007 : BitVec 64) by
-                rw [hrip]; rfl]
+          rw [if_pos (by simp [Cc.eval, hbf]), hrip]
           exact ⟨ha, show Loop d0 0 4 _ from
             ⟨k + 1, by omega, by simpa using hd, by rw [hc]; congr 1; omega, by simp⟩⟩)
     n (entry d0 m0) ⟨fun _ _ => rfl, show (entry d0 m0).regs.get .rdi = d0 by

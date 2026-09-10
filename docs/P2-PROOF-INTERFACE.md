@@ -302,3 +302,43 @@ The interface **meets** the criterion for **frame-shaped** properties (14 lines,
 misses it at 20. **The deliverable is honest and incomplete, and the gap is now a measured
 constant with a named remedy** — which is more useful than a number that flattered it.
 
+
+
+---
+
+## ⭐⭐ ROUND 4 (2026-09-10) — PRE-REGISTERED, CONFIRMED ON ALL FOUR FIGURES, AND IT CORRECTS THIS DOCUMENT'S OWN CONCLUSION
+
+Run because the previous bank named it as the cheap way to FALSIFY the 9.6 floor *"before anyone
+commits to building a tactic."* The prediction and its refutation threshold were written down
+**before any code was touched**:
+```
+  predicted   6–10 lines removed · 57–61 total · 7.4–8.4 /label · constant falls 1.2–2.2 (< 2.4)
+  REFUTATION THRESHOLD, declared in advance:  ≤ 45 lines (≈5.2 /label)
+  measured    10 lines removed  · 57 total   · 7.6 /label      · constant fell 2.0
+```
+**All four held; the refutation threshold was not reached.** Four points now: **25 → 12 → 9.6 → 7.6.**
+
+### ⛔ AND THE HONEST READING WEAKENS THIS DOCUMENT'S ASYMPTOTE ARGUMENT
+The falls are **13.0, then 2.4, then 2.0.** This document said *"lemma engineering is asymptoting
+near ~9-10 lines each"* on two falls, where 13.0 → 2.4 looked like rapid decay. **A third fall of
+2.0 says the decay STALLED rather than continued** — after the first big win the rounds are running
+at roughly a constant ~2/round, and at that rate 7.6 → ~2.5 is two or three more rounds, which is
+**not obviously infeasible.**
+⇒ 🔑 ***THE ROUND-OVER-ROUND DECAY ARGUMENT IS WEAKER THAN THIS DOCUMENT CLAIMED. What still carries
+the conclusion is the RESIDUE ARGUMENT, and it is the one that was pre-registered:*** every label
+must still (i) unpack the invariant, (ii) name its effect theorem, (iii) re-establish the invariant
+with its arithmetic — **≥4 lines/label of CONTENT**, so ≥ 19 + 4×20 = **99 lines at twenty
+instructions**, still not "tens". The ceiling does the work here, not the curve.
+
+### ⭐ AND WHERE ROUND 4'S WIN CAME FROM IS ITSELF THE ARGUMENT FOR A TACTIC
+**Not one new lemma was added.** The 10 lines came from:
+* **7 lines** — deleting `show s.rip + BitVec.ofNat 64 N = (LABEL) by rw [hrip]; rfl` at 4 of 5
+  labels and both jcc arms. **Defeq already handled it**; the `show` was pure ceremony. (Block 2
+  keeps its explicit form: there the rip also feeds the effective-address computation, so the
+  blanket rewrite changes a second site.)
+* **3 lines** — `regcalc`, a **MACRO**, replacing a six-way `simp only` unfolding repeated at three
+  sites with differing `Flags.*` lemmas.
+⇒ ***THE REPETITION THAT REMAINS IS IN THE TACTIC SCRIPT, NOT IN THE MATHEMATICS.*** There was no
+proposition to state — only a normalisation to re-run, which is why a macro captured it and a lemma
+could not. **That is evidence for the tactic/VC-generator conclusion arriving from a new direction:
+the thing that paid this round was tactic-shaped work.**
