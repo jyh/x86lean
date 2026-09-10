@@ -111,6 +111,40 @@ discharged a CI row as a side effect. **Verify the three jobs actually run befor
 they had never been reachable, so the first push after the restore is their first real evidence.
 **MEASURED at `f908ad7`: Scrub SUCCESS; CI `in_progress` at boot — the conclusion is owed a look.**
 
+### ⛔⛔ CI-2d (NEW, 2026-09-10) — **THE RESTORE IS NECESSARY AND NOT SUFFICIENT: THE THREE JOBS CANNOT FINISH**
+I closed CI-2 this morning with the line *"verify the three jobs actually run before trusting
+this."* **The verification says they do not complete.** Measured at the object:
+```
+  concurrency: group ci-<workflow>-<ref>, cancel-in-progress: TRUE
+  the ONE completed run of these jobs (PR #1, all-time)  ....  13,770 s = 3 h 49 m
+     selftest (2) alone .................................  13,735 s = 3 h 49 m
+     selftest (1)(3)(4)(5)(6) ...........................  4,940-7,028 s each
+     kernel-delta-redfirst ..............................   2,654 s = 44 m
+  runs since the restore ..............................  f908ad7 CANCELLED at 422 s
+                                                          5011d2b in progress (my push cancelled it)
+  ⇒ completed runs of the three restored jobs on master:  ZERO
+```
+⇒ 🔑 ***A JOB RESTORED TO A TRIGGER THAT FIRES IS STILL ABSENT IF THE NEXT LANDING CANCELS IT.***
+`cancel-in-progress: true` is right for a 4-minute build and fatal for a **four-hour** matrix: the
+job can only complete if `master` is quiet for longer than any working session in this campaign.
+**f908ad7's run was cancelled by MY OWN push 7 minutes in** — the first real evidence the restore
+worked was destroyed by the next ordinary landing.
+⚠️ **MEASURED vs INFERRED, held apart:** the durations, the concurrency setting and the zero
+completions are MEASURED. That they will *keep* being cancelled is an INFERENCE from the landing
+rate, and it is the part that could be wrong if landings become rare.
+⚠️ **AND CI-2's OWN PRICE WAS OFF BY 3×:** that row says *"three jobs of 68-88 min each."* The one
+real run says **44 min to 3 h 49 m**, and the longest is a `selftest` shard, not the delta job.
+**A price quoted from a plan rather than from a run** [[the burden is on the departure]].
+⛔ **NOT REPAIRED HERE, AND THE REASON IS NOT TIMIDITY:** the fix is a policy choice with a real
+bill (exempt the long jobs from cancellation? a nightly schedule? a merge queue?), and Actions
+minutes being free on a public repo changes the arithmetic that produced the throttle in the first
+place. **The throttle is the Captain's** (desk `JF`), so the choice is his, and it should be made
+on these numbers rather than the plan's.
+**RELEASE CONDITION:** one COMPLETED run of the three jobs on `master`. **OWNER:** the Captain for
+the policy; this seat to re-measure. **RE-MEASURE:** after the next quiet period — and note that a
+head can create one deliberately by batching its landings into a single push, which is what I did
+with this life's remaining work.
+
 ### ⛔ CI-2b — AND THE FIRST THING THAT RAN THERE WAS RED, BY MY HAND
 `kernel-delta`'s step *"Drift-gate arithmetic and ledger, driven red"* failed on that PR.
 Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my predecessor's HEAD),
@@ -230,6 +264,82 @@ conflict for another seat's in-flight work in order to fix two temp-dir prefixes
 read "small" as "do it now".
 📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
 "three environment-dependent arms" precondition is now met and this is what remains.
+
+## ⛔⛔ P2-IFACE (NEW, 2026-09-10) — **THE PROOF INTERFACE. BUILT AND PROVEN; THE BRANCH IS *HELD*, NOT LANDED**
+
+⚖️ **STATUS, FIRST, BECAUSE THE REST OF THIS ROW READS AS IF IT SHIPPED.** The work is complete and
+green — and it is on branch **`p2-proof-interface`**, not on `master`, because the **delta gate
+convicted it in two independent runs** (`X86.Program` and `Tests.Program`, the two new modules).
+**HELD, exactly like the two branches already held on this gate.** Derivation and the decision:
+**D191**. ⛔ **AND THE FIRST DRAFT OF D191 ARGUED FOR LANDING IT ON A CROSS-CHECK I FABRICATED** —
+a row from the absolute-readings table that does not exist, because a new module has no ceiling.
+**RELEASE:** a ruling on the gate's new-unit arm. **OWNER:** the Captain or the helm, NOT this seat.
+
+## ⚖️ P2-IFACE — **THE PROOF INTERFACE. COMMISSIONED AT COUNCIL, BUILT (see the status above)**
+
+⚠️ **NAME COLLISION, FIRST, BECAUSE IT WILL OTHERWISE BE READ WRONG.** "P2" already names **the
+vector campaign** two rows below (33 batches, LIVE). The council's "P2" is the **phase
+deliverable** — this proof interface. **Two different things, one token.** This repo has already
+been bitten by a gate named by a literal when P1 became P2, so nothing here is called `P2` in
+code: the module is `X86.Program`, after what it is.
+
+**Council 2026-09-10 ruling ⑧,** the Captain: *"a semantics sufficient for proving safety
+properties (at least)"* · ***"the proof interface that makes a twenty-instruction routine provable
+in tens of lines, not thousands"*** · *"Yes, paris in parallel now."*
+**BUILT at `df390ab` (branch `p2-proof-interface`, NOT on master):** `X86/Program.lean` ·
+`Tests/Program.lean` · `docs/P2-PROOF-INTERFACE.md` · **D190**. Both design questions answered AT
+THE OBJECT, not by preference. **Axioms clean, all CI targets build, nonvacuity driven red first.**
+
+⛔⛔ **THE FINDING THAT PRECEDED BOTH: `run` COULD NOT EXPRESS A LOOP AND FAILED SILENTLY.**
+`X86.run` is `List.foldl step`; `jcc` sets `rip` correctly and the driver never reads it back.
+Measured: `ecx = 2` (one pass, not three), `rip = 0x1005` (the branch WAS taken), `ms = none` (the
+model did NOT stop). ⇒ 🔑 ***THE BRANCH IS TAKEN IN THE SEMANTICS AND IGNORED BY THE DRIVER, AND
+THE RESULT IS A WELL-FORMED `Cpu`*** — a perfectly good answer to a question nobody asked.
+`run` is NOT wrong (it is what the differential harness drives) and is NOT replaced.
+
+**THE MEASURED TARGET:** safety theorem **14 lines** (2 statement + 12 proof), ∀ fuel and ∀ start
+state, about a routine that really loops; 5 lines of routine, 5 of nonvacuity, **both nonvacuity
+probes driven RED first**. *(Written as 13 at four sites before it was counted.)*
+
+### ⇒ THE FIVE PROBLEMS THAT SIZE IT — **PROPOSED, NOT BUILT** (GS depends on them)
+`memset` fill · `memcpy` (region **disjointness**) · `strlen` scan · **guarded array store** (the
+labelled tier — the one the frame tier deliberately cannot reach) · prologue/epilogue.
+**One routine is proven and it is the smallest of them.**
+
+### ⛔ P2-IFACE-1. THE MEMORY FRAME PACK IS **17 OF 92 FORMS**
+The frame pack frames `flags` (17) and `oracle` (6) because **those are what the differential
+comparator watches** — it was built for the harness's question, and memory safety is a different
+one. The three lemmas the first routine needed are in `X86/Program.lean`; **75 forms are
+unstated.** ⚠️ **NOT a churn item:** whether all 75 belong in the pack is a sizing decision against
+the five problems, and `X86/Theorems.lean` is the kernel-cost barrier.
+**RELEASE:** the five problems name which forms they need. **OWNER:** this seat.
+
+### P2-IFACE-2. NO `runP_add` (`runP p (m+n) = runP p n ∘ runP p m`)
+What lets a proof be composed out of per-block runs. Cheap; **not yet needed**, so not written —
+recorded so the next head does not rediscover the absence as a surprise.
+
+### ⚠️ P2-IFACE-3. TERMINATION IS UNTOUCHED AND IS **NOT** ON THE P2 PATH
+These are SAFETY properties: *"for all fuel"* says nothing about a routine finishing. Stated here
+so it is not claimed later.
+
+---
+
+## ✅ AXIOM-GATE (2026-09-10) — **THE GATE DID NOT COVER A NEW MODULE WHILE PRINTING `CLEAN`**
+`scripts/axiom_gate.sh` carried a **hand-written literal of twelve module names**. `X86.Program`
+was added to the library, the gate ran, did not cover it, and printed
+`axiom-gate: CLEAN — every declaration in [ …the twelve… ]`.
+⇒ 🔑 ***A GATE NAMED BY A LITERAL STOPS SEEING NEW WORK AND REPORTS CLEAN ABOUT THE HALF IT CAN
+STILL SEE*** — its banner even NAMED its scope, and a reader who did not know the library had
+thirteen modules had nothing to compare it against.
+✅ **REPAIRED BY DERIVATION** from `X86.lean`'s imports (the library root must import every module
+for `lake build X86` to build it), **with two refusals carrying a control** — a short list and a
+missing known module — because a derivation that silently yields nothing reads GREEN. **Both
+refusals driven red, then restored green.** 13 modules covered.
+📌 **SWEEP OWED, NOT DONE:** this is one instance of a shape. Other gates in `scripts/` carry
+hand-written lists of modules, forms or paths; **none has been checked.** Filed rather than
+claimed clean.
+
+---
 
 ## P0 — the scalar core · **DISCHARGED**
 The 20 scalar forms, `Cpu`, `step`, the differential harness against ACL2 x86isa.

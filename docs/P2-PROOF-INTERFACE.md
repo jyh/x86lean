@@ -8,7 +8,7 @@ parallel now."*
 
 **Owner:** paris. **Derivation:** `docs/DECISIONS.md` D190.
 **Artifacts:** `X86/Program.lean` (the interface) · `Tests/Program.lean` (worked, with
-its nonvacuity) .
+its nonvacuity).
 
 > ⚠️ **A NAME COLLISION, SAID FIRST BECAUSE IT WILL OTHERWISE BE READ WRONG.**
 > "P2" already names **the vector campaign** in `docs/QUEUE.md` (33 batches, live).
@@ -124,7 +124,8 @@ The Captain's criterion is a line count, so it is reported as one. `Tests/Progra
 
 ```
   the routine (3 instructions, WITH A LOOP)      5 lines of definition
-  the safety theorem, all fuel, all start states  13 lines   ← "tens, not thousands"
+  the safety theorem, all fuel, all start states  14 lines   ← "tens, not thousands"
+     (2 of statement + 12 of proof; counted, not estimated — I first wrote 13)
   its nonvacuity (5 theorems, kernel-checked)     5 lines
 ```
 
