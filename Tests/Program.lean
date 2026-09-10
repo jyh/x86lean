@@ -111,9 +111,10 @@ The first proof was **152 lines, 64 of them (42%) label dispatch** — and that 
 *before* anything was built, together with the warning that removing all of it **would still
 leave 88**. The combinators went into `X86/Program.lean`; the proof was re-run:
 ```
-  first proof .................... 152 lines
-  after the dispatch combinators .  88 lines      ⇐ exactly the 64 predicted
-  invariant (one `Loop` for four arms)  14 → 10
+  first proof .................................. 152 lines   ≈ 25 / label
+  + stepP_at / stepP_off / atTable .............  88          ≈ 12 / label   ⇐ the 64 predicted
+  + runP_code (dispatch done ONCE, once proved)   67          ≈ 9.6 / label
+  invariant (one `Loop` for four arms) ......... 14 → 10
 ```
 ⇒ 🔑 ***THE PREDICTION HELD TO THE LINE, INCLUDING ITS OWN WARNING*** — which is the only reason
 the 42% win cannot be read as reaching the target.
@@ -121,16 +122,17 @@ the 42% win cannot be read as reaching the target.
 ## ⛔⛔ AND THE TARGET IS STILL MISSED, FOR THE CASE THE CAPTAIN ACTUALLY NAMED
 His criterion is a **twenty-instruction routine**. This routine has FIVE labels. Decomposed:
 ```
-  lines ≈ 37 fixed + ~12 per LABEL          (measured: blocks of 6, 11, 10, 14)
-     5 labels →  ~98
-    10 labels → ~157
-    20 labels → ~277        ⛔ not "tens of lines"
+  lines ≈ 19 fixed + ~9.6 per LABEL         (measured: blocks of 4, 7, 8, 12, 17)
+     5 labels →   67
+    10 labels →  115
+    20 labels →  211        ⛔ not "tens of lines"
 ```
-⇒ 🔑 ***THE COST IS LINEAR IN THE NUMBER OF LABELS AT ~12 LINES EACH, SO THE TWENTY-INSTRUCTION
-CASE IS ~280 LINES.*** Better lemmas cannot fix that — they moved the constant from ~25 to ~12
-and a second round would move it less. **Reaching "tens" at twenty instructions needs the
-per-label constant near ZERO, which means a TACTIC that discharges a label, not more lemmas.**
-That is the next build, and it is now sized rather than guessed.
+⇒ 🔑 ***THE COST IS LINEAR IN LABELS, AND LEMMA ENGINEERING IS ASYMPTOTING NEAR ~9-10 LINES
+EACH.*** Three measured points — 25, then 12, then 9.6 — and the prediction written before the
+third round, *"a second round would move it less"*, held: the constant fell **13**, then **2.4**.
+⛔ **THAT SETTLES THE FEASIBILITY QUESTION FOR A LEMMA LIBRARY.** Reaching "tens" at twenty
+instructions needs ~2-3 lines per label. **No arrangement of lemmas gets there from 9.6 — it
+needs a TACTIC or a VC generator**, and that is now named on evidence rather than on taste.
 ⚠️ **NOT CLAIMED:** that ~12 is the floor for a lemma-based approach, or that the extrapolation
 holds exactly — it is linear in the four blocks measured, and a routine with harder branch
 structure would cost more per label, not less.
@@ -170,103 +172,77 @@ def FillInv (d0 : BitVec 64) (m0 : Mem) (a : BitVec 64) (s : Cpu) : Prop :=
      (0x1007, Loop d0 0 4), (0x1009, Loop d0 0 4),
      (0x100C, Loop d0 1 4), (0x100F, Loop d0 1 3)] a s
 
-theorem fill_entry (d0 : BitVec 64) (m0 : Mem) :
-    FillInv d0 m0 (entry d0 m0).rip (entry d0 m0) :=
-  ⟨fun _ _ => rfl, show (entry d0 m0).regs.get .rdi = d0 by simp [entry, Regs.get, Regs.set]⟩
-
 set_option maxHeartbeats 1000000 in
-theorem fill_preserves (d0 : BitVec 64) (m0 : Mem) (s : Cpu)
-    (h : FillInv d0 m0 s.rip s) : FillInv d0 m0 (stepP fill s).rip (stepP fill s) := by
-  by_cases hst : s.stopped = true
-  · rw [stepP_stopped fill s hst]; exact h
-  have hl : Live s := by
-    unfold Cpu.stopped at hst
-    cases hm : s.ms with
-    | none => exact hm
-    | some e => rw [hm] at hst; simp at hst
-  obtain ⟨ha, hr⟩ := h
-  by_cases e0 : s.rip = 0x1000
-  · have hr' : s.regs.get .rdi = d0 := by rw [e0] at hr; exact hr
-    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e0]; rfl),
-        step_mov_reg_imm .q .rcx 4 hl, show s.rip + BitVec.ofNat 64 7 = (0x1007 : BitVec 64) by
-          rw [e0]; rfl]
-    exact ⟨ha, show Loop d0 0 4 _ from ⟨0, by decide, by simpa using hr', by simp, by simp⟩⟩
-  by_cases e1 : s.rip = 0x1007
-  · have hr' : Loop d0 0 4 s := by rw [e1] at hr; exact hr
-    obtain ⟨k, hk, hd, hc, _⟩ := hr'
-    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e1]; rfl),
-        step_mov_mem_reg .b { base := some .rdi } .rax hl rfl,
-        show s.rip + BitVec.ofNat 64 2 = (0x1009 : BitVec 64) by rw [e1]; rfl]
-    refine ⟨?_, show Loop d0 0 4 _ from ⟨k, hk, hd, hc, by simp⟩⟩
-    have hoff : (({ base := some .rdi } : Ea)).offset s (0x1009 : BitVec 64)
-        = s.regs.get .rdi := by simp [Ea.offset]
-    simp only [Ea.addr, hoff, Mem.writeSize, Mem.writeN, Size.bytes]
-    exact agreeOutside_write ha ⟨k, hk, by simpa using hd⟩
-  by_cases e2 : s.rip = 0x1009
-  · have hr' : Loop d0 0 4 s := by rw [e2] at hr; exact hr
-    obtain ⟨k, hk, hd, hc, _⟩ := hr'
-    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e2]; rfl), step_inc_reg .q .rdi hl,
-        show s.rip + BitVec.ofNat 64 3 = (0x100C : BitVec 64) by rw [e2]; rfl]
-    refine ⟨ha, show Loop d0 1 4 _ from ⟨k, hk, ?_,
-      by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
-    simp only [Regs.get_set_same, Value.writeView_q, Flags.addResult, Cpu.getReg,
-      Value.trunc_q, hd, Bool.false_eq_true, if_false, Nat.add_zero]
-    rw [ofNat_succ_64, BitVec.add_assoc]
-  by_cases e3 : s.rip = 0x100C
-  · have hr' : Loop d0 1 4 s := by rw [e3] at hr; exact hr
-    obtain ⟨k, hk, hd, hc, _⟩ := hr'
-    have hk4 : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
-    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e3]; rfl), step_dec_reg .q .rcx hl,
-        show s.rip + BitVec.ofNat 64 3 = (0x100F : BitVec 64) by rw [e3]; rfl]
-    refine ⟨ha, show Loop d0 1 3 _ from ⟨k, hk,
-      by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd, ?_, fun _ => ?_⟩⟩
-    · simp only [Regs.get_set_same, Value.writeView_q, Flags.subResult, Cpu.getReg,
-        Value.trunc_q, hc, Bool.false_eq_true, if_false]
-      rcases hk4 with rfl|rfl|rfl|rfl <;> decide
-    · simp only [Flags.dec, Flags.fromResult, Cpu.getReg, Value.trunc_q, hc,
-        Bool.false_eq_true, if_false]
-      rcases hk4 with rfl|rfl|rfl|rfl <;> decide
-  by_cases e4 : s.rip = 0x100F
-  · have hr' : Loop d0 1 3 s := by rw [e4] at hr; exact hr
-    obtain ⟨k, hk, hd, hc, hz⟩ := hr'
-    have hzf := hz rfl
-    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e4]; rfl),
-        step_jcc .ne (BitVec.ofInt 64 (-10)) hl (by intro _; rw [e4]; decide)]
-    by_cases hb : s.flags.zf = true
-    · rw [show Cc.eval .ne s.flags = false by simp [Cc.eval, hb], if_neg (by simp),
-          show s.rip + BitVec.ofNat 64 2 = (0x1011 : BitVec 64) by rw [e4]; rfl]
-      exact ⟨ha, trivial⟩
-    · have hbf : s.flags.zf = false := by
-        cases hq : s.flags.zf with | true => exact absurd hq hb | false => rfl
-      have hk3 : k < 3 := by
-        rw [hbf] at hzf
-        have : ¬ (k = 3) := fun hh => by rw [hh] at hzf; simp at hzf
-        omega
-      rw [if_pos (by simp [Cc.eval, hbf]),
-          show s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 (-10) = (0x1007 : BitVec 64) by
-            rw [e4]; rfl]
-      exact ⟨ha, show Loop d0 0 4 _ from
-        ⟨k + 1, by omega, by simpa using hd, by rw [hc]; congr 1; omega, by simp⟩⟩
-  have f0 : ((0x1000 : BitVec 64) == s.rip) = false := by
-    simp only [beq_eq_false_iff_ne]; exact fun hh => e0 hh.symm
-  have f1 : ((0x1007 : BitVec 64) == s.rip) = false := by
-    simp only [beq_eq_false_iff_ne]; exact fun hh => e1 hh.symm
-  have f2 : ((0x1009 : BitVec 64) == s.rip) = false := by
-    simp only [beq_eq_false_iff_ne]; exact fun hh => e2 hh.symm
-  have f3 : ((0x100C : BitVec 64) == s.rip) = false := by
-    simp only [beq_eq_false_iff_ne]; exact fun hh => e3 hh.symm
-  have f4 : ((0x100F : BitVec 64) == s.rip) = false := by
-    simp only [beq_eq_false_iff_ne]; exact fun hh => e4 hh.symm
-  rw [stepP_off hst (show fill.at? s.rip = none by
-        simp only [Program.at?, fill, List.find?, f0, f1, f2, f3, f4, Option.map_none])]
-  refine ⟨by simpa using ha, ?_⟩
-  simp only [halt_rip]
-  simp only [atTable, List.find?, f0, f1, f2, f3, f4]
-
-theorem fill_writes_only_in_buffer (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
+theorem fill_safe (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
     AgreeOutside (Region d0 4) m0 (runP fill n (entry d0 m0)).mem :=
-  (runP_labels fill (FillInv d0 m0) (fun s hs => fill_preserves d0 m0 s hs) n (entry d0 m0)
-    (fill_entry d0 m0)).1
+  (runP_code fill (FillInv d0 m0)
+    (fun s e hl h => by
+      have hh : s.halt e = { s with ms := some e } := by simp only [Cpu.halt, hl]
+      rw [hh]
+      exact ⟨h.1, atTable_of_congr (by
+        intro q hq
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
+        rcases hq with rfl|rfl|rfl|rfl|rfl <;> exact id) h.2⟩)
+    (by
+      intro a i s hmem hrip hl hI
+      simp only [fill, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hmem
+      obtain ⟨ha, hr⟩ := hI
+      rcases hmem with ⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩
+      · rw [step_mov_reg_imm .q .rcx 4 hl,
+            show s.rip + BitVec.ofNat 64 7 = (0x1007 : BitVec 64) by rw [hrip]; rfl]
+        have hr0 : s.regs.get .rdi = d0 := hr
+        exact ⟨ha, show Loop d0 0 4 _ from ⟨0, by decide, by simpa using hr0, by simp, by simp⟩⟩
+      · obtain ⟨k, hk, hd, hc, _⟩ := (hr : Loop d0 0 4 s)
+        rw [step_mov_mem_reg .b { base := some .rdi } .rax hl rfl,
+            show s.rip + BitVec.ofNat 64 2 = (0x1009 : BitVec 64) by rw [hrip]; rfl]
+        refine ⟨?_, show Loop d0 0 4 _ from ⟨k, hk, hd, hc, by simp⟩⟩
+        simp only [Ea.addr, show (({ base := some .rdi } : Ea)).offset s (0x1009 : BitVec 64)
+          = s.regs.get .rdi by simp [Ea.offset], Mem.writeSize, Mem.writeN, Size.bytes]
+        exact agreeOutside_write ha ⟨k, hk, by simpa using hd⟩
+      · obtain ⟨k, hk, hd, hc, _⟩ := (hr : Loop d0 0 4 s)
+        rw [step_inc_reg .q .rdi hl,
+            show s.rip + BitVec.ofNat 64 3 = (0x100C : BitVec 64) by rw [hrip]; rfl]
+        refine ⟨ha, show Loop d0 1 4 _ from ⟨k, hk, ?_,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
+        simp only [Regs.get_set_same, Value.writeView_q, Flags.addResult, Cpu.getReg,
+          Value.trunc_q, hd, Bool.false_eq_true, if_false, Nat.add_zero]
+        rw [ofNat_succ_64, BitVec.add_assoc]
+      · obtain ⟨k, hk, hd, hc, _⟩ := (hr : Loop d0 1 4 s)
+        have h4 : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
+        rw [step_dec_reg .q .rcx hl,
+            show s.rip + BitVec.ofNat 64 3 = (0x100F : BitVec 64) by rw [hrip]; rfl]
+        refine ⟨ha, show Loop d0 1 3 _ from ⟨k, hk,
+          by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd, ?_, fun _ => ?_⟩⟩
+        · simp only [Regs.get_set_same, Value.writeView_q, Flags.subResult, Cpu.getReg,
+            Value.trunc_q, hc, Bool.false_eq_true, if_false]
+          rcases h4 with rfl|rfl|rfl|rfl <;> decide
+        · simp only [Flags.dec, Flags.fromResult, Cpu.getReg, Value.trunc_q, hc,
+            Bool.false_eq_true, if_false]
+          rcases h4 with rfl|rfl|rfl|rfl <;> decide
+      · obtain ⟨k, hk, hd, hc, hz⟩ := (hr : Loop d0 1 3 s)
+        have hzf := hz rfl
+        rw [step_jcc .ne (BitVec.ofInt 64 (-10)) hl (by intro _; rw [hrip]; decide)]
+        by_cases hb : s.flags.zf = true
+        · rw [show Cc.eval .ne s.flags = false by simp [Cc.eval, hb], if_neg (by simp),
+              show s.rip + BitVec.ofNat 64 2 = (0x1011 : BitVec 64) by rw [hrip]; rfl]
+          exact ⟨ha, trivial⟩
+        · have hbf : s.flags.zf = false := by
+            cases hq : s.flags.zf with | true => exact absurd hq hb | false => rfl
+          have hk3 : k < 3 := by
+            rw [hbf] at hzf
+            have : ¬ (k = 3) := fun hh => by rw [hh] at hzf; simp at hzf
+            omega
+          rw [if_pos (by simp [Cc.eval, hbf]),
+              show s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 (-10) = (0x1007 : BitVec 64) by
+                rw [hrip]; rfl]
+          exact ⟨ha, show Loop d0 0 4 _ from
+            ⟨k + 1, by omega, by simpa using hd, by rw [hc]; congr 1; omega, by simp⟩⟩)
+    n (entry d0 m0) ⟨fun _ _ => rfl, show (entry d0 m0).regs.get .rdi = d0 by
+      simp [entry, Regs.get, Regs.set]⟩).1
+
+/-- The name the rest of the campaign cites. -/
+theorem fill_writes_only_in_buffer (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
+    AgreeOutside (Region d0 4) m0 (runP fill n (entry d0 m0)).mem := fill_safe d0 m0 n
 
 -- ⭐ NONVACUITY, SEEDED RATHER THAN EMPTY. On a zero background a "the neighbour is
 -- still 0" control cannot tell PRESERVED from NEVER-WRITTEN: it would pass against a

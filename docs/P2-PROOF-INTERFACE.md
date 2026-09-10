@@ -269,3 +269,36 @@ countdown has a loop). It **does not** meet it for position-dependent ones at th
 Captain named, and the gap is now a measured constant with a named remedy rather than an
 impression. **That is what sizing by five problems was for, and it took one problem to find it.**
 
+---
+
+## ⭐⭐⭐ THIRD POINT ON THE CURVE — `runP_code`, AND THE FEASIBILITY QUESTION IS SETTLED
+
+The dispatch was then done **once**, in a lemma proved for every program and every invariant
+(`X86.runP_code`): it absorbs the `by_cases` on `rip`, the `at? L = some i` derivation, the
+`stepP` unfolding, and **the entire off-program case**. Problem 1 was re-proved through it.
+```
+  naive (if-chain invariant, by_cases per label) ....  152 lines   ≈ 25   / label
+  + stepP_at / stepP_off / atTable ..................   88         ≈ 12   / label
+  + runP_code .......................................   67         ≈  9.6 / label
+```
+⇒ 🔑 ***THE CONSTANT FELL 13, THEN 2.4 — AND "a second round would move it less" WAS WRITTEN
+BEFORE THE SECOND ROUND.*** Two pre-registered predictions, both held: the 64-line saving to the
+line, and the flattening.
+
+### ⛔⛔ THE ANSWER TO THE COMMISSION'S FEASIBILITY QUESTION
+At **9.6 lines per label**, the Captain's **twenty-instruction** routine is **~211 lines**.
+"Tens of lines" needs ~2-3 per label.
+⇒ **NO LEMMA LIBRARY REACHES THE TARGET FROM HERE.** The residue after `runP_code` is one
+`rcases` over the code list plus, per label, the effect theorem and the invariant arm — **that
+residue is the real content**, which is exactly why the curve is flattening and why more lemmas
+will not move it. **The target needs a TACTIC that discharges a label, or a VC generator.**
+⚠️ **NOT CLAIMED:** that 9.6 is a proven floor. It is three points and a shape. A fourth round of
+lemma work is the cheap way to falsify this, and it should be run before anyone commits to
+building a tactic.
+
+### ⇒ WHAT THIS MEANS FOR THE COMMISSION, PLAINLY
+The interface **meets** the criterion for **frame-shaped** properties (14 lines, with a loop). For
+**position-dependent** ones it is ~9.6 × labels, so it meets the criterion at ~5 instructions and
+misses it at 20. **The deliverable is honest and incomplete, and the gap is now a measured
+constant with a named remedy** — which is more useful than a number that flattered it.
+

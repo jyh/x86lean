@@ -423,4 +423,83 @@ def atTable (tbl : List (BitVec 64 × (Cpu → Prop))) (a : BitVec 64) (s : Cpu)
   | some q => q.2 s
   | none => True
 
+/-! ## ⭐⭐⭐ `runP_code` — THE DISPATCH DONE ONCE, AND THE THIRD POINT ON A MEASURED CURVE
+
+Problem 1's preservation proof has now been written three ways, and the per-label cost is the
+number that matters, because **the cost is linear in labels**:
+```
+  naive (if-chain invariant, by_cases per label) ....  152 lines   ≈ 25 / label
+  + stepP_at / stepP_off / atTable ..................   88         ≈ 12 / label
+  + runP_code (this) ................................   67         ≈  9.6 / label
+```
+⇒ 🔑 ***LEMMA ENGINEERING IS ASYMPTOTING NEAR ~9-10 LINES PER LABEL***, and the prediction that
+*"a second round would move it less"* was written before this round and held: the constant fell
+13 then 2.4.
+
+⛔ **THAT SETTLES THE COMMISSION'S FEASIBILITY QUESTION.** The Captain's target is a
+TWENTY-instruction routine in "tens of lines". At 9.6/label that is **~211 lines**, and reaching
+"tens" needs ~2-3 per label. **No lemma library gets there from here — it needs a tactic or a VC
+generator.** Named on evidence rather than on taste.
+
+**What `runP_code` removes, versus what the user still writes.** Gone entirely: the `by_cases` on
+`rip`, the `at? L = some i` derivation, the `stepP` unfolding, and **the whole off-program case**.
+What remains is one `rcases` over the code list — which substitutes each address and instruction
+concretely — and then, per label, the effect theorem and the invariant arm. **That residue is the
+real content, and it is why the curve is flattening.** -/
+
+/-- The instruction fetched at `a` sits AT `a` in the code list. -/
+theorem at?_mem_at {p : Program} {a : BitVec 64} {i : Instr}
+    (h : p.at? a = some i) : (a, i) ∈ p.code := by
+  unfold Program.at? at h
+  cases hf : p.code.find? (fun q => q.1 == a) with
+  | none => rw [hf] at h; exact absurd h (by simp)
+  | some q =>
+      rw [hf] at h
+      simp only [Option.map_some] at h
+      have hq : (q.1 == a) = true := List.find?_some (p := fun r : BitVec 64 × Instr => r.1 == a) hf
+      have : q.1 = a := by simpa using hq
+      obtain ⟨b, j⟩ := q
+      cases h
+      simp only at this
+      cases this
+      exact List.mem_of_find?_eq_some hf
+
+/-- Transport a table assertion to another state, entry by entry.  The per-entry
+obligation is what makes this sound: a general `q.2 s → q.2 t` is false, and for a
+CONCRETE table each entry is discharged by `id` whenever it reads only fields the two
+states share. -/
+theorem atTable_of_congr {tbl : List (BitVec 64 × (Cpu → Prop))} {a : BitVec 64} {s t : Cpu}
+    (hs : ∀ q ∈ tbl, q.2 s → q.2 t) (h : atTable tbl a s) : atTable tbl a t := by
+  unfold atTable at h ⊢
+  cases hf : tbl.find? (fun q => q.1 == a) with
+  | none => trivial
+  | some q =>
+      rw [hf] at h
+      exact hs q (List.mem_of_find?_eq_some hf) h
+
+/-- ⭐⭐⭐ THE DISPATCH, DONE ONCE. To preserve `I` it is enough to preserve it across
+each instruction the program CONTAINS, knowing the address it sits at — so the user
+never writes a `by_cases` on `rip`, never derives `at? L = some I`, and never handles
+the off-program case at all. -/
+theorem runP_code (p : Program) (I : BitVec 64 → Cpu → Prop)
+    (hhalt : ∀ (s : Cpu) (e : MsErr), Live s → I s.rip s → I s.rip (s.halt e))
+    (hstep : ∀ (a : BitVec 64) (i : Instr) (s : Cpu), (a, i) ∈ p.code → s.rip = a →
+       Live s → I a s → I (step i s).rip (step i s)) :
+    ∀ (n : Nat) (s : Cpu), I s.rip s → I (runP p n s).rip (runP p n s) := by
+  refine runP_labels p I (fun s hs => ?_)
+  by_cases hst : s.stopped = true
+  · rw [stepP_stopped p s hst]; exact hs
+  have hl : Live s := by
+    unfold Cpu.stopped at hst
+    cases hm : s.ms with
+    | none => exact hm
+    | some e => rw [hm] at hst; simp at hst
+  cases hf : p.at? s.rip with
+  | none =>
+      rw [stepP_off hst hf, halt_rip]
+      exact hhalt s _ hl hs
+  | some i =>
+      rw [stepP_at hst hf]
+      exact hstep s.rip i s (at?_mem_at hf) rfl hl hs
+
 end X86
