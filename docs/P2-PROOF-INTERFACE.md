@@ -224,3 +224,48 @@ argument for a store, and the region vocabulary shipped without it. ⇒ **Exactl
 the sizing exercise existed to find**, and an argument for building problem 2 before
 declaring the vocabulary complete.
 
+---
+
+## ⭐⭐⭐ THE DISPATCH COMBINATORS WERE BUILT, AND THE PREDICTION HELD TO THE LINE
+
+The section above named the next build from a measurement — *"a label-dispatch combinator …
+removes ~64 lines here"* — and warned in the same breath that **removing all of it still leaves
+88**. Both were then tested:
+```
+  problem 1, first proof ....................... 152 lines
+  problem 1, after `stepP_at` / `stepP_off` / `atTable` ...  88     ⇐ the 64, exactly
+  its invariant (one `Loop` for four label arms) ......  14 → 10
+```
+⇒ 🔑 ***A PRE-REGISTERED PREDICTION THAT CARRIED ITS OWN CEILING.*** The 42% win is real and it
+is not progress toward the target, because the prediction said so before it was measured — which
+is the only thing that stops a large improvement being read as arrival
+[[feedback-a-pass-at-97-percent-is-not-headroom]].
+
+⚠️ **`atTable` is the one that did the work**, and the reason is worth keeping: an invariant
+written as a nested `if`-chain over addresses needs a `show (0x1007 = 0x1000) = False from by
+decide` at every label at every use site; the SAME invariant written as a table reduces at a
+concrete label **by `rfl`**. Same information — the difference is whether the reduction is free.
+
+## ⛔⛔ AND THE TARGET IS STILL MISSED FOR THE CASE THE CAPTAIN NAMED
+His criterion is a **twenty-instruction routine**. Problem 1 has FIVE labels. Decomposed at the
+object (per-label blocks measured at 6, 11, 10, 14 lines):
+```
+  lines ≈ 37 fixed + ~12 per LABEL
+      5 labels →  ~98
+     10 labels → ~157
+     20 labels → ~277        ⛔ not "tens of lines"
+```
+⇒ 🔑 ***THE COST IS LINEAR IN LABELS AT ~12 LINES EACH, SO THE TWENTY-INSTRUCTION CASE IS ~280
+LINES.*** Better lemmas cannot close that: they moved the constant from ~25 to ~12, and a second
+round would move it less. **Reaching "tens" at twenty instructions needs the per-label constant
+near ZERO — a TACTIC that discharges a label, not more lemmas.**
+⚠️ **NOT CLAIMED:** that ~12 is the floor for a lemma-based approach, or that the extrapolation
+is exact. It is linear in four measured blocks, and a routine with harder branch structure would
+cost MORE per label, not less.
+
+### ⇒ THE HONEST STATE OF THE COMMISSION
+The interface **meets** the criterion for frame-shaped safety properties (14 lines, and the
+countdown has a loop). It **does not** meet it for position-dependent ones at the size the
+Captain named, and the gap is now a measured constant with a named remedy rather than an
+impression. **That is what sizing by five problems was for, and it took one problem to find it.**
+

@@ -93,50 +93,50 @@ routine's run really does move the machine, so "memory is unchanged" is a claim
 about seven executed instructions and not about a machine that never started. -/
 theorem countdown_really_ran : (runP countdown 7 start).rip ≠ start.rip := by decide
 
-/-! # ⚖️ PROBLEM 1 OF FIVE — the `memset`-style fill, and the target it MISSED
+/-! # ⚖️ PROBLEM 1 OF FIVE — the `memset` fill: proven, and it MEASURED what to build next
 
-`docs/P2-PROOF-INTERFACE.md` names five problems that SIZE this interface. This is the
-first, and the first real memory-safety property in the campaign: **the routine writes
-only inside its destination buffer**, for every amount of fuel and every initial memory.
+`docs/P2-PROOF-INTERFACE.md` names five problems that SIZE this interface. This is the first,
+and the first real memory-safety property in the campaign: **the routine writes only inside its
+destination buffer**, ∀ fuel, ∀ initial memory, on the three standard axioms.
 
-## ⛔⛔ THE RESULT REFUTES MY OWN SIZING, AND THAT IS THE POINT OF THE EXERCISE
+## ⛔ IT IS NOT A FRAME-TIER PROBLEM, AND THE DESIGN DOC SAID IT WAS
+The frame tier needs every instruction to preserve the invariant **from ANY state satisfying
+it**, and `mov rcx, 4` does not: it *re-establishes* the pointer/counter relation the loop body
+maintains, so from an arbitrary mid-loop state it breaks it. ⇒ **This routine's safety genuinely
+depends on WHERE the machine is.** The two-tier split is sound; **the assignment of a problem to
+a tier was not, and writing the proof is what found out.**
 
-The Captain's criterion is *"tens of lines, not thousands."* The countdown above — a
-FRAME property, no labels — cost **14**. This one cost:
+## ⭐⭐⭐ THE MEASUREMENT, PRE-REGISTERED AND THEN CONFIRMED
+The first proof was **152 lines, 64 of them (42%) label dispatch** — and that split was recorded
+*before* anything was built, together with the warning that removing all of it **would still
+leave 88**. The combinators went into `X86/Program.lean`; the proof was re-run:
 ```
-  the routine                                6 lines
-  the invariant                             14
-  the preservation proof                   152      ⇐ against a target of "tens"
-     of which LABEL-DISPATCH boilerplate     64  (42%)
-     everything else                         88
-  the safety theorem itself                  5
+  first proof .................... 152 lines
+  after the dispatch combinators .  88 lines      ⇐ exactly the 64 predicted
+  invariant (one `Loop` for four arms)  14 → 10
 ```
-⇒ 🔑 ***THE FRAME TIER HITS THE TARGET AND THE LABELLED TIER DOES NOT — AND THE GAP IS
-NOT THE SAFETY ARGUMENT.*** 42% of the proof is mechanically deriving *"at this `rip`
-the instruction is X"* and reducing the invariant's `if`-chain to this label's arm: the
-same twenty lines five times, differing only in a literal.
-⚠️ **AND REMOVING ALL OF IT STILL LEAVES 88.** The dispatch is the largest single
-component and it is not the whole gap — stated so the next head does not build a
-dispatch tactic expecting "tens" and find 88 lines waiting.
+⇒ 🔑 ***THE PREDICTION HELD TO THE LINE, INCLUDING ITS OWN WARNING*** — which is the only reason
+the 42% win cannot be read as reaching the target.
 
-📌 **WHAT TO BUILD NEXT, MEASURED RATHER THAN GUESSED:** a label-dispatch combinator —
-given a `Program` over concrete addresses, produce `at? L = some I` and the reduced
-invariant arm per label — removes ~64 lines here and about as many from every later
-problem, because the cost is **per label, not per property**.
-⚠️ **NOT CLAIMED: that 152 is the floor.** This is a first proof by the head that had
-just built the interface. A second attempt with the dispatch factored out is the
-experiment, and it has not been run.
+## ⛔⛔ AND THE TARGET IS STILL MISSED, FOR THE CASE THE CAPTAIN ACTUALLY NAMED
+His criterion is a **twenty-instruction routine**. This routine has FIVE labels. Decomposed:
+```
+  lines ≈ 37 fixed + ~12 per LABEL          (measured: blocks of 6, 11, 10, 14)
+     5 labels →  ~98
+    10 labels → ~157
+    20 labels → ~277        ⛔ not "tens of lines"
+```
+⇒ 🔑 ***THE COST IS LINEAR IN THE NUMBER OF LABELS AT ~12 LINES EACH, SO THE TWENTY-INSTRUCTION
+CASE IS ~280 LINES.*** Better lemmas cannot fix that — they moved the constant from ~25 to ~12
+and a second round would move it less. **Reaching "tens" at twenty instructions needs the
+per-label constant near ZERO, which means a TACTIC that discharges a label, not more lemmas.**
+That is the next build, and it is now sized rather than guessed.
+⚠️ **NOT CLAIMED:** that ~12 is the floor for a lemma-based approach, or that the extrapolation
+holds exactly — it is linear in the four blocks measured, and a routine with harder branch
+structure would cost more per label, not less.
 
-## WHY THIS PROBLEM NEEDED THE LABELLED TIER AT ALL
-It was SIZED as a frame-tier problem and is not one. The frame tier requires every
-instruction to preserve the invariant **from any state satisfying it**, and `mov rcx, 4`
-does not: it re-establishes the pointer/counter relation the loop body maintains, so from
-an arbitrary mid-loop state it breaks the invariant. ⇒ **This routine's safety genuinely
-depends on WHERE the machine is, and no frame-shaped invariant can express that.**
-
-⚠️ **`dec rcx` RATHER THAN `dec ecx`, DELIBERATELY.** Both are real x86; the 32-bit
-spelling adds `Value.writeView` zero-extension reasoning orthogonal to the memory-safety
-content, inflating the line count with something this exercise is not measuring. -/
+⚠️ **`dec rcx` RATHER THAN `dec ecx`, DELIBERATELY.** Both are real x86; the 32-bit spelling adds
+zero-extension reasoning orthogonal to the memory-safety content. -/
 
 /-- The routine, at 0x1000:
 ```
@@ -158,116 +158,68 @@ def fill : Program := { code := [
 def entry (d0 : BitVec 64) (m0 : Mem) : Cpu :=
   { rip := 0x1000, mem := m0, regs := Regs.set default .rdi d0 }
 
-/-- The per-label invariant. -/
-def FillInv (d0 : BitVec 64) (m0 : Mem) (a : BitVec 64) (s : Cpu) : Prop :=
-  AgreeOutside (Region d0 4) m0 s.mem ∧
-  (if a = 0x1000 then s.regs.get .rdi = d0
-   else if a = 0x1007 ∨ a = 0x1009 then
-     ∃ k : Nat, k < 4 ∧ s.regs.get .rdi = d0 + BitVec.ofNat 64 k
-                      ∧ s.regs.get .rcx = BitVec.ofNat 64 (4 - k)
-   else if a = 0x100C then
-     ∃ k : Nat, k < 4 ∧ s.regs.get .rdi = d0 + BitVec.ofNat 64 (k+1)
-                      ∧ s.regs.get .rcx = BitVec.ofNat 64 (4 - k)
-   else if a = 0x100F then
-     ∃ k : Nat, k < 4 ∧ s.regs.get .rdi = d0 + BitVec.ofNat 64 (k+1)
-                      ∧ s.regs.get .rcx = BitVec.ofNat 64 (3 - k)
-                      ∧ s.flags.zf = decide (k = 3)
-   else True)
+/-- The loop assertion: the pointer has advanced `k` and the counter holds the rest. -/
+def Loop (d0 : BitVec 64) (o c : Nat) (s : Cpu) : Prop :=
+  ∃ k : Nat, k < 4 ∧ s.regs.get .rdi = d0 + BitVec.ofNat 64 (k + o)
+           ∧ s.regs.get .rcx = BitVec.ofNat 64 (c - k)
+           ∧ (c = 3 → s.flags.zf = decide (k = 3))
 
-theorem fill_entry (d0 : BitVec 64) (m0 : Mem) : FillInv d0 m0 (entry d0 m0).rip (entry d0 m0) := by
-  constructor
-  · intro a _; rfl
-  · simp [entry, Regs.get, Regs.set]
+def FillInv (d0 : BitVec 64) (m0 : Mem) (a : BitVec 64) (s : Cpu) : Prop :=
+  AgreeOutside (Region d0 4) m0 s.mem ∧ atTable
+    [(0x1000, fun s => s.regs.get .rdi = d0),
+     (0x1007, Loop d0 0 4), (0x1009, Loop d0 0 4),
+     (0x100C, Loop d0 1 4), (0x100F, Loop d0 1 3)] a s
+
+theorem fill_entry (d0 : BitVec 64) (m0 : Mem) :
+    FillInv d0 m0 (entry d0 m0).rip (entry d0 m0) :=
+  ⟨fun _ _ => rfl, show (entry d0 m0).regs.get .rdi = d0 by simp [entry, Regs.get, Regs.set]⟩
 
 set_option maxHeartbeats 1000000 in
 theorem fill_preserves (d0 : BitVec 64) (m0 : Mem) (s : Cpu)
     (h : FillInv d0 m0 s.rip s) : FillInv d0 m0 (stepP fill s).rip (stepP fill s) := by
   by_cases hst : s.stopped = true
   · rw [stepP_stopped fill s hst]; exact h
-  have hl : Live s := live_of_not_stopped hst
+  have hl : Live s := by
+    unfold Cpu.stopped at hst
+    cases hm : s.ms with
+    | none => exact hm
+    | some e => rw [hm] at hst; simp at hst
+  obtain ⟨ha, hr⟩ := h
   by_cases e0 : s.rip = 0x1000
-  · obtain ⟨ha, hr⟩ := h
-    rw [e0] at hr
-    simp only [if_pos rfl] at hr
-    have hat : fill.at? s.rip = some ⟨.mov .q (.reg .rcx) (.imm 4), 7⟩ := by
-      rw [e0]; rfl
-    have hstep : stepP fill s = step ⟨.mov .q (.reg .rcx) (.imm 4), 7⟩ s := by
-      simp [stepP, hst, hat]
-    simp only [if_true] at hr
-    rw [hstep, step_mov_reg_imm .q .rcx 4 hl]
-    have hrip : s.rip + BitVec.ofNat 64 7 = (0x1007 : BitVec 64) := by rw [e0]; rfl
-    refine ⟨ha, ?_⟩
-    rw [hrip]
-    simp only [show ((0x1007 : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x1007 : BitVec 64) = 0x1007) ∨ ((0x1007 : BitVec 64) = 0x1009)) = True from by decide,
-      if_true]
-    exact ⟨0, by decide, by simpa using hr, by simp⟩
+  · have hr' : s.regs.get .rdi = d0 := by rw [e0] at hr; exact hr
+    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e0]; rfl),
+        step_mov_reg_imm .q .rcx 4 hl, show s.rip + BitVec.ofNat 64 7 = (0x1007 : BitVec 64) by
+          rw [e0]; rfl]
+    exact ⟨ha, show Loop d0 0 4 _ from ⟨0, by decide, by simpa using hr', by simp, by simp⟩⟩
   by_cases e1 : s.rip = 0x1007
-  · obtain ⟨ha, hr⟩ := h
-    rw [e1] at hr
-    simp only [show ((0x1007 : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x1007 : BitVec 64) = 0x1007) ∨ ((0x1007 : BitVec 64) = 0x1009)) = True from by decide,
-      if_true] at hr
-    obtain ⟨k, hk, hd, hc⟩ := hr
-    have hat : fill.at? s.rip
-        = some ⟨.mov .b (.mem { base := some .rdi }) (.reg .rax), 2⟩ := by rw [e1]; rfl
-    have hstep : stepP fill s = step ⟨.mov .b (.mem { base := some .rdi }) (.reg .rax), 2⟩ s := by
-      simp [stepP, hst, hat]
-    rw [hstep, step_mov_mem_reg .b { base := some .rdi } .rax hl rfl]
-    have hrip : s.rip + BitVec.ofNat 64 2 = (0x1009 : BitVec 64) := by rw [e1]; rfl
-    have haddr : (({ base := some .rdi } : Ea)).addr s (s.rip + BitVec.ofNat 64 2)
-        = s.regs.get .rdi := by simp [Ea.addr, Ea.offset]
-    refine ⟨?_, ?_⟩
-    · simp only [haddr, Mem.writeSize, Mem.writeN, Size.bytes]
-      exact agreeOutside_write ha ⟨k, hk, hd⟩
-    · rw [hrip]
-      simp only [show ((0x1009 : BitVec 64) = 0x1000) = False from by decide, if_false,
-        show (((0x1009 : BitVec 64) = 0x1007) ∨ ((0x1009 : BitVec 64) = 0x1009)) = True from by decide,
-        if_true]
-      exact ⟨k, hk, hd, hc⟩
+  · have hr' : Loop d0 0 4 s := by rw [e1] at hr; exact hr
+    obtain ⟨k, hk, hd, hc, _⟩ := hr'
+    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e1]; rfl),
+        step_mov_mem_reg .b { base := some .rdi } .rax hl rfl,
+        show s.rip + BitVec.ofNat 64 2 = (0x1009 : BitVec 64) by rw [e1]; rfl]
+    refine ⟨?_, show Loop d0 0 4 _ from ⟨k, hk, hd, hc, by simp⟩⟩
+    have hoff : (({ base := some .rdi } : Ea)).offset s (0x1009 : BitVec 64)
+        = s.regs.get .rdi := by simp [Ea.offset]
+    simp only [Ea.addr, hoff, Mem.writeSize, Mem.writeN, Size.bytes]
+    exact agreeOutside_write ha ⟨k, hk, by simpa using hd⟩
   by_cases e2 : s.rip = 0x1009
-  · obtain ⟨ha, hr⟩ := h
-    rw [e2] at hr
-    simp only [show ((0x1009 : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x1009 : BitVec 64) = 0x1007) ∨ ((0x1009 : BitVec 64) = 0x1009)) = True from by decide,
-      if_true] at hr
-    obtain ⟨k, hk, hd, hc⟩ := hr
-    have hat : fill.at? s.rip = some ⟨.un .inc .q (.reg .rdi), 3⟩ := by rw [e2]; rfl
-    have hstep : stepP fill s = step ⟨.un .inc .q (.reg .rdi), 3⟩ s := by
-      simp [stepP, hst, hat]
-    rw [hstep, step_inc_reg .q .rdi hl]
-    have hrip : s.rip + BitVec.ofNat 64 3 = (0x100C : BitVec 64) := by rw [e2]; rfl
-    refine ⟨ha, ?_⟩
-    rw [hrip]
-    simp only [show ((0x100C : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x100C : BitVec 64) = 0x1007) ∨ ((0x100C : BitVec 64) = 0x1009)) = False from by decide,
-      show ((0x100C : BitVec 64) = 0x100C) = True from by decide, if_true]
-    refine ⟨k, hk, ?_, ?_⟩
-    · simp only [Regs.get_set_same, Value.writeView_q, Flags.addResult, Cpu.getReg,
-        Value.trunc_q, hd, Bool.false_eq_true, if_false]
-      rw [ofNat_succ_64, BitVec.add_assoc]
-    · rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc
+  · have hr' : Loop d0 0 4 s := by rw [e2] at hr; exact hr
+    obtain ⟨k, hk, hd, hc, _⟩ := hr'
+    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e2]; rfl), step_inc_reg .q .rdi hl,
+        show s.rip + BitVec.ofNat 64 3 = (0x100C : BitVec 64) by rw [e2]; rfl]
+    refine ⟨ha, show Loop d0 1 4 _ from ⟨k, hk, ?_,
+      by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hc, by simp⟩⟩
+    simp only [Regs.get_set_same, Value.writeView_q, Flags.addResult, Cpu.getReg,
+      Value.trunc_q, hd, Bool.false_eq_true, if_false, Nat.add_zero]
+    rw [ofNat_succ_64, BitVec.add_assoc]
   by_cases e3 : s.rip = 0x100C
-  · obtain ⟨ha, hr⟩ := h
-    rw [e3] at hr
-    simp only [show ((0x100C : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x100C : BitVec 64) = 0x1007) ∨ ((0x100C : BitVec 64) = 0x1009)) = False from by decide,
-      show ((0x100C : BitVec 64) = 0x100C) = True from by decide, if_true] at hr
-    obtain ⟨k, hk, hd, hc⟩ := hr
-    have hat : fill.at? s.rip = some ⟨.un .dec .q (.reg .rcx), 3⟩ := by rw [e3]; rfl
-    have hstep : stepP fill s = step ⟨.un .dec .q (.reg .rcx), 3⟩ s := by
-      simp [stepP, hst, hat]
-    rw [hstep, step_dec_reg .q .rcx hl]
-    have hrip : s.rip + BitVec.ofNat 64 3 = (0x100F : BitVec 64) := by rw [e3]; rfl
+  · have hr' : Loop d0 1 4 s := by rw [e3] at hr; exact hr
+    obtain ⟨k, hk, hd, hc, _⟩ := hr'
     have hk4 : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
-    refine ⟨ha, ?_⟩
-    rw [hrip]
-    simp only [show ((0x100F : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x100F : BitVec 64) = 0x1007) ∨ ((0x100F : BitVec 64) = 0x1009)) = False from by decide,
-      show ((0x100F : BitVec 64) = 0x100C) = False from by decide,
-      show ((0x100F : BitVec 64) = 0x100F) = True from by decide, if_true]
-    refine ⟨k, hk, ?_, ?_, ?_⟩
-    · rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd
+    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e3]; rfl), step_dec_reg .q .rcx hl,
+        show s.rip + BitVec.ofNat 64 3 = (0x100F : BitVec 64) by rw [e3]; rfl]
+    refine ⟨ha, show Loop d0 1 3 _ from ⟨k, hk,
+      by rw [Regs.get_set_ne _ _ _ _ (by decide)]; exact hd, ?_, fun _ => ?_⟩⟩
     · simp only [Regs.get_set_same, Value.writeView_q, Flags.subResult, Cpu.getReg,
         Value.trunc_q, hc, Bool.false_eq_true, if_false]
       rcases hk4 with rfl|rfl|rfl|rfl <;> decide
@@ -275,92 +227,65 @@ theorem fill_preserves (d0 : BitVec 64) (m0 : Mem) (s : Cpu)
         Bool.false_eq_true, if_false]
       rcases hk4 with rfl|rfl|rfl|rfl <;> decide
   by_cases e4 : s.rip = 0x100F
-  · obtain ⟨ha, hr⟩ := h
-    rw [e4] at hr
-    simp only [show ((0x100F : BitVec 64) = 0x1000) = False from by decide, if_false,
-      show (((0x100F : BitVec 64) = 0x1007) ∨ ((0x100F : BitVec 64) = 0x1009)) = False from by decide,
-      show ((0x100F : BitVec 64) = 0x100C) = False from by decide,
-      show ((0x100F : BitVec 64) = 0x100F) = True from by decide, if_true] at hr
-    obtain ⟨k, hk, hd, hc, hz⟩ := hr
-    have hat : fill.at? s.rip = some ⟨.jcc .ne (BitVec.ofInt 64 (-10)), 2⟩ := by rw [e4]; rfl
-    have hstep : stepP fill s = step ⟨.jcc .ne (BitVec.ofInt 64 (-10)), 2⟩ s := by
-      simp [stepP, hst, hat]
-    have hcanon : Cc.eval .ne s.flags = true →
-        canonical (s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 (-10)) := by
-      intro _; rw [e4]; decide
-    rw [hstep, step_jcc .ne (BitVec.ofInt 64 (-10)) hl hcanon]
-    refine ⟨ha, ?_⟩
-    by_cases hzf : s.flags.zf = true
-    · -- ZF set: the loop is done, the branch falls through to 0x1011, outside the program
-      have hnb : Cc.eval .ne s.flags = false := by simp [Cc.eval, hzf]
-      have hrip : s.rip + BitVec.ofNat 64 2 = (0x1011 : BitVec 64) := by rw [e4]; rfl
-      simp only [hnb, if_false, hrip]
-      trivial
-    · -- ZF clear: the branch is TAKEN back to the loop head, and k+1 is still in range
-      have hzf' : s.flags.zf = false := by
-        cases hb : s.flags.zf with
-        | true => exact absurd hb hzf
-        | false => rfl
-      have hb : Cc.eval .ne s.flags = true := by simp [Cc.eval, hzf']
+  · have hr' : Loop d0 1 3 s := by rw [e4] at hr; exact hr
+    obtain ⟨k, hk, hd, hc, hz⟩ := hr'
+    have hzf := hz rfl
+    rw [stepP_at hst (show fill.at? s.rip = _ by rw [e4]; rfl),
+        step_jcc .ne (BitVec.ofInt 64 (-10)) hl (by intro _; rw [e4]; decide)]
+    by_cases hb : s.flags.zf = true
+    · rw [show Cc.eval .ne s.flags = false by simp [Cc.eval, hb], if_neg (by simp),
+          show s.rip + BitVec.ofNat 64 2 = (0x1011 : BitVec 64) by rw [e4]; rfl]
+      exact ⟨ha, trivial⟩
+    · have hbf : s.flags.zf = false := by
+        cases hq : s.flags.zf with | true => exact absurd hq hb | false => rfl
       have hk3 : k < 3 := by
-        rw [hzf'] at hz
-        have : ¬ (k = 3) := by
-          intro hh; rw [hh] at hz; simp at hz
+        rw [hbf] at hzf
+        have : ¬ (k = 3) := fun hh => by rw [hh] at hzf; simp at hzf
         omega
-      have hrip : s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 (-10) = (0x1007 : BitVec 64) := by
-        rw [e4]; rfl
-      simp only [hb, if_true, hrip]
-      simp only [show ((0x1007 : BitVec 64) = 0x1000) = False from by decide, if_false,
-        show (((0x1007 : BitVec 64) = 0x1007) ∨ ((0x1007 : BitVec 64) = 0x1009)) = True from by decide,
-        if_true]
-      exact ⟨k + 1, by omega, hd, by rw [hc]; congr 1; omega⟩
-  -- not a label at all: the program has no instruction here, so the model halts
-  have hnone : fill.at? s.rip = none := by
-    have f0 : ((0x1000 : BitVec 64) == s.rip) = false := by
-      simp only [beq_eq_false_iff_ne]; exact fun hh => e0 hh.symm
-    have f1 : ((0x1007 : BitVec 64) == s.rip) = false := by
-      simp only [beq_eq_false_iff_ne]; exact fun hh => e1 hh.symm
-    have f2 : ((0x1009 : BitVec 64) == s.rip) = false := by
-      simp only [beq_eq_false_iff_ne]; exact fun hh => e2 hh.symm
-    have f3 : ((0x100C : BitVec 64) == s.rip) = false := by
-      simp only [beq_eq_false_iff_ne]; exact fun hh => e3 hh.symm
-    have f4 : ((0x100F : BitVec 64) == s.rip) = false := by
-      simp only [beq_eq_false_iff_ne]; exact fun hh => e4 hh.symm
-    simp only [Program.at?, fill, List.find?, f0, f1, f2, f3, f4, Option.map_none]
-  have hstep : stepP fill s = s.halt (.outsideProgram "no instruction at RIP") := by
-    simp [stepP, hst, hnone]
-  rw [hstep]
-  unfold FillInv at h ⊢
-  simpa only [halt_mem, halt_rip, halt_regs, halt_flags] using h
+      rw [if_pos (by simp [Cc.eval, hbf]),
+          show s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 (-10) = (0x1007 : BitVec 64) by
+            rw [e4]; rfl]
+      exact ⟨ha, show Loop d0 0 4 _ from
+        ⟨k + 1, by omega, by simpa using hd, by rw [hc]; congr 1; omega, by simp⟩⟩
+  have f0 : ((0x1000 : BitVec 64) == s.rip) = false := by
+    simp only [beq_eq_false_iff_ne]; exact fun hh => e0 hh.symm
+  have f1 : ((0x1007 : BitVec 64) == s.rip) = false := by
+    simp only [beq_eq_false_iff_ne]; exact fun hh => e1 hh.symm
+  have f2 : ((0x1009 : BitVec 64) == s.rip) = false := by
+    simp only [beq_eq_false_iff_ne]; exact fun hh => e2 hh.symm
+  have f3 : ((0x100C : BitVec 64) == s.rip) = false := by
+    simp only [beq_eq_false_iff_ne]; exact fun hh => e3 hh.symm
+  have f4 : ((0x100F : BitVec 64) == s.rip) = false := by
+    simp only [beq_eq_false_iff_ne]; exact fun hh => e4 hh.symm
+  rw [stepP_off hst (show fill.at? s.rip = none by
+        simp only [Program.at?, fill, List.find?, f0, f1, f2, f3, f4, Option.map_none])]
+  refine ⟨by simpa using ha, ?_⟩
+  simp only [halt_rip]
+  simp only [atTable, List.find?, f0, f1, f2, f3, f4]
 
-/-- ⭐⭐⭐ MEMORY SAFETY: the fill routine writes ONLY inside its destination
-buffer — for every amount of fuel, and for every initial memory. -/
 theorem fill_writes_only_in_buffer (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
     AgreeOutside (Region d0 4) m0 (runP fill n (entry d0 m0)).mem :=
   (runP_labels fill (FillInv d0 m0) (fun s hs => fill_preserves d0 m0 s hs) n (entry d0 m0)
     (fill_entry d0 m0)).1
 
--- ⭐ NONVACUITY: the theorem is about a routine that really runs and really writes.
--- ⛔ THE MEMORY IS SEEDED WITH SENTINELS, NOT LEFT EMPTY. On the zero background a
--- "the neighbour is still 0" control cannot tell PRESERVED from NEVER-WRITTEN — it
--- would pass against a model whose stores all vanished.
+-- ⭐ NONVACUITY, SEEDED RATHER THAN EMPTY. On a zero background a "the neighbour is
+-- still 0" control cannot tell PRESERVED from NEVER-WRITTEN: it would pass against a
+-- model whose stores all vanished.
 def seeded : Mem := { bytes := [(0x1FFF, 0x5A), (0x2004, 0x5A)] }
 def s0 : Cpu := entry 0x2000 seeded
-theorem fill_really_wrote : ((runP fill 20 (Cpu.setReg s0 .q .rax 0xAB)).mem.read 0x2000) = 0xAB := by
-  decide
-theorem fill_wrote_the_last_byte :
-    ((runP fill 20 (Cpu.setReg s0 .q .rax 0xAB)).mem.read 0x2003) = 0xAB := by decide
-theorem fill_left_the_right_neighbour_alone :
-    ((runP fill 20 (Cpu.setReg s0 .q .rax 0xAB)).mem.read 0x2004) = 0x5A := by decide
-theorem fill_left_the_left_neighbour_alone :
-    ((runP fill 20 (Cpu.setReg s0 .q .rax 0xAB)).mem.read 0x1FFF) = 0x5A := by decide
+def ran : Cpu := runP fill 20 (Cpu.setReg s0 .q .rax 0xAB)
 
--- ⭐⭐ AND THE BOUND IS TIGHT: it really does write the FOURTH byte, so the theorem's
--- region cannot be narrowed to three without becoming false. A safety bound that is
--- loose is satisfied by a routine that writes less than it claims.
+theorem fill_really_wrote : ran.mem.read 0x2000 = 0xAB := by decide
+theorem fill_wrote_the_last_byte : ran.mem.read 0x2003 = 0xAB := by decide
+theorem fill_left_the_right_neighbour_alone : ran.mem.read 0x2004 = 0x5A := by decide
+theorem fill_left_the_left_neighbour_alone : ran.mem.read 0x1FFF = 0x5A := by decide
+theorem fill_exits : ran.stopped = true := by decide
+
+/-- ⭐⭐ AND THE BOUND IS TIGHT: it really writes the FOURTH byte, so the theorem's region
+cannot be narrowed to three without becoming false. **A safety bound that is loose is
+satisfied by a routine that writes less than it claims.** -/
 theorem fill_bound_is_tight :
-    ¬ AgreeOutside (Region 0x2000 3) seeded
-        (runP fill 20 (Cpu.setReg s0 .q .rax 0xAB)).mem := by
+    ¬ AgreeOutside (Region 0x2000 3) seeded ran.mem := by
   intro hcon
   have h3 : ¬ Region (0x2000 : BitVec 64) 3 0x2003 := by
     rintro ⟨i, hi, he⟩

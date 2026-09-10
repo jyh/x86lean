@@ -388,4 +388,39 @@ theorem live_of_not_stopped {s : Cpu} (h : ¬ s.stopped = true) : Live s := by
   | none => exact hm
   | some e => rw [hm] at h; simp at h
 
+/-! ## ⭐⭐⭐ THE LABEL-DISPATCH COMBINATORS — built because problem 1 MEASURED their absence
+
+Problem 1's first proof was **152 lines, 64 of them (42%) label-dispatch boilerplate**: the same
+twenty lines five times, deriving *"at this `rip` the instruction is X"* and reducing the
+invariant to this label's arm. **The number was measured, then these three were written, then
+the proof was re-run: 152 → 88 — exactly the 64 predicted.**
+
+⇒ 🔑 ***THE PREDICTION WAS PRE-REGISTERED AND CONFIRMED TO THE LINE***, including its warning
+that removing the dispatch **still leaves 88** — so the win could not be read as reaching the
+target. `Tests/Program.lean` carries what 88 does and does not buy.
+
+⚠️ **`atTable` DOES MOST OF THE WORK.** An invariant written as a nested `if`-chain over
+addresses needs a `show (0x1007 = 0x1000) = False from by decide` at every label at every use
+site; written as a TABLE it reduces at a concrete label **by `rfl`**. Same information — the
+difference is whether the reduction is free. -/
+
+/-- Dispatch: at a defined address, `stepP` is `step` of the instruction there. -/
+theorem stepP_at {p : Program} {s : Cpu} {i : Instr}
+    (hst : ¬ s.stopped = true) (h : p.at? s.rip = some i) : stepP p s = step i s := by
+  simp [stepP, hst, h]
+
+/-- Dispatch: off the program, `stepP` halts. -/
+theorem stepP_off {p : Program} {s : Cpu}
+    (hst : ¬ s.stopped = true) (h : p.at? s.rip = none) :
+    stepP p s = s.halt (.outsideProgram "no instruction at RIP") := by
+  simp [stepP, hst, h]
+
+/-- ⭐ THE INVARIANT AS A TABLE rather than an `if`-chain: a per-label assertion with
+`True` off the table.  At a CONCRETE label this reduces by `rfl`, where an `if`-chain
+needed a `show (0x1007 = 0x1000) = False from by decide` per label per use site. -/
+def atTable (tbl : List (BitVec 64 × (Cpu → Prop))) (a : BitVec 64) (s : Cpu) : Prop :=
+  match tbl.find? (fun q => q.1 == a) with
+  | some q => q.2 s
+  | none => True
+
 end X86
