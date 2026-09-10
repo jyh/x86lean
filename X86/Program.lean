@@ -345,6 +345,59 @@ theorem readSize_of_agreeOutside_disjoint {R R' : BitVec 64 → Prop} {m m' : Me
   Mem.readN_congr m m' a sz.bytes
     (fun i hi => hfr _ (hdisj _ (hin i hi)))
 
+/-! ## ⭐⭐⭐ THE VOCABULARY PROBLEM 2 NEEDS, AND DID NOT FIND HERE EITHER — AND THE PATTERN
+
+`read_of_agreeOutside_disjoint` and `readSize_of_agreeOutside_disjoint` above both take
+disjointness **as a hypothesis** (`hdisj : ∀ a, R' a → ¬ R a`). Nothing in this file
+DERIVES that hypothesis for two concrete regions, and a `memcpy` cannot be stated without
+it: its whole safety claim is that the source buffer survives writes to the destination.
+
+⇒ 🔑 ***THE LIBRARY SHIPPED THE ELIMINATION RULES AND NOT THE INTRODUCTION RULE — FOR THE
+SECOND TIME.*** Problem 1 found `agreeOutside_write` missing (how a store ESTABLISHES the
+frame) while the frame's consumers were all present; problem 2 finds the same shape one
+level up. **A vocabulary written by asking "what will the proof USE?" captures eliminations.
+What the proof must first ESTABLISH is the half that goes missing**, and it goes missing
+silently, because every lemma that consumes it type-checks perfectly without it. -/
+
+/-- ⭐ DISJOINTNESS, DERIVED: two regions are disjoint when the first ENDS at or before the
+second BEGINS, and neither wraps. This is the introduction rule the two lemmas above consume.
+
+⚠️ **THE NO-WRAP HYPOTHESES ARE LOAD-BEARING, NOT DECORATION** — `region_wrap_defeats_order`
+below is a kernel-checked witness that dropping `hw2` makes this statement FALSE. `Region`
+is built on `BitVec 64` addition, which WRAPS, so "ends before it begins" is not an ordering
+fact about addresses until wraparound is excluded. -/
+theorem region_disjoint_of_le {b1 b2 : BitVec 64} {n1 n2 : Nat}
+    (hw1 : b1.toNat + n1 ≤ 2^64) (hw2 : b2.toNat + n2 ≤ 2^64)
+    (h : b1.toNat + n1 ≤ b2.toNat) :
+    ∀ a, Region b2 n2 a → ¬ Region b1 n1 a := by
+  rintro a ⟨i, hi, rfl⟩ ⟨j, hj, hji⟩
+  have e2 : (b2 + BitVec.ofNat 64 i).toNat = b2.toNat + i := by
+    rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+        Nat.mod_eq_of_lt (by omega)]
+  have e1 : (b1 + BitVec.ofNat 64 j).toNat = b1.toNat + j := by
+    rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+        Nat.mod_eq_of_lt (by omega)]
+  have := congrArg BitVec.toNat hji
+  rw [e2, e1] at this
+  omega
+
+/-- The same fact in the orientation `AgreeOutside`'s consumers usually want: the region
+written to is the SECOND one. -/
+theorem region_disjoint_of_le' {b1 b2 : BitVec 64} {n1 n2 : Nat}
+    (hw1 : b1.toNat + n1 ≤ 2^64) (hw2 : b2.toNat + n2 ≤ 2^64)
+    (h : b1.toNat + n1 ≤ b2.toNat) :
+    ∀ a, Region b1 n1 a → ¬ Region b2 n2 a :=
+  fun a ha hb => region_disjoint_of_le hw1 hw2 h a hb ha
+
+/-- ⛔ **THE NECESSITY WITNESS.** With `b1 = 0` (4 bytes) and `b2 = 2^64 - 2` (4 bytes) the
+ORDERING hypothesis holds — `b1.toNat + 4 = 4 ≤ b2.toNat` — and the regions nevertheless
+SHARE address 0, because `b2`'s region wraps. So `region_disjoint_of_le` without `hw2` would
+be false, and this is the counterexample that says so rather than a comment claiming it. -/
+theorem region_wrap_defeats_order :
+    Region (BitVec.ofNat 64 (2^64 - 2)) 4 (0 : BitVec 64)
+    ∧ Region (0 : BitVec 64) 4 (0 : BitVec 64) :=
+  ⟨⟨2, by decide, by decide⟩, ⟨0, by decide, by decide⟩⟩
+
 /-! ## ⭐⭐ THE VOCABULARY PROBLEM 1 NEEDED, AND DID NOT FIND HERE
 
 Every lemma below was written while proving `Tests.fill_writes_only_in_buffer` — the
