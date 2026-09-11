@@ -414,6 +414,58 @@ theorem region_wrap_defeats_order :
     ∧ Region (0 : BitVec 64) 4 (0 : BitVec 64) :=
   ⟨⟨2, by decide, by decide⟩, ⟨0, by decide, by decide⟩⟩
 
+/-! ## ⭐⭐⭐ THE HALF-LINE, WHICH PROBLEM 5 NEEDS AND `Region` CANNOT BUILD
+
+`Region base len` is a bounded interval and every lemma above is stated for two of them. A
+prologue/epilogue's frame claim is not an interval: *"the caller's frame at or above `rsp₀` is
+untouched"* is UNBOUNDED on each side of the line.
+
+⇒ **Fourth instance of the same shape** (`agreeOutside_write`, `region_disjoint_of_le`, the load and
+`inc` frame lemmas, now this): **a library grown one proof at a time contains exactly what the last
+proof needed.** ⚠️ These come from the problem-5 PROBE, not from a proof — **problem 5 is not built**,
+and that is stated here rather than left for a reader to assume otherwise. -/
+
+/-- The addresses strictly BELOW `b` — where a push writes. Stated on `toNat` rather than on
+`BitVec`'s own `<` so the wraparound obligations stay explicit instead of hiding in the ordering. -/
+def Below (b : BitVec 64) (a : BitVec 64) : Prop := a.toNat < b.toNat
+
+/-- ⭐ THE CONTAINMENT RULE A PUSH NEEDS: every byte of an `n`-byte write at `sp` lies below `rsp₀`,
+provided the write does not wrap and ends at or before `rsp₀`. The half-line's analogue of
+`region_disjoint_of_le`, and what lets `agreeOutside_write` — generic in `R` — discharge a push. -/
+theorem below_span {rsp0 sp : BitVec 64} {n : Nat}
+    (hw : sp.toNat + n ≤ 2^64) (h : sp.toNat + n ≤ rsp0.toNat) :
+    ∀ i, i < n → Below rsp0 (sp + BitVec.ofNat 64 i) := by
+  intro i hi
+  have e : (sp + BitVec.ofNat 64 i).toNat = sp.toNat + i := by
+    rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+        Nat.mod_eq_of_lt (by omega)]
+  unfold Below
+  omega
+
+/-- ⭐ AND THE DISJOINTNESS A CALLER'S BUFFER NEEDS: a `Region` at or above `rsp₀` is disjoint from
+everything written below `rsp₀`, so it survives the callee — the half-line counterpart of
+`region_disjoint_of_le`, feeding the same two consumers. -/
+theorem region_disjoint_below {rsp0 b : BitVec 64} {len : Nat}
+    (hw : b.toNat + len ≤ 2^64) (h : rsp0.toNat ≤ b.toNat) :
+    ∀ a, Region b len a → ¬ Below rsp0 a := by
+  rintro a ⟨i, hi, rfl⟩
+  have e : (b + BitVec.ofNat 64 i).toNat = b.toNat + i := by
+    rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+        Nat.mod_eq_of_lt (by omega)]
+  unfold Below
+  omega
+
+/-- ⛔ **THE NECESSITY WITNESS, AND IT BITES HARDER HERE THAN FOR `Region`.** A stack near address 0
+wraps, and then "ends at or before `rsp₀`" stops being an ordering fact about addresses: at
+`sp = 2^64 - 2` a two-byte write reaches address 0, which is below no `rsp₀` of 0 at all. So
+`below_span` without `hw` would be false, and this says so instead of a comment claiming it. -/
+theorem below_wrap_defeats_order :
+    (BitVec.ofNat 64 (2^64 - 2)) + BitVec.ofNat 64 2 = (0 : BitVec 64)
+    ∧ ¬ Below 0 (0 : BitVec 64) := by
+  refine ⟨by decide, ?_⟩
+  unfold Below
+  omega
+
 /-! ## ⭐⭐ THE VOCABULARY PROBLEM 1 NEEDED, AND DID NOT FIND HERE
 
 Every lemma below was written while proving `Tests.fill_writes_only_in_buffer` — the
