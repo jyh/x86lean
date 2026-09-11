@@ -13731,7 +13731,18 @@ rather than letting a referee find it** — the same call §3 already made about
    ASSEMBLY FORMS**, not encodings — not the same population as our 351/374 distinct machine forms.
    ⭐ This is the row where our column is strongest: a semantics over decoded bytes answers *"what
    does this binary do"*; one over assembly text answers *"what does this listing mean"*.
-3. **`vendor/k-x86-64` is a PARTIAL clone (`[blob:none]`) holding only `semantics/`.** K's program
+3. ⛔⛔ **x86isa's DECODE TRUST BASE IS NOT PURELY THE SDM, AND I CORRECTED THIS CELL TWICE IN ONE
+   SHIFT.** The 2026-09-02 provenance verdict says *"x86isa itself uses XED's tables via
+   `xedscan.py`"*; my own §1c.3 said its maps are an SDM transcription. **Measured: `xedscan.py` is
+   a self-described PROOF OF CONCEPT that generated 186 of 3,192 entries (5.8%, the x87 escape
+   block), plus 9 sites citing `xed-isa.txt` for UNDOCUMENTED encodings.** The brief
+   over-generalised; I omitted. Both errors bought a cleaner story.
+   ⇒ **It destroys the tidy contrast** *"their decode trust is the SDM; ours is XED"*: **both models
+   reach for XED, and x86isa reaches for it exactly where the SDM is weakest.** What differs is the
+   SHARE and the DECLARATION, not the presence.
+   ⇒ 🔑 ***A VERIFIED-AT-SOURCE ANNOTATION IS A CLAIM ABOUT THE DAY IT WAS TAKEN*** — nine days old,
+   and the first cell anybody re-read was wrong. This re-prices G6's material as needing re-driving.
+4. **`vendor/k-x86-64` is a PARTIAL clone (`[blob:none]`) holding only `semantics/`.** K's program
    proofs and test suites are in `vendor/k-x86-64.FULL-BACKUP`, same commit `592380a`. A grep of the
    working checkout would have recorded *"K demonstrates no program proofs"*, which is false.
    ⇒ 🔑 ***AN ABSENCE READ FROM A PARTIAL CLONE IS A FACT ABOUT THE CLONE.***

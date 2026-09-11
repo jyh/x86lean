@@ -32,7 +32,7 @@ derived from the table. *Prose does not refuse; §2 records what it cost to lear
 | **axiom base of theorems** | exactly `[propext, Classical.choice, Quot.sound]`, CI-gated over the library — **MEASURED** | **zero** `defaxiom`, **zero** `skip-proofs` in 190 `.lisp` files; 6 `defttag` in 5 files, all in execution/instrumentation/syscall/virtualization layers — **MEASURED AT THE SOURCE** (§1c.1) | **not well-posed** — K is a rewriting logic, not a proof assistant with an axiom list; its prover is `kprove` + Z3, so the trust base is K + the SMT solver — **RECORDED** (§1c.4) | **not applicable — the translator ignores `defthm` wholesale**, so the Sail model carries no theorems to have an axiom base — **MEASURED AT THE SOURCE** (§1c.5) |
 | **proof support demonstrated** | 7 machine-checked memory-safety theorems over 4 routines; cost model `19 + ~7.7/label` measured at 2–7 labels — **MEASURED** | 8 verified program families (**559** theorem forms) over a separate 24,707-line / 603-form proof-utility library; `copyData-is-correct` is **full functional correctness + fault-freedom for an unbounded loop** — **MEASURED AT THE SOURCE** (§1c.2) | 10 `kprove` reachability specs over 13 claim rules, with functional post-conditions and loop invariants, plus an 846-line / 201-rule verification-lemma library. Its README calls these *"few applications of our formal semantics"* — **MEASURED AT THE SOURCE** (§1c.4) | **NONE, BY CONSTRUCTION** — `tr_ignore`: *"forms we can ignore wholesale. E.g. `defthm`"* — **MEASURED AT THE SOURCE** (§1c.5) |
 | **undefined-bit treatment** | explicit oracle in the state; `UNDEF`-seeding precedent taken from x86isa — RECORDED | an `undef` **seed counter** in the state; `undef-read` mints a *fresh unique unknown* per read and the field is `push-untouchable` — **MEASURED AT THE SOURCE** (§1c.6) | a single distinguished **constant** `undefMInt` (and `undefBool`) written straight into the flag, in 497 of 3,064 per-instruction files — **MEASURED AT THE SOURCE** (§1c.6) | **DROPPED IN TRANSLATION** — `other_non_det.sail` is a 27-byte stub (`$include "./syscalls.sail"`) and `rflags_spec.sail` contains no `undef` — **MEASURED AT THE SOURCE** (§1c.6) |
-| **decode** | Intel XED consumed as the AST; decode trust named in `TRUSTBASE.md` — MEASURED | a **22,042-line in-tree ACL2 transcription of SDM Vol. 2 Appendix A**, from which the dispatch functions are *generated* in ACL2 — **MEASURED AT THE SOURCE** (§1c.3) | ⛔ **IT DOES NOT DECODE MACHINE BYTES AT ALL.** `x86-loader.k` parses GNU **assembler source** (`.text`, `.data`, `.globl`, `.comm`); `syntax Opcode ::= "adcb"` is a MNEMONIC, not a byte. **Zero** files mention `modrm`, `ModRM` or `REX` — **MEASURED AT THE SOURCE** (§1c.8) | inherited from x86isa's maps via the translator; `decoding_and_spec_utils.sail` + the generated `*_opcodes_dispatch.sail` — **MEASURED AT THE SOURCE** (§1c.5) |
+| **decode** | Intel XED consumed as the AST; decode trust named in `TRUSTBASE.md` — MEASURED | a **22,042-line in-tree ACL2 transcription of SDM Vol. 2 Appendix A**, from which the dispatch functions are *generated* in ACL2 — ⚠️ **but NOT purely SDM: 186 of its 3,192 entries (5.8%, the x87 escape block) were machine-generated from XED data files by `xedscan.py`, and 9 more cite `xed-isa.txt` for UNDOCUMENTED encodings** — **MEASURED AT THE SOURCE** (§1c.3, §1c.9) | ⛔ **IT DOES NOT DECODE MACHINE BYTES AT ALL.** `x86-loader.k` parses GNU **assembler source** (`.text`, `.data`, `.globl`, `.comm`); `syntax Opcode ::= "adcb"` is a MNEMONIC, not a byte. **Zero** files mention `modrm`, `ModRM` or `REX` — **MEASURED AT THE SOURCE** (§1c.8) | inherited from x86isa's maps via the translator; `decoding_and_spec_utils.sail` + the generated `*_opcodes_dispatch.sail` — **MEASURED AT THE SOURCE** (§1c.5) |
 
 ---
 
@@ -259,6 +259,36 @@ over **encodings**. They are not the same population and the paper must not subt
 ⭐ **This is the row where our column is strongest and it is not close:** a semantics over decoded
 bytes answers *"what does this binary do"*; a semantics over assembly text answers *"what does this
 listing mean"*, and the gap between them is exactly where real x86 defects live.
+
+### 1c.9 ⛔⛔ x86isa's DECODE TRUST BASE IS NOT PURELY THE SDM — AND THIS CORRECTS **BOTH** SOURCES
+This campaign's own provenance verdict of 2026-09-02 — a private-lane document, cited here for its
+claim only — says *"x86isa itself uses XED's tables via `xedscan.py`"*. §1c.3, written this morning, says its maps are an SDM transcription.
+**Neither is right, and the truth is more interesting than either.**
+```
+  machine/xedscan.py   Sol Swords (Kestrel), 2024-25, its own usage text:
+       "At the moment this is a small PROOF OF CONCEPT for generating inst-listing.lisp
+        opcode map entries by parsing XED data files."
+       and its comment: designed "to pick up the X87 instruction set which was MISSING
+        from our opcode maps" -- the #xD8..#xDF escape opcodes
+  inst-listing.lisp:1748  ";; X87 instruction entries (#xD8 through #xDF) generated from xed
+                            datafiles using:  xedscan.py ~/work/xed/datafiles/xed-isa.txt xed-x87.txt"
+  MEASURED SHARE:   186 of 3,192 INST entries = 5.8%   (the x87 escape block)
+  PLUS              9 sites commented ";; Undocumented (from xed-isa.txt):"
+```
+⇒ **The brief over-generalised a proof-of-concept covering 8 escape opcodes into "the decoder".
+§1c.3 omitted it entirely.** Both errors were in the direction of a cleaner story.
+⇒ 🔑 ***AND IT DESTROYS THE TIDY CONTRAST I HAD WRITTEN.*** I had it as *"their decode trust is a
+hand transcription of the SDM; ours is XED"*. **Both models reach for XED, and x86isa reaches for it
+exactly where the SDM is weakest** — the x87 escape encodings the manual tables separately, and
+instructions the manual does not document at all. That is a better sentence for the paper than the
+clean one, and it is the one that is true.
+📌 **What remains genuinely different is the SHARE and the DECLARATION**, not the presence: XED is our
+decode path for everything and is named as a trust component in `TRUSTBASE.md`; for x86isa it is 5.8%
+of the maps plus nine citations. ⚠️ **I have NOT checked whether x86isa states a trust position on
+XED anywhere, and I am not claiming it does not.**
+⇒ ⛔ **THIS IS THE SECOND DECODE CLAIM I HAVE HAD TO CORRECT TODAY** (§1c.8 was the first, about K).
+Both were written from a plausible structural reading rather than from the file that decides it.
+**Decode is where this table is most inviting to reason about and least safe to.**
 
 ### 1c.7 ⛔⛔ THE FINDING THAT CHANGES A CLAIM WE ALREADY MAKE: THE ORACLES ARE NOT INDEPENDENT
 ```

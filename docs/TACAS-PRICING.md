@@ -67,7 +67,7 @@ that is the Captain's and the helm's:**
 | G3 | **No performance/scale statement for the semantics itself.** We have kernel-cost data per module, gated — but framed as CI hygiene, not as a result. | "does it scale?" | **1 day** to reframe existing gated numbers. ⚠️ See §3: the gate's dispersion is not robust, so any published timing needs a robust estimator first. |
 | G4 | **The five proof problems are a sample, not a benchmark.** Four routines, 2–7 labels. | "is 19 + 7.7/label general?" | **unpriced — needs the benchmark freeze** (helm item 4, P2 in the design lane, with bench). |
 | G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | **2–3 days.** ⭐ Unusually cheap here: every headline number is already CI-gated and derived, so "reproduce the claims" is largely "run the gates". |
-| G6 | **Related work.** Not started. | required | **2 days.** |
+| G6 | **Related work.** ⚠️ **NOT "not started" — a 10-element PRIOR-ART TABLE already exists** (this campaign's 2026-09-02 provenance verdict, a private-lane document), with named public prior art per design element and an evidence class on each: Myreen FMCAD 2012 · Dasgupta PLDI 2019 · Heule PLDI 2016 · Armstrong POPL 2019 · Verbeek/Roessle/Bockenek CPP 2019 + PLDI 2022 · LNSym · seL4/AutoCorres. | required | **still 2 days, and the price does NOT drop — see §2.4.** The material exists; what it needs is re-verification and a lane-clean re-derivation, not a copy. |
 
 **Sum of what is priceable: 8–13 working days**, excluding G4 which cannot be priced until the
 benchmark exists. ✅ **G1 is now spent, leaving 7–11.**
@@ -89,6 +89,30 @@ G1 measured the two axes on which we lose and the one on which nothing else in t
 which is exactly what makes the honest version defensible. ⭐ **And `TACAS-G1-POSITIONING.md` §1c.6 handed G2 its frame:**
 the four systems make four *different* choices about undefined bits, and x86isa's own source documents
 the hazard K's choice walks into. That is the most citable row in the table and it is now measured.
+
+### 2.4 ⛔ G6's MATERIAL EXISTS AND THAT IS NOT THE SAME AS G6 BEING CHEAPER
+The provenance verdict's kill-check (2) table covers ten design elements — total step function,
+the undefined-bit oracle, fidelity tiers, characterization theorems + frame predicates, differential
+testing, hardware co-simulation, oracle nonvacuity, kernel-cost discipline, the arithmetic encoding
+choice, and the external decoder — each with **public** prior art and an evidence class
+(VERIFIED-AT-SOURCE vs LITERATURE). That is most of a related-work section's skeleton.
+⛔ **TWO REASONS THE PRICE STAYS AT 2 DAYS ANYWAY, AND THE FIRST ONE IS MEASURED TODAY:**
+1. **ONE OF ITS AT-SOURCE CLAIMS IS WRONG.** *"x86isa itself uses XED's tables via `xedscan.py`"* —
+   measured today (§1c.9 of `TACAS-G1-POSITIONING.md`): `xedscan.py` is a self-described **proof of
+   concept** that generated **186 of 3,192** map entries, the x87 escape block. ⇒ 🔑 ***A
+   VERIFIED-AT-SOURCE ANNOTATION IS A CLAIM ABOUT THE DAY IT WAS TAKEN.*** Nine days old, one error
+   found on the first cell anybody re-read. The table must be re-driven, not transcribed.
+2. **IT IS A PRIVATE-LANE DOCUMENT AND THIS REPOSITORY IS PUBLIC.** The *citations* are public
+   facts and flow freely; the *file* does not get copied across. The section is re-derived here
+   against the sources, which is what item 1 requires anyway.
+   📌 **This paragraph was itself caught by the gate one draft ago** — it named the private document
+   by its repo-relative PATH, `check_private_paths --tree` and `--history` both fired, and the commit
+   was amended rather than baselined because it was not yet pushed. ⛔ **The bare NAME, which the
+   path-matching gate cannot see, had to be removed by hand afterwards.** ⇒ 🔑 ***A GATE THAT MATCHES
+   PATHS DOES NOT MATCH NAMES, AND THE LANE RULE IS ABOUT REFERENCE, NOT SYNTAX.***
+📌 **What DOES change:** G6 is no longer a blank page, and its hardest part — *"which public work
+already does each thing we do"*, answered POSITIVELY per element — is already thought through. The
+2 days is now verification and writing rather than discovery.
 
 ---
 
