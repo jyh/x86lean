@@ -937,7 +937,7 @@ def unwritable_entries(path):
 
 def read_ceilings():
     """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
-    d, decls, tails, _specific = {}, {}, {}, set()
+    d, decls, tails, cand = {}, {}, {}, {}
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             line = line.split("#")[0].strip()
@@ -964,28 +964,54 @@ def read_ceilings():
             # machine-less entry still applies everywhere, as it always has.
             if mach is not None and mach != this_machine():
                 continue
-            # ⛔ PRECEDENCE IS EXPLICIT, NOT FILE ORDER. A module may carry a
-            # machine-less ceiling AND one named for this box; the named one is
-            # the better evidence and must win wherever it sits in the file.
-            # Last-wins would make the verdict depend on line order, which is
-            # the kind of dependency nobody tests and everybody eventually edits.
-            _k = parts[0] if len(parts) == 2 else (
-                 f"{parts[0]}|{parts[2]}" if len(parts) == 4 else parts[0])
-            if mach is None and _k in _specific:
-                continue
-            if mach is not None:
-                _specific.add(_k)
+            # ⛔⛔ THE PRECEDENCE KEY IS THE DESTINATION, NOT THE LINE SHAPE.
+            # My first cut derived it from the line's ARITY — `parts[0]` for a
+            # two-field plain line and `parts[0]` again for a three-field
+            # `@tail` — which collapses TWO DIFFERENT DESTINATIONS (`d[module]`
+            # and `tails[module]`) onto one key. A machine-specific `@tail` would
+            # then suppress a machine-LESS PLAIN ceiling for the same module, and
+            # the reverse. The helm caught it in the diff read; it was not
+            # reachable on the registry as it stands (18 modules, 3 decls, 1 tail,
+            # no overlap), which is exactly why it would have waited.
+            # ⇒ 🔑 A PRECEDENCE KEY MUST NAME WHERE THE VALUE LANDS. Deriving it
+            #   from the line's shape is a guess that happens to agree for three
+            #   of four shapes, and agreement on a sample is not a key.
             if len(parts) == 4 and parts[1] == DECL_TAG:
-                decls.setdefault(parts[0], {})[parts[2]] = float(parts[3])
+                dest, kind, val = ("decls", parts[0], parts[2]), None, float(parts[3])
             elif len(parts) == 3 and parts[1] == TAIL_TAG:
-                tails[parts[0]] = float(parts[2])
+                dest, kind, val = ("tails", parts[0]), None, float(parts[2])
             elif len(parts) == 3 and parts[1] == PER_ROW_TAG:
-                d[parts[0]] = ("perRow", float(parts[2]))
+                dest, kind, val = ("d", parts[0]), "perRow", float(parts[2])
             elif len(parts) == 2:
-                d[parts[0]] = ("abs", float(parts[1]))
+                dest, kind, val = ("d", parts[0]), "abs", float(parts[1])
             else:
                 print(f"⛔ unparseable ceiling line: {line!r}")
                 sys.exit(2)
+            # ⭐ TWO PASSES, SO PRECEDENCE IS A DECISION AND NOT A SIDE EFFECT.
+            # The first cut skipped a generic line when a specific one had been
+            # seen, and let a specific line WIN by overwriting — a skip in one
+            # direction and a write in the other. The OUTCOME was already
+            # order-independent, but the MECHANISM was not uniform, and the
+            # comment claimed more than the code did. The helm read the diff and
+            # said so. Collecting candidates and resolving once removes the
+            # asymmetry instead of documenting it.
+            # ⇒ 🔑 WHEN THE COMMENT IS STRONGER THAN THE CODE, RAISE THE CODE.
+            cand.setdefault(dest, []).append((mach is not None, kind, val))
+    # ⚖️ RESOLUTION, stated in full: a ceiling NAMED for this box beats a
+    # machine-less one wherever either sits in the file. Among entries of the
+    # SAME specificity the last line wins, exactly as this parser has always
+    # behaved — that is the one place order still decides, and it is now the
+    # only one. `kernel_delta` REFUSES such a duplicate outright; this parser
+    # deliberately does not change its contract in a commit about the column.
+    for dest, entries in cand.items():
+        spec = [e for e in entries if e[0]]
+        kind, val = (spec or entries)[-1][1:]
+        if dest[0] == "decls":
+            decls.setdefault(dest[1], {})[dest[2]] = val
+        elif dest[0] == "tails":
+            tails[dest[1]] = val
+        else:
+            d[dest[1]] = (kind, val)
     return d, decls, tails
 
 # ⭐⭐ THE ARMS FOR THE THREE THINGS ADDED BY QUEUE ITEMS 4d / 7 / 8 (D151).
@@ -998,6 +1024,55 @@ def read_ceilings():
 def conditions_selftest():
     """Returns a list of (ok, name).  Each arm creates the condition it tests."""
     out = []
+
+    # ⛔⛔ ARM 0 — THE PRECEDENCE KEY IS THE DESTINATION (helm diff read, D199).
+    # A machine-specific `@tail` and a machine-LESS plain ceiling for the same
+    # module land in DIFFERENT dicts and must not contend. The first cut keyed
+    # precedence off the line's arity, so both hashed to `parts[0]` and the
+    # `@tail` suppressed the plain ceiling — driven below, and it returned
+    # `d={}` where a ceiling of 50 belongs. Not reachable on the shipped
+    # registry, which is why it needed an arm rather than a sighting.
+    def _parse(body):
+        # ⚠️ shutil is imported LOCALLY here on purpose. This function already
+        # does `import ... shutil as _sh` further down its own body, which makes
+        # `_sh` a function-scoped name that is UNBOUND at this point — an arm
+        # placed above that import sees a free variable, not the module. Caught
+        # by running these arms directly instead of waiting for the 18-minute
+        # suite to reach them. [[feedback-make-the-probe-cheap]]
+        import tempfile as _t, shutil as _sh2
+        _d = _t.mkdtemp(prefix="x86lean-ceilprec-")
+        _f = os.path.join(_d, "kernel_ceilings.txt")
+        with open(_f, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        global CEIL_FILE
+        _saved, CEIL_FILE = CEIL_FILE, _f
+        try:
+            return read_ceilings()
+        finally:
+            CEIL_FILE = _saved
+            _sh2.rmtree(_d, ignore_errors=True)
+
+    _m = this_machine()
+    a = _parse(f"Tests.Coverage @tail 12420 @on {_m}\nTests.Coverage 50\n")
+    b = _parse(f"Tests.Coverage 50\nTests.Coverage @tail 12420 @on {_m}\n")
+    out.append((a[0].get("Tests.Coverage") == ("abs", 50.0)
+                and a[2].get("Tests.Coverage") == 12420.0,
+                "a machine-specific @tail does NOT suppress a machine-less PLAIN "
+                "ceiling for the same module (different destinations, different keys)"))
+    out.append((a == b, "…and the two line ORDERS give the identical parse"))
+    # ⭐ THE CONTROL, so the arm above cannot pass by the precedence rule being
+    # dead: a machine-specific PLAIN entry must still beat a machine-less one.
+    c = _parse(f"X86.Basic 163\nX86.Basic 999 @on {_m}\n")
+    d_ = _parse(f"X86.Basic 999 @on {_m}\nX86.Basic 163\n")
+    out.append((c[0].get("X86.Basic") == ("abs", 999.0)
+                and d_[0].get("X86.Basic") == ("abs", 999.0),
+                "CONTROL — a machine-specific PLAIN ceiling still beats a "
+                "machine-less one, in either order"))
+    # ⛔ AND A FOREIGN box is ABSENT, not a loose bound.
+    e = _parse("X86.Basic 163\nX86.Basic 999 @on SOMEOTHERBOX\n")
+    out.append((e[0].get("X86.Basic") == ("abs", 163.0),
+                "a ceiling named for ANOTHER box is skipped, leaving the "
+                "machine-less one in force"))
 
     # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
     # claims to get its idle % from `threads_ab.idle_pct` rather than from a
