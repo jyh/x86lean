@@ -97,6 +97,19 @@ on the coverage and the gating discipline alone, and it is the paper the second 
 ⛔ **The thing I would NOT do is submit the tier law as the headline before the benchmark exists** —
 four routines is a sample, and a referee will say so correctly.
 📌 **Precedence is now THIRD** (SaltBench · twin primes · x86lean · verso · jas), so 8–13 days of
-paper work competes with the benchmark freeze that is P2 in the design lane and starts now. **Those
-two are the same critical path, since G4 depends on the benchmark** — which is an argument for doing
-the benchmark first and the paper around it, not beside it.
+paper work runs alongside the benchmark freeze that is P2 in the design lane.
+
+⛔ **CORRECTION TO THIS FILE, SAME DAY, AND IT WAS MINE.** This paragraph first read: *"those two are
+the same critical path, since G4 depends on the benchmark — an argument for doing the benchmark first
+and the paper around it, not beside it."* **That contradicts §4 of this very file**, which recommends
+writing the semantics paper now with the tier law as a SECTION rather than the headline.
+⇒ 🔑 ***G4 IS A BLOCKER ONLY UNDER THE FRAMING I ARGUED AGAINST.*** If the paper's claim is the
+validated semantics, "four routines is a sample" is a limitation of a section, not a gap in the
+contribution — and the benchmark belongs to **paper 2**, the Hoare logic, exactly as desk row `KQ`
+splits it: *"the semantics paper … is written from what is built; the Hoare logic proved sound over
+x86lean + the saltbench-x86 task family is the follow-on."*
+✅ **So `KQ`'s default is right and my sequencing note was wrong:** the semantics paper proceeds on the
+TACAS clock **independently** of the benchmark. I had posted the opposite to the helm twice before
+re-reading the row.
+📌 And the freeze is not mine to start unilaterally in any case — `KQ` gates it on **P1's brownfield
+task shape landing** (evidence's, carried dark), and it *"never blocks a P1 run."*
