@@ -296,11 +296,37 @@ identifies this seat's own work by the `x86lean-` prefix. A temp dir either leav
 read as another campaign's. From `eac47e8` (evidence's PR #1) and `31f2b5f` (D182) — **not
 from the port work, and named here rather than fixed in a commit about something else.**
 **OWNER:** paris. Small.
-⛔ **AND IT IS BLOCKED ON A COLLISION, NOT ON EFFORT: `evidence` has a LIVE BRANCH on that
-exact file** (`evidence/gate-canon-x86lean`, `080cd3b`). Editing it on master now buys a
-conflict for another seat's in-flight work in order to fix two temp-dir prefixes.
+⛔ **IT WAS BLOCKED ON A COLLISION, NOT ON EFFORT: `evidence` had a LIVE BRANCH on that
+exact file** (`evidence/gate-canon-x86lean`, `080cd3b`). Editing it on master then would have
+bought a conflict for another seat's in-flight work in order to fix two temp-dir prefixes.
 **RELEASE: evidence's branch lands or is abandoned.** Recorded so the next head does not
 read "small" as "do it now".
+
+### ✅ PORT-4 DISCHARGED 2026-09-11 — AND THE RELEASE CONDITION HAD BEEN MET FOR SOME TIME
+⛔⛔ **NOBODY HAD RE-MEASURED IT.** Measured at the object:
+```
+  gh pr list --state all   ->  #1 MERGED  evidence/gate-canon-x86lean
+  git ls-remote origin     ->  NO evidence branch at origin
+```
+**The branch LANDED.** The condition read *"evidence's branch lands or is abandoned"*, and it had
+landed; only a STRANDED WORKTREE remained in that seat's scratchpad (still registered locally, at
+`080cd3b`, which is not an ancestor of master). ⇒ 🔑 ***A RELEASE CONDITION NOBODY MEASURES IS
+SELF-SEALING: the item stays blocked by its own prose long after the world moved.***
+📌 **The worktree is still NOT removed** — it is in another seat's scratchpad and `stale_worktrees`
+reports rather than removes precisely because it cannot tell a live checkout from a stranded one.
+PORT-3's repair already made the three affected arms measure the DELTA this selftest causes, so the
+stranded checkout does not red them.
+
+**THE FIX:** the two prefixes now conform — `x86lean-ppgate-selftest-` and
+`x86lean-pphist-selftest-`. They are this seat's own temp dirs, so conforming is right and
+DECLARING them in `FOREIGN_FIXTURES` would have been a lie (that set holds the one deliberate
+impersonation control, `some-other-campaign-`, whose whole job is to NOT start with the prefix).
+Checked first that nothing depends on the literals: only the two definitions and this queue row.
+```
+  check_private_paths.py --self-test   rc 0
+  kernel_cost arm 3e (driven)          PASS — 20 prefixes, 0 offenders, 0 stale
+```
+⇒ **This was the ONE red arm (1 of 27), so PORT-2's remaining precondition is met.**
 📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
 "three environment-dependent arms" precondition is now met and this is what remains.
 
