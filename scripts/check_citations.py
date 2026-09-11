@@ -358,6 +358,14 @@ NOT_A_DECISION_NUMBER = {
             "refuses. Its release condition is a ruling on the gate's new-unit arm, "
             "and it is owned by the Captain or the helm rather than by this seat, "
             "which is the party the gate convicted. Remove when the branch lands.",
+    "D197": "problems 2 and 3 on that same HELD branch, and itself a POINTER to "
+            "`docs/P2-PROOF-INTERFACE.md` for the same reason D190 is. ⛔ IT WAS "
+            "THE THIRD TOKEN IN THE LINE THAT DECLARED THE OTHER TWO: docs/QUEUE.md's "
+            "P2-IFACE row cites `D190 · D191 · D197` together, and the edit that "
+            "landed it (76559bb) honoured this gate for two of the three. Master's "
+            "CI `build` went red there and stayed red for three commits, because the "
+            "two runs in between were CANCELLED by the next push and a cancelled run "
+            "is NO EVIDENCE, not an absence of failure. Remove when the branch lands.",
 }
 
 D_CITE = re.compile(r'\bD(\d{1,3})\b')
@@ -428,14 +436,34 @@ def selftest_decision_references():
     saved = open(target, encoding="utf-8").read()
     ok = True
     try:
-        for label, line, expect_red in [
-            ("dangling", "\n\nAs ruled in D997, this is settled.\n", True),
-            ("real",     "\n\nAs ruled in D141, this is settled.\n", False),
-            ("declared", "\n\nThe shift block is `D0`-`D3`.\n", False),
+        # ⛔⛔ THE PREDICATE IS PER-TOKEN, AND IT USED TO BE GLOBAL.
+        # It read `red = ("heads NO section" in r.stdout)` — a predicate over the
+        # WHOLE run — so ANY pre-existing dangling citation anywhere in the tree
+        # made the two "expect a pass" arms fail.  ⇒ A DIRTY TREE WAS REPORTED AS
+        # A BROKEN INSTRUMENT.  That is not hypothetical: master's CI `build` was
+        # red for three commits on a D197 citation, and the log's headline was
+        # "✖ decision-refs real: expected a pass" — which sends the reader to THIS
+        # function, when the finding was one bare run of this script away.
+        # ⇒ 🔑 AN ARM THAT DETECTS ITS EFFECT BY A GLOBAL PREDICATE CANNOT TELL ITS
+        #   OWN PLANT FROM THE STATE IT WAS RUN IN, and it misnames the second as
+        #   the first — the most expensive direction, because a broken gate is
+        #   read as "the gate is untrustworthy" rather than "the tree is wrong".
+        base = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
+        dirty = sorted({ln.split(" is cited")[0].split()[-1]
+                        for ln in base.stdout.splitlines() if "heads NO section" in ln})
+        if dirty:
+            print(f"  ⚠ decision-refs: {len(dirty)} dangling citation(s) in the "
+                  f"tree BEFORE any plant ({', '.join(dirty)}). The per-token arms "
+                  f"below are unaffected — this line is the finding, not they.")
+        for label, token, line, expect_red in [
+            ("dangling", "D997", "\n\nAs ruled in D997, this is settled.\n", True),
+            ("real",     "D141", "\n\nAs ruled in D141, this is settled.\n", False),
+            ("declared", "D0",   "\n\nThe shift block is `D0`-`D3`.\n", False),
         ]:
             open(target, "w", encoding="utf-8").write(saved + line)
             r = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
-            red = ("heads NO section" in r.stdout)
+            red = any(f"{token} is cited" in ln and "heads NO section" in ln
+                      for ln in r.stdout.splitlines())
             if red != expect_red:
                 print(f"  \u2716 decision-refs {label}: expected "
                       f"{'a failure' if expect_red else 'a pass'}, got rc {r.returncode}")
