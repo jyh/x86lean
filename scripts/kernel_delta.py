@@ -569,6 +569,59 @@ def profile(worktree, decl_mods):
 # `master` reports a git error on the machine it was registered for.  The
 # candidates are tried in order and the one that RESOLVES is used; if none does,
 # the gate refuses rather than inventing a base.
+# ⚖️⭐ THE SUBJECT MUST EXIST BEFORE THE INSTRUMENT IS ASKED TO RESOLVE IT.
+# Helm ruling, 2026-09-11: a commit that changes nothing `lake` reads has a
+# kernel delta of ZERO BY CONSTRUCTION, and measuring it can only return noise —
+# which this gate then classifies against a threshold. Measured that night on two
+# runner runs of two NULL pairs: delta -600 (ok) and +1650 (UNMEASURABLE), band
+# ~0.55 of budget both times. ⇒ THE VERDICT WAS A PROPERTY OF THE RUN, NOT OF THE
+# COMMIT. Refusing is right when the subject EXISTS and the instrument cannot
+# resolve it; it is wrong when the subject does not exist, and those were one
+# code path. [[feedback-a-route-cannot-see-its-subject]]
+#
+# ⛔⛔ THE PREDICATE IS NOT "NO `.lean` CHANGED", AND THAT WAS MY FIRST DRAFT.
+# `kernel_drift.py` already outlawed exactly that shape in its own exemption
+# bucket: "an `else` is not an argument, it is whatever is left. Its gaps ALL
+# fall to exempt, which is the direction that reports no work." A bare `.lean`
+# test would SKIP a `lean-toolchain` bump, a `lake-manifest.json` repin, or a
+# `lakefile.toml` edit — none of which is a `.lean` and every one of which moves
+# every reading in the tree.
+# ⇒ SO THE ARGUED CLASSIFIER IS REUSED RATHER THAN RE-MINTED. A second copy of
+# that roster is a duplicate born in agreement, and the agreement would have been
+# supplied by my own reasoning. `kernel_drift` is imported LAZILY because it
+# imports THIS module at its top level; a module-level import here is circular.
+def null_pair_reason(base, head, cwd=None):
+    """Why this range cannot have moved kernel time, or None if it might have.
+
+    Returns None whenever ANY changed path is a `.lean`, a PROFILER_PATH, or
+    UNCLASSIFIED — the inverted default, inherited from `kernel_drift` rather
+    than re-argued. Only a range whose every path carries a STATED reason skips.
+
+    ⛔ `cwd` EXISTS SO THIS CAN BE ARMED AGAINST A FIXTURE REPO. `git()` binds its
+    default `cwd=ROOT` at DEFINITION time, so reassigning the module global does
+    nothing and every arm would have to run against the live repository — where
+    the interesting cases (a toolchain bump alone, an unclassified path) cannot be
+    constructed without committing them. A gate with no callable surface cannot be
+    armed. [[feedback-a-gate-with-no-callable-surface]]
+    """
+    _cwd = cwd or ROOT
+    changed = [p for p in git("diff", "--name-only", base, head, cwd=_cwd).split("\n") if p.strip()]
+    if not changed:
+        return "the two trees are identical — nothing changed at all"
+    import kernel_drift as _kdrift          # lazy: see the note above
+    reasons = []
+    for path in sorted(changed):
+        if path.endswith(".lean"):
+            return None                      # the subject itself
+        if path in _kdrift.PROFILER_PATHS:
+            return None                      # moves the reading or the allowance
+        why = _kdrift.exempt_reason(path)
+        if why is None:
+            return None                      # UNCLASSIFIED ⇒ measure, never skip
+        reasons.append((path, why))
+    return reasons
+
+
 def resolve_base(head):
     trunk = None
     for cand in ("master", "origin/master", "refs/remotes/origin/master"):
@@ -1697,6 +1750,64 @@ def selftest():
         bad.append(arms[-1])
     shutil.rmtree(probe, ignore_errors=True)
 
+    # ── THE NULL-PAIR SKIP: the subject must EXIST before the instrument runs ──
+    # ⛔ These build a real fixture repository. The interesting cases — a
+    # `lean-toolchain` bump ALONE, an UNCLASSIFIED path — cannot be constructed
+    # in the live tree without committing them, which is why the predicate takes
+    # a `cwd`.
+    def null_arm(name, files, want, base_files=None):
+        d = tempfile.mkdtemp(prefix="x86lean-nullarm-")
+        def sh(*a):
+            return subprocess.run(a, cwd=d, capture_output=True, text=True)
+        def commit(fs, msg):
+            for f, c in fs.items():
+                fp = os.path.join(d, f)
+                if os.path.dirname(fp):
+                    os.makedirs(os.path.dirname(fp), exist_ok=True)
+                with open(fp, "w", encoding="utf-8") as fh:
+                    fh.write(c)
+            sh("git", "add", "-A"); sh("git", "commit", "-qm", msg)
+            return sh("git", "rev-parse", "HEAD").stdout.strip()
+        try:
+            sh("git", "init", "-q", ".")
+            sh("git", "config", "user.email", "t@t"); sh("git", "config", "user.name", "t")
+            b = commit(base_files or {"README.md": "x", "docs/Q.md": "q",
+                                      "X86/Basic.lean": "theorem a : True := trivial"}, "base")
+            h = commit(files, "head")
+            got = "SKIP" if null_pair_reason(b, h, cwd=d) is not None else "MEASURE"
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        ok = got == want
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name + ("" if ok else f"   (got {got}, wanted {want})"))
+        if not ok:
+            bad.append(name)
+
+    null_arm("⭐ a docs-only range SKIPs — the delta is zero by construction",
+             {"docs/Q.md": "changed"}, "SKIP")
+    null_arm("⭐ …and so does README + a workflow + a non-profiler gate script",
+             {"README.md": "y", ".github/w.yml": "a",
+              "scripts/check_citations.py": "p"}, "SKIP")
+    # ⛔ THE CONTROL THAT KEEPS SKIP FROM SWALLOWING REAL WORK.
+    null_arm("⛔ ONE `.lean` and the range MEASURES",
+             {"X86/Basic.lean": "theorem a : True := by trivial"}, "MEASURE")
+    null_arm("⛔ …and a `.lean` alongside docs still MEASURES (no partial credit)",
+             {"docs/Q.md": "z", "X86/Basic.lean": "theorem a : True := by exact trivial"},
+             "MEASURE")
+    # ⛔⛔ THE THREE ARMS MY FIRST DESIGN WOULD HAVE FAILED. A bare "no `.lean`"
+    # predicate skips every one of these, and each moves EVERY reading in the tree.
+    null_arm("⛔⛔ a `lean-toolchain` bump with NO `.lean` MEASURES (PROFILER_PATH)",
+             {"lean-toolchain": "leanprover/lean4:v4.33.0"}, "MEASURE")
+    null_arm("⛔⛔ a `lake-manifest.json` repin with NO `.lean` MEASURES",
+             {"lake-manifest.json": "{}"}, "MEASURE")
+    null_arm("⛔⛔ an UNCLASSIFIED path MEASURES — the default is inverted",
+             {"lakefile.toml": "name = 'x'"}, "MEASURE")
+    null_arm("⛔ …and so does a path nobody has ever argued about",
+             {"vendor/thing.c": "int main(){}"}, "MEASURE")
+    # ⭐ The gate's own scripts are PROFILER_PATHS and are never exempt.
+    null_arm("⛔ `scripts/kernel_delta.py` itself MEASURES (it carries the rule)",
+             {"scripts/kernel_delta.py": "# touched"}, "MEASURE")
+
     # ── THE REGISTRY KEY (D198): (unit, machine), and a duplicate is an ERROR ──
     # ⛔ These drive the PARSER, not the verdict. The defect being repaired lived
     # entirely in the parse: two lines went in and one entry came out, so no
@@ -2137,6 +2248,35 @@ def main():
         return rc
     head = arg("--head", "HEAD")
     base = arg("--base") or resolve_base(head)
+    # ⚖️ THE SUBJECT CHECK COMES BEFORE THE MEASUREMENT, not after it. Placed
+    # here rather than inside `verdict` on purpose: the point is to NOT SPEND the
+    # profile, and a skip decided after `measure()` would have already paid for
+    # the thing it is declining to trust.
+    _skip = null_pair_reason(base, git("rev-parse", head))
+    if _skip is not None:
+        print(f"── NOT measuring the delta {base[:9]} → {git('rev-parse', head)[:9]}")
+        print("⏭️  SKIP — NULL PAIR: this range changes nothing `lake` reads, so the "
+              "kernel delta is ZERO BY CONSTRUCTION and there is nothing here for "
+              "this gate to resolve.")
+        # ⛔ THE RECEIPT NAMES WHAT IT SKIPPED AND WHY, PATH BY PATH. A bare
+        # "skipped" is a green that means "did not look", and this file already
+        # carries the lesson that a tool with no concept of "not applicable" must
+        # print what it excluded and on whose authority.
+        # [[feedback-a-tool-has-no-concept-of-not-applicable]]
+        if isinstance(_skip, str):
+            print(f"     {_skip}")
+        else:
+            for _path, _why in _skip:
+                print(f"     {_path}")
+                print(f"       └─ {_why[:96]}")
+            print(f"   ⇒ {len(_skip)} changed path(s), every one carrying a STATED reason "
+                  f"from `kernel_drift.EXEMPT_RULES`. A `.lean`, a PROFILER_PATH, or ANY "
+                  f"unclassified path would have measured instead — the default is "
+                  f"inverted, so a path nobody has argued about is never skipped.")
+        print("⚠️  THIS IS A STATED NON-MEASUREMENT, NOT A PASS. Nothing was profiled and "
+              "no reading was taken; rc 0 means 'there was no question here', not "
+              "'the answer was good'.")
+        return 0
     print(f"── measuring the delta {base[:9]} → {git('rev-parse', head)[:9]}")
     data = measure(base, head, int(arg("--repeats", "3")))
     out = arg("--out")
