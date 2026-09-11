@@ -2576,6 +2576,30 @@ THAT ALREADY EXISTED.*** Now `is_shard_job()` is exact, `run_qualifies()` requir
 actually RUN, and both are **pure and armed** — the network path cannot be driven in a selftest, so
 the decision it rests on was factored out to where it can be.
 
+### ⚠️ VERIFICATION STATUS — **THE `MEASURE` PATH IS PROVEN IN PRODUCTION; THE `SKIP` PATH IS NOT**
+```
+  in CI at 618e94a3, run 34654310710, job selftest-gate:
+      "Prove the skip decision before trusting it"   arms=20 red=0      <- on the runner
+      selftest-skip: consumed set = 27 path(s); digest 5802aed1609ec4a4 at 618e94a3
+      selftest-skip: MEASURE -- digest differs from green 4359f6fe (848dbf941dca51d9)
+      ⇒ the shards RAN.  Correct: this commit edited ci.yml, so the gate cannot skip
+        its own introduction.
+```
+⛔ **SO WHAT IS PROVEN AND WHAT IS NOT, STATED SEPARATELY:**
+* **PROVEN IN PRODUCTION:** the gate job runs, its selftest passes on the runner, the decision is
+  computed from the real tree, the record prints, and `MEASURE` correctly lets the shards through.
+* **PROVEN ONLY IN A FIXTURE:** every `SKIP` path. 13 digest arms and 7 job-identity/qualification
+  arms run against a throwaway repo — **no skip has ever been emitted in CI.**
+⇒ 🔑 ***A GATE WHOSE REFUSING PATH IS PROVEN AND WHOSE PERMITTING PATH IS NOT HAS BEEN HALF TESTED,
+AND IT IS THE PERMITTING HALF THAT CAN COST SOMETHING.*** A `MEASURE` that should have been a `SKIP`
+wastes 8.7 runner-hours; a `SKIP` that should have been a `MEASURE` reports green on an untested
+artifact. **The arms exist for the second case and they have not yet fired in production.**
+✅ **THE CLOSING STEP, and its precondition:** once run `34654310710`'s shards report **green**, one
+DOCS-ONLY commit must produce `SKIP … inherits=618e94a3`. ⛔ **It may not be pushed before then** —
+until those shards are green there is no green evidence at digest `5802aed1609ec4a4` to inherit, the
+gate would correctly say MEASURE, and pushing would also cancel the run that creates the evidence.
+**That is the first wait this seat has set whose condition is exactly as narrow as its question.**
+
 ### THE ORIGINAL MEASUREMENT THAT OPENED THIS ITEM
 
 
