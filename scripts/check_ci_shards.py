@@ -17,12 +17,33 @@ says PASS, because each shard really did pass.
 THE ORCHESTRATOR**, where none of this repository's other gates can see it. This
 file is the gate for that one seam.
 
-It checks four things, and each one is a way the seam has to fail:
+It checks EIGHT things, and each one is a way the seam has to fail:
   1. `matrix.shard` is exactly `1..n` — no gaps, no duplicates, starting at 1;
   2. every `selftest-shard` command passes that same `n` as its divisor;
   3. the `selftest-shards` partition gate in the other job asserts the same `n`;
   4. the shard command's `k` is the matrix variable, not a literal — a literal
      would run one shard six times and still be green six times.
+
+⛔⛔ 5-8 WERE ADDED 2026-09-11 WITH THE `CI-3` SKIP GATE, WHICH MOVES THE COVERAGE
+QUESTION FURTHER INTO THE ORCHESTRATOR — the shards may now be SKIPPED ENTIRELY
+on a digest match, and the condition deciding that lives in YAML where no Lean
+arm and no Python selftest can see it.
+  5. the `selftest` job `needs: selftest-gate` — without it the expression cannot
+     resolve and the gate is decorative;
+  6. ⛔ its `if:` is the NEGATION, `skip != 'true'`.  **An inverted condition
+     (`== 'true'`) is the catastrophic direction: the shards would run ONLY when
+     they were supposed to skip, i.e. NEVER on a changed artifact, and CI would
+     report green having tested nothing.**  That is precisely the state the
+     helm's condition (1) exists to prevent, reached through a one-character typo;
+  7. the `selftest-gate` job checks out with `fetch-depth: 0` — the decision reads
+     the tree at the PRIOR GREEN SHA, and a depth-1 checkout does not have it, so
+     the gate would silently degrade to "always MEASURE" (safe, but dead, and
+     dead-while-reading-as-coverage is this repo's recurring defect);
+  8. the gate actually invokes `selftest_skip.py --decide`, and proves it with
+     `--selftest` first.
+⇒ 🔑 ***5-8 GUARD A GATE WITH A PERMITTING PATH. 1-4 GUARD ONE WITH ONLY A
+MEASURING PATH.*** The failure modes are not the same size and the checks are not
+written as if they were.
 
 LANE.  Personal lane; nothing here touches an employer-lane tree.
 """
@@ -38,6 +59,143 @@ if __name__ == "__main__":
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from portable import strict_flags as _strict_flags
     _strict_flags(__file__)
+
+SKIP_IF = "needs.selftest-gate.outputs.skip != 'true'"
+
+
+def check_skip_seam(text):
+    """5-8: the CI-3 skip seam. Returns a list of findings (empty = clean)."""
+    import yaml
+    out = []
+    try:
+        d = yaml.safe_load(text)
+    except Exception as e:
+        return [f"ci.yml does not parse as YAML ({e})"]
+    jobs = (d or {}).get("jobs") or {}
+
+    gate = jobs.get("selftest-gate")
+    st = jobs.get("selftest")
+    if st is None:
+        return ["there is no `selftest` job at all"]
+    if gate is None:
+        # No gate job: the shards must then be UNCONDITIONAL. That is the old,
+        # safe world, and it is legal -- but `selftest` must not carry a
+        # dangling `if:` referring to a job that does not exist.
+        if st.get("if"):
+            out.append("`selftest` has an `if:` but there is no `selftest-gate` job to "
+                       "supply it; the condition cannot resolve")
+        return out
+
+    needs = gate and st.get("needs")
+    needs = [needs] if isinstance(needs, str) else (needs or [])
+    if "selftest-gate" not in needs:
+        out.append("`selftest` does not `needs: selftest-gate`, so "
+                   "`needs.selftest-gate.outputs.skip` cannot resolve and the gate is decorative")
+
+    cond = (st.get("if") or "").strip()
+    if not cond:
+        out.append("`selftest` has no `if:`, so the gate can never skip anything")
+    elif cond != SKIP_IF:
+        # ⛔ THE INVERSION IS THE ONE THAT COSTS EVERYTHING, so it is named.
+        if "==" in cond and "skip" in cond:
+            out.append(f"⛔⛔ `selftest`'s `if:` is INVERTED: {cond!r}. The shards would run "
+                       f"ONLY when the gate said SKIP -- i.e. never on a changed artifact -- "
+                       f"and CI would report green having tested nothing. Expected: {SKIP_IF!r}")
+        else:
+            out.append(f"`selftest`'s `if:` is {cond!r}, not the expected {SKIP_IF!r}")
+
+    steps = gate.get("steps") or []
+    co = [x for x in steps if "checkout" in str(x.get("uses", ""))]
+    if not co:
+        out.append("`selftest-gate` does not check out the repository")
+    elif (co[0].get("with") or {}).get("fetch-depth") != 0:
+        out.append("`selftest-gate` does not check out with `fetch-depth: 0`; the decision "
+                   "reads the tree at the PRIOR GREEN SHA, which a depth-1 clone lacks, so "
+                   "the gate would silently degrade to always-MEASURE")
+
+    runs = " ".join(str(x.get("run", "")) for x in steps)
+    if "selftest_skip.py --decide" not in runs:
+        out.append("`selftest-gate` never runs `selftest_skip.py --decide`; nothing computes "
+                   "the decision its outputs claim to carry")
+    if "selftest_skip.py --selftest" not in runs:
+        out.append("`selftest-gate` does not run `selftest_skip.py --selftest` before trusting "
+                   "the decision; a gate proven only on the developer box is proven where it "
+                   "cannot fail")
+    return out
+
+
+def _skip_seam_selftest():
+    """Drive checks 5-8 both ways.  A gate watched only passing has been probed
+    for NOISE and not for SILENCE, and an arm that cannot fire is
+    indistinguishable from one that found nothing."""
+    import copy, yaml
+    base_text = open(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        ".github", "workflows", "ci.yml")).read()
+    base = yaml.safe_load(base_text)
+    red = 0
+    arms = []
+
+    def arm(name, text, expect_finding, needle=None):
+        nonlocal red
+        out = check_skip_seam(text if isinstance(text, str) else yaml.safe_dump(text))
+        got = len(out) > 0
+        ok = (got == expect_finding) and (needle is None or any(needle in o for o in out))
+        arms.append(name)
+        print(("  v " if ok else "  x ") + name + ("" if ok else f"   -> {out}"))
+        if not ok:
+            red += 1
+
+    print("check_ci_shards --selftest (checks 5-8, the CI-3 skip seam)")
+    # CONTROL FIRST.  If the live file does not pass, every plant below is
+    # uninterpretable.
+    arm("control: the REAL ci.yml passes the skip-seam checks", base_text, False)
+
+    d = copy.deepcopy(base); d["jobs"]["selftest"]["if"] = \
+        "needs.selftest-gate.outputs.skip == 'true'"
+    arm("⛔ PLANT: an INVERTED if: is caught and NAMED as inverted", d, True, "INVERTED")
+
+    d = copy.deepcopy(base); d["jobs"]["selftest"].pop("if", None)
+    arm("PLANT: a missing if: is caught (the gate could never skip)", d, True, "no `if:`")
+
+    d = copy.deepcopy(base); d["jobs"]["selftest"].pop("needs", None)
+    arm("PLANT: a missing needs: is caught (the expression cannot resolve)", d, True, "needs")
+
+    d = copy.deepcopy(base)
+    for stp in d["jobs"]["selftest-gate"]["steps"]:
+        if "checkout" in str(stp.get("uses", "")):
+            stp["with"] = {"fetch-depth": 1}
+    arm("PLANT: fetch-depth 1 on the gate is caught (always-MEASURE, silently)", d, True,
+        "fetch-depth: 0")
+
+    d = copy.deepcopy(base)
+    d["jobs"]["selftest-gate"]["steps"] = [
+        x for x in d["jobs"]["selftest-gate"]["steps"]
+        if "--decide" not in str(x.get("run", ""))]
+    arm("PLANT: a gate that never runs --decide is caught", d, True, "--decide")
+
+    d = copy.deepcopy(base)
+    d["jobs"]["selftest-gate"]["steps"] = [
+        x for x in d["jobs"]["selftest-gate"]["steps"]
+        if "--selftest" not in str(x.get("run", ""))]
+    arm("PLANT: a gate that does not prove itself first is caught", d, True, "--selftest")
+
+    # ⭐ AND THE OTHER DIRECTION: removing the gate ENTIRELY is legal (the old,
+    # unconditional world) -- but only if the dangling `if:` goes with it.
+    d = copy.deepcopy(base); d["jobs"].pop("selftest-gate")
+    arm("⭐ PLANT: no gate job + a dangling if: is caught", d, True, "cannot resolve")
+    d = copy.deepcopy(base); d["jobs"].pop("selftest-gate")
+    d["jobs"]["selftest"].pop("if", None); d["jobs"]["selftest"].pop("needs", None)
+    arm("⭐ CONTROL: no gate job AND no if: is LEGAL — the unconditional world passes",
+        d, False)
+
+    print(f"\n  arms={len(arms)} red={red}")
+    return 1 if red else 0
+
+
+if "--selftest" in sys.argv:
+    sys.exit(_skip_seam_selftest())
+
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
@@ -85,6 +243,11 @@ for g in gates:
         bad.append(f"the partition gate asserts `selftest-shards {g}` but the shards "
                    f"run with divisor {n}; the gate is describing a different split")
 
+# ── 5-8: THE SKIP SEAM (CI-3).  Parsed as YAML, not regexed: these are
+# STRUCTURAL facts about jobs, and a regex over YAML would be a second parser
+# disagreeing with the one GitHub actually uses.
+bad += check_skip_seam(text)
+
 if bad:
     print(f"⛔ CI shard gate: FAIL ({CI})")
     for b in bad:
@@ -92,5 +255,6 @@ if bad:
     sys.exit(1)
 
 print(f"CI shard gate: CLEAN — matrix.shard is 1..{n}, every `selftest-shard` "
-      f"passes divisor {n} with the matrix variable as k, and the partition gate "
-      f"asserts the same {n}")
+      f"passes divisor {n} with the matrix variable as k, the partition gate "
+      f"asserts the same {n}, and the skip seam is wired in the permitting "
+      f"direction with fetch-depth 0")
