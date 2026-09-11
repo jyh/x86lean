@@ -63,10 +63,29 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
   own parent; merges charged only for content no parent carries). It measures **8** findings across
   **4** commits — the seven, plus **the root commit's own CLAUDE.md**, which was structurally
   invisible to the arm that produced the number and was never shown to the Captain.
-  ⚠️ **The CI arms are NOT affected and this is not a wider indictment:** CI's delta arm scans one
-  push, where the net difference and "what this push adds" coincide; the tree arm covers what it
-  drops; the message arm was never a net diff at all (`git log` is per-commit). The defect is
-  confined to the AUDIT form — the one whose number was quoted.
+  ⛔⛔ **THIS PARAGRAPH USED TO EXEMPT THE CI ARMS AND THE EXEMPTION IS FALSE — DRIVEN 2026-09-10.**
+  It read: *"CI's delta arm scans one push, where the net difference and 'what this push adds'
+  coincide; the tree arm covers what it drops."* **Both halves fail on a MULTI-COMMIT push.** Driven
+  in a throwaway repo, two commits pushed together — commit 1 ADDS a private path, commit 2 REMOVES
+  it:
+  ```
+    check_private_paths.py --range BASE..HEAD   rc 0   (the CI delta arm)  — no finding
+    check_private_paths.py --tree               rc 0   (the CI tree ratchet) — no finding
+    check_private_paths.py --history            FAIL, names the commit and the file
+  ```
+  ⇒ 🔑 ***THE BLOB IS PUSHED TO A PUBLIC REMOTE AND NO CI ARM SEES IT.*** The path is in neither the
+  NET DIFFERENCE nor the TREE — it exists only in an intermediate commit, which is exactly the
+  population `--history` was built to read and the one CI does not run.
+  ⚠️ **NOT HYPOTHETICAL FOR THIS REPO:** `1304132` was pushed with **three commits at once** the same
+  day this was written. Single-commit pushes are safe; this repo does not only make those.
+  📌 **The message arm is genuinely unaffected** (`git log` is per-commit), and the TRAILERS gate does
+  run a full-history arm (`--range HEAD`). **It is private PATHS that has delta + tree + messages and
+  no history arm.**
+  ⛔ **AND THE REMEDY IS BLOCKED, WHICH IS PROBABLY WHY IT WAS NEVER WIRED:** `--history` supports
+  `--write-baseline`, but writing that baseline IS the PUB-1 recording act, and this file already
+  records it as **blocked on the Captain's word about the eighth site**. ⇒ **The gap and the blocker
+  are the same item**, and saying so is the correction — the old paragraph instead said there was no
+  gap.
   PUB-1 (accept vs rewrite) was ruled **ACCEPT** by the Captain 2026-09-09; salt's own precedent
   (08/30) was the same. The recording act is BLOCKED on his word about the eighth site — filed in
   `docs/QUEUE.md`, on the blocked-on-captain register, and derived in `docs/DECISIONS.md` D182.
