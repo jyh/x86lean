@@ -13257,3 +13257,69 @@ separately-labelled arm over `Tests.*` whose allowlist starts EMPTY, so every fu
 argued exception rather than a silence; (b) move the safety theorems into a gated namespace; (c) mark
 deliverables by attribute and gate on that. **(a) is the recommendation** — additive and conservative
 — but it is gate policy and touches the plan's tier structure, so it is the helm's.
+
+## D198 — §9.4's premise is refuted: the runner's hostname is STABLE, and the real obstacle is that the registry is keyed by UNIT
+
+⚠️ **NUMBERED D198, SKIPPING D197**, which lives on the held branch `p2-proof-interface` and lands
+with its merge. Same reason D197 skipped D192–D196: `docs/DECISIONS.md` already carries two decisions
+numbered D123 (D195), and a third duplicate is not worth creating.
+
+### 1. ⛔ WHAT THE RECORD SAID, AND IT WAS WRONG
+D194's §9.4 note — carried into the bank, the bus and the open-calls list — read that machine identity
+is the run's hostname and that *"the runner stamps `runnervmlun5p`, an **ephemeral per-run VM name**, so
+`@on` can never match a CI run and the release mechanism is dead there."* The whole design call was
+filed on that premise.
+
+**Measured across every CI run whose kernel-delta job reached the measuring step:**
+```
+  2026-09-11T04:23  34562032878   BOX runnervmlun5p
+  2026-09-10T23:54  34544223619   BOX runnervmlun5p
+  2026-09-10T21:47  34534044551   BOX runnervmlun5p
+  2026-09-10T16:52  34504734457   BOX runnervmlun5p
+```
+**Four for four, spanning ~11.5 hours and two days. The name is not per-run.**
+⚠️ **STATED AT ITS REAL STRENGTH, because the flattering version is the one that rots:** this is an
+OBSERVED REGULARITY over a short window on `ubuntu-latest`, **not a documented GitHub guarantee.** It
+may change without notice. What makes that tolerable is the failure DIRECTION, below.
+
+### 2. ⭐ THE REAL OBSTACLE, WHICH THE WRONG PREMISE WAS HIDING
+`read_ceilings()` builds `ceil[p[0]] = (float(p[1]), mach)` — **a dict keyed by UNIT.** The `@on`
+machine is an ATTRIBUTE of the single entry, never part of the key. So the registry can name **one
+machine per unit**, and this gate runs on **two**.
+
+**Driven, not read off the source** — two lines for one unit, different machines:
+```
+  ZZTest.Unit 100 @on yukon.lan
+  ZZTest.Unit 800 @on runnervmlun5p
+  => read_ceilings()["ZZTest.Unit"] == (800.0, 'runnervmlun5p')
+     entries for that unit: 1      no warning, no error, no diagnostic
+```
+⇒ 🔑 ***THE SECOND LINE SILENTLY OVERWRITES THE FIRST.*** A head registering the runner's ceiling
+beside the developer box's would not be told it had just moved the refusal to the other machine.
+
+### 3. ⇒ THE CONSEQUENCE FOR THE MERGE, CONFIRMED AT THE OBJECT
+`resolve_base()` returns `HEAD^` when head is on trunk, so on a merge commit `M` the base is `M^` —
+master before the merge. **`X86.Program` and `Tests.Program` are therefore NEW for exactly that one
+comparison, on BOTH machines**, and CI's last kernel-delta step is `kernel_delta.py --repeats 6`,
+whose rc 3 fails the step. Whichever box is registered, **the other refuses and the merge commit reds.**
+📌 The gate's own refusal advice — *"take the reading ON THE MACHINE THAT RUNS THIS GATE"* — is written
+in the singular, and that is the inconsistency in one sentence.
+
+### 4. ✅ THE FAILURE DIRECTION IS SAFE, AND THAT IS WHAT MAKES §1's CAVEAT LIVABLE
+A non-matching or machine-less entry is treated as **ABSENT ⇒ REFUSE**, never as a loose bound. So if
+GitHub's runner naming does change, the gate REFUSES rather than silently passing a unit against a
+number measured on another box. **The observation rotting costs a refusal, not a false green** —
+which is the direction a gate is allowed to be wrong in.
+
+### 5. ⚖️ THE FORK — POSTED, NOT TAKEN
+**(a)** register `@on yukon.lan` from the local merge-gate reading; the merge commit reds on the runner
+for exactly one commit, then both units have base readings and the ordinary portable RATIO arm applies.
+**(b)** register the runner's ceiling — **circular**: no runner reading for these units can exist until
+the merge happens, because branch CI dies at `--gap` before the measuring step.
+**(c)** key the registry by **(unit, machine)** so both boxes can be registered, and make a duplicate
+key an ERROR rather than a silent overwrite.
+**(c) is the recommendation** — it is the only arm under which this gate can be honest on a two-machine
+setup, and it makes the `@on` column mean what D194 says it means. ⛔ **NOT IMPLEMENTED HERE.** D194 is
+24 hours old, the helm withdrew its predecessor, §9.4 is registered as the helm's call, and **this seat
+is the party the gate convicted** — changing the gate that holds my own branch is the act the
+separation exists to prevent. The measurement is mine; the design is not.
