@@ -74,10 +74,16 @@ destination and six flags undefined. With a **register** destination the model a
 oracle. With a **memory** destination there is no channel, so **this model REFUSES** rather than
 widening its strongest gate as a side effect of one batch — and the refusal is stated as a theorem,
 `step_dshift_mem_undefined_refuses`.
-⭐⭐ **NOTHING ELSE IN §1's TABLE HAS THIS.** x86isa mints an unknown, K writes a constant, Sail
-dropped the mechanism. **A machine-checked statement that the model declines a case it cannot
-represent** is the one thing in this row that is ours, and it is worth more than the oracle design
-itself. ⚠️ It is also a *small* claim over *one* instruction pair — the paper must present it as a
+⭐⭐ **NOTHING ELSE IN §1's TABLE HAS THIS.** x86isa answers with a *constrained* value, K with a
+constant, Sail with its builtin `undefined` and a mask — **all three ANSWER; none of them DECLINES.**
+**A machine-checked statement that the model declines a case it cannot represent** is the one thing
+in this row that is ours, and it is worth more than the oracle design itself.
+⛔ *This sentence read "x86isa mints an unknown, K writes a constant, Sail dropped the mechanism"
+until §1a landed — **the table above it had already been corrected and this line had not.** ⇒ 🔑
+**A CORRECTION APPLIED TO A TABLE DOES NOT REACH THE PROSE THAT QUOTES IT** — the exact mirror of
+this campaign's finding the same morning that a fill written into PROSE never reached the TABLE.
+Both directions of one defect, in one day, in two files. **The register and its narrative drift
+apart whichever one you edit first.*** ⚠️ It is also a *small* claim over *one* instruction pair — the paper must present it as a
 demonstrated discipline, not as coverage.
 📌 And it is self-enforcing: the oracle COMPUTES that case, so a vector there would be a
 refusal-class disagreement rather than a test. **The gap cannot be filled by accident and cannot be

@@ -200,12 +200,24 @@ figure published by the project"* — which is what a referee needs and what a g
 hidden. **Our previous parenthetical, "inherits x86isa's scope", is REFUTED as stated.**
 
 ### 1c.6 ⭐⭐ UNDEFINED BITS — FOUR SYSTEMS, FOUR DIFFERENT ANSWERS, AND THIS IS G2's SPINE
+⛔⛔ **TWO OF THE FOUR LINES BELOW WERE SUPERSEDED THE SAME DAY BY §1c.10 — READ IT BEFORE QUOTING
+ANYTHING FROM HERE.** The `Sail` line said **DROPPED** and that is **FALSE** (it is *replaced*, via
+`prelude.sail`'s builtin `undefined` plus an `undefined_flags` mask); the `x86isa` line is **too
+weak** (`create-undef` is an `encapsulate`d CONSTRAINED function, and the project states the
+property itself). **They are corrected in place below rather than deleted, because this section is
+reached first and a document that contradicts itself reads as whichever half is reached first** —
+which is the defect this campaign recorded three times on 2026-09-11 before committing it here.
 ```
   x86lean   an ORACLE in the state supplying CONCRETE values  -> model stays total and executable
-  x86isa    machine/register-readers-and-writers.lisp:1545
-            an `undef` SEED COUNTER in the state; undef-read returns (create-undef seed) -- a FRESH
-            UNIQUE unknown -- and increments it; (push-untouchable (!undef$inline)) so the only way
-            to mint one is undef-read.  Doc topic: characterizing-undefined-behavior.
+  x86isa    machine/register-readers-and-writers.lisp:1497 and :1545
+            ⚠️ CORRECTED BY §1c.10: create-undef is introduced by `encapsulate` as a CONSTRAINED
+            function, ( ((create-undef *) => *) ), witness LOCAL -- so NOTHING about equality is
+            provable.  Its own :long: "an undefined value is different from another undefined
+            value, and also all the known values."  An `undef` SEED COUNTER feeds it, and
+            (push-untouchable (!undef$inline)) means undef-read is the only way to mint one.
+            Doc topic: characterizing-undefined-behavior.
+            [this line first read only "a FRESH UNIQUE unknown", which is the EFFECT, not the
+             mechanism, and understated the strongest of the four designs]
   K         semantics/x86-mint-wrapper.k:19  syntax MInt ::= "undefMInt"  (+8/16/32/64, undefBool)
             written STRAIGHT INTO THE FLAG:  registerInstructions/shlq_r64_one.k:18  "AF" |-> (undefMInt)
             497 of 3,064 per-instruction .k files mention undef   [POS CONTROL: 930 mention "CF"]
@@ -216,13 +228,21 @@ hidden. **Our previous parenthetical, "inherits x86isa's scope", is REFUTED as s
             SPLIT: register 161 · memory 227 · immediate 109 · system 0 · extras 0 -- undefined
             flags are a DATA-instruction phenomenon in K and absent from its system instructions.
             token census: undefMInt 1,073 · undefBool 310 · undefMInt64/32/16 4 each
-  Sail      DROPPED. model/other_non_det.sail is 27 bytes: $include "./syscalls.sail"
-            model/rflags_spec.sail: 10,005 B, 38 functions, ZERO undef  [the size IS the pos control]
+  Sail      ⛔ THIS LINE SAID "DROPPED" AND IT IS FALSE -- SEE §1c.10.  Sail REPLACED the
+            mechanism: model/prelude.sail, "Here we use Sail's builtin `undefined`", via
+            undef_read_logic(), with a per-case undefined_flags MASK threaded through
+            write_user_rflags (144 hits in shifts_spec.sail alone).
+            The two readings that produced "DROPPED" are both TRUE and neither is about the
+            mechanism:  model/other_non_det.sail IS 27 bytes (it is x86isa's RDRAND module) and
+            model/rflags_spec.sail DOES carry zero `undef` (it holds the flag SPEC functions).
+            ⇒ I read two files named after the concept and concluded about the concept.
 ```
-⭐ **x86isa's own source documents the hazard that K's design walks into**, in `unsafe-!undef`'s
-`:long`: reusing a seed *"might contaminate our 'pool of undefined values' … which would make the
-result of an equality test between them equal instead of indeterminate."* K uses **one constant**, so
-two undefined flags are the **same term**.
+⭐ **x86isa's own source documents the hazard that K's design walks into.** ⚠️ **§1c.10 supplies the
+STRONGER citation and this paragraph leans on the weaker one:** the *design rationale* under
+`create-undef` states the property outright, where `unsafe-!undef`'s `:long` — reusing a seed *"might
+contaminate our 'pool of undefined values' … which would make the result of an equality test between
+them equal instead of indeterminate"* — makes the same point only from the misuse side. K uses **one
+constant**, so two undefined flags are the **same term**.
 ⚠️ **STATED AT ITS REAL STRENGTH: the mechanism is measured; the consequence is a HYPOTHESIS.** I have
 NOT verified how `kprove` treats `undefMInt` under equality, and it may well refuse to decide it. **Do
 not put the consequence in the paper until it is driven against K.** Recording it here as the next
