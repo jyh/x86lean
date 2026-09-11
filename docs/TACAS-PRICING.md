@@ -13,11 +13,34 @@ estimate in a pricing document is the defect this campaign has spent the most ti
 ## 1. WHAT EXISTS TODAY, MEASURED AT `7bb57ee`
 
 ```
-  Lean library modules ................ 12          Tests modules ............... 6
-  total .lean lines ................... 18,824      theorems + lemmas ........... 616
-  recorded decisions .................. 200         differential records ........ 44
-  design documents .................... 55
+  QUANTITY                    AT 7bb57ee   THE DENOMINATOR, WHICH USED TO BE UNSTATED
+  Lean library modules ......      12      X86/*.lean
+  Tests modules .............       6      Tests/*.lean
+  total .lean lines .........  18,824      X86/ + Tests/ + X86.lean + Tests.lean
+                                           ** EXCLUDES Main.lean (4,390), AxiomGate, X86Native **
+                                           all tracked .lean is 23,352 -- a 24% difference
+  theorems + lemmas .........     616      X86/ + Tests/, lines matching
+                                           ^(theorem|lemma|private theorem|protected theorem)
+                                           all tracked .lean gives 618
+  recorded decisions ........     200      ^## D[0-9] in docs/DECISIONS.md
+  differential records ......      44      docs/DIFFERENTIAL-*.md
+  design documents ..........      55      docs/*.md AT DEPTH 1 -- ** EXCLUDES docs/seals/ (4) **
+                                           docs/**/*.md gives 59
 ```
+⛔⛔ **EVERY ONE OF THESE NUMBERS IS CORRECT AT `7bb57ee`, AND UNTIL THIS EDIT NOT ONE DENOMINATOR WAS
+STATED. I RE-DERIVED THEM AND GOT THREE OF SEVEN WRONG.** Reaching for the obvious command — all
+tracked `.lean` files, `docs/**/*.md` — gave 23,352 / 618 / 59, and I spent several minutes believing
+this file was **stale by 24%**. It is not. **I was counting a different population.**
+⇒ 🔑 ***A CORRECT NUMBER WITH AN UNSTATED DENOMINATOR FAILS REPRODUCTION EXACTLY LIKE A WRONG ONE —
+AND FAILS WORSE, because the author defends it and neither side can see why they disagree.***
+⇒ ⛔ **THIS IS A MEASURED REFUTATION OF G5's PRICE, one table down.** G5 said artifact evaluation is
+*"unusually cheap here: every headline number is already CI-gated and derived, so 'reproduce the
+claims' is largely 'run the gates'."* **These seven are NOT gated** — `claimed_forms.py` gates the six
+COVERAGE numbers below, and nothing reads these. **An evaluator running the obvious command gets a
+different answer for at least three of seven and reports that the claims do not reproduce.**
+📌 **Which have MOVED since `7bb57ee`, measured at HEAD:** decisions 200 → 202 and design documents
+55 → 59, both by this shift's own work; the rest are unchanged. **The movement is correct behaviour,
+not decay — a measurement is a claim about its sha.** The defect was never staleness.
 
 **Coverage, and these six numbers are GATED** — `scripts/claimed_forms.py` derives them from two
 independent sources (every vector's own AT&T text, and every roster row's own encoding assembled by
@@ -66,12 +89,13 @@ that is the Captain's and the helm's:**
 | G2 | **Undefined-bit / flag semantics not written up.** The oracle exists in the model; the *argument* is scattered across decisions. | it is the hardest part of x86 and the most citable | **2–3 days**, mostly extraction from `docs/DECISIONS.md`. |
 | G3 | **No performance/scale statement for the semantics itself.** We have kernel-cost data per module, gated — but framed as CI hygiene, not as a result. | "does it scale?" | **1 day** to reframe existing gated numbers. ⚠️ See §3: the gate's dispersion is not robust, so any published timing needs a robust estimator first. |
 | G4 | **The five proof problems are a sample, not a benchmark.** Four routines, 2–7 labels. | "is 19 + 7.7/label general?" | **unpriced — needs the benchmark freeze** (helm item 4, P2 in the design lane, with bench). |
-| G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | **2–3 days.** ⭐ Unusually cheap here: every headline number is already CI-gated and derived, so "reproduce the claims" is largely "run the gates". |
+| G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | ⛔ **RE-PRICED 2026-09-11 → 3–4 days.** The old cell said *"unusually cheap … every headline number is already CI-gated"*. **Measured (§1): the seven §1 numbers are NOT gated, and three of seven do not reproduce under the obvious command because their denominators were unstated.** The six COVERAGE numbers *are* gated and that half of the claim holds. **AE work is therefore not "run the gates" — it is "state every denominator, then run the gates."** |
 | G6 | **Related work.** ⚠️ **NOT "not started" — a 10-element PRIOR-ART TABLE already exists** (this campaign's 2026-09-02 provenance verdict, a private-lane document), with named public prior art per design element and an evidence class on each: Myreen FMCAD 2012 · Dasgupta PLDI 2019 · Heule PLDI 2016 · Armstrong POPL 2019 · Verbeek/Roessle/Bockenek CPP 2019 + PLDI 2022 · LNSym · seL4/AutoCorres. | required | ✅ **RE-DRIVEN AND TRANSPLANTED 2026-09-11 → `docs/TACAS-G6-RELATED-WORK.md`** (D201). **Discovery and verification are now SPENT; what remains is bibliography and prose.** Still ~2 days — 3 of 9 at-source claims had to be repaired, and the bibliographic records are not written. |
 
 **Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**
 ```
-  G2  2-3   G3  1   G5  2-3   G6  2        ⇒  REMAINING: 7-9 working days
+  G2  2-3   G3  1   G5  3-4   G6  2        ⇒  REMAINING: 8-10 working days
+                                             (G5 re-priced 2-3 -> 3-4 by §1's measurement)
   G1  SPENT (priced 1-2, took ~1)          G4  unpriceable until the benchmark exists
 ```
 ⛔⛔ **THIS TOTAL WAS WRONG TWICE AND THE SECOND TIME WAS MINE, TODAY, IN THE SAME SHIFT AS §2.**
@@ -84,6 +108,10 @@ parts were correct and present, three lines above, the whole time.
 ⇒ **Third instance today of one defect** — §2's debt list, §2.4's nine-day-old at-source annotation,
 and this. **All three were hand-maintained summaries sitting beside the data that contradicted them,
 and all three were edited rather than re-derived.** That is why the sum is now printed as its parts.
+✅ **AND THE PARTS FORM PAID FOR ITSELF WITHIN THE HOUR:** G5 was re-priced 2–3 → 3–4 by §1's
+measurement, and because the total sits beside its addends the stale sum was **impossible to miss and
+trivial to re-derive**. In its old form it would have read `7–9` indefinitely and nobody would have
+had the parts to check it against.
 
 ### 2.3 ⛔⛔ TWO THINGS G1 FOUND THAT CHANGE WHAT THIS PAPER MAY CLAIM (D200)
 **(a) THE ORACLES ARE NOT THREE INDEPENDENT WITNESSES — THEY ARE TWO ORIGINS.**
@@ -169,8 +197,8 @@ to take** — but it is on the critical path of G3, so it is priced here as a **
 ---
 
 ## 4. RECOMMENDATION — MINE, NOT RULED
-**(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 = **6–8
-days**; that is §2.2's 7–9 **minus G3's 1 day**, because G3 is blocked on §3 and cannot be scheduled —
+**(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 = **7–9
+days**; that is §2.2's 8–10 **minus G3's 1 day**, because G3 is blocked on §3 and cannot be scheduled —
 the two numbers differ for a stated reason, not by accident) and let the measured tier law stand as a *section*, not as the paper's claim.
 It is publishable on the coverage and the gating discipline alone, and it is the paper the second one
 must cite.

@@ -13815,3 +13815,55 @@ from evidentiary use**. Same syntax, opposite function — and only the second i
 ⇒ Companion to §1c.4's finding that `vendor/k-x86-64` is a `blob:none` partial clone holding only
 `semantics/`. **Three different kinds of incompleteness in two checkouts of one project**, and each
 would produce a different false absence.
+
+## D202 — every headline number in the pricing file is CORRECT and none stated its denominator; I re-derived them and got three of seven wrong
+
+Taken to test G5's price claim — *"unusually cheap here: every headline number is already CI-gated
+and derived, so 'reproduce the claims' is largely 'run the gates'."* **The claim is half true and the
+false half re-prices the gap.**
+
+### 1. THE MEASUREMENT
+```
+  QUANTITY                 CLAIMS   OBVIOUS RE-DERIVATION   THE ACTUAL DENOMINATOR
+  Lean library modules        12          12                X86/*.lean
+  Tests modules                6           6                Tests/*.lean
+  total .lean lines       18,824      23,352  (+24%)        X86/ + Tests/ + X86.lean + Tests.lean
+                                                            -- EXCLUDES Main.lean's 4,390 lines
+  theorems + lemmas          616         618                X86/ + Tests/ only
+  recorded decisions         200         200                ^## D[0-9] in DECISIONS.md
+  differential records        44          44                docs/DIFFERENTIAL-*.md
+  design documents            55          59                docs/*.md AT DEPTH 1 -- excludes seals/
+```
+**All seven are exactly right at `7bb57ee`.** The `18,824` was found by exhaustive search over subsets
+of the tree's `.lean` groups: `X86/ + Tests/ + X86.lean + Tests.lean` matches to the line.
+⛔⛔ **AND I BRIEFLY CONCLUDED THE FILE WAS STALE BY 24%.** I reached for the obvious command, got
+23,352, and had begun writing up "four of seven numbers are stale" before holding the method constant
+across `7bb57ee` and `HEAD` — which returned **identical** counts and refuted staleness outright.
+⇒ 🔑 ***A CORRECT NUMBER WITH AN UNSTATED DENOMINATOR FAILS REPRODUCTION EXACTLY LIKE A WRONG ONE, AND
+FAILS WORSE — the author defends it, the reproducer cannot see the disagreement, and both are right.***
+⇒ 🔑 ***THE AUTHOR OF THIS SHIFT'S OWN "THE POPULATION IS THE CLAIM" LESSON GOT THREE OF SEVEN WRONG,
+IN THAT VERY FILE, THE SAME DAY.*** Knowing the rule is not applying it; only stating the denominator
+in the artifact is.
+
+### 2. WHAT IT DOES TO G5 — RE-PRICED 2–3 → 3–4 DAYS
+The six COVERAGE numbers *are* gated (`claimed_forms.py`, two independent derivations, CI failing on
+disagreement) and **that half of G5's claim holds.** The seven above are **not gated and nothing reads
+them.** ⇒ **Artifact evaluation here is not "run the gates"; it is "state every denominator, then run
+the gates."** An evaluator running the obvious command reports at least three of seven as
+non-reproducing, and is not wrong to.
+📌 **Remaining total re-derived from the parts: 8–10 days** (G2 2–3 · G3 1 · G5 3–4 · G6 2).
+✅ **AND THE PARTS FORM PAID FOR ITSELF WITHIN THE HOUR.** D200 §… made the sum print beside its
+addends after it was edited-by-subtraction twice. G5's re-price invalidated the total immediately, and
+because the addends sit next to it the stale sum was **impossible to miss and trivial to re-derive.**
+In its old prose form it would have read `7–9` indefinitely with nothing to check it against.
+
+### 3. THE GATE CANDIDATE, FILED NOT BUILT (beside `CLAIM-1` in `docs/QUEUE.md`)
+`scripts/check_readme_snapshot.py` **already exists for exactly this defect** — it was built because
+`README.md` carried a snapshot paragraph four batches stale that nothing read. **`TACAS-PRICING.md`
+§1 is the same paragraph in a second document**, and it was written *after* that gate existed.
+⇒ 🔑 ***A GATE BUILT FOR ONE FILE DOES NOT FOLLOW THE PATTERN INTO THE NEXT FILE THAT ADOPTS IT.***
+D41's rule arriving in a third document; `check_coverage_prose.py` was the second.
+⚠️ **Not built now, deliberately:** the honest version gates *each number against its stated
+denominator*, which means the denominators must be machine-readable first — and I have just written
+them as prose. **Naming that as the precondition is the useful half; building the gate on prose
+denominators would be the third copy of this mistake, not the fix.**
