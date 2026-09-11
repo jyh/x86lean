@@ -348,24 +348,6 @@ NOT_A_DECISION_NUMBER = {
             "docs/DECISIONS.md already carries a note saying so at the citation "
             "site. It is pending, not phantom — and this entry must be removed "
             "when that branch lands.",
-    "D190": "the P2 proof interface's design decision, written on the HELD branch "
-            "`p2-proof-interface` (2026-09-10, council ruling 8). docs/QUEUE.md's "
-            "P2-IFACE row names the branch at the citation site and is deliberately "
-            "a POINTER, not a second copy: duplicating a design decision onto master "
-            "is how the two halves start to disagree. Remove when the branch lands.",
-    "D191": "the delta gate's new-unit finding — why `p2-proof-interface` is HELD "
-            "rather than landed — written on that same branch beside the work it "
-            "refuses. Its release condition is a ruling on the gate's new-unit arm, "
-            "and it is owned by the Captain or the helm rather than by this seat, "
-            "which is the party the gate convicted. Remove when the branch lands.",
-    "D197": "problems 2 and 3 on that same HELD branch, and itself a POINTER to "
-            "`docs/P2-PROOF-INTERFACE.md` for the same reason D190 is. ⛔ IT WAS "
-            "THE THIRD TOKEN IN THE LINE THAT DECLARED THE OTHER TWO: docs/QUEUE.md's "
-            "P2-IFACE row cites `D190 · D191 · D197` together, and the edit that "
-            "landed it (76559bb) honoured this gate for two of the three. Master's "
-            "CI `build` went red there and stayed red for three commits, because the "
-            "two runs in between were CANCELLED by the next push and a cancelled run "
-            "is NO EVIDENCE, not an absence of failure. Remove when the branch lands.",
 }
 
 D_CITE = re.compile(r'\bD(\d{1,3})\b')

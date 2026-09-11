@@ -10,3 +10,4 @@ import Tests.Anchors
 import Tests.Nonvacuity
 import Tests.Vectors
 import Tests.Coverage
+import Tests.Program

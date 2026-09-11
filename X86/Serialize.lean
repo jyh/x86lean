@@ -94,6 +94,7 @@ def MsErr.render : MsErr → String
   | .illegalOperands w => s!"illegal-operands:{w}"
   | .unimplemented w => s!"unimplemented:{w}"
   | .byDesign w => s!"by-design:{w}"
+  | .outsideProgram w => s!"outside-program:{w}"
 
 /-- One state, on one line.
 
