@@ -69,8 +69,21 @@ that is the Captain's and the helm's:**
 | G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | **2–3 days.** ⭐ Unusually cheap here: every headline number is already CI-gated and derived, so "reproduce the claims" is largely "run the gates". |
 | G6 | **Related work.** ⚠️ **NOT "not started" — a 10-element PRIOR-ART TABLE already exists** (this campaign's 2026-09-02 provenance verdict, a private-lane document), with named public prior art per design element and an evidence class on each: Myreen FMCAD 2012 · Dasgupta PLDI 2019 · Heule PLDI 2016 · Armstrong POPL 2019 · Verbeek/Roessle/Bockenek CPP 2019 + PLDI 2022 · LNSym · seL4/AutoCorres. | required | **still 2 days, and the price does NOT drop — see §2.4.** The material exists; what it needs is re-verification and a lane-clean re-derivation, not a copy. |
 
-**Sum of what is priceable: 8–13 working days**, excluding G4 which cannot be priced until the
-benchmark exists. ✅ **G1 is now spent, leaving 7–11.**
+**Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**
+```
+  G2  2-3   G3  1   G5  2-3   G6  2        ⇒  REMAINING: 7-9 working days
+  G1  SPENT (priced 1-2, took ~1)          G4  unpriceable until the benchmark exists
+```
+⛔⛔ **THIS TOTAL WAS WRONG TWICE AND THE SECOND TIME WAS MINE, TODAY, IN THE SAME SHIFT AS §2.**
+It read *"8–13 working days"*: the parts were G1 1–2 · G2 2–3 · G3 1 · G5 2–3 · G6 2, which sum to
+**8–11**, so the maximum overstated by two days. Then I closed G1 and wrote *"leaving 7–11"* — by
+**subtracting G1 from the wrong total instead of re-deriving from the parts**, which carried the bad
+maximum forward and added a bad minimum.
+⇒ 🔑 ***A TOTAL EDITED BY SUBTRACTION INHERITS EVERY ERROR IN THE TOTAL IT WAS EDITED FROM.*** The
+parts were correct and present, three lines above, the whole time.
+⇒ **Third instance today of one defect** — §2's debt list, §2.4's nine-day-old at-source annotation,
+and this. **All three were hand-maintained summaries sitting beside the data that contradicted them,
+and all three were edited rather than re-derived.** That is why the sum is now printed as its parts.
 
 ### 2.3 ⛔⛔ TWO THINGS G1 FOUND THAT CHANGE WHAT THIS PAPER MAY CLAIM (D200)
 **(a) THE ORACLES ARE NOT THREE INDEPENDENT WITNESSES — THEY ARE TWO ORIGINS.**
@@ -133,13 +146,67 @@ to take** — but it is on the critical path of G3, so it is priced here as a **
 ---
 
 ## 4. RECOMMENDATION — MINE, NOT RULED
-**(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G1, G2, G5, G6 ≈ 7–9
-days) and let the measured tier law stand as a *section*, not as the paper's claim. It is publishable
-on the coverage and the gating discipline alone, and it is the paper the second one must cite.
+**(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 = **6–8
+days**; that is §2.2's 7–9 **minus G3's 1 day**, because G3 is blocked on §3 and cannot be scheduled —
+the two numbers differ for a stated reason, not by accident) and let the measured tier law stand as a *section*, not as the paper's claim.
+It is publishable on the coverage and the gating discipline alone, and it is the paper the second one
+must cite.
+⚠️ **THAT SENTENCE WAS WRITTEN BEFORE G1 MEASURED THE NEIGHBOURS. §4a RE-ANSWERS IT AND KEEPS IT —
+with the confidence lowered and the reason stated.**
 ⛔ **The thing I would NOT do is submit the tier law as the headline before the benchmark exists** —
 four routines is a sample, and a referee will say so correctly.
 📌 **Precedence is now THIRD** (SaltBench · twin primes · x86lean · verso · jas), so 8–13 days of
 paper work runs alongside the benchmark freeze that is P2 in the design lane.
+
+## 4a. ⭐⭐ "DOES IT READ THIN ALONE?" — THE JUDGMENT DESK ROW `KQ` ASSIGNS TO ME, RE-ANSWERED AFTER G1
+
+`KQ` asks paris to say *"whether it reads thin alone."* §4 answered **no** before G1 measured
+anything about the neighbours. G1 now has, and **it went against us on both of the axes a referee
+reaches for first.** So the judgment is re-taken rather than left standing on a superseded premise.
+
+### THE SCOREBOARD, MEASURED, NOT REMEMBERED
+```
+                        x86lean        the strongest neighbour on that axis
+  instruction scale     158 mnemonics  K: 774            ⇒ WE ARE THIRD OF THREE
+  proof strength        7 memory-safety thms / 4 routines
+                                       x86isa: full functional correctness + fault-freedom
+                                       for an UNBOUNDED loop; a 24,707-line proof library
+                                       K: functional post-conditions over loops, 10 programs
+                                                         ⇒ WE ARE THIRD OF THREE
+  decode                bytes, via XED, trust NAMED in TRUSTBASE.md
+                                       x86isa: bytes, SDM transcription + 5.8% XED
+                                       K: DOES NOT DECODE BYTES AT ALL   ⇒ we are second of three
+  claim gating          every coverage number derived from TWO independent sources, CI failing
+                        if the prose disagrees; the undefined SET derived not declared; a
+                        REFUSAL stated as a theorem       ⇒ NOTHING ELSE IN THE TABLE DOES THIS
+```
+
+### ⚖️ THE ANSWER, AND IT IS NOT THE COMFORTABLE ONE
+**It reads thin as a SEMANTICS paper. It does not read thin as a "how do you know your semantics is
+right" paper.** Those are different submissions and only the second one is ours to write.
+⇒ **A referee opening this as "another x86 semantics" finds a model smaller than K and weaker on
+proofs than x86isa, and is right to.** The scale and proof-strength paragraphs cannot be the setup —
+they have to be the *concession*, made early and in our own words, or the paper is arguing from a
+position a reader has already refuted.
+⇒ **The contribution that survives contact with the table is the GATING**, and it survives because it
+is the one axis where the neighbours' own sources show nobody competing — not because it is grander.
+
+### ⛔ AND THE PART AGAINST MYSELF, BECAUSE §4 IS MINE AND I AM RE-CONFIRMING IT
+**The gating discipline is not novel IN KIND.** Deriving a claim from two sources and failing CI on
+disagreement is ordinary software engineering. What is unusual is applying it to a formal semantics'
+**coverage claims**, and being able to hand a referee a clone in which the gate runs.
+⚠️ **Whether that clears a TACAS regular-track bar is genuinely uncertain, and I am not going to talk
+myself past it.** The honest risk is a referee reading "they CI-gated their README" as hygiene rather
+than contribution. ⇒ **The mitigation is not rhetoric, it is the NEGATIVE result:** §1c.9's finding
+that a nine-day-old VERIFIED-AT-SOURCE annotation was already wrong, and §2's finding that this
+repository's own debt list under-reported by a factor of three, are **evidence that ungated claims
+about formal artifacts rot on a timescale of days** — measured here, on ourselves, in public. That is
+an argument from data rather than from principle, and it is the strongest form of the paper's case.
+📌 **What would make it unambiguously not thin is the Hoare logic** — which is paper 2 and is
+correctly sequenced there. **§4's recommendation stands; my confidence in it is lower than when I
+wrote it, and the reason is that I now know what we are standing next to.**
+⇒ 🔑 ***A "DOES IT READ THIN" JUDGMENT TAKEN BEFORE MEASURING THE NEIGHBOURS IS A JUDGMENT ABOUT
+YOUR OWN TREE, AND THAT IS NOT THE QUESTION.***
 
 ⛔ **CORRECTION TO THIS FILE, SAME DAY, AND IT WAS MINE.** This paragraph first read: *"those two are
 the same critical path, since G4 depends on the benchmark — an argument for doing the benchmark first
