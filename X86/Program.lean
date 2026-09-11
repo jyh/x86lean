@@ -503,6 +503,38 @@ theorem ofNat_succ_64 (k : Nat) :
     BitVec.ofNat 64 (k + 1) = BitVec.ofNat 64 k + 1 := by
   apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_add, Nat.add_mod]
 
+/-- ⭐⭐ THE **n-BYTE** WRITE'S FRAME — the fifth instance of the same gap, and this one was
+PREDICTED before it was found.
+
+`agreeOutside_write` covers a ONE-byte store, because `fill` and `memcpy` both store `.b`. A `push`
+writes **eight**. So the frame pack carried the single-byte rule and not the general one, exactly as
+it carried the elimination rules and not the introduction rule, and the interval rules and not the
+half-line ones.
+⇒ 🔑 ***A LIBRARY GROWN ONE PROOF AT A TIME CONTAINS EXACTLY WHAT THE LAST PROOF NEEDED*** — stated
+three times before this and now used as a PREDICTION: I looked for the multi-byte rule before
+needing it, and it was absent. -/
+theorem agreeOutside_writeN {R : BitVec 64 → Prop} {m0 : Mem} :
+    ∀ (n : Nat) (a : BitVec 64) (v : Val) (m : Mem), AgreeOutside R m0 m →
+      (∀ i, i < n → R (a + BitVec.ofNat 64 i)) → AgreeOutside R m0 (m.writeN a v n)
+  | 0, _, _, _, h, _ => h
+  | n + 1, a, v, m, h, hin => by
+      rw [Mem.writeN]
+      refine agreeOutside_writeN n (a + 1) (v >>> 8) _ (agreeOutside_write h ?_) ?_
+      · simpa using hin 0 (Nat.succ_pos n)
+      · intro i hi
+        have key : a + BitVec.ofNat 64 (i + 1) = a + 1 + BitVec.ofNat 64 i := by
+          rw [ofNat_succ_64]; bv_omega
+        rw [← key]
+        exact hin (i + 1) (by omega)
+
+/-- The same, for a whole `sz`-wide operand — the form a `push` actually presents. -/
+theorem agreeOutside_writeSize {R : BitVec 64 → Prop} {m0 m : Mem} (h : AgreeOutside R m0 m)
+    (sz : Size) (a : BitVec 64) (v : Val)
+    (hin : ∀ i, i < sz.bytes → R (a + BitVec.ofNat 64 i)) :
+    AgreeOutside R m0 (m.writeSize sz a v) :=
+  agreeOutside_writeN sz.bytes a v m h hin
+
+
 theorem live_of_not_stopped {s : Cpu} (h : ¬ s.stopped = true) : Live s := by
   unfold Cpu.stopped at h
   cases hm : s.ms with
