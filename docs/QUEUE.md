@@ -2469,6 +2469,39 @@ the alternative was no gate — but a cost that should be visible in October rat
 discovered then. ⇒ **A TOOL THAT WARNS ABOUT ITS OWN STALENESS STILL NEEDS SOMEONE TO
 COUNT ITS COPIES.**
 
+## ⚠️ CLAIM-1 (NEW, 2026-09-11) — **THE README'S CORROBORATION CLAIM HAD NO GATE, AND THE TWO README GATES ARE BOTH AIMED ELSEWHERE**
+
+**What happened.** `README.md`'s opening paragraph said the model is checked against *"three
+executable models"* — ACL2 x86isa, K, and Sail — while **line 110 of the same file** says plainly
+*"ACL2 x86isa is the only oracle so far."* The file contradicted itself, and a reader meets the
+over-claim first. Corrected at `7fe7908`; measured at the sources (D200 / `TACAS-G1-POSITIONING.md`
+§1c.5, §1c.7, §1c.8): Sail-x86 is a **mechanical translation of x86isa** validated against **K's**
+tests, and K has never been executed here.
+
+⛔ **WHY NO GATE CAUGHT IT, AND THIS IS THE POINT OF THE ROW.**
+```
+  check_readme_snapshot.py    gates the headline NUMBERS (forms, vectors, pre-states, cases)
+  check_readme_lean.py        COMPILES the ```lean block
+  the sources paragraph       read by neither
+```
+⇒ 🔑 ***THE PARAGRAPH THAT MAKES THE REPOSITORY'S BROADEST CLAIM WAS THE ONE PARAGRAPH NO GATE
+READ*** — and `check_readme_snapshot` exists **because of a stale-prose defect in this very file**,
+four batches' worth. The instrument was built and then aimed at the numbers.
+
+⚠️ **NOT PRICED AND NOT ROUTED — a candidate invariant, stated so it can be argued with:**
+> the README may not name more executable oracles than the differential harness actually runs, and
+> the oracles it names must be exactly those the records use.
+
+The right-hand side is derivable — the differential records name their oracle, and
+`scripts/oracle_availability.py` already interrogates the live one — so this is a **two-source
+agreement gate of the same shape as `claimed_forms.py`**, not a string match on English.
+⛔ **What I deliberately did NOT do: match the sentence by literal.** A gate named by a literal stops
+seeing renamed work ([[feedback-a-gate-named-by-a-literal-stops-seeing-renamed-work]]), and this
+sentence has already been rewritten once today.
+📌 **Whoever takes it owes the harder half first:** deciding what "an oracle the harness runs" means
+when a source is read mechanically (K, for the roster) rather than executed. **The count is easy; the
+value set is the claim** ([[feedback-a-conservation-gate-cannot-see-a-misclassification]]).
+
 ## DEFERRED, by ruling — not by silence
 - **Arm C, the K-backed second oracle** — DEFERRED at the council (minute 2026-09-05 item 2(a)).
   The condition of the deferral is that **the hole is printed beside every coverage number**.
