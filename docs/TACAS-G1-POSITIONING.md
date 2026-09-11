@@ -30,13 +30,31 @@ cannot.
 
 ---
 
-## 2. WHAT IS OWED, AND WHERE IT MUST COME FROM
+## 1b. ⭐ FOUR CELLS FILLED FROM THE SOURCES THEMSELVES, 2026-09-11
+**K x86-64 — its own README, verbatim:**
+* *"3155 instruction variants, corresponding to 774 mnemonics"* — confirms the figure `PROVENANCE.md`
+  already carried, now at the source;
+* *"all the non-deprecated, sequential user-level instructions of the x86-64 Haswell instruction set
+  architecture"*;
+* *"The semantics is fully executable and has been tested against more than 7,000 instruction-level
+  test cases and the GCC torture test suite."* ⇒ **its executability cell is no longer OWED, and its
+  validation is STRONGER than this table assumed.**
+
+**ACL2 x86isa — from Goel's own paper (arXiv 1705.01225), extracted locally:**
+* *"a specification of **400+ opcodes** executing in Intel's 64-bit mode of operation"*;
+* it runs *"co-simulations against an actual x86 processor for model validation"* ⇒ **hardware
+  co-simulation is theirs already**, which matters because our plan names the same technique.
+⚠️ **A web search reported "413 instructions implemented". I am NOT recording that number** — the
+primary source says "400+", the 413 could not be verified at `IMPLEMENTED-OPCODES` (HTTP 403), and a
+search summary is not a source. **400+ is what the author wrote; 413 stays unrecorded.**
+
+## 2. WHAT IS STILL OWED, AND WHERE IT MUST COME FROM
 ```
-  x86isa   scale · axiom base · proof support · decode           its own papers + books/projects/x86isa
-  K        executability in our hands · proof support            K x86-64 repo + the Dasgupta et al. paper
+  x86isa   axiom base · proof support · decode      (scale + validation now RECORDED, §1b)
+  K        proof support                            (scale + executability + validation RECORDED, §1b)
   Sail     scale mapping · executability · proof support         sail-x86-from-acl2 repo
 ```
-⚠️ **Nine OWED cells.** Until they are read from the sources, **this table cannot go in a paper** — it
+⚠️ **Five OWED cells** (was nine; four filled at the sources in §1b). Until they are read from the sources, **this table cannot go in a paper** — it
 would be a positioning claim resting on our own tree's silence about other people's systems.
 📌 **That is a ~1 day reading task and it is the honest remainder of G1**, not a formality: the
 pricing's "1–2 days" was for the whole gap, and this skeleton is the half that could be done from
