@@ -25,7 +25,7 @@ derived from the table. *Prose does not refuse; §2 records what it cost to lear
 
 | | **x86lean** (this work) | **ACL2 x86isa** | **K x86-64** | **Sail-x86-from-acl2** |
 |---|---|---|---|---|
-| **prover / host** | Lean 4 + mathlib4 — MEASURED | ACL2 — RECORDED (`PROVENANCE.md`) | K framework — RECORDED | Sail → Lean backend — RECORDED |
+| **prover / host** | Lean 4 + mathlib4 — MEASURED | ACL2 — RECORDED (`PROVENANCE.md`) | K framework — RECORDED | **Sail — and no prover: it is a MODEL, not a proof development** (§1c.5). *The Sail project ships a `sail_lean_backend`, and using it is OUR P3b plan — not a property of this model* — **RECORDED** (`PROVENANCE.md`) |
 | **scale** | 158 mnemonics · 1,012 differentially tested forms · 500/525 roster rows · 351/374 distinct machine forms — **MEASURED AND CI-GATED** | *"400+ opcodes … Intel's 64-bit mode"* — **RECORDED** (§1b, Goel arXiv 1705.01225). ⛔ Its opcode **maps** carry 3,192 `INST` entries, which is a DECODE census and NOT this row (§1c.3) | 3,155 variants / 774 mnemonics, Haswell user-level — **RECORDED** (K's own coverage target list) | a **configured slice** of x86isa — 63 `.sail` files, 2,123,049 B in `model/`; exactly one x86isa file excluded wholesale (`fp-structures`) and `defthm` forms excluded by design. **No instruction count is published by the project** — **MEASURED AT THE SOURCE** (§1c.5) |
 | **executable** | yes — the model runs; `run_differential.sh` drives it — MEASURED | yes — it is our primary executable oracle — MEASURED (by use) | **yes** — *"fully executable … more than 7,000 instruction-level test cases and the GCC torture test suite"* — **RECORDED** (§1b). We still have never executed it; we read its tree mechanically for the roster | **yes** — `make x86_emulator` builds an emulator from the model snapshot; its validation guide runs an ELF and co-simulates **against K's single-instruction tests** — **MEASURED AT THE SOURCE** (§1c.5) |
 | **role here** | the proving model | primary differential oracle | roster/coverage source, read mechanically | third reference, spike only — never the proving model |
@@ -187,6 +187,13 @@ checkout I would have recorded "K demonstrates no program proofs", which is fals
   repo meta     default_branch=master, pushed 2024-11-29, "Sail x86 model automatically translated
                 from the ACL2 model"
 ```
+⛔ **AND ONE MORE CELL WAS CONFLATING THEIR SYSTEM WITH OUR PLAN.** The `prover / host` cell read
+*"Sail → Lean backend — RECORDED"*. The Lean backend belongs to the **Sail project** and using it is
+**our P3b spike**; it is not a property of `sail-x86-from-acl2`, which has no prover and, per the
+measurement above, no theorems to prove. ⇒ 🔑 ***A COMPARISON TABLE'S WORST FAILURE MODE IS PUTTING
+OUR INTENTION IN THEIR COLUMN***, because it reads as a fact about them and nothing in the row marks
+it as ours.
+
 ⇒ **The scope cell is now better than a number would have been:** the honest sentence is *"a
 configured slice of x86isa's definitions, with its theorems excluded by design, and no coverage
 figure published by the project"* — which is what a referee needs and what a guessed count would have
