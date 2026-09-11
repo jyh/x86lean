@@ -33,6 +33,12 @@ tracked `.lean` files, `docs/**/*.md` — gave 23,352 / 618 / 59, and I spent se
 this file was **stale by 24%**. It is not. **I was counting a different population.**
 ⇒ 🔑 ***A CORRECT NUMBER WITH AN UNSTATED DENOMINATOR FAILS REPRODUCTION EXACTLY LIKE A WRONG ONE —
 AND FAILS WORSE, because the author defends it and neither side can see why they disagree.***
+✅ **AND THE STRUCTURAL FIX LANDED THE SAME DAY: `docs/CLAIMS.tsv`**, where every published number
+carries **the command that derives it**, gated by `scripts/check_claims.py` in CI. The denominator
+stops being prose beside the claim and becomes the claim's own derivation, so the two cannot drift —
+there is no second register to keep in step. ⚠️ **This does NOT re-derive §1's frozen figures**: those
+are a measurement AT `7bb57ee` and stay that way. The manifest carries the LIVE values, and where the
+two differ (`decisions` 205 vs 200, `design_documents` 59 vs 55) it says so.
 ⇒ ⛔ **THIS IS A MEASURED REFUTATION OF G5's PRICE, one table down.** G5 said artifact evaluation is
 *"unusually cheap here: every headline number is already CI-gated and derived, so 'reproduce the
 claims' is largely 'run the gates'."* **These seven are NOT gated** — `claimed_forms.py` gates the six
@@ -89,7 +95,7 @@ that is the Captain's and the helm's:**
 | G2 | **Undefined-bit / flag semantics not written up.** The oracle exists in the model; the *argument* is scattered across decisions. | it is the hardest part of x86 and the most citable | **2–3 days**, mostly extraction from `docs/DECISIONS.md`. |
 | G3 | **No performance/scale statement for the semantics itself.** We have kernel-cost data per module, gated — but framed as CI hygiene, not as a result. | "does it scale?" | **1 day** to reframe existing gated numbers. ⚠️ See §3: the gate's dispersion is not robust, so any published timing needs a robust estimator first. |
 | G4 | **The five proof problems are a sample, not a benchmark.** Four routines, 2–7 labels. | "is 19 + 7.7/label general?" | **unpriced — needs the benchmark freeze** (helm item 4, P2 in the design lane, with bench). |
-| G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | ⛔ **RE-PRICED 2026-09-11 → 3–4 days.** The old cell said *"unusually cheap … every headline number is already CI-gated"*. **Measured (§1): the seven §1 numbers are NOT gated, and three of seven do not reproduce under the obvious command because their denominators were unstated.** The six COVERAGE numbers *are* gated and that half of the claim holds. **AE work is therefore not "run the gates" — it is "state every denominator, then run the gates."** |
+| G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | ⛔ **RE-PRICED 2026-09-11 → 3–4 days.** The old cell said *"unusually cheap … every headline number is already CI-gated"*. **Measured (§1): the seven §1 numbers are NOT gated, and three of seven do not reproduce under the obvious command because their denominators were unstated.** The six COVERAGE numbers *are* gated and that half of the claim holds. **AE work is therefore not "run the gates" — it is "state every denominator, then run the gates."** ✅ **The denominators are now stated MACHINE-READABLY in `docs/CLAIMS.tsv`, which is this gap's spine: "reproduce every claim" becomes one command, and a reviewer reads each derivation instead of trusting it.** |
 | G6 | **Related work.** ⚠️ **NOT "not started" — a 10-element PRIOR-ART TABLE already exists** (this campaign's 2026-09-02 provenance verdict, a private-lane document), with named public prior art per design element and an evidence class on each: Myreen FMCAD 2012 · Dasgupta PLDI 2019 · Heule PLDI 2016 · Armstrong POPL 2019 · Verbeek/Roessle/Bockenek CPP 2019 + PLDI 2022 · LNSym · seL4/AutoCorres. | required | ✅ **RE-DRIVEN AND TRANSPLANTED 2026-09-11 → `docs/TACAS-G6-RELATED-WORK.md`** (D201). **Discovery and verification are now SPENT; what remains is bibliography and prose.** Still ~2 days — 3 of 9 at-source claims had to be repaired, and the bibliographic records are not written. |
 
 **Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**

@@ -267,6 +267,19 @@ jobs:
       # `--selftest` runs its CONTROL FIRST, then plants an unmarked cell, an
       # over-declared count, an under-declared count, a missing declaration, and
       # drops the declared exemption to prove the exemption is load-bearing.
+      # 2026-09-11 (D202 / CLAIM-2): the sibling of the two steps below, and the
+      # one that closes a defect they could not see. `docs/CLAIMS.tsv` carries each
+      # published number WITH THE COMMAND THAT DERIVES IT, so the denominator is
+      # not prose beside the claim — it IS the claim's derivation. Measured: all
+      # seven §1 quantities were CORRECT and none stated its denominator, and
+      # re-deriving with the obvious command disagreed on three of seven.
+      # ⛔ There is no `--update`: a gate that rewrites its expectations from the
+      # thing it measures is a recorder that always agrees.
+      - name: Every published number re-derives from its own stated command
+        run: |
+          python3 scripts/check_claims.py --selftest
+          python3 scripts/check_claims.py
+
       - name: Every positioning-table cell carries its provenance
         run: |
           python3 scripts/check_positioning_table.py --selftest

@@ -1,0 +1,57 @@
+# CLAIMS.tsv — EVERY PUBLISHED NUMBER, ITS VALUE, AND THE COMMAND THAT REPRODUCES IT.
+#
+# ⛔⛔ WHY THIS FILE EXISTS.  Measured 2026-09-11 (D202): all seven headline
+# quantities in `docs/TACAS-PRICING.md` §1 were CORRECT and not one stated its
+# denominator.  Re-deriving them with the obvious command gives 23,352 / 618 / 59
+# against the published 18,824 / 616 / 55 — because `lean_lines` excludes
+# `Main.lean`'s 4,390 and `design_documents` excludes `docs/seals/`.  The author
+# of that day's "the population is the claim" lesson got three of seven wrong.
+# ⇒ A CORRECT NUMBER WITH AN UNSTATED DENOMINATOR FAILS REPRODUCTION EXACTLY LIKE
+#   A WRONG ONE, AND FAILS WORSE: the author defends it, the reproducer cannot see
+#   the disagreement, and both are right.
+#
+# ⭐ THIS IS `CLAIM-2`'s STATED PRECONDITION, BUILT: *"the first task is a format,
+# not a gate."*  The denominators were prose; a gate over prose would have been a
+# third copy of the mistake wearing a fix's clothes.  Here each denominator IS the
+# command, so the claim and its population cannot drift apart — there is nothing
+# to keep in step.
+#
+# ⭐ AND IT IS G5's ARTIFACT-EVALUATION SPINE.  TACAS AE asks a stranger to
+# reproduce every claim.  With this file that is one command, and the reviewer
+# reads the derivation rather than trusting it.
+#
+# ⛔ THERE IS DELIBERATELY NO `--update`.  A gate that can rewrite its expected
+# values from the thing it measures is not a gate; it is a recorder that always
+# agrees.  When a number legitimately moves, a human edits this file and the
+# change is visible in the diff, with its reason in the commit.
+#   [[feedback-widening-a-gate-needs-a-second-source]]
+#
+# ⚠️ SCOPE, STATED SO THE FILE IS NOT READ AS COMPLETE.  These are the claims that
+# had NO gate.  The six COVERAGE numbers (mnemonics, forms, roster rows, machine
+# forms, spellings) are gated independently and far more strongly by
+# `scripts/claimed_forms.py`, which derives them from TWO sources that are not
+# derived from each other and fails CI when the prose disagrees.  They are NOT
+# duplicated here: a second, weaker derivation of an already-gated number is a
+# duplicate born in agreement.
+#
+# ⛔⛔ LIVE vs FROZEN, AND THE DISTINCTION IS LOAD-BEARING.  `TACAS-PRICING.md` §1
+# states its numbers **AT `7bb57ee`** — a measurement about a sha, which is
+# legitimate and correctly labelled, and which MUST NOT be re-derived at HEAD.
+# THIS file carries the LIVE value, re-derived every run.  Two rows already
+# differ (`decisions` 205 vs the frozen 200; `design_documents` 59 vs 55) and
+# their `appears_in` says so rather than pointing at a file that prints a
+# different number.
+# ⇒ 🔑 A MANIFEST THAT CITES A FROZEN SNAPSHOT AS IF IT WERE LIVE MANUFACTURES
+#   THE EXACT CROSS-DOCUMENT CONTRADICTION IT EXISTS TO PREVENT.  Caught while
+#   writing this file, one edit after building the gate for it.
+#
+# COLUMNS (tab-separated):  id  value  command  appears_in
+# The command must print EXACTLY the value on stdout, and is run from the repo root.
+id	value	command	appears_in
+lean_lib_modules	12	git ls-tree -r HEAD --name-only | grep -cE '^X86/.*\.lean$'	docs/TACAS-PRICING.md §1
+lean_test_modules	6	git ls-tree -r HEAD --name-only | grep -cE '^Tests/.*\.lean$'	docs/TACAS-PRICING.md §1
+lean_lines	18824	git ls-tree -r HEAD --name-only | grep -E '^(X86/.*\.lean|Tests/.*\.lean|X86\.lean|Tests\.lean)$' | while read f; do git show "HEAD:$f"; done | wc -l | tr -d ' '	docs/TACAS-PRICING.md §1
+lean_theorems	616	git ls-tree -r HEAD --name-only | grep -E '^(X86/.*\.lean|Tests/.*\.lean)$' | while read f; do git show "HEAD:$f"; done | grep -cE '^(theorem|lemma|private theorem|protected theorem) '	docs/TACAS-PRICING.md §1
+decisions	205	git show HEAD:docs/DECISIONS.md | grep -c '^## D[0-9]'	LIVE — TACAS-PRICING §1 froze 200 at 7bb57ee
+differential_records	44	git ls-tree -r HEAD --name-only | grep -cE '^docs/DIFFERENTIAL-.*\.md$'	docs/TACAS-PRICING.md §1
+design_documents	59	git ls-tree -r HEAD --name-only | grep -cE '^docs/[^/]+\.md$'	LIVE — TACAS-PRICING §1 froze 55 at 7bb57ee

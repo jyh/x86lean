@@ -2524,7 +2524,22 @@ gates"*.
 D41's rule arriving in a third document; `check_coverage_prose.py` was the second, and this is the
 third time this repository has written the same paragraph somewhere new and left it unread.
 
-⚠️ **NOT PRICED AND NOT BUILT, DELIBERATELY — and the precondition is the useful half:**
+✅ **PRECONDITION BUILT 2026-09-11, AND THE GATE WITH IT** — `docs/CLAIMS.tsv` +
+`scripts/check_claims.py` (6 arms, 0 red, control first), wired into `build`.
+**Each row carries the COMMAND that derives its number**, so the denominator is not prose beside the
+claim — it *is* the derivation, and there is no second register to drift. All seven §1 quantities
+re-derive and match. ⛔ **No `--update`**: a gate that rewrites its expectations from the thing it
+measures is a recorder that always agrees.
+⚠️ **AND IT IMMEDIATELY CAUGHT ME ONE EDIT LATER:** two rows (`decisions`, `design_documents`) carry
+LIVE values while `TACAS-PRICING.md` §1 publishes the **7bb57ee** snapshot, so citing that file as
+their home would have manufactured the exact cross-document contradiction this item exists to
+prevent. Their `appears_in` now says *"LIVE — §1 froze 200 at 7bb57ee"* instead.
+📌 **STILL OPEN:** the six COVERAGE numbers are deliberately NOT in the manifest — `claimed_forms.py`
+gates them from two independent sources, and a second weaker derivation would be a duplicate born in
+agreement. **What remains is whether any OTHER published number in this repository is ungated**; the
+manifest makes that answerable by inspection for the first time.
+
+⚠️ **ORIGINAL FRAMING, KEPT — the precondition was the useful half:**
 > the honest gate re-derives each §1 number **against its own stated denominator** and refuses on
 > disagreement. That requires the denominators to be **machine-readable**, and they are currently
 > prose.
