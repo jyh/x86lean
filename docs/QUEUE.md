@@ -244,10 +244,30 @@ against `kernel_delta`, `kernel_delta_history`, `deterministic_cost`, `unfolding
 ⛔ **`kernel_cost.py` is the profiler that produces EVERY gated number in this campaign**,
 and it is the one whose selftest nothing runs on a push. Its siblings are gated; the
 measurement they all depend on is not [[feedback-a-gate-behind-a-failing-step-is-silent]].
-⚠️ **NOT wired blind:** it takes ~18 min on this box, dominated by deliberate `sleep 40`
-fixtures in the orphan probe, and three of its arms are environment-dependent (PORT-3, now
-DISCHARGED). It needs a time budget, or it will red every build for a reason that is not
-about the code. **OWNER:** paris.
+⚠️ **NOT wired blind:** it takes ~18 min on this box and three of its arms are
+environment-dependent (PORT-3, now DISCHARGED). It needs a time budget, or it will red every
+build for a reason that is not about the code. **OWNER:** paris.
+
+#### ⛔⛔ THE COST MODEL IN THIS ROW WAS WRONG IN ITS CAUSE — MEASURED 2026-09-11
+This row said the ~18 min was *"dominated by deliberate `sleep 40` fixtures in the orphan probe"*,
+and every thought about wiring it has been priced against that sentence.
+```
+  every deliberate sleep in kernel_cost.py, summed ........... 171.6 s = 2.9 min   (16%)
+```
+**Read from the RUNNING suite's own process tree, not inferred from the source:** the selftest
+spawns `[sys.executable, __file__]` with **NO ARGUMENTS** four times, and no-args is `main()`'s
+full path — `lake build X86 Tests X86Native` plus a per-module kernel profile.
+```
+  selftest ─ python(self, no args) ─ lake ─ lean   97.4 % CPU
+```
+⇒ **THE COST IS FOUR NESTED FULL PROFILING RUNS. It is CPU-BOUND, not wall-clock waiting**, which
+is a different budgeting question entirely: sleeps are nearly free on a busy runner, profiling is not.
+⇒ ⭐ **AND IT PARTLY ANSWERS THIS ROW'S OWN HAZARD.** The clause below warns that a wired selftest
+must carry a **TREE** arm and not only fixtures (D189). **Those four nested runs already profile the
+real tree** — so `kernel_cost` is not the fixture-only shape D189 described, and the remedy this row
+prescribes is aimed at a defect it does not have. What remains true is the budget.
+⇒ 🔑 ***AN INHERITED COST MODEL IS A HYPOTHESIS, AND THIS ONE HAD BEEN QUOTED FORWARD UNMEASURED.***
+[[feedback-inherited-diagnosis-is-a-hypothesis]]
 ⛔⛔ **AND WHEN IT IS WIRED, IT NEEDS A *TREE* ARM AND NOT ONLY ITS FIXTURES — D189 IS THE
 PROOF.** `deterministic_cost.py --selftest` was ALREADY in CI throughout the three days that
 tool could not read `Tests/Coverage.lean`, and stayed green: **every arm was a fixture, and
