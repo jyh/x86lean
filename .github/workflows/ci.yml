@@ -509,7 +509,46 @@ jobs:
   # `scripts/check_ci_shards.py` is what holds those two to each other. A matrix
   # shorter than the divisor would silently stop running whole residue classes of
   # arms, which is exactly the failure this gate exists to prevent.
+  # ⚖️ CI-3, RULED BY THE HELM 2026-09-11: the selftest shards may SKIP, keyed on
+  # a CONTENT DIGEST and never on a path list -- "a digest cannot be fooled by a
+  # path nobody enumerated; a path list can."  The two ruled conditions:
+  #   (1) THE SKIP RECORDS WHAT IT MATCHED -- the digest AND the prior green sha
+  #       it inherits.  Here that record lands in THREE places: this job's log,
+  #       the run's STEP SUMMARY page, and the `selftest` job showing as SKIPPED
+  #       rather than green.  "An unrecorded skip makes a job that never ran
+  #       report GREEN, not UNKNOWN."
+  #   (2) THE DIGEST COVERS EVERYTHING THE SHARD CONSUMES -- Lean sources,
+  #       lakefile, toolchain pin, manifest, AND this workflow file, which is the
+  #       shard runner (the matrix count and the two commands live here).  The
+  #       derivation of that set, from measuring what a shard actually executes,
+  #       is the module docstring of scripts/selftest_skip.py.
+  # ⛔ INVERTED DEFAULT: unknown digest, unreachable API, no green run, or a
+  # green sha absent from the clone all MEASURE.  A skip is only ever emitted on
+  # a positive match against a NAMED green run.  fetch-depth: 0 is REQUIRED --
+  # the decision reads the tree at the prior green sha, and a depth-1 checkout
+  # does not have it (CI-1 is this repo's record of that exact trap).
+  selftest-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+      digest: ${{ steps.decide.outputs.digest }}
+      inherits: ${{ steps.decide.outputs.inherits }}
+      inherits_run: ${{ steps.decide.outputs.inherits_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove the skip decision before trusting it
+        run: python3 scripts/selftest_skip.py --selftest
+      - name: Decide SKIP or MEASURE on the consumed-set digest
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/selftest_skip.py --decide --branch "${{ github.ref_name }}"
+
   selftest:
+    needs: selftest-gate
+    if: needs.selftest-gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

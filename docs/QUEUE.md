@@ -2533,7 +2533,51 @@ third time this repository has written the same paragraph somewhere new and left
 third copy of this mistake wearing a fix's clothes. 📌 Whoever takes it should take `CLAIM-1` in the
 same pass: both are "a claim in a document that no gate reads", and they share a remedy shape.
 
-## ⚠️ CI-3 (NEW, 2026-09-11) — **THE SELFTEST SHARDS RE-RUN 8.7 RUNNER-HOURS ON A BYTE-IDENTICAL LEAN TREE, AND THE SKIP PREDICATE ALREADY EXISTS IN THIS REPO**
+## ✅ CI-3 (2026-09-11) — **RULED AND IMPLEMENTED.** SKIP keyed on a CONTENT DIGEST, never a path list
+
+⚖️ **THE HELM'S RULING**, in its words: *"SKIP AUTHORISED, KEYED ON THE CONTENT DIGEST, NEVER A PATH
+LIST … A digest cannot be fooled by a path nobody enumerated; a path list can."* And explicitly:
+***"Do NOT port the weaker predicate into the stronger job."*** Two conditions, both implemented.
+✅ **LANDED:** `scripts/selftest_skip.py` (20 selftest arms, 0 red, control first) + the
+`selftest-gate` job, with `selftest` carrying `needs:` and `if: skip != 'true'`.
+
+⛔⛔ **AND THE RULING REFUTED MY OWN JUSTIFYING EXAMPLE. I REPORTED IT WRONG AND IT IS CORRECTED HERE.**
+I told the helm *"three runs have now re-tested a byte-identical Lean tree"*, on a digest I had
+computed over **Lean files only**. The ruled set also covers **the shard runner** — this workflow file
+— and under it:
+```
+  4359f6f  848dbf941dca51d9        a32ae39  7f982a6576c9c7cd        672ab0b  7f982a6576c9c7cd
+  the move happened at 02f1dc9, which added a step to ci.yml ⇒ the run on a32ae39 was
+  LEGITIMATELY a measurement, not a redundant one.
+  and 672ab0b shares a32ae39's digest -- but I CANCELLED a32ae39's run, so there is no GREEN
+  evidence at that digest, and the ruled predicate correctly still says MEASURE.
+```
+⇒ **Under the ruled predicate the skip would have fired ZERO times in the window I used to argue for
+it.** ⇒ 🔑 ***A NARROWER DIGEST MADE MY EVIDENCE LOOK STRONGER THAN IT WAS; THE WIDER ONE THE HELM
+RULED IS STRICTER AND COSTS ME MY OWN EXAMPLE.***
+⇒ ⛔ **AND MY CANCELLATION IS WHY.** Bank §11 said *a cancel that costs nothing in runner time can
+still cost something in the record* — here it cost the green evidence that would have licensed the
+very skip this item exists to enable. **The cancel created the work.**
+
+✅ **THE GENERAL CASE IS STRONGER THAN THE EXAMPLE, AND IT IS THE JUSTIFICATION THAT SURVIVES** —
+re-derived under the RULED set, not the narrow one:
+```
+  consecutive steps over the last 30 commits:   digest UNCHANGED 27   ·   MOVED 2
+  cost avoided per skip: 522.6 runner-minutes = 8.7 runner-hours (the six shards)
+```
+
+⛔⛔ **ONE REAL BUG, CAUGHT BEFORE LANDING, AND IT IS THE INTERESTING ONE.** My first matcher selected
+shard jobs by the prefix `"selftest"` — which **also matches the new `selftest-gate` job**. On a run
+whose shards were skipped, the shard jobs are ABSENT and the gate is present and green, so the prefix
+test would have found *"every selftest\* job succeeded"* and let **a skip inherit from a skip**, with
+no measurement anywhere at the root.
+⇒ 🔑 ***A JOB-NAME PREFIX IS NOT A JOB IDENTITY, AND ADDING A JOB SILENTLY WIDENS EVERY PREFIX TEST
+THAT ALREADY EXISTED.*** Now `is_shard_job()` is exact, `run_qualifies()` requires the shards to have
+actually RUN, and both are **pure and armed** — the network path cannot be driven in a selftest, so
+the decision it rests on was factored out to where it can be.
+
+### THE ORIGINAL MEASUREMENT THAT OPENED THIS ITEM
+
 
 **Measured, not estimated.**
 ```

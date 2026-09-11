@@ -13908,3 +13908,59 @@ IT.*** Third instance today of that shape: `CLAIM-1` (the two README gates aimed
 Lean-relevant tree digest against **the most recent GREEN run of the same job**, not "this range
 touched no `.lean`"; an unknown digest must MEASURE. **A correct SKIP and a destroyed measurement look
 identical downstream**, so whatever lands must print the skip and its reason.
+
+## D204 — CI-3 implemented as the helm ruled: a CONTENT DIGEST, the consumed set derived by measurement, and a prefix bug caught before landing
+
+⚖️ **RULED 2026-09-11**: *"SKIP AUTHORISED, KEYED ON THE CONTENT DIGEST, NEVER A PATH LIST … A digest
+cannot be fooled by a path nobody enumerated; a path list can — and your `null_pair_reason()` already
+rejected 'no .lean changed' for that reason. Do NOT port the weaker predicate into the stronger job."*
+
+### 1. CONDITION (2) — THE CONSUMED SET, DERIVED BY MEASURING WHAT A SHARD RUNS
+The helm put the burden where it belongs: *"You measure what it runs, so you define that set."*
+A shard runs `lake build x86lean-diff` then `x86lean-diff selftest-shard k 6`. `selftest-shard`
+dispatches to `driveWrong`, which is **pure computation** (`emitAll`/`parseRecords`/`compareRecs`);
+measured, all four `IO.FS` sites in `Main.lean` lie in OTHER subcommands, and the selftest path spawns
+no process and reads no file or environment variable. ⇒ **the shard consumes the compiled binary and
+nothing else at runtime**, so the set is what determines that binary plus the runner that invokes it:
+```
+  *.lean · lakefile.toml · lean-toolchain · lake-manifest.json · .github/workflows/ci.yml
+                                                                 ^^ THE SHARD RUNNER: the matrix
+                                                                 count and both commands live there
+```
+⭐ **The set is deliberately WIDER than necessary and the asymmetry is the safety argument:** a
+spurious member costs one extra run; a missing member costs a false SKIP, i.e. a job reporting green
+having tested nothing. **The errors are not symmetric, so the set errs toward running.**
+
+### 2. ⛔⛔ THE BUG I CAUGHT BEFORE LANDING — A SKIP THAT COULD INHERIT FROM A SKIP
+My first matcher took shard jobs by the prefix `"selftest"`. **That also matches the new
+`selftest-gate` job.** On a run whose shards were skipped, the shard jobs are ABSENT and the gate is
+present and green — so the prefix test would have concluded *"every selftest\* job succeeded"* and let
+a skip inherit from a run that itself skipped. **A chain of skips with no measurement at its root** —
+the helm's condition (1) failure arrived at from the other side: not an unrecorded skip, but a skip
+recorded against another skip.
+⇒ 🔑 ***A JOB-NAME PREFIX IS NOT A JOB IDENTITY, AND ADDING A JOB SILENTLY WIDENS EVERY PREFIX TEST
+THAT ALREADY EXISTED.*** I introduced the widening and the bug in the same edit.
+✅ `is_shard_job()` is now exact; `run_qualifies()` requires the shards to have **actually run** (no
+shard jobs ⇒ not evidence; `skipped`/`cancelled` ⇒ not evidence). Both are **pure and armed** — the
+network path cannot be driven in a selftest, so the decision it carries was factored out to where it
+can be. 20 arms, 0 red, control first, one arm per member of the consumed set.
+
+### 3. ⛔ THE RULING REFUTED MY OWN JUSTIFYING EXAMPLE, AND MY CANCEL IS WHY
+I reported *"three runs re-tested a byte-identical Lean tree"* on a digest covering **Lean files
+only**. Under the ruled set, `02f1dc9` moved the digest by editing `ci.yml`, so the run on `a32ae39`
+was a **legitimate** measurement; and `672ab0b` shares `a32ae39`'s digest but **I cancelled
+`a32ae39`'s run**, so no green evidence exists at that digest and the ruled predicate correctly still
+says MEASURE.
+⇒ **Under the ruled predicate the skip would have fired ZERO times in the window I used to argue for
+it.** ⇒ 🔑 ***A NARROWER DIGEST MADE MY EVIDENCE LOOK STRONGER THAN IT WAS.*** Bank §11 warned that a
+cancel costs the record; here it cost the green evidence that would have licensed the skip. **The
+cancel created the work.**
+✅ **What survives is the general case, re-derived under the ruled set:** of the last 30 commits, **27
+of 29 consecutive steps leave the digest unchanged**, at 8.7 runner-hours avoided per skip.
+
+### 4. CONDITION (1) — THE RECORD, IN THREE PLACES
+The gate's log line, the run's **step summary** page (so the record is readable without opening a
+log), and the `selftest` job showing as **skipped** rather than green. ⛔ **Inverted default
+throughout:** unknown digest, unreachable API, no green run, or a green sha absent from the clone all
+MEASURE. `fetch-depth: 0` is required on the gate — the decision reads the tree at the prior green
+sha, and CI-1 is this repository's own record of the depth-1 trap.
