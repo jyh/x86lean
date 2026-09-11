@@ -311,10 +311,26 @@ a twenty-instruction routine provable in tens of lines, not thousands"* · *"par
 **It is built, it is green, and it is NOT HERE.**
 
 ```
-  branch   p2-proof-interface @ 8edb452   (pushed to BOTH tiers)
-  content  X86/Program.lean · Tests/Program.lean · docs/P2-PROOF-INTERFACE.md · D190 · D191
-  status   HELD by the delta gate — the two NEW modules were convicted in TWO runs
+  branch   p2-proof-interface @ 837df82   (pushed to BOTH tiers)
+  content  X86/Program.lean · Tests/Program.lean · docs/P2-PROOF-INTERFACE.md · D190 · D191 · D197
+  status   ALL FIVE PROBLEMS BUILT. Held only for the merge-gate measurement (load-gated).
 ```
+
+### ⭐⭐⭐ THE COMMISSION IS ANSWERED, WITH FOUR MEASURED POINTS (2026-09-10, later)
+Ruling ⑧ asked for *"a twenty-instruction routine provable in tens of lines, not thousands."*
+**Answered in both directions, and the answer is about TIERS rather than about lemmas:**
+```
+  FRAME    tier   ~1 line / INSTRUCTION   ⇒ 20 instr ≈  31 lines   ✅ MET
+  LABELLED tier   ~7.7 / LABEL            ⇒ 20 labels ≈ 173 lines  ⛔ MISSED
+        2 labels 34 · 4 labels 50 · 5 labels 57 · 7 labels 76   (7.5 · 7.8 · 7.6 · 8.1)
+```
+⇒ 🔑 ***THE TIER, NOT THE LEMMA LIBRARY, DECIDES IT — a factor of EIGHT, where four rounds of lemma
+engineering bought about a third of that.*** And **a property's tier is not readable off its
+statement**: three of the five sat somewhere other than the table put them, each found by writing the
+proof. **Full derivation: `docs/P2-PROOF-INTERFACE.md`; this row is a POINTER, not a second copy.**
+⛔ **The one thing the interface cannot express** — problem 3's *"reads stay inside the buffer"*.
+`Mem.read` is TOTAL, so a wild read leaves no trace; the honest form is NON-INTERFERENCE over TWO
+runs and all five combinators are single-run. **A sizing fact for GS, filed not patched.**
 ⛔ **THE RECORD LIVES ON THE BRANCH, DELIBERATELY** (D190 and D191 cite each other and the module),
 so this row is a **pointer**, not a summary — *a document that contradicts itself reads as whichever
 half is reached first*, and two copies of a design decision is exactly that.
