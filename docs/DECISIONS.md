@@ -13867,3 +13867,44 @@ D41's rule arriving in a third document; `check_coverage_prose.py` was the secon
 denominator*, which means the denominators must be machine-readable first — and I have just written
 them as prose. **Naming that as the precondition is the useful half; building the gate on prose
 denominators would be the third copy of this mistake, not the fix.**
+
+## D203 — I held a push for an attribution I never checked was reachable, and measuring it found 8.7 runner-hours per docs push
+
+### 1. ⛔⛔ THE REASONING WAS SOUND IN FORM AND UNCHECKED IN FACT
+I held six commits for ~1 h so that a red on my push would be **attributable** — bank §1's law, paid
+for by a red born at `76559bb` and hidden for three commits. **The rule is right. I never asked
+whether the failure it attributes could occur.**
+```
+  what a selftest shard runs   lake build x86lean-diff ; x86lean-diff selftest-shard N 6
+  what a32ae39 changed         ci.yml · README.md · 5 docs · 1 new scripts/*.py
+  what the 6 held commits      docs only
+  Lean-relevant tree digest    13e469cb092ed542 at 4359f6f, at a32ae39, and at HEAD -- IDENTICAL
+  run 34637633078 at 4359f6f   9/9 SUCCESS, all six shards green, on that exact digest
+```
+⇒ **Neither batch could red a shard.** The baseline I was protecting was a baseline for an
+unreachable failure, and the green verdict for that artifact already existed.
+⇒ 🔑 ***A CORRECT PRINCIPLE APPLIED TO A POPULATION IT DOES NOT COVER IS INDISTINGUISHABLE FROM
+PRUDENCE, AND COSTS THE SAME AS BEING WRONG.*** The hold's price is ~2 h of landing latency; paying it
+requires the risk to be reachable, and that is a MEASUREMENT, not a disposition.
+📌 **The first hold was right and I am not retracting it:** `a32ae39` carried a new CI step in
+`build`, `build`'s verdict was genuinely informative, and it came back green in ~4 minutes. **What was
+wrong was continuing to hold for shards after the informative half had reported** — the same defect as
+setting the wait condition at "the run completes" (D201 §opening). **Twice in one day I waited on a
+coarser condition than my question.**
+
+### 2. ⭐ AND THE MEASUREMENT FOUND SOMETHING BIGGER THAN THE HOLD — FILED AS `CI-3`
+`selftest`'s six shards cost **522.6 runner-minutes = 8.7 runner-hours** per run. **19 of the last 20
+master commits touched no `.lean`, lakefile, toolchain or manifest.** Three runs have now re-tested
+one byte-identical artifact.
+✅ **The SKIP predicate already exists in this tree**, written this morning for `kernel-delta`:
+`null_pair_reason()` in `scripts/kernel_delta.py`, which explicitly rejects "no `.lean` changed" as
+its own first draft, uses an inverted default, reuses `kernel_drift`'s argued classifier, and takes
+`cwd` so it can be armed against a fixture.
+⇒ 🔑 ***A SKIP PREDICATE BUILT FOR ONE JOB DID NOT FOLLOW THE PATTERN INTO THE OTHER JOB THAT NEEDS
+IT.*** Third instance today of that shape: `CLAIM-1` (the two README gates aimed elsewhere), `CLAIM-2`
+(`check_readme_snapshot` not following into `TACAS-PRICING.md`), and now this.
+**The instrument gets built once and aimed once.**
+⚠️ **NOT BUILT — CI design is the helm's**, and `CI-3` states the strong form: compare the
+Lean-relevant tree digest against **the most recent GREEN run of the same job**, not "this range
+touched no `.lean`"; an unknown digest must MEASURE. **A correct SKIP and a destroyed measurement look
+identical downstream**, so whatever lands must print the skip and its reason.

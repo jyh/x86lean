@@ -2533,6 +2533,45 @@ third time this repository has written the same paragraph somewhere new and left
 third copy of this mistake wearing a fix's clothes. 📌 Whoever takes it should take `CLAIM-1` in the
 same pass: both are "a claim in a document that no gate reads", and they share a remedy shape.
 
+## ⚠️ CI-3 (NEW, 2026-09-11) — **THE SELFTEST SHARDS RE-RUN 8.7 RUNNER-HOURS ON A BYTE-IDENTICAL LEAN TREE, AND THE SKIP PREDICATE ALREADY EXISTS IN THIS REPO**
+
+**Measured, not estimated.**
+```
+  selftest, one run (34637633078), per shard:  53.9 · 78.2 · 78.9 · 91.0 · 107.0 · 113.7 min
+                                       TOTAL:  522.6 min = 8.7 RUNNER-HOURS, shards alone
+  what a shard runs:  `lake build x86lean-diff`  then  `x86lean-diff selftest-shard N 6`
+                      -- nothing else; no docs, no scripts/, no workflow file
+  of the last 20 master commits, how many touched a .lean / lakefile / lean-toolchain /
+  lake-manifest:                                              1        the other 19: NONE
+  Lean-relevant tree digest at 4359f6f · a32ae39 · 5e61536:   13e469cb092ed542  -- IDENTICAL
+```
+⇒ **Three full runs (~26 runner-hours of shards) have now tested one byte-identical artifact**, and
+the 9/9 green at `4359f6f` already answered for all three.
+
+✅ **AND THE PREDICATE IS ALREADY WRITTEN, ARGUED AND ARMED — IN THIS TREE, THIS MORNING.**
+`scripts/kernel_delta.py:1753`, `null_pair_reason(base, head, cwd=None)`:
+* it is **NOT** "no `.lean` changed" — its own comment records that as the rejected first draft,
+  because *"a bare `.lean` test would SKIP a `lean-toolchain` bump, a `lake-manifest.json` repin, or
+  a `lakefile.toml` edit — none of which is a `.lean` and every one of which moves every reading"*;
+* it uses an **INVERTED DEFAULT** — UNCLASSIFIED paths mean *do not skip* — reusing `kernel_drift`'s
+  argued classifier rather than minting a second roster;
+* it already takes `cwd` **so it can be armed against a fixture repo**.
+⇒ 🔑 ***A SKIP PREDICATE BUILT FOR ONE JOB DID NOT FOLLOW THE PATTERN INTO THE OTHER JOB THAT NEEDS
+IT*** — the third instance today of that shape (`CLAIM-1`: the README gates; `CLAIM-2`:
+`check_readme_snapshot` not following into `TACAS-PRICING.md`). **The instrument gets built once and
+aimed once.**
+
+⚠️ **NOT BUILT — CI DESIGN IS THE HELM'S, and the safety argument must be made in the strong form:**
+> skip the selftest shards only when the **Lean-relevant tree digest equals that of the most recent
+> GREEN run of the same job** — not merely "this range touched no `.lean`". A digest comparison
+> against a known-green artifact cannot be fooled by a rebase, a force-push, or a range whose
+> endpoints hide an intermediate change, and it degrades to "run it" whenever the digest is unknown.
+
+⛔ **THE COST OF GETTING IT WRONG IS THE WHOLE VALUE OF THE JOB**, so the inverted default is not
+optional: **an unknown digest must MEASURE, never SKIP.**
+📌 **A correct SKIP and a destroyed measurement look identical downstream** (bank §13) — so whatever
+lands must PRINT the skip and its reason, the way `kernel_delta` already does.
+
 ## DEFERRED, by ruling — not by silence
 - **Arm C, the K-backed second oracle** — DEFERRED at the council (minute 2026-09-05 item 2(a)).
   The condition of the deferral is that **the hole is printed beside every coverage number**.
