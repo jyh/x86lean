@@ -767,7 +767,7 @@ def self_test() -> int:
     #     Driven against a REAL throwaway repository, through the SAME call
     #     shape production uses -- audit_pins(pins) with no ref argument, cwd
     #     being the repo -- so nothing here is a fixture of the test's own.
-    tmp = tempfile.mkdtemp(prefix="ppgate-selftest-")
+    tmp = tempfile.mkdtemp(prefix="x86lean-ppgate-selftest-")
     here = os.getcwd()
     try:
         repo = os.path.join(tmp, "r")
@@ -965,7 +965,7 @@ def self_test() -> int:
     #    that dies between a mutate and a restore poisons every later arm with
     #    its own corruption, and the only thing that catches that is a control
     #    on the unmutated state (measured, this seat, 2026-09-09).
-    tmp2 = tempfile.mkdtemp(prefix="pphist-selftest-")
+    tmp2 = tempfile.mkdtemp(prefix="x86lean-pphist-selftest-")
     here2 = os.getcwd()
     try:
         hrepo = os.path.join(tmp2, "h")

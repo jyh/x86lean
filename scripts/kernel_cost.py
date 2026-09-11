@@ -66,6 +66,25 @@ os.chdir(root)
 # probe writes only under TMPDIR and the repository is never touched, which is
 # the same move the P1 seal made for `scripts/sharing_redprobe.sh` (a467a22).
 CEIL_FILE = os.environ.get("X86LEAN_CEIL_FILE", "scripts/kernel_ceilings.txt")
+# The registry's machine column. ONE FILE FORMAT, THREE PARSERS: this one,
+# `kernel_delta.read_ceilings` and `kernel_delta.gated_declarations`.
+MACHINE_TAG = "@on"
+
+
+_THIS_MACHINE = None
+
+
+def this_machine():
+    """The box this process is on, spelled as the registry spells it.
+
+    Cached: `read_ceilings` consults it once per machine-named line, and a
+    syscall per registry line is a cost the parse has no reason to pay.
+    """
+    global _THIS_MACHINE
+    if _THIS_MACHINE is None:
+        import socket as _s
+        _THIS_MACHINE = _s.gethostname()
+    return _THIS_MACHINE
 # Headroom over the measured baseline.  Generous enough that ordinary noise on a
 # loaded machine does not fail a build, tight enough that a real regression does.
 HEADROOM = 3.0
@@ -894,26 +913,105 @@ def emit_json():
     return 0
 
 
+def unwritable_entries(path):
+    """Registry lines `--register` cannot reproduce, as (line, why) strings.
+
+    ⛔ A SEPARATE FUNCTION ON PURPOSE. Written inline inside `main()` it sat
+    behind a `lake build`, so the only way to exercise it was a full profiling
+    run — and a gate with no callable surface cannot be armed, which means in
+    practice it is never driven red. [[feedback-a-gate-with-no-callable-surface]]
+    """
+    out = []
+    if not os.path.exists(path):
+        return out
+    for line in open(path, encoding="utf-8"):
+        p = line.split("#")[0].strip().split()
+        if len(p) >= 2 and p[-2] == MACHINE_TAG:
+            out.append(f"{line.strip()}   (machine column)")
+        elif len(p) == 4 and p[1] == DECL_TAG:
+            out.append(f"{line.strip()}   (@decl ceiling)")
+        elif len(p) == 3 and p[1] == TAIL_TAG:
+            out.append(f"{line.strip()}   (@tail ceiling)")
+    return out
+
+
 def read_ceilings():
     """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
-    d, decls, tails = {}, {}, {}
+    d, decls, tails, cand = {}, {}, {}, {}
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             line = line.split("#")[0].strip()
             if not line:
                 continue
             parts = line.split()
+            # ⛔⛔ THE MACHINE COLUMN, AND THIS PARSER DID NOT KNOW IT EXISTED.
+            # D194 added an optional trailing `@on <machine>` to
+            # `kernel_ceilings.txt` and taught exactly ONE of this file format's
+            # THREE parsers about it. Here, `X86.Program 396 @on yukon.lan` is
+            # four fields whose second is not `@decl`, so it fell to the `else`
+            # and EXITED 2 — on the profiler that produces every gated number in
+            # this campaign. It never fired because no registry line used the
+            # column yet, and the first line to use one is the one D198's ruling
+            # orders written. Driven before the fix: exit 2, "unparseable
+            # ceiling line". [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+            # ⇒ 🔑 A FORMAT CHANGE IS A CLAIM ABOUT EVERY PARSER OF THAT FORMAT,
+            #   AND A COLUMN WITH NO USERS BREAKS NOTHING UNTIL IT HAS ONE.
+            mach = None
+            if len(parts) >= 2 and parts[-2] == MACHINE_TAG:
+                mach, parts = parts[-1], parts[:-2]
+            # A ceiling naming ANOTHER box is not this box's bound. It is skipped
+            # rather than applied, which matches the delta gate's ABSENT rule; a
+            # machine-less entry still applies everywhere, as it always has.
+            if mach is not None and mach != this_machine():
+                continue
+            # ⛔⛔ THE PRECEDENCE KEY IS THE DESTINATION, NOT THE LINE SHAPE.
+            # My first cut derived it from the line's ARITY — `parts[0]` for a
+            # two-field plain line and `parts[0]` again for a three-field
+            # `@tail` — which collapses TWO DIFFERENT DESTINATIONS (`d[module]`
+            # and `tails[module]`) onto one key. A machine-specific `@tail` would
+            # then suppress a machine-LESS PLAIN ceiling for the same module, and
+            # the reverse. The helm caught it in the diff read; it was not
+            # reachable on the registry as it stands (18 modules, 3 decls, 1 tail,
+            # no overlap), which is exactly why it would have waited.
+            # ⇒ 🔑 A PRECEDENCE KEY MUST NAME WHERE THE VALUE LANDS. Deriving it
+            #   from the line's shape is a guess that happens to agree for three
+            #   of four shapes, and agreement on a sample is not a key.
             if len(parts) == 4 and parts[1] == DECL_TAG:
-                decls.setdefault(parts[0], {})[parts[2]] = float(parts[3])
+                dest, kind, val = ("decls", parts[0], parts[2]), None, float(parts[3])
             elif len(parts) == 3 and parts[1] == TAIL_TAG:
-                tails[parts[0]] = float(parts[2])
+                dest, kind, val = ("tails", parts[0]), None, float(parts[2])
             elif len(parts) == 3 and parts[1] == PER_ROW_TAG:
-                d[parts[0]] = ("perRow", float(parts[2]))
+                dest, kind, val = ("d", parts[0]), "perRow", float(parts[2])
             elif len(parts) == 2:
-                d[parts[0]] = ("abs", float(parts[1]))
+                dest, kind, val = ("d", parts[0]), "abs", float(parts[1])
             else:
                 print(f"⛔ unparseable ceiling line: {line!r}")
                 sys.exit(2)
+            # ⭐ TWO PASSES, SO PRECEDENCE IS A DECISION AND NOT A SIDE EFFECT.
+            # The first cut skipped a generic line when a specific one had been
+            # seen, and let a specific line WIN by overwriting — a skip in one
+            # direction and a write in the other. The OUTCOME was already
+            # order-independent, but the MECHANISM was not uniform, and the
+            # comment claimed more than the code did. The helm read the diff and
+            # said so. Collecting candidates and resolving once removes the
+            # asymmetry instead of documenting it.
+            # ⇒ 🔑 WHEN THE COMMENT IS STRONGER THAN THE CODE, RAISE THE CODE.
+            cand.setdefault(dest, []).append((mach is not None, kind, val))
+    # ⚖️ RESOLUTION, stated in full: a ceiling NAMED for this box beats a
+    # machine-less one wherever either sits in the file. Among entries of the
+    # SAME specificity the last line wins, exactly as this parser has always
+    # behaved — that is the one place order still decides, and it is now the
+    # only one. `kernel_delta` REFUSES such a duplicate outright; this parser
+    # deliberately does not change its contract in a commit about the column.
+    for dest, entries in cand.items():
+        spec = [e for e in entries if e[0]]
+        kind, val = (spec or entries)[-1][1:]
+        if dest[0] == "decls":
+            decls.setdefault(dest[1], {})[dest[2]] = val
+        elif dest[0] == "tails":
+            tails[dest[1]] = val
+        else:
+            d[dest[1]] = (kind, val)
     return d, decls, tails
 
 # ⭐⭐ THE ARMS FOR THE THREE THINGS ADDED BY QUEUE ITEMS 4d / 7 / 8 (D151).
@@ -926,6 +1024,55 @@ def read_ceilings():
 def conditions_selftest():
     """Returns a list of (ok, name).  Each arm creates the condition it tests."""
     out = []
+
+    # ⛔⛔ ARM 0 — THE PRECEDENCE KEY IS THE DESTINATION (helm diff read, D199).
+    # A machine-specific `@tail` and a machine-LESS plain ceiling for the same
+    # module land in DIFFERENT dicts and must not contend. The first cut keyed
+    # precedence off the line's arity, so both hashed to `parts[0]` and the
+    # `@tail` suppressed the plain ceiling — driven below, and it returned
+    # `d={}` where a ceiling of 50 belongs. Not reachable on the shipped
+    # registry, which is why it needed an arm rather than a sighting.
+    def _parse(body):
+        # ⚠️ shutil is imported LOCALLY here on purpose. This function already
+        # does `import ... shutil as _sh` further down its own body, which makes
+        # `_sh` a function-scoped name that is UNBOUND at this point — an arm
+        # placed above that import sees a free variable, not the module. Caught
+        # by running these arms directly instead of waiting for the 18-minute
+        # suite to reach them. [[feedback-make-the-probe-cheap]]
+        import tempfile as _t, shutil as _sh2
+        _d = _t.mkdtemp(prefix="x86lean-ceilprec-")
+        _f = os.path.join(_d, "kernel_ceilings.txt")
+        with open(_f, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        global CEIL_FILE
+        _saved, CEIL_FILE = CEIL_FILE, _f
+        try:
+            return read_ceilings()
+        finally:
+            CEIL_FILE = _saved
+            _sh2.rmtree(_d, ignore_errors=True)
+
+    _m = this_machine()
+    a = _parse(f"Tests.Coverage @tail 12420 @on {_m}\nTests.Coverage 50\n")
+    b = _parse(f"Tests.Coverage 50\nTests.Coverage @tail 12420 @on {_m}\n")
+    out.append((a[0].get("Tests.Coverage") == ("abs", 50.0)
+                and a[2].get("Tests.Coverage") == 12420.0,
+                "a machine-specific @tail does NOT suppress a machine-less PLAIN "
+                "ceiling for the same module (different destinations, different keys)"))
+    out.append((a == b, "…and the two line ORDERS give the identical parse"))
+    # ⭐ THE CONTROL, so the arm above cannot pass by the precedence rule being
+    # dead: a machine-specific PLAIN entry must still beat a machine-less one.
+    c = _parse(f"X86.Basic 163\nX86.Basic 999 @on {_m}\n")
+    d_ = _parse(f"X86.Basic 999 @on {_m}\nX86.Basic 163\n")
+    out.append((c[0].get("X86.Basic") == ("abs", 999.0)
+                and d_[0].get("X86.Basic") == ("abs", 999.0),
+                "CONTROL — a machine-specific PLAIN ceiling still beats a "
+                "machine-less one, in either order"))
+    # ⛔ AND A FOREIGN box is ABSENT, not a loose bound.
+    e = _parse("X86.Basic 163\nX86.Basic 999 @on SOMEOTHERBOX\n")
+    out.append((e[0].get("X86.Basic") == ("abs", 163.0),
+                "a ceiling named for ANOTHER box is skipped, leaving the "
+                "machine-less one in force"))
 
     # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
     # claims to get its idle % from `threads_ab.idle_pct` rather than from a
@@ -1544,6 +1691,30 @@ def main():
         total += ms
         rows.append((n, ms))
     if register:
+        # ⛔⛔ --register REWRITES THE WHOLE FILE FROM TODAY'S MEASUREMENTS, and it
+        # writes exactly one plain `<module> <ms>` line per module. Anything the
+        # registry carries that this loop cannot reproduce is DESTROYED: `@decl`
+        # and `@tail` ceilings (pre-existing, which is why the delta gate's own
+        # refusal says "DO NOT RUN `kernel_cost.py --register` TO CLEAR THIS"),
+        # and now `@on` machine columns.
+        # ⚠️ THE `@on` SAFETY USED TO BE ACCIDENTAL: this tool could not PARSE a
+        # machine column, so it exited 2 before reaching the writer. Teaching the
+        # parser the column above removed that accident, so the refusal is made
+        # EXPLICIT here — otherwise the parse fix would convert a loud failure
+        # into silent data loss, which is strictly worse than the bug it repairs.
+        # ⇒ 🔑 A FIX THAT REMOVES AN ACCIDENTAL SAFEGUARD OWES AN EXPLICIT ONE.
+        unwritable = unwritable_entries(CEIL_FILE)
+        if unwritable:
+            print("⛔ --register REFUSES: it rewrites this file from today's "
+                  "measurements and can only write plain `<module> <ms>` and "
+                  "`@perRow` lines, so it would DELETE the following:")
+            for _u in unwritable:
+                print(f"     {_u}")
+            print("   Edit the line you mean by hand. Re-deriving every ceiling "
+                  "from one box to change a few is how a registry gets loosened "
+                  "wholesale, and the machine columns cannot be re-derived at "
+                  "all — a reading taken here says nothing about another box.")
+            sys.exit(2)
         with open(CEIL_FILE, "w") as fh:
             fh.write("# Registered KERNEL (type-checking) ceilings, milliseconds.\n")
             fh.write("# Generated by scripts/kernel_cost.py --register on the P0 baseline.\n")
