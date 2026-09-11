@@ -19,14 +19,30 @@ Measured at the sources (G1 §1c.6; deriving commands and positive controls are 
 | | what an undefined bit IS | what it costs |
 |---|---|---|
 | **x86lean** | a value drawn from an **oracle in the state**, at a draw order and count fixed by the model (D5) | the model stays **total and executable**; undefinedness becomes a *parameter*, so a run is replayable from its seed and a disagreement is bisectable |
-| **ACL2 x86isa** | a **fresh unique unknown** per read, minted by `undef-read` from a seed counter whose field is `push-untouchable` | two undefined reads are **distinguishable**; the model is not concretely executable at those bits without an oracle |
+| **ACL2 x86isa** | `create-undef`, an **`encapsulate`d CONSTRAINED function** fed by a seed counter whose field is `push-untouchable` | **nothing about equality is provable** — its own docs: *"an undefined value is different from another undefined value, and also all the known values"*. Logically the strongest of the four; its EXECUTION path attaches something concrete |
 | **K x86-64** | a single distinguished **constant** `undefMInt`/`undefBool`, written straight into the flag (497 of 3,064 per-instruction files) | one term for every undefined value |
-| **Sail-x86-from-acl2** | **nothing — dropped in translation.** `other_non_det.sail` is a 27-byte stub | the mechanism does not survive the translation that produced the model |
+| **Sail-x86-from-acl2** | Sail's builtin `undefined` via `undef_read_logic()`, plus an explicit per-case `undefined_flags` **mask** threaded through `write_user_rflags` | a fourth design, not an absence. ⛔ *This row said "dropped in translation" until I re-drove it — see §1a* |
 
-⭐ **AND x86isa's OWN SOURCE DOCUMENTS THE HAZARD THAT A SINGLE CONSTANT WALKS INTO.**
-`unsafe-!undef`'s `:long`, verbatim: reusing a seed *"might contaminate our 'pool of undefined
-values' … which would make the result of an equality test between them **equal instead of
-indeterminate**."*
+## 1a. ⛔⛔ THE TABLE ABOVE WAS WRONG IN TWO CELLS WHEN THIS FILE WAS FIRST WRITTEN — BOTH MINE
+Re-driven the same day (`TACAS-G1-POSITIONING.md` §1c.10, with the population and controls):
+* **Sail was recorded as having DROPPED the mechanism.** False. I had read `other_non_det.sail` (a
+  27-byte stub — that is x86isa's RDRAND module) and `rflags_spec.sail` (no `undef` — those are the
+  flag *specification* functions) and generalised from two files. The machinery is in
+  `prelude.sail` and in the arithmetic/shift semantics.
+  ⇒ 🔑 ***I READ TWO FILES NAMED AFTER THE CONCEPT AND CONCLUDED ABOUT THE CONCEPT.***
+* **x86isa was recorded too weakly** — as "a fresh unique unknown", which is the *effect*. The
+  mechanism is an `encapsulate`d CONSTRAINED function, and **the project states the property itself**,
+  which is better evidence than the inference I had built.
+⇒ **The row is four genuinely different designs, not three and an absence** — a better G2 than the one
+scoped this morning, and the correction arrived from re-driving a nine-day-old prior-art table rather
+than from re-reading my own work. 📌 **Nothing in §2 changes**: what is ours is unaffected.
+
+⭐ **AND x86isa's OWN SOURCE STATES THE PROPERTY OUTRIGHT — AS DESIGN RATIONALE, NOT AS A WARNING.**
+`create-undef`'s `:long`, verbatim: *"we wouldn't be able to prove that a value obtained from `undef`
+is equal (or not) to any other value … **an undefined value is different from another undefined value,
+and also all the known values.**"* (The `unsafe-!undef` note about a reused seed "contaminating our
+pool of undefined values" is the same point from the misuse side; **the rationale is the stronger
+citation and this file used to lean on the weaker one**.)
 ⛔⛔ **THIS IS THE PAPER'S SHARPEST SENTENCE AND IT IS ALSO THE ONE THAT IS NOT YET EARNED.** See §4.
 
 ---

@@ -13749,3 +13749,69 @@ rather than letting a referee find it** — the same call §3 already made about
 📌 `vendor/` is in this repository's `.gitignore` and its `grep` honours ignore files, so every count
 in §1c was re-driven with `command grep` over an explicit `find` list, each absence carrying a positive
 control (`defaxiom` 0 in x86isa's 190 files, against 28 files one directory up).
+
+## D201 — G6's prior-art table re-driven: 3 of 9 at-source claims fail, and two of MY undefined-bit cells were wrong
+
+Taken while `CI` on `a32ae39` ran, after a sentinel poke asked whether I was stopped. I was waiting
+on a run whose informative half — `build`, carrying the new positioning gate — had **already reported
+green**. ⇒ 🔑 ***I SET THE WAIT CONDITION AT "THE RUN COMPLETES" WHEN THE QUESTION WAS "DOES MY GATE
+PASS", AND THE COARSER CONDITION COST ~45 MINUTES OF WAITING FOR AN ANSWER I ALREADY HAD.***
+
+### 1. THE RE-DRIVE, AND ITS DEFECT RATE
+`TACAS-PRICING.md` §2.4 carries the nine-row verdict. **Three fail:** x86isa's decoder is not
+XED-derived (a proof of concept, 186/3,192); K has no checked-in list of its *own* supported
+variants (a derivation script, plus disclaimed lists about *other* systems); and Sail's
+`Unspecified` term does not exist in the model.
+⛔⛔ **AND THE MECHANISM IS NOT ROT, WHICH CORRECTS WHAT I WROTE IN §4a THE SAME MORNING.** The
+underlying files have not changed since the annotations were written. ⇒ 🔑 ***AN AT-SOURCE
+ANNOTATION NOBODY RE-DRIVES IS WRONG AT ABOUT ONE IN THREE, AND THE ERRORS ARE PRESENT AT BIRTH
+RATHER THAN ACQUIRED.*** "It rotted" lets the author off; "it was never checked" is what the data
+says — a worse finding and a better argument, because it cannot be answered by re-checking more
+often, only by making the check mechanical.
+
+### 2. ⛔⛔ RE-DRIVING SOMEONE ELSE'S TABLE CORRECTED TWO CELLS OF MINE
+Chasing claim 5 is what found it. `TACAS-G1-POSITIONING.md` §1c.10:
+* **Sail was recorded as having DROPPED the undefined mechanism. FALSE — it REPLACED it.**
+  `prelude.sail`: *"In the ACL2 model, undefined values for things like flags just return zero. Here
+  we use Sail's builtin `undefined`"*, via `undef_read_logic()`, with a per-case `undefined_flags`
+  MASK threaded through `write_user_rflags` (144 hits in `shifts_spec.sail` alone).
+  ⛔ **How I got it wrong: I read `other_non_det.sail` (a 27-byte stub — that is x86isa's RDRAND
+  module) and `rflags_spec.sail` (the flag *specification* functions) and generalised from two
+  files.** ⇒ 🔑 ***I READ TWO FILES NAMED AFTER THE CONCEPT AND CONCLUDED ABOUT THE CONCEPT.***
+* **x86isa was recorded too weakly.** `create-undef` is `encapsulate`d as a **CONSTRAINED** function,
+  `( ((create-undef *) => *) )`, witness local. Its `:long` states the property outright: *"an
+  undefined value is different from another undefined value, and also all the known values."*
+  **Design rationale beats the `unsafe-!undef` misuse warning this campaign had been citing.**
+⇒ ⭐ **The row is FOUR genuinely different designs, not three and an absence** — a better G2 than the
+one scoped that morning. And it resolves the Sail comment's claim about ACL2 without contradiction:
+*"returns zero"* is the EXECUTION path; the constrained function is the LOGIC. **The paper must not
+collapse them.**
+⇒ ⛔ **Third table claim corrected in one shift** (K's decode, x86isa's decode, now two undefined-bit
+cells), and every one came from **reading a plausible proxy instead of the file that decides it.**
+***A FILE NAMED AFTER A CONCEPT IS A PROXY FOR THE CONCEPT.***
+
+### 3. ⭐ A SOURCE THAT REFUSES ITS OWN USE AS EVIDENCE
+K ships `docs/relatedwork/` with checked-in supported/unsupported lists for **x86isa and STOKE/Strata**
+— 293 mnemonics in `acl2/supportedOPcodes.txt`. **I was one step from recording that as a second
+source for x86isa's implemented count**, the very number this campaign refused from a web search.
+Its README: *"The statistics and results were for our internal usage and are **not updated**. Hence,
+the reader **is advised not to draw any conclusions about the status of related projects** from these
+results."*
+⇒ 🔑 ***A DATASET'S OWN README CAN BE A REFUSAL, AND READING THE DATA WITHOUT READING IT IS HOW A
+DISCLAIMED NUMBER ENTERS A PAPER WEARING A CITATION.*** 293 stays unrecorded, like 413.
+📌 **Distinguish this from the disclaimer defect `check_readme_snapshot.py` exists for.** There, a
+disclaimer protected a live claim and made it *unreadable as wrong*. Here it **withdraws the artifact
+from evidentiary use**. Same syntax, opposite function — and only the second is honest.
+
+### 4. TWO STRUCTURAL FACTS ABOUT OUR OWN VENDOR CLONES, so an absence is not misread again
+```
+  k-x86-64.FULL-BACKUP   git rev-parse --is-shallow-repository -> TRUE; git log = 1 commit.
+                         "FULL" is about the TREE AT HEAD, not history.  Every claim this campaign
+                         has made from it is about files at HEAD, so all remain sound.
+  docs/instruction-summary   mode 160000 (a GITLINK) with NO .gitmodules -- an UNREGISTERED
+                         submodule.  It is empty in ANY clone, ours included.  Its emptiness is a
+                         fact about the K repository, not about our checkout.
+```
+⇒ Companion to §1c.4's finding that `vendor/k-x86-64` is a `blob:none` partial clone holding only
+`semantics/`. **Three different kinds of incompleteness in two checkouts of one project**, and each
+would produce a different false absence.

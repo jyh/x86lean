@@ -109,12 +109,35 @@ the undefined-bit oracle, fidelity tiers, characterization theorems + frame pred
 testing, hardware co-simulation, oracle nonvacuity, kernel-cost discipline, the arithmetic encoding
 choice, and the external decoder — each with **public** prior art and an evidence class
 (VERIFIED-AT-SOURCE vs LITERATURE). That is most of a related-work section's skeleton.
-⛔ **TWO REASONS THE PRICE STAYS AT 2 DAYS ANYWAY, AND THE FIRST ONE IS MEASURED TODAY:**
-1. **ONE OF ITS AT-SOURCE CLAIMS IS WRONG.** *"x86isa itself uses XED's tables via `xedscan.py`"* —
-   measured today (§1c.9 of `TACAS-G1-POSITIONING.md`): `xedscan.py` is a self-described **proof of
-   concept** that generated **186 of 3,192** map entries, the x87 escape block. ⇒ 🔑 ***A
-   VERIFIED-AT-SOURCE ANNOTATION IS A CLAIM ABOUT THE DAY IT WAS TAKEN.*** Nine days old, one error
-   found on the first cell anybody re-read. The table must be re-driven, not transcribed.
+✅ **THE TABLE HAS NOW BEEN RE-DRIVEN IN FULL. THREE OF ITS NINE AT-SOURCE CLAIMS DO NOT SURVIVE.**
+```
+  1  x86isa x86-fetch-decode-execute over the x86 STOBJ, app-view switch   VERIFIED verbatim
+  2  x86isa UNDEF "seeds unknown values ... undefined behavior"            VERIFIED verbatim
+  3  "x86isa itself uses XED's tables via xedscan.py"                      REFUTED -- a self-
+       described PROOF OF CONCEPT; 186 of 3,192 entries (5.8%), the x87 escape block
+  4  "K: an explicit list of supported vs unsupported variants"            MIS-STATED -- K has a
+       DERIVATION SCRIPT for its own support and NO checked-in list of it.  Its checked-in
+       supported/unsupported lists are about OTHER systems, and that folder's own README says they
+       are "not updated" and "the reader is advised not to draw any conclusions" from them.
+  5  "Sail: `Unspecified`-valued results"                                  TERM NOT PRESENT -- 0 of
+       14 model files read (202,493 B; positive control fires in 12).  The real mechanism is Sail's
+       builtin `undefined` via undef_read_logic(), plus a per-case undefined_flags MASK.
+  6  K README's co-simulation-against-a-real-machine passage               VERIFIED verbatim
+  7  LNSym `cosim` conformance testing + `benchmarks` target               VERIFIED (README 19-20,41,45)
+  8  x86isa proofs/ tree                                                   VERIFIED in detail
+  9  Sail test-generation-patches/ + validation scripts                    VERIFIED (repo listing)
+```
+⭐ **CLAIM 5's FAILURE PAID FOR ITSELF: it is what found the error in our OWN undefined-bit row**
+(`TACAS-G1-POSITIONING.md` §1c.10) — I had recorded Sail as having *dropped* the mechanism, and it
+has not. **Re-driving someone else's table corrected two cells of mine.**
+📌 **The evidence-class column earned its keep:** all three failures sit in rows the verdict itself
+marked VERIFIED-AT-SOURCE, which is where a re-drive should look first. **A table without such a
+column cannot be audited at all.**
+
+⛔ **TWO REASONS THE PRICE STAYS AT 2 DAYS ANYWAY, AND BOTH ARE NOW MEASURED:**
+1. **THREE OF NINE AT-SOURCE CLAIMS DID NOT SURVIVE (above).** ⇒ 🔑 ***A VERIFIED-AT-SOURCE
+   ANNOTATION IS A CLAIM ABOUT THE DAY IT WAS TAKEN — and, measured, about one in three was not true
+   on that day either.*** The table must be re-driven, not transcribed.
 2. **IT IS A PRIVATE-LANE DOCUMENT AND THIS REPOSITORY IS PUBLIC.** The *citations* are public
    facts and flow freely; the *file* does not get copied across. The section is re-derived here
    against the sources, which is what item 1 requires anyway.
@@ -197,11 +220,15 @@ disagreement is ordinary software engineering. What is unusual is applying it to
 **coverage claims**, and being able to hand a referee a clone in which the gate runs.
 ⚠️ **Whether that clears a TACAS regular-track bar is genuinely uncertain, and I am not going to talk
 myself past it.** The honest risk is a referee reading "they CI-gated their README" as hygiene rather
-than contribution. ⇒ **The mitigation is not rhetoric, it is the NEGATIVE result:** §1c.9's finding
-that a nine-day-old VERIFIED-AT-SOURCE annotation was already wrong, and §2's finding that this
-repository's own debt list under-reported by a factor of three, are **evidence that ungated claims
-about formal artifacts rot on a timescale of days** — measured here, on ourselves, in public. That is
-an argument from data rather than from principle, and it is the strongest form of the paper's case.
+than contribution. ⇒ **The mitigation is not rhetoric, it is the NEGATIVE result**, and §2.4 has
+now sharpened it into a number: re-driving this campaign's own nine-day-old prior-art table found
+**three of its nine VERIFIED-AT-SOURCE claims do not survive**, and this repository's own debt list
+under-reported by a factor of three. That is an argument from data rather than from principle.
+⚠️ **AND THE MECHANISM IS NOT THE ONE I FIRST WROTE HERE.** This sentence said such claims *"rot on a
+timescale of days"*. **They do not: the underlying files had not changed, so the errors were present
+at birth.** ⇒ ***UNGATED CLAIMS ABOUT FORMAL ARTIFACTS ARE WRONG AT ABOUT ONE IN THREE THE DAY THEY
+ARE WRITTEN.*** That is a **worse** finding than rot and a **better** argument for the paper, because
+it cannot be answered with "re-check more often" — it requires the check to be mechanical.
 📌 **What would make it unambiguously not thin is the Hoare logic** — which is paper 2 and is
 correctly sequenced there. **§4's recommendation stands; my confidence in it is lower than when I
 wrote it, and the reason is that I now know what we are standing next to.**
