@@ -64,8 +64,21 @@ SKIP_IF = "needs.selftest-gate.outputs.skip != 'true'"
 
 
 def check_skip_seam(text):
-    """5-8: the CI-3 skip seam. Returns a list of findings (empty = clean)."""
-    import yaml
+    """5-8: the CI-3 skip seam. Returns a list of findings (empty = clean).
+
+    ⛔ PyYAML IS THIS GATE'S ONLY NON-STDLIB DEPENDENCY AND CHECKS 5-8 INTRODUCED
+    IT — checks 1-4 are pure `re`.  If it is unavailable this REFUSES rather than
+    skipping: a structural gate that cannot parse its subject must say so and go
+    red.  Silently passing 5-8 because the parser is missing would be a gate
+    disabling itself and still reading as coverage, which is the exact defect
+    `CLAIM-1`/`CLAIM-2` exist for.  The workflow installs it explicitly rather
+    than betting on the runner image.
+    """
+    try:
+        import yaml
+    except ImportError:
+        return ["PyYAML is unavailable, so checks 5-8 (the CI-3 skip seam) COULD NOT RUN. "
+                "This is a REFUSAL, not a pass: the skip seam is unverified."]
     out = []
     try:
         d = yaml.safe_load(text)
@@ -188,6 +201,26 @@ def _skip_seam_selftest():
     d["jobs"]["selftest"].pop("if", None); d["jobs"]["selftest"].pop("needs", None)
     arm("⭐ CONTROL: no gate job AND no if: is LEGAL — the unconditional world passes",
         d, False)
+
+    # ⛔ AND THE REFUSAL PATH ITSELF, DRIVEN.  A refusal that has never fired is
+    # a branch nobody has executed, and this one decides whether a missing parser
+    # reads as "clean" or as "unverified".
+    import sys as _sys
+    _saved = _sys.modules.get("yaml", "__absent__")
+    _sys.modules["yaml"] = None          # makes `import yaml` raise ImportError
+    try:
+        out = check_skip_seam(base_text)
+        ok = len(out) == 1 and "COULD NOT RUN" in out[0] and "REFUSAL" in out[0]
+    finally:
+        if _saved == "__absent__":
+            _sys.modules.pop("yaml", None)
+        else:
+            _sys.modules["yaml"] = _saved
+    arms.append("refusal path")
+    print(("  v " if ok else "  x ") + "⛔ PLANT: PyYAML unavailable ⇒ REFUSES (not a silent pass)"
+          + ("" if ok else f"   -> {out}"))
+    if not ok:
+        red += 1
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0

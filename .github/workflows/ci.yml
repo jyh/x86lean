@@ -144,6 +144,15 @@ jobs:
       - name: The local CI runner refuses an unknown flag instead of running a job
         run: python3 scripts/ci_local.py --selftest
 
+      # ⛔ PyYAML IS DECLARED, NOT ASSUMED.  Checks 5-8 of the shard gate parse
+      # ci.yml as YAML (a regex over YAML would be a second parser disagreeing
+      # with the one GitHub actually uses), and that is the ONLY non-stdlib
+      # import in any CI-run script here.  Betting on the runner image would make
+      # the gate's availability an unmeasured assumption; the gate itself REFUSES
+      # if the import fails, so this line is what keeps that refusal theoretical.
+      - name: The one non-stdlib dependency the gates need
+        run: python3 -c "import yaml" || python3 -m pip install --quiet pyyaml
+
       # ⛔ `--selftest` FIRST, and it is not decoration: checks 5-8 guard the CI-3
       # SKIP SEAM, whose worst failure is an INVERTED `if:` -- the shards would
       # run only when the gate said SKIP, i.e. never on a changed artifact, and
