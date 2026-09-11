@@ -431,3 +431,46 @@ The memory-frame lemmas shipped were `step_mov_reg_imm_mem`, `step_dec_reg_mem`,
 missing; `step_mov_reg_mem_mem` and `step_inc_reg_mem` are added here, two lines each.
 ⇒ **Third instance of the same shape in two days** (`agreeOutside_write`, `region_disjoint_of_le`,
 now these): **a library grown one proof at a time contains exactly what the last proof needed.**
+
+
+---
+
+## 📐 PROBLEM 5 — A FEASIBILITY PROBE, NOT A PROOF (2026-09-10)
+
+⚠️ **LABELLED AS A PROBE.** Nothing is built. This sizes problem 5 the way the problem-3 probe sized
+read-safety, so the five-problem table GS depends on is not discovering its own shape on the day.
+
+### ✅ THE MODEL SUPPORTS IT
+`push`/`pop` are in the AST (`X86/Syntax.lean`) and the semantics (`X86/Semantics.lean:181-187`:
+push decrements `rsp` by `sz.bytes` then writes; pop reads then increments), with effect theorems
+`step_push_reg`, `step_pop_reg` and — separately — **`step_pop_rsp`**, because popping INTO `rsp`
+is its own case.
+
+### ⛔ BUT ITS REGION IS A HALF-LINE, AND `Region` ONLY BUILDS INTERVALS
+*"The caller's frame above RSP is untouched"* is a frame claim whose region is **`{a | rsp₀ ≤ a}`** —
+unbounded — where `fill` and `memcpy` both used **`Region base len`**, a bounded interval.
+```
+  AgreeOutside (R : BitVec 64 → Prop)          ✅ takes ANY predicate — the half-line is expressible
+  agreeOutside_write  {R : BitVec 64 → Prop}   ✅ generic in R — a push's write reuses it unchanged
+  region_disjoint_of_le                        ⛔ stated for TWO `Region`s — does NOT reach a half-line
+```
+⇒ **The frame half transfers for free; the DISJOINTNESS half does not.** Problem 5 needs a
+containment/disjointness rule for a half-line — *"everything the routine writes is strictly below
+`rsp₀`"* — which is a fourth instance of the pattern already recorded three times: `agreeOutside_write`,
+`region_disjoint_of_le`, the load/`inc` frame lemmas, and now this.
+⚠️ **And the same wraparound trap applies, with more force**: `rsp₀ ≤ a` is a `BitVec 64` comparison,
+and a stack near address 0 wraps. `region_wrap_defeats_order` is the witness that this is not
+pedantry — the analogous no-wrap hypothesis will be load-bearing here too.
+
+### ⇒ THE FIVE-PROBLEM TABLE, AS MEASURED RATHER THAN PROPOSED
+| # | tier | status |
+|---|---|---|
+| 1 `fill` | **labelled** (the doc said frame; the proof refuted it) | ✅ built · 57 lines / 7.6 per label |
+| 2 `memcpy` | labelled | ✅ built · 76 lines / 8.1 per label · **linearity confirmed at a 2nd count** |
+| 3 `scan` | **frame** for "writes nothing"; **2-safety** for "reads in bounds" | ✅ half built (~1 line/instr) · ⛔ half **NOT STATABLE** single-run |
+| 4 guarded store | labelled, positional | ⬜ not started |
+| 5 prologue/epilogue | frame, but over a **HALF-LINE** region | ⬜ probed only — needs a half-line disjointness rule |
+⇒ 🔑 ***THREE OF THE FIVE TURNED OUT TO SIT IN A DIFFERENT TIER OR SHAPE THAN THE TABLE ORIGINALLY
+ASSIGNED THEM*** — 1 (frame→labelled), 3 (half of it not a single-run property at all), 5 (interval →
+half-line). **The tier assignment is a hypothesis about a problem, and writing the proof is what tests
+it.**
