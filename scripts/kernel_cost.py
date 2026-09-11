@@ -66,6 +66,25 @@ os.chdir(root)
 # probe writes only under TMPDIR and the repository is never touched, which is
 # the same move the P1 seal made for `scripts/sharing_redprobe.sh` (a467a22).
 CEIL_FILE = os.environ.get("X86LEAN_CEIL_FILE", "scripts/kernel_ceilings.txt")
+# The registry's machine column. ONE FILE FORMAT, THREE PARSERS: this one,
+# `kernel_delta.read_ceilings` and `kernel_delta.gated_declarations`.
+MACHINE_TAG = "@on"
+
+
+_THIS_MACHINE = None
+
+
+def this_machine():
+    """The box this process is on, spelled as the registry spells it.
+
+    Cached: `read_ceilings` consults it once per machine-named line, and a
+    syscall per registry line is a cost the parse has no reason to pay.
+    """
+    global _THIS_MACHINE
+    if _THIS_MACHINE is None:
+        import socket as _s
+        _THIS_MACHINE = _s.gethostname()
+    return _THIS_MACHINE
 # Headroom over the measured baseline.  Generous enough that ordinary noise on a
 # loaded machine does not fail a build, tight enough that a real regression does.
 HEADROOM = 3.0
@@ -894,15 +913,68 @@ def emit_json():
     return 0
 
 
+def unwritable_entries(path):
+    """Registry lines `--register` cannot reproduce, as (line, why) strings.
+
+    ⛔ A SEPARATE FUNCTION ON PURPOSE. Written inline inside `main()` it sat
+    behind a `lake build`, so the only way to exercise it was a full profiling
+    run — and a gate with no callable surface cannot be armed, which means in
+    practice it is never driven red. [[feedback-a-gate-with-no-callable-surface]]
+    """
+    out = []
+    if not os.path.exists(path):
+        return out
+    for line in open(path, encoding="utf-8"):
+        p = line.split("#")[0].strip().split()
+        if len(p) >= 2 and p[-2] == MACHINE_TAG:
+            out.append(f"{line.strip()}   (machine column)")
+        elif len(p) == 4 and p[1] == DECL_TAG:
+            out.append(f"{line.strip()}   (@decl ceiling)")
+        elif len(p) == 3 and p[1] == TAIL_TAG:
+            out.append(f"{line.strip()}   (@tail ceiling)")
+    return out
+
+
 def read_ceilings():
     """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
-    d, decls, tails = {}, {}, {}
+    d, decls, tails, _specific = {}, {}, {}, set()
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             line = line.split("#")[0].strip()
             if not line:
                 continue
             parts = line.split()
+            # ⛔⛔ THE MACHINE COLUMN, AND THIS PARSER DID NOT KNOW IT EXISTED.
+            # D194 added an optional trailing `@on <machine>` to
+            # `kernel_ceilings.txt` and taught exactly ONE of this file format's
+            # THREE parsers about it. Here, `X86.Program 396 @on yukon.lan` is
+            # four fields whose second is not `@decl`, so it fell to the `else`
+            # and EXITED 2 — on the profiler that produces every gated number in
+            # this campaign. It never fired because no registry line used the
+            # column yet, and the first line to use one is the one D198's ruling
+            # orders written. Driven before the fix: exit 2, "unparseable
+            # ceiling line". [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+            # ⇒ 🔑 A FORMAT CHANGE IS A CLAIM ABOUT EVERY PARSER OF THAT FORMAT,
+            #   AND A COLUMN WITH NO USERS BREAKS NOTHING UNTIL IT HAS ONE.
+            mach = None
+            if len(parts) >= 2 and parts[-2] == MACHINE_TAG:
+                mach, parts = parts[-1], parts[:-2]
+            # A ceiling naming ANOTHER box is not this box's bound. It is skipped
+            # rather than applied, which matches the delta gate's ABSENT rule; a
+            # machine-less entry still applies everywhere, as it always has.
+            if mach is not None and mach != this_machine():
+                continue
+            # ⛔ PRECEDENCE IS EXPLICIT, NOT FILE ORDER. A module may carry a
+            # machine-less ceiling AND one named for this box; the named one is
+            # the better evidence and must win wherever it sits in the file.
+            # Last-wins would make the verdict depend on line order, which is
+            # the kind of dependency nobody tests and everybody eventually edits.
+            _k = parts[0] if len(parts) == 2 else (
+                 f"{parts[0]}|{parts[2]}" if len(parts) == 4 else parts[0])
+            if mach is None and _k in _specific:
+                continue
+            if mach is not None:
+                _specific.add(_k)
             if len(parts) == 4 and parts[1] == DECL_TAG:
                 decls.setdefault(parts[0], {})[parts[2]] = float(parts[3])
             elif len(parts) == 3 and parts[1] == TAIL_TAG:
@@ -1544,6 +1616,30 @@ def main():
         total += ms
         rows.append((n, ms))
     if register:
+        # ⛔⛔ --register REWRITES THE WHOLE FILE FROM TODAY'S MEASUREMENTS, and it
+        # writes exactly one plain `<module> <ms>` line per module. Anything the
+        # registry carries that this loop cannot reproduce is DESTROYED: `@decl`
+        # and `@tail` ceilings (pre-existing, which is why the delta gate's own
+        # refusal says "DO NOT RUN `kernel_cost.py --register` TO CLEAR THIS"),
+        # and now `@on` machine columns.
+        # ⚠️ THE `@on` SAFETY USED TO BE ACCIDENTAL: this tool could not PARSE a
+        # machine column, so it exited 2 before reaching the writer. Teaching the
+        # parser the column above removed that accident, so the refusal is made
+        # EXPLICIT here — otherwise the parse fix would convert a loud failure
+        # into silent data loss, which is strictly worse than the bug it repairs.
+        # ⇒ 🔑 A FIX THAT REMOVES AN ACCIDENTAL SAFEGUARD OWES AN EXPLICIT ONE.
+        unwritable = unwritable_entries(CEIL_FILE)
+        if unwritable:
+            print("⛔ --register REFUSES: it rewrites this file from today's "
+                  "measurements and can only write plain `<module> <ms>` and "
+                  "`@perRow` lines, so it would DELETE the following:")
+            for _u in unwritable:
+                print(f"     {_u}")
+            print("   Edit the line you mean by hand. Re-deriving every ceiling "
+                  "from one box to change a few is how a registry gets loosened "
+                  "wholesale, and the machine columns cannot be re-derived at "
+                  "all — a reading taken here says nothing about another box.")
+            sys.exit(2)
         with open(CEIL_FILE, "w") as fh:
             fh.write("# Registered KERNEL (type-checking) ceilings, milliseconds.\n")
             fh.write("# Generated by scripts/kernel_cost.py --register on the P0 baseline.\n")

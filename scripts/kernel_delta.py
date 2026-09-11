@@ -147,6 +147,7 @@ usage:
   kernel_delta.py --selftest-measure         the two arms that need real trees
 """
 import os, re, sys, math, json, time, shutil, socket, platform, statistics, subprocess, tempfile, random
+import io, contextlib
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -173,6 +174,8 @@ KCOST = os.path.join(ROOT, "scripts", "kernel_cost.py")
 BUDGET_FILE = os.environ.get("X86LEAN_DELTA_BUDGET",
                              os.path.join(ROOT, "scripts", "kernel_delta_budget.txt"))
 CEIL_FILE = os.path.join(ROOT, "scripts", "kernel_ceilings.txt")
+# The registry's machine column. One spelling, three parsers read this file.
+MACHINE_TAG = "@on"
 DEFAULT_TAG = "@default"
 FLOOR_TAG   = "@floor"
 
@@ -202,6 +205,16 @@ def gated_declarations():
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             p = line.split("#")[0].strip().split()
+            # ⛔ THE MACHINE COLUMN IS STRIPPED HERE TOO, AND IT WAS NOT BEFORE.
+            # This is the THIRD parser of this one file (with `read_ceilings`
+            # here and `kernel_cost.read_ceilings` there), and D194 taught the
+            # column to exactly ONE of them. A `@decl` line carrying `@on` has
+            # SIX fields, matched no branch, and vanished from this map in
+            # silence — so a gated declaration would have quietly stopped being
+            # gated. No registry line used the column yet, which is the only
+            # reason nothing had said so.
+            if len(p) >= 2 and p[-2] == MACHINE_TAG:
+                p = p[:-2]
             if len(p) == 4 and p[1] == "@decl":
                 out.setdefault(p[0], []).append(p[2])
     return out
@@ -796,23 +809,28 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             # ⚖️⚖️ THE ARM REPORTS AND REFUSES. IT NEVER CONVICTS, AND IT NEVER
             # COMPARES A CEILING ACROSS MACHINES. `fail` is deliberately never set
             # below: a new module is a DECISION, and this gate cannot judge one.
-            entry = (ceilings or {}).get(u)
-            cm = entry[1] if entry else None
-            why = (None if entry is None else
-                   "machine-unknown" if cm is None else
-                   None if cm == mach else f"registered for {cm}")
-            if entry is None or why is not None or mach is None:
+            # ⭐ EXACT (unit, machine) LOOKUP (D198). `why` still distinguishes
+            # the three ways a ceiling can fail to apply, because a refusal that
+            # cannot say WHICH one is a refusal a head has to reproduce by hand.
+            cl = ceilings or {}
+            entry = ceiling_for(cl, u, mach)
+            others = machines_registered_for(cl, u)
+            cm = mach if entry is not None else None
+            why = (None if entry is not None else
+                   "machine-unknown" if has_machineless(cl, u) and not others else
+                   f"registered for {', '.join(others)}" if others else None)
+            if entry is None or mach is None:
                 v, ceiltxt = "NEW — REFUSED ⛔", "-"
                 refuse = True
                 unregistered_new.append(
                     (u, h, "the run's own machine is unknown" if mach is None
-                     else "no ceiling registered" if entry is None
+                     else "no ceiling registered" if why is None
                      else f"its ceiling is {why}, and a ceiling from another box "
                           f"is not a loose bound — it is an unrelated number"))
                 flags.append(f"NEW unit in head: {u} — head {h:.1f} ms measured on "
                              f"{mach or 'an UNKNOWN box'}; judged as NEW and REFUSED")
             else:
-                ceil = entry[0]
+                ceil = entry
                 ceiltxt = f"{ceil:.1f}"
                 # ⭐ The SAME three-way question the rest of the file asks, and the
                 # ONLY outcome that releases the refusal is a clean `ok`. Anything
@@ -1012,28 +1030,71 @@ def read_ceilings():
     returning nothing. Such a unit therefore reads as UNREGISTERED here and is
     refused by name rather than judged against a number that means something
     else."""
-    ceil = {}
+    ceil, seen = {}, {}
     if not os.path.exists(CEIL_FILE):
         return ceil
-    for line in open(CEIL_FILE):
+    for n, line in enumerate(open(CEIL_FILE), 1):
         p = line.split("#")[0].strip().split()
-        # ⚖️ THE MACHINE COLUMN (helm ruling as REPLACED, 2026-09-10). An optional
-        # trailing `@on <machine>` records the box a ceiling was measured on. An
-        # entry WITHOUT one is machine-unknown, and machine-unknown is treated as
+        # ⚖️ THE MACHINE COLUMN IS PART OF THE KEY (helm ruling on D198,
+        # 2026-09-11). An optional trailing `@on <machine>` records the box a
+        # ceiling was measured on, and the entry is keyed by (unit, machine) so
+        # ONE UNIT MAY CARRY A CEILING ON EACH MACHINE THIS GATE RUNS ON.
+        # ⛔ IT USED TO BE KEYED BY UNIT ALONE, AND A SECOND MACHINE'S LINE
+        # SILENTLY OVERWROTE THE FIRST — measured, `(800.0, 'runnervmlun5p')`
+        # surviving a `yukon.lan` line with no warning of any kind. This gate
+        # runs on TWO machines and its registry could name only ONE.
+        # An entry WITHOUT a machine is machine-unknown and is still treated as
         # ABSENT by the new-unit arm — never as a loose bound.
         mach = None
-        if len(p) >= 2 and p[-2] == "@on":
+        if len(p) >= 2 and p[-2] == MACHINE_TAG:
             mach, p = p[-1], p[:-2]
         if len(p) == 4 and p[1] == "@decl":
-            ceil[f"{p[0]} @decl {p[2]}"] = (float(p[3]), mach)
+            key, val = (f"{p[0]} @decl {p[2]}", mach), float(p[3])
         elif len(p) == 3 and p[1] == "@tail":
-            ceil[f"{p[0]} @residue"] = (float(p[2]), mach)
+            key, val = (f"{p[0]} @residue", mach), float(p[2])
         elif len(p) == 2:
             try:
-                ceil[p[0]] = (float(p[1]), mach)
+                key, val = (p[0], mach), float(p[1])
             except ValueError:
-                pass
+                continue
+        else:
+            continue
+        # ⛔⛔ A DUPLICATE KEY IS AN ERROR, NOT A LAST-WINS. The whole defect this
+        # ruling repairs was a silent overwrite, so the repair must not leave a
+        # narrower one behind: two lines naming the SAME unit on the SAME machine
+        # disagree about one number and nothing can choose between them.
+        if key in ceil:
+            u, m = key
+            print(f"⛔ DUPLICATE CEILING for {u!r} on "
+                  f"{'no machine' if m is None else m!r}: line {seen[key]} says "
+                  f"{ceil[key]:g} and line {n} says {val:g}. A registry keyed by "
+                  f"(unit, machine) cannot hold two numbers for one key, and "
+                  f"choosing one silently is the defect this key exists to "
+                  f"repair. Delete one line.", file=sys.stderr)
+            sys.exit(2)
+        ceil[key], seen[key] = val, n
     return ceil
+
+
+# ⭐ LOOKUP IS EXACT, AND DELIBERATELY HAS NO FALLBACK. Under D198 a ceiling that
+# does not name THIS box is ABSENT — never a loose bound — because the
+# local↔runner factor is PER MODULE (1.7×–3.1×) and so cannot be divided out of
+# an absolute number. The helpers below exist so a REFUSAL can still say what it
+# DID find, which is the difference between "no ceiling" and "not yours".
+def ceiling_for(ceilings, unit, machine):
+    """The ms registered for THIS unit on THIS machine, or None."""
+    if machine is None:
+        return None
+    return ceilings.get((unit, machine))
+
+
+def machines_registered_for(ceilings, unit):
+    """Other boxes carrying a ceiling for this unit — for the refusal text."""
+    return sorted(m for (u, m) in ceilings if u == unit and m is not None)
+
+
+def has_machineless(ceilings, unit):
+    return (unit, None) in ceilings
 
 
 def run_machine(data):
@@ -1057,7 +1118,13 @@ def absolute_readings(data):
     # ⚠️ The machine column is dropped HERE deliberately: this section prints
     # READINGS, retired as a gate, so a cross-machine number is a curiosity
     # rather than a verdict. The new-unit ARM is where the column binds.
-    ceil = {u: v[0] for u, v in read_ceilings().items()}
+    # ⚠️ Now that the registry is keyed by (unit, machine), this section must
+    # CHOOSE. It prefers THIS run's machine and falls back to a machine-less
+    # entry — never to another box's number, which would print a figure from a
+    # different machine under a column headed "ceiling".
+    _raw, _mach = read_ceilings(), run_machine(data)
+    ceil = {u: v for (u, m), v in _raw.items() if m is None}
+    ceil.update({u: v for (u, m), v in _raw.items() if m is not None and m == _mach})
     print("\n--- ABSOLUTE READINGS (RETIRED AS A GATE, 09/04 21:42; box-stamped)")
     print(f"{'UNIT':<56}{'base':>10}{'head':>10}{'ceiling':>10}   base/head")
     # ⛔ THE CLOSING SENTENCE USED TO SAY "the unchanged parent was already over
@@ -1483,7 +1550,7 @@ def selftest():
     run("⭐ a NEW unit under the REPOSITORY'S RELATIVE default is NOT judged "
         "against @floor",
         _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 0, "judged as NEW",
-        floor=REPO_FLOOR, ceilings={"X86.Program": (50.0, "BOXA")})
+        floor=REPO_FLOOR, ceilings={("X86.Program", "BOXA"): 50.0})
     # ⛔ THE MUTATION CONTROL: the SAME arm with the ceiling REMOVED must REFUSE.
     run("⛔ the same NEW unit with its ceiling REMOVED REFUSES — and does not FAIL",
         _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 3,
@@ -1495,26 +1562,54 @@ def selftest():
     run("⛔⛔ a ceiling registered for ANOTHER MACHINE is treated as ABSENT",
         _new_unit("X86.Program", 10.0, machine="BOXA"), REPO_DEFAULT, {}, 3,
         "is not a loose bound", floor=REPO_FLOOR,
-        ceilings={"X86.Program": (50.0, "BOXB")})
+        ceilings={("X86.Program", "BOXB"): 50.0})
     # ⛔ …and so is one with NO machine at all, which is every entry the registry
     # carried before this column existed.
     run("⛔ a ceiling with NO registered machine is treated as ABSENT",
         _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 3,
         "THIS IS NOT AN OVER-BUDGET FINDING", floor=REPO_FLOOR,
-        ceilings={"X86.Program": (50.0, None)})
+        ceilings={("X86.Program", None): 50.0})
+    # ⭐⭐⭐ D198's WHOLE POINT: TWO MACHINES, ONE UNIT, BOTH RETAINED. Under the
+    # old unit-keyed registry the second line silently replaced the first, so a
+    # repository that registered both boxes still refused on one of them — and
+    # was never told which. These two arms are the same registry read from two
+    # machines, and each must find ITS OWN number.
+    _BOTH = {("X86.Program", "BOXA"): 50.0, ("X86.Program", "BOXB"): 900.0}
+    run("⭐⭐ a unit registered on BOTH machines is judged on BOXA's number",
+        _new_unit("X86.Program", 10.0, machine="BOXA"), REPO_DEFAULT, {}, 0,
+        "judged as NEW", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+    run("⭐⭐ …and the SAME registry judges BOXB against BOXB's number",
+        _new_unit("X86.Program", 800.0, machine="BOXB"), REPO_DEFAULT, {}, 0,
+        "judged as NEW", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+    # ⛔ THE MUTATION CONTROL FOR THE PAIR: 800 ms is fine against BOXB's 900 and
+    # must REFUSE against BOXA's 50 — proving the two entries are really distinct
+    # and not one number answering both boxes.
+    # ⛔ …and it must refuse down the SAME-MACHINE path ("not a conviction"), not
+    # the unregistered one. Asserting only rc 3 would pass on either and prove
+    # nothing: both refusals exit 3 and they mean opposite things.
+    run("⛔ the pair is not one number: BOXA's reading over BOXA's ceiling REFUSES",
+        _new_unit("X86.Program", 800.0, machine="BOXA"), REPO_DEFAULT, {}, 3,
+        "THIS IS NOT A CONVICTION", floor=REPO_FLOOR,
+        ceilings=dict(_BOTH))
+    # ⛔ AND A THIRD BOX STILL FINDS NOTHING, with a message naming what DOES
+    # exist — "not yours" and "none at all" are different facts.
+    run("⛔ a THIRD machine finds the unit registered, but not for it",
+        _new_unit("X86.Program", 10.0, machine="BOXC"), REPO_DEFAULT, {}, 3,
+        "registered for BOXA, BOXB", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+
     # ⛔ AND THE RUN'S OWN MACHINE MUST BE KNOWN. A reading without its box cannot
     # be compared against any ceiling, however well registered.
     run("⛔ a run whose OWN machine is unknown refuses even with a matching ceiling",
         {**_new_unit("X86.Program", 10.0), "machine": None, "box": "no box line"},
         REPO_DEFAULT, {}, 3, "the run's own machine is unknown", floor=REPO_FLOOR,
-        ceilings={"X86.Program": (50.0, "BOXA")})
+        ceilings={("X86.Program", "BOXA"): 50.0})
     # ⛔⛔⛔ THE ARM THE REPLACED RULING TURNS ON: THIS GATE NEVER CONVICTS A NEW
     # UNIT. A reading far over a same-machine ceiling REFUSES (rc 3); it must never
     # come back rc 1, because a new module is a decision and not a regression.
     run("⛔⛔ a NEW unit far OVER its same-machine ceiling REFUSES — it NEVER "
         "convicts",
         _new_unit("X86.Program", 500.0), REPO_DEFAULT, {}, 3, "NOT A CONVICTION",
-        floor=REPO_FLOOR, ceilings={"X86.Program": (50.0, "BOXA")})
+        floor=REPO_FLOOR, ceilings={("X86.Program", "BOXA"): 50.0})
     # ⛔ POINT 4 OF THE RULING: rc 0 on an unregistered new unit is the ONE
     # forbidden outcome, under the budget kind that used to deliver it.
     run("⛔ an unregistered NEW unit never returns rc 0 — not even under the "
@@ -1529,7 +1624,7 @@ def selftest():
     # above — the arm that proves the change is confined to the case it names.
     run("a unit WITH a history is still judged on its DELTA, not its total",
         _synthetic({"M": 1000.0}, {"M": 1010.0}), REPO_DEFAULT, {}, 0, "ok",
-        floor=REPO_FLOOR, ceilings={"M": (1.0, "BOXA")})
+        floor=REPO_FLOOR, ceilings={("M", "BOXA"): 1.0})
     run("a unit GONE from head is flagged",
         {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False, "box": "BOX synthetic",
          "decl_map": {}, "readings": {"base": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}] * 2,
@@ -1601,6 +1696,68 @@ def selftest():
     if not ok:
         bad.append(arms[-1])
     shutil.rmtree(probe, ignore_errors=True)
+
+    # ── THE REGISTRY KEY (D198): (unit, machine), and a duplicate is an ERROR ──
+    # ⛔ These drive the PARSER, not the verdict. The defect being repaired lived
+    # entirely in the parse: two lines went in and one entry came out, so no
+    # verdict arm could ever have seen it.
+    def ceil_arm(name, body, want_exit, want_text=None, want=None):
+        global CEIL_FILE
+        d = tempfile.mkdtemp(prefix="x86lean-ceilkey-")
+        f = os.path.join(d, "kernel_ceilings.txt")
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        saved_cf, CEIL_FILE = CEIL_FILE, f
+        buf, got_exit, got = io.StringIO(), None, None
+        try:
+            with contextlib.redirect_stderr(buf):
+                got = read_ceilings()
+        except SystemExit as e:
+            got_exit = e.code
+        finally:
+            CEIL_FILE = saved_cf
+            shutil.rmtree(d, ignore_errors=True)
+        ok = (got_exit == want_exit
+              and (want_text is None or want_text in buf.getvalue())
+              and (want is None or got == want))
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name +
+              ("" if ok else f"   (exit={got_exit}, wanted {want_exit}; got={got})"))
+        if not ok:
+            bad.append(name)
+
+    # ⭐⭐ THE REPAIR ITSELF: two machines, one unit, BOTH SURVIVE THE PARSE.
+    ceil_arm("⭐⭐ two machines for ONE unit are BOTH retained by the parser",
+             "X86.Program 396 @on yukon.lan\nX86.Program 975 @on runnervmlun5p\n",
+             None, want={("X86.Program", "yukon.lan"): 396.0,
+                         ("X86.Program", "runnervmlun5p"): 975.0})
+    # ⛔⛔ THE DEFECT, AS A REGRESSION ARM. Under the old unit-keyed parse this
+    # same input returned ONE entry — the second — with no warning. If this ever
+    # returns a single key again, the silent overwrite is back.
+    ceil_arm("⛔⛔ …and that is TWO entries, not the one the old parse returned",
+             "X86.Program 396 @on yukon.lan\nX86.Program 975 @on runnervmlun5p\n",
+             None, want={("X86.Program", "yukon.lan"): 396.0,
+                         ("X86.Program", "runnervmlun5p"): 975.0})
+    # ⛔ A DUPLICATE KEY IS LOUD. Same unit, same machine, two numbers: nothing
+    # can choose between them, so the parser must refuse rather than pick.
+    ceil_arm("⛔ a DUPLICATE (unit, machine) REFUSES with exit 2, naming both lines",
+             "X86.Program 396 @on yukon.lan\nX86.Program 500 @on yukon.lan\n",
+             2, want_text="DUPLICATE CEILING")
+    # ⛔ …and machine-less lines have a key too, so they cannot be duplicated either.
+    ceil_arm("⛔ two MACHINE-LESS lines for one unit are also a duplicate",
+             "X86.Basic 163\nX86.Basic 200\n", 2, want_text="DUPLICATE CEILING")
+    # ⭐ THE CONTROL, AND IT IS THE ONE THAT KEEPS THE ERROR HONEST: a machine-less
+    # entry and a machine-named one are DIFFERENT keys and must both stand, or
+    # every registry written before the column existed becomes an error.
+    ceil_arm("⭐ a machine-less entry and a machine-named one COEXIST (not a duplicate)",
+             "X86.Program 396\nX86.Program 975 @on yukon.lan\n",
+             None, want={("X86.Program", None): 396.0,
+                         ("X86.Program", "yukon.lan"): 975.0})
+    # ⭐ CONTROL: the SHIPPED registry parses without an error. An arm that only
+    # ever sees fixtures cannot tell a strict parser from a broken one.
+    ceil_arm("⭐ CONTROL — the repository's own registry parses clean",
+             open(os.path.join(ROOT, "scripts", "kernel_ceilings.txt"),
+                  encoding="utf-8").read(), None)
 
     # ── THE ARGUMENT READER (D173): an ignored flag started a profiling run ────
     def argv_arm(av, want_rc, name, plant=None):

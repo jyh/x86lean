@@ -295,3 +295,24 @@ Tests.Nonvacuity 245
 Tests.Vectors 50
 Tests.VectorRuns 50
 Tests 50
+
+# ⚖️⭐ THE FIRST ENTRIES TO CARRY THE MACHINE COLUMN (helm ruling on D198,
+# 2026-09-11). The registry is keyed by (unit, machine): a ceiling names the box
+# it was measured on, and one that names ANOTHER box is ABSENT — never a loose
+# bound — because the local↔runner factor is per module (measured 1.6×–2.4×) and
+# cannot be divided out of an absolute number.
+#
+# ⛔ BOTH NUMBERS ARE THE GATE'S OWN, NOT RETYPED. They come from the merge-gate
+# run of `6fdb5ef → 837df82` (6 repeats a side, yukon.lan), which printed these
+# two lines verbatim as the registration it wanted. Headroom is the registry's
+# own rule, max(measured × 3, 50ms):
+#     X86.Program     head 132.0 ms  band ± 4.0  ⇒ 396
+#     Tests.Program   head 325.0 ms  band ±11.9  ⇒ 975
+#
+# ⚠️ THE RUNNER HAS NO ENTRY YET, AND THAT IS EXPECTED, NOT AN OVERSIGHT. No
+# runner reading for these units can exist until this branch merges, because
+# branch CI dies at `--gap` before the measuring step. The merge commit will
+# therefore REFUSE on the runner ONCE, for a named cause, and that refusal PRINTS
+# the runner's own reading — which is how the second pair of lines gets written.
+X86.Program 396 @on yukon.lan
+Tests.Program 975 @on yukon.lan

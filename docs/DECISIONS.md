@@ -13323,3 +13323,104 @@ setup, and it makes the `@on` column mean what D194 says it means. ⛔ **NOT IMP
 24 hours old, the helm withdrew its predecessor, §9.4 is registered as the helm's call, and **this seat
 is the party the gate convicted** — changing the gate that holds my own branch is the act the
 separation exists to prevent. The measurement is mine; the design is not.
+
+## D199 — the registry is keyed by (unit, machine), a duplicate key is an ERROR, and two of this format's three parsers did not know the column existed
+
+⚖️ **RULED BY THE HELM 2026-09-11** on D198's fork (bus `48802831`): take **(c)**. Design is the
+helm's and recorded there; implementation and its defects are mine. ⛔ **The ruling also corrected my
+own framing, and that correction is the first thing to read:** *"(c) and (a) are not alternatives at
+all: (c) is the data-model repair and (a) is the sequencing consequence you have to eat either way."*
+My post had offered them as a choice. It was not one.
+
+### 1. WHAT CHANGED
+`read_ceilings()` returns `{(unit, machine): ms}`. Lookup is **exact and has no fallback** — a ceiling
+that does not name THIS box is ABSENT, never a loose bound, because the local↔runner factor is per
+module (measured 1.6×–2.4×) and cannot be divided out of an absolute number. Two helpers exist so a
+REFUSAL can still distinguish *"none at all"* from *"not yours"*: a refusal that cannot say which one
+is a refusal a head has to reproduce by hand.
+⛔ **A DUPLICATE (unit, machine) IS `exit 2`, NAMING BOTH LINE NUMBERS.** The defect being repaired
+was a silent overwrite, so the repair must not leave a narrower one behind.
+✅ **Inert on today's registry, measured rather than asserted:** the pre-change and post-change parses
+of the shipped file are **byte-identical objects** (18 modules, 3 decls, 1 tail). The new behaviour
+activates only when an `@on` line exists.
+
+### 2. ⛔⛔ THE FINDING THE RULING'S OWN SEQUENCE WOULD HAVE DETONATED
+**This file format has THREE parsers and D194 taught the column to exactly ONE.**
+```
+  kernel_delta.read_ceilings        knew @on          (D194)
+  kernel_delta.gated_declarations   did NOT           a @decl line with @on has SIX fields,
+                                                      matched no branch, and VANISHED in silence —
+                                                      a gated declaration silently ungated
+  kernel_cost.read_ceilings         did NOT           four fields whose second is not @decl ⇒
+                                                      falls to `else` ⇒ ⛔ exit 2
+```
+**Driven at the object, with a control** — one `@on` line in the registry:
+`⛔ unparseable ceiling line: 'X86.Program 396 @on yukon.lan'` → `SystemExit 2`, on **the profiler that
+produces every gated number in this campaign**. The same file without that line parses fine.
+⇒ **The helm's step 2 — "register yukon.lan from the reading you already hold" — is the FIRST line in
+this repository's history to use the column**, and it would have killed `kernel_cost` on contact.
+⇒ 🔑 ***A FORMAT CHANGE IS A CLAIM ABOUT EVERY PARSER OF THAT FORMAT, AND A COLUMN WITH NO USERS
+BREAKS NOTHING UNTIL IT HAS ONE.*** The feature was added, reviewed, ruled on twice and banked, and
+its blast radius was invisible for one reason only: nobody had written the first line.
+
+### 3. ⛔ AND FIXING THE PARSE REMOVED AN ACCIDENTAL SAFEGUARD
+`kernel_cost.py --register` rewrites the WHOLE registry from today's measurements and can only emit
+plain `<module> <ms>` and `@perRow` lines. Everything else it **destroys** — the `@decl` and `@tail`
+ceilings (pre-existing, which is why the delta gate's own refusal text says *"DO NOT RUN
+`kernel_cost.py --register` TO CLEAR THIS"*), and now the machine column.
+**It refused `@on` today only because it could not PARSE it.** Teaching it the column removed that
+accident, so the refusal is now EXPLICIT: `--register` enumerates what it cannot reproduce and exits
+2 rather than writing.
+⇒ 🔑 ***A FIX THAT REMOVES AN ACCIDENTAL SAFEGUARD OWES AN EXPLICIT ONE***, or it converts a loud
+failure into silent data loss — strictly worse than the bug it repairs.
+📌 **Measured, and it is not hypothetical: the SHIPPED registry has 4 lines `--register` would
+delete** — three `@decl` ceilings and one `@tail`, including the hand-set `mem_dest_claims_are_backed`
+ceiling this file's own header spends a paragraph explaining. Two documents said "do not run it";
+nothing enforced it.
+📌 The guard is a FUNCTION, not an inline block in `main()` behind a `lake build` — where it was
+written first, and where it could never have been armed. [[feedback-a-gate-with-no-callable-surface]]
+
+### 4. DRIVEN RED FIRST, AND THE PLANT REPRODUCED THE ORIGINAL DEFECT
+53 → **63 arms**. The six new parser arms drive the PARSE, not the verdict: the defect lived entirely
+in the parse — two lines in, one entry out — so no verdict arm could ever have seen it.
+```
+  PLANT   restore the old unit-only keying   5 of 6 parser arms RED, and the values show the
+                                             overwrite literally: got={'X86.Program': 975.0}
+                                             where two entries belong
+  CONTROL the shipped registry's own arm     GREEN THROUGHOUT the plant — it has no duplicates and
+                                             (until now) no @on, so it cannot tell the two keyings
+                                             apart, which is exactly what a control should do
+  RESTORE                                    63 arms PASS
+```
+⚠️ **One arm was mine and wrong first:** I asserted the over-ceiling refusal by the text
+`THIS IS NOT AN OVER-BUDGET FINDING`, which belongs to the *unregistered* path. rc 3 matched and the
+text did not. **Both refusals exit 3 and they mean opposite things**, so an arm asserting only the
+exit code would have passed on either and proved nothing. It now asserts `THIS IS NOT A CONVICTION`.
+[[feedback-an-expectation-written-from-intent]]
+
+### 4b. 📌 ONE CONSEQUENCE I DROVE, DECIDED, AND AM NOT LEAVING IMPLICIT
+`absolute_readings` now shows THIS machine's ceiling and falls back to a machine-less one, never to
+another box's number under a column headed "ceiling". Driven on both machines: on `yukon.lan` the two
+new units print with 396 / 975; **on the runner they do not appear in that table at all**, because
+`if u not in ceil: continue` — pre-existing — skips any unit with no applicable ceiling.
+**Before this change they WOULD have printed, showing yukon's number as the runner's ceiling.** So
+the options were a foreign number or an absent row.
+✅ **Absent row, and no information is lost:** the new-unit REFUSAL block prints exactly those
+readings with their box — *"head 132.0 ms measured on runnervmlun5p"* — which is where a new unit's
+reading belongs. The table is for units the gate can place against a bound; a unit it cannot place is
+reported by the arm that cannot place it.
+
+### 5. ⚠️ THE PREDICTED RED, WRITTEN DOWN BEFORE IT HAPPENS (the helm's point 2)
+Generated by running the real `verdict()` against the registry as it now stands — not typed:
+```
+  LOCAL  yukon.lan        rc 0   both units NEW ok (396 / 975 @on yukon.lan)
+  RUNNER runnervmlun5p    rc 3   both REFUSED: "its ceiling is registered for yukon.lan, and a
+                                 ceiling from another box is not a loose bound"
+```
+**The merge of `p2-proof-interface` will red the `kernel-delta` job ONCE, on the runner, for that
+named cause.** It is not avoidable by any arm of the fork: under (c) the runner still has no entry,
+and ABSENT ⇒ REFUSE is the rule that makes the whole design safe.
+⭐ **And the red is the mechanism, not just the cost:** that refusal PRINTS the runner's own reading
+and the exact line to add. Expected runner ceilings, from the measured 1.6×–2.4× factor:
+`X86.Program` ≈ 630–960, `Tests.Program` ≈ 1560–2370. **A runner factor outside that band is itself a
+finding.**
