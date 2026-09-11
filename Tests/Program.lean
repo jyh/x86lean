@@ -603,4 +603,123 @@ vacuous: the byte it changed is one the theorem's region explicitly permits. -/
 theorem prologue_wrote_below : Below 0x7000 (0x6FF8 : BitVec 64) := by
   unfold Below; decide
 
+/-! ## ⭐⭐⭐ PROBLEM 4 — THE GUARDED STORE: SAFETY THAT IS TRUE ONLY ON ONE BRANCH
+
+The last of the five, and the only one whose safety property is CONDITIONAL: the store is in range
+*because the check passed*. That is what the labelled tier is for — **the guarded fact is recorded at
+the label reached only when the guard falls through**, and the `jae` arm that skips the store carries
+no obligation at all.
+
+It is also the point the labelled model had not measured: FOUR labels, between `prologue`'s 2 and
+`fill`'s 5. -/
+
+def guarded : Program := { code := [
+  (0x7000, ⟨.bin .cmp .q (.reg .rcx) (.reg .rdx), 3⟩),
+  (0x7003, ⟨.jcc .ae (BitVec.ofInt 64 3), 2⟩),
+  (0x7005, ⟨.mov .b (.mem { base := some .rdi, index := some .rcx }) (.reg .rax), 3⟩)] }
+
+def guardEntry (d0 : BitVec 64) (m0 : Mem) : Cpu :=
+  { rip := 0x7000, mem := m0,
+    regs := Regs.set (Regs.set default .rdi d0) .rdx 4 }
+
+/-- At the compare, nothing is known about `rcx` yet — only where the buffer is and that the
+limit register still holds 4. -/
+def AtCheck (d0 : BitVec 64) (s : Cpu) : Prop :=
+  s.regs.get .rdi = d0 ∧ Value.uval .q (s.regs.get .rdx) = 4
+
+/-- At the branch, the flags now CARRY the comparison — this is the guard bridge's whole purpose. -/
+def AtBranch (d0 : BitVec 64) (s : Cpu) : Prop :=
+  s.regs.get .rdi = d0 ∧ (s.flags.cf = true → Value.uval .q (s.regs.get .rcx) < 4)
+
+/-- ⭐ At the store, the guarded fact is IN THE INVARIANT: the index is in bounds. This label is
+reachable only by the branch NOT being taken. -/
+def AtStore (d0 : BitVec 64) (s : Cpu) : Prop :=
+  s.regs.get .rdi = d0 ∧ Value.uval .q (s.regs.get .rcx) < 4
+
+def GuardInv (d0 : BitVec 64) (m0 : Mem) (a : BitVec 64) (s : Cpu) : Prop :=
+  AgreeOutside (Region d0 4) m0 s.mem ∧ atTable
+    [(0x7000, AtCheck d0), (0x7003, AtBranch d0), (0x7005, AtStore d0)] a s
+
+set_option maxHeartbeats 1000000 in
+/-- **The guarded store writes only inside the buffer** — ∀ fuel, ∀ initial memory, ∀ index.
+Note what is NOT hypothesised: nothing about `rcx`. The routine is safe for every index BECAUSE it
+checks, and the proof's only source of the bound is the branch it did not take. -/
+theorem guarded_writes_only_in_buffer (d0 : BitVec 64) (m0 : Mem) (n : Nat) :
+    AgreeOutside (Region d0 4) m0 (runP guarded n (guardEntry d0 m0)).mem :=
+  (runP_code guarded (GuardInv d0 m0)
+    (fun s e hl h => by
+      have hh : s.halt e = { s with ms := some e } := by simp only [Cpu.halt, hl]
+      rw [hh]
+      exact ⟨h.1, atTable_of_congr (by
+        intro q hq
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
+        rcases hq with rfl|rfl|rfl <;> exact id) h.2⟩)
+    (by
+      intro a i s hmem hrip hl hI
+      simp only [guarded, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hmem
+      obtain ⟨ha, hr⟩ := hI
+      rcases hmem with ⟨rfl,rfl⟩|⟨rfl,rfl⟩|⟨rfl,rfl⟩
+      · obtain ⟨hdi, hdx⟩ := (hr : AtCheck d0 s)
+        rw [step_cmp_reg_reg .q .rcx .rdx hl, hrip]
+        refine ⟨ha, show AtBranch d0 _ from ⟨hdi, fun hcf => ?_⟩⟩
+        have hcf' : Flags.subCF .q (s.getReg .q .rcx) (s.getReg .q .rdx) = true := hcf
+        unfold Flags.subCF at hcf'
+        simp only [Cpu.getReg, Bool.false_eq_true, if_false, decide_eq_true_eq] at hcf'
+        simp only [Value.uval, Value.trunc, BitVec.and_assoc, BitVec.and_self] at hcf' hdx ⊢
+        omega
+      · obtain ⟨hdi, hcf⟩ := (hr : AtBranch d0 s)
+        rw [step_jcc .ae (BitVec.ofInt 64 3) hl (by intro _; rw [hrip]; decide)]
+        by_cases hb : s.flags.cf = true
+        · rw [show Cc.eval .ae s.flags = false by simp [Cc.eval, hb], if_neg (by simp), hrip]
+          exact ⟨ha, show AtStore d0 _ from ⟨hdi, hcf hb⟩⟩
+        · have hbf : s.flags.cf = false := by
+            cases hq : s.flags.cf with | true => exact absurd hq hb | false => rfl
+          rw [if_pos (by simp [Cc.eval, hbf]),
+              show s.rip + BitVec.ofNat 64 2 + BitVec.ofInt 64 3 = (0x7008 : BitVec 64) by
+                rw [hrip]; rfl]
+          exact ⟨ha, trivial⟩
+      · obtain ⟨hdi, hlt⟩ := (hr : AtStore d0 s)
+        rw [step_mov_mem_reg .b { base := some .rdi, index := some .rcx } .rax hl rfl, hrip]
+        refine ⟨?_, trivial⟩
+        simp only [Ea.addr, Ea.offset, Mem.writeSize, Mem.writeN, Size.bytes]
+        refine agreeOutside_write ha ⟨Value.uval .q (s.regs.get .rcx), hlt, ?_⟩
+        simp only [Scale.toVal, hdi, Bool.false_eq_true, if_false]
+        have hrcx : s.regs.get .rcx = BitVec.ofNat 64 (Value.uval .q (s.regs.get .rcx)) := by
+          unfold Value.uval
+          rw [Value.trunc_q]
+          simp
+        rw [← hrcx]
+        bv_omega)
+    n (guardEntry d0 m0) ⟨fun _ _ => rfl,
+      show AtCheck d0 (guardEntry d0 m0) by
+        refine ⟨by simp [guardEntry, Regs.get_set_ne], ?_⟩
+        simp [guardEntry, Regs.get_set_same, Value.uval, Value.trunc_q]⟩).1
+
+/-! ### ⛔⛔ NONVACUITY FOR A **GUARDED** ROUTINE — THE STRONGEST CASE FOR IT IN THE FIVE
+
+`guarded_writes_only_in_buffer` is satisfied by a routine that never writes at all — and here that
+is not a far-fetched worry, because **the guard's whole job is to sometimes not write.** A model in
+which the branch always skipped would satisfy the safety theorem perfectly. So both sides are pinned:
+the store HAPPENS in bounds, and is genuinely SKIPPED out of bounds. -/
+
+def guardStart (ix : BitVec 64) : Cpu :=
+  { guardEntry 0x8000 (Mem.write default 0x8002 0x77) with
+    regs := Regs.set (Regs.set (Regs.set default .rdi 0x8000) .rdx 4) .rcx ix }
+
+/-- ⭐ IN BOUNds (`rcx = 2`): the store really happens — the marker at `0x8002` is overwritten. -/
+theorem guarded_stores_in_bounds :
+    (runP guarded 8 (guardStart 2)).mem.read 0x8002 ≠ (guardStart 2).mem.read 0x8002 := by
+  decide
+
+/-- ⭐⭐ OUT OF BOUNDS (`rcx = 9`): the store is SKIPPED — memory is untouched at the address the
+unguarded routine would have written (`0x8000 + 9`). **This is the guard working, and without it the
+safety theorem above would be true of a routine that simply never stored.** -/
+theorem guarded_skips_out_of_bounds :
+    (runP guarded 8 (guardStart 9)).mem.read 0x8009 = (guardStart 9).mem.read 0x8009 := by
+  decide
+
+/-- …and the out-of-bounds run really did EXECUTE — it is not a machine that halted at the entry. -/
+theorem guarded_out_of_bounds_ran :
+    (runP guarded 8 (guardStart 9)).rip ≠ (guardStart 9).rip := by decide
+
 end Tests

@@ -522,3 +522,47 @@ The table asks for *"push/pop **balance**; the caller's frame above RSP untouche
 NOTHING, `prologue_really_pushed` shows the marker byte at `rsp₀ − 8` is actually gone one step in,
 with `prologue_wrote_below` confirming that byte is one the region explicitly permits.
 Axioms: all on `[propext, Quot.sound]`.
+
+
+---
+
+## ⭐⭐⭐ PROBLEM 4 BUILT — **ALL FIVE ARE NOW DONE**, AND THE LABELLED MODEL HAS FOUR POINTS
+
+### 1. THE ONLY CONDITIONAL SAFETY PROPERTY IN THE SET
+*"If the bounds check passes, the store is in range."* This is what the labelled tier is FOR: **the
+guarded fact is recorded at the label reached only when the guard falls through**, and the `jae` arm
+that skips the store carries no obligation at all. `AtStore` literally contains `uval rcx < 4`, and
+its only source is the branch that was not taken.
+📌 Note what the theorem does **not** hypothesise: **nothing about `rcx`.** The routine is safe for
+every index BECAUSE it checks.
+
+### 2. ⭐ THE MODEL, AT FOUR LABEL COUNTS AND FOUR ROUTINE SHAPES
+```
+   2 labels   34 lines   7.5 / label   prologue   (stack, half-line region)
+   4 labels   50 lines   7.8 / label   guarded    (a branch-conditional property)   ← NEW
+   5 labels   57 lines   7.6 / label   fill       (a loop)
+   7 labels   76 lines   8.1 / label   memcpy     (two pointers, disjointness)
+```
+⇒ 🔑 ***`19 + ~7.7 PER LABEL` HOLDS ACROSS A 2–7 SPAN AND FOUR STRUCTURALLY DIFFERENT ROUTINES, WITH
+THE CONSTANT INSIDE 7.5–8.1.*** A loop, a guard, two pointers and a stack frame all cost the same per
+label. **At twenty labels ≈ 173 lines**, and the conclusion — *no lemma library reaches "tens of
+lines"; it needs a tactic or a VC generator* — now rests on four measured points.
+
+### 3. ⛔⛔ THE NONVACUITY IS STRONGEST HERE, AND IT HAD TO BE
+A frame theorem is satisfied by a routine that never writes — and for a GUARDED routine **that is
+not a far-fetched worry, because the guard's whole job is to sometimes not write.** A model in which
+the branch always skipped would satisfy the safety theorem perfectly. So both sides are pinned:
+* `guarded_stores_in_bounds` — at `rcx = 2` the marker byte really is overwritten;
+* `guarded_skips_out_of_bounds` — at `rcx = 9` memory is **untouched at `0x8000 + 9`**, the address
+  an unguarded routine would have written;
+* `guarded_out_of_bounds_ran` — and that run really executed, rather than halting at entry.
+⇒ ***THE SECOND THEOREM IS THE GUARD WORKING. WITHOUT IT THE SAFETY CLAIM WOULD BE TRUE OF A ROUTINE
+THAT SIMPLY NEVER STORED.***
+
+### 4. 📌 TWO MECHANICAL LESSONS, BOTH SELF-INFLICTED
+* **`Value.trunc_q` already exists as a `@[simp]` lemma** (`trunc .q v = v`). I unfolded
+  `Value.trunc` instead and produced `x &&& mask &&& mask`, which `omega` and `bv_omega` both treat
+  as distinct atoms — **three failed builds chasing a mask I created myself.** Reach for the existing
+  simp lemma before unfolding a definition.
+* `Cpu.getReg` and `Ea.offset` both leave an `if … = true` that `simp only` will not reduce without
+  `Bool.false_eq_true, if_false`. That pair appears throughout this file for exactly this reason.
