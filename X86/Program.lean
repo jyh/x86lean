@@ -414,6 +414,41 @@ theorem region_wrap_defeats_order :
     ∧ Region (0 : BitVec 64) 4 (0 : BitVec 64) :=
   ⟨⟨2, by decide, by decide⟩, ⟨0, by decide, by decide⟩⟩
 
+/-! ## ⭐⭐⭐ THE GUARD BRIDGE — SIXTH INSTANCE, AND THE ONE WITH THE WIDEST REACH
+
+A guarded routine's whole safety argument is *"the store is in range BECAUSE the check passed"*, and
+that step needs a lemma connecting a CONDITION CODE to the ARITHMETIC FACT it encodes. The library
+had both ends and **not the bridge**: `step_cmp_reg_reg` says what `cmp` does to the flags, `Cc.eval`
+says which flag a condition reads, and **nothing related `Cc.eval c (Flags.sub …)` to a comparison
+of the operands.** Measured: zero matches for a lemma of that shape.
+
+⇒ **Sixth instance of the same pattern, and the widest** — `agreeOutside_write`,
+`region_disjoint_of_le`, the load/`inc` frame lemmas, the half-line, the n-byte write, now this.
+**Guards are ubiquitous**, so this one is not specific to problem 4: any routine with a bounds check
+needs it. ⚠️ Written for the UNSIGNED pair only (`.b`/`.ae`), which is what a bounds check uses; the
+signed conditions rest on `sf`/`of` and are a different lemma, deliberately not invented here. -/
+
+/-- After `cmp a b`, the BELOW condition is exactly the unsigned comparison. -/
+@[simp] theorem cc_b_of_sub (sz : Size) (a b : Val) (f : Flags) :
+    Cc.eval .b (Flags.sub sz a b f) = decide (Value.uval sz a < Value.uval sz b) := rfl
+
+/-- …and ABOVE-OR-EQUAL is its negation, stated as the `≤` a caller actually wants. -/
+@[simp] theorem cc_ae_of_sub (sz : Size) (a b : Val) (f : Flags) :
+    Cc.eval .ae (Flags.sub sz a b f) = decide (Value.uval sz b ≤ Value.uval sz a) := by
+  show (!(Flags.subCF sz a b)) = _
+  unfold Flags.subCF
+  cases h : decide (Value.uval sz a < Value.uval sz b) <;>
+    simp_all <;> omega
+
+/-- ⚠️ **THE DIRECTION, PINNED CONCRETELY.** Both lemmas above are definitional, so they cannot be
+vacuous — but they CAN be stated with the comparison backwards and still typecheck, because the
+model would simply be reflected wrongly into my own words. This fixes which way round it goes:
+`cmp 3, 5` sets BELOW (3 < 5) and clears ABOVE-OR-EQUAL. -/
+theorem cc_direction_pinned (f : Flags) :
+    Cc.eval .b (Flags.sub .q 3 5 f) = true ∧ Cc.eval .ae (Flags.sub .q 3 5 f) = false := by
+  rw [cc_b_of_sub, cc_ae_of_sub]
+  exact ⟨by decide, by decide⟩
+
 /-! ## ⭐⭐⭐ THE HALF-LINE, WHICH PROBLEM 5 NEEDS AND `Region` CANNOT BUILD
 
 `Region base len` is a bounded interval and every lemma above is stated for two of them. A
