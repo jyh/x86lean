@@ -31,11 +31,20 @@ total function `step`, and every form has a theorem stating its effect as an
 equation on the state record, so what a form does not change is **proved**
 unchanged, not assumed.
 
-It is built from public sources only: the Intel SDM for the intent, and three
-executable models the SDM's prose is checked against — ACL2 x86isa, the K
-semantics of x86-64, and Sail — plus Intel XED for decoding. Where the SDM
-leaves a bit undefined the model does not pick a value: it draws one from an
-oracle carried in the state, so no theorem can depend on it. The whole main tier
+It is built from public sources only: the Intel SDM for the intent, ACL2 x86isa
+as the executable oracle every differential run is checked against, the K
+semantics of x86-64 read mechanically as a coverage source, Sail as a planned
+third reference, and Intel XED for decoding. Where the SDM leaves a bit
+undefined the model does not pick a value: it draws one from an oracle carried
+in the state, so no theorem can depend on it.
+
+Those are **sources, not independent witnesses**, and the difference is measured
+rather than assumed. `sail-x86-from-acl2` is, in its own repository's words, a
+model *"automatically translated from the ACL2 model"*, and its validation guide
+co-simulates it against K's test suite — so agreement with it would test the
+translator, not a second semantics. K has never been executed here. **One
+executable oracle has actually been run, and this paragraph used to call it
+three.** The whole main tier
 depends on exactly the three standard Lean axioms and nothing else, gated per
 declaration in CI.
 
