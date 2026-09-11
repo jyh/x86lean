@@ -508,4 +508,99 @@ instructions and not about a machine that never started. -/
 theorem scan_really_ran :
     (runP scan 12 { rip := 0x5000, regs := Regs.set default .rcx 3 }).rip ≠ 0x5000 := by decide
 
+/-! ## ⭐⭐⭐ PROBLEM 5 — THE CALLER'S FRAME, AND A THIRD POINT FOR THE LABELLED MODEL
+
+*"push/pop balance; the caller's frame above RSP untouched."* The five-problem table filed this as
+**frame tier**. ⛔ **It is not**, and the reason is the same kind that moved problem 1: the frame tier
+must hold from ANY state satisfying the invariant, and a `pop` from an arbitrary such state raises
+`rsp` — possibly above `rsp₀`. **Where the machine is in the routine is exactly what makes the claim
+true**, so it is LABELLED. ⇒ **Four of the five have now moved tier or shape from the table's
+original assignment.**
+
+With TWO labels it is also the low end of the labelled model, which had only been measured at 5 and 7. -/
+
+def prologue : Program := { code := [
+  (0x6000, ⟨.push .q (.reg .rbp), 1⟩),
+  (0x6001, ⟨.pop .q (.reg .rbp), 1⟩)] }
+
+def frameEntry (rsp0 : BitVec 64) (m0 : Mem) : Cpu :=
+  { rip := 0x6000, mem := m0, regs := Regs.set default .rsp rsp0 }
+
+/-- ⚠️ The per-label assertions are NAMED, not anonymous lambdas in the table. `fill`'s `Loop` is
+named for the same reason and it is not cosmetic: `show P … from …` drives the `atTable` lookup by
+DEFEQ only when the predicate has a name to show against. With a lambda the `show` pattern simply
+fails to match — which cost two builds here before I saw why. -/
+def AtEntry (rsp0 : BitVec 64) (s : Cpu) : Prop := s.regs.get .rsp = rsp0
+
+def AtPushed (rsp0 : BitVec 64) (s : Cpu) : Prop :=
+  s.regs.get .rsp = rsp0 - BitVec.ofNat 64 8
+
+def FrameInv (rsp0 : BitVec 64) (m0 : Mem) (a : BitVec 64) (s : Cpu) : Prop :=
+  AgreeOutside (Below rsp0) m0 s.mem ∧ atTable
+    [(0x6000, AtEntry rsp0), (0x6001, AtPushed rsp0)] a s
+
+set_option maxHeartbeats 1000000 in
+/-- **The routine writes nothing at or above the caller's entry `rsp`** — ∀ fuel, ∀ initial memory.
+`hrsp` excludes a stack wrapping past address 0, and `below_wrap_defeats_order` is the witness that
+that hypothesis is load-bearing rather than decorative. -/
+theorem prologue_preserves_caller_frame (rsp0 : BitVec 64) (m0 : Mem) (n : Nat)
+    (hrsp : 8 ≤ rsp0.toNat) :
+    AgreeOutside (Below rsp0) m0 (runP prologue n (frameEntry rsp0 m0)).mem :=
+  (runP_code prologue (FrameInv rsp0 m0)
+    (fun s e hl h => by
+      have hh : s.halt e = { s with ms := some e } := by simp only [Cpu.halt, hl]
+      rw [hh]
+      exact ⟨h.1, atTable_of_congr (by
+        intro q hq
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
+        rcases hq with rfl|rfl <;> exact id) h.2⟩)
+    (by
+      intro a i s hmem hrip hl hI
+      simp only [prologue, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hmem
+      obtain ⟨ha, hr⟩ := hI
+      rcases hmem with ⟨rfl,rfl⟩|⟨rfl,rfl⟩
+      · rw [step_push_reg .q .rbp hl,
+            show s.rip + BitVec.ofNat 64 1 = (0x6001 : BitVec 64) by rw [hrip]; rfl]
+        have hsp : s.regs.get .rsp = rsp0 := (hr : AtEntry rsp0 s)
+        refine ⟨?_, ?_⟩
+        · refine agreeOutside_writeSize ha .q _ _ (fun j hj => ?_)
+          rw [hsp]
+          exact below_span (rsp0 := rsp0) (sp := rsp0 - BitVec.ofNat 64 8) (n := 8)
+            (by bv_omega) (by bv_omega) j (by simpa [Size.bytes] using hj)
+        · show AtPushed rsp0 _
+          unfold AtPushed
+          rw [Regs.get_set_same, hsp]
+          rfl
+      · obtain hsp := (hr : AtPushed rsp0 s)
+        rw [step_pop_reg .q .rbp hl (by decide), hrip]
+        exact ⟨ha, trivial⟩)
+    n (frameEntry rsp0 m0) ⟨fun _ _ => rfl,
+      show AtEntry rsp0 (frameEntry rsp0 m0) by
+        unfold AtEntry; simp [frameEntry, Regs.get_set_same]⟩).1
+
+/-! ### ⛔ THE OTHER HALF OF THE STATED PROPERTY, AND THE NONVACUITY
+
+The table's problem 5 is *"push/pop **balance**; the caller's frame above RSP untouched."* The
+theorem above is the second half only. **The balance is a separate claim and is proved separately**
+rather than left implied — and the frame claim is satisfied by a routine that writes NOTHING, so the
+push is shown to really write. -/
+
+/-- A concrete start: `rsp₀ = 0x7000`, with a marker byte already at `0x6FF8` so the push's write is
+distinguishable from an untouched background. -/
+def frameStart : Cpu := frameEntry 0x7000 (Mem.write default 0x6FF8 0x11)
+
+/-- ⭐ **THE BALANCE**: `rsp` comes back to its entry value. -/
+theorem prologue_balances :
+    (runP prologue 6 frameStart).regs.get .rsp = 0x7000 := by decide
+
+/-- ⭐ **AND THE PUSH REALLY WRITES** — one step in, the marker byte at `rsp₀ - 8` is gone. Without
+this, `prologue_preserves_caller_frame` would be satisfied by a routine that never stored. -/
+theorem prologue_really_pushed :
+    (runP prologue 1 frameStart).mem.read 0x6FF8 ≠ frameStart.mem.read 0x6FF8 := by decide
+
+/-- ⚠️ …and it writes BELOW the line, which is what makes the frame claim non-trivial rather than
+vacuous: the byte it changed is one the theorem's region explicitly permits. -/
+theorem prologue_wrote_below : Below 0x7000 (0x6FF8 : BitVec 64) := by
+  unfold Below; decide
+
 end Tests

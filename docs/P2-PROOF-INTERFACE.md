@@ -474,3 +474,51 @@ pedantry — the analogous no-wrap hypothesis will be load-bearing here too.
 ASSIGNED THEM*** — 1 (frame→labelled), 3 (half of it not a single-run property at all), 5 (interval →
 half-line). **The tier assignment is a hypothesis about a problem, and writing the proof is what tests
 it.**
+
+
+---
+
+## ⭐⭐⭐ PROBLEM 5 BUILT — AND THE LABELLED MODEL IS NOW VALIDATED AT THREE LABEL COUNTS
+
+### 1. ⛔ IT IS NOT THE FRAME TIER, AND THE TABLE SAID IT WAS
+The frame tier must hold from ANY state satisfying the invariant, and a `pop` from an arbitrary such
+state raises `rsp` — possibly above `rsp₀`. **Where the machine is in the routine is exactly what
+makes the claim true**, so problem 5 is LABELLED. **Same kind of misassignment as problem 1's, found
+the same way: by writing the proof.**
+⇒ **Of the FOUR problems attempted, THREE moved tier or shape from the table's assignment** (1
+frame→labelled · 3 half of it not a single-run property at all · 5 frame→labelled). **Only problem 2
+stayed where it was put.**
+
+### 2. ⭐ THE THIRD POINT, AND THE MODEL HOLDS
+```
+   2 labels (prologue)   34 lines   7.5 / label     ← NEW, the low end
+   5 labels (fill)       57 lines   7.6 / label
+   7 labels (memcpy)     76 lines   8.1 / label
+```
+⇒ 🔑 ***`19 + ~7.7 PER LABEL` NOW HOLDS ACROSS THREE ROUTINES AND A 2–7 LABEL SPAN, WITH THE
+CONSTANT VARYING ONLY 7.5–8.1.*** And it varies in a way that makes sense: `prologue` has the
+simplest invariant (one register) and the lowest constant; `memcpy` the most complex (two pointers, a
+counter and a flag) and the highest. **The constant tracks invariant complexity, not label count.**
+⚠️ It also RISES with label count, so the twenty-label extrapolation (~173 lines) is if anything
+**optimistic**. Either way it is not "tens of lines", and that conclusion now rests on three measured
+points rather than one.
+
+### 3. 📌 THE VOCABULARY IT NEEDED — FIFTH INSTANCE, AND THE FIRST ONE PREDICTED
+A push is an **eight-byte** write; `agreeOutside_write` covers ONE byte, because `fill` and `memcpy`
+both store `.b`. `agreeOutside_writeN` / `agreeOutside_writeSize` were added. ⇒ **I looked for the
+multi-byte rule BEFORE needing it**, on the strength of the pattern recorded three times already, and
+it was absent — the first time this gap was predicted rather than discovered.
+
+### 4. ⚠️ AND A MECHANICAL LESSON THAT COST TWO BUILDS
+The per-label assertions must be **NAMED defs**, not anonymous lambdas in the `atTable` list.
+`show P … from …` drives the table lookup by DEFEQ only when the predicate has a name to show
+against; with a lambda the `show` pattern simply fails to match. `fill`'s `Loop` is named for this
+reason and **it is not cosmetic.** Recorded at the definition so the next routine does not rediscover it.
+
+### 5. BOTH HALVES OF THE STATED PROPERTY, AND THE NONVACUITY
+The table asks for *"push/pop **balance**; the caller's frame above RSP untouched."* Both are proved,
+**separately rather than one implied by the other**: `prologue_balances` (`rsp` returns to `rsp₀`) and
+`prologue_preserves_caller_frame`. And because a frame claim is satisfied by a routine that writes
+NOTHING, `prologue_really_pushed` shows the marker byte at `rsp₀ − 8` is actually gone one step in,
+with `prologue_wrote_below` confirming that byte is one the region explicitly permits.
+Axioms: all on `[propext, Quot.sound]`.
