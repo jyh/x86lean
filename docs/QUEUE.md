@@ -2502,6 +2502,37 @@ sentence has already been rewritten once today.
 when a source is read mechanically (K, for the roster) rather than executed. **The count is easy; the
 value set is the claim** ([[feedback-a-conservation-gate-cannot-see-a-misclassification]]).
 
+## ⚠️ CLAIM-2 (NEW, 2026-09-11) — **`TACAS-PRICING.md` §1's NUMBERS ARE CORRECT, UNGATED, AND WERE UNREPRODUCIBLE UNTIL TODAY**
+
+**Measured (D202).** All seven §1 quantities are exactly right at `7bb57ee`. **Not one stated its
+denominator.** Re-deriving them with the obvious command gives 23,352 / 618 / 59 against the claimed
+18,824 / 616 / 55 — because `total .lean lines` excludes `Main.lean`'s 4,390, and `design documents`
+excludes `docs/seals/`. **I got three of seven wrong and briefly concluded the file was stale by 24%.**
+⇒ 🔑 ***A CORRECT NUMBER WITH AN UNSTATED DENOMINATOR FAILS REPRODUCTION EXACTLY LIKE A WRONG ONE, AND
+FAILS WORSE — the author defends it and neither side can see why they disagree.***
+✅ **DONE:** every denominator is now written beside its number, and **G5 is re-priced 2–3 → 3–4 days**
+because artifact evaluation here is *"state every denominator, then run the gates"*, not *"run the
+gates"*.
+
+⛔ **THE PART THAT IS STILL OPEN, AND IT IS THE SAME SHAPE AS `CLAIM-1`.**
+```
+  check_readme_snapshot.py   EXISTS, and was built for EXACTLY this defect -- README.md carried a
+                             snapshot paragraph four batches stale that nothing read
+  TACAS-PRICING.md §1        the same paragraph in a SECOND document, written AFTER that gate existed
+```
+⇒ 🔑 ***A GATE BUILT FOR ONE FILE DOES NOT FOLLOW THE PATTERN INTO THE NEXT FILE THAT ADOPTS IT.***
+D41's rule arriving in a third document; `check_coverage_prose.py` was the second, and this is the
+third time this repository has written the same paragraph somewhere new and left it unread.
+
+⚠️ **NOT PRICED AND NOT BUILT, DELIBERATELY — and the precondition is the useful half:**
+> the honest gate re-derives each §1 number **against its own stated denominator** and refuses on
+> disagreement. That requires the denominators to be **machine-readable**, and they are currently
+> prose.
+
+**So the first task is a format, not a gate.** ⛔ Building it against prose denominators would be the
+third copy of this mistake wearing a fix's clothes. 📌 Whoever takes it should take `CLAIM-1` in the
+same pass: both are "a claim in a document that no gate reads", and they share a remedy shape.
+
 ## DEFERRED, by ruling — not by silence
 - **Arm C, the K-backed second oracle** — DEFERRED at the council (minute 2026-09-05 item 2(a)).
   The condition of the deferral is that **the hole is printed beside every coverage number**.
