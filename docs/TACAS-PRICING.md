@@ -206,8 +206,13 @@ must cite.
 with the confidence lowered and the reason stated.**
 ⛔ **The thing I would NOT do is submit the tier law as the headline before the benchmark exists** —
 four routines is a sample, and a referee will say so correctly.
-📌 **Precedence is now THIRD** (SaltBench · twin primes · x86lean · verso · jas), so 8–13 days of
+📌 **Precedence is now THIRD** (SaltBench · twin primes · x86lean · verso · jas), so the remaining
 paper work runs alongside the benchmark freeze that is P2 in the design lane.
+⛔ *This sentence said **"8–13 days"** until 2026-09-11 — the ORIGINAL total, never updated when G1
+closed, when the sum was corrected to 8–11, or when G5 was re-priced. **The fourth instance in one
+day of a number restated in prose away from its parts.** It now names no figure at all: §2.2 prints
+the parts and is the only place a total belongs. ⇒ 🔑 **PRINTING THE PARTS FIXES THE PLACE YOU PRINT
+THEM; A PROSE RESTATEMENT ELSEWHERE IS STILL A SECOND REGISTER.***
 
 ## 4a. ⭐⭐ "DOES IT READ THIN ALONE?" — THE JUDGMENT DESK ROW `KQ` ASSIGNS TO ME, RE-ANSWERED AFTER G1
 
