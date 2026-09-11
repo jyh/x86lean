@@ -242,6 +242,28 @@ jobs:
           python3 scripts/check_citations.py --selftest
           python3 scripts/check_citations.py
 
+      # 2026-09-11 (G1): the same shape one level out again. `check_citations`
+      # gates a comment naming a DECLARATION; `check_corpus_claims` gates prose
+      # naming a DATA CORPUS; this gates a TABLE whose whole value is that every
+      # cell carries its provenance. `docs/TACAS-G1-POSITIONING.md` compares this
+      # work against x86isa, K and Sail, and it is the one place a referee can
+      # check our claims about someone else's system against the source and we
+      # cannot — so an unmarked cell there is the most expensive unmarked cell in
+      # the campaign.
+      # ⛔ WHY IT EXISTS: the rule was PROSE, and prose does not refuse. §2 said
+      # "Five OWED cells", named seven, and the TABLE carried FIFTEEN — because
+      # §1b wrote its fills into its own narrative and left the table's cells
+      # reading OWED, and §2 was then kept in step with §1b rather than with the
+      # table. Three registers, one load-bearing, and the debt list tracked the
+      # wrong one. Every error ran the same way: under-reporting the debt.
+      # `--selftest` runs its CONTROL FIRST, then plants an unmarked cell, an
+      # over-declared count, an under-declared count, a missing declaration, and
+      # drops the declared exemption to prove the exemption is load-bearing.
+      - name: Every positioning-table cell carries its provenance
+        run: |
+          python3 scripts/check_positioning_table.py --selftest
+          python3 scripts/check_positioning_table.py
+
       # 2026-09-09: the sibling of the step above, one level out. `check_citations`
       # gates a comment that names a DECLARATION; this gates prose that names a
       # DATA CORPUS. It exists because `b5d1522` measured `unfolding_calibration`'s

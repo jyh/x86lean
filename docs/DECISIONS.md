@@ -13649,3 +13649,92 @@ and ABSENT ⇒ REFUSE is the rule that makes the whole design safe.
 and the exact line to add. Expected runner ceilings, from the measured 1.6×–2.4× factor:
 `X86.Program` ≈ 630–960, `Tests.Program` ≈ 1560–2370. **A runner factor outside that band is itself a
 finding.**
+
+## D200 — G1 is closed at the sources, the marker rule is gated rather than stated, and two findings constrain what the paper may claim
+
+📄 **G1 was priced at 1–2 days in `docs/TACAS-PRICING.md` and is now DONE**: every cell of
+`docs/TACAS-G1-POSITIONING.md` is MEASURED, RECORDED, or a stated NOT-APPLICABLE with its reason.
+The evidence, with its deriving commands and its positive controls, is that file's §1c.
+
+### 1. ⛔⛔ THE DEBT LIST WAS WRONG BY A FACTOR OF THREE, AND THE MECHANISM IS THE PART TO KEEP
+§2 said *"**Five** OWED cells"* and then named **seven**. Parsed mechanically, the table at `4359f6f`
+carried **FIFTEEN**.
+```
+                      the TABLE (derived)     the PROSE claimed
+  2026-09-11 morning        15                      9
+  after §1b                 15   (unchanged!)       5
+  after §1c                  0                      0
+```
+§1b filled four cells *"at the sources"* and wrote the fills **into its own narrative**, leaving §1's
+cells reading `OWED`; §2 was then kept in step with §1b rather than with the table. Three registers,
+one load-bearing, and the debt list tracked the wrong one.
+⇒ 🔑 ***A FILL WRITTEN INTO PROSE DOES NOT REACH THE TABLE, AND THE DEBT LIST TRACKED THE PROSE.***
+⇒ 🔑 ***EVERY ERROR RAN THE SAME WAY — UNDER-REPORTING THE DEBT.*** A hand-maintained list of what is
+missing, sitting beside the thing it describes, decays toward *"less is missing"*. No error here was a
+typo; each was a register that stopped being re-derived.
+⚠️ **AND MY OWN FIRST NUMBER WAS ALSO WRONG: I wrote EIGHT from inspection and measured FIFTEEN** —
+while writing the paragraph about not doing that. The three prior estimates of this quantity were all
+low; the first derived one was not.
+✅ **REMEDY, and it is the campaign's own idiom rather than more care:** `scripts/check_positioning_table.py`
+in CI. An unmarked cell is a FINDING; §2's declared `OWED-CELLS-NOW` must equal the count derived from
+the TABLE. `--selftest` runs its **control first**, then plants an unmarked cell, an over-declared
+count, an under-declared count and a missing declaration, and finally **drops the declared exemption to
+prove the exemption is load-bearing rather than decorative** — 6 arms, 0 red.
+📌 The `role here` row is exempt BY DECLARATION and the tool prints the exclusion on every run: it says
+what each system is TO US, not what it IS, so it makes no claim about another project.
+
+### 2. ⛔⛔ FINDING A — THE THREE "INDEPENDENT" ORACLES ARE TWO ORIGINS
+```
+  sail-x86-from-acl2  IS A MECHANICAL TRANSLATION OF x86isa          (the repo's own description)
+  ...and is VALIDATED BY CO-SIMULATION AGAINST K's SINGLE-INSTRUCTION TESTS  (its validation Readme)
+```
+⇒ 🔑 ***AGREEMENT BETWEEN OUR MODEL AND SAIL-x86 TESTS THE TRANSLATOR, NOT A SECOND SEMANTICS.***
+Counting x86isa, K and Sail as three witnesses **over-counts**: there are two origins, with Sail
+derived from the first and cross-checked against the second's tests.
+✅ **Nothing built is affected** — `PROVENANCE.md` already calls Sail a *"Spike-only third reference …
+Never the proving model"* and no differential record uses it. **It constrains the PAPER**, and it is
+far cheaper found now than in a referee's report. [[feedback-two-readings-are-not-two-witnesses]]
+
+### 3. ⭐ FINDING B — UNDEFINED BITS ARE WHERE THE FOUR SYSTEMS ACTUALLY DISAGREE, AND THAT IS G2's SPINE
+x86lean an **oracle** supplying concrete values · x86isa an `undef` **seed counter** minting a *fresh
+unique* unknown per read, its field `push-untouchable` · K a single distinguished **constant**
+`undefMInt`/`undefBool` written straight into the flag (497 of 3,064 per-instruction files) · Sail
+**dropped it in translation** (`other_non_det.sail` is a 27-byte stub).
+⭐ x86isa's own source documents the hazard K's design walks into, in `unsafe-!undef`'s `:long`:
+reusing a seed *"might contaminate our 'pool of undefined values' … make the result of an equality
+test between them equal instead of indeterminate."*
+⚠️ **THE MECHANISM IS MEASURED; THE CONSEQUENCE IS A HYPOTHESIS.** I have not verified how `kprove`
+treats `undefMInt` under equality. **It does not go in the paper until it is driven against K**, and
+it is recorded as the next experiment rather than as a finding.
+
+### 4. ⛔ WHAT THE PAPER MUST CONCEDE, NOW THAT IT IS MEASURED
+x86isa's proof support is **stronger than ours**: `copyData-is-correct` is full functional correctness
+plus fault-freedom for a loop of **unbounded** length, and its app-view proof library alone is 2,944
+lines. K proves functional post-conditions over loops for 10 programs with `kprove` + Z3. **Our 7
+memory-safety theorems over 4 routines are a weaker claim over a smaller sample, and the paper says so
+rather than letting a referee find it** — the same call §3 already made about scale.
+
+### 5. ⚠️ TWO TRAPS RECORDED SO THE NEXT HEAD DOES NOT WALK INTO THEM
+1. **x86isa's opcode maps carry 3,192 `INST` entries, one rounding from K's 3,155 *variants*, and they
+   count different things** — a decode table versus a semantics-coverage claim. Goel's paper says
+   **400+ opcodes** for the semantics. ⇒ 🔑 ***TWO NUMBERS THAT NEARLY MATCH ARE THE MOST DANGEROUS
+   KIND, BECAUSE THE COINCIDENCE READS AS CORROBORATION.*** Putting them side by side would have been
+   the most misleading thing in the file and would have looked like diligence.
+2. ⛔⛔ **K DOES NOT DECODE MACHINE BYTES AT ALL, AND I GOT THIS CELL WRONG FIRST.** `x86-loader.k`
+   parses GNU **assembler source**; `syntax Opcode ::= "adcb"` is a mnemonic; **zero** files mention
+   `modrm`/`ModRM`/`REX` against a positive control of 3,085 files mentioning `rule`. My first cell
+   said *"decode is part of the K definition itself … no external decoder"*, inferred from a README
+   line listing files as *"the semantics of execution environment"*.
+   ⇒ 🔑 ***A DIRECTORY LISTING TELLS YOU WHAT FILES EXIST, NEVER WHAT THEY DO*** — and the refutation
+   was already in my own evidence an hour earlier: a K spec carries `storedInstr ( movl %edi , … )`,
+   instructions as TEXT. ⇒ **It also re-scopes K's "3,155 instruction variants" as a count over
+   ASSEMBLY FORMS**, not encodings — not the same population as our 351/374 distinct machine forms.
+   ⭐ This is the row where our column is strongest: a semantics over decoded bytes answers *"what
+   does this binary do"*; one over assembly text answers *"what does this listing mean"*.
+3. **`vendor/k-x86-64` is a PARTIAL clone (`[blob:none]`) holding only `semantics/`.** K's program
+   proofs and test suites are in `vendor/k-x86-64.FULL-BACKUP`, same commit `592380a`. A grep of the
+   working checkout would have recorded *"K demonstrates no program proofs"*, which is false.
+   ⇒ 🔑 ***AN ABSENCE READ FROM A PARTIAL CLONE IS A FACT ABOUT THE CLONE.***
+📌 `vendor/` is in this repository's `.gitignore` and its `grep` honours ignore files, so every count
+in §1c was re-driven with `command grep` over an explicit `find` list, each absence carrying a positive
+control (`defaxiom` 0 in x86isa's 190 files, against 28 files one directory up).

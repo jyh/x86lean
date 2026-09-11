@@ -62,7 +62,7 @@ that is the Captain's and the helm's:**
 ### 2.2 THE GAPS, PRICED
 | # | gap | why a reviewer asks | price |
 |---|---|---|---|
-| G1 | **No comparison against x86isa / Sail as a stated baseline.** We differentially test against them; we do not position against them. | "why another x86 semantics?" is the first referee question | **1–2 days.** A table: forms covered, trust base, executability, proof support. Data mostly exists in `COVERAGE.md` + `PROVENANCE.md`. |
+| G1 | ✅ **CLOSED 2026-09-11** — `docs/TACAS-G1-POSITIONING.md`, every cell MEASURED / RECORDED / stated NOT-APPLICABLE, **none OWED**, and the marker rule is now gated in CI (`check_positioning_table.py`). D200. | "why another x86 semantics?" is the first referee question | **priced 1–2 days; spent ~1.** ⛔ It did **not** come out where this row assumed: the data did *not* mostly exist in `COVERAGE.md` + `PROVENANCE.md` — 15 of the table's cells had to be read at the other projects' own sources. |
 | G2 | **Undefined-bit / flag semantics not written up.** The oracle exists in the model; the *argument* is scattered across decisions. | it is the hardest part of x86 and the most citable | **2–3 days**, mostly extraction from `docs/DECISIONS.md`. |
 | G3 | **No performance/scale statement for the semantics itself.** We have kernel-cost data per module, gated — but framed as CI hygiene, not as a result. | "does it scale?" | **1 day** to reframe existing gated numbers. ⚠️ See §3: the gate's dispersion is not robust, so any published timing needs a robust estimator first. |
 | G4 | **The five proof problems are a sample, not a benchmark.** Four routines, 2–7 labels. | "is 19 + 7.7/label general?" | **unpriced — needs the benchmark freeze** (helm item 4, P2 in the design lane, with bench). |
@@ -70,7 +70,25 @@ that is the Captain's and the helm's:**
 | G6 | **Related work.** Not started. | required | **2 days.** |
 
 **Sum of what is priceable: 8–13 working days**, excluding G4 which cannot be priced until the
-benchmark exists.
+benchmark exists. ✅ **G1 is now spent, leaving 7–11.**
+
+### 2.3 ⛔⛔ TWO THINGS G1 FOUND THAT CHANGE WHAT THIS PAPER MAY CLAIM (D200)
+**(a) THE ORACLES ARE NOT THREE INDEPENDENT WITNESSES — THEY ARE TWO ORIGINS.**
+`sail-x86-from-acl2` is, in its own repository's words, a model *"automatically translated from the
+ACL2 model"*, and its validation guide **co-simulates it against K's single-instruction tests**.
+⇒ 🔑 ***AGREEMENT WITH SAIL-x86 TESTS THE TRANSLATOR, NOT A SECOND SEMANTICS.*** Nothing built is
+affected — `PROVENANCE.md` already scopes Sail to a P3b spike and no differential record uses it —
+but **a validation claim in this paper may not count three.**
+**(b) ON PROOF SUPPORT WE LOSE TOO, AND IT IS NOT CLOSE.** x86isa's `copyData-is-correct` is full
+functional correctness *plus* fault-freedom for a loop of **unbounded** length; K proves functional
+post-conditions over loops for 10 programs via `kprove` + Z3. Our 7 memory-safety theorems over 4
+routines are **a weaker claim over a smaller sample.**
+⇒ **§4's recommendation is unchanged and is now better supported, not worse.** The paper's claim was
+never "more instructions" or "harder theorems" — it is that **no claim in the repository is ungated**.
+G1 measured the two axes on which we lose and the one on which nothing else in this space competes,
+which is exactly what makes the honest version defensible. ⭐ **And `TACAS-G1-POSITIONING.md` §1c.6 handed G2 its frame:**
+the four systems make four *different* choices about undefined bits, and x86isa's own source documents
+the hazard K's choice walks into. That is the most citable row in the table and it is now measured.
 
 ---
 
