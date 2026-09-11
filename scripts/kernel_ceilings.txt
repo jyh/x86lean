@@ -316,3 +316,15 @@ Tests 50
 # the runner's own reading — which is how the second pair of lines gets written.
 X86.Program 396 @on yukon.lan
 Tests.Program 975 @on yukon.lan
+# ⭐⭐ AND THE RUNNER'S OWN PAIR — the second machine, which is the whole point of the
+# (unit, machine) key. Under the OLD unit-keyed registry these two lines would have
+# SILENTLY OVERWRITTEN the two above and moved the refusal to the developer box.
+# Both numbers are the gate's own suggested lines from the merge commit 7bb57ee's CI run,
+# not retyped: headroom max(measured x 3, 50ms).
+#     X86.Program     head 264.0 ms on runnervmlun5p  =>  792
+#     Tests.Program   head 665.0 ms on runnervmlun5p  => 1995
+# 📌 AND THIS IS D195's PORTABILITY CHECK ANSWERED. It is the first REAL Lean delta ever
+# measured off the developer box, and the local<->runner factor comes out 1.93x and 1.91x
+# — inside the 1.6x-2.4x band predicted from earlier null-pair comparisons, and tight.
+X86.Program 792 @on runnervmlun5p
+Tests.Program 1995 @on runnervmlun5p
