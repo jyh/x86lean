@@ -384,7 +384,24 @@ def window_steps(anchor, head):
 # this corrects a LATENT hole rather than a live miscount, and the bucket counts
 # below are unchanged by it. That is the point: it was exempt by DEFAULT, and a
 # default is not an argument. [[feedback-a-declared-list-inherits-its-default]]
+# ⛔⛔ AND THE SAME HOLE AGAIN, ONE FILE OVER, FOUND 2026-09-10 WHILE LANDING D192.
+# The bucket's own sentence is "moves the READING **or the ALLOWANCE** without
+# moving the code" — and `scripts/kernel_delta.py` is where the ALLOWANCE is
+# COMPUTED (`effective()`, `K_SIGMA`, `three_way`). It was matched instead by the
+# `scripts/` exemption, whose stated reason is that such a script "can reach a
+# reading only by REGENERATING a `.lean` file". That reason is TRUE of
+# `check_private_paths.py` and FALSE of the gate itself: it reaches no reading
+# and decides every verdict.
+# ⇒ 🔑 AN ALLOWLIST RULE WHOSE ARGUMENT IS SOUND CAN STILL CATCH A FILE THE
+#   ARGUMENT DOES NOT COVER, and the rule then reads as though someone had
+#   considered that file. Checking the REASON against each member is a different
+#   act from checking that a member matched.
+# `scripts/kernel_ceilings.txt` joins for a reason that is NEW as of D192: the
+# delta gate's new-unit arm now reads it as an allowance, which it never did
+# before — so this entry is not a missed hole, it is a consequence of that commit
+# and lands with it. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
 PROFILER_PATHS = ["scripts/kernel_cost.py", "scripts/kernel_delta_budget.txt",
+                  "scripts/kernel_delta.py", "scripts/kernel_ceilings.txt",
                   "lean-toolchain", "lake-manifest.json"]
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -415,10 +432,14 @@ EXEMPT_RULES = [
     (".github/", "chooses WHICH gates run. A workflow file is not an input to "
                  "`lake` and cannot move an elaboration reading."),
     (".githooks/", "a commit-message scrub. Never read by `lake`."),
-    ("scripts/", "a gate or an analyser (the profiler and the budget registry are "
-                 "bucketed ABOVE this rule). Such a script can reach a reading "
-                 "only by REGENERATING a `.lean` file, and that regeneration is "
-                 "itself a `.lean` diff, bucketed first."),
+    ("scripts/", "a gate or an analyser. Such a script can reach a reading only "
+                 "by REGENERATING a `.lean` file, and that regeneration is itself "
+                 "a `.lean` diff, bucketed first. ⚠️ THAT ARGUMENT DOES NOT COVER "
+                 "the scripts that carry the READING or the ALLOWANCE themselves, "
+                 "which is why they are bucketed ABOVE this rule and are NOT "
+                 "exempt — derived, never retyped: "
+                 + ", ".join(x for x in PROFILER_PATHS if x.startswith("scripts/"))
+                 + "."),
     # ⛔ ADDED 2026-09-09, BY THE GATE REFUSING. `CLAUDE.md` is this repo's project
     # instruction file — prose read by a Claude session at boot and by nothing in
     # the build. It was the FIRST unargued path this window ever carried, and the

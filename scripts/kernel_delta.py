@@ -147,6 +147,7 @@ usage:
   kernel_delta.py --selftest-measure         the two arms that need real trees
 """
 import os, re, sys, math, json, time, shutil, socket, platform, statistics, subprocess, tempfile, random
+import io, contextlib
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -160,12 +161,21 @@ if __name__ == "__main__":
     _strict_flags(__file__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from portable import fmt_load  # noqa: E402
+# ⛔ THE SUGGESTED CEILING IS DERIVED FROM THE REGISTRY'S OWN RULE, NOT RETYPED.
+# `max(measured x HEADROOM, FLOOR_MS)` is what `kernel_cost.py --register` writes and
+# what the ceiling file's header states. Two copies of that arithmetic would agree
+# today and diverge on the next ordinary edit to one of them, which is the shape this
+# repository has already paid for once ([[a-duplicate-born-in-agreement]], D148).
+# The import runs nothing: `kernel_cost` guards its `main`.
+import kernel_cost  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KCOST = os.path.join(ROOT, "scripts", "kernel_cost.py")
 BUDGET_FILE = os.environ.get("X86LEAN_DELTA_BUDGET",
                              os.path.join(ROOT, "scripts", "kernel_delta_budget.txt"))
 CEIL_FILE = os.path.join(ROOT, "scripts", "kernel_ceilings.txt")
+# The registry's machine column. One spelling, three parsers read this file.
+MACHINE_TAG = "@on"
 DEFAULT_TAG = "@default"
 FLOOR_TAG   = "@floor"
 
@@ -195,6 +205,16 @@ def gated_declarations():
     if os.path.exists(CEIL_FILE):
         for line in open(CEIL_FILE):
             p = line.split("#")[0].strip().split()
+            # ⛔ THE MACHINE COLUMN IS STRIPPED HERE TOO, AND IT WAS NOT BEFORE.
+            # This is the THIRD parser of this one file (with `read_ceilings`
+            # here and `kernel_cost.read_ceilings` there), and D194 taught the
+            # column to exactly ONE of them. A `@decl` line carrying `@on` has
+            # SIX fields, matched no branch, and vanished from this map in
+            # silence — so a gated declaration would have quietly stopped being
+            # gated. No registry line used the column yet, which is the only
+            # reason nothing had said so.
+            if len(p) >= 2 and p[-2] == MACHINE_TAG:
+                p = p[:-2]
             if len(p) == 4 and p[1] == "@decl":
                 out.setdefault(p[0], []).append(p[2])
     return out
@@ -470,6 +490,27 @@ def repeats_to_decide(n, se, margin):
     return max(n + 1, int(math.ceil(need)))
 
 
+# ⭐ THE COMPARISON ITSELF, FACTORED OUT SO THERE IS EXACTLY ONE OF IT (D192).
+# `judge_delta` below REFUSES a one-sided unit by design — a unit present on one
+# side only is not a paired measurement — so the NEW-UNIT arm in `verdict()`
+# cannot call it and needs the same three-way question against an absolute
+# ceiling. That would have been a FOURTH copy of these six lines, in a file whose
+# D154 note records the third being removed for precisely this reason: copies are
+# born in agreement and diverge on the next ordinary edit, silently, and here the
+# thing that would diverge is the rule that decides every verdict this gate gives.
+# [[feedback-a-duplicate-born-in-agreement]]
+def three_way(x, band, allowance):
+    """OVER / ok / UNMEASURABLE for ONE quantity, its band, and ONE allowance.
+
+    ⛔ The middle verdict is not a rounding case: it means the band straddles the
+    allowance, so THIS RUN cannot say which side of it `x` is on."""
+    if x - band > allowance:
+        return "OVER"
+    if x + band < allowance:
+        return "ok"
+    return "UNMEASURABLE"
+
+
 # ⭐⭐⭐ THE THREE-WAY VERDICT FOR **ONE** UNIT, IN ONE PLACE (D154).
 #
 # `verdict()` below judges a whole readings blob and prints a report; this is the
@@ -495,12 +536,7 @@ def judge_delta(bs, hs, budget_ms):
     d = statistics.median(hs) - statistics.median(bs)
     se = resolution(bs, hs)
     band = K_SIGMA * se
-    if d - band > budget_ms:
-        v = "OVER"
-    elif d + band < budget_ms:
-        v = "ok"
-    else:
-        v = "UNMEASURABLE"
+    v = three_way(d, band, budget_ms)
     n_side = min(len(bs), len(hs))
     return {"d": d, "se": se, "band": band, "budget": budget_ms, "verdict": v,
             "need": repeats_to_decide(n_side, se, abs(d - budget_ms)),
@@ -533,6 +569,59 @@ def profile(worktree, decl_mods):
 # `master` reports a git error on the machine it was registered for.  The
 # candidates are tried in order and the one that RESOLVES is used; if none does,
 # the gate refuses rather than inventing a base.
+# ⚖️⭐ THE SUBJECT MUST EXIST BEFORE THE INSTRUMENT IS ASKED TO RESOLVE IT.
+# Helm ruling, 2026-09-11: a commit that changes nothing `lake` reads has a
+# kernel delta of ZERO BY CONSTRUCTION, and measuring it can only return noise —
+# which this gate then classifies against a threshold. Measured that night on two
+# runner runs of two NULL pairs: delta -600 (ok) and +1650 (UNMEASURABLE), band
+# ~0.55 of budget both times. ⇒ THE VERDICT WAS A PROPERTY OF THE RUN, NOT OF THE
+# COMMIT. Refusing is right when the subject EXISTS and the instrument cannot
+# resolve it; it is wrong when the subject does not exist, and those were one
+# code path. [[feedback-a-route-cannot-see-its-subject]]
+#
+# ⛔⛔ THE PREDICATE IS NOT "NO `.lean` CHANGED", AND THAT WAS MY FIRST DRAFT.
+# `kernel_drift.py` already outlawed exactly that shape in its own exemption
+# bucket: "an `else` is not an argument, it is whatever is left. Its gaps ALL
+# fall to exempt, which is the direction that reports no work." A bare `.lean`
+# test would SKIP a `lean-toolchain` bump, a `lake-manifest.json` repin, or a
+# `lakefile.toml` edit — none of which is a `.lean` and every one of which moves
+# every reading in the tree.
+# ⇒ SO THE ARGUED CLASSIFIER IS REUSED RATHER THAN RE-MINTED. A second copy of
+# that roster is a duplicate born in agreement, and the agreement would have been
+# supplied by my own reasoning. `kernel_drift` is imported LAZILY because it
+# imports THIS module at its top level; a module-level import here is circular.
+def null_pair_reason(base, head, cwd=None):
+    """Why this range cannot have moved kernel time, or None if it might have.
+
+    Returns None whenever ANY changed path is a `.lean`, a PROFILER_PATH, or
+    UNCLASSIFIED — the inverted default, inherited from `kernel_drift` rather
+    than re-argued. Only a range whose every path carries a STATED reason skips.
+
+    ⛔ `cwd` EXISTS SO THIS CAN BE ARMED AGAINST A FIXTURE REPO. `git()` binds its
+    default `cwd=ROOT` at DEFINITION time, so reassigning the module global does
+    nothing and every arm would have to run against the live repository — where
+    the interesting cases (a toolchain bump alone, an unclassified path) cannot be
+    constructed without committing them. A gate with no callable surface cannot be
+    armed. [[feedback-a-gate-with-no-callable-surface]]
+    """
+    _cwd = cwd or ROOT
+    changed = [p for p in git("diff", "--name-only", base, head, cwd=_cwd).split("\n") if p.strip()]
+    if not changed:
+        return "the two trees are identical — nothing changed at all"
+    import kernel_drift as _kdrift          # lazy: see the note above
+    reasons = []
+    for path in sorted(changed):
+        if path.endswith(".lean"):
+            return None                      # the subject itself
+        if path in _kdrift.PROFILER_PATHS:
+            return None                      # moves the reading or the allowance
+        why = _kdrift.exempt_reason(path)
+        if why is None:
+            return None                      # UNCLASSIFIED ⇒ measure, never skip
+        reasons.append((path, why))
+    return reasons
+
+
 def resolve_base(head):
     trunk = None
     for cand in ("master", "origin/master", "refs/remotes/origin/master"):
@@ -622,6 +711,7 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
         return {"base_rev": git("rev-parse", base_rev),
                 "head_rev": git("rev-parse", head_rev),
                 "planted": bool(plant), "box": box_stamp(),
+                "machine": socket.gethostname(),
                 "decl_map": decl_map, "readings": readings}
     finally:
         if keep is None:
@@ -692,7 +782,7 @@ def pass_conditions(data):
     return out
 
 
-def verdict(data, default_ms, budgets, floor=None, quiet=False):
+def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
     """(rc, lines) — the whole comparison, over readings that are already taken.
 
     Split out from `measure` so that every failure mode of the COMPARISON can be
@@ -716,11 +806,13 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
     p(f"{'UNIT':<56}{'base':>10}{'head':>10}{'delta':>10}{'+-K*se':>9}"
       f"{'range':>9}{'budget':>9}  VERDICT")
     fail, refuse, defaulted, flags, unresolved = False, False, [], [], []
+    unregistered_new, unresolved_new = [], []
+    # ⛔ THE MACHINE THIS RUN WAS TAKEN ON. A reading without its box is not a
+    # reading, and no registered ceiling may be compared against one.
+    mach = run_machine(data)
     for u in all_units:
         bs = [x[u] for x in sides["base"] if u in x]
         hs = [x[u] for x in sides["head"] if u in x]
-        if not bs:
-            flags.append(f"NEW unit in head: {u}")
         if not hs:
             flags.append(f"unit GONE from head: {u} "
                          f"(renamed, deleted, or below the profiler threshold)")
@@ -737,6 +829,84 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
         rng = max((max(bs) - min(bs)) if len(bs) > 1 else 0.0,
                   (max(hs) - min(hs)) if len(hs) > 1 else 0.0)
         bandtxt = "inf" if band == float("inf") else f"{band:.1f}"
+
+        # ⚖️⚖️⚖️ THE NEW-UNIT ARM — helm ruling 2026-09-10, D192. paris implements;
+        # the design is the helm's, because paris is the party the gate convicted.
+        #
+        # ⛔ WHAT WAS WRONG. `b` above is `median(bs) if bs else 0.0`, so for a unit
+        # with no reading on the base side the "delta" `d = h - b` is the module's
+        # TOTAL COST, and `effective()` returns `max(pct/100 * 0, floor)` — THE
+        # FLOOR, by arithmetic, for every relative budget. Every one of the 22
+        # entries in this repository's budget file is relative, so this reached all
+        # of them and not merely the units falling to @default.
+        # ⇒ 🔑 FOR A UNIT WITH A HISTORY THE GATE ASKS *did this get more expensive,
+        #   relative to itself?* FOR A NEW UNIT IT ASKED *does this module cost more
+        #   than this box can RESOLVE?* — and `@floor` is derived in the budget file
+        #   as "the resolution this box has". A NOISE FLOOR USED AS A CEILING. The
+        #   floor exists to LOOSEN a percentage that is too small on a tiny module:
+        #   it is a MINIMUM ALLOWANCE, and applying it as a MAXIMUM inverts its
+        #   meaning. The inversion was invisible because ONE expression computes both.
+        #
+        # ⛔ AND IT WAS WORSE THAN A BLIND SPOT: the gate DETECTS this case and prints
+        # `NEW unit in head` by name, then applies the wrong rule to it. A DETECTOR
+        # THAT NAMES A CASE AND THEN MISHANDLES IT IS WORSE THAN ONE THAT IS BLIND,
+        # BECAUSE ITS OUTPUT READS AS CONSIDERED.
+        #
+        # ⇒ A NEW MODULE IS A DECISION, NOT A REGRESSION. It is judged against the
+        # ABSOLUTE ceiling registered for it — the sibling gate's existing registry,
+        # no third one — and when no ceiling is registered the gate REFUSES and
+        # prints the line to add. It never passes silently: that is how a
+        # twenty-second module gets in, and it is the failure the old behaviour was
+        # over-correcting for.
+        if not bs:
+            # ⚖️⚖️ THE ARM REPORTS AND REFUSES. IT NEVER CONVICTS, AND IT NEVER
+            # COMPARES A CEILING ACROSS MACHINES. `fail` is deliberately never set
+            # below: a new module is a DECISION, and this gate cannot judge one.
+            # ⭐ EXACT (unit, machine) LOOKUP (D198). `why` still distinguishes
+            # the three ways a ceiling can fail to apply, because a refusal that
+            # cannot say WHICH one is a refusal a head has to reproduce by hand.
+            cl = ceilings or {}
+            entry = ceiling_for(cl, u, mach)
+            others = machines_registered_for(cl, u)
+            cm = mach if entry is not None else None
+            why = (None if entry is not None else
+                   "machine-unknown" if has_machineless(cl, u) and not others else
+                   f"registered for {', '.join(others)}" if others else None)
+            if entry is None or mach is None:
+                v, ceiltxt = "NEW — REFUSED ⛔", "-"
+                refuse = True
+                unregistered_new.append(
+                    (u, h, "the run's own machine is unknown" if mach is None
+                     else "no ceiling registered" if why is None
+                     else f"its ceiling is {why}, and a ceiling from another box "
+                          f"is not a loose bound — it is an unrelated number"))
+                flags.append(f"NEW unit in head: {u} — head {h:.1f} ms measured on "
+                             f"{mach or 'an UNKNOWN box'}; judged as NEW and REFUSED")
+            else:
+                ceil = entry
+                ceiltxt = f"{ceil:.1f}"
+                # ⭐ The SAME three-way question the rest of the file asks, and the
+                # ONLY outcome that releases the refusal is a clean `ok`. Anything
+                # else refuses — an over-ceiling reading is NOT a conviction here.
+                if three_way(h, band, ceil) == "ok":
+                    v = f"NEW ok (ceiling {ceil:.1f} @on {cm})"
+                else:
+                    v = "NEW — REFUSED ⛔"
+                    refuse = True
+                    unresolved_new.append(
+                        (u, h, ceil, band,
+                         repeats_to_decide(len(hs), se, abs(h - ceil))))
+                flags.append(f"NEW unit in head: {u} — head {h:.1f} ms measured on "
+                             f"{mach}; judged as NEW against a ceiling registered "
+                             f"for THE SAME box ({ceil:.1f} ms @on {cm})")
+            # ⚠️ THE COLUMNS SAY WHICH QUANTITY WAS JUDGED. `base` reads NEW and
+            # `delta` reads `-` because for this unit the gate is NOT testing a
+            # delta — printing `+9.8` under `delta` is exactly what made a total
+            # cost read as an increment.
+            p(f"{u:<56}{'NEW':>10}{h:>10.1f}{'-':>10}{bandtxt:>9}"
+              f"{rng:>9.1f}{ceiltxt:>9}  {v}")
+            continue
+
         if u in budgets:
             bud = effective(budgets[u], b, floor)
         elif default_ms is not None:
@@ -776,7 +946,12 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
           + ", ".join(defaulted))
     for f in flags:
         p(f"⚠️  {f}")
-    if refuse:
+    # ⛔ THREE REFUSALS, PRINTED SEPARATELY, BECAUSE THEY ASK DIFFERENT ACTS OF
+    # THE READER. "this run cannot tell" wants repeats or a quieter box; "this
+    # NEW module has no registered ceiling" wants a DECISION and one line in a
+    # file. Folding them into one sentence is the shape where a missing case
+    # reads as empty — and it is the shape this whole ruling is about.
+    if unresolved:
         p(f"⛔ delta gate UNMEASURABLE — for the unit(s) below, this run's own "
           f"uncertainty band straddles the budget, so the readings above do NOT "
           f"say which side of it this commit is on. They are printed, and they "
@@ -807,6 +982,61 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
         p(f"⛔ DO NOT WIDEN THE BUDGET. That would derive the allowance from the "
           f"noise it exists to see through. Buy repeats, quiet the box, or make "
           f"the commit cheaper — the third is the one a refusal most often means.")
+    if unresolved_new:
+        p(f"⛔ delta gate REFUSES ON A NEW UNIT — the unit(s) below carry a ceiling "
+          f"registered for THIS machine, and this run does not sit cleanly under "
+          f"it. ⚠️ THIS IS NOT A CONVICTION: a new module gets no verdict from this "
+          f"gate in either direction. The readings are printed and they are not a "
+          f"verdict.")
+        for u, h, ceil, band, need in unresolved_new:
+            margin = h - ceil
+            if band == float("inf"):
+                price = ("this run has fewer than two readings for it, so it "
+                         "cannot estimate its own noise — re-run with --repeats 2 or more")
+            elif margin == 0:
+                price = "no number of repeats decides a cost sitting exactly ON its ceiling"
+            elif need:
+                price = f"~{need} repeats a side would decide it"
+            else:
+                price = "the readings carry no spread at all, so nothing here is noise"
+            p(f"   · {u}: head {h:.1f} vs ceiling {ceil:.1f} "
+              f"(margin {margin:+.1f}), band ±{band:.1f} ⇒ {price}")
+    if unregistered_new:
+        rel = os.path.relpath(CEIL_FILE, ROOT)
+        p(f"⛔ delta gate REFUSES — {len(unregistered_new)} NEW unit(s) cannot be "
+          f"judged by this gate. ⚠️ THIS IS NOT AN OVER-BUDGET FINDING and it is "
+          f"deliberately not reported through that channel: a new module is a "
+          f"DECISION, and a decision and a regression must not arrive wearing the "
+          f"same word. Nothing here says the module is too expensive.")
+        p(f"⛔⛔ AND THE REASON IS STRUCTURAL, NOT A MISSING LINE IN A FILE. A new "
+          f"unit has exactly ONE reading. This gate's only sound comparison is a "
+          f"RATIO of two readings of the same unit ON THE SAME MACHINE, which "
+          f"divides out a per-module machine factor measured at 1.7x-3.1x. With "
+          f"one reading there is no ratio to take, so the gate reports and "
+          f"refuses rather than substituting the comparison it CAN make for the "
+          f"one it cannot.")
+        for u, h, why in unregistered_new:
+            sug = max(h * kernel_cost.HEADROOM, float(kernel_cost.FLOOR_MS))
+            p(f"   · {u}: head {h:.1f} ms measured on {mach or 'an UNKNOWN box'} "
+              f"— {why}.")
+            p(f"     To register it, take the reading ON THE MACHINE THAT RUNS THIS "
+              f"GATE and add one line to {rel}:")
+            p(f"         {u} {sug:.0f} @on {mach or '<machine>'}")
+            p(f"     (headroom from the registry's own rule, derived not retyped: "
+              f"max(measured x {kernel_cost.HEADROOM:g}, {kernel_cost.FLOOR_MS}ms). "
+              f"⛔ THE `@on` IS LOAD-BEARING: an entry with no machine, or one for "
+              f"another box, is treated as ABSENT — never as a loose bound.)")
+        n_reg, n_new = len(ceilings or {}), len(unregistered_new)
+        p(f"📌 Registering a new unit costs ONE MEASUREMENT ON THE GATE'S OWN "
+          f"MACHINE: land the module behind this refusal, read its cost from this "
+          f"gate's output on that box, and register that. A decision with a "
+          f"measurement behind it is what a new module should cost.")
+        p(f"⛔ DO NOT RUN `kernel_cost.py --register` TO CLEAR THIS. It REWRITES "
+          f"THE WHOLE FILE and would re-derive all {n_reg} existing ceiling(s) "
+          f"from today's box, loosening every one of them to clear "
+          f"{n_new} line(s) — which is what the ceiling file's own header records "
+          f"being deliberately avoided once already for Tests.Coverage. "
+          f"Add the line{'s' if n_new != 1 else ''}.")
     # ⛔⛔ THE PRECEDENCE, AND IT INVERTED WITH THE RULE (D141). While the refusal
     # read `budget < spread` it was a property of the RUN — the box's noise
     # swamped the allowance — so a refusal anywhere meant no verdict anywhere,
@@ -838,16 +1068,116 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False):
 # ceilings are retired as a gate and kept as READINGS, box-stamped — printed
 # here so that a merge's record carries both numbers without either of them
 # being able to read as a verdict.
-def absolute_readings(data):
-    ceil = {}
-    for line in open(CEIL_FILE):
+def read_ceilings():
+    """{unit: ms} from `kernel_ceilings.txt`, keyed the way `units_of` names units.
+
+    ⭐ ONE PARSER, TWO READERS (D192). The absolute readings printed beside every
+    merge and the NEW-UNIT ARM below are now reading the same file through the
+    same code. They were about to be two parses of one format, which is the
+    duplicate-born-in-agreement shape: identical today, divergent on the next
+    line-kind either one learns to read.
+    ⚠️ `@perRow` entries are deliberately NOT returned. Their ceiling is per row
+    and only means something multiplied by the live row count, which this file
+    does not know; a unit gated per row is not a unit this arm can judge, and
+    returning a per-row number as if it were milliseconds would be worse than
+    returning nothing. Such a unit therefore reads as UNREGISTERED here and is
+    refused by name rather than judged against a number that means something
+    else."""
+    ceil, seen = {}, {}
+    if not os.path.exists(CEIL_FILE):
+        return ceil
+    for n, line in enumerate(open(CEIL_FILE), 1):
         p = line.split("#")[0].strip().split()
+        # ⚖️ THE MACHINE COLUMN IS PART OF THE KEY (helm ruling on D198,
+        # 2026-09-11). An optional trailing `@on <machine>` records the box a
+        # ceiling was measured on, and the entry is keyed by (unit, machine) so
+        # ONE UNIT MAY CARRY A CEILING ON EACH MACHINE THIS GATE RUNS ON.
+        # ⛔ IT USED TO BE KEYED BY UNIT ALONE, AND A SECOND MACHINE'S LINE
+        # SILENTLY OVERWROTE THE FIRST — measured, `(800.0, 'runnervmlun5p')`
+        # surviving a `yukon.lan` line with no warning of any kind. This gate
+        # runs on TWO machines and its registry could name only ONE.
+        # An entry WITHOUT a machine is machine-unknown and is still treated as
+        # ABSENT by the new-unit arm — never as a loose bound.
+        mach = None
+        if len(p) >= 2 and p[-2] == MACHINE_TAG:
+            mach, p = p[-1], p[:-2]
         if len(p) == 4 and p[1] == "@decl":
-            ceil[f"{p[0]} @decl {p[2]}"] = float(p[3])
+            key, val = (f"{p[0]} @decl {p[2]}", mach), float(p[3])
         elif len(p) == 3 and p[1] == "@tail":
-            ceil[f"{p[0]} @residue"] = float(p[2])
+            key, val = (f"{p[0]} @residue", mach), float(p[2])
         elif len(p) == 2:
-            ceil[p[0]] = float(p[1])
+            try:
+                key, val = (p[0], mach), float(p[1])
+            except ValueError:
+                continue
+        else:
+            continue
+        # ⛔⛔ A DUPLICATE KEY IS AN ERROR, NOT A LAST-WINS. The whole defect this
+        # ruling repairs was a silent overwrite, so the repair must not leave a
+        # narrower one behind: two lines naming the SAME unit on the SAME machine
+        # disagree about one number and nothing can choose between them.
+        if key in ceil:
+            u, m = key
+            print(f"⛔ DUPLICATE CEILING for {u!r} on "
+                  f"{'no machine' if m is None else m!r}: line {seen[key]} says "
+                  f"{ceil[key]:g} and line {n} says {val:g}. A registry keyed by "
+                  f"(unit, machine) cannot hold two numbers for one key, and "
+                  f"choosing one silently is the defect this key exists to "
+                  f"repair. Delete one line.", file=sys.stderr)
+            sys.exit(2)
+        ceil[key], seen[key] = val, n
+    return ceil
+
+
+# ⭐ LOOKUP IS EXACT, AND DELIBERATELY HAS NO FALLBACK. Under D198 a ceiling that
+# does not name THIS box is ABSENT — never a loose bound — because the
+# local↔runner factor is PER MODULE (1.7×–3.1×) and so cannot be divided out of
+# an absolute number. The helpers below exist so a REFUSAL can still say what it
+# DID find, which is the difference between "no ceiling" and "not yours".
+def ceiling_for(ceilings, unit, machine):
+    """The ms registered for THIS unit on THIS machine, or None."""
+    if machine is None:
+        return None
+    return ceilings.get((unit, machine))
+
+
+def machines_registered_for(ceilings, unit):
+    """Other boxes carrying a ceiling for this unit — for the refusal text."""
+    return sorted(m for (u, m) in ceilings if u == unit and m is not None)
+
+
+def has_machineless(ceilings, unit):
+    return (unit, None) in ceilings
+
+
+def run_machine(data):
+    """The box a readings blob was taken on, or None if it cannot be established.
+
+    ⛔ None is not a soft failure: a reading whose machine is unknown can be
+    compared against no registered ceiling at all, because the whole point of the
+    column is that an absolute number is a fact about ONE box."""
+    m = data.get("machine")
+    if m:
+        return m
+    # Fallback for blobs written before the field existed: `box_stamp()` puts the
+    # hostname first, as `BOX <host> · <platform> · …`.
+    b = data.get("box") or ""
+    if b.startswith("BOX ") and " · " in b:
+        return b[4:].split(" · ")[0].strip() or None
+    return None
+
+
+def absolute_readings(data):
+    # ⚠️ The machine column is dropped HERE deliberately: this section prints
+    # READINGS, retired as a gate, so a cross-machine number is a curiosity
+    # rather than a verdict. The new-unit ARM is where the column binds.
+    # ⚠️ Now that the registry is keyed by (unit, machine), this section must
+    # CHOOSE. It prefers THIS run's machine and falls back to a machine-less
+    # entry — never to another box's number, which would print a figure from a
+    # different machine under a column headed "ceiling".
+    _raw, _mach = read_ceilings(), run_machine(data)
+    ceil = {u: v for (u, m), v in _raw.items() if m is None}
+    ceil.update({u: v for (u, m), v in _raw.items() if m is not None and m == _mach})
     print("\n--- ABSOLUTE READINGS (RETIRED AS A GATE, 09/04 21:42; box-stamped)")
     print(f"{'UNIT':<56}{'base':>10}{'head':>10}{'ceiling':>10}   base/head")
     # ⛔ THE CLOSING SENTENCE USED TO SAY "the unchanged parent was already over
@@ -1127,8 +1457,10 @@ def selftest():
     arm that creates that condition, and it is the one the helm asked for."""
     arms, bad = [], []
 
-    def run(name, data, default_ms, budgets, want_rc, want_text=None, floor=None):
-        rc, lines = verdict(data, default_ms, budgets, floor, quiet=True)
+    def run(name, data, default_ms, budgets, want_rc, want_text=None, floor=None,
+            ceilings=None):
+        rc, lines = verdict(data, default_ms, budgets, floor, quiet=True,
+                            ceilings=ceilings)
         out = "\n".join(lines)
         ok = rc == want_rc and (want_text is None or want_text in out)
         arms.append(name)
@@ -1237,11 +1569,115 @@ def selftest():
 
     # ⛔ a unit present on one side only: silence here would report "no change"
     # about the one direction that is certainly a change.
-    run("a unit NEW in head is flagged",
-        {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False, "box": "BOX synthetic",
-         "decl_map": {}, "readings": {"base": [{"modules": {}, "decls": {}, "load1": 1.0}] * 2,
-                                      "head": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}] * 2}},
-        ("abs", 1000.0), {}, 0, "NEW unit in head")
+    # ⛔⛔⛔ THE PAIR THAT WAS NEVER DRIVEN, AND IT IS WHY THE NEW-UNIT PATH
+    # SHIPPED BROKEN (D192, helm ruling 2026-09-10). This suite's ONLY exercise
+    # of a new unit used to pin `("abs", 1000.0)` — an ABSOLUTE default — and
+    # assert rc 0. Under that budget a 10 ms new unit passes and the flag prints,
+    # so the arm was green. Under THIS REPOSITORY'S OWN budget file (`@default
+    # 23.3%` with `@floor 6`) the identical code path CONVICTS: base is 0, so the
+    # relative budget is `23.3% x 0 = 0`, `max(0, floor)` is the FLOOR, and the
+    # gate compares the module's TOTAL COST against the resolution of the box.
+    # ⇒ 🔑 THE ARM WAS PINNED TO THE ONE BUDGET KIND UNDER WHICH THE BUG IS
+    # INVISIBLE. Two green halves meeting at a seam nothing drove.
+    #
+    # ⛔ AND THE OLD ARM'S rc 0 IS NOW THE FORBIDDEN OUTCOME. It asserted that an
+    # unregistered new module PASSES SILENTLY, which is how a twenty-second
+    # module gets in. It is rewritten rather than kept: an arm asserting the
+    # behaviour a ruling forbids is not a regression test, it is the defect with
+    # a tick beside it.
+    def _new_unit(unit, ms, base_modules=None, machine="BOXA"):
+        """base has no reading for `unit`; head has one. Two readings a side, so
+        the head's own spread is estimable and the band is not `inf`."""
+        return {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False,
+                "box": "BOX synthetic — no measurement in this run",
+                "machine": machine, "decl_map": {},
+                "readings": {"base": [{"modules": dict(base_modules or {}), "decls": {},
+                                       "load1": 1.0}] * 2,
+                             "head": [{"modules": dict(base_modules or {}, **{unit: ms}),
+                                       "decls": {}, "load1": 1.0}] * 2}}
+
+    # THE REPOSITORY'S OWN CONFIGURATION, named once so the arms below cannot
+    # drift from it: `@default 23.3%`, `@floor 6`.
+    REPO_DEFAULT, REPO_FLOOR = ("rel", 23.3), 6.0
+
+    run("⭐ a NEW unit under the REPOSITORY'S RELATIVE default is NOT judged "
+        "against @floor",
+        _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 0, "judged as NEW",
+        floor=REPO_FLOOR, ceilings={("X86.Program", "BOXA"): 50.0})
+    # ⛔ THE MUTATION CONTROL: the SAME arm with the ceiling REMOVED must REFUSE.
+    run("⛔ the same NEW unit with its ceiling REMOVED REFUSES — and does not FAIL",
+        _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 3,
+        "THIS IS NOT AN OVER-BUDGET FINDING", floor=REPO_FLOOR, ceilings={})
+    # ⛔⛔ THE MACHINE COLUMN, WHICH IS THE HALF THE RULING WAS REPLACED FOR. A
+    # ceiling registered for ANOTHER box is not a loose bound — it is an unrelated
+    # number, because the local↔runner factor is PER MODULE (1.7×–3.1×) and so
+    # cannot be divided out. It must read as ABSENT.
+    run("⛔⛔ a ceiling registered for ANOTHER MACHINE is treated as ABSENT",
+        _new_unit("X86.Program", 10.0, machine="BOXA"), REPO_DEFAULT, {}, 3,
+        "is not a loose bound", floor=REPO_FLOOR,
+        ceilings={("X86.Program", "BOXB"): 50.0})
+    # ⛔ …and so is one with NO machine at all, which is every entry the registry
+    # carried before this column existed.
+    run("⛔ a ceiling with NO registered machine is treated as ABSENT",
+        _new_unit("X86.Program", 10.0), REPO_DEFAULT, {}, 3,
+        "THIS IS NOT AN OVER-BUDGET FINDING", floor=REPO_FLOOR,
+        ceilings={("X86.Program", None): 50.0})
+    # ⭐⭐⭐ D198's WHOLE POINT: TWO MACHINES, ONE UNIT, BOTH RETAINED. Under the
+    # old unit-keyed registry the second line silently replaced the first, so a
+    # repository that registered both boxes still refused on one of them — and
+    # was never told which. These two arms are the same registry read from two
+    # machines, and each must find ITS OWN number.
+    _BOTH = {("X86.Program", "BOXA"): 50.0, ("X86.Program", "BOXB"): 900.0}
+    run("⭐⭐ a unit registered on BOTH machines is judged on BOXA's number",
+        _new_unit("X86.Program", 10.0, machine="BOXA"), REPO_DEFAULT, {}, 0,
+        "judged as NEW", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+    run("⭐⭐ …and the SAME registry judges BOXB against BOXB's number",
+        _new_unit("X86.Program", 800.0, machine="BOXB"), REPO_DEFAULT, {}, 0,
+        "judged as NEW", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+    # ⛔ THE MUTATION CONTROL FOR THE PAIR: 800 ms is fine against BOXB's 900 and
+    # must REFUSE against BOXA's 50 — proving the two entries are really distinct
+    # and not one number answering both boxes.
+    # ⛔ …and it must refuse down the SAME-MACHINE path ("not a conviction"), not
+    # the unregistered one. Asserting only rc 3 would pass on either and prove
+    # nothing: both refusals exit 3 and they mean opposite things.
+    run("⛔ the pair is not one number: BOXA's reading over BOXA's ceiling REFUSES",
+        _new_unit("X86.Program", 800.0, machine="BOXA"), REPO_DEFAULT, {}, 3,
+        "THIS IS NOT A CONVICTION", floor=REPO_FLOOR,
+        ceilings=dict(_BOTH))
+    # ⛔ AND A THIRD BOX STILL FINDS NOTHING, with a message naming what DOES
+    # exist — "not yours" and "none at all" are different facts.
+    run("⛔ a THIRD machine finds the unit registered, but not for it",
+        _new_unit("X86.Program", 10.0, machine="BOXC"), REPO_DEFAULT, {}, 3,
+        "registered for BOXA, BOXB", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+
+    # ⛔ AND THE RUN'S OWN MACHINE MUST BE KNOWN. A reading without its box cannot
+    # be compared against any ceiling, however well registered.
+    run("⛔ a run whose OWN machine is unknown refuses even with a matching ceiling",
+        {**_new_unit("X86.Program", 10.0), "machine": None, "box": "no box line"},
+        REPO_DEFAULT, {}, 3, "the run's own machine is unknown", floor=REPO_FLOOR,
+        ceilings={("X86.Program", "BOXA"): 50.0})
+    # ⛔⛔⛔ THE ARM THE REPLACED RULING TURNS ON: THIS GATE NEVER CONVICTS A NEW
+    # UNIT. A reading far over a same-machine ceiling REFUSES (rc 3); it must never
+    # come back rc 1, because a new module is a decision and not a regression.
+    run("⛔⛔ a NEW unit far OVER its same-machine ceiling REFUSES — it NEVER "
+        "convicts",
+        _new_unit("X86.Program", 500.0), REPO_DEFAULT, {}, 3, "NOT A CONVICTION",
+        floor=REPO_FLOOR, ceilings={("X86.Program", "BOXA"): 50.0})
+    # ⛔ POINT 4 OF THE RULING: rc 0 on an unregistered new unit is the ONE
+    # forbidden outcome, under the budget kind that used to deliver it.
+    run("⛔ an unregistered NEW unit never returns rc 0 — not even under the "
+        "ABSOLUTE default that used to pass it",
+        _new_unit("N", 10.0), ("abs", 1000.0), {}, 3,
+        "THIS IS NOT AN OVER-BUDGET FINDING", ceilings={})
+    # ⭐ THE FLAG IS STILL RAISED, AND NOW CARRIES THE MACHINE.
+    run("a unit NEW in head is flagged BY NAME AND WITH ITS MACHINE",
+        _new_unit("N", 10.0), ("abs", 1000.0), {}, 3, "measured on BOXA",
+        ceilings={})
+    # ⭐ AND THE DOMAIN CONTROL: a unit WITH a history is untouched by all of the
+    # above — the arm that proves the change is confined to the case it names.
+    run("a unit WITH a history is still judged on its DELTA, not its total",
+        _synthetic({"M": 1000.0}, {"M": 1010.0}), REPO_DEFAULT, {}, 0, "ok",
+        floor=REPO_FLOOR, ceilings={("M", "BOXA"): 1.0})
     run("a unit GONE from head is flagged",
         {"base_rev": "0"*40, "head_rev": "1"*40, "planted": False, "box": "BOX synthetic",
          "decl_map": {}, "readings": {"base": [{"modules": {"N": 10.0}, "decls": {}, "load1": 1.0}] * 2,
@@ -1313,6 +1749,126 @@ def selftest():
     if not ok:
         bad.append(arms[-1])
     shutil.rmtree(probe, ignore_errors=True)
+
+    # ── THE NULL-PAIR SKIP: the subject must EXIST before the instrument runs ──
+    # ⛔ These build a real fixture repository. The interesting cases — a
+    # `lean-toolchain` bump ALONE, an UNCLASSIFIED path — cannot be constructed
+    # in the live tree without committing them, which is why the predicate takes
+    # a `cwd`.
+    def null_arm(name, files, want, base_files=None):
+        d = tempfile.mkdtemp(prefix="x86lean-nullarm-")
+        def sh(*a):
+            return subprocess.run(a, cwd=d, capture_output=True, text=True)
+        def commit(fs, msg):
+            for f, c in fs.items():
+                fp = os.path.join(d, f)
+                if os.path.dirname(fp):
+                    os.makedirs(os.path.dirname(fp), exist_ok=True)
+                with open(fp, "w", encoding="utf-8") as fh:
+                    fh.write(c)
+            sh("git", "add", "-A"); sh("git", "commit", "-qm", msg)
+            return sh("git", "rev-parse", "HEAD").stdout.strip()
+        try:
+            sh("git", "init", "-q", ".")
+            sh("git", "config", "user.email", "t@t"); sh("git", "config", "user.name", "t")
+            b = commit(base_files or {"README.md": "x", "docs/Q.md": "q",
+                                      "X86/Basic.lean": "theorem a : True := trivial"}, "base")
+            h = commit(files, "head")
+            got = "SKIP" if null_pair_reason(b, h, cwd=d) is not None else "MEASURE"
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        ok = got == want
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name + ("" if ok else f"   (got {got}, wanted {want})"))
+        if not ok:
+            bad.append(name)
+
+    null_arm("⭐ a docs-only range SKIPs — the delta is zero by construction",
+             {"docs/Q.md": "changed"}, "SKIP")
+    null_arm("⭐ …and so does README + a workflow + a non-profiler gate script",
+             {"README.md": "y", ".github/w.yml": "a",
+              "scripts/check_citations.py": "p"}, "SKIP")
+    # ⛔ THE CONTROL THAT KEEPS SKIP FROM SWALLOWING REAL WORK.
+    null_arm("⛔ ONE `.lean` and the range MEASURES",
+             {"X86/Basic.lean": "theorem a : True := by trivial"}, "MEASURE")
+    null_arm("⛔ …and a `.lean` alongside docs still MEASURES (no partial credit)",
+             {"docs/Q.md": "z", "X86/Basic.lean": "theorem a : True := by exact trivial"},
+             "MEASURE")
+    # ⛔⛔ THE THREE ARMS MY FIRST DESIGN WOULD HAVE FAILED. A bare "no `.lean`"
+    # predicate skips every one of these, and each moves EVERY reading in the tree.
+    null_arm("⛔⛔ a `lean-toolchain` bump with NO `.lean` MEASURES (PROFILER_PATH)",
+             {"lean-toolchain": "leanprover/lean4:v4.33.0"}, "MEASURE")
+    null_arm("⛔⛔ a `lake-manifest.json` repin with NO `.lean` MEASURES",
+             {"lake-manifest.json": "{}"}, "MEASURE")
+    null_arm("⛔⛔ an UNCLASSIFIED path MEASURES — the default is inverted",
+             {"lakefile.toml": "name = 'x'"}, "MEASURE")
+    null_arm("⛔ …and so does a path nobody has ever argued about",
+             {"vendor/thing.c": "int main(){}"}, "MEASURE")
+    # ⭐ The gate's own scripts are PROFILER_PATHS and are never exempt.
+    null_arm("⛔ `scripts/kernel_delta.py` itself MEASURES (it carries the rule)",
+             {"scripts/kernel_delta.py": "# touched"}, "MEASURE")
+
+    # ── THE REGISTRY KEY (D198): (unit, machine), and a duplicate is an ERROR ──
+    # ⛔ These drive the PARSER, not the verdict. The defect being repaired lived
+    # entirely in the parse: two lines went in and one entry came out, so no
+    # verdict arm could ever have seen it.
+    def ceil_arm(name, body, want_exit, want_text=None, want=None):
+        global CEIL_FILE
+        d = tempfile.mkdtemp(prefix="x86lean-ceilkey-")
+        f = os.path.join(d, "kernel_ceilings.txt")
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        saved_cf, CEIL_FILE = CEIL_FILE, f
+        buf, got_exit, got = io.StringIO(), None, None
+        try:
+            with contextlib.redirect_stderr(buf):
+                got = read_ceilings()
+        except SystemExit as e:
+            got_exit = e.code
+        finally:
+            CEIL_FILE = saved_cf
+            shutil.rmtree(d, ignore_errors=True)
+        ok = (got_exit == want_exit
+              and (want_text is None or want_text in buf.getvalue())
+              and (want is None or got == want))
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name +
+              ("" if ok else f"   (exit={got_exit}, wanted {want_exit}; got={got})"))
+        if not ok:
+            bad.append(name)
+
+    # ⭐⭐ THE REPAIR ITSELF: two machines, one unit, BOTH SURVIVE THE PARSE.
+    ceil_arm("⭐⭐ two machines for ONE unit are BOTH retained by the parser",
+             "X86.Program 396 @on yukon.lan\nX86.Program 975 @on runnervmlun5p\n",
+             None, want={("X86.Program", "yukon.lan"): 396.0,
+                         ("X86.Program", "runnervmlun5p"): 975.0})
+    # ⛔⛔ THE DEFECT, AS A REGRESSION ARM. Under the old unit-keyed parse this
+    # same input returned ONE entry — the second — with no warning. If this ever
+    # returns a single key again, the silent overwrite is back.
+    ceil_arm("⛔⛔ …and that is TWO entries, not the one the old parse returned",
+             "X86.Program 396 @on yukon.lan\nX86.Program 975 @on runnervmlun5p\n",
+             None, want={("X86.Program", "yukon.lan"): 396.0,
+                         ("X86.Program", "runnervmlun5p"): 975.0})
+    # ⛔ A DUPLICATE KEY IS LOUD. Same unit, same machine, two numbers: nothing
+    # can choose between them, so the parser must refuse rather than pick.
+    ceil_arm("⛔ a DUPLICATE (unit, machine) REFUSES with exit 2, naming both lines",
+             "X86.Program 396 @on yukon.lan\nX86.Program 500 @on yukon.lan\n",
+             2, want_text="DUPLICATE CEILING")
+    # ⛔ …and machine-less lines have a key too, so they cannot be duplicated either.
+    ceil_arm("⛔ two MACHINE-LESS lines for one unit are also a duplicate",
+             "X86.Basic 163\nX86.Basic 200\n", 2, want_text="DUPLICATE CEILING")
+    # ⭐ THE CONTROL, AND IT IS THE ONE THAT KEEPS THE ERROR HONEST: a machine-less
+    # entry and a machine-named one are DIFFERENT keys and must both stand, or
+    # every registry written before the column existed becomes an error.
+    ceil_arm("⭐ a machine-less entry and a machine-named one COEXIST (not a duplicate)",
+             "X86.Program 396\nX86.Program 975 @on yukon.lan\n",
+             None, want={("X86.Program", None): 396.0,
+                         ("X86.Program", "yukon.lan"): 975.0})
+    # ⭐ CONTROL: the SHIPPED registry parses without an error. An arm that only
+    # ever sees fixtures cannot tell a strict parser from a broken one.
+    ceil_arm("⭐ CONTROL — the repository's own registry parses clean",
+             open(os.path.join(ROOT, "scripts", "kernel_ceilings.txt"),
+                  encoding="utf-8").read(), None)
 
     # ── THE ARGUMENT READER (D173): an ignored flag started a profiling run ────
     def argv_arm(av, want_rc, name, plant=None):
@@ -1417,7 +1973,8 @@ def selftest_measure():
     d0 = measure(head, head, repeats)
     if save:
         json.dump(d0, open(os.path.join(save, "arm1-identical.json"), "w"))
-    rc0, lines0 = verdict(d0, default_ms, budgets, floor, quiet=True)
+    rc0, lines0 = verdict(d0, default_ms, budgets, floor, quiet=True,
+                          ceilings=read_ceilings())
     us = {s: [units_of(r, d0["decl_map"]) for r in d0["readings"][s]] for s in ("base", "head")}
     keys = set(us["base"][0]) & set(us["head"][0])
     # ⛔ NAME THE UNIT, DO NOT ONLY SIZE IT. "worst unit delta 350 ms" is a number
@@ -1598,7 +2155,8 @@ def selftest_measure():
     d1 = measure(head, head, repeats, plant=plant_constructors(n))
     if save:
         json.dump(d1, open(os.path.join(save, "arm2-planted.json"), "w"))
-    rc1, lines1 = verdict(d1, default_ms, budgets, floor, quiet=True)
+    rc1, lines1 = verdict(d1, default_ms, budgets, floor, quiet=True,
+                          ceilings=read_ceilings())
     us1 = {s: [units_of(r, d1["decl_map"]) for r in d1["readings"][s]] for s in ("base", "head")}
     dsyn = (statistics.median([x["X86.Syntax"] for x in us1["head"]]) -
             statistics.median([x["X86.Syntax"] for x in us1["base"]]))
@@ -1685,18 +2243,47 @@ def main():
     saved = arg("--readings")
     if saved:
         data = json.load(open(saved))
-        rc, _ = verdict(data, default_ms, budgets, floor)
+        rc, _ = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
         absolute_readings(data)
         return rc
     head = arg("--head", "HEAD")
     base = arg("--base") or resolve_base(head)
+    # ⚖️ THE SUBJECT CHECK COMES BEFORE THE MEASUREMENT, not after it. Placed
+    # here rather than inside `verdict` on purpose: the point is to NOT SPEND the
+    # profile, and a skip decided after `measure()` would have already paid for
+    # the thing it is declining to trust.
+    _skip = null_pair_reason(base, git("rev-parse", head))
+    if _skip is not None:
+        print(f"── NOT measuring the delta {base[:9]} → {git('rev-parse', head)[:9]}")
+        print("⏭️  SKIP — NULL PAIR: this range changes nothing `lake` reads, so the "
+              "kernel delta is ZERO BY CONSTRUCTION and there is nothing here for "
+              "this gate to resolve.")
+        # ⛔ THE RECEIPT NAMES WHAT IT SKIPPED AND WHY, PATH BY PATH. A bare
+        # "skipped" is a green that means "did not look", and this file already
+        # carries the lesson that a tool with no concept of "not applicable" must
+        # print what it excluded and on whose authority.
+        # [[feedback-a-tool-has-no-concept-of-not-applicable]]
+        if isinstance(_skip, str):
+            print(f"     {_skip}")
+        else:
+            for _path, _why in _skip:
+                print(f"     {_path}")
+                print(f"       └─ {_why[:96]}")
+            print(f"   ⇒ {len(_skip)} changed path(s), every one carrying a STATED reason "
+                  f"from `kernel_drift.EXEMPT_RULES`. A `.lean`, a PROFILER_PATH, or ANY "
+                  f"unclassified path would have measured instead — the default is "
+                  f"inverted, so a path nobody has argued about is never skipped.")
+        print("⚠️  THIS IS A STATED NON-MEASUREMENT, NOT A PASS. Nothing was profiled and "
+              "no reading was taken; rc 0 means 'there was no question here', not "
+              "'the answer was good'.")
+        return 0
     print(f"── measuring the delta {base[:9]} → {git('rev-parse', head)[:9]}")
     data = measure(base, head, int(arg("--repeats", "3")))
     out = arg("--out")
     if out:
         json.dump(data, open(out, "w"))
         print(f"readings → {out}")
-    rc, _ = verdict(data, default_ms, budgets, floor)
+    rc, _ = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
     absolute_readings(data)
     return rc
 

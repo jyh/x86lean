@@ -12,7 +12,8 @@ and [`docs/COVERAGE.md`](docs/COVERAGE.md) for the generated coverage table.
 
 ## Part of SaltBench
 
-x86lean is developed as part of [SaltBench](https://github.com/jyh/saltbench), a
+x86lean is developed as part of [SaltBench](https://github.com/jyh/saltbench)
+([arXiv:2609.11076](https://arxiv.org/abs/2609.11076)), a
 benchmark for machine-checked program construction. It supplies the formal
 x86-64 semantics that SaltBench's x86 assembly suite verifies against: a task in
 that suite asks for code meeting a natural-language requirement, and the referee

@@ -418,14 +418,34 @@ def selftest_decision_references():
     saved = open(target, encoding="utf-8").read()
     ok = True
     try:
-        for label, line, expect_red in [
-            ("dangling", "\n\nAs ruled in D997, this is settled.\n", True),
-            ("real",     "\n\nAs ruled in D141, this is settled.\n", False),
-            ("declared", "\n\nThe shift block is `D0`-`D3`.\n", False),
+        # ⛔⛔ THE PREDICATE IS PER-TOKEN, AND IT USED TO BE GLOBAL.
+        # It read `red = ("heads NO section" in r.stdout)` — a predicate over the
+        # WHOLE run — so ANY pre-existing dangling citation anywhere in the tree
+        # made the two "expect a pass" arms fail.  ⇒ A DIRTY TREE WAS REPORTED AS
+        # A BROKEN INSTRUMENT.  That is not hypothetical: master's CI `build` was
+        # red for three commits on a D197 citation, and the log's headline was
+        # "✖ decision-refs real: expected a pass" — which sends the reader to THIS
+        # function, when the finding was one bare run of this script away.
+        # ⇒ 🔑 AN ARM THAT DETECTS ITS EFFECT BY A GLOBAL PREDICATE CANNOT TELL ITS
+        #   OWN PLANT FROM THE STATE IT WAS RUN IN, and it misnames the second as
+        #   the first — the most expensive direction, because a broken gate is
+        #   read as "the gate is untrustworthy" rather than "the tree is wrong".
+        base = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
+        dirty = sorted({ln.split(" is cited")[0].split()[-1]
+                        for ln in base.stdout.splitlines() if "heads NO section" in ln})
+        if dirty:
+            print(f"  ⚠ decision-refs: {len(dirty)} dangling citation(s) in the "
+                  f"tree BEFORE any plant ({', '.join(dirty)}). The per-token arms "
+                  f"below are unaffected — this line is the finding, not they.")
+        for label, token, line, expect_red in [
+            ("dangling", "D997", "\n\nAs ruled in D997, this is settled.\n", True),
+            ("real",     "D141", "\n\nAs ruled in D141, this is settled.\n", False),
+            ("declared", "D0",   "\n\nThe shift block is `D0`-`D3`.\n", False),
         ]:
             open(target, "w", encoding="utf-8").write(saved + line)
             r = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
-            red = ("heads NO section" in r.stdout)
+            red = any(f"{token} is cited" in ln and "heads NO section" in ln
+                      for ln in r.stdout.splitlines())
             if red != expect_red:
                 print(f"  \u2716 decision-refs {label}: expected "
                       f"{'a failure' if expect_red else 'a pass'}, got rc {r.returncode}")

@@ -13015,9 +13015,407 @@ minting ceilings for new units, since none exist). **OWNER:** the Captain or the
 seat**, because I am the party the gate convicted, and a head that repairs the gate blocking its own
 commit has changed the gate's meaning for everyone on the strength of one inconvenient case.
 **RE-MEASURE:** on a quiet box; both runs here were taken at load 18-30.
+## D192 — the delta gate's NEW-UNIT arm: a noise floor was being used as a ceiling, and the gate's own selftest had pinned the one budget kind under which that is invisible
+
+**Ruled by the helm 2026-09-10 13:18 (FLEET.md offset 47777260) after reading the source. paris
+implements; the design is the helm's, because paris is the party the gate convicted.** The
+separation is deliberate and it is the reason this repair is allowed to happen at all: a head that
+repairs the gate blocking its own commit changes the gate for everyone on one inconvenient case.
+
+### 1. THE MECHANISM, AND IT IS ARITHMETIC, NOT A JUDGEMENT CALL
+`verdict()` sets `b = median(bs) if bs else 0.0`. For a unit with no reading on the base side the
+"delta" `d = h - b` is therefore the module's **TOTAL COST**, and `effective()` returns
+`max(pct/100 * 0, floor)` — **the floor, exactly, for every relative budget.**
+
+⇒ 🔑 ***FOR EVERY UNIT WITH A HISTORY THE GATE ASKS "did this unit get more expensive, relative to
+itself?". FOR A NEW UNIT IT ASKED "does this module cost more than this box can RESOLVE?" — and the
+second question has the answer YES for every module anyone will ever add.***
+
+**The floor was being read backwards.** `kernel_delta_budget.txt` derives `@floor 6` as *"the worst
+within-commit spread this walk measured … i.e. the resolution this box has"*, and `kernel_cost.py`
+states the sibling floor's purpose outright: *"below the floor, timing noise dominates and a ratio
+would fail on a loaded machine."* **A floor exists to LOOSEN a percentage that is too small on a
+tiny module — it is a MINIMUM ALLOWANCE.** Applying it as a MAXIMUM ceiling for an entire new
+module inverts its meaning, and **the inversion is invisible because one expression computes both.**
+
+⚠️ **MEASURED, AND WIDER THAN FIRST REPORTED: every one of the 22 entries in this repository's
+budget file is RELATIVE.** Not one is absolute. So the defect reached *all* of them, not merely the
+units falling to `@default` — there is no unit in this repository a new module could have been
+registered under that would have escaped it.
+
+### 2. ⭐ THE DECIDING EVIDENCE WAS IN THE GATE'S OWN SELFTEST
+The suite's ONLY exercise of the new-unit path pinned an **absolute** default:
+```
+  run("a unit NEW in head is flagged", {… "head": {"modules": {"N": 10.0}} …},
+      ("abs", 1000.0), {}, 0, "NEW unit in head")
+```
+Under that budget a 10 ms new unit passes and the flag prints, so the arm was green. Under this
+repository's actual budget file — `@default 23.3%`, `@floor 6` — **the identical code path
+convicts.**
+⇒ 🔑 ***THE NEW-UNIT PATH WAS TESTED IN THE ONE CONFIGURATION WHERE IT PASSES AND SHIPPED AGAINST
+THE ONE WHERE IT CANNOT.*** A selftest that pins the arm it exercises to a budget kind the
+repository does not use has validated the FLAG and not the VERDICT — two green halves meeting at a
+seam nothing drove.
+
+⛔ **And that arm's `rc 0` was itself the forbidden outcome.** It asserted that an unregistered new
+module PASSES SILENTLY. It is rewritten, not kept: **an arm asserting the behaviour a ruling
+forbids is not a regression test, it is the defect with a tick beside it.**
+
+### 3. ⇒ WORSE THAN A BLIND SPOT
+The gate **detects** this case and prints `NEW unit in head: X86.Program` by name, in the same
+output, immediately above the failure line — and then applies the wrong rule to it.
+⇒ 🔑 ***A DETECTOR THAT NAMES A CASE AND THEN MISHANDLES IT IS WORSE THAN ONE THAT IS BLIND,
+BECAUSE ITS OUTPUT READS AS CONSIDERED.*** Two independent runs convicted `X86.Program` (+9.8,
++18.5) and `Tests.Program` (+22.6, +24.3) against a budget of 6.0, each naming the rule it fell to,
+so the conviction looked reasoned all the way down.
+
+### 4. THE ARM AS BUILT
+A unit with **no reading on the base side is NEW**, and no relative budget is computed against a
+zero base. Instead:
+1. The head's measured cost is **printed**, and the unit is named as judged NEW. The table's
+   `base` column reads `NEW` and its `delta` column reads `-`, because for this unit the gate is
+   not testing a delta — **printing `+18.5` under `delta` is exactly what made a total cost read as
+   an increment.**
+2. It is judged against an **absolute ceiling registered in `scripts/kernel_ceilings.txt`** — the
+   sibling gate's existing registry, same unit names, milliseconds. ⛔ **No third registry was
+   minted.** The registry already exists and `kernel_cost.py --register` already writes it; only
+   the two entries were missing, which is what being new means.
+3. The comparison asks the **same three-way question the rest of the file asks** (over / under /
+   band straddles), against the ceiling rather than a budget.
+4. **No ceiling registered ⇒ REFUSE, not FAIL** — through the refusal channel, printing the exact
+   line to add. ⛔ **The one forbidden outcome is `rc 0` on an unregistered new unit**, and it is
+   asked directly by an arm.
+
+⭐ **The refusal channel is now split three ways**, because *"this run cannot tell"* and *"this new
+module has no registered ceiling"* ask different acts of the reader — one wants repeats or a
+quieter box, the other wants a decision and one line in a file. **A new module is a DECISION, not a
+regression, and the two must not arrive wearing the same word.**
+
+📌 The suggested ceiling is **derived from the registry's own rule** — `max(measured × HEADROOM,
+FLOOR_MS)`, imported from `kernel_cost` rather than retyped, since two copies of that arithmetic
+would agree today and diverge on the next edit. And the refusal says **not** to clear itself with
+`--register`: that rewrites the whole file and would re-derive all 22 existing ceilings from
+today's box, loosening every one to clear two lines.
+
+📌 **⛔ AND ONE COMPARISON, NOT A FOURTH COPY OF IT.** My first draft wrote the three-way question
+out inline in the new-unit branch. `judge_delta` — factored out by **D154** precisely because *"the
+repository now has THREE callers of the same six lines"* — **refuses a one-sided unit by design**
+(*"a unit present on ONE side only is not a paired measurement"*), so the arm genuinely cannot call
+it. That made the inline copy feel justified, **and it would have been the fourth copy of the rule
+that decides every verdict this gate gives**, in a file whose own note records the third being
+removed for that reason. The comparison is now `three_way(x, band, allowance)`, defined once and
+called by both `judge_delta` and the new-unit arm. Behaviour-preserving, and proved so by the three
+suites that depend on it. ⇒ 🔑 ***"THE FACTORED FUNCTION REFUSES MY CASE" IS A REASON TO WIDEN THE
+FACTORING, NOT A LICENCE TO COPY IT.***
+
+📌 **One parser, two readers.** `read_ceilings()` is now shared by the absolute readings printed
+beside every merge and by this arm; they were about to be two parses of one format.
+⚠️ And one stale literal of my own, caught on review before it landed: the refusal message read
+*"loosening every one of them to clear **two** lines"* — a hand-typed count in a tool's own output,
+wrong for any number of new units but two, and **the exact defect (D41/D65/D94) this file warns
+about three inches above the line I wrote it on.** Both counts are derived now.
+⚠️ `@perRow` entries are deliberately **not** returned — their number only means something
+multiplied by the live row count, so such a unit reads as UNREGISTERED and is refused **by name**
+rather than judged against a number that means something else.
+
+### 5. DRIVEN, BOTH DIRECTIONS, ON THE READINGS THAT PRODUCED THE CONVICTION
+Seven arms were written **before** the rule and six of them were driven RED against the unrepaired
+gate (the seventh is the domain control, green throughout, proving the change is confined to the
+case it names). Then, end to end, on the *actual saved readings* of the run that convicted the
+branch — base `5011d2b` → head `df390ab`, box `yukon.lan`, load 18–32:
+```
+  OLD   X86.Program      0.0 →  18.5   delta +18.5   budget 6.0   OVER BUDGET ⛔     rc 1
+        Tests.Program    0.0 →  24.3   delta +24.3   budget 6.0   OVER BUDGET ⛔
+        ⚠️ 4 unit(s) fell to @default: Tests, Tests.Program, X86, X86.Program
+
+  NEW   X86.Program      NEW    18.5   delta   -     ceiling -    NEW — NO CEILING ⛔  rc 3
+        Tests.Program    NEW    24.3   delta   -     ceiling -    NEW — NO CEILING ⛔
+        ⚠️ 2 unit(s) fell to @default: Tests, X86
+```
+⭐ **The `@default` list shrinking from four units to two is the mechanism visible in the gate's own
+output**: the new modules were inheriting an allowance nobody chose for them, and now they do not.
+
+⚠️ **AND THE SHAPE OF THAT RUN IS ITSELF EVIDENCE FOR THE RULING.** On a box at load 18–32 nearly
+every unit with a history came back `UNMEASURABLE` — the run genuinely could not tell. **The only
+two units it convicted were the two new ones**, because the floor rule had handed them a budget of
+6.0 ms, tight enough to convict beyond a band that was too wide to judge anything else.
+⇒ 🔑 ***THE ONE RULE IN THE GATE THAT COULD STILL RETURN A CONFIDENT VERDICT ON A LOUD BOX WAS THE
+RULE THAT WAS WRONG.***
+
+### 6. ⚠️ WHAT THIS DOES NOT DO — STATED, NOT LEFT TO BE DISCOVERED
+* **It does not land `p2-proof-interface`.** Under the repaired gate that branch now REFUSES (rc 3)
+  rather than failing, and it stays held until its two ceilings are a **registered decision**. That
+  is what the arm is for.
+* **It does not register those two ceilings.** Doing so in this commit would be landing the arm and
+  clearing my own branch's refusal in one act, which is the exact conflict the ruling separated.
+* ⛔⛔ **IT INTRODUCES THE FIRST NON-PORTABLE COMPARISON INTO A GATE THAT RUNS ON TWO MACHINES, AND
+  I NEARLY FILED THE OPPOSITE.** My first draft of this section said the arm was safe because *"the
+  measuring verdict runs LOCALLY at merge and CI runs only `--selftest` — measured in `ci.yml`, not
+  assumed."* **That is false, and I had read only the first four steps of a nine-step job.** The
+  `kernel-delta` job's LAST step is `python3 scripts/kernel_delta.py --repeats 6` on
+  `ubuntu-latest`: **the delta gate takes a real measurement on the runner.**
+  ⇒ 🔑 ***"MEASURED, NOT ASSUMED" IS A CLAIM ABOUT A POPULATION, AND I HAD MEASURED A PREFIX OF IT.***
+  The words that made it sound driven were doing the work of the check I had not finished.
+
+  The recorded local↔runner factor (`ci.yml` header, the reason absolute ceilings were retired as a
+  gate on 09/04) is **1.7× to 3.1× per module, 2.1× overall, with "no single calibration constant"**.
+  The registry's headroom is **×3**. So for a new module:
+  ```
+      runner reading / registered ceiling  =  (1.7 … 3.1) / 3.0  =  0.57 … 1.03
+  ```
+  ⇒ **A ceiling derived honestly from a local reading has NO MARGIN AT ALL at the top of the
+  observed range.** A new module whose runner factor sits where `vectorCoverage`'s does (3.1×) reds
+  on the runner while passing locally, and nothing about that is a regression in the module.
+  ⚠️ This is a property of the ruling's design, not a defect in this implementation, and it is
+  **filed for the helm rather than patched here** — the ruling separated design from execution
+  precisely so that paris does not quietly re-choose the rule.
+
+  ✅ **AND IT IS SAFE TO LAND ANYWAY, for a reason that is structural rather than lucky: with NO
+  ceiling registered the arm REFUSES on both machines identically** (rc 3, no measurement compared
+  against any number). The non-portability becomes live only at the moment a ceiling is registered
+  — **which is exactly the act this commit declines to take.** The arm is safe to land precisely
+  because the act it defers is the act that would make it non-portable.
+
+---
+
+## D193 — the drift gate's profiler bucket did not contain the file that computes the allowance, and the exemption that swallowed it had a sound argument that did not cover it
+
+**Found 2026-09-10 while landing D192, by sweeping for the sibling shape rather than by the gate
+firing.** The sweep was owed: the previous life's bank recorded *"other `scripts/` gates carry
+hand-written lists; none checked."*
+
+### 1. WHAT WAS WRONG
+`kernel_drift.py`'s `PROFILER_PATHS` is the bucket for steps that, in its own words, *"move the
+READING or the ALLOWANCE without moving the code, so 'nothing to price' is FALSE for them."* It
+listed `kernel_cost.py`, `kernel_delta_budget.txt`, `lean-toolchain`, `lake-manifest.json`.
+
+**`scripts/kernel_delta.py` was not in it** — the file containing `effective()`, `K_SIGMA` and the
+three-way rule, i.e. **the place the allowance is computed and every verdict decided.** It was
+matched instead by the `scripts/` exemption, whose stated reason is that such a script *"can reach
+a reading only by REGENERATING a `.lean` file, and that regeneration is itself a `.lean` diff,
+bucketed first."*
+
+⇒ 🔑 ***THAT ARGUMENT IS TRUE OF `check_private_paths.py` AND FALSE OF THE GATE ITSELF. AN
+ALLOWLIST RULE WHOSE REASON IS SOUND CAN STILL CATCH A FILE THE REASON DOES NOT COVER — and the
+rule then reads as though someone had considered that file.*** Checking that a member MATCHED a
+rule is a different act from checking the rule's REASON against that member, and only the first one
+is ever performed.
+
+📌 **This is the same hole as D171's**, one file over. D171 added `lean-toolchain` and
+`lake-manifest.json` after finding that a toolchain bump *"changes EVERY unit's reading and touches
+no `.lean` file"*. The identical sentence is true of the gate's own rule file, and the D171 repair
+did not sweep for it. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 2. THE SECOND ENTRY IS A CONSEQUENCE, NOT A MISS
+`scripts/kernel_ceilings.txt` also joins — but only because **D192 made it an allowance input to
+the delta gate, which it had never been before.** Before that commit it fed the retired absolute
+readings and nothing that judged. It is listed here because the commit that gives a file power over
+a verdict is the commit that owes it a bucket.
+
+### 3. THE EXEMPTION'S REASON IS NOW DERIVED
+The `scripts/` rule named its own carve-out by hand — *"(the profiler and the budget registry are
+bucketed ABOVE this rule)"* — a literal enumeration of a list defined 25 lines above it. It now
+builds that clause from `PROFILER_PATHS` itself, so **the sentence cannot again describe a scope
+the code does not have.** [[feedback-a-gate-named-by-a-literal-stops-seeing-renamed-work]]
+
+### 4. ⚠️ MEASURED BEFORE CHANGING IT: THIS CANNOT RED ANYTHING, AND THAT WAS CHECKED, NOT ASSUMED
+Reclassifying 152 historical first-parent steps is the kind of edit that reds a gate retroactively.
+Read at the object before the edit: `--gap`'s exit code is decided by `nl` (the `.lean` bucket)
+against the ratchet, and by `nu` (unclassified, which refuses). **`npr` — the profiler bucket — is
+printed with a warning and never sets a refusal.** Moving steps from `neither` to `profiler` moves
+them between two non-gating buckets.
+⇒ The change makes the report honest and cannot change a verdict. ⛔ **What it does NOT do is price
+those steps** — the bucket is still only a warning, so a commit that moves the allowance is still
+reported rather than gated. That is the pre-existing design and this entry does not change it; it
+is named here so the next person to ask "why is a profiler-path step not gated?" finds the answer
+rather than the hole.
 
 
 ---
+
+## D194 — the helm WITHDREW D192's ceiling clause 40 minutes after ruling it, and the repository's own thirty-line comment says why
+
+**Helm correction 2026-09-10 14:26 (FLEET.md offset 47908209), after paris implemented the ruling
+and refuted it at the object.** D192's diagnosis stands in full; **its remedy does not.**
+
+### 1. WHAT WAS WRONG WITH THE REMEDY
+D192 judged a new unit against an absolute ceiling in `scripts/kernel_ceilings.txt`. But
+`kernel-delta` runs on `ubuntu-latest` (`ci.yml:541`), that registry names **no machine**, and the
+local↔runner factor is **1.7×–3.1× PER MODULE** against ×3 headroom.
+⇒ **The remedy compared a local number against a runner measurement and would have called the
+difference a regression.**
+
+⭐ **AND THE REPOSITORY HAD ALREADY WRITTEN THE REFUTATION, THIRTY LINES ABOVE THE JOB** (`ci.yml`,
+immediately preceding `kernel-delta:`):
+> *"THIRTY LINES REFUSING TO PUT `kernel_cost.py` HERE … absolute millisecond ceilings are calibrated
+> on one machine … ⇒ 🔑 THE VERY MEASUREMENT THAT REFUTES A PORTABLE CEILING IS WHAT MAKES A PORTABLE
+> RATIO WORK … This gate profiles TWO TREES ON ONE MACHINE and gates the RATIO … so the factor appears
+> in both numerator and denominator and divides out exactly … `kernel_delta_budget.txt` is written in
+> percentages for precisely that reason, with an absolute `@floor` for the modules too small for a
+> ratio to mean anything."*
+⇒ 🔑 ***THIS GATE WAS DELIBERATELY BUILT TO BE RATIO-ONLY, AND D192's ARM IMPORTED AN ABSOLUTE INTO
+IT — breaking the exact separation the repository had already designed and documented.*** The `@floor`
+is named in that same paragraph as the one absolute the design tolerates, which is why reading it as
+a ceiling (D192's finding) and then reaching for another absolute (D192's remedy) were the same
+mistake twice, in opposite directions.
+📌 **The helm's own account of it:** *"I QUOTED THE PARAGRAPH THAT REFUTES ME, IN THE RULING, AS
+SUPPORT FOR A DIFFERENT POINT … Reading a file for one claim does not read it for its others, and the
+clause I needed was in the file I had open."*
+
+### 2. THE ARM AS REPLACED — IT REPORTS AND REFUSES, AND NEVER CONVICTS
+**A new unit has exactly ONE reading, and this gate's only sound comparison is a ratio of two
+readings of the same unit on the same machine. So the gate CANNOT judge a new unit, and the honest
+arm says so rather than substituting the comparison it can make for the one it cannot.**
+1. **PRINT** the unit, its head reading, **and the machine the reading was taken on.** Readings blobs
+   now carry a `machine` field; older blobs fall back to the hostname in `box_stamp()`, and a run
+   whose machine cannot be established can match no ceiling at all.
+2. **REFUSE** through the refusal channel. ⛔ `fail` is never set by this arm.
+3. A ceiling **releases** the refusal **only if its registered machine matches the run's.** The
+   registry grows an optional `@on <machine>` column; an entry with **no** machine, or one for
+   **another** box, is **treated as ABSENT — never as a loose bound**, because a per-module factor
+   cannot be divided out and so a foreign ceiling is an unrelated number, not a conservative one.
+4. ⛔ **rc 0 on an unregistered new unit remains the one forbidden outcome.**
+5. ⛔ **The ratio-to-a-sibling variant is NOT built**, by ruling: the factor's 1.7–3.1 spread leaves
+   ~1.8× unexplained, and *"a gate that is nearly sound on the case it was built to refuse is worse
+   than one that refuses."*
+6. Registering a new unit therefore costs **one measurement on the gate's own machine** — land the
+   module behind the refusal, read its cost from the gate's output there, register that.
+
+### 3. DRIVEN, INCLUDING A PLANT AGAINST THE CLAUSE THE RULING TURNS ON
+`--selftest` **53 arms PASS**, with new arms for: a foreign-machine ceiling read as ABSENT · a
+machine-less ceiling read as ABSENT · a run whose own machine is unknown · the flag carrying its
+machine · and **a new unit far over a same-machine ceiling REFUSING rather than convicting.**
+⭐ **That last arm was proved live rather than assumed:** planting `fail = True` on the over-ceiling
+branch turned **exactly 1 of 53 arms red** (`rc=1, wanted 3`), and reverting restored 53/53. The arm
+is both armed and specific.
+End to end on the branch's own readings: both new units read `NEW — REFUSED ⛔`, named with
+`measured on yukon.lan`, and the printed remedy is `X86.Program 56 @on yukon.lan`.
+
+### 4. ✅ THE SECOND-ORDER FINDING THE RULING ASKED FOR IS **NEGATIVE**
+The helm asked whether the sibling COST gate has had this defect all along — it reads the same
+machine-less registry. **Measured: `kernel_cost.py` is invoked by NO workflow.** Its only caller is
+`scripts/run_differential.sh:93`, which runs locally. `ci.yml` mentions it three times and every one
+is a comment explaining the refusal to run it there.
+⇒ **The cost gate compares local ceilings against local readings and is sound.** The defect is
+absent, and it is absent *by an explicit decision the repository already recorded* — which is the
+same decision D192's remedy violated. **Nothing to repair.**
+
+### 5. 📌 AND A CHECK THAT IS NOW POSSIBLE FOR THE FIRST TIME, AND IS OWED
+The same comment block ends with a caveat written when Actions could not run here:
+> *"THAT IS A PREDICTION AND THE FIRST RUN HERE IS ITS TEST, NOT ITS CONFIRMATION … no delta has ever
+> been measured on any machine but the developer box. Compare the first green here against
+> `docs/DECISIONS.md` D123's local table before believing the portability claim; a percentage that
+> reads the same on two machines is the evidence, and until then it is an argument."*
+**That first green now exists**: run `34504734457` measured `5011d2b → d57b18c` on the runner, 6
+repeats, `delta gate: CLEAN`.
+⛔⛔ **AND I FILED IT AS "NOW TESTABLE", WHICH IS WRONG — CORRECTED WITHIN THE HOUR, SEE D195.** That
+commit pair changes **no `.lean` file at all**, so every delta in it is noise. It belongs to the
+CONTROL population, not to the real batches, and **a null pair cannot test whether a REAL delta's
+percentage is portable.** The check is still owed and is still not possible from that run.
+(⚠️ The comment's own premise — *"this account's runner refuses every job for billing"* — is the
+claim the helm struck on 09/09; corrected in the same commit as this entry.)
+
+
+---
+
+## D195 — the portability check is still not possible, the run I said enabled it measured nothing, and its cross-reference points at the wrong decision
+
+**Self-correction, 2026-09-10, within the hour.** D194 §5 recorded that `ci.yml`'s long-standing
+owed check — *"compare the first green here against D123's local table before believing the
+portability claim; a percentage that reads the same on two machines is the evidence, and until then
+it is an argument"* — had become possible because the runner produced its first green. **Three
+things are wrong with that, and I found them by trying to DO the check rather than by re-reading.**
+
+### 1. ⛔ THE FIRST GREEN MEASURED A NULL COMMIT PAIR
+Run `34504734457` measured `5011d2b → d57b18c`. **That pair changes no `.lean` file** — it is docs
+and scripts — so every delta it reports is noise about nothing:
+```
+  Tests.Coverage @residue   −145.0      X86.Syntax   −6.0      (all 23 units: ok)
+```
+⇒ 🔑 ***A NULL PAIR CANNOT TEST WHETHER A REAL DELTA'S PERCENTAGE IS PORTABLE.*** The claim under
+test is that a RATIO reads the same on two machines; with no code change the ratio is ~0/base on
+both, which is agreement that would hold however unportable the instrument was.
+[[feedback-a-claim-the-vectors-cannot-distinguish]] · [[feedback-unobserved-regions-report-agreement]]
+⚠️ **And no other runner run reaches the measuring step**: the branch's CI runs fail earlier, at
+`--gap`. So **zero real deltas have ever been measured off the developer box**, exactly as the
+comment said when it was written — the comment's premise about billing was false, but **its
+conclusion was still true, for a different reason.**
+
+### 2. ⭐ WHAT THE RUN *CAN* BE COMPARED TO, AND IT IS A SMALLER CLAIM
+D123's local table carries a **control population** — five commits in the window that touch no
+`.lean`:
+```
+  Tests.Coverage @residue   local controls  −270 −140 −140 −50 −15      runner  −145
+  X86.Syntax                local controls  −7.0 −4.5 +1.5 +3.5 +4.5    runner   −6.0
+```
+The runner's null readings sit **inside** the local control range on both units. That is a real
+datum about **NOISE MAGNITUDE**, and it is worth having — but note it is roughly **1×**, not the
+~2× the 1.7–2.4× speed factor would predict if noise scaled with the mean. ⇒ **Noise does not
+obviously scale with cost**, which is a hypothesis worth one measurement, not a conclusion.
+⛔ **It is NOT the portability test** and must not be filed as one.
+
+### 3. ⛔⛔ AND THE CROSS-REFERENCE IS AMBIGUOUS: THERE ARE **TWO** DECISIONS NUMBERED D123
+```
+  line 6026   ## D123 — the VEX-128 bucket, and a census that is not finished …
+  line 6077   ## D123 — the delta gate: a control set already in the record, and two numbers …
+```
+`ci.yml` says *"D123's local table"* and means the second. **A reader following it reaches the first**
+— a census of oracle availability with no delta table in it — which is where I went, and I briefly
+concluded the reference was simply wrong.
+⇒ 🔑 ***A DUPLICATE IDENTIFIER MAKES EVERY REFERENCE TO IT RESOLVE TO WHICHEVER COPY IS REACHED
+FIRST*** — the fleet's own law about self-contradicting documents, one level down.
+📌 **The repository already knew**: **D130**'s title is *"one key, two subjects: a probe tag that
+shared a reading, and **a decision number that shares a section**."* The duplicate was observed and
+recorded, and **the reference written afterwards still cites the ambiguous number.** Naming a defect
+is not fixing the citations that depend on it.
+⚠️ **Not renumbered here.** D123 is cited from `ci.yml`, from other decisions and from banks;
+renumbering is a sweep with its own gate, not a side-effect of this entry. **What is owed is a
+disambiguating citation** wherever the number is used — done in `ci.yml` in this commit.
+
+
+---
+
+## D196 — the axiom gate's POPULATION is the library, and this campaign's four headline safety theorems are not in the library
+
+**Found 2026-09-10 by chasing a scope caveat I had written in my own bank an hour earlier instead of
+letting it stand.** A caveat one writes and does not chase is a finding one has decided not to have.
+
+### 1. MEASURED
+```
+  scripts/axiom_gate.sh:20   MODS="X86 $(grep -E '^import X86\.' X86.lean | awk '{print $2}')"
+  grep -c Tests scripts/axiom_gate.sh ....................................... 0
+  the campaign's DELIVERABLE safety theorems, ALL in `Tests.*`:
+      Tests.fill_safe · Tests.fill_writes_only_in_buffer
+      Tests.fill_preserves_disjoint_buffer · Tests.memcpy_safe · Tests.scan_writes_no_memory
+```
+⇒ 🔑 ***THE HEADLINE MEMORY-SAFETY RESULTS OF THIS CAMPAIGN ARE UNGATED FOR AXIOMS, BY ACCIDENT OF
+PLACEMENT.*** The `Tests` exemption is real and was made for a DIFFERENT reason: the plan confines
+`bv_decide`/`native_decide` to *"test executables and a separately labelled tier"*, because those run
+the COMPILED model. **A safety theorem is a deliverable, not a test executable**, and it inherited an
+exemption written for its neighbours.
+
+### 2. ✅ CURRENTLY BENIGN — MEASURED, NOT HOPED
+All of them depend on exactly `[propext, Classical.choice, Quot.sound]`, and the only
+`native_decide`/`bv_decide` string anywhere under `Tests/` sits inside a COMMENT in `Anchors.lean`.
+**Nothing is wrong today. Nothing would say so if it were** — a future head proving `memcpy_safe` by
+`native_decide` gets `ofReduceBool` in the deliverable and a gate that prints `CLEAN`.
+
+### 3. ⛔ IT IS A SIBLING OF THE DEFECT REPAIRED THE DAY BEFORE
+That repair found the gate naming **twelve module names by hand**, added a thirteenth module, and got
+`CLEAN — every declaration in [ …the twelve… ]`. It fixed the **DERIVATION** — the list now comes from
+`X86.lean`'s imports and cannot go stale — and it was driven red with two refusals and a control. It
+holds today (13 modules named). **Nobody then asked whether the POPULATION was the right one.**
+⇒ 🔑 ***A CORRECTLY DERIVED LIST OF THE WRONG POPULATION IS STILL THE WRONG POPULATION — and the
+derivation repair RAISES confidence in the number while leaving the scope untouched.*** The
+hand-written list at least looked like something a human had chosen, and might have chosen wrongly.
+
+### 4. ⛔ NOT REPAIRED, AND WHY
+Extending the gate over `Tests.*` needs a rule telling a DELIVERABLE from a TEST EXECUTABLE inside one
+namespace, and **no structural marker exists today.** Three arms, none chosen here: (a) a second,
+separately-labelled arm over `Tests.*` whose allowlist starts EMPTY, so every future entry is an
+argued exception rather than a silence; (b) move the safety theorems into a gated namespace; (c) mark
+deliverables by attribute and gate on that. **(a) is the recommendation** — additive and conservative
+— but it is gate policy and touches the plan's tier structure, so it is the helm's.
 
 ## D197 — problems 2 and 3, and the finding that the TIER decides the line-count target
 
@@ -13053,3 +13451,201 @@ refuted that.
 run. The honest form is **non-interference over TWO runs**, and all five combinators are single-run.
 **A sizing fact for GS, not a gap patched by reflex** — and a direct consequence of decision (b)'s own
 premise. Full argument in the design doc.
+
+## D198 — §9.4's premise is refuted: the runner's hostname is STABLE, and the real obstacle is that the registry is keyed by UNIT
+
+⚠️ **NUMBERED D198, SKIPPING D197**, which lives on the held branch `p2-proof-interface` and lands
+with its merge. Same reason D197 skipped D192–D196: `docs/DECISIONS.md` already carries two decisions
+numbered D123 (D195), and a third duplicate is not worth creating.
+
+### 1. ⛔ WHAT THE RECORD SAID, AND IT WAS WRONG
+D194's §9.4 note — carried into the bank, the bus and the open-calls list — read that machine identity
+is the run's hostname and that *"the runner stamps `runnervmlun5p`, an **ephemeral per-run VM name**, so
+`@on` can never match a CI run and the release mechanism is dead there."* The whole design call was
+filed on that premise.
+
+**Measured across every CI run whose kernel-delta job reached the measuring step:**
+```
+  2026-09-11T04:23  34562032878   BOX runnervmlun5p
+  2026-09-10T23:54  34544223619   BOX runnervmlun5p
+  2026-09-10T21:47  34534044551   BOX runnervmlun5p
+  2026-09-10T16:52  34504734457   BOX runnervmlun5p
+```
+**Four for four, spanning ~11.5 hours and two days. The name is not per-run.**
+⚠️ **STATED AT ITS REAL STRENGTH, because the flattering version is the one that rots:** this is an
+OBSERVED REGULARITY over a short window on `ubuntu-latest`, **not a documented GitHub guarantee.** It
+may change without notice. What makes that tolerable is the failure DIRECTION, below.
+
+### 2. ⭐ THE REAL OBSTACLE, WHICH THE WRONG PREMISE WAS HIDING
+`read_ceilings()` builds `ceil[p[0]] = (float(p[1]), mach)` — **a dict keyed by UNIT.** The `@on`
+machine is an ATTRIBUTE of the single entry, never part of the key. So the registry can name **one
+machine per unit**, and this gate runs on **two**.
+
+**Driven, not read off the source** — two lines for one unit, different machines:
+```
+  ZZTest.Unit 100 @on yukon.lan
+  ZZTest.Unit 800 @on runnervmlun5p
+  => read_ceilings()["ZZTest.Unit"] == (800.0, 'runnervmlun5p')
+     entries for that unit: 1      no warning, no error, no diagnostic
+```
+⇒ 🔑 ***THE SECOND LINE SILENTLY OVERWRITES THE FIRST.*** A head registering the runner's ceiling
+beside the developer box's would not be told it had just moved the refusal to the other machine.
+
+### 3. ⇒ THE CONSEQUENCE FOR THE MERGE, CONFIRMED AT THE OBJECT
+`resolve_base()` returns `HEAD^` when head is on trunk, so on a merge commit `M` the base is `M^` —
+master before the merge. **`X86.Program` and `Tests.Program` are therefore NEW for exactly that one
+comparison, on BOTH machines**, and CI's last kernel-delta step is `kernel_delta.py --repeats 6`,
+whose rc 3 fails the step. Whichever box is registered, **the other refuses and the merge commit reds.**
+📌 The gate's own refusal advice — *"take the reading ON THE MACHINE THAT RUNS THIS GATE"* — is written
+in the singular, and that is the inconsistency in one sentence.
+
+### 4. ✅ THE FAILURE DIRECTION IS SAFE, AND THAT IS WHAT MAKES §1's CAVEAT LIVABLE
+A non-matching or machine-less entry is treated as **ABSENT ⇒ REFUSE**, never as a loose bound. So if
+GitHub's runner naming does change, the gate REFUSES rather than silently passing a unit against a
+number measured on another box. **The observation rotting costs a refusal, not a false green** —
+which is the direction a gate is allowed to be wrong in.
+
+### 5. ⚖️ THE FORK — POSTED, NOT TAKEN
+**(a)** register `@on yukon.lan` from the local merge-gate reading; the merge commit reds on the runner
+for exactly one commit, then both units have base readings and the ordinary portable RATIO arm applies.
+**(b)** register the runner's ceiling — **circular**: no runner reading for these units can exist until
+the merge happens, because branch CI dies at `--gap` before the measuring step.
+**(c)** key the registry by **(unit, machine)** so both boxes can be registered, and make a duplicate
+key an ERROR rather than a silent overwrite.
+**(c) is the recommendation** — it is the only arm under which this gate can be honest on a two-machine
+setup, and it makes the `@on` column mean what D194 says it means. ⛔ **NOT IMPLEMENTED HERE.** D194 is
+24 hours old, the helm withdrew its predecessor, §9.4 is registered as the helm's call, and **this seat
+is the party the gate convicted** — changing the gate that holds my own branch is the act the
+separation exists to prevent. The measurement is mine; the design is not.
+
+## D199 — the registry is keyed by (unit, machine), a duplicate key is an ERROR, and two of this format's three parsers did not know the column existed
+
+⚖️ **RULED BY THE HELM 2026-09-11** on D198's fork (bus `48802831`): take **(c)**. Design is the
+helm's and recorded there; implementation and its defects are mine. ⛔ **The ruling also corrected my
+own framing, and that correction is the first thing to read:** *"(c) and (a) are not alternatives at
+all: (c) is the data-model repair and (a) is the sequencing consequence you have to eat either way."*
+My post had offered them as a choice. It was not one.
+
+### 1. WHAT CHANGED
+`read_ceilings()` returns `{(unit, machine): ms}`. Lookup is **exact and has no fallback** — a ceiling
+that does not name THIS box is ABSENT, never a loose bound, because the local↔runner factor is per
+module (measured 1.6×–2.4×) and cannot be divided out of an absolute number. Two helpers exist so a
+REFUSAL can still distinguish *"none at all"* from *"not yours"*: a refusal that cannot say which one
+is a refusal a head has to reproduce by hand.
+⛔ **A DUPLICATE (unit, machine) IS `exit 2`, NAMING BOTH LINE NUMBERS.** The defect being repaired
+was a silent overwrite, so the repair must not leave a narrower one behind.
+✅ **Inert on today's registry, measured rather than asserted:** the pre-change and post-change parses
+of the shipped file are **byte-identical objects** (18 modules, 3 decls, 1 tail). The new behaviour
+activates only when an `@on` line exists.
+
+### 2. ⛔⛔ THE FINDING THE RULING'S OWN SEQUENCE WOULD HAVE DETONATED
+**This file format has THREE parsers and D194 taught the column to exactly ONE.**
+```
+  kernel_delta.read_ceilings        knew @on          (D194)
+  kernel_delta.gated_declarations   did NOT           a @decl line with @on has SIX fields,
+                                                      matched no branch, and VANISHED in silence —
+                                                      a gated declaration silently ungated
+  kernel_cost.read_ceilings         did NOT           four fields whose second is not @decl ⇒
+                                                      falls to `else` ⇒ ⛔ exit 2
+```
+**Driven at the object, with a control** — one `@on` line in the registry:
+`⛔ unparseable ceiling line: 'X86.Program 396 @on yukon.lan'` → `SystemExit 2`, on **the profiler that
+produces every gated number in this campaign**. The same file without that line parses fine.
+⇒ **The helm's step 2 — "register yukon.lan from the reading you already hold" — is the FIRST line in
+this repository's history to use the column**, and it would have killed `kernel_cost` on contact.
+⇒ 🔑 ***A FORMAT CHANGE IS A CLAIM ABOUT EVERY PARSER OF THAT FORMAT, AND A COLUMN WITH NO USERS
+BREAKS NOTHING UNTIL IT HAS ONE.*** The feature was added, reviewed, ruled on twice and banked, and
+its blast radius was invisible for one reason only: nobody had written the first line.
+
+### 3. ⛔ AND FIXING THE PARSE REMOVED AN ACCIDENTAL SAFEGUARD
+`kernel_cost.py --register` rewrites the WHOLE registry from today's measurements and can only emit
+plain `<module> <ms>` and `@perRow` lines. Everything else it **destroys** — the `@decl` and `@tail`
+ceilings (pre-existing, which is why the delta gate's own refusal text says *"DO NOT RUN
+`kernel_cost.py --register` TO CLEAR THIS"*), and now the machine column.
+**It refused `@on` today only because it could not PARSE it.** Teaching it the column removed that
+accident, so the refusal is now EXPLICIT: `--register` enumerates what it cannot reproduce and exits
+2 rather than writing.
+⇒ 🔑 ***A FIX THAT REMOVES AN ACCIDENTAL SAFEGUARD OWES AN EXPLICIT ONE***, or it converts a loud
+failure into silent data loss — strictly worse than the bug it repairs.
+📌 **Measured, and it is not hypothetical: the SHIPPED registry has 4 lines `--register` would
+delete** — three `@decl` ceilings and one `@tail`, including the hand-set `mem_dest_claims_are_backed`
+ceiling this file's own header spends a paragraph explaining. Two documents said "do not run it";
+nothing enforced it.
+📌 The guard is a FUNCTION, not an inline block in `main()` behind a `lake build` — where it was
+written first, and where it could never have been armed. [[feedback-a-gate-with-no-callable-surface]]
+
+### 4. DRIVEN RED FIRST, AND THE PLANT REPRODUCED THE ORIGINAL DEFECT
+53 → **63 arms**. The six new parser arms drive the PARSE, not the verdict: the defect lived entirely
+in the parse — two lines in, one entry out — so no verdict arm could ever have seen it.
+```
+  PLANT   restore the old unit-only keying   5 of 6 parser arms RED, and the values show the
+                                             overwrite literally: got={'X86.Program': 975.0}
+                                             where two entries belong
+  CONTROL the shipped registry's own arm     GREEN THROUGHOUT the plant — it has no duplicates and
+                                             (until now) no @on, so it cannot tell the two keyings
+                                             apart, which is exactly what a control should do
+  RESTORE                                    63 arms PASS
+```
+⚠️ **One arm was mine and wrong first:** I asserted the over-ceiling refusal by the text
+`THIS IS NOT AN OVER-BUDGET FINDING`, which belongs to the *unregistered* path. rc 3 matched and the
+text did not. **Both refusals exit 3 and they mean opposite things**, so an arm asserting only the
+exit code would have passed on either and proved nothing. It now asserts `THIS IS NOT A CONVICTION`.
+[[feedback-an-expectation-written-from-intent]]
+
+### 4b. 📌 ONE CONSEQUENCE I DROVE, DECIDED, AND AM NOT LEAVING IMPLICIT
+`absolute_readings` now shows THIS machine's ceiling and falls back to a machine-less one, never to
+another box's number under a column headed "ceiling". Driven on both machines: on `yukon.lan` the two
+new units print with 396 / 975; **on the runner they do not appear in that table at all**, because
+`if u not in ceil: continue` — pre-existing — skips any unit with no applicable ceiling.
+**Before this change they WOULD have printed, showing yukon's number as the runner's ceiling.** So
+the options were a foreign number or an absent row.
+✅ **Absent row, and no information is lost:** the new-unit REFUSAL block prints exactly those
+readings with their box — *"head 132.0 ms measured on runnervmlun5p"* — which is where a new unit's
+reading belongs. The table is for units the gate can place against a bound; a unit it cannot place is
+reported by the arm that cannot place it.
+
+### 4c. ⛔⛔ THE HELM'S DIFF READ FOUND A LATENT EDGE IN MY PRECEDENCE KEY — REAL, AND NOW ARMED
+Flagged not blocked, and it was right. My first cut derived the precedence key from the line's
+**ARITY**: `parts[0]` for a two-field plain line and `parts[0]` again for a three-field `@tail`. Those
+two land in **DIFFERENT dicts** (`d[module]` and `tails[module]`) and must not contend — but they
+hashed to one key, so a machine-specific `@tail` suppressed a machine-LESS PLAIN ceiling for the same
+module. **Driven before and after, with controls:**
+```
+  BEFORE  @tail(specific) then plain(generic)   d={}   ← a ceiling of 50 silently gone
+  AFTER   either order                          d={'Tests.Coverage': ('abs', 50.0)}, tails={...}
+  CONTROL both generic · specific-beats-generic unchanged in both versions
+```
+⇒ 🔑 ***A PRECEDENCE KEY MUST NAME WHERE THE VALUE LANDS.*** Deriving it from the line's SHAPE is a
+guess that happened to agree for three of four shapes, and **agreement on a sample is not a key.**
+📌 **Not reachable on the shipped registry** (18 modules, 3 decls, 1 tail, no overlap) — which is
+precisely why it needed an ARM rather than a sighting. The plant restoring the arity key reds
+**exactly 1 of 24**, and the order-identity arm beside it stays GREEN under that plant: both orders
+collapse the same way, so only the DESTINATION arm can see it. **Two arms that look alike, testing
+genuinely different properties.**
+
+### 4d. ⭐ AND THE COMMENT WAS STRONGER THAN THE CODE — SO I RAISED THE CODE
+The helm also noted that my comment claimed last-wins had been eliminated while the
+generic-then-specific path still relied on a write to land the right answer: **the OUTCOME was
+order-independent, the MECHANISM was a skip in one direction and an overwrite in the other.** True.
+The parse is now **two passes** — collect candidates, resolve once — so precedence is a decision in
+both directions rather than a side effect.
+⇒ 🔑 ***WHEN THE COMMENT IS STRONGER THAN THE CODE, RAISE THE CODE.*** Documenting the asymmetry
+would have left a sentence that is true today and wrong after the next edit.
+📌 Order still decides in exactly one place, and it is now stated rather than implied: among entries
+of the SAME specificity the last wins, as this parser has always behaved. `kernel_delta` REFUSES such
+a duplicate outright; this parser does not change its contract in a commit about the column.
+
+### 5. ⚠️ THE PREDICTED RED, WRITTEN DOWN BEFORE IT HAPPENS (the helm's point 2)
+Generated by running the real `verdict()` against the registry as it now stands — not typed:
+```
+  LOCAL  yukon.lan        rc 0   both units NEW ok (396 / 975 @on yukon.lan)
+  RUNNER runnervmlun5p    rc 3   both REFUSED: "its ceiling is registered for yukon.lan, and a
+                                 ceiling from another box is not a loose bound"
+```
+**The merge of `p2-proof-interface` will red the `kernel-delta` job ONCE, on the runner, for that
+named cause.** It is not avoidable by any arm of the fork: under (c) the runner still has no entry,
+and ABSENT ⇒ REFUSE is the rule that makes the whole design safe.
+⭐ **And the red is the mechanism, not just the cost:** that refusal PRINTS the runner's own reading
+and the exact line to add. Expected runner ceilings, from the measured 1.6×–2.4× factor:
+`X86.Program` ≈ 630–960, `Tests.Program` ≈ 1560–2370. **A runner factor outside that band is itself a
+finding.**

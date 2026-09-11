@@ -100,17 +100,6 @@ sound. What nobody checked is whether the surviving trigger is one this campaign
 **RELEASE CONDITION:** a trigger this campaign actually fires. **OWNER:** the Captain (the throttle
 is his). **RE-MEASURE:** whenever the landing style changes.
 
-### ✅ CI-2 IS CLOSED — RULED AND EXECUTED AT COUNCIL 2026-09-10 (ruling ⑥, desk `JF`)
-**The measurement carried the decision**, in the Captain's words: *"That is not a rate limit, it is
-disabling."* `selftest`, `kernel-delta` and `kernel-delta-redfirst` are **back on push** (`f908ad7`).
-⛔ **AND THE COST ARGUMENT THAT JUSTIFIED THE THROTTLE IS GONE, NOT OVERRULED:** the repo went
-PUBLIC the same morning, and **Actions minutes are free on public repositories** — so the bill this
-row was filed to price no longer exists. ⇒ 🔑 ***A ROW BLOCKED ON A BUDGET CAN BE CLOSED BY A
-DECISION ABOUT SOMETHING ELSE ENTIRELY*** — the flip was ruled for publication reasons and
-discharged a CI row as a side effect. **Verify the three jobs actually run before trusting this**:
-they had never been reachable, so the first push after the restore is their first real evidence.
-**MEASURED at `f908ad7`: Scrub SUCCESS; CI `in_progress` at boot — the conclusion is owed a look.**
-
 ### ⛔⛔ CI-2d (NEW, 2026-09-10) — **THE RESTORE IS NECESSARY AND NOT SUFFICIENT: THE THREE JOBS CANNOT FINISH**
 I closed CI-2 this morning with the line *"verify the three jobs actually run before trusting
 this."* **The verification says they do not complete.** Measured at the object:
@@ -151,6 +140,24 @@ Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my pre
 `rc 1` at HEAD. **Cause: I edited `CLAUDE.md`, and `EXEMPT_RULES` had no rule for it** — so the
 drift gate correctly refused an unargued path, exactly as designed (*"refuse once, until a human
 argues the path"*). ✅ **REPAIRED:** a rule with a stated reason (prose, read at boot, never by
+
+### ✅ CI-2 IS CLOSED — RULED AND EXECUTED AT COUNCIL 2026-09-10 (ruling ⑥, desk `JF`)
+**The measurement carried the decision**, in the Captain's words: *"That is not a rate limit, it is
+disabling."* `selftest`, `kernel-delta` and `kernel-delta-redfirst` are **back on push** (`f908ad7`).
+⛔ **AND THE COST ARGUMENT THAT JUSTIFIED THE THROTTLE IS GONE, NOT OVERRULED:** the repo went
+PUBLIC the same morning, and **Actions minutes are free on public repositories** — so the bill this
+row was filed to price no longer exists. ⇒ 🔑 ***A ROW BLOCKED ON A BUDGET CAN BE CLOSED BY A
+DECISION ABOUT SOMETHING ELSE ENTIRELY*** — the flip was ruled for publication reasons and
+discharged a CI row as a side effect. **Verify the three jobs actually run before trusting this**:
+they had never been reachable, so the first push after the restore is their first real evidence.
+**MEASURED at `f908ad7`: Scrub SUCCESS; CI `in_progress` at boot — the conclusion is owed a look.**
+
+### ⛔ CI-2b — AND THE FIRST THING THAT RAN THERE WAS RED, BY MY HAND
+`kernel-delta`'s step *"Drift-gate arithmetic and ledger, driven red"* failed on that PR.
+Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my predecessor's HEAD),
+`rc 1` at HEAD. **Cause: I edited `CLAUDE.md`, and `EXEMPT_RULES` had no rule for it** — so the
+drift gate correctly refused an unargued path, exactly as designed (*"refuse once, until a human
+argues the path"*). ✅ **REPAIRED:** a rule with a stated reason (prose, read at boot, never by
 `lake`), 64 arms green. ⇒ **The gate worked; the invisibility is CI-2's, the red was mine.**
 
 ### ⛔ CI-2c — THE SELF-TEST FLAG IS SPELLED TWO WAYS AND THE WRONG ONE READS **GREEN**
@@ -170,6 +177,38 @@ the real repair is that a script should REFUSE an unknown flag, which is 28 file
 decision about argparse-vs-`sys.argv` that belongs in one sitting, not in this one.
 
 ---
+
+### ✅⛔ CI-2d's INFERENCE IS REFUTED, 2026-09-10 — AND THE ENTRY ABOVE NAMED THIS EXACT HALF AS THE FALSIFIABLE ONE
+That entry separated what it had MEASURED from what it had INFERRED: *"That they will keep being
+cancelled is an INFERENCE from the landing rate, and it is the part that could be wrong if landings
+become rare."* **It was wrong, and it was wrong within six hours.** Measured at the object at boot:
+```
+  master  34504734457  16:52:17Z  2h17m00s  CI  9/9 SUCCESS  ← the three restored jobs COMPLETED
+  branch  34507962913  17:23:54Z  1h37m18s  CI  8/9          ← selftest (2)(3)(4) all SUCCESS
+```
+⇒ **The remedy the bank prescribed — keep `master` quiet longer than a working session — WORKED, the
+same afternoon, without `cancel-in-progress` being touched.** The residue is therefore narrower than
+filed: not *"the restored jobs never complete"* but *"they complete only across a window with no
+landing in it"*, which is a **scheduling** fact rather than a broken gate.
+📌 **Three duration points now, not one:** 3h49m (the outlier, PR #1) · 2h17m · 1h37m. CI-2's
+"68-88 min" remains wrong, but the spread is wider than the one run suggested and the ceiling is the
+number to plan against.
+⇒ 🔑 ***AN ENTRY THAT LABELS ITS OWN INFERENCE IS THE ONE THAT CAN BE CHEAPLY REFUTED*** — nothing
+here needed re-deriving, only re-reading, because the previous life wrote down which sentence to
+attack. **The habit is the finding.**
+⚠️ **STILL NOT REPAIRED, AND STILL THE CAPTAIN'S** (desk `JF`): the policy question is untouched. What
+changed is the price of doing nothing, which is lower than filed.
+
+### ⛔⛔ AND A READING RULE THIS SEAT LEARNED THE HARD WAY, 2026-09-10
+`p2-proof-interface`'s CI reads **`failure`** at the top of `gh run list`, and 8 of its 9 jobs are
+green. The red is `kernel-delta`, failing on `--gap`: **4 unrecorded `.lean` steps, which are exactly
+the branch's own four commits.** A branch's ledger row is designed to ride *inside the merge commit*,
+so a branch that has not merged **cannot** have the row and `--gap` **cannot** read 0 on it.
+⇒ 🔑 ***A GATE THAT IS RED FOR THE WHOLE DURATION OF A HOLD GIVES EVERY OTHER RED ON THAT BRANCH A
+PLACE TO HIDE.*** The top line reads `failure` either way, and it was benign here only because all
+nine job conclusions were read one by one. ⛔ **Filed as a READING RULE, not a repair**: suppressing
+`--gap` on branches would delete the gate's only report of an unpriced landing, which is the failure
+it exists for.
 
 ## ⛔ PORT (NEW, 2026-09-09) — **THE SECOND MACHINE IS REAL NOW, AND THE TREE IS NOT PORTED**
 
@@ -205,10 +244,30 @@ against `kernel_delta`, `kernel_delta_history`, `deterministic_cost`, `unfolding
 ⛔ **`kernel_cost.py` is the profiler that produces EVERY gated number in this campaign**,
 and it is the one whose selftest nothing runs on a push. Its siblings are gated; the
 measurement they all depend on is not [[feedback-a-gate-behind-a-failing-step-is-silent]].
-⚠️ **NOT wired blind:** it takes ~18 min on this box, dominated by deliberate `sleep 40`
-fixtures in the orphan probe, and three of its arms are environment-dependent (PORT-3, now
-DISCHARGED). It needs a time budget, or it will red every build for a reason that is not
-about the code. **OWNER:** paris.
+⚠️ **NOT wired blind:** it takes ~18 min on this box and three of its arms are
+environment-dependent (PORT-3, now DISCHARGED). It needs a time budget, or it will red every
+build for a reason that is not about the code. **OWNER:** paris.
+
+#### ⛔⛔ THE COST MODEL IN THIS ROW WAS WRONG IN ITS CAUSE — MEASURED 2026-09-11
+This row said the ~18 min was *"dominated by deliberate `sleep 40` fixtures in the orphan probe"*,
+and every thought about wiring it has been priced against that sentence.
+```
+  every deliberate sleep in kernel_cost.py, summed ........... 171.6 s = 2.9 min   (16%)
+```
+**Read from the RUNNING suite's own process tree, not inferred from the source:** the selftest
+spawns `[sys.executable, __file__]` with **NO ARGUMENTS** four times, and no-args is `main()`'s
+full path — `lake build X86 Tests X86Native` plus a per-module kernel profile.
+```
+  selftest ─ python(self, no args) ─ lake ─ lean   97.4 % CPU
+```
+⇒ **THE COST IS FOUR NESTED FULL PROFILING RUNS. It is CPU-BOUND, not wall-clock waiting**, which
+is a different budgeting question entirely: sleeps are nearly free on a busy runner, profiling is not.
+⇒ ⭐ **AND IT PARTLY ANSWERS THIS ROW'S OWN HAZARD.** The clause below warns that a wired selftest
+must carry a **TREE** arm and not only fixtures (D189). **Those four nested runs already profile the
+real tree** — so `kernel_cost` is not the fixture-only shape D189 described, and the remedy this row
+prescribes is aimed at a defect it does not have. What remains true is the budget.
+⇒ 🔑 ***AN INHERITED COST MODEL IS A HYPOTHESIS, AND THIS ONE HAD BEEN QUOTED FORWARD UNMEASURED.***
+[[feedback-inherited-diagnosis-is-a-hypothesis]]
 ⛔⛔ **AND WHEN IT IS WIRED, IT NEEDS A *TREE* ARM AND NOT ONLY ITS FIXTURES — D189 IS THE
 PROOF.** `deterministic_cost.py --selftest` was ALREADY in CI throughout the three days that
 tool could not read `Tests/Coverage.lean`, and stayed green: **every arm was a fixture, and
@@ -257,87 +316,140 @@ identifies this seat's own work by the `x86lean-` prefix. A temp dir either leav
 read as another campaign's. From `eac47e8` (evidence's PR #1) and `31f2b5f` (D182) — **not
 from the port work, and named here rather than fixed in a commit about something else.**
 **OWNER:** paris. Small.
-⛔ **AND IT IS BLOCKED ON A COLLISION, NOT ON EFFORT: `evidence` has a LIVE BRANCH on that
-exact file** (`evidence/gate-canon-x86lean`, `080cd3b`). Editing it on master now buys a
-conflict for another seat's in-flight work in order to fix two temp-dir prefixes.
+⛔ **IT WAS BLOCKED ON A COLLISION, NOT ON EFFORT: `evidence` had a LIVE BRANCH on that
+exact file** (`evidence/gate-canon-x86lean`, `080cd3b`). Editing it on master then would have
+bought a conflict for another seat's in-flight work in order to fix two temp-dir prefixes.
 **RELEASE: evidence's branch lands or is abandoned.** Recorded so the next head does not
 read "small" as "do it now".
+
+### ✅ PORT-4 DISCHARGED 2026-09-11 — AND THE RELEASE CONDITION HAD BEEN MET FOR SOME TIME
+⛔⛔ **NOBODY HAD RE-MEASURED IT.** Measured at the object:
+```
+  gh pr list --state all   ->  #1 MERGED  evidence/gate-canon-x86lean
+  git ls-remote origin     ->  NO evidence branch at origin
+```
+**The branch LANDED.** The condition read *"evidence's branch lands or is abandoned"*, and it had
+landed; only a STRANDED WORKTREE remained in that seat's scratchpad (still registered locally, at
+`080cd3b`, which is not an ancestor of master). ⇒ 🔑 ***A RELEASE CONDITION NOBODY MEASURES IS
+SELF-SEALING: the item stays blocked by its own prose long after the world moved.***
+📌 **The worktree is still NOT removed** — it is in another seat's scratchpad and `stale_worktrees`
+reports rather than removes precisely because it cannot tell a live checkout from a stranded one.
+PORT-3's repair already made the three affected arms measure the DELTA this selftest causes, so the
+stranded checkout does not red them.
+
+**THE FIX:** the two prefixes now conform — `x86lean-ppgate-selftest-` and
+`x86lean-pphist-selftest-`. They are this seat's own temp dirs, so conforming is right and
+DECLARING them in `FOREIGN_FIXTURES` would have been a lie (that set holds the one deliberate
+impersonation control, `some-other-campaign-`, whose whole job is to NOT start with the prefix).
+Checked first that nothing depends on the literals: only the two definitions and this queue row.
+```
+  check_private_paths.py --self-test   rc 0
+  kernel_cost arm 3e (driven)          PASS — 20 prefixes, 0 offenders, 0 stale
+```
+⇒ **This was the ONE red arm (1 of 27), so PORT-2's remaining precondition is met.**
 📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
 "three environment-dependent arms" precondition is now met and this is what remains.
 
-## ⛔⛔ P2-IFACE (NEW, 2026-09-10) — **THE PROOF INTERFACE. BUILT AND PROVEN; THE BRANCH IS *HELD*, NOT LANDED**
+## ⛔⛔ P2-IFACE (2026-09-10) — **BUILT AND GREEN, AND *HELD ON A BRANCH*, NOT ON `master`**
 
-⚖️ **STATUS, FIRST, BECAUSE THE REST OF THIS ROW READS AS IF IT SHIPPED.** The work is complete and
-green — and it is on branch **`p2-proof-interface`**, not on `master`, because the **delta gate
-convicted it in two independent runs** (`X86.Program` and `Tests.Program`, the two new modules).
-**HELD, exactly like the two branches already held on this gate.** Derivation and the decision:
-**D191**. ⛔ **AND THE FIRST DRAFT OF D191 ARGUED FOR LANDING IT ON A CROSS-CHECK I FABRICATED** —
-a row from the absolute-readings table that does not exist, because a new module has no ceiling.
-**RELEASE:** a ruling on the gate's new-unit arm. **OWNER:** the Captain or the helm, NOT this seat.
+**Council 2026-09-10 ruling ⑧** commissioned the proof interface — *"the proof interface that makes
+a twenty-instruction routine provable in tens of lines, not thousands"* · *"paris in parallel now"*.
+**It is built, it is green, and it is NOT HERE.**
 
-## ⚖️ P2-IFACE — **THE PROOF INTERFACE. COMMISSIONED AT COUNCIL, BUILT (see the status above)**
+```
+  branch   p2-proof-interface @ 837df82   (pushed to BOTH tiers)
+  content  X86/Program.lean · Tests/Program.lean · docs/P2-PROOF-INTERFACE.md · D190 · D191 · D197
+  status   ALL FIVE PROBLEMS BUILT. Held only for the merge-gate measurement (load-gated).
+```
 
-⚠️ **NAME COLLISION, FIRST, BECAUSE IT WILL OTHERWISE BE READ WRONG.** "P2" already names **the
-vector campaign** two rows below (33 batches, LIVE). The council's "P2" is the **phase
-deliverable** — this proof interface. **Two different things, one token.** This repo has already
-been bitten by a gate named by a literal when P1 became P2, so nothing here is called `P2` in
-code: the module is `X86.Program`, after what it is.
+### ⭐⭐⭐ THE COMMISSION IS ANSWERED, WITH FOUR MEASURED POINTS (2026-09-10, later)
+Ruling ⑧ asked for *"a twenty-instruction routine provable in tens of lines, not thousands."*
+**Answered in both directions, and the answer is about TIERS rather than about lemmas:**
+```
+  FRAME    tier   ~1 line / INSTRUCTION   ⇒ 20 instr ≈  31 lines   ✅ MET
+  LABELLED tier   ~7.7 / LABEL            ⇒ 20 labels ≈ 173 lines  ⛔ MISSED
+        2 labels 34 · 4 labels 50 · 5 labels 57 · 7 labels 76   (7.5 · 7.8 · 7.6 · 8.1)
+```
+⇒ 🔑 ***THE TIER, NOT THE LEMMA LIBRARY, DECIDES IT — a factor of EIGHT, where four rounds of lemma
+engineering bought about a third of that.*** And **a property's tier is not readable off its
+statement**: three of the five sat somewhere other than the table put them, each found by writing the
+proof. **Full derivation: `docs/P2-PROOF-INTERFACE.md`; this row is a POINTER, not a second copy.**
+⛔ **The one thing the interface cannot express** — problem 3's *"reads stay inside the buffer"*.
+`Mem.read` is TOTAL, so a wild read leaves no trace; the honest form is NON-INTERFERENCE over TWO
+runs and all five combinators are single-run. **A sizing fact for GS, filed not patched.**
+⛔ **THE RECORD LIVES ON THE BRANCH, DELIBERATELY** (D190 and D191 cite each other and the module),
+so this row is a **pointer**, not a summary — *a document that contradicts itself reads as whichever
+half is reached first*, and two copies of a design decision is exactly that.
 
-**Council 2026-09-10 ruling ⑧,** the Captain: *"a semantics sufficient for proving safety
-properties (at least)"* · ***"the proof interface that makes a twenty-instruction routine provable
-in tens of lines, not thousands"*** · *"Yes, paris in parallel now."*
-**BUILT at `df390ab` (branch `p2-proof-interface`, NOT on master):** `X86/Program.lean` ·
-`Tests/Program.lean` · `docs/P2-PROOF-INTERFACE.md` · **D190**. Both design questions answered AT
-THE OBJECT, not by preference. **Axioms clean, all CI targets build, nonvacuity driven red first.**
+**WHAT IT ACHIEVED, IN ONE LINE EACH** — so a head can price re-taking it without checking it out:
+* `X86.run` is `List.foldl step` and **could not express a loop**: the branch is taken in the
+  semantics and ignored by the driver, and the result is a well-formed `Cpu` with `ms = none`.
+* Design question (a) — labelled blocks vs inductive reachability — **dissolves**: one theorem, two
+  sides; `runP_labels` is `runP_invariant` applied, so there is no second logic and no soundness gap.
+* Design question (b) — **regions**, decided by the model: `Mem.read` is TOTAL, and separation
+  logic's `P * Q` splits a heap that has nothing to split.
+* A 14-line safety theorem over ∀ fuel and ∀ start state on a routine that really loops, nonvacuity
+  driven RED both ways.
 
-⛔⛔ **THE FINDING THAT PRECEDED BOTH: `run` COULD NOT EXPRESS A LOOP AND FAILED SILENTLY.**
-`X86.run` is `List.foldl step`; `jcc` sets `rip` correctly and the driver never reads it back.
-Measured: `ecx = 2` (one pass, not three), `rip = 0x1005` (the branch WAS taken), `ms = none` (the
-model did NOT stop). ⇒ 🔑 ***THE BRANCH IS TAKEN IN THE SEMANTICS AND IGNORED BY THE DRIVER, AND
-THE RESULT IS A WELL-FORMED `Cpu`*** — a perfectly good answer to a question nobody asked.
-`run` is NOT wrong (it is what the differential harness drives) and is NOT replaced.
+### ⛔ WHY IT IS HELD, AND THE PART THAT IS MY OWN ERROR
+The delta gate convicted `X86.Program` and `Tests.Program` — the two new modules — in two
+independent runs. **My first draft of D191 argued for landing past the gate, on a cross-check I
+FABRICATED**: an absolute-readings row for `X86.Program` that does not exist, because a new module
+has no ceiling (0 in the table, 0 in `scripts/kernel_ceilings.txt`). It was the argument's only
+independent source and it pointed where I already wanted to go.
+⇒ **Having proved my judgement on this exact question unreliable enough to invent evidence for it,
+I held the branch rather than act on it.**
+### ✅ THE FIRST RELEASE CONDITION WAS MET 2026-09-10 13:18 AND IS DISCHARGED
+It read: *"a ruling on whether the delta gate needs a NEW-UNIT arm … OWNER: the Captain or the helm
+— NOT this seat, which is the party the gate convicted."* **The helm ruled** (FLEET.md offset
+47777260), read the source itself, and found the mechanism worse than this seat had reported: the
+gate compares a new module's TOTAL cost against `@floor`, **a noise floor used as a ceiling**, and
+its own selftest had pinned the one budget kind under which that is invisible. **paris implemented;
+the design was the helm's.** Landed on `master` `1304132`, both tiers — **D192**, with **D193** as
+its sibling. `--selftest` 51 arms PASS; driven end to end on the readings that produced the
+conviction (`OVER BUDGET ⛔ rc 1` → `NEW — NO CEILING ⛔ rc 3`).
 
-**THE MEASURED TARGET:** safety theorem **14 lines** (2 statement + 12 proof), ∀ fuel and ∀ start
-state, about a routine that really loops; 5 lines of routine, 5 of nonvacuity, **both nonvacuity
-probes driven RED first**. *(Written as 13 at four sites before it was counted.)*
+### ⛔ THE BRANCH IS STILL HELD, ON A DIFFERENT AND NARROWER CONDITION
+Under the corrected gate `p2-proof-interface` **REFUSES (rc 3)** rather than failing: its two new
+modules carry no registered ceiling, and the gate prints the exact line to add for each. **That
+refusal is the arm working, not a fault.**
+**RELEASE CONDITION (NEW, 2026-09-10):** a ruling on whether the new-unit arm may register ABSOLUTE
+ceilings at all. ⛔ **The arm introduces the first NON-PORTABLE comparison into a gate that runs on
+two machines** — `kernel-delta`'s step 9 measures on `ubuntu-latest`, and against the recorded
+local↔runner factor of **1.7×–3.1× per module** the registry's **×3** headroom leaves no margin at
+the top of the range. Three options are posted and **none chosen**: (a) mint new-unit ceilings from
+a RUNNER reading; (b) wider headroom for new units; (c) the new-unit ceiling comparison local-only,
+CI reporting without judging.
+**OWNER:** the helm. **Registered on `blocked-on-helm` (paris), SINCE 2026-09-10.**
+⇒ ⛔ **NOT this seat, and for the same reason as before**: registering the two ceilings is precisely
+the act that clears this seat's own branch, which is the conflict the ruling deliberately separated.
+📌 **Full derivations: D192 and D193 on `master`; D190 and D191 on the branch.**
 
-### ⇒ THE FIVE PROBLEMS THAT SIZE IT — **PROPOSED, NOT BUILT** (GS depends on them)
-`memset` fill · `memcpy` (region **disjointness**) · `strlen` scan · **guarded array store** (the
-labelled tier — the one the frame tier deliberately cannot reach) · prologue/epilogue.
-**One routine is proven and it is the smallest of them.**
-
-### ⛔ P2-IFACE-1. THE MEMORY FRAME PACK IS **17 OF 92 FORMS**
-The frame pack frames `flags` (17) and `oracle` (6) because **those are what the differential
-comparator watches** — it was built for the harness's question, and memory safety is a different
-one. The three lemmas the first routine needed are in `X86/Program.lean`; **75 forms are
-unstated.** ⚠️ **NOT a churn item:** whether all 75 belong in the pack is a sizing decision against
-the five problems, and `X86/Theorems.lean` is the kernel-cost barrier.
-**RELEASE:** the five problems name which forms they need. **OWNER:** this seat.
-
-### P2-IFACE-2. NO `runP_add` (`runP p (m+n) = runP p n ∘ runP p m`)
-What lets a proof be composed out of per-block runs. Cheap; **not yet needed**, so not written —
-recorded so the next head does not rediscover the absence as a surprise.
-
-### ⚠️ P2-IFACE-3. TERMINATION IS UNTOUCHED AND IS **NOT** ON THE P2 PATH
-These are SAFETY properties: *"for all fuel"* says nothing about a routine finishing. Stated here
-so it is not claimed later.
-
----
-
-## ✅ AXIOM-GATE (2026-09-10) — **THE GATE DID NOT COVER A NEW MODULE WHILE PRINTING `CLEAN`**
-`scripts/axiom_gate.sh` carried a **hand-written literal of twelve module names**. `X86.Program`
-was added to the library, the gate ran, did not cover it, and printed
-`axiom-gate: CLEAN — every declaration in [ …the twelve… ]`.
-⇒ 🔑 ***A GATE NAMED BY A LITERAL STOPS SEEING NEW WORK AND REPORTS CLEAN ABOUT THE HALF IT CAN
-STILL SEE*** — its banner even NAMED its scope, and a reader who did not know the library had
-thirteen modules had nothing to compare it against.
-✅ **REPAIRED BY DERIVATION** from `X86.lean`'s imports (the library root must import every module
-for `lake build X86` to build it), **with two refusals carrying a control** — a short list and a
-missing known module — because a derivation that silently yields nothing reads GREEN. **Both
-refusals driven red, then restored green.** 13 modules covered.
-📌 **SWEEP OWED, NOT DONE:** this is one instance of a shape. Other gates in `scripts/` carry
-hand-written lists of modules, forms or paths; **none has been checked.** Filed rather than
-claimed clean.
+### ✅⚖️ RULED AND IMPLEMENTED 2026-09-11 — THE RELEASE CONDITION ABOVE IS DISCHARGED
+**The premise of the condition above was wrong, and I supplied it.** It rests on *"1.7×–3.1× per
+module … the registry's ×3 headroom leaves no margin"* and on §9.4's claim that the runner's hostname
+is ephemeral. Both were measured and corrected in **D198**: the runner stamps `runnervmlun5p` in 4 of
+4 runs across two days, and the real obstacle was never portability — it was that `read_ceilings()`
+was keyed by UNIT, so a second machine's line **silently overwrote** the first.
+⚖️ **Helm ruling (bus `48802831`): take (c).** Key by (unit, machine); a duplicate key is an ERROR.
+⛔ **And it corrected my framing:** *"(c) and (a) are not alternatives at all: (c) is the data-model
+repair and (a) is the sequencing consequence you have to eat either way."*
+```
+  (c) implemented          D199 — 63 arms, plant-driven, shipped-registry parse byte-identical
+  ceilings registered      X86.Program 396 · Tests.Program 975, both @on yukon.lan, from the
+                           merge-gate run's OWN suggested lines (6fdb5ef → 837df82, 6 repeats)
+  merge-gate measurement   COLLECTED — the run my predecessor nohup'ed at exit SURVIVED
+```
+⚠️ **THE MERGE WILL RED `kernel-delta` ONCE ON THE RUNNER, AND THAT IS WRITTEN DOWN IN ADVANCE**
+(D199 §5, generated by running the real `verdict()`): the runner has no entry for these units and
+ABSENT ⇒ REFUSE is the rule that makes the design safe. **The refusal prints the runner's reading and
+the line to add**, which is how the second pair of entries gets written. Expected runner ceilings
+from the measured 1.6×–2.4× factor: `X86.Program` ≈ 630–960, `Tests.Program` ≈ 1560–2370 — **a factor
+outside that band is itself a finding.**
+⛔⛔ **AND THE RULED SEQUENCE WOULD HAVE BROKEN THE PROFILER ON CONTACT:** `kernel_cost.read_ceilings`
+and `kernel_delta.gated_declarations` did not know the `@on` column existed — **two of this format's
+three parsers** — and the first `@on` line ever written is the one the ruling orders. Driven: exit 2,
+*"unparseable ceiling line"*. Repaired in the same change (D199 §2).
 
 ---
 

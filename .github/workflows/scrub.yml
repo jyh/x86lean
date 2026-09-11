@@ -88,3 +88,16 @@ jobs:
         run: python3 scripts/check_private_paths.py --tree
       - name: Message ratchet (a violating message must not launder into the next base)
         run: python3 scripts/check_private_paths.py --messages
+      # ⭐⭐⭐ THE HISTORY RATCHET — the arm the other three cannot be, WIRED 2026-09-10 on the
+      # helm's ruling (FLEET.md 48491666). DRIVEN, not argued: two commits pushed together,
+      # commit 1 ADDS a private path and commit 2 REMOVES it -- `--range` rc 0 (the NET
+      # DIFFERENCE has no such file), `--tree` rc 0 (the TREE has no such file), `--history`
+      # FAIL naming the intermediate commit and the blob. The blob reaches a public remote
+      # and every other gate is green.
+      # ⛔ THE ARM HAS EXISTED HERE SINCE PUB-1 AND CI RAN IT ZERO TIMES. Its baseline was
+      # committed at 64ecb39 (8 sites, 4 commits) and PUB-1 closed 2026-09-10, so nothing was
+      # blocking this step except nobody having added it.
+      # ⚠️ `fetch-depth: 0` above is load-bearing: the arm REFUSES a shallow clone by name
+      # rather than walking a truncated history and reporting success.
+      - name: History ratchet (what each commit INTRODUCED -- the arm --range cannot be)
+        run: python3 scripts/check_private_paths.py --history

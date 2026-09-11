@@ -527,11 +527,28 @@ jobs:
   # for a ratio to mean anything.
   #
   # ⚠️ THAT IS A PREDICTION AND THE FIRST RUN HERE IS ITS TEST, NOT ITS CONFIRMATION.
-  # This account's runner refuses every job for billing (desk FH), so no delta has
-  # ever been measured on any machine but the developer box.  Compare the first
-  # green here against `docs/DECISIONS.md` D123's local table before believing the
-  # portability claim; a percentage that reads the same on two machines is the
-  # evidence, and until then it is an argument.
+  # ✅ THE FIRST GREEN NOW EXISTS: run 34504734457 measured `5011d2b -> d57b18c`
+  # here, 6 repeats a side, `delta gate: CLEAN` (2026-09-10 17:02-17:31Z).
+  # ⛔ BUT THAT RUN CANNOT BE THE TEST: `5011d2b -> d57b18c` changes NO `.lean`
+  # file, so every delta in it is noise about nothing, and a null pair cannot show
+  # whether a REAL delta's percentage is portable.  No runner run has ever reached
+  # the measuring step over a real code change (the branch runs fail earlier, at
+  # --gap).  ⇒ ZERO REAL DELTAS HAVE BEEN MEASURED OFF THE DEVELOPER BOX, and the
+  # test is STILL NOT POSSIBLE.  It becomes possible on the first landing here
+  # that changes Lean.  See D195.
+  # ⇒ THEN compare against the delta-gate D123's local table -- ⛔ `docs/DECISIONS.md`
+  # contains TWO decisions numbered D123, and the one meant is
+  # "D123 - the delta gate: a control set already in the record, and two numbers
+  # that did not reproduce", NOT the VEX-128 census, which is reached first.
+  # A percentage that reads the same on two machines is the evidence, and until
+  # then it is an argument.
+  # ⛔ THIS PARAGRAPH USED TO OPEN "This account's runner refuses every job for
+  # billing (desk FH), so no delta has ever been measured on any machine but the
+  # developer box."  THAT WAS STRUCK BY THE HELM 2026-09-09 AS FALSE -- Actions
+  # runs here.  It is corrected rather than deleted because the OWED CHECK below
+  # it is real and outlived its excuse: a standing "this instrument cannot run"
+  # note is a standing instruction not to look, and it kept a testable claim
+  # filed as untestable.
   #
   # ⚠️ `fetch-depth: 0` IS LOAD-BEARING.  The gate profiles the change's BASE, and
   # `actions/checkout`'s default shallow clone has no parent commit to check out —
