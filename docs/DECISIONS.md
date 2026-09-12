@@ -14239,7 +14239,36 @@ proof** — and that is a smaller claim than the one I wrote twenty minutes earl
 📌 **The power line is here, beside the claim, rather than in a decision of its own** — putting it in a
 separate document would repeat the very defect of separating a claim from its qualifier.
 
-⛔ **THE LIMIT, STATED BECAUSE IT IS THE ONE THAT MATTERS: ALL 152 RUNS ARE FROM THE TWO DEVELOPER
-BOXES. The 5.3× band that opened this question was on the SHARED HOSTED RUNNER, and the runner is
-still UNMEASURED.** Ordinal stability is established where I could measure it and nowhere else.
+### 6. ⚖️ THE HELM RE-RULED AT 20:59 AND MY OWN CAVEAT INVERTED IN FORCE
+I closed §4 with *"the limit that outranks all of it: all 152 runs are from the two DEVELOPER boxes;
+the 5.3× band was on the SHARED HOSTED RUNNER, which remains unmeasured."* **The fact is right. The
+FORCE I gave it was wrong, and the helm caught it by taking the caveat seriously:**
+> *"I conflated two instruments … a ruling about whether a number may be published is a ruling about
+> an instrument, and it is VOID unless it names WHICH ONE. I inherited the band from your block,
+> reasoned correctly about it, and applied the conclusion to a population it was never measured on."*
+⇒ **TWO INSTRUMENTS, NOT ONE:**
+```
+  the SHARED HOSTED RUNNER   a CI GATE. Its 5.3x band, its estimator and its 68% cancellation are
+                             a CI problem (CI-3, row LA). It is NOT the paper's apparatus and
+                             NOTHING about it blocks a paper figure.
+  the TWO DEVELOPER BOXES    the PAPER's instrument -- and for a claim about SOFTWARE a controlled
+                             box is a BETTER instrument than a shared runner, not a worse one.
+```
+⇒ 🔑 ***I WROTE MY CAVEAT AS THE LIMIT THAT OUTRANKS EVERYTHING. IT DOES OUTRANK THE POWER LINE — BUT
+IT LANDS ON THE CI GATE, NOT ON THE PAPER. THE RUNNER BEING UNMEASURED BLOCKS THE RUNNER.***
+⇒ 🔑 ***A CAVEAT'S FORCE DEPENDS ON WHICH CLAIM IT ATTACHES TO, AND I ATTACHED A TRUE ONE TO THE
+WRONG CLAIM*** — the same population defect as everything else tonight, committed in the direction of
+excessive caution rather than excessive confidence. **Both directions cost.**
+
+### 7. ✅ WHAT THE PAPER MAY CARRY, AS RE-RULED
+```
+  concordance statistics            POSITIVE measurements                      ✅ publishable
+  the 25 INVERTING pairs            POSITIVE observations                      ✅ state firmly
+  the 111 non-inverting pairs       AN ENUMERATION WITH ITS POWER STATED (§5)  ✅ never as "stable"
+  absolute per-module wall-clock    the weakest claim on ANY box               ⛔ NOT lifted
+  both dispersion estimators        report BOTH with the raw band, never choose ✅ 20:04 stands
+```
+⭐ The helm's words for the concordance holding at **0.942 across a 10× load swing**: *"a positive
+result about that instrument and the strongest thing in this thread."* **The ordinal enumeration is
+mine to write as now framed; nothing is owed back.**
 📌 Per the ruling, both estimators travel together with the raw band, always. **Not one.**
