@@ -14310,3 +14310,60 @@ else?** If the answer is "yes if I remember", it is a resolution wearing a remed
 ⚠️ **And the corollary against over-correction:** this is NOT licence to stop recording the instances.
 The tally is what turned three anecdotes into a design conclusion — **one seat counting alone reads as
 self-criticism; two seats counting together reads as a property.**
+
+## D212 — KN's attribution, taken from banked data: it is the BOX and the noise is MULTIPLICATIVE, and KN's own named suspect is refuted
+
+⚖️ **`KN` asks the question it was minted for:** *is the base's 1.34× variance the BOX, the MODULE
+(`Tests.Coverage`, a ~40 s module), or the `--repeats 6` SAMPLING?* — *"a remedy chosen before that is
+a remedy aimed at a guess."* **Taken now, from 152 banked runs across 10 corpora. No new runs; the box
+had quieted to load 7 and did not need to be touched.**
+
+### 1. ⛔ NOT THE MODULE — KN's NAMED SUSPECT IS ONE OF THE QUIETEST
+```
+  Tests.Vectors        8.2 ms   CV 0.210   <- noisiest
+  Tests.VectorRuns     0.4 ms   CV 0.145
+  X86.Coverage         8.7 ms   CV 0.136
+  ...
+  Tests.Coverage    23750.0 ms   CV 0.060   <- KN's suspect, in the QUIET half
+  Tests.Anchors       544.0 ms   CV 0.040   <- quietest
+```
+⇒ 🔑 ***THE ROW NAMED THE MODULE WITH THE LARGEST ABSOLUTE READING AND ASSUMED IT WAS THE NOISIEST.
+IN RELATIVE TERMS IT IS AMONG THE STEADIEST.*** Largest ≠ noisiest, and the row's parenthetical
+*"a ~40 s module"* is exactly the reasoning that conflates them.
+
+### 2. ✅ IT IS THE BOX — DISPERSION TRACKS LOAD
+```
+  load1  3.1- 6.8  ⇒ median per-module CV 0.046
+  load1  4.0-10.9  ⇒                      0.089
+  load1  9.0-20.9  ⇒                      0.105
+  load1 10.4-98.4  ⇒                      0.197
+  correlation(median load1, median CV) = +0.505  over 8 corpora carrying load data
+```
+
+### 3. ⭐⭐ AND THE MECHANISM — MULTIPLICATIVE, NOT ADDITIVE — WHICH I GOT WRONG ONE COMMAND EARLIER
+Seeing short modules with high CV I wrote *"a fixed absolute jitter — constant ms is huge on an 8 ms
+module."* **Measured, that is false:**
+```
+  ABSOLUTE sd vs log(duration)   r = +0.679      0.4 ms -> sd 0.07 ms
+  RELATIVE CV vs log(duration)   r = -0.394   23750 ms -> sd 1465.91 ms
+```
+**A 20,000× duration range gives a ~20,000× sd range.** The noise SCALES with the work; it is not a
+floor. ⇒ 🔑 ***I TESTED ONE STATISTIC, SAW THE PATTERN I EXPECTED, AND WOULD HAVE PUBLISHED THE WRONG
+MECHANISM. THE SECOND STATISTIC REFUTED IT IN ONE COMMAND.***
+⭐ **AND THE MECHANISM EXPLAINS THE HELM'S RULING FROM BELOW, RATHER THAN BY AUTHORITY:** multiplicative
+noise shared within a run **cancels in a RATIO and accumulates in an ABSOLUTE** — which is exactly why
+*ratios between modules in the same run* are publishable and *absolute per-module wall-clock* is not.
+It is also why the ORDERING survives (D210): a common factor preserves rank.
+
+### 4. ⛔ THIS REFUTES ONE BRANCH OF KN's OWN REMEDY MENU
+KN: *"box ⇒ pin the runner class or calibrate per-run; module ⇒ choose a subject with a stabler
+reading; sampling ⇒ raise `--repeats`."*
+⇒ **The MODULE branch cannot work.** There is no stabler subject to choose: CV does not fall with
+size (r = −0.394 is weak), and the current subject is already in the quiet half. **Swapping subjects
+would be motion, not repair.** ⇒ **The live branches are BOX (calibrate per-run) and SAMPLING**, and
+the box is now the attributed cause.
+⚠️ **SCOPE, with the force it actually has:** these 152 runs are the DEVELOPER boxes. KN was minted on
+the RUNNER's readings. **The mechanism (multiplicative, load-sensitive) is a general property and
+would apply on the runner too — amplified by a co-tenant `load1` cannot see — but the attribution is
+measured HERE.** That scopes the finding; it does not outrank it. *(The force error I made at 20:58
+and had corrected at 20:59.)*
