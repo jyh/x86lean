@@ -117,10 +117,21 @@ canonical BibTeX.** Both are primary. **Nothing here is written from memory.**
 | 8 | Goel. *Formal Verification of Application and System Programs Based on a Validated x86 ISA Model.* arXiv | `10.48550/arXiv.1705.01225` |
 
 ⛔ **ONE RECORD REMAINS OWED, WITH ITS REASON NAMED RATHER THAN GUESSED:**
-**Myreen, Gordon, Slind — *"Decompilation into logic — improved"*, FMCAD 2012.** Four Crossref
-queries returned only unrelated FMCAD papers (2007, 2008, 2016); that proceedings does not appear to
-be indexed by title there. **It must come from the FMCAD proceedings page or IEEE directly.** ⇒ It is
-cited in §4 for the frame discipline and **may not go in a paper until its record is verified.**
+**Myreen, Gordon, Slind — *"Decompilation into logic — improved"*, FMCAD 2012.** It is cited in §4
+for the frame discipline and **may not go in a paper until its record is verified.**
+⛔ **THE ROUTES ALREADY TRIED AND WHAT EACH DID, so the next attempt does not repeat them:**
+```
+  Crossref, 4 query phrasings   200, but only unrelated FMCAD papers (2007 · 2008 · 2016).
+                                That proceedings is not indexed by title there.
+  dblp.org search API           429, then 000, then 200 SERVING AN ANTI-BOT PROOF-OF-WORK PAGE
+                                ("Making sure you're not a bot!"). Not machine-readable from here.
+  dblp.org/rec/conf/fmcad/MyreenGS12.html   200 -- the same challenge page, 7,441 bytes.
+  cs.utexas.edu/~hunt/FMCAD/FMCAD12/        301 -> 404.
+```
+⇒ **What is left: IEEE Xplore, the ACM DL, or the author's own publication page** — none of which this
+environment reached. **A human with a browser closes this in one minute**; it is not worth more
+automated attempts. 📌 *The value of writing the dead ends down is that the next attempt starts where
+this one stopped.*
 
 ⚠️ **TWO HAZARDS THE FETCH EXPOSED, BOTH OF WHICH A RECALLED BIBLIOGRAPHY WOULD HAVE WALKED INTO:**
 1. **Heule 2016 has TWO DOIs** — `10.1145/2908080.2908121` (the PLDI proceedings) and
