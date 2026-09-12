@@ -14189,10 +14189,17 @@ be touched. ⇒ 🔑 ***THE CHEAP MEASUREMENT WAS CHEAPER THAN "CHEAP": IT WAS A
 
 ### 2. ✅ THE ORDERING IS STABLE — AND STAYS STABLE UNDER A 10× LOAD SWING
 ```
-  pairwise concordance per corpus   mean 0.960 - 0.989      min 0.930
+  pairwise concordance per corpus   mean 0.960 - 0.989      min 0.930      <- PER-CORPUS aggregation
   USER-CONTENDED corpus             load1 10.4 -> 98.4      min 0.942  mean 0.977
   pairs that NEVER invert           111 of 136   (17 modules; 152 runs)
 ```
+⚠️ **THE CANONICAL FIGURES ARE THE GATED ONES AND THEY DIFFER: `scripts/ranking_stability.py` reports
+min 0.919 / mean 0.991 over the 1,504 WITHIN-CORPUS run-pairs.** The row above is a PER-CORPUS
+min-of-means; the script's is the pooled within-corpus distribution. **Both describe the same runs and
+neither is wrong — but my minimum was 0.930 where the true per-comparison minimum is 0.919**, because
+a min-of-per-corpus-minima is not the minimum over comparisons. ⇒ 🔑 ***TWO AGGREGATIONS OF ONE
+QUANTITY, REPORTED AS IF INTERCHANGEABLE, AND THE ONE I QUOTED WAS THE FLATTERING ONE.*** The script
+is the derivation of record; this row is kept with its basis named.
 **The helm's hypothesis holds:** modules inflate together within a run, so the order survives an
 instrument whose absolutes cannot be trusted.
 

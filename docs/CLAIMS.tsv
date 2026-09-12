@@ -76,3 +76,8 @@ lean_theorems	616	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -E '^(X86/.*\
 decisions	200	7bb57ee	git show "$SHA":docs/DECISIONS.md | grep -c '^## D[0-9]'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
 differential_records	44	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -cE '^docs/DIFFERENTIAL-.*\.md$'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
 design_documents	55	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -cE '^docs/[^/]+\.md$'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+ranking_runs	152	1c62fca	python3 scripts/ranking_stability.py --stat runs	docs/TACAS-G3-TIMING-CLAIMS.md §2
+ranking_modules	17	1c62fca	python3 scripts/ranking_stability.py --stat modules	docs/TACAS-G3-TIMING-CLAIMS.md §2
+ranking_inverting_pairs	25	1c62fca	python3 scripts/ranking_stability.py --stat inverting	docs/TACAS-G3-TIMING-CLAIMS.md §3
+ranking_stable_pairs	111	1c62fca	python3 scripts/ranking_stability.py --stat stable	docs/TACAS-G3-TIMING-CLAIMS.md §4 (an ENUMERATION; power stated there)
+ranking_concordance_min	0.919	1c62fca	python3 scripts/ranking_stability.py --stat concordance-min	docs/TACAS-G3-TIMING-CLAIMS.md §2
