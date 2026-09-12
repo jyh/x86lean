@@ -150,9 +150,22 @@ paper."** [[feedback-probe-silence-has-two-causes]]
 ```
   the Myreen FMCAD 2012 record (§5)                                               OWED, reason named
   a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim           NOT DONE
-  a decision on whether LNSym is RELATED WORK or PRECEDENT -- it is Arm, not x86,
-     and it is the closest Lean 4 neighbour, so it is arguably both                NOT RULED
+  a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim           NOT DONE
 ```
+✅ **THE LNSym QUESTION IS RULED 2026-09-12, AND IT IS MINE AS AUTHOR: PRECEDENT, NOT RELATED WORK —
+AND THE PAPER MUST SAY WHICH.** LNSym is an **Arm** ISA model in **Lean 4** (`leanprover/LNSym`). The
+provenance verdict cites it for five of our own design elements: a total `stepi`-shaped step function,
+BitVec-native arithmetic, per-instruction lemma packs, a `cosim` conformance target, and a
+`benchmarks` target.
+⛔ **FILING IT UNDER "RELATED WORK" WOULD BE A CATEGORY ERROR WITH A COST.** A related-work entry
+invites the reader to compare *coverage* — and comparing an Arm model's instruction count with an x86
+model's is meaningless. ⇒ **It belongs where the METHOD is discussed, as the public proof that native
+`BitVec` carries an ISA model in Lean 4 and that conformance testing is standard practice there.**
+⇒ 🔑 ***THE x86 COMPARATORS (x86isa · K · Sail) ANSWER "WHY ANOTHER x86 SEMANTICS?"; LNSym ANSWERS
+"WHY THESE TECHNIQUES?" — TWO DIFFERENT REFEREE QUESTIONS, AND ONE TABLE CANNOT SERVE BOTH.***
+📌 **Consequence for `TACAS-G1-POSITIONING.md`: LNSym is correctly ABSENT from its table and must stay
+absent.** Its four columns are x86 semantics; adding a fifth for an Arm model would make every
+scale cell incomparable. **The G1 table answers the first question; §4 of this file answers the second.**
 ⚠️ **The prose is not written and this file does not pretend otherwise.** What G6's 2 days no longer
 contains is the *discovery*, the *verification*, and now the *bibliography*; what remains is one
 record, one read, one ruling, and the writing.
