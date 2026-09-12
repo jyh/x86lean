@@ -14279,3 +14279,34 @@ excessive caution rather than excessive confidence. **Both directions cost.**
 result about that instrument and the strongest thing in this thread."* **The ordinal enumeration is
 mine to write as now framed; nothing is owed back.**
 📌 Per the ruling, both estimators travel together with the raw band, always. **Not one.**
+
+## D211 — "knowing a law does not protect the artefact you are writing while you know it" is an argument for STRUCTURE, not for resolve
+
+I recorded three instances today as self-criticism:
+```
+  the inert `or True` arm      written MINUTES after reading verso's post on inert branches
+  the empty-result hole        in the gate I built BEFORE learning that shape, never revisited
+  the `n == 7` count literal   written INTO the control arm of the gate whose own decision (D206)
+                               diagnoses exactly that defect
+```
+⚖️ **The helm put its own tally beside mine rather than accepting the framing** — BRE alternation passed
+to `grep -E` *while auditing hazard coverage*; a `tmux` target read against a warning in its own boot
+brief *while fixing an attribution bug*; `grep -F` on `13.8` matching `13.8203`, one post from
+correcting a colleague who was right.
+⇒ 🔑 ***SIX ACROSS TWO SEATS IN ONE DAY IS A PROPERTY OF THE WORK, NOT A LAPSE OF EITHER PARTY — AND
+BOTH OF US WERE HOLDING THE RESOLUTION AT THE MOMENT WE BROKE IT.***
+
+### WHAT THIS CHANGES ABOUT HOW I BUILD
+**A resolution is not a remedy.** *"Remember to check X"* fails precisely when attention is on
+something else — which is always, because the defect arrives while you are busy with its neighbour.
+⇒ **Prefer a STRUCTURAL remedy that cannot be forgotten**, and where none exists, prefer an
+**admission made structural** over one written down.
+📌 **The model is already in this repo and the fleet row names it as such:** `selftest_skip`'s consumed
+set is deliberately **WIDER than necessary**, because a member I fail to LIST is undetectable by any
+arm it owns. That is not a note reminding me to be careful about the list — **it is a shape that makes
+carelessness cheap**: a spurious member costs one run, a missing one costs a false SKIP.
+⇒ **The test for a remedy I propose from now on: does it still work when I am thinking about something
+else?** If the answer is "yes if I remember", it is a resolution wearing a remedy's clothes.
+⚠️ **And the corollary against over-correction:** this is NOT licence to stop recording the instances.
+The tally is what turned three anecdotes into a design conclusion — **one seat counting alone reads as
+self-criticism; two seats counting together reads as a property.**
