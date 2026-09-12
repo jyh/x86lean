@@ -101,12 +101,47 @@ true at different levels; **the paper must not collapse them.**
 
 ---
 
-## 5. WHAT IS STILL OWED FOR A FINISHED SECTION
+## 5. ✅ BIBLIOGRAPHIC RECORDS — FETCHED FROM THE REGISTRAR, NOT RECALLED (2026-09-12)
+**Route: Crossref (the DOI registration agency) for the record, `doi.org` content negotiation for
+canonical BibTeX.** Both are primary. **Nothing here is written from memory.**
+
+| # | record | DOI |
+|---|---|---|
+| 1 | Dasgupta, Park, Kasampalis, Adve, Roşu. *A complete formal semantics of x86-64 user-level instruction set architecture.* PLDI 2019, pp. 1133–1148 | `10.1145/3314221.3314601` |
+| 2 | Heule, Schkufza, Sharma, Aiken. *Stratified synthesis: automatically learning the x86-64 instruction set.* PLDI 2016 | `10.1145/2908080.2908121` |
+| 3 | Armstrong et al. *ISA semantics for ARMv8-A, RISC-V, and CHERI-MIPS.* POPL 2019 (PACMPL 3), pp. 1–31 | `10.1145/3290384` |
+| 4 | Verbeek, Bockenek, Ravindran. *Formally verified big step semantics out of x86-64 binaries.* CPP 2019, pp. 181–195 | `10.1145/3293880.3294102` |
+| 5 | Verbeek, Bockenek et al. *Formally verified lifting of C-compiled x86-64 binaries.* PLDI 2022 | `10.1145/3519939.3523702` |
+| 6 | Klein et al. *seL4: formal verification of an OS kernel.* SOSP 2009 | `10.1145/1629575.1629596` |
+| 7 | Greenaway, Lim, Andronick, Klein. *Don't sweat the small stuff: formal verification of C code without the pain.* PLDI 2014, pp. 429–439 | `10.1145/2666356.2594296` |
+| 8 | Goel. *Formal Verification of Application and System Programs Based on a Validated x86 ISA Model.* arXiv | `10.48550/arXiv.1705.01225` |
+
+⛔ **ONE RECORD REMAINS OWED, WITH ITS REASON NAMED RATHER THAN GUESSED:**
+**Myreen, Gordon, Slind — *"Decompilation into logic — improved"*, FMCAD 2012.** Four Crossref
+queries returned only unrelated FMCAD papers (2007, 2008, 2016); that proceedings does not appear to
+be indexed by title there. **It must come from the FMCAD proceedings page or IEEE directly.** ⇒ It is
+cited in §4 for the frame discipline and **may not go in a paper until its record is verified.**
+
+⚠️ **TWO HAZARDS THE FETCH EXPOSED, BOTH OF WHICH A RECALLED BIBLIOGRAPHY WOULD HAVE WALKED INTO:**
+1. **Heule 2016 has TWO DOIs** — `10.1145/2908080.2908121` (the PLDI proceedings) and
+   `10.1145/2980983.2908121` (the SIGPLAN Notices issue). **The proceedings DOI is the one recorded.**
+2. **seL4's top Crossref hit is the CACM 2010 reprint** (`10.1145/1743546.1743574`), not the SOSP 2009
+   original. The original is recorded above.
+⇒ 🔑 ***THE TOP HIT IS NOT THE PAPER.*** Of seven first-position results, **three were the wrong
+record** — a different paper, a reprint, and a different author's work. Checking each was the whole
+value of fetching.
+📌 **AND FOUR DISTINCT WAYS TO GET "NO RECORD", NONE OF THEM ABSENCE**, met in one sitting: HTTP 429
+(rate limit), HTTP 000 (refused connection), HTTP **200 serving an anti-bot proof-of-work page**, and
+HTTP 301 from an `http://` URL. **Every one yields an empty result that reads exactly like "no such
+paper."** [[feedback-probe-silence-has-two-causes]]
+
+## 6. WHAT IS STILL OWED FOR A FINISHED SECTION
 ```
-  full bibliographic records (authors, venue, year, DOI) for each paper cited above   NOT DONE
-  a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim              NOT DONE
+  the Myreen FMCAD 2012 record (§5)                                               OWED, reason named
+  a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim           NOT DONE
   a decision on whether LNSym is RELATED WORK or PRECEDENT -- it is Arm, not x86,
-     and it is the closest Lean 4 neighbour, so it is arguably both                   NOT RULED
+     and it is the closest Lean 4 neighbour, so it is arguably both                NOT RULED
 ```
-⚠️ **The prose is not written and this file does not pretend otherwise.** What it removes from G6's
-2 days is the *discovery* and the *verification*; what remains is bibliography and writing.
+⚠️ **The prose is not written and this file does not pretend otherwise.** What G6's 2 days no longer
+contains is the *discovery*, the *verification*, and now the *bibliography*; what remains is one
+record, one read, one ruling, and the writing.
