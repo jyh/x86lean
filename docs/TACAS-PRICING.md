@@ -93,15 +93,17 @@ that is the Captain's and the helm's:**
 |---|---|---|---|
 | G1 | ✅ **CLOSED 2026-09-11** — `docs/TACAS-G1-POSITIONING.md`, every cell MEASURED / RECORDED / stated NOT-APPLICABLE, **none OWED**, and the marker rule is now gated in CI (`check_positioning_table.py`). D200. | "why another x86 semantics?" is the first referee question | **priced 1–2 days; spent ~1.** ⛔ It did **not** come out where this row assumed: the data did *not* mostly exist in `COVERAGE.md` + `PROVENANCE.md` — 15 of the table's cells had to be read at the other projects' own sources. |
 | G2 | **Undefined-bit / flag semantics not written up.** The oracle exists in the model; the *argument* is scattered across decisions. | it is the hardest part of x86 and the most citable | **2–3 days**, mostly extraction from `docs/DECISIONS.md`. |
-| G3 | **No performance/scale statement for the semantics itself.** | "does it scale?" | ⚖️ **RE-RULED 2026-09-11 (D210 §6–7): NOT BLOCKED, NARROWED — and the block I had priced was on the WRONG INSTRUMENT.** The 5.3× band is the **CI runner**, a gate; the paper's instrument is the **developer boxes**, which for a software claim is the *better* apparatus. **Publishable:** the concordance statistics, the 25 inverting pairs (firmly), and the 111 non-inverting pairs *as an enumeration with its power stated* — never as "stable". ⛔ **Absolute per-module wall-clock stays out, on any box.** ✅ Both dispersion estimators always travel together with the raw band. **Still ~1 day**, now to write a measured claim rather than reframe a blocked one. |
+| G3 | ✅ **CLOSED 2026-09-12** — `docs/TACAS-G3-TIMING-CLAIMS.md`, derived by `scripts/ranking_stability.py`, five numbers gated in `CLAIMS.tsv`. D210. | "does it scale?" | **priced 1 day; spent ~1.** ⚖️ It was never a robust-estimator problem: the block I had priced was **on the wrong instrument** (the CI runner, not the developer boxes). What the paper carries is the concordance, the 25 inverting pairs, and the 111 non-inverting pairs **as an enumeration with its power** — never "stable". ⛔ Absolute wall-clock stays out on any box. |
 | G4 | **The five proof problems are a sample, not a benchmark.** Four routines, 2–7 labels. | "is 19 + 7.7/label general?" | **unpriced — needs the benchmark freeze** (helm item 4, P2 in the design lane, with bench). |
 | G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | ⛔ **RE-PRICED 2026-09-11 → 3–4 days.** The old cell said *"unusually cheap … every headline number is already CI-gated"*. **Measured (§1): the seven §1 numbers are NOT gated, and three of seven do not reproduce under the obvious command because their denominators were unstated.** The six COVERAGE numbers *are* gated and that half of the claim holds. **AE work is therefore not "run the gates" — it is "state every denominator, then run the gates."** ✅ **The denominators are now stated MACHINE-READABLY in `docs/CLAIMS.tsv`, which is this gap's spine: "reproduce every claim" becomes one command, and a reviewer reads each derivation instead of trusting it.** |
 | G6 | **Related work.** ⚠️ **NOT "not started" — a 10-element PRIOR-ART TABLE already exists** (this campaign's 2026-09-02 provenance verdict, a private-lane document), with named public prior art per design element and an evidence class on each: Myreen FMCAD 2012 · Dasgupta PLDI 2019 · Heule PLDI 2016 · Armstrong POPL 2019 · Verbeek/Roessle/Bockenek CPP 2019 + PLDI 2022 · LNSym · seL4/AutoCorres. | required | ✅ **RE-DRIVEN AND TRANSPLANTED 2026-09-11 → `docs/TACAS-G6-RELATED-WORK.md`** (D201). **Discovery and verification are now SPENT; what remains is bibliography and prose.** Still ~2 days — 3 of 9 at-source claims had to be repaired, and the bibliographic records are not written. |
 
 **Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**
 ```
-  G2  2-3   G3  1   G5  3-4   G6  2        ⇒  REMAINING: 8-10 working days
-                                             (G5 re-priced 2-3 -> 3-4 by §1's measurement)
+  G2  2-3   G5  3-4   G6  2                ⇒  REMAINING: 7-9 working days
+      G1 SPENT (~1) · G3 SPENT (~1) · G4 unpriceable until the benchmark exists
+                                             (G5 re-priced 2-3 -> 3-4 by §1's measurement;
+                                              G3 closed 09-12, so it leaves the addends)
   G1  SPENT (priced 1-2, took ~1)          G4  unpriceable until the benchmark exists
 ```
 ⛔⛔ **THIS TOTAL WAS WRONG TWICE AND THE SECOND TIME WAS MINE, TODAY, IN THE SAME SHIFT AS §2.**
@@ -204,8 +206,8 @@ to take** — but it is on the critical path of G3, so it is priced here as a **
 
 ## 4. RECOMMENDATION — MINE, NOT RULED
 **(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 = **7–9
-days**; that is §2.2's 8–10 **minus G3's 1 day**, because G3 is blocked on §3 and cannot be scheduled —
-the two numbers differ for a stated reason, not by accident) and let the measured tier law stand as a *section*, not as the paper's claim.
+days** — and since **G3 closed on 2026-09-12** this now EQUALS §2.2's remaining total rather than
+differing from it; the old gap between the two figures was G3's blocked day and it is gone) and let the measured tier law stand as a *section*, not as the paper's claim.
 It is publishable on the coverage and the gating discipline alone, and it is the paper the second one
 must cite.
 ⚠️ **THAT SENTENCE WAS WRITTEN BEFORE G1 MEASURED THE NEIGHBOURS. §4a RE-ANSWERS IT AND KEEPS IT —
