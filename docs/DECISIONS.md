@@ -14003,3 +14003,53 @@ measured this shift, rejects three of the six most recent runs because I cancell
 that is the right thing to see immediately after a skip. **The next green shard set at the new digest
 becomes the inheritable evidence; until it exists, nothing can skip.** A docs-only commit pushed
 before that run completes will MEASURE, and that is not a defect.
+
+## D206 — the claims gate redded the build on its first CI run, on its own author, and the fix is a REDESIGN not a value bump
+
+⛔ **`build` is RED on `56da62a`** at step 22, `check_claims`. **Cause, diagnosed in one command:**
+`decisions` published `205`, derived `206` — because `56da62a` recorded **D205**. The gate derived at
+**HEAD**, and I had written the manifest an hour earlier.
+
+### 1. ⛔⛔ THE DIAGNOSIS IS NOT "A STALE NUMBER". IT IS TWO DESIGN ERRORS.
+1. ***A GATE ON A QUANTITY THE WORK CONSUMES IS A CHORE, NOT A GATE.*** `decisions` GROWS by ordinary
+   work. Every decision commit would have demanded a second edit here, and the only thing the red
+   could ever mean is *"you did some work."* My own banked card says exactly this and I walked into
+   it. [[feedback-match-the-gate-units-to-the-growth-law]]
+2. ***AND THE DEEPER ONE: NOTHING PUBLISHES THESE AS LIVE CLAIMS.*** `TACAS-PRICING.md` §1 states all
+   seven **AT `7bb57ee`** — correctly labelled, a measurement about a sha. Deriving at HEAD was
+   therefore checking **a claim nobody makes**, and failing on the difference. **I built a register
+   for claims that do not exist yet.**
+⇒ 🔑 ***THE GATE WAS RIGHT TO FIRE AND WRONG ABOUT WHAT IT WAS MEASURING*** — which is the most
+expensive kind of correct, because the obvious repair (205 → 206) would have preserved both errors
+and re-redded on the next decision.
+
+### 2. ✅ THE FIX: EACH ROW PINS THE SHA IT IS PUBLISHED AT, AND DERIVES THERE
+All seven reproduce **exactly** at `7bb57ee`. The gate now verifies **what is actually published**,
+cannot churn, and is precisely what artifact evaluation needs: a reviewer checks out the sha the paper
+names and runs the command. When a submission sha exists its rows are added **beside** these.
+⛔ **A pinned sha absent from the clone is a FINDING, never a pass** — a depth-1 checkout would
+otherwise make every row a silent skip and the gate would report clean because it could not look.
+✅ **8 arms, 0 red**, including two new ones: the absent-sha refusal, and **a row that derives at HEAD
+instead of its pinned sha — the exact defect that redded the build.**
+📌 **And the selftest caught a second bug of mine while I was fixing the first:** the malformed-row
+tuple was not re-ordered when the column count went 4 → 5, so the finding path crashed on `None`.
+**Two catches of its author in one hour.**
+
+### 3. ⚖️ WHY THE FIX IS HELD AND MASTER STAYS RED FOR ~1.5 h — THE §13 QUESTION, ASKED *BEFORE* ACTING
+```
+  my fix touches   docs/CLAIMS.tsv · scripts/check_claims.py     0 of 2 in the consumed set
+  digest           34cc1c0eadc80ba0, UNCHANGED by the fix
+  in flight        six selftest shards on 56da62a, ~1.5 h from green
+```
+**WAIT:** the shards land green at this digest ⇒ my fix then **SKIPs** — 8.7 runner-hours saved and
+the evidence preserved. **PUSH NOW:** cancels six running shards AND the replacement run must MEASURE
+⇒ ~17 runner-hours, and the D205 pattern repeated a sixth time.
+⇒ **Waiting wins on every axis except the duration of a red I have recorded and posted.** The red is
+in `build`, independent of the shards, and its 20 skipped downstream steps were green on the previous
+commit over subjects this fix does not touch.
+⇒ 🔑 ***THIS IS THE FIRST TIME TODAY I ASKED BANK §13's QUESTION BEFORE ACTING RATHER THAN
+DISCOVERING THE ANSWER AFTERWARDS.*** Five cancellations preceded it.
+⚠️ **AND ONE THING THE RED EXPOSED THAT IS NOT MINE:** a failure at step 22 **skipped 20 later gate
+steps**. A red early in a long step list silences everything behind it
+[[feedback-a-gate-behind-a-failing-step-is-silent]] — worth a separate look at whether these gates
+should be ordered cheapest-first, or split so one failure cannot mute twenty.

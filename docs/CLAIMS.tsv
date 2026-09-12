@@ -45,13 +45,34 @@
 #   THE EXACT CROSS-DOCUMENT CONTRADICTION IT EXISTS TO PREVENT.  Caught while
 #   writing this file, one edit after building the gate for it.
 #
-# COLUMNS (tab-separated):  id  value  command  appears_in
-# The command must print EXACTLY the value on stdout, and is run from the repo root.
-id	value	command	appears_in
-lean_lib_modules	12	git ls-tree -r HEAD --name-only | grep -cE '^X86/.*\.lean$'	docs/TACAS-PRICING.md §1
-lean_test_modules	6	git ls-tree -r HEAD --name-only | grep -cE '^Tests/.*\.lean$'	docs/TACAS-PRICING.md §1
-lean_lines	18824	git ls-tree -r HEAD --name-only | grep -E '^(X86/.*\.lean|Tests/.*\.lean|X86\.lean|Tests\.lean)$' | while read f; do git show "HEAD:$f"; done | wc -l | tr -d ' '	docs/TACAS-PRICING.md §1
-lean_theorems	616	git ls-tree -r HEAD --name-only | grep -E '^(X86/.*\.lean|Tests/.*\.lean)$' | while read f; do git show "HEAD:$f"; done | grep -cE '^(theorem|lemma|private theorem|protected theorem) '	docs/TACAS-PRICING.md §1
-decisions	205	git show HEAD:docs/DECISIONS.md | grep -c '^## D[0-9]'	LIVE — TACAS-PRICING §1 froze 200 at 7bb57ee
-differential_records	44	git ls-tree -r HEAD --name-only | grep -cE '^docs/DIFFERENTIAL-.*\.md$'	docs/TACAS-PRICING.md §1
-design_documents	59	git ls-tree -r HEAD --name-only | grep -cE '^docs/[^/]+\.md$'	LIVE — TACAS-PRICING §1 froze 55 at 7bb57ee
+# ⛔⛔ EACH ROW PINS THE SHA IT IS PUBLISHED AT, AND THE DERIVATION RUNS THERE.
+# ADDED 2026-09-12 AFTER THIS GATE REDDED THE BUILD ON ITS FIRST CI RUN — ON ITS
+# OWN AUTHOR, WITHIN THE HOUR.  I had it derive at HEAD.  `decisions` then moved
+# 205 -> 206 the moment I recorded D205, and the build went red for a number that
+# had not drifted: it had GROWN, by ordinary work, exactly as it is supposed to.
+# ⇒ 🔑 A GATE ON A QUANTITY THE WORK CONSUMES IS A CHORE, NOT A GATE.  Every
+#   decision commit would have demanded a second edit here, and the only thing
+#   the red could ever mean is "you did some work".
+# ⇒ 🔑 AND THE DEEPER ERROR: NOTHING PUBLISHES THESE AS *LIVE* CLAIMS.
+#   `TACAS-PRICING.md` §1 states all seven **AT `7bb57ee`** — correctly labelled,
+#   a measurement about a sha.  Deriving at HEAD was therefore checking a claim
+#   NOBODY MAKES, and failing on the difference.  **I built a register for claims
+#   that do not exist yet.**
+# ✅ Pinned, all seven reproduce EXACTLY at `7bb57ee`, which is the whole point:
+#   the gate now verifies what is actually published, and cannot churn.
+# ⭐ AND THIS IS PRECISELY WHAT ARTIFACT EVALUATION NEEDS: a reviewer checks out
+#   the sha the paper names and runs the command.  When a submission sha exists,
+#   its rows are added beside these; they do not replace them.
+#
+# COLUMNS (tab-separated):  id  value  sha  command  appears_in
+# The command must print EXACTLY the value on stdout, is run from the repo root, and
+# has $SHA bound to the row's sha.  A pinned sha absent from the clone is a FINDING,
+# never a pass — `fetch-depth: 0` is required of any job that runs this.
+id	value	sha	command	appears_in
+lean_lib_modules	12	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -cE '^X86/.*\.lean$'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+lean_test_modules	6	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -cE '^Tests/.*\.lean$'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+lean_lines	18824	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -E '^(X86/.*\.lean|Tests/.*\.lean|X86\.lean|Tests\.lean)$' | while read f; do git show ""$SHA":$f"; done | wc -l | tr -d ' '	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+lean_theorems	616	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -E '^(X86/.*\.lean|Tests/.*\.lean)$' | while read f; do git show ""$SHA":$f"; done | grep -cE '^(theorem|lemma|private theorem|protected theorem) '	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+decisions	200	7bb57ee	git show "$SHA":docs/DECISIONS.md | grep -c '^## D[0-9]'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+differential_records	44	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -cE '^docs/DIFFERENTIAL-.*\.md$'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)
+design_documents	55	7bb57ee	git ls-tree -r "$SHA" --name-only | grep -cE '^docs/[^/]+\.md$'	docs/TACAS-PRICING.md §1 (published AT 7bb57ee)

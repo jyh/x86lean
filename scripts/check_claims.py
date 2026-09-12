@@ -46,16 +46,26 @@ def rows(path=TSV):
         parts = line.split("\t")
         if parts[0] == "id":
             continue
-        if len(parts) < 4:
-            out.append(("__MALFORMED__", ln, line, None))
+        if len(parts) < 5:
+            # the line TEXT goes in the `cmd` slot, because that is the slot the
+            # finding message reads. (Caught by the selftest when the column count
+            # changed from 4 to 5 and this tuple was not re-ordered with it.)
+            out.append(("__MALFORMED__", ln, None, line, None))
             continue
-        out.append((parts[0], parts[1], parts[2], parts[3]))
+        out.append((parts[0], parts[1], parts[2], parts[3], parts[4]))
     return out
 
 
-def derive(cmd, cwd=ROOT):
-    r = subprocess.run(["bash", "-c", cmd], cwd=cwd, capture_output=True, text=True)
+def derive(cmd, sha, cwd=ROOT):
+    """Run one derivation with $SHA bound to the row's pinned sha."""
+    env = dict(os.environ, SHA=sha)
+    r = subprocess.run(["bash", "-c", cmd], cwd=cwd, capture_output=True, text=True, env=env)
     return r.returncode, r.stdout.strip(), r.stderr.strip()
+
+
+def have_commit(sha, cwd=ROOT):
+    return subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                          cwd=cwd, capture_output=True).returncode == 0
 
 
 def check(path=TSV, cwd=ROOT, verbose=True):
@@ -65,20 +75,27 @@ def check(path=TSV, cwd=ROOT, verbose=True):
         # ⛔ A GATE THAT FINDS NO SUBJECT MUST REFUSE. An empty manifest passing
         # silently is the "0 jobs means the file was refused" defect.
         return ["the manifest carries NO claims — a gate with no subject must refuse, not pass"], 0
-    for cid, val, cmd, where in rs:
+    for cid, val, sha, cmd, where in rs:
         if cid == "__MALFORMED__":
-            findings.append(f"line {val}: malformed row (needs 4 tab-separated fields): {cmd[:60]!r}")
+            findings.append(f"line {val}: malformed row (needs 5 tab-separated fields): {cmd[:60]!r}")
             continue
         n += 1
-        rc, got, err = derive(cmd, cwd=cwd)
+        # ⛔ A PINNED SHA ABSENT FROM THE CLONE IS A FINDING, NEVER A PASS. A
+        # depth-1 checkout would otherwise turn every row into a silent skip --
+        # the gate reporting clean because it could not look. (CI-1's trap.)
+        if not have_commit(sha, cwd=cwd):
+            findings.append(f"{cid}: pinned sha {sha} is NOT in this clone -- the derivation could "
+                            f"not run. `fetch-depth: 0` is required; this is a REFUSAL, not a pass.")
+            continue
+        rc, got, err = derive(cmd, sha, cwd=cwd)
         if rc != 0:
             findings.append(f"{cid}: derivation FAILED rc={rc} ({err[:80]})")
         elif got == "":
             findings.append(f"{cid}: derivation printed NOTHING — an empty result is not a value")
         elif got != val:
-            findings.append(f"{cid}: published {val!r} but derives {got!r}   [{where}]")
+            findings.append(f"{cid}: published {val!r} but derives {got!r} at {sha}   [{where}]")
         elif verbose:
-            print(f"  ok  {cid:22s} {val:>8s}   {where}")
+            print(f"  ok  {cid:22s} {val:>8s}  @{sha}   {where}")
     return findings, n
 
 
@@ -131,15 +148,15 @@ def selftest():
         any("lean_lines" in x and "99999" in x and "18824" in x for x in f), str(f))
 
     # a derivation that FAILS is caught, not silently skipped
-    bad = base.replace("git show HEAD:docs/DECISIONS.md | grep -c '^## D[0-9]'",
-                       "git show HEAD:docs/NO-SUCH-FILE.md", 1)
+    bad = base.replace("""git show "$SHA":docs/DECISIONS.md | grep -c '^## D[0-9]'""",
+                       'git show "$SHA":docs/NO-SUCH-FILE.md', 1)
     f, _ = with_tsv(bad)
     arm("PLANT: a failing derivation is a FINDING, never a skip",
         any("decisions" in x and "FAILED" in x for x in f), str(f))
 
     # a derivation that prints NOTHING is caught -- an empty result is the shape
     # a silently-broken pipeline produces, and it must not read as a value.
-    bad = base.replace("git ls-tree -r HEAD --name-only | grep -cE '^X86/.*\\.lean$'",
+    bad = base.replace("""git ls-tree -r "$SHA" --name-only | grep -cE '^X86/.*\\.lean$'""",
                        "true", 1)
     f, _ = with_tsv(bad)
     arm("PLANT: an EMPTY derivation result is a finding, not a pass",
@@ -152,9 +169,26 @@ def selftest():
 
     # ⛔ AN EMPTY MANIFEST MUST REFUSE. A gate with no subject that returns 0 is
     # the "n/n over a subset" defect: complete over nothing.
-    f, n0 = with_tsv("# only a comment\nid\tvalue\tcommand\tappears_in\n")
+    f, n0 = with_tsv("# only a comment\nid\tvalue\tsha\tcommand\tappears_in\n")
     arm("⭐ PLANT: an EMPTY manifest REFUSES (a gate with no subject must not pass)",
         bool(f) and n0 == 0, f"{f} n={n0}")
+
+    # ⛔ THE PINNED-SHA REFUSAL, DRIVEN. A depth-1 clone would otherwise make
+    # every row a silent skip, and the gate would report clean because it could
+    # not look. This arm is why that reads as a REFUSAL instead.
+    bad = base.replace("\t7bb57ee\t", "\t" + "0" * 40 + "\t")
+    f, _ = with_tsv(bad)
+    arm("⭐ PLANT: a pinned sha ABSENT from the clone REFUSES (never a silent pass)",
+        bool(f) and all("NOT in this clone" in x for x in f), str(f)[:160])
+
+    # ⛔ AND THE REGRESSION THAT CAUSED THIS REDESIGN: deriving at HEAD instead
+    # of the pinned sha. `decisions` grows with ordinary work, so a HEAD-derived
+    # row reds on every decision commit -- a chore, not a gate.
+    bad = base.replace('git show "$SHA":docs/DECISIONS.md', "git show HEAD:docs/DECISIONS.md", 1)
+    f, _ = with_tsv(bad)
+    arm("⭐ PLANT: a row that derives at HEAD instead of its pinned sha is caught "
+        "(this is the defect that redded the build)",
+        any("decisions" in x for x in f), str(f)[:160])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0
