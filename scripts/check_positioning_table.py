@@ -36,6 +36,17 @@ claim about another project and carries no marker by design.  A tool has no
 concept of "not applicable", so the rule is supplied here and the tool prints
 what it excluded on every run.
 
+⚖️ WHAT ITS ARMS ESTABLISH (row `LB`, declared not repaired):  **REACHABILITY ONLY.**
+   Every arm plants a defect and watches it red: an unmarked cell, a mis-declared count, a
+   deleted table. **None establishes RATE** — none asks whether a cell that is wrong ONE TIME
+   IN N would be caught, because the gate reads a whole table on every run and the question
+   does not arise for it. ⇒ Its silence means *no unmarked cell is present today*, and NOT
+   *this file has no way to acquire one unseen*.
+   ⇒ 🔑 ***AN INSTRUMENT'S SILENCE IS NOT A MEASUREMENT OF THE THING IT WAS SILENT
+     ABOUT*** (row `LB`, 2026-09-11, three seats independently). The remedy the row
+     prescribes is DECLARATION, not more arms — most such arms cannot be strengthened,
+     and the cost is that a reachability arm's silence gets read as coverage.
+
 LANE.  Personal lane.  Reads one file in this repository and nothing else.
 """
 import argparse, re, sys, pathlib

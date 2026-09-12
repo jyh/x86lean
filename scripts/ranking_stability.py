@@ -31,6 +31,17 @@ times are not?**  It also fixed what may be said:
    signal and make a ratio undefined.  A tool has no concept of "not applicable",
    so the rule is supplied here and the exclusion is reported on every run.
 
+⚖️ WHAT ITS ARMS ESTABLISH (row `LB`, declared not repaired):  **REACHABILITY** — a planted
+   inversion is detected, an absent corpus refuses, the excluded modules stay excluded.
+   **RATE is established only for the DATA, and only as printed:** the power line bounds how
+   rare an inversion could be and still show zero here — 0.026% to 30% depending on an
+   independence assumption. ⇒ That bound IS this script's rate statement, which is why it
+   prints on every run beside the null it qualifies.
+   ⇒ 🔑 ***AN INSTRUMENT'S SILENCE IS NOT A MEASUREMENT OF THE THING IT WAS SILENT
+     ABOUT*** (row `LB`, 2026-09-11, three seats independently). The remedy the row
+     prescribes is DECLARATION, not more arms — most such arms cannot be strengthened,
+     and the cost is that a reachability arm's silence gets read as coverage.
+
 LANE.  Personal lane.  Reads only this repository's own committed measurements.
 """
 import argparse, glob, itertools, json, os, statistics, sys

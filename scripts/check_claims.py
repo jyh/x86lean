@@ -29,6 +29,17 @@ oversight: the commands ARE the published derivations, and a reviewer must be ab
 to read them.  They run from the repo root, are written by this repository, and
 travel in its history where any change to one is visible in a diff.
 
+⚖️ WHAT ITS ARMS ESTABLISH (row `LB`, declared not repaired):  **REACHABILITY ONLY, and one
+   structural guarantee.** The plants show a wrong value, a failing derivation, an empty
+   result, a malformed row and an empty manifest are all caught. **RATE is not established**
+   for the population it cannot see: a published number that is in NO row of `CLAIMS.tsv` is
+   invisible to this gate at any frequency. ⇒ The guarantee is *every number IN the manifest
+   re-derives*; it is NOT *every number the repository publishes is in the manifest*.
+   ⇒ 🔑 ***AN INSTRUMENT'S SILENCE IS NOT A MEASUREMENT OF THE THING IT WAS SILENT
+     ABOUT*** (row `LB`, 2026-09-11, three seats independently). The remedy the row
+     prescribes is DECLARATION, not more arms — most such arms cannot be strengthened,
+     and the cost is that a reachability arm's silence gets read as coverage.
+
 LANE.  Personal lane.  Reads this repository and runs git over it.
 """
 import argparse, os, subprocess, sys
@@ -132,7 +143,14 @@ def selftest():
     base = open(TSV, encoding="utf-8").read()
 
     f, n = check(verbose=False)
-    arm("control: the real manifest re-derives clean", not f and n == 7, f"{f} n={n}")
+    # ⛔⛔ THIS ARM READ `n == 7` AND BROKE THE MOMENT I ADDED THE G3 CLAIMS.
+    # A count literal here is a gate on a quantity THE WORK CONSUMES — the exact
+    # defect D206 was written about, committed again inside the gate D206 is about,
+    # by its author, the same day. Every new claim would have demanded a second
+    # edit here and the only thing the red could mean is "you published a number".
+    # The control's job is "the real manifest re-derives CLEAN"; the empty-manifest
+    # case has its own arm below, so `n > 0` is the non-redundant guard.
+    arm("control: the real manifest re-derives clean", not f and n > 0, f"{f} n={n}")
 
     def with_tsv(text):
         fh = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False, encoding="utf-8")

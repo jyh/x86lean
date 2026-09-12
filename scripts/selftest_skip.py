@@ -53,6 +53,18 @@ errors are not symmetric, so the set errs toward running.
 a prior sha not in this clone, any exception at all ⇒ MEASURE.  A skip is only
 ever emitted on a POSITIVE match against a named green run.
 
+⚖️ WHAT ITS ARMS ESTABLISH (row `LB`, declared not repaired):  **REACHABILITY, plus one
+   deliberate structural substitute for RATE.** The arms drive both decisions and every
+   refusal. **RATE is NOT established for the one failure that matters** — a consumed-set
+   member I failed to LIST is undetectable by any arm this script owns, at any frequency.
+   ⇒ That is why the consumed set is deliberately WIDER than necessary: the admission is made
+   STRUCTURAL rather than written down, because a spurious member costs one run and a missing
+   one costs a false SKIP.
+   ⇒ 🔑 ***AN INSTRUMENT'S SILENCE IS NOT A MEASUREMENT OF THE THING IT WAS SILENT
+     ABOUT*** (row `LB`, 2026-09-11, three seats independently). The remedy the row
+     prescribes is DECLARATION, not more arms — most such arms cannot be strengthened,
+     and the cost is that a reachability arm's silence gets read as coverage.
+
 LANE.  Personal lane.  Reads this repository and the GitHub Actions API for this
 repository's own runs.
 """
