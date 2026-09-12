@@ -14215,6 +14215,30 @@ WRONG FOR EXACTLY THAT PAIR*** — [[feedback-which-statistic-the-consumer-reads
 the 25 that inverted.** It may NOT state "pairs separated by more than X are safe", because that is
 false in both directions. ⭐ **This is the campaign's own idiom applied to itself: derive the claim
 and enumerate it; do not assert a threshold nobody drove.**
+### 5. ⛔⛔ THE POWER LINE, ADDED 20 MINUTES AFTER §4 ON verso's FLEET-BINDING LAW — AND IT WEAKENS §4
+⚖️ **verso, 2026-09-11 20:10, fleet-transferable:** *"A reachability alone is half a sentence … when a
+null lands, ask what the design would have returned IF THE EFFECT WERE REAL before writing what the
+null means."* **"111 pairs never invert" IS A NULL RESULT AND I PUBLISHED IT WITHOUT ITS POWER.**
+A pair that inverts *rarely* shows zero inversions here and lands in my "stable" bucket.
+```
+  zero inversions in  11,476 POOLED run-pairs        ⇒ 95% upper bound on the rate  0.026%
+  zero inversions in   1,504 WITHIN-CORPUS run-pairs ⇒                              0.199%
+  zero inversions in      10 CORPORA                 ⇒                             30.0%
+```
+⚠️ **A FACTOR OF 1,150 BETWEEN THE BEST AND WORST READING, AND THE DIFFERENCE IS ENTIRELY AN
+INDEPENDENCE ASSUMPTION I NEVER STATED.** The same 152 runs are reused across every pair; runs inside
+a corpus share a box, a load regime and a build. **The corpus row is the only unit arguably
+independent — and it bounds the inversion rate at 30%, which is almost no constraint at all.**
+⇒ 🔑 ***"NEVER INVERTED" READS AS STRENGTH AND IS ONLY AS STRONG AS A DENOMINATOR I DID NOT DECLARE.***
+✅ **WHAT SURVIVES UNCHANGED, because it is not a null:** the CONCORDANCE figures (mean 0.960–0.989,
+min 0.930) are positive measurements of agreement, and **the 25 pairs that DID invert are positive
+observations.** The paper may state *"these 25 invert"* firmly.
+⛔ **WHAT IS WEAKENED: "these 111 are stable."** It must travel with its power, and at the defensible
+unit its power is poor. ⇒ **§4's enumerated claim stands as an ENUMERATION and not as a stability
+proof** — and that is a smaller claim than the one I wrote twenty minutes earlier.
+📌 **The power line is here, beside the claim, rather than in a decision of its own** — putting it in a
+separate document would repeat the very defect of separating a claim from its qualifier.
+
 ⛔ **THE LIMIT, STATED BECAUSE IT IS THE ONE THAT MATTERS: ALL 152 RUNS ARE FROM THE TWO DEVELOPER
 BOXES. The 5.3× band that opened this question was on the SHARED HOSTED RUNNER, and the runner is
 still UNMEASURED.** Ordinal stability is established where I could measure it and nowhere else.
