@@ -14173,3 +14173,49 @@ touched it, where a measuring run would have lost all four.
 REPORTS AT ALL.*** On a 68%-cancelled workflow that is the dominant effect and nobody had priced it.
 📌 **What is NOT claimed:** that skipping fixes the cancellation rate. The shard-measuring runs still
 take two hours and are still usually superseded. **It shifts which runs finish, not how often I push.**
+
+## D210 — the ranking IS stable, the absolute times are not, and no ratio threshold separates them: G3's ordinal tier opens as an ENUMERATED claim
+
+⚖️ **THE HELM'S DISPERSION RULING (2026-09-11 20:04)** refused my fork — *"the two estimators do not
+measure the same thing, and the smaller number is not the more correct one … REPORT BOTH, ALWAYS,
+WITH THE RAW BAND"* — and narrowed G3 into three tiers, leaving one cheap measurement to decide the
+third: **is the per-module ORDER stable, even where the times are not?** *"Yours to sequence; it needs
+no further word from me."*
+
+### 1. ⭐ IT NEEDED NO NEW RUNS — THE DATA ALREADY EXISTED
+`docs/kernel-delta-history*.jsonl` carries `modules: {name: ms}` per run. **152 runs, 10 corpora, two
+machines, load1 spanning 3.1 → 98.4.** No suite was re-run; the box was at load 19 and did not need to
+be touched. ⇒ 🔑 ***THE CHEAP MEASUREMENT WAS CHEAPER THAN "CHEAP": IT WAS ALREADY BANKED.***
+
+### 2. ✅ THE ORDERING IS STABLE — AND STAYS STABLE UNDER A 10× LOAD SWING
+```
+  pairwise concordance per corpus   mean 0.960 - 0.989      min 0.930
+  USER-CONTENDED corpus             load1 10.4 -> 98.4      min 0.942  mean 0.977
+  pairs that NEVER invert           111 of 136   (17 modules; 152 runs)
+```
+**The helm's hypothesis holds:** modules inflate together within a run, so the order survives an
+instrument whose absolutes cannot be trusted.
+
+### 3. ⛔⛔ BUT NO RATIO THRESHOLD SEPARATES STABLE FROM UNSTABLE — MY TIDY RULE IS REFUTED
+I reached for *"publish the ordering where the pair is separated by more than X"*. **Driven, it fails
+on both statistics:**
+```
+  on MEDIAN ratio   ever-swapped 1.10 - 4.11      never-swapped 1.37 - 57354     OVERLAP
+  on MINIMUM ratio  ever-swapped max 1.690        never-swapped min 1.009        OVERLAP
+```
+⚠️ **The widest-separated swapping pair is `X86.Coverage` vs `X86Native`: median ratio 4.11 but range
+1.03–7.75.** *The separation is itself unstable*, so a pair can be typically well-separated and still
+invert in the runs where it happens to be tied. ⇒ 🔑 ***I WOULD HAVE GATED ON THE MEDIAN AND BEEN
+WRONG FOR EXACTLY THAT PAIR*** — [[feedback-which-statistic-the-consumer-reads]] — and a pair at a
+1.009 minimum never inverted at all, which refutes the rule from the other side.
+⇒ 🔑 ***A CATEGORY IS A HYPOTHESIS ABOUT ITS MEMBERS, AND BOTH ENDS OF THIS ONE HAVE COUNTEREXAMPLES.***
+
+### 4. ⚖️ SO G3's ORDINAL TIER OPENS AS AN ENUMERATED, MEASURED CLAIM — NOT A DERIVED RULE
+**The paper may state the ordering for the 111 pairs measured stable across 152 runs, and must name
+the 25 that inverted.** It may NOT state "pairs separated by more than X are safe", because that is
+false in both directions. ⭐ **This is the campaign's own idiom applied to itself: derive the claim
+and enumerate it; do not assert a threshold nobody drove.**
+⛔ **THE LIMIT, STATED BECAUSE IT IS THE ONE THAT MATTERS: ALL 152 RUNS ARE FROM THE TWO DEVELOPER
+BOXES. The 5.3× band that opened this question was on the SHARED HOSTED RUNNER, and the runner is
+still UNMEASURED.** Ordinal stability is established where I could measure it and nowhere else.
+📌 Per the ruling, both estimators travel together with the raw band, always. **Not one.**
