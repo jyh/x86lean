@@ -14108,3 +14108,35 @@ text, and I resolved them by reading each hit by hand.** ⇒ The law's remedy is
 grep the string. Recorded so the next sweep is written that way from the start.
 📌 This is also why `portable.strict_flags` declares the identical blind spot about its own flag set:
 it is every quoted `--x` in the file, **fixtures included.**
+
+## D208 — the SKIP path was proven in production and not in the selftest, which is a point in time rather than a standing guard
+
+⚖️ **Prompted by a law posted to another seat** (maestro/`KG`, 2026-09-11): *"A GATE IS ARMED ONLY IF
+EVERY MECHANIZABLE ARM IS PROBED; A PROBE ON ONE ARM OF FOUR IS NOT COVERAGE, IT IS A SAMPLE."*
+Not addressed here. **Applied here anyway**, the same way council §7 was (D207).
+
+### 1. ⛔ THE GAP, FOUND BY ENUMERATING `decide()`'s RETURN PATHS AGAINST THE ARMS
+`decide()` has six outcomes. The 20 arms tested **digest equality** and **`run_qualifies`**
+separately, and **nothing drove `decide()` to an actual SKIP.** Both skips to date were observed **in
+production** — real, but a point-in-time observation, not a guard.
+⇒ 🔑 ***A REFACTOR COULD HAVE BROKEN THE PERMITTING PATH WITH ALL TWENTY ARMS STILL GREEN*** — and
+the permitting path is the one whose failure direction costs something. A MEASURE that should have
+skipped wastes 8.7 runner-hours; a SKIP that should have measured reports green on an untested
+artefact.
+📌 Exactly the asymmetry `CI-3`'s own row already stated — **and I had armed the refusing side
+thoroughly while leaving the permitting side to production.**
+
+### 2. ✅ ARMED, BOTH DIRECTIONS, DIFFERING ONLY BY THE ARTEFACT
+Against the fixture repo, with `last_green_selftest` injected so no network is touched:
+```
+  green run at an IDENTICAL digest   -> SKIP, and the RECORD names the inherited sha   ✓
+  the SAME green run, digest MOVED   -> MEASURE, and no SKIP appears                   ✓
+```
+**The pair differs only in whether the artefact changed**, which is the cleanest control available:
+the green run, the branch and the code are held fixed. **22 arms, 0 red.**
+
+### 3. ⚠️ WHAT IS STILL UNPROBED, COUNTED RATHER THAN GLOSSED
+Two of the six outcomes remain unarmed: *"cannot compute this digest"* and *"cannot compute the green
+digest"* — both exception paths. ⇒ **Both return MEASURE, the safe direction**, so a defect there
+costs runner-hours and never correctness. **Recorded as a known 2-of-6 rather than left to be
+rediscovered**, because the reason they are acceptable is the failure DIRECTION, not the coverage.

@@ -381,6 +381,44 @@ def selftest():
         arm("a run with a SKIPPED shard does not qualify",
             not run_qualifies([{"name": "selftest (1)", "conclusion": "skipped"}]))
 
+        # ---- ⛔⛔ THE SKIP PATH ITSELF, DRIVEN END TO END. Until 2026-09-12 this was
+        # proven only IN PRODUCTION: the arms below test digest equality and
+        # run_qualifies SEPARATELY, and nothing drove `decide()` to an actual SKIP.
+        # A refactor could therefore break the PERMITTING path while all arms stayed
+        # green -- and the permitting path is the one whose failure direction costs
+        # something. (Maestro/KG, 2026-09-11: "A GATE IS ARMED ONLY IF EVERY
+        # MECHANIZABLE ARM IS PROBED; A PROBE ON ONE ARM OF FOUR IS NOT COVERAGE,
+        # IT IS A SAMPLE.")  A production observation is a point in time; an arm is
+        # a standing guard.
+        import io as _io, contextlib as _ctx
+        _real = globals()["last_green_selftest"]
+        head_sha = git(["rev-parse", "HEAD"], cwd=R).strip()
+        prev_sha = git(["rev-parse", "HEAD~1"], cwd=R).strip()
+        try:
+            # (a) a green run at a digest IDENTICAL to ours ⇒ must SKIP
+            globals()["last_green_selftest"] = lambda b, x, limit=30: (prev_sha, 999)
+            git(["commit", "-q", "--allow-empty", "-m", "docs-only, digest unmoved"], cwd=R)
+            buf = _io.StringIO()
+            with _ctx.redirect_stdout(buf):
+                decide(ref="HEAD", cwd=R)
+            out = buf.getvalue()
+            arm("⭐⭐ PLANT: decide() SKIPs end-to-end on an identical digest, and RECORDS "
+                "the inherited sha", "SKIP --" in out and "RECORD" in out and prev_sha[:8] in out,
+                out.strip()[:150])
+
+            # (b) the SAME green run, but our digest MOVED ⇒ must MEASURE
+            write("X86/Core.lean", "def a := 4321\n")
+            git(["add", "-A"], cwd=R); git(["commit", "-qm", "move the digest"], cwd=R)
+            buf = _io.StringIO()
+            with _ctx.redirect_stdout(buf):
+                decide(ref="HEAD", cwd=R)
+            out2 = buf.getvalue()
+            arm("⭐⭐ PLANT: the same green run + a MOVED digest MEASUREs "
+                "(the two directions differ only by the artefact)",
+                "MEASURE --" in out2 and "SKIP" not in out2, out2.strip()[:150])
+        finally:
+            globals()["last_green_selftest"] = _real
+
         # ---- and the API-failure path MEASURES.  Forced by pointing `gh` at a
         # branch that has no runs; any exception inside also returns None.
         g = last_green_selftest("branch-that-does-not-exist-xyzzy", "deadbeef", limit=1)
