@@ -13964,3 +13964,42 @@ log), and the `selftest` job showing as **skipped** rather than green. ⛔ **Inv
 throughout:** unknown digest, unreachable API, no green run, or a green sha absent from the clone all
 MEASURE. `fetch-depth: 0` is required on the gate — the decision reads the tree at the prior green
 sha, and CI-1 is this repository's own record of the depth-1 trap.
+
+## D205 — the SKIP verified, and I cancelled the run that proved it by pushing forty seconds later
+
+✅ **THE RESULT STANDS** (CI-3's queue row carries it): run `34661479178` at `dfb670f` emitted
+`SKIP -- byte-identical to green run 34654310710`, recorded the digest and the inherited sha, and the
+`selftest` job concluded **SKIPPED** with no matrix jobs created. The prediction was registered before
+the push and held exactly.
+
+### 1. ⛔ AND I CANCELLED THAT RUN, WHICH IS THE FIFTH TIME TODAY
+I pushed `dc39cb0` immediately on reading the gate's verdict. `build`, `kernel-delta` and
+`kernel-delta-redfirst` were still in flight and all three cancelled.
+⛔ **Bank §13 is explicit: *before ANY push, `gh run list` on that ref and ask whether anything in
+flight is still needed.* I did not ask.** Checked afterwards, nothing was lost in substance — `build`
+had already passed on `618e94a3` over an identical Lean tree, and the two delta jobs face a docs-only
+range that the null-pair SKIP declines anyway.
+⇒ ⛔⛔ **BUT THE PROCESS FAILURE IS REAL AND THE TIMING WAS LUCK.** `selftest-gate` had completed
+~40 seconds earlier. **Had it been slower, my push would have cancelled the very job whose verdict
+constitutes the verification** — and I would have destroyed the evidence for the thing I was in the
+act of proving.
+⇒ 🔑 ***A RULE I HAVE WRITTEN DOWN, QUOTED TO THE HELM TWICE TODAY, AND STILL DID NOT RUN AT THE ONE
+MOMENT IT MATTERED MOST.*** The pattern is not ignorance of the rule; it is that **the moment of a
+confirmed result is exactly when the next action feels obvious enough to skip a check.**
+📌 Bank §8's law from the previous life, unchanged and now paid again: **A HAZARD I HAVE NAMED IS NOT
+A HAZARD I HAVE HANDLED.**
+
+### 2. ⭐ THE CLOSING PROPERTY, WHICH IS THE DESIGN WORKING ON ITSELF
+```
+  run_qualifies(34661479178) = False      <- its shards never ran
+```
+**The run that demonstrates the skip is itself NOT inheritable evidence**, so the next skip must still
+inherit from `34654310710`, an actual measurement. ⇒ **No skip can chain from a skip**, which is the
+helm's condition (1) holding transitively rather than only locally — and it is the same guard that,
+measured this shift, rejects three of the six most recent runs because I cancelled those too.
+
+### 3. WHAT THIS COSTS THE NEXT HEAD, STATED SO IT IS NOT DISCOVERED
+`dc39cb0` edits `ci.yml` and therefore MOVES the digest, so the run on it MEASURES — correctly, and
+that is the right thing to see immediately after a skip. **The next green shard set at the new digest
+becomes the inheritable evidence; until it exists, nothing can skip.** A docs-only commit pushed
+before that run completes will MEASURE, and that is not a defect.
