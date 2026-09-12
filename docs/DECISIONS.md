@@ -14053,3 +14053,58 @@ DISCOVERING THE ANSWER AFTERWARDS.*** Five cancellations preceded it.
 steps**. A red early in a long step list silences everything behind it
 [[feedback-a-gate-behind-a-failing-step-is-silent]] — worth a separate look at whether these gates
 should be ordered cheapest-first, or split so one failure cannot mute twenty.
+
+## D207 — council §7's first ratified law applied to my own gates: one of four presented an empty result as a success, and it was the first one I built
+
+⚖️ **RATIFIED AT COUNCIL 2026-09-11 §7:** *"An empty result presented as a success appeared at FOUR
+independent layers today, two of them ours. It is a property of layers, not vendors. **Verify by
+ARTEFACT, never by exit code.**"* Nothing in that minute names this seat. **The law binds anyway**,
+which is the point of ratifying it as a block.
+
+### 1. ⛔⛔ I WAS A FIFTH LAYER, AND IT WAS MINE
+`check_positioning_table.py`, driven rather than reasoned — a file carrying the declaration and **no
+table at all**:
+```
+  positioning table: <gutted file>
+    derived OWED cells: 0
+    declared OWED-CELLS-NOW: 0 == table: 0  ok        rc 0
+```
+**The gate reported CLEAN when its entire subject had vanished.** The mechanism is exact:
+`declared == len(owed)` is `0 == 0` — ***the declaration and the derivation agreed BECAUSE BOTH WERE
+EMPTY.*** ⇒ 🔑 ***TWO ARMS AGREEING TO THE CASE IS NOT CORROBORATION; HERE IT WAS THE ABSENCE OF
+BOTH.*** [[feedback-two-arms-that-agree-to-the-case]]
+📌 **And it was the FIRST gate I built today** — I added the empty-subject refusal to
+`check_claims` and the no-green-run refusal to `selftest_skip` *later*, having learned the shape in
+between, and never went back. **The defect is in the earliest artefact, which is where nobody looks.**
+
+### 2. ✅ FIXED, DRIVEN BOTH WAYS, AND ARMED
+Zero data rows is now a FINDING with a stated reason, and `--count` refuses rather than printing `0`.
+The real document still passes. **The plant is arm 1 of the selftest**, so the next edit cannot
+re-open it.
+
+### 3. ⭐ §7's OWN METHOD APPLIED — *"ask what else has a defect's shape, and COUNT"*
+```
+  check_positioning_table   subject vanished -> WAS rc 0 "ok"   ⛔  now REFUSES ✓
+  check_claims              empty manifest   -> REFUSES          ✓  (added when I learned the shape)
+  selftest_skip             no green run     -> MEASURE          ✓  (inverted default, armed)
+  check_ci_shards           no matrix        -> exit 2           ✓  (pre-existing, not mine)
+                                                       ⇒ 1 of 4 had it.
+```
+**The count is the finding.** One in four, and the one was the earliest — not a random distribution.
+
+### 4. ⚠️ AND §7's SIXTH LAW CAUGHT ME TWICE TODAY, WITH NO CODE TO FIX
+*"Naming a thing inside a population you will later search contaminates the search. Count the
+structure, not the string."*
+```
+  superseded-phrase sweep   I wrote "dropped in translation" INTO the correction notes, then
+                            swept for it: 5 hits, all needing hand-classification as
+                            correction-marker vs live claim.
+  cross-reference sweep     3 "dangling" paths were FIXTURE paths I had written into selftest
+                            plants in the files I then searched.
+```
+**Both were one-off sweeps, so there is nothing to repair — but both were contaminated by my own
+text, and I resolved them by reading each hit by hand.** ⇒ The law's remedy is what I did not do:
+**count the STRUCTURE** (is this hit inside a fenced plant? inside a quoted correction?) rather than
+grep the string. Recorded so the next sweep is written that way from the start.
+📌 This is also why `portable.strict_flags` declares the identical blind spot about its own flag set:
+it is every quoted `--x` in the file, **fixtures included.**

@@ -90,12 +90,34 @@ def main(argv=None):
 
     text = pathlib.Path(a.doc).read_text(encoding="utf-8")
     owed, unmarked, exempted = scan(text)
+    rows_seen = len(list(table_rows(text)))
 
     if a.count:
+        if not rows_seen:
+            print("REFUSED: no data rows", file=sys.stderr)
+            return 1
         print(len(owed))
         return 0
 
     print(f"positioning table: {a.doc}")
+
+    # ⛔⛔ VERIFY BY ARTEFACT, NEVER BY AGREEMENT-ON-NOTHING. Council 2026-09-11
+    # §7, ratified: *"An empty result presented as a success appeared at FOUR
+    # independent layers today, two of them ours."* This gate was a fifth, and it
+    # was MINE: with the table deleted entirely it printed
+    #     "declared OWED-CELLS-NOW: 0 == table: 0  ok"    rc 0
+    # because `declared == len(owed)` is `0 == 0` -- THE DECLARATION AND THE
+    # DERIVATION AGREED BECAUSE BOTH WERE EMPTY. Driven, not reasoned: a file
+    # carrying the declaration and no table at all passed.
+    # ⇒ 🔑 A GATE WHOSE SUBJECT HAS VANISHED MUST REFUSE. Two arms agreeing to
+    #   the case is not corroboration; here it was the absence of both.
+    #   [[feedback-two-arms-that-agree-to-the-case]]
+    if not rows_seen:
+        print("\n  FINDING: the §1 table has NO DATA ROWS. The gate's subject is gone "
+              "(file renamed, table reformatted, or headings changed). A gate that cannot "
+              "find its subject must REFUSE, not agree with a declaration about nothing.")
+        return 1
+
     for r in exempted:
         print(f"  EXCLUDED row '{r}' -- {EXEMPT_ROWS[r]}")
     print(f"  derived OWED cells: {len(owed)}")
@@ -155,6 +177,12 @@ def selftest():
     # ---- CONTROL FIRST.  A broken harness reds every plant, and a plant probe
     # whose control has not run tells you nothing about the plants.
     run("control: the real document passes", base, 0, "ok")
+
+    # ---- ⛔ THE VANISHED SUBJECT. Council §7's first ratified law, and this gate
+    # was an instance of it until 2026-09-12: the declaration and the derivation
+    # agreed because BOTH were empty.
+    run("⛔ PLANT: the table DELETED ENTIRELY is a FINDING, not `0 == 0  ok`",
+        "# G1\n\nprose only, no table\n\n```\n  OWED-CELLS-NOW: 0\n```\n", 1, "NO DATA ROWS")
 
     # ---- ARM 1: an unmarked cell is caught.
     marked = "| **decode** |"
