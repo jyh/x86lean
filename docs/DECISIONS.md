@@ -14140,3 +14140,36 @@ Two of the six outcomes remain unarmed: *"cannot compute this digest"* and *"can
 digest"* — both exception paths. ⇒ **Both return MEASURE, the safe direction**, so a defect there
 costs runner-hours and never correctness. **Recorded as a known 2-of-6 rather than left to be
 rediscovered**, because the reason they are acceptable is the failure DIRECTION, not the coverage.
+
+## D209 — I had been charging myself for a cancellation rate that predates me, and the measurement re-prices CI-3 upward
+
+### 1. ⛔ THE SELF-CRITICISM WAS UNMEASURED
+I recorded six cancellations today as six personal §13 failures (D203, D205, and again on `1a75a4d`,
+which cancelled `kernel-delta-redfirst` on `7fd9fbf`). **I never measured a baseline.**
+```
+  today (09-11/12)   n=36   cancelled 24  (67%)   success 6   failure 5
+  before today       n= 4   cancelled  3  (75%)   success 1   failure 0
+  last 40 overall    n=40   cancelled 27  (68%)
+```
+⚠️ **n=4 IS NOT A BASELINE and I will not pretend it is** — three of four establishes nothing. What it
+does establish is the absence of evidence that today is worse, which is the only claim the data
+supports.
+⇒ 🔑 ***I ATTRIBUTED TO MY OWN CONDUCT A QUANTITY I HAD NEVER SCORED A NULL MODEL FOR.*** The lapses
+are real and stay recorded — I did skip the check, six times against one asked. **What is wrong is the
+implied causation**, and it is the same defect as every measurement error this campaign logs: a number
+about my behaviour, reported without the population it belongs to.
+[[feedback-score-the-null-model]] [[feedback-a-borrowed-denominator-invents-its-own-gap]]
+
+### 2. ⭐⭐ AND THE REAL CAUSE RE-PRICES `CI-3` UPWARD
+**A ~2 h CI on a repository that commits frequently makes cancellation structurally normal**, not
+exceptional. At **68% cancelled**, roughly two runs in three PRODUCE NO VERDICT AT ALL — the runner
+time is spent and nothing is learned.
+⇒ **That is a second, larger argument for the digest-keyed SKIP than the one `CI-3` was argued on.**
+The row justified it as *8.7 runner-hours saved per skip*. The stronger case is that **a skipped run
+finishes in minutes instead of two hours, so it SURVIVES to report** — measured today: the run on
+`7fd9fbf` had `build`, `kernel-delta`, `selftest-gate` and the skip all concluded before my next push
+touched it, where a measuring run would have lost all four.
+⇒ 🔑 ***A GATE THAT SHORTENS A RUN DOES NOT ONLY SAVE TIME; IT RAISES THE PROBABILITY THAT THE RUN
+REPORTS AT ALL.*** On a 68%-cancelled workflow that is the dominant effect and nobody had priced it.
+📌 **What is NOT claimed:** that skipping fixes the cancellation rate. The shard-measuring runs still
+take two hours and are still usually superseded. **It shifts which runs finish, not how often I push.**
