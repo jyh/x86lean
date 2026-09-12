@@ -2591,7 +2591,31 @@ THAT ALREADY EXISTED.*** Now `is_shard_job()` is exact, `run_qualifies()` requir
 actually RUN, and both are **pure and armed** — the network path cannot be driven in a selftest, so
 the decision it rests on was factored out to where it can be.
 
-### ⚠️ VERIFICATION STATUS — **THE `MEASURE` PATH IS PROVEN IN PRODUCTION; THE `SKIP` PATH IS NOT**
+### ✅✅ VERIFIED END TO END 2026-09-12 — **THE FIRST SKIP EVER EMITTED IN CI**
+Run **34661479178** at `dfb670f`, pushed ALONE for exactly this test:
+```
+  selftest-gate log:
+     arms=20 red=0                                        <- the gate proved itself on the runner
+     selftest-skip: consumed set = 27 path(s); digest 5802aed1609ec4a4 at dfb670f2
+     selftest-skip: SKIP -- byte-identical to green run 34654310710
+     selftest-skip: RECORD digest=5802aed1609ec4a4 inherits=618e94a305e4... run=34654310710 paths=27
+  job conclusions:
+     selftest: completed/SKIPPED      <- NOT green.  Condition (1) satisfied at the job level.
+     (no `selftest (1..6)` matrix jobs were created at all)
+```
+**The prediction was registered before the push and held exactly**, including the inherited sha.
+**~8.7 runner-hours not spent**, on an artifact a green run had already tested.
+⚠️ **WHAT I VERIFIED AND WHAT I DID NOT:** the LOG record and the SKIPPED job conclusion are both
+confirmed at the object. The third surface — the run's STEP SUMMARY page — is written by the same code
+path but **is not reachable through the API I used**, so it is coded-for and unconfirmed. *Two of
+three surfaces verified is what I can say.*
+⭐ **AND THE RUN WALK DID REAL WORK, MEASURED THE SAME DAY:** three of the six most recent runs
+(`672ab0b3`, `5e61536d`, `a32ae39d`) were rejected as non-evidence because their shards were
+**cancelled** — by my own pushes. A run-level `conclusion` check would have accepted them, and the
+prefix matcher I caught before landing would have accepted a run with no shards at all.
+
+### ⚠️ THE STATUS THIS REPLACES — kept, because it was the honest reading at the time
+**THE `MEASURE` PATH WAS PROVEN IN PRODUCTION; THE `SKIP` PATH WAS NOT**
 ```
   in CI at 618e94a3, run 34654310710, job selftest-gate:
       "Prove the skip decision before trusting it"   arms=20 red=0      <- on the runner
