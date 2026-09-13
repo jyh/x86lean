@@ -1542,7 +1542,7 @@ def encode_forms(asms, objdump="objdump"):
     """{asm: hex} — one .s per form, so a form the assembler refuses is NAMED
     rather than silently shifting its neighbours' bytes."""
     out = {}
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(prefix="x86lean-encode-") as td:
         for i, a in enumerate(asms):
             src = os.path.join(td, "f%d.s" % i); obj = os.path.join(td, "f%d.o" % i)
             open(src, "w").write("    .text\n    %s\n" % a)

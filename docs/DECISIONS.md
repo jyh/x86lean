@@ -15080,3 +15080,55 @@ modules (red naming defects 1 and 2 before the repair). 39/39 arms; each new arm
 ⇒ 🔑 ***A MAP BUILT FROM A LIST IS A CLAIM THAT ITS KEYS ARE UNIQUE, AND NOTHING CHECKED THE CLAIM.***
 📌 The census classifier was itself wrong twice before its reading was recorded (it put documented theorems, then
 tactic auxiliary lemmas, under `other`); both corrected by reading the lines behind the number, each a commit.
+
+## D230 — PORT-5: arm 3e's population was one call spelling, so a bare temp directory was not an offender but not a row; nine producers outside it, and two tools the audit called clean were leaking
+
+⚖️ **2026-09-13, PORT-5 (QUEUE).** `kernel_cost.py` arm 3e requires every scratch directory under `scripts/` to carry
+`TMP_PREFIX` (`x86lean-`), because `_own_tree`'s name fallback attributes an orphan by it. Its reader was the regex
+`mkdtemp\(prefix="…"`, so **the only calls it could see were ones already written the conforming way**, and it printed
+"all 20 mkdtemp prefixes … start with 'x86lean-'" on a tree holding these:
+```
+  claimed_forms.py:616, 828, 1158      tempfile.mkdtemp()             tmpXXXX, no cleanup
+  kernel_drift.py:989                  tempfile.mkdtemp()             tmpXXXX, no cleanup
+  kernel_drift.py:951, 1325            tempfile.TemporaryDirectory()  tmpXXXX
+  demand_census.py:1379                tempfile.TemporaryDirectory()  tmpXXXX
+  oracle_availability.py:1545          tempfile.TemporaryDirectory()  tmpXXXX
+  shift_guard_redprobe.sh:29           mktemp -d                      tmp.XXXX
+  check_commit_trailers.py:213         tempfile.TemporaryDirectory()  DECLARED, not changed (below)
+```
+⛔ **The queue item said "four" and it was nine plus a shell script.** It measured with `grep` for the `mkdtemp()` SHAPE,
+and the population it was filed against had the same boundary as the regex it indicted: it noted `TemporaryDirectory`
+was outside the arm and counted only the one conforming use. [[feedback-a-sibling-sweep-inherits-its-scope]]
+⛔ **AND THE LEAK WAS REAL, IN TWO TOOLS `scratch.py`'s AUDIT TABLE LISTS AS "mkdtemp WITH cleanup".** The table was per
+TOOL; the defect was per CALL. Measured in /T: **362 `tmp*` dirs** whose entire contents were `led.jsonl` (kernel_drift's
+selftest ledger) or `v.s`/`v.len` (claimed_forms' vector table), 418 KB — removed by exact-content match. Positive control:
+HEAD's `kernel_drift.py --selftest` added **8** such dirs per run; the repaired one adds **0**, and no `x86lean-drift*`
+survives it.
+
+**What changed.**
+- `scratch_producers()` reads **every CALL in the syntax tree** whose callee is `mkdtemp` or `TemporaryDirectory`, any
+  receiver (`tempfile.`, an alias, `__import__("tempfile").`, `from scratch import mkdtemp`). ⚠️ **Positional meaning
+  depends on the callee**: `tempfile.mkdtemp`/`TemporaryDirectory` take the SUFFIX first, `scratch.mkdtemp` the prefix
+  first with a default — which is READ from `scratch.py`'s def, never retyped. A non-literal prefix is an offender (it
+  cannot be checked). Temp FILE producers (8) are counted and printed, not checked: no process's cwd is a file.
+- `shell_scratch_producers()` reads `mktemp` in `scripts/*.sh` — **text, not a parse**, and says so.
+- `PORTED_VERBATIM` declares `check_commit_trailers.py`: byte-identical to salt/saltworks/saltbench, its directory holds a
+  git-only fixture, and an `x86lean-` prefix would fork a shared port under a name wrong in the other three. A declaration
+  with nothing left to excuse is STALE and reds, like `FOREIGN_FIXTURES`.
+- The four bare `mkdtemp()` now go through `scratch.mkdtemp("x86lean-…")`; the four `TemporaryDirectory()` and the shell
+  `mktemp` carry `x86lean-` (`mktemp -d "${TMPDIR:-/tmp}/x86lean-shiftguard-XXXXXX"`, the form GNU and BSD both accept).
+
+**Driven.**
+```
+  cross-check    AST rows 43 vs text matches 56: all 13 text-only lines are comments, docstrings, strings or the def
+  red-first      new arm vs the UNREPAIRED producers: FAIL naming exactly the 9 (conditions_selftest 25/26)
+  planted arm    8 fixture files; mutations each red it: positional index 0 for tempfile (misses the suffix plant),
+                 scratch default ignored (3 false offenders), file producers not counted
+  after repair   conditions_selftest 26/26 in 20 s; the CI commands for every touched script rc 0
+                 (oracle_availability --check-encodings, shift_guard_redprobe, demand_census --selftest/--check,
+                 claimed_forms --selftest/--check, kernel_drift --selftest 64/64); /T counts unchanged across all of them
+```
+📌 **Not in this census, stated rather than solved:** a call inside a string run by `python -c` (scratch.py's own selftest
+has two, both conforming) and a shell `mktemp` behind a variable.
+⇒ 🔑 ***A CONVENTION GATE WHOSE MATCHER IS THE CONFORMING SPELLING CAN ONLY EVER FIND CONFORMING CALLS*** — the violation
+is not a failing row, it is an absent one, and "all N conform" is true of the N it could read.

@@ -26,7 +26,7 @@
 # in total, so it runs on every push rather than behind a flag.
 set -u
 cd "$(dirname "$0")/.."
-TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/x86lean-shiftguard-XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
 PASS=0; FAIL=0
 BIG=4294967299
 

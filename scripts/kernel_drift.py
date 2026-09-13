@@ -139,6 +139,7 @@ if __name__ == "__main__":
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import kernel_delta as kd                              # noqa: E402  the gate itself
+import scratch                                         # noqa: E402  PORT-5: removed at exit, x86lean- prefixed
 
 ROOT = os.path.dirname(HERE)
 LEDGER = os.path.join(ROOT, "docs", "delta-allowance-ledger.jsonl")
@@ -948,7 +949,7 @@ def selftest():
     # record left the bad row on disk and every later run refused until a human
     # edited the ledger. A gate that corrupts its own store and then declines to
     # work is worse than one that simply declines.
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(prefix="x86lean-driftledger-") as td:
         lp = os.path.join(td, "led.jsonl")
         append_rows(lp, [_row(*st[0], {"M": 100.0}, source="first")], {})
         before = open(lp).read()
@@ -986,7 +987,7 @@ def selftest():
 
     def _written(rows):
         """rows → a ledger dict, THROUGH the file and the shipped reader."""
-        d = tempfile.mkdtemp()
+        d = scratch.mkdtemp("x86lean-driftledger-")
         lp = os.path.join(d, "led.jsonl")
         append_rows(lp, rows, {})
         return load_ledger(lp)
@@ -1322,7 +1323,7 @@ def selftest():
        "a gap BELOW the ceiling ALSO refuses — slack is where the next unrecorded "
        "landing hides, so the rot is policed in both directions",
        plant="ratchet down")
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(prefix="x86lean-driftratchet-") as td:
         rp = os.path.join(td, "r.txt")
         ok(read_ratchet(rp) is None, "an ABSENT ratchet reads None")
         open(rp, "w").write(RATCHET_HEADER + "lean_missing_max 7\n")

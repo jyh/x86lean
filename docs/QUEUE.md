@@ -354,7 +354,12 @@ Checked first that nothing depends on the literals: only the two definitions and
 📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
 "three environment-dependent arms" precondition is now met and this is what remains.
 
-### PORT-5 (NEW, 2026-09-13) — **ARM 3e's population is one call SHAPE, and four producers use another**
+### PORT-5 — ✅ CLOSED 2026-09-13 (D230) — **ARM 3e's population is one call SHAPE, and four producers use another**
+✅ **CLOSED, and the count below was LOW: nine Python producers and one shell `mktemp`, not four** — the four
+`TemporaryDirectory()` without a prefix were outside the grep this item was filed with, the same boundary as the regex
+it indicted. Arm 3e now reads every call in the syntax tree (red-first: FAIL naming the nine + the shell site); all
+repaired, `check_commit_trailers.py` DECLARED as a verbatim fleet port. The two "with cleanup" tools had leaked 362
+dirs into /T. Derivation and drive: D230. *The original filing follows unchanged.*
 `kernel_cost.py` arm 3e requires every `mkdtemp(prefix="…")` in `scripts/` to start with `x86lean-`, so a scratch
 tree's orphans are attributed to this repository. Its regex matches ONLY that literal shape. Measured with `grep`:
 **four bare `tempfile.mkdtemp()` calls** make `tmpXXXX` directories no attribution can recognise —

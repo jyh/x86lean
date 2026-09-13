@@ -10,6 +10,12 @@
                                kernel_delta · kernel_delta_history · kernel_drift
     partial                    oracle_availability (3 mkdtemp, 1 cleanup)
 
+⛔ THE MIDDLE ROW WAS PER TOOL, AND IT WAS FALSE PER CALL (PORT-5, 2026-09-13): claimed_forms'
+three bare `tempfile.mkdtemp()` and kernel_drift's one had NO cleanup — 362 of their `tmpXXXX`
+dirs sat in /T, 8 more per drift selftest — and a bare name is invisible to any prefix audit,
+this table's included. All four now come through here. `kernel_cost.py` arm 3e reads every
+call in the syntax tree, so the next one is an offender rather than a row nobody sees.
+
 ⇒ 🔑 **HALF THIS REPOSITORY'S TOOLS CLEAN UP AND HALF DO NOT, AND NOTHING SAYS
 WHICH** — so the habit was never learned, only re-decided per tool.  368 of the 584
 came from ONE gate (`check_readme_lean`), which is a CI step: **a leak in a gate

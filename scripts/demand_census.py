@@ -1376,7 +1376,7 @@ def selftest():
 
     # ── a symlink is not a second binary ──
     import tempfile
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-") as td:
         real = os.path.join(td, "libx.so.1.2.3")
         open(real, "wb").write(b"\x7fELF\x02\x01\x01\x00" + b"\x00" * 8 +
                                b"\x03\x00\x3e\x00" + b"\x00" * 40)

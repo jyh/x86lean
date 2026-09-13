@@ -158,6 +158,151 @@ FOREIGN_FIXTURES = {
         "the positive control that a genuinely foreign tree IS counted; if this "
         "started with TMP_PREFIX the control would test nothing",
 }
+
+# ⭐⭐ PORT-5 (2026-09-13) — THE PRODUCERS ARE READ FROM THE SYNTAX TREE, EVERY CALL SHAPE.
+# Arm 3e used to be the regex `mkdtemp\(prefix="…"`, so its population was ONE SPELLING:
+# a bare `tempfile.mkdtemp()` (tmpXXXX, unattributable) was not an offender, it was not
+# a ROW. Measured on the tree at 4b65e58: 4 bare `mkdtemp()` and 5 bare
+# `TemporaryDirectory()` sat outside it while the arm printed "all 20 prefixes" — plus
+# one shell `mktemp -d`. And they leak: 355 `tmp*` dirs holding `led.jsonl` / `v.s` in
+# /T, from two tools `scratch.py`'s audit lists as cleaning up.
+# ⇒ 🔑 A CONVENTION GATE WHOSE MATCHER IS THE CONFORMING SPELLING CAN ONLY EVER FIND
+#   CONFORMING CALLS. [[feedback-a-declared-list-inherits-its-default]]
+# ⚠️ POSITIONAL MEANING DIFFERS BY CALLEE, AND A NAIVE READER GETS IT BACKWARDS:
+# `tempfile.mkdtemp(suffix, prefix, dir)` and `TemporaryDirectory(suffix, prefix, …)`
+# take the SUFFIX first; `scratch.mkdtemp(prefix)` takes the PREFIX first and defaults it.
+# FILE producers (`mkstemp`, `NamedTemporaryFile`) are out of scope — no process can have a
+# file as its cwd, which is what `_own_tree` attributes — and are COUNTED, not dropped.
+PORTED_VERBATIM = {
+    "check_commit_trailers.py":
+        "the fleet's trailer gate, byte-identical to salt/saltworks/saltbench; its one "
+        "`TemporaryDirectory()` holds a git-only fixture repo (no `lean` ever runs there) and "
+        "an `x86lean-` prefix would fork a shared port for a name that is wrong in the other three",
+}
+_DIR_PRODUCERS = ("mkdtemp", "TemporaryDirectory")
+_FILE_PRODUCERS = ("mkstemp", "NamedTemporaryFile", "SpooledTemporaryFile", "TemporaryFile")
+
+
+def _scratch_default_prefix(scripts_dir):
+    """`scratch.mkdtemp`'s default prefix, READ from its def — never retyped here."""
+    import ast
+    try:
+        tree = ast.parse(open(os.path.join(scripts_dir, "scratch.py"), encoding="utf-8").read())
+    except (OSError, SyntaxError):
+        return None
+    for n in tree.body:
+        if isinstance(n, ast.FunctionDef) and n.name == "mkdtemp":
+            names = [a.arg for a in n.args.args]
+            defaults = dict(zip(names[len(names) - len(n.args.defaults):], n.args.defaults))
+            d = defaults.get("prefix")
+            return d.value if isinstance(d, ast.Constant) and isinstance(d.value, str) else None
+    return None
+
+
+def scratch_producers(scripts_dir=None, sources=None):
+    """Every temp-DIRECTORY producer in `scripts/`, one row per CALL in the syntax tree.
+
+    Returns (rows, files_excluded). A row is {file, line, callee, prefix, why} where
+    `prefix` is the literal prefix the call produces (None when it has none or it cannot
+    be read) and `why` says how it was resolved. `sources` ({name: text}) replaces the
+    directory, which is how the arms plant a call without writing a file."""
+    import ast
+    scripts_dir = scripts_dir or os.path.dirname(os.path.abspath(__file__))
+    if sources is None:
+        sources = {os.path.basename(p): open(p, encoding="utf-8").read()
+                   for p in sorted(glob.glob(os.path.join(scripts_dir, "*.py")))}
+    scratch_default = _scratch_default_prefix(scripts_dir)
+    rows, files_excluded = [], 0
+    for name in sorted(sources):
+        try:
+            tree = ast.parse(sources[name])
+        except SyntaxError as e:
+            rows.append({"file": name, "line": e.lineno or 0, "callee": "?", "prefix": None,
+                         "why": "does not parse — no producer in it can be read"})
+            continue
+        from_scratch = {a.asname or a.name for n in ast.walk(tree)
+                        if isinstance(n, ast.ImportFrom) and n.module == "scratch"
+                        for a in n.names}
+        wrapper_calls = set()
+        for fn in ast.walk(tree):
+            if name == "scratch.py" and isinstance(fn, ast.FunctionDef) and fn.name == "mkdtemp":
+                wrapper_calls = {id(c) for c in ast.walk(fn) if isinstance(c, ast.Call)}
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.Call):
+                continue
+            f = n.func
+            attr = f.attr if isinstance(f, ast.Attribute) else f.id if isinstance(f, ast.Name) else ""
+            if attr in _FILE_PRODUCERS:
+                files_excluded += 1
+                continue
+            if attr not in _DIR_PRODUCERS:
+                continue
+            is_scratch = attr == "mkdtemp" and (
+                (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name)
+                 and f.value.id == "scratch")
+                or (isinstance(f, ast.Name) and f.id in from_scratch))
+            callee = ("scratch." if is_scratch else "tempfile.") + attr
+            kw = {k.arg: k.value for k in n.keywords if k.arg}
+            node = kw.get("prefix")
+            pos = 0 if is_scratch else 1
+            if node is None and len(n.args) > pos:
+                node = n.args[pos]
+            if node is None:
+                if is_scratch:
+                    prefix, why = scratch_default, "scratch's default prefix, read from its def"
+                else:
+                    prefix, why = None, "NO PREFIX — the directory is tmpXXXX"
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                prefix, why = node.value, "literal"
+            elif id(n) in wrapper_calls and isinstance(node, ast.Name) and node.id == "prefix":
+                prefix, why = scratch_default, "the scratch.mkdtemp wrapper, forwarding its default"
+            else:
+                prefix, why = None, "a prefix that is not a literal cannot be checked"
+            rows.append({"file": name, "line": n.lineno, "callee": callee,
+                         "prefix": prefix, "why": why})
+    return rows, files_excluded
+
+
+def scratch_convention(rows):
+    """(offenders, stale) for rows from `scratch_producers`. An offender produces a
+    directory `_own_tree`'s name fallback cannot recognise and is neither an impersonation
+    fixture nor a ported-verbatim file; a STALE declaration names something no longer there."""
+    offenders = []
+    for r in rows:
+        if r["prefix"] is not None and (r["prefix"].startswith(TMP_PREFIX)
+                                        or r["prefix"] in FOREIGN_FIXTURES):
+            continue
+        if r["file"] in PORTED_VERBATIM and r["prefix"] is None:
+            continue
+        offenders.append(f"{r['file']}:{r['line']} {r['callee']} ({r['why']}"
+                         + (f": {r['prefix']!r}" if r["prefix"] is not None else "") + ")")
+    prefixes = {r["prefix"] for r in rows}
+    stale = [k for k in FOREIGN_FIXTURES if k not in prefixes]
+    # ⚠️ A ported file with nothing to excuse is STALE: the declaration would otherwise
+    # outlive its reason and quietly excuse whatever the next sync brings in.
+    # (A call inside a string run by `python -c` — scratch.py's selftest has two, both
+    # conforming — is not in the syntax tree and not in this census. Stated, not solved.)
+    stale += [k for k in PORTED_VERBATIM
+              if not any(r["file"] == k and r["prefix"] is None for r in rows)]
+    return offenders, stale
+
+
+def shell_scratch_producers(scripts_dir=None):
+    """[(file, line, template-or-None)] for each `mktemp` in `scripts/*.sh`, comments
+    skipped. TEXT, not a parse — shell has no syntax tree here — so it is a narrower claim
+    than the Python census, and a `mktemp` hidden behind a variable is invisible to it."""
+    scripts_dir = scripts_dir or os.path.dirname(os.path.abspath(__file__))
+    out = []
+    for p in sorted(glob.glob(os.path.join(scripts_dir, "*.sh"))):
+        for i, line in enumerate(open(p, encoding="utf-8"), 1):
+            code = line.split("#", 1)[0] if not line.lstrip().startswith("#") else ""
+            for m in re.finditer(r"\bmktemp\b((?:\s+-[a-zA-Z]+)*)(?:\s+(\"[^\"]*\"|'[^']*'|[^\s;)|&]+))?",
+                                 code):
+                t = m.group(2)
+                out.append((os.path.basename(p), i, t.strip("\"'") if t else None))
+    return out
+
+
 _COMMON_GITDIR = None
 
 
@@ -1371,22 +1516,45 @@ def conditions_selftest():
     # ⭐⭐ ARM 3e — THE CONVENTION IS DERIVED FROM THE SOURCE, NOT TYPED HERE.
     # `_own_tree`'s name fallback recognises this repository's scratch space by
     # `TMP_PREFIX`. That is only sound while every producer obeys it, so this
-    # reads every `mkdtemp(prefix=...)` in `scripts/` and requires it — a
-    # fourteenth producer with a different prefix reds this arm instead of
-    # silently becoming another campaign's build.
+    # reads every temp-DIRECTORY producer in `scripts/` — each CALL in the syntax
+    # tree, whatever its spelling (PORT-5; see `scratch_producers`), and each shell
+    # `mktemp` — and requires it. A producer with no prefix or a foreign one reds
+    # this arm instead of silently becoming another campaign's build.
     # [[feedback-a-declared-list-inherits-its-default]]
-    prefixes, offenders = set(), []
-    for fn in sorted(glob.glob(os.path.join(os.path.dirname(
-            os.path.abspath(__file__)), "*.py"))):
-        for m in re.finditer(r'mkdtemp\(prefix="([^"]+)"', open(fn).read()):
-            prefixes.add(m.group(1))
-            if not (m.group(1).startswith(TMP_PREFIX)
-                    or m.group(1) in FOREIGN_FIXTURES):
-                offenders.append(f"{os.path.basename(fn)}:{m.group(1)}")
-    stale = [k for k in FOREIGN_FIXTURES if k not in prefixes]
-    out.append((bool(prefixes) and not offenders and not stale,
-                f"all {len(prefixes)} mkdtemp prefixes in scripts/ start with "
-                f"{TMP_PREFIX!r} or are declared impersonation fixtures"
+    # ⚠️ The planted arms come FIRST: the census below is only as good as a reader
+    # that can tell a call from a citation and a suffix from a prefix.
+    _plant_rows, _plant_files = scratch_producers(sources={
+        "a.py": 'import tempfile\nd = tempfile.mkdtemp()\n',
+        "b.py": 'import tempfile\nwith tempfile.TemporaryDirectory() as t:\n    pass\n',
+        "c.py": 'import tempfile\nd = tempfile.mkdtemp("x86lean-oops-")\n',
+        "d.py": 'import scratch\nd = scratch.mkdtemp("x86lean-ok-")\ne = scratch.mkdtemp()\n',
+        "e.py": '"""doc: tempfile.mkdtemp() is how NOT to do it"""\n# tempfile.mkdtemp()\n',
+        "f.py": 'import tempfile as _t\nd = _t.mkdtemp(prefix=P)\n'
+                'g = __import__("tempfile").TemporaryDirectory(prefix="x86lean-g-")\n',
+        "g.py": 'import tempfile\nfd, p = tempfile.mkstemp(suffix=".x")\n',
+        "h.py": 'from scratch import mkdtemp\nd = mkdtemp()\n',
+    })
+    _plant_off, _ = scratch_convention(_plant_rows)
+    _off_at = {o.split(" ")[0] for o in _plant_off}
+    out.append((_off_at == {"a.py:2", "b.py:2", "c.py:2", "f.py:2"}
+                and not any(r["file"] == "e.py" for r in _plant_rows) and _plant_files == 1,
+                "arm 3e's reader, planted: a bare `mkdtemp()`, a bare `TemporaryDirectory()`, a "
+                "prefix passed in SUFFIX position and a non-literal prefix are offenders; "
+                "`scratch.mkdtemp` positional or defaulted, an aliased receiver and "
+                "`from scratch import mkdtemp` conform; a docstring/comment is not a call; a "
+                "file producer is counted, not checked" + ("" if _off_at == {"a.py:2", "b.py:2",
+                "c.py:2", "f.py:2"} else f" — GOT offenders {sorted(_off_at)}")))
+
+    rows, files_excluded = scratch_producers()
+    offenders, stale = scratch_convention(rows)
+    sh_rows = shell_scratch_producers()
+    offenders += [f"{f}:{ln} mktemp ({'template ' + repr(t) if t else 'NO TEMPLATE — tmp.XXXX'})"
+                  for f, ln, t in sh_rows if not (t and TMP_PREFIX in t)]
+    out.append((bool(rows) and not offenders and not stale,
+                f"all {len(rows)} temp-directory calls in scripts/*.py and {len(sh_rows)} shell "
+                f"`mktemp` produce {TMP_PREFIX!r}, or are declared impersonation fixtures "
+                f"({len(FOREIGN_FIXTURES)}) / ported-verbatim files ({len(PORTED_VERBATIM)}); "
+                f"{files_excluded} temp-FILE calls counted and not checked (no cwd lives in a file)"
                 + (f" — OFFENDERS: {offenders}" if offenders else "")
                 + (f" — STALE declarations: {stale}" if stale else "")))
 

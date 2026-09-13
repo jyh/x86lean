@@ -65,6 +65,7 @@ os.chdir(ROOT)
 # nothing about it.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from check_encodings import parse_objdump
+import scratch  # scratch dirs that get removed, and carry x86lean- (PORT-5)
 
 # ---------------------------------------------------------------- the roster
 
@@ -613,7 +614,7 @@ def assemble(items, tag, pads=None):
     Lines clang refuses are dropped and returned as `dead`: a roster row with NO
     assemblable spelling is a finding about the roster, not a crash here.
     """
-    tmp = tempfile.mkdtemp()
+    tmp = scratch.mkdtemp("x86lean-claimedforms-")
     alive = list(range(len(items)))
     dead = []
     for _ in range(8):
@@ -825,7 +826,7 @@ def emit_vectors():
     # and re-deriving the claim costs a second rather than a rebuild.
     if os.environ.get("X86LEAN_ASM") and os.environ.get("X86LEAN_LEN"):
         return read_vectors(os.environ["X86LEAN_ASM"], os.environ["X86LEAN_LEN"])
-    tmp = tempfile.mkdtemp()
+    tmp = scratch.mkdtemp("x86lean-claimedforms-")
     a, l = os.path.join(tmp, "v.s"), os.path.join(tmp, "v.len")
     for mode, out in (("emit-asm", a), ("expected-lengths", l)):
         q = subprocess.run(f"lake env .lake/build/bin/x86lean-diff {mode} {out}",
@@ -1155,7 +1156,7 @@ def selftest():
         print("⛔ selftest: the UNAVAILABLE rule arm went red.")
         return 1
     import shutil
-    tmp = tempfile.mkdtemp()
+    tmp = scratch.mkdtemp("x86lean-claimedforms-")
     a, l = os.path.join(tmp, "v.s"), os.path.join(tmp, "v.len")
     for mode, out in (("emit-asm", a), ("expected-lengths", l)):
         q = subprocess.run(f"lake env .lake/build/bin/x86lean-diff {mode} {out}",
