@@ -415,9 +415,26 @@ def read_messages(path, expect_names):
             continue
         own[0]["ku"] += k
         own[0]["eu"] += r
-    return ({x["name"]: x["hb"] for x in hbs},
-            {x["name"]: x["ku"] for x in hbs},
-            {"orphan_msgs": orphan_n, "orphan_kernel_unfoldings": orphan_k})
+    # ⛔⛔ THE MAP WAS KEYED BY LOCAL NAME AND A REPEATED NAME OVERWROTE ITS TWIN (D229).
+    # `X86/Basic.lean` wraps 33 declarations under 24 local names (`Regs.get` and `Flags.get`
+    # are both `get`), so a dict comprehension kept ONE of each and the module's ku read 11,409
+    # against 15,846 elaborated without any wrapper — 28% short, deterministic, and passing the
+    # names check above because that compares LISTS, where the duplicates survive. Every other
+    # module has unique local names and conserved exactly (wrapped = unwrapped + the header's 10).
+    # Keys stay LOCAL NAMES so every committed corpus still joins; a repeated name is SUMMED and
+    # REPORTED, never overwritten. ⇒ 🔑 a map built from a list is a claim that the keys are unique.
+    hb_map, ku_map, merged = {}, {}, set()
+    for x in hbs:
+        if x["name"] in ku_map:
+            merged.add(x["name"])
+        hb_map[x["name"]] = hb_map.get(x["name"], 0) + x["hb"]
+        ku_map[x["name"]] = ku_map.get(x["name"], 0) + x["ku"]
+    if merged:
+        print(f"  ⚠️ {len(merged)} local name(s) name more than one declaration; their readings are "
+              f"SUMMED under one key: {sorted(merged)}")
+    return (hb_map, ku_map,
+            {"orphan_msgs": orphan_n, "orphan_kernel_unfoldings": orphan_k,
+             "merged_names": sorted(merged)})
 
 
 def measure(worktree, module):
@@ -1019,6 +1036,21 @@ def selftest():
         arm("an elaboration error refuses the whole reading", False, "accepted")
     except SystemExit as e:
         arm("an elaboration error refuses the whole reading", "boom" in str(e), str(e)[:120])
+    # ⛔⛔ CONSERVATION ACROSS A REPEATED NAME (D229): two declarations both called `get`, each
+    # owning a [kernel] count, must sum — the dict comprehension this replaced kept the last.
+    diag = "[diag] Diagnostics\n  [kernel] unfolded declarations (max: 1, num: 1):\n    Nat.rec ↦ {}\n"
+    open(p, "w", encoding="utf-8").write("\n".join(json.dumps(m) for m in [
+        {"data": "HBCOUNT get 1", "severity": "information",
+         "pos": {"line": 1, "column": 0}, "endPos": {"line": 3, "column": 0}},
+        {"data": diag.format(7), "severity": "information",
+         "pos": {"line": 2, "column": 0}, "endPos": {"line": 2, "column": 1}},
+        {"data": "HBCOUNT get 1", "severity": "information",
+         "pos": {"line": 4, "column": 0}, "endPos": {"line": 6, "column": 0}},
+        {"data": diag.format(5), "severity": "information",
+         "pos": {"line": 5, "column": 0}, "endPos": {"line": 5, "column": 1}}]) + "\n")
+    _hb, _ku, _o = read_messages(p, ["get", "get"])
+    arm("two declarations with ONE local name conserve their ku (7 + 5 = 12) and are reported",
+        _ku == {"get": 12} and _o.get("merged_names") == ["get"], (_ku, _o))
     # ⛔⛔ THE ARM FOR THE TWO HEADINGS THAT ARE NEARLY THE SAME STRING.  A parser
     # matching `unfolded declarations` sums the KERNEL's counter and the
     # ELABORATOR's into one number and reads as a working gate.
