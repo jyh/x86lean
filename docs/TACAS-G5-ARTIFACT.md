@@ -36,7 +36,12 @@ run and have no way to know it was a version difference rather than a defect.**
 `c8897a34`. It is the only tree on this machine and it has not moved since P0, but the records do not say
 which machine or tree each ran on, and this repository has had a second machine since 2026-09-09.
 
-**Remedy, two parts, both owed:**
+✅ **PART 1 LANDED 2026-09-12 (D218):** pinned in `scripts/oracle_revision.txt`, fetched exactly by
+`setup_oracle.sh`, and checked FIRST by `run_differential.sh`, which refuses any other revision and prints
+`reference-model: acl2@<sha>`. ⛔ **Part 2's gate on records, and a re-run at the pin that §4.1 can cite,
+are still owed.**
+
+**Remedy, two parts, as scoped:**
 1. **Pin** — `setup_oracle.sh` fetches a named commit (`git fetch --depth 1 origin <sha>` then checkout),
    and `ORACLE-SETUP.md` names it.
 2. **Record** — every differential record's header carries `git -C vendor/acl2 rev-parse HEAD` as the
@@ -78,7 +83,8 @@ recorded logs with a reduced re-run.
 ## 4. OWED, IN ORDER
 ```
   1  read the TACAS 2027 AE call at its source            ✅ the CFP (PRICING §3a); the AE page itself [CALL]
-  2  pin + record the reference model's revision (§1)                             harness change
+  2  pin the reference model's revision (§1)                                     ✅ D218
+  2b re-run the differential AT the pin; cite §4.1 to that record; gate new records on the revision line
   3  measure a COLD R2 build and the x86isa certification on a clean machine
   4  cite every remaining number in the paper to the manifest (paper/README.md)
   5  the container or VM, per [CALL]

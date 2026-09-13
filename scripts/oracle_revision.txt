@@ -1,0 +1,6 @@
+# The ACL2 commit (github.com/acl2/acl2) whose community books supply the reference model, ACL2 x86isa.
+# ONE line below is read: the full 40-hex sha. setup_oracle.sh checks it out; run_differential.sh and
+# check_oracle_revision.sh refuse a vendor tree at any other commit. Why: docs/TACAS-G5-ARTIFACT.md §1, D218.
+# Chosen 2026-09-12 as the tree this machine has run since P0 (committed upstream 2026-09-02T06:14:00Z);
+# which tree each EARLIER differential record ran against is not recorded, and this pin does not claim to know.
+c8897a34d3efc37eb466d7ee50a2e3861c6e82db

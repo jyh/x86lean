@@ -13,6 +13,11 @@ mkdir -p run
 
 [ -x "$ACL2" ] || { echo "⛔ no ACL2 image at $ACL2 — run scripts/setup_oracle.sh" >&2; exit 2; }
 
+# ⭐ D218: THE REFERENCE MODEL'S REVISION, CHECKED FIRST AND PRINTED, so the run's output carries the
+# commit every agreement below is agreement WITH. A record written from this run quotes the line.
+echo "── checking the reference model's pinned revision ──"
+bash scripts/check_oracle_revision.sh || exit 2
+
 # ⭐ P1 BATCH 21 (D65).  THE UNAVAILABLE LIST IS CHECKED FIRST, because it is
 # the only other gate in this repository that needs the oracle and because a
 # differential run over a stale residue answers a question about the wrong

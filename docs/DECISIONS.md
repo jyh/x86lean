@@ -14587,3 +14587,27 @@ once; §6 cites the rows, so the paper's prose check reads them.
 ⚠️ **NOT in the manifest, and §6's marker says so:** the label counts (2, 4, 5, 7), the fitted
 `19 + 7.5–8.1 / label`, and the historical per-label series 25 → 12 → 9.6 → 7.6, which were measured
 on earlier versions of one proof and are not derivable at a single sha.
+
+---
+
+## D218 — the reference model is pinned, and the differential run refuses any other revision
+
+⚖️ **2026-09-12, from `docs/TACAS-G5-ARTIFACT.md` §1.** `setup_oracle.sh` cloned ACL2 at whatever HEAD
+was and no differential record names a commit, so every agreement figure was agreement with an unnamed
+x86isa — and the paper's mandatory data availability statement could not be written truthfully.
+```
+  scripts/oracle_revision.txt       the ONE place the sha lives: c8897a34d3efc37eb466d7ee50a2e3861c6e82db
+                                    (this machine's tree since P0; upstream 2026-09-02T06:14:00Z, verified via gh api)
+  scripts/check_oracle_revision.sh  exit 0 + prints `reference-model: acl2@<sha>`; exit 2, naming what it saw, on
+                                    a malformed pin, no tree, another commit, or modified tracked files
+  scripts/setup_oracle.sh           fetches exactly the pin (git fetch --depth 1 origin <sha>) and runs the check
+  scripts/run_differential.sh       runs the check FIRST, so a run's output carries the revision
+```
+**Driven:** control rc 0 on the real tree; plants rc 2 for another sha, a short sha, an absent tree, and a
+modified tracked file (a throwaway repo). **The fetch-by-sha mechanism was probed without the 1.7 GB tree**
+(`--filter=tree:0`): GitHub serves the pin and refuses a sha that does not exist (`not our ref`).
+⚠️ **NOT DRIVEN:** `setup_oracle.sh`'s cold branch end to end (the full fetch, image build, certification).
+⚠️ **WHAT THE PIN DOES NOT CLAIM:** which tree each EXISTING record ran against. They stay as measured.
+⇒ **Owed for the paper:** re-run the differential at the pin and write a record that quotes the
+`reference-model:` line, and cite §4.1's figures to THAT record. And a gate that refuses a new record
+without the line (the existing records exempt by an explicit list, not by a default).

@@ -28,6 +28,14 @@ x86-64 runner. That is P1, and it is not a substitute for this and vice versa:
 x86isa can be wrong in the same direction as us, and hardware cannot tell us
 what Intel left undefined.
 
+## ⛔ The revision is PINNED — since 2026-09-12 (D218)
+
+`scripts/oracle_revision.txt` names the ACL2 commit, **`c8897a34d3efc37eb466d7ee50a2e3861c6e82db`**
+(upstream 2026-09-02T06:14:00Z). `setup_oracle.sh` fetches exactly it, and `run_differential.sh` runs
+`scripts/check_oracle_revision.sh` first, which refuses a tree at any other commit or with modified
+files and prints `reference-model: acl2@<sha>`. *Until that date the recipe below cloned whatever HEAD
+was, and no differential record named the commit it ran against — the recipe is kept as it was run.*
+
 ## The recipe, exactly as run (2026-09-02, macOS 26.6.2, arm64)
 
 ```bash
