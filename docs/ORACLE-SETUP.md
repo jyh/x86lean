@@ -57,6 +57,15 @@ ACL2 image builds in about four minutes. Certifying `projects/x86isa/top.cert`
 pulls in a large transitive dependency set (`std`, `bitops`, and the `rtl`
 books dominate) and is the long pole by a wide margin.
 
+⚠️ **The image time above is wrong, and it was wrong on the day it was written:** this
+machine's own 2026-09-02 tree has `vendor/acl2/make.log` created 10:16:34 and last written
+10:17:02 — **28 s**. No record says what the "four minutes" timed. A cold
+run of `setup_oracle.sh` at the pin on 2026-09-13 (fresh clone, SBCL preinstalled,
+14-CPU arm64, the script's defaults) took **12 m 43 s** in total: fetch 2 m 03 s,
+**image 28 s** (not ~4 min), feature probe 39 s, certification **9 m 31 s** for 1,143
+books; the tree is 1.9 GB. Certification is the long pole, at about three quarters
+of the total. Full record: `docs/TACAS-G5-ARTIFACT.md` §2, row R4.
+
 ## Licence
 
 ACL2 and the community books are public sources under the licences recorded in

@@ -58,7 +58,7 @@ are still owed.**
 | **R1 manifest** | `scripts/check_claims.py` — every `CLAIMS.tsv` row at its pinned sha, and the paper's quoted figures against the rows | git, bash, python3; a FULL clone (pinned shas) | **3 s** on this machine, 2026-09-12 |
 | **R2 build** | `lake build`, the axiom allowlist gate, the coverage regeneration check | the pinned toolchain `leanprover/lean4:v4.32.0-rc1`, and NO package dependency (`lake-manifest.json` lists none; *this cell read "+ mathlib" until 2026-09-13*) | CI `build` job **5 m 47 s** on 2026-09-12 (run 34674679895), on a runner that restores caches. **COLD, measured 2026-09-13:** a fresh `git clone` at `64ded93` (no `.lake`), `lake build X86 X86Native Tests x86lean-diff x86lean-axioms` → **37 s wall, 1 m 39 s user, 45 jobs, rc 0**, on the 14-CPU arm64 development box at load 2.3, with the toolchain ALREADY INSTALLED by elan — a toolchain download is not in that figure, and a reviewer's machine will differ |
 | **R3 coverage derivation** | `scripts/claimed_forms.py --check` | clang (the second source assembles every roster row) and objdump | UNMEASURED |
-| **R4 differential** | `scripts/run_differential.sh` | SBCL, the ACL2 image, certified x86isa books — **at a pinned revision (§1)** | ACL2 image ~4 min (ORACLE-SETUP.md); x86isa certification "the long pole", UNMEASURED; the run itself "twenty-five-minute" per the script's own comment, not re-measured |
+| **R4 differential** | `scripts/run_differential.sh` | SBCL, the ACL2 image, certified x86isa books — **at a pinned revision (§1)** | **COLD SETUP, measured 2026-09-13:** a fresh `git clone` of this repo at `a08e43f` (no `vendor/`), `bash scripts/setup_oracle.sh` as committed (its defaults, `-j2` image, `-j5` books) → **12 m 43 s wall, 34 m 06 s user, 3 m 41 s sys, rc 0**, tree 1.9 GB. Phases, from the run's own timestamped log: fetch of the pinned commit **2 m 03 s** · image **28 s** · ACL2's feature probe **39 s** · certification of `projects/x86isa/top.cert` **9 m 31 s, 1,143 books**. Same 14-CPU arm64 box as R2, SBCL 2.6.8 ALREADY INSTALLED (not in the figure), load1 2.2 at start and 6–9 during certification (the run's own `-j5` is most of it). The run itself "twenty-five-minute" per the script's own comment, not re-measured |
 
 **Which sections need which tier:**
 ```
@@ -87,8 +87,12 @@ recorded logs with a reduced re-run.
   2b re-run the differential AT the pin; cite §4.1 to that record   ✅ docs/REFERENCE-PIN-RUN-2026-09-12.md
      (all seven counters equal batch 22's); a gate refusing a NEW record without it   ✅ D219 (in CI since 09-12)
   3  measure a COLD R2 build and the x86isa certification on a clean machine
-     ✅ R2 cold on the development box, 37 s (§2); ⛔ x86isa certification still UNMEASURED, and neither on a
-        CLEAN machine
+     ✅ R2 cold on the development box, 37 s (§2); ✅ R4 cold SETUP on the same box, 12 m 43 s, of which the
+        x86isa certification is 9 m 31 s (§2, 2026-09-13). ⛔ Neither on a CLEAN machine: both had their
+        toolchains preinstalled (elan's Lean; brew's SBCL). ⛔ The differential RUN's own time is still unmeasured.
+        📌 The "long pole" wording was true in ORDER and misleading in SIZE: certification is ~3/4 of setup and
+        still under ten minutes here. A 09-02 cross-check is in the original tree's own files: its 1,143 `.cert`
+        mtimes span 9 m 10 s (first to last), against 9 m 30 s by the same reading today — same book count.
   4  cite every remaining number in the paper to the manifest (paper/README.md)
      ⚠️ PARTLY, 2026-09-13: +20 rows (49 → 69), each value DERIVED by its command at 673b64a, never typed, and
         cited where the paper quotes it — K's 3155/774/7,000 and 497 of 3,064; x86isa's 400+, 559, 186 of
