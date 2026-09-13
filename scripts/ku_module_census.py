@@ -55,6 +55,30 @@ def classify(src_line):
     return "other"
 
 
+def command_line(src, i):
+    """The text that NAMES the command a profiler message is positioned at. Lean positions a
+    declaration at its doc comment, so classifying the message's own line read every documented
+    theorem as `other` (X86.Program: 85% `other`, measured 2026-09-13). Step past a doc comment,
+    blank or `--` lines, attribute-only lines and `set_option/open … in` prefixes."""
+    n = len(src)
+    while i < n:
+        s = src[i].strip()
+        if s.startswith("/--"):
+            while i < n and "-/" not in src[i]:
+                i += 1
+            rest = src[i].split("-/", 1)[1].strip() if i < n else ""
+            if rest:                      # `/-- doc -/ inductive I where` on one line
+                return rest
+            i += 1
+            continue
+        if (s == "" or s.startswith("--") or (s.startswith("@[") and s.endswith("]"))
+                or re.match(r"(set_option|open|attribute)\b.* in$", s)):
+            i += 1
+            continue
+        return src[i]
+    return ""
+
+
 def unwrapped_ku(module, header_only=False):
     """ku with the diagnostics options and NO wrapper — the reading the instrument must reproduce.
     `header_only` elaborates the instrument's own header alone, which is what it costs."""
@@ -101,7 +125,7 @@ def profile(module):
             errs.append(m.get("data", "")[:200])
         for g in TC.finditer(m.get("data", "")):
             v = float(g.group(1)) * (1000 if g.group(2) == "s" else 1)
-            k = classify(src[m["pos"]["line"] - 1])
+            k = classify(command_line(src, m["pos"]["line"] - 1))
             kinds[k] = kinds.get(k, 0.0) + v
             total += v
     if r.returncode != 0 or errs or total == 0:
