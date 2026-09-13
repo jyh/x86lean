@@ -14524,3 +14524,38 @@ this time.
 `⛔ A JOB IN THAT RUN IS RED: kernel-delta`, and exited **1**. The live red was the plant.
 ⚠️ **What this still does not cover:** a job that is red while `build` is still in progress is read
 from the PREVIOUS concluded run, so HEAD is reported UNVERIFIED rather than red until `build` ends.
+
+---
+
+## D216 — the paper is gated against the manifest rows it quotes, because a re-deriving row says nothing about the sentence that cites it
+
+⚖️ **Built 2026-09-12, so that §5 of the paper could state that the paper itself is gated — a sentence
+the draft had WITHHELD rather than write ahead of its instrument.**
+
+`check_claims.py` re-derived every row of `docs/CLAIMS.tsv` at its pinned sha. That proves the
+MANIFEST; the paper's prose quoting `169,877` could say `196,877` and every gate would stay green.
+⇒ **`check_prose`, inside the same script CI already runs** (no workflow edit, so CI-3's digest does not
+move): a `\src{…}` marker cites rows as `docs/CLAIMS.tsv[id, id]`, and for each cited id the value must
+appear in the prose between the previous marker and this one, with thousands separators allowed and
+LaTeX comments stripped. A cited id must exist; a row whose `appears_in` names the paper must be cited.
+A RELATION row (`p2_ceiling_partition_residue`, value 0) is matched on the sentence that states the
+relation, and printed as a RELATION.
+```
+  control   the real paper passes; it carries citations at all (a check with no subject must refuse)
+  PLANT     a number changed in the prose                    -> caught, naming the row
+  PLANT     a citation of an id the manifest lacks           -> caught
+  PLANT     the relation sentence deleted                    -> caught
+  PLANT     a row naming the paper that nothing cites        -> caught (the under-claim direction)
+  PLANT     the value moved into a COMMENT inside the span   -> caught
+```
+⛔ **THREE OF THOSE PLANTS FIRST PASSED FOR THE WRONG REASON.** On the first run the control was red
+(the paper still used the old marker syntax), so every row was already reported uncited, and the
+relation, orphan and comment arms "caught" their plant by matching THAT message. Their predicates now
+name the specific finding. And the comment plant, as first written, replaced a string that did not
+exist and injected its comment outside the span — it tested nothing and would have gone green the
+moment the control did; it now asserts that it applied.
+⇒ 🔑 ***A PLANT ARM IS ONLY AS SPECIFIC AS ITS PREDICATE, AND A RED CONTROL MAKES EVERY LOOSE PREDICATE
+PASS.*** Read a plant's green only after the control's.
+⚠️ **SCOPE, declared in the script and in §5:** a number in the paper with no manifest citation is not
+checked, at any rate. §4.1's zeros were rewritten as digits ("0 disagreements are unexplained") so that
+they could be cited at all; a zero written as "no" cannot be matched without matching every "no".

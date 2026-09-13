@@ -252,10 +252,9 @@ contains it; it is a \emph{declared divergence} if an entry names that vector an
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
 The current record covers 1{,}012 vectors at 88 pre-states, 89{,}056 cases, of which 68{,}524 are
 matched. The remaining cases carry 29{,}435 field disagreements explained by the undefined set and 171
-declared divergences; there is no unexplained disagreement and no case in which an undefined bit
-leaked.
-\src{docs/DIFFERENTIAL-P2-BATCH22.md:4-5; docs/CLAIMS.tsv diff\_vectors, diff\_prestates, diff\_cases,
-diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks. Units: Main.lean
+declared divergences. 0 disagreements are unexplained, and in 0 cases did an undefined bit leak.
+\src{docs/DIFFERENTIAL-P2-BATCH22.md:4-5; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
+diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
 therefore runs deliberately wrong copies of x86lean against the correct one, with an empty divergence
@@ -322,7 +321,7 @@ upstream is noticed rather than silently absorbed.
 \src{Main.lean knownDivergences; docs/DECISIONS.md D108 4}
 The published record of that batch reads 81{,}752 cases, 0 unexplained and 0 leaks, with the divergences
 counted in their own class.
-\src{docs/DIFFERENTIAL-P2-BATCH13.md:119-120}
+\src{docs/DIFFERENTIAL-P2-BATCH13.md:119-120; docs/CLAIMS.tsv[p2\_batch13\_cases, p2\_batch13\_unexplained]}
 A divergence entry has a cost, and we state it. It excuses one field of one vector at every
 pre-state, so a genuine defect of x86lean in that field would now be absorbed by it. Two things stand
 against that, and neither is the entry itself. The saturation rule is checked by a theorem on a witness
@@ -338,14 +337,14 @@ Differential validation needs a reference model that runs the instruction, and f
 x86lean does not yet cover, ours does not. We measure demand with a census of the instructions in
 public Debian binaries; in its assembly class, six codec columns counted apart from compiler output,
 401{,}653 instructions are forms the model does not cover.
-\src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv p2\_gap\_total}
+\src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
 Of those, 162 are scalar instructions awaiting a LOCK vocabulary and the rest are vector instructions.
 Asking the reference model to execute one form of each vector mnemonic, at the operand class where the
 demand actually occurs, it executes the forms carrying 139{,}854 of them and refuses the forms carrying
 169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 91{,}519 have not yet been
 asked at their own class. The five parts sum to the total.
-\src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv
-p2\_addition\_lock, p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked;
+\src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
+p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
 162 + 139854 + 169877 + 241 + 91519 = 401653}
 The reference model therefore refuses more of the remaining gap than it executes. Those instructions
 cannot be differentially validated against it at any price, however the work is ordered. K has
@@ -410,9 +409,11 @@ kind. K derives its own list of unsupported instructions with a script rather th
 \src{docs/TACAS-G6-RELATED-WORK.md 2: scripts/find\_unsupported\_insttructions.pl}
 What we add is the gate on the prose, and its application to a semantics' coverage and validation
 claims, where a referee can clone the repository and watch it run.
-\placeholder{The paper's own numbers are gated against the manifest row each \texttt{src} marker names
-only once that check exists (paper/README.md, owed). Until then this paragraph may not claim the paper
-is gated.}
+The paper is held to the same rule. Each number it quotes from the manifest carries, in its source,
+a citation naming the rows it quotes, and the build fails if a cited value is absent from the sentence
+it annotates, if a citation names no row, or if a row that says it appears in the paper is cited
+nowhere. A number with no citation is not checked by this, and we do not claim that it is.
+\src{scripts/check\_claims.py check\_prose and its selftest arms; docs/DECISIONS.md D216}
 
 % ---------------------------------------------------------------------------------------------
 \section{Proofs Over the Semantics}

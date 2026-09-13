@@ -22,7 +22,7 @@ The PDF is a build product and is not tracked.
 |---|---|---|
 | 3 Undefined Behaviour | drafted | `docs/TACAS-G2-SECTION-DRAFT.md`, `docs/DECISIONS.md` D5 D6 D20 D52 D213 |
 | 4.3 Where the Reference Model Is Not the Specification | drafted | D91, D108, D115; `docs/P2-ROSTER.md` |
-| 5 Gated Claims | drafted; its last sentence waits on the paper-vs-manifest check | `scripts/claimed_forms.py`, `docs/CLAIMS.tsv`, D201 D202 D213 D214 |
+| 5 Gated Claims | drafted | `scripts/claimed_forms.py`, `docs/CLAIMS.tsv`, D201 D202 D213 D214 |
 | 7 Related Work | two paragraphs drafted; the frame-discipline and lifted-semantics sentences wait on their reads | `docs/TACAS-G1-POSITIONING.md`, `docs/TACAS-G6-RELATED-WORK.md` |
 | 4.1 The Harness · 4.2 Two Origins | drafted | `Main.lean` comparator; `docs/DIFFERENTIAL-P2-BATCH22.md`; `docs/TACAS-G1-POSITIONING.md` 1c.7 |
 | everything else | placeholder | named in each placeholder |
@@ -35,5 +35,7 @@ The PDF is a build product and is not tracked.
 - Which Goel work to cite for x86isa's design (D214).
 - Every number moved into `docs/CLAIMS.tsv` at the submission sha, so artifact evaluation reproduces
   it with one command (G5). §4.3's ceiling and batch-13 figures are there now (pinned `d7dbd58`).
-- ⚠️ Nothing yet checks that a number in the `.tex` equals the `CLAIMS.tsv` row its `\src` names: the
-  rows are gated against the repository, and the prose is not gated against the rows.
+- ✅ A number in the `.tex` IS checked against the row its `\src` cites, when it cites one:
+  write `docs/CLAIMS.tsv[id, id]` inside the marker, and `scripts/check_claims.py` (in CI) requires
+  each cited value in the prose since the previous marker (D216). ⚠️ A number with no such citation
+  is NOT checked. Before submission, every number in the paper should carry one.

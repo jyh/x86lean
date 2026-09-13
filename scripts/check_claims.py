@@ -40,6 +40,16 @@ travel in its history where any change to one is visible in a diff.
      prescribes is DECLARATION, not more arms — most such arms cannot be strengthened,
      and the cost is that a reachability arm's silence gets read as coverage.
 
+⭐ THE SECOND HALF (added 2026-09-12, D216): THE PAPER IS GATED AGAINST THE ROWS.
+   A row re-deriving says the MANIFEST is right; it says nothing about the sentence that
+   quotes it.  `paper/x86lean-semantics.tex` cites rows inside its `\src{...}` markers as
+   `docs/CLAIMS.tsv[id, id]`, and `check_prose` requires, for each cited id, that its value
+   appear in the prose between the previous marker and this one (thousands separators
+   allowed), that every cited id exist, and that every row whose `appears_in` names the paper
+   be cited somewhere.  ⚠️ SCOPE, declared: a number in the paper with NO manifest citation
+   is not checked by this arm, at any rate.  A row asserting a RELATION rather than a value
+   (`RELATIONS`) is matched on the sentence that states the relation, and is printed as such.
+
 LANE.  Personal lane.  Reads this repository and runs git over it.
 """
 import argparse, os, subprocess, sys
@@ -77,6 +87,70 @@ def derive(cmd, sha, cwd=ROOT):
 def have_commit(sha, cwd=ROOT):
     return subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
                           cwd=cwd, capture_output=True).returncode == 0
+
+
+PAPER_REL = "paper/x86lean-semantics.tex"
+PAPER = os.path.join(ROOT, PAPER_REL)
+# A row whose value is an INVARIANT over other rows (a residue of 0) is not quoted as a number;
+# the paper states the relation in words, and that sentence is what must sit beside the citation.
+RELATIONS = {"p2_ceiling_partition_residue": "The five parts sum to the total"}
+
+
+def _src_markers(tex):
+    """(start, end, body) for every `\src{...}`, braces balanced."""
+    out, i = [], 0
+    while True:
+        k = tex.find("\\src{", i)
+        if k < 0:
+            return out
+        j, depth = k + 5, 1
+        while j < len(tex) and depth:
+            depth += {"{": 1, "}": -1}.get(tex[j], 0)
+            j += 1
+        out.append((k, j, tex[k + 5:j - 1]))
+        i = j
+
+
+def check_prose(tex, rs, verbose=True):
+    """The paper's quoted numbers against the manifest rows its markers cite."""
+    import re
+    findings, cited = [], set()
+    vals = {r[0]: r[1] for r in rs if r[0] != "__MALFORMED__"}
+    tex = re.sub(r"(?<!\\)%.*", "", tex)            # a comment is not prose
+    prev_end = 0
+    for start, end, body in _src_markers(tex):
+        span = re.sub(r"\s+", " ", tex[prev_end:start].replace("{,}", ","))
+        prev_end = end
+        for m in re.finditer(r"docs/CLAIMS\.tsv\[([^\]]*)\]", body):
+            for tok in re.split(r"[,\s]+", m.group(1)):
+                cid = tok.replace("\\_", "_").strip()
+                if not cid:
+                    continue
+                cited.add(cid)
+                if cid not in vals:
+                    findings.append(f"prose: `{cid}` is cited in the paper and is NOT a row of the manifest")
+                    continue
+                if cid in RELATIONS:
+                    ok = RELATIONS[cid] in span
+                    what = f"the relation {RELATIONS[cid]!r}"
+                else:
+                    v = vals[cid]
+                    cands = {v}
+                    if v.isdigit():
+                        cands.add(f"{int(v):,}")
+                    ok = any(re.search(r"(?<![\d.,])" + re.escape(c) + r"(?![\d]|[.,]\d)", span)
+                             for c in cands)
+                    what = f"the value {v}"
+                if not ok:
+                    findings.append(f"prose: `{cid}` is cited but {what} is NOT in the prose it annotates: "
+                                    f"...{span[-120:]!r}")
+                elif verbose:
+                    kind = "RELATION" if cid in RELATIONS else "value"
+                    print(f"  ok  prose {cid:30s} {kind} found beside its citation")
+    for cid, _v, _sha, _cmd, where in rs:
+        if cid != "__MALFORMED__" and where and where.startswith(PAPER_REL) and cid not in cited:
+            findings.append(f"prose: row `{cid}` says it appears in the paper and no marker cites it")
+    return findings
 
 
 def check(path=TSV, cwd=ROOT, verbose=True):
@@ -118,6 +192,12 @@ def main(argv=None):
     if a.selftest:
         return selftest()
     findings, n = check(a.tsv)
+    if a.tsv == TSV:
+        # the paper is checked against the REAL manifest only; a --tsv plant file is a test of rows
+        if not os.path.exists(PAPER):
+            findings.append(f"prose: {PAPER_REL} does not exist, and rows name it — refusing, not skipping")
+        else:
+            findings += check_prose(open(PAPER, encoding="utf-8").read(), rows(a.tsv))
     if findings:
         print(f"⛔ check_claims: FAIL — {len(findings)} finding(s) over {n} claim(s)")
         for f in findings:
@@ -207,6 +287,34 @@ def selftest():
     arm("⭐ PLANT: a row that derives at HEAD instead of its pinned sha is caught "
         "(this is the defect that redded the build)",
         any("decisions" in x for x in f), str(f)[:160])
+
+    # ── THE PROSE HALF (D216), control first ─────────────────────────────────
+    rs0 = rows(TSV)
+    paper = open(PAPER, encoding="utf-8").read()
+    f = check_prose(paper, rs0, verbose=False)
+    arm("control: the real paper quotes every cited row beside its citation", not f, str(f)[:200])
+    cited_n = paper.count("docs/CLAIMS.tsv[")
+    arm("control: the paper carries manifest citations at all (a check with no subject must not pass)",
+        cited_n > 0, f"citations={cited_n}")
+    f = check_prose(paper.replace("169{,}877", "169{,}878", 1), rs0, verbose=False)
+    arm("PLANT: a number changed in the PROSE is caught, naming the row",
+        any("p2_bucket_refuses" in x and "NOT in the prose" in x for x in f), str(f)[:200])
+    f = check_prose(paper.replace("p2\\_bucket\\_refuses", "p2\\_bucket\\_refusez", 1), rs0, verbose=False)
+    arm("PLANT: a citation of an id the manifest lacks is caught",
+        any("refusez" in x and "NOT a row" in x for x in f), str(f)[:200])
+    f = check_prose(paper.replace("The five parts sum to the total", "The parts are as stated", 1),
+                    rs0, verbose=False)
+    arm("PLANT: deleting the sentence a RELATION row stands for is caught",
+        any("p2_ceiling_partition_residue" in x and "the relation" in x for x in f), str(f)[:200])
+    extra = rs0 + [("paper_orphan", "7", "d7dbd58", "echo 7", PAPER_REL + " §9")]
+    f = check_prose(paper, extra, verbose=False)
+    arm("PLANT: a row that names the paper and is cited nowhere is caught (the under-claim direction)",
+        any("paper_orphan" in x and "no marker cites it" in x for x in f), str(f)[:200])
+    planted = paper.replace("169{,}877; on 241", "% 169{,}877\nsome; on 241", 1)
+    assert planted != paper, "the comment plant did not apply -- the arm would test nothing"
+    f = check_prose(planted, rs0, verbose=False)
+    arm("PLANT: a value present only in a COMMENT does not satisfy its citation",
+        any("p2_bucket_refuses" in x and "NOT in the prose" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0
