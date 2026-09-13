@@ -93,10 +93,10 @@ true at different levels; **the paper must not collapse them.**
 | total step function per form over one state | x86isa `x86-fetch-decode-execute`; K's rewrite rules over a configuration; Sail's generated `step`; **LNSym**'s Arm `stepi` in Lean 4 | the shape is standard; LNSym is the Lean-4 precedent specifically |
 | undefined-bit oracle | x86isa's `UNDEF` seed + constrained `create-undef` (§3) | **ours is x86isa's discipline, made concrete and executable** — say so plainly |
 | fidelity tier as a per-form datum | x86isa's `app-view`/`sys-view` + its machine-generated catalogue; K's derived support status (§2); Verbeek/Roessle/Bockenek (CPP 2019, PLDI 2022) over-approximative semantics | the concept is public; **the names T-exact/T-frame/T-absent are our coinage and the plan says so** |
-| characterization theorem + frame predicates | **Myreen et al., FMCAD 2012** (decompilation into logic; machine-code Hoare triple with the frame rule); x86isa's read-over-write packs; seL4/AutoCorres practice; LNSym's per-instruction lemma packs | the frame discipline is decades old — cite, never claim |
+| characterization theorem + frame predicates | **Myreen & Gordon, TACAS 2007** (machine-code Hoare logic, separation-logic style; its frame rule, §3.2) and **Myreen, Gordon & Slind, FMCAD 2008** (that logic over x86, ARM and PowerPC models, frame rule §III); x86isa's read-over-write packs; seL4/AutoCorres practice; LNSym's per-instruction lemma packs | the frame discipline is decades old — cite, never claim. ⛔ **This cell named FMCAD 2012 for the frame rule until 2026-09-12 (D222): that paper's improvement is to DROP the separation-logic frame calculation** (§II, "Faster") — read at the author's PDF |
 | differential testing against executable models | **Dasgupta et al., PLDI 2019** (K vs STOKE and the manual, 7,000+ tests); **Heule et al., PLDI 2016** (stratified synthesis vs hardware) | our method's direct ancestors |
 | hardware co-simulation | K's gdb-driven `--xstate`/`--kstate`/`--compare`; **Armstrong et al., POPL 2019** (Sail ARM vs hardware); LNSym's `cosim`; x86isa's own co-simulation | ⛔ **already theirs — we may not present it as new** |
-| kernel-cost discipline | Myreen FMCAD 2012 (pre-derived per-instruction theorems so evaluation never unfolds the model); LNSym's lemma packs and `benchmarks` target | the technique is prior art; the **measured per-label cost law** is what we add |
+| kernel-cost discipline | Myreen FMCAD 2012 (pre-derived per-instruction theorems so evaluation never unfolds the model — ✅ VERIFIED at the author's PDF 2026-09-12: §III Phase 1, Fig. 1 prices model evaluation apart from composition); LNSym's lemma packs and `benchmarks` target | the technique is prior art; the **measured per-label cost law** is what we add |
 | BitVec-native arithmetic in Lean 4 | **LNSym** — the public proof that native `BitVec` carries an ISA model | our encoding choice has a precedent, and it was chosen by measurement |
 | decoder as an external trusted component | x86isa uses XED for the x87 block and undocumented encodings (§1, claim 3); Sail/Isla and LNSym trust external disassembly for tests | ⛔ **not a clean contrast: BOTH reach for XED. What differs is the SHARE and the DECLARATION** |
 
@@ -123,6 +123,23 @@ title of Goel's dissertation. `doi.org` content negotiation for the DOI in the S
 *"The x86isa Books: Features, Usage, and Future Plans"*, and it was fetched while writing the paper's
 `.bib`. **The DOI was right; the title beside it was not from the record the DOI names.**
 
+✅ **THE OWED RECORD IS VERIFIED, 2026-09-12 (D222) — AT THE AUTHOR'S OWN PAGE, A ROUTE NOT TRIED BELOW.**
+`cse.chalmers.se/~myreen/publications.html` links the PDF and a bibtex entry: *Decompilation into Logic —
+Improved*, Myreen, Gordon, Slind, FMCAD 2012, IEEE, pp. 78–81, eds. Cabodi and Singh. **No DOI found**:
+Crossref filtered by author and 2012–13 returns nine Myreen works and not this one, so the paper cites it
+without a DOI. ⚠️ **The author's HTML list prints the authors as "Myreen, Slind and Gordon"**; the paper's own
+title block and the author's bibtex both read **Myreen, Gordon, Slind**, so the row below was right and the
+HTML list is the odd one of three renderings.
+⛔⛔ **AND READING IT REFUTED WHAT §4 CITED IT FOR.** The frame rule is not in it: the 2012 improvement
+replaces the separation-logic frame calculation ("the main performance bottleneck", §II) with state
+tuples and a code-set extension (§III-A/B). The frame rule is in **TACAS 2007** (Myreen & Gordon, DOI
+10.1007/978-3-540-71209-1_44, §3.2) and **FMCAD 2008** (Myreen, Gordon, Slind, DOI 10.1109/fmcad.2008.ecp.24,
+§III), both read at the author's PDFs and matched to their DOI records. The paper cites all three, each for
+what it contains.
+⇒ 🔑 ***A RECORD WAS OWED; THE CLAIM WAS NEVER CHECKED, BECAUSE THE BLOCK SAT ON THE RECORD.*** Fetching
+the bibliographic entry would have closed this row with the wrong attribution intact.
+
+📜 *What this section said before, kept because the dead ends still save the next attempt:*
 ⛔ **ONE RECORD REMAINS OWED, WITH ITS REASON NAMED RATHER THAN GUESSED:**
 **Myreen, Gordon, Slind — *"Decompilation into logic — improved"*, FMCAD 2012.** It is cited in §4
 for the frame discipline and **may not go in a paper until its record is verified.**
@@ -155,7 +172,7 @@ paper."** [[feedback-probe-silence-has-two-causes]]
 
 ## 6. WHAT IS STILL OWED FOR A FINISHED SECTION
 ```
-  the Myreen FMCAD 2012 record (§5)                                               OWED, reason named
+  the Myreen FMCAD 2012 record (§5)                                               ✅ VERIFIED 09-12 (D222)
   a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim           NOT DONE
 ```
 ✅ **THE LNSym QUESTION IS RULED 2026-09-12, AND IT IS MINE AS AUTHOR: PRECEDENT, NOT RELATED WORK —

@@ -682,8 +682,20 @@ instruction set automatically~\cite{heule-stratified}.
 Using XED as a trusted decoder is not a clean contrast with x86isa either: 186 of the 3{,}192 entries in
 x86isa's opcode maps were generated from XED's data files.
 \src{docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}
-\placeholder{Characterization theorems with frame predicates (Myreen et al., FMCAD 2012 -- the record
-is OWED, docs/TACAS-G6-RELATED-WORK.md 5, and may not be cited until it is fetched); over-approximative
+Specifying which parts of a machine state code may change, with the rest held as a frame, has a direct
+precedent for machine code: Myreen and Gordon's Hoare logic over realistically modelled machine code
+writes specifications in the style of separation logic and derives its frame rule~\cite{myreen-hoare-machine-code},
+and it was instantiated to models of x86, ARM and PowerPC~\cite{myreen-multiple-architectures}. Its later
+form derives one theorem per instruction by evaluating the instruction-set model once and composes those
+theorems without evaluating the model again~\cite{myreen-decompilation-improved}. Our program proofs
+likewise cite an instruction's effect theorem rather than unfolding the step function, though ours are
+proved by hand and theirs are derived automatically.
+\src{author PDFs and the author's bibtex (cse.chalmers.se/\textasciitilde myreen), read 2026-09-12: TACAS 2007
+section 3.2, ``only the part initially satisfying P has been changed'' and ``The following frame-rule, similar
+to that of separation logic, easily follows''; FMCAD 2008 section III, the frame rule derived from the triple; FMCAD 2012 sections II and III, Phase 1 and Fig.~1;
+Tests/Program.lean cites step\_* effect theorems and never step itself; docs/TACAS-G6-RELATED-WORK.md 5;
+docs/DECISIONS.md D222}
+\placeholder{Over-approximative
 semantics lifted from binaries (Roessle et al., CPP 2019; Verbeek et al., PLDI 2022 -- abstracts read
 09-12, artifacts and availability NOT, D220); the frame discipline in seL4 and AutoCorres; hardware
 validation of the Sail models of other architectures (Armstrong et al., POPL 2019 -- its record is fetched,

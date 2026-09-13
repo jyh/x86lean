@@ -14699,3 +14699,29 @@ no semantics" rows.
 ⇒ 🔑 ***THE ROUTE NAMED IN AN OWED ITEM IS THE ROUTE ITS WRITER COULD SEE*** — the container was the path to
 libLISA's opinion of K; the data was the path to the processor, linked from the query tool's README in
 libLISA's own repository.
+
+## D222 — the owed Myreen record is verified, and reading the paper moved its citation: the frame rule is TACAS 2007 and FMCAD 2008, not FMCAD 2012
+
+⚖️ **2026-09-12, G6's one owed record.** G6 §5 held *Decompilation into Logic — Improved* (FMCAD 2012) as
+the precedent for characterization theorems with frame predicates, blocked on its bibliographic record after
+four automated routes failed. **The author's own publication page was a fifth route and it answered:** a PDF
+and a bibtex entry (IEEE, pp. 78–81). No DOI is registered in Crossref for it; the paper cites it without one.
+⛔ **The block sat on the RECORD, so nobody had read the CLAIM.** The 2012 paper's improvement is to remove the
+separation-logic frame calculation from composition (§II, "Faster"); its triples are state tuples with a
+code-set extension. The frame rule is in the logic it improves on: Myreen and Gordon, **TACAS 2007** (§3.2,
+*"only the part initially satisfying P has been changed"*; *"The following frame-rule, similar to that of
+separation logic, easily follows"*), instantiated to x86, ARM and PowerPC in **FMCAD 2008** (§III). Both read
+at the author's PDFs and matched to DOI records (`10.1007/978-3-540-71209-1_44`, `10.1109/fmcad.2008.ecp.24`).
+What FMCAD 2012 does support is G6's kernel-cost row: one theorem per instruction from one model evaluation,
+composed without evaluating the model again (§III Phase 1; Fig. 1 prices model evaluation separately).
+⚠️ Three renderings of the 2012 author list, one site: the HTML list says Myreen, Slind, Gordon; the title block
+and the bibtex say Myreen, Gordon, Slind. Two against one, and the title block is the paper.
+**What changes:** §7 replaces the first item of its placeholder with prose citing all three for what each
+contains, and says plainly that our effect theorems are hand-proved where theirs are derived. The claim that our
+program proofs "cite an instruction's effect theorem rather than unfolding the step function" was checked:
+`Tests/Program.lean` names `step_*` theorems 26 times and `step` itself only in four comments. *(First written
+"19", summed off a `head -8` listing of the per-name counts; the full count was taken before commit.)* G6's rows are
+corrected in place. The TACAS 2007 LNCS volume number is NOT in the `.bib`: it was typed from memory and the DOI
+record does not carry it.
+⇒ 🔑 ***A CITATION BLOCKED ON ITS RECORD HAS AN UNCHECKED CLAIM BEHIND IT — THE BLOCK READS AS THE ONLY THING
+LEFT TO DO.***
