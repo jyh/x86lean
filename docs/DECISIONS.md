@@ -15449,3 +15449,47 @@ it was — rather than about its CONTENT. Source code evidences what a system do
 📌 D214's own lesson stands behind this one: that row paired a DOI with the DISSERTATION'S title while the
 registrar returned the arXiv note's. **Three candidates existed partly because one row had already
 confused two of them.**
+
+## D238 — the AE [CALL] is answered by a STANDING document, found because a year-stamped URL cannot 404 its way out of existing
+
+⚖️ **2026-09-13, re-curling the G5 [CALL] URLs as the bank's item 5 asked.** The 2027 AE-guidelines page is
+**still 404** — unchanged, as predicted. But `tacas.info/artifacts.php` is **200**, and one link down it
+carries **"Effective Practices of Artifact Evaluation for TACAS"** (`artifacts-best-practices.php`), a
+document with **no year in its name or its URL**.
+⇒ 🔑 ***WE WERE LOOKING FOR THIS YEAR'S PAGE, AND THE THING THAT ANSWERS THE QUESTION IS THE ONE THAT DOES
+NOT HAVE A YEAR.*** Every probe so far was aimed at a 2027 artefact (the ETAPS 2027 AE page, the TACAS 2027
+page, the badge page). **A year-stamped URL 404s before its year; a standing practices document does not,
+and it was one click from a page already in the record.**
+
+**① THE [CALL] ON THE CONTAINER — ANSWERED, and in the direction §2.2's cell feared.** The standing document
+**does not mention containers at all.** Measured with FIXED-STRING matching after a regex artefact (`.ova`
+matched as a pattern and vanished under `-F`), with positive controls in the same pass:
+```
+  container 0 · Container 0 · docker 0 · Docker 0 · virtual machine 0 · VirtualBox 0 · .ova 0 · qcow 0 · ISO image 0
+  CONTROLS  artifact 33 · DOI 14 · badge 14 · Zenodo 4 · license 1        (all five ISO hits were "NISO")
+```
+⇒ **A 33-hit control beside a 0 is an absence with a denominator.** And the document opens by saying its
+practices *"are not hard requirements"*. ⇒ **§2.2's G5 cell — "TACAS AE wants a container" — has no support in
+the one TACAS-specific standing source that exists.** It remains a recollection of earlier years, now
+measured against the document most likely to carry it.
+⚠️ **WHAT THIS DOES NOT SAY:** an individual year's AE call may still ask for one, and 2027's is unwritten.
+The claim here is bounded — *the standing practices do not require it* — not *no container will ever be asked for*.
+
+**② AND IT CONFIRMS B②'s DEPOSIT FROM A BETTER SOURCE THAN WE HAD.** G5 item 6 cited ETAPS's *"recommends …
+Zenodo"*. This document is TACAS's own, and it is sharper — its four ACM-derived archiving requirements:
+```
+  Identification       "Using DOIs to identify published objects is standard ... Many researchers use Zenodo"
+                       "The DOI should point to the version of the artifact that was used to obtain the results"
+  Long-Term Avail.     "Version repositories do not fulfil this requirement, as the hosting company could
+                        decide at any point in time to discontinue the service. Example: Google Code"
+  Immutability         "the artifact cannot be changed after publication"
+  License              "Readers must be able to find out how they can reuse the artifact"
+```
+⛔ **"VERSION REPOSITORIES DO NOT FULFIL THIS REQUIREMENT" NAMES OUR EXACT SITUATION AS A CATEGORY.** The
+paper's data statement cites `github.com/jyh/x86lean` and nothing else (`docs/TACAS-G5-ARTIFACT.md` l.103).
+**This is not "GitHub is weaker"; it is "a version repository is not an archive", with a dead service named as
+the precedent.** ⇒ The Captain's `deposit` ruling is now backed by the venue's own standing document, and all
+four requirements are met by the deposit plus the `CITATION.cff` landed this shift — **License is the one the
+metadata file supplies, and it would have been the one missing.**
+📌 The DOI must point at *"the version used to obtain the results"* — which is why the release is cut at a
+NAMED submission commit, and why `version:` and `date-released:` are owed in that commit and not before.

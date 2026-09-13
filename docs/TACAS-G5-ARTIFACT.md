@@ -144,7 +144,14 @@ recorded logs with a reduced re-run.
         a record written now to fit it is what D233 refused. The rate is 3 of 9 · 3 of 8 · 3 of 7, all rows; the
         related-work corrections stay in §5 with no denominator. §6's counts and fit were cited by D234 (this list
         was not updated then). STILL DECLARED: D52's 82/16/35 alone.
-  5  the container or VM, per [CALL]     ⛔ still [CALL]: the 2027 AE guidelines are unpublished (item 1)
+  5  the container or VM, per [CALL]     ✅ ANSWERED 2026-09-13 (D238) from a STANDING source, not a 2027 one:
+                                         tacas.info/artifacts-best-practices.php, "Effective Practices of
+                                         Artifact Evaluation for TACAS" -- no year in its name, so it does not
+                                         404 the way every 2027 page does. It mentions containers ZERO times
+                                         (fixed-string, controls artifact=33 / DOI=14 / Zenodo=4 in the same
+                                         pass), and says its practices "are not hard requirements".
+                                         ⇒ DO NOT BUILD A CONTAINER ON THE STRENGTH OF THE OLD CELL.
+                                         ⚠️ BOUNDED: 2027's own call is unwritten and could still ask.
   6  a DOI for the artifact (the "Available" criterion, item 1): an archival deposit of the submission commit —
      Zenodo is ETAPS's stated recommendation — and its DOI in the Data Availability statement beside the GitHub
      URL. ✅ **RULED DEPOSIT — the Captain, council 2026-09-13, minute B②: "2 yes deposit".** The word this item
