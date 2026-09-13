@@ -486,7 +486,22 @@ Exit criterion — one differential run of the 20 forms with zero unexplained di
 Roster growth to the census's scalar demand, with the vector table, the encoding gates and the
 kernel-cost discipline built along the way.
 
-## P2 — the vector campaign · **LIVE** (33 batches)
+## P2 — the vector campaign · **LIVE** (22 differential records; the seat's own batch counter is higher)
+
+⚠️ **TWO COUNTERS, AND THIS HEADER USED TO CARRY A THIRD NUMBER THAT WAS NEITHER.** It read
+"(33 batches)". The differential records are `DIFFERENTIAL-P2-BATCH1..22.md` — **22**, contiguous,
+and that is the anchor README's gated "P2 IN PROGRESS — N batches landed" counts. The SEAT's batch
+counter runs ahead (37 is the highest referenced in this file), and the two are reconciled AT THE
+RECORD: `DIFFERENTIAL-P2-BATCH19.md` opens *"⚠️ TWO COUNTERS. Nineteenth differential record; the
+seat's batch 34"*. **33 was the seat counter at some past date and matched neither today.**
+⇒ 🔑 ***A HAND-WRITTEN COUNT IN A SECTION HEADER IS A THIRD REGISTER: it agrees with one of the two
+real counters on the day it is typed and with neither afterwards.*** The record count is derivable
+(`ls docs/DIFFERENTIAL-P2-BATCH*.md | wc -l`) and is what this header now names.
+📌 **Found while auditing CLAIM-2's open half** — *"whether any OTHER published number in this
+repository is ungated"* — and it is the answer's first specimen: not a wrong number in a gated
+document, but a number in a document **no gate reads at all.** ⚠️ **And I nearly filed the two-counter
+ambiguity itself as a finding**, having read BATCH19 for its mnemonics and not for its own header,
+which declares the ambiguity in a warning box eight lines in. [[feedback-reading-a-file-for-one-claim]]
 Extending the model and the oracle-availability census across the SIMD/FP buckets.
 
 **Where it stands** — ⚠️ HAND-COPIED from the tools named, so it is a claim and not a reading;
@@ -2505,6 +2520,35 @@ duty one repository wider **without anyone deciding it**. Not a defect in the po
 the alternative was no gate — but a cost that should be visible in October rather than
 discovered then. ⇒ **A TOOL THAT WARNS ABOUT ITS OWN STALENESS STILL NEEDS SOMEONE TO
 COUNT ITS COPIES.**
+
+## ⚠️ CLAIM-2's OPEN HALF, FIRST PASS (2026-09-13) — **THE README's NUMBERS ARE GATED; THE QUEUE's ARE NOT, AND ONE WAS STALE**
+
+CLAIM-2 left one question: *"whether any OTHER published number in this repository is ungated"*, and said
+the manifest makes it answerable by inspection. **First pass taken, on `README.md` — the most-read published
+document and the one NOT in `docs/CLAIMS.tsv` at all** (the manifest's 93 rows cover the paper 80,
+TACAS-PRICING 7, TACAS-G3 5, README **0**).
+```
+  README.md prose (fenced blocks excluded)   54 digit runs
+  the measurements among them                every one traced to check_readme_snapshot.py
+                                             (snapshot paragraph), claimed_forms.py (coverage), or a
+                                             narrative about a PAST defect (118/115, 388/527)
+  the two live counters checked at the object  P1 21 records · P2 22 records — README says 21 and 22 ✅
+```
+⇒ ✅ **README's numbers are covered.** Its two gates are aimed at numbers and they reach the numbers it
+publishes. **This is a null result and it is worth writing down**, because the shape CLAIM-2 predicted — a
+paragraph copied into a second document that no gate followed — did NOT occur here.
+⛔ **THE FIRST REAL SPECIMEN IS IN `QUEUE.md` INSTEAD**, and it is fixed above: the P2 section header read
+"(33 batches)" and matched **neither** counter (22 records; the seat counter's highest reference is 37).
+⇒ 🔑 ***THE UNGATED NUMBERS ARE NOT IN THE PUBLISHED DOCUMENTS — THEY ARE IN THE WORKING ONES, WHICH IS WHERE
+NOBODY THOUGHT TO LOOK BECAUSE "PUBLISHED" IS THE WORD IN THE ITEM.*** A section header is not prose anybody
+re-reads and not a claim any gate parses, and it is the first thing a head reads about a campaign.
+
+📌 **STILL OPEN, and PRICED for the first time:** the same sweep over `docs/QUEUE.md`, `docs/DECISIONS.md`
+and the TACAS documents' non-manifest numbers. **~half a shift**, derived from this pass: `README.md` (270
+prose lines, 54 runs) took ~20 minutes end to end including tracing each to its gate, and QUEUE.md is ~2,800
+lines. ⚠️ **DECISIONS.md is deliberately EXCLUDED from that price and should stay excluded**: it is an
+append-only record of what was measured ON A DATE, so a "stale" number in it is the point, not a defect.
+The sweep's subject is documents that describe the PRESENT.
 
 ## ⚠️ ARMA-1 (NEW, 2026-09-13) — **A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK**
 
