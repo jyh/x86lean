@@ -15410,3 +15410,42 @@ right citation for x86isa's design in §2 and §3 is still open, and it has a th
 and Kaufmann's Springer chapter (2017, `10.1007/978-3-319-48628-4_8`, registrar bibtex fetched), peer reviewed and
 **unread** (its abstract is elided by the publisher), so it is listed in the README and not cited. The README's "Myreen FMCAD 2012 record needs a browser"
 had been discharged by D222 and is marked so.
+
+## D237 — the "which Goel work" question closes, because no claim in §2 or §3 rests on a Goel TEXT
+
+⚖️ **2026-09-13, taking up D214's open item** (`paper/README.md`: *"the choice between it and the
+dissertation for the design citations in §2 and §3 is still open"*). **The item was framed as a choice
+between three candidate citations. Reading what the cited sentences actually CLAIM dissolves it.**
+```
+  §2 l.151   "the reference model is ACL2 x86isa~\cite{goel-x86isa,x86isa-repo}"   -- NAMES the model.
+             No design claim. Any correct identifier serves.
+  §3 l.177   the undefined-bit table, five systems, one row per project
+             -> the row's own evidence sentence: "Each row was read at the PROJECT'S OWN SOURCE."
+             x86isa's cell cites `create-undef`, `encapsulate` with a local witness, the seed counter,
+             the trust-tag attachment -- ALL OF THEM SOURCE-LEVEL FACTS, in a BSD-3 repository we have.
+  §7 l.649   the "400+ opcodes" and co-simulation quotes -- VERBATIM from arXiv 1705.01225, which is
+             READ (D236 re-read it at source).
+```
+⇒ 🔑 ***THE DESIGN CITATIONS ARE EVIDENCED AT THE SOURCE, NOT AT A PAPER, SO THE UNREAD WORKS WERE NEVER
+LOAD-BEARING.*** The open item read as a bibliography gap; it was a question about which courtesy pointer
+sits beside a claim whose real warrant is `x86isa-repo`.
+✅ **RULED: keep `goel-x86isa` (the arXiv note) + `x86isa-repo` everywhere they now appear. Cite NEITHER
+the dissertation NOR the Springer chapter.** Both remain UNREAD, and this campaign's standing rule is that
+an unread work is not cited.
+⛔ **AND THE READ ROUTES WERE MEASURED, NOT ASSUMED ABSENT — each probe driven this shift:**
+```
+  Springer chapter  10.1007/978-3-319-48628-4_8   Crossref CONFIRMS title/pages 173-209/authors, and the
+                    only licence it carries is Springer's TDM. No abstract, no open text. PAYWALLED.
+  UT dissertation   repositories.lib.utexas.edu   403 (request blocked at the CDN)
+                    www.cs.utexas.edu/users/...   403 -- and so is the ACL2 manual host.
+                    ⇒ THE WHOLE UT AUSTIN ESTATE REFUSES THIS BOX, which is a fact about our network and
+                      NOT about the work's availability. Stated that way so nobody later records the
+                      dissertation as "not publicly available", which would be false.
+  arXiv 1705.01225  200. Read. Cited.
+```
+⚠️ **WHAT WOULD REOPEN THIS:** a claim in §2 or §3 about x86isa's DESIGN RATIONALE — why it was built as
+it was — rather than about its CONTENT. Source code evidences what a system does and is silent on why.
+**No such claim is in the draft today**, and if one is added it needs a read text, not this ruling.
+📌 D214's own lesson stands behind this one: that row paired a DOI with the DISSERTATION'S title while the
+registrar returned the arXiv note's. **Three candidates existed partly because one row had already
+confused two of them.**

@@ -44,12 +44,15 @@ anonymization. No arXiv posting ~2 weeks either side of the deadline.
   entry carries its order number (325462-092US, read on the PDF's cover) and URL since 2026-09-13 (D236); the
   Myreen FMCAD 2012 record was taken from the author's page and bibtex (D222). *This item read "the SDM entry
   needs its order number and URL; the Myreen FMCAD 2012 record needs a browser" until 2026-09-13.*
-- Which Goel work to cite for x86isa's design (D214). ⚠️ Narrowed 2026-09-13 (D236): the arXiv note cited
-  does state what §7 cites it for (co-simulation against a processor, in its abstract); the choice between it
-  and the dissertation for the design citations in §2 and §3 is still open. A THIRD candidate D214 did not name,
-  fetched by DOI: Goel, Hunt, Kaufmann, *Engineering a Formal, Executable x86 ISA Simulator for Software
-  Verification*, Provably Correct Systems, Springer 2017, pp. 173–209, `10.1007/978-3-319-48628-4_8` — peer
-  reviewed, and its abstract is elided at Semantic Scholar, so it is UNREAD; not cited until it is.
+- ✅ **CLOSED 2026-09-13 (D237): which Goel work to cite for x86isa's design (D214).** Keep the arXiv note
+  (`goel-x86isa`, read) + `x86isa-repo`; cite NEITHER the dissertation NOR the Springer chapter, both UNREAD.
+  **The question dissolved rather than being decided:** §3's undefined-bit table says *"Each row was read at the
+  project's own source"*, and x86isa's row cites `create-undef`, `encapsulate` and the seed counter — source-level
+  facts in a BSD-3 repo we hold. §2 merely NAMES the model. So no §2/§3 claim ever rested on a Goel text.
+  ⚠️ Reopens only if the draft adds a claim about x86isa's design RATIONALE (why, not what) — source code is
+  silent on why. Read routes measured, not assumed: Springer `10.1007/978-3-319-48628-4_8` is paywalled
+  (Crossref confirms the record; TDM licence only); the UT dissertation is unreachable because **the whole UT
+  Austin estate 403s this box** — a fact about our network, not about the work's availability.
 - Every number moved into `docs/CLAIMS.tsv` at the submission sha, so artifact evaluation reproduces
   it with one command (G5). §4.3's ceiling and batch-13 figures are there now (pinned `d7dbd58`).
 - ✅ A number in the `.tex` IS checked against the row its `\src` cites, when it cites one:
