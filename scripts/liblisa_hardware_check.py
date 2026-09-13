@@ -27,7 +27,7 @@ Recipe: docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md.
 Exit 0 clean; 1 on a finding; 2 when it cannot find its subject (a line-count mismatch, or a
 knownDivergences entry with no proxy here).
 """
-import copy, json, os, re, sys
+import argparse, copy, json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -136,18 +136,22 @@ def plants(recs):
 
 
 def main(argv):
-    if argv[:1] == ["--queries"]:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--queries", action="store_true", help="print the instruction bytes to feed the server, in order")
+    ap.add_argument("results", nargs="*", help="one <cpu>.check.jsonl per machine")
+    args = ap.parse_args(argv)
+    if args.queries:
         print("\n".join(h for _, h in queries()))
         return 0
     decl = declared_vecs()
     if decl is None or decl != set(PROXY):
         print("REFUSED: knownDivergences vecs %s != proxied vecs %s" % (sorted(decl or []), sorted(PROXY)))
         return 2
-    if not argv:
-        print(__doc__.split("\n\n")[0])
+    if not args.results:
+        ap.print_usage()
         return 2
     rc = 0
-    for path in argv:
+    for path in args.results:
         lines = [l for l in open(path).read().splitlines() if l.strip()]
         if len(lines) != len(queries()):
             print("%s: REFUSED -- %d result lines for %d queries" % (path, len(lines), len(queries())))
