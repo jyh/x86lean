@@ -39,8 +39,11 @@ cd "$(dirname "$0")/.."
 rc=0
 
 echo "── local gates ──────────────────────────────────────────────"
+# check_record_revision (D219) is LOCAL-ONLY until the next ci.yml change carries it: editing ci.yml
+# moves CI-3's content digest and buys a full CI run, so it rides with the next change that pays for one.
 for g in check_claims check_positioning_table check_citations check_coverage_prose \
-         check_readme_snapshot check_readme_lean check_ci_shards check_corpus_claims; do
+         check_readme_snapshot check_readme_lean check_ci_shards check_corpus_claims \
+         check_record_revision; do
   if python3 "scripts/$g.py" >/dev/null 2>&1; then printf "  ok   %s\n" "$g"
   else printf "  ⛔ FAIL %s\n" "$g"; rc=1; fi
 done

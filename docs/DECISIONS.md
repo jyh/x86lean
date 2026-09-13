@@ -14611,3 +14611,24 @@ modified tracked file (a throwaway repo). **The fetch-by-sha mechanism was probe
 ⇒ **Owed for the paper:** re-run the differential at the pin and write a record that quotes the
 `reference-model:` line, and cite §4.1's figures to THAT record. And a gate that refuses a new record
 without the line (the existing records exempt by an explicit list, not by a default).
+
+---
+
+## D219 — a differential record must name the reference model's revision, and the records that predate the pin are exempt by bounds, not by default
+
+⚖️ **2026-09-12, the second half of D218.** `run_differential.sh` now prints `reference-model: acl2@<sha>`,
+but a record is written by hand from that output, so the line can be left out — which is how 44 records
+came to name no revision. `scripts/check_record_revision.py` refuses a `DIFFERENTIAL-*.md` or
+`REFERENCE-PIN-RUN-*.md` without the line, or with any revision but the pin.
+**The exemption is BOUNDS, not a default:** P0, P1 batches 1–21, P2 batches 1–22 — the records that
+predate the pin. A new batch record cannot fall into it, an exempt record that vanishes is a finding (the
+list cannot rot), and an exempt record that does carry a line is still checked.
+```
+  control   real tree CLEAN (1 record names acl2@c8897a34, 44 exempt); the rule has a live subject
+  PLANT     new batch record without the line  · at another revision  · a short/malformed line
+            an exempt record removed  · an exempt record carrying a wrong line  · no records at all
+            -> each refused, naming the record
+```
+⚠️ **LOCAL-ONLY FOR NOW, and declared in `preflight.sh`:** wiring it into `ci.yml` moves CI-3's content
+digest and buys a full CI run; it rides with the next change that pays for one (with D213's three
+`.lean` comment corrections, which have the same cost).
