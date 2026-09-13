@@ -67,7 +67,7 @@ unbounded loop. Other formal x86-64 models exist beyond the three we compare aga
 libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
 synthesized from a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
 read.
-\src{docs/CLAIMS.tsv[k\_mnemonics, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
+\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 Its decoding is trusted to Intel XED, and its validation is against one executable model.
 
 What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
@@ -119,7 +119,7 @@ The tier is \emph{exact} when every architected bit of the result and the flags 
 \emph{frame} when the set of changed state components is exact but some bits come from the oracle
 because the manual leaves them undefined, and \emph{absent} when the model refuses. Of 158 mnemonics,
 132 are exact, 26 are frame, and 0 are absent. The tier names are this project's coinage.
-\src{X86/Coverage.lean inductive Tier; docs/COVERAGE.md:13; docs/CLAIMS.tsv[tier\_exact, tier\_frame,
+\src{X86/Coverage.lean inductive Tier; docs/COVERAGE.md:13; docs/CLAIMS.tsv[coverage\_mnemonics, tier\_exact, tier\_frame,
 tier\_absent]}
 
 \paragraph{Trust.}
@@ -516,7 +516,9 @@ figures count both rows and distinct forms.
 The published figures are 158 mnemonics in 1{,}012 differentially tested forms, covering 500 of the 525
 roster rows, which are 351 of the 374 distinct machine forms those rows describe; CI fails if the prose
 that states them disagrees with the derivation.
-\src{docs/COVERAGE.md:5 and README.md:56-57, checked by scripts/claimed\_forms.py --check in CI}
+\src{docs/COVERAGE.md:5 and README.md:56-57, checked against the derivation by scripts/claimed\_forms.py --check in CI;
+this paper's copy is checked against docs/CLAIMS.tsv[coverage\_mnemonics, coverage\_forms, coverage\_rows\_covered,
+coverage\_rows\_total, coverage\_forms\_covered, coverage\_forms\_distinct], which read COVERAGE.md at the pin (D231)}
 Numbers outside the coverage table are entered in a manifest with the command that re-derives each
 and the commit it is published at; CI runs every command and fails on a difference. The manifest is
 not yet complete, and it records which claims it holds rather than implying the rest. The commit is pinned
@@ -658,8 +660,8 @@ tests the translation rather than supplying a third semantics.
 Against these, x86lean covers 158 mnemonics where K's target lists 774; x86isa's figure is stated in
 opcodes, a different unit, and Sail's model publishes no count. Its proof support, seven memory-safety
 theorems over four routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
-\src{docs/CLAIMS.tsv[k\_mnemonics]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; 158 is gated by
-scripts/claimed\_forms.py; docs/DECISIONS.md D220}
+\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
+158 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
 means. libLISA discovers instructions and synthesizes their semantics by executing them on a CPU,
 producing ``the most extensive formal x86-64 model to date, with over 118 000 different instruction

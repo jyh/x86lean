@@ -102,6 +102,12 @@ tier_exact	132	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' 
 tier_frame	26	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-frame [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
 tier_absent	0	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-absent [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
 decode_xed_rows	158	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -c '| XED (trusted) |'	paper/x86lean-semantics.tex §2
+coverage_mnemonics	158	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Roster: ' | grep -oE '^Roster: [0-9]+ mnemonics' | grep -oE '[0-9]+'	paper/x86lean-semantics.tex §1, §2, §5 and §7 (the coverage table's roster line)
+coverage_forms	1012	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Roster: ' | grep -oE ' in [0-9]+ differentially tested forms' | grep -oE '[0-9]+'	paper/x86lean-semantics.tex §5 (forms in the coverage table; NOT diff_vectors, which is the differential record's count)
+coverage_rows_covered	500	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Roster: ' | grep -oE '[*][*][0-9]+ of the [0-9]+ rows[*][*]' | grep -oE '[0-9]+' | sed -n 1p	paper/x86lean-semantics.tex §5
+coverage_rows_total	525	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Roster: ' | grep -oE '[*][*][0-9]+ of the [0-9]+ rows[*][*]' | grep -oE '[0-9]+' | sed -n 2p	paper/x86lean-semantics.tex §5
+coverage_forms_covered	351	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Roster: ' | grep -oE '[*][*][0-9]+ of the [0-9]+ distinct machine forms[*][*]' | grep -oE '[0-9]+' | sed -n 1p	paper/x86lean-semantics.tex §5
+coverage_forms_distinct	374	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Roster: ' | grep -oE '[*][*][0-9]+ of the [0-9]+ distinct machine forms[*][*]' | grep -oE '[0-9]+' | sed -n 2p	paper/x86lean-semantics.tex §5
 proof_lines_countdown	14	d7dbd58	python3 scripts/proof_lines.py countdown_writes_no_memory --sha "$SHA"	paper/x86lean-semantics.tex §6 (frame tier)
 proof_lines_scan	14	d7dbd58	python3 scripts/proof_lines.py scan_writes_no_memory --sha "$SHA"	paper/x86lean-semantics.tex §6 (frame tier)
 proof_lines_prologue	34	d7dbd58	python3 scripts/proof_lines.py prologue_preserves_caller_frame --sha "$SHA"	paper/x86lean-semantics.tex §6 (labelled tier, 2 labels)

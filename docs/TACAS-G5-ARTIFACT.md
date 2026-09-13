@@ -8,8 +8,9 @@ is not the artifact.**
 ⚖️ **THE CALL WAS READ AT ITS SOURCE THE SAME DAY — `TACAS-PRICING.md` §3a.** Artifact evaluation is
 VOLUNTARY for research and case-study papers and due **2027-01-11**, after notification: **G5 is not on
 the Oct-15 path.** The submission needs a mandatory data availability statement. ⛔ **STILL NOT READ:** the
-AE committee's own page — VM or container form, size and time limits, badge criteria. Choices depending
-on it stay marked `[CALL]`.
+AE committee's own page — VM or container form, size and time limits — **because it is not yet published**
+(404 on 2026-09-13, §4 item 1). The BADGE CRITERIA are published and read (§4 item 1). Choices depending
+on the unpublished page stay marked `[CALL]`.
 
 ---
 
@@ -66,7 +67,7 @@ are still owed.**
   §3 undefined behaviour      R2   (the refusal theorem, the derivation code) + R4 for "confirmed by the run"
   §4.1 harness figures        R1 reads the published record; REPRODUCING the record is R4
   §4.3 the ceiling            R1 reads the roster; reproducing the refuse/execute split is R4 (oracle_availability.py)
-  §5 coverage figures         R3
+  §5 coverage figures         R3 derives them; R1 checks the paper's copies against COVERAGE.md at the pin (D231)
 ```
 ⇒ **R1 is nearly free and already exists. R4 is the expensive tier: 12 m 43 s of setup and a 10 m 33 s run, cold, on
 the development box (§1's pin is in place since D218; *this read "the one §1 currently makes unreproducible" until 2026-09-13*).** `[CALL]` decides whether R4 must run inside the evaluation budget or may be shipped as
@@ -75,7 +76,7 @@ recorded logs with a reduced re-run.
 ---
 
 ## 3. WHAT IS ALREADY IN PLACE
-- `docs/CLAIMS.tsv` + `check_claims.py`: 49 rows at 2026-09-13 (39 at 2026-09-12), each with its command, and the paper
+- `docs/CLAIMS.tsv` + `check_claims.py`: 75 rows at 2026-09-13 later (69 after item 4, 49 earlier that day, 39 at 2026-09-12), each with its command, and the paper
   gated against the rows it cites (D216). **The spine of "reproduce every claim" exists.**
 - `lean-toolchain` and `lake-manifest.json` pin the Lean side.
 - `scripts/setup_oracle.sh`: an idempotent recipe for R4, **pinned since D218** and run cold end to end on 2026-09-13 (§2). *(This read "unpinned (§1)" until that day.)*
@@ -129,6 +130,10 @@ recorded logs with a reduced re-run.
         declared in the paper's own marker); Armstrong's 24 of 15,400 (cited to the paper PDF directly).
         Inventory method: every digit run in the printed prose, by segment — 124, of which 75 sat in
         segments citing no row, most of them `x86-64` and `Lean 4`.
+     ✅ 2026-09-13 (D231): +6 rows (69 → 75) for the COVERAGE figures, which the paper said CI checked and no gate
+        read in the paper (planted 1,012 → 1,021: rc 0 before, rc 1 after). Re-inventoried: 32 uncited digit runs
+        remain, every one in the declared set above or a technical constant (66 prefix, low 64 bits, bit 127).
+        ⚠️ digit runs only — numbers spelled in words are outside the inventory.
   5  the container or VM, per [CALL]     ⛔ still [CALL]: the 2027 AE guidelines are unpublished (item 1)
   6  a DOI for the artifact (the "Available" criterion, item 1): an archival deposit of the submission commit —
      Zenodo is ETAPS's stated recommendation — and its DOI in the Data Availability statement beside the GitHub

@@ -15132,3 +15132,41 @@ survives it.
 has two, both conforming) and a shell `mktemp` behind a variable.
 ⇒ 🔑 ***A CONVENTION GATE WHOSE MATCHER IS THE CONFORMING SPELLING CAN ONLY EVER FIND CONFORMING CALLS*** — the violation
 is not a failing row, it is an absent one, and "all N conform" is true of the N it could read.
+
+## D231 — the paper said CI checks its coverage figures, and CI checked two OTHER copies of them: the paper's own sentence was the ungated one
+
+⚖️ **2026-09-13, G7 revision pass (the manifest-citation half).** §5 of `paper/x86lean-semantics.tex` reads: *"The
+published figures are 158 mnemonics in 1,012 differentially tested forms, covering 500 of the 525 roster rows, which are
+351 of the 374 distinct machine forms those rows describe; CI fails if the prose that states them disagrees with the
+derivation."* Its marker named `docs/COVERAGE.md:5` and `README.md:56-57`, "checked by `claimed_forms.py --check` in CI".
+**Both halves were true of the files the marker names and false of the sentence carrying the marker:** `claimed_forms.py`
+reads COVERAGE.md and README.md and never the paper, and `check_claims.py`'s prose arm checks only values the paper
+cites from `CLAIMS.tsv` — which none of the six were. The same 158 stood uncited in §1 and §7 (§7's marker: *"158 is
+gated by scripts/claimed_forms.py"*).
+```
+  PLANT (before)   paper §5 1,012 -> 1,021     check_claims rc 0 ("CLEAN — 69")   claimed_forms --check rc 0
+  CONTROL          paper §6 34 -> 43 (a CITED value)                 check_claims rc 1
+```
+⇒ 🔑 ***A SENTENCE THAT SAYS "CI CHECKS THIS" IS ITSELF A COPY OF THE THING CHECKED, AND THE GATE IT CITES READS THE
+OTHER COPIES.*** [[feedback-a-citation-is-an-ungated-claim]]
+
+**What changed.** Six rows — `coverage_mnemonics` 158 · `coverage_forms` 1012 · `coverage_rows_covered` 500 ·
+`coverage_rows_total` 525 · `coverage_forms_covered` 351 · `coverage_forms_distinct` 374 — each reading COVERAGE.md's
+`Roster:` line at `d7dbd58`, the pin the tier rows already use (values identical at the pin and at HEAD; COVERAGE.md
+unchanged between them). COVERAGE.md at a sha is itself gated against the derivation by `claimed_forms.py --check` in that
+sha's CI, so the chain is paper = row = COVERAGE.md@pin = derivation. Cited in the §1, §2, §5 and §7 markers; §5's and
+§7's markers now say which copy each gate reads. ⚠️ `coverage_forms` is NOT `diff_vectors`: both are 1012, and one counts
+the coverage table's forms while the other counts the differential record's vectors — a join on the value would have
+cited the wrong claim [[feedback-a-join-on-a-lossy-key]].
+```
+  PLANTS (after)   §5 1,012->1,021 · §1 158->185 · §7 158->159 · §5 351->315 · §2 158->157    each rc 1, one finding
+  DECLARED LIMIT   §5 "500 of the 525" -> "525 of the 500"                                   rc 0
+                   the prose arm checks each value is PRESENT in its span, not its position or role; a swap passes
+  manifest         75 rows (69 + 6), check_claims CLEAN; --selftest arms=15 red=0
+```
+**The residue, inventoried rather than asserted** (every digit run in the printed prose not equal to a value its span
+cites): **32**, and every one is either in G5 item 4's declared-uncited set — the four re-check samples and §6's label
+counts and per-label fit (16), D52's 82/16/35 (3), libLISA's "118 000" (2), Armstrong's 24 of 15,400 (2) — or a
+technical constant that is not a measurement: a column width, the SDM's "is 0", "16-bit", the 66 prefix, the low/upper 64
+bits, bit 127 (9). ⇒ **No uncited MEASUREMENT remains in the paper outside the declared set.** ⚠️ The inventory reads digit
+runs only: a number spelled in words ("seven memory-safety theorems", "four routines") is outside it, stated.
