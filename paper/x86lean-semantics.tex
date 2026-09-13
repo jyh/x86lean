@@ -587,8 +587,8 @@ wrapping; counted by scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_coun
 A property that depends on position, such as ``every store lands inside the destination buffer'', needs
 an invariant indexed by label. Across four routines with 2, 4, 5 and 7 labels, the proofs are 34, 50, 57
 and 76 lines, consistent with about 19 lines plus 7.5 to 8.1 per label, or about 173 lines at twenty
-labels.
-\src{docs/TACAS-PRICING.md 1, the P2 proof interface block; docs/P2-PROOF-INTERFACE.md; counted by
+labels; the per-label constant was highest on the routine with the most labels, so that figure is more likely low than high.
+\src{docs/TACAS-PRICING.md 1, the P2 proof interface block; docs/P2-PROOF-INTERFACE.md, the four-routine fit and its note that the constant rises with label count; counted by
 scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_prologue, proof\_lines\_guarded, proof\_lines\_fill,
 proof\_lines\_memcpy]. The label counts 2, 4, 5, 7 and the per-label fit are not in the manifest.}
 Three successive rounds of interface work on the first of these routines brought its per-label cost
