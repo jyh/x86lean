@@ -29,6 +29,9 @@ specification**, and a model that treats "past the width" as a uniform undefined
 undefinedness the manual does not grant.
 
 ## 2. THE FOUR DESIGNS, MEASURED AT EACH PROJECT'S OWN SOURCE
+⛔ *A FIFTH, found 2026-09-12 (D220): the AFP Isabelle/HOL entry maps undefined flag effects to "universally
+quantified uninterpreted terms from a locale" — undefinedness as a PARAMETER, the design closest to ours.
+"Four" counted the columns of G1's table, never the designs that exist.*
 *(`TACAS-G1-POSITIONING.md` §1c.6 and §1c.10; every cell read at the source, not inferred.)*
 ```
   x86lean   a CONCRETE value drawn from an ORACLE in the state

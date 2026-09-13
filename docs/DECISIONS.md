@@ -14652,3 +14652,9 @@ place. **Owed:** whether the Roessle model is public, and a search for other x86
 paper says anything about the population.
 ⇒ 🔑 ***A COMPARISON TABLE'S COLUMNS ARE A CLAIM ABOUT A POPULATION, AND "THIRD OF THREE" IS ONLY AS TRUE AS
 THE THREE.***
+⛔ **AND THE SAME HOUR, ONE SEARCH LATER: A FIFTH UNDEFINED-BIT DESIGN, PUBLIC, AND THE CLOSEST TO OURS.** The
+AFP entry *X86 instruction semantics and basic block symbolic execution* (2021, BSD) maps undefined flag
+effects to *"universally quantified uninterpreted terms from a locale"* — undefinedness as a parameter. The
+G2 section had called the four designs in its table "the public x86-64 semantics". **The paper now says
+plainly that undefinedness-as-a-parameter is not new with us**, and that the entry was read at its
+abstract only.

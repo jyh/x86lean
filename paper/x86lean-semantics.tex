@@ -174,7 +174,7 @@ flips CF on a SAR case at such a count was contradicted by the reference model.
 The three public x86-64 semantics whose sources we have read, x86isa~\cite{goel-x86isa,x86isa-repo},
 the K semantics~\cite{dasgupta-k-x86,k-x86-repo} and the Sail model translated from
 x86isa~\cite{sail-x86-repo}, together with x86lean, answer the question ``what is an undefined bit?'' in four different ways (Table~\ref{tab:undef}). Each
-row was read at the project's own source.
+row was read at the project's own source; a fifth design is noted below the table.
 \src{docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10}
 
 \begin{table}[t]
@@ -213,6 +213,12 @@ holding per-instruction semantics; register 161, memory 227, immediate 109, syst
 We make no claim about how K's or Sail's tools decide equality between two undefined values: we have
 read both models' sources on that question and have run neither.
 \src{docs/TACAS-G2-SECTION-DRAFT.md 5: measured at both sources, unrun against K}
+A fifth public model, an Isabelle/HOL semantics of roughly 120 x86-64 instructions in the Archive of
+Formal Proofs, is by its own description ``purposefully incomplete, but overapproximative'': where the
+effect of flags is undefined, it maps them ``to universally quantified uninterpreted terms from a
+locale''~\cite{afp-x86}. Undefinedness as a parameter is therefore not new with us; we have read that
+entry's abstract, not its theories, and do not compare the two designs in detail.
+\src{isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d; D220}
 
 x86lean's oracle is x86isa's seed discipline made concrete.
 \src{PROVENANCE.md, the x86isa row; docs/TACAS-G6-RELATED-WORK.md 4}
@@ -606,14 +612,16 @@ opcodes, a different unit, and Sail's model publishes no count. Its proof suppor
 theorems over four routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
 \src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; 158 is gated by
 scripts/claimed\_forms.py; docs/DECISIONS.md D220}
-Other formal x86-64 models exist outside this comparison. Roessle et al.\ build a machine model with
+Other formal x86-64 models exist outside this comparison. A public Isabelle/HOL entry in the Archive of
+Formal Proofs gives over-approximative semantics for roughly 120 x86-64 assembly instructions, with
+symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ build a machine model with
 small-step semantics for 1{,}625 instructions, leveraging machine-learned semantics, and generate
 equivalence proofs between decompiled machine code and big-step semantics~\cite{roessle-bigstep};
 Verbeek et al.\ lift stripped binaries to a provably over-approximative representation exportable to
 Isabelle/HOL~\cite{verbeek-lifting}. We have read their abstracts, not their artifacts, and do not
 position x86lean against them.
 \src{abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
-read 2026-09-12; docs/DECISIONS.md D220}
+and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220}
 What it adds is the subject of Sections~\ref{sec:model}--\ref{sec:gated}: decoding bytes through a
 named trusted decoder, an undefined-bit design whose limits are stated as theorems, and coverage and
 validation claims that are derived and checked rather than written.
