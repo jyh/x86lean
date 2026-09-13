@@ -85,7 +85,7 @@ usage:
                         [--kernel docs/kernel-delta-history-….jsonl]
   deterministic_cost.py --selftest
 """
-import os, re, sys, json, time, shutil, tempfile, subprocess, statistics, platform
+import os, re, sys, glob, json, time, shutil, tempfile, subprocess, statistics, platform
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -295,9 +295,12 @@ def instrument(text, report=None):
             # reaches a DOC comment. A declaration preceded by ordinary line comments and
             # no doc comment keeps its previous insertion point, so this cannot silently
             # relocate any site that was already correct.
-            if prev.lstrip().startswith('--'):
+            # ⛔ AND BLANK LINES, the same way (D229): X86/Program.lean has a `/-- … -/`, an empty
+            # line, then its theorem, and the walk stopped at the empty line exactly as it once
+            # stopped at `--`. Same surgery: cross them ONLY when that reaches a doc comment.
+            if prev.lstrip().startswith('--') or prev.strip() == '':
                 c = j - 1
-                while c >= 0 and lines[c].lstrip().startswith('--'):
+                while c >= 0 and (lines[c].lstrip().startswith('--') or lines[c].strip() == ''):
                     c -= 1
                 if c >= 0 and lines[c].rstrip().endswith('-/'):
                     k = c
@@ -319,9 +322,11 @@ def instrument(text, report=None):
             out.append(f'hb_count "{ins[i]}" in')
         out.append(ln)
     imports = [i for i, l in enumerate(out) if l.startswith("import ")]
-    if not imports:
-        raise SystemExit("⛔ the module has no `import` line to splice the header after")
-    out.insert(max(imports) + 1, HB_HEADER)
+    # ⛔ A MODULE WITH NO IMPORT WAS REFUSED, AND THAT MADE TWO OF NINETEEN UNMEASURABLE (D229):
+    # X86/Basic.lean and Tests/VectorRuns.lean. The header carries `import Lean`, and an `import`
+    # may only be preceded by comments — so with no import line the TOP is the one legal place,
+    # not a guess. Every module is therefore read under `import Lean`, these two included.
+    out.insert(max(imports) + 1 if imports else 0, HB_HEADER)
     return "\n".join(out), [n for _s, n in sites]
 
 
@@ -436,8 +441,19 @@ def measure(worktree, module):
         r = subprocess.run(["lake", "env", "lean", "--json", tmp],
                            cwd=worktree, stdout=fh, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
+        # ⛔ SAY WHAT IT SAW (filed in D189, repaired in D229). `lean --json` writes its
+        # diagnostics to STDOUT — into `jsn` — so printing stderr alone printed NOTHING for the
+        # commonest failure, and the 2026-09-13 X86.Program refusal read as a bare rc 1.
+        saw = []
+        for ln in open(jsn, encoding="utf-8", errors="replace"):
+            try:
+                m = json.loads(ln)
+            except json.JSONDecodeError:
+                continue
+            if m.get("severity") == "error":
+                saw.append(f"{m.get('pos')}: {m.get('data', '')[:200]}")
         raise SystemExit(f"⛔ the instrumented elaboration failed (rc {r.returncode}):\n"
-                         f"{r.stderr[-2000:]}\n(kept: {tmp}, {jsn})")
+                         + "\n".join(saw[:5]) + f"\n{r.stderr[-2000:]}\n(kept: {tmp}, {jsn})")
     hb, ku, orph = read_messages(jsn, names)
     os.remove(tmp); os.remove(jsn)
     return {"hb": hb, "ku": ku, "orphans": orph}, None
@@ -903,6 +919,28 @@ def selftest():
         arm("CONTROL — the real file actually produced wrappers, so the arm above is not "
             "passing on an empty set",
             len(rnames) > 50, len(rnames))
+        # ⛔⛔ THE SAME ARM OVER EVERY MODULE, NOT THE ONE THE TOOL WAS BUILT FOR (D229).
+        # The arm above read one file because the walk had only ever measured one module. On
+        # 2026-09-13 the first walk of the others refused on two of eight: X86.Program (a BLANK
+        # line between a doc comment and its theorem — this arm's own `_orphans` already skips
+        # blank lines, and was never pointed at a file that had one) and X86.Basic (no `import`
+        # line at all). ⇒ 🔑 **A TREE ARM SCOPED TO ONE FILE IS A FIXTURE WITH A REAL NAME.**
+        mods = sorted(glob.glob(os.path.join(ROOT, "X86", "*.lean"))
+                      + glob.glob(os.path.join(ROOT, "Tests", "*.lean"))
+                      + glob.glob(os.path.join(ROOT, "X86Native.lean")))
+        bad = []
+        for f in mods:
+            rel = os.path.relpath(f, ROOT)
+            try:
+                ft, _fn = instrument(open(f, encoding="utf-8").read())
+            except SystemExit as e:
+                bad.append(f"{rel}: refused: {str(e)[:80]}")
+                continue
+            o = _orphans(ft.split("\n"))
+            if o:
+                bad.append(f"{rel}: orphans a doc comment at instrumented line(s) {o[:3]}")
+        arm(f"THE TREE, EVERY MODULE: {len(mods)} .lean files instrument without a refusal "
+            f"or an orphaned doc comment", mods and not bad, bad[:6])
     else:
         arm("THE TREE: Tests/Coverage.lean is present to instrument", False, real)
 
@@ -930,11 +968,22 @@ def selftest():
 
     # ⛔ A NEGATIVE ARM: a file with no import must be REFUSED, not silently
     # emitted without the header (which would elaborate and report nothing).
-    try:
-        instrument("theorem g : True := trivial\n")
-        arm("a module with no import is refused", False, "it was accepted")
-    except SystemExit:
-        arm("a module with no import is refused", True)
+    # ⛔ THIS ARM USED TO ASSERT A REFUSAL (D229) — see `instrument`: the top is the only legal place.
+    t, names = instrument("/- a plain comment -/\ntheorem g : True := trivial\n")
+    arm("a module with no import gets the header at its TOP, before any comment or command",
+        t.split("\n")[0] == "import Lean" and names == ["g"], t.split("\n")[:2])
+
+    # ⛔ THE BLANK-LINE SIBLING of the `--` defect (D229), in X86/Program.lean's real shape.
+    t, names = instrument("import X86\n/-- doc -/\n\ntheorem bl : True := trivial\n")
+    ls = t.split("\n")
+    i = ls.index('hb_count "bl" in')
+    arm("the wrapper steps over a BLANK line to precede the DOC COMMENT (X86/Program.lean)",
+        ls[i + 1] == "/-- doc -/", ls[i:i + 4])
+    t, names = instrument("import X86\ndef z := 1\n\ntheorem nb : True := trivial\n")
+    ls = t.split("\n")
+    i = ls.index('hb_count "nb" in')
+    arm("CONTROL — a blank line with NO doc comment above does not move the site",
+        ls[i + 1].startswith("theorem nb"), ls[i:i + 3])
 
     # ⛔ AND THE JOIN'S OWN REFUSAL: a name the rewriter wrapped that never
     # reports must be a REFUSAL, not a shorter table.
