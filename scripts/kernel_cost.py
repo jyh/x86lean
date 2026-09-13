@@ -940,6 +940,15 @@ _CEIL_LINE = re.compile(
     r"(?:\s+" + re.escape("@on") + r"\s+\S+)?\s*$")
 
 
+def _fake_lean_link(d):
+    """A process that LOOKS like a Lean build for as long as it lives: a symlink named
+    `lean` to the platform `sleep` (D227). Run it as `[path, "40"]`."""
+    import shutil as _shl
+    fk = os.path.join(d, "lean")
+    os.symlink(_shl.which("sleep") or "/bin/sleep", fk)
+    return fk
+
+
 def generous_ceilings(text, factor=100):
     """The selftest control's probe file (D227): one machine-less line per ceiling key, at
     `factor` times the largest value any line gives that key. Comments are dropped; a data
@@ -1168,7 +1177,6 @@ def conditions_selftest():
     # [[feedback-a-control-can-share-the-blind-spot]]
     import tempfile, shutil as _sh
     d = tempfile.mkdtemp(prefix="x86lean-fake-lean-")
-    fake = os.path.join(d, "lean")
     seen_out = seen_in = None
     try:
         # ⛔ NOT a copy of /bin/sleep: macOS kills a copied PLATFORM BINARY on
@@ -1183,10 +1191,16 @@ def conditions_selftest():
         # arm that used it — caught by the post-flight probe D156 added,
         # in the two arms that PREDATE it. Measured: sh 54864 -> child
         # 55138; kill 54864 and 55138 survives with ppid 1.
-        open(fake, "w").write("#!/bin/sh\nexec sleep 40\n")
-        os.chmod(fake, 0o755)
+        # ⛔⛔ D227 (2026-09-13): AND `exec` ERASED THE NAME THE PROBE LOOKS FOR. After the exec
+        # `ps` reports `sleep 40`, which `foreign_builds`'s `(lean|lake)` pattern cannot match —
+        # measured on this box, fixture alive: `in foreign_builds: False`. The arm passed on
+        # macOS only when a poll caught bash 3.2 BEFORE its exec, as `/bin/sh …/lean`; on the
+        # CI runner dash execs faster than the first `ps`, and the arm and its control went red.
+        # ⇒ A SYMLINK to `sleep`: exec runs the SIGNED binary (a copy is killed, above), argv[0]
+        # stays `…/lean` for the whole life of the process, and there is one process to kill.
+        fake = _fake_lean_link(d)
         for label, cwd_ in (("out", d), ("in", root)):
-            pr = subprocess.Popen([fake], cwd=cwd_,
+            pr = subprocess.Popen([fake, "40"], cwd=cwd_,
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
                 hit = False
@@ -1222,13 +1236,10 @@ def conditions_selftest():
     # POSITIVE CONTROL that a genuinely foreign tree is still counted — without
     # it, "nothing is foreign" would pass by the filter having stopped looking.
     def _fake_lean_in(d):
-        fk = os.path.join(d, "lean")
-        # ⛔ `exec` — see the note on the other fixture: without it, killing
-        # this process leaves a ppid-1 `sleep` behind for 40 seconds.
-        open(fk, "w").write("#!/bin/sh\nexec sleep 40\n")
-        os.chmod(fk, 0o755)
-        return subprocess.Popen([fk], cwd=d, stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL)
+        # D227: a symlink to `sleep`, for the reason on the other fixture — a
+        # shell that execs loses the `lean` name the probe matches.
+        return subprocess.Popen([_fake_lean_link(d), "40"], cwd=d,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def _is_foreign(pid, tries=25):
         for _ in range(tries):
@@ -1404,8 +1415,13 @@ def conditions_selftest():
     # ⚠️ ARM 3g — the post-flight probe's own HELD-OUT control: with no orphan of
     # mine alive it must return 0 and say so. A checker that reported trouble
     # unconditionally would pass every arm above.
-    rc_clean, _ = post_flight()
+    rc_clean, _pf_lines = post_flight()
     if not _base_wt:
+        # ⛔ D227: this arm went red on the CI runner and printed nothing else, so the
+        # reading that failed was unrecoverable. A gate that refuses must say what it saw.
+        if rc_clean not in (0, 2):
+            for _l in _pf_lines:
+                print("     " + _l)
         out.append((rc_clean in (0, 2),
                     "the post-flight probe returns 0 (or 2 if it could not look) when "
                     "nothing of mine is left detached — the caller's own pid included, "

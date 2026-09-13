@@ -14916,3 +14916,19 @@ no script consumes the rc. Pattern run with `git grep -E` and its planted contro
 readings into `kernel_delta.py` and left two callers asserting the old verdict, one of them a selftest's control.
 ⇒ 🔑 ***AND A RIGHT CHOICE CARRIES ITS PREMISE INTO THE RECORD UNCHECKED*** — the skip was defensible and its stated
 reason was the defect.
+
+### 4. ⛔ The first Linux run: 3 of 30 red, and two of them were a race macOS had been winning
+Branch `716eccb`'s `kernel-cost-selftest` on the runner failed three arms that pass here: the contention stamp's OUT
+arm, its foreign-tree control, and the post-flight zero control.
+- **The two contention arms planted `#!/bin/sh` + `exec sleep 40` named `lean`**, and `foreign_builds` matches
+  `(lean|lake)` in `ps` args. After the exec the process reads `sleep 40`. Measured on this box with the fixture
+  alive: `in foreign_builds: False`. The arms passed on macOS only when a poll caught bash 3.2 BEFORE its exec, as
+  `/bin/sh …/lean`; dash on the runner execs before the first `ps`. **Fixture:** a SYMLINK named `lean` to `sleep`.
+  exec runs the signed binary (a copy is killed on macOS, the arm's own history), argv[0] stays `…/lean` for the
+  process's life, and there is one process to kill. Driven in-process: 0 of 24 conditions arms red, no fixture left
+  running. **Planted:** `foreign_builds` stubbed to see nothing reds exactly those two arms.
+- **The post-flight zero control** could be taken on the runner (no extra worktree there, unlike this box, where the
+  weaker scoped form runs) and returned non-zero, printing nothing else. It now prints `post_flight`'s own lines
+  when it fails. The next runner log is the diagnosis; it is not guessed here.
+⇒ 🔑 ***A FIXTURE THAT PASSES BY WINNING A RACE IS INDISTINGUISHABLE FROM ONE THAT WORKS, ON THE MACHINE WHERE IT
+WINS.*** Moving the suite to a second platform was the only test of that, which is PORT-2's case in one arm.
