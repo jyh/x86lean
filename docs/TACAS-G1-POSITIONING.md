@@ -116,6 +116,14 @@ divergence, is itself wrong on 18–28 variants per machine by a hardware-origin
 of our cited K rules are among them: **the results text names none of them** (0 hits for PSLL/PSRL/PSRA
 and for MOVD/MOVQ; control LOOPNE found once) — but it does not LIST the 18–28 either, so this is not a
 clearance. The per-variant list, if published, is in libLISA's Zenodo reproduction package: UNREAD.
+📌 **THE ROUTE, MEASURED SO IT IS NOT REDISCOVERED:** Zenodo record 13380062 (AGPL-3.0-or-later) holds
+`artifact-evaluation.7z` (**1.89 GB**, a Docker container) and a 1.2 MB guide. The guide (read): the
+comparison binary is `liblisa-dasgupta-compare` (step 1 `extract-dasgupta /dasgupta-x86-64-semantics`),
+K's semantics are pre-cloned at `/dasgupta-x86-64-semantics` in the container, and the comparison's
+intermediate results are pre-stored at the paths its commands use. ⇒ the check is: open the container,
+read the stored comparison output for the variants named in `Main.lean knownDivergences`' K sources
+(movd/movq to xmm, the eight packed shifts), and note which K revision libLISA compared against
+(ours: `vendor/k-x86-64` @ 592380a).
 The paper's §4.2 now says the arbiter is fallible.
 📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
 Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
