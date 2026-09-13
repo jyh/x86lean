@@ -330,9 +330,60 @@ not a benchmark (docs/TACAS-PRICING.md 2.1, G4).}
 % ---------------------------------------------------------------------------------------------
 \section{Related Work}
 \label{sec:related}
-\placeholder{From docs/TACAS-G6-RELATED-WORK.md. The x86 comparators answer ``why another x86
-semantics''; LNSym answers ``why these techniques'' and is cited as precedent where the method is
-discussed.}
+% Register: docs/TACAS-G1-POSITIONING.md (the table and 1b, 1c), docs/TACAS-G6-RELATED-WORK.md (1, 4, 5,
+% 6), docs/DECISIONS.md D201 D214. Every bibliography record fetched by DOI (D214).
+
+\paragraph{x86-64 semantics.}
+Two public x86-64 semantics are independent of each other, and a third is derived from one of them.
+ACL2 x86isa~\cite{goel-x86isa,x86isa-repo} specifies ``400+ opcodes executing in Intel's 64-bit mode of
+operation'' and runs ``co-simulations against an actual x86 processor for model validation''.
+\src{docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225}
+Its proof development is far stronger than ours: eight verified program families carry 559 theorem
+forms over a separate proof library, and one of them proves full functional correctness and freedom
+from faults for a copy loop of unbounded length.
+\src{docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
+603 forms of the utilities library}
+The K semantics~\cite{dasgupta-k-x86,k-x86-repo} covers ``3155 instruction variants, corresponding to
+774 mnemonics'', and ``is fully executable and has been tested against more than 7,000
+instruction-level test cases and the GCC torture test suite''; its prover establishes functional
+post-conditions with loop invariants for ten programs.
+\src{docs/TACAS-G1-POSITIONING.md 1b verbatim from K's README; 1c.4 for the kprove specifications}
+K executes assembly source rather than machine code: its loader parses assembler directives, and its
+opcodes are mnemonics.
+\src{docs/TACAS-G1-POSITIONING.md 1c.8}
+The Sail x86 model~\cite{sail-x86-repo} is translated automatically from x86isa, carries none of its
+theorems, and is validated by co-simulation against K's single-instruction tests, so agreement with it
+tests the translation rather than supplying a third semantics.
+\src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
+Against these, x86lean is the smallest by instruction count, at 158 mnemonics, and the weakest in proof
+support, with seven memory-safety theorems over four routines.
+\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows; 158 is gated by
+scripts/claimed\_forms.py}
+What it adds is the subject of Sections~\ref{sec:model}--\ref{sec:gated}: decoding bytes through a
+named trusted decoder, an undefined-bit design whose limits are stated as theorems, and coverage and
+validation claims that are derived and checked rather than written.
+
+\paragraph{Techniques.}
+Most of x86lean's techniques have public precedents, and we cite them where they originate. A total step function over
+one machine state is the shape of all three models above. The closest precedent in Lean~4 is
+LNSym~\cite{lnsym-repo}, a model of an Arm instruction set with co-simulation conformance testing and a
+benchmarks target. It models a different instruction set, so we cite it for the method and do not
+compare coverage with it.
+\src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6}
+Validation by differential testing against executable models and hardware is established practice:
+K was tested against more than 7{,}000 instruction-level cases~\cite{dasgupta-k-x86}, x86isa is
+co-simulated against a processor~\cite{goel-x86isa}, and stratified synthesis learned the x86-64
+instruction set automatically~\cite{heule-stratified}.
+\src{docs/TACAS-G6-RELATED-WORK.md 4, the differential and co-simulation rows}
+Using XED as a trusted decoder is not a clean contrast with x86isa either: 186 of the 3{,}192 entries in
+x86isa's opcode maps were generated from XED's data files.
+\src{docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}
+\placeholder{Characterization theorems with frame predicates (Myreen et al., FMCAD 2012 -- the record
+is OWED, docs/TACAS-G6-RELATED-WORK.md 5, and may not be cited until it is fetched); over-approximative
+semantics lifted from binaries (Roessle et al., CPP 2019; Verbeek et al., PLDI 2022 -- read beyond the
+over-approximation claim is NOT DONE, G6 6); the frame discipline in seL4 and AutoCorres; hardware
+validation of the Sail models of other architectures (Armstrong et al., POPL 2019 -- its record is fetched,
+the claim is not re-driven). Each sentence waits on its read.}
 
 % ---------------------------------------------------------------------------------------------
 \section{Limitations and Conclusion}

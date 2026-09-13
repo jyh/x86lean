@@ -14471,6 +14471,26 @@ than a bibliography one:** which Goel work the paper should cite for x86isa's de
 has no DOI in this record, and the arXiv note may not be what a referee expects.
 **The paper's `.bib` is re-fetched per entry by DOI before submission; no row is copied from G6.**
 
+### ⛔⛔ AND THEN EVERY ROW WAS FETCHED, AND IT IS THREE OF EIGHT, NOT ONE
+Fetching the remaining six the same hour, by the same command:
+```
+  row 2 Heule 2016       matches (pages 237-250 added)
+  row 3 Armstrong 2019   matches
+  row 4 CPP 2019         AUTHORS WRONG -- the record is Roessle, Verbeek, Ravindran; the row read
+                         "Verbeek, Bockenek, Ravindran", and Bockenek is not an author
+  row 5 Verbeek 2022     matches ("et al." = Bockenek, Fu, Ravindran)
+  row 6 Klein 2009       matches
+  row 7 Greenaway 2014   DOI IS THE REPRINT VENUE -- 10.1145/2666356.2594296 is SIGPLAN Notices 49(6);
+                         the PLDI '14 proceedings record is 10.1145/2594291.2594296, and it resolves
+  row 8 Goel             TITLE WRONG (above)
+```
+⇒ **3 of 8 rows in a table headed *"FETCHED FROM THE REGISTRAR, NOT RECALLED"* disagree with the record
+their own DOI returns** — and row 7 is the *exact* hazard §5 names two paragraphs later ("Heule 2016 has
+TWO DOIs … the proceedings DOI is the one recorded"), caught for Heule and walked into for Greenaway.
+⇒ 🔑 ***THE RATE IS THE SAME ONE-IN-THREE THIS CAMPAIGN MEASURED FOR AT-SOURCE CLAIMS (D201), ON A TABLE
+WRITTEN THE DAY AFTER THAT MEASUREMENT, BY THE HAND THAT MADE IT.*** Knowing the rate did not lower it;
+fetching every row did.
+
 ---
 
 ## D215 — opening `paper/` redded CI's drift gate, and my preflight could see neither the arm nor the job
@@ -14499,5 +14519,8 @@ and a run whose ANY job concluded `failure` refuses.
 ⇒ 🔑 ***A PREFLIGHT MODELLED ON ONE JOB INHERITS THAT JOB'S SCOPE.*** It was built the day master's
 `build` was red for three pushes, so it asks about `build` — which is exactly the job that did not fail
 this time.
+✅ **Driven against the real run, both versions, same minute:** `d7dbd58`'s own `preflight.sh` printed
+`kernel-delta=failure` and exited **0**; the repaired one printed the same list, then
+`⛔ A JOB IN THAT RUN IS RED: kernel-delta`, and exited **1**. The live red was the plant.
 ⚠️ **What this still does not cover:** a job that is red while `build` is still in progress is read
 from the PREVIOUS concluded run, so HEAD is reported UNVERIFIED rather than red until `build` ends.

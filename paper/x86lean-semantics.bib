@@ -5,7 +5,7 @@
 @manual{intel-sdm,
   title        = {Intel 64 and {IA}-32 Architectures Software Developer's Manual},
   organization = {Intel Corporation},
-  note         = {PDF version 092 as of 2026-08-19. OWED: the order number and full URL, read at intel.com}
+  note         = {{PDF} version 092 as of 2026-08-19. OWED: the order number and full URL, read at intel.com}
 }
 
 @misc{goel-x86isa,
@@ -25,7 +25,7 @@
 @inproceedings{dasgupta-k-x86,
   author    = {Dasgupta, Sandeep and Park, Daejun and Kasampalis, Theodoros and Adve, Vikram S. and Ro{\c{s}}u, Grigore},
   title     = {A Complete Formal Semantics of x86-64 User-Level Instruction Set Architecture},
-  booktitle = {PLDI},
+  booktitle = {Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI)},
   pages     = {1133--1148},
   year      = {2019},
   doi       = {10.1145/3314221.3314601}
@@ -39,4 +39,29 @@
 @misc{sail-x86-repo,
   title = {Sail x86 model, translated from the {ACL2} model},
   note  = {\url{https://github.com/rems-project/sail-x86-from-acl2}}
+}
+
+@misc{lnsym-repo,
+  title = {{LNSym}},
+  note  = {\url{https://github.com/leanprover/LNSym}}
+}
+
+@inproceedings{heule-stratified,
+  author    = {Heule, Stefan and Schkufza, Eric and Sharma, Rahul and Aiken, Alex},
+  title     = {Stratified Synthesis: Automatically Learning the x86-64 Instruction Set},
+  booktitle = {Proceedings of the 37th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI)},
+  pages     = {237--250},
+  year      = {2016},
+  doi       = {10.1145/2908080.2908121}
+}
+
+@article{armstrong-isa,
+  author  = {Armstrong, Alasdair and Bauereiss, Thomas and Campbell, Brian and Reid, Alastair and Gray, Kathryn E. and Norton, Robert M. and Mundkur, Prashanth and Wassell, Mark and French, Jon and Pulte, Christopher and Flur, Shaked and Stark, Ian and Krishnaswami, Neel and Sewell, Peter},
+  title   = {{ISA} Semantics for {ARMv8-A}, {RISC-V}, and {CHERI-MIPS}},
+  journal = {Proceedings of the ACM on Programming Languages},
+  volume  = {3},
+  number  = {POPL},
+  pages   = {1--31},
+  year    = {2019},
+  doi     = {10.1145/3290384}
 }

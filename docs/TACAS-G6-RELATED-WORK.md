@@ -111,10 +111,10 @@ canonical BibTeX.** Both are primary. **Nothing here is written from memory.**
 | 1 | Dasgupta, Park, Kasampalis, Adve, Roşu. *A complete formal semantics of x86-64 user-level instruction set architecture.* PLDI 2019, pp. 1133–1148 | `10.1145/3314221.3314601` |
 | 2 | Heule, Schkufza, Sharma, Aiken. *Stratified synthesis: automatically learning the x86-64 instruction set.* PLDI 2016 | `10.1145/2908080.2908121` |
 | 3 | Armstrong et al. *ISA semantics for ARMv8-A, RISC-V, and CHERI-MIPS.* POPL 2019 (PACMPL 3), pp. 1–31 | `10.1145/3290384` |
-| 4 | Verbeek, Bockenek, Ravindran. *Formally verified big step semantics out of x86-64 binaries.* CPP 2019, pp. 181–195 | `10.1145/3293880.3294102` |
+| 4 | **Roessle, Verbeek, Ravindran.** *Formally verified big step semantics out of x86-64 binaries.* CPP 2019, pp. 181–195 — ⛔ *read "Verbeek, Bockenek, Ravindran" until 2026-09-12 (D214); Bockenek is not an author* | `10.1145/3293880.3294102` |
 | 5 | Verbeek, Bockenek et al. *Formally verified lifting of C-compiled x86-64 binaries.* PLDI 2022 | `10.1145/3519939.3523702` |
 | 6 | Klein et al. *seL4: formal verification of an OS kernel.* SOSP 2009 | `10.1145/1629575.1629596` |
-| 7 | Greenaway, Lim, Andronick, Klein. *Don't sweat the small stuff: formal verification of C code without the pain.* PLDI 2014, pp. 429–439 | `10.1145/2666356.2594296` |
+| 7 | Greenaway, Lim, Andronick, Klein. *Don't sweat the small stuff: formal verification of C code without the pain.* PLDI 2014, pp. 429–439 — ⛔ *carried `10.1145/2666356.2594296` until 2026-09-12 (D214): that is the SIGPLAN Notices 49(6) record, the hazard this section names for Heule* | `10.1145/2594291.2594296` |
 | 8 | Goel. *The x86isa Books: Features, Usage, and Future Plans.* arXiv 2017 | `10.48550/arXiv.1705.01225` |
 
 ⛔⛔ **ROW 8's TITLE WAS WRONG IN THIS "FETCHED, NOT RECALLED" TABLE UNTIL 2026-09-12 (D214).** It read

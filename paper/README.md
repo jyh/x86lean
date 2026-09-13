@@ -22,13 +22,14 @@ The PDF is a build product and is not tracked.
 |---|---|---|
 | 3 Undefined Behaviour | drafted | `docs/TACAS-G2-SECTION-DRAFT.md`, `docs/DECISIONS.md` D5 D6 D20 D52 D213 |
 | 4.3 Where the Reference Model Is Not the Specification | drafted | D91, D108, D115; `docs/P2-ROSTER.md` |
-| 7 Related Work | placeholder | `docs/TACAS-G6-RELATED-WORK.md` |
+| 7 Related Work | two paragraphs drafted; the frame-discipline and lifted-semantics sentences wait on their reads | `docs/TACAS-G1-POSITIONING.md`, `docs/TACAS-G6-RELATED-WORK.md` |
 | everything else | placeholder | named in each placeholder |
 
 ## Owed before submission
 
-- Every `.bib` entry re-fetched by DOI from the registrar (D214: a row labelled as fetched carried a
-  title its own DOI does not return). The SDM entry needs its order number and URL.
+- Every `.bib` entry fetched by DOI from the registrar, never copied from G6 (D214: 3 of G6's 8 rows
+  disagreed with their own DOI's record). Done for every DOI entry in the file on 2026-09-12. The SDM
+  entry needs its order number and URL; the Myreen FMCAD 2012 record needs a browser.
 - Which Goel work to cite for x86isa's design (D214).
 - Every number moved into `docs/CLAIMS.tsv` at the submission sha, so artifact evaluation reproduces
   it with one command (G5). §4.3's ceiling and batch-13 figures are there now (pinned `d7dbd58`).
