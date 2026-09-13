@@ -14797,6 +14797,7 @@ is about a 26% chance at α = 5%, so it is not evidence of miscalibration yet.
 📊 **Tally, 2026-09-13 07:4xZ: conclusive 9, arm-1 reds 1.** The three added are `b546ad6`, `592b407` and
 `7c2af44`, each `success`, the last with its verdict check run published as success / PASS. Read per job with
 `gh run view <id> --json jobs`; every master run after D224's implementation (`592b407`) has concluded.
+📊 **Tally, 2026-09-13 later: conclusive 10, arm-1 reds 1** — `64ded93` concluded success, verdict PASS.
 
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 

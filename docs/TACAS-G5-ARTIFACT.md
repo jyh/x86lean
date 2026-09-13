@@ -56,7 +56,7 @@ are still owed.**
 | tier | what runs | needs | measured cost |
 |---|---|---|---|
 | **R1 manifest** | `scripts/check_claims.py` — every `CLAIMS.tsv` row at its pinned sha, and the paper's quoted figures against the rows | git, bash, python3; a FULL clone (pinned shas) | **3 s** on this machine, 2026-09-12 |
-| **R2 build** | `lake build`, the axiom allowlist gate, the coverage regeneration check | the pinned toolchain `leanprover/lean4:v4.32.0-rc1` + mathlib | CI `build` job **5 m 47 s** on 2026-09-12 (run 34674679895), on a runner that restores caches — a cold build is UNMEASURED here |
+| **R2 build** | `lake build`, the axiom allowlist gate, the coverage regeneration check | the pinned toolchain `leanprover/lean4:v4.32.0-rc1`, and NO package dependency (`lake-manifest.json` lists none; *this cell read "+ mathlib" until 2026-09-13*) | CI `build` job **5 m 47 s** on 2026-09-12 (run 34674679895), on a runner that restores caches. **COLD, measured 2026-09-13:** a fresh `git clone` at `64ded93` (no `.lake`), `lake build X86 X86Native Tests x86lean-diff x86lean-axioms` → **37 s wall, 1 m 39 s user, 45 jobs, rc 0**, on the 14-CPU arm64 development box at load 2.3, with the toolchain ALREADY INSTALLED by elan — a toolchain download is not in that figure, and a reviewer's machine will differ |
 | **R3 coverage derivation** | `scripts/claimed_forms.py --check` | clang (the second source assembles every roster row) and objdump | UNMEASURED |
 | **R4 differential** | `scripts/run_differential.sh` | SBCL, the ACL2 image, certified x86isa books — **at a pinned revision (§1)** | ACL2 image ~4 min (ORACLE-SETUP.md); x86isa certification "the long pole", UNMEASURED; the run itself "twenty-five-minute" per the script's own comment, not re-measured |
 
@@ -75,7 +75,7 @@ recorded logs with a reduced re-run.
 ---
 
 ## 3. WHAT IS ALREADY IN PLACE
-- `docs/CLAIMS.tsv` + `check_claims.py`: 39 rows at 2026-09-12, each with its command, and the paper
+- `docs/CLAIMS.tsv` + `check_claims.py`: 49 rows at 2026-09-13 (39 at 2026-09-12), each with its command, and the paper
   gated against the rows it cites (D216). **The spine of "reproduce every claim" exists.**
 - `lean-toolchain` and `lake-manifest.json` pin the Lean side.
 - `scripts/setup_oracle.sh`: an idempotent recipe for R4 — **unpinned (§1).**
@@ -85,8 +85,10 @@ recorded logs with a reduced re-run.
   1  read the TACAS 2027 AE call at its source            ✅ the CFP (PRICING §3a); the AE page itself [CALL]
   2  pin the reference model's revision (§1)                                     ✅ D218
   2b re-run the differential AT the pin; cite §4.1 to that record   ✅ docs/REFERENCE-PIN-RUN-2026-09-12.md
-     (all seven counters equal batch 22's); a gate refusing a NEW record without it   ✅ D219 (local; CI owed)
+     (all seven counters equal batch 22's); a gate refusing a NEW record without it   ✅ D219 (in CI since 09-12)
   3  measure a COLD R2 build and the x86isa certification on a clean machine
+     ✅ R2 cold on the development box, 37 s (§2); ⛔ x86isa certification still UNMEASURED, and neither on a
+        CLEAN machine
   4  cite every remaining number in the paper to the manifest (paper/README.md)
   5  the container or VM, per [CALL]
 ```
