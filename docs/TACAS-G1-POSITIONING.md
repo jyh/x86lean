@@ -137,7 +137,14 @@ a "K incorrect" verdict needs a libLISA semantics to compare against, so **they 
 📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
 Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
 📌 The CPP 2019 1,625-instruction model embeds stratified-synthesis semantics in Isabelle/HOL (per a search
-summary, not read); public availability still UNMEASURED.
+summary, not read). ✅ **AVAILABILITY MEASURED 2026-09-12:** the paper (author PDF, ssrg.ece.vt.edu/papers/cpp2019.pdf)
+says *"All case studies and the Isabelle/HOL proofs are publicly available at: https://filebox.ece.vt.edu/~iroessle/
+cpp_2019.zip"*; that host did not answer within 120 s from here, so the zip is UNMEASURED. The project page
+(ssrg-vt.github.io/Chum) links `github.com/ssrg-vt/Chum-src/tree/master/cpp19_artifact`, which `gh` reads as
+**public, last pushed 2021-05-12, with NO licence file** (`license: null`): `InstructionSemantics`,
+`InstructionSemantics_parser`, `isabelle`, `x86-64_parser`, `x86-64_objdumpparser`, `examples`, `ramblr`.
+⇒ **Readable, not reusable:** with no licence stated, nothing from it may enter this repository, and a comparison
+against it would be a reading, like K's rule files.
 
 ## 1c. ⭐⭐ THE REMAINING CELLS, READ AT THE SOURCES — 2026-09-11
 

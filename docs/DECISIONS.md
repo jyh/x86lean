@@ -14778,3 +14778,35 @@ This is runner-side evidence for KN, whose attribution D212 measured on develope
 **What changes:** nothing in the gate — its α, whether arm 1 should red the job, and the concurrency policy are
 gate design and the throttle, not this seat's. Recorded here, posted to the helm, and the next push re-runs it.
 ⇒ 🔑 ***A CONTROL WITH A FAMILY-WISE α IS A SCHEDULED RED; READ IT AGAINST ITS RATE BEFORE READING THE COMMIT.***
+✅ **RULED THE SAME HOUR (desk KN) AND IMPLEMENTED:** (1) the red is α; no change on one sample. (2) Redfirst must
+CONCLUDE on every master push. The workflow-wide `cancel-in-progress` group now lives on each other job (the
+matrix job's group carries its shard, or its legs would cancel each other), and `kernel-delta-redfirst` has no
+group at all. PRICE, stated in `ci.yml`: ~45 runner-minutes a push, on a public repository's standard runners,
+one VM per run. (3) An arm-1 red is **UNMEASURED**: `kernel_delta.py --selftest-measure` returns rc 3 (this
+file's existing word for "could not measure") whenever arm 1 rejects identical trees, whatever arm 2 did, and rc 1
+only for a miss behind a clean arm 1. The CI step publishes a check run, "kernel-delta-redfirst verdict", as
+success / NEUTRAL / failure; UNMEASURED leaves the job green and the check neutral, and a failure to publish it
+reds the job rather than letting UNMEASURED read as PASS. `preflight.sh` reads that check run. Driven: the
+judgement suite gained a per-case rc and a PASS-path case (two mutations each red exactly the two arm-1 cases),
+and the step's shell was run under stubs over all six (rc × publish ok/fail) outcomes.
+⚠️ **The tally the ruling asks for starts here:** conclusive redfirst runs 6, arm-1 reds 1 (at 5f036f0). One in six
+is about a 26% chance at α = 5%, so it is not evidence of miscalibration yet.
+
+## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
+
+⚖️ **2026-09-12, CI at `b546ad6`.** `kernel-delta` failed at its first real step, `kernel_drift.py --gap`:
+*"1 unrecorded `.lean` step(s) against a ceiling of 0"*, naming `ce65776 → 56146ab`, the CI-cost batch (five
+COMMENT edits). The ledger rule has no comment exemption, and it should not have one: a comment moves a module's
+digest, and the gate's invariant is the READING, which only a measurement can clear.
+⛔ **Why the local gate said ok:** `preflight.sh` ran with the batch STAGED. `--gap` walks HEAD's first-parent chain,
+so it audited the commit BEFORE the batch and found nothing to record. **The command was right and its subject was
+the wrong commit.** The same shape as this evening's other local green (D224's flag gate): a check's output is a
+statement about what it read, and "ok" does not name what that was.
+**Remedy, the ledger's own:** the step was measured after the fact on this box (`kernel_delta.py --base ce65776
+--head 56146ab --repeats 6 --out R.json`) and recorded with `kernel_drift.py --record`: **delta gate CLEAN, rc 0**, six passes a side, no unit moved beyond
+its noise (X86.Semantics 13.1 → 12.8 ms, X86.Theorems 910.5 → 912.5), with load1 rising from about 2 to 5.5 during the
+passes (the row carries each pass's conditions); `--gap` then read 0 unrecorded steps. A row whose `head` is the
+step's own child prices that step exactly (`records_step`), so no merge was rewritten. `preflight.sh` now REFUSES
+when any `.lean` change is staged or unstaged, printing the files, because `--gap` cannot see them (driven in a
+throwaway clone: fires on staged, fires on unstaged, silent when clean).
+⇒ 🔑 ***A GATE THAT READS HEAD CERTIFIES THE LAST COMMIT, NOT THE NEXT ONE.***

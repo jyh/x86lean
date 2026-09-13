@@ -1271,16 +1271,16 @@ def selftest_measure_judgement():
         # zero, so a conviction there would make every red this gate ever printed
         # suspect. It is the only outcome arm 1 may reject.
         ("identical trees CONVICTED must fail arm 1", "FAILED", "worst unit delta",
-         _stub_readings([24700, 24710, 24690], [40000, 40010, 39990]), True),
+         _stub_readings([24700, 24710, 24690], [40000, 40010, 39990]), True, 3),
         ("identical trees CLEAN passes arm 1", "CLEAN", "clears every unit's budget",
-         _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), False),
+         _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), False, 1),
         # ⚠️ AND THE ONE D141 CHANGED. A refusal on identical trees is a fact
         # about the BOX at that many repeats, not a defect in the gate; requiring
         # rc 0 here made the arm red whenever another seat was building, and an
         # arm that reds for a reason outside the code is an arm nobody reads.
         ("identical trees REFUSED reports the box and passes arm 1", "UNMEASURABLE",
          "statement about THIS BOX",
-         _stub_readings([24700, 21000, 28000], [24700, 20500, 28500]), False),
+         _stub_readings([24700, 21000, 28000], [24700, 20500, 28500]), False, 1),
         # ⛔⛔ THE BIAS ARM (D145). A +200 ms difference between two copies of one
         # commit, with a band of ±20: far under the 1,778 ms budget, so the gate
         # says CLEAN and arm 1's verdict check is happy — and the run has still
@@ -1289,7 +1289,7 @@ def selftest_measure_judgement():
         # arm could not see, because it only ever compared the rc.
         ("a BIAS on identical trees reds arm 1 even when the gate says CLEAN",
          "CLEAN", "a systematic difference between two copies of ONE commit",
-         _stub_readings([24700, 24710, 24690], [24900, 24910, 24890]), True),
+         _stub_readings([24700, 24710, 24690], [24900, 24910, 24890]), True, 3),
         # ⚠️ AND THE OTHER DIRECTION, WHICH MUST NOT RED: an invented delta of
         # −2,000 ms — over the 1,778 ms budget — but inside a ±5,500 band. The box
         # is loud, not biased. It prints a SCOPE line and passes, because redding
@@ -1301,16 +1301,27 @@ def selftest_measure_judgement():
         # column to prevent, caught on the case that introduced it.
         ("a LOUD box scopes arm 1 rather than redding it",
          "UNMEASURABLE", "SCOPE, not a failure",
-         _stub_readings([22000, 24700, 27400], [20000, 22700, 25400]), False),
+         _stub_readings([22000, 24700, 27400], [20000, 22700, 25400]), False, 1),
+        # ⚖️ D224 (3): THE RC IS PART OF EACH CASE NOW. An arm-1 red is UNMEASURED (rc 3)
+        # whatever arm 2 did; rc 1 is kept for a miss behind a CLEAN arm 1. The stub
+        # hands arm 2 the same readings unless the case plants, so the CLEAN, REFUSED
+        # and LOUD cases above are arm-2 misses (rc 1) and CONVICTED/BIAS are rc 3 —
+        # CONVICTED's arm 2 even "passes" on 40,000 ms, and must still not be read.
+        # This last case is the only one where arm 2's plant lands: the PASS path.
+        ("CLEAN arm 1 and a landed plant PASS (rc 0)", "CLEAN", "planted constructors ⇒ rc 1",
+         _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), False, 0),
     ]
-    for name, want_verdict, want_line, data, want_bad in cases:
-        measure = lambda *a, **k: data
+    for name, want_verdict, want_line, data, want_bad, want_rc in cases:
+        planted = _stub_readings([24700, 24710, 24690], [24700, 24705, 24695])
+        for r in planted["readings"]["head"]:
+            r["modules"]["X86.Syntax"] = 250.0 + 5000.0
+        measure = (lambda *a, **k: planted if (k.get("plant") and want_rc == 0) else data)
         argv = sys.argv[:]
         sys.argv = ["kernel_delta.py", "--selftest-measure", "--repeats", "3", "--plant", "1"]
         buf = io.StringIO()
         try:
             with contextlib.redirect_stdout(buf):
-                selftest_measure()
+                rc = selftest_measure()
         finally:
             sys.argv, measure = argv, real
         out = buf.getvalue()
@@ -1326,7 +1337,7 @@ def selftest_measure_judgement():
         # otherwise stay green on its rc alone, which is exactly how the verdict
         # column came to be needed one edit earlier.
         said_it = want_line in out
-        ok = got_bad == want_bad and made_it and said_it
+        ok = got_bad == want_bad and made_it and said_it and rc == want_rc
         names.append(name)
         print(("  ✔ " if ok else "  ⛔ ") + name +
               ("" if ok else
@@ -1334,6 +1345,8 @@ def selftest_measure_judgement():
                 f"another branch under this name)" if not made_it else
                f"   (arm 1 never printed {want_line!r}, so the behaviour this case "
                f"is named for did not happen)" if not said_it else
+                f"   (the measured selftest returned rc {rc}, wanted rc {want_rc})"
+                if got_bad == want_bad else
                 f"   (arm 1 said {'⛔' if got_bad else '✔'}, wanted "
                 f"{'⛔' if want_bad else '✔'})")))
         if not ok:
@@ -2170,8 +2183,25 @@ def selftest_measure():
         for l in lines1:
             print("      " + l)
 
+    # ⚖️ D224, RULED (desk KN, part 3): AN ARM-1 RED MEANS THIS RUN'S MEASUREMENT IS
+    # UNTRUSTED, AND IT IS REPORTED AS UNMEASURED — never as the same red as a real
+    # miss. Identical trees have a true delta of exactly zero, so when arm 1 rejects
+    # them the box has invented something, and arm 2 was measured on that same box:
+    # its ✔ or ⛔ is printed, and neither is believed. At the family-wise 5% cut an
+    # arm-1 red is EXPECTED about once in twenty conclusive runs (5f036f0 was one), so
+    # painting it with FAIL's colour would teach every reader to ignore FAIL.
+    # rc 3 is this file's existing word for "the run could not measure" (UNMEASURABLE).
+    arm1_bad = [b for b in bad if b.startswith("identical-trees")]
+    if arm1_bad:
+        print(f"delta-gate measured selftest: UNMEASURED — arm 1 rejected identical trees "
+              f"({', '.join(arm1_bad)}), so nothing this run measured is trusted; arm 2 "
+              f"{'also failed' if 'planted-constructor arm' in bad else 'caught its plant'}"
+              f" on the same box and is not read either. Not a miss: at a family-wise 5% "
+              f"cut this is expected about once in twenty conclusive runs (D224).")
+        return 3
     if bad:
-        print(f"delta-gate measured selftest: FAIL ({len(bad)} of 2 arms)")
+        print(f"delta-gate measured selftest: FAIL ({len(bad)} of 2 arms) — arm 1 was "
+              f"clean, so this is a REAL miss")
         return 1
     print("delta-gate measured selftest: PASS (2 arms — the identical-trees "
           "control and the planted constructor)")

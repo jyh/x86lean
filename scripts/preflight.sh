@@ -51,6 +51,17 @@ done
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.
+# ⛔ D225: `kernel_drift --gap` audits HEAD's first-parent chain, so it CANNOT SEE a `.lean` change that
+# is staged or unstaged. On 2026-09-12 this loop printed "ok kernel_drift --gap" over a staged comment-
+# only batch, the batch was committed and pushed without its ledger row, and CI's kernel-delta job went
+# red on exactly that gap. A green about HEAD is not a green about the commit you are about to make.
+pending_lean=$(git diff --name-only HEAD -- '*.lean' 2>/dev/null)
+if [ -n "$pending_lean" ]; then
+  printf "  ⛔ FAIL uncommitted .lean change(s) — --gap below reads HEAD and cannot see them:\n"
+  printf "         %s\n" $pending_lean
+  printf "         commit, re-run, and land through the ledger ritual (kernel_drift.py --record)\n"
+  rc=1
+fi
 for a in --selftest --gap; do
   if python3 scripts/kernel_drift.py $a >/dev/null 2>&1; then printf "  ok   kernel_drift %s\n" "$a"
   else printf "  ⛔ FAIL kernel_drift %s\n" "$a"; rc=1; fi
@@ -109,6 +120,18 @@ red_jobs=$(gh run view "$last_id" --json jobs \
 if [ -n "$red_jobs" ]; then
   echo "  ⛔ A JOB IN THAT RUN IS RED: $red_jobs"; rc=1
 fi
+# ⚖️ D224 part 3: redfirst's verdict is a CHECK RUN with a third value, because its job goes green on
+# UNMEASURED. Reading job conclusions alone would report an untrusted measurement as a pass.
+verdict=$(gh api "repos/{owner}/{repo}/commits/$last_sha/check-runs?check_name=kernel-delta-redfirst%20verdict" \
+            --jq '.check_runs[0].conclusion // empty' 2>/dev/null)
+case "$verdict" in
+  success) echo "  redfirst verdict: PASS" ;;
+  neutral) echo "  ⚠️  redfirst verdict: UNMEASURED — arm 1 rejected identical trees, so that run's delta"
+           echo "      measurement is untrusted (D224). Not green, and not a miss." ;;
+  failure) echo "  ⛔ redfirst verdict: FAIL — arm 1 was clean, so this is a real miss."; rc=1 ;;
+  *)       echo "  ⚠️  redfirst verdict: none published at ${last_sha:0:8} (still running, cancelled, or before"
+           echo "      D224) — UNKNOWN, not green." ;;
+esac
 if [ "$last_sha" != "$head_sha" ]; then
   n=$(git rev-list --count "$last_sha..$head_sha" 2>/dev/null || echo "?")
   echo "  ⚠️  HEAD (${head_sha:0:8}) is $n commit(s) PAST the last verdict — UNVERIFIED, not green."
