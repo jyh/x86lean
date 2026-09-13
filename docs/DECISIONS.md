@@ -14798,6 +14798,16 @@ is about a 26% chance at α = 5%, so it is not evidence of miscalibration yet.
 `7c2af44`, each `success`, the last with its verdict check run published as success / PASS. Read per job with
 `gh run view <id> --json jobs`; every master run after D224's implementation (`592b407`) has concluded.
 📊 **Tally, 2026-09-13 later: conclusive 10, arm-1 reds 1** — `64ded93` concluded success, verdict PASS.
+📊 **Tally, 2026-09-13 06:0xZ: conclusive 11, arm-1 reds 2** — `c8ee127` (run 34756478869): arm 1 rejected identical trees,
+`Tests.Program` invented +16.5 ms against a family-wise cut of ±12.9. P(≥2 of 11 at α = 5%) ≈ 0.10: not yet evidence of
+miscalibration, and the next one moves it.
+✅ **THE NEUTRAL BRANCH HAS NOW RUN IN PRODUCTION, NOT ONLY UNDER STUBS.** Measured at the object: the job concluded
+`success`; the check run `kernel-delta-redfirst verdict` reads `neutral`, titled UNMEASURED, its summary "arm 1 rejected
+identical trees … Not a miss"; a `::warning` annotation was emitted; and `preflight.sh` printed "⚠️ redfirst verdict:
+UNMEASURED … Not green, and not a miss" with rc 0. All four outcomes the design names, on a real arm-1 red.
+📌 One log line read oddly, `⛔ the invented delta sits inside this run's own band on all 25 units`, and it is the house
+convention, not a defect: `kernel_delta.py:2075` prints each arm as the CLAIM that must hold, with ⛔ when it did not
+(`ok_bias` False). Read before recording, so it does not sit here as an open question.
 
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 
