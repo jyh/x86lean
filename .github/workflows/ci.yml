@@ -316,6 +316,7 @@ jobs:
       - name: Every published number re-derives from its own stated command
         run: |
           python3 scripts/check_claims.py --selftest
+          python3 scripts/label_fit.py --selftest
           python3 scripts/check_claims.py
 
       - name: Every positioning-table cell carries its provenance

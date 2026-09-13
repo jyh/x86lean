@@ -598,12 +598,15 @@ is a fixed base of about eleven lines plus about one line per instruction.
 \src{docs/P2-PROOF-INTERFACE.md, problem 3 section 1; the equal counts are a coincidence of line
 wrapping; counted by scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_countdown, proof\_lines\_scan]}
 A property that depends on position, such as ``every store lands inside the destination buffer'', needs
-an invariant indexed by label. Across four routines with 2, 4, 5 and 7 labels, the proofs are 34, 50, 57
-and 76 lines, consistent with about 19 lines plus 7.5 to 8.1 per label, or about 173 lines at twenty
-labels; the per-label constant was highest on the routine with the most labels, so that figure is more likely low than high.
-\src{docs/TACAS-PRICING.md 1, the P2 proof interface block; docs/P2-PROOF-INTERFACE.md, the four-routine fit and its note that the constant rises with label count; counted by
-scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_prologue, proof\_lines\_guarded, proof\_lines\_fill,
-proof\_lines\_memcpy]. The label counts 2, 4, 5, 7 and the per-label fit are not in the manifest.}
+an invariant indexed by label. Across four routines with 2, 3, 5 and 7 labels, the proofs are 34, 50, 57
+and 76 lines. A least-squares line through the four is about 22 lines plus 7.6 per label, or about 175
+lines at twenty labels; the routine furthest from it, by 5 lines, is the one whose store depends on a
+bounds check, and four points do not show whether the per-label cost rises with the label count.
+\src{scripts/label\_fit.py (a label is an entry of the invariant's table, cross-checked against the program's
+instructions; lines by scripts/proof\_lines.py); docs/CLAIMS.tsv[fit\_labels\_prologue, fit\_labels\_guarded,
+fit\_labels\_fill, fit\_labels\_memcpy, proof\_lines\_prologue, proof\_lines\_guarded, proof\_lines\_fill,
+proof\_lines\_memcpy, fit\_intercept, fit\_slope, fit\_at20, fit\_max\_residual]; docs/DECISIONS.md D234: the
+guarded routine was recorded as 4 labels, and the earlier fit of 19 plus 7.5 to 8.1 per label rested on it}
 Three successive rounds of interface work on the first of these routines brought its per-label cost
 from about 25 lines to 12, 9.6 and 7.6; the third was pre-registered with a refutation threshold, which
 it did not reach, and it added no lemma at all: its saving came from deleting proof steps that

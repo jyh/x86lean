@@ -391,6 +391,10 @@ Ruling ⑧ asked for *"a twenty-instruction routine provable in tens of lines, n
   LABELLED tier   ~7.7 / LABEL            ⇒ 20 labels ≈ 173 lines  ⛔ MISSED
         2 labels 34 · 4 labels 50 · 5 labels 57 · 7 labels 76   (7.5 · 7.8 · 7.6 · 8.1)
 ```
+⛔ **CORRECTED 2026-09-13 (D234): `guarded` has 3 labels, not 4** (its invariant table and its program both have three
+entries, and did at `837df82`, the commit that recorded four). Derived by `scripts/label_fit.py`: 2·3·5·7 labels, least
+squares ≈ **22 + 7.6 / label ⇒ ~175 at twenty** — MISSED either way, and the tier verdict stands. What does NOT survive:
+"constant 7.5–8.1" (guarded is 10.3 over a base of 19) and "it rises with label count".
 ⇒ 🔑 ***THE TIER, NOT THE LEMMA LIBRARY, DECIDES IT — a factor of EIGHT, where four rounds of lemma
 engineering bought about a third of that.*** And **a property's tier is not readable off its
 statement**: three of the five sat somewhere other than the table put them, each found by writing the

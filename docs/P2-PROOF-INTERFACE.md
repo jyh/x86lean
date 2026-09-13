@@ -540,12 +540,15 @@ every index BECAUSE it checks.
 ```
    2 labels   34 lines   7.5 / label   prologue   (stack, half-line region)
    4 labels   50 lines   7.8 / label   guarded    (a branch-conditional property)   ← NEW
+   ⛔ D234 (2026-09-13): 3 LABELS, NOT 4 — GuardInv's table and the program have three entries each, and did
+      at this commit. 50 / 3 over a base of 19 is 10.3 per label; see the correction below the table.
    5 labels   57 lines   7.6 / label   fill       (a loop)
    7 labels   76 lines   8.1 / label   memcpy     (two pointers, disjointness)
 ```
 ⇒ 🔑 ***`19 + ~7.7 PER LABEL` HOLDS ACROSS A 2–7 SPAN AND FOUR STRUCTURALLY DIFFERENT ROUTINES, WITH
 THE CONSTANT INSIDE 7.5–8.1.*** A loop, a guard, two pointers and a stack frame all cost the same per
-label. **At twenty labels ≈ 173 lines**, and the conclusion — *no lemma library reaches "tens of
+label. ⛔ *(D234: with guarded at 3 labels this sentence does not hold — its constant is 10.3 — and a least-squares
+line through the four points is ≈ 22 + 7.6 / label, ~175 at twenty; `scripts/label_fit.py` derives it.)* **At twenty labels ≈ 173 lines**, and the conclusion — *no lemma library reaches "tens of
 lines"; it needs a tactic or a VC generator* — now rests on four measured points.
 
 ### 3. ⛔⛔ THE NONVACUITY IS STRONGEST HERE, AND IT HAD TO BE

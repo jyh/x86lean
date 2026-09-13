@@ -126,7 +126,7 @@ recorded logs with a reduced re-run.
         and re-reading the source is still G1's job, not this gate's.
         ⛔ NOT CITED, declared: D52's 82 pre-states / 35 (its record states them in WORDS); the four
         re-check samples 3/9 · 3/8 · 3/7 · 2/3 (no single record line holds them); §7's quoted "118 000"
-        (libLISA's own spacing, which the prose arm does not read); the label counts 2, 4, 5, 7 (already
+        (libLISA's own spacing, which the prose arm does not read); the label counts 2, 4, 5, 7 (✅ D234: derived, and corrected to 2, 3, 5, 7; already
         declared in the paper's own marker); Armstrong's 24 of 15,400 (cited to the paper PDF directly).
         Inventory method: every digit run in the printed prose, by segment — 124, of which 75 sat in
         segments citing no row, most of them `x86-64` and `Lean 4`.

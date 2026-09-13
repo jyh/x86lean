@@ -68,6 +68,8 @@ as a live oracle — that is a gap in my knowledge, not a claim either way.
   + round 4 (regcalc, defeq) ........................   57        ≈  7.6 / label
   measured across FOUR routines, 2–7 labels:  19 + ~7.7 / label, constant 7.5–8.1
   ⇒ ~173 lines at twenty labels  ⛔ NOT "tens of lines"
+  ⛔ D234 (2026-09-13): guarded has 3 labels, not 4 — label_fit.py gives 22 + 7.6 / label, ~175 at twenty;
+     the 7.5–8.1 range does not hold (guarded 10.3 over 19). The verdict (NOT tens of lines) is unchanged.
 ```
 
 ---

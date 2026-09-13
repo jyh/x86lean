@@ -15231,3 +15231,46 @@ part. Mutation `PAIRS = {}` reds all four. **23 arms, 0 red; 82 rows CLEAN; all 
 ⚠️ **Scope, stated:** the pair rule covers the pairs named. ✅ *This line first deferred D231's coverage fractions (`500 of
 the 525`, `351 of the 374`) as "the next repair"; they were one line each and were named the same hour — D231's declared
 swap limit is closed, with an arm (`525 of the 500` reds). 24 arms, 0 red.*
+
+## D234 — the labelled tier's second data point was recorded as 4 labels and has 3, so §6's "7.5 to 8.1 per label" and "it rises with label count" do not hold; the twenty-label verdict does
+
+⚖️ **2026-09-13, deriving the last declared-uncited figures in §6.** The line counts had a rule (`proof_lines.py`, D217);
+the label counts "2, 4, 5 and 7" never did. The rule that reproduces three of them — **a label is an entry of the
+invariant's `atTable`, one per instruction of the program** — gives `prologue` 2, `fill` 5, `memcpy` 7 and **`guarded` 3**.
+```
+  guarded @ 837df82 (the commit that wrote "4 labels   50 lines   7.8 / label")   program 3 instructions · GuardInv table 3
+  guarded @ HEAD                                                                   the same; it has one version
+  its proof                                     rcases over 3 labels; the jae label splits into taken / not taken
+  a rule giving 4                               "labels + one per conditional split" — which gives fill 6 and memcpy 8
+```
+⇒ **No stated rule gives 2, 4, 5, 7.** Under the rule that gives the other three, the fit's own quoted properties fail:
+```
+                 labels  lines   per label over 19   least-squares residual
+  prologue          2      34          7.50               −3.05
+  guarded           3      50         10.33               +5.31     ⇐ recorded as 4 → 7.8
+  fill              5      57          7.60               −2.98
+  memcpy            7      76          8.14               +0.73
+  least squares:  lines = 21.76 + 7.644 × labels  ⇒ 174.6 at twenty labels
+```
+- ⛔ **"about 19 lines plus 7.5 to 8.1 per label"** — false: guarded is 10.3. (19 was never fitted; it is the base that
+  makes `fill` exactly 7.6.)
+- ⛔ **"the per-label constant was highest on the routine with the most labels, so that figure is more likely low than
+  high"** — false: the highest is guarded, three labels, and the residuals show no trend with label count.
+- ✅ **"about 173 lines at twenty labels"** — survives as ~175 under a fit that is actually a fit; "not tens of lines" and
+  §6's "a factor of about eight between the two tiers" are unchanged.
+⇒ 🔑 ***THE DATA POINT ADDED TO CONFIRM A MODEL WAS RECORDED IN THE MODEL'S FAVOUR, BY ONE, AT THE COMMIT THAT ADDED IT.***
+Recorded as 4, guarded sat at 7.8 — inside the band the record then declared held "across four structurally different
+routines". [[feedback-prose-written-before-the-measurement]]
+
+**What changed.** `scripts/label_fit.py` states the rule, cross-checks table against program (refusing on disagreement or
+absence), reuses `proof_lines.count`, and prints the least-squares fit (selftest in CI beside `check_claims`; 5 arms).
+Eight rows at `673b64a` (four label counts, intercept 22, slope 7.6, 175 at twenty, largest residual 5). §6 now reads:
+*"Across four routines with 2, 3, 5 and 7 labels … A least-squares line through the four is about 22 lines plus 7.6 per
+label, or about 175 lines at twenty labels; the routine furthest from it, by 5 lines, is the one whose store depends on a
+bounds check, and four points do not show whether the per-label cost rises with the label count."* Corrections at their
+copies: P2-PROOF-INTERFACE's table and verdict sentence, PRICING §1, QUEUE P2-IFACE, G5 item 4.
+**Plants:** 3→4 · 175→173 · 7.6→7.7 · 22→19 each red. ⛔ `by 5 lines → by 3` PASSED the presence arm (the label count 5
+is in the same span) — `PHRASES` binds a row to its phrase; arm added, `PHRASES = {}` reds it. `check_claims` 25 arms, 0 red;
+90 rows CLEAN.
+⚠️ **Not re-derived here:** the three interface ROUNDS on fill (25 → 12 → 9.6 → 7.6) are per-label figures over fill's 5
+labels, which this rule confirms, so they stand.

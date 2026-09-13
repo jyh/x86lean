@@ -107,6 +107,10 @@ PAIRS = {"recheck_d201_total": "recheck_d201_failed",
          "coverage_rows_total": "coverage_rows_covered",
          "coverage_forms_distinct": "coverage_forms_covered"}
 
+# ⛔ D234: the same defect for a lone small value — "by 5 lines" was satisfied after a plant changed it to 3, because the
+# label count 5 sits in the same span. A row named here must appear inside its phrase; `{v}` is the value (digits or word).
+PHRASES = {"fit_max_residual": "by {v} lines"}
+
 
 def _num_alts(v):
     alts = [re.escape(v)]
@@ -162,6 +166,11 @@ def check_prose(tex, rs, verbose=True):
                                + _num_alts(vals[cid]) + r"(?![\w]|[.,]\d)")
                         ok = re.search(pat, span, re.I) is not None
                         what = f"the phrase '{vals[part]} of {vals[cid]}'"
+                elif cid in PHRASES:
+                    pre, post = PHRASES[cid].split("{v}")
+                    pat = re.escape(pre) + _num_alts(vals[cid]) + re.escape(post)
+                    ok = re.search(pat.replace(r"\ ", r"\s+"), span, re.I) is not None
+                    what = f"the phrase {PHRASES[cid].format(v=vals[cid])!r}"
                 elif cid in RELATIONS:
                     ok = RELATIONS[cid] in span
                     what = f"the relation {RELATIONS[cid]!r}"
@@ -387,6 +396,10 @@ def selftest():
     f = check_prose(paper.replace("covering 500 of the 525", "covering 525 of the 500", 1), rs0, verbose=False)
     arm("PLANT: D231's declared limit, closed — a swapped COVERAGE fraction (525 of the 500) is caught",
         any("coverage_rows_total" in x for x in f), str(f)[:200])
+
+    f = check_prose(paper.replace("by 5 lines", "by 3 lines", 1), rs0, verbose=False)
+    arm("PLANT: a small value bound to its PHRASE ('by 5 lines' -> 'by 3') is caught though 5 recurs in the span",
+        any("fit_max_residual" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0
