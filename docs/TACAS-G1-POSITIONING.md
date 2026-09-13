@@ -82,7 +82,12 @@ and basic block symbolic execution* (Verbeek, Bharadwaj, Bockenek, Roessle, Weer
 incomplete, but overapproximative"*, undefined flag effects *"mapped to universally quantified
 uninterpreted terms from a locale"*, and an objdump-output parser (assembly text, not bytes). ⛔ **This is a
 FIFTH undefined-bit design and the one closest to ours (undefinedness as a parameter); §1c.6's "four
-systems" was a count of the columns, not of the designs.** Theories NOT read; whether it IS the CPP 2019
+systems" was a count of the columns, not of the designs.** ✅ **Theory read the same hour, at
+`X86_Semantics/X86_InstructionSemantics` (AFP browser):** `locale unknowns` fixes
+`unknown_flags :: "string ⇒ string ⇒ bool"`; its text: a flag read with no defined semantics *"will
+resolve to `unknown_flags i f`"*, and *"We do not make use of @{const undefined}, since that could be used
+to prove that the semantics of two undefined behaviors are equivalent."* ⇒ the unknown value is keyed by
+(instruction, flag name); x86lean's by a stream position. Now a row of the paper's Table 1; whether it IS the CPP 2019
 1,625-instruction model is NOT established (the counts differ by an order of magnitude); *Formalizing x86-64 ISA
 in Isabelle/HOL: A Binary Semantics for eBPF JIT Correctness* (link.springer.com, chapter
 10.1007/978-981-96-0602-3_11). **None is read. Each is a column this table may owe before the paper says
