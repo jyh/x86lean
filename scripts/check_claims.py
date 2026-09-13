@@ -105,11 +105,22 @@ PAIRS = {"recheck_d201_total": "recheck_d201_failed",
          "recheck_d214_total": "recheck_d214_failed",
          "recheck_d202_total": "recheck_d202_failed",
          "coverage_rows_total": "coverage_rows_covered",
-         "coverage_forms_distinct": "coverage_forms_covered"}
+         "coverage_forms_distinct": "coverage_forms_covered",
+         "armstrong_avs_tests": "armstrong_avs_asl_only"}
 
 # ⛔ D234: the same defect for a lone small value — "by 5 lines" was satisfied after a plant changed it to 3, because the
 # label count 5 sits in the same span. A row named here must appear inside its phrase; `{v}` is the value (digits or word).
 PHRASES = {"fit_max_residual": "by {v} lines"}
+
+
+# ⚠️ D235: a figure QUOTED from another paper keeps that paper's spacing ("over 118 000 different instruction groups"),
+# and a comma-only matcher made the quotation uncitable, so it stayed uncited beside a cited copy of the same number.
+# A space-grouped form is accepted for values of 1,000 and up, and only where no digit group sits on either side
+# ("2 118 000" does not satisfy 118000). Normalised whitespace only; a TeX `~` or `\,` separator is not read, stated.
+def _spaced(v):
+    if not v.isdigit() or int(v) < 1000:
+        return None
+    return r"(?<![\d.,])(?<!\d )" + re.escape(f"{int(v):,}".replace(",", " ")) + r"(?![\d]|[.,]\d| \d)"
 
 
 def _num_alts(v):
@@ -118,6 +129,8 @@ def _num_alts(v):
         alts.append(re.escape(f"{int(v):,}"))
         if int(v) < len(NUMBER_WORDS):
             alts.append(NUMBER_WORDS[int(v)])
+        if _spaced(v):
+            alts.append(_spaced(v))
     return "(?:" + "|".join(alts) + ")"
 
 
@@ -181,6 +194,8 @@ def check_prose(tex, rs, verbose=True):
                         cands.add(f"{int(v):,}")
                     ok = any(re.search(r"(?<![\d.,])" + re.escape(c) + r"(?![\d]|[.,]\d)", span)
                              for c in cands)
+                    if not ok and _spaced(v):
+                        ok = re.search(_spaced(v), span) is not None
                     # ⚠️ D232: a small count is written as a WORD in prose ("six routines"), and a digit-only
                     # matcher made every such figure uncitable, so it stayed uncited. Word forms 0-20 are
                     # accepted, whole words only ("seventeen" is not "seven"). The arm stays a PRESENCE check,
@@ -400,6 +415,23 @@ def selftest():
     f = check_prose(paper.replace("by 5 lines", "by 3 lines", 1), rs0, verbose=False)
     arm("PLANT: a small value bound to its PHRASE ('by 5 lines' -> 'by 3') is caught though 5 recurs in the span",
         any("fit_max_residual" in x for x in f), str(f)[:200])
+
+    # ── D235: a quotation's own spacing, and an external fraction ──────────────
+    f = check_prose(paper.replace("with over 118 000 different", "with over 181 000 different", 1), rs0, verbose=False)
+    arm("PLANT: the QUOTED space-grouped figure ('118 000' -> '181 000') is caught, naming the row",
+        any("liblisa_groups" in x and "NOT in the prose" in x for x in f), str(f)[:200])
+    sp_row = [("sp_big", "118000", "d7dbd58", "echo 118000", PAPER_REL + " §0")]
+    f = check_prose("over 118 000 groups\n\\src{docs/CLAIMS.tsv[sp\\_big]}\n", sp_row, verbose=False)
+    arm("PLANT (control): a space-grouped value satisfies its citation", not f, str(f)[:200])
+    f = check_prose("over 2 118 000 groups\n\\src{docs/CLAIMS.tsv[sp\\_big]}\n", sp_row, verbose=False)
+    arm("PLANT: a space-grouped value INSIDE a longer group ('2 118 000') does not satisfy it",
+        any("sp_big" in x for x in f), str(f)[:200])
+    f = check_prose("over 118 000 000 groups\n\\src{docs/CLAIMS.tsv[sp\\_big]}\n", sp_row, verbose=False)
+    arm("PLANT: a space-grouped PREFIX of a longer group ('118 000 000') does not satisfy it",
+        any("sp_big" in x for x in f), str(f)[:200])
+    f = check_prose(paper.replace("24 of 15{,}400 tests", "15{,}400 of 24 tests", 1), rs0, verbose=False)
+    arm("PLANT: Armstrong's external fraction SWAPPED ('15,400 of 24') is caught — both values stay present, only the PAIR sees it",
+        any("armstrong_avs_tests" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0

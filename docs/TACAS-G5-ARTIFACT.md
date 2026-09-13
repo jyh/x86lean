@@ -138,6 +138,12 @@ recorded logs with a reduced re-run.
         (6 routines); THREE of the four re-check samples are rows (3/9 D201 · 3/8 D214 · 3/7 D202), checked as
         fractions. STILL DECLARED: the fourth sample 2/3 (D222+D223, no single line), §6's label counts and fit,
         D52's 82/16/35, libLISA's "118 000", Armstrong's 24 of 15,400.
+     ✅ 2026-09-13 (D235): libLISA's quoted "118 000" cited (the prose arm reads space-grouped thousands, bounded);
+        Armstrong's 24 of 15,400 is a PAIR of rows from D223's record line. ⛔ The fourth sample is WITHDRAWN from the
+        rate, not gated: D223's own record counts THREE corrections that evening where the paper counted 2 of 3, and
+        a record written now to fit it is what D233 refused. The rate is 3 of 9 · 3 of 8 · 3 of 7, all rows; the
+        related-work corrections stay in §5 with no denominator. §6's counts and fit were cited by D234 (this list
+        was not updated then). STILL DECLARED: D52's 82/16/35 alone.
   5  the container or VM, per [CALL]     ⛔ still [CALL]: the 2027 AE guidelines are unpublished (item 1)
   6  a DOI for the artifact (the "Available" criterion, item 1): an archival deposit of the submission commit —
      Zenodo is ETAPS's stated recommendation — and its DOI in the Data Availability statement beside the GitHub

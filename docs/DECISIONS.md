@@ -14814,6 +14814,9 @@ convention, not a defect: `kernel_delta.py:2075` prints each arm as the CLAIM th
 📊 **Tally, 2026-09-13 16:4xZ: conclusive 17, arm-1 reds 2** — five more, each verdict check run `success` / PASS, read
 per sha with `gh api …/commits/<sha>/check-runs`: `1ef10f8` · `15a4898` · `f4aac92` · `4b65e58` · `d4a64f9`. P(≥2 of 17 at α = 5%)
 ≈ 0.21. Six later pushes (`79d5e5f` … `fb734e1`) were still running; with no cancel group each will conclude.
+📊 **Tally, 2026-09-13 17:1xZ: conclusive 21, arm-1 reds 2** — four more, each verdict `success` / PASS (title and summary
+read, "2 arms — the identical-trees control and the planted constructor"): `79d5e5f` · `7ba3440` · `8a3fbbe` · `f8f4d61`.
+P(≥2 of 21 at α = 5%) ≈ 0.28. `706d6e2` · `fb734e1` · `51d7e09` still running.
 
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 
@@ -15277,3 +15280,50 @@ is in the same span) — `PHRASES` binds a row to its phrase; arm added, `PHRASE
 90 rows CLEAN.
 ⚠️ **Not re-derived here:** the three interface ROUNDS on fill (25 → 12 → 9.6 → 7.6) are per-label figures over fill's 5
 labels, which this rule confirms, so they stand.
+
+## D235 — the paper's fourth re-check sample is withdrawn from its rate: the one record written at the time counts three corrections where the paper counted two failures of three
+
+⚖️ **2026-09-13, the G7 residue that D233 left declared.** §5 and the abstract rested the thesis rate on *"four samples
+… 3 of 9, 3 of 8, 3 of 7 and 2 of 3"*. The fourth was *"of three attributions to prior work that the project had
+recorded from the literature and never re-read, two did not survive reading the paper cited"* (the frame rule credited
+to FMCAD 2012, D222; Armstrong et al. as hardware validation, D223), with the survivor named only in its marker
+(FMCAD 2012's per-instruction theorems). D233 kept it declared because no line states it and *"writing one now would be
+a record authored to satisfy a gate"*.
+⛔ **The one record written the night of the reading says something else.** D223: *"Third attribution in one evening
+corrected by reading the paper cited (D221 libLISA's scope, D222 the frame rule, this)"* — THREE corrections, a
+different set, and no survivor in it. Neither reading is simply wrong: D221 corrected OUR scope claim about libLISA
+("the most direct second source") rather than a statement about what libLISA contains, which argues for two; the same
+sitting also re-read Verbeek et al. at its abstract and the AFP entry at its page (both survived, D223 📌), which argues for a
+larger denominator. ⇒ **The set was never fixed before the reading, so the fraction is a choice, and the paper had
+made it.** Every candidate count keeps the direction (2/3, 3/4, 2/5 are each at least one in three), but a thesis
+figure whose denominator is picked afterwards is the defect this paper's §5 is about.
+⚖️ **Posted as a fork, (B) taken.** (A) write a record whose member lines count 2 of 3 and gate it — refused, for
+D233's reason. (C) keep it declared — a figure contradicted by the artifact's own record. **(B)** the rate rests on the
+three samples that were stated when measured, all rows since D233; the related-work corrections stay in §5 as two
+named cases with no denominator, beside D213's two false sentences, which never had one. Abstract: *"in each of three
+samples"*. §8's *"in every sample we took"* is unchanged and still true.
+⇒ 🔑 ***A SAMPLE WHOSE MEMBERSHIP IS DECIDED AFTER ITS OUTCOMES ARE KNOWN IS NOT A SAMPLE, AND THE RECORD WRITTEN BEFORE
+THE PAPER IS THE ONE THAT SAYS SO.*** [[feedback-prose-written-before-the-measurement]]
+
+**The same pass cites two more of the declared set.**
+- **libLISA's quoted "118 000".** The row `liblisa_groups` existed and §1's `118{,}000` cited it; §7 quotes the abstract
+  in its own spacing and the prose arm read comma separators only, so the quotation sat uncited beside a cited copy.
+  `_spaced` accepts a space-grouped form for values ≥ 1,000, refusing a digit group on either side.
+- **Armstrong's 24 of 15,400.** Two rows at `673b64a` from D223's line *"(15,400 of its 30,000+ tests in scope; 24 pass
+  on ARM's ASL specification and fail"*, a `PAIRS` entry, cited in §7's marker. The rows gate paper = our record of the
+  PDF; re-reading the PDF stays G1's job.
+```
+  PLANTS          §7 "118 000" -> "181 000"                               rc 1, names liblisa_groups
+                  "15{,}400 of 24" (swap)                                  rc 1, names armstrong_avs_tests
+  SYNTHETIC       "118 000" satisfies · "2 118 000" does not · "118 000 000" does not
+  MUTATIONS       _spaced disabled -> 2 red (the real-paper control and the synthetic control)
+                  lookbehind (?<!\d ) removed -> 1 red ("2 118 000")
+                  lookahead | \d removed -> 1 red ("118 000 000")
+                  armstrong PAIRS entry removed -> 1 red (the swap)
+  check_claims    92 rows CLEAN; --selftest arms=30 red=0
+```
+⚠️ **Two stale cells found on the way, in `paper/README.md`:** §6 said the label counts and fitted law are not cited
+(D234 cited them), and "remaining placeholders" named §7's read-dependent sentences, contradicting the §7 cell above it
+(the last placeholder closed at D223). Both corrected with their old text kept.
+**Declared-uncited residue now:** D52's 82/16/35 alone (its record states them in words; re-deriving needs a Lean
+rebuild at `098cea6`, judged not worth it).

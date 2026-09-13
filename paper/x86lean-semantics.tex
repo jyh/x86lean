@@ -43,7 +43,7 @@ from the semantics instead of declaring it, and states a case the model declines
 differential harness whose disagreement classes and wrong-model controls are explicit; the places where
 the reference model is not the specification, including one where it contradicts itself; and a
 measurement, on a sample, of what safety proofs over the semantics cost. We also report how often this
-project's own ungated claims failed a re-check: in each of four samples, at least one time in three.
+project's own ungated claims failed a re-check: in each of three samples, at least one time in three.
 \src{Each claim is the subject of a section below and is cited there.}
 \end{abstract}
 
@@ -541,18 +541,20 @@ re-derived with the obvious commands, three of the seven came out different.
 And the technical draft behind Section~\ref{sec:undef}, written from decision records, contained two
 false sentences that surfaced only when the prose was checked against the step function.
 \src{docs/DECISIONS.md D213}
-The fourth sample with a denominator came from writing this paper's related work: of three attributions to prior work that
-the project had recorded from the literature and never re-read, two did not survive reading the paper
-cited, one crediting a frame rule to a paper whose improvement removes it and one describing as hardware
-validation what the paper reports as validation against test suites and simulators.
-\src{docs/DECISIONS.md D222 and D223; the third attribution, per-instruction theorems composed without
-re-evaluating the model, survived}
-In the four samples with a denominator, 3 of 9, 3 of 8, 3 of 7 and 2 of 3, claims that no check read
+Writing this paper's related work added two more cases: attributions to prior work that the project
+had recorded from the literature and never re-read did not survive reading the paper cited, one crediting
+a frame rule to a paper whose improvement removes it and one describing as hardware validation what the
+paper reports as validation against test suites and simulators.
+\src{docs/DECISIONS.md D222 and D223. Not counted as a sample, and not in the rate below: the set they were
+drawn from was not fixed before the reading, and D223's own record counts three corrections that evening
+where this paragraph once counted two failures of three; docs/DECISIONS.md D235}
+In the three samples with a denominator, 3 of 9, 3 of 8 and 3 of 7, claims that no check read
 failed a re-check at least one time in three, and the failures were present when the claims were
 written rather than acquired later.
 Re-checking more often does not answer that; only a mechanical check does.
 \src{docs/CLAIMS.tsv[recheck\_d201\_failed, recheck\_d201\_total, recheck\_d214\_failed, recheck\_d214\_total,
-recheck\_d202\_failed, recheck\_d202\_total]; the fourth sample, 2 of 3, is D222 and D223 together and is not in the manifest (D233)}
+recheck\_d202\_failed, recheck\_d202\_total]; the draft of Section~3 and the related-work cases have no denominator
+and are not in the rate (D235)}
 
 \paragraph{What this is not.}
 Deriving a claim and failing the build on disagreement is ordinary engineering, and it is not novel in
@@ -676,7 +678,7 @@ model, libLISA takes the processor as ground truth. The two are complementary ra
 We have used libLISA's models for the packed-shift rule on which x86lean and the reference model part
 (Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
 direct second source this work still lacks, and for the SSE forms it would first need their scope extended.
-\src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221; the quoted ``118 000'' is libLISA's own spacing and is not cited to the manifest, whose prose check reads comma separators only}
+\src{docs/CLAIMS.tsv[liblisa\_groups]; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221; the quoted ``118 000'' keeps libLISA's own spacing, which the prose check reads since D235}
 A public Isabelle/HOL entry in the Archive of
 Formal Proofs gives over-approximative semantics for roughly 120 x86-64 assembly instructions, with
 symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ build a machine model with
@@ -724,7 +726,7 @@ The Sail models of ARMv8-A, RISC-V and CHERI-MIPS were validated against executa
 suites rather than against a processor: the ARM model ran ARM's Architecture Validation Suite,
 where 24 of 15{,}400 tests passed on ARM's own specification and failed on the translation, and the RISC-V
 model's execution traces were compared against the Spike reference simulator~\cite{armstrong-isa}.
-\src{Armstrong et al., POPL 2019, section 7 (Validation), read at cl.cam.ac.uk/\textasciitilde pes20/sail/sail-popl2019.pdf
+\src{docs/CLAIMS.tsv[armstrong\_avs\_asl\_only, armstrong\_avs\_tests], which read this reading's record, docs/DECISIONS.md D223 (D235); Armstrong et al., POPL 2019, section 7 (Validation), read at cl.cam.ac.uk/\textasciitilde pes20/sail/sail-popl2019.pdf
 2026-09-12: ``Of those 15 400 tests, currently 24 (0.15\%) pass on the ASL model but not on the Sail model'';
 ``compare the trace outputs of the Sail model and a version of Spike''; docs/DECISIONS.md D223}
 That a model should state its own fidelity is not our idea either: the Isabelle/HOL model and the lifting
