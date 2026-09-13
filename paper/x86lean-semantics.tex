@@ -465,8 +465,65 @@ nowhere. A number with no citation is not checked by this, and we do not claim t
 % ---------------------------------------------------------------------------------------------
 \section{Proofs Over the Semantics}
 \label{sec:proofs}
-\placeholder{The proof interface and the measured tier law, as a section: a sample of four routines,
-not a benchmark (docs/TACAS-PRICING.md 2.1, G4).}
+% Register: docs/P2-PROOF-INTERFACE.md; X86/Program.lean; Tests/Program.lean; docs/TACAS-PRICING.md 1;
+% docs/TACAS-G1-POSITIONING.md, the proof-support row.
+
+This paper's claim is the validated semantics; this section reports what it costs to prove safety
+properties over it, measured on a small sample, and it is a sample and not a benchmark.
+
+\paragraph{A driver that follows control.}
+The differential harness drives \lean{run}, a fold of \lean{step} over a list of instructions, and that
+is correct for single instructions. It cannot express a loop. On a three-instruction countdown the
+branch is taken in the semantics, since the instruction pointer after the fold is the loop label, but
+the fold proceeds to the next list element regardless, and returns a well-formed state that has not
+halted, the answer after one pass.
+\src{docs/P2-PROOF-INTERFACE.md, the finding before either design question: ecx 2, rip at the label,
+no halt}
+\lean{runP} executes a program, a table of decoded instructions at addresses, for a given amount of
+fuel, fetching the instruction at the current instruction pointer at each step and halting when the
+pointer leaves the table. A general invariant rule over \lean{runP} yields the safety theorems below.
+The countdown's is accompanied by theorems that pin its concrete trace, driven red first, because a
+safety property holds vacuously of a program that halts at once.
+\src{X86/Program.lean runP, runP\_invariant, runP\_safe; Tests/Program.lean, the nonvacuity theorems}
+
+\paragraph{Two tiers of property, and their cost.}
+A property that constrains which state components may change, such as ``this routine writes no
+memory'', is proved over every start state and every amount of fuel without reasoning about labels. On
+the countdown loop and on a four-instruction scan, each such theorem is 14 lines, which on inspection
+is a fixed base of about eleven lines plus about one line per instruction.
+\src{docs/P2-PROOF-INTERFACE.md, problem 3 section 1: countdown\_writes\_no\_memory,
+scan\_writes\_no\_memory; the equal counts are a coincidence of line wrapping}
+A property that depends on position, such as ``every store lands inside the destination buffer'', needs
+an invariant indexed by label. Across four routines with 2, 4, 5 and 7 labels, the proofs are 34, 50, 57
+and 76 lines, consistent with about 19 lines plus 7.5 to 8.1 per label, or about 173 lines at twenty
+labels.
+\src{docs/TACAS-PRICING.md 1, the P2 proof interface block; docs/P2-PROOF-INTERFACE.md}
+Three successive rounds of interface work on the first of these routines brought its per-label cost
+from about 25 lines to 12, 9.6 and 7.6; the third was pre-registered with a refutation threshold, which
+it did not reach, and it added no lemma at all: its saving came from deleting proof steps that
+definitional unfolding already discharged and from one macro.
+\src{docs/P2-PROOF-INTERFACE.md, the runP\_code point and round 4}
+We read this as the tier deciding the cost more than the library does: a factor of about eight between
+the two tiers, against the roughly threefold reduction the three rounds achieved within one. We do
+not claim a floor. The residue per label, unpacking the invariant, naming the instruction's effect
+theorem and re-establishing the invariant, is proof content rather than repetition, which is why we
+expect the remedy to be a tactic or a verification-condition generator rather than more lemmas.
+\src{docs/P2-PROOF-INTERFACE.md round 4: the residue argument, stated as an argument}
+
+\paragraph{What cannot be stated.}
+One property in the sample cannot be expressed as an invariant of a single run: that a scan reads only
+inside its buffer. Memory reads are total and leave no trace in the state, so a wild read is
+unobservable to any single-run invariant. The honest form is non-interference over two runs whose
+memories agree on the buffer, and the interface's combinators are all single-run.
+\src{docs/P2-PROOF-INTERFACE.md, problem 3 section 2}
+
+\paragraph{The sample.}
+Four routines and two to seven labels, written by one author against one interface, are a sample.
+Against x86isa's eight verified program families, including full functional correctness for an
+unbounded copy loop, this is the weakest proof development of the three
+(Section~\ref{sec:related}). A benchmark of such properties, and a program logic proved sound over this
+semantics, are the subject of later work.
+\src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2}
 
 % ---------------------------------------------------------------------------------------------
 \section{Related Work}
