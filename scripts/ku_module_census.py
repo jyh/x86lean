@@ -27,6 +27,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -52,6 +53,37 @@ def classify(src_line):
                 r"(def|abbrev|instance)\b", s):
         return "def"
     return "other"
+
+
+def unwrapped_ku(module, header_only=False):
+    """ku with the diagnostics options and NO wrapper — the reading the instrument must reproduce.
+    `header_only` elaborates the instrument's own header alone, which is what it costs."""
+    path = module.replace(".", "/") + ".lean"
+    src = [] if header_only else open(os.path.join(ROOT, path), encoding="utf-8").read().split("\n")
+    imps = [i for i, l in enumerate(src) if l.startswith("import ")]
+    at = max(imps) + 1 if imps else 0
+    body = dc.HB_HEADER if header_only else "import Lean\nset_option diagnostics true\nset_option diagnostics.threshold 1\n"
+    tmp = os.path.join(tempfile.gettempdir(), f"x86lean-census-{module}-{os.getpid()}.lean")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(src[:at] + [body] + src[at:]))
+    try:
+        r = subprocess.run(["lake", "env", "lean", "--json", tmp], cwd=ROOT, capture_output=True, text=True)
+    finally:
+        os.remove(tmp)
+    k, errs = 0, []
+    for ln in r.stdout.splitlines():
+        try:
+            m = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if m.get("severity") == "error":
+            errs.append(m.get("data", "")[:200])
+        if "[diag]" in m.get("data", ""):
+            k += dc._diag_counts(m["data"])[0]
+    if r.returncode != 0 or errs:
+        raise SystemExit(f"⛔ the unwrapped reading of {module} failed (rc {r.returncode}):\n"
+                         + "\n".join(errs[:3]) + r.stderr[-600:])
+    return k
 
 
 def profile(module):
@@ -96,14 +128,24 @@ def main():
            "band": BAND, "modules": {}}
     print(f"HEAD {head[:9]}  load1 {res['load_start'][0]:.2f}  band {BAND[0]}-{BAND[1]} ms/1k ku (D228)")
     print(f"{'module':18} {'ms':>8} {'ku':>9} {'ms/1k ku':>9}  {'x band top':>10}  shares of ms")
+    # ⛔ CONSERVATION, DERIVED (D229): the wrapped total must equal the unwrapped total plus what
+    # the header alone costs. X86.Basic failed this by -4,437 before the name-collision repair,
+    # and nothing downstream of a summed map could have noticed.
+    hdr = unwrapped_ku("X86.Basic", header_only=True)
+    res["header_ku"] = hdr
+    print(f"the instrument's header alone costs {hdr} ku")
     for mod in mods:
         reading, why = dc.measure(ROOT, mod)
         if reading is None:
             raise SystemExit(f"⛔ no ku reading for {mod}: {why}")
         ku = sum(reading["ku"].values()) + reading["orphans"]["orphan_kernel_unfoldings"]
+        raw = unwrapped_ku(mod)
+        if ku != raw + hdr:
+            raise SystemExit(f"⛔ {mod}: wrapped ku {ku} != unwrapped {raw} + header {hdr} "
+                             f"(off by {ku - raw - hdr:+d}) — the instrument does not conserve here")
         ms, kinds = profile(mod)
-        ratio = None if ku == 0 else 1000.0 * ms / ku
-        res["modules"][mod] = {"ms": ms, "ku": ku, "ku_unattributed":
+        ratio = None if raw == 0 else 1000.0 * ms / raw   # the MODULE's ku, without the header
+        res["modules"][mod] = {"ms": ms, "ku": ku, "ku_unwrapped": raw, "ku_unattributed":
                                reading["orphans"]["orphan_kernel_unfoldings"],
                                "ms_per_1k_ku": ratio, "ms_by_kind": kinds}
         shares = " · ".join(f"{k} {100 * v / ms:.0f}%" for k, v in
