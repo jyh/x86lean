@@ -79,8 +79,8 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
   a statement that its evidence comes from two origins and not three, and the cases where the reference
   model is not the specification (Section~\ref{sec:validation});
 \item coverage and validation figures derived from two sources and gated in CI against the prose that
-  states them, including those of this paper's own figures that cite the manifest, with a measurement of how often ungated claims
-  in this project failed a re-check (Section~\ref{sec:gated});
+  states them, this paper's manifest-cited figures among them, with a measurement of how often ungated
+  claims in this project failed a re-check (Section~\ref{sec:gated});
 \item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
   proof interface cannot state (Section~\ref{sec:proofs}).
 \end{itemize}
@@ -144,7 +144,7 @@ forms accept it is enforced, but atomicity is not verified: the semantics is sin
 \section{Undefined Behaviour}
 \label{sec:undef}
 % Register: docs/TACAS-G2-SECTION-DRAFT.md, docs/TACAS-G2-UNDEFINED-BITS.md,
-% docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10, docs/DECISIONS.md D5 D6 D20 D52 D213.
+% docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10, docs/DECISIONS.md D5 D6 D20 D52 D213 D226.
 
 Throughout this paper the \emph{reference model} is ACL2 x86isa~\cite{goel-x86isa,x86isa-repo}, the
 executable model the differential runs compare against, and the \emph{oracle} is the source of
@@ -263,11 +263,18 @@ could read a bit drawn in that step, two runs under different oracles could take
 and the derivation of Section~\ref{sec:undef:derived}, which compares two such runs, would report a
 difference of control as a set of undefined fields.
 \src{X86/Semantics.lean, the bsf/bsr and division comments}
-We state the evidence at its actual strength. The rule is a design rule, checked by example theorems
-that fix the oracle cursor's position after particular instructions under two opposite oracles; we
-have not proved it for every instruction, and no check in the harness compares cursors.
-\src{Tests/Nonvacuity.lean cursor\_independent\_of\_bits; X86/Serialize.lean undefinedLeaked;
-docs/DECISIONS.md D213}
+We state the evidence at its actual strength. The rule is a design rule with example theorems that fix
+the oracle cursor's position after particular instructions under two opposite oracles, and we have not
+proved it for every instruction.
+\src{Tests/Nonvacuity.lean cursor\_independent\_of\_bits; docs/DECISIONS.md D213}
+It is checked case by case: the leak check of Section~\ref{sec:undef:derived} also requires the two runs
+to leave the cursor in the same place, and over the 89{,}056 cases the differential compares the cursors
+differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
+the cases that draw.
+\src{docs/CURSOR-LEAK-CHECK-2026-09-13.md; docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks]; X86/Serialize.lean
+undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
+The check cannot see a branch on a drawn bit that changes only the value a flag receives: a flag's
+undefinedness is derived from those same two runs, with no second source to disagree.
 
 \subsection{The Undefined Set Is Derived, Not Declared}
 \label{sec:undef:derived}
@@ -296,7 +303,8 @@ indefinitely.
 
 Everything outside those two channels must agree exactly between the two runs.
 \lean{undefinedLeaked}, checked on every differential case, requires the vector registers, the
-instruction pointer, the halt state and every watched memory window to be identical under both oracles,
+instruction pointer, the oracle cursor, the halt state and every watched memory window to be identical
+under both oracles,
 and the comparator will explain a disagreement as undefined only in a closed list of fields: the flags
 and the general-purpose registers.
 \src{X86/Serialize.lean undefinedLeaked; Main.lean undefinableFields}
@@ -321,9 +329,10 @@ combination (a memory destination, a 16-bit operand, a masked count above 16) an
 reason. Every other double shift is answered.
 \src{X86/Syntax.lean dshiftMemUndefined; X86/Semantics.lean, the .dshift case}
 
-The refusal is stated as a theorem. For an immediate count,
-\lean{step\_dshift\_mem\_\allowbreak undefined\_refuses} says that the step leaves the state unchanged except for
-the halt reason; the guard in \lean{step} is on the masked count, which a count in CL reaches as well.
+The refusal is stated as a theorem,
+\lean{step\_dshift\_mem\_\allowbreak undefined\_\allowbreak refuses}: for an immediate count, the step leaves the
+state unchanged except for the halt reason. The guard in \lean{step} is on the masked count, which a count in CL
+reaches as well.
 \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
 Each of the other four designs in Table~\ref{tab:undef} has a general means of answering such a case,
 a constrained value, a constant, the built-in or a locale function; we have not read each model's rule for this
@@ -530,7 +539,7 @@ re-derived with the obvious commands, three of the seven came out different.
 And the technical draft behind Section~\ref{sec:undef}, written from decision records, contained two
 false sentences that surfaced only when the prose was checked against the step function.
 \src{docs/DECISIONS.md D213}
-A fourth sample came from writing this paper's related work: of three attributions to prior work that
+The fourth sample with a denominator came from writing this paper's related work: of three attributions to prior work that
 the project had recorded from the literature and never re-read, two did not survive reading the paper
 cited, one crediting a frame rule to a paper whose improvement removes it and one describing as hardware
 validation what the paper reports as validation against test suites and simulators.
@@ -671,9 +680,10 @@ Isabelle/HOL~\cite{verbeek-lifting}. We have read their abstracts, not their art
 position x86lean against them.
 \src{abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
 and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220}
-What it adds is the subject of Sections~\ref{sec:model}--\ref{sec:gated}: decoding bytes through a
-named trusted decoder, an undefined-bit design whose limits are stated as theorems, and coverage and
-validation claims that are derived and checked rather than written.
+What x86lean adds is the subject of Sections~\ref{sec:undef}--\ref{sec:gated}: an undefined-bit design
+whose limits are stated as theorems, a differential harness whose disagreement classes and wrong-model
+controls are explicit, and coverage and validation claims that are derived and checked rather than
+written.
 
 \paragraph{Techniques.}
 Most of x86lean's techniques have public precedents, and we cite them where they originate. A total step function over
@@ -745,7 +755,7 @@ one time in three in every sample we took, and the failures were present when th
 The model, its proofs, the differential harness and every record cited here are public at
 \url{https://github.com/jyh/x86lean} under the Apache-2.0 licence. Every figure this paper quotes from
 the manifest \texttt{docs/CLAIMS.tsv} names the commit it is pinned at and the command that re-derives
-it, and \texttt{python3 scripts/check\_claims.py} re-derives all of them and checks the paper's text
+it, and \texttt{python3 scripts/\allowbreak check\_\allowbreak claims.py} re-derives all of them and checks the paper's text
 against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the reference model is ACL2
 x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revision.txt} and fetched
 by \texttt{scripts/setup\_oracle.sh}.
