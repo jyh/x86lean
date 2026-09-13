@@ -57,7 +57,7 @@ are still owed.**
 |---|---|---|---|
 | **R1 manifest** | `scripts/check_claims.py` — every `CLAIMS.tsv` row at its pinned sha, and the paper's quoted figures against the rows | git, bash, python3; a FULL clone (pinned shas) | **3 s** on this machine, 2026-09-12 |
 | **R2 build** | `lake build`, the axiom allowlist gate, the coverage regeneration check | the pinned toolchain `leanprover/lean4:v4.32.0-rc1`, and NO package dependency (`lake-manifest.json` lists none; *this cell read "+ mathlib" until 2026-09-13*) | CI `build` job **5 m 47 s** on 2026-09-12 (run 34674679895), on a runner that restores caches. **COLD, measured 2026-09-13:** a fresh `git clone` at `64ded93` (no `.lake`), `lake build X86 X86Native Tests x86lean-diff x86lean-axioms` → **37 s wall, 1 m 39 s user, 45 jobs, rc 0**, on the 14-CPU arm64 development box at load 2.3, with the toolchain ALREADY INSTALLED by elan — a toolchain download is not in that figure, and a reviewer's machine will differ |
-| **R3 coverage derivation** | `scripts/claimed_forms.py --check` | clang (the second source assembles every roster row) and objdump | UNMEASURED |
+| **R3 coverage derivation** | `scripts/claimed_forms.py --check` | clang (the second source assembles every roster row) and objdump, **AND R2's `x86lean-diff` build** (it executes `.lake/build/bin/x86lean-diff`; *this cell omitted that until 2026-09-13*) | **Measured 2026-09-13** at `15a4898`, Apple clang 21.0.0 / LLVM objdump: **5.2 s wall, rc 0** after the build, CLAIMED rows 500 of 525. On a fresh clone WITHOUT the build it refuses **rc 2**, printing the real cause (`could not execute external process '.lake/build/bin/x86lean-diff'`) — run R2 first |
 | **R4 differential** | `scripts/run_differential.sh` | SBCL, the ACL2 image, certified x86isa books — **at a pinned revision (§1)** | **COLD SETUP, measured 2026-09-13:** a fresh `git clone` of this repo at `a08e43f` (no `vendor/`), `bash scripts/setup_oracle.sh` as committed (its defaults, `-j2` image, `-j5` books) → **12 m 43 s wall, 34 m 06 s user, 3 m 41 s sys, rc 0**, tree 1.9 GB. Phases, from the run's own timestamped log: fetch of the pinned commit **2 m 03 s** · image **28 s** · ACL2's feature probe **39 s** · certification of `projects/x86isa/top.cert` **9 m 31 s, 1,143 books**. Same 14-CPU arm64 box as R2, SBCL 2.6.8 ALREADY INSTALLED (not in the figure), load1 2.2 at start and 6–9 during certification (the run's own `-j5` is most of it). **COLD RUN, measured 2026-09-13** at `ed312f5` in the same fresh clone, `bash scripts/run_differential.sh` → **10 m 33 s wall (788 s user), rc 0**: gates and the Lean build 1 m 26 s (the `x86lean-diff` build alone 11 s) · oracle and comparison 7 m 02 s · kernel-cost READINGS 2 m 05 s. **All seven counters equal the pin run's** (cases 89,056 · matched 68,524 · explained 29,435 · unexplained 0 · oracle-divergence 171 · leaks 0 · missing 0). Load1 2.7 → 5.6. The script's "twenty-five-minute" comment is not this box's figure. ⛔ **At `a08e43f` this path FAILED in 1 s on a fresh clone** — see §4 item 3 |
 
 **Which sections need which tier:**
@@ -68,8 +68,8 @@ are still owed.**
   §4.3 the ceiling            R1 reads the roster; reproducing the refuse/execute split is R4 (oracle_availability.py)
   §5 coverage figures         R3
 ```
-⇒ **R1 is nearly free and already exists. R4 is the expensive tier and the one §1 currently makes
-unreproducible.** `[CALL]` decides whether R4 must run inside the evaluation budget or may be shipped as
+⇒ **R1 is nearly free and already exists. R4 is the expensive tier: 12 m 43 s of setup and a 10 m 33 s run, cold, on
+the development box (§1's pin is in place since D218; *this read "the one §1 currently makes unreproducible" until 2026-09-13*).** `[CALL]` decides whether R4 must run inside the evaluation budget or may be shipped as
 recorded logs with a reduced re-run.
 
 ---
@@ -78,7 +78,7 @@ recorded logs with a reduced re-run.
 - `docs/CLAIMS.tsv` + `check_claims.py`: 49 rows at 2026-09-13 (39 at 2026-09-12), each with its command, and the paper
   gated against the rows it cites (D216). **The spine of "reproduce every claim" exists.**
 - `lean-toolchain` and `lake-manifest.json` pin the Lean side.
-- `scripts/setup_oracle.sh`: an idempotent recipe for R4 — **unpinned (§1).**
+- `scripts/setup_oracle.sh`: an idempotent recipe for R4, **pinned since D218** and run cold end to end on 2026-09-13 (§2). *(This read "unpinned (§1)" until that day.)*
 
 ## 4. OWED, IN ORDER
 ```

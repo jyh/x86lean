@@ -354,6 +354,18 @@ Checked first that nothing depends on the literals: only the two definitions and
 📌 **This is the ONE arm still red in `kernel_cost --selftest` (1 of 27)**, so PORT-2's
 "three environment-dependent arms" precondition is now met and this is what remains.
 
+### PORT-5 (NEW, 2026-09-13) — **ARM 3e's population is one call SHAPE, and four producers use another**
+`kernel_cost.py` arm 3e requires every `mkdtemp(prefix="…")` in `scripts/` to start with `x86lean-`, so a scratch
+tree's orphans are attributed to this repository. Its regex matches ONLY that literal shape. Measured with `grep`:
+**four bare `tempfile.mkdtemp()` calls** make `tmpXXXX` directories no attribution can recognise —
+`claimed_forms.py` lines 616, 828, 1158 and `kernel_drift.py` line 989 — and `TemporaryDirectory(prefix=…)` (used by
+`ku_kind_plants.py`, which conforms) is also outside the regex. `scratch.mkdtemp` defaults the prefix for exactly this
+reason and these four do not use it.
+**Remedy, not taken here:** route the four through `scratch.mkdtemp`, and widen arm 3e to every `mkdtemp(` and
+`TemporaryDirectory(` call, refusing one with no conforming prefix — red-first on the current tree (it must name the
+four). **OWNER:** paris. **RELEASE:** none needed; unblocked, low priority.
+[[feedback-a-declared-list-inherits-its-default]]
+
 ## ⛔⛔ P2-IFACE (2026-09-10) — **BUILT AND GREEN, AND *HELD ON A BRANCH*, NOT ON `master`**
 
 **Council 2026-09-10 ruling ⑧** commissioned the proof interface — *"the proof interface that makes
