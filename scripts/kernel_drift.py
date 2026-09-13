@@ -454,6 +454,14 @@ EXEMPT_RULES = [
     ("PROVENANCE.md", "prose."),
     ("TRUSTBASE.md", "prose."),
     (".gitignore", "inert."),
+    # ⛔ ADDED 2026-09-13, BY THE GATE REFUSING — the third unargued path to arrive this way.
+    # Landed for the Zenodo deposit (council B②): Zenodo reads it when archiving a GitHub
+    # release and GitHub renders it as "Cite this repository".
+    ("CITATION.cff", "citation metadata for the archival deposit. Read by Zenodo at release "
+                     "time and by GitHub's citation widget; never by `lake`, and it declares "
+                     "no build input. ⚠️ The exemption is about ELABORATION READINGS only — "
+                     "this file is emphatically NOT inert to the PUBLISHED RECORD, since its "
+                     "contents become a DOI-cited record that cannot be withdrawn."),
     # ⛔ ADDED 2026-09-12, BY THE GATE REFUSING — the second unargued path this window
     # has carried. `d7dbd58` opened `paper/` (D215) and this job's selftest went red on
     # the real window; the local preflight did not run the selftest, so the refusal was

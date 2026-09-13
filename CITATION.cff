@@ -1,0 +1,35 @@
+# Zenodo reads this file when archiving a GitHub release, and GitHub renders it
+# as "Cite this repository".
+#
+# ⛔ DO NOT ADD A `.zenodo.json` BESIDE IT WITHOUT DELETING THIS FILE'S ROLE FIRST.
+# Zenodo's own guide (help.zenodo.org/docs/github/describe-software/zenodo-json/,
+# read 2026-09-13): "If your repository contains both a .zenodo.json and a
+# CITATION.cff file, Zenodo will only use the .zenodo.json metadata. The
+# CITATION.cff will be completely ignored for the GitHub release archiving."
+# ⇒ Two metadata registers do not merge — the second one SILENTLY disables the
+# first, and the failure is invisible until the DOI is minted and cannot be
+# withdrawn. The same guide: "If you don't need these Zenodo-specific features, a
+# CITATION.cff file alone is sufficient." We do not need them yet. If a future
+# head needs `grants`, `communities` or `related_identifiers` (e.g. to link the
+# arXiv paper), they must MOVE this metadata into `.zenodo.json`, not add one.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "x86lean: a differentially validated executable semantics of x86-64 user-level instructions in Lean 4"
+abstract: >-
+  A user-level x86-64 ISA semantics in Lean 4 — definitional, executable and
+  kernel-checked — built from public sources only and differentially validated
+  against public executable models. Developed as part of the SaltBench campaign.
+authors:
+  - family-names: Hickey
+    given-names: Jason
+    affiliation: Independent
+repository-code: "https://github.com/jyh/x86lean"
+license: Apache-2.0
+keywords:
+  - x86-64
+  - instruction set semantics
+  - Lean 4
+  - interactive theorem proving
+  - differential testing
+  - formal verification

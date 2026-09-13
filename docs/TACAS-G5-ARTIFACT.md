@@ -147,8 +147,33 @@ recorded logs with a reduced re-run.
   5  the container or VM, per [CALL]     ⛔ still [CALL]: the 2027 AE guidelines are unpublished (item 1)
   6  a DOI for the artifact (the "Available" criterion, item 1): an archival deposit of the submission commit —
      Zenodo is ETAPS's stated recommendation — and its DOI in the Data Availability statement beside the GitHub
-     URL. ⛔ NOT TAKEN HERE: a deposit is a PUBLICATION ACT (a DOI cannot be withdrawn), so it is the Captain's
-     word, and its commit is the camera-ready's, not today's. Priced small (ESTIMATED: a release + one sentence).
+     URL. ✅ **RULED DEPOSIT — the Captain, council 2026-09-13, minute B②: "2 yes deposit".** The word this item
+     waited on has been given; what remains is mechanism, split across two hands. *(The ⛔ that stood here said
+     "NOT TAKEN HERE … it is the Captain's word"; the word arrived. Kept visible because the REASON it was his —
+     a DOI cannot be withdrawn — still governs the ORDER of the steps below.)*
+     ```
+       HIS HAND, ONE ACT     Zenodo profile menu -> GitHub -> "Sync now" -> toggle the slider beside jyh/x86lean.
+       (posted to him        Prerequisite: a Zenodo account connected to GitHub.
+        2026-09-13)          Source: help.zenodo.org/docs/github/enable-repository/ (slug MEASURED -- two
+                             plausible guesses at that URL 404'd first).
+       MINE, BEFORE THAT     [DONE] CITATION.cff -- so the record's title, authors and licence are OURS and not
+                             GitHub's defaults. A deposited record is cited BY DOI, permanently.
+       MINE, AT THE RELEASE  [OWED] set `version:` and `date-released:` in CITATION.cff to the release's own tag
+                             and date IN THE RELEASE COMMIT. They are absent today on purpose -- a version field
+                             naming a release that does not exist is the stale-literal defect this campaign keeps
+                             finding -- and they are recorded HERE, in the recipe, because a free-floating TODO
+                             is not read by the hand that cuts the tag.
+       THEN                  the DOI goes into the Data Availability statement BESIDE the GitHub URL (not
+                             instead of it), which closes line 103's ⛔ and the "Available" criterion.
+     ```
+     ⛔ **ORDERING IS LOAD-BEARING AND ONLY HALF-SOURCED, SAID PLAINLY.** Zenodo's archive guide opens *"It assumes
+     you have already enabled a repository"*, so enabling-first is a **prerequisite it asserts**; the guide does
+     **not** say what becomes of releases cut BEFORE enabling, and I did not find a page that does. ⇒ Treated as
+     unverified, and obeyed anyway: **the cost of obeying is zero and a minted DOI cannot be withdrawn.**
+     ✅ **AND THE MEASUREMENT THAT MAKES THIS RISK-FREE ONCE:** `gh release list` and `git tag` are both EMPTY on
+     `jyh/x86lean`. **There is no pre-existing release to be missed or mis-archived** — the first release this repo
+     ever cuts is the deposited one. *(That is true TODAY and stops being true the moment anyone cuts a tag.)*
+     Priced small (ESTIMATED: a release + one sentence), and the estimate held for my half.
 ```
 📌 **Price unchanged at 3–4 days** until item 1 is read; §1 is inside that price, not added to it,
 because pinning is a few lines and recording is one header field plus a refusing gate.
