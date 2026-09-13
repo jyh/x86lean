@@ -14801,6 +14801,9 @@ is about a 26% chance at α = 5%, so it is not evidence of miscalibration yet.
 📊 **Tally, 2026-09-13 06:0xZ: conclusive 11, arm-1 reds 2** — `c8ee127` (run 34756478869): arm 1 rejected identical trees,
 `Tests.Program` invented +16.5 ms against a family-wise cut of ±12.9. P(≥2 of 11 at α = 5%) ≈ 0.10: not yet evidence of
 miscalibration, and the next one moves it.
+📊 **Tally, 2026-09-13 15:0xZ: conclusive 12, arm-1 reds 2** — `a08e43f` (run 34762065953): verdict check run published
+`success` / PASS; every other job read per job (`build`, `kernel-delta`, `selftest-gate`, `kernel-cost-selftest` — the last
+"PASS (32 arms …)" on Linux — success; the six `selftest` shards still running at the time of this row). P(≥2 of 12 at α = 5%) ≈ 0.12.
 ✅ **THE NEUTRAL BRANCH HAS NOW RUN IN PRODUCTION, NOT ONLY UNDER STUBS.** Measured at the object: the job concluded
 `success`; the check run `kernel-delta-redfirst verdict` reads `neutral`, titled UNMEASURED, its summary "arm 1 rejected
 identical trees … Not a miss"; a `::warning` annotation was emitted; and `preflight.sh` printed "⚠️ redfirst verdict:
@@ -15007,3 +15010,73 @@ synthesis; it runs at 12 / 25 / 50. The two mechanisms offered for these in the 
 The tool as committed differs from the one that produced the corpus in COMMENTS only (`origin.tool_uncommitted`
 is true in the corpus for that reason). The selftest is pure and was driven red by two mutations (a K3 generator
 off by one; a parser summing the `[reduction]` section) before it was trusted.
+
+## D229 — the first ku reading of every module: the counter sees 97% of kernel time and 32% of the three modules proof work lands in, and the instrument had five defects outside the one module it was built on
+
+⚖️ **2026-09-13, yukon.** Census `docs/ku-module-census-2026-09-13.json` by `scripts/ku_module_census.py` at `b75b400`;
+constructor plant `docs/ku-constructor-plant-2026-09-13.json` by `scripts/ku_constructor_plant.py`, sealed at `c7ed191`
+(`docs/seals/2026-09-13-armA-constructor-plant.md`). Follows D228, whose §4 named this reading as next.
+
+### 1. THE CENSUS — ten modules, conserving, ms classified by command
+```
+  module              kernel ms      ku    ms/1k ku   ×band top   where the ms is
+  X86.Theorems          1006.7     83,894    12.00      3.5x      theorem bodies 98%
+  X86.Syntax             240.1     23,918    10.04      2.9x      inductive/structure 47% · deriving 34%
+  X86.Basic               80.7     15,856     5.09      1.5x      theorem 53% · deriving 22% · inductive 16%
+  X86.Program            130.0     53,424     2.43      0.7x      in-proof auxiliary (omega, bv_omega) 86%
+  Tests.Anchors          526.3    205,882     2.56      0.7x      theorem 100%
+  Tests.Program          325.3    136,968     2.38      0.7x      theorem 70% · in-proof auxiliary 30%
+  Tests.Nonvacuity       133.3     74,402     1.79      0.5x      theorem 100%
+  X86Native               36.0     25,934     1.39      0.4x      theorem 100%
+  Tests.VectorRuns         0.4         10    BLIND                (10 is the instrument's header; the module's own ku is 0)
+  Tests.Coverage       24756.9  7,633,252     3.24      1.0x      theorem 100%
+```
+Band = D228's unfolding kinds, 1.652–3.411 ms per 1k ku; ratios use each module's UNWRAPPED ku. Load1 3.32 → 5.79; one
+profiler pass per module, so shares and ratios, never absolutes. Every module passed the census's own conservation
+check: wrapped ku = unwrapped ku + the header's measured 10.
+⇒ **At the band's top constant the counter accounts for 26,330 of 27,236 kernel ms (96.7%)** — because `Tests.Coverage`
+is 91% of the total and sits on the band. **Without it: 1,573 of 2,479 (63.4%). In the three modules above the band —
+`X86.Theorems`, `X86.Syntax`, `X86.Basic`, 1,328 ms — 906 ms (68%) is time the unfolding constant does not account for.**
+⇒ 🔑 ***THE MODULE THE COUNTER WAS CALIBRATED ON IS THE MODULE THAT HIDES ITS BLIND SPOT: 91% of the total, on the band,
+so every whole-repository figure reads as agreement.*** [[feedback-a-rate-dilutes-a-magnitude-failure]]
+⚠️ **These are the modules a P2 proof or an enum-growing batch changes.** `X86.Theorems` is tactic-proven step lemmas;
+`X86.Syntax` is where a batch adds constructors.
+
+### 2. THE CONSTRUCTOR PLANT — the ms gate's own red-first arm, all four sealed predictions CONFIRMED
+```
+  N=0 twice   ku 23,918 / 23,918 (Δ 0)          ms 246.0 / 262.7
+  N=128       Δku +13,120                        Δms +79.5     6.06 ms/1k ku
+  N=512       Δku +64,240                        Δms +789.7   12.29 ms/1k ku   (allowance 44.7 ms)
+```
+**A Δku gate SEES its predecessor's positive control.** It under-prices it, and the factor GROWS: ×4 constructors gave
+×4.9 ku and ×9.9 kernel ms over base, so a ku allowance converted by the unfolding constant is 1.8x generous at 128 and
+3.6x at 512. The census puts this module at 2.9x as it stands.
+
+### 3. ⛔ WHAT THIS MEANS FOR ARM A — A RECOMMENDATION, NOT BUILT
+ARM A as recorded (one Δku gate replacing the ms gate) is **accurate for `Tests.*`** (0.4–1.0x the band top) and
+**not for the three `X86.*` modules above** — where it under-prices by 1.5–3.5x today, and by a factor that rises with
+the size of an inductive change. **Recommended (ARM A′):** gate Δku for every module, and keep a coarse ms ceiling for
+`X86.Theorems`, `X86.Syntax` and `X86.Basic`, whose ms/ku sits outside the band; the ceiling is ABSOLUTE and generous
+(it catches size, which the constructor plant shows is where ku falls behind) and so does not inherit the per-run band
+that made the ms delta gate UNMEASURABLE. Posted as a fork; the gate design is the helm's to rule.
+
+### 4. ⛔ FIVE INSTRUMENT DEFECTS, EACH IN A MODULE THE TOOL HAD NEVER READ
+Every walk before today was `Tests.Coverage` — [[feedback-a-tool-tested-only-on-its-corpus]], the card this same tool
+earned in D189, now for modules rather than commits.
+```
+  1  X86.Program       a BLANK line between a doc comment and its theorem       refused (orphaned doc comment)   0b96566
+  2  X86.Basic,        no `import` line                                         refused                           0b96566
+     Tests.VectorRuns
+  3  (any refusal)     errors printed from stderr; `lean --json` writes stdout  EMPTY refusal (filed D189)       0b96566
+  4  X86.Theorems      `@[simp] theorem` on one line was not wrapped             21% of the module unattributed    5ed2eab
+                       … and widening it made `@[…] theorem a` a "prefix" of b   caught by the collision refusal
+  5  X86.Basic         the ku map keyed by LOCAL name: 33 declarations, 24 names 28% SHORT (11,409 vs 15,846)     e2b52e3 
+```
+**Defect 5 is the one that matters:** deterministic, silent, past the names check (which compares
+lists, where duplicates survive), and found only because the census compared the instrument's total with the module
+elaborated WITHOUT the instrument. The census now refuses on that inequality, and was driven red against the pre-fix
+tool (off by −4,447). The selftest's tree arm, which had instrumented `Tests/Coverage.lean` alone, now instruments all 19
+modules (red naming defects 1 and 2 before the repair). 39/39 arms; each new arm driven red on the old code.
+⇒ 🔑 ***A MAP BUILT FROM A LIST IS A CLAIM THAT ITS KEYS ARE UNIQUE, AND NOTHING CHECKED THE CLAIM.***
+📌 The census classifier was itself wrong twice before its reading was recorded (it put documented theorems, then
+tactic auxiliary lemmas, under `other`); both corrected by reading the lines behind the number, each a commit.

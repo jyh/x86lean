@@ -762,6 +762,12 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    COMPLEMENT for the two blind kinds before it can replace the ms gate.** ⛔ Whether this repository HAS such
    work is measured in ONE module only (`Tests.Coverage`: none). **NEXT, cheap, needs no quiet box for its ku
    half:** a ku reading of every module the ms gate budgets, at HEAD, joined to one profile.
+   ⚖️ **READ THE SAME DAY (D229).** The counter accounts for 96.7% of kernel time — and 32% of the three modules
+   above the band (`X86.Theorems` 3.5x, `X86.Syntax` 2.9x, `X86.Basic` 1.5x the band top), which are where proof work
+   and enum growth land; `Tests.*` is on or under it. The ms gate's own 512-constructor plant IS seen (Δku +64,240)
+   and under-priced by a factor that grows with N. **Recommended, not built: ARM A′ — Δku for every module plus a
+   coarse ABSOLUTE ms ceiling on those three.** The ku instrument had five defects outside `Tests.Coverage`, one of
+   them a silent 28% undercount; repaired, and the census now refuses unless wrapped = unwrapped + header.
 
 0c. ⛔⛔ **`es3-anchor-theorems` IS BLOCKED ON AN UNDECIDABLE BAND, NOT ON A BUDGET — AND THE GATE'S
    OWN "MORE REPEATS" REMEDY WAS REFUTED BY THE RUN IT RECOMMENDED.** Measured 2026-09-08 by paris on

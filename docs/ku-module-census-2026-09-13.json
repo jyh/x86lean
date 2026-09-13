@@ -1,0 +1,151 @@
+{
+ "head": "b75b40022430137afe83ea1d5e24d56abd398fc2",
+ "origin": {
+  "node": "yukon.lan",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "python": "3.14.4",
+  "lean": "Lean (version 4.32.0-rc1, arm64-apple-darwin24.6.0, commit b4812ae53eea93439ad5dce5a5c26591c31cb697, Release)"
+ },
+ "load_start": [
+  3.31982421875,
+  3.486328125,
+  3.939453125
+ ],
+ "band": [
+  1.652,
+  3.411
+ ],
+ "modules": {
+  "X86.Basic": {
+   "ms": 80.65356000000007,
+   "ku": 15856,
+   "ku_unwrapped": 15846,
+   "ku_unattributed": 2541,
+   "ms_per_1k_ku": 5.089837182885275,
+   "ms_by_kind": {
+    "inductive/structure": 13.239279999999997,
+    "deriving": 17.51136999999999,
+    "def": 1.2529000000000001,
+    "theorem": 42.8157,
+    "in-proof auxiliary": 5.8343099999999986
+   }
+  },
+  "X86.Syntax": {
+   "ms": 240.1497300000004,
+   "ku": 23918,
+   "ku_unwrapped": 23908,
+   "ku_unattributed": 20378,
+   "ms_per_1k_ku": 10.044743600468479,
+   "ms_by_kind": {
+    "inductive/structure": 112.57689999999991,
+    "deriving": 80.73374000000008,
+    "def": 2.7103,
+    "in-proof auxiliary": 20.101270000000035,
+    "theorem": 19.513600000000004,
+    "other": 4.51392
+   }
+  },
+  "X86.Theorems": {
+   "ms": 1006.7159700000034,
+   "ku": 83894,
+   "ku_unwrapped": 83884,
+   "ku_unattributed": 137,
+   "ms_per_1k_ku": 12.001287134614508,
+   "ms_by_kind": {
+    "def": 0.0395,
+    "in-proof auxiliary": 17.881339999999994,
+    "theorem": 988.5410000000003,
+    "other": 0.25413
+   }
+  },
+  "X86.Program": {
+   "ms": 130.04703,
+   "ku": 53424,
+   "ku_unwrapped": 53414,
+   "ku_unattributed": 56,
+   "ms_per_1k_ku": 2.4346993297637325,
+   "ms_by_kind": {
+    "inductive/structure": 0.70707,
+    "in-proof auxiliary": 111.64604000000003,
+    "deriving": 0.10469999999999999,
+    "def": 0.55172,
+    "theorem": 16.766799999999996,
+    "other": 0.2707
+   }
+  },
+  "Tests.Anchors": {
+   "ms": 526.2533,
+   "ku": 205882,
+   "ku_unwrapped": 205872,
+   "ku_unattributed": 10,
+   "ms_per_1k_ku": 2.5562159982901993,
+   "ms_by_kind": {
+    "def": 0.6213,
+    "theorem": 525.632
+   }
+  },
+  "Tests.Program": {
+   "ms": 325.34039999999993,
+   "ku": 136968,
+   "ku_unwrapped": 136958,
+   "ku_unattributed": 10,
+   "ms_per_1k_ku": 2.3754756932782306,
+   "ms_by_kind": {
+    "def": 1.7252000000000003,
+    "theorem": 226.1714,
+    "in-proof auxiliary": 97.44380000000005
+   }
+  },
+  "Tests.Nonvacuity": {
+   "ms": 133.28500000000005,
+   "ku": 74402,
+   "ku_unwrapped": 74392,
+   "ku_unattributed": 10,
+   "ms_per_1k_ku": 1.7916577051295846,
+   "ms_by_kind": {
+    "def": 0.159,
+    "theorem": 133.12600000000003
+   }
+  },
+  "Tests.VectorRuns": {
+   "ms": 0.375,
+   "ku": 10,
+   "ku_unwrapped": 0,
+   "ku_unattributed": 10,
+   "ms_per_1k_ku": null,
+   "ms_by_kind": {
+    "def": 0.375
+   }
+  },
+  "X86Native": {
+   "ms": 36.0331,
+   "ku": 25934,
+   "ku_unwrapped": 25924,
+   "ku_unattributed": 10,
+   "ms_per_1k_ku": 1.389951396389446,
+   "ms_by_kind": {
+    "theorem": 35.971599999999995,
+    "in-proof auxiliary": 0.0615
+   }
+  },
+  "Tests.Coverage": {
+   "ms": 24756.88914999999,
+   "ku": 7633252,
+   "ku_unwrapped": 7633242,
+   "ku_unattributed": 10,
+   "ms_per_1k_ku": 3.2432993936259313,
+   "ms_by_kind": {
+    "theorem": 24667.508000000005,
+    "def": 1.72601,
+    "in-proof auxiliary": 87.65514
+   }
+  }
+ },
+ "header_ku": 10,
+ "load_end": [
+  5.791015625,
+  4.126953125,
+  4.08740234375
+ ]
+}
