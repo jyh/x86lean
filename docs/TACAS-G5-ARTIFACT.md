@@ -5,9 +5,11 @@ run the gates."* The paper is now drafted (`paper/x86lean-semantics.tex`), so th
 must reproduce are no longer hypothetical. This is the SCOPE, taken from the tree on 2026-09-12. **It
 is not the artifact.**
 
-⛔ **NOT READ, AND NOT TO BE RECALLED:** the TACAS 2027 artifact-evaluation call — its VM or container
-form, its size and time limits, its badge criteria. **Read it at the source before building anything
-here.** Every design choice below that depends on it is marked `[CALL]`.
+⚖️ **THE CALL WAS READ AT ITS SOURCE THE SAME DAY — `TACAS-PRICING.md` §3a.** Artifact evaluation is
+VOLUNTARY for research and case-study papers and due **2027-01-11**, after notification: **G5 is not on
+the Oct-15 path.** The submission needs a mandatory data availability statement. ⛔ **STILL NOT READ:** the
+AE committee's own page — VM or container form, size and time limits, badge criteria. Choices depending
+on it stay marked `[CALL]`.
 
 ---
 
@@ -75,7 +77,7 @@ recorded logs with a reduced re-run.
 
 ## 4. OWED, IN ORDER
 ```
-  1  read the TACAS 2027 AE call at its source                                    [CALL]
+  1  read the TACAS 2027 AE call at its source            ✅ the CFP (PRICING §3a); the AE page itself [CALL]
   2  pin + record the reference model's revision (§1)                             harness change
   3  measure a COLD R2 build and the x86isa certification on a clean machine
   4  cite every remaining number in the paper to the manifest (paper/README.md)

@@ -110,6 +110,9 @@ file's "paper 1" is the semantics paper, and it proceeds on the TACAS clock (des
 
 **Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**
 ```
+  BEFORE OCT 15:  G6 1 · G7 1 (ESTIMATED) · data statement ~0.25 (ESTIMATED)  ⇒  ~2.25 working days
+  AFTER, IF AE:   G5 3-4, due 2027-01-11 (§3a: voluntary, after notification)
+      (re-sequenced 09-12 by reading the call, §3a; the total below this line is superseded)
   G2  0     G5  3-4   G6  1   G7  1 (ESTIMATED)     ⇒  REMAINING: 5-6 working days
       (G2 and G7 re-priced 09-12, same session: every section of paper/x86lean-semantics.tex is now
        DRAFTED except §7's read-dependent sentences; G7 keeps ~1 for citing §6's line counts to the
@@ -226,6 +229,54 @@ difference|) giving 0.29 where CV gave 0.73. **It is gate design and therefore t
 to take** — but it is on the critical path of G3, so it is priced here as a **blocker, not a task.**
 
 ---
+
+## 3a. ⭐⭐ THE CALL, READ AT ITS SOURCE — 2026-09-12, AND IT RE-SEQUENCES EVERYTHING BELOW
+
+**Read verbatim** at `etaps.org/2027/cfp/` and `etaps.org/2027/conferences/tacas/` (HTTP 200, both
+fetched and grepped for the quoted phrases; not recalled, not taken from a summariser's paraphrase).
+```
+  deadline        "Submission deadline for ESOP-round 2, iFS, FoSSaCS, TACAS: Thursday, October 15, 2026"
+  length          "TACAS: regular research papers, case study papers, and regular tool papers of max 18 pp"
+                  "All page limits are given excluding the bibliography"
+  format          "use the llncs.cls class"
+  data statement  "Data availability statement in proceedings papers is mandatory ... placed just before
+                   the references and does not count into the page limit"
+  blind           "double-blind reviewing (in the case of TACAS and iFS, only for regular research papers).
+                   Authors are asked to omit their names and institutions; refer to prior work in the third
+                   person ... If authors do not obey the double-blind submission policy ... this may result
+                   in a desk rejection"
+  AE              research papers: "not mandatory but strongly encouraged"; case-study papers: "currently
+                  not mandatory"; "Artifact submission deadline ... TACAS voluntary artifacts: Monday,
+                  January 11, 2027" -- AFTER "Paper notification ... Tuesday, December 22, 2026"
+  arXiv           "we strongly encourage authors to not put the work on arXiv (or similar repos) around 2 weeks
+                   before and after the submission deadline"
+  research paper  "identify and justify a principled advance to the theoretical foundations for the
+                   construction and analysis of systems"
+  case study      "the application of techniques developed by the community to a single problem or a set of
+                   problems of practical importance"
+```
+### ⇒ WHAT CHANGES
+1. ⛔ **G5 LEAVES THE CRITICAL PATH.** Artifact evaluation is voluntary and its deadline is 2027-01-11,
+   after notification. What the Oct-15 submission needs from G5 is the **data availability statement**
+   (small) — not the container. `docs/TACAS-G5-ARTIFACT.md` §1 (pin the reference model) stays owed,
+   because the statement must name what a reader can reproduce.
+2. ⚖️ **THE CATEGORY IS A FORK, AND IT IS THE CAPTAIN'S (desk `JU`: "the Captain (venue)").**
+   * **(R) regular research paper** — double-blind. The draft's *"checkable in one clone of a public
+     repository"* cannot be said with the URL; the author, `\institute`, every self-citation and the
+     artifact link need anonymizing (an anonymized mirror). And the category asks for *"a principled
+     advance to the theoretical foundations"*, which §4a already judged this paper is not.
+   * **(C) case-study paper** — not double-blind; *"the application of techniques developed by the
+     community to … a set of problems of practical importance"* is what §4a says the paper IS: known
+     techniques (differential testing, derived claims) applied to building an x86-64 semantics, with the
+     measured negative results as the evidence.
+   * ⚖️ **RECOMMENDATION: (C)**, and the draft proceeds on it — no anonymization work is done. **Against
+     myself:** a case-study paper may be read as the weaker category, and (R)'s bar is where §4a's
+     "does it read thin" risk lives either way. A later (R) ruling costs the anonymization pass (~0.5 day,
+     ESTIMATED) and nothing already written.
+3. ⛔ **THE arXiv-FIRST RULE HAS A WINDOW** (desk `JU`: *"Datable-first to arXiv"*). TACAS asks for no
+   arXiv posting ~2 weeks either side of Oct 15 ⇒ **post before ~Oct 1 or after ~Oct 29.** Stated here so
+   nobody discovers it on Oct 10.
+4. 📐 **LENGTH:** the draft is 12 pp including bibliography and placeholders, against 18 pp excluding it.
 
 ## 4. RECOMMENDATION — MINE; **RULED (c) BY THE CAPTAIN 2026-09-12** (§2.1)
 **(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 + G7; **§2.2 prints

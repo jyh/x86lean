@@ -30,6 +30,13 @@ The PDF is a build product and is not tracked.
 | Abstract · 1 Introduction · 8 Conclusion | drafted, from the sections; no new figures | the sections they summarise |
 | remaining placeholders | §4.3 none; §7's read-dependent sentences | named in each placeholder |
 
+## The call (read 2026-09-12, `docs/TACAS-PRICING.md` §3a)
+
+Deadline **2026-10-15**; **18 pp excluding bibliography**, llncs; a **data availability statement is
+mandatory** (placeholder added). ⚖️ The category — regular research paper (double-blind) or case-study
+paper (not) — is the Captain's; the draft proceeds on the recommendation, **case-study**, and does no
+anonymization. No arXiv posting ~2 weeks either side of the deadline.
+
 ## Owed before submission
 
 - Every `.bib` entry fetched by DOI from the registrar, never copied from G6 (D214: 3 of G6's 8 rows
