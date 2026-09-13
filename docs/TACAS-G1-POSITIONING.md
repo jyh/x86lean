@@ -113,7 +113,10 @@ K variants agreeing 1539 · 1469 · 1558 · 1536 · 1493; disagreeing 32 · 28 �
 **"Dasgupta et al. incorrect" 28 · 24 · 18 · 18 · 18** and "libLISA incorrect" 4 · 4 · 7 · 5 · 3; and "Four
 variants contain incorrect rules (LOOPNE, [V]PCMPISTR[I/M])". ⇒ **K, our ARBITER in every declared
 divergence, is itself wrong on 18–28 variants per machine by a hardware-origin measurement.** Whether any
-of our cited K rules are among them is NOT checked. The paper's §4.2 now says the arbiter is fallible.
+of our cited K rules are among them: **the results text names none of them** (0 hits for PSLL/PSRL/PSRA
+and for MOVD/MOVQ; control LOOPNE found once) — but it does not LIST the 18–28 either, so this is not a
+clearance. The per-variant list, if published, is in libLISA's Zenodo reproduction package: UNREAD.
+The paper's §4.2 now says the arbiter is fallible.
 📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
 Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
 📌 The CPP 2019 1,625-instruction model embeds stratified-synthesis semantics in Isabelle/HOL (per a search
