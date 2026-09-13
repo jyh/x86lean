@@ -157,7 +157,9 @@ but **a validation claim in this paper may not count three.**
 **(b) ON PROOF SUPPORT WE LOSE TOO, AND IT IS NOT CLOSE.** x86isa's `copyData-is-correct` is full
 functional correctness *plus* fault-freedom for a loop of **unbounded** length; K proves functional
 post-conditions over loops for 10 programs via `kprove` + Z3. Our 7 memory-safety theorems over 4
-routines are **a weaker claim over a smaller sample.**
+routines are **a weaker claim over a smaller sample.** ⛔ *(2026-09-13, D232: "7 over 4" has no stated rule and
+is not reproducible from `Tests/Program.lean`, which is unchanged since it was written; the paper now says "a safety
+theorem for each of six small routines", gated by `CLAIMS.tsv[proof_sample_routines]`. The verdict is unchanged.)*
 ⇒ **§4's recommendation is unchanged and is now better supported, not worse.** The paper's claim was
 never "more instructions" or "harder theorems" — it is that **no claim in the repository is ungated**.
 G1 measured the two axes on which we lose and the one on which nothing else in this space competes,

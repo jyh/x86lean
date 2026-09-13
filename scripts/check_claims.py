@@ -94,6 +94,9 @@ PAPER = os.path.join(ROOT, PAPER_REL)
 # A row whose value is an INVARIANT over other rows (a residue of 0) is not quoted as a number;
 # the paper states the relation in words, and that sentence is what must sit beside the citation.
 RELATIONS = {"p2_ceiling_partition_residue": "The five parts sum to the total"}
+NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+                "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+                "nineteen", "twenty"]
 
 
 def _src_markers(tex):
@@ -140,6 +143,12 @@ def check_prose(tex, rs, verbose=True):
                         cands.add(f"{int(v):,}")
                     ok = any(re.search(r"(?<![\d.,])" + re.escape(c) + r"(?![\d]|[.,]\d)", span)
                              for c in cands)
+                    # ⚠️ D232: a small count is written as a WORD in prose ("six routines"), and a digit-only
+                    # matcher made every such figure uncitable, so it stayed uncited. Word forms 0-20 are
+                    # accepted, whole words only ("seventeen" is not "seven"). The arm stays a PRESENCE check,
+                    # and a small word recurs more than a large number does: weaker, and stated.
+                    if not ok and v.isdigit() and int(v) < len(NUMBER_WORDS):
+                        ok = re.search(r"\b" + NUMBER_WORDS[int(v)] + r"\b", span, re.I) is not None
                     what = f"the value {v}"
                 if not ok:
                     findings.append(f"prose: `{cid}` is cited but {what} is NOT in the prose it annotates: "
@@ -315,6 +324,19 @@ def selftest():
     f = check_prose(planted, rs0, verbose=False)
     arm("PLANT: a value present only in a COMMENT does not satisfy its citation",
         any("p2_bucket_refuses" in x and "NOT in the prose" in x for x in f), str(f)[:200])
+
+    # ── D232: a small value written as a WORD ─────────────────────────────────
+    word_rows = [("w_six", "6", "d7dbd58", "echo 6", PAPER_REL + " §0"),
+                 ("w_seven", "7", "d7dbd58", "echo 7", PAPER_REL + " §0")]
+    f = check_prose("It has six routines.\n\\src{docs/CLAIMS.tsv[w\\_six]}\n", word_rows[:1], verbose=False)
+    arm("PLANT (control): a value written as a WORD satisfies its citation", not f, str(f)[:200])
+    f = check_prose("It has Six routines.\n\\src{docs/CLAIMS.tsv[w\\_six]}\n", word_rows[:1], verbose=False)
+    arm("PLANT: the word is matched regardless of case (a sentence may open with it)", not f, str(f)[:200])
+    f = check_prose("It has five routines.\n\\src{docs/CLAIMS.tsv[w\\_six]}\n", word_rows[:1], verbose=False)
+    arm("PLANT: a WRONG number word is caught", any("w_six" in x and "NOT in the prose" in x for x in f), str(f)[:200])
+    f = check_prose("It has seventeen routines.\n\\src{docs/CLAIMS.tsv[w\\_seven]}\n", word_rows[1:], verbose=False)
+    arm("PLANT: a word CONTAINING the value's word (seventeen / seven) does not satisfy it",
+        any("w_seven" in x and "NOT in the prose" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0

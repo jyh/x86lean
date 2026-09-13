@@ -61,13 +61,13 @@ list of what was validated against what, a statement of which bits are undefined
 disagreements: each is ordinarily prose, and prose is not checked against the artifact it describes.
 
 We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
-first. It covers 158 mnemonics, where K's coverage target lists 774, and its proof support is seven
-memory-safety theorems over four routines, where x86isa proves full functional correctness of an
+first. It covers 158 mnemonics, where K's coverage target lists 774, and its proof support is a safety
+theorem for each of six small routines, where x86isa proves full functional correctness of an
 unbounded loop. Other formal x86-64 models exist beyond the three we compare against, and one of them,
 libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
 synthesized from a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
 read.
-\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
+\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 Its decoding is trusted to Intel XED, and its validation is against one executable model.
 
 What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
@@ -622,11 +622,11 @@ memories agree on the buffer, and the interface's combinators are all single-run
 \src{docs/P2-PROOF-INTERFACE.md, problem 3 section 2}
 
 \paragraph{The sample.}
-Four routines and two to seven labels, written by one author against one interface, are a sample.
+Six routines, four of them with two to seven labels, written by one author against one interface, are a sample.
 Against x86isa's eight verified program families, including full functional correctness for an
 unbounded copy loop, this is a far weaker proof development (Section~\ref{sec:related}). A benchmark of such properties, and a program logic proved sound over this
 semantics, are the subject of later work.
-\src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2}
+\src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2; docs/CLAIMS.tsv[proof\_sample\_routines]}
 
 % ---------------------------------------------------------------------------------------------
 \section{Related Work}
@@ -658,9 +658,9 @@ theorems, and is validated by co-simulation against K's single-instruction tests
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
 Against these, x86lean covers 158 mnemonics where K's target lists 774; x86isa's figure is stated in
-opcodes, a different unit, and Sail's model publishes no count. Its proof support, seven memory-safety
-theorems over four routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
-\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
+opcodes, a different unit, and Sail's model publishes no count. Its proof support, a safety theorem for
+each of six small routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
+\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
 158 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
 means. libLISA discovers instructions and synthesizes their semantics by executing them on a CPU,
@@ -739,7 +739,7 @@ by reading a second, and for one rule by a model synthesized on processors; K ha
 hardware co-simulation has been. The reference model
 refuses more of the remaining instructions than it executes, so for those a model built from the manual
 currently has no second source. A rule the reference model does not implement, such as MOVDQA's
-alignment fault, is carried by theorem alone. The proof-cost measurements are a sample of four routines. And the
+alignment fault, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
 gate on quoted figures checks the figures that cite the manifest, not every number in the text.
 
 The contribution is not a larger or more strongly proved semantics. It is a semantics whose claims about
@@ -761,7 +761,7 @@ it, and \texttt{python3 scripts/\allowbreak check\_\allowbreak claims.py} re-der
 against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the reference model is ACL2
 x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revision.txt} and fetched
 by \texttt{scripts/setup\_oracle.sh}.
-\src{LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short]}
+\src{LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
 
 \bibliographystyle{splncs04}
 \bibliography{x86lean-semantics}

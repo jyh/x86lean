@@ -15170,3 +15170,39 @@ counts and per-label fit (16), D52's 82/16/35 (3), libLISA's "118 000" (2), Arms
 technical constant that is not a measurement: a column width, the SDM's "is 0", "16-bit", the 66 prefix, the low/upper 64
 bits, bit 127 (9). ⇒ **No uncited MEASUREMENT remains in the paper outside the declared set.** ⚠️ The inventory reads digit
 runs only: a number spelled in words ("seven memory-safety theorems", "four routines") is outside it, stated.
+
+## D232 — the paper's headline concession, "seven memory-safety theorems over four routines", had no rule that reproduces it, and §6 of the same paper measures six routines
+
+⚖️ **2026-09-13, continuing D231's inventory into the numbers it declared out of scope — the ones spelled in words.**
+§1 and §7 conceded *"its proof support is seven memory-safety theorems over four routines"*; §6 said *"Four routines and
+two to seven labels … are a sample"*, and §8 *"a sample of four routines"*. The figure came from
+`docs/TACAS-G1-POSITIONING.md`'s table (introduced at `6b4c749`, 2026-09-11, marked **MEASURED**) and no command, row or
+record states which theorems it counts.
+```
+  Tests/Program.lean, theorem set      IDENTICAL at 6b4c749 and HEAD — the figure is not stale, it is unreproducible
+  quantified theorems (a Nat/Mem/Cpu/BitVec binder)   12, over 6 routines: countdown · fill · memcpy · scan · prologue · guarded
+  §6's OWN population                  one sized safety theorem per routine, 6 over 6 (proof_lines_* rows):
+                                       frame tier 2 (countdown, scan — 14 lines each) · labelled tier 4 (34 · 50 · 57 · 76)
+  readings that DO give 7 over 4       the labelled-tier routines' quantified theorems minus two witnesses — and more than one
+                                       choice of the two works, while every one of them drops the two frame-tier theorems
+```
+⇒ **D202's defect in the paper's most-read sentence**: a count whose population is unstated fails reproduction exactly
+like a wrong one, and here it also disagreed with the paper's own §6, which sizes proofs for six routines and so already
+contradicted "four". [[feedback-a-complete-count-of-a-subset]]
+⚖️ **TWO ARMS, AND THE ONE TAKEN.** (A) keep a theorem count and state a rule for it (6 over 6 with "one headline theorem
+per routine"; but fill carries two further quantified corollaries, so any count invites the question the rule answers
+arbitrarily). (B) **TAKEN:** state only what is derivable — *"a safety theorem for each of six small routines"* — and gate
+the six. §6's sample sentence becomes *"Six routines, four of them with two to seven labels"*, and §8 *"a sample of six
+routines"*. Posted as a fork; both concessions still read weaker than x86isa and K, which is the verdict G1 recorded and it
+is unchanged.
+**The gate.** `proof_sample_routines` = 6 at `673b64a`, the count of `proof_lines_*` rows — each of which `check_claims`
+re-derives with `proof_lines.py`, which REFUSES an absent theorem, so the population is six named theorems that exist.
+⚠️ **The prose arm could not have gated the old sentence even with a row**: it matched DIGITS, and small counts are words in
+prose. `check_prose` now accepts the words zero–twenty, whole words, any case. Arms: a word satisfies (control) · case ·
+a wrong word reds · "seventeen" does not satisfy 7. Red-first by mutation: removing word support reds the control and case
+arms; removing the word boundary reds the seventeen arm; case-sensitivity reds the case arm. **19 arms, 0 red.**
+⚠️ A word is a weaker presence check than a large number — "six" recurs more than "169,877" — and that is stated, not solved.
+```
+  PLANTS   §1 six->five · §6 Six->Four · §7 six->four · §8 six->four        each 1 finding naming proof_sample_routines
+  manifest 76 rows CLEAN
+```
