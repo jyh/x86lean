@@ -170,7 +170,10 @@ elab "hb_count " nm:str " in" cmd:command : command => do
   logInfo m!"HBCOUNT {nm.getString} {stop - start}"
 '''
 
-DECL = re.compile(r'^(?:private |protected |partial |noncomputable )*'
+# ⛔ AN ATTRIBUTE ON THE SAME LINE (D229): `@[simp] theorem foo` did not match, so 21% of
+# X86.Theorems' kernel time sat in declarations this rewriter never wrapped — counted in the
+# module's UNATTRIBUTED remainder, so totals were right and per-declaration readings were not.
+DECL = re.compile(r'^(?:@\[[^\]]*\]\s*)?(?:private |protected |partial |noncomputable )*'
                   r'(theorem|def|abbrev|instance|example|lemma)\s+'
                   r'([A-Za-z_][A-Za-z0-9_\'!?.]*)')
 PREFIX = re.compile(r'^(set_option|open|attribute)\b.* in$')
@@ -266,7 +269,9 @@ def instrument(text, report=None):
         j = i
         while j > 0:
             prev = lines[j - 1].rstrip()
-            if PREFIX.match(prev) or prev.startswith('@['):
+            # an `@[…]` line is a PREFIX only when it declares nothing itself (D229: with DECL
+            # widened, `@[simp] theorem a` above `@[simp] theorem b` was walked into as b's prefix)
+            if PREFIX.match(prev) or (prev.startswith('@[') and not DECL.match(prev)):
                 j -= 1
                 continue
             if prev.endswith('-/'):
@@ -854,6 +859,11 @@ def selftest():
     i = ls.index('hb_count "h" in')
     arm("CONTROL — `--` lines with NO doc comment above them do not move the site",
         ls[i + 1].startswith("theorem h"), ls[i:i + 3])
+
+    _t, names = instrument("import X86\n@[simp] theorem s : True := trivial\n"
+                           "@[simp, grind =] private def t := 1\n")
+    arm("a declaration with an attribute ON ITS OWN LINE is wrapped (D229: 21% of X86.Theorems)",
+        names == ["s", "t"], names)
 
     _t, names = instrument("import X86\ndef e := 1\nprivate def f := 2\n"
                            "  def notTopLevel := 3\n")
