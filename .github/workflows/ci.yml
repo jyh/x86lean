@@ -981,8 +981,34 @@ jobs:
           auto-config: false
           build: false
           test: false
+      # ⛔⛔ THE READINGS GO TO THE STEP SUMMARY, AND THAT IS NOT COSMETIC — IT IS WHAT
+      # MAKES ARMA-1 EXECUTABLE AT ALL. Found by trying to use it within the hour:
+      # GitHub withholds a JOB's log until the whole RUN completes, and the slowest job
+      # in this workflow is `kernel-delta-redfirst` at ~45 min. So the readings this
+      # step exists to publish were unreadable long after the step had printed them —
+      # and a later push CANCELS this job (concurrency, above) while redfirst survives,
+      # so on a busy day the run may never complete and the readings never arrive.
+      # ⇒ 🔑 A STEP THAT PRINTS THE THING SOMEBODY NEEDS HAS NOT DELIVERED IT UNTIL THE
+      # CHANNEL IT PRINTS ON IS READABLE WHEN THEY NEED IT. The step summary is
+      # attached to the JOB and is readable as soon as the job ends.
       - name: Deterministic kernel-work delta against this change's base (Δku, every module)
-        run: python3 scripts/ku_delta.py --arm a
+        run: |
+          set +e
+          python3 scripts/ku_delta.py --arm a 2>&1 | tee /tmp/kudelta.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "## ku-delta (ARM A) — rc $rc"
+            echo
+            echo "ARMA-1 reads the block below to register this machine's absolute ms"
+            echo "ceilings. Take the WORST of four runs, not this single pass."
+            echo
+            echo '```'
+            sed -n '/^READINGS on /,/^$/p' /tmp/kudelta.txt
+            grep -E '^ku-delta gate' /tmp/kudelta.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
 
   # ⛔⛔ PORT-2 (queue, 09/09): `kernel_cost.py` IS THE PROFILER BEHIND EVERY GATED KERNEL
   # NUMBER HERE, AND ITS SELFTEST HAD NO CI ARM. Measured 2026-09-13 before this job existed:

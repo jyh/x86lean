@@ -2567,9 +2567,10 @@ moves the counter by **+0**. ⇒ **On the runner today that plant lands green.**
 ✅ **THE NEXT STEP IS ONE COMMIT AND IT IS NAMED, not a hope.** The `ku-delta` step PRINTS this
 runner's own readings for the three ceiling modules on every run, with the line it would register.
 ```
-  1  read the printed READINGS off four `ku-delta` runs on the runner (worst of four, this
-     repository's convention -- ⛔ NOT the single pass the step prints, which is one reading
-     about one run)
+  1  read the READINGS off four `ku-delta` runs on the runner, from each JOB's STEP SUMMARY
+     (`gh api repos/jyh/x86lean/actions/jobs/<id>` -> the summary; or the job page). Worst of
+     four, this repository's convention -- ⛔ NOT the single pass one step prints, which is one
+     reading about one run
   2  register `X86.Basic|X86.Syntax|X86.Theorems @ms @on <runner> <worst x 3>` in
      scripts/ku_delta_budget.txt
   3  change `--arm a` to `--arm a-prime` in the `ku-delta` job, and MOVE A′'s measured red-first
@@ -2577,6 +2578,16 @@ runner's own readings for the three ceiling modules on every run, with the line 
 ```
 📌 This is the mechanism that wrote `X86.Program 792 @on runnervmlun5p` into `kernel_ceilings.txt`,
 run again for a second registry. **PRICE: one shift, most of it waiting on four runner runs.**
+
+⛔ **AND THE FIRST ATTEMPT TO USE THIS ITEM EXPOSED A DEFECT IN ITS OWN DELIVERY CHANNEL, REPAIRED
+THE SAME HOUR.** The readings were printed to the job's LOG — and **GitHub withholds a job's log until
+the whole RUN completes**, whose slowest job is `kernel-delta-redfirst` at ~45 min. Worse, a later push
+CANCELS `ku-delta` (its concurrency group) while redfirst survives, so on a busy day the run may never
+complete and the readings never arrive at all. Measured: `ku-delta` concluded `success` on `bd8fa81` at
+20:5xZ and its readings were still unreadable when this line was written.
+⇒ 🔑 ***A STEP THAT PRINTS THE THING SOMEBODY NEEDS HAS NOT DELIVERED IT UNTIL THE CHANNEL IT PRINTS ON
+IS READABLE WHEN THEY NEED IT.*** They now go to `$GITHUB_STEP_SUMMARY`, which is attached to the JOB and
+readable as soon as the job ends. The extraction was driven against the gate's real output, not assumed.
 
 ⚠️ **UNTIL THEN, THE ms HALF'S ONLY HOME IS A HUMAN RUNNING IT ON THE DEVELOPER BOX** — and a gate
 whose precondition is that somebody remembers is switched off by the first person who forgets
