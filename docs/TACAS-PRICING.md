@@ -302,8 +302,10 @@ fetched and grepped for the quoted phrases; not recalled, not taken from a summa
    the right place to look.** `tacas.info/artifacts-best-practices.php`, *"Effective Practices of Artifact
    Evaluation for TACAS"*, carries **no year** and therefore always exists: **containers 0** (fixed-string;
    controls artifact 33 / DOI 14 / Zenodo 4), and it calls its own practices *"not hard requirements"*.
-   ⇒ 🔑 ***THE ANSWER LIVED ON THE DOCUMENT WITHOUT A YEAR IN ITS URL, ONE CLICK FROM A PAGE ALREADY IN THIS
-   RECORD — every earlier probe was aimed at "the 2027 guidelines", which is the one thing guaranteed to 404.***
+   ⇒ 🔑 ***THE ANSWER LIVED ON THE DOCUMENT WITHOUT A YEAR IN ITS URL — and it was a missed HOST, not a
+   missed click: measured at `a395391`, `tacas.info` appears ZERO times in this file or in TACAS-G5-ARTIFACT.
+   Every page this record ever consulted was on `etaps.org`, which publishes a conference EDITION, while the
+   steering committee's own site publishes the durable PRACTICE.***
    ⚠️ Bounded: 2027's own call is unwritten and could still ask for one. It may be true again when the page appears; today it is a recollection of earlier years. What the
    badge page DOES say costs the draft something concrete: **"Available" needs a DOI-assigning archive cited in
    the data statement, and ours cites GitHub only** (`docs/TACAS-G5-ARTIFACT.md` §4 items 1 and 6).

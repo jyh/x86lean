@@ -15456,10 +15456,18 @@ confused two of them.**
 **still 404** — unchanged, as predicted. But `tacas.info/artifacts.php` is **200**, and one link down it
 carries **"Effective Practices of Artifact Evaluation for TACAS"** (`artifacts-best-practices.php`), a
 document with **no year in its name or its URL**.
-⇒ 🔑 ***WE WERE LOOKING FOR THIS YEAR'S PAGE, AND THE THING THAT ANSWERS THE QUESTION IS THE ONE THAT DOES
-NOT HAVE A YEAR.*** Every probe so far was aimed at a 2027 artefact (the ETAPS 2027 AE page, the TACAS 2027
-page, the badge page). **A year-stamped URL 404s before its year; a standing practices document does not,
-and it was one click from a page already in the record.**
+⛔ **CORRECTION, MADE AGAINST MYSELF BEFORE ANYONE READ THIS ROW.** My first draft of this paragraph ended
+*"and it was one click from a page already in the record."* **That is FALSE and I checked it only because it
+was the sentence I most wanted to be true.** Measured at `a395391`: `tacas.info` appears **0 times** in
+`docs/TACAS-PRICING.md` and **0 times** in `docs/TACAS-G5-ARTIFACT.md`. The pages this record had ever
+consulted are `etaps.org/2027/cfp/` and `etaps.org/2027/conferences/tacas/` — **both on the CONFERENCE-EDITION
+host, both year-stamped.**
+⇒ 🔑 ***THE REAL FINDING IS BIGGER THAN THE ONE I WROTE: we had never consulted the TACAS community's own
+standing site AT ALL.*** Not a missed click — **a missed HOST.** Every probe was aimed at a 2027 artefact on
+`etaps.org`, which publishes a conference EDITION; the steering committee's site publishes the durable
+PRACTICE, and it was never in the search space.
+⇒ **A year-stamped URL 404s before its year. When it does, the question is not "re-curl it later" but "who
+else states this, without a year?"**
 
 **① THE [CALL] ON THE CONTAINER — ANSWERED, and in the direction §2.2's cell feared.** The standing document
 **does not mention containers at all.** Measured with FIXED-STRING matching after a regex artefact (`.ova`
