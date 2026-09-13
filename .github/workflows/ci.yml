@@ -715,6 +715,35 @@ jobs:
       - name: Delta-gate comparison and budget file, driven red
         run: python3 scripts/kernel_delta.py --selftest
 
+      # ⭐⭐ ARM A′ (the helm's ruling of 2026-09-13 on D229 §3). Two CHEAP arms,
+      # here rather than in a job of their own because neither needs Lean: the
+      # whole suite is synthetic readings and fixture registries and runs in
+      # seconds.
+      # ⛔ NO ARM COUNT IN THIS NAME — the command prints its own, for the reason
+      # the step above records (D41).
+      #
+      # ⚠️ WHAT IS *NOT* HERE, STATED SO THE GAP IS DATED RATHER THAN SILENT: A′'s
+      # MEASURED red-first arm — the ku-blind plant that ARM A passes and A′
+      # refuses — is not wired, because A′'s ms half REFUSES on a box with no
+      # registered ceiling and this runner has none. That refusal is by design (an
+      # absolute ms ceiling measured on another box is ABSENT, never a loose
+      # bound), and it is exactly why the `ku-delta` job below runs `--arm a`, the
+      # portable half, and PRINTS the runner's own readings for the three ceiling
+      # modules. Those printed readings are what the runner's ceilings get
+      # registered from — the same mechanism that produced `X86.Program 792 @on
+      # runnervmlun5p` in `kernel_ceilings.txt`. The measured arm was driven on the
+      # developer box (D240) and moves here in the commit that registers them.
+      - name: ARM A′ registry and verdict, driven red
+        run: python3 scripts/ku_delta.py --selftest
+
+      # ⭐ THE TWO REGISTRIES MUST NOT DIVERGE IN THE DIRECTION THAT MATTERS. A′'s
+      # ceilings are coarse (×3) and `kernel_ceilings.txt`'s are tight (×1.6), so
+      # A′'s must be the larger; if one is ever re-registered without the other,
+      # this is what says so. It is what replaces putting a reading and a verdict
+      # for the same unit in one file.
+      - name: ARM A′ ceilings cross-checked against the reading registry
+        run: python3 scripts/ku_delta.py --check-registry
+
       # ⭐⭐ THE SECOND GATE'S OWN RED-FIRST DRIVE (D154). The drift gate judges a
       # WINDOW of landed batches against the SUM of the per-step budgets, and the
       # two ways that sum can be got wrong are both planted here: `k x one budget`
@@ -891,6 +920,53 @@ jobs:
             exit 0
           fi
           exit "$rc"
+
+  # ⭐⭐⭐ ARM A′'s MEASURING HALF — Δku, EVERY MODULE (helm ruling, 2026-09-13, on
+  # D229 §3). This is the gate the campaign has been working towards since D146:
+  # a kernel-work gate with NO CLOCK IN IT.
+  #
+  # ⭐ WHY IT CAN RUN HERE WHEN THE ms CEILINGS CANNOT. `Δku` is an INTEGER COUNT of
+  # kernel unfoldings. D185 measured it IDENTICAL on two machines; D187 measured it
+  # EXACTLY 0 on all five no-op commits in the corpus, against a `Δms` that spanned
+  # −350…+750 ms with ~870 ms of between-sweep noise and so could not separate a
+  # real commit from a no-op at all. ⇒ **THE HALF THAT TRAVELS IS ALSO THE HALF
+  # THAT CAN SEE.** There is no band, no repeat count, and no `UNMEASURABLE`
+  # verdict — one reading a side IS the reading.
+  #
+  # ⛔⛔ AND IT IS `--arm a`, NOT `--arm a-prime`, AND THAT IS A DECLARED HOLE AND
+  # NOT A SETTING. A′'s other half is an ABSOLUTE ms ceiling, and an absolute
+  # ceiling measured on another box is ABSENT here, never a loose bound — the
+  # local↔runner factor is per module (measured 1.6×–2.4×) and does not divide out
+  # of an absolute number. So this runner has no ceiling and A′ would REFUSE.
+  # ⇒ 🔑 WHAT ARM A ALONE DOES NOT SEE IS NOT A SMALL RESIDUE: D228 measured the
+  # counter BLIND to literal `Nat` arithmetic and to large no-unfolding terms —
+  # unbounded kernel ms at Δku EXACTLY 0 — and D229 §1 put 68% of the three `X86.*`
+  # modules' kernel time in that shadow. **This job is therefore a PARTIAL gate and
+  # says so rather than reading as A′.**
+  # ✅ THE STEP PRINTS THIS RUNNER'S OWN READINGS for the three ceiling modules, so
+  # the hole closes with ONE COMMIT: register them at worst-of-four × 3 with
+  # `@on <machine>` and change `--arm a` to `--arm a-prime` here. That is a QUEUE
+  # item with a named next step, not a hope — `kernel_ceilings.txt`'s
+  # `X86.Program 792 @on runnervmlun5p` was written exactly this way.
+  #
+  # ⚠️ `fetch-depth: 0` IS LOAD-BEARING for the same reason as `kernel-delta`: the
+  # gate profiles the change's BASE and does not invent one.
+  ku-delta:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}-ku-delta
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+      - name: Deterministic kernel-work delta against this change's base (Δku, every module)
+        run: python3 scripts/ku_delta.py --arm a
 
   # ⛔⛔ PORT-2 (queue, 09/09): `kernel_cost.py` IS THE PROFILER BEHIND EVERY GATED KERNEL
   # NUMBER HERE, AND ITS SELFTEST HAD NO CI ARM. Measured 2026-09-13 before this job existed:

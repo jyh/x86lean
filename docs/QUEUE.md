@@ -2506,6 +2506,39 @@ the alternative was no gate — but a cost that should be visible in October rat
 discovered then. ⇒ **A TOOL THAT WARNS ABOUT ITS OWN STALENESS STILL NEEDS SOMEONE TO
 COUNT ITS COPIES.**
 
+## ⚠️ ARMA-1 (NEW, 2026-09-13) — **A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK**
+
+⚖️ Follows the helm's ARM A′ ruling and D240. `ci.yml`'s `ku-delta` job runs `python3
+scripts/ku_delta.py --arm a` — the Δku half, which travels (D185: identical on two machines).
+⛔ **A′'s OTHER half does not run there and cannot yet**: an absolute ms ceiling measured on
+another box is ABSENT on this one, never a loose bound (the helm's D198 rule), so `--arm a-prime`
+REFUSES on `runnervmlun5p` by design.
+
+⛔⛔ **THE HOLE IS NOT A RESIDUE.** What ARM A alone cannot see is exactly what D228 measured it
+BLIND to — literal `Nat` arithmetic and large no-unfolding terms, **unbounded kernel ms at Δku
+EXACTLY 0** — and D229 §1 put **68% of the three `X86.*` modules' kernel time** in that shadow.
+D240 then drove it on a real module: a K3 plant at n=4000 in `X86/Basic.lean` costs **+385 ms** and
+moves the counter by **+0**. ⇒ **On the runner today that plant lands green.**
+
+✅ **THE NEXT STEP IS ONE COMMIT AND IT IS NAMED, not a hope.** The `ku-delta` step PRINTS this
+runner's own readings for the three ceiling modules on every run, with the line it would register.
+```
+  1  read the printed READINGS off four `ku-delta` runs on the runner (worst of four, this
+     repository's convention -- ⛔ NOT the single pass the step prints, which is one reading
+     about one run)
+  2  register `X86.Basic|X86.Syntax|X86.Theorems @ms @on <runner> <worst x 3>` in
+     scripts/ku_delta_budget.txt
+  3  change `--arm a` to `--arm a-prime` in the `ku-delta` job, and MOVE A′'s measured red-first
+     arm (`--selftest-measure`) into CI beside it
+```
+📌 This is the mechanism that wrote `X86.Program 792 @on runnervmlun5p` into `kernel_ceilings.txt`,
+run again for a second registry. **PRICE: one shift, most of it waiting on four runner runs.**
+
+⚠️ **UNTIL THEN, THE ms HALF'S ONLY HOME IS A HUMAN RUNNING IT ON THE DEVELOPER BOX** — and a gate
+whose precondition is that somebody remembers is switched off by the first person who forgets
+[[feedback-a-gate-whose-precondition-is-a-discipline]]. That is the reason this row exists rather
+than a note in a bank, and the reason it is ranked above CLAIM-1.
+
 ## ⚠️ CLAIM-1 (NEW, 2026-09-11) — **THE README'S CORROBORATION CLAIM HAD NO GATE, AND THE TWO README GATES ARE BOTH AIMED ELSEWHERE**
 
 **What happened.** `README.md`'s opening paragraph said the model is checked against *"three

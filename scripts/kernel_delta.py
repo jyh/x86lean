@@ -257,7 +257,14 @@ def read_budgets(path):
               f"a gate; run scripts/kernel_delta_history.py and register one.")
         sys.exit(2)
     default, per, floor = None, {}, None
-    for line in open(path):
+    # ⛔⛔ A DUPLICATE UNIT LINE IS AN ERROR, NOT A LAST-WINS. `read_ceilings` in this
+    # same file spends ten lines refusing exactly this for the ceiling registry —
+    # "two lines naming the SAME unit on the SAME machine disagree about one number
+    # and nothing can choose between them" — and the BUDGET parser beside it took
+    # the second one silently. The sibling was never swept when the first was fixed.
+    # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+    seen = {}
+    for n, line in enumerate(open(path), 1):
         line = line.split("#")[0].strip()
         if not line:
             continue
@@ -272,9 +279,16 @@ def read_budgets(path):
         except ValueError:
             print(f"⛔ budget line does not end in a number or a percentage: {line!r}")
             sys.exit(2)
+        if unit in seen:
+            print(f"⛔ DUPLICATE BUDGET LINE for {unit!r} in {path}: line "
+                  f"{seen[unit]} and line {n}. Two allowances for one unit, and "
+                  f"choosing one silently is how a registry comes to disagree "
+                  f"with itself.")
+            sys.exit(2)
+        seen[unit] = n
         if unit == FLOOR_TAG:
             if kind != "abs":
-                print(f"⛔ {FLOOR_TAG} must be absolute milliseconds: {line!r}")
+                print(f"⛔ {FLOOR_TAG} must be absolute: {line!r}")
                 sys.exit(2)
             floor = v
         elif unit == DEFAULT_TAG:

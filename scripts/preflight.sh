@@ -70,6 +70,16 @@ for a in --tree --history --messages; do
   if python3 scripts/check_private_paths.py $a >/dev/null 2>&1; then printf "  ok   private-paths %s\n" "$a"
   else printf "  ⛔ FAIL private-paths %s\n" "$a"; rc=1; fi
 done
+# ⛔ ADDED 2026-09-13 (D240) FOR THE REASON THE COMMENT ABOVE THIS LOOP RECORDS: ARM A′'s
+#   two static arms are in CI's `selftest-gate`, they take ~2 s together, and the failure
+#   they catch is the one this loop exists for — a registry edit that reds CI after the
+#   push. `--check-registry` in particular reds when A′'s coarse ceilings and
+#   `kernel_ceilings.txt`'s tight ones are re-registered out of step, which is a FILE edit
+#   and so exactly the kind of thing that lands here without a Lean build to warn anyone.
+for a in --selftest --check-registry; do
+  if python3 scripts/ku_delta.py $a >/dev/null 2>&1; then printf "  ok   ku_delta %s\n" "$a"
+  else printf "  ⛔ FAIL ku_delta %s\n" "$a"; rc=1; fi
+done
 
 echo "── master's LAST CI VERDICT (the half my loop never asked) ───"
 if ! command -v gh >/dev/null 2>&1; then

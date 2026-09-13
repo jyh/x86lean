@@ -14831,6 +14831,30 @@ miscalibration got WEAKER, not stronger: the denominator grew by five and the nu
 went from a 0.095 tail to a 0.15 one. Expected reds at 27 is 1.35. 📌 Two of the three reds remain `Tests.Program`;
 still stated, still not read as a pattern, and **no new red arrived to test it**.
 
+📊 **Tally, 2026-09-13 20:4xZ: conclusive 30, arm-1 reds 3** — three more, each verdict check run `success` /
+PASS, read per sha (title AND summary): `968ab95` · `2b6fceb` · `02af8e5`. **P(≥3 of 30 at α = 5%) ≈ 0.188**,
+computed here, and the same routine reproduces BOTH earlier rows — 0.095 at (22, 3) and 0.150 at (27, 3) —
+which is the control on it. ⇒ **The case for miscalibration weakened for the second consecutive tally: the
+denominator grew by three and the numerator did not move.** Expected reds at 30 is 1.50. 📌 Two of the three
+reds remain `Tests.Program`; still stated, still not read as a pattern, and **no new red arrived to test it.**
+
+✅ **AND THE PUSH-vs-COMMIT CORRECTION BELOW WAS RE-DERIVED RATHER THAN INHERITED, WHICH IS WHY IT COUNTS AS A
+SECOND MEASUREMENT.** The bank handed on three shas. `git log a395391..origin/master` returns **SIX commits**,
+and the object says which three are pushes:
+```
+  968ab95 · 2b6fceb · 02af8e5     13 check runs each     ⇒ push TIPS, all three verdicts success/PASS
+  c353446 · cb1e6f3 · b34c8dc     ZERO check runs        ⇒ intermediate commits of multi-commit pushes
+```
+⚠️ **The handed-on list was RIGHT this time** — the three it named are exactly the three tips. That is the
+opposite of the last tally, where the list was short, and it is recorded because a list that happens to be
+right is not evidence that a list can be trusted: **what made both readings safe was deriving the population,
+not the list's track record.** [[a-signal-that-is-right-three-times-of-four]]
+⭐ **A CONTROL ON THE INSTRUMENT, run because the query returned "no verdict" three times in a row and a triple
+absence is the shape of a broken query:** the same call against `a395391` and `33b4b90` returns
+`success / PASS`, and against `706d6e2` returns `neutral / UNMEASURED`. **It reads both values, so the
+absences were real** — the three jobs were genuinely still `in_progress`, and the tally waited for them
+rather than being written around them.
+
 ⛔⛔ **AND THE DENOMINATOR IS A COUNT OF PUSHES, NOT OF COMMITS — MEASURED WHEN THE HANDED-ON LIST TURNED OUT TO BE SHORT.**
 The bank handed the next head five shas as "still running". Derived from the object instead (`git log 706d6e2..origin/master`),
 the population after the last tallied sha is **SEVEN commits**. The two the list omitted, `e8f5ada` and `542e0e5`, have
@@ -15130,6 +15154,124 @@ modules (red naming defects 1 and 2 before the repair). 39/39 arms; each new arm
 ⇒ 🔑 ***A MAP BUILT FROM A LIST IS A CLAIM THAT ITS KEYS ARE UNIQUE, AND NOTHING CHECKED THE CLAIM.***
 📌 The census classifier was itself wrong twice before its reading was recorded (it put documented theorems, then
 tactic auxiliary lemmas, under `other`); both corrected by reading the lines behind the number, each a commit.
+
+## D240 — ARM A′ built red-first: a plant that costs 385 ms of kernel time moves the counter by EXACTLY ZERO, and the identical-trees control reads 0 on all 21 modules
+
+⚖️ **2026-09-13, yukon.** The helm's ruling on D229 §3, in its words: *"ARM A′ ACCEPTED as you recommended:
+gate Δku for EVERY module, plus an ABSOLUTE, generous ms ceiling for `X86.Theorems` · `X86.Syntax` ·
+`X86.Basic`… BUILD IT red-first (a plant that ARM A passes and A′ refuses)."*
+Tool `scripts/ku_delta.py`, registry `scripts/ku_delta_budget.txt`.
+
+### 1. THE RED-FIRST ARM, DRIVEN ON REAL TREES BEFORE THE GATE WAS BELIEVED
+```
+  control  identical trees, no plant    Δku EXACTLY 0 on all 21 modules
+                                        arm a  rc 0 CLEAN     arm a-prime  rc 0 CLEAN
+  planted  K3, n=4000, X86/Basic.lean   Δku EXACTLY 0 on all 21 modules — INCLUDING the planted one
+                                        arm a  rc 0 PASSED (as designed)
+                                        arm a-prime  rc 1 — X86.Basic 523 ms against a 278 ms ceiling
+```
+**Both arms read the SAME measurement**; the switch is in `verdict` alone, so what this shows is a difference
+between two DESIGNS and not between two runs — which on a timing quantity would be no demonstration at all.
+
+⭐ **THE PLANT IS NOT A CHANGE THE COUNTER UNDER-PRICES. IT IS ONE THE COUNTER CANNOT SEE.** D229 §2's
+constructor plant was the under-pricing case (×4 constructors → ×4.9 ku but ×9.9 ms); this is the other kind,
+and it is worse: a K3 term (D228) is ku-BLIND, so ARM A does not merely pass it — **ARM A passes it with an
+exact zero, at any budget whatsoever, and would pass it at n=40,000 too.**
+⇒ 🔑 ***A GATE WITH NO NOISE HAS NO WAY TO SAY "I DID NOT SEE THAT": ITS BLINDNESS AND ITS ALL-CLEAR ARE THE
+SAME READING.*** That is the whole case for the complement, and it is why A′ REFUSES rather than passes on a
+box with no registered ceiling — A′ without its ms half IS ARM A.
+
+⚠️ **n=4000 WAS FIXED BY MEASUREMENT BEFORE THE GATE EXISTED, not tuned until the arm went red.** Driven on
+the real `X86/Basic.lean`, three profile passes a side, base ku 15,856 / ms median 89.0:
+```
+  K3 n=2000        Δku  +0    Δms  +96.3        K2 n=16,000,000   Δku +10 (the header)   Δms +52.3
+  K3 n=4000        Δku  +0    Δms +385.0
+```
+
+### 2. THE CONTROL IS THE RESULT THE ms GATE COULD NEVER PRODUCE
+`Δku` on identical trees is **0 on every one of 21 modules**, with no band and no repeat count. The ms delta
+gate's own control *"invented a −2,150 ms delta on a unit with a 1,980 ms budget"* (D141/D142), and at
+`--repeats 4` its family-wise cut leaves 12 of 23 units unpoliced (D171).
+⇒ **There is no noise here to blame anything on**, which is why this control can be a flat refusal — a
+non-zero Δku on identical trees is a broken instrument, full stop.
+
+### 3. WHAT IS GATED, AND THE TWO POPULATIONS THAT WERE WRONG FIRST
+Δku for **every** module; an absolute ms ceiling for the three D229 §1 measured outside the unfolding band.
+⛔ **The first draft took the ku population from `kernel_delta_budget.txt`'s module rows and was short by
+TWO** — `X86.Program` and `Tests.Program` are registered in `kernel_ceilings.txt` and appear in the other file
+not at all, so two of twenty-one modules were silently ungated, including one the (unit, machine) work was
+done for. ⛔ **A filesystem walk was wrong the other way**: 23 `.lean` files, 21 library modules, because
+`Main.lean` and `AxiomGate.lean` are executable roots. **The population is now the profiler's own module list
+over BOTH trees** — derived from the artifact, and a union so that a change which ADDS a module is gated on
+what it adds. [[feedback-a-declared-list-inherits-its-default]]
+
+### 4. THE CEILINGS, AND THE REGISTRY THEY ARE DELIBERATELY NOT IN
+`max(measured × 3.0, 50ms)` on the WORST of four readings — `kernel_ceilings.txt`'s own stated rule and
+convention, not a margin invented to fit. **X86.Basic 278 · X86.Syntax 879 · X86.Theorems 3330 @on yukon.lan.**
+Loads 6.45–9.82, above the 2.2–4.1 band, so the readings are high and the ceilings LOOSE — the safe direction
+for a tripwire, stated rather than inferred.
+⛔ **They are not added to `kernel_ceilings.txt`: two numbers for one unit in one file, one a ×1.6 READING and
+one a ×3 VERDICT, is a file in which each reads as the other.** What replaces "one file" is a CHECKED
+RELATIONSHIP — `--check-registry` refuses if an A′ ceiling sits BELOW the reading registry's, so the pair
+cannot diverge in the direction that matters. Measured today: ratios 1.71× · 4.39× · 3.03×.
+⚠️ **AND IT FOUND SOMETHING NOBODY WAS LOOKING AT: two of those three modules are ALREADY OVER their
+registered reading.** `X86.Syntax` reads 270–293 against 200 (by up to 47%) and `X86.Theorems` 970–1110
+against 1100. Those lines were retired as a merge gate on 2026-09-04 and kept as *readings* — **and a reading
+nobody reads is not retired, it is abandoned.** Recorded, not repaired here: raising them is a change to the
+other gate's file and belongs in its own commit with its own control.
+
+### 5. ⛔ THREE SELFTEST ARMS PASSED WITH THE CHECK THEY NAME DELETED, AND ONLY THE MUTATION MATRIX SAID SO
+21 arms, and **every one driven red by a mutation that asserts it applied.** Eleven mutations; the unmutated
+control green. Three did not red on the first pass:
+```
+  @floor absent · wrong unit shape · machine-less ceiling
+    → the predicate was `returncode != 0`; with the refusal deleted the parser ran on to a TypeError
+      (formatting `None` as a number) and CRASHED — which is also non-zero
+```
+⇒ 🔑 ***A TWO-VALUED CLASSIFIER OVER A THREE-VALUED WORLD (pass · refuse · crash) SCORES THE UNSEEN STATE AS
+WHICHEVER VALUE IS THE RESIDUAL — and the residual here was "refused", the flattering one.***
+[[feedback-a-classifiers-value-set-is-a-claim]] The predicate now requires rc **exactly 2** and the refusal to
+NAME its cause. That in turn exposed a second defect: every refusal used `sys.exit("…")`, which exits **1** —
+this gate's code for *your change failed*. **Seven refusals were reporting a malformed registry as a failing
+commit.**
+
+⛔ **AND A FOURTH ARM PASSED FOR A NEIGHBOUR'S REASON.** With the relative-ceiling refusal deleted, the
+`30%` fixture was still caught — by the CROSS-REGISTRY check, because `30` parses as 30 ms and 30 < 163. The
+fixture is now `300%`, where only the check under test can red it.
+⇒ 🔑 ***AN ARM SATISFIED BY A NEIGHBOURING CHECK IS NOT AN ARM, AND FROM OUTSIDE IT LOOKS EXACTLY LIKE A
+ROBUST ONE.*** ⚠️ **The first sweep also reported this arm green when the mutation had silently FAILED TO
+APPLY** — output byte-identical to the control, which is the one signature that distinguishes "the check is
+robust" from "the probe did nothing". Every mutation now asserts its own edit.
+[[feedback-a-probe-must-create-its-condition]]
+
+### 6. A SIBLING DEFECT IN THE SHARED PARSER, SWEPT WHILE PASSING
+`read_ceilings` spends ten lines refusing a duplicate key — *"two lines naming the SAME unit on the SAME
+machine disagree about one number and nothing can choose between them"* — and `read_budgets`, forty lines
+above it in the same file, took the second one silently. Now refused, with the line numbers of both.
+`kernel_delta.py --selftest` still passes 73/73. [[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 7. WHAT IS WIRED, AND THE HOLE THAT IS DECLARED RATHER THAN SILENT
+CI `selftest-gate` gains `--selftest` and `--check-registry` (seconds, no Lean); `preflight.sh` gains both,
+because a registry edit is exactly the kind of change that lands with no build to warn anyone. A new
+`ku-delta` job runs **`--arm a`** — ⛔ **not A′, because an absolute ms ceiling measured on another box is
+ABSENT here, never a loose bound, so A′ would refuse on the runner by design.**
+⚠️ **That hole is the blind half, and §1 shows what lands green through it.** The step therefore PRINTS the
+runner's own readings and the line each would register, so the hole closes in one commit; filed as **ARMA-1**
+in the queue with its three steps, ranked above CLAIM-1. Until then the ms half's only home is a human running
+it on the developer box, which is a gate whose precondition is that somebody remembers.
+[[feedback-a-gate-whose-precondition-is-a-discipline]]
+
+### 8. ⛔ WHAT A′ DOES NOT DO — and the ku budgets are a POLICY TRANSFER, not a measurement
+A Δku budget is the module's registered RELATIVE ms budget applied to its base ku, read live so nothing goes
+stale. **Those percentages were derived as NOISE allowances for a CLOCK; applied to a counter whose noise is
+zero they are LOOSE**, and loose is the unpoliced direction. What would tighten them is a Δku walk over real
+commits per module — and **every ku corpus in `docs/` is `Tests.Coverage` and nothing else** (12 commits × 1
+module), which is D229 §4 one level down. It is now cheap (a reading is 1–5 s per module) and it is the open
+item against this file.
+📌 **The ms ceiling is a TRIPWIRE, not a budget:** a change adding 40% to `X86.Theorems` passes that half. The
+division of labour is stated so nobody reads a green ceiling as "the module did not get more expensive".
+📌 **`kernel_delta.py` is NOT retired by this.** A new gate's first job is to run beside the old one long
+enough to be compared; retiring the ms delta gate is a separate act with its own evidence.
 
 ## D230 — PORT-5: arm 3e's population was one call spelling, so a bare temp directory was not an offender but not a row; nine producers outside it, and two tools the audit called clean were leaking
 
@@ -15557,3 +15699,35 @@ unpoliced direction is exactly the over-claim this item exists to stop.**
 and the remaining design question deserves a ruling rather than my choosing the roster's default alone.
 **What is discharged is the part that was blocking: the definition, the value set, and the fact that the
 proposed right-hand side does not exist.**
+
+### ⚖️ ⑤ THE LEFT-HAND SIDE, RULED 2026-09-13 — **ARM (B): THE SENTENCE IS RENDERED FROM A TABLE**
+Posted as a fork with both arms; the helm took (B) *"as recommended, for the reason you gave: (iii) closes the
+population from both ends, so no default has a direction to fall in."*
+```
+  (i)   README == render(table), byte for byte          TRANSPORT ONLY
+  (ii)  each row's ROLE == the role derivable from the tree      CARRIES THE LOAD
+  (iii) CLOSURE BOTH WAYS: every model the harness's invocation paths reach has a row,
+        and every row claiming EXECUTED has such a path         CARRIES THE LOAD
+```
+⛔ **THE HAZARD IS PART OF THE RULING, NOT A CAVEAT BESIDE IT: a (B) that ships (i) without (ii) and (iii) has
+NOT landed CLAIM-1.** A byte-for-byte re-derivation proves the file matches its generator and says nothing
+about whether the generator tells the truth [[feedback-a-derivation-gate-wraps-a-false-sentence]] — **it would
+look like a gate and check nothing about the world, which is worse than arm (A).** ⇒ **The selftest must carry a
+mutation in which THE TABLE LIES AND (i) STAYS GREEN**, or the arm is not armed.
+
+⛔ **THE ADDITION, from the third thing reading the paragraph for the fork turned up: THE TABLE IS THE
+POPULATION OF THE SENTENCE, NOT OF THE MODELS.** Five things are named and §3's three roles cover three of
+them — the SDM is a DOCUMENT (*"for the intent"*) and XED is a DECODER (*"for decoding"*). Because (i) renders
+the WHOLE sentence, both are rows. **Each row carries a KIND** (SEMANTICS · DOCUMENT · DECODER ·
+COVERAGE-SOURCE, or whatever the tree supports); (ii)'s EXECUTED / NAMED-AS-INTENT test applies to SEMANTICS
+rows, and **every other kind states its own derivable claim or DECLARES IN THE TABLE that it has none — a row
+whose kind carries no check must say so in the table, not by omission.** That is the same two-valued-over-a-
+three-valued-world defect this decision refuted at §3, caught one level up before it was built.
+
+📌 **FILED, NOT RULED, so the schema does not have to be broken later.** The fleet map records that
+`sail-x86-from-acl2` is translated from ACL2 and that K does not decode machine bytes, and says this
+constrains what the paper may claim — **agreement with Sail tests the TRANSLATOR, not a second semantics.**
+An "independent-of" column is where that would live in this table. **Out of scope for this gate**, noted here
+so the row shape can accept it without a migration.
+📌 Still NOT ROUTED and NOT PRICED: the helm's order stands as ARM A′ (D240) first, then the redfirst tally,
+then this.

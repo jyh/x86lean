@@ -1,0 +1,110 @@
+# ARM A′'s OWN REGISTRY — the ku floor, and the absolute ms ceilings that are
+# ARM A's complement.  Read by `scripts/ku_delta.py`; see its module docstring for
+# the design and the helm's ruling of 2026-09-13.
+#
+# ⛔⛔ THE ku BUDGETS ARE NOT IN THIS FILE, AND THAT IS DELIBERATE.  A module's Δku
+# allowance is its registered RELATIVE ms budget from
+# `scripts/kernel_delta_budget.txt`, applied to the module's base ku MEASURED IN
+# THE SAME RUN.  Nothing is copied here and no base reading is stored, so there is
+# no number in this file that can go stale against that one.
+#
+# ⚠️ THAT TRANSFER IS A POLICY DECISION, DECLARED, AND NOT A MEASUREMENT.  Those
+# percentages were derived as NOISE allowances for a CLOCK.  Applied to a counter
+# whose noise is exactly zero (D187: Δku 0 on all five no-op commits, identical on
+# two machines) they are LOOSE — and the direction is stated because loose is the
+# unpoliced direction.  What would tighten them is a Δku walk over real commits
+# PER MODULE, and no such corpus exists: every ku corpus in `docs/` is
+# `Tests.Coverage` and nothing else (12 commits x 1 module).  That is D229 §4's
+# finding one level down, it is the OPEN ITEM against this file, and it is cheap
+# now that a ku reading is SECONDS (X86.Basic 1.8 s, X86.Syntax 3.2 s, measured
+# 2026-09-13) rather than the minutes the ms walk costs.
+
+# ── THE ku FLOOR ────────────────────────────────────────────────────────────
+# A minimum absolute allowance in UNFOLDINGS, for the same reason the ms budget
+# file carries one: a percentage of a small base is not an allowance.
+#
+# ⛔ AND HERE IT IS NOT A NOISE FLOOR, BECAUSE THERE IS NO NOISE.  The ms file's
+# `@floor 6` is "the resolution this box has on a module a percentage cannot
+# express".  This instrument's resolution is EXACTLY ZERO — D228's control read
+# the same file twice at Δ 0, and D229's constructor plant read Δ 0 twice at N=0.
+# So this number is not derived from a spread; it is a POLICY MINIMUM and it is
+# labelled as one rather than dressed in a measurement.
+#
+# The value is the one measured small quantity in this system: the ku instrument's
+# own header costs 10 unfoldings (`ku_module_census.py` asserts it every run, and
+# refuses if a module's wrapped total is not its unwrapped total plus exactly
+# this).  It is the smallest quantity the instrument ever attributes to anything.
+#
+# ⛔ AND THE CONSEQUENCE I WROTE HERE BEFORE MEASURING IT WAS WRONG, SO IT IS
+# CORRECTED RATHER THAN QUIETLY DELETED.  This paragraph read: *"`Tests.VectorRuns`
+# has a base ku of 0, so its allowance is this floor and nothing more — the
+# tightest cell in the registry."*  **The gate's first real run says its allowance
+# is 12, not 10, and the floor does not bind there at all.**  The census reports
+# that module's UNWRAPPED ku as 0, but the quantity this gate differences is the
+# WRAPPED one, which is 10 — the header — so its budget is 116.9% x 10 = 11.7, just
+# above the floor.  ⇒ 🔑 AN EXPLANATION WRITTEN BEFORE THE NUMBER ARRIVES FITS
+# WHATEVER ARRIVES, and nothing downstream would ever have tested this one.
+# [[feedback-prose-written-before-the-measurement]]
+# ⚠️ THE POINT SURVIVES ITS WRONG ARITHMETIC AND IS WORTH KEEPING: measured on the
+# first full run, `Tests.VectorRuns` (allowance 12) and `X86.Flags` (33) are the
+# two tightest cells in the registry by two orders of magnitude, and
+# `Tests.VectorRuns` is GENERATED every batch.  If a batch trips it the first
+# reading is INFORMATION — it would be the first evidence that generated vector
+# rows carry kernel unfoldings at all — and the answer is to read it, not to raise
+# this number.  A gate relaxed on schedule is not a gate (this repository's own
+# law, in `kernel_ceilings.txt`'s header).
+@floor 10
+
+# ── THE ABSOLUTE ms CEILINGS ────────────────────────────────────────────────
+# `<module> @ms @on <machine> <ms>`.  Three modules, because D229 §1 measured
+# these three as the ones whose ms/ku sits OUTSIDE D228's unfolding band (1.5x,
+# 2.9x and 3.5x the band top) — 906 of their 1,328 ms is time the unfolding
+# constant does not account for.  They are also the modules a P2 proof or an
+# enum-growing batch changes.
+#
+# ⛔ A CEILING WITH NO `@on` IS ABSENT, NEVER A LOOSE BOUND (the helm's D198 rule
+# for the other registry, and it binds here for the same reason: the local<->runner
+# factor is per module, measured 1.6x-2.4x, and cannot be divided out of an
+# absolute number).  ⚠️ THE RUNNER HAS NO ENTRY YET AND A′ WILL REFUSE THERE — by
+# design, and loudly.  The refusal prints the runner's own reading, which is how
+# the second machine's lines get written; that is exactly how `X86.Program` and
+# `Tests.Program` got theirs in `kernel_ceilings.txt`.
+#
+# ⭐ DERIVED BY THE RULE `kernel_ceilings.txt`'s OWN HEADER STATES FOR ITS ABSOLUTE
+# LINES — `max(measured x 3.0, 50ms)` — on the WORST of four readings, which is
+# that file's convention too.  The multiple is NOT invented here to fit: an
+# allowance must not come from an argument about the thing it checks.
+#
+#     module          four readings (kernel_cost.py --emit-json, 2026-09-13)   worst   x3
+#     X86.Basic        83.3 ·  92.5 ·  87.9 ·  90.1                             92.5    278
+#     X86.Syntax      271.0 · 293.0 · 270.0 · 281.0                            293.0    879
+#     X86.Theorems    970.0 · 1110.0 · 1010.0 · 1110.0                        1110.0   3330
+#
+# ⚠️ CONDITIONS, because a figure without them cannot be compared: one-minute loads
+# 6.45 / 9.82 / 9.13 across the last three passes, WELL ABOVE the 2.2-4.1 band
+# `kernel_cost.py` measured as having no effect.  These readings are therefore on
+# the HIGH side and these ceilings are on the LOOSE side of where a quiet
+# measurement would put them.  That is the SAFE direction for a tripwire — it
+# cannot fire spuriously — and it is stated rather than left to be inferred.  A
+# quiet re-measurement can tighten all three.
+#
+# ⛔⛔ AND WHAT THE FOUR READINGS SAY ABOUT THE OTHER REGISTRY, WHICH NOTHING WAS
+# LOOKING AT: `kernel_ceilings.txt` carries `X86.Syntax 200` and `X86.Theorems
+# 1100`, and this tree measures 270-293 and 970-1110.  TWO OF THE THREE ARE
+# ALREADY OVER THEIR REGISTERED READING, X86.Syntax by up to 47%.  Those lines were
+# retired as a merge gate by the helm on 2026-09-04 and kept as READINGS, and a
+# reading nobody reads is not retired, it is abandoned.  Recorded here rather than
+# repaired here: raising them is a change to the OTHER gate's file and belongs in
+# its own commit with its own control.
+#
+# ⭐ THESE NUMBERS ARE COARSE ON PURPOSE AND MUST NOT BE TIGHTENED TOWARDS x1.6.
+# That file's header is a chronicle of what x1.6 becomes: `X86.Syntax` passing at
+# 97.6%, `vectorCoverage` at 98% and reporting the machine rather than the code.
+# At x3 the margin is far outside this box's measured 4-8% contention band, so this
+# half CANNOT fire on load.  It catches SIZE — which is the one thing ku provably
+# cannot see (D228: literal arithmetic and large no-unfolding terms, unbounded
+# kernel ms at Δku 0) and the one thing that grows fastest where ku falls behind
+# (D229 §2: 1.8x at 128 constructors, 3.6x at 512).
+X86.Basic @ms @on yukon.lan 278
+X86.Syntax @ms @on yukon.lan 879
+X86.Theorems @ms @on yukon.lan 3330
