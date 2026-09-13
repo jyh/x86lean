@@ -277,6 +277,12 @@ fetched and grepped for the quoted phrases; not recalled, not taken from a summa
    arXiv posting ~2 weeks either side of Oct 15 ⇒ **post before ~Oct 1 or after ~Oct 29.** Stated here so
    nobody discovers it on Oct 10.
 4. 📐 **LENGTH:** the draft is 12 pp including bibliography and placeholders, against 18 pp excluding it.
+5. ⚠️ **ADDED 2026-09-13 — THE G5 ROW'S PREMISE IS UNSOURCED FOR 2027.** §2.2's G5 cell says *"TACAS AE wants a
+   container"*. The 2027 pages do not say so: the TACAS AE guidelines page is unpublished (404), and the TACAS
+   page and the ETAPS badge page have **0** matches for container/docker/virtual machine (controls: 8 and 35 for
+   "artifact"). It may be true again when the page appears; today it is a recollection of earlier years. What the
+   badge page DOES say costs the draft something concrete: **"Available" needs a DOI-assigning archive cited in
+   the data statement, and ours cites GitHub only** (`docs/TACAS-G5-ARTIFACT.md` §4 items 1 and 6).
 
 ## 4. RECOMMENDATION — MINE; **RULED (c) BY THE CAPTAIN 2026-09-12** (§2.1)
 **(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 + G7; **§2.2 prints

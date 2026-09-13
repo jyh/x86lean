@@ -83,6 +83,24 @@ recorded logs with a reduced re-run.
 ## 4. OWED, IN ORDER
 ```
   1  read the TACAS 2027 AE call at its source            ✅ the CFP (PRICING §3a); the AE page itself [CALL]
+     ✅ PARTLY, 2026-09-13 (curl + grep of the HTML, not a summariser): the ETAPS-WIDE BADGE CRITERIA are
+        published at etaps.org/about/artifact-badges (HTTP 200, linked from the TACAS 2027 page). ⛔ A TACAS 2027
+        AE GUIDELINES page is NOT: etaps.org/2027/artifact-evaluation/ and …/conferences/tacas/artifact-evaluation/
+        are 404, and the TACAS 2027 page names the AE chairs but has 0 matches for docker · container · virtual
+        machine · hours (control: 8 for "artifact" on the same page; the badge page 0 of each, 35 "artifact").
+        ⇒ The container format and the evaluation time budget are UNPUBLISHED, not absent; [CALL] stays open
+        on them. What IS settled, verbatim:
+          Functional   "documented, consistent, complete, exercisable, and include appropriate evidence of
+                        verification and validation"
+          Reusable     "all the qualities of the 'Functional' badge" + "strictly adhere to norms and standards"
+          Available    "made permanently available for retrieval on a publicly accessible archival repository
+                        which has a declared plan to enable permanent accessibility and assigns DOIs to its
+                        entries. The artifacts' DOIs are referenced in a data-availability statement at the end
+                        of the paper."  ETAPS "recommends … Zenodo".
+          Validated    "Reproduced" is by others with our artifacts; the page warns a time-limited AE may not
+                        reach it. "Replicated" cannot come from a standard AE.
+        ⛔⛔ THE PAPER'S DATA AVAILABILITY STATEMENT CITES ONLY github.com/jyh/x86lean — NOT ARCHIVAL, NO DOI —
+        so as drafted it cannot earn "Available". See item 6.
   2  pin the reference model's revision (§1)                                     ✅ D218
   2b re-run the differential AT the pin; cite §4.1 to that record   ✅ docs/REFERENCE-PIN-RUN-2026-09-12.md
      (all seven counters equal batch 22's); a gate refusing a NEW record without it   ✅ D219 (in CI since 09-12)
@@ -111,7 +129,11 @@ recorded logs with a reduced re-run.
         declared in the paper's own marker); Armstrong's 24 of 15,400 (cited to the paper PDF directly).
         Inventory method: every digit run in the printed prose, by segment — 124, of which 75 sat in
         segments citing no row, most of them `x86-64` and `Lean 4`.
-  5  the container or VM, per [CALL]
+  5  the container or VM, per [CALL]     ⛔ still [CALL]: the 2027 AE guidelines are unpublished (item 1)
+  6  a DOI for the artifact (the "Available" criterion, item 1): an archival deposit of the submission commit —
+     Zenodo is ETAPS's stated recommendation — and its DOI in the Data Availability statement beside the GitHub
+     URL. ⛔ NOT TAKEN HERE: a deposit is a PUBLICATION ACT (a DOI cannot be withdrawn), so it is the Captain's
+     word, and its commit is the camera-ready's, not today's. Priced small (ESTIMATED: a release + one sentence).
 ```
 📌 **Price unchanged at 3–4 days** until item 1 is read; §1 is inside that price, not added to it,
 because pinning is a few lines and recording is one header field plus a refusing gate.
