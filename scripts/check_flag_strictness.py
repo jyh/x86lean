@@ -58,11 +58,27 @@ if __name__ == "__main__":
 
 
 def protected(src: str) -> bool:
-    if "strict_flags(__file__)" in src:
-        return True
-    return bool("argparse" in src
-                and re.search(r"\.parse_args\(", src)
-                and not re.search(r"\.parse_known_args\(", src))
+    """⛔⛔ BY CALLS IN THE SYNTAX TREE, NOT BY SUBSTRINGS (2026-09-13). This was
+    `"strict_flags(__file__)" in src`, so a guard that sat INSIDE A DOCSTRING counted: three
+    scripts carried it there, the gate printed "CLEAN — 53 of 53", and `ku_kind_plants.py`
+    handed a bogus flag ran its whole plant job (rc 0) while the census began profiling.
+    ⇒ 🔑 A GATE THAT MATCHES THE TEXT OF A CALL CERTIFIES A CITATION OF THE CALL. A file
+    that does not parse is unprotected: nothing about it can be read."""
+    import ast
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return False
+    calls = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call):
+            f = n.func
+            name = f.id if isinstance(f, ast.Name) else f.attr if isinstance(f, ast.Attribute) else ""
+            if (name in ("strict_flags", "_strict_flags") and n.args
+                    and isinstance(n.args[0], ast.Name) and n.args[0].id == "__file__"):
+                return True
+            calls.add(name)
+    return "parse_args" in calls and "parse_known_args" not in calls
 
 
 def scan(scripts_dir=None):
@@ -103,6 +119,13 @@ def selftest() -> int:
     ok(not protected('import argparse\nap.parse_args()\nb.parse_known_args()\n'),
        "argparse + parse_known_args ANYWHERE is unprotected — presence of the "
        "module is not the test")
+    # ⛔ THE ARMS FOR THE INCIDENT THAT MOVED THIS TO THE SYNTAX TREE: text that NAMES the call.
+    ok(not protected('"""doc\nif __name__ == "__main__":\n    strict_flags(__file__)\n"""\nx = 1\n'),
+       "⛔ a strict_flags call INSIDE A DOCSTRING is NOT protection (2026-09-13: three scripts, rc 0 on a bogus flag)")
+    ok(not protected('# strict_flags(__file__)\nx = 1\n'), "a strict_flags call in a COMMENT is NOT protection")
+    ok(not protected('import argparse\nhelp = "use ap.parse_args()"\n'),
+       "`.parse_args()` inside a STRING is NOT protection")
+    ok(not protected('strict_flags(__file__\n'), "a file that does not PARSE is not protected")
     ok(scan() and all(isinstance(t, tuple) for t in scan()),
        "CONTROL — scan() reads the real scripts directory and returns rows")
 
