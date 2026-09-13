@@ -92,6 +92,17 @@ to prove that the semantics of two undefined behaviors are equivalent."* ⇒ the
 in Isabelle/HOL: A Binary Semantics for eBPF JIT Correctness* (link.springer.com, chapter
 10.1007/978-981-96-0602-3_11). **None is read. Each is a column this table may owe before the paper says
 anything about "the" x86-64 semantics.**
+⛔⛔ **AND A SECOND SEARCH FOUND THE LARGEST, 2026-09-12:** **libLISA** (Craaijo, Verbeek, Ravindran, PACMPL 8
+OOPSLA2 2024, DOI 10.1145/3689723 verified at doi.org) — abstract: *"the most extensive formal x86-64 model
+to date, with over 118 000 different instruction groups"*, synthesized by executing instructions on a CPU;
+*"behavior that is 'undefined' is synthesized for the current machine"* (a SIXTH undefined-bit answer);
+models for five machines compared; *"exposing bugs in their handwritten models"*. liblisa.nl (HTTP 200)
+links "Explore the data" and "View source code". **Read at abstract and site only.** It is the most direct
+hardware-origin second source this project lacks, and the paper now says so.
+📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
+Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
+📌 The CPP 2019 1,625-instruction model embeds stratified-synthesis semantics in Isabelle/HOL (per a search
+summary, not read); public availability still UNMEASURED.
 
 ## 1c. ⭐⭐ THE REMAINING CELLS, READ AT THE SOURCES — 2026-09-11
 

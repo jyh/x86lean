@@ -14658,3 +14658,11 @@ effects to *"universally quantified uninterpreted terms from a locale"* — unde
 G2 section had called the four designs in its table "the public x86-64 semantics". **The paper now says
 plainly that undefinedness-as-a-parameter is not new with us**, and that the entry was read at its
 abstract only.
+⛔⛔ **AND A SECOND SEARCH: libLISA (PACMPL 2024, DOI 10.1145/3689723), "the most extensive formal x86-64 model
+to date, with over 118 000 different instruction groups", synthesized from a CPU, undefined behaviour
+synthesized per machine, and exposing bugs in handwritten models.** For a paper whose argument is
+"how do you know your semantics is right", this is the comparator a referee reaches for first, and G1
+had never named it. The paper's §1, §3.1 and §7 now name it at abstract level and say a comparison
+against its models is the most direct second source x86lean lacks.
+⇒ 🔑 ***THE POPULATION SEARCH TOOK TWO QUERIES AND FOUND THE LARGEST MEMBER ON THE SECOND. A POSITIONING
+TABLE BUILT FROM A PLAN'S SOURCE LIST HAD MISSED IT FOR TEN DAYS.***

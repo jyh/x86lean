@@ -63,9 +63,10 @@ disagreements: each is ordinarily prose, and prose is not checked against the ar
 We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
 first. It covers 158 mnemonics, where K's coverage target lists 774, and its proof support is seven
 memory-safety theorems over four routines, where x86isa proves full functional correctness of an
-unbounded loop. Other formal x86-64 models exist beyond the three we compare against, among them one
-with small-step semantics for 1{,}625 instructions built from machine-learned
-semantics~\cite{roessle-bigstep}; Section~\ref{sec:related} says what we have and have not read.
+unbounded loop. Other formal x86-64 models exist beyond the three we compare against, and one of them,
+libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
+synthesized from a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
+read.
 \src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 Its decoding is trusted to Intel XED, and its validation is against one executable model.
 
@@ -226,6 +227,9 @@ model's value is determined by the instruction and the flag, x86lean's by a posi
 advances with each draw.
 \src{isa-afp.org/entries/X86\_Semantics.html and X86\_InstructionSemantics, locale unknowns, read
 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d; D220}
+A sixth answer inverts the question. libLISA synthesizes instruction semantics by observing a processor,
+and its model is CPU-specific: behaviour ``that is `undefined' is synthesized for the current
+machine''~\cite{liblisa}. We have read that work's abstract, not its models.
 
 x86lean's oracle is x86isa's seed discipline made concrete.
 \src{PROVENANCE.md, the x86isa row; docs/TACAS-G6-RELATED-WORK.md 4}
@@ -619,7 +623,14 @@ opcodes, a different unit, and Sail's model publishes no count. Its proof suppor
 theorems over four routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
 \src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; 158 is gated by
 scripts/claimed\_forms.py; docs/DECISIONS.md D220}
-Other formal x86-64 models exist outside this comparison. A public Isabelle/HOL entry in the Archive of
+Other formal x86-64 models exist outside this comparison, and the largest changes what validation
+means. libLISA discovers instructions and synthesizes their semantics by executing them on a CPU,
+producing ``the most extensive formal x86-64 model to date, with over 118 000 different instruction
+groups'', compares models across five machines, and reports exposing bugs in handwritten
+models~\cite{liblisa}. Where x86lean asks whether a model built from the manual agrees with another
+model, libLISA takes the processor as ground truth. The two are complementary rather than competing,
+and a comparison of x86lean against libLISA's models is the most direct second source this work lacks.
+A public Isabelle/HOL entry in the Archive of
 Formal Proofs gives over-approximative semantics for roughly 120 x86-64 assembly instructions, with
 symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ build a machine model with
 small-step semantics for 1{,}625 instructions, leveraging machine-learned semantics, and generate
@@ -628,7 +639,7 @@ Verbeek et al.\ lift stripped binaries to a provably over-approximative represen
 Isabelle/HOL~\cite{verbeek-lifting}. We have read their abstracts, not their artifacts, and do not
 position x86lean against them.
 \src{abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
-and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220}
+and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220}
 What it adds is the subject of Sections~\ref{sec:model}--\ref{sec:gated}: decoding bytes through a
 named trusted decoder, an undefined-bit design whose limits are stated as theorems, and coverage and
 validation claims that are derived and checked rather than written.
