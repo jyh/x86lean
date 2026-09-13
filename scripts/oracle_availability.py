@@ -171,8 +171,14 @@ def pre_states():
     # pre-states the current model does not emit.  A gate that reuses a stale
     # input reports about a subject nobody chose, and says nothing about which.
     # Re-emitting costs a couple of seconds against a six-second gate.
-    subprocess.run(["lake", "env", ".lake/build/bin/x86lean-diff",
-                    "emit-acl2", CASES], check=True, capture_output=True)
+    r = subprocess.run(["lake", "env", ".lake/build/bin/x86lean-diff",
+                        "emit-acl2", CASES], capture_output=True, text=True)
+    if r.returncode != 0:
+        # ⛔ SAY WHAT IT SAW (G5, 2026-09-13): `check=True` with the output captured raised a bare
+        # CalledProcessError, and the caller's message then blamed a stale residue — on a fresh
+        # clone whose only defect was that the binary had not been built yet.
+        raise SystemExit(f"⛔ could not emit the differential cases (rc {r.returncode}) — is "
+                         f"`lake build x86lean-diff` done?\n{r.stdout[-800:]}{r.stderr[-800:]}")
     lines = open(CASES).read().splitlines(True)
     cases, cur = [], None
     for l in lines:

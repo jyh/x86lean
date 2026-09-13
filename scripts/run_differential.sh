@@ -22,9 +22,22 @@ bash scripts/check_oracle_revision.sh || exit 2
 # the only other gate in this repository that needs the oracle and because a
 # differential run over a stale residue answers a question about the wrong
 # roster.  Six seconds, gated both ways, red-first.
+# ⛔⛔ THE BUILD COMES BEFORE THE GATES, BECAUSE THE FIRST GATE EXECUTES THE BINARY (G5, 2026-09-13).
+# `oracle_availability.py` re-emits the cases through `.lake/build/bin/x86lean-diff` (P2 item 2: ALWAYS
+# RE-EMIT), and this build used to sit AFTER it. On a fresh clone — the artifact reviewer's path, run
+# for the first time that day — the run died in ONE SECOND and printed "the residue is stale": a
+# diagnosis of a cause nobody checked, for a binary that did not exist. It never fired here because
+# this box always has the binary. ⇒ 🔑 A GATE ORDERED BEFORE ITS OWN PREREQUISITE PASSES WHEREVER
+# THE PREREQUISITE IS LEFT OVER, WHICH IS EVERYWHERE IT HAS EVER RUN.
+echo "── building the Lean side ──"
+lake build x86lean-diff >/dev/null
+
 echo "── checking the oracle-availability declarations ──"
 python3 scripts/oracle_availability.py || {
-  echo "⛔ the unavailable list disagrees with the oracle; the residue is stale." >&2
+  rc=$?
+  # rc 1 is also every uncaught exception, so the refusal does not name a cause; the output above does.
+  echo "⛔ oracle_availability.py refused (rc $rc). Read its output above: a stale unavailable list is" >&2
+  echo "   ONE cause, and a failure to run it at all prints the same exit code." >&2
   exit 2; }
 
 # ⭐⭐ P2 VECTOR WAVE, BATCH 1 (D86).  DOES THE PATH BELOW ACTUALLY ENABLE SSE?
@@ -39,8 +52,6 @@ python3 scripts/check_driver_cr4.py || {
   echo "⛔ the driver's CR4 configuration is not what the gate declares." >&2
   exit 2; }
 
-echo "── building the Lean side ──"
-lake build x86lean-diff >/dev/null
 lake env .lake/build/bin/x86lean-diff emit       run/lean.txt
 lake env .lake/build/bin/x86lean-diff emit-acl2  run/cases.lsp
 
