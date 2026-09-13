@@ -13,6 +13,13 @@ per repeat.
 
 ⛔ Kernel ms is one box, one session: a RATIO within the run, never an absolute.
 """
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS — see portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 import json
 import os
 import re

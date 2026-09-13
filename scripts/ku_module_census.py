@@ -22,6 +22,13 @@ and prints ms per 1k ku per module beside D228's unfolding band.
 absolute. ⛔ ku and ms are read on the same tree, which must be clean of `.lean`
 changes (refused otherwise: a census of a tree nobody committed describes nothing).
 """
+# ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS — see portable.strict_flags.
+if __name__ == "__main__":
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
+
 import json
 import os
 import re
