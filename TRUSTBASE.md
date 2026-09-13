@@ -73,8 +73,14 @@ field costs every record proof); it is a v0.x non-goal until something needs it.
 `nil`, and requires that they execute in the first and refuse in the second (D86).
 
 ## What is validated, not proven
-Agreement with ACL2 x86isa, with K, and with real hardware is EVIDENCE gathered by execution
-(differential and co-simulation runs recorded per form), never a theorem about those systems.
+Agreement with ACL2 x86isa is EVIDENCE gathered by execution (the differential runs recorded in
+`docs/DIFFERENTIAL-*.md`), never a theorem about that system.
+⛔ *This paragraph read "Agreement with ACL2 x86isa, with K, and with real hardware is EVIDENCE
+gathered by execution (differential and co-simulation runs recorded per form)" until 2026-09-12.*
+**Two of its three sources have never been run:** K is READ — for coverage, and to arbitrate a
+disagreement, as each `knownDivergences` entry's source field shows — and has never been executed by
+this project; no hardware co-simulation has been run (`docs/COSIM-DESIGN.md` is a design). A policy
+sentence that names evidence categories reads as a statement that the evidence exists.
 
 ## Kernel cost
 Kernel time is measured in CI and gated at a registered ceiling; a blowup on a composite is a stop

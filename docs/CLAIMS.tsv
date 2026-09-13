@@ -98,3 +98,7 @@ diff_unexplained	0	d7dbd58	git show "$SHA":docs/DIFFERENTIAL-P2-BATCH22.md | gre
 diff_leaks	0	d7dbd58	git show "$SHA":docs/DIFFERENTIAL-P2-BATCH22.md | grep -m1 -E '^cases=' | grep -oE '(^| )oracle-leaks=[0-9]+' | cut -d= -f2	paper/x86lean-semantics.tex §4.1 (the current record)
 diff_vectors	1012	d7dbd58	git show "$SHA":docs/DIFFERENTIAL-P2-BATCH22.md | grep -m1 -oE '^[0-9]+ vectors · ' | grep -oE '^[0-9]+'	paper/x86lean-semantics.tex §4.1 (the current record)
 diff_prestates	88	d7dbd58	git show "$SHA":docs/DIFFERENTIAL-P2-BATCH22.md | grep -m1 -oE ' [0-9]+ pre-states · ' | grep -oE '[0-9]+'	paper/x86lean-semantics.tex §4.1 (the current record)
+tier_exact	132	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-exact [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
+tier_frame	26	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-frame [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
+tier_absent	0	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-absent [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
+decode_xed_rows	158	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -c '| XED (trusted) |'	paper/x86lean-semantics.tex §2

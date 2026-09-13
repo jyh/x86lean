@@ -14430,7 +14430,10 @@ the unit a differential case is: one instruction, one pre-state.
   field comparison. It is a harness change and is priced separately rather than slipped into a prose
   commit. **The `X86/Semantics.lean` header's strong sentence is corrected in THAT commit**, not this
   one: a comment edit in a `.lean` file moves CI-3's content digest and buys a full CI run, and it
-  should buy one run for both.
+  should buy one run for both. ⚠️ **A THIRD `.lean` comment joins that commit, found 2026-09-12 writing
+  the paper's §2:** `X86/Coverage.lean`'s `Tier` docstring says the concept is *"Sail's `Unspecified`"* —
+  the term D201 measured as ABSENT from all 14 Sail model files. D201 corrected the prior-art table and
+  never swept the tree for the same phrase.
 ⇒ 🔑 ***A DECISION'S RULE AND ITS REASON ARE TWO CLAIMS, AND THE REASON IS THE ONE THAT GETS QUOTED.***
 The rule had a theorem beside it; the reason had nothing, and it travelled into a paper draft intact.
 

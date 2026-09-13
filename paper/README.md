@@ -20,6 +20,7 @@ The PDF is a build product and is not tracked.
 
 | section | state | register it is written from |
 |---|---|---|
+| 2 The Model | drafted | `X86/State.lean`, `X86/Coverage.lean`, `TRUSTBASE.md`, `docs/COVERAGE.md` |
 | 3 Undefined Behaviour | drafted | `docs/TACAS-G2-SECTION-DRAFT.md`, `docs/DECISIONS.md` D5 D6 D20 D52 D213 |
 | 4.3 Where the Reference Model Is Not the Specification | drafted | D91, D108, D115; `docs/P2-ROSTER.md` |
 | 5 Gated Claims | drafted | `scripts/claimed_forms.py`, `docs/CLAIMS.tsv`, D201 D202 D213 D214 |

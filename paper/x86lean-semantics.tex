@@ -47,8 +47,55 @@ proof support (docs/TACAS-PRICING.md 4a; docs/TACAS-G1-POSITIONING.md).}
 % ---------------------------------------------------------------------------------------------
 \section{The Model}
 \label{sec:model}
-\placeholder{State, the instruction AST, \lean{step}, the fidelity tiers as a per-form datum, and
-decoding through XED with its trust named (TRUSTBASE.md, docs/COVERAGE.md).}
+% Register: X86/State.lean Cpu; X86/Basic.lean GPR, Xmms; X86/Syntax.lean Instr; X86/Semantics.lean step,
+% run; X86/Coverage.lean Tier, DecodeTrust; TRUSTBASE.md; docs/COVERAGE.md.
+
+\paragraph{State and step.}
+The machine state is a record: the sixteen general-purpose registers, the instruction pointer, the
+arithmetic flags, memory, the FS and GS segment bases, sixteen 128-bit XMM registers, the undefined-bit
+oracle, and a halt field that records why the model stopped, if it did.
+\src{X86/State.lean structure Cpu; X86/Basic.lean GPR and Xmms}
+The FS and GS bases are inputs: no instruction in the model writes them, so they are left out of the
+differential record, and what is compared is the address they produce.
+\src{X86/State.lean, the fsBase/gsBase docstring}
+An instruction is an operation from the AST together with its encoded length, which the decoder
+supplies. \lean{step} is a total function from an instruction and a state to a state. When an
+instruction faults, or when the model declines a case, \lean{step} sets the halt field with a reason
+rather than inventing a result; Section~\ref{sec:undef:refusal} gives an
+example stated as a theorem. \lean{run} folds \lean{step} over a list of decoded instructions; the
+model does not yet fetch and decode from memory.
+\src{X86/Syntax.lean structure Instr; X86/Semantics.lean step and run}
+
+\paragraph{Coverage as data.}
+What the model claims is a table in Lean, not prose: one row per mnemonic, carrying its operand shapes,
+a fidelity tier, how its decoding is trusted, and its undefined bits. A test module checks the table
+against the AST in both directions, so a row cannot name a form the AST lacks and a form cannot lack a
+row, and the published coverage document is regenerated from the table and compared in CI.
+\src{X86/Coverage.lean module docstring; .github/workflows/ci.yml, the COVERAGE.md regeneration check}
+The tier is \emph{exact} when every architected bit of the result and the flags is computed,
+\emph{frame} when the set of changed state components is exact but some bits come from the oracle
+because the manual leaves them undefined, and \emph{absent} when the model refuses. Of 158 mnemonics,
+132 are exact, 26 are frame, and 0 are absent. The tier names are this project's coinage.
+\src{X86/Coverage.lean inductive Tier; docs/COVERAGE.md:13; docs/CLAIMS.tsv[tier\_exact, tier\_frame,
+tier\_absent]}
+
+\paragraph{Trust.}
+Decoding is trusted, not proved. The AST is produced from Intel XED's structured output, and every one
+of the 158 rows records its decoding as trusted to XED; a Lean decoder for the covered subset is later
+work.
+\src{TRUSTBASE.md, Decode trust; X86/Coverage.lean DecodeTrust; docs/CLAIMS.tsv[decode\_xed\_rows]}
+Every theorem outside the test tree and a separately compiled native library depends on at most
+\lean{propext}, \lean{Classical.choice} and \lean{Quot.sound}. The CI check is an allowlist of those
+three names per declaration, not a denylist: on the Lean release we use, \lean{native\_decide}
+introduces an axiom with a per-computation name rather than \lean{Lean.ofReduceBool}, so a denylist
+keyed on the latter passes it silently, and the check is driven red with a planted
+\lean{native\_decide} before it is trusted.
+\src{TRUSTBASE.md, Axiom policy; scripts/axiom\_gate\_selftest.sh}
+Two further boundaries are stated rather than modelled. The model assumes SSE is enabled, computing
+vector results where hardware with \texttt{CR4.OSFXSR} clear would fault, and the reference model is
+configured to match, a configuration that is itself checked. The LOCK prefix is recorded, and which
+forms accept it is enforced, but atomicity is not verified: the semantics is single-threaded.
+\src{TRUSTBASE.md, SSE availability and Atomicity; scripts/check\_driver\_cr4.py}
 
 % ---------------------------------------------------------------------------------------------
 \section{Undefined Behaviour}
@@ -477,7 +524,9 @@ is OWED, docs/TACAS-G6-RELATED-WORK.md 5, and may not be cited until it is fetch
 semantics lifted from binaries (Roessle et al., CPP 2019; Verbeek et al., PLDI 2022 -- read beyond the
 over-approximation claim is NOT DONE, G6 6); the frame discipline in seL4 and AutoCorres; hardware
 validation of the Sail models of other architectures (Armstrong et al., POPL 2019 -- its record is fetched,
-the claim is not re-driven). Each sentence waits on its read.}
+the claim is not re-driven); precedents for stating a model's fidelity per form (x86isa's views, the
+lifting literature), which the Tier docstring asserts and no one has re-driven. Each sentence waits on
+its read.}
 
 % ---------------------------------------------------------------------------------------------
 \section{Limitations and Conclusion}
