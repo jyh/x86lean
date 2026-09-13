@@ -14811,6 +14811,9 @@ UNMEASURED … Not green, and not a miss" with rc 0. All four outcomes the desig
 📌 One log line read oddly, `⛔ the invented delta sits inside this run's own band on all 25 units`, and it is the house
 convention, not a defect: `kernel_delta.py:2075` prints each arm as the CLAIM that must hold, with ⛔ when it did not
 (`ok_bias` False). Read before recording, so it does not sit here as an open question.
+📊 **Tally, 2026-09-13 16:4xZ: conclusive 17, arm-1 reds 2** — five more, each verdict check run `success` / PASS, read
+per sha with `gh api …/commits/<sha>/check-runs`: `1ef10f8` · `15a4898` · `f4aac92` · `4b65e58` · `d4a64f9`. P(≥2 of 17 at α = 5%)
+≈ 0.21. Six later pushes (`79d5e5f` … `fb734e1`) were still running; with no cancel group each will conclude.
 
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 
