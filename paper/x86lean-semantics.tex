@@ -607,11 +607,11 @@ instructions; lines by scripts/proof\_lines.py); docs/CLAIMS.tsv[fit\_labels\_pr
 fit\_labels\_fill, fit\_labels\_memcpy, proof\_lines\_prologue, proof\_lines\_guarded, proof\_lines\_fill,
 proof\_lines\_memcpy, fit\_intercept, fit\_slope, fit\_at20, fit\_max\_residual]; docs/DECISIONS.md D234: the
 guarded routine was recorded as 4 labels, and the earlier fit of 19 plus 7.5 to 8.1 per label rested on it}
-Three successive rounds of interface work on the first of these routines brought its per-label cost
+Three successive rounds of interface work on the routine with five labels brought its per-label cost
 from about 25 lines to 12, 9.6 and 7.6; the third was pre-registered with a refutation threshold, which
 it did not reach, and it added no lemma at all: its saving came from deleting proof steps that
 definitional unfolding already discharged and from one macro.
-\src{docs/CLAIMS.tsv[proof\_round\_1, proof\_round\_2, proof\_round\_3, proof\_round\_4]; docs/P2-PROOF-INTERFACE.md, the runP\_code point and round 4}
+\src{docs/CLAIMS.tsv[fit\_labels\_fill, proof\_round\_1, proof\_round\_2, proof\_round\_3, proof\_round\_4]; docs/P2-PROOF-INTERFACE.md, the runP\_code point and round 4 (problem 1, the fill routine; this sentence said "the first of these routines", which in the list above is prologue, D234)}
 We read this as the tier deciding the cost more than the library does: a factor of about eight between
 the two tiers, against the roughly threefold reduction the three rounds achieved within one. We do
 not claim a floor. The residue per label, unpacking the invariant, naming the instruction's effect
