@@ -75,6 +75,12 @@ UNMEASURED**, so it is named in the paper and not positioned against.
 ⇒ 🔑 ***BOTH ERRORS RAN AGAINST US, WHICH IS WHY THEY SURVIVED*** — an unflattering overclaim does not
 trip the instinct that catches a flattering one (the same shape §1c.2 recorded for the 1,162 total).
 The paper's concessions are rewritten to what the cells support.
+📌 **CANDIDATES FOR THE POPULATION, FROM ONE WEB SEARCH 2026-09-12 — NAMES TO READ, NOT FINDINGS:**
+an Archive of Formal Proofs entry on *X86 instruction semantics and basic block symbolic execution*
+(2021, per the search summary — possibly the public form of the Roessle model); *Formalizing x86-64 ISA
+in Isabelle/HOL: A Binary Semantics for eBPF JIT Correctness* (link.springer.com, chapter
+10.1007/978-981-96-0602-3_11). **None is read. Each is a column this table may owe before the paper says
+anything about "the" x86-64 semantics.**
 
 ## 1c. ⭐⭐ THE REMAINING CELLS, READ AT THE SOURCES — 2026-09-11
 
