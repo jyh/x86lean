@@ -232,13 +232,55 @@ theorem it cannot be quietly forgotten either.
 
 \subsection{The Harness}
 \label{sec:validation:harness}
-\placeholder{Vectors, pre-states, the comparison classes (matched, explained, unexplained, reference
-divergence, leak), and the planted wrong models (docs/DIFFERENTIAL-*.md; Main.lean).}
+% Register: Main.lean classify, compareRecs, bothRefused, driveWrong; X86/Serialize.lean Cpu.render;
+% docs/DIFFERENTIAL-P2-BATCH22.md; docs/CLAIMS.tsv diff\_*.
+
+A differential case is one instruction, run from one pre-state. x86lean and the reference model each
+emit a record of the post-state in one format: the general-purpose and vector registers, the
+instruction pointer, the flags, whether the instruction was refused, and a set of watched memory
+windows.
+\src{X86/Serialize.lean Cpu.render; scripts/run\_differential.sh}
+The records are compared field by field. A case with no disagreeing field is \emph{matched}; a case in
+which both models refuse is matched on the refusal alone, since neither claims a post-state. Each
+disagreeing field is then classified. It is \emph{explained} if the field is one the comparator may
+excuse (a flag or a general-purpose register) and x86lean's derived undefined set for that case
+contains it; it is a \emph{declared divergence} if an entry names that vector and that field; it is a
+\emph{refusal} if only one side refused, a \emph{harness} failure if a record lacks the field, and a
+\emph{specification} disagreement otherwise. Only the first two classes are excused.
+\src{Main.lean classify, bothRefused, undefinableFields, knownDivergences}
+
+The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
+The current record covers 1{,}012 vectors at 88 pre-states, 89{,}056 cases, of which 68{,}524 are
+matched. The remaining cases carry 29{,}435 field disagreements explained by the undefined set and 171
+declared divergences; there is no unexplained disagreement and no case in which an undefined bit
+leaked.
+\src{docs/DIFFERENTIAL-P2-BATCH22.md:4-5; docs/CLAIMS.tsv diff\_vectors, diff\_prestates, diff\_cases,
+diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks. Units: Main.lean
+compareRecs counts cases, matched and leaks per case, and the other three per field}
+A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
+therefore runs deliberately wrong copies of x86lean against the correct one, with an empty divergence
+list, and requires each to produce a specification or refusal disagreement in the field its defect
+touches.
+\src{Main.lean driveWrong: compareRecs [] good bad; hits exclude undefined-region and harness}
 
 \subsection{Two Origins, Not Three Witnesses}
 \label{sec:validation:origins}
-\placeholder{Sail x86 is translated from x86isa and validated against K's tests, so agreement with Sail
-tests the translator. The corroboration count is two origins (docs/TACAS-G1-POSITIONING.md 1c.7).}
+% Register: docs/TACAS-G1-POSITIONING.md 1c.5, 1c.7; PROVENANCE.md; Main.lean knownDivergences.
+
+Three public x86-64 models exist, and it would be easy to count them as three witnesses. They are two
+origins. The Sail x86 model is, in its repository's own description, automatically translated from the
+ACL2 model, and its validation guide co-simulates it against K's single-instruction tests; agreement
+with it would test the translation, not supply an independent semantics.
+\src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
+Our use of the two origins is also unequal, and we state it. Every differential run in this paper is
+against x86isa alone. K has never been executed by this project: its rule files are read, for coverage
+and to arbitrate a disagreement between x86lean and x86isa, as in the packed-shift case of
+Section~\ref{sec:validation:limits}, where each declared divergence cites the K rule that agrees with
+x86lean. Sail has not been used in any differential record.
+\src{PROVENANCE.md, the K and Sail rows; docs/TACAS-G1-POSITIONING.md, the executable row and 1c.7;
+Main.lean knownDivergences, the source field of every entry}
+The validation claims below are therefore claims of agreement with one executable model, arbitrated
+where the two disagree by the manual and by reading the other model's rules.
 
 \subsection{Where the Reference Model Is Not the Specification}
 \label{sec:validation:limits}
