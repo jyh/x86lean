@@ -84,7 +84,8 @@ recorded logs with a reduced re-run.
 ```
   1  read the TACAS 2027 AE call at its source            ✅ the CFP (PRICING §3a); the AE page itself [CALL]
   2  pin the reference model's revision (§1)                                     ✅ D218
-  2b re-run the differential AT the pin; cite §4.1 to that record; gate new records on the revision line
+  2b re-run the differential AT the pin; cite §4.1 to that record   ✅ docs/REFERENCE-PIN-RUN-2026-09-12.md
+     (all seven counters equal batch 22's); a gate refusing a NEW record without the revision line: OWED
   3  measure a COLD R2 build and the x86isa certification on a clean machine
   4  cite every remaining number in the paper to the manifest (paper/README.md)
   5  the container or VM, per [CALL]

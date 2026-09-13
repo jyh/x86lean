@@ -343,6 +343,10 @@ declared divergences. 0 disagreements are unexplained, and in 0 cases did an und
 \src{docs/DIFFERENTIAL-P2-BATCH22.md:4-5; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
+A re-run with the reference model pinned at ACL2 commit c8897a34 reproduced every counter: 89{,}056 cases,
+68{,}524 matched, 29{,}435 explained, 171 declared divergences, 0 unexplained and 0 leaks.
+\src{docs/REFERENCE-PIN-RUN-2026-09-12.md; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, pin\_cases,
+pin\_matched, pin\_explained, pin\_diverged, pin\_unexplained, pin\_leaks]}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
 therefore runs deliberately wrong copies of x86lean against the correct one, with an empty divergence
 list, and requires each to produce a specification or refusal disagreement in the field its defect
@@ -649,10 +653,16 @@ one time in three, and the failures were present when the claims were written.
 % Mandatory for ETAPS 2027 papers: placed just before the references, outside the page limit
 % (docs/TACAS-PRICING.md 3a, read at etaps.org/2027/cfp/).
 \section*{Data Availability}
-\placeholder{Name the public repository, the commit the paper's figures are pinned at, the manifest and
-the one command that re-derives them, the pinned toolchain, and the reference model's revision -- which
-is currently neither pinned nor recorded (docs/TACAS-G5-ARTIFACT.md 1), so this statement cannot yet
-be written truthfully.}
+% Written on the case-study arm (docs/TACAS-PRICING.md 3a). A research-paper submission is double-blind and
+% needs this anonymized. The submission commit is not yet fixed.
+The model, its proofs, the differential harness and every record cited here are public at
+\url{https://github.com/jyh/x86lean} under the Apache-2.0 licence. Every figure this paper quotes from
+the manifest \texttt{docs/CLAIMS.tsv} names the commit it is pinned at and the command that re-derives
+it, and \texttt{python3 scripts/check\_claims.py} re-derives all of them and checks the paper's text
+against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the reference model is ACL2
+x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revision.txt} and fetched
+by \texttt{scripts/setup\_oracle.sh}.
+\src{LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short]}
 
 \bibliographystyle{splncs04}
 \bibliography{x86lean-semantics}

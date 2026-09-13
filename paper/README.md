@@ -33,7 +33,7 @@ The PDF is a build product and is not tracked.
 ## The call (read 2026-09-12, `docs/TACAS-PRICING.md` §3a)
 
 Deadline **2026-10-15**; **18 pp excluding bibliography**, llncs; a **data availability statement is
-mandatory** (placeholder added). ⚖️ The category — regular research paper (double-blind) or case-study
+mandatory** (drafted on the case-study arm; it names acl2@c8897a34, pinned by D218). ⚖️ The category — regular research paper (double-blind) or case-study
 paper (not) — is the Captain's; the draft proceeds on the recommendation, **case-study**, and does no
 anonymization. No arXiv posting ~2 weeks either side of the deadline.
 
