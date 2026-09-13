@@ -42,7 +42,7 @@ travel in its history where any change to one is visible in a diff.
 
 ⭐ THE SECOND HALF (added 2026-09-12, D216): THE PAPER IS GATED AGAINST THE ROWS.
    A row re-deriving says the MANIFEST is right; it says nothing about the sentence that
-   quotes it.  `paper/x86lean-semantics.tex` cites rows inside its `\src{...}` markers as
+   quotes it.  `paper/x86lean-semantics.tex` cites rows inside its `\\src{...}` markers as
    `docs/CLAIMS.tsv[id, id]`, and `check_prose` requires, for each cited id, that its value
    appear in the prose between the previous marker and this one (thousands separators
    allowed), that every cited id exist, and that every row whose `appears_in` names the paper
@@ -97,7 +97,7 @@ RELATIONS = {"p2_ceiling_partition_residue": "The five parts sum to the total"}
 
 
 def _src_markers(tex):
-    """(start, end, body) for every `\src{...}`, braces balanced."""
+    """(start, end, body) for every `\\src{...}`, braces balanced."""
     out, i = [], 0
     while True:
         k = tex.find("\\src{", i)
