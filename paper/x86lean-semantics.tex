@@ -359,9 +359,60 @@ validation has to say so.
 % ---------------------------------------------------------------------------------------------
 \section{Gated Claims}
 \label{sec:gated}
-\placeholder{Every coverage number derived from two sources and CI failing on disagreement with the
-prose; docs/CLAIMS.tsv; the measured one-in-three failure rate of ungated at-source claims
-(docs/TACAS-G6-RELATED-WORK.md; docs/DECISIONS.md D201).}
+% Register: scripts/claimed_forms.py; docs/COVERAGE.md:5; docs/CLAIMS.tsv and scripts/check_claims.py;
+% docs/DECISIONS.md D201 D202 D213 D214; docs/TACAS-G6-RELATED-WORK.md 2.
+
+A semantics makes two kinds of claim: what its rules say, and what it covers and how it was checked.
+Theorems police the first. The second is usually prose, and prose is a second register that nothing
+compares with the first. We treat such claims as outputs.
+
+\paragraph{Coverage.}
+The coverage figures are computed from two sources that are not derived from each other. One is each
+differential vector's own assembly text, parsed into rows of the scalar roster derived from K; the
+other is each roster row, synthesised into a canonical instance and assembled by clang. A vector may
+claim a row only if the two assemble to the same opcode, so a mis-parse cannot survive; rows whose
+instances assemble to identical bytes are reported as spellings of one machine form, which is why the
+figures count both rows and distinct forms.
+\src{scripts/claimed\_forms.py module docstring}
+The published figures are 158 mnemonics in 1{,}012 differentially tested forms, covering 500 of the 525
+roster rows, which are 351 of the 374 distinct machine forms those rows describe; CI fails if the prose
+that states them disagrees with the derivation.
+\src{docs/COVERAGE.md:5 and README.md:56-57, checked by scripts/claimed\_forms.py --check in CI}
+Numbers outside the coverage table are entered in a manifest with the command that re-derives each
+and the commit it is published at; CI runs every command and fails on a difference. The manifest is
+not yet complete, and it records which claims it holds rather than implying the rest. The commit is pinned
+because a measurement is a claim about a commit: re-derived at the head, a count of decisions would go
+red every time a decision was recorded.
+\src{docs/CLAIMS.tsv header; scripts/check\_claims.py}
+
+\paragraph{Why.}
+We did not adopt this from principle; we measured the alternative on ourselves. Re-driving a table of
+prior-art claims this project had written nine days earlier, each marked as verified at its source,
+three of nine failed, and the files they described had not changed, so the claims were wrong when they
+were written.
+\src{docs/DECISIONS.md D201 1}
+A bibliography table headed as fetched from the registrar disagreed with the record its own DOI returns
+in three of eight rows.
+\src{docs/DECISIONS.md D214}
+Seven headline counts in a planning document were all correct and none stated its population;
+re-derived with the obvious commands, three of the seven came out different.
+\src{docs/DECISIONS.md D202}
+And the technical draft behind Section~\ref{sec:undef}, written from decision records, contained two
+false sentences that surfaced only when the prose was checked against the step function.
+\src{docs/DECISIONS.md D213}
+In the three samples with a denominator, claims that no check read failed a re-check about one time in
+three, and the failures were present when the claims were written rather than acquired later.
+Re-checking more often does not answer that; only a mechanical check does.
+
+\paragraph{What this is not.}
+Deriving a claim and failing the build on disagreement is ordinary engineering, and it is not novel in
+kind. K derives its own list of unsupported instructions with a script rather than declaring it.
+\src{docs/TACAS-G6-RELATED-WORK.md 2: scripts/find\_unsupported\_insttructions.pl}
+What we add is the gate on the prose, and its application to a semantics' coverage and validation
+claims, where a referee can clone the repository and watch it run.
+\placeholder{The paper's own numbers are gated against the manifest row each \texttt{src} marker names
+only once that check exists (paper/README.md, owed). Until then this paragraph may not claim the paper
+is gated.}
 
 % ---------------------------------------------------------------------------------------------
 \section{Proofs Over the Semantics}
