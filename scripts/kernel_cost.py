@@ -226,6 +226,37 @@ def _own_tree(rp, want):
     return False
 
 
+def _lsof_cwd_rows(stdout):
+    """(pid, cwd) for each row of `lsof -a -d cwd -p …` stdout; None when there is no header,
+    because "lsof printed nothing parseable" and "no such processes" must not read alike.
+
+    ⛔⛔ D227 (2026-09-13): NAME IS READ AT THE HEADER'S COLUMN, NOT AS THE NINTH FIELD. This
+    used `line.split(None, 8)[8]`. On Linux, a root daemon whose cwd `lsof` may not read prints
+    `systemd-j 157 root cwd unknown /proc/157/cwd (readlink: Permission denied)` — the TYPE
+    reads `unknown` and DEVICE, SIZE/OFF and NODE are blank — so the ninth field is `denied)`.
+    `os.path.realpath("denied)")` resolves against the PROBE'S OWN cwd, which is this
+    repository, and the post-flight probe named every such daemon on the CI runner as an
+    orphan of MINE (twelve of them, `systemd-journal` to `systemd-logind`). macOS never lists
+    another user's processes here, so it never showed.
+    ⇒ And a cwd that is not ABSOLUTE is never returned: a relative string can only resolve
+    against the caller's directory, which for this tool is exactly the tree it attributes."""
+    lines = stdout.splitlines()
+    hdr = next((i for i, l in enumerate(lines)
+                if l.startswith("COMMAND") and " NAME" in l), None)
+    if hdr is None:
+        return None
+    col = lines[hdr].index(" NAME") + 1
+    rows = []
+    for line in lines[hdr + 1:]:
+        fields = line.split()
+        if len(fields) < 2 or len(line) <= col:
+            continue
+        name = line[col:].strip()
+        if os.path.isabs(name):
+            rows.append((fields[1], name))
+    return rows
+
+
 def repo_orphans(root=None):
     """Processes whose cwd is this repository and whose session is gone (ppid 1).
 
@@ -256,14 +287,11 @@ def repo_orphans(root=None):
         # ⚠️ `lsof` exits non-zero when ANY named pid is gone, which is routine
         # over a 1,100-pid list.  Its stdout is still valid, so the exit code is
         # not a refusal here; an empty stdout with no header is.
-        if "COMMAND" not in lf.stdout:
+        rows = _lsof_cwd_rows(lf.stdout)
+        if rows is None:
             return None
         out = []
-        for line in lf.stdout.splitlines()[1:]:
-            parts = line.split(None, 8)
-            if len(parts) < 9:
-                continue
-            pid, cwd = parts[1], parts[8].strip()
+        for pid, cwd in rows:
             if pid in cand and _own_tree(os.path.realpath(cwd), want):
                 out.append({"pid": int(pid), "cwd": cwd, **cand[pid]})
         return out
@@ -317,14 +345,11 @@ def foreign_builds(root=None):
             return []
         lf = subprocess.run(["lsof", "-a", "-d", "cwd", "-p", ",".join(pids)],
                             capture_output=True, text=True, timeout=60)
-        if "COMMAND" not in lf.stdout:
+        rows = _lsof_cwd_rows(lf.stdout)
+        if rows is None:
             return None
         out, seen = [], set()
-        for line in lf.stdout.splitlines()[1:]:
-            parts = line.split(None, 8)
-            if len(parts) < 9:
-                continue
-            pid, cwd = parts[1], parts[8].strip()
+        for pid, cwd in rows:
             rp = os.path.realpath(cwd)
             # ⚠️ "outside" means outside this repo AND outside every tree of it —
             # the delta gate, the drift gate, the history walk and ten other
@@ -1122,6 +1147,27 @@ def conditions_selftest():
         _tab.idle_pct = real
     out.append((moved, "the idle % is really read through threads_ab.idle_pct "
                        "(delegate stubbed; the answer must move)"))
+
+    # ⭐ ARM 1b — D227: THE LSOF PARSE, ON THE ROW SHAPE THAT BROKE IT. The CI runner lists
+    # root daemons whose cwd lsof may not read; their row has blank middle columns, and the
+    # old ninth-field parse returned `denied)`, which resolved INTO this repository. The
+    # fixture is that row, aligned as lsof aligns it, beside an ordinary one.
+    _hdr = "COMMAND    PID   USER   FD      TYPE DEVICE SIZE/OFF    NODE NAME"
+    _c = _hdr.index(" NAME") + 1
+    _deny = "systemd-j  157   root  cwd   unknown"
+    _ok = "python3   4242 runner  cwd       DIR    8,1     4096 1234567"
+    _fix = "\n".join([_hdr,
+                      _deny.ljust(_c) + "/proc/157/cwd (readlink: Permission denied)",
+                      _ok.ljust(_c) + "/home/runner/work/x86lean/x86lean"]) + "\n"
+    _rows = _lsof_cwd_rows(_fix)
+    _naive = [l.split(None, 8)[8] for l in _fix.splitlines()[1:] if len(l.split(None, 8)) >= 9]
+    out.append((_rows == [("157", "/proc/157/cwd (readlink: Permission denied)"),
+                          ("4242", "/home/runner/work/x86lean/x86lean")]
+                and "denied)" in _naive
+                and _lsof_cwd_rows("no header at all\n") is None,
+                "an lsof row with an UNREADABLE cwd keeps its whole NAME (never `denied)`, "
+                "which the old ninth-field parse returned and which resolved into this "
+                "repository), and output with no header is None, not empty"))
 
     # ⭐ ARM 2 — THE ORPHAN PROBE CREATES ITS OWN CONDITION.  A probe that finds
     # nothing on a clean box has told you nothing: it cannot distinguish "no

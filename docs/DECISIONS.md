@@ -14932,3 +14932,17 @@ arm, its foreign-tree control, and the post-flight zero control.
   when it fails. The next runner log is the diagnosis; it is not guessed here.
 ⇒ 🔑 ***A FIXTURE THAT PASSES BY WINNING A RACE IS INDISTINGUISHABLE FROM ONE THAT WORKS, ON THE MACHINE WHERE IT
 WINS.*** Moving the suite to a second platform was the only test of that, which is PORT-2's case in one arm.
+
+### 5. The post-flight red was a real parse bug the development box could not show
+With §4's printout the second Linux run named it: `post_flight` listed twelve root daemons with ppid 1
+(`systemd-journal`, `dbus-daemon`, …, `systemd-logind`) as orphans of MINE, each with `cwd denied)`. `lsof` cannot
+read a root process's cwd as the runner user, so their row reads `unknown` with DEVICE, SIZE/OFF and NODE blank, and
+`split(None, 8)[8]` took `denied)` as the path. **`os.path.realpath("denied)")` resolves against the probe's own
+cwd — this repository — so every such daemon was attributed to this seat.** macOS lists no other user's processes
+to this user, so the defect never surfaced here. `repo_orphans` feeds a decision about KILLING.
+**Remedy:** one `_lsof_cwd_rows` for both probes. It reads NAME at the header's column offset and never returns a
+non-absolute cwd. New arm 1b feeds it that row, aligned as `lsof` aligns it, beside an ordinary one: whole NAME
+kept, header-less output is None. **Planted:** the old ninth-field parser swapped in reds exactly that arm.
+In-process: 0 of 25 conditions arms red here; a real `lsof` row on this box parses to the right cwd.
+⇒ 🔑 ***A PATH PARSED AS A FRAGMENT RESOLVES AGAINST WHEREVER THE PARSER STANDS, AND THIS PARSER STOOD IN THE TREE
+IT ATTRIBUTES.***
