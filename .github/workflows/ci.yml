@@ -294,6 +294,13 @@ jobs:
           python3 scripts/check_positioning_table.py --selftest
           python3 scripts/check_positioning_table.py
 
+      # D218/D219: a differential record must name the pinned reference-model revision; the records
+      # that predate the pin are exempt by explicit bounds, never by default.
+      - name: Every differential record names the pinned reference model
+        run: |
+          python3 scripts/check_record_revision.py --selftest
+          python3 scripts/check_record_revision.py
+
       # 2026-09-09: the sibling of the step above, one level out. `check_citations`
       # gates a comment that names a DECLARATION; this gates prose that names a
       # DATA CORPUS. It exists because `b5d1522` measured `unfolding_calibration`'s

@@ -39,8 +39,9 @@ cd "$(dirname "$0")/.."
 rc=0
 
 echo "── local gates ──────────────────────────────────────────────"
-# check_record_revision (D219) is LOCAL-ONLY until the next ci.yml change carries it: editing ci.yml
-# moves CI-3's content digest and buys a full CI run, so it rides with the next change that pays for one.
+# check_record_revision (D219) is wired into ci.yml since 2026-09-12 (it was local-only until a change that
+# paid for a full CI run carried it). check_flag_strictness joined this loop the same day, after CI reddened
+# on it while this loop read ok: the loop is a SUBSET of CI's static gates, and says so.
 for g in check_claims check_positioning_table check_citations check_coverage_prose \
          check_readme_snapshot check_readme_lean check_ci_shards check_corpus_claims \
          check_record_revision check_flag_strictness; do

@@ -158,11 +158,16 @@ theorem not_oracle_independent :
       = (step ⟨.un .not .q (.reg .rax), 3⟩ (s1 { rax := 0xFF } { af := false })).flags := by
   decide
 
-/-! ## §3 — The oracle CURSOR is a deterministic function of the instruction
+/-! ## §3 — Per instruction, the oracle CURSOR does not depend on the oracle's bits
 
-Fixing the draw COUNT (not only the order) is what lets the harness replay a
-run: after any instruction the cursor is where the model says it is, regardless
-of what the bits were. -/
+Fixing the draw COUNT once the branch is decided (not only the order) means that
+after one instruction from one pre-state the cursor is where the model says it
+is, regardless of what the bits were — which is what keeps the two opposite-
+oracle runs of the undefined-set derivation on the same branch.  The count still
+depends on OPERANDS through the branch (a masked count of zero draws nothing).
+*(This heading said "a deterministic function of the instruction stream" until
+2026-09-12; false across a stream, since a later branch can read a register an
+earlier draw wrote. D213.)* -/
 
 theorem cursor_add_spends_nothing :
     (step ⟨.bin .add .q (.reg .rax) (.reg .rcx), 3⟩ (s0 { rax := 1, rcx := 2 })).oracle.cursor

@@ -400,8 +400,10 @@ theorem step_not_reg (sz : Size) (r : GPR) (h : Live s) :
 TWO equations, because the SDM gives two behaviours: a masked count of zero
 affects NO flag, and a non-zero count spends THREE oracle bits (CF, OF, AF, in
 that order) whether or not each is undefined at that count.  Fixing the COUNT as
-well as the order is what makes the cursor a deterministic function of the
-instruction stream, so the harness can replay a run. -/
+well as the order, once the branch is decided, keeps the cursor after ONE
+instruction independent of the oracle's bits (D213; it read "a deterministic
+function of the instruction stream" until 2026-09-12, which is false across a
+stream). -/
 
 theorem step_shift_reg_zero (k : ShiftKind) (sz : Size) (r : GPR) (c : BitVec 8)
     (h : Live s) (hc : Flags.shiftCount sz c = 0) :

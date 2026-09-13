@@ -14428,7 +14428,11 @@ the unit a differential case is: one instruction, one pre-state.
 - **Owed, not built:** comparing `oracle.cursor` between the two oracle runs inside `undefinedLeaked`
   would put the per-instruction claim under a gate on every differential case at the cost of one
   field comparison. It is a harness change and is priced separately rather than slipped into a prose
-  commit. **The `X86/Semantics.lean` header's strong sentence is corrected in THAT commit**, not this
+  commit. ✅ **CORRECTED 2026-09-12 in the CI-cost commit, with `Coverage.lean`'s Tier docstring and a sibling the sweep
+  found in `X86/Oracle.lean` ("`undefined`/`Unspecified`"), and two more carriers of the strong draw-count sentence
+  that no sweep had reached (`Tests/Nonvacuity.lean` §3's heading, `X86/Theorems.lean`'s shift section); the harness
+  change below is still NOT built.** *It read:*
+  **The `X86/Semantics.lean` header's strong sentence is corrected in THAT commit**, not this
   one: a comment edit in a `.lean` file moves CI-3's content digest and buys a full CI run, and it
   should buy one run for both. ⚠️ **A THIRD `.lean` comment joins that commit, found 2026-09-12 writing
   the paper's §2:** `X86/Coverage.lean`'s `Tier` docstring says the concept is *"Sail's `Unspecified`"* —
@@ -14629,7 +14633,7 @@ list cannot rot), and an exempt record that does carry a line is still checked.
             an exempt record removed  · an exempt record carrying a wrong line  · no records at all
             -> each refused, naming the record
 ```
-⚠️ **LOCAL-ONLY FOR NOW, and declared in `preflight.sh`:** wiring it into `ci.yml` moves CI-3's content
+✅ **WIRED INTO `ci.yml` 2026-09-12** (with D213's `.lean` comments, one CI run for both). *It read:* ⚠️ **LOCAL-ONLY FOR NOW, and declared in `preflight.sh`:** wiring it into `ci.yml` moves CI-3's content
 digest and buys a full CI run; it rides with the next change that pays for one (with D213's three
 `.lean` comment corrections, which have the same cost).
 

@@ -20,9 +20,17 @@ layered on it is sound by construction.
 
 ⚠️ THE ORACLE DRAW ORDER IS PART OF THE MODEL.  A shift with a non-zero masked
 count draws exactly THREE bits, in the order CF, OF, AF, whether or not each is
-needed; the logic group draws exactly ONE (AF).  Fixing the COUNT as well as the
-order is what makes the oracle cursor a deterministic function of the
-instruction stream, which is what lets the harness replay a run.
+needed; the logic group draws exactly ONE (AF).  Once an instruction's branch is
+decided its draws are UNCONDITIONAL, so they never depend on WHICH flags are
+undefined — but the draw COUNT does depend on operand values through that branch
+(a masked count of zero draws nothing; BSF/BSR draw a further destination width
+only when the source is zero).  What must never happen is a branch reading a bit
+drawn in the same step: the two opposite-oracle runs that derive the undefined set
+could then take different branches and report a difference of CONTROL as undefined
+fields (D213).  *(This paragraph said fixing the count makes the cursor "a
+deterministic function of the instruction stream" until 2026-09-12. That is false
+across a stream — a later branch can read a register an earlier draw wrote — and
+what holds is per instruction, the unit a differential case is. D213.)*
 
 LANE. Personal lane, public sources only.  SDM read per instruction, cited at
 each case.

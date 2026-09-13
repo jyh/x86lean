@@ -12,8 +12,11 @@ invention.
 PUBLIC PRIOR ART (PROVENANCE.md).  ACL2 x86isa solves this with an `undef` field
 in the machine state, seeded so that reading it yields a fresh unconstrained
 value; the model's own comment describes it as seeding unknown values that
-characterize commonly occurring undefined behaviour.  Sail spells the same idea
-`undefined`/`Unspecified`.  This file is that discipline rendered positively in
+characterize commonly occurring undefined behaviour.  The Sail model translated
+from it uses Sail's builtin `undefined` (through `undef_read_logic`, with a
+per-case mask of undefined flags).  *(This sentence named "`Unspecified`" too until
+2026-09-12; the term is absent from all 14 Sail model files, D201.)*  This file is
+that discipline rendered positively in
 Lean: the state carries an oracle whose bit stream is an ARBITRARY function
 field, so a theorem quantified over all states cannot learn a single bit of it.
 

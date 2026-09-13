@@ -19,9 +19,13 @@ import X86.Syntax
 namespace X86
 
 /-- The FIDELITY TIER of a form (plan v1 §3.2).  The names are this project's
-coinage; the concept is ACL2 x86isa's app-view/catalogue split and Sail's
-`Unspecified`, and the over-approximative-lifting literature's distinction
-between an exact and a sound-but-imprecise model. -/
+coinage.  That a model states its own fidelity is not: the AFP X86_Semantics
+entry and Verbeek et al. (PLDI 2022) describe theirs as over-approximative, the
+distinction between an exact and a sound-but-imprecise model (paper §7, D223).
+What is ours is that the statement is per form and checked against the AST.
+*(This read "the concept is ACL2 x86isa's app-view/catalogue split and Sail's
+`Unspecified`" until 2026-09-12. The Sail term is absent from all 14 of its model
+files (D201), and x86isa's views were never read as a per-form datum (D223).)* -/
 inductive Tier where
   /-- Every architected bit of the result and of the flags is computed. -/
   | exact
