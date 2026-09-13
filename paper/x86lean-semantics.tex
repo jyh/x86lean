@@ -229,7 +229,9 @@ advances with each draw.
 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d; D220}
 A sixth answer inverts the question. libLISA synthesizes instruction semantics by observing a processor,
 and its model is CPU-specific: behaviour ``that is `undefined' is synthesized for the current
-machine''~\cite{liblisa}. We have read that work's abstract, not its models.
+machine''~\cite{liblisa}. We have read its models only for the packed-shift rule of
+Section~\ref{sec:validation:limits}, where they serve as a second source.
+\src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221}
 
 x86lean's oracle is x86isa's seed discipline made concrete.
 \src{PROVENANCE.md, the x86isa row; docs/TACAS-G6-RELATED-WORK.md 4}
@@ -394,6 +396,12 @@ too: comparing K's semantics with semantics synthesized on five processors, libL
 between 18 and 28 instruction variants per machine~\cite{liblisa}.
 \src{liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
 ``Dasgupta et al.\ incorrect'': 28 24 18 18 18, read 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d}
+Those verdicts cannot have reached the rules we cite. On none of its machines do libLISA's semantics contain
+an instruction led by a 66 prefix, which leaves out the non-VEX forms of SSE instructions, as that work says;
+every K rule behind our declared divergences is such a form, and a verdict on a K rule needs a synthesized
+semantics to set against it.
+\src{liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2, ``Out-of-scope'', read 2026-09-12;
+docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machines; docs/DECISIONS.md D221}
 
 \subsection{Where the Reference Model Is Not the Specification}
 \label{sec:validation:limits}
@@ -428,6 +436,14 @@ The manual reads the count from the low 64 bits, and so does K: its saturation t
 those bits of the source. More decisively, the reference model's own memory-count form of the same
 instruction, given the same 128-bit count, returns the manual's answer.
 \src{docs/DECISIONS.md D108 3, citing K's psllw\_xmm\_xmm.k}
+A processor agrees too, on a sibling encoding. libLISA's semantics, synthesized on five machines, contain
+none of these instructions with the 66 prefix our vectors use, but they contain the VEX-encoded forms, for
+which the manual gives the same count rule. On each machine, the result of each of the eight shifts depends
+on the low 64 bits of the count register and on none of the upper 64: 40 verdicts, none failing, beside a
+control instruction whose upper-half read is visible and plants that each turn a verdict red. The two
+encodings differ above bit 127, which this reading does not examine.
+\src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; scripts/liblisa\_hardware\_check.py;
+docs/CLAIMS.tsv[liblisa\_shift\_verdicts\_pass]; docs/DECISIONS.md D221}
 A model that disagrees with itself across two operand shapes of one instruction has a defect, not a
 reading. We record each of the eight as a known divergence naming one vector and one field, with its
 independent source; the cases keep running, and an entry that stops diverging fails the run, so a fix
@@ -632,8 +648,11 @@ means. libLISA discovers instructions and synthesizes their semantics by executi
 producing ``the most extensive formal x86-64 model to date, with over 118 000 different instruction
 groups'', compares models across five machines, and reports exposing bugs in handwritten
 models~\cite{liblisa}. Where x86lean asks whether a model built from the manual agrees with another
-model, libLISA takes the processor as ground truth. The two are complementary rather than competing,
-and a comparison of x86lean against libLISA's models is the most direct second source this work lacks.
+model, libLISA takes the processor as ground truth. The two are complementary rather than competing.
+We have used libLISA's models for the packed-shift rule on which x86lean and the reference model part
+(Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
+direct second source this work still lacks, and for the SSE forms it would first need their scope extended.
+\src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221}
 A public Isabelle/HOL entry in the Archive of
 Formal Proofs gives over-approximative semantics for roughly 120 x86-64 assembly instructions, with
 symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ build a machine model with
