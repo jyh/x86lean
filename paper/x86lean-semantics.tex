@@ -33,16 +33,56 @@
 \maketitle
 
 \begin{abstract}
-\placeholder{Written last, from the sections below.}
+x86lean is an executable semantics of x86-64 user-level instructions in Lean~4, built from public
+sources and validated by differential testing against ACL2 x86isa. It is smaller than the existing
+public x86-64 semantics and weaker in proof support, and we say so first. What it contributes is a
+treatment of validation in which the claims about a semantics, what it covers, how it was checked and
+where the check has nothing to check against, are derived and gated rather than written. We describe a
+design for undefined bits that keeps one definition for execution and proof, derives the undefined set
+from the semantics instead of declaring it, and states a case the model declines as a theorem; a
+differential harness whose disagreement classes and wrong-model controls are explicit; the places where
+the reference model is not the specification, including one where it contradicts itself; and a
+measurement, on a sample, of what safety proofs over the semantics cost. We also report how often this
+project's own ungated claims failed a re-check: about one time in three.
+\src{Each claim is the subject of a section below and is cited there.}
 \end{abstract}
 
 % ---------------------------------------------------------------------------------------------
 \section{Introduction}
 \label{sec:intro}
-\placeholder{The claim: a semantics whose coverage and correctness claims are each derived by a
-command and checked in CI against a second source. The concessions come early and in our own words:
-x86lean is the smallest of the three public x86-64 semantics by instruction count and the weakest on
-proof support (docs/TACAS-PRICING.md 4a; docs/TACAS-G1-POSITIONING.md).}
+% Register: docs/TACAS-PRICING.md 4a; docs/TACAS-G1-POSITIONING.md 1 and 3.
+
+A formal semantics of a processor is used as a specification, so the first question about one is
+whether it is right. The public semantics of x86-64 answer it by execution: x86isa is co-simulated
+against a processor, and K was tested against thousands of instruction-level cases
+(Section~\ref{sec:related}). This paper is about the second question, which a reader of any of them
+also has to take on trust: are the claims made \emph{about} the semantics right? A coverage figure, a
+list of what was validated against what, a statement of which bits are undefined, a count of
+disagreements: each is ordinarily prose, and prose is not checked against the artifact it describes.
+
+We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
+first. It covers 158 mnemonics, where K's coverage target lists 774, and its proof support is seven
+memory-safety theorems over four routines, where x86isa proves full functional correctness of an
+unbounded loop. It is the smallest of the three and the weakest on proofs.
+\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 3; docs/TACAS-PRICING.md 4a}
+Its decoding is trusted to Intel XED, and its validation is against one executable model.
+
+What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
+\begin{itemize}
+\item an undefined-bit design in which one Lean definition serves execution and proof, the undefined set
+  is derived from the semantics rather than declared, and a case the model cannot represent is declined
+  by a theorem (Section~\ref{sec:undef});
+\item a differential harness whose classes of disagreement, units and wrong-model controls are explicit,
+  a statement that its evidence comes from two origins and not three, and the cases where the reference
+  model is not the specification (Section~\ref{sec:validation});
+\item coverage and validation figures derived from two sources and gated in CI against the prose that
+  states them, including those of this paper's own figures that cite the manifest, with a measurement of how often ungated claims
+  in this project failed a re-check (Section~\ref{sec:gated});
+\item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
+  proof interface cannot state (Section~\ref{sec:proofs}).
+\end{itemize}
+Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
+combination is checkable in one clone of a public repository.
 
 % ---------------------------------------------------------------------------------------------
 \section{The Model}
@@ -588,7 +628,20 @@ its read.}
 % ---------------------------------------------------------------------------------------------
 \section{Limitations and Conclusion}
 \label{sec:conclusion}
-\placeholder{Scale, proof strength, the ceiling of the reference model, and the decode trust.}
+
+The limitations are the ones stated where they arise. x86lean is small, and its proofs are few. Its
+decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
+by reading a second; K has not been run, and no hardware co-simulation has been. The reference model
+refuses more of the remaining instructions than it executes, so for those a model built from the manual
+currently has no second source. A rule the reference model does not implement, such as MOVDQA's
+alignment fault, is carried by theorem alone. The proof-cost measurements are a sample of four routines. And the
+gate on quoted figures checks the figures that cite the manifest, not every number in the text.
+
+The contribution is not a larger or more strongly proved semantics. It is a semantics whose claims about
+itself are outputs: derived from the artifact, checked against a second source where one exists, and
+stated as absent where one does not. The measurement that motivates it is modest and, we think,
+general: in this project, claims about formal artifacts that nothing checked failed a re-check about
+one time in three, and the failures were present when the claims were written.
 
 \bibliographystyle{splncs04}
 \bibliography{x86lean-semantics}

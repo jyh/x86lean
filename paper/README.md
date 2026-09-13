@@ -27,7 +27,8 @@ The PDF is a build product and is not tracked.
 | 6 Proofs Over the Semantics | drafted; ⚠️ its line counts are NOT yet cited to the manifest, so the prose check does not see them | `docs/P2-PROOF-INTERFACE.md`, `X86/Program.lean`, `Tests/Program.lean` |
 | 7 Related Work | two paragraphs drafted; the frame-discipline and lifted-semantics sentences wait on their reads | `docs/TACAS-G1-POSITIONING.md`, `docs/TACAS-G6-RELATED-WORK.md` |
 | 4.1 The Harness · 4.2 Two Origins | drafted | `Main.lean` comparator; `docs/DIFFERENTIAL-P2-BATCH22.md`; `docs/TACAS-G1-POSITIONING.md` 1c.7 |
-| everything else | placeholder | named in each placeholder |
+| Abstract · 1 Introduction · 8 Conclusion | drafted, from the sections; no new figures | the sections they summarise |
+| remaining placeholders | §4.3 none; §7's read-dependent sentences | named in each placeholder |
 
 ## Owed before submission
 
