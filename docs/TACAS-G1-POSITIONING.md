@@ -106,7 +106,14 @@ a Zenodo reproduction package; and it says K *"is based on the earlier work of H
 `strata` appears in 2 files, both about proving equivalence between K rules and Strata's bit-vector
 formulas** (control: `undefMInt` in 345 files). So K's tree shows an EQUIVALENCE CHECK against synthesized
 semantics, not a derivation; **the lineage claim is libLISA's, second-hand, and §4.2's "two origins" is not
-changed on it.** Which handwritten models libLISA found bugs in: its evaluation section was not reached — UNREAD.
+changed on it.** ✅ **Which handwritten model libLISA found bugs in — READ at its §5.2.2 (site rendering): K, and only K**
+(x86isa is not compared; libLISA's related work calls Goel's model *"mainly one-byte and two-byte x86-64
+instructions … roughly a third of all non-privileged instruction variants"*). Across five CPUs A0–A4:
+K variants agreeing 1539 · 1469 · 1558 · 1536 · 1493; disagreeing 32 · 28 · 25 · 23 · 21, of which
+**"Dasgupta et al. incorrect" 28 · 24 · 18 · 18 · 18** and "libLISA incorrect" 4 · 4 · 7 · 5 · 3; and "Four
+variants contain incorrect rules (LOOPNE, [V]PCMPISTR[I/M])". ⇒ **K, our ARBITER in every declared
+divergence, is itself wrong on 18–28 variants per machine by a hardware-origin measurement.** Whether any
+of our cited K rules are among them is NOT checked. The paper's §4.2 now says the arbiter is fallible.
 📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
 Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
 📌 The CPP 2019 1,625-instruction model embeds stratified-synthesis semantics in Isabelle/HOL (per a search

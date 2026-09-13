@@ -389,7 +389,11 @@ x86lean. Sail has not been used in any differential record.
 \src{PROVENANCE.md, the K and Sail rows; docs/TACAS-G1-POSITIONING.md, the executable row and 1c.7;
 Main.lean knownDivergences, the source field of every entry}
 The validation claims below are therefore claims of agreement with one executable model, arbitrated
-where the two disagree by the manual and by reading the other model's rules.
+where the two disagree by the manual and by reading the other model's rules. That arbiter is fallible
+too: comparing K's semantics with semantics synthesized on five processors, libLISA judged K incorrect for
+between 18 and 28 instruction variants per machine~\cite{liblisa}.
+\src{liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
+``Dasgupta et al.\ incorrect'': 28 24 18 18 18, read 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d}
 
 \subsection{Where the Reference Model Is Not the Specification}
 \label{sec:validation:limits}
