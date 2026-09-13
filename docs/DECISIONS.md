@@ -14431,7 +14431,8 @@ the unit a differential case is: one instruction, one pre-state.
   commit. ✅ **CORRECTED 2026-09-12 in the CI-cost commit, with `Coverage.lean`'s Tier docstring and a sibling the sweep
   found in `X86/Oracle.lean` ("`undefined`/`Unspecified`"), and two more carriers of the strong draw-count sentence
   that no sweep had reached (`Tests/Nonvacuity.lean` §3's heading, `X86/Theorems.lean`'s shift section); the harness
-  change below is still NOT built.** *It read:*
+  change below is still NOT built.** ✅ **BUILT 2026-09-13 as D226**, with a planted red arm and a deletion probe; the
+  §2 row "NOT GATED" is now false for the per-instruction claim on the differential population. *It read:*
   **The `X86/Semantics.lean` header's strong sentence is corrected in THAT commit**, not this
   one: a comment edit in a `.lean` file moves CI-3's content digest and buys a full CI run, and it
   should buy one run for both. ⚠️ **A THIRD `.lean` comment joins that commit, found 2026-09-12 writing
@@ -14697,6 +14698,8 @@ arbiter was checked against a processor-origin source and on what form; §4.3's 
 processor reading; §7 narrows "the most direct second source this work lacks" to what is still lacking — a
 comparison beyond ten rules. `Main.lean knownDivergences` `source` strings are NOT edited here (a `.lean` edit
 buys a full CI run and a kernel-delta profile; it joins the owed CI-cost batch with D213 and D219).
+✅ **EDITED 2026-09-13, in D226's `.lean` step** (the CI-cost batch had landed without it): each of the ten strings
+now ends with the processor reading, its form (VEX.128, not the legacy encoding the vector runs) and this record.
 ⇒ 🔑 ***A NULL FROM A LOOKUP IS A CLAIM ABOUT THE POPULATION BEFORE IT IS A CLAIM ABOUT THE SUBJECT*** — the
 controls going null with the subjects is what said so; a run without them would have filed ten "libLISA has
 no semantics" rows.
@@ -14791,6 +14794,9 @@ judgement suite gained a per-case rc and a PASS-path case (two mutations each re
 and the step's shell was run under stubs over all six (rc × publish ok/fail) outcomes.
 ⚠️ **The tally the ruling asks for starts here:** conclusive redfirst runs 6, arm-1 reds 1 (at 5f036f0). One in six
 is about a 26% chance at α = 5%, so it is not evidence of miscalibration yet.
+📊 **Tally, 2026-09-13 07:4xZ: conclusive 9, arm-1 reds 1.** The three added are `b546ad6`, `592b407` and
+`7c2af44`, each `success`, the last with its verdict check run published as success / PASS. Read per job with
+`gh run view <id> --json jobs`; every master run after D224's implementation (`592b407`) has concluded.
 
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 
@@ -14810,3 +14816,54 @@ step's own child prices that step exactly (`records_step`), so no merge was rewr
 when any `.lean` change is staged or unstaged, printing the files, because `--gap` cannot see them (driven in a
 throwaway clone: fires on staged, fires on unstaged, silent when clean).
 ⇒ 🔑 ***A GATE THAT READS HEAD CERTIFIES THE LAST COMMIT, NOT THE NEXT ONE.***
+
+## D226 — D213's owed harness change, built: the leak check compares cursors; and the sharding had dropped the leak check and the `undefined` column from CI
+
+⚖️ **2026-09-13.** Two things, found in that order, and the second is the larger.
+
+### 1. The cursor conjunct (the change D213 left owed)
+`undefinedLeaked` compared XMM, the declared GPRs, RIP, the halt state and the watched memory between the
+all-zeros and all-ones runs, and NOT `oracle.cursor`. It now does. The definition is `undefinedLeakedBy stepFn`,
+with `undefinedLeaked := undefinedLeakedBy step`, so that a wrong model can be planted in the gate itself rather
+than in a copy (`driveWrong` cannot reach it: it compares rendered post-states, and nothing renders the cursor).
+`undefinedRegs` and the check now share one `movedRegs`, which also stops the check re-running `step` twice.
+```
+  plant      wrongDrawCountReadsDrawnBit: step, plus one extra draw when the first drawn bit is 1
+  expected   fires on EXACTLY the cases that draw >= 1 bit, and on at least one
+  measured   fires 27,717 of 85,008 = the 27,717 that draw            (x86lean-diff undefined-column, rc 0)
+  deleted    the cursor line removed, rebuilt: fires 0 of 85,008       (rc 1); restored byte-identical (cmp)
+  real model 0 leaks of 85,008 (nRandom 4) and 0 of 89,056 (nRandom 8, the differential's population, via
+             `emit`: LEAK 0 lines = CASE lines = 89,056)              docs/CURSOR-LEAK-CHECK-2026-09-13.md
+  no regress `emit` at the parent 7c2af44 is BYTE-IDENTICAL (235,501,735 B) — the refactor moved no UNDEF field
+```
+⇒ **D5's rule, per instruction, moves from "one example theorem, no check" to "checked on every case of the
+differential population".** Still no general theorem, and the conjunct cannot see a branch on a drawn bit that
+changes only a FLAG's value (flags are the derived channel, D6). The pinned reference run's `oracle-leaks=0`
+predates the conjunct; the record above is the Lean-only measurement that covers it (a leak involves no oracle).
+
+### 2. ⛔ What `289a330` (D92, 2026-09-04) dropped from CI
+Before D92, the build job ran `x86lean-diff selftest` with no argument. That command runs every arm **and then
+two checks no arm performs**: the control (the model against itself, 0 oracle leaks over every case) and
+`checkUndefinedColumn`. D92 replaced it with `selftest-shard k 6`, which runs **arms only**, and its record says
+*"Every arm still runs on every push"*, which was true and is why nobody noticed the rest had gone.
+```
+  measured at 289a330^   ci.yml:69    lake env .lake/build/bin/x86lean-diff selftest
+  measured at 7c2af44    ci.yml       selftest-shards 6 (partition only) · selftest-shard k 6 (arms only)
+                                      no step names `undefined-column` or the bare `selftest`
+  run_differential.sh    emit · emit-acl2 · compare     — compare counts LEAK (so leaks stayed checked on
+                                      every local differential run); NOTHING runs checkUndefinedColumn
+```
+⇒ **For nine days the `undefined` column gate ran only when a head typed it.** No drift accumulated: at
+`7c2af44` it reads *all 158 rows match* (run before any D226 edit). Two comments still located it in CI:
+`X86/Coverage.lean` ("run inside the CI selftest", true until 09/04) and `Tests/Nonvacuity.lean` twice ("the
+differential run's undefined-column gate", never true — the differential does not run it). Both corrected.
+**Remedy:** a build-job step runs `x86lean-diff undefined-column` (the column, the leak count, and §1's plant);
+about 1m40s on the developer box.
+⇒ 🔑 ***A COMMAND THAT DOES MORE THAN ITS NAME SAYS LOSES THE REST WHEN IT IS SPLIT BY ITS NAME.*** D92 sharded
+"the selftest" as a list of arms because that is what the word meant; the control and the column rode on the
+command, not on the list, and a partition gate that proves every ARM runs exactly once is silent about them by
+construction.
+
+### 3. A sibling found on the way
+`scripts/ci_local.py`'s unknown-flag refusal said the default job has "33 steps"; it had 40 (41 with this step).
+The number is removed from both strings rather than updated, since it moves with every step added.

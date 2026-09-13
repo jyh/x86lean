@@ -60,7 +60,8 @@ masked count, `bsf`/`bsr` draw a destination's width only at a zero source, `shl
 6+width.* **The rule that holds is narrower:** once an instruction's branch is decided its draws are
 unconditional — a bit is drawn for a flag whether or not that flag is undefined at these operands —
 so the draw count does not depend on WHICH flags are undefined. **Evidence class: a design rule and
-one example theorem (`cursor_independent_of_bits`); no general theorem; not gated.** The bisection
+one example theorem (`cursor_independent_of_bits`); no general theorem; ~~not gated~~ checked per case by
+`undefinedLeaked`'s cursor conjunct since 2026-09-13 (D226).** The bisection
 sentence is withdrawn: across a stream, an earlier draw can steer a later branch.
 
 ### 3.2 THE UNDEFINED SET IS DERIVED, NEVER DECLARED (D6)

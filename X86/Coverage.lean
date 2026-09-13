@@ -421,11 +421,13 @@ acc,imm · rh"
   -- was checked only against the TIER (`frame_tier_iff_undefined_bits`: frame
   -- iff non-empty), so a row naming the wrong flags, or too few, read exactly
   -- like a right one.  `undefinedColumnTokens` in `Main.lean`, driven by that
-  -- file's `undefined-column` mode and run inside the CI selftest, compares its
+  -- file's `undefined-column` mode and run by CI's build job, compares its
   -- flag TOKENS against the set the model actually draws over every emitted
   -- case.  ⚠️ This citation read `undefined_column_matches_the_model` until P1
   -- batch 16 — a name nothing in the repository ever carried, though the check
-  -- itself is real.  See docs/DECISIONS.md D39 and D48.
+  -- itself is real.  See docs/DECISIONS.md D39 and D48.  ⛔ "run inside the CI
+  -- selftest" was TRUE until D92 sharded that selftest (09/04) into arms-only
+  -- shards, and FALSE from then until D226 put the mode in the build job.
   --
   -- ⛔ AND `bsf`/`bsr` CARRY A TOKEN NO ROW HAS EVER CARRIED: `DEST`.  Their
   -- undefined region includes the DESTINATION REGISTER at a zero source, not

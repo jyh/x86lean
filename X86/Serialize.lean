@@ -208,21 +208,22 @@ def declaredUndefRegs (i : Instr) (s : Cpu) : List String :=
   let ds := declaredUndefGPRs i s
   GPR.all.filterMap (fun r => if ds.contains r then some (r.name .q) else none)
 
+/-- The registers that differ between two post-states, in `GPR.all` order. -/
+def movedRegs (a b : Cpu) : List String :=
+  GPR.all.filterMap (fun r => if a.regs.get r == b.regs.get r then none else some (r.name .q))
+
 /-- The registers that actually MOVE between the two opposite oracle runs. -/
 def undefinedRegs (i : Instr) (s : Cpu) : List String :=
-  let a := (step i { s with oracle := zeroOracle }).regs
-  let b := (step i { s with oracle := onesOracle }).regs
-  GPR.all.filterMap (fun r => if a.get r == b.get r then none else some (r.name .q))
+  movedRegs (step i { s with oracle := zeroOracle }) (step i { s with oracle := onesOracle })
 
-/-- Do the two oracle runs agree on everything the model does not DECLARE
-undefined?  If they do not, an undefined bit has leaked into a register no form
-admits, or into RIP, memory or the model state — a defect of a different and
-worse kind than an undefined flag, because nothing in the tier table admits it.
-A declared register that does not move is reported here too, for the reason in
-the note above.  The harness checks this on every vector. -/
-def undefinedLeaked (i : Instr) (s : Cpu) (ws : List Window) : Bool :=
-  let a := step i { s with oracle := zeroOracle }
-  let b := step i { s with oracle := onesOracle }
+/-- Do the two oracle runs of `stepFn` agree on everything the model does not
+DECLARE undefined?  `undefinedLeaked` below is this at `step`, and it is the
+check; the step is a parameter only so that `x86lean-diff undefined-column` can
+plant a wrong model in THIS definition rather than in a copy of it (D226). -/
+def undefinedLeakedBy (stepFn : Instr → Cpu → Cpu) (i : Instr) (s : Cpu)
+    (ws : List Window) : Bool :=
+  let a := stepFn i { s with oracle := zeroOracle }
+  let b := stepFn i { s with oracle := onesOracle }
   -- ⭐⭐⭐ THE VECTOR REGISTERS JOIN THE LEAK CHECK ON THE DAY THEY EXIST
   -- (P2 vector wave, batch 0), and BEFORE any form can write one.
   --
@@ -235,10 +236,30 @@ def undefinedLeaked (i : Instr) (s : Cpu) (ws : List Window) : Bool :=
   -- the comparator; batch 14 wrote that lesson about `bsf`/`bsr` and the
   -- registers, and it is cheaper to widen the check now than to discover the
   -- gap from a leak that classified itself as explained.
+  --
+  -- ⭐ D226 — THE CURSOR JOINS IT (the harness change D213 left owed).  The draw
+  -- rule is that a step's number of draws may depend on its operands but never
+  -- on the bits it draws, because the two runs compared here must take the same
+  -- branch or the derived undefined set reports a difference of CONTROL.  Until
+  -- this line that rule had one example theorem and no check.  What it catches:
+  -- a step whose draw COUNT depends on a drawn bit.  What it cannot: a branch on
+  -- a drawn bit that changes only the value a FLAG receives — flags are the
+  -- one derived channel, so that is filed as undefined (D6's hazard), and this
+  -- conjunct cannot see it.  Every other field is still compared as below.
   !(a.xmm == b.xmm
-    && undefinedRegs i s == declaredUndefRegs i s
+    && movedRegs a b == declaredUndefRegs i s
     && a.rip == b.rip
+    && a.oracle.cursor == b.oracle.cursor
     && (match a.ms, b.ms with | none, none => true | some x, some y => x == y | _, _ => false)
     && (ws.map (renderWindow a.mem)) == (ws.map (renderWindow b.mem)))
+
+/-- Do the two oracle runs agree on everything the model does not DECLARE
+undefined?  If they do not, an undefined bit has leaked into a register no form
+admits, or into RIP, memory or the model state — a defect of a different and
+worse kind than an undefined flag, because nothing in the tier table admits it.
+A declared register that does not move is reported here too, for the reason in
+the note above.  The harness checks this on every vector. -/
+def undefinedLeaked (i : Instr) (s : Cpu) (ws : List Window) : Bool :=
+  undefinedLeakedBy step i s ws
 
 end X86

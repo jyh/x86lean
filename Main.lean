@@ -62,6 +62,12 @@ open X86.Tests
 
 /-! ## Record emission -/
 
+/-- The pre-state seed of every emission: the ACL2 cases, the records, the
+`undefined` column and D226's plant all walk the same pre-states because they
+all name this constant (it was a literal at three sites until D226 added a
+fourth). -/
+def preStateSeed : UInt64 := 0x9E3779B97F4A7C15
+
 /-- One emitted case. -/
 def caseLines (v : Vec) (idx : Nat) (pre : Cpu) (stepFn : Instr → Cpu → Cpu) : List String :=
   let post := stepFn v.instr pre
@@ -82,7 +88,7 @@ def caseLines (v : Vec) (idx : Nat) (pre : Cpu) (stepFn : Instr → Cpu → Cpu)
 
 def emitAll (stepFn : Instr → Cpu → Cpu) (nRandom : Nat) : List String :=
   (vectors.flatMap fun v =>
-    (preStates 0x9E3779B97F4A7C15 nRandom).zipIdx.flatMap fun (pre, i) =>
+    (preStates preStateSeed nRandom).zipIdx.flatMap fun (pre, i) =>
       caseLines v i pre stepFn)
 
 /-! ## Emission for the ACL2 side
@@ -293,10 +299,10 @@ structure KnownDivergence where
 
 def knownDivergences : List KnownDivergence :=
   [ { vec := "movd_to_x", field := "xmm0"
-    , source := "K `movd_xmm_r32.k`: concatenateMInt(mi(96,0), …); SDM Vol. 2B MOVD: DEST[127:32] <- 0"
+    , source := "K `movd_xmm_r32.k`: concatenateMInt(mi(96,0), …); SDM Vol. 2B MOVD: DEST[127:32] <- 0 · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form, zero the upper destination bits — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D93" }
   , { vec := "movq_to_x", field := "xmm0"
-    , source := "K `movq_xmm_r64.k`: concatenateMInt(mi(64,0), …); SDM Vol. 2B MOVQ: DEST[127:64] <- 0"
+    , source := "K `movq_xmm_r64.k`: concatenateMInt(mi(64,0), …); SDM Vol. 2B MOVQ: DEST[127:64] <- 0 · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form, zero the upper destination bits — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D93" }
   -- ⛔⛔⛔ P2 BATCH 13 (D108) — ACL2 x86isa READS THE PACKED-SHIFT COUNT FROM ALL
   -- 128 BITS OF THE COUNT REGISTER, where the SDM and K both read SRC[63:0].
@@ -322,28 +328,28 @@ def knownDivergences : List KnownDivergence :=
   -- future disagreement about a lane width or a sign fill that has nothing to do
   -- with the count's width.
   , { vec := "psllw_x", field := "xmm0"
-    , source := "K `psllw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLW: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psllw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLW: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "pslld_x", field := "xmm0"
-    , source := "K `pslld_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLD: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `pslld_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLD: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "psllq_x", field := "xmm0"
-    , source := "K `psllq_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,63))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLQ: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psllq_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,63))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSLLQ: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "psrlw_x", field := "xmm0"
-    , source := "K `psrlw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLW: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psrlw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLW: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "psrld_x", field := "xmm0"
-    , source := "K `psrld_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLD: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psrld_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLD: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "psrlq_x", field := "xmm0"
-    , source := "K `psrlq_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,63))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLQ: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psrlq_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,63))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRLQ: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "psraw_x", field := "xmm0"
-    , source := "K `psraw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRAW: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psraw_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,15))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRAW: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" }
   , { vec := "psrad_x", field := "xmm0"
-    , source := "K `psrad_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRAD: COUNT <- COUNT_SOURCE[63:0]"
+    , source := "K `psrad_xmm_xmm.k`: the saturation test is `ugtMInt(extractMInt(getParentValue(R1),192,256), mi(64,31))` — bits 192..256 of the 256-bit parent are SRC[63:0], and the upper quadword is not read; SDM Vol. 2B PSRAD: COUNT <- COUNT_SOURCE[63:0] · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form (the manual's same count rule), depend on SRC[63:0] and on none of the upper quadword — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D108" } ]
 
 def divergenceFor (id field : String) : Option KnownDivergence :=
@@ -1301,7 +1307,7 @@ register any form declares undefined is its own destination, which
 def measuredUndefinedTokens (n : Nat) : List (String × List String) := Id.run do
   let mut acc : List (String × List String) := []
   for v in vectors do
-    for pre in preStates 0x9E3779B97F4A7C15 n do
+    for pre in preStates preStateSeed n do
       let fs := (undefinedFlags v.instr pre).map String.toUpper
       let rs := if (undefinedRegs v.instr pre).isEmpty then [] else ["DEST"]
       let cur := (acc.lookup v.mnemonic).getD []
@@ -1328,6 +1334,36 @@ def checkUndefinedColumn (n : Nat) : IO Bool := do
   if ok then
     IO.println s!"  ✔ undefined column: all {tableP0.length} rows match what the model draws"
   return ok
+
+/-- ⭐ D226's PLANT, and the wrong model the leak check is driven against:
+`step` with ONE defect — when the first bit a step draws is set, it draws one
+more.  Every field it writes is `step`'s, so the oracle cursor is the only place
+it differs, and only under an oracle whose drawn bit is 1: a draw count that
+depends on a drawn bit, which is what the draw rule forbids.
+`driveWrong` cannot reach it — it compares rendered post-states, and no record
+renders the cursor. -/
+def wrongDrawCountReadsDrawnBit (i : Instr) (s : Cpu) : Cpu :=
+  let t := step i s
+  if s.oracle.cursor < t.oracle.cursor && s.oracle.bits s.oracle.cursor then
+    { t with oracle := { t.oracle with cursor := t.oracle.cursor + 1 } }
+  else t
+
+/-- Over the same cases as `emitAll step n`: how many there are, how many draw
+at least one bit, and on how many the leak check fires against the plant.  The
+expectation is EXACT — fires = draws — because the plant differs from `step`
+only on a drawing case, and `step` itself leaks nowhere (checked beside it). -/
+def cursorPlantCounts (n : Nat) : Nat × Nat × Nat := Id.run do
+  let mut cases := 0
+  let mut draws := 0
+  let mut fires := 0
+  for v in vectors do
+    for pre in preStates preStateSeed n do
+      cases := cases + 1
+      if (step v.instr { pre with oracle := zeroOracle }).oracle.cursor != 0 then
+        draws := draws + 1
+      if undefinedLeakedBy wrongDrawCountReadsDrawnBit v.instr pre windows then
+        fires := fires + 1
+  return (cases, draws, fires)
 
 /-- Run one wrong model against the correct one and REQUIRE a catch. -/
 def driveWrong (name : String) (wrong : Instr → Cpu → Cpu) (expectField : String) :
@@ -3526,7 +3562,7 @@ def main (args : List String) : IO UInt32 := do
   | ["emit-acl2", out] =>
       let n := 8
       let cases := vectors.flatMap fun v =>
-        (preStates 0x9E3779B97F4A7C15 n).zipIdx.map fun (pre, i) => acl2Case v i pre windows
+        (preStates preStateSeed n).zipIdx.map fun (pre, i) => acl2Case v i pre windows
       let hdr := ["; GENERATED by `x86lean-diff emit-acl2`. Do not edit.",
                   "; The differential cases as ACL2 data; scripts/x86isa_driver.lisp maps over it.",
                   "(in-package \"X86ISA\")", "", "(defconst *x86lean-cases*", " '("]
@@ -3702,7 +3738,18 @@ register equals the AST-level declaration)"
       else
         IO.println s!"  ⛔ oracle leaks: {leaks} of {recs.length} cases — an oracle bit \
 reached something no form declares undefined, or a declared register did not move"
-      return (if ok && leaks == 0 then 0 else 1)
+      -- ⭐ D226: the leak check's own red arm.  Its cursor conjunct is new, and a
+      -- conjunct no input can falsify is not a gate; the plant must fire on
+      -- EXACTLY the cases that draw, and on at least one.
+      let (pc, pd, pf) := cursorPlantCounts 4
+      let plantOk := pc == recs.length && pd > 0 && pf == pd
+      if plantOk then
+        IO.println s!"  ✔ cursor plant: the leak check fires on {pf} of {pc} cases, \
+exactly the {pd} that draw a bit (a draw count that reads a drawn bit is caught)"
+      else
+        IO.println s!"  ⛔ cursor plant: fires on {pf} of {pc} cases, but {pd} draw a bit \
+(cases emitted: {recs.length}) — the leak check does not see the cursor"
+      return (if ok && leaks == 0 && plantOk then 0 else 1)
   | ["selftest"] =>
       -- ⛔ THIS BRANCH USED TO BE TWENTY-THREE HAND-WRITTEN `driveWrong` CALLS
       -- WITH TWENTY-THREE HAND-NAMED BINDINGS AND A TWENTY-THREE-TERM

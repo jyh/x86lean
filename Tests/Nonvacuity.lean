@@ -369,8 +369,9 @@ theorem mul_byte_writes_ah_al_not_rdx :
         (s0 { rax := 200, rcx := 3, rdx := 0xDEAD })).regs.get .rdx = 0xDEAD := by decide
 
 /-- `div` and `idiv`: all six arithmetic flags undefined.  Two of the six are
-exhibited; the differential run's undefined-column gate checks all six against
-what the model draws, in both directions. -/
+exhibited; the undefined-column gate (CI's build job, D226 — not the
+differential run) checks all six against what the model draws, in both
+directions. -/
 theorem div_cf_undefined :
     (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s0 { rax := 10, rdx := 0, rcx := 3 })).flags.cf
       ≠ (step ⟨.muldiv .div .q (.reg .rcx), 3⟩ (s1 { rax := 10, rdx := 0, rcx := 3 })).flags.cf := by
@@ -429,7 +430,8 @@ theorem shld_w_bad_count_dest_undefined :
       (s1 { rax := 0xABCD, rcx := 0x1234 })).regs.get .rax := by decide
 
 /-- …and ALL SIX FLAGS with it.  CF is exhibited; the undefined-column gate
-checks the whole set against what the model draws, in both directions. -/
+(CI's build job, D226) checks the whole set against what the model draws, in
+both directions. -/
 theorem shld_w_bad_count_cf_undefined :
     (step ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩
       (s0 { rax := 0xABCD, rcx := 0x1234 })).flags.cf

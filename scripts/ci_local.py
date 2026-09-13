@@ -238,7 +238,7 @@ def check_argv(argv=None):
     if bad:
         print(f"⛔ unrecognised argument(s): {', '.join(repr(b) for b in bad)}.\n"
               f"   This tool RUNS CI jobs, so an ignored flag would have started "
-              f"the default one (`--job build`, 33 steps) instead of answering "
+              f"the default one (`--job build`, every step of it) instead of answering "
               f"you. Known: {', '.join(sorted(KNOWN_FLAGS))}.\n"
               f"   Did you mean `--jobs` (list the jobs) or `--list` (list one "
               f"job's steps)?")
@@ -277,7 +277,7 @@ def selftest():
               "...and a value that LOOKS like a flag is consumed as a value"),
              (["--list-jobs"], 2,
               "RED-FIRST — an unknown flag REFUSES instead of running `--job "
-              "build`, all 33 steps (this is the call a relit head made on 09/06)"),
+              "build`, every step of it (this is the call a relit head made on 09/06)"),
              (["--job"], 2,
               "RED-FIRST — a value-taking flag with NO value refuses"),
              (["build"], 2, "RED-FIRST — a bare positional refuses")]

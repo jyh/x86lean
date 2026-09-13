@@ -60,7 +60,8 @@ bisectable" until 2026-09-12, and it is FALSE against the source (D213): the cou
 masked count, with a zero `bsf` source, and with a division's fault path.* **The weaker claim the code
 comments make:** the count never depends on the oracle's own BITS, so the two opposite-oracle runs of
 D6 take the same branch — **that, not bisection, is why it is a validation choice.** ⚠️ Evidence: one
-example theorem (`cursor_independent_of_bits`), no general theorem, no gate.
+example theorem (`cursor_independent_of_bits`), no general theorem, ~~no gate~~ a per-case check since
+2026-09-13 (D226: `undefinedLeaked` compares the two runs' cursors).
 
 **D6 — the set is derived.** `X86.undefinedFlags` runs the same step under **two opposite oracles**
 and reports which flags moved; the harness holds no list of its own. `undefinedLeaked` is the

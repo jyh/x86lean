@@ -144,6 +144,20 @@ jobs:
       - name: Shard partition gate (shards 1..6 name every selftest arm exactly once)
         run: lake env .lake/build/bin/x86lean-diff selftest-shards 6
 
+      # ⛔⛔ D226: WHAT THE SHARDING DROPPED, RESTORED. Until 289a330 (D92, 09/04) this job ran
+      # `x86lean-diff selftest` with no argument, and that command runs the arms AND THEN two
+      # things no arm does: the leak check over every case (`undefinedLeaked`, oracle leaks
+      # must be 0) and the `undefined` column against what the model draws. D92's sharding
+      # said "every arm still runs on every push" and that was true; `selftest-shard` runs
+      # ARMS ONLY, so the other two left CI that day and every shard kept reporting PASS.
+      # They survived only in the local differential runs (oracle-leaks=0 in each record).
+      # `undefined-column` runs both, plus D226's red arm for the leak check's cursor conjunct:
+      # a planted draw count that reads a drawn bit must be caught on exactly the cases that
+      # draw. ~1m40s on the developer box over 85,008 cases (1012 vectors x 84 pre-states,
+      # nRandom 4; the differential emits nRandom 8, 88 pre-states, 89,056 cases).
+      - name: Oracle leak check, its cursor plant, and the undefined column (D226)
+        run: lake env .lake/build/bin/x86lean-diff undefined-column
+
       # ⛔ THE LOCAL RUNNER'S ARGUMENT READER, DRIVEN RED (D173). `ci_local.py` is
       # how every gate in this workflow is exercised on a developer box, and an
       # unrecognised flag used to make it RUN `--job build` instead of answering.
