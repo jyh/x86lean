@@ -14755,3 +14755,26 @@ with D213. (2) *seL4/AutoCorres frame discipline:* **dropped** — no sentence o
 precedent is now cited at its machine-code origin (D222). The G6 row keeps it as prior art. (3) *Over-approximative
 lifting as a technique:* **dropped as a duplicate** of the positioning paragraph, which already states it at the
 strength it was read.
+
+## D224 — redfirst went red on identical trees at its designed false-alarm rate, and it concludes on one master push in five
+
+⚖️ **2026-09-12, reading CI per job at `5f036f0`** (a script and preflight change; no `.lean`). `build`,
+`kernel-delta` and `selftest-gate` succeeded; **`kernel-delta-redfirst` failed, on arm 1 alone** — the
+NEGATIVE CONTROL, where base and head are the SAME commit. Arm 2 (512 planted constructors ⇒ rc 1) passed.
+```
+  arm 1, Tests.Coverage (ms), ABBA order    base 44700 · 42500 · 42700 · 44700     mean 43650
+                                            head 46200 · 45400 · 45800 · 46200     mean 45900
+  gate's verdict   Tests.Coverage @residue: invented +2440.0 against a family-wise cut of ±2312.1
+  cut stated as    |d| > 4.12·se per unit, family-wise 5% over 25 units at --repeats 4
+```
+Every head reading exceeds every base reading. For 4 against 4, that separation has probability 2/70 ≈ 2.9%
+under exchangeability, and the cut is family-wise 5% by construction. ⇒ **A red here about once in twenty
+concluded runs is the arm working as specified, not a defect of the commit** — both trees are one commit, so
+the verdict cannot depend on the change. Arm 2's readings, same box, same hour, show no such separation.
+⛔ **AND THE DENOMINATOR THAT MAKES IT MATTER:** of the last 30 master CI runs, redfirst **concluded on 6**; 24
+were cancelled by `cancel-in-progress` because pushes land faster than its ~45 minutes. Of the 6, this is the
+only failure. ⇒ **The gate mostly delivers no verdict, and when it does, a designed α can paint master red.**
+This is runner-side evidence for KN, whose attribution D212 measured on developer boxes only.
+**What changes:** nothing in the gate — its α, whether arm 1 should red the job, and the concurrency policy are
+gate design and the throttle, not this seat's. Recorded here, posted to the helm, and the next push re-runs it.
+⇒ 🔑 ***A CONTROL WITH A FAMILY-WISE α IS A SCHEDULED RED; READ IT AGAINST ITS RATE BEFORE READING THE COMMIT.***
