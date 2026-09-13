@@ -7,9 +7,9 @@
 % Framing (ruled 2026-09-12, docs/TACAS-PRICING.md 2.1): a validated executable semantics. The Hoare
 % logic is the second paper's claim; the measured tier law is a section here, not the headline.
 %
-% Status: DRAFT. Section 3 (undefined behaviour) and Section 4.3 (where the reference model is not
-% the specification) are written. Every other section is a placeholder naming the register it will
-% be written from.
+% Status: DRAFT, every section written; no placeholder remains (the last, in Section 7, was replaced
+% 2026-09-12, D222-D223). The revision pass is owed (docs/TACAS-PRICING.md 2.2, G7). This comment read
+% "Every other section is a placeholder" until then.
 \documentclass[runningheads]{llncs}
 \usepackage[T1]{fontenc}
 \usepackage{booktabs}
@@ -695,13 +695,19 @@ section 3.2, ``only the part initially satisfying P has been changed'' and ``The
 to that of separation logic, easily follows''; FMCAD 2008 section III, the frame rule derived from the triple; FMCAD 2012 sections II and III, Phase 1 and Fig.~1;
 Tests/Program.lean cites step\_* effect theorems and never step itself; docs/TACAS-G6-RELATED-WORK.md 5;
 docs/DECISIONS.md D222}
-\placeholder{Over-approximative
-semantics lifted from binaries (Roessle et al., CPP 2019; Verbeek et al., PLDI 2022 -- abstracts read
-09-12, artifacts and availability NOT, D220); the frame discipline in seL4 and AutoCorres; hardware
-validation of the Sail models of other architectures (Armstrong et al., POPL 2019 -- its record is fetched,
-the claim is not re-driven); precedents for stating a model's fidelity per form (x86isa's views, the
-lifting literature), which the Tier docstring asserts and no one has re-driven. Each sentence waits on
-its read.}
+The Sail models of ARMv8-A, RISC-V and CHERI-MIPS were validated against executable references and test
+suites rather than against a processor: the ARM model ran ARM's Architecture Validation Suite,
+where 24 of 15{,}400 tests passed on ARM's own specification and failed on the translation, and the RISC-V
+model's execution traces were compared against the Spike reference simulator~\cite{armstrong-isa}.
+\src{Armstrong et al., POPL 2019, section 7 (Validation), read at cl.cam.ac.uk/\textasciitilde pes20/sail/sail-popl2019.pdf
+2026-09-12: ``Of those 15 400 tests, currently 24 (0.15\%) pass on the ASL model but not on the Sail model'';
+``compare the trace outputs of the Sail model and a version of Spike''; docs/DECISIONS.md D223}
+That a model should state its own fidelity is not our idea either: the Isabelle/HOL model and the lifting
+work above describe theirs as over-approximative~\cite{afp-x86,verbeek-lifting}. What the fidelity tier of
+Section~\ref{sec:model} adds is that the statement is made per form, as data that is checked against the AST.
+\src{isa-afp.org/entries/X86\_Semantics.html, ``purposefully incomplete, but overapproximative''; the
+abstract for DOI 10.1145/3519939.3523702 (api.semanticscholar.org, read 2026-09-12), ``provably overapproximative''; X86/Coverage.lean inductive Tier and
+the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md D223}
 
 % ---------------------------------------------------------------------------------------------
 \section{Limitations and Conclusion}

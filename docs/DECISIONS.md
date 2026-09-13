@@ -14725,3 +14725,29 @@ corrected in place. The TACAS 2007 LNCS volume number is NOT in the `.bib`: it w
 record does not carry it.
 ⇒ 🔑 ***A CITATION BLOCKED ON ITS RECORD HAS AN UNCHECKED CLAIM BEHIND IT — THE BLOCK READS AS THE ONLY THING
 LEFT TO DO.***
+
+## D223 — Armstrong et al. (POPL 2019) validated the Sail models against executable references and test suites, not hardware
+
+⚖️ **2026-09-12, the §7 placeholder's "hardware validation of the Sail models" item.** G6's prior-art table
+listed Armstrong et al. under *hardware co-simulation* as "Sail ARM vs hardware", and the paper's placeholder
+said "hardware validation". **Read at the paper's §7:** the ARM model ran ARM's Architecture Validation Suite
+on the model (15,400 of its 30,000+ tests in scope; 24 pass on ARM's ASL specification and fail on the Sail
+translation) and booted Linux; the RISC-V model passed riscv-tests and had its traces compared with the Spike
+reference simulator; CHERI-MIPS ran the CHERI test suite and booted FreeBSD. **No physical processor appears.**
+**What changes:** §7 states it as validation against executable references and test suites, and the G6 cell is
+corrected in place. The paper's hardware-co-simulation precedents stay K's gdb comparison and x86isa's, which
+are cited separately.
+⇒ 🔑 ***"VALIDATED" IS NOT ONE THING; A PRIOR-ART ROW THAT NAMES THE KIND FROM MEMORY NAMES THE KIND THE READER
+EXPECTS.*** Third attribution in one evening corrected by reading the paper cited (D221 libLISA's scope, D222
+the frame rule, this).
+📌 **The same sitting closed §7's last placeholder, and two of its items were dropped rather than written.**
+(1) *Per-form fidelity precedents:* the paper claims only that the tier NAMES are ours. It now says the idea of a
+model stating its own fidelity is shared with the two over-approximative models it already cites (the AFP entry's
+"purposefully incomplete, but overapproximative"; Verbeek et al.'s abstract, "provably overapproximative", re-read
+at its source because the paper's positioning sentence had been written from it with no quote recorded anywhere). x86isa's
+views are NOT cited: unread, and a view is a mode of the whole machine, not a per-form datum. ⚠️ The Tier docstring's
+own precedent list (x86isa's split, "Sail's `Unspecified`", the lifting literature) stays owed to the CI-cost batch
+with D213. (2) *seL4/AutoCorres frame discipline:* **dropped** — no sentence of ours rests on it, and the frame
+precedent is now cited at its machine-code origin (D222). The G6 row keeps it as prior art. (3) *Over-approximative
+lifting as a technique:* **dropped as a duplicate** of the positioning paragraph, which already states it at the
+strength it was read.
