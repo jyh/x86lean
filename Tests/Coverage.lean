@@ -1816,8 +1816,12 @@ logical shift and sign-fills an arithmetic one, and the operand it is applied to
 is NOT already zero — which is what stops this being true of a model that
 returns zero always.
 
-⚠️ THE WITNESS HAS ITS SIGN BIT SET IN EVERY LANE WIDTH, so `sra`'s answer
-(all-ones) differs from `srl`'s (all-zeros) and the two cannot be confused. -/
+⚠️ THE WITNESS HAS SOME LANES WITH THE SIGN BIT SET AND SOME WITH IT CLEAR, at
+both arithmetic widths (low to high, 16-bit: 0 0 1 1 1 1 0 1; 32-bit: 0 1 1 1), so
+`sra`'s answer is ones in the set lanes and zeros in the clear ones — the two
+expected values below — which differs from `srl`'s all-zeros and depends on the
+operand.  *This read "its sign bit set in every lane width" until 2026-09-13; the
+expected values already showed the clear lanes.* -/
 theorem vshift_saturates_rather_than_wrapping :
     (let v : BitVec 128 := 0x81234567_89abcdef_fedcba98_76543210
      -- a logical shift at or above the lane width is all zeros
