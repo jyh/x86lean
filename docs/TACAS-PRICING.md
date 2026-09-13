@@ -88,11 +88,20 @@ that is the Captain's and the helm's:**
 * **(c) hold paper 1 until the Hoare logic exists** and make THAT the claim, with the semantics as
   infrastructure. Strongest paper, latest date.
 
+⚖️ **RULED 2026-09-12 at council — (c), WITH §4's STAGED HEDGE.** The Captain, verbatim: *"yes (c)"*
+(desk `KW` → DONE). Put to him with §2.1, §4 and §4a, including the against-myself half. **What it
+means for the work:** the Hoare logic is the headline claim and belongs to the second paper; **the
+semantics paper is written NOW** as a validated executable semantics, the tier law is a *section* and
+not the headline, and G4 (the benchmark) moves to the second paper. The remaining gaps are therefore
+**G2 · G5 · G6**, and §2.2's total is the only place their sum lives.
+⛔ **READ (c)'s OWN WORDS WITH CARE:** *"hold paper 1"* holds the **claim**, not the writing. This
+file's "paper 1" is the semantics paper, and it proceeds on the TACAS clock (desk `KQ`, 2026-10-15).
+
 ### 2.2 THE GAPS, PRICED
 | # | gap | why a reviewer asks | price |
 |---|---|---|---|
 | G1 | ✅ **CLOSED 2026-09-11** — `docs/TACAS-G1-POSITIONING.md`, every cell MEASURED / RECORDED / stated NOT-APPLICABLE, **none OWED**, and the marker rule is now gated in CI (`check_positioning_table.py`). D200. | "why another x86 semantics?" is the first referee question | **priced 1–2 days; spent ~1.** ⛔ It did **not** come out where this row assumed: the data did *not* mostly exist in `COVERAGE.md` + `PROVENANCE.md` — 15 of the table's cells had to be read at the other projects' own sources. |
-| G2 | **Undefined-bit / flag semantics.** ⭐ **TECHNICAL CONTENT DRAFTED 2026-09-12** — `docs/TACAS-G2-SECTION-DRAFT.md`, written from `DECISIONS.md` rather than recalled, and **framing-independent by construction**. | it is the hardest part of x86 and the most citable | ⚖️ **priced 2–3; ~1 spent, 1–2 remain.** What is left is PROSE and the (a)/(b)/(c) prominence — the argument, the four measured designs, the three mechanisms (D5 · D6 · D52) and the three uncomfortable disagreements (D91 · D108 · D115) are all in. ⛔ One sentence still barred: K's equality-of-undefined, unrun. |
+| G2 | **Undefined-bit / flag semantics.** ⭐ **TECHNICAL CONTENT DRAFTED 2026-09-12** — `docs/TACAS-G2-SECTION-DRAFT.md`, written from `DECISIONS.md` rather than recalled, and **framing-independent by construction**. | it is the hardest part of x86 and the most citable | ⚖️ **priced 2–3; ~1.5 spent, ~0.5 remains.** ✅ **PROSE DRAFTED 2026-09-12** in `paper/x86lean-semantics.tex` §3 and §4.3, and the prominence is ruled (a section). **Remaining:** §4.3's cost-of-a-divergence and ceiling paragraphs (the ceiling needs the live `P2-ROSTER.md` figures at a pinned sha). ⛔ **Drafting it found two false sentences in the technical content** (D213: the draw count DOES vary with operands; "only we stay executable" is false) **and one wrong bibliography title** (D214). ✅ **K's equality-of-undefined is no longer on the path:** the prose states no claim about it, so the unrun experiment is a sentence NOT written rather than a day owed. |
 | G3 | ✅ **CLOSED 2026-09-12** — `docs/TACAS-G3-TIMING-CLAIMS.md`, derived by `scripts/ranking_stability.py`, five numbers gated in `CLAIMS.tsv`. D210. | "does it scale?" | **priced 1 day; spent ~1.** ⚖️ It was never a robust-estimator problem: the block I had priced was **on the wrong instrument** (the CI runner, not the developer boxes). What the paper carries is the concordance, the 25 inverting pairs, and the 111 non-inverting pairs **as an enumeration with its power** — never "stable". ⛔ Absolute wall-clock stays out on any box. |
 | G4 | **The five proof problems are a sample, not a benchmark.** Four routines, 2–7 labels. | "is 19 + 7.7/label general?" | **unpriced — needs the benchmark freeze** (helm item 4, P2 in the design lane, with bench). |
 | G5 | **No artifact-evaluation packaging.** TACAS AE wants a container that builds and reproduces every claim. | AE badge is near-mandatory | ⛔ **RE-PRICED 2026-09-11 → 3–4 days.** The old cell said *"unusually cheap … every headline number is already CI-gated"*. **Measured (§1): the seven §1 numbers are NOT gated, and three of seven do not reproduce under the obvious command because their denominators were unstated.** The six COVERAGE numbers *are* gated and that half of the claim holds. **AE work is therefore not "run the gates" — it is "state every denominator, then run the gates."** ✅ **The denominators are now stated MACHINE-READABLY in `docs/CLAIMS.tsv`, which is this gap's spine: "reproduce every claim" becomes one command, and a reviewer reads each derivation instead of trusting it.** |
@@ -100,8 +109,9 @@ that is the Captain's and the helm's:**
 
 **Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**
 ```
-  G2  1-2   G5  3-4   G6  2                ⇒  REMAINING: 6-8 working days
-      (G2 re-priced 2-3 -> 1-2: the technical content is drafted; prose and prominence remain)
+  G2  0.5   G5  3-4   G6  2                ⇒  REMAINING: 5.5-6.5 working days
+      (G2 re-priced 1-2 -> 0.5 on 09-12: prose drafted, prominence ruled, two paragraphs left)
+      (G2 re-priced 2-3 -> 1-2 earlier: the technical content was drafted)
       G1 SPENT (~1) · G3 SPENT (~1) · G4 unpriceable until the benchmark exists
                                              (G5 re-priced 2-3 -> 3-4 by §1's measurement;
                                               G3 closed 09-12, so it leaves the addends)
@@ -205,10 +215,11 @@ to take** — but it is on the critical path of G3, so it is priced here as a **
 
 ---
 
-## 4. RECOMMENDATION — MINE, NOT RULED
-**(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6 = **6–8
-days** — and since **G3 closed on 2026-09-12** this now EQUALS §2.2's remaining total rather than
-differing from it; the old gap between the two figures was G3's blocked day and it is gone) and let the measured tier law stand as a *section*, not as the paper's claim.
+## 4. RECOMMENDATION — MINE; **RULED (c) BY THE CAPTAIN 2026-09-12** (§2.1)
+**(c) with a staged hedge.** Write paper 1 as the validated semantics **now** (G2 + G5 + G6; **§2.2 prints
+their parts and is the only place the total lives** — *this parenthesis carried its own figure, "6–8
+days", until 2026-09-12, and it went stale the same hour G2 was re-priced: the second register this
+section's own note below warns about, one paragraph above that note*) and let the measured tier law stand as a *section*, not as the paper's claim.
 It is publishable on the coverage and the gating discipline alone, and it is the paper the second one
 must cite.
 ⚠️ **THAT SENTENCE WAS WRITTEN BEFORE G1 MEASURED THE NEIGHBOURS. §4a RE-ANSWERS IT AND KEEPS IT —

@@ -9,7 +9,7 @@ is the lane-clean re-derivation, with each claim re-driven at the source rather 
 ⛔⛔ **AND THE RE-DRIVE IS THE POINT: THREE OF NINE AT-SOURCE CLAIMS DID NOT SURVIVE** (D201). The
 verdicts below are this shift's, not 09-02's. **Framing-independent by construction** — it records
 what exists and who did it first, which is true under any of `TACAS-PRICING.md` §2.1's three framings,
-so it does not wait on the Captain's and the helm's choice.
+so it did not wait on the Captain's choice. *(Ruled (c) on 2026-09-12; nothing here changed.)*
 
 ---
 
@@ -68,7 +68,8 @@ from evidentiary use**. Same syntax, opposite function — and only the second i
 ## 3. ⭐⭐ THE UNDEFINED-BIT LINEAGE — FOUR DESIGNS, AND CHASING CLAIM 5 CORRECTED TWO OF OUR OWN CELLS
 ```
   x86lean   a CONCRETE value from an ORACLE in the state; draw order and count fixed by the model
-            (D5) -> total, executable, replayable from a seed, so a disagreement is bisectable
+            (D5) -> total, executable; the run and the theorems are ONE definition
+            [read "replayable from a seed, so a disagreement is bisectable" until 09-12: D213]
   x86isa    create-undef, an `encapsulate`d CONSTRAINED function -- NOTHING about equality is
             provable.  Its own :long: "an undefined value is different from another undefined
             value, and also all the known values."     <- design rationale, not a misuse warning
@@ -114,7 +115,13 @@ canonical BibTeX.** Both are primary. **Nothing here is written from memory.**
 | 5 | Verbeek, Bockenek et al. *Formally verified lifting of C-compiled x86-64 binaries.* PLDI 2022 | `10.1145/3519939.3523702` |
 | 6 | Klein et al. *seL4: formal verification of an OS kernel.* SOSP 2009 | `10.1145/1629575.1629596` |
 | 7 | Greenaway, Lim, Andronick, Klein. *Don't sweat the small stuff: formal verification of C code without the pain.* PLDI 2014, pp. 429–439 | `10.1145/2666356.2594296` |
-| 8 | Goel. *Formal Verification of Application and System Programs Based on a Validated x86 ISA Model.* arXiv | `10.48550/arXiv.1705.01225` |
+| 8 | Goel. *The x86isa Books: Features, Usage, and Future Plans.* arXiv 2017 | `10.48550/arXiv.1705.01225` |
+
+⛔⛔ **ROW 8's TITLE WAS WRONG IN THIS "FETCHED, NOT RECALLED" TABLE UNTIL 2026-09-12 (D214).** It read
+*"Formal Verification of Application and System Programs Based on a Validated x86 ISA Model"* — the
+title of Goel's dissertation. `doi.org` content negotiation for the DOI in the SAME ROW returns
+*"The x86isa Books: Features, Usage, and Future Plans"*, and it was fetched while writing the paper's
+`.bib`. **The DOI was right; the title beside it was not from the record the DOI names.**
 
 ⛔ **ONE RECORD REMAINS OWED, WITH ITS REASON NAMED RATHER THAN GUESSED:**
 **Myreen, Gordon, Slind — *"Decompilation into logic — improved"*, FMCAD 2012.** It is cited in §4
@@ -149,7 +156,6 @@ paper."** [[feedback-probe-silence-has-two-causes]]
 ## 6. WHAT IS STILL OWED FOR A FINISHED SECTION
 ```
   the Myreen FMCAD 2012 record (§5)                                               OWED, reason named
-  a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim           NOT DONE
   a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim           NOT DONE
 ```
 ✅ **THE LNSym QUESTION IS RULED 2026-09-12, AND IT IS MINE AS AUTHOR: PRECEDENT, NOT RELATED WORK —

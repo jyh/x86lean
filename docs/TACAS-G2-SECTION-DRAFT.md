@@ -2,10 +2,13 @@
 
 **Status: TECHNICAL CONTENT, NOT FINAL PROSE.** `docs/TACAS-G2-UNDEFINED-BITS.md` is the scope and the
 comparative frame; this is the argument it maps out, written from `docs/DECISIONS.md` rather than
-recalled. **It is FRAMING-INDEPENDENT by construction** — what the unruled (a)/(b)/(c) choice decides is
+recalled. **It is FRAMING-INDEPENDENT by construction** — what the (a)/(b)/(c) choice decides is
 whether this is a *section* or part of the *headline*, not what it says. *(Written while the framing
-sits on `blocked-on-captain`, deliberately: treating an unruled prominence as a reason not to write the
+sat on `blocked-on-captain`, deliberately: treating an unruled prominence as a reason not to write the
 content would be a deferral wearing a blocker's clothes.)*
+⚖️ **The framing was RULED (c) on 2026-09-12** (`TACAS-PRICING.md` §2.1): the semantics paper is written
+now, so **this is a SECTION of it**, and the paper's argument is validation. The prose lives in
+`paper/x86lean-semantics.tex`; this file stays the register it was written from.
 
 ---
 
@@ -37,23 +40,32 @@ undefinedness the manual does not grant.
   Sail      Sail's builtin `undefined` via `undef_read_logic()`, plus a per-case `undefined_flags`
             MASK threaded through `write_user_rflags`
 ```
-⛔ **Ours is the only one that keeps the step function TOTAL AND EXECUTABLE at those bits**, and that
-is the trade the section must state plainly: **we buy executability and pay for it with a parameter.**
-x86isa's constrained function is logically stronger; we cannot prove two undefined reads unequal.
+⛔ *This paragraph read "Ours is the only one that keeps the step function TOTAL AND EXECUTABLE at
+those bits" until 2026-09-12 (D213). **False:** x86isa executes too, through its `:undef-flg` trust
+tag (G1 §1c.10), and Sail's backends were never measured.* **What is measured and ours:** the function
+that runs and the function theorems are about are the SAME definition, with undefinedness a
+parameter; x86isa keeps a logical story (the constrained function) and an execution story (the trust
+tag) apart.
 
 ## 3. WHAT WE ADD, AND IT IS THREE MECHANISMS RATHER THAN AN ORACLE
 ### 3.1 THE DRAW IS PART OF THE MODEL (D5)
 A shift with a non-zero masked count draws exactly **three** bits in the order **CF, OF, AF** —
 *whether or not each is undefined at that count* — and the logic group draws exactly **one** (AF).
-⇒ **The count may not vary with the operands.** If it did, the oracle cursor would stop being a
-function of the instruction stream and a differential run could not be replayed from its seed.
-⇒ 🔑 ***THE DETERMINISM OF THE DRAW IS A VALIDATION DECISION, NOT AN AESTHETIC ONE: IT IS WHAT MAKES A
-DISAGREEMENT BISECTABLE.*** That sentence is the one a referee needs, because it explains why a
-modelling choice belongs in a paper about validation.
+⛔⛔ *This read "**The count may not vary with the operands** … it is what makes a disagreement
+BISECTABLE" until 2026-09-12. **FALSE AGAINST THE SOURCE (D213):** a CL shift draws 0 or 3 bits by the
+masked count, `bsf`/`bsr` draw a destination's width only at a zero source, `shld`/`shrd` draw 0, 2 or
+6+width.* **The rule that holds is narrower:** once an instruction's branch is decided its draws are
+unconditional — a bit is drawn for a flag whether or not that flag is undefined at these operands —
+so the draw count does not depend on WHICH flags are undefined. **Evidence class: a design rule and
+one example theorem (`cursor_independent_of_bits`); no general theorem; not gated.** The bisection
+sentence is withdrawn: across a stream, an earlier draw can steer a later branch.
 
 ### 3.2 THE UNDEFINED SET IS DERIVED, NEVER DECLARED (D6)
 `X86.undefinedFlags` runs the same step under **two opposite oracles** and reports which flags moved.
-The harness holds no list. `undefinedLeaked` is the companion: if the two runs differ anywhere
+The harness holds no list **of flags**. ⚠️ *For REGISTERS it holds one on purpose* (P1 batch 14,
+`declaredUndefGPRs`): a register set derived from the same two runs the leak check compares would
+re-read every leak as "undefined here". So registers have two sources, the AST+SDM rule and the
+observed runs, and the check is their equality. `undefinedLeaked` is the companion: if the two runs differ anywhere
 **outside** the flags, an undefined bit has reached a register, RIP, memory or the model state.
 ⇒ **A declared list would be a second source of truth that goes stale silently — and in the PERMISSIVE
 direction.** ⇒ 🔑 ***THIS IS THE PAPER'S CENTRAL CLAIM APPLIED TO UNDEFINEDNESS, NOT A NEIGHBOURING

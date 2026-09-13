@@ -14,3 +14,6 @@
 # Harness run products
 /run/
 __pycache__/
+
+# The paper PDF is a build product (paper/README.md)
+/paper/*.pdf

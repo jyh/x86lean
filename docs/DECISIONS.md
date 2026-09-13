@@ -14367,3 +14367,106 @@ the RUNNER's readings. **The mechanism (multiplicative, load-sensitive) is a gen
 would apply on the runner too — amplified by a co-tenant `load1` cannot see — but the attribution is
 measured HERE.** That scopes the finding; it does not outrank it. *(The force error I made at 20:58
 and had corrected at 20:59.)*
+
+---
+
+## D213 — D5's rule is narrower than D5's reason, and the G2 draft copied the reason: the draw count DOES vary with the operands
+
+⚖️ **Found 2026-09-12 while turning `docs/TACAS-G2-SECTION-DRAFT.md` §3.1 into paper prose, by reading
+the step function instead of the decision that describes it.**
+
+### 1. What D5 says, and what the source does
+D5's RULE: *"A shift with a non-zero masked count draws exactly three bits … whether or not each is
+undefined at that count."* D5's REASON: *"If the count varied with the operands, the oracle cursor
+would not be a function of the instruction stream."* The draft carried the reason forward as
+*"the count may not vary with the operands."*
+```
+  shift, masked count 0          0 draws    cursor_shift_zero_spends_nothing   (imm8 64)
+  shift, masked count non-zero   3 draws    cursor_shift_nonzero_spends_three
+     ⇒ with a CL count, the masked count IS an operand value (RCX), so the draw count varies with it
+  bsf/bsr                        5 draws, + sz.bits more ONLY when the source is zero
+                                            X86/Semantics.lean bitScanStep
+  shld/shrd                      0 · 2 · 6+sz.bits draws by masked count
+                                            X86/Semantics.lean, the .dshift case
+```
+⇒ **The reason is false as stated: the draw count varies with operand values, in at least three
+instruction families.** The RULE is true and is narrower: *once an instruction's branch is decided,
+the draws are unconditional* — a bit is drawn for a flag whether or not that flag is undefined at
+these operands (SAR draws CF's bit at a count past the width and ignores it; SHL at count 1 draws
+OF's and ignores it). **The count does not depend on WHICH flags are undefined; it does depend on the
+coarse branch.**
+⚠️ **THE CODE ALREADY KNEW, AT THE TWO SITES WHERE THE STRONG VERSION BREAKS.** `X86/Semantics.lean`'s
+`bsf`/`bsr` comment (P1 batch 14) and its division comment both say it outright: *"the cursor depends
+on the operands, never on the oracle's own BITS, so the two opposite-oracle runs that derive the
+undefined set take the same branch."* **The strong version survives in the file HEADER, in D5, in
+both G2 files and in G6's table** — the narrative read first, and quoted, while the correction sat at
+the call sites nobody quotes.
+⇒ **And that comment names the reason that is actually load-bearing, which is not bisection:** if a
+branch could read a bit drawn in the same step, the all-zeros and all-ones runs could take different
+branches, and D6's derivation would report a difference of CONTROL as a set of undefined fields.
+⇒ **And "a function of the instruction stream" is false across a stream:** a later instruction's
+branch can read a register an earlier draw wrote (a CL shift after a zero-source `bsf` into RCX), so
+the cursor after a sequence depends on earlier oracle bits. What holds is PER INSTRUCTION, which is
+the unit a differential case is: one instruction, one pre-state.
+
+### 2. What is established, at its real strength
+```
+  THEOREM, ONE INSTANCE    cursor_independent_of_bits: one shl, one state, all-zeros vs all-ones
+  NO GENERAL THEOREM       "for every instruction and pre-state the cursor advance is independent
+                            of the oracle's bits" is NOT proved
+  NOT GATED                undefinedLeaked compares xmm, the declared GPRs, rip, the halt state and
+                            the memory windows between the two oracle runs -- NOT oracle.cursor
+```
+### 3. What changes
+- **The G2 draft §3.1 is corrected in place**, and the paper states the narrower rule with its evidence
+  class: a design rule, one example theorem, no general theorem, no gate.
+- **The draft's claim that x86lean is *"the only one that keeps the step function total and
+  executable at those bits"* is withdrawn.** x86isa executes too — its `:undef-flg` trust tag
+  attaches a concrete implementation (G1 §1c.10) — and whether Sail's backends execute `undefined`
+  was never measured. **What IS measured and ours:** the function that runs and the function theorems
+  are about are the SAME definition; x86isa separates the logical and the execution story.
+- **Owed, not built:** comparing `oracle.cursor` between the two oracle runs inside `undefinedLeaked`
+  would put the per-instruction claim under a gate on every differential case at the cost of one
+  field comparison. It is a harness change and is priced separately rather than slipped into a prose
+  commit. **The `X86/Semantics.lean` header's strong sentence is corrected in THAT commit**, not this
+  one: a comment edit in a `.lean` file moves CI-3's content digest and buys a full CI run, and it
+  should buy one run for both.
+⇒ 🔑 ***A DECISION'S RULE AND ITS REASON ARE TWO CLAIMS, AND THE REASON IS THE ONE THAT GETS QUOTED.***
+The rule had a theorem beside it; the reason had nothing, and it travelled into a paper draft intact.
+
+### 4. The derivation's precondition, searched rather than asserted
+D6's two-constant-oracle derivation finds a field whose value is a COPY of a drawn bit; a value that
+combined two drawn bits (`cfU != ofU`) would agree under all-zeros and all-ones and be missed. The
+paper states that every undefined value is written as drawn, so it was searched for:
+```
+  RE   [a-z]+U([^A-Za-z0-9_,)][^,)]*)?(!=|==|&&|\|\||\^\^|xor|\+)|(!=|==|&&|\|\||\^\^|xor)[ (!]*[a-z]+U([^A-Za-z0-9_]|$)
+  CONTROL  a scratch file with `cfU != ofU` and `a && afU` (both FOUND) and `cf := cfU` (NOT found)
+  TREE     command grep -rnE over X86/*.lean: 5 hits, all the hypothesis name `hU` in Theorems.lean
+  ALSO     undefVal's two call sites write `u` straight to a register/operand; undefBits has no caller
+```
+⛔ **THE FIRST RUN OF THIS SEARCH WAS VOID, AND ITS CONTROL SAID NOTHING ABOUT IT.** I ran the pattern
+with `git grep -E` over the tree and the control with the shell's `grep` over a scratch file. The tree
+returned nothing and `git grep -nE '\b[a-zA-Z]*U\b' X86/Flags.lean` matched only COMMENT lines of a
+file with 24 such tokens: `\b` is not a word boundary in that engine. **The control passed on a
+different instrument.** ⇒ ***A POSITIVE CONTROL CERTIFIES THE INSTRUMENT IT RAN ON.*** Re-run with one
+instrument for both.
+⚠️ **Scope:** one line at a time, and only drawn bits named `…U`. A combination split across lines, or
+a drawn bit renamed, is outside it. It supports "written as drawn" as a searched claim, not a proved one.
+
+---
+
+## D214 — a bibliography row "fetched from the registrar" carried a title the registrar does not return
+
+⚖️ **Found 2026-09-12 writing `paper/x86lean-semantics.bib`, by fetching the record instead of copying
+the row.** `docs/TACAS-G6-RELATED-WORK.md` §5 row 8 paired DOI `10.48550/arXiv.1705.01225` with the
+title *"Formal Verification of Application and System Programs Based on a Validated x86 ISA Model"*.
+`curl -H "Accept: application/x-bibtex" https://doi.org/10.48550/arXiv.1705.01225` returns
+**"The x86isa Books: Features, Usage, and Future Plans"** (Goel, arXiv, 2017). The recorded title is
+the author's dissertation, a different work. The PLDI 2019 row fetched the same way matches its record.
+⇒ **The section header says *"FETCHED FROM THE REGISTRAR, NOT RECALLED"*; for row 8 the DOI was fetched
+and the title was not.** A row is a join of fields, and the provenance label covered only one of them.
+⇒ 🔑 ***A PROVENANCE LABEL ON A ROW IS A CLAIM ABOUT EVERY FIELD, AND IT IS USUALLY TRUE OF ONE.***
+**What changes:** row 8 and the `.bib` carry the registrar's title. **Owed, and a paper question rather
+than a bibliography one:** which Goel work the paper should cite for x86isa's design — the dissertation
+has no DOI in this record, and the arXiv note may not be what a referee expects.
+**The paper's `.bib` is re-fetched per entry by DOI before submission; no row is copied from G6.**

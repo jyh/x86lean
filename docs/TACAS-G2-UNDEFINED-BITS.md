@@ -55,10 +55,12 @@ citation and this file used to lean on the weaker one**.)
 ```
 **D5 — determinism of the draw.** A shift with a non-zero masked count draws exactly three bits in
 the order CF, OF, AF, *whether or not each is undefined at that count*; the logic group draws exactly
-one. **The count may not vary with the operands**, or the oracle cursor stops being a function of the
-instruction stream and a differential run cannot be replayed from its seed. ⇒ **The reason is
-operational, not aesthetic: it is what makes a disagreement bisectable**, and that is the sentence the
-paper needs, because it explains why a modelling choice is a *validation* choice.
+one. ⛔ *This continued "**The count may not vary with the operands** … it is what makes a disagreement
+bisectable" until 2026-09-12, and it is FALSE against the source (D213): the count varies with the
+masked count, with a zero `bsf` source, and with a division's fault path.* **The weaker claim the code
+comments make:** the count never depends on the oracle's own BITS, so the two opposite-oracle runs of
+D6 take the same branch — **that, not bisection, is why it is a validation choice.** ⚠️ Evidence: one
+example theorem (`cursor_independent_of_bits`), no general theorem, no gate.
 
 **D6 — the set is derived.** `X86.undefinedFlags` runs the same step under **two opposite oracles**
 and reports which flags moved; the harness holds no list of its own. `undefinedLeaked` is the
@@ -129,7 +131,9 @@ the half a referee can check and we cannot.
 ---
 
 ## 5. STATUS
-**SKELETON ONLY. G2 is NOT started as a writeup** and remains priced at 2–3 days in
-`TACAS-PRICING.md`. What this file changes is that the comparative frame is now **measured and
+⛔ *This section read "SKELETON ONLY. G2 is NOT started as a writeup and remains priced at 2–3 days"
+until 2026-09-12. The technical content was drafted that day (`TACAS-G2-SECTION-DRAFT.md`) and the
+prose is in `paper/x86lean-semantics.tex`; `TACAS-PRICING.md` §2.2 is the only place G2's price lives.*
+What follows is what the skeleton recorded when it was written: What this file changes is that the comparative frame is now **measured and
 recorded** rather than owed, and the structural decision — *G2 is a section of the gating argument*
 — is written down instead of being rediscovered at drafting time.

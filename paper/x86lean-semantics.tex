@@ -1,0 +1,320 @@
+% x86lean: the semantics paper (paper 1). TACAS 2027 regular track, LNCS format.
+%
+% Every number and every claim about another system carries a \src{...} comment naming the file in
+% this repository it was taken from. The macro expands to nothing in the PDF, so the sources travel
+% with the text and never print. Nothing is retyped from a message or a memory.
+%
+% Framing (ruled 2026-09-12, docs/TACAS-PRICING.md 2.1): a validated executable semantics. The Hoare
+% logic is the second paper's claim; the measured tier law is a section here, not the headline.
+%
+% Status: DRAFT. Section 3 (undefined behaviour) and Section 4.3 (where the reference model is not
+% the specification) are written. Every other section is a placeholder naming the register it will
+% be written from.
+\documentclass[runningheads]{llncs}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\newcommand{\src}[1]{}  % source-file marker; expands to nothing in the PDF
+\newcommand{\lean}[1]{\texttt{#1}}
+\newcommand{\placeholder}[1]{\par\noindent\fbox{\parbox{0.95\linewidth}{\small\emph{Not yet drafted.} #1}}\par}
+
+\begin{document}
+
+\title{x86lean: A Differentially Validated Executable Semantics\\of x86-64 User-Level Instructions in Lean~4}
+\titlerunning{x86lean}
+\author{Jason Hickey}
+\authorrunning{J. Hickey}
+\institute{Independent}
+
+\maketitle
+
+\begin{abstract}
+\placeholder{Written last, from the sections below.}
+\end{abstract}
+
+% ---------------------------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+\placeholder{The claim: a semantics whose coverage and correctness claims are each derived by a
+command and checked in CI against a second source. The concessions come early and in our own words:
+x86lean is the smallest of the three public x86-64 semantics by instruction count and the weakest on
+proof support (docs/TACAS-PRICING.md 4a; docs/TACAS-G1-POSITIONING.md).}
+
+% ---------------------------------------------------------------------------------------------
+\section{The Model}
+\label{sec:model}
+\placeholder{State, the instruction AST, \lean{step}, the fidelity tiers as a per-form datum, and
+decoding through XED with its trust named (TRUSTBASE.md, docs/COVERAGE.md).}
+
+% ---------------------------------------------------------------------------------------------
+\section{Undefined Behaviour}
+\label{sec:undef}
+% Register: docs/TACAS-G2-SECTION-DRAFT.md, docs/TACAS-G2-UNDEFINED-BITS.md,
+% docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10, docs/DECISIONS.md D5 D6 D20 D52 D213.
+
+Throughout this paper the \emph{reference model} is ACL2 x86isa~\cite{goel-x86isa,x86isa-repo}, the
+executable model the differential runs compare against, and the \emph{oracle} is the source of
+undefined bits inside x86lean's own state. The two are unrelated.
+
+The Intel manual~\cite{intel-sdm} leaves part of the processor state undefined after many
+instructions, and it does so in more than one way. Three cases from the shift family show the range.
+A \emph{flag} can be left undefined by a named clause: CF is undefined for ``SHL and SHR instructions
+where the count is greater than or equal to the size of the destination operand''.
+\src{docs/DECISIONS.md D20}
+A \emph{result} can be undefined: for SHLD and SHRD, ``if the count is greater than the operand size,
+the result is undefined'', and the undefined part is the destination together with all six arithmetic
+flags.
+\src{docs/DECISIONS.md D52}
+And a case can look undefined without being so. An arithmetic right shift past the operand width has
+no such clause and needs none: every vacated bit, and the last bit shifted out, is the sign bit. A
+model that treats ``count at least the width'' as uniformly undefined invents undefinedness the manual
+does not grant. x86lean gives SAR its own CF rule at those counts.
+\src{X86/Flags.lean shiftFlags; docs/DECISIONS.md D20}
+The model would have been self-consistent under either reading; it was the differential run of
+Section~\ref{sec:validation} that confirmed this one, when a deliberately wrong copy of the model that
+flips CF on a SAR case at such a count was contradicted by the reference model.
+\src{docs/DECISIONS.md D20, the planted control on sar\_b9/6}
+
+\subsection{Four Designs}
+\label{sec:undef:designs}
+
+The public x86-64 semantics, x86isa~\cite{goel-x86isa,x86isa-repo}, the K
+semantics~\cite{dasgupta-k-x86,k-x86-repo} and the Sail model translated from x86isa~\cite{sail-x86-repo},
+answer the question ``what is an undefined bit?'' in four different ways (Table~\ref{tab:undef}). Each
+row was read at the project's own source.
+\src{docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10}
+
+\begin{table}[t]
+\caption{What an undefined bit is, in four public x86-64 semantics.}
+\label{tab:undef}
+\centering
+\small
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.72\linewidth}@{}}
+\toprule
+system & an undefined bit is \\
+\midrule
+x86lean & a concrete bit read from an oracle carried in the machine state \\
+ACL2 x86isa & in the logic, the value of \lean{create-undef}, a function introduced by
+  \lean{encapsulate} with only a local witness, fed by a seed counter in the state; for execution, a
+  concrete implementation attached under a trust tag \\
+K x86-64 & a distinguished constant (\lean{undefMInt}, \lean{undefBool} and width-specific variants)
+  written directly into the state \\
+Sail x86 & Sail's built-in \lean{undefined}, reached through \lean{undef\_read\_logic}, together
+  with a per-case mask of undefined flags passed to the flag writer \\
+\bottomrule
+\end{tabular}
+\end{table}
+\src{x86isa: machine/register-readers-and-writers.lisp:1497; the trust tag in tools/execution/top.lisp.
+K: semantics/x86-mint-wrapper.k:19. Sail: model/prelude.sail:74-82, model/shifts\_spec.sail,
+model/rotate\_and\_shift.sail. All via docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10.}
+
+These are different designs, not variations on one. x86isa's documentation states the property its
+design is built for: because nothing is known about \lean{create-undef}, ``we wouldn't be able to prove
+that a value obtained from \lean{undef} is equal (or not) to any other value \ldots\ an undefined value
+is different from another undefined value, and also all the known values''~\cite{x86isa-repo}.
+\src{docs/TACAS-G1-POSITIONING.md 1c.10, verbatim from create-undef's :long}
+In K, 497 of the 3{,}064 per-instruction semantic files mention an undefined constant, and none of
+them is a system instruction.
+\src{docs/TACAS-G1-POSITIONING.md 1c.6: the denominator is the five directories K's README names as
+holding per-instruction semantics; register 161, memory 227, immediate 109, system 0}
+We make no claim about how K's or Sail's tools decide equality between two undefined values: we have
+read both models' sources on that question and have run neither.
+\src{docs/TACAS-G2-SECTION-DRAFT.md 5: measured at both sources, unrun against K}
+
+x86lean's oracle is x86isa's seed discipline made concrete.
+\src{PROVENANCE.md, the x86isa row; docs/TACAS-G6-RELATED-WORK.md 4}
+What that buys is that the function which runs and the function which theorems are about are the same
+Lean definition: \lean{step} reads undefined bits from the state, so it is an ordinary total function
+that can be evaluated on a pre-state, and a theorem that places no hypothesis on the oracle holds for
+every resolution of the undefined bits. x86isa keeps a logical story and an execution story apart; we
+do not have to. What it costs is that undefinedness becomes a parameter the harness and the theorems
+must both thread, and the three mechanisms below are what keep that parameter honest.
+
+\subsection{The Draw Is Part of the Model}
+\label{sec:undef:draw}
+
+Which oracle bit lands in which field is fixed by the model. A shift whose masked count is non-zero
+reads three bits, in the order CF, OF, AF; the logical group (AND, OR, XOR, TEST) reads one, for AF.
+\src{X86/Semantics.lean, the .shift case; docs/DECISIONS.md D5; Tests/Nonvacuity.lean 3}
+The rule that matters is that, once an instruction's branch is decided, its draws are unconditional: a
+bit is drawn for a flag whether or not that flag is undefined at these operands. SAR at a count past the
+width draws CF's bit and ignores it, because CF is the sign; SHL at a count of one draws OF's bit and
+ignores it, because OF is defined there.
+\src{X86/Flags.lean shiftFlags}
+The number of bits drawn does still depend on operand values through the coarse branch: a masked count
+of zero draws nothing, and BSF or BSR draw a further destination-width of bits only when the source is
+zero.
+\src{Tests/Nonvacuity.lean cursor\_shift\_zero\_spends\_nothing; X86/Semantics.lean bitScanStep;
+docs/DECISIONS.md D213}
+What the rule is meant to exclude is dependence on the oracle's own bits. If a branch inside a step
+could read a bit drawn in that step, two runs under different oracles could take different branches,
+and the derivation of Section~\ref{sec:undef:derived}, which compares two such runs, would report a
+difference of control as a set of undefined fields.
+\src{X86/Semantics.lean, the bsf/bsr and division comments}
+We state the evidence at its actual strength. The rule is a design rule, checked by example theorems
+that fix the oracle cursor's position after particular instructions under two opposite oracles; we
+have not proved it for every instruction, and no check in the harness compares cursors.
+\src{Tests/Nonvacuity.lean cursor\_independent\_of\_bits; X86/Serialize.lean undefinedLeaked;
+docs/DECISIONS.md D213}
+
+\subsection{The Undefined Set Is Derived, Not Declared}
+\label{sec:undef:derived}
+
+The differential harness needs to know, for each case, which disagreements with the reference model are
+explained by undefinedness. For flags it holds no list. \lean{undefinedFlags} runs the same
+\lean{step} from the same pre-state under the all-zeros and the all-ones oracle and reports the flags
+that differ.
+\src{X86/Serialize.lean undefinedFlags; docs/DECISIONS.md D6}
+A declared list would be a second statement of what the model leaves undefined, and it would go stale
+the first time a form's rules changed. It would go stale in the permissive direction, because a list
+that still names a flag the model now defines licenses the harness to excuse a real disagreement in it.
+Derived, there is one notion of ``undefined here'', and it is the semantics'.
+
+Registers need the opposite treatment, and the reason is instructive. BSF and BSR leave their
+destination register undefined when the source is zero (``If the content of the source operand is 0,
+the content of the destination operand is undefined''). Deriving the undefined registers from the same
+two runs would disarm the check that matters most: an oracle bit reaching a register by mistake would
+be re-read as ``that register is undefined here'' and filed as explained. So registers have two
+sources, required to agree. \lean{declaredUndefGPRs} reads the instruction and the manual's rule;
+\lean{undefinedRegs} observes which registers differ between the two runs. A register that moves
+without being declared is a leak; a register that is declared and does not move is a false claim of
+undefinedness, which would otherwise license the harness to explain away disagreements in that register
+indefinitely.
+\src{X86/Serialize.lean declaredUndefGPRs, undefinedRegs, and the P1 batch 14 note}
+
+Everything outside those two channels must agree exactly between the two runs.
+\lean{undefinedLeaked}, checked on every differential case, requires the vector registers, the
+instruction pointer, the halt state and every watched memory window to be identical under both oracles,
+and the comparator will explain a disagreement as undefined only in a closed list of fields: the flags
+and the general-purpose registers.
+\src{X86/Serialize.lean undefinedLeaked; Main.lean undefinableFields}
+The derivation has a precondition it does not itself check. It finds a field whose value is a copy of a
+drawn bit, and it would miss a value that combined two drawn bits so as to agree under both constant
+oracles. Every undefined value in the model is written as drawn; we established this by a syntactic
+search of the model's sources, with a planted positive control, and not by proof.
+\src{docs/DECISIONS.md D213 4}
+
+\subsection{Declining a Case, as a Theorem}
+\label{sec:undef:refusal}
+
+SHLD and SHRD mask their count to five bits, so at a 16-bit operand the count can exceed the width and
+the destination becomes undefined. This is not a corner: over the 82 pre-states of the harness at the
+time, a count taken from CL exceeded 16 in 35.
+\src{docs/DECISIONS.md D52, measured on the reference model before the constructor existed}
+With a register destination, x86lean answers from the oracle, and the register channel above carries
+it. With a memory destination there is no channel: \lean{undefinedLeaked} demands that the two runs
+agree on every watched byte, and the comparator cannot explain a memory disagreement at all. Rather than
+widen its strongest check as a side effect of one instruction family, the model declines exactly this
+combination (a memory destination, a 16-bit operand, a masked count above 16) and halts with a stated
+reason. Every other double shift is answered.
+\src{X86/Syntax.lean dshiftMemUndefined; X86/Semantics.lean, the .dshift case}
+
+The refusal is stated as a theorem. For an immediate count,
+\lean{step\_dshift\_mem\_\allowbreak undefined\_refuses} says that the step leaves the state unchanged except for
+the halt reason; the guard in \lean{step} is on the masked count, which a count in CL reaches as well.
+\src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
+Each of the other three designs in Table~\ref{tab:undef} has a general means of answering such a case,
+a constrained value, a constant or the built-in; we have not read each model's rule for this
+particular instruction, and so do not claim that any of them answers it. We claim no more for this than it is: one
+instruction pair, presented as a demonstrated discipline rather than as coverage. It is, however,
+self-enforcing. The reference model computes a result for this case, so a test vector there would be
+scored as a one-sided refusal, not as a pass; the gap cannot be filled by accident, and because it is a
+theorem it cannot be quietly forgotten either.
+\src{docs/DECISIONS.md D52}
+
+% ---------------------------------------------------------------------------------------------
+\section{Differential Validation}
+\label{sec:validation}
+
+\subsection{The Harness}
+\label{sec:validation:harness}
+\placeholder{Vectors, pre-states, the comparison classes (matched, explained, unexplained, reference
+divergence, leak), and the planted wrong models (docs/DIFFERENTIAL-*.md; Main.lean).}
+
+\subsection{Two Origins, Not Three Witnesses}
+\label{sec:validation:origins}
+\placeholder{Sail x86 is translated from x86isa and validated against K's tests, so agreement with Sail
+tests the translator. The corroboration count is two origins (docs/TACAS-G1-POSITIONING.md 1c.7).}
+
+\subsection{Where the Reference Model Is Not the Specification}
+\label{sec:validation:limits}
+% Register: docs/TACAS-G2-SECTION-DRAFT.md 4; docs/DECISIONS.md D91 D108 D115; Main.lean
+% knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
+
+A paper whose argument is that every claim is checked must also report where the check has nothing to
+check against. Three findings fall there.
+
+\paragraph{A rule with no second source.}
+MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
+does not: it executes both an unaligned load and an unaligned store, while an aligned MOVDQA, an
+unaligned MOVDQU and a control instruction behave as expected.
+\src{docs/DECISIONS.md D91 1}
+x86lean faults, as the manual says, and no unaligned MOVDQA vector is shipped, since every one would be
+scored as a one-sided refusal against a model that is right. The rule is therefore carried by theorem
+rather than by run: an unaligned load faults, an unaligned store faults, and an unaligned MOVDQU at the
+same address does not, which is the theorem that shows the alignment flag is doing the discriminating.
+\src{docs/DECISIONS.md D91 2; X86/Theorems.lean vload\_unaligned\_faults, vstore\_unaligned\_faults,
+vload\_unaligned\_movdqu\_runs}
+This is the weakest claim in the model: it rests on our reading of the manual and on a proof that the
+model implements that reading, and nothing else.
+Agreement with a reference model that does not implement a rule is not evidence about the rule.
+
+\paragraph{A reference model that disagrees with itself.}
+On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
+differential run returned 8 unexplained disagreements in 78{,}584 cases, all at one pre-state: the only
+one whose count register had a small low quadword and a non-zero high one. x86lean shifted by the low
+quadword; the reference model saturated.
+\src{docs/DECISIONS.md D108 1}
+The manual reads the count from the low 64 bits, and so does K: its saturation test extracts exactly
+those bits of the source. More decisively, the reference model's own memory-count form of the same
+instruction, given the same 128-bit count, returns the manual's answer.
+\src{docs/DECISIONS.md D108 3, citing K's psllw\_xmm\_xmm.k}
+A model that disagrees with itself across two operand shapes of one instruction has a defect, not a
+reading. We record each of the eight as a known divergence naming one vector and one field, with its
+independent source; the cases keep running, and an entry that stops diverging fails the run, so a fix
+upstream is noticed rather than silently absorbed.
+\src{Main.lean knownDivergences; docs/DECISIONS.md D108 4}
+The published record of that batch reads 81{,}752 cases, 0 unexplained and 0 leaks, with the divergences
+counted in their own class.
+\src{docs/DIFFERENTIAL-P2-BATCH13.md:119-120}
+\placeholder{The cost of a divergence entry (it excuses one field for that vector at every pre-state)
+and the three things that stand against it, from D108 4.}
+
+\paragraph{The ceiling of the method.}\mbox{}
+\placeholder{The reference model cannot execute a large share of the remaining vector instructions at
+all, so that share cannot be differentially validated at any price. Quote the live figures from
+docs/P2-ROSTER.md at a pinned sha, never D115's dated table (D115 3 says so).}
+
+% ---------------------------------------------------------------------------------------------
+\section{Gated Claims}
+\label{sec:gated}
+\placeholder{Every coverage number derived from two sources and CI failing on disagreement with the
+prose; docs/CLAIMS.tsv; the measured one-in-three failure rate of ungated at-source claims
+(docs/TACAS-G6-RELATED-WORK.md; docs/DECISIONS.md D201).}
+
+% ---------------------------------------------------------------------------------------------
+\section{Proofs Over the Semantics}
+\label{sec:proofs}
+\placeholder{The proof interface and the measured tier law, as a section: a sample of four routines,
+not a benchmark (docs/TACAS-PRICING.md 2.1, G4).}
+
+% ---------------------------------------------------------------------------------------------
+\section{Related Work}
+\label{sec:related}
+\placeholder{From docs/TACAS-G6-RELATED-WORK.md. The x86 comparators answer ``why another x86
+semantics''; LNSym answers ``why these techniques'' and is cited as precedent where the method is
+discussed.}
+
+% ---------------------------------------------------------------------------------------------
+\section{Limitations and Conclusion}
+\label{sec:conclusion}
+\placeholder{Scale, proof strength, the ceiling of the reference model, and the decode trust.}
+
+\bibliographystyle{splncs04}
+\bibliography{x86lean-semantics}
+
+\end{document}
