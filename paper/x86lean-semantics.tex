@@ -531,13 +531,13 @@ We did not adopt this from principle; we measured the alternative on ourselves. 
 prior-art claims this project had written nine days earlier, each marked as verified at its source,
 three of nine failed, and the files they described had not changed, so the claims were wrong when they
 were written.
-\src{docs/DECISIONS.md D201 1}
+\src{docs/DECISIONS.md D201 1; docs/CLAIMS.tsv[recheck\_d201\_failed, recheck\_d201\_total]}
 A bibliography table headed as fetched from the registrar disagreed with the record its own DOI returns
 in three of eight rows.
-\src{docs/DECISIONS.md D214}
+\src{docs/DECISIONS.md D214; docs/CLAIMS.tsv[recheck\_d214\_failed, recheck\_d214\_total]}
 Seven headline counts in a planning document were all correct and none stated its population;
 re-derived with the obvious commands, three of the seven came out different.
-\src{docs/DECISIONS.md D202}
+\src{docs/DECISIONS.md D202; docs/CLAIMS.tsv[recheck\_d202\_failed, recheck\_d202\_total]}
 And the technical draft behind Section~\ref{sec:undef}, written from decision records, contained two
 false sentences that surfaced only when the prose was checked against the step function.
 \src{docs/DECISIONS.md D213}
@@ -551,6 +551,8 @@ In the four samples with a denominator, 3 of 9, 3 of 8, 3 of 7 and 2 of 3, claim
 failed a re-check at least one time in three, and the failures were present when the claims were
 written rather than acquired later.
 Re-checking more often does not answer that; only a mechanical check does.
+\src{docs/CLAIMS.tsv[recheck\_d201\_failed, recheck\_d201\_total, recheck\_d214\_failed, recheck\_d214\_total,
+recheck\_d202\_failed, recheck\_d202\_total]; the fourth sample, 2 of 3, is D222 and D223 together and is not in the manifest (D233)}
 
 \paragraph{What this is not.}
 Deriving a claim and failing the build on disagreement is ordinary engineering, and it is not novel in

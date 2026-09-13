@@ -52,7 +52,7 @@ travel in its history where any change to one is visible in a diff.
 
 LANE.  Personal lane.  Reads this repository and runs git over it.
 """
-import argparse, os, subprocess, sys
+import argparse, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TSV = os.path.join(ROOT, "docs", "CLAIMS.tsv")
@@ -97,6 +97,22 @@ RELATIONS = {"p2_ceiling_partition_residue": "The five parts sum to the total"}
 NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
                 "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
                 "nineteen", "twenty"]
+# ⛔ D233: A FRACTION IS ONE CLAIM, NOT TWO VALUES. Checked as two presences, "three of six failed" satisfied a
+# citation of 3 of 9 because the same span said "nine days earlier", and "three of the nine" satisfied 3 of 7 because
+# the sentence opened "Seven headline counts". A total row named here must be cited in the SAME marker as its part,
+# and the span must carry the phrase "<part> of [the] <total>", digits or words.
+PAIRS = {"recheck_d201_total": "recheck_d201_failed",
+         "recheck_d214_total": "recheck_d214_failed",
+         "recheck_d202_total": "recheck_d202_failed"}
+
+
+def _num_alts(v):
+    alts = [re.escape(v)]
+    if v.isdigit():
+        alts.append(re.escape(f"{int(v):,}"))
+        if int(v) < len(NUMBER_WORDS):
+            alts.append(NUMBER_WORDS[int(v)])
+    return "(?:" + "|".join(alts) + ")"
 
 
 def _src_markers(tex):
@@ -133,7 +149,18 @@ def check_prose(tex, rs, verbose=True):
                 if cid not in vals:
                     findings.append(f"prose: `{cid}` is cited in the paper and is NOT a row of the manifest")
                     continue
-                if cid in RELATIONS:
+                if cid in PAIRS:
+                    part = PAIRS[cid]
+                    marker_ids = {t.replace("\\_", "_").strip() for mm in re.finditer(r"docs/CLAIMS\.tsv\[([^\]]*)\]", body)
+                                  for t in re.split(r"[,\s]+", mm.group(1))}
+                    if part not in marker_ids or part not in vals:
+                        ok, what = False, f"its part `{part}` in the SAME marker (a fraction is one claim)"
+                    else:
+                        pat = (r"(?<![\w.,])" + _num_alts(vals[part]) + r"\s+of\s+(?:the\s+)?"
+                               + _num_alts(vals[cid]) + r"(?![\w]|[.,]\d)")
+                        ok = re.search(pat, span, re.I) is not None
+                        what = f"the phrase '{vals[part]} of {vals[cid]}'"
+                elif cid in RELATIONS:
                     ok = RELATIONS[cid] in span
                     what = f"the relation {RELATIONS[cid]!r}"
                 else:
@@ -337,6 +364,23 @@ def selftest():
     f = check_prose("It has seventeen routines.\n\\src{docs/CLAIMS.tsv[w\\_seven]}\n", word_rows[1:], verbose=False)
     arm("PLANT: a word CONTAINING the value's word (seventeen / seven) does not satisfy it",
         any("w_seven" in x and "NOT in the prose" in x for x in f), str(f)[:200])
+
+    # ── D233: a fraction is checked as ONE phrase ──────────────────────────────
+    f = check_prose(paper.replace("three of nine failed", "three of six failed", 1), rs0, verbose=False)
+    arm("PLANT: a fraction's denominator changed while the same number sits elsewhere in the span ('nine days "
+        "earlier') is caught", any("recheck_d201_total" in x for x in f), str(f)[:200])
+    f = check_prose(paper.replace("three of the seven came out", "three of the nine came out", 1), rs0, verbose=False)
+    arm("PLANT: 'three of the nine' does not satisfy 3 of 7 because 'Seven' opens the sentence",
+        any("recheck_d202_total" in x for x in f), str(f)[:200])
+    f = check_prose(paper.replace("3 of 9, 3 of 8", "9 of 3, 3 of 8", 1), rs0, verbose=False)
+    arm("PLANT: a SWAPPED fraction (9 of 3) is caught — the presence arm lets a swap through, the pair rule does not",
+        any("recheck_d201_total" in x for x in f), str(f)[:200])
+    lone = paper.replace("docs/CLAIMS.tsv[recheck\\_d201\\_failed, recheck\\_d201\\_total]}",
+                         "docs/CLAIMS.tsv[recheck\\_d201\\_total]}", 1)
+    assert lone != paper, "the lone-total plant did not apply -- the arm would test nothing"
+    f = check_prose(lone, rs0, verbose=False)
+    arm("PLANT: a total cited WITHOUT its part in the same marker is caught",
+        any("recheck_d201_total" in x and "SAME marker" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0

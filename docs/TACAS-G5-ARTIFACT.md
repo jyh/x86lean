@@ -134,6 +134,10 @@ recorded logs with a reduced re-run.
         read in the paper (planted 1,012 → 1,021: rc 0 before, rc 1 after). Re-inventoried: 32 uncited digit runs
         remain, every one in the declared set above or a technical constant (66 prefix, low 64 bits, bit 127).
         ⚠️ digit runs only — numbers spelled in words are outside the inventory.
+     ✅ 2026-09-13 (D232, D233): numbers in WORDS now citable; the §1/§7 proof concession is corrected and gated
+        (6 routines); THREE of the four re-check samples are rows (3/9 D201 · 3/8 D214 · 3/7 D202), checked as
+        fractions. STILL DECLARED: the fourth sample 2/3 (D222+D223, no single line), §6's label counts and fit,
+        D52's 82/16/35, libLISA's "118 000", Armstrong's 24 of 15,400.
   5  the container or VM, per [CALL]     ⛔ still [CALL]: the 2027 AE guidelines are unpublished (item 1)
   6  a DOI for the artifact (the "Available" criterion, item 1): an archival deposit of the submission commit —
      Zenodo is ETAPS's stated recommendation — and its DOI in the Data Availability statement beside the GitHub

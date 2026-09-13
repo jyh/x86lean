@@ -15206,3 +15206,28 @@ arms; removing the word boundary reds the seventeen arm; case-sensitivity reds t
   PLANTS   §1 six->five · §6 Six->Four · §7 six->four · §8 six->four        each 1 finding naming proof_sample_routines
   manifest 76 rows CLEAN
 ```
+
+## D233 — three of the four re-check samples enter the manifest, and the first plant sweep showed a presence check cannot hold a fraction
+
+⚖️ **2026-09-13.** The paper's thesis figure — *"3 of 9, 3 of 8, 3 of 7 and 2 of 3"*, and the same samples in words in §5's
+"Why" paragraph — was in G5 item 4's declared-uncited set. Three of the four have a record line that states them: D201's
+title (*"3 of 9 at-source claims fail"*), D214 (*"3 of 8 rows in a table headed"*), D202's title (*"got three of seven
+wrong"*, in words, mapped to digits by the command). Six rows at `673b64a`, cited in the three "Why" markers and a new marker
+after the summary sentence. **The fourth, 2 of 3, stays declared:** it spans D222 and D223 and no line states it, and writing
+one now would be a record authored to satisfy a gate. [[feedback-a-derivation-gate-wraps-a-false-sentence]]
+⛔ **THE FIRST PLANT SWEEP, WITH THE PRESENCE ARM D232 EXTENDED TO WORDS:**
+```
+  "three of nine failed"      -> "three of six"      0 findings   the span says "written NINE days earlier"
+  "three of the seven"        -> "three of the nine"  0 findings   the sentence opens "SEVEN headline counts"
+  "in three of eight rows"    -> "three of five"      1
+  summary "3 of 9" -> "3 of 6" · "3 of 7" -> "3 of 5"  1 each
+```
+⇒ 🔑 ***A FRACTION IS ONE CLAIM, AND CHECKED AS TWO PRESENCES IT IS SATISFIED BY ANY SENTENCE THAT HAPPENS TO CONTAIN BOTH
+NUMBERS.*** Small numbers make it likely rather than possible — D232's stated weakness, arriving on the first rows that used
+it. **Repaired, not declared:** `PAIRS` names each total with its part; the two must be cited in the SAME marker and the span
+must carry `<part> of [the] <total>` (digits, thousands form or words, any case). Arms: the "nine days" plant · the "Seven
+headline" plant · a SWAPPED fraction (`9 of 3` — which D231 declared the presence arm lets through) · a total cited without its
+part. Mutation `PAIRS = {}` reds all four. **23 arms, 0 red; 82 rows CLEAN; all six plants above now red.**
+⚠️ **Scope, stated:** the pair rule covers the three pairs named. D231's coverage figures (`500 of the 525`, `351 of the 374`)
+are still checked as presences, so a swap there still passes; naming them in `PAIRS` is one line each and is the next repair
+if that sentence is edited.
