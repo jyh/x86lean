@@ -102,3 +102,9 @@ tier_exact	132	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' 
 tier_frame	26	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-frame [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
 tier_absent	0	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -m1 -E '^Tiers:' | grep -oE 'T-absent [0-9]+' | grep -oE '[0-9]+$'	paper/x86lean-semantics.tex §2
 decode_xed_rows	158	d7dbd58	git show "$SHA":docs/COVERAGE.md | grep -c '| XED (trusted) |'	paper/x86lean-semantics.tex §2
+proof_lines_countdown	14	d7dbd58	python3 scripts/proof_lines.py countdown_writes_no_memory --sha "$SHA"	paper/x86lean-semantics.tex §6 (frame tier)
+proof_lines_scan	14	d7dbd58	python3 scripts/proof_lines.py scan_writes_no_memory --sha "$SHA"	paper/x86lean-semantics.tex §6 (frame tier)
+proof_lines_prologue	34	d7dbd58	python3 scripts/proof_lines.py prologue_preserves_caller_frame --sha "$SHA"	paper/x86lean-semantics.tex §6 (labelled tier, 2 labels)
+proof_lines_guarded	50	d7dbd58	python3 scripts/proof_lines.py guarded_writes_only_in_buffer --sha "$SHA"	paper/x86lean-semantics.tex §6 (labelled tier, 4 labels)
+proof_lines_fill	57	d7dbd58	python3 scripts/proof_lines.py fill_safe --sha "$SHA"	paper/x86lean-semantics.tex §6 (labelled tier, 5 labels)
+proof_lines_memcpy	76	d7dbd58	python3 scripts/proof_lines.py memcpy_safe --sha "$SHA"	paper/x86lean-semantics.tex §6 (labelled tier, 7 labels)

@@ -14562,3 +14562,28 @@ PASS.*** Read a plant's green only after the control's.
 ⚠️ **SCOPE, declared in the script and in §5:** a number in the paper with no manifest citation is not
 checked, at any rate. §4.1's zeros were rewritten as digits ("0 disagreements are unexplained") so that
 they could be cited at all; a zero written as "no" cannot be matched without matching every "no".
+
+---
+
+## D217 — the proof sizes were "counted, not estimated" and never said how; one stated rule reproduces all six
+
+⚖️ **2026-09-12, citing §6 of the paper to the manifest.** `docs/P2-PROOF-INTERFACE.md` quotes 14, 34,
+50, 57 and 76 lines, *"counted, not estimated"*, with no rule — D202's defect (a correct number with an
+unstated population) on the numbers the proof-cost law is fitted to.
+**The rule, found by trying the obvious one first:** from `theorem NAME` to the next top-level item,
+the lines that are neither blank nor `--` comments.
+```
+  countdown_writes_no_memory       14   (raw span 15)
+  scan_writes_no_memory            14   (15)
+  prologue_preserves_caller_frame  34   (35)
+  guarded_writes_only_in_buffer    50   (51)
+  fill_safe                        57   (58)
+  memcpy_safe                      76   (77)
+```
+**Six of six exactly**, and the raw span is off by one on every row, so the rule is distinguishing and
+not merely generous. ⇒ `scripts/proof_lines.py` IS the rule, refusing (exit 2, naming what it sought)
+when the theorem is absent or duplicated; six `CLAIMS.tsv` rows cite it at `d7dbd58`, each planted wrong
+once; §6 cites the rows, so the paper's prose check reads them.
+⚠️ **NOT in the manifest, and §6's marker says so:** the label counts (2, 4, 5, 7), the fitted
+`19 + 7.5–8.1 / label`, and the historical per-label series 25 → 12 → 9.6 → 7.6, which were measured
+on earlier versions of one proof and are not derivable at a single sha.
