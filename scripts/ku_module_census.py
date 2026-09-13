@@ -52,6 +52,11 @@ def classify(src_line):
     if re.match(r"(@\[[^\]]*\]\s*)?(private |protected |partial |noncomputable )*"
                 r"(def|abbrev|instance)\b", s):
         return "def"
+    # an INDENTED non-command line is inside a proof: `omega`, `bv_omega` and `decide` add
+    # auxiliary lemmas the kernel checks where the tactic stands (X86.Program: 86% of its
+    # kernel time, first read as `other`, measured 2026-09-13)
+    if src_line[:1].isspace():
+        return "in-proof auxiliary"
     return "other"
 
 
