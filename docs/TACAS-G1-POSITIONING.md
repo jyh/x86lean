@@ -99,6 +99,14 @@ to date, with over 118 000 different instruction groups"*, synthesized by execut
 models for five machines compared; *"exposing bugs in their handwritten models"*. liblisa.nl (HTTP 200)
 links "Explore the data" and "View source code". **Read at abstract and site only.** It is the most direct
 hardware-origin second source this project lacks, and the paper now says so.
+📌 **libLISA's own text, from its site's rendering of the paper (liblisa.nl/publications/liblisa-oopsla24/):**
+the implementation is *"available under the AGPLv3 open source license on https://github.com/liblisa"* with
+a Zenodo reproduction package; and it says K *"is based on the earlier work of Heule et al. on Strata …
+1795 instruction variants"*, manually extended to 3155. ⚠️ **Checked at K's tree (vendor/k-x86-64 @ 592380a):
+`strata` appears in 2 files, both about proving equivalence between K rules and Strata's bit-vector
+formulas** (control: `undefMInt` in 345 files). So K's tree shows an EQUIVALENCE CHECK against synthesized
+semantics, not a derivation; **the lineage claim is libLISA's, second-hand, and §4.2's "two origins" is not
+changed on it.** Which handwritten models libLISA found bugs in: its evaluation section was not reached — UNREAD.
 📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
 Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
 📌 The CPP 2019 1,625-instruction model embeds stratified-synthesis semantics in Isabelle/HOL (per a search
