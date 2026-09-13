@@ -14823,6 +14823,45 @@ P(≥3 of 22 at α = 5%) ≈ 0.095: not yet evidence of miscalibration. 📌 Two
 `Tests.Coverage`), stated and not read as a pattern: three reds cannot tell a unit whose se is under-estimated from chance.
 The next red on `Tests.Program` is the one that would. `fb734e1` · `51d7e09` still running.
 
+📊 **Tally, 2026-09-13 19:3xZ: conclusive 27, arm-1 reds 3** — five more, each verdict check run `success` / PASS
+(title AND summary read per sha, "2 arms — the identical-trees control and the planted constructor"): `fb734e1` ·
+`51d7e09` · `4e8c1fb` · `33b4b90` · `a395391`. **P(≥3 of 27 at α = 5%) ≈ 0.15**, computed here rather than quoted — and
+the same routine reproduces the previous row's 0.095 at (22, 3), which is the control on it. ⇒ **The evidence for
+miscalibration got WEAKER, not stronger: the denominator grew by five and the numerator did not move**, so three reds
+went from a 0.095 tail to a 0.15 one. Expected reds at 27 is 1.35. 📌 Two of the three reds remain `Tests.Program`;
+still stated, still not read as a pattern, and **no new red arrived to test it**.
+
+⛔⛔ **AND THE DENOMINATOR IS A COUNT OF PUSHES, NOT OF COMMITS — MEASURED WHEN THE HANDED-ON LIST TURNED OUT TO BE SHORT.**
+The bank handed the next head five shas as "still running". Derived from the object instead (`git log 706d6e2..origin/master`),
+the population after the last tallied sha is **SEVEN commits**. The two the list omitted, `e8f5ada` and `542e0e5`, have
+**ZERO check runs of ANY name** — not neutral, not cancelled, not failed: **absent**.
+```
+  e8f5ada   check-runs: []      542e0e5   check-runs: []
+  the other five             kernel-delta-redfirst verdict = success / PASS
+```
+✅ **MECHANISM, MEASURED AT THE EVENTS API RATHER THAN ASSUMED** (two hypotheses were live — a `paths` filter, or batching):
+```
+  push 16:43:57Z  head=fb734e1  before=706d6e2     <- e8f5ada was the INTERMEDIATE commit
+  push 17:22:25Z  head=33b4b90  before=4e8c1fb     <- 542e0e5 was the INTERMEDIATE commit
+```
+**The paths hypothesis is REFUTED, not merely unfavoured:** `fb734e1` touched `paper/*.tex` ALONE and got a full run,
+while `e8f5ada` touched `ci.yml`, `scripts/` and `docs/` and got nothing. A path filter cannot produce that pair.
+⇒ **A `push` event runs workflows for the pushed TIP only. An intermediate commit of a multi-commit push is invisible to
+every per-tree job in this repository.**
+⇒ ✅ **D224's ruling — "redfirst must CONCLUDE on every master push" — IS HELD: five pushes, five verdicts, none cancelled.**
+The ruling was always about pushes. **What is corrected is the READING of this tally's own unit:** "conclusive 27" counts
+PUSHES and reads, to anyone who has not been told, like a count of commits.
+⚠️ **SCOPED HONESTLY, because the alarming version of this is the wrong one.** What an intermediate commit misses is
+`build`, `kernel-delta`, `kernel-delta-redfirst`, `selftest-gate`, the shards — and that is **bounded**, because the tip's
+tree is a superset of it and the tip IS built. What it does **NOT** miss is the population that would actually hurt:
+`scrub.yml`'s **`--history` ratchet runs at `fetch-depth: 0` and walks each commit against its own parent**, and
+`kernel_drift.py --gap` is range-aware (D225). ⇒ **The leak arm and the ledger arm see these commits; only the per-tree
+gates do not.** That is the exact asymmetry x86lean's CLAUDE.md already records for `--range` vs `--history`, arriving
+from the opposite direction — and it is why the `--history` arm being wired is load-bearing rather than decorative.
+⇒ 🔑 ***AN INHERITED WORK LIST IS A HYPOTHESIS ABOUT A POPULATION, AND ITS ERROR DIRECTION IS "SHORTER THAN THE WORLD" —
+because a list is written from what its author last saw, while the world keeps appending.*** I was one command from
+recording a denominator of 7 with two entries filed as missing verdicts.
+
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 
 ⚖️ **2026-09-12, CI at `b546ad6`.** `kernel-delta` failed at its first real step, `kernel_drift.py --gap`:

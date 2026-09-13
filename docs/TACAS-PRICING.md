@@ -264,7 +264,22 @@ fetched and grepped for the quoted phrases; not recalled, not taken from a summa
    after notification. What the Oct-15 submission needs from G5 is the **data availability statement**
    (small) — not the container. `docs/TACAS-G5-ARTIFACT.md` §1 (pin the reference model) stays owed,
    because the statement must name what a reader can reproduce.
-2. ⚖️ **THE CATEGORY IS A FORK, AND IT IS THE CAPTAIN'S (desk `JU`: "the Captain (venue)").**
+2. ⚖️✅ **THE CATEGORY IS RULED: (C), CASE-STUDY TRACK, NON-BLIND — THE CAPTAIN, COUNCIL 2026-09-13 (minute `B①`, desk `JU`).**
+   His words, verbatim: ***"1. Yes (C)"***, on the recommendation below. **TACAS 2027 receives TWO case-study
+   submissions** (this one and the paper seat's).
+   ⇒ **WHAT THE RULING BUYS, stated so it is not re-litigated:** no anonymization pass is owed — the
+   `\institute`, every self-citation and the artifact URL stay as written, and *"checkable in one clone of a
+   public repository"* can be said WITH the URL, which is the sentence the draft is built around.
+   ⇒ **WHAT IT COSTS:** artifact evaluation is *"currently not mandatory"* for case-study papers (§3's quoted
+   table), so the AE badge is not a lever this paper can pull to offset §4a's "does it read thin" risk. **The
+   recommendation argued against itself on exactly this point and the ruling took it anyway; that argument is
+   preserved below rather than deleted, because a ruling that erases its own counter-case cannot be re-examined
+   when the risk it named arrives.**
+   ⇒ **AND IT DOES NOT TOUCH THE BAR.** (C) is a different CATEGORY, not a lower standard: the case-study
+   category asks for *"the application of techniques … to a set of problems of practical importance"*, and §4a's
+   judgment is about whether this paper is thin against ITS OWN category's neighbours. **The ruling settles the
+   venue question and settles nothing about §4a.**
+   *(The fork as it stood before the ruling, kept for the record:)***
    * **(R) regular research paper** — double-blind. The draft's *"checkable in one clone of a public
      repository"* cannot be said with the URL; the author, `\institute`, every self-citation and the
      artifact link need anonymizing (an anonymized mirror). And the category asks for *"a principled
@@ -273,7 +288,7 @@ fetched and grepped for the quoted phrases; not recalled, not taken from a summa
      community to … a set of problems of practical importance"* is what §4a says the paper IS: known
      techniques (differential testing, derived claims) applied to building an x86-64 semantics, with the
      measured negative results as the evidence.
-   * ⚖️ **RECOMMENDATION: (C)**, and the draft proceeds on it — no anonymization work is done. **Against
+   * ⚖️ **RECOMMENDATION: (C)** — **RULED (C) 2026-09-13, see above**; the draft proceeds on it — no anonymization work is done. **Against
      myself:** a case-study paper may be read as the weaker category, and (R)'s bar is where §4a's
      "does it read thin" risk lives either way. A later (R) ruling costs the anonymization pass (~0.5 day,
      ESTIMATED) and nothing already written.
