@@ -14470,3 +14470,34 @@ and the title was not.** A row is a join of fields, and the provenance label cov
 than a bibliography one:** which Goel work the paper should cite for x86isa's design — the dissertation
 has no DOI in this record, and the arXiv note may not be what a referee expects.
 **The paper's `.bib` is re-fetched per entry by DOI before submission; no row is copied from G6.**
+
+---
+
+## D215 — opening `paper/` redded CI's drift gate, and my preflight could see neither the arm nor the job
+
+⚖️ **Measured 2026-09-12 on `d7dbd58`'s own CI run (34733763622), minutes after the push.**
+
+### 1. The gate did its job
+`kernel_drift.py`'s exemption is an ALLOWLIST: a step is exempt only if every path it touches is argued
+by a rule. `d7dbd58` added `paper/`, which no rule argues, so the real window gained an UNCLASSIFIED
+step and two selftest arms went red — the plant arm (it now found TWO unclassified steps, not one) and
+*"with nothing planted the real window has 0 unclassified steps"*. **This is the second unargued path
+the window has carried; the first was `CLAUDE.md` on 09-09, and the gate behaved identically.**
+✅ **Remedy: a rule WITH its reason** — `paper/` holds LaTeX, a bibliography and a README, read by a TeX
+engine and never by `lake`, and a `.lean` under it is bucketed as `.lean` before any rule is consulted.
+Selftest 64/64 and `--gap` 0 unclassified after it; CI's red at `d7dbd58` is the control without it.
+
+### 2. ⛔ Two holes in my release procedure, and both are the procedure's, not the gate's
+```
+  LOCAL   preflight.sh ran 8 check_*.py gates and the paths arms -- NOT kernel_drift, which CI runs
+          in the kernel-delta job. "Not on the gate list" is where this red was.
+  REMOTE  preflight.sh picks the last run whose BUILD concluded and refuses when BUILD is red.
+          kernel-delta red with build green would PRINT the job and exit 0.
+```
+⇒ **Both are now in the script:** `kernel_drift --selftest` and `--gap` join the local sweep (~17 s),
+and a run whose ANY job concluded `failure` refuses.
+⇒ 🔑 ***A PREFLIGHT MODELLED ON ONE JOB INHERITS THAT JOB'S SCOPE.*** It was built the day master's
+`build` was red for three pushes, so it asks about `build` — which is exactly the job that did not fail
+this time.
+⚠️ **What this still does not cover:** a job that is red while `build` is still in progress is read
+from the PREVIOUS concluded run, so HEAD is reported UNVERIFIED rather than red until `build` ends.

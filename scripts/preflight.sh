@@ -44,6 +44,13 @@ for g in check_claims check_positioning_table check_citations check_coverage_pro
   if python3 "scripts/$g.py" >/dev/null 2>&1; then printf "  ok   %s\n" "$g"
   else printf "  ⛔ FAIL %s\n" "$g"; rc=1; fi
 done
+# ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
+#   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
+#   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.
+for a in --selftest --gap; do
+  if python3 scripts/kernel_drift.py $a >/dev/null 2>&1; then printf "  ok   kernel_drift %s\n" "$a"
+  else printf "  ⛔ FAIL kernel_drift %s\n" "$a"; rc=1; fi
+done
 for a in --tree --history --messages; do
   if python3 scripts/check_private_paths.py $a >/dev/null 2>&1; then printf "  ok   private-paths %s\n" "$a"
   else printf "  ⛔ FAIL private-paths %s\n" "$a"; rc=1; fi
@@ -89,6 +96,14 @@ echo "  last CONCLUDED build: run $last_id @ ${last_sha:0:8} ⇒ $last_concl"
 gh run view "$last_id" --json jobs --jq '.jobs[]|"    \(.name)=\(.conclusion)"' 2>/dev/null
 if [ "$last_concl" = "failure" ]; then
   echo "  ⛔ MASTER'S LAST REAL VERDICT IS RED."; rc=1
+fi
+# ⛔⛔ ADDED 2026-09-12 (D215): the verdict above is the `build` job's ALONE. On `d7dbd58`
+#   build and the gate were green while `kernel-delta` FAILED, and the job list printed
+#   it without this script refusing. A run's verdict is an OR over its jobs.
+red_jobs=$(gh run view "$last_id" --json jobs \
+             --jq '[.jobs[]|select(.conclusion=="failure")|.name]|join(",")' 2>/dev/null)
+if [ -n "$red_jobs" ]; then
+  echo "  ⛔ A JOB IN THAT RUN IS RED: $red_jobs"; rc=1
 fi
 if [ "$last_sha" != "$head_sha" ]; then
   n=$(git rev-list --count "$last_sha..$head_sha" 2>/dev/null || echo "?")

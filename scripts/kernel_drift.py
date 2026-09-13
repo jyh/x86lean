@@ -453,6 +453,13 @@ EXEMPT_RULES = [
     ("PROVENANCE.md", "prose."),
     ("TRUSTBASE.md", "prose."),
     (".gitignore", "inert."),
+    # ⛔ ADDED 2026-09-12, BY THE GATE REFUSING — the second unargued path this window
+    # has carried. `d7dbd58` opened `paper/` (D215) and this job's selftest went red on
+    # the real window; the local preflight did not run the selftest, so the refusal was
+    # met in CI, after the push.
+    ("paper/", "the paper's LaTeX source, bibliography and README. Read by a TeX "
+               "engine, never by `lake`; a `.lean` under it would have been bucketed "
+               "as `.lean` first."),
 ]
 
 
