@@ -707,7 +707,11 @@ Validation by differential testing against executable models and hardware is est
 K was tested against more than 7{,}000 instruction-level cases~\cite{dasgupta-k-x86}, x86isa is
 co-simulated against a processor~\cite{goel-x86isa}, and stratified synthesis learned the x86-64
 instruction set automatically~\cite{heule-stratified}.
-\src{docs/CLAIMS.tsv[k\_tests]; docs/TACAS-G6-RELATED-WORK.md 4, the differential and co-simulation rows}
+\src{docs/CLAIMS.tsv[k\_tests]; docs/TACAS-G6-RELATED-WORK.md 4, the differential and co-simulation rows;
+each attribution re-read at its source 2026-09-13 (D236): the PLDI 2019 abstract via api.semanticscholar.org for DOI
+10.1145/3314221.3314601, ``has been tested against more than 7,000 instruction-level test cases''; arXiv:1705.01225's
+abstract, ``run co-simulations against an actual x86 processor for model validation''; the PLDI 2016 title, ``Automatically
+Learning the x86-64 Instruction Set''}
 Using XED as a trusted decoder is not a clean contrast with x86isa either: 186 of the 3{,}192 entries in
 x86isa's opcode maps were generated from XED's data files.
 \src{docs/CLAIMS.tsv[x86isa\_xed\_entries, x86isa\_inst\_entries]; docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}

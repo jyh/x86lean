@@ -15332,3 +15332,42 @@ THE PAPER IS THE ONE THAT SAYS SO.*** [[feedback-prose-written-before-the-measur
 (the last placeholder closed at D223). Both corrected with their old text kept.
 **Declared-uncited residue now:** D52's 82/16/35 alone (its record states them in words; re-deriving needs a Lean
 rebuild at `098cea6`, judged not worth it).
+
+## D236 — the SDM's order number was on the PDF's cover, and the PDF's notice states terms the licence table said were absent
+
+⚖️ **2026-09-13, the paper's "owed before submission" list.** The `.bib` entry for the Intel SDM read *"OWED: the order
+number and full URL, read at intel.com"*, and the README said the record needed a browser. `intel.com`'s article page
+returns **403** to `curl`; its download link does not: `cdrdv2.intel.com/v1/dl/getContent/671200` → 200,
+`application/pdf`, 26,664,910 B, served as `325462-092-sdm-vol-1-2abcd-3abcd-4.pdf`. `pdftotext` on pages 1–3:
+```
+  Combined Volumes: 1, 2A, 2B, 2C, 2D, 3A, 3B, 3C, 3D, and 4
+  Order Number: 325462-092US
+  June 2026
+```
+Revision 092 is the one PROVENANCE recorded reading on 2026-08-19, so the entry names what was read. `.bib` now carries
+the order number, June 2026 and the article URL (rendered, checked in the built PDF; 15 pp unchanged).
+⚠️ **The same pages carry a notice, and PROVENANCE's licence cell said "no open licence stated for the manuals".** The
+notice grants no licence to the text except to publish an unmodified copy, licenses Sample Code under 0BSD, permits
+*"software implementations based on this document … intended to execute on the Intel product(s) referenced"*, and grants
+no right to create modifications or derivatives of the document. The cell now quotes it and says it is **recorded, not
+interpreted**: whether that grant reaches a formal model is a question this record does not answer, and x86lean copies
+none of the manual's technical text either way. The role cell's "no text is copied" is narrowed to say the notice is
+quoted.
+⇒ 🔑 ***"NO LICENCE STATED" IS A CLAIM THAT THE DOCUMENT WAS READ FOR ONE.*** How the cell was first written is not
+recorded; the terms are on the PDF's opening pages, where any reading of the manual starts.
+
+**Same pass, §7's techniques paragraph — three attributions re-read at their sources, all survive:**
+```
+  K tested against more than 7,000 instruction-level cases   PLDI 2019 abstract (Semantic Scholar, DOI 10.1145/3314221.3314601):
+                                                             "has been tested against more than 7,000 instruction-level test cases"
+  x86isa co-simulated against a processor [goel-x86isa]      arXiv:1705.01225 abstract: "run co-simulations against an actual x86
+                                                             processor for model validation"
+  stratified synthesis learned the instruction set           PLDI 2016 title: "Automatically Learning the x86-64 Instruction Set"
+```
+Quotes added to the marker. **Not a sample:** these were chosen because they sit in one paragraph, not drawn from a fixed
+set before reading, so they do not enter §5's rate (D235's rule, applied to a result in the other direction).
+The README's Goel item is narrowed, not closed: the arXiv note supports §7's use; whether it or the dissertation is the
+right citation for x86isa's design in §2 and §3 is still open, and it has a third candidate D214 did not name: Goel, Hunt
+and Kaufmann's Springer chapter (2017, `10.1007/978-3-319-48628-4_8`, registrar bibtex fetched), peer reviewed and
+**unread** (its abstract is elided by the publisher), so it is listed in the README and not cited. The README's "Myreen FMCAD 2012 record needs a browser"
+had been discharged by D222 and is marked so.

@@ -40,9 +40,16 @@ anonymization. No arXiv posting ~2 weeks either side of the deadline.
 ## Owed before submission
 
 - Every `.bib` entry fetched by DOI from the registrar, never copied from G6 (D214: 3 of G6's 8 rows
-  disagreed with their own DOI's record). Done for every DOI entry in the file on 2026-09-12. The SDM
-  entry needs its order number and URL; the Myreen FMCAD 2012 record needs a browser.
-- Which Goel work to cite for x86isa's design (D214).
+  disagreed with their own DOI's record). Done for every DOI entry in the file on 2026-09-12. ✅ The SDM
+  entry carries its order number (325462-092US, read on the PDF's cover) and URL since 2026-09-13 (D236); the
+  Myreen FMCAD 2012 record was taken from the author's page and bibtex (D222). *This item read "the SDM entry
+  needs its order number and URL; the Myreen FMCAD 2012 record needs a browser" until 2026-09-13.*
+- Which Goel work to cite for x86isa's design (D214). ⚠️ Narrowed 2026-09-13 (D236): the arXiv note cited
+  does state what §7 cites it for (co-simulation against a processor, in its abstract); the choice between it
+  and the dissertation for the design citations in §2 and §3 is still open. A THIRD candidate D214 did not name,
+  fetched by DOI: Goel, Hunt, Kaufmann, *Engineering a Formal, Executable x86 ISA Simulator for Software
+  Verification*, Provably Correct Systems, Springer 2017, pp. 173–209, `10.1007/978-3-319-48628-4_8` — peer
+  reviewed, and its abstract is elided at Semantic Scholar, so it is UNREAD; not cited until it is.
 - Every number moved into `docs/CLAIMS.tsv` at the submission sha, so artifact evaluation reproduces
   it with one command (G5). §4.3's ceiling and batch-13 figures are there now (pinned `d7dbd58`).
 - ✅ A number in the `.tex` IS checked against the row its `\src` cites, when it cites one:
