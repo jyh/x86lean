@@ -12,8 +12,10 @@ Captain's ruling at the 09/03 council. ⚠️ The choice is not free: this repos
 BSD-3 (ACL2 x86isa), NCSA (K) and BSD-2/BSD-3 (Sail) work by EXECUTION and copies none of
 it, so nothing here is a derivative of them — but Apache-2.0's patent grant is the reason
 it is Apache and not MIT, on a repository whose subject is a patented instruction set.
-⛔ **The repository is PRIVATE.** Publication is gated on the Captain's IARC approval; a
-licence file is not a publication decision and does not become one.
+The repository is **PUBLIC** since 2026-09-10, by the Captain's ruling of that day (see the README's
+"Part of SaltBench" section). *This paragraph read "The repository is PRIVATE. Publication is gated on the
+Captain's IARC approval" until 2026-09-12, two days after the flip; corrected when found.* A licence file
+was not the publication decision then and is not one now.
 
 ## Licence table
 
@@ -28,6 +30,7 @@ licence file is not a publication decision and does not become one.
 | Intel XED | github.com/intelxed/xed | Apache-2.0 | Decoder whose structured output is consumed as the AST (decode trust is named in TRUSTBASE.md). NOTE: `/usr/bin/xed` on macOS is Xcode's editor launcher, not Intel XED |
 | Lean 4 · mathlib4 | github.com/leanprover/lean4 · github.com/leanprover-community/mathlib4 | Apache-2.0 | The prover and its library |
 | LNSym | github.com/leanprover/LNSym | Apache-2.0 | PRECEDENT only (an Arm ISA in Lean 4 with hardware conformance testing); no code is copied |
+| libLISA semantics | code: github.com/libLISA/liblisa (`liblisa-semantics-tool` 0.3.0); data: OSF project 2hfq9, `semantics.7z` (linked from the tool's README) | Code: AGPL-3.0 (repository LICENSE, checked 2026-09-12). Data: **no licence stated** (OSF `node_license` null, 2026-09-12) | EVIDENCE only, processor-synthesized dataflows queried for the rules of `Main.lean knownDivergences` (D221, `docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md`). No rule of the model was decided by it; no data or code is copied here; the tool is built under `vendor/` (ignored). ⚠️ This row was added AFTER the reading, the same evening. Rule 1 binds reading *for the model*, which this was not, but the order is stated rather than left to be inferred |
 
 ## Rules
 1. A source enters this table BEFORE any file from it is read for the model.
