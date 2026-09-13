@@ -67,7 +67,7 @@ unbounded loop. Other formal x86-64 models exist beyond the three we compare aga
 libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
 synthesized from a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
 read.
-\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
+\src{docs/CLAIMS.tsv[k\_mnemonics, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 Its decoding is trusted to Intel XED, and its validation is against one executable model.
 
 What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
@@ -213,7 +213,7 @@ is different from another undefined value, and also all the known values''~\cite
 \src{docs/TACAS-G1-POSITIONING.md 1c.10, verbatim from create-undef's :long}
 In K, 497 of the 3{,}064 per-instruction semantic files mention an undefined constant, and none of
 them is a system instruction.
-\src{docs/TACAS-G1-POSITIONING.md 1c.6: the denominator is the five directories K's README names as
+\src{docs/CLAIMS.tsv[k\_undef\_files, k\_perinst\_files]; docs/TACAS-G1-POSITIONING.md 1c.6: the denominator is the five directories K's README names as
 holding per-instruction semantics; register 161, memory 227, immediate 109, system 0}
 We make no claim about how K's or Sail's tools decide equality between two undefined values: we have
 read both models' sources on that question and have run neither.
@@ -225,7 +225,7 @@ Its unknown flag values are the results of a function fixed by a locale, applied
 the flag name. Undefinedness as a parameter is therefore not new with us. What differs is the key: that
 model's value is determined by the instruction and the flag, x86lean's by a position in a stream that
 advances with each draw.
-\src{isa-afp.org/entries/X86\_Semantics.html and X86\_InstructionSemantics, locale unknowns, read
+\src{docs/CLAIMS.tsv[afp\_instructions]; isa-afp.org/entries/X86\_Semantics.html and X86\_InstructionSemantics, locale unknowns, read
 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d; D220}
 A sixth answer inverts the question. libLISA synthesizes instruction semantics by observing a processor,
 and its model is CPU-specific: behaviour ``that is `undefined' is synthesized for the current
@@ -404,7 +404,7 @@ where the two disagree by the manual and by reading the other model's rules, and
 synthesized on processors (Section~\ref{sec:validation:limits}). That arbiter is fallible
 too: comparing K's semantics with semantics synthesized on five processors, libLISA judged K incorrect for
 between 18 and 28 instruction variants per machine~\cite{liblisa}.
-\src{liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
+\src{docs/CLAIMS.tsv[liblisa\_k\_incorrect\_min, liblisa\_k\_incorrect\_max]; liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
 ``Dasgupta et al.\ incorrect'': 28 24 18 18 18, read 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d}
 Those verdicts cannot have reached the rules we cite. On none of its machines do libLISA's semantics contain
 an instruction led by a 66 prefix, which leaves out the non-VEX forms of SSE instructions, as that work says;
@@ -441,7 +441,7 @@ On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM re
 differential run returned 8 unexplained disagreements in 78{,}584 cases, all at one pre-state: the only
 one whose count register had a small low quadword and a non-zero high one. x86lean shifted by the low
 quadword; the reference model saturated.
-\src{docs/DECISIONS.md D108 1}
+\src{docs/CLAIMS.tsv[d108\_unexplained, d108\_cases]; docs/DECISIONS.md D108 1}
 The manual reads the count from the low 64 bits, and so does K: its saturation test extracts exactly
 those bits of the source. More decisively, the reference model's own memory-count form of the same
 instruction, given the same 128-bit count, returns the manual's answer.
@@ -604,7 +604,7 @@ Three successive rounds of interface work on the first of these routines brought
 from about 25 lines to 12, 9.6 and 7.6; the third was pre-registered with a refutation threshold, which
 it did not reach, and it added no lemma at all: its saving came from deleting proof steps that
 definitional unfolding already discharged and from one macro.
-\src{docs/P2-PROOF-INTERFACE.md, the runP\_code point and round 4}
+\src{docs/CLAIMS.tsv[proof\_round\_1, proof\_round\_2, proof\_round\_3, proof\_round\_4]; docs/P2-PROOF-INTERFACE.md, the runP\_code point and round 4}
 We read this as the tier deciding the cost more than the library does: a factor of about eight between
 the two tiers, against the roughly threefold reduction the three rounds achieved within one. We do
 not claim a floor. The residue per label, unpacking the invariant, naming the instruction's effect
@@ -637,17 +637,17 @@ We compare against three x86-64 semantics whose sources we have read: two indepe
 and a third derived from one of them.
 ACL2 x86isa~\cite{goel-x86isa,x86isa-repo} specifies ``400+ opcodes executing in Intel's 64-bit mode of
 operation'' and runs ``co-simulations against an actual x86 processor for model validation''.
-\src{docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225}
+\src{docs/CLAIMS.tsv[x86isa\_opcodes]; docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225}
 Its proof development is far stronger than ours: eight verified program families carry 559 theorem
 forms over a separate proof library, and one of them proves full functional correctness and freedom
 from faults for a copy loop of unbounded length.
-\src{docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
+\src{docs/CLAIMS.tsv[x86isa\_theorem\_forms]; docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
 603 forms of the utilities library}
 The K semantics~\cite{dasgupta-k-x86,k-x86-repo} covers ``3155 instruction variants, corresponding to
 774 mnemonics'', and ``is fully executable and has been tested against more than 7,000
 instruction-level test cases and the GCC torture test suite''; its prover establishes functional
 post-conditions with loop invariants for ten programs.
-\src{docs/TACAS-G1-POSITIONING.md 1b verbatim from K's README; 1c.4 for the kprove specifications}
+\src{docs/CLAIMS.tsv[k\_variants, k\_mnemonics, k\_tests]; docs/TACAS-G1-POSITIONING.md 1b verbatim from K's README; 1c.4 for the kprove specifications}
 K executes assembly source rather than machine code: its loader parses assembler directives, and its
 opcodes are mnemonics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.8}
@@ -658,7 +658,7 @@ tests the translation rather than supplying a third semantics.
 Against these, x86lean covers 158 mnemonics where K's target lists 774; x86isa's figure is stated in
 opcodes, a different unit, and Sail's model publishes no count. Its proof support, seven memory-safety
 theorems over four routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
-\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; 158 is gated by
+\src{docs/CLAIMS.tsv[k\_mnemonics]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; 158 is gated by
 scripts/claimed\_forms.py; docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
 means. libLISA discovers instructions and synthesizes their semantics by executing them on a CPU,
@@ -669,7 +669,7 @@ model, libLISA takes the processor as ground truth. The two are complementary ra
 We have used libLISA's models for the packed-shift rule on which x86lean and the reference model part
 (Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
 direct second source this work still lacks, and for the SSE forms it would first need their scope extended.
-\src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221}
+\src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221; the quoted ``118 000'' is libLISA's own spacing and is not cited to the manifest, whose prose check reads comma separators only}
 A public Isabelle/HOL entry in the Archive of
 Formal Proofs gives over-approximative semantics for roughly 120 x86-64 assembly instructions, with
 symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ build a machine model with
@@ -678,7 +678,7 @@ equivalence proofs between decompiled machine code and big-step semantics~\cite{
 Verbeek et al.\ lift stripped binaries to a provably over-approximative representation exportable to
 Isabelle/HOL~\cite{verbeek-lifting}. We have read their abstracts, not their artifacts, and do not
 position x86lean against them.
-\src{abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
+\src{docs/CLAIMS.tsv[afp\_instructions, roessle\_instructions]; abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
 and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220}
 What x86lean adds is the subject of Sections~\ref{sec:undef}--\ref{sec:gated}: an undefined-bit design
 whose limits are stated as theorems, a differential harness whose disagreement classes and wrong-model
@@ -696,10 +696,10 @@ Validation by differential testing against executable models and hardware is est
 K was tested against more than 7{,}000 instruction-level cases~\cite{dasgupta-k-x86}, x86isa is
 co-simulated against a processor~\cite{goel-x86isa}, and stratified synthesis learned the x86-64
 instruction set automatically~\cite{heule-stratified}.
-\src{docs/TACAS-G6-RELATED-WORK.md 4, the differential and co-simulation rows}
+\src{docs/CLAIMS.tsv[k\_tests]; docs/TACAS-G6-RELATED-WORK.md 4, the differential and co-simulation rows}
 Using XED as a trusted decoder is not a clean contrast with x86isa either: 186 of the 3{,}192 entries in
 x86isa's opcode maps were generated from XED's data files.
-\src{docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}
+\src{docs/CLAIMS.tsv[x86isa\_xed\_entries, x86isa\_inst\_entries]; docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}
 Specifying which parts of a machine state code may change, with the rest held as a frame, has a direct
 precedent for machine code: Myreen and Gordon's Hoare logic over realistically modelled machine code
 writes specifications in the style of separation logic and derives its frame rule~\cite{myreen-hoare-machine-code},

@@ -90,6 +90,18 @@ recorded logs with a reduced re-run.
      ✅ R2 cold on the development box, 37 s (§2); ⛔ x86isa certification still UNMEASURED, and neither on a
         CLEAN machine
   4  cite every remaining number in the paper to the manifest (paper/README.md)
+     ⚠️ PARTLY, 2026-09-13: +20 rows (49 → 69), each value DERIVED by its command at 673b64a, never typed, and
+        cited where the paper quotes it — K's 3155/774/7,000 and 497 of 3,064; x86isa's 400+, 559, 186 of
+        3,192; libLISA's 118,000 and 18–28; the AFP's ~120; Roessle's 1,625; D108's 8 in 78,584; the
+        proof rounds 25/12/9.6/7.6. Planted: 497 → 479 in the paper, check_claims FAILs naming the row.
+        ⛔ A row gates PAPER == OUR RECORD; an external figure's record carries its source and read date,
+        and re-reading the source is still G1's job, not this gate's.
+        ⛔ NOT CITED, declared: D52's 82 pre-states / 35 (its record states them in WORDS); the four
+        re-check samples 3/9 · 3/8 · 3/7 · 2/3 (no single record line holds them); §7's quoted "118 000"
+        (libLISA's own spacing, which the prose arm does not read); the label counts 2, 4, 5, 7 (already
+        declared in the paper's own marker); Armstrong's 24 of 15,400 (cited to the paper PDF directly).
+        Inventory method: every digit run in the printed prose, by segment — 124, of which 75 sat in
+        segments citing no row, most of them `x86-64` and `Lean 4`.
   5  the container or VM, per [CALL]
 ```
 📌 **Price unchanged at 3–4 days** until item 1 is read; §1 is inside that price, not added to it,
