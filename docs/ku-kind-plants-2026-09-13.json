@@ -1,0 +1,269 @@
+{
+ "origin": {
+  "lean": "Lean (version 4.32.0-rc1, arm64-apple-darwin24.6.0, commit b4812ae53eea93439ad5dce5a5c26591c31cb697, Release)",
+  "repo_head": "c3705b293923885a5a99bd7b3252f24fdcba8b0a",
+  "tool_uncommitted": true,
+  "platform": "darwin",
+  "machine": "arm64",
+  "cpus": 14
+ },
+ "conditions": {
+  "load_start": [
+   3.96484375,
+   5.08935546875,
+   4.41064453125
+  ],
+  "repeats": 5,
+  "load_end": [
+   3.93896484375,
+   5.01611328125,
+   4.39990234375
+  ]
+ },
+ "kinds": {
+  "K1 list-decide": {
+   "rows": [
+    {
+     "n": 400,
+     "ku": 4816,
+     "diag_seen": true,
+     "ms": [
+      9.08,
+      8.97,
+      9.4,
+      9.36,
+      9.67
+     ],
+     "ms_median": 9.36
+    },
+    {
+     "n": 800,
+     "ku": 9616,
+     "diag_seen": true,
+     "ms": [
+      19.7,
+      20.0,
+      22.6,
+      22.9,
+      20.0
+     ],
+     "ms_median": 20.0
+    },
+    {
+     "n": 1600,
+     "ku": 19216,
+     "diag_seen": true,
+     "ms": [
+      44.6,
+      44.1,
+      46.2,
+      43.2,
+      44.9
+     ],
+     "ms_median": 44.6
+    }
+   ],
+   "marginal_dku": 9600,
+   "marginal_dms": 24.6,
+   "ms_per_1k_ku": 2.5625,
+   "ms_rise_small_to_large": 4.764957264957266,
+   "ku_span": 14400
+  },
+  "K2 gmp-literal": {
+   "rows": [
+    {
+     "n": 1000000,
+     "ku": 10,
+     "diag_seen": true,
+     "ms": [
+      2.09,
+      2.0,
+      1.96,
+      2.11,
+      2.16
+     ],
+     "ms_median": 2.09
+    },
+    {
+     "n": 4000000,
+     "ku": 10,
+     "diag_seen": true,
+     "ms": [
+      9.31,
+      10.2,
+      9.27,
+      9.2,
+      9.2
+     ],
+     "ms_median": 9.27
+    },
+    {
+     "n": 16000000,
+     "ku": 10,
+     "diag_seen": true,
+     "ms": [
+      49.7,
+      50.7,
+      51.0,
+      50.3,
+      51.1
+     ],
+     "ms_median": 50.7
+    }
+   ],
+   "marginal_dku": 0,
+   "marginal_dms": 41.43000000000001,
+   "ms_per_1k_ku": null,
+   "ms_rise_small_to_large": 24.25837320574163,
+   "ku_span": 0
+  },
+  "K3 inference": {
+   "rows": [
+    {
+     "n": 250,
+     "ku": 0,
+     "diag_seen": false,
+     "ms": [
+      1.8,
+      1.75,
+      1.72,
+      1.68,
+      1.69
+     ],
+     "ms_median": 1.72
+    },
+    {
+     "n": 500,
+     "ku": 0,
+     "diag_seen": false,
+     "ms": [
+      5.95,
+      6.1,
+      6.14,
+      5.9,
+      5.72
+     ],
+     "ms_median": 5.95
+    },
+    {
+     "n": 1000,
+     "ku": 0,
+     "diag_seen": false,
+     "ms": [
+      23.6,
+      23.3,
+      23.0,
+      22.5,
+      23.3
+     ],
+     "ms_median": 23.3
+    }
+   ],
+   "marginal_dku": 0,
+   "marginal_dms": 17.35,
+   "ms_per_1k_ku": null,
+   "ms_rise_small_to_large": 13.546511627906977,
+   "ku_span": 0
+  },
+  "K4 bitvec-decide": {
+   "rows": [
+    {
+     "n": 12,
+     "ku": 745,
+     "diag_seen": true,
+     "ms": [
+      1.22,
+      1.26,
+      1.2,
+      1.22,
+      1.15
+     ],
+     "ms_median": 1.22
+    },
+    {
+     "n": 25,
+     "ku": 1551,
+     "diag_seen": true,
+     "ms": [
+      2.39,
+      2.3,
+      2.37,
+      2.25,
+      2.24
+     ],
+     "ms_median": 2.3
+    },
+    {
+     "n": 50,
+     "ku": 3101,
+     "diag_seen": true,
+     "ms": [
+      4.48,
+      4.99,
+      4.81,
+      4.86,
+      5.04
+     ],
+     "ms_median": 4.86
+    }
+   ],
+   "marginal_dku": 1550,
+   "marginal_dms": 2.5600000000000005,
+   "ms_per_1k_ku": 1.6516129032258067,
+   "ms_rise_small_to_large": 3.9836065573770494,
+   "ku_span": 2356
+  },
+  "K5 string-decide": {
+   "rows": [
+    {
+     "n": 200,
+     "ku": 19598,
+     "diag_seen": true,
+     "ms": [
+      56.5,
+      55.6,
+      52.4,
+      51.1,
+      49.5
+     ],
+     "ms_median": 52.4
+    },
+    {
+     "n": 400,
+     "ku": 38798,
+     "diag_seen": true,
+     "ms": [
+      117.0,
+      110.0,
+      116.0,
+      113.0,
+      104.0
+     ],
+     "ms_median": 113.0
+    },
+    {
+     "n": 800,
+     "ku": 77198,
+     "diag_seen": true,
+     "ms": [
+      247.0,
+      238.0,
+      250.0,
+      243.0,
+      244.0
+     ],
+     "ms_median": 244.0
+    }
+   ],
+   "marginal_dku": 38400,
+   "marginal_dms": 131.0,
+   "ms_per_1k_ku": 3.4114583333333335,
+   "ms_rise_small_to_large": 4.656488549618321,
+   "ku_span": 57600
+  }
+ },
+ "control": [
+  4816,
+  4816
+ ]
+}

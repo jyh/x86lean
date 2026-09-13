@@ -756,6 +756,12 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    instrument simply could not have been run on anything landed since.**
    ⇒ **NEXT, AND IT IS NOW THE CAMPAIGN'S CRITICAL PATH:** derive an unfolding budget and ask
    whether it is ACCURATE, not merely decidable.
+   ⚖️ **ASKED 2026-09-13 BY KIND (D228, sealed at `c3705b2`) — DECIDABLE AND NOT ACCURATE.** The counter
+   reads ku 10 on literal `Nat` arithmetic whose kernel time rises 24x, and ku 0 on a no-unfolding term whose
+   time rises 13x; on the three unfolding kinds one constant converts ku to time within 2.06x. **ARM A needs a
+   COMPLEMENT for the two blind kinds before it can replace the ms gate.** ⛔ Whether this repository HAS such
+   work is measured in ONE module only (`Tests.Coverage`: none). **NEXT, cheap, needs no quiet box for its ku
+   half:** a ku reading of every module the ms gate budgets, at HEAD, joined to one profile.
 
 0c. ⛔⛔ **`es3-anchor-theorems` IS BLOCKED ON AN UNDECIDABLE BAND, NOT ON A BUDGET — AND THE GATE'S
    OWN "MORE REPEATS" REMEDY WAS REFUTED BY THE RUN IT RECOMMENDED.** Measured 2026-09-08 by paris on

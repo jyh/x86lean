@@ -14957,3 +14957,53 @@ kept, header-less output is None. **Planted:** the old ninth-field parser swappe
 In-process: 0 of 25 conditions arms red here; a real `lsof` row on this box parses to the right cwd.
 ⇒ 🔑 ***A PATH PARSED AS A FRAGMENT RESOLVES AGAINST WHEREVER THE PARSER STANDS, AND THIS PARSER STOOD IN THE TREE
 IT ATTRIBUTES.***
+
+## D228 — ARM A is decidable and NOT accurate: the unfolding counter is blind to literal arithmetic and to no-unfolding terms, and agrees with time to ~2x on the work it can see
+
+⚖️ **2026-09-13, yukon, pre-registered at `c3705b2`** (`docs/seals/2026-09-13-armA-accuracy-by-kind.md`), tool
+`scripts/ku_kind_plants.py`, corpus `docs/ku-kind-plants-2026-09-13.json` with its `origin`.
+
+### 1. WHY — THE QUESTION D189 LEFT ON THE CRITICAL PATH
+QUEUE 0b closed D189 with *"derive an unfolding budget and ask whether it is ACCURATE, not merely decidable."* Every
+reading for the counter had held the KIND of kernel work fixed: `deterministic_cost.py`'s linearity arms are one plant
+at three sizes, and the twelve-commit corpus is `Tests.Coverage`, the `decide`-over-tables module. A counter of
+*unfolded declarations* has no stated reason to see kernel work that unfolds nothing.
+⇒ [[feedback-a-dimension-with-no-parameter-is-frozen]]: the kind had no parameter, so every verdict was a reading at one kind.
+
+### 2. THE READING (run 4; run 3 in brackets)
+```
+  A1 control, same file twice        ku 4816 / 4816, Δ 0                                   ✅   [Δ 0]
+  A2 K1 List.replicate/foldr decide  4816 · 9616 · 19216 = exactly 12N + 16                ✅   [identical]
+  A3 K2 3^N % p by decide            ku 10 at N = 1M, 4M, 16M;  kernel ms 2.1 → 50.7 (24.3x)   ✅ BLIND  [24.0x]
+  A4 K3 N-deep And.intro term        ku 0, no [diag] message;   kernel ms 1.7 → 23.3 (13.6x)   ✅ BLIND  [13.3x]
+  A5 unfolding kinds, ms per 1k ku   K1 2.562 · K4 BitVec 1.652 · K5 String 3.411; max/min 2.06x < 3   ✅  [2.44x]
+  A6 corpus constant 2.39–7.01       overlaps 1.65–3.41                                      ✅ context only
+```
+Load1 3.96 at start, 3.94 at end; 5 ms repeats a plant, ranges in the corpus. **Kernel ms is used only as a ratio within
+the run.** K3 is super-linear (N doubles, ms ×3.5–3.9), which is the nested `∧` type being re-inferred — and still ku 0.
+
+### 3. ⛔ WHAT IT MEANS FOR ARM A — AS SEALED, NOT CHOSEN AFTER
+* **A Δku gate passes literal arithmetic and large no-unfolding terms AT ANY SIZE, with an exact zero and a zero band.**
+  D189's zero band is exactly what makes this a CONFIDENT pass rather than an UNMEASURABLE one.
+  ⇒ 🔑 ***A GATE WITH NO NOISE HAS NO WAY TO SAY "I DID NOT SEE THAT" — ITS BLINDNESS READS AS A MEASURED ZERO.***
+* **For the work it does see, one constant converts ku to time within ~2–2.5x** (A5), consistent with the corpus.
+* ARM A therefore needs a COMPLEMENT for the two blind kinds before it can replace the ms gate. Not designed here.
+  The obvious one is a coarse ABSOLUTE ms ceiling per module (catching size, not drift); a term-size counter would be
+  the deterministic analogue for K3, and nothing in Lean's `diagnostics` offers one for K2.
+
+### 4. THE CENSUS QUESTION, READ ONCE AND NOT SEALED
+At `5c01599`, the last of the twelve commits both corpora cover, `Tests.Coverage`'s 27 profiled declarations
+(19,597 of ~20,900 ms) contain **zero** with ku < 10 and ms ≥ 50; per-declaration ms per 1k ku for those over 400 ms spans
+1.73–4.74. ⛔ **That is the module ku was chosen for.** `X86.Theorems` (~900 ms) and `Tests.Anchors` (~500 ms; 250 lines
+mention `decide` and 469 carry `#64`/`BitVec`/`0x` literals — plausibly K4's kind, which carries literal arithmetic inside it) have **no ku reading at all**.
+⇒ **Whether the repository contains blind mass is UNMEASURED outside one module.** That is the next reading, and it
+is cheap: `deterministic_cost.py --module` at HEAD for each module the ms gate budgets, joined to one `kernel_cost.py`
+profile.
+
+### 5. ⛔ HARNESS DEVIATIONS, EACH BEFORE A VERDICT WAS READ
+K2 was refused at elaboration (`maximum recursion depth`) at N = 80k / 1M / 4M without `exponentiation.threshold`
+raised, and elaborated at ku 10 with it; K2 then ran at 1M / 4M / 16M. K4 at 100 conjuncts failed `Decidable`
+synthesis; it runs at 12 / 25 / 50. The two mechanisms offered for these in the seal are marked there as unverified.
+The tool as committed differs from the one that produced the corpus in COMMENTS only (`origin.tool_uncommitted`
+is true in the corpus for that reason). The selftest is pure and was driven red by two mutations (a K3 generator
+off by one; a parser summing the `[reduction]` section) before it was trusted.
