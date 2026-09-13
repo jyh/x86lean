@@ -14632,3 +14632,23 @@ list cannot rot), and an exempt record that does carry a line is still checked.
 ⚠️ **LOCAL-ONLY FOR NOW, and declared in `preflight.sh`:** wiring it into `ci.yml` moves CI-3's content
 digest and buys a full CI run; it rides with the next change that pays for one (with D213's three
 `.lean` comment corrections, which have the same cost).
+
+---
+
+## D220 — the comparison's population was never derived, and "third of three" was wrong twice, both times against us
+
+⚖️ **2026-09-12, reading G6's owed abstracts.** The CPP 2019 abstract (Roessle, Verbeek, Ravindran, via
+Semantic Scholar; the ACM page returns 403) describes *"a robust and tested formal x86-64 machine model
+containing small step semantics for 1625 instructions"* built from machine-learned semantics — a fourth
+x86-64 semantics absent from G1's table, whose columns were the plan's sources, never a searched
+population. And G1's own cells refute two readings taken from them: Sail's proof support is **none, by
+construction**, so "third of three on proofs" is false; Sail publishes no instruction count and x86isa's
+"400+" counts OPCODES, so "third of three on scale" is unmeasured against one and unit-mismatched against
+the other. Only K's 774 mnemonics is like-for-like.
+**What changes:** the paper's abstract, §1, §3.1, §4.2, §6 and §7 say "smaller than K", "far weaker on
+proofs than x86isa or K", "the three we compare against", and name the Roessle and Verbeek work at
+abstract level without positioning against it. G1 §1d and the PRICING §4a scoreboard are corrected in
+place. **Owed:** whether the Roessle model is public, and a search for other x86-64 semantics before the
+paper says anything about the population.
+⇒ 🔑 ***A COMPARISON TABLE'S COLUMNS ARE A CLAIM ABOUT A POPULATION, AND "THIRD OF THREE" IS ONLY AS TRUE AS
+THE THREE.***

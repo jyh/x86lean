@@ -34,8 +34,8 @@
 
 \begin{abstract}
 x86lean is an executable semantics of x86-64 user-level instructions in Lean~4, built from public
-sources and validated by differential testing against ACL2 x86isa. It is smaller than the existing
-public x86-64 semantics and weaker in proof support, and we say so first. What it contributes is a
+sources and validated by differential testing against ACL2 x86isa. It covers fewer instructions than
+the K semantics and has far weaker proof support than x86isa or K, and we say so first. What it contributes is a
 treatment of validation in which the claims about a semantics, what it covers, how it was checked and
 where the check has nothing to check against, are derived and gated rather than written. We describe a
 design for undefined bits that keeps one definition for execution and proof, derives the undefined set
@@ -63,8 +63,10 @@ disagreements: each is ordinarily prose, and prose is not checked against the ar
 We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
 first. It covers 158 mnemonics, where K's coverage target lists 774, and its proof support is seven
 memory-safety theorems over four routines, where x86isa proves full functional correctness of an
-unbounded loop. It is the smallest of the three and the weakest on proofs.
-\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 3; docs/TACAS-PRICING.md 4a}
+unbounded loop. Other formal x86-64 models exist beyond the three we compare against, among them one
+with small-step semantics for 1{,}625 instructions built from machine-learned
+semantics~\cite{roessle-bigstep}; Section~\ref{sec:related} says what we have and have not read.
+\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 Its decoding is trusted to Intel XED, and its validation is against one executable model.
 
 What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
@@ -169,9 +171,9 @@ flips CF on a SAR case at such a count was contradicted by the reference model.
 \subsection{Four Designs}
 \label{sec:undef:designs}
 
-The public x86-64 semantics, x86isa~\cite{goel-x86isa,x86isa-repo}, the K
-semantics~\cite{dasgupta-k-x86,k-x86-repo} and the Sail model translated from x86isa~\cite{sail-x86-repo},
-answer the question ``what is an undefined bit?'' in four different ways (Table~\ref{tab:undef}). Each
+The three public x86-64 semantics whose sources we have read, x86isa~\cite{goel-x86isa,x86isa-repo},
+the K semantics~\cite{dasgupta-k-x86,k-x86-repo} and the Sail model translated from
+x86isa~\cite{sail-x86-repo}, together with x86lean, answer the question ``what is an undefined bit?'' in four different ways (Table~\ref{tab:undef}). Each
 row was read at the project's own source.
 \src{docs/TACAS-G1-POSITIONING.md 1c.6 and 1c.10}
 
@@ -357,8 +359,8 @@ touches.
 \label{sec:validation:origins}
 % Register: docs/TACAS-G1-POSITIONING.md 1c.5, 1c.7; PROVENANCE.md; Main.lean knownDivergences.
 
-Three public x86-64 models exist, and it would be easy to count them as three witnesses. They are two
-origins. The Sail x86 model is, in its repository's own description, automatically translated from the
+The three public x86-64 models we compare against could easily be counted as three witnesses. They are
+two origins. The Sail x86 model is, in its repository's own description, automatically translated from the
 ACL2 model, and its validation guide co-simulates it against K's single-instruction tests; agreement
 with it would test the translation, not supply an independent semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
@@ -566,8 +568,7 @@ memories agree on the buffer, and the interface's combinators are all single-run
 \paragraph{The sample.}
 Four routines and two to seven labels, written by one author against one interface, are a sample.
 Against x86isa's eight verified program families, including full functional correctness for an
-unbounded copy loop, this is the weakest proof development of the three
-(Section~\ref{sec:related}). A benchmark of such properties, and a program logic proved sound over this
+unbounded copy loop, this is a far weaker proof development (Section~\ref{sec:related}). A benchmark of such properties, and a program logic proved sound over this
 semantics, are the subject of later work.
 \src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2}
 
@@ -578,7 +579,8 @@ semantics, are the subject of later work.
 % 6), docs/DECISIONS.md D201 D214. Every bibliography record fetched by DOI (D214).
 
 \paragraph{x86-64 semantics.}
-Two public x86-64 semantics are independent of each other, and a third is derived from one of them.
+We compare against three x86-64 semantics whose sources we have read: two independent of each other,
+and a third derived from one of them.
 ACL2 x86isa~\cite{goel-x86isa,x86isa-repo} specifies ``400+ opcodes executing in Intel's 64-bit mode of
 operation'' and runs ``co-simulations against an actual x86 processor for model validation''.
 \src{docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225}
@@ -599,10 +601,19 @@ The Sail x86 model~\cite{sail-x86-repo} is translated automatically from x86isa,
 theorems, and is validated by co-simulation against K's single-instruction tests, so agreement with it
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
-Against these, x86lean is the smallest by instruction count, at 158 mnemonics, and the weakest in proof
-support, with seven memory-safety theorems over four routines.
-\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows; 158 is gated by
-scripts/claimed\_forms.py}
+Against these, x86lean covers 158 mnemonics where K's target lists 774; x86isa's figure is stated in
+opcodes, a different unit, and Sail's model publishes no count. Its proof support, seven memory-safety
+theorems over four routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
+\src{docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; 158 is gated by
+scripts/claimed\_forms.py; docs/DECISIONS.md D220}
+Other formal x86-64 models exist outside this comparison. Roessle et al.\ build a machine model with
+small-step semantics for 1{,}625 instructions, leveraging machine-learned semantics, and generate
+equivalence proofs between decompiled machine code and big-step semantics~\cite{roessle-bigstep};
+Verbeek et al.\ lift stripped binaries to a provably over-approximative representation exportable to
+Isabelle/HOL~\cite{verbeek-lifting}. We have read their abstracts, not their artifacts, and do not
+position x86lean against them.
+\src{abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
+read 2026-09-12; docs/DECISIONS.md D220}
 What it adds is the subject of Sections~\ref{sec:model}--\ref{sec:gated}: decoding bytes through a
 named trusted decoder, an undefined-bit design whose limits are stated as theorems, and coverage and
 validation claims that are derived and checked rather than written.
@@ -624,8 +635,8 @@ x86isa's opcode maps were generated from XED's data files.
 \src{docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}
 \placeholder{Characterization theorems with frame predicates (Myreen et al., FMCAD 2012 -- the record
 is OWED, docs/TACAS-G6-RELATED-WORK.md 5, and may not be cited until it is fetched); over-approximative
-semantics lifted from binaries (Roessle et al., CPP 2019; Verbeek et al., PLDI 2022 -- read beyond the
-over-approximation claim is NOT DONE, G6 6); the frame discipline in seL4 and AutoCorres; hardware
+semantics lifted from binaries (Roessle et al., CPP 2019; Verbeek et al., PLDI 2022 -- abstracts read
+09-12, artifacts and availability NOT, D220); the frame discipline in seL4 and AutoCorres; hardware
 validation of the Sail models of other architectures (Armstrong et al., POPL 2019 -- its record is fetched,
 the claim is not re-driven); precedents for stating a model's fidelity per form (x86isa's views, the
 lifting literature), which the Tier docstring asserts and no one has re-driven. Each sentence waits on

@@ -57,6 +57,25 @@ dissects. The table above is the only register; this section says where four of 
 primary source says "400+", the 413 could not be verified at `IMPLEMENTED-OPCODES` (HTTP 403), and a
 search summary is not a source. **400+ is what the author wrote; 413 stays unrecorded.**
 
+## 1d. ⛔⛔ THE TABLE'S POPULATION WAS NEVER DERIVED — AND TWO OF ITS "THIRD OF THREE" READINGS DO NOT HOLD (2026-09-12, D220)
+**The columns are x86isa, K and Sail because those were the plan's sources, not because anyone searched
+for the x86-64 semantics that exist.** Found reading the CPP 2019 abstract for G6: Roessle, Verbeek and
+Ravindran describe *"a robust and tested formal x86-64 machine model containing small step semantics for
+1625 instructions"*, built *"leveraging machine-learned semantics"* (abstract via api.semanticscholar.org,
+DOI 10.1145/3293880.3294102). **A fourth x86-64 semantics, absent from this table. Its availability is
+UNMEASURED**, so it is named in the paper and not positioned against.
+⛔ **AND THE TABLE'S OWN CELLS REFUTE TWO OF THE READINGS TAKEN FROM IT:**
+```
+  "third of three on proof strength"   FALSE -- this table's Sail cell is "NONE, BY CONSTRUCTION".
+                                       x86lean is weaker than x86isa and K, stronger than Sail's zero.
+  "third of three on instruction scale" UNMEASURED against Sail (no count published) and UNIT-MISMATCHED
+                                       against x86isa ("400+ opcodes" vs our 158 MNEMONICS). Only K's
+                                       774 mnemonics is a like-for-like comparison.
+```
+⇒ 🔑 ***BOTH ERRORS RAN AGAINST US, WHICH IS WHY THEY SURVIVED*** — an unflattering overclaim does not
+trip the instinct that catches a flattering one (the same shape §1c.2 recorded for the 1,162 total).
+The paper's concessions are rewritten to what the cells support.
+
 ## 1c. ⭐⭐ THE REMAINING CELLS, READ AT THE SOURCES — 2026-09-11
 
 **Where the sources are.** ACL2 + x86isa and the K semantics are cloned locally under `vendor/`

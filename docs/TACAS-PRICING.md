@@ -306,12 +306,12 @@ reaches for first.** So the judgment is re-taken rather than left standing on a 
 ### THE SCOREBOARD, MEASURED, NOT REMEMBERED
 ```
                         x86lean        the strongest neighbour on that axis
-  instruction scale     158 mnemonics  K: 774            ⇒ WE ARE THIRD OF THREE
+  instruction scale     158 mnemonics  K: 774            ⇒ SMALLER THAN K  [read "THIRD OF THREE" until 09-12: Sail publishes no count, x86isa counts OPCODES — G1 §1d]
   proof strength        7 memory-safety thms / 4 routines
                                        x86isa: full functional correctness + fault-freedom
                                        for an UNBOUNDED loop; a 24,707-line proof library
                                        K: functional post-conditions over loops, 10 programs
-                                                         ⇒ WE ARE THIRD OF THREE
+                                                         ⇒ WEAKER THAN x86isa AND K  [read "THIRD OF THREE" until 09-12: Sail has NO theorems — G1 §1d]
   decode                bytes, via XED, trust NAMED in TRUSTBASE.md
                                        x86isa: bytes, SDM transcription + 5.8% XED
                                        K: DOES NOT DECODE BYTES AT ALL   ⇒ we are second of three
