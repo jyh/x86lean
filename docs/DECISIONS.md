@@ -15493,3 +15493,59 @@ four requirements are met by the deposit plus the `CITATION.cff` landed this shi
 metadata file supplies, and it would have been the one missing.**
 📌 The DOI must point at *"the version used to obtain the results"* — which is why the release is cut at a
 NAMED submission commit, and why `version:` and `date-released:` are owed in that commit and not before.
+
+## D239 — CLAIM-1's hard half, answered: the records do NOT name their oracle, and the value set is THREE, not two
+
+⚖️ **2026-09-13, taking CLAIM-1 (`docs/QUEUE.md`), which says plainly: *"Whoever takes it owes the harder
+half first: deciding what 'an oracle the harness runs' means."* Answering it first REFUTED the item's own
+stated mechanism**, which is why it was worth answering before building anything.
+
+**① THE PREMISE IS FALSE, MEASURED WITH CONTROLS.** CLAIM-1 proposes a two-source agreement gate and says
+*"The right-hand side is derivable — the differential records name their oracle."*
+```
+  differential records (ALL of them, enumerated -- P0 1 · P1 21 · P2 22)            44
+    carrying a machine-readable `Oracle:` line                                       2   ⛔
+    mentioning "x86isa" ANYWHERE in prose                                           32   (control)
+    mentioning "ACL2"   ANYWHERE in prose                                           18   (control)
+```
+⇒ **2 of 44.** The records name their oracle **in prose, unevenly, or not at all**. A gate built on the
+stated right-hand side would have read 2 records, agreed with itself, and reported CLEAN about 42 it could
+not see. ⚠️ **And the census was taken over `DIFFERENTIAL-*`, never `DIFFERENTIAL-P1-BATCH*`** — the glob
+that made the first P2 record invisible to two gates once already.
+⇒ 🔑 ***A HANDED-ON ITEM'S MECHANISM IS A HYPOTHESIS ABOUT ITS SUBJECT, AND "the records name X" IS THE
+KIND OF CLAIM NOBODY CHECKS BECAUSE IT DESCRIBES DOCUMENTS WE WROTE OURSELVES.***
+
+**② WHAT *IS* DERIVABLE: THE HARNESS, NOT THE RECORDS.** `scripts/run_differential.sh` has exactly one
+oracle invocation path and it is hard-wired: `$ACL2` image → `x86lean-diff emit-acl2` → `include-book
+"projects/x86isa/..."`, pinned by `scripts/check_oracle_revision.sh`, with `oracle_availability.py`
+interrogating that same live image.
+⇒ ✅ **DEFINITION, RULED FOR THIS REPOSITORY: an oracle the harness RUNS is a model the differential
+harness EXECUTES to produce verdicts that a record's counters are computed from.** Its witness is the
+harness's invocation path — code — never a record's prose. **Today that set has exactly one member: ACL2 x86isa.**
+
+**③ AND THE VALUE SET IS THREE, WHICH IS THE HALF CLAIM-1 FLAGGED AND DID NOT RESOLVE.** It asked what to do
+"when a source is read mechanically (K) rather than executed". The answer is not to fold it into a yes/no:
+```
+  EXECUTED            the harness runs it; verdicts come back and are compared      ACL2 x86isa
+  READ MECHANICALLY   parsed/consumed as a catalogue or coverage source, never run  K x86-64
+  NAMED AS INTENT     a planned reference; no code path reaches it at all           Sail
+```
+⛔ **A TWO-VALUED GATE OVER THIS WORLD SCORES THE UNSEEN STATE AS ITS RESIDUAL, AND THE RESIDUAL IS THE
+FLATTERING ONE** — "not executed" collapses K and Sail together, and "a source" collapses executed and
+planned. **That collapse IS the original defect**: the paragraph that said "three executable models" was
+two-valued prose over a three-valued world. ✅ **The README as corrected is ALREADY three-valued** — *"the
+executable oracle every differential run is checked against"* / *"read mechanically as a coverage source"* /
+*"a planned third reference"*. **So the gate must carry three roles or it cannot express the sentence it guards.**
+
+**④ THE GATE, SPECIFIED — AND THE HAZARD IT MUST ANSWER, so the next head does not walk into it.**
+The agreement is: for every model the README's sources paragraph names, its ROLE must match the role
+derivable from the tree — EXECUTED iff an oracle invocation path reaches it; NAMED AS INTENT iff no code
+path does. ⛔ **The unsolved half is the LEFT-hand side: extracting "which models, in which role" from
+English without a literal match**, since matching the sentence by literal is the failure mode this
+repository has already recorded, and that sentence has been rewritten twice. ⚠️ **The obvious escape — a
+small declared roster TSV — inherits its default: a model nobody adds to it is silently unclaimed, and the
+unpoliced direction is exactly the over-claim this item exists to stop.**
+📌 **NOT BUILT HERE, DELIBERATELY.** CLAIM-1 is *"NOT PRICED AND NOT ROUTED"*, its hard half is now answered,
+and the remaining design question deserves a ruling rather than my choosing the roster's default alone.
+**What is discharged is the part that was blocking: the definition, the value set, and the fact that the
+proposed right-hand side does not exist.**

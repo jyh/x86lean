@@ -2539,6 +2539,22 @@ sentence has already been rewritten once today.
 when a source is read mechanically (K, for the roster) rather than executed. **The count is easy; the
 value set is the claim** ([[feedback-a-conservation-gate-cannot-see-a-misclassification]]).
 
+✅⛔ **THE HARD HALF IS ANSWERED 2026-09-13 (D239) — AND ANSWERING IT REFUTED THIS ITEM'S OWN MECHANISM.**
+- ⛔ **"The right-hand side is derivable — the differential records name their oracle" IS FALSE.** Measured
+  over ALL 44 records (P0 1 · P1 21 · P2 22, enumerated as `DIFFERENTIAL-*` and NOT as `…-P1-BATCH*`):
+  **2 carry a machine-readable `Oracle:` line**, against controls of **32** mentioning "x86isa" in prose and
+  **18** "ACL2". ⇒ **A gate built on the stated source would have read 2 records and reported CLEAN about 42.**
+- ✅ **What IS derivable is the HARNESS:** `run_differential.sh` has one hard-wired oracle path (`$ACL2` →
+  `emit-acl2` → the `x86isa` books, pinned by `check_oracle_revision.sh`). ⇒ **DEFINITION: an oracle the
+  harness RUNS is one the harness EXECUTES to produce the verdicts a record's counters come from; its witness
+  is code, never a record's prose.** Exactly one member today: ACL2 x86isa.
+- ✅ **THE VALUE SET IS THREE, NOT TWO:** EXECUTED (x86isa) · READ MECHANICALLY (K) · NAMED AS INTENT (Sail).
+  A two-valued gate collapses K with Sail and scores the unseen state as its residual — **which is the
+  original defect itself**, since "three executable models" was two-valued prose over a three-valued world.
+- ⛔ **STILL OPEN, and it is a DESIGN question deserving a ruling, not a default I pick alone:** the LEFT-hand
+  side — extracting "which model, in which role" from English without a literal match. The obvious escape, a
+  declared roster TSV, **inherits its default in the unpoliced direction** ([[feedback-a-declared-list-inherits-its-default]]).
+
 ## ⚠️ CLAIM-2 (NEW, 2026-09-11) — **`TACAS-PRICING.md` §1's NUMBERS ARE CORRECT, UNGATED, AND WERE UNREPRODUCIBLE UNTIL TODAY**
 
 **Measured (D202).** All seven §1 quantities are exactly right at `7bb57ee`. **Not one stated its
