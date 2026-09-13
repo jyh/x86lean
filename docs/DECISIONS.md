@@ -14868,7 +14868,7 @@ construction.
 `scripts/ci_local.py`'s unknown-flag refusal said the default job has "33 steps"; it had 40 (41 with this step).
 The number is removed from both strings rather than updated, since it moves with every step added.
 
-## D227 — PORT-2: `kernel_cost.py --selftest` gets a CI arm, minus the one arm that asserts a retired gate
+## D227 — PORT-2: `kernel_cost.py --selftest` gets a CI arm, and the retired ceilings stop being asserted by two callers
 
 ⚖️ **2026-09-13.** Queue PORT-2 (09/09): the profiler behind every gated kernel number had a 27-arm selftest that
 nothing ran on a push.
@@ -14881,31 +14881,38 @@ nothing ran on a push.
     ✔ control ... ⚠️ UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING THE CEILINGS
 ```
 PORT-4 greened the prefix arm on 09/11; two scripts written since broke it, and nothing looked. Both renamed
-(`x86lean-rank-`, `x86lean-skipfix-`; only their definitions used them). The recorded ~18 min was ~12.
+(`x86lean-rank-`, `x86lean-skipfix-`; only their definitions used them; both scripts' own selftests pass).
 
-### 2. The one arm that cannot travel, and why it is not green at home either
-Every arm but the control is about the CODE: planted 100-ms ceilings, faked loads, a suppressed load, parses,
-prefixes, worktrees, the process table. The control runs the real tree against the ABSOLUTE ceilings, which a
-runner cannot meet (1.7x-3.1x slower, `ci.yml`'s table). And a second run on this box at a measurable load:
+### 2. The control asserted a gate D123 §7 had retired
+The control ran the real tree against the SHIPPED absolute ceilings. A second run on this box, at a measurable load:
 ```
-  kernel_cost.py --selftest                      FAIL (1 of 31) — the control:
+  kernel_cost.py --selftest       FAIL (1 of 31) — the control alone:
     X86.Syntax 254/200 · vectorCoverage 1920/1760 · Coverage residue 15060/12420   OVER
-  kernel_cost.py --selftest --no-calibrated-control   PASS (30 arms), control NOT RUN, 11m15s
 ```
-⇒ **D123 §7 retired those ceilings as a gate on 09/04 and kept them as readings.** The control still asserts
-they pass, so it is red wherever it can measure. The earlier green was UNMEASURABLE, printing its own uselessness.
-**Remedy:** `--no-calibrated-control` (refused without `--selftest`) leaves out that arm, prints it as NOT RUN,
-and drops it from the count. A new CI job, `kernel-cost-selftest`, runs the rest with no `concurrency` group, on
-D224's reasoning. It lands through a branch, because the process-table arms (`ps -eo`, `lsof -d cwd`) had never
-run on Linux.
+⇒ **D123 §7 retired `kernel_ceilings.txt` as a gate on 09/04 and kept it as readings** (the gate is `kernel_delta.py`).
+The control was red wherever it could measure, green only as UNMEASURABLE, and a runner (1.7x-3.1x slower) could
+never pass it.
+⛔ **The first form of this remedy (branch commit `716eccb`) SKIPPED the control in CI** behind a
+`--no-calibrated-control` flag, and justified it by saying the control's subject "already runs on every batch in
+`run_differential.sh`" — which is the retired gate this section found. The choice to keep a machine-bound arm off a
+runner stood on its own ground; the premise was false, and the maestro named it on the bus.
+**Remedy as landed:** the control keeps asking its real question — *can this gate reach CLEAN on the real tree?* —
+against a probe file `generous_ceilings` writes: every key at 100x its largest value, machine pins removed,
+unrecognised lines kept verbatim. Driven: `X86LEAN_CEIL_FILE=<probe> kernel_cost.py` → **rc 0, CLEAN** at load 2.0,
+where the shipped file reads OVER on three lines. The four red arms still prove it can fail, over the same parser.
+The flag is gone; CI job `kernel-cost-selftest` runs the whole suite, with no `concurrency` group on D224's reasoning.
 
-### 3. ⛔ Owed, not built: the retirement never reached two siblings
-- `scripts/run_differential.sh` ENDS on `python3 scripts/kernel_cost.py` under `set -euo pipefail`, so every batch's
-  exit status is the retired gate's. The pinned reference run's own log ends `EXIT=3` (UNMEASURABLE at load 9.10),
-  with the same OVER readings above the refusal.
-- The control arm asserts `rc 0 or UNMEASURABLE` against the same retired file.
-⇒ **Recommended, not done:** the control asserts that the gate reaches a VERDICT and prints its readings,
-whatever the verdict; `run_differential.sh` prints the ceilings as readings, labelled retired, and does not end
-on their exit code. Changing either decides how a retired gate is displayed, so it is posted before it is built.
+### 3. `run_differential.sh` ended every batch on the retired gate's exit code
+It ran `python3 scripts/kernel_cost.py` as its LAST command under `set -euo pipefail`, so since 09/04 its exit status
+was the retired gate's — rc 1 quiet, rc 3 loaded (the pinned reference run's log ends `EXIT=3`) — and rc 1 became
+AMBIGUOUS with `compare`'s own rc 1 for an unexplained disagreement. It now prints the readings under a "RETIRED AS A
+GATE" heading; rc 0/1/3 are readings, any other rc (the profiler broke) still fails the run. Driven by sourcing the
+seven lines extracted from the file under `set -euo pipefail` with a stub profiler: 0/1/3 → 0, 2 → 2, 137 → 137.
+**Swept, as the maestro asked:** no record, table or paper sentence quotes that script's exit status as a verdict.
+The three "differential is green" sentences (`DIFFERENTIAL-P2-BATCH18.md`, `COVERAGE.md` batch 23, D122's record)
+rest on the compare counts and name the kernel-cost red separately; every `EXIT 0` hit belongs to another script;
+no script consumes the rc. Pattern run with `git grep -E` and its planted control on the same instrument (2 of 2).
 ⇒ 🔑 ***A RULING THAT RETIRES A GATE HAS TO FIND EVERY CALLER THAT STILL READS ITS EXIT CODE.*** D123 §7 moved the
 readings into `kernel_delta.py` and left two callers asserting the old verdict, one of them a selftest's control.
+⇒ 🔑 ***AND A RIGHT CHOICE CARRIES ITS PREMISE INTO THE RECORD UNCHECKED*** — the skip was defensible and its stated
+reason was the defect.

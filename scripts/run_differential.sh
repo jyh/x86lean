@@ -94,5 +94,19 @@ lake env .lake/build/bin/x86lean-diff compare run/lean.txt run/oracle.txt
 # against the thirty this script already costs, and it runs LAST, when the oracle
 # is done and the machine is quiet again — which is the condition the ceilings
 # were registered under.
-echo "── kernel-cost ceilings (calibrated for THIS machine; see ci.yml on why not in CI) ──"
-python3 scripts/kernel_cost.py
+#
+# ⛔⛔ D227 (2026-09-13): AND THOSE CEILINGS ARE RETIRED AS A GATE, SO THIS STEP NO LONGER ENDS
+# THE SCRIPT ON THEIR VERDICT. D123 §7 retired `kernel_ceilings.txt` as a gate on 09/04 and kept it
+# as readings; the kernel-time gate is `kernel_delta.py` (CI `kernel-delta` and its redfirst). This
+# line kept running under `set -e` as the LAST command, so from 09/04 every batch's exit status was
+# the retired gate's: rc 1 when quiet (the tree is over three lines), rc 3 when loaded — the pinned
+# reference run's log ends `EXIT=3`. And rc 1 from this script became AMBIGUOUS: `compare` exits 1
+# on an unexplained disagreement too. The readings still print; rc 0/1/3 are READINGS, anything
+# else means the profiler itself broke and still fails the run.
+echo "── kernel-cost ceilings: READINGS, RETIRED AS A GATE (D123 §7; the gate is kernel_delta.py) ──"
+kc_rc=0
+python3 scripts/kernel_cost.py || kc_rc=$?
+case "$kc_rc" in
+  0|1|3) echo "   kernel_cost.py rc=$kc_rc: a reading of retired ceilings, not this run's verdict" ;;
+  *)     echo "⛔ kernel_cost.py FAILED TO PRODUCE A READING (rc=$kc_rc)" >&2; exit "$kc_rc" ;;
+esac

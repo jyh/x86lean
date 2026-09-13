@@ -52,10 +52,13 @@ name: CI
 # on every batch, which is also the repair for the real gap — a discipline that
 # depends on a head REMEMBERING is one this session demonstrably failed to keep.
 # See D97.
+# ⛔ SUPERSEDED IN PART: D123 §7 retired those ceilings AS A GATE on 09/04 (the gate
+# is `kernel-delta` below), and since D227 `run_differential.sh` prints them as
+# readings without ending on their exit code.
 # ⚠️ ITS SELFTEST IS A DIFFERENT THING AND DOES RUN HERE (PORT-2, job
-# `kernel-cost-selftest` at the end of this file): every arm except the one that
-# runs the real tree against the absolute ceilings. Those arms plant ceilings,
-# fake loads and read the process table, so their answers are about the CODE.
+# `kernel-cost-selftest` at the end of this file): every arm plants ceilings, fakes
+# a load or reads the process table, and the control passes against a 100x probe
+# of the ceilings, so every answer is about the CODE and none about this machine.
 #
 # ⛔ THIS COMMENT USED TO END "the list of those has exactly two entries", and
 # D86's batch made it three. A COUNT IN A COMMENT BESIDE A LIST is the thing that
@@ -892,17 +895,15 @@ jobs:
   # NUMBER HERE, AND ITS SELFTEST HAD NO CI ARM. Measured 2026-09-13 before this job existed:
   # 30 of 31 arms locally, and the red one was the temp-prefix rule PORT-4 had greened on
   # 09/11 — broken since by two newer scripts, with nothing running the suite to notice.
-  # `--no-calibrated-control` leaves out exactly ONE arm, the control that runs the real tree
-  # against ABSOLUTE ceilings calibrated on the development box (the table at the top of this
-  # file: 1.7x-3.1x slower here), and the output says it was NOT RUN.
-  # ⛔ AND THAT CONTROL IS NOT GREEN AT HOME EITHER, which is a second reason, measured the same
-  # day: D123 §7 retired those ceilings as a gate on 09/04 and kept them as readings, and at a
-  # measurable load on the development box the tree is over three of them (X86.Syntax 254/200,
-  # vectorCoverage 1920/1760, the Coverage residue 15060/12420), so the plain `--selftest`
-  # reads 1 of 31 there on its control alone. The kernel-time GATE is `kernel-delta` above.
+  # ⚖️ D227: THE WHOLE SUITE, BECAUSE ITS ONE MACHINE-BOUND ARM WAS REDESIGNED RATHER THAN
+  # SKIPPED. The control used to run the real tree against the shipped absolute ceilings,
+  # which D123 §7 retired as a gate and which the tree exceeds even on the development box
+  # (X86.Syntax 254/200, vectorCoverage 1920/1760, the Coverage residue 15060/12420). It now
+  # passes against a 100x probe of that file with the machine pins removed, so it still
+  # proves the gate can reach CLEAN, on any machine. The kernel-time GATE is `kernel-delta`.
   # ⛔ NO `concurrency:`, on D224's reasoning: a job that a faster push cancels is not a gate.
-  # PRICE: about 12 min on the development box, four nested build-and-profile runs; a
-  # public repository's standard runners are not billed.
+  # PRICE: about 12 min on the development box, four nested build-and-profile runs and a
+  # fifth for the control; a public repository's standard runners are not billed.
   kernel-cost-selftest:
     runs-on: ubuntu-latest
     steps:
@@ -914,5 +915,5 @@ jobs:
           auto-config: false
           build: true
           test: false
-      - name: Kernel-cost gate selftest, every arm but the machine-calibrated control (PORT-2)
-        run: python3 scripts/kernel_cost.py --selftest --no-calibrated-control
+      - name: Kernel-cost gate selftest, every arm driven, control against a 100x probe (PORT-2)
+        run: python3 scripts/kernel_cost.py --selftest

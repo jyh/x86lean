@@ -935,6 +935,32 @@ def unwritable_entries(path):
     return out
 
 
+_CEIL_LINE = re.compile(
+    r"^(?P<key>\S+(?:\s+@decl\s+\S+|\s+@tail)?)\s+(?P<val>\d+(?:\.\d+)?)"
+    r"(?:\s+" + re.escape("@on") + r"\s+\S+)?\s*$")
+
+
+def generous_ceilings(text, factor=100):
+    """The selftest control's probe file (D227): one machine-less line per ceiling key, at
+    `factor` times the largest value any line gives that key. Comments are dropped; a data
+    line this pattern does not recognise is kept VERBATIM, so a new directive reaches the
+    parser unchanged rather than silently vanishing from the control."""
+    best, order, other = {}, [], []
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        m = _CEIL_LINE.match(line.strip())
+        if not m:
+            other.append(line)
+            continue
+        k, v = m.group("key"), float(m.group("val"))
+        if k not in best:
+            order.append(k)
+        best[k] = max(best.get(k, 0.0), v)
+    return "\n".join(other + [f"{k} {int(best[k] * factor)}" for k in order]) + "\n"
+
+
 def read_ceilings():
     """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
     d, decls, tails, cand = {}, {}, {}, {}
@@ -1506,7 +1532,7 @@ def conditions_selftest():
     return out
 
 
-def selftest(skip_control=False):
+def selftest():
     """⛔ DRIVE THE PER-DECLARATION GATE RED, EACH FAILURE MODE ALONE.
 
     A ceiling gate is the easiest kind to have and not have: it passes when the
@@ -1601,75 +1627,57 @@ def selftest(skip_control=False):
     # ⭐ THE POSITIVE CONTROL: four reds prove the gate can fail; only this proves
     # it can pass.
     #
-    # ⚠️ ITS BYTE CHECK IS NOW TRIVIALLY TRUE, AND IS KEPT ON PURPOSE.  With the
-    # seam the probe cannot write the shipped file, so "byte-restored" is no
-    # longer a fact about a restore — it is the REGRESSION GUARD if the seam is
-    # ever removed and the mutations come back into the tree.  Stated rather
-    # than left to read as a live check (D75).
+    # ⚖️⚖️ D227 (2026-09-13): IT NOW PASSES AGAINST A GENEROUS PROBE FILE, NOT THE SHIPPED
+    # CEILINGS. It used to run the real tree against `kernel_ceilings.txt` itself, and
+    # D123 §7 retired that file as a gate on 09/04 (the gate is `kernel_delta.py`): at a
+    # measurable load on the development box the tree is over three of its lines
+    # (X86.Syntax 254/200, vectorCoverage 1920/1760, the Coverage residue 15060/12420),
+    # so this arm was RED wherever it could measure and green only as UNMEASURABLE. It
+    # was also the one arm a runner could not pass (1.7x-3.1x slower, ci.yml's table).
+    # ⇒ The question it exists for is "can this gate reach CLEAN on the real tree", and
+    # that needs a ceiling the tree meets, not the retired numbers. `generous_ceilings`
+    # writes every line at 100x its largest value with the machine pins removed, so the
+    # same real profile must read CLEAN on any machine this repository runs on — and the
+    # four arms above, over the SAME parser, still prove it can fail.
+    # ⚠️ The shipped file is still read, byte-compared and left untouched: it is the
+    # regression guard if the seam is ever removed (D75).
     # ⛔⛔ THIS CONTROL WAS WRITTEN ONCE WITH `X86LEAN_FAKE_LOADAVG="1.00"` AND
     # THAT WAS A DEFECT, CAUGHT BY ITS OWN FAILURE.  Forcing the load suppresses
-    # the VERDICT but not the CONDITION: the child still profiled a busy machine,
-    # only with the refusal disabled, so the arm asserted "the ceilings pass"
-    # about a reading that cannot support either answer.  That is D111's own
-    # confusion — a machine reading read as a code fact — reproduced inside the
-    # probe written to prevent it, one hour later.
-    #
-    # ⇒ It runs at the REAL load and admits THREE outcomes, because there are
-    # three:
-    #     rc 0  the ceilings pass                     → the control did its job
+    # the VERDICT but not the CONDITION, so it runs at the REAL load and admits:
+    #     rc 0  CLEAN                                 → the control did its job
     #     rc 3  UNMEASURABLE at this load             → it could not, and SAYS SO
-    #     rc 1  over ceiling AT A CALIBRATED LOAD     → a real regression, FAIL
-    # ⚠️ The middle case is a PASS that prints its own uselessness. It is not an
-    # escape hatch: rc 1 — the only outcome that means "the code got slower on a
-    # machine quiet enough to tell" — still fails the selftest.
-    # ⛔⛔ PORT-2: `--no-calibrated-control` SKIPS THIS ARM, AND ONLY THIS ARM, and says so.
-    # It is the one arm whose answer is a fact about THE MACHINE: the real tree against
-    # ABSOLUTE ceilings calibrated on the development box. A runner is 1.7x-3.1x slower
-    # per module (ci.yml's own table), so there it returns rc 1 at a quiet load — a red
-    # about hardware. CI runs every OTHER arm.
-    # ⛔ AND IT IS NOT GREEN ON THE DEVELOPMENT BOX EITHER (measured 2026-09-13): D123 §7
-    # retired these ceilings as a gate and kept them as readings, and at a measurable load the
-    # tree is over three of them, so this arm FAILS here too whenever it can measure — it
-    # passed earlier the same day only as UNMEASURABLE. What it asserts has been stale since
-    # 09/04; the kernel-time gate is `kernel_delta.py`. Queue PORT-2 carries that question.
-    # A skipped control is NOT RUN, never PASSED: it is left out of the arm count and the
-    # banner names it.
-    if skip_control:
-        print("  ⏭  control NOT RUN (--no-calibrated-control): the shipped ceilings are "
-              "calibrated to the development box, and on another machine this arm "
-              "reports the hardware (they are also retired as a gate, D123 §7)")
-    r = (subprocess.run([sys.executable, os.path.abspath(__file__)],
-                        capture_output=True, text=True) if not skip_control else None)
-    out0 = (r.stdout + r.stderr) if r else ""
+    #     rc 1  over a 100x ceiling, or unregistered  → FAIL
+    ctl_dir = tempfile.mkdtemp(prefix="x86lean-ceilprobe-")
+    ctl_ceil = os.path.join(ctl_dir, "kernel_ceilings.txt")
+    try:
+        open(ctl_ceil, "w").write(generous_ceilings(saved))
+        r = subprocess.run([sys.executable, os.path.abspath(__file__)],
+                           capture_output=True, text=True,
+                           env=dict(os.environ, X86LEAN_CEIL_FILE=ctl_ceil))
+    finally:
+        shutil.rmtree(ctl_dir, ignore_errors=True)
+    out0 = r.stdout + r.stderr
     untouched = open(CEIL_FILE).read() == saved
-    unmeas = bool(r) and r.returncode == 3 and "UNMEASURABLE" in out0
-    ok = untouched and (skip_control or r.returncode == 0 or unmeas)
-    if not skip_control:
-        print(("  ✔ " if ok else "  ⛔ ") +
-              "control: the shipped ceilings PASS at a calibrated load, and the tree "
-              "file is UNTOUCHED" +
-              ("  ⚠️ UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING "
-               "THE CEILINGS; the only thing it verified today is that the gate "
-               "refused rather than guessed" if unmeas else ""))
+    unmeas = r.returncode == 3 and "UNMEASURABLE" in out0
+    clean = r.returncode == 0 and "kernel-cost gate: CLEAN" in out0
+    ok = untouched and (clean or unmeas)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "control: the real tree reaches CLEAN against a 100x probe of the ceilings, "
+          "and the shipped file is UNTOUCHED" +
+          ("  ⚠️ UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING; "
+           "the only thing it verified today is that the gate refused rather than "
+           "guessed" if unmeas else ""))
     # ⛔⛔ AND WHEN IT FAILS, PRINT WHY.  This arm used to DISCARD `r.stdout`, so a
     # CI log said only "a control failed" and never named the declaration that
     # was over its ceiling — the reading a developer actually needs, and the one
-    # that cannot be recovered from a remote runner afterwards.  It cost two
-    # diagnosis cycles (D94) before it was worth fixing: both times the answer
-    # was only obtainable by re-running the whole gate locally, on a DIFFERENT
-    # machine from the one that failed, which for a TIMING gate is precisely the
-    # measurement that cannot be transferred.
-    #
-    # ⇒ 🔑 A GATE THAT REFUSES MUST SAY WHAT IT SAW.  A refusal with no reading
-    # attached turns every remote failure into a local re-run, and for anything
-    # machine-dependent the local re-run answers a different question.
+    # that cannot be recovered from a remote runner afterwards (D94).
+    # ⇒ 🔑 A GATE THAT REFUSES MUST SAY WHAT IT SAW.
     if not ok:
-        if skip_control or r.returncode == 0 or unmeas:
-            print("     (the ceiling file was MODIFIED by the probe — a restore failed)")
+        if not untouched:
+            print("     (the SHIPPED ceiling file was MODIFIED during the selftest)")
         print("     ── the failing run's own output ──")
         for line in out0.splitlines():
             print("     " + line)
-    if not ok:
         bad.append("control")
     # ⭐ the conditions/CPU/orphan arms (items 4d, 7, 8) — cheap and in-process
     cond_arms = conditions_selftest()
@@ -1677,24 +1685,18 @@ def selftest(skip_control=False):
         print(("  ✔ " if cok else "  ⛔ ") + cname)
         if not cok:
             bad.append(cname)
-    n = len(arms) + len(load_arms) + (0 if skip_control else 1) + len(cond_arms)
-    unrun = "; the calibrated control NOT RUN" if skip_control else ""
+    n = len(arms) + len(load_arms) + 1 + len(cond_arms)
     if bad:
-        print(f"kernel-cost selftest: FAIL ({len(bad)} of {n} arms{unrun})")
+        print(f"kernel-cost selftest: FAIL ({len(bad)} of {n} arms)")
         return 1
     print(f"kernel-cost selftest: PASS ({n} arms — every way this gate "
-          f"could stop looking, driven separately, "
-          + ("the calibrated control NOT RUN)" if skip_control else "plus the control)"))
+          f"could stop looking, driven separately, plus the control)")
     return 0
 
 
 def main():
-    if "--no-calibrated-control" in sys.argv and "--selftest" not in sys.argv:
-        print("⛔ --no-calibrated-control only modifies --selftest; alone it would run the "
-              "ceiling gate with the flag silently ignored")
-        return 2
     if "--selftest" in sys.argv:
-        return selftest(skip_control="--no-calibrated-control" in sys.argv)
+        return selftest()
     if "--post-flight" in sys.argv:
         rc, lines = post_flight()
         print("\n".join(lines))
