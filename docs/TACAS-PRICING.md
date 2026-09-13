@@ -330,6 +330,18 @@ position a reader has already refuted.
 ⇒ **The contribution that survives contact with the table is the GATING**, and it survives because it
 is the one axis where the neighbours' own sources show nobody competing — not because it is grander.
 
+### ⛔⛔ RE-TAKEN 2026-09-12 AFTER THE POPULATION WAS SEARCHED (D220) — AND IT MOVES AGAINST US AGAIN
+The answer above rests on *"the one axis where the neighbours' own sources show nobody competing"* — and
+the neighbours were x86isa, K and Sail only. **libLISA** (PACMPL 2024) answers *"how do you know your
+semantics is right"* from the processor itself: 118,000+ instruction groups synthesized from a CPU, five
+machines compared, bugs found in handwritten models. And an AFP Isabelle/HOL model already treats
+undefinedness as a parameter. ⇒ **What survives is narrower:** not validation in general, and not the
+undefined-bit parameter, but **gating a MANUAL-DERIVED semantics' own claims** — derived coverage, a pinned
+reference model, refusals as theorems, and the paper's figures checked against their manifest — with the
+one-in-three negative result as its evidence. **My confidence that it clears the regular-track bar is
+lower than when §4a was written, and this is the reason; it is also further evidence for the case-study
+category (§3a).** The paper now concedes both neighbours in its own words.
+
 ### ⛔ AND THE PART AGAINST MYSELF, BECAUSE §4 IS MINE AND I AM RE-CONFIRMING IT
 **The gating discipline is not novel IN KIND.** Deriving a claim from two sources and failing CI on
 disagreement is ordinary software engineering. What is unusual is applying it to a formal semantics'
