@@ -43,7 +43,7 @@ from the semantics instead of declaring it, and states a case the model declines
 differential harness whose disagreement classes and wrong-model controls are explicit; the places where
 the reference model is not the specification, including one where it contradicts itself; and a
 measurement, on a sample, of what safety proofs over the semantics cost. We also report how often this
-project's own ungated claims failed a re-check: about one time in three.
+project's own ungated claims failed a re-check: in each of four samples, at least one time in three.
 \src{Each claim is the subject of a section below and is cited there.}
 \end{abstract}
 
@@ -378,7 +378,7 @@ touches.
 \label{sec:validation:origins}
 % Register: docs/TACAS-G1-POSITIONING.md 1c.5, 1c.7; PROVENANCE.md; Main.lean knownDivergences.
 
-The three public x86-64 models we compare against could easily be counted as three witnesses. They are
+The three public x86-64 models we position x86lean against could easily be counted as three witnesses. They are
 two origins. The Sail x86 model is, in its repository's own description, automatically translated from the
 ACL2 model, and its validation guide co-simulates it against K's single-instruction tests; agreement
 with it would test the translation, not supply an independent semantics.
@@ -391,7 +391,8 @@ x86lean. Sail has not been used in any differential record.
 \src{PROVENANCE.md, the K and Sail rows; docs/TACAS-G1-POSITIONING.md, the executable row and 1c.7;
 Main.lean knownDivergences, the source field of every entry}
 The validation claims below are therefore claims of agreement with one executable model, arbitrated
-where the two disagree by the manual and by reading the other model's rules. That arbiter is fallible
+where the two disagree by the manual and by reading the other model's rules, and for one rule by a model
+synthesized on processors (Section~\ref{sec:validation:limits}). That arbiter is fallible
 too: comparing K's semantics with semantics synthesized on five processors, libLISA judged K incorrect for
 between 18 and 28 instruction variants per machine~\cite{liblisa}.
 \src{liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
@@ -529,8 +530,15 @@ re-derived with the obvious commands, three of the seven came out different.
 And the technical draft behind Section~\ref{sec:undef}, written from decision records, contained two
 false sentences that surfaced only when the prose was checked against the step function.
 \src{docs/DECISIONS.md D213}
-In the three samples with a denominator, claims that no check read failed a re-check about one time in
-three, and the failures were present when the claims were written rather than acquired later.
+A fourth sample came from writing this paper's related work: of three attributions to prior work that
+the project had recorded from the literature and never re-read, two did not survive reading the paper
+cited, one crediting a frame rule to a paper whose improvement removes it and one describing as hardware
+validation what the paper reports as validation against test suites and simulators.
+\src{docs/DECISIONS.md D222 and D223; the third attribution, per-instruction theorems composed without
+re-evaluating the model, survived}
+In the four samples with a denominator, 3 of 9, 3 of 8, 3 of 7 and 2 of 3, claims that no check read
+failed a re-check at least one time in three, and the failures were present when the claims were
+written rather than acquired later.
 Re-checking more often does not answer that; only a mechanical check does.
 
 \paragraph{What this is not.}
@@ -715,7 +723,8 @@ the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md
 
 The limitations are the ones stated where they arise. x86lean is small, and its proofs are few. Its
 decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
-by reading a second; K has not been run, and no hardware co-simulation has been. The reference model
+by reading a second, and for one rule by a model synthesized on processors; K has not been run, and no
+hardware co-simulation has been. The reference model
 refuses more of the remaining instructions than it executes, so for those a model built from the manual
 currently has no second source. A rule the reference model does not implement, such as MOVDQA's
 alignment fault, is carried by theorem alone. The proof-cost measurements are a sample of four routines. And the
@@ -724,8 +733,8 @@ gate on quoted figures checks the figures that cite the manifest, not every numb
 The contribution is not a larger or more strongly proved semantics. It is a semantics whose claims about
 itself are outputs: derived from the artifact, checked against a second source where one exists, and
 stated as absent where one does not. The measurement that motivates it is modest and, we think,
-general: in this project, claims about formal artifacts that nothing checked failed a re-check about
-one time in three, and the failures were present when the claims were written.
+general: in this project, claims about formal artifacts that nothing checked failed a re-check at least
+one time in three in every sample we took, and the failures were present when the claims were written.
 
 % ---------------------------------------------------------------------------------------------
 % Mandatory for ETAPS 2027 papers: placed just before the references, outside the page limit
