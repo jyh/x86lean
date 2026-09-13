@@ -281,13 +281,38 @@ upstream is noticed rather than silently absorbed.
 The published record of that batch reads 81{,}752 cases, 0 unexplained and 0 leaks, with the divergences
 counted in their own class.
 \src{docs/DIFFERENTIAL-P2-BATCH13.md:119-120}
-\placeholder{The cost of a divergence entry (it excuses one field for that vector at every pre-state)
-and the three things that stand against it, from D108 4.}
+A divergence entry has a cost, and we state it. It excuses one field of one vector at every
+pre-state, so a genuine defect of x86lean in that field would now be absorbed by it. Two things stand
+against that, and neither is the entry itself. The saturation rule is checked by a theorem on a witness
+value at every lane width, chosen so that a model returning zero, or confusing a logical with an
+arithmetic shift, fails it. And the deliberately wrong models of these instructions are compared
+against x86lean itself with an empty divergence list, where the reference model's defect is
+irrelevant, so no entry can weaken them.
+\src{docs/DECISIONS.md D108 4; Tests/Coverage.lean vshift\_saturates\_rather\_than\_wrapping;
+Main.lean driveWrong, compareRecs [] good bad}
 
-\paragraph{The ceiling of the method.}\mbox{}
-\placeholder{The reference model cannot execute a large share of the remaining vector instructions at
-all, so that share cannot be differentially validated at any price. Quote the live figures from
-docs/P2-ROSTER.md at a pinned sha, never D115's dated table (D115 3 says so).}
+\paragraph{The ceiling of the method.}
+Differential validation needs a reference model that runs the instruction, and for much of what
+x86lean does not yet cover, ours does not. We measure demand with a census of the instructions in
+public Debian binaries; in its assembly class, six codec columns counted apart from compiler output,
+401{,}653 instructions are forms the model does not cover.
+\src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv p2\_gap\_total}
+Of those, 162 are scalar instructions awaiting a LOCK vocabulary and the rest are vector instructions.
+Asking the reference model to execute one form of each vector mnemonic, at the operand class where the
+demand actually occurs, it executes the forms carrying 139{,}854 of them and refuses the forms carrying
+169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 91{,}519 have not yet been
+asked at their own class. The five parts sum to the total.
+\src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv
+p2\_addition\_lock, p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked;
+162 + 139854 + 169877 + 241 + 91519 = 401653}
+The reference model therefore refuses more of the remaining gap than it executes. Those instructions
+cannot be differentially validated against it at any price, however the work is ordered. K has
+semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
+bytes and this project has never run it, so whether it can serve as the second source there is open.
+\src{docs/DECISIONS.md D115 3 for the finding (its table is dated; the live figures are the roster's);
+docs/P2-ROSTER.md, the K operand shapes column; docs/TACAS-G1-POSITIONING.md 1c.8 and its executable row}
+For those instructions a model built from the manual has, for now, no second source, and a paper about
+validation has to say so.
 
 % ---------------------------------------------------------------------------------------------
 \section{Gated Claims}
