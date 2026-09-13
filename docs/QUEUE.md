@@ -238,6 +238,11 @@ non-ASCII one raises. It cannot produce a wrong number. That is why this is P-lo
 `encoding="utf-8"` to all 193 in one act. **OWNER:** paris. **NOT** a partial pass.
 
 ### PORT-2. `kernel_cost.py --selftest` IS NOT IN CI — 27 arms that only run by hand
+✅ **WIRED 2026-09-13 (D227)** as CI job `kernel-cost-selftest`, `--selftest --no-calibrated-control`: 30 of 31
+arms. It had already gone red unseen (the temp-prefix arm, two new offenders, fixed). ⛔ **The control that is
+left out asserts ceilings D123 §7 retired, and it is red on the development box too at a measurable load. OWED
+(D227 §3):** what that control and `run_differential.sh`'s last step should assert about a retired gate.
+*The entry below is the history.*
 Measured: `command grep 'kernel_cost.py --selftest' .github/workflows/*.yml` → **nothing**,
 against `kernel_delta`, `kernel_delta_history`, `deterministic_cost`, `unfolding_calibration`,
 `threads_ab` and `user_cost_budget`, which ARE all wired.

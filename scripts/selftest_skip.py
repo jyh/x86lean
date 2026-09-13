@@ -292,7 +292,7 @@ def selftest():
             print(f"  x {name}  {detail}")
 
     print("selftest_skip --selftest")
-    tmp = tempfile.mkdtemp(prefix="skipfix-")
+    tmp = tempfile.mkdtemp(prefix="x86lean-skipfix-")
     try:
         R = os.path.join(tmp, "repo")
         os.makedirs(os.path.join(R, ".github", "workflows"))

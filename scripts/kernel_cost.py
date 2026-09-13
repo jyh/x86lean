@@ -1506,7 +1506,7 @@ def conditions_selftest():
     return out
 
 
-def selftest():
+def selftest(skip_control=False):
     """⛔ DRIVE THE PER-DECLARATION GATE RED, EACH FAILURE MODE ALONE.
 
     A ceiling gate is the easiest kind to have and not have: it passes when the
@@ -1622,18 +1622,35 @@ def selftest():
     # ⚠️ The middle case is a PASS that prints its own uselessness. It is not an
     # escape hatch: rc 1 — the only outcome that means "the code got slower on a
     # machine quiet enough to tell" — still fails the selftest.
-    r = subprocess.run([sys.executable, os.path.abspath(__file__)],
-                       capture_output=True, text=True)
-    out0 = r.stdout + r.stderr
+    # ⛔⛔ PORT-2: `--no-calibrated-control` SKIPS THIS ARM, AND ONLY THIS ARM, and says so.
+    # It is the one arm whose answer is a fact about THE MACHINE: the real tree against
+    # ABSOLUTE ceilings calibrated on the development box. A runner is 1.7x-3.1x slower
+    # per module (ci.yml's own table), so there it returns rc 1 at a quiet load — a red
+    # about hardware. CI runs every OTHER arm.
+    # ⛔ AND IT IS NOT GREEN ON THE DEVELOPMENT BOX EITHER (measured 2026-09-13): D123 §7
+    # retired these ceilings as a gate and kept them as readings, and at a measurable load the
+    # tree is over three of them, so this arm FAILS here too whenever it can measure — it
+    # passed earlier the same day only as UNMEASURABLE. What it asserts has been stale since
+    # 09/04; the kernel-time gate is `kernel_delta.py`. Queue PORT-2 carries that question.
+    # A skipped control is NOT RUN, never PASSED: it is left out of the arm count and the
+    # banner names it.
+    if skip_control:
+        print("  ⏭  control NOT RUN (--no-calibrated-control): the shipped ceilings are "
+              "calibrated to the development box, and on another machine this arm "
+              "reports the hardware (they are also retired as a gate, D123 §7)")
+    r = (subprocess.run([sys.executable, os.path.abspath(__file__)],
+                        capture_output=True, text=True) if not skip_control else None)
+    out0 = (r.stdout + r.stderr) if r else ""
     untouched = open(CEIL_FILE).read() == saved
-    unmeas = r.returncode == 3 and "UNMEASURABLE" in out0
-    ok = untouched and (r.returncode == 0 or unmeas)
-    print(("  ✔ " if ok else "  ⛔ ") +
-          "control: the shipped ceilings PASS at a calibrated load, and the tree "
-          "file is UNTOUCHED" +
-          ("  ⚠️ UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING "
-           "THE CEILINGS; the only thing it verified today is that the gate "
-           "refused rather than guessed" if unmeas else ""))
+    unmeas = bool(r) and r.returncode == 3 and "UNMEASURABLE" in out0
+    ok = untouched and (skip_control or r.returncode == 0 or unmeas)
+    if not skip_control:
+        print(("  ✔ " if ok else "  ⛔ ") +
+              "control: the shipped ceilings PASS at a calibrated load, and the tree "
+              "file is UNTOUCHED" +
+              ("  ⚠️ UNMEASURABLE at this load — the control PASSED WITHOUT CHECKING "
+               "THE CEILINGS; the only thing it verified today is that the gate "
+               "refused rather than guessed" if unmeas else ""))
     # ⛔⛔ AND WHEN IT FAILS, PRINT WHY.  This arm used to DISCARD `r.stdout`, so a
     # CI log said only "a control failed" and never named the declaration that
     # was over its ceiling — the reading a developer actually needs, and the one
@@ -1647,10 +1664,10 @@ def selftest():
     # attached turns every remote failure into a local re-run, and for anything
     # machine-dependent the local re-run answers a different question.
     if not ok:
-        if r.returncode == 0 or unmeas:
+        if skip_control or r.returncode == 0 or unmeas:
             print("     (the ceiling file was MODIFIED by the probe — a restore failed)")
         print("     ── the failing run's own output ──")
-        for line in (r.stdout + r.stderr).splitlines():
+        for line in out0.splitlines():
             print("     " + line)
     if not ok:
         bad.append("control")
@@ -1660,18 +1677,24 @@ def selftest():
         print(("  ✔ " if cok else "  ⛔ ") + cname)
         if not cok:
             bad.append(cname)
-    n = len(arms) + len(load_arms) + 1 + len(cond_arms)
+    n = len(arms) + len(load_arms) + (0 if skip_control else 1) + len(cond_arms)
+    unrun = "; the calibrated control NOT RUN" if skip_control else ""
     if bad:
-        print(f"kernel-cost selftest: FAIL ({len(bad)} of {n} arms)")
+        print(f"kernel-cost selftest: FAIL ({len(bad)} of {n} arms{unrun})")
         return 1
     print(f"kernel-cost selftest: PASS ({n} arms — every way this gate "
-          f"could stop looking, driven separately, plus the control)")
+          f"could stop looking, driven separately, "
+          + ("the calibrated control NOT RUN)" if skip_control else "plus the control)"))
     return 0
 
 
 def main():
+    if "--no-calibrated-control" in sys.argv and "--selftest" not in sys.argv:
+        print("⛔ --no-calibrated-control only modifies --selftest; alone it would run the "
+              "ceiling gate with the flag silently ignored")
+        return 2
     if "--selftest" in sys.argv:
-        return selftest()
+        return selftest(skip_control="--no-calibrated-control" in sys.argv)
     if "--post-flight" in sys.argv:
         rc, lines = post_flight()
         print("\n".join(lines))

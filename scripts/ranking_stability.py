@@ -167,7 +167,7 @@ def selftest():
         A is not None and len(A["inverted"]) > 0 and len(A["pairs"]) > len(A["inverted"]),
         f"{A and len(A['inverted'])}")
 
-    tmp = tempfile.mkdtemp(prefix="rank-")
+    tmp = tempfile.mkdtemp(prefix="x86lean-rank-")
     try:
         os.makedirs(os.path.join(tmp, "docs"))
         arm("⭐ PLANT: NO corpora ⇒ analyse REFUSES (a gate with no subject must not "

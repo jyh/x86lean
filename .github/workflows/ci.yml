@@ -52,6 +52,10 @@ name: CI
 # on every batch, which is also the repair for the real gap — a discipline that
 # depends on a head REMEMBERING is one this session demonstrably failed to keep.
 # See D97.
+# ⚠️ ITS SELFTEST IS A DIFFERENT THING AND DOES RUN HERE (PORT-2, job
+# `kernel-cost-selftest` at the end of this file): every arm except the one that
+# runs the real tree against the absolute ceilings. Those arms plant ceilings,
+# fake loads and read the process table, so their answers are about the CODE.
 #
 # ⛔ THIS COMMENT USED TO END "the list of those has exactly two entries", and
 # D86's batch made it three. A COUNT IN A COMMENT BESIDE A LIST is the thing that
@@ -883,3 +887,32 @@ jobs:
             exit 0
           fi
           exit "$rc"
+
+  # ⛔⛔ PORT-2 (queue, 09/09): `kernel_cost.py` IS THE PROFILER BEHIND EVERY GATED KERNEL
+  # NUMBER HERE, AND ITS SELFTEST HAD NO CI ARM. Measured 2026-09-13 before this job existed:
+  # 30 of 31 arms locally, and the red one was the temp-prefix rule PORT-4 had greened on
+  # 09/11 — broken since by two newer scripts, with nothing running the suite to notice.
+  # `--no-calibrated-control` leaves out exactly ONE arm, the control that runs the real tree
+  # against ABSOLUTE ceilings calibrated on the development box (the table at the top of this
+  # file: 1.7x-3.1x slower here), and the output says it was NOT RUN.
+  # ⛔ AND THAT CONTROL IS NOT GREEN AT HOME EITHER, which is a second reason, measured the same
+  # day: D123 §7 retired those ceilings as a gate on 09/04 and kept them as readings, and at a
+  # measurable load on the development box the tree is over three of them (X86.Syntax 254/200,
+  # vectorCoverage 1920/1760, the Coverage residue 15060/12420), so the plain `--selftest`
+  # reads 1 of 31 there on its control alone. The kernel-time GATE is `kernel-delta` above.
+  # ⛔ NO `concurrency:`, on D224's reasoning: a job that a faster push cancels is not a gate.
+  # PRICE: about 12 min on the development box, four nested build-and-profile runs; a
+  # public repository's standard runners are not billed.
+  kernel-cost-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: true
+          test: false
+      - name: Kernel-cost gate selftest, every arm but the machine-calibrated control (PORT-2)
+        run: python3 scripts/kernel_cost.py --selftest --no-calibrated-control
