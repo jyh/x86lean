@@ -125,6 +125,15 @@ read the stored comparison output for the variants named in `Main.lean knownDive
 (movd/movq to xmm, the eight packed shifts), and note which K revision libLISA compared against
 (ours: `vendor/k-x86-64` @ 592380a).
 The paper's §4.2 now says the arbiter is fallible.
+✅ **SUPERSEDED THE SAME EVENING (D221) — THE CONTAINER WAS NOT NEEDED, AND A PROCESSOR-ORIGIN READING WAS
+AVAILABLE INSTEAD.** libLISA's synthesized semantics (OSF 2hfq9, linked from its query tool's README) and
+`liblisa-semantics-tool` answer the rules directly: on all five machines, all ten `knownDivergences` rules
+PASS on the **VEX.128 form** (count from `xmm1[63:0]` only; `vmovd`/`vmovq` clear, not merge), with controls
+and plants (`docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md`). ⛔ **The legacy encodings we test are absent** —
+0 encodings led by 66/F2/F3 on any machine, and libLISA's §5.2.2 files the non-VEX SSE forms as out of
+enumeration scope. ⇒ **That scope also answers the owed question:** the ten K files we cite are legacy forms,
+a "K incorrect" verdict needs a libLISA semantics to compare against, so **they cannot be among the 18–28**
+— libLISA's comparison never reached them. The container download was stopped and deleted.
 📌 The SETTA 2024 chapter (Lu, Yuan, Sanán, Zhao; *Formalizing x86-64 ISA in Isabelle/HOL: A Binary
 Semantics for eBPF JIT Correctness*) — publisher elides the abstract; **UNREAD.**
 📌 The CPP 2019 1,625-instruction model embeds stratified-synthesis semantics in Isabelle/HOL (per a search

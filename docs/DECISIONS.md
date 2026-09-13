@@ -14666,3 +14666,36 @@ had never named it. The paper's §1, §3.1 and §7 now name it at abstract level
 against its models is the most direct second source x86lean lacks.
 ⇒ 🔑 ***THE POPULATION SEARCH TOOK TWO QUERIES AND FOUND THE LARGEST MEMBER ON THE SECOND. A POSITIONING
 TABLE BUILT FROM A PLAN'S SOURCE LIST HAD MISSED IT FOR TEN DAYS.***
+
+## D221 — the declared divergences have a processor-origin reading, on the VEX form, and libLISA's verdicts on K never reached the rules we cite
+
+⚖️ **2026-09-12, taking the item G1 §1d left owed.** Every `knownDivergences` entry names K and the SDM as the authorities
+that agree with x86lean against x86isa; D220 recorded that libLISA judges K wrong on 18–28 variants per
+machine. The owed route was a 1.89 GB Zenodo container holding libLISA's per-variant K verdicts. **A cheaper
+and stronger route existed:** libLISA's synthesized semantics themselves (OSF, 67 MB compressed) and its query
+tool, which answer the rule directly from processor-observed dataflows rather than second-hand through a
+verdict on K.
+**Measured** (`docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md`, `scripts/liblisa_hardware_check.py`): on all five of
+libLISA's machines, for all ten entries, the VEX.128 form of the instruction reads the packed-shift count from
+`xmm1` bytes 0..7 only (D108), and `vmovd`/`vmovq` write the destination's upper low-128 bytes from no input as
+zero (D93). 50 rule verdicts PASS, 0 FAIL; three controls and five plants per machine hold; the check refuses
+a `knownDivergences` entry it has no proxy for.
+⛔ **THE FIRST RUN ASKED ABOUT OUR OWN BYTES AND GOT 14 NULLS, CONTROLS INCLUDED.** Not a finding about the
+rules: libLISA's population holds **no** encoding led by a 66, F2 or F3 prefix on any machine (0 of ~118,000
+each), and its paper says the non-VEX SSE forms are out of enumeration scope. So the verdict is about a
+**proxy form**, stated as such, and it does not see above bit 127, where VEX and legacy differ.
+⭐ **AND THE SAME SCOPE ANSWERS THE OWED QUESTION.** The ten K files we cite are the legacy forms. A "K incorrect"
+verdict needs a libLISA semantics to compare against, and a 66-prefixed variant has none, so those rules sit in
+libLISA's out-of-scope class and cannot be among the 18–28. Not a clearance of K; a statement that libLISA's
+comparison never reached them. The container download was stopped at 433 MB and deleted.
+**What changes:** the paper's §3.1 no longer says we read libLISA's abstract only; §4.2 says where the fallible
+arbiter was checked against a processor-origin source and on what form; §4.3's packed-shift paragraph gains the
+processor reading; §7 narrows "the most direct second source this work lacks" to what is still lacking — a
+comparison beyond ten rules. `Main.lean knownDivergences` `source` strings are NOT edited here (a `.lean` edit
+buys a full CI run and a kernel-delta profile; it joins the owed CI-cost batch with D213 and D219).
+⇒ 🔑 ***A NULL FROM A LOOKUP IS A CLAIM ABOUT THE POPULATION BEFORE IT IS A CLAIM ABOUT THE SUBJECT*** — the
+controls going null with the subjects is what said so; a run without them would have filed ten "libLISA has
+no semantics" rows.
+⇒ 🔑 ***THE ROUTE NAMED IN AN OWED ITEM IS THE ROUTE ITS WRITER COULD SEE*** — the container was the path to
+libLISA's opinion of K; the data was the path to the processor, linked from the query tool's README in
+libLISA's own repository.
