@@ -108,7 +108,9 @@ if [ -z "$last_id" ]; then
 fi
 echo "  last CONCLUDED build: run $last_id @ ${last_sha:0:8} ⇒ $last_concl"
 [ "$skipped" -gt 0 ] && echo "  ⚠️  $skipped newer run(s) gave NO verdict (cancelled/in-flight). Not green — silent."
-gh run view "$last_id" --json jobs --jq '.jobs[]|"    \(.name)=\(.conclusion)"' 2>/dev/null
+# A job still running has an EMPTY conclusion, which printed as `selftest (2)=` and read as nothing at all;
+# it now prints its status, so an in-flight job is visibly in flight rather than silently blank.
+gh run view "$last_id" --json jobs --jq '.jobs[]|"    \(.name)=\(if (.conclusion // "") == "" then .status else .conclusion end)"' 2>/dev/null
 if [ "$last_concl" = "failure" ]; then
   echo "  ⛔ MASTER'S LAST REAL VERDICT IS RED."; rc=1
 fi
