@@ -15160,7 +15160,7 @@ the coverage table's forms while the other counts the differential record's vect
 cited the wrong claim [[feedback-a-join-on-a-lossy-key]].
 ```
   PLANTS (after)   §5 1,012->1,021 · §1 158->185 · §7 158->159 · §5 351->315 · §2 158->157    each rc 1, one finding
-  DECLARED LIMIT   §5 "500 of the 525" -> "525 of the 500"                                   rc 0
+  DECLARED LIMIT   §5 "500 of the 525" -> "525 of the 500"                                   rc 0  (CLOSED by D233)
                    the prose arm checks each value is PRESENT in its span, not its position or role; a swap passes
   manifest         75 rows (69 + 6), check_claims CLEAN; --selftest arms=15 red=0
 ```
@@ -15228,6 +15228,6 @@ it. **Repaired, not declared:** `PAIRS` names each total with its part; the two 
 must carry `<part> of [the] <total>` (digits, thousands form or words, any case). Arms: the "nine days" plant · the "Seven
 headline" plant · a SWAPPED fraction (`9 of 3` — which D231 declared the presence arm lets through) · a total cited without its
 part. Mutation `PAIRS = {}` reds all four. **23 arms, 0 red; 82 rows CLEAN; all six plants above now red.**
-⚠️ **Scope, stated:** the pair rule covers the three pairs named. D231's coverage figures (`500 of the 525`, `351 of the 374`)
-are still checked as presences, so a swap there still passes; naming them in `PAIRS` is one line each and is the next repair
-if that sentence is edited.
+⚠️ **Scope, stated:** the pair rule covers the pairs named. ✅ *This line first deferred D231's coverage fractions (`500 of
+the 525`, `351 of the 374`) as "the next repair"; they were one line each and were named the same hour — D231's declared
+swap limit is closed, with an arm (`525 of the 500` reds). 24 arms, 0 red.*

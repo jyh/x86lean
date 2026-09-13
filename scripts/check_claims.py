@@ -103,7 +103,9 @@ NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "
 # and the span must carry the phrase "<part> of [the] <total>", digits or words.
 PAIRS = {"recheck_d201_total": "recheck_d201_failed",
          "recheck_d214_total": "recheck_d214_failed",
-         "recheck_d202_total": "recheck_d202_failed"}
+         "recheck_d202_total": "recheck_d202_failed",
+         "coverage_rows_total": "coverage_rows_covered",
+         "coverage_forms_distinct": "coverage_forms_covered"}
 
 
 def _num_alts(v):
@@ -381,6 +383,10 @@ def selftest():
     f = check_prose(lone, rs0, verbose=False)
     arm("PLANT: a total cited WITHOUT its part in the same marker is caught",
         any("recheck_d201_total" in x and "SAME marker" in x for x in f), str(f)[:200])
+
+    f = check_prose(paper.replace("covering 500 of the 525", "covering 525 of the 500", 1), rs0, verbose=False)
+    arm("PLANT: D231's declared limit, closed — a swapped COVERAGE fraction (525 of the 500) is caught",
+        any("coverage_rows_total" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0
