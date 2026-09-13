@@ -14817,6 +14817,11 @@ per sha with `gh api …/commits/<sha>/check-runs`: `1ef10f8` · `15a4898` · `f
 📊 **Tally, 2026-09-13 17:1xZ: conclusive 21, arm-1 reds 2** — four more, each verdict `success` / PASS (title and summary
 read, "2 arms — the identical-trees control and the planted constructor"): `79d5e5f` · `7ba3440` · `8a3fbbe` · `f8f4d61`.
 P(≥2 of 21 at α = 5%) ≈ 0.28. `706d6e2` · `fb734e1` · `51d7e09` still running.
+📊 **Tally, 2026-09-13 17:3xZ: conclusive 22, arm-1 reds 3** — `706d6e2` (run 34768415265): verdict check run `neutral`,
+titled UNMEASURED; arm 1 rejected identical trees, `Tests.Program` invented −25.5 ms against a family-wise cut of ±23.2.
+P(≥3 of 22 at α = 5%) ≈ 0.095: not yet evidence of miscalibration. 📌 Two of the three reds are `Tests.Program` (the other
+`Tests.Coverage`), stated and not read as a pattern: three reds cannot tell a unit whose se is under-estimated from chance.
+The next red on `Tests.Program` is the one that would. `fb734e1` · `51d7e09` still running.
 
 ## D225 — a comment-only `.lean` batch landed without its drift-ledger row, because the local gate audited HEAD while the batch was staged
 
