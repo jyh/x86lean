@@ -2539,7 +2539,23 @@ whose precondition is that somebody remembers is switched off by the first perso
 [[feedback-a-gate-whose-precondition-is-a-discipline]]. That is the reason this row exists rather
 than a note in a bank, and the reason it is ranked above CLAIM-1.
 
-## ⚠️ CLAIM-1 (NEW, 2026-09-11) — **THE README'S CORROBORATION CLAIM HAD NO GATE, AND THE TWO README GATES ARE BOTH AIMED ELSEWHERE**
+## ✅ CLAIM-1 (2026-09-11) — **BUILT AND LANDED 2026-09-13 (D241).** Arm (B): the sentence is rendered from a table, and the load is carried by the tree
+
+⚖️ Hard half answered in **D239** (the records do NOT name their oracle — 2 of 44; and the value set is
+THREE). Left-hand side ruled by the helm as **arm (B)** and built the same day: `scripts/check_source_roles.py`
++ `docs/source-roles.tsv`, in CI and in `preflight.sh`.
+```
+  (i)   README == render(table), byte for byte             TRANSPORT ONLY
+  (ii)  each row's CLAIM holds against the tree             CARRIES THE LOAD
+  (iii) closure both ways over the harness's oracle paths   CARRIES THE LOAD
+```
+⭐ The selftest carries the arm the helm required by name — **the table lies and (i) stays green** — and (ii)
+and (iii) each catch it independently. 24 arms, 12 mutations, control green.
+📌 **STILL OPEN, and deliberately out of this gate's scope:** an "independent-of" column (D239 §5, filed not
+ruled), and `vendor/liblisa` as a possible row if the sentence ever claims hardware corroboration. The
+original entry follows, unedited, because the shape of the defect is the reason the gate looks like this.
+
+## ⚠️ CLAIM-1 — THE ORIGINAL ENTRY (2026-09-11) — **THE README'S CORROBORATION CLAIM HAD NO GATE, AND THE TWO README GATES ARE BOTH AIMED ELSEWHERE**
 
 **What happened.** `README.md`'s opening paragraph said the model is checked against *"three
 executable models"* — ACL2 x86isa, K, and Sail — while **line 110 of the same file** says plainly

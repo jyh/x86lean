@@ -34,9 +34,10 @@ unchanged, not assumed.
 It is built from public sources only: the Intel SDM for the intent, ACL2 x86isa
 as the executable oracle every differential run is checked against, the K
 semantics of x86-64 read mechanically as a coverage source, Sail as a planned
-third reference, and Intel XED for decoding. Where the SDM leaves a bit
-undefined the model does not pick a value: it draws one from an oracle carried
-in the state, so no theorem can depend on it.
+third reference, and Intel XED for decoding.
+
+Where the SDM leaves a bit undefined the model does not pick a value: it draws
+one from an oracle carried in the state, so no theorem can depend on it.
 
 Those are **sources, not independent witnesses**, and the difference is measured
 rather than assumed. `sail-x86-from-acl2` is, in its own repository's words, a

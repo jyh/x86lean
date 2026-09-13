@@ -442,6 +442,22 @@ jobs:
           python3 scripts/check_readme_snapshot.py --selftest
           python3 scripts/check_readme_snapshot.py
 
+      # ⭐⭐⭐ CLAIM-1 (D239 §5, helm ruling 2026-09-13). The step above and
+      # `claimed_forms.py` both read the README and both are aimed at NUMBERS; the
+      # sources sentence makes a claim about ROLES — which models this repository
+      # RUNS — and nothing read it. It once said three executable models when one
+      # has ever been executed.
+      # ⛔ THE BYTE-FOR-BYTE HALF IS TRANSPORT ONLY AND MUST NOT BE READ AS THE GATE:
+      # re-deriving a sentence from a table proves the file matches its generator and
+      # says nothing about whether the generator tells the truth. The load is carried
+      # by the per-row claim against the TREE and by two-way closure, and `--selftest`
+      # carries the arm the helm required by name — THE TABLE LIES AND THE RENDERING
+      # STAYS GREEN — so a future edit cannot quietly reduce this to (i).
+      - name: README's sources sentence agrees with what the tree actually runs
+        run: |
+          python3 scripts/check_source_roles.py --selftest
+          python3 scripts/check_source_roles.py
+
       # ⭐⭐⭐ P2 VECTOR WAVE, BATCH 0. The record's sixteen `xmmN=` fields are
       # produced TWICE — by `Cpu.renderXmms` and by `x86l-xmms` — because
       # neither toolchain can read the other's source. Same duplicate the watch

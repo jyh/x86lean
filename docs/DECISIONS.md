@@ -15261,6 +15261,17 @@ in the queue with its three steps, ranked above CLAIM-1. Until then the ms half'
 it on the developer box, which is a gate whose precondition is that somebody remembers.
 [[feedback-a-gate-whose-precondition-is-a-discipline]]
 
+✅ **AND THE PORTABILITY CLAIM WAS A PREDICTION UNTIL 20:5xZ, WHEN IT BECAME A READING.** `ku-delta`'s FIRST
+run on the runner — `bd8fa81`, job `103788980981` — concluded **success**. Two worktrees built on
+`ubuntu-latest`, 21 modules read, Δku gated, rc 0. **This is the first kernel-work gate this campaign has ever
+had conclude off the developer box on its own terms**, and it is what D185's "identical on two machines"
+predicted. ⚠️ **It is ONE run and it is a null pair** (no `.lean` change of consequence between base and head),
+so what it establishes is REACHABILITY, not that a real Δku is portable — the same distinction `kernel-delta`'s
+own CI comment draws about its first green, and it is repeated here rather than assumed to be remembered.
+⚠️ The runner's ms READINGS the step prints are not yet readable: GitHub withholds job logs until the whole
+run completes, and `kernel-delta-redfirst` runs ~45 min. They are in every subsequent run; ARMA-1 says to take
+the worst of four.
+
 ### 8. ⛔ WHAT A′ DOES NOT DO — and the ku budgets are a POLICY TRANSFER, not a measurement
 A Δku budget is the module's registered RELATIVE ms budget applied to its base ku, read live so nothing goes
 stale. **Those percentages were derived as NOISE allowances for a CLOCK; applied to a counter whose noise is
@@ -15272,6 +15283,70 @@ item against this file.
 division of labour is stated so nobody reads a green ceiling as "the module did not get more expensive".
 📌 **`kernel_delta.py` is NOT retired by this.** A new gate's first job is to run beside the old one long
 enough to be compared; retiring the ms delta gate is a separate act with its own evidence.
+
+## D241 — CLAIM-1 built: the README's sources sentence is rendered from a table, and the load is carried by what the tree says, not by the re-derivation
+
+⚖️ **2026-09-13**, arm (B) of D239 §5 as the helm ruled it. `scripts/check_source_roles.py`,
+table `docs/source-roles.tsv`, one README edit (the sentence becomes its own paragraph).
+
+### 1. WHAT IT CHECKS, AND WHICH THIRD OF IT MATTERS
+```
+  (i)   README == render(table), byte for byte             TRANSPORT ONLY
+  (ii)  each row's CLAIM holds against the tree             CARRIES THE LOAD
+  (iii) closure both ways over the harness's oracle paths   CARRIES THE LOAD
+```
+⭐ **THE ARM THE HELM REQUIRED BY NAME IS IN THE SELFTEST: *the table lies and (i) stays green*.** Sail's
+ROLE is flipped to EXECUTED with its PHRASE untouched, so the rendered sentence is byte-identical and the
+README is unchanged. **(ii) and (iii) each catch it independently.** Without them the gate would report CLEAN
+about a table claiming this repository executes a model it has never run — **CLAIM-1's original defect,
+restated exactly, inside the gate built to stop it.**
+
+### 2. ⛔ A NAME IS NOT A CODE PATH, MEASURED IN BOTH DIRECTIONS
+```
+  Sail   2 script lines, BOTH PROSE (a table column header, one comment); no vendor/ artifact
+  XED    ZERO word-bounded script mentions and no vendored artifact — and yet NOT named-as-intent:
+         Main.lean writes `XED (trusted)` into every coverage row, 159 of them
+  -i xed matched "fixed", "mixed", "suffixed", "executed" — 20 files of pure noise
+```
+Every absence carries a POSITIVE CONTROL in the same call: the identical matcher must find `x86isa`, which
+it does in 18 files. **Three clean zeros from a borrowed instrument are the shape of a broken one.**
+⇒ XED is why the KIND column exists. A two-valued EXECUTED/NOT gate **could not have expressed this
+sentence**: the SDM is a DOCUMENT with no derivable claim, and XED is a DECODER whose claim is RECORDED
+TRUST. A row whose kind carries no check **says so in the table** (`claim = none`) rather than by omission.
+
+### 3. ⛔ THE CHECKERS IGNORED THE ROW THEY WERE HANDED, AND ONLY A MUTATION FOUND IT
+Each claim checker tested a FIXED FACT — "run_differential.sh mentions ACL2" — and returned it for whatever
+row it was given, so **`Sail / EXECUTED / harness_invokes` PASSED (ii)**. The suite did not notice: with every
+claim checker stubbed to `True` it stayed **21/21**, because the one lie it was pointed at was being caught by
+the role/checker comparison one line above.
+⇒ 🔑 ***AN ARM SATISFIED BY A NEIGHBOURING CHECK IS NOT AN ARM, AND FROM OUTSIDE IT IS INDISTINGUISHABLE FROM
+A ROBUST ONE.*** The second time in one shift (D240 §5). Every checker now derives from the row, a checker
+handed a model it has no witness for REFUSES rather than answering, and an arm exists in which role and claim
+AGREE so that only the checker itself can red it.
+
+### 4. AND TWO MORE THE SAME MATRIX FOUND
+- **A crash scoring as a refusal, again.** `parse_refuses` accepted any non-zero exit; with the field-count
+  refusal deleted the tuple unpacking below it raised `ValueError`, also non-zero, and the arm passed. Now
+  every refusal arm names the message it expects. [[feedback-a-classifiers-value-set-is-a-claim]]
+- **An arm that tested the WORDING of a control instead of the control.** *"the absence claim is stated WITH
+  its control"* passed whether or not the guard existed, because the sentence carries the word either way.
+  Replaced by one that CREATES the condition — the matcher is made to return nothing, and the claim must
+  REFUSE rather than report absence. [[feedback-a-probe-must-create-its-condition]]
+**24 arms · 12 mutations, each asserting its own edit · control green.**
+
+### 5. SCOPE, STATED RATHER THAN SILENT
+Closure (iii) is over the models the **differential harness invokes**. ⚠️ `vendor/liblisa` is vendored and
+read by `liblisa_hardware_check.py` and is deliberately NOT a row: a one-off hardware ground-truth check is
+not a source the model is built from. **It is named in the table's header anyway** — an exclusion nobody
+wrote down cannot be told from an oversight — and if the sentence ever claims hardware corroboration, that is
+the row that has to appear.
+📌 **FILED, NOT BUILT (D239 §5):** an "independent-of" column. Sail is translated from ACL2 and K does not
+decode machine bytes, so agreement with Sail would test the TRANSLATOR. The row shape accepts a further
+column without a migration.
+📌 **The self-exclusion is printed with every verdict.** Two files carry model names as DATA rather than
+consuming them — the leak gate, whose fixtures are names, and this gate, whose subject is the table of them.
+A declared exclusion list is wrong in whatever direction it defaults to, and the only defence is that a
+reader can see it.
 
 ## D230 — PORT-5: arm 3e's population was one call spelling, so a bare temp directory was not an offender but not a row; nine producers outside it, and two tools the audit called clean were leaking
 

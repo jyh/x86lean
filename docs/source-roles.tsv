@@ -1,0 +1,52 @@
+# THE SOURCES SENTENCE, AS DATA — CLAIM-1's left-hand side (D239 §5, helm ruling 2026-09-13).
+#
+# `README.md`'s "It is built from public sources only: …" sentence is RENDERED from this
+# table by `scripts/check_source_roles.py`, which also checks each row's claim against the
+# TREE.  ⛔ The rendering is TRANSPORT ONLY: a byte-for-byte re-derivation proves the file
+# matches its generator and says NOTHING about whether the generator tells the truth.  The
+# CLAIM column is what carries the load.
+#
+# ⛔ THE TABLE IS THE POPULATION OF THE SENTENCE, NOT OF THE MODELS.  Five things are named
+# and D239 §3's three roles cover only the SEMANTICS ones; the SDM is a DOCUMENT and XED is a
+# DECODER.  Every row therefore carries a KIND, and every row states a claim the tree can be
+# asked about — or says NONE, in the table, rather than by omission.
+#
+# COLUMNS (tab-separated):
+#   name    the thing, as the sentence names it
+#   kind    SEMANTICS | DOCUMENT | DECODER
+#   role    for SEMANTICS: EXECUTED | READ-MECHANICALLY | NAMED-AS-INTENT   (D239 §3)
+#           for every other kind: the claim's short name, or NONE
+#   claim   the checker key in check_source_roles.py that derives this row from the tree
+#   phrase  the row's text inside the rendered sentence
+#
+# ⚠️ MEASURED 2026-09-13 WITH A POSITIVE CONTROL, because a name grep is not a code path:
+# `Sail` occurs in exactly TWO script lines and both are prose (a positioning-table column
+# header and a comment); no Sail artifact is vendored and nothing reads one.  The same
+# word-bounded matcher finds `x86isa` in 16 script files.  ⇒ NAMED-AS-INTENT is DERIVED here,
+# not assumed from the sentence that already says it.
+#
+# ⚠️ AND `XED` HAS NO CONSUMED ARTIFACT EITHER — zero word-bounded mentions in any script, no
+# `vendor/xed` — but it is NOT named-as-intent: `Main.lean` writes `XED (trusted)` into every
+# coverage-table row, so its claim is RECORDED DECODE TRUST, checkable against the generated
+# table.  That is a third kind of claim, and it is why a two-valued EXECUTED/NOT gate could
+# not have expressed this sentence.
+#
+# 📌 SCOPE OF THE CLOSURE CHECK, STATED SO THE EXCLUSION IS NOT SILENT: closure (iii) is over
+# the models the DIFFERENTIAL HARNESS INVOKES.  `vendor/liblisa` is vendored and read by
+# `scripts/liblisa_hardware_check.py`, and it is deliberately NOT a row: it is a one-off
+# hardware ground-truth check, not a source the model is built from, and the harness does not
+# invoke it.  ⚠️ It is named here rather than omitted, because an exclusion nobody wrote down
+# is indistinguishable from an oversight — and if the sentence ever claims hardware
+# corroboration, this is the row that has to appear.
+#
+# 📌 FILED, NOT BUILT (D239 §5): an "independent-of" column.  The fleet map records that
+# `sail-x86-from-acl2` is translated from ACL2 and that K does not decode machine bytes, so
+# agreement with Sail would test the TRANSLATOR.  Out of scope for this gate; the row shape
+# accepts a further column without a migration.
+#
+#name	kind	role	claim	phrase
+Intel SDM	DOCUMENT	NONE	none	the Intel SDM for the intent
+ACL2 x86isa	SEMANTICS	EXECUTED	harness_invokes	ACL2 x86isa as the executable oracle every differential run is checked against
+K x86-64	SEMANTICS	READ-MECHANICALLY	artifact_read	the K semantics of x86-64 read mechanically as a coverage source
+Sail	SEMANTICS	NAMED-AS-INTENT	no_code_path	Sail as a planned third reference
+Intel XED	DECODER	DECODE-TRUST-RECORDED	coverage_table_trust	Intel XED for decoding
