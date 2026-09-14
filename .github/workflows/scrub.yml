@@ -101,3 +101,30 @@ jobs:
       # rather than walking a truncated history and reporting success.
       - name: History ratchet (what each commit INTRODUCED -- the arm --range cannot be)
         run: python3 scripts/check_private_paths.py --history
+
+  pr-descriptions:
+    name: no private-record path or session URL in PR titles/bodies (the forge-side prose)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    # PORTED FROM salt (desk MC, 2026-09-14). A PR's TITLE and BODY are not git
+    # objects, so the arms above cannot see them, and they are the most-read
+    # public prose on the repo page. On 09-14 a chat-session URL reached a salt
+    # PR body with every arm green; x86lean had no forge-prose gate at all. This
+    # job re-reads EVERY open PR on each run: private-record paths (the shapes
+    # scripts/check_private_paths.py owns) and chat-session trailers/URLs (the
+    # shapes scripts/check_commit_trailers.py owns), imported, never re-typed.
+    # A finding never echoes the matched text: this log is public.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The gate proves it can fail before it is allowed to pass.
+      - run: python3 scripts/check_pr_descriptions.py --self-test
+      - name: scan every open PR's title and body via the forge API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_pr_descriptions.py --open
