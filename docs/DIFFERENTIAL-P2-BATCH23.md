@@ -122,3 +122,31 @@ not by this table. The two are different evidence and are not pooled.
 ⇒ 🔑 A differential's silence about a branch it never enters is not agreement
 ([[feedback-unobserved-regions-report-agreement]]). The reachable set was computed from the
 pre-states, in Python, before the run — not read off the green afterwards.
+
+## 6. THE DELTA GATE — AND THE LANDING, 2026-09-15
+
+*(On 2026-09-05 this section recorded an UNMEASURABLE ms delta — `Tests.Coverage` +2,900 against 1,778 — at one-minute load
+9.6–15.7, and held the batch off `master`. That reading is superseded here, not deleted: it is in D140 as written.)*
+
+Step `53c4823` (master, after PR #17) → `327622b` (this batch as one commit), measured on yukon.lan, pre-registered on the fleet
+bus before either profile started:
+
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     Tests.Coverage +550 ±228.1 against 1,818.0; loads 4.1-7.1
+                                                  X86.SoftFloat NEW: head 2.8 ms against 50 @on yukon.lan
+       predicted: at risk of OVER — REFUTED
+  A′   ku_delta --arm a-prime     FAILED, rc 1    Δku X86.SoftFloat +221 against an allowance of 10 (a base of 0, the floor)
+       predicted: FAILED on the new module — CONFIRMED; every other module inside (Tests.Coverage +126,977 / 566,517)
+  D251 --record … --a-prime       REFUSED         a supplied A′ conviction stands whatever the ms verdict
+```
+
+⇒ **A′'s conviction was A′'s defect, not this batch's:** a module absent from the base was priced at `@floor`. D252 repairs it
+the way D192 repaired the ms gate — a new module is judged against an absolute `@ku` registration — and A′ was **re-run**, because
+D251 refuses a stored verdict its readings no longer reproduce:
+
+```
+  A′ (D252)                       CLEAN, rc 0     X86.SoftFloat NEW, 221 against `X86.SoftFloat @ku 221`; every ku reading
+                                                  identical to the first run (an exact counter)
+  --record … --a-prime KU32b      RECORDED        "ms verdict rc 0 · ARM A′ rc 0 on yukon.lan ⇒ lands on the ms verdict"
+                                                  row 53c4823 → 327622b; ledger 23 → 24; --gap 0 unrecorded
+```

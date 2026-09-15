@@ -16753,3 +16753,75 @@ into a copy of the ledger instead, one row counted after each:
 UNMEASURABLE twice on 09-08 decided at ±257 this morning. The prediction came from the history and was wrong, which is the right
 direction to be wrong for a gate: the landing needed the licence less than predicted.
 [[feedback-a-single-reading-is-about-its-run]] [[feedback-prose-written-before-the-measurement]]
+
+## D252 — P2 batch 32 lands as record 23, and A′ refused it for a defect D192 had already repaired in the other gate: a new module priced at the floor
+
+⚖️ **The second `.lean` landing through D251, and the first to add a module.** P2 batch 32 (`3a811fb`, D140) was built on
+2026-09-05 and held off `master` by the drift ledger for ten days. Ported onto `53c4823` (master after PR #17) as one commit,
+`327622b`.
+
+### 1. THE PORT, AND THE GATES THAT WERE WAITING FOR IT
+```
+  conflicts        11 files; source hunks resolved by hand, generated files taken from master and REGENERATED
+  build            lean_route build rc 0, 47 jobs
+  regenerated      VectorRuns 290 runs / 1020 vectors / 162 rows · COVERAGE (162 rows) · P2-ROSTER (--check CLEAN)
+                   DEMAND-CENSUS from ~/x86lean-corpus: every one of eleven column TOTALS reproduced exactly, and
+                   pooled-asm covered +2,256 = the batch's own claimed demand, to the instruction
+  check_citations  carried a D140 exclusion reading "this entry must be removed when that branch lands" -> removed
+  p2_residue g3    red by exactly the landed demand: the commission's sub-group A total counts UNCLAIMED demand
+                   (miss_by_ext), so it moves 6,619 -> 4,363 at this landing; the commission doc now says both
+  kernel ceiling   `X86.SoftFloat 50` was machine-less (pre-D198) and would have refused as unregistered; now
+                   `50 @on yukon.lan`, from today's reading of 2.7 ms under the registry's max(x3, 50)
+  README           "350 of the 374 distinct machine forms" was ungated and stale on master (COVERAGE, gated: 351)
+```
+📌 Two of those were anticipated in writing by whoever built the gate. The citation exclusion named its own release condition,
+and gate 3's docstring said its purpose was to make a published price move when the work moves. **A gate that goes red at a landing
+because the landing changed the thing it tracks is the gate working.** The only question is whether the landing re-stamps it in the
+same act, and here it did.
+
+### 2. THE DIFFERENTIAL, RE-RUN ON TODAY'S TREE
+Record 23 §3. Against record 22: cases +704 (8 vectors × 88), matched +704, explained and divergence unchanged, unexplained 0,
+leaks 0, missing 0 — **the same four deltas the batch produced against record 18 on 2026-09-05**, 338 commits earlier. The three
+comis wrong-model arms score identically to that day (66/132, 167/290, 336/588).
+
+### 3. THE MEASUREMENT, PRE-REGISTERED AND SCORED
+Record 23 §6. **ms CLEAN** (+550 ±228 against 1,818; the "at risk of OVER" prediction from 09-05's loaded +2,900 is refuted).
+**A′ FAILED as predicted:** `X86.SoftFloat` +221 against an allowance of 10. **D251 refused the row**, as built: a supplied A′
+conviction stands whatever the ms verdict. Driven on the real files into a ledger copy: rc 2, 23 rows.
+
+### 4. THE DEFECT, AND WHY IT WAS THE GATE'S
+`ku_of` scores a module absent from a tree as 0, and `effective(budget, 0, floor)` is the floor. So A′ priced EVERY new module at
+10 unfoldings. **This is D192's defect exactly.** The ms gate had it until 2026-09-10 and was repaired there (a new unit is judged
+against an absolute ceiling registered for it). A′ was built on 2026-09-13 and never received the repair. ⇒ **As built, A′ could not
+license any step that adds a module.** Nothing had tried to, because no `.lean` step had landed since A′ existed.
+🔑 ***A REPAIR MADE TO ONE GATE IS NOT INHERITED BY THE NEXT GATE BUILT ON THE SAME ARITHMETIC.*** D192 changed `kernel_delta.verdict`;
+A′ reuses `effective()` and not that verdict, so the repair sat one function away from where it was needed.
+[[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 5. THE REPAIR (fork posted with recommendation (a) during the sitting; built on (a))
+```
+  ku_delta.measure       records new_modules = modules the BASE tree has no file for — never inferred from a zero
+  registry               `<module> @ku <n>`: no @on (ku is machine-independent, D185), a whole number (never a percentage of
+                         zero), no headroom (ku is exact; the registration IS the reading, accepting it is the decision)
+  verdict                a module in new_modules: unregistered -> FINDING that prints `register <module> @ku <head>`;
+                         head > registration -> FINDING; otherwise NEW, registered. Every other module unchanged.
+  a blob with no new_modules   unchanged (floor-priced) — so the pre-repair KU file still refuses under D251 (driven: rc 2)
+```
+Arms 34 → 44, control first (the defect itself, on a blob that does not record new modules). **Seven mutations: six red on their
+named arms; one survived and is EQUIVALENT for the verdict** — `over = reg is not None and head > reg` leaves the unregistered
+finding appended, so rc is unchanged and only the printed row's variable differs, which the printing branch does not read for that
+case. Registered `X86.SoftFloat @ku 221`; **A′ re-run: CLEAN**, every ku reading identical to the first run. Row recorded,
+`landed_on {verdict: ms, ms_rc: 0, a_prime_machine: yukon.lan}`; ledger 23 → 24; `--gap` 0.
+
+### 6. DECLARED, NOT BUILT
+- ⛔ **D251 HAS A SELECTIVE-OMISSION PATH, AND THIS LANDING DROVE IT:** `--record --readings R32.json` with NO `--a-prime`
+  recorded the row (rc 0, into a ledger copy) while A′ was known to fail. The rule consults A′ when supplied and requires it only on
+  ms rc 3, so a lander can decline to supply a verdict that would refuse. I supplied it and the landing waited for a repair. **The
+  closure is to require A′ on every recorded step (one ku run, ~10 min on this box) — a tightening of the helm's gate, posted as a
+  question, not built.**
+- ⚠️ **The runner has no `X86.SoftFloat` ms ceiling.** This PR's `kernel-delta` job measures the merge ref on the runner and will
+  refuse ONCE on the unregistered new unit, printing the runner's reading. That registration touches a PROFILER_PATH, so it cannot
+  follow the row's head inside this step; it lands in its own step, exactly as `X86.Program`'s runner line did.
+- ⚠️ A `@ku` line is dead once its module has a base. Nothing polices a stale one; it is dated so a reader can see it.
+- ⚠️ The row's `allowance` has no `X86.SoftFloat` entry (no base reading exists for a new unit), so a drift window spanning this step
+  reports that unit UNPRICED — the drift gate's existing, stated behaviour for a unit absent from some steps.
