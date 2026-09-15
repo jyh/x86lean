@@ -344,10 +344,6 @@ def selftest_decision_numbers():
 NOT_A_DECISION_NUMBER = {
     "D0":   "an OPCODE byte, not a decision. The shift block is written `D0`-`D3` "
             "in docs/DIFFERENTIAL-P1-BATCH8.md. Decision numbers start at D1.",
-    "D140": "written on the UNMERGED branch `p2-batch32-fp-compares`, and "
-            "docs/DECISIONS.md already carries a note saying so at the citation "
-            "site. It is pending, not phantom — and this entry must be removed "
-            "when that branch lands.",
 }
 
 D_CITE = re.compile(r'\bD(\d{1,3})\b')

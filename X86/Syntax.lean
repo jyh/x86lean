@@ -1449,6 +1449,35 @@ inductive Op where
   read. The 32-bit write already zero-extends to 64 by SDM Vol. 1 §3.4.1.1, which
   `Cpu.setReg .d` implements — so the rule is INHERITED rather than restated. -/
   | vmovmsk (k : VMovMskKind) (dst : GPR) (src : XmmReg)
+  /-- ⭐⭐⭐ P2 BATCH 32 — COMISS / COMISD / UCOMISS / UCOMISD, THE FIRST
+  FLOATING-POINT INSTRUCTIONS IN THIS MODEL (SDM Vol. 2A, COMISS/COMISD and
+  UCOMISS/UCOMISD).  2,256 instructions; sub-group A of the soft-float commission
+  (`docs/SOFT-FLOAT-COMMISSION.md`, D139), the part that needs NO ROUNDING.
+
+  They compare the LOW LANE of two XMM registers as IEEE-754 values and write the
+  result to **EFLAGS**, touching no XMM register at all:
+
+      UNORDERED  ZF PF CF := 1 1 1        GREATER  ZF PF CF := 0 0 0
+      LESS       ZF PF CF := 0 0 1        EQUAL    ZF PF CF := 1 0 0
+      OF, AF, SF := 0                     (every case)
+
+  ⚠️ `sz` IS THE FORMAT, NOT AN OPERAND WIDTH: `.d` is binary32 (`comiss`) and
+  `.q` is binary64 (`comisd`).  No other `Size` is encodable here.
+
+  ⛔⛔ `ordered` DISTINGUISHES TWO ENCODINGS AND TWO NAMES WHOSE STATE TRANSITION
+  THIS MODEL CLAIMS IS IDENTICAL, and that claim is the interesting part of the
+  form.  `comis` (`0f 2f`) signals the invalid-operation exception on ANY NaN;
+  `ucomis` (`0f 2e`) signals it only on a SIGNALLING NaN.  That difference is
+  visible ONLY through MXCSR and the exception path — neither of which this model
+  has (MXCSR absent by D2) — so on the architectural state the differential
+  compares, the two are the same function.
+  ⇒ the field is NOT one no semantics reads (the anti-pattern `Op.vmovmsk`'s
+  docstring rejects): it selects the mnemonic and the opcode byte, and it is
+  exactly the handle a later batch needs when MXCSR arrives.  ⭐ And the claim
+  "these two agree on architectural state" is one the DIFFERENTIAL CAN REFUTE:
+  both spellings are in the vector table at the same pre-states, so if x86isa
+  distinguishes them the run says so rather than this comment. -/
+  | vcomis (ordered : Bool) (sz : Size) (dst src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1773,7 +1802,7 @@ def opOperands : Op → List Operand
   -- — the segment gate, the lock gate — correctly sees nothing to check. The day
   -- the memory forms land, THIS is the line that has to grow, and the compiler
   -- will say so.
-  | .vmov .. | .vbin .. => []
+  | .vmov .. | .vbin .. | .vcomis .. => []
   -- ⭐ AND THE MEMORY FORMS DO NAME ONE.  `Operand.mem` is how every consumer of
   -- this walk — the segment gate, the lock gate — finds an effective address, so
   -- a vector load's address is reported here exactly as a scalar one is. That is
@@ -1918,7 +1947,7 @@ addresses themselves. -/
 def Op.anyLocked : Op → Bool
   -- No memory operand, so no `lock` prefix can be attached; `lock movdqa` is not
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
-  | .vmov .. | .vbin .. => false
+  | .vmov .. | .vbin .. | .vcomis .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .vmovhl .. | .vddupR .. => false
@@ -2075,6 +2104,10 @@ def Op.mnemonic : Op → String
   -- one and the mnemonic is named for the move, not for the destination.
   | .vmovhl d _ _ => match d with | .lo => "movhlps" | .hi => "movlhps"
   | .vddupR .. | .vddupM .. => "movddup"
+  -- ⚠️ FOUR MNEMONICS FROM TWO FIELDS, and neither may be dropped: `ordered`
+  -- picks the opcode byte (`0f 2f` / `0f 2e`) and `sz` picks the format.
+  | .vcomis o sz _ _ =>
+      (if o then "comis" else "ucomis") ++ (if sz == .q then "d" else "s")
   | .prefetch h _ => h.mnemonic
   | .vmovmsk k .. => k.mnemonic
   -- ⚠️ `movsd` COLLIDES WITH THE STRING INSTRUCTION `movsd` (MOVS m32, `a5`) in
@@ -2302,6 +2335,13 @@ def rosterP0 : List String :=
    -- ⭐⭐ P2 BATCH 23: ONE row — the r32 and r64 spellings share an ENCODING, so a
    -- disassembler prints one name.  See `Op.vmovmsk`.
    "pmovmskb",
+   -- ⭐⭐⭐ P2 BATCH 32: the FP compares.  FOUR rows for four printed names —
+   -- `comis`/`ucomis` are distinct opcodes and the format suffix is part of the
+   -- name.  This model gives all four the SAME state transition (the difference
+   -- is an exception path it does not have, D2), and the roster counts NAMES a
+   -- disassembler prints, not distinct semantics — which is why four rows is
+   -- right here and would be wrong in a table keyed by behaviour.
+   "comiss", "comisd", "ucomiss", "ucomisd",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this
@@ -2349,8 +2389,9 @@ def rosterP0 : List String :=
    -- of the SSE-legacy residue the soft-float commission does NOT cover: the 64
    -- unclaimed pairs the oracle EXECUTES, minus the commission's 40, leaves 24
    -- pairs / 11,040 instructions that need no rounding at all, and these nine are
-   -- its bitwise members.  The partition is checked by reproducing the
-   -- commission's own published 12/6,619, 2/898 and 26/29,408 from the census.
+   -- its bitwise members.  The partition is checked by reproducing the commission's
+   -- published sub-group totals from the census (12/6,619 · 2/898 · 26/29,408 then;
+   -- sub-group A's total counts what is UNCLAIMED, so it fell when batch 32 landed).
    "pandn", "andnps", "andnpd",
    "andps", "andpd", "orps", "orpd", "xorps", "xorpd",
    -- ⭐⭐ P2 BATCH 37 — the `ps`/`pd` unpack spellings and the dword sign-mask.

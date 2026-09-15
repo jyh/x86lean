@@ -154,7 +154,9 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⛔ `movmskps` is ONE row, not two: its r32 and r64 spellings assemble to the
 -- identical `0f50c1`, measured on this mnemonic rather than inherited.
 -- P2 BATCH 37 adds SEVEN in total: the five above plus `shufps` and `shufpd`.
-theorem roster_size_is_158 : rosterSize = 158 := by decide
+-- ⭐ P2 BATCH 32 (D140), landed after 37 because the drift ledger held it, adds FOUR:
+-- `comiss`, `comisd`, `ucomiss`, `ucomisd`.  158 → 162.
+theorem roster_size_is_162 : rosterSize = 162 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -181,7 +183,8 @@ def vectorCount : Nat := vectors.length
 -- the table would have made the gate confirm whatever the table happened to hold.
 -- [[feedback-widening-a-gate-needs-a-second-source]]
 -- ...and FOURTEEN vectors: the ten above plus the two shuffles at both shapes.
-theorem vector_count_is_1012 : vectorCount = 1012 := by decide
+-- ⭐ P2 BATCH 32 (D140) adds EIGHT: each of the four compares at two register pairs.
+theorem vector_count_is_1020 : vectorCount = 1020 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -996,7 +999,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- which is what this function's own doc comment asks for.  Both are
     -- register-to-register only: there is no memory destination to report, and
     -- when the memory forms land this is one of the lines that must change.
-    | .vmov .. | .vbin .. => false
+    -- ⭐ P2 BATCH 32: `vcomis` writes EFLAGS and nothing else, so it is not a
+    -- memory destination and cannot become one — it has no `Ea` at all.
+    | .vmov .. | .vbin .. | .vcomis .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 3.  A vector STORE is a memory destination; a
     -- vector LOAD is not.  This is the first time the two vector mnemonics
     -- differ from each other in this function, which is the shape of the whole

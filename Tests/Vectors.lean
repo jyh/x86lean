@@ -2588,6 +2588,48 @@ def vectors : List Vec :=
   , { id := "pmovmskb_x5_ecx", mnemonic := "pmovmskb", asm := "pmovmskb %xmm5, %ecx"
     , bytes := "660fd7cd", instr := ⟨.vmovmsk .b .rcx .x5, 4⟩ }
 
+  -- ⭐⭐⭐ P2 BATCH 32 — THE FP COMPARES, the first floating-point vectors here.
+  --
+  -- ⚠️ WHAT THE PRE-STATES CAN AND CANNOT REACH, MEASURED BEFORE THE RUN rather
+  -- than read off the green afterwards.  `xmmPattern` gives register `i` the low
+  -- quadword `c ^^^ (i * 0x1111111111111111)`, so xmm0 and xmm1 differ by a FIXED
+  -- non-zero XOR in every pre-state.  Over the 60 structured pre-states that
+  -- yields, for `comisd %xmm1,%xmm0`, lt 45 · gt 9 · unord 6 —
+  -- ⛔ AND `eq` NEVER, IN EITHER FORMAT.  Two operands that always differ cannot
+  -- compare equal, so the rule's `eq` branch would have been carried by a
+  -- differential that never once entered it, and the run would have reported
+  -- full agreement about it ([[feedback-unobserved-regions-report-agreement]]).
+  -- ⇒ `comisd_x0_x0` compares a register WITH ITSELF, which forces `eq` on every
+  -- non-NaN pre-state and `unord` on the NaN ones.  It is not a duplicate of the
+  -- others: it is the only vector here that reaches that arm.
+  --
+  -- ⛔ AND ONE ARM STAYS UNREACHED, WHICH IS SAID HERE RATHER THAN LEFT QUIET:
+  -- `+0 = -0` needs two operands differing ONLY in the sign bit, and no pre-state
+  -- produces that — the XOR pattern cannot make one.  That branch is covered by
+  -- the 818-case kernel differential against IEEE-754 recorded in D140, not by
+  -- this table, and the two are different evidence.
+  --
+  -- ⚠️ FOUR MNEMONICS AND TWO REGISTER PAIRS (D90: a model with FIXED register
+  -- fields is bit-identical to the real one when every vector names one pair).
+  , { id := "comisd_x1_x0", mnemonic := "comisd", asm := "comisd %xmm1, %xmm0"
+    , bytes := "660f2fc1", instr := ⟨.vcomis true .q .x0 .x1, 4⟩ }
+  , { id := "comiss_x1_x0", mnemonic := "comiss", asm := "comiss %xmm1, %xmm0"
+    , bytes := "0f2fc1", instr := ⟨.vcomis true .d .x0 .x1, 3⟩ }
+  , { id := "ucomisd_x1_x0", mnemonic := "ucomisd", asm := "ucomisd %xmm1, %xmm0"
+    , bytes := "660f2ec1", instr := ⟨.vcomis false .q .x0 .x1, 4⟩ }
+  , { id := "ucomiss_x1_x0", mnemonic := "ucomiss", asm := "ucomiss %xmm1, %xmm0"
+    , bytes := "0f2ec1", instr := ⟨.vcomis false .d .x0 .x1, 3⟩ }
+  -- the `eq` arm, reachable no other way
+  , { id := "comisd_x0_x0", mnemonic := "comisd", asm := "comisd %xmm0, %xmm0"
+    , bytes := "660f2fc0", instr := ⟨.vcomis true .q .x0 .x0, 4⟩ }
+  -- the second register pair, sharing no register with the first
+  , { id := "comiss_x5_x3", mnemonic := "comiss", asm := "comiss %xmm5, %xmm3"
+    , bytes := "0f2fdd", instr := ⟨.vcomis true .d .x3 .x5, 3⟩ }
+  , { id := "ucomisd_x5_x3", mnemonic := "ucomisd", asm := "ucomisd %xmm5, %xmm3"
+    , bytes := "660f2edd", instr := ⟨.vcomis false .q .x3 .x5, 4⟩ }
+  , { id := "ucomiss_x3_x5", mnemonic := "ucomiss", asm := "ucomiss %xmm3, %xmm5"
+    , bytes := "0f2eeb", instr := ⟨.vcomis false .d .x5 .x3, 3⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

@@ -7782,13 +7782,196 @@ delta gate.
 ⛔ **B's price is left blank on purpose.** Inventing one would be the third inherited figure in this
 commission's own history, and §2 is a record of what that costs.
 
+## D140 — P2 BATCH 32: the first floating-point semantics, and the claim that two mnemonics are one function
+
+> 📌 **LANDED 2026-09-15, TEN DAYS AFTER IT WAS WRITTEN** (D251 held the wall, D252 records the landing). This entry is the
+> batch as built on 2026-09-05 and is kept as written. Three things changed at the landing:
+> - its differential record is **`DIFFERENTIAL-P2-BATCH23.md`**, because records 19–22 took the numbers in between, and
+>   **the re-run on today's tree reproduced every delta below exactly** (+704 cases, all matched, 0 unexplained);
+> - its "UNMEASURABLE" delta-gate reading (§ below) is superseded by the landing's own measurement in D252;
+> - `X86.SoftFloat`'s ceiling now names its machine (D198).
+
+**Sub-group A of the soft-float commission** (D139, `docs/SOFT-FLOAT-COMMISSION.md`), opened and
+taken in the same sitting the commission was frozen. `comiss`/`comisd`/`ucomiss`/`ucomisd` —
+**2,256 instructions** of assembly-class demand, four roster rows, one AST constructor, one new
+module, eight vectors, no new state field.
+
+### 1. WHY THIS GROUP FIRST, AND WHY IT NEEDED A NEW MODULE
+
+`X86/SoftFloat.lean` is the first floating-point vocabulary in this model. It exists because Lean's
+`Float` cannot be used: `Float` is a structure over `opaque floatSpec : FloatSpec`, so the kernel has
+nothing to unfold, and propositional equality on `Float` has no `Decidable` instance, so
+`native_decide` cannot close a `Float` equation either. **There is no route through `Float` at any
+axiom price** (D139 §1). The layer is Lean-core `BitVec` only — no mathlib (D1).
+
+⚠️ **One rule serves both formats.** `Fmt` carries the exponent and mantissa widths, and `fcmp` is
+one function; `comiss` and `comisd` are the same ordering at different parameters. Two copies would
+be two things that can disagree, and a divergence between them would be invisible to any test that
+exercises one width.
+
+### 2. ⭐⭐ THE RULE IS DIFFERENTIALLY VALIDATED AGAINST IEEE-754 BEFORE ANY INSTRUCTION USES IT
+
+818 cases — every pair from a 17-value set of interesting bit patterns (±0, ±1, ±2, ±∞, qNaN, sNaN,
+denormals, max normals) at both formats, plus 240 random pairs — each `by decide`, each expectation
+computed from IEEE-754 semantics rather than from the model:
+
+```
+outcomes: lt 304 · gt 294 · unord 188 · eq 32     binary64 409 · binary32 409     1.7 s
+#print axioms  →  [propext]        (inside the three standard axioms; no native_decide, no mathlib)
+```
+
+⛔ **Controlled**: one expectation was planted wrong (`+0` vs `-0` declared `.gt`) and the kernel
+refuted it. A distribution with all four outcomes well represented is the other half of that — 818
+cases that were all `unord` would be one test reported 818 times.
+
+### 3. ⭐⭐⭐ THE CLAIM WORTH MAKING: `comis` AND `ucomis` ARE ONE FUNCTION HERE
+
+This model gives all four mnemonics the **same state transition**. The SDM distinguishes `comis`
+(signals invalid on ANY NaN) from `ucomis` (only on a SIGNALLING NaN) — a difference visible only
+through MXCSR and the exception path, neither of which this model has (D2).
+
+⛔ **That is a claim, and it was checked against the oracle's SOURCE and not only against a green
+run.** `x86-comis?/ucomis?-Op/En-RM` is ONE function in x86isa with an `operation` parameter, and in
+`cmp-spec.lisp` the NaN branch returns **result 7 for both** `*OP-COMI*` and `*OP-UCOMI*` — the
+identical EFLAGS. The parameter separates them only in the `invalid` bit, which feeds MXCSR:
+
+```
+(let ((invalid (or (eq kind1 'snan) (eq kind2 'snan)
+                   (and (or (eq kind1 'qnan) …) (or … (int= operation *OP-COMI*))))))
+  … ((or (int= operation *OP-COMI*) (int= operation *OP-UCOMI*))  (mv t 7 invalid))
+```
+
+⇒ 🔑 **An agreement is worth what you know about why it holds.** A green run on these eight vectors
+would have been consistent with the two mnemonics differing in a way the record cannot see; reading
+the oracle's own dispatch says they do not ([[feedback-the-oracle-is-evidence-not-the-specification]]).
+And the flag table x86isa writes — CF/PF/ZF per outcome with AF, SF, OF cleared — matches
+`Flags.fcmpFlags` case for case, which is the x86isa cross-read `X86/Flags.lean`'s header records as
+owed and had never been done for any rule in it.
+
+### 4. THE RUN
+
+```
+cases=84832 matched=64300 explained=29435 unexplained=0 oracle-divergence=171 oracle-leaks=0 missing=0
+```
+
+Against the previous record (`84128 / 63596 / 29435 / 0 / 171`): **+704 cases and +704 matched —
+exactly 8 vectors × 88 pre-states, every one of them a match.** `explained`, `oracle-divergence`,
+`oracle-leaks` and `missing` are all unchanged.
+
+⭐ The number that did not move is the informative one. `explained` is identical because **these
+forms mark no flag undefined**: every flag `comis` touches is defined by the SDM in every case. So
+the 704 new cases are hard matches on the full flag record, not undefined-region passes — which is
+unusual in this table and is part of why this group was worth taking first.
+
+### 5. ⛔ WHAT THE VECTORS CANNOT REACH, COMPUTED BEFORE THE RUN
+
+`xmmPattern` gives register `i` the low quadword `c ^^^ (i * 0x1111111111111111)`, so xmm0 and xmm1
+differ by a fixed non-zero XOR in every pre-state. Predicted in Python from the pre-states, before
+the oracle ran: `comisd` lt 45 · gt 9 · unord 6 · **eq 0**; `comiss` lt 39 · gt 9 · unord 12 ·
+**eq 0**. Two operands that always differ cannot compare equal, so the `eq` arm would have been
+carried by a differential that never entered it. `comisd_x0_x0` — a register against **itself** —
+is the only vector that reaches it.
+
+⛔ **One arm stays unreached and is declared rather than left quiet:** `+0 = -0` needs two operands
+differing only in the sign bit, which no pre-state can produce. It is covered by §2's 818-case
+kernel differential, not by this table, and the two are not pooled.
+
+### 6. THE COST SIDE, AND AN INSTRUMENT THAT REFUSED
+
+`kernel_cost.py` declined to return a verdict: one-minute load **15.69**, outside the band its own
+effect-measurement covers (0.0–4.1). ⭐ That refusal is correct and is the tool working — at load
+6.5–7.9 the *unchanged parent* of P2 batch 14 once read 550 ms over the same ceiling.
+
+⚠️ **And the load was not mine.** `ps -r` attributes it to `seats/math/salt/` Lean processes at 736%
+CPU; this seat's own arm run was 97.8%. A shared box is a condition of the measurement, not a
+property of the commit ([[feedback-a-measurement-without-its-conditions]],
+[[feedback-enumerate-is-not-attribute]]). The absolute ceilings are READINGS by the helm's 2026-09-04
+ruling for exactly this reason; **D111's delta is the gate**, and it alternates base and head passes
+in one session so a steady load biases both sides equally.
+
+`X86.SoftFloat` is registered in `scripts/kernel_ceilings.txt` at 50 ms (measured 4.3), the
+convention this file already uses for every small module — an unregistered unit is a hard failure
+there, and a new module with no line would have been a gap falling the way the default points.
+
+### 7. THE ARMS, AND THE ONE THAT WAS DELETED
+
+```
+comis calls NaN less-than instead of unordered     66 in `pf`     (132 unexplained)
+comis compares the bit patterns as signed integers 167 in `cf`     (290 unexplained)
+comis also writes its destination register         336 in `xmm0`   (588 unexplained)
+```
+
+Every one of the three is bit-identical to the real model on two ordinary positive normals; what
+separates them is the pre-states carrying a NaN, a negative, or a non-zero destination. `pf` is the
+field to watch — it is the flag that *means* unordered, and a model without a fourth case cannot
+set it.
+
+⛔⛔ **A FOURTH ARM WAS WRITTEN, SCORED ZERO, AND HAS BEEN DELETED.**
+`comis makes +0 and -0 compare unequal` is a real wrong model, and the harness refused it:
+
+```
+⛔ comparator reported ZERO unexplained disagreements against a KNOWN-WRONG model.
+   The comparator does not work.
+```
+
+I had written that arm *knowing* it was unreachable, with a comment calling itself "the standing
+record of that gap". That is a **false entry in the gate's own inventory** — D91's rule, made about
+`prefetch`'s locality hint one batch earlier — and its zero is indistinguishable from a broken
+comparator, which is precisely what the harness reports.
+
+⭐ **And the unreachability is a proof rather than an observation.** `xmmPattern` gives register `i`
+the low quadword `c ^^^ (i * 0x1111111111111111)`, so for any two registers the XOR of their low
+quadwords is `(i^^^j)` repeated in every nibble — **16 achievable values, all uniform-nibble
+patterns**, and `0x8000000000000000` is not among them. No vector over this pre-state table can
+present two operands differing only in the sign bit, at any register pair; and the memory window at
+RBX holds `c`, which is xmm0's own low quadword, so a memory form compares EQUAL rather than as ±0.
+
+⇒ 🔑 **An arm that cannot fire does not document a gap, it misreports the inventory.** The `±0`
+branch is carried by §2's 818-case kernel differential, which does exercise it, and the two
+instruments are named separately and never pooled.
+
+### 8. ⛔ THE DELTA GATE — UNMEASURABLE, AND THE READING IS NOT REASSURING
+
+The batch is on `p2-batch32-fp-compares`, NOT on `master`. `kernel_delta.py --base master --head
+HEAD --repeats 3` returns the middle verdict:
+
+```
+UNIT              base      head     delta   spread    budget   VERDICT
+Tests.Coverage  24700.0   27600.0   +2900.0  3400.0   1778.4   UNMEASURABLE ⛔
+X86.Syntax        250.0     271.0     +21.0    46.8     19.0   ok
+X86.Theorems      993.0    1030.0     +37.0   112.0    181.7   ok
+X86.SoftFloat       nan       3.5      —        —        —     NEW unit, @default
+```
+
+**UNMEASURABLE is not a green.** The run's own spread between repeats of the *same* tree (3,400 ms)
+exceeds the budget (1,778 ms), so the instrument cannot separate this batch's delta from the box's
+noise — and it says so instead of picking one.
+
+⚠️ **And the honest reading of the number it did print is that this batch may FAIL the gate.**
++2,900 ms on a 24,700 ms base is **+11.7% against a 7.2% budget**. The absolute readings locate it:
+`Tests.Coverage @residue` 15,210 → 18,210, +3,000 for 8 vectors — about 375 ms per vector, against
+batch 23's 290 ms per vector for 2. That is in family, not anomalous, but it is over the allowance.
+⇒ the batch waits for a quiet-box measurement rather than being merged on an unmeasurable run;
+treating UNMEASURABLE as "probably fine" is exactly the direction that reads as progress.
+
+⭐ **The base is over two absolute ceilings before this batch touches anything** — `X86.Syntax`
+250/200 and `Tests.Coverage @residue` 15,210/12,420 — which is the helm's 2026-09-04 ruling
+demonstrating itself: an absolute ceiling the unchanged parent already exceeds measures the box, not
+the commit. They are printed as READINGS and gate nothing.
+
+⚠️ The box was not quiet and the load was not this seat's: `seats/math/salt` Lean processes at 736%
+CPU earlier, bus-watcher `awk` at ~95% during the delta run, one-minute load 9.6–15.7 throughout.
+`X86.SoftFloat` enters as a NEW unit (`base = nan`) and falls to `@default` 23.3% with the 6 ms
+floor — measured 3.5 ms, so the floor carries it, and it is registered in `kernel_ceilings.txt` at
+50 ms because an unregistered unit is a hard failure there.
+
 ## D141 — the delta gate's refusal grew with the repeats it asked for: a gate whose only remedy was a box it could not have
 
 > ⚠️ **D140 IS NOT MISSING.** It is P2 batch 32's own entry, written on
 > `p2-batch32-fp-compares` and not yet merged. This repair lands FIRST and on
 > `master` deliberately: it is the instrument that will score that batch, and an
 > instrument judged in the same commit as the thing it judges cannot be judged at
-> all. The gap closes when the batch merges.
+> all. The gap closes when the batch merges. *(Closed 2026-09-15: the batch landed as record 23.)*
 
 Batch 32 has sat on `p2-batch32-fp-compares` since 15:33 on 09/05, held off `master` by a delta
 gate that returned `UNMEASURABLE`. The bank handed that on as *"blocked on a quiet box"*, and the

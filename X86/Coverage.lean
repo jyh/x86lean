@@ -752,6 +752,25 @@ acc,imm · rh"
       shapes := "r,x",
       note := "bit i is the sign bit of byte i; bits above 15 zero; D122",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" }
+  -- ⭐⭐⭐ P2 BATCH 32 — THE FP COMPARES (D140), sub-group A of the soft-float
+  -- commission.  FOUR rows, not two: `comis` and `ucomis` are different opcodes
+  -- and different mnemonics, and a disassembler prints all four.
+  -- ⚠️ THE NOTE SAYS WHAT THIS MODEL DOES NOT DISTINGUISH, because a roster row
+  -- that reads as full coverage of a form it models only partly is worse than an
+  -- absent one: `comis` and `ucomis` differ only in which NaN raises the
+  -- invalid-operation exception, and this model has no MXCSR (D2).
+  , { mnemonic := "comiss",
+      shapes := "x,x", note := "EFLAGS only; binary32; ZF/PF/CF from the ordering; D140",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A COMISS" }
+  , { mnemonic := "comisd",
+      shapes := "x,x", note := "EFLAGS only; binary64; ZF/PF/CF from the ordering; D140",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A COMISD" }
+  , { mnemonic := "ucomiss",
+      shapes := "x,x", note := "as comiss; the SNaN-vs-QNaN split needs MXCSR (D2); D140",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISS" }
+  , { mnemonic := "ucomisd",
+      shapes := "x,x", note := "as comisd; the SNaN-vs-QNaN split needs MXCSR (D2); D140",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISD" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
