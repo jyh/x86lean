@@ -1,4 +1,4 @@
-% x86lean: the semantics paper (paper 1). TACAS 2027 regular track, LNCS format.
+% x86lean: the semantics paper (paper 1). TACAS 2027 case-study track (ruled 2026-09-13), LNCS format.
 %
 % Every number and every claim about another system carries a \src{...} comment naming the file in
 % this repository it was taken from. The macro expands to nothing in the PDF, so the sources travel
@@ -115,14 +115,15 @@ model does not yet fetch and decode from memory.
 \paragraph{Coverage as data.}
 What the model claims is a table in Lean, not prose: one row per mnemonic, carrying its operand shapes,
 a fidelity tier, how its decoding is trusted, and its undefined bits. A test module checks the table
-against the AST in both directions, so a row cannot name a form the AST lacks and a form cannot lack a
-row, and the published coverage document is regenerated from the table and compared in CI.
+against the AST in both directions, so a row cannot name a mnemonic the AST lacks and a mnemonic cannot
+lack a row, and the published coverage document is regenerated from the table and compared in CI.
 \src{X86/Coverage.lean module docstring; .github/workflows/ci.yml, the COVERAGE.md regeneration check}
 The tier is \emph{exact} when every architected bit of the result and the flags is computed,
 \emph{frame} when the set of changed state components is exact but some bits come from the oracle
-because the manual leaves them undefined, and \emph{absent} when the model refuses. Of 158 mnemonics,
-132 are exact, 26 are frame, and 0 are absent. The tier names are this project's coinage.
-\src{X86/Coverage.lean inductive Tier; docs/COVERAGE.md:13; docs/CLAIMS.tsv[coverage\_mnemonics, tier\_exact, tier\_frame,
+because the manual leaves them undefined, and \emph{absent} when the model refuses the mnemonic entirely; forms it refuses within a row are
+listed in that row's shapes. Of 158 mnemonics, 132 are exact, 26 are frame, and 0 are absent. The tier names are this project's coinage.
+\src{X86/Coverage.lean inductive Tier; Tests/Coverage.lean table\_mnemonics\_subset\_roster and roster\_covered\_by\_table compare mnemonic
+lists; refused forms inside non-absent rows: docs/COVERAGE.md bswap, shld, bt (D250); docs/COVERAGE.md:13; docs/CLAIMS.tsv[coverage\_mnemonics, tier\_exact, tier\_frame,
 tier\_absent]}
 
 \paragraph{Trust.}
@@ -174,10 +175,13 @@ no such clause and needs none: every vacated bit, and the last bit shifted out, 
 model that treats ``count at least the width'' as uniformly undefined invents undefinedness the manual
 does not grant. x86lean gives SAR its own CF rule at those counts.
 \src{X86/Flags.lean shiftFlags; docs/DECISIONS.md D20}
-The model would have been self-consistent under either reading; it was the differential run of
-Section~\ref{sec:validation} that confirmed this one, when a deliberately wrong copy of the model that
-flips CF on a SAR case at such a count was contradicted by the reference model.
-\src{docs/DECISIONS.md D20, the planted control on sar\_b9/6}
+The model would have been self-consistent under either reading. The differential run of
+Section~\ref{sec:validation} agrees with this one: at such counts x86lean's CF is compared rather than
+excused, and it matched the reference model on every case; a control that flips CF in one such record is
+contradicted.
+\src{docs/DECISIONS.md D20; docs/DIFFERENTIAL-P1-BATCH7.md section 3, the planted control on sar\_b9/6 (a flipped record, not a model copy);
+under the other reading CF would be in the derived undefined set and a disagreement would be explained, so the run could not have
+refuted it by a disagreement (D250)}
 
 \subsection{Four Designs}
 \label{sec:undef:designs}
@@ -274,14 +278,15 @@ and the derivation of Section~\ref{sec:undef:derived}, which compares two such r
 difference of control as a set of undefined fields.
 \src{X86/Semantics.lean, the bsf/bsr and division comments}
 We state the evidence at its actual strength. The rule is a design rule with example theorems that fix
-the oracle cursor's position after particular instructions under two opposite oracles, and we have not
-proved it for every instruction.
-\src{Tests/Nonvacuity.lean cursor\_independent\_of\_bits; docs/DECISIONS.md D213}
+the oracle cursor's position after particular instructions, one of which shows it equal under two
+opposite oracles, and we have not proved it for every instruction.
+\src{Tests/Nonvacuity.lean cursor\_add\_spends\_nothing, cursor\_and\_spends\_one, cursor\_shift\_nonzero\_spends\_three,
+cursor\_shift\_zero\_spends\_nothing, cursor\_independent\_of\_bits (the one over two oracles, one SHL at one state); docs/DECISIONS.md D213, D250}
 It is checked case by case: the leak check of Section~\ref{sec:undef:derived} also requires the two runs
 to leave the cursor in the same place, and over the 89{,}056 cases the differential compares the cursors
 differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
-the cases that draw.
-\src{docs/CURSOR-LEAK-CHECK-2026-09-13.md; docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks]; X86/Serialize.lean
+the cases that draw, 27{,}717 of 85{,}008 in the check's own walk of 84 pre-states per vector.
+\src{docs/CURSOR-LEAK-CHECK-2026-09-13.md, the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks]; X86/Serialize.lean
 undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
 The check cannot see a branch on a drawn bit that changes only the value a flag receives: a flag's
 undefinedness is derived from those same two runs, with no second source to disagree.
@@ -327,10 +332,10 @@ search of the model's sources, with a planted positive control, and not by proof
 \subsection{Declining a Case, as a Theorem}
 \label{sec:undef:refusal}
 
-SHLD and SHRD mask their count to five bits, so at a 16-bit operand the count can exceed the width and
-the destination becomes undefined. This is not a corner: over the 82 pre-states of the harness at the
+Below a 64-bit operand SHLD and SHRD mask their count to five bits, so at a 16-bit operand the count can
+exceed the width and the destination becomes undefined. This is not a corner: over the 82 pre-states of the harness at the
 time, a count taken from CL exceeded 16 in 35.
-\src{docs/DECISIONS.md D52, measured on the reference model before the constructor existed}
+\src{docs/DECISIONS.md D52, measured on the reference model before the constructor existed; D52's ``five bits (six at .q)''}
 With a register destination, x86lean answers from the oracle, and the register channel above carries
 it. With a memory destination there is no channel: \lean{undefinedLeaked} demands that the two runs
 agree on every watched byte, and the comparator cannot explain a memory disagreement at all. Rather than
@@ -430,22 +435,27 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % Register: docs/TACAS-G2-SECTION-DRAFT.md 4; docs/DECISIONS.md D91 D108 D115; Main.lean
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
-A paper whose argument is that every claim is checked must also report where the check has nothing to
-check against. Four findings fall there.
+A paper whose argument is that claims about a semantics should be checked must also report where the
+check has nothing to check against. Four findings fall there.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
-does not: it executes both an unaligned load and an unaligned store, while an aligned MOVDQA, an
-unaligned MOVDQU and a control instruction behave as expected.
-\src{docs/DECISIONS.md D91 1}
+did not: it executed both an unaligned load and an unaligned store, while an aligned MOVDQA, an
+unaligned MOVDQU and a control instruction behaved as expected.
+\src{docs/DECISIONS.md D91 1, at a reference-model revision the record does not name (scripts/oracle\_revision.txt: earlier records
+do not record their tree); D250}
 x86lean faults, as the manual says, and no unaligned MOVDQA vector is shipped, since every one would be
-scored as a one-sided refusal against a model that is right. The rule is therefore carried by theorem
+scored as a one-sided refusal although x86lean is right. The rule is therefore carried by theorem
 rather than by run: an unaligned load faults, an unaligned store faults, and an unaligned MOVDQU at the
 same address does not, which is the theorem that shows the alignment flag is doing the discriminating.
 \src{docs/DECISIONS.md D91 2; X86/Theorems.lean vload\_unaligned\_faults, vstore\_unaligned\_faults,
 vload\_unaligned\_movdqu\_runs}
-This is the weakest claim in the model: it rests on our reading of the manual and on a proof that the
-model implements that reading, and nothing else.
+MOVDQA is the example of a class: the same fault on the legacy SSE memory forms is carried by theorem
+for most of them, because the reference model implements it only for PAND, POR and PXOR, where three
+vectors test it. This is the weakest claim in the model: it rests on our reading of the manual and on a
+proof that the model implements that reading, and nothing else.
+\src{docs/DECISIONS.md D113 (three of nineteen validatable; the other sixteen and vload, vstore, vshufm, vshiftm theorem-only);
+X86/Theorems.lean vbinm\_unaligned\_faults; D250}
 Agreement with a reference model that does not implement a rule is not evidence about the rule.
 
 \paragraph{A reference model that keeps bits the manual clears.}
@@ -514,8 +524,11 @@ asked at their own class. The five parts sum to the total.
 \src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
 p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
 162 + 139854 + 169877 + 241 + 91519 = 401653}
-Among the forms it has been asked, the reference model therefore refuses more than it executes; the
-unasked share is larger than that difference, so the comparison does not yet extend to the whole gap.
+Counted by instructions, among those whose form has been asked the reference model therefore refuses
+more than it executes, although more of the forms asked execute (106) than refuse (88); the unasked share
+is larger than the difference in instructions, so the comparison does not yet extend to the whole gap.
+\src{docs/P2-ROSTER.md, the BY (mnemonic, BUCKET) table's pairs column, one form asked per pair; docs/CLAIMS.tsv[p2\_bucket\_pairs\_executes,
+p2\_bucket\_pairs\_refuses]; this sentence said ``Among the forms it has been asked'' until 2026-09-15, true only by instruction, D250}
 The refused instructions cannot be differentially validated against it at any price, however the work
 is ordered. K has
 semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
@@ -536,17 +549,20 @@ Theorems police the first. The second is usually prose, and prose is a second re
 compares with the first. We treat such claims as outputs.
 
 \paragraph{Coverage.}
-The coverage figures are computed from two sources that are not derived from each other. One is each
+The row and form figures are computed from two sources that are not derived from each other. One is each
 differential vector's own assembly text, parsed into rows of the scalar roster derived from K; the
 other is each roster row, synthesised into a canonical instance and assembled by clang. A vector may
 claim a row only if the two assemble to the same opcode, so a mis-parse cannot survive; rows whose
 instances assemble to identical bytes are reported as spellings of one machine form, which is why the
 figures count both rows and distinct forms.
 \src{scripts/claimed\_forms.py module docstring}
-The published figures are 158 mnemonics in 1{,}012 differentially tested vectors, covering 500 of the 525
-roster rows, which are 351 of the 374 distinct machine forms those rows describe; CI fails if the prose
-that states them disagrees with the derivation.
-\src{docs/COVERAGE.md:5 and README.md:56-57, checked against the derivation by scripts/claimed\_forms.py --check in CI;
+The published figures are 158 mnemonics in 1{,}012 differentially tested vectors, read from the table
+the model generates, and 500 of the 525 roster rows, which are 351 of the 374 distinct machine forms those
+rows describe; CI fails if the prose that states them disagrees with the derivation. The roster is K's
+scalar forms: the model's vector forms have no row there, are listed by name as exempt, and are counted
+against a separate demand roster instead.
+\src{scripts/claimed\_forms.py, the mnemonic count read from the generated COVERAGE.md, and CLAIMS\_NO\_ROW (204 SIMD entries of 234);
+72 of the 158 table rows take an xmm operand (D250); docs/COVERAGE.md:5 and README.md:56-57, checked against the derivation by scripts/claimed\_forms.py --check in CI;
 this paper's copy is checked against docs/CLAIMS.tsv[coverage\_mnemonics, coverage\_forms, coverage\_rows\_covered,
 coverage\_rows\_total, coverage\_forms\_covered, coverage\_forms\_distinct], which read COVERAGE.md at the pin (D231)}
 Numbers outside the coverage table are entered in a manifest with the command that re-derives each
@@ -631,11 +647,16 @@ is a fixed base of about eleven lines plus about one line per instruction.
 \src{docs/P2-PROOF-INTERFACE.md, problem 3 section 1; the equal counts are a coincidence of line
 wrapping; counted by scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_countdown, proof\_lines\_scan]}
 A property that depends on position, such as ``every store lands inside the destination buffer'', needs
-an invariant indexed by label. Across four routines with 2, 3, 5 and 7 labels, the proofs are 34, 50, 57
+an invariant indexed by label. These theorems are stated from an entry state whose pointer registers
+are universally quantified and whose other registers are fixed (defaults, and in one routine a count of
+four), over every amount of fuel and every initial memory; the two copying routines move a constant four
+bytes. Across four routines with 2, 3, 5 and 7 labels, the proofs are 34, 50, 57
 and 76 lines. A least-squares line through the four is about 22 lines plus 7.6 per label, or about 175
 lines at twenty labels; the routine furthest from it, by 5 lines, is the one whose store depends on a
 bounds check, and four points do not show whether the per-label cost rises with the label count.
-\src{scripts/label\_fit.py (a label is an entry of the invariant's table, cross-checked against the program's
+\src{Tests/Program.lean entry, cpyEntry, frameEntry, guardEntry (rdx := 4); fill and memcpy load rcx with 4; fill\_safe and memcpy\_safe over
+(pointers, m0, n) with Region d0 4 (D250);
+scripts/label\_fit.py (a label is an entry of the invariant's table, cross-checked against the program's
 instructions; lines by scripts/proof\_lines.py); docs/CLAIMS.tsv[fit\_labels\_prologue, fit\_labels\_guarded,
 fit\_labels\_fill, fit\_labels\_memcpy, proof\_lines\_prologue, proof\_lines\_guarded, proof\_lines\_fill,
 proof\_lines\_memcpy, fit\_intercept, fit\_slope, fit\_at20, fit\_max\_residual]; docs/DECISIONS.md D234: the
@@ -684,7 +705,7 @@ forms over a separate proof library, and one of them proves full functional corr
 from faults for a copy loop of unbounded length.
 \src{docs/CLAIMS.tsv[x86isa\_theorem\_forms]; docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
 603 forms of the utilities library}
-The K semantics~\cite{dasgupta-k-x86,k-x86-repo} covers ``3155 instruction variants, corresponding to
+The K semantics~\cite{dasgupta-k-x86,k-x86-repo} counts ``3155 instruction variants, corresponding to
 774 mnemonics'', and ``is fully executable and has been tested against more than 7,000
 instruction-level test cases and the GCC torture test suite''; its prover establishes functional
 post-conditions for ten programs, including a loop.
@@ -707,8 +728,8 @@ producing ``the most extensive formal x86-64 model to date, with over 118 000 di
 groups'', compares models across five machines, and reports exposing bugs in handwritten
 models~\cite{liblisa}. Where x86lean asks whether a model built from the manual agrees with another
 model, libLISA takes the processor as ground truth. The two are complementary rather than competing.
-We have used libLISA's models for the packed-shift rule on which x86lean and the reference model part
-(Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
+We have used libLISA's models for the two rules on which x86lean and the reference model part, the
+packed-shift count and MOVD/MOVQ's upper bits (Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
 direct second source this work still lacks, and for the SSE forms it would first need their scope extended.
 \src{docs/CLAIMS.tsv[liblisa\_groups]; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221; the quoted ``118 000'' keeps libLISA's own spacing, which the prose check reads since D235}
 A public Isabelle/HOL entry in the Archive of
@@ -718,8 +739,8 @@ with small-step semantics for 1{,}625 instruction variants from the semantics st
 and generate equivalence proofs between decompiled machine code and big-step semantics~\cite{roessle-bigstep};
 Verbeek et al.\ lift stripped binaries to a representation that provably over-approximates their execution
 paths, exportable to Isabelle/HOL, and take sound instruction semantics as an assumption~\cite{verbeek-lifting}.
-We have read these papers, not their artifacts, and do not position x86lean against them: the first counts
-instruction variants rather than mnemonics, and the second is about lifting, not an instruction set.
+We have read these two papers, not their artifacts, and do not position x86lean against them: Roessle et al.\
+count instruction variants rather than mnemonics, and Verbeek et al.\ is about lifting, not an instruction set.
 \src{docs/CLAIMS.tsv[afp\_instructions, roessle\_instructions]; abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
 and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220;
 the two papers read at the authors' PDFs 2026-09-14 (ssrg.ece.vt.edu/papers/cpp2019.pdf and pldi22.pdf, titles and authors matched to
@@ -733,8 +754,8 @@ controls are explicit, and coverage and validation claims that are derived and c
 written.
 
 \paragraph{Techniques.}
-Most of x86lean's techniques have public precedents, and we cite them where they originate. A total step function over
-one machine state is the shape of all three models above. The closest precedent in Lean~4 is
+Most of x86lean's techniques have public precedents, and we cite them where they originate. A step over one machine state is
+the shape of all three models above: a function in x86isa and Sail, rewrite rules in K. The closest precedent in Lean~4 is
 LNSym~\cite{lnsym-repo}, a model of an Arm instruction set with co-simulation conformance testing and a
 benchmarks target. It models a different instruction set, so we cite it for the method and do not
 compare coverage with it.
@@ -780,7 +801,7 @@ model's execution traces were compared against the Spike reference simulator~\ci
 ``compare the trace outputs of the Sail model and a version of Spike''; docs/DECISIONS.md D223}
 That a model should state its own fidelity is not our idea either: the Isabelle/HOL model above describes
 its semantics as over-approximative~\cite{afp-x86}. What the fidelity tier of
-Section~\ref{sec:model} adds is that the statement is made per form, as data that is checked against the AST.
+Section~\ref{sec:model} adds is that the statement is made per mnemonic, as data that is checked against the AST.
 \src{isa-afp.org/entries/X86\_Semantics.html, ``purposefully incomplete, but overapproximative''; X86/Coverage.lean inductive Tier and
 the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md D223. This sentence also cited the lifting work
 (verbeek-lifting) until 2026-09-14; its over-approximation is of a binary's execution paths, and it assumes the instruction
@@ -794,13 +815,13 @@ The limitations are the ones stated where they arise. x86lean is small, and its 
 decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
 by reading a second, and for two rules by a model synthesized on processors; K has not been run, and no
 hardware co-simulation has been. Of the remaining instructions it has
-been asked, the reference model refuses more than it executes, and for those a model built from the
-manual currently has no second source. A rule the reference model does not implement, such as MOVDQA's
-alignment fault, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
+been asked, the reference model refuses more than it executes, and for the refused ones a model built from
+the manual currently has no second source. A rule the reference model does not implement, such as the alignment fault of most legacy SSE memory
+forms, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
 gate on quoted figures checks the figures that cite the manifest, not every number in the text.
 
 The contribution is not a larger or more strongly proved semantics. It is a semantics whose claims about
-itself are outputs: derived from the artifact, checked against a second source where one exists, and
+itself are, as far as its gates reach, outputs: derived from the artifact, checked against a second source where one exists, and
 stated as absent where one does not. The measurement that motivates it is modest and, we think,
 general: in this project, claims about its artifacts and its sources that nothing checked did not survive
 a re-check at least one time in three in each of the three samples we could count.
@@ -809,16 +830,20 @@ a re-check at least one time in three in each of the three samples we could coun
 % Mandatory for ETAPS 2027 papers: placed just before the references, outside the page limit
 % (docs/TACAS-PRICING.md 3a, read at etaps.org/2027/cfp/).
 \section*{Data Availability}
-% Written on the case-study arm (docs/TACAS-PRICING.md 3a). A research-paper submission is double-blind and
-% needs this anonymized. The submission commit is not yet fixed.
+% The category is ruled: case-study track, not double-blind (docs/TACAS-PRICING.md 3a, council 2026-09-13), so
+% nothing here is anonymized. The submission commit is not yet fixed, and an archived DOI waits on the repository's
+% archive toggle.
 The model, its proofs, the differential harness and every record cited here are public at
 \url{https://github.com/jyh/x86lean} under the Apache-2.0 licence. Every figure this paper quotes from
 the manifest \texttt{docs/CLAIMS.tsv} names the commit it is pinned at and the command that re-derives
 it, and \texttt{python3 scripts/\allowbreak check\_\allowbreak claims.py} re-derives all of them and checks the paper's text
 against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the reference model is ACL2
 x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revision.txt} and fetched
-by \texttt{scripts/setup\_oracle.sh}.
-\src{LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
+by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the image at that commit was built
+with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
+this paper that word names x86lean's source of undefined bits.
+\src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);
+LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
 
 \bibliographystyle{splncs04}
 \bibliography{x86lean-semantics}

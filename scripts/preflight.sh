@@ -62,6 +62,14 @@ if [ -n "$pending_lean" ]; then
   printf "         commit, re-run, and land through the ledger ritual (kernel_drift.py --record)\n"
   rc=1
 fi
+# ⛔ ADDED 2026-09-15 (D250): CI's build job runs `check_claims.py --selftest` and `label_fit.py --selftest` in the
+#   same step as the manifest check, and this loop ran only the check. The selftest's prose plants anchor on the
+#   PAPER's text, so rewording a sentence can break an arm while every derivation stays green: D250 reworded the
+#   coverage sentence, preflight read rc 0, and CI's build went red on the plant. A paper edit is a gate edit here.
+for t in check_claims label_fit; do
+  if python3 "scripts/$t.py" --selftest >/dev/null 2>&1; then printf "  ok   %s --selftest\n" "$t"
+  else printf "  ⛔ FAIL %s --selftest\n" "$t"; rc=1; fi
+done
 for a in --selftest --gap; do
   if python3 scripts/kernel_drift.py $a >/dev/null 2>&1; then printf "  ok   kernel_drift %s\n" "$a"
   else printf "  ⛔ FAIL kernel_drift %s\n" "$a"; rc=1; fi

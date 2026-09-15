@@ -358,13 +358,20 @@ def selftest():
     cited_n = paper.count("docs/CLAIMS.tsv[")
     arm("control: the paper carries manifest citations at all (a check with no subject must not pass)",
         cited_n > 0, f"citations={cited_n}")
-    f = check_prose(paper.replace("169{,}877", "169{,}878", 1), rs0, verbose=False)
+    # ⛔ D250: A PLANT THAT DOES NOT APPLY TESTS NOTHING, AND READS AS A RED ARM FOR THE WRONG REASON -- OR A GREEN ONE.
+    # The coverage arm anchored on "covering 500 of the 525"; D250 reworded that sentence, the replace became a no-op,
+    # and the arm went red in CI with an empty finding list. Every prose plant below goes through here and refuses first.
+    def _plant(old, new):
+        assert paper.count(old) >= 1, f"plant anchor {old!r} is absent from the paper -- the arm would test nothing"
+        return paper.replace(old, new, 1)
+
+    f = check_prose(_plant("169{,}877", "169{,}878"), rs0, verbose=False)
     arm("PLANT: a number changed in the PROSE is caught, naming the row",
         any("p2_bucket_refuses" in x and "NOT in the prose" in x for x in f), str(f)[:200])
-    f = check_prose(paper.replace("p2\\_bucket\\_refuses", "p2\\_bucket\\_refusez", 1), rs0, verbose=False)
+    f = check_prose(_plant("p2\\_bucket\\_refuses", "p2\\_bucket\\_refusez"), rs0, verbose=False)
     arm("PLANT: a citation of an id the manifest lacks is caught",
         any("refusez" in x and "NOT a row" in x for x in f), str(f)[:200])
-    f = check_prose(paper.replace("The five parts sum to the total", "The parts are as stated", 1),
+    f = check_prose(_plant("The five parts sum to the total", "The parts are as stated"),
                     rs0, verbose=False)
     arm("PLANT: deleting the sentence a RELATION row stands for is caught",
         any("p2_ceiling_partition_residue" in x and "the relation" in x for x in f), str(f)[:200])
@@ -372,7 +379,7 @@ def selftest():
     f = check_prose(paper, extra, verbose=False)
     arm("PLANT: a row that names the paper and is cited nowhere is caught (the under-claim direction)",
         any("paper_orphan" in x and "no marker cites it" in x for x in f), str(f)[:200])
-    planted = paper.replace("169{,}877; on 241", "% 169{,}877\nsome; on 241", 1)
+    planted = _plant("169{,}877; on 241", "% 169{,}877\nsome; on 241")
     assert planted != paper, "the comment plant did not apply -- the arm would test nothing"
     f = check_prose(planted, rs0, verbose=False)
     arm("PLANT: a value present only in a COMMENT does not satisfy its citation",
@@ -392,32 +399,32 @@ def selftest():
         any("w_seven" in x and "NOT in the prose" in x for x in f), str(f)[:200])
 
     # ── D233: a fraction is checked as ONE phrase ──────────────────────────────
-    f = check_prose(paper.replace("three of nine failed", "three of six failed", 1), rs0, verbose=False)
+    f = check_prose(_plant("three of nine failed", "three of six failed"), rs0, verbose=False)
     arm("PLANT: a fraction's denominator changed while the same number sits elsewhere in the span ('nine days "
         "earlier') is caught", any("recheck_d201_total" in x for x in f), str(f)[:200])
-    f = check_prose(paper.replace("three of the seven came out", "three of the nine came out", 1), rs0, verbose=False)
+    f = check_prose(_plant("three of the seven came out", "three of the nine came out"), rs0, verbose=False)
     arm("PLANT: 'three of the nine' does not satisfy 3 of 7 because 'Seven' opens the sentence",
         any("recheck_d202_total" in x for x in f), str(f)[:200])
-    f = check_prose(paper.replace("3 of 9, 3 of 8", "9 of 3, 3 of 8", 1), rs0, verbose=False)
+    f = check_prose(_plant("3 of 9, 3 of 8", "9 of 3, 3 of 8"), rs0, verbose=False)
     arm("PLANT: a SWAPPED fraction (9 of 3) is caught — the presence arm lets a swap through, the pair rule does not",
         any("recheck_d201_total" in x for x in f), str(f)[:200])
-    lone = paper.replace("docs/CLAIMS.tsv[recheck\\_d201\\_failed, recheck\\_d201\\_total]}",
-                         "docs/CLAIMS.tsv[recheck\\_d201\\_total]}", 1)
+    lone = _plant("docs/CLAIMS.tsv[recheck\\_d201\\_failed, recheck\\_d201\\_total]}",
+                         "docs/CLAIMS.tsv[recheck\\_d201\\_total]}")
     assert lone != paper, "the lone-total plant did not apply -- the arm would test nothing"
     f = check_prose(lone, rs0, verbose=False)
     arm("PLANT: a total cited WITHOUT its part in the same marker is caught",
         any("recheck_d201_total" in x and "SAME marker" in x for x in f), str(f)[:200])
 
-    f = check_prose(paper.replace("covering 500 of the 525", "covering 525 of the 500", 1), rs0, verbose=False)
+    f = check_prose(_plant("500 of the 525", "525 of the 500"), rs0, verbose=False)
     arm("PLANT: D231's declared limit, closed — a swapped COVERAGE fraction (525 of the 500) is caught",
         any("coverage_rows_total" in x for x in f), str(f)[:200])
 
-    f = check_prose(paper.replace("by 5 lines", "by 3 lines", 1), rs0, verbose=False)
+    f = check_prose(_plant("by 5 lines", "by 3 lines"), rs0, verbose=False)
     arm("PLANT: a small value bound to its PHRASE ('by 5 lines' -> 'by 3') is caught though 5 recurs in the span",
         any("fit_max_residual" in x for x in f), str(f)[:200])
 
     # ── D235: a quotation's own spacing, and an external fraction ──────────────
-    f = check_prose(paper.replace("with over 118 000 different", "with over 181 000 different", 1), rs0, verbose=False)
+    f = check_prose(_plant("with over 118 000 different", "with over 181 000 different"), rs0, verbose=False)
     arm("PLANT: the QUOTED space-grouped figure ('118 000' -> '181 000') is caught, naming the row",
         any("liblisa_groups" in x and "NOT in the prose" in x for x in f), str(f)[:200])
     sp_row = [("sp_big", "118000", "d7dbd58", "echo 118000", PAPER_REL + " §0")]
@@ -429,7 +436,7 @@ def selftest():
     f = check_prose("over 118 000 000 groups\n\\src{docs/CLAIMS.tsv[sp\\_big]}\n", sp_row, verbose=False)
     arm("PLANT: a space-grouped PREFIX of a longer group ('118 000 000') does not satisfy it",
         any("sp_big" in x for x in f), str(f)[:200])
-    f = check_prose(paper.replace("24 of 15{,}400 tests", "15{,}400 of 24 tests", 1), rs0, verbose=False)
+    f = check_prose(_plant("24 of 15{,}400 tests", "15{,}400 of 24 tests"), rs0, verbose=False)
     arm("PLANT: Armstrong's external fraction SWAPPED ('15,400 of 24') is caught — both values stay present, only the PAIR sees it",
         any("armstrong_avs_tests" in x for x in f), str(f)[:200])
 

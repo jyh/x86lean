@@ -16374,3 +16374,72 @@ Built with tectonic: **16 pages, References on page 15**, as before; 0 overfull 
 ISO-8859 publications page while `LC_ALL=C command grep` found the line; one non-UTF-8 byte anywhere in a file silences the whole
 file (driven in a scratch dir: a stray byte on a different line from the match is enough). Every ZERO over a fetched page
 here was re-driven with `grep -a`, `LC_ALL=C command grep` or Python before it was believed. **G7 left: one last full read.**
+
+## D250 — TACAS G7 closed by a second non-author read: fourteen findings, all fourteen confirmed at the source, and the HIGH one was D248's own fix
+
+⚖️ **G7's last item was "one last full read".** It was taken the way D248's was: a fresh reader with none of the author's context,
+over a read-only frozen copy of the tree at `7fee5fc` (D249's head) and the PDF built from it, told what D248 and D249 had already
+fixed. It edited nothing; it read the frozen copy and made read-only calls to the public repository. **Every finding below was
+re-verified by the author at the source before any edit**, and each was confirmed; four were narrowed in the fix.
+
+### 1. THE FINDINGS AND WHAT WAS DONE
+```
+  F1  HIGH  §4.3 "Among the FORMS it has been asked, the reference model refuses more than it executes"
+            P2-ROSTER BY (mnemonic, BUCKET): forms (one per pair) 106 execute, 88 refuse; instructions 139,854 vs 169,877
+            -> "Counted by instructions ... although more of the forms asked execute (106) than refuse (88)"; rows
+               p2_bucket_pairs_executes / _refuses added. §8 "for those" -> "for the refused ones"
+  F2  MED   §7 "the packed-shift rule" (one) — §3.1, §4.2 and §8 say two, and libLISA decided MOVD/MOVQ too -> two, named
+  F3  MED   §5 "the coverage figures are computed from two sources": 158 and 1,012 are read from the GENERATED table
+            (claimed_forms.py: "THE MNEMONIC COUNT IS NOT DERIVABLE HERE"); the 525 rows are K's SCALAR forms and the
+            vector forms are exempt by name (CLAIMS_NO_ROW: 204 SIMD entries of 234; 72 of 158 table rows take xmm)
+            -> "the row and form figures"; the mnemonic/vector counts named as read from the table; the scalar roster stated
+  F4  MED   §2 and §7 "per form": Tests/Coverage.lean compares MNEMONIC lists; "absent when the model refuses" while
+            bswap, shld and bt rows carry refused forms under non-absent tiers -> "mnemonic"; absent = refused entirely
+  F5  MED   §4.3 MOVDQA as "the weakest claim": D113 — x86isa implements the 16-byte #GP only in logical.lisp (pand, por,
+            pxor), so sixteen of nineteen vbin memory forms and vload/vstore/vshufm/vshiftm are theorem-only
+            -> MOVDQA stated as the example of a class; §8 likewise
+  F6  MED   §4.3 opener "every claim is checked" and §8 "claims about itself are outputs" against §5's own "not yet
+            complete" -> "should be checked"; "as far as its gates reach"
+  F7  MED   §6: the labelled-tier theorems quantify pointers, memory and fuel from an entry state whose other registers
+            are fixed; fill and memcpy load rcx with 4 -> stated
+  F8  MED   §7 "these papers ... the first counts instruction variants": "these" followed the AFP entry too -> named
+  F9  LOW   §3.2 plant "caught on exactly the cases that draw" was run over 84 pre-states, not the differential's 88
+            -> "27,717 of 85,008 in the check's own walk of 84 pre-states per vector"
+  F10 LOW   §3.2 "example theorems ... under two opposite oracles": one theorem, one SHL, one state -> "one of which"
+  F11 LOW   §3 "a deliberately wrong copy of the model ... was contradicted": the control flipped a RECORD
+            (DIFFERENTIAL-P1-BATCH7 §3), and under the other reading CF would be derived undefined and a disagreement
+            EXPLAINED, so the run could not refute it by disagreement -> "agrees with this one: CF is compared rather
+            than excused, and matched on every case"
+  F12 LOW   §7 "a total step function ... is the shape of all three": K is rewrite rules (G6 §4 says so) -> stated
+  F13 LOW   (a) "against a model that is right" -> "although x86lean is right"; (b) SHLD/SHRD "five bits" is below
+            64-bit (D52: six at .q) -> stated; (c) the records call the reference model "the oracle" -> one clause in
+            the data statement; (d) K "covers" -> "counts" (the quotation is K's own count)
+  F14 LOW   D91's MOVDQA measurement names no reference-model revision (oracle_revision.txt says earlier records do not)
+            -> past tense, and the marker says so
+```
+⇒ 🔑 ***THE HIGH FINDING WAS D248'S OWN FIX.*** D248 #2 narrowed an over-claim to "among the forms asked", and the unit it chose
+made the sentence false in the other direction: by forms the reference model executes more, and only by instructions does it refuse
+more. **A correction is a new claim, and it had the same reviewer as the defect it corrected.** A second reader caught it because it
+counted the table's other column. [[feedback-a-citation-is-an-ungated-claim]]
+⇒ **Six of fourteen were UNIT or POPULATION defects** (F1 forms/instructions, F3 scalar/all, F4 form/mnemonic, F5 one/class, F9
+84/88, F10 many/one), the same class D202 opened the manifest for, in the prose the manifest does not reach.
+
+### 2. THE DATA STATEMENT, BESIDE IT
+Its stale comment (double-blind; the category was ruled case-study 2026-09-13) is replaced. It now says `setup_oracle.sh` does not pin
+the host Lisp, measured: the image at `c8897a34` on this machine execs `sbcl/2.6.8`. **Still owed, external:** the submission commit
+and an archived DOI.
+
+### 3. COST
+Built with tectonic: **16 pages, References on page 15**, 0 overfull boxes, 0 BibTeX warnings. `check_claims` CLEAN (94).
+**G7 is closed.** The before-Oct-15 remainder is the data statement's two external items.
+
+### 4. ⛔ AND THE LANDING WENT RED IN CI ON A GATE THE PREFLIGHT DID NOT RUN
+PR #16's `build` failed at `check_claims.py --selftest`: `arms=30 red=1`, the arm *"a swapped COVERAGE fraction (525 of the 500) is
+caught"*, with an EMPTY finding list. The arm planted its swap with `paper.replace("covering 500 of the 525", …)`, and F3's fix
+reworded that sentence ("covering" is gone), so the replace was a no-op and the arm checked an unplanted paper. **The derivations,
+the prose check and `preflight.sh` were all green**: preflight runs `check_claims.py` and not its `--selftest`, which CI runs in the
+same step. ⇒ 🔑 ***A SELFTEST WHOSE PLANTS ANCHOR ON THE PAPER'S TEXT MAKES EVERY PAPER EDIT A GATE EDIT.***
+✅ **Repaired both ways:** every prose plant now goes through `_plant`, which refuses if its anchor is absent (driven on a mutant with
+the old anchor: `AssertionError: plant anchor 'covering 500 of the 525' is absent`), the coverage arm anchors on `500 of the 525`, and
+`preflight.sh` runs `check_claims --selftest` and `label_fit --selftest` (driven: rc 1 without the arm fix, rc 0 with it).
+[[feedback-an-arm-whose-fixture-is-the-backlog]] [[feedback-a-probe-must-create-its-condition]]
