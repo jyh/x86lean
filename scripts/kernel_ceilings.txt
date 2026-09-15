@@ -335,3 +335,8 @@ Tests.Program 1995 @on runnervmlun5p
 # 2026-09-15, read X86.SoftFloat 2.7 ms ⇒ max(2.7 × 3, 50) = 50. The runner line follows its first reading
 # there, the way X86.Program's did.
 X86.SoftFloat 50 @on yukon.lan
+# ⭐ AND ITS RUNNER LINE, THE WAY X86.Program's CAME: PR #18's `kernel-delta` job (run 34983199326, merge ref
+# 53c4823 → 672dd84b5, runnervmlun5p, 6 repeats) REFUSED ONCE on this NEW unit, for the named cause, and printed the
+# registration it wanted verbatim: head 6.6 ms ⇒ max(6.6 × 3, 50) = 50. It lands in its own step because this file is a
+# PROFILER_PATH and could not follow the batch's ledger row inside that step (D252 §6).
+X86.SoftFloat 50 @on runnervmlun5p
