@@ -997,34 +997,35 @@ jobs:
           auto-config: false
           build: false
           test: false
-      # ⛔⛔ THE READINGS GO TO THE STEP SUMMARY, AND THAT IS NOT COSMETIC — IT IS WHAT
-      # MAKES ARMA-1 EXECUTABLE AT ALL. Found by trying to use it within the hour:
-      # GitHub withholds a JOB's log until the whole RUN completes, and the slowest job
-      # in this workflow is `kernel-delta-redfirst` at ~45 min. So the readings this
-      # step exists to publish were unreadable long after the step had printed them —
-      # and a later push CANCELS this job (concurrency, above) while redfirst survives,
-      # so on a busy day the run may never complete and the readings never arrive.
-      # ⇒ 🔑 A STEP THAT PRINTS THE THING SOMEBODY NEEDS HAS NOT DELIVERED IT UNTIL THE
-      # CHANNEL IT PRINTS ON IS READABLE WHEN THEY NEED IT. The step summary is
-      # attached to the JOB and is readable as soon as the job ends.
+      # ⛔⛔ THE READINGS HAVE TWO CHANNELS, AND EACH IS OWNED BY THE TOOL (D245).
+      # (1) For a HARVESTER: the `READINGS-JSON` line in this job's LOG. The REST endpoint
+      #     `actions/jobs/<id>/logs` serves it as soon as THIS JOB ends, while the run goes on
+      #     (measured 2026-09-14: HTTP 200, run `in_progress`). The step summary is NOT on the
+      #     API: the jobs object has no summary field and this job's check run has
+      #     `output.summary: null`. ⛔ Two clients refuse and read like "no readings": `gh run view
+      #     --job ID --log` (refuses until the whole RUN completes) and `gh api` without
+      #     `--allow-escape-sequences` (withholds a log body; every runner log has escapes).
+      # (2) For a PERSON: the step summary, rendered by `ku_delta.py --summary`.
+      # ⛔ UNTIL D245 THIS STEP `sed`-EXTRACTED A `READINGS on` BLOCK THAT ONLY ARM A PRINTS. D244
+      # switched the job to `--arm a-prime`, and from then the summary carried NO readings, under a
+      # header saying "the readings below". The extraction matched nothing, silently.
+      # ⇒ 🔑 AN EXTRACTION WRITTEN AGAINST ONE ARM'S OUTPUT SHAPE DIES WITH THE ARM, AND IT DIES
+      # QUIETLY: "no lines matched" and "nothing to report" print the same empty block.
       - name: Deterministic kernel-work delta against this change's base (Δku, every module)
         run: |
           set +e
-          python3 scripts/ku_delta.py --arm a-prime 2>&1 | tee /tmp/kudelta.txt
+          python3 scripts/ku_delta.py --arm a-prime --summary /tmp/kusummary.md 2>&1 | tee /tmp/kudelta.txt
           rc=${PIPESTATUS[0]}
           set -e
-          {
-            echo "## ku-delta (ARM A′: Δku every module + the runner's absolute ms ceilings) — rc $rc"
-            echo
-            echo "The readings below are what A′ judged against the ceilings registered for this"
-            echo "machine name. D243: one machine name is several VM classes, so a reading well"
-            echo "under the median is a fast draw, not a cheaper tree."
-            echo
-            echo '```'
-            sed -n '/^READINGS on /,/^$/p' /tmp/kudelta.txt
-            grep -E '^ku-delta gate' /tmp/kudelta.txt || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -s /tmp/kusummary.md ]; then
+            cat /tmp/kusummary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            # The tool writes the summary only once a verdict exists, so a missing file is a REFUSAL.
+            { echo "## ku-delta — rc $rc — ⛔ NO VERDICT: the tool stopped before one. Read this job's log."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=ku-delta wrote no summary::rc $rc, and no verdict was reached"
+            [ "$rc" -ne 0 ] || exit 1
+          fi
           exit "$rc"
 
   # ⭐ ARM A′'s MEASURED RED-FIRST ARM ON THE MACHINE THE GATE RUNS ON (ARMA-1 step 3, D244).
