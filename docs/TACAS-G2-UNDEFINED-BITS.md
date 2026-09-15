@@ -110,7 +110,8 @@ referee will look for, and exactly what the gating claim commits us to publishin
 
 ---
 
-## 4. ⛔⛔ THE ONE CLAIM THAT MAY NOT BE MADE YET, WRITTEN DOWN BEFORE THE WRITEUP STARTS
+## 4. ⛔⛔ THE ONE CLAIM THAT MAY NOT BE MADE YET, WRITTEN DOWN BEFORE THE WRITEUP STARTS — STILL UNRUN; THE PAPER MAKES NO SUCH CLAIM
+*(Status added 2026-09-14: see `TACAS-G2-SECTION-DRAFT.md` §5, which quotes the paper's sentence that declines it.)*
 The natural paragraph — *"K's single constant makes two undefined flags the same term, so an equality
 test between them is TRUE, which is the contamination x86isa designed against"* — is **a hypothesis,
 not a finding.**

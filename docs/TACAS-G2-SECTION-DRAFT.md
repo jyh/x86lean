@@ -107,7 +107,11 @@ that states them demonstrates the discipline it claims.
 ⚠️ **D108 is also the limit of "the oracle is evidence, not the specification":** agreement with a
 model that does not implement a rule says nothing about that rule.
 
-## 5. ⛔ WHAT MAY NOT BE WRITTEN YET
+## 5. ⛔ WHAT MAY NOT BE WRITTEN YET — STILL UNRUN, AND THE PAPER HONOURS IT BY OMISSION
+✅ *Checked 2026-09-14 against the paper, not this file:* §3 says *"We make no claim about how K's or Sail's tools decide
+equality between two undefined values: we have read both models' sources on that question and have run neither."* So the
+sentence below stayed out, and G2's price of 0 does not include the K experiment because the claim needing it was dropped.
+`kprove` is still absent from this box (`command -v` rc 1).
 The sentence *"K's single constant makes two undefined flags the same term, so an equality test
 between them is TRUE"* is **measured at both sources and UNRUN against K.** `kprove` may refuse to
 decide it. ⇒ **It stays out until driven** — and driving it needs a K installation this campaign has
