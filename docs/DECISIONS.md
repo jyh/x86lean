@@ -16966,3 +16966,14 @@ Every pair from {±0, ±∞, qNaN, sNaN, ±1, ±min-denormal} qualifies if it is
 🔑 ***A RECORD THAT SAYS "VALIDATED BY N CASES" IS A CLAIM ABOUT A RUN, AND A RUN THAT WAS NOT KEPT CANNOT BE RE-RUN, AUDITED OR
 EXTENDED.*** The number was specific, the axioms were printed and a plant was reported, which is exactly why nobody looked for the file.
 [[feedback-a-citation-is-an-ungated-claim]]
+
+### 3. README-SIMD-1, TAKEN IN THE SAME STEP BECAUSE IT HAS THE SAME SHAPE
+README's Instructions bullet carried **three numbers no gate read**: `162 mnemonics`, `1020 … forms`, and *"Forty-seven of those mnemonics
+are SIMD"*. The COVERAGE table held **76** rows with an `x` operand at master `e731c63`, and 82 after batch 38.
+- P2 batch 38 re-stamped the first two BY HAND. The snapshot gate had flagged only the code block's copy of the vector count.
+- ✅ `check_readme_snapshot.py` now reads all three.
+  - The XMM count is derived from `docs/COVERAGE.md` by a stated rule: a row whose operand-shapes field (before ` — `) has an `x` token.
+  - The README spells it in digits, since a word-number cannot be parsed.
+  - Selftest arms 8 → 11, and every new arm is caught.
+- ⚠️ **The rule counts ROWS with an XMM operand.** It says nothing about which rows are floating point. The README's parenthetical
+  list of groups is still prose.

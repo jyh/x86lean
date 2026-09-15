@@ -2770,7 +2770,7 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 - ⚠️ **Widen the reach first.** D253 §3 found that no register vector below xmm8 presents opposite signs, so `fcmp`'s mixed-sign branch
   is ALSO unexercised by the vector table. The pair set is therefore larger than §4's.
 
-## ⚠️ README-SIMD-1 (2026-09-15, D253 §6) — README's *"Forty-seven of those mnemonics are SIMD"* is ungated and stale
+## ✅ README-SIMD-1 — **CLOSED 2026-09-15 (D254 §3): the count is derived from COVERAGE by a stated rule and gated, with the Instructions bullet's two other numbers.** *(Filed as: README's "Forty-seven of those mnemonics are SIMD" is ungated and stale.)*
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 

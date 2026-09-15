@@ -56,8 +56,8 @@ declaration in CI.
   oracle. Single-threaded, one instruction at a time.
 - **Instructions.** 168 mnemonics in 1035 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
-  forms, and 149 of them are alias spellings of another row. Forty-seven of those
-  mnemonics are SIMD (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
+  forms, and 149 of them are alias spellings of another row. 82 of those
+  mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
   `movss`/`movsd`, the packed integer add, subtract, bitwise and unpack groups,
   the packed shift group — eight lane-wise shifts at three count shapes each,
   plus the two whole-register byte shifts `pslldq`/`psrldq` — the permute group
@@ -65,7 +65,9 @@ declaration in CI.
   add, subtract, bitwise, unpack and COMPARE groups now carry BOTH shapes too,
   the bitwise complement `pandn`/`andnps`/`andnpd` and the `ps`/`pd` spellings
   of AND/OR/XOR, which are bit manipulation wearing a floating-point name —
-  and the cross-register-file `movd`/`movq`); the P1 roster excludes
+  the cross-register-file `movd`/`movq`, and the first floating point: the
+  compares `comiss`/`comisd`/`ucomiss`/`ucomisd` and `minss`/`minsd`/`maxss`/
+  `maxsd`/`minps`/`maxps`); the P1 roster excludes
   an `xmm` operand **by derivation**, so they claim no row in that 525 and are
   counted against the P2 roster instead. The moves, the ALU
   group at every width and operand shape including read-modify-write to memory,
