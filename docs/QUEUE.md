@@ -2761,7 +2761,7 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
-## ⚠️ FCMP-KERNEL-1 (2026-09-15, D253 §6) — **D140's "818-case kernel differential" for `fcmp` exists in NO tracked file**
+## ✅ FCMP-KERNEL-1 — **CLOSED 2026-09-15 (D254): `fcmp_ieee_binary64`/`_binary32` in `Tests/Anchors.lean`, 77 unreached pairs per format, executed on x86isa first.** *(Filed as: D140's "818-case kernel differential" for `fcmp` exists in NO tracked file.)*
 Three comments cite it as what carries `comis`'s ±0 branch (`Main.lean`, `Tests/Vectors.lean`, `scripts/ku_delta_budget.txt`), and so does
 the published COVERAGE narrative. Searched two ways: the needle `818` finds only those citations, and no `decide` over `fcmp` exists in
 `Tests/` or `X86/`. **The run was made on 2026-09-05 and not kept.**
