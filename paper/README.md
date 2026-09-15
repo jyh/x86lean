@@ -42,10 +42,13 @@ anonymization. No arXiv posting ~2 weeks either side of the deadline.
 - Every `.bib` entry fetched by DOI from the registrar, never copied from G6 (D214: 3 of G6's 8 rows
   disagreed with their own DOI's record). Done for every DOI entry in the file on 2026-09-12. ✅ The SDM
   entry carries its order number (325462-092US, read on the PDF's cover) and URL since 2026-09-13 (D236); the
-  Myreen FMCAD 2012 record was taken from the author's page and bibtex (D222). *This item read "the SDM entry
+  Myreen FMCAD 2012 record was taken from the author's page and bibtex (D222). ✅ **Re-read 2026-09-15 (D249)** against Crossref and
+  each paper's own footer: Goel is cited as its EPTCS 249 publication, the two PACMPL entries carry their article numbers
+  (Armstrong's "1--31" did not locate the article; libLISA's "333--361" was Crossref issue pagination absent from the PDF), and
+  the four repository entries carry sort keys. ⚠️ The TACAS 2007 LNCS volume is still unverified and is not written from memory. *This item read "the SDM entry
   needs its order number and URL; the Myreen FMCAD 2012 record needs a browser" until 2026-09-13.*
 - ✅ **CLOSED 2026-09-13 (D237): which Goel work to cite for x86isa's design (D214).** Keep the arXiv note
-  (`goel-x86isa`, read) + `x86isa-repo`; cite NEITHER the dissertation NOR the Springer chapter, both UNREAD.
+  (`goel-x86isa`, read; cited since D249 as its EPTCS 249 publication, the same text) + `x86isa-repo`; cite NEITHER the dissertation NOR the Springer chapter, both UNREAD.
   **The question dissolved rather than being decided:** §3's undefined-bit table says *"Each row was read at the
   project's own source"*, and x86isa's row cites `create-undef`, `encapsulate` and the seed counter — source-level
   facts in a BSD-3 repo we hold. §2 merely NAMES the model. So no §2/§3 claim ever rested on a Goel text.
@@ -54,7 +57,8 @@ anonymization. No arXiv posting ~2 weeks either side of the deadline.
   (Crossref confirms the record; TDM licence only); the UT dissertation is unreachable because **the whole UT
   Austin estate 403s this box** — a fact about our network, not about the work's availability.
 - Every number moved into `docs/CLAIMS.tsv` at the submission sha, so artifact evaluation reproduces
-  it with one command (G5). §4.3's ceiling and batch-13 figures are there now (pinned `d7dbd58`).
+  it with one command (G5). §4.3's ceiling and packed-shift figures are there now (pinned `d7dbd58`). *The packed-shift record rows read
+  `p2_batch13_*` and cited a different batch's record until 2026-09-15 (D249); the file number and the batch number are two counters.*
 - ✅ A number in the `.tex` IS checked against the row its `\src` cites, when it cites one:
   write `docs/CLAIMS.tsv[id, id]` inside the marker, and `scripts/check_claims.py` (in CI) requires
   each cited value in the prose since the previous marker (D216). ⚠️ A number with no such citation

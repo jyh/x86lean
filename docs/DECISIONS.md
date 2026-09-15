@@ -488,7 +488,7 @@ the operand width, CF is the operand's **sign bit**, and no oracle bit is drawn.
 
 This is the SDM's own wording rather than a refinement. The undefined clause
 names *"SHL and SHR instructions where the count is greater than or equal to the
-size of the destination operand"*; SAR has no such clause, because shifting a
+size (in bits) of the destination operand"*; SAR has no such clause, because shifting a
 value right past its own width still has a well-defined answer — every vacated
 bit, and the last one shifted out, is the sign.
 
@@ -16270,3 +16270,107 @@ Built with tectonic: **15 → 16 pages, References on page 15** (the limit is 18
 (92). The 163 is not a manifest row. It is cited to D108's record line in its `\src`, and §5 already says the manifest is
 incomplete. ⚠️ **NOT checked by the reader, and still owed before submission:** the bibliography and every quotation from
 an outside source (D246 re-read two), and the arithmetic of batch 13's growth from 78,584 to 81,752 cases.
+
+## D249 — TACAS G7's remainder: the bibliography and every outside quotation re-read at their sources, and the "growth from 78,584 to 81,752 cases" D248 left owed did not exist — the sentence cited a different batch's record
+
+⚖️ **D248 §4 left three things unchecked by its reader:** the bibliography, every quotation from an outside source (D246 had
+re-read two), and batch 13's case growth. All three were taken here, at the sources, 2026-09-15. Public sources only.
+
+### 1. ⭐ THE GROWTH WAS A CITATION TO THE WRONG FILE
+```
+  paper §4.3   "the first differential run returned 8 unexplained disagreements in 78,584 cases"     D108 §1     true
+               "The published record of that batch reads 81,752 cases, 0 unexplained"               BATCH13.md  WRONG SUBJECT
+  docs/DIFFERENTIAL-P2-BATCH11.md  "P2 BATCH 11 — the packed shifts"   cases=78584 matched=58052 explained=29435
+                                                                        unexplained=0 oracle-divergence=171   893 vectors
+  docs/DIFFERENTIAL-P2-BATCH13.md  "the packed binary group at a memory source"   cases=81752  929 vectors
+  D108's first run                                                      cases=78584 matched=58052 explained=29435
+                                                                        unexplained=8 oracle-divergence=163
+```
+**The record files are numbered 1..N contiguously; `DECISIONS.md` numbers the seat's batches, which include batches that file no
+record.** D108 is the seat's batch 13 and its record is file 11. BATCH13.md's own header opens with "TWO COUNTERS" and says so. The
+81,752 is a later cumulative run (+36 vectors: record 12's permute group and record 13's memory-source group, 36 × 88 = 3,168).
+**The true sentence is stronger than the false one:** the same 78,584 cases, matched and explained unchanged, and exactly the eight
+moved from unexplained to divergence (163 → 171). Nothing was dropped to reach zero, and the reader cannot now suspect it was.
+⛔ **The manifest carried the confusion and its gate was green on it.** Rows `p2_batch13_cases` / `p2_batch13_unexplained` re-derived
+81,752 and 0 faithfully from the file their name pointed at, and `check_prose` found both values beside the citation.
+[[feedback-a-derivation-gate-wraps-a-false-sentence]] ✅ Replaced by `p2_shift_record_cases` / `p2_shift_record_unexplained`, whose
+command first requires the record's title line to read "the packed shifts", so the row is bound to its SUBJECT and not to a number
+two counters share. Driven both ways: at `d7dbd58` the guarded command prints 78584; the same command pointed at BATCH13.md prints
+nothing, rc 1, and `check_claims --tsv` over a copy of the manifest with that one path swapped exits 1 naming both rows
+("derivation FAILED rc=1").
+
+### 2. THE QUOTATIONS — READ AT THE SOURCE, EACH
+```
+  SDM 325462-092US (June 2026; cover read on the PDF, cdrdv2-public.intel.com/922475)
+    SHL/SHR CF clause   WRONG: the manual reads "the size (in bits) of the destination operand"; the quotation
+                        dropped "(in bits)" with no ellipsis. The Dec 2023 text (felixcloutier.com) has it too, so
+                        no edition lacked it. X86/Flags.lean:194 quotes it whole.            -> fixed, and 5 siblings (§3)
+    SHLD/SHRD result    SHLD verbatim; SHRD reads "If a count", one word apart, and the paper said "for SHLD and SHRD"
+                                                                     -> "for SHLD, and in almost the same words for SHRD"
+                        both Flags Affected: "If the count is greater than the operand size, the flags are undefined" ok
+  Goel, arXiv 1705.01225 (DataCite abstract; the PDF)
+    "400+ opcodes executing in Intel's 64-bit mode of operation"   ok, section 1
+    "run co-simulations against an actual x86 processor for model validation"   ok, section 1 -- NOT the abstract, which
+                        D236's \src marker named. The abstract (DataCite) contains neither phrase.   -> marker corrected
+  x86isa create-undef :long, acl2@c8897a34 machine/register-readers-and-writers.lisp:1487-1492   ok (ellipsis is honest)
+  K README (master)     "3155 instruction variants, corresponding to 774 mnemonics"; "fully executable and has been
+                        tested against more than 7,000 instruction-level test cases and the GCC torture test suite"  ok
+  PLDI 2019 abstract (api.semanticscholar.org)  "has been tested against more than 7,000 instruction-level test cases"  ok
+  AFP X86_Semantics     entry page: "roughly 120", "purposefully incomplete, but overapproximative", objdump parser  ok
+                        current release tarball, X86_InstructionSemantics.thy locale unknowns text: "since that could
+                        be used to prove that the semantics of two undefined behaviors are equivalent"; unknown_flags
+                        :: string => string => bool                                                              ok
+  libLISA PDF (liblisa.nl/files/liblisa2024.pdf)  abstract: "the most extensive formal x86-64 model to date, with over
+                        118 000 different instruction groups"; "behavior that is "undefined" is synthesized for the
+                        current machine"; five machines; bugs in handwritten models. Table 7 "Dasgupta et al.
+                        incorrect" 28 24 18 18 18; 5.2.2 Out-of-scope, 744 non-VEX SSE/AVX variants            ok
+  Armstrong POPL 2019 PDF section 7  24 of 15 400 pass on ASL not Sail; RISC-V traces vs Spike; CHERI test suite and
+                        FreeBSD boot -- "rather than against a processor" holds                               ok
+  Myreen TACAS 2007 (mc-hoare-logic.pdf) section 3.2, both quotes; FMCAD 2008 (decomp.pdf) ARM, PowerPC and x86;
+                        FMCAD 2012 (fmcad12.pdf) Phase 1                                                        ok
+  Sail README + translator/validation/Readme.md: translated from x86isa; co-simulation with "K-Framework Single
+                        Instruction Tests"                                                                      ok
+  LNSym README          Armv8; `cosim` conformance testing; `benchmarks` target                                ok
+```
+⇒ 🔑 ***THE ONE WRONG QUOTATION WAS COPIED FROM OUR OWN PARAPHRASE, NOT FROM THE MANUAL.*** The model's docstring at Flags.lean:194
+has the words; a comment thirty lines lower in the same file dropped them, and that comment is the wording the paper carries.
+
+### 3. THE SIBLINGS OF THE TRUNCATED QUOTATION
+Swept every tracked text file (218), whitespace- and comment-marker-normalised so a quotation wrapped across lines is still one string:
+**six copies, all truncated; five were written in ONE commit, `fb8e706` (2026-09-02, P1 batch 7, which wrote D20), and the paper copied them 09-12:** `docs/DECISIONS.md` D20 (wrapped, invisible to a line grep),
+`X86/Flags.lean:224`, `X86/Coverage.lean:202` (which calls it "the SDM's own wording rather than a simplification"),
+`Tests/Vectors.lean:892`, `docs/DIFFERENTIAL-P1-BATCH7.md:32`, and the paper.
+✅ **The three documentary copies are fixed here** (the paper, D20, the batch-7 record). The same sweep afterwards: seven copies,
+four whole (those three and Flags.lean:194, which always was), **three truncated, and all three are Lean comments.**
+⛔ **THE LEAN COMMENTS ARE NOT FIXED IN THIS LANDING, DELIBERATELY.** They were edited, and `preflight.sh` refused: a `.lean`
+change is a step `kernel_drift --gap` requires a drift-ledger row for (ratchet `lean_missing_max 0`), and the precedent for a
+comment-only step (`d5608a7`, a docstring, 09-13) paid a local two-tree `kernel_delta` run for its row (`1757672`). Three comment
+words do not buy a heavy-lock profiling run, and **no `.lean` step has landed since master became protected** (09-14 11:28), so the
+first one also meets the ritual's untested PR form. The three sites are filed as QUEUE `SDM-QUOTE-1` to ride the next `.lean`
+landing, which pays the row anyway. Reverted before commit; the paper no longer copies from them.
+[[feedback-naming-a-defect-is-not-finding-its-siblings]]
+
+### 4. THE BIBLIOGRAPHY — AGAINST THE REGISTRAR AND THE PAPERS' OWN FOOTERS
+```
+  Crossref, 8 DOIs   title · authors · venue · pages · year match for Dasgupta, Heule, Roessle, Verbeek, Myreen 2007/2008
+  goel-x86isa        the arXiv PDF's own footer: "EPTCS 249, 2017, pp. 1-17, doi:10.4204/EPTCS.249.1"; Crossref agrees.
+                     A peer-reviewed publication of the same text existed and the entry cited the preprint.
+                                                         -> @inproceedings, EPTCS 249, eds. Hunt Jr. and Slobodova
+                     (D237 is unaffected: the same work, and still not the dissertation or the Springer chapter)
+  armstrong-isa      pages 1--31: every PACMPL article's pages start at 1. The footer: Article 71.   -> 71:1--71:31
+  liblisa            pages 333--361 came from Crossref and is issue pagination: 333 and 361 occur nowhere in the PDF,
+                     whose ACM Reference Format reads Article 283, 29 pages.                     -> 283:1--283:29
+  afp-x86            identical to the AFP's own "Cite" BibTeX                                                   ok
+  intel-sdm          order number and date read on the cover                                                    ok
+  4 repository @misc splncs04 printed "to sort, need author or key" for all four on master too -> key fields; 0 warnings
+```
+⚠️ **NOT VERIFIED, AND NOT ADDED FROM MEMORY:** the LNCS volume of TACAS 2007. Crossref's chapter and book records, OpenAlex, Semantic
+Scholar and doi.org's BibTeX all omit it, and link.springer.com serves a JavaScript challenge. The entry keeps `series = {LNCS}` with no
+volume, as before. **FMCAD 2012 still has no DOI found** (D222's routes). dl.acm.org 403s this box.
+
+### 5. COST AND WHAT IS LEFT
+Built with tectonic: **16 pages, References on page 15**, as before; 0 overfull boxes; BibTeX warnings 4 → 0. `check_claims` CLEAN (92).
+⚠️ Found on the way, not a paper defect: the shell `grep` wrapper (ugrep `-I`) printed NOTHING for `grep -c` on the author's
+ISO-8859 publications page while `LC_ALL=C command grep` found the line; one non-UTF-8 byte anywhere in a file silences the whole
+file (driven in a scratch dir: a stray byte on a different line from the match is enough). Every ZERO over a fetched page
+here was re-driven with `grep -a`, `LC_ALL=C command grep` or Python before it was believed. **G7 left: one last full read.**

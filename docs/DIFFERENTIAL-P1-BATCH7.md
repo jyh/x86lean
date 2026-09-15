@@ -29,7 +29,7 @@ because the *bytes* differ, and the bytes are what XED is trusted for.
 ## ⭐ SAR's CF is DEFINED where SHL's and SHR's is not
 
 The SDM's undefined clause names *"SHL and SHR instructions where the count is
-greater than or equal to the size of the destination operand"*. **SAR has no such
+greater than or equal to the size (in bits) of the destination operand"*. **SAR has no such
 clause** — shifting right past the width still has an answer, because every
 vacated bit, and the last one out, is the sign.
 

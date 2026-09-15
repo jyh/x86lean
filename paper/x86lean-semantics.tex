@@ -161,12 +161,14 @@ undefined bits inside x86lean's own state. The two are unrelated.
 The Intel manual~\cite{intel-sdm} leaves part of the processor state undefined after many
 instructions, and it does so in more than one way. Three cases from the shift family show the range.
 A \emph{flag} can be left undefined by a named clause: CF is undefined for ``SHL and SHR instructions
-where the count is greater than or equal to the size of the destination operand''.
-\src{docs/DECISIONS.md D20}
-A \emph{result} can be undefined: for SHLD and SHRD, ``if the count is greater than the operand size,
-the result is undefined'', and the undefined part is the destination together with all six arithmetic
-flags.
-\src{docs/DECISIONS.md D52}
+where the count is greater than or equal to the size (in bits) of the destination operand''.
+\src{docs/DECISIONS.md D20; the wording re-read at the cited edition's PDF (325462-092US, SAL/SAR/SHL/SHR, Flags Affected) 2026-09-15,
+where it carries ``(in bits)'', which this quotation dropped until then; X86/Flags.lean:194 has it; docs/DECISIONS.md D249}
+A \emph{result} can be undefined: for SHLD, and in almost the same words for SHRD, ``if the count is
+greater than the operand size, the result is undefined'', and the undefined part is the destination
+together with all six arithmetic flags.
+\src{docs/DECISIONS.md D52; both descriptions and both Flags Affected sections (``If the count is greater than the operand size, the
+flags are undefined'') re-read at 325462-092US 2026-09-15, docs/DECISIONS.md D249}
 And a case can look undefined without being so. An arithmetic right shift past the operand width has
 no such clause and needs none: every vacated bit, and the last bit shifted out, is the sign bit. A
 model that treats ``count at least the width'' as uniformly undefined invents undefinedness the manual
@@ -482,9 +484,11 @@ reading. We record each of the eight as a known divergence naming one vector and
 independent source; the cases keep running, and an entry that stops diverging fails the run, so a fix
 upstream is noticed rather than silently absorbed.
 \src{Main.lean knownDivergences; docs/DECISIONS.md D108 4}
-The published record of that batch reads 81{,}752 cases, 0 unexplained and 0 leaks, with the divergences
-counted in their own class.
-\src{docs/DIFFERENTIAL-P2-BATCH13.md:119-120; docs/CLAIMS.tsv[p2\_batch13\_cases, p2\_batch13\_unexplained]}
+The published record of that batch reads the same 78{,}584 cases with 0 unexplained and 0 leaks, the
+eight now counted as divergences and the matched count unchanged.
+\src{docs/DIFFERENTIAL-P2-BATCH11.md:138-139, the eleventh differential record, which is the seat's batch 13 and D108's; docs/CLAIMS.tsv[p2\_shift\_record\_cases, p2\_shift\_record\_unexplained];
+matched 58,052 and explained 29,435 in both records, divergences 163 -> 171. This sentence read 81,752 until 2026-09-15, the count of
+DIFFERENTIAL-P2-BATCH13.md, which is a later batch's record with 36 more vectors (the two counters that file's header names); docs/DECISIONS.md D249}
 A divergence entry has a cost, and we state it. It excuses one field of one vector at every
 pre-state, so a genuine defect of x86lean in that field would now be absorbed by it. Two things stand
 against that, and neither is the entry itself. The saturation rule is checked by a theorem on a witness
@@ -673,7 +677,8 @@ We compare against three of the x86-64 semantics whose sources we have read: two
 and a third derived from one of them.
 ACL2 x86isa~\cite{goel-x86isa,x86isa-repo} specifies ``400+ opcodes executing in Intel's 64-bit mode of
 operation'' and runs ``co-simulations against an actual x86 processor for model validation''.
-\src{docs/CLAIMS.tsv[x86isa\_opcodes]; docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225}
+\src{docs/CLAIMS.tsv[x86isa\_opcodes]; docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225, both phrases in its section 1
+(re-read at the PDF 2026-09-15, D249), published as EPTCS 249}
 Its proof development is far stronger than ours: eight verified program families carry 559 theorem
 forms over a separate proof library, and one of them proves full functional correctness and freedom
 from faults for a copy loop of unbounded length.
@@ -741,7 +746,8 @@ instruction set automatically~\cite{heule-stratified}.
 \src{docs/CLAIMS.tsv[k\_tests]; docs/TACAS-G6-RELATED-WORK.md 4, the differential and co-simulation rows;
 each attribution re-read at its source 2026-09-13 (D236): the PLDI 2019 abstract via api.semanticscholar.org for DOI
 10.1145/3314221.3314601, ``has been tested against more than 7,000 instruction-level test cases''; arXiv:1705.01225's
-abstract, ``run co-simulations against an actual x86 processor for model validation''; the PLDI 2016 title, ``Automatically
+section 1, ``run co-simulations against an actual x86 processor for model validation'' (this marker said ``abstract'' until
+2026-09-15: the phrase is not in the abstract, re-read at DataCite and the PDF, D249); the PLDI 2016 title, ``Automatically
 Learning the x86-64 Instruction Set''}
 The check against a processor can itself
 be a proof: the model extracted from those learned semantics was tested in Isabelle/HOL by lemmas, each
