@@ -39,9 +39,10 @@ x86lean is an executable semantics of x86-64 user-level instructions in Lean~4, 
 sources and validated by differential testing against ACL2 x86isa. It covers fewer instructions than
 the K semantics and has far weaker proof support than x86isa or K, and we say so first. What it contributes is a
 treatment of validation in which the claims about a semantics, what it covers, how it was checked and
-where the check has nothing to check against, are derived and gated rather than written. We describe a
-design for undefined bits that keeps one definition for execution and proof, derives the undefined set
-from the semantics instead of declaring it, and states a case the model declines as a theorem; a
+where the check has nothing to check against, are derived and checked rather than written, as far as the
+gates reach, and the paper says where they stop. We describe a design for undefined bits that keeps one
+definition for execution and proof, derives the undefined flags from the semantics instead of declaring
+them, checks undefined registers against a declared rule, and states a case the model declines as a theorem; a
 differential harness whose disagreement classes and wrong-model controls are explicit; the places where
 the reference model is not the specification, including one where it contradicts itself; and a
 measurement, on a sample, of what safety proofs over the semantics cost. We also report how often this
@@ -74,15 +75,15 @@ Its decoding is trusted to Intel XED, and its validation is against one executab
 
 What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
 \begin{itemize}
-\item an undefined-bit design in which one Lean definition serves execution and proof, the undefined set
-  is derived from the semantics rather than declared, and a case the model cannot represent is declined
-  by a theorem (Section~\ref{sec:undef});
+\item an undefined-bit design in which one Lean definition serves execution and proof, the undefined flags
+  are derived from the semantics rather than declared, undefined registers are checked from two sources,
+  and a case the model declines is stated as a theorem (Section~\ref{sec:undef});
 \item a differential harness whose classes of disagreement, units and wrong-model controls are explicit,
-  a statement that its evidence comes from two origins and not three, and the cases where the reference
-  model is not the specification (Section~\ref{sec:validation});
-\item coverage and validation figures derived from two sources and gated in CI against the prose that
-  states them, this paper's manifest-cited figures among them, with a measurement of how often ungated
-  claims in this project failed a re-check (Section~\ref{sec:gated});
+  a statement that the three models it could be compared against are two origins and not three, and the
+  cases where the reference model is not the specification (Section~\ref{sec:validation});
+\item coverage figures derived from two sources, and validation figures re-derived from their records,
+  gated in CI against the prose that states them, this paper's manifest-cited figures among them, with a
+  measurement of how often ungated claims in this project failed a re-check (Section~\ref{sec:gated});
 \item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
   proof interface cannot state (Section~\ref{sec:proofs}).
 \end{itemize}
@@ -136,6 +137,11 @@ introduces an axiom with a per-computation name rather than \lean{Lean.ofReduceB
 keyed on the latter passes it silently, and the check is driven red with a planted
 \lean{native\_decide} before it is trusted.
 \src{TRUSTBASE.md, Axiom policy; scripts/axiom\_gate\_selftest.sh}
+The test tree is outside that check, and it holds the six safety theorems of Section~\ref{sec:proofs} and
+the theorems this paper cites from \lean{Tests}. No proof there uses \lean{native\_decide} or
+\lean{bv\_decide}; a search establishes that at the published commit, and no gate enforces it.
+\src{scripts/axiom\_gate.sh derives its modules from X86.lean's imports; Tests/Program.lean holds the six safety theorems;
+git grep -n -E 'native\_decide|bv\_decide|ofReduceBool' -- 'Tests/*.lean' finds one line, a comment in Tests/Anchors.lean; docs/DECISIONS.md D248}
 Two further boundaries are stated rather than modelled. The model assumes SSE is enabled, computing
 vector results where hardware with \texttt{CR4.OSFXSR} clear would fault, and the reference model is
 configured to match, a configuration that is itself checked. The LOCK prefix is recorded, and which
@@ -231,8 +237,8 @@ advances with each draw.
 2026-09-12; docs/TACAS-G1-POSITIONING.md 1d; D220}
 A sixth answer inverts the question. libLISA synthesizes instruction semantics by observing a processor,
 and its model is CPU-specific: behaviour ``that is `undefined' is synthesized for the current
-machine''~\cite{liblisa}. We have read its models only for the packed-shift rule of
-Section~\ref{sec:validation:limits}, where they serve as a second source.
+machine''~\cite{liblisa}. We have read its models only for the two rules of
+Section~\ref{sec:validation:limits} on which x86lean and the reference model part, where they serve as a second source.
 \src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221}
 
 x86lean's oracle is x86isa's seed discipline made concrete.
@@ -332,8 +338,8 @@ reason. Every other double shift is answered.
 \src{X86/Syntax.lean dshiftMemUndefined; X86/Semantics.lean, the .dshift case}
 
 The refusal is stated as a theorem,
-\lean{step\_dshift\_mem\_\allowbreak undefined\_\allowbreak refuses}: for an immediate count, the step leaves the
-state unchanged except for the halt reason. The guard in \lean{step} is on the masked count, which a count in CL
+\lean{step\_dshift\_mem\_\allowbreak undefined\_\allowbreak refuses}: for an immediate count and an effective address
+without a LOCK prefix, the step leaves the state unchanged except for the halt reason. The guard in \lean{step} is on the masked count, which a count in CL
 reaches as well.
 \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
 Each of the other four designs in Table~\ref{tab:undef} has a general means of answering such a case,
@@ -376,7 +382,9 @@ declared divergences. 0 disagreements are unexplained, and in 0 cases did an und
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
 A re-run with the reference model pinned at ACL2 commit c8897a34 reproduced every counter: 89{,}056 cases,
-68{,}524 matched, 29{,}435 explained, 171 declared divergences, 0 unexplained and 0 leaks.
+68{,}524 matched, 29{,}435 explained, 171 declared divergences, 0 unexplained and 0 leaks. Both leak counts
+were taken before the leak check compared the oracle cursor; the cursor's own count is the separate record of
+Section~\ref{sec:undef:draw}.
 \src{docs/REFERENCE-PIN-RUN-2026-09-12.md; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, pin\_cases,
 pin\_matched, pin\_explained, pin\_diverged, pin\_unexplained, pin\_leaks]}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
@@ -402,8 +410,8 @@ x86lean. Sail has not been used in any differential record.
 \src{PROVENANCE.md, the K and Sail rows; docs/TACAS-G1-POSITIONING.md, the executable row and 1c.7;
 Main.lean knownDivergences, the source field of every entry}
 The validation claims below are therefore claims of agreement with one executable model, arbitrated
-where the two disagree by the manual and by reading the other model's rules, and for one rule by a model
-synthesized on processors (Section~\ref{sec:validation:limits}). That arbiter is fallible
+where the two disagree by the manual and by reading the other model's rules, and for the two rules behind
+every declared divergence by a model synthesized on processors (Section~\ref{sec:validation:limits}). That arbiter is fallible
 too: comparing K's semantics with semantics synthesized on five processors, libLISA judged K incorrect for
 between 18 and 28 instruction variants per machine~\cite{liblisa}.
 \src{docs/CLAIMS.tsv[liblisa\_k\_incorrect\_min, liblisa\_k\_incorrect\_max]; liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
@@ -421,7 +429,7 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
 A paper whose argument is that every claim is checked must also report where the check has nothing to
-check against. Three findings fall there.
+check against. Four findings fall there.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
@@ -437,6 +445,19 @@ vload\_unaligned\_movdqu\_runs}
 This is the weakest claim in the model: it rests on our reading of the manual and on a proof that the
 model implements that reading, and nothing else.
 Agreement with a reference model that does not implement a rule is not evidence about the rule.
+
+\paragraph{A reference model that keeps bits the manual clears.}
+Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
+the manual and in K's rules; the reference model keeps them and writes only the low 32 or 64. x86lean
+follows the manual, and the two vectors are declared divergences with K's rule as their independent
+source. They are most of the declared count: 163 of the 171. A wrong model planted to merge rather than
+clear was already one of the batch's controls, and it fired against x86lean; the reference model
+implements the same mistake. libLISA's semantics agree with the manual on the VEX-encoded forms, on each
+of its five machines.
+\src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
+Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
+``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
+eight shifts were declared; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
@@ -480,7 +501,8 @@ x86lean does not yet cover, ours does not. We measure demand with a census of th
 public Debian binaries; in its assembly class, six codec columns counted apart from compiler output,
 401{,}653 instructions are forms the model does not cover.
 \src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
-Of those, 162 are scalar instructions awaiting a LOCK vocabulary and the rest are vector instructions.
+Of those, 162 are scalar instructions in the census row for the LOCK vocabulary, still counted as
+uncovered although the vocabulary itself has landed, and the rest are vector instructions.
 Asking the reference model to execute one form of each vector mnemonic, at the operand class where the
 demand actually occurs, it executes the forms carrying 139{,}854 of them and refuses the forms carrying
 169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 91{,}519 have not yet been
@@ -488,8 +510,10 @@ asked at their own class. The five parts sum to the total.
 \src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
 p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
 162 + 139854 + 169877 + 241 + 91519 = 401653}
-The reference model therefore refuses more of the remaining gap than it executes. Those instructions
-cannot be differentially validated against it at any price, however the work is ordered. K has
+Among the forms it has been asked, the reference model therefore refuses more than it executes; the
+unasked share is larger than that difference, so the comparison does not yet extend to the whole gap.
+The refused instructions cannot be differentially validated against it at any price, however the work
+is ordered. K has
 semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
 bytes and this project has never run it, so whether it can serve as the second source there is open.
 \src{docs/DECISIONS.md D115 3 for the finding (its table is dated; the live figures are the roster's);
@@ -515,7 +539,7 @@ claim a row only if the two assemble to the same opcode, so a mis-parse cannot s
 instances assemble to identical bytes are reported as spellings of one machine form, which is why the
 figures count both rows and distinct forms.
 \src{scripts/claimed\_forms.py module docstring}
-The published figures are 158 mnemonics in 1{,}012 differentially tested forms, covering 500 of the 525
+The published figures are 158 mnemonics in 1{,}012 differentially tested vectors, covering 500 of the 525
 roster rows, which are 351 of the 374 distinct machine forms those rows describe; CI fails if the prose
 that states them disagrees with the derivation.
 \src{docs/COVERAGE.md:5 and README.md:56-57, checked against the derivation by scripts/claimed\_forms.py --check in CI;
@@ -550,9 +574,10 @@ paper reports as validation against test suites and simulators.
 \src{docs/DECISIONS.md D222 and D223. Not counted as a sample, and not in the rate below: the set they were
 drawn from was not fixed before the reading, and D223's own record counts three corrections that evening
 where this paragraph once counted two failures of three; docs/DECISIONS.md D235}
-In the three samples with a denominator, 3 of 9, 3 of 8 and 3 of 7, claims that no check read
-failed a re-check at least one time in three, and the failures were present when the claims were
-written rather than acquired later.
+In the three samples with a denominator, 3 of 9, 3 of 8 and 3 of 7, claims that no check read did
+not survive a re-check at least one time in three: wrong in the first two samples, and in the third not
+reproducible from what they stated. In the first sample, where it could be tested, the failures were
+present when the claims were written rather than acquired later.
 Re-checking more often does not answer that; only a mechanical check does.
 \src{docs/CLAIMS.tsv[recheck\_d201\_failed, recheck\_d201\_total, recheck\_d214\_failed, recheck\_d214\_total,
 recheck\_d202\_failed, recheck\_d202\_total]; the draft of Section~3 and the related-work cases have no denominator
@@ -611,8 +636,8 @@ instructions; lines by scripts/proof\_lines.py); docs/CLAIMS.tsv[fit\_labels\_pr
 fit\_labels\_fill, fit\_labels\_memcpy, proof\_lines\_prologue, proof\_lines\_guarded, proof\_lines\_fill,
 proof\_lines\_memcpy, fit\_intercept, fit\_slope, fit\_at20, fit\_max\_residual]; docs/DECISIONS.md D234: the
 guarded routine was recorded as 4 labels, and the earlier fit of 19 plus 7.5 to 8.1 per label rested on it}
-Three successive rounds of interface work on the routine with five labels brought its per-label cost
-from about 25 lines to 12, 9.6 and 7.6; the third was pre-registered with a refutation threshold, which
+Three successive rounds of interface work on the routine with five labels brought its per-label cost,
+measured above that routine's own fixed base, from about 25 lines to 12, 9.6 and 7.6; the third was pre-registered with a refutation threshold, which
 it did not reach, and it added no lemma at all: its saving came from deleting proof steps that
 definitional unfolding already discharged and from one macro.
 \src{docs/CLAIMS.tsv[fit\_labels\_fill, proof\_round\_1, proof\_round\_2, proof\_round\_3, proof\_round\_4]; docs/P2-PROOF-INTERFACE.md, the runP\_code point and round 4 (problem 1, the fill routine; this sentence said "the first of these routines", which in the list above is prologue, D234)}
@@ -644,7 +669,7 @@ semantics, are the subject of later work.
 % 6), docs/DECISIONS.md D201 D214. Every bibliography record fetched by DOI (D214).
 
 \paragraph{x86-64 semantics.}
-We compare against three x86-64 semantics whose sources we have read: two independent of each other,
+We compare against three of the x86-64 semantics whose sources we have read: two independent of each other,
 and a third derived from one of them.
 ACL2 x86isa~\cite{goel-x86isa,x86isa-repo} specifies ``400+ opcodes executing in Intel's 64-bit mode of
 operation'' and runs ``co-simulations against an actual x86 processor for model validation''.
@@ -657,7 +682,7 @@ from faults for a copy loop of unbounded length.
 The K semantics~\cite{dasgupta-k-x86,k-x86-repo} covers ``3155 instruction variants, corresponding to
 774 mnemonics'', and ``is fully executable and has been tested against more than 7,000
 instruction-level test cases and the GCC torture test suite''; its prover establishes functional
-post-conditions with loop invariants for ten programs.
+post-conditions for ten programs, including a loop.
 \src{docs/CLAIMS.tsv[k\_variants, k\_mnemonics, k\_tests]; docs/TACAS-G1-POSITIONING.md 1b verbatim from K's README; 1c.4 for the kprove specifications}
 K executes assembly source rather than machine code: its loader parses assembler directives, and its
 opcodes are mnemonics.
@@ -698,7 +723,7 @@ and section 2, ``Strata demonstrates trustworthy semantics for 692 instructions,
 PLDI 2022 section 1, ``a representation that contains an overapproximation of all possible execution paths of the binary'' (abstract) and
 ``We also assume the existence of sound instruction semantics''; docs/DECISIONS.md D246}
 What x86lean adds is the subject of Sections~\ref{sec:undef}--\ref{sec:gated}: an undefined-bit design
-whose limits are stated as theorems, a differential harness whose disagreement classes and wrong-model
+whose limits are stated, one of them as a theorem, a differential harness whose disagreement classes and wrong-model
 controls are explicit, and coverage and validation claims that are derived and checked rather than
 written.
 
@@ -761,18 +786,18 @@ semantics (PLDI 2022 section 1), so it states no model's fidelity: docs/DECISION
 
 The limitations are the ones stated where they arise. x86lean is small, and its proofs are few. Its
 decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
-by reading a second, and for one rule by a model synthesized on processors; K has not been run, and no
-hardware co-simulation has been. The reference model
-refuses more of the remaining instructions than it executes, so for those a model built from the manual
-currently has no second source. A rule the reference model does not implement, such as MOVDQA's
+by reading a second, and for two rules by a model synthesized on processors; K has not been run, and no
+hardware co-simulation has been. Of the remaining instructions it has
+been asked, the reference model refuses more than it executes, and for those a model built from the
+manual currently has no second source. A rule the reference model does not implement, such as MOVDQA's
 alignment fault, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
 gate on quoted figures checks the figures that cite the manifest, not every number in the text.
 
 The contribution is not a larger or more strongly proved semantics. It is a semantics whose claims about
 itself are outputs: derived from the artifact, checked against a second source where one exists, and
 stated as absent where one does not. The measurement that motivates it is modest and, we think,
-general: in this project, claims about formal artifacts that nothing checked failed a re-check at least
-one time in three in every sample we took, and the failures were present when the claims were written.
+general: in this project, claims about its artifacts and its sources that nothing checked did not survive
+a re-check at least one time in three in each of the three samples we could count.
 
 % ---------------------------------------------------------------------------------------------
 % Mandatory for ETAPS 2027 papers: placed just before the references, outside the page limit

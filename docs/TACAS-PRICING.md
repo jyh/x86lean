@@ -112,7 +112,9 @@ file's "paper 1" is the semantics paper, and it proceeds on the TACAS clock (des
 
 **Sum of what is priceable — SHOWN AS ITS PARTS, so it can be checked in place rather than trusted:**
 ```
-  BEFORE OCT 15:  G6 0 · G7 1 (ESTIMATED) · data statement ~0.25 (ESTIMATED)  ⇒  ~1.25 working days
+  BEFORE OCT 15:  G6 0 · G7 0.5 (ESTIMATED) · data statement ~0.25 (ESTIMATED)  ⇒  ~0.75 working days
+      (G7 re-priced 1 -> 0.5 on 09-15: the revision pass was taken by a non-author reader and its 14 confirmed
+       findings applied, D248; left: the outside quotations and bibliography re-read, and a last full read)
       (G6 re-priced 1 -> 0.5 on 09-14: seL4/AutoCorres dropped by the author, Armstrong done; see the G6 cell)
       (G6 re-priced 0.5 -> 0 later on 09-14: Roessle/Verbeek read at the PDFs, three §7 sentences changed, D246)
   AFTER, IF AE:   G5 3-4, due 2027-01-11 (§3a: voluntary, after notification)
