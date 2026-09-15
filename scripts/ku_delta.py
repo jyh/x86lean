@@ -751,7 +751,7 @@ def selftest():
             globals()["BUDGET_FILE"] = reg
             with tempfile.TemporaryDirectory(prefix="x86lean-newmod-") as wt:
                 os.makedirs(os.path.join(wt, "X86"))
-                open(os.path.join(wt, "X86", "Basic.lean"), "w").close()
+                open(os.path.join(wt, "X86", "Basic.lean"), "w", encoding="utf-8").close()
                 check("the measurement records a module as new iff the base tree has no "
                       "file for it", new_modules(wt, ["X86.Basic", "X86.New"]) == ["X86.New"])
 
