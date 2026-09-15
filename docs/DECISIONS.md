@@ -16091,3 +16091,60 @@ read the summary it retitled. [[feedback-a-parsed-column-belongs-to-the-tool]] [
 1.95× factor D244 assumed. ⚠️ **One reading, on one VM draw**, and the control's ms was not printed until this change,
 so the plant's own Δms on the runner is not recoverable from that job. The direction is the safe one: the plant
 clears the ceiling by more than predicted, not less.
+
+## D246 — TACAS G6 closed: Roessle and Verbeek read at their PDFs, and the read changed three sentences of §7, not the one it was owed for
+
+⚖️ **The owed item was *"a read of Verbeek/Roessle/Bockenek beyond the over-approximation claim"*** (G6 §6; priced 0.5 day
+in TACAS-PRICING). Both papers were fetched at the authors' own site (`ssrg.ece.vt.edu/papers/cpp2019.pdf`, 670,224 bytes;
+`…/pldi22.pdf`, 365,163 bytes). ⛔ **The PLDI URL was a guess**, so both title blocks were matched to their Crossref records
+(`10.1145/3293880.3294102`: Roessle, Verbeek, Ravindran · `10.1145/3519939.3523702`: Verbeek, Bockenek, Fu, Ravindran)
+before a word was read. Every phrase quoted below and in the paper's `\src` was then re-found in the extracted text with
+whitespace normalised: 10 of 10 found, plus one planned absence.
+
+### 1. ⛔⛔ THE SENTENCE THE READ WAS OWED FOR WAS A CATEGORY ERROR
+§7 said: *"That a model should state its own fidelity is not our idea either: the Isabelle/HOL model and the lifting work
+above describe theirs as over-approximative [afp-x86, verbeek-lifting]."* The PLDI 2022 abstract does say "provably
+overapproximative", and **the thing over-approximated is a binary's execution paths:** *"a representation that contains an
+overapproximation of all possible execution paths of the binary"*. The paper **assumes** the property our sentence credited
+to it: *"We also assume the existence of sound instruction semantics that express state changes per instruction"* (§1).
+⇒ The citation is removed from that sentence, and the AFP entry (whose phrase *is* about its instruction semantics) carries
+it alone. 🔑 ***A WORD IN AN ABSTRACT HAS AN OBJECT, AND THE ABSTRACT'S OBJECT IS NOT THE SENTENCE'S.*** "Over-approximative"
+matched, and the thing it modified did not, which only the body could show.
+📌 **G6 §4's fidelity-row cell was wrong for BOTH papers:** it read *"Verbeek/Roessle/Bockenek (CPP 2019, PLDI 2022)
+over-approximative semantics"*, and CPP 2019 contains the stem `overapprox` **0** times (PLDI 2022: 34, the control).
+
+### 2. THE READ FOUND TWO THINGS IT WAS NOT LOOKING FOR
+```
+  CPP 2019's unit      abstract "1625 instructions"   body §1 "1625 instructions variants (IVs)"
+                       §2 "Strata demonstrates trustworthy semantics for 692 instructions, which through
+                       generalization arguments expands to 1625 IVs"; jumps, call, push, pop, parity: by hand
+                       ⇒ §7 now says "1,625 instruction variants"; roessle_instructions keeps its value (1625)
+  CPP 2019 §6          "For each IV, we create Isabelle/HOL test lemmas"; 6,630 test cases per IV; post-states from
+                       "live x86-64 hardware (Skylake architecture)" through a Pin tool; 886 IVs tested, 2 failed
+                       ⇒ a prover-hosted model checked against a processor, BEFORE us and uncited by us.
+                       §7's validation paragraph now cites it, and G6 §4's co-simulation row names it
+```
+⚠️ The second one matters most. The paragraph calls validation against hardware "established practice" and cited three
+precedents. x86isa is already a model inside a prover (ACL2) co-simulated against a processor, so what CPP 2019 adds is
+narrower: **each hardware test case is a PROVED LEMMA about the step function, not an execution of it.** A referee from
+this group would have found that omission in one look. The added sentence is a concession, which is the direction this
+section's claims are kept in.
+⛔ **My first draft of both this paragraph and the paper's sentence said the novelty CPP 2019 removes was "checking a
+prover-hosted model against a processor". x86isa, one clause earlier in the same paragraph, already is that.** Caught
+before commit, rereading the claim against its own neighbour. [[feedback-reading-a-file-for-one-claim]]
+
+### 3. G1's OPEN IDENTITY QUESTION, ANSWERED
+`TACAS-G1-POSITIONING.md` §1d left open whether the AFP entry (~120 instructions) IS the CPP 2019 model (1,625). **It is
+not.** PLDI 2022 §5.2 carries the AFP page's own phrase (*"a formal model of the semantics of roughly 120 different x86-64
+assembly instructions"*, floating point *"mapped to uninterpreted functions"*). CPP 2019's model is extracted from Strata.
+There are two models, from one group, three years apart.
+
+### 4. WHAT CHANGED, AND WHAT DID NOT
+- `paper/x86lean-semantics.tex` §7: the Roessle/Verbeek sentence (unit, subject, "read these papers" in place of "read
+  their abstracts") · the validation paragraph (+ CPP 2019 §6) · the fidelity sentence (− verbeek-lifting).
+  **Built with tectonic before and after: 15 pages both, References on page 14 both.**
+- G6 §4 (two cells) and §6 (the owed line) · G1 §1d · TACAS-PRICING G6 0.5 → 0, BEFORE-OCT-15 sum 1.75 → 1.25 ·
+  `paper/README.md` §7 cell.
+- ⛔ **Not changed:** the paper still does not position x86lean against either work, and now says why (a variant
+  count is not a mnemonic count, and lifting is not an instruction set). Neither artifact was opened: CPP 2019's source
+  repo carries no licence (G1 §1d), so it stays readable, not reusable.
