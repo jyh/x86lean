@@ -91,3 +91,42 @@ Those 80 rows are `Tests/Anchors.lean`'s `minmax_ieee_binary64` / `minmax_ieee_b
 
 ⚠️ **This instrument is not the vector table and is never pooled with it.** It speaks about the lane
 rule, not about `step`.
+
+## 5. THE ARMS
+
+```
+minmax returns the destination on a NaN or a tie             170 in `xmm0`   (170 unexplained)
+minmax compares the bit patterns as signed integers          198 in `xmm0`   (213 unexplained)
+minmax returns the negative zero of a zero pair (minNum)       2 in `xmm0`   (2 unexplained)
+minmax zeroes the bits above the scalar lane                 620 in `xmm0`   (782 unexplained)
+```
+
+`x86lean-diff selftest minmax`, 4 of 138 arms, PASS.
+- ⭐ **The minNum arm scored exactly the 2 pre-registered:** `minsd_m` and `minss_m`, at the one pre-state per format where
+  `c = a = 0x8000…`.
+- It is the arm D140 had to delete for `comis`, where no vector could reach the ±0 rule. The `0x10(%rbx)` vector is the whole
+  difference.
+
+## 6. THE LANDING MEASUREMENT
+
+Step `e731c63` (master) → `b259049` (this batch as one commit), measured on yukon.lan and pre-registered on the fleet bus before
+either profile started.
+
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.5-6.1
+         Tests.Coverage            +600  ±445.7  against 1,875.6     predicted ~+1,000        (lower)
+         @decl vectorCoverage       +85   ±98.2  against   327.3     predicted ~+150          (lower)
+         Tests.Anchors              +25   ±23.5  against   122.3     predicted ~+20           (as predicted)
+         X86.Syntax                 +25   ±15.6  against    45.6     predicted +30 to +50     REFUTED, below the range
+  A′   ku_delta --arm a-prime     CLEAN, rc 0     every module inside
+         X86.SoftFloat               +0          against 51          predicted 0              CONFIRMED
+         Tests.Coverage        +219,397          against 575,660
+         Tests.Anchors          +14,308          against  47,971
+         X86.Syntax                +683          against   4,516
+         X86.Theorems              +526          against  15,356
+  D251 --record … --a-prime       RECORDED        "ms verdict rc 0 · ARM A′ rc 0 on yukon.lan ⇒ lands on the ms verdict"
+                                                  row e731c63 → b259049; --gap 0
+```
+
+⚠️ **Every ms prediction erred HIGH.** Batch 32's +550 for 8 vectors, scaled, over-priced 15 vectors by 40%. **A batch's vector count
+is not its kernel cost**: the memory-operand vectors here share their `vbinm`/`readMem` reduction with vectors already in the table.

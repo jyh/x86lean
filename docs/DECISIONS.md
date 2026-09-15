@@ -16911,3 +16911,14 @@ PRE state, reading no Lean: **1,320 cases, 0 mismatches**, with the write visibl
 - ⚠️ **README's "Forty-seven of those mnemonics are SIMD"** is ungated and stale from before this batch. The coverage table's
   x-shaped rows now number about 82. Filed rather than re-derived here, because a count typed from a heuristic is the defect it would
   replace.
+
+### 7. THE LANDING MEASUREMENT (record 24 §6)
+Step `e731c63` → `b259049`, pre-registered on the fleet bus before either profile started.
+- **ms `kernel_delta --repeats 6`: CLEAN, rc 0.**
+  - `Tests.Coverage` +600 ±446 against 1,876.
+  - `X86.Syntax` +25 ±16 against 46. My predicted +30 to +50 was refuted low.
+  - `Tests.Anchors` +25 ±24 against 122. This includes §4's differential.
+- **A′: CLEAN, rc 0**, with `X86.SoftFloat` Δku 0 as §1's draft read.
+- **`--record … --a-prime`: RECORDED**, landing on the ms verdict; `--gap` 0.
+- ⇒ **A′ was supplied although ms was CLEAN**, which is D252 §6's recommended tightening practised before it is ruled.
+  **Every ms prediction erred high** (Tests.Coverage by about 40%).
