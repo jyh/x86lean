@@ -172,7 +172,7 @@ def run(src):
 
 
 def main():
-    src = open(TARGET).read()
+    src = open(TARGET, encoding="utf-8").read()
     bad = []
     code, out = run(src)
     ok = code == 0

@@ -144,7 +144,7 @@ def corpus_role(rows):
 
 
 def role_of_file(path):
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         rows = [json.loads(l) for l in fh if l.strip()]
     return corpus_role(rows)
 
@@ -237,7 +237,7 @@ def figure_claims(files):
 
 
 def load_range_of(path):
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         v = [json.loads(l)["load1"] for l in fh if l.strip()]
     return (min(v), max(v)) if v else None
 
@@ -445,7 +445,7 @@ def selftest():
     # ---- arm A: existence, and its OVER-REFUSAL control --------------------
     d = scratch.mkdtemp("x86lean-corpusclaims-")
     live = os.path.join(d, "live.py")
-    open(live, "w").write(
+    open(live, "w", encoding="utf-8").write(
         "# it reads docs/absolutely-not-here.jsonl for the answer\n"
         "def selftest():\n"
         "    # a fixture: docs/also-not-here.jsonl\n"
@@ -462,18 +462,18 @@ def selftest():
     # ---- arm C: the claim join, both directions ----------------------------
     if walks and cnts:
         mis = os.path.join(d, "mis.md")
-        open(mis, "w").write(f"run it with --counters {walks[0]} today\n")
+        open(mis, "w", encoding="utf-8").write(f"run it with --counters {walks[0]} today\n")
         cl = claim_sites([mis])
         ok(len(cl) == 1 and cl[0][1] == "counters" and roles_probe(cl[0][2]) == "walk",
            "a WALK corpus bound to --counters is detected as a role mismatch",
            plant="claim-role-mismatch")
         good = os.path.join(d, "good.md")
-        open(good, "w").write(f"run it with --counters {cnts[0]} today\n")
+        open(good, "w", encoding="utf-8").write(f"run it with --counters {cnts[0]} today\n")
         cl = claim_sites([good])
         ok(len(cl) == 1 and roles_probe(cl[0][2]) == cl[0][1],
            "CONTROL — the CORRECT binding is not flagged")
         far = os.path.join(d, "far.md")
-        open(far, "w").write("--counters " + "x" * (WINDOW + 10) + f" {walks[0]}\n")
+        open(far, "w", encoding="utf-8").write("--counters " + "x" * (WINDOW + 10) + f" {walks[0]}\n")
         ok(not claim_sites([far]),
            f"CONTROL — a path more than WINDOW={WINDOW} chars from the flag is NOT "
            f"read as its argument")
@@ -483,16 +483,16 @@ def selftest():
     if walk_real:
         d = scratch.mkdtemp("x86lean-armd-")
         wrong = os.path.join(d, "wrong.py")
-        open(wrong, "w").write(
+        open(wrong, "w", encoding="utf-8").write(
             f'"""{walks[0]}   load1  {walk_real[0]+5:.2f} - {walk_real[1]+5:.2f}"""\n')
         right = os.path.join(d, "right.py")
-        open(right, "w").write(
+        open(right, "w", encoding="utf-8").write(
             f'"""{walks[0]}   load1  {walk_real[0]:.2f} - {walk_real[1]:.2f}"""\n')
         # figure_claims only reads scripts/*.py, so drive the comparison directly
         def mismatch(path_py):
             for pth, lo, hi, _f, _i in [(m.group(1), float(m.group(2)), float(m.group(3)),
                                          path_py, 1)
-                                        for m in LOAD_RANGE.finditer(open(path_py).read())]:
+                                        for m in LOAD_RANGE.finditer(open(path_py, encoding="utf-8").read())]:
                 r = load_range_of(pth)
                 if round(r[0], 2) != round(lo, 2) or round(r[1], 2) != round(hi, 2):
                     return True

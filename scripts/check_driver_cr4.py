@@ -157,7 +157,7 @@ def build_cases(pres, path):
         tag = OA.tag_of(label)
         for i, c in enumerate(pres):
             body.append(OA.rewrite(c, i, tag, hx))
-    open(path, "w").write('(in-package "X86ISA")\n(defconst *x86lean-cases*\n \'(\n'
+    open(path, "w", encoding="utf-8").write('(in-package "X86ISA")\n(defconst *x86lean-cases*\n \'(\n'
                           + "".join(body) + "))\n")
     return len(body)
 
@@ -202,15 +202,15 @@ def run(cases_path, driver_path, out_path):
     if not os.access(acl2, os.X_OK):
         die(f"no ACL2 image at {acl2} — run scripts/setup_oracle.sh")
     drive = out_path + ".lsp"
-    open(drive, "w").write(
+    open(drive, "w", encoding="utf-8").write(
         '(include-book "projects/x86isa/tools/execution/init-state" :dir :system :ttags :all)\n'
         '(include-book "projects/x86isa/machine/x86" :dir :system :ttags :all)\n'
         "(set-fmt-hard-right-margin 100000 state)\n(set-fmt-soft-right-margin 99000 state)\n"
         f'(ld "{driver_path}")\n(ld "{cases_path}")\n(in-package "X86ISA")\n'
         "(x86l-run-all *x86lean-cases* x86 state)\n")
-    with open(out_path, "w") as fh:
-        subprocess.run([acl2], stdin=open(drive), stdout=fh, stderr=subprocess.STDOUT)
-    return parse(open(out_path).read())
+    with open(out_path, "w", encoding="utf-8") as fh:
+        subprocess.run([acl2], stdin=open(drive, encoding="utf-8"), stdout=fh, stderr=subprocess.STDOUT)
+    return parse(open(out_path, encoding="utf-8").read())
 
 
 def verdict(res, n, tag, forms=None):
@@ -245,7 +245,7 @@ def verdict(res, n, tag, forms=None):
 
 
 def measure():
-    base = open(DRIVER).read()
+    base = open(DRIVER, encoding="utf-8").read()
     if CTRS_DEFCONST not in base:
         die(f"{DRIVER} no longer contains the CR4 defconst this probe plants on:\n"
             f"    {CTRS_DEFCONST}\n"
@@ -262,8 +262,8 @@ def measure():
 
     drv_on = os.path.join(tmp, "driver_on.lisp")
     drv_off = os.path.join(tmp, "driver_off.lisp")
-    open(drv_on, "w").write(base)
-    open(drv_off, "w").write(base.replace(
+    open(drv_on, "w", encoding="utf-8").write(base)
+    open(drv_off, "w", encoding="utf-8").write(base.replace(
         CTRS_DEFCONST, "(defconst *x86l-ctrs* nil)", 1))
 
     on = verdict(run(cases, drv_on, os.path.join(tmp, "on.out")), len(pres), "ON")
@@ -306,7 +306,7 @@ def parser_arms():
     # ⛔ THE PLANT'S SUBJECT IS DERIVED FROM THE SHIPPED DRIVER, NEVER TYPED HERE,
     # for the same reason CTRS_DEFCONST is: a plant that quietly stops matching
     # its subject gives an arm that passes about nothing.
-    m = re.search(r'"CASE id=~s0 len=~x1~%(POST [^~"]*)~%"', open(DRIVER).read())
+    m = re.search(r'"CASE id=~s0 len=~x1~%(POST [^~"]*)~%"', open(DRIVER, encoding="utf-8").read())
     if not m:
         return False, 0, [("init-error plant",
                            "could not derive the failure-POST literal from %s — the "
@@ -442,7 +442,7 @@ def main():
         # declaration tests the comparison; it does not test that this probe can
         # still BUILD its OFF arm.  If the defconst were renamed, `measure()`
         # refuses outright — so that path is asserted here rather than assumed.
-        base_txt = open(DRIVER).read()
+        base_txt = open(DRIVER, encoding="utf-8").read()
         if base_txt.replace(CTRS_DEFCONST, "(defconst *x86l-ctrs* nil)", 1) == base_txt:
             print("\n⛔ selftest arm FAILED — the OFF-arm plant did not change the "
                   "driver text, so both arms would have run the same file.")

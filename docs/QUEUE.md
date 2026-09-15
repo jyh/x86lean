@@ -206,7 +206,8 @@ nine job conclusions were read one by one. ⛔ **Filed as a READING RULE, not a 
 `--gap` on branches would delete the gate's only report of an unpriced landing, which is the failure
 it exists for.
 
-## ⚠️ PORT (2026-09-09) — **PORT-2, -3, -4 and -5 are CLOSED; PORT-1 is OPEN: 196 text-mode `open()` calls without `encoding=` in `scripts/*.py`, counted by syntax tree 2026-09-14 (it read 193 when filed; it has grown, some of it by D242's own selftest).**
+## ✅ PORT (2026-09-09) — **ALL FIVE CLOSED. PORT-1 closed 2026-09-15 (D247): 203 text-mode file opens given `encoding="utf-8"` in one pass (196 `open()`, 5 `os.fdopen`, 2 `read_text`), every file verified by syntax tree, and `scripts/check_encoding.py` gates it in CI and preflight.**
+*(This header read: "PORT-2, -3, -4 and -5 are CLOSED; PORT-1 is OPEN: 196 text-mode `open()` calls without `encoding=` in `scripts/*.py`, counted by syntax tree 2026-09-14 (it read 193 when filed; it has grown, some of it by D242's own selftest).")*
 *(Filed as: THE SECOND MACHINE IS REAL NOW, AND THE TREE IS NOT PORTED.)*
 
 Opened by paris when the 4b fourth calibration night's declared smoke test found **three**
@@ -216,7 +217,7 @@ SCRIPTS THAT IMPORT IT. THE ONLY MEASUREMENT IS RUNNING IT ON THE OTHER MACHINE.
 Repaired at `74dff4f`: `child_cpu`/`sub_cpu`, `mod_name`, `require_utf8_mode`, and the two
 `resource` importers. What is below is what was NOT repaired, with its measurement.
 
-### ⚠️ PORT-1 — OPEN: 196 unencoded text-mode `open()` calls in 38 files (by syntax tree, 2026-09-14), and why 42 were not fixed
+### ✅ PORT-1 — CLOSED 2026-09-15 (D247): 203 text-mode file opens given `encoding="utf-8"` in one pass; it read 196 `open()` calls in 38 files by syntax tree on 2026-09-14, and why 42 were not fixed then
 *(Filed as: "PORT-1. ~179 unencoded `open()` calls, and why 42 were not fixed" — a header that disagreed with its own body's 193 on the day it was written.)*
 ```
   scripts/*.py, open() with no encoding=   193 total
@@ -234,6 +235,9 @@ non-ASCII one raises. It cannot produce a wrong number. That is why this is P-lo
 `mod_name`, which was SILENT, was fixed at the source instead.
 **RELEASE:** either Python 3.15's UTF-8 default arrives, or a mechanical pass adds
 `encoding="utf-8"` to all 193 in one act. **OWNER:** paris. **NOT** a partial pass.
+✅ **RELEASED 2026-09-15 by the second arm (D247): one act, 203 calls in 40 files, the gate red first at 203 and
+green at 0.** It is still NOT a claim that nothing here is locale-dependent: 86 `subprocess` calls with `text=True`
+decode a child's output in the locale's encoding, and the gate prints that count on every run instead of gating it.
 
 ### ✅ PORT-2 — WIRED 2026-09-13 (D227): the whole suite runs as CI job `kernel-cost-selftest`
 *(Filed as: `kernel_cost.py --selftest` IS NOT IN CI — 27 arms that only run by hand.)*

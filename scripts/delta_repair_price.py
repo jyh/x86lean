@@ -71,7 +71,7 @@ BUDGET_FILE = os.path.join(HERE, "kernel_delta_budget.txt")
 # the windows of repair B in an arbitrary order and the k-batch curve would be a
 # curve about dictionary iteration.
 def load_walk(path):
-    rows = [json.loads(l) for l in open(path) if l.strip()]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
     # ⛔⛔ THE ROLE IS MEASURED, NOT ASSUMED — and this refusal is the repair for
     # `b5d1522`.  Before it, this function ACCEPTED
     # `docs/deterministic-cost-history-2026-09-05.jsonl` and returned a
@@ -337,7 +337,7 @@ def cached_anchor(walks, decl_map, default_ms, budgets, floor):
 # zero, so everything the estimator reports IS its own noise.
 # [[feedback-a-probe-must-create-its-condition]] [[feedback-conservative-is-a-direction-not-a-margin]]
 def repeat_scaling(path, decl_map, units_wanted=None, order="block"):
-    rows = [json.loads(l) for l in open(path) if l.strip()]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
     rows.sort(key=lambda r: r.get("rep", r["t"]))
     per = {}
     for r in rows:
@@ -731,7 +731,7 @@ def selftest():
 
     def walk_of(rows):
         fd, p = tempfile.mkstemp(suffix=".jsonl")
-        with os.fdopen(fd, "w") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             for r in rows:
                 fh.write(json.dumps(r) + "\n")
         return load_walk(p), p
@@ -842,7 +842,7 @@ def selftest():
     def scaling_fixture(offset_at=None, sigma=100.0, m=64):
         fd, path = tempfile.mkstemp(suffix=".jsonl")
         tmp.append(path)
-        with os.fdopen(fd, "w") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             for i in range(m):
                 off = 0.0 if (offset_at is None or i < offset_at) else 3000.0
                 fh.write(json.dumps({"rep": i, "t": float(i), "commit": "x" * 40,

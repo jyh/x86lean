@@ -74,7 +74,7 @@ QUIET = "docs/kernel-delta-history-2026-09-04.jsonl"
 STAT = "max"
 
 def per_commit_p95(path):
-    rows = [json.loads(l) for l in open(path)]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8")]
     by = collections.defaultdict(list)
     for r in rows: by[r["commit"]].append(r)
     out, loads = {}, []
@@ -163,7 +163,7 @@ def first_fail(path, gate, order):
     The readings are FIXED; only the order in which they arrive changes.  This is
     what the walk order buys, computed rather than asserted."""
     p95, _l = per_commit_p95(path)
-    rows = sorted([json.loads(l) for l in open(path)], key=lambda r: r["t"])
+    rows = sorted([json.loads(l) for l in open(path, encoding="utf-8")], key=lambda r: r["t"])
     commits = [r["commit"] for r in rows if r["sweep"] == 0]
     seen = collections.Counter()
     for k, (_s, c) in enumerate(order(commits), 1):
@@ -190,7 +190,7 @@ if "--census" in sys.argv:
     for f in sorted(glob.glob("docs/kernel-delta-history-*.jsonl")):
         if ".analysis." in f:
             continue
-        rows = [json.loads(l) for l in open(f) if l.strip()]
+        rows = [json.loads(l) for l in open(f, encoding="utf-8") if l.strip()]
         pp, ll = per_commit_p95(f)
         if not pp:
             print("%-52s %6s  %s" % (os.path.basename(f), 0,

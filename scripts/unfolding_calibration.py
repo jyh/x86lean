@@ -137,7 +137,7 @@ def load_counters(path, module, names):
     # empty answer rather than a refusal.  An empty result and a wrong-corpus
     # result are different facts and only one of them is recoverable.
     # [[feedback-an-unparseable-gate-file-reports-failure-not-absence]]
-    rows = [json.loads(l) for l in open(path) if l.strip()]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
     role, why = _ccc.corpus_role(rows)
     if role != "counters":
         raise ValueError(

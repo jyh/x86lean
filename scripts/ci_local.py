@@ -82,7 +82,7 @@ def arg(name, default=None):
 # spaces, its `run:` is a scalar or a `|` block at eight — and anything this
 # cannot parse is REPORTED, never skipped silently.
 def steps(job):
-    lines = open(WF).read().splitlines()
+    lines = open(WF, encoding="utf-8").read().splitlines()
     out, in_job, cur, block, indent = [], False, None, None, 0
     for i, ln in enumerate(lines):
         if re.match(r"^  [A-Za-z0-9_-]+:\s*$", ln):
@@ -138,7 +138,7 @@ def steps(job):
 def jobs():
     """[job name, ...] in workflow order — every key at two spaces under `jobs:`."""
     out, in_jobs = [], False
-    for ln in open(WF).read().splitlines():
+    for ln in open(WF, encoding="utf-8").read().splitlines():
         if re.match(r"^jobs:\s*$", ln):
             in_jobs = True
             continue

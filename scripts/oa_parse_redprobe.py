@@ -38,7 +38,7 @@ if __name__ == "__main__":
 # ⛔ DERIVED, NOT HARD-CODED — a probe that runs from only one path stops running.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT); sys.path.insert(0, os.path.join(ROOT, "scripts"))
-SRC = open("scripts/oracle_availability.py").read()
+SRC = open("scripts/oracle_availability.py", encoding="utf-8").read()
 
 PLANTS = [
  ("Q-A  residual restored in parse_arms' loop: unparsed -> executes",

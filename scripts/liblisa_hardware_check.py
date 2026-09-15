@@ -47,7 +47,7 @@ def queries():
 
 
 def declared_vecs(root=ROOT):
-    src = open(os.path.join(root, "Main.lean")).read()
+    src = open(os.path.join(root, "Main.lean"), encoding="utf-8").read()
     m = re.search(r"def knownDivergences : List KnownDivergence :=(.*?)\n\ndef ", src, re.S)
     if not m:
         return None
@@ -152,7 +152,7 @@ def main(argv):
         return 2
     rc = 0
     for path in args.results:
-        lines = [l for l in open(path).read().splitlines() if l.strip()]
+        lines = [l for l in open(path, encoding="utf-8").read().splitlines() if l.strip()]
         if len(lines) != len(queries()):
             print("%s: REFUSED -- %d result lines for %d queries" % (path, len(lines), len(queries())))
             return 2

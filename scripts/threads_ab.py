@@ -192,7 +192,7 @@ def plant_dir():
     out = {}
     for n, tag in ((PLANT_SMALL, "small"), (PLANT_BIG, "big")):
         f = os.path.join(d, "Plant_%s.lean" % tag)
-        open(f, "w").write(PLANT_SRC % n)
+        open(f, "w", encoding="utf-8").write(PLANT_SRC % n)
         out[tag] = f
     return d, out
 
@@ -238,7 +238,7 @@ def run(rounds, units, out_path):
                       % (rd, label, "plant:" + tag, r["type_checking_ms"],
                          r["real_s"]))
                 sys.stdout.flush()
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         for r in readings:
             f.write(json.dumps(r) + "\n")
     print("\nreadings written to %s" % out_path)
@@ -466,7 +466,7 @@ def main():
         return selftest()
     if "--analyse" in sys.argv:
         path = arg("--analyse")
-        rs = [json.loads(l) for l in open(path) if l.strip().startswith("{")]
+        rs = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip().startswith("{")]
         if not rs:
             print("⛔ %s holds no readings." % path)
             return 2

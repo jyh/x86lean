@@ -100,7 +100,7 @@ def lean_roster(src=None):
     depended on that would be reading a typographic convention as a grammar.
     """
     if src is None:
-        src = open(os.path.join(ROOT, "X86", "Syntax.lean")).read()
+        src = open(os.path.join(ROOT, "X86", "Syntax.lean"), encoding="utf-8").read()
     m = re.search(r"def rosterP0 : List String :=", src)
     if not m:
         raise SystemExit("⛔ p2_residue: `rosterP0` not found in X86/Syntax.lean. "
@@ -161,7 +161,7 @@ def published_totals():
     ⛔ Parsed, not retyped: a literal copied into this file would be a second
     source for one fact, and the copy is what goes stale.
     """
-    txt = open(COMMISSION).read()
+    txt = open(COMMISSION, encoding="utf-8").read()
     want = {"A": r"SUB-GROUP A — NO ROUNDING AT ALL\s*\n\s*(\d+) pairs,\s*([\d,]+) instructions",
             "A'": r"SUB-GROUP A′[^\n]*\n\s*(\d+) pairs,\s*([\d,]+) instructions",
             "B": r"SUB-GROUP B[^\n]*\n\s*(\d+) pairs,\s*([\d,]+) instructions"}

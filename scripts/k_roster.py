@@ -164,7 +164,7 @@ def dest_operator(text: str, writes_mem: bool) -> str:
 
 def read_rule(path: str) -> dict:
     """Everything this script learns from K's rule TEXT, as facts about x86."""
-    with open(path, "r", errors="replace") as fh:
+    with open(path, "r", errors="replace", encoding="utf-8") as fh:
         text = fh.read()
 
     disp = {}
@@ -622,7 +622,7 @@ def main() -> int:
     if args.check:
         bad = 0
         for path, want in ((args.out_tsv, tsv), (args.out_md, mdtext)):
-            have = open(path).read() if os.path.exists(path) else ""
+            have = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
             if have != want:
                 sys.stderr.write("⛔ %s is STALE — rerun scripts/k_roster.py\n" % path)
                 bad = 1
@@ -630,7 +630,7 @@ def main() -> int:
 
     for path, text in ((args.out_tsv, tsv), (args.out_md, mdtext)):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        with open(path, "w") as fh:
+        with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
     print("K variants %d → kept %d → FORMS %d in %d families/batches"
           % (total_variants, n_kept, n_forms, len(families)))

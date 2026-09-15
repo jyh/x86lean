@@ -53,7 +53,7 @@ CORPORA = [
 
 
 def read(path):
-    rows = [json.loads(l) for l in open(path)]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8")]
     by = collections.defaultdict(list)
     for r in rows:
         by[r["commit"]].append(r)

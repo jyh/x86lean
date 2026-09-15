@@ -203,7 +203,7 @@ def gated_declarations():
     """{module: [decl, …]} exactly as `kernel_ceilings.txt` gates them."""
     out = {}
     if os.path.exists(CEIL_FILE):
-        for line in open(CEIL_FILE):
+        for line in open(CEIL_FILE, encoding="utf-8"):
             p = line.split("#")[0].strip().split()
             # ⛔ THE MACHINE COLUMN IS STRIPPED HERE TOO, AND IT WAS NOT BEFORE.
             # This is the THIRD parser of this one file (with `read_ceilings`
@@ -264,7 +264,7 @@ def read_budgets(path):
     # the second one silently. The sibling was never swept when the first was fixed.
     # [[feedback-naming-a-defect-is-not-finding-its-siblings]]
     seen = {}
-    for n, line in enumerate(open(path), 1):
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
         line = line.split("#")[0].strip()
         if not line:
             continue
@@ -1100,7 +1100,7 @@ def read_ceilings():
     ceil, seen = {}, {}
     if not os.path.exists(CEIL_FILE):
         return ceil
-    for n, line in enumerate(open(CEIL_FILE), 1):
+    for n, line in enumerate(open(CEIL_FILE, encoding="utf-8"), 1):
         p = line.split("#")[0].strip().split()
         # ⚖️ THE MACHINE COLUMN IS PART OF THE KEY (helm ruling on D198,
         # 2026-09-11). An optional trailing `@on <machine>` records the box a
@@ -1736,7 +1736,7 @@ def selftest():
     # about a file it could not read.
     probe = tempfile.mkdtemp(prefix="x86lean-budgetprobe-")
     saved = os.path.join(probe, "readings.json")
-    json.dump(_synthetic({"M": 100.0}, {"M": 110.0}), open(saved, "w"))
+    json.dump(_synthetic({"M": 100.0}, {"M": 110.0}), open(saved, "w", encoding="utf-8"))
     file_arms = [
         ("control: a well-formed budget file gives a verdict",
          "@floor 5\nM 50\n", 0, "delta gate: CLEAN"),
@@ -1749,7 +1749,7 @@ def selftest():
     ]
     for name, text, want_rc, want in file_arms:
         bf = os.path.join(probe, "budget.txt")
-        open(bf, "w").write(text)
+        open(bf, "w", encoding="utf-8").write(text)
         r = subprocess.run([sys.executable, os.path.abspath(__file__),
                             "--readings", saved],
                            capture_output=True, text=True,
@@ -1959,7 +1959,7 @@ def selftest():
 def plant_constructors(n):
     def go(worktree):
         p = os.path.join(worktree, "X86", "Syntax.lean")
-        s = open(p).read()
+        s = open(p, encoding="utf-8").read()
         ctors = "".join(f"  | plant{i}\n" for i in range(n))
         arms = "".join(f'  | .plant{i} => "prefetchplant{i}"\n' for i in range(n))
         s2 = s.replace("  | t0\n", "  | t0\n" + ctors, 1)
@@ -1970,7 +1970,7 @@ def plant_constructors(n):
                   "longer has the shape this probe edits. A probe that silently "
                   "fails to create its condition reports the gate as sound.")
             sys.exit(2)
-        open(p, "w").write(s2)
+        open(p, "w", encoding="utf-8").write(s2)
     return go
 
 
@@ -1999,7 +1999,7 @@ def selftest_measure():
     print("── arm 1 (NEGATIVE CONTROL): base and head are the SAME commit")
     d0 = measure(head, head, repeats)
     if save:
-        json.dump(d0, open(os.path.join(save, "arm1-identical.json"), "w"))
+        json.dump(d0, open(os.path.join(save, "arm1-identical.json"), "w", encoding="utf-8"))
     rc0, lines0 = verdict(d0, default_ms, budgets, floor, quiet=True,
                           ceilings=read_ceilings())
     us = {s: [units_of(r, d0["decl_map"]) for r in d0["readings"][s]] for s in ("base", "head")}
@@ -2181,7 +2181,7 @@ def selftest_measure():
     n = int(arg("--plant", "512"))
     d1 = measure(head, head, repeats, plant=plant_constructors(n))
     if save:
-        json.dump(d1, open(os.path.join(save, "arm2-planted.json"), "w"))
+        json.dump(d1, open(os.path.join(save, "arm2-planted.json"), "w", encoding="utf-8"))
     rc1, lines1 = verdict(d1, default_ms, budgets, floor, quiet=True,
                           ceilings=read_ceilings())
     us1 = {s: [units_of(r, d1["decl_map"]) for r in d1["readings"][s]] for s in ("base", "head")}
@@ -2286,7 +2286,7 @@ def main():
     default_ms, budgets, floor = read_budgets(arg("--budget", BUDGET_FILE))
     saved = arg("--readings")
     if saved:
-        data = json.load(open(saved))
+        data = json.load(open(saved, encoding="utf-8"))
         rc, _ = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
         absolute_readings(data)
         return rc
@@ -2325,7 +2325,7 @@ def main():
     data = measure(base, head, int(arg("--repeats", "3")))
     out = arg("--out")
     if out:
-        json.dump(data, open(out, "w"))
+        json.dump(data, open(out, "w", encoding="utf-8"))
         print(f"readings → {out}")
     rc, _ = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
     absolute_readings(data)

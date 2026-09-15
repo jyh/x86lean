@@ -16148,3 +16148,70 @@ There are two models, from one group, three years apart.
 - ⛔ **Not changed:** the paper still does not position x86lean against either work, and now says why (a variant
   count is not a mnemonic count, and lifting is not an instruction set). Neither artifact was opened: CPP 2019's source
   repo carries no licence (G1 §1d), so it stays readable, not reusable.
+
+## D247 — PORT-1 closed: every text-mode file open names its encoding, in one pass whose every edit is verified by syntax tree
+
+⚖️ **QUEUE PORT-1's release, taken by its second arm:** *"a mechanical pass adds `encoding="utf-8"` to all 193 in one
+act … NOT a partial pass."* It was 193 when filed (2026-09-09) and 196 on 2026-09-14. The bank named the form: *"best
+done with a static gate that goes red first."*
+
+### 1. THE POPULATION WAS RE-DERIVED, AND IT WAS WIDER THAN THE ITEM'S NAME
+```
+  open(...) with no encoding=                 196   108 with no mode · 88 with a literal text mode
+                                                    0 with a non-literal mode · 0 with *args/**kw
+  os.fdopen(fd, 'w')                            5   same locale default, not named by PORT-1
+  X.read_text()                                 2   pathlib, same default
+  ---------------------------------------------------
+  gated and fixed                             203
+  NOT gated, printed on every run              86   subprocess text=True with no encoding= (a CHILD's
+                                                    output: the same family, a different question)
+                                                4   binary opens, which take no encoding
+```
+⇒ The item's name ("open() calls") would have left 7 calls outside a gate that reads as "encoding is explicit". The gate
+is aimed at the class (a text file open that inherits the locale), and it prints the subprocess count it declines to
+gate. [[feedback-naming-a-defect-is-not-finding-its-siblings]] [[feedback-a-tool-has-no-concept-of-not-applicable]]
+⚠️ **Zero non-literal modes is what made a mechanical pass safe.** `encoding=` on a mode that is binary at run time
+raises. The gate classifies such a call UNDECIDABLE, `--fix` refuses it, and today there are none.
+
+### 2. ⭐ THE PASS IS A CERTIFICATE, NOT A SED
+`scripts/check_encoding.py --fix` inserts the keyword at each call's closing parenthesis (AST offsets are UTF-8
+**bytes**, and these sources are not ASCII). It then re-parses the file and requires the new tree to equal **the old
+tree with exactly one `encoding="utf-8"` keyword appended to exactly the target calls**. Any other result leaves the file
+untouched and names it. Both halves were driven with planted mutants:
+```
+  insertion one byte early                        refused at PARSE      ("the rewrite does not parse")
+  keyword placed on the INNER call of open(f(p))  refused at TREE       ("parses to a different tree …")
+                                                  -- the text `open(f(p, encoding="utf-8"))` is valid Python,
+                                                     so only the tree comparison can see it
+```
+Selftest 46/46. Two defects were found by its own arms before any real file was touched: a zero-argument
+`read_text()` crashed the insertion (refused, not mis-written), and a trailing-comma call with `)` on its own line
+put the keyword at column 0 (valid and tree-verified, but not the file's style; it now keeps the style).
+
+### 3. RED FIRST, THEN ONE ACT, THEN THE SELFTESTS ON BOTH TREES
+```
+  gate on origin/master (f8e5972)       rc 1   203 offenders
+  --fix                                         203 calls in 40 files, 0 refused; 202 lines (two calls share one)
+  gate after                            rc 0   0 offenders
+```
+The pass changes no behaviour where the locale is already UTF-8: `locale.getpreferredencoding(False)` is `UTF-8` here with
+and without `PYTHONUTF8`, and `open()`'s error handler is `strict` either way. **What the certificate cannot show is a script that reads its own
+source text**, so every changed script whose selftest starts no Lean was driven on BOTH `origin/master` (a worktree) and
+this branch:
+```
+  same verdict, both green      15   check_ci_shards check_citations check_corpus_claims check_lean_route
+                                     check_readme_snapshot check_windows check_xmm_format delta_repair_price
+                                     demand_census kernel_drift lean_route portable ranking_stability
+                                     score_calibration_night selftest_skip
+  differs: k_roster              base rc 2 "no K tree at vendor/…" (the worktree has no vendor/), branch 13/13
+  no --selftest flag at all      check_encodings · cr4_parse_redprobe (strict_flags refused on both)
+  ⛔ UNMEASURED LOCALLY          claimed_forms · p2_residue · p2_roster: rc 2 on both, for DIFFERENT reasons
+                                 (base: no built x86lean-diff; branch: this box's assembler refuses, Xcode 27.0's
+                                 licence is unaccepted). CI's build job runs all three on Linux.
+```
+⇒ 🔑 ***EQUAL EXIT CODES ARE NOT EQUAL VERDICTS.*** Three pairs read "rc 2 = rc 2, no regression" and none of them had
+reached its assertion on either side. Reading the two outputs was the only thing that separated them.
+[[feedback-two-arms-that-agree-to-the-case]]
+The Lean-starting selftests (`kernel_cost`, `kernel_delta`, `threads_ab`, `ci_local`, `oracle_availability`,
+`census_redprobe`, `check_driver_cr4`, `unfolding_calibration`, `user_cost_budget`, `p2_batch_size`) were not run locally.
+CI's jobs cover them.

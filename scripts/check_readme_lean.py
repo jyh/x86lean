@@ -71,7 +71,7 @@ def classify(b):
 def compile_block(src):
     d = scratch.mkdtemp(prefix="x86lean-readme-")
     f = os.path.join(d, "Block.lean")
-    open(f, "w").write(src)
+    open(f, "w", encoding="utf-8").write(src)
     r = lean_route.run("lean", [f])
     out = (r.stdout + r.stderr).strip()
     # ⚠️ `lean` exits 0 on a `sorry` warning, so the text is checked too: a
@@ -89,7 +89,7 @@ def compile_block(src):
     return (not bad), out
 
 def main():
-    text = open("README.md").read()
+    text = open("README.md", encoding="utf-8").read()
     bs = blocks(text)
     if not bs:
         print("⛔ README.md has no ```lean block. A gate that cannot find its "

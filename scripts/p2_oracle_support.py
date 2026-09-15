@@ -147,7 +147,7 @@ def _arg_list(body):
 
 def entries():
     """(name, bucket, implemented) for every INST entry the listing declares."""
-    txt = open(LISTING).read()
+    txt = open(LISTING, encoding="utf-8").read()
     out = []
     for part in re.split(r'\n\s*\(INST\s+"', txt)[1:]:
         name = part.split('"')[0].lower()

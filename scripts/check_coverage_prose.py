@@ -56,7 +56,7 @@ if not found:
           "find its anchor reports a pass; this one reports a failure.")
     sys.exit(2)
 
-doc = open("docs/COVERAGE.md").read()
+doc = open("docs/COVERAGE.md", encoding="utf-8").read()
 total_expected = 0
 for phase in sorted(found):
     expected = list(range(1, max(found[phase]) + 1))

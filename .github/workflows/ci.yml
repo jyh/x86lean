@@ -215,6 +215,15 @@ jobs:
           python3 scripts/check_lean_route.py --selftest
           python3 scripts/check_lean_route.py
 
+      # ⛔ EVERY TEXT-MODE FILE OPEN NAMES ITS ENCODING (QUEUE PORT-1, D247). Without it a script reads in the
+      # LOCALE's encoding: UTF-8 here and on macOS, cp1252 on Windows, and these sources are full of non-ASCII.
+      # 203 calls were given `encoding="utf-8"` in one pass, each file verified by syntax tree. The gate
+      # is STATIC, and it prints what it does not gate: binary opens, and subprocess `text=True` calls.
+      - name: Encoding (every text-mode open in a tracked script names its encoding)
+        run: |
+          python3 scripts/check_encoding.py --selftest
+          python3 scripts/check_encoding.py
+
       # ⭐ P1 SEAL (D68). Tests.Coverage is gated PER DECLARATION now, in absolute
       # milliseconds, because D62 proved the ROW is not its unit and every
       # refinement since batch 14 went into the margin instead of the

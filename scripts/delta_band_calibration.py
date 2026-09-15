@@ -38,7 +38,7 @@ _kd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernel_delta.py"
 # ⛔ THE CONSTANTS COME FROM THE GATE, NOT FROM A COPY OF THEM. Two lists that
 # agree today diverge on the next ordinary edit to one of them, and this file's
 # whole job is to be about the shipped rule.
-_src = open(_kd).read()
+_src = open(_kd, encoding="utf-8").read()
 def _const(name):
     for line in _src.splitlines():
         if line.startswith(name + " ="):

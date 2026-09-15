@@ -348,7 +348,7 @@ def _own_tree(rp, want):
         pass
     try:
         if cg and os.path.isfile(dotgit):
-            line = open(dotgit).read().strip()
+            line = open(dotgit, encoding="utf-8").read().strip()
             if line.startswith("gitdir:"):
                 gd = os.path.realpath(line.split(":", 1)[1].strip())
                 if gd == cg or gd.startswith(cg + os.sep):
@@ -829,7 +829,7 @@ TAIL_TAG    = "@tail"     # ⭐ an ABSOLUTE ceiling on everything else in the mo
 # gate that cannot find its subject reports a pass.
 
 def roster_size():
-    src = open("Tests/Coverage.lean").read()
+    src = open("Tests/Coverage.lean", encoding="utf-8").read()
     ms = re.findall(r'rosterSize\s*=\s*(\d+)\s*:=\s*by\s+decide', src)
     if len(ms) != 1:
         print(f"⛔ could not read a unique kernel-pinned `rosterSize = N` from "
@@ -844,7 +844,7 @@ def roster_size():
 # this is a number Lean checks and not a number this script counted.  The same
 # refusal as `roster_size`: a missing literal is an ERROR, never a default.
 def vector_count():
-    src = open("Tests/Coverage.lean").read()
+    src = open("Tests/Coverage.lean", encoding="utf-8").read()
     ms = re.findall(r'vectorCount\s*=\s*(\d+)\s*:=\s*by\s+decide', src)
     if len(ms) != 1:
         print(f"⛔ could not read a unique kernel-pinned `vectorCount = N` from "
@@ -880,7 +880,7 @@ def per_declaration(f, threshold_ms=100):
     if r.returncode != 0:
         print(f"⛔ {f} did not compile under the per-declaration profiler:\n{r.stderr}")
         sys.exit(2)
-    src = open(f).read().splitlines()
+    src = open(f, encoding="utf-8").read().splitlines()
     # A declaration's header is the nearest `theorem`/`def`/`example` at or
     # before the message's line — the message sits on the declaration's own line
     # for a term-mode proof and on its tactic block for others.
@@ -1002,8 +1002,8 @@ def per_declaration(f, threshold_ms=100):
 # batches of whole-module totals.
 def coverage_growth_denominator():
     """(assertions, vectors) for Tests.Coverage — REPORTED, never gated."""
-    thms = len(re.findall(r'^theorem\s', open("Tests/Coverage.lean").read(), re.M))
-    vecs = len(re.findall(r'\{\s*id\s*:=\s*"', open("Tests/Vectors.lean").read()))
+    thms = len(re.findall(r'^theorem\s', open("Tests/Coverage.lean", encoding="utf-8").read(), re.M))
+    vecs = len(re.findall(r'\{\s*id\s*:=\s*"', open("Tests/Vectors.lean", encoding="utf-8").read()))
     return thms, vecs
 
 # ⭐⭐⭐ P2 BATCH 25 (D123) — THE RAW-READING MODE THE DELTA GATE CONSUMES.
@@ -1146,7 +1146,7 @@ def read_ceilings():
     """Returns ({module: (kind, value)}, {module: {decl: ms}}, {module: tail_ms})."""
     d, decls, tails, cand = {}, {}, {}, {}
     if os.path.exists(CEIL_FILE):
-        for line in open(CEIL_FILE):
+        for line in open(CEIL_FILE, encoding="utf-8"):
             line = line.split("#")[0].strip()
             if not line:
                 continue
@@ -1773,7 +1773,7 @@ def selftest():
     FILE rather than in the model — a probe that edits its subject can leave it
     edited."""
     import shutil, tempfile
-    saved = open(CEIL_FILE).read()
+    saved = open(CEIL_FILE, encoding="utf-8").read()
     probe_dir = tempfile.mkdtemp(prefix="x86lean-ceilprobe-")
     probe_ceil = os.path.join(probe_dir, "kernel_ceilings.txt")
     arms = [
@@ -1817,7 +1817,7 @@ def selftest():
             # ⛔ THE MUTATION GOES TO A TEMP FILE AND THE CHILD IS POINTED AT IT.
             # Nothing under the repository is written; see D75 and the note on
             # CEIL_FILE for the commit that paid for this line.
-            open(probe_ceil, "w").write(mutate(saved))
+            open(probe_ceil, "w", encoding="utf-8").write(mutate(saved))
             r = subprocess.run([sys.executable, os.path.abspath(__file__)],
                                capture_output=True, text=True,
                                env=dict(os.environ, X86LEAN_CEIL_FILE=probe_ceil))
@@ -1882,14 +1882,14 @@ def selftest():
     ctl_dir = tempfile.mkdtemp(prefix="x86lean-ceilprobe-")
     ctl_ceil = os.path.join(ctl_dir, "kernel_ceilings.txt")
     try:
-        open(ctl_ceil, "w").write(generous_ceilings(saved))
+        open(ctl_ceil, "w", encoding="utf-8").write(generous_ceilings(saved))
         r = subprocess.run([sys.executable, os.path.abspath(__file__)],
                            capture_output=True, text=True,
                            env=dict(os.environ, X86LEAN_CEIL_FILE=ctl_ceil))
     finally:
         shutil.rmtree(ctl_dir, ignore_errors=True)
     out0 = r.stdout + r.stderr
-    untouched = open(CEIL_FILE).read() == saved
+    untouched = open(CEIL_FILE, encoding="utf-8").read() == saved
     unmeas = r.returncode == 3 and "UNMEASURABLE" in out0
     clean = r.returncode == 0 and "kernel-cost gate: CLEAN" in out0
     ok = untouched and (clean or unmeas)
@@ -1971,7 +1971,7 @@ def main():
                   "wholesale, and the machine columns cannot be re-derived at "
                   "all — a reading taken here says nothing about another box.")
             sys.exit(2)
-        with open(CEIL_FILE, "w") as fh:
+        with open(CEIL_FILE, "w", encoding="utf-8") as fh:
             fh.write("# Registered KERNEL (type-checking) ceilings, milliseconds.\n")
             fh.write("# Generated by scripts/kernel_cost.py --register on the P0 baseline.\n")
             fh.write(f"# Ceiling = max(measured x {HEADROOM}, {FLOOR_MS}ms): below the floor,\n")
