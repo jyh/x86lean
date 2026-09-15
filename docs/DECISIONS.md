@@ -16443,3 +16443,94 @@ same step. ⇒ 🔑 ***A SELFTEST WHOSE PLANTS ANCHOR ON THE PAPER'S TEXT MAKES 
 the old anchor: `AssertionError: plant anchor 'covering 500 of the 525' is absent`), the coverage arm anchors on `500 of the 525`, and
 `preflight.sh` runs `check_claims --selftest` and `label_fit --selftest` (driven: rc 1 without the arm fix, rc 0 with it).
 [[feedback-an-arm-whose-fixture-is-the-backlog]] [[feedback-a-probe-must-create-its-condition]]
+
+## D251 — The A′ landing rule, arm (a): the merge rule was enforced by no tool, so it now lives in `kernel_drift --record`, and the ritual that printed a local merge on a protected master is replaced
+
+⚖️ **The question (QUEUE 0c, item 4, the banner; owner paris since the CLAIM-2 fourth pass):** may a `.lean` step land on an ARM A′
+verdict when the ms delta gate is UNMEASURABLE, and what does its ledger row record? Posted as a fork on 2026-09-15 with
+recommendation (a); the helm read the pricing and answered *"Build."*
+
+### 1. THE PRICE, TAKEN AT THE OBJECT BEFORE A LINE WAS WRITTEN
+```
+  the ledger's input      kernel_delta.py dumps --out BEFORE computing the verdict (main, L2326-2330), so an rc-3 run
+                          still yields R.json; kernel_drift --record read base readings, revs and conditions, NEVER
+                          the verdict (L1603-1616)                                    -> no change needed to PRICE a row
+  the merge rule          QUEUE item 3's "the kernel-delta gate stays the merge gate" -- enforced by NO tool. --record
+                          would have written a row from an rc-1 OVER run exactly as from a CLEAN one. No kernel job is
+                          a required check on master (private-paths + trailers only; the helm measured all five
+                          protected public repos the same way the same hour, from branch protection)
+  CI on a .lean PR        the kernel-delta job runs --gap (ci.yml L821) BEFORE the ms step (L884), so a PR whose row
+                          is not yet recorded reds before it measures -> the landing verdict is necessarily LOCAL,
+                          and A′ can decide locally because `yukon.lan` has registered ceilings
+  the ritual text         judge_ratchet printed `git merge --no-ff --no-commit` -- a local merge onto a master that has
+                          been PROTECTED since 2026-09-14 11:28
+  es3-anchor-theorems     d9d7923: git merge-tree against master rc 0, no conflicts; 2 files; 283 commits behind
+```
+⇒ 🔑 ***THE WALL WAS A RULE WITH NO ENFORCER, SO ARM (a) IS NOT "LET A′ THROUGH" — IT IS "GIVE THE RULE A HOME, AND WRITE A′ INTO IT."***
+Loosening a rule that nothing enforced would have left the next head free to record an OVER run; enforcing it where every `.lean`
+landing already passes (`--gap` reds a landing without its row) makes the licence and the check one act.
+
+### 2. WHAT WAS BUILT
+`scripts/kernel_drift.py`:
+```
+  recompute_verdicts   ms rc from kernel_delta.verdict over R.json; A′ rc from ku_delta.verdict(--arm a-prime) over KU.json,
+                       both against the registries IN THIS TREE -- a stored rc is never read as the verdict
+  landing_rule         planted ms readings            -> refuse
+                       a supplied A′ file: arm != a-prime · planted · a different base/head · stored rc != recomputed ·
+                                           recomputed rc != 0                          -> refuse (even beside ms CLEAN)
+                       ms rc 0                         -> records, landed_on ms
+                       ms rc 1                         -> refuse: A′ never overrules a conviction (it is blind to K2/K3, D228)
+                       ms rc 3 with no A′              -> refuse, printing the ku_delta command for the same pair
+                       ms rc 3 with A′ CLEAN           -> records, landed_on a-prime
+                       anything else                   -> refuse
+  landing_record       the row's new `landed_on` = {verdict, ms_rc, a_prime_machine} -- AUDIT ONLY
+  --record             --a-prime KU.json; the rule runs BEFORE anything is priced or written
+  judge_ratchet        the FORGE ritual (§3)
+```
+The row is otherwise unchanged: still priced from the ms run's BASE readings, so the drift window keeps its ms units.
+
+### 3. THE FORGE RITUAL, DERIVED FROM `records_step` AND NOT FROM HABIT
+`records_step` accepts a row whose `head` is not the chain's child only if base ⊑ head ⊑ child and nothing between head and child
+touches a `.lean` or a profiler path. On a protected master the child is the forge's merge commit, so:
+```
+  rebase onto origin/master FIRST     the row's base must be the merge commit's first parent
+  ONE .lean commit                    a linear branch of two makes the branch's own push-event run refuse --gap
+                                      (the row's head is not an ancestor of the branch's first step)
+  record in a commit on the branch    head = the pre-record commit; the record commit touches only the ledger
+  merge with a MERGE COMMIT           a squash or rebase-merge commit does not descend from the row's head
+  master moves before the merge       the row's base is no longer the step's parent -> rebase and record again
+```
+⚠️ **Derived by reading, not yet driven on the forge.** The first `.lean` PR is its measurement.
+
+### 4. THE ARMS, AND WHAT THEY WERE DRIVEN AGAINST
+Section F of `kernel_drift.py --selftest`: 14 arms, CONTROL first. The control checks that the fixtures really are ms CLEAN/FAILED/UNMEASURABLE
+and A′ CLEAN/FAILED under the SHIPPED verdict functions. Selftest total 78/78, from 64 at master `426c88f` (measured by running master's
+file, not by subtraction — subtraction gave 65, off by one).
+The arms were written together with the code, so they were driven red by an eleven-mutation matrix: each mutant was run through the
+real selftest against the real repository.
+```
+  CONTROL (unmutated)                        rc 0   no red arm
+  the ms rc-1 refusal removed                rc 1   "an ms-FAILED step REFUSES, and an A′ CLEAN beside it does not rescue it"
+  UNMEASURABLE with no A′ accepted           rc 1   "an UNMEASURABLE step with no A′ REFUSES ..."
+  A′ consulted only under ms rc 3            rc 1   "a SUPPLIED A′ conviction is never ignored, even beside an ms CLEAN"
+  an A′ rc != 0 accepted                     rc 1   that arm AND "an UNMEASURABLE step with A′ FAILED REFUSES ..."
+  the arm check removed                      rc 1   "--arm a REFUSES"
+  a planted A′ file accepted                 rc 1   "a planted A′ file REFUSES"
+  the same-pair check removed                rc 1   "A′ on a different pair REFUSES"
+  the stored-vs-recomputed check removed     rc 1   "an A′ file claiming CLEAN over readings that FAIL REFUSES"
+  the STORED rc read instead of recomputed   rc 1   the same arm
+  planted ms readings accepted               rc 1   "a PLANTED ms probe never records, even when CLEAN"
+  the window reads `landed_on`               rc 1   "`landed_on` is dead to the window"
+```
+⛔ **The matrix's first run was wrong, and its control is what said so:** every mutant returned rc 2 with ZERO red arms. The copy ran
+from a temporary directory, so `ROOT` resolved to the copy and the ledger it reads was absent. Eleven "survived" mutations would
+have been a broken harness reported as eleven weak arms. Re-run in place with an unmutated control first: control rc 0; 11 of 11
+mutants red, each on the arm it names. [[feedback-a-plant-probes-control-comes-first]]
+
+### 5. WHAT THIS DOES NOT DO
+- It does not make any kernel job a REQUIRED check. That is a fleet-wide question the helm declined to route (bus 09/15 04:28), and
+  this repository matches the other four protected public repos.
+- It does not re-verify the 22 existing rows: they predate the rule, and no R.json survives for them.
+- It does not answer whether A′ is ACCURATE — D228's "decidable, not accurate" stands; A′ is what the helm ruled for this purpose,
+  and the rule records which instrument decided each step so a window can be read for it.
+[[feedback-a-gate-whose-precondition-is-a-discipline]] [[feedback-a-rulings-mechanism-may-not-reach-its-subject]]
