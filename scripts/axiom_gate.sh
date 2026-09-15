@@ -36,5 +36,7 @@ for required in X86.Semantics X86.Theorems; do
   esac
 done
 
-lake build X86 x86lean-axioms >/dev/null
+# ⛔ desk MB: the BUILD goes through the fleet wrapper on a shared seat (bare lake on a CI runner, the
+# route printed on stderr either way); the axioms BINARY below is compiled code (peak 0.35 GB), not routed.
+python3 scripts/lean_route.py build X86 x86lean-axioms >/dev/null
 exec lake env .lake/build/bin/x86lean-axioms $MODS

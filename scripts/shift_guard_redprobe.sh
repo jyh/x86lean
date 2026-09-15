@@ -31,7 +31,10 @@ PASS=0; FAIL=0
 BIG=4294967299
 
 say() { printf '  %s %s\n' "$1" "$2"; }
-run() { lake env lean "$1" 2>&1; }
+# ⛔ desk MB: routed. Each arm compares Lean's output EXACTLY (`= "true"`), so the route line the
+# helper prints on stderr is dropped per call and printed ONCE here instead.
+python3 scripts/lean_route.py --route
+run() { python3 scripts/lean_route.py lean "$1" 2>&1 | sed '/^lean-route: /d'; }
 
 # ── ARM 1 — CONTROL: the SHIPPED model at the same huge count ANSWERS. ────────
 cat > "$TMP/a1.lean" <<'EOF'

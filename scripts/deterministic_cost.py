@@ -135,6 +135,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # [[feedback-a-duplicate-born-in-agreement]] [[feedback-two-defects-that-cancel]]
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kernel_delta   # noqa: E402  (guarded `main`; importing it runs nothing)
+import lean_route     # noqa: E402  desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 
 def resolves(bs, hs):
@@ -442,8 +443,7 @@ def measure(worktree, module):
     src = os.path.join(worktree, module.replace(".", "/") + ".lean")
     if not os.path.exists(src):
         return None, f"{module} does not exist in this tree"
-    b = subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
-                       cwd=worktree, capture_output=True, text=True)
+    b = lean_route.run("build", ["X86", "Tests", "X86Native"], cwd=worktree)
     if b.returncode != 0:
         raise SystemExit(f"⛔ `lake build` failed in {worktree}, so every reading "
                          f"below would be about a tree that does not compile.\n"
@@ -459,9 +459,10 @@ def measure(worktree, module):
                        f"hb-{module.replace('.', '-')}-{os.getpid()}.lean")
     open(tmp, "w", encoding="utf-8").write(text)
     jsn = tmp + ".json"
+    # desk MB: routed, so stdout is captured (the wrapper's own lines removed) and then written to `jsn`.
+    r = lean_route.run("lean", ["--json", tmp], cwd=worktree)
     with open(jsn, "w", encoding="utf-8") as fh:
-        r = subprocess.run(["lake", "env", "lean", "--json", tmp],
-                           cwd=worktree, stdout=fh, stderr=subprocess.PIPE, text=True)
+        fh.write(r.stdout)
     if r.returncode != 0:
         # ⛔ SAY WHAT IT SAW (filed in D189, repaired in D229). `lean --json` writes its
         # diagnostics to STDOUT — into `jsn` — so printing stderr alone printed NOTHING for the

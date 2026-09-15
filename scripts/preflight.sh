@@ -44,7 +44,7 @@ echo "── local gates ──────────────────�
 # on it while this loop read ok: the loop is a SUBSET of CI's static gates, and says so.
 for g in check_claims check_positioning_table check_citations check_coverage_prose \
          check_readme_snapshot check_readme_lean check_ci_shards check_corpus_claims \
-         check_record_revision check_flag_strictness check_source_roles; do
+         check_record_revision check_flag_strictness check_source_roles check_lean_route; do
   if python3 "scripts/$g.py" >/dev/null 2>&1; then printf "  ok   %s\n" "$g"
   else printf "  ⛔ FAIL %s\n" "$g"; rc=1; fi
 done

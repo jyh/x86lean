@@ -135,7 +135,8 @@ if ! grep -qF -- "${ANCHORS[0]}" Tests/Coverage.lean X86/Coverage.lean X86/Synta
   echo "⛔ the anchor self-test cannot find a string it just matched."; exit 2; fi
 
 OUT="$TMP/out.txt"
-lake env lean "$PROBE" > "$OUT" 2>&1
+# desk MB: routed; the route line lands in $OUT and is printed with it on a failure.
+python3 scripts/lean_route.py lean "$PROBE" > "$OUT" 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then
   echo "⛔ SEGMENT RED PROBE FAILED — an arm did not typecheck, so at least one"

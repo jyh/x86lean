@@ -33,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import deterministic_cost as dc  # noqa: E402
+import lean_route  # noqa: E402  desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 from kernel_delta import plant_constructors  # noqa: E402  the gate's own plant
 
 TC = re.compile(r"type checking took ([\d.]+)(ms|s)")
@@ -46,8 +47,8 @@ def arg(name, default):
 
 
 def module_ms(wt):
-    r = subprocess.run(["lake", "env", "lean", "-D", "profiler=true", "-D", "profiler.threshold=0",
-                        "--json", "X86/Syntax.lean"], cwd=wt, capture_output=True, text=True)
+    r = lean_route.run("lean", ["-D", "profiler=true", "-D", "profiler.threshold=0",
+                                "--json", "X86/Syntax.lean"], cwd=wt)
     tot, seen = 0.0, False
     errs = []
     for ln in r.stdout.splitlines():

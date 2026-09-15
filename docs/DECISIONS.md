@@ -15806,3 +15806,84 @@ An "independent-of" column is where that would live in this table. **Out of scop
 so the row shape can accept it without a migration.
 📌 Still NOT ROUTED and NOT PRICED: the helm's order stands as ARM A′ (D240) first, then the redfirst tally,
 then this.
+
+## D242 — desk MB: every Lean elaboration a script starts goes through ONE door, and the count was 19 call sites in 14 scripts, not three
+
+**The finding (math's sibling sweep, bus 09/13 23:57:45; desk `MB`).** x86lean's CLAUDE.md carried no
+`saltbuild` rule while its scripts called `lake` directly. The fleet rule is five weeks old (2026-08-06, two
+OOM incidents in one morning: five seats at default parallelism exhausted 64 GB plus 8 GB of swap). The row
+said "three tracked scripts"; **the red-first gate counted 19 call sites in 14 scripts** — every profiler
+this campaign's timing gates rest on, both axiom gates, the differential driver, and three red probes. The
+row's own text said the helm had not measured which, so this is not a correction of a claim, it is the
+first measurement.
+
+**What was built, in the order it was driven.**
+```
+  scripts/lean_route.py        the door: route · argv · unwrap · run, and a CLI for shell callers
+                               selftest 25/25 — route (absent / non-executable / executable / two levels up),
+                               argv (file-first under the wrapper, -D pairs intact, refusals), the wrapper's
+                               stdout grammar (census rows, an indented Lean line after them, trailer rc
+                               mismatch, empty stdout, rc 75/76), and end to end through a FAKE wrapper
+  scripts/check_lean_route.py  the static gate: AST for .py, command position for .sh, over `git ls-files`
+                               selftest 20/20; RED FIRST on the tree: 68 files · 12 exempt printed ·
+                               20 offender rows (19 real + one error-message string that began
+                               `lake build`, which fails safe and left with the site)
+  14 scripts converted         gate: 0 offenders
+  CLAUDE.md                    the rule, the door, the gate, and the route as a measurement condition
+  ci.yml build job, preflight  both selftests + the gate
+```
+
+**⚖️ A CONDITIONAL, NOT A SUBSTITUTION — salt #128's shape, and the route PRINTED.** `../saltbuild.sh` is
+outside this tree, so it does not travel with a clone; a CI runner calls bare `lake` and needs to. The route
+is derived from the SCRIPT'S checkout, never the cwd: `kernel_delta.py` runs the current tree's
+`kernel_cost.py` with its cwd in a detached worktree under a scratch directory, where a cwd-relative
+`../saltbuild.sh` does not exist and the lock would have been skipped silently on exactly the heaviest runs.
+
+**⛔ THE WRAPPER WRITES TO THE STDOUT EVERY PARSER HERE READS, and a strip by prefix alone is wrong.**
+Measured on the real wrapper: `saltqueue: ticket …` before Lean and `saltbuild EXIT=N` after. Read at the
+source, `q_wait` also prints census rows indented by two spaces after `saltqueue: still queued` — the same
+indent as Lean's profiler lines. `unwrap` therefore reads a GRAMMAR (prefixed lines, census rows only after
+their opener, a trailer whose rc must EQUAL the process rc) and **refuses when it does not hold**, rather
+than guess and eat Lean's output. The day the fleet tool changes its chatter, this repo reds loudly instead
+of profiling a truncated stream.
+
+**⛔ A REFUSAL IS rc 2, AND THAT IS A CONTRACT, NOT A STYLE.** Uncaught, a plain exception exits 1 — which is
+`ku_delta`'s and `kernel_delta`'s code for *your change failed*. `RouteRefused` is a `SystemExit(2)` that
+names itself: a lock-wait abort after 90 minutes is never a verdict about a tree.
+
+**EXEMPT, measured and printed (never silently skipped).** `lake env <compiled binary>`: x86lean-axioms peak
+RSS **0.35 GB**, x86lean-diff `emit` **1.19 GB** (`/usr/bin/time -l`, 2026-09-14), against 6–9 GB for the
+elaborations the rule is about; `lake env lean --version`, which elaborates nothing. The wrapper has no mode
+for either, so routing them would have meant editing a fleet tool that is not this seat's.
+
+**⚠️ THE COST, DECLARED: THE ROUTE IS A MEASUREMENT CONDITION.** The wrapper exports `LEAN_NUM_THREADS=4`;
+D150 measured `--threads 1` at 0.76x the gated level under the machine default. A child's wall time now
+includes any lock wait, and its child CPU the wrapper's shell. Delta tools compare both trees under one route,
+and A′'s yukon ceilings carry ×3, so no gate can red on the change — but a reading before 2026-09-14 and one
+after are different conditions. `kernel_cost.py --emit-json` now records `lean_route` (additive field).
+[[feedback-two-disciplines-in-direct-conflict]]: the fleet rule wins; the instruments pay, and say so.
+
+**Driven end to end on the wrapper route (all through the fleet lock, each in the audit log):**
+```
+  axiom_gate_selftest.sh   rc 0  (build X86Native x86lean-axioms, EXIT=0 in the audit log)
+  axiom_gate.sh            rc 0  8 s   CLEAN, 13 modules
+  shift_guard_redprobe.sh  rc 0  2 s   4 arms — its comparisons are EXACT (`= "true"`), so a leaked
+                                       wrapper line or route line would have redded every arm
+  sharing_redprobe.sh      rc 0  11 s  7 arms + control
+  segment_redprobe.sh      rc 0  2 s   4 arms + control
+  check_readme_lean.py     rc 0  1 s   (and --selftest, 8 arms)
+  kernel_cost.py --emit-json   rc 0  47 s  lean_route=wrapper recorded; X86.Basic 92.2 · X86.Syntax 251 · X86.Theorems
+                                       976 ms (09-13 bare: 83-92 · 270-293 · 970-1110); zero only on the
+                                       import roots X86, Tests
+  ku_module_census.py X86.Basic  rc 0  7 s   ku 15,856 wrapped / 15,846 unwrapped — EXACTLY D229's corpus
+                                       (no .lean changed since its head b75b400, so any other value
+                                       would be the route). ⭐ MUTATION: `unwrap` made to drop Lean's
+                                       first line (applied on 4 calls) -> the census REFUSES, unwrapped
+                                       15,727 ≠ 15,856 − 10. The control can fire; it is not decoration.
+```
+The bare route was read in a fresh clone with no sibling wrapper: `lean-route: via bare …/lake`.
+
+**NOT DRIVEN, stated:** `run_differential.sh`, `oracle_undef_probe.py`, `p2_batch_size.py`, `threads_ab.py`,
+`ku_constructor_plant.py` and the full `kernel_delta`/`ku_delta` walks — each is minutes to tens of minutes
+of profiling or an ACL2 run, and each now reaches Lean only through `lean_route.run`, whose paths are the ones
+driven above. CI drives the bare route on the next push.

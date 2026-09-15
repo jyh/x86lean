@@ -11,5 +11,6 @@
 # and this script is the evidence that it does not.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-lake build X86Native x86lean-axioms >/dev/null
+# ⛔ desk MB: the build is routed (scripts/lean_route.py); the binary run below is not an elaboration.
+python3 scripts/lean_route.py build X86Native x86lean-axioms >/dev/null
 exec lake env .lake/build/bin/x86lean-axioms --expect-violation X86Native

@@ -30,7 +30,8 @@ bash scripts/check_oracle_revision.sh || exit 2
 # this box always has the binary. ⇒ 🔑 A GATE ORDERED BEFORE ITS OWN PREREQUISITE PASSES WHEREVER
 # THE PREREQUISITE IS LEFT OVER, WHICH IS EVERYWHERE IT HAS EVER RUN.
 echo "── building the Lean side ──"
-lake build x86lean-diff >/dev/null
+# ⛔ desk MB: through the fleet wrapper on a shared seat, bare lake on a runner; the route prints on stderr.
+python3 scripts/lean_route.py build x86lean-diff >/dev/null
 
 echo "── checking the oracle-availability declarations ──"
 python3 scripts/oracle_availability.py || {
