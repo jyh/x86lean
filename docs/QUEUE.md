@@ -557,8 +557,10 @@ the readings and refuses to write a row unless it licenses the step — rc 0 rec
 `--a-prime KU.json` whose A′ verdict, recomputed against today's registry, is CLEAN on the same pair.** The row is still priced from
 the ms run's base readings and gains an audit-only `landed_on`. `judge_ratchet` prints the FORGE ritual (master is protected). ⚠️ **The
 wall is moved in the TOOL; no `.lean` step has yet landed through it** — the first one is its measurement.
-The two held branches are unchanged: `es3-anchor-theorems` `d9d7923` (origin and `local`, unmerged) and
-`p2-batch32-fp-compares` `3a811fb` (was in THIS CLONE ONLY until 2026-09-15, now also pushed to `local`; not on origin). No P2 batch
+✅ **THE FIRST ONE IS `es3-anchor-theorems`, in the same PR (#17), and it landed on the ms verdict, not A′'s** (D251 §6): ms CLEAN at
+6 repeats (`Tests.Coverage` +600 ±257 against 1,782), A′ CLEAN beside it (Δku +235,042 against 549,594). So the rule and the forge
+ritual are driven in production, and **the A′ licence (ms rc 3) is driven only on a perturbed copy of those real readings.**
+One branch is still held: `p2-batch32-fp-compares` `3a811fb` (was in THIS CLONE ONLY until 2026-09-15, now also pushed to `local`; not on origin). No P2 batch
 has landed since record 22 (`d20f76c`, 2026-09-06).
 
 Established 2026-09-09 by paris, from three measurements and the ratchet file, after `es3-anchor-theorems`
@@ -841,7 +843,9 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    ⚖️ **2026-09-15: the fork was posted with recommendation (a), the helm answered "Build", and D251 built it** — `--record` now
    licenses an UNMEASURABLE step on an A′ CLEAN verdict for the same pair. ⇒ **The release condition is met in the TOOL.** What remains
    is this branch's own: rebase onto master (`git merge-tree` rc 0, no conflicts, measured 2026-09-15), ONE `.lean` commit, measure,
-   record, land by PR with a merge commit. Measured 2026-09-08 by paris on
+   record, land by PR with a merge commit.
+   ✅ **LANDED 2026-09-15 by PR #17** as `64a1b7a` (squashed, rebased, with SDM-QUOTE-1), on an **ms CLEAN** verdict — see D251 §6.
+   The history below is kept because it is why D251 exists. Measured 2026-09-08 by paris on
    a box that was genuinely quiet at the start (load 3.49, after 50 orphaned `wi-test` loops were
    reaped). **Three runs, and the branch is NOT landed.**
 ```
@@ -1276,7 +1280,9 @@ occur. Until then this is ONE observation and is recorded as one.
    ledger row record? Unfiled until this line; owner paris.
    ⚖️ **ANSWERED AND BUILT 2026-09-15 (D251), arm (a):** yes, when the ms delta is UNMEASURABLE and A′ is CLEAN on the same pair; the
    row records the ms base readings as before plus `landed_on`. A conviction (rc 1) is never overruled. **Open as a MEASUREMENT only:**
-   the first `.lean` landing through it. MEASURED, two runs an
+   the first `.lean` landing through it. ⚠️ **That landing (es3, D251 §6) came back ms CLEAN (±257 band), so the A′ licence is
+   still undriven on a real UNMEASURABLE step. This item's own law held again: the band is a per-run quantity** — 0c's runs 2–3 read
+   ±1.9–2.5 s on the same `.lean` delta. MEASURED, two runs an
    hour apart on the same box:
    - `kernel_delta.py --base c372d80 --head c372d80` — **the same commit on both sides** — read
      `Tests.Coverage` at −2,150 ms with a ±2,474 band against a 1,980 ms budget, and returned `ok`.
@@ -2756,7 +2762,7 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
-## ⚠️ SDM-QUOTE-1 (2026-09-15) — **THREE LEAN COMMENTS MISQUOTE THE SDM, AND THE FIX RIDES THE NEXT `.lean` LANDING (D249 §3)**
+## ✅ SDM-QUOTE-1 (2026-09-15) — **CLOSED THE SAME DAY: rode es3's landing (`64a1b7a`, PR #17); the normalised sweep reads 7 copies whole, 0 truncated.** *(Filed as: THREE LEAN COMMENTS MISQUOTE THE SDM, AND THE FIX RIDES THE NEXT `.lean` LANDING (D249 §3).)*
 The SAL/SAR/SHL/SHR CF clause reads *"the size (in bits) of the destination operand"* (325462-092US, and the Dec 2023 text).
 Six copies in this repository dropped "(in bits)" with no ellipsis, five of them written in `fb8e706`. D249 fixed the three
 documentary ones. **Owed, each a one-word comment edit with the line count unchanged:**
@@ -2774,7 +2780,7 @@ protected master merges on the forge. Read from `records_step`, a row recorded o
 pre-record commit may satisfy it (that commit is reachable from the merge and differs from it only in the ledger), but a strict
 rebase replaces that sha. **UNTESTED — price it before that PR, not during it.**
 ✅ **PRICED 2026-09-15 (D251 §3) and the ritual text replaced:** rebase first, ONE `.lean` commit, record on the branch, merge with a
-MERGE COMMIT (a squash commit does not descend from the row's head), re-record if master moves. Still UNDRIVEN on the forge until that PR.
+MERGE COMMIT (a squash commit does not descend from the row's head), re-record if master moves. Driven by PR #17: the lean commit was placed FIRST on the branch so the row's `head` is the commit itself.
 
 ## ✅ CLAIM-1 (2026-09-11) — **BUILT AND LANDED 2026-09-13 (D241).** Arm (B): the sentence is rendered from a table, and the load is carried by the tree
 

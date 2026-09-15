@@ -16534,3 +16534,39 @@ mutants red, each on the arm it names. [[feedback-a-plant-probes-control-comes-f
 - It does not answer whether A′ is ACCURATE — D228's "decidable, not accurate" stands; A′ is what the helm ruled for this purpose,
   and the rule records which instrument decided each step so a window can be read for it.
 [[feedback-a-gate-whose-precondition-is-a-discipline]] [[feedback-a-rulings-mechanism-may-not-reach-its-subject]]
+
+### 6. THE FIRST `.lean` LANDING THROUGH IT — `es3-anchor-theorems`, in the same PR
+**The branch, in this order:** `426c88f` (master) → `64a1b7a` → D251's tool → the ledger row and these docs.
+- `64a1b7a` is the ONE `.lean` commit: es3's `46f7671` and `d9d7923` squashed and rebased, plus SDM-QUOTE-1's three comment words.
+- The lean commit goes FIRST so that the row's `head` IS that commit. That satisfies `records_step` exactly on the branch's push run and
+  by the ritual's shape on the PR merge ref and the forge merge.
+- The row is recorded with the tool from the tip, which is legitimate because a row's `head` names what was MEASURED, not the tool
+  that wrote it.
+
+**Pre-registered on the bus before either profile started (09/15 04:40 PDT), and scored:**
+```
+  ms   predicted UNMEASURABLE                REFUTED: CLEAN, rc 0, 6 repeats a side, loads 3.7-5.4
+                                             Tests.Coverage +600 ±256.9 against a budget of 1,782.0; every unit ok
+                                             (0c's runs 2-3 on the same .lean delta read bands of ±1,916.7 and ±2,470.1)
+  A′   predicted CLEAN, Δku ≈ 43% of the     CONFIRMED: Δku Tests.Coverage +235,042 against 549,594 (42.8%); every
+       Tests.Coverage allowance              other module +0. ms ceilings on yukon.lan: Basic 84/278 · Syntax 241/879 ·
+                                             Theorems 967/3,330 (27-30%) -- no prediction stated, none invented
+  build                                      lean_route build rc 0, 45 jobs
+```
+⇒ **Landed on the ms verdict.** `--record --readings R.json --a-prime KU.json` printed *"ms verdict rc 0 · ARM A′ rc 0 on yukon.lan ⇒
+this step lands on the ms verdict"*. Row: `426c88f → 64a1b7a`, `landed_on {verdict: ms, ms_rc: 0, a_prime_machine: yukon.lan}`. Ledger
+22 → 23 rows; `--gap` 0 unrecorded.
+⚠️ **So the A′ licence, the one D251 exists for, is NOT driven on a real UNMEASURABLE step.** The rule was driven on these REAL files
+into a copy of the ledger instead, one row counted after each:
+```
+  1  real R.json, no A′                                   rc 0   23 rows   lands on ms
+  2  R.json with Tests.Coverage's passes spread ±6,000     rc 2   22 rows   "UNMEASURABLE (rc 3) ... ARM A′ decides in its place"
+     (kernel_delta --readings on it: rc 3, band ±9,475.6)
+  3  the same, with the real KU.json                      rc 0   23 rows   lands on a-prime
+  4  the same, KU.json with X86.Theorems head_ms 5,000     rc 2   22 rows   "the A′ file says rc 0 ... TODAY's registry, give rc 1"
+  5  real R.json, KU.json with its rc edited to 1          rc 2   22 rows   "says rc 1 ... give rc 0"
+```
+⇒ 🔑 ***ITEM 4's LAW HELD AGAIN, AGAINST MY OWN PREDICTION: THE BAND IS A PROPERTY OF THE RUN.*** The same `.lean` delta that was
+UNMEASURABLE twice on 09-08 decided at ±257 this morning. The prediction came from the history and was wrong, which is the right
+direction to be wrong for a gate: the landing needed the licence less than predicted.
+[[feedback-a-single-reading-is-about-its-run]] [[feedback-prose-written-before-the-measurement]]
