@@ -14,7 +14,8 @@ on the unpublished page stay marked `[CALL]`.
 
 ---
 
-## 1. ⛔⛔ THE LARGEST HOLE: THE REFERENCE MODEL'S REVISION IS NEITHER PINNED NOR RECORDED
+## 1. ✅ THE LARGEST HOLE WAS THE REFERENCE MODEL'S REVISION — PINNED SINCE D218 (§4 item 2), AND RE-RUN AT THE PIN
+*(Filed as: THE LARGEST HOLE: THE REFERENCE MODEL'S REVISION IS NEITHER PINNED NOR RECORDED. The table below is that day's measurement.)*
 
 ```
   scripts/setup_oracle.sh      git clone --depth 1 https://github.com/acl2/acl2.git   <- whatever HEAD is today
@@ -76,7 +77,7 @@ recorded logs with a reduced re-run.
 ---
 
 ## 3. WHAT IS ALREADY IN PLACE
-- `docs/CLAIMS.tsv` + `check_claims.py`: 75 rows at 2026-09-13 later (69 after item 4, 49 earlier that day, 39 at 2026-09-12), each with its command, and the paper
+- `docs/CLAIMS.tsv` + `check_claims.py`: **92 claims at 2026-09-14** (`check_claims`: CLEAN; the count moves with every row, so run it for today's), 75 at 2026-09-13 later (69 after item 4, 49 earlier that day, 39 at 2026-09-12), each with its command, and the paper
   gated against the rows it cites (D216). **The spine of "reproduce every claim" exists.**
 - `lean-toolchain` and `lake-manifest.json` pin the Lean side.
 - `scripts/setup_oracle.sh`: an idempotent recipe for R4, **pinned since D218** and run cold end to end on 2026-09-13 (§2). *(This read "unpinned (§1)" until that day.)*

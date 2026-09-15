@@ -220,7 +220,8 @@ already does each thing we do"*, answered POSITIVELY per element — is already 
 
 ---
 
-## 3. ⛔ ONE THING THAT MUST BE FIXED BEFORE ANY TIMING CLAIM IS PUBLISHED
+## 3. ✅ SUPERSEDED 2026-09-11 20:59 — THE RUNNER'S BAND BLOCKS NO PAPER FIGURE (the helm's re-ruling, `TACAS-G3-TIMING-CLAIMS.md` §1); G3 CLOSED 09-12
+*(Filed as: ONE THING THAT MUST BE FIXED BEFORE ANY TIMING CLAIM IS PUBLISHED. The paper's timings come from the developer boxes; the band below is the CI gate's, which is CI-3 and row LA. The text is that day's pricing.)*
 The delta gate's dispersion estimate is **not robust to outliers**, measured this shift across seven
 runs (four null pairs on the runner, three real ones locally):
 ```

@@ -102,7 +102,8 @@ sound. What nobody checked is whether the surviving trigger is one this campaign
 **RELEASE CONDITION:** a trigger this campaign actually fires. **OWNER:** the Captain (the throttle
 is his). **RE-MEASURE:** whenever the landing style changes.
 
-### ⛔⛔ CI-2d (NEW, 2026-09-10) — **THE RESTORE IS NECESSARY AND NOT SUFFICIENT: THE THREE JOBS CANNOT FINISH**
+### ✅⛔ CI-2d (2026-09-10) — **ITS INFERENCE WAS REFUTED THE SAME DAY (below): the three jobs finish across any window with no landing in it.**
+*(Filed as: THE RESTORE IS NECESSARY AND NOT SUFFICIENT: THE THREE JOBS CANNOT FINISH.)*
 I closed CI-2 this morning with the line *"verify the three jobs actually run before trusting
 this."* **The verification says they do not complete.** Measured at the object:
 ```
@@ -135,13 +136,6 @@ on these numbers rather than the plan's.
 the policy; this seat to re-measure. **RE-MEASURE:** after the next quiet period — and note that a
 head can create one deliberately by batching its landings into a single push, which is what I did
 with this life's remaining work.
-
-### ⛔ CI-2b — AND THE FIRST THING THAT RAN THERE WAS RED, BY MY HAND
-`kernel-delta`'s step *"Drift-gate arithmetic and ledger, driven red"* failed on that PR.
-Reproduced locally, and **bisected to my own life**: `rc 0` at `bacd5a3` (my predecessor's HEAD),
-`rc 1` at HEAD. **Cause: I edited `CLAUDE.md`, and `EXEMPT_RULES` had no rule for it** — so the
-drift gate correctly refused an unargued path, exactly as designed (*"refuse once, until a human
-argues the path"*). ✅ **REPAIRED:** a rule with a stated reason (prose, read at boot, never by
 
 ### ✅ CI-2 IS CLOSED — RULED AND EXECUTED AT COUNCIL 2026-09-10 (ruling ⑥, desk `JF`)
 **The measurement carried the decision**, in the Captain's words: *"That is not a rate limit, it is
@@ -222,7 +216,8 @@ SCRIPTS THAT IMPORT IT. THE ONLY MEASUREMENT IS RUNNING IT ON THE OTHER MACHINE.
 Repaired at `74dff4f`: `child_cpu`/`sub_cpu`, `mod_name`, `require_utf8_mode`, and the two
 `resource` importers. What is below is what was NOT repaired, with its measurement.
 
-### PORT-1. ~179 unencoded `open()` calls, and why 42 were not fixed
+### ⚠️ PORT-1 — OPEN: 196 unencoded text-mode `open()` calls in 38 files (by syntax tree, 2026-09-14), and why 42 were not fixed
+*(Filed as: "PORT-1. ~179 unencoded `open()` calls, and why 42 were not fixed" — a header that disagreed with its own body's 193 on the day it was written.)*
 ```
   scripts/*.py, open() with no encoding=   193 total
   on the calibration night's own route      42   (kernel_cost 14, kernel_delta 11,
@@ -240,7 +235,8 @@ non-ASCII one raises. It cannot produce a wrong number. That is why this is P-lo
 **RELEASE:** either Python 3.15's UTF-8 default arrives, or a mechanical pass adds
 `encoding="utf-8"` to all 193 in one act. **OWNER:** paris. **NOT** a partial pass.
 
-### PORT-2. `kernel_cost.py --selftest` IS NOT IN CI — 27 arms that only run by hand
+### ✅ PORT-2 — WIRED 2026-09-13 (D227): the whole suite runs as CI job `kernel-cost-selftest`
+*(Filed as: `kernel_cost.py --selftest` IS NOT IN CI — 27 arms that only run by hand.)*
 ✅ **WIRED 2026-09-13 (D227)** as CI job `kernel-cost-selftest`, the whole suite. It had already gone red unseen
 (the temp-prefix arm, two new offenders, fixed). Its control asserted the ceilings D123 §7 retired and now passes
 against a 100x probe instead; `run_differential.sh` prints those ceilings as readings rather than ending on their
@@ -289,7 +285,8 @@ CI and are therefore covered. The same fixture-only shape is carried by `kernel_
 through). ⇒ **`kernel_cost` is the one remaining instance with NO CI arm at all, which is this
 item.** [[feedback-a-tool-tested-only-on-its-corpus]]
 
-### PORT-3. Three of those 27 arms fail because ANOTHER SEAT has a worktree here
+### ✅ PORT-3 — DISCHARGED 2026-09-09 (`f482a4a`): the arms measure the delta the selftest causes, not the repository
+*(Filed as: Three of those 27 arms fail because ANOTHER SEAT has a worktree here.)*
 ```
   git worktree list
     /Users/jyh/projects/claude/x86lean                      b18083d [master]
@@ -317,7 +314,8 @@ checkout, so it becomes *"reports exactly the N already present"* **and prints t
 not evidence the probe can return 0** [[feedback-a-gate-that-refuses-must-say-what-it-saw]].
 The strong form returns by itself the moment the baseline is empty. **OWNER:** paris.
 
-### PORT-4. Two `mkdtemp` prefixes do not conform, so a leak of theirs is misattributed
+### ✅ PORT-4 — DISCHARGED 2026-09-11 (the next header)
+*(Filed as: Two `mkdtemp` prefixes do not conform, so a leak of theirs is misattributed.)*
 `check_private_paths.py` uses `ppgate-selftest-` and `pphist-selftest-`; the orphan probe
 identifies this seat's own work by the `x86lean-` prefix. A temp dir either leaves would be
 read as another campaign's. From `eac47e8` (evidence's PR #1) and `31f2b5f` (D182) — **not
@@ -420,7 +418,8 @@ half is reached first*, and two copies of a design decision is exactly that.
 * A 14-line safety theorem over ∀ fuel and ∀ start state on a routine that really loops, nonvacuity
   driven RED both ways.
 
-### ⛔ WHY IT IS HELD, AND THE PART THAT IS MY OWN ERROR
+### ⛔ WHY IT WAS HELD (released 2026-09-11, two headers down), AND THE PART THAT IS MY OWN ERROR
+*(Filed as: WHY IT IS HELD, AND THE PART THAT IS MY OWN ERROR.)*
 The delta gate convicted `X86.Program` and `Tests.Program` — the two new modules — in two
 independent runs. **My first draft of D191 argued for landing past the gate, on a cross-check I
 FABRICATED**: an absolute-readings row for `X86.Program` that does not exist, because a new module
@@ -438,7 +437,8 @@ the design was the helm's.** Landed on `master` `1304132`, both tiers — **D192
 its sibling. `--selftest` 51 arms PASS; driven end to end on the readings that produced the
 conviction (`OVER BUDGET ⛔ rc 1` → `NEW — NO CEILING ⛔ rc 3`).
 
-### ⛔ THE BRANCH IS STILL HELD, ON A DIFFERENT AND NARROWER CONDITION
+### ✅ THE BRANCH WAS HELD ON A NARROWER CONDITION — DISCHARGED 2026-09-11 (the next header)
+*(Filed as: THE BRANCH IS STILL HELD, ON A DIFFERENT AND NARROWER CONDITION.)*
 Under the corrected gate `p2-proof-interface` **REFUSES (rc 3)** rather than failing: its two new
 modules carry no registered ceiling, and the gate prints the exact line to add for each. **That
 refusal is the arm working, not a fault.**
@@ -2391,8 +2391,8 @@ PRECONDITION THAT IS MET**, and only looking distinguishes them
 ⇒ **Row ES parts (1) and (2) were discharged on 09/03-09/04 and the row never learned
 it.** Recorded so it can be closed rather than re-issued.
 
-### ⛔⛔ TWO EXECUTION HAZARDS, FROM `bench` 2026-09-09 13:02 — READ BEFORE THE CAPTAIN'S
-### WORD ARRIVES, BECAUSE BOTH BITE AT EXECUTION TIME AND ONE OF THEM IS DESTRUCTIVE
+### ✅ TWO EXECUTION HAZARDS, FROM `bench` 2026-09-09 13:02 — THE WORD ARRIVED (ACCEPT, 09-09) AND PUB-1 WAS EXECUTED 2026-09-10 (`64ecb39`); kept for the next ruling of this shape
+*(Filed as: TWO EXECUTION HAZARDS … READ BEFORE THE CAPTAIN'S WORD ARRIVES, BECAUSE BOTH BITE AT EXECUTION TIME AND ONE OF THEM IS DESTRUCTIVE.)*
 `bench` resolved the SAME SHAPE in saltbench eight hours earlier — *a ruling ACCEPTS a
 set, and the number in the ruling came from an instrument that could not see the
 population the ruling governs.* Theirs: ACCEPT named TWO commits, the mechanic would
@@ -2478,7 +2478,8 @@ coincide; the tree arm covers what it drops; the message arm was never a net dif
 (`git log` is per-commit). **Every live gate is sound.** The defect is confined to the
 AUDIT form — which is exactly the form whose number reached a ruling.
 
-### ⛔ THE SCOPE STOP, AND WHY THE BASELINE IS NOT WRITTEN
+### ✅ THE SCOPE STOP — THE BASELINE WAS WRITTEN 2026-09-10 (`64ecb39`), WITH ALL EIGHT SITES
+*(Filed as: THE SCOPE STOP, AND WHY THE BASELINE IS NOT WRITTEN.)*
 The helm's routing carried a stop: *"Baseline EXACTLY the seven he was shown — if the
 scan ratifies more, STOP and file the scope on the register."* **It ratifies eight**,
 7 of which are his seven. The eighth is `CLAUDE.md` **at the root commit** `7f8aae25`,
@@ -2571,6 +2572,39 @@ prose lines, 54 runs) took ~20 minutes end to end including tracing each to its 
 lines. ⚠️ **DECISIONS.md is deliberately EXCLUDED from that price and should stay excluded**: it is an
 append-only record of what was measured ON A DATE, so a "stale" number in it is the point, not a defect.
 The sweep's subject is documents that describe the PRESENT.
+
+⭐ **THIRD PASS, 2026-09-14 (late) — THE `###` SUB-HEADERS AND THE TACAS DOCUMENTS' STATUS HEADERS**, each checked against its
+own body AND the object (a sha, a CI job, a count re-derived by syntax tree, a sentence in the paper), never against the header:
+```
+  QUEUE ###   CI-2d "THE THREE JOBS CANNOT FINISH"        refuted the same day, its own next header    -> ✅ restated
+              CI-2b  (the block appeared TWICE)             first copy TRUNCATED mid-sentence, "never by" -> removed; complete copy kept
+              PORT-1 "~179 … calls"                         196 in 38 files by AST (body said 193)       -> ⚠️ restated
+              PORT-2 "IS NOT IN CI"                         job kernel-cost-selftest since D227         -> ✅ restated
+              PORT-3 "Three … arms fail"                    discharged f482a4a (09-09)                  -> ✅ restated
+              PORT-4 "do not conform"                       discharged 09-11 (next header)              -> ✅ restated
+              P2-IFACE "WHY IT IS HELD" · "STILL HELD"      ruled and implemented 09-11                 -> ✅ restated
+              PUB "READ BEFORE THE CAPTAIN'S WORD ARRIVES"  ACCEPT 09-09, executed 64ecb39 09-10         -> ✅ restated
+              PUB "WHY THE BASELINE IS NOT WRITTEN"         written 64ecb39, all eight                  -> ✅ restated
+              PUB-2 "NAMED, NOT FIXED"                      still a counting duty                        -> unchanged, TRUE
+  TACAS       G5 §1 "NEITHER PINNED NOR RECORDED"           pinned D218; the same file's §3 and §4 say so -> ✅ restated
+              G5 §3 "75 rows"                               check_claims: 92 claims, CLEAN              -> ✅ restated
+              PRICING §3 "MUST BE FIXED BEFORE ANY TIMING   superseded by the re-ruling in G3 §1; G3      -> ✅ restated
+                CLAIM" (priced as a blocker on G3)          CLOSED 09-12
+              G2 draft §5 · G2 scope §4 "MAY NOT BE         still unrun (no kprove here), and the paper    -> status added, TRUE
+                WRITTEN YET"                                declines the claim in §3
+              G1 §2 "NOTHING IS OWED"                       a gated literal (check_positioning_table)   -> unchanged, TRUE
+```
+⇒ **Seventeen rows checked: TEN OVERSTATED what was open** (the second pass's direction), **THREE were stale the other way or
+broken** — PORT-1 and G5 §3 UNDER-counted (179 and 75 against 196 and 92: a count filed low and never re-derived), and the
+CI-2b duplicate — and **FOUR were true.** ⛔ *The first draft of this line said "eleven of fifteen", wrong in both numbers, and
+the table directly above it was the correction.* [[feedback-a-debt-list-decays-toward-less-is-missing]]
+The new shape is the DUPLICATE: a paragraph pasted twice, where the first copy lost its last line, so the copy met first is the
+broken one.
+[[feedback-duplicate-born-in-agreement]]
+📌 **STILL NOT CHECKED, declared:** the P2 section's NUMBERED items (`0c`, `1`, `2`, `4`, `6` carry present-tense status
+inside their text, not in a header, and checking them needs the P2 campaign's objects) · the `⛔⛔⛔ READ THIS BEFORE
+PLANNING A BATCH — ITEM 4` banner, which depends on item 4 · P3's header · G1's §1b–§1c sub-headers (dated readings, not
+statuses). **With those, CLAIM-2's sweep over documents that describe the present is done for headers and not for body text.**
 
 ## ✅ ARMA-1 (2026-09-13) — **CLOSED 2026-09-14 (D244): the runner's ceilings are registered from all 16 `ku-delta` jobs, the job runs `--arm a-prime`, and the measured red-first arm has its own job with the plant resized to K3 n=8000 for the fast VM class (D243).** The text below is the item as filed.
 *(Filed as: A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK.)*
