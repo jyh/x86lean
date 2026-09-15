@@ -16432,3 +16432,14 @@ and an archived DOI.
 ### 3. COST
 Built with tectonic: **16 pages, References on page 15**, 0 overfull boxes, 0 BibTeX warnings. `check_claims` CLEAN (94).
 **G7 is closed.** The before-Oct-15 remainder is the data statement's two external items.
+
+### 4. ⛔ AND THE LANDING WENT RED IN CI ON A GATE THE PREFLIGHT DID NOT RUN
+PR #16's `build` failed at `check_claims.py --selftest`: `arms=30 red=1`, the arm *"a swapped COVERAGE fraction (525 of the 500) is
+caught"*, with an EMPTY finding list. The arm planted its swap with `paper.replace("covering 500 of the 525", …)`, and F3's fix
+reworded that sentence ("covering" is gone), so the replace was a no-op and the arm checked an unplanted paper. **The derivations,
+the prose check and `preflight.sh` were all green**: preflight runs `check_claims.py` and not its `--selftest`, which CI runs in the
+same step. ⇒ 🔑 ***A SELFTEST WHOSE PLANTS ANCHOR ON THE PAPER'S TEXT MAKES EVERY PAPER EDIT A GATE EDIT.***
+✅ **Repaired both ways:** every prose plant now goes through `_plant`, which refuses if its anchor is absent (driven on a mutant with
+the old anchor: `AssertionError: plant anchor 'covering 500 of the 525' is absent`), the coverage arm anchors on `500 of the 525`, and
+`preflight.sh` runs `check_claims --selftest` and `label_fit --selftest` (driven: rc 1 without the arm fix, rc 0 with it).
+[[feedback-an-arm-whose-fixture-is-the-backlog]] [[feedback-a-probe-must-create-its-condition]]
