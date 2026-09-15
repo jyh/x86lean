@@ -16215,3 +16215,58 @@ reached its assertion on either side. Reading the two outputs was the only thing
 The Lean-starting selftests (`kernel_cost`, `kernel_delta`, `threads_ab`, `ci_local`, `oracle_availability`,
 `census_redprobe`, `check_driver_cr4`, `unfolding_calibration`, `user_cost_budget`, `p2_batch_size`) were not run locally.
 CI's jobs cover them.
+
+## D248 — TACAS G7's revision pass, taken by a non-author reader: fifteen findings, fourteen acted on after re-verification at the source, and the two high ones were summaries that claimed more than the body
+
+⚖️ **G7 priced "a full revision pass" (TACAS-PRICING).** It was taken by an independent reader, a fresh agent with none of
+the author's context, over a frozen copy of the paper at `a032390`, reading any other file at that commit and never the
+working tree. It edited nothing. **Every finding was re-verified by the author at the source before any edit.** Its
+report was a hypothesis, not a verdict, and one of its supporting statements needed correcting (§3).
+
+### 1. THE TWO HIGH FINDINGS
+```
+  #1  §4.3 said "Three findings fall there" and named the packed shifts; §4.2 and §8 said a processor-derived model
+      arbitrated "one rule". Main.lean's knownDivergences opens with movd_to_x and movq_to_x (D93, x86isa merges
+      where the manual clears), and D108's first run reads "unexplained=8 oracle-divergence=163" while those two
+      were the only declared entries: 163 OF THE 171 DECLARED DIVERGENCES, absent from the paper, and libLISA's
+      check covers them too.                                           -> a paragraph added; "one rule" -> two
+  #2  "The reference model therefore refuses more of the remaining gap than it executes" (§4.3 and §8) against its
+      own parts: executes 139,854 · refuses 169,877 · UNASKED 91,519. The unasked share is 3x the difference.
+                                                                        -> restated as "among the forms asked"
+```
+⇒ 🔑 ***BOTH WERE IN SENTENCES THAT SUMMARISE, AND BOTH BODIES WERE RIGHT.*** §4.3 printed all five parts of the partition,
+and D108 printed the 163. The body carried the fact and the summary sentence left it out, which is the defect this paper is
+written about, found in the paper. [[feedback-a-sentence-missing-case-reads-as-empty]]
+
+### 2. THE REST, AS APPLIED
+```
+  #3  "failed a re-check … present when written"   D202's 3 of 7 were correct counts that did not REPRODUCE, and
+                                                   "present when written" is shown for D201 only; the conclusion
+                                                   called bibliography rows "claims about formal artifacts"
+  #4  "derives the undefined set"                  flags derived; registers declared AND observed (§3.3)
+  #5  "limits are stated as theorems"              one limit is a theorem, and it also assumes ea.lock = false
+                                                   (X86/Theorems.lean:1575), now stated
+  #6  "derived and gated" / "validation from two   the manifest is incomplete (§5 says so); validation figures are
+       sources"                                    re-derived from one record each
+  #7  "awaiting a LOCK vocabulary"                 the vocabulary LANDED (batch 23); the 162 are still counted
+  #8  "its evidence comes from two origins"        it is the three comparable MODELS that are two origins
+  #9  "three … whose sources we have read"         four were read (§3.1): "three of the"
+  #10 the test tree is outside the axiom check     the six safety theorems live there: disclosed, with the search
+  #11 "7.6" per label twice, different quantities  the round figure is above that routine's own base
+  #13 K "with loop invariants for ten programs"    one loop recorded: "for ten programs, including a loop"
+  #14 "0 leaks" (x2)                               both taken before the cursor was compared: said
+  #15 "1,012 … forms"                              they are vectors; "forms" is kept for distinct encodings
+  #12 NOT CHANGED: "about eleven plus about one per instruction" at 14 lines for 3 and 4 instructions is within "about"
+```
+
+### 3. ⛔ ONE OF THE READER'S OWN SUPPORTING CLAIMS WAS WRONG, IN THE SAFE DIRECTION
+For #10 it reported *"a search at a032390 finds no `native_decide` or `bv_decide` used in `Tests/`"*. The same search here
+returned **one line**. Read, it is a docstring in `Tests/Anchors.lean` naming `native_decide`, not a use, so the reader's
+conclusion stands, but its stated evidence (a zero) was a reading of the matches, not the match count. The paper's new
+sentence cites the search and names the one line.
+
+### 4. WHAT IT COST AND WHAT IS LEFT
+Built with tectonic: **15 → 16 pages, References on page 15** (the limit is 18 excluding bibliography). `check_claims` CLEAN
+(92). The 163 is not a manifest row. It is cited to D108's record line in its `\src`, and §5 already says the manifest is
+incomplete. ⚠️ **NOT checked by the reader, and still owed before submission:** the bibliography and every quotation from
+an outside source (D246 re-read two), and the arithmetic of batch 13's growth from 78,584 to 81,752 cases.
