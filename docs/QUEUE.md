@@ -544,6 +544,17 @@ qualifier.
 
 ### ⛔⛔⛔ READ THIS BEFORE PLANNING A BATCH — ITEM 4 IS THE CAMPAIGN'S CRITICAL PATH, NOT AN ANNOYANCE
 
+⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass), measured at the objects: THE WALL BELOW STANDS FOR EVERY `.lean` LANDING.**
+ARM A′ (Δku for every module + an absolute ms ceiling on three) was BUILT (D240) and has run in CI as `ku-delta --arm a-prime` since
+D244 — and neither half of the chain below moved: the MERGE verdict is still the ms delta gate's (rc 3 cannot land), and
+`scripts/kernel_drift.py`, which writes and checks the ledger row, contains **0** references to `ku_delta` (control: 9 to
+`kernel_delta`; its `--record` reads a `kernel_delta` JSON and prices the row in ms from that run's BASE readings, never from its
+verdict). ⇒ **A′ fixed the instrument as a CI READING, not as the merge rule or the ledger's input.** Whether a `.lean` step may
+land on an A′ verdict when the ms delta is UNMEASURABLE, and what its ledger row then records, is a gate change nobody has filed; it
+is named at item 4. The two held branches are unchanged: `es3-anchor-theorems` `d9d7923` (origin and `local`, unmerged) and
+`p2-batch32-fp-compares` `3a811fb` (was in THIS CLONE ONLY until 2026-09-15, now also pushed to `local`; not on origin). No P2 batch
+has landed since record 22 (`d20f76c`, 2026-09-06).
+
 Established 2026-09-09 by paris, from three measurements and the ratchet file, after `es3-anchor-theorems`
 failed to land:
 ```
@@ -809,12 +820,18 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    ⚖️ **READ THE SAME DAY (D229).** The counter accounts for 96.7% of kernel time — and 32% of the three modules
    above the band (`X86.Theorems` 3.5x, `X86.Syntax` 2.9x, `X86.Basic` 1.5x the band top), which are where proof work
    and enum growth land; `Tests.*` is on or under it. The ms gate's own 512-constructor plant IS seen (Δku +64,240)
-   and under-priced by a factor that grows with N. **Recommended, not built: ARM A′ — Δku for every module plus a
+   and under-priced by a factor that grows with N. **Recommended, not built** *(built since: D240 red-first, in CI as `ku-delta --arm a-prime`
+   since D244 — see the banner above for what it did NOT change)*: **ARM A′ — Δku for every module plus a
    coarse ABSOLUTE ms ceiling on those three.** The ku instrument had five defects outside `Tests.Coverage`, one of
    them a silent 28% undercount; repaired, and the census now refuses unless wrapped = unwrapped + header.
 
 0c. ⛔⛔ **`es3-anchor-theorems` IS BLOCKED ON AN UNDECIDABLE BAND, NOT ON A BUDGET — AND THE GATE'S
-   OWN "MORE REPEATS" REMEDY WAS REFUTED BY THE RUN IT RECOMMENDED.** Measured 2026-09-08 by paris on
+   OWN "MORE REPEATS" REMEDY WAS REFUTED BY THE RUN IT RECOMMENDED.**
+   ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): STILL BLOCKED, TRUE.** The branch is at `d9d7923` on origin and `local`, not an
+   ancestor of master. Its release condition ("a gate change — 4b with a budget from a second source and a second machine") is met
+   in HALF: A′ has budgets and runner ceilings registered from sixteen runner jobs (D244), but the merge verdict a landing needs is still
+   the ms delta gate's, and the ledger row is priced from an ms `kernel_delta` run (banner above). ⇒ **Owed, and unowned until this
+   line: a ruling on whether a `.lean` step may land on an A′ verdict, and what its ledger row records.** OWNER: paris, to post as a design fork. RE-MEASURE: when that ruling lands. Measured 2026-09-08 by paris on
    a box that was genuinely quiet at the start (load 3.49, after 50 orphaned `wi-test` loops were
    reaped). **Three runs, and the branch is NOT landed.**
 ```
@@ -872,7 +889,9 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    a ~25,700 ms unit, against budgets ~1,840). **That is a reading, not a verdict**, and it must not
    be quoted as one — which is the entire distinction this gate exists to enforce.
 
-1. **`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run.**
+1. ✅ **DISCHARGED 2026-09-06 — the rule was repaired (D143) and the probe was run: the availability census is finished (body below).**
+   *(Filed as: "`probe_bucket` — the RULE is repaired (D143); the PROBE is not yet run." The body's own second paragraph said
+   DISCHARGED; the item's first line did not, until the CLAIM-2 fourth pass, 2026-09-15.)*
    `probe_bucket` now calls `demand_census.isa_bucket`, the census's own total rule, instead of
    being a second rule that agreed with it on 256 of 256 rows. `vzeroupper` buckets as
    `AVX (state)`, so the key it needs now exists. The `None` return that used to decide BOTH the
@@ -1018,6 +1037,11 @@ item. The census can say "buildable" all it likes; the ledger decides what lands
    reached.** [[feedback-a-probe-must-create-its-condition]] [[feedback-read-what-the-instrument-measured]]
 
 2. **Land the buildable groups the census has surfaced** — the ordinary batch work.
+   ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): EVERY "NEXT" BELOW HAS LANDED OR IS HELD.** The MOVE half landed: all eight of D158's
+   moves are in `X86/Coverage.lean` (batch 35's content squashed onto master; the half-moves as record 21, `f46de06`, D160), and the
+   lane selectors D167 specified landed as record 22 (`d20f76c`, 09-06; `shufps` is a coverage row). No P2 batch has landed since, and the two held branches are the banner's. ⚠️ **Today's residue is UNMEASURED:**
+   `python3 scripts/p2_residue.py` exits rc 2 on this box ("assembler refused the vector table": the Xcode licence is unaccepted,
+   registered on the Captain). Re-run it before naming a next batch; the figures below are dated readings.
    ⭐⭐⭐ **THE GROUP IS NAMED AND DERIVED NOW (D157).** This row asked for "the buildable
    groups" for three sittings and named none, because the P2 roster's ranked table prints its
    top FORTY rows and every unclaimed row there that EXECUTES is either VEX or scalar FP. The
@@ -1230,7 +1254,14 @@ landing — and the corpus that can test a load-based exclusion builds itself, a
 occur. Until then this is ONE observation and is recorded as one.
 
 4. **The gated unit is noisier than the budget it is gated against** (D141 opened it, D142 settled
-   what it is, **D146 refuted the proposed remedy and named a better one**). MEASURED, two runs an
+   what it is, **D146 refuted the proposed remedy and named a better one**).
+   ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): OPEN AS THE LEDGER'S GATE; ANSWERED AS A READING.** "Gate a quantity that has
+   less of it" was built: A′ (D240), zero band on identical trees, in CI since D244. The runner's ms wobble was attributed to the VM
+   drawn per job, multiplicative and invisible to load (D243). **What is not done is the step that would move the wall:** the merge
+   rule still takes the ms delta gate's verdict and the drift ledger (`kernel_drift.py --record`) still takes only `kernel_delta` ms
+   readings, so a `.lean` landing still needs an ms verdict that this item says is undecidable at these sizes. ⇒ **THE GATE CHANGE
+   THIS ITEM CALLS FOR IS NOW A DESIGN QUESTION WITH A BUILT CANDIDATE:** may a `.lean` step land on an A′ verdict, and what does its
+   ledger row record? Unfiled until this line; owner paris. MEASURED, two runs an
    hour apart on the same box:
    - `kernel_delta.py --base c372d80 --head c372d80` — **the same commit on both sides** — read
      `Tests.Coverage` at −2,150 ms with a ±2,474 band against a 1,980 ms budget, and returned `ok`.
@@ -2158,9 +2189,13 @@ are stable, instead of the difference of two large numbers.
    defect D141 removed from this same arm). Four planted defects caught, two of them only by the
    new requirement that each case declare the LINE it must print and not just its verdict.
 
-6. **`--repeats` in CI is a guess** (D141 §9). `.github/workflows/ci.yml` asks for 6 on a runner no
-   delta has ever run on. Blocked: GitHub Actions refuses every job on this account for billing
-   (desk FH).
+6. ✅ **ANSWERED ON THE RUNNER (D243 §4), AND ITS BLOCK WAS FALSE.** `kernel-delta` runs `--repeats 6` on the hosted runner on
+   every pull request and master push (master `3276995`: `kernel-delta` success). D243 read sixteen runner runs CI had already
+   emitted: within-run CV ~3% is the part `--repeats` averages down, and it **cannot reach** the between-VM factor (between-run CV
+   ~11%, run medians 1.70x apart on one tree). So 6 is not a guess awaiting a better number; the number is the small term.
+   *(Filed as: "`--repeats` in CI is a guess (D141 §9). `.github/workflows/ci.yml` asks for 6 on a runner no delta has ever run on.
+   Blocked: GitHub Actions refuses every job on this account for billing (desk FH)." The billing claim was struck as false on
+   2026-09-09: three jobs were unreachable by trigger, not refused. This line kept it until the CLAIM-2 fourth pass, 2026-09-15.)*
    ⛔⛔ **THIS ITEM'S STATED METHOD WAS REFUTED 2026-09-08 AND IS CORRECTED HERE RATHER THAN LEFT TO
    BE FOLLOWED.** It used to end: *"the number to read off is the gate's own `~N repeats a side
    would decide it` line."* **Do not read that number off.** Measured on this box the same evening
@@ -2317,6 +2352,11 @@ kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced
 The prose goes in `note`, which is not reduced.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
+⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): THE HEADER IS TRUE.** OPEN: no sub-group has landed. FROZEN: sub-group B waits on
+kill-checks K3 and K4, both still unmeasured (`docs/SOFT-FLOAT-COMMISSION.md` §4, §5). PARTLY REFUTED: K2 for two members (§7).
+⚠️ Sub-group A is not merely "buildable": a batch of it exists, `p2-batch32-fp-compares` `3a811fb`, held by the P2 banner's ledger
+wall. ⚠️ **Not the same K3:** the commission's kill-check K3 (a new `Cpu` field's cost) is unrelated to D228's term kind K3 (literal
+arithmetic), which A′'s red-first plant uses.
 `docs/SOFT-FLOAT-COMMISSION.md` — opened 2026-09-05, with its premise tested at the object, its
 scope re-measured, and a refuter pass run against it in the same sitting.
 
@@ -2610,6 +2650,29 @@ inside their text, not in a header, and checking them needs the P2 campaign's ob
 PLANNING A BATCH — ITEM 4` banner, which depends on item 4 · P3's header · G1's §1b–§1c sub-headers (dated readings, not
 statuses). **With those, CLAIM-2's sweep over documents that describe the present is done for headers and not for body text.**
 
+⭐ **FOURTH PASS, 2026-09-15 — THE DECLARED REMAINDER: P2's NUMBERED ITEMS, THE ITEM-4 BANNER, P3's HEADER**, each against the object
+(branch refs at origin and `local`, `git merge-base`, the coverage table, CI job conclusions, a tool's own source, the decision records):
+```
+  banner "ITEM 4 IS THE CRITICAL PATH"   A′ built and in CI, but kernel_drift.py has 0 refs to ku_delta     -> TRUE; status added
+  0b "Recommended, not built: ARM A′"    built D240, CI since D244  (adjacent to the list, not on it)       -> ✅ annotated
+  0c "es3 IS BLOCKED"                    d9d7923 unmerged; release condition met in half                   -> TRUE; status added
+  1  "the PROBE is not yet run"          its own body says DISCHARGED 09-06                                -> ✅ restated
+  2  "NEXT: the MOVE half"               landed (records 21, 22); residue UNMEASURED (Xcode licence)       -> ✅ status added
+  4  "noisier than the budget"           the better quantity is built; the ledger still takes ms           -> ⚠️ status added
+  6  "a guess · Blocked: billing"        answered on the runner by D243 §4; the billing block was false    -> ✅ restated
+  P3 "OPEN, FROZEN, PARTLY REFUTED"      K3/K4 unmeasured, K2 refuted for two, no sub-group A row claimed  -> TRUE; status added
+```
+⇒ **Eight checked: FOUR OVERSTATED what was open (0b, 1, 2, 6), ONE was half stale (4), THREE were true.** The direction is the
+second and third passes' again.
+⭐ **THE NEW SHAPE, AND IT IS THE ONE THAT MATTERS FOR THE CAMPAIGN: A REMEDY LANDED AS A READING DOES NOT MOVE A GATE THAT CONSUMES A
+DIFFERENT INPUT.** Items 0b, 4 and the banner all name A′ as the way through the ledger wall; A′ was built and wired into CI; and neither the
+merge rule nor the ledger tool that together ARE the wall ever learned it exists. Every line about A′ was true, and no line said the last step was missing, so the
+wall read as fixed from the prose and stands at the object. [[feedback-a-rulings-mechanism-may-not-reach-its-subject]]
+⛔ **AND A DURABILITY FINDING ON THE WAY:** `p2-batch32-fp-compares` (`3a811fb`, a finished batch with a green differential) existed in
+ONE place, this clone: not on origin, not on `local`. Pushed to `local` 2026-09-15. It stays off origin until it lands.
+📌 **With this pass, CLAIM-2's sweep over the headers and declared status lines of documents that describe the present is DONE.** Body
+text below those lines is not swept; that is a different and much larger population, and it is not priced here.
+
 ## ✅ ARMA-1 (2026-09-13) — **CLOSED 2026-09-14 (D244): the runner's ceilings are registered from all 16 `ku-delta` jobs, the job runs `--arm a-prime`, and the measured red-first arm has its own job with the plant resized to K3 n=8000 for the fast VM class (D243).** The text below is the item as filed.
 *(Filed as: A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK.)*
 
@@ -2761,7 +2824,7 @@ value set is the claim** ([[feedback-a-conservation-gate-cannot-see-a-misclassif
   side — extracting "which model, in which role" from English without a literal match. The obvious escape, a
   declared roster TSV, **inherits its default in the unpoliced direction** ([[feedback-a-declared-list-inherits-its-default]]).
 
-## ⚠️ CLAIM-2 (2026-09-11) — **the seven §1 numbers are now GATED: manifest rows in `docs/CLAIMS.tsv` pinned at `7bb57ee`, re-derived by `check_claims.py` (CLEAN, 92 claims, 2026-09-14). The OPEN half is the sweep for numbers no manifest row covers — first and second passes above.**
+## ⚠️ CLAIM-2 (2026-09-11) — **the seven §1 numbers are now GATED: manifest rows in `docs/CLAIMS.tsv` pinned at `7bb57ee`, re-derived by `check_claims.py` (CLEAN, 92 claims, 2026-09-14). The OPEN half is the sweep for numbers no manifest row covers — four passes above; headers and declared status lines are done (2026-09-15), body text is not swept.** *(This header said "first and second passes above" until the fourth pass.)*
 *(Filed as: `TACAS-PRICING.md` §1's NUMBERS ARE CORRECT, UNGATED, AND WERE UNREPRODUCIBLE UNTIL TODAY.)*
 
 **Measured (D202).** All seven §1 quantities are exactly right at `7bb57ee`. **Not one stated its
