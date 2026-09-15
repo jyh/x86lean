@@ -560,8 +560,7 @@ wall is moved in the TOOL; no `.lean` step has yet landed through it** — the f
 ✅ **THE FIRST ONE IS `es3-anchor-theorems`, in the same PR (#17), and it landed on the ms verdict, not A′'s** (D251 §6): ms CLEAN at
 6 repeats (`Tests.Coverage` +600 ±257 against 1,782), A′ CLEAN beside it (Δku +235,042 against 549,594). So the rule and the forge
 ritual are driven in production, and **the A′ licence (ms rc 3) is driven only on a perturbed copy of those real readings.**
-One branch is still held: `p2-batch32-fp-compares` `3a811fb` (was in THIS CLONE ONLY until 2026-09-15, now also pushed to `local`; not on origin). No P2 batch
-has landed since record 22 (`d20f76c`, 2026-09-06).
+✅ **And `p2-batch32-fp-compares` `3a811fb` LANDED too, 2026-09-15, as record 23 (D252)** — after A′ refused it for a new-module defect D252 repaired. It had been held since 2026-09-05 and, until 2026-09-15, existed in ONE clone only. **No held branch remains.** Record 23 is the first P2 batch to land since record 22 (`d20f76c`, 2026-09-06).
 
 Established 2026-09-09 by paris, from three measurements and the ratchet file, after `es3-anchor-theorems`
 failed to land:

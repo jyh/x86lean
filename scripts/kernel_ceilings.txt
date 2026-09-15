@@ -328,3 +328,10 @@ Tests.Program 975 @on yukon.lan
 # — inside the 1.6x-2.4x band predicted from earlier null-pair comparisons, and tight.
 X86.Program 792 @on runnervmlun5p
 Tests.Program 1995 @on runnervmlun5p
+# ⭐ P2 BATCH 32 (D140), LANDED 2026-09-15 — `X86.SoftFloat` IS A NEW UNIT, SO ITS CEILING NAMES ITS MACHINE.
+# It was registered machine-less on 2026-09-05, before D198 made a machine-less line ABSENT to the new-unit
+# arm; carried forward that way it would refuse this step for a cause nobody measured. The number is the
+# registry's own rule over TODAY's reading on this box: `run_differential.sh`'s kernel-cost table, yukon.lan,
+# 2026-09-15, read X86.SoftFloat 2.7 ms ⇒ max(2.7 × 3, 50) = 50. The runner line follows its first reading
+# there, the way X86.Program's did.
+X86.SoftFloat 50 @on yukon.lan

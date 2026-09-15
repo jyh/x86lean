@@ -121,6 +121,7 @@ BUDGET_FILE = os.environ.get("X86LEAN_KU_BUDGET",
 # ku-gated modules is not here and is not a list anywhere — see `ku_modules`.
 MS_TAG = "@ms"
 MACHINE_TAG = "@on"
+KU_TAG = "@ku"
 
 
 def refuse(msg):
@@ -163,7 +164,16 @@ def ku_modules(*profiles):
 
 
 def read_registry(path=None):
-    """(floor_ku, {(module, machine): ms}) from A′'s own registry.
+    """(floor_ku, {(module, machine): ms}) — see `read_registry_full`."""
+    floor, ceilings, _ = read_registry_full(path)
+    return floor, ceilings
+
+
+def read_registry_full(path=None):
+    """(floor_ku, {(module, machine): ms}, {module: ku}) from A′'s own registry.
+
+    ⭐ THE THIRD MAP IS THE NEW-MODULE REGISTRATIONS (D252) — `<module> @ku <n>`:
+    the absolute ku a module that is NEW IN A STEP was accepted at. See `verdict`.
 
     The ms ceilings ride as units whose NAME carries the machine — `X86.Basic @ms
     @on yukon.lan 267` — which `read_budgets` parses natively, because its own
@@ -181,17 +191,31 @@ def read_registry(path=None):
         refuse(f"⛔ no @floor in {path}. Every ku budget is a percentage of a base "
                  f"reading, and a percentage of a module whose base ku is 0 is 0 — "
                  f"a gate that fires on any addition at all.")
-    ceilings = {}
+    ceilings, new_ku = {}, {}
     for unit, (kind, val) in per.items():
         p = unit.split()
         mach = None
         if len(p) >= 2 and p[-2] == MACHINE_TAG:
             mach, p = p[-1], p[:-2]
+        if len(p) == 2 and p[1] == KU_TAG:
+            # ⛔ A ku REGISTRATION NAMES NO MACHINE AND IS NEVER A PERCENTAGE. ku is exact
+            # and identical across machines (D185), so a machine on this line would claim
+            # a dependence that does not exist; and a percentage of a module that is not
+            # in the base tree is a percentage of zero — the defect this line repairs.
+            if mach is not None:
+                refuse(f"⛔ {unit!r}: a `{KU_TAG}` registration carries no "
+                         f"`{MACHINE_TAG}` — ku is machine-independent (D185).")
+            if kind != "abs" or val != int(val):
+                refuse(f"⛔ {unit!r}: a `{KU_TAG}` registration is a whole number of "
+                         f"unfoldings, never a percentage — a percentage of a module "
+                         f"absent from the base is a percentage of zero.")
+            new_ku[p[0]] = int(val)
+            continue
         if len(p) != 2 or p[1] != MS_TAG:
             refuse(f"⛔ unrecognised line in {path}: {unit!r}. This file holds "
-                     f"@floor and `<module> {MS_TAG} {MACHINE_TAG} <machine> <ms>` "
-                     f"and nothing else — the ku budgets live in "
-                     f"kernel_delta_budget.txt and are read from there.")
+                     f"@floor, `<module> {MS_TAG} {MACHINE_TAG} <machine> <ms>` and "
+                     f"`<module> {KU_TAG} <n>` and nothing else — the ku budgets "
+                     f"live in kernel_delta_budget.txt and are read from there.")
         if kind != "abs":
             refuse(f"⛔ {unit!r}: an A′ ms ceiling is ABSOLUTE milliseconds. A "
                      f"percentage ceiling is a delta wearing a ceiling's name, and "
@@ -209,7 +233,7 @@ def read_registry(path=None):
             refuse(f"⛔ DUPLICATE A′ CEILING for {key}: two lines, two numbers, and "
                      f"nothing to choose between them.")
         ceilings[key] = val
-    return floor, ceilings
+    return floor, ceilings, new_ku
 
 
 def check_registry(quiet=False):
@@ -251,6 +275,16 @@ def check_registry(quiet=False):
 # ────────────────────────────────────────────────────────────────────────────
 # THE MEASUREMENT
 # ────────────────────────────────────────────────────────────────────────────
+def new_modules(base_worktree, modules):
+    """The modules the BASE tree does not have — recorded by the MEASUREMENT, so the
+    verdict never infers "new" from a zero. ⛔ A zero is also what a module the census
+    reads as empty produces, and a verdict that treated every zero as new would let
+    an emptied module escape its relative budget. [[feedback-a-classifiers-value-set-is-a-claim]]"""
+    return sorted(m for m in modules
+                  if not os.path.exists(os.path.join(base_worktree,
+                                                     m.replace(".", os.sep) + ".lean")))
+
+
 def ku_of(worktree, modules):
     """{module: ku} for one tree. ⛔ Exact, so ONE reading a side is the reading —
     there are no repeats here because there is nothing for repeats to average."""
@@ -307,6 +341,7 @@ def measure(base_rev, head_rev, keep=None, plant=None):
         head_p = kd.profile(head_wt, sorted(kd.gated_declarations()))
         modules = ku_modules(base_p, head_p)
         print(f"{len(modules)} modules, derived from the profiler on both trees")
+        new = new_modules(base_wt, modules)
         print("base tree:")
         base_ku = ku_of(base_wt, modules)
         print("head tree:")
@@ -315,7 +350,7 @@ def measure(base_rev, head_rev, keep=None, plant=None):
                 "head_rev": kd.git("rev-parse", head_rev),
                 "planted": bool(plant), "box": kd.box_stamp(),
                 "machine": kd.socket.gethostname(),
-                "base_ku": base_ku, "head_ku": head_ku,
+                "base_ku": base_ku, "head_ku": head_ku, "new_modules": new,
                 "base_ms": base_p["modules"], "head_ms": head_p["modules"]}
     finally:
         if keep is None:
@@ -336,12 +371,37 @@ def verdict(data, arm, quiet=False):
     were separate implementations, the demonstration would be about the difference
     between two programs rather than about the difference between two DESIGNS."""
     default, per, _ = kd.read_budgets(kd.BUDGET_FILE)
-    floor, ceilings = read_registry()
+    floor, ceilings, new_ku = read_registry_full()
     findings, rows = [], []
+    new = set(data.get("new_modules") or [])
 
     for m in sorted(data["base_ku"]):
         base, head = data["base_ku"][m], data["head_ku"][m]
         d = head - base
+        # ⛔⛔ D192 IN A′ (D252). A module the base tree does not have has base ku 0, and
+        # `effective(budget, 0, floor)` prices it at THE FLOOR — 10 unfoldings — whatever it
+        # is. The ms gate carried exactly this defect until D192 (2026-09-10) and was
+        # repaired there; A′ was built three days later and never received the repair, so
+        # it could not license ANY step that adds a module. Measured on P2 batch 32:
+        # `X86.SoftFloat` +221 against an allowance of 10, with every other module inside.
+        # ⇒ A NEW module is judged against an ABSOLUTE registration, `<module> @ku <n>`:
+        # the decision to accept what it measured. Unregistered is a FINDING that prints
+        # the line it would take — never a pass, and never the floor.
+        if m in new:
+            reg = new_ku.get(m)
+            over = reg is None or head > reg
+            rows.append((m, base, head, d, reg, over))
+            if reg is None:
+                findings.append(f"Δku {m}: a NEW module (absent from the base tree), "
+                                f"{head:,} unfoldings, with no `{m} {KU_TAG} <n>` "
+                                f"registration. A new module is judged against an "
+                                f"absolute registration, never priced at the floor "
+                                f"(D252); if its cost is accepted, register "
+                                f"`{m} {KU_TAG} {head}`.")
+            elif over:
+                findings.append(f"Δku {m}: a NEW module at {head:,} unfoldings, over "
+                                f"its registration of {reg:,}.")
+            continue
         budget = per.get(m, default)
         if budget is None:
             # ⛔ NO THIRD CASE — the ms budget file's own rule, and for the same
@@ -361,6 +421,11 @@ def verdict(data, arm, quiet=False):
         print(f"\n{'module':22} {'base ku':>10} {'head ku':>10} {'Δku':>10} "
               f"{'allowance':>10}")
         for m, base, head, d, allow, over in rows:
+            if m in new:
+                print(f"{m:22} {'NEW':>10} {head:>10,} {d:>+10,} "
+                      f"{'—' if allow is None else f'{allow:,}':>10}"
+                      f"{'   ⛔ UNREGISTERED' if allow is None else '   ⛔ OVER' if over else '   NEW, registered'}")
+                continue
             print(f"{m:22} {base:>10,} {head:>10,} {d:>+10,} {allow:>10,.0f}"
                   f"{'   ⛔ OVER' if over else ''}")
 
@@ -573,6 +638,13 @@ def selftest():
         # `@xx` has a machine, so only the shape refusal can red it.
         check("an unrecognised unit shape is refused",
               refuses("@floor 10\nX86.Basic @xx @on box1 267\n", "unrecognised line"))
+        check("a `@ku` registration is read as a whole number of unfoldings",
+              read_registry_full(_fixture(tmp, "@floor 10\nX86.New @ku 221\n"))[2]
+              == {"X86.New": 221})
+        check("a `@ku` registration with a machine is refused",
+              refuses("@floor 10\nX86.New @ku @on box1 221\n", "carries no"))
+        check("a relative `@ku` registration is refused",
+              refuses("@floor 10\nX86.New @ku 22%\n", "never a percentage"))
         check("a duplicate (unit, machine) is refused",
               refuses("@floor 10\nX86.Basic @ms @on box1 267\nX86.Basic @ms @on box1 300\n",
                       "DUPLICATE"))
@@ -644,6 +716,44 @@ def selftest():
                                cwd=ROOT, capture_output=True, text=True)
             check("A′ on a box with no ceiling REFUSES rather than passing",
                   r.returncode == 2 and "ARM A" in r.stdout)
+
+            # ── D192 IN A′ (D252): a module the base tree does not have ───────────
+            # ⭐ THE CONTROL FIRST, AND IT IS THE DEFECT: without `new_modules` the
+            # module is priced at the floor, as P2 batch 32 measured (+221 against 10).
+            # It stays that way on purpose for a blob that does not record which modules
+            # are new — a verdict must not infer "new" from a zero.
+            newmod = dict(ok, base_ku={"X86.Basic": 15856, "X86.New": 0},
+                          head_ku={"X86.Basic": 15856, "X86.New": 221})
+            rc0, f0 = verdict(newmod, "a-prime", quiet=True)
+            check("CONTROL — a zero-base module NOT recorded as new is floor-priced "
+                  "(the pre-D252 behaviour, kept for blobs that do not say)",
+                  rc0 == 1 and any("allowance of 10" in f for f in f0))
+            marked = dict(newmod, new_modules=["X86.New"])
+            rc1, f1 = verdict(marked, "a-prime", quiet=True)
+            check("a NEW module with no `@ku` registration FAILS and prints the line "
+                  "it would take", rc1 == 1 and any("register `X86.New @ku 221`" in f
+                                                    for f in f1))
+            check("...and it is NOT priced at the floor",
+                  not any("allowance of 10" in f for f in f1))
+            globals()["BUDGET_FILE"] = _fixture(
+                tmp, "@floor 10\nX86.Basic @ms @on selftestbox 267\nX86.New @ku 221\n")
+            check("a NEW module AT its registration is CLEAN",
+                  verdict(marked, "a-prime", quiet=True) == (0, []))
+            rc2, f2 = verdict(dict(marked, head_ku={"X86.Basic": 15856, "X86.New": 222}),
+                              "a-prime", quiet=True)
+            check("a NEW module ONE unfolding over its registration FAILS",
+                  rc2 == 1 and any("over its registration of 221" in f for f in f2))
+            rc3, _ = verdict(dict(newmod, head_ku={"X86.Basic": 15856, "X86.New": 221}),
+                             "a-prime", quiet=True)
+            check("a registration does NOT rescue a zero-base module the measurement did "
+                  "not record as new — only `new_modules` opens the registration path",
+                  rc3 == 1)
+            globals()["BUDGET_FILE"] = reg
+            with tempfile.TemporaryDirectory(prefix="x86lean-newmod-") as wt:
+                os.makedirs(os.path.join(wt, "X86"))
+                open(os.path.join(wt, "X86", "Basic.lean"), "w", encoding="utf-8").close()
+                check("the measurement records a module as new iff the base tree has no "
+                      "file for it", new_modules(wt, ["X86.Basic", "X86.New"]) == ["X86.New"])
 
             # ── the readings, which BOTH arms must publish ─────────────────
             # ⛔⛔ D245: UNDER D244's FLIP TO --arm a-prime THE CI SUMMARY CARRIED NO READINGS

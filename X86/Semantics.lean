@@ -779,6 +779,32 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           (fun acc i => acc ||| (((v >>> (w * i + (w - 1))) &&& 1).setWidth 64 <<< i)) 0
       (s.setReg .d dst mask).setRip nr
 
+  -- ⭐⭐⭐ COMISS / COMISD / UCOMISS / UCOMISD (SDM Vol. 2A) — P2 BATCH 32, and
+  -- THE FIRST FLOATING-POINT SEMANTICS IN THIS MODEL.  Sub-group A of the
+  -- soft-float commission: an ordering, so no rounding and no MXCSR.
+  --
+  -- ⛔ IT WRITES ONLY FLAGS.  No XMM register changes, and neither does any GPR
+  -- or memory byte — a model that also wrote the destination would be
+  -- bit-identical here whenever the value written happened to equal what was
+  -- there, which is why `wrongComisWritesDst` is a selftest arm.
+  --
+  -- ⚠️ THE LOW LANE ONLY, at the FORMAT's width: `.q` reads 64 bits (binary64),
+  -- `.d` reads 32 (binary32).  `setWidth 64` truncates the 128-bit register to
+  -- the carrier `SoftFloat` expects; the bits above the format are never read,
+  -- because `Fmt.mag`/`Fmt.sign` mask to `ew + mw`.
+  --
+  -- ⛔ `ordered` IS NOT READ HERE, AND THAT IS A CLAIM, NOT AN OVERSIGHT.
+  -- `comis` and `ucomis` differ only in WHICH NaN signals the invalid-operation
+  -- exception, and this model has no MXCSR and no exception path (D2) — so on
+  -- the architectural state the differential compares they are one function.
+  -- Both spellings sit in the vector table at the same pre-states, so x86isa
+  -- gets to refute that rather than this comment.
+  | .vcomis _ sz dst src =>
+      let f  := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
+      let a  := (s.getXmm dst).setWidth 64
+      let b  := (s.getXmm src).setWidth 64
+      (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
+
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --
   -- ⚠️ BOTH DIRECTIONS ZERO WHAT THEY DO NOT WRITE, at two different

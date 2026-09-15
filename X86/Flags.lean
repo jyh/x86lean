@@ -25,6 +25,7 @@ SDM sections read for this file:
 
 LANE. Personal lane, public sources only.
 -/
+import X86.SoftFloat
 import X86.Syntax
 
 namespace X86
@@ -505,6 +506,30 @@ copies of a six-field record update, maintained apart, is the duplicate that
 diverges on the next ordinary edit. -/
 def dshiftBadFlags (cfU pfU afU zfU sfU ofU : Bool) (f : Flags) : Flags :=
   allSixUndef cfU pfU afU zfU sfU ofU f
+
+
+/-! ### ⭐⭐⭐ THE FP COMPARES — P2 BATCH 32 (SDM Vol. 2A, COMISS/COMISD,
+UCOMISS/UCOMISD: "Flags Affected: The OF, SF, and AF flags are set to 0. The ZF,
+PF, and CF flags are set according to the result.")
+
+⛔ THIS RULE IS NOT `fromResult`, AND THE DIFFERENCE IS THE POINT.  Every other
+flag writer in this file derives SF/ZF/PF from a RESULT VALUE — SF from its sign,
+PF from the parity of its low byte.  A floating-point compare produces no result
+value at all: it writes three flags directly from a four-way ORDERING, and PF
+here is not a parity of anything.  Reusing `fromResult` would be the natural
+mistake and would be wrong in all four cases.
+
+⚠️ `PF = 1` MEANS UNORDERED, which is why the unordered case is not "ZF and CF
+set": `1,1,1` is a combination no ordered outcome can produce, so a consumer can
+test PF alone to ask "was there a NaN?". -/
+def fcmpFlags (r : SoftFloat.FCmp) (f : Flags) : Flags :=
+  let (zf, pf, cf) :=
+    match r with
+    | .unord => (true,  true,  true)
+    | .gt    => (false, false, false)
+    | .lt    => (false, false, true)
+    | .eq    => (true,  false, false)
+  { f with zf := zf, pf := pf, cf := cf, of := false, af := false, sf := false }
 
 end Flags
 end X86

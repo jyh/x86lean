@@ -744,8 +744,8 @@ def _a_prime_refusal(ms_data, ku, ku_rc):
                 f"the run (or the file was edited); re-run A′ rather than choose.")
     if ku_rc != 0:
         found = "\n".join(f"     {f}" for f in ku.get("findings") or [])
-        return (f"⛔ ARM A′ FAILED on this step (rc {ku_rc}), so it may not land on "
-                f"A′'s word:\n{found}")
+        return (f"⛔ ARM A′ FAILED on this step (rc {ku_rc}). A supplied A′ conviction "
+                f"stands whatever the ms verdict (D251), so this step does not land:\n{found}")
     return None
 
 

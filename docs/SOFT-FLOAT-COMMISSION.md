@@ -76,7 +76,8 @@ down and with the boundary now measured:
 
 ```
 SUB-GROUP A — NO ROUNDING AT ALL
-   12 pairs,  6,619 instructions   (17.9% of the commission)
+   12 pairs,  4,363 instructions   UNCLAIMED — 6,619 (17.9% of the commission) at the freeze, 2026-09-05;
+                                  comiss/comisd/ucomiss/ucomisd (2,256) landed 2026-09-15, P2 batch 32, D140
    comisd 1,115 · comiss 819 · minsd 250 · maxss 230 · minss 215 · maxsd 194 ·
    ucomiss 187 · ucomisd 135 · maxps 20 · minps 17          (compare / min / max)
    cvtss2sd 2,949 · cvtsi2sdl 488                            (EXACT widenings — see §7)
