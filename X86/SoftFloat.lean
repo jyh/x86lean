@@ -110,5 +110,31 @@ def fcmp (f : Fmt) (a b : BitVec 64) : FCmp :=
   else if f.mag a == f.mag b then .eq
   else if (f.mag a < f.mag b) != f.sign a then .lt else .gt
 
+/-- ⭐⭐ MINIMUM (SDM Vol. 2B, MINSS/MINSD/MINPS): `a` is the DESTINATION (the
+first operand), `b` the SOURCE, and the result is `a` only when `a < b` STRICTLY.
+Every other outcome returns the SOURCE, including the two that are not orderings:
+
+* **either operand NaN** (SDM: *"If only one value is a NaN … the second operand
+  (source operand) … is written to the result"*): `fcmp` says `unord`, not `lt`;
+* **two zeros of either sign** (SDM: *"If the values being compared are both 0.0s
+  (of either sign), the value in the second operand (source operand) is
+  returned"*): `fcmp` says `eq`, not `lt`.
+
+⛔ SO THIS IS NOT COMMUTATIVE, and it is not IEEE-754's `minNum`. `fmin f a b` and
+`fmin f b a` differ exactly on those two cases — the asymmetry the SDM states, and
+the one a symmetric model gets wrong while agreeing everywhere else.
+
+⚠️ The rule is ONE comparison because `fcmp` already carries both exceptions as
+outcomes: no case of its own for NaN or ±0 is needed here, and a second copy of
+either test would be a second thing that can disagree with `fcmp`. -/
+def fmin (f : Fmt) (a b : BitVec 64) : BitVec 64 :=
+  if fcmp f a b == .lt then a else b
+
+/-- ⭐⭐ MAXIMUM (SDM Vol. 2B, MAXSS/MAXSD/MAXPS): `fmin`'s rule with `gt` for `lt`
+— the destination only when STRICTLY greater, the source otherwise, so NaN and
+two zeros return the SOURCE here too. -/
+def fmax (f : Fmt) (a b : BitVec 64) : BitVec 64 :=
+  if fcmp f a b == .gt then a else b
+
 end SoftFloat
 end X86

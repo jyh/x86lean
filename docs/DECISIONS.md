@@ -16838,3 +16838,76 @@ case. Registered `X86.SoftFloat @ku 221`; **A′ re-run: CLEAN**, every ku readi
 ```
 ⇒ **Two runs of the same tree on the same runner label read bands 6.6× apart** (±565 and ±3,736), and ku-delta was CLEAN in every one of these
 runs. **The CI job reds on rc 3 wherever D251 would license the step.** Whether the job should learn D251's rule is posted to the helm and not built.
+
+## D253 — P2 batch 38: min and max, the vectors shaped by what the pre-states can reach, and the SoftFloat gate the pricing named was not the constraint
+
+⚖️ **The min/max half of QUEUE `P2-NEXT`**, taken as ordinary work the day the landing wall became a tool (D251). Six roster rows:
+`minss` · `minsd` · `maxss` · `maxsd` · `minps` · `maxps`, carrying **926 instructions** of assembly-class demand. Record 24
+(`docs/DIFFERENTIAL-P2-BATCH24.md`).
+
+### 1. THE PRICE, MEASURED BEFORE THE CODE HAD A HOME — AND IT REFUTED THE QUEUE'S NAMED CONSTRAINT
+The QUEUE said *"the likely binding constraint is a gate"*: `X86.SoftFloat`'s A′ allowance is `23.3% × 221` = **51 unfoldings**.
+It ordered Δku measured on a draft first. Read with `deterministic_cost.measure` on the same checkout:
+```
+  master (control)            X86.SoftFloat ku 221   = its `@ku 221` registration
+  draft + fmin + fmax         X86.SoftFloat ku 221   Δku 0 against 51; both names in the per-declaration readout, at 0
+```
+⚠️ **No prediction was written before that reading**, so it is a measurement, not a scored call.
+⇒ **The defs are free in ku, so the constraint moved to where the kernel-checked evidence lives.**
+- `Tests.Anchors` has a ms allowance of about **124 ms** (base 531.5, from ledger row 24).
+- D140's 818-case differential cost 1.7 s, so an unrestricted one of that size could not live there.
+- §4 is sized to what the vectors cannot reach, and it costs about **17 ms**.
+
+### 2. THE RULE, AND THE ORACLE IS A DIFFERENT MECHANISM
+- **`SoftFloat.fmin f a b` is `if fcmp f a b == .lt then a else b`**, and `fmax` is the same with `.gt`.
+  - `fcmp` already has the SDM's two exceptions as outcomes (`unord`, `eq`), so a NaN or a zero pair returns the SOURCE with no case
+    of its own.
+  - ⛔ **The rule is not commutative**, and a symmetric model is wrong exactly on those pairs.
+- **The scalar forms** write the low lane and keep every bit above it (`vminmaxLow`, one function for both operand shapes).
+- **The packed forms** are two `VBinKind`s through `vlanes 32`. They inherit `vbinm`'s 16-byte alignment `#GP`.
+- **x86isa** (`arith-spec.lisp`, `sse-max/min`) takes NaN, the zero pair and the infinities through `sse-max/min-special`. It then
+  compares RATIONALS and re-encodes through `rat-to-fp`, signing the result from the operand whose rational was chosen.
+  ⇒ **Agreement between the two is agreement between two mechanisms**, which is what makes it worth recording.
+
+### 3. REACHABILITY, COMPUTED FROM THE 88 PRE-STATES BEFORE ANY VECTOR WAS WRITTEN
+```
+  x1,x0 · x5,x3                 same-sign pairs only, both formats
+  x9,x1                         opposite signs in all 88
+  0x10(%rbx) vs xmm0            −0/+0 (one state per format), +0/+0, NaN/NaN, NaN vs zero, opposite signs, denormals
+  nothing                       ±∞ · signalling NaN · (+0, −0)
+```
+⛔ **A register pair below xmm8 never presents opposite signs.** `xmmPattern`'s XOR is `(i^^^j)` in every nibble, and the sign bit
+differs only when `i^^^j ≥ 8`.
+- Every register vector before this batch named x0–x7, so **no FP register vector could ever have compared a negative against a
+  positive**. The comis vectors are included.
+- The second pair here is `x9,x1`: the first vectors to name xmm8–xmm15.
+⭐ **D140 §5's *"a memory operand does not help"* is true of `(%rbx)` = `c` and false of `0x10(%rbx)` = `a ^^^ c`.** Against xmm0's
+`c` the XOR there is `a`, a swept value, and `c = a = 0x8000…` presents −0/+0.
+⇒ **The ±0 wrong model that D140 had to delete for `comis` is reachable here** (§5), and the same vector shape would reach it for
+`comis` if that constructor had a memory form.
+
+### 4. WHERE NO VECTOR REACHES: EXECUTED, THEN PINNED
+Every pair from {±0, ±∞, qNaN, sNaN, ±1} containing ±∞ or the sNaN, plus (+0, −0), gives **40 pairs per format**.
+- Expectations come from the SDM Operation on Python floats.
+- **Executed on x86isa** as `minsd`/`maxsd`/`minss`/`maxss`, with junk above the lane:
+  **160 cases, RIP advanced in 160, write visible in 112, 0 disagreements.**
+- Pinned as `Tests/Anchors.lean` `minmax_ieee_binary64` and `minmax_ieee_binary32`, each one `decide`. Kernel type checking is about
+  8.6 ms each, and `#print axioms` gives `[propext, Quot.sound]`.
+- ⛔ **Planted once:** `min(+0, −0)` declared to return the destination failed exactly `minmax_ieee_binary64`.
+
+### 5. THE RUN AND THE INDEPENDENT READ OF IT
+Pre-registered on the fleet bus before the run: +1,320 cases, +1,320 matched, the other counters unchanged, 0 unexplained.
+**Confirmed to the case:** `cases=91080 matched=70548 explained=29435 unexplained=0 oracle-divergence=171`.
+⛔ **An exact green is checked, not believed.** The oracle's post-state was compared with the SDM computed on Python floats from each
+PRE state, reading no Lean: **1,320 cases, 0 mismatches**, with the write visible in 22–88 of 88 states per vector.
+
+### 6. FOUND AND NOT FIXED HERE
+- ⛔ **D140's "818-case kernel differential" exists in no tracked file.**
+  - Searched two ways. The needle `818` finds only the three COMMENTS citing it (`Main.lean`, `Tests/Vectors.lean`,
+    `ku_delta_budget.txt`). No `decide` over `fcmp` exists anywhere in `Tests/` or `X86/`: `SoftFloat.fcmp` is referenced only by
+    `Flags`, `Semantics` and `Main`'s wrong models.
+  - ⇒ The published COVERAGE narrative's `comis` ±0 claim rests on a run that was made and not kept.
+  - §4's shape would carry it at about 17 ms. Filed in QUEUE as `FCMP-KERNEL-1`.
+- ⚠️ **README's "Forty-seven of those mnemonics are SIMD"** is ungated and stale from before this batch. The coverage table's
+  x-shaped rows now number about 82. Filed rather than re-derived here, because a count typed from a heuristic is the defect it would
+  replace.
