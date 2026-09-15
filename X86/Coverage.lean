@@ -199,7 +199,7 @@ acc,imm · rh"
   -- ⭐ SAR's UNDEFINED SET IS SMALLER THAN SHL's AND SHR's BY ONE ENTRY, and
   -- that is the SDM's own wording rather than a simplification: the undefined
   -- clause names "SHL and SHR instructions where the count is greater than or
-  -- equal to the size of the destination operand".  SAR has no such clause —
+  -- equal to the size (in bits) of the destination operand".  SAR has no such clause —
   -- shifting right past the width still has an answer, and it is the sign.
   , { mnemonic := "sar",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
       tier := .frame, decode := .xed,
