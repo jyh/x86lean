@@ -10,7 +10,8 @@ prints them, so a stale one is a bug someone can find rather than a sentence tha
 
 ---
 
-## ⛔⛔ CI-1 (NEW, 2026-09-09) — **`CI/build` HAS BEEN RED ON `master` FOR FIVE DAYS AND THIS SEAT DID NOT KNOW**
+## ✅ CI-1 (2026-09-09) — **CLOSED: REPAIRED THE SAME DAY (the `build` job's checkout depth, below); master's `build` read `success` at 2f612fb on 2026-09-14.**
+*(Filed as: `CI/build` HAS BEEN RED ON `master` FOR FIVE DAYS AND THIS SEAT DID NOT KNOW.)*
 
 **Measured at the object with `gh`, not inferred:**
 ```
@@ -82,7 +83,8 @@ default branch that no seat reads is discovered by whoever trips over it.**
 
 ---
 
-## ⛔ CI-2 (NEW, 2026-09-09) — **THE THROTTLE ROUTED THREE OF FOUR CI JOBS TO A TRIGGER THIS REPO HAD NEVER USED**
+## ✅ CI-2 (2026-09-09) — **CLOSED 2026-09-10 at council (ruling ⑥, desk `JF`): the three jobs are back on push.**
+*(Filed as: THE THROTTLE ROUTED THREE OF FOUR CI JOBS TO A TRIGGER THIS REPO HAD NEVER USED.)*
 
 **Measured with `gh`, all time:** `pull_request: 1 · push: 99`. The single pull request is **#1,
 opened by another seat today.** The throttle (the Captain, 2026-09-07: *"let's throttle the CIs"*)
@@ -210,7 +212,8 @@ nine job conclusions were read one by one. ⛔ **Filed as a READING RULE, not a 
 `--gap` on branches would delete the gate's only report of an unpriced landing, which is the failure
 it exists for.
 
-## ⛔ PORT (NEW, 2026-09-09) — **THE SECOND MACHINE IS REAL NOW, AND THE TREE IS NOT PORTED**
+## ⚠️ PORT (2026-09-09) — **PORT-2, -3, -4 and -5 are CLOSED; PORT-1 is OPEN: 196 text-mode `open()` calls without `encoding=` in `scripts/*.py`, counted by syntax tree 2026-09-14 (it read 193 when filed; it has grown, some of it by D242's own selftest).**
+*(Filed as: THE SECOND MACHINE IS REAL NOW, AND THE TREE IS NOT PORTED.)*
 
 Opened by paris when the 4b fourth calibration night's declared smoke test found **three**
 port defects on a route that a `portable.py`-adoption check had reported CLEAR.
@@ -371,7 +374,8 @@ reason and these four do not use it.
 four). **OWNER:** paris. **RELEASE:** none needed; unblocked, low priority.
 [[feedback-a-declared-list-inherits-its-default]]
 
-## ⛔⛔ P2-IFACE (2026-09-10) — **BUILT AND GREEN, AND *HELD ON A BRANCH*, NOT ON `master`**
+## ✅ P2-IFACE (2026-09-10) — **LANDED: `837df82` is an ancestor of `origin/master` and `X86/Program.lean` + `Tests/Program.lean` are in its tree (measured 2026-09-14). The hold was released by the 2026-09-11 ruling below.**
+*(Filed as: BUILT AND GREEN, AND HELD ON A BRANCH, NOT ON `master`.)*
 
 **Council 2026-09-10 ruling ⑧** commissioned the proof interface — *"the proof interface that makes
 a twenty-instruction routine provable in tens of lines, not thousands"* · *"paris in parallel now"*.
@@ -2543,6 +2547,24 @@ paragraph copied into a second document that no gate followed — did NOT occur 
 NOBODY THOUGHT TO LOOK BECAUSE "PUBLISHED" IS THE WORD IN THE ITEM.*** A section header is not prose anybody
 re-reads and not a claim any gate parses, and it is the first thing a head reads about a campaign.
 
+⭐ **SECOND PASS, 2026-09-14 — THE QUEUE's SECTION HEADERS**, which the first pass named as where the ungated
+numbers live. The status headers below were checked against the object, never against their own bodies:
+```
+  CI-1        header said RED FOR FIVE DAYS      repaired 09-09; master build success at 2f612fb   -> ✅ restated
+  CI-2        header said jobs off push          back on push since f908ad7                        -> ✅ restated
+  PORT        header said NOT PORTED             4 of 5 closed; PORT-1 open at 196 (was 193)        -> ⚠️ restated
+  P2-IFACE    header said HELD ON A BRANCH       837df82 on origin/master, both files in its tree   -> ✅ restated
+  P1 / P2     21 batches / 22 records            21 / 22 DIFFERENTIAL-P1/-P2 records at origin      -> unchanged, TRUE
+  CLAIM-2     header said UNGATED                7 manifest rows, check_claims CLEAN                -> ⚠️ restated
+  PUB         PUB-1 CLOSED · PUB-2 OPEN          PUB-2's body still describes an unfixed duty       -> unchanged
+  NOT RE-CHECKED THIS PASS: P3's "FROZEN, PARTLY REFUTED" (no object to measure it against short of
+  re-reading its rulings), CLAIM-1's original entry (labelled as the original, closed by D241), every
+  `###` sub-header, and the TACAS documents — so this is a pass over the `##` status headers, not the sweep.
+```
+⇒ 🔑 ***A CLOSED ITEM'S HEADER KEEPS THE TENSE OF THE DAY IT WAS FILED, AND THE HEADER IS THE PART A HEAD READS.***
+Five of the eight status headers checked were stale, and all in the same direction: each OVERSTATED what was still open
+(three were fully closed, two partly), so a head reading only headers would have re-worked closed items. The filed wording is kept in italics under each header.
+
 📌 **STILL OPEN, and PRICED for the first time:** the same sweep over `docs/QUEUE.md`, `docs/DECISIONS.md`
 and the TACAS documents' non-manifest numbers. **~half a shift**, derived from this pass: `README.md` (270
 prose lines, 54 runs) took ~20 minutes end to end including tracing each to its gate, and QUEUE.md is ~2,800
@@ -2550,7 +2572,8 @@ lines. ⚠️ **DECISIONS.md is deliberately EXCLUDED from that price and should
 append-only record of what was measured ON A DATE, so a "stale" number in it is the point, not a defect.
 The sweep's subject is documents that describe the PRESENT.
 
-## ⚠️ ARMA-1 (NEW, 2026-09-13) — **A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK**
+## ✅ ARMA-1 (2026-09-13) — **CLOSED 2026-09-14 (D244): the runner's ceilings are registered from all 16 `ku-delta` jobs, the job runs `--arm a-prime`, and the measured red-first arm has its own job with the plant resized to K3 n=8000 for the fast VM class (D243).** The text below is the item as filed.
+*(Filed as: A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK.)*
 
 ⚖️ Follows the helm's ARM A′ ruling and D240. `ci.yml`'s `ku-delta` job runs `python3
 scripts/ku_delta.py --arm a` — the Δku half, which travels (D185: identical on two machines).
@@ -2659,7 +2682,8 @@ value set is the claim** ([[feedback-a-conservation-gate-cannot-see-a-misclassif
   side — extracting "which model, in which role" from English without a literal match. The obvious escape, a
   declared roster TSV, **inherits its default in the unpoliced direction** ([[feedback-a-declared-list-inherits-its-default]]).
 
-## ⚠️ CLAIM-2 (NEW, 2026-09-11) — **`TACAS-PRICING.md` §1's NUMBERS ARE CORRECT, UNGATED, AND WERE UNREPRODUCIBLE UNTIL TODAY**
+## ⚠️ CLAIM-2 (2026-09-11) — **the seven §1 numbers are now GATED: manifest rows in `docs/CLAIMS.tsv` pinned at `7bb57ee`, re-derived by `check_claims.py` (CLEAN, 92 claims, 2026-09-14). The OPEN half is the sweep for numbers no manifest row covers — first and second passes above.**
+*(Filed as: `TACAS-PRICING.md` §1's NUMBERS ARE CORRECT, UNGATED, AND WERE UNREPRODUCIBLE UNTIL TODAY.)*
 
 **Measured (D202).** All seven §1 quantities are exactly right at `7bb57ee`. **Not one stated its
 denominator.** Re-deriving them with the obvious command gives 23,352 / 618 / 59 against the claimed

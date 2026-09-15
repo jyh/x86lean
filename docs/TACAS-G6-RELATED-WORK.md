@@ -189,6 +189,6 @@ model's is meaningless. ⇒ **It belongs where the METHOD is discussed, as the p
 📌 **Consequence for `TACAS-G1-POSITIONING.md`: LNSym is correctly ABSENT from its table and must stay
 absent.** Its four columns are x86 semantics; adding a fifth for an Arm model would make every
 scale cell incomparable. **The G1 table answers the first question; §4 of this file answers the second.**
-⚠️ **The prose is not written and this file does not pretend otherwise.** What G6's 2 days no longer
+✅ **WRITTEN 2026-09-12 (`db44823`) — checked against the paper 2026-09-14, not against this file:** §7's *Techniques* paragraph cites LNSym for the method and says it does not compare coverage with it, which is this ruling. *(This line read "⚠️ The prose is not written and this file does not pretend otherwise" for two days after it was written.)* The sentence below is the pricing as it stood before that. What G6's 2 days no longer
 contains is the *discovery*, the *verification*, and now the *bibliography*; what remains is one
 record, one read, one ruling, and the writing.

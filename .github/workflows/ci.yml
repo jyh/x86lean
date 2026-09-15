@@ -960,7 +960,12 @@ jobs:
   # THAT CAN SEE.** There is no band, no repeat count, and no `UNMEASURABLE`
   # verdict — one reading a side IS the reading.
   #
-  # ⛔⛔ AND IT IS `--arm a`, NOT `--arm a-prime`, AND THAT IS A DECLARED HOLE AND
+  # ✅ ARMA-1 CLOSED 2026-09-14 (D244): THIS JOB NOW RUNS `--arm a-prime`. The runner's three
+  # ceilings are registered in scripts/ku_delta_budget.txt from the READINGS block of all 16
+  # `ku-delta` jobs that had run (worst x3), and the measured red-first arm runs in its own job,
+  # `ku-delta-redfirst`, below. The paragraph that follows is the hole as it stood until then,
+  # kept because its reasoning is why the ceilings are absolute and per machine.
+  # ⛔⛔ (UNTIL 2026-09-14) IT WAS `--arm a`, NOT `--arm a-prime`, AND THAT WAS A DECLARED HOLE AND
   # NOT A SETTING. A′'s other half is an ABSOLUTE ms ceiling, and an absolute
   # ceiling measured on another box is ABSENT here, never a loose bound — the
   # local↔runner factor is per module (measured 1.6×–2.4×) and does not divide out
@@ -1005,18 +1010,57 @@ jobs:
       - name: Deterministic kernel-work delta against this change's base (Δku, every module)
         run: |
           set +e
-          python3 scripts/ku_delta.py --arm a 2>&1 | tee /tmp/kudelta.txt
+          python3 scripts/ku_delta.py --arm a-prime 2>&1 | tee /tmp/kudelta.txt
           rc=${PIPESTATUS[0]}
           set -e
           {
-            echo "## ku-delta (ARM A) — rc $rc"
+            echo "## ku-delta (ARM A′: Δku every module + the runner's absolute ms ceilings) — rc $rc"
             echo
-            echo "ARMA-1 reads the block below to register this machine's absolute ms"
-            echo "ceilings. Take the WORST of four runs, not this single pass."
+            echo "The readings below are what A′ judged against the ceilings registered for this"
+            echo "machine name. D243: one machine name is several VM classes, so a reading well"
+            echo "under the median is a fast draw, not a cheaper tree."
             echo
             echo '```'
             sed -n '/^READINGS on /,/^$/p' /tmp/kudelta.txt
             grep -E '^ku-delta gate' /tmp/kudelta.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+  # ⭐ ARM A′'s MEASURED RED-FIRST ARM ON THE MACHINE THE GATE RUNS ON (ARMA-1 step 3, D244).
+  # `ku_delta.py --selftest-measure` profiles two real tree pairs: identical trees (Δku must be
+  # EXACTLY 0 and both arms CLEAN), then a ku-BLIND plant (K3, n=8000, in X86/Basic.lean) that
+  # ARM A must PASS and ARM A′ must REFUSE on the ms ceiling. It is the only arm that shows A′'s ms
+  # half firing HERE, against THIS machine's ceilings, rather than on the box they were not
+  # registered for.
+  # ⛔ ITS OWN JOB, WITH NO cancel-in-progress, FOR D224's REASON: a verdict that a later push can
+  # cancel concludes one time in five and reads as coverage. Priced from 16 runner `ku-delta` jobs:
+  # one tree pair is ~13 min, so this job is ~25 min a push.
+  # ⚠️ n=8000, NOT D240's 4000: on the fast VM class D243 found, a 4000 plant is predicted to read
+  # ~511 ms against a 567 ms ceiling — a MISS that would have made this arm flake on the draw.
+  ku-delta-redfirst:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+      - name: ARM A′ measured red-first (identical-trees control, then a ku-blind plant A must pass and A′ must refuse)
+        run: |
+          set +e
+          python3 scripts/ku_delta.py --selftest-measure 2>&1 | tee /tmp/kuredfirst.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "## ku-delta-redfirst (ARM A′ measured) — rc $rc"
+            echo
+            echo '```'
+            sed -n '/^── VERDICT/,$p' /tmp/kuredfirst.txt
+            grep -E 'X86\.Basic .*(ms|ceiling)' /tmp/kuredfirst.txt | tail -4 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$rc"
