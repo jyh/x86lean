@@ -2630,6 +2630,57 @@ def vectors : List Vec :=
   , { id := "ucomiss_x3_x5", mnemonic := "ucomiss", asm := "ucomiss %xmm3, %xmm5"
     , bytes := "0f2eeb", instr := ⟨.vcomis false .d .x5 .x3, 3⟩ }
 
+  -- ⭐⭐⭐ P2 BATCH 38 — MIN / MAX (D253).  WHAT EACH VECTOR REACHES WAS COMPUTED
+  -- FROM THE 88 PRE-STATES BEFORE ANY WAS WRITTEN, and the table is shaped by it.
+  --
+  -- ⛔ A REGISTER PAIR FROM x0..x7 NEVER PRESENTS OPPOSITE SIGNS.  `xmmPattern`
+  -- makes the XOR of two registers' low quadwords `(i^^^j)` in every nibble, and
+  -- the sign is bit 3 of the top nibble, so it differs only when `i^^^j ≥ 8` —
+  -- impossible below x8.  Measured: `x1,x0` and `x5,x3` reach same-sign pairs
+  -- only, at both formats.  ⇒ the second register pair is `x9,x1` (`i^^^j = 8`),
+  -- which reaches opposite signs in all 88 states.
+  --
+  -- ⭐ THE MEMORY SOURCE IS AT `0x10(%rbx)` = 0x2010, WHICH HOLDS `a ^^^ c`, NOT
+  -- `c`.  Against xmm0's low lane (`c`) the XOR is `a` itself — a swept value,
+  -- not a nibble pattern — so this is the one vector shape here that reaches two
+  -- ZEROS (`c = a = 0x8000…` gives dst −0, src +0: the SOURCE-on-±0 rule), two
+  -- NaNs, and NaN against zero.  ⚠️ It reaches the ±0 rule in ONE direction only
+  -- (dst −0, src +0), and no vector reaches ±∞ or a signalling NaN at all; those
+  -- are carried by the kernel differential in D253, never pooled with this table.
+  , { id := "minsd_x1_x0", mnemonic := "minsd", asm := "minsd %xmm1, %xmm0"
+    , bytes := "f20f5dc1", instr := ⟨.vminmax false .q .x0 .x1, 4⟩ }
+  , { id := "minss_x1_x0", mnemonic := "minss", asm := "minss %xmm1, %xmm0"
+    , bytes := "f30f5dc1", instr := ⟨.vminmax false .d .x0 .x1, 4⟩ }
+  , { id := "maxsd_x1_x0", mnemonic := "maxsd", asm := "maxsd %xmm1, %xmm0"
+    , bytes := "f20f5fc1", instr := ⟨.vminmax true .q .x0 .x1, 4⟩ }
+  , { id := "maxss_x1_x0", mnemonic := "maxss", asm := "maxss %xmm1, %xmm0"
+    , bytes := "f30f5fc1", instr := ⟨.vminmax true .d .x0 .x1, 4⟩ }
+  -- the second register pair: opposite signs, and REX.B on the source
+  , { id := "minsd_x9_x1", mnemonic := "minsd", asm := "minsd %xmm9, %xmm1"
+    , bytes := "f2410f5dc9", instr := ⟨.vminmax false .q .x1 .x9, 5⟩ }
+  , { id := "maxss_x9_x1", mnemonic := "maxss", asm := "maxss %xmm9, %xmm1"
+    , bytes := "f3410f5fc9", instr := ⟨.vminmax true .d .x1 .x9, 5⟩ }
+  -- the memory source: zeros, NaN pairs, opposite signs
+  , { id := "minsd_m", mnemonic := "minsd", asm := "minsd 0x10(%rbx), %xmm0"
+    , bytes := "f20f5d4310", instr := ⟨.vminmaxm false .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  , { id := "minss_m", mnemonic := "minss", asm := "minss 0x10(%rbx), %xmm0"
+    , bytes := "f30f5d4310", instr := ⟨.vminmaxm false .d .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  , { id := "maxsd_m", mnemonic := "maxsd", asm := "maxsd 0x10(%rbx), %xmm0"
+    , bytes := "f20f5f4310", instr := ⟨.vminmaxm true .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  , { id := "maxss_m", mnemonic := "maxss", asm := "maxss 0x10(%rbx), %xmm0"
+    , bytes := "f30f5f4310", instr := ⟨.vminmaxm true .d .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- the packed binary32 pair, at the same three shapes
+  , { id := "minps_x1_x0", mnemonic := "minps", asm := "minps %xmm1, %xmm0"
+    , bytes := "0f5dc1", instr := ⟨.vbin .minps .x0 .x1, 3⟩ }
+  , { id := "maxps_x1_x0", mnemonic := "maxps", asm := "maxps %xmm1, %xmm0"
+    , bytes := "0f5fc1", instr := ⟨.vbin .maxps .x0 .x1, 3⟩ }
+  , { id := "minps_x9_x1", mnemonic := "minps", asm := "minps %xmm9, %xmm1"
+    , bytes := "410f5dc9", instr := ⟨.vbin .minps .x1 .x9, 4⟩ }
+  , { id := "minps_m", mnemonic := "minps", asm := "minps 0x10(%rbx), %xmm0"
+    , bytes := "0f5d4310", instr := ⟨.vbinm .minps .x0 { base := some .rbx, disp := 0x10 }, 4⟩ }
+  , { id := "maxps_m", mnemonic := "maxps", asm := "maxps 0x10(%rbx), %xmm0"
+    , bytes := "0f5f4310", instr := ⟨.vbinm .maxps .x0 { base := some .rbx, disp := 0x10 }, 4⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

@@ -2761,6 +2761,24 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
+## ⚠️ FCMP-KERNEL-1 (2026-09-15, D253 §6) — **D140's "818-case kernel differential" for `fcmp` exists in NO tracked file**
+Three comments cite it as what carries `comis`'s ±0 branch (`Main.lean`, `Tests/Vectors.lean`, `scripts/ku_delta_budget.txt`), and so does
+the published COVERAGE narrative. Searched two ways: the needle `818` finds only those citations, and no `decide` over `fcmp` exists in
+`Tests/` or `X86/`. **The run was made on 2026-09-05 and not kept.**
+- ⇒ **The fix is D253 §4's shape:** pairs the vectors cannot reach, expectations from IEEE values, the same pairs EXECUTED on x86isa
+  (`comisd`/`comiss` flags), and one kernel `decide` per format, planted once. Priced from §4 at about 17 ms of `Tests.Anchors`.
+- ⚠️ **Widen the reach first.** D253 §3 found that no register vector below xmm8 presents opposite signs, so `fcmp`'s mixed-sign branch
+  is ALSO unexercised by the vector table. The pair set is therefore larger than §4's.
+
+## ⚠️ README-SIMD-1 (2026-09-15, D253 §6) — README's *"Forty-seven of those mnemonics are SIMD"* is ungated and stale
+The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
+by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
+
+## ✅ P2-NEXT, MIN/MAX HALF — **BUILT 2026-09-15 as P2 batch 38 (D253, record 24): 6 pairs / 926 instructions.** The conversion half below is still unbuilt and still waits on the `cvtsi2s*` key fix.
+**Sub-group A's unclaimed total is now 3,437.**
+- ⛔ **The constraint the table names was REFUTED:** Δku on the SoftFloat draft read 0 against 51.
+- The real cost is where kernel evidence lives (`Tests.Anchors`, about 124 ms allowance).
+
 ## ⚠️ P2-NEXT (2026-09-15) — **THE NEXT GROUP, PRICED BEFORE IT IS BUILT: sub-group A's remainder, 8 pairs / 4,363 instructions. Nothing below is built.**
 *(Filed the day batch 32 landed and no held branch remained. `p2_residue.py` on master `e76e4ba`: 36 unclaimed executing SSE-legacy pairs, **every
 one** classified as needing the commission. **No rounding-free pair is left**, so the next group is the commission's sub-group A remainder.)*

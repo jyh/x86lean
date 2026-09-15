@@ -771,6 +771,28 @@ acc,imm · rh"
   , { mnemonic := "ucomisd",
       shapes := "x,x", note := "as comisd; the SNaN-vs-QNaN split needs MXCSR (D2); D140",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISD" }
+  -- ⭐⭐⭐ P2 BATCH 38 — MIN / MAX (D253), sub-group A of the soft-float commission.
+  -- SIX rows.  ⚠️ THE NOTE NAMES THE ASYMMETRY, because it is the rule: a NaN or
+  -- two zeros return the SOURCE.  The exceptions the SDM lists (invalid on NaN,
+  -- denormal) are MXCSR-only and this model has no MXCSR (D2).
+  , { mnemonic := "minss",
+      shapes := "x,x · x,m", note := "low binary32 lane; NaN or ±0 pair -> source; upper kept; D253",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MINSS" }
+  , { mnemonic := "minsd",
+      shapes := "x,x · x,m", note := "low binary64 lane; NaN or ±0 pair -> source; upper kept; D253",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MINSD" }
+  , { mnemonic := "maxss",
+      shapes := "x,x · x,m", note := "as minss with the order reversed; D253",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MAXSS" }
+  , { mnemonic := "maxsd",
+      shapes := "x,x · x,m", note := "as minsd with the order reversed; D253",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MAXSD" }
+  , { mnemonic := "minps",
+      shapes := "x,x · x,m", note := "four binary32 lanes, each as minss; m128 16-byte aligned; D253",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MINPS" }
+  , { mnemonic := "maxps",
+      shapes := "x,x · x,m", note := "four binary32 lanes, each as maxss; m128 16-byte aligned; D253",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MAXPS" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

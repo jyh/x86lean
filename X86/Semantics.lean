@@ -611,6 +611,24 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   -- here that NARROWS, so lane `i` of the result is not a function of lane `i` of
   -- the operands, and the combinator that pairs them cannot express it.
   | .packuswb => vpackus a b
+  -- ⭐⭐ P2 BATCH 38 — MINPS / MAXPS: four binary32 lanes, `a`'s lane first.
+  -- The carrier is 64 bits and the lane 32, so the lane is widened in and the
+  -- result truncated out; `SoftFloat` masks to the format and never reads above it.
+  | .minps => vlanes 32 (fun x y => (SoftFloat.fmin SoftFloat.binary32
+                            (x.setWidth 64) (y.setWidth 64)).setWidth 32) a b
+  | .maxps => vlanes 32 (fun x y => (SoftFloat.fmax SoftFloat.binary32
+                            (x.setWidth 64) (y.setWidth 64)).setWidth 32) a b
+
+/-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
+MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and
+`b`, and every bit above the lane is KEPT.  ONE function for both operand shapes,
+so the register and memory forms cannot come to disagree about the write rule;
+they differ only in where `b` is read. -/
+def vminmaxLow (isMax : Bool) (sz : Size) (d : BitVec 128) (b : BitVec 64) : BitVec 128 :=
+  let f := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
+  let n := sz.bits
+  let r := (if isMax then SoftFloat.fmax else SoftFloat.fmin) f (d.setWidth 64) b
+  ((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128)
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
@@ -804,6 +822,17 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a  := (s.getXmm dst).setWidth 64
       let b  := (s.getXmm src).setWidth 64
       (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
+
+  -- ⭐⭐⭐ MINSS / MINSD / MAXSS / MAXSD (SDM Vol. 2B) — P2 BATCH 38.  The low
+  -- lane only; bits above it are preserved; no flag is written — the SDM's
+  -- Operation writes DEST alone, and x86isa's writes the XMM register, MXCSR and
+  -- RIP (`x86-adds?/subs?/muls?/divs?/maxs?/mins?-Op/En-RM`).
+  -- ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
+  | .vminmax mx sz dst src =>
+      (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) ((s.getXmm src).setWidth 64))).setRip nr
+  | .vminmaxm mx sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) (s.readMem sz a))).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --

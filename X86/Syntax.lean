@@ -417,6 +417,13 @@ inductive VBinKind where
   agreement ([[feedback-a-duplicate-born-in-agreement]]). -/
   | andn | andnps | andnpd
   | andps | andpd | orps | orpd | xorps | xorpd
+  /-- ⭐⭐ P2 BATCH 38 — MINPS / MAXPS (SDM Vol. 2B), the first FLOATING-POINT
+  kinds here: four binary32 lanes, each `SoftFloat.fmin`/`fmax` with the
+  DESTINATION's lane as the first operand.  ⚠️ NOT COMMUTATIVE — a NaN in either
+  lane, or two zeros of either sign, yield the SOURCE's lane (see `SoftFloat.fmin`).
+  Kinds rather than a new constructor because the operand shapes, the alignment
+  rule and the `#GP` branch are exactly `vbin`/`vbinm`'s. -/
+  | minps | maxps
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -445,6 +452,7 @@ def VBinKind.mnemonic : VBinKind → String
   | .andps => "andps"  | .andpd => "andpd"
   | .orps => "orps"    | .orpd => "orpd"
   | .xorps => "xorps"  | .xorpd => "xorpd"
+  | .minps => "minps"  | .maxps => "maxps"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
@@ -1478,6 +1486,26 @@ inductive Op where
   both spellings are in the vector table at the same pre-states, so if x86isa
   distinguishes them the run says so rather than this comment. -/
   | vcomis (ordered : Bool) (sz : Size) (dst src : XmmReg)
+  /-- ⭐⭐⭐ P2 BATCH 38 — MINSS / MINSD / MAXSS / MAXSD (SDM Vol. 2B), register
+  source.  The LOW LANE of the destination becomes `SoftFloat.fmin` (or `fmax`)
+  of the two low lanes, and **every bit above the lane is PRESERVED** — the legacy
+  SSE rule (`DEST[MAXVL-1:32]` / `DEST[MAXVL-1:64]` "unmodified"), and the opposite
+  of `movss`'s memory load.  No flag is written.
+
+  ⚠️ `sz` IS THE FORMAT, as for `vcomis`: `.d` is binary32 (`minss`), `.q` is
+  binary64 (`minsd`).  `isMax` picks the opcode byte (`0f 5d` / `0f 5f`).
+
+  ⛔ THE RESULT IS NOT SYMMETRIC IN THE OPERANDS, and that is the rule's content:
+  a NaN in either operand, or two zeros of either sign, return the SOURCE
+  (SDM Vol. 2B, MINSD).  A model that returns "the smaller value" by any
+  symmetric definition agrees with this one on every ordered pair of distinct
+  values and differs exactly there. -/
+  | vminmax (isMax : Bool) (sz : Size) (dst src : XmmReg)
+  /-- P2 BATCH 38 — the same four at a MEMORY source (`m32` / `m64`).  ⚠️ NO
+  ALIGNMENT CHECK: a scalar operand states none in the SDM, exactly as `vmovsld`,
+  and the destination's upper bits are still PRESERVED — the memory load does not
+  change the write rule, unlike `movss`, whose two source kinds have two rules. -/
+  | vminmaxm (isMax : Bool) (sz : Size) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1839,6 +1867,9 @@ def opOperands : Op → List Operand
   | .vshufpm _ _ ea _ => [.mem ea]
   -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
   | .vbinm _ _ ea => [.mem ea]
+  -- P2 BATCH 38: the scalar min/max memory SOURCE names its address.
+  | .vminmax .. => []
+  | .vminmaxm _ _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -1969,6 +2000,9 @@ def Op.anyLocked : Op → Bool
   | .vshufpm _ _ ea _ => ea.lock
   -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
   | .vbinm _ _ ea => ea.lock
+  -- P2 BATCH 38: `lock minsd` is not a form the SDM lists.
+  | .vminmax .. => false
+  | .vminmaxm _ _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2135,6 +2169,9 @@ def Op.mnemonic : Op → String
   -- for `vbinm` would be a duplicate that diverges the day a spelling is fixed
   -- in one of them and not the other (D106's shape, and it is not re-learned).
   | .vbin k .. | .vbinm k .. => k.mnemonic
+  -- P2 BATCH 38: both operand shapes print one name, from two fields.
+  | .vminmax mx sz .. | .vminmaxm mx sz .. =>
+      (if mx then "max" else "min") ++ (if sz == .q then "sd" else "ss")
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -2342,6 +2379,10 @@ def rosterP0 : List String :=
    -- disassembler prints, not distinct semantics — which is why four rows is
    -- right here and would be wrong in a table keyed by behaviour.
    "comiss", "comisd", "ucomiss", "ucomisd",
+   -- ⭐⭐⭐ P2 BATCH 38: min/max, SIX rows — four scalar names and the two packed
+   -- binary32 ones.  `minpd`/`maxpd` carry no assembly-class demand and are not
+   -- taken.
+   "minss", "minsd", "maxss", "maxsd", "minps", "maxps",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

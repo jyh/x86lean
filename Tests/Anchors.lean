@@ -1942,4 +1942,118 @@ theorem shufps_reads_the_whole_immediate :
     ((step ⟨.vshufp .ps .x0 .x1 0x1b, 4⟩ s_shufp).getXmm .x0)
       ≠ ((step ⟨.vshufp .ps .x0 .x1 0xdb, 4⟩ s_shufp).getXmm .x0) := by decide
 
+/-! ## ⭐⭐⭐ MIN / MAX WHERE NO VECTOR REACHES — P2 BATCH 38 (D253)
+
+`SoftFloat.fmin`/`fmax` on the operand classes the differential's 88 pre-states
+**cannot** present, measured before these were written: **±∞**, a **signalling
+NaN**, and the zero pair in the **(+0, −0)** order.  (`0x10(%rbx)` reaches −0/+0,
+two NaNs and opposite signs; nothing reaches the rest.)  Every pair from
+{±0, ±∞, qNaN, sNaN, ±1} that contains ±∞ or the sNaN, plus (+0, −0): 40 pairs
+per format, each with its `min` and its `max`.
+
+⛔ **THE EXPECTATIONS ARE NOT THE MODEL'S.** They were computed from the SDM's
+MINSD/MAXSD Operation on IEEE-754 VALUES (Python floats, never these bit tests),
+and the SAME 80 pairs were then EXECUTED on x86isa at both formats and both
+operations — 160 cases, RIP advanced in all 160, **0 disagreements** with those
+expectations, 112 of them with the write visible.  So each row has two
+independent origins before the kernel checks the model against it.
+
+⛔ **PLANTED WRONG ONCE:** `min(+0, −0)` declared to return the destination made
+`minmax_ieee_binary64` fail to build — the kernel refuted exactly that theorem.
+
+⚠️ This is a different instrument from the vector table and is never pooled with
+it: these rows say nothing about `step`, only about the lane rule. -/
+
+theorem minmax_ieee_binary64 :
+  ([
+    (0x0000000000000000, 0x8000000000000000, 0x8000000000000000, 0x8000000000000000),  -- +0 -0
+    (0x0000000000000000, 0x7ff0000000000000, 0x0000000000000000, 0x7ff0000000000000),  -- +0 +inf
+    (0x0000000000000000, 0xfff0000000000000, 0xfff0000000000000, 0x0000000000000000),  -- +0 -inf
+    (0x0000000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- +0 snan
+    (0x8000000000000000, 0x7ff0000000000000, 0x8000000000000000, 0x7ff0000000000000),  -- -0 +inf
+    (0x8000000000000000, 0xfff0000000000000, 0xfff0000000000000, 0x8000000000000000),  -- -0 -inf
+    (0x8000000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- -0 snan
+    (0x7ff0000000000000, 0x0000000000000000, 0x0000000000000000, 0x7ff0000000000000),  -- +inf +0
+    (0x7ff0000000000000, 0x8000000000000000, 0x8000000000000000, 0x7ff0000000000000),  -- +inf -0
+    (0x7ff0000000000000, 0x7ff0000000000000, 0x7ff0000000000000, 0x7ff0000000000000),  -- +inf +inf
+    (0x7ff0000000000000, 0xfff0000000000000, 0xfff0000000000000, 0x7ff0000000000000),  -- +inf -inf
+    (0x7ff0000000000000, 0x7ff8000000000000, 0x7ff8000000000000, 0x7ff8000000000000),  -- +inf qnan
+    (0x7ff0000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- +inf snan
+    (0x7ff0000000000000, 0x3ff0000000000000, 0x3ff0000000000000, 0x7ff0000000000000),  -- +inf +1
+    (0x7ff0000000000000, 0xbff0000000000000, 0xbff0000000000000, 0x7ff0000000000000),  -- +inf -1
+    (0xfff0000000000000, 0x0000000000000000, 0xfff0000000000000, 0x0000000000000000),  -- -inf +0
+    (0xfff0000000000000, 0x8000000000000000, 0xfff0000000000000, 0x8000000000000000),  -- -inf -0
+    (0xfff0000000000000, 0x7ff0000000000000, 0xfff0000000000000, 0x7ff0000000000000),  -- -inf +inf
+    (0xfff0000000000000, 0xfff0000000000000, 0xfff0000000000000, 0xfff0000000000000),  -- -inf -inf
+    (0xfff0000000000000, 0x7ff8000000000000, 0x7ff8000000000000, 0x7ff8000000000000),  -- -inf qnan
+    (0xfff0000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- -inf snan
+    (0xfff0000000000000, 0x3ff0000000000000, 0xfff0000000000000, 0x3ff0000000000000),  -- -inf +1
+    (0xfff0000000000000, 0xbff0000000000000, 0xfff0000000000000, 0xbff0000000000000),  -- -inf -1
+    (0x7ff8000000000000, 0x7ff0000000000000, 0x7ff0000000000000, 0x7ff0000000000000),  -- qnan +inf
+    (0x7ff8000000000000, 0xfff0000000000000, 0xfff0000000000000, 0xfff0000000000000),  -- qnan -inf
+    (0x7ff8000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- qnan snan
+    (0x7ff0000000000001, 0x0000000000000000, 0x0000000000000000, 0x0000000000000000),  -- snan +0
+    (0x7ff0000000000001, 0x8000000000000000, 0x8000000000000000, 0x8000000000000000),  -- snan -0
+    (0x7ff0000000000001, 0x7ff0000000000000, 0x7ff0000000000000, 0x7ff0000000000000),  -- snan +inf
+    (0x7ff0000000000001, 0xfff0000000000000, 0xfff0000000000000, 0xfff0000000000000),  -- snan -inf
+    (0x7ff0000000000001, 0x7ff8000000000000, 0x7ff8000000000000, 0x7ff8000000000000),  -- snan qnan
+    (0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- snan snan
+    (0x7ff0000000000001, 0x3ff0000000000000, 0x3ff0000000000000, 0x3ff0000000000000),  -- snan +1
+    (0x7ff0000000000001, 0xbff0000000000000, 0xbff0000000000000, 0xbff0000000000000),  -- snan -1
+    (0x3ff0000000000000, 0x7ff0000000000000, 0x3ff0000000000000, 0x7ff0000000000000),  -- +1 +inf
+    (0x3ff0000000000000, 0xfff0000000000000, 0xfff0000000000000, 0x3ff0000000000000),  -- +1 -inf
+    (0x3ff0000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001),  -- +1 snan
+    (0xbff0000000000000, 0x7ff0000000000000, 0xbff0000000000000, 0x7ff0000000000000),  -- -1 +inf
+    (0xbff0000000000000, 0xfff0000000000000, 0xfff0000000000000, 0xbff0000000000000),  -- -1 -inf
+    (0xbff0000000000000, 0x7ff0000000000001, 0x7ff0000000000001, 0x7ff0000000000001)  -- -1 snan
+  ] : List (BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64)).all
+    (fun (a, b, mn, mx) => SoftFloat.fmin SoftFloat.binary64 a b == mn &&
+                           SoftFloat.fmax SoftFloat.binary64 a b == mx) = true := by decide
+
+theorem minmax_ieee_binary32 :
+  ([
+    (0x00000000, 0x80000000, 0x80000000, 0x80000000),  -- +0 -0
+    (0x00000000, 0x7f800000, 0x00000000, 0x7f800000),  -- +0 +inf
+    (0x00000000, 0xff800000, 0xff800000, 0x00000000),  -- +0 -inf
+    (0x00000000, 0x7f800001, 0x7f800001, 0x7f800001),  -- +0 snan
+    (0x80000000, 0x7f800000, 0x80000000, 0x7f800000),  -- -0 +inf
+    (0x80000000, 0xff800000, 0xff800000, 0x80000000),  -- -0 -inf
+    (0x80000000, 0x7f800001, 0x7f800001, 0x7f800001),  -- -0 snan
+    (0x7f800000, 0x00000000, 0x00000000, 0x7f800000),  -- +inf +0
+    (0x7f800000, 0x80000000, 0x80000000, 0x7f800000),  -- +inf -0
+    (0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000),  -- +inf +inf
+    (0x7f800000, 0xff800000, 0xff800000, 0x7f800000),  -- +inf -inf
+    (0x7f800000, 0x7fc00000, 0x7fc00000, 0x7fc00000),  -- +inf qnan
+    (0x7f800000, 0x7f800001, 0x7f800001, 0x7f800001),  -- +inf snan
+    (0x7f800000, 0x3f800000, 0x3f800000, 0x7f800000),  -- +inf +1
+    (0x7f800000, 0xbf800000, 0xbf800000, 0x7f800000),  -- +inf -1
+    (0xff800000, 0x00000000, 0xff800000, 0x00000000),  -- -inf +0
+    (0xff800000, 0x80000000, 0xff800000, 0x80000000),  -- -inf -0
+    (0xff800000, 0x7f800000, 0xff800000, 0x7f800000),  -- -inf +inf
+    (0xff800000, 0xff800000, 0xff800000, 0xff800000),  -- -inf -inf
+    (0xff800000, 0x7fc00000, 0x7fc00000, 0x7fc00000),  -- -inf qnan
+    (0xff800000, 0x7f800001, 0x7f800001, 0x7f800001),  -- -inf snan
+    (0xff800000, 0x3f800000, 0xff800000, 0x3f800000),  -- -inf +1
+    (0xff800000, 0xbf800000, 0xff800000, 0xbf800000),  -- -inf -1
+    (0x7fc00000, 0x7f800000, 0x7f800000, 0x7f800000),  -- qnan +inf
+    (0x7fc00000, 0xff800000, 0xff800000, 0xff800000),  -- qnan -inf
+    (0x7fc00000, 0x7f800001, 0x7f800001, 0x7f800001),  -- qnan snan
+    (0x7f800001, 0x00000000, 0x00000000, 0x00000000),  -- snan +0
+    (0x7f800001, 0x80000000, 0x80000000, 0x80000000),  -- snan -0
+    (0x7f800001, 0x7f800000, 0x7f800000, 0x7f800000),  -- snan +inf
+    (0x7f800001, 0xff800000, 0xff800000, 0xff800000),  -- snan -inf
+    (0x7f800001, 0x7fc00000, 0x7fc00000, 0x7fc00000),  -- snan qnan
+    (0x7f800001, 0x7f800001, 0x7f800001, 0x7f800001),  -- snan snan
+    (0x7f800001, 0x3f800000, 0x3f800000, 0x3f800000),  -- snan +1
+    (0x7f800001, 0xbf800000, 0xbf800000, 0xbf800000),  -- snan -1
+    (0x3f800000, 0x7f800000, 0x3f800000, 0x7f800000),  -- +1 +inf
+    (0x3f800000, 0xff800000, 0xff800000, 0x3f800000),  -- +1 -inf
+    (0x3f800000, 0x7f800001, 0x7f800001, 0x7f800001),  -- +1 snan
+    (0xbf800000, 0x7f800000, 0xbf800000, 0x7f800000),  -- -1 +inf
+    (0xbf800000, 0xff800000, 0xff800000, 0xbf800000),  -- -1 -inf
+    (0xbf800000, 0x7f800001, 0x7f800001, 0x7f800001)  -- -1 snan
+  ] : List (BitVec 64 × BitVec 64 × BitVec 64 × BitVec 64)).all
+    (fun (a, b, mn, mx) => SoftFloat.fmin SoftFloat.binary32 a b == mn &&
+                           SoftFloat.fmax SoftFloat.binary32 a b == mx) = true := by decide
+
 end X86.Tests
