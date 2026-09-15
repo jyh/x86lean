@@ -93,7 +93,7 @@ def run(cmd):
 
 def read_forms(path):
     forms = []
-    for ln in open(path):
+    for ln in open(path, encoding="utf-8"):
         ln = ln.split("#", 1)[0].rstrip("\n")
         if not ln.strip():
             continue
@@ -109,7 +109,7 @@ def read_forms(path):
 def assemble(forms, tmp):
     src = os.path.join(tmp, "p.s")
     obj = os.path.join(tmp, "p.o")
-    with open(src, "w") as f:
+    with open(src, "w", encoding="utf-8") as f:
         f.write(".text\n")
         for i, a in forms:
             f.write(f"{i}: {a}\n")
@@ -144,7 +144,7 @@ def load_pre_states():
             die("building x86lean-diff failed")
         if run(f"lake env .lake/build/bin/x86lean-diff emit-acl2 {p}").returncode != 0:
             die("emit-acl2 failed")
-    lines = open(p).read().splitlines()
+    lines = open(p, encoding="utf-8").read().splitlines()
     cases, i = [], 0
     while i < len(lines):
         if lines[i].startswith('  (:id "mov_d/'):
@@ -179,7 +179,7 @@ def build_cases(forms, bytes_by_id, pres, out_path):
             body += [l0, l1, blk[2], blk[3], l4]
             n += 1
     body.append("))")
-    open(out_path, "w").write("\n".join(body) + "\n")
+    open(out_path, "w", encoding="utf-8").write("\n".join(body) + "\n")
     return n
 
 
@@ -188,7 +188,7 @@ def oracle_run(cases_path, driver, out_path):
     if not os.access(acl2, os.X_OK):
         die(f"no ACL2 image at {acl2} — run scripts/setup_oracle.sh")
     drive = out_path + ".lsp"
-    with open(drive, "w") as f:
+    with open(drive, "w", encoding="utf-8") as f:
         f.write(f'''(include-book "projects/x86isa/tools/execution/init-state" :dir :system :ttags :all)
 (include-book "projects/x86isa/machine/x86" :dir :system :ttags :all)
 (set-fmt-hard-right-margin 100000 state)
@@ -198,10 +198,10 @@ def oracle_run(cases_path, driver, out_path):
 (in-package "X86ISA")
 (x86l-run-all *x86lean-cases* x86 state)
 ''')
-    with open(out_path, "w") as f:
-        subprocess.run([acl2], stdin=open(drive), stdout=f, stderr=subprocess.STDOUT)
+    with open(out_path, "w", encoding="utf-8") as f:
+        subprocess.run([acl2], stdin=open(drive, encoding="utf-8"), stdout=f, stderr=subprocess.STDOUT)
     recs, cur = {}, None
-    for line in open(out_path):
+    for line in open(out_path, encoding="utf-8"):
         m = re.match(r"^CASE id=(\S+) len=", line)
         if m:
             cur = m.group(1)
@@ -234,13 +234,13 @@ def main():
     # Two drivers, differing ONLY in the undefined generator's offset.
     drv_a = os.path.join(tmp, "driver_a.lisp")
     drv_b = os.path.join(tmp, "driver_b.lisp")
-    base = open("scripts/x86isa_driver.lisp").read()
+    base = open("scripts/x86isa_driver.lisp", encoding="utf-8").read()
     old = "(defun x86l-undef (x) (declare (xargs :guard t)) (nfix x))"
     if old not in base:
         die("scripts/x86isa_driver.lisp no longer defines `x86l-undef` as expected; "
             "this probe patches that line and cannot proceed without it")
-    open(drv_a, "w").write(base)
-    open(drv_b, "w").write(base.replace(
+    open(drv_a, "w", encoding="utf-8").write(base)
+    open(drv_b, "w", encoding="utf-8").write(base.replace(
         old, f"(defun x86l-undef (x) (declare (xargs :guard t)) (+ {UNDEF_OFFSET} (nfix x)))"))
 
     A = oracle_run(cases_path, drv_a, os.path.join(tmp, "a.out"))

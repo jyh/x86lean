@@ -78,7 +78,7 @@ def assemble(spellings):
     how a row gets another row's bytes."""
     d = scratch.mkdtemp()
     s, o = os.path.join(d, "n.s"), os.path.join(d, "n.o")
-    open(s, "w").write(".text\n" + "\n".join(spellings) + "\n")
+    open(s, "w", encoding="utf-8").write(".text\n" + "\n".join(spellings) + "\n")
     r = subprocess.run(f"clang -target x86_64-unknown-linux-gnu -c {s} -o {o}",
                        shell=True, capture_output=True, text=True)
     if r.returncode:
@@ -152,7 +152,7 @@ def listing_entries():
     three-valued field `encoding_key` returns, so the join is on equal terms.
     x86isa spells L with six tokens: `:128`/`:LIG`/`:LZ`/`:L0` are L = 0 and
     `:256`/`:L1` are L = 1 (D138)."""
-    txt = open(LISTING).read()
+    txt = open(LISTING, encoding="utf-8").read()
     out = []
     for part in re.split(r'\n\s*\(INST\s+"', txt)[1:]:
         name = part.split('"')[0].lower()

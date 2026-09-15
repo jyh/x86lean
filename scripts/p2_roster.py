@@ -255,7 +255,7 @@ def lock_why():
 
 def census():
     try:
-        return json.load(open(CENSUS_JSON))
+        return json.load(open(CENSUS_JSON, encoding="utf-8"))
     except OSError:
         print(f"⛔ {CENSUS_JSON} is missing. The P2 roster is priced BY the "
               f"census; without it this tool would rank forms by K's file order, "
@@ -1268,7 +1268,7 @@ def check(out):
     write(d, b, buf)
     want = buf.getvalue()
     try:
-        have = open(os.path.join(root, out)).read()
+        have = open(os.path.join(root, out), encoding="utf-8").read()
     except OSError:
         print(f"⛔ {out} does not exist. Generate it: p2_roster.py")
         return 2
@@ -1411,7 +1411,7 @@ def main():
         return unprobed()
     d = census()
     b = build(d)
-    with open(os.path.join(root, args.out), "w") as fh:
+    with open(os.path.join(root, args.out), "w", encoding="utf-8") as fh:
         write(d, b, fh)
     print(f"wrote {args.out}")
     print(f"  K SIMD/FP variants {b['n_variants']:,} over "

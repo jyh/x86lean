@@ -195,7 +195,7 @@ def load_ledger(path):
     if not os.path.exists(path):
         return {}
     by = {}
-    for ln, line in enumerate(open(path), 1):
+    for ln, line in enumerate(open(path, encoding="utf-8"), 1):
         line = line.strip()
         if not line:
             continue
@@ -235,7 +235,7 @@ def append_rows(path, rows, existing):
             refuse(_fork_msg(key, prev, r))
         seen[key] = r
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "a") as f:
+    with open(path, "a", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, sort_keys=True) + "\n")
 
@@ -612,7 +612,7 @@ def read_ratchet(path):
     FAILURE, not absence. [[feedback-an-unparseable-gate-file-reports-failure-not-absence]]"""
     if not os.path.exists(path):
         return None
-    for line in open(path):
+    for line in open(path, encoding="utf-8"):
         if line.startswith("lean_missing_max"):
             parts = line.split()
             if len(parts) >= 2 and parts[1].lstrip("-").isdigit():
@@ -798,7 +798,7 @@ def load_context(walk_rows):
             out.append(f"   ⚠️  {path} is absent, so {what} cannot be quoted — "
                        f"the comparison is MISSING, not favourable.")
             continue
-        rl = [json.loads(l).get("load1") for l in open(full) if l.strip()]
+        rl = [json.loads(l).get("load1") for l in open(full, encoding="utf-8") if l.strip()]
         rl = [x for x in rl if x is not None]
         if rl:
             out.append(f"   vs {what}: load1 median {statistics.median(rl):.2f} "
@@ -960,14 +960,14 @@ def selftest():
     with tempfile.TemporaryDirectory(prefix="x86lean-driftledger-") as td:
         lp = os.path.join(td, "led.jsonl")
         append_rows(lp, [_row(*st[0], {"M": 100.0}, source="first")], {})
-        before = open(lp).read()
+        before = open(lp, encoding="utf-8").read()
         try:
             append_rows(lp, [_row(*st[0], {"M": 999.0}, source="second")],
                         load_ledger(lp))
             ok(False, "a conflicting record REFUSES BEFORE writing",
                plant="write-before-check")
         except SystemExit as e:
-            ok(e.code == 2 and open(lp).read() == before,
+            ok(e.code == 2 and open(lp, encoding="utf-8").read() == before,
                "a conflicting record REFUSES and leaves the ledger BYTE-UNCHANGED",
                plant="write-before-check")
         append_rows(lp, [_row(*st[1], {"M": 100.0})], load_ledger(lp))
@@ -1334,11 +1334,11 @@ def selftest():
     with tempfile.TemporaryDirectory(prefix="x86lean-driftratchet-") as td:
         rp = os.path.join(td, "r.txt")
         ok(read_ratchet(rp) is None, "an ABSENT ratchet reads None")
-        open(rp, "w").write(RATCHET_HEADER + "lean_missing_max 7\n")
+        open(rp, "w", encoding="utf-8").write(RATCHET_HEADER + "lean_missing_max 7\n")
         ok(read_ratchet(rp) == 7, "...and a written one reads back its number, so "
                                   "the arm above is absence and not a reader that "
                                   "always returns None", plant="ratchet roundtrip")
-        open(rp, "w").write(RATCHET_HEADER + "lean_missing_max\n")
+        open(rp, "w", encoding="utf-8").write(RATCHET_HEADER + "lean_missing_max\n")
         ok(read_ratchet(rp) is None, "a ratchet whose line has NO number reads as "
                                      "unparseable — which the caller must refuse "
                                      "on, never treat as absent", plant="ratchet unparseable")
@@ -1581,7 +1581,7 @@ def main():
                    f"rule WITH ITS REASON to EXEMPT_RULES, or price the step.")
         ratchet_p = kd.arg("--ratchet", RATCHET)
         if "--write-ratchet" in sys.argv:
-            with open(ratchet_p, "w") as f:
+            with open(ratchet_p, "w", encoding="utf-8") as f:
                 f.write(RATCHET_HEADER + f"lean_missing_max {nl}\n")
             print(f"\n✅ ratchet ← {nl} → {ratchet_p}")
             return 0
@@ -1604,7 +1604,7 @@ def main():
         rows = []
         saved = kd.arg("--readings")
         if saved:
-            data = json.load(open(saved))
+            data = json.load(open(saved, encoding="utf-8"))
             base_units = {}
             for r in data["readings"]["base"]:
                 for u, v in kd.units_of(r, data.get("decl_map", decl_map)).items():

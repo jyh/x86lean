@@ -52,7 +52,7 @@ if __name__ == "__main__":
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT); sys.path.insert(0, os.path.join(ROOT, "scripts"))
 SUBJECT = "scripts/check_driver_cr4.py"
-SRC = open(SUBJECT).read()
+SRC = open(SUBJECT, encoding="utf-8").read()
 
 GUARD = """            if ref is None or rip is None:
                 # ⛔ NOT `executes`.  See the RE_REFUSED comment: this is the

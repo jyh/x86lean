@@ -74,7 +74,7 @@ def selftest():
     still be checking nothing.
     """
     files = ["README.md", "docs/COVERAGE.md", _records()[-1][2]]
-    saved = {f: open(f).read() for f in files}
+    saved = {f: open(f, encoding="utf-8").read() for f in files}
     # (label, file, from, to) — one per claim, then one on a source
     muts = [
         ("P1 batches landed", "README.md", "P1 SEALED — ", "P1 SEALED — 9"),
@@ -117,9 +117,9 @@ def selftest():
                       f"never created its condition, so this arm proves nothing")
                 ok = False
                 continue
-            open(f, "w").write(body)
+            open(f, "w", encoding="utf-8").write(body)
             r = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
-            open(f, "w").write(saved[f])
+            open(f, "w", encoding="utf-8").write(saved[f])
             if r.returncode == 0:
                 print(f"  ✖ {label}: MUTATED AND THE GATE STAYED GREEN")
                 ok = False
@@ -127,12 +127,12 @@ def selftest():
                 print(f"  ✔ {label}: caught (rc {r.returncode})")
     finally:
         for f, body in saved.items():
-            open(f, "w").write(body)
+            open(f, "w", encoding="utf-8").write(body)
     # and the missing-subject path: a gate that cannot find its subject must
     # FAIL, not pass.  (D45's other half: silence is not agreement.)
-    saved_r = open("README.md").read()
+    saved_r = open("README.md", encoding="utf-8").read()
     try:
-        open("README.md", "w").write(re.sub(
+        open("README.md", "w", encoding="utf-8").write(re.sub(
             r'\*\*P1 SEALED.*?0 oracle leaks\n```', '', saved_r,
             count=1, flags=re.S))
         r = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
@@ -141,7 +141,7 @@ def selftest():
         else:
             print(f"  ✔ paragraph deleted: caught (rc {r.returncode})")
     finally:
-        open("README.md", "w").write(saved_r)
+        open("README.md", "w", encoding="utf-8").write(saved_r)
 
     print("✅ check_readme_snapshot selftest: every claim and one source mutated, "
           "each caught" if ok else "⛔ check_readme_snapshot selftest FAILED")
@@ -168,8 +168,8 @@ if "--selftest" in sys.argv:
 def die(msg, code=1):
     print(msg); sys.exit(code)
 
-readme = open("README.md").read()
-cov = open("docs/COVERAGE.md").read()
+readme = open("README.md", encoding="utf-8").read()
+cov = open("docs/COVERAGE.md", encoding="utf-8").read()
 
 # ── the generated coverage line is the authority for three of the five ──────
 m = re.search(r'Roster: (\d+) mnemonics in (\d+) differentially tested forms, '
@@ -187,7 +187,7 @@ n_p1 = max([b for (p, b, _) in recs if p == 1], default=0)
 n_p2 = max([b for (p, b, _) in recs if p == 2], default=0)
 latest_path = recs[-1][2]
 
-latest = open(latest_path).read()
+latest = open(latest_path, encoding="utf-8").read()
 lm = re.search(r'cases=(\d+)', latest)
 pm = re.search(r'(\d+) vectors · (\d+) pre-states', latest)
 if not lm or not pm:

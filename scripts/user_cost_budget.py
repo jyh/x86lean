@@ -359,7 +359,7 @@ def _fake_rows(level_ms, noise_ms, level_user, noise_user,
 def _run_on(rows, extra=()):
     import tempfile, subprocess as sp
     fd, p = tempfile.mkstemp(prefix="x86lean-ucb-", suffix=".jsonl")
-    with os.fdopen(fd, "w") as fh:
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         for r in rows:
             fh.write(json.dumps(r) + "\n")
     try:
@@ -462,7 +462,7 @@ def selftest():
         sys.argv = ["x", "--readings", "/dev/null"]
         moved = False
         fd, p = __import__("tempfile").mkstemp(suffix=".jsonl")
-        with os.fdopen(fd, "w") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             for r in rows:
                 fh.write(json.dumps(r) + "\n")
         sys.argv = ["x", "--readings", p]
@@ -635,7 +635,7 @@ def main():
         print(__doc__)
         return 2
     decl_names = [x for x in (arg("--decl-names") or DECL_DEFAULT).split(",") if x]
-    rows = [json.loads(l) for l in open(path) if l.strip().startswith("{")]
+    rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip().startswith("{")]
     if not rows:
         print(f"⛔ {path} holds no readings.")
         return 2
@@ -808,7 +808,7 @@ def main():
     # [[feedback-two-readings-are-not-two-witnesses]]
     base_path = arg("--baseline")
     if base_path and os.path.exists(base_path):
-        brows = [json.loads(l) for l in open(base_path) if l.strip().startswith("{")]
+        brows = [json.loads(l) for l in open(base_path, encoding="utf-8") if l.strip().startswith("{")]
         bt = spread_table(brows, ms_units, decl_names)
         ba = spread_table(brows, ms_units, decl_names, absolute=True)
         mine_r = [x for v in tables["type checking ms  (SHIPPED)"].values() for x in v]

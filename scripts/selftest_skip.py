@@ -225,7 +225,7 @@ def _out(skip, d, inherits, n, reason, emit, run=None):
         # distinguishable from green-by-run by anyone reading the log.
         print(f"selftest-skip: RECORD digest={d} inherits={inherits} run={run} paths={n}")
     if emit:
-        with open(emit, "a") as fh:
+        with open(emit, "a", encoding="utf-8") as fh:
             fh.write(f"skip={'true' if skip else 'false'}\n")
             fh.write(f"digest={d or ''}\n")
             fh.write(f"inherits={inherits or ''}\n")
@@ -234,7 +234,7 @@ def _out(skip, d, inherits, n, reason, emit, run=None):
     # who digs finds is a record that will not be read on the day it matters.
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
-        with open(summary, "a") as fh:
+        with open(summary, "a", encoding="utf-8") as fh:
             if skip:
                 fh.write(f"### selftest: SKIPPED (green-by-skip, not green-by-run)\n\n"
                          f"- consumed-set digest: `{d}` over {n} path(s)\n"
@@ -303,7 +303,7 @@ def selftest():
         def write(rel, s):
             p = os.path.join(R, rel)
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            open(p, "w").write(s)
+            open(p, "w", encoding="utf-8").write(s)
 
         write("X86/Core.lean", "def a := 1\n")
         write("Main.lean", "def main := pure ()\n")

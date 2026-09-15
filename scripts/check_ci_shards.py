@@ -144,7 +144,7 @@ def _skip_seam_selftest():
     import copy, yaml
     base_text = open(os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        ".github", "workflows", "ci.yml")).read()
+        ".github", "workflows", "ci.yml"), encoding="utf-8").read()
     base = yaml.safe_load(base_text)
     red = 0
     arms = []
@@ -233,7 +233,7 @@ if "--selftest" in sys.argv:
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(root)
 CI = ".github/workflows/ci.yml"
-text = open(CI).read()
+text = open(CI, encoding="utf-8").read()
 
 bad = []
 

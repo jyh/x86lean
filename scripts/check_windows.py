@@ -81,7 +81,7 @@ def compare(lean, lisp) -> bool:
 
 
 def main() -> int:
-    lean_src, lisp_src = LEAN.read_text(), LISP.read_text()
+    lean_src, lisp_src = LEAN.read_text(encoding="utf-8"), LISP.read_text(encoding="utf-8")
     lean, lisp = lean_windows(lean_src), lisp_windows(lisp_src)
 
     if not lean:

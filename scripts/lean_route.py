@@ -202,7 +202,7 @@ def selftest() -> int:
 
         # ROUTE — absent, present-but-not-executable, executable
         arm("route: no sibling saltbuild.sh -> bare", route(repo)[0] == "bare")
-        open(w, "w").write("#!/bin/sh\nexit 0\n")
+        open(w, "w", encoding="utf-8").write("#!/bin/sh\nexit 0\n")
         arm("route: a NON-executable saltbuild.sh -> bare", route(repo)[0] == "bare")
         os.chmod(w, os.stat(w).st_mode | stat.S_IXUSR)
         arm("route: an executable sibling saltbuild.sh -> wrapper", route(repo) == ("wrapper", w))
@@ -260,7 +260,7 @@ def selftest() -> int:
 
         # END TO END through a fake wrapper that records its argv and speaks the grammar
         rec = os.path.join(tmp, "argv.txt")
-        open(w, "w").write(
+        open(w, "w", encoding="utf-8").write(
             "#!/bin/sh\n"
             f"printf '%s\\n' \"$@\" > '{rec}'\n"
             "echo 'saltqueue: ticket P2 seat=root pid=1'\n"
@@ -273,8 +273,8 @@ def selftest() -> int:
         arm("run: stdout unwrapped, stderr passed through, rc preserved",
             (r.stdout, r.stderr, r.returncode) == ("payload-out\n", "payload-err\n", 3))
         arm("run: the wrapper received the file first",
-            open(rec).read().split("\n")[:3] == ["P.lean", "-D", "a=b"])
-        open(w, "w").write("#!/bin/sh\necho 'saltbuild EXIT=75 (LOCK-WAIT ABORT)'\nexit 75\n")
+            open(rec, encoding="utf-8").read().split("\n")[:3] == ["P.lean", "-D", "a=b"])
+        open(w, "w", encoding="utf-8").write("#!/bin/sh\necho 'saltbuild EXIT=75 (LOCK-WAIT ABORT)'\nexit 75\n")
         arm("run: a wrapper abort surfaces as RouteRefused",
             refuses(lambda: run("build", ["X86"], root=repo, announce=False), "NEVER STARTED"))
         try:

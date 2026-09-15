@@ -174,7 +174,7 @@ def selftest():
             "report 'stable')", analyse(tmp) is None)
 
         # a corpus whose order is DELIBERATELY inverted between two runs must be caught
-        with open(os.path.join(tmp, "docs", "kernel-delta-history-fixture.jsonl"), "w") as fh:
+        with open(os.path.join(tmp, "docs", "kernel-delta-history-fixture.jsonl"), "w", encoding="utf-8") as fh:
             fh.write(json.dumps({"modules": {"A": 10.0, "B": 20.0, "C": 30.0, "D": 1000.0}}) + "\n")
             fh.write(json.dumps({"modules": {"A": 30.0, "B": 20.0, "C": 10.0, "D": 1000.0}}) + "\n")
         B = analyse(tmp)
@@ -195,7 +195,7 @@ def selftest():
             B is not None and not any("D" in p for p in B["inverted"]),
             str(B and [p for p in B["inverted"] if "D" in p]))
         # the excluded umbrella modules must be dropped even if present
-        with open(os.path.join(tmp, "docs", "kernel-delta-history-fixture.jsonl"), "a") as fh:
+        with open(os.path.join(tmp, "docs", "kernel-delta-history-fixture.jsonl"), "a", encoding="utf-8") as fh:
             fh.write(json.dumps({"modules": {"A": 11.0, "B": 21.0, "C": 31.0, "D": 1000.0,
                                              "X86": 0.0, "Tests": 0.0}}) + "\n")
         C = analyse(tmp)

@@ -75,7 +75,7 @@ def count_spec(text, pat):
 
 
 def read(p):
-    return open(p).read()
+    return open(p, encoding="utf-8").read()
 
 
 def compare(lean_text, lisp_text):

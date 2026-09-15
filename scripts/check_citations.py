@@ -84,7 +84,7 @@ CITE = re.compile(
 # See the header on why the declaration-only test was the wrong calibration.
 def occurs(path, name):
     try:
-        body = open(path).read()
+        body = open(path, encoding="utf-8").read()
     except OSError:
         return False                                 # missing file: reported
     if re.search(rf'(?<![A-Za-z0-9_\']){re.escape(name)}(?![A-Za-z0-9_\'])', body):
@@ -104,7 +104,7 @@ def selftest():
     backtick near a path.
     """
     target = "Main.lean"
-    saved = open(target).read()
+    saved = open(target, encoding="utf-8").read()
     arms = [
         ("phantom", "\n-- `a_theorem_that_does_not_exist` in `Tests/Coverage.lean`\n", True),
         ("real",    "\n-- `mem_dest_claims_are_backed` in `Tests/Coverage.lean`\n", False),
@@ -112,7 +112,7 @@ def selftest():
     ok = True
     try:
         for label, line, expect_red in arms:
-            open(target, "w").write(saved + line)
+            open(target, "w", encoding="utf-8").write(saved + line)
             r = subprocess.run([sys.executable, __file__], capture_output=True, text=True)
             red = r.returncode != 0
             if red != expect_red:
@@ -122,7 +122,7 @@ def selftest():
             else:
                 print(f"  ✔ {label}: {'caught' if red else 'correctly not flagged'}")
     finally:
-        open(target, "w").write(saved)
+        open(target, "w", encoding="utf-8").write(saved)
     print("✅ check_citations selftest: a phantom citation is caught and a real "
           "one is not" if ok else "⛔ check_citations selftest FAILED")
     sys.exit(0 if ok else 1)
@@ -187,7 +187,7 @@ def _outside_fences(text):
 
 
 def check_decision_numbers():
-    text = open("docs/DECISIONS.md").read()
+    text = open("docs/DECISIONS.md", encoding="utf-8").read()
     body, fences = _outside_fences(text)
     if fences % 2:
         print("⛔ DECISION NUMBERS — docs/DECISIONS.md has %d fence lines, an ODD "
@@ -231,12 +231,12 @@ def selftest_decision_numbers():
     rather than in a fixture, so the gate is exercised against the real text it
     reads ([[feedback-a-gate-is-not-exempt-from-its-own-defect]])."""
     target = "docs/DECISIONS.md"
-    saved = open(target).read()
+    saved = open(target, encoding="utf-8").read()
     ok = True
     try:
         # arm 1: a NEW duplicate of an existing number
         first = re.search(r"^## D(\d+) .*$", saved, re.M)
-        open(target, "w").write(saved + "\n## D%s \u2014 a planted second claimant\n"
+        open(target, "w", encoding="utf-8").write(saved + "\n## D%s \u2014 a planted second claimant\n"
                                 % first.group(1))
         if check_decision_numbers() == 0:
             print("  \u2716 red arm SILENT: a duplicated D-number was not caught")
@@ -245,7 +245,7 @@ def selftest_decision_numbers():
             print("  \u2714 red arm caught: a second section claiming D%s"
                   % first.group(1))
         # arm 2: a THIRD D123 — the known duplicate must not be a blanket pass
-        open(target, "w").write(saved + "\n## D123 \u2014 a planted third claimant\n")
+        open(target, "w", encoding="utf-8").write(saved + "\n## D123 \u2014 a planted third claimant\n")
         if check_decision_numbers() == 0:
             print("  \u2716 red arm SILENT: the KNOWN duplicate absorbed a third "
                   "claimant, so the exemption is a tolerance and not a freeze")
@@ -261,7 +261,7 @@ def selftest_decision_numbers():
             print("  \u26a0 arm 3 SKIPPED: the shipped file no longer uses the "
                   "bare `## D<n>` heading shape, so this arm has no subject")
         else:
-            open(target, "w").write(saved + "\n## D%s\n\na planted second "
+            open(target, "w", encoding="utf-8").write(saved + "\n## D%s\n\na planted second "
                                     "claimant in the BARE heading shape\n"
                                     % bare.group(1))
             if check_decision_numbers() == 0:
@@ -276,14 +276,14 @@ def selftest_decision_numbers():
         # caught, or this arm has merely switched the census off.
         # [[feedback-a-probe-must-create-its-condition]]
         dupn = re.search(r"^## D(\d+)", saved, re.M).group(1)
-        open(target, "w").write(saved + "\n```\n## D%s\n```\n" % dupn)
+        open(target, "w", encoding="utf-8").write(saved + "\n```\n## D%s\n```\n" % dupn)
         if check_decision_numbers() != 0:
             print("  \u2716 arm 5: a heading quoted inside a fence was counted as "
                   "a second claimant")
             ok = False
         else:
             print("  \u2714 arm 5: a heading inside a fence is not a claimant")
-        open(target, "w").write(saved + "\n## D%s\n" % dupn)
+        open(target, "w", encoding="utf-8").write(saved + "\n## D%s\n" % dupn)
         if check_decision_numbers() == 0:
             print("  \u2716 arm 5b CONTROL SILENT: the same heading OUTSIDE a "
                   "fence was not caught, so the fence rule switched the census off")
@@ -292,7 +292,7 @@ def selftest_decision_numbers():
             print("  \u2714 arm 5b control: the same heading outside a fence IS "
                   "caught")
         # ⭐ arm 6: an UNTERMINATED fence must refuse, not swallow the rest.
-        open(target, "w").write(saved + "\n```\n")
+        open(target, "w", encoding="utf-8").write(saved + "\n```\n")
         if check_decision_numbers() == 0:
             print("  \u2716 arm 6 SILENT: an unterminated fence passed")
             ok = False
@@ -301,7 +301,7 @@ def selftest_decision_numbers():
         # ⭐ arm 4: a heading shape the pattern does NOT know must REFUSE rather
         # than quietly drop out of the census — the failure mode this repair is
         # about.
-        open(target, "w").write(saved + "\n## D9999:a shape with no separator\n")
+        open(target, "w", encoding="utf-8").write(saved + "\n## D9999:a shape with no separator\n")
         if check_decision_numbers() == 0:
             print("  \u2716 red arm SILENT: an unmatched `## D<digits>` line left "
                   "the census without a word")
@@ -309,7 +309,7 @@ def selftest_decision_numbers():
         else:
             print("  \u2714 red arm caught: an unmatched heading shape refuses")
     finally:
-        open(target, "w").write(saved)
+        open(target, "w", encoding="utf-8").write(saved)
     # the control: unplanted, it must pass
     if check_decision_numbers() != 0:
         print("  \u2716 control: the shipped DECISIONS.md fails its own gate")
@@ -364,7 +364,7 @@ def check_decision_references():
     # on a file with 180 of them. Caught by running it; the refusal path was right
     # and the reading was wrong. Fences are skipped for the same reason the sibling
     # skips them: a heading QUOTED inside a fence is not a heading.
-    lines, fences = _outside_fences(open("docs/DECISIONS.md").read())
+    lines, fences = _outside_fences(open("docs/DECISIONS.md", encoding="utf-8").read())
     if fences % 2:
         print("⛔ docs/DECISIONS.md has an ODD number of fence lines; skipping "
               "fenced content would swallow the rest of the file. REFUSING.")
@@ -456,7 +456,7 @@ def selftest_decision_references():
     finally:
         open(target, "w", encoding="utf-8").write(saved)
     # the anti-rot arm: an exclusion that RESOLVES must fail
-    _l, _f = _outside_fences(open("docs/DECISIONS.md").read())
+    _l, _f = _outside_fences(open("docs/DECISIONS.md", encoding="utf-8").read())
     real = max((m.group(1) for ln in _l for m in [D_HEAD.match(ln)] if m), key=int)
     NOT_A_DECISION_NUMBER["D" + real] = "PLANT"
     try:
@@ -490,7 +490,7 @@ if _rc:
 
 bad, checked = [], 0
 for src in SOURCES:
-    text = open(src).read()
+    text = open(src, encoding="utf-8").read()
     for m in CITE.finditer(text):
         name, path = m.group(1), m.group(2)
         if not os.path.exists(path):

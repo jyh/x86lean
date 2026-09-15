@@ -179,7 +179,7 @@ def pre_states():
         # clone whose only defect was that the binary had not been built yet.
         raise SystemExit(f"⛔ could not emit the differential cases (rc {r.returncode}) — is "
                          f"`lake build x86lean-diff` done?\n{r.stdout[-800:]}{r.stderr[-800:]}")
-    lines = open(CASES).read().splitlines(True)
+    lines = open(CASES, encoding="utf-8").read().splitlines(True)
     cases, cur = [], None
     for l in lines:
         if l.lstrip().startswith("(:id "):
@@ -246,20 +246,20 @@ def measure(forms):
             body.append(rewrite(c, i, tag, hexbytes))
     tmp = scratch.mkdtemp(prefix="x86lean-avail-")
     cases = os.path.join(tmp, "cases.lsp")
-    open(cases, "w").write('(in-package "X86ISA")\n(defconst *x86lean-cases*\n \'(\n'
+    open(cases, "w", encoding="utf-8").write('(in-package "X86ISA")\n(defconst *x86lean-cases*\n \'(\n'
                            + "".join(body) + "))\n")
     drive = os.path.join(tmp, "drive.lsp")
-    open(drive, "w").write(
+    open(drive, "w", encoding="utf-8").write(
         '(include-book "projects/x86isa/tools/execution/init-state" :dir :system :ttags :all)\n'
         '(include-book "projects/x86isa/machine/x86" :dir :system :ttags :all)\n'
         "(set-fmt-hard-right-margin 100000 state)\n(set-fmt-soft-right-margin 99000 state)\n"
         '(ld "scripts/x86isa_driver.lisp")\n(ld "%s")\n(in-package "X86ISA")\n'
         "(x86l-run-all *x86lean-cases* x86 state)\n" % cases)
     out = os.path.join(tmp, "out.txt")
-    with open(out, "w") as fh:
-        subprocess.run([ACL2], stdin=open(drive), stdout=fh, stderr=subprocess.STDOUT)
+    with open(out, "w", encoding="utf-8") as fh:
+        subprocess.run([ACL2], stdin=open(drive, encoding="utf-8"), stdout=fh, stderr=subprocess.STDOUT)
     res, cur = {}, None
-    for l in open(out):
+    for l in open(out, encoding="utf-8"):
         if l.startswith("CASE "):
             cur = re.search(r"id=(\S+)", l).group(1).rsplit("/", 1)[0]
         elif l.startswith("POST ") and cur:
@@ -1174,13 +1174,13 @@ def measure_cr4(forms, ctrs):
             % (ctrs, mem, XMM0_NZ, XMM1_NZ, tag_of(label), ENTRY_RIP))
     tmp = scratch.mkdtemp(prefix="x86lean-p2-")
     drive = os.path.join(tmp, "drive.lsp")
-    open(drive, "w").write("\n".join(lines) + "\n")
+    open(drive, "w", encoding="utf-8").write("\n".join(lines) + "\n")
     out = os.path.join(tmp, "out.txt")
-    with open(out, "w") as fh:
-        subprocess.run([ACL2], stdin=open(drive), stdout=fh,
+    with open(out, "w", encoding="utf-8") as fh:
+        subprocess.run([ACL2], stdin=open(drive, encoding="utf-8"), stdout=fh,
                        stderr=subprocess.STDOUT)
     got = {}
-    text = open(out).read()
+    text = open(out, encoding="utf-8").read()
     # ⛔ THREE-VALUED, IN D170's ORDER: refused first, then stalled, then the
     # residual.  Before D177 this line was `refuses if refused else executes` —
     # the two-valued classifier D170's own headline condemns, still live in the
@@ -1261,13 +1261,13 @@ def p2_operand_control(arms=None):
             % (CR4_ON, mem, x0, x1, tag_of(label)))
     tmp = scratch.mkdtemp(prefix="x86lean-p2ctrl-")
     drive = os.path.join(tmp, "drive.lsp")
-    open(drive, "w").write("\n".join(lines) + "\n")
+    open(drive, "w", encoding="utf-8").write("\n".join(lines) + "\n")
     out = os.path.join(tmp, "out.txt")
-    with open(out, "w") as fh:
-        subprocess.run([ACL2], stdin=open(drive), stdout=fh,
+    with open(out, "w", encoding="utf-8") as fh:
+        subprocess.run([ACL2], stdin=open(drive, encoding="utf-8"), stdout=fh,
                        stderr=subprocess.STDOUT)
     got = {m.group(1): (m.group(3), m.group(4)) for m in re.finditer(
-        r"CTRLRESULT tag=(\S+) flg=(\S+) refused=(\d) xmm0=(\S+)", open(out).read())}
+        r"CTRLRESULT tag=(\S+) flg=(\S+) refused=(\d) xmm0=(\S+)", open(out, encoding="utf-8").read())}
     nz, zr, wt = (got.get(tag_of(a[0])) for a in arms)
     ALLONES = str((1 << 128) - 1)
     problems = []
@@ -1545,7 +1545,7 @@ def encode_forms(asms, objdump="objdump"):
     with tempfile.TemporaryDirectory(prefix="x86lean-encode-") as td:
         for i, a in enumerate(asms):
             src = os.path.join(td, "f%d.s" % i); obj = os.path.join(td, "f%d.o" % i)
-            open(src, "w").write("    .text\n    %s\n" % a)
+            open(src, "w", encoding="utf-8").write("    .text\n    %s\n" % a)
             r = subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu",
                                 "-c", src, "-o", obj],
                                capture_output=True, text=True)
@@ -1719,7 +1719,7 @@ def parse_arms():
     Returns (ok, n_arms, failures)."""
     fails, arms = [], 0
     m = re.search(r'"CASE id=~s0 len=~x1~%(POST [^~"]*)~%"',
-                  open("scripts/x86isa_driver.lisp").read())
+                  open("scripts/x86isa_driver.lisp", encoding="utf-8").read())
     if not m:
         return False, 0, [("init-error plant", "could not derive the failure-POST "
                            "literal from the driver — REFUSING rather than agreeing")]

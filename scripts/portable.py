@@ -365,7 +365,7 @@ def selftest() -> int:
     #    exercised the way production uses it, not from a string fixture.
     import tempfile
     fd, fx = tempfile.mkstemp(suffix=".py")
-    with os.fdopen(fd, "w") as fh:
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write('if "--selftest" in sys.argv: pass\n'
                  'ap.add_argument("--readings")\n'
                  "ap.add_argument('--single-quoted')\n")

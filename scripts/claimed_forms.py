@@ -71,7 +71,7 @@ import scratch  # scratch dirs that get removed, and carry x86lean- (PORT-5)
 
 def load_roster(path="p1/roster.tsv"):
     rows = []
-    for i, line in enumerate(open(path)):
+    for i, line in enumerate(open(path, encoding="utf-8")):
         if i < 2:                      # a comment line and the header
             continue
         f = line.rstrip("\n").split("\t")
@@ -632,7 +632,7 @@ def assemble(items, tag, pads=None):
             src.append(f"N{j}:\tnop")        # this instance's own rel8 target
         src += [".fill 200, 1, 0x90", "Lfar:", "\tnop"]
         p = os.path.join(tmp, "a.s")
-        open(p, "w").write("\n".join(src) + "\n")
+        open(p, "w", encoding="utf-8").write("\n".join(src) + "\n")
         q = subprocess.run(
             f"clang -target x86_64-unknown-linux-gnu -c {p} -o {tmp}/a.o",
             shell=True, capture_output=True, text=True)
@@ -802,12 +802,12 @@ def base_parses(mnem, bases):
 
 def read_vectors(asm_path, len_path):
     lens = {}
-    for line in open(len_path):
+    for line in open(len_path, encoding="utf-8"):
         p = line.split()
         if len(p) == 3:
             lens[p[0]] = (int(p[1]), p[2])
     vecs = []
-    for line in open(asm_path):
+    for line in open(asm_path, encoding="utf-8"):
         line = line.rstrip("\n")
         if "\t" not in line:
             continue
@@ -1014,7 +1014,7 @@ def residue_buckets(rows, claimed, noform):
     _sp = _ilu.spec_from_loader("_oa", loader=None)
     _oa = {}
     _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "oracle_availability.py")).read()
+                             "oracle_availability.py"), encoding="utf-8").read()
     _m = re.search(r"^FORMS = \[(.*?)^\]", _src, re.S | re.M)
     if not _m:
         print("⛔ could not read FORMS from scripts/oracle_availability.py. "
@@ -1060,7 +1060,7 @@ def read_published(path="docs/COVERAGE.md"):
     the claim to itself.
     """
     try:
-        text = open(path).read()
+        text = open(path, encoding="utf-8").read()
     except OSError:
         print(f"⛔ {path} is missing; nothing to check the derivation against")
         sys.exit(2)
@@ -1179,17 +1179,17 @@ def selftest():
     arms.append(("control: the repository as it stands", r.returncode == 0, r))
 
     # ARM 1 -- break the RESOLVER: a vector whose bytes are no form at all.
-    lines = open(l).read().splitlines()
+    lines = open(l, encoding="utf-8").read().splitlines()
     b1 = os.path.join(tmp, "b1.len")
-    open(b1, "w").write("\n".join(
+    open(b1, "w", encoding="utf-8").write("\n".join(
         [lines[0].rsplit(" ", 1)[0] + " 9090"] + lines[1:]) + "\n")
     r = run(a, b1)
     arms.append(("a vector whose bytes match no roster row", r.returncode != 0, r))
 
     # ARM 2 -- break the RESOLVER the other way: text and bytes disagree.
-    src = open(a).read().replace("movl %ecx, %eax", "xorl %ecx, %eax", 1)
+    src = open(a, encoding="utf-8").read().replace("movl %ecx, %eax", "xorl %ecx, %eax", 1)
     b2 = os.path.join(tmp, "b2.s")
-    open(b2, "w").write(src)
+    open(b2, "w", encoding="utf-8").write(src)
     r = run(b2, l)
     arms.append(("a vector whose text and bytes disagree", r.returncode != 0, r))
 
@@ -1206,10 +1206,10 @@ def selftest():
     # the one the arm was named after.  A red light in the wrong lamp is not a
     # test of this gate.
     sp_s, sp_l = os.path.join(tmp, "sp.s"), os.path.join(tmp, "sp.len")
-    open(sp_s, "w").write("".join(
-        ln for ln in open(a) if not ln.startswith("xchg_rr_l:")))
-    open(sp_l, "w").write("".join(
-        ln for ln in open(l) if not ln.startswith("xchg_rr_l ")))
+    open(sp_s, "w", encoding="utf-8").write("".join(
+        ln for ln in open(a, encoding="utf-8") if not ln.startswith("xchg_rr_l:")))
+    open(sp_l, "w", encoding="utf-8").write("".join(
+        ln for ln in open(l, encoding="utf-8") if not ln.startswith("xchg_rr_l ")))
     r = run(sp_s, sp_l)
     named = "claimed ONLY through an encoding" in (r.stdout + r.stderr)
     arms.append(("a row left claimed only through a colliding encoding",
@@ -1218,12 +1218,12 @@ def selftest():
     # ARM 4/5 -- break the COMPARISON, in BOTH directions.  An over-claim and an
     # under-claim must both fail; the defect this tool was written for was an
     # under-claim, which is the direction nobody polices.
-    doc = open("docs/COVERAGE.md").read()
+    doc = open("docs/COVERAGE.md", encoding="utf-8").read()
     pub = read_published()
     for delta, name in ((+1, "an OVER-claim of one row"),
                         (-1, "an UNDER-claim of one row")):
         d = os.path.join(tmp, f"cov{delta}.md")
-        open(d, "w").write(doc.replace(
+        open(d, "w", encoding="utf-8").write(doc.replace(
             f"**{pub[0]} of the {pub[1]} rows**",
             f"**{pub[0] + delta} of the {pub[1]} rows**", 1))
         shutil.copy("docs/COVERAGE.md", os.path.join(tmp, "keep.md"))
@@ -1278,7 +1278,7 @@ def selftest():
     #
     # ⚠️ AND A DELETED PARAGRAPH IS ITS OWN ARM, because a gate that reads a
     # number cannot tell "the number is right" from "the sentence is gone".
-    rd_saved = open("README.md").read()
+    rd_saved = open("README.md", encoding="utf-8").read()
 
     def _num_anchor(txt, pat):
         """The shipped phrase matching `pat` (one capture group: the number),
@@ -1343,7 +1343,7 @@ def selftest():
                 arms.append((name + " [ANCHOR MISSING]", False,
                              subprocess.CompletedProcess([], 0, "", "")))
                 continue
-            open("README.md", "w").write(rd_saved.replace(a_, b_, 1))
+            open("README.md", "w", encoding="utf-8").write(rd_saved.replace(a_, b_, 1))
             r = run(a, l, "--check")
             out = r.stdout + r.stderr
             ok = r.returncode != 0 and (
@@ -1351,7 +1351,7 @@ def selftest():
                 else (want in out))
             arms.append((name, ok, r))
     finally:
-        open("README.md", "w").write(rd_saved)
+        open("README.md", "w", encoding="utf-8").write(rd_saved)
 
     for name, ok, r in arms:
         print(("  ✔ " if ok else "  ⛔ ") + name)
@@ -1657,7 +1657,7 @@ def main():
         # ⇒ It is read from the GENERATED coverage document, which is emitted
         # from the model and which CI already fails on if it is stale.
         mm = re.search(r"Roster: (\d+) mnemonics in (\d+) differentially tested",
-                       open("docs/COVERAGE.md").read())
+                       open("docs/COVERAGE.md", encoding="utf-8").read())
         if not mm:
             print("⛔ docs/COVERAGE.md does not carry the 'Roster: N mnemonics in "
                   "M ... forms' line; the description's mnemonic count has no "
@@ -1665,7 +1665,7 @@ def main():
             sys.exit(2)
         n_mnemonics, n_forms_cov = int(mm.group(1)), int(mm.group(2))
         try:
-            rdme = open("README.md").read()
+            rdme = open("README.md", encoding="utf-8").read()
         except OSError:
             print("⛔ README.md is missing; the description's numbers cannot be "
                   "checked against the derivation")
@@ -1849,7 +1849,7 @@ def main():
                    "noform": noform, "n_groups": n_groups,
                    "claimed_groups": claimed_groups,
                    "by_vector": {str(i): direct[i] for i in sorted(direct)}},
-                  open(args.json, "w"), indent=1)
+                  open(args.json, "w", encoding="utf-8"), indent=1)
 
     for f in findings:
         print(f"⛔ {f}")

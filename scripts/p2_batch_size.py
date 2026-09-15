@@ -86,7 +86,7 @@ B34_PRE, B34_POST, B34_DELTA = (134, 239, 954), (144, 260, 977), 230.0
 
 def read_budget_pct():
     """The unit's budget, READ from the gate's own file, never pinned here."""
-    for ln in open(BUDGET_FILE):
+    for ln in open(BUDGET_FILE, encoding="utf-8"):
         ln = ln.strip()
         if ln.startswith(UNIT + " ") and ln.endswith("%"):
             return float(ln[len(UNIT):-1])
@@ -95,10 +95,10 @@ def read_budget_pct():
 
 def shipped_shape():
     """rows/runs/vectors read from the tree, so a stale literal cannot survive."""
-    cov = open(os.path.join(ROOT, "Tests", "Coverage.lean")).read()
+    cov = open(os.path.join(ROOT, "Tests", "Coverage.lean"), encoding="utf-8").read()
     rows = int(re.search(r"roster_size_is_(\d+)", cov).group(1))
     vecs = int(re.search(r"vector_count_is_(\d+)", cov).group(1))
-    runsrc = open(os.path.join(ROOT, "Tests", "VectorRuns.lean")).read()
+    runsrc = open(os.path.join(ROOT, "Tests", "VectorRuns.lean"), encoding="utf-8").read()
     body = re.search(r"def vectorRunIdx[^\[]*\[(.*?)\]", runsrc, re.S).group(1)
     runs = len([x for x in body.replace("\n", " ").split(",") if x.strip()])
     return rows, runs, vecs
@@ -128,7 +128,7 @@ def emit(rows, runs, vectors, path, lie=False):
     nothing was being kernel-checked at all."""
     idx, vec = build(rows, runs, vectors)
     q = lambda xs, s: "[" + ", ".join(('"%s"' % x) if s else str(x) for x in xs) + "]"
-    open(path, "w").write('''-- GENERATED PLANT — rows=%d runs=%d vectors=%d%s
+    open(path, "w", encoding="utf-8").write('''-- GENERATED PLANT — rows=%d runs=%d vectors=%d%s
 set_option maxRecDepth 40000
 set_option maxHeartbeats 8000000
 namespace Plant
@@ -259,7 +259,7 @@ def cmd_check():
         print("⛔ the shipped shape is unreadable (%s) — a moved literal" % e)
         bad.append("shape")
     q = os.path.join(ROOT, "docs", "QUEUE.md")
-    txt = open(q).read() if os.path.exists(q) else ""
+    txt = open(q, encoding="utf-8").read() if os.path.exists(q) else ""
     if "p2_batch_size.py" in txt:
         print("✅ docs/QUEUE.md names the tool that prints the batch-size price")
     else:

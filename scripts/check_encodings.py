@@ -218,7 +218,7 @@ by_addr = _folded
 ordered = sorted(by_addr)
 
 expected = {}
-for line in open(exp):
+for line in open(exp, encoding="utf-8"):
     parts = line.split()
     if len(parts) == 3:
         expected[parts[0]] = (int(parts[1]), parts[2])
@@ -265,14 +265,14 @@ print(f"encoding cross-check: CLEAN — {checked} forms, every `Instr.len` and e
 # `X86.opOperands`, which the compiler checks on every build and which also
 # covers constructors no vector uses yet.
 declared, declared_lock = {}, {}
-for line in open(segf):
+for line in open(segf, encoding="utf-8"):
     parts = line.split()
     if len(parts) == 3:
         declared[parts[0]] = parts[1]
         declared_lock[parts[0]] = parts[2]
 
 asm_text = {}
-for line in open(asm):
+for line in open(asm, encoding="utf-8"):
     m = re.match(r'^(\S+):\t(.*)$', line.rstrip("\n"))
     if m:
         asm_text[m.group(1)] = m.group(2)
@@ -438,7 +438,7 @@ SYNONYMS = [
 ]
 
 sasm, sobj = os.path.join(tmp, "syn.s"), os.path.join(tmp, "syn.o")
-with open(sasm, "w") as f:
+with open(sasm, "w", encoding="utf-8") as f:
     f.write("\t.text\n")
     for i, (a, b) in enumerate(SYNONYMS):
         f.write(f"syn{i}a:\t{a}\nsyn{i}b:\t{b}\n")
