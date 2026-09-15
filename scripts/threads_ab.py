@@ -62,6 +62,7 @@ import json, os, re, statistics, subprocess, sys, tempfile, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from portable import child_cpu, sub_cpu  # noqa: E402
 import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
+import lean_route  # desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -136,14 +137,16 @@ def idle_pct():
 
 def profile(path, threads, cwd=ROOT):
     """One profiler pass.  Returns the reading dict, or raises on a failed read."""
-    cmd = ["lake", "env", "lean"]
+    # ⚠️ desk MB: on the wrapper route the `default` arm is LEAN_NUM_THREADS=4, not the machine
+    # default D150 measured; `lean_route.describe` names the route beside every run.
+    cmd = []
     if threads is not None:
         cmd += ["--threads", str(threads)]
     cmd += ["-D", "profiler=true", "-D", "profiler.threshold=100000", path]
     l0, idle0 = loadavg(), idle_pct()
     ru0 = child_cpu()          # (user_s, sys_s, source) — absent off POSIX
     t0 = time.time()
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    r = lean_route.run("lean", cmd, cwd=cwd)
     wall = time.time() - t0
     ru1 = child_cpu()
     l1 = loadavg()

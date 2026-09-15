@@ -40,6 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import deterministic_cost as dc  # noqa: E402
+import lean_route  # noqa: E402  desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 BAND = (1.652, 3.411)   # D228 run 4: K4 and K5, ms per 1k ku on the unfolding kinds
 TC = re.compile(r"type checking took ([\d.]+)(ms|s)")
@@ -103,7 +104,7 @@ def unwrapped_ku(module, header_only=False):
     with open(tmp, "w", encoding="utf-8") as fh:
         fh.write("\n".join(src[:at] + [body] + src[at:]))
     try:
-        r = subprocess.run(["lake", "env", "lean", "--json", tmp], cwd=ROOT, capture_output=True, text=True)
+        r = lean_route.run("lean", ["--json", tmp], cwd=ROOT)
     finally:
         os.remove(tmp)
     k, errs = 0, []
@@ -125,8 +126,8 @@ def unwrapped_ku(module, header_only=False):
 def profile(module):
     path = module.replace(".", "/") + ".lean"
     src = open(os.path.join(ROOT, path), encoding="utf-8").read().split("\n")
-    r = subprocess.run(["lake", "env", "lean", "-D", "profiler=true", "-D", "profiler.threshold=0",
-                        "--json", path], cwd=ROOT, capture_output=True, text=True)
+    r = lean_route.run("lean", ["-D", "profiler=true", "-D", "profiler.threshold=0",
+                                "--json", path], cwd=ROOT)
     kinds, total, errs = {}, 0.0, []
     for ln in r.stdout.splitlines():
         try:

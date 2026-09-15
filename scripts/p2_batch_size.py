@@ -72,6 +72,7 @@ a batch-sizing estimate, never as a merge verdict — the merge gate is
 `kernel_delta.py` and nothing here replaces it.
 """
 import argparse, os, re, statistics, subprocess, sys
+import lean_route  # desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUDGET_FILE = os.path.join(ROOT, "scripts", "kernel_delta_budget.txt")
@@ -159,9 +160,7 @@ end Plant
 def profile(shape, path, lie=False):
     emit(*shape, path, lie=lie)
     la = os.getloadavg()[0]
-    r = subprocess.run(["lake", "env", "lean", "-D", "profiler=true",
-                        "-D", "profiler.threshold=1", path],
-                       capture_output=True, text=True, cwd=ROOT)
+    r = lean_route.run("lean", ["-D", "profiler=true", "-D", "profiler.threshold=1", path], cwd=ROOT)
     out = r.stderr + r.stdout
     if r.returncode != 0:
         return None, la

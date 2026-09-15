@@ -204,6 +204,17 @@ jobs:
           python3 scripts/check_flag_strictness.py --selftest
           python3 scripts/check_flag_strictness.py
 
+      # ⛔ NEVER BARE `lake` ON A SHARED SEAT (fleet law 2026-08-06, two OOM incidents; desk MB).
+      # Every elaboration a script starts goes through scripts/lean_route.py, which takes
+      # ../saltbuild.sh where it exists and bare lake here, where it cannot. The gate is STATIC; its
+      # selftest runs first, and the helper's own selftest drives the route, the wrapper's stdout
+      # grammar and the rc-2 refusal against a fake wrapper.
+      - name: Lean route (no bare lake in any tracked script)
+        run: |
+          python3 scripts/lean_route.py --selftest
+          python3 scripts/check_lean_route.py --selftest
+          python3 scripts/check_lean_route.py
+
       # ⭐ P1 SEAL (D68). Tests.Coverage is gated PER DECLARATION now, in absolute
       # milliseconds, because D62 proved the ROW is not its unit and every
       # refinement since batch 14 went into the margin instead of the

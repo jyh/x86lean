@@ -59,6 +59,7 @@ either is copied.
 """
 import os, re, subprocess, sys, tempfile, collections
 import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
+import lean_route  # desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -139,8 +140,8 @@ def load_pre_states():
     p = "run/cases.lsp"
     if not os.path.exists(p):
         print("── emitting the differential cases (run/cases.lsp is absent) ──")
-        if run("lake build x86lean-diff").returncode != 0:
-            die("lake build x86lean-diff failed")
+        if lean_route.run("build", ["x86lean-diff"]).returncode != 0:
+            die("building x86lean-diff failed")
         if run(f"lake env .lake/build/bin/x86lean-diff emit-acl2 {p}").returncode != 0:
             die("emit-acl2 failed")
     lines = open(p).read().splitlines()

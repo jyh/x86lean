@@ -26,6 +26,7 @@ Usage:  check_readme_lean.py [--selftest]
 """
 import os, re, sys, subprocess, tempfile
 import scratch  # scratch dirs that get removed (591 MB leak, 2026-09-09)
+import lean_route  # desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 # ⛔ REFUSE AN UNKNOWN FLAG BEFORE ANY WORK HAPPENS. This script dispatched on
 # `"--x" in sys.argv` and otherwise fell through to its main path, so a mistyped
@@ -71,8 +72,7 @@ def compile_block(src):
     d = scratch.mkdtemp(prefix="x86lean-readme-")
     f = os.path.join(d, "Block.lean")
     open(f, "w").write(src)
-    r = subprocess.run(["lake", "env", "lean", f],
-                       capture_output=True, text=True)
+    r = lean_route.run("lean", [f])
     out = (r.stdout + r.stderr).strip()
     # ⚠️ `lean` exits 0 on a `sorry` warning, so the text is checked too: a
     # block closed by `sorry` compiles and proves nothing.

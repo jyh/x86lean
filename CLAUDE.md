@@ -108,6 +108,26 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
   Method lessons from anywhere arrive as IDEAS in the Captain's words, never as files or code.
 - Salt tooling and lessons (personal lane) are usable freely.
 
+## Building — NEVER BARE `lake` ON THIS BOX (fleet law, ratified 2026-08-06; homed here 2026-09-14, desk MB)
+- ⛔ **Every `lake build` and every `lake env lean FILE` goes through `../saltbuild.sh`** — the fleet's
+  one-heavy-job lock, `LEAN_NUM_THREADS=4`, `-M 24000`, and a line in the fleet audit log. The rule exists
+  because five seats at default parallelism exhausted 64 GB plus 8 GB of swap in one morning (two OOM
+  incidents); a heavy elaboration reaches 6–9 GB. Never pipe it; judge only the printed `saltbuild EXIT=N`.
+- ✅ **From a script, the door is `scripts/lean_route.py`** (`lean_route.run("build"|"lean", args)` in Python;
+  `python3 scripts/lean_route.py build|lean …` from a shell). It takes the wrapper when `../saltbuild.sh`
+  exists beside this checkout and bare `lake` where it cannot (a CI runner — a private box with one job),
+  **prints the route on stderr either way**, strips the wrapper's own stdout lines by a grammar it refuses to
+  guess at, and exits **2** (REFUSED, never a verdict) when the wrapper never started Lean.
+- ⛔ **`scripts/check_lean_route.py` reds any tracked `.py`/`.sh` that calls `lake build` or `lake env lean`
+  directly** (CI `build` job and `preflight.sh`). Exempt and PRINTED as exempt: `lake env <compiled binary>`
+  (x86lean-axioms peaked 0.35 GB, x86lean-diff `emit` 1.19 GB — measured 2026-09-14) and `lake env lean
+  --version`. Found by math's sibling sweep (bus 09/13 23:57); the red-first run counted **19 call sites in
+  14 scripts**, not the three the desk row carried.
+- ⚠️ **The route is a measurement CONDITION.** The wrapper's 4-thread cap is not the machine default D150
+  measured under, a child's wall time now includes any lock wait, and `kernel_cost.py --emit-json` records
+  `lean_route` beside its conditions. Delta tools compare both trees under one route; A′'s yukon ceilings
+  carry ×3. A timing taken before 2026-09-14 and one after are different conditions — say which.
+
 ## The plan of record
 The seat repo's plan brief for this campaign — `2026-09-02-PLAN-x86lean-personal-DRAFT.md`,
 mercutio's draft at the Captain's word, as amended by the helm's rulings in the boot brief: theorems on the three

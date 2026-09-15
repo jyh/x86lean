@@ -34,6 +34,7 @@ if __name__ == "__main__":
     _strict_flags(__file__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from portable import child_cpu, sub_cpu  # noqa: E402
+import lean_route  # noqa: E402  desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 # ⭐⭐ P2 BATCH 25 (D123) — THE ROOT IS A SEAM, AND IT EXISTS SO THAT ONE
 # MEASUREMENT IMPLEMENTATION SERVES BOTH GATES.  `kernel_delta.py` profiles a
@@ -727,9 +728,9 @@ def profile_module(f):
     """
     u0, s0, _cpu_src = child_cpu()
     t0 = time.time()
-    r = subprocess.run(
-        ["lake", "env", "lean", "-D", "profiler=true", "-D", "profiler.threshold=100000", f],
-        capture_output=True, text=True)
+    # ⚠️ desk MB: on the wrapper route `real_s` includes any wait for the fleet lock and the CPU
+    # figures include the wrapper's shell; the gated `ms` is the profiler's own and moves with neither.
+    r = lean_route.run("lean", ["-D", "profiler=true", "-D", "profiler.threshold=100000", f])
     real_s = time.time() - t0
     u1, s1, _ = child_cpu()
     # ⛔ ABSENT, NOT ZERO — and `real_s` is unaffected because `time.time()` is
@@ -874,10 +875,8 @@ def vector_count():
 # first attempt at this looked impossible too.
 def per_declaration(f, threshold_ms=100):
     """[(line, name, ms)] for one module, kernel time attributed by source line."""
-    r = subprocess.run(
-        ["lake", "env", "lean", "--json", "-D", "profiler=true",
-         "-D", f"profiler.threshold={threshold_ms}", f],
-        capture_output=True, text=True)
+    r = lean_route.run("lean", ["--json", "-D", "profiler=true",
+                                "-D", f"profiler.threshold={threshold_ms}", f])
     if r.returncode != 0:
         print(f"⛔ {f} did not compile under the per-declaration profiler:\n{r.stderr}")
         sys.exit(2)
@@ -1029,8 +1028,7 @@ def emit_json():
     for i, a in enumerate(sys.argv):
         if a == "--decl-modules" and i + 1 < len(sys.argv):
             want = [x for x in sys.argv[i + 1].split(",") if x]
-    b = subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
-                       capture_output=True, text=True)
+    b = lean_route.run("build", ["X86", "Tests", "X86Native"])
     if b.returncode != 0:
         sys.stderr.write(f"⛔ {os.getcwd()}: `lake build` failed, so every reading "
                          f"below would be about a tree that does not compile.\n"
@@ -1079,7 +1077,11 @@ def emit_json():
                       # conditions.  Additive: nothing above changed meaning.
                       "cpu": cpu,
                       "conditions_before": cond_before,
-                      "conditions_after": cond_after}))
+                      "conditions_after": cond_after,
+                      # ⭐ desk MB, additive: the route is a CONDITION — the wrapper caps
+                      # LEAN_NUM_THREADS at 4, so readings on either side of 2026-09-14
+                      # are different conditions and this field says which.
+                      "lean_route": lean_route.route()[0]}))
     return 0
 
 
@@ -1934,8 +1936,7 @@ def main():
     if "--emit-json" in sys.argv:
         return emit_json()
     register = "--register" in sys.argv
-    subprocess.run(["lake", "build", "X86", "Tests", "X86Native"],
-                   capture_output=True, text=True)
+    lean_route.run("build", ["X86", "Tests", "X86Native"])
     ceil, decl_ceils, tail_ceils = read_ceilings()
     nrows = roster_size()
     nvecs = vector_count()
