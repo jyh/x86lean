@@ -683,14 +683,20 @@ direct second source this work still lacks, and for the SSE forms it would first
 \src{docs/CLAIMS.tsv[liblisa\_groups]; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221; the quoted ``118 000'' keeps libLISA's own spacing, which the prose check reads since D235}
 A public Isabelle/HOL entry in the Archive of
 Formal Proofs gives over-approximative semantics for roughly 120 x86-64 assembly instructions, with
-symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ build a machine model with
-small-step semantics for 1{,}625 instructions, leveraging machine-learned semantics, and generate
-equivalence proofs between decompiled machine code and big-step semantics~\cite{roessle-bigstep};
-Verbeek et al.\ lift stripped binaries to a provably over-approximative representation exportable to
-Isabelle/HOL~\cite{verbeek-lifting}. We have read their abstracts, not their artifacts, and do not
-position x86lean against them.
+symbolic execution of basic blocks and a parser for disassembler output~\cite{afp-x86}. Roessle et al.\ extract a machine model
+with small-step semantics for 1{,}625 instruction variants from the semantics stratified synthesis learned,
+and generate equivalence proofs between decompiled machine code and big-step semantics~\cite{roessle-bigstep};
+Verbeek et al.\ lift stripped binaries to a representation that provably over-approximates their execution
+paths, exportable to Isabelle/HOL, and take sound instruction semantics as an assumption~\cite{verbeek-lifting}.
+We have read these papers, not their artifacts, and do not position x86lean against them: the first counts
+instruction variants rather than mnemonics, and the second is about lifting, not an instruction set.
 \src{docs/CLAIMS.tsv[afp\_instructions, roessle\_instructions]; abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
-and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220}
+and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220;
+the two papers read at the authors' PDFs 2026-09-14 (ssrg.ece.vt.edu/papers/cpp2019.pdf and pldi22.pdf, titles and authors matched to
+their DOI records): CPP 2019 section 1, ``a machine learned and formally tested x86-64 machine model containing 1625 instructions variants (IVs)'',
+and section 2, ``Strata demonstrates trustworthy semantics for 692 instructions, which through generalization arguments expands to 1625 IVs'';
+PLDI 2022 section 1, ``a representation that contains an overapproximation of all possible execution paths of the binary'' (abstract) and
+``We also assume the existence of sound instruction semantics''; docs/DECISIONS.md D246}
 What x86lean adds is the subject of Sections~\ref{sec:undef}--\ref{sec:gated}: an undefined-bit design
 whose limits are stated as theorems, a differential harness whose disagreement classes and wrong-model
 controls are explicit, and coverage and validation claims that are derived and checked rather than
@@ -712,6 +718,12 @@ each attribution re-read at its source 2026-09-13 (D236): the PLDI 2019 abstract
 10.1145/3314221.3314601, ``has been tested against more than 7,000 instruction-level test cases''; arXiv:1705.01225's
 abstract, ``run co-simulations against an actual x86 processor for model validation''; the PLDI 2016 title, ``Automatically
 Learning the x86-64 Instruction Set''}
+The check against a processor can itself
+be a proof: the model extracted from those learned semantics was tested in Isabelle/HOL by lemmas, each
+proving the step function's result for a pre-state whose post-state a processor had computed~\cite{roessle-bigstep}.
+\src{CPP 2019 section 6, read at the authors' PDF 2026-09-14: ``For each IV, we create Isabelle/HOL test lemmas'';
+``The post-execution states are computed using dynamically generated binaries executed on live x86-64 hardware (Skylake
+architecture)''; 886 variants tested, two failing; docs/DECISIONS.md D246}
 Using XED as a trusted decoder is not a clean contrast with x86isa either: 186 of the 3{,}192 entries in
 x86isa's opcode maps were generated from XED's data files.
 \src{docs/CLAIMS.tsv[x86isa\_xed\_entries, x86isa\_inst\_entries]; docs/TACAS-G1-POSITIONING.md 1c.3 and 1c.9}
@@ -735,12 +747,13 @@ model's execution traces were compared against the Spike reference simulator~\ci
 \src{docs/CLAIMS.tsv[armstrong\_avs\_asl\_only, armstrong\_avs\_tests], which read this reading's record, docs/DECISIONS.md D223 (D235); Armstrong et al., POPL 2019, section 7 (Validation), read at cl.cam.ac.uk/\textasciitilde pes20/sail/sail-popl2019.pdf
 2026-09-12: ``Of those 15 400 tests, currently 24 (0.15\%) pass on the ASL model but not on the Sail model'';
 ``compare the trace outputs of the Sail model and a version of Spike''; docs/DECISIONS.md D223}
-That a model should state its own fidelity is not our idea either: the Isabelle/HOL model and the lifting
-work above describe theirs as over-approximative~\cite{afp-x86,verbeek-lifting}. What the fidelity tier of
+That a model should state its own fidelity is not our idea either: the Isabelle/HOL model above describes
+its semantics as over-approximative~\cite{afp-x86}. What the fidelity tier of
 Section~\ref{sec:model} adds is that the statement is made per form, as data that is checked against the AST.
-\src{isa-afp.org/entries/X86\_Semantics.html, ``purposefully incomplete, but overapproximative''; the
-abstract for DOI 10.1145/3519939.3523702 (api.semanticscholar.org, read 2026-09-12), ``provably overapproximative''; X86/Coverage.lean inductive Tier and
-the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md D223}
+\src{isa-afp.org/entries/X86\_Semantics.html, ``purposefully incomplete, but overapproximative''; X86/Coverage.lean inductive Tier and
+the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md D223. This sentence also cited the lifting work
+(verbeek-lifting) until 2026-09-14; its over-approximation is of a binary's execution paths, and it assumes the instruction
+semantics (PLDI 2022 section 1), so it states no model's fidelity: docs/DECISIONS.md D246}
 
 % ---------------------------------------------------------------------------------------------
 \section{Limitations and Conclusion}

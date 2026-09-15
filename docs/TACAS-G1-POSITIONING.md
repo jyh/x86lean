@@ -88,7 +88,7 @@ systems" was a count of the columns, not of the designs.** ✅ **Theory read the
 resolve to `unknown_flags i f`"*, and *"We do not make use of @{const undefined}, since that could be used
 to prove that the semantics of two undefined behaviors are equivalent."* ⇒ the unknown value is keyed by
 (instruction, flag name); x86lean's by a stream position. Now a row of the paper's Table 1; whether it IS the CPP 2019
-1,625-instruction model is NOT established (the counts differ by an order of magnitude); *Formalizing x86-64 ISA
+1,625-instruction model is NOT established (the counts differ by an order of magnitude); ✅ **ANSWERED 2026-09-14 (D246), by reading both papers: it is NOT.** PLDI 2022 §5.2 says *"We have developed a formal model of the semantics of roughly 120 different x86-64 assembly instructions"*, the AFP page's own phrase, with floating point *"mapped to uninterpreted functions"*. The CPP 2019 model is extracted from Strata's learned semantics (*"692 instructions, which through generalization arguments expands to 1625 IVs"*, §2), with jumps, call, push, pop and the parity flag written by hand. ⚠️ **The CPP 2019 unit is the instruction VARIANT, not the mnemonic**: its abstract says "1625 instructions", its body says "1625 instructions variants (IVs)". The `roessle_instructions` value is unchanged, and the paper now uses the body's unit; *Formalizing x86-64 ISA
 in Isabelle/HOL: A Binary Semantics for eBPF JIT Correctness* (link.springer.com, chapter
 10.1007/978-981-96-0602-3_11). **None is read. Each is a column this table may owe before the paper says
 anything about "the" x86-64 semantics.**
