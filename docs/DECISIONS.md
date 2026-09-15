@@ -16822,6 +16822,19 @@ case. Registered `X86.SoftFloat @ku 221`; **A′ re-run: CLEAN**, every ku readi
 - ⚠️ **The runner has no `X86.SoftFloat` ms ceiling.** This PR's `kernel-delta` job measures the merge ref on the runner and will
   refuse ONCE on the unregistered new unit, printing the runner's reading. That registration touches a PROFILER_PATH, so it cannot
   follow the row's head inside this step; it lands in its own step, exactly as `X86.Program`'s runner line did.
+  ✅ **Landed:** PR #19 → `b64e845`, from the refusal PR #18's job printed (head 6.6 ms ⇒ `50 @on runnervmlun5p`). PR #19's `kernel-delta` CI then
+  passed on the runner.
 - ⚠️ A `@ku` line is dead once its module has a base. Nothing polices a stale one; it is dated so a reader can see it.
 - ⚠️ The row's `allowance` has no `X86.SoftFloat` entry (no base reading exists for a new unit), so a drift window spanning this step
   reports that unit UNPRICED — the drift gate's existing, stated behaviour for a unit absent from some steps.
+
+### 7. THE CI READINGS AROUND THESE LANDINGS, RECORDED BECAUSE THEY ARE ITEM 4'S LAW ON THE RUNNER
+```
+  run (runnervmlun5p)                 tree                         unit                                     verdict
+  PR #17 merge ref (pull_request)     = 53c4823's tree             Tests.Coverage +1,550 ±564.5 / 3,628.8   CLEAN
+  master 53c4823 (push)               53c4823                      Tests.Coverage +1,250 ±3,735.5 / 3,027.6 UNMEASURABLE (rc 3), job red
+  PR #18 merge ref                    = e76e4ba's tree             Tests.Coverage +850 ±1,378.0 / 3,420.0   ok; job refused on X86.SoftFloat NEW only
+  master e76e4ba (push)               e76e4ba                      @decl memDestSweep +695 ±495.2 / 864.7   UNMEASURABLE, and X86.SoftFloat NEW
+```
+⇒ **Two runs of the same tree on the same runner label read bands 6.6× apart** (±565 and ±3,736), and ku-delta was CLEAN in every one of these
+runs. **The CI job reds on rc 3 wherever D251 would license the step.** Whether the job should learn D251's rule is posted to the helm and not built.
