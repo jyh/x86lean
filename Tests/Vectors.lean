@@ -889,7 +889,7 @@ def vectors : List Vec :=
   --
   -- ⭐ SAR IS THE ONE REAL ADDITION, AND ITS CF IS DEFINED WHERE SHL's AND
   -- SHR's IS NOT.  The SDM's undefined clause names "SHL and SHR instructions
-  -- where the count is greater than or equal to the size of the destination
+  -- where the count is greater than or equal to the size (in bits) of the destination
   -- operand" — SAR has NO such clause, because shifting right by more than the
   -- width still has an answer: every vacated bit, and the last one out, is the
   -- SIGN.  So `sar_b9` (count 9 at width 8) draws NO oracle bit for CF where

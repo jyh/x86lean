@@ -634,19 +634,143 @@ def judge_ratchet(nl, want, ledger_rel="docs/delta-allowance-ledger.jsonl"):
                 # when the branch was just cut. A branch owing a measurement has
                 # been waiting, so master has moved, so the default is wrong in
                 # the case this refusal fires in.
-                f"     python3 scripts/kernel_delta.py --base $(git rev-parse HEAD) \\\n"
-                f"         --head <branch> --out R.json      # PIN THE BASE\n"
-                f"     git merge --no-ff --no-commit <branch>\n"
-                f"     python3 scripts/kernel_drift.py --record --readings R.json\n"
+                # ⛔⛔ AND IT PRESCRIBED `git merge --no-ff --no-commit` LOCALLY UNTIL
+                # D251 — a ritual written before master was PROTECTED (2026-09-14),
+                # which merges on the forge. The forge form below is derived from
+                # `records_step`, not from habit: the row's `head` must be an
+                # ancestor of the chain's child (so MERGE COMMIT, never squash or
+                # rebase-merge) and its `base` must be the child's first parent (so
+                # a master that moves before the merge means RE-RECORD).
+                f"   master is PROTECTED, so the row rides IN THE PR (D251):\n"
+                f"     git fetch origin && git rebase origin/master   # ONE `.lean` commit\n"
+                f"     B=$(git rev-parse origin/master)\n"
+                f"     python3 scripts/kernel_delta.py --base $B --head HEAD --out R.json\n"
+                f"     # only if that says UNMEASURABLE (rc 3) — ARM A′ decides in its place:\n"
+                f"     python3 scripts/ku_delta.py --base $B --head HEAD --arm a-prime --json KU.json\n"
+                f"     python3 scripts/kernel_drift.py --record --readings R.json [--a-prime KU.json]\n"
                 f"     git add {ledger_rel} && git commit\n"
-                f"   so the row rides INSIDE the merge commit and needs no commit "
-                f"of its own.")
+                f"   then merge the PR with a MERGE COMMIT. `--record` refuses a step the "
+                f"verdicts do not license; if master moves before the merge, the row's "
+                f"base is no longer the step's parent — rebase and record again.")
     if nl < want:
         return (f"⛔ {nl} unrecorded `.lean` step(s) against a ceiling of {want} — "
                 f"the gap SHRANK and the ratchet still claims the old slack, which "
                 f"is where the next unrecorded landing would hide. Lower it: "
                 f"`--gap --write-ratchet`, in the commit that earned it.")
     return None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE LANDING RULE — arm (a) of the A′ fork (D251)
+# ══════════════════════════════════════════════════════════════════════════════
+# ⛔⛔ THE MERGE RULE LIVED IN NO TOOL. QUEUE item 3 says "the kernel-delta gate
+# stays the merge gate", and until D251 nothing enforced it: `--record` read a
+# readings file's BASE readings and never its verdict, so a run that came back
+# OVER would have written a row as readily as a CLEAN one. None of the kernel
+# jobs is a required check on master. The rule was a discipline, and a gate
+# whose precondition is a discipline is switched off by the first head who
+# forgets. [[feedback-a-gate-whose-precondition-is-a-discipline]]
+# ⇒ `--record` is the one step every `.lean` landing performs (`--gap` reds a
+# landing without its row), so the rule goes HERE.
+#
+# ⚖️ ARM (a): the ms delta gate decides where it can. Where it cannot (rc 3,
+# UNMEASURABLE: the per-run band swallowed the budget, QUEUE item 4), ARM A′ —
+# Δku for every module plus an absolute ms ceiling on three (D240) — decides in
+# its place, on the SAME base and head. The ROW is unchanged: it is still priced
+# from that ms run's base readings, so the drift window keeps its ms units.
+# ⛔ A′ NEVER OVERRULES A CONVICTION. rc 1 means a unit was over budget beyond
+# this run's own noise; "the other instrument did not see it" is no answer to
+# that, and A′ is blind to two kinds of kernel work by construction (D228).
+# ⛔ AND A SUPPLIED A′ CONVICTION IS NEVER IGNORED, even beside an ms CLEAN. A
+# rule that consults a verdict only when it helps is a rule that reads the
+# reassuring direction.
+LANDED_MS, LANDED_A_PRIME = "ms", "a-prime"
+
+
+def landing_rule(ms_rc, ms_data, ku=None, ku_rc=None):
+    """(landed_on, None) when this step may land and its row be recorded, or
+    (None, the refusal) when it may not.
+
+    `ms_rc` is the ms delta verdict RECOMPUTED from `ms_data`; `ku_rc` is ARM A′'s
+    verdict RECOMPUTED from `ku` against today's registry. Neither is read from a
+    file's own say-so (see `recompute_verdicts`)."""
+    if ms_data.get("planted"):
+        return None, ("⛔ the readings are a PLANTED probe (`planted: true`). A probe "
+                      "measures the gate; it is never a landing.")
+    if ku is not None:
+        why = _a_prime_refusal(ms_data, ku, ku_rc)
+        if why:
+            return None, why
+    if ms_rc == 0:
+        return LANDED_MS, None
+    if ms_rc == 1:
+        return None, ("⛔ the ms delta gate FAILED: a unit is over its budget beyond "
+                      "this run's own noise. ARM A′ does not overrule a conviction — it "
+                      "is blind to literal arithmetic and large no-unfolding terms "
+                      "(D228), so its CLEAN is no answer to a measured excess. Do not "
+                      "record this row.")
+    if ms_rc == 3:
+        if ku is None:
+            return None, ("⛔ the ms delta gate is UNMEASURABLE (rc 3): this run's band "
+                          "swallowed the budget, so ms cannot decide this step. Under "
+                          "D251 ARM A′ decides in its place, on the SAME pair:\n"
+                          f"     python3 scripts/ku_delta.py --base {ms_data['base_rev']} \\\n"
+                          f"         --head {ms_data['head_rev']} --arm a-prime --json KU.json\n"
+                          "     python3 scripts/kernel_drift.py --record --readings R.json "
+                          "--a-prime KU.json")
+        return LANDED_A_PRIME, None
+    return None, (f"⛔ ms verdict rc {ms_rc} is not a verdict about the change "
+                  f"(0 CLEAN · 1 FAILED · 3 UNMEASURABLE are). Nothing is recorded.")
+
+
+def _a_prime_refusal(ms_data, ku, ku_rc):
+    """Why a supplied A′ result cannot stand beside these ms readings, or None."""
+    if ku.get("arm") != "a-prime":
+        return (f"⛔ the A′ file was run with --arm {ku.get('arm')!r}. ARM A without its "
+                f"ms ceilings passes the work A′ exists to catch at ANY size (D228); "
+                f"only --arm a-prime decides a landing.")
+    if ku.get("planted"):
+        return "⛔ the A′ file is a PLANTED probe (`planted: true`); it is never a landing."
+    pair_ms = (ms_data.get("base_rev"), ms_data.get("head_rev"))
+    pair_ku = (ku.get("base_rev"), ku.get("head_rev"))
+    if pair_ms != pair_ku:
+        return (f"⛔ the two verdicts are about DIFFERENT steps: ms "
+                f"{str(pair_ms[0])[:9]}→{str(pair_ms[1])[:9]}, A′ "
+                f"{str(pair_ku[0])[:9]}→{str(pair_ku[1])[:9]}. Re-run A′ on the pair "
+                f"the ms readings measured.")
+    if ku.get("rc") != ku_rc:
+        return (f"⛔ the A′ file says rc {ku.get('rc')} and its readings, judged against "
+                f"TODAY's registry, give rc {ku_rc}. A budget or a ceiling moved since "
+                f"the run (or the file was edited); re-run A′ rather than choose.")
+    if ku_rc != 0:
+        found = "\n".join(f"     {f}" for f in ku.get("findings") or [])
+        return (f"⛔ ARM A′ FAILED on this step (rc {ku_rc}), so it may not land on "
+                f"A′'s word:\n{found}")
+    return None
+
+
+def recompute_verdicts(ms_data, ku, default_ms, budgets, floor, ceilings):
+    """(ms_rc, ku_rc) — both verdicts RE-DERIVED from their readings, never read
+    from the file. ⛔ A stored rc is a claim written by whichever run produced it;
+    the landing rule judges the readings against the registries in THIS tree.
+    [[feedback-a-derivation-gate-wraps-a-false-sentence]]"""
+    ms_rc, _ = kd.verdict(ms_data, default_ms, budgets, floor, quiet=True,
+                          ceilings=ceilings)
+    ku_rc = None
+    if ku is not None:
+        import ku_delta
+        ku_rc, _ = ku_delta.verdict(ku, "a-prime", quiet=True)
+    return ms_rc, ku_rc
+
+
+def landing_record(landed_on, ms_rc, ku):
+    """The row's `landed_on` field — AUDIT ONLY, dead to every verdict path, like
+    `base_ms`. It says which instrument decided the step, so a window of rows can
+    be read for how many landed on A′'s word rather than the clock's."""
+    rec = {"verdict": landed_on, "ms_rc": ms_rc}
+    if ku is not None:
+        rec["a_prime_machine"] = ku.get("machine")
+    return rec
 
 
 def accumulated_allowance(steps, ledger, digest):
@@ -1418,6 +1542,95 @@ def selftest():
        "a single reading a side is UNMEASURABLE (infinite band), never silently "
        "decided — a 500 ms delta against a 400 ms allowance included", plant="single-reading refusal")
 
+    # ── F. THE LANDING RULE (D251) ─────────────────────────────────────────────
+    # ⭐ THE VERDICTS ARE THE SHIPPED ONES. Each case below is judged by
+    # `kernel_delta.verdict` and `ku_delta.verdict` on synthetic readings — the
+    # same fixtures their own selftests use for rc 0 / 1 / 3 — so an arm here is
+    # about the RULE over real verdicts, and a check that the fixture really
+    # produces its rc comes first. [[feedback-a-plant-probes-control-comes-first]]
+    print("\nF. THE LANDING RULE — which verdicts license `--record` (D251):")
+    import ku_delta as kud
+    ms_clean = kd._synthetic({"M": 100.0}, {"M": 110.0})
+    ms_over = kd._synthetic({"M": 100.0}, {"M": 200.0})
+    ms_unmeas = kd._synthetic({"M": 100.0}, {"M": 105.0}, jitter=80.0)
+    ms_budget = {"M": ("abs", 50.0)}
+    reg_dir = scratch.mkdtemp("x86lean-landingrule-")
+    reg = os.path.join(reg_dir, "ku_budget.txt")
+    with open(reg, "w", encoding="utf-8") as fh:
+        fh.write("@floor 10\nX86.Basic @ms @on selftestbox 267\n")
+    saved_reg, kud.BUDGET_FILE = kud.BUDGET_FILE, reg
+    try:
+        def ku_file(head_ms, **over):
+            d = {"base_rev": ms_clean["base_rev"], "head_rev": ms_clean["head_rev"],
+                 "planted": False, "box": "fixture", "machine": "selftestbox",
+                 "base_ku": {"X86.Basic": 15856}, "head_ku": {"X86.Basic": 15856},
+                 "base_ms": {"X86.Basic": 80.0}, "head_ms": {"X86.Basic": head_ms},
+                 "arm": "a-prime"}
+            rc, findings = kud.verdict(d, "a-prime", quiet=True)
+            d.update(rc=rc, findings=findings)
+            d.update(over)
+            return d
+
+        def rule(ms, ku=None):
+            ms_rc, ku_rc = recompute_verdicts(ms, ku, None, ms_budget, None, {})
+            return landing_rule(ms_rc, ms, ku, ku_rc)
+
+        ku_ok, ku_bad = ku_file(80.0), ku_file(474.0)
+        rcs = [recompute_verdicts(m, None, None, ms_budget, None, {})[0]
+               for m in (ms_clean, ms_over, ms_unmeas)]
+        ok(rcs == [0, 1, 3] and (ku_ok["rc"], ku_bad["rc"]) == (0, 1),
+           f"CONTROL — the fixtures really are ms CLEAN / FAILED / UNMEASURABLE "
+           f"(rc {rcs}) and A′ CLEAN / FAILED (rc {ku_ok['rc']}, {ku_bad['rc']}), by "
+           f"the shipped verdicts")
+        ok(rule(ms_clean) == (LANDED_MS, None),
+           "an ms-CLEAN step records, on the ms verdict")
+        on, why = rule(ms_over, ku_ok)
+        ok(on is None and "does not overrule a conviction" in (why or ""),
+           "an ms-FAILED step REFUSES, and an A′ CLEAN beside it does not rescue it",
+           plant="A′ overrules a conviction")
+        on, why = rule(ms_unmeas)
+        ok(on is None and "--arm a-prime --json KU.json" in (why or ""),
+           "an UNMEASURABLE step with no A′ REFUSES, and the refusal names the command "
+           "that would decide it", plant="UNMEASURABLE records bare")
+        ok(rule(ms_unmeas, ku_ok) == (LANDED_A_PRIME, None),
+           "⭐ an UNMEASURABLE step with A′ CLEAN on the same pair RECORDS, on A′'s verdict "
+           "— the wall item 4 names, moved")
+        on, why = rule(ms_unmeas, ku_bad)
+        ok(on is None and "ARM A′ FAILED" in (why or "") and "ms ceiling X86.Basic" in why,
+           "an UNMEASURABLE step with A′ FAILED REFUSES and quotes A′'s finding",
+           plant="A′ FAILED ignored")
+        on, why = rule(ms_clean, ku_bad)
+        ok(on is None and "ARM A′ FAILED" in (why or ""),
+           "a SUPPLIED A′ conviction is never ignored, even beside an ms CLEAN",
+           plant="supplied conviction ignored")
+        for label, bad, needle, plant in (
+                ("--arm a", ku_file(80.0, arm="a"), "--arm 'a'", "arm a accepted"),
+                ("a planted A′ file", ku_file(80.0, planted=True), "PLANTED", "planted A′"),
+                ("A′ on a different pair", ku_file(80.0, head_rev="2" * 40),
+                 "DIFFERENT steps", "pair mismatch"),
+                ("an A′ file claiming CLEAN over readings that FAIL",
+                 ku_file(474.0, rc=0, findings=[]), "TODAY's registry", "stored rc trusted")):
+            on, why = rule(ms_unmeas, bad)
+            ok(on is None and needle in (why or ""), f"{label} REFUSES, naming `{needle}`",
+               plant=plant)
+        on, why = rule(dict(ms_clean, planted=True))
+        ok(on is None and "PLANTED" in (why or ""),
+           "a PLANTED ms probe never records, even when CLEAN", plant="planted ms")
+        # ⛔ THE FIELD IS AUDIT-ONLY, and the arm is the same shape as `base_ms`'s:
+        # a window judged over rows that differ ONLY in `landed_on` must not move.
+        tagged = {s[0]: dict(_row(*s, {"G": 100.0}),
+                             landed_on=landing_record(LANDED_A_PRIME, 3, ku_ok))
+                  for s in st}
+        a_tag, _, _ = accumulated_allowance(st, tagged, DIG)
+        ok(a_tag == a_big and judge_window(gb, gh, a_tag)[0]["verdict"] == v_big,
+           "`landed_on` is dead to the window: rows tagged A′ price and judge exactly "
+           "as untagged ones", plant="landed_on read")
+        ok(landing_record(LANDED_A_PRIME, 3, ku_ok) ==
+           {"verdict": "a-prime", "ms_rc": 3, "a_prime_machine": "selftestbox"},
+           "...and the record says which instrument decided, the ms rc, and A′'s machine")
+    finally:
+        kud.BUDGET_FILE = saved_reg
+
     print()
     if fails:
         print(f"⛔ drift-gate selftest: {len(fails)} FAILED")
@@ -1605,6 +1818,17 @@ def main():
         saved = kd.arg("--readings")
         if saved:
             data = json.load(open(saved, encoding="utf-8"))
+            # ⚖️ THE LANDING RULE (D251), BEFORE ANYTHING IS PRICED OR WRITTEN.
+            ku_path = kd.arg("--a-prime")
+            ku = json.load(open(ku_path, encoding="utf-8")) if ku_path else None
+            ms_rc, ku_rc = recompute_verdicts(data, ku, default_ms, budgets, floor,
+                                              kd.read_ceilings())
+            landed_on, why = landing_rule(ms_rc, data, ku, ku_rc)
+            if why:
+                refuse(why)
+            print(f"landing rule (D251): ms verdict rc {ms_rc}"
+                  + ("" if ku is None else f" · ARM A′ rc {ku_rc} on {ku.get('machine')}")
+                  + f" ⇒ this step lands on the {landed_on} verdict")
             base_units = {}
             for r in data["readings"]["base"]:
                 for u, v in kd.units_of(r, data.get("decl_map", decl_map)).items():
@@ -1614,6 +1838,7 @@ def main():
                              allowances_for(med, default_ms, budgets, floor),
                              base_ms=med, digest=digest, source="gate",
                              conditions=kd.pass_conditions(data)))
+            rows[-1]["landed_on"] = landing_record(landed_on, ms_rc, ku)
         walk = kd.arg("--backfill")
         if walk:
             import delta_repair_price as drp

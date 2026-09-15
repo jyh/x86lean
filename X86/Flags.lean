@@ -221,7 +221,7 @@ def shiftFlags (k : ShiftKind) (sz : Size) (a res : Val) (n : Nat)
     match k with
     -- ⭐ SAR's CF IS DEFINED WHERE SHL's AND SHR's IS NOT, and the SDM says so in
     -- as many words: the undefined clause names "SHL and SHR instructions where
-    -- the count is greater than or equal to the size of the destination
+    -- the count is greater than or equal to the size (in bits) of the destination
     -- operand".  SAR has no such clause, because shifting a value right by more
     -- than its width still has a well-defined answer — every vacated bit, and
     -- the last one out, is the SIGN.  So no oracle draw here.

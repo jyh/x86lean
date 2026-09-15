@@ -56,6 +56,79 @@ theorem table_rows_distinct :
 
 theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
+/-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
+
+`rosterP0`'s docstring said `Tests/Coverage.lean` *"checks that this list and the
+set of `Op.mnemonic` values agree, so the coverage table cannot drift from the
+AST"*.  The two theorems above check it against `tableP0` — a second
+hand-maintained list — and **nothing quantified over what `Op.mnemonic` can
+produce**.
+
+⛔ AND THE CLAIM COULD NOT HAVE BEEN TRUE.  The condition families are
+deliberately abstracted: the roster names `jcc`, `setcc` and `cmovcc` as FORMS,
+while `Op.mnemonic` yields the ~48 spellings (`je`, `sete`, `cmovne`, …).  A gate
+written to those words reports forty-eight mismatches on its first run, every one
+of them intended.
+⇒ 🔑 **A CLAIM FALSIFIED IN BULK BY DESIGN IS A CLAIM NOBODY WILL EVER TEST, AND
+THE ONE REAL VIOLATION HIDES INSIDE THE NOISE OF THE INTENDED ONES.**
+
+⭐ SO THIS GATE IS STATED WHERE THE CLAIM IS ACTUALLY MEANT: over the kind enums
+whose KINDS ARE THEMSELVES ROSTER ENTRIES.  Measured over every such enum with an
+`all` list, all are clean but one:
+```
+   VMovKind [] · VShufpKind [] · RepPrefix [] · MulDivKind [] · DShiftKind []
+   VMovMskKind ["movmskps"]        <- the gap
+```
+`VMovMskKind` has two kinds; its sibling `pmovmskb` IS a roster entry and
+`movmskps` is not — so ONE constructor is both named-per-kind and not.  The model
+can express and print a form the coverage table does not name and no vector
+exercises, and the direction is the unpoliced one: the AST is WIDER than the
+claim, which looks like modesty.
+
+⛔ CARRIED AS A DECLARED EXCEPTION WITH ITS DATE, NEVER AS AN ABSENCE, because an
+absence is what let it sit here.  Claiming `movmskps` is a batch (a roster entry,
+a coverage row, a vector, a differential run); the day it lands, this list
+empties and `unclaimed_kind_mnemonics_are_exactly_the_declared_ones` fails until
+the entry is deleted — which is the point.  -/
+def declaredUnclaimedKindMnemonics : List String :=
+  -- 2026-09-06: implemented as a `VMovMskKind` kind (the batch-36 field change)
+  -- and never claimed. 53 instructions of demand; `p2_residue.py` prints it as
+  -- the WHOLE buildable-today residue.
+  ["movmskps"]
+
+/-- Every mnemonic the roster-bearing kind enums can produce is either NAMED by
+the roster or DECLARED above with a reason.  No wildcard: a new kind is in
+neither list and fails here. -/
+theorem kind_mnemonics_are_named_or_declared :
+    ((VMovKind.all.map VMovKind.mnemonic
+      ++ VShufpKind.all.map VShufpKind.mnemonic
+      ++ VMovMskKind.all.map VMovMskKind.mnemonic
+      ++ RepPrefix.all.map RepPrefix.mnemonic
+      ++ MulDivKind.all.map MulDivKind.mnemonic
+      ++ DShiftKind.all.map DShiftKind.mnemonic).all (fun m =>
+        rosterP0.contains m || declaredUnclaimedKindMnemonics.contains m)) = true := by
+  decide
+
+/-- ⭐ AND THE DECLARED LIST IS EXACTLY THE UNCLAIMED ONES — gated for ORPHANS in
+the other direction, so an entry left behind after its batch lands is a RED and
+not a comment nobody re-reads.  This is the half that makes the exception list
+shrink on its own. -/
+theorem unclaimed_kind_mnemonics_are_exactly_the_declared_ones :
+    (declaredUnclaimedKindMnemonics.all (fun m => !(rosterP0.contains m))) = true := by
+  decide
+
+/-! ⚠️ AND ITS VACUITY IS THE RIGHT VACUITY, which is worth saying because the
+usual instinct is to guard against it.  A first draft of this block also asserted
+`declaredUnclaimedKindMnemonics.length = 1` — a non-vacuity guard — and that
+theorem FIRES ON ITS OWN REPAIR: claiming `movmskps` empties the list, which is
+the good event, and the guard would have gone red for it.
+⇒ 🔑 A NON-VACUITY GUARD OVER A BACKLOG CONVICTS WHOEVER CLEARS THE BACKLOG.
+Here the emptiness IS the success condition, so the theorem above is allowed to
+become vacuous — and when it does, `kind_mnemonics_are_named_or_declared` is
+carrying the whole claim on its own, which is exactly what should happen.
+[[feedback-an-arm-whose-fixture-is-the-backlog]] -/
+
+
 /-- And the literal, stated ONCE, so that growing the roster is a visible
 one-line change rather than a silent one.  P0 left here with twenty; batch 2
 added `adc`/`sbb`, batch 5 `jrcxz`/`jecxz`, batch 6 `setcc`/`cmovcc`, batch 7 `sar`, batch 8 the four rotates, batch 9 the four bit-tests, batch 10 `movzx`/`movsx`, the six accumulator sign-extensions, `xchg` and `bswap`, batch 11 the three loop predicates and the five flag-control singles, batch 12 `nop`/`ud2`/`retq`/`leaveq`, batch 13 `sarx`/`shlx`/`shrx`/`movbe`, batch 14 the bit-counting six, batch 15 the string five (`movs`/`stos`/`lods`/`cmps`/`scas`), batch 16 the three repeat prefixes (`rep`/`repe`/`repne`, standing for the roster's five prefix spellings by `repSpellings`), batch 17 the multiply-divide four (`mul`/`imul`/`div`/`idiv`, `imul` being the only mnemonic here spread over TWO constructors), batch 18 `cmpxchg`, `xadd` and the double-shift pair `shld`/`shrd` (two names for ONE constructor, as `shl`/`shr`/`sar` are).
@@ -643,6 +716,124 @@ OUTSIDE the span rather than not at all. -/
 theorem memory_window_margin_is_fixed :
     (preStates 1 8).all (fun s =>
       s.mem.read 0x1ff0 == 0xA0 && s.mem.read 0x2008 == 0xB8) = true := by decide
+
+/-! ### ⭐⭐ THE PRE-STATE'S FIXED ADDRESSES, MADE CHECKABLE (2026-09-06, row ES item 3)
+
+These four registers and two segment bases are the only addresses `mkPre` fixes,
+and until now every claim about them was a COMMENT: *"RBX and RSP are fixed so
+the memory windows mean the same thing in every vector"*, *"`fsBase + 0x28 =
+0x2000`"*, *"forty bytes apart, so no width overlaps the other, and one step in
+EITHER direction stays inside the watched window"*.
+
+⛔ THE REASON TO CONVERT THEM NOW IS NOT TIDINESS.  The hardware co-simulation
+fork (`docs/COSIM-DESIGN.md` §7.2) turns on whether these addresses can be MOVED:
+both `0x1fe0` and `0x7fe0` are below the 0x10000 floor that Linux AND Windows put
+under a user mapping, so a hardware runner either lowers a sysctl (Linux only) or
+relocates — and relocation is a rewrite of ~200 literal sites in which `0x8000`
+is BOTH the stack pointer AND the 16-bit sign boundary of the `adversarial`
+sweep.  A blind rename would silently change WHAT IS TESTED while appearing to
+change only WHERE IT RUNS.
+
+⇒ ⭐ AND MY OWN FIRST ANSWER WAS THE MORE EXPENSIVE HALF.  §7.7 recommended
+NAMING the anchors — turning the literals into `def`s — and naming is not what
+buys the safety, because a renamed constant is still one edit away from a wrong
+relocation and nothing would say so.  What buys it is a THEOREM that reads the
+anchors OUT OF THE PRE-STATES and states their relationship to `windows`: get a
+relocation wrong afterwards and the KERNEL says so, whether the addresses are
+literals or names.  The names cost kernel time in a `decide`-hot fold; the
+theorems cost none of the hot path and are strictly stronger.
+⇒ 🔑 A REFACTOR AND AN ASSERTION ARE NOT TWO ROUTES TO THE SAME PLACE — the
+assertion is what makes the refactor SAFE, so it is the half to buy first, and
+the half to buy if only one is bought.
+
+⚠️ Every one of these reads the anchors from `preStates`.  A list of the six
+addresses written out here would be a COPY of `mkPre`, not a reading of it, and
+two copies of one fact agree exactly when both are wrong. -/
+
+/-- ⭐⭐ EVERY ADDRESS `mkPre` FIXES LANDS IN A WATCHED WINDOW, with its widest
+access fitting.  `segmentedAddressesLandInAWatchedWindow` says this of the eight
+SEGMENTED vectors' computed addresses; nothing said it of the anchors themselves,
+so `rsi`, `rdi` and the two segment bases were resting on a comment.
+
+⚠️ Eight bytes for every anchor, which is STRICTER than the truth for the narrow
+accesses — the direction a bound may err in. -/
+theorem anchors_land_in_a_watched_window :
+    ((preStates 1 8).all (fun s =>
+      [s.regs.rsi, s.regs.rbx, s.regs.rdi, s.regs.rsp,
+       s.fsBase + 0x28, s.gsBase + 0x28].all (fun a =>
+        windows.any (fun w =>
+          w.base ≤ a && a + 8 ≤ w.base + BitVec.ofNat 64 w.len)))) = true := by
+  decide
+
+/-- ⭐⭐⭐ AND EACH ANCHOR SITS AT A DECLARED OFFSET FROM ITS WINDOW'S BASE — OR
+AT A DECLARED DEPARTURE FROM ONE.  This is the theorem that makes a relocation
+two numbers: change the two `windows` bases and every fixed address must follow
+by exactly these offsets, or this goes red.
+
+⛔⛔ MY FIRST VERSION OF THIS THEOREM WAS FALSE AND THE KERNEL SAID SO, which is
+the whole reason it is worth having.  I wrote it as a property of `mkPre` and
+then quantified it over `preStates` — **a superset**.  Four of these states are
+built by `mkStringPtr` and deliberately put RSI and RDI at width boundaries
+(`0x1fff`/`0x7fff`, `0x2000`/`0x8000`), because P1 batch 15 needed a string
+pointer that CROSSES one.
+⇒ 🔑 A CLAIM ABOUT ONE CONSTRUCTOR, ASSERTED OVER A LIST THAT SEVERAL
+CONSTRUCTORS FEED, IS A CLAIM ABOUT THE WRONG SUBJECT — and the direction it
+fails in is the loud one only because a kernel was checking.  Written as prose it
+would have read as true, because `mkPre` really does fix those registers.
+
+⭐ AND THE REPAIR IS STRONGER THAN THE CLAIM I MEANT TO MAKE.  Rather than
+narrowing the subject back to `mkPre`, the departures are NAMED: RSI and RDI may
+be the anchor **or** one of the two boundary values, each written as an offset
+from a window base so it relocates with everything else.  A NEW constructor that
+quietly moves an anchor to some fourth value now goes red here, which the
+`mkPre`-only version would have permitted in silence.
+
+⛔ THE `| _ => false` ARM IS LOAD-BEARING.  A wildcard returning `true` would
+make the whole claim vacuous the day `windows` grows a third entry — the shape
+whose gaps all fall the silent way — so a changed window COUNT fails here rather
+than passing by not applying. -/
+theorem anchors_are_declared_offsets_or_declared_departures :
+    ((preStates 1 8).all (fun s =>
+      match windows with
+      | [d, k] =>
+          -- Never moved by any constructor in this file.
+          s.regs.rbx == d.base + 0x20 && s.regs.rsp == k.base + 0x20
+            && s.fsBase == d.base - 0x08 && s.gsBase == d.base + 0x08
+          -- Moved, deliberately, by `mkStringPtr` and to exactly these two
+          -- width boundaries — one in each window.
+            && (s.regs.rsi == d.base + 0x08
+                || s.regs.rsi == d.base + 0x1f || s.regs.rsi == d.base + 0x20)
+            && (s.regs.rdi == d.base + 0x30
+                || s.regs.rdi == k.base + 0x1f || s.regs.rdi == k.base + 0x20)
+      | _ => false)) = true := by
+  decide
+
+/-- ⭐ AND THE TWO SEGMENT BASES REACH THE OPERANDS THEY WERE CHOSEN TO REACH.
+`mkPre`'s note says *"`fsBase + 0x28 = 0x2000` and `gsBase + 0x28 = 0x2010` — the
+two swept operands in the data window"*, and that sentence is the entire reason
+the FS and GS cases address anything meaningful.  A base edited to a plausible
+neighbour would leave both segment vectors reading margin bytes, which both
+models would render identically.
+
+⚠️ THE GS HALF IS STATED ABOUT THE ADDRESS, NOT ABOUT RDI, and that is the same
+correction as above rather than a stylistic choice: `0x2010` is where the swept
+operand LIVES, and RDI merely points there in the states `mkPre` builds.  My
+first version compared `gsBase + 0x28` to `s.regs.rdi` and the kernel refuted it
+on the two string-boundary states — where RDI is somewhere else on purpose and
+the operand has not moved at all. -/
+theorem segment_bases_reach_their_declared_operands :
+    ((preStates 1 8).all (fun s =>
+      match windows with
+      | [d, _] => s.fsBase + 0x28 == d.base + 0x20 && s.gsBase + 0x28 == d.base + 0x30
+      | _ => false)) = true := by
+  decide
+
+/-- ⚠️ AND THE TWO BASES DIFFER, which is what makes FS and GS distinguishable at
+all.  `mkPre`'s note argues it — *"with one base for both, a model that read GS's
+base for an FS access would agree in every case"* — and an argument is not a
+gate. -/
+theorem segment_bases_are_distinct :
+    ((preStates 1 8).all (fun s => s.fsBase != s.gsBase)) = true := by decide
 
 /-- ⭐ SOME VECTOR PUTS A MEMORY OPERAND IN A `cmp` DESTINATION.  This is the
 shape a `cmp` that writes its result back is invisible without — the harness

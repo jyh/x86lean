@@ -2164,8 +2164,26 @@ def Op.mnemonic : Op → String
   | .cmpxchg8b .. => "cmpxchg8b"
 
 /-- The mnemonic NAMES this model implements, as data.  `Tests/Coverage.lean`
-checks that this list and the set of `Op.mnemonic` values agree, so the coverage
-table cannot drift from the AST.
+checks this list against `tableP0` in BOTH directions, so the coverage table and
+this list cannot drift apart.
+
+⛔⛔ THIS DOCSTRING USED TO SAY the check was against *"the set of `Op.mnemonic`
+values"*, *"so the coverage table cannot drift from the AST"*.  IT IS NOT, AND
+NO SUCH CHECK EXISTS.  The two theorems compare this list to `tableP0` — a
+second hand-maintained list — and nothing anywhere quantifies over what
+`Op.mnemonic` can PRODUCE.
+⇒ AND THE CLAIM COULD NOT HAVE BEEN TRUE, because the condition families are
+deliberately abstracted: this list names `jcc`, `setcc` and `cmovcc` as FORMS
+while `Op.mnemonic` yields the ~48 condition spellings (`je`, `sete`, `cmovne`,
+…).  A gate written to the docstring's words would report forty-eight
+mismatches on its first run, every one of them intended.
+⇒ 🔑 **A CLAIM FALSIFIED IN BULK BY DESIGN IS A CLAIM NOBODY WILL EVER TEST, AND
+THE ONE REAL VIOLATION HIDES INSIDE THE NOISE OF THE INTENDED ONES.**  The real
+violation is `movmskps` — `VMovMskKind` has two kinds, its sibling `pmovmskb` IS
+a roster entry, and `movmskps` is not, so ONE constructor is both named-per-kind
+and not.  `Tests/Coverage.lean`'s `kind_mnemonics_are_named_or_declared` now
+gates the kind enums where a kind IS a roster entry, and carries that gap as a
+DECLARED exception with its date rather than as an absence.
 
 The first twenty are P0's roster; `adc` and `sbb` are P1 batch 2.  The name is
 still `rosterP0` because every downstream reference is to "the roster this model
