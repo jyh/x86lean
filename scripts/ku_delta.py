@@ -622,7 +622,20 @@ def selftest():
 # n=4000 is the smallest of these that clears a ×3 ceiling with room to spare; the
 # smaller sizes are recorded because a plant that only just clears is a plant that
 # will stop clearing on a quieter box.
-K3_N = 4000
+# ⛔⛔ AND THE QUIETER BOX ARRIVED: THE RUNNER'S FAST VM CLASS (ARMA-1, D244). The runner's ceiling
+#   is worst-of-16 x3 = 567 ms on X86.Basic, and D243 measured the VMs `ubuntu-latest` draws under
+#   ONE machine name spanning 0.58x-1.1x of the median. Re-measured 2026-09-14 on this box, one file,
+#   `import X86.Basic`, kernel `type checking` per declaration:
+#       K3 n=4000     365 ms   (D240's +385 reproduced within 5% -- the control)
+#       K3 n=8000   1,630 ms   (x4.5: super-linear, as D228 measured)
+#   Predicted on the runner from the per-module local<->runner factor (fast class ~1.13x this box,
+#   typical ~1.95x): n=4000 reads ~99 + 365x1.13 = ~511 ms on a FAST draw -- UNDER 567, a MISS, so the
+#   measured red-first arm would have flaked on which VM the job drew. n=8000 reads ~1,940 (3.4x) fast
+#   and ~3,350 (5.9x) typical. ⇒ SIZE THE PLANT TO THE GATE ON ITS FASTEST MACHINE, not to the box it
+#   was calibrated on. [[feedback-size-the-plant-to-the-gate-not-the-phenomenon]]
+#   ⚠️ The runner figures are PREDICTIONS from a factor measured on module readings; the CI job's
+#   own first runs are the measurement, and its summary prints the margin.
+K3_N = 8000
 
 
 def plant_ku_blind(n=K3_N):

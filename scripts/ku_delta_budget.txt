@@ -65,10 +65,11 @@
 # ⛔ A CEILING WITH NO `@on` IS ABSENT, NEVER A LOOSE BOUND (the helm's D198 rule
 # for the other registry, and it binds here for the same reason: the local<->runner
 # factor is per module, measured 1.6x-2.4x, and cannot be divided out of an
-# absolute number).  ⚠️ THE RUNNER HAS NO ENTRY YET AND A′ WILL REFUSE THERE — by
-# design, and loudly.  The refusal prints the runner's own reading, which is how
-# the second machine's lines get written; that is exactly how `X86.Program` and
-# `Tests.Program` got theirs in `kernel_ceilings.txt`.
+# absolute number).  ⚠️ UNTIL 2026-09-14 THE RUNNER HAD NO ENTRY AND A′ REFUSED THERE,
+# by design and loudly; its `ku-delta` job printed the runner's own readings every
+# run, and those readings are what the runner block at the end of this file was
+# registered from (ARMA-1, D244) — exactly how `X86.Program` and `Tests.Program` got
+# theirs in `kernel_ceilings.txt`.
 #
 # ⭐ DERIVED BY THE RULE `kernel_ceilings.txt`'s OWN HEADER STATES FOR ITS ABSOLUTE
 # LINES — `max(measured x 3.0, 50ms)` — on the WORST of four readings, which is
@@ -108,3 +109,29 @@
 X86.Basic @ms @on yukon.lan 278
 X86.Syntax @ms @on yukon.lan 879
 X86.Theorems @ms @on yukon.lan 3330
+
+# ── THE RUNNER (ARMA-1, D244) ───────────────────────────────────────────────
+# Registered 2026-09-14 by the rule above — max(worst x 3.0, 50 ms) — from the
+# `READINGS on runnervmlun5p` block of EVERY completed `ku-delta` job since the job
+# existed: 16 runs (push and pull_request), bd8fa81 .. 2f612fb, a window in which NO
+# Lean input changed, so all 16 are readings of one tree.
+#
+#     module          16 runner readings (ms, one pass each)                         worst   x3
+#     X86.Basic       171 173 175 157 173 166 173 141 161 178 99 189 169 181 178 166       189    567
+#     X86.Syntax      513 513 509 547 556 548 537 459 546 534 328 536 511 541 531 528       556   1668
+#     X86.Theorems   1920 1870 1940 1720 2010 1630 2070 1650 1680 2100 1140 1990 1890 2220 1990 1860  2220   6660
+#
+# ⛔ THE WORST OF SIXTEEN, NOT OF FOUR — and not a sample picked after reading it: the
+#   population is every job that exists, and a worst over more readings can only be
+#   higher than the worst of any four of them, which is the safe direction for a
+#   tripwire. [[feedback-a-sample-chosen-after-its-outcomes]]
+# ⛔⛔ ONE MACHINE NAME IS NOT ONE MACHINE (D243). The 11th column is a FAST VM draw
+#   (aa4e7777's push run): 0.58x the others on all three modules at once. A ceiling
+#   is judged against every VM class GitHub hands this job, so the margin that
+#   matters is worst x3 over the SLOWEST class seen: a draw would have to be 3x
+#   slower than the slowest of sixteen to red on load alone.
+# ⚠️ AND IT CUTS THE OTHER WAY FOR THE MEASURED RED-FIRST ARM: a plant must clear
+#   these ceilings on the FASTEST draw, which is why K3_N moved 4000 -> 8000.
+X86.Basic @ms @on runnervmlun5p 567
+X86.Syntax @ms @on runnervmlun5p 1668
+X86.Theorems @ms @on runnervmlun5p 6660

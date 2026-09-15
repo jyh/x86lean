@@ -2550,7 +2550,8 @@ lines. ⚠️ **DECISIONS.md is deliberately EXCLUDED from that price and should
 append-only record of what was measured ON A DATE, so a "stale" number in it is the point, not a defect.
 The sweep's subject is documents that describe the PRESENT.
 
-## ⚠️ ARMA-1 (NEW, 2026-09-13) — **A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK**
+## ✅ ARMA-1 (2026-09-13) — **CLOSED 2026-09-14 (D244): the runner's ceilings are registered from all 16 `ku-delta` jobs, the job runs `--arm a-prime`, and the measured red-first arm has its own job with the plant resized to K3 n=8000 for the fast VM class (D243).** The text below is the item as filed.
+*(Filed as: A′ IS WIRED ON THE RUNNER AS ARM A ONLY, AND THE HOLE IS THE HALF THAT SEES BLIND WORK.)*
 
 ⚖️ Follows the helm's ARM A′ ruling and D240. `ci.yml`'s `ku-delta` job runs `python3
 scripts/ku_delta.py --arm a` — the Δku half, which travels (D185: identical on two machines).

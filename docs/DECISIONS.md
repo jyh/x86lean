@@ -15887,3 +15887,138 @@ The bare route was read in a fresh clone with no sibling wrapper: `lean-route: v
 `ku_constructor_plant.py` and the full `kernel_delta`/`ku_delta` walks — each is minutes to tens of minutes
 of profiling or an ACL2 run, and each now reaches Lean only through `lean_route.run`, whose paths are the ones
 driven above. CI drives the bare route on the next push.
+
+## D243 — KN on the RUNNER: the base's wobble is the VM, it is multiplicative and invisible to load, and the percentage budget that "moves with the measurement" is the design that cancels it
+
+⚖️ **Desk `KN` asked:** *is the base's 1.34× variance the BOX, the MODULE, or the `--repeats` SAMPLING?* D212
+answered on the developer boxes (box; multiplicative; the module suspect refuted) and scoped itself: *"KN was
+minted on the RUNNER's readings … the attribution is measured HERE."* **This is the runner half, from data CI
+already emits — no run was started for it.** [[feedback-the-quiet-quantity-was-already-in-the-pass]]
+
+**THE INSTRUMENT THAT WAS ALREADY THERE.** `kernel-delta-redfirst`'s arm 1 profiles the SAME COMMIT as base and
+head, and its arm 2's BASE passes are the same unplanted tree again: **12 passes per run, one job, one VM**. Every
+completed run since `bd8fa81` — 16 runs across 8 shas (push + pull_request), and **no Lean input changed across
+the window** (`git diff bd8fa813 2f612fbf -- '*.lean' lakefile.toml lean-toolchain lake-manifest.json` is empty),
+so every pass is a reading of ONE tree.
+```
+                     within-run CV (12 passes)    BETWEEN-run CV of run medians    range of run medians
+  Tests.Coverage       median 0.029  max 0.048        0.109                          30,100 – 51,100 ms  (1.70x)
+  X86.Syntax           median 0.038  max 0.078        0.121                             327 – 608 ms     (1.86x)
+
+  r(run median Tests.Coverage, median pass wall-clock)    +0.950
+  r(run median Tests.Coverage, run median X86.Syntax)     +0.934
+  r(run median Tests.Coverage, load1)                     −0.242   over a load1 range of 1.83 – 2.09
+```
+### 1. ✅ IT IS THE BOX, AND "THE BOX" ON A HOSTED RUNNER IS THE VM THE JOB DRAWS
+Between-run spread is **3.8× the within-run spread** on Tests.Coverage. Every job reports the same machine name
+(`runnervmlun5p` — 16 of 16 `ku-delta` jobs), so **the name does not identify the hardware**: the fastest
+`redfirst` run (`7e5a8dc1`, pull_request) read 30,100 ms at 94 s a pass, the slowest (`5db1ecee`) 50,750 at 175 s.
+**And the draw is per JOB, not per run**: `aa4e7777`'s push run drew a fast VM for `ku-delta` (X86.Basic 99 ms
+against a median of ~172) while its `redfirst` job in the same run read an ordinary 44,300.
+### 2. ✅ MULTIPLICATIVE, COMMON TO EVERY MODULE — D212's mechanism, reproduced on the other population
+The whole pass gets faster or slower together (r = +0.95 with wall-clock) and the two modules move together
+(r = +0.93). A common factor on everything the VM does.
+### 3. ⛔ load1 CANNOT SEE IT — so "calibrate per-run on load" is not available
+r = −0.24 over a load1 band only 0.26 wide. **The hosted runner's load is flat and its speed is not.** A
+co-tenant, a CPU generation, a throttle: none of them move a load average inside the guest.
+### 4. ⛔ SAMPLING IS THE SMALL TERM — raising `--repeats` cannot reach the 1.34×
+Within-run CV ~3% is what `--repeats` averages down. **It does not touch the between-VM factor at all**, which
+is the part the four KN readings (45,300 / 38,100 / 42,900 / 33,700) were showing.
+
+### 5. ⭐⭐ AND THE CONSEQUENCE, WHICH REVERSES KN's SHARPEST SENTENCE
+KN: *"because the budget is a PERCENTAGE OF THE BASE it inherits the base's wobble directly — the bar moves with
+the measurement it is judging."* **Under a MULTIPLICATIVE, PER-JOB factor that is the property you want.** Base
+and head are profiled in one job on one VM, so the factor multiplies `d`, the band (from within-run passes) and
+the budget (a percentage of base) ALIKE, and `|d| + band < budget` is invariant to it. **A change that costs 3%
+costs 3% on a fast VM and on a slow one; an absolute bar would convict the slow draw and wave through the fast.**
+Measured, not only derived: arm 1's identical-tree `|Δ|/base` per run is median **1.05%**, max **5.3%**, and its
+correlation with the VM's speed is **+0.29 at n = 16 — not distinguishable from zero at this n** (the two-sided
+5% critical value is ~0.50). Stated at its real strength: **no evidence the relative verdict depends on the draw,
+from a sample that could only have shown a strong dependence.**
+⇒ 🔑 ***THE BAR MOVING WITH THE MEASUREMENT IS A DEFECT UNDER ADDITIVE NOISE AND THE CURE UNDER MULTIPLICATIVE
+NOISE, AND WHICH ONE YOU HAVE IS A MEASUREMENT, NOT A READING OF THE FORMULA.*** KN read the formula.
+
+### 6. ⛔ WHERE THE EXPOSURE ACTUALLY IS: EVERY ABSOLUTE ms NUMBER ON THE RUNNER
+The factor does NOT cancel in an absolute ceiling — `kernel_ceilings.txt`'s `X86.Program 792 @on runnervmlun5p`,
+and ARM A′'s runner ceilings (ARMA-1, D244). **A ceiling registered from readings taken on one VM class judges
+every other class.** Over these 16 draws the fastest VM read **0.58×** the others on `ku-delta`. Sized for that in
+D244, and the measured red-first arm's plant is sized for the FAST class, not the typical one.
+
+### KN — DISPOSITION
+**Answered on both populations; no remedy owed to the relative gate.** D212 (developer boxes) and this entry
+(runner) agree on the mechanism; the remedy menu's BOX branch is already implemented by the gate's own design
+(same-VM base, relative budget, within-run band), its MODULE branch was refuted by D212, and its SAMPLING branch
+is refuted here as unable to reach the variance. **What remains is not KN's**: the absolute runner ceilings,
+which D244 sizes against the between-VM range measured above.
+⚠️ **SCOPE:** 16 runs, 8 shas, one day and a half, `ubuntu-latest` as GitHub assigned it. A slower VM class than
+any drawn here would read above these medians; the relative gate is indifferent to that, the absolute ceilings
+are not, and D244 carries the margin that says how much slower it would have to be.
+
+## D244 — ARMA-1 closed: the runner's A′ ceilings registered from all sixteen jobs, `ku-delta` flipped to `--arm a-prime`, and the red-first plant resized for the FAST VM it would have missed on
+
+⚖️ **QUEUE ARMA-1's three steps, taken in order.** The item priced itself at *"one shift, most of it waiting on four
+runner runs."* By 2026-09-14 sixteen had accrued (other seats' pushes and PRs ran the job), so the waiting was
+already done. **Nothing was re-run to get them.**
+
+### 1. THE READINGS — every job, read from the channel that delivers them
+Harvested from every completed `ku-delta` job (16: push and pull_request, `bd8fa81` … `2f612fb`, no Lean input
+changed across the window). The `READINGS on runnervmlun5p` block was extracted by the tool's own line shape. The
+registry's table was then **re-derived from the harvest by script and compared value by value in order**, so
+the numbers in `ku_delta_budget.txt` were never typed.
+```
+  X86.Basic      worst  189 ms  x3   567
+  X86.Syntax     worst  556 ms  x3  1668
+  X86.Theorems   worst 2220 ms  x3  6660      --check-registry: all six A′ ceilings above the reading registry
+```
+⛔ **THE TRANSPORT SAID ZERO FIRST.** `gh api …/actions/jobs/<id>/logs` returned **0 bytes and rc 0 for all 47
+jobs**, an empty result that reads exactly like "no readings". `gh run view --job <id> --log` returned the logs
+(43–47 KB each). The zero was the transport, and one probe on a single job told the two cases apart before
+anything was concluded. [[feedback-probe-silence-has-two-causes]]
+
+### 2. ⭐ WORST OF SIXTEEN, AND WHY SIXTEEN MATTERS MORE THAN THE CONVENTION
+The repository's convention is worst of four. **Taking four of these sixteen would have been choosing a sample
+after reading it**, and the eleventh reading is the reason that matters: `aa4e7777`'s push run drew a VM that read
+**0.58×** the others on all three modules at once (D243: one machine name, several VM classes). A ceiling on the
+runner is judged against every class GitHub assigns, so its margin is worst ×3 **over the slowest draw seen**.
+
+### 3. ⛔⛔ THE PLANT D240 SIZED WOULD HAVE FLAKED ON THE FAST CLASS — measured before the arm moved into CI
+D240 fixed K3 n=4000 on this box, and its own comment warned that *"a plant that only just clears is a plant that
+will stop clearing on a quieter box."* The runner's fast VM class is that box. Re-measured 2026-09-14 in one file
+(`import X86.Basic`, kernel `type checking` per declaration):
+```
+  K3 n=4000     365 ms    D240's +385 reproduced within 5%: the control
+  K3 n=8000   1,630 ms    x4.5, super-linear as D228 measured
+                          predicted on the runner (fast class ~1.13x this box, typical ~1.95x):
+  n=4000  fast draw   ~99 + 365x1.13  = ~511 ms   vs 567   ⛔ MISS
+  n=8000  fast draw   ~1,940 ms (3.4x)        typical ~3,350 ms (5.9x)
+```
+⇒ `K3_N = 8000`. 🔑 ***SIZE A PLANT TO THE GATE ON ITS FASTEST MACHINE, NOT TO THE BOX IT WAS CALIBRATED ON:
+under a multiplicative VM factor an absolute ceiling is loosest exactly where a plant is cheapest.***
+⚠️ The runner figures are predictions from a factor measured on module readings. The new job's first runs are the
+measurement, and its step summary prints the verdict block.
+
+### 4. WHAT CHANGED
+```
+  scripts/ku_delta_budget.txt   three `@on runnervmlun5p` ceilings + the 16-reading table, the VM-class
+                                warning, and the header's "the runner has no entry" made past tense
+  scripts/ku_delta.py           K3_N 4000 -> 8000, with the measurement above in the comment
+  ci.yml  ku-delta              --arm a  ->  --arm a-prime; summary retitled
+  ci.yml  ku-delta-redfirst     NEW: --selftest-measure, its own job, NO cancel-in-progress (D224's
+                                reason); priced ~25 min a push from the 16 jobs' median of 13.4 min a pair
+```
+Local: `ku_delta --selftest` 21/21 · `--check-registry` rc 0.
+
+### 5. ⛔ FOUND WHILE MEASURING, AND IT IS D242's COST, NOT THIS ENTRY's: A WALK QUEUES ONCE PER INVOCATION
+The first attempt at §3 ran the whole `--selftest-measure` locally. After D242 every `lean` call in it goes
+through `../saltbuild.sh`, and **each call re-joined the fleet queue**: the lock log shows it waiting 187 s, then
+behind another seat's 157 s wait, **still on its first module's base profile after ten minutes** while another
+repository's builds ran between its passes. A walk of ~100 invocations would take hours under that contention.
+⇒ **The fleet rule is right and the cost is real: per-invocation locking is correct for a build and slow for a
+timing walk.** It was stopped, and the plant was measured with one invocation instead (§3).
+⇒ **FILED AS A DESIGN FORK, NOT BUILT:** a walk could hold the lock ONCE for its whole duration (the flock that
+`saltbuild.sh` and verso's `heavy_slot.py` share) and run its inner calls under the same thread cap, provided
+`lean_route` can tell that the lock is already held by its own process tree. That touches a fleet mechanism, so it
+goes to the bus before it goes near code.
+⛔ **AND STOPPING IT LEFT TWO WORKTREES**: `ku_delta`'s cleanup runs on its way out, and a TERM is not a way out.
+They were removed by hand (`git worktree list` then showed 0 `kudelta` entries). D163 recorded this shape for
+`kernel_delta`: killing a timing run is the ordinary case.
