@@ -16977,3 +16977,17 @@ are SIMD"*. The COVERAGE table held **76** rows with an `x` operand at master `e
   - Selftest arms 8 → 11, and every new arm is caught.
 - ⚠️ **The rule counts ROWS with an XMM operand.** It says nothing about which rows are floating point. The README's parenthetical
   list of groups is still prose.
+
+### 4. THE LANDING MEASUREMENT
+Step `e5ec828` → `85b7d52`, pre-registered on the fleet bus before either profile started.
+```
+  ms   kernel_delta --repeats 6   CLEAN rc 0    Tests.Anchors +19.5 ±15.1 against 123.8   predicted ~+18
+                                                every other unit ~0                       predicted ~0
+  A′   ku_delta --arm a-prime     CLEAN rc 0    Tests.Anchors Δku +15,344 against 51,304   predicted ~+25,000 (HIGH)
+                                                every other module +0
+  D251 --record … --a-prime       RECORDED      lands on the ms verdict; --gap 0
+```
+⚠️ **The ms prediction was right and the ku one was high by 60%**, in the same direction as every prediction in D253 §7.
+**Two kernel `decide`s of 77 rows cost 15,344 unfoldings where batch 38's two of 40 rows cost 14,308** — nearly twice the rows for
+7% more unfoldings, so the per-row cost is not what dominates. A `decide` over a list has a fixed part, and I keep pricing these as
+if it were linear.
