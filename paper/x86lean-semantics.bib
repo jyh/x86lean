@@ -1,6 +1,6 @@
 % Bibliography for x86lean-semantics.tex.
 % Every DOI record was fetched from the registrar (docs/TACAS-G6-RELATED-WORK.md 5), never recalled.
-% Repository entries name the URL recorded in PROVENANCE.md.
+% Repository entries name the URL recorded in PROVENANCE.md, and carry a sort key (splncs04 warned on all four until D249).
 
 @manual{intel-sdm,
   title        = {Intel 64 and {IA}-32 Architectures Software Developer's Manual, Combined Volumes 1--4},
@@ -10,16 +10,22 @@
   note         = {{Order Number} 325462-092US, \url{https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html}}
 }
 
-@misc{goel-x86isa,
-  author = {Goel, Shilpi},
-  title  = {The x86isa Books: Features, Usage, and Future Plans},
-  year   = {2017},
-  eprint = {1705.01225},
-  archivePrefix = {arXiv},
-  doi    = {10.48550/arXiv.1705.01225}
+% The published version, not the preprint (D249): the arXiv PDF's own footer reads "EPTCS 249, 2017, pp. 1-17,
+% doi:10.4204/EPTCS.249.1", and Crossref's record for that DOI matches title, author, volume and pages.
+@inproceedings{goel-x86isa,
+  author    = {Goel, Shilpi},
+  title     = {The x86isa Books: Features, Usage, and Future Plans},
+  editor    = {Hunt, Jr., Warren and Slobodova, Anna},
+  booktitle = {ACL2 Theorem Prover and its Applications},
+  series    = {EPTCS},
+  volume    = {249},
+  pages     = {1--17},
+  year      = {2017},
+  doi       = {10.4204/EPTCS.249.1}
 }
 
 @misc{x86isa-repo,
+  key   = {ACL2 x86isa},
   title = {{ACL2} x86isa},
   note  = {\url{https://github.com/acl2/acl2}, \texttt{books/projects/x86isa/}}
 }
@@ -34,16 +40,19 @@
 }
 
 @misc{k-x86-repo,
+  key   = {K x86-64},
   title = {{K} x86-64 semantics},
   note  = {\url{https://github.com/kframework/X86-64-semantics}}
 }
 
 @misc{sail-x86-repo,
+  key   = {Sail x86},
   title = {Sail x86 model, translated from the {ACL2} model},
   note  = {\url{https://github.com/rems-project/sail-x86-from-acl2}}
 }
 
 @misc{lnsym-repo,
+  key   = {LNSym},
   title = {{LNSym}},
   note  = {\url{https://github.com/leanprover/LNSym}}
 }
@@ -57,13 +66,14 @@
   doi       = {10.1145/2908080.2908121}
 }
 
+% Article 71 (the paper's own footer); the pages 1--31 carried until D249 did not locate the article.
 @article{armstrong-isa,
   author  = {Armstrong, Alasdair and Bauereiss, Thomas and Campbell, Brian and Reid, Alastair and Gray, Kathryn E. and Norton, Robert M. and Mundkur, Prashanth and Wassell, Mark and French, Jon and Pulte, Christopher and Flur, Shaked and Stark, Ian and Krishnaswami, Neel and Sewell, Peter},
   title   = {{ISA} Semantics for {ARMv8-A}, {RISC-V}, and {CHERI-MIPS}},
   journal = {Proceedings of the ACM on Programming Languages},
   volume  = {3},
   number  = {POPL},
-  pages   = {1--31},
+  pages   = {71:1--71:31},
   year    = {2019},
   doi     = {10.1145/3290384}
 }
@@ -96,13 +106,15 @@
   issn    = {2150-914x}
 }
 
+% Article 283, per the paper's ACM Reference Format. Crossref's 333--361, carried until D249, is issue pagination
+% that appears nowhere on the paper itself.
 @article{liblisa,
   author  = {Craaijo, Jos and Verbeek, Freek and Ravindran, Binoy},
   title   = {{libLISA}: Instruction Discovery and Analysis on x86-64},
   journal = {Proceedings of the ACM on Programming Languages},
   volume  = {8},
   number  = {OOPSLA2},
-  pages   = {333--361},
+  pages   = {283:1--283:29},
   year    = {2024},
   doi     = {10.1145/3689723}
 }

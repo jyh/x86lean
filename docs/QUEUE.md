@@ -2678,6 +2678,24 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
+## ⚠️ SDM-QUOTE-1 (2026-09-15) — **THREE LEAN COMMENTS MISQUOTE THE SDM, AND THE FIX RIDES THE NEXT `.lean` LANDING (D249 §3)**
+The SAL/SAR/SHL/SHR CF clause reads *"the size (in bits) of the destination operand"* (325462-092US, and the Dec 2023 text).
+Six copies in this repository dropped "(in bits)" with no ellipsis, five of them written in `fb8e706`. D249 fixed the three
+documentary ones. **Owed, each a one-word comment edit with the line count unchanged:**
+```
+  X86/Flags.lean:224       the SAR comment in shiftFlags (194, in the same file, quotes it whole)
+  X86/Coverage.lean:202    "that is the SDM's own wording rather than a simplification"
+  Tests/Vectors.lean:892   the SAR vector-group comment
+```
+**Why not now:** a comment-only `.lean` step still owes a drift-ledger row (`kernel_drift --gap`, ratchet 0; precedent `d5608a7` →
+`1757672`, a local two-tree `kernel_delta` run). **Take it inside the next `.lean`-changing PR.** The normalised sweep in D249 §3
+(whitespace and comment markers removed, every tracked text file) is the check: it must end at seven copies, none truncated.
+⚠️ **AND THAT PR IS THE FIRST `.lean` STEP SINCE MASTER BECAME PROTECTED (2026-09-14 11:28).** The ritual `judge_ratchet` prints
+(`git merge --no-ff --no-commit <branch>` then `--record`, "the row rides INSIDE the merge commit") assumes a local merge; a
+protected master merges on the forge. Read from `records_step`, a row recorded on the PR branch with `head` = the branch's
+pre-record commit may satisfy it (that commit is reachable from the merge and differs from it only in the ledger), but a strict
+rebase replaces that sha. **UNTESTED — price it before that PR, not during it.**
+
 ## ✅ CLAIM-1 (2026-09-11) — **BUILT AND LANDED 2026-09-13 (D241).** Arm (B): the sentence is rendered from a table, and the load is carried by the tree
 
 ⚖️ Hard half answered in **D239** (the records do NOT name their oracle — 2 of 44; and the value set is
