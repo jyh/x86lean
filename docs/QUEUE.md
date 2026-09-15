@@ -2590,6 +2590,9 @@ moves the counter by **+0**. ⇒ **On the runner today that plant lands green.**
 ✅ **THE NEXT STEP IS ONE COMMIT AND IT IS NAMED, not a hope.** The `ku-delta` step PRINTS this
 runner's own readings for the three ceiling modules on every run, with the line it would register.
 ```
+  ⛔ STEP 1's CHANNEL WAS FALSE AS WRITTEN (D245, 2026-09-14): the jobs object has NO summary field.
+     The API route is the job's LOG, `gh api --allow-escape-sequences …/actions/jobs/<id>/logs`, served
+     once the JOB ends; since D245 the line to read is `READINGS-JSON`. See ARMA-2.
   1  read the READINGS off four `ku-delta` runs on the runner, from each JOB's STEP SUMMARY
      (`gh api repos/jyh/x86lean/actions/jobs/<id>` -> the summary; or the job page). Worst of
      four, this repository's convention -- ⛔ NOT the single pass one step prints, which is one
@@ -2611,11 +2614,31 @@ complete and the readings never arrive at all. Measured: `ku-delta` concluded `s
 ⇒ 🔑 ***A STEP THAT PRINTS THE THING SOMEBODY NEEDS HAS NOT DELIVERED IT UNTIL THE CHANNEL IT PRINTS ON
 IS READABLE WHEN THEY NEED IT.*** They now go to `$GITHUB_STEP_SUMMARY`, which is attached to the JOB and
 readable as soon as the job ends. The extraction was driven against the gate's real output, not assumed.
+⛔ *(D245: readable IN A BROWSER only, never on the API, while the premise above, that the log waits for the whole
+run, is false for the API. And the extraction was driven against ARM A's output, so it read nothing once D244 moved
+the job to A′.)*
 
 ⚠️ **UNTIL THEN, THE ms HALF'S ONLY HOME IS A HUMAN RUNNING IT ON THE DEVELOPER BOX** — and a gate
 whose precondition is that somebody remembers is switched off by the first person who forgets
 [[feedback-a-gate-whose-precondition-is-a-discipline]]. That is the reason this row exists rather
 than a note in a bank, and the reason it is ranked above CLAIM-1.
+
+## ✅ ARMA-2 (2026-09-14) — **FILED AND CLOSED IN ONE LANDING (D245): the readings are a `READINGS-JSON` line in the job's log for a harvester, and a summary the tool renders for a person.**
+*(Filed as: the bank's "ARMA READINGS CHANNEL IS BROWSER-ONLY". Measured before building, and half of it was false.)*
+
+```
+  premise    "the log is withheld until the WHOLE run completes"   FALSE for the API: GET actions/jobs/<id>/logs
+                                                                   is HTTP 200 once the JOB ends (two runs, two
+                                                                   jobs, both runs in_progress; a running job 404)
+             "the summary is not on the API"                       TRUE: 23 keys, 0 summary; check run output null
+  who refuses  gh run view --job --log  (whole run)  ·  gh api without --allow-escape-sequences   both rc 1
+  ⛔ found    since D244's --arm a-prime the summary carried NO READINGS: its `sed` read a block only ARM A prints
+  built      ku_delta.py owns both channels: READINGS-JSON in both arms (+ the control in --selftest-measure),
+             --summary OUT.md; CI publishes the file and reds a missing one. Selftest 21 -> 34, 6/6 mutations.
+  not built  a check run: a channel the log already serves, for data with no third conclusion (D245 §3)
+```
+⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
+runner. Read one job's log through the route above before trusting the route in a harvest.
 
 ## ✅ CLAIM-1 (2026-09-11) — **BUILT AND LANDED 2026-09-13 (D241).** Arm (B): the sentence is rendered from a table, and the load is carried by the tree
 

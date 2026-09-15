@@ -82,7 +82,7 @@ and nothing else** (12 commits × 1 module), which is D229 §4's finding one lev
 down. That walk is the OPEN ITEM, it is cheap now that a ku reading is seconds
 rather than minutes, and it can only tighten these budgets.
 
-  ku_delta.py [--base REV] [--head REV] [--arm a|a-prime] [--json OUT]
+  ku_delta.py [--base REV] [--head REV] [--arm a|a-prime] [--json OUT] [--summary OUT.md]
   ku_delta.py --check-registry
   ku_delta.py --selftest
 
@@ -423,10 +423,70 @@ def verdict(data, arm, quiet=False):
                       f"{'   ⛔ OVER' if over else ''}")
 
     if not quiet:
+        print_readings(readings(data, ceilings))
         print(f"\n{data['box']}")
         print(f"arm {arm} · {data['base_rev'][:9]} → {data['head_rev'][:9]}"
               f"{' · PLANTED' if data['planted'] else ''}")
     return (1 if findings else 0), findings
+
+
+# ⭐⭐ THE ONE LINE A HARVESTER READS, AND WHY IT IS A LINE IN THE LOG (D245). Registering a
+# machine's ceilings means reading these numbers off many runner jobs (D244 read sixteen). The
+# job's step summary is a PAGE: measured 2026-09-14, the REST jobs object has no summary field
+# (23 keys, 0 matching) and the job's check run carries `output.summary: null`. The job's LOG is
+# served per job by `GET /repos/{owner}/{repo}/actions/jobs/{id}/logs` as soon as THE JOB ends,
+# while the run is still going (HTTP 200, 37,888 bytes, run `in_progress`). ⛔ But `gh run view
+# --job ID --log` REFUSES until the whole RUN completes, and `gh api` withholds a body carrying
+# terminal escapes unless given `--allow-escape-sequences`. Every runner log carries them.
+# ⇒ harvest: `gh api --allow-escape-sequences repos/jyh/x86lean/actions/jobs/<id>/logs`, take
+#   the text after this tag (the log prefixes each line with a timestamp), `json.loads` it.
+# The tag is printed at LINE START by this tool, so its shape is owned here and not by a `sed`.
+READINGS_TAG = "READINGS-JSON "
+
+
+def readings(data, ceilings):
+    """The ms reading of every unit A′'s registry gates by ms, on ANY machine, with THIS
+    machine's ceiling beside it — the same record under BOTH arms.
+
+    ⛔ A ROW PER UNIT, EVEN WITH NOTHING IN IT. A unit the profiler did not read, or one
+    with no ceiling on this machine, is a row of `None`s and never an omission, because an
+    omitted row reads as "nothing to report" [[feedback-unobserved-regions-report-agreement]].
+    The unit list comes from the registry, not from what was read."""
+    mach = data["machine"]
+    return {"machine": mach, "base_rev": data["base_rev"], "head_rev": data["head_rev"],
+            "planted": bool(data["planted"]),
+            "modules": {u: {"head_ms": data["head_ms"].get(u),
+                            "ceiling_ms": ceilings.get((u, mach))}
+                        for u in sorted({u for (u, _) in ceilings})}}
+
+
+def print_readings(r):
+    print(READINGS_TAG + json.dumps(r, sort_keys=True))
+
+
+def summary_md(r, arm, rc, findings):
+    """The job's step summary, rendered from `readings` — for a person at the run page."""
+    word = "CLEAN" if rc == 0 else f"FAILED, {len(findings)} finding(s)"
+    out = [f"## ku-delta · ARM {'A′' if arm == 'a-prime' else 'A'} · {r['machine']} — {word}",
+           "",
+           f"`{r['base_rev'][:9]}` → `{r['head_rev'][:9]}`"
+           f"{' · PLANTED' if r['planted'] else ''}. ARM A judges Δku only; A′ also judges the "
+           f"head's ms against the ceiling registered for this machine name. D243: one machine "
+           f"name is several VM classes, so a reading well under the others is a fast draw, "
+           f"not a cheaper tree.",
+           "",
+           "| module | head ms | ceiling here | of ceiling |",
+           "|---|---:|---:|---:|"]
+    for u, v in r["modules"].items():
+        got, ceil = v["head_ms"], v["ceiling_ms"]
+        pct = f"{100 * got / ceil:.0f}%" if got is not None and ceil else "—"
+        out.append(f"| {u} | {'—' if got is None else f'{got:,.0f}'} | "
+                   f"{'—' if ceil is None else f'{ceil:,.0f}'} | {pct} |")
+    out += [""] + [f"- ⛔ {f}" for f in findings]
+    out.append(f"\nThe same record, machine-readable, is the `{READINGS_TAG.strip()}` line in "
+               f"this job's log (see `READINGS_TAG` in `scripts/ku_delta.py` for how to read it "
+               f"while the run is still going).")
+    return "\n".join(out) + "\n"
 
 
 def report(rc, findings, arm):
@@ -584,6 +644,65 @@ def selftest():
                                cwd=ROOT, capture_output=True, text=True)
             check("A′ on a box with no ceiling REFUSES rather than passing",
                   r.returncode == 2 and "ARM A" in r.stdout)
+
+            # ── the readings, which BOTH arms must publish ─────────────────
+            # ⛔⛔ D245: UNDER D244's FLIP TO --arm a-prime THE CI SUMMARY CARRIED NO READINGS
+            # AT ALL. The step `sed`-extracted a `READINGS on` block that only ARM A prints,
+            # so the moment the job changed arm the extraction matched nothing, and it
+            # matched nothing SILENTLY, under a header saying "the readings below". So the
+            # block is built HERE, by the tool that owns its shape, and these arms read
+            # it in BOTH arms. Red-first: against stubs returning {} and "", all red.
+            reg2 = _fixture(tmp, "@floor 10\nX86.Basic @ms @on selftestbox 267\n"
+                                 "X86.Syntax @ms @on selftestbox 900\n"
+                                 "X86.Theorems @ms @on otherbox 5000\n")
+            globals()["BUDGET_FILE"] = reg2
+            _, ceil2 = read_registry(reg2)
+            rd = readings(blind, ceil2)
+            mods = rd.get("modules", {})
+            check("readings name every unit the registry gates by ms, on ANY machine",
+                  sorted(mods) == ["X86.Basic", "X86.Syntax", "X86.Theorems"])
+            check("a reading carries this machine's ceiling beside it",
+                  mods.get("X86.Basic") == {"head_ms": 474.0, "ceiling_ms": 267.0})
+            # the two ABSENCES are the arms: an omitted row reads as "nothing to report".
+            check("a gated unit the profiler did not read is a row with no reading, not a gap",
+                  mods.get("X86.Syntax") == {"head_ms": None, "ceiling_ms": 900.0})
+            check("a unit ceilinged only on ANOTHER machine is a row with no ceiling here",
+                  mods.get("X86.Theorems") == {"head_ms": None, "ceiling_ms": None})
+            check("readings carry the machine, the revisions and the plant flag",
+                  (rd.get("machine"), rd.get("base_rev"), rd.get("head_rev"), rd.get("planted"))
+                  == ("selftestbox", "a" * 40, "b" * 40, True))
+
+            import contextlib
+            import io
+            for arm in ("a", "a-prime"):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    verdict(dict(blind, head_ms={"X86.Basic": 474.0, "X86.Syntax": 12.0}),
+                            arm, quiet=False)
+                tagged = [l for l in buf.getvalue().splitlines() if l.startswith(READINGS_TAG)]
+                check(f"ARM {arm} prints exactly ONE {READINGS_TAG.strip()} line at line start",
+                      len(tagged) == 1)
+                try:
+                    got = json.loads(tagged[0][len(READINGS_TAG):]) if len(tagged) == 1 else None
+                except ValueError:
+                    got = None
+                check(f"ARM {arm}'s {READINGS_TAG.strip()} line round-trips to the readings",
+                      got == readings(dict(blind, head_ms={"X86.Basic": 474.0,
+                                                           "X86.Syntax": 12.0}), ceil2))
+
+            md_fail = summary_md(rd, "a-prime", 1, ["ms ceiling X86.Basic: 474 ms"])
+            md_ok = summary_md(readings(dict(blind, head_ms={"X86.Basic": 80.0}), ceil2),
+                               "a-prime", 0, [])
+            check("the summary has a row per gated unit",
+                  all(f"| {u} |" in md_fail for u in ("X86.Basic", "X86.Syntax", "X86.Theorems")))
+            check("the summary prints the reading and the ceiling it was judged against",
+                  "| X86.Basic | 474 | 267 | 178% |" in md_fail)
+            check("the summary says which rows had no reading or no ceiling here",
+                  "| X86.Syntax | — | 900 | — |" in md_fail
+                  and "| X86.Theorems | — | — | — |" in md_fail)
+            check("the summary names the verdict and every finding",
+                  "FAILED" in md_fail and "ms ceiling X86.Basic: 474 ms" in md_fail
+                  and "CLEAN" in md_ok and "FAILED" not in md_ok)
         finally:
             globals()["BUDGET_FILE"] = saved
 
@@ -684,6 +803,8 @@ def selftest_measure():
               f"below can be trusted.")
         return 2
     print(f"✅ Δku is exactly 0 on all {len(ctl['base_ku'])} modules")
+    # The control's ms too, not only the plant's: the plant's runner cost is the difference.
+    print_readings(readings(ctl, read_registry()[1]))
     for arm in ("a", "a-prime"):
         rc, f = verdict(ctl, arm, quiet=True)
         lines.append(f"control  arm {arm:8} rc {rc} {'CLEAN' if rc == 0 else f}")
@@ -744,6 +865,12 @@ def main():
     if out:
         with open(out, "w", encoding="utf-8") as fh:
             json.dump({**data, "arm": arm, "rc": rc, "findings": findings}, fh, indent=1)
+    md = kd.arg("--summary")
+    if md:
+        # Written only once a verdict exists: a refusal (rc 2) exits inside `verdict`, and
+        # the CI step reads a MISSING file as that case rather than as an empty summary.
+        with open(md, "w", encoding="utf-8") as fh:
+            fh.write(summary_md(readings(data, read_registry()[1]), arm, rc, findings))
     return report(rc, findings, arm)
 
 

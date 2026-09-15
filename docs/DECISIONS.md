@@ -16022,3 +16022,72 @@ goes to the bus before it goes near code.
 ⛔ **AND STOPPING IT LEFT TWO WORKTREES**: `ku_delta`'s cleanup runs on its way out, and a TERM is not a way out.
 They were removed by hand (`git worktree list` then showed 0 `kudelta` entries). D163 recorded this shape for
 `kernel_delta`: killing a timing run is the ordinary case.
+
+## D245 — the ARMA readings channel: not browser-only, and since D244 the summary carried no readings at all
+
+⚖️ **Filed and closed together as QUEUE ARMA-2.** The last bank handed this head a finding and a fix: *"the READINGS
+channel is browser-only … FIX: publish the READINGS block as a check run's output.summary."* Before building it, this
+head ran the cheap probe that could refute the premise, and it did. The measurement then turned up a second defect
+that the proposed fix would have left in place.
+[[feedback-test-the-layer-not-the-stack]] [[feedback-inherited-diagnosis-is-a-hypothesis]]
+
+### 1. THE PREMISE, MEASURED. Half true, and the false half is the one the fix rested on
+```
+  channel (a finished job, run still in_progress)                         result
+  jobs object  GET actions/jobs/<id>                                      23 keys, 0 matching "summ"
+  check run    GET check-runs/<id>  (the job's own)                       output.summary null
+  REST log     GET actions/jobs/<id>/logs                                 HTTP 200, served MID-RUN
+      PR #8 run 34933751546, ku-delta 104267179650                        37,888 bytes
+      master run 34937392549, kernel-delta 104278187407                   60,368 bytes
+      boundary: a job still running (ku-delta 104278187279)               HTTP 404
+  gh run view --job <id> --log                                            rc 1: "run … is still in progress;
+                                                                            logs will be available when it is complete"
+  gh api …/jobs/<id>/logs   (no flag)                                     rc 1: "the response contains terminal
+                                                                            escape sequences; pass --allow-escape-sequences"
+  positive control: `kernel-delta-redfirst verdict` check run on af2d34a  output.summary served
+```
+⇒ **The step SUMMARY is off the API, as the bank said. The job LOG is not withheld until the run completes. Two
+CLIENTS are:** `gh run view` by its own rule, and `gh api` by refusing to print a body with terminal escapes, which
+every runner log has. Both refusals are rc 1 with the reason on stderr, so a harvest loop that drops stderr and keeps
+going reads each one as an empty log. ⚠️ D244 §1 recorded the no-flag `gh api` form as *"0 bytes and rc 0 for all 47
+jobs"*. Today that form is rc 1. This head cannot reconstruct that loop, so **the rc 0 is unexplained, not
+explained**. The refusal is the likely source of the zero bytes, and the rc is not accounted for.
+⇒ 🔑 ***"THE CHANNEL IS CLOSED" AND "MY CLIENT REFUSES" PRINT THE SAME NOTHING.*** The endpoint and the client are
+different layers, and only one probe per layer tells them apart.
+
+### 2. ⛔⛔ THE DEFECT THE PROPOSED FIX WOULD HAVE PUBLISHED FAITHFULLY. Since D244 the summary had no readings
+Reading the served log showed the job's readings were not in its summary at all. The step extracted
+`sed -n '/^READINGS on /,/^$/p'`, and `ku_delta.py` prints that block **only under `arm == "a"`**. D244 changed the job
+to `--arm a-prime`. From PR #8 on, the extraction matched nothing, and the summary carried the gate line under a
+header reading *"The readings below are what A′ judged"*. Under a-prime the readings come out as a different table,
+`module (ms ceiling) head ms ceiling of ceiling`, which no extraction read.
+⇒ Publishing "the READINGS block" as a check run would have published that same empty block through a better
+channel. 🔑 ***AN EXTRACTION WRITTEN AGAINST ONE ARM'S OUTPUT SHAPE DIES WITH THE ARM, AND QUIETLY: "no line matched"
+and "nothing to report" print the same empty block.*** D244 changed the arm and retitled the summary, and it never
+read the summary it retitled. [[feedback-a-parsed-column-belongs-to-the-tool]] [[feedback-a-renderer-defined-and-never-called]]
+
+### 3. WHAT WAS BUILT: the tool owns both channels, and the check run was not built
+- **`readings(data, ceilings)`**: one record under BOTH arms. It has a row for every unit A′'s registry gates by ms on
+  ANY machine, and each row carries this machine's ceiling. A unit with no reading, or with no ceiling on this machine,
+  gets a row of `None` rather than an omission. [[feedback-unobserved-regions-report-agreement]]
+- **The harvest channel:** `verdict` prints `READINGS-JSON {…}` at line start in both arms, and `--selftest-measure`
+  prints it for the control too, so a plant's runner cost is a difference of two records.
+  Harvest with `gh api --allow-escape-sequences …/actions/jobs/<id>/logs`, the text after the tag, `json.loads`.
+- **The person channel:** `--summary OUT.md` renders the table from the same record, and it is written only once a
+  verdict exists. The CI step publishes the file, and it treats a missing file as a refusal (an `::error`, red
+  if the tool's rc was 0) instead of publishing an empty summary.
+- **Selftest 21 → 34 arms, red-first:** all 13 new arms were red against stubs. Mutation matrix, 6/6 caught: no JSON
+  line · the JSON line under ARM A only (**the D244 shape**) · rows only for units that were read · rows only for
+  this machine's units · findings dropped from the summary · the verdict word ignoring rc.
+- ⛔ **The check run was NOT built, and that is a decision.** It needs `checks: write` on a job that also runs on
+  `pull_request`, and it adds a publication failure mode, all to deliver a channel the logs endpoint already serves
+  once the job ends. `kernel-delta-redfirst verdict` is a check run because it has a **third conclusion** (NEUTRAL)
+  that a job cannot carry. The readings are data, not a verdict, so that reason does not transfer.
+
+### 4. THE FIRST RUNNER READING OF D244's PLANT (the measurement D244 §3 said was owed)
+`ku-delta-redfirst`, PR #8 run 34933751546, the one completed run of the job so far: planted `X86.Basic` read
+**4,280 ms** against the 567 ms ceiling, and A′ refused it (**PASS**, 7.5× over the ceiling). D244 predicted
+~3,350 typical and ~1,940 fast. This reading is 1.28× the typical prediction, 2.63× this box's 1,630 ms against the
+1.95× factor D244 assumed. ⚠️ **One reading, on one VM draw**, and the control's ms was not printed until this change,
+so the plant's own Δms on the runner is not recoverable from that job. The direction is the safe one: the plant
+clears the ceiling by more than predicted, not less.
