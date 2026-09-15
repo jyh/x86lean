@@ -135,3 +135,20 @@ X86.Theorems @ms @on yukon.lan 3330
 X86.Basic @ms @on runnervmlun5p 567
 X86.Syntax @ms @on runnervmlun5p 1668
 X86.Theorems @ms @on runnervmlun5p 6660
+
+# ── NEW-MODULE REGISTRATIONS (D252) ─────────────────────────────────────────
+# `<module> @ku <n>`: the absolute unfoldings a module was accepted at IN THE STEP
+# THAT ADDED IT. Consulted only for a module the measurement records as absent from
+# the base tree (`new_modules`); from the next step on the module has a base and
+# its relative budget applies, so a line here is dead after its landing and says so
+# by being dated. No `@on` (ku is machine-independent, D185) and no headroom (ku is
+# exact: the registration IS the reading, and accepting it is the decision).
+# ⛔ WHY THIS BLOCK EXISTS: until D252 a new module was priced at `@floor`, 10
+# unfoldings, whatever it was — D192's defect, repaired in the ms gate on 2026-09-10
+# and never carried into A′. P2 batch 32 measured it: `X86.SoftFloat` +221 against 10.
+#
+# X86.SoftFloat — P2 batch 32 (D140), landed 2026-09-15. 221 unfoldings, read by
+# `ku_delta.py --arm a-prime` on 53c4823 -> 327622b (yukon.lan, 2026-09-15). The
+# BitVec IEEE-754 comparison `fcmp` and its two formats; the 818-case kernel
+# differential that validates it lives in the same module.
+X86.SoftFloat @ku 221
