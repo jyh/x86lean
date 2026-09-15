@@ -2761,6 +2761,61 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
+## ⚠️ P2-NEXT (2026-09-15) — **THE NEXT GROUP, PRICED BEFORE IT IS BUILT: sub-group A's remainder, 8 pairs / 4,363 instructions. Nothing below is built.**
+*(Filed the day batch 32 landed and no held branch remained. `p2_residue.py` on master `e76e4ba`: 36 unclaimed executing SSE-legacy pairs, **every
+one** classified as needing the commission. **No rounding-free pair is left**, so the next group is the commission's sub-group A remainder.)*
+```
+  pair        demand   oracle     what the rule needs                          reachable by today's pre-states?
+  cvtss2sd     2,949   executes   binary32 -> binary64, EXACT (§7) — but a      NaN yes (comiss saw unord 12/60); SNaN vs QNaN
+                                  signalling NaN is QUIETED on the way          UNMEASURED — the quiet bit is one mantissa bit
+  cvtsi2sdl      488   executes   int32 -> binary64, EXACT (every int32 fits)   yes, from a GPR source
+  minsd          250   executes   ordering + TWO asymmetric rules: a NaN in     NaN yes; ±0 NO — the xmmPattern XOR argument
+  maxss          230              either operand returns the SOURCE, and two    that made comis's ±0 unreachable (record 23 §5)
+  minss          215              zeros of either sign return the SOURCE        applies unchanged, so the zero rule is a KERNEL
+  maxsd          194              (SDM Vol. 2B MINSD/MAXSD) — `fcmp` already    differential against IEEE, not a vector
+  maxps           20              computes the ordering                          four lanes; the same two rules per lane
+  minps           17
+                4,363
+```
+**What it costs, stated as semantics + state + oracle support** ([[feedback-cheap-semantics-expensive-state]]):
+- **Semantics: small.** `fcmp` exists. The new parts are min/max selection with its two SOURCE-returning rules, an exact int32 widening, and a
+  binary32→binary64 widening that sets the quiet bit on a NaN.
+- **State: none.** The model has no MXCSR (D2). Every exception these raise is visible only there, which is the same position `comis` is in.
+- **Oracle support: all eight EXECUTE** (`oracle_availability.measured_availability()`).
+- ⛔ **The ±0 rule is unreachable by the vector table**, exactly as `comis`'s was. It must be carried by a kernel-decided IEEE differential
+  planted wrong once, never by a vector arm that cannot fire (D140's deleted arm).
+
+**⛔ THE LIKELY BINDING CONSTRAINT IS A GATE, NOT THE SEMANTICS.** Measured, not guessed:
+- `X86.SoftFloat` now has a base of **221 ku**, so its A′ allowance is `@default 23.3% × 221` = **51 unfoldings**.
+- It is the smallest non-trivial base among the modules this group would touch, and it is where the new functions belong.
+- A group adding min/max and two widenings there may exceed 51 on Δku with no regression anywhere. That is the "tightest cell" the registry's own
+  header predicts for small modules.
+- **Measure Δku on a draft BEFORE choosing where the code lives.** ⛔ Do not split a module to reach a `@ku` registration: that registration is
+  for a module that is genuinely new, and using it to dodge a relative budget is the gate being routed around.
+
+**⛔ THE `cvtsi2s*` KEYS JOIN TWO DIFFERENT OPERAND SHAPES. Measured, before I wrote down a guess I had already made the wrong way:**
+```
+  clang + the CommandLineTools objdump, one assembly unit:
+    f2 0f 2a c0        cvtsi2sd   %eax, %xmm0      <- REGISTER source, 32-bit: NO suffix
+    f2 0f 2a 03        cvtsi2sdl  (%rbx), %xmm0    <- MEMORY source, 32-bit
+    f2 48 0f 2a c0     cvtsi2sd   %rax, %xmm0      <- REGISTER source, 64-bit: NO suffix, the SAME spelling as the 32-bit one
+    f2 48 0f 2a 03     cvtsi2sdq  (%rbx), %xmm0    <- MEMORY source, 64-bit
+  census demand (asm columns, identical before and after today's regeneration):
+    cvtsi2sd 1,434 · cvtsi2sdl 488 · cvtsi2sdq 178 · cvtsi2ss 1,169 · cvtsi2ssl 280 · cvtsi2ssq 14
+  oracle_availability keys a verdict by the `asm` text's first token:
+    probe "cvtsi2sdl %ecx, %xmm0" -> key cvtsi2sdl   (a REGISTER form)   joined to census cvtsi2sdl (the MEMORY forms)
+    probe "cvtsi2sdq %rax, %xmm0" -> key cvtsi2sdq   (a REGISTER form)   joined to census cvtsi2sdq (the MEMORY forms)
+```
+⇒ **Three consequences, each a claim on the record that is now known to rest on a lossy key** ([[feedback-a-join-on-a-lossy-key]]):
+1. The availability verdict for `cvtsi2sdl`/`cvtsi2sdq` was measured on a REGISTER form and is credited to MEMORY-form demand. It may well
+   agree, since it is the same opcode, but it was not asked.
+2. **2,603 instructions of REGISTER-source conversions (`cvtsi2sd` 1,434 + `cvtsi2ss` 1,169) have no key at all.** They sit outside the commission's
+   40 pairs and outside `p2_residue`'s universe, so gate 2 cannot see them. The commission's total is low by that much.
+3. **They cannot be classified by mnemonic even once keyed.** `cvtsi2sd` covers BOTH the 32-bit source (exact, sub-group A) and the 64-bit
+   source (inexact, sub-group B), and the census attributes by mnemonic. Splitting them needs the census to carry the source width, which is a
+   census change, not a table row.
+**Do this before pricing the conversion half of this group.** The min/max half is unaffected.
+
 ## ✅ SDM-QUOTE-1 (2026-09-15) — **CLOSED THE SAME DAY: rode es3's landing (`64a1b7a`, PR #17); the normalised sweep reads 7 copies whole, 0 truncated.** *(Filed as: THREE LEAN COMMENTS MISQUOTE THE SDM, AND THE FIX RIDES THE NEXT `.lean` LANDING (D249 §3).)*
 The SAL/SAR/SHL/SHR CF clause reads *"the size (in bits) of the destination operand"* (325462-092US, and the Dec 2023 text).
 Six copies in this repository dropped "(in bits)" with no ellipsis, five of them written in `fb8e706`. D249 fixed the three
