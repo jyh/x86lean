@@ -17250,3 +17250,35 @@ it took its turn instead of overlapping. ⚠️ **It is not the selftest instrum
 through `driveWrong` itself, and §8 records what they read.
 ⭐ **The SNaN arm is the reason §2 mattered:** 27 of its disagreements come from `-0x3(%rbx)`, a source the pre-code
 table said could not exist.
+
+### 8. THE LANDING MEASUREMENT
+Step `18194ad` (master) → `35c5c15` (this batch as one commit), on yukon.lan. Pre-registered on the fleet bus before either
+profile started, and corrected once before either started.
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 5.2–8.9 (batch 38's were 3.5–6.1)
+         Tests.Anchors             +9.5  ±42.5  against  137.6     predicted ~+20                  (lower, inside the band)
+         X86.Syntax               +10.5  ±23.1  against   53.0     predicted +25 to +45            REFUTED, below the range
+         X86.SoftFloat             +0.5   ±0.4  against    6.0     predicted +1 to +3              (lower)
+         Tests.Coverage          +800   ±626.7  against 1,965.6    predicted ~0                    MISSED — not predicted at all
+  A′   ku_delta --arm a-prime     CLEAN, rc 0     every module inside
+         X86.SoftFloat               +11        against      51    predicted +11 (read on the draft)       CONFIRMED
+         Tests.Anchors           +16,220        against  54,879    predicted +16,220 (read on the draft)   CONFIRMED
+         X86.Syntax                 +740        against   4,644    predicted ~+1,000 (scaled)              lower
+         Tests.Coverage          +78,606        against 591,456    predicted +146k to +219k (scaled)       REFUTED, below
+         X86.Theorems             +1,035        against  15,452    not predicted
+         X86.Coverage · X86.Semantics · X86.Serialize  +15 each;  X86.Program +4;  Tests.Vectors +1
+       A′'s ms ceilings: X86.Syntax 308 of 879 (35%) · X86.Basic 87 of 278 · X86.Theorems 1,010 of 3,330
+  D251 --record … --a-prime       RECORDED        "ms verdict rc 0 · ARM A′ rc 0 on yukon.lan ⇒ lands on the ms verdict"
+                                                  row 18194ad → 35c5c15; --gap 0
+```
+⭐ **The two figures read on the DRAFT were exact to the unit. Both figures SCALED from batch 38 missed.**
+- **The Coverage prediction was made worse by my own correction.** I first posted +100k to +150k. Before the run, I
+  re-sealed it as +146k to +219k, reasoning that the fixed part does not shrink when scaling down from batch 38's 15
+  vectors. The reading was **+78,606**, below both ranges.
+- Batch 38's vectors were memory-operand binary forms, and these are conversions. **The per-vector cost is a property of
+  the FORM, not of the count**, so no scaling rule in either direction was a price.
+
+⇒ The next group's Δku is read on a draft (QUEUE P2-NEXT (A′) already says so). The ms Coverage cell, left out of the
+prediction entirely, was the largest delta in the run.
+CI's selftest shards, the first real read of arms 3–8, are recorded in the next decision's PR once this PR's run has read
+them.

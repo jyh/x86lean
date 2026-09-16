@@ -110,3 +110,26 @@ with junk above bit 31:
   runs 84, whose 4 random states differ. The re-derived column was posted before arms 2–8 reported (D258 §7).
 - ⭐ **The signalling-NaN arm scores 27, all at `-0x3(%rbx)`**, a source the batch's first reachability probe had not
   read.
+
+## 6. THE LANDING MEASUREMENT
+
+Step `18194ad` (master) → `35c5c15` (this batch as one commit), measured on yukon.lan and pre-registered on the fleet bus
+before either profile started.
+
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 5.2–8.9
+         Tests.Coverage            +800  ±626.7  against 1,965.6     predicted ~0                  MISSED
+         Tests.Anchors             +9.5   ±42.5  against   137.6     predicted ~+20                (lower)
+         X86.Syntax               +10.5   ±23.1  against    53.0     predicted +25 to +45          REFUTED, below the range
+         X86.SoftFloat             +0.5    ±0.4  against     6.0     predicted +1 to +3            (lower)
+  A′   ku_delta --arm a-prime     CLEAN, rc 0     every module inside
+         Tests.Coverage         +78,606          against 591,456     predicted +146k to +219k      REFUTED, below
+         Tests.Anchors          +16,220          against  54,879     predicted +16,220             CONFIRMED
+         X86.Theorems            +1,035          against  15,452
+         X86.Syntax                +740          against   4,644     predicted ~+1,000
+         X86.SoftFloat              +11          against      51     predicted +11                 CONFIRMED
+  D251 --record … --a-prime       RECORDED        lands on the ms verdict; row 18194ad → 35c5c15; --gap 0
+```
+
+⚠️ **The two predictions read on the draft were exact. The two scaled from batch 38 missed, and the ms Coverage cell was
+not predicted at all** (D258 §8). A vector's kernel cost belongs to its form, and batch 38's forms were different.
