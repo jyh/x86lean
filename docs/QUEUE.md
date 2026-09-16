@@ -2376,8 +2376,9 @@ The prose goes in `note`, which is not reduced.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED — SUB-GROUP A LANDED IN FULL 2026-09-16**
 ⚖️ **STATUS AT 2026-09-16:** sub-group A is BUILT and on the roster across three batches: the compares (32, D140), min/max
-(38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 898:
-`cvttsd2si`/`cvttss2si`, truncation) is the next priceable group. **B** stays frozen on K3 and K4.
+(38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 930 since D259;
+the census had filed 32 memory-source forms under GPR/other and read 898: `cvttsd2si`/`cvttss2si`, truncation) is the next
+priceable group. **B** stays frozen on K3 and K4.
 ⚠️ *The status paragraph below said "OPEN: no sub-group has landed" while batches 32 and 38 were on `master`.*
 ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): THE HEADER IS TRUE.** OPEN: no sub-group has landed. FROZEN: sub-group B waits on
 kill-checks K3 and K4, both still unmeasured (`docs/SOFT-FLOAT-COMMISSION.md` §4, §5). PARTLY REFUTED: K2 for two members (§7).
@@ -2970,7 +2971,8 @@ day, when a local `--tree` run printed the private path it caught) and `check_co
   sitting.
 ⚠️ The exposure only exists when a violation is already on a public ref, so the log adds persistence, not first exposure.
 
-## ⚠️ CENSUS-SILENT-OPERANDS (2026-09-16, found pricing sub-group A′) — **`isa_bucket` reads the register file off the operand TEXT, so an MMX, x87 or SSE instruction whose operands name no such register is filed under "GPR/other", and A′'s priced demand is 32 short**
+## ✅ CENSUS-SILENT-OPERANDS (2026-09-16) — **BUILT THE SAME DAY (D259): the bucket rule reads the mnemonic where the operands name no register file; the stamp hashes `isa_bucket`; A′ is 930.** The MXCSR load/store was found by the sibling sweep and is its own out-of-scope bucket.
+*(As filed: "`isa_bucket` reads the register file off the operand TEXT, so an MMX, x87 or SSE instruction whose operands name no such register is filed under 'GPR/other', and A′'s priced demand is 32 short". The regeneration reproduced the split below to the instruction.)*
 Measured on the committed census (`docs/DEMAND-CENSUS.md.json` at `35c5c15`, `p2_roster.per_ext_map`, asm class, uncovered
 demand): the bucket holds **218 instructions over 16 mnemonics, and not one is a GPR form.**
 ```

@@ -189,14 +189,14 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 94 | 134,890 | 34.2% |
+| the oracle EXECUTES | 94 | 134,924 | 34.2% |
 | the oracle REFUSES | 88 | 169,877 | 43.1% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 185 | **305,008** | **77.4%** |
-| not asked at its own bucket | | 88,916 | 22.6% |
+| **probed so far** | 185 | **305,042** | **77.4%** |
+| not asked at its own bucket | | 88,882 | 22.6% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-57,057 instructions, 14.5% of the gap** — that is
+57,023 instructions, 14.5% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
@@ -243,23 +243,22 @@ class shares it. Within a batch the order is by demand.
 
 | batch | bucket | occurrences | share of the gap | cumulative |
 |---|---|---|---|---|
-| 1 | SSE-legacy (xmm) | 127,924 | 32.46% | 32.5% |
+| 1 | SSE-legacy (xmm) | 127,958 | 32.47% | 32.5% |
 | 2 | AVX2/AVX (ymm) | 108,554 | 27.55% | 60.0% |
 | 3 | VEX-128 (v… xmm) | 62,252 | 15.80% | 75.8% |
-| 4 | MMX (mm) | 42,881 | 10.88% | 86.7% |
+| 4 | MMX (mm) | 43,045 | 10.92% | 86.7% |
 | 5 | AVX-512 (zmm/k) | 33,884 | 8.60% | 95.3% |
 | 6 | CET-IBT | 16,488 | 4.18% | 99.5% |
 | 7 | AVX (state) | 1,241 | 0.31% | 99.8% |
 | 8 | BMI2 | 400 | 0.10% | 99.9% |
-| 9 | GPR/other (unclassified) | 218 | 0.06% | 99.9% |
-| 10 | SSE (fence) | 32 | 0.01% | 99.9% |
+| 9 | SSE (fence) | 32 | 0.01% | 99.9% |
+| 10 | x87 (st) | 23 | 0.01% | 99.9% |
 | 11 | CPUID | 15 | 0.00% | 100.0% |
 | 12 | XSAVE | 11 | 0.00% | 100.0% |
 | 13 | SSE2 (fence) | 11 | 0.00% | 100.0% |
 | 14 | PREFETCH | 4 | 0.00% | 100.0% |
-| 15 | x87 (st) | 3 | 0.00% | 100.0% |
-| 16 | TSC | 3 | 0.00% | 100.0% |
-| 17 | SSE2 (pause) | 3 | 0.00% | 100.0% |
+| 15 | TSC | 3 | 0.00% | 100.0% |
+| 16 | SSE2 (pause) | 3 | 0.00% | 100.0% |
 
 ⚠️ **This table stops at 100.0%, not at 100%, and the
 remainder is not missing.** The three additions are

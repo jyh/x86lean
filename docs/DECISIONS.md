@@ -17282,3 +17282,75 @@ profile started, and corrected once before either started.
 prediction entirely, was the largest delta in the run.
 CI's selftest shards, the first real read of arms 3–8, are recorded in the next decision's PR once this PR's run has read
 them.
+
+## D259 — The census read a register file off the operand text, so an instruction whose operands name none was filed as "GPR/other"
+
+⚖️ QUEUE `CENSUS-SILENT-OPERANDS`, found while pricing sub-group A′. The QUEUE entry was committed with its predictions before
+the census was regenerated.
+
+### 1. THE DEFECT
+`isa_bucket` decides the register file from the operand string (`%zmm`, `%ymm`, `%xmm`, `%mm`, `%st`) and sends everything
+else to `GPR_EXT` or "GPR/other". Three families can name no register file in their operands:
+- `emms`, which has no operands;
+- x87 forms that load from or store to memory (`fldt 0x10(%rsp)`), take no operands (`fld1`), or name a GPR (`fnstsw %ax`);
+- a float→int conversion from memory, `cvttsd2si (%rbx),%eax`.
+
+Measured on the census committed at `35c5c15`: the asm class's uncovered "GPR/other" held **218 instructions over 16
+mnemonics, and not one was a GPR form**. The census self-test pinned the defect as the right answer, since its bucket arm
+expected `fldt 0x10(%rsp)` → "GPR/other".
+
+### 2. WHAT IT MOVED: ATTRIBUTION, NOT COVERAGE
+Driven through `_decide` rather than read off the scope table: all 16 mnemonics read `unmapped`, so the in-scope flag on
+"GPR/other" was never consulted. With `cvttsd2si`/`cvttss2si` added to a simulated model, the memory forms read `mapped`
+and covered. **No coverage number was wrong, and none would have gone wrong when A′ lands.**
+⚠️ The QUEUE entry's first draft said the 184 MMX and x87 instructions read `mapped` and over-claimed the model's state.
+That was inferred from the scope table, and it was corrected before the commit by driving `_decide`.
+What was wrong was the bucket, and a price is read by bucket: `p2_residue` gate 3 counts only the SSE-legacy bucket, so
+**sub-group A′ was priced at 898 while the corpus holds 930**.
+
+### 3. THE RULE
+`silent_operand_bucket(mn)` runs only after every register test has had nothing to read. An instruction that names `%st`,
+`%mm`, `%xmm` or wider is bucketed exactly as before.
+- `emms` → MMX.
+- An explicit x87 list → x87. The list is the SDM's x87 instruction set, plus the AT&T size suffixes `s l t ll` on the forms
+  that take a sized memory operand. It is never an `f` prefix, because `fxsave` is not a stack form.
+- `v?cvtt?s[sd]2si[lq]?` → SSE-legacy, or VEX-128 for the `v` form.
+
+The sibling sweep over what stayed in "GPR/other" found one more family and one gap in the list:
+- **`ldmxcsr`/`stmxcsr` and their `v` forms** (glibc 382, coreutils 2, kernel 1) are MXCSR state. They became a
+  `GPR_EXT` row, "SSE (MXCSR state)", ruled **out of scope** because `Cpu` has no MXCSR (D2). This follows the shape of
+  "AVX (state)".
+- **`fldl2e`** (glibc 2) was missing from the first list. It was added, with an arm.
+
+Declared and left in "GPR/other": the whole-state saves (`fxsave`, `fxrstor`, `xsavec`, …) and the system and CET forms
+(`hlt`, `rdsspq`, `rdpkru`, `xtest`, …). None of them names a single register file that this census partitions by.
+
+### 4. THE STAMP COULD NOT SEE IT, AND NOW DOES
+The `rules` half of the staleness stamp hashes `_decide` and, since D257, `width_key`. **`isa_bucket` also runs before
+`_decide` and hands it the bucket, and nothing hashed it.** A bucket change therefore left the census reading as fresh.
+This is D98's blindness again, in a second function. The stamp now also hashes `isa_bucket` over a closed domain: every
+mnemonic the mapping tables name, every silent spelling, and eleven operand shapes across every register file. An arm
+proves that moving one mnemonic's bucket moves the hash.
+**Measured:** the shipped census went stale at each step (`8b755c5c` → `b5d07d40` → `5abe5486`), and that is what forced
+each regeneration.
+
+### 5. THE REGENERATION (49 s over the local corpus)
+Only `ext` and `miss_by_ext` moved, compared field by field against the census at `d058175`. `total`, `covered`, `pct`,
+`miss`, `miss_all`, `attribution` and `ext_covered` are unchanged in all 12 entries. The asm class matches the QUEUE's pre-registered split to the instruction:
+```
+  GPR/other   218 →      0      x87 (st)       3 →     23   (+20)
+  MMX      42,881 → 43,045 (+164)   SSE-legacy 127,924 → 127,958 (+34)
+```
+The compiler and kernel columns moved more, and they price nothing in P2: glibc "GPR/other" 6,334 → 62 (x87 +5,886,
+MXCSR +382, SSE-legacy +4), coreutils 1,085 → 105 (x87 +978, MXCSR +2), kernel 4,918 → 4,899 (x87 +17, MMX +1,
+MXCSR +1).
+- **Commission §2 re-derived:** A′ **898 → 930** (`cvttsd2si` 548 · `cvttss2si` 382), B **31,063 → 31,065** (memory-source
+  `cvtss2si` +2). `p2_residue` gate 3 reproduces all three.
+- **P2 roster:** the gap is unchanged at 394,086. "The oracle EXECUTES" rises 134,890 → 134,924, because the 34 memory-source
+  conversions now meet their own bucket's verdict. "Not asked at its own bucket" falls by the same 34.
+
+### 6. AN ARM WHOSE POPULATION WAS THE BACKLOG
+`p2_roster`'s vocabulary arm ("every probe bucket is a census bucket") built the census's vocabulary from **uncovered** asm
+demand only. When the last 218 uncovered instructions left "GPR/other", the probe table's `movl` control, a GPR form
+bucketed correctly, read as a stray spelling. The vocabulary belongs to the partition, not the backlog, so the arm now also
+reads `ext_covered`. [[feedback-an-arm-whose-fixture-is-the-backlog]]
