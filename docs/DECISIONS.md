@@ -7784,6 +7784,9 @@ commission's own history, and §2 is a record of what that costs.
 
 ## D140 — P2 BATCH 32: the first floating-point semantics, and the claim that two mnemonics are one function
 
+> ⛔ **§2's 818-case kernel differential WAS NEVER KEPT** — no tracked file held it (D254, 2026-09-15). What now carries the regions this
+> table cannot reach — ±0, opposite signs, ±∞, sNaN — is `Tests/Anchors.lean` `fcmp_ieee_*`, executed on x86isa first.
+>
 > 📌 **LANDED 2026-09-15, TEN DAYS AFTER IT WAS WRITTEN** (D251 held the wall, D252 records the landing). This entry is the
 > batch as built on 2026-09-05 and is kept as written. Three things changed at the landing:
 > - its differential record is **`DIFFERENTIAL-P2-BATCH23.md`**, because records 19–22 took the numbers in between, and
@@ -16922,3 +16925,69 @@ Step `e731c63` → `b259049`, pre-registered on the fleet bus before either prof
 - **`--record … --a-prime`: RECORDED**, landing on the ms verdict; `--gap` 0.
 - ⇒ **A′ was supplied although ms was CLEAN**, which is D252 §6's recommended tightening practised before it is ruled.
   **Every ms prediction erred high** (Tests.Coverage by about 40%).
+
+## D254 — FCMP-KERNEL-1: the kernel differential D140 cited was never kept, and the region it stood for was wider than the branch it named
+
+⚖️ **Filed by D253 §6 and taken the same day**, as a separate `.lean` step after P2 batch 38.
+**What was wrong.** D140 §2 recorded an "818-case kernel differential against IEEE-754" for `fcmp`: 1.7 s, `[propext]`, planted once.
+From 2026-09-05 to 2026-09-15 it was cited as what carries `comis`'s ±0 branch at **six sites in four files outside D140**, plus
+D140's own §5 and §7:
+- `Tests/Vectors.lean`
+- `Main.lean`, twice: the deleted-arm note and the COVERAGE narrative, which generates `docs/COVERAGE.md`
+- `scripts/ku_delta_budget.txt`, which said it *"lives in the same module"*; `X86.SoftFloat` has no theorem
+- `docs/DIFFERENTIAL-P2-BATCH23.md`, twice (§4 and §5)
+
+⚠️ **D253 §6 counted "three comments" and was LOW.** It swept code and comments, not records. Its own conclusion survives, but the
+population did not, and this census is by `git grep -l` over every tracked file rather than by memory of where the claim was written.
+
+**No tracked file held it.** Two methods agree: the needle `818` finds only the citations, and no `decide` over `fcmp` exists.
+
+### 1. THE GAP, MEASURED OVER THE EMITTED CASES RATHER THAN ARGUED
+Over the eight comis vectors × 88 pre-states in `run/cases.lsp`:
+- **opposite-sign pairs 0**
+- **±∞ 0 · sNaN 0**
+- zero pairs **11**, all of IDENTICAL sign (`comisd_x0_x0`)
+
+⇒ `fcmp`'s mixed-sign branch (`sign a != sign b`) had never been entered by the differential. D140 §5 named only `+0 = −0`. D253 §3's
+argument covers the rest: no register pair below xmm8 presents opposite signs.
+
+### 2. THE REPAIR, IN D253 §4's SHAPE
+Every pair from {±0, ±∞, qNaN, sNaN, ±1, ±min-denormal} qualifies if it is opposite-signed, contains ±∞ or the sNaN, or is a zero pair:
+**77 per format**.
+- Expectations come from IEEE-754 values (Python floats).
+- **Executed on x86isa** as `comisd`/`comiss`: 154 cases, RIP advanced in 154, **0 disagreements** in ZF/PF/CF, OF/AF/SF cleared in all.
+  112 of the 154 differ from the pre-state's all-clear flags, which is the positive control that the instruction ran.
+- Landed as `Tests/Anchors.lean` `fcmp_ieee_binary64` and `fcmp_ieee_binary32`, one `decide` each: about 9 ms of type checking each,
+  axioms `[propext, Quot.sound]`.
+- ⛔ **Planted once:** `+0 > −0` failed exactly `fcmp_ieee_binary32`.
+- The four citations are repointed. Each keeps a dated line saying what it cited before, because a silent replacement would hide that the
+  branch was carried by a citation for ten days.
+
+🔑 ***A RECORD THAT SAYS "VALIDATED BY N CASES" IS A CLAIM ABOUT A RUN, AND A RUN THAT WAS NOT KEPT CANNOT BE RE-RUN, AUDITED OR
+EXTENDED.*** The number was specific, the axioms were printed and a plant was reported, which is exactly why nobody looked for the file.
+[[feedback-a-citation-is-an-ungated-claim]]
+
+### 3. README-SIMD-1, TAKEN IN THE SAME STEP BECAUSE IT HAS THE SAME SHAPE
+README's Instructions bullet carried **three numbers no gate read**: `162 mnemonics`, `1020 … forms`, and *"Forty-seven of those mnemonics
+are SIMD"*. The COVERAGE table held **76** rows with an `x` operand at master `e731c63`, and 82 after batch 38.
+- P2 batch 38 re-stamped the first two BY HAND. The snapshot gate had flagged only the code block's copy of the vector count.
+- ✅ `check_readme_snapshot.py` now reads all three.
+  - The XMM count is derived from `docs/COVERAGE.md` by a stated rule: a row whose operand-shapes field (before ` — `) has an `x` token.
+  - The README spells it in digits, since a word-number cannot be parsed.
+  - Selftest arms 8 → 11, and every new arm is caught.
+- ⚠️ **The rule counts ROWS with an XMM operand.** It says nothing about which rows are floating point. The README's parenthetical
+  list of groups is still prose.
+
+### 4. THE LANDING MEASUREMENT
+Step `e5ec828` → `85b7d52`, pre-registered on the fleet bus before either profile started.
+```
+  ms   kernel_delta --repeats 6   CLEAN rc 0    Tests.Anchors +19.5 ±15.1 against 123.8   predicted ~+18
+                                                every other unit ~0                       predicted ~0
+  A′   ku_delta --arm a-prime     CLEAN rc 0    Tests.Anchors Δku +15,344 against 51,304   predicted ~+25,000 (HIGH)
+                                                every other module +0
+  D251 --record … --a-prime       RECORDED      lands on the ms verdict; --gap 0
+```
+⚠️ **The ms prediction was right and the ku one was high by 60%**, in the same direction as every prediction in D253 §7.
+**Two kernel `decide`s of 77 rows cost 15,344 unfoldings where batch 38's two of 40 rows cost 14,308** — nearly twice the rows for
+7% more unfoldings, so the per-row cost is not what dominates. A `decide` over a list has a fixed part, and I keep pricing these as
+if it were linear.

@@ -2606,8 +2606,11 @@ def vectors : List Vec :=
   -- ⛔ AND ONE ARM STAYS UNREACHED, WHICH IS SAID HERE RATHER THAN LEFT QUIET:
   -- `+0 = -0` needs two operands differing ONLY in the sign bit, and no pre-state
   -- produces that — the XOR pattern cannot make one.  That branch is covered by
-  -- the 818-case kernel differential against IEEE-754 recorded in D140, not by
-  -- this table, and the two are different evidence.
+  -- `fcmp_ieee_binary64`/`fcmp_ieee_binary32` in `Tests/Anchors.lean` (D254), not
+  -- by this table, and the two are different evidence.  ⛔ This line cited D140's
+  -- "818-case kernel differential" until 2026-09-15; that run was never kept.
+  -- ⚠️ AND IT WAS NOT ONE ARM: no register pair below xmm8 presents OPPOSITE signs
+  -- either (D253 §3), so every mixed-sign comparison is carried there too.
   --
   -- ⚠️ FOUR MNEMONICS AND TWO REGISTER PAIRS (D90: a model with FIXED register
   -- fields is bit-identical to the real one when every vector names one pair).

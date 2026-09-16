@@ -57,6 +57,10 @@ no flag undefined — every one of the six flags it touches is *defined* by the 
 is unusual in this table and is why these forms are worth having. `divergence` unchanged says the new
 forms contribute nothing to the 171 the harness already carries.
 
+> ⛔ **2026-09-15 (D254): the "818-case kernel differential" this record cites below, twice, was never kept.** No tracked file held
+> it. The ±0 branch, and every opposite-sign pair, which no register vector below xmm8 can present (D253 §3), are now carried by
+> `Tests/Anchors.lean` `fcmp_ieee_*`, executed on x86isa first. The text below is the record as written.
+
 ## 5. THE ARMS, AND THE ONE THAT WAS DELETED
 
 ```
