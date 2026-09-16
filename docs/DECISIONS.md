@@ -17065,3 +17065,53 @@ set was a claim, and it was short by one — the class that looks most like succ
 than invented, and two arms: it classifies as `skip`, **and it is not `rc0~conclusion` even though the job succeeded.**
 📌 **The population is 1** — one skip in 262 rows — which is exactly why it had to be caught by USE rather than by review: a class that
 occurs once in a corpus is invisible to any test written from the corpus. [[feedback-a-landed-corpus-cannot-measure-detection]]
+
+## D257 — The `cvtsi2s*` key fix: the census keys a register-source conversion by its WIDTH, and the split the QUEUE recorded was wrong about one half
+
+⚖️ P2-NEXT's conversion half waited on this (QUEUE, "THE `cvtsi2s*` KEYS JOIN TWO DIFFERENT OPERAND SHAPES").
+objdump prints `cvtsi2sd %eax,%xmm0` and `cvtsi2sd %rax,%xmm0` with ONE spelling, and the memory forms with a suffix.
+So 2,603 register-source instructions carried a key nothing joined, and that one key held an exact and an inexact conversion.
+
+✅ **`demand_census.width_key`:** a bare `cvtsi2sd`/`cvtsi2ss` takes `l`/`q` from its REGISTER source and pools with the
+memory form of the same width. The semantic rule is (source width, target format); the source's SHAPE never decides it.
+Unrecognised sources keep the bare name (fail closed). **Only the key moves:** `is_packed` and `isa_bucket` still read the
+printed mnemonic, and an arm plants the wrong ordering (renamed first, the scalar body routes `A`).
+
+⛔ **THE STAMP COULD NOT HAVE SEEN THIS RULE.** The `rules` half hashes `_decide`, and this rename happens before `_decide`
+runs. That is D98's blindness one function earlier. The rule's behaviour over a closed source domain now goes into the same
+hash, and an arm proves an identity key moves it. **Measured: the gate went red on the shipped census (`39b5fd89` →
+`aeb157e8`) before the regeneration, which is the only reason the regeneration happened.**
+
+**The regenerated census (40 s over the local corpus) conserves every column exactly.** Only `miss*` fields moved, and no
+key outside `cvtsi2s*` changed. The asm class:
+```
+                 cvtsi2sd  cvtsi2sdl  cvtsi2sdq  cvtsi2ss  cvtsi2ssl  cvtsi2ssq     sum
+  before           1,434        488        178     1,169        280         14   3,563
+  after                0      1,436        664         0      1,273        190   3,563
+  delta           -1,434       +948       +486    -1,169       +993       +176
+```
+The register-source totals reproduce the QUEUE's scan to the instruction: int32 948 + 993 = **1,941**, int64 486 + 176 = **662**.
+
+⛔⛔ **BUT THE QUEUE FILED ALL 1,941 AS "EXACT → sub-group A", AND HALF OF THEM ARE NOT.** `cvtsi2ss` from int32 is int32 →
+binary32. That conversion rounds above 2^24, and `p2_residue.ROUNDING` has always filed `cvtsi2ssl` under **B**. The
+commission's own §7 control measured it inexact on 193,067 of 200,000 values. The scan pooled `sd` with `ss` before it split
+by width. **Sub-group A gains 948 (36.4% of the 2,603), not 74.6%; sub-group B gains 1,655.**
+Commission §2 is re-derived: **A 4,385 · A′ 898 · B 31,063**, and `p2_residue` gate 3 reproduces all three.
+⇒ 🔑 ***A SPLIT ALONG ONE DIMENSION INHERITS WHATEVER THE POOL ALREADY MIXED.*** The control (1,941 + 662 = 2,603) proved the
+partition was COMPLETE, and said nothing about whether each part was the class it was labelled.
+[[feedback-a-partition-says-nothing-about-its-complement]]
+
+⛔ **THE SIBLING THE KEY FIX EXPOSED: `p2_roster`'s by-mnemonic verdict was keyed by the probe LABEL.** Across all 262 probe
+rows the label disagrees with the assembled mnemonic on exactly two, the rows labelled `cvtsi2sd`/`cvtsi2ss`, which assemble
+`cvtsi2sdl`/`cvtsi2ssl`. With the census keyed by width, those two verdicts landed on a key no demand carries, and the
+published "the oracle EXECUTES" fell by 1,941. The loop is now `mnemonic_verdicts()` and reads the asm token, as
+`measured_availability` has since D100. Five arms cover it. The table: by mnemonic **148,277 → 149,045** (+768, the memory `l`
+share); by bucket **136,672 → 139,275** (+2,603); joined set **+2,603**; demand-without-supply **−2,603**.
+
+⚠️ **OPEN, AND SAID SO — the QUEUE's first consequence stands:** the `l`/`q` verdicts were measured on REGISTER forms and are now
+credited to pooled demand that includes 960 memory-source instructions. The opcode is the same, but the question was not asked.
+A memory-source probe is a sealed P2_FORMS batch of its own.
+⚠️ **FOUND, NOT MEASURED — `is_packed`'s `SCALAR_FP = (ss|sd)$` misses every SUFFIXED scalar conversion.** That covers the
+memory-source `cvtsi2s[sd][lq]` and every `cvt(t)s[sd]2si` (census keys `cvtsd2si` 94 · `cvtss2si` 166 · `cvttsd2si` 647 ·
+`cvttss2si` 595, all columns), so those count as PACKED SIMD and pull a function body toward the hand-written route. The shipped arm tests only the bare `cvtsi2sd`. This changes origin attribution, not keys,
+and is filed as its own step.

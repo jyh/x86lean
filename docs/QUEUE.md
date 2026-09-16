@@ -2815,8 +2815,23 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 
-## ✅ P2-NEXT, MIN/MAX HALF — **BUILT 2026-09-15 as P2 batch 38 (D253, record 24): 6 pairs / 926 instructions.** The conversion half below is still unbuilt and still waits on the `cvtsi2s*` key fix.
-**Sub-group A's unclaimed total is now 3,437.**
+## ✅ P2-NEXT, MIN/MAX HALF — **BUILT 2026-09-15 as P2 batch 38 (D253, record 24): 6 pairs / 926 instructions.** The conversion half below is still unbuilt; **its `cvtsi2s*` key fix LANDED 2026-09-16 (D257)**, so it is now priceable.
+**Sub-group A's unclaimed total is now 4,385** (`cvtss2sd` 2,949 + `cvtsi2sdl` 1,436, keyed by width). It read 3,437 on the lossy key.
+✅ **THE CONVERSION HALF, PRICED 2026-09-16 (after D257) — P2 batch 39, 2 pairs / 4,385 instructions, the rest of sub-group A.**
+```
+  pair        asm demand   rule                                                        oracle (register probe)
+  cvtss2sd       2,949     binary32 -> binary64, EXACT; a signalling NaN is QUIETED    executes (`cvtss2sd %xmm1, %xmm0`)
+  cvtsi2sdl      1,436     int32 -> binary64, EXACT (every int32 fits in 53 bits)       executes (`cvtsi2sdl %ecx, %xmm0`)
+```
+- **Semantics: small, one batch the size of 38.** It needs an exponent re-bias (127 → 1023), a mantissa shift of 29, and
+  denormal normalisation (a count of leading zeros) for `cvtss2sd`; and sign-magnitude, a leading-zero count and the
+  encoding for `cvtsi2sdl`. Neither reads MXCSR.RC. **State: none.**
+- ⛔ **TWO REACHABILITY QUESTIONS BEFORE ANY CODE** (D253's order): (a) does any pre-state put a SIGNALLING NaN in an xmm
+  low lane (the quiet bit is one mantissa bit; UNMEASURED)? (b) do the GPR pre-states reach a NEGATIVE int32, INT32_MIN
+  and 0? If not, those arms are KERNEL differentials against IEEE, planted wrong once (D254's form), never vector arms.
+- ⚠️ **ORACLE SUPPORT IS REGISTER-ONLY FOR BOTH:** the census pools memory-source demand under both keys. Fold
+  `CVTSI-MEM-PROBE` (below, widened to `cvtss2sd (%rbx), %xmm0`) into the batch's sealed probe declaration.
+- Measure Δku on a draft first, as in batch 38 (Δku read 0 there against an allowance of 51).
 - ⛔ **The constraint the table names was REFUTED:** Δku on the SoftFloat draft read 0 against 51.
 - The real cost is where kernel evidence lives (`Tests.Anchors`, about 124 ms allowance).
 
@@ -2852,6 +2867,11 @@ one** classified as needing the commission. **No rounding-free pair is left**, s
 - **Measure Δku on a draft BEFORE choosing where the code lives.** ⛔ Do not split a module to reach a `@ku` registration: that registration is
   for a module that is genuinely new, and using it to dodge a relative budget is the gate being routed around.
 
+✅ **KEY FIX DONE 2026-09-16 — D257.** The census keys a register-source conversion by its source WIDTH, pooled with the memory
+form of that width; `p2_roster`'s by-mnemonic verdict now reads the asm token, not the probe label. Consequence 2 below is closed and
+consequence 3 is measured, **but its sub-group reading was WRONG — see the correction under it.** Consequence 1 stays OPEN (item
+`CVTSI-MEM-PROBE` below).
+
 **⛔ THE `cvtsi2s*` KEYS JOIN TWO DIFFERENT OPERAND SHAPES. Measured, before I wrote down a guess I had already made the wrong way:**
 ```
   clang + the CommandLineTools objdump, one assembly unit:
@@ -2883,9 +2903,26 @@ same `objdump` invocation the census uses:
                                           suffixed, memory source    960
   control                                 1,941 + 662 = 2,603 — this row's own figure, to the instruction
 ```
-⇒ **74.6% of the unkeyed 2,603 is sub-group A work.** A rule that keys by mnemonic alone misfiles 662 inexact conversions into the
-no-rounding group, or 1,941 exact ones out of it, depending on which way it guesses. **The control is the part to trust: the scan
+⛔ **SUPERSEDED 2026-09-16 (D257) — the two sentences below pooled `sd` with `ss` before splitting by width.** `cvtsi2ss` from int32
+is int32 → binary32, which ROUNDS (commission §7's control: 193,067 of 200,000 inexact), and `p2_residue` files `cvtsi2ssl` under B.
+Split by mnemonic as well: int32 `sd` **948 (A)** · int32 `ss` **993 (B)** · int64 `sd` 486 + `ss` 176 **(B)**. ⇒ **36.4% is
+sub-group A work, not 74.6%.**
+~~⇒ **74.6% of the unkeyed 2,603 is sub-group A work.**~~ A rule that keys by mnemonic alone misfiles 662 inexact conversions into the
+no-rounding group, or 1,941 ~~exact~~ int32 ones out of it, depending on which way it guesses. **The control is the part to trust: the scan
 reproduces the census's own population exactly, so the split joins its columns rather than standing beside them.**
+
+## ⚠️ CVTSI-MEM-PROBE (2026-09-16, from D257) — **the `cvtsi2s[sd][lq]` verdicts were measured on REGISTER forms and credit MEMORY demand**
+D257 pooled both shapes under one width key, so a verdict now covers demand that includes **960 memory-source instructions** (asm
+class) that no probe asked about. It is the same opcode and will very likely agree, but nobody has asked. **The step:** a sealed P2_FORMS batch of four
+memory-source rows (`cvtsi2sdl (%rbx), %xmm0` · `…sdq` · `…ssl` · `…ssq`, bytes from clang, declaration hashed BEFORE ACL2 runs),
+then `measured_availability`'s conflict rule decides whether they agree. ⚠️ **Widened 2026-09-16:** add `cvtss2sd (%rbx), %xmm0` — its key has no suffix, so it pools both shapes too, and it was probed register-to-register only. ⛔ Not a key change: a disagreement is a finding, not a merge.
+
+## ⚠️ PACKED-SCALAR-CONV (2026-09-16, from D257) — **`is_packed` counts every SUFFIXED scalar conversion as packed SIMD**
+`SCALAR_FP = (ss|sd)$` matches `cvtsi2sd` and not `cvtsi2sdl`, `cvtsd2si`, `cvttss2si`… so a memory-source int→float and every
+float→int truncation push a function body toward `A` (hand-written). The shipped arm covers the bare spelling only. **What it moves:**
+origin attribution (the asm/compiler cells), never a key or a coverage number. **UNMEASURED:** how many function bodies change route.
+**The step:** a scalar-conversion rule by the mnemonic's MEANING (`cvt(t)?s[sd]2si`, `cvtsi2s[sd][lq]?`), arms for each spelling, and
+a before/after census diff of the ORIGIN cells, with the regeneration forced by the stamp as in D257.
 
 ## ✅ SDM-QUOTE-1 (2026-09-15) — **CLOSED THE SAME DAY: rode es3's landing (`64a1b7a`, PR #17); the normalised sweep reads 7 copies whole, 0 truncated.** *(Filed as: THREE LEAN COMMENTS MISQUOTE THE SDM, AND THE FIX RIDES THE NEXT `.lean` LANDING (D249 §3).)*
 The SAL/SAR/SHL/SHR CF clause reads *"the size (in bits) of the destination operand"* (325462-092US, and the Dec 2023 text).

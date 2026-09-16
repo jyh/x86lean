@@ -9,8 +9,8 @@
     1490
    ],
    [
-    "cvtsi2sd",
-    156
+    "cvtsi2sdq",
+    112
    ],
    [
     "mulsd",
@@ -25,12 +25,16 @@
     60
    ],
    [
+    "cvtsi2sdl",
+    52
+   ],
+   [
     "cpuid",
     51
    ],
    [
-    "cvtsi2ss",
-    41
+    "cvtsi2ssq",
+    33
    ],
    [
     "incsspq",
@@ -65,6 +69,10 @@
     12
    ],
    [
+    "cvtsi2ssl",
+    11
+   ],
+   [
     "subsd",
     10
    ],
@@ -85,10 +93,6 @@
     8
    ],
    [
-    "cvtsi2sdl",
-    6
-   ],
-   [
     "pcmpestri",
     6
    ],
@@ -103,10 +107,6 @@
    [
     "pextrw",
     4
-   ],
-   [
-    "cvtsi2ssl",
-    3
    ],
    [
     "pinsrw",
@@ -125,10 +125,6 @@
     2
    ],
    [
-    "cvtsi2sdq",
-    2
-   ],
-   [
     "subl (lock operand)",
     2
    ],
@@ -142,7 +138,7 @@
    ]
   ],
   "miss_all": {
-   "cvtsi2sd": 156,
+   "cvtsi2sdq": 112,
    "divsd": 60,
    "addsd": 61,
    "cpuid": 51,
@@ -152,22 +148,21 @@
    "rdrandl": 2,
    "rdseedl": 8,
    "pause": 4,
+   "cvtsi2sdl": 52,
    "rdsspq": 12,
    "incsspq": 28,
    "mulsd": 78,
-   "cvtsi2ss": 41,
+   "cvtsi2ssq": 33,
    "divss": 17,
    "cvtss2sd": 19,
    "mulss": 8,
-   "cvtsi2ssl": 3,
+   "cvtsi2ssl": 11,
    "cvttss2si": 2,
    "pmuludq": 8,
    "cvttsd2si": 18,
    "pinsrw": 3,
-   "cvtsi2sdl": 6,
    "subsd": 10,
    "addss": 10,
-   "cvtsi2sdq": 2,
    "cvtsd2ss": 1,
    "pcmpestri": 6,
    "pextrw": 4,
@@ -215,8 +210,8 @@
    "segment base %fs:/%gs: (P2 addition 1)": 4
   },
   "miss_by_ext": {
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 156
+   "cvtsi2sdq": {
+    "SSE-legacy (xmm)": 112
    },
    "divsd": {
     "SSE-legacy (xmm)": 60
@@ -260,6 +255,9 @@
    "pause": {
     "SSE2 (pause)": 4
    },
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 52
+   },
    "rdsspq": {
     "GPR/other (unclassified)": 12
    },
@@ -269,8 +267,8 @@
    "mulsd": {
     "SSE-legacy (xmm)": 78
    },
-   "cvtsi2ss": {
-    "SSE-legacy (xmm)": 41
+   "cvtsi2ssq": {
+    "SSE-legacy (xmm)": 33
    },
    "divss": {
     "SSE-legacy (xmm)": 17
@@ -282,7 +280,7 @@
     "SSE-legacy (xmm)": 8
    },
    "cvtsi2ssl": {
-    "SSE-legacy (xmm)": 3
+    "SSE-legacy (xmm)": 11
    },
    "cvttss2si": {
     "SSE-legacy (xmm)": 2
@@ -296,17 +294,11 @@
    "pinsrw": {
     "SSE-legacy (xmm)": 3
    },
-   "cvtsi2sdl": {
-    "SSE-legacy (xmm)": 6
-   },
    "subsd": {
     "SSE-legacy (xmm)": 10
    },
    "addss": {
     "SSE-legacy (xmm)": 10
-   },
-   "cvtsi2sdq": {
-    "SSE-legacy (xmm)": 2
    },
    "cvtsd2ss": {
     "SSE-legacy (xmm)": 1
@@ -330,7 +322,7 @@
     11626
    ],
    [
-    "cvtsi2ss",
+    "cvtsi2ssq",
     264
    ],
    [
@@ -358,8 +350,8 @@
     154
    ],
    [
-    "cvtsi2sd",
-    151
+    "cvtsi2sdq",
+    153
    ],
    [
     "fldt",
@@ -490,11 +482,11 @@
    "endbr64": 11626,
    "hlt": 105,
    "addss": 154,
-   "cvtsi2sd": 151,
+   "cvtsi2sdq": 153,
    "mulsd": 79,
    "divsd": 27,
    "addsd": 78,
-   "cvtsi2ss": 264,
+   "cvtsi2ssq": 264,
    "divss": 69,
    "subss": 88,
    "cvttss2si": 176,
@@ -536,7 +528,6 @@
    "vpternlogd": 6,
    "cvttsd2si": 19,
    "subsd": 8,
-   "cvtsi2sdq": 3,
    "fldz": 39,
    "fchs": 10,
    "fcmove": 1,
@@ -563,6 +554,7 @@
    "fldenv": 3,
    "wait": 3,
    "movmskpd": 3,
+   "cvtsi2sdl": 1,
    "vmovdqa32": 1,
    "vpcmpeqb": 4,
    "kmovq": 1,
@@ -624,8 +616,8 @@
    "addss": {
     "SSE-legacy (xmm)": 154
    },
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 151
+   "cvtsi2sdq": {
+    "SSE-legacy (xmm)": 153
    },
    "mulsd": {
     "SSE-legacy (xmm)": 79
@@ -636,7 +628,7 @@
    "addsd": {
     "SSE-legacy (xmm)": 78
    },
-   "cvtsi2ss": {
+   "cvtsi2ssq": {
     "SSE-legacy (xmm)": 264
    },
    "divss": {
@@ -770,9 +762,6 @@
    "subsd": {
     "SSE-legacy (xmm)": 8
    },
-   "cvtsi2sdq": {
-    "SSE-legacy (xmm)": 3
-   },
    "fldz": {
     "GPR/other (unclassified)": 39
    },
@@ -850,6 +839,9 @@
    },
    "movmskpd": {
     "SSE-legacy (xmm)": 3
+   },
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 1
    },
    "vmovdqa32": {
     "AVX-512 (zmm/k)": 1
@@ -1141,7 +1133,7 @@
    "movmskpd": 52,
    "fcomi": 154,
    "fdiv": 45,
-   "cvtsi2sd": 121,
+   "cvtsi2sdl": 82,
    "divsd": 245,
    "pause": 12,
    "movntdq": 28,
@@ -1149,13 +1141,15 @@
    "fildll": 11,
    "fsubrp": 169,
    "fstpl": 16,
-   "cvtsi2ss": 63,
+   "cvtsi2sdq": 44,
+   "cvtsi2ssq": 25,
    "divss": 131,
    "cvttss2si": 35,
    "fldl": 51,
    "fdivrp": 70,
    "rdpkru": 2,
    "wrpkru": 1,
+   "cvtsi2ssl": 40,
    "xlatb": 1,
    "pextrw": 11,
    "vpbroadcastb": 35,
@@ -1233,10 +1227,8 @@
    "fistpll": 9,
    "frndint": 30,
    "fpatan": 24,
-   "cvtsi2sdl": 5,
    "cmpnlesd": 15,
    "cvtsd2ss": 136,
-   "cvtsi2ssl": 2,
    "cmpnless": 7,
    "fsqrt": 45,
    "fcmovnbe": 8,
@@ -1826,8 +1818,8 @@
    "fdiv": {
     "x87 (st)": 45
    },
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 121
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 82
    },
    "divsd": {
     "SSE-legacy (xmm)": 245
@@ -1868,8 +1860,11 @@
    "fstpl": {
     "GPR/other (unclassified)": 16
    },
-   "cvtsi2ss": {
-    "SSE-legacy (xmm)": 63
+   "cvtsi2sdq": {
+    "SSE-legacy (xmm)": 44
+   },
+   "cvtsi2ssq": {
+    "SSE-legacy (xmm)": 25
    },
    "divss": {
     "SSE-legacy (xmm)": 131
@@ -1889,6 +1884,9 @@
    },
    "wrpkru": {
     "GPR/other (unclassified)": 1
+   },
+   "cvtsi2ssl": {
+    "SSE-legacy (xmm)": 40
    },
    "xlatb": {
     "GPR/other (unclassified)": 1
@@ -2147,17 +2145,11 @@
    "fpatan": {
     "GPR/other (unclassified)": 24
    },
-   "cvtsi2sdl": {
-    "SSE-legacy (xmm)": 5
-   },
    "cmpnlesd": {
     "SSE-legacy (xmm)": 15
    },
    "cvtsd2ss": {
     "SSE-legacy (xmm)": 136
-   },
-   "cvtsi2ssl": {
-    "SSE-legacy (xmm)": 2
    },
    "cmpnless": {
     "SSE-legacy (xmm)": 7
@@ -4727,7 +4719,7 @@
   ],
   "miss_all": {
    "endbr64": 11236,
-   "cvtsi2sd": 746,
+   "cvtsi2sdl": 817,
    "mulsd": 4181,
    "addsd": 3468,
    "cvttsd2si": 228,
@@ -4735,21 +4727,19 @@
    "cvtsd2ss": 1109,
    "mulss": 5229,
    "cvtss2sd": 2607,
-   "cvtsi2ss": 871,
+   "cvtsi2ssl": 919,
    "divss": 483,
-   "cvtsi2sdq": 41,
-   "cvtsi2sdl": 222,
+   "cvtsi2sdq": 192,
    "addss": 4384,
    "sqrtss": 126,
    "subss": 2132,
    "cmpltss": 27,
    "subsd": 1305,
-   "cvtsi2ssl": 138,
+   "cvtsi2ssq": 94,
    "cvttss2si": 221,
    "cvtss2si": 165,
    "sqrtsd": 45,
    "cvtsd2si": 93,
-   "cvtsi2ssq": 4,
    "emms": 55,
    "cmpnless": 12,
    "cmpless": 1,
@@ -5134,8 +5124,8 @@
    "endbr64": {
     "CET-IBT": 11236
    },
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 746
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 817
    },
    "mulsd": {
     "SSE-legacy (xmm)": 4181
@@ -5159,17 +5149,14 @@
    "cvtss2sd": {
     "SSE-legacy (xmm)": 2607
    },
-   "cvtsi2ss": {
-    "SSE-legacy (xmm)": 871
+   "cvtsi2ssl": {
+    "SSE-legacy (xmm)": 919
    },
    "divss": {
     "SSE-legacy (xmm)": 483
    },
    "cvtsi2sdq": {
-    "SSE-legacy (xmm)": 41
-   },
-   "cvtsi2sdl": {
-    "SSE-legacy (xmm)": 222
+    "SSE-legacy (xmm)": 192
    },
    "addss": {
     "SSE-legacy (xmm)": 4384
@@ -5186,8 +5173,8 @@
    "subsd": {
     "SSE-legacy (xmm)": 1305
    },
-   "cvtsi2ssl": {
-    "SSE-legacy (xmm)": 138
+   "cvtsi2ssq": {
+    "SSE-legacy (xmm)": 94
    },
    "cvttss2si": {
     "SSE-legacy (xmm)": 215,
@@ -5202,9 +5189,6 @@
    },
    "cvtsd2si": {
     "SSE-legacy (xmm)": 93
-   },
-   "cvtsi2ssq": {
-    "SSE-legacy (xmm)": 4
    },
    "emms": {
     "GPR/other (unclassified)": 55
@@ -6359,8 +6343,8 @@
     813
    ],
    [
-    "cvtsi2ss",
-    112
+    "cvtsi2ssl",
+    113
    ],
    [
     "addss",
@@ -6383,20 +6367,24 @@
     62
    ],
    [
-    "cvtsi2sd",
-    60
-   ],
-   [
     "cvtsd2ss",
     46
    ],
    [
-    "cvtsi2ssl",
-    45
+    "cvtsi2ssq",
+    44
    ],
    [
     "cvtss2sd",
     39
+   ],
+   [
+    "cvtsi2sdl",
+    38
+   ],
+   [
+    "cvtsi2sdq",
+    28
    ],
    [
     "divsd",
@@ -6459,10 +6447,6 @@
     4
    ],
    [
-    "cvtsi2sdq",
-    4
-   ],
-   [
     "divss",
     3
    ],
@@ -6476,10 +6460,6 @@
    ],
    [
     "pinsrw",
-    2
-   ],
-   [
-    "cvtsi2sdl",
     2
    ],
    [
@@ -6500,15 +6480,16 @@
    "pextrw": 2,
    "cmpnleps": 16,
    "cmpnlepd": 15,
-   "cvtsi2sd": 60,
+   "cvtsi2sdq": 28,
    "divsd": 25,
    "mulss": 75,
    "addss": 88,
    "cvttss2si": 85,
    "cvtss2sd": 39,
    "cvtdq2ps": 10,
-   "cvtsi2ss": 112,
-   "cvtsi2ssl": 45,
+   "cvtsi2ssq": 44,
+   "cvtsi2ssl": 113,
+   "cvtsi2sdl": 38,
    "mulsd": 62,
    "cvtsd2ss": 46,
    "mulps": 10,
@@ -6523,10 +6504,8 @@
    "cvttpd2dq": 4,
    "pmuludq": 70,
    "sqrtsd": 1,
-   "cvtsi2sdl": 2,
    "subsd": 11,
    "divss": 3,
-   "cvtsi2sdq": 4,
    "subps": 1,
    "subss": 3,
    "subl (lock operand)": 6,
@@ -6573,8 +6552,8 @@
    "cmpnlepd": {
     "SSE-legacy (xmm)": 15
    },
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 60
+   "cvtsi2sdq": {
+    "SSE-legacy (xmm)": 28
    },
    "divsd": {
     "SSE-legacy (xmm)": 25
@@ -6595,11 +6574,14 @@
    "cvtdq2ps": {
     "SSE-legacy (xmm)": 10
    },
-   "cvtsi2ss": {
-    "SSE-legacy (xmm)": 112
+   "cvtsi2ssq": {
+    "SSE-legacy (xmm)": 44
    },
    "cvtsi2ssl": {
-    "SSE-legacy (xmm)": 45
+    "SSE-legacy (xmm)": 113
+   },
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 38
    },
    "mulsd": {
     "SSE-legacy (xmm)": 62
@@ -6643,17 +6625,11 @@
    "sqrtsd": {
     "SSE-legacy (xmm)": 1
    },
-   "cvtsi2sdl": {
-    "SSE-legacy (xmm)": 2
-   },
    "subsd": {
     "SSE-legacy (xmm)": 11
    },
    "divss": {
     "SSE-legacy (xmm)": 3
-   },
-   "cvtsi2sdq": {
-    "SSE-legacy (xmm)": 4
    },
    "subl": {
     "LOCK prefix (P2 addition 2)": 6
@@ -7022,8 +6998,8 @@
     371
    ],
    [
-    "cvtsi2sd",
-    350
+    "cvtsi2sdl",
+    339
    ],
    [
     "vpsadbw",
@@ -7077,7 +7053,8 @@
    "pmullw": 2727,
    "mulsd": 604,
    "divsd": 466,
-   "cvtsi2sd": 350,
+   "cvtsi2sdl": 339,
+   "cvtsi2sdq": 174,
    "addsd": 495,
    "pmovzxbw": 66,
    "pmaddwd": 11258,
@@ -7219,8 +7196,6 @@
    "vpextrd": 12,
    "subsd": 254,
    "pause": 3,
-   "cvtsi2sdl": 146,
-   "cvtsi2sdq": 17,
    "cvtdq2pd": 5,
    "subpd": 22,
    "sqrtsd": 13,
@@ -7234,12 +7209,11 @@
    "addss": 38,
    "mulss": 50,
    "cmpltss": 1,
-   "cvtsi2ss": 36,
+   "cvtsi2ssl": 30,
+   "cvtsi2ssq": 26,
    "divss": 16,
-   "cvtsi2ssl": 10,
    "cvttps2dq": 1,
    "subss": 7,
-   "cvtsi2ssq": 10,
    "mulpd": 7,
    "cmpnltsd": 2,
    "cvttss2si": 11,
@@ -7341,8 +7315,11 @@
    "divsd": {
     "SSE-legacy (xmm)": 466
    },
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 350
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 339
+   },
+   "cvtsi2sdq": {
+    "SSE-legacy (xmm)": 174
    },
    "addsd": {
     "SSE-legacy (xmm)": 495
@@ -7826,12 +7803,6 @@
    "pause": {
     "SSE2 (pause)": 3
    },
-   "cvtsi2sdl": {
-    "SSE-legacy (xmm)": 146
-   },
-   "cvtsi2sdq": {
-    "SSE-legacy (xmm)": 17
-   },
    "cvtdq2pd": {
     "SSE-legacy (xmm)": 5
    },
@@ -7871,23 +7842,20 @@
    "cmpltss": {
     "SSE-legacy (xmm)": 1
    },
-   "cvtsi2ss": {
-    "SSE-legacy (xmm)": 36
+   "cvtsi2ssl": {
+    "SSE-legacy (xmm)": 30
+   },
+   "cvtsi2ssq": {
+    "SSE-legacy (xmm)": 26
    },
    "divss": {
     "SSE-legacy (xmm)": 16
-   },
-   "cvtsi2ssl": {
-    "SSE-legacy (xmm)": 10
    },
    "cvttps2dq": {
     "SSE-legacy (xmm)": 1
    },
    "subss": {
     "SSE-legacy (xmm)": 7
-   },
-   "cvtsi2ssq": {
-    "SSE-legacy (xmm)": 10
    },
    "mulpd": {
     "SSE-legacy (xmm)": 7
@@ -8116,16 +8084,16 @@
     284
    ],
    [
-    "cvtsi2sd",
-    278
-   ],
-   [
     "pshufb",
     275
    ],
    [
     "pavgb",
     272
+   ],
+   [
+    "cvtsi2sdq",
+    270
    ],
    [
     "psubusb",
@@ -8138,7 +8106,7 @@
   ],
   "miss_all": {
    "endbr64": 1168,
-   "cvtsi2ss": 150,
+   "cvtsi2ssl": 211,
    "addss": 186,
    "cvttss2si": 65,
    "mulsd": 635,
@@ -8150,7 +8118,7 @@
    "divss": 104,
    "emms": 83,
    "subsd": 104,
-   "cvtsi2sd": 278,
+   "cvtsi2sdl": 242,
    "divsd": 317,
    "pmaxsw": 1562,
    "pminsw": 210,
@@ -8158,10 +8126,9 @@
    "pminub": 40,
    "cmplesd": 28,
    "subss": 122,
+   "cvtsi2ssq": 26,
    "sqrtss": 8,
-   "cvtsi2ssl": 87,
-   "cvtsi2sdl": 118,
-   "cvtsi2sdq": 116,
+   "cvtsi2sdq": 270,
    "pshufw": 437,
    "paddusw": 182,
    "pmaddwd": 743,
@@ -8522,8 +8489,8 @@
    "endbr64": {
     "CET-IBT": 1168
    },
-   "cvtsi2ss": {
-    "SSE-legacy (xmm)": 150
+   "cvtsi2ssl": {
+    "SSE-legacy (xmm)": 211
    },
    "addss": {
     "SSE-legacy (xmm)": 186
@@ -8561,8 +8528,8 @@
    "subsd": {
     "SSE-legacy (xmm)": 104
    },
-   "cvtsi2sd": {
-    "SSE-legacy (xmm)": 278
+   "cvtsi2sdl": {
+    "SSE-legacy (xmm)": 242
    },
    "divsd": {
     "SSE-legacy (xmm)": 317
@@ -8604,17 +8571,14 @@
    "subss": {
     "SSE-legacy (xmm)": 122
    },
+   "cvtsi2ssq": {
+    "SSE-legacy (xmm)": 26
+   },
    "sqrtss": {
     "SSE-legacy (xmm)": 8
    },
-   "cvtsi2ssl": {
-    "SSE-legacy (xmm)": 87
-   },
-   "cvtsi2sdl": {
-    "SSE-legacy (xmm)": 118
-   },
    "cvtsi2sdq": {
-    "SSE-legacy (xmm)": 116
+    "SSE-legacy (xmm)": 270
    },
    "psllw": {
     "MMX (mm)": 32
