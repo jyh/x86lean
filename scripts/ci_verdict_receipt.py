@@ -315,7 +315,11 @@ def selftest():
           effective({"rc": "unparsed", "kernel_delta_conclusion": "failure"}).startswith("unparsed"))
     # append is keyed by run and idempotent
     import tempfile
-    with tempfile.TemporaryDirectory() as td:
+    # ⛔ THE PREFIX IS A GATE, NOT A STYLE: `kernel_cost --selftest` requires every
+    # temp call in scripts/ to name this campaign, so an orphaned directory can be
+    # attributed to the seat that left it. A bare TemporaryDirectory() here turned
+    # that arm red in CI on this file's first run — which is the arm working.
+    with tempfile.TemporaryDirectory(prefix="x86lean-cireceipt-") as td:
         p = os.path.join(td, "r.jsonl")
         r1 = {"run": 1, "created_at": "2026-09-15T00:00:00Z", "rc": "rc3",
               "ku_delta_conclusion": "success"}
