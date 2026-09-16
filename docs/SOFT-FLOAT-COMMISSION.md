@@ -76,19 +76,23 @@ down and with the boundary now measured:
 
 ```
 SUB-GROUP A — NO ROUNDING AT ALL
-   12 pairs,  3,437 instructions   UNCLAIMED — 6,619 (17.9% of the commission) at the freeze, 2026-09-05;
+   12 pairs,  4,385 instructions   UNCLAIMED — 6,619 (17.9% of the commission) at the freeze, 2026-09-05;
                                   comiss/comisd/ucomiss/ucomisd (2,256) landed 2026-09-15, P2 batch 32, D140;
-                                  minss/minsd/maxss/maxsd/minps/maxps (926) landed 2026-09-15, P2 batch 38, D253
+                                  minss/minsd/maxss/maxsd/minps/maxps (926) landed 2026-09-15, P2 batch 38, D253;
+                                  +948 on 2026-09-16, D257: the census now keys register-source int32
+                                  conversions by WIDTH (was 3,437 on the lossy key)
    comisd 1,115 · comiss 819 · minsd 250 · maxss 230 · minss 215 · maxsd 194 ·
    ucomiss 187 · ucomisd 135 · maxps 20 · minps 17          (compare / min / max)
-   cvtss2sd 2,949 · cvtsi2sdl 488                            (EXACT widenings — see §7)
+   cvtss2sd 2,949 · cvtsi2sdl 1,436                          (EXACT widenings — see §7;
+                                                             cvtsi2sdl read 488 before D257)
 
 SUB-GROUP A′ — a FIXED rounding mode, independent of MXCSR.RC
     2 pairs,    898 instructions   ( 2.4%)
    cvttsd2si 530 · cvttss2si 368     (truncation toward zero is not a mode choice)
 
 SUB-GROUP B — arithmetic and inexact conversions: MXCSR.RC-DEPENDENT
-   26 pairs, 29,408 instructions   (79.6%)
+   26 pairs, 31,063 instructions   (was 29,408 before D257: +1,655 register-source
+                                    cvtsi2ssl 993 · cvtsi2sdq 486 · cvtsi2ssq 176)
    mulss 5,698 · mulsd 5,482 · addss 4,696 · addsd 4,260 · subss 2,264 ·
    subsd 1,674 · cvtsd2ss 1,297 · divsd 1,252 · divss 606 · …
 ```
@@ -189,6 +193,9 @@ CONTROL cvtsi2ssl int32 -> binary32 : 200,000 values   non-exact 193,067
 exactly; and every int32 fits in binary64's 53-bit significand. Neither can round, so neither reads
 MXCSR.RC. **3,437 instructions move out of the rounding-dependent block**, and sub-group A more than
 doubles, 3,182 → 6,619.
+⚠️ **Those two figures are the freeze's, on a census key D257 (2026-09-16) found lossy:** `cvtsi2sdl`
+then counted only MEMORY-source instructions (488). Keyed by width, it is **1,436**, so the same
+argument moves **4,385** today. §2 carries the live figure.
 
 ⭐ **The two controls are the point of the measurement, not decoration.** "Zero non-exact results"
 is also what a broken exactness test prints. `cvtsi2sdq` and `cvtsi2ssl` were run through the *same*

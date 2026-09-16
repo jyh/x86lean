@@ -514,6 +514,43 @@ def debug_index(debug_dir):
 
 import bisect
 
+# ⛔⛔ THE WIDTH A MNEMONIC DOES NOT CARRY (D257, the `cvtsi2s*` key fix).  objdump
+# prints a REGISTER-source `cvtsi2sd`/`cvtsi2ss` with NO operand-size suffix
+# whatever the source width, and the MEMORY-source forms WITH one:
+#     cvtsi2sd %eax,%xmm0      int32  source   (f2 0f 2a c0)
+#     cvtsi2sd %rax,%xmm0      int64  source   (f2 48 0f 2a c0)  <- the SAME spelling
+#     cvtsi2sdl (%rbx),%xmm0   int32  source
+#     cvtsi2sdq (%rbx),%xmm0   int64  source
+# Keyed by the printed mnemonic, 2,603 register-source instructions had a key no
+# other tool joins on, and one key held both an EXACT conversion (int32 ->
+# binary64) and an INEXACT one (int64 -> binary64).  The rule that decides a
+# conversion's semantics is (source WIDTH, target format), never the source's
+# SHAPE, so the register form is keyed by clang's suffixed spelling — the spelling
+# `oracle_availability` already probes it under — and pools with the memory form
+# of the same width.
+# ⚠️ ONLY THE KEY MOVES.  `is_packed` and `isa_bucket` still read the PRINTED
+# mnemonic, so function-origin attribution cannot change through this rule.
+# ⛔ FAILS CLOSED: a source this does not recognise keeps the bare, unjoined name.
+WIDTH_KEYED = ("cvtsi2sd", "cvtsi2ss")
+_GPR32_RE = re.compile(r"%(?:e(?:ax|bx|cx|dx|si|di|bp|sp)|r(?:[89]|1[0-5])d)")
+_GPR64_RE = re.compile(r"%(?:r(?:ax|bx|cx|dx|si|di|bp|sp)|r(?:[89]|1[0-5]))")
+
+def width_key(mn, ops):
+    """The census key for one instruction line: the printed mnemonic, except a
+    bare `cvtsi2sd`/`cvtsi2ss` takes `l`/`q` from its REGISTER source."""
+    if mn not in WIDTH_KEYED:
+        return mn
+    src = ops.split(",", 1)[0].strip()
+    if _GPR32_RE.fullmatch(src):
+        return mn + "l"
+    if _GPR64_RE.fullmatch(src):
+        return mn + "q"
+    return mn
+
+# the closed domain the staleness stamp hashes this rule over (see `model_stamp`)
+_WIDTH_PROBE_SRCS = ("%eax", "%r8d", "%r15d", "%esp", "%rax", "%r8", "%r15",
+                     "%rsp", "%ax", "%al", "(%rbx)", "0x8(%rsp,%rcx,4)", "%xmm1")
+
 def _classify(lines, syms=None, fn_sink=None):
     """objdump lines -> Counter keyed by (mnemonic, kind, origin, ext).
 
@@ -604,9 +641,9 @@ def _classify(lines, syms=None, fn_sink=None):
             # probe found it: mutating `cell()` to return "CC" left the selftest
             # GREEN.  ⇒ 🔑 A RULE WRITTEN TWICE IS A RULE ONE ARM CAN ONLY
             # HALF-TEST, and the half nobody exercises is the half that moves.
-            c[(mn, kind, cell(), isa_bucket(mn, ops, kind))] += 1
+            c[(width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind))] += 1
         else:
-            buf.append((mn, kind, isa_bucket(mn, ops, kind)))
+            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind)))
             if is_packed(mn, ops):
                 n_packed += 1
     flush_padding(run)
@@ -750,6 +787,7 @@ def _rule_domain(model):
     for pre in ("j", "set", "cmov"):
         d |= {pre + c for c in CC}
     d |= {f"mov{a}{b}{c}" for a in "sz" for b in "bwl" for c in "wlq"}
+    d |= set(WIDTH_KEYED) | {b + c for b in WIDTH_KEYED for c in "lq"}
     return d
 
 def model_stamp(model):
@@ -760,6 +798,13 @@ def model_stamp(model):
         for ext in sorted(EXT_SCOPE):
             r, cov, cls = _decide(m, ext, model)
             rows.append(f"{m}\t{ext}\t{r}\t{int(cov)}\t{cls}")
+    # ⛔ D257: a rule that renames the KEY before `_decide` ever sees it is part of
+    # the mapping, and a stamp that hashed only `_decide` could not see it move —
+    # D98's blindness, one function earlier.  Its behaviour over a closed domain
+    # goes into the same hash.
+    for m in WIDTH_KEYED:
+        for src in _WIDTH_PROBE_SRCS:
+            rows.append(f"KEY\t{m}\t{src}\t{width_key(m, src + ',%xmm0')}")
     rh = hashlib.sha256("\n".join(rows).encode()).hexdigest()[:16]
     return len(model), h, rh
 
@@ -1351,6 +1396,55 @@ def selftest():
           ("" if ok else f"\n      got {dict(got3)}"))
     bad += [] if ok else ["attr-disagree"]
 
+    # ── D257: the WIDTH key, on every source shape, in both directions ──
+    width_arms = [
+        (("cvtsi2sd", "%eax,%xmm0"), "cvtsi2sdl"), (("cvtsi2sd", "%r8d, %xmm0"), "cvtsi2sdl"),
+        (("cvtsi2sd", "%rax,%xmm0"), "cvtsi2sdq"), (("cvtsi2sd", "%r15,%xmm0"), "cvtsi2sdq"),
+        (("cvtsi2ss", "%esp,%xmm1"), "cvtsi2ssl"), (("cvtsi2ss", "%rsp,%xmm1"), "cvtsi2ssq"),
+        # the memory forms arrive suffixed and pass through untouched
+        (("cvtsi2sdl", "(%rbx),%xmm0"), "cvtsi2sdl"),
+        (("cvtsi2ssq", "0x8(%rsp,%rcx,4),%xmm0"), "cvtsi2ssq"),
+        # ⛔ FAILS CLOSED: a source it does not recognise keeps the bare name
+        (("cvtsi2sd", "(%rbx),%xmm0"), "cvtsi2sd"), (("cvtsi2sd", "%ax,%xmm0"), "cvtsi2sd"),
+        (("cvtsi2sd", "%r1,%xmm0"), "cvtsi2sd"), (("cvtsi2sd", "%r16,%xmm0"), "cvtsi2sd"),
+        # ⛔ and nothing else is renamed — not even the VEX spelling of the same family
+        (("vcvtsi2sd", "%eax,%xmm1,%xmm0"), "vcvtsi2sd"), (("movq", "%rax,%rbx"), "movq"),
+    ]
+    for (mn, ops), want in width_arms:
+        got = width_key(mn, ops)
+        ok = got == want
+        print(("  ✔ " if ok else "  ⛔ ") + f"width key {mn:10s} {ops:26s} -> {got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append("width:" + mn + ops)
+    # ...the key moves and the ORIGIN does not: eight int32 conversions are a scalar
+    # body.  Renamed BEFORE `is_packed`, `cvtsi2sdl` fails `SCALAR_FP` and the body
+    # would route `A` — this arm is the plant for that ordering.
+    lines3 = LA(0x2000, *["cvtsi2sd %eax,%xmm0"] * 6, *["cvtsi2sd %rax,%xmm0"] * 2)
+    got4 = collections.Counter()
+    for (mn, kind, o, ext), k in _classify(lines3, [(0x2000, 0x2020, "decode_frame_c")]).items():
+        got4[(mn, o)] += k
+    want4 = {("cvtsi2sdl", "CC"): 6, ("cvtsi2sdq", "CC"): 2}
+    ok = dict(got4) == want4
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "a register-source conversion is keyed by WIDTH and its body still routes CC" +
+          ("" if ok else f"\n      got {dict(got4)}\n      want {want4}"))
+    bad += [] if ok else ["width-origin"]
+    # ...and the stamp SEES the rule: an identity key must move the `rules` half
+    _saved_wk = globals()["width_key"]
+    globals()["width_key"] = lambda mn, ops: mn
+    try:
+        _n3, _h3, _r3 = model_stamp(_M)
+    finally:
+        globals()["width_key"] = _saved_wk
+    _n4, _h4, _r4 = model_stamp(_M)
+    ok = (_h3 == _h0) and (_r3 != _r0) and (_r4 == _r0)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "the stamp's `rules` half moves when the WIDTH KEY moves (D257: a rename "
+          "before `_decide` is part of the mapping)" +
+          ("" if ok else f"   rules {_r0}/{_r3}/{_r4}"))
+    bad += [] if ok else ["stamp-width-key"]
+
     # ── the `objdump -t` line shapes this tool must parse ──
     sym_arms = [
         ("000000000011f2c0 l     F .text\t0000000000000417 cdef_find_dir_c",
@@ -1465,7 +1559,9 @@ def selftest():
              len(prefix_arms) + 6 +
              # D98: the model-aware mapping, the scope partition, its totality,
              # conservation, the stamp's second half, and the second plant
-             len(map_arms) + len(scope_arms) + 6)
+             len(map_arms) + len(scope_arms) + 6 +
+             # D257: the width key, its origin invariance, the stamp seeing it
+             len(width_arms) + 2)
     print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7+n_new} arms; "
           f"the width-changing/string-move trap in both directions, every "
           f"line-level rule that moved the number, and both routes of the "

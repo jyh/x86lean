@@ -106,11 +106,11 @@ Cumulative share is over the whole uncovered gap (398,471 instructions), so a ro
 | 39 | `vmulps` | 2,715 | 0.68% | 58.2% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 40 | `pmulhrsw` | 2,690 | 0.68% | 58.9% | 4% | ⛔ **REFUSES** | `xm`, `xx` |
 
-- The joined set — **345 mnemonics K has semantics for AND the corpus executes** — accounts for **361,065 instructions (90.6% of the gap)**.
+- The joined set — **345 mnemonics K has semantics for AND the corpus executes** — accounts for **363,668 instructions (91.3% of the gap)**.
 
 ## The two residues
 
-### ⛔ Demand without supply — 187 mnemonics, 37,244 instructions (9.3% of the gap)
+### ⛔ Demand without supply — 185 mnemonics, 34,641 instructions (8.7% of the gap)
 
 The corpus executes these and **K has no rule for them**, so they cannot be priced from the coverage target list at all. A roster that listed only the join would price P2 this much too low.
 
@@ -119,28 +119,28 @@ The corpus executes these and **K has no rule for them**, so they cannot be pric
 | 1 | `endbr64` | 16,488 | 4.14% |
 | 2 | `vmovdqa32` | 6,230 | 1.56% |
 | 3 | `vpdpwssd` | 1,589 | 0.40% |
-| 4 | `cvtsi2sd` | 1,434 | 0.36% |
-| 5 | `cvtsi2ss` | 1,169 | 0.29% |
-| 6 | `vpermb` | 794 | 0.20% |
-| 7 | `vmovdqu32` | 712 | 0.18% |
-| 8 | `vinserti32x4` | 680 | 0.17% |
-| 9 | `pshufw` | 642 | 0.16% |
-| 10 | `vextracti32x4` | 620 | 0.16% |
-| 11 | `vshufi32x4` | 617 | 0.15% |
-| 12 | `vinserti32x8` | 469 | 0.12% |
-| 13 | `vbroadcasti32x4` | 452 | 0.11% |
-| 14 | `vpdpbusd` | 364 | 0.09% |
-| 15 | `vpgatherdd` | 274 | 0.07% |
-| 16 | `rorxl` | 268 | 0.07% |
-| 17 | `vpxord` | 256 | 0.06% |
-| 18 | `vextracti32x8` | 242 | 0.06% |
-| 19 | `vpermt2q` | 190 | 0.05% |
-| 20 | `emms` | 164 | 0.04% |
-| 21 | `vpermt2b` | 147 | 0.04% |
-| 22 | `vpermw` | 131 | 0.03% |
-| 23 | `rorxq` | 130 | 0.03% |
-| 24 | `vpord` | 129 | 0.03% |
-| 25 | `vpmultishiftqb` | 123 | 0.03% |
+| 4 | `vpermb` | 794 | 0.20% |
+| 5 | `vmovdqu32` | 712 | 0.18% |
+| 6 | `vinserti32x4` | 680 | 0.17% |
+| 7 | `pshufw` | 642 | 0.16% |
+| 8 | `vextracti32x4` | 620 | 0.16% |
+| 9 | `vshufi32x4` | 617 | 0.15% |
+| 10 | `vinserti32x8` | 469 | 0.12% |
+| 11 | `vbroadcasti32x4` | 452 | 0.11% |
+| 12 | `vpdpbusd` | 364 | 0.09% |
+| 13 | `vpgatherdd` | 274 | 0.07% |
+| 14 | `rorxl` | 268 | 0.07% |
+| 15 | `vpxord` | 256 | 0.06% |
+| 16 | `vextracti32x8` | 242 | 0.06% |
+| 17 | `vpermt2q` | 190 | 0.05% |
+| 18 | `emms` | 164 | 0.04% |
+| 19 | `vpermt2b` | 147 | 0.04% |
+| 20 | `vpermw` | 131 | 0.03% |
+| 21 | `rorxq` | 130 | 0.03% |
+| 22 | `vpord` | 129 | 0.03% |
+| 23 | `vpmultishiftqb` | 123 | 0.03% |
+| 24 | `movq2dq` | 110 | 0.03% |
+| 25 | `vpperm` | 100 | 0.03% |
 
 ### Supply without demand — 233 mnemonics
 
@@ -167,10 +167,10 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 138 | 148,277 | 37.2% |
+| the oracle EXECUTES | 138 | 149,045 | 37.4% |
 | the oracle REFUSES | 82 | 217,162 | 54.5% |
 | the oracle STALLS | 3 | 243 | 0.1% |
-| **probed so far** | 223 | **365,682** | **91.8%** |
+| **probed so far** | 223 | **366,450** | **92.0%** |
 
 ⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
 unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
@@ -189,14 +189,14 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 96 | 136,672 | 34.3% |
+| the oracle EXECUTES | 96 | 139,275 | 35.0% |
 | the oracle REFUSES | 88 | 169,877 | 42.6% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 187 | **306,790** | **77.0%** |
-| not asked at its own bucket | | 91,519 | 23.0% |
+| **probed so far** | 187 | **309,393** | **77.6%** |
+| not asked at its own bucket | | 88,916 | 22.3% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-58,892 instructions, 14.8% of the gap** — that is
+57,057 instructions, 14.3% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
