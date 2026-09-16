@@ -2840,8 +2840,21 @@ saturation), and the vectors need both widths. At the corpus (`objdump -d` over 
   cvttsd2si  xmm→r32 404 · xmm→r64 126 · mem→r32 11 · mem→r64 7     = 548
   cvttss2si  xmm→r32 311 · xmm→r64  57 · mem→r32 14                 = 382
 ```
-**STILL UNPRICED:** Δku (read it on a draft, never scaled), whether a vector's pre-states reach the range boundary (±2^31,
-±2^63) or the kernel differential must pin it, and what the constructors cost `X86.Syntax`'s ms cell. That cell is the
+✅ **REACHABILITY, MEASURED 2026-09-16 over the 88 emitted pre-states (every xmm low lane, every memory offset present in all
+states), classing each source's truncation at both widths:**
+```
+  the range boundary (result = INT_MIN or INT_MAX)   0 of 88 at EVERY source, both formats, both widths
+  binary64, non-zero in-range result                 0 of 88 on 15 of 16 xmm lanes (xmm3 r64: 3); at most 1 at any
+                                                     memory offset — the random lanes are fractions (→ 0) or out of range
+  binary32, non-zero in-range result                 xmm4 r32 55 · xmm3 r32 18 · xmm2/xmm3 r64 19 · several offsets 13–18 (r64)
+  rbx+12 (binary32)                                 88 of 88, but ONE constant (−1.49f): truncation and round-to-nearest
+                                                     agree there, so it cannot refute a rounding model
+  NaN / out of range / fraction → 0                  reached broadly, both formats
+```
+⇒ **The truncation of a binary64 normal and both range boundaries are PINNED IN THE KERNEL, not tested by vectors.** Run them
+on x86isa first (it accepts every source, above). The binary32 in-range rule has vector reach through `xmm4`/`xmm3`, so a
+"rounds instead of truncating" arm is a vector arm for `cvttss2si` only.
+**STILL UNPRICED:** Δku (read it on a draft, never scaled), and what the constructors cost `X86.Syntax`'s ms cell. That cell is the
 tight one, and batch 39's three constructors are the nearest reading. ⚠️ The width is an AST field, not a `Cpu` field, so
 the commission's K3 does not price it.
 
