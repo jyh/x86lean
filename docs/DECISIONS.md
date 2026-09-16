@@ -17384,3 +17384,106 @@ entry is unchanged) and counted
   nine columns**, which is the control that the probe read the same run the census did.
 ⇒ No body that carries these conversions was close enough to the 50% line for them to move it. The origin figures
 published since D257 were right, but for a reason no rule stated. **UNMEASURED:** the nearest body's margin to the threshold.
+
+## D261 — P2 batch 40: sub-group A′, the truncations, and a rule the pre-states barely reach
+
+⚖️ QUEUE `P2-NEXT (A′)`, priced at 930 instructions after D259. Record 26 (`docs/DIFFERENTIAL-P2-BATCH26.md`).
+`cvttsd2si` (548) and `cvttss2si` (382): two roster rows, 13 vectors, two constructors, one function, no new state field.
+⚠️ **Naming:** "A′" here is the soft-float commission's SUB-GROUP (a set of instructions). The CI job is `ku-delta` (arm A′),
+and this decision always calls it that.
+
+### 1. THE RULE, AND THE WIDTH FIELD
+`SoftFloat.truncToInt f w x` implements the SDM rule for CVTTSD2SI/CVTTSS2SI. A normal's significand is placed as an integer
+and shifted once: left when the unbiased exponent is at least the mantissa width, right (dropping the fraction) otherwise.
+- |x| < 1 gives 0, including ±0 and every denormal.
+- NaN, ±∞ and any truncation outside `[−2^(w−1), 2^(w−1) − 1]` give the integer indefinite `2^(w−1)`.
+- INT_MIN itself is in range.
+- The rounding is fixed by the opcode, so MXCSR.RC is not read, and the invalid exception is an MXCSR flag this model does not
+  have (D2).
+
+`Op.vcvtt2si (dbl wide) dst src` and `Op.vcvtt2sim (dbl wide) dst ea`. ⛔ **`wide` is a `Bool`, not a `Size`.** The SDM lists
+exactly two destination widths, and a `Size` would admit 8- and 16-bit forms that no encoding produces and that
+`truncToInt` would still answer. The int32 write is an ordinary `setReg .d`, so it zero-extends.
+✅ **Checked before any instruction used it:** an independent Python reference (exact integer arithmetic on the IEEE fields,
+no floats) against `truncToInt` on **24,884 generated rows** at both formats and both widths: **0 disagreements**, and a
+planted row was reported 4 of 4. The reference itself reproduces every row the x86isa special-case probe observed.
+
+### 2. ⛔ THE PRE-STATES BARELY REACH THE RULE, MEASURED BEFORE A VECTOR WAS WRITTEN
+A reachability table over the 88 emitted pre-states classed every xmm low lane and every memory offset present in all states
+by its truncation, at both widths:
+```
+  the range boundary (INT_MIN / INT_MAX)          0 of 88 at EVERY source, both formats, both widths
+  binary64, non-zero in-range result              0 of 88 on 15 of 16 lanes (xmm3 at r64: 3); ≤ 1 at any memory offset
+  binary32, non-zero in-range result              xmm4 and xmm12 at r32: 55 each · xmm3 and xmm5 at r64: 19 and 56
+  rbx+12 (binary32)                               88 of 88, but ONE constant (−1.49f), where truncation and rounding agree
+```
+The random lanes are fractions (→ 0) or out of range (→ the indefinite). ⇒ **The binary64 truncation and both boundaries are
+pinned in the kernel (§4), and the vectors carry the indefinite, the zero, the REX.W width and the binary32 in-range rule.**
+✅ **x86isa truncates at every source, zeros included** (13 special cases with a control placed last, 2026-09-16), unlike its
+`cvtss2sd` (D258 §2). No source had to be chosen to avoid one.
+
+### 3. THE VECTORS AND THE RUN (record 26 §3)
+13 vectors, seven binary32 and six binary64: register and memory sources, both destination widths, REX.B on a source, REX.R on a
+destination. Each source was chosen from a per-vector table of what it reaches in the terms the arms need (§5). The encodings
+cross-check CLEAN against the assembler at 1,058 forms.
+**Pre-registered on the fleet bus before the run, and CONFIRMED TO THE CASE:**
+```
+  cases=93104 matched=72572 explained=29435 unexplained=0 oracle-divergence=171 oracle-leaks=0 missing=0
+  (+1,144 cases = 13 × 88, +1,144 matched; explained, divergence, leaks and missing unchanged)
+```
+⛔ **Checked, not believed.** The oracle's post-state was compared with the SDM rule computed in Python from each pre-state:
+**1,144 cases, 0 mismatches**. The check covers the destination GPR, the other fifteen GPRs, all sixteen XMM registers, RIP and
+the refusal flag. The 64-bit destinations had never been driven on x86isa here, and they agree. The write is visible in 63–88 of
+88 states per vector. The results are 651 zeros, 286 indefinites and 207 other values.
+⚠️ **The script exited 2, and that was not the verdict.** Its trailing `kernel_cost` reading found `Tests/Coverage.lean`
+uncompiled, because `rosterP0` did not yet name the two rows. After that fix, the final binary re-emits the Lean side
+**byte-identically** (sha256 `5fa461b2…`). So the run's Lean half is the committed tree, not a neighbour of it.
+
+### 4. WHERE NO VECTOR REACHES — PINNED IN THE KERNEL
+`cvttsd2si_trunc` (28 values) and `cvttss2si_trunc` (16) in `Tests/Anchors.lean`, each at BOTH widths. They cover:
+- zeros and denormals, and fractions either side of ½ and 1;
+- INT_MIN exactly and one step beyond it, INT_MAX and the largest value below each limit;
+- 2^53 + 2, ±2^63, the infinities and three NaNs.
+
+Every binary32 carrier holds junk above bit 31. The expectations come from the §1 reference, never from the model.
+`[propext, Quot.sound]`, the same as D258's anchors.
+- **Executed on x86isa first:** 88 rows plus a control placed last, at `%eax` and `%rax`. **0 disagreements**, and the same
+  comparison reports a planted rounding row 2 of 2.
+- **Planted wrong once in the kernel:** the `1.5` row set to 2. The build failed at exactly `cvttsd2si_trunc`, and nothing else.
+
+### 5. THE ARMS, PREDICTED OVER THE RIGHT POPULATION THIS TIME
+Eight wrong models, all labelled `cvtt`, field `rax` (nine of the thirteen vectors write it). The prediction was made
+**before the run** and **over `driveWrong`'s own population**: `preStates seed 4`, 84 states, dumped from Lean, whose
+seed-8 twin reproduces all 88 emitted states with 0 mismatching states. The models were written in Python without reading
+`Main.lean`'s, and the reference agreed with its own no-defect mode on every input.
+```
+  arm                                                  predicted   selftest cvtt
+  rounds half away from zero instead of truncating          9          9
+  rounds toward minus infinity                             66         66
+  saturates instead of returning the indefinite            31         31
+  returns 0 for a NaN                                     102        102
+  ignores REX.W and writes an int32                       105        105
+  reads a binary64 source as binary32                     146        146
+  sign-extends an int32 result                            104        104
+  keeps the upper half of a 32-bit destination            165        165
+```
+**Every arm caught, and every score equal to its prediction.** This is batch 39's population lesson (D258 §7) applied
+FORWARD: the 84-vs-88 question was asked before a number was written, not after one disagreed.
+⚠️ The rounding arm is the lowest, and the reason is §2. Only an in-range binary32 fraction of at least ½ reaches it, and
+the arm reads only the `rax`-writing vectors: 9 of their 9 × 84 cases. (`xmm12`'s vector reaches it too, but writes `rcx`.) A binary64 rounding error is
+therefore carried by the `1.5`/`2.5`/`1-ulp` rows of §4, not by an arm.
+
+### 6. THE REGENERATION AND THE PRICE
+- **The census:** every column total is unchanged. Each column's covered gain equals the two keys' prior miss
+  (cc1 20 · coreutils 195 · ffmpeg 449 · glibc 97 · vlc-codec 107 · vpx 253 · x264 121), and no other key moved.
+  **The pooled asm class gains +930, the price D259 set.**
+- **The P2 roster:** the gap falls by the same 930 (394,086 → 393,156).
+- **The commission:** sub-group A′ re-stamped 930 → **0** (`p2_residue` gate 3). **Sub-group A′ is complete**, and B
+  (31,065) is all that remains.
+- **Regenerated:** VectorRuns (308 runs / 1058 vectors / 172 rows), COVERAGE (T-exact 146), DEMAND-CENSUS, P2-ROSTER.
+  README: 1045/91960/25 → 1058/93104/26; mnemonics 170 → 172; XMM rows 84 → 86.
+
+### 7. THE LANDING MEASUREMENT
+Owed when the batch lands on `master`. It needs the `kernel_delta` step and the `ku-delta` (arm A′) step against the
+recorded ledger head, pre-registered on the fleet bus first, as D258 §8 did. This section is filled in the same PR,
+before it merges.

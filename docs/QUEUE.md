@@ -494,7 +494,7 @@ Exit criterion — one differential run of the 20 forms with zero unexplained di
 Roster growth to the census's scalar demand, with the vector table, the encoding gates and the
 kernel-cost discipline built along the way.
 
-## P2 — the vector campaign · **LIVE** (25 differential records; the seat's own batch counter is higher)
+## P2 — the vector campaign · **LIVE** (26 differential records; the seat's own batch counter is higher)
 ⚠️ *This header read "22 differential records" until 2026-09-16, with 24 on disk: the paragraph below names this exact
 defect, and it recurred two records after the paragraph was written. The count is `ls docs/DIFFERENTIAL-P2-BATCH*.md`,
 and nothing gates this line.*
@@ -2374,11 +2374,11 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED — SUB-GROUP A LANDED IN FULL 2026-09-16**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED — SUB-GROUPS A AND A′ LANDED IN FULL 2026-09-16 (A′: D261); B REMAINS**
 ⚖️ **STATUS AT 2026-09-16:** sub-group A is BUILT and on the roster across three batches: the compares (32, D140), min/max
 (38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 930 since D259;
-the census had filed 32 memory-source forms under GPR/other and read 898: `cvttsd2si`/`cvttss2si`, truncation) is the next
-priceable group. **B** stays frozen on K3 and K4.
+the census had filed 32 memory-source forms under GPR/other and read 898: `cvttsd2si`/`cvttss2si`, truncation) is BUILT as P2 batch 40
+(D261) and gate 3 reads it 0. **B** stays frozen on K3 and K4.
 ⚠️ *The status paragraph below said "OPEN: no sub-group has landed" while batches 32 and 38 were on `master`.*
 ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): THE HEADER IS TRUE.** OPEN: no sub-group has landed. FROZEN: sub-group B waits on
 kill-checks K3 and K4, both still unmeasured (`docs/SOFT-FLOAT-COMMISSION.md` §4, §5). PARTLY REFUTED: K2 for two members (§7).
@@ -2823,7 +2823,8 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 
-## ⏳ P2-NEXT (A′) (2026-09-16) — **THE NEXT GROUP: sub-group A′, `cvttsd2si` 548 · `cvttss2si` 382 = 930 instructions (D259). Pre-code facts measured; Δku and the range boundary are UNPRICED.**
+## ✅ P2-NEXT (A′) (2026-09-16) — **BUILT THE SAME DAY as P2 batch 40 (D261, record 26): 2 pairs / 930 instructions. SUB-GROUP A′ IS EMPTY; only B remains.** The range boundary and the binary64 in-range rule are pinned in the kernel (§ reachability below); the landing measurement is D261 §7.
+*(As filed: "THE NEXT GROUP: sub-group A′ … Pre-code facts measured; Δku and the range boundary are UNPRICED.")*
 ✅ **x86isa's truncating conversions do NOT abort the run at any special source**, unlike `cvtss2sd` (D258 §2). This was driven
 on a 13-case file through the differential driver, with a control case placed LAST (`3.14159f` → 3), and the control ran:
 ```

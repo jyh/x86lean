@@ -89,8 +89,10 @@ SUB-GROUP A — NO ROUNDING AT ALL
                                                              cvtsi2sdl read 488 before D257)
 
 SUB-GROUP A′ — a FIXED rounding mode, independent of MXCSR.RC
-    2 pairs,    930 instructions   (was 898 before D259: the census filed the 32 MEMORY-source
-                                    forms under GPR/other, because their operands name no xmm)
+    2 pairs,      0 instructions   UNCLAIMED — 930 before 2026-09-16, when cvttsd2si/cvttss2si landed as
+                                  P2 batch 40, D261 (it read 898 before D259: the census had filed the 32
+                                  MEMORY-source forms under GPR/other, because their operands name no xmm).
+                                  ⇒ SUB-GROUP A′ IS COMPLETE.
    cvttsd2si 548 · cvttss2si 382     (truncation toward zero is not a mode choice)
 
 SUB-GROUP B — arithmetic and inexact conversions: MXCSR.RC-DEPENDENT
