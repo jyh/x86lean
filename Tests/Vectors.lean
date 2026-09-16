@@ -2648,7 +2648,7 @@ def vectors : List Vec :=
   -- not a nibble pattern — so this is the one vector shape here that reaches two
   -- ZEROS (`c = a = 0x8000…` gives dst −0, src +0: the SOURCE-on-±0 rule), two
   -- NaNs, and NaN against zero.  ⚠️ It reaches the ±0 rule in ONE direction only
-  -- (dst −0, src +0), and no vector reaches ±∞ or a signalling NaN at all; those
+  -- (dst −0, src +0), and no vector HERE reaches ±∞ or a signalling NaN; those
   -- are carried by the kernel differential in D253, never pooled with this table.
   , { id := "minsd_x1_x0", mnemonic := "minsd", asm := "minsd %xmm1, %xmm0"
     , bytes := "f20f5dc1", instr := ⟨.vminmax false .q .x0 .x1, 4⟩ }
@@ -2683,6 +2683,55 @@ def vectors : List Vec :=
     , bytes := "0f5d4310", instr := ⟨.vbinm .minps .x0 { base := some .rbx, disp := 0x10 }, 4⟩ }
   , { id := "maxps_m", mnemonic := "maxps", asm := "maxps 0x10(%rbx), %xmm0"
     , bytes := "0f5f4310", instr := ⟨.vbinm .maxps .x0 { base := some .rbx, disp := 0x10 }, 4⟩ }
+
+  -- ⭐⭐⭐ P2 BATCH 39 — THE EXACT WIDENINGS (D258).  THE SOURCES ARE CHOSEN FROM
+  -- A REACHABILITY TABLE OVER EVERY REGISTER AND EVERY MEMORY OFFSET OF THE 88
+  -- PRE-STATES, and by one constraint that is not about x86 at all:
+  --
+  -- ⛔⛔ x86isa's `cvtss2sd` AT A ±0 SOURCE IS AN ACL2 GUARD VIOLATION
+  -- (`RTL::SSE-POST-COMP` requires a non-zero rational, D98), AND INSIDE
+  -- `x86l-run-all` IT ABORTS THE WHOLE RUN — every case after it is never
+  -- executed (driven 2026-09-16 on a three-case file, in both orders).  So every
+  -- `cvtss2sd` source below is NON-ZERO IN ALL 88 STATES: x1, x9, and the
+  -- unaligned offsets.  `(%rbx)`, `0x10(%rbx)`, x0, x5, x10 and x15 all reach a
+  -- zero and would have truncated the run.  ±0 is carried by the kernel
+  -- differential in D258, where the oracle cannot go.
+  --
+  -- ⭐ A SCALAR OPERAND HAS NO ALIGNMENT RULE, so any offset in the window is a
+  -- source: `-0x3(%rbx)` holds a SIGNALLING NaN in 28 of 88 states and
+  -- `0xe(%rbx)` a denormal in 36 (three of them negative) and a quiet NaN in 21.
+  -- Nothing reaches ±∞.
+  , { id := "cvtss2sd_x1_x0", mnemonic := "cvtss2sd", asm := "cvtss2sd %xmm1, %xmm0"
+    , bytes := "f30f5ac1", instr := ⟨.vcvtss2sd .x0 .x1, 4⟩ }
+  -- REX.B on the source; x9 is non-zero and of either sign in every state
+  , { id := "cvtss2sd_x9_x1", mnemonic := "cvtss2sd", asm := "cvtss2sd %xmm9, %xmm1"
+    , bytes := "f3410f5ac9", instr := ⟨.vcvtss2sd .x1 .x9, 5⟩ }
+  -- one register as both operands: the low lane is read before it is replaced
+  , { id := "cvtss2sd_x1_x1", mnemonic := "cvtss2sd", asm := "cvtss2sd %xmm1, %xmm1"
+    , bytes := "f30f5ac9", instr := ⟨.vcvtss2sd .x1 .x1, 4⟩ }
+  -- the signalling NaNs (28 of 88)
+  , { id := "cvtss2sd_mN3", mnemonic := "cvtss2sd", asm := "cvtss2sd -0x3(%rbx), %xmm0"
+    , bytes := "f30f5a43fd", instr := ⟨.vcvt2sdm false .x0 { base := some .rbx, disp := -3 }, 5⟩ }
+  -- the denormals (36 of 88) and quiet NaNs with varied payloads (21 of 88)
+  , { id := "cvtss2sd_mE", mnemonic := "cvtss2sd", asm := "cvtss2sd 0xe(%rbx), %xmm0"
+    , bytes := "f30f5a430e", instr := ⟨.vcvt2sdm false .x0 { base := some .rbx, disp := 0xe }, 5⟩ }
+  -- ⚠️ THE INT32 SOURCES MAY BE ZERO: `cvtsi2sd` takes another path through
+  -- x86isa (`sse-cvt-int-to-fp`) and a zero source executes (driven, same file).
+  -- `%ecx` reaches zero 14 · INT32_MIN 3 · negative 23 · positive 48; its upper
+  -- half differs from the sign extension in 40 states, which is what refutes a
+  -- model that converts the whole register.  `%edx` is negative in 57.
+  , { id := "cvtsi2sdl_ecx_x0", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl %ecx, %xmm0"
+    , bytes := "f20f2ac1", instr := ⟨.vcvtsi2sd .x0 .rcx, 4⟩ }
+  , { id := "cvtsi2sdl_edx_x0", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl %edx, %xmm0"
+    , bytes := "f20f2ac2", instr := ⟨.vcvtsi2sd .x0 .rdx, 4⟩ }
+  -- REX.R on the destination
+  , { id := "cvtsi2sdl_ecx_x9", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl %ecx, %xmm9"
+    , bytes := "f2440f2ac9", instr := ⟨.vcvtsi2sd .x9 .rcx, 5⟩ }
+  -- the memory source at two offsets (negative in 26 and 38 states)
+  , { id := "cvtsi2sdl_m", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl (%rbx), %xmm0"
+    , bytes := "f20f2a03", instr := ⟨.vcvt2sdm true .x0 { base := some .rbx }, 4⟩ }
+  , { id := "cvtsi2sdl_mN3", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl -0x3(%rbx), %xmm0"
+    , bytes := "f20f2a43fd", instr := ⟨.vcvt2sdm true .x0 { base := some .rbx, disp := -3 }, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each

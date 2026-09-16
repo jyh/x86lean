@@ -1944,10 +1944,14 @@ theorem shufps_reads_the_whole_immediate :
 
 /-! ## ⭐⭐⭐ MIN / MAX WHERE NO VECTOR REACHES — P2 BATCH 38 (D253)
 
-`SoftFloat.fmin`/`fmax` on the operand classes the differential's 88 pre-states
+`SoftFloat.fmin`/`fmax` on the operand classes the min/max vectors' sources
 **cannot** present, measured before these were written: **±∞**, a **signalling
 NaN**, and the zero pair in the **(+0, −0)** order.  (`0x10(%rbx)` reaches −0/+0,
-two NaNs and opposite signs; nothing reaches the rest.)  Every pair from
+two NaNs and opposite signs; none of these vectors' sources reaches the rest.)
+⚠️ *Scoped 2026-09-16 (D258 §2): this said "the 88 pre-states cannot present",
+and the measurement read registers and the offsets 0 and 0x10 only.  An
+UNALIGNED offset does reach a signalling NaN (`-0x3(%rbx)`, 28 of 88).  ±∞ and
+(+0, −0) are still reached nowhere.*  Every pair from
 {±0, ±∞, qNaN, sNaN, ±1} that contains ±∞ or the sNaN, plus (+0, −0): 40 pairs
 per format, each with its `min` and its `max`.
 
@@ -2240,5 +2244,73 @@ theorem fcmp_ieee_binary32 :
     (0x80000001, 0x00000001, .lt)  -- -den +den
   ] : List (BitVec 64 × BitVec 64 × SoftFloat.FCmp)).all
     (fun (a, b, r) => SoftFloat.fcmp SoftFloat.binary32 a b == r) = true := by decide
+
+/-! ## ⭐⭐⭐ THE EXACT WIDENINGS WHERE NO VECTOR (OR NO ORACLE) REACHES — P2 BATCH 39 (D258)
+
+`SoftFloat.f32to64` and `SoftFloat.i32to64` at the values that decide their
+rules: the zeros, the infinities, a signalling and a quiet NaN at both ends of
+the payload, the smallest and largest denormal and normal, and ±1; and the
+int32 boundaries.  Each carrier holds junk ABOVE bit 31, which the rules must
+not read.
+
+⛔ **THE EXPECTATIONS ARE NOT THE MODEL'S.** They come from IEEE-754 values
+(Python floats) and, for a NaN, the SDM's rule (payload up 29 bits, quiet bit
+set).  The rows were then EXECUTED, twice:
+- **on x86isa** at `cvtss2sd %xmm1, %xmm0` / `cvtsi2sdl %ecx, %xmm0`:
+  30 cases, 0 disagreements, RIP advanced in all 30.
+  **±0 CANNOT BE EXECUTED THERE**: it is an ACL2 guard violation
+  (`RTL::SSE-POST-COMP` requires a non-zero rational), which is also why no
+  `cvtss2sd` vector may read a source that is ever zero;
+- **under Rosetta 2** (a translator, not an x86 processor), as the instructions
+  themselves in a clang x86-64 build: 32 rows, the zeros included,
+  0 disagreements.  The same comparison against an unquieting rule reports the
+  4 signalling-NaN rows, so it can fail.
+
+⛔ **PLANTED WRONG ONCE:** see D258 §4.
+
+⚠️ A different instrument from the vector table, never pooled with it: these
+rows speak about the lane rules, not about `step`. -/
+
+theorem cvtss2sd_ieee :
+  ([
+    (0xa5a5a5a500000000, 0x0000000000000000),  -- +0
+    (0xa5a5a5a57f800000, 0x7ff0000000000000),  -- +inf
+    (0xa5a5a5a57f800001, 0x7ff8000020000000),  -- +snan-min
+    (0xa5a5a5a57fbfffff, 0x7fffffffe0000000),  -- +snan-max
+    (0xa5a5a5a57fc00000, 0x7ff8000000000000),  -- +qnan
+    (0xa5a5a5a57fffffff, 0x7fffffffe0000000),  -- +qnan-max
+    (0xa5a5a5a500000001, 0x36a0000000000000),  -- +den-min
+    (0xa5a5a5a5007fffff, 0x380fffffc0000000),  -- +den-max
+    (0xa5a5a5a500800000, 0x3810000000000000),  -- +norm-min
+    (0xa5a5a5a57f7fffff, 0x47efffffe0000000),  -- +norm-max
+    (0xa5a5a5a53f800000, 0x3ff0000000000000),  -- +one
+    (0xa5a5a5a580000000, 0x8000000000000000),  -- -0
+    (0xa5a5a5a5ff800000, 0xfff0000000000000),  -- -inf
+    (0xa5a5a5a5ff800001, 0xfff8000020000000),  -- -snan-min
+    (0xa5a5a5a5ffbfffff, 0xffffffffe0000000),  -- -snan-max
+    (0xa5a5a5a5ffc00000, 0xfff8000000000000),  -- -qnan
+    (0xa5a5a5a5ffffffff, 0xffffffffe0000000),  -- -qnan-max
+    (0xa5a5a5a580000001, 0xb6a0000000000000),  -- -den-min
+    (0xa5a5a5a5807fffff, 0xb80fffffc0000000),  -- -den-max
+    (0xa5a5a5a580800000, 0xb810000000000000),  -- -norm-min
+    (0xa5a5a5a5ff7fffff, 0xc7efffffe0000000),  -- -norm-max
+    (0xa5a5a5a5bf800000, 0xbff0000000000000)  -- -one
+  ] : List (BitVec 64 × BitVec 64)).all
+    (fun (a, r) => SoftFloat.f32to64 a == r) = true := by decide
+
+theorem cvtsi2sd_int32_ieee :
+  ([
+    (0xa5a5a5a500000000, 0x0000000000000000),  -- 0
+    (0xa5a5a5a500000001, 0x3ff0000000000000),  -- 1
+    (0xa5a5a5a5ffffffff, 0xbff0000000000000),  -- -1
+    (0xa5a5a5a57fffffff, 0x41dfffffffc00000),  -- max
+    (0xa5a5a5a580000000, 0xc1e0000000000000),  -- min
+    (0xa5a5a5a580000001, 0xc1dfffffffc00000),  -- min+1
+    (0xa5a5a5a501000001, 0x4170000010000000),  -- 2^24+1
+    (0xa5a5a5a5feffffff, 0xc170000010000000),  -- -(2^24+1)
+    (0xa5a5a5a57ffffffe, 0x41dfffffff800000),  -- 2^31-2
+    (0xa5a5a5a512345678, 0x41b2345678000000)  -- 0x12345678
+  ] : List (BitVec 64 × BitVec 64)).all
+    (fun (a, r) => SoftFloat.i32to64 a == r) = true := by decide
 
 end X86.Tests

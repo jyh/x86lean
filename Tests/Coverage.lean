@@ -157,7 +157,8 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ P2 BATCH 32 (D140), landed after 37 because the drift ledger held it, adds FOUR:
 -- `comiss`, `comisd`, `ucomiss`, `ucomisd`.  158 → 162.
 -- ⭐ P2 BATCH 38 (D253) adds SIX: `minss`, `minsd`, `maxss`, `maxsd`, `minps`, `maxps`.
-theorem roster_size_is_168 : rosterSize = 168 := by decide
+-- ⭐ P2 BATCH 39 (D258) adds TWO: `cvtss2sd`, `cvtsi2sdl`.
+theorem roster_size_is_170 : rosterSize = 170 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -187,7 +188,9 @@ def vectorCount : Nat := vectors.length
 -- ⭐ P2 BATCH 32 (D140) adds EIGHT: each of the four compares at two register pairs.
 -- ⭐ P2 BATCH 38 (D253) adds FIFTEEN: ten scalar (two register pairs, one memory
 -- source) and five packed.
-theorem vector_count_is_1035 : vectorCount = 1035 := by decide
+-- ⭐ P2 BATCH 39 (D258) adds TEN: five per conversion, three register and two
+-- memory shapes each.
+theorem vector_count_is_1045 : vectorCount = 1045 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1057,6 +1060,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- P2 BATCH 38, in the same commit as the constructors: a scalar min/max
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vminmax .. | .vminmaxm .. => false
+    -- P2 BATCH 39, in the same commit as the constructors: a conversion writes an
+    -- XMM register at every shape; the memory operand is its SOURCE.
+    | .vcvtss2sd .. | .vcvtsi2sd .. | .vcvt2sdm .. => false
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem

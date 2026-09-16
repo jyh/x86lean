@@ -494,7 +494,10 @@ Exit criterion — one differential run of the 20 forms with zero unexplained di
 Roster growth to the census's scalar demand, with the vector table, the encoding gates and the
 kernel-cost discipline built along the way.
 
-## P2 — the vector campaign · **LIVE** (22 differential records; the seat's own batch counter is higher)
+## P2 — the vector campaign · **LIVE** (25 differential records; the seat's own batch counter is higher)
+⚠️ *This header read "22 differential records" until 2026-09-16, with 24 on disk: the paragraph below names this exact
+defect, and it recurred two records after the paragraph was written. The count is `ls docs/DIFFERENTIAL-P2-BATCH*.md`,
+and nothing gates this line.*
 
 ⚠️ **TWO COUNTERS, AND THIS HEADER USED TO CARRY A THIRD NUMBER THAT WAS NEITHER.** It read
 "(33 batches)". The differential records are `DIFFERENTIAL-P2-BATCH1..22.md` — **22**, contiguous,
@@ -2371,7 +2374,11 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED — SUB-GROUP A LANDED IN FULL 2026-09-16**
+⚖️ **STATUS AT 2026-09-16:** sub-group A is BUILT and on the roster across three batches: the compares (32, D140), min/max
+(38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 898:
+`cvttsd2si`/`cvttss2si`, truncation) is the next priceable group. **B** stays frozen on K3 and K4.
+⚠️ *The status paragraph below said "OPEN: no sub-group has landed" while batches 32 and 38 were on `master`.*
 ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): THE HEADER IS TRUE.** OPEN: no sub-group has landed. FROZEN: sub-group B waits on
 kill-checks K3 and K4, both still unmeasured (`docs/SOFT-FLOAT-COMMISSION.md` §4, §5). PARTLY REFUTED: K2 for two members (§7).
 ⚠️ Sub-group A is not merely "buildable": a batch of it exists, `p2-batch32-fp-compares` `3a811fb`, held by the P2 banner's ledger
@@ -2815,7 +2822,15 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 
-## ✅ P2-NEXT, MIN/MAX HALF — **BUILT 2026-09-15 as P2 batch 38 (D253, record 24): 6 pairs / 926 instructions.** The conversion half below is still unbuilt; **its `cvtsi2s*` key fix LANDED 2026-09-16 (D257)**, so it is now priceable.
+## ✅ P2-NEXT — **BOTH HALVES BUILT: min/max as P2 batch 38 (D253, record 24, 926 instructions), the exact widenings as P2 batch 39 (D258, record 25, 4,385 instructions). SUB-GROUP A IS EMPTY.**
+⛔ **Batch 39 found two things the price below did not know** (D258 §2):
+- x86isa's `cvtss2sd` at a ±0 source is a guard violation that **aborts the whole differential run**, so no `cvtss2sd`
+  vector may read a source that is ever zero;
+- the pre-code reachability probe read two aligned offsets. An UNALIGNED offset reaches a signalling NaN (28 of 88 at
+  `-0x3(%rbx)`), so the quieting rule became a vector arm. ±∞ and ±0 went to the kernel differential.
+
+*(The entry as it stood before the build follows.)*
+### ✅ P2-NEXT, MIN/MAX HALF — **BUILT 2026-09-15 as P2 batch 38 (D253, record 24): 6 pairs / 926 instructions.** The conversion half below is still unbuilt; **its `cvtsi2s*` key fix LANDED 2026-09-16 (D257)**, so it is now priceable.
 **Sub-group A's unclaimed total is now 4,385** (`cvtss2sd` 2,949 + `cvtsi2sdl` 1,436, keyed by width). It read 3,437 on the lossy key.
 ✅ **THE CONVERSION HALF, PRICED 2026-09-16 (after D257) — P2 batch 39, 2 pairs / 4,385 instructions, the rest of sub-group A.**
 ```
@@ -2835,7 +2850,7 @@ by a stated rule (or delete the sentence's number), and add it to `check_readme_
 - ⛔ **The constraint the table names was REFUTED:** Δku on the SoftFloat draft read 0 against 51.
 - The real cost is where kernel evidence lives (`Tests.Anchors`, about 124 ms allowance).
 
-## ⚠️ P2-NEXT (2026-09-15) — **THE NEXT GROUP, PRICED BEFORE IT IS BUILT: sub-group A's remainder, 8 pairs / 4,363 instructions. Nothing below is built.**
+## ✅ P2-NEXT (2026-09-15) — **BUILT: batches 38 and 39 (above).** *(As filed: "THE NEXT GROUP, PRICED BEFORE IT IS BUILT: sub-group A's remainder, 8 pairs / 4,363 instructions. Nothing below is built.")*
 *(Filed the day batch 32 landed and no held branch remained. `p2_residue.py` on master `e76e4ba`: 36 unclaimed executing SSE-legacy pairs, **every
 one** classified as needing the commission. **No rounding-free pair is left**, so the next group is the commission's sub-group A remainder.)*
 ```
@@ -2911,11 +2926,49 @@ sub-group A work, not 74.6%.**
 no-rounding group, or 1,941 ~~exact~~ int32 ones out of it, depending on which way it guesses. **The control is the part to trust: the scan
 reproduces the census's own population exactly, so the split joins its columns rather than standing beside them.**
 
-## ⚠️ CVTSI-MEM-PROBE (2026-09-16, from D257) — **the `cvtsi2s[sd][lq]` verdicts were measured on REGISTER forms and credit MEMORY demand**
+## ⚠️ CVTSI-MEM-PROBE (2026-09-16, from D257) — **HALF ANSWERED BY BATCH 39'S VECTORS; the three sub-group-B keys still owe the sealed probe**
+✅ **`cvtsi2sdl` and `cvtss2sd` are answered, and more strongly than a probe would:** batch 39 runs four memory-source
+vectors on x86isa (`cvtsi2sdl (%rbx)` and `-0x3(%rbx)`, `cvtss2sd -0x3(%rbx)` and `0xe(%rbx)`): 352 cases, every one
+EXECUTED and every one agreeing with the SDM computed from the pre-state (D258, record 25).
+⛔ **The widened `cvtss2sd (%rbx)` row cannot be a sealed `measure_cr4` row as written.** That probe has no memory
+parameter, so `(%rbx)` reads 0, and `cvtss2sd` at zero is a guard violation: NO READING, by construction (D98's operand
+control). The vectors above are the answer for that key.
+**STILL OWED:** `cvtsi2sdq` · `cvtsi2ssl` · `cvtsi2ssq` at `(%rbx)`. An int source at zero executes (D258 §2), so the
+sealed rows are sound for these three. They are sub-group B keys and gate nothing today.
+*(As filed: "the `cvtsi2s[sd][lq]` verdicts were measured on REGISTER forms and credit MEMORY demand".)*
 D257 pooled both shapes under one width key, so a verdict now covers demand that includes **960 memory-source instructions** (asm
 class) that no probe asked about. It is the same opcode and will very likely agree, but nobody has asked. **The step:** a sealed P2_FORMS batch of four
 memory-source rows (`cvtsi2sdl (%rbx), %xmm0` · `…sdq` · `…ssl` · `…ssq`, bytes from clang, declaration hashed BEFORE ACL2 runs),
 then `measured_availability`'s conflict rule decides whether they agree. ⚠️ **Widened 2026-09-16:** add `cvtss2sd (%rbx), %xmm0` — its key has no suffix, so it pools both shapes too, and it was probed register-to-register only. ⛔ Not a key change: a disagreement is a finding, not a merge.
+
+## ⚠️ SCRUB-ANCESTRY (2026-09-16, routed as an FYI by the helm) — **the delta step trusts any REACHABLE before-sha; an ancestor move gives an empty range and a spurious FAIL-CLOSED red**
+`scrub.yml` "Scan the pushed delta" has one existence-only test, `git cat-file -e "$BEFORE^{commit}"`. If a branch is moved BACK
+to an ancestor while its old tip survives on another fetched ref, `$BEFORE..HEAD` is empty, and `check_private_paths.py --range`
+refuses: driven, `--range HEAD..HEAD` → `FAIL: scanned ZERO commits`, rc 1. **Latent: 0 of 317 Scrub runs**; the direction is a
+false red, never a false green. (The 12 red Scrub runs on record are all billing refusals that never started a step — measured
+2026-09-16 over the whole population.)
+**The step, when taken:** take `jas`'s `--is-ancestor` test and its self-test shape, **not its script verbatim**. As
+re-traced at origin the same day, `pick_scan_range.sh` hardcodes `origin/main`, and this repository's default branch is
+`master`. The default must come from the event (`github.event.repository.default_branch`), as salt's arm reads it. Arms:
+an ancestor move and an equal sha must fall back to `--tree` with the declared echo, an ordinary push must still scan
+`BEFORE..HEAD`, and a plant must fail if the branch name is hardcoded.
+
+## ⚠️ SCRUB-LOG-WITHHOLD (2026-09-16, a sibling `jas` found; the helm owns it fleet-wide) — **both scrub gates print the MATCHED TEXT, and a public CI log outlives the repaired commit**
+✅ **MEASURED FOR THIS REPOSITORY THE SAME DAY: nothing has ever been echoed into a public log here.** Of 317 Scrub runs, the 12
+reds are billing refusals that ran no step. A green run prints counts and the gate id only (a real master log: 495 lines, 0
+private-record shapes, against 15 of the gate's own lines). `ci.yml` runs none of the echoing gates. The site is latent.
+Two scripts echo it, and only on a FAILURE: `check_private_paths.py` (`finding_lines()`, `line[:110]`; seen here the same
+day, when a local `--tree` run printed the private path it caught) and `check_commit_trailers.py` (lines 315 and 339,
+`line[:100]`, one per bad message and one per bad tracked file). A green log cannot show either site. `check_pr_descriptions` already withholds the matched text. ⚖️ **SPLIT BY THE HELM'S RULING (desk PX):**
+- ⏳ **`check_commit_trailers.py` — TAKEN BY `jas` FOR ALL FIVE COPIES** (bus 13:07), so the four byte-identical copies keep
+  ONE gate id. A local x86lean build (`scan` stops returning the text; arm 6) was driven red-first and then REVERTED
+  unpushed, to keep one hand on one patch.
+  ⚖️ **SETTLED BY THE HELM (bus 13:08):** jas owns the patch TEXT, in the RATIFIED shape (`scan` returns
+  `(where, what, lineno)`, still a 3-tuple). paris keeps x86lean and applies jas's EXACT bytes as one commit inside the P2
+  batch 39 PR, which runs CI anyway, so x86lean costs no extra CI run.
+- ⛔ **`check_private_paths.finding_lines()` — NOT COMMISSIONED.** There the echoed line IS the scope, and it goes to the
+  sitting.
+⚠️ The exposure only exists when a violation is already on a public ref, so the log adds persistence, not first exposure.
 
 ## ⚠️ PACKED-SCALAR-CONV (2026-09-16, from D257) — **`is_packed` counts every SUFFIXED scalar conversion as packed SIMD**
 `SCALAR_FP = (ss|sd)$` matches `cvtsi2sd` and not `cvtsi2sdl`, `cvtsd2si`, `cvttss2si`… so a memory-source int→float and every

@@ -1506,6 +1506,27 @@ inductive Op where
   and the destination's upper bits are still PRESERVED — the memory load does not
   change the write rule, unlike `movss`, whose two source kinds have two rules. -/
   | vminmaxm (isMax : Bool) (sz : Size) (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ P2 BATCH 39 — CVTSS2SD (SDM Vol. 2B), register source: the low
+  binary32 lane of `src` becomes the low binary64 lane of `dst`
+  (`SoftFloat.f32to64`), and **the upper 64 bits of `dst` are PRESERVED** — the
+  legacy SSE rule (`DEST[MAXVL-1:64]` "unmodified").  No flag is written.
+  Exact, so no rounding control is read; a signalling NaN is QUIETED. -/
+  | vcvtss2sd (dst src : XmmReg)
+  /-- ⭐⭐⭐ P2 BATCH 39 — CVTSI2SD from a 32-BIT general-purpose source
+  (`f2 0f 2a`, REX.W clear): the source read as a signed int32
+  (`SoftFloat.i32to64`), the destination's upper 64 bits PRESERVED.
+
+  ⛔ NO WIDTH FIELD, AND THAT IS A CLAIM ABOUT THIS BATCH, NOT ABOUT THE ENCODING.
+  REX.W selects an int64 source, which is a DIFFERENT function — it rounds above
+  2^53, so it needs MXCSR.RC and belongs to sub-group B.  A width field would
+  admit a form this model cannot state.  The census keys this form `cvtsi2sdl`
+  (D257) although objdump prints the register form without the suffix. -/
+  | vcvtsi2sd (dst : XmmReg) (src : GPR)
+  /-- ⭐⭐⭐ P2 BATCH 39 — the two conversions at a MEMORY source.  Both read
+  FOUR bytes (`m32`), which is why one constructor serves both: `fromInt` picks
+  the rule (`i32to64` or `f32to64`) and nothing else.  ⚠️ NO ALIGNMENT CHECK: a
+  scalar operand states none, exactly as `vminmaxm`. -/
+  | vcvt2sdm (fromInt : Bool) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1870,6 +1891,11 @@ def opOperands : Op → List Operand
   -- P2 BATCH 38: the scalar min/max memory SOURCE names its address.
   | .vminmax .. => []
   | .vminmaxm _ _ _ ea => [.mem ea]
+  -- P2 BATCH 39: the int32 source IS an `Operand` (as `vmovg`'s); the XMM half is
+  -- not, and the memory source names its address.
+  | .vcvtss2sd .. => []
+  | .vcvtsi2sd _ r => [.reg r]
+  | .vcvt2sdm _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -2003,6 +2029,9 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 38: `lock minsd` is not a form the SDM lists.
   | .vminmax .. => false
   | .vminmaxm _ _ _ ea => ea.lock
+  -- P2 BATCH 39: `lock cvtss2sd` is not a form the SDM lists.
+  | .vcvtss2sd .. | .vcvtsi2sd .. => false
+  | .vcvt2sdm _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2172,6 +2201,11 @@ def Op.mnemonic : Op → String
   -- P2 BATCH 38: both operand shapes print one name, from two fields.
   | .vminmax mx sz .. | .vminmaxm mx sz .. =>
       (if mx then "max" else "min") ++ (if sz == .q then "sd" else "ss")
+  -- P2 BATCH 39: the int32 conversion prints its CENSUS key at both shapes
+  -- (D257): objdump drops the `l` at a register source, the key does not.
+  | .vcvtss2sd .. => "cvtss2sd"
+  | .vcvtsi2sd .. => "cvtsi2sdl"
+  | .vcvt2sdm fi .. => if fi then "cvtsi2sdl" else "cvtss2sd"
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -2383,6 +2417,10 @@ def rosterP0 : List String :=
    -- binary32 ones.  `minpd`/`maxpd` carry no assembly-class demand and are not
    -- taken.
    "minss", "minsd", "maxss", "maxsd", "minps", "maxps",
+   -- ⭐⭐⭐ P2 BATCH 39: the two EXACT widenings, TWO rows.  `cvtsi2sdl` is the
+   -- census key for a 32-bit source at both shapes (D257); the 64-bit source
+   -- rounds and is not taken.
+   "cvtss2sd", "cvtsi2sdl",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this
