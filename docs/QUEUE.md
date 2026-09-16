@@ -2817,6 +2817,21 @@ by a stated rule (or delete the sentence's number), and add it to `check_readme_
 
 ## ✅ P2-NEXT, MIN/MAX HALF — **BUILT 2026-09-15 as P2 batch 38 (D253, record 24): 6 pairs / 926 instructions.** The conversion half below is still unbuilt; **its `cvtsi2s*` key fix LANDED 2026-09-16 (D257)**, so it is now priceable.
 **Sub-group A's unclaimed total is now 4,385** (`cvtss2sd` 2,949 + `cvtsi2sdl` 1,436, keyed by width). It read 3,437 on the lossy key.
+✅ **THE CONVERSION HALF, PRICED 2026-09-16 (after D257) — P2 batch 39, 2 pairs / 4,385 instructions, the rest of sub-group A.**
+```
+  pair        asm demand   rule                                                        oracle (register probe)
+  cvtss2sd       2,949     binary32 -> binary64, EXACT; a signalling NaN is QUIETED    executes (`cvtss2sd %xmm1, %xmm0`)
+  cvtsi2sdl      1,436     int32 -> binary64, EXACT (every int32 fits in 53 bits)       executes (`cvtsi2sdl %ecx, %xmm0`)
+```
+- **Semantics: small, one batch the size of 38.** It needs an exponent re-bias (127 → 1023), a mantissa shift of 29, and
+  denormal normalisation (a count of leading zeros) for `cvtss2sd`; and sign-magnitude, a leading-zero count and the
+  encoding for `cvtsi2sdl`. Neither reads MXCSR.RC. **State: none.**
+- ⛔ **TWO REACHABILITY QUESTIONS BEFORE ANY CODE** (D253's order): (a) does any pre-state put a SIGNALLING NaN in an xmm
+  low lane (the quiet bit is one mantissa bit; UNMEASURED)? (b) do the GPR pre-states reach a NEGATIVE int32, INT32_MIN
+  and 0? If not, those arms are KERNEL differentials against IEEE, planted wrong once (D254's form), never vector arms.
+- ⚠️ **ORACLE SUPPORT IS REGISTER-ONLY FOR BOTH:** the census pools memory-source demand under both keys. Fold
+  `CVTSI-MEM-PROBE` (below, widened to `cvtss2sd (%rbx), %xmm0`) into the batch's sealed probe declaration.
+- Measure Δku on a draft first, as in batch 38 (Δku read 0 there against an allowance of 51).
 - ⛔ **The constraint the table names was REFUTED:** Δku on the SoftFloat draft read 0 against 51.
 - The real cost is where kernel evidence lives (`Tests.Anchors`, about 124 ms allowance).
 
@@ -2900,7 +2915,7 @@ reproduces the census's own population exactly, so the split joins its columns r
 D257 pooled both shapes under one width key, so a verdict now covers demand that includes **960 memory-source instructions** (asm
 class) that no probe asked about. It is the same opcode and will very likely agree, but nobody has asked. **The step:** a sealed P2_FORMS batch of four
 memory-source rows (`cvtsi2sdl (%rbx), %xmm0` · `…sdq` · `…ssl` · `…ssq`, bytes from clang, declaration hashed BEFORE ACL2 runs),
-then `measured_availability`'s conflict rule decides whether they agree. ⛔ Not a key change: a disagreement is a finding, not a merge.
+then `measured_availability`'s conflict rule decides whether they agree. ⚠️ **Widened 2026-09-16:** add `cvtss2sd (%rbx), %xmm0` — its key has no suffix, so it pools both shapes too, and it was probed register-to-register only. ⛔ Not a key change: a disagreement is a finding, not a merge.
 
 ## ⚠️ PACKED-SCALAR-CONV (2026-09-16, from D257) — **`is_packed` counts every SUFFIXED scalar conversion as packed SIMD**
 `SCALAR_FP = (ss|sd)$` matches `cvtsi2sd` and not `cvtsi2sdl`, `cvtsd2si`, `cvttss2si`… so a memory-source int→float and every
