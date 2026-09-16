@@ -293,6 +293,13 @@ def name_route(sym):
     return "C"
 
 SCALAR_FP = re.compile(r"(ss|sd)$")
+# ⛔ D260 (QUEUE PACKED-SCALAR-CONV): `(ss|sd)$` is a rule about SPELLING, and a
+# scalar conversion's spelling ends wherever its SUFFIX puts it — `cvtsi2sdl`,
+# `cvttsd2si`, `cvtss2si`.  Only the bare `cvtsi2sd` matched, and it was the
+# only spelling an arm tested.  Every other one counted as packed SIMD and
+# pulled its function body toward the hand-written route.  This names the
+# scalar conversions by MEANING: a scalar source or destination on each side.
+SCALAR_CONV = re.compile(r"v?(cvtt?s[sd]2si|cvtsi2s[sd])[lq]?")
 XFER = {"movd", "movq", "movl", "vmovd", "vmovq"}
 
 def is_packed(mn, ops):
@@ -306,7 +313,7 @@ def is_packed(mn, ops):
         return True
     if "%xmm" not in ops:
         return False
-    if SCALAR_FP.search(mn) or mn in XFER:
+    if SCALAR_FP.search(mn) or SCALAR_CONV.fullmatch(mn) or mn in XFER:
         return False
     return True
 
@@ -414,6 +421,11 @@ _SILENT_DOMAIN = (MMX_SILENT | X87_BARE | X87_SIZED
                   | {v + "cvt" + t + "s" + f + "2si" + w
                      for v in ("", "v") for t in ("", "t") for f in "sd"
                      for w in ("", "l", "q")})
+# D260: every spelling `SCALAR_CONV` names, so the stamp sees the packed rule on each
+_SCALAR_CONV_DOMAIN = {v + c + w for v in ("", "v")
+                       for c in ("cvtss2si", "cvtsd2si", "cvttss2si", "cvttsd2si",
+                                 "cvtsi2ss", "cvtsi2sd")
+                       for w in ("", "l", "q")}
 _BUCKET_PROBE_OPS = ("", "(%rbx)", "(%rbx),%eax", "%ax", "%rax, %rbx",
                      "%xmm0,%eax", "%mm1, %mm0", "%st(1)", "%ymm0, %ymm1",
                      "%zmm0, %zmm1", "%fs:0x28, %rax")
@@ -885,9 +897,12 @@ def model_stamp(model):
     # ⛔ D259: and so does `isa_bucket`, which also runs before `_decide` and
     # hands it the bucket.  A bucket rule that moved an instruction between
     # register files left this stamp unmoved, so the census read as fresh.
-    for m in sorted(_rule_domain(model) | _SILENT_DOMAIN):
+    for m in sorted(_rule_domain(model) | _SILENT_DOMAIN | _SCALAR_CONV_DOMAIN):
         for ops in _BUCKET_PROBE_OPS:
             rows.append(f"BUCKET\t{m}\t{ops}\t{isa_bucket(m, ops)}")
+            # ⛔ D260: and `is_packed`, which decides every ORIGIN cell the same
+            # document publishes; a packed-rule change left the stamp unmoved too
+            rows.append(f"PACKED\t{m}\t{ops}\t{int(is_packed(m, ops))}")
     rh = hashlib.sha256("\n".join(rows).encode()).hexdigest()[:16]
     return len(model), h, rh
 
@@ -1375,6 +1390,16 @@ def selftest():
         (("vpaddd", "%ymm2, %ymm1, %ymm0"), True),
         (("vpmulhrsw", "%zmm2, %zmm1, %zmm0"), True),
         (("movq", "%mm0, %mm3"), True), (("movaps", "%xmm1, %xmm0"), True),
+        # ⭐ D260: every SUFFIXED scalar conversion is scalar too — `(ss|sd)$` saw
+        # only the bare `cvtsi2sd`, which is the one spelling the arm above tests
+        (("cvtsi2sdl", "(%rbx), %xmm0"), False), (("cvtsi2ssq", "0x8(%rsp), %xmm1"), False),
+        (("cvttsd2si", "%xmm0, %eax"), False), (("cvttss2si", "%xmm1, %rax"), False),
+        (("cvtsd2si", "%xmm0, %eax"), False), (("cvtss2si", "%xmm0, %rax"), False),
+        (("vcvttsd2si", "%xmm0, %eax"), False),
+        (("vcvtsi2sdl", "(%rbx), %xmm1, %xmm0"), False),
+        # ...and a PACKED conversion is still packed: the rule is by meaning
+        (("cvtdq2ps", "%xmm1, %xmm0"), True), (("cvttps2dq", "%xmm1, %xmm0"), True),
+        (("cvtpi2ps", "%mm0, %xmm0"), True), (("vcvtps2pd", "%xmm1, %ymm0"), True),
     ]
     for (mn, ops), want in packed_arms:
         got = is_packed(mn, ops)
@@ -1539,6 +1564,18 @@ def selftest():
           "a register-source conversion is keyed by WIDTH and its body still routes CC" +
           ("" if ok else f"\n      got {dict(got4)}\n      want {want4}"))
     bad += [] if ok else ["width-origin"]
+    # ⭐ D260: a body of scalar float→int truncations and suffixed int→float
+    # conversions is SCALAR code, and routes CC
+    lines5 = LA(0x3000, *["cvttsd2si %xmm0,%eax"] * 6, *["cvtsi2sdl (%rbx),%xmm0"] * 2)
+    got5 = collections.Counter()
+    for (mn, kind, o, ext), k in _classify(lines5, [(0x3000, 0x3020, "scale_frame_c")]).items():
+        got5[(mn, o)] += k
+    want5 = {("cvttsd2si", "CC"): 6, ("cvtsi2sdl", "CC"): 2}
+    ok = dict(got5) == want5
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "a body of suffixed scalar conversions routes CC, not packed-SIMD A" +
+          ("" if ok else f"\n      got {dict(got5)}\n      want {want5}"))
+    bad += [] if ok else ["scalar-conv-origin"]
     # ...and the stamp SEES the rule: an identity key must move the `rules` half
     _saved_wk = globals()["width_key"]
     globals()["width_key"] = lambda mn, ops: mn
@@ -1569,6 +1606,21 @@ def selftest():
           "is part of the mapping)" +
           ("" if ok else f"   rules {_r0}/{_r5}/{_r6}"))
     bad += [] if ok else ["stamp-bucket"]
+    # ...and it SEES THE PACKED RULE (D260), which decides every origin cell
+    _saved_ip = globals()["is_packed"]
+    globals()["is_packed"] = lambda mn, ops: (
+        True if mn == "cvttsd2si" else _saved_ip(mn, ops))
+    try:
+        _n7, _h7, _r7 = model_stamp(_M)
+    finally:
+        globals()["is_packed"] = _saved_ip
+    _n8, _h8, _r8 = model_stamp(_M)
+    ok = (_h7 == _h0) and (_r7 != _r0) and (_r8 == _r0)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "the stamp's `rules` half moves when ONE PACKED VERDICT moves (D260: the "
+          "origin split is in the same document)" +
+          ("" if ok else f"   rules {_r0}/{_r7}/{_r8}"))
+    bad += [] if ok else ["stamp-packed"]
 
     # ── the `objdump -t` line shapes this tool must parse ──
     sym_arms = [

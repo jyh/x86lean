@@ -3024,7 +3024,8 @@ SSE-legacy, and its `v` form to VEX-128. Add an arm per spelling and a red-first
 cell before and after, and force the regeneration through the stamp, as in D257. This is a sibling of PACKED-SCALAR-CONV below:
 the same mnemonics, under a different rule.
 
-## ⚠️ PACKED-SCALAR-CONV (2026-09-16, from D257) — **`is_packed` counts every SUFFIXED scalar conversion as packed SIMD**
+## ✅ PACKED-SCALAR-CONV (2026-09-16, from D257) — **BUILT THE SAME DAY (D260): 2,483 packed verdicts moved, and NO function body changed route, proved by monotonicity and unchanged cells.** The stamp now hashes `is_packed`.
+*(As filed: "`is_packed` counts every SUFFIXED scalar conversion as packed SIMD".)*
 `SCALAR_FP = (ss|sd)$` matches `cvtsi2sd` and not `cvtsi2sdl`, `cvtsd2si`, `cvttss2si`… so a memory-source int→float and every
 float→int truncation push a function body toward `A` (hand-written). The shipped arm covers the bare spelling only. **What it moves:**
 origin attribution (the asm/compiler cells), never a key or a coverage number. **UNMEASURED:** how many function bodies change route.

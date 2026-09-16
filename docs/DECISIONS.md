@@ -17354,3 +17354,33 @@ MXCSR +1).
 demand only. When the last 218 uncovered instructions left "GPR/other", the probe table's `movl` control, a GPR form
 bucketed correctly, read as a stray spelling. The vocabulary belongs to the partition, not the backlog, so the arm now also
 reads `ext_covered`. [[feedback-an-arm-whose-fixture-is-the-backlog]]
+
+## D260 — `is_packed` saw one spelling of the scalar conversions; the fix moved 2,483 verdicts and no function's route
+
+⚖️ QUEUE `PACKED-SCALAR-CONV` (filed with D257). This is the sibling of D259: the same mnemonics, under the rule that
+decides ORIGIN.
+
+### 1. THE DEFECT
+`is_packed` treats a `%xmm` instruction as scalar floating point when its mnemonic matches `SCALAR_FP = (ss|sd)$`. The
+suffixes break that match. `cvtsi2sdl`, `cvtsi2ssq`, `cvttsd2si` and `cvtss2si` all end somewhere else, so each counted as
+PACKED SIMD and pulled its function body toward the hand-written route. Only the bare `cvtsi2sd` matched, and it was the
+only spelling an arm tested.
+✅ `SCALAR_CONV = v?(cvtt?s[sd]2si|cvtsi2s[sd])[lq]?` names the scalar conversions by meaning: a scalar on each side. Eight
+arms cover the spellings, including the `v` forms, and four controls show that a PACKED conversion (`cvtdq2ps`,
+`cvttps2dq`, `cvtpi2ps`, `vcvtps2pd`) stays packed. A body arm shows that eight scalar conversions route `CC`. **Red-first:
+the 10 new arms failed on D259's code, and the 4 controls passed on both.**
+✅ The staleness stamp now hashes `is_packed` too, over the D259 domain plus every `SCALAR_CONV` spelling, because the
+origin split is published in the same document. An arm proves that one moved verdict moves the hash.
+
+### 2. WHAT IT MOVED, MEASURED BOTH WAYS
+- **The regenerated census moved NO field** against D259's, the attribution cells included. Only the stamp line changed.
+- **That is a proof, not an absence of effect.** The new rule only turns a packed verdict OFF, so a body's route can only
+  move from `A` to `C`. A body that moved would shift at least `BODY_MIN_INSNS` = 8 instructions between cells, and every
+  cell total is equal. **So no function body changed route.**
+- **And the rule is not vacuous:** a probe wrapped `is_packed` with both rules over the nine non-kernel columns (the kernel was not probed, and its census
+entry is unchanged) and counted
+  **2,483 flipped verdicts, every one packed → scalar**: cc1 31 · coreutils 198 · ffmpeg 1,099 · glibc 138 · vlc-codec 150 ·
+  vpx 423 · x264 444, and 0 in dav1d and vlc-video_chroma. **Its attribution cells reproduced the committed JSON's in all
+  nine columns**, which is the control that the probe read the same run the census did.
+⇒ No body that carries these conversions was close enough to the 50% line for them to move it. The origin figures
+published since D257 were right, but for a reason no rule stated. **UNMEASURED:** the nearest body's margin to the threshold.
