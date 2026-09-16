@@ -2970,6 +2970,36 @@ day, when a local `--tree` run printed the private path it caught) and `check_co
   sitting.
 ⚠️ The exposure only exists when a violation is already on a public ref, so the log adds persistence, not first exposure.
 
+## ⚠️ CENSUS-SILENT-OPERANDS (2026-09-16, found pricing sub-group A′) — **`isa_bucket` reads the register file off the operand TEXT, so an MMX, x87 or SSE instruction whose operands name no such register is filed under "GPR/other", and A′'s priced demand is 32 short**
+Measured on the committed census (`docs/DEMAND-CENSUS.md.json` at `35c5c15`, `p2_roster.per_ext_map`, asm class, uncovered
+demand): the bucket holds **218 instructions over 16 mnemonics, and not one is a GPR form.**
+```
+  emms                        164   MMX state, no operands                          belongs in MMX (mm), scope FALSE
+  x87, memory or no operands   20   fstpl 3 · fldl 3 · wait 2 · fprem 2 · fnstsw 2 ·  belongs in x87 (st), scope FALSE
+                                    fldcw 2 · fnstenv · fnstcw · fmull · flds · fld1 · fildll (1 each)
+  float→int from MEMORY        34   cvttsd2si 18 · cvttss2si 14 · cvtss2si 2          belongs in SSE-legacy (xmm), scope TRUE
+```
+Control: `cvttsd2si` reads SSE-legacy 530 + GPR/other 18. An `objdump -d` pass over the six asm columns found the same split by
+source shape (xmm→r32 404 · xmm→r64 126 · mem→r32 11 · mem→r64 7), and `cvttss2si` likewise (311 · 57 · 14 · 0).
+**What it moves: ATTRIBUTION, not coverage. Driven through `_decide`, not assumed from the scope table:**
+- All 16 mnemonics (and the self-test's `fldt`) read `unmapped` today, so the in-scope flag on "GPR/other" is never consulted for them. With `cvttsd2si` and
+  `cvttss2si` added to a simulated model, the memory forms read `mapped` and covered, the same as the xmm form. **No coverage
+  number is wrong now, and none goes wrong when A′ lands.** *(A first draft of this entry said the 184 read `mapped` and
+  over-claimed the model's state. That was inferred from the scope table and was false.)*
+- **Sub-group A′'s demand is 930, not the 898 that `p2_residue` gate 3 reads.** Gate 3 counts the SSE-legacy bucket only.
+  Sub-group B's `cvtss2si` loses 2 instructions the same way; `cvtsd2si` loses none (its 93 are all SSE-legacy).
+- `DEMAND-CENSUS.md`'s per-bucket tables print these 218 under "GPR/other" in the columns where they occur. Once A′ lands, its 32
+  memory-source instructions will be COVERED under "GPR/other" as well.
+⛔ **The census self-test pins the defect:** its bucket arms expect `fldt 0x10(%rsp)` → `GPR/other (unclassified)`. The fix must flip
+that arm on purpose, and say so.
+**UNMEASURED:** whether any COVERED instruction is misfiled the same way. The committed JSON carries covered demand per bucket
+(GPR/other: 3,854,820), not per mnemonic.
+**The step, before A′ is priced:** give the operand-silent cases a bucket rule by the mnemonic's MEANING. `emms` goes to MMX. An
+explicit x87 list goes to x87, never an `f` prefix, because `fxsave` is not an x87 stack form. `cvt(t)?s[sd]2si` goes to
+SSE-legacy, and its `v` form to VEX-128. Add an arm per spelling and a red-first arm on `cvttsd2si (%rbx),%eax`. Diff every bucket
+cell before and after, and force the regeneration through the stamp, as in D257. This is a sibling of PACKED-SCALAR-CONV below:
+the same mnemonics, under a different rule.
+
 ## ⚠️ PACKED-SCALAR-CONV (2026-09-16, from D257) — **`is_packed` counts every SUFFIXED scalar conversion as packed SIMD**
 `SCALAR_FP = (ss|sd)$` matches `cvtsi2sd` and not `cvtsi2sdl`, `cvtsd2si`, `cvttss2si`… so a memory-source int→float and every
 float→int truncation push a function body toward `A` (hand-written). The shipped arm covers the bare spelling only. **What it moves:**
