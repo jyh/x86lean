@@ -2762,6 +2762,14 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
+## ✅ OS-RECEIPT-SKIP — **2026-09-16: the receipt's FIRST live use on master found a defect in itself — a gate that DECLINED to measure was about to be recorded as CLEAN**
+`e488792`'s own master run printed `⏭️ SKIP — NULL PAIR: this range changes nothing lake reads`, and exited 0. The classifier had no such
+class, so the row read `unparsed`, and `effective()` would then have labelled it **`rc0~conclusion`** — "the job succeeded ⇒ the gate exited
+0 ⇒ CLEAN" — for a run that **measured nothing**.
+⇒ 🔑 ***THE REFUSAL I BUILT AGAINST UNREAD LOGS DID NOT COVER A LOG THAT SAYS, IN WORDS, THAT THERE WAS NOTHING TO READ.***
+✅ `skip` is now a class of its own, first in the marker order, with two red-first arms (it is `skip`, and it is NOT `rc0~conclusion`
+though the job succeeded). The master row was re-recorded under it.
+
 ## ✅ OS-RECEIPT — **BUILT 2026-09-15 (D255): the runner's kernel-delta verdicts are a COMMITTED SERIES now, not a job log GitHub deletes**
 Commissioned by the helm at desk `OS` after paris measured x86lean's full run history: **612 runs, 261 carrying a `kernel-delta` job,
 and 39% of the evidence already unreadable** (HTTP 404 `BlobNotFound`, verified with a control).
@@ -2772,7 +2780,21 @@ and 39% of the evidence already unreadable** (HTTP 404 `BlobNotFound`, verified 
 - ⏱️ The helm's re-decide trigger is wired in and printed at every `--summary`: **5 rc-3 instances spanning ≥48 h, or A′ not clean at an
   rc-3 moment even once.** Now 4 over 10.0 h.
 
-## ⚠️ CI-COST-1 (2026-09-15, from maestro's measurement) — **x86lean's `ci.yml` has NO path filter and is NOT a required check, so a docs-only branch measures its own shards (~8.7 runner-hours)**
+## ⛔ CI-COST-1 — **DIRECTION RETIRED 2026-09-16 on the helm's per-repo path reading. The COST STANDS; the `paths-ignore` does not.**
+`docs/**`, `README.md` and `scripts/` are **build inputs in this repository by design** — `ci.yml`'s 63 `run:` steps validate PROSE
+AGAINST CODE (`check_coverage_prose` reads every differential record, `check_readme_snapshot` gates README's numbers,
+`check_readme_lean` COMPILES its Lean blocks, `check_corpus_claims` gates `docs/CLAIMS.tsv`). ⇒ **The ignorable set is nearly empty, and
+a filter would skip exactly the gates that catch prose drifting from code — the silent green this row names.**
+- ⚠️ **AND MY OWN FRAMING WAS WRONG:** I called PR #23 *"a change touching NO build input."* `kernel-cost-selftest` then went RED on its
+  new `scripts/` file. **CI ran because it should have run, and it caught a real defect.**
+- ✅ **WHAT SURVIVES IS THE COST, AS A LOWER BOUND:** six shards ran 73–92 min each on ONE push before my own fix-push cancelled them
+  through the concurrency group — **≥8.1 runner-hours, with none finished**. ⛔ A cancelled job is not a duration; the bound is a floor,
+  not a measurement, and the attempt to measure it was destroyed by the intervention on the same object.
+- 📌 Kept as a COST fact for anyone pricing a step here. Scrub must stay unfiltered regardless: a path filter on a REQUIRED check makes
+  it SKIP, and a skipped required check reads as PENDING, which hangs a merge for ever.
+
+*(The original entry follows, because the shape of the reversal is the reason this row is worth keeping.)*
+### ⚠️ AS FILED (2026-09-15, from maestro's measurement) — **x86lean's `ci.yml` has NO path filter and is NOT a required check, so a docs-only branch measures its own shards (~8.7 runner-hours)**
 Required on `master`: `private-paths` · `trailers` — both from Scrub, both cheap. Every heavy job is advisory.
 ⇒ A `paths-ignore` on `ci.yml` would make docs and gate-script edits cheap in perpetuity.
 ⛔ **OWED FIRST, and it is not a template:** a per-repo reading of which paths are genuinely build inputs, plus a driven control that

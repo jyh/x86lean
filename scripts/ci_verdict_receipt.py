@@ -47,8 +47,8 @@ run. That is what this file captures.
 ⛔⛔ **A LOG THIS PARSER CANNOT CLASSIFY IS `unparsed`, NEVER `rc0`.** A parser
 that defaulted to CLEAN would manufacture precisely the history the ruling exists
 to measure — a clean base assembled from logs nobody read
-([[feedback-a-classifiers-value-set-is-a-claim]]). The value set is FIVE in the
-FILE and seven in the SUMMARY, because the summary adds what the job's conclusion
+([[feedback-a-classifiers-value-set-is-a-claim]]). The value set is SIX in the
+FILE and eight in the SUMMARY, because the summary adds what the job's conclusion
 says when the log is gone — labelled, never merged into the read classes:
 
 ```
@@ -56,6 +56,8 @@ says when the log is gone — labelled, never merged into the read classes:
   rc1        the log says OVER — a real breach
   rc2        the log says REFUSED — structural, never a verdict about the change
   rc3        the log says UNMEASURABLE — the band straddles the budget
+  skip       the log says `SKIP — NULL PAIR`: the gate DECLINED to measure because the
+             range changes nothing `lake` reads. It exits 0 and is NOT a verdict.
   unparsed   anything else, INCLUDING a log that no longer exists (404)
   ── and in the summary only, from `effective()`:
   rc0~conclusion       the log is gone AND the job succeeded ⇒ the gate exited 0
@@ -95,6 +97,14 @@ DEFAULT_OUT = os.path.join(ROOT, "docs", "ci-kernel-verdicts.jsonl")
 # own report path. A marker invented here would be a rule about a log format
 # nobody writes.
 MARKERS = (
+    # ⛔⛔ `skip` COMES FIRST AND IT IS NOT A VERDICT. The gate prints this when the
+    # range changes nothing `lake` reads: it DELIBERATELY DID NOT MEASURE, and exits
+    # 0. Found by this file's FIRST live use on master (e488792, 2026-09-16), where
+    # `effective()` would otherwise have called it `rc0~conclusion` — "the job
+    # succeeded, so the gate exited 0 ⇒ CLEAN" — and written a clean verdict for a
+    # run that measured nothing. ⇒ 🔑 THE REFUSAL I BUILT AGAINST UNREAD LOGS DID NOT
+    # COVER A LOG THAT SAYS, IN WORDS, THAT THERE WAS NOTHING TO READ.
+    ("skip", "SKIP — NULL PAIR"),
     ("rc3", "delta gate UNMEASURABLE"),
     ("rc1", "delta gate: OVER"),
     ("rc2", "delta gate: REFUSED"),
@@ -208,7 +218,7 @@ def effective(r):
     could read are different facts, and this file exists because the second kind
     accumulates. [[feedback-two-readings-are-not-two-witnesses]]"""
     if r["rc"] != "unparsed":
-        return r["rc"]
+        return r["rc"]                      # `skip` included: it is already the truth
     c = r.get("kernel_delta_conclusion")
     if c == "success":
         return "rc0~conclusion"
@@ -276,6 +286,9 @@ FIXTURES = {
 """,
     "rc2": """2026-09-16T00:12:14Z ⛔ delta gate: REFUSED — the profiler produced no reading for X86.Syntax
 """,
+    # quoted from master e488792's own run, not invented
+    "skip": """2026-09-16T07:20:00Z ⏭️  SKIP — NULL PAIR: this range changes nothing `lake` reads, so the kernel delta is ZERO BY CONSTRUCTION and there is nothing here for this gate to read.
+""",
 }
 
 
@@ -306,6 +319,12 @@ def selftest():
     rc, rows = classify("2026-09-16T00:00:00Z a delta of +2050.0 was discussed in a comment\n")
     check("prose mentioning a delta yields NO rows and no verdict",
           rows == [] and rc == "unparsed")
+    # ⭐⭐ THE ARM THIS FILE'S FIRST LIVE RUN BOUGHT: a gate that DECLINED to measure
+    # must never become a clean verdict by way of its exit code.
+    check("a SKIP — NULL PAIR log is `skip`, not rc0",
+          effective({"rc": "skip", "kernel_delta_conclusion": "success"}) == "skip")
+    check("…and it is not rc0~conclusion either, though the job succeeded",
+          effective({"rc": "skip", "kernel_delta_conclusion": "success"}) != "rc0~conclusion")
     # ⭐ the two-source rule, both directions and the one that must stay weak
     check("a read log wins over the conclusion",
           effective({"rc": "rc3", "kernel_delta_conclusion": "success"}) == "rc3")
