@@ -2823,6 +2823,28 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 
+## ⏳ P2-NEXT (A′) (2026-09-16) — **THE NEXT GROUP: sub-group A′, `cvttsd2si` 548 · `cvttss2si` 382 = 930 instructions (D259). Pre-code facts measured; Δku and the range boundary are UNPRICED.**
+✅ **x86isa's truncating conversions do NOT abort the run at any special source**, unlike `cvtss2sd` (D258 §2). This was driven
+on a 13-case file through the differential driver, with a control case placed LAST (`3.14159f` → 3), and the control ran:
+```
+  cvttss2si  +0 → 0 · −0 → 0 · qNaN, sNaN, +∞ → 0x80000000 · 2^31 → 0x80000000 · −0.5 → 0 · min denormal → 0
+  cvttsd2si  +0 → 0 · qNaN → 0x80000000 · 2147483647.9999998 → 0x7fffffff · 2^63 → 0x80000000      (dest %eax, zero-extended)
+```
+⇒ A′ vectors may read ANY source, zeros included. The rule is truncation toward zero, with the integer indefinite on NaN, ∞
+or out of range, and no MXCSR.RC read.
+✅ **KEYS:** clang and objdump print ONE spelling for the r32 and r64 destinations and for the memory source (`cvttsd2si
+%xmm0,%eax` · `…,%rax` · `(%rbx),%eax` · `(%rbx),%rax`; the same for `cvttss2si`). So each key pools BOTH destination widths.
+Both widths are truncations, so unlike D257 the pooled class is sound. **The AST needs a WIDTH field** (int32 vs int64
+saturation), and the vectors need both widths. At the corpus (`objdump -d` over the six asm columns):
+```
+  cvttsd2si  xmm→r32 404 · xmm→r64 126 · mem→r32 11 · mem→r64 7     = 548
+  cvttss2si  xmm→r32 311 · xmm→r64  57 · mem→r32 14                 = 382
+```
+**STILL UNPRICED:** Δku (read it on a draft, never scaled), whether a vector's pre-states reach the range boundary (±2^31,
+±2^63) or the kernel differential must pin it, and what the constructors cost `X86.Syntax`'s ms cell. That cell is the
+tight one, and batch 39's three constructors are the nearest reading. ⚠️ The width is an AST field, not a `Cpu` field, so
+the commission's K3 does not price it.
+
 ## ✅ P2-NEXT — **BOTH HALVES BUILT: min/max as P2 batch 38 (D253, record 24, 926 instructions), the exact widenings as P2 batch 39 (D258, record 25, 4,385 instructions). SUB-GROUP A IS EMPTY.**
 ⛔ **Batch 39 found two things the price below did not know** (D258 §2):
 - x86isa's `cvtss2sd` at a ±0 source is a guard violation that **aborts the whole differential run**, so no `cvtss2sd`
