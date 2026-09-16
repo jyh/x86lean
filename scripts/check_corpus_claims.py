@@ -106,6 +106,11 @@ ROLES = {
     "repeats":    {"rep", "modules", "decls", "t0", "t1"},
     "threads-ab": {"arm", "round", "threads", "type_checking_ms"},
     "ledger":     {"base", "head", "allowance", "budget_digest"},
+    # ⭐ D255, desk OS: the RUNNER's kernel-delta verdicts, persisted because the job
+    # logs they are read from are deleted (39% of them already were when the question
+    # was first asked). `rc` and `ku_delta_conclusion` together are what makes a row a
+    # verdict rather than a timing: the gate's own outcome, and A′'s in the SAME run.
+    "ci-verdict": {"run", "rc", "ku_delta_conclusion", "units"},
 }
 
 # ── THE ROLE FLAGS ───────────────────────────────────────────────────────────

@@ -16991,3 +16991,56 @@ Step `e5ec828` → `85b7d52`, pre-registered on the fleet bus before either prof
 **Two kernel `decide`s of 77 rows cost 15,344 unfoldings where batch 38's two of 40 rows cost 14,308** — nearly twice the rows for
 7% more unfoldings, so the per-row cost is not what dominates. A `decide` over a list has a fixed part, and I keep pricing these as
 if it were linear.
+
+## D255 — The runner's verdicts were evaporating, so they are a committed series now: desk OS's receipt, and the red it found in its own backfill
+
+⚖️ **Commissioned by the helm 2026-09-15 (desk `OS`)**, after this seat measured x86lean's full run history to answer a narrower
+question — *has A′ ever been anything but clean when `kernel-delta` read rc 3?*
+
+### 1. THE MEASUREMENT THAT CHANGED THE QUESTION
+Paginated over **612** runs (never `--limit`; the helm had been burned by a page that reached back one day):
+```
+  runs carrying a `kernel-delta` job    261
+  log blob GONE (HTTP 404)              ~39% of them, all between 09-06 and 09-15
+  rc 3                                    4   ALL on 2026-09-15, A′ success in every one
+  rc 1 (a real breach)                    0   in the whole readable history
+  a `ku-delta` job exists at all         72   A′ was born 2026-09-13T20:38Z
+```
+- The 404 was checked with a control (a same-age job whose log still fetches), so the censoring is GitHub's retention and not the
+  instrument.
+- ⇒ 🔑 ***THE EVIDENCE FOR A GATE'S BEHAVIOUR WAS EVAPORATING FASTER THAN THE ARGUMENT ABOUT IT WAS PROGRESSING.*** The helm therefore
+  declined to rule and commissioned a receipt instead.
+
+### 2. WHAT WAS **NOT** THE GAP, WHICH DECIDED THE DESIGN
+⛔ The LOCAL verdict is already committed — `docs/delta-allowance-ledger.jsonl` carries the ms verdict, A′'s verdict, the machine and
+`landed_on` for every landing. Persisting it again would be a duplicate born in agreement.
+✅ **What evaporates is the RUNNER's reading** — the one that read rc 3 four times on 09-15 while the box read CLEAN.
+
+### 3. THE RECEIPT
+`scripts/ci_verdict_receipt.py` → `docs/ci-kernel-verdicts.jsonl`. One row per run: rc, per-unit delta/band/budget, A′'s conclusion in
+the same run, keyed by run id so a re-run never duplicates and never rewrites.
+- ⛔ **A log that cannot be classified is `unparsed`, never `rc0`.** A parser defaulting to CLEAN would manufacture exactly the history
+  the ruling exists to measure. The summary adds `rc0~conclusion` — the log is gone but the job succeeded — as a **separate, weaker**
+  label. [[feedback-two-readings-are-not-two-witnesses]]
+- ⭐ **This sharpened the base against my own earlier numbers:** my first scan called 99 runs `rc0` by trusting the job conclusion
+  without opening the log. The log-verified population is **30**, so *"rc 1 has never happened"* is a claim over 30, not 135.
+- 12 selftest arms: four rc classes, both refusals, the two-source rule in both directions, the idempotent append, and a control that
+  prose quoting a delta yields no row.
+
+### 4. ⭐ THE FIRST FINDING WAS A RED I OWNED AND MISSED
+The backfill read **4** rc-3 instances where I had reported 2. One of them:
+```
+  2026-09-15T23:31:43Z  push  e5ec82807  A′=success   Tests.Anchors +215±115.4/269.1 · memDestSweep +670±444.5/777.4
+```
+**That is master's own post-merge run for PR #21 — my landing.** I read the PR run and the push run green and moved on; **the merge
+commit's run is a third run nobody watched.**
+⇒ 🔑 ***A JOB LOG NOBODY READS WITHIN THE RETENTION WINDOW IS A MEASUREMENT THAT NEVER HAPPENED.***
+
+### 5. TWO DEFECTS OF MINE, BOTH CAUGHT BY AN ARM RATHER THAN BY READING
+1. The row regex was anchored at line start and **CI log lines begin with a timestamp**, so the parser silently produced zero unit
+   rows while classifying the verdict correctly. The selftest arm that asserts the NUMBERS caught it; the arm that asserts the CLASS
+   did not. ⇒ **A parser has two outputs and one of them can be empty while the other is right.**
+2. The trigger arithmetic. The helm's amended trigger said "≥3 distinct days"; the tool's first summary read the same four instances as
+   **2 days (UTC)** and the helm read **1 (this box)** — PR #22's run began 13 seconds after 00:00Z. ⇒ **A calendar-day count measures
+   where a midnight falls, not whether the evidence is spread.** Put to the helm rather than picked; ruled to a DURATION (≥48 h), which
+   is what the tool now prints. [[feedback-a-separator-that-means-two-things-is-not-a-boundary]]

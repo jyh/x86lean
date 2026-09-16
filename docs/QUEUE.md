@@ -2445,7 +2445,8 @@ PRECONDITION THAT IS MET**, and only looking distinguishes them
 
 **WHAT IS ALREADY TRUE, MEASURED AT THE OBJECT (not inferred from the row):**
 ```
-  origin   github.com/jyh/x86lean   isPrivate TRUE   created 2026-09-03T16:03:49Z
+  origin   github.com/jyh/x86lean   isPrivate TRUE    AS OF 2026-09-09, the day this block was written
+  origin   github.com/jyh/x86lean   isPrivate FALSE   since 2026-09-10 09:01 — council ⑥ (desk JF), f908ad7
   local    the bare repo on the backup volume; both tiers equal at every landing
   LICENSE  Apache-2.0, 202 lines · README:6 names it with a link
   --messages   188 of 188 clean   ⇒ NO commit message in this history has EVER
@@ -2761,6 +2762,24 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
+## ✅ OS-RECEIPT — **BUILT 2026-09-15 (D255): the runner's kernel-delta verdicts are a COMMITTED SERIES now, not a job log GitHub deletes**
+Commissioned by the helm at desk `OS` after paris measured x86lean's full run history: **612 runs, 261 carrying a `kernel-delta` job,
+and 39% of the evidence already unreadable** (HTTP 404 `BlobNotFound`, verified with a control).
+- `scripts/ci_verdict_receipt.py` → `docs/ci-kernel-verdicts.jsonl`, one row per run: rc · per-unit delta, band and budget · A′'s
+  conclusion in the SAME run. 12 selftest arms; `--backfill` seeded 261 rows.
+- ⛔ **A gone log is `unparsed`, NEVER `rc0`** — the summary adds `rc0~conclusion` as a separate, weaker label, because a reading
+  nobody read and a reading nobody COULD read are different facts.
+- ⏱️ The helm's re-decide trigger is wired in and printed at every `--summary`: **5 rc-3 instances spanning ≥48 h, or A′ not clean at an
+  rc-3 moment even once.** Now 4 over 10.0 h.
+
+## ⚠️ CI-COST-1 (2026-09-15, from maestro's measurement) — **x86lean's `ci.yml` has NO path filter and is NOT a required check, so a docs-only branch measures its own shards (~8.7 runner-hours)**
+Required on `master`: `private-paths` · `trailers` — both from Scrub, both cheap. Every heavy job is advisory.
+⇒ A `paths-ignore` on `ci.yml` would make docs and gate-script edits cheap in perpetuity.
+⛔ **OWED FIRST, and it is not a template:** a per-repo reading of which paths are genuinely build inputs, plus a driven control that
+the ignored set still fires the build when a real input changes. **The failure mode is a SILENT GREEN** — the shape this repository
+has paid for more than once. ⚠️ Scrub must stay unfiltered: a path filter on a REQUIRED check makes it SKIP, and a skipped required
+check reads as PENDING, which hangs a merge for ever.
+
 ## ✅ FCMP-KERNEL-1 — **CLOSED 2026-09-15 (D254): `fcmp_ieee_binary64`/`_binary32` in `Tests/Anchors.lean`, 77 unreached pairs per format, executed on x86isa first.** *(Filed as: D140's "818-case kernel differential" for `fcmp` exists in NO tracked file.)*
 Three comments cite it as what carries `comis`'s ±0 branch (`Main.lean`, `Tests/Vectors.lean`, `scripts/ku_delta_budget.txt`), and so does
 the published COVERAGE narrative. Searched two ways: the needle `818` finds only those citations, and no `decide` over `fcmp` exists in
@@ -2833,6 +2852,18 @@ one** classified as needing the commission. **No rounding-free pair is left**, s
    source (inexact, sub-group B), and the census attributes by mnemonic. Splitting them needs the census to carry the source width, which is a
    census change, not a table row.
 **Do this before pricing the conversion half of this group.** The min/max half is unaffected.
+
+✅ **THE THIRD CONSEQUENCE IS NOW MEASURED (2026-09-15), and it does not fall on one side.** Scanned over the census corpus through the
+same `objdump` invocation the census uses:
+```
+  asm-class, by SOURCE shape and width    cvtsi2sd/ss  reg 32   1,941   EXACT   → sub-group A
+                                          cvtsi2sd/ss  reg 64     662   inexact → sub-group B
+                                          suffixed, memory source    960
+  control                                 1,941 + 662 = 2,603 — this row's own figure, to the instruction
+```
+⇒ **74.6% of the unkeyed 2,603 is sub-group A work.** A rule that keys by mnemonic alone misfiles 662 inexact conversions into the
+no-rounding group, or 1,941 exact ones out of it, depending on which way it guesses. **The control is the part to trust: the scan
+reproduces the census's own population exactly, so the split joins its columns rather than standing beside them.**
 
 ## ✅ SDM-QUOTE-1 (2026-09-15) — **CLOSED THE SAME DAY: rode es3's landing (`64a1b7a`, PR #17); the normalised sweep reads 7 copies whole, 0 truncated.** *(Filed as: THREE LEAN COMMENTS MISQUOTE THE SDM, AND THE FIX RIDES THE NEXT `.lean` LANDING (D249 §3).)*
 The SAL/SAR/SHL/SHR CF clause reads *"the size (in bits) of the destination operand"* (325462-092US, and the Dec 2023 text).
