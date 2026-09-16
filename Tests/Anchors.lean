@@ -2056,4 +2056,189 @@ theorem minmax_ieee_binary32 :
     (fun (a, b, mn, mx) => SoftFloat.fmin SoftFloat.binary32 a b == mn &&
                            SoftFloat.fmax SoftFloat.binary32 a b == mx) = true := by decide
 
+/-! ## ⭐⭐⭐ `fcmp` WHERE NO VECTOR REACHES — FCMP-KERNEL-1 (D254)
+
+⛔ **THIS REPLACES A CITATION.**  From P2 batch 32 (D140) until 2026-09-15, three
+comments and the COVERAGE narrative said `comis`'s ±0 branch was carried by "the
+818-case kernel differential against IEEE-754".  That run was made on 2026-09-05 and
+never kept: no tracked file held it.
+
+⛔ **AND THE GAP WAS WIDER THAN THE ONE BRANCH IT NAMED.**  Measured over the eight
+comis vectors' 704 emitted cases: **0 opposite-sign pairs, 0 infinities, 0
+signalling NaNs**, and zero pairs only of IDENTICAL sign (`comisd_x0_x0`).  No
+register pair below xmm8 can present opposite signs (D253 §3), so `fcmp`'s
+mixed-sign branch had never been entered by the differential either.
+
+So the rows are every pair from {±0, ±∞, qNaN, sNaN, ±1, ±min-denormal} that is
+opposite-signed, or contains ±∞ or the sNaN, or is a zero pair.  That is 77 per
+format.  Expectations come from IEEE-754 VALUES (Python floats).  The same 154
+pairs were EXECUTED on x86isa as `comisd`/`comiss` with junk above the lane:
+**RIP advanced in 154, 0 disagreements** in ZF/PF/CF, OF/AF/SF all cleared, and
+112 of them not the pre-state's all-clear flags.  ⛔ **Planted once:** `+0 > −0`
+(the signed-bit-pattern answer) failed exactly `fcmp_ieee_binary32`. -/
+
+theorem fcmp_ieee_binary64 :
+  ([
+    (0x0000000000000000, 0x0000000000000000, .eq),  -- +0 +0
+    (0x0000000000000000, 0x8000000000000000, .eq),  -- +0 -0
+    (0x0000000000000000, 0x7ff0000000000000, .lt),  -- +0 +inf
+    (0x0000000000000000, 0xfff0000000000000, .gt),  -- +0 -inf
+    (0x0000000000000000, 0x7ff0000000000001, .unord),  -- +0 snan
+    (0x0000000000000000, 0xbff0000000000000, .gt),  -- +0 -1
+    (0x0000000000000000, 0x8000000000000001, .gt),  -- +0 -den
+    (0x8000000000000000, 0x0000000000000000, .eq),  -- -0 +0
+    (0x8000000000000000, 0x8000000000000000, .eq),  -- -0 -0
+    (0x8000000000000000, 0x7ff0000000000000, .lt),  -- -0 +inf
+    (0x8000000000000000, 0xfff0000000000000, .gt),  -- -0 -inf
+    (0x8000000000000000, 0x7ff8000000000000, .unord),  -- -0 qnan
+    (0x8000000000000000, 0x7ff0000000000001, .unord),  -- -0 snan
+    (0x8000000000000000, 0x3ff0000000000000, .lt),  -- -0 +1
+    (0x8000000000000000, 0x0000000000000001, .lt),  -- -0 +den
+    (0x7ff0000000000000, 0x0000000000000000, .gt),  -- +inf +0
+    (0x7ff0000000000000, 0x8000000000000000, .gt),  -- +inf -0
+    (0x7ff0000000000000, 0x7ff0000000000000, .eq),  -- +inf +inf
+    (0x7ff0000000000000, 0xfff0000000000000, .gt),  -- +inf -inf
+    (0x7ff0000000000000, 0x7ff8000000000000, .unord),  -- +inf qnan
+    (0x7ff0000000000000, 0x7ff0000000000001, .unord),  -- +inf snan
+    (0x7ff0000000000000, 0x3ff0000000000000, .gt),  -- +inf +1
+    (0x7ff0000000000000, 0xbff0000000000000, .gt),  -- +inf -1
+    (0x7ff0000000000000, 0x0000000000000001, .gt),  -- +inf +den
+    (0x7ff0000000000000, 0x8000000000000001, .gt),  -- +inf -den
+    (0xfff0000000000000, 0x0000000000000000, .lt),  -- -inf +0
+    (0xfff0000000000000, 0x8000000000000000, .lt),  -- -inf -0
+    (0xfff0000000000000, 0x7ff0000000000000, .lt),  -- -inf +inf
+    (0xfff0000000000000, 0xfff0000000000000, .eq),  -- -inf -inf
+    (0xfff0000000000000, 0x7ff8000000000000, .unord),  -- -inf qnan
+    (0xfff0000000000000, 0x7ff0000000000001, .unord),  -- -inf snan
+    (0xfff0000000000000, 0x3ff0000000000000, .lt),  -- -inf +1
+    (0xfff0000000000000, 0xbff0000000000000, .lt),  -- -inf -1
+    (0xfff0000000000000, 0x0000000000000001, .lt),  -- -inf +den
+    (0xfff0000000000000, 0x8000000000000001, .lt),  -- -inf -den
+    (0x7ff8000000000000, 0x8000000000000000, .unord),  -- qnan -0
+    (0x7ff8000000000000, 0x7ff0000000000000, .unord),  -- qnan +inf
+    (0x7ff8000000000000, 0xfff0000000000000, .unord),  -- qnan -inf
+    (0x7ff8000000000000, 0x7ff0000000000001, .unord),  -- qnan snan
+    (0x7ff8000000000000, 0xbff0000000000000, .unord),  -- qnan -1
+    (0x7ff8000000000000, 0x8000000000000001, .unord),  -- qnan -den
+    (0x7ff0000000000001, 0x0000000000000000, .unord),  -- snan +0
+    (0x7ff0000000000001, 0x8000000000000000, .unord),  -- snan -0
+    (0x7ff0000000000001, 0x7ff0000000000000, .unord),  -- snan +inf
+    (0x7ff0000000000001, 0xfff0000000000000, .unord),  -- snan -inf
+    (0x7ff0000000000001, 0x7ff8000000000000, .unord),  -- snan qnan
+    (0x7ff0000000000001, 0x7ff0000000000001, .unord),  -- snan snan
+    (0x7ff0000000000001, 0x3ff0000000000000, .unord),  -- snan +1
+    (0x7ff0000000000001, 0xbff0000000000000, .unord),  -- snan -1
+    (0x7ff0000000000001, 0x0000000000000001, .unord),  -- snan +den
+    (0x7ff0000000000001, 0x8000000000000001, .unord),  -- snan -den
+    (0x3ff0000000000000, 0x8000000000000000, .gt),  -- +1 -0
+    (0x3ff0000000000000, 0x7ff0000000000000, .lt),  -- +1 +inf
+    (0x3ff0000000000000, 0xfff0000000000000, .gt),  -- +1 -inf
+    (0x3ff0000000000000, 0x7ff0000000000001, .unord),  -- +1 snan
+    (0x3ff0000000000000, 0xbff0000000000000, .gt),  -- +1 -1
+    (0x3ff0000000000000, 0x8000000000000001, .gt),  -- +1 -den
+    (0xbff0000000000000, 0x0000000000000000, .lt),  -- -1 +0
+    (0xbff0000000000000, 0x7ff0000000000000, .lt),  -- -1 +inf
+    (0xbff0000000000000, 0xfff0000000000000, .gt),  -- -1 -inf
+    (0xbff0000000000000, 0x7ff8000000000000, .unord),  -- -1 qnan
+    (0xbff0000000000000, 0x7ff0000000000001, .unord),  -- -1 snan
+    (0xbff0000000000000, 0x3ff0000000000000, .lt),  -- -1 +1
+    (0xbff0000000000000, 0x0000000000000001, .lt),  -- -1 +den
+    (0x0000000000000001, 0x8000000000000000, .gt),  -- +den -0
+    (0x0000000000000001, 0x7ff0000000000000, .lt),  -- +den +inf
+    (0x0000000000000001, 0xfff0000000000000, .gt),  -- +den -inf
+    (0x0000000000000001, 0x7ff0000000000001, .unord),  -- +den snan
+    (0x0000000000000001, 0xbff0000000000000, .gt),  -- +den -1
+    (0x0000000000000001, 0x8000000000000001, .gt),  -- +den -den
+    (0x8000000000000001, 0x0000000000000000, .lt),  -- -den +0
+    (0x8000000000000001, 0x7ff0000000000000, .lt),  -- -den +inf
+    (0x8000000000000001, 0xfff0000000000000, .gt),  -- -den -inf
+    (0x8000000000000001, 0x7ff8000000000000, .unord),  -- -den qnan
+    (0x8000000000000001, 0x7ff0000000000001, .unord),  -- -den snan
+    (0x8000000000000001, 0x3ff0000000000000, .lt),  -- -den +1
+    (0x8000000000000001, 0x0000000000000001, .lt)  -- -den +den
+  ] : List (BitVec 64 × BitVec 64 × SoftFloat.FCmp)).all
+    (fun (a, b, r) => SoftFloat.fcmp SoftFloat.binary64 a b == r) = true := by decide
+
+theorem fcmp_ieee_binary32 :
+  ([
+    (0x00000000, 0x00000000, .eq),  -- +0 +0
+    (0x00000000, 0x80000000, .eq),  -- +0 -0
+    (0x00000000, 0x7f800000, .lt),  -- +0 +inf
+    (0x00000000, 0xff800000, .gt),  -- +0 -inf
+    (0x00000000, 0x7f800001, .unord),  -- +0 snan
+    (0x00000000, 0xbf800000, .gt),  -- +0 -1
+    (0x00000000, 0x80000001, .gt),  -- +0 -den
+    (0x80000000, 0x00000000, .eq),  -- -0 +0
+    (0x80000000, 0x80000000, .eq),  -- -0 -0
+    (0x80000000, 0x7f800000, .lt),  -- -0 +inf
+    (0x80000000, 0xff800000, .gt),  -- -0 -inf
+    (0x80000000, 0x7fc00000, .unord),  -- -0 qnan
+    (0x80000000, 0x7f800001, .unord),  -- -0 snan
+    (0x80000000, 0x3f800000, .lt),  -- -0 +1
+    (0x80000000, 0x00000001, .lt),  -- -0 +den
+    (0x7f800000, 0x00000000, .gt),  -- +inf +0
+    (0x7f800000, 0x80000000, .gt),  -- +inf -0
+    (0x7f800000, 0x7f800000, .eq),  -- +inf +inf
+    (0x7f800000, 0xff800000, .gt),  -- +inf -inf
+    (0x7f800000, 0x7fc00000, .unord),  -- +inf qnan
+    (0x7f800000, 0x7f800001, .unord),  -- +inf snan
+    (0x7f800000, 0x3f800000, .gt),  -- +inf +1
+    (0x7f800000, 0xbf800000, .gt),  -- +inf -1
+    (0x7f800000, 0x00000001, .gt),  -- +inf +den
+    (0x7f800000, 0x80000001, .gt),  -- +inf -den
+    (0xff800000, 0x00000000, .lt),  -- -inf +0
+    (0xff800000, 0x80000000, .lt),  -- -inf -0
+    (0xff800000, 0x7f800000, .lt),  -- -inf +inf
+    (0xff800000, 0xff800000, .eq),  -- -inf -inf
+    (0xff800000, 0x7fc00000, .unord),  -- -inf qnan
+    (0xff800000, 0x7f800001, .unord),  -- -inf snan
+    (0xff800000, 0x3f800000, .lt),  -- -inf +1
+    (0xff800000, 0xbf800000, .lt),  -- -inf -1
+    (0xff800000, 0x00000001, .lt),  -- -inf +den
+    (0xff800000, 0x80000001, .lt),  -- -inf -den
+    (0x7fc00000, 0x80000000, .unord),  -- qnan -0
+    (0x7fc00000, 0x7f800000, .unord),  -- qnan +inf
+    (0x7fc00000, 0xff800000, .unord),  -- qnan -inf
+    (0x7fc00000, 0x7f800001, .unord),  -- qnan snan
+    (0x7fc00000, 0xbf800000, .unord),  -- qnan -1
+    (0x7fc00000, 0x80000001, .unord),  -- qnan -den
+    (0x7f800001, 0x00000000, .unord),  -- snan +0
+    (0x7f800001, 0x80000000, .unord),  -- snan -0
+    (0x7f800001, 0x7f800000, .unord),  -- snan +inf
+    (0x7f800001, 0xff800000, .unord),  -- snan -inf
+    (0x7f800001, 0x7fc00000, .unord),  -- snan qnan
+    (0x7f800001, 0x7f800001, .unord),  -- snan snan
+    (0x7f800001, 0x3f800000, .unord),  -- snan +1
+    (0x7f800001, 0xbf800000, .unord),  -- snan -1
+    (0x7f800001, 0x00000001, .unord),  -- snan +den
+    (0x7f800001, 0x80000001, .unord),  -- snan -den
+    (0x3f800000, 0x80000000, .gt),  -- +1 -0
+    (0x3f800000, 0x7f800000, .lt),  -- +1 +inf
+    (0x3f800000, 0xff800000, .gt),  -- +1 -inf
+    (0x3f800000, 0x7f800001, .unord),  -- +1 snan
+    (0x3f800000, 0xbf800000, .gt),  -- +1 -1
+    (0x3f800000, 0x80000001, .gt),  -- +1 -den
+    (0xbf800000, 0x00000000, .lt),  -- -1 +0
+    (0xbf800000, 0x7f800000, .lt),  -- -1 +inf
+    (0xbf800000, 0xff800000, .gt),  -- -1 -inf
+    (0xbf800000, 0x7fc00000, .unord),  -- -1 qnan
+    (0xbf800000, 0x7f800001, .unord),  -- -1 snan
+    (0xbf800000, 0x3f800000, .lt),  -- -1 +1
+    (0xbf800000, 0x00000001, .lt),  -- -1 +den
+    (0x00000001, 0x80000000, .gt),  -- +den -0
+    (0x00000001, 0x7f800000, .lt),  -- +den +inf
+    (0x00000001, 0xff800000, .gt),  -- +den -inf
+    (0x00000001, 0x7f800001, .unord),  -- +den snan
+    (0x00000001, 0xbf800000, .gt),  -- +den -1
+    (0x00000001, 0x80000001, .gt),  -- +den -den
+    (0x80000001, 0x00000000, .lt),  -- -den +0
+    (0x80000001, 0x7f800000, .lt),  -- -den +inf
+    (0x80000001, 0xff800000, .gt),  -- -den -inf
+    (0x80000001, 0x7fc00000, .unord),  -- -den qnan
+    (0x80000001, 0x7f800001, .unord),  -- -den snan
+    (0x80000001, 0x3f800000, .lt),  -- -den +1
+    (0x80000001, 0x00000001, .lt)  -- -den +den
+  ] : List (BitVec 64 × BitVec 64 × SoftFloat.FCmp)).all
+    (fun (a, b, r) => SoftFloat.fcmp SoftFloat.binary32 a b == r) = true := by decide
+
 end X86.Tests

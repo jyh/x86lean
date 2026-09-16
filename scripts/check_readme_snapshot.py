@@ -84,6 +84,9 @@ def selftest():
         ("vectors",         "README.md", " vectors · ", "1 vectors · "),
         ("pre-states",      "README.md", " pre-states · ", "1 pre-states · "),
         ("cases",           "README.md", " cases · 0 unexplained", "1 cases · 0 unexplained"),
+        ("Instructions: mnemonics", "README.md", "", ""),
+        ("Instructions: vectors",   "README.md", "", ""),
+        ("XMM-operand mnemonics",   "README.md", "", ""),
         ("SOURCE: coverage table", "docs/COVERAGE.md",
          "differentially tested forms", "differentially tested forms "),
     ]
@@ -109,6 +112,12 @@ def selftest():
                 body = re.sub(r'(vectors · )(\d+)( pre-states)', r'\g<1>1\g<3>', body, count=1)
             elif label == "cases":
                 body = re.sub(r'(pre-states · )(\d+)( cases)', r'\g<1>1\g<3>', body, count=1)
+            elif label == "Instructions: mnemonics":
+                body = re.sub(r'(\*\*Instructions\.\*\* )(\d+)', r'\g<1>7', body, count=1)
+            elif label == "Instructions: vectors":
+                body = re.sub(r'(mnemonics in )(\d+)( differentially)', r'\g<1>7\g<3>', body, count=1)
+            elif label == "XMM-operand mnemonics":
+                body = re.sub(r'(\d+)( of those\s+mnemonics take)', r'7\g<2>', body, count=1)
             else:
                 # mutate the GENERATED side instead: the gate must notice.
                 body = re.sub(r'(covering \*\*)(\d+)', r'\g<1>1', body, count=1)
@@ -215,7 +224,35 @@ if not (rm and fm and sm):
         "`N of the M rows`, and the `N vectors · N pre-states · N cases` "
         "block). A missing subject is not a pass.", 2)
 
+# ⭐ README-SIMD-1 (D254 §3): TWO MORE NUMBERS THAT HAD NO READER.  The
+# "Instructions" bullet carried the mnemonic and vector counts a second time,
+# and a count of SIMD mnemonics that read "Forty-seven" while the table held 76
+# (master e731c63; 82 after P2 batch 38).
+# ⛔ The SIMD count is DERIVED from the table by a stated rule — a row whose
+# operand-shapes field (the text before " — ") has an `x` operand — never
+# typed; a word-number would have been unparseable, so the README uses digits.
+im = re.search(r'\*\*Instructions\.\*\* (\d+) mnemonics in (\d+) differentially tested forms', readme)
+xm = re.search(r'(\d+) of those\s+mnemonics take an XMM operand', readme)
+if not (im and xm):
+    die("⛔ could not find the README's Instructions bullet (`N mnemonics in N "
+        "differentially tested forms` and `N of those mnemonics take an XMM "
+        "operand`). A missing subject is not a pass.", 2)
+cov_xmm = 0
+for line in cov.splitlines():
+    if not line.startswith("| `"):
+        continue
+    cells = [c.strip() for c in line.strip().strip("|").split("|")]
+    shapes = cells[1].split(" — ")[0]
+    if "x" in {t.strip() for sh in shapes.split("·") for t in sh.split(",")}:
+        cov_xmm += 1
+if cov_xmm == 0:
+    die("⛔ docs/COVERAGE.md yielded ZERO rows with an `x` operand. The table's "
+        "shape column moved or the parse is broken; zero is not a count.", 2)
+
 claims = {
+    "Instructions: mnemonics": (int(im.group(1)), cov_mnem, "docs/COVERAGE.md"),
+    "Instructions: vectors":   (int(im.group(2)), cov_vecs, "docs/COVERAGE.md"),
+    "XMM-operand mnemonics":   (int(xm.group(1)), cov_xmm,  "docs/COVERAGE.md rows with an `x` shape"),
     "P1 batches landed": (int(rm.group(1)), n_p1, "docs/DIFFERENTIAL-P1-BATCH<N>.md count"),
     "P2 batches landed": (int(rm.group(2)), n_p2, "docs/DIFFERENTIAL-P2-BATCH<N>.md count"),
     "forms covered":   (int(fm.group(1)), cov_forms,  "docs/COVERAGE.md"),

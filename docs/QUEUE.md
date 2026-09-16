@@ -2761,7 +2761,7 @@ than a note in a bank, and the reason it is ranked above CLAIM-1.
 ⚠️ **Open residue, not a new item:** the job's first run after this lands is the first to print `READINGS-JSON` on the
 runner. Read one job's log through the route above before trusting the route in a harvest.
 
-## ⚠️ FCMP-KERNEL-1 (2026-09-15, D253 §6) — **D140's "818-case kernel differential" for `fcmp` exists in NO tracked file**
+## ✅ FCMP-KERNEL-1 — **CLOSED 2026-09-15 (D254): `fcmp_ieee_binary64`/`_binary32` in `Tests/Anchors.lean`, 77 unreached pairs per format, executed on x86isa first.** *(Filed as: D140's "818-case kernel differential" for `fcmp` exists in NO tracked file.)*
 Three comments cite it as what carries `comis`'s ±0 branch (`Main.lean`, `Tests/Vectors.lean`, `scripts/ku_delta_budget.txt`), and so does
 the published COVERAGE narrative. Searched two ways: the needle `818` finds only those citations, and no `decide` over `fcmp` exists in
 `Tests/` or `X86/`. **The run was made on 2026-09-05 and not kept.**
@@ -2770,7 +2770,7 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 - ⚠️ **Widen the reach first.** D253 §3 found that no register vector below xmm8 presents opposite signs, so `fcmp`'s mixed-sign branch
   is ALSO unexercised by the vector table. The pair set is therefore larger than §4's.
 
-## ⚠️ README-SIMD-1 (2026-09-15, D253 §6) — README's *"Forty-seven of those mnemonics are SIMD"* is ungated and stale
+## ✅ README-SIMD-1 — **CLOSED 2026-09-15 (D254 §3): the count is derived from COVERAGE by a stated rule and gated, with the Instructions bullet's two other numbers.** *(Filed as: README's "Forty-seven of those mnemonics are SIMD" is ungated and stale.)*
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 

@@ -149,6 +149,8 @@ X86.Theorems @ms @on runnervmlun5p 6660
 #
 # X86.SoftFloat — P2 batch 32 (D140), landed 2026-09-15. 221 unfoldings, read by
 # `ku_delta.py --arm a-prime` on 53c4823 -> 327622b (yukon.lan, 2026-09-15). The
-# BitVec IEEE-754 comparison `fcmp` and its two formats; the 818-case kernel
-# differential that validates it lives in the same module.
+# BitVec IEEE-754 comparison `fcmp` and its two formats. ⛔ This comment said "the 818-case kernel
+# differential that validates it lives in the same module" until 2026-09-15: the module has no theorem,
+# and that run was never kept (D254). The kernel checks now live in `Tests.Anchors` (`fcmp_ieee_*`,
+# `minmax_ieee_*`); P2 batch 38 added `fmin`/`fmax` here at Δku 0 (D253 §1).
 X86.SoftFloat @ku 221
