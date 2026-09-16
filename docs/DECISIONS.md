@@ -17044,3 +17044,24 @@ commit's run is a third run nobody watched.**
    **2 days (UTC)** and the helm read **1 (this box)** — PR #22's run began 13 seconds after 00:00Z. ⇒ **A calendar-day count measures
    where a midnight falls, not whether the evidence is spread.** Put to the helm rather than picked; ruled to a DURATION (≥48 h), which
    is what the tool now prints. [[feedback-a-separator-that-means-two-things-is-not-a-boundary]]
+
+## D256 — The receipt's first live use on master found the defect in itself: a gate that DECLINED to measure was one label away from being recorded CLEAN
+
+⚖️ D255 landed at `e488792` and the first thing it was asked to do was record that merge commit's own master run — the third run, the one
+#21 taught us nobody watches.
+
+**What it recorded:** `rc=unparsed`, units 0. But `kernel-delta` had SUCCEEDED on that run. Reading the log:
+```
+  ⏭️  SKIP — NULL PAIR: this range changes nothing `lake` reads, so the kernel delta is
+      ZERO BY CONSTRUCTION and there is nothing here for this gate to read.
+```
+⇒ **The gate deliberately did not measure, and exited 0.** `effective()` maps a gone-log-plus-success to `rc0~conclusion` — *"the job
+succeeded, so the gate exited 0 ⇒ CLEAN"* — so one more docs-only landing would have written a CLEAN verdict for a run that measured nothing.
+
+⇒ 🔑 ***THE REFUSAL I BUILT AGAINST UNREAD LOGS DID NOT COVER A LOG THAT SAYS, IN WORDS, THAT THERE WAS NOTHING TO READ.*** D255's value
+set was a claim, and it was short by one — the class that looks most like success. [[feedback-a-classifiers-value-set-is-a-claim]]
+
+✅ **`skip` is a class of its own**, first in the marker order so it cannot be shadowed, with the fixture quoted from the real run rather
+than invented, and two arms: it classifies as `skip`, **and it is not `rc0~conclusion` even though the job succeeded.**
+📌 **The population is 1** — one skip in 262 rows — which is exactly why it had to be caught by USE rather than by review: a class that
+occurs once in a corpus is invisible to any test written from the corpus. [[feedback-a-landed-corpus-cannot-measure-detection]]
