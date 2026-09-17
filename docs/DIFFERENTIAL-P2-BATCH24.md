@@ -34,6 +34,10 @@ Operand classes over the 88 pre-states in `run/cases.lsp`:
   nothing                     ±∞ · a signalling NaN · the zero pair in the (+0, −0) order
 ```
 
+⚠️ *Scoped 2026-09-16 by D258 §2: "nothing" is over the registers and the offsets 0 and 0x10. An
+unaligned offset (`-0x3(%rbx)`) holds a signalling NaN in 28 of 88 states. ±∞ and (+0, −0) are still
+reached nowhere.*
+
 ⛔ **A register pair below x8 never presents opposite signs.** `xmmPattern` makes the XOR of two
 registers' low quadwords `(i^^^j)` in every nibble. The sign is bit 3 of the top nibble, so it can differ
 only when `i^^^j ≥ 8`. Every register vector in this table before this batch used x0–x7.

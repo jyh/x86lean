@@ -793,6 +793,15 @@ acc,imm · rh"
   , { mnemonic := "maxps",
       shapes := "x,x · x,m", note := "four binary32 lanes, each as maxss; m128 16-byte aligned; D253",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MAXPS" }
+  -- ⭐⭐⭐ P2 BATCH 39 — THE EXACT WIDENINGS (D258), the rest of sub-group A.
+  -- TWO rows.  Neither reads MXCSR.RC; the invalid and denormal exceptions are
+  -- MXCSR-only and this model has no MXCSR (D2).
+  , { mnemonic := "cvtss2sd",
+      shapes := "x,x · x,m", note := "low binary32 -> low binary64, exact; SNaN quieted; denormal normalised; upper kept; D258",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSS2SD" }
+  , { mnemonic := "cvtsi2sdl",
+      shapes := "x,r · x,m", note := "signed int32 -> low binary64, exact; upper kept; the int64 source rounds and is not modelled; D258",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SD" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

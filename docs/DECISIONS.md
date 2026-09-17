@@ -16879,6 +16879,8 @@ It ordered Δku measured on a draft first. Read with `deterministic_cost.measure
   0x10(%rbx) vs xmm0            −0/+0 (one state per format), +0/+0, NaN/NaN, NaN vs zero, opposite signs, denormals
   nothing                       ±∞ · signalling NaN · (+0, −0)
 ```
+⚠️ *Scoped 2026-09-16 by D258 §2: "nothing" is over the registers and the offsets 0 and 0x10. An unaligned offset
+(`-0x3(%rbx)`) holds a signalling NaN in 28 of 88 states. ±∞ and (+0, −0) are still reached nowhere.*
 ⛔ **A register pair below xmm8 never presents opposite signs.** `xmmPattern`'s XOR is `(i^^^j)` in every nibble, and the sign bit
 differs only when `i^^^j ≥ 8`.
 - Every register vector before this batch named x0–x7, so **no FP register vector could ever have compared a negative against a
@@ -17115,3 +17117,168 @@ A memory-source probe is a sealed P2_FORMS batch of its own.
 memory-source `cvtsi2s[sd][lq]` and every `cvt(t)s[sd]2si` (census keys `cvtsd2si` 94 · `cvtss2si` 166 · `cvttsd2si` 647 ·
 `cvttss2si` 595, all columns), so those count as PACKED SIMD and pull a function body toward the hand-written route. The shipped arm tests only the bare `cvtsi2sd`. This changes origin attribution, not keys,
 and is filed as its own step.
+
+## D258 — P2 batch 39: the exact widenings, an oracle that cannot convert zero, and a reachability table that had read two offsets
+
+⚖️ **The conversion half of QUEUE `P2-NEXT`**, priced in PR #25 after D257's key fix. Two roster rows, `cvtss2sd` and
+`cvtsi2sdl`, carrying **4,385 instructions** of assembly-class demand (2,949 + 1,436). That is the rest of sub-group A.
+Record 25 (`docs/DIFFERENTIAL-P2-BATCH25.md`).
+
+### 1. THE RULES, AND ONE ENCODER FOR BOTH
+Both conversions are EXACT: every binary32 value and every int32 is a binary64 value. Neither reads MXCSR.RC.
+- **`SoftFloat.toBinary64 neg m eb`** encodes `±m × 2^(eb − 1023)` for a non-zero `m < 2^32`. It finds the top set bit,
+  shifts it onto bit 52, drops it, and adds its index to `eb`.
+- **`f32to64`** sends ±0 and ±∞ straight through. A NaN keeps its sign, its payload moves up 29 bits, and bit 51 is set,
+  so a signalling NaN is QUIETED. Every other value calls the encoder: a normal as `2^23 + mant` at `eb = expo + 873`,
+  a denormal as `mant` at `eb = 874`. ⇒ **A denormal is normalised by the same line as a normal.**
+- **`i32to64`** reads the low 32 bits signed and calls the encoder at `eb = 1023`. INT32_MIN's magnitude is the 32-bit
+  negation read unsigned (`2^31`).
+- **Write rule:** `vcvt2sdLow` replaces the destination's low 64 bits and KEEPS the upper 64. It is one function for all
+  three constructors (`vcvtss2sd`, `vcvtsi2sd`, `vcvt2sdm fromInt`), as `vminmaxLow` is for min/max.
+- **x86isa is a different mechanism:** `sse-cvt-fp1-to-fp2` builds a RATIONAL and rounds it back through
+  `rtl::sse-post-comp` / `rat-to-fp`, with special cases for NaN and ∞. `sse-cvt-int-to-fp` goes through `rat-round`.
+  Its SNaN rule (`sse-cvt-fp1-to-fp2-special`) shifts the payload and makes it quiet, as here.
+⛔ **No width field on `vcvtsi2sd`.** REX.W selects an int64 source, which rounds above 2^53 and belongs to sub-group B.
+The census keys this form `cvtsi2sdl` at both shapes (D257), and `Op.mnemonic` prints that key.
+
+**Checked before any vector:** 40,036 random and special carriers (junk above bit 31), expectations from Python floats
+and the SDM NaN rule: **0 disagreements**, and a planted wrong row is reported.
+
+### 2. ⛔ THE ORACLE CONSTRAINT, AND THE REACHABILITY TABLE IT FORCED
+**`cvtss2sd` at a ±0 source is an ACL2 guard violation** (`RTL::SSE-POST-COMP` requires a non-zero rational; D98 uses it
+as the operand control). The question D98 never asked is what that does inside the differential's loop.
+**Driven on a three-case file, in both orders:** the violation aborts the TOP-LEVEL `x86l-run-all` form, and the case
+after it never runs. Reordered, that case executes (`0x11111111` → `0x3A22222220000000`, upper half kept).
+`cvtsi2sdl` at a zero source executes normally (`sse-cvt-int-to-fp` does not call `sse-post-comp`).
+⇒ **One zero-source `cvtss2sd` case would have truncated the whole run**, and every later vector would have read as
+`missing`. So every `cvtss2sd` source must be non-zero in ALL 88 pre-states.
+
+⛔ **AND THE PRE-CODE REACHABILITY TABLE WAS SCOPED TO TWO OFFSETS.** The probe, run the same morning over
+`preStates`, read binary32 classes in the registers and at `(%rbx)` / `0x10(%rbx)`, and concluded *"sNaN and ±inf
+reached nowhere"*. A scalar memory operand has **no alignment rule**, so every offset in
+the window is a legitimate source. Re-read over every offset of the emitted pre-states (controls: offsets 0 and 0x10
+reproduce the Lean probe's tallies exactly):
+```
+  -0x3(%rbx)   sNaN 28 · ±normal 60                                zero-free
+  0xd(%rbx)    sNaN 22 · ±normal 66                                zero-free
+  0xe(%rbx)    +denorm 33 · −denorm 3 · qNaN 21 · ±normal 31       zero-free
+  x1           ±normal 87 · +denorm 1                              zero-free
+  x9           ±normal 88                                          zero-free
+  (%rbx) · 0x10(%rbx) · x0 · x5 · x10 · x15                        reach ±0 — FORBIDDEN as cvtss2sd sources
+  ±∞           reached at no offset and in no register
+```
+⇒ **The SNaN-quieting rule is a VECTOR arm**, which that table had sent to the kernel. **±∞ stays a kernel differential,
+and so does ±0**, which x86isa cannot execute at all.
+⚠️ **The same scope error is in D253 §3 and record 24 §2** ("nothing reaches … a signalling NaN"). Those tables read
+the same two offsets. Each now carries a dated scope line where a quoter meets it, and so do the min/max anchors'
+docstring and the COVERAGE narrative's batch-38 entry. **The min/max evidence is unaffected:** the sNaN pairs were
+executed on x86isa and pinned in the kernel anyway. Only the sentence saying why was too wide.
+🔑 ***A REACHABILITY TABLE IS A CLAIM ABOUT THE SOURCES IT READ.*** "Nothing reaches X" was true of two offsets and was
+written about the pre-states. [[feedback-a-complete-count-of-a-subset]]
+
+### 3. THE VECTORS
+Ten vectors, five per mnemonic, every `cvtss2sd` source zero-free:
+```
+  cvtss2sd   x1_x0 · x9_x1 (REX.B) · x1_x1 (one register) · mN3 = -0x3(%rbx) (sNaN) · mE = 0xe(%rbx) (denormals, qNaN)
+  cvtsi2sdl  ecx_x0 · edx_x0 · ecx_x9 (REX.R) · m = (%rbx) · mN3 = -0x3(%rbx)
+```
+Bytes from clang; `check_encodings.py` re-derives them.
+
+### 4. WHERE NO VECTOR (OR NO ORACLE) REACHES: TWO KERNEL DIFFERENTIALS
+`Tests/Anchors.lean` `cvtss2sd_ieee` (22 rows: ±0, ±∞, sNaN and qNaN at both payload ends, the smallest and largest
+denormal and normal, ±1) and `cvtsi2sd_int32_ieee` (10 int32 boundaries). Every carrier has junk above bit 31.
+- **x86isa:** 30 of the 32 rows executed, **0 disagreements**, RIP advanced in all 30. The two ±0 rows abort (§2).
+- **Rosetta 2** (a translator, not an x86 processor), running the instructions themselves from a clang x86-64 build:
+  **32 rows, ±0 included, 0 disagreements.** The same comparison against an unquieting rule reports the 4 sNaN rows,
+  so it can fail.
+- `#print axioms`: `[propext, Quot.sound]` for both.
+- ⛔ **Planted wrong once:** `+snan-min` declared unquieted (`0x7ff0000020000000`) failed exactly `cvtss2sd_ieee`.
+- ⭐ **The encoder's top-bit search is 32 bits wide because of this instrument.** At 64 bits the two theorems took
+  ~45 ms of kernel type checking (three runs: 45.8 / 46.1 / 41.8); at 32 bits, ~20 ms (21.4 / 19.5 / 21.4). The
+  precondition `m < 2^32` is what pays for that, and both callers meet it by construction. The one wrong model with a
+  wider magnitude (`wrongCvtWholeRegister`) encodes its value itself.
+- **ku, read on the draft:** `cvtss2sd_ieee` 10,705 · `cvtsi2sd_int32_ieee` 5,515.
+
+### 5. THE PRICE, READ ON THE DRAFT BEFORE THE RUN
+`deterministic_cost.measure` on `X86.SoftFloat`: **232** = 24 attributed + 208 unattributed. The attributed part is
+master's 13 plus `toBinary64` 7 and `f32to64` 4. ⇒ **Δku ≈ +11 against an allowance of 51.**
+⚠️ The master figure is INFERRED (13 + 208 = its `@ku 221` registration), not re-read. §8's A′ run measures both trees.
+
+### 6. THE RUN AND THE INDEPENDENT READ OF IT (record 25 §3)
+Pre-registered on the bus before the run: +880 cases, +880 matched, everything else unchanged, `missing 0`.
+**Confirmed to the case:** `cases=91960 matched=71428 explained=29435 unexplained=0 oracle-divergence=171 oracle-leaks=0 missing=0`.
+⛔ **Checked, not believed.** The oracle's post-state was compared with the SDM rule computed in Python from each PRE
+state: **880 cases, 0 mismatches**, over the destination's 128 bits, the other fifteen XMM registers, RIP and the
+refusal flag. The write is visible in 80–88 of 88 per vector. The `cvtss2sd` sources were 353 normals, 38 denormals,
+21 quiet NaNs, 28 signalling NaNs and **0 zeros**.
+**Regenerated:** VectorRuns (306 runs / 1045 vectors / 170 rows), COVERAGE, DEMAND-CENSUS, P2-ROSTER.
+- **The census:** every column total is unchanged. Each column's covered gain equals the two keys' prior miss
+  (cc1 71 · glibc 156 · ffmpeg 3,424 · vpx 357 · x264 527 · vlc-codec 77 · coreutils 2), and the pooled asm column is
+  +4,385. The P2 roster's gap falls by the same 4,385 (398,471 → 394,086).
+- **The commission:** sub-group A re-stamped 4,385 → **0** (`p2_residue` gate 3), so **sub-group A is complete**.
+- **README snapshot:** 1035/91080/24 → 1045/91960/25; mnemonics 168 → 170; XMM rows 82 → 84.
+
+### 7. THE ARMS, AND A PREDICTION MADE OVER THE WRONG POPULATION
+```
+  arm (all labelled `cvt`, field xmm0)             posted (88)  re-derived (84)  x86lean-diff selftest   light count
+  passes a signalling NaN through unquieted              28            27               27                 27
+  returns the default NaN (sign, payload dropped)        49            48               48                 48
+  re-biases a denormal without normalising it            37            37               — (killed)         37
+  zeroes the bits above the converted lane              560           532               — (killed)        532
+  reads the int32 source as unsigned                    150           140               — (killed)        140
+  keeps only 24 significant bits of the int32           117           102               — (killed)        102
+  takes INT32_MIN's magnitude as INT32_MAX                9             9               — (killed)          9
+  converts the whole 64-bit source register              78            70               — (killed)         70
+  control: the eight arms on 40 non-cvt vectors x 8 states                                                   0
+```
+⛔ **THE POSTED PREDICTIONS WERE OVER THE WRONG POPULATION.** They were derived from `run/cases.lsp`, the emit's 88
+pre-states. `driveWrong` runs `emitAll _ 4` (`Main.lean:1371`): **84** states. Its 4 random states are NOT a subset of
+the emit's 8, because `preStates` pairs them `(rs[i], rs[n+i])`. Arm 1 read 27 against a posted 28, which exposed it.
+A Lean dump of both populations re-derived every figure. The seed-8 dump reproduces the emitted cases field by field,
+and the same Python models over it reproduce the posted numbers, so the models were right and the population was not.
+**The correction was posted on the bus before arms 2–8 reported.** Arm 1's 27 is therefore a correction, not a
+confirmation. **Batch 38's "predicted 2, scored 2"** held only because its two states are among the 80 fixed ones.
+[[feedback-a-borrowed-denominator-invents-its-own-gap]] — the same 84-vs-88 as 09-04, moved from an explanation to a
+prediction.
+
+⛔ **THE FILTERED SELFTEST WAS KILLED AFTER TWO ARMS**, by the harness, for low system memory. Another seat's long job held
+most of the box, and the selftest binary takes no fleet lock, so it ran alongside that job. The contention rule says
+yield to the party that loses work, so it was not re-run while that job ran. **The six arms were counted instead** by a
+scratch `#eval` over the same population (`preStates preStateSeed 4`) and the batch's ten vectors: `step` against each
+wrong model, in `xmm0`. That count reproduces the killed run's two readings exactly. It went through the fleet lock, so
+it took its turn instead of overlapping. ⚠️ **It is not the selftest instrument.** The PR's CI selftest shards run all 146 arms
+through `driveWrong` itself, and §8 records what they read.
+⭐ **The SNaN arm is the reason §2 mattered:** 27 of its disagreements come from `-0x3(%rbx)`, a source the pre-code
+table said could not exist.
+
+### 8. THE LANDING MEASUREMENT
+Step `18194ad` (master) → `35c5c15` (this batch as one commit), on yukon.lan. Pre-registered on the fleet bus before either
+profile started, and corrected once before either started.
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 5.2–8.9 (batch 38's were 3.5–6.1)
+         Tests.Anchors             +9.5  ±42.5  against  137.6     predicted ~+20                  (lower, inside the band)
+         X86.Syntax               +10.5  ±23.1  against   53.0     predicted +25 to +45            REFUTED, below the range
+         X86.SoftFloat             +0.5   ±0.4  against    6.0     predicted +1 to +3              (lower)
+         Tests.Coverage          +800   ±626.7  against 1,965.6    predicted ~0                    MISSED — not predicted at all
+  A′   ku_delta --arm a-prime     CLEAN, rc 0     every module inside
+         X86.SoftFloat               +11        against      51    predicted +11 (read on the draft)       CONFIRMED
+         Tests.Anchors           +16,220        against  54,879    predicted +16,220 (read on the draft)   CONFIRMED
+         X86.Syntax                 +740        against   4,644    predicted ~+1,000 (scaled)              lower
+         Tests.Coverage          +78,606        against 591,456    predicted +146k to +219k (scaled)       REFUTED, below
+         X86.Theorems             +1,035        against  15,452    not predicted
+         X86.Coverage · X86.Semantics · X86.Serialize  +15 each;  X86.Program +4;  Tests.Vectors +1
+       A′'s ms ceilings: X86.Syntax 308 of 879 (35%) · X86.Basic 87 of 278 · X86.Theorems 1,010 of 3,330
+  D251 --record … --a-prime       RECORDED        "ms verdict rc 0 · ARM A′ rc 0 on yukon.lan ⇒ lands on the ms verdict"
+                                                  row 18194ad → 35c5c15; --gap 0
+```
+⭐ **The two figures read on the DRAFT were exact to the unit. Both figures SCALED from batch 38 missed.**
+- **The Coverage prediction was made worse by my own correction.** I first posted +100k to +150k. Before the run, I
+  re-sealed it as +146k to +219k, reasoning that the fixed part does not shrink when scaling down from batch 38's 15
+  vectors. The reading was **+78,606**, below both ranges.
+- Batch 38's vectors were memory-operand binary forms, and these are conversions. **The per-vector cost is a property of
+  the FORM, not of the count**, so no scaling rule in either direction was a price.
+
+⇒ The next group's Δku is read on a draft (QUEUE P2-NEXT (A′) already says so). The ms Coverage cell, left out of the
+prediction entirely, was the largest delta in the run.
+CI's selftest shards, the first real read of arms 3–8, are recorded in the next decision's PR once this PR's run has read
+them.

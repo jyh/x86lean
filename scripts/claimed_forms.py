@@ -289,6 +289,17 @@ CLAIMS_NO_ROW = {
     "comiss_x5_x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "ucomisd_x5_x3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "ucomiss_x3_x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ P2 BATCH 39 (the exact widenings, D258), same commit as the vectors.
+    "cvtss2sd_x1_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtss2sd_x9_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtss2sd_x1_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtss2sd_mN3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtss2sd_mE": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsi2sdl_ecx_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsi2sdl_edx_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsi2sdl_ecx_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsi2sdl_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsi2sdl_mN3": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 38 (min/max, D253), same commit as the vectors.
     "minsd_x1_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "minss_x1_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",

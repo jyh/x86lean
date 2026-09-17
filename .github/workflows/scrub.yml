@@ -77,11 +77,25 @@ jobs:
           # would scan PRE-REPAIR history and red permanently on findings this
           # repo has already fixed in the tree. Fall back to the tree arm, which
           # asks the question that actually matters for a push: is the tree clean?
+          #
+          # ⛔ A REACHABLE `BEFORE` IS NOT ENOUGH (2026-09-16, QUEUE SCRUB-ANCESTRY). This test used to be
+          # existence alone, so a branch moved BACK to an ancestor, whose old tip survives on another fetched
+          # ref, gave an EMPTY `BEFORE..HEAD`, and the gate's own empty-scan refusal turned red on clean
+          # content. Now `BEFORE` must be an ANCESTOR of HEAD and not HEAD itself, which is salt's production
+          # form (`merge-base --is-ancestor`, which subsumes existence). Anything else takes the tree arm.
+          # Driven old-vs-new in a scratch repo before this landed:
+          #   ordinary push     range (both)          equal sha        FAIL (old) -> tree (new)
+          #   moved back        FAIL (old) -> tree    divergent        range(old) -> tree (new; --tree + --history cover it)
+          #   unreachable/zero  tree (both)
+          # and each clause was dropped once: without `!= HEAD` the equal-sha case fails again; with existence
+          # in place of ancestry the moved-back case does.
+          # ⚠️ NO DEFAULT-BRANCH LOOKUP IS NEEDED HERE, unlike salt: this step has no merge-base branch.
           if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
-             && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+             && git merge-base --is-ancestor "$BEFORE" HEAD 2>/dev/null \
+             && [ "$BEFORE" != "$(git rev-parse HEAD)" ]; then
             python3 scripts/check_private_paths.py --range "$BEFORE..HEAD"
           else
-            echo "no usable BEFORE — falling back to the tree arm, declared not silent"
+            echo "no usable BEFORE (absent, unreachable, not an ancestor of HEAD, or HEAD itself) — falling back to the tree arm, declared not silent"
             python3 scripts/check_private_paths.py --tree
           fi
       - name: Tree ratchet (residue the delta gate already fired on must not survive)

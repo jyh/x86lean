@@ -54,9 +54,9 @@ declaration in CI.
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
   it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
   oracle. Single-threaded, one instruction at a time.
-- **Instructions.** 168 mnemonics in 1035 differentially tested forms, covering
+- **Instructions.** 170 mnemonics in 1045 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
-  forms, and 149 of them are alias spellings of another row. 82 of those
+  forms, and 149 of them are alias spellings of another row. 84 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
   `movss`/`movsd`, the packed integer add, subtract, bitwise and unpack groups,
   the packed shift group — eight lane-wise shifts at three count shapes each,
@@ -66,8 +66,8 @@ declaration in CI.
   the bitwise complement `pandn`/`andnps`/`andnpd` and the `ps`/`pd` spellings
   of AND/OR/XOR, which are bit manipulation wearing a floating-point name —
   the cross-register-file `movd`/`movq`, and the first floating point: the
-  compares `comiss`/`comisd`/`ucomiss`/`ucomisd` and `minss`/`minsd`/`maxss`/
-  `maxsd`/`minps`/`maxps`); the P1 roster excludes
+  compares `comiss`/`comisd`/`ucomiss`/`ucomisd`, `minss`/`minsd`/`maxss`/
+  `maxsd`/`minps`/`maxps`, and the exact widenings `cvtss2sd`/`cvtsi2sdl`); the P1 roster excludes
   an `xmm` operand **by derivation**, so they claim no row in that 525 and are
   counted against the P2 roster instead. The moves, the ALU
   group at every width and operand shape including read-modify-write to memory,
@@ -261,7 +261,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 24 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 25 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -272,7 +272,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1035 vectors · 88 pre-states · 91080 cases · 0 unexplained · 0 oracle leaks
+1045 vectors · 88 pre-states · 91960 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

@@ -630,6 +630,15 @@ def vminmaxLow (isMax : Bool) (sz : Size) (d : BitVec 128) (b : BitVec 64) : Bit
   let r := (if isMax then SoftFloat.fmax else SoftFloat.fmin) f (d.setWidth 64) b
   ((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128)
 
+/-- ⭐⭐ P2 BATCH 39 — THE CONVERSION WRITE (SDM Vol. 2B, CVTSS2SD/CVTSI2SD): the
+destination's low 64 bits become the binary64 of `b`'s low 32 bits — read as a
+binary32 or, when `fromInt`, as a signed int32 — and the upper 64 bits are KEPT.
+ONE function for every operand shape, as `vminmaxLow`: the forms differ only in
+where `b` is read. -/
+def vcvt2sdLow (fromInt : Bool) (d : BitVec 128) (b : BitVec 64) : BitVec 128 :=
+  let r := if fromInt then SoftFloat.i32to64 b else SoftFloat.f32to64 b
+  ((d >>> 64) <<< 64) ||| r.setWidth 128
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -833,6 +842,19 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vminmaxm mx sz dst ea =>
       let a := ea.addr s nr
       (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) (s.readMem sz a))).setRip nr
+
+  -- ⭐⭐⭐ CVTSS2SD / CVTSI2SD at a 32-bit source (SDM Vol. 2B) — P2 BATCH 39.
+  -- The low binary64 lane only; bits above it are preserved; no flag is written
+  -- — x86isa's `x86-cvts?2s?-Op/En-RM` and `x86-cvtsi2s?-Op/En-RM` write the XMM
+  -- register (`!xmmi-size 8`, which keeps the rest), MXCSR and RIP.
+  -- ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
+  | .vcvtss2sd dst src =>
+      (s.setXmm dst (vcvt2sdLow false (s.getXmm dst) ((s.getXmm src).setWidth 64))).setRip nr
+  | .vcvtsi2sd dst src =>
+      (s.setXmm dst (vcvt2sdLow true (s.getXmm dst) (s.getReg .d src))).setRip nr
+  | .vcvt2sdm fi dst ea =>
+      let a := ea.addr s nr
+      (s.setXmm dst (vcvt2sdLow fi (s.getXmm dst) (s.readMem .d a))).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --

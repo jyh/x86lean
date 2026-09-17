@@ -31,6 +31,7 @@ pair of separate rules.  Two reasons, and the second is the load-bearing one:
   invisible to any test that exercises one width.
 -/
 import X86.Basic
+import X86.Value
 
 namespace X86
 namespace SoftFloat
@@ -135,6 +136,76 @@ def fmin (f : Fmt) (a b : BitVec 64) : BitVec 64 :=
 two zeros return the SOURCE here too. -/
 def fmax (f : Fmt) (a b : BitVec 64) : BitVec 64 :=
   if fcmp f a b == .gt then a else b
+
+/-! ### ⭐⭐⭐ P2 BATCH 39 — THE TWO WIDENINGS THAT NEED NO ROUNDING (D258).
+
+`cvtss2sd` (binary32 → binary64) and `cvtsi2sd` from a 32-bit source (int32 →
+binary64) are EXACT: every binary32 value and every int32 is a binary64 value.
+So neither reads MXCSR.RC, and both belong to sub-group A of the soft-float
+commission, the part this model can state without an MXCSR (D2).
+
+⚠️ ONE ENCODER SERVES BOTH, because both are "place a non-zero integer
+significand at a known scale".  A normal binary32 is the integer `2^23 + mant`
+at scale `2^(expo − 150)`; a denormal is `mant` at scale `2^(1 − 150)`; an int32
+is its magnitude at scale `2^0`.  Writing the three as one call to `toBinary64`
+makes "a denormal is normalised exactly as a normal is" a fact of the code. -/
+
+/-- ⭐⭐ THE BINARY64 ENCODING OF `±m × 2^(eb − 1023)` for a NON-ZERO `m` below
+`2^32`.  The top set bit is at `p = 31 − clz₃₂ m`; the biased exponent is
+`eb + p`; the mantissa is `m` shifted LEFT so that bit `p` lands on bit 52, with
+that bit dropped (it is the implicit leading one), so the value is exact.
+
+⛔ THE SEARCH IS OVER 32 BITS, NOT 64, AND THE PRECONDITION IS WHAT PAYS FOR IT.
+Both callers meet `m < 2^32` by construction (an int32 magnitude is at most
+`2^31`, a binary32 significand below `2^24`), and the kernel then walks half the
+recursion: the two `Tests/Anchors.lean` differentials measured ~45 ms of type
+checking with a 64-bit search and ~20 ms with this one (D258 §4).  A magnitude
+at or above `2^32` would be encoded WRONG, silently.  `eb + p` stays inside
+874 … 1150, so no overflow and no underflow is possible. -/
+def toBinary64 (neg : Bool) (m : BitVec 64) (eb : Nat) : BitVec 64 :=
+  let p := 31 - Value.clzN m 32
+  let mant := (m <<< (52 - p)) &&& ((1 <<< 52) - 1)
+  (if neg then 1 <<< 63 else 0) ||| (BitVec.ofNat 64 (eb + p) <<< 52) ||| mant
+
+/-- ⭐⭐ CVTSS2SD's LANE RULE (SDM Vol. 2B, CVTSS2SD; IEEE-754 §5.4.2): the low
+binary32 of `x` as a binary64.  The sign always travels.
+
+* **±0 → ±0**, and **±∞ → ±∞**;
+* **a NaN keeps its payload**, shifted up 29 bits, and **a signalling NaN is
+  QUIETED** by setting the binary64 quiet bit (bit 51).  A quiet NaN already has
+  its quiet bit (bit 22), and the shift puts it on bit 51, so setting bit 51 for
+  EVERY NaN is the one rule for both kinds;
+* **a denormal is NORMALISED.**  Its biased exponent is 0 and its value is
+  `mant × 2^−149`, so the binary64 exponent comes from the top bit of `mant` and
+  not from the field.  A model that shifted the mantissa and re-biased the
+  field (`0 + 896`) is right on every normal and wrong on every denormal.
+
+⚠️ NO MXCSR: the invalid (signalling NaN) and denormal exceptions are flags there
+only, masked in every pre-state here, and this model has no MXCSR (D2). -/
+def f32to64 (x : BitVec 64) : BitVec 64 :=
+  let f := binary32
+  let s := f.sign x
+  let e := f.expo x
+  let m := f.mant x
+  if e == 0xFF then
+    (if s then 1 <<< 63 else 0) ||| (0x7FF <<< 52) ||| (m <<< 29) |||
+      (if m == 0 then 0 else 1 <<< 51)
+  else if e == 0 && m == 0 then (if s then 1 <<< 63 else 0)
+  else if e == 0 then toBinary64 s m 874
+  else toBinary64 s (m ||| (1 <<< 23)) (e.toNat + 873)
+
+/-- ⭐⭐ CVTSI2SD's RULE AT A 32-BIT SOURCE (SDM Vol. 2B, CVTSI2SD): the low 32
+bits of `x`, read as a SIGNED integer, as a binary64.  Exact for every int32.
+
+⛔ THE MAGNITUDE OF INT32_MIN IS 2^31, which is not an int32: it is computed as
+the 32-bit negation read UNSIGNED, where `−0x80000000 = 0x80000000`.  A model
+that took the magnitude as a signed 32-bit value would have no answer there. -/
+def i32to64 (x : BitVec 64) : BitVec 64 :=
+  let v := x.setWidth 32
+  if v == 0 then 0
+  else
+    let neg := v.getLsbD 31
+    toBinary64 neg ((if neg then -v else v).setWidth 64) 1023
 
 end SoftFloat
 end X86

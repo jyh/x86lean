@@ -76,11 +76,13 @@ down and with the boundary now measured:
 
 ```
 SUB-GROUP A — NO ROUNDING AT ALL
-   12 pairs,  4,385 instructions   UNCLAIMED — 6,619 (17.9% of the commission) at the freeze, 2026-09-05;
+   12 pairs,      0 instructions   UNCLAIMED — 6,619 (17.9% of the commission) at the freeze, 2026-09-05;
                                   comiss/comisd/ucomiss/ucomisd (2,256) landed 2026-09-15, P2 batch 32, D140;
                                   minss/minsd/maxss/maxsd/minps/maxps (926) landed 2026-09-15, P2 batch 38, D253;
                                   +948 on 2026-09-16, D257: the census now keys register-source int32
-                                  conversions by WIDTH (was 3,437 on the lossy key)
+                                  conversions by WIDTH (was 3,437 on the lossy key);
+                                  cvtss2sd/cvtsi2sdl (4,385) landed 2026-09-16, P2 batch 39, D258.
+                                  ⇒ SUB-GROUP A IS COMPLETE.
    comisd 1,115 · comiss 819 · minsd 250 · maxss 230 · minss 215 · maxsd 194 ·
    ucomiss 187 · ucomisd 135 · maxps 20 · minps 17          (compare / min / max)
    cvtss2sd 2,949 · cvtsi2sdl 1,436                          (EXACT widenings — see §7;
