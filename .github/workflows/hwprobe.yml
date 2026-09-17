@@ -1,0 +1,67 @@
+name: hwprobe
+
+# THE x86-64 REFEREE (D266). Sub-group B pins some rows in the kernel against the SDM where ACL2 x86isa
+# disagrees: the sign of the QNaN floating-point indefinite (D265), and COMIS* raising IE on a QNaN (x86isa
+# dispatches COMIS as UCOMIS). The development machine is arm64 and cannot referee either. A hosted
+# runner is x86-64, so this job runs each row's instruction on its processor and compares the result and
+# the MXCSR sticky flags with expectations hwprobe/mk_rows.py derives from the SDM's rules.
+#
+# ⚠️ ADVISORY and PATH-FILTERED. It is not a required check, so the filter cannot hang a merge; it runs when
+# the probe or this file changes, and on demand. The processor it ran on is printed first, because a
+# reading of "the hardware" is a reading of ONE processor.
+
+on:
+  push:
+    paths: ['hwprobe/**', '.github/workflows/hwprobe.yml']
+  pull_request:
+    paths: ['hwprobe/**', '.github/workflows/hwprobe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  referee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The processor
+        run: |
+          uname -m
+          grep -m1 'model name' /proc/cpuinfo
+          grep -m1 -ow sse2 /proc/cpuinfo
+
+      - name: Rows, derived from the rules (never typed)
+        working-directory: hwprobe
+        run: |
+          python3 ref_mul.py
+          python3 mk_rows.py > rows.h
+          python3 mk_rows.py --plant > rows_plant.h
+          python3 mk_rows.py --plant-op > rows_badop.h
+
+      - name: Build
+        working-directory: hwprobe
+        run: |
+          gcc -O1 -o probe probe.c sse_ops.S
+          sed 's/"rows.h"/"rows_plant.h"/' probe.c > probe_plant.c
+          sed 's/"rows.h"/"rows_badop.h"/' probe.c > probe_badop.c
+          gcc -O1 -o probe_plant probe_plant.c sse_ops.S
+          gcc -O1 -o probe_badop probe_badop.c sse_ops.S
+
+      - name: Controls (a wrong expectation reds exactly one row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./probe_plant > plant.out; rc_plant=$?
+          ./probe_badop > badop.out; rc_badop=$?
+          set -e
+          tail -1 plant.out; cat badop.out
+          echo "plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' plant.out)" = 1
+          test "$rc_badop" = 2
+
+      - name: Referee
+        working-directory: hwprobe
+        run: ./probe

@@ -469,6 +469,12 @@ EXEMPT_RULES = [
     ("paper/", "the paper's LaTeX source, bibliography and README. Read by a TeX "
                "engine, never by `lake`; a `.lean` under it would have been bucketed "
                "as `.lean` first."),
+    # ⛔ ADDED 2026-09-17, BY THE GATE REFUSING — the fourth unargued path. `hwprobe/` (D266)
+    # is the x86-64 referee: C, assembly, Python and Lisp, run by its own workflow on a hosted
+    # runner and by ACL2 here. The local preflight met the refusal before the push, this time.
+    ("hwprobe/", "the x86-64 hardware referee (D266): C, assembly, Python and Lisp built by a C "
+                 "compiler or run by ACL2, never by `lake`; a `.lean` under it would have been "
+                 "bucketed as `.lean` first."),
 ]
 
 

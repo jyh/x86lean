@@ -2374,7 +2374,34 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — SUB-GROUPS A AND A′ LANDED IN FULL 2026-09-16 (A′: D261); B REMAINS, AND ITS KILL-CHECKS K3/K4 ARE MEASURED (D262, D263)**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B IS PROBED, DESIGNED AS B0 + B1, AND B0 IS PRICED ON A DRAFT (D265, D266)**
+⚖️ **STATUS AT 2026-09-17 (D265, D266): B's oracle is probed, its harness is designed and drafted, and B IS TWO BATCHES.**
+- **The oracle (D265):** x86isa honours MXCSR.RC on `mulsd` and writes every sticky flag. Its default NaN is POSITIVE, and
+  `init-x86-state-64` does not reset MXCSR.
+- **The harness (D266):** MXCSR in the record re-tests every landed FP form's sticky flags. Measured over their 4,048
+  cases, x86isa matches the SDM on 12 of 14 mnemonics.
+- **Three more x86isa defects, each with its mechanism:**
+  - it runs COMIS as UCOMIS (no IE at a QNaN);
+  - it reads a PRESET sticky OE as `cvtss2sd`'s own overflow;
+  - it converts integer 0 to −0 under round-down.
+  The last two appeared only when the draft varied RC and preset the sticky bits (D27).
+- **Tininess:** x86isa detects it AFTER rounding (25/25). The K4 reference labels it before; its values stand.
+- **The referee:** `hwprobe/`, 174 rows on an x86-64 runner, with two controls. x86isa disagrees with the SDM-derived rules on
+  27 of 173 rows, in exactly four mechanisms. **The runner's processor (AMD EPYC 7763) agrees on 174/174**, and so all four are
+  defects on silicon. Rosetta 2 also agrees on 174/174, but it is an emulator, not a processor.
+
+⇒ **NEXT for B:**
+- **B0 = the harness plus the flags of the landed forms.** It adds no instruction. It is drafted and priced on local
+  `paris/b0-draft`:
+  - **ku:** a-prime CLEAN. `X86.Semantics` reads +12 of 226 once a wildcard match became an equality test (it was +209).
+  - **The full differential:** 0 unexplained, and exactly 50 new declared divergences.
+  - **Owed at the batch:**
+    - the kernel pins and wrong-model arms of D266 §6 (SNaN rows pinned, not a new `vcomis` memory constructor);
+    - the docstring and coverage notes that say comis and ucomis are one function;
+    - a second vendor's `hwprobe` reading.
+- **B1 = `mulsd`/`mulss` on B0.**
+
+⚠️ *The paragraph below named "execute one `mulsd` on x86isa under a non-default MXCSR.RC" as NEXT. It is DONE (D265).*
 ⚖️ **STATUS AT 2026-09-16:** sub-group A is BUILT and on the roster across three batches: the compares (32, D140), min/max
 (38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 930 since D259;
 the census had filed 32 memory-source forms under GPR/other and read 898: `cvttsd2si`/`cvttss2si`, truncation) is BUILT as P2 batch 40
