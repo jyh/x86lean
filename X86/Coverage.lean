@@ -755,26 +755,26 @@ acc,imm · rh"
   -- ⭐⭐⭐ P2 BATCH 32 — THE FP COMPARES (D140), sub-group A of the soft-float
   -- commission.  FOUR rows, not two: `comis` and `ucomis` are different opcodes
   -- and different mnemonics, and a disassembler prints all four.
-  -- ⚠️ THE NOTE SAYS WHAT THIS MODEL DOES NOT DISTINGUISH, because a roster row
-  -- that reads as full coverage of a form it models only partly is worse than an
-  -- absent one: `comis` and `ucomis` differ only in which NaN raises the
-  -- invalid-operation exception, and this model has no MXCSR (D2).
+  -- ⚠️ THE NOTE SAYS WHERE THE TWO DIFFER: only in which NaN raises MXCSR.IE,
+  -- which the record has carried since sub-group B0 (D266).  Every exception is
+  -- masked in every pre-state, and x86isa runs COMIS as UCOMIS, so the ucomis
+  -- rows are the differential's and the comis QNaN rows are the kernel's.
   , { mnemonic := "comiss",
-      shapes := "x,x", note := "EFLAGS only; binary32; ZF/PF/CF from the ordering; D140",
+      shapes := "x,x", note := "EFLAGS; MXCSR IE on any NaN, DE; binary32; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A COMISS" }
   , { mnemonic := "comisd",
-      shapes := "x,x", note := "EFLAGS only; binary64; ZF/PF/CF from the ordering; D140",
+      shapes := "x,x", note := "EFLAGS; MXCSR IE on any NaN, DE; binary64; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A COMISD" }
   , { mnemonic := "ucomiss",
-      shapes := "x,x", note := "as comiss; the SNaN-vs-QNaN split needs MXCSR (D2); D140",
+      shapes := "x,x", note := "as comiss, but IE on an SNaN only; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISS" }
   , { mnemonic := "ucomisd",
-      shapes := "x,x", note := "as comisd; the SNaN-vs-QNaN split needs MXCSR (D2); D140",
+      shapes := "x,x", note := "as comisd, but IE on an SNaN only; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISD" }
   -- ⭐⭐⭐ P2 BATCH 38 — MIN / MAX (D253), sub-group A of the soft-float commission.
   -- SIX rows.  ⚠️ THE NOTE NAMES THE ASYMMETRY, because it is the rule: a NaN or
-  -- two zeros return the SOURCE.  The exceptions the SDM lists (invalid on NaN,
-  -- denormal) are MXCSR-only and this model has no MXCSR (D2).
+  -- two zeros return the SOURCE.  The exceptions the SDM lists (invalid on any
+  -- NaN, denormal) are MXCSR's sticky flags, recorded since B0 (D266), masked.
   , { mnemonic := "minss",
       shapes := "x,x · x,m", note := "low binary32 lane; NaN or ±0 pair -> source; upper kept; D253",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MINSS" }
@@ -794,8 +794,8 @@ acc,imm · rh"
       shapes := "x,x · x,m", note := "four binary32 lanes, each as maxss; m128 16-byte aligned; D253",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MAXPS" }
   -- ⭐⭐⭐ P2 BATCH 39 — THE EXACT WIDENINGS (D258), the rest of sub-group A.
-  -- TWO rows.  Neither reads MXCSR.RC; the invalid and denormal exceptions are
-  -- MXCSR-only and this model has no MXCSR (D2).
+  -- TWO rows.  Neither reads MXCSR.RC.  `cvtss2sd` raises IE on an SNaN and DE,
+  -- and `cvtsi2sdl` raises nothing; the flags are recorded since B0 (D266).
   , { mnemonic := "cvtss2sd",
       shapes := "x,x · x,m", note := "low binary32 -> low binary64, exact; SNaN quieted; denormal normalised; upper kept; D258",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSS2SD" }
@@ -804,7 +804,7 @@ acc,imm · rh"
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SD" }
   -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  TWO rows, each at
   -- both destination widths.  The rounding is fixed by the opcode, so neither
-  -- reads MXCSR.RC; the invalid exception is MXCSR-only (D2).
+  -- reads MXCSR.RC; IE and PE are recorded since B0 (D266).
   , { mnemonic := "cvttsd2si",
       shapes := "r,x · r,m", note := "low binary64 truncated toward zero -> int32/int64 (REX.W); NaN, inf, out of range -> indefinite; D261",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTTSD2SI" }

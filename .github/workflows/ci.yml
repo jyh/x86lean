@@ -491,6 +491,23 @@ jobs:
           python3 scripts/check_xmm_format.py --selftest
           python3 scripts/check_xmm_format.py
 
+      # ⭐⭐⭐ SUB-GROUP B0 (D266). MXCSR joined the record as six per-flag keys and a control
+      # half, printed on both sides, and the pre-state crosses the other way as `:mxcsr`. A key
+      # printed from the wrong BIT would move a declared divergence (`mxcsr.ie`) onto another
+      # flag, so the selftest mutates a bit as well as a name.
+      - name: MXCSR record format agrees across the Lean/ACL2 boundary
+        run: |
+          python3 scripts/check_mxcsr_format.py --selftest
+          python3 scripts/check_mxcsr_format.py
+
+      # B0's kernel pins are GENERATED from hwprobe/mk_rows.py, the rows the x86-64 referee runs.
+      # Transport only: this proves Tests/Anchors.lean carries the generator's block; the kernel
+      # checks the model against it and the hwprobe job checks the rows against a processor.
+      - name: B0's kernel pins are hwprobe's rows, byte for byte
+        run: |
+          python3 hwprobe/mk_anchors.py --selftest
+          python3 hwprobe/mk_anchors.py --check
+
       # P1 BATCH 15 (D45): the watch windows are declared in BOTH Lean and the
       # ACL2 driver, because neither toolchain can read the other's source.
       # The drift fails loud — every record differs — but only after a

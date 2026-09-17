@@ -646,6 +646,37 @@ def cvttLane (dbl wide : Bool) (b : BitVec 64) : BitVec 64 :=
   SoftFloat.truncToInt (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
     (if wide then 64 else 32) b
 
+/-! ### ⭐⭐⭐ SUB-GROUP B0 — THE FLAGS EACH LANDED FP FORM RAISES (D266).
+Each function reads exactly the operands its value rule reads, so a form's flags and
+its result cannot come to disagree about which lane they looked at. -/
+
+/-- MINSS/MINSD/MAXSS/MAXSD: IE on any NaN, DE on a denormal (SDM Vol. 2B). -/
+def vminmaxFlags (sz : Size) (d : BitVec 128) (b : BitVec 64) : BitVec 32 :=
+  SoftFloat.preFlags (if sz == .q then SoftFloat.binary64 else SoftFloat.binary32) true
+    (d.setWidth 64) b
+
+-- ⚠️ AN EQUALITY TEST, NOT A MATCH: a wildcard match over `VBinKind`'s many
+-- constructors cost 197 ku here (D266 §9), the same mechanism as K4's `RC` inductive.
+def VBinKind.isMinMax (k : VBinKind) : Bool := k == .minps || k == .maxps
+
+/-- MINPS/MAXPS: `vminmaxFlags`' rule ORed over the four binary32 lanes. Every other
+packed kind raises nothing ("Flags Affected: None", and no SIMD exception). -/
+def vbinFlags (k : VBinKind) (a b : BitVec 128) : BitVec 32 :=
+  if k.isMinMax then
+    (List.range 4).foldl (fun acc i => acc ||| SoftFloat.preFlags SoftFloat.binary32 true
+      ((a >>> (32 * i)).setWidth 64) ((b >>> (32 * i)).setWidth 64)) 0#32
+  else 0#32
+
+/-- CVTSS2SD: IE on an SNaN, DE on a denormal. CVTSI2SD from an int32 raises nothing:
+the conversion is exact (D258). -/
+def cvt2sdFlags (fromInt : Bool) (b : BitVec 64) : BitVec 32 :=
+  if fromInt then 0 else SoftFloat.preFlags SoftFloat.binary32 false b b
+
+/-- CVTTSD2SI / CVTTSS2SI: IE or PE, on `cvttLane`'s own split. -/
+def cvttFlags (dbl wide : Bool) (b : BitVec 64) : BitVec 32 :=
+  SoftFloat.truncFlags (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
+    (if wide then 64 else 32) b
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -686,7 +717,8 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- PADD* / PSUB* / PXOR / PAND / POR (SDM Vol. 2B).  DEST := DEST op SRC, and
   -- "Flags Affected: None" — the flags are not read and not written.
   | .vbin k dst src =>
-      (s.setXmm dst (vbinApply k (s.getXmm dst) (s.getXmm src))).setRip nr
+      s.withSimd (vbinFlags k (s.getXmm dst) (s.getXmm src)) fun s =>
+        (s.setXmm dst (vbinApply k (s.getXmm dst) (s.getXmm src))).setRip nr
 
   -- ⭐⭐⭐ MOVDQA / MOVDQU AT MEMORY — the forms where `aligned` finally bites.
   --
@@ -815,9 +847,9 @@ def step (i : Instr) (s : Cpu) : Cpu :=
 
   -- ⭐⭐⭐ COMISS / COMISD / UCOMISS / UCOMISD (SDM Vol. 2A) — P2 BATCH 32, and
   -- THE FIRST FLOATING-POINT SEMANTICS IN THIS MODEL.  Sub-group A of the
-  -- soft-float commission: an ordering, so no rounding and no MXCSR.
+  -- soft-float commission: an ordering, so no rounding (its flags are MXCSR's, D266).
   --
-  -- ⛔ IT WRITES ONLY FLAGS.  No XMM register changes, and neither does any GPR
+  -- ⛔ IT WRITES ONLY FLAGS, EFLAGS AND MXCSR's.  No XMM register changes, nor any GPR
   -- or memory byte — a model that also wrote the destination would be
   -- bit-identical here whenever the value written happened to equal what was
   -- there, which is why `wrongComisWritesDst` is a selftest arm.
@@ -827,17 +859,17 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- the carrier `SoftFloat` expects; the bits above the format are never read,
   -- because `Fmt.mag`/`Fmt.sign` mask to `ew + mw`.
   --
-  -- ⛔ `ordered` IS NOT READ HERE, AND THAT IS A CLAIM, NOT AN OVERSIGHT.
-  -- `comis` and `ucomis` differ only in WHICH NaN signals the invalid-operation
-  -- exception, and this model has no MXCSR and no exception path (D2) — so on
-  -- the architectural state the differential compares they are one function.
-  -- Both spellings sit in the vector table at the same pre-states, so x86isa
-  -- gets to refute that rather than this comment.
-  | .vcomis _ sz dst src =>
+  -- ⭐⭐ `ordered` IS READ, AND ONLY BY THE FLAGS (D266).  `comis` and `ucomis`
+  -- differ only in WHICH NaN signals the invalid-operation exception: COMIS on any
+  -- NaN, UCOMIS on an SNaN.  Until MXCSR joined the record they were one function
+  -- on the compared state (record 23 said so); now IE tells them apart.  x86isa
+  -- runs COMIS as UCOMIS, so that difference is an oracle divergence (D266 §1).
+  | .vcomis ordered sz dst src =>
       let f  := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
       let a  := (s.getXmm dst).setWidth 64
       let b  := (s.getXmm src).setWidth 64
-      (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
+      s.withSimd (SoftFloat.preFlags f ordered a b) fun s =>
+        (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
 
   -- ⭐⭐⭐ MINSS / MINSD / MAXSS / MAXSD (SDM Vol. 2B) — P2 BATCH 38.  The low
   -- lane only; bits above it are preserved; no flag is written — the SDM's
@@ -845,10 +877,13 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- RIP (`x86-adds?/subs?/muls?/divs?/maxs?/mins?-Op/En-RM`).
   -- ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
   | .vminmax mx sz dst src =>
-      (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) ((s.getXmm src).setWidth 64))).setRip nr
+      let b := (s.getXmm src).setWidth 64
+      s.withSimd (vminmaxFlags sz (s.getXmm dst) b) fun s =>
+        (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) b)).setRip nr
   | .vminmaxm mx sz dst ea =>
-      let a := ea.addr s nr
-      (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) (s.readMem sz a))).setRip nr
+      let b := s.readMem sz (ea.addr s nr)
+      s.withSimd (vminmaxFlags sz (s.getXmm dst) b) fun s =>
+        (s.setXmm dst (vminmaxLow mx sz (s.getXmm dst) b)).setRip nr
 
   -- ⭐⭐⭐ CVTSS2SD / CVTSI2SD at a 32-bit source (SDM Vol. 2B) — P2 BATCH 39.
   -- The low binary64 lane only; bits above it are preserved; no flag is written
@@ -856,12 +891,15 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- register (`!xmmi-size 8`, which keeps the rest), MXCSR and RIP.
   -- ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
   | .vcvtss2sd dst src =>
-      (s.setXmm dst (vcvt2sdLow false (s.getXmm dst) ((s.getXmm src).setWidth 64))).setRip nr
+      let b := (s.getXmm src).setWidth 64
+      s.withSimd (cvt2sdFlags false b) fun s =>
+        (s.setXmm dst (vcvt2sdLow false (s.getXmm dst) b)).setRip nr
   | .vcvtsi2sd dst src =>
       (s.setXmm dst (vcvt2sdLow true (s.getXmm dst) (s.getReg .d src))).setRip nr
   | .vcvt2sdm fi dst ea =>
-      let a := ea.addr s nr
-      (s.setXmm dst (vcvt2sdLow fi (s.getXmm dst) (s.readMem .d a))).setRip nr
+      let b := s.readMem .d (ea.addr s nr)
+      s.withSimd (cvt2sdFlags fi b) fun s =>
+        (s.setXmm dst (vcvt2sdLow fi (s.getXmm dst) b)).setRip nr
 
   -- ⭐⭐⭐ CVTTSD2SI / CVTTSS2SI (SDM Vol. 2A) — P2 BATCH 40, sub-group A′.
   -- The low lane, truncated toward zero, into a GPR of the REX.W width; an int32
@@ -869,12 +907,13 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- is written — x86isa's `x86-cvts?2si/cvtts?2si-Op/En-RM` writes the GPR, MXCSR
   -- and RIP.  ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
   | .vcvtt2si dbl wide dst src =>
-      (s.setReg (if wide then .q else .d) dst
-        (cvttLane dbl wide ((s.getXmm src).setWidth 64))).setRip nr
+      let b := (s.getXmm src).setWidth 64
+      s.withSimd (cvttFlags dbl wide b) fun s =>
+        (s.setReg (if wide then .q else .d) dst (cvttLane dbl wide b)).setRip nr
   | .vcvtt2sim dbl wide dst ea =>
-      let a := ea.addr s nr
-      (s.setReg (if wide then .q else .d) dst
-        (cvttLane dbl wide (s.readMem (if dbl then .q else .d) a))).setRip nr
+      let b := s.readMem (if dbl then .q else .d) (ea.addr s nr)
+      s.withSimd (cvttFlags dbl wide b) fun s =>
+        (s.setReg (if wide then .q else .d) dst (cvttLane dbl wide b)).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --
@@ -1047,7 +1086,10 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       if !aligned16 a then
         s.halt (.byDesign
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
-      else (s.setXmm dst (vbinApply k (s.getXmm dst) (s.readMem128 a))).setRip nr
+      else
+        let b := s.readMem128 a
+        s.withSimd (vbinFlags k (s.getXmm dst) b) fun s =>
+          (s.setXmm dst (vbinApply k (s.getXmm dst) b)).setRip nr
 
   | .vstore k ea src =>
       let a := ea.addr s nr
