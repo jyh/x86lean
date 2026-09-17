@@ -2408,6 +2408,12 @@ The prose goes in `note`, which is not reduced.
     carries **110** B2 rows. The allowance being larger does not make the batch fit; **B2's pin SELECTION is the
     live question**, exactly as B1's was (it pinned 44 of 85). Price the selection on a draft before writing it,
     and split across steps rather than widening anything.
+  - ✅ **B2's HARDWARE READING IS IN, TAKEN BEFORE THE BATCH (D269):** `hwprobe/`'s 110 new rows read **284/284 with
+    zero disagreements on BOTH vendors** — an AMD EPYC 7763 and an Intel Core i7-8700B — whose 284 lines are
+    byte-for-byte identical. Both controls fired (plant rc 1 with exactly one DIFF, badop rc 2).
+    ⭐ **`ZE-BEFORE-DE` survived its first silicon on both parts** (`divsd_den_zero`/`divss_den_zero` read `ZE` alone,
+    mxcsr 1f84), with a `DE`-positive control in the same run (`divsd_zero_den` reads 1f82) so the absent `DE` is a
+    reading and not a blind spot. `DE-WITH-INF` holds too. ⚠️ D269 §3 declares what the run does NOT see.
 - ⚠️ **OPEN, AND IT IS AN ABANDONED READING RATHER THAN A FAILURE:** every `run_differential.sh` prints
   `⛔ kernel-cost gate FAILED` for `X86.Syntax 291/200`. The ceiling was **retired as a merge gate 2026-09-04**
   and `kernel_ceilings.txt:129` has not moved since, while the module has measured 270–293 since 2026-09-13
