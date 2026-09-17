@@ -1543,6 +1543,20 @@ inductive Op where
   EIGHT bytes when `dbl` and FOUR otherwise.  ⚠️ NO ALIGNMENT CHECK: a scalar
   operand states none, exactly as `vcvt2sdm`. -/
   | vcvtt2sim (dbl wide : Bool) (dst : GPR) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B1 — MULSS / MULSD (SDM Vol. 2B), register source, and the FIRST
+  FORM HERE THAT READS MXCSR.RC.  The low lane of the destination becomes
+  `SoftFloat.fmul` of the two low lanes, rounded under the mode in MXCSR bits 13–14,
+  and **every bit above the lane is PRESERVED** (the legacy SSE rule, as `vminmax`).
+  No EFLAGS bit is written; MXCSR's OE, UE, PE, IE and DE are (D266 §6).
+
+  ⚠️ `sz` IS THE FORMAT, as for `vminmax`: `.d` is binary32 (`mulss`), `.q` is
+  binary64 (`mulsd`).
+  ⚖️ TWO CONSTRUCTORS AND NO OPERATION FIELD, for now.  An op field would have one
+  member until add, sub and div land, and B2 is where it is priced. -/
+  | vmul (sz : Size) (dst src : XmmReg)
+  /-- SUB-GROUP B1 — the same two at a MEMORY source (`m32` / `m64`).  ⚠️ NO
+  ALIGNMENT CHECK: a scalar operand states none, exactly as `vminmaxm`. -/
+  | vmulm (sz : Size) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1916,6 +1930,9 @@ def opOperands : Op → List Operand
   -- memory source names its address.
   | .vcvtt2si _ _ r _ => [.reg r]
   | .vcvtt2sim _ _ r ea => [.reg r, .mem ea]
+  -- SUB-GROUP B1: the scalar multiply's memory SOURCE names its address.
+  | .vmul .. => []
+  | .vmulm _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -2055,6 +2072,9 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 40: `lock cvttsd2si` is not a form the SDM lists.
   | .vcvtt2si .. => false
   | .vcvtt2sim _ _ _ ea => ea.lock
+  -- SUB-GROUP B1: `lock mulsd` is not a form the SDM lists.
+  | .vmul .. => false
+  | .vmulm _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2232,6 +2252,8 @@ def Op.mnemonic : Op → String
   -- P2 BATCH 40: ONE name for both destination widths, as objdump prints it and
   -- as the census keys it (D259's key has no width).
   | .vcvtt2si dbl .. | .vcvtt2sim dbl .. => if dbl then "cvttsd2si" else "cvttss2si"
+  -- SUB-GROUP B1: both operand shapes print one name.
+  | .vmul sz .. | .vmulm sz .. => if sz == .q then "mulsd" else "mulss"
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -2450,6 +2472,9 @@ def rosterP0 : List String :=
    -- ⭐⭐⭐ P2 BATCH 40: sub-group A′, the two TRUNCATIONS, TWO rows — each
    -- mnemonic is one census key at both destination widths (D259, D261).
    "cvttsd2si", "cvttss2si",
+   -- ⭐⭐⭐ SUB-GROUP B1: the scalar multiply, TWO rows, and the first that round
+   -- under MXCSR.RC.  `mulps`/`mulpd` are packed and not taken.
+   "mulss", "mulsd",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

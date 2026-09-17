@@ -305,5 +305,95 @@ def truncFlags (f : Fmt) (w : Nat) (x : BitVec 64) : BitVec 32 :=
       if !(if f.sign x then n.ule ind else n.ult ind) then fIE
       else if frac then fPE else 0
 
+/-! ### ⭐⭐⭐ SUB-GROUP B1 — MULSS / MULSD, THE FIRST ROUNDING RULE (D262 K4, D266 §6 B1).
+
+**The rule is K4's draft** (D262 §1), checked against an independent reference on 24,000 rows. It is changed in two
+ways only, both from D262 §3:
+- **RC is MXCSR's 2-bit field, read as a `Nat`** (0 nearest · 1 down · 2 up · 3 zero, SDM Vol. 1 §10.2.3). An `RC`
+  inductive cost 175 ku, three times this module's allowance.
+- **No power above 256 on any path:** a discarding shift is clamped at `bitlen + 1`.
+The flags are computed in the same pass, so a result and its flags cannot disagree about the rounding. -/
+
+/-- The unbiased-exponent offset. -/
+def bias (f : Fmt) : Nat := 2 ^ (f.ew - 1) - 1
+
+/-- Does `q` (with remainder `r` of a discarded part whose half is `half`) round up under RC `rc`? -/
+def roundsUp (rc : Nat) (neg : Bool) (q r half : Nat) : Bool :=
+  r != 0 &&
+    (if rc == 0 then r > half || (r == half && q % 2 == 1)
+     else if rc == 1 then neg
+     else if rc == 2 then !neg
+     else false)
+
+/-- `m >>> s` with its remainder and the remainder's half, or `m <<< −s` exactly. The shift is clamped at
+`bitlen m + 1`: past that, every bit of `m` is discarded and the rounding decision is the same (D262 §3.1). -/
+def shiftOut (m : Nat) (s : Int) : Nat × Nat × Nat :=
+  let t : Nat := min s.toNat (Nat.log2 m + 2)
+  if s ≤ 0 then (m <<< s.natAbs, 0, 0) else (m >>> t, m % 2 ^ t, 2 ^ (t - 1))
+
+/-- ⭐ `±m × 2^e` (`m > 0`) rounded to `f` under `rc`, AND the flags that rounding raises: PE when inexact, UE when also
+TINY AFTER ROUNDING (D266 §3: rounded at an unbounded exponent, below the normal range), OE with PE on overflow.
+
+One encoding for normal and subnormal results: the exponent field below the significand is `be − 1` for a normal and
+0 for a subnormal, so a carry out of the rounded significand lands in the exponent field by itself. -/
+def roundPack (f : Fmt) (rc : Nat) (neg : Bool) (m : Nat) (e : Int) : BitVec 64 × BitVec 32 :=
+  let n := Nat.log2 m + 1
+  let sN : Int := (n : Int) - (f.mw + 1)
+  let sS : Int := (1 : Int) - bias f - f.mw - e
+  let (q, r, half) := shiftOut m (max sN sS)
+  let q' := if roundsUp rc neg q r half then q + 1 else q
+  let k : Nat := if sS ≤ sN then (e + sN + f.mw + bias f - 1).toNat else 0
+  let bits : Nat := k * 2 ^ f.mw + q'
+  let sgn : Nat := if neg then 2 ^ (f.ew + f.mw) else 0
+  let top : Nat := (2 ^ f.ew - 1) * 2 ^ f.mw
+  if bits < top then
+    -- TINY AFTER ROUNDING: the value rounded to `mw + 1` bits at an unbounded exponent is below 2^emin.
+    let (qn, rn, hn) := shiftOut m sN
+    let qn' := if roundsUp rc neg qn rn hn then qn + 1 else qn
+    let lead : Int := e + sN + (if qn' == 2 ^ (f.mw + 1) then f.mw + 1 else f.mw)
+    let fl : BitVec 32 :=
+      if r == 0 then 0
+      else if lead < (1 : Int) - bias f then 0x30 else 0x20
+    (BitVec.ofNat 64 (sgn + bits), fl)
+  else
+    let away := if rc == 0 then true else if rc == 1 then neg else if rc == 2 then !neg else false
+    (BitVec.ofNat 64 (sgn + if away then top else top - 1), 0x28)
+
+namespace Fmt
+/-- An infinity: exponent all ones, mantissa zero. -/
+def isInf (f : Fmt) (x : BitVec 64) : Bool := f.expo x == ((1 <<< f.ew) - 1) && f.mant x == 0
+end Fmt
+
+/-- A finite operand as `(m, e)` with value `m × 2^e` (sign separate). -/
+def sig (f : Fmt) (x : BitVec 64) : Nat × Int :=
+  let e := (f.expo x).toNat
+  if e == 0 then ((f.mant x).toNat, (1 : Int) - bias f - f.mw)
+  else ((f.mant x).toNat + 2 ^ f.mw, (e : Int) - bias f - f.mw)
+
+/-- ⭐⭐ MULSS / MULSD's lane rule and flags (SDM Vol. 2B MULSD: "Overflow, Underflow, Invalid, Precision, Denormal").
+* **NaN** (SDM Vol. 1 Table 4-7): the FIRST source if it is a NaN, else the second, quieted. IE when either is an SNaN.
+* **∞ × 0** is invalid: IE and the QNaN floating-point indefinite, whose sign bit is SET (D265; x86isa's is clear).
+* **DE** on a denormal operand when no operand is a NaN (D266 §1).
+* Otherwise one `Nat` multiply of the significands, rounded by `roundPack`. -/
+def fmul (f : Fmt) (rc : Nat) (a b : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let lane : BitVec 64 := (1 <<< f.w) - 1
+  let quiet : BitVec 64 := 1 <<< (f.mw - 1)
+  let infE : BitVec 64 := ((1 <<< f.ew) - 1) <<< f.mw
+  let neg := f.sign a != f.sign b
+  let sgn : BitVec 64 := if neg then 1 <<< (f.ew + f.mw) else 0
+  let snan : BitVec 32 := if f.isSNaN a || f.isSNaN b then fIE else 0
+  let de : BitVec 32 := if f.isDenormal a || f.isDenormal b then fDE else 0
+  if f.isNaN a then ((a ||| quiet) &&& lane, snan)
+  else if f.isNaN b then ((b ||| quiet) &&& lane, snan)
+  else if f.isInf a || f.isInf b then
+    (if f.isZero a || f.isZero b then ((1 <<< (f.ew + f.mw)) ||| infE ||| quiet, fIE)
+     else (sgn ||| infE, de))
+  else if f.isZero a || f.isZero b then (sgn, de)
+  else
+    let (ma, ea) := sig f a
+    let (mb, eb) := sig f b
+    let (r, fl) := roundPack f rc neg (ma * mb) (ea + eb)
+    (r, fl ||| de)
+
 end SoftFloat
 end X86
