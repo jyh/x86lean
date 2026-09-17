@@ -3138,7 +3138,7 @@ the defect it plants: `raise` is how flags reach MXCSR, `cmp` gives a compare's 
 `ordered` bit, `mm` a min/max's, `cvt` a `cvtss2sd`'s, `trunc` a truncation's, and `mul` a
 multiply's write-and-flags pair (sub-group B1, D268).  With `Cpu.withSimd`, `SoftFloat.preFlags`
 (quiet NaNs signalling for `cmp` only when `ordered`, always for `mm`, never for `cvt`),
-`SoftFloat.truncFlags` and `vmulLow`, it is `step` restated.  Every other form, the integer packed
+`SoftFloat.truncFlags` and `varithLow`, it is `step` restated.  Every other form, the integer packed
 kinds included, is `step`. -/
 def wrongSimdWith (raise : Cpu → BitVec 32 → (Cpu → Cpu) → Cpu)
     (cmp : SoftFloat.Fmt → Bool → BitVec 64 → BitVec 64 → BitVec 32)
@@ -3195,11 +3195,19 @@ def wrongSimdWith (raise : Cpu → BitVec 32 → (Cpu → Cpu) → Cpu)
       let b := s.readMem (if dbl then .q else .d) (ea.addr s nr)
       raise s (trunc (cvttFmt dbl) (if wide then 64 else 32) b) fun s =>
         (s.setReg (if wide then .q else .d) dst (cvttLane dbl wide b)).setRip nr
-  | .vmul sz dst src =>
-      let p := mul sz (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
+  -- ⛔⛔ THE SWAPPED-IN `mul` IS THE **MULTIPLY's** SUBSTITUTE AND IS APPLIED TO THE
+  -- MULTIPLY ALONE.  B2's fold put add, sub and div behind the same constructor, and
+  -- routing them through `mul` too would silently CHANGE EVERY B1 ARM's MEANING —
+  -- and the arms' pre-registered scores are this campaign's acceptance, so a refactor
+  -- that moves them is a refactor that destroys its own instrument.  add/sub/div take
+  -- the TRUE rule here until B2 writes their own wrong models.
+  | .varith op sz dst src =>
+      let f := if op == .mul then mul sz else varithLow op sz
+      let p := f (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
       raise s p.2 fun s => (s.setXmm dst p.1).setRip nr
-  | .vmulm sz dst ea =>
-      let p := mul sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
+  | .varithm op sz dst ea =>
+      let f := if op == .mul then mul sz else varithLow op sz
+      let p := f (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
       raise s p.2 fun s => (s.setXmm dst p.1).setRip nr
   | _ => step i s
 
@@ -3218,30 +3226,30 @@ become exactly what this instruction raised.  Only a pre-state with a sticky bit
 separates it, and the one it is read on, ZE, is a bit no landed form ever raises. -/
 def wrongSimdReplaces : Instr → Cpu → Cpu :=
   wrongSimdWith (fun s fl k => s.withSimd fl fun t => k { t with mxcsr := (s.mxcsr &&& ~~~0x3F#32) ||| fl })
-    simdCmp simdMm simdCvt SoftFloat.truncFlags vmulLow
+    simdCmp simdMm simdCvt SoftFloat.truncFlags (varithLow .mul)
 
 /-- ⛔ DE IS NOT SUPPRESSED UNDER A NaN: a denormal beside a NaN raises DE as well as IE. -/
 def wrongSimdDeUnderNaN : Instr → Cpu → Cpu :=
   wrongSimdWith Cpu.withSimd (fun f o a b => deAlways f a b (simdCmp f o a b))
     (fun f a b => deAlways f a b (simdMm f a b)) simdCvt SoftFloat.truncFlags
-    (fun sz rc d b => let p := vmulLow sz rc d b; (p.1, deAlways (simdFmt sz) (d.setWidth 64) b p.2))
+    (fun sz rc d b => let p := varithLow .mul sz rc d b; (p.1, deAlways (simdFmt sz) (d.setWidth 64) b p.2))
 
 /-- ⛔ UCOMIS RAISES IE ON A QNaN, as COMIS does.  Only a `ucomis` vector at a QNaN separates it,
 and those vectors reach one in 3–15 of 88 pre-states (D266 §2). -/
 def wrongSimdUcomisQuietIE : Instr → Cpu → Cpu :=
   wrongSimdWith Cpu.withSimd (fun f _ a b => simdCmp f true a b) simdMm simdCvt SoftFloat.truncFlags
-    vmulLow
+    (varithLow .mul)
 
 /-- ⛔ MIN/MAX RAISE IE ON AN SNaN ONLY, as UCOMIS does; the SDM's MINSD lists "including QNaN
 source operand".  No min/max vector reaches an SNaN, so every catch is at a QNaN. -/
 def wrongSimdMinmaxSignalOnly : Instr → Cpu → Cpu :=
   wrongSimdWith Cpu.withSimd simdCmp (fun f a b => SoftFloat.preFlags f false a b) simdCvt
-    SoftFloat.truncFlags vmulLow
+    SoftFloat.truncFlags (varithLow .mul)
 
 /-- ⛔ A TRUNCATION DROPS PE: an in-range value with a fraction raises nothing. -/
 def wrongSimdCvttDropsPE : Instr → Cpu → Cpu :=
   wrongSimdWith Cpu.withSimd simdCmp simdMm simdCvt
-    (fun f w x => SoftFloat.truncFlags f w x &&& ~~~SoftFloat.fPE) vmulLow
+    (fun f w x => SoftFloat.truncFlags f w x &&& ~~~SoftFloat.fPE) (varithLow .mul)
 
 /-! ### ⭐⭐⭐ SUB-GROUP B1 — the wrong models for the MULTIPLY (D268).
 
@@ -3254,12 +3262,12 @@ driveWrong's 84 states, a pass that never reads `X86/SoftFloat.lean`.
 ⛔ **TININESS BEFORE ROUNDING IS NOT AN ARM HERE.** No pre-state separates it from tininess after
 rounding (D268 §2), so no vector can refute it; `Tests.b1_mul_pins` does. -/
 
-/-- The multiply step with its write-and-flags pair swapped out: `vmulLow` gives `step`. -/
+/-- The multiply step with its write-and-flags pair swapped out: `varithLow` gives `step`. -/
 def wrongMulWith (rule : Size → Nat → BitVec 128 → BitVec 64 → BitVec 128 × BitVec 32) :
     Instr → Cpu → Cpu :=
   wrongSimdWith Cpu.withSimd simdCmp simdMm simdCvt SoftFloat.truncFlags rule
 
-/-- The lane `r` written over `d`'s low lane, the bits above it kept (`vmulLow`'s write). -/
+/-- The lane `r` written over `d`'s low lane, the bits above it kept (`varithLow`'s write). -/
 def mulKeep (sz : Size) (d : BitVec 128) (r : BitVec 64) : BitVec 128 :=
   ((d >>> sz.bits) <<< sz.bits) ||| ((r.setWidth sz.bits).setWidth 128)
 
@@ -3268,11 +3276,11 @@ def mulUE : BitVec 32 := 0x10
 
 /-- ⛔ MXCSR.RC IS NOT READ: every product rounds to nearest. -/
 def wrongMulIgnoresRC : Instr → Cpu → Cpu :=
-  wrongMulWith fun sz _ d b => vmulLow sz 0 d b
+  wrongMulWith fun sz _ d b => varithLow .mul sz 0 d b
 
 /-- ⛔ RC's TWO BITS READ IN THE WRONG ORDER, so round-down and round-up are exchanged. -/
 def wrongMulSwapsRC : Instr → Cpu → Cpu :=
-  wrongMulWith fun sz rc d b => vmulLow sz (if rc == 1 then 2 else if rc == 2 then 1 else rc) d b
+  wrongMulWith fun sz rc d b => varithLow .mul sz (if rc == 1 then 2 else if rc == 2 then 1 else rc) d b
 
 /-- ⛔ WHEN BOTH OPERANDS ARE NaNs, THE SOURCE'S WINS.  The SDM gives the first source, the
 destination (Vol. 1 Table 4-7). -/
@@ -3282,12 +3290,12 @@ def wrongMulSourceNaN : Instr → Cpu → Cpu :=
     if f.isNaN (d.setWidth 64) && f.isNaN b then
       let p := SoftFloat.fmul f rc b (d.setWidth 64)
       (mulKeep sz d p.1, p.2)
-    else vmulLow sz rc d b
+    else varithLow .mul sz rc d b
 
 /-- ⛔ THE SCALAR FORM ZEROES THE BITS ABOVE ITS LANE. -/
 def wrongMulZeroesUpper : Instr → Cpu → Cpu :=
   wrongMulWith fun sz rc d b =>
-    let p := vmulLow sz rc d b
+    let p := varithLow .mul sz rc d b
     ((p.1.setWidth sz.bits).setWidth 128, p.2)
 
 /-- ⛔ AN OVERFLOW IS ±∞ IN EVERY MODE.  Toward zero, and toward the other infinity, the SDM's
@@ -3295,7 +3303,7 @@ result is the largest finite value (Vol. 1 §4.9.1.4). -/
 def wrongMulOverflowInf : Instr → Cpu → Cpu :=
   wrongMulWith fun sz rc d b =>
     let f := simdFmt sz
-    let p := vmulLow sz rc d b
+    let p := varithLow .mul sz rc d b
     if p.2 &&& mulOE != 0 then
       let r := p.1.setWidth 64
       (mulKeep sz d ((r &&& (1 <<< (f.ew + f.mw))) ||| (((1 <<< f.ew) - 1) <<< f.mw)), p.2)
@@ -3306,14 +3314,14 @@ inexact as well (SDM Vol. 1 §4.9.1.5). -/
 def wrongMulUEWhenExact : Instr → Cpu → Cpu :=
   wrongMulWith fun sz rc d b =>
     let f := simdFmt sz
-    let p := vmulLow sz rc d b
+    let p := varithLow .mul sz rc d b
     let r := p.1.setWidth 64
     (p.1, if f.expo r == 0 && f.mant r != 0 then p.2 ||| mulUE else p.2)
 
 /-- ⛔ AN OVERFLOW RAISES OE WITHOUT PE.  A masked overflow's result is inexact, so both are set. -/
 def wrongMulOverflowNoPE : Instr → Cpu → Cpu :=
   wrongMulWith fun sz rc d b =>
-    let p := vmulLow sz rc d b
+    let p := varithLow .mul sz rc d b
     (p.1, if p.2 &&& mulOE != 0 then p.2 &&& ~~~SoftFloat.fPE else p.2)
 
 /-- ⛔ THE PRODUCT TAKES THE DESTINATION'S SIGN.  Right whenever the signs agree. -/
@@ -3321,7 +3329,7 @@ def wrongMulDestSign : Instr → Cpu → Cpu :=
   wrongMulWith fun sz rc d b =>
     let f := simdFmt sz
     let a := d.setWidth 64
-    let p := vmulLow sz rc d b
+    let p := varithLow .mul sz rc d b
     if f.isNaN a || f.isNaN b then p
     else
       let sb : BitVec 64 := 1 <<< (f.ew + f.mw)
@@ -3331,7 +3339,7 @@ def wrongMulDestSign : Instr → Cpu → Cpu :=
 def wrongMulQuietIE : Instr → Cpu → Cpu :=
   wrongMulWith fun sz rc d b =>
     let f := simdFmt sz
-    let p := vmulLow sz rc d b
+    let p := varithLow .mul sz rc d b
     (p.1, if f.isNaN (d.setWidth 64) || f.isNaN b then p.2 ||| SoftFloat.fIE else p.2)
 
 /-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both

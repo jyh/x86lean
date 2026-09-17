@@ -646,15 +646,28 @@ def cvttLane (dbl wide : Bool) (b : BitVec 64) : BitVec 64 :=
   SoftFloat.truncToInt (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
     (if wide then 64 else 32) b
 
-/-- ⭐⭐⭐ SUB-GROUP B1 — THE SCALAR MULTIPLY's WRITE AND ITS FLAGS, ONE PAIR (SDM Vol. 2B,
-MULSS/MULSD): the destination's low lane becomes `SoftFloat.fmul` of `d`'s low lane and `b`
-under the rounding mode `rc` (MXCSR bits 13–14), and every bit above the lane is KEPT.  The
-flags come out of the same call, so a result and its flags cannot disagree about the rounding;
-the register and memory forms differ only in where `b` is read. -/
-def vmulLow (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVec 64) : BitVec 128 × BitVec 32 :=
+/-- ⭐⭐⭐ SUB-GROUP B1/B2 — THE SCALAR FP ARITHMETIC WRITE AND ITS FLAGS, ONE PAIR (SDM
+Vol. 2B, ADDS?/SUBS?/MULS?/DIVS?): the destination's low lane becomes the chosen
+`SoftFloat` operation of `d`'s low lane and `b` under the rounding mode `rc` (MXCSR bits
+13–14), and every bit above the lane is KEPT.  The flags come out of the same call, so a
+result and its flags cannot disagree about the rounding; the register and memory forms
+differ only in where `b` is read.
+
+⚠️ **THE OPERATION IS THE ONLY THING THAT VARIES**, which is the whole content of D268 §8's
+fold: the format, the rounding mode, the lane-preserving write and the flag path are one
+piece of code for all four.  ⛔ `sub` dispatches to `faddsub` with its `sub` flag rather
+than negating `b` here — a NaN's sign must survive, and negating at this level would change
+what a SNaN propagates. -/
+def varithLow (op : VArithOp) (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVec 64)
+    : BitVec 128 × BitVec 32 :=
   let f := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
   let n := sz.bits
-  let (r, fl) := SoftFloat.fmul f rc (d.setWidth 64) b
+  let a := d.setWidth 64
+  let (r, fl) := match op with
+    | .add => SoftFloat.faddsub f rc false a b
+    | .sub => SoftFloat.faddsub f rc true  a b
+    | .mul => SoftFloat.fmul    f rc       a b
+    | .div => SoftFloat.fdiv    f rc       a b
   (((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128), fl)
 
 /-- MXCSR.RC, bits 13–14, as the `Nat` `SoftFloat.roundPack` reads (0 nearest · 1 down · 2 up ·
@@ -934,11 +947,11 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- under MXCSR.RC.  The low lane only; bits above it are preserved; no EFLAGS bit
   -- is written — x86isa's `x86-adds?/subs?/muls?/divs?/maxs?/mins?-Op/En-RM` writes
   -- the XMM register, MXCSR and RIP.  ⚠️ NO ALIGNMENT CHECK at the memory form.
-  | .vmul sz dst src =>
-      let p := vmulLow sz (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
+  | .varith op sz dst src =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
-  | .vmulm sz dst ea =>
-      let p := vmulLow sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
+  | .varithm op sz dst ea =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).

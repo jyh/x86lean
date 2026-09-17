@@ -143,13 +143,13 @@ FAMILIES = [
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
      ["(fun (mx, a, b, r, fl) =>",
-      "  let t := step ⟨.vmul .q .x0 .x1, 4⟩ (b0Pre mx a b)",
+      "  let t := step ⟨.varith .mul .q .x0 .x1, 4⟩ (b0Pre mx a b)",
       "  b0Agrees t mx fl ((t.getXmm .x0).setWidth 64) r)"]),
     ("b1_mulss_pins", lambda fn: fn == "p_mulss",
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
      ["(fun (mx, a, b, r, fl) =>",
-      "  let t := step ⟨.vmul .d .x0 .x1, 4⟩ (b0Pre mx a b)",
+      "  let t := step ⟨.varith .mul .d .x0 .x1, 4⟩ (b0Pre mx a b)",
       "  b0Agrees t mx fl ((t.getXmm .x0).setWidth 64 &&& 0xffffffff) r)"]),
 ]
 
