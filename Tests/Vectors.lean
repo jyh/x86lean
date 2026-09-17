@@ -46,6 +46,14 @@ and writes the right eight bits. -/
 private def H (r : GPR) : Operand := .reg r true
 private def M (b : GPR) : Operand := .mem { base := some b }
 
+-- ⚠️ SUB-GROUP B1 (D268): THE TABLE HAD REACHED THE CODE GENERATOR'S RECURSION LIMIT.  With
+-- `master`'s 1,058 entries plus ANY two new distinct ones, old constructors included, the
+-- build fails at the `[` with "maximum recursion depth has been reached".  It is compilation,
+-- not elaboration: the same file as a `noncomputable def` builds.  An exact duplicate of an
+-- existing entry adds nothing (1,069 entries of which 11 are copies build at the default).
+-- Measured for B1's eleven: 8,192 fails, 16,384 builds.  32,768 leaves B2 room.  It moves no
+-- term and no emitted byte.
+set_option maxRecDepth 32768 in
 /-- THE VECTOR TABLE.  38 forms covering all twenty P0 mnemonics. -/
 def vectors : List Vec :=
   [ { id := "mov_d",    mnemonic := "mov",  asm := "movl %ecx, %eax",  bytes := "89c8"
@@ -2785,6 +2793,53 @@ def vectors : List Vec :=
     , bytes := "f2480f2c43e2", instr := ⟨.vcvtt2sim true true .rax { base := some .rbx, disp := -0x1e }, 6⟩ }
   , { id := "cvttsd2si_mN1d_eax", mnemonic := "cvttsd2si", asm := "cvttsd2si -0x1d(%rbx), %eax"
     , bytes := "f20f2c43e3", instr := ⟨.vcvtt2sim true false .rax { base := some .rbx, disp := -0x1d }, 5⟩ }
+
+  -- ⭐⭐⭐ SUB-GROUP B1 — MULSS / MULSD, THE FIRST ROUNDING RULE (D268).  WHAT EACH
+  -- VECTOR REACHES WAS COMPUTED FROM THE 88 PRE-STATES FIRST, by `hwprobe/mk_rows.py`'s
+  -- multiply rule over every register pair and every offset in the window, and the
+  -- table is the smallest set writing xmm0 that covers what any such vector reaches.
+  -- RC is `i mod 4` (`mxcsrFor`), so every vector meets all four modes.
+  --
+  -- ⭐ THE RANDOM LANES DO THE ROUNDING WORK.  Their exponents are spread, so a product
+  -- overflows, underflows or rounds in most states: `x1,x0` is inexact in 68 of 88 at
+  -- binary64, tiny (UE) in 52, and a mode other than nearest moves the value in 22.
+  -- ⛔ NOTHING HERE REACHES ±∞ (so ∞ × 0, and the indefinite's sign, never meet a
+  -- vector), and NO STATE SEPARATES TININESS BEFORE ROUNDING FROM AFTER.  Both are
+  -- kernel pins in `Tests/Anchors.lean`.  A carry out of an inexact significand is
+  -- reached by no vector writing xmm0 either.
+  --
+  -- binary64
+  , { id := "mulsd_x1_x0", mnemonic := "mulsd", asm := "mulsd %xmm1, %xmm0"
+    , bytes := "f20f59c1", instr := ⟨.vmul .q .x0 .x1, 4⟩ }
+  -- REX.B on the source, and opposite signs in all 88 states (`i^^^j = 8`)
+  , { id := "mulsd_x8_x0", mnemonic := "mulsd", asm := "mulsd %xmm8, %xmm0"
+    , bytes := "f2410f59c0", instr := ⟨.vmul .q .x0 .x8, 5⟩ }
+  -- zeros, NaN pairs with different payloads (4), overflow to ∞ at nearest
+  , { id := "mulsd_m10", mnemonic := "mulsd", asm := "mulsd 0x10(%rbx), %xmm0"
+    , bytes := "f20f594310", instr := ⟨.vmulm .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- an unaligned source: the one binary64 signalling NaN (IE), and a QNaN beside a denormal
+  , { id := "mulsd_m0a", mnemonic := "mulsd", asm := "mulsd 0xa(%rbx), %xmm0"
+    , bytes := "f20f59430a", instr := ⟨.vmulm .q .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
+  -- an exact tie, and overflow in 10 states (at round-up among them)
+  , { id := "mulsd_m18", mnemonic := "mulsd", asm := "mulsd 0x18(%rbx), %xmm0"
+    , bytes := "f20f594318", instr := ⟨.vmulm .q .x0 { base := some .rbx, disp := 0x18 }, 5⟩ }
+  -- binary32
+  , { id := "mulss_x1_x0", mnemonic := "mulss", asm := "mulss %xmm1, %xmm0"
+    , bytes := "f30f59c1", instr := ⟨.vmul .d .x0 .x1, 4⟩ }
+  , { id := "mulss_x8_x0", mnemonic := "mulss", asm := "mulss %xmm8, %xmm0"
+    , bytes := "f3410f59c0", instr := ⟨.vmul .d .x0 .x8, 5⟩ }
+  -- zeros, NaN pairs, overflow to ∞
+  , { id := "mulss_m13", mnemonic := "mulss", asm := "mulss 0x13(%rbx), %xmm0"
+    , bytes := "f30f594313", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0x13 }, 5⟩ }
+  -- signalling NaNs (IE in 22 states), beside a normal, a QNaN, a zero and a denormal
+  , { id := "mulss_m0d", mnemonic := "mulss", asm := "mulss 0xd(%rbx), %xmm0"
+    , bytes := "f30f59430d", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0xd }, 5⟩ }
+  -- an exact tie, and overflow at nearest and at round-up
+  , { id := "mulss_m18", mnemonic := "mulss", asm := "mulss 0x18(%rbx), %xmm0"
+    , bytes := "f30f594318", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0x18 }, 5⟩ }
+  -- an EXACT subnormal result (3 states): tiny, and no UE, because nothing was lost
+  , { id := "mulss_m05", mnemonic := "mulss", asm := "mulss 0x5(%rbx), %xmm0"
+    , bytes := "f30f594305", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0x5 }, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each

@@ -96,10 +96,12 @@ SUB-GROUP A′ — a FIXED rounding mode, independent of MXCSR.RC
    cvttsd2si 548 · cvttss2si 382     (truncation toward zero is not a mode choice)
 
 SUB-GROUP B — arithmetic and inexact conversions: MXCSR.RC-DEPENDENT
-   26 pairs, 31,065 instructions   (was 29,408 before D257: +1,655 register-source
+   26 pairs, 19,885 instructions   UNCLAIMED — 31,065 before 2026-09-17, when mulss/mulsd (11,180) landed
+                                    as sub-group B1, P2 batch 42, D268
+                                   (was 29,408 before D257: +1,655 register-source
                                     cvtsi2ssl 993 · cvtsi2sdq 486 · cvtsi2ssq 176;
                                     +2 on 2026-09-16, D259: memory-source cvtss2si)
-   mulss 5,698 · mulsd 5,482 · addss 4,696 · addsd 4,260 · subss 2,264 ·
+   mulss 5,698 · mulsd 5,482 (landed, B1) · addss 4,696 · addsd 4,260 · subss 2,264 ·
    subsd 1,674 · cvtsd2ss 1,297 · divsd 1,252 · divss 606 · …
 ```
 

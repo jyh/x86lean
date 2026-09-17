@@ -17987,9 +17987,9 @@ four mechanisms, not 27 findings.
 - `X86.Syntax` +0: B0 adds no constructor, so the tight ms cell is not touched (§6.7).
 
 ### 10. WHAT IS STILL OWED
-- **A second vendor's reading** of the same rows (§5 read an AMD part).
-- **B1's price:** K4's 25,132 ku for 112 cells, plus the flags, re-read on its own draft.
-- **B0's kernel pins and arms:** their `Tests.Anchors` and `Main.lean` cost. The nearest precedent is the `fcmp` anchors
+- **A second vendor's reading** of the same rows (§5 read an AMD part). ✅ *Discharged: D267 §10, an Intel Core i7-8700B, 174/174.*
+- **B1's price:** K4's 25,132 ku for 112 cells, plus the flags, re-read on its own draft. ✅ *Read at the batch: D268.*
+- **B0's kernel pins and arms:** ✅ *Read at B0's landing: D267 §2 and §8.* their `Tests.Anchors` and `Main.lean` cost. The nearest precedent is the `fcmp` anchors
   (FCMP-KERNEL-1 priced them at about 17 ms). Read at the batch's landing, never scaled.
 
 ## D267 — P2 batch 41, sub-group B0: MXCSR in the record, the pins where no vector reaches, and five arms
@@ -18178,3 +18178,261 @@ It does document `macos-15-intel` as Intel.
   - Re-driven with the absolute path.
   - D266 §5's Rosetta reading does not depend on it: that probe was an x86-64 binary run directly, and its output
     holds all 174 rows.
+
+### 10. THE SECOND VENDOR'S READING — AN INTEL PART AGREES ON 174/174
+The leg ran on PR #29's head (`cc16b53`), on both events. Read from each job's log:
+```
+  macos-15-intel   "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz" · uname x86_64 · SSE2 · proc_translated 0 (the guard passed)
+                   push job 105195712593   rows 174 disagreements 0   plant rc 1 (one DIFF) · badop rc 2
+                   PR   job 105195824029   rows 174 disagreements 0   plant rc 1 (one DIFF) · badop rc 2
+  ubuntu-latest    AMD EPYC 7763           rows 174 disagreements 0   (both events)
+```
+- **The guard read the machine, not a label.** The step runs `test "$(sysctl -n sysctl.proc_translated …)" = 0` under
+  `bash -e`, prints the brand after it, and the job succeeded, so the process was not translated.
+- ⇒ **All four x86isa defects are defects on silicon from two vendors.** They are COMIS run as UCOMIS, a preset OE read
+  as overflow, integer 0 → −0 at round-down, and the positive indefinite. Every B0 pin and every B1 pin that names
+  "x86isa differs" is pinned to what an AMD part AND an Intel part do.
+- ⚠️ **Still one part per vendor, and both are older server and desktop parts.** A reading is a reading of the
+  processor it ran on.
+
+## D268 — P2 batch 42, sub-group B1: the scalar multiply, the first form that rounds under MXCSR.RC
+
+⚖️ QUEUE P3, P2-NEXT (B), built on 2026-09-17 on B0's harness (D267) as D266 §6 designed it. It is the twenty-eighth
+differential record.
+- **Two roster rows** (`mulss`, `mulsd`), two constructors, and 11 vectors.
+- **44 kernel pins** and nine wrong-model arms.
+- **No new state field.** It is the first form here that READS MXCSR.RC.
+- **Assembly-class demand:** 11,180 instructions (`mulss` 5,698 · `mulsd` 5,482). Sub-group B's unclaimed total is now
+  19,885.
+
+### 1. WHAT LANDED
+- **The rule,** from the draft (`paris/b1-draft` `fe514e8`), unchanged:
+  - `SoftFloat.roundPack` and `fmul`, which are K4's rule (D262);
+  - RC as MXCSR's 2-bit field read as a `Nat` (no inductive: 175 ku against `X86.SoftFloat`'s allowance of 57);
+  - no power above 256 on any path;
+  - flags computed in the same pass: PE when inexact, UE when also TINY AFTER ROUNDING (D266 §3), OE with PE,
+    IE on an SNaN or on ∞ × 0, and DE on a denormal when no operand is a NaN;
+  - ∞ × 0 gives the QNaN indefinite with its sign bit SET (D265: x86isa's is clear, and both processors set it).
+  The draft was checked against `hwprobe/mk_rows.py`'s rules on 6,085 rows, with 0 disagreements and a plant.
+- **Added at the batch:**
+  - `Op.vmul sz dst src` and `Op.vmulm sz dst ea` (§8), with the operand, lock and mnemonic arms;
+  - `vmulLow`, which returns the lane write and its flags as ONE pair, so the two cannot disagree about the rounding;
+  - `mxcsrRC`, and the two `step` arms through `Cpu.withSimd`;
+  - two coverage rows, 11 vectors (§2), 44 kernel pins (§3), and nine arms (§4);
+  - B0's `wrongSimdWith` gains a `mul` part, so its two model-wide arms reach the multiply;
+  - the census, the P2 roster and the commission's §2 re-stamped (§6);
+  - TRUSTBASE's MXCSR section says RC is read, and that two processors now read the rows;
+  - a compiler limit found in `Tests.Vectors` (§5).
+
+### 2. THE VECTORS — CHOSEN FROM WHAT THE PRE-STATES REACH, BEFORE ANY WAS WRITTEN
+A scratch Lean pass printed, for each of the 88 differential pre-states:
+- MXCSR;
+- all 16 XMM registers' low quadwords;
+- the quad and double word at every offset −32..+24 from RBX.
+
+It printed inputs only. Python classified every candidate (1,168 per format) with `mk_rows.py`'s multiply rule, never the Lean model:
+all 256 register pairs and all 57 offsets, per format. The classes are:
+- the reference's path (exact · inexact · tie · carry · tiny · overflow · NaN · zero · invalid);
+- each flag;
+- overflow, UE and inexactness per RC;
+- whether a mode other than nearest moves the value;
+- two NaNs with different payloads;
+- opposite signs;
+- tininess before rounding against after.
+
+The table is a greedy cover over destination-`xmm0` candidates (every arm reads one field), starting from `x1,x0`:
+```
+  binary64  x1,x0 · x8,x0 (REX.B; opposite signs in 88/88) · 0x10(%rbx) · 0xa(%rbx) · 0x18(%rbx)
+  binary32  x1,x0 · x8,x0 · 0x13(%rbx) · 0xd(%rbx) · 0x18(%rbx) · 0x5(%rbx)
+```
+- ⭐ **The random lanes do the rounding work.** Their exponents are spread, so `mulsd %xmm1,%xmm0` is inexact in 68 of
+  88 states, tiny (UE) in 52, and moved by a non-nearest mode in 22. The memory offsets add:
+  - zeros and NaN pairs (`0x10`, `0x13`);
+  - a binary64 signalling NaN beside a denormal, in one state (`0xa`), and binary32 SNaNs in 22 states (`0xd`);
+  - ties and overflow at round-up (`0x18`);
+  - an exact subnormal result (`0x5`, 3 states).
+- ⛔ **WHAT NO CANDIDATE REACHES AT ALL, in 2,336:**
+  - ±∞, so ∞ × 0 and the indefinite's sign never meet a vector;
+  - a state where TININESS BEFORE ROUNDING differs from tininess after.
+- ⛔ **What no dst-xmm0 candidate reaches:**
+  - a carry out of an inexact significand (two other candidates per format do);
+  - a binary64 SNaN beside a normal or a QNaN. `0xa` reaches one binary64 SNaN, beside a denormal, in one state.
+  All of those are §3's.
+
+### 3. THE PINS — 44 OF hwprobe's 85 MULTIPLY ROWS, BY B0's RULE
+- **The rule (D267 §2):** a row is pinned iff x86isa disagrees with it, or no vector of its format reaches its class
+  over the 88 states.
+- **The class:** the reference path, the flags, RC, the result's sign, whether it rounded away from zero, whether
+  tininess before rounding differs from after, and a preset OE (OE is never preset in the pre-states, D266 §4).
+- **The x86isa column** was re-scored from `run/hwprobe_acl2.out` (`rows_on_x86isa.py score`, byte-identical to the
+  saved reading). Of the 85 multiply rows it differs on 8, all ∞ × 0, and agrees on 77.
+```
+  x86isa differs (8)       mulsd_invalid / mulss_invalid, all four modes (the indefinite's sign)
+  no vector reaches (36)   an exact product with no denormal (8) · a tie at nearest (3)
+                           a carry out of the rounded significand, from a tie or at round-up (2)
+                           a subnormal tie at nearest (2) · overflow at round-up (1)
+                           a binary64 SNaN beside a QNaN or a denormal (8) · tininess before ≠ after (6)
+                           an exact tiny result (5) · a preset OE (mulsd_sticky_or, 1)
+  carried by vectors (41)  everything else
+```
+- **`b1_mulsd_pins` (31 rows) and `b1_mulss_pins` (13),** generated by `hwprobe/mk_anchors.py` into the same block as
+  B0's. `PINNED` is declared, and it equals the measured list: the symmetric difference is empty. `--check` and
+  `--selftest` are unchanged in shape; the markers are renamed `B0/B1`.
+- **Their cost, in kernel unfoldings** (`diagnostics` in a scratch copy): 35,907 + 15,566 = **51,473**, about 1,170
+  per row.
+- **Planted wrong once each,** in one elaboration of a copy: **two errors, one at each theorem's `decide`, and none
+  elsewhere.** The plants were:
+  - `mulsd_invalid/nearest` returning x86isa's positive indefinite;
+  - `mulss_tinyup/nearest` raising UE (tininess before rounding).
+- ⇒ **The indefinite's sign and the tininess rule are refuted here and by nothing in the differential.**
+- ⚠️ **D262's anchors (`mulsd_rounding`/`mulss_rounding`, 38,489 ku) are not added.** They were a probe outside this
+  repository. The hwprobe rows cover the same classes and have a processor's reading, and §2's table says which of
+  them the vectors carry.
+
+### 4. THE ARMS — PREDICTED FROM THE RULES, MATCHED TO THE CASE
+Nine wrong models, labelled `mulsd/mulss` (`mul ` alone would also select P1's `imul` arm). `wrongMulWith` is B0's
+`wrongSimdWith` with the multiply part swapped.
+- **The predictor is independent of the model:**
+  - a scratch pass printed each multiply vector's destination register, source lane and MXCSR over driveWrong's 84
+    states;
+  - Python applied `mk_rows.py`'s rule and each defect;
+  - the predictions were posted on the fleet bus before the run (09/17 05:27).
+```
+  arm                                                   field       predicted   selftest mulsd/mulss
+  RC is not read (always nearest)                       xmm0            170          170
+  RC's down and up exchanged                            xmm0            264          264
+  the source's NaN when both are NaNs                   xmm0             17           17
+  zeroes the bits above the lane                        xmm0            854          854
+  overflow is ±∞ in every mode                          xmm0             31           31
+  the product takes the destination's sign              xmm0            396          396
+  OE without PE                                         mxcsr.pe         39           39
+  IE on a quiet NaN                                     mxcsr.ie        129          129
+  UE on an exact tiny result                            mxcsr.ue          3            3
+```
+**Every arm is caught, and every score equals its prediction.**
+- **The thinnest arm:** UE on an exact tiny result is reached only by `mulss_m05`, in 3 states.
+- **A CONTROL RODE THE SAME RUN.** `wrongMulWith vmulLow`, the restatement with the right parts, read ZERO unexplained
+  disagreements, so the nine are defects of what each plants. It was removed before the commit, and the table grows
+  from 159 arms to 168.
+- **The two model-wide B0 arms now reach the multiply.** `selftest mxcsr`, predicted and posted with the run (09/17 06:38):
+```
+  arm (x86lean-diff selftest mxcsr)                       field       record 27   predicted   read
+  the flags replace the sticky bits instead of ORing      mxcsr.ze        920       1,140     1,140   (+20 × 11 vectors)
+  DE is raised beside a NaN                               mxcsr.de          6          24        24   (+18 on the multiply)
+  ucomis raises IE on a quiet NaN                         mxcsr.ie         25          25        25
+  min/max raise IE on a signalling NaN only               mxcsr.ie        184         184       184
+  cvtt drops the precision flag                           mxcsr.pe        475         475       475
+```
+- **No arm for tininess before rounding.** No state separates it (§2), so no vector can refute it; §3's pins do.
+
+### 5. ⛔ A BUILD FINDING THAT IS NOT B1's: THE VECTOR TABLE WAS AT THE CODE GENERATOR'S RECURSION LIMIT
+The first build refused `Tests.Vectors` at the table's `[` with *"maximum recursion depth has been reached"*.
+- **Measured, in scratch copies of the file:**
+```
+  master's 1,058 entries + B1's 11                          fails at the default
+  master + any TWO new distinct entries (old constructors)  fails            (minsd x3,x2 and x5,x4)
+  master + ONE new entry (each of B1's 11 alone)            builds
+  master + the same new entry twice                         builds
+  1,069 entries of which 11 are copies of an existing one   builds at the default
+  the failing file as `noncomputable def`                   builds           ⇒ it is compilation, not elaboration
+  B1's table at maxRecDepth 2,048 · 2,500 · 3,000 · 4,096 · 8,192    fails
+  B1's table at maxRecDepth 16,384 · 40,000                 builds
+```
+- ⇒ **`master` was at the limit, and any batch adding two distinct vectors would have met it.** B1 met it first.
+- **The fix is `set_option maxRecDepth 32768 in` on that one declaration,** with the measurement in its comment and room
+  for B2.
+- **The first spelling was 2,048, with a comment saying "ELABORATION only". Both were wrong.** A control built from
+  existing entries is what showed that the entries, not the length, were the variable.
+- **Not explained:** why two distinct additions need roughly 16× the depth that 1,058 did. The limit is recorded, and the
+  mechanism is not claimed.
+
+### 6. THE RUN, AND THE RE-STAMPED DEMAND
+`scripts/run_differential.sh` on the batch tree re-emitted both sides and re-ran x86isa (18 min, rc 0):
+```
+  reference-model acl2@c8897a34 · 1,069 vectors · 88 pre-states
+  cases=94072 matched=73490 explained=29435 unexplained=0 oracle-divergence=221 oracle-leaks=0 missing=0
+  against record 27:  cases +968 · matched +968 · everything else unchanged · no declared divergence stale
+  run/lean.txt 46df0b40… · run/cases.lsp 9f0cb40c… · run/oracle.txt ea301c07…
+```
+- **Pre-registered on the fleet bus (09/17 06:38) to the case, and confirmed.** Every new case matched.
+  - ∞ is reached by no vector, so x86isa's positive indefinite never fired.
+  - The 77 hwprobe multiply rows it agrees with span every other class the vectors reach.
+- **Two models agreeing here is two mechanisms, not one.**
+  - x86isa's `sse-add/sub/mul/div` (`add-mul-spec.lisp`) calls `rtl::sse-binary-spec`, the ACL2 RTL library's
+    specification (`rtl/rel11/lib/excps`). It is NOT the `rat-to-fp` path its min/max use; I first wrote that from
+    D253's reading of min/max, and it was corrected at the source.
+  - This model is one `Nat` multiply of the significands and a clamped shift.
+- ⚠️ **The script's trailing `kernel_cost` reading is of retired ceilings** (`X86.Syntax` 313/200 and `X86.Theorems`
+  1,160/1,100 read over, as at record 27; `Tests.Anchors` 783/801). It is not the verdict; §7's walk is.
+
+**The regenerated census conserves every column.** Each column's total is unchanged, and its covered gain equals exactly
+the prior miss of `mulsd`+`mulss`:
+```
+  cc1 86 · coreutils 255 · ffmpeg 9,410 · glibc 3,855 · vlc-codec 137 · vpx 654 · x264 979 · dav1d, vlc-video, kernel 0
+  pooled asm-class: covered +11,180, and the SSE-legacy (xmm) bucket −11,180
+```
+- **`p2_residue` gate 3** first read sub-group B at 19,885 against the published 31,065, and refused. The commission's §2
+  is re-stamped, and the gate reads CLEAN.
+- **The move is corroborated by the commission's own per-mnemonic figures:** `mulss` 5,698 + `mulsd` 5,482 = 11,180.
+- ⚠️ **A suspicion, refuted:** `demand_census --check` read green BEFORE regeneration. It did so only because
+  `docs/COVERAGE.md` was stale too. Against the regenerated coverage table, the old census reads rc 1 (172 against 174
+  mnemonics), and CI regenerates the coverage table first.
+
+### 7. THE PRICE — READ ON THE DRAFT, AND AT THE LANDING
+```
+  ku-delta --arm a-prime  cc16b53 → the draft (yukon.lan)        CLEAN, rc 0
+    Tests.Anchors     292,451 → 343,830   +51,379   allowance 68,141   (75%)
+    Tests.Coverage  8,394,144 → 8,471,563 +77,419   allowance 604,378
+    X86.Theorems       91,173 → 91,707       +534   allowance 16,685
+    X86.Syntax         26,107 → 26,600       +493   allowance 4,882
+    X86.SoftFloat         260 → 300           +40   allowance 61       (66%)
+    X86.Semantics +11 · X86.Coverage +10 · X86.Serialize +10 · Tests.Vectors +4 · X86.Program +2 · every other +0
+  ms ceilings (readings)  X86.Basic 85/278 · X86.Syntax 317/879 · X86.Theorems 1,180/3,330
+```
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.42–5.64, yukon.lan
+         Tests.Anchors            +97.5  ±29.9   against   152.4     predicted +78 ±50       as predicted
+         X86.Syntax                +2.0  ±10.8   against    53.5     predicted +11 ±25       as predicted
+         X86.Theorems             +25.0  ±46.3   against   197.6     predicted +7 ±60        as predicted
+         Tests.Coverage          +500    ±706    against 1,983.6     predicted +20 ±900      inside the band
+         Tests.Program            +13.0  ±21.1   against    77.2     predicted ~0            inside its noise
+         X86.SoftFloat             +1.0  ±0.7    against     6.0     predicted ~0 (+40 ku)
+         every other unit           within ±1.1 ms of 0
+  D251 --record                   RECORDED        lands on the ms verdict; row c8238ab → 8c80b30
+```
+- **The step:** `c8238ab` (PR #29's merge) → `8c80b30` (this batch's `.lean` commit, first on the branch, D264).
+  The branch was built on `cc16b53`, the tree #29's merge carries, and rebased with every commit's tree unchanged.
+- **The predictions were posted on the fleet bus before the walk (09/17 07:31, twelve seconds before it started),** from the ku readings of the same
+  step. Those readings are A′ CLEAN and identical to the draft's.
+- **`Tests.Anchors` reads 654 → 751.5 ms.** That is 1.90 ms per 1k ku, above both B0's 1.73 and D262's 1.3–1.4, so
+  the prediction's centre was low and its band held. ⇒ **A pin block costs more per unfolding than an anchor
+  theorem of the same size.** B2's pins should be predicted from 1.9, not 1.4.
+
+### 8. THE FORK — TWO CONSTRUCTORS, AND B2's ROUTE
+Posted on the fleet bus (09/17 05:15) with the recommendation, and taken on it.
+- **(a) `vmul` + `vmulm`, mirroring `vminmax`. TAKEN.** Each is total on day one, and its price has three precedents:
+  - batch 38, two constructors: `X86.Syntax` +25 ms;
+  - batch 39: +740 ku, +10.5 ms;
+  - batch 40: +533 ku, +12 ms.
+  §7 read +493 ku.
+- **(b) one arithmetic constructor with an op field. NOT TAKEN NOW.** Its precedent is `VShiftOp`: the operation held
+  apart from the width, as a small derived inductive in `X86.Syntax`.
+  - An op inductive is cheap there. D262's 175 ku was fatal only against `X86.SoftFloat`'s allowance of 57.
+  - In B1 it would have ONE member.
+  - A constructor for add, sub or div with no semantics would make `step` refuse forms a processor executes.
+- ⇒ **B2 brings add, sub and div, and with them eight constructors against two.** That is the measured reason to fold
+  `vmul` into a `VArithOp` field then, as a mechanical rename over B1's vectors and pins.
+
+### 9. ALSO IN THIS PR
+- **D267 §10:** the second vendor's reading, discharging D266 §10's first owed item.
+- **The axiom gate prints the COUNT it read** (4,057 declarations), and refuses a scan of zero. `x86lean-axioms X86`, a
+  module with only imports, printed CLEAN before. This is the helm's homing of salt #152's axiom-audit pair rule (bus
+  09/17 05:27). The ad-hoc half is homed in `CLAUDE.md`.
+- **Record 27's closing sentence said the kernel pins were 89.** They are 40, and its list of what they pin was wrong
+  too. It is corrected in the narrative the coverage document is generated from.
+
+### 10. WHAT IS OWED
+- **B2** (add, sub, div), with §8's fold priced on its draft.
+- **A carry out of an inexact significand, away from a tie,** is reached by no dst-xmm0 vector. Two candidates per format
+  reach it (§2), and each writes another register. `mulsd_tiecarry/up` pins one mode of it. Otherwise it is carried by
+  the rule's 6,085-row check. A hwprobe row per mode would make it a pin.

@@ -38,20 +38,30 @@ argued there, not here. -/
 def allowed : List Name := [``propext, ``Classical.choice, ``Quot.sound]
 
 /-- Collect the axioms of every constant declared in `scan`, and return the
-offenders as (constant, disallowed axioms). -/
-def offenders (env : Environment) (scan : List Name) : CoreM (Array (Name × Array Name)) := do
+offenders as (constant, disallowed axioms), with the number of constants read.
+
+⚠️ THE COUNT IS PRINTED BESIDE THE VERDICT (2026-09-17, on the helm's homing of
+salt's axiom-audit pair rule).  This gate enumerates the environment and never
+looks a declaration up by name, so a name that was never parsed cannot print
+"no axioms" here.  But a declaration that is simply ABSENT is not scanned, and
+the CLEAN line named only the modules, so an absence read as clean.  The count
+is what a reader compares. -/
+def offenders (env : Environment) (scan : List Name) :
+    CoreM (Array (Name × Array Name) × Nat) := do
   let modNames := env.header.moduleNames
   let mut out : Array (Name × Array Name) := #[]
+  let mut seen := 0
   for (n, _) in env.constants.toList do
     -- only constants DECLARED in a scanned module
     let some idx := env.getModuleIdxFor? n | continue
     let some m := modNames[idx.toNat]? | continue
     unless scan.contains m do continue
+    seen := seen + 1
     let ax ← collectAxioms n
     let bad := ax.filter (fun a => !allowed.contains a)
     unless bad.isEmpty do
       out := out.push (n, bad)
-  return out
+  return (out, seen)
 
 end AxiomGate
 
@@ -65,11 +75,15 @@ def main (args : List String) : IO UInt32 := do
   let env ← importModules (mods.map (fun m => { module := m })).toArray {}
   let ctx : Core.Context := { fileName := "<axiom-gate>", fileMap := default }
   let st : Core.State := { env }
-  let (bad, _) ← (AxiomGate.offenders env mods).toIO ctx st
+  let ((bad, seen), _) ← (AxiomGate.offenders env mods).toIO ctx st
   let scanned := mods.map toString
+  if seen == 0 then
+    IO.eprintln s!"axiom-gate: REFUSED — no declaration was read from {scanned}; a scan of \
+nothing is not a verdict."
+    return 2
   if bad.isEmpty then
-    IO.println s!"axiom-gate: CLEAN — every declaration in {scanned} depends only on \
-{AxiomGate.allowed.map toString}"
+    IO.println s!"axiom-gate: CLEAN — every one of the {seen} declarations in {scanned} depends \
+only on {AxiomGate.allowed.map toString}"
     if expectViolation then
       IO.eprintln "axiom-gate: ⛔ SELFTEST FAILED — a violation was EXPECTED and none was found. \
 The gate cannot be trusted to fail, so it cannot be trusted to pass."

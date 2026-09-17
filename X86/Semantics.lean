@@ -646,6 +646,21 @@ def cvttLane (dbl wide : Bool) (b : BitVec 64) : BitVec 64 :=
   SoftFloat.truncToInt (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
     (if wide then 64 else 32) b
 
+/-- ⭐⭐⭐ SUB-GROUP B1 — THE SCALAR MULTIPLY's WRITE AND ITS FLAGS, ONE PAIR (SDM Vol. 2B,
+MULSS/MULSD): the destination's low lane becomes `SoftFloat.fmul` of `d`'s low lane and `b`
+under the rounding mode `rc` (MXCSR bits 13–14), and every bit above the lane is KEPT.  The
+flags come out of the same call, so a result and its flags cannot disagree about the rounding;
+the register and memory forms differ only in where `b` is read. -/
+def vmulLow (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVec 64) : BitVec 128 × BitVec 32 :=
+  let f := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
+  let n := sz.bits
+  let (r, fl) := SoftFloat.fmul f rc (d.setWidth 64) b
+  (((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128), fl)
+
+/-- MXCSR.RC, bits 13–14, as the `Nat` `SoftFloat.roundPack` reads (0 nearest · 1 down · 2 up ·
+3 toward zero, SDM Vol. 1 §10.2.3). -/
+def mxcsrRC (m : BitVec 32) : Nat := ((m >>> 13) &&& 3#32).toNat
+
 /-! ### ⭐⭐⭐ SUB-GROUP B0 — THE FLAGS EACH LANDED FP FORM RAISES (D266).
 Each function reads exactly the operands its value rule reads, so a form's flags and
 its result cannot come to disagree about which lane they looked at. -/
@@ -914,6 +929,17 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let b := s.readMem (if dbl then .q else .d) (ea.addr s nr)
       s.withSimd (cvttFlags dbl wide b) fun s =>
         (s.setReg (if wide then .q else .d) dst (cvttLane dbl wide b)).setRip nr
+
+  -- ⭐⭐⭐ MULSS / MULSD (SDM Vol. 2B) — SUB-GROUP B1, the first form that ROUNDS
+  -- under MXCSR.RC.  The low lane only; bits above it are preserved; no EFLAGS bit
+  -- is written — x86isa's `x86-adds?/subs?/muls?/divs?/maxs?/mins?-Op/En-RM` writes
+  -- the XMM register, MXCSR and RIP.  ⚠️ NO ALIGNMENT CHECK at the memory form.
+  | .vmul sz dst src =>
+      let p := vmulLow sz (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vmulm sz dst ea =>
+      let p := vmulLow sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --

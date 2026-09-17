@@ -811,6 +811,15 @@ acc,imm · rh"
   , { mnemonic := "cvttss2si",
       shapes := "r,x · r,m", note := "low binary32 truncated toward zero -> int32/int64 (REX.W); NaN, inf, out of range -> indefinite; D261",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTTSS2SI" }
+  -- ⭐⭐⭐ SUB-GROUP B1 — MULSS / MULSD (D268), the first rows that ROUND under
+  -- MXCSR.RC.  TWO rows.  OE, UE (tininess after rounding), PE, IE and DE are the
+  -- sticky flags, masked; ∞ × 0 gives the indefinite with its sign bit SET.
+  , { mnemonic := "mulss",
+      shapes := "x,x · x,m", note := "low binary32 lane, rounded under MXCSR.RC; NaN: first source; inf*0 -> indefinite; upper kept; D268",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULSS" }
+  , { mnemonic := "mulsd",
+      shapes := "x,x · x,m", note := "low binary64 lane, rounded under MXCSR.RC; NaN: first source; inf*0 -> indefinite; upper kept; D268",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULSD" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
