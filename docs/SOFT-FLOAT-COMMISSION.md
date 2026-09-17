@@ -180,6 +180,14 @@ multiply is literal `Nat` arithmetic in the kernel, and one top-level MXCSR fiel
 
 ⇒ The next measurement is the oracle probe, not another kernel reading.
 
+✅ **THE ORACLE PROBE AND THE HARNESS DESIGN WERE RUN ON 2026-09-16/17 (D265, D266).**
+- **The oracle:** x86isa honours RC and writes the sticky flags. It has four named defects, each with its mechanism: a
+  positive default NaN, COMIS run as UCOMIS, a preset OE read as a conversion's overflow, and integer 0 → −0 at round-down.
+- **The harness:** it is B's first batch, **B0**, and it adds no instruction. MXCSR joins the record and the landed forms
+  gain their flags. It was drafted and priced: a-prime CLEAN, and the full differential reads 0 unexplained.
+- **The multiply:** `mulsd`/`mulss` is **B1**, on B0's harness. `hwprobe/` is the x86-64 referee for every row pinned
+  against the SDM.
+
 ---
 
 ## §6 THE RECOMMENDATION

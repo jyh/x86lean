@@ -17719,3 +17719,265 @@ tables compared by `diff`). It is also equal on all eight modules D261 §7 lists
 deterministic confirmation that the bases are reading-equivalent. **The re-measurement changed the key, not the price.**
 ⚠️ **This time the step lands on A′, not on the ms verdict.** The box was loaded (another seat's work), and `Tests.Coverage`'s band
 at ±4 s is twice its budget. D251 licenses exactly this, and the record says which instrument decided.
+
+## D265 — Sub-group B's oracle probe: x86isa honours MXCSR.RC, with a positive default NaN and an MXCSR that survives init
+
+⚖️ QUEUE P3. D262 and D263 left one cost component of sub-group B unmeasured: does the reference model implement it? It is measured
+here by execution, never by reading a catalogue ([[cheap-semantics-expensive-state]]).
+
+### 1. THE PROBE
+- **The instruction:** `mulsd %xmm1,%xmm0` (`f20f59c1`).
+- **The cases:** 10 operand pairs at MXCSR.RC 0 through 3, and a control placed last, 41 in all. The pairs are D262's
+  anchors: ties of both parities, a tie that carries, overflow of both signs, underflow, a subnormal tie, ∞ × 0, and SNaN × QNaN.
+- **The driver** is unchanged. A probe run-case (now `hwprobe/run_case_mx.lisp`) loads MXCSR after `init-x86-state-64` and
+  prints it after the step.
+- **The expectations** come from D262's independent reference. The sticky flags come from the SDM's rules. x86isa ran all 41
+  cases in 5 s.
+
+### 2. THE READING
+```
+  values  36 of 36 rounding-dependent cases exact; SNaN × QNaN exact; XMM0's upper lane kept
+  flags   41 of 41 sticky-flag readings as the SDM says: IE, DE, OE+PE, UE+PE, PE; masks and RC untouched
+  ⛔      ∞ × 0 (4 of 4 modes): x86isa 7ff8000000000000, the SDM's QNaN floating-point indefinite fff8000000000000
+```
+⇒ **x86isa implements B's rounding and its exception flags.** It does so through `rtl::sse-binary-spec`, the RTL library's IEEE
+specification.
+
+### 3. ⛔ THE ONE DIVERGENCE, WITH ITS MECHANISM
+**The mechanism.** `rtl::indef` (`rtl/rel11/lib/defs.lisp`) builds the default NaN from `expw + 1` ones: the exponent and the quiet
+bit, with no sign bit. Evaluated in the oracle's own image, `(indef (dp))` is `9221120237041090560`, which is `0x7FF8000000000000`.
+
+**The SDM disagrees.** Its QNaN floating-point indefinite carries sign 1.
+
+⇒ **Every invalid-operation result in B is an ORACLE DIVERGENCE** (∞ × 0, 0 / 0, ∞ − ∞, and the rest). Such rows are pinned in the
+kernel against the SDM, as D261 did for the rows the vectors cannot reach, and never against the oracle.
+⚠️ **Hardware confirmation is OWED.** This box is arm64, and its default NaN is also positive, so it cannot referee. An x86-64
+runner can.
+
+### 4. ⛔ MXCSR SURVIVES `init-x86-state-64`
+Every case began from the MXCSR the previous case left. The reading ran 1f80, 3f80, …, 1fa0, …, 1fa8, …, 1fb2, …, 1f81.
+- **Harmless today:** no compared state reads the sticky bits, and no case writes RC or the masks.
+- **The day MXCSR joins the record, the driver MUST set it per case.** Otherwise sticky flags leak from one case into the next and
+  read as disagreements that belong to neither.
+
+### 5. WHAT B NOW COSTS, AND WHAT IT DOES NOT
+The three components of the commission's price are all measured:
+- **the arithmetic** is cheap in the kernel (D262);
+- **the state field** is cheap in the record proofs (D263);
+- **the oracle** implements the rule, with one named exception (§3).
+
+⇒ **B's price is the harness:**
+- MXCSR in the differential record, on both sides;
+- a per-case MXCSR in the driver;
+- pre-states whose MXCSR varies, since a constant RC reports agreement it never tested (D27);
+- the invalid-result rows pinned in the kernel.
+
+## D266 — MXCSR in the record re-tests every landed FP form; four oracle defects and a tininess rule shape sub-group B's first batch
+
+⚖️ QUEUE P3, P2-NEXT (B). D265 priced B's harness: MXCSR must join the differential record, on both sides. That is not a change
+scoped to B. The pre-states are shared by every vector, so the day the record carries MXCSR, **every FP form already on `master`
+is compared on its sticky exception flags**, and the model computes none of them today (D2). This note measures what that costs
+before B's first batch is designed.
+
+### 1. THE LANDED FORMS, ON THE ORACLE, WITH MXCSR IN VIEW
+- **The population:** the 4,048 emitted cases of the 14 landed FP mnemonics (sub-groups A and A′), unchanged from `run/cases.lsp`.
+- **The driver:** D265's probe driver. It loads MXCSR from the case after `init-x86-state-64` and prints it after the step.
+- **The runs:** each case ran twice, once with the sticky bits clear and once with a varying preset. RC varied throughout. That is
+  8,096 cases, plus a control placed last, which ran. x86isa took 6 s.
+- **The expectations** are the SDM's per-instruction exception lists, computed from each case's PRE bytes, never from the oracle.
+```
+  cvtsi2sdl 880/880 · cvtss2sd 880/880 · cvttsd2si 1,056/1,056 · cvttss2si 1,232/1,232
+  minss · minsd · minps · maxss · maxsd · maxps   2,640/2,640
+  ucomiss · ucomisd 704/704 · comiss · comisd 668/704
+  no sticky bit was ever cleared · RC and the masks never moved
+```
+- **The precedence is decided by the data.** A denormal operand does NOT raise DE when either operand is a NaN. The other reading
+  (DE whenever a denormal is present) fails two cases on each min/max mnemonic.
+- ⛔ **`comis*` at a QNaN: 36 cases.** The SDM's COMISS/COMISD raise IE on a QNaN or an SNaN operand, and x86isa writes nothing.
+  - **The mechanism** is one line in each of two places. `inst-listing.lisp:5140` and `:5146` dispatch COMISS and COMISD with
+    `(OPERATION . #x9)`, and #x9 is `*OP-UCOMI*` (`portcullis/sharp-dot-constants.lisp:247`). `cmp-spec.lisp:78` has a COMI arm
+    that raises IE on a QNaN, and it is never reached from these opcodes.
+  - ⇒ **x86isa executes COMIS as UCOMIS.** EFLAGS agree, because the two differ only in IE.
+  - **The consequence:** this is an oracle divergence, pinned against the SDM (§6, §7).
+
+### 2. WHAT THE LANDED VECTORS CAN AND CANNOT WITNESS
+Over the 88 pre-states, classing every operand each FP vector reads:
+```
+  DE (a denormal operand)        18 of the 23 min/max/comis/ucomis vectors, 34–63 of 88 · 2 more at 1 of 88 ·
+                                 0 on comiss_x5_x3, ucomisd_x5_x3, ucomiss_x3_x5
+  IE by QNaN                     all 4 comis vectors (3–15 of 88) · 12 of 15 min/max vectors (9–27 of 88)
+  IE by SNaN                     reached ONLY by cvtss2sd_mN3 (28 of 88); NO comis/ucomis/min/max vector reaches an SNaN
+  PE (cvtts?2si)                 reached (17–75 of 88)
+  ±∞                             reached nowhere: no xmm lane, no memory offset
+```
+⇒ **UCOMIS's only IE cause is untested by today's vectors.**
+- **binary32:** memory offset `-0x3(%rbx)` holds an SNaN in 28 of 88 states and a QNaN in none (`+0xd`: 22 and 0). So a
+  `ucomiss`/`comiss` vector there tests IE-by-SNaN without ever meeting the §1 divergence.
+- **binary64:** an SNaN occurs at ONE offset in ONE state (`+0xa`), and in no register lane. Those rows are kernel pins.
+
+### 3. TININESS IS DETECTED AFTER ROUNDING, AND THE K4 REFERENCE LABELS IT BEFORE
+- **The gap:** D262's reference (`ref_mul.py`) marks a product tiny when the EXACT value is below the normal range. D265's 41
+  cases cannot tell that rule from IEEE's other permitted one, which measures tininess after rounding at an unbounded exponent.
+- **The probe:** 24 cases where the exact product lies just below 2^emin and rounds up to it under nearest and up. Each case
+  is paired with a control that is tiny either way, and an exact tiny product. There are binary64 and binary32 cases, at every RC.
+- **The reading:**
+```
+  values          25/25 (the control included)
+  AFTER rule      25/25
+  BEFORE rule     19/25 — the 6 misses are exactly the predicted round-up rows (UE raised by BEFORE, not by x86isa)
+```
+⇒ **x86isa detects tininess after rounding.** The reference's VALUES are unaffected; only its UE label is. B's flag rule uses
+AFTER, recomputed independently in `hwprobe/mk_rows.py`. An exact tiny result raises DE alone (masked UE needs inexact).
+
+### 4. TWO MORE ORACLE DEFECTS, FOUND BY THE DRAFT'S OWN PRE-STATES
+The B0 draft (§6) varies RC and presets sticky bits in every pre-state. Its first differential over the landed FP forms
+(4,752 cases: the 46 FP vectors and 8 non-FP controls) produced value disagreements that no earlier run could reach,
+because every earlier pre-state ran at RC = nearest with the sticky bits clear (D27).
+- **`cvtss2sd` returns an OVERFLOW RESULT whenever the pre-state's sticky OE is set** (±max or ±∞, by RC, for ordinary
+  small values; 101 cases in the first draft run).
+  - **The mechanism:** `cvt-spec.lisp`, `sse-cvt-fp1-to-fp2`. The computation's flags are ORed into the whole register
+    first, and then `overflowp` is read from that register.
+  - A sticky flag is history, never an input, so this is a defect in x86isa, not a rule.
+- **`cvtsi2sd` of integer 0 under round-down returns −0** (19 cases over 4 vectors).
+  - **The mechanism:** `cvt-spec.lisp`, `sse-cvt-int-to-fp` gives a zero result the sign `(if (int= rc #.*rc-rd*) 1 0)`.
+  - The conversion is exact, and IEEE's roundTowardNegative −0 rule is for sums that are exactly zero, not for conversions.
+⇒ **The draft answers each in its own way (§6, §7):** OE is never preset, and the zero-sign case is a declared divergence at
+exactly its shape.
+
+### 5. THE REFEREE — `hwprobe/`, a job on an x86-64 runner
+§1, §4 and D265 §3 pin rows against the SDM where the oracle disagrees, and this development machine (arm64) cannot say which is
+the processor's behaviour.
+- **The probe:** `hwprobe/` runs 174 rows on a hosted x86-64 runner. Each row executes one instruction, written in assembly
+  so the executed bytes are the declared ones. The probe refuses to run if they are not.
+- **The expectations** are derived in `mk_rows.py` from the SDM's rules. Values come from D262's reference and tininess from §3.
+- **Two controls:**
+  - a planted wrong expectation must red exactly one row (exit 1);
+  - a planted wrong instruction byte must refuse the run (exit 2).
+  Both were driven locally.
+```
+  rows   mulsd 65 · mulss 20 · comis/ucomis 36 · minsd/minss 12 · cvtss2sd 17 · cvtsi2sd 16 · cvttsd2si 8
+  x86isa (same rows)    146/173 agree · 27 disagree, in exactly four mechanisms:
+                          the indefinite's sign (mulsd/mulss ∞×0, 8) · COMIS raises no IE at a QNaN (6) ·
+                          a preset OE read as overflow (cvtss2sd, 12) · integer 0 → −0 at round-down (1)
+                          1 row excluded and printed: cvtss2sd at −0 aborts x86isa (D258)
+  Rosetta 2 (this box)  174/174 agree — an independent EMULATOR, so corroboration only; it is not a processor
+  the runner            OWED — read at the landing, and recorded here with the processor's model name
+```
+⚠️ **The table counts MECHANISMS, not voices.** The rules, Rosetta and the runner are three different origins. x86isa's 27 are
+four mechanisms, not 27 findings.
+
+### 6. THE DESIGN — B IS TWO BATCHES, AND THE FIRST ADDS NO INSTRUCTION
+**B0 — the harness, and the flags of the forms already landed:**
+1. **`Cpu.mxcsr : BitVec 32 := 0x1F80`,** K3's field as measured (D263).
+2. **The record** renders it as per-flag keys: `mxcsr.ie= … mxcsr.pe=`, plus `mxcsr.ctl=` for the control half (RC, masks,
+   DAZ, FZ). Both sides print it, and a format gate compares the two literals (the `check_xmm_format.py` shape).
+   ⇒ **A divergence can be declared for ONE FLAG** (§7). One hex field would have made `(vec, mxcsr)` excuse the whole register,
+   including the DE arm that 3 of the 4 comis vectors DO reach (34–44 of 88).
+3. **The driver** loads `:mxcsr` on EVERY case, and 0x1F80 when a case omits it. That closes D265 §4: a sticky flag can no longer
+   leak from one case into the next.
+4. **The pre-states** carry MXCSR by index:
+   - RC = i mod 4;
+   - the sticky bits are preset on half the states, so a model that REPLACES the flags instead of ORing them is caught.
+     **OE is never preset** (§4). A replacing model is still caught by the other five bits;
+   - the masks are all set, and DAZ and FZ are clear. Both are declared limits.
+5. **The leak check** gains `a.mxcsr == b.mxcsr`.
+6. **The semantics:** the landed functions OR their flags in.
+   - `fcmp`'s callers take an `ordered` flag: COMIS raises IE on any NaN, UCOMIS on an SNaN only.
+   - `fmin`/`fmax` raise IE on any NaN.
+   - `cvtss2sd` raises IE on an SNaN; `truncToInt` raises IE or PE.
+   - DE is raised when an operand is a denormal, and suppressed under any NaN (§1).
+   - An exception that would be raised while UNMASKED makes the step refuse (`byDesign`). x86isa halts with `ms` there, so the
+     two agree. No pre-state unmasks, which is declared.
+   ⛔ **The published sentence that `comis` and `ucomis` are "one function here" (record 23) becomes false,** and it is replaced.
+7. **The vectors: none new.** The SNaN reach of §2 is at a memory offset, and `vcomis` has no memory source.
+   - `X86/Coverage.lean` declares the comis family's claimed shape as `x,x`, so the memory shape is OUTSIDE today's claim.
+     Adding it widens coverage, which is a batch of its own and an `X86.Syntax` ms cost (the tight cell). It is not
+     B0's harness.
+   - ⇒ **B0 pins the SNaN rows in the kernel, both formats.** A later memory-source comis batch can turn the binary32
+     rows into a vector arm at `-0x3(%rbx)` (28 SNaN, 0 QNaN).
+   - ⛔ **The `vcomis` docstring and the four coverage notes** ("the SNaN-vs-QNaN split needs MXCSR") assert what B0
+     makes false. They are rewritten in the same batch.
+   Wrong-model arms, over the existing vectors:
+   - flags REPLACED instead of ORed;
+   - DE not suppressed under a NaN;
+   - UCOMIS raising IE on a QNaN;
+   - min/max raising IE on an SNaN only;
+   - `truncToInt` dropping PE.
+   ⛔ **"COMIS as UCOMIS" is NOT a vector arm.** The oracle agrees with that wrong model, so no vector can refute it. It is a
+   kernel pin.
+   ⚠️ **"UCOMIS raising IE on a QNaN" IS reachable:** the ucomis vectors reach a QNaN 3–15 times in 88, and IE is compared
+   there.
+8. **The kernel pins** (`Tests/Anchors.lean`), each planted wrong once:
+   - COMIS/UCOMIS IE at QNaN and SNaN, both formats;
+   - the binary64 SNaN rows §2 cannot reach;
+   - a converted integer 0 is +0 at every RC.
+9. **The declared divergences** (§7(b)):
+   - `mxcsr.ie` `(1, 0)` on the four comis vectors;
+   - the low lane `(+0, −0)` on the four `cvtsi2sdl` vectors whose source reaches 0 in a round-down state.
+   The stale-entry gate requires every one of them to fire in every run.
+
+**B1 — `mulsd`/`mulss`, on B0's harness:**
+- **The rule:** K4's `roundPack`/`fmul`, with RC read as the 2-bit field and no inductive (175 ku against 57, D262), and no power
+  above 256.
+- **The flags:** OE, UE (after rounding, §3), PE, IE, DE.
+- **The vectors:** ∞ is unreachable (§2), so no vector meets ∞ × 0 and the indefinite's sign divergence never fires. The invalid
+  rows are kernel pins against the SDM (D265 §3). RC varies with the pre-state index, so the rounding arms reach all four modes.
+
+### 7. ⚖️ THE FORK — HOW A ONE-SHAPE DIVERGENCE IS DECLARED
+`KnownDivergence` is keyed on `(vec, field)` and excuses ANY disagreement there.
+- **(a) Per-flag keys and a `(vec, mxcsr.ie)` entry.** No comparator change. It excuses every IE disagreement on the comis
+  vectors, including a wrong model that FORGETS IE on an SNaN, if a comis vector ever reaches one.
+- **(b) Per-flag keys, plus an optional `pair` on the entry.** A disagreement is excused only when the two values END in the
+  pair and agree before it. It is a small comparator change: for `mxcsr.ie` the pair is the whole value `(1, 0)`, and
+  for §4's zero sign it is the low lane `(0000000000000000, 8000000000000000)`.
+  - A forgotten SNaN IE (0 against 1) stays `spec`.
+  - The residue it still excuses: a spurious IE raised by the comis path alone. The shared `ordered` function and the ucomis
+  vectors bound that.
+- **(c) Keep the comis vectors off QNaN.** It loses the unordered-EFLAGS reach those vectors carry today. Rejected.
+**Recommendation (b).** It declares each divergence in the shape it was measured, and the draft takes it.
+
+### 8. THE DRAFT, RUN (`paris/b0-draft`, local)
+- Every item of §6 B0 is built, except the new vectors, the arms and the kernel pins.
+  - **The three general `vbin` theorems** gained `k.isMinMax = false`, and `step_vbin_minmax` states the min/max case.
+  - **The three `vbin` frame lemmas** (flags, regs, mem) are proved for EVERY kind, because `withSimd` only ORs MXCSR
+    or halts.
+- **The FP subset against x86isa** (the 46 FP vectors plus 8 non-FP controls, 4,752 cases):
+```
+  first run     unexplained 120: cvtss2sd 101 (the preset-OE defect) · cvtsi2sdl 19 (the zero sign)
+  final         unexplained 0 · oracle-divergence 50 (comis IE 31 · cvtsi2sdl zero sign 19) · explained 704 · leaks 0
+```
+- **The full differential** (`scripts/run_differential.sh` on `fb70a5a`, all 1,058 vectors × 88 pre-states):
+```
+  base (record 26)  cases 93,104 · matched 72,572 · explained 29,435 · unexplained 0 · oracle-divergence 171 · leaks 0
+  draft             cases 93,104 · matched 72,522 · explained 29,435 · unexplained 0 · oracle-divergence 221 · leaks 0
+                    missing 0 · no declared divergence stale
+```
+  ⇒ **Exactly 50 cases moved, from matched to declared divergence. They are the 50 of the FP subset, and nothing else moved.**
+  Every non-FP form carries the varying MXCSR through untouched, on both sides.
+
+### 9. THE PRICE, READ ON THE DRAFT (`ku_delta.py --arm a-prime`, yukon.lan)
+```
+  fb70a5a (the draft as first written)                                  a-prime CLEAN
+    X86.Theorems   86,982 → 91,173   +4,191   allowance 15,918   (26%)   K3's field alone was +2,250 (D263)
+    X86.Semantics     814 →  1,023     +209   allowance    226   (92%)
+    X86.State       2,194 →  2,272      +78   allowance    566
+    X86.SoftFloat     244 →    260      +16   allowance     57   (28%)
+    X86.Serialize +3 · X86.Program +3 · X86.Syntax +0 · every other X86 module +0
+    Tests.Coverage +20,890 of 602,874 · Tests.Vectors +7 of 93 · Tests.Anchors, Nonvacuity, Program +0
+  ms ceilings (readings)  X86.Basic 81/278 · X86.Syntax 276/879 · X86.Theorems 1,070/3,330
+```
+- ⛔ **Semantics' +209 is ONE DECLARATION.** `deterministic_cost.measure` on the draft reads `VBinKind.isMinMax`, a wildcard
+  match over `VBinKind`'s constructors, at **197 ku**. `vbinFlags` reads 3, the other four flag helpers 0, and `step`
+  moved by about 9.
+  - It is K4's mechanism again: an `RC` inductive cost 175 ku in D262.
+  - **As an equality test** (`k == .minps || k == .maxps`, on the derived `BEq`), it reads **0**. That is commit
+    `98c8ad6`, whose full ledger is **a-prime CLEAN with `X86.Semantics` 814 → 826, +12 of 226 (5%)**; every other module
+    reads exactly as on `fb70a5a`.
+  - ⇒ 🔑 **a match over a large inductive is not a free Boolean; test membership with the derived equality.**
+- `X86.Syntax` +0: B0 adds no constructor, so the tight ms cell is not touched (§6.7).
+
+### 10. WHAT IS STILL OWED
+- **The runner's reading** (§5), taken at the landing of the PR that carries `hwprobe/`.
+- **B1's price:** K4's 25,132 ku for 112 cells, plus the flags, re-read on its own draft.
+- **B0's kernel pins and arms:** their `Tests.Anchors` and `Main.lean` cost. The nearest precedent is the `fcmp` anchors
+  (FCMP-KERNEL-1 priced them at about 17 ms). Read at the batch's landing, never scaled.
