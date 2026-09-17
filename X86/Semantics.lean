@@ -639,6 +639,13 @@ def vcvt2sdLow (fromInt : Bool) (d : BitVec 128) (b : BitVec 64) : BitVec 128 :=
   let r := if fromInt then SoftFloat.i32to64 b else SoftFloat.f32to64 b
   ((d >>> 64) <<< 64) ||| r.setWidth 128
 
+/-- ⭐⭐ P2 BATCH 40 — THE TRUNCATION's LANE RULE, one function for both operand
+shapes (as `vcvt2sdLow`): `b`'s low binary64 (`dbl`) or binary32 lane, truncated
+to an int64 (`wide`) or an int32.  The forms differ only in where `b` is read. -/
+def cvttLane (dbl wide : Bool) (b : BitVec 64) : BitVec 64 :=
+  SoftFloat.truncToInt (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
+    (if wide then 64 else 32) b
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -855,6 +862,19 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vcvt2sdm fi dst ea =>
       let a := ea.addr s nr
       (s.setXmm dst (vcvt2sdLow fi (s.getXmm dst) (s.readMem .d a))).setRip nr
+
+  -- ⭐⭐⭐ CVTTSD2SI / CVTTSS2SI (SDM Vol. 2A) — P2 BATCH 40, sub-group A′.
+  -- The low lane, truncated toward zero, into a GPR of the REX.W width; an int32
+  -- is zero-extended by `setReg .d`, as every 32-bit GPR write here is.  No flag
+  -- is written — x86isa's `x86-cvts?2si/cvtts?2si-Op/En-RM` writes the GPR, MXCSR
+  -- and RIP.  ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
+  | .vcvtt2si dbl wide dst src =>
+      (s.setReg (if wide then .q else .d) dst
+        (cvttLane dbl wide ((s.getXmm src).setWidth 64))).setRip nr
+  | .vcvtt2sim dbl wide dst ea =>
+      let a := ea.addr s nr
+      (s.setReg (if wide then .q else .d) dst
+        (cvttLane dbl wide (s.readMem (if dbl then .q else .d) a))).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
   --

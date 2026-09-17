@@ -174,11 +174,22 @@ FOREIGN_FIXTURES = {
 # take the SUFFIX first; `scratch.mkdtemp(prefix)` takes the PREFIX first and defaults it.
 # FILE producers (`mkstemp`, `NamedTemporaryFile`) are out of scope — no process can have a
 # file as its cwd, which is what `_own_tree` attributes — and are COUNTED, not dropped.
+# ⛔ EACH ENTRY NAMES THE LITERAL PREFIXES IT EXCUSES, and `()` excuses only BARE calls. Until
+# 2026-09-16 a declaration could excuse bare calls alone, so the second port to arrive —
+# `check_pr_descriptions.py` (desk QA, jas's bytes, blob a2da038a in salt · saltworks ·
+# saltbench · x86lean), whose selftest names its three fixture repos `pr-gate-selftest-*` — was
+# an OFFENDER that no declaration could clear. CI's kernel-cost-selftest found it on PR #27; the
+# local preflight does not run this arm. The only other fix would edit the shared bytes here.
 PORTED_VERBATIM = {
-    "check_commit_trailers.py":
+    "check_commit_trailers.py": ((),
         "the fleet's trailer gate, byte-identical to salt/saltworks/saltbench; its one "
         "`TemporaryDirectory()` holds a git-only fixture repo (no `lean` ever runs there) and "
-        "an `x86lean-` prefix would fork a shared port for a name that is wrong in the other three",
+        "an `x86lean-` prefix would fork a shared port for a name that is wrong in the other three"),
+    "check_pr_descriptions.py": (("pr-gate-selftest-", "pr-gate-selftest-empty-",
+                                  "pr-gate-selftest-shallow-"),
+        "the fleet's forge-prose gate (desk QA), byte-identical to salt/saltworks/saltbench; its "
+        "three `mkdtemp`s hold git-only fixture repos and a clone (no `lean` ever runs there), and "
+        "renaming them here would fork the shared port"),
 }
 _DIR_PRODUCERS = ("mkdtemp", "TemporaryDirectory")
 _FILE_PRODUCERS = ("mkstemp", "NamedTemporaryFile", "SpooledTemporaryFile", "TemporaryFile")
@@ -273,7 +284,8 @@ def scratch_convention(rows):
         if r["prefix"] is not None and (r["prefix"].startswith(TMP_PREFIX)
                                         or r["prefix"] in FOREIGN_FIXTURES):
             continue
-        if r["file"] in PORTED_VERBATIM and r["prefix"] is None:
+        if r["file"] in PORTED_VERBATIM and (r["prefix"] is None
+                                             or r["prefix"] in PORTED_VERBATIM[r["file"]][0]):
             continue
         offenders.append(f"{r['file']}:{r['line']} {r['callee']} ({r['why']}"
                          + (f": {r['prefix']!r}" if r["prefix"] is not None else "") + ")")
@@ -283,8 +295,12 @@ def scratch_convention(rows):
     # outlive its reason and quietly excuse whatever the next sync brings in.
     # (A call inside a string run by `python -c` — scratch.py's selftest has two, both
     # conforming — is not in the syntax tree and not in this census. Stated, not solved.)
-    stale += [k for k in PORTED_VERBATIM
-              if not any(r["file"] == k and r["prefix"] is None for r in rows)]
+    stale += [k for k, (lits, _why) in PORTED_VERBATIM.items() if not lits
+              and not any(r["file"] == k and r["prefix"] is None for r in rows)]
+    # ...and a declared LITERAL that the file no longer produces is stale by name, so the
+    # declaration cannot keep excusing a prefix the next sync brings back for another reason.
+    stale += [f"{k}:{lit}" for k, (lits, _why) in PORTED_VERBATIM.items() for lit in lits
+              if not any(r["file"] == k and r["prefix"] == lit for r in rows)]
     return offenders, stale
 
 
@@ -1546,6 +1562,29 @@ def conditions_selftest():
                 "`from scratch import mkdtemp` conform; a docstring/comment is not a call; a "
                 "file producer is counted, not checked" + ("" if _off_at == {"a.py:2", "b.py:2",
                 "c.py:2", "f.py:2"} else f" — GOT offenders {sorted(_off_at)}")))
+
+    # ⭐ THE PORTED-LITERAL RULE, PLANTED (2026-09-16): a declared literal excuses only ITS FILE,
+    # a declared file excuses only ITS literals, and a declared literal that vanished is STALE.
+    def _pv_row(f, pfx, ln=1):
+        return {"file": f, "line": ln, "callee": "mkdtemp", "prefix": pfx, "why": "literal"}
+    # (the impersonation fixtures ride along, or their declarations read stale in the plant)
+    _pv_base = [_pv_row("check_commit_trailers.py", None)] + [
+        _pv_row(k, lit) for k, (lits, _w) in PORTED_VERBATIM.items() for lit in lits] + [
+        _pv_row("fixture.py", k) for k in FOREIGN_FIXTURES]
+    _pv_off, _pv_stale = scratch_convention(_pv_base + [
+        _pv_row("check_pr_descriptions.py", "pr-gate-selftest-other-", 9),
+        _pv_row("a_native_tool.py", "pr-gate-selftest-", 7)])
+    _gone = next(lit for k, (lits, _w) in PORTED_VERBATIM.items() for lit in lits)
+    _pv_off2, _pv_stale2 = scratch_convention([r for r in _pv_base if r["prefix"] != _gone])
+    _pv_ok = ({o.split(" ")[0] for o in _pv_off} == {"check_pr_descriptions.py:9", "a_native_tool.py:7"}
+              and not _pv_stale and not _pv_off2
+              and any(s.endswith(":" + _gone) for s in _pv_stale2))
+    out.append((_pv_ok,
+                "a ported file's declared literals are excused, an UNDECLARED literal in that file "
+                "and a declared literal in ANOTHER file are offenders, and a declared literal the "
+                "file no longer produces is STALE by name"
+                + ("" if _pv_ok else f" — GOT offenders {_pv_off} stale {_pv_stale} / "
+                   f"{_pv_off2} {_pv_stale2}")))
 
     rows, files_excluded = scratch_producers()
     offenders, stale = scratch_convention(rows)

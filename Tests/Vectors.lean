@@ -2733,6 +2733,59 @@ def vectors : List Vec :=
   , { id := "cvtsi2sdl_mN3", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl -0x3(%rbx), %xmm0"
     , bytes := "f20f2a43fd", instr := ⟨.vcvt2sdm true .x0 { base := some .rbx, disp := -3 }, 5⟩ }
 
+  -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  The sources come
+  -- from a reachability table over every register and every memory offset of the
+  -- 88 pre-states, classed by each source's truncation at both widths:
+  --
+  -- ⛔ NO SOURCE ANYWHERE REACHES THE RANGE BOUNDARY (a result of INT_MIN or
+  -- INT_MAX), and a NON-ZERO in-range binary64 result is reached in 3 states of
+  -- one register.  The random lanes are fractions (→ 0) or out of range (→ the
+  -- indefinite).  So those two rules are carried by the kernel differential in
+  -- D261, and the binary64 vectors below test the indefinite and the zero.
+  -- ✅ x86isa truncates at EVERY source, zeros included (driven on thirteen
+  -- special cases, 2026-09-16), unlike its `cvtss2sd` (D258 §2), so no source
+  -- here had to be chosen to avoid one.
+  --
+  -- binary32: `xmm4` and `xmm12` are in range in 55 states each, with a fraction
+  -- ≥ ½ in 6 and 5 (a rounding model differs there) and a negative fraction in 3
+  -- and 5 (a flooring model differs there)
+  , { id := "cvttss2si_x4_eax", mnemonic := "cvttss2si", asm := "cvttss2si %xmm4, %eax"
+    , bytes := "f30f2cc4", instr := ⟨.vcvtt2si false false .rax .x4, 4⟩ }
+  -- REX.B on the source, and a 32-bit destination whose upper half the write must clear
+  , { id := "cvttss2si_x12_ecx", mnemonic := "cvttss2si", asm := "cvttss2si %xmm12, %ecx"
+    , bytes := "f3410f2ccc", instr := ⟨.vcvtt2si false false .rcx .x12, 5⟩ }
+  -- quiet and signalling NaNs (15 of 88) and zeros
+  , { id := "cvttss2si_x0_eax", mnemonic := "cvttss2si", asm := "cvttss2si %xmm0, %eax"
+    , bytes := "f30f2cc0", instr := ⟨.vcvtt2si false false .rax .x0, 4⟩ }
+  -- REX.W: in range in 19 states, 16 of them past what an int32 holds
+  , { id := "cvttss2si_x3_rax", mnemonic := "cvttss2si", asm := "cvttss2si %xmm3, %rax"
+    , bytes := "f3480f2cc3", instr := ⟨.vcvtt2si false true .rax .x3, 5⟩ }
+  -- REX.W + REX.R: in range in 56 states, 55 of them past what an int32 holds
+  , { id := "cvttss2si_x5_r9", mnemonic := "cvttss2si", asm := "cvttss2si %xmm5, %r9"
+    , bytes := "f34c0f2ccd", instr := ⟨.vcvtt2si false true .r9 .x5, 5⟩ }
+  -- the memory source, at both widths (NaN in 21 states each)
+  , { id := "cvttss2si_m10_rax", mnemonic := "cvttss2si", asm := "cvttss2si 0x10(%rbx), %rax"
+    , bytes := "f3480f2c4310", instr := ⟨.vcvtt2sim false true .rax { base := some .rbx, disp := 0x10 }, 6⟩ }
+  , { id := "cvttss2si_mN1a_eax", mnemonic := "cvttss2si", asm := "cvttss2si -0x1a(%rbx), %eax"
+    , bytes := "f30f2c43e6", instr := ⟨.vcvtt2sim false false .rax { base := some .rbx, disp := -0x1a }, 5⟩ }
+  -- binary64: NaN in 9, out of range in 11 (both signs), zero in 68
+  , { id := "cvttsd2si_x0_eax", mnemonic := "cvttsd2si", asm := "cvttsd2si %xmm0, %eax"
+    , bytes := "f20f2cc0", instr := ⟨.vcvtt2si true false .rax .x0, 4⟩ }
+  -- REX.W: the only register in range anywhere (3 states), out of range in 17
+  , { id := "cvttsd2si_x3_rax", mnemonic := "cvttsd2si", asm := "cvttsd2si %xmm3, %rax"
+    , bytes := "f2480f2cc3", instr := ⟨.vcvtt2si true true .rax .x3, 5⟩ }
+  -- REX.R on a 32-bit destination: positive and out of range in 60 states
+  , { id := "cvttsd2si_x5_r10d", mnemonic := "cvttsd2si", asm := "cvttsd2si %xmm5, %r10d"
+    , bytes := "f2440f2cd5", instr := ⟨.vcvtt2si true false .r10 .x5, 5⟩ }
+  -- REX.W + REX.B
+  , { id := "cvttsd2si_x9_rdx", mnemonic := "cvttsd2si", asm := "cvttsd2si %xmm9, %rdx"
+    , bytes := "f2490f2cd1", instr := ⟨.vcvtt2si true true .rdx .x9, 5⟩ }
+  -- the memory source, at both widths (NaN in 21 and 15 states)
+  , { id := "cvttsd2si_mN1e_rax", mnemonic := "cvttsd2si", asm := "cvttsd2si -0x1e(%rbx), %rax"
+    , bytes := "f2480f2c43e2", instr := ⟨.vcvtt2sim true true .rax { base := some .rbx, disp := -0x1e }, 6⟩ }
+  , { id := "cvttsd2si_mN1d_eax", mnemonic := "cvttsd2si", asm := "cvttsd2si -0x1d(%rbx), %eax"
+    , bytes := "f20f2c43e3", instr := ⟨.vcvtt2sim true false .rax { base := some .rbx, disp := -0x1d }, 5⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:
