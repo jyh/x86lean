@@ -2374,11 +2374,11 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED — SUB-GROUPS A AND A′ LANDED IN FULL 2026-09-16 (A′: D261); B REMAINS**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — SUB-GROUPS A AND A′ LANDED IN FULL 2026-09-16 (A′: D261); B REMAINS, AND ITS KILL-CHECKS K3/K4 ARE MEASURED (D262, D263)**
 ⚖️ **STATUS AT 2026-09-16:** sub-group A is BUILT and on the roster across three batches: the compares (32, D140), min/max
 (38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 930 since D259;
 the census had filed 32 memory-source forms under GPR/other and read 898: `cvttsd2si`/`cvttss2si`, truncation) is BUILT as P2 batch 40
-(D261) and gate 3 reads it 0. **B** stays frozen on K3 and K4.
+(D261) and gate 3 reads it 0. **B** (26 pairs, 31,065) is no longer frozen on K3 and K4: both were measured on drafts on 2026-09-16 and neither is the expensive part. A soft-float multiply costs 112 cells for 25,132 ku / 35 ms (D262), and one top-level MXCSR field costs `X86.Theorems` +2.6% ku (D263). ⇒ **NEXT for B:** execute one `mulsd` on x86isa under a non-default MXCSR.RC (does the oracle honour RC, and does it report MXCSR?), then price the record change. Constraints from the drafts: no power above 256 on any path, and no `RC` inductive in `X86.SoftFloat`.
 ⚠️ *The status paragraph below said "OPEN: no sub-group has landed" while batches 32 and 38 were on `master`.*
 ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): THE HEADER IS TRUE.** OPEN: no sub-group has landed. FROZEN: sub-group B waits on
 kill-checks K3 and K4, both still unmeasured (`docs/SOFT-FLOAT-COMMISSION.md` §4, §5). PARTLY REFUTED: K2 for two members (§7).
@@ -2389,10 +2389,12 @@ arithmetic), which A′'s red-first plant uses.
 scope re-measured, and a refuter pass run against it in the same sitting.
 
 ```
+AT THE FREEZE, 2026-09-05 (kept as the freeze read it; the live figures are the commission's §2):
 40 (mnemonic, bucket) pairs, 36,925 instructions   (the figure carried since batch 19 was 25,688)
    A   no rounding at all              12 pairs   6,619   17.9%   BUILDABLE — K1 verified
    A′  fixed mode, MXCSR.RC-free        2 pairs     898    2.4%
    B   MXCSR.RC-dependent              26 pairs  29,408   79.6%   un-priced, deliberately
+LIVE, 2026-09-16:  A 0 unclaimed (landed) · A′ 0 unclaimed (landed) · B 31,065 (K3/K4 measured, D262/D263)
 ```
 **Recommendation on the record:** take sub-group A as an ordinary P2-shaped batch; leave B frozen
 until kill-checks K3 (what a new `Cpu` field costs every record proof) and K4 (what a soft-float

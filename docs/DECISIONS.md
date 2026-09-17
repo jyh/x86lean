@@ -17512,3 +17512,210 @@ and posted on the fleet bus before the timing walk started.
 load 7.5–17.1 through the walk. `Tests.Coverage`'s band (±939) is half as wide again as batch 39's, and it contains both the
 prediction and a small negative. **The step lands on a verdict whose resolution was poor, and it says so.** `ku-delta`'s
 +79,980, the same size as batch 39's +78,606, is the reading that could not be loaded.
+
+⛔ **RE-KEYED (D264).** The step above was measured and recorded as `6a3fb0c → 29022ce`: the batch commit and its parent on the
+branch as it was then ordered. A pull request lands as a merge, whose first-parent chain is `ccb2f8b → merge`, so that row priced
+nothing there, and CI's pull_request run went red on it. The branch was restructured so that every reading-moving change is its
+first commit (`84a241d`). The step was re-measured as `ccb2f8b → 84a241d` and recorded on A′'s verdict, with identical Δku.
+**The prices above stand. Their key does not.** Those two shas are pre-restructure.
+
+## D262 — Kill-check K4 measured: a soft-float `mulsd` is cheap in the kernel, and the draft found two constraints
+
+⚖️ QUEUE P3, the soft-float commission (`docs/SOFT-FLOAT-COMMISSION.md` §4). Sub-group B (31,065 instructions) was frozen until K3
+and K4 were **measured**. This is K4's reading. It is a **draft reading**: nothing here is on the roster, and the rule is not in
+`X86/SoftFloat.lean`. The probe files (reference, hardware check, generators, the profile file) are kept with the seat's own
+records, outside this repository.
+
+### 1. THE DRAFT
+`roundPack f rc neg m e` rounds `±m × 2^e` to the format under one of the four MXCSR.RC modes. Overflow is decided after rounding.
+`fmul f rc a b` is MULSS/MULSD's lane rule on top of it:
+- the SSE NaN rule (SDM Vol. 1 Table 4-7): the first source if it is a NaN, else the second, quieted;
+- ∞ × 0 gives the QNaN floating-point indefinite;
+- signed zeros and infinities;
+- otherwise one Nat multiply of the two significands.
+
+It is written over Lean-core `Nat` and `BitVec` only. The encoding is one formula for normal and subnormal results: the exponent
+field below the significand is `be − 1` for a normal and 0 for a subnormal. So a carry out of the rounded significand lands in the
+exponent field by itself, including the subnormal-to-normal carry.
+
+✅ **Checked before it was measured, against two sources that are not the draft:**
+```
+  draft vs an independent Python reference         24,000 rows (both formats, all four modes, NaN and invalid rows included)
+    (exact Fractions, rounding by flooring onto          0 disagreements; a planted row, placed last, is the only one reported
+     the value's own grid; NaN rule from the SDM)
+  the reference vs this box's FPU (fesetround)     223,848 non-NaN cells, 0 disagreements; a planted row is reported
+```
+⚠️ The FPU is arm64. Its NaN rules and default NaN differ from SSE's by design, so every NaN and invalid row comes from the SDM
+rule alone. **None has been executed on x86isa yet.**
+
+### 2. THE READING
+Two anchors in the `Tests/Anchors.lean` shape. `mulsd_rounding` has 28 rows and `mulss_rounding` 14, each checked at all four
+modes, 168 cells in all. The binary32 carriers hold junk above bit 31. The rows cover:
+- ties of both parities, a tie that carries, and a carry out of the significand;
+- overflow by rounding (nearest overflows, down does not), and exact results at `max`;
+- subnormal ties, the subnormal-to-normal carry, underflow to zero or to the smallest denormal, and a denormal operand;
+- ∞ × 0, and each NaN priority case.
+
+Every expectation comes from the reference. The 132 cells the FPU can check agree with it. Each anchor was planted wrong once, and
+exactly that theorem failed. The anchors were measured in one file with a **verbatim copy of `cvttsd2si_trunc` as the control**:
+7 profiler passes, load 4.9–5.2, through the fleet route.
+```
+                                          cells       ku    kernel ms, median (range)
+  mulsd_rounding                            112   25,132    35.3 (33.6–38.1)
+  mulss_rounding                             56   13,357    17.4 (16.8–19.5)
+  CONTROL cvttsd2si_trunc                    56    5,986     7.6 (7.4–7.8)
+  the five draft definitions                  —       34
+  `inductive RC` + `deriving DecidableEq, Repr`  —   175    (the wrapper does not attribute it; located by source line)
+```
+**K4 is VERIFIED.** The 52×52 multiply is literal Nat arithmetic. `Nat.log2` unfolds 19 times in the whole `mulsd` theorem. Most
+unfoldings are `Bool`/`Decidable` plumbing (`Bool.rec` 2,815, `Nat.rec` 1,926, `Decidable.casesOn` 1,452). A multiply cell costs
+about 2.2× a truncation cell. The two anchors together cost 38,489 ku, about 63% of the next step's `Tests.Anchors` allowance
+(23.3% × 261,376 ≈ 60,900), and about 53 ms of kernel.
+
+### 3. ⛔ WHAT THE DRAFT FOUND — BOTH BIND SUB-GROUP B
+1. **No power above 256 on any path.** The first draft computed `2 ^ 1074` for a subnormal result. The elaborator's
+   `exponentiation.threshold` (256) refused it (*"exponent 1074 exceeds the threshold 256, exponentiation operation was not
+   evaluated"*), and `decide` then failed on maximum recursion depth. A shift past `bitlen(m) + 1` discards every bit and makes the
+   same rounding decision (`q = 0`, `r = m < half`), so the shift is clamped there. The 24,000-row check was re-run on the clamped
+   rule and still reads 0.
+2. **`RC` as an inductive costs 175 ku, three times `X86.SoftFloat`'s allowance.** That module's `@ku 221` line in
+   `ku_delta_budget.txt` is a dead new-module registration (D252). From its second step on, the module is judged at the 23.3%
+   default: 54 at batch 40, and 57 on its current base of 244. The five definitions (34 ku) fit; the type does not.
+   ⇒ The mode lands with MXCSR (`X86.State`, whose registered 25.8% of 2,194 is 566), or it is read as the two-bit field with no inductive at all.
+   K3 decides which.
+
+### 4. WHAT IS NOT MEASURED
+- **An in-tree commit.** ku is per-declaration and additive, and nothing downstream reads the new definitions. The figures above are
+  the Δku an in-tree landing would show, **by that argument, not by a reading.**
+- **ADD, SUB and DIV.** They need alignment with a sticky bit and a Nat division. That is the same class of literal arithmetic, but it
+  is not measured.
+- **The per-vector cost.** Vectors execute compiled, so the kernel pays only for `step`'s larger match, the ordinary batch cost
+  (batch 40: `X86.Theorems` +1,510, `X86.Syntax` +533).
+- **x86isa on any multiply.** K5 (compare bits, not values) and the oracle's support for MXCSR.RC are separate questions.
+
+## D263 — Kill-check K3 measured: one MXCSR field on `Cpu` costs `X86.Theorems` 2.6% and breaks nothing
+
+⚖️ QUEUE P3, the soft-float commission §4. K3 claimed *"MXCSR is one `Cpu` field, and adding it is cheap"*, and the commission
+marked it DOUBTFUL on D71: two `BitVec 64` fields once took three inherited `bsf`/`bsr` frame lemmas over the heartbeat limit,
+because a whole-record `rfl` costs O(fields). The commission's own instruction was *"measure the kernel delta on the CURRENT record
+before believing it"*. This is that measurement.
+
+### 1. THE SUBJECT
+A local draft branch (`paris/k3-draft` `0df35ea`, never pushed) on `28b7c7d`. It adds one field, `mxcsr : BitVec 32 := 0x1F80`, to
+`Cpu`, after `xmm`, and **nothing reads it**. That is D71's shape exactly: fields no function reads, so any cost is the record's.
+The worktrees were built through the fleet route before anything was measured.
+- **All 26 targets built, rc 0, with no heartbeat failure.** The 58 warnings (unused simp arguments and variables) are the base
+  tree's 58, identical line for line. The frame lemmas D71 gave `undefVal` are why this
+  was not expected to break, and it did not.
+
+### 2. THE KU READING (`ku_delta.py --arm a-prime`, yukon.lan, load 7.0–7.7)
+```
+  X86.Theorems      86,982 → 89,232   +2,250   allowance 15,918   (14%)
+  every other module                   +0      (22 modules, X86.State and X86.Program included)
+  A′ ms ceilings    X86.Basic 84 / 278 · X86.Syntax 293 / 879 · X86.Theorems 1,020 / 3,330   (30–33%)
+  ku-delta gate (a-prime): CLEAN
+```
+Per declaration (`deterministic_cost.measure` on both worktrees; the totals conserve with the gate's, 86,845 + 137 unattributed and
+89,095 + 137):
+- **101 of 167 declarations grew, and none shrank.** The largest is `step_imul3_ignores_dest`, +120 (2,790 → 2,910, +4.3%).
+- The next are `step_idiv_refuses_iff` / `step_div_refuses_iff` +97, and the `and`/`or`/`xor` reg-op lemmas +93.
+- The `bitScanStep_*` lemmas, D71's victims, grew by +49 each.
+
+⇒ **The O(fields) mechanism is real and it is small on this record:** one more field costs each whole-record proof one more
+projection, about 2–4%, and nothing is near a limit.
+
+### 3. THE MS READING (`kernel_delta.py --repeats 6`)
+The same pair, profiled with 6 alternated passes a side on yukon.lan. **Load 5.1–11.8 through the walk, from another seat's
+work, and 21.7 at the end.** The run exited **rc 3, UNMEASURABLE, on one unit:**
+```
+  X86.Syntax          291.0 → 311.0    +20.0  ±34.4   budget 54.4   UNMEASURABLE   (Δku there: 0)
+  X86.Theorems       1020.0 → 1065.0   +45.0  ±48.6   budget 186.7  ok             (Δku +2,250)
+  X86.Program         126.0 → 131.0     +5.0  ±12.0   budget 29.4   ok
+  X86.State            15.6 → 16.9      +1.2   ±0.9   floor 6       ok             (Δku 0: the structure's own work)
+  Tests.Coverage    27800 → 27850      +50    ±1064   budget 2002   ok
+  every other unit                                                  ok
+```
+- **`X86.Theorems` agrees with its ku reading.** Its ms/ku ratio (1,020 ms over 86,982 ku) prices +2,250 ku at about +26 ms, and
+  the band around +45 contains that.
+- **`X86.State` is the one place ms saw what ku cannot.** A `structure` is no-unfolding kernel work (D228), so ku reads 0 there,
+  while ms reads +1.2 ±0.9, under the 6 ms floor.
+- **`X86.Syntax` is left undecided, and that is the honest reading.** Its ku did not move. Its band contains both zero and the
+  budget. The gate's own remedy is about seven repeats a side or a quieter box, and it is not bought here, because a draft is
+  not a landing: a batch that adds the field re-measures it at its own landing step.
+
+### 4. WHAT K3 DOES AND DOES NOT SETTLE
+- **Settled:** a new top-level `Cpu` field is not the expensive part of sub-group B. The nested alternative (MXCSR inside `Xmms`,
+  one projection per record proof by construction) was not built, because the direct form is already well inside every budget.
+- **Not settled — the field that is READ.** Sub-group B reads RC on every arithmetic instruction and writes the sticky exception
+  flags (PE, UE, OE, IE, ZE, DE). That is new state the differential record must compare, or it is a constant that reports agreement
+  it never tested (D27). Adding MXCSR to the record is a `Serialize`/oracle change, and the driver must set a non-default MXCSR in
+  some pre-states. It is priced by a batch, not by this draft.
+- **Not settled — oracle support.** Whether x86isa honours MXCSR.RC and reports MXCSR is a third cost component
+  ([[cheap-semantics-expensive-state]]), measured by executing one instance, never by reading its documentation.
+
+## D264 — PR #27's CI found two defects the local preflight could not see, and one of them was in the landing record
+
+⚖️ PR #27 (D259, D260, P2 batch 40, desk QA). `preflight.sh` read ALL GREEN on `28b7c7d`. CI then went red in two jobs, and
+neither red was reachable from the local loop.
+
+### 1. THE LEDGER ROW WAS KEYED ON THE WRONG BASE
+The `kernel-delta` job failed on the `pull_request` run (35171687309) and passed on the `push` run (35171666568). The failing arm
+was the drift gate's partition check: *"27 recorded + 298 missing = 325 steps, and every ledger row is used exactly once"*.
+- **The cause.** D261 §7 recorded the step `6a3fb0c → 29022ce`: the batch commit and its parent on the branch. A pull request is
+  checked out as a MERGE, and a `--no-ff` landing leaves the same shape on `master`. Either way the first-parent chain is
+  `ccb2f8b → merge`. The ledger is keyed on `base`, so no row prices that step, and the `6a3fb0c` row prices nothing.
+- **The ritual already said so.** The instructions `kernel_drift` prints read `B=$(git rev-parse origin/master)` and
+  `kernel_delta.py --base $B`. D261's measurement passed `--base 6a3fb0c`, *"the batch as one commit"*. Batch 39 did not hit this
+  only because its batch commit's parent WAS the master tip.
+- **Nothing between the two bases moves a reading.** `ccb2f8b..6a3fb0c` touches `docs/` and two `scripts/` analysers, all exempt.
+  So the measurement was equivalent. **The row still named a pair it did not measure under that key**, and a row is not
+  re-keyed by argument. The step is re-measured instead (§3).
+- **Why preflight was blind.** Its `--gap` reads HEAD's chain, and on the branch `6a3fb0c` IS on that chain.
+  ✅ **Repaired:** preflight now also reads `--gap` on a synthetic merge of `origin/master` and HEAD. That is a commit object
+  made by `git merge-tree --write-tree` and `git commit-tree`, never checked out and never pushed.
+  **Driven red-first on `28b7c7d`:** `--gap` on HEAD rc 0, on the synthetic merge rc 2, printing the ritual above.
+
+### 2. A PORTED GATE'S FIXTURE NAMES
+`kernel-cost-selftest` failed on both runs at arm 3e. Three `tempfile.mkdtemp` calls in `check_pr_descriptions.py` carry
+`pr-gate-selftest-*` prefixes rather than `x86lean-`.
+- That file is desk QA's forge-prose gate. It is **byte-identical (blob `a2da038a`) in salt, saltworks, saltbench and here**, so
+  renaming the prefixes would fork the shared port.
+- `PORTED_VERBATIM` could excuse only BARE calls in a ported file, so no declaration could clear a literal.
+- ✅ **Repaired:** each declaration now names the literal prefixes it excuses (`()` still means bare only), and a declared
+  literal the file no longer produces is reported STALE by name.
+- **A planted arm pins the rule:**
+  - an undeclared literal in the declared file is an offender;
+  - a declared literal in another file is an offender;
+  - removing one declared literal's call makes that literal stale.
+- The local preflight does not run this selftest, because its control profiles the whole tree.
+
+### 3. THE RE-RECORDED STEP
+The branch is **restructured, not patched**. Reordering commits by cherry-pick would have meant re-resolving generated documents
+by hand, so every commit was rebuilt as a TREE instead:
+- **The first commit, `84a241d`,** is `ccb2f8b` plus the batch's nine `.lean` files plus `kernel_cost.py` and `preflight.sh`,
+  everything that moves a reading.
+- **The seven original commits follow** with their own trees and messages, and each carries the same overlay. Their patch-ids are
+  equal to the originals', checked commit by commit, except the ledger commit, which drops only the mis-keyed row.
+- **The tip's tree equals the pre-restructure head's** in every file but the ledger.
+- The old head is kept on a local ref.
+
+⇒ **The branch's first-parent step out of `origin/master` now carries every reading-moving change**, which is the shape the ritual
+assumes and the one batch 39 had by accident.
+
+**THE STEP, MEASURED AS IT WILL BE KEYED** (`ccb2f8b → 84a241d`, yukon.lan, load 6.2–9.3):
+```
+  ms   kernel_delta --repeats 6      rc 3   UNMEASURABLE on Tests.Coverage (−450 ±4074 / 2207), its memDestSweep
+                                            (−190 ±754 / 561) and @residue (+125 ±3196 / 2710), and Tests.Program
+                                            (+32 ±67 / 80); every other unit ok, and NONE over its budget
+  A′   ku_delta --arm a-prime        CLEAN  Tests.Coverage +79,980 · Tests.Anchors +9,622 · X86.Theorems +1,510 ·
+                                            X86.Syntax +533 · X86.Semantics +18 · X86.SoftFloat +12 · X86.Coverage +10 ·
+                                            X86.Serialize +10 · X86.Program +6 · Tests.Vectors +3; ms ceilings 34–39%
+  D251 --record … --a-prime          RECORDED  "ms verdict rc 3 · ARM A′ rc 0 on yukon.lan ⇒ this step lands on the
+                                               a-prime verdict"; row ccb2f8b → 84a241d
+  --gap                              rc 0 on the branch AND on a synthetic merge with origin/master; 28 rows, every one used
+```
+✅ **The Δku is identical, module for module, to tonight's reading of `ccb2f8b →` the pre-restructure head** (22 modules, the two
+tables compared by `diff`). It is also equal on all eight modules D261 §7 lists for `6a3fb0c → 29022ce`. That is the
+deterministic confirmation that the bases are reading-equivalent. **The re-measurement changed the key, not the price.**
+⚠️ **This time the step lands on A′, not on the ms verdict.** The box was loaded (another seat's work), and `Tests.Coverage`'s band
+at ±4 s is twice its budget. D251 licenses exactly this, and the record says which instrument decided.

@@ -151,8 +151,8 @@ positive normals would report success for a `BitVec.ult` that is not the rule at
 |---|---|---|
 | **K1** | sub-group A is buildable over `BitVec`, kernel-reducible, ≤ 3 standard axioms | ✔ **VERIFIED §3**, with a planted-wrong control |
 | **K2** | sub-group B needs rounding, so it needs a *rounding mode*, so it needs MXCSR state | ⛔ **REFUTED for two members — §7.** `cvtss2sd` and `cvtsi2sdl` are exact for every input. 3,437 instructions moved out of B |
-| **K3** | MXCSR is one `Cpu` field, and adding it is cheap | ⛔ **DOUBTFUL** — [[feedback-a-state-field-costs-every-record-proof]]: two fields once blew three unrelated `rfl` record proofs. Measure the kernel delta on the CURRENT record before believing it |
-| **K4** | a soft-float `mulsd` reduces in the kernel at a cost the delta gate accepts | build one, profile it; 52×52 mantissa multiply is not obviously cheap in the kernel |
+| **K3** | MXCSR is one `Cpu` field, and adding it is cheap | ✔ **VERIFIED 2026-09-16 (D263)** on a local draft: all 26 targets build, and ku moves only `X86.Theorems`, +2,250 of a 15,918 allowance (+2.6%; 101 of 167 declarations grew, by at most +120). ms is ok everywhere except `X86.Syntax`, which is UNMEASURABLE at load 5–12 with Δku 0. *Was DOUBTFUL on [[feedback-a-state-field-costs-every-record-proof]].* |
+| **K4** | a soft-float `mulsd` reduces in the kernel at a cost the delta gate accepts | ✔ **VERIFIED 2026-09-16 (D262)** on a draft rule: 112 multiply cells cost 25,132 ku and 35 ms, against a same-run control of 56 truncation cells at 5,986 ku and 7.6 ms. The draft found two constraints: no power above 256 on any path, and no `RC` inductive in `X86.SoftFloat` (175 ku against an allowance of ~57) |
 | **K5** | the differential can compare FP results bit-for-bit | x86isa returns a bit pattern; NaN payloads and `-0` make "equal value" ≠ "equal bits" — the record must compare BITS |
 | **K6** | sub-group A's 3,182 instructions are worth landing before B | check it against the delta gate's budget and the queue's other P-items |
 | **K7** | no member of A secretly needs rounding | `min`/`max` return an *operand*, never a computed value (SDM Vol.2B: MINSD returns SRC1 or SRC2 in every branch, including the ±0 and NaN branches), and `comis`/`ucomis` write flags only. ✔ holds by the SDM's own rule shape |
@@ -167,6 +167,18 @@ write, the vectors, one roster row — a normal batch, not a campaign.
 ⛔ **Sub-group B is NOT priced here, and that is deliberate.** Its cost is dominated by K3 and K4,
 neither of which has been measured, and a number invented for them would be the third inherited
 figure in this document's own history. It is priced when K3 and K4 are run, not before.
+
+✅ **K3 and K4 WERE RUN ON 2026-09-16 (D262, D263), AND NEITHER IS THE EXPENSIVE PART.** A soft-float
+multiply is literal `Nat` arithmetic in the kernel, and one top-level MXCSR field costs `X86.Theorems`
+2.6%. **What still prices B is state, not arithmetic:**
+- the MXCSR field must be READ (RC on every instruction) and WRITTEN (the sticky exception flags);
+- it must be COMPARED, or by D27 it is a constant that reports agreement it never tested, which means
+  the record, the oracle's report of it, and pre-states with a non-default MXCSR;
+- whether x86isa honours MXCSR.RC at all is the third cost component, measured by executing one
+  instance.
+- ADD, SUB and DIV are unmeasured: the same class of arithmetic, not yet profiled.
+
+⇒ The next measurement is the oracle probe, not another kernel reading.
 
 ---
 

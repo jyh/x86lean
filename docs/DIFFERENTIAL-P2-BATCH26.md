@@ -118,3 +118,8 @@ Step `6a3fb0c` → `29022ce` (this batch as one commit), measured on yukon.lan. 
 
 ⚠️ **CLEAN, at a resolution the load made poor** (D261 §7). The deterministic `ku-delta` reading carries the size:
 `Tests.Coverage` +79,980, as large as batch 39's.
+
+⛔ **RE-KEYED (D264):** the row above was keyed on the batch commit's parent and priced no step on the merge. The branch was
+restructured so that the batch's `.lean` files and two gate repairs are its first commit, `84a241d`. The step was re-measured as
+`ccb2f8b → 84a241d`: ms rc 3 (UNMEASURABLE on `Tests.Coverage` and `Tests.Program` at load 6.2–9.3, none over budget), A′ CLEAN
+with the same Δku module for module. It was **recorded on A′'s verdict**. `--gap` reads 0 on the branch and on the merge.
