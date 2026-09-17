@@ -2385,8 +2385,20 @@ The prose goes in `note`, which is not reduced.
   - **The demand:** sub-group B unclaimed is 31,065 → **19,885**.
 - **B2 = add, sub and div at both formats.** Its first question is D268 §8's: the price of folding `vmul` into a
   `VArithOp` field, read on B2's own draft.
-  - ⚠️ `Tests.Anchors` has about 17k of A′ room left after B1 (+51,379 of 68,141). B2's pins must be priced before they
-    are written, and the allowance moves with the base.
+  - ⛔⛔ **THE A′ ALLOWANCE IS PER STEP, NOT A BALANCE THAT DEPLETES.** *This line read "`Tests.Anchors` has about
+    17k of A′ room left after B1 (+51,379 of 68,141)" until 2026-09-17 — a CUMULATIVE reading of a quantity that is
+    recomputed from scratch at every step, written by me and landed on #30 before I re-read the gate.*
+    The allowance is `23.3% × the module's base ku MEASURED IN THE SAME RUN` (`ku_delta_budget.txt`'s header;
+    `kernel_delta.effective`). B1's own run printed `Tests.Anchors  292,451 → 343,830  +51,379  allowance 68,141`,
+    and 23.3% × 292,451 = 68,141 exactly — so B1 did not *spend* 51,379 of a fund, it passed a per-step test.
+    **B2's base is B1's head, so B2's allowance is 23.3% × 343,830 = 80,112** — MORE room than B1 had, not 17k less.
+    ⇒ 🔑 ***A GATE WHOSE THRESHOLD IS A FRACTION OF THE THING IT MEASURES CANNOT BE READ AS A BUDGET THAT DEPLETES***,
+    and the depleting reading is the one that manufactures a constraint nobody has to meet.
+  - ⚠️ **AND THE REAL CONSTRAINT SURVIVES THE CORRECTION, WHICH IS WHY THE PRICING STEP STAYS:** at B1's measured
+    ~1,170 ku per pin row (44 pins, 51,473 ku), **80,112 admits about 68 pin rows in one step** — and `hwprobe/`
+    carries **110** B2 rows. The allowance being larger does not make the batch fit; **B2's pin SELECTION is the
+    live question**, exactly as B1's was (it pinned 44 of 85). Price the selection on a draft before writing it,
+    and split across steps rather than widening anything.
   - ⚠️ `Tests.Vectors` sits near the code generator's recursion limit (D268 §5). B1 raised it to 32,768; B2 re-measures
     it.
 
