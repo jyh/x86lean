@@ -2394,14 +2394,26 @@ The prose goes in `note`, which is not reduced.
   all matching. **The fold emits the same bytes**, which equal totals alone could not have established.
   ⛔ **What remains is the LANDING STEP, not a measurement:** a PR, the ms walk with predictions posted before
   it, and `--record`.
+  - ⛔⛔ **THE A′ ALLOWANCE IS PER STEP, NOT A BALANCE THAT DEPLETES.** *This line read "`Tests.Anchors` has about
+    17k of A′ room left after B1 (+51,379 of 68,141)" until 2026-09-17 — a CUMULATIVE reading of a quantity that is
+    recomputed from scratch at every step, written by me and landed on #30 before I re-read the gate.*
+    The allowance is `23.3% × the module's base ku MEASURED IN THE SAME RUN` (`ku_delta_budget.txt`'s header;
+    `kernel_delta.effective`). B1's own run printed `Tests.Anchors  292,451 → 343,830  +51,379  allowance 68,141`,
+    and 23.3% × 292,451 = 68,141 exactly — so B1 did not *spend* 51,379 of a fund, it passed a per-step test.
+    **B2's base is B1's head, so B2's allowance is 23.3% × 343,830 = 80,112** — MORE room than B1 had, not 17k less.
+    ⇒ 🔑 ***A GATE WHOSE THRESHOLD IS A FRACTION OF THE THING IT MEASURES CANNOT BE READ AS A BUDGET THAT DEPLETES***,
+    and the depleting reading is the one that manufactures a constraint nobody has to meet.
+  - ⚠️ **AND THE REAL CONSTRAINT SURVIVES THE CORRECTION, WHICH IS WHY THE PRICING STEP STAYS:** at B1's measured
+    ~1,170 ku per pin row (44 pins, 51,473 ku), **80,112 admits about 68 pin rows in one step** — and `hwprobe/`
+    carries **110** B2 rows. The allowance being larger does not make the batch fit; **B2's pin SELECTION is the
+    live question**, exactly as B1's was (it pinned 44 of 85). Price the selection on a draft before writing it,
+    and split across steps rather than widening anything.
 - ⚠️ **OPEN, AND IT IS AN ABANDONED READING RATHER THAN A FAILURE:** every `run_differential.sh` prints
   `⛔ kernel-cost gate FAILED` for `X86.Syntax 291/200`. The ceiling was **retired as a merge gate 2026-09-04**
   and `kernel_ceilings.txt:129` has not moved since, while the module has measured 270–293 since 2026-09-13
   (`ku_delta_budget.txt:81`) — B1's own run read 313 (D268 §6). ⇒ **A red that prints on every run and is
   explained away every time is the shape `ku_delta_budget.txt`'s header warned of: *"a reading nobody reads is
   not retired, it is abandoned."*** Raising or removing it belongs in its own commit with its own control.
-  - ⚠️ `Tests.Anchors` has about 17k of A′ room left after B1 (+51,379 of 68,141). B2's pins must be priced before they
-    are written, and the allowance moves with the base.
   - ⚠️ `Tests.Vectors` sits near the code generator's recursion limit (D268 §5). B1 raised it to 32,768; B2 re-measures
     it.
 
