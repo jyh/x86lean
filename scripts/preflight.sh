@@ -74,6 +74,18 @@ for a in --selftest --gap; do
   if python3 scripts/kernel_drift.py $a >/dev/null 2>&1; then printf "  ok   kernel_drift %s\n" "$a"
   else printf "  ⛔ FAIL kernel_drift %s\n" "$a"; rc=1; fi
 done
+# ⛔ ADDED 2026-09-16 (D264): the --gap above reads HEAD's first-parent chain, but a PR lands as a MERGE whose
+#   chain is origin/master → merge. A ledger row keyed on a BRANCH-INTERNAL base is recorded on HEAD and missing
+#   on the merge: this loop read ok on PR #27's head and CI's pull_request run went red on the drift gate's
+#   partition arm. So the gap is ALSO read on a synthetic merge commit (an object only: never checked out, never pushed).
+if git rev-parse -q --verify origin/master >/dev/null 2>&1 && ! git merge-base --is-ancestor HEAD origin/master; then
+  if smtree=$(git merge-tree --write-tree origin/master HEAD 2>/dev/null) \
+     && smerge=$(git commit-tree "$smtree" -p origin/master -p HEAD -m "preflight: synthetic merge" 2>/dev/null); then
+    if python3 scripts/kernel_drift.py --gap --head "$smerge" >/dev/null 2>&1; then
+      printf "  ok   kernel_drift --gap on the merge with origin/master (%s)\n" "${smerge:0:9}"
+    else printf "  ⛔ FAIL kernel_drift --gap on the merge with origin/master: the row must be keyed on origin/master\n"; rc=1; fi
+  else printf "  ⛔ FAIL could not synthesize the merge with origin/master (a conflict?): the drift gap is UNREAD\n"; rc=1; fi
+fi
 for a in --tree --history --messages; do
   if python3 scripts/check_private_paths.py $a >/dev/null 2>&1; then printf "  ok   private-paths %s\n" "$a"
   else printf "  ⛔ FAIL private-paths %s\n" "$a"; rc=1; fi

@@ -293,6 +293,13 @@ def name_route(sym):
     return "C"
 
 SCALAR_FP = re.compile(r"(ss|sd)$")
+# ⛔ D260 (QUEUE PACKED-SCALAR-CONV): `(ss|sd)$` is a rule about SPELLING, and a
+# scalar conversion's spelling ends wherever its SUFFIX puts it — `cvtsi2sdl`,
+# `cvttsd2si`, `cvtss2si`.  Only the bare `cvtsi2sd` matched, and it was the
+# only spelling an arm tested.  Every other one counted as packed SIMD and
+# pulled its function body toward the hand-written route.  This names the
+# scalar conversions by MEANING: a scalar source or destination on each side.
+SCALAR_CONV = re.compile(r"v?(cvtt?s[sd]2si|cvtsi2s[sd])[lq]?")
 XFER = {"movd", "movq", "movl", "vmovd", "vmovq"}
 
 def is_packed(mn, ops):
@@ -306,7 +313,7 @@ def is_packed(mn, ops):
         return True
     if "%xmm" not in ops:
         return False
-    if SCALAR_FP.search(mn) or mn in XFER:
+    if SCALAR_FP.search(mn) or SCALAR_CONV.fullmatch(mn) or mn in XFER:
         return False
     return True
 
@@ -344,7 +351,84 @@ GPR_EXT = {
     # because there are no operands to read a width off.
     "vzeroupper": "AVX (state)", "vzeroall": "AVX (state)",
     "vzeroupperq": "AVX (state)",
+    # ⚠️ D259: the MXCSR load/store names only a MEMORY operand, so the width
+    # rules file it under "GPR/other" too.  It is SSE STATE, and this model has
+    # no MXCSR (D2) — the same shape as the AVX state row above.
+    "ldmxcsr": "SSE (MXCSR state)", "stmxcsr": "SSE (MXCSR state)",
+    "vldmxcsr": "SSE (MXCSR state)", "vstmxcsr": "SSE (MXCSR state)",
 }
+
+# ── operand-silent instructions: the register file is in the MNEMONIC ─────
+# ⛔⛔ D259 (QUEUE CENSUS-SILENT-OPERANDS).  `isa_bucket` reads the register file
+# off the operand TEXT, and three families name none there: `emms` (no
+# operands), x87 forms that load from or store to MEMORY or take no operands
+# (`fldl (%rax)`, `fnstsw %ax`, `fld1`), and a float->int conversion whose
+# source is MEMORY (`cvttsd2si (%rbx),%eax`).  All of them fell to "GPR/other".
+# Measured on the committed census at 35c5c15: that bucket's uncovered demand
+# was 218 instructions over 16 mnemonics, and NOT ONE was a GPR form; the 32
+# `cvtts*` among them were the reason sub-group A′ was priced at 898 and not 930.
+# ⚠️ WHAT IT MOVED WAS ATTRIBUTION, NOT COVERAGE: every one of the 218 reads
+# `unmapped` in `_decide`, so the scope flag was never consulted for them.
+# ✅ THE RULE BELOW RUNS ONLY WHERE THE OPERAND RULE HAS NOTHING TO READ — it is
+# consulted after every register test, so an instruction that names `%st`,
+# `%mm`, `%xmm` or wider is bucketed exactly as before.
+# ⛔ THE x87 SET IS AN EXPLICIT LIST (SDM Vol. 1 ch. 8, the x87 FPU instruction
+# set), NEVER AN `f` PREFIX: `fxsave` saves x87 AND SSE state and is not a stack
+# form, and a prefix rule would also capture any future `f…` GPR mnemonic.
+# ⚠️ WHAT STAYS IN "GPR/other", DECLARED: the whole-state saves (`fxsave`,
+# `fxrstor`, `xsavec`, `xrstors64` …) name no single register file, and the
+# system and CET forms (`hlt`, `rdsspq`, `rdpkru`, `xtest` …) are not a register
+# file this census partitions by.  The MXCSR load/store is a `GPR_EXT` row.
+X87_BARE = frozenset("""
+    f2xm1 fabs fchs fclex fnclex fcos fdecstp fincstp finit fninit fld1 fldl2t
+    fldl2e fldlg2 fldln2 fldpi fldz fnop fpatan fprem fprem1 fptan frndint fscale fsin
+    fsincos fsqrt ftst fxam fxtract fyl2x fyl2xp1 fcompp fucompp wait fwait
+    ffree ffreep fxch fucom fucomp fucomi fucomip fcomi fcomip
+    fcmovb fcmove fcmovbe fcmovu fcmovnb fcmovne fcmovnbe fcmovnu
+    fldcw fldenv fnstcw fstcw fnstenv fstenv fnstsw fstsw fnsave fsave frstor
+    fbld fbstp faddp fsubp fsubrp fmulp fdivp fdivrp
+""".split())
+# the forms that take a SIZED memory operand, which AT&T spells with a suffix:
+# `s` (float32 / int16), `l` (float64 / int32), `t` (float80), `ll` (int64)
+X87_SIZED = frozenset("""
+    fld fst fstp fadd fsub fsubr fmul fdiv fdivr fcom fcomp
+    fild fist fistp fisttp fiadd fisub fisubr fimul fidiv fidivr ficom ficomp
+""".split())
+X87_SUFFIXES = ("ll", "s", "l", "t")
+MMX_SILENT = frozenset({"emms"})
+_SILENT_CVT_RE = re.compile(r"(v?)cvtt?s[sd]2si[lq]?")
+
+def silent_operand_bucket(mn):
+    """The bucket an instruction's MNEMONIC names, for the families whose
+    operands may name no register file; `None` for everything else."""
+    if mn in MMX_SILENT:
+        return "MMX (mm)"
+    m = _SILENT_CVT_RE.fullmatch(mn)
+    if m:
+        return "VEX-128 (v… xmm)" if m.group(1) else "SSE-legacy (xmm)"
+    if mn in X87_BARE or mn in X87_SIZED:
+        return "x87 (st)"
+    for suf in X87_SUFFIXES:
+        if mn.endswith(suf) and mn[:-len(suf)] in X87_SIZED:
+            return "x87 (st)"
+    return None
+
+# the closed domain the staleness stamp hashes the bucket rule over (see
+# `model_stamp`): every silent spelling, plus operand shapes of every register
+# file, so a change to ANY branch of `isa_bucket` over these names moves it
+_SILENT_DOMAIN = (MMX_SILENT | X87_BARE | X87_SIZED
+                  | {b + s for b in X87_SIZED for s in X87_SUFFIXES}
+                  | {v + "cvt" + t + "s" + f + "2si" + w
+                     for v in ("", "v") for t in ("", "t") for f in "sd"
+                     for w in ("", "l", "q")})
+# D260: every spelling `SCALAR_CONV` names, so the stamp sees the packed rule on each
+_SCALAR_CONV_DOMAIN = {v + c + w for v in ("", "v")
+                       for c in ("cvtss2si", "cvtsd2si", "cvttss2si", "cvttsd2si",
+                                 "cvtsi2ss", "cvtsi2sd")
+                       for w in ("", "l", "q")}
+_BUCKET_PROBE_OPS = ("", "(%rbx)", "(%rbx),%eax", "%ax", "%rax, %rbx",
+                     "%xmm0,%eax", "%mm1, %mm0", "%st(1)", "%ymm0, %ymm1",
+                     "%zmm0, %zmm1", "%fs:0x28, %rax")
 
 def isa_bucket(mn, ops, kind="plain"):
     """⛔ THE BUCKET IS THE REASON THE MODEL CANNOT EXECUTE IT, not just the
@@ -370,6 +454,9 @@ def isa_bucket(mn, ops, kind="plain"):
         return "MMX (mm)"
     if "%st" in ops:
         return "x87 (st)"
+    silent = silent_operand_bucket(mn)
+    if silent is not None:
+        return silent
     base = mn[:-1] if (mn[:-1] in GPR_EXT and mn[-1] in "bwlq") else mn
     return GPR_EXT.get(base, "GPR/other (unclassified)")
 
@@ -398,6 +485,8 @@ EXT_SCOPE.update({
     # ⛔ operand-free AVX state instructions are NOT a GPR form; they are in
     # `GPR_EXT` only because there are no operands to read a width off.
     "AVX (state)":                            False,
+    # ⛔ D259: MXCSR is ABSENT from `Cpu` by D2, so its load/store cannot be held
+    "SSE (MXCSR state)":                      False,
     # register files this model does not have
     "AVX-512 (zmm/k)":                        False,
     "AVX2/AVX (ymm)":                         False,
@@ -805,6 +894,15 @@ def model_stamp(model):
     for m in WIDTH_KEYED:
         for src in _WIDTH_PROBE_SRCS:
             rows.append(f"KEY\t{m}\t{src}\t{width_key(m, src + ',%xmm0')}")
+    # ⛔ D259: and so does `isa_bucket`, which also runs before `_decide` and
+    # hands it the bucket.  A bucket rule that moved an instruction between
+    # register files left this stamp unmoved, so the census read as fresh.
+    for m in sorted(_rule_domain(model) | _SILENT_DOMAIN | _SCALAR_CONV_DOMAIN):
+        for ops in _BUCKET_PROBE_OPS:
+            rows.append(f"BUCKET\t{m}\t{ops}\t{isa_bucket(m, ops)}")
+            # ⛔ D260: and `is_packed`, which decides every ORIGIN cell the same
+            # document publishes; a packed-rule change left the stamp unmoved too
+            rows.append(f"PACKED\t{m}\t{ops}\t{int(is_packed(m, ops))}")
     rh = hashlib.sha256("\n".join(rows).encode()).hexdigest()[:16]
     return len(model), h, rh
 
@@ -1292,6 +1390,16 @@ def selftest():
         (("vpaddd", "%ymm2, %ymm1, %ymm0"), True),
         (("vpmulhrsw", "%zmm2, %zmm1, %zmm0"), True),
         (("movq", "%mm0, %mm3"), True), (("movaps", "%xmm1, %xmm0"), True),
+        # ⭐ D260: every SUFFIXED scalar conversion is scalar too — `(ss|sd)$` saw
+        # only the bare `cvtsi2sd`, which is the one spelling the arm above tests
+        (("cvtsi2sdl", "(%rbx), %xmm0"), False), (("cvtsi2ssq", "0x8(%rsp), %xmm1"), False),
+        (("cvttsd2si", "%xmm0, %eax"), False), (("cvttss2si", "%xmm1, %rax"), False),
+        (("cvtsd2si", "%xmm0, %eax"), False), (("cvtss2si", "%xmm0, %rax"), False),
+        (("vcvttsd2si", "%xmm0, %eax"), False),
+        (("vcvtsi2sdl", "(%rbx), %xmm1, %xmm0"), False),
+        # ...and a PACKED conversion is still packed: the rule is by meaning
+        (("cvtdq2ps", "%xmm1, %xmm0"), True), (("cvttps2dq", "%xmm1, %xmm0"), True),
+        (("cvtpi2ps", "%mm0, %xmm0"), True), (("vcvtps2pd", "%xmm1, %ymm0"), True),
     ]
     for (mn, ops), want in packed_arms:
         got = is_packed(mn, ops)
@@ -1320,8 +1428,34 @@ def selftest():
         (("vpaddd", "%xmm2, %xmm1, %xmm0"), "VEX-128 (v… xmm)"),
         (("paddd", "%xmm1, %xmm0"), "SSE-legacy (xmm)"),
         (("paddd", "%mm1, %mm0"), "MMX (mm)"),
-        (("fldt", "0x10(%rsp)"), "GPR/other (unclassified)"),
+        # ⛔ D259 FLIPPED THIS ARM ON PURPOSE.  Until then it expected
+        # "GPR/other": an x87 load from memory names no `%st`, and the arm pinned
+        # the operand rule's blind spot as the right answer.
+        (("fldt", "0x10(%rsp)"), "x87 (st)"),
         (("fstp", "%st(1)"), "x87 (st)"),
+        # ⭐ D259: the register file is in the MNEMONIC when the operands name none
+        (("emms", ""), "MMX (mm)"),
+        (("fnstsw", "%ax"), "x87 (st)"),
+        (("wait", ""), "x87 (st)"),
+        (("fld1", ""), "x87 (st)"),
+        (("fcos", ""), "x87 (st)"),
+        (("fildll", "0x8(%rsp)"), "x87 (st)"),
+        (("fstpl", "-0x8(%rbp)"), "x87 (st)"),
+        (("cvttsd2si", "(%rbx),%eax"), "SSE-legacy (xmm)"),
+        (("cvttss2si", "0x10(%rsp),%rax"), "SSE-legacy (xmm)"),
+        (("cvtss2si", "(%rbx),%eax"), "SSE-legacy (xmm)"),
+        (("vcvttsd2si", "(%rbx),%eax"), "VEX-128 (v… xmm)"),
+        # ...and the controls: the operand rule still decides where it can, and a
+        # name that merely LOOKS like the families is not captured by them
+        (("cvttsd2si", "%xmm0,%eax"), "SSE-legacy (xmm)"),
+        (("cvtsi2sdl", "(%rbx),%xmm0"), "SSE-legacy (xmm)"),
+        (("fldl2e", ""), "x87 (st)"),
+        (("ldmxcsr", "0x4(%rsp)"), "SSE (MXCSR state)"),
+        (("vstmxcsr", "(%rax)"), "SSE (MXCSR state)"),
+        (("fxsave", "(%rax)"), "GPR/other (unclassified)"),
+        (("frobnicates", "(%rax)"), "GPR/other (unclassified)"),
+        (("fstpq", "(%rax)"), "GPR/other (unclassified)"),
+        (("addl", "(%rbx),%eax"), "GPR/other (unclassified)"),
         (("popcntq", "%rax, %rbx"), "POPCNT"),
         (("endbr64", ""), "CET-IBT"),
         (("shlx", "%rax, %rbx, %rcx"), "BMI2"),
@@ -1430,6 +1564,18 @@ def selftest():
           "a register-source conversion is keyed by WIDTH and its body still routes CC" +
           ("" if ok else f"\n      got {dict(got4)}\n      want {want4}"))
     bad += [] if ok else ["width-origin"]
+    # ⭐ D260: a body of scalar float→int truncations and suffixed int→float
+    # conversions is SCALAR code, and routes CC
+    lines5 = LA(0x3000, *["cvttsd2si %xmm0,%eax"] * 6, *["cvtsi2sdl (%rbx),%xmm0"] * 2)
+    got5 = collections.Counter()
+    for (mn, kind, o, ext), k in _classify(lines5, [(0x3000, 0x3020, "scale_frame_c")]).items():
+        got5[(mn, o)] += k
+    want5 = {("cvttsd2si", "CC"): 6, ("cvtsi2sdl", "CC"): 2}
+    ok = dict(got5) == want5
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "a body of suffixed scalar conversions routes CC, not packed-SIMD A" +
+          ("" if ok else f"\n      got {dict(got5)}\n      want {want5}"))
+    bad += [] if ok else ["scalar-conv-origin"]
     # ...and the stamp SEES the rule: an identity key must move the `rules` half
     _saved_wk = globals()["width_key"]
     globals()["width_key"] = lambda mn, ops: mn
@@ -1444,6 +1590,37 @@ def selftest():
           "before `_decide` is part of the mapping)" +
           ("" if ok else f"   rules {_r0}/{_r3}/{_r4}"))
     bad += [] if ok else ["stamp-width-key"]
+    # ...and it SEES THE BUCKET RULE (D259): `isa_bucket` runs before `_decide`
+    # too, and an unhashed bucket change leaves a census reading as fresh.
+    _saved_ib = globals()["isa_bucket"]
+    globals()["isa_bucket"] = lambda mn, ops, kind="plain": (
+        "GPR/other (unclassified)" if mn == "emms" else _saved_ib(mn, ops, kind))
+    try:
+        _n5, _h5, _r5 = model_stamp(_M)
+    finally:
+        globals()["isa_bucket"] = _saved_ib
+    _n6, _h6, _r6 = model_stamp(_M)
+    ok = (_h5 == _h0) and (_r5 != _r0) and (_r6 == _r0)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "the stamp's `rules` half moves when ONE BUCKET moves (D259: `isa_bucket` "
+          "is part of the mapping)" +
+          ("" if ok else f"   rules {_r0}/{_r5}/{_r6}"))
+    bad += [] if ok else ["stamp-bucket"]
+    # ...and it SEES THE PACKED RULE (D260), which decides every origin cell
+    _saved_ip = globals()["is_packed"]
+    globals()["is_packed"] = lambda mn, ops: (
+        True if mn == "cvttsd2si" else _saved_ip(mn, ops))
+    try:
+        _n7, _h7, _r7 = model_stamp(_M)
+    finally:
+        globals()["is_packed"] = _saved_ip
+    _n8, _h8, _r8 = model_stamp(_M)
+    ok = (_h7 == _h0) and (_r7 != _r0) and (_r8 == _r0)
+    print(("  ✔ " if ok else "  ⛔ ") +
+          "the stamp's `rules` half moves when ONE PACKED VERDICT moves (D260: the "
+          "origin split is in the same document)" +
+          ("" if ok else f"   rules {_r0}/{_r7}/{_r8}"))
+    bad += [] if ok else ["stamp-packed"]
 
     # ── the `objdump -t` line shapes this tool must parse ──
     sym_arms = [

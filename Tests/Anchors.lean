@@ -2313,4 +2313,83 @@ theorem cvtsi2sd_int32_ieee :
   ] : List (BitVec 64 × BitVec 64)).all
     (fun (a, r) => SoftFloat.i32to64 a == r) = true := by decide
 
+/-! ## ⭐⭐⭐ THE TRUNCATIONS WHERE NO VECTOR REACHES — P2 BATCH 40 (D261)
+
+`SoftFloat.truncToInt` at both destination widths, on the values that decide
+its rules: the zeros and denormals, fractions either side of ½ and of 1, the
+int32 and int64 boundaries from both sides (INT_MIN itself is IN range, one ULP
+beyond it is not), the largest values below each limit, and the infinities and
+NaNs.  Each binary32 carrier holds junk ABOVE bit 31, which the rule must not
+read.
+
+⛔ **WHY THESE ARE HERE:** over the 88 pre-states, no source anywhere reaches a
+result of INT_MIN or INT_MAX, and a non-zero in-range binary64 result occurs in
+3 states of one register (D261 §2).  The vectors test the indefinite and the
+zero; the rule that truncates a binary64 normal is tested HERE.
+
+⛔ **THE EXPECTATIONS ARE NOT THE MODEL'S.** Each (int32, int64) pair comes from
+an independent reference: exact integer arithmetic on the IEEE fields, with the
+SDM's indefinite rule.  That reference also agrees with `truncToInt` on 24,884
+generated rows.  The rows were then EXECUTED on x86isa at
+`cvtts?2si %xmm1, %eax` and `%rax` (D261 §4).
+
+⚠️ A different instrument from the vector table, never pooled with it: these
+rows speak about the lane rule, not about `step`. -/
+
+theorem cvttsd2si_trunc :
+  ([
+    (0x0000000000000000, 0x0000000000000000, 0x0000000000000000),  -- +0
+    (0x8000000000000000, 0x0000000000000000, 0x0000000000000000),  -- -0
+    (0x0000000000000001, 0x0000000000000000, 0x0000000000000000),  -- +den-min
+    (0x3fe0000000000000, 0x0000000000000000, 0x0000000000000000),  -- 0.5
+    (0x3fefffffffffffff, 0x0000000000000000, 0x0000000000000000),  -- 1-ulp
+    (0x3ff0000000000000, 0x0000000000000001, 0x0000000000000001),  -- 1
+    (0x3ff8000000000000, 0x0000000000000001, 0x0000000000000001),  -- 1.5
+    (0x4004000000000000, 0x0000000000000002, 0x0000000000000002),  -- 2.5
+    (0xbff8000000000000, 0x00000000ffffffff, 0xffffffffffffffff),  -- -1.5
+    (0xbfe0000000000000, 0x0000000000000000, 0x0000000000000000),  -- -0.5
+    (0x41dfffffffc00000, 0x000000007fffffff, 0x000000007fffffff),  -- int32max
+    (0x41dfffffffffffff, 0x000000007fffffff, 0x000000007fffffff),  -- int32max+frac
+    (0x41e0000000000000, 0x0000000080000000, 0x0000000080000000),  -- 2^31
+    (0xc1e0000000000000, 0x0000000080000000, 0xffffffff80000000),  -- -2^31
+    (0xc1e00000001fffff, 0x0000000080000000, 0xffffffff80000000),  -- -2^31-frac
+    (0xc1e0000000200000, 0x0000000080000000, 0xffffffff7fffffff),  -- -2^31-1
+    (0x4340000000000001, 0x0000000080000000, 0x0020000000000002),  -- 2^53+2
+    (0x43dfffffffffffff, 0x0000000080000000, 0x7ffffffffffffc00),  -- 2^63-1024
+    (0x43e0000000000000, 0x0000000080000000, 0x8000000000000000),  -- 2^63
+    (0xc3e0000000000000, 0x0000000080000000, 0x8000000000000000),  -- -2^63
+    (0xc3e0000000000001, 0x0000000080000000, 0x8000000000000000),  -- -2^63-2048
+    (0x7fefffffffffffff, 0x0000000080000000, 0x8000000000000000),  -- norm-max
+    (0x8010000000000000, 0x0000000000000000, 0x0000000000000000),  -- -norm-min
+    (0x7ff0000000000000, 0x0000000080000000, 0x8000000000000000),  -- +inf
+    (0xfff0000000000000, 0x0000000080000000, 0x8000000000000000),  -- -inf
+    (0x7ff8000000000000, 0x0000000080000000, 0x8000000000000000),  -- qnan
+    (0x7ff0000000000001, 0x0000000080000000, 0x8000000000000000),  -- snan
+    (0xfff8000000000000, 0x0000000080000000, 0x8000000000000000)  -- -qnan
+  ] : List (BitVec 64 × BitVec 64 × BitVec 64)).all
+    (fun (a, r, q) => SoftFloat.truncToInt SoftFloat.binary64 32 a == r &&
+                      SoftFloat.truncToInt SoftFloat.binary64 64 a == q) = true := by decide
+
+theorem cvttss2si_trunc :
+  ([
+    (0xa5a5a5a500000000, 0x0000000000000000, 0x0000000000000000),  -- +0
+    (0xa5a5a5a580000000, 0x0000000000000000, 0x0000000000000000),  -- -0
+    (0xa5a5a5a5007fffff, 0x0000000000000000, 0x0000000000000000),  -- +den-max
+    (0xa5a5a5a5bf000000, 0x0000000000000000, 0x0000000000000000),  -- -0.5
+    (0xa5a5a5a53fc00000, 0x0000000000000001, 0x0000000000000001),  -- 1.5
+    (0xa5a5a5a5c0200000, 0x00000000fffffffe, 0xfffffffffffffffe),  -- -2.5
+    (0xa5a5a5a54effffff, 0x000000007fffff80, 0x000000007fffff80),  -- 2^31-128
+    (0xa5a5a5a54f000000, 0x0000000080000000, 0x0000000080000000),  -- 2^31
+    (0xa5a5a5a5cf000000, 0x0000000080000000, 0xffffffff80000000),  -- -2^31
+    (0xa5a5a5a5cf000001, 0x0000000080000000, 0xffffffff7fffff00),  -- -2^31-256
+    (0xa5a5a5a55effffff, 0x0000000080000000, 0x7fffff8000000000),  -- 2^63-2^39
+    (0xa5a5a5a55f000000, 0x0000000080000000, 0x8000000000000000),  -- 2^63
+    (0xa5a5a5a5df000000, 0x0000000080000000, 0x8000000000000000),  -- -2^63
+    (0xa5a5a5a57f800000, 0x0000000080000000, 0x8000000000000000),  -- +inf
+    (0xa5a5a5a57fc00000, 0x0000000080000000, 0x8000000000000000),  -- qnan
+    (0xa5a5a5a5ff800001, 0x0000000080000000, 0x8000000000000000)  -- -snan
+  ] : List (BitVec 64 × BitVec 64 × BitVec 64)).all
+    (fun (a, r, q) => SoftFloat.truncToInt SoftFloat.binary32 32 a == r &&
+                      SoftFloat.truncToInt SoftFloat.binary32 64 a == q) = true := by decide
+
 end X86.Tests

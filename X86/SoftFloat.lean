@@ -207,5 +207,47 @@ def i32to64 (x : BitVec 64) : BitVec 64 :=
     let neg := v.getLsbD 31
     toBinary64 neg ((if neg then -v else v).setWidth 64) 1023
 
+/-! ### ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′: TRUNCATION TO AN INTEGER (D261).
+
+`cvttsd2si` and `cvttss2si` convert the low binary64 / binary32 lane to a signed
+integer of the destination's width, ROUNDING TOWARD ZERO whatever MXCSR.RC says.
+That is why they are sub-group A′ and not B: the opcode fixes the rounding, so
+the model states them without an MXCSR (D2). -/
+
+/-- ⭐⭐ CVTTSD2SI / CVTTSS2SI's RULE (SDM Vol. 2A, CVTTSD2SI and CVTTSS2SI): the
+low `f`-format lane of `x`, truncated toward zero, as a `w`-bit two's-complement
+integer, zero-extended to 64 bits (`w` is 32 or 64).
+
+* **|x| < 1 gives 0**, including ±0 and every denormal. A negative fraction
+  gives +0, because an integer has no signed zero.
+* **A NaN, ±∞, or any value whose truncation is outside
+  `[−2^(w−1), 2^(w−1) − 1]` gives the INTEGER INDEFINITE `2^(w−1)`**, which is
+  the sign bit alone. The invalid exception that goes with it is an MXCSR flag,
+  masked in every pre-state here, and this model has no MXCSR (D2).
+* **−2^(w−1) itself is in range.** A value in `(−2^(w−1) − 1, −2^(w−1)]`
+  truncates to it, which has the same bits as the indefinite by a different rule.
+
+The significand is placed as an integer. A normal's value is
+`(2^mw + mant) × 2^(k − mw)`, with `k` the unbiased exponent, so the truncation is
+one shift: left when `k ≥ mw`, right (dropping the fraction) otherwise.
+`k < w ≤ 64` bounds the left shift, so the integer fits in 64 bits for both
+formats: below `2^53 × 2^11` for binary64 and `2^24 × 2^40` for binary32. -/
+def truncToInt (f : Fmt) (w : Nat) (x : BitVec 64) : BitVec 64 :=
+  let e := (f.expo x).toNat
+  let bias := 2 ^ (f.ew - 1) - 1
+  let ind : BitVec 64 := 1 <<< (w - 1)
+  if e == 2 ^ f.ew - 1 then ind
+  else if e < bias then 0
+  else
+    let k := e - bias
+    if w ≤ k then ind
+    else
+      let sig := f.mant x ||| (1 <<< f.mw)
+      let n := if f.mw ≤ k then sig <<< (k - f.mw) else sig >>> (f.mw - k)
+      if f.sign x then
+        (if n.ule ind then ((-n).setWidth w).setWidth 64 else ind)
+      else
+        (if n.ult ind then n else ind)
+
 end SoftFloat
 end X86

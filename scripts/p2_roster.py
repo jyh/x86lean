@@ -1003,6 +1003,11 @@ def selftest():
     for g in asm:
         for _m, per in (d[g].get("miss_by_ext") or {}).items():
             census_buckets |= set(per)
+        # ⛔ D259: AND THE COVERED BUCKETS.  The vocabulary is the PARTITION's, not
+        # the backlog's: this arm read only uncovered demand, so when D259 moved the
+        # last 218 uncovered asm instructions out of "GPR/other", the probe table's
+        # `movl` control — a GPR form, correctly bucketed — read as a stray spelling.
+        census_buckets |= set(d[g].get("ext_covered") or {})
     probe_buckets = {b for (_m, b) in OA.measured_availability()}
     stray = probe_buckets - census_buckets
     ok = not stray

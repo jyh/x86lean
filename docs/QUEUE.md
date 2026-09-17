@@ -494,7 +494,7 @@ Exit criterion — one differential run of the 20 forms with zero unexplained di
 Roster growth to the census's scalar demand, with the vector table, the encoding gates and the
 kernel-cost discipline built along the way.
 
-## P2 — the vector campaign · **LIVE** (25 differential records; the seat's own batch counter is higher)
+## P2 — the vector campaign · **LIVE** (26 differential records; the seat's own batch counter is higher)
 ⚠️ *This header read "22 differential records" until 2026-09-16, with 24 on disk: the paragraph below names this exact
 defect, and it recurred two records after the paragraph was written. The count is `ls docs/DIFFERENTIAL-P2-BATCH*.md`,
 and nothing gates this line.*
@@ -2374,10 +2374,11 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN, FROZEN, PARTLY REFUTED — SUB-GROUP A LANDED IN FULL 2026-09-16**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — SUB-GROUPS A AND A′ LANDED IN FULL 2026-09-16 (A′: D261); B REMAINS, AND ITS KILL-CHECKS K3/K4 ARE MEASURED (D262, D263)**
 ⚖️ **STATUS AT 2026-09-16:** sub-group A is BUILT and on the roster across three batches: the compares (32, D140), min/max
-(38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 898:
-`cvttsd2si`/`cvttss2si`, truncation) is the next priceable group. **B** stays frozen on K3 and K4.
+(38, D253) and the exact widenings (39, D258). `p2_residue` gate 3 reads A as 12 pairs / 0 unclaimed. **A′** (2 pairs, 930 since D259;
+the census had filed 32 memory-source forms under GPR/other and read 898: `cvttsd2si`/`cvttss2si`, truncation) is BUILT as P2 batch 40
+(D261) and gate 3 reads it 0. **B** (26 pairs, 31,065) is no longer frozen on K3 and K4: both were measured on drafts on 2026-09-16 and neither is the expensive part. A soft-float multiply costs 112 cells for 25,132 ku / 35 ms (D262), and one top-level MXCSR field costs `X86.Theorems` +2.6% ku (D263). ⇒ **NEXT for B:** execute one `mulsd` on x86isa under a non-default MXCSR.RC (does the oracle honour RC, and does it report MXCSR?), then price the record change. Constraints from the drafts: no power above 256 on any path, and no `RC` inductive in `X86.SoftFloat`.
 ⚠️ *The status paragraph below said "OPEN: no sub-group has landed" while batches 32 and 38 were on `master`.*
 ⚖️ **STATUS AT 2026-09-15 (CLAIM-2 fourth pass): THE HEADER IS TRUE.** OPEN: no sub-group has landed. FROZEN: sub-group B waits on
 kill-checks K3 and K4, both still unmeasured (`docs/SOFT-FLOAT-COMMISSION.md` §4, §5). PARTLY REFUTED: K2 for two members (§7).
@@ -2388,10 +2389,12 @@ arithmetic), which A′'s red-first plant uses.
 scope re-measured, and a refuter pass run against it in the same sitting.
 
 ```
+AT THE FREEZE, 2026-09-05 (kept as the freeze read it; the live figures are the commission's §2):
 40 (mnemonic, bucket) pairs, 36,925 instructions   (the figure carried since batch 19 was 25,688)
    A   no rounding at all              12 pairs   6,619   17.9%   BUILDABLE — K1 verified
    A′  fixed mode, MXCSR.RC-free        2 pairs     898    2.4%
    B   MXCSR.RC-dependent              26 pairs  29,408   79.6%   un-priced, deliberately
+LIVE, 2026-09-16:  A 0 unclaimed (landed) · A′ 0 unclaimed (landed) · B 31,065 (K3/K4 measured, D262/D263)
 ```
 **Recommendation on the record:** take sub-group A as an ordinary P2-shaped batch; leave B frozen
 until kill-checks K3 (what a new `Cpu` field costs every record proof) and K4 (what a soft-float
@@ -2822,6 +2825,42 @@ the published COVERAGE narrative. Searched two ways: the needle `818` finds only
 The coverage table's x-shaped rows number about 82 by a heuristic read. ⛔ **Do not retype a number; gate one.** Take the count from the table
 by a stated rule (or delete the sentence's number), and add it to `check_readme_snapshot`'s subjects.
 
+## ✅ P2-NEXT (A′) (2026-09-16) — **BUILT THE SAME DAY as P2 batch 40 (D261, record 26): 2 pairs / 930 instructions. SUB-GROUP A′ IS EMPTY; only B remains.** The range boundary and the binary64 in-range rule are pinned in the kernel (§ reachability below); the landing measurement is D261 §7.
+*(As filed: "THE NEXT GROUP: sub-group A′ … Pre-code facts measured; Δku and the range boundary are UNPRICED.")*
+✅ **x86isa's truncating conversions do NOT abort the run at any special source**, unlike `cvtss2sd` (D258 §2). This was driven
+on a 13-case file through the differential driver, with a control case placed LAST (`3.14159f` → 3), and the control ran:
+```
+  cvttss2si  +0 → 0 · −0 → 0 · qNaN, sNaN, +∞ → 0x80000000 · 2^31 → 0x80000000 · −0.5 → 0 · min denormal → 0
+  cvttsd2si  +0 → 0 · qNaN → 0x80000000 · 2147483647.9999998 → 0x7fffffff · 2^63 → 0x80000000      (dest %eax, zero-extended)
+```
+⇒ A′ vectors may read ANY source, zeros included. The rule is truncation toward zero, with the integer indefinite on NaN, ∞
+or out of range, and no MXCSR.RC read.
+✅ **KEYS:** clang and objdump print ONE spelling for the r32 and r64 destinations and for the memory source (`cvttsd2si
+%xmm0,%eax` · `…,%rax` · `(%rbx),%eax` · `(%rbx),%rax`; the same for `cvttss2si`). So each key pools BOTH destination widths.
+Both widths are truncations, so unlike D257 the pooled class is sound. **The AST needs a WIDTH field** (int32 vs int64
+saturation), and the vectors need both widths. At the corpus (`objdump -d` over the six asm columns):
+```
+  cvttsd2si  xmm→r32 404 · xmm→r64 126 · mem→r32 11 · mem→r64 7     = 548
+  cvttss2si  xmm→r32 311 · xmm→r64  57 · mem→r32 14                 = 382
+```
+✅ **REACHABILITY, MEASURED 2026-09-16 over the 88 emitted pre-states (every xmm low lane, every memory offset present in all
+states), classing each source's truncation at both widths:**
+```
+  the range boundary (result = INT_MIN or INT_MAX)   0 of 88 at EVERY source, both formats, both widths
+  binary64, non-zero in-range result                 0 of 88 on 15 of 16 xmm lanes (xmm3 r64: 3); at most 1 at any
+                                                     memory offset — the random lanes are fractions (→ 0) or out of range
+  binary32, non-zero in-range result                 xmm4 r32 55 · xmm3 r32 18 · xmm2/xmm3 r64 19 · several offsets 13–18 (r64)
+  rbx+12 (binary32)                                 88 of 88, but ONE constant (−1.49f): truncation and round-to-nearest
+                                                     agree there, so it cannot refute a rounding model
+  NaN / out of range / fraction → 0                  reached broadly, both formats
+```
+⇒ **The truncation of a binary64 normal and both range boundaries are PINNED IN THE KERNEL, not tested by vectors.** Run them
+on x86isa first (it accepts every source, above). The binary32 in-range rule has vector reach through `xmm4`/`xmm3`, so a
+"rounds instead of truncating" arm is a vector arm for `cvttss2si` only.
+**STILL UNPRICED:** Δku (read it on a draft, never scaled), and what the constructors cost `X86.Syntax`'s ms cell. That cell is the
+tight one, and batch 39's three constructors are the nearest reading. ⚠️ The width is an AST field, not a `Cpu` field, so
+the commission's K3 does not price it.
+
 ## ✅ P2-NEXT — **BOTH HALVES BUILT: min/max as P2 batch 38 (D253, record 24, 926 instructions), the exact widenings as P2 batch 39 (D258, record 25, 4,385 instructions). SUB-GROUP A IS EMPTY.**
 ⛔ **Batch 39 found two things the price below did not know** (D258 §2):
 - x86isa's `cvtss2sd` at a ±0 source is a guard violation that **aborts the whole differential run**, so no `cvtss2sd`
@@ -2970,7 +3009,8 @@ day, when a local `--tree` run printed the private path it caught) and `check_co
   sitting.
 ⚠️ The exposure only exists when a violation is already on a public ref, so the log adds persistence, not first exposure.
 
-## ⚠️ CENSUS-SILENT-OPERANDS (2026-09-16, found pricing sub-group A′) — **`isa_bucket` reads the register file off the operand TEXT, so an MMX, x87 or SSE instruction whose operands name no such register is filed under "GPR/other", and A′'s priced demand is 32 short**
+## ✅ CENSUS-SILENT-OPERANDS (2026-09-16) — **BUILT THE SAME DAY (D259): the bucket rule reads the mnemonic where the operands name no register file; the stamp hashes `isa_bucket`; A′ is 930.** The MXCSR load/store was found by the sibling sweep and is its own out-of-scope bucket.
+*(As filed: "`isa_bucket` reads the register file off the operand TEXT, so an MMX, x87 or SSE instruction whose operands name no such register is filed under 'GPR/other', and A′'s priced demand is 32 short". The regeneration reproduced the split below to the instruction.)*
 Measured on the committed census (`docs/DEMAND-CENSUS.md.json` at `35c5c15`, `p2_roster.per_ext_map`, asm class, uncovered
 demand): the bucket holds **218 instructions over 16 mnemonics, and not one is a GPR form.**
 ```
@@ -3000,7 +3040,8 @@ SSE-legacy, and its `v` form to VEX-128. Add an arm per spelling and a red-first
 cell before and after, and force the regeneration through the stamp, as in D257. This is a sibling of PACKED-SCALAR-CONV below:
 the same mnemonics, under a different rule.
 
-## ⚠️ PACKED-SCALAR-CONV (2026-09-16, from D257) — **`is_packed` counts every SUFFIXED scalar conversion as packed SIMD**
+## ✅ PACKED-SCALAR-CONV (2026-09-16, from D257) — **BUILT THE SAME DAY (D260): 2,483 packed verdicts moved, and NO function body changed route, proved by monotonicity and unchanged cells.** The stamp now hashes `is_packed`.
+*(As filed: "`is_packed` counts every SUFFIXED scalar conversion as packed SIMD".)*
 `SCALAR_FP = (ss|sd)$` matches `cvtsi2sd` and not `cvtsi2sdl`, `cvtsd2si`, `cvttss2si`… so a memory-source int→float and every
 float→int truncation push a function body toward `A` (hand-written). The shipped arm covers the bare spelling only. **What it moves:**
 origin attribution (the asm/compiler cells), never a key or a coverage number. **UNMEASURED:** how many function bodies change route.

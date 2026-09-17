@@ -1527,6 +1527,21 @@ inductive Op where
   the rule (`i32to64` or `f32to64`) and nothing else.  ⚠️ NO ALIGNMENT CHECK: a
   scalar operand states none, exactly as `vminmaxm`. -/
   | vcvt2sdm (fromInt : Bool) (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ P2 BATCH 40 — CVTTSD2SI / CVTTSS2SI (SDM Vol. 2A), register source:
+  the low binary64 (`dbl`) or binary32 lane of `src`, TRUNCATED toward zero
+  (`SoftFloat.truncToInt`), written to the general-purpose register `dst` as an
+  int64 when `wide` (REX.W) and as an int32 otherwise.  That is an ordinary GPR
+  write, so the int32 is zero-extended to 64 bits.  No flag is written, and
+  MXCSR.RC is not read: the opcode fixes the rounding (sub-group A′).
+
+  ⛔ `wide` IS A `Bool`, NOT A `Size`.  The SDM lists exactly two destination
+  widths, and a `Size` field would admit 8- and 16-bit forms that no encoding
+  produces and that `truncToInt` would still give an answer for. -/
+  | vcvtt2si (dbl wide : Bool) (dst : GPR) (src : XmmReg)
+  /-- ⭐⭐⭐ P2 BATCH 40 — the same truncations at a MEMORY source, which reads
+  EIGHT bytes when `dbl` and FOUR otherwise.  ⚠️ NO ALIGNMENT CHECK: a scalar
+  operand states none, exactly as `vcvt2sdm`. -/
+  | vcvtt2sim (dbl wide : Bool) (dst : GPR) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1896,6 +1911,10 @@ def opOperands : Op → List Operand
   | .vcvtss2sd .. => []
   | .vcvtsi2sd _ r => [.reg r]
   | .vcvt2sdm _ _ ea => [.mem ea]
+  -- P2 BATCH 40: the GPR destination IS an `Operand` (as `vmovg`'s), and the
+  -- memory source names its address.
+  | .vcvtt2si _ _ r _ => [.reg r]
+  | .vcvtt2sim _ _ r ea => [.reg r, .mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -2032,6 +2051,9 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 39: `lock cvtss2sd` is not a form the SDM lists.
   | .vcvtss2sd .. | .vcvtsi2sd .. => false
   | .vcvt2sdm _ _ ea => ea.lock
+  -- P2 BATCH 40: `lock cvttsd2si` is not a form the SDM lists.
+  | .vcvtt2si .. => false
+  | .vcvtt2sim _ _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2206,6 +2228,9 @@ def Op.mnemonic : Op → String
   | .vcvtss2sd .. => "cvtss2sd"
   | .vcvtsi2sd .. => "cvtsi2sdl"
   | .vcvt2sdm fi .. => if fi then "cvtsi2sdl" else "cvtss2sd"
+  -- P2 BATCH 40: ONE name for both destination widths, as objdump prints it and
+  -- as the census keys it (D259's key has no width).
+  | .vcvtt2si dbl .. | .vcvtt2sim dbl .. => if dbl then "cvttsd2si" else "cvttss2si"
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -2421,6 +2446,9 @@ def rosterP0 : List String :=
    -- census key for a 32-bit source at both shapes (D257); the 64-bit source
    -- rounds and is not taken.
    "cvtss2sd", "cvtsi2sdl",
+   -- ⭐⭐⭐ P2 BATCH 40: sub-group A′, the two TRUNCATIONS, TWO rows — each
+   -- mnemonic is one census key at both destination widths (D259, D261).
+   "cvttsd2si", "cvttss2si",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

@@ -802,6 +802,15 @@ acc,imm · rh"
   , { mnemonic := "cvtsi2sdl",
       shapes := "x,r · x,m", note := "signed int32 -> low binary64, exact; upper kept; the int64 source rounds and is not modelled; D258",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SD" }
+  -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  TWO rows, each at
+  -- both destination widths.  The rounding is fixed by the opcode, so neither
+  -- reads MXCSR.RC; the invalid exception is MXCSR-only (D2).
+  , { mnemonic := "cvttsd2si",
+      shapes := "r,x · r,m", note := "low binary64 truncated toward zero -> int32/int64 (REX.W); NaN, inf, out of range -> indefinite; D261",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTTSD2SI" }
+  , { mnemonic := "cvttss2si",
+      shapes := "r,x · r,m", note := "low binary32 truncated toward zero -> int32/int64 (REX.W); NaN, inf, out of range -> indefinite; D261",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTTSS2SI" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
