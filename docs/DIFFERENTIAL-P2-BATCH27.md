@@ -120,6 +120,20 @@ before the run, from `mk_rows.py`'s rules and never from the model**, and posted
 
 ## 6. THE LANDING MEASUREMENT
 
-**Owed at the landing** (D267 §8).
-- The row is keyed on `origin/master` once PR #28 has merged, as `origin/master` → this branch's first commit.
-- **Predicted:** `Tests.Anchors` about +31,000 ku against 60,901, and every other module as D266 §9 read the draft.
+Step `3ad2940` (PR #28's merge) → `6dc843b` (this batch's `.lean` commit), measured on yukon.lan. The ms figures were
+predicted from the ku readings and posted on the fleet bus before the walk started (D267 §8).
+
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.65–5.85, yukon.lan
+         Tests.Anchors            +54.0  ±14.6   against   143.5     predicted +42 ±50       as predicted
+         X86.Theorems             +55.0  ±28.8   against   188.5     predicted +50 ±60       as predicted
+         X86.Syntax                +5.5  ±19.3   against    52.9     predicted 0 ±25         as predicted
+         Tests.Coverage          +300    ±333    against 1,987       predicted +70 ±900      inside the band
+         every other unit           within ±1 ms of 0
+  D251 --record                   RECORDED        lands on the ms verdict; row 3ad2940 → 6dc843b
+```
+- **The predictions were posted on the fleet bus before the walk (09/17 04:47),** from the ku readings: `Tests.Anchors`
+  +31,229 ku, and `X86.Theorems` +4,191 at the module's own ms per ku.
+- **`Tests.Anchors` reads 616 → 670 ms,** against a retired ceiling of 801.
+- **The deterministic reading carries the size:** `Tests.Anchors` +31,229 ku of an allowance of 60,901, and every other
+  module as D266 §9 read the draft.

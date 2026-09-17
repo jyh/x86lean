@@ -18143,17 +18143,23 @@ Five wrong models, all labelled `mxcsr`, in `Main.lean` (`wrongSimdWith` makes t
 - The pins, the arms and the prose moved no emitted byte, as they should not.
 - The 50 are D266 §8's: the comis IE 31, and the `cvtsi2sdl` zero sign 19.
 
-### 8. THE LANDING MEASUREMENT — OWED, AND KEYED ON THE MERGE THAT DOES NOT EXIST YET
-- **The row is keyed on `origin/master` (D264),** and this branch sits on PR #28's head, `f5ad2ec`, whose merge is
-  pending.
-- **The step is re-read once #28 lands,** as `origin/master` → this branch's first commit:
-  - `kernel_delta --repeats 6`;
-  - A′ if ms cannot decide;
-  - `kernel_drift --record`.
-- **What is known already, on `f5ad2ec` → the first commit, whose trees the rebase keeps:**
-  - the 89-pin A′ reading (§2);
-  - the draft's ledger (D266 §9), which every module but `Tests.Anchors` matched exactly.
-- **The prediction for `Tests.Anchors`:** about +31,000 ku of 60,901, from §2's 31,229.
+### 8. THE LANDING MEASUREMENT — `3ad2940` → `6dc843b`
+- **PR #28 merged as `3ad2940`,** whose tree is `f5ad2ec`'s. This branch was rebased onto it, and every commit's tree is
+  unchanged. The first commit, `6dc843b`, carries every `.lean` file (D264).
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.65–5.85, yukon.lan
+         Tests.Anchors            +54.0  ±14.6   against   143.5     predicted +42 ±50       as predicted
+         X86.Theorems             +55.0  ±28.8   against   188.5     predicted +50 ±60       as predicted
+         X86.Syntax                +5.5  ±19.3   against    52.9     predicted 0 ±25         as predicted
+         Tests.Coverage          +300    ±333    against 1,987       predicted +70 ±900      inside the band
+         every other unit           within ±1 ms of 0
+  D251 --record                   RECORDED        lands on the ms verdict; row 3ad2940 → 6dc843b
+```
+- **The predictions were posted on the fleet bus before the walk (09/17 04:47),** from the ku readings: `Tests.Anchors`
+  +31,229 ku, and `X86.Theorems` +4,191 at the module's own ms per ku.
+- **`Tests.Anchors` reads 616 → 670 ms,** against a retired ceiling of 801.
+- **The deterministic reading carries the size:** `Tests.Anchors` +31,229 ku of an allowance of 60,901, and every other
+  module as D266 §9 read the draft.
 
 ### 9. THE SECOND VENDOR — A LEG, AND A GUARD AGAINST THE EMULATOR SAYING x86_64
 D266 §10 owed a second vendor's reading. The Linux runner read AMD, and GitHub's documentation names no vendor for it.
