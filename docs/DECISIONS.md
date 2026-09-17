@@ -18389,7 +18389,24 @@ the prior miss of `mulsd`+`mulss`:
     X86.Semantics +11 · X86.Coverage +10 · X86.Serialize +10 · Tests.Vectors +4 · X86.Program +2 · every other +0
   ms ceilings (readings)  X86.Basic 85/278 · X86.Syntax 317/879 · X86.Theorems 1,180/3,330
 ```
-LANDING_SECTION_PENDING
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.42–5.64, yukon.lan
+         Tests.Anchors            +97.5  ±29.9   against   152.4     predicted +78 ±50       as predicted
+         X86.Syntax                +2.0  ±10.8   against    53.5     predicted +11 ±25       as predicted
+         X86.Theorems             +25.0  ±46.3   against   197.6     predicted +7 ±60        as predicted
+         Tests.Coverage          +500    ±706    against 1,983.6     predicted +20 ±900      inside the band
+         Tests.Program            +13.0  ±21.1   against    77.2     predicted ~0            inside its noise
+         X86.SoftFloat             +1.0  ±0.7    against     6.0     predicted ~0 (+40 ku)
+         every other unit           within ±1.1 ms of 0
+  D251 --record                   RECORDED        lands on the ms verdict; row c8238ab → 8c80b30
+```
+- **The step:** `c8238ab` (PR #29's merge) → `8c80b30` (this batch's `.lean` commit, first on the branch, D264).
+  The branch was built on `cc16b53`, the tree #29's merge carries, and rebased with every commit's tree unchanged.
+- **The predictions were posted on the fleet bus before the walk (09/17 07:31, twelve seconds before it started),** from the ku readings of the same
+  step. Those readings are A′ CLEAN and identical to the draft's.
+- **`Tests.Anchors` reads 654 → 751.5 ms.** That is 1.90 ms per 1k ku, above both B0's 1.73 and D262's 1.3–1.4, so
+  the prediction's centre was low and its band held. ⇒ **A pin block costs more per unfolding than an anchor
+  theorem of the same size.** B2's pins should be predicted from 1.9, not 1.4.
 
 ### 8. THE FORK — TWO CONSTRUCTORS, AND B2's ROUTE
 Posted on the fleet bus (09/17 05:15) with the recommendation, and taken on it.

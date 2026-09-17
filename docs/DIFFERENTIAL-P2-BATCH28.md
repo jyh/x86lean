@@ -110,4 +110,24 @@ Nine wrong models, labelled `mulsd/mulss`. They were **predicted over `driveWron
 
 ## 6. THE LANDING MEASUREMENT
 
-LANDING_PENDING
+Step `c8238ab` (PR #29's merge) → `8c80b30` (this batch's `.lean` commit), measured on yukon.lan. The ms figures were
+predicted from the ku readings and posted on the fleet bus before the walk started (D268 §7).
+
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.42–5.64, yukon.lan
+         Tests.Anchors            +97.5  ±29.9   against   152.4     predicted +78 ±50       as predicted
+         X86.Syntax                +2.0  ±10.8   against    53.5     predicted +11 ±25       as predicted
+         X86.Theorems             +25.0  ±46.3   against   197.6     predicted +7 ±60        as predicted
+         Tests.Coverage          +500    ±706    against 1,983.6     predicted +20 ±900      inside the band
+         Tests.Program            +13.0  ±21.1   against    77.2     predicted ~0            inside its noise
+         X86.SoftFloat             +1.0  ±0.7    against     6.0     predicted ~0 (+40 ku)
+         every other unit           within ±1.1 ms of 0
+  D251 --record                   RECORDED        lands on the ms verdict; row c8238ab → 8c80b30
+```
+- **The deterministic reading carries the size.** `ku-delta --arm a-prime` on the same step is CLEAN:
+  - `Tests.Anchors` +51,379 ku of an allowance of 68,141;
+  - `X86.Syntax` +493 of 4,882;
+  - `X86.Theorems` +534 of 16,685;
+  - `X86.SoftFloat` +40 of 61;
+  - `Tests.Coverage` +77,419 of 604,378.
+- **`Tests.Anchors` reads 654 → 751.5 ms,** or 1.90 ms per 1k ku. The prediction's centre was low, and its band held.
