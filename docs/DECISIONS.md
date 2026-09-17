@@ -17283,6 +17283,15 @@ prediction entirely, was the largest delta in the run.
 CI's selftest shards, the first real read of arms 3–8, are recorded in the next decision's PR once this PR's run has read
 them.
 
+### 9. WHAT CI's SELFTEST SHARDS READ (#26, run 35157862133)
+The instrument's own first read of all eight `cvt` arms, through `driveWrong`, in the PR run that landed this batch:
+```
+  signalling NaN unquieted 27 · default NaN 48 · denormal not normalised 37 · upper half zeroed 532 ·
+  int32 read unsigned 140 · 24 significant bits 102 · INT32_MIN as INT32_MAX 9 · whole 64-bit register 70
+```
+**Every figure equals §7's scratch count**, so the six arms that were counted rather than run (after the filtered
+selftest was killed) are now run, and they agree. All six shards of both runs were green, and #26 merged as `ccb2f8b`.
+
 ## D259 — The census read a register file off the operand text, so an instruction whose operands name none was filed as "GPR/other"
 
 ⚖️ QUEUE `CENSUS-SILENT-OPERANDS`, found while pricing sub-group A′. The QUEUE entry was committed with its predictions before
@@ -17484,6 +17493,22 @@ therefore carried by the `1.5`/`2.5`/`1-ulp` rows of §4, not by an arm.
   README: 1045/91960/25 → 1058/93104/26; mnemonics 170 → 172; XMM rows 84 → 86.
 
 ### 7. THE LANDING MEASUREMENT
-Owed when the batch lands on `master`. It needs the `kernel_delta` step and the `ku-delta` (arm A′) step against the
-recorded ledger head, pre-registered on the fleet bus first, as D258 §8 did. This section is filled in the same PR,
-before it merges.
+Step `6a3fb0c` → `29022ce`, the batch as one commit after the rebase onto `ccb2f8b`. The `ku-delta` step ran first, because
+it is deterministic. The ms predictions were then derived from its readings (batch 39's measured ms/ku ratio per module)
+and posted on the fleet bus before the timing walk started.
+```
+  ku-delta (arm A′)            CLEAN rc 0     every module inside
+       Tests.Coverage     +79,980 / 597,116     Tests.Anchors   +9,622 / 58,659     X86.Theorems   +1,510 / 15,641
+       X86.Syntax            +533 / 4,782       X86.SoftFloat      +12 / 54         Semantics +18 · Coverage +10 · Serialize +10
+  ms   kernel_delta --repeats 6   CLEAN rc 0     ⚠️ loads 7.5–17.1 (batch 39's were 5.2–8.9)
+       X86.Syntax          +12.0  ±23.2 / 53.7    predicted ~+8           as predicted
+       X86.Theorems         +5.0  ±39.6 / 184.8   predicted +15 ±50       as predicted
+       Tests.Anchors        −5.0 ±125.3 / 142.4   predicted +6..+12       inside the band
+       Tests.Coverage     −250   ±939   / 2016    predicted +800 ±650     NEITHER confirmed nor refuted
+  D251 --record … --a-prime   RECORDED       "ms verdict rc 0 · ARM A′ rc 0 on yukon.lan ⇒ lands on the ms verdict"
+                                             row 6a3fb0c → 29022ce; --gap 0
+```
+⚠️ **The ms verdict is CLEAN on a LOADED box, and the load is part of the reading.** Another seat's work held the box at
+load 7.5–17.1 through the walk. `Tests.Coverage`'s band (±939) is half as wide again as batch 39's, and it contains both the
+prediction and a small negative. **The step lands on a verdict whose resolution was poor, and it says so.** `ku-delta`'s
++79,980, the same size as batch 39's +78,606, is the reading that could not be loaded.

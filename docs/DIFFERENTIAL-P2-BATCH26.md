@@ -98,4 +98,23 @@ fraction of at least ½ reaches it, on the `rax`-writing vectors. That is why §
 
 ## 6. THE LANDING MEASUREMENT
 
-Recorded when the batch lands: the `kernel_delta` step and the `ku-delta` (arm A′) step (D261 §7).
+Step `6a3fb0c` → `29022ce` (this batch as one commit), measured on yukon.lan. The ms figures were predicted from the
+`ku-delta` readings and posted on the fleet bus before the timing walk started.
+
+```
+  A′   ku-delta --arm a-prime     CLEAN, rc 0     every module inside
+         Tests.Coverage         +79,980          against 597,116
+         Tests.Anchors           +9,622          against  58,659
+         X86.Theorems            +1,510          against  15,641
+         X86.Syntax                +533          against   4,782
+         X86.SoftFloat              +12          against      54
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 7.5–17.1 (a loaded box)
+         X86.Syntax               +12.0  ±23.2   against    53.7     predicted ~+8               as predicted
+         X86.Theorems              +5.0  ±39.6   against   184.8     predicted +15 ±50           as predicted
+         Tests.Anchors             −5.0 ±125.3   against   142.4     predicted +6..+12           inside the band
+         Tests.Coverage          −250   ±939     against 2,016       predicted +800 ±650         neither confirmed nor refuted
+  D251 --record … --a-prime       RECORDED        lands on the ms verdict; row 6a3fb0c → 29022ce; --gap 0
+```
+
+⚠️ **CLEAN, at a resolution the load made poor** (D261 §7). The deterministic `ku-delta` reading carries the size:
+`Tests.Coverage` +79,980, as large as batch 39's.
