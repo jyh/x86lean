@@ -17861,8 +17861,18 @@ the processor's behaviour.
                           a preset OE read as overflow (cvtss2sd, 12) · integer 0 → −0 at round-down (1)
                           1 row excluded and printed: cvtss2sd at −0 aborts x86isa (D258)
   Rosetta 2 (this box)  174/174 agree — an independent EMULATOR, so corroboration only; it is not a processor
-  the runner            OWED — read at the landing, and recorded here with the processor's model name
+  the runner            174/174 agree — AMD EPYC 7763 (x86_64, a GitHub-hosted runner), runs 35199661986 (push) and
+                          35199665738 (PR) on 9e68220; both controls as required (plant rc 1 with one DIFF, opcode rc 2)
 ```
+⇒ **The processor sides with the SDM on every row where x86isa does not.** The rows are:
+- `mulsd`/`mulss` ∞ × 0 → `fff8…` / `ffc0…`;
+- COMIS at a QNaN raises IE (UCOMIS does not);
+- `cvtss2sd` under a preset OE returns the plain widening;
+- a converted integer 0 is +0 at round-down;
+- the round-up-into-normal products raise PE and DE without UE (tininess after rounding);
+- a denormal beside a NaN raises no DE.
+**All four x86isa defects are defects, on silicon, and the SDM-pinned rows of B0 and B1 are pinned to what a processor
+does.** ⚠️ It is ONE processor, from one vendor; a second vendor's reading is not in this record.
 ⚠️ **The table counts MECHANISMS, not voices.** The rules, Rosetta and the runner are three different origins. x86isa's 27 are
 four mechanisms, not 27 findings.
 
@@ -17977,7 +17987,7 @@ four mechanisms, not 27 findings.
 - `X86.Syntax` +0: B0 adds no constructor, so the tight ms cell is not touched (§6.7).
 
 ### 10. WHAT IS STILL OWED
-- **The runner's reading** (§5), taken at the landing of the PR that carries `hwprobe/`.
+- **A second vendor's reading** of the same rows (§5 read an AMD part).
 - **B1's price:** K4's 25,132 ku for 112 cells, plus the flags, re-read on its own draft.
 - **B0's kernel pins and arms:** their `Tests.Anchors` and `Main.lean` cost. The nearest precedent is the `fcmp` anchors
   (FCMP-KERNEL-1 priced them at about 17 ms). Read at the batch's landing, never scaled.

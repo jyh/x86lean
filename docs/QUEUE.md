@@ -2387,13 +2387,18 @@ The prose goes in `note`, which is not reduced.
   The last two appeared only when the draft varied RC and preset the sticky bits (D27).
 - **Tininess:** x86isa detects it AFTER rounding (25/25). The K4 reference labels it before; its values stand.
 - **The referee:** `hwprobe/`, 174 rows on an x86-64 runner, with two controls. x86isa disagrees with the SDM-derived rules on
-  27 of 173 rows, in exactly four mechanisms. Rosetta 2 agrees on 174/174, but it is an emulator, not a processor.
+  27 of 173 rows, in exactly four mechanisms. **The runner's processor (AMD EPYC 7763) agrees on 174/174**, and so all four are
+  defects on silicon. Rosetta 2 also agrees on 174/174, but it is an emulator, not a processor.
 
 ⇒ **NEXT for B:**
-- **B0 = the harness plus the flags of the landed forms.** It adds no instruction. It is drafted on local `paris/b0-draft`,
-  and its FP subset reads 0 unexplained and 50 declared divergences.
-  - **Owed:** its Δku on the draft; the full differential; the choice between a memory-source `vcomis` constructor
-    (an `X86.Syntax` ms cost) and kernel pins for the binary32 SNaN; and the runner's reading.
+- **B0 = the harness plus the flags of the landed forms.** It adds no instruction. It is drafted and priced on local
+  `paris/b0-draft`:
+  - **ku:** a-prime CLEAN. `X86.Semantics` reads +12 of 226 once a wildcard match became an equality test (it was +209).
+  - **The full differential:** 0 unexplained, and exactly 50 new declared divergences.
+  - **Owed at the batch:**
+    - the kernel pins and wrong-model arms of D266 §6 (SNaN rows pinned, not a new `vcomis` memory constructor);
+    - the docstring and coverage notes that say comis and ucomis are one function;
+    - a second vendor's `hwprobe` reading.
 - **B1 = `mulsd`/`mulss` on B0.**
 
 ⚠️ *The paragraph below named "execute one `mulsd` on x86isa under a non-default MXCSR.RC" as NEXT. It is DONE (D265).*
