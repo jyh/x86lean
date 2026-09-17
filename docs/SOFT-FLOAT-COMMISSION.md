@@ -188,6 +188,10 @@ multiply is literal `Nat` arithmetic in the kernel, and one top-level MXCSR fiel
 - **The multiply:** `mulsd`/`mulss` is **B1**, on B0's harness. `hwprobe/` is the x86-64 referee for every row pinned
   against the SDM.
 
+✅ **B0 WAS BUILT ON 2026-09-17 AS P2 BATCH 41 (D267, record 27).** MXCSR is in the record, the 14 landed mnemonics raise
+their flags, and 0 cases are unexplained. The 40 `hwprobe` rows the differential cannot carry are kernel pins. Sub-group B's
+unclaimed demand is unchanged, because B0 adds no instruction.
+
 ---
 
 ## §6 THE RECOMMENDATION

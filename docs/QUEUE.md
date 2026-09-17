@@ -494,7 +494,7 @@ Exit criterion — one differential run of the 20 forms with zero unexplained di
 Roster growth to the census's scalar demand, with the vector table, the encoding gates and the
 kernel-cost discipline built along the way.
 
-## P2 — the vector campaign · **LIVE** (26 differential records; the seat's own batch counter is higher)
+## P2 — the vector campaign · **LIVE** (27 differential records; the seat's own batch counter is higher)
 ⚠️ *This header read "22 differential records" until 2026-09-16, with 24 on disk: the paragraph below names this exact
 defect, and it recurred two records after the paragraph was written. The count is `ls docs/DIFFERENTIAL-P2-BATCH*.md`,
 and nothing gates this line.*
@@ -2374,7 +2374,21 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B IS PROBED, DESIGNED AS B0 + B1, AND B0 IS PRICED ON A DRAFT (D265, D266)**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 BUILT AS P2 BATCH 41 (D267, record 27); B1 IS NEXT**
+⚖️ **STATUS AT 2026-09-17, LATER (D267): B0 IS BUILT AS P2 BATCH 41, RECORD 27. B1 (`mulsd`/`mulss`) IS NEXT.**
+- **B0:** MXCSR is in `Cpu` and in the record, and all 14 landed FP mnemonics raise their sticky flags. The run reads 93,104
+  cases, 0 unexplained and 221 declared divergences (+50: comis IE 31, the `cvtsi2sdl` zero sign 19).
+  - **The kernel pins:** 40 of `hwprobe/`'s rows, the ones the differential cannot carry. All 89 were refused by the A′ gate
+    (`Tests.Anchors` +68,196 against 60,901).
+  - **The arms:** five, each at its predicted score.
+  - **The format gate:** `check_mxcsr_format.py`.
+- **Still owed from D266 §10:**
+  - a second vendor's `hwprobe` reading;
+  - B1's price, read on its own draft.
+- **B1's draft:** K4's `roundPack`/`fmul` with RC as the 2-bit field, tininess AFTER rounding, and the invalid rows pinned
+  (∞ is reached by no vector). The `hwprobe` rows already cover it. The seat's K4 probe record holds the draft
+  (`K4Mul.lean`).
+
 ⚖️ **STATUS AT 2026-09-17 (D265, D266): B's oracle is probed, its harness is designed and drafted, and B IS TWO BATCHES.**
 - **The oracle (D265):** x86isa honours MXCSR.RC on `mulsd` and writes every sticky flag. Its default NaN is POSITIVE, and
   `init-x86-state-64` does not reset MXCSR.
@@ -2935,7 +2949,7 @@ one** classified as needing the commission. **No rounding-free pair is left**, s
 **What it costs, stated as semantics + state + oracle support** ([[feedback-cheap-semantics-expensive-state]]):
 - **Semantics: small.** `fcmp` exists. The new parts are min/max selection with its two SOURCE-returning rules, an exact int32 widening, and a
   binary32→binary64 widening that sets the quiet bit on a NaN.
-- **State: none.** The model has no MXCSR (D2). Every exception these raise is visible only there, which is the same position `comis` is in.
+- **State: none.** The model has no MXCSR (D2). Every exception these raise is visible only there, which is the same position `comis` is in. *(True when priced; MXCSR joined `Cpu` in B0, D266 and D267.)*
 - **Oracle support: all eight EXECUTE** (`oracle_availability.measured_availability()`).
 - ⛔ **The ±0 rule is unreachable by the vector table**, exactly as `comis`'s was. It must be carried by a kernel-decided IEEE differential
   planted wrong once, never by a vector arm that cannot fire (D140's deleted arm).

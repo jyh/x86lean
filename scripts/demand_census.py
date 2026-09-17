@@ -352,8 +352,8 @@ GPR_EXT = {
     "vzeroupper": "AVX (state)", "vzeroall": "AVX (state)",
     "vzeroupperq": "AVX (state)",
     # ⚠️ D259: the MXCSR load/store names only a MEMORY operand, so the width
-    # rules file it under "GPR/other" too.  It is SSE STATE, and this model has
-    # no MXCSR (D2) — the same shape as the AVX state row above.
+    # rules file it under "GPR/other" too.  It is SSE STATE, the same shape as the
+    # AVX state row above; since B0 (D267) `Cpu` holds that state, so it is in scope.
     "ldmxcsr": "SSE (MXCSR state)", "stmxcsr": "SSE (MXCSR state)",
     "vldmxcsr": "SSE (MXCSR state)", "vstmxcsr": "SSE (MXCSR state)",
 }
@@ -485,8 +485,10 @@ EXT_SCOPE.update({
     # ⛔ operand-free AVX state instructions are NOT a GPR form; they are in
     # `GPR_EXT` only because there are no operands to read a width off.
     "AVX (state)":                            False,
-    # ⛔ D259: MXCSR is ABSENT from `Cpu` by D2, so its load/store cannot be held
-    "SSE (MXCSR state)":                      False,
+    # ⛔ D259 ruled this False because MXCSR was ABSENT from `Cpu` (D2), so its load/store
+    # could not be held.  ⭐ B0 (D266, D267) put MXCSR in `Cpu`, so the state exists and the
+    # load/store is IN SCOPE and NOT COVERED — a batch of its own, never implied by B0.
+    "SSE (MXCSR state)":                      True,
     # register files this model does not have
     "AVX-512 (zmm/k)":                        False,
     "AVX2/AVX (ymm)":                         False,
