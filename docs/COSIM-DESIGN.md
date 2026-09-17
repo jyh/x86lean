@@ -47,6 +47,10 @@ it is cheap on both arms (§7.1), and the only thing that went wrong is that **n
 prose inventory against the emitter it describes.** This repository's own recurring shape.
 ⚠️ The model has **XMM only** — no YMM, no ZMM, no MXCSR in `Cpu`. That is load-bearing for §7.1
 and it is why neither arm needs an extended-state API.
+⛔ *Since sub-group B0 (D266, D267) `Cpu` HAS MXCSR*, a 32-bit register. It is not extended state:
+both arms read and write it without an XSAVE API (Linux `PTRACE_GETFPREGS`'s `user_fpregs_struct.mxcsr`,
+Windows `CONTEXT.MxCsr`),
+so the simplification below survives, and the transfer grows by one 32-bit field.
 
 
 ## 1. ⛔ THE COMMISSIONING PREMISE, CHECKED — AND THE PRIZE IS NOT WHERE IT WAS PUT
@@ -241,8 +245,8 @@ back; classify a fault as a refusal.
 | faults | `SIGFPE` / `SIGILL` / `SIGSEGV` | `EXCEPTION_INT_DIVIDE_BY_ZERO` / `_ILLEGAL_INSTRUCTION` / `_ACCESS_VIOLATION` |
 | FS/GS base | in `user_regs_struct`, set by `PTRACE_SETREGS` | ⛔ **not in `CONTEXT` at all** — see §7.5 |
 
-⭐ **The model has no YMM, no ZMM and no MXCSR (§0③), so NEITHER arm needs an extended-state
-API** — no `PTRACE_GETREGSET`/`NT_X86_XSTATE`, no `InitializeContext`/`LocateXStateFeature`.
+⭐ **The model has no YMM and no ZMM (§0③; MXCSR joined in B0 and needs no extended-state API),
+so NEITHER arm needs an extended-state API** — no `PTRACE_GETREGSET`/`NT_X86_XSTATE`, no `InitializeContext`/`LocateXStateFeature`.
 That is the single biggest simplification available to this design and it is a fact about the
 **model**, not about either platform. **[repo]**
 ⚠️ It expires the day the roster grows a YMM form. Both arms then pay, and the native arm pays

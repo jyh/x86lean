@@ -17991,3 +17991,190 @@ four mechanisms, not 27 findings.
 - **B1's price:** K4's 25,132 ku for 112 cells, plus the flags, re-read on its own draft.
 - **B0's kernel pins and arms:** their `Tests.Anchors` and `Main.lean` cost. The nearest precedent is the `fcmp` anchors
   (FCMP-KERNEL-1 priced them at about 17 ms). Read at the batch's landing, never scaled.
+
+## D267 — P2 batch 41, sub-group B0: MXCSR in the record, the pins where no vector reaches, and five arms
+
+⚖️ QUEUE P3, P2-NEXT (B), built on 2026-09-17 as D266 §6 designed it. It is the twenty-seventh differential record. It adds
+**no instruction**: one state field, the sticky flags of all 14 landed FP mnemonics, and a record that carries them.
+
+### 1. WHAT LANDED
+- **From the draft (`paris/b0-draft` `98c8ad6`, D266 §8), unchanged:**
+  - `Cpu.mxcsr` with its frame lemmas, and `Cpu.withSimd`;
+  - `SoftFloat.preFlags` and `truncFlags`, and the four flag helpers in `X86.Semantics`;
+  - the per-flag record keys on both sides, and the driver loading `:mxcsr` on every case;
+  - the index-assigned RC and sticky bits (OE never), and the leak check's MXCSR conjunct;
+  - the `pair` on `KnownDivergence`, and the eight declared divergences;
+  - the `vbin` theorems restated for `isMinMax`.
+- **Added at the batch:**
+  - the kernel pins (§2);
+  - five wrong-model arms (§3);
+  - `scripts/check_mxcsr_format.py` (§4);
+  - the prose D266 §6.7 names, and its siblings (§5);
+  - the census's scope rule for MXCSR state (§6).
+
+### 2. THE PINS — THE PROCESSOR'S ROWS THE DIFFERENTIAL CANNOT CARRY, GENERATED, IN THE KERNEL
+- **Five theorems in `Tests/Anchors.lean`:** `b0_comis_pins` 19 · `b0_minmax_pins` 2 · `b0_cvtss2sd_pins` 13 ·
+  `b0_cvtsi2sd_pins` 3 · `b0_cvttsd2si_pins` 3. That is 40 of the 89 non-multiply rows `hwprobe/` runs.
+  - Each row runs `step` from the probe's pre-state, with MXCSR from the row.
+  - It checks the result, `MXCSR = row | flags`, and that the step did not refuse.
+  - Each row names its reason.
+- **The values are not typed.** `hwprobe/mk_anchors.py` generates the block from `mk_rows.py`, whose rules derive every
+  value and flag from the SDM.
+  - `--check` holds the file to the generator byte for byte, and runs in CI's build job and in preflight.
+  - Its selftest reds on a changed value, a dropped row and a lost marker.
+  - ⚠️ That check is TRANSPORT. What makes a row right is the rule and the processor: the AMD EPYC 7763 read agreed on
+    every row (D266 §5).
+- ⛔ **THE FIRST VERSION PINNED ALL 89, AND THE A′ GATE REFUSED IT.** `ku_delta --arm a-prime` read `f5ad2ec` → the
+  first commit as `Tests.Anchors` **+68,196 ku against an allowance of 60,901**. Every other module read exactly as
+  D266 §9 read the draft.
+  - **The per-theorem cost** (kernel unfoldings, `diagnostics` in a scratch copy): comis 23,343 (36 rows) · minmax
+    9,331 (12) · cvtss2sd 15,829 (17) · cvtsi2sd 15,604 (16) · cvttsd2si 4,082 (8). That is 510–975 per row, one
+    `step` each.
+  - **The refusal named the cheaper build, and it was also the more honest one.** The section is about WHERE NO VECTOR
+    REACHES, and 49 of the 89 rows are reached by vectors that x86isa agrees with, so the differential already checks
+    them.
+  - **The widening was not considered:** an allowance is not moved to fit its subject.
+- **THE SELECTION RULE, MEASURED:** a row is pinned iff x86isa disagrees with it or cannot run it, OR no vector of the same
+  form reaches its class over the 88 differential pre-states.
+  - **The class:** the operand kinds, or the ordering, for a comparison; kind, sign and a preset OE for `cvtss2sd`;
+    value class and RC for `cvtsi2sd`; truncation class for `cvttsd2si`.
+  - **The reach table:** a scratch Lean pass printed the operand bits over 88 states (4,048 lines, 46 vectors), and
+    Python classed them with `mk_rows.py`'s `kind`.
+  - **The x86isa column:** `rows_on_x86isa.py`'s reading (below).
+```
+  x86isa differs (19)    COMIS at a QNaN, both formats (6, two of them also unreached: QNaN beside a denormal)
+                         cvtss2sd under a preset OE (12)   cvtsi2sd of integer 0 at round-down (1)
+  x86isa cannot run (1)  cvtss2sd at −0 (D258)
+  no vector reaches (20) every SNaN at comis/ucomis (8) and min (2) · ucomis with a QNaN beside a denormal (2)
+                         equality at ucomisd/comiss/ucomiss, where no vector compares a register with itself (3)
+                         cvtsi2sd 1 at round-toward-zero and INT_MIN at round-up (2)
+                         cvttsd2si at an SNaN, at exactly INT_MIN, and at an exact in-range value (3)
+  carried by vectors (49) everything else: x86isa agrees and a vector reaches the class
+```
+  **The 40-row block reads 31,229 kernel unfoldings**, measured the same way.
+  - ⚠️ `PINNED` is a DECLARED list in the generator, because its two inputs cannot be re-run in CI (the emitted pre-states
+    and the oracle). It fails safe: a later vector reaching a pinned class makes the pin redundant, never wrong.
+  - A name `mk_rows.py` does not build is refused.
+- **x86isa, on all 89 rows** (`hwprobe/rows_on_x86isa.py`): it runs 88 (not `cvtss2sd` at −0) and disagrees on 19, in
+  exactly three mechanisms:
+  - COMIS at a QNaN: 6;
+  - a preset OE read as overflow: 12;
+  - integer 0 → −0 at round-down: 1.
+  **All 19 are pinned.**
+- **Planted wrong once each, in one elaboration of a copy of the 40-row file:**
+  - `comisd_qnan_one` with no IE (the "COMIS as UCOMIS" model);
+  - `minsd_snan_one` with no IE;
+  - `cvtss2sd_one_sticky1f88` returning x86isa's +∞;
+  - `cvtsi2sd_zero/down` returning x86isa's −0;
+  - `cvttsd2si_negtwo31` raising IE (INT_MIN read as out of range).
+  **Five errors, one at each theorem's `decide`, and none elsewhere.** The 89-row version was planted the same way, with
+  the same result. The shipped file elaborates clean.
+- ⇒ **"COMIS as UCOMIS" is refuted by `b0_comis_pins` and by nothing in the differential**, as D266 §6.7 required.
+
+### 3. THE ARMS — PREDICTED FROM THE RULES, MATCHED TO THE CASE
+Five wrong models, all labelled `mxcsr`, in `Main.lean` (`wrongSimdWith` makes the flag machinery switchable).
+- **Each arm reads one per-flag key,** and each is right wherever its defect's condition is absent.
+- **The predictions were posted on the fleet bus before the run** (09/17 01:52).
+- **The predictor is independent of the model's flag code:**
+  - a scratch Lean pass printed only the operand bits and pre-MXCSR over driveWrong's 84 states (3,864 lines);
+  - Python applied `mk_rows.py`'s rules to them and never read `X86/SoftFloat.lean`.
+```
+  arm                                                     field       predicted   x86lean-diff selftest mxcsr
+  the flags replace the sticky bits instead of ORing      mxcsr.ze        920          920
+  DE is raised beside a NaN                               mxcsr.de          6            6
+  ucomis raises IE on a quiet NaN                         mxcsr.ie         25           25
+  min/max raise IE on a signalling NaN only               mxcsr.ie        184          184
+  cvtt drops the precision flag                           mxcsr.pe        475          475
+```
+**Every arm is caught, and every score equals its prediction.** Some rationale per arm:
+- **Replaces reads ZE,** a flag no landed form raises. Its 920 is exactly 20 × 46: ZE is preset in 20 of 84 states, and
+  every FP vector sees them.
+- **The DE arm is the thinnest.** A denormal beside a NaN occurs once on each of the six memory-source min/max vectors,
+  and nowhere else. It is caught, and the kernel carries the rows the vectors miss (§2's ucomis `qnan_den` rows).
+- ⭐ **A CONTROL RODE THE SAME RUN, AND IT IS WHAT MAKES THE FIVE MEAN SOMETHING.** `wrongSimdWith` restates `step` for the
+  FP forms, so an arm could catch a defect of the restatement rather than the one it plants. The restatement with the RIGHT
+  parts ran as a sixth arm and read **ZERO unexplained disagreements** over all 88,872 cases, so it IS `step` on the
+  compared state.
+  - The run's rc 1 is that control "failing" as an arm, which is the required outcome.
+  - The control was removed before the commit. Five arms ship: the table grows from 154 arms to 159.
+
+### 4. THE FORMAT GATE
+`scripts/check_mxcsr_format.py` is `check_xmm_format.py`'s question for MXCSR, plus the input half.
+- **It checks:**
+  - the six flag keys, their order, and that each key is printed from ITS bit;
+  - the `0xFFC0` control half and its width;
+  - that both renderers are called;
+  - that the emitter writes `:mxcsr` and the driver loads it on every case.
+- **Its selftest has nine arms,** each side mutated separately. It moves a BIT as well as a name: a key printed from the
+  wrong bit would carry the `mxcsr.ie` divergence onto another flag.
+- It runs in CI's build job and in preflight.
+
+### 5. THE PROSE B0 MADE FALSE
+- **Replaced:**
+  - the `vcomis` docstring (`X86/Syntax.lean`), which said the two were one function;
+  - record 23's matching sentence, in the coverage narrative;
+  - the four coverage-table comments and the two comis/ucomis notes that said "needs MXCSR (D2)".
+- **The siblings, found by `git grep "no MXCSR"` and each corrected:**
+  - `X86/SoftFloat.lean` twice (the `f32to64` and `truncToInt` docstrings);
+  - `X86/Semantics.lean` twice ("no MXCSR", "IT WRITES ONLY FLAGS");
+  - three "No flag is written" docstrings in `X86/Syntax.lean` (EFLAGS, not MXCSR);
+  - `docs/COSIM-DESIGN.md` twice. MXCSR is not extended state, so its no-XSAVE simplification survives;
+  - a priced QUEUE entry, annotated rather than rewritten.
+- **TRUSTBASE gains a section:** every exception masked, and DAZ and FZ clear. Its "no hardware has been run" sentence now
+  says what `hwprobe/` did and did not do.
+
+### 6. THE CENSUS — A SCOPE RULE WHOSE CONDITION B0 REMOVED
+`demand_census.py`'s `EXT_SCOPE` asks which buckets the model's STATE can represent. D259 ruled "SSE (MXCSR state)" out
+**because `Cpu` had no MXCSR**, and B0 gave it one. The rule now reads True, which means in scope and not covered.
+- **The regenerated census moves no published number.** The JSON is byte-identical. `ldmxcsr`/`stmxcsr` map to no roster
+  name, so they are `unmapped` before scope is consulted.
+- **Only the stamp's rules hash moved** (`08c61b79…` → `953b4a72…`). The staleness gate went red on the flip and is
+  CLEAN on the regenerated file. The P2 roster gate is CLEAN.
+- ⚠️ **Modelling the load/store is a batch of its own**, and B0 does not imply it.
+
+### 7. THE RUN — THE DRAFT'S, REPRODUCED BYTE FOR BYTE ON THE FINAL BINARY
+```
+  cases=93104 matched=72522 explained=29435 unexplained=0 oracle-divergence=221 oracle-leaks=0 missing=0
+  against record 26:  matched −50 · divergence +50 · everything else unchanged · no declared divergence stale
+```
+`scripts/run_differential.sh` on the batch's final tree re-emitted both sides and re-ran x86isa.
+- **All three files are sha256-identical to the draft run's** (`run/lean.txt` `350d3910…` · `run/cases.lsp` `2f227a9d…` ·
+  `run/oracle.txt` `846f5362…`).
+- The pins, the arms and the prose moved no emitted byte, as they should not.
+- The 50 are D266 §8's: the comis IE 31, and the `cvtsi2sdl` zero sign 19.
+
+### 8. THE LANDING MEASUREMENT — `3ad2940` → `6dc843b`
+- **PR #28 merged as `3ad2940`,** whose tree is `f5ad2ec`'s. This branch was rebased onto it, and every commit's tree is
+  unchanged. The first commit, `6dc843b`, carries every `.lean` file (D264).
+```
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 3.65–5.85, yukon.lan
+         Tests.Anchors            +54.0  ±14.6   against   143.5     predicted +42 ±50       as predicted
+         X86.Theorems             +55.0  ±28.8   against   188.5     predicted +50 ±60       as predicted
+         X86.Syntax                +5.5  ±19.3   against    52.9     predicted 0 ±25         as predicted
+         Tests.Coverage          +300    ±333    against 1,987       predicted +70 ±900      inside the band
+         every other unit           within ±1 ms of 0
+  D251 --record                   RECORDED        lands on the ms verdict; row 3ad2940 → 6dc843b
+```
+- **The predictions were posted on the fleet bus before the walk (09/17 04:47),** from the ku readings: `Tests.Anchors`
+  +31,229 ku, and `X86.Theorems` +4,191 at the module's own ms per ku.
+- **`Tests.Anchors` reads 616 → 670 ms,** against a retired ceiling of 801.
+- **The deterministic reading carries the size:** `Tests.Anchors` +31,229 ku of an allowance of 60,901, and every other
+  module as D266 §9 read the draft.
+
+### 9. THE SECOND VENDOR — A LEG, AND A GUARD AGAINST THE EMULATOR SAYING x86_64
+D266 §10 owed a second vendor's reading. The Linux runner read AMD, and GitHub's documentation names no vendor for it.
+It does document `macos-15-intel` as Intel.
+- **`hwprobe.yml` now runs the same job on both,** with `fail-fast: false`. The reading arrives with this batch's push.
+- ⛔ **A translated process also reports `x86_64`.** Under Rosetta 2 on this box, `uname -m` says `x86_64` and SSE2 is
+  present, and Rosetta agreed with every row (D266 §5) as an emulator. So "The processor" step now refuses unless the
+  machine is x86-64 AND `sysctl.proc_translated` is not 1.
+- **The guard, driven locally:**
+  - natively (arm64) the machine test refuses, rc 1;
+  - under Rosetta (`/usr/bin/arch -x86_64`, brand "Apple M4 Pro") only the translation test refuses, rc 1.
+  The x86-64 case it must pass exists only on the runner.
+- ⚠️ **The first drive was a false green.** `arch` on this box's PATH is a user script, not Apple's, and
+  `arch -x86_64 <cmd>` prints `unix` and exits 0 WITHOUT RUNNING `<cmd>`. The guard "passed" under an emulator it
+  never ran.
+  - Re-driven with the absolute path.
+  - D266 §5's Rosetta reading does not depend on it: that probe was an x86-64 binary run directly, and its output
+    holds all 174 rows.

@@ -1472,25 +1472,24 @@ inductive Op where
   ⚠️ `sz` IS THE FORMAT, NOT AN OPERAND WIDTH: `.d` is binary32 (`comiss`) and
   `.q` is binary64 (`comisd`).  No other `Size` is encodable here.
 
-  ⛔⛔ `ordered` DISTINGUISHES TWO ENCODINGS AND TWO NAMES WHOSE STATE TRANSITION
-  THIS MODEL CLAIMS IS IDENTICAL, and that claim is the interesting part of the
-  form.  `comis` (`0f 2f`) signals the invalid-operation exception on ANY NaN;
-  `ucomis` (`0f 2e`) signals it only on a SIGNALLING NaN.  That difference is
-  visible ONLY through MXCSR and the exception path — neither of which this model
-  has (MXCSR absent by D2) — so on the architectural state the differential
-  compares, the two are the same function.
-  ⇒ the field is NOT one no semantics reads (the anti-pattern `Op.vmovmsk`'s
-  docstring rejects): it selects the mnemonic and the opcode byte, and it is
-  exactly the handle a later batch needs when MXCSR arrives.  ⭐ And the claim
-  "these two agree on architectural state" is one the DIFFERENTIAL CAN REFUTE:
-  both spellings are in the vector table at the same pre-states, so if x86isa
-  distinguishes them the run says so rather than this comment. -/
+  ⛔⛔ `ordered` DISTINGUISHES TWO ENCODINGS, TWO NAMES AND ONE FLAG.  `comis`
+  (`0f 2f`) raises the invalid-operation flag, MXCSR.IE, on ANY NaN; `ucomis`
+  (`0f 2e`) raises it only on a SIGNALLING NaN.  Both raise DE on a denormal
+  when no operand is a NaN, and nothing else separates them: the EFLAGS are the
+  same function.
+  ⛔ UNTIL SUB-GROUP B0 THIS SAID THE TWO WERE ONE FUNCTION HERE (record 23),
+  which was true of a record with no MXCSR in it.  B0 put MXCSR in the record and
+  `step` reads `ordered` (`SoftFloat.preFlags`), so the sentence is replaced.
+  ⚠️ x86isa dispatches COMIS as UCOMIS, so the differential cannot refute a model
+  that confused them; `Tests.b0_comis_pins` does, against the SDM's rule and a
+  processor's reading (D266). -/
   | vcomis (ordered : Bool) (sz : Size) (dst src : XmmReg)
   /-- ⭐⭐⭐ P2 BATCH 38 — MINSS / MINSD / MAXSS / MAXSD (SDM Vol. 2B), register
   source.  The LOW LANE of the destination becomes `SoftFloat.fmin` (or `fmax`)
   of the two low lanes, and **every bit above the lane is PRESERVED** — the legacy
   SSE rule (`DEST[MAXVL-1:32]` / `DEST[MAXVL-1:64]` "unmodified"), and the opposite
-  of `movss`'s memory load.  No flag is written.
+  of `movss`'s memory load.  No EFLAGS bit is written; MXCSR's IE and DE are
+  (D266).
 
   ⚠️ `sz` IS THE FORMAT, as for `vcomis`: `.d` is binary32 (`minss`), `.q` is
   binary64 (`minsd`).  `isMax` picks the opcode byte (`0f 5d` / `0f 5f`).
@@ -1509,8 +1508,9 @@ inductive Op where
   /-- ⭐⭐⭐ P2 BATCH 39 — CVTSS2SD (SDM Vol. 2B), register source: the low
   binary32 lane of `src` becomes the low binary64 lane of `dst`
   (`SoftFloat.f32to64`), and **the upper 64 bits of `dst` are PRESERVED** — the
-  legacy SSE rule (`DEST[MAXVL-1:64]` "unmodified").  No flag is written.
-  Exact, so no rounding control is read; a signalling NaN is QUIETED. -/
+  legacy SSE rule (`DEST[MAXVL-1:64]` "unmodified").  No EFLAGS bit is written;
+  MXCSR's IE (an SNaN) and DE are (D266).  Exact, so no rounding control is
+  read; a signalling NaN is QUIETED. -/
   | vcvtss2sd (dst src : XmmReg)
   /-- ⭐⭐⭐ P2 BATCH 39 — CVTSI2SD from a 32-BIT general-purpose source
   (`f2 0f 2a`, REX.W clear): the source read as a signed int32
@@ -1531,8 +1531,9 @@ inductive Op where
   the low binary64 (`dbl`) or binary32 lane of `src`, TRUNCATED toward zero
   (`SoftFloat.truncToInt`), written to the general-purpose register `dst` as an
   int64 when `wide` (REX.W) and as an int32 otherwise.  That is an ordinary GPR
-  write, so the int32 is zero-extended to 64 bits.  No flag is written, and
-  MXCSR.RC is not read: the opcode fixes the rounding (sub-group A′).
+  write, so the int32 is zero-extended to 64 bits.  No EFLAGS bit is written;
+  MXCSR's IE and PE are (D266).  MXCSR.RC is not read: the opcode fixes the
+  rounding (sub-group A′).
 
   ⛔ `wide` IS A `Bool`, NOT A `Size`.  The SDM lists exactly two destination
   widths, and a `Size` field would admit 8- and 16-bit forms that no encoding

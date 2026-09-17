@@ -594,12 +594,24 @@ theorem step_vmov (k : VMovKind) (d s' : XmmReg) (h : Live s) :
                rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm]
 
-/-- The packed binary operations: DEST := DEST op SRC, in XMM only. -/
-theorem step_vbin (k : VBinKind) (d s' : XmmReg) (h : Live s) :
+/-- The packed binary operations: DEST := DEST op SRC, in XMM only.
+⚠️ D266: every kind but `minps`/`maxps`, which also raise MXCSR flags (below). -/
+theorem step_vbin (k : VBinKind) (d s' : XmmReg) (h : Live s) (hk : k.isMinMax = false) :
     step ⟨.vbin k d s', len⟩ s =
       { s with xmm := s.xmm.set d (vbinApply k (s.getXmm d) (s.getXmm s')),
                rip := s.rip + BitVec.ofNat 64 len } := by
-  simp [step, h, Cpu.setXmm, Cpu.setRip, Cpu.getXmm]
+  simp [step, h, hk, vbinFlags, Cpu.setXmm, Cpu.setRip, Cpu.getXmm]
+
+/-- ⭐ D266: `minps`/`maxps` write XMM and RIP as every packed kind does, AND OR their
+exception flags into MXCSR, when every flag they raise is masked. -/
+theorem step_vbin_minmax (k : VBinKind) (d s' : XmmReg) (h : Live s)
+    (hm : (vbinFlags k (s.getXmm d) (s.getXmm s') &&& ~~~(s.mxcsr >>> 7) &&& 63#32) = 0#32) :
+    step ⟨.vbin k d s', len⟩ s =
+      { s with xmm := s.xmm.set d (vbinApply k (s.getXmm d) (s.getXmm s')),
+               rip := s.rip + BitVec.ofNat 64 len,
+               mxcsr := s.mxcsr ||| vbinFlags k (s.getXmm d) (s.getXmm s') } := by
+  simp [step, h, Cpu.withSimd, hm, Cpu.setXmm, Cpu.setRip]
+  rfl
 
 /-- ⭐ NO PACKED FORM TOUCHES A FLAG.  "Flags Affected: None" is on every SDM
 entry in this group, and the easiest way to get a packed operation wrong is to
@@ -607,7 +619,8 @@ reach for `BinKind`'s flag machinery by analogy — so the absence is asserted
 rather than assumed. -/
 @[simp] theorem step_vbin_flags (k : VBinKind) (d s' : XmmReg) (h : Live s) :
     (step ⟨.vbin k d s', len⟩ s).flags = s.flags := by
-  rw [step_vbin k d s' h]
+  by_cases hc : (vbinFlags k (s.getXmm d) (s.getXmm s') &&& ~~~(s.mxcsr >>> 7) &&& 63#32) = 0#32
+    <;> simp [step, h, hc, Cpu.withSimd, Cpu.halt, Cpu.setXmm, Cpu.setRip]
 
 @[simp] theorem step_vmov_flags (k : VMovKind) (d s' : XmmReg) (h : Live s) :
     (step ⟨.vmov k d s', len⟩ s).flags = s.flags := by
@@ -770,11 +783,13 @@ theorem vload_unaligned_movdqu_runs (k : VMovKind) (d : XmmReg) (ea : Ea) (h : L
 frame, stated in the direction a downstream proof needs it. -/
 @[simp] theorem step_vbin_regs (k : VBinKind) (d s' : XmmReg) (h : Live s) :
     (step ⟨.vbin k d s', len⟩ s).regs = s.regs := by
-  rw [step_vbin k d s' h]
+  by_cases hc : (vbinFlags k (s.getXmm d) (s.getXmm s') &&& ~~~(s.mxcsr >>> 7) &&& 63#32) = 0#32
+    <;> simp [step, h, hc, Cpu.withSimd, Cpu.halt, Cpu.setXmm, Cpu.setRip]
 
 @[simp] theorem step_vbin_mem (k : VBinKind) (d s' : XmmReg) (h : Live s) :
     (step ⟨.vbin k d s', len⟩ s).mem = s.mem := by
-  rw [step_vbin k d s' h]
+  by_cases hc : (vbinFlags k (s.getXmm d) (s.getXmm s') &&& ~~~(s.mxcsr >>> 7) &&& 63#32) = 0#32
+    <;> simp [step, h, hc, Cpu.withSimd, Cpu.halt, Cpu.setXmm, Cpu.setRip]
 
 @[simp] theorem step_mov_flags (sz : Size) (r r' : GPR) (h : Live s) :
     (step ⟨.mov sz (.reg r) (.reg r'), len⟩ s).flags = s.flags := by
@@ -1731,10 +1746,10 @@ theorem vbinm_unaligned_faults (k : VBinKind) (d : XmmReg) (ea : Ea) (h : Live s
         Op.lockable]
 
 theorem vbinm_aligned_runs (k : VBinKind) (d : XmmReg) (ea : Ea) (h : Live s)
-    (hl : ea.lock = false)
+    (hl : ea.lock = false) (hk : k.isMinMax = false)
     (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
     (step ⟨.vbinm k d ea, len⟩ s).stopped = false := by
-  simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
+  simp [step, h, hl, hA, hk, vbinFlags, Cpu.setXmm, Cpu.setRip, Cpu.stopped, Op.lockIllegal,
         Op.anyLocked, Op.lockable]
 
 /-- ⭐⭐ THE MEMORY SHAPE IS THE REGISTER SHAPE'S FUNCTION WITH ITS SECOND OPERAND
@@ -1744,11 +1759,11 @@ LOADED — stated so that the two shapes cannot drift into different arithmetic.
 value the second, which for the eleven commuting operations is invisible and for
 `psub*` and the eight unpacks is the whole answer. -/
 theorem vbinm_is_vbin_with_a_loaded_operand (k : VBinKind) (d : XmmReg) (ea : Ea)
-    (h : Live s) (hl : ea.lock = false)
+    (h : Live s) (hl : ea.lock = false) (hk : k.isMinMax = false)
     (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
     (step ⟨.vbinm k d ea, len⟩ s).xmm.get d
       = vbinApply k (s.xmm.get d) (s.readMem128 (ea.addr s (s.rip + BitVec.ofNat 64 len))) := by
-  simp [step, h, hl, hA, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal,
+  simp [step, h, hl, hA, hk, vbinFlags, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal,
         Op.anyLocked, Op.lockable]
 
 end Batch15

@@ -104,6 +104,12 @@ structure Cpu where
   agree, and a PLANTED difference in it is caught.  Only the last clause has
   teeth, and it is the one the red probe proves. -/
   xmm : Xmms := {}
+  /-- ⭐⭐ MXCSR (SDM Vol. 1 §10.2.3) — SUB-GROUP B0 (D266), the field K3 priced (D263).
+  0x1F80 is the power-up value: every exception masked, RC = nearest, no FZ/DAZ.
+  The low six bits are STICKY exception flags, which the FP forms OR into
+  (`withSimd`). Every pre-state masks every exception and clears DAZ and FZ, and that
+  is a declared limit: this model does not state what either does. -/
+  mxcsr : BitVec 32 := 0x1F80
   oracle : Oracle := Oracle.zero
   ms : Option MsErr := none
 
@@ -369,6 +375,30 @@ came to blow a heartbeat limit. -/
 @[simp] theorem advance_xmm (s : Cpu) (n : Nat) : (s.advance n).xmm = s.xmm := rfl
 @[simp] theorem undefBit_xmm (s : Cpu) : (s.undefBit).2.xmm = s.xmm := rfl
 @[simp] theorem undefVal_xmm (s : Cpu) (n : Nat) : (s.undefVal n).2.xmm = s.xmm := rfl
+
+/-! ### ⭐ MXCSR's FRAME, written with the field for D71's reason (see the block above). -/
+@[simp] theorem writeMem_mxcsr (s : Cpu) (sz : Size) (a : BitVec 64) (v : Val) :
+    (s.writeMem sz a v).mxcsr = s.mxcsr := rfl
+@[simp] theorem setXmm_mxcsr (s : Cpu) (r : XmmReg) (v : BitVec 128) :
+    (s.setXmm r v).mxcsr = s.mxcsr := rfl
+@[simp] theorem setFlags_mxcsr (s : Cpu) (f : Flags) : (s.setFlags f).mxcsr = s.mxcsr := rfl
+@[simp] theorem setRip_mxcsr (s : Cpu) (v : BitVec 64) : (s.setRip v).mxcsr = s.mxcsr := rfl
+@[simp] theorem advance_mxcsr (s : Cpu) (n : Nat) : (s.advance n).mxcsr = s.mxcsr := rfl
+@[simp] theorem undefBit_mxcsr (s : Cpu) : (s.undefBit).2.mxcsr = s.mxcsr := rfl
+@[simp] theorem undefVal_mxcsr (s : Cpu) (n : Nat) : (s.undefVal n).2.mxcsr = s.mxcsr := rfl
+
+/-- ⭐⭐ RAISE SIMD EXCEPTION FLAGS, THEN CONTINUE (D266). `fl` is ORed into MXCSR's
+sticky bits and `k` runs on the result. If a raised flag is UNMASKED (mask bit = flag
+bit + 7), the step refuses instead, from the UNCHANGED state: #XM is not modelled, and
+x86isa halts there too, so the two agree on the refusal. No pre-state unmasks. -/
+def withSimd (s : Cpu) (fl : BitVec 32) (k : Cpu → Cpu) : Cpu :=
+  if fl &&& ~~~(s.mxcsr >>> 7) &&& 0x3F#32 != 0#32 then
+    s.halt (.byDesign "unmasked SIMD floating-point exception (#XM)")
+  else k { s with mxcsr := s.mxcsr ||| fl }
+
+/-- A form that raises nothing is its continuation, exactly. -/
+@[simp] theorem withSimd_zero (s : Cpu) (k : Cpu → Cpu) : s.withSimd 0#32 k = k s := by
+  simp [withSimd]
 
 end Cpu
 end X86

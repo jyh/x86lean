@@ -180,8 +180,9 @@ binary32 of `x` as a binary64.  The sign always travels.
   not from the field.  A model that shifted the mantissa and re-biased the
   field (`0 + 896`) is right on every normal and wrong on every denormal.
 
-⚠️ NO MXCSR: the invalid (signalling NaN) and denormal exceptions are flags there
-only, masked in every pre-state here, and this model has no MXCSR (D2). -/
+⚠️ NO EXCEPTION HERE: the invalid (signalling NaN) and denormal flags are
+MXCSR's, raised by `preFlags` through `Cpu.withSimd` (D266), and masked in every
+pre-state. -/
 def f32to64 (x : BitVec 64) : BitVec 64 :=
   let f := binary32
   let s := f.sign x
@@ -223,7 +224,7 @@ integer, zero-extended to 64 bits (`w` is 32 or 64).
 * **A NaN, ±∞, or any value whose truncation is outside
   `[−2^(w−1), 2^(w−1) − 1]` gives the INTEGER INDEFINITE `2^(w−1)`**, which is
   the sign bit alone. The invalid exception that goes with it is an MXCSR flag,
-  masked in every pre-state here, and this model has no MXCSR (D2).
+  raised by `truncFlags` (D266) and masked in every pre-state here.
 * **−2^(w−1) itself is in range.** A value in `(−2^(w−1) − 1, −2^(w−1)]`
   truncates to it, which has the same bits as the indefinite by a different rule.
 
@@ -248,6 +249,61 @@ def truncToInt (f : Fmt) (w : Nat) (x : BitVec 64) : BitVec 64 :=
         (if n.ule ind then ((-n).setWidth w).setWidth 64 else ind)
       else
         (if n.ult ind then n else ind)
+
+/-! ### ⭐⭐⭐ SUB-GROUP B0 — THE STICKY EXCEPTION FLAGS OF THE FORMS ALREADY HERE (D266).
+
+MXCSR's low six bits (SDM Vol. 1 §10.2.3) are STICKY: an instruction ORs in what it
+raises and never clears one. These functions say WHICH bits a form raises. Every
+pre-state masks every exception, so the flag is all that is observable; an unmasked
+one makes the step refuse (`Cpu.withSimd`). -/
+
+/-- MXCSR.IE, the invalid-operation flag (bit 0). -/
+def fIE : BitVec 32 := 0x01
+/-- MXCSR.DE, the denormal-operand flag (bit 1). -/
+def fDE : BitVec 32 := 0x02
+/-- MXCSR.PE, the precision (inexact) flag (bit 5). -/
+def fPE : BitVec 32 := 0x20
+
+namespace Fmt
+/-- A signalling NaN: a NaN whose quiet bit (the mantissa's top bit) is clear. -/
+def isSNaN (f : Fmt) (x : BitVec 64) : Bool := f.isNaN x && !(x.getLsbD (f.mw - 1))
+/-- A denormal: exponent zero, mantissa non-zero. -/
+def isDenormal (f : Fmt) (x : BitVec 64) : Bool := f.expo x == 0 && f.mant x != 0
+end Fmt
+
+/-- ⭐⭐ THE PRE-COMPUTATION FLAGS OF A TWO-OPERAND FORM (SDM Vol. 2A/2B exception lists).
+* **IE** when an operand is a NaN that SIGNALS here. An SNaN always does. A QNaN does
+  when `quietSignals`: COMIS*, MIN*, MAX* (SDM: "including QNaN source operand"), not
+  UCOMIS*.
+* **DE** when an operand is a denormal, and ONLY WHEN NO OPERAND IS A NaN. Measured on
+  the reference model (D266 §1): the other reading fails two cases on every min/max form.
+⛔ COMIS AND UCOMIS DIFFER HERE AND NOWHERE ELSE. x86isa dispatches COMIS as UCOMIS
+(`inst-listing.lisp`, OPERATION #x9), so the QNaN arm is pinned in the kernel against
+the SDM and declared as an oracle divergence (D266 §1). -/
+def preFlags (f : Fmt) (quietSignals : Bool) (a b : BitVec 64) : BitVec 32 :=
+  if f.isNaN a || f.isNaN b then
+    (if quietSignals || f.isSNaN a || f.isSNaN b then fIE else 0)
+  else if f.isDenormal a || f.isDenormal b then fDE else 0
+
+/-- ⭐⭐ CVTTSD2SI / CVTTSS2SI's FLAGS (SDM Vol. 2A: "Invalid, Precision"), on
+`truncToInt`'s case split: IE exactly where that function returns the indefinite by
+the invalid rule, PE where a finite in-range value had a fraction. No DE: the SDM does
+not list it, and a denormal truncates to 0 with PE. -/
+def truncFlags (f : Fmt) (w : Nat) (x : BitVec 64) : BitVec 32 :=
+  let e := (f.expo x).toNat
+  let bias := 2 ^ (f.ew - 1) - 1
+  let ind : BitVec 64 := 1 <<< (w - 1)
+  if e == 2 ^ f.ew - 1 then fIE
+  else if e < bias then (if f.isZero x then 0 else fPE)
+  else
+    let k := e - bias
+    if w ≤ k then fIE
+    else
+      let sig := f.mant x ||| (1 <<< f.mw)
+      let n := if f.mw ≤ k then sig <<< (k - f.mw) else sig >>> (f.mw - k)
+      let frac := if f.mw ≤ k then false else (sig &&& ((1 <<< (f.mw - k)) - 1)) != 0
+      if !(if f.sign x then n.ule ind else n.ult ind) then fIE
+      else if frac then fPE else 0
 
 end SoftFloat
 end X86

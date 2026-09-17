@@ -72,6 +72,21 @@ field costs every record proof); it is a v0.x non-goal until something needs it.
 `x86l-run-case` under the shipped driver and under a driver whose `*x86l-ctrs*` is planted back to
 `nil`, and requires that they execute in the first and refuse in the second (D86).
 
+## MXCSR: every exception MASKED, no DAZ, no FZ (sub-group B0, D266)
+
+`Cpu.mxcsr` holds the SSE control/status register. The landed floating-point forms OR the sticky
+exception flags they raise into it (`Cpu.withSimd`), and the differential compares each flag.
+**Two things are assumed, not modelled:**
+- **Every exception is masked.** An instruction that would raise an UNMASKED exception refuses
+  (`byDesign`) instead of delivering `#XM`. x86isa halts there too, so the two agree on the refusal,
+  and no pre-state unmasks one, so the refusal path is never compared.
+- **DAZ and FZ are clear.** No form reads either bit. A program that sets them gets this model's
+  answer for a machine where they are clear.
+
+The pre-states vary RC and preset the sticky bits (never OE: x86isa reads a preset OE as a
+conversion's overflow, D266 §4); the masks stay set and DAZ/FZ stay clear. A reader may rely on the
+flags a form raises under those conditions, and on nothing about an unmasked exception or about DAZ/FZ.
+
 ## What is validated, not proven
 Agreement with ACL2 x86isa is EVIDENCE gathered by execution (the differential runs recorded in
 `docs/DIFFERENTIAL-*.md`), never a theorem about that system.
@@ -81,6 +96,10 @@ gathered by execution (differential and co-simulation runs recorded per form)" u
 disagreement, as each `knownDivergences` entry's source field shows — and has never been executed by
 this project; no hardware co-simulation has been run (`docs/COSIM-DESIGN.md` is a design). A policy
 sentence that names evidence categories reads as a statement that the evidence exists.
+⚠️ *Since 2026-09-17 one processor HAS been read, and for rules rather than for this model:*
+`hwprobe/` ran 174 SDM-derived rows on an AMD EPYC 7763 and agreed with all of them (D266 §5). The
+same rows are kernel pins in `Tests/Anchors.lean`, so for those rows the model is checked against
+rules a processor confirmed. That is still not a co-simulation of `step`.
 
 ## Kernel cost
 Kernel time is measured in CI and gated at a registered ceiling; a blowup on a composite is a stop

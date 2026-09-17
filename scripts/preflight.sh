@@ -44,10 +44,14 @@ echo "── local gates ──────────────────�
 # on it while this loop read ok: the loop is a SUBSET of CI's static gates, and says so.
 for g in check_claims check_positioning_table check_citations check_coverage_prose \
          check_readme_snapshot check_readme_lean check_ci_shards check_corpus_claims \
-         check_record_revision check_flag_strictness check_source_roles check_lean_route check_encoding; do
+         check_record_revision check_flag_strictness check_source_roles check_lean_route check_encoding \
+         check_mxcsr_format; do
   if python3 "scripts/$g.py" >/dev/null 2>&1; then printf "  ok   %s\n" "$g"
   else printf "  ⛔ FAIL %s\n" "$g"; rc=1; fi
 done
+# B0 (D266): the kernel pins are hwprobe's rows, generated; CI's build job runs this beside the format gates.
+if python3 hwprobe/mk_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_anchors --check\n"; rc=1; fi
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.

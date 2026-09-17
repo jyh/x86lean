@@ -90,6 +90,21 @@ def Cpu.renderXmms (s : Cpu) : String :=
       let lo : BitVec 64 := v.setWidth 64
       s!"{r.name}={hex64 hi}{hex64 lo}"))
 
+/-- ⭐⭐ MXCSR IN THE WIRE FORMAT (sub-group B0, D266): ONE KEY PER STICKY FLAG, and the
+control half (RC, the masks, DAZ, FZ) as one hex field.
+
+⛔ NOT ONE HEX FIELD FOR THE WHOLE REGISTER. A declared oracle divergence is keyed on
+`(vector, field)` and excuses every disagreement there, so a single `mxcsr=` would let
+the COMIS-at-QNaN divergence (D266 §1) excuse a wrong DE as well. Per-flag keys make
+the declaration exactly one bit wide. -/
+def mxcsrFlagNames : List (String × Nat) :=
+  [("ie", 0), ("de", 1), ("ze", 2), ("oe", 3), ("ue", 4), ("pe", 5)]
+
+def Cpu.renderMxcsr (s : Cpu) : String :=
+  String.intercalate " "
+    ((mxcsrFlagNames.map fun (n, i) => s!"mxcsr.{n}={if s.mxcsr.getLsbD i then "1" else "0"}")
+      ++ [s!"mxcsr.ctl={hexPad ((s.mxcsr &&& 0xFFC0).setWidth 64) 4}"])
+
 def MsErr.render : MsErr → String
   | .illegalOperands w => s!"illegal-operands:{w}"
   | .unimplemented w => s!"unimplemented:{w}"
@@ -108,7 +123,7 @@ is what the record carries; the reason stays in `Cpu.ms` for a human reading a
 single case. -/
 def Cpu.render (s : Cpu) (ws : List Window) : String :=
   String.intercalate " "
-    ([s.renderRegs, s.renderXmms, s!"rip={hex64 s.rip}", s.flags.render,
+    ([s.renderRegs, s.renderXmms, s!"rip={hex64 s.rip}", s.flags.render, s.renderMxcsr,
       s!"refused={if s.ms.isSome then "1" else "0"}"]
       ++ ws.map (renderWindow s.mem))
 
@@ -247,6 +262,7 @@ def undefinedLeakedBy (stepFn : Instr → Cpu → Cpu) (i : Instr) (s : Cpu)
   -- one derived channel, so that is filed as undefined (D6's hazard), and this
   -- conjunct cannot see it.  Every other field is still compared as below.
   !(a.xmm == b.xmm
+    && a.mxcsr == b.mxcsr
     && movedRegs a b == declaredUndefRegs i s
     && a.rip == b.rip
     && a.oracle.cursor == b.oracle.cursor

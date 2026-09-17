@@ -3932,6 +3932,21 @@ def stringBoundaryStates : List Cpu :=
     -- flags clear, exactly as `dfStates` does.
   , mkStringPtr 0xAAAAAAAAAAAAAAAA 0xF0F0F0F0F0F0F0F0 64 0x2000 0x8000 ]
 
+/-- ⭐⭐ SUB-GROUP B0 (D266) — MXCSR, BY POSITION.  RC is `i mod 4`, so every rounding
+mode is reached by every vector; the sticky flags are PRESET on half the states (from
+`i / 4`), so a model that REPLACES the flags instead of ORing them differs; every
+exception stays masked and DAZ/FZ stay clear, which is a declared limit.
+⛔ BY POSITION, NOT FROM THE OPERAND VALUES: a derivation from `a` and `c` would pin
+RC to 0 on the whole diagonal (`a ^^^ c = 0`), which is a constant RC over exactly the
+states that carry the ties (D27).
+⛔ OE (bit 3) IS NEVER PRESET. x86isa's binary32→binary64 conversion reads the
+ACCUMULATED OE as its own overflow (`cvt-spec.lisp`, `sse-cvt-fp1-to-fp2`), so a preset
+OE turns every `cvtss2sd` into ±max or ±∞ there (D266 §4). A replacing model is still
+caught by the other five bits. -/
+def mxcsrFor (i : Nat) : BitVec 32 :=
+  0x1F80 ||| (BitVec.ofNat 32 (i % 4) <<< 13)
+    ||| (if i / 4 % 2 == 1 then BitVec.ofNat 32 (i * 37 % 64) &&& 0x37 else 0)
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
 its neighbours, the carry boundary, the two DF states, the two `addr32`
 counter states, the two stack frames, the two string-pointer boundaries, the
@@ -3945,8 +3960,8 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
   let rs := randStream seed (2 * nRandom)
   let rnd := (rs.take nRandom).zip (rs.drop nRandom) |>.zipIdx.map
     (fun ((a, c), i) => mkPre a c i)
-  diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
+  (diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
     ++ frameStates ++ stringBoundaryStates ++ cmpxchg8bStates ++ shiftCountStates
-    ++ rnd
+    ++ rnd).zipIdx.map (fun (s, i) => { s with mxcsr := mxcsrFor i })
 
 end X86.Tests

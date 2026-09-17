@@ -122,6 +122,24 @@
                   x86)))
       (x86l-set-xmms (cdr alist) x86))))
 
+;; ⭐⭐ MXCSR (sub-group B0, D266): one key per sticky flag and the control half as hex,
+;; the same string `Cpu.renderMxcsr` builds. Per-flag keys, because a declared oracle
+;; divergence is keyed on a FIELD and must be able to name one bit.
+(defconst *x86l-mxcsr-flags* '("ie" "de" "ze" "oe" "ue" "pe"))
+
+(defun x86l-mxcsr-keys (i v acc)
+  (if (or (not (natp i)) (>= i 6))
+      acc
+    (x86l-mxcsr-keys (1+ i) v
+                     (concatenate 'string acc " mxcsr." (nth i *x86l-mxcsr-flags*) "="
+                                  (if (logbitp i v) "1" "0")))))
+
+(defun x86l-mxcsr (x86)
+  (declare (xargs :stobjs x86))
+  (let ((v (mxcsr x86)))
+    (concatenate 'string (x86l-mxcsr-keys 0 v "")
+                 " mxcsr.ctl=" (x86l-hex (logand v #xffc0) 4))))
+
 (defun x86l-window-bytes (addr n acc x86)
   (declare (xargs :stobjs x86))
   (if (zp n) (mv acc x86)
@@ -157,6 +175,7 @@
           (x86l-xmms 0 "" x86)
           " rip=" (x86l-hex (n64 (rip x86)) 16)
           " " (x86l-flags x86)
+          (x86l-mxcsr x86)
           ; ⚠️ BOTH FIELDS.  x86isa records a #GP(0) in `fault`, NOT in `ms` —
           ; and the first differential run read only `ms`, so eighty
           ; non-canonical branches came back as "x86isa did nothing, and its rip
@@ -234,6 +253,7 @@
        (rflags (cadr (assoc-keyword :rflags c)))
        (mem    (cadr (assoc-keyword :mem c)))
        (xmms   (cadr (assoc-keyword :xmms c)))
+       (mx     (cadr (assoc-keyword :mxcsr c)))
        (x86 (!app-view t x86))
        ((mv flg x86)
         (init-x86-state-64 nil rip0 gprs *x86l-ctrs* msrs nil nil nil nil rflags mem x86))
@@ -245,6 +265,10 @@
        ;; case intends — so emitter and reader can be updated in either order
        ;; without a run that silently compares the wrong thing.
        (x86 (x86l-set-xmms xmms x86))
+       ;; ⛔ EVERY CASE, and the power-up value when a case omits it: `init-x86-state-64`
+       ;; does NOT reset MXCSR (D265 §4), so without this a sticky flag raised by one case
+       ;; is read as the next case's pre-state.
+       (x86 (!mxcsr (if (natp mx) mx #x1f80) x86))
        (x86 (x86-fetch-decode-execute x86))
        ((mv post x86) (x86l-post x86)))
     (prog2$ (cw "CASE id=~s0 len=~x1~%~s2~%" id len post)
