@@ -87,6 +87,10 @@ _MUL_R = ["mulsd_exact/nearest", "mulsd_exact/down", "mulsd_exact/up", "mulsd_ex
 PINNED.update({"%s/%s" % (n, m): _X for n in _MUL_X for m in ("nearest", "down", "up", "zero")})
 PINNED.update({n: _R for n in _MUL_R})
 
+# ⏳ B2's rows (add, sub, div) run on the processors before B2 is built, and are pinned by B2's batch by this
+# file's rule. Until then they are DECLARED here, so a row in no family is still refused.
+B2_PENDING = {"p_addsd", "p_addss", "p_subsd", "p_subss", "p_divsd", "p_divss"}
+
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}
 
@@ -170,8 +174,10 @@ def block():
         lines.append("  ] : List (%s)).all" % ty)
         lines += ["    " + c for c in check]
         lines[-1] += " = true := by decide"
-    if used != len(rs):
-        raise SystemExit("mk_anchors: %d of mk_rows.py's rows are in no family" % (len(rs) - used))
+    pending = sum(1 for r in rs if r[1] in B2_PENDING)
+    if used + pending != len(rs):
+        raise SystemExit("mk_anchors: %d of mk_rows.py's rows are in no family and not B2's pending rows"
+                         % (len(rs) - used - pending))
     lines += ["", END]
     return lines
 

@@ -38,6 +38,49 @@ SYM(p_mulss):
         movq %xmm0, %rax
         ret
 
+/* B2 (D268 s8): add, sub and div, the same shape as the multiply. */
+        .globl SYM(p_addsd)
+SYM(p_addsd):
+        LOAD
+        addsd %xmm1, %xmm0              /* f2 0f 58 c1 */
+        movq %xmm0, %rax
+        ret
+
+        .globl SYM(p_addss)
+SYM(p_addss):
+        LOAD
+        addss %xmm1, %xmm0              /* f3 0f 58 c1 */
+        movq %xmm0, %rax
+        ret
+
+        .globl SYM(p_subsd)
+SYM(p_subsd):
+        LOAD
+        subsd %xmm1, %xmm0              /* f2 0f 5c c1 */
+        movq %xmm0, %rax
+        ret
+
+        .globl SYM(p_subss)
+SYM(p_subss):
+        LOAD
+        subss %xmm1, %xmm0              /* f3 0f 5c c1 */
+        movq %xmm0, %rax
+        ret
+
+        .globl SYM(p_divsd)
+SYM(p_divsd):
+        LOAD
+        divsd %xmm1, %xmm0              /* f2 0f 5e c1 */
+        movq %xmm0, %rax
+        ret
+
+        .globl SYM(p_divss)
+SYM(p_divss):
+        LOAD
+        divss %xmm1, %xmm0              /* f3 0f 5e c1 */
+        movq %xmm0, %rax
+        ret
+
         .globl SYM(p_minsd)
 SYM(p_minsd):
         LOAD
