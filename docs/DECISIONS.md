@@ -18436,3 +18436,141 @@ Posted on the fleet bus (09/17 05:15) with the recommendation, and taken on it.
 - **A carry out of an inexact significand, away from a tie,** is reached by no dst-xmm0 vector. Two candidates per format
   reach it (§2), and each writes another register. `mulsd_tiecarry/up` pins one mode of it. Otherwise it is carried by
   the rule's 6,085-row check. A hwprobe row per mode would make it a pin.
+
+## D270 — D268 §8's fork, ANSWERED BY MEASUREMENT: the fold costs +180 ku where six constructors project 1,479–2,220
+
+⚖️ QUEUE P3, sub-group B2. D268 §8 RECOMMENDED folding `vmul` into an operation field and did not price it;
+B1's own constructor comment said *"an op field would have one member until add, sub and div land, and B2 is
+where it is priced."* This is that pricing, on a draft (`paris/b2-fold`), against a band posted on the fleet
+bus **before the number existed**.
+
+### 1. THE READING
+`ku_delta.py --arm a-prime --base f92dd23 --head bf57156` (yukon.lan, load 3.70/4.26/3.83), gate **CLEAN**:
+```
+  X86.Syntax      26,600 → 26,780     +180   allowance 4,974     ← THE FORK'S PRICE
+  Tests.Anchors  343,830 → 343,962    +132   allowance 80,112
+  every other module of the twenty-two                +0
+  ms ceilings (readings)   X86.Basic 78/278 28% · X86.Syntax 285/879 32% · X86.Theorems 1,110/3,330 33%
+```
+- **PRE-REGISTERED: +150…+450** (bus 09/17 11:41, before the head tree was profiled). **+180 HITS the band,
+  near its low end.** The band was posted with both of its refutations named — *below 150* would have said the
+  `VShiftOp`/D262 reference class was wrong, *above 450* would have said an extra field costs more than a
+  constructor and the fork deserved re-reading.
+- ⛔ **`Tests.Anchors`' +132 was ALREADY OBSERVED when the band was posted and was declared as such**, so it is
+  a reading and not a prediction.
+
+### 2. THE COUNTERFACTUAL, AND IT IS A PROJECTION — THE RECORD SAYS SO RATHER THAN DRESSING IT AS A READING
+Six more constructors were **never built and will not be**: that is the arm whose price we are declining. The
+projection is taken from the three batches that added **exactly two constructors each**, verified at their own
+records rather than from D268 §8's prose:
+```
+  P2 batch 39   X86.Syntax  +740   ⇒ 370   per constructor   (DECISIONS.md:17266)
+  P2 batch 40   X86.Syntax  +533   ⇒ 266.5                   (DECISIONS.md:17502)
+  P2 batch 42   X86.Syntax  +493   ⇒ 246.5                   (DECISIONS.md:18387, B1)
+  ⇒ six constructors project  1,479 – 2,220        the fold, measured:  +180      8.2× – 12.3× cheaper
+```
+⭐ **THE COMPARISON IS LIKE FOR LIKE IN DELIVERED CAPABILITY**, which is the half a ratio can hide: the fold's
++180 **already makes add, sub and div expressible in the AST**. It is not 180 for less; it is 180 for the same
+three operations at two formats that the six constructors would have bought.
+⚠️ **WHAT WOULD STILL OVERTURN IT:** the projection is per-constructor from pairs, and a constructor's cost is
+not obviously linear in the number of them. If it is SUB-linear, six together could cost less than 6×. Nothing
+here measures that, and the fold wins by enough that it would take a factor of eight to matter.
+
+### 3. ⭐ THE FINDING UNDERNEATH THE NUMBER: ku FOLLOWS KERNEL REDUCTION, NOT SOURCE SIZE
+```
+  Tests/Vectors.lean    11 rows respelled `.vmul .q` → `.varith .mul .q`     Δku    0
+  Tests/Anchors.lean     2 pin blocks respelled, same edit                   Δku +132
+```
+⇒ 🔑 ***ELEVEN CHANGED LINES COST NOTHING AND TWO COST 132, BECAUSE THE ANCHORS' PINS ARE `decide`-CHECKED AND
+THE VECTOR TABLE IS DATA THE KERNEL NEVER REDUCES.*** A reader estimating a refactor's ku from how many lines
+it touches would have got this exactly backwards. It is D228's rule from the other side — there, kernel ms with
+Δku 0; here, changed source with Δku 0.
+📌 **`X86.Semantics` also reads +0** although `vmulLow` became `varithLow` with a four-way match, for the same
+reason: the match is not reduced when that module's own declarations are checked.
+
+### 4. THE ONE SUBSTANTIVE CHOICE INSIDE A MECHANICAL RENAME
+`wrongSimdWith`'s swapped-in `mul` is applied to **the multiply alone**; add, sub and div take the true rule
+until B2 writes their own wrong models.
+⇒ 🔑 ***ROUTING THEM THROUGH THE SUBSTITUTE WOULD HAVE SILENTLY CHANGED WHAT EVERY B1 ARM MEASURES, AND THE
+ARMS' PRE-REGISTERED SCORES ARE THIS CAMPAIGN'S ACCEPTANCE — a refactor that moves its own instrument cannot be
+checked by it.*** Nine B1 arms read their predicted scores to the case (D268 §4); that instrument is preserved
+by construction here, not by hoping.
+
+### 5. ✅ THE NINE ARMS, RE-RUN ON THE FOLD, REPRODUCE THEIR RECORDED SCORES EXACTLY
+`x86lean-diff selftest mulsd`, 9 of 168 arms, `filtered selftest: PASS`, every one `explained 0`:
+```
+  170 · 264 · 17 · 854 · 31 · 396 · 39 · 129 · 3      D268 §4's recorded nine, to the case
+```
+**Posted on the fleet bus BEFORE eight of the nine existed**, as equality rather than as "all caught".
+⇒ 🔑 ***AN ARM'S SCORE IS A JOINT FACT ABOUT THE MODEL AND THE PRE-STATES, SO A FOLD THAT MOVED WHICH
+VECTORS REACH WHICH ARM WOULD STILL PRINT NINE GREEN TICKS AT DIFFERENT COUNTS.*** Nine identical counts
+is the reading the pass/fail shape of this instrument could not have given.
+⚠️ **THE CONTROL D268 §4 USED CANNOT BE RE-RUN, AND THE RECORD SAYS SO IN ITS OWN SENTENCE:**
+*"`wrongMulWith vmulLow` … read ZERO unexplained disagreements … **It was removed before the commit.**"*
+⇒ 🔑 ***A RECORD REPORTS WHAT A RUN DID; IT DOES NOT PROMISE THE RUN CAN BE REPEATED.***
+✅ **What replaced it is stronger for this question:** B0's MODEL-WIDE arms (`selftest mxcsr`), because
+the nine above see the MULTIPLY ONLY while the fold touched `X86/Semantics.lean`, `Main.lean`, three test
+files and the anchor generator. D268 §4 recorded them at **1,140 and 24**.
+
+### 5b. ✅ AND THE MODEL-WIDE ARMS TOO — THE FOLD MOVED NOTHING OUTSIDE THE MULTIPLY
+`x86lean-diff selftest mxcsr`, **5 of 168 arms**, `filtered selftest: PASS`:
+```
+  arm                                          field      fold    B0 (D267)   B1 (D268 §4)
+  flags REPLACE the sticky bits, not OR         mxcsr.ze   1,140      920        1,140  ✅
+  DE is raised beside a NaN                     mxcsr.de      24        6           24  ✅
+  ucomis raises IE on a quiet NaN               mxcsr.ie      25       25            —  ✅
+  min/max raise IE on a signalling NaN only     mxcsr.ie     184      184            —  ✅
+  cvtt drops the precision flag                 mxcsr.pe     475      475            —  ✅
+```
+⭐ **THE FIRST TWO ARE THE ONES THAT MATTER AND THEY ARE THE TWO THAT MOVED WHEN B1 LANDED.** D268 §4
+recorded them rising 920 → 1,140 and 6 → 24 as the multiply came into their reach. **The fold reproduces
+the RISEN figures**, so it preserves the multiply's contribution to a model-wide rule.
+⭐ **The other three are unchanged from B0**, which is the other half of the claim: the fold touched
+`X86/Semantics.lean`, `Main.lean`, three test files and the anchor generator, and **the comparison, min/max
+and truncation forms read exactly what they read before it.**
+⇒ 🔑 ***THE NINE ARMS OF §5 SEE THE MULTIPLY ONLY. THESE FIVE ARE THE ONES THAT COULD HAVE CAUGHT A FOLD
+THAT BROKE SOMETHING ELSE, AND THEY DID NOT.***
+⚠️ `expectField` is a lower bound (D117): arm 1 scores 1,140 in its declared `mxcsr.ze` against 4,949
+unexplained across all fields. That is B0's own property, unchanged, not a finding here.
+
+### 6. ⭐⭐ THE DIFFERENTIAL IS RUN, AND IT IS BYTE-IDENTICAL — NOT MERELY EQUAL IN ITS SUMMARY
+`scripts/run_differential.sh` on `paris/b2-fold` `5d2dbf1` (rc 0, 12 min), against D268 §6's recorded run:
+```
+                          the fold                                    B1 (D268 §6)
+  summary line   cases=94072 matched=73490 explained=29435       IDENTICAL, every field
+                 unexplained=0 oracle-divergence=221
+                 oracle-leaks=0 missing=0
+  run/lean.txt        46df0b40…                                  46df0b40…   ✅
+  run/cases.lsp       9f0cb40c…                                  9f0cb40c…   ✅
+  run/oracle.txt      ea301c07…                                  ea301c07…   ✅
+  reference model     acl2@c8897a34                              acl2@c8897a34
+```
+⇒ 🔑 ***THE THREE ARTEFACT HASHES MATCH, SO THE FOLD EMITS THE SAME BYTES — the same 94,072 Lean records,
+the same ACL2 cases, and the same oracle output. That is a far stronger claim than three equal totals:
+equal summaries are consistent with compensating changes, and equal BYTES are not.*** The pre-registration
+asked for the three numbers and the artefacts answered a question it had not thought to ask.
+⛔ **THE RUN'S TRAILING `kernel_cost` LINE READS `⛔ kernel-cost gate FAILED` AND IT IS NOT THIS RUN'S
+VERDICT — I checked rather than accepted the script's own reassurance.** The single OVER is
+`X86.Syntax 291.0 / 200`, and it is PRE-EXISTING on three independent readings:
+- `ku_delta_budget.txt:81`, committed **2026-09-13**, four readings of that module: **271 · 293 · 270 · 281**,
+  all over the 200 in `kernel_ceilings.txt:129`. **Today's 291 is inside that band**, after ~673 ku of
+  X86.Syntax growth since (B1's +493 and this fold's +180).
+- **D268 §6's own last bullet recorded the same red on B1's run at `X86.Syntax` 313/200** — *higher* than
+  the fold's 291.
+- The ceilings were **retired as a merge gate by the helm on 2026-09-04** and kept as READINGS; the gate is
+  `kernel_delta.py`, which reads CLEAN.
+⚠️ **BUT `ku_delta_budget.txt`'s own header predicted what has happened — *"a reading nobody reads is not
+retired, it is abandoned"* — and it has been: this line prints on every differential run and nobody acts on
+it.** That is a QUEUE item, not a shrug, and raising it belongs in its own commit with its own control.
+
+### 7. WHAT IS OWED BEFORE THE FOLD LANDS ON MASTER
+- **Nothing measurement-side.** Build ✅ · ku CLEAN ✅ · nine multiply arms exact ✅ · five model-wide arms
+  exact ✅ · differential byte-identical ✅.
+- **The landing step itself:** a PR, the ms walk with predictions posted before it, and `--record`.
+- **`VArithOp.mnemonic` keeps B1's `.q`-or-`ss` shape.** `.b` and `.w` are unreachable and spell `mulss`-style
+  names. The right repair is an encodability table in `bitcntEncodable`'s shape, whose declined set IS asserted in
+  `Tests/Coverage.lean` (`bitcnt_declined_forms_are_exactly_the_unencodable_ones`). ⚠️ This line first cited
+  `vmovsEncodable`, which has NO such theorem; `check_citations.py` caught it, I did not.
+  ⛔ NOT taken here: it changes what the model DECLINES, which does not belong in a commit whose purpose is to
+  measure a refactor's ku.
+- **B2's own work** — vectors, arms, pins, differential — is unstarted. This settles the SHAPE, nothing else.

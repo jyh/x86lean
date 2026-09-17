@@ -2383,8 +2383,23 @@ The prose goes in `note`, which is not reduced.
   - **The arms:** nine, each at its predicted score.
   - **The price** (A′ on the draft): `Tests.Anchors` +51,379 of 68,141.
   - **The demand:** sub-group B unclaimed is 31,065 → **19,885**.
-- **B2 = add, sub and div at both formats.** Its first question is D268 §8's: the price of folding `vmul` into a
-  `VArithOp` field, read on B2's own draft.
+- **B2 = add, sub and div at both formats.** ✅ **ITS FIRST QUESTION IS ANSWERED — D270.** D268 §8's fork is
+  settled by measurement on `paris/b2-fold`: folding `vmul` into a `VArithOp` field costs **X86.Syntax +180 ku**
+  (gate a-prime CLEAN, every other module of twenty-two at Δ0), against a projection of **1,479–2,220** for six
+  more constructors, taken from the three batches that added exactly two each (39: +740 · 40: +533 · 42: +493).
+  **8.2×–12.3× cheaper, like for like** — the +180 already makes add, sub and div expressible.
+  ✅ **AND ITS ACCEPTANCE IS COMPLETE (D270 §5, §5b, §6):** nine multiply arms and five model-wide arms
+  reproduce their recorded scores EXACTLY, and the differential is **BYTE-IDENTICAL** to B1's — same summary
+  line in every field, and `run/lean.txt` `46df0b40`, `run/cases.lsp` `9f0cb40c`, `run/oracle.txt` `ea301c07`
+  all matching. **The fold emits the same bytes**, which equal totals alone could not have established.
+  ⛔ **What remains is the LANDING STEP, not a measurement:** a PR, the ms walk with predictions posted before
+  it, and `--record`.
+- ⚠️ **OPEN, AND IT IS AN ABANDONED READING RATHER THAN A FAILURE:** every `run_differential.sh` prints
+  `⛔ kernel-cost gate FAILED` for `X86.Syntax 291/200`. The ceiling was **retired as a merge gate 2026-09-04**
+  and `kernel_ceilings.txt:129` has not moved since, while the module has measured 270–293 since 2026-09-13
+  (`ku_delta_budget.txt:81`) — B1's own run read 313 (D268 §6). ⇒ **A red that prints on every run and is
+  explained away every time is the shape `ku_delta_budget.txt`'s header warned of: *"a reading nobody reads is
+  not retired, it is abandoned."*** Raising or removing it belongs in its own commit with its own control.
   - ⚠️ `Tests.Anchors` has about 17k of A′ room left after B1 (+51,379 of 68,141). B2's pins must be priced before they
     are written, and the allowance moves with the base.
   - ⚠️ `Tests.Vectors` sits near the code generator's recursion limit (D268 §5). B1 raised it to 32,768; B2 re-measures
