@@ -18563,10 +18563,44 @@ VERDICT — I checked rather than accepted the script's own reassurance.** The s
 retired, it is abandoned"* — and it has been: this line prints on every differential run and nobody acts on
 it.** That is a QUEUE item, not a shrug, and raising it belongs in its own commit with its own control.
 
-### 7. WHAT IS OWED BEFORE THE FOLD LANDS ON MASTER
-- **Nothing measurement-side.** Build ✅ · ku CLEAN ✅ · nine multiply arms exact ✅ · five model-wide arms
-  exact ✅ · differential byte-identical ✅.
-- **The landing step itself:** a PR, the ms walk with predictions posted before it, and `--record`.
+### 7. THE ms WALK, AND ⛔ THE TWO THINGS I GOT WRONG THAT ITS OWN GATES CAUGHT
+**Walk 1** (`origin/master → ac34d7d`, repeats 6): **delta gate CLEAN**, every unit inside its band.
+`Tests.Anchors +9.0 ±36.0` · `X86.Syntax +10.5 ±19.2`. Pre-registered on the bus as *"every unit ~0"*,
+with centres of +0.3 and +0.7. **The claim held; the centres were low** — D268 §7's own honest shape.
+
+⛔ **(a) I PUBLISHED A RATIO FROM ONE READING AND A SECOND READING REFUTED IT.** From walk 1 alone I
+reported `X86.Syntax` at 58.3 ms per 1k ku against B1's 4.1 — **14.4×** — and named a plausible mechanism
+(a four-way `match` changes elaboration shape, which ku cannot see by construction, D228). **Walk 2 read
+`+5.0`, i.e. 6.8×, on the identical step.**
+```
+  the SAME change, two walks:   X86.Syntax  +10.5  vs  +5.0     2.1× apart
+                                Tests.Anchors +9.0  vs  +3.0     3.0× apart
+```
+⇒ 🔑 ***THE BETWEEN-WALK VARIANCE EXCEEDS THE EFFECT, SO THIS INSTRUMENT CANNOT RESOLVE A +180 ku CHANGE
+IN `X86.Syntax` AT THESE LOADS — AND ONE WALK LOOKS EXACTLY LIKE A MEASUREMENT.*** The mechanism I offered
+may still be true; **nothing here is evidence for it.**
+⚠️ **The control existed only by ACCIDENT:** walk 2 was run solely because walk 1 had omitted `--out` and
+`--record` needs the JSON. **A forgotten flag is what stopped a noise reading being published as a finding.**
+⚠️ **And the conditions were not the ones I declared:** I pre-registered under load ~3.4–3.7; the walks ran
+at 6.0–9.9, against `kernel_cost.py`'s measured no-effect band of 2.2–4.1. **Noise widens `±K·se`, so
+"inside the band" got EASIER** — the flattering direction, stated rather than left to be derived.
+
+⛔ **(b) MY FIRST LEDGER ROW SPANNED FOUR `.lean` COMMITS, AND `kernel_drift --selftest` REFUSED IT:**
+*"ledger row for base `caa60adbc` names head `ac34d7ddc`, which is neither this base's first-parent child
+`d6701cc6d` nor a commit reachable from it that differs."* **The ledger is keyed on first-parent `.lean`
+STEPS, one row each**, and `--gap` had been saying so all along — *"3 change a `.lean` file ⇐ GATED: each
+needs a real measurement."* I read that as a list of work and not as a statement about the branch's SHAPE.
+✅ **The branch is restructured to the campaign's own shape** (D264, D268 §7: one `.lean` commit, FIRST on
+the branch, records after), and **the final tree is byte-identical** to the measured one — `840817dc`, so
+every reading in §1, §5, §5b and §6 applies unchanged.
+⇒ 🔑 ***A GATE THAT NAMES THE WORK AND A GATE THAT NAMES THE SHAPE READ THE SAME WHEN YOU ALREADY BELIEVE
+YOU KNOW THE SHAPE.***
+
+### 8. WHAT IS OWED BEFORE THIS LANDS ON MASTER
+- **Nothing measurement-side.** Build ✅ · ku CLEAN ✅ · fourteen arms exact ✅ · differential
+  byte-identical ✅ · ms walks CLEAN ✅.
+- **A quiet re-measure of `X86.Syntax`'s ms per ku**, which neither walk could resolve. It changes nothing
+  about this landing and bears on B2's ku-based projections.
 - **`VArithOp.mnemonic` keeps B1's `.q`-or-`ss` shape.** `.b` and `.w` are unreachable and spell `mulss`-style
   names. The right repair is an encodability table in `bitcntEncodable`'s shape, whose declined set IS asserted in
   `Tests/Coverage.lean` (`bitcnt_declined_forms_are_exactly_the_unencodable_ones`). ⚠️ This line first cited
