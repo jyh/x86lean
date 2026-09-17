@@ -128,6 +128,15 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
   `lean_route` beside its conditions. Delta tools compare both trees under one route; A′'s yukon ceilings
   carry ×3. A timing taken before 2026-09-14 and one after are different conditions — say which.
 
+## Axiom receipts — the gate enumerates; a scratch `#print axioms` does not (homed 2026-09-17, helm's routing of salt #152)
+- `scripts/axiom_gate.sh` builds before it scans and ENUMERATES the declarations, and since 2026-09-17 its CLEAN line
+  carries the COUNT it read (4,057 at `paris/b1`). A scan of zero declarations is REFUSED, rc 2 (`x86lean-axioms X86`
+  printed CLEAN over nothing before).
+- ⛔ **A scratch `#print axioms <name>` reads the oleans and names one declaration**, so a declaration that never
+  elaborated can print "does not depend on any axioms". An ad-hoc axiom receipt is therefore a PAIR from ONE log: the
+  `saltbuild EXIT=0` line with a zero tagged-error count (`error(…)` included) beside the axioms lines. It carries a
+  fourth-axiom control that prints `sorryAx`.
+
 ## The plan of record
 The seat repo's plan brief for this campaign — `2026-09-02-PLAN-x86lean-personal-DRAFT.md`,
 mercutio's draft at the Captain's word, as amended by the helm's rulings in the boot brief: theorems on the three

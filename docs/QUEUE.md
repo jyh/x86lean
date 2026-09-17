@@ -2374,7 +2374,22 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 BUILT AS P2 BATCH 41 (D267, record 27); B1 IS NEXT**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 IS NEXT**
+⚖️ **STATUS AT 2026-09-17, EVENING (D268): B1 (`mulss`/`mulsd`) IS BUILT AS P2 BATCH 42, RECORD 28. B2 (add, sub, div) IS NEXT.**
+- **B1:** two roster rows and 11 vectors. The run reads 94,072 cases (+968, all matched), 0 unexplained, and 221 declared
+  divergences (unchanged).
+  - **The kernel pins:** 44 of `hwprobe/`'s 85 multiply rows: ∞ × 0 (x86isa's indefinite is positive), and 36 classes
+    no vector reaches, tininess before rounding among them.
+  - **The arms:** nine, each at its predicted score.
+  - **The price** (A′ on the draft): `Tests.Anchors` +51,379 of 68,141.
+  - **The demand:** sub-group B unclaimed is 31,065 → **19,885**.
+- **B2 = add, sub and div at both formats.** Its first question is D268 §8's: the price of folding `vmul` into a
+  `VArithOp` field, read on B2's own draft.
+  - ⚠️ `Tests.Anchors` has about 17k of A′ room left after B1 (+51,379 of 68,141). B2's pins must be priced before they
+    are written, and the allowance moves with the base.
+  - ⚠️ `Tests.Vectors` sits near the code generator's recursion limit (D268 §5). B1 raised it to 32,768; B2 re-measures
+    it.
+
 ⚖️ **STATUS AT 2026-09-17, LATER (D267): B0 IS BUILT AS P2 BATCH 41, RECORD 27. B1 (`mulsd`/`mulss`) IS NEXT.**
 - **B0:** MXCSR is in `Cpu` and in the record, and all 14 landed FP mnemonics raise their sticky flags. The run reads 93,104
   cases, 0 unexplained and 221 declared divergences (+50: comis IE 31, the `cvtsi2sdl` zero sign 19).
@@ -2382,9 +2397,9 @@ The prose goes in `note`, which is not reduced.
     (`Tests.Anchors` +68,196 against 60,901).
   - **The arms:** five, each at its predicted score.
   - **The format gate:** `check_mxcsr_format.py`.
-- **Still owed from D266 §10:**
-  - a second vendor's `hwprobe` reading;
-  - B1's price, read on its own draft.
+- **Still owed from D266 §10:** ✅ *both discharged —*
+  - a second vendor's `hwprobe` reading; ✅ *an Intel Core i7-8700B, 174/174 (D267 §10);*
+  - B1's price, read on its own draft. ✅ *read at the batch (D268).*
 - **B1's draft:** K4's `roundPack`/`fmul` with RC as the 2-bit field, tininess AFTER rounding, and the invalid rows pinned
   (∞ is reached by no vector). The `hwprobe` rows already cover it. The seat's K4 probe record holds the draft
   (`K4Mul.lean`).
@@ -2435,6 +2450,7 @@ AT THE FREEZE, 2026-09-05 (kept as the freeze read it; the live figures are the 
    A   no rounding at all              12 pairs   6,619   17.9%   BUILDABLE — K1 verified
    A′  fixed mode, MXCSR.RC-free        2 pairs     898    2.4%
    B   MXCSR.RC-dependent              26 pairs  29,408   79.6%   un-priced, deliberately
+LIVE, 2026-09-17:  A 0 · A′ 0 · B 19,885 (B1's mulss/mulsd 11,180 landed, D268)
 LIVE, 2026-09-16:  A 0 unclaimed (landed) · A′ 0 unclaimed (landed) · B 31,065 (K3/K4 measured, D262/D263)
 ```
 **Recommendation on the record:** take sub-group A as an ordinary P2-shaped batch; leave B frozen
