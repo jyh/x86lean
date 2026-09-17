@@ -68,6 +68,10 @@ jobs:
           fetch-depth: 0
       - name: Gate self-test (drives every FAIL path before any scan may pass)
         run: python3 scripts/check_private_paths.py --self-test
+      # The subject gate (desk QA) rides THIS job: a commit subject is history,
+      # so its miss is permanent, unlike a PR body, which is editable.
+      - name: Subject gate self-test (desk QA)
+        run: python3 scripts/check_pr_descriptions.py --self-test
       - name: Scan the pushed delta
         env:
           BEFORE: ${{ github.event.before }}
@@ -89,15 +93,29 @@ jobs:
           #   unreachable/zero  tree (both)
           # and each clause was dropped once: without `!= HEAD` the equal-sha case fails again; with existence
           # in place of ancestry the moved-back case does.
-          # ⚠️ NO DEFAULT-BRANCH LOOKUP IS NEEDED HERE, unlike salt: this step has no merge-base branch.
+          # ⚠️ THE PRIVATE-PATHS ARMS NEED NO DEFAULT-BRANCH LOOKUP. The subject gate below does, on the tree
+          # branch only, because subjects are history and have no tree arm (desk QA).
           if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
              && git merge-base --is-ancestor "$BEFORE" HEAD 2>/dev/null \
              && [ "$BEFORE" != "$(git rev-parse HEAD)" ]; then
             python3 scripts/check_private_paths.py --range "$BEFORE..HEAD"
+            python3 scripts/check_pr_descriptions.py --range "$BEFORE..HEAD"
           else
             echo "no usable BEFORE (absent, unreachable, not an ancestor of HEAD, or HEAD itself) — falling back to the tree arm, declared not silent"
             python3 scripts/check_private_paths.py --tree
+            # The subject gate has no tree arm: subjects are history. It reads
+            # what this branch adds over the default branch instead.
+            DEF="${{ github.event.repository.default_branch }}"
+            MB=$(git merge-base "origin/$DEF" HEAD)
+            if [ "$MB" != "$(git rev-parse HEAD)" ]; then
+              python3 scripts/check_pr_descriptions.py --range "$MB..HEAD"
+            else
+              echo "DECLARED: HEAD adds no commit over origin/$DEF; its subjects are --history's"
+            fi
           fi
+          # The branch name: a merge subject will quote it, and the forge
+          # writes that subject where no hook runs.
+          python3 scripts/check_pr_descriptions.py --ref "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
       - name: Tree ratchet (residue the delta gate already fired on must not survive)
         run: python3 scripts/check_private_paths.py --tree
       - name: Message ratchet (a violating message must not launder into the next base)
@@ -113,6 +131,10 @@ jobs:
       # blocking this step except nobody having added it.
       # ⚠️ `fetch-depth: 0` above is load-bearing: the arm REFUSES a shallow clone by name
       # rather than walking a truncated history and reporting success.
+      - name: Every commit subject against the accepted-debt baseline (desk QA)
+        # Red in both directions: a subject carrying a refused word that the
+        # owner has not accepted, and a baseline row history no longer carries.
+        run: python3 scripts/check_pr_descriptions.py --history
       - name: History ratchet (what each commit INTRODUCED -- the arm --range cannot be)
         run: python3 scripts/check_private_paths.py --history
 
