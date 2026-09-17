@@ -22,15 +22,31 @@ permissions:
 
 jobs:
   referee:
-    runs-on: ubuntu-latest
+    # ⭐ TWO VENDORS (D267). The Linux runner read AMD EPYC 7763 (D266 §5); the documentation names no
+    # vendor for it. `macos-15-intel` is documented as Intel, so the same rows run on a second vendor.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
+      # ⛔ A TRANSLATED PROCESS ALSO SAYS x86_64. On an Apple-silicon host under Rosetta 2, `uname -m`
+      # reports x86_64, and Rosetta agreed with every row here (D266 §5) — as an EMULATOR. So the job
+      # refuses to referee unless the machine is x86-64 AND the process is not translated.
       - name: The processor
         run: |
           uname -m
-          grep -m1 'model name' /proc/cpuinfo
-          grep -m1 -ow sse2 /proc/cpuinfo
+          test "$(uname -m)" = x86_64
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 'model name' /proc/cpuinfo
+            grep -m1 -ow sse2 /proc/cpuinfo
+          else
+            sysctl -n machdep.cpu.brand_string
+            sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x SSE2
+            test "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = 0
+          fi
 
       - name: Rows, derived from the rules (never typed)
         working-directory: hwprobe

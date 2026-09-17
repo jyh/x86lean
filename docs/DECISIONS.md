@@ -18154,3 +18154,21 @@ Five wrong models, all labelled `mxcsr`, in `Main.lean` (`wrongSimdWith` makes t
   - the 89-pin A′ reading (§2);
   - the draft's ledger (D266 §9), which every module but `Tests.Anchors` matched exactly.
 - **The prediction for `Tests.Anchors`:** about +31,000 ku of 60,901, from §2's 31,229.
+
+### 9. THE SECOND VENDOR — A LEG, AND A GUARD AGAINST THE EMULATOR SAYING x86_64
+D266 §10 owed a second vendor's reading. The Linux runner read AMD, and GitHub's documentation names no vendor for it.
+It does document `macos-15-intel` as Intel.
+- **`hwprobe.yml` now runs the same job on both,** with `fail-fast: false`. The reading arrives with this batch's push.
+- ⛔ **A translated process also reports `x86_64`.** Under Rosetta 2 on this box, `uname -m` says `x86_64` and SSE2 is
+  present, and Rosetta agreed with every row (D266 §5) as an emulator. So "The processor" step now refuses unless the
+  machine is x86-64 AND `sysctl.proc_translated` is not 1.
+- **The guard, driven locally:**
+  - natively (arm64) the machine test refuses, rc 1;
+  - under Rosetta (`/usr/bin/arch -x86_64`, brand "Apple M4 Pro") only the translation test refuses, rc 1.
+  The x86-64 case it must pass exists only on the runner.
+- ⚠️ **The first drive was a false green.** `arch` on this box's PATH is a user script, not Apple's, and
+  `arch -x86_64 <cmd>` prints `unix` and exits 0 WITHOUT RUNNING `<cmd>`. The guard "passed" under an emulator it
+  never ran.
+  - Re-driven with the absolute path.
+  - D266 §5's Rosetta reading does not depend on it: that probe was an x86-64 binary run directly, and its output
+    holds all 174 rows.
