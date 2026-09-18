@@ -2557,7 +2557,7 @@ theorem b1_mulsd_pins :
     (0x1fbf, 0x3ff0000000000000, 0x4000000000000000, 0x4000000000000000, 0x00)  -- mulsd_sticky_or · no vector reaches
   ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
-      let t := step ⟨.vmul .q .x0 .x1, 4⟩ (b0Pre mx a b)
+      let t := step ⟨.varith .mul .q .x0 .x1, 4⟩ (b0Pre mx a b)
       b0Agrees t mx fl ((t.getXmm .x0).setWidth 64) r) = true := by decide
 
 theorem b1_mulss_pins :
@@ -2577,7 +2577,7 @@ theorem b1_mulss_pins :
     (0x1f80, 0x000000003f800001, 0x000000003fc00000, 0x000000003fc00002, 0x20)  -- mulss_tieodd/nearest · no vector reaches
   ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
-      let t := step ⟨.vmul .d .x0 .x1, 4⟩ (b0Pre mx a b)
+      let t := step ⟨.varith .mul .d .x0 .x1, 4⟩ (b0Pre mx a b)
       b0Agrees t mx fl ((t.getXmm .x0).setWidth 64 &&& 0xffffffff) r) = true := by decide
 
 -- ⟦B0/B1 PINS END⟧

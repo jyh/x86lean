@@ -528,6 +528,68 @@ def VShiftOp.mnemonic : VShiftOp → VShiftW → String
   | .sra, .w8 => "psrab" | .sra, .w16 => "psraw"
   | .sra, .w32 => "psrad" | .sra, .w64 => "psraq"
 
+/-- ⭐⭐⭐ SUB-GROUP B2 — THE SCALAR FLOATING-POINT ARITHMETIC OPERATION, held apart
+from the format (SDM Vol. 2B: ADDS?/SUBS?/MULS?/DIVS?, opcodes `0F 58`/`5C`/`59`/`5E`
+under the `F3`/`F2` mandatory prefixes).
+
+⚖️ **WHY A FIELD AND NOT SIX MORE CONSTRUCTORS — D268 §8, PRICED ON THIS DRAFT.**
+B1 landed `mulss`/`mulsd` as two constructors and said so in terms: *"an op field
+would have one member until add, sub and div land, and B2 is where it is priced."*
+B2 brings three more operations at two formats, so the choice is one op field
+against **eight constructors** where there were two.  The four operations share
+their operand shape, their flag rule, their lane-preserving write and their
+memory form EXACTLY; only the `SoftFloat` call differs, which is precisely the
+shape `VShiftOp` holds above and for the same reason.
+
+⚠️ THE ORDER IS THE OPCODE'S, NOT THE ALPHABET'S, so a reader comparing this to
+the SDM's table is not doing an extra mapping in their head. -/
+inductive VArithOp where
+  /-- ADDSS / ADDSD (`0F 58`). -/
+  | add
+  /-- MULSS / MULSD (`0F 59`).  ⚠️ The ONLY one of the four B1 landed, and the only
+  one whose tininess can be detected before rounding as well as after (D268 §2). -/
+  | mul
+  /-- SUBSS / SUBSD (`0F 5C`).  `a - b`, and NOT `add` of a negated `b` at the AST
+  level: the negation is inside `SoftFloat.faddsub`, where a NaN operand's sign is
+  left alone, so folding it here would change what a SNaN propagates. -/
+  | sub
+  /-- DIVSS / DIVSD (`0F 5E`).  ⚠️ The only one of the four that can raise `ZE`, and
+  the rule it carries is **ZE-BEFORE-DE**: a denormal dividend over zero raises `ZE`
+  ALONE (SDM Vol. 1 §4.9.2 ranks divide-by-zero above the denormal-operand
+  exception, and a masked divide-by-zero returns its special result).  Read on
+  silicon, both vendors, before this constructor existed — D269 §2. -/
+  | div
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The assembler spelling.  ⚠️ `sz` IS THE FORMAT, as everywhere in sub-group B:
+`.q` is binary64 (the `sd` suffix) and every other `Size` is binary32 (`ss`).
+
+⚠️ **THE `.q`-OR-`ss` SHAPE IS B1's, KEPT DELIBERATELY RATHER THAN TIGHTENED.**
+`vmul`'s mnemonic read `if sz == .q then "mulsd" else "mulss"`, so `.b` and `.w`
+already spelled `mulss`.  Writing `addps`/`mulps` for them here would be WORSE
+than that: those are real and DIFFERENT instructions (the packed forms), so the
+lie would name something that exists — which is exactly what `VShiftOp.mnemonic`'s
+note is about, in the one direction that note does not cover.  ⛔ The right repair
+is an encodability table in the shape of `bitcntEncodable`'s, whose declined set IS
+asserted in `Tests/Coverage.lean` by
+`bitcnt_declined_forms_are_exactly_the_unencodable_ones`; it is NOT taken in this
+pricing draft, because it is a change to what the model DECLINES and would not
+belong in a commit measuring a refactor's ku.
+
+⚠️ THIS SENTENCE FIRST CITED `vmovsEncodable`, WHICH HAS NO SUCH THEOREM — caught by
+`check_citations.py`, not by me.  I took the name from the `VShiftOp` note above,
+which cites it for a DIFFERENT property (ranging over all four `Size`s and admitting
+two), and carried it into a claim about KERNEL ASSERTION that is not true of it.
+⇒ A NAME BORROWED FROM ONE CLAIM ARRIVES IN THE NEXT ONE CARRYING CREDIBILITY IT
+DID NOT EARN THERE. -/
+def VArithOp.mnemonic (op : VArithOp) (sz : Size) : String :=
+  let suffix := if sz == .q then "sd" else "ss"
+  match op with
+  | .add => "add" ++ suffix
+  | .mul => "mul" ++ suffix
+  | .sub => "sub" ++ suffix
+  | .div => "div" ++ suffix
+
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE (SHUFFLE) GROUP'S KIND.
 
 `pshufd`, `pshuflw` and `pshufhw` are ONE opcode (`0F 70 /r ib`) under three
@@ -1551,12 +1613,14 @@ inductive Op where
 
   ⚠️ `sz` IS THE FORMAT, as for `vminmax`: `.d` is binary32 (`mulss`), `.q` is
   binary64 (`mulsd`).
-  ⚖️ TWO CONSTRUCTORS AND NO OPERATION FIELD, for now.  An op field would have one
-  member until add, sub and div land, and B2 is where it is priced. -/
-  | vmul (sz : Size) (dst src : XmmReg)
-  /-- SUB-GROUP B1 — the same two at a MEMORY source (`m32` / `m64`).  ⚠️ NO
+  ⚖️ **SUB-GROUP B2 FOLDED THE OPERATION INTO A FIELD, as B1 said it would.**  This
+  constructor read `vmul (sz) (dst src)` through batch 42; `VArithOp` above carries
+  the reason and D268 §8 carries the fork.  The four operations differ ONLY in the
+  `SoftFloat` call `varithLow` makes. -/
+  | varith (op : VArithOp) (sz : Size) (dst src : XmmReg)
+  /-- SUB-GROUP B1/B2 — the same at a MEMORY source (`m32` / `m64`).  ⚠️ NO
   ALIGNMENT CHECK: a scalar operand states none, exactly as `vminmaxm`. -/
-  | vmulm (sz : Size) (dst : XmmReg) (ea : Ea)
+  | varithm (op : VArithOp) (sz : Size) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1931,8 +1995,8 @@ def opOperands : Op → List Operand
   | .vcvtt2si _ _ r _ => [.reg r]
   | .vcvtt2sim _ _ r ea => [.reg r, .mem ea]
   -- SUB-GROUP B1: the scalar multiply's memory SOURCE names its address.
-  | .vmul .. => []
-  | .vmulm _ _ ea => [.mem ea]
+  | .varith .. => []
+  | .varithm _ _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -2073,8 +2137,8 @@ def Op.anyLocked : Op → Bool
   | .vcvtt2si .. => false
   | .vcvtt2sim _ _ _ ea => ea.lock
   -- SUB-GROUP B1: `lock mulsd` is not a form the SDM lists.
-  | .vmul .. => false
-  | .vmulm _ _ ea => ea.lock
+  | .varith .. => false
+  | .varithm _ _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2253,7 +2317,7 @@ def Op.mnemonic : Op → String
   -- as the census keys it (D259's key has no width).
   | .vcvtt2si dbl .. | .vcvtt2sim dbl .. => if dbl then "cvttsd2si" else "cvttss2si"
   -- SUB-GROUP B1: both operand shapes print one name.
-  | .vmul sz .. | .vmulm sz .. => if sz == .q then "mulsd" else "mulss"
+  | .varith op sz .. | .varithm op sz .. => op.mnemonic sz
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"

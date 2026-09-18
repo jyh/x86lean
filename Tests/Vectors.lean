@@ -2810,36 +2810,36 @@ def vectors : List Vec :=
   --
   -- binary64
   , { id := "mulsd_x1_x0", mnemonic := "mulsd", asm := "mulsd %xmm1, %xmm0"
-    , bytes := "f20f59c1", instr := ⟨.vmul .q .x0 .x1, 4⟩ }
+    , bytes := "f20f59c1", instr := ⟨.varith .mul .q .x0 .x1, 4⟩ }
   -- REX.B on the source, and opposite signs in all 88 states (`i^^^j = 8`)
   , { id := "mulsd_x8_x0", mnemonic := "mulsd", asm := "mulsd %xmm8, %xmm0"
-    , bytes := "f2410f59c0", instr := ⟨.vmul .q .x0 .x8, 5⟩ }
+    , bytes := "f2410f59c0", instr := ⟨.varith .mul .q .x0 .x8, 5⟩ }
   -- zeros, NaN pairs with different payloads (4), overflow to ∞ at nearest
   , { id := "mulsd_m10", mnemonic := "mulsd", asm := "mulsd 0x10(%rbx), %xmm0"
-    , bytes := "f20f594310", instr := ⟨.vmulm .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+    , bytes := "f20f594310", instr := ⟨.varithm .mul .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
   -- an unaligned source: the one binary64 signalling NaN (IE), and a QNaN beside a denormal
   , { id := "mulsd_m0a", mnemonic := "mulsd", asm := "mulsd 0xa(%rbx), %xmm0"
-    , bytes := "f20f59430a", instr := ⟨.vmulm .q .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
+    , bytes := "f20f59430a", instr := ⟨.varithm .mul .q .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
   -- an exact tie, and overflow in 10 states (at round-up among them)
   , { id := "mulsd_m18", mnemonic := "mulsd", asm := "mulsd 0x18(%rbx), %xmm0"
-    , bytes := "f20f594318", instr := ⟨.vmulm .q .x0 { base := some .rbx, disp := 0x18 }, 5⟩ }
+    , bytes := "f20f594318", instr := ⟨.varithm .mul .q .x0 { base := some .rbx, disp := 0x18 }, 5⟩ }
   -- binary32
   , { id := "mulss_x1_x0", mnemonic := "mulss", asm := "mulss %xmm1, %xmm0"
-    , bytes := "f30f59c1", instr := ⟨.vmul .d .x0 .x1, 4⟩ }
+    , bytes := "f30f59c1", instr := ⟨.varith .mul .d .x0 .x1, 4⟩ }
   , { id := "mulss_x8_x0", mnemonic := "mulss", asm := "mulss %xmm8, %xmm0"
-    , bytes := "f3410f59c0", instr := ⟨.vmul .d .x0 .x8, 5⟩ }
+    , bytes := "f3410f59c0", instr := ⟨.varith .mul .d .x0 .x8, 5⟩ }
   -- zeros, NaN pairs, overflow to ∞
   , { id := "mulss_m13", mnemonic := "mulss", asm := "mulss 0x13(%rbx), %xmm0"
-    , bytes := "f30f594313", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0x13 }, 5⟩ }
+    , bytes := "f30f594313", instr := ⟨.varithm .mul .d .x0 { base := some .rbx, disp := 0x13 }, 5⟩ }
   -- signalling NaNs (IE in 22 states), beside a normal, a QNaN, a zero and a denormal
   , { id := "mulss_m0d", mnemonic := "mulss", asm := "mulss 0xd(%rbx), %xmm0"
-    , bytes := "f30f59430d", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0xd }, 5⟩ }
+    , bytes := "f30f59430d", instr := ⟨.varithm .mul .d .x0 { base := some .rbx, disp := 0xd }, 5⟩ }
   -- an exact tie, and overflow at nearest and at round-up
   , { id := "mulss_m18", mnemonic := "mulss", asm := "mulss 0x18(%rbx), %xmm0"
-    , bytes := "f30f594318", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0x18 }, 5⟩ }
+    , bytes := "f30f594318", instr := ⟨.varithm .mul .d .x0 { base := some .rbx, disp := 0x18 }, 5⟩ }
   -- an EXACT subnormal result (3 states): tiny, and no UE, because nothing was lost
   , { id := "mulss_m05", mnemonic := "mulss", asm := "mulss 0x5(%rbx), %xmm0"
-    , bytes := "f30f594305", instr := ⟨.vmulm .d .x0 { base := some .rbx, disp := 0x5 }, 5⟩ }
+    , bytes := "f30f594305", instr := ⟨.varithm .mul .d .x0 { base := some .rbx, disp := 0x5 }, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each

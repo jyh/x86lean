@@ -1075,7 +1075,7 @@ def isMemDestVector (v : Vec) : Bool :=
     | .vcvtt2si .. | .vcvtt2sim .. => false
     -- SUB-GROUP B1, in the same commit as the constructors: a multiply writes an
     -- XMM register at both shapes; the memory operand is its SOURCE.
-    | .vmul .. | .vmulm .. => false
+    | .varith .. | .varithm .. => false
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem

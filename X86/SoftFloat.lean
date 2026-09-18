@@ -395,5 +395,89 @@ def fmul (f : Fmt) (rc : Nat) (a b : BitVec 64) : BitVec 64 × BitVec 32 :=
     let (r, fl) := roundPack f rc neg (ma * mb) (ea + eb)
     (r, fl ||| de)
 
+/-! ### ⭐⭐⭐ SUB-GROUP B2 (DRAFT) — ADD, SUB AND DIV ON `roundPack`.
+No power above 256 on any path (D262 §3): an addend whose exponent is more than `mw + 3` below the other's is
+replaced by a STICKY unit three places below the larger one's scale, and a quotient is taken to `2·mw + 4` extra
+bits with a sticky bit. -/
+
+/-- The divide-by-zero flag, MXCSR bit 2. -/
+def fZE : BitVec 32 := 0x04
+
+/-- ⭐⭐ ADDSS/ADDSD and, with `sub`, SUBSS/SUBSD (SDM Vol. 2B: "Overflow, Underflow, Invalid, Precision, Denormal").
+* **NaN** as `fmul`: the first source if it is a NaN, else the second, quieted; IE on an SNaN.
+* **∞ − ∞** (effective subtraction of infinities) is invalid: the negative QNaN indefinite and IE.
+* **An exact zero sum** is +0, and −0 under round-down; two zeros of one sign keep it (IEEE 754 §6.3).
+* **A zero addend** returns the other operand exactly; DE still rises on a denormal.
+* Otherwise one signed `Int` sum, rounded by `roundPack`.
+  ⚠️ WHY THE STICKY UNIT IS EXACT FOR ROUNDING: with `d > mw + 3` the larger operand is normal, so the result's unit
+  is at least `2^(eL−1)` and its guard bit at `2^(eL−2)`. The smaller operand is below `2^(eL−2)`, and so is
+  `2^(eL−3)`. The open interval between them holds no representable value and no midpoint. -/
+def faddsub (f : Fmt) (rc : Nat) (sub : Bool) (a b : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let lane : BitVec 64 := (1 <<< f.w) - 1
+  let quiet : BitVec 64 := 1 <<< (f.mw - 1)
+  let infE : BitVec 64 := ((1 <<< f.ew) - 1) <<< f.mw
+  let sbit : BitVec 64 := 1 <<< (f.ew + f.mw)
+  let sa := f.sign a
+  let sb := f.sign b != sub
+  let zs (s : Bool) : BitVec 64 := if s then sbit else 0
+  let snan : BitVec 32 := if f.isSNaN a || f.isSNaN b then fIE else 0
+  let de : BitVec 32 := if f.isDenormal a || f.isDenormal b then fDE else 0
+  if f.isNaN a then ((a ||| quiet) &&& lane, snan)
+  else if f.isNaN b then ((b ||| quiet) &&& lane, snan)
+  else if f.isInf a && f.isInf b then
+    (if sa == sb then (zs sa ||| infE, 0) else (sbit ||| infE ||| quiet, fIE))
+  else if f.isInf a then (zs sa ||| infE, de)
+  else if f.isInf b then (zs sb ||| infE, de)
+  else if f.isZero a && f.isZero b then (zs (if sa == sb then sa else rc == 1), 0)
+  else if f.isZero b then (a &&& lane, de)
+  else if f.isZero a then ((if sub then b ^^^ sbit else b) &&& lane, de)
+  else
+    let (ma, ea) := sig f a
+    let (mb, eb) := sig f b
+    let d : Int := ea - eb
+    let k : Nat := f.mw + 3
+    let (x, y, e) : Nat × Nat × Int :=
+      if d.natAbs ≤ k then
+        (if 0 ≤ d then (ma <<< d.toNat, mb, eb) else (ma, mb <<< d.natAbs, ea))
+      else if 0 < d then (ma <<< 3, 1, ea - 3) else (1, mb <<< 3, eb - 3)
+    let v : Int := (if sa then -(x : Int) else x) + (if sb then -(y : Int) else y)
+    if v == 0 then (zs (rc == 1), de)
+    else
+      let (r, fl) := roundPack f rc (v < 0) v.natAbs e
+      (r, fl ||| de)
+
+/-- ⭐⭐ DIVSS/DIVSD (SDM Vol. 2B: "Overflow, Underflow, Invalid, Divide-by-Zero, Precision, Denormal").
+* **NaN** as `fmul`. **0/0 and ∞/∞** are invalid: the negative QNaN indefinite and IE.
+* **x/0** for a finite non-zero `x` is ±∞ with ZE, and WITHOUT DE even when `x` is denormal: SDM Vol. 1 §4.9.2 ranks
+  divide-by-zero above the denormal-operand exception, and a masked one returns its special result (Rosetta 2 and
+  x86isa read ZE alone; the processors' reading is hwprobe's `div*_den_zero`).
+* **∞/x** is ±∞, **x/∞** and **0/x** are ±0, each with DE on a denormal operand.
+* Otherwise the quotient to `2·mw + 4` extra bits, with a sticky bit, rounded by `roundPack`. -/
+def fdiv (f : Fmt) (rc : Nat) (a b : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let lane : BitVec 64 := (1 <<< f.w) - 1
+  let quiet : BitVec 64 := 1 <<< (f.mw - 1)
+  let infE : BitVec 64 := ((1 <<< f.ew) - 1) <<< f.mw
+  let sbit : BitVec 64 := 1 <<< (f.ew + f.mw)
+  let neg := f.sign a != f.sign b
+  let sgn : BitVec 64 := if neg then sbit else 0
+  let snan : BitVec 32 := if f.isSNaN a || f.isSNaN b then fIE else 0
+  let de : BitVec 32 := if f.isDenormal a || f.isDenormal b then fDE else 0
+  if f.isNaN a then ((a ||| quiet) &&& lane, snan)
+  else if f.isNaN b then ((b ||| quiet) &&& lane, snan)
+  else if (f.isInf a && f.isInf b) || (f.isZero a && f.isZero b) then (sbit ||| infE ||| quiet, fIE)
+  else if f.isInf a then (sgn ||| infE, de)
+  else if f.isInf b then (sgn, de)
+  else if f.isZero b then (sgn ||| infE, fZE)
+  else if f.isZero a then (sgn, de)
+  else
+    let (ma, ea) := sig f a
+    let (mb, eb) := sig f b
+    let kk : Nat := 2 * f.mw + 4
+    let n := ma <<< kk
+    let q := n / mb
+    let s := if n % mb == 0 then 0 else 1
+    let (r, fl) := roundPack f rc neg (2 * q + s) (ea - eb - kk - 1)
+    (r, fl ||| de)
+
 end SoftFloat
 end X86
