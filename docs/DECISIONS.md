@@ -18764,6 +18764,13 @@ the helm accepted is on the bus: no checkout, switch, stash or reset in this tre
 ### 8. WHAT IS OWED
 - ✅ **The landing step's ms walk and `--record`: DONE** (record 29 §6). ms CLEAN, `Tests.Anchors` +77 against a posted
   +94 ±50, `Tests.Coverage` +900 at the edge of ±900 under load 5–10; recorded on the ms verdict (D251).
+- ✅ **LANDED — PR #34 → `db52c7f` (2026-09-18 15:44Z), both tiers.** CI's `kernel-delta` step exited **rc 3, UNMEASURABLE,
+  not FAILED**, on both runs (PR 35338373738, push 35338346458): `Tests.Coverage` +1,750 ±2,473 / 3,024 · `@decl
+  pre_states_have_a_returnable_frame` +275 ±236 / 451 · `@decl vectorCoverage` +435 ±205 / 523, and **no unit over its
+  budget**; `ku-delta` (A′) success; every other job success. That is D251 §7's standing shape: the CI job reds on rc 3
+  where D251 licenses the step, and this step's own landing verdict was ms CLEAN. #33 (one scrub script) landed first, so
+  the branch was updated by merge to `41c3405`, whose tree `f7d90d13` equals `git merge-tree origin/master 2bbb8c0`
+  computed before the update. Receipts for both runs are in `docs/ci-kernel-verdicts.jsonl`.
 - **Sub-group B's remaining 5,133**: `cvtsd2ss` 1,297 leads, then the inexact integer conversions.
 - **±∞ reaches no vector in any FP form.** Every ∞ class B0–B2 has is a pin. A pre-state that holds an infinity
   would turn a dozen pins into differential cases; it is a change to `preStates`, and every record's counts move with it.

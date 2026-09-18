@@ -2374,7 +2374,8 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 IS NEXT**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; SUB-GROUP B's REMAINDER IS NEXT**
+⚖️ **STATUS AT 2026-09-18, MORNING (D271 §8): B2 IS ON `master` — PR #34 → `db52c7f`, both tiers. NEXT: sub-group B's remaining 5,133, `cvtsd2ss` (1,297) first.**
 ⚖️ **STATUS AT 2026-09-17, EVENING (D268): B1 (`mulss`/`mulsd`) IS BUILT AS P2 BATCH 42, RECORD 28. B2 (add, sub, div) IS NEXT.**
 - **B1:** two roster rows and 11 vectors. The run reads 94,072 cases (+968, all matched), 0 unexplained, and 221 declared
   divergences (unchanged).
@@ -2386,7 +2387,9 @@ The prose goes in `note`, which is not reduced.
 - ✅ **B2 IS BUILT — P2 BATCH 43, RECORD 29, D271 (2026-09-18).** Six roster rows, 29 vectors, 39 pins by B0's rule
   (A′ admitted them in one step: `Tests.Anchors` +49,533 of 80,143), 13 arms at their pre-registered scores, and a
   differential at `cases=96624 … unexplained=0 oracle-divergence=232`, every field as posted. 0/0 is DECLARED (x86isa's
-  indefinite is unsigned). **Owed: the landing step's ms walk and `--record`.** Sub-group B's unclaimed is now **5,133**,
+  indefinite is unsigned). ✅ **The landing step's ms walk and `--record` are DONE** (`2bbb8c0`, ms CLEAN), and **PR #34
+  MERGED → `db52c7f`** (D271 §8: CI's `kernel-delta` read rc 3 UNMEASURABLE with no unit over, A′ success). *This line read
+  "Owed: the landing step's ms walk and `--record`" until 2026-09-18, a day after `2bbb8c0` recorded it.* Sub-group B's unclaimed is now **5,133**,
   `cvtsd2ss` (1,297) first.
 - **B2 = add, sub and div at both formats.** ✅ **ITS FIRST QUESTION IS ANSWERED — D270.** D268 §8's fork is
   settled by measurement on `paris/b2-fold`: folding `vmul` into a `VArithOp` field costs **X86.Syntax +180 ku**
