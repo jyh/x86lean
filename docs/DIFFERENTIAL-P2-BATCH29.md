@@ -125,6 +125,11 @@ the right parts, read ZERO. It was removed before the commit, and the table grow
 
 ## 6. THE LANDING MEASUREMENT — `513168b` → `5d9ebf1`
 
+⛔ **RE-KEYED (D271 §9).** #33 landed between this measurement and the merge, so master's first-parent step is
+`083c464 → db52c7f`, and the row below keyed `513168b → 5d9ebf1` priced nothing on it. The row is dropped. The step was
+re-measured under its real key: A′ is identical module-for-module, and ms is CLEAN (`Tests.Anchors` +83.5 ±24.7). It is recorded
+on the ms verdict. **The prices below stand. Their key does not.**
+
 **The step:** `513168b` (PR #32's merge) → `5d9ebf1` (this batch's `.lean` commit, first on the branch, D264).
 ```
   ku-delta --arm a-prime   CLEAN, rc 0 (yukon.lan) — identical to the draft's reading
