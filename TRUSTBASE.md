@@ -83,7 +83,8 @@ exception flags they raise into it (`Cpu.withSimd`), and the differential compar
 - **DAZ and FZ are clear.** No form reads either bit. A program that sets them gets this model's
   answer for a machine where they are clear.
 
-**RC is READ, since sub-group B1 (D268):** `mulss`/`mulsd` round under MXCSR bits 13–14, and every
+**RC is READ, since sub-group B1 (D268):** `mulss`/`mulsd`, and since B2 (D271) `addss`/`addsd`/`subss`/`subsd`/
+`divss`/`divsd`, round under MXCSR bits 13–14, and every
 pre-state index meets all four modes. Tininess is detected AFTER rounding, the rule x86isa and both
 processors below follow.
 
@@ -102,8 +103,9 @@ this project; no hardware co-simulation has been run (`docs/COSIM-DESIGN.md` is 
 sentence that names evidence categories reads as a statement that the evidence exists.
 ⚠️ *Since 2026-09-17 one processor HAS been read, and for rules rather than for this model:*
 `hwprobe/` ran 174 SDM-derived rows on an AMD EPYC 7763 (D266 §5) and on an Intel Core i7-8700B
-(D267 §10), and both agreed with all of them. The 84 rows the differential cannot carry are kernel
-pins in `Tests/Anchors.lean` (D267 §2, D268), so for those rows the model is checked against rules
+(D267 §10), and both agreed with all of them; with B2's 110 add, sub and divide rows added, both read
+all 284, their outputs byte-identical (D269). The 123 rows the differential cannot carry are kernel
+pins in `Tests/Anchors.lean` (D267 §2, D268, D271), so for those rows the model is checked against rules
 two processors confirmed. That is still not a co-simulation of `step`.
 
 ## Kernel cost
