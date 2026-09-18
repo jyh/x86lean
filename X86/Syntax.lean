@@ -2539,6 +2539,9 @@ def rosterP0 : List String :=
    -- ⭐⭐⭐ SUB-GROUP B1: the scalar multiply, TWO rows, and the first that round
    -- under MXCSR.RC.  `mulps`/`mulpd` are packed and not taken.
    "mulss", "mulsd",
+   -- ⭐⭐⭐ SUB-GROUP B2: add, subtract and divide, SIX rows, through B1's constructor since
+   -- the fold (D270).  `addps`/`subps`/`divps` and their `pd` forms are packed and not taken.
+   "addss", "addsd", "subss", "subsd", "divss", "divsd",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

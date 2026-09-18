@@ -2840,6 +2840,102 @@ def vectors : List Vec :=
   -- an EXACT subnormal result (3 states): tiny, and no UE, because nothing was lost
   , { id := "mulss_m05", mnemonic := "mulss", asm := "mulss 0x5(%rbx), %xmm0"
     , bytes := "f30f594305", instr := ⟨.varithm .mul .d .x0 { base := some .rbx, disp := 0x5 }, 5⟩ }
+  -- ⭐⭐⭐ SUB-GROUP B2 — ADDS?/SUBS?/DIVS? (D271).  CHOSEN BY B1's RULE (D268 §2), UNCHANGED:
+  -- what each candidate reaches was computed from the 88 pre-states by `hwprobe/mk_rows.py`'s
+  -- `arith` rule over every register pair and every offset in the window, and each form's rows
+  -- are the greedy cover over candidates writing xmm0, starting from `x1,x0`.  29 vectors.
+  -- ⭐ REACHED HERE AND BY NO EARLIER FORM: x/0 (ZE), 0/0, a DENORMAL DIVIDEND OVER ZERO (ZE and
+  -- NOT DE — ZE-BEFORE-DE, which D269 read on two processors), and cancellation to -0 at
+  -- round-down.  ⛔ NOTHING HERE REACHES ±∞ (so ∞ - ∞, x/∞ and DE-WITH-INF never meet a vector),
+  -- a binary64 SNaN beside a normal or a QNaN, or `addss` cancellation at round-up: those are
+  -- kernel pins in `Tests/Anchors.lean`.
+  -- the random lanes: inexact in every mode, and a mode other than nearest moves the value
+  , { id := "addsd_x1_x0", mnemonic := "addsd", asm := "addsd %xmm1, %xmm0"
+    , bytes := "f20f58c1", instr := ⟨.varith .add .q .x0 .x1, 4⟩ }
+  -- zeros of both signs, x + (-x) = +0 at nearest (cancellation), NaN pairs with different payloads
+  , { id := "addsd_m10", mnemonic := "addsd", asm := "addsd 0x10(%rbx), %xmm0"
+    , bytes := "f20f584310", instr := ⟨.varithm .add .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- the binary64 signalling NaN (IE), a QNaN beside a denormal, and an exact tie
+  , { id := "addsd_m0a", mnemonic := "addsd", asm := "addsd 0xa(%rbx), %xmm0"
+    , bytes := "f20f58430a", instr := ⟨.varithm .add .q .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
+  -- a carry out of the rounded significand
+  , { id := "addsd_mN17", mnemonic := "addsd", asm := "addsd -0x17(%rbx), %xmm0"
+    , bytes := "f20f5843e9", instr := ⟨.varithm .add .q .x0 { base := some .rbx, disp := -0x17 }, 5⟩ }
+  -- the random lanes
+  , { id := "subsd_x1_x0", mnemonic := "subsd", asm := "subsd %xmm1, %xmm0"
+    , bytes := "f20f5cc1", instr := ⟨.varith .sub .q .x0 .x1, 4⟩ }
+  -- zeros, x - x = +0 at nearest, NaN pairs
+  , { id := "subsd_m10", mnemonic := "subsd", asm := "subsd 0x10(%rbx), %xmm0"
+    , bytes := "f20f5c4310", instr := ⟨.varithm .sub .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- x - x at round-down (-0), round-up and toward zero: cancellation's sign in every mode
+  , { id := "subsd_mN18", mnemonic := "subsd", asm := "subsd -0x18(%rbx), %xmm0"
+    , bytes := "f20f5c43e8", instr := ⟨.varithm .sub .q .x0 { base := some .rbx, disp := -0x18 }, 5⟩ }
+  -- the signalling NaN (IE), a QNaN beside a denormal
+  , { id := "subsd_m0a", mnemonic := "subsd", asm := "subsd 0xa(%rbx), %xmm0"
+    , bytes := "f20f5c430a", instr := ⟨.varithm .sub .q .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
+  -- a carry out of the rounded significand
+  , { id := "subsd_m11", mnemonic := "subsd", asm := "subsd 0x11(%rbx), %xmm0"
+    , bytes := "f20f5c4311", instr := ⟨.varithm .sub .q .x0 { base := some .rbx, disp := 0x11 }, 5⟩ }
+  -- an exact tie
+  , { id := "subsd_m0c", mnemonic := "subsd", asm := "subsd 0xc(%rbx), %xmm0"
+    , bytes := "f20f5c430c", instr := ⟨.varithm .sub .q .x0 { base := some .rbx, disp := 0xc }, 5⟩ }
+  -- the random lanes: overflow, tiny (UE) and inexact quotients
+  , { id := "divsd_x1_x0", mnemonic := "divsd", asm := "divsd %xmm1, %xmm0"
+    , bytes := "f20f5ec1", instr := ⟨.varith .div .q .x0 .x1, 4⟩ }
+  -- x/0 (ZE), 0/0 (IE, the indefinite), a denormal over zero (ZE and NOT DE), overflow, NaN pairs
+  , { id := "divsd_m10", mnemonic := "divsd", asm := "divsd 0x10(%rbx), %xmm0"
+    , bytes := "f20f5e4310", instr := ⟨.varithm .div .q .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- overflow to the largest finite value (toward zero and away), REX.B on the source
+  , { id := "divsd_x13_x0", mnemonic := "divsd", asm := "divsd %xmm13, %xmm0"
+    , bytes := "f2410f5ec5", instr := ⟨.varith .div .q .x0 .x13, 5⟩ }
+  -- the signalling NaN beside a denormal, a QNaN beside a denormal
+  , { id := "divsd_m0a", mnemonic := "divsd", asm := "divsd 0xa(%rbx), %xmm0"
+    , bytes := "f20f5e430a", instr := ⟨.varithm .div .q .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
+  -- the random lanes
+  , { id := "addss_x1_x0", mnemonic := "addss", asm := "addss %xmm1, %xmm0"
+    , bytes := "f30f58c1", instr := ⟨.varith .add .d .x0 .x1, 4⟩ }
+  -- zeros, cancellation at nearest, NaN pairs
+  , { id := "addss_m10", mnemonic := "addss", asm := "addss 0x10(%rbx), %xmm0"
+    , bytes := "f30f584310", instr := ⟨.varithm .add .d .x0 { base := some .rbx, disp := 0x10 }, 5⟩ }
+  -- signalling NaNs (IE) beside a normal, a QNaN, a zero and a denormal
+  , { id := "addss_m0d", mnemonic := "addss", asm := "addss 0xd(%rbx), %xmm0"
+    , bytes := "f30f58430d", instr := ⟨.varithm .add .d .x0 { base := some .rbx, disp := 0xd }, 5⟩ }
+  -- a QNaN beside a denormal, and a carry out of the rounded significand
+  , { id := "addss_mN17", mnemonic := "addss", asm := "addss -0x17(%rbx), %xmm0"
+    , bytes := "f30f5843e9", instr := ⟨.varithm .add .d .x0 { base := some .rbx, disp := -0x17 }, 5⟩ }
+  -- an exact tie
+  , { id := "addss_mN1a", mnemonic := "addss", asm := "addss -0x1a(%rbx), %xmm0"
+    , bytes := "f30f5843e6", instr := ⟨.varithm .add .d .x0 { base := some .rbx, disp := -0x1a }, 5⟩ }
+  -- the random lanes
+  , { id := "subss_x1_x0", mnemonic := "subss", asm := "subss %xmm1, %xmm0"
+    , bytes := "f30f5cc1", instr := ⟨.varith .sub .d .x0 .x1, 4⟩ }
+  -- zeros, x - x at nearest, round-up and toward zero, NaN pairs
+  , { id := "subss_m14", mnemonic := "subss", asm := "subss 0x14(%rbx), %xmm0"
+    , bytes := "f30f5c4314", instr := ⟨.varithm .sub .d .x0 { base := some .rbx, disp := 0x14 }, 5⟩ }
+  -- signalling NaNs (IE)
+  , { id := "subss_m0d", mnemonic := "subss", asm := "subss 0xd(%rbx), %xmm0"
+    , bytes := "f30f5c430d", instr := ⟨.varithm .sub .d .x0 { base := some .rbx, disp := 0xd }, 5⟩ }
+  -- x - x at round-down (-0), and a QNaN beside a denormal
+  , { id := "subss_mN16", mnemonic := "subss", asm := "subss -0x16(%rbx), %xmm0"
+    , bytes := "f30f5c43ea", instr := ⟨.varithm .sub .d .x0 { base := some .rbx, disp := -0x16 }, 5⟩ }
+  -- an exact tie
+  , { id := "subss_mN1b", mnemonic := "subss", asm := "subss -0x1b(%rbx), %xmm0"
+    , bytes := "f30f5c43e5", instr := ⟨.varithm .sub .d .x0 { base := some .rbx, disp := -0x1b }, 5⟩ }
+  -- a carry out of the rounded significand
+  , { id := "subss_m15", mnemonic := "subss", asm := "subss 0x15(%rbx), %xmm0"
+    , bytes := "f30f5c4315", instr := ⟨.varithm .sub .d .x0 { base := some .rbx, disp := 0x15 }, 5⟩ }
+  -- the random lanes
+  , { id := "divss_x1_x0", mnemonic := "divss", asm := "divss %xmm1, %xmm0"
+    , bytes := "f30f5ec1", instr := ⟨.varith .div .d .x0 .x1, 4⟩ }
+  -- x/0, 0/0, a denormal over zero (ZE and NOT DE), overflow, underflow, NaN pairs
+  , { id := "divss_m12", mnemonic := "divss", asm := "divss 0x12(%rbx), %xmm0"
+    , bytes := "f30f5e4312", instr := ⟨.varithm .div .d .x0 { base := some .rbx, disp := 0x12 }, 5⟩ }
+  -- signalling NaNs (IE)
+  , { id := "divss_m0d", mnemonic := "divss", asm := "divss 0xd(%rbx), %xmm0"
+    , bytes := "f30f5e430d", instr := ⟨.varithm .div .d .x0 { base := some .rbx, disp := 0xd }, 5⟩ }
+  -- overflow to infinity at nearest, round-down and round-up, REX.B on the source
+  , { id := "divss_x13_x0", mnemonic := "divss", asm := "divss %xmm13, %xmm0"
+    , bytes := "f3410f5ec5", instr := ⟨.varith .div .d .x0 .x13, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each

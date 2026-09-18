@@ -161,7 +161,8 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ P2 BATCH 40 (D261) adds TWO: `cvttsd2si`, `cvttss2si`.
 -- P2 BATCH 41 (sub-group B0, D267) adds none.
 -- ⭐ SUB-GROUP B1 (D268) adds TWO: `mulss`, `mulsd`.
-theorem roster_size_is_174 : rosterSize = 174 := by decide
+-- ⭐ SUB-GROUP B2 (D271) adds SIX: `addss`, `addsd`, `subss`, `subsd`, `divss`, `divsd`.
+theorem roster_size_is_180 : rosterSize = 180 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -197,7 +198,9 @@ def vectorCount : Nat := vectors.length
 -- both destination widths and both source shapes.
 -- ⭐ SUB-GROUP B1 (D268) adds ELEVEN: five `mulsd` and six `mulss`, two register
 -- pairs and three or four memory offsets each, all writing xmm0.
-theorem vector_count_is_1069 : vectorCount = 1069 := by decide
+-- ⭐ SUB-GROUP B2 (D271) adds TWENTY-NINE: 4 addsd · 6 subsd · 4 divsd · 5 addss · 6 subss ·
+-- 4 divss, each form's greedy cover over the 88 pre-states, all writing xmm0.
+theorem vector_count_is_1098 : vectorCount = 1098 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
