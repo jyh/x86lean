@@ -18437,6 +18437,78 @@ Posted on the fleet bus (09/17 05:15) with the recommendation, and taken on it.
   reach it (§2), and each writes another register. `mulsd_tiecarry/up` pins one mode of it. Otherwise it is carried by
   the rule's 6,085-row check. A hwprobe row per mode would make it a pin.
 
+## D269 — B2's hardware reading, taken BEFORE the batch: two vendors agree on 284/284, and ZE-BEFORE-DE survives its first silicon
+
+⚖️ QUEUE P3, sub-group B2 (add, sub, div at both formats). **The rows were written, pushed and read before any
+Lean was written for B2** — the same order D266 §6 set for B0 and D268 followed for B1, and the reason it matters
+here is that one of B2's rules is a rule I got WRONG in a draft and would have had every motive to keep.
+
+⛔ **WHERE IT LANDED, AND WHERE IT WAS SAID TO LAND.** This decision was written 2026-09-17 on `paris/b2-hw` (`6a39588`)
+and reached `master` on 2026-09-18 with the 110 rows it reads (`a9f462f`), in its own PR. **PR #31 said it carried D269**
+(its body, `c78e86a`'s subject and the merge commit `caeb171`'s message), **and its tree did not**: `c78e86a`'s DECISIONS
+diff is D270 alone. The reading was never in question (run 35257910188 read the rows from `origin`'s `paris/b2-hw`);
+the record was. #31's body carries the correction.
+
+### 1. THE TWO LEGS, AGAINST WHAT WAS PRE-REGISTERED ON THE BUS BEFORE THE RUN
+Pushed as `paris/b2-hw` `cf8acac`; hwprobe run **35257910188**, both jobs `success`.
+
+```
+  leg                     processor                              rows   disagreements   pre-registered
+  referee (ubuntu-latest) AMD EPYC 7763 64-Core (Zen 3)           284         0          284/284  ✅
+  referee (macos-15-intel)Intel(R) Core(TM) i7-8700B (Coffee Lake)284         0          284/284  ✅
+  controls, BOTH legs     probe_plant rc=1, exactly one DIFF · probe_badop rc=2          as stated ✅
+  guards, BOTH legs       uname x86_64 · SSE2 · proc_translated 0 (the Intel leg's translation guard passed)
+```
+- **110 of the 284 are B2's new rows** (`addsd` 39 · `addss` 21 · `divsd` 21 · `subsd` 14 · `divss` 10 · `subss` 5);
+  the other 174 are B0's and B1's, re-read unchanged. **All four RC modes are exercised** in B2's own rows:
+  44 nearest · 22 down · 22 up · 22 zero.
+- ⭐ **THE TWO VENDORS AGREE BYTE-FOR-BYTE.** The 284 `ok` lines of the two legs — mnemonic, result, `want`, mxcsr,
+  `want` — are an IDENTICAL file, checked with a mutation control that proves the comparison is live (a one-character
+  edit to one row IS reported). Two microarchitectures from two vendors, not one part read twice.
+
+### 2. ⭐ THE FALSIFIER IS ANSWERED, AND IT IS THE HALF OF THIS READING THAT COULD HAVE GONE THE OTHER WAY
+`mk_rows.py` states **ZE-BEFORE-DE**: *a denormal dividend over zero raises `ZE` and NOT `DE`* (SDM Vol. 1 §4.9.2
+ranks divide-by-zero (3) above the denormal-operand exception (4), and a masked (3) returns its special result).
+**My own first draft said `DE` as well.** The SDM's priority list struck it, Rosetta 2 corroborated it, and this is
+the first time a processor was asked.
+
+```
+  divsd_den_zero   result 7ff0000000000000 (+inf)   mxcsr 1f84 = ZE alone      ⇒ the rule HOLDS
+  divss_den_zero   result 000000007f800000 (+inf)   mxcsr 1f84 = ZE alone      ⇒ the rule HOLDS
+```
+⛔ **AND THE POSITIVE CONTROL IS INSIDE THE SAME RUN, WHICH IS WHAT MAKES THE ABSENCE OF `DE` A READING RATHER THAN
+A SILENCE:**
+```
+  divsd_zero_den   mxcsr 1f82 = DE alone   a denormal DIVISOR, no divide-by-zero  ⇒ this processor DOES raise DE
+  divsd_inf_den    mxcsr 1f82 = DE alone   a denormal beside an infinity          ⇒ DE-WITH-INF also holds
+```
+⇒ 🔑 ***THE SAME DENORMAL OPERAND RAISES `DE` IN ONE ROW AND NOT IN ITS NEIGHBOUR, AND THE ONLY DIFFERENCE IS
+WHETHER `ZE` FIRED.*** A run in which `DE` never appeared at all would have been consistent with a probe that cannot
+see `DE`; these rows exclude that reading on both vendors. (Flag bits read from the generator's own constants:
+`IE, DE, ZE, OE, UE, PE = 1, 2, 4, 8, 16, 32`.)
+
+### 3. ⚠️ WHAT THIS READING DOES NOT SEE — declared beside the verdict, not below it
+The council's ruling of 2026-09-17 ⑧: *a plant proves reachability and says nothing about the rate at which the real
+defect presents; a gate's silence reads as coverage either way.* The two controls prove the referee CAN fire and CAN
+refuse. They say nothing about how often a real disagreement would wear a shape these 110 rows cover.
+```
+  NOT SEEN   exception behaviour with any exception UNMASKED — every row runs fully masked
+  NOT SEEN   FZ and DAZ — both are 0 in the 1f80 base and `mk_rows.py` never varies them
+  NOT SEEN   any microarchitecture but Zen 3 and Coffee Lake; "two vendors" is two parts, not the ISA
+  NOT SEEN   any form the 110 rows do not name — the selection is derived from the rules, and a rule with a
+             hole produces rows with the same hole
+  ⚠️ AND     the `want` column is DERIVED BY `mk_rows.py` from the SDM and IEEE 754, never from x86lean and never
+             from x86isa. So 284/284 is HARDWARE vs OUR DERIVATION agreeing. It is strong evidence the derivation
+             is right and it is NOT a reading of the SDM by the processor.
+```
+
+### 4. WHAT IT SETTLES FOR THE BATCH
+- **B2's rule may be written against these expectations** — the rows are now corroborated by silicon, not only by an
+  emulator and a specification.
+- **`ZE-BEFORE-DE` and `DE-WITH-INF` are load-bearing for `fdiv` and `faddsub`** and both survived.
+- **The pins remain a SELECTION problem, unchanged by this reading:** at B1's measured ~1,170 ku per pin row, A′'s
+  per-step allowance of 80,112 admits about 68 of these 110 rows (QUEUE P3).
+
 ## D270 — D268 §8's fork, ANSWERED BY MEASUREMENT: the fold costs +180 ku where six constructors project 1,479–2,220
 
 ⚖️ QUEUE P3, sub-group B2. D268 §8 RECOMMENDED folding `vmul` into an operation field and did not price it;
