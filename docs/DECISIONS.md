@@ -18762,7 +18762,8 @@ run across the switch; it stayed valid only because the other commit changed no 
 the helm accepted is on the bus: no checkout, switch, stash or reset in this tree while its seat is lit.
 
 ### 8. WHAT IS OWED
-- **The landing step's ms walk and `--record`** (D264), with its predictions posted first.
+- ✅ **The landing step's ms walk and `--record`: DONE** (record 29 §6). ms CLEAN, `Tests.Anchors` +77 against a posted
+  +94 ±50, `Tests.Coverage` +900 at the edge of ±900 under load 5–10; recorded on the ms verdict (D251).
 - **Sub-group B's remaining 5,133**: `cvtsd2ss` 1,297 leads, then the inexact integer conversions.
 - **±∞ reaches no vector in any FP form.** Every ∞ class B0–B2 has is a pin. A pre-state that holds an infinity
   would turn a dozen pins into differential cases; it is a change to `preStates`, and every record's counts move with it.

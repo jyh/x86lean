@@ -122,3 +122,24 @@ the right parts, read ZERO. It was removed before the commit, and the table grow
   `deAlways`'s definition before the post, and the two arms now cross-check: 99 = 67 + `zede`'s 32.
 - **B1's nine read identically through the refactor** (`selftest mulsd/mulss`: 170 · 264 · 17 · 854 · 31 · 396 · 39 ·
   129 · 3, PASS). The change that let B2's arms exist moved nothing in the family before it.
+
+## 6. THE LANDING MEASUREMENT — `513168b` → `5d9ebf1`
+
+**The step:** `513168b` (PR #32's merge) → `5d9ebf1` (this batch's `.lean` commit, first on the branch, D264).
+```
+  ku-delta --arm a-prime   CLEAN, rc 0 (yukon.lan) — identical to the draft's reading
+    Tests.Anchors   +49,533 of 80,143 · Tests.Coverage +227,931 of 609,953 · Tests.Vectors +7 of 105 · every other +0
+  ms   kernel_delta --repeats 6   CLEAN, rc 0     loads 5.2–10.3, yukon.lan
+         Tests.Anchors          +77.0  ±28.6    against   761.0     predicted +94 ±50     inside the band
+         Tests.Coverage        +900    ±415     against 28,400      predicted +54 ±900    at the band's edge
+         X86.Syntax              +2.0  ±32.4    against   306.5     predicted ~0 ±25      as predicted
+         Tests.Vectors           +0.0 · Tests.Program −7.5 · every other unit inside its own noise
+  D251 --record                  RECORDED        lands on the ms verdict
+```
+- **The predictions were posted on the fleet bus before the walk (09/18 03:40),** from the ku of the same step.
+- ⚠️ **`Tests.Anchors` came in BELOW its centre: 1.55 ms per 1k ku, against B1's 1.90.** The post named the centre as
+  the likeliest miss and bet the other way (a divide pin reducing a long `Nat` division). **The divide pins are cheaper
+  per unfolding than the multiply's, not dearer.**
+- ⚠️ **`Tests.Coverage`'s +900 is at the edge of a ±900 band, read at loads 5–10.** Of it, +650 is the residue and +175 is
+  `vectorCoverage`, the declaration that grows with the table. B1's reading of the same unit was +500 ±706 at loads 3–6.
+  It is inside the gate and is not claimed as a measurement of B2's cost.
