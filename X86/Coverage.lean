@@ -820,6 +820,28 @@ acc,imm · rh"
   , { mnemonic := "mulsd",
       shapes := "x,x · x,m", note := "low binary64 lane, rounded under MXCSR.RC; NaN: first source; inf*0 -> indefinite; upper kept; D268",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULSD" }
+  -- ⭐⭐⭐ SUB-GROUP B2 — ADDS?/SUBS?/DIVS? (D271), through B1's constructor since the fold
+  -- (D270).  SIX rows.  An exact zero sum is +0, and -0 under round-down; x/0 is ∞ and ZE, and a
+  -- denormal dividend over zero raises ZE and NOT DE (ZE-BEFORE-DE, D269); ∞ - ∞, 0/0 and ∞/∞
+  -- give the indefinite with its sign bit SET.  A tiny sum is exact, so add and sub never raise UE.
+  , { mnemonic := "addss",
+      shapes := "x,x · x,m", note := "low binary32 lane x+y, rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDSS" }
+  , { mnemonic := "addsd",
+      shapes := "x,x · x,m", note := "low binary64 lane x+y, rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDSD" }
+  , { mnemonic := "subss",
+      shapes := "x,x · x,m", note := "low binary32 lane x-y, rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBSS" }
+  , { mnemonic := "subsd",
+      shapes := "x,x · x,m", note := "low binary64 lane x-y, rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBSD" }
+  , { mnemonic := "divss",
+      shapes := "x,x · x,m", note := "low binary32 lane x/y; x/0 -> inf + ZE (not DE), rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVSS" }
+  , { mnemonic := "divsd",
+      shapes := "x,x · x,m", note := "low binary64 lane x/y; x/0 -> inf + ZE (not DE), rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVSD" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

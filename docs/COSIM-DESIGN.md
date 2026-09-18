@@ -53,6 +53,15 @@ Windows `CONTEXT.MxCsr`),
 so the simplification below survives, and the transfer grows by one 32-bit field.
 
 
+**④ ⚠️ AMENDMENT 2026-09-18 — SILICON WAS READ AFTER ALL, BY THE ROUTE THIS DOCUMENT WAS WRITTEN AWAY FROM.**
+`hwprobe/` runs SDM-derived rows, in assembly, on GitHub-HOSTED x86-64 runners: an AMD EPYC 7763 (D266 §5) and
+an Intel Core i7-8700B (D267 §9–10), 284 rows on both with byte-identical outputs (D269). That is plan v1 §4.4's
+ORIGINAL premise, which the 09/03 council swapped for kenai. ⇒ **§7.8's *"the fleet has exactly ONE x86-64
+machine"* is false as of 2026-09-17**, and §2's two-microarchitecture requirement has two vendors to stand on.
+⛔ **What `hwprobe/` is NOT: a co-simulation of `step`.** It referees the RULES a batch pins, row by row, and never
+single-steps the differential's cases. This design, and its §7.0 premise gate, are still what that would take. No
+arm of §7 has been built. (Desk `ES` closed on this document's §7 being the fork it asked for.)
+
 ## 1. ⛔ THE COMMISSIONING PREMISE, CHECKED — AND THE PRIZE IS NOT WHERE IT WAS PUT
 
 The order names co-simulation as *"also an oracle for the BMI group's defined behaviour"* — the

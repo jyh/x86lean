@@ -18680,3 +18680,90 @@ YOU KNOW THE SHAPE.***
   ⛔ NOT taken here: it changes what the model DECLINES, which does not belong in a commit whose purpose is to
   measure a refactor's ku.
 - **B2's own work** — vectors, arms, pins, differential — is unstarted. This settles the SHAPE, nothing else.
+
+## D271 — P2 batch 43, sub-group B2: add, subtract and divide, through the multiply's constructor
+
+⚖️ QUEUE P3, P2-NEXT (B), built on 2026-09-18 on the fold D270 priced. It is the twenty-ninth differential record
+(`docs/DIFFERENTIAL-P2-BATCH29.md`, which carries the tables).
+- **Six roster rows** (`addss` `addsd` `subss` `subsd` `divss` `divsd`), **no new constructor** and **no new state
+  field**: `Op.varith`/`Op.varithm` with a `VArithOp` field have carried all four operations since D270.
+- **29 vectors · 39 kernel pins · 13 wrong-model arms · 11 declared divergences.**
+- **Assembly-class demand:** 14,752 instructions (addss 4,696 · addsd 4,260 · subss 2,264 · subsd 1,674 · divsd 1,252 ·
+  divss 606). Sub-group B's unclaimed total is now **5,133**, over 26 pairs.
+
+### 1. THE RECIPE IS B1's, AND WHAT DIFFERED IS NAMED
+Each step of D268 was run in D268's order, with its predictions posted before its measurement:
+**reach census → vectors → arm predictions (bus 00:13) → the Lean batch → pins → A′ on the draft → differential
+prediction (bus 00:27) → the arms → the differential.**
+- **The reach census reads `mk_rows.py`'s `arith`**, the B2 rule written against D269's two processors, over the 88
+  pre-states: 7,008 candidates. The pre-state dump is B1's own, still valid because D270 §6's differential
+  re-emitted `run/cases.lsp` byte-identical.
+- **The arm predictor could not read the vectors out of `Tests.Vectors`, because they did not exist yet.** It read
+  driveWrong's 84 states' raw inputs instead and derived each vector's operands in Python. It is checked 84/84
+  against B1's independently written operand record (MXCSR, all of `xmm0`, `xmm1`'s low lane).
+- **`wrongSimdWith`'s `mul` became a per-operation `arith`.** It is the smallest change that lets two arm families
+  coexist without either moving the other, and it is proved by measurement rather than by argument: B1's nine read
+  **170 · 264 · 17 · 854 · 31 · 396 · 39 · 129 · 3** after it, identical to D268 §4.
+- **B0's two model-wide arms now reach add, sub and div**, exactly as B1 extended them through the multiply:
+  +571 (sticky bits replaced) and +99 (`deAlways`).
+
+### 2. ⭐ THE PREDICTION THAT COULD HAVE GONE THE OTHER WAY
+My first cut of the `deAlways` arm's prediction was **+67**: a denormal beside a NaN, the arm's name. But `deAlways`
+is *DE on ANY denormal operand*, and through `div` a denormal dividend over zero raises ZE and NOT DE. So the
+model-wide arm also breaks ZE-BEFORE-DE. **Corrected to +99 before posting, and read +99**, with the specific arm
+`zede` reading the other 32 on its own.
+⇒ **An arm is its PLANT, not its LABEL.** The label names the case its author had in mind, and a new operation can
+give the same plant a second case the label does not mention.
+
+### 3. THE PINS — THE SELECTION PROBLEM QUEUE P3 NAMED, RESOLVED BY THE RULE
+QUEUE P3 warned that A′'s per-step allowance admits about 68 rows at B1's 1,170 ku a row, and that `hwprobe/` carries
+110. **B0's rule selects 39** (4 where x86isa differs · 35 no vector reaches), and A′ admits them in one step.
+```
+  ku-delta --arm a-prime  f6247fb → f8aca9b (the draft, yukon.lan)                     CLEAN
+    Tests.Anchors     343,962 → 393,495    +49,533   allowance 80,143   (62%)   ~1,270 ku per pin row
+    Tests.Coverage  8,471,563 → 8,699,494 +227,931   allowance 609,953  (37%)
+    Tests.Vectors         101 → 108            +7    allowance 105      · every other module +0
+```
+- ⚠️ **39 is the rule's output and was not chosen to fit.** Had it been 90, the right answer would have been to split
+  the pins across steps, which QUEUE P3 said in advance, and never to widen anything.
+- ⚠️ **`X86.Syntax` +0 for six new roster strings.** `rosterP0` is a definition, and its cost lands in the theorems
+  that read it, in `Tests.Coverage`.
+
+### 4. THE ONE DECLARED DIVERGENCE CLASS — 0/0
+B1 met x86isa's unsigned indefinite only in pins, because no multiply vector reaches ∞ × 0. **B2's vectors reach 0/0**
+(`divsd_m10` in 4 states, `divss_m12` in 7), so the differential meets it. Each format gets one `knownDivergences`
+entry in D266's `pair` form, so it excuses nothing but that low lane, with every bit above agreeing:
+- the third source is SDM Vol. 1 §4.8.3.7 plus both processors' `divsd_zero_zero` (D269);
+- the mechanism is `rtl::indef` (D265 §3).
+⚠️ **The binary32 half was a named risk, posted before the run:** no hwprobe row divides zero by zero at binary32. It
+held, 7 of 7.
+
+### 5. THE RUN — EVERY FIELD AS PRE-REGISTERED
+`cases=96624 matched=76031 explained=29435 unexplained=0 oracle-divergence=232 oracle-leaks=0 missing=0`: cases
++2,552 (29 × 88), matched +2,541, divergence +11, and nothing else moved.
+`run/lean.txt 46cff21f · run/cases.lsp 60282977 · run/oracle.txt 17b01ad2`.
+⚠️ **The run is at `1e886a7`, one commit before record 29's narrative string was added to `Main.lean`.** The narrative
+feeds `docs/COVERAGE.md` and no emitted case, and `Main` is not a profiled module. The landing tree is otherwise the
+measured one (`git diff paris/b2 paris/b2-landing` is empty).
+
+### 6. THE CENSUS — CONSERVED IN EVERY COLUMN
+Each column's total is unchanged, and the pooled assembly-class gain is **+14,752, the commission's own per-mnemonic
+sum**: cc1 +158 · coreutils +424 · glibc +5,819 · ffmpeg +12,216 · vlc-codec +143 · vpx +1,276 · x264 +1,117.
+dav1d, vlc-video and kernel gain nothing.
+⚠️ **I first re-stamped §2 as "20 pairs"**, one fewer pair per mnemonic, and `p2_residue --check` refused it: the census
+counts **26**. "Pairs" is not a mnemonic count (B1 did not move it either). The gate read the document against its
+own derivation, and that is what corrected the number.
+
+### 7. ⛔ THE WORKING TREE WAS SWITCHED UNDER THE BATCH, AND NOTHING WAS LOST
+At 00:20:54, another seat ran `git checkout -b` in this repository's working tree while 315 lines of B2 were
+uncommitted, committed a script change on the new branch, and restored `paris/b2` at 00:21:18. Nothing was
+lost: a patch was saved before anything moved, and the WIP was committed within the minute. **A build had already
+run across the switch; it stayed valid only because the other commit changed no `.lean` file.** The standing rule
+the helm accepted is on the bus: no checkout, switch, stash or reset in this tree while its seat is lit.
+
+### 8. WHAT IS OWED
+- ✅ **The landing step's ms walk and `--record`: DONE** (record 29 §6). ms CLEAN, `Tests.Anchors` +77 against a posted
+  +94 ±50, `Tests.Coverage` +900 at the edge of ±900 under load 5–10; recorded on the ms verdict (D251).
+- **Sub-group B's remaining 5,133**: `cvtsd2ss` 1,297 leads, then the inexact integer conversions.
+- **±∞ reaches no vector in any FP form.** Every ∞ class B0–B2 has is a pin. A pre-state that holds an infinity
+  would turn a dozen pins into differential cases; it is a change to `preStates`, and every record's counts move with it.
