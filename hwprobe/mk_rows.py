@@ -12,6 +12,10 @@ Two rules below are HYPOTHESES the rows exist to test, and each is named where i
   TINY-AFTER   underflow tininess is detected AFTER rounding (x86isa does this; ref_mul.py's own path
                label is BEFORE, so tininess is recomputed here and ref_mul supplies only the VALUE)
   DE-SUPPRESS  the denormal flag is not raised when an operand is a NaN (x86isa does this)
+  ZE-BEFORE-DE (B2) a denormal dividend over zero raises ZE and NOT DE: SDM Vol. 1 §4.9.2 ranks divide-by-zero
+               (3) above the denormal-operand exception (4), and a masked (3) returns its special result. The
+               first draft said DE as well; Rosetta 2 read ZE alone on both rows before any processor ran.
+  DE-WITH-INF  (B2) a denormal operand beside an infinity raises DE (the multiply's rule, now asked of add and div)
 Usage: mk_rows.py [--plant | --plant-op]   writes C rows on stdout.
   --plant     flips ONE expectation: the referee must report exactly one disagreement (exit 1)
   --plant-op  declares ONE instruction byte wrong: the probe must refuse to run (exit 2)
@@ -20,7 +24,7 @@ import sys
 from fractions import Fraction
 import ref_mul as R
 
-IE, DE, OE, UE, PE = 1, 2, 8, 16, 32
+IE, DE, ZE, OE, UE, PE = 1, 2, 4, 8, 16, 32
 F32, F64 = R.B32, R.B64
 
 
@@ -83,6 +87,58 @@ def mul(fmt, rc, a, b):
         if tiny_after(fmt, rc, R.value(fmt, a) * R.value(fmt, b)):
             f |= UE
     return bits, f
+
+
+def arith(op, fmt, rc, a, b):
+    """ADDS?/SUBS?/DIVS? (SDM Vol. 2B; B2, D268 s8): exact Fractions rounded by ref_mul.round_to.
+    NaN: the first source, else the second, quieted; IE on an SNaN. inf - inf, 0/0 and inf/inf: the negative
+    QNaN indefinite and IE. x/0: inf and ZE. An exact zero sum is +0, and -0 under round-down; x + x keeps a
+    zero's sign (IEEE 754 6.3). A tiny sum is always exact, so add and sub never raise UE."""
+    ew, mw = fmt
+    mask = (1 << (1 + ew + mw)) - 1
+    a &= mask
+    b &= mask
+    quiet, infE, sbit = 1 << (mw - 1), ((1 << ew) - 1) << mw, 1 << (ew + mw)
+    indef = sbit | infE | quiet
+    ka, kb = kind(fmt, a), kind(fmt, b)
+    snan = IE if "snan" in (ka, kb) else 0
+    if ka in ("qnan", "snan"):
+        return a | quiet, snan
+    if kb in ("qnan", "snan"):
+        return b | quiet, snan
+    de = DE if "den" in (ka, kb) else 0                      # DE-WITH-INF
+    sa, sb = a >> (ew + mw), b >> (ew + mw)
+    if op == "div":
+        sg = sbit if sa != sb else 0
+        if {ka, kb} == {"inf"} or {ka, kb} == {"zero"}:
+            return indef, IE
+        if ka == "inf":
+            return sg | infE, de
+        if kb == "inf":
+            return sg, de
+        if kb == "zero":
+            return sg | infE, ZE                              # ZE-BEFORE-DE
+        if ka == "zero":
+            return sg, de
+        exact = R.value(fmt, a) / R.value(fmt, b)
+    else:
+        if op == "sub":
+            sb ^= 1
+        if ka == "inf" and kb == "inf":
+            return ((sbit if sa else 0) | infE, 0) if sa == sb else (indef, IE)
+        if "inf" in (ka, kb):
+            return (sbit if (sa if ka == "inf" else sb) else 0) | infE, de
+        exact = R.value(fmt, a) + (-1 if op == "sub" else 1) * R.value(fmt, b)
+        if exact == 0:
+            if ka == "zero" and kb == "zero" and sa == sb:
+                return (sbit if sa else 0), 0
+            return (sbit if rc == 1 else 0), de
+    bits, path = R.round_to(fmt, MODES[rc], exact)
+    if path.startswith("overflow"):
+        return bits, OE | PE | de
+    if path == "exact":
+        return bits, de
+    return bits, PE | de | (UE if tiny_after(fmt, MODES[rc], exact) else 0)
 
 
 def fcmp(fmt, a, b):
@@ -167,7 +223,9 @@ MODES = R.MODES
 OPS = {"p_cvtsi2sd": "f20f2ac7",
        "p_mulsd": "f20f59c1", "p_mulss": "f30f59c1", "p_minsd": "f20f5dc1", "p_minss": "f30f5dc1",
        "p_comisd": "660f2fc1", "p_ucomisd": "660f2ec1", "p_comiss": "0f2fc1", "p_ucomiss": "0f2ec1",
-       "p_cvtss2sd": "f30f5ac8", "p_cvttsd2si": "f20f2cc0"}
+       "p_cvtss2sd": "f30f5ac8", "p_cvttsd2si": "f20f2cc0",
+       "p_addsd": "f20f58c1", "p_addss": "f30f58c1", "p_subsd": "f20f5cc1", "p_subss": "f30f5cc1",
+       "p_divsd": "f20f5ec1", "p_divss": "f30f5ec1"}
 
 ROWS = []   # (name, fn, mxcsr_in, a, b, want, want_mask, want_flags)
 
@@ -240,6 +298,42 @@ def build():
                     ("den", DDEN), ("one", D1)]:
         r, f = cvttsd2si32(a)
         add("cvttsd2si_%s" % name, "p_cvttsd2si", 0x1F80, a, 0, r, 0xFFFFFFFF, f)
+    # B2 (D268 s8): ADD, SUB, DIV. Every mode where the mode can matter; one row where it cannot.
+    DMAX, DMIN = 0x7FEFFFFFFFFFFFFF, 0x0010000000000000
+    b64_all = [("add", "exact", D1, D2), ("add", "tie", D1, 0x3CA0000000000000),
+               ("add", "tieodd", 0x3FF0000000000001, 0x3CA0000000000000),
+               ("add", "sticky", D1, 0x3C30000000000000), ("sub", "sticky", D1, 0x3C30000000000000),
+               ("add", "gap55", D1, 0x3C80000000000000), ("sub", "gap56", D1, 0x3C70000000000000),
+               ("add", "overflow", DMAX, DMAX), ("sub", "cancel", D1, D1), ("add", "cancel", D1, 1 << 63 | D1),
+               ("add", "zeros", 0, 1 << 63),
+               ("div", "third", D1, 0x4008000000000000), ("div", "overflow", DMAX, 0x3FE0000000000000),
+               ("div", "tiny", DMIN, 0x4008000000000000)]
+    b64_one = [("add", "negzeros", 1 << 63, 1 << 63), ("sub", "negzero_zero", 1 << 63, 0),
+               ("sub", "infinf", 0x7FF0000000000000, 0x7FF0000000000000),
+               ("add", "infinf", 0x7FF0000000000000, 0x7FF0000000000000),
+               ("add", "inf_den", 0x7FF0000000000000, DDEN), ("add", "den_den", DDEN, DDEN),
+               ("add", "den_zero", DDEN, 0), ("add", "snan_one", DS, D1), ("add", "qnan_snan", DQ, DS),
+               ("div", "exact", 0x4008000000000000, D2), ("div", "zero_zero", 0, 0),
+               ("div", "inf_inf", 0x7FF0000000000000, 0xFFF0000000000000),
+               ("div", "one_zero", D1, 0), ("div", "negone_zero", 1 << 63 | D1, 0),
+               ("div", "den_zero", DDEN, 0), ("div", "zero_den", 0, DDEN), ("div", "snan_den", DS, DDEN),
+               ("div", "inf_den", 0x7FF0000000000000, DDEN)]
+    b32_all = [("add", "exact", 0x3FC00000, S2), ("add", "tie", S1, 0x33800000),
+               ("add", "sticky", S1, 0x30000000), ("sub", "cancel", S1, S1),
+               ("add", "zeros", 0, 0x80000000), ("add", "overflow", 0x7F7FFFFF, 0x7F7FFFFF),
+               ("div", "third", S1, 0x40400000), ("div", "tiny", 0x00800000, 0x40400000)]
+    b32_one = [("div", "one_zero", S1, 0), ("div", "den_zero", SDEN, 0),
+               ("sub", "infinf", 0x7F800000, 0x7F800000), ("add", "snan_one", SS, S1)]
+    for fmt, suf, mask, alls, ones in [(F64, "sd", (1 << 64) - 1, b64_all, b64_one),
+                                       (F32, "ss", 0xFFFFFFFF, b32_all, b32_one)]:
+        for op, name, a, b in alls:
+            for rc, mode in enumerate(MODES):
+                v, f = arith(op, fmt, rc, a, b)
+                add("%s%s_%s/%s" % (op, suf, name, mode), "p_%s%s" % (op, suf), 0x1F80 | (rc << 13), a, b, v,
+                    mask, f)
+        for op, name, a, b in ones:
+            v, f = arith(op, fmt, 0, a, b)
+            add("%s%s_%s" % (op, suf, name), "p_%s%s" % (op, suf), 0x1F80, a, b, v, mask, f)
 
 
 def main():
