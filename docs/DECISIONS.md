@@ -18771,6 +18771,38 @@ the helm accepted is on the bus: no checkout, switch, stash or reset in this tre
   where D251 licenses the step, and this step's own landing verdict was ms CLEAN. #33 (one scrub script) landed first, so
   the branch was updated by merge to `41c3405`, whose tree `f7d90d13` equals `git merge-tree origin/master 2bbb8c0`
   computed before the update. Receipts for both runs are in `docs/ci-kernel-verdicts.jsonl`.
+
+### 9. ⛔ THE MERGE RE-KEYED THE STEP, AND THE ROW WAS RE-MEASURED RATHER THAN RE-KEYED BY ARGUMENT
+**What broke.** The row was recorded as `513168b → 5d9ebf1`, which was the first-parent step while `513168b` was master. #33
+then landed, so master's chain became `513168b → 083c464 → db52c7f`. `kernel_drift --gap` refused the row on `db52c7f`, rc 2:
+*"a WRONG row, not a recorded one."* CI's `kernel-delta` job runs `--gap` before it measures, so master's push run red there, and
+so would every PR cut from master. Preflight caught it on the next docs commit.
+- **My error, and the ritual already named it.** `kernel_drift`'s printed ritual says *"if master moves before the merge, the
+  row's base is no longer the step's parent — rebase and record again."* After `update-branch` I proved tree identity. I did not
+  rebuild the synthetic merge and re-run `--gap` on it, and that is the check that would have refused the merge. D264 §1 is the
+  same defect from a different cause: there the base was wrong from the start, and here a landing in between moved it.
+- **Reading-equivalent, and still re-measured (D264: "a row is not re-keyed by argument").** The `.lean` patch is
+  byte-identical, `git patch-id` `feb0120b` on both `513168b→5d9ebf1` and `083c464→db52c7f`. The bases differ only in
+  `scripts/check_private_paths.py` (exempt, not a PROFILER_PATH). The mis-keyed row is dropped, and the step
+  `083c464 → db52c7f` is measured and recorded.
+```
+  PREDICTED (bus, 09/18 08:49:46, before either run)     READ (yukon.lan)
+  A′  CLEAN, identical module-for-module                 CLEAN, rc 0 — Tests.Anchors +49,533 of 80,143 · Tests.Coverage
+      to 5d9ebf1's reading                                 +227,931 of 609,953 · Tests.Vectors +7 of 105 · every other +0   ✔ exact
+  ms  CLEAN if load under ~10                            CLEAN, rc 0, 6 repeats a side, load1 7.2–9.0                      ✔
+      Tests.Anchors   +77  ±50                           +83.5  ±24.7 / 188.0                                               ✔ inside
+      Tests.Coverage  +600 ±900                          +950   ±831.6 / 2,196.0                                            ✔ inside
+      X86.Syntax      ~0   ±25                           −28.0  ±21.1 / 67.5                                                ✘ 3 ms outside
+  --record                                               "ms verdict rc 0 ⇒ this step lands on the ms verdict"
+  --gap                                                  rc 0, 0 unrecorded `.lean` steps, exactly the ratchet
+```
+⚠️ **The one miss is on a unit with Δku 0.** `X86.Syntax`'s base passes read 351–361 and its head passes 327–335 in the same
+alternated walk. That is a difference between two trees with identical `X86.Syntax` sources, so it is a reading about the box,
+not the step. The band I posted (±25) was narrower than the one the walk itself computed (±21.1 around −28), and it is scored
+as a miss.
+⇒ 🔑 ***TREE IDENTITY PROVES THE MERGE IS THE CONTENT YOU TESTED. IT SAYS NOTHING ABOUT A RECORD KEYED ON THE CHAIN, BECAUSE
+AN INTERVENING LANDING CHANGES THE CHAIN AND LEAVES THE TREE ALONE.*** Whenever master moved after the push, rebuild the
+synthetic merge and run `--gap` on it at merge time.
 - **Sub-group B's remaining 5,133**: `cvtsd2ss` 1,297 leads, then the inexact integer conversions.
 - **±∞ reaches no vector in any FP form.** Every ∞ class B0–B2 has is a pin. A pre-state that holds an infinity
   would turn a dozen pins into differential cases; it is a change to `preStates`, and every record's counts move with it.
