@@ -2374,13 +2374,18 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`; THE INEXACT INTEGER CONVERSIONS ARE NEXT**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4's HARDWARE READING IN (D274); THE INEXACT INTEGER CONVERSIONS ARE NEXT**
+⚖️ **STATUS AT 2026-09-19, MORNING (D274): #37 MERGED `a233f77` (both tiers), and B4's HARDWARE READING IS IN, TAKEN
+BEFORE THE BATCH.** 127 rows for the integer conversions that round (`cvtsi2ss` from int32 and int64, `cvtsi2sdq`) read
+488/488 on an AMD EPYC 7763 and an Intel i7-8700B, byte-identical. x86isa reads 42 disagreements, the number written down
+before its run: the 39 on record and the three zero rows at round-down (−0). **NEXT: B4, by D271's recipe, with the FOLD
+of D274 §6 as its first commit, measured byte-identical before anything is added.**
 ⚖️ **STATUS AT 2026-09-19, LATER (D273): B3 (`cvtsd2ss`) IS BUILT AS P2 BATCH 44, RECORD 30.** One roster row, two
 constructors, 3 vectors (zero-free sources), 32 pins, and 12 arms whose scores were posted before the run (read: record 30 §5). The differential is
 `cases=96888 … unexplained=0 oracle-divergence=232`, every field as posted. A′ on the draft is CLEAN (X86.Syntax +489,
 X86.Theorems +534, Tests.Anchors +34,443). Sub-group B's unclaimed is now **3,836**, with `cvtsi2ssl` (1,273) and
-`cvtsi2sdq` (664) the largest. ⛔ **Owed: the landing step**, on the master that #36 (D272) lands: one `.lean` commit,
-the ms walk with predictions posted first, and `--record`.
+`cvtsi2sdq` (664) the largest. ✅ **The landing step is DONE** (`be68ae6`, ms CLEAN) **and #37 is MERGED `a233f77`.**
+*This line read "Owed: the landing step" until 2026-09-19 morning, after both had happened.*
 ⚖️ **STATUS AT 2026-09-19 (D272): B3's HARDWARE READING IS IN, TAKEN BEFORE THE BATCH.** 77 `cvtsd2ss` rows read
 361/361 on three processors (Xeon 8370C, i7-8700B, EPYC 7763), with byte-identical outputs. TINY-AFTER, DE-NARROW and
 NARROW-NAN held. x86isa differs on the 8 preset-OE rows (D266's defect) and aborts at a ±0 source (D258's), so
