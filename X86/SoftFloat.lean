@@ -479,5 +479,28 @@ def fdiv (f : Fmt) (rc : Nat) (a b : BitVec 64) : BitVec 64 × BitVec 32 :=
     let (r, fl) := roundPack f rc neg (2 * q + s) (ea - eb - kk - 1)
     (r, fl ||| de)
 
+/-- ⭐⭐ SUB-GROUP B3 — CVTSD2SS's LANE RULE AND FLAGS (SDM Vol. 2A CVTSD2SS: "Overflow, Underflow, Invalid,
+Precision, Denormal"; Vol. 1 §4.8.3.5 and Table 4-7): the binary64 `x` as a binary32 under RC `rc`, in the low 32
+bits of the result.
+* **A NaN keeps its sign and the top 23 bits of its fraction, and is QUIETED** (bit 22 set). The payload's low 29
+  bits are DROPPED, never rounded, and IE is raised on a signalling NaN (hwprobe's NARROW-NAN, D272).
+* **±∞ and ±0 convert exactly** and raise nothing.
+* Otherwise the value is rounded by `roundPack` at binary32, which raises OE with PE on overflow, UE with PE when the
+  result is inexact and tiny AFTER rounding, and PE when it is inexact.
+* **DE on a binary64 denormal** (hwprobe's DE-NARROW, D272), beside the UE and PE its rounding raises. Every binary64
+  denormal lies far below binary32's least subnormal, so the result is ±0 or the least subnormal.
+⚠️ `sig binary64` gives a significand below `2^53`, and `roundPack` clamps every discarding shift (D262 §3), so no
+power above 256 is taken on any path. -/
+def f64to32 (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let f := binary64
+  let sgn : BitVec 64 := if f.sign x then 1 <<< 31 else 0
+  if f.isNaN x then (sgn ||| 0x7FC00000 ||| (f.mant x >>> 29), if f.isSNaN x then fIE else 0)
+  else if f.isInf x then (sgn ||| 0x7F800000, 0)
+  else if f.isZero x then (sgn, 0)
+  else
+    let (m, e) := sig f x
+    let (r, fl) := roundPack binary32 rc (f.sign x) m e
+    (r, fl ||| (if f.isDenormal x then fDE else 0))
+
 end SoftFloat
 end X86

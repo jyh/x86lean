@@ -356,6 +356,10 @@ CLAIMS_NO_ROW = {
     "divss_m12": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "divss_m0d": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "divss_x13_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ SUB-GROUP B3 (cvtsd2ss, D273), same commit as the vectors.
+    "cvtsd2ss_x1_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsd2ss_m0a": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "cvtsd2ss_m01": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ P2 BATCH 38 (min/max, D253), same commit as the vectors.
     "minsd_x1_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "minss_x1_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",

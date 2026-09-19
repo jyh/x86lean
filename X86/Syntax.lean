@@ -1621,6 +1621,19 @@ inductive Op where
   /-- SUB-GROUP B1/B2 — the same at a MEMORY source (`m32` / `m64`).  ⚠️ NO
   ALIGNMENT CHECK: a scalar operand states none, exactly as `vminmaxm`. -/
   | varithm (op : VArithOp) (sz : Size) (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B3 — CVTSD2SS (SDM Vol. 2A), register source: the low binary64 lane of
+  `src` becomes the low binary32 lane of `dst` (`SoftFloat.f64to32`), rounded under MXCSR.RC,
+  and **bits 127:32 of `dst` are PRESERVED**.  No EFLAGS bit is written; MXCSR's OE, UE, PE, IE
+  and DE are.
+
+  ⚖️ **TWO CONSTRUCTORS, NOT A FIFTH `VArithOp` MEMBER (D273).**  The fold's premise is that the
+  four operations differ ONLY in the `SoftFloat` call.  This one reads 64 bits and writes 32,
+  ignores the destination's low lane, and takes one operand.  And `.varith .cvt .d` would spell
+  `cvtss2sd`, a real and different instruction. -/
+  | vcvtsd2ss (dst src : XmmReg)
+  /-- SUB-GROUP B3 — the same at a MEMORY source (`m64`).  ⚠️ NO ALIGNMENT CHECK: a scalar
+  operand states none, exactly as `varithm`. -/
+  | vcvtsd2ssm (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -1997,6 +2010,9 @@ def opOperands : Op → List Operand
   -- SUB-GROUP B1: the scalar multiply's memory SOURCE names its address.
   | .varith .. => []
   | .varithm _ _ _ ea => [.mem ea]
+  -- SUB-GROUP B3: the narrowing conversion's memory SOURCE names its address.
+  | .vcvtsd2ss .. => []
+  | .vcvtsd2ssm _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -2139,6 +2155,9 @@ def Op.anyLocked : Op → Bool
   -- SUB-GROUP B1: `lock mulsd` is not a form the SDM lists.
   | .varith .. => false
   | .varithm _ _ _ ea => ea.lock
+  -- SUB-GROUP B3: `lock cvtsd2ss` is not a form the SDM lists.
+  | .vcvtsd2ss .. => false
+  | .vcvtsd2ssm _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2318,6 +2337,8 @@ def Op.mnemonic : Op → String
   | .vcvtt2si dbl .. | .vcvtt2sim dbl .. => if dbl then "cvttsd2si" else "cvttss2si"
   -- SUB-GROUP B1: both operand shapes print one name.
   | .varith op sz .. | .varithm op sz .. => op.mnemonic sz
+  -- SUB-GROUP B3: both operand shapes print one name.
+  | .vcvtsd2ss .. | .vcvtsd2ssm .. => "cvtsd2ss"
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"
@@ -2542,6 +2563,9 @@ def rosterP0 : List String :=
    -- ⭐⭐⭐ SUB-GROUP B2: add, subtract and divide, SIX rows, through B1's constructor since
    -- the fold (D270).  `addps`/`subps`/`divps` and their `pd` forms are packed and not taken.
    "addss", "addsd", "subss", "subsd", "divss", "divsd",
+   -- ⭐⭐⭐ SUB-GROUP B3: the narrowing conversion, ONE row, the first conversion that rounds
+   -- under MXCSR.RC.  `cvtpd2ps` is packed and not taken.
+   "cvtsd2ss",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

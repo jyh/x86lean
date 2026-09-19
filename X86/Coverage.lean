@@ -842,6 +842,9 @@ acc,imm · rh"
   , { mnemonic := "divsd",
       shapes := "x,x · x,m", note := "low binary64 lane x/y; x/0 -> inf + ZE (not DE), rounded under MXCSR.RC; NaN: first source; invalid -> indefinite; upper kept; D271",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVSD" }
+  , { mnemonic := "cvtsd2ss",
+      shapes := "x,x · x,m", note := "binary64 -> low binary32 lane, rounded under MXCSR.RC; NaN keeps sign and top payload, quieted; upper kept; D273",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTSD2SS" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

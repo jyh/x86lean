@@ -2936,6 +2936,19 @@ def vectors : List Vec :=
   -- overflow to infinity at nearest, round-down and round-up, REX.B on the source
   , { id := "divss_x13_x0", mnemonic := "divss", asm := "divss %xmm13, %xmm0"
     , bytes := "f3410f5ec5", instr := ⟨.varith .div .d .x0 .x13, 5⟩ }
+  -- ⭐⭐⭐ SUB-GROUP B3 (D273) — CVTSD2SS, the first conversion that rounds under MXCSR.RC.
+  -- Three vectors, chosen by B1's greedy dst-xmm0 cover over the 88 pre-states, classified
+  -- by `hwprobe/mk_rows.py`'s `cvtsd2ss` and never by the model.  Every source is NON-ZERO
+  -- in all 88: x86isa aborts the whole run at a ±0 source (D258 §2, D272 §3).
+  -- ties at every mode, overflow in every mode, tiny and underflow-to-zero results, DE
+  , { id := "cvtsd2ss_x1_x0", mnemonic := "cvtsd2ss", asm := "cvtsd2ss %xmm1, %xmm0"
+    , bytes := "f20f5ac1", instr := ⟨.vcvtsd2ss .x0 .x1, 4⟩ }
+  -- quiet and signalling NaNs (IE), negative NaN payloads the narrowing truncates
+  , { id := "cvtsd2ss_m0a", mnemonic := "cvtsd2ss", asm := "cvtsd2ss 0xa(%rbx), %xmm0"
+    , bytes := "f20f5a430a", instr := ⟨.vcvtsd2ssm .x0 { base := some .rbx, disp := 0xa }, 5⟩ }
+  -- exact normal and exact subnormal results (no PE, no UE)
+  , { id := "cvtsd2ss_m01", mnemonic := "cvtsd2ss", asm := "cvtsd2ss 0x1(%rbx), %xmm0"
+    , bytes := "f20f5a4301", instr := ⟨.vcvtsd2ssm .x0 { base := some .rbx, disp := 0x1 }, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each

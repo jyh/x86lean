@@ -674,6 +674,14 @@ def varithLow (op : VArithOp) (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVe
 3 toward zero, SDM Vol. 1 §10.2.3). -/
 def mxcsrRC (m : BitVec 32) : Nat := ((m >>> 13) &&& 3#32).toNat
 
+/-- ⭐⭐⭐ SUB-GROUP B3 — CVTSD2SS's WRITE AND ITS FLAGS, ONE PAIR (SDM Vol. 2A): the low binary32
+lane of the destination becomes `SoftFloat.f64to32` of `b`, rounded under `rc`, and **every bit
+above bit 31 is KEPT** (legacy SSE: `DEST[MAXVL-1:32]` unmodified). The destination's old low lane
+is not an input.  The register and memory forms differ only in where `b` is read. -/
+def vcvtsd2ssLow (rc : Nat) (d : BitVec 128) (b : BitVec 64) : BitVec 128 × BitVec 32 :=
+  let (r, fl) := SoftFloat.f64to32 rc b
+  (((d >>> 32) <<< 32) ||| ((r.setWidth 32).setWidth 128), fl)
+
 /-! ### ⭐⭐⭐ SUB-GROUP B0 — THE FLAGS EACH LANDED FP FORM RAISES (D266).
 Each function reads exactly the operands its value rule reads, so a form's flags and
 its result cannot come to disagree about which lane they looked at. -/
@@ -952,6 +960,16 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
   | .varithm op sz dst ea =>
       let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+
+  -- ⭐⭐⭐ CVTSD2SS (SDM Vol. 2A) — SUB-GROUP B3, the first CONVERSION that rounds under
+  -- MXCSR.RC.  The low binary32 lane only; bits 127:32 are preserved; no EFLAGS bit is
+  -- written.  ⚠️ NO ALIGNMENT CHECK at the memory form, which reads `m64`.
+  | .vcvtsd2ss dst src =>
+      let p := vcvtsd2ssLow (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vcvtsd2ssm dst ea =>
+      let p := vcvtsd2ssLow (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem .q (ea.addr s nr))
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ MOVD / MOVQ ACROSS THE REGISTER FILES (SDM Vol. 2B, MOVD/MOVQ).
