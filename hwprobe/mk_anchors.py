@@ -176,7 +176,7 @@ FAMILIES = [
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
      ["(fun (mx, a, r, fl) =>",
-      "  let t := step ⟨.vcvtsi2sd .x0 .rdi, 4⟩ (b0Pre mx a 0)",
+      "  let t := step ⟨.vcvtsi2 true false .x0 .rdi, 4⟩ (b0Pre mx a 0)",
       "  b0Agrees t mx fl ((t.getXmm .x0).setWidth 64) r)"]),
     ("b0_cvttsd2si_pins", lambda fn: fn == "p_cvttsd2si",
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",

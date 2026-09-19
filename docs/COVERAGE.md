@@ -152,7 +152,7 @@ Tiers: T-exact 155 · T-frame 26 · T-absent 0.
 | `minps` | x,x · x,m — four binary32 lanes, each as minss; m128 16-byte aligned; D253 | T-exact | XED (trusted) | — | Vol. 2B MINPS |
 | `maxps` | x,x · x,m — four binary32 lanes, each as maxss; m128 16-byte aligned; D253 | T-exact | XED (trusted) | — | Vol. 2B MAXPS |
 | `cvtss2sd` | x,x · x,m — low binary32 -> low binary64, exact; SNaN quieted; denormal normalised; upper kept; D258 | T-exact | XED (trusted) | — | Vol. 2B CVTSS2SD |
-| `cvtsi2sdl` | x,r · x,m — signed int32 -> low binary64, exact; upper kept; the int64 source rounds and is not modelled; D258 | T-exact | XED (trusted) | — | Vol. 2B CVTSI2SD |
+| `cvtsi2sdl` | x,r · x,m — signed int32 -> low binary64, exact; upper kept; D258. B4 (D275) MODELS the int64 source and the binary32 destination, which round under MXCSR.RC; they are not yet spelled by a vector, so they are not claimed here | T-exact | XED (trusted) | — | Vol. 2B CVTSI2SD |
 | `cvttsd2si` | r,x · r,m — low binary64 truncated toward zero -> int32/int64 (REX.W); NaN, inf, out of range -> indefinite; D261 | T-exact | XED (trusted) | — | Vol. 2A CVTTSD2SI |
 | `cvttss2si` | r,x · r,m — low binary32 truncated toward zero -> int32/int64 (REX.W); NaN, inf, out of range -> indefinite; D261 | T-exact | XED (trusted) | — | Vol. 2A CVTTSS2SI |
 | `mulss` | x,x · x,m — low binary32 lane, rounded under MXCSR.RC; NaN: first source; inf*0 -> indefinite; upper kept; D268 | T-exact | XED (trusted) | — | Vol. 2B MULSS |

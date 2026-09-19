@@ -1075,7 +1075,7 @@ def isMemDestVector (v : Vec) : Bool :=
     | .vminmax .. | .vminmaxm .. => false
     -- P2 BATCH 39, in the same commit as the constructors: a conversion writes an
     -- XMM register at every shape; the memory operand is its SOURCE.
-    | .vcvtss2sd .. | .vcvtsi2sd .. | .vcvt2sdm .. => false
+    | .vcvtss2sd .. | .vcvtss2sdm .. | .vcvtsi2 .. | .vcvtsi2m .. => false
     -- P2 BATCH 40, in the same commit as the constructors: a truncation writes a
     -- GENERAL-PURPOSE register at both shapes; the memory operand is its SOURCE.
     | .vcvtt2si .. | .vcvtt2sim .. => false

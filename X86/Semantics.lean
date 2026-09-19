@@ -635,9 +635,27 @@ destination's low 64 bits become the binary64 of `b`'s low 32 bits — read as a
 binary32 or, when `fromInt`, as a signed int32 — and the upper 64 bits are KEPT.
 ONE function for every operand shape, as `vminmaxLow`: the forms differ only in
 where `b` is read. -/
-def vcvt2sdLow (fromInt : Bool) (d : BitVec 128) (b : BitVec 64) : BitVec 128 :=
-  let r := if fromInt then SoftFloat.i32to64 b else SoftFloat.f32to64 b
-  ((d >>> 64) <<< 64) ||| r.setWidth 128
+def vcvt2sdLow (d : BitVec 128) (b : BitVec 64) : BitVec 128 :=
+  ((d >>> 64) <<< 64) ||| (SoftFloat.f32to64 b).setWidth 128
+
+/-- ⭐⭐ SUB-GROUP B4 — THE INTEGER CONVERSION's LANE RULE, one function for every
+operand shape (as `vcvt2sdLow` was): `b` read as a signed int32 or int64 (`wide`)
+into the low binary64 (`dbl`) or binary32 lane of `d` under MXCSR.RC, with every
+bit above the lane PRESERVED — the legacy SSE rule.
+
+⚠️ THE LANE WIDTH VARIES WITH `dbl` AND THE SOURCE WIDTH WITH `wide`, and they are
+INDEPENDENT: all four pairings are real encodings.  The binary32 lane write is
+`vcvtsd2ssLow`'s, bit for bit.
+
+The flags come out of the SAME call as the value, so a result and its flags cannot
+disagree about the rounding — `varith`'s reason, and why this returns a pair where
+`vcvt2sdLow` returns a value.  ⛔ Batch 39's int path raised nothing and needed no
+pair; three of B4's four pairings ROUND. -/
+def cvtsi2Low (dbl wide : Bool) (rc : Nat) (d : BitVec 128) (b : BitVec 64) :
+    BitVec 128 × BitVec 32 :=
+  let (r, fl) := SoftFloat.i2f (if dbl then SoftFloat.binary64 else SoftFloat.binary32) wide rc b
+  if dbl then (((d >>> 64) <<< 64) ||| r.setWidth 128, fl)
+  else (((d >>> 32) <<< 32) ||| ((r.setWidth 32).setWidth 128), fl)
 
 /-- ⭐⭐ P2 BATCH 40 — THE TRUNCATION's LANE RULE, one function for both operand
 shapes (as `vcvt2sdLow`): `b`'s low binary64 (`dbl`) or binary32 lane, truncated
@@ -703,10 +721,12 @@ def vbinFlags (k : VBinKind) (a b : BitVec 128) : BitVec 32 :=
       ((a >>> (32 * i)).setWidth 64) ((b >>> (32 * i)).setWidth 64)) 0#32
   else 0#32
 
-/-- CVTSS2SD: IE on an SNaN, DE on a denormal. CVTSI2SD from an int32 raises nothing:
-the conversion is exact (D258). -/
-def cvt2sdFlags (fromInt : Bool) (b : BitVec 64) : BitVec 32 :=
-  if fromInt then 0 else SoftFloat.preFlags SoftFloat.binary32 false b b
+/-- CVTSS2SD: IE on an SNaN, DE on a denormal (D258).
+⛔ ITS `fromInt` ARM IS GONE: batch 39 could answer `0` there because int32 into
+binary64 is EXACT, and B4 makes three inexact pairings statable.  The integer
+conversion's flags now come from `cvtsi2Low`'s own call to `SoftFloat.i2f`. -/
+def cvtss2sdFlags (b : BitVec 64) : BitVec 32 :=
+  SoftFloat.preFlags SoftFloat.binary32 false b b
 
 /-- CVTTSD2SI / CVTTSS2SI: IE or PE, on `cvttLane`'s own split. -/
 def cvttFlags (dbl wide : Bool) (b : BitVec 64) : BitVec 32 :=
@@ -928,14 +948,26 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- ⚠️ NO ALIGNMENT CHECK at the memory form: a scalar operand has none.
   | .vcvtss2sd dst src =>
       let b := (s.getXmm src).setWidth 64
-      s.withSimd (cvt2sdFlags false b) fun s =>
-        (s.setXmm dst (vcvt2sdLow false (s.getXmm dst) b)).setRip nr
-  | .vcvtsi2sd dst src =>
-      (s.setXmm dst (vcvt2sdLow true (s.getXmm dst) (s.getReg .d src))).setRip nr
-  | .vcvt2sdm fi dst ea =>
+      s.withSimd (cvtss2sdFlags b) fun s =>
+        (s.setXmm dst (vcvt2sdLow (s.getXmm dst) b)).setRip nr
+  | .vcvtss2sdm dst ea =>
       let b := s.readMem .d (ea.addr s nr)
-      s.withSimd (cvt2sdFlags fi b) fun s =>
-        (s.setXmm dst (vcvt2sdLow fi (s.getXmm dst) b)).setRip nr
+      s.withSimd (cvtss2sdFlags b) fun s =>
+        (s.setXmm dst (vcvt2sdLow (s.getXmm dst) b)).setRip nr
+  -- ⭐⭐⭐ CVTSI2SS / CVTSI2SD (SDM Vol. 2B) — SUB-GROUP B4.  The source GPR is read
+  -- at its own width (REX.W), the memory form reads EIGHT bytes when `wide` and FOUR
+  -- otherwise, and the flags ride out of the same call as the value.
+  -- ⚠️ THE REGISTER FORM NOW GOES THROUGH `withSimd` WHERE BATCH 39 WROTE DIRECTLY:
+  -- that is not a behaviour change at the landed pairing, because `withSimd_zero`
+  -- (X86/State.lean) rewrites `withSimd 0` to the bare continuation.
+  | .vcvtsi2 dbl wide dst src =>
+      let p := cvtsi2Low dbl wide (mxcsrRC s.mxcsr) (s.getXmm dst)
+                 (s.getReg (if wide then .q else .d) src)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vcvtsi2m dbl wide dst ea =>
+      let b := s.readMem (if wide then .q else .d) (ea.addr s nr)
+      let p := cvtsi2Low dbl wide (mxcsrRC s.mxcsr) (s.getXmm dst) b
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ CVTTSD2SI / CVTTSS2SI (SDM Vol. 2A) — P2 BATCH 40, sub-group A′.
   -- The low lane, truncated toward zero, into a GPR of the REX.W width; an int32
