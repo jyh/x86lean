@@ -54,7 +54,7 @@ declaration in CI.
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
   it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
   oracle. Single-threaded, one instruction at a time.
-- **Instructions.** 180 mnemonics in 1098 differentially tested forms, covering
+- **Instructions.** 181 mnemonics in 1101 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 94 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
@@ -272,7 +272,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1098 vectors · 88 pre-states · 96624 cases · 0 unexplained · 0 oracle leaks
+1101 vectors · 88 pre-states · 96888 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
