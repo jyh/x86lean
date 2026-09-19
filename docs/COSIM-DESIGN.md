@@ -55,7 +55,8 @@ so the simplification below survives, and the transfer grows by one 32-bit field
 
 **④ ⚠️ AMENDMENT 2026-09-18 — SILICON WAS READ AFTER ALL, BY THE ROUTE THIS DOCUMENT WAS WRITTEN AWAY FROM.**
 `hwprobe/` runs SDM-derived rows, in assembly, on GitHub-HOSTED x86-64 runners: an AMD EPYC 7763 (D266 §5) and
-an Intel Core i7-8700B (D267 §9–10), 284 rows on both with byte-identical outputs (D269). That is plan v1 §4.4's
+an Intel Core i7-8700B (D267 §9–10), 284 rows on both with byte-identical outputs (D269). With B3's rows added, 361
+rows read identically on those two and on an Intel Xeon Platinum 8370C (D272). That is plan v1 §4.4's
 ORIGINAL premise, which the 09/03 council swapped for kenai. ⇒ **§7.8's *"the fleet has exactly ONE x86-64
 machine"* is false as of 2026-09-17**, and §2's two-microarchitecture requirement has two vendors to stand on.
 ⛔ **What `hwprobe/` is NOT: a co-simulation of `step`.** It referees the RULES a batch pins, row by row, and never

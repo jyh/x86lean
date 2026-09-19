@@ -2375,6 +2375,10 @@ kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced
 The prose goes in `note`, which is not reduced.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; SUB-GROUP B's REMAINDER IS NEXT**
+⚖️ **STATUS AT 2026-09-19 (D272): B3's HARDWARE READING IS IN, TAKEN BEFORE THE BATCH.** 77 `cvtsd2ss` rows read
+361/361 on three processors (Xeon 8370C, i7-8700B, EPYC 7763), with byte-identical outputs. TINY-AFTER, DE-NARROW and
+NARROW-NAN held. x86isa differs on the 8 preset-OE rows (D266's defect) and aborts at a ±0 source (D258's), so
+B3's `cvtsd2ss` sources must be zero-free in all 88 pre-states. **NEXT: B3 = `cvtsd2ss`, by D271's recipe.**
 ⚖️ **STATUS AT 2026-09-18, MORNING (D271 §8): B2 IS ON `master` — PR #34 → `db52c7f`, both tiers. NEXT: sub-group B's remaining 5,133, `cvtsd2ss` (1,297) first.**
 ⚖️ **STATUS AT 2026-09-17, EVENING (D268): B1 (`mulss`/`mulsd`) IS BUILT AS P2 BATCH 42, RECORD 28. B2 (add, sub, div) IS NEXT.**
 - **B1:** two roster rows and 11 vectors. The run reads 94,072 cases (+968, all matched), 0 unexplained, and 221 declared

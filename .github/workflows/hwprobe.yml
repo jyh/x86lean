@@ -22,8 +22,10 @@ permissions:
 
 jobs:
   referee:
-    # ⭐ TWO VENDORS (D267). The Linux runner read AMD EPYC 7763 (D266 §5); the documentation names no
-    # vendor for it. `macos-15-intel` is documented as Intel, so the same rows run on a second vendor.
+    # ⭐ TWO VENDORS (D267), BUT ONLY PER RUN. The documentation names no processor for ubuntu-latest: it drew an
+    # AMD EPYC 7763 on D266 §5's and D269's runs, and an Intel Xeon Platinum 8370C on D272's first. `macos-15-intel`
+    # is documented as Intel. So a second VENDOR is a property of a run whose Linux leg drew AMD, and the record
+    # names the processor each leg printed, never the label.
     strategy:
       fail-fast: false
       matrix:

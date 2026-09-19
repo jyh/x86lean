@@ -104,7 +104,9 @@ sentence that names evidence categories reads as a statement that the evidence e
 ⚠️ *Since 2026-09-17 one processor HAS been read, and for rules rather than for this model:*
 `hwprobe/` ran 174 SDM-derived rows on an AMD EPYC 7763 (D266 §5) and on an Intel Core i7-8700B
 (D267 §10), and both agreed with all of them; with B2's 110 add, sub and divide rows added, both read
-all 284, their outputs byte-identical (D269). The 123 rows the differential cannot carry are kernel
+all 284, their outputs byte-identical (D269). B3's 77 `cvtsd2ss` rows make 361, read with byte-identical outputs on
+the EPYC, the i7-8700B and an Intel Xeon Platinum 8370C (D272). ubuntu-latest drew the Xeon on one run and the EPYC on
+another, so the processor belongs to a RUN, not to the runner label. The 123 rows the differential cannot carry are kernel
 pins in `Tests/Anchors.lean` (D267 §2, D268, D271), so for those rows the model is checked against rules
 two processors confirmed. That is still not a co-simulation of `step`.
 
