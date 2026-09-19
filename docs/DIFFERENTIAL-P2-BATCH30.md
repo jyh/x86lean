@@ -105,3 +105,23 @@ on the fleet bus (09/19 00:1x) before the Lean existed.
 - ⚠️ **The SNaN arm rests on ONE case.** It fires, and an arm that fires on one case cannot tell a planted defect that
   presents on 1% of SNaNs from one that presents on all of them (council 2026-09-17 ⑧). `b3_cvtsd2ss_pins` carries
   both SNaN rows.
+
+## 6. THE LANDING MEASUREMENT — `ceeab64` → `6b427a6`
+
+`6b427a6` is B3's one `.lean` commit, on `ceeab64` (the merge of #36, whose tree equals the draft's base). Its profiled
+modules are byte-identical to the draft's; the only other `.lean` change is this record's narrative string in `Main`,
+which is not profiled. The differential and the arms were run on the draft `9df7ddb`. Predictions posted before either
+run (bus 09/19 04:0x):
+```
+  A′  ceeab64 → 6b427a6      CLEAN, identical to the draft module-for-module (22 of 22)            ✔ as predicted
+  ms  6 passes a side, yukon.lan, load1 5.4–14.5                                                    CLEAN, rc 0
+      Tests.Anchors     +61.5   ±49.3 / 196.8     predicted +56  ±40                               ✔
+      Tests.Coverage    +250    ±442.9 / 2,077.2  predicted +165 ±850                              ✔
+      X86.Syntax        −10.5   ±25.1 / 57.8      predicted +5   ±25                               ✔
+      X86.Theorems      +30     ±50.3 / 199.5     predicted +6, inside the walk's band             ✔
+      every other unit  ok
+  --record    "ms verdict rc 0 ⇒ this step lands on the ms verdict"; ledger ← 1 step
+  --gap       rc 0, 0 unrecorded `.lean` steps
+```
+⚠️ One base pass ran at load1 14.5, above the ~10 the prediction assumed. The verdict held, and the pass is kept, not
+dropped.

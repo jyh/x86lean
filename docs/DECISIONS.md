@@ -18941,3 +18941,15 @@ column is register-only) and agreed on all 176 memory-form cases.
 72 · 100 · 237 · 16 · 88 · 19 · 1 · 7 · 27 · 22 · 23 · 13, every one as posted before the Lean existed. B0's
 "flags replace the sticky bits" read 1,771 (+60 as predicted), and its other four arms are unchanged. The SNaN arm rests
 on a single case (record 30 §5); the pins carry both SNaN rows.
+
+### 7. THE LANDING STEP — MEASURED ON THE MASTER IT LANDS ON (D271 §9)
+#36 (D272) merged first, as `ceeab64`, so B3's one `.lean` commit `6b427a6` sits on the master it merges into. **A′ on
+the step is CLEAN and identical to the draft, module for module.** The ms walk is CLEAN (6 passes a side, load1
+5.4–14.5), and every predicted unit landed inside its band: `Tests.Anchors` +61.5 ±49.3, `Tests.Coverage` +250 ±442.9,
+`X86.Syntax` −10.5 ±25.1, `X86.Theorems` +30 ±50.3 (record 30 §6). Recorded on the ms verdict; `--gap` rc 0.
+⛔ **At merge time, if master has moved since the push, rebuild the synthetic merge and re-run `--gap` on it** (D271 §9).
+- **Sub-group B's remaining 3,836:** `cvtsi2ssl` (1,273) and `cvtsi2sdq` (664) lead. Both read an INTEGER from a GPR,
+  and the landed `vcvtsi2sd` has no format or width field (P2 batch 39 declined one on purpose). `roundPack` already
+  takes an integer magnitude as `m` with `e = 0`, so the rule is cheap. The shape question is the constructor, and it
+  should be priced as Syntax + Theorems (§4).
+
