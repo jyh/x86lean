@@ -5,8 +5,9 @@ From the repository root, after `scripts/setup_oracle.sh` and an `x86lean-diff e
     python3 hwprobe/rows_on_x86isa.py gen          # run/hwprobe_cases.lsp and run/hwprobe_drive.lsp
     vendor/acl2/saved_acl2 < run/hwprobe_drive.lsp > run/hwprobe_acl2.out
     python3 hwprobe/rows_on_x86isa.py score        # one line per row; the last line is the count
-The population is mk_rows.build()'s, minus CVTSS2SD at a zero source: x86isa's guard violation there aborts
-every case after it (D258). It is excluded and printed. A control case runs LAST, so a run that died early
+The population is mk_rows.build()'s, minus CVTSS2SD and CVTSD2SS at a zero source: x86isa's guard violation there
+(RTL::SSE-POST-COMP requires a non-zero value) aborts every case after it (D258; D272 for the narrowing direction).
+They are excluded and printed. A control case runs LAST, so a run that died early
 cannot read as complete.
 """
 import re, os, sys
@@ -16,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RUN = os.path.join(ROOT, "run")
 BYTES = M.OPS
-EXCLUDED = {"cvtss2sd_negzero"}
+EXCLUDED = {"cvtss2sd_negzero", "cvtsd2ss_zero", "cvtsd2ss_negzero"}
 # Paths are relative to the repository root, where the ACL2 image is run from.
 DRIVE = """(include-book "projects/x86isa/tools/execution/init-state" :dir :system :ttags :all)
 (include-book "projects/x86isa/machine/x86" :dir :system :ttags :all)
@@ -79,7 +80,7 @@ def score():
         kv = post[n]
         if fn in ("p_comisd", "p_ucomisd", "p_comiss", "p_ucomiss"):
             got = sum(int(kv[k]) << bit for k, bit in (("cf", 0), ("pf", 2), ("af", 4), ("zf", 6), ("sf", 7), ("of", 11)))
-        elif fn == "p_cvtss2sd":
+        elif fn in ("p_cvtss2sd", "p_cvtsd2ss"):
             got = int(kv["xmm1"], 16) & ((1 << 64) - 1)
         elif fn == "p_cvttsd2si":
             got = int(kv["rax"], 16)
