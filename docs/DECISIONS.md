@@ -18877,3 +18877,79 @@ all 88 pre-states, and both zero rows are pinned in the kernel.
 - **The kernel pins will be chosen by B0's rule:** the 8 sticky rows where x86isa differs, the two zero rows it cannot
   run, and every class no vector reaches. `mk_anchors.py` declares `p_cvtsd2ss` PENDING until then, so the pin block
   is byte-identical today.
+
+## D273 — P2 batch 44, sub-group B3: `cvtsd2ss`, the first conversion that rounds, in two constructors
+
+⚖️ QUEUE P3, sub-group B's remainder, `cvtsd2ss` (1,297) first (D271 §9), on the hardware reading of D272. It is the
+thirtieth differential record (`docs/DIFFERENTIAL-P2-BATCH30.md`, which carries the tables).
+- **One roster row, 3 vectors, 32 kernel pins, 12 wrong-model arms, 0 declared divergences, and no new state field.**
+- **Assembly-class demand:** 1,297, the commission's own figure. Sub-group B's unclaimed total is now **3,836**, over
+  the same 26 pairs.
+
+### 1. THE SHAPE — TWO CONSTRUCTORS, BECAUSE THE FOLD'S PREMISE DOES NOT HOLD HERE
+D270 folded the multiply into `VArithOp` on one premise: *"the four operations differ ONLY in the `SoftFloat` call"*.
+`cvtsd2ss` breaks it three ways. It reads 64 bits and writes 32, it ignores the destination's low lane, and it takes
+one operand. And `.varith .cvt .d` would spell `cvtss2sd`, a real and different instruction, which is the lie
+`VArithOp.mnemonic`'s note forbids. So B3 is `vcvtsd2ss dst src` and `vcvtsd2ssm dst ea`, over one lane function
+`vcvtsd2ssLow` and one rule `SoftFloat.f64to32`: NaN/∞/0 special cases, then `roundPack binary32`, plus DE on a
+binary64 denormal. The fork was posted before the Lean (bus 09/19 00:1x) and the batch proceeded on it.
+
+### 2. THE RECIPE IS B2's, AND WHAT DIFFERED IS NAMED
+The order was D271's, with each prediction posted before its measurement: **reach census → vectors → arm predictions
+(bus 00:1x) → the Lean batch → pins → plants → A′ on the draft and the differential (both predicted, bus 00:4x) →
+the arms.**
+- ⛔ **A candidate whose source is ±0 in ANY of the 88 pre-states is DISQUALIFIED**, because x86isa aborts the whole
+  `x86l-run-all` form at a zero source (D258 §2, D272 §3). 6 of 72 dst-xmm0 candidates fell out (x5 · x10 · x15 ·
+  −0x18 · 0x0 · 0x10). B1's greedy cover over the 66 left picks **three**: `%xmm1` (ties, overflow and underflow at
+  every mode, DE), `0xa(%rbx)` (the NaNs, one SNaN), `0x1(%rbx)` (the exact normal and exact subnormal results).
+- **Unreached by any candidate:** ±∞, and the band where tininess before rounding differs from after. Both are pins.
+- **The arm predictor** read driveWrong's 84-state dump (B2's, still valid: `preStates` and its helpers are
+  unchanged) and applied `mk_rows.cvtsd2ss`. It never read `X86/SoftFloat.lean`.
+
+### 3. THE PINS AND THE PLANTS
+B0's rule selects **32 of the 77 rows** (8 where x86isa reads a preset OE as overflow · 2 at a ±0 source, which it
+cannot run · 22 no vector reaches). `b3_cvtsd2ss_pins` runs the probe's own shape, `cvtsd2ss %xmm0, %xmm1` with the
+canary in bits 63:32, and checks all 64 bits. Two plants, run against the pin rows in a scratch file, read exactly as
+predicted: **tininess before rounding fails exactly `tinyafter/nearest` and `/up`**, and **x86isa's preset-OE reading
+fails exactly the 8 sticky rows**. A control on the true rule fails none. Those are the two defects no vector can
+reach, so the pins are what carries them.
+
+### 4. THE PRICE — A′ ON THE DRAFT, CLEAN, AND FOUR OF SEVEN PREDICTIONS MISSED
+```
+  ku-delta --arm a-prime  71663d0 → 9df7ddb (the draft, yukon.lan)                          CLEAN
+    X86.Syntax     26,780 →  27,269     +489   allowance   5,008   predicted +493…+740   ✘ 4 under
+    X86.Theorems   91,707 →  92,241     +534   allowance  16,782   predicted +0          ✘
+    X86.Semantics +9 ✔ · X86.SoftFloat +4 ✔ · X86.Serialize +10 ✘ · X86.Coverage +10 ✘ · X86.Program +2 ✘
+    Tests.Anchors 393,495 → 427,938  +34,443   allowance  91,684   predicted +35.2k…+41.6k  ✘ under
+    Tests.Coverage 8,699,494 → 8,739,180 +39,686 allowance 626,364  predicted +12k…+35k      ✘ over
+    Tests.Vectors  +1 ✔ · every other module +0
+```
+⇒ 🔑 ***TWO CONSTRUCTORS COST ≈1,030 ku ACROSS TWO MODULES, NOT ≈500 IN ONE.*** The range came from batches 39, 40
+and 42, and I had read their X86.Syntax figures only. So it was right about the module it named and said nothing about
+X86.Theorems, which I had posted as a named risk and not priced. **The next constructor pair is priced as Syntax +
+Theorems.** Pins cost 1,076 ku a row here, cheaper than B1's multiply (~1,170) or B2's add/divide (~1,270). Scaling
+B2's Tests.Coverage (+227,931 for 29 vectors) by vector count gave about 23.6k; the reading is 39,686, so B3's vectors,
+row and constructors cost that module about 1.7 times B2's per-vector average.
+
+### 5. THE RUN — EVERY FIELD AS PRE-REGISTERED
+`cases=96888 matched=76295 explained=29435 unexplained=0 oracle-divergence=232 oracle-leaks=0 missing=0`: cases
++264 (3 × 88), matched +264, nothing else moved. `run/lean.txt 2f01b628 · run/cases.lsp ebd82314 · run/oracle.txt
+2558088b` (sha256/8). ⚠️ **The named risk held:** `cvtsd2ss m64` ran on x86isa for the first time (hwprobe's x86isa
+column is register-only) and agreed on all 176 memory-form cases.
+
+### 6. THE ARMS — 12 OF 12 AT THEIR PREDICTED SCORES
+72 · 100 · 237 · 16 · 88 · 19 · 1 · 7 · 27 · 22 · 23 · 13, every one as posted before the Lean existed. B0's
+"flags replace the sticky bits" read 1,771 (+60 as predicted), and its other four arms are unchanged. The SNaN arm rests
+on a single case (record 30 §5); the pins carry both SNaN rows.
+
+### 7. THE LANDING STEP — MEASURED ON THE MASTER IT LANDS ON (D271 §9)
+#36 (D272) merged first, as `ceeab64`, so B3's one `.lean` commit `6b427a6` sits on the master it merges into. **A′ on
+the step is CLEAN and identical to the draft, module for module.** The ms walk is CLEAN (6 passes a side, load1
+5.4–14.5), and every predicted unit landed inside its band: `Tests.Anchors` +61.5 ±49.3, `Tests.Coverage` +250 ±442.9,
+`X86.Syntax` −10.5 ±25.1, `X86.Theorems` +30 ±50.3 (record 30 §6). Recorded on the ms verdict; `--gap` rc 0.
+⛔ **At merge time, if master has moved since the push, rebuild the synthetic merge and re-run `--gap` on it** (D271 §9).
+- **Sub-group B's remaining 3,836:** `cvtsi2ssl` (1,273) and `cvtsi2sdq` (664) lead. Both read an INTEGER from a GPR,
+  and the landed `vcvtsi2sd` has no format or width field (P2 batch 39 declined one on purpose). `roundPack` already
+  takes an integer magnitude as `m` with `e = 0`, so the rule is cheap. The shape question is the constructor, and it
+  should be priced as Syntax + Theorems (§4).
+
