@@ -80,7 +80,7 @@ def score():
         kv = post[n]
         if fn in ("p_comisd", "p_ucomisd", "p_comiss", "p_ucomiss"):
             got = sum(int(kv[k]) << bit for k, bit in (("cf", 0), ("pf", 2), ("af", 4), ("zf", 6), ("sf", 7), ("of", 11)))
-        elif fn in ("p_cvtss2sd", "p_cvtsd2ss"):
+        elif fn in ("p_cvtss2sd", "p_cvtsd2ss", "p_cvtsi2ss", "p_cvtsi2ssq", "p_cvtsi2sdq"):
             got = int(kv["xmm1"], 16) & ((1 << 64) - 1)
         elif fn == "p_cvttsd2si":
             got = int(kv["rax"], 16)

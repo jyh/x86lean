@@ -20,6 +20,9 @@ Two rules below are HYPOTHESES the rows exist to test, and each is named where i
                payload's low 29 bits are dropped, never rounded (SDM Vol. 1 §4.8.3.5 and Table 4-7)
   DE-NARROW    (B3) a binary64 denormal source raises DE (CVTSD2SS lists Denormal; the value is far below binary32's
                range, so it also rounds to a zero or the least subnormal with UE and PE)
+  INT-PE-ONLY  (B4) CVTSI2SS / CVTSI2SD from an int32 or int64 raise PE alone, when the integer is not representable:
+               no integer is tiny, none overflows (|v| <= 2^63 < FLT_MAX), and an integer is never a denormal operand
+  INT-WIDTH    (B4) without REX.W the source is the GPR's low 32 bits, read as signed; the upper 32 are never read
 Usage: mk_rows.py [--plant | --plant-op]   writes C rows on stdout.
   --plant     flips ONE expectation: the referee must report exactly one disagreement (exit 1)
   --plant-op  declares ONE instruction byte wrong: the probe must refuse to run (exit 2)
@@ -225,6 +228,19 @@ def cvtsi2sd32(a):
     return R.encode(F64, v < 0, abs(Fraction(v))), 0
 
 
+def cvtsi2f(fmt, wide, rc, a):
+    """CVTSI2SS / CVTSI2SD (SDM Vol. 2A: Precision) from a signed int32 (INT-WIDTH) or int64 under MXCSR.RC. Integer 0
+    gives +0 at every mode, as cvtsi2sd32 does. Otherwise the exact integer is rounded by ref_mul.round_to, and PE is
+    raised iff that rounding is inexact (INT-PE-ONLY)."""
+    w = 64 if wide else 32
+    v = a & ((1 << w) - 1)
+    v = v - (1 << w) if v >> (w - 1) else v
+    if v == 0:
+        return 0, 0
+    bits, path = R.round_to(fmt, MODES[rc], Fraction(v))
+    return bits, 0 if path == "exact" else PE
+
+
 def cvttsd2si32(a):
     """Truncation toward zero; NaN, infinity or out of int32 range give 0x80000000. Invalid, Precision."""
     k = kind(F64, a)
@@ -254,7 +270,8 @@ OPS = {"p_cvtsi2sd": "f20f2ac7",
        "p_comisd": "660f2fc1", "p_ucomisd": "660f2ec1", "p_comiss": "0f2fc1", "p_ucomiss": "0f2ec1",
        "p_cvtss2sd": "f30f5ac8", "p_cvttsd2si": "f20f2cc0", "p_cvtsd2ss": "f20f5ac8",
        "p_addsd": "f20f58c1", "p_addss": "f30f58c1", "p_subsd": "f20f5cc1", "p_subss": "f30f5cc1",
-       "p_divsd": "f20f5ec1", "p_divss": "f30f5ec1"}
+       "p_divsd": "f20f5ec1", "p_divss": "f30f5ec1",
+       "p_cvtsi2ss": "f30f2acf", "p_cvtsi2ssq": "f3480f2acf", "p_cvtsi2sdq": "f2480f2acf"}
 
 ROWS = []   # (name, fn, mxcsr_in, a, b, want, want_mask, want_flags)
 
@@ -389,6 +406,41 @@ def build():
         for mx in (0x1F88, 0x1FBF, 0x5F88, 0x7F88):
             v, f = cvtsd2ss((mx >> 13) & 3, a)
             add("cvtsd2ss_%s_sticky%04x" % (name, mx), "p_cvtsd2ss", mx, a, CAN, CAN | v, (1 << 64) - 1, f)
+    # B4: the integer conversions that round. The destination is %xmm1 with the canary in bits 63:32; the
+    # binary32 forms must leave it, and CVTSI2SDQ writes all 64 low bits. `a` is %rdi. Negative ties and stickies
+    # separate down from zero; the width rows read differently as an int32 and as an int64.
+    M31, M63 = 1 << 31, 1 << 63
+    i32 = lambda v: v & 0xFFFFFFFF
+    i64 = lambda v: v & ((1 << 64) - 1)
+    forms = [
+        ("cvtsi2ss", "p_cvtsi2ss", F32, False, 0xFFFFFFFF,
+         [("tie", 0x01000001), ("tieodd", 0x01000003), ("sticky", 0x02000001), ("above", 0x02000003),
+          ("negtie", i32(-0x01000001)), ("negsticky", i32(-0x02000001)), ("max", M31 - 1), ("zero", 0)],
+         [("min", M31), ("exact", 0x00FFFFFF), ("one", 1), ("negone", i32(-1)),
+          ("hijunk", 0xDEADBEEF00000001), ("hijunkneg", 0x00000001FFFFFFFF)]),
+        ("cvtsi2ssq", "p_cvtsi2ssq", F32, True, 0xFFFFFFFF,
+         [("tie", (1 << 40) + (1 << 16)), ("sticky", (1 << 40) + 1), ("negtie", i64(-((1 << 40) + (1 << 16)))),
+          ("negsticky", i64(-((1 << 40) + 1))), ("max", M63 - 1), ("width", 0xFFFFFFFF), ("zero", 0)],
+         [("min", M63), ("exact", 1 << 40), ("one", 1), ("negone", i64(-1))]),
+        ("cvtsi2sdq", "p_cvtsi2sdq", F64, True, (1 << 64) - 1,
+         [("tie", (1 << 53) + 1), ("tieodd", (1 << 53) + 3), ("sticky", (1 << 54) + 1),
+          ("negtie", i64(-((1 << 53) + 1))), ("negsticky", i64(-((1 << 54) + 1))), ("max", M63 - 1), ("zero", 0)],
+         [("min", M63), ("exact", (1 << 53) - 1), ("width", 0xFFFFFFFF), ("one", 1), ("negone", i64(-1))]),
+    ]
+    for nm, fn, fmt, wide, lane, alls, ones in forms:
+        keep = CAN & ~lane & ((1 << 64) - 1)
+        for name, a in alls:
+            for rc, mode in enumerate(MODES):
+                v, f = cvtsi2f(fmt, wide, rc, a)
+                add("%s_%s/%s" % (nm, name, mode), fn, 0x1F80 | (rc << 13), a, CAN, keep | v, (1 << 64) - 1, f)
+        for name, a in ones:
+            v, f = cvtsi2f(fmt, wide, 0, a)
+            add("%s_%s" % (nm, name), fn, 0x1F80, a, CAN, keep | v, (1 << 64) - 1, f)
+        # a sticky flag is history, never an input: an exact and an inexact conversion under preset flags
+        for name, a in [("one", 1), ("tie", alls[0][1])]:
+            for mx in (0x1F88, 0x1FBF, 0x5F88, 0x7F88):
+                v, f = cvtsi2f(fmt, wide, (mx >> 13) & 3, a)
+                add("%s_%s_sticky%04x" % (nm, name, mx), fn, mx, a, CAN, keep | v, (1 << 64) - 1, f)
 
 
 def main():

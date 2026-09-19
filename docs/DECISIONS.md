@@ -18953,3 +18953,98 @@ the step is CLEAN and identical to the draft, module for module.** The ms walk i
   takes an integer magnitude as `m` with `e = 0`, so the rule is cheap. The shape question is the constructor, and it
   should be priced as Syntax + Theorems (§4).
 
+
+## D274 — B4's hardware reading, taken BEFORE the batch: the integer conversions that round, 488/488 on two vendors
+
+⚖️ QUEUE P3, sub-group B's remainder after B3 (D273 §7): `cvtsi2ssl` (1,273) and `cvtsi2sdq` (664) lead, and
+`cvtsi2ssq` is the third encoding of the same rule. **The rows were written, read on x86isa against a prediction
+written before the run, predicted on the bus and pushed before any B4 Lean existed**, the order D269 and D272 kept.
+
+### 1. THE ROWS — 127, from one stated rule
+`mk_rows.cvtsi2f` reads the source as a signed int32 or int64. Integer 0 gives +0 at every mode, the rule the landed
+`cvtsi2sd32` states. Otherwise `ref_mul.round_to` rounds the exact integer at the destination format, and PE is raised
+iff that rounding is inexact. Each form is one function in `sse_ops.S` writing `%xmm1`, so the binary32 forms must
+keep b's canary (`5a5ac3c3`) in bits 63:32.
+```
+  cvtsi2ss  %edi, %xmm1    f3 0f 2a cf      46   int32 → binary32
+  cvtsi2ssq %rdi, %xmm1    f3 48 0f 2a cf   40   int64 → binary32
+  cvtsi2sdq %rdi, %xmm1    f2 48 0f 2a cf   41   int64 → binary64
+  every mode    ties to even · odd ties · stickies · NEGATIVE ties and stickies (down and zero differ there) ·
+                INT_MAX (to 2^31 or 2^63 under nearest and up) · 2^32−1 as an int64 (the width row) · 0
+  nearest       INT_MIN (exact) · the exact precision edge · ±1 · two int32 rows with junk in %rdi's bits 63:32
+  sticky        each form, exact and inexact, under 1f88 · 1fbf · 5f88 · 7f88 (OE preset)
+```
+**Two new hypotheses, named in the file.** INT-PE-ONLY: an integer conversion can raise PE and nothing else (no
+integer is tiny, none overflows, since |v| ≤ 2^63 < FLT_MAX, and an integer is never a denormal operand). INT-WIDTH:
+without REX.W only the low 32 bits of the GPR are read, as a signed value.
+
+### 2. THE READINGS — two processors, one file
+```
+  run          leg              processor                               rows   disagreements
+  35452244211  ubuntu-latest    AMD EPYC 7763                            488        0
+  35452244211  macos-15-intel   Intel Core i7-8700B                      488        0
+  35452246218  macos-15-intel   Intel Core i7-8700B                      488        0
+  35452246218  ubuntu-latest    AMD EPYC 7763                            488        0
+  controls, every leg           plant rc 1 with exactly one DIFF · badop rc 2
+```
+**All four legs' 488 sorted row lines are byte-identical** (sha256 `76ec73df0829…`), and so are the 488 lines Rosetta 2
+read on the development machine. A one-character mutation of one line is reported by the same comparison as exactly one
+difference, so the comparison is live. 127 of the 488 are B4's.
+- ⭐ **The falsifiers, each beside a control in the same run:**
+```
+  ZERO-SIGN   cvtsi2ss_zero/down   5a5ac3c300000000 · cvtsi2sdq_zero/down 0000000000000000   (+0 at RC=down)
+  WIDTH       cvtsi2ssq_width/nearest 4f800000 (2^32)  vs  cvtsi2ss_hijunkneg bf800000 (−1: the same low 32 bits)
+  DIRECTION   cvtsi2sdq_max/down 43dfffffffffffff · /up 43e0000000000000 · negtie/down c340000000000001
+  PE-ONLY     every inexact row reads PE alone, including under a preset OE (the 24 sticky rows)
+  CANARY      5a5ac3c3 in bits 63:32 of all 86 binary32 rows
+```
+- **Two processors, one fewer than D272.** ubuntu-latest drew the EPYC on both runs, so the Xeon 8370C that read B3's
+  rows did not read these. Two vendors is a claim about these two RUNS.
+
+### 3. x86isa — 42 DISAGREEMENTS, EXACTLY AS WRITTEN DOWN BEFORE THE RUN
+The prediction, written at 08:26 before `rows_on_x86isa.py gen`, was 42: the 39 already on record for the old rows,
+and exactly three new ones, the zero rows at round-down. **The reading is `rows 485 disagreements 42`,** and the three
+are `cvtsi2ss_zero/down` and `cvtsi2ssq_zero/down` (low lane `80000000`) and `cvtsi2sdq_zero/down` (`8000000000000000`).
+That is `sse-cvt-int-to-fp`'s sign rule (D266 §4), now seen at both formats and both widths. **Every one of the 358 old
+row lines is byte-identical to B3's reading.** The three zero-source exclusions are unchanged, and the control runs last.
+⇒ **x86isa agrees with all 24 preset-sticky rows.** `sse-cvt-int-to-fp` never reads an accumulated flag, unlike
+`sse-cvt-fp1-to-fp2` (D266's OE defect), so B4 can preset OE where B3 could not.
+
+### 4. ⛔ MY DEFECT, CAUGHT BY THE LINUX LEG AND BY NOTHING BEFORE IT
+`4cdc053` appended the three functions AFTER `sse_ops.S`'s closing `.section .note.GNU-stack` directive. On ELF they
+assembled into that section, which the linker discards. **The ubuntu leg failed to link in both of the first runs
+(35451983990, 35451995111), while macos-15-intel built and read 488/488**, because Mach-O has no such section, and
+Rosetta 2 had passed for the same reason. `4001be9` moves the block above the trailer, and a comment now says where
+functions go. Driven red first: `clang -target x86_64-linux-gnu -c` of the old file makes `nm` print the three
+symbols as `N` and the other 18 as `T`, and after the move all 21 are `T`.
+⇒ **The local check could not see it, by construction:** it builds Mach-O only. A `nm` of an ELF object is one command
+and would have caught it before the push.
+
+### 5. ⚠️ WHAT THIS READING DOES NOT SEE (declared beside the verdict)
+```
+  NOT SEEN   PE UNMASKED (every row runs with all exceptions masked) · FZ or DAZ set
+  NOT SEEN   the memory-source forms (m32 / m64): the rows are register-to-register, and CVTSI-MEM-PROBE is still owed
+  NOT SEEN   the upper 64 bits of %xmm1 for cvtsi2sdq (the probe returns the low 64)
+  NOT SEEN   any processor but these two
+  ⚠️ AND     `want` is DERIVED by mk_rows.py from the SDM and IEEE 754, never from x86lean or x86isa, so 488/488 is
+             HARDWARE and OUR DERIVATION agreeing. It says nothing about a rule the derivation leaves out.
+```
+
+### 6. WHAT IT SETTLES FOR THE BATCH
+- **B4's rule may be written against these expectations.** Integer 0 → +0 at every mode, PE alone, and INT-WIDTH are
+  corroborated on silicon for all three forms.
+- **The zero-sign case is x86isa's, and it is already declared at its exact shape** (record 27 §3, the `cvtsi2sdl_*`
+  vectors, pair `(0, 8000000000000000)`). The batch either extends that declaration to its own vectors at the same
+  pair, or keeps a zero source away from RC=down, and it decides which by measurement.
+- **The shape (bus, 09/19 08:29): FOLD, mirroring the landed `vcvtt2si (dbl wide : Bool)`.** The landed `vcvtsi2sd`
+  has no width field because *"a width field would admit a form this model cannot state"*, and B4 makes that form
+  statable. So `vcvtsi2sd` becomes `vcvtsi2 (dbl wide : Bool) (dst) (src : GPR)`, which has four encodings for four
+  values, and `vcvt2sdm (fromInt)` splits into `vcvtss2sdm` and `vcvtsi2m (dbl wide)`. **Its acceptance is D270's:
+  the fold commit alone reads the differential BYTE-IDENTICAL and every arm at its recorded score, before B4 adds a
+  vector.** The blast radius is **8 files, 5 landed vectors, one pin family (`b0_cvtsi2sd_pins`), one kernel anchor on
+  `SoftFloat.i32to64` (`Tests/Anchors.lean`), and three match sites in `Main.lean` that drive wrong-model arms**:
+  `wrongCvtWith` (7 arms), `wrongCvtWholeRegister` (1) and B0's `wrongSimdWith` flag table (7 call sites). Every arm
+  they drive must read its recorded score after the fold, so the arms are the fold's acceptance, not an afterthought.
+  ⚠️ *This bullet first read "8 files, 5 landed vectors and one pin family", which was a FILE COUNT posted on the bus as
+  the blast radius. Reading `Main.lean` before editing it found the arms. It was corrected before #38 merged.*
+- **The kernel pins will be chosen by B0's rule**, and `mk_anchors.py` declares the three functions PENDING until then.
