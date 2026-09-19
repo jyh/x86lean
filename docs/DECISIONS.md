@@ -19041,5 +19041,10 @@ and would have caught it before the push.
   statable. So `vcvtsi2sd` becomes `vcvtsi2 (dbl wide : Bool) (dst) (src : GPR)`, which has four encodings for four
   values, and `vcvt2sdm (fromInt)` splits into `vcvtss2sdm` and `vcvtsi2m (dbl wide)`. **Its acceptance is D270's:
   the fold commit alone reads the differential BYTE-IDENTICAL and every arm at its recorded score, before B4 adds a
-  vector.** The measured blast radius is 8 files, 5 landed vectors and one pin family (`b0_cvtsi2sd_pins`).
+  vector.** The blast radius is **8 files, 5 landed vectors, one pin family (`b0_cvtsi2sd_pins`), one kernel anchor on
+  `SoftFloat.i32to64` (`Tests/Anchors.lean`), and three match sites in `Main.lean` that drive wrong-model arms**:
+  `wrongCvtWith` (7 arms), `wrongCvtWholeRegister` (1) and B0's `wrongSimdWith` flag table (7 call sites). Every arm
+  they drive must read its recorded score after the fold, so the arms are the fold's acceptance, not an afterthought.
+  ⚠️ *This bullet first read "8 files, 5 landed vectors and one pin family", which was a FILE COUNT posted on the bus as
+  the blast radius. Reading `Main.lean` before editing it found the arms. It was corrected before #38 merged.*
 - **The kernel pins will be chosen by B0's rule**, and `mk_anchors.py` declares the three functions PENDING until then.
