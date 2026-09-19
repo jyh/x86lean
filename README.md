@@ -56,7 +56,7 @@ declaration in CI.
   oracle. Single-threaded, one instruction at a time.
 - **Instructions.** 181 mnemonics in 1101 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
-  forms, and 149 of them are alias spellings of another row. 94 of those
+  forms, and 149 of them are alias spellings of another row. 95 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
   `movss`/`movsd`, the packed integer add, subtract, bitwise and unpack groups,
   the packed shift group — eight lane-wise shifts at three count shapes each,
@@ -261,7 +261,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 29 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 30 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
