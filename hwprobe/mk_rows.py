@@ -16,6 +16,10 @@ Two rules below are HYPOTHESES the rows exist to test, and each is named where i
                (3) above the denormal-operand exception (4), and a masked (3) returns its special result. The
                first draft said DE as well; Rosetta 2 read ZE alone on both rows before any processor ran.
   DE-WITH-INF  (B2) a denormal operand beside an infinity raises DE (the multiply's rule, now asked of add and div)
+  NARROW-NAN   (B3) CVTSD2SS keeps a NaN's sign and the top 23 bits of its fraction, and sets the quiet bit: the
+               payload's low 29 bits are dropped, never rounded (SDM Vol. 1 §4.8.3.5 and Table 4-7)
+  DE-NARROW    (B3) a binary64 denormal source raises DE (CVTSD2SS lists Denormal; the value is far below binary32's
+               range, so it also rounds to a zero or the least subnormal with UE and PE)
 Usage: mk_rows.py [--plant | --plant-op]   writes C rows on stdout.
   --plant     flips ONE expectation: the referee must report exactly one disagreement (exit 1)
   --plant-op  declares ONE instruction byte wrong: the probe must refuse to run (exit 2)
@@ -185,6 +189,31 @@ def cvtss2sd(a):
     return R.encode(F64, s == 1, abs(R.value(F32, x))), de_flag(F32, x)
 
 
+def cvtsd2ss(rc, a):
+    """CVTSD2SS (SDM Vol. 2A: Overflow, Underflow, Invalid, Precision, Denormal): binary64 -> binary32 under MXCSR.RC.
+    NaN: NARROW-NAN, IE on an SNaN. +-inf and +-0 convert exactly and raise nothing. Otherwise the exact value is
+    rounded by ref_mul.round_to: overflow OE|PE; an inexact tiny result UE|PE (TINY-AFTER); an exact one nothing
+    new. DE-NARROW on a binary64 denormal. Only the low 32 bits of the destination are written."""
+    x = a & ((1 << 64) - 1)
+    s, e, m = parts(F64, x)
+    k = kind(F64, x)
+    sb = s << 31
+    if k in ("qnan", "snan"):
+        return sb | 0x7F800000 | 0x400000 | (m >> 29), IE if k == "snan" else 0
+    if k == "inf":
+        return sb | 0x7F800000, 0
+    if k == "zero":
+        return sb, 0
+    de = DE if k == "den" else 0
+    v = R.value(F64, x)
+    bits, path = R.round_to(F32, MODES[rc], v)
+    if path.startswith("overflow"):
+        return bits, OE | PE | de
+    if path == "exact":
+        return bits, de
+    return bits, PE | de | (UE if tiny_after(F32, MODES[rc], v) else 0)
+
+
 def cvtsi2sd32(a):
     """CVTSI2SD from an int32: exact for every input, so RC is never consulted, and integer 0 gives +0
     (a conversion is not a sum; IEEE 754's roundTowardNegative -0 rule is for exact-zero sums).
@@ -223,7 +252,7 @@ MODES = R.MODES
 OPS = {"p_cvtsi2sd": "f20f2ac7",
        "p_mulsd": "f20f59c1", "p_mulss": "f30f59c1", "p_minsd": "f20f5dc1", "p_minss": "f30f5dc1",
        "p_comisd": "660f2fc1", "p_ucomisd": "660f2ec1", "p_comiss": "0f2fc1", "p_ucomiss": "0f2ec1",
-       "p_cvtss2sd": "f30f5ac8", "p_cvttsd2si": "f20f2cc0",
+       "p_cvtss2sd": "f30f5ac8", "p_cvttsd2si": "f20f2cc0", "p_cvtsd2ss": "f20f5ac8",
        "p_addsd": "f20f58c1", "p_addss": "f30f58c1", "p_subsd": "f20f5cc1", "p_subss": "f30f5cc1",
        "p_divsd": "f20f5ec1", "p_divss": "f30f5ec1"}
 
@@ -334,6 +363,32 @@ def build():
         for op, name, a, b in ones:
             v, f = arith(op, fmt, 0, a, b)
             add("%s%s_%s" % (op, suf, name), "p_%s%s" % (op, suf), 0x1F80, a, b, v, mask, f)
+    # B3: CVTSD2SS. The destination is %xmm1, whose bits 63:32 hold a canary that must survive: the instruction
+    # writes the low 32 bits only. Every mode where the mode can matter; one row where it cannot.
+    CAN = 0x5A5AC3C3 << 32
+    n_all = [("tie", 0x3FF0000010000000), ("tieodd", 0x3FF0000030000000), ("sticky", 0x3FF0000010000001),
+             ("negsticky", 0xBFF0000010000001), ("third", 0x3FD5555555555555),
+             ("overflow", 0x7FEFFFFFFFFFFFFF), ("negoverflow", 0xFFEFFFFFFFFFFFFF),
+             ("maxtie", 0x47EFFFFFF0000000), ("tinyinexact", 0x3800000000080000),
+             ("tinyafter", 0x380FFFFFF8000000), ("halfmin", 0x3690000000000000),
+             ("den", DDEN), ("negden", 1 << 63 | DDEN), ("deep", DMIN)]
+    n_one = [("one", D1), ("zero", 0), ("negzero", 1 << 63), ("inf", 0x7FF0000000000000),
+             ("neginf", 0xFFF0000000000000), ("qnan", DQ), ("snan", DS), ("negqnan_payload", 0xFFF8123456789ABC),
+             ("snan_payload", 0x7FF4000020000000), ("max", 0x47EFFFFFE0000000), ("minnorm", 0x3810000000000000),
+             ("minsub", 0x36A0000000000000), ("exacttiny", 0x3800000000000000)]
+    for name, a in n_all:
+        for rc, mode in enumerate(MODES):
+            v, f = cvtsd2ss(rc, a)
+            add("cvtsd2ss_%s/%s" % (name, mode), "p_cvtsd2ss", 0x1F80 | (rc << 13), a, CAN, CAN | v,
+                (1 << 64) - 1, f)
+    for name, a in n_one:
+        v, f = cvtsd2ss(0, a)
+        add("cvtsd2ss_%s" % name, "p_cvtsd2ss", 0x1F80, a, CAN, CAN | v, (1 << 64) - 1, f)
+    # a sticky flag is history, never an input (cvtss2sd's D266 defect, asked of the narrowing direction)
+    for name, a in [("one", D1), ("third", 0x3FD5555555555555)]:
+        for mx in (0x1F88, 0x1FBF, 0x5F88, 0x7F88):
+            v, f = cvtsd2ss((mx >> 13) & 3, a)
+            add("cvtsd2ss_%s_sticky%04x" % (name, mx), "p_cvtsd2ss", mx, a, CAN, CAN | v, (1 << 64) - 1, f)
 
 
 def main():

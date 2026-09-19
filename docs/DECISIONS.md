@@ -18806,3 +18806,74 @@ synthetic merge and run `--gap` on it at merge time.
 - **Sub-group B's remaining 5,133**: `cvtsd2ss` 1,297 leads, then the inexact integer conversions.
 - **±∞ reaches no vector in any FP form.** Every ∞ class B0–B2 has is a pin. A pre-state that holds an infinity
   would turn a dozen pins into differential cases; it is a change to `preStates`, and every record's counts move with it.
+
+## D272 — B3's hardware reading, taken BEFORE the batch: CVTSD2SS on three processors, 361/361 on each
+
+⚖️ QUEUE P3, sub-group B's remainder, `cvtsd2ss` first (D271 §9). **The rows were written, read on x86isa, predicted on
+the bus (09/19 00:1x) and pushed before any B3 Lean existed**, the order D269 kept for B2.
+
+### 1. THE ROWS — 77, from one stated rule
+`mk_rows.cvtsd2ss` converts binary64 → binary32 through `ref_mul.round_to` at binary32. The function runs as
+`cvtsd2ss %xmm0, %xmm1` (`f2 0f 5a c8`). %xmm1's bits 63:32 carry a canary (`5a5ac3c3`), and every row checks that
+it survives, because the instruction writes only the low 32 bits.
+```
+  14 values × 4 RC modes   56   ties, sticky bits, ±overflow, the FLT_MAX tie, tininess-after, 2^-150, ±denormal, 2^-1022
+  13 values at nearest     13   ±0, ±∞, QNaN, SNaN, two NaN payloads, FLT_MAX, least normal, least subnormal, exact tiny
+  sticky flags preset       8   `one` and `third` under 1f88 · 1fbf · 5f88 · 7f88 (OE preset in every one)
+```
+**Two new hypotheses, named in the file.** NARROW-NAN: a NaN keeps its sign and the top 23 bits of its fraction, and
+is quieted. DE-NARROW: a binary64 denormal source raises DE. **TINY-AFTER is asked of a conversion for the first time.**
+
+### 2. THE READINGS — three processors, one file
+```
+  run          leg              processor                                      rows   disagreements
+  35428746999  ubuntu-latest    Intel Xeon Platinum 8370C (Ice Lake-SP)         361        0
+  35428746999  macos-15-intel   Intel Core i7-8700B (Coffee Lake)               361        0
+  35428792899  ubuntu-latest    AMD EPYC 7763 (Zen 3)                           361        0
+  35428792899  macos-15-intel   Intel Core i7-8700B                             361        0
+  controls, every leg           plant rc 1 with exactly one DIFF · badop rc 2
+```
+**All four legs' 361 sorted row lines are byte-identical.** A one-character mutation of one line is reported by the
+same comparison, so the comparison is live.
+- ⚠️ **The prediction named AMD for ubuntu-latest, and the first run read an Intel Xeon.** GitHub's documentation names
+  no processor for that label, and D266 §5 and D269 happened to draw an EPYC. The workflow comment and TRUSTBASE
+  said "the Linux runner read AMD EPYC 7763" as if it were a property of the label, and it is a property of one draw.
+  One `workflow_dispatch` drew the EPYC, so the rows have two vendors. **"Two vendors" is a claim about a RUN, never
+  about a workflow file**, and each record names its runs.
+- ⭐ **THE FALSIFIERS, each beside its control in the same run:**
+```
+  TINY-AFTER   tinyafter/nearest  00800000  mxcsr 1fa0  PE alone   ← tininess-before would add UE
+               tinyafter/down     007fffff  mxcsr 3fb0  UE|PE      ← the control: this probe does see UE
+  DE-NARROW    den/nearest        00000000  mxcsr 1fb2  DE|UE|PE
+               deep/nearest       00000000  mxcsr 1fb0  UE|PE      ← 2^-1022 is normal in binary64: no DE
+  NARROW-NAN   negqnan_payload    ffc091a2  1f80 · snan_payload 7fe00001  1f81 (IE)
+  MAXTIE       nearest 7f800000 1fa8 (OE|PE) · zero 7f7fffff 7fa0 (PE alone)
+  CANARY       5a5ac3c3 in bits 63:32 of all 77
+```
+
+### 3. x86isa — 8 DISAGREEMENTS, ONE KNOWN MECHANISM, AND ONE ROW IT CANNOT RUN
+x86isa reads 67 of the 75 B3 rows it can run the same way. **The 8 it disagrees on are exactly the preset-OE sticky
+rows** (`one`, `third` × 4). A preset sticky OE is read as this conversion's own overflow, and the result is ±∞, or
+FLT_MAX under RZ. This is D266's `cvtss2sd` defect (`sse-cvt-fp1-to-fp2`), seen in the narrowing direction. The old 283
+rows read the 31 disagreements already on record (27 per D266, plus B2's 4).
+⛔ **x86isa aborts at a ±0 source**, because `RTL::SSE-POST-COMP` requires a non-zero value. D258 found the same guard
+violation for `cvtss2sd`. `cvtsd2ss_zero` and `cvtsd2ss_negzero` are excluded from its column and printed as excluded.
+⇒ **This bounds B3's differential:** one ±0-source case aborts the whole `x86l-run-all` form, and every later
+vector reads `missing`. The batch does what D258 §2 did for `cvtss2sd`: every `cvtsd2ss` source is chosen zero-free in
+all 88 pre-states, and both zero rows are pinned in the kernel.
+
+### 4. ⚠️ WHAT THIS READING DOES NOT SEE (declared beside the verdict)
+```
+  NOT SEEN   any exception UNMASKED · FZ or DAZ set (1f80 base, never varied)
+  NOT SEEN   the memory-source form (m64): the rows are register-to-register
+  NOT SEEN   any processor but these three; three parts are not the ISA
+  ⚠️ AND     `want` is DERIVED by mk_rows.py from the SDM and IEEE 754, never from x86lean or x86isa. So 361/361 is
+             HARDWARE and OUR DERIVATION agreeing. It says nothing about a rule the derivation leaves out.
+```
+
+### 5. WHAT IT SETTLES FOR THE BATCH
+- **B3's rule may be written against these expectations.** TINY-AFTER, DE-NARROW and NARROW-NAN are corroborated on
+  silicon for this form.
+- **The kernel pins will be chosen by B0's rule:** the 8 sticky rows where x86isa differs, the two zero rows it cannot
+  run, and every class no vector reaches. `mk_anchors.py` declares `p_cvtsd2ss` PENDING until then, so the pin block
+  is byte-identical today.

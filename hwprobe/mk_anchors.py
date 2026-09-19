@@ -107,8 +107,10 @@ _B2_R = [
 PINNED.update({n: _X for n in _B2_X})
 PINNED.update({n: _R for n in _B2_R})
 
-# Every mk_rows.py row is in a family: B2 (D271) retired the pending set its rows sat in before the batch.
-PENDING = set()
+# ⏳ B3's rows (CVTSD2SS, D272) run on the processors before B3 is built, and are pinned by B3's batch by this
+# file's rule. Until then they are DECLARED here, so a row in no family is still refused. (B2 retired the same set
+# for its own rows at D271.)
+PENDING = {"p_cvtsd2ss"}
 
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}

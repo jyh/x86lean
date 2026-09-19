@@ -134,6 +134,13 @@ SYM(p_cvtss2sd):
         movq %xmm1, %rax
         ret
 
+        .globl SYM(p_cvtsd2ss)
+SYM(p_cvtsd2ss):
+        LOAD
+        cvtsd2ss %xmm0, %xmm1           /* f2 0f 5a c8 : writes %xmm1's low 32 bits; 63:32 keep b's */
+        movq %xmm1, %rax
+        ret
+
         .globl SYM(p_cvttsd2si)
 SYM(p_cvttsd2si):
         LOAD
