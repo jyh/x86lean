@@ -26,6 +26,9 @@ uint64_t p_ucomiss(uint64_t, uint64_t);
 uint64_t p_cvtss2sd(uint64_t, uint64_t);
 uint64_t p_cvttsd2si(uint64_t, uint64_t);
 uint64_t p_cvtsd2ss(uint64_t, uint64_t);
+uint64_t p_cvtsi2ss(uint64_t, uint64_t);
+uint64_t p_cvtsi2ssq(uint64_t, uint64_t);
+uint64_t p_cvtsi2sdq(uint64_t, uint64_t);
 
 struct row {
   const char *name;

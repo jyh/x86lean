@@ -128,8 +128,9 @@ PINNED.update({n: _X for n in _B3_X})
 PINNED.update({n: "x86isa cannot run it" for n in _B3_C})
 PINNED.update({n: _R for n in _B3_R})
 
-# Every mk_rows.py row is in a family: B3 (D273) retired the pending set its rows sat in before the batch, as B2 did.
-PENDING = set()
+# B4's hardware reading lands before its batch, as B3's did (D272): its rows are PENDING until the batch names its
+# pins, so the tracked block stays byte-identical. B3 (D273) retired the set its own rows sat in.
+PENDING = {"p_cvtsi2ss", "p_cvtsi2ssq", "p_cvtsi2sdq"}
 
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}

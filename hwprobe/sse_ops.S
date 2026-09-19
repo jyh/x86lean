@@ -150,3 +150,26 @@ SYM(p_cvttsd2si):
 #ifndef __APPLE__
         .section .note.GNU-stack,"",@progbits
 #endif
+
+/* B4: the integer conversions that round under MXCSR.RC. %xmm1 is the destination, as for cvtsd2ss, so b's
+   bits 63:32 are a canary the binary32 forms must leave alone. The source is %edi or %rdi, which holds a. */
+        .globl SYM(p_cvtsi2ss)
+SYM(p_cvtsi2ss):
+        LOAD
+        cvtsi2ssl %edi, %xmm1           /* f3 0f 2a cf : an int32, the low 32 bits of a */
+        movq %xmm1, %rax
+        ret
+
+        .globl SYM(p_cvtsi2ssq)
+SYM(p_cvtsi2ssq):
+        LOAD
+        cvtsi2ssq %rdi, %xmm1           /* f3 48 0f 2a cf : an int64 */
+        movq %xmm1, %rax
+        ret
+
+        .globl SYM(p_cvtsi2sdq)
+SYM(p_cvtsi2sdq):
+        LOAD
+        cvtsi2sdq %rdi, %xmm1           /* f2 48 0f 2a cf : an int64; all 64 low bits are written */
+        movq %xmm1, %rax
+        ret
