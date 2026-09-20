@@ -886,19 +886,62 @@ jobs:
             || { echo "⛔ scripts/kernel_delta_budget.txt is not what its own"; \
                  echo "   derivation produces — regenerate it, do not edit it."; exit 1; }
 
-      # ⚠️ REPEATS IS A PRICE, NOT A SETTING (D141). The refusal test is now a
-      # band of K standard errors around the delta, and that band falls as
-      # 1/sqrt(n) — so the number here is what this job is willing to SPEND to
-      # get a verdict rather than a refusal. Two passes a side is the least a
-      # noise estimate can be built from at all, and no box has yet been shown
-      # to resolve this budget at two. Six is a guess about a runner nobody has
-      # measured (this account's Actions refuse every job for billing, desk FH);
-      # ⛔ THE FIRST RUN THAT COMPLETES HERE PRICES IT, and the number to read
-      # off that run is the `~N repeats a side would decide it` line the gate
-      # prints when it refuses. Raise this to what that line says; do not raise
-      # the budget, which is the one move the gate forbids.
+      # ⚠️ REPEATS IS A PRICE, NOT A SETTING (D141). The refusal test is a band
+      # of K standard errors around the delta, and that band falls as 1/sqrt(n) —
+      # so the number here is what this job is willing to SPEND to get a verdict
+      # rather than a refusal.
+      #
+      # ⛔⛔ THIS WAS `6`, UNDER A STANDING INSTRUCTION TO "RAISE THIS TO WHAT THAT
+      # LINE SAYS" — read off the `~N repeats a side would decide it` line of
+      # whichever run happened to refuse. THAT INSTRUCTION WAS NEVER EXECUTED AND
+      # WAS WRONG IN THREE WAYS, all measured 2026-09-20 over this repository's own
+      # verdict ledger (`docs/ci-kernel-verdicts.jsonl`), 57 `Tests.Coverage`
+      # readings, every one taken at `--repeats 6`:
+      #
+      #   1  IT WAS ELIGIBLE TO FIRE EIGHT TIMES AND NOBODY AGGREGATED THE LEDGER.
+      #      The refusal rate at n=6 is 8/59 = 13.6%. Each instance looked like a
+      #      one-off hiccup because this gate is ADVISORY on x86lean (the required
+      #      checks are `private-paths` and `trailers`), so the batch landed anyway.
+      #   2  THE NUMBER IN THE LOG IS DERIVED FROM ONE RUN. `repeats_to_decide`'s
+      #      own docstring says so — "a price, not an allowance: the re-run measures
+      #      its own noise afresh and may refuse again". Obeying the 2026-09-20 PR
+      #      run literally gives 8 — and its OWN SIBLING, the push run of the SAME
+      #      sha minutes earlier, needs 11.
+      #   3  IT TREATED TWO POPULATIONS AS ONE. Of the eight refusals, five are a
+      #      NOISY BOX under a cheap commit (need 8, 8, 10, 10, 11) and three are
+      #      the DELTA eating its own budget (need 23, 27, 47). Repeats cannot buy
+      #      the second kind at any n this job will ever be given — and the gate now
+      #      SAYS which kind it is, instead of printing `~8` and `~47` in the same
+      #      sentence shape (`kernel_delta.price_of_an_answer`, three arms).
+      #
+      # ✅ SO: 12, DERIVED — refusal rate 13.6% -> 5.1%, and 12 is the smallest n
+      # that clears EVERY noise-driven refusal on record, the worst of which needs
+      # 11. ⛔⛔ THIS SAID `10` FOR ONE HOUR AND 10 WAS WRONG, BY THE VERY DEFECT
+      # THIS COMMENT DESCRIBES: it was derived from ONE of the two runs the
+      # 2026-09-20 batch produced, before the other's receipt had been recorded, and
+      # the other needs 11. Deriving a fleet-wide N from a subset is exactly what
+      # item 2 above accuses the printed line of — committed here, in the fix.
+      # ⛔ Do NOT chase the residue upward: 16 and 20 are also 5.1% and 24 reaches
+      # only 3.4%, because what is left is the commit-cost kind, where refusing is
+      # CORRECT and the gate's own third remedy ("make the commit cheaper") is real.
+      # ⛔ And do not raise the BUDGET, which is the one move the gate forbids.
+      #
+      # ⚠️ AND THE COST IS MEASURED, NOT ASSUMED — because "it is only a parallel
+      # job" is exactly the kind of claim that goes unchecked. On master run
+      # 35482180621, per job: `selftest (4)` 239.4 min is the CRITICAL PATH, and
+      # `kernel-delta` was 44.6 min at n=6. The pass times in that job's own log
+      # are 2 cold at ~280 s then 10 warm at a 182 s median, which projects n=6 to
+      # ~46 min (observed 44.6 — the model is calibrated against the object) and
+      # n=12 to ~82 min. ⇒ Still under `selftest (6)` at 98.2 min, and 157 min
+      # under the critical path, so this buys resolution and no wall clock.
+      # No `timeout-minutes` is set on any job here, so the ceiling is GitHub's
+      # 360 min default and 70 is not near it.
+      #
+      # ⚠️ ONE CLAUSE REMOVED AS FALSE: this comment said "this account's Actions
+      # refuse every job for billing, desk FH". That was STRUCK 2026-09-09 — Actions
+      # runs here, and the jobs that looked refused were UNREACHABLE by trigger.
       - name: Kernel-time DELTA against this change's base (two trees, one machine)
-        run: python3 scripts/kernel_delta.py --repeats 6
+        run: python3 scripts/kernel_delta.py --repeats 12
 
   # ⭐⭐ THE ARM THE HELM ASKED FOR BY NAME — *"a planted constructor that doubles
   # the delta must fail"* — in its own job because it needs FOUR builds and eight
