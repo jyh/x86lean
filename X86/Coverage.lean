@@ -801,8 +801,25 @@ acc,imm · rh"
       shapes := "x,x · x,m", note := "low binary32 -> low binary64, exact; SNaN quieted; denormal normalised; upper kept; D258",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSS2SD" }
   , { mnemonic := "cvtsi2sdl",
-      shapes := "x,r · x,m", note := "signed int32 -> low binary64, exact; upper kept; D258. B4 (D275) MODELS the int64 source and the binary32 destination, which round under MXCSR.RC; they are not yet spelled by a vector, so they are not claimed here",
+      shapes := "x,r · x,m", note := "signed int32 -> low binary64, exact; upper kept; D258. The other three pairings are the three rows below, spelled by vectors since B4 (D276)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SD" }
+  -- ⭐⭐⭐ B4 (D276) — THE THREE PAIRINGS THE FOLD MADE STATABLE AND DID NOT CLAIM.
+  -- ⚠️ The row above used to end "they are not yet spelled by a vector, so they are
+  -- not claimed here". That sentence was TRUE when the fold landed and these three
+  -- rows are what retires it -- six vectors, three pairings x {reg, mem}.
+  -- ⛔ ALL THREE ROUND under MXCSR.RC and raise PE, where `cvtsi2sdl` alone is
+  -- exact: an int64 needs 64 significand bits that binary64 has not got, and a
+  -- binary32 destination holds 24. `.exact` is the MODEL's fidelity, not the
+  -- arithmetic's.
+  , { mnemonic := "cvtsi2sdq",
+      shapes := "x,r · x,m", note := "signed int64 -> low binary64, rounded under MXCSR.RC (PE); upper kept; D276",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SD" }
+  , { mnemonic := "cvtsi2ssl",
+      shapes := "x,r · x,m", note := "signed int32 -> low binary32, rounded under MXCSR.RC (PE); bits above the 32-bit lane kept; D276",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SS" }
+  , { mnemonic := "cvtsi2ssq",
+      shapes := "x,r · x,m", note := "signed int64 -> low binary32, rounded under MXCSR.RC (PE); bits above the 32-bit lane kept; D276",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SS" }
   -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  TWO rows, each at
   -- both destination widths.  The rounding is fixed by the opcode, so neither
   -- reads MXCSR.RC; IE and PE are recorded since B0 (D266).

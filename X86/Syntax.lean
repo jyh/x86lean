@@ -2566,9 +2566,14 @@ def rosterP0 : List String :=
    -- taken.
    "minss", "minsd", "maxss", "maxsd", "minps", "maxps",
    -- ⭐⭐⭐ P2 BATCH 39: the two EXACT widenings, TWO rows.  `cvtsi2sdl` is the
-   -- census key for a 32-bit source at both shapes (D257); the 64-bit source
-   -- rounds and is not taken.
-   "cvtss2sd", "cvtsi2sdl",
+   -- census key for a 32-bit source at both shapes (D257).
+   -- ⭐⭐⭐ B4 (D276) TAKES THE OTHER THREE PAIRINGS, which the fold made statable
+   -- and which are now spelled by vectors.  ⚠️ The sentence that stood here said
+   -- "the 64-bit source rounds and IS NOT TAKEN" — true until this batch, and the
+   -- exact claim these three rows retire.  Unlike `cvtsi2sdl` they ROUND under
+   -- MXCSR.RC and raise PE; `.exact` is the fidelity of the MODEL, not of the
+   -- arithmetic (`mulsd` rounds and is `.exact` too).
+   "cvtss2sd", "cvtsi2sdl", "cvtsi2sdq", "cvtsi2ssl", "cvtsi2ssq",
    -- ⭐⭐⭐ P2 BATCH 40: sub-group A′, the two TRUNCATIONS, TWO rows — each
    -- mnemonic is one census key at both destination widths (D259, D261).
    "cvttsd2si", "cvttss2si",

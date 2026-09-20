@@ -2740,6 +2740,38 @@ def vectors : List Vec :=
     , bytes := "f20f2a03", instr := ⟨.vcvtsi2m true false .x0 { base := some .rbx }, 4⟩ }
   , { id := "cvtsi2sdl_mN3", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl -0x3(%rbx), %xmm0"
     , bytes := "f20f2a43fd", instr := ⟨.vcvtsi2m true false .x0 { base := some .rbx, disp := -3 }, 5⟩ }
+  -- ⭐⭐⭐ B4's THREE REMAINING PAIRINGS.  The fold made them STATABLE and claimed
+  -- no coverage for them, because no vector spelled them; these are that claim.
+  --
+  -- ⚠️ EVERY ENCODING BELOW WAS MEASURED, NOT DERIVED — `clang -target
+  -- x86_64-linux-gnu` then `objdump -d`, with the three LANDED bytes above used as
+  -- the control that the method reads the same language this file does.  The rule
+  -- is (F2|F3)(REX.W?)(0f 2a)(modrm), and REX.W sits AFTER the mandatory prefix.
+  -- `scripts/check_encodings.py` re-drives all of it from each `asm` string.
+  --
+  -- ⭐ WHY `%rcx` IS THE WIDE SOURCE: this file already records that `%ecx`'s upper
+  -- half differs from the sign extension of its lower in 40 of the 88 states.  That
+  -- is the population separating `cvt converts the whole 64-bit source register`
+  -- (correct at `wide`) from `cvt ignores REX.W` (wrong at `wide`) — so the two
+  -- REX.W arms are distinguishable here, which is the whole reason to spell it.
+  --
+  -- ⚠️ `-0x1e(%rbx)` IS REUSED DELIBERATELY: it is the offset `cvttsd2si_mN1e_rax`
+  -- already reads EIGHT bytes from, so a wide memory read is known to land inside
+  -- the window rather than hoped to.
+  , { id := "cvtsi2sdq_rcx_x0", mnemonic := "cvtsi2sdq", asm := "cvtsi2sdq %rcx, %xmm0"
+    , bytes := "f2480f2ac1", instr := ⟨.vcvtsi2 true true .x0 .rcx, 5⟩ }
+  , { id := "cvtsi2sdq_mN1e", mnemonic := "cvtsi2sdq", asm := "cvtsi2sdq -0x1e(%rbx), %xmm0"
+    , bytes := "f2480f2a43e2", instr := ⟨.vcvtsi2m true true .x0 { base := some .rbx, disp := -0x1e }, 6⟩ }
+  -- dbl=FALSE: the destination lane is 32 bits and everything above bit 31 is KEPT,
+  -- which is the geometry no landed vector exercises at all.
+  , { id := "cvtsi2ssl_ecx_x0", mnemonic := "cvtsi2ssl", asm := "cvtsi2ssl %ecx, %xmm0"
+    , bytes := "f30f2ac1", instr := ⟨.vcvtsi2 false false .x0 .rcx, 4⟩ }
+  , { id := "cvtsi2ssl_m", mnemonic := "cvtsi2ssl", asm := "cvtsi2ssl (%rbx), %xmm0"
+    , bytes := "f30f2a03", instr := ⟨.vcvtsi2m false false .x0 { base := some .rbx }, 4⟩ }
+  , { id := "cvtsi2ssq_rcx_x0", mnemonic := "cvtsi2ssq", asm := "cvtsi2ssq %rcx, %xmm0"
+    , bytes := "f3480f2ac1", instr := ⟨.vcvtsi2 false true .x0 .rcx, 5⟩ }
+  , { id := "cvtsi2ssq_mN1e", mnemonic := "cvtsi2ssq", asm := "cvtsi2ssq -0x1e(%rbx), %xmm0"
+    , bytes := "f3480f2a43e2", instr := ⟨.vcvtsi2m false true .x0 { base := some .rbx, disp := -0x1e }, 6⟩ }
 
   -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  The sources come
   -- from a reachability table over every register and every memory offset of the

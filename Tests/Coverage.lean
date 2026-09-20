@@ -163,7 +163,9 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B1 (D268) adds TWO: `mulss`, `mulsd`.
 -- ⭐ SUB-GROUP B2 (D271) adds SIX: `addss`, `addsd`, `subss`, `subsd`, `divss`, `divsd`.
 -- ⭐ SUB-GROUP B3 (D273) adds ONE: `cvtsd2ss`.
-theorem roster_size_is_181 : rosterSize = 181 := by decide
+-- ⭐ SUB-GROUP B4 (D276) adds THREE: `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq` — the three
+--   pairings the fold made statable and explicitly did NOT claim, now spelled by vectors.
+theorem roster_size_is_184 : rosterSize = 184 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -203,7 +205,8 @@ def vectorCount : Nat := vectors.length
 -- 4 divss, each form's greedy cover over the 88 pre-states, all writing xmm0.
 -- ⭐ SUB-GROUP B3 (D273) adds THREE `cvtsd2ss`: one register pair and two memory offsets, the
 -- greedy cover over the zero-free sources, all writing xmm0.
-theorem vector_count_is_1101 : vectorCount = 1101 := by decide
+-- ⭐ SUB-GROUP B4 (D276) adds SIX: three pairings x {register, memory}, all writing xmm0.
+theorem vector_count_is_1107 : vectorCount = 1107 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
