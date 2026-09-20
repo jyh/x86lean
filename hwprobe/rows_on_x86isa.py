@@ -13,6 +13,9 @@ cannot read as complete.
 import re, os, sys
 import mk_rows as M
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+import portable as P  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RUN = os.path.join(ROOT, "run")
@@ -97,4 +100,18 @@ def score():
 
 
 if __name__ == "__main__":
-    gen() if sys.argv[1] == "gen" else score()
+    # ⛔ THIS READ `gen() if sys.argv[1] == "gen" else score()`, so EVERY argument that was not
+    # exactly `gen` — a typo, `--help`, a probe of the interface — fell through to `score()` and
+    # printed the whole 485-row comparison. Measured: `--definitely-not-a-real-flag-xyz` exits 0
+    # after 486 lines. That is `portable.strict_flags`'s own docstring case, in the file the
+    # flag-strictness gate does not scan, because its population is `scripts/*.py`.
+    P.strict_flags(__file__)
+    mode = sys.argv[1] if len(sys.argv) > 1 else None
+    if mode == "gen":
+        gen()
+    elif mode == "score":
+        score()
+    else:
+        raise SystemExit("⛔ rows_on_x86isa: expected `gen` or `score`, got %r. REFUSING rather "
+                         "than falling through to score(), which prints a 485-row comparison and "
+                         "exits 0 — a green about a subject nobody asked for." % (mode,))
