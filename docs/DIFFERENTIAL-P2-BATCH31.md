@@ -6,6 +6,10 @@
 **Forms.** The three `cvtsi2` pairings D275 made statable and deliberately did NOT claim: `cvtsi2sdq`
 (int64 → binary64), `cvtsi2ssl` (int32 → binary32) and `cvtsi2ssq` (int64 → binary32). Three roster
 rows, six vectors, **no new constructor and no new state field** — the fold already built the shape.
+They account for **2,127 instructions of assembly-class demand**, so sub-group B's unclaimed total falls
+from 3,836 to **1,709**. ⚠️ The demand census was regenerated against the 184-mnemonic model: every
+column's TOTAL is byte-identical and only `covered`/`pct` move, all upward — the corpus did not change,
+three more mnemonics did.
 ⚠️ "A′" elsewhere is the CI job's ku arm, not the sub-group.
 
 ## 1. THE RUN
