@@ -2719,27 +2719,27 @@ def vectors : List Vec :=
     , bytes := "f30f5ac9", instr := ⟨.vcvtss2sd .x1 .x1, 4⟩ }
   -- the signalling NaNs (28 of 88)
   , { id := "cvtss2sd_mN3", mnemonic := "cvtss2sd", asm := "cvtss2sd -0x3(%rbx), %xmm0"
-    , bytes := "f30f5a43fd", instr := ⟨.vcvt2sdm false .x0 { base := some .rbx, disp := -3 }, 5⟩ }
+    , bytes := "f30f5a43fd", instr := ⟨.vcvtss2sdm .x0 { base := some .rbx, disp := -3 }, 5⟩ }
   -- the denormals (36 of 88) and quiet NaNs with varied payloads (21 of 88)
   , { id := "cvtss2sd_mE", mnemonic := "cvtss2sd", asm := "cvtss2sd 0xe(%rbx), %xmm0"
-    , bytes := "f30f5a430e", instr := ⟨.vcvt2sdm false .x0 { base := some .rbx, disp := 0xe }, 5⟩ }
+    , bytes := "f30f5a430e", instr := ⟨.vcvtss2sdm .x0 { base := some .rbx, disp := 0xe }, 5⟩ }
   -- ⚠️ THE INT32 SOURCES MAY BE ZERO: `cvtsi2sd` takes another path through
   -- x86isa (`sse-cvt-int-to-fp`) and a zero source executes (driven, same file).
   -- `%ecx` reaches zero 14 · INT32_MIN 3 · negative 23 · positive 48; its upper
   -- half differs from the sign extension in 40 states, which is what refutes a
   -- model that converts the whole register.  `%edx` is negative in 57.
   , { id := "cvtsi2sdl_ecx_x0", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl %ecx, %xmm0"
-    , bytes := "f20f2ac1", instr := ⟨.vcvtsi2sd .x0 .rcx, 4⟩ }
+    , bytes := "f20f2ac1", instr := ⟨.vcvtsi2 true false .x0 .rcx, 4⟩ }
   , { id := "cvtsi2sdl_edx_x0", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl %edx, %xmm0"
-    , bytes := "f20f2ac2", instr := ⟨.vcvtsi2sd .x0 .rdx, 4⟩ }
+    , bytes := "f20f2ac2", instr := ⟨.vcvtsi2 true false .x0 .rdx, 4⟩ }
   -- REX.R on the destination
   , { id := "cvtsi2sdl_ecx_x9", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl %ecx, %xmm9"
-    , bytes := "f2440f2ac9", instr := ⟨.vcvtsi2sd .x9 .rcx, 5⟩ }
+    , bytes := "f2440f2ac9", instr := ⟨.vcvtsi2 true false .x9 .rcx, 5⟩ }
   -- the memory source at two offsets (negative in 26 and 38 states)
   , { id := "cvtsi2sdl_m", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl (%rbx), %xmm0"
-    , bytes := "f20f2a03", instr := ⟨.vcvt2sdm true .x0 { base := some .rbx }, 4⟩ }
+    , bytes := "f20f2a03", instr := ⟨.vcvtsi2m true false .x0 { base := some .rbx }, 4⟩ }
   , { id := "cvtsi2sdl_mN3", mnemonic := "cvtsi2sdl", asm := "cvtsi2sdl -0x3(%rbx), %xmm0"
-    , bytes := "f20f2a43fd", instr := ⟨.vcvt2sdm true .x0 { base := some .rbx, disp := -3 }, 5⟩ }
+    , bytes := "f20f2a43fd", instr := ⟨.vcvtsi2m true false .x0 { base := some .rbx, disp := -3 }, 5⟩ }
 
   -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  The sources come
   -- from a reachability table over every register and every memory offset of the

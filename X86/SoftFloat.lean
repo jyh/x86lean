@@ -502,5 +502,44 @@ def f64to32 (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVec 32 :=
     let (r, fl) := roundPack binary32 rc (f.sign x) m e
     (r, fl ||| (if f.isDenormal x then fDE else 0))
 
+/-- ⭐⭐ CVTSI2SS / CVTSI2SD's RULE AT BOTH SOURCE WIDTHS (SDM Vol. 2B, CVTSI2SS /
+CVTSI2SD): the source GPR read as a SIGNED integer of width 32 or 64 (`wide`),
+rounded under MXCSR.RC into the destination format `f`.
+
+This is `i32to64` generalised in the two directions B4 makes statable — the source
+may be an int64, and the destination may be binary32.  `i32to64`'s own pairing
+(int32 into binary64) is the ONE case that is exact at every rounding mode, which
+is why the landed model could encode it with `toBinary64` and raise no flag.
+
+⛔ `toBinary64` CANNOT SERVE HERE, and the reason is mechanical rather than
+stylistic: its top-bit search is 32 bits wide (`31 - Value.clzN m 32`), so it
+mis-encodes any magnitude at or above `2^32`.  The wide path must go through
+`roundPack`, which takes a `Nat` significand at an unbounded exponent.  The same
+fact is recorded in `Main.lean`'s `wrongCvtWholeRegister`, where it justifies a
+WRONG model rather than this one.
+
+⛔ THE MAGNITUDE OF INT_MIN is the negation read UNSIGNED at the source's own
+width, so INT64_MIN's is `2^63` and INT32_MIN's is `2^31` — neither is a value of
+its own signed type.  A model taking the magnitude as a signed value would have no
+answer at either.  The sign and the magnitude are therefore taken at the SOURCE
+width and only then widened, which is `i32to64`'s idiom one width up.
+
+⚠️ PE IS THE ONLY FLAG THIS CAN RAISE, and that is STRUCTURAL rather than
+asserted: an int64's magnitude is below both formats' overflow threshold and is
+never tiny, so `roundPack`'s `bits < top` branch always holds and its `lead` test
+is always false.  D274 corroborates PE-only on two vendors, 488/488 over 127 rows.
+
+The flags come out of the SAME call as the value, so a result and its flags cannot
+disagree about the rounding — the reason `varith` gives for the same shape. -/
+def i2f (f : Fmt) (wide : Bool) (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let neg := if wide then x.getLsbD 63 else (x.setWidth 32).getLsbD 31
+  let mag : BitVec 64 :=
+    if wide then (if neg then -x else x)
+    else
+      let v := x.setWidth 32
+      (if neg then -v else v).setWidth 64
+  if mag == 0 then (0, 0)
+  else roundPack f rc neg mag.toNat 0
+
 end SoftFloat
 end X86

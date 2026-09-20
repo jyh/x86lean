@@ -795,12 +795,13 @@ acc,imm · rh"
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MAXPS" }
   -- ⭐⭐⭐ P2 BATCH 39 — THE EXACT WIDENINGS (D258), the rest of sub-group A.
   -- TWO rows.  Neither reads MXCSR.RC.  `cvtss2sd` raises IE on an SNaN and DE,
-  -- and `cvtsi2sdl` raises nothing; the flags are recorded since B0 (D266).
+  -- and `cvtsi2sdl` raises nothing -- exact, at that pairing ALONE; the flags are
+  -- recorded since B0 (D266).  B4's other three pairings round and raise PE.
   , { mnemonic := "cvtss2sd",
       shapes := "x,x · x,m", note := "low binary32 -> low binary64, exact; SNaN quieted; denormal normalised; upper kept; D258",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSS2SD" }
   , { mnemonic := "cvtsi2sdl",
-      shapes := "x,r · x,m", note := "signed int32 -> low binary64, exact; upper kept; the int64 source rounds and is not modelled; D258",
+      shapes := "x,r · x,m", note := "signed int32 -> low binary64, exact; upper kept; D258. B4 (D275) MODELS the int64 source and the binary32 destination, which round under MXCSR.RC; they are not yet spelled by a vector, so they are not claimed here",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B CVTSI2SD" }
   -- ⭐⭐⭐ P2 BATCH 40 — SUB-GROUP A′, THE TRUNCATIONS (D261).  TWO rows, each at
   -- both destination widths.  The rounding is fixed by the opcode, so neither

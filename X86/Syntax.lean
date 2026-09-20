@@ -1574,21 +1574,34 @@ inductive Op where
   MXCSR's IE (an SNaN) and DE are (D266).  Exact, so no rounding control is
   read; a signalling NaN is QUIETED. -/
   | vcvtss2sd (dst src : XmmReg)
-  /-- ⭐⭐⭐ P2 BATCH 39 — CVTSI2SD from a 32-BIT general-purpose source
-  (`f2 0f 2a`, REX.W clear): the source read as a signed int32
-  (`SoftFloat.i32to64`), the destination's upper 64 bits PRESERVED.
+  /-- ⭐⭐⭐ SUB-GROUP B4 — CVTSI2SS / CVTSI2SD at a general-purpose source
+  (`f3/f2 0f 2a`): the source read as a signed int32 or int64 (`wide`, REX.W)
+  into the low binary32 or binary64 lane (`dbl`) of `dst` under MXCSR.RC
+  (`SoftFloat.i2f`), with the destination's bits above the lane PRESERVED.
 
-  ⛔ NO WIDTH FIELD, AND THAT IS A CLAIM ABOUT THIS BATCH, NOT ABOUT THE ENCODING.
-  REX.W selects an int64 source, which is a DIFFERENT function — it rounds above
-  2^53, so it needs MXCSR.RC and belongs to sub-group B.  A width field would
-  admit a form this model cannot state.  The census keys this form `cvtsi2sdl`
-  (D257) although objdump prints the register form without the suffix. -/
-  | vcvtsi2sd (dst : XmmReg) (src : GPR)
-  /-- ⭐⭐⭐ P2 BATCH 39 — the two conversions at a MEMORY source.  Both read
-  FOUR bytes (`m32`), which is why one constructor serves both: `fromInt` picks
-  the rule (`i32to64` or `f32to64`) and nothing else.  ⚠️ NO ALIGNMENT CHECK: a
-  scalar operand states none, exactly as `vminmaxm`. -/
-  | vcvt2sdm (fromInt : Bool) (dst : XmmReg) (ea : Ea)
+  ⛔ THIS CONSTRUCTOR REPLACES BATCH 39's `vcvtsi2sd`, WHOSE DOCSTRING SAID
+  "NO WIDTH FIELD … a width field would admit a form this model cannot state".
+  That was true of batch 39 and is the exact claim B4 discharges: three of the
+  four pairings ROUND, so they need MXCSR.RC, and `i2f` states them.  Only
+  (int32 → binary64) is exact at every mode, which is why batch 39 could encode
+  it with `toBinary64` and raise no flag.
+  ⚠️ The census keys all four WITH the AT&T width suffix — `cvtsi2sdl`,
+  `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq` (D257 for the first) — although objdump
+  drops the `l` at a register source. -/
+  | vcvtsi2 (dbl wide : Bool) (dst : XmmReg) (src : GPR)
+  /-- ⭐⭐⭐ P2 BATCH 39 — CVTSS2SD at a MEMORY source, which reads FOUR bytes
+  (`m32`).  ⚠️ NO ALIGNMENT CHECK: a scalar operand states none, exactly as
+  `vminmaxm`. -/
+  | vcvtss2sdm (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B4 — CVTSI2SS / CVTSI2SD at a MEMORY source, which reads
+  EIGHT bytes when `wide` and FOUR otherwise.
+
+  ⛔ BATCH 39 SERVED BOTH CONVERSIONS FROM ONE CONSTRUCTOR (`vcvt2sdm`) AND ITS
+  STATED REASON WAS THAT "BOTH READ FOUR BYTES".  That reason DIES here: an
+  int64 source reads `m64`, so the read width now varies with `wide` while
+  `cvtss2sd`'s does not.  The split is mechanical, not stylistic — one
+  constructor could no longer state its own operand size. -/
+  | vcvtsi2m (dbl wide : Bool) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 BATCH 40 — CVTTSD2SI / CVTTSS2SI (SDM Vol. 2A), register source:
   the low binary64 (`dbl`) or binary32 lane of `src`, TRUNCATED toward zero
   (`SoftFloat.truncToInt`), written to the general-purpose register `dst` as an
@@ -1603,7 +1616,7 @@ inductive Op where
   | vcvtt2si (dbl wide : Bool) (dst : GPR) (src : XmmReg)
   /-- ⭐⭐⭐ P2 BATCH 40 — the same truncations at a MEMORY source, which reads
   EIGHT bytes when `dbl` and FOUR otherwise.  ⚠️ NO ALIGNMENT CHECK: a scalar
-  operand states none, exactly as `vcvt2sdm`. -/
+  operand states none, exactly as `vcvtsi2m`. -/
   | vcvtt2sim (dbl wide : Bool) (dst : GPR) (ea : Ea)
   /-- ⭐⭐⭐ SUB-GROUP B1 — MULSS / MULSD (SDM Vol. 2B), register source, and the FIRST
   FORM HERE THAT READS MXCSR.RC.  The low lane of the destination becomes
@@ -2001,8 +2014,9 @@ def opOperands : Op → List Operand
   -- P2 BATCH 39: the int32 source IS an `Operand` (as `vmovg`'s); the XMM half is
   -- not, and the memory source names its address.
   | .vcvtss2sd .. => []
-  | .vcvtsi2sd _ r => [.reg r]
-  | .vcvt2sdm _ _ ea => [.mem ea]
+  | .vcvtsi2 _ _ _ r => [.reg r]
+  | .vcvtss2sdm _ ea => [.mem ea]
+  | .vcvtsi2m _ _ _ ea => [.mem ea]
   -- P2 BATCH 40: the GPR destination IS an `Operand` (as `vmovg`'s), and the
   -- memory source names its address.
   | .vcvtt2si _ _ r _ => [.reg r]
@@ -2147,8 +2161,9 @@ def Op.anyLocked : Op → Bool
   | .vminmax .. => false
   | .vminmaxm _ _ _ ea => ea.lock
   -- P2 BATCH 39: `lock cvtss2sd` is not a form the SDM lists.
-  | .vcvtss2sd .. | .vcvtsi2sd .. => false
-  | .vcvt2sdm _ _ ea => ea.lock
+  | .vcvtss2sd .. | .vcvtsi2 .. => false
+  | .vcvtss2sdm _ ea => ea.lock
+  | .vcvtsi2m _ _ _ ea => ea.lock
   -- P2 BATCH 40: `lock cvttsd2si` is not a form the SDM lists.
   | .vcvtt2si .. => false
   | .vcvtt2sim _ _ _ ea => ea.lock
@@ -2329,9 +2344,9 @@ def Op.mnemonic : Op → String
       (if mx then "max" else "min") ++ (if sz == .q then "sd" else "ss")
   -- P2 BATCH 39: the int32 conversion prints its CENSUS key at both shapes
   -- (D257): objdump drops the `l` at a register source, the key does not.
-  | .vcvtss2sd .. => "cvtss2sd"
-  | .vcvtsi2sd .. => "cvtsi2sdl"
-  | .vcvt2sdm fi .. => if fi then "cvtsi2sdl" else "cvtss2sd"
+  | .vcvtss2sd .. | .vcvtss2sdm .. => "cvtss2sd"
+  | .vcvtsi2 dbl wide .. | .vcvtsi2m dbl wide .. =>
+      "cvtsi2" ++ (if dbl then "sd" else "ss") ++ (if wide then "q" else "l")
   -- P2 BATCH 40: ONE name for both destination widths, as objdump prints it and
   -- as the census keys it (D259's key has no width).
   | .vcvtt2si dbl .. | .vcvtt2sim dbl .. => if dbl then "cvttsd2si" else "cvttss2si"

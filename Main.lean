@@ -2929,10 +2929,19 @@ def wrongCvtWith (keep : Bool) (fl il : BitVec 64 → BitVec 64) (i : Instr) (s 
   match i.op with
   | .vcvtss2sd dst src =>
       (s.setXmm dst (low false (s.getXmm dst) ((s.getXmm src).setWidth 64))).setRip nr
-  | .vcvtsi2sd dst src =>
+  -- ⚠️ THESE ARMS STILL READ 32 BITS AND STILL CALL `il` (= `SoftFloat.i32to64`),
+  -- which is byte-identical on every LANDED vector, all of which are int32 forms.
+  -- ⛔ WHEN B4 ADDS A `wide` VECTOR THIS BECOMES A SECOND WRONGNESS — the arm would
+  -- be wrong about the source WIDTH as well as about the rule its docstring names,
+  -- which `wrongCvtWholeRegister`'s own docstring forbids. Deliberately NOT fixed in
+  -- the fold commit, whose acceptance is that nothing moves; it is owed with the
+  -- vectors.
+  | .vcvtsi2 _ _ dst src =>
       (s.setXmm dst (low true (s.getXmm dst) (s.getReg .d src))).setRip nr
-  | .vcvt2sdm fi dst ea =>
-      (s.setXmm dst (low fi (s.getXmm dst) (s.readMem .d (ea.addr s nr)))).setRip nr
+  | .vcvtss2sdm dst ea =>
+      (s.setXmm dst (low false (s.getXmm dst) (s.readMem .d (ea.addr s nr)))).setRip nr
+  | .vcvtsi2m _ _ dst ea =>
+      (s.setXmm dst (low true (s.getXmm dst) (s.readMem .d (ea.addr s nr)))).setRip nr
   | _ => step i s
 
 /-- ⛔ A SIGNALLING NaN PASSES THROUGH UNQUIETED: the payload is shifted up and
@@ -3008,7 +3017,10 @@ wrong model should be wrong in the way its docstring says, not in a second way. 
 def wrongCvtWholeRegister (i : Instr) (s : Cpu) : Cpu :=
   let nr := s.rip + BitVec.ofNat 64 i.len
   match i.op with
-  | .vcvtsi2sd dst src =>
+  -- ⚠️ AT `wide` THIS MODEL IS NO LONGER WRONG — reading the whole 64-bit register
+  -- is what REX.W legitimately does. No landed vector is `wide`, so its recorded
+  -- score does not move here; it is owed with B4's vectors.
+  | .vcvtsi2 _ _ dst src =>
       let v := s.getReg .q src
       let r : BitVec 64 :=
         if v == 0 then 0
@@ -3192,13 +3204,21 @@ def wrongSimdWith (raise : Cpu → BitVec 32 → (Cpu → Cpu) → Cpu)
       else step i s
   | .vcvtss2sd dst src =>
       let b := (s.getXmm src).setWidth 64
-      raise s (cvt b) fun s => (s.setXmm dst (vcvt2sdLow false (s.getXmm dst) b)).setRip nr
-  | .vcvtsi2sd dst src =>
-      raise s 0 fun s => (s.setXmm dst (vcvt2sdLow true (s.getXmm dst) (s.getReg .d src))).setRip nr
-  | .vcvt2sdm fi dst ea =>
+      raise s (cvt b) fun s => (s.setXmm dst (vcvt2sdLow (s.getXmm dst) b)).setRip nr
+  | .vcvtss2sdm dst ea =>
       let b := s.readMem .d (ea.addr s nr)
-      raise s (if fi then 0 else cvt b) fun s =>
-        (s.setXmm dst (vcvt2sdLow fi (s.getXmm dst) b)).setRip nr
+      raise s (cvt b) fun s => (s.setXmm dst (vcvt2sdLow (s.getXmm dst) b)).setRip nr
+  -- ⚠️ `raise s 0` IS KEPT: on every landed vector the TRUE flags are 0, because an
+  -- int32 into binary64 is exact, so this arm's recorded score cannot move. At B4's
+  -- inexact pairings 0 becomes a genuine flag-wrongness, which is this arm's job.
+  | .vcvtsi2 dbl wide dst src =>
+      let p := cvtsi2Low dbl wide (mxcsrRC s.mxcsr) (s.getXmm dst)
+                 (s.getReg (if wide then .q else .d) src)
+      raise s 0 fun s => (s.setXmm dst p.1).setRip nr
+  | .vcvtsi2m dbl wide dst ea =>
+      let b := s.readMem (if wide then .q else .d) (ea.addr s nr)
+      let p := cvtsi2Low dbl wide (mxcsrRC s.mxcsr) (s.getXmm dst) b
+      raise s 0 fun s => (s.setXmm dst p.1).setRip nr
   | .vcvtt2si dbl wide dst src =>
       let b := (s.getXmm src).setWidth 64
       raise s (trunc (cvttFmt dbl) (if wide then 64 else 32) b) fun s =>

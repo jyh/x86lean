@@ -2313,6 +2313,33 @@ theorem cvtsi2sd_int32_ieee :
   ] : List (BitVec 64 × BitVec 64)).all
     (fun (a, r) => SoftFloat.i32to64 a == r) = true := by decide
 
+/-- ⭐⭐ THE BRIDGE: `SoftFloat.i2f`, B4's general integer-to-float rule, agrees with
+`i32to64` ON THE ANCHOR ABOVE'S OWN TEN VALUES, at ALL FOUR rounding modes, raising NO
+flag.  The expectation is DERIVED from `i32to64` rather than retyped, so this anchor
+cannot drift from the one it bridges.
+
+⭐ WHY FOUR RCs RATHER THAN ONE: an int32 is EXACTLY representable in binary64, so the
+rounding mode CANNOT matter at this pairing.  Asserting it at all four therefore states
+that B4's new `rc` parameter is INERT exactly where the old total rule was total — if the
+fold ever makes rounding load-bearing at the 32-bit width, this reddens and nothing else
+in the tree would.
+
+⚠️ WHAT IT DOES NOT COVER, beside the claim rather than in a note elsewhere: this is the
+ONE pairing for which a landed reference exists.  `i2f` at (int64 → binary64),
+(int32 → binary32) and (int64 → binary32) is pinned by the hwprobe rows and the vectors,
+NOT here, because `i32to64` cannot state them.
+⛔ Its two controls were DRIVEN, not assumed: substituting `binary32` for the format, and
+`true` for `wide`, each makes this statement FAIL to elaborate.  A `decide` that has never
+been seen to fail is decoration. -/
+theorem i2f_bridges_i32to64_at_every_rc :
+  ([ 0xa5a5a5a500000000, 0xa5a5a5a500000001, 0xa5a5a5a5ffffffff,
+     0xa5a5a5a57fffffff, 0xa5a5a5a580000000, 0xa5a5a5a580000001,
+     0xa5a5a5a501000001, 0xa5a5a5a5feffffff, 0xa5a5a5a57ffffffe,
+     0xa5a5a5a512345678 ] : List (BitVec 64)).all
+    (fun a => ([0, 1, 2, 3] : List Nat).all
+      (fun rc => SoftFloat.i2f SoftFloat.binary64 false rc a == (SoftFloat.i32to64 a, 0)))
+  = true := by decide
+
 /-! ## ⭐⭐⭐ THE TRUNCATIONS WHERE NO VECTOR REACHES — P2 BATCH 40 (D261)
 
 `SoftFloat.truncToInt` at both destination widths, on the values that decide
@@ -2509,7 +2536,7 @@ theorem b0_cvtsi2sd_pins :
     (0x5f80, 0x0000000080000000, 0xc1e0000000000000, 0x00)  -- cvtsi2sd_intmin/up · no vector reaches
   ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32)).all
     (fun (mx, a, r, fl) =>
-      let t := step ⟨.vcvtsi2sd .x0 .rdi, 4⟩ (b0Pre mx a 0)
+      let t := step ⟨.vcvtsi2 true false .x0 .rdi, 4⟩ (b0Pre mx a 0)
       b0Agrees t mx fl ((t.getXmm .x0).setWidth 64) r) = true := by decide
 
 theorem b0_cvttsd2si_pins :
