@@ -138,7 +138,18 @@ def ref_mul(fmt, rc, a, b):
     return round_to(fmt, rc, value(fmt, a) * value(fmt, b))
 
 
+def _strict():
+    """ref_mul takes NO flags, so every flag is unknown. Stated by a call rather than by silence:
+    the flag-strictness gate recognises this helper, and a script that simply ignores argv is
+    indistinguishable from one that forgot to check it."""
+    import os as _o
+    import sys as _s
+    _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))), "scripts"))
+    import portable as _P
+    _P.strict_flags(__file__)
+
 if __name__ == "__main__":
+    _strict()
     # self-checks on hand-derivable cases
     one = 0x3ff0000000000000
     assert ref_mul(B64, "nearest", one, one) == (one, "exact")
