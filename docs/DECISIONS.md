@@ -19192,3 +19192,82 @@ a hit — the boundary is the boundary.
 📌 THREE of the seven hits (`Serialize` +5, `Coverage` +5, `Program` +2) landed on or beside their
 floors, which says those ranges were anchored to B3's readings rather than independently derived.
 They are hits, and they are weak ones.
+
+## D276 — P2 batch 45, sub-group B4: the vectors, and the wrong models catch up with the fold
+
+### 1. WHAT THE FOLD LEFT OWED, AND WHY IT WAS RIGHT TO LEAVE IT
+D275 made four `cvtsi2` pairings statable from one constructor and claimed coverage for exactly
+one of them. Its own words, in `X86/Coverage.lean`: the other three "are not yet spelled by a
+vector, so they are not claimed here". That sentence was TRUE and this batch is what retires it —
+six vectors, three pairings × {register, memory}, three roster rows and three coverage rows.
+⇒ The claim and the evidence landed in different batches ON PURPOSE, and the coverage table was
+  the thing that kept them honest in between.
+
+### 2. THE REPAIR WAS WIDER THAN THE PLAN PRICED — THREE DEFECTS, NOT ONE
+The plan named two arms owed repairs. Measured at the source it is the whole family, and the
+cause is one sentence: ***THE FOLD GAVE `vcvtsi2` ITS `dbl`/`wide` FLAGS AND THE WRONG-MODEL
+FAMILY KEPT THE OLD SHAPE — THE WRONG MODELS WERE ONE BATCH BEHIND THEIR OWN CONSTRUCTOR.***
+```
+  1 SOURCE WIDTH   `s.getReg .d` / `readMem .d`, hard-coded 32 bits.  Real: (if wide .q .d)
+  2 LANE GEOMETRY  always kept above bit 64 and wrote 64 bits.  Real (`cvtsi2Low`): at dbl=FALSE
+                   it keeps above bit 32 and writes a binary32
+  3 LABELS         three of eight say "int32" in text the differential PRINTS — a claim
+```
+⛔ (2) is the one the plan did not have and it is the widest: it makes EVERY arm wrong at both
+`cvtsi2ss` pairings, including the four whose defect is in the FLOAT path and which nobody would
+have thought to check. Each defect would have made an arm wrong in a SECOND way — which
+`wrongCvtWholeRegister`'s own docstring forbids — inflating a score through a mechanism the
+arm's label does not name.
+
+### 3. ⭐ THE FIX WAS ALREADY IN THE TREE, IN THE SIBLING FAMILY
+`wrongCvttWith` (batch 40) binds `dbl`/`wide` from the constructor and hands them to its lane
+function, because `vcvtt2si` carried those flags from the start. The shape was copied, not
+invented, and the two families are the same shape again. The new arm's name follows the same way:
+the truncation family already has `wrongCvttIgnoresRexW`.
+⇒ 🔑 ***A FAMILY THAT GAINS A PARAMETER OWES A SWEEP OF EVERYTHING WRITTEN AGAINST ITS OLD
+  ARITY, AND ITS SIBLING IS WHERE TO LOOK FOR THE ANSWER FIRST.***
+
+### 4. SCOPING, AND THE HOLE IT WOULD HAVE LEFT
+`wrongCvtWith` now always reads the source and writes the destination CORRECTLY; an arm plants in
+the conversion alone, so a defect about source WIDTH is expressed by converting at the other
+width rather than by reading the wrong number of bytes (which would also move the memory trace).
+Arms whose defect is not expressible at a pairing return the correct value there and say so:
+`Unsigned`, `SingleSignificand` and `IntMinSaturates` are scoped to `wide=false`.
+⛔ **That scoping would have left the two `wide` pairings with NO integer-path detector while
+reading as fully covered** — so `wrongCvtIgnoresRexW` is added: always read 32, the exact mirror
+of `wrongCvtWholeRegister`'s always read 64. Together they bracket REX.W from both sides.
+✅ `wrongCvtWholeRegister` also loses its hand-rolled encoder, which existed only to dodge
+`toBinary64`'s 32-bit top-bit search; `cvtIlOk` at `wide=true` has no such limit, so the
+second-wrongness hazard its old docstring warned about is now absent BY CONSTRUCTION.
+
+### 5. ⛔ THE INSTRUMENT CANNOT SEE THE DEFECT THIS BATCH REPAIRS
+`driveWrong` passes an arm when its hit list is NON-EMPTY. **The COUNT is printed and NOT gated.**
+⇒ An arm gone silent at the three new pairings still passes on the landed int32 vectors, and an
+arm wrong in a second way there merely posts a bigger number that nothing reads.
+⇒ 🔑 ***THE SELFTEST ASKS "IS THIS ARM CAUGHT SOMEWHERE?", NEVER "IS IT CAUGHT WHERE IT CLAIMS TO
+  BE?"*** — it would have stayed GREEN through the entire defect in §2, at all four pairings, for
+  as long as one landed vector kept catching each arm. **The gate that would have caught this does
+  not exist, and this section is the declaration rather than a fix**: making the count load-bearing
+  is a change to every arm's contract and is not this batch's to make.
+
+### 6. THE ENCODINGS WERE MEASURED, AND THE INSTRUMENT'S NAME LIED FIRST
+⛔ `/usr/bin/xed` on this box is **Xcode's file opener**, not Intel XED. A head reading the plan's
+"XED/objdump check" and reaching for `xed` launches an editor and gets rc 0. Apple's `objdump` also
+has no raw-binary mode, so the route is assemble-then-disassemble:
+`clang -target x86_64-linux-gnu -c` then `objdump -d`.
+All six new encodings matched the hand derivation exactly, with the three LANDED bytes as controls
+sought IN `Tests/Vectors.lean` rather than taken from the plan that proposed them, and
+`f3480f2a03` confirmed ABSENT beforehand.
+⭐ **The corroboration is not the round trip** — clang's assembler and objdump's disassembler are
+both LLVM, generated from the same tables, so their agreement is ONE mechanism in two directions.
+It is that `hwprobe/sse_ops.S` already EXECUTES all four pairings on real silicon (488/488, two
+vendors, D274). Their bytes were measured from the assembled object rather than read off the
+comments — **and that validated four hand-written byte annotations as a free side effect**, which
+was the point: controlling a hand derivation with someone else's hand derivation is circular.
+
+### 7. WHAT IS STILL OWED
+`Tests/Anchors.lean`'s `i2f_bridges_i32to64_at_every_rc` says in its own docstring that the other
+three pairings are "pinned by the hwprobe rows and the vectors, NOT here". This batch supplies the
+vectors. ⚠️ An anchor for the three new pairings is NOT taken here: D275 §6 measured
+`Tests.Anchors` at **+12,348 ku for ten values at four RCs — 93 % of the fold's whole Δku** — so
+that is a priced decision, not a free addition.
