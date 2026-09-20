@@ -204,6 +204,32 @@ def reached(rows, fn, key):
     return {key(s[nm] & mask, s["mxcsr"]) for s in rows for nm in names}
 
 
+def multiplicity(rows, fn, key):
+    """How MANY (pre-state, stream) pairs present each class — the margin, not the fact.
+
+    ⛔⛔ SET MEMBERSHIP ANSWERS "is it covered?" AND THROWS AWAY "by how much?", AND THE MARGIN
+    IS WHERE THE RISK IS. `mk_anchors.py` says PINNED "fails safe: a later vector that reaches a
+    pinned class makes the pin redundant, never wrong." That is true and it is true in ONE
+    DIRECTION. The other direction is unguarded: a `preStates` edit that stops reaching a CARRIED
+    class leaves a MISSING pin, which is wrong, and PINNED is DECLARED so nothing recomputes it.
+    Measured at B4: 20 of the 42 carried rows are reached by EXACTLY ONE pair — and the LANDED
+    sibling `cvtsi2sd` has ZERO of 14, minimum multiplicity 2. So it is a property of B4's forms,
+    not of the rule: an adversarial sweep is made of BIT PATTERNS, so a 32-bit source's 0, ±1 and
+    INT_MIN are hit many times over while a 64-bit form's are hit once or not at all. All 20 are
+    `q` forms; not one is `cvtsi2ss`.
+    ⚠️ It counts (pre-state, stream) PAIRS, so a class reached twice by the SAME state through
+    two streams scores 2 and is no more robust to a `preStates` edit than a singleton. 20 is a
+    LOWER bound on the fragile set."""
+    width, names = STREAMS[fn]
+    mask = (1 << width) - 1
+    out = {}
+    for s in rows:
+        for nm in names:
+            k = key(s[nm] & mask, s["mxcsr"])
+            out[k] = out.get(k, 0) + 1
+    return out
+
+
 def rows_of(fn):
     M.ROWS.clear()
     M.build()
@@ -230,6 +256,7 @@ KEY_FULL = lambda v, mx: (v, mx)                      # noqa: E731  — the MUTA
 
 def classify(rows, fn, diffs, key=KEY_RC):
     seen = reached(rows, fn, key)
+    mult = multiplicity(rows, fn, key)
     width = STREAMS[fn][0]
     mask = (1 << width) - 1
     out = []
@@ -241,7 +268,7 @@ def classify(rows, fn, diffs, key=KEY_RC):
             why = "no vector reaches"
         else:
             why = ""
-        out.append((n, rc_of(mx), a & mask, hit, why))
+        out.append((n, rc_of(mx), a & mask, hit, why, mult.get(key(a & mask, mx), 0)))
     return out
 
 
@@ -251,7 +278,7 @@ SIBLING_REACH_PINS = {"cvtsi2sd_one/zero", "cvtsi2sd_intmin/up"}
 def selftest():
     rows = load_streams()
     ok = True
-    got = {n for (n, _, _, hit, _) in classify(rows, "p_cvtsi2sd", set()) if not hit}
+    got = {n for (n, _, _, hit, _, _) in classify(rows, "p_cvtsi2sd", set()) if not hit}
     print("control   cvtsi2sd unreached under value×RC : %s" % sorted(got))
     print("          D267 §2's landed answer           : %s" % sorted(SIBLING_REACH_PINS))
     if got != SIBLING_REACH_PINS:
@@ -259,7 +286,7 @@ def selftest():
         ok = False
     else:
         print("✅ ARM 1 — the rule reproduces a pin set derived independently of this file.")
-    mut = {n for (n, _, _, hit, _) in classify(rows, "p_cvtsi2sd", set(), key=KEY_FULL) if not hit}
+    mut = {n for (n, _, _, hit, _, _) in classify(rows, "p_cvtsi2sd", set(), key=KEY_FULL) if not hit}
     print("mutant    value×FULL MXCSR                  : %d unreached" % len(mut))
     if mut == SIBLING_REACH_PINS:
         print("⛔ ARM 2 FAILED — the MUTANT class also reproduces it, so ARM 1 proves nothing.")
@@ -305,13 +332,15 @@ def main():
     for fn in FORMS[form]:
         tab = classify(rows, fn, diffs)
         total += len(tab)
-        for (n, rc, a, hit, why) in tab:
+        for (n, rc, a, hit, why, m) in tab:
             pinned += bool(why)
-            lines.append("%s\t%s\t%d\t0x%x\t%s\t%s" % (fn, n, rc, a, "reached" if hit else "unreached",
-                                                       why or "carried by vectors"))
+            lines.append("%s\t%s\t%d\t0x%x\t%s\t%d\t%s" % (fn, n, rc, a,
+                         "reached" if hit else "unreached", m, why or "carried by vectors"))
         p = sum(1 for t in tab if t[4])
+        thin = sum(1 for t in tab if t[3] and not t[4] and t[5] == 1)
         print("  %-14s %3d rows · pinned %3d · carried %3d · vectors mapped %d"
-              % (fn, len(tab), p, len(tab) - p, len(STREAMS[fn][1])))
+              % (fn, len(tab), p, len(tab) - p, len(STREAMS[fn][1]))
+              + ("  \u26a0 %d carried row(s) reached by exactly ONE pair" % thin if thin else ""))
     print()
     print("TOTAL %d rows · PINNED %d · CARRIED %d" % (total, pinned, total - pinned))
     print("population: %d pre-states, controls clean; x86isa column from the saved reading" % len(rows))
@@ -319,7 +348,7 @@ def main():
           "    (--selftest ARM 3); a displacement reach_streams.lean does not emit is REFUSED")
     if tsv:
         with open(tsv, "w", encoding="utf-8") as fh:
-            fh.write("form\trow\trc\tsource\treach\tdisposition\n")
+            fh.write("form\trow\trc\tsource\treach\treached_by\tdisposition\n")
             fh.write("\n".join(lines) + "\n")
         print("wrote %s (%d rows)" % (os.path.relpath(tsv, ROOT), len(lines)))
     return 0

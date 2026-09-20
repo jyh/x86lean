@@ -1,128 +1,128 @@
-form	row	rc	source	reach	disposition
-p_cvtsi2ss	cvtsi2ss_tie/nearest	0	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie/down	1	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie/up	2	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie/zero	3	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tieodd/nearest	0	0x1000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tieodd/down	1	0x1000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tieodd/up	2	0x1000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tieodd/zero	3	0x1000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_sticky/nearest	0	0x2000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_sticky/down	1	0x2000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_sticky/up	2	0x2000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_sticky/zero	3	0x2000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_above/nearest	0	0x2000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_above/down	1	0x2000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_above/up	2	0x2000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_above/zero	3	0x2000003	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negtie/nearest	0	0xfeffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negtie/down	1	0xfeffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negtie/up	2	0xfeffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negtie/zero	3	0xfeffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negsticky/nearest	0	0xfdffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negsticky/down	1	0xfdffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negsticky/up	2	0xfdffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_negsticky/zero	3	0xfdffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_max/nearest	0	0x7fffffff	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_max/down	1	0x7fffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_max/up	2	0x7fffffff	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_max/zero	3	0x7fffffff	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_zero/nearest	0	0x0	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_zero/down	1	0x0	reached	x86isa differs
-p_cvtsi2ss	cvtsi2ss_zero/up	2	0x0	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_zero/zero	3	0x0	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_min	0	0x80000000	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_exact	0	0xffffff	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_one	0	0x1	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_negone	0	0xffffffff	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_hijunk	0	0x1	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_hijunkneg	0	0xffffffff	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_one_sticky1f88	0	0x1	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_one_sticky1fbf	0	0x1	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_one_sticky5f88	2	0x1	reached	carried by vectors
-p_cvtsi2ss	cvtsi2ss_one_sticky7f88	3	0x1	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie_sticky1f88	0	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie_sticky1fbf	0	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie_sticky5f88	2	0x1000001	unreached	no vector reaches
-p_cvtsi2ss	cvtsi2ss_tie_sticky7f88	3	0x1000001	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie/nearest	0	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie/down	1	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie/up	2	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie/zero	3	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_sticky/nearest	0	0x10000000001	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_sticky/down	1	0x10000000001	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_sticky/up	2	0x10000000001	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_sticky/zero	3	0x10000000001	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negtie/nearest	0	0xfffffeffffff0000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negtie/down	1	0xfffffeffffff0000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negtie/up	2	0xfffffeffffff0000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negtie/zero	3	0xfffffeffffff0000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negsticky/nearest	0	0xfffffeffffffffff	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negsticky/down	1	0xfffffeffffffffff	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negsticky/up	2	0xfffffeffffffffff	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_negsticky/zero	3	0xfffffeffffffffff	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_max/nearest	0	0x7fffffffffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_max/down	1	0x7fffffffffffffff	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_max/up	2	0x7fffffffffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_max/zero	3	0x7fffffffffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_width/nearest	0	0xffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_width/down	1	0xffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_width/up	2	0xffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_width/zero	3	0xffffffff	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_zero/nearest	0	0x0	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_zero/down	1	0x0	reached	x86isa differs
-p_cvtsi2ssq	cvtsi2ssq_zero/up	2	0x0	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_zero/zero	3	0x0	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_min	0	0x8000000000000000	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_exact	0	0x10000000000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_one	0	0x1	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_negone	0	0xffffffffffffffff	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_one_sticky1f88	0	0x1	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_one_sticky1fbf	0	0x1	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_one_sticky5f88	2	0x1	reached	carried by vectors
-p_cvtsi2ssq	cvtsi2ssq_one_sticky7f88	3	0x1	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie_sticky1f88	0	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie_sticky1fbf	0	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie_sticky5f88	2	0x10000010000	unreached	no vector reaches
-p_cvtsi2ssq	cvtsi2ssq_tie_sticky7f88	3	0x10000010000	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie/nearest	0	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie/down	1	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie/up	2	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie/zero	3	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tieodd/nearest	0	0x20000000000003	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tieodd/down	1	0x20000000000003	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tieodd/up	2	0x20000000000003	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tieodd/zero	3	0x20000000000003	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_sticky/nearest	0	0x40000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_sticky/down	1	0x40000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_sticky/up	2	0x40000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_sticky/zero	3	0x40000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negtie/nearest	0	0xffdfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negtie/down	1	0xffdfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negtie/up	2	0xffdfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negtie/zero	3	0xffdfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negsticky/nearest	0	0xffbfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negsticky/down	1	0xffbfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negsticky/up	2	0xffbfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_negsticky/zero	3	0xffbfffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_max/nearest	0	0x7fffffffffffffff	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_max/down	1	0x7fffffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_max/up	2	0x7fffffffffffffff	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_max/zero	3	0x7fffffffffffffff	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_zero/nearest	0	0x0	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_zero/down	1	0x0	reached	x86isa differs
-p_cvtsi2sdq	cvtsi2sdq_zero/up	2	0x0	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_zero/zero	3	0x0	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_min	0	0x8000000000000000	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_exact	0	0x1fffffffffffff	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_width	0	0xffffffff	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_one	0	0x1	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_negone	0	0xffffffffffffffff	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_one_sticky1f88	0	0x1	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_one_sticky1fbf	0	0x1	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_one_sticky5f88	2	0x1	reached	carried by vectors
-p_cvtsi2sdq	cvtsi2sdq_one_sticky7f88	3	0x1	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie_sticky1f88	0	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie_sticky1fbf	0	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie_sticky5f88	2	0x20000000000001	unreached	no vector reaches
-p_cvtsi2sdq	cvtsi2sdq_tie_sticky7f88	3	0x20000000000001	unreached	no vector reaches
+form	row	rc	source	reach	reached_by	disposition
+p_cvtsi2ss	cvtsi2ss_tie/nearest	0	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie/down	1	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie/up	2	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie/zero	3	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tieodd/nearest	0	0x1000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tieodd/down	1	0x1000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tieodd/up	2	0x1000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tieodd/zero	3	0x1000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_sticky/nearest	0	0x2000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_sticky/down	1	0x2000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_sticky/up	2	0x2000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_sticky/zero	3	0x2000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_above/nearest	0	0x2000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_above/down	1	0x2000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_above/up	2	0x2000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_above/zero	3	0x2000003	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negtie/nearest	0	0xfeffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negtie/down	1	0xfeffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negtie/up	2	0xfeffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negtie/zero	3	0xfeffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negsticky/nearest	0	0xfdffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negsticky/down	1	0xfdffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negsticky/up	2	0xfdffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_negsticky/zero	3	0xfdffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_max/nearest	0	0x7fffffff	reached	2	carried by vectors
+p_cvtsi2ss	cvtsi2ss_max/down	1	0x7fffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_max/up	2	0x7fffffff	reached	2	carried by vectors
+p_cvtsi2ss	cvtsi2ss_max/zero	3	0x7fffffff	reached	2	carried by vectors
+p_cvtsi2ss	cvtsi2ss_zero/nearest	0	0x0	reached	6	carried by vectors
+p_cvtsi2ss	cvtsi2ss_zero/down	1	0x0	reached	8	x86isa differs
+p_cvtsi2ss	cvtsi2ss_zero/up	2	0x0	reached	6	carried by vectors
+p_cvtsi2ss	cvtsi2ss_zero/zero	3	0x0	reached	8	carried by vectors
+p_cvtsi2ss	cvtsi2ss_min	0	0x80000000	reached	2	carried by vectors
+p_cvtsi2ss	cvtsi2ss_exact	0	0xffffff	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_one	0	0x1	reached	4	carried by vectors
+p_cvtsi2ss	cvtsi2ss_negone	0	0xffffffff	reached	8	carried by vectors
+p_cvtsi2ss	cvtsi2ss_hijunk	0	0x1	reached	4	carried by vectors
+p_cvtsi2ss	cvtsi2ss_hijunkneg	0	0xffffffff	reached	8	carried by vectors
+p_cvtsi2ss	cvtsi2ss_one_sticky1f88	0	0x1	reached	4	carried by vectors
+p_cvtsi2ss	cvtsi2ss_one_sticky1fbf	0	0x1	reached	4	carried by vectors
+p_cvtsi2ss	cvtsi2ss_one_sticky5f88	2	0x1	reached	2	carried by vectors
+p_cvtsi2ss	cvtsi2ss_one_sticky7f88	3	0x1	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie_sticky1f88	0	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie_sticky1fbf	0	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie_sticky5f88	2	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ss	cvtsi2ss_tie_sticky7f88	3	0x1000001	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie/nearest	0	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie/down	1	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie/up	2	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie/zero	3	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_sticky/nearest	0	0x10000000001	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_sticky/down	1	0x10000000001	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_sticky/up	2	0x10000000001	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_sticky/zero	3	0x10000000001	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negtie/nearest	0	0xfffffeffffff0000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negtie/down	1	0xfffffeffffff0000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negtie/up	2	0xfffffeffffff0000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negtie/zero	3	0xfffffeffffff0000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negsticky/nearest	0	0xfffffeffffffffff	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negsticky/down	1	0xfffffeffffffffff	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negsticky/up	2	0xfffffeffffffffff	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_negsticky/zero	3	0xfffffeffffffffff	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_max/nearest	0	0x7fffffffffffffff	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_max/down	1	0x7fffffffffffffff	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_max/up	2	0x7fffffffffffffff	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_max/zero	3	0x7fffffffffffffff	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_width/nearest	0	0xffffffff	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_width/down	1	0xffffffff	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_width/up	2	0xffffffff	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_width/zero	3	0xffffffff	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_zero/nearest	0	0x0	reached	2	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_zero/down	1	0x0	reached	2	x86isa differs
+p_cvtsi2ssq	cvtsi2ssq_zero/up	2	0x0	reached	2	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_zero/zero	3	0x0	reached	2	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_min	0	0x8000000000000000	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_exact	0	0x10000000000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_one	0	0x1	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_negone	0	0xffffffffffffffff	reached	2	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_one_sticky1f88	0	0x1	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_one_sticky1fbf	0	0x1	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_one_sticky5f88	2	0x1	reached	1	carried by vectors
+p_cvtsi2ssq	cvtsi2ssq_one_sticky7f88	3	0x1	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie_sticky1f88	0	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie_sticky1fbf	0	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie_sticky5f88	2	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2ssq	cvtsi2ssq_tie_sticky7f88	3	0x10000010000	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie/nearest	0	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie/down	1	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie/up	2	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie/zero	3	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tieodd/nearest	0	0x20000000000003	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tieodd/down	1	0x20000000000003	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tieodd/up	2	0x20000000000003	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tieodd/zero	3	0x20000000000003	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_sticky/nearest	0	0x40000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_sticky/down	1	0x40000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_sticky/up	2	0x40000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_sticky/zero	3	0x40000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negtie/nearest	0	0xffdfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negtie/down	1	0xffdfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negtie/up	2	0xffdfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negtie/zero	3	0xffdfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negsticky/nearest	0	0xffbfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negsticky/down	1	0xffbfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negsticky/up	2	0xffbfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_negsticky/zero	3	0xffbfffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_max/nearest	0	0x7fffffffffffffff	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_max/down	1	0x7fffffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_max/up	2	0x7fffffffffffffff	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_max/zero	3	0x7fffffffffffffff	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_zero/nearest	0	0x0	reached	2	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_zero/down	1	0x0	reached	2	x86isa differs
+p_cvtsi2sdq	cvtsi2sdq_zero/up	2	0x0	reached	2	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_zero/zero	3	0x0	reached	2	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_min	0	0x8000000000000000	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_exact	0	0x1fffffffffffff	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_width	0	0xffffffff	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_one	0	0x1	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_negone	0	0xffffffffffffffff	reached	2	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_one_sticky1f88	0	0x1	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_one_sticky1fbf	0	0x1	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_one_sticky5f88	2	0x1	reached	1	carried by vectors
+p_cvtsi2sdq	cvtsi2sdq_one_sticky7f88	3	0x1	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie_sticky1f88	0	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie_sticky1fbf	0	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie_sticky5f88	2	0x20000000000001	unreached	0	no vector reaches
+p_cvtsi2sdq	cvtsi2sdq_tie_sticky7f88	3	0x20000000000001	unreached	0	no vector reaches
