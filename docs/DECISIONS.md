@@ -19271,3 +19271,133 @@ three pairings are "pinned by the hwprobe rows and the vectors, NOT here". This 
 vectors. ⚠️ An anchor for the three new pairings is NOT taken here: D275 §6 measured
 `Tests.Anchors` at **+12,348 ku for ten values at four RCs — 93 % of the fold's whole Δku** — so
 that is a priced decision, not a free addition.
+
+## D277 — the delta gate's remedy was an ungated claim, and its budget was a coin flip
+
+### 1. HOW IT SURFACED
+PR #40's CI went red on a check named `build`… and then, on the fix, red again on `kernel-delta`.
+Split by step (the map's law), the failing step was **14 of 14 — the measurement itself**; steps
+1–13, every red-first gate arm, passed. `kernel_delta.py` exited **3 = UNMEASURABLE**, which is a
+REFUSAL and not a conviction: *"this run's own uncertainty band straddles the budget, so the
+readings do NOT say which side of it this commit is on."*
+
+    Tests.Coverage: delta +450.0 vs budget 3693.6, band ±3615.7 ⇒ "~8 repeats a side would decide it"
+
+### 2. THE CONTROL SAYS THE REFUSAL IS NOT ABOUT THIS COMMIT
+`master`'s own `kernel-delta` job had run the SAME unit at the SAME `--repeats 6` four hours earlier:
+
+    run                  delta     band    budget    verdict
+    master 8e13b60a     +850.0   1742.7    3758.4    ok
+    PR #40 da8ba7e      +450.0   3615.7    3693.6    UNMEASURABLE
+
+⇒ 🔑 ***THE PR's DELTA IS SMALLER AND IT REFUSED, BECAUSE ITS BAND IS 2.07× WIDER ON THE SAME
+UNIT.*** Confirmed at the readings rather than the summary (master base 51900–54500, PR base
+50600–56300). The box was loaded; the commit did not change.
+
+### 3. THE LEDGER, WHICH NOBODY HAD EVER AGGREGATED
+`docs/ci-kernel-verdicts.jsonl` carries **59 `Tests.Coverage` readings, every one at `--repeats 6`**.
+Judged by the gate's OWN `three_way` (control: it reproduces **59/59** recorded verdicts):
+
+    n      passes   UNMEASURABLE    rate
+    6         12          8        13.6%      ← the setting in ci.yml since it was written
+    8         16          6        10.2%      ← what the printed line and ci.yml's comment instruct
+    10        20          4         6.8%      ← adopted for one hour, and WRONG — see §10
+    12        24          3         5.1%      ← ADOPTED
+    16–20   32–40         3         5.1%
+    24        48          2         3.4%
+
+⇒ The band at n=6 spans **183.1 → 4068.7, a 22.2× spread**, against a budget that is always ~3,650.
+***THE GATE HAS BEEN REPORTING A RESOLUTION IT DOES NOT HAVE, AND THE ONLY REASON IT IS VISIBLE
+TONIGHT IS THAT THE COIN CAME UP THE OTHER WAY.***
+
+### 4. AND THE REFUSALS ARE TWO POPULATIONS, PRINTED IN ONE SENTENCE SHAPE
+    need/n ≤ 1.83   a NOISY BOX under a cheap commit    need 8, 8, 10, 10, 11
+    need/n ≥ 3.83   the DELTA itself eats the budget    need 23, 27, 47
+Nothing observed lies between. `repeats_to_decide`'s docstring already said its number is
+*"a price, not an allowance: the re-run measures its own noise afresh and may refuse again"* —
+and `ci.yml` said **"raise this to what that line says"**.
+⇒ 🔑 ***THE LIMIT LIVED IN A DOCSTRING AND THE INSTRUCTION LIVED IN THE CI FILE, SO THE ONLY
+READER WHO MATTERED — THE ONE LOOKING AT A RED RUN — SAW THE INSTRUCTION AND NOT THE LIMIT.***
+A limit printed anywhere but beside the verdict is a limit the verdict's reader never sees.
+⛔ Obeyed literally it is also just WRONG: `~8` came from one run, and 8 leaves BOTH the
+2026-09-19 refusal (needs 10) and this batch's own push run (needs 11) still refusing. ⛔ For the second population it is worse than wrong —
+`~47` names an act nobody will take, and the move it actually invites is widening the budget,
+which is the one move this gate forbids.
+
+### 5. WHAT LANDED
+- `kernel_delta.price_of_an_answer(need, n)` — the `~N repeats` sentence now carries its own
+  limit, and says which population it is in. Used at **both** print sites (the budget refusal and
+  the new-unit ceiling refusal), because fixing one would have left its twin two hundred lines away.
+- `ci.yml`: `--repeats 6 → 12`, DERIVED from §3 — the smallest n clearing every noise-driven
+  refusal on record, the worst of which needs 11 (§10); and a clause struck that said "this
+  account's Actions refuse every job for billing", false since 2026-09-09.
+- Three arms, and the evidence is the PAIR, not the green: restored **76/76 PASS (rc 0)**, and the
+  old bare line restored as a mutant reddens **3 of 76 (rc 1)** — each on the text it names, with
+  `rc=3` unchanged in every case, so the arms test the SENTENCE and not the verdict.
+  Red-backwards, because the fix had already landed. [[feedback-a-remedy-is-an-ungated-claim]]
+
+### 6. WHAT IS DELIBERATELY NOT DONE
+⛔ **The residue is not chased.** 16 and 20 are also 5.1% and 24 reaches only 3.4%, because what
+remains is the commit-cost kind, where refusing is CORRECT and the gate's own third remedy —
+*make the commit cheaper* — is the real one.
+⛔ **The aggregate `Tests.Coverage` row is not dropped**, though every one of its sub-units
+(`@decl memDestSweep`, `@decl pre_states_have_a_returnable_frame`, `@decl vectorCoverage`,
+`@residue`) reads `ok` while the aggregate refuses. Removing the row that refuses is widening the
+budget under another name.
+⚠️ **This gate is ADVISORY on x86lean** — `master` requires `private-paths` and `trailers` only —
+which is how seven prior refusals landed without anyone aggregating them. That is recorded here
+rather than changed: making it required is a branch-protection act and not this batch's to take.
+
+### 7. THE REPOSITORY ALREADY KNEW, ONE DIRECTORY OVER
+`delta_repair_price.py` states the whole of §4 in its own comments — that `need` "divides by
+|delta − budget|, so a commit landing ON its budget needs an unbounded N — and that N is a fact
+about THE COMMIT, not about the instrument", with a measured worst case of **587,413 repeats a
+side**. It carries `need_R`, the same projection *with the commit taken out of it*, and prints
+its cost in minutes a merge.
+⇒ 🔑 ***THE TYPE-A/TYPE-B SPLIT OF §4 IS THAT TOOL'S `need` vs `need_R`, REDISCOVERED FROM THE
+LEDGER — BECAUSE THE PRICING TOOL'S INSIGHT NEVER REACHED THE GATE THAT PRINTS THE NUMBER.***
+The pricing tool is run when someone is choosing a repair; the gate is read when someone is
+staring at a red CI run, and those are different people on different days. This is the fleet's
+own recurring shape: the answer existed, in a place the party who needed it does not read.
+
+### 8. TWO CLAIMS OF MY OWN, CHECKED RATHER THAN ASSERTED
+- **"every one at `--repeats 6`" was inferred, and I published it before checking.** The setting
+  was `--repeats 2` from 2026-09-04 (`ff5b59c`) and became 6 at `d6d37bc`, 2026-09-06T18:53:36Z —
+  **28 seconds before the ledger's earliest reading.** Too tight to trust a commit clock, so it
+  was measured at the object instead: the two earliest runs (34053170916, 34053751708) carry
+  **12 pass lines = 6 a side**. The claim holds for all 56 ledger readings; it simply had not
+  been earned when it was made.
+- **"it does not move the critical path" was an assertion.** Measured per job on run 35482180621:
+  `selftest (4)` **239.4 min** is the critical path, `kernel-delta` was **44.6 min** at n=6
+  against a 46 min projection from that job's own pass times — so the model is calibrated — and
+  n=10 projects to **~70 min**, still under `selftest (6)` at 98.2 min. No `timeout-minutes` is
+  set on any job, so the ceiling is GitHub's 360 min default.
+
+### 9. THE LANDING ORDER IS A CONSTRAINT, AND IT WAS MEASURED
+This commit CANNOT ride on top of `paris/b4-vectors`. With it there, `kernel_drift --gap` on the
+synthetic merge with `origin/master` exits **2**: the ledger row for base `8e13b60a3` names head
+`badcfadb4`, which is then neither that base's first-parent child nor reachable from it differing
+only in the record. Control: the same check at `da8ba7e` (the PR head, without this commit) is
+**rc 0**. Simulated the other way round — the post-merge world (`origin/master` + `da8ba7e`) with
+this commit cherry-picked on top — the gap reads **0 unrecorded `.lean` steps, rc 0**.
+⇒ So batch 45 merges FIRST, and this lands after it as its own PR, whose CI then runs under the
+`ci.yml` it edits and so actually exercises `--repeats 10`. ⛔ That ordering is not a preference;
+the gate refuses the other one.
+
+### 10. ⛔⛔ THIS DECISION SHIPPED `10` FOR AN HOUR, AND `10` WAS WRONG BY ITS OWN §4
+The number adopted when this entry was first written was **10**. It was derived from the ledger
+**plus one hand-added row for the run I had read** — and the 2026-09-20 batch produced **TWO**
+runs, a push and a pull_request, whose receipts had not yet been recorded. The other one reads
+**delta +600.0, band 3654.5, budget 3351.6 ⇒ it needs n = 11.**
+⇒ 🔑 ***I DERIVED A SETTING FROM A SUBSET AND GENERALISED IT — WHICH IS PRECISELY WHAT §4 ACCUSES
+THE PRINTED `~N` LINE OF DOING. THE DEFECT WAS COMMITTED INSIDE ITS OWN FIX.***
+⚠️ **And note the mechanism, because it is not carelessness and will recur:** the corpus only
+became complete when `ci_verdict_receipt.py --run` was executed for all three owed runs — an act
+that happens AFTER a merge, while the analysis happens BEFORE it. **The instrument that completes
+the evidence runs later in the ritual than the decision it should inform.**
+✅ Caught by re-deriving against the ledger after recording the receipts, rather than trusting the
+figure already written. `12` clears 8, 8, 10, 10 and 11; the three that remain need 23, 27 and 47
+and are the commit-cost kind by §4.
+⭐ **The `REPEATS_BUYABLE = 2.0` threshold is UNCHANGED and is now better supported:** the gap it
+sits in moved from 1.67→3.83 to **1.83→3.83**, and the new point (1.83) lands on the noisy-box
+side, where §4 predicted a cheap commit under a loud box would land.

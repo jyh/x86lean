@@ -504,6 +504,61 @@ def repeats_to_decide(n, se, margin):
     return max(n + 1, int(math.ceil(need)))
 
 
+# ⭐⭐ THE PRICE CARRIES ITS OWN LIMIT, BECAUSE A PROJECTION PRINTED BARE READS AS
+# AN ALLOWANCE. `repeats_to_decide` is explicit in its own docstring that this
+# number is "a price, not an allowance: the re-run measures its own noise afresh
+# and may refuse again" — and that sentence lives in a DOCSTRING, where no reader
+# of a CI log has ever been. What the verdict's reader saw was `~N repeats a side
+# would decide it` with nothing attached, and `.github/workflows/ci.yml` told them
+# to raise the step's `--repeats` to whatever N said. A limit printed anywhere but
+# beside the verdict is a limit the verdict's reader never sees.
+# [[feedback-a-remedy-is-an-ungated-claim]]
+#
+# ⛔ AND THE BARE LINE HID A SPLIT THE COMMENT AT THE PRINT SITE ALREADY KNEW
+# ABOUT: `~8` and `~47` were printed in the SAME SENTENCE SHAPE, and only one of
+# them names an act anybody will ever take. Measured over this repository's own
+# verdict ledger (`docs/ci-kernel-verdicts.jsonl`, 59 `Tests.Coverage` readings,
+# every one taken at `--repeats 6`), the eight refusals fall into two populations
+# with a wide gap and NOTHING in between:
+#
+#     need/n <= 1.83    a NOISY BOX under a cheap commit   (need 8, 8, 10, 10, 11)
+#     need/n >= 3.83    the DELTA itself eats the budget    (need 23, 27, 47)
+#
+# ⇒ The threshold below sits in that gap. It is DERIVED from that corpus rather
+# than chosen: no refusal this repository has ever recorded has a ratio between
+# 1.83 and 3.83. [[feedback-a-category-is-a-hypothesis-about-its-members]]
+#
+# ⭐⭐ AND THIS REPOSITORY ALREADY KNEW, IN A FILE THAT DOES NOT PRINT THE NUMBER.
+# `delta_repair_price.py` says it outright: `need` "divides by |delta - budget|,
+# so a commit landing ON its budget needs an unbounded N — and that N is a fact
+# about THE COMMIT, not about the instrument", with a measured worst case asking
+# for 587,413 repeats a side. It therefore carries `need_R`, THE SAME PROJECTION
+# WITH THE COMMIT TAKEN OUT OF IT, and prints its cost in minutes a merge.
+# ⇒ 🔑 THE SPLIT BELOW IS THAT TOOL'S `need` vs `need_R`, REDISCOVERED FROM THE
+# LEDGER BECAUSE THE PRICING TOOL'S INSIGHT NEVER REACHED THE GATE THAT PRINTS
+# THE NUMBER. The analysis lived one directory over, in the one place a reader
+# staring at a red CI run would never open.
+REPEATS_BUYABLE = 2.0
+
+
+def price_of_an_answer(need, n):
+    """The `~N repeats` sentence WITH the limit that rides beside it.
+
+    Splits a refusal by whether repeats are the lever at all, because the two
+    cases ask opposite acts of the reader: one is bought with wall clock, and
+    the other cannot be bought at any n the gate will ever be given."""
+    ratio = need / n if n else float("inf")
+    if ratio > REPEATS_BUYABLE:
+        return (f"~{need} repeats a side would decide it — but that is "
+                f"{ratio:.1f}x this run's {n}, so THIS IS A COMMIT-COST REFUSAL, "
+                f"NOT A NOISY BOX: the delta sits too close to its budget for "
+                f"repeats to be the lever. Make the commit cheaper")
+    return (f"~{need} repeats a side would decide it — this run's own noise read "
+            f"forward, so it is a PRICE AND NOT AN ALLOWANCE: the re-run measures "
+            f"its noise afresh and may refuse again")
+
+
+
 # ⭐ THE COMPARISON ITSELF, FACTORED OUT SO THERE IS EXACTLY ONE OF IT (D192).
 # `judge_delta` below REFUSES a one-sided unit by design — a unit present on one
 # side only is not a paired measurement — so the NEW-UNIT arm in `verdict()`
@@ -909,7 +964,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
                     refuse = True
                     unresolved_new.append(
                         (u, h, ceil, band,
-                         repeats_to_decide(len(hs), se, abs(h - ceil))))
+                         repeats_to_decide(len(hs), se, abs(h - ceil)), len(hs)))
                 flags.append(f"NEW unit in head: {u} — head {h:.1f} ms measured on "
                              f"{mach}; judged as NEW against a ceiling registered "
                              f"for THE SAME box ({ceil:.1f} ms @on {cm})")
@@ -946,7 +1001,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             refuse = True
             n_side = min(len(bs) or 10**9, len(hs) or 10**9)
             need = repeats_to_decide(n_side, se, abs(d - bud))
-            unresolved.append((u, d, bud, band, need))
+            unresolved.append((u, d, bud, band, need, n_side))
         p(f"{u:<56}{b:>10.1f}{h:>10.1f}{d:>+10.1f}{bandtxt:>9}"
           f"{rng:>9.1f}{bud:>9.1f}  {v}")
     p()
@@ -975,7 +1030,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
         # the band falls as 1/sqrt(n), so the repeats needed rise as the SQUARE
         # of how close the delta sits to its budget. A commit near the line is
         # expensive to judge and that is a fact about the commit, not the gate.
-        for u, d, bud, band, need in unresolved:
+        for u, d, bud, band, need, n_side in unresolved:
             margin = d - bud
             # ⛔ THREE CAUSES, NAMED SEPARATELY. A single "no remedy" sentence
             # covering all of them is the shape where a missing case reads as
@@ -988,7 +1043,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             elif margin == 0:
                 price = "no number of repeats decides a delta sitting exactly ON its budget"
             elif need:
-                price = f"~{need} repeats a side would decide it"
+                price = price_of_an_answer(need, n_side)
             else:
                 price = "the readings carry no spread at all, so nothing here is noise"
             p(f"   · {u}: delta {d:+.1f} vs budget {bud:.1f} "
@@ -1002,7 +1057,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
           f"it. ⚠️ THIS IS NOT A CONVICTION: a new module gets no verdict from this "
           f"gate in either direction. The readings are printed and they are not a "
           f"verdict.")
-        for u, h, ceil, band, need in unresolved_new:
+        for u, h, ceil, band, need, n_side in unresolved_new:
             margin = h - ceil
             if band == float("inf"):
                 price = ("this run has fewer than two readings for it, so it "
@@ -1010,7 +1065,7 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             elif margin == 0:
                 price = "no number of repeats decides a cost sitting exactly ON its ceiling"
             elif need:
-                price = f"~{need} repeats a side would decide it"
+                price = price_of_an_answer(need, n_side)
             else:
                 price = "the readings carry no spread at all, so nothing here is noise"
             p(f"   · {u}: head {h:.1f} vs ceiling {ceil:.1f} "
@@ -1561,6 +1616,30 @@ def selftest():
           f"(range {r3:.0f} → {r12:.0f}; band ±{K_SIGMA*se3:.0f} → ±{K_SIGMA*se12:.0f})")
     if not (same_range and band_fell):
         bad.append("the range is blind to the repeats the band spends")
+
+    # ⭐⭐⭐ THE REFUSAL'S OWN REMEDY, SPLIT — because `~8` and `~47` were printed
+    # in the same sentence shape and only one of them names an act anybody takes.
+    # Derived from this repository's verdict ledger, not imagined: of the seven
+    # `Tests.Coverage` refusals it has recorded, four need n ≤ 10 and three need
+    # n ≥ 23. ⛔ A HEAD OBEYING ci.yml's OLD STANDING INSTRUCTION ("raise --repeats
+    # to what that line says") WOULD READ `~47` AND EITHER SPEND FOUR HOURS OR,
+    # far more likely, quietly widen the budget — the one move this gate forbids.
+    # [[feedback-a-remedy-is-an-ungated-claim]]
+    JIT = [-150.0, 0.0, 150.0, -75.0, 75.0, 0.0]
+    run("a NOISY BOX under a cheap commit is priced as a PRICE, not an allowance",
+        _explicit([1000.0 + x for x in [-500.0, 0.0, 500.0, -250.0, 250.0, 0.0]],
+                  [1050.0 + x for x in [-500.0, 0.0, 500.0, -250.0, 250.0, 0.0]]),
+        None, {"M": ("abs", 500.0)}, 3, "PRICE AND NOT AN ALLOWANCE")
+    run("a delta that sits near its budget says REPEATS ARE NOT THE LEVER",
+        _explicit([1000.0 + x for x in JIT], [1450.0 + x for x in JIT]),
+        None, {"M": ("abs", 500.0)}, 3, "COMMIT-COST REFUSAL")
+    # ⛔ THE ARM THAT PROVES THE TWO ABOVE ARE NOT ONE ARM WEARING TWO NAMES: the
+    # SAME dispersion, the same budget, and only the delta moves — so the split is
+    # driven by the margin to the budget and NOT by how noisy the box was, which
+    # is the whole claim. [[feedback-two-arms-that-agree-to-the-case]]
+    run("…and at the SAME dispersion a delta further from its budget is buyable",
+        _explicit([1000.0 + x for x in JIT], [1380.0 + x for x in JIT]),
+        None, {"M": ("abs", 500.0)}, 3, "PRICE AND NOT AN ALLOWANCE")
 
     # ⛔ THE COIN FLIP THE OLD RULE DELIVERED AS A VERDICT. A commit sitting
     # exactly on its budget cannot be called by any run with noise in it, and on
