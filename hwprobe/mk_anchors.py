@@ -35,6 +35,9 @@ right is mk_rows.py's rules and the processor's reading; what makes the MODEL ri
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+import portable as P  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
@@ -306,6 +309,13 @@ def selftest():
 
 
 def main(argv):
+    # ⛔ THIS CARRIED A HAND-ROLLED COPY of portable.strict_flags (reject any `--flag`, exit 2).
+    # The behaviour was RIGHT — measured rc 2 — but a duplicate is invisible to
+    # `check_flag_strictness`, which recognises `strict_flags` and `argparse` and nothing else, so
+    # this file read as UNPROTECTED to the one gate that asks the question. A shared helper
+    # declining your case is a reason to widen the factoring; one that already fits is a reason to
+    # stop copying it. rc moves 2 -> 1; nothing reads it (CI and preflight use --check/--selftest).
+    P.strict_flags(__file__, argv)
     if "--selftest" in argv:
         return selftest()
     if "--check" in argv:
@@ -315,10 +325,6 @@ def main(argv):
         if not bad:
             print("✅ Tests/Anchors.lean carries mk_anchors.py's block byte for byte (%d lines)" % len(block()))
         return 1 if bad else 0
-    unknown = [a for a in argv if a.startswith("--")]
-    if unknown:
-        print("mk_anchors: unknown flag(s) %s" % unknown)
-        return 2
     print("\n".join(block()))
     return 0
 
