@@ -860,6 +860,67 @@ theorem step_movx (k : MovxKind) (dsz ssz : Size) (r r' : GPR) (h : Live s) :
     (step ⟨.movx k dsz ssz r (.reg r'), len⟩ s).mem = s.mem := by
   rw [step_movx k dsz ssz r r' h]
 
+/-! ### ⭐⭐ S1 (desk `PE`): MOVZX/MOVSX AT A **MEMORY** SOURCE, WHICH THE ROUTINE ACTUALLY USES
+
+`step_movx` above is stated for a REGISTER source only (`.reg r'`), and v1 §1.6 named that as the
+first missing piece of the CRC-32 proof's interface: the routine's table walk begins
+`movzbl (%rsi,%rcx), %ecx` — a BYTE LOAD, extended, into the index. Without this equation a proof
+of that instruction has to unfold `step` itself, which is exactly what the proof interface exists
+to stop.
+
+⚠️ THE ADDRESS CARRIES `nextRip`, AND THAT IS NOT DECORATION: `Ea.addr` reads it for a RIP-relative
+operand (`X86/Semantics.lean:52`), so the effect of a load genuinely depends on the instruction's
+own length. Stating it with a bare `ea.addr s s.rip` would be false for every `ripRel` source and
+would typecheck.
+
+⛔⛔ AND `ea.lock = false` IS A REAL PRECONDITION, NOT BOILERPLATE — THE FIRST DRAFT OMITTED IT AND
+WAS FALSE. `Op.lockIllegal` is `anyLocked && !lockable`, and `movx`'s destination is a REGISTER, so
+`movx` is not on the SDM's lockable list: a `lock` prefix on this form is #UD and `step` halts.
+Without the hypothesis the goal that survives is exactly
+
+    ⊢ ea.lock = true → s.halt (MsErr.byDesign "lock prefix on a form the SDM does not permit it on
+      (#UD)") = { regs := … }
+
+⇒ 🔑 ***THE OMISSION IS INVISIBLE IN THE STATEMENT AND LOUD IN THE PROOF*** — the equation reads
+perfectly well without it, and only elaboration knows the guard is there. It is the same shape as
+`step_ret_taken`'s `canonical [rsp]` side condition, which v1 §1.6 records for the same reason:
+*without it the theorem is FALSE*. This is red-first evidence obtained the honest way — the arm
+failed before the hypothesis existed, not after a mutation.
+-/
+
+/-- MOVZX / MOVSX / MOVSXD from MEMORY: the source is read at `ssz` from the effective address,
+extended, and written at `dsz`. -/
+theorem step_movx_memsrc (k : MovxKind) (dsz ssz : Size) (r : GPR) (ea : Ea) (h : Live s)
+    (hlk : ea.lock = false) :
+    step ⟨.movx k dsz ssz r (.mem ea), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView dsz (s.regs.get r)
+                  (match k with
+                   | .zero => Value.zext ssz (s.readMem ssz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+                   | .sign => Value.sext ssz (s.readMem ssz (ea.addr s (s.rip + BitVec.ofNat 64 len))))),
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  cases k <;> simp [step, h, hlk, Cpu.setReg, Cpu.setRip, Cpu.readOperand, Cpu.getReg,
+    Operand.locked]
+
+/-- …and its FRAME: a load writes no flag. -/
+@[simp] theorem step_movx_memsrc_flags (k : MovxKind) (dsz ssz : Size) (r : GPR) (ea : Ea)
+    (h : Live s) (hlk : ea.lock = false) :
+    (step ⟨.movx k dsz ssz r (.mem ea), len⟩ s).flags = s.flags := by
+  rw [step_movx_memsrc k dsz ssz r ea h hlk]
+
+/-- …draws no oracle bit. -/
+@[simp] theorem step_movx_memsrc_oracle (k : MovxKind) (dsz ssz : Size) (r : GPR) (ea : Ea)
+    (h : Live s) (hlk : ea.lock = false) :
+    (step ⟨.movx k dsz ssz r (.mem ea), len⟩ s).oracle = s.oracle := by
+  rw [step_movx_memsrc k dsz ssz r ea h hlk]
+
+/-- …and, being a LOAD, leaves memory entirely alone.  This is the half the frame pack needs and
+the half a reader is most likely to assume rather than check. -/
+@[simp] theorem step_movx_memsrc_mem (k : MovxKind) (dsz ssz : Size) (r : GPR) (ea : Ea)
+    (h : Live s) (hlk : ea.lock = false) :
+    (step ⟨.movx k dsz ssz r (.mem ea), len⟩ s).mem = s.mem := by
+  rw [step_movx_memsrc k dsz ssz r ea h hlk]
+
 /-- ⭐ `cqto` WRITES RDX AND LEAVES RAX ALONE.  `regs` is updated at `.rdx` only,
 which is the frame claim the `98`/`99` opcode pair turns on: one trio widens the
 accumulator, the other fills a register the operands never name. -/
