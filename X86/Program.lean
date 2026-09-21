@@ -516,6 +516,22 @@ theorem not_isZero_iff (sz : Size) (v : Val) :
     Value.isZero sz v = false ↔ Value.trunc sz v ≠ 0 := by
   simp [Value.isZero]
 
+/-- ⭐⭐ S1 (desk `PE`): THE BYTE-INDEX BOUND — the INTRODUCTION rule the table-read lemma needs.
+
+The CRC-32 table walk indexes a 256-entry table with the low byte of the running value
+(`movzbl` after `xor cl, al`), and the table-read lemma's side condition is `i < 256`.  v1 §1.6
+recorded that nothing in the library could DISCHARGE it: the literal `256` occurred zero times.
+Every rule in the model ELIMINATES a bound; this is the one that introduces one.
+
+⚠️ **THE BOUND IS TIGHT AND WAS CHECKED TO BE.** Stated at `< 255` it is FALSE (at `v = 255`) and
+the build refuses it — driven, so the `256` is the real supremum and not a comfortable over-estimate
+that happens to typecheck. -/
+theorem trunc_b_toNat_lt (v : Val) : (Value.trunc .b v).toNat < 256 := by
+  have h : (Value.trunc .b v).toNat = v.toNat &&& 255 := by
+    simp [Value.trunc, Size.mask]
+  rw [h]
+  exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
+
 /-! ## ⭐⭐⭐ THE HALF-LINE, WHICH PROBLEM 5 NEEDS AND `Region` CANNOT BUILD
 
 `Region base len` is a bounded interval and every lemma above is stated for two of them. A
