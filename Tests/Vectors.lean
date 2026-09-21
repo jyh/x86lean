@@ -3639,6 +3639,83 @@ def vectors : List Vec :=
     , bytes := "660fdf4308", instr := ⟨.vbinm .andn .x0 { base := some .rbx, disp := 8 }, 5⟩ }
   , { id := "andnps_m_unal", mnemonic := "andnps", asm := "andnps 0x8(%rbx), %xmm0"
     , bytes := "0f554308", instr := ⟨.vbinm .andnps .x0 { base := some .rbx, disp := 8 }, 4⟩ }
+  -- ⭐⭐⭐ S1 (desk `PE`, council 2026-09-21 — the Captain: "fire v1 as priced").
+  -- THE FIVE FORMS THE CRC-32 ROUTINE EXECUTES AND NO VECTOR COVERED.
+  --
+  -- PROPOSAL v1 §1.3 measured the gap and this block closes it.  x86lean's
+  -- coverage gate binds at the MNEMONIC (`Tests/Coverage.lean:16-17`), so every
+  -- mnemonic the routine uses already had a row while four of its FORMS had no
+  -- differential evidence at all.  Re-measured here at the object before writing
+  -- a line, over all 1,107 entries with a firing control on each needle:
+  --
+  --   mov .d reg <- imm        0 entries   (only the `.q` reg-imm form is vectored)
+  --   un .not .d               1 entry, `not_m_l` — MEMORY only; the register form is absent
+  --   mem with index, no base  0 entries   (the one `index :=` vector is a `lea` WITH a base)
+  --   ripRel                   1 entry, `cmp_rip_q` — and its disp is NEGATIVE
+  --
+  -- ⛔ THE ADDRESS IS RBX-INDEXED, NOT RCX-INDEXED, AND THAT IS FORCED.  The
+  -- routine's own form is `xor eax, [rcx*4 + disp]`, where RCX is a table index
+  -- bounded to 0..255 by the `movzx`/`xor cl,al` pair that precedes it.  In this
+  -- harness RCX carries a swept ADVERSARIAL 64-bit value (`mkPre`), so `rcx*4 +
+  -- disp` addresses wild memory in every pre-state and lands outside both watched
+  -- windows — where our `Mem` reads 0 for an unwritten byte and the ACL2 driver
+  -- renders an unmapped read as `00`, so BOTH MODELS WOULD AGREE ON ZEROES and
+  -- the vector would pass by construction.  That is the batch-12 `leaveq` trap
+  -- and P1 batch 15's DF trap, arriving a third time.
+  -- ⇒ The index is RBX (fixed at 0x2000 in every pre-state, like RSP/RSI/RDI) and
+  -- the displacement COMPENSATES: 0x2000*4 = 0x8000, less 0x6000, is 0x2000 — the
+  -- swept data word `[0x2000] = RCX`, inside the data window (0x1fe0, 64 bytes).
+  -- So the ADDRESS is constant across pre-states and the VALUE LOADED SWEEPS,
+  -- which is exactly the shape every existing `M .rbx` vector already has.
+  -- ⭐ AND THE SCALE IS LOAD-BEARING AT 4: a model that read the index as a BASE
+  -- agrees with this one at scale 1 and disagrees here; one that dropped the
+  -- displacement reads 0x8000, which is the STACK window and therefore watched;
+  -- one that dropped the scale reads 0x2000-0x6000, far outside both.  All three
+  -- wrong readings are observable, which is what makes the green mean something.
+  -- ⛔ AND THE DISP IS NOT A SECOND SPELLING OF THE SAME TEST: `cmp_rip_q` already
+  -- carries a NEGATIVE rip-relative displacement, so `lea_rip_q` below carries a
+  -- POSITIVE one.  Two vectors, two signs, one sign-extension rule.
+  --
+  -- ⭐ THE BYTES AND LENGTHS ARE CLANG'S, read out of `objdump -d` on the same
+  -- `-target x86_64-unknown-linux-gnu` recipe `scripts/check_encodings.py` uses to
+  -- re-derive them in CI.  Nothing in this block was typed from the SDM.
+  , { id := "mov_ri_d", mnemonic := "mov", asm := "movl $0xffffffff, %eax"
+    , bytes := "b8ffffffff"
+    , instr := ⟨.mov .d (R .rax) (.imm 0xffffffff), 5⟩ }
+  -- ⚠️ THE CONTENT OF THIS ONE IS THE WRITE, NOT THE READ.  `readOperand` truncates
+  -- an immediate to the operand size (`Value.trunc sz v`), so the `.imm` field's
+  -- upper bits are inert and the vector cannot be wrong about them.  What it tests
+  -- is that a `.d` destination ZERO-EXTENDS to 64 bits: v1 §1.3 records that the
+  -- §1.4 execution probe reads `getReg .d .rax` from a zero start and is therefore
+  -- STRUCTURALLY BLIND to a `.d` write that fails to zero-extend.  Only the
+  -- differential sees that class, and only through a form like this one.
+  , { id := "not_r_d", mnemonic := "not", asm := "notl %eax"
+    , bytes := "f7d0", instr := ⟨.un .not .d (R .rax), 2⟩ }
+  , { id := "xor_rm_sib_nobase_d", mnemonic := "xor", asm := "xorl -0x6000(,%rbx,4), %eax"
+    , bytes := "33049d00a0ffff"
+    , instr := ⟨.bin .xor .d (R .rax)
+                (.mem { index := some .rbx, scale := .s4, disp := 0xffffffffffffa000 }), 7⟩ }
+  -- ⚠️ THE DESTINATION IS `%rax`, NOT THE `%r8` THE ROUTINE USES, AND THE REASON IS AN
+  -- INSTRUMENT LIMIT WORTH STATING RATHER THAN WORKING AROUND SILENTLY.
+  -- `scripts/claimed_forms.py` spans a ModR/M register field by PERTURBING it across
+  -- `BANKS`, whose indices are 1..5 — so the three bits of the field are operand bits
+  -- and ANY of the sixteen low encodings matches, `%rax` included.  `%r8` needs REX.R,
+  -- which is a bit in the REX PREFIX BYTE that no bank moves, so it stays frozen in
+  -- every skeleton and a vector carrying it resolves to NO ROSTER ROW.  Measured: of
+  -- 1,112 vectors exactly TWO name an extended register, and the other (`cvttss2si_x5_r9`)
+  -- passes only because SIMD forms are EXEMPT from this P1 gate — so no scalar vector
+  -- has ever exercised REX.R, and this one would have been the first.
+  -- ⇒ The content v1 §1.3 asked for here is the RIP-RELATIVE ADDRESS, which `%rax`
+  -- carries in full.  The extended-register dimension is a DIFFERENT axis, it is
+  -- genuinely uncovered for scalar forms, and widening `RIDX`/`BANKS` to reach it is a
+  -- change to a load-bearing gate that this batch does not need.  Declared, not hidden.
+  , { id := "lea_rip_q", mnemonic := "lea", asm := "leaq 0x1234(%rip), %rax"
+    , bytes := "488d0534120000"
+    , instr := ⟨.lea .q .rax { ripRel := true, disp := 0x1234 }, 7⟩ }
+  , { id := "mov_mr_sib_nobase_d", mnemonic := "mov", asm := "movl %eax, -0x6000(,%rbx,4)"
+    , bytes := "89049d00a0ffff"
+    , instr := ⟨.mov .d (.mem { index := some .rbx, scale := .s4, disp := 0xffffffffffffa000 })
+                (R .rax), 7⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

@@ -585,7 +585,21 @@ IMMS = {
 # several encodings of `m`, and a vector may use any of them, so each is its own
 # form of the same row.  {B} is the base register, {D} the displacement.
 MODES = ["({B})", "{D8}({B})", "{D32}({B})", "{D8}({B},%rcx,4)",
-         "{D32}(%rip)"]
+         "{D32}(%rip)",
+         # ⭐ S1 (desk `PE`): THE BASE-LESS SCALED INDEX, `disp32(,index,4)`.  The
+         # machine has this mode (ModR/M mod=00 r/m=100 with SIB base=101, which
+         # forces a disp32) and the CRC-32 routine's table read USES it, but no
+         # mode here could express it, so a vector using one resolved to NO ROSTER
+         # ROW and this gate reported a FINDING about a form the roster genuinely
+         # covers (`xor r,m` and `mov m,r` both do).
+         # ⛔ THE INDEX IS `{B}`, NOT A HARD-CODED `%rcx` LIKE THE MODE ABOVE IT,
+         # AND THAT IS THE POINT.  `{B}` is substituted from `MBASE` = (6,3,1,2),
+         # whose three low bits all vary, so the SIB INDEX FIELD BECOMES AN
+         # OPERAND BIT and a vector may use any index.  Hard-coding `%rcx` would
+         # freeze those three bits into the skeleton, and the only pre-existing
+         # vector with an index happens to use `%rcx` — so the freeze has never
+         # been paid for and would have silently refused every other index.
+         "{D32}(,{B},4)"]
 # ⛔ THESE PAIRS MUST BE TRUE BITWISE COMPLEMENTS, SIGN BIT INCLUDED.  The first
 # version of this table used 0x6dcba987 as the "complement" of 0x12345678 --
 # every bit but the TOP one -- so bit 31 of every displacement was frozen into
