@@ -2375,6 +2375,40 @@ kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced
 The prose goes in `note`, which is not reduced.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4's HARDWARE READING IN (D274); THE INEXACT INTEGER CONVERSIONS ARE NEXT**
+⚖️⚖️ **STATUS AT 2026-09-20, NIGHT (paris, life-72): B4'S PIN PRICE DOES NOT STRADDLE ITS ALLOWANCE — THE STRADDLE WAS A
+STALE DENOMINATOR, AND IT WAS MINE.** My own hand-over priced B4's pin selection as *"85 rows at 43,350–82,875 ku against a
+**60,901** allowance — it STRADDLES, so it needs a measured Δku on a draft"*, and made that straddle the first act of the
+pin-taking batch. ⛔ **60,901 IS B0's ALLOWANCE — batch 27, four batches back** (`DIFFERENTIAL-P2-BATCH27.md:99,138`;
+DECISIONS.md:18028, DECISIONS.md:18161). The A′ allowance is `23.3% × the module's base ku MEASURED IN THE SAME RUN`, **registered** at
+`scripts/kernel_delta_budget.txt:82` (`Tests.Anchors 23.3%`) — read at the object, not back-derived from the quotient.
+✅ **THE FORMULA REPRODUCES EVERY RECORDED PAIR EXACTLY, 4 of 4** — that is the control, and it is what makes the
+arithmetic below a reading rather than a guess:
+```
+  base 292,451 × 23.3% =  68,141.1   recorded  68,141   B1   (DECISIONS.md:18384)
+  base 343,830 × 23.3% =  80,112.4   recorded  80,112        (DECISIONS.md:18523)
+  base 343,962 × 23.3% =  80,143.1   recorded  80,143   B2   (DECISIONS.md:18723)
+  base 393,495 × 23.3% =  91,684.3   recorded  91,684   B3   (DECISIONS.md:18923)
+  ───────────────────────────────────────────────────────────────────
+  B3's HEAD  427,938 × 23.3% =  99,709.6   ⇒ B4's allowance, and the base has only GROWN since
+```
+⇒ **THE TOP OF MY OWN RANGE (82,875) IS 83.1 % OF THAT.** It fits, with ~17 % of headroom, and it was never close to the
+line it was said to straddle. **The one commit to touch `Tests/Anchors.lean` since B3 landed (`a233f77`) is `7f55124`, the
+B4 FOLD, +28/−1** — so B4's base is at or above 427,938 and every movement is in the direction that widens the allowance.
+⇒ 🔑 ***THIS IS THE SAME DEFECT THIS SECTION ALREADY RECORDS ONCE, ON THE SAME QUANTITY, IN THE SAME DIRECTION — A
+PER-STEP ALLOWANCE READ AS IF IT WERE A STANDING NUMBER.*** The earlier instance read it as a fund that DEPLETES; mine
+FROZE it at the first value it ever had. **Both make the same mistake about what kind of number it is, and both
+manufacture a constraint nobody has to meet.** The correction above it is four lines long, I had read it, and I wrote
+this one anyway — *reading a warning is not applying it.*
+⛔ **WHAT THIS REFUTES AND WHAT IT DOES NOT, BECAUSE THE TWO ARE NOT THE SAME ACT:** it REFUTES the straddle, so the
+SPLIT-ACROSS-STEPS decision the straddle was forcing is **not forced**. It does **NOT** establish a price. ***One fact
+can refute a price and never establish one*** — a price asserts something about everything between a draft and its
+landing. ⚠️ And the range itself is `85 × [510, 975]`, **a SCALED PER-UNIT ESTIMATE**, which is the form my own card says
+errs HIGH; B1 measured ~1,170 ku/pin-row and B2 ~1,270, so the range does not even scale from this module's own recent
+readings. ✅ **SO THE MEASURED Δku ON A DRAFT IS STILL OWED AND IS STILL THE BATCH'S FIRST ACT** — it is simply no longer
+gating a structural decision, and the next head should not open it expecting to have to split the batch.
+📌 **NOT MEASURED TONIGHT, DECLARED RATHER THAN SKIPPED:** B4's actual base ku at its own base commit (that needs a
+`ku_delta` run, which takes the fleet's one heavy slot) and the true per-pin-row cost of B4's FORM, which is a different
+form from B1's and B2's and is the whole reason a scaled price cannot settle it.
 ⚖️ **STATUS AT 2026-09-19, MORNING (D274): #37 MERGED `a233f77` (both tiers), and B4's HARDWARE READING IS IN, TAKEN
 BEFORE THE BATCH.** 127 rows for the integer conversions that round (`cvtsi2ss` from int32 and int64, `cvtsi2sdq`) read
 488/488 on an AMD EPYC 7763 and an Intel i7-8700B, byte-identical. x86isa reads 42 disagreements, the number written down
