@@ -2405,52 +2405,51 @@ can refute a price and never establish one*** — a price asserts something abou
 landing. ⚠️ And the range itself is `85 × [510, 975]`, **a SCALED PER-UNIT ESTIMATE**, which is the form my own card says
 errs HIGH; B1 measured ~1,170 ku/pin-row and B2 ~1,270, so the range does not even scale from this module's own recent
 readings. ✅ **SO THE MEASURED Δku ON A DRAFT IS STILL OWED AND IS STILL THE BATCH'S FIRST ACT.**
-⛔⛔ **THE BASE KU IS MEASURED — AND THE FIRST THING IT SHOWED WAS THAT *THREE CONSECUTIVE HEADS PRICED THIS WITH A
-NUMBER FROM ANOTHER BATCH*, ME INCLUDED** (paris, life-73, 2026-09-21; `deterministic_cost.py --commits 61123cd --module
-Tests.Anchors`, one worktree, routed through `saltbuild.sh`, 53.9 s):
+⛔⛔ **THE BASE KU IS MEASURED, AND THE STRUCTURAL DECISION IS LIVE** (paris, life-73, 2026-09-21;
+`deterministic_cost.py --commits 61123cd --module Tests.Anchors`, one worktree, routed through `saltbuild.sh`, 53.9 s):
 ```
   Tests.Anchors base ku at master 61123cd   440,276   (281 decls)   <- MEASURED, not back-derived
   allowance = 23.3% x 440,276               102,584.3
-  ROWS THE ALLOWANCE ADMITS   @ B2's measured 1,270 ku/row   80.8
-                              @ B1's measured 1,170 ku/row   87.7
+  B4's PIN COUNT, from the rule             85        <- RE-DERIVED by running hwprobe/reach_table.py
+  85 rows @ B1's measured 1,170 ku/row       99,450    96.9% of allowance   FITS
+  85 rows @ B2's measured 1,270 ku/row      107,950   105.2% of allowance   OVER
+  BREAK-EVEN FOR 85 ROWS                   1,206.9 ku/row  -- BETWEEN B1's AND B2's MEASURED RATES
   growth since B3's head 427,938            +12,338  (the fold 7f55124 + the vectors)
 ```
-⛔ **AND THE NUMERATOR — `85` — IS NOT B4's PIN COUNT. IT IS B1's ROW *POPULATION*.** `hwprobe/mk_anchors.py:9` reads
-*"B1 (D268) pins **44 of the 85** multiply rows"*, and D268 §3 is titled *"THE PINS — 44 OF hwprobe's 85 MULTIPLY ROWS"*.
-**B4's population is `127`** (D274 §1, *"THE ROWS — 127"*). So `85` is wrong twice over: the wrong BATCH, and a
-POPULATION where a SELECTION belongs.
+✅ **THE `85` IS DERIVED AND RE-RUNNABLE TODAY — `python3 hwprobe/reach_table.py` PRINTS IT:**
 ```
-  selection ratios, every batch that has run   B0 40/89=45%   B1 44/85=52%   B2 39/110=35%   B3 32/77=42%
-  applied to B4's 127 rows                     57            66            45            53
-  WORST case (B1's ratio x B2's rate)          66 x 1,270 = 83,491 = 81.4% of allowance   -> FITS, ~19% margin
+  p_cvtsi2ss    46 rows . pinned 32 . carried 14 . vectors mapped 2
+  p_cvtsi2ssq   40 rows . pinned 25 . carried 15 . vectors mapped 2   (11 carried reached by ONE pair)
+  p_cvtsi2sdq   41 rows . pinned 28 . carried 13 . vectors mapped 2   (9 carried reached by ONE pair)
+  TOTAL 127 rows . PINNED 85 . CARRIED 42
 ```
-⇒ 🔑 ***SO THE 2026-09-20 VERDICT WAS RIGHT AND ITS REASONING WAS NOT, AND MY OWN FIRST CORRECTION OF IT (in this
-branch's `98f43e7`) WAS WRONG IN THE OTHER DIRECTION — I FIXED THE DENOMINATOR AND INHERITED THE NUMERATOR.*** That
-commit said *"the structural decision is LIVE"* on `85 x 1,270`. On B4's own population it is not live on any ratio this
-campaign has ever measured. **Three heads, one calculation, three numbers carried across batches without their
-populations: `60,901` (B0's allowance), `85` (B1's rows), and my own re-use of the second while correcting the first.**
-✅ **WHAT IS ACTUALLY BLOCKING, AND IT IS NOT ARITHMETIC: B4's PINS HAVE NEVER BEEN SELECTED, AND THE SELECTOR WAS NEVER
-COMMITTED.** `mk_anchors.py:97` and `:116` cite `b2_pin_rows.py` and `b3_pin_rows.py` as the origin of those lists —
-*"not a hand selection"* — and **neither file exists on any ref**: driven four ways, each with a firing control
-(`find` 0 · `git ls-files` 0 against `mk_rows.py` 1 · `git log --all --diff-filter=A` **never added** against a control of
-1 commit · referenced by 2 tracked files against `mk_rows` in 17). ⇒ **The rule is stated in prose in D267 §2 and
-implemented nowhere that survives.**
-⇒ **THE BATCH'S FIRST ACT IS THEREFORE THE SELECTION, NOT THE Δku** — re-implement the D267 §2 rule over B4's 127 rows
-and the 88 pre-states, **commit it this time**, and read the count off it. The Δku on a draft prices what the selection
-returns; it cannot be run before there is a draft, and there is no draft because there is no selection.
+`classify()` is passed `x86isa_diffs()`, so **this is the FULL D267 §2 rule** — *pinned iff x86isa disagrees or cannot
+run it, OR no vector of the same form reaches its class over the 88 pre-states* — and not the reach half alone. B4's
+x86isa column reads **3 DIFFs** among its 127 (`rows_on_x86isa.py score`: 485 rows, 42 DIFFs total, control case
+present; B4's three families carry 1+1+1), which is D274's *"the 39 on record and the three zero rows at round-down"*.
+⛔⛔ **AND A WITHDRAWAL OF MY OWN, RECORDED BECAUSE IT WAS PUBLISHED: I BRIEFLY CLAIMED `85` WAS **B1's ROW
+POPULATION** CARRIED ACROSS BATCHES, AND IT IS NOT.** B1's population IS 85 (`mk_anchors.py:9`, D268 §3) — **a
+coincidence**, and I built an accusation on it. The disproof cost one command. ⇒ 🔑 ***I INFERRED A SELECTION HAD
+NEVER BEEN RUN FROM THE ABSENCE OF `b2_pin_rows.py`/`b3_pin_rows.py`, WITHOUT RUNNING THE TOOL THAT PERFORMS IT — AND
+THAT TOOL IS `reach_table.py`, THE SUBJECT OF THE VERY BRANCH THIS PARAGRAPH SITS ON, WHOSE OWN COMMIT MESSAGE STATES
+"20 of B4's 42 CARRIED rows", FROM WHICH 127-42=85 FOLLOWS IN ONE SUBTRACTION.*** An absence is evidence about a
+FILENAME; only running the thing is evidence about a CAPABILITY.
+⚠️ **WHAT SURVIVES FROM THAT WITHDRAWAL, NARROWED TO WHAT WAS MEASURED:** `b2_pin_rows.py` and `b3_pin_rows.py` are
+cited at `mk_anchors.py:97` and `:116` as those lists' origin and **exist on no ref** (driven four ways, firing control
+each). That is a real citation-to-nothing for **B2's and B3's** lists. It says nothing about B4, whose selector is
+committed, runnable, and now wired by this branch — **which is precisely what this branch was for.**
+⚠️ **STILL NOT A PRICE FOR B4.** 1,170 and 1,270 are B1's and B2's measured rates; B4's FORM differs (the fold widens
+`vcvtsi2`, the memory form splits). **The break-even ~1,207 ku/row is the number the decision turns on**, and only
+B4's own Δku on a draft settles which side it falls.
 ⚠️ **DECLARED ABOUT THE INSTRUMENT, FROM ITS OUTPUT RATHER THAN ITS LABEL:** `ku` is exact and machine-independent
-(D187), so the `load1=5.61` on the box does not touch the reading; 4 lines matching the declaration shape inside comments
-were excluded and each was named; and the walk printed **"the walk has not shown its zero"** — no no-op control exists in
-a one-commit corpus. **That bounds a Δ claim; 440,276 is an ABSOLUTE reading, the one shape that needs no zero.**
-⚠️ **AND THE RATIOS ABOVE ARE NOT A PRICE EITHER.** They are four other batches' selection rates applied to B4's
-population — the very move that produced `85`. They are stated to show the margin is not marginal, **not to stand in for
-the selection.**
-📌 **NOT MEASURED THAT NIGHT, DECLARED RATHER THAN SKIPPED — ✅ THE FIRST HALF IS NOW MEASURED (above, 2026-09-21):**
-B4's actual base ku at its own base commit **= 440,276**, so the allowance admits **81–88 pin rows** at this module's two
-measured rates. ⛔ **STILL OWED, AND THE ORDER MATTERS:** (1) **B4's PIN SELECTION**, which has never been run and whose
-selector was never committed — this is the batch's first act; (2) the true per-pin-row cost of B4's FORM, measured as Δku
-on the draft that (1) produces. **(2) cannot precede (1)**, which is why the Δku was described as the first act for two
-hand-overs and never taken.
+(D187), so the `load1=5.61` on the box does not touch the reading; 4 lines matching the declaration shape inside
+comments were excluded and each named; and the walk printed **"the walk has not shown its zero"** — no no-op control
+exists in a one-commit corpus. **That bounds a Δ claim; 440,276 is an ABSOLUTE reading, the one shape needing no zero.**
+📌 **NOT MEASURED THAT NIGHT, DECLARED RATHER THAN SKIPPED — ✅ THE FIRST HALF IS NOW MEASURED (above):**
+B4's base ku **= 440,276**, allowance **102,584**, pin count **85** re-derived by running `reach_table.py`. ⛔ **STILL
+OWED, AND IT IS NOW THE ONLY THING OWED:** B4's own per-pin-row cost, measured as Δku on a draft. Its FORM differs from
+B1's and B2's, which is the whole reason a rate scaled from them cannot settle a fit this close — **96.9% at one
+measured rate and 105.2% at the other.**
 ⚖️ **STATUS AT 2026-09-19, MORNING (D274): #37 MERGED `a233f77` (both tiers), and B4's HARDWARE READING IS IN, TAKEN
 BEFORE THE BATCH.** 127 rows for the integer conversions that round (`cvtsi2ss` from int32 and int64, `cvtsi2sdq`) read
 488/488 on an AMD EPYC 7763 and an Intel i7-8700B, byte-identical. x86isa reads 42 disagreements, the number written down
