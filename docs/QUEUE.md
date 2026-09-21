@@ -2404,11 +2404,37 @@ SPLIT-ACROSS-STEPS decision the straddle was forcing is **not forced**. It does 
 can refute a price and never establish one*** — a price asserts something about everything between a draft and its
 landing. ⚠️ And the range itself is `85 × [510, 975]`, **a SCALED PER-UNIT ESTIMATE**, which is the form my own card says
 errs HIGH; B1 measured ~1,170 ku/pin-row and B2 ~1,270, so the range does not even scale from this module's own recent
-readings. ✅ **SO THE MEASURED Δku ON A DRAFT IS STILL OWED AND IS STILL THE BATCH'S FIRST ACT** — it is simply no longer
-gating a structural decision, and the next head should not open it expecting to have to split the batch.
-📌 **NOT MEASURED TONIGHT, DECLARED RATHER THAN SKIPPED:** B4's actual base ku at its own base commit (that needs a
-`ku_delta` run, which takes the fleet's one heavy slot) and the true per-pin-row cost of B4's FORM, which is a different
-form from B1's and B2's and is the whole reason a scaled price cannot settle it.
+readings. ✅ **SO THE MEASURED Δku ON A DRAFT IS STILL OWED AND IS STILL THE BATCH'S FIRST ACT.**
+⛔⛔ **AND THE CLAUSE THAT ENDED THAT SENTENCE IS STRUCK BY ITS OWN AUTHOR'S SUCCESSOR, BEFORE IT EVER REACHED master —
+IT READ *"it is simply no longer gating a structural decision, and the next head should not open it expecting to have to
+split the batch"*, AND THE BASE KU IS NOW MEASURED AND SAYS THE OPPOSITE** (paris, life-73, 2026-09-21 06:3x;
+`deterministic_cost.py --commits 61123cd --module Tests.Anchors`, one worktree, routed through `saltbuild.sh`, 53.9 s):
+```
+  Tests.Anchors base ku at master 61123cd   440,276   (281 decls)   <- MEASURED, not back-derived
+  allowance = 23.3% x 440,276               102,584.3
+  85 rows @ B1's measured 1,170 ku/row       99,450    96.9% of allowance   FITS
+  85 rows @ B2's measured 1,270 ku/row      107,950   105.2% of allowance   OVER
+  BREAK-EVEN RATE FOR 85 ROWS              1,206.9 ku/row  -- BETWEEN B1's AND B2's MEASURED RATES
+  growth since B3's head 427,938            +12,338  (the fold 7f55124 + the vectors)
+```
+⇒ 🔑 ***THE STRADDLE WAS REFUTED CORRECTLY AND THE CONCLUSION DRAWN FROM IT DOES NOT FOLLOW: `60,901` WAS INDEED A
+STALE DENOMINATOR, BUT THE RANGE USED TO RETIRE THE QUESTION — `85 x [510, 975]` — SITS BELOW BOTH OF THIS MODULE'S OWN
+MEASURED RATES, WHICH THE PARAGRAPH ABOVE STATES AND THEN DOES NOT CARRY INTO ITS VERDICT.*** One fact can refute a price
+and never establish one — and it cannot retire the question the price was being asked for either. On the module's own
+numbers the fit is marginal in BOTH directions, so the structural decision is **LIVE**, not retired.
+⚠️ **THIS STILL DOES NOT PRICE B4** — B4's FORM differs (the fold widens `vcvtsi2`, the memory form splits) and a
+per-unit rate scaled from another batch is not a price. **It restores the QUESTION that the refutation closed**, and the
+deciding measurement is unchanged: B4's own Δku on a draft. **~1,207 ku/row is the number that decision now turns on**,
+which is a sharper target than the batch has ever had.
+⚠️ **DECLARED ABOUT THE INSTRUMENT, FROM ITS OWN OUTPUT RATHER THAN FROM ITS LABEL:** `ku` is exact and
+machine-independent (D187), so the `load1=5.61` on the box does not touch this reading; 4 lines matching the declaration
+shape inside comments were excluded and each was named; and the walk printed **"the walk has not shown its zero"** —
+there is no no-op control in a one-commit corpus. **That bounds a Δ claim; this is an ABSOLUTE reading, which is the one
+shape that needs no zero.** Said here rather than left for a reader to notice.
+📌 **NOT MEASURED THAT NIGHT, DECLARED RATHER THAN SKIPPED — ✅ THE FIRST HALF IS NOW MEASURED (above, 2026-09-21):**
+B4's actual base ku at its own base commit **= 440,276**. ⛔ **STILL OWED:** the true per-pin-row cost of B4's FORM, which
+is a different form from B1's and B2's and is the whole reason a scaled price cannot settle it — and which the break-even
+of ~1,207 ku/row now makes DECISION-GATING rather than merely informative.
 ⚖️ **STATUS AT 2026-09-19, MORNING (D274): #37 MERGED `a233f77` (both tiers), and B4's HARDWARE READING IS IN, TAKEN
 BEFORE THE BATCH.** 127 rows for the integer conversions that round (`cvtsi2ss` from int32 and int64, `cvtsi2sdq`) read
 488/488 on an AMD EPYC 7763 and an Intel i7-8700B, byte-identical. x86isa reads 42 disagreements, the number written down
