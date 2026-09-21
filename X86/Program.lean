@@ -532,6 +532,26 @@ theorem trunc_b_toNat_lt (v : Val) : (Value.trunc .b v).toNat < 256 := by
   rw [h]
   exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
+/-- ⭐⭐ S1 (desk `PE`): THE TABLE-READ MEMBERSHIP RULE — the second half of the pair, and the
+consumer of the bound above.
+
+CRC-32 reads a 4-byte table entry at `T + 4*i` with `i < 256`, and `readSize_of_agreeOutside_disjoint`
+asks for `∀ j < sz.bytes, R′ (a + j)` — that EVERY BYTE of the read lies in the region the caller is
+framing against.  This supplies exactly that for a 256-entry table of 32-bit words, so the two
+lemmas compose: `trunc_b_toNat_lt` INTRODUCES `i < 256` from the `movzbl`, and this turns it into
+the membership the frame rule consumes.
+
+⚠️ **THE LENGTH IS 1024 AND NOT 1023, AND THAT IS DRIVEN, NOT ASSERTED.** The last byte read is
+`4*255 + 3 = 1023`, so the region must have length 1024.  Stated at 1023 the lemma is FALSE at
+exactly one index and the build refuses it (`omega could not prove the goal`) — an off-by-one here
+is the kind that typechecks everywhere except the one place it matters. -/
+theorem table_entry_in_region (T : BitVec 64) (i : Nat) (hi : i < 256) (j : Nat) (hj : j < 4) :
+    Region T 1024 (T + BitVec.ofNat 64 (4 * i) + BitVec.ofNat 64 j) := by
+  refine ⟨4 * i + j, by omega, ?_⟩
+  rw [BitVec.add_assoc]
+  congr 1
+  simp [BitVec.ofNat_add]
+
 /-! ## ⭐⭐⭐ THE HALF-LINE, WHICH PROBLEM 5 NEEDS AND `Region` CANNOT BUILD
 
 `Region base len` is a bounded interval and every lemma above is stated for two of them. A
