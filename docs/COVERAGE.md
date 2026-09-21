@@ -14,7 +14,7 @@ Tiers: T-exact 158 · T-frame 26 · T-absent 0.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
-| `mov` | r,r · r,imm · r,m · m,r | T-exact | XED (trusted) | — | Vol. 2A MOV |
+| `mov` | r,r · r,imm · r,m · m,r — r,r all of b/w/l/q · r,imm and r,m at l/q · m,r at b/l/q | T-exact | XED (trusted) | — | Vol. 2A MOV |
 | `add` | r,r — b/q · r,imm (q) · acc,imm · r,m · m,r · m,imm — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A ADD |
 | `sub` | r,r — b/q · r,imm · acc,imm · r,m · m,r · m,imm — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A SUB |
 | `and` | r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · acc,imm · rh | T-frame | XED (trusted) | AF | Vol. 2A AND |
@@ -39,7 +39,7 @@ Tiers: T-exact 158 · T-frame 26 · T-absent 0.
 | `inc` | r · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A INC |
 | `dec` | r · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A DEC |
 | `neg` | r — b/q · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A NEG |
-| `not` | r — q · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A NOT |
+| `not` | r — l/q · m(rmw) — all of b/w/l/q | T-exact | XED (trusted) | — | Vol. 2A NOT |
 | `push` | r · m — q/w · imm (q) | T-exact | XED (trusted) | — | Vol. 2A PUSH |
 | `pop` | r — q · m(w) — q/w | T-exact | XED (trusted) | — | Vol. 2A POP |
 | `jmp` | rel8 · rel32 · r/m64 | T-exact | XED (trusted) | — | Vol. 2A JMP |
