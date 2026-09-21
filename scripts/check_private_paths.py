@@ -1023,7 +1023,13 @@ def self_test() -> int:
     #    self-test stayed rc 0 throughout because no arm reached tree_mode.
     _saved_baseline = BASELINE
     try:
-        globals()["BASELINE"] = os.path.join(tempfile.mkdtemp(), "no-such-baseline.tsv")
+        # ⛔ PREFIXED FOR THIS REPO ONLY: kernel_cost's temp-dir census requires every
+        #    mkdtemp in scripts/ to produce `x86lean-`, and a bare call is an offender with
+        #    no name to attribute it to. salt's copy is bare and correct there -- salt has no
+        #    such gate. A PORT INHERITS THE DESTINATION'S RULES; check_private_paths.py is
+        #    already a per-repo variant, so a prefix here forks nothing that is not forked.
+        globals()["BASELINE"] = os.path.join(
+            tempfile.mkdtemp(prefix="x86lean-privpaths-selftest-"), "no-such-baseline.tsv")
         if load_baseline() is not None:
             failures.append("load_baseline must return None when the baseline file is MISSING, "
                             "never set() -- None and empty are different verdicts")
