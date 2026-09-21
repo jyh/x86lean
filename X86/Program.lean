@@ -129,6 +129,24 @@ def runP (p : Program) : Nat → Cpu → Cpu
   | zero => rfl
   | succ n ih => simp [runP, stepP_stopped p s h, ih s h]
 
+/-- ⭐⭐ S1 (desk `PE`, the CRC-32 fire): RUNS COMPOSE.
+
+`docs/P2-PROOF-INTERFACE.md` listed this as the second of its three open items —
+*"No `runP_add` (`runP p (m+n) = runP p n ∘ runP p m`), which is what lets a proof be
+composed out of per-block runs. Cheap; not yet needed."*  CRC-32 is the routine that
+needs it: R1 proves the ENTRY (3 steps), ONE LOOP PASS (7 steps) and the EXIT (2 steps)
+as separate block runs and glues them, and without this the glue cannot even be STATED.
+
+⚠️ The argument order is the one a block proof wants — `m` first, then `n` — so it reads
+left to right in the same direction the program executes. -/
+theorem runP_add (p : Program) (m n : Nat) (s : Cpu) :
+    runP p (m + n) s = runP p n (runP p m s) := by
+  induction m generalizing s with
+  | zero => simp
+  | succ m ih =>
+    have h : m + 1 + n = (m + n) + 1 := by omega
+    rw [h, runP_succ, runP_succ, ih]
+
 /-! ## ⭐⭐⭐ THE INVARIANT PRINCIPLE — the whole proof interface, proved once
 
 This is the "inductive invariant over the reachable-state relation" arm of the
@@ -448,6 +466,55 @@ theorem cc_direction_pinned (f : Flags) :
     Cc.eval .b (Flags.sub .q 3 5 f) = true ∧ Cc.eval .ae (Flags.sub .q 3 5 f) = false := by
   rw [cc_b_of_sub, cc_ae_of_sub]
   exact ⟨by decide, by decide⟩
+
+/-! ## ⭐⭐⭐ THE ZF BRIDGE — S1 (desk `PE`), AND IT IS THE SEVENTH INSTANCE
+
+`cc_b_of_sub`/`cc_ae_of_sub` above are the UNSIGNED pair, and their own docstring says so
+deliberately: *"the signed conditions rest on `sf`/`of` and are a different lemma, deliberately
+not invented here."*  CRC-32 is the routine that needs the OTHER one, and it needs it TWICE —
+the loop turns on ZF at both ends, once through the LOGICAL group (`test`/`and`) and once
+through the COUNTER (`dec`).  Neither bridge existed: `Flags.logic` and `Flags.dec` say what
+the flags become, `Cc.eval` says which flag a condition reads, and nothing joined them.
+
+⚠️ **SEVENTH INSTANCE** of the pattern this file already records six times — `agreeOutside_write`,
+`region_disjoint_of_le`, the load/`inc` frame lemmas, the half-line, the n-byte write, the guard
+bridge. ⇒ A LIBRARY GROWN ONE PROOF AT A TIME CONTAINS EXACTLY WHAT THE LAST PROOF NEEDED. -/
+
+/-- After any LOGICAL instruction (`and`/`or`/`xor`/`test`), EQUAL is exactly "the result is zero".
+`Flags.logic` forces CF and OF to `false` and leaves AF to the caller's undefined-bit oracle, but
+ZF comes from `fromResult`, so the condition is a statement about the RESULT alone. -/
+@[simp] theorem cc_e_of_logic (sz : Size) (res : Val) (afUndef : Bool) (f : Flags) :
+    Cc.eval .e (Flags.logic sz res afUndef f) = Value.isZero sz res := rfl
+
+/-- …and after `dec a`, NOT-EQUAL is exactly "a − 1 is not zero" — the loop-counter guard, which
+is the form `jne` at the bottom of a counted loop actually reads. -/
+@[simp] theorem cc_ne_of_dec (sz : Size) (a : Val) (f : Flags) :
+    Cc.eval .ne (Flags.dec sz a f) = !Value.isZero sz (Flags.subResult sz a 1) := rfl
+
+/-- ⚠️ **THE DIRECTION, PINNED CONCRETELY**, for exactly the reason `cc_direction_pinned` exists:
+both lemmas above are DEFINITIONAL, so they cannot be vacuous — and they would typecheck just as
+well stated with the sense INVERTED, because the model would simply be reflected wrongly into my
+own words.  A `rfl` proof cannot catch that; only a concrete instance can.
+`and`-ing to 0 SETS equal, a non-zero result CLEARS it; `dec 1` reaches zero and CLEARS not-equal,
+`dec 5` does not and SETS it. -/
+theorem cc_zf_direction_pinned (f : Flags) :
+    Cc.eval .e (Flags.logic .q 0 false f) = true
+    ∧ Cc.eval .e (Flags.logic .q 7 false f) = false
+    ∧ Cc.eval .ne (Flags.dec .q 1 f) = false
+    ∧ Cc.eval .ne (Flags.dec .q 5 f) = true := by
+  refine ⟨?_, ?_, ?_, ?_⟩ <;> rfl
+
+/-- ⭐ AND THE TWO `isZero` LEMMAS THE BRIDGES HAND THEIR CALLER.  `Value.isZero` is a bare `def`
+(`X86/Value.lean:133`) with no lemmas at all, so a proof that reaches one of the bridges above
+lands on a `Bool` and has to unfold a model definition to go anywhere.  These are the two
+directions a guard actually uses. -/
+theorem isZero_iff (sz : Size) (v : Val) :
+    Value.isZero sz v = true ↔ Value.trunc sz v = 0 := by
+  simp [Value.isZero]
+
+theorem not_isZero_iff (sz : Size) (v : Val) :
+    Value.isZero sz v = false ↔ Value.trunc sz v ≠ 0 := by
+  simp [Value.isZero]
 
 /-! ## ⭐⭐⭐ THE HALF-LINE, WHICH PROBLEM 5 NEEDS AND `Region` CANNOT BUILD
 
