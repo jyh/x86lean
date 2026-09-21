@@ -1169,3 +1169,49 @@ jobs:
           test: false
       - name: Kernel-cost gate selftest, every arm driven, control against a 100x probe (PORT-2)
         run: python3 scripts/kernel_cost.py --selftest
+
+  # ⭐⭐⭐ S1 (desk `PE`, council 2026-09-21 — "fire v1 as priced"): THE MODEL LIBRARY
+  # MUST KEEP BUILDING ON SALTBENCH'S HARNESS PIN, v4.27.0.
+  #
+  # WHY THIS IS A GATE AND NOT A NOTE. The CRC-32 proof-of-concept runs its cells
+  # under the SaltBench harness, which is pinned to Lean v4.27.0, while this repo
+  # is pinned to v4.32.0-rc1. Those are different toolchains, and nothing here has
+  # ever checked that `X86` elaborates under the older one. PROPOSAL v1 §2 measured
+  # it by hand on 2026-09-16 (receipts: `pin427-receipts.txt`, `pin427-X86-build.log`
+  # — `saltbuild EXIT=0`, wall_s=15 for `X86`, wall_s=2 for `Tests.Program`), and a
+  # hand measurement is a claim about ONE DAY. The PoC's premise is that this holds
+  # on the day the cells run, so it is welded to the batch trigger like every other
+  # gate in this file.
+  #
+  # ⛔⛔ THE TOOLCHAIN ASSERTION IS THE WHOLE JOB, AND WITHOUT IT THIS IS A FALSE
+  # GREEN GENERATOR. Overriding `lean-toolchain` is a REQUEST; if elan ignored it,
+  # resolved it to the repo default, or `lean-action` restored the file, the build
+  # would pass under v4.32.0-rc1 and report that the harness pin is fine — the one
+  # thing this job exists to deny. So `lean --version` is read back and the job
+  # FAILS unless it says 4.27.0. That is the same control v1's own receipt used
+  # (`elan show` + `lean --version` side by side), promoted from prose to a gate.
+  harness-pin-v4270:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # ⛔ The override is written BEFORE lean-action runs, because lean-action reads
+      # `lean-toolchain` to decide which toolchain to install. Writing it afterwards
+      # installs v4.32.0-rc1 and then asks a v4.27.0 `lean` that is not there.
+      - name: Pin this checkout to the SaltBench harness toolchain
+        run: |
+          echo 'leanprover/lean4:v4.27.0' > lean-toolchain
+          cat lean-toolchain
+      - uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+      - name: ⛔ CONTROL — the toolchain actually in use must be 4.27.0
+        run: |
+          set -euo pipefail
+          lean --version
+          lean --version | grep -F 'version 4.27.0'
+      - name: The model library elaborates on the harness pin
+        run: lake build X86
+      - name: The proof-interface tests elaborate on the harness pin
+        run: lake build Tests.Program
