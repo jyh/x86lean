@@ -126,12 +126,28 @@ reason. Visible in the rows themselves: a want of `0x5a5ac3c34b800000`.
 
 ### A′ — MEASURED ON THE DRAFT, AND THE PREDICTION WAS FILED FIRST
 ```
-  ku_delta --arm a-prime  61123cd99 → 8dbd03680        (yukon.lan, load 4.50)
+  ku_delta --arm a-prime  158c1ec99 → aa60c66a5        (yukon.lan, load 4.48)
     Tests.Anchors      440,286 → 527,317    +87,031    allowance 102,587    84.8 %   CLEAN
     every other module                           +0
-    ms ceilings        X86.Basic 29 % · X86.Syntax 39 % · X86.Theorems 34 % of ceiling
+    ms ceilings        X86.Basic 34 % · X86.Syntax 43 % · X86.Theorems 37 % of ceiling
   gate: ku-delta (a-prime) CLEAN
 ```
+⚠️ **RE-MEASURED AT THE LANDING BASE, AND THE TWO HALVES BEHAVED DIFFERENTLY — WHICH IS THE
+EVIDENCE FOR THE LANDING RULE, NOT A FOOTNOTE TO IT.** The block above was first taken at
+`61123cd99 → 8dbd03680`; the branch was rebased onto `158c1ec` and re-run.
+**The ku figures came back BIT-IDENTICAL** — same base, same head, same delta, same allowance —
+because `ku` counts unfoldings and nothing this batch depends on moved. **The `ms` ceilings moved
+3–5 points on the same code** (29/39/34 % → 34/43/37 %) on box load alone.
+⇒ 🔑 ***A COUNTER SURVIVES A REBASE AND A CLOCK DOES NOT, SO A RECORD THAT CITES BOTH UNDER ONE
+SHA PAIR GOES HALF-STALE SILENTLY*** — the ku half stays true and the ms half quietly stops being
+about this tree. The sha pair is the only thing that says which.
+⚠️ **THE ms ARM RETURNED `rc 3` UNMEASURABLE AT THIS BASE** (`Tests.Anchors` delta +189.0 vs
+budget 216.9, band ±36.1), so D251's landing rule put this step on the **a-prime** verdict — the
+third ledger row to land that way. **Repeats were NOT bought**, deliberately: `kernel_delta`'s own
+price line calls the projection *a price and not an allowance*, the box sat at load ~8, and the
+deterministic arm already decides the batch. **~6 repeats a side (≈20 min) is the act a later head
+can take if the ms reading is ever wanted for this sha; it would not change the landing.**
+
 **B4's own rate is `1,023.9 ku/pin-row`** — the cheapest this module has measured:
 ```
   B4 1,023.9   B3 1,076.3   B1 1,170   B2 1,270      break-even for 85 rows was 1,206.9
