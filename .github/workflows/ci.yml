@@ -70,9 +70,23 @@ name: CI
 # co-simulation will need, and the developer machine is arm64.
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
+# ⚖️ ONE RUN PER SHA (the Captain, council 2026-09-22 §2 ①, "accept all 9"). Until this edit `push`
+# was unscoped, so a PR branch's head ran the WHOLE workflow twice -- once as `push`, once as
+# `pull_request` -- measured by kent as 18 of 24 shas carrying both, 43 % duplication at six shards of
+# 89-273 min, and paid for by a hand-cancel of the push twin on every PR. RULE NOW: `push` fires on the
+# default branch only (so `kernel-delta-redfirst` still concludes on every master push, D224 below);
+# a branch is gated by its PULL REQUEST; `workflow_dispatch` runs a branch with no PR by hand.
+# ⛔ A BRANCH PUSHED WITHOUT A PR GETS NO CI AT ALL -- open the PR (a draft is enough) or dispatch.
+# ⚠️ `scrub.yml` is DELIBERATELY NOT scoped the same way: it runs on every pushed branch, unfiltered, by
+# fleet law, costs seconds, and supplies required checks.
+# ⛔ The THROTTLE rule below ("a branch push runs the BUILD ONLY") had stopped being true before this
+# edit: measured 2026-09-22, no job in this file carries an event condition, which is why every push
+# ran the full matrix. It is kept as history; the RULE is the paragraph above.
+#
 # THROTTLE (the Captain, 2026-09-07 17:4x: "let's throttle the CIs"). Measured before this edit: the
 # selftest matrix is three jobs of 68-88 min EACH, fired on EVERY push to EVERY branch (18 CI runs in
 # the 48 h before the Actions budget ran out at 19:05Z 09-06). The 6-min build and the 5-s scrub are
