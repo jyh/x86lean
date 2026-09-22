@@ -811,4 +811,100 @@ theorem runP_code (p : Program) (I : BitVec 64 → Cpu → Prop)
       rw [stepP_at hst hf]
       exact hstep s.rip i s (at?_mem_at hf) rfl hl hs
 
+/-! ## ⭐⭐⭐ S2/B1 — THE LOADING AND ABI VOCABULARY `crc32_x86_correct` IS STATED OVER
+
+PROPOSAL v1 §3.3 freezes the CRC-32 statement. **Nine of its names existed nowhere in this
+repository**, the perturbation lemma stated beside it adds two more (`InImage`, `Hyps`), and its
+stack band is built from a constant `K` that §3.3 calls *"a declared constant"* and never declares.
+Censused over all 24 tracked `.lean` files — population taken from `git ls-files`, not a glob — on
+three axes (literal case-sensitive, case-insensitive, and a definition-site regex over
+`def|structure|abbrev|inductive|class`), each with a firing control.
+
+⛔⛔ **THE HAND-OVER SAID SIX OF THEM "NEED NOTHING FROM THE OTHER LANE", AND THAT IS FALSE FOR
+THREE OF THE SIX.** Read from the SIGNATURES rather than from the names: `Loaded` and `Separated`
+take an `Image` **as a parameter type**, and `SysVCall`'s BODY names `Submission.prog`. A head
+building "the six" in the order given meets the wall on the second one.
+
+✅ **AND THE WALL IS NOT WHERE IT LOOKED, WHICH IS WHY THIS SECTION PARAMETERISES RATHER THAN
+STUBS.** `Image` is not submission vocabulary at all: the only thing §3.3 ever asks of it is
+`∀ p ∈ img.data, m.read p.1 = p.2` — *a list of (address, byte) pairs*, which is a claim about THIS
+model's memory and nothing else. What belongs to the other lane is the particular INSTANCE
+(`Submission`), never the TYPE. Likewise `SysVCall`'s one submission-shaped clause says only *the
+return address is not inside the program*, which is a fact about **a** program.
+
+⇒ 🔑 ***A STUB IS SWAPPED LATER AND EVERY PROOF WRITTEN AGAINST IT CHURNS; A PARAMETER IS PERMANENT
+AND IS THE HONEST STATEMENT OF WHAT THE PREDICATE ACTUALLY DEPENDS ON.*** The submission lane
+supplies an `Image`, a `Program` and a band size, and nothing in this file moves.
+
+⚠️ **`K` IS A PARAMETER HERE FOR THE SAME REASON, AND THAT IS A REFUSAL TO GUESS.** §3.3 wants a
+single declared constant; the size of a stack band is a fact about the ROUTINE being verified, and
+this file cannot see one. Fixing a number here would put an unmeasured constant into the statement
+every later proof is written against — the expensive direction to be wrong in. -/
+
+/-- A loaded image: the bytes that sit at fixed addresses. **This is x86lean vocabulary, not the
+submission's** — it says only which byte is at which address. -/
+structure Image where
+  data : List (BitVec 64 × BitVec 8)
+
+/-- The image's data bytes at their fixed addresses — region-local by construction. -/
+def Loaded (img : Image) (m : Mem) : Prop := ∀ p ∈ img.data, m.read p.1 = p.2
+
+/-- An address the image claims. The perturbation lemma's `¬ InImage a` side condition. -/
+def InImage (img : Image) (a : BitVec 64) : Prop := ∃ p ∈ img.data, p.1 = a
+
+/-- `bs` sits at `base` — a claim about THOSE addresses only. -/
+def HoldsBytes (m : Mem) (base : BitVec 64) (bs : List UInt8) : Prop :=
+  ∀ i, (h : i < bs.length) → m.read (base + BitVec.ofNat 64 i) = (bs.get ⟨i, h⟩).toBitVec
+
+/-- The SysV AMD64 callee-saved set (§3.2: `rbx rbp r12-r15`), preserved across the call.
+⛔ `rsp` is NOT in this list: it is restored by `ret`, and the statement asserts its value
+separately. Folding it in here would make the predicate true of a routine that never returned. -/
+def CalleeSaved (s t : Cpu) : Prop :=
+  ∀ r ∈ [GPR.rbx, GPR.rbp, GPR.r12, GPR.r13, GPR.r14, GPR.r15],
+    t.getReg .q r = s.getReg .q r
+
+/-- The stack BAND a routine may write: `[rsp0 - K, rsp0)`, with `K` supplied by the caller. -/
+def StackBand (K : Nat) (rsp0 : BitVec 64) : BitVec 64 → Prop :=
+  Region (rsp0 - BitVec.ofNat 64 K) K
+
+/-- The call, over an arbitrary program. `canonical ret` is REQUIRED: without it
+`step_ret_refused_frame` halts at the `ret` instruction's own address and the conclusion is
+false. `prog.at? ret = none` is the "returns OUTSIDE the routine" clause. -/
+def SysVCall (prog : Program) (s : Cpu) (entry buf : BitVec 64) (len : Nat)
+    (ret : BitVec 64) : Prop :=
+  s.rip = entry
+  ∧ s.getReg .q .rdi = buf
+  ∧ s.getReg .q .rsi = BitVec.ofNat 64 len
+  ∧ s.readMem .q (s.getReg .q .rsp) = ret
+  ∧ canonical ret = true
+  ∧ prog.at? ret = none
+
+/-! ### The non-vacuity witnesses, beside the definitions in this file's own idiom
+
+⛔ **A PREDICATE THAT IS ALWAYS TRUE WOULD SATISFY EVERY THEOREM STATED OVER IT AND MEAN NOTHING**,
+and nothing in a build complains about that. `agreeOutside_rfl` sits beside `AgreeOutside` for the
+same reason; these sit beside theirs. The reflexivity lemmas are what a proof USES; the refutation
+below it is the half a vocabulary written from "what will the proof need?" leaves out. -/
+
+/-- A routine that changes nothing preserves the callee-saved set. -/
+@[simp] theorem calleeSaved_rfl (s : Cpu) : CalleeSaved s s := fun _ _ => rfl
+
+/-- ⭐ ...and `CalleeSaved` is NOT trivially true: clobbering `rbx` REFUTES it. Without this
+witness the predicate could be `True` and every theorem above would still hold. -/
+theorem calleeSaved_not_trivial : ¬ CalleeSaved (Cpu.setReg {} .q .rbx 1) {} := by
+  intro h
+  have := h GPR.rbx (by simp)
+  simp [Cpu.getReg, Cpu.setReg] at this
+  exact absurd this (by decide)
+
+/-- The empty image is loaded in any memory — the base case a loader induction needs. -/
+@[simp] theorem loaded_empty (m : Mem) : Loaded ⟨[]⟩ m := fun _ hp => nomatch hp
+
+/-- No address belongs to the empty image. -/
+@[simp] theorem inImage_empty (a : BitVec 64) : ¬ InImage ⟨[]⟩ a := fun ⟨_, hp, _⟩ => nomatch hp
+
+/-- The empty byte list is held anywhere — the base case for a buffer induction. -/
+@[simp] theorem holdsBytes_nil (m : Mem) (b : BitVec 64) : HoldsBytes m b [] :=
+  fun _ h => absurd h (by simp)
+
 end X86
