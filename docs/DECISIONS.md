@@ -19452,3 +19452,88 @@ point: the coverage gate binds at the MNEMONIC, so a full row set is not per-for
 ⚠️ `mov`'s row UNDER-CLAIMS (`m,imm` omitted while `mov_mi_b/w/l/q` resolve to row 183 at all four
 widths). Conservative direction; reported in record 32 and NOT silently widened, because that field
 is walked character-by-character inside a kernel `decide` and has refused a batch twice (D94, D102).
+## D279 — S2's vocabulary is PARAMETERISED, not stubbed; and the census that scoped it was a census of NAMES, not of NEEDS
+
+### 1. THE INHERITED PLAN, AND WHY IT WAS RE-DRIVEN
+My predecessor measured that **9 of `crc32_x86_correct`'s names exist nowhere in this repository**
+(PROPOSAL v1 §3.3), recorded S2 as GATED — *"S2 CANNOT FREEZE ITS STATEMENT WITHOUT A CROSS-LANE
+DECISION ABOUT WHERE THE SUBMISSION SCAFFOLDING LIVES"* — and recommended building **"the SIX
+x86lean-side definitions first (they need nothing from the other lane)"** against a local
+`Submission` STUB. A handed-on diagnosis is a hypothesis, so it was re-driven before being built on.
+
+**The 9/4 split REPRODUCES EXACTLY.** Population from `git ls-files` (24 tracked `.lean`), never a
+glob; three axes, each with a firing control:
+
+    literal, case-sensitive     git grep -F, per needle          9 absent / 4 present
+    case-INSENSITIVE            command grep -ril                Image 5 · Loaded 8 · Separated 1
+    definition site             def|structure|abbrev|inductive   0 for all of them
+
+⚠️ The case axis fired where the first did not, and **every hit was prose** (`image`, `loaded`,
+`IMAGE`), no definition site — so the zeros stand. They stand *as measured*, not as assumed.
+
+### 2. WHAT DID NOT SURVIVE CONTACT WITH THE SIGNATURES
+Read from the signatures rather than the names, **three of the six are not free**:
+
+    Loaded (img : Image)       Image is a PARAMETER TYPE
+    Separated (img : Image)    Image is a PARAMETER TYPE
+    SysVCall                   its BODY names Submission.prog
+
+⇒ **A head building "the six" in the order given meets the wall on the second one.**
+
+### 3. AND THE CENSUS COULD NOT SEE ITS OWN NEIGHBOURS
+It was scoped to the THEOREM. `InImage` and `Hyps` are absent too, from the perturbation lemma
+stated in the **same code block**, which §3.3 itself calls *"required, proved in B1"*. **Eleven, not
+nine.** A twelfth is invisible to any name census at all: **`K`**, the stack-band size, which §3.3
+calls *"a declared constant"* and declares nowhere — **a one-character identifier is exactly the
+needle a name sweep cannot carry**, and it is load-bearing in `StackBand`.
+
+⇒ 🔑 ***A CENSUS OF THE NAMES IN A STATEMENT IS NOT A CENSUS OF WHAT THE STATEMENT NEEDS.*** The
+partition was complete and correct about the set it was taken over, and silent about its complement.
+[[feedback-a-partition-says-nothing-about-its-complement]]
+
+### 4. THE DECISION: PARAMETERISE
+`Image` is **not submission vocabulary.** The only thing §3.3 ever asks of it is
+`∀ p ∈ img.data, m.read p.1 = p.2` — a list of (address, byte) pairs, which is a claim about THIS
+model's memory. What belongs to the other lane is the particular INSTANCE (`Submission`), never the
+TYPE. Likewise `SysVCall`'s one submission-shaped clause says only *the return address is not inside
+the program*, a fact about **a** program.
+
+⇒ 🔑 ***A STUB IS SWAPPED LATER AND EVERY PROOF WRITTEN AGAINST IT CHURNS; A PARAMETER IS PERMANENT
+AND STATES HONESTLY WHAT THE PREDICATE DEPENDS ON.***
+
+**So the cross-lane gate is REMOVED rather than worked around.** The submission lane supplies an
+`Image`, a `Program` and a band size; nothing here moves. `K` is a parameter for the same reason,
+and that is a refusal to guess: a band's size is a fact about the routine being verified, and this
+file cannot see one. **A guessed constant would sit inside the statement every later proof is
+written against** — the expensive direction to be wrong in.
+
+### 5. WHAT THIS FILE DELIBERATELY DOES NOT CONTAIN
+`crc32_x86_correct` itself. Its conclusion names `Crc32.Bits.crc32BitSerial`, the mathematical
+CRC-32 the routine must equal. That is the SPECIFICATION and belongs with the problem card that
+poses it. **Parameterising over the spec would make the theorem a SCHEMA satisfiable by any
+function**, which is the one thing a frozen statement must not be.
+⇒ **x86lean owes the VOCABULARY; the CARD owns the STATEMENT.**
+
+### 6. NON-VACUITY, BOTH HALVES, DRIVEN BACKWARDS
+A predicate that is always true satisfies every theorem stated over it and **nothing in a build
+complains**. Satisfiability alone is equally insufficient: an unsatisfiable `Separated` would make
+every theorem taking it as a hypothesis vacuously true.
+
+    calleeSaved_rfl · loaded_empty · inImage_empty · holdsBytes_nil   what a proof USES
+    separated_trivial                                                 SATISFIABLE (all 8 conjuncts)
+    calleeSaved_not_trivial · separated_not_trivial                   REFUTABLE — the missing half
+
+Red-first was unavailable (the definitions landed before any witness could fail against them), so
+both were driven **red backwards** — the degenerate form each witness exists to exclude, restored as
+a mutant:
+
+    CalleeSaved := True   ⇒  build RC 1, 3 errors (calleeSaved_rfl · calleeSaved_not_trivial)
+    Separated  := True    ⇒  build RC 1, 3 errors
+
+Each restore verified **BYTE-EXACT with `cmp`** before rebuilding green. **The mutants' numbers are
+the evidence; the greens are not.** [[feedback-a-claim-the-vectors-cannot-distinguish]]
+
+### 7. RECEIPTS, READ FROM THE TOOLS
+    full build    47 jobs · 0 errors, counted on BOTH marker orders and the tagged form
+    axiom-gate    CLEAN over 4185 ENUMERATED declarations, three standard axioms
+    route         every build via ../saltbuild.sh (fleet lock · 4 threads · -M 24000)
