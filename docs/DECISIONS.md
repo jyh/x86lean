@@ -19507,12 +19507,16 @@ and that is a refusal to guess: a band's size is a fact about the routine being 
 file cannot see one. **A guessed constant would sit inside the statement every later proof is
 written against** — the expensive direction to be wrong in.
 
-### 5. WHAT THIS FILE DELIBERATELY DOES NOT CONTAIN
+### 5. WHAT THIS FILE DELIBERATELY DOES NOT CONTAIN — CORRECTED BELOW IN §8
 `crc32_x86_correct` itself. Its conclusion names `Crc32.Bits.crc32BitSerial`, the mathematical
-CRC-32 the routine must equal. That is the SPECIFICATION and belongs with the problem card that
-poses it. **Parameterising over the spec would make the theorem a SCHEMA satisfiable by any
-function**, which is the one thing a frozen statement must not be.
-⇒ **x86lean owes the VOCABULARY; the CARD owns the STATEMENT.**
+CRC-32 the routine must equal. That is the SPECIFICATION, and unlike the image, the program and the
+band it is **not something a caller supplies** — it DEFINES the problem, so it is PINNED and not
+parameterised.
+
+⚠️ **THIS SECTION FIRST GAVE THE WRONG REASON AND DREW TOO WIDE A CONCLUSION. Both are corrected in
+§8, which is where a reader meets them.** It read: *"Parameterising over the spec would make the
+theorem a SCHEMA satisfiable by any function, which is the one thing a frozen statement must not
+be"*, and concluded *"x86lean owes the VOCABULARY; the CARD owns the STATEMENT."*
 
 ### 6. NON-VACUITY, BOTH HALVES, DRIVEN BACKWARDS
 A predicate that is always true satisfies every theorem stated over it and **nothing in a build
@@ -19537,3 +19541,36 @@ the evidence; the greens are not.** [[feedback-a-claim-the-vectors-cannot-distin
     full build    47 jobs · 0 errors, counted on BOTH marker orders and the tagged form
     axiom-gate    CLEAN over 4185 ENUMERATED declarations, three standard axioms
     route         every build via ../saltbuild.sh (fleet lock · 4 threads · -M 24000)
+
+### 8. THE CORRECTION TO §5, AND THE FALSE ZERO THAT ALMOST HID IT
+
+⛔ **THE MECHANISM IN §5 WAS WRONG, AND WRONG IN THE DIRECTION THAT SOUNDS MORE RIGOROUS.**
+Parameterising over the spec does **not** give a schema *satisfiable by any function*. It gives
+`∀ spec, … → t.getReg .d .rax = (spec msg).setWidth 64`, which is **UNPROVABLE** — the routine
+computes exactly ONE function, so the quantified statement is false for almost every `spec`. The
+defect of parameterising the spec is that the theorem becomes FALSE, not that it becomes VACUOUS.
+Those are opposite failures and §5 named the wrong one.
+
+✅ **THE DISTINCTION THAT ACTUALLY DOES THE WORK, and it is the whole of D279 in one line:**
+
+    PARAMETERISE what VARIES per submission        Image · Program · K
+    PIN what DEFINES the problem                   the spec function
+
+⛔ **AND *"the CARD owns the STATEMENT"* IS TOO WIDE.** §5 of the proposal's own step table reads
+**S2 = "B1 reference proof (R1) + the perturbation lemma — paris"**. So paris owes a REFERENCE PROOF
+of this theorem, and a reference proof needs the concrete spec. What the card owns is the statement
+**handed to models**; it does not follow that paris owes no statement.
+⇒ **Where the spec function lives for the reference proof is OPEN, and this entry does not settle
+it.** The vocabulary decision in §4 stands unchanged and does not depend on either error.
+
+⚠️ **HOW IT WAS NEARLY MISSED, which is worth more than the correction.** Checking whether the wrong
+sentence had reached this file, `grep -F 'satisfiable by any function'` read **0** — and the sentence
+is in it, hard-wrapped across `any / function`:
+
+    grep -F           0        git grep -F        0
+    tr '\n' ' ' | grep -F     1        positive control in the same file   fires
+
+The claim is PHRASE-shaped and every instrument reached for is LINE-shaped. The zero was found only
+because the section was OPENED AND READ rather than trusted. ⇒ 🔑 ***AN ABSENCE OVER HARD-WRAPPED
+PROSE IS NOT MEASURED BY A LINE-ORIENTED SEARCH***, and the fleet map's own clause on this says it
+had re-driven no published absence — this is one, dated, found against its author's own file.
