@@ -10,6 +10,30 @@ prints them, so a stale one is a bug someone can find rather than a sentence tha
 
 ---
 
+## CI-3 (2026-09-22) — **OPEN: A′'s ms CEILINGS ARE KEYED TO A RUNNER HOSTNAME THAT DOES NOT RECUR, SO `ku-delta-redfirst` IS RED BY LOTTERY — and red on `master` since the #50 merge**
+`scripts/kernel_ceilings.txt` keys ceilings by `(unit, machine)`, and its runner rows name `runnervmlun5p`.
+GitHub runner hostnames are drawn per JOB from a pool. Measured in one run (master `158c1ec`, run
+35742453223): `ku-delta` drew `runnervmlun5p` and read CLEAN, while `ku-delta-redfirst` drew `runnervmtr4k5`,
+found no ceiling, and REFUSED with exit 2. Same commit, two VMs. Rate over the last 10 completed runs:
+redfirst FAILURE 2 · success 8, and the real `ku-delta` success 10. The alternative, *"both failures are
+master pushes"*, is refuted by four green push runs. The hostnames were read from the job logs, not inferred.
+- ⭐ **The tool is right to refuse**: A′ without its ms half is arm A, and arm A passes literal arithmetic
+  at any size (D228). The defect is the KEY. The file's bootstrap (*refuse once, print the reading, write
+  the line*) converges for a stable box and **never converges for an ephemeral one.**
+- ✅ **RED-FIRST ARM (paris, recommended): a PER-RUN bootstrap.** In `--selftest-measure` the ceiling is a
+  CONTROL, not a gate value. Measure the unplanted tree on this box, derive `max(got × 3, 50)` exactly as
+  the tool already prints it, then plant the defect and require A′ to refuse. It needs no registry, so
+  nothing in it can go stale.
+- ❓ **REAL GATE: NOT paris's to rule.** The same trick is circular there, because the ceiling would be
+  measured from the tree it gates. A runner-CLASS key brings back the loose bound the registry forbids for a
+  measured reason (the local↔runner factor is 1.6×–2.4× per module). Open for the helm or the Captain.
+- 📌 **What A′ has actually done, for pricing either half** (measured 2026-09-22 over the last 200 CI
+  runs, from job logs): A′ is CLEAN on **147 of 147** completed `ku-delta` jobs, 0 FAILED. On the **12**
+  runs where `kernel-delta` read UNMEASURABLE (rc 3), A′ was CLEAN on all 12. It has never met a real
+  defect in CI; red-first shows it CAN refuse one.
+- **Release:** redfirst concludes by construction on any runner. **Owner:** paris (red-first half); the
+  helm (real-gate half). **Re-measure:** at the next landing after #53.
+
 ## ✅ CI-1 (2026-09-09) — **CLOSED: REPAIRED THE SAME DAY (the `build` job's checkout depth, below); master's `build` read `success` at 2f612fb on 2026-09-14.**
 *(Filed as: `CI/build` HAS BEEN RED ON `master` FOR FIVE DAYS AND THIS SEAT DID NOT KNOW.)*
 
