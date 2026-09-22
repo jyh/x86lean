@@ -19452,3 +19452,225 @@ point: the coverage gate binds at the MNEMONIC, so a full row set is not per-for
 ⚠️ `mov`'s row UNDER-CLAIMS (`m,imm` omitted while `mov_mi_b/w/l/q` resolve to row 183 at all four
 widths). Conservative direction; reported in record 32 and NOT silently widened, because that field
 is walked character-by-character inside a kernel `decide` and has refused a batch twice (D94, D102).
+## D279 — S2's vocabulary is PARAMETERISED, not stubbed; and the census that scoped it was a census of NAMES, not of NEEDS
+
+### 1. THE INHERITED PLAN, AND WHY IT WAS RE-DRIVEN
+My predecessor measured that **9 of `crc32_x86_correct`'s names exist nowhere in this repository**
+(PROPOSAL v1 §3.3), recorded S2 as GATED — *"S2 CANNOT FREEZE ITS STATEMENT WITHOUT A CROSS-LANE
+DECISION ABOUT WHERE THE SUBMISSION SCAFFOLDING LIVES"* — and recommended building **"the SIX
+x86lean-side definitions first (they need nothing from the other lane)"** against a local
+`Submission` STUB. A handed-on diagnosis is a hypothesis, so it was re-driven before being built on.
+
+**The 9/4 split REPRODUCES EXACTLY.** Population from `git ls-files` (24 tracked `.lean`), never a
+glob; three axes, each with a firing control:
+
+    literal, case-sensitive     git grep -F, per needle          9 absent / 4 present
+    case-INSENSITIVE            command grep -ril                Image 5 · Loaded 8 · Separated 1
+    definition site             def|structure|abbrev|inductive   0 for all of them
+
+⚠️ The case axis fired where the first did not, and **every hit was prose** (`image`, `loaded`,
+`IMAGE`), no definition site — so the zeros stand. They stand *as measured*, not as assumed.
+
+### 2. WHAT DID NOT SURVIVE CONTACT WITH THE SIGNATURES
+Read from the signatures rather than the names, **three of the six are not free**:
+
+    Loaded (img : Image)       Image is a PARAMETER TYPE
+    Separated (img : Image)    Image is a PARAMETER TYPE
+    SysVCall                   its BODY names Submission.prog
+
+⇒ **A head building "the six" in the order given meets the wall on the second one.**
+
+### 3. AND THE CENSUS COULD NOT SEE ITS OWN NEIGHBOURS
+It was scoped to the THEOREM. `InImage` and `Hyps` are absent too, from the perturbation lemma
+stated in the **same code block**, which §3.3 itself calls *"required, proved in B1"*. **Eleven, not
+nine.** A twelfth is invisible to any name census at all: **`K`**, the stack-band size, which §3.3
+calls *"a declared constant"* and declares nowhere — **a one-character identifier is exactly the
+needle a name sweep cannot carry**, and it is load-bearing in `StackBand`.
+
+⇒ 🔑 ***A CENSUS OF THE NAMES IN A STATEMENT IS NOT A CENSUS OF WHAT THE STATEMENT NEEDS.*** The
+partition was complete and correct about the set it was taken over, and silent about its complement.
+[[feedback-a-partition-says-nothing-about-its-complement]]
+
+### 4. THE DECISION: PARAMETERISE
+`Image` is **not submission vocabulary.** The only thing §3.3 ever asks of it is
+`∀ p ∈ img.data, m.read p.1 = p.2` — a list of (address, byte) pairs, which is a claim about THIS
+model's memory. What belongs to the other lane is the particular INSTANCE (`Submission`), never the
+TYPE. Likewise `SysVCall`'s one submission-shaped clause says only *the return address is not inside
+the program*, a fact about **a** program.
+
+⇒ 🔑 ***A STUB IS SWAPPED LATER AND EVERY PROOF WRITTEN AGAINST IT CHURNS; A PARAMETER IS PERMANENT
+AND STATES HONESTLY WHAT THE PREDICATE DEPENDS ON.***
+
+**So the cross-lane gate is REMOVED rather than worked around.** The submission lane supplies an
+`Image`, a `Program` and a band size; nothing here moves. `K` is a parameter for the same reason,
+and that is a refusal to guess: a band's size is a fact about the routine being verified, and this
+file cannot see one. **A guessed constant would sit inside the statement every later proof is
+written against** — the expensive direction to be wrong in.
+
+### 5. WHAT THIS FILE DELIBERATELY DOES NOT CONTAIN — CORRECTED BELOW IN §8
+`crc32_x86_correct` itself. Its conclusion names `Crc32.Bits.crc32BitSerial`, the mathematical
+CRC-32 the routine must equal. That is the SPECIFICATION, and unlike the image, the program and the
+band it is **not something a caller supplies** — it DEFINES the problem, so it is PINNED and not
+parameterised.
+
+⚠️ **THIS SECTION FIRST GAVE THE WRONG REASON AND DREW TOO WIDE A CONCLUSION. Both are corrected in
+§8, which is where a reader meets them.** It read: *"Parameterising over the spec would make the
+theorem a SCHEMA satisfiable by any function, which is the one thing a frozen statement must not
+be"*, and concluded *"x86lean owes the VOCABULARY; the CARD owns the STATEMENT."*
+
+### 6. NON-VACUITY, BOTH HALVES, DRIVEN BACKWARDS
+A predicate that is always true satisfies every theorem stated over it and **nothing in a build
+complains**. Satisfiability alone is equally insufficient: an unsatisfiable `Separated` would make
+every theorem taking it as a hypothesis vacuously true.
+
+    calleeSaved_rfl · loaded_empty · inImage_empty · holdsBytes_nil   what a proof USES
+    separated_trivial                                                 SATISFIABLE (all 8 conjuncts)
+    calleeSaved_not_trivial · separated_not_trivial                   REFUTABLE — the missing half
+
+Red-first was unavailable (the definitions landed before any witness could fail against them), so
+both were driven **red backwards** — the degenerate form each witness exists to exclude, restored as
+a mutant:
+
+    CalleeSaved := True   ⇒  build RC 1, 3 errors (calleeSaved_rfl · calleeSaved_not_trivial)
+    Separated  := True    ⇒  build RC 1, 3 errors
+
+Each restore verified **BYTE-EXACT with `cmp`** before rebuilding green. **The mutants' numbers are
+the evidence; the greens are not.** [[feedback-a-claim-the-vectors-cannot-distinguish]]
+
+### 7. RECEIPTS, READ FROM THE TOOLS
+    full build    47 jobs · 0 errors, counted on BOTH marker orders and the tagged form
+    axiom-gate    CLEAN over 4185 ENUMERATED declarations, three standard axioms
+    route         every build via ../saltbuild.sh (fleet lock · 4 threads · -M 24000)
+
+### 8. THE CORRECTION TO §5, AND THE FALSE ZERO THAT ALMOST HID IT
+
+⛔ **THE MECHANISM IN §5 WAS WRONG, AND WRONG IN THE DIRECTION THAT SOUNDS MORE RIGOROUS.**
+Parameterising over the spec does **not** give a schema *satisfiable by any function*. It gives
+`∀ spec, … → t.getReg .d .rax = (spec msg).setWidth 64`, which is **UNPROVABLE** — the routine
+computes exactly ONE function, so the quantified statement is false for almost every `spec`. The
+defect of parameterising the spec is that the theorem becomes FALSE, not that it becomes VACUOUS.
+Those are opposite failures and §5 named the wrong one.
+
+✅ **THE DISTINCTION THAT ACTUALLY DOES THE WORK, and it is the whole of D279 in one line:**
+
+    PARAMETERISE what VARIES per submission        Image · Program · K
+    PIN what DEFINES the problem                   the spec function
+
+⛔ **AND *"the CARD owns the STATEMENT"* IS TOO WIDE.** §5 of the proposal's own step table reads
+**S2 = "B1 reference proof (R1) + the perturbation lemma — paris"**. So paris owes a REFERENCE PROOF
+of this theorem, and a reference proof needs the concrete spec. What the card owns is the statement
+**handed to models**; it does not follow that paris owes no statement.
+⇒ **Where the spec function lives for the reference proof is OPEN, and this entry does not settle
+it.** The vocabulary decision in §4 stands unchanged and does not depend on either error.
+
+⚠️ **HOW IT WAS NEARLY MISSED, which is worth more than the correction.** Checking whether the wrong
+sentence had reached this file, `grep -F 'satisfiable by any function'` read **0** — and the sentence
+is in it, hard-wrapped across `any / function`:
+
+    grep -F           0        git grep -F        0
+    tr '\n' ' ' | grep -F     1        positive control in the same file   fires
+
+The claim is PHRASE-shaped and every instrument reached for is LINE-shaped. The zero was found only
+because the section was OPENED AND READ rather than trusted. ⇒ 🔑 ***AN ABSENCE OVER HARD-WRAPPED
+PROSE IS NOT MEASURED BY A LINE-ORIENTED SEARCH***, and the fleet map's own clause on this says it
+had re-driven no published absence — this is one, dated, found against its author's own file.
+
+## D280 — where the CRC-32 spec lives for R1: PINNED to the v2 object; and NEITHER the spec NOR the reference proof may sit in vendored x86lean
+
+### 1. THE OPEN QUESTION, AND THE HALF THAT WAS ALREADY WRITTEN DOWN
+D279 §8 closed with *"Where the spec function lives for the reference proof is OPEN, and this entry
+does not settle it."* My predecessor deliberately did not settle it by importing the routine, which
+was the right call. **Half the answer was already in the proposal, filed under a different question:**
+§3.4 — the CELL-CONSTRUCTION section, not the proof section — reads
+
+    Under `statement` it also gets `Crc32.Bits.crc32BitSerial` (v2 reference `Spec.lean:49`, Mathlib-free)
+
+⇒ 🔑 ***A FACT CAN BE PRESENT, CORRECT AND UNFINDABLE BECAUSE IT IS FILED UNDER A DIFFERENT
+QUESTION.*** The spec's home was never unknown; it was recorded where a reader asking about *cells*
+would meet it, and the question was asked from *proofs*.
+
+### 2. THE OBJECT, MEASURED — the citation is exact
+    namespace                Crc32.Bits                                          ✅ as named
+    G rung                   .../systems-v2/Crc32/G/withheld/reference/Crc32/Spec.lean:49
+    B rung                   .../systems-v2/Crc32/B/withheld/reference/Crc32/Spec.lean:56
+    Mathlib-free             imports `Crc32.Interface` and nothing else           ✅ as claimed
+    the two copies           13 code lines, sha256/16 83e2bb0ceea9760d — IDENTICAL
+
+⚠️ **"ONE SPEC OBJECT" IS TRUE TODAY AND IS HELD BY NOTHING.** The proposal rests the salt-diet
+pairing on *"same referee, same three axioms, one spec object"*. There are **two byte-copies** that
+happen to agree; no gate compares them. A third reference site makes three. **The claim is a
+measurement with no ratchet, not an invariant.**
+
+### 3. THE FILE IS NOT UNIFORMLY WITHHELD — AND THAT IS THE WHOLE DISTINCTION
+`withheld/reference/Crc32/Spec.lean` holds **two regions with opposite disclosure rules**:
+
+    namespace Crc32.Bits    poly · bitStep · bitSteps · feedByte · runFrom · crc32BitSerial
+                            THE SPEC OBJECT — handed to the model under `statement`, BY DESIGN
+    namespace Crc32         def spec : SpecShape := fun msg c => c = Bits.crc32BitSerial msg
+                            def specDec …
+                            THE REFERENCE ANSWER — the module a submission must itself write
+
+⇒ **Copying "the spec function" is legitimate; copying "the file" publishes the v2 reference answer.**
+A rule phrased over the PATH gets this exactly backwards, because both regions share one path.
+
+### 4. THE CONSTRAINT NOBODY WROTE DOWN, AND IT DECIDES THE QUESTION
+§3.4's same sentence: **`The cell project = x86lean vendored at a pinned sha`**, and `statement`
+*ALSO* gets the spec — so the base is vendored on **every** arm, `none` included. x86lean is **PUBLIC**
+(2026-09-10). Two consequences follow, and they are different claims with different strengths:
+
+**(a) FOLLOWS FROM §3.4's OWN SENTENCE.** If `crc32BitSerial` is defined anywhere in vendored
+x86lean, the `none` arm receives it too, and the `none`/`statement` contrast — a treatment axis in
+the Captain's own matrix definition — **collapses silently**. Nothing in a cell would report it: both
+arms build, both pass, and the axis simply stops measuring anything. *This is the unobserved-region
+failure: an arm that cannot differ reports AGREEMENT, never "unknown".*
+
+**(b) INDEPENDENT OF VENDORING, AND LARGER.** R1 is the **reference ANSWER to the x86 task**. A
+reference proof committed to public x86lean publishes that answer permanently, to retrieval and to
+training. **The rest of SaltBench is already consistent about this and x86lean would be the first
+exception** — measured at the forge, not assumed:
+
+    PUBLIC saltbench @ origin   1,505 paths · `withheld/` 0 · `reference/` 0   (control: README 22 ✅)
+    saltbench-systems           NO GitHub remote — `backup` only
+    PUBLIC x86lean              0 crc32 paths today
+
+⚠️ **AND A LATENT CONDITION FOUND ON THE WAY, DECLARED RATHER THAN FIXED HERE:** `saltbench-systems`
+(which holds every `withheld/reference/`) and `saltbench` (whose `origin` is the public GitHub remote)
+**share ONE bare backup repo** on the local backup volume. *(The path is deliberately NOT printed
+here: this repo's own `check_private_paths.py` refused it as "the backup volume holding the private
+record", and it was right — the finding is the SHARING, not the spelling. The path is in the seat
+record.)* Nothing is exposed today — the measurement above is clean — and no ordinary push crosses
+from `backup` to `origin`. It is a structural adjacency worth someone's eyes, and it is **not
+paris's to change**.
+
+### 5. THE DECISION
+    PIN the spec to the EXISTING v2 object   `Crc32.Bits.crc32BitSerial` — never a fourth definition
+    R1 + the statement live WITHHELD         beside the v2 reference, mirroring its layout
+    x86lean keeps the ISA and the VOCABULARY the language a statement is written IN, not its answer
+
+R1 imports x86lean (public, vendored, pinned) for the semantics and the D279 vocabulary, and the spec
+from the withheld reference. **"One spec object" then stays literally true**: the reference proof is
+checked against the very definition the `statement` arm is handed.
+⇒ 🔑 ***PIN WHAT DEFINES THE PROBLEM — D279 §8's rule — AND THEN PIN IT TO THE OBJECT THAT ALREADY
+EXISTS, RATHER THAN TO A LOCAL COPY OF IT.*** A local copy is a fourth thing that must be kept equal
+to three others, and equality maintained by eye is equality that will drift.
+⛔ **THIS IS WHY THE IMPORT MY PREDECESSOR DECLINED WOULD HAVE BEEN WRONG, and not merely premature:**
+importing the probe directory's routine into x86lean puts CRC-32 material into the vendored, public
+base — arm (a) — while looking like a tidy reuse of work already done.
+
+### 6. RAISED AND DELIBERATELY NOT DECIDED HERE
+**The D279 vocabulary is already built into x86lean** (`Image`, `Loaded`, `Separated`, `Hyps`,
+`HoldsBytes`, `CalleeSaved`, `StackBand`, `SysVCall`, `InImage`) and is therefore vendored to the
+`none` arm. **It is not the spec and not the proof**, and D279 §4's parameterisation is what keeps it
+defensible: with `Image`, `Program` and `K` as parameters these are generic ISA framing predicates,
+not CRC-32 scaffolding. **But handing a `none`-arm model pre-written `SysVCall` and `Separated` is a
+real head start, and whether that is inside or outside the treatment is not mine to rule alone** —
+it belongs to the B5 card (bench) and the B4 harness (systems). **Recorded, routed, not reverted:**
+the vocabulary stands on its own merits as x86lean library content.
+
+### 7. RECEIPTS
+    spec object        2 definition sites, code sha256/16 83e2bb0ceea9760d IDENTICAL, 13 lines
+    Mathlib-free       verified at the object (imports: `Crc32.Interface` only)
+    disclosure split   `Crc32.Bits` (spec) vs `Crc32` (`spec`/`specDec`, the answer) — read, not inferred
+    public exposure    saltbench origin 1,505 paths, 0 withheld / 0 reference, control fires
+    x86lean today      0 crc32 paths — nothing to undo
+    no build           this entry changes no `.lean`; no kernel reading is owed for it
