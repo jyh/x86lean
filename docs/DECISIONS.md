@@ -19401,3 +19401,54 @@ and are the commit-cost kind by §4.
 ⭐ **The `REPEATS_BUYABLE = 2.0` threshold is UNCHANGED and is now better supported:** the gap it
 sits in moved from 1.67→3.83 to **1.83→3.83**, and the new point (1.83) lands on the noisy-box
 side, where §4 predicted a cheap commit under a loud box would land.
+
+## D278 — S1: the five CRC-32 forms, an index the harness forces, and an addressing mode the gate could not express
+
+### 1. WHAT COMMISSIONED IT
+Desk `PE`, council 2026-09-21 — the Captain: *"fire v1 as priced"*. PROPOSAL v1 §1.3 measured four
+forms the CRC-32 routine executes with **no differential vector** among the 1,107, and ordered them
+landed BEFORE the proof build (v1's own K11 repair). All four absences were re-measured at the object
+over the whole population, with a firing control on each needle, before a line was written.
+
+### 2. ⛔ THE INDEX REGISTER IS FORCED BY THE HARNESS, NOT CHOSEN
+The routine's form is `xor eax, [rcx*4 + disp]`, where RCX is a table index bounded to 0..255 by the
+`movzx`/`xor cl,al` pair before it. **In this harness RCX carries a swept ADVERSARIAL 64-bit value**
+(`mkPre`), so `rcx*4 + disp` addresses wild memory in every pre-state, outside both watched windows —
+where our `Mem` reads 0 for an unwritten byte and the ACL2 driver renders an unmapped read as `00`.
+
+⇒ 🔑 ***BOTH MODELS WOULD AGREE ON ZEROES AND THE VECTOR WOULD PASS BY CONSTRUCTION.*** That is
+batch 12's `leaveq` trap and P1 batch 15's DF trap arriving a THIRD time, and it is why the index is
+RBX — fixed at 0x2000 like RSP/RSI/RDI — with the displacement compensating onto the swept data word
+at 0x2000. The ADDRESS is then constant across pre-states and the VALUE LOADED SWEEPS, which is the
+shape every existing `M .rbx` vector already has.
+
+⭐ The scale is load-bearing at 4: a model reading the index as a BASE agrees at scale 1 and
+disagrees here; one dropping the displacement reads the STACK window, which is watched; one dropping
+the scale reads far outside both. All three wrong readings are observable, which is what makes the
+green mean something.
+
+### 3. ⭐ THE GATE GAP, FIXED RATHER THAN EXEMPTED
+`scripts/claimed_forms.py` synthesises each roster row through a list of addressing `MODES`, and a
+base-less scaled index was not among them — so two vectors resolved to NO ROSTER ROW and the gate
+reported a finding about forms the roster genuinely covers.
+
+The mode is added with its index as **`{B}`**, substituted from `MBASE` whose three low bits all
+vary, so the SIB INDEX FIELD BECOMES AN OPERAND BIT. ⛔ The pre-existing SIB mode hard-codes `%rcx`,
+and the only pre-existing vector with an index happens to use `%rcx` — **so that freeze had never
+been paid for and would have silently refused every other index.**
+Driven in isolation, each step measured separately: **3 unresolved → 1 → 0**.
+
+### 4. ⚠️ THE LIMIT THIS BATCH DECLARES RATHER THAN CLOSES
+`lea_rip_q` names `%rax`, not the `%r8` the routine uses. `claimed_forms.py` spans a ModR/M register
+field by perturbing `BANKS`, so every low encoding matches; **`%r8` needs REX.R, a bit in the REX
+PREFIX that no bank moves**, frozen in every skeleton. Of 1,112 vectors exactly TWO name an extended
+register and the other is SIMD, which this P1 gate exempts ⇒ **no scalar vector has ever exercised
+REX.R.** Left uncovered and named; widening `RIDX`/`BANKS` is a change to a load-bearing gate this
+batch does not need.
+
+### 5. WHAT IT DOES NOT CLAIM
+No new roster row and no new coverage row — every mnemonic was already carried, which is v1 §1.3's
+point: the coverage gate binds at the MNEMONIC, so a full row set is not per-form evidence.
+⚠️ `mov`'s row UNDER-CLAIMS (`m,imm` omitted while `mov_mi_b/w/l/q` resolve to row 183 at all four
+widths). Conservative direction; reported in record 32 and NOT silently widened, because that field
+is walked character-by-character inside a kernel `decide` and has refused a batch twice (D94, D102).

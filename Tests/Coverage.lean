@@ -206,7 +206,15 @@ def vectorCount : Nat := vectors.length
 -- ⭐ SUB-GROUP B3 (D273) adds THREE `cvtsd2ss`: one register pair and two memory offsets, the
 -- greedy cover over the zero-free sources, all writing xmm0.
 -- ⭐ SUB-GROUP B4 (D276) adds SIX: three pairings x {register, memory}, all writing xmm0.
-theorem vector_count_is_1107 : vectorCount = 1107 := by decide
+-- ⭐ S1 (desk `PE`, the CRC-32 v1 fire) adds FIVE: the four forms the CRC-32
+-- routine executes that had no differential vector (`mov .d` reg<-imm, `not .d` at a
+-- REGISTER, a base-less scaled-index LOAD, a POSITIVE rip-relative `lea`) plus the
+-- matching base-less scaled-index STORE.  Measured at the object before they were
+-- written: 0, 0, 0 and 1 existing entries respectively, the one being `cmp_rip_q`,
+-- whose displacement is NEGATIVE.  They add five RUNS and no new coverage ROW --
+-- every mnemonic was already carried, which is v1 §1.3's point: this table binds at
+-- the MNEMONIC, so a full row set is not per-form evidence.
+theorem vector_count_is_1112 : vectorCount = 1112 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.

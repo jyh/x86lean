@@ -154,7 +154,17 @@ acc,imm · rh"
   -- `Tests/Coverage.lean`'s `mem_dest_claims_are_backed` is what holds it now.
   let logicShapes := "r,r · r,imm · r,m · m,r · m,imm — all of b/w/l/q · \
 acc,imm · rh"
-  [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r", tier := .exact, decode := .xed,
+  -- ⭐ S1 (desk `PE`): THE WIDTH NOTE, derived from the 23 `mov` vectors rather than typed.
+  -- ⚠️ AND IT RECORDS AN UNDER-CLAIM THIS BATCH DOES NOT REPAIR: `m,imm` is EXECUTED at all
+  -- four widths (`mov_mi_b/w/l/q`, which `claimed_forms.py` resolves to roster row 183
+  -- `mov m,imm`) and is NOT in the shapes list above.  The direction is conservative — the
+  -- column is documented as narrowed to what is executed, so an omission understates
+  -- coverage and cannot make a false claim — and `shapes` is walked CHARACTER BY CHARACTER
+  -- inside a kernel `decide` at ~5 ms per character, where it has refused a batch twice
+  -- (D94, D102).  Widening it is a change with its own cost and its own validation, so it
+  -- is REPORTED here and in record 32 §7 rather than made silently.
+  [ { mnemonic := "mov",  shapes := "r,r · r,imm · r,m · m,r"
+    , note := "r,r all of b/w/l/q · r,imm and r,m at l/q · m,r at b/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A MOV" }
   , { mnemonic := "add",  shapes := "r,r — b/q · r,imm (q) · acc,imm · r,m · m,r · m,imm", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A ADD" }
@@ -258,7 +268,12 @@ acc,imm · rh"
   -- correction `and`/`or`/`xor` took in batch 3 and earned back in batch 4.
   , { mnemonic := "neg",  shapes := "r — b/q · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NEG" }
-  , { mnemonic := "not",  shapes := "r — q · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
+  -- ⭐ S1 (desk `PE`): the REGISTER form is vectored at `l` as well as `q` now.  `not_r_d`
+  -- (`notl %eax`) is the CRC-32 routine's own form, and until S1 the only `.d` `not` in the
+  -- table was at MEMORY (`not_m_l`) — so this row read `r — q` correctly and the register
+  -- form's 32-bit case had no differential evidence at all.  The letters are AT&T suffixes,
+  -- measured against `neg`'s own `r — b/q` (which is exactly `negb %al` + `negq %rax`).
+  , { mnemonic := "not",  shapes := "r — l/q · m(rmw)", note := "all of b/w/l/q", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A NOT" }
   , { mnemonic := "push", shapes := "r · m", note := "q/w · imm (q)", tier := .exact, decode := .xed,
       undefined := [], sdm := "Vol. 2A PUSH" }
