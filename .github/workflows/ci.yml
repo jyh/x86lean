@@ -507,6 +507,14 @@ jobs:
         run: |
           python3 hwprobe/mk_anchors.py --selftest
           python3 hwprobe/mk_anchors.py --check
+          # The pins are only right if the RULE that selected them still is. `--check`
+          # cannot see that: it compares the file to the generator, and PINNED is declared.
+          # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the
+          # one change that silently alters which rows are reached. ~1 s, no Lean.
+          # --selftest-static, NOT --selftest: ARMS 1-2 need run/reach_streams.out, which is
+          # untracked by design and does not exist on a runner, so the full selftest would red
+          # EVERY run. The static mode declares what it did not measure beside its verdict.
+          python3 hwprobe/reach_table.py --selftest-static
 
       # P1 BATCH 15 (D45): the watch windows are declared in BOTH Lean and the
       # ACL2 driver, because neither toolchain can read the other's source.

@@ -52,6 +52,27 @@ done
 # B0 (D266): the kernel pins are hwprobe's rows, generated; CI's build job runs this beside the format gates.
 if python3 hwprobe/mk_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_anchors --check\n"; rc=1; fi
+# ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
+#   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
+#   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.
+#   `reach_table.py` was built (D267 §2) precisely so that declaration has a re-runnable origin,
+#   and it was invoked by NOTHING in scripts/ or .github/: measured 2026-09-20, `reach_table`
+#   appeared in exactly ONE tracked file, its own source, against a control of 11 for `mk_anchors`.
+#   ⇒ 🔑 THE INSTRUMENT EXISTED, WAS CORRECT, AND EMITTED THE RIGHT WARNING, WHILE THE TRIGGER
+#     THAT WOULD FIRE IT DID NOT EXIST. A tool nobody runs is a declared coverage claim, not coverage.
+#   ARM 3 is the load-bearing half here: it derives the stream map from the vectors' CONSTRUCTORS in
+#   Tests/Vectors.lean, so a vector added to a form without a STREAMS line reds instead of silently
+#   changing which rows are reached. That matters more since B4 than it ever has: 20 of B4's 42
+#   CARRIED rows are reached by exactly ONE pre-state pair, against ZERO of 14 in the landed sibling,
+#   and `mk_anchors`'s "fails safe" holds in one direction only -- a row that STOPS being reached
+#   leaves a MISSING pin, which the differential then reports as agreement rather than as a gap.
+#   ⛔ IT IS `--selftest-static`, NOT `--selftest`, AND THAT IS THE WHOLE POINT: ARMS 1 and 2 need
+#   `run/reach_streams.out`, which is UNTRACKED BY DESIGN, so the full selftest exits 1 on a clean
+#   checkout. MEASURED before wiring, by moving the artifact aside. An arm that cannot run where it
+#   is wired is not coverage, it is a red. The static mode prints what it did NOT measure beside its
+#   verdict, and RED-BACKWARDS in that same condition still reds it. ~1 s, no Lean, no heavy slot.
+if python3 hwprobe/reach_table.py --selftest-static >/dev/null 2>&1; then printf "  ok   hwprobe/reach_table --selftest-static\n"
+else printf "  ⛔ FAIL hwprobe/reach_table --selftest-static\n"; rc=1; fi
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.

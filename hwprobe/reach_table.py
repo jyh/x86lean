@@ -17,6 +17,7 @@ file makes the first of those two a command, so the declaration has an origin a 
     python3 hwprobe/reach_table.py --form b4          # the table, one line per row
     python3 hwprobe/reach_table.py --form b4 --tsv docs/REACH-B4.tsv
     python3 hwprobe/reach_table.py --selftest         # the SIBLING control (below)
+    python3 hwprobe/reach_table.py --selftest-static  # ARM 3 alone; needs no artifact (CI)
 
 ## ⭐ THE CONTROL IS THE POINT, AND IT IS A KNOWN ANSWER RATHER THAN A PLANT
 
@@ -275,6 +276,43 @@ def classify(rows, fn, diffs, key=KEY_RC):
 SIBLING_REACH_PINS = {"cvtsi2sd_one/zero", "cvtsi2sd_intmin/up"}
 
 
+def arm3():
+    """ARM 3 ALONE -- the only arm that needs NO saved reach artifact.
+
+    \u26d4\u26d4 IT IS ITS OWN ENTRY POINT BECAUSE `--selftest` REFUSES ON A CLEAN CHECKOUT.
+      `run/reach_streams.out` is deliberately untracked (PASS_SRC's note says why), so ARMS 1
+      and 2 cannot run in CI or in a fresh clone. MEASURED 2026-09-20: with the artifact moved
+      aside, `--selftest` exits 1 before any arm reports.
+      => AN ARM THAT CANNOT RUN WHERE IT IS WIRED IS NOT COVERAGE, IT IS A RED.
+      ARM 3 derives the stream map from the vectors' CONSTRUCTORS in Tests/Vectors.lean and
+      touches no artifact, so it is the half that can bind on every push -- and it is the half
+      that catches the change which actually happens: a vector added to a form whose STREAMS
+      line was not updated, silently altering which rows are reached.
+    """
+    derived, seen = derive_streams()
+    declared = {k: set(v[1]) for k, v in STREAMS.items()}
+    print("streams   parsed %d cvtsi2 vectors from Tests/Vectors.lean" % seen)
+    if derived != declared:
+        print("\u26d4 ARM 3 FAILED \u2014 the declared stream map disagrees with the vectors:")
+        for k in sorted(set(derived) | set(declared)):
+            if derived.get(k, set()) != declared.get(k, set()):
+                print("     %-14s declared %s  derived %s"
+                      % (k, sorted(declared.get(k, [])), sorted(derived.get(k, []))))
+        return False
+    print("\u2705 ARM 3 \u2014 the declared stream map equals the one read off the vectors' constructors.")
+    return True
+
+
+def selftest_static():
+    """ARM 3 only. Its LIMITS ride with its verdict, in the same act -- the fleet's law."""
+    ok = arm3()
+    print("selftest-static: %s -- ARM 3 ONLY." % ("PASS" if ok else "FAIL"))
+    print("   ARMS 1 and 2 (the sibling control and its mutant) are NOT MEASURED here: they")
+    print("   need run/reach_streams.out, untracked by design. Run `--selftest` where that")
+    print("   artifact exists to exercise all three.")
+    return 0 if ok else 1
+
+
 def selftest():
     rows = load_streams()
     ok = True
@@ -294,18 +332,8 @@ def selftest():
     else:
         print("✅ ARM 2 — the mutant does NOT reproduce it (%d ≠ %d), so ARM 1 is load-bearing."
               % (len(mut), len(SIBLING_REACH_PINS)))
-    derived, seen = derive_streams()
-    declared = {k: set(v[1]) for k, v in STREAMS.items()}
-    print("streams   parsed %d cvtsi2 vectors from Tests/Vectors.lean" % seen)
-    if derived != declared:
-        print("\u26d4 ARM 3 FAILED \u2014 the declared stream map disagrees with the vectors:")
-        for k in sorted(set(derived) | set(declared)):
-            if derived.get(k, set()) != declared.get(k, set()):
-                print("     %-14s declared %s  derived %s"
-                      % (k, sorted(declared.get(k, [])), sorted(derived.get(k, []))))
+    if not arm3():
         ok = False
-    else:
-        print("\u2705 ARM 3 \u2014 the declared stream map equals the one read off the vectors' constructors.")
     print("selftest: %s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
@@ -316,6 +344,8 @@ def main():
     if "--gen" in args:
         gen()
         return 0
+    if "--selftest-static" in args:
+        return selftest_static()
     if "--selftest" in args:
         return selftest()
     form = "b4"
