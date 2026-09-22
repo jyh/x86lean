@@ -920,10 +920,23 @@ is a LIST of (address, byte) pairs — it need not be contiguous, so `Region` ca
 
 📌 **WHAT IS DELIBERATELY NOT IN THIS FILE: `crc32_x86_correct` ITSELF.** Its conclusion names
 `Crc32.Bits.crc32BitSerial` — the mathematical CRC-32 the routine must equal. That is the
-SPECIFICATION, and it belongs with the problem card that poses it, not with the model that executes
-it. Parameterising over the spec would make the theorem a schema satisfiable by any function, which
-is the one thing a frozen statement must not be. ⇒ **x86lean owes the VOCABULARY; the CARD owns the
-STATEMENT.** That is a cleaner boundary than the stub, and it is the same reasoning as above. -/
+SPECIFICATION: it DEFINES the problem rather than varying per submission, so it is PINNED and not
+parameterised. ⇒ **PARAMETERISE WHAT VARIES (`Image`, `Program`, `K`); PIN WHAT DEFINES THE PROBLEM.**
+
+⚠️ **THIS PARAGRAPH CARRIED TWO ERRORS UNTIL D280 AND THEY ARE NAMED RATHER THAN QUIETLY DELETED,
+because a reader of THIS FILE met them while the correction lived only in `docs/DECISIONS.md`.**
+(a) It said parameterising the spec gives *"a schema satisfiable by any function"*. **Wrong, and
+wrong in the direction that sounds more rigorous:** `∀ spec, … → rax = spec msg` is UNPROVABLE — the
+routine computes exactly ONE function — not vacuous. Opposite failures, and it named the wrong one.
+(b) It said *"x86lean owes the VOCABULARY; the CARD owns the STATEMENT."* **Too wide:** the
+proposal's own step table reads S2 = *"B1 reference proof (R1) + the perturbation lemma — paris"*, so
+paris owes a reference proof, and a reference proof needs the concrete spec.
+⇒ **WHERE THE SPEC LIVES IS SETTLED IN D280 AND NOT HERE:** it is PINNED to the object that already
+exists (`Crc32.Bits.crc32BitSerial`, identical at both v2 rungs), and R1 lives WITHHELD beside that
+reference — **never in this file**, because this repo is public and is vendored into every cell, so a
+spec defined here would reach the `none` arm and collapse the `none`/`statement` contrast in silence.
+⇒ 🔑 ***A SUPERSEDED SENTENCE IN THE CODE OUTRANKS ITS CORRECTION IN A DECISION LOG, BECAUSE THE
+READER OF THE CODE NEVER OPENS THE LOG.*** -/
 
 /-- Image data, the buffer, the band and the return slot are pairwise disjoint, and none wraps.
 All six pairs are written out; `rsp` is read once and shared. -/
