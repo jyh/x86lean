@@ -19574,3 +19574,103 @@ The claim is PHRASE-shaped and every instrument reached for is LINE-shaped. The 
 because the section was OPENED AND READ rather than trusted. ⇒ 🔑 ***AN ABSENCE OVER HARD-WRAPPED
 PROSE IS NOT MEASURED BY A LINE-ORIENTED SEARCH***, and the fleet map's own clause on this says it
 had re-driven no published absence — this is one, dated, found against its author's own file.
+
+## D280 — where the CRC-32 spec lives for R1: PINNED to the v2 object; and NEITHER the spec NOR the reference proof may sit in vendored x86lean
+
+### 1. THE OPEN QUESTION, AND THE HALF THAT WAS ALREADY WRITTEN DOWN
+D279 §8 closed with *"Where the spec function lives for the reference proof is OPEN, and this entry
+does not settle it."* My predecessor deliberately did not settle it by importing the routine, which
+was the right call. **Half the answer was already in the proposal, filed under a different question:**
+§3.4 — the CELL-CONSTRUCTION section, not the proof section — reads
+
+    Under `statement` it also gets `Crc32.Bits.crc32BitSerial` (v2 reference `Spec.lean:49`, Mathlib-free)
+
+⇒ 🔑 ***A FACT CAN BE PRESENT, CORRECT AND UNFINDABLE BECAUSE IT IS FILED UNDER A DIFFERENT
+QUESTION.*** The spec's home was never unknown; it was recorded where a reader asking about *cells*
+would meet it, and the question was asked from *proofs*.
+
+### 2. THE OBJECT, MEASURED — the citation is exact
+    namespace                Crc32.Bits                                          ✅ as named
+    G rung                   .../systems-v2/Crc32/G/withheld/reference/Crc32/Spec.lean:49
+    B rung                   .../systems-v2/Crc32/B/withheld/reference/Crc32/Spec.lean:56
+    Mathlib-free             imports `Crc32.Interface` and nothing else           ✅ as claimed
+    the two copies           13 code lines, sha256/16 83e2bb0ceea9760d — IDENTICAL
+
+⚠️ **"ONE SPEC OBJECT" IS TRUE TODAY AND IS HELD BY NOTHING.** The proposal rests the salt-diet
+pairing on *"same referee, same three axioms, one spec object"*. There are **two byte-copies** that
+happen to agree; no gate compares them. A third reference site makes three. **The claim is a
+measurement with no ratchet, not an invariant.**
+
+### 3. THE FILE IS NOT UNIFORMLY WITHHELD — AND THAT IS THE WHOLE DISTINCTION
+`withheld/reference/Crc32/Spec.lean` holds **two regions with opposite disclosure rules**:
+
+    namespace Crc32.Bits    poly · bitStep · bitSteps · feedByte · runFrom · crc32BitSerial
+                            THE SPEC OBJECT — handed to the model under `statement`, BY DESIGN
+    namespace Crc32         def spec : SpecShape := fun msg c => c = Bits.crc32BitSerial msg
+                            def specDec …
+                            THE REFERENCE ANSWER — the module a submission must itself write
+
+⇒ **Copying "the spec function" is legitimate; copying "the file" publishes the v2 reference answer.**
+A rule phrased over the PATH gets this exactly backwards, because both regions share one path.
+
+### 4. THE CONSTRAINT NOBODY WROTE DOWN, AND IT DECIDES THE QUESTION
+§3.4's same sentence: **`The cell project = x86lean vendored at a pinned sha`**, and `statement`
+*ALSO* gets the spec — so the base is vendored on **every** arm, `none` included. x86lean is **PUBLIC**
+(2026-09-10). Two consequences follow, and they are different claims with different strengths:
+
+**(a) FOLLOWS FROM §3.4's OWN SENTENCE.** If `crc32BitSerial` is defined anywhere in vendored
+x86lean, the `none` arm receives it too, and the `none`/`statement` contrast — a treatment axis in
+the Captain's own matrix definition — **collapses silently**. Nothing in a cell would report it: both
+arms build, both pass, and the axis simply stops measuring anything. *This is the unobserved-region
+failure: an arm that cannot differ reports AGREEMENT, never "unknown".*
+
+**(b) INDEPENDENT OF VENDORING, AND LARGER.** R1 is the **reference ANSWER to the x86 task**. A
+reference proof committed to public x86lean publishes that answer permanently, to retrieval and to
+training. **The rest of SaltBench is already consistent about this and x86lean would be the first
+exception** — measured at the forge, not assumed:
+
+    PUBLIC saltbench @ origin   1,505 paths · `withheld/` 0 · `reference/` 0   (control: README 22 ✅)
+    saltbench-systems           NO GitHub remote — `backup` only
+    PUBLIC x86lean              0 crc32 paths today
+
+⚠️ **AND A LATENT CONDITION FOUND ON THE WAY, DECLARED RATHER THAN FIXED HERE:** `saltbench-systems`
+(which holds every `withheld/reference/`) and `saltbench` (whose `origin` is the public GitHub remote)
+**share ONE bare backup repo** on the local backup volume. *(The path is deliberately NOT printed
+here: this repo's own `check_private_paths.py` refused it as "the backup volume holding the private
+record", and it was right — the finding is the SHARING, not the spelling. The path is in the seat
+record.)* Nothing is exposed today — the measurement above is clean — and no ordinary push crosses
+from `backup` to `origin`. It is a structural adjacency worth someone's eyes, and it is **not
+paris's to change**.
+
+### 5. THE DECISION
+    PIN the spec to the EXISTING v2 object   `Crc32.Bits.crc32BitSerial` — never a fourth definition
+    R1 + the statement live WITHHELD         beside the v2 reference, mirroring its layout
+    x86lean keeps the ISA and the VOCABULARY the language a statement is written IN, not its answer
+
+R1 imports x86lean (public, vendored, pinned) for the semantics and the D279 vocabulary, and the spec
+from the withheld reference. **"One spec object" then stays literally true**: the reference proof is
+checked against the very definition the `statement` arm is handed.
+⇒ 🔑 ***PIN WHAT DEFINES THE PROBLEM — D279 §8's rule — AND THEN PIN IT TO THE OBJECT THAT ALREADY
+EXISTS, RATHER THAN TO A LOCAL COPY OF IT.*** A local copy is a fourth thing that must be kept equal
+to three others, and equality maintained by eye is equality that will drift.
+⛔ **THIS IS WHY THE IMPORT MY PREDECESSOR DECLINED WOULD HAVE BEEN WRONG, and not merely premature:**
+importing the probe directory's routine into x86lean puts CRC-32 material into the vendored, public
+base — arm (a) — while looking like a tidy reuse of work already done.
+
+### 6. RAISED AND DELIBERATELY NOT DECIDED HERE
+**The D279 vocabulary is already built into x86lean** (`Image`, `Loaded`, `Separated`, `Hyps`,
+`HoldsBytes`, `CalleeSaved`, `StackBand`, `SysVCall`, `InImage`) and is therefore vendored to the
+`none` arm. **It is not the spec and not the proof**, and D279 §4's parameterisation is what keeps it
+defensible: with `Image`, `Program` and `K` as parameters these are generic ISA framing predicates,
+not CRC-32 scaffolding. **But handing a `none`-arm model pre-written `SysVCall` and `Separated` is a
+real head start, and whether that is inside or outside the treatment is not mine to rule alone** —
+it belongs to the B5 card (bench) and the B4 harness (systems). **Recorded, routed, not reverted:**
+the vocabulary stands on its own merits as x86lean library content.
+
+### 7. RECEIPTS
+    spec object        2 definition sites, code sha256/16 83e2bb0ceea9760d IDENTICAL, 13 lines
+    Mathlib-free       verified at the object (imports: `Crc32.Interface` only)
+    disclosure split   `Crc32.Bits` (spec) vs `Crc32` (`spec`/`specDec`, the answer) — read, not inferred
+    public exposure    saltbench origin 1,505 paths, 0 withheld / 0 reference, control fires
+    x86lean today      0 crc32 paths — nothing to undo
+    no build           this entry changes no `.lean`; no kernel reading is owed for it
