@@ -907,4 +907,69 @@ theorem calleeSaved_not_trivial : ¬ CalleeSaved (Cpu.setReg {} .q .rbx 1) {} :=
 @[simp] theorem holdsBytes_nil (m : Mem) (b : BitVec 64) : HoldsBytes m b [] :=
   fun _ h => absurd h (by simp)
 
+/-! ### `Separated` and `Hyps` — the remaining two, and why the THEOREM is not here
+
+§3.3 elides `Separated`'s body (`:= …`, "written in B1"). It names four objects — image data, the
+buffer, the band, the return slot — and asks for PAIRWISE disjointness with no wrapping. Four
+objects is SIX pairs, and writing them out is the point: an elided conjunction is where a missing
+pair hides, and a missing pair is invisible in every proof that does not happen to need it.
+
+⛔ **THE IMAGE IS TREATED POINTWISE, NOT AS A REGION, AND THAT IS FORCED BY ITS TYPE.** `Image.data`
+is a LIST of (address, byte) pairs — it need not be contiguous, so `Region` cannot describe it and
+`∀ p ∈ img.data, ¬ R p.1` is the honest form.
+
+📌 **WHAT IS DELIBERATELY NOT IN THIS FILE: `crc32_x86_correct` ITSELF.** Its conclusion names
+`Crc32.Bits.crc32BitSerial` — the mathematical CRC-32 the routine must equal. That is the
+SPECIFICATION, and it belongs with the problem card that poses it, not with the model that executes
+it. Parameterising over the spec would make the theorem a schema satisfiable by any function, which
+is the one thing a frozen statement must not be. ⇒ **x86lean owes the VOCABULARY; the CARD owns the
+STATEMENT.** That is a cleaner boundary than the stub, and it is the same reasoning as above. -/
+
+/-- Image data, the buffer, the band and the return slot are pairwise disjoint, and none wraps.
+All six pairs are written out; `rsp` is read once and shared. -/
+def Separated (K : Nat) (img : Image) (buf : BitVec 64) (len : Nat) (s : Cpu) : Prop :=
+  let rsp := s.getReg .q .rsp
+  -- neither sized region wraps: `Region` is built on BitVec addition, which does
+  (buf.toNat + len ≤ 2^64)
+  ∧ ((rsp - BitVec.ofNat 64 K).toNat + K ≤ 2^64)
+  -- image vs the other three
+  ∧ (∀ p ∈ img.data, ¬ Region buf len p.1)
+  ∧ (∀ p ∈ img.data, ¬ StackBand K rsp p.1)
+  ∧ (∀ p ∈ img.data, p.1 ∉ Mem.span .q rsp)
+  -- buffer vs the remaining two
+  ∧ (∀ a, Region buf len a → ¬ StackBand K rsp a)
+  ∧ (∀ a ∈ Mem.span .q rsp, ¬ Region buf len a)
+  -- band vs the return slot
+  ∧ (∀ a ∈ Mem.span .q rsp, ¬ StackBand K rsp a)
+
+/-- The four call hypotheses bundled, as the perturbation lemma takes them. -/
+def Hyps (prog : Program) (K : Nat) (img : Image) (msg : List UInt8)
+    (entry buf ret : BitVec 64) (s : Cpu) : Prop :=
+  Loaded img s.mem
+  ∧ SysVCall prog s entry buf msg.length ret
+  ∧ HoldsBytes s.mem buf msg
+  ∧ Separated K img buf msg.length s
+
+/-- ⭐ `Separated` IS SATISFIABLE — an empty image, an empty buffer and a zero band meet all eight
+conjuncts. Without this the definition could be unsatisfiable and every theorem taking it as a
+hypothesis would be VACUOUSLY true, which no build would report. -/
+theorem separated_trivial (s : Cpu) : Separated 0 ⟨[]⟩ 0 0 s := by
+  refine ⟨by simp, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [BitVec.toNat_sub]; omega
+  · intro p hp; cases hp
+  · intro p hp; cases hp
+  · intro p hp; cases hp
+  · rintro a ⟨i, hi, rfl⟩; omega
+  · rintro a _ ⟨i, hi, rfl⟩; omega
+  · rintro a _ ⟨i, hi, rfl⟩; omega
+
+/-- ⭐ ...and `Separated` is NOT trivially true: a one-byte buffer sitting ON the return slot
+REFUTES it, through the buffer-vs-return-slot pair. **Satisfiability alone would leave
+`Separated := True` indistinguishable from this definition**, and every theorem taking it as a
+hypothesis would be weaker than it reads while every proof still went through. -/
+theorem separated_not_trivial (K : Nat) : ¬ Separated K ⟨[]⟩ 0 1 {} := by
+  intro h
+  obtain ⟨-, -, -, -, -, -, h7, -⟩ := h
+  exact h7 0 (by decide) ⟨0, by omega, by simp⟩
+
 end X86
