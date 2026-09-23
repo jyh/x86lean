@@ -20033,3 +20033,23 @@ and all 64 bits are compared. `probe.c` checks each one's bytes at +10.
 where silicon reads `fff8…` / `ffc00000`), with the flags agreeing. The mechanism is the same as D265's:
 `sqrt-spec.lisp`'s `sse-sqrt` is `rtl::sse-sqrt-spec`, whose invalid result is RTL's sign-less indefinite. **The
 cvt*2si rows are predicted to agree, all 256 of them.**
+
+### 4. THE READINGS — x86isa as committed; silicon on both vendors
+```
+  x86isa (run/hwprobe_score3.txt)   rows 931 disagreements 56: the 50 of D284 BY NAME (diffed) + exactly the 6
+                                    predicted, each 7ff8… / 7fc00000 where silicon reads fff8… / ffc00000, the
+                                    flags agreeing (IE alone, so x86isa too raises no DE on sqrt of a negative
+                                    denormal). 348 of the 354 B6 rows agree, all 256 cvt*2si rows among them.
+  Rosetta 2 (corroboration)         934/934; a planted IE|DE on sqrtsd_negden gives exactly that one DIFF
+  hwprobe run 35863889798 (push, 952420b)
+    ubuntu-latest   AMD EPYC 7763                934/934
+    macos-15-intel  Intel Core i7-8700B          934/934
+    controls, both legs   plant 1 DIFF · badop REFUSED at +10 · pplant 1 DIFF (mulps_mix/nearest) · pbadop REFUSED at +28
+```
+⇒ **Both §2 predictions hold on BOTH vendors**: SQRT of a negative denormal raises IE alone, and CVTS?2SI raises no DE.
+⇒ **B6's rule may be written as `fsqrt` and `cvt2si` state it.** The only x86isa divergence is D265's sign-less
+indefinite, reached here by SQRT of a negative source. A declared divergence for it is the `pair` form's LOW lane,
+which is where a scalar SQRT writes, so that form expresses it.
+⚠️ **NOT SEEN (declared beside the verdict):** the memory-source forms, FZ/DAZ, any unmasked exception, and `sqrtps` /
+`cvtpd2ps` (the other 3 of the 484). `want` is DERIVED by mk_rows.py and never read from x86lean or x86isa, so 934/934
+means hardware and our derivation agree; it says nothing about a rule the derivation leaves out.
