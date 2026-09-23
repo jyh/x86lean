@@ -590,6 +590,16 @@ def VArithOp.mnemonic (op : VArithOp) (sz : Size) : String :=
   | .sub => "sub" ++ suffix
   | .div => "div" ++ suffix
 
+/-- SUB-GROUP B5's spelling: the packed forms, `ps` for binary32 lanes and `pd` for binary64. ONE
+function for both operand shapes, as `mnemonic` is for the scalar forms. -/
+def VArithOp.mnemonicP (op : VArithOp) (dbl : Bool) : String :=
+  let suffix := if dbl then "pd" else "ps"
+  match op with
+  | .add => "add" ++ suffix
+  | .mul => "mul" ++ suffix
+  | .sub => "sub" ++ suffix
+  | .div => "div" ++ suffix
+
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 14 — THE PERMUTE (SHUFFLE) GROUP'S KIND.
 
 `pshufd`, `pshuflw` and `pshufhw` are ONE opcode (`0F 70 /r ib`) under three
@@ -1647,6 +1657,23 @@ inductive Op where
   /-- SUB-GROUP B3 — the same at a MEMORY source (`m64`).  ⚠️ NO ALIGNMENT CHECK: a scalar
   operand states none, exactly as `varithm`. -/
   | vcvtsd2ssm (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B5 — MULPS/MULPD/ADDPS/ADDPD/SUBPS/SUBPD/DIVPS/DIVPD (SDM Vol. 2B), register
+  source: EVERY lane of the destination becomes the `VArithOp` of the two corresponding lanes, each
+  rounded under MXCSR.RC by the SAME `SoftFloat` call the scalar form makes, and MXCSR's flags are the
+  OR of the lanes' flags. No EFLAGS bit is written. `dbl` is the format: binary64 lanes (`pd`, two)
+  or binary32 lanes (`ps`, four).
+
+  ⚖️ **TWO NEW CONSTRUCTORS, NOT A `packed` FIELD ON `varith` (D282).**  `varith` is matched by every
+  landed B1/B2 wrong-model arm, so a field there would move arms whose scores are on record; and the
+  forms differ in more than the `SoftFloat` call — they write every lane, read an `m128`, and fault
+  on a misaligned one, where the scalar form writes one lane and checks nothing.  Nor a `VBinKind`
+  member: `vbin` computes its value and its flags in two calls with no rounding mode, and a rounding
+  form's value and flags must come from ONE call (`varithLow`'s reason).
+  LANE-OR and LANE-DE were read on silicon before this constructor existed (D281). -/
+  | vparith (op : VArithOp) (dbl : Bool) (dst src : XmmReg)
+  /-- SUB-GROUP B5 — the same at a MEMORY source (`m128`).  ⛔ ALIGNED: a legacy-SSE packed
+  arithmetic operand not on a 16-byte boundary is #GP(0), exactly `vbinm`'s rule. -/
+  | vparithm (op : VArithOp) (dbl : Bool) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   Rank 4 and rank 8 of the measured demand list (3.05% and 2.05%), and the first
   instructions in this model whose two operands live in DIFFERENT REGISTER FILES.
@@ -2027,6 +2054,9 @@ def opOperands : Op → List Operand
   -- SUB-GROUP B3: the narrowing conversion's memory SOURCE names its address.
   | .vcvtsd2ss .. => []
   | .vcvtsd2ssm _ ea => [.mem ea]
+  -- SUB-GROUP B5: the packed arithmetic's memory SOURCE names its address.
+  | .vparith .. => []
+  | .vparithm _ _ _ ea => [.mem ea]
   | .mov _ dst src => [dst, src]
   | .bin _ _ dst src => [dst, src]
   | .un _ _ dst => [dst]
@@ -2173,6 +2203,9 @@ def Op.anyLocked : Op → Bool
   -- SUB-GROUP B3: `lock cvtsd2ss` is not a form the SDM lists.
   | .vcvtsd2ss .. => false
   | .vcvtsd2ssm _ ea => ea.lock
+  -- SUB-GROUP B5: `lock mulps` is not a form the SDM lists.
+  | .vparith .. => false
+  | .vparithm _ _ _ ea => ea.lock
   | .mov _ dst src => dst.locked || src.locked
   | .bin _ _ dst src => dst.locked || src.locked
   | .un _ _ dst => dst.locked
@@ -2354,6 +2387,8 @@ def Op.mnemonic : Op → String
   | .varith op sz .. | .varithm op sz .. => op.mnemonic sz
   -- SUB-GROUP B3: both operand shapes print one name.
   | .vcvtsd2ss .. | .vcvtsd2ssm .. => "cvtsd2ss"
+  -- SUB-GROUP B5: both operand shapes print one name.
+  | .vparith op dbl .. | .vparithm op dbl .. => op.mnemonicP dbl
   | .mov .. => "mov"
   | .bin k .. => match k with
     | .add => "add" | .sub => "sub" | .and => "and" | .or => "or"

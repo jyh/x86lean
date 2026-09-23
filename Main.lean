@@ -3327,6 +3327,17 @@ def wrongSimdWith (raise : Cpu → BitVec 32 → (Cpu → Cpu) → Cpu)
   | .vcvtsd2ssm dst ea =>
       let p := vcvtsd2ssLow (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem .q (ea.addr s nr))
       raise s p.2 fun s => (s.setXmm dst p.1).setRip nr
+  -- SUB-GROUP B5: the packed arithmetic, at its TRUE rule, as B3 is — only an arm that swaps `raise`
+  -- reaches it until B5's own lane arms exist (D282).  The memory form's misaligned case is `step`'s.
+  | .vparith op dbl dst src =>
+      let p := vparithAll op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.getXmm src)
+      raise s p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vparithm op dbl dst ea =>
+      let a := ea.addr s nr
+      if aligned16 a then
+        let p := vparithAll op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem128 a)
+        raise s p.2 fun s => (s.setXmm dst p.1).setRip nr
+      else step i s
   | _ => step i s
 
 /-- The right parts, so each arm names only the one it swaps. -/

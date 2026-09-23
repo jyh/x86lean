@@ -1096,6 +1096,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- SUB-GROUP B3, in the same commit as the constructors: the narrowing conversion
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vcvtsd2ss .. | .vcvtsd2ssm .. => false
+    -- SUB-GROUP B5, in the same commit as the constructors: the packed arithmetic writes an
+    -- XMM register at both shapes; the memory operand is its SOURCE.
+    | .vparith .. | .vparithm .. => false
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem

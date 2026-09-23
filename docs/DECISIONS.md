@@ -19766,3 +19766,55 @@ is live. 84 of the 572 are B5's.
   (D266) excuses, and no row here asked it on purpose.
 - **The memory form needs its own reading.** The alignment refusal is the one rule a packed memory form adds, and no row
   above reaches it.
+
+## D282 — B5's shape: `vparith`/`vparithm`, two new constructors over `VArithOp`, and the scalar call factored so both forms make it
+
+⚖️ QUEUE P3, B5, the act after D281's hardware reading. **This is the SHAPE commit: no roster row, no vector and no pin.**
+A roster row here means differentially tested, so the rows land with their vectors, in the batch.
+
+### 1. THE FORK, AND WHY NEITHER FOLD
+```
+  (a) a `packed : Bool` field on `varith`     REJECTED — `varith` is matched by every landed B1/B2 wrong-model arm
+                                               (Main.lean's `wrongSimdWith` and the families that feed it), whose
+                                               scores are ON RECORD; a field there moves them all for no reason B5
+                                               needs. And the forms differ in more than D270's premise allows:
+                                               every lane written vs one, `m128` vs `m32`/`m64`, #GP off a 16-byte
+                                               boundary vs no check at all.
+  (b) eight `VBinKind` members                REJECTED — `vbin` computes its value (`vbinApply`) and its flags
+                                               (`vbinFlags`) in TWO calls and takes no rounding mode. A rounding
+                                               form's value and flags come from ONE call, so they cannot disagree
+                                               about the rounding (`varithLow`'s stated reason).
+  (c) `vparith (op) (dbl) (dst src)` + `vparithm (op) (dbl) (dst) (ea)`   TAKEN
+```
+`dbl` is the format (two binary64 lanes, `pd`; four binary32, `ps`), which is `vcvtsi2`'s and `vcvtt2si`'s field and
+not `Size`: `VArithOp.mnemonic`'s note records that `Size` spells binary32 at three values, and a packed form has no
+width but the lane's.
+
+### 2. ONE `SoftFloat` CALL FOR BOTH FORMS
+`varithCall op f rc a b` is factored out of `varithLow`, which now calls it, and `vparithAll` calls it per lane and ORs
+the flags. The alternative, a copy of the four-way match inside the packed function, is the defect this file has named
+before: two copies of one rule agree on the day they are written. ⚠️ **It changes a LANDED definition's body**, so
+the draft's A′ reading must include the landed B1/B2 pins, and it is measured before this lands, not argued.
+
+### 3. THE MEMORY FORM IS ALIGNED
+`vparithm` halts `byDesign` on a linear address that is not 16-byte aligned, with `vbinm`'s own message. It is the
+one rule the memory form adds, and D281 §6 declares that no hwprobe row reached it.
+
+### 4. THE ARMS
+`Main.lean`'s `wrongSimdWith` runs the packed forms at their TRUE rule, as it does B3, so only an arm that swaps
+`raise` reaches them for now. B5's own arms come with its vectors, and D281's rows name the likely wrong models:
+flags from lane 0 alone (`loud@k`), DE suppressed across lanes by a NaN elsewhere (`de_split`), and ZE suppressing
+DE in another lane (`ze_de`).
+
+### 5. THE RULE AGAINST SILICON'S 84 ROWS, BEFORE ANY VECTOR — AND TWO WRONG MODELS IT MUST REJECT
+A scratch pass (`run/`, not tracked) evaluates `vparithAll` on every D281 packed row, value and flags, at the row's RC:
+```
+  vparithAll (the rule)                             84 / 84
+  control: one row's expected HIGH quadword flipped 83 / 84, the one miss exactly that row
+  mutant: flags from lane 0 alone                   26 / 84
+  mutant: DE suppressed in EVERY lane by a NaN in any 76 / 84, the 8 misses exactly the 8 `de_split` rows
+```
+⇒ The rows separate the rule from the two likeliest wrong models, and each mutant fails where the row design said
+it would. That is the same rows read on two Intel processors and on x86isa, so the model agrees with silicon on
+LANE-OR and LANE-DE before a vector exists.
+⚠️ **Build receipt:** `lean_route build` rc 0, 0 tagged errors (both orders) and 0 plain `error` lines in the log.
