@@ -2960,6 +2960,48 @@ theorem b6a_cvtss2siq_pins :
       let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)
       b0Agrees t mx fl t.regs.rax r) = true := by decide
 
+-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).
+set_option maxRecDepth 8000 in
+theorem b6b_sqrtsd_pins :
+  ([  -- 12 of hwprobe's 45 rows
+    (0x1f80, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four · no vector reaches
+    (0x1f80, 0x3ff0000000000000, 0x5a5ac3c300000000, 0x3ff0000000000000, 0x00),  -- sqrtsd_one · no vector reaches
+    (0x1f80, 0x3fd0000000000000, 0x5a5ac3c300000000, 0x3fe0000000000000, 0x00),  -- sqrtsd_quarter · no vector reaches
+    (0x1f80, 0x7ff0000000000000, 0x5a5ac3c300000000, 0x7ff0000000000000, 0x00),  -- sqrtsd_inf · no vector reaches
+    (0x1f80, 0xfff0000000000000, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_neginf · x86isa differs
+    (0x1f80, 0xbff0000000000000, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_negone · x86isa differs
+    (0x1f80, 0x800fffffffffffff, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_negden · x86isa differs
+    (0x1f80, 0x7ff0000000000123, 0x5a5ac3c300000000, 0x7ff8000000000123, 0x01),  -- sqrtsd_snan · no vector reaches
+    (0x1f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky1f88 · no vector reaches
+    (0x1fbf, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky1fbf · no vector reaches
+    (0x5f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky5f88 · no vector reaches
+    (0x7f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00)  -- sqrtsd_four_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vsqrt .q .x1 .x0, 4⟩ (b0Pre mx a b)
+      b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
+
+-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).
+set_option maxRecDepth 8000 in
+theorem b6b_sqrtss_pins :
+  ([  -- 12 of hwprobe's 45 rows
+    (0x1f80, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four · no vector reaches
+    (0x1f80, 0x000000003f800000, 0x5a5ac3c300000000, 0x5a5ac3c33f800000, 0x00),  -- sqrtss_one · no vector reaches
+    (0x1f80, 0x000000003e800000, 0x5a5ac3c300000000, 0x5a5ac3c33f000000, 0x00),  -- sqrtss_quarter · no vector reaches
+    (0x1f80, 0x000000007f800000, 0x5a5ac3c300000000, 0x5a5ac3c37f800000, 0x00),  -- sqrtss_inf · no vector reaches
+    (0x1f80, 0x00000000ff800000, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_neginf · x86isa differs
+    (0x1f80, 0x00000000bf800000, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_negone · x86isa differs
+    (0x1f80, 0x00000000807fffff, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_negden · x86isa differs
+    (0x1f80, 0x000000007f800123, 0x5a5ac3c300000000, 0x5a5ac3c37fc00123, 0x01),  -- sqrtss_snan · no vector reaches
+    (0x1f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky1f88 · no vector reaches
+    (0x1fbf, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky1fbf · no vector reaches
+    (0x5f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky5f88 · no vector reaches
+    (0x7f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00)  -- sqrtss_four_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vsqrt .d .x1 .x0, 4⟩ (b0Pre mx a b)
+      b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
+
 theorem b3_cvtsd2ss_pins :
   ([  -- 32 of hwprobe's 77 rows
     (0x1f80, 0x3ff0000010000000, 0x5a5ac3c300000000, 0x5a5ac3c33f800000, 0x20),  -- cvtsd2ss_tie/nearest · no vector reaches

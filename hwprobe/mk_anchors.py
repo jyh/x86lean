@@ -207,8 +207,20 @@ _B6A_R = [
 ]
 PINNED.update({n: _R for n in _B6A_R})
 
-# B6b (D287): the square roots, read before their batch; pending until it names its pins.
-PENDING: set[str] = {"p_sqrtss", "p_sqrtsd"}
+# B6b (D293): SQRTS?. x86isa differs on the 6 negative sources (its indefinite has no sign bit, D287 s4); the rest is
+# hwprobe/sqrt_reach.py's output, the rows whose PATH (with a denormal source, RC where inexact, and a preset flag) no
+# vector of the same format presents over the 88 pre-states.
+_B6B_X = ["sqrtsd_negden", "sqrtsd_neginf", "sqrtsd_negone", "sqrtss_negden", "sqrtss_neginf", "sqrtss_negone"]
+_B6B_R = [
+          "sqrtsd_four", "sqrtsd_one", "sqrtsd_quarter", "sqrtsd_inf", "sqrtsd_snan", "sqrtsd_four_sticky1f88",
+          "sqrtsd_four_sticky1fbf", "sqrtsd_four_sticky5f88", "sqrtsd_four_sticky7f88", "sqrtss_four", "sqrtss_one",
+          "sqrtss_quarter", "sqrtss_inf", "sqrtss_snan", "sqrtss_four_sticky1f88", "sqrtss_four_sticky1fbf",
+          "sqrtss_four_sticky5f88", "sqrtss_four_sticky7f88",
+]
+PINNED.update({n: _X for n in _B6B_X})
+PINNED.update({n: _R for n in _B6B_R})
+
+PENDING: set[str] = set()   # B6b named its pins in D293; nothing is pending.
 
 # B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
 # source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8
@@ -387,6 +399,18 @@ FAMILIES = [
      ["(fun (mx, a, r, fl) =>",
       "  let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)",
       "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6b_sqrtsd_pins", lambda fn: fn == "p_sqrtsd",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vsqrt .q .x1 .x0, 4⟩ (b0Pre mx a b)",
+      "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
+    ("b6b_sqrtss_pins", lambda fn: fn == "p_sqrtss",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vsqrt .d .x1 .x0, 4⟩ (b0Pre mx a b)",
+      "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
     ("b3_cvtsd2ss_pins", lambda fn: fn == "p_cvtsd2ss",
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
@@ -405,6 +429,8 @@ PFAMILIES = [
       "  b5Agrees t mx fl (t.getXmm .x0) r)"])
     for op in ("mul", "add", "sub", "div") for suf in ("ps", "pd")
 ]
+# The families whose `decide` needs more than the elaborator's default recursion depth, and how much.
+RECDEPTH = {"b6b_sqrtsd_pins": 8000, "b6b_sqrtss_pins": 8000}
 PTY = "BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32"
 
 
@@ -416,7 +442,9 @@ def block():
         allf = [r for r in rs if pick(r[1])]
         used += len(allf)
         fam = [r for r in allf if r[0] in PINNED]
-        lines += ["", "theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
+        lines += [""] + (["-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).",
+                          "set_option maxRecDepth %d in" % RECDEPTH[thm]] if thm in RECDEPTH else [])
+        lines += ["theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
         for i, (n, fn, mx, a, b, want, mask, fl) in enumerate(fam):
             sep = "," if i + 1 < len(fam) else ""
             lines.append("    (%s)%s  -- %s · %s" % (", ".join(fmt(fn, mx, a, b, want, mask, fl)), sep, n,
