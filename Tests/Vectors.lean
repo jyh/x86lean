@@ -2982,6 +2982,74 @@ def vectors : List Vec :=
   , { id := "cvtsd2ss_m01", mnemonic := "cvtsd2ss", asm := "cvtsd2ss 0x1(%rbx), %xmm0"
     , bytes := "f20f5a4301", instr := ⟨.vcvtsd2ssm .x0 { base := some .rbx, disp := 0x1 }, 5⟩ }
 
+  -- ⭐⭐⭐ SUB-GROUP B5 — THE PACKED ARITHMETIC (D282, D283): mulps/mulpd, addps/addpd, subps/subpd, divps/divpd.
+  -- CHOSEN BY A REACH CENSUS OVER THE 88 PRE-STATES, not by hand: per mnemonic, a greedy cover of every flag the
+  -- candidates reach, BOTH wrong models D281 names being VISIBLE (flags from lane 0 alone; DE suppressed across lanes
+  -- by a NaN in another), MXCSR.RC mattering, one aligned m128 source and one REX.B source.  ⛔ EVERY SOURCE HERE
+  -- REACHES NO INDEFINITE: x86isa's has no sign bit (D265) and `knownDivergences`' pair form excuses a LOW lane only,
+  -- so a packed indefinite in lanes 1-3 is inexpressible there.  `divps` pays for it: its only indefinite-free
+  -- source is `m-16`, so its IE, UE and ZE stay on D281's pins.  Every m128 address is 16-byte aligned: x86isa does
+  -- not implement the alignment check (D91), so a misaligned vector would disagree by construction.
+  -- `reach:` is the census line for the vector below it: flags reached over the 88 states, and in how many states
+  -- each wrong model would differ (lane0, gDE) and the rounding mode matters (rcSens).
+  -- reach: flags=DOUP lane0=62 gDE=49 rcSens=62 indef=0
+  , { id := "mulps_x15_x0", mnemonic := "mulps", asm := "mulps %xmm15, %xmm0"
+    , bytes := "410f59c7", instr := ⟨.vparith .mul false .x0 .x15, 4⟩ }
+  -- reach: flags=IDOUP lane0=58 gDE=16 rcSens=64 indef=0
+  , { id := "mulps_x7_x0", mnemonic := "mulps", asm := "mulps %xmm7, %xmm0"
+    , bytes := "0f59c7", instr := ⟨.vparith .mul false .x0 .x7, 3⟩ }
+  -- reach: flags=DOUP lane0=34 gDE=7 rcSens=56 indef=0
+  , { id := "mulps_m10", mnemonic := "mulps", asm := "mulps 0x10(%rbx), %xmm0"
+    , bytes := "0f594310", instr := ⟨.vparithm .mul false .x0 { base := some .rbx, disp := 0x10 }, 4⟩ }
+  -- reach: flags=DOUP lane0=61 gDE=51 rcSens=69 indef=0
+  , { id := "mulpd_x15_x0", mnemonic := "mulpd", asm := "mulpd %xmm15, %xmm0"
+    , bytes := "66410f59c7", instr := ⟨.vparith .mul true .x0 .x15, 5⟩ }
+  -- reach: flags=DOUP lane0=43 gDE=2 rcSens=63 indef=0
+  , { id := "mulpd_mN20", mnemonic := "mulpd", asm := "mulpd -0x20(%rbx), %xmm0"
+    , bytes := "660f5943e0", instr := ⟨.vparithm .mul true .x0 { base := some .rbx, disp := -32 }, 5⟩ }
+  -- reach: flags=DP lane0=56 gDE=49 rcSens=29 indef=0
+  , { id := "addps_x15_x0", mnemonic := "addps", asm := "addps %xmm15, %xmm0"
+    , bytes := "410f58c7", instr := ⟨.vparith .add false .x0 .x15, 4⟩ }
+  -- reach: flags=DP lane0=60 gDE=9 rcSens=59 indef=0
+  , { id := "addps_m0", mnemonic := "addps", asm := "addps (%rbx), %xmm0"
+    , bytes := "0f5803", instr := ⟨.vparithm .add false .x0 { base := some .rbx }, 3⟩ }
+  -- reach: flags=IDP lane0=26 gDE=16 rcSens=60 indef=0
+  , { id := "addps_x7_x0", mnemonic := "addps", asm := "addps %xmm7, %xmm0"
+    , bytes := "0f58c7", instr := ⟨.vparith .add false .x0 .x7, 3⟩ }
+  -- reach: flags=DP lane0=57 gDE=51 rcSens=29 indef=0
+  , { id := "addpd_x15_x0", mnemonic := "addpd", asm := "addpd %xmm15, %xmm0"
+    , bytes := "66410f58c7", instr := ⟨.vparith .add true .x0 .x15, 5⟩ }
+  -- reach: flags=DP lane0=68 gDE=5 rcSens=68 indef=0
+  , { id := "addpd_m0", mnemonic := "addpd", asm := "addpd (%rbx), %xmm0"
+    , bytes := "660f5803", instr := ⟨.vparithm .add true .x0 { base := some .rbx }, 4⟩ }
+  -- reach: flags=DP lane0=52 gDE=49 rcSens=77 indef=0
+  , { id := "subps_x15_x0", mnemonic := "subps", asm := "subps %xmm15, %xmm0"
+    , bytes := "410f5cc7", instr := ⟨.vparith .sub false .x0 .x15, 4⟩ }
+  -- reach: flags=DP lane0=60 gDE=9 rcSens=82 indef=0
+  , { id := "subps_m0", mnemonic := "subps", asm := "subps (%rbx), %xmm0"
+    , bytes := "0f5c03", instr := ⟨.vparithm .sub false .x0 { base := some .rbx }, 3⟩ }
+  -- reach: flags=IDP lane0=25 gDE=16 rcSens=80 indef=0
+  , { id := "subps_x2_x0", mnemonic := "subps", asm := "subps %xmm2, %xmm0"
+    , bytes := "0f5cc2", instr := ⟨.vparith .sub false .x0 .x2, 3⟩ }
+  -- reach: flags=DP lane0=53 gDE=51 rcSens=25 indef=0
+  , { id := "subpd_x15_x0", mnemonic := "subpd", asm := "subpd %xmm15, %xmm0"
+    , bytes := "66410f5cc7", instr := ⟨.vparith .sub true .x0 .x15, 5⟩ }
+  -- reach: flags=DP lane0=68 gDE=5 rcSens=82 indef=0
+  , { id := "subpd_m0", mnemonic := "subpd", asm := "subpd (%rbx), %xmm0"
+    , bytes := "660f5c03", instr := ⟨.vparithm .sub true .x0 { base := some .rbx }, 4⟩ }
+  -- reach: flags=DOP lane0=13 gDE=9 rcSens=68 indef=0
+  , { id := "divps_mN10", mnemonic := "divps", asm := "divps -0x10(%rbx), %xmm0"
+    , bytes := "0f5e43f0", instr := ⟨.vparithm .div false .x0 { base := some .rbx, disp := -16 }, 4⟩ }
+  -- reach: flags=DOUP lane0=57 gDE=51 rcSens=63 indef=0
+  , { id := "divpd_x15_x0", mnemonic := "divpd", asm := "divpd %xmm15, %xmm0"
+    , bytes := "66410f5ec7", instr := ⟨.vparith .div true .x0 .x15, 5⟩ }
+  -- reach: flags=DZOUP lane0=19 gDE=10 rcSens=73 indef=0
+  , { id := "divpd_x5_x0", mnemonic := "divpd", asm := "divpd %xmm5, %xmm0"
+    , bytes := "660f5ec5", instr := ⟨.vparith .div true .x0 .x5, 4⟩ }
+  -- reach: flags=DOP lane0=9 gDE=5 rcSens=74 indef=0
+  , { id := "divpd_mN10", mnemonic := "divpd", asm := "divpd -0x10(%rbx), %xmm0"
+    , bytes := "660f5e43f0", instr := ⟨.vparithm .div true .x0 { base := some .rbx, disp := -16 }, 5⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

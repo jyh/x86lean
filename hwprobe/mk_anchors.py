@@ -170,6 +170,28 @@ PINNED.update({n: _R for n in _B4_R})
 # pins, so the tracked block stays byte-identical. B3 (D273) retired the set its own rows sat in.
 PENDING: set[str] = set()   # B4 named its families in P2 batch 45; nothing is pending.
 
+# B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
+# source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8
+# top-lane indefinites (D284); the rest is packed_reach.py's output over the 88 pre-states, not a hand selection.
+_B5_X = ["%s_indef@%d" % (m, 3 if m.endswith("ps") else 1)
+         for m in ("mulps", "mulpd", "addps", "addpd", "subps", "subpd", "divps", "divpd")]
+_B5_R = [
+          "mulpd_loud@0", "mulpd_loud@1", "addps_mix/nearest", "addps_mix/down", "addps_mix/up", "addps_mix/zero",
+          "divps_mix/nearest", "divps_loud@0", "divps_loud@1", "divps_loud@2", "divps_loud@3", "divps_de_split",
+          "divps_ze_de", "divps_ze_only",
+]
+# ⚖️ PINNED IN TWO STEPS, BY PRICE (D285 s3): all 40 at once is ~137k ku on Tests.Anchors against A′'s ~122.9k. These
+# are packed_reach.py's rows for subps, addpd, subpd and divpd, NAMED NOW and pinned in the next step; a later vector
+# that reaches one makes it redundant, never wrong. Their 4 x86isa rows are pinned in this step with the rest.
+_B5_R_NEXT = [
+          "addpd_mix/nearest", "addpd_mix/down", "addpd_mix/up", "addpd_mix/zero", "addpd_loud@0", "addpd_loud@1",
+          "subps_mix/nearest", "subps_mix/down", "subps_mix/up", "subps_mix/zero", "subpd_mix/nearest",
+          "subpd_mix/down", "subpd_mix/up", "subpd_mix/zero", "subpd_loud@0", "subpd_loud@1", "divpd_loud@0",
+          "divpd_loud@1",
+]
+PPINNED = {n: _X for n in _B5_X}
+PPINNED.update({n: _R for n in _B5_R})
+
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}
 
@@ -182,6 +204,19 @@ def rows():
     if missing:
         raise SystemExit("mk_anchors: PINNED names rows mk_rows.py does not build: %s" % missing)
     return list(M.ROWS)
+
+
+def prows():
+    M.PROWS.clear()
+    M.build_packed()
+    built = {r[0] for r in M.PROWS}
+    missing = sorted((set(PPINNED) | set(_B5_R_NEXT)) - built)
+    if set(PPINNED) & set(_B5_R_NEXT):
+        raise SystemExit("mk_anchors: a row is both pinned and held for the next step: %s"
+                         % sorted(set(PPINNED) & set(_B5_R_NEXT)))
+    if missing:
+        raise SystemExit("mk_anchors: PPINNED names rows mk_rows.py does not build: %s" % missing)
+    return list(M.PROWS)
 
 
 def hx(v, digits):
@@ -298,6 +333,18 @@ FAMILIES = [
 ]
 
 
+# B5: the probe's own shape, `<op>p? %xmm1, %xmm0` over all 128 bits of both, every bit of %xmm0 checked
+_PBYTES = {"ps": ("false", 3), "pd": ("true", 4)}
+PFAMILIES = [
+    ("b5_%s%s_pins" % (op, suf), "p_%s%s" % (op, suf),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vparith .%s %s .x0 .x1, %d⟩ (b5Pre mx a b)" % ((op,) + _PBYTES[suf]),
+      "  b5Agrees t mx fl (t.getXmm .x0) r)"])
+    for op in ("mul", "add", "sub", "div") for suf in ("ps", "pd")
+]
+PTY = "BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32"
+
+
 def block():
     rs = rows()
     lines = [BEGIN]
@@ -318,6 +365,24 @@ def block():
     if used + pending != len(rs):
         raise SystemExit("mk_anchors: %d of mk_rows.py's rows are in no family and not pending"
                          % (len(rs) - used - pending))
+    prs = prows()
+    pused = 0
+    for thm, fname, check in PFAMILIES:
+        allf = [r for r in prs if r[1] == fname]
+        pused += len(allf)
+        fam = [r for r in allf if r[0] in PPINNED]
+        if not fam:
+            continue
+        lines += ["", "theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
+        for i, (n, fn, mx, A, B, want, f) in enumerate(fam):
+            sep = "," if i + 1 < len(fam) else ""
+            lines.append("    (%s, %s, %s, %s, %s)%s  -- %s · %s" % (hx(mx, 4), hx(A, 32), hx(B, 32), hx(want, 32),
+                                                                 hx(f, 2), sep, n, PPINNED[n]))
+        lines.append("  ] : List (%s)).all" % PTY)
+        lines += ["    " + c for c in check]
+        lines[-1] += " = true := by decide"
+    if pused != len(prs):
+        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family" % (len(prs) - pused))
     lines += ["", END]
     return lines
 

@@ -165,7 +165,9 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B3 (D273) adds ONE: `cvtsd2ss`.
 -- ⭐ SUB-GROUP B4 (D276) adds THREE: `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq` — the three
 --   pairings the fold made statable and explicitly did NOT claim, now spelled by vectors.
-theorem roster_size_is_184 : rosterSize = 184 := by decide
+-- ⭐ SUB-GROUP B5 (D283) adds EIGHT: the packed arithmetic, `mulps` `mulpd` `addps` `addpd` `subps` `subpd`
+--   `divps` `divpd`, through `vparith`/`vparithm` (D282).
+theorem roster_size_is_192 : rosterSize = 192 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -214,7 +216,8 @@ def vectorCount : Nat := vectors.length
 -- whose displacement is NEGATIVE.  They add five RUNS and no new coverage ROW --
 -- every mnemonic was already carried, which is v1 §1.3's point: this table binds at
 -- the MNEMONIC, so a full row set is not per-form evidence.
-theorem vector_count_is_1112 : vectorCount = 1112 := by decide
+-- ⭐ SUB-GROUP B5 (D283) adds 19, chosen by a reach census over the 88 pre-states (D283 §1).
+theorem vector_count_is_1131 : vectorCount = 1131 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1096,6 +1099,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- SUB-GROUP B3, in the same commit as the constructors: the narrowing conversion
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vcvtsd2ss .. | .vcvtsd2ssm .. => false
+    -- SUB-GROUP B5, in the same commit as the constructors: the packed arithmetic writes an
+    -- XMM register at both shapes; the memory operand is its SOURCE.
+    | .vparith .. | .vparithm .. => false
     | .bin _ _ d _ => d.isMem
     | .mov _ d _ => d.isMem
     | .un _ _ d => d.isMem

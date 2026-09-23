@@ -519,6 +519,13 @@ def build_packed():
                 row("ze_only", [c["den_zero"]] + [ex] * (n - 1), 0x1F80)
             # a sticky flag is history, never an input
             row("sticky1fbf", [ex] * n, 0x1FBF)
+            # THE PACKED INDEFINITE, in the TOP lane beside exact lanes: 0/0, inf*0, inf-inf, inf+(-inf). The SDM's
+            # indefinite has sign 1 (Vol. 1 §4.8.3.7); x86isa's has none (D265), so these rows are where a lane-level
+            # divergence would show, and no B5 vector reaches them (D283 §1).
+            inf = 0x7F800000 if w == 32 else 0x7FF0000000000000
+            ninf = inf | (1 << (w - 1))
+            ind = {"div": (0, 0), "mul": (inf, 0), "sub": (inf, inf), "add": (inf, ninf)}[op]
+            row("indef@%d" % (n - 1), [ex] * (n - 1) + [ind], 0x1F80)
 
 
 def main():

@@ -676,17 +676,35 @@ fold: the format, the rounding mode, the lane-preserving write and the flag path
 piece of code for all four.  ⛔ `sub` dispatches to `faddsub` with its `sub` flag rather
 than negating `b` here — a NaN's sign must survive, and negating at this level would change
 what a SNaN propagates. -/
+def varithCall (op : VArithOp) (f : SoftFloat.Fmt) (rc : Nat) (a b : BitVec 64)
+    : BitVec 64 × BitVec 32 :=
+  match op with
+  | .add => SoftFloat.faddsub f rc false a b
+  | .sub => SoftFloat.faddsub f rc true  a b
+  | .mul => SoftFloat.fmul    f rc       a b
+  | .div => SoftFloat.fdiv    f rc       a b
+
 def varithLow (op : VArithOp) (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVec 64)
     : BitVec 128 × BitVec 32 :=
   let f := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
   let n := sz.bits
-  let a := d.setWidth 64
-  let (r, fl) := match op with
-    | .add => SoftFloat.faddsub f rc false a b
-    | .sub => SoftFloat.faddsub f rc true  a b
-    | .mul => SoftFloat.fmul    f rc       a b
-    | .div => SoftFloat.fdiv    f rc       a b
+  let (r, fl) := varithCall op f rc (d.setWidth 64) b
   (((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128), fl)
+
+/-- ⭐⭐⭐ SUB-GROUP B5 — THE PACKED FP ARITHMETIC WRITE AND ITS FLAGS, ONE PAIR (SDM Vol. 2B,
+ADDP?/SUBP?/MULP?/DIVP?): lane `i` of the result is `varithCall` of lane `i` of `a` and of `b`, rounded
+under `rc`, and the flags are the OR of the lanes' flags (LANE-OR, read on silicon before this
+existed: D281).  ⚠️ **THE SCALAR FORM'S OWN CALL, PER LANE** — `varithCall` is factored out of
+`varithLow` so the two cannot come to disagree about any operation.  A binary32 lane is widened into
+the 64-bit carrier with its neighbour's bits above it; `SoftFloat` masks to the format and never
+reads above it (batch 38's `minps` rests on the same fact). -/
+def vparithAll (op : VArithOp) (dbl : Bool) (rc : Nat) (a b : BitVec 128)
+    : BitVec 128 × BitVec 32 :=
+  let f := if dbl then SoftFloat.binary64 else SoftFloat.binary32
+  let w := if dbl then 64 else 32
+  (List.range (128 / w)).foldl (fun (acc : BitVec 128 × BitVec 32) i =>
+    let p := varithCall op f rc ((a >>> (w * i)).setWidth 64) ((b >>> (w * i)).setWidth 64)
+    (acc.1 ||| (((p.1.setWidth w).setWidth 128) <<< (w * i)), acc.2 ||| p.2)) (0, 0)
 
 /-- MXCSR.RC, bits 13–14, as the `Nat` `SoftFloat.roundPack` reads (0 nearest · 1 down · 2 up ·
 3 toward zero, SDM Vol. 1 §10.2.3). -/
@@ -993,6 +1011,21 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .varithm op sz dst ea =>
       let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+
+  -- ⭐⭐⭐ MULPS/MULPD/ADDPS/ADDPD/SUBPS/SUBPD/DIVPS/DIVPD (SDM Vol. 2B) — SUB-GROUP B5.  EVERY lane is
+  -- written; no EFLAGS bit is.  The memory form reads `m128` and is #GP(0) off a 16-byte boundary,
+  -- halted `byDesign` exactly as `vbinm` is.
+  | .vparith op dbl dst src =>
+      let p := vparithAll op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vparithm op dbl dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else
+        let p := vparithAll op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem128 a)
+        s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ CVTSD2SS (SDM Vol. 2A) — SUB-GROUP B3, the first CONVERSION that rounds under
   -- MXCSR.RC.  The low binary32 lane only; bits 127:32 are preserved; no EFLAGS bit is

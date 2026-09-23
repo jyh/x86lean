@@ -19766,3 +19766,223 @@ is live. 84 of the 572 are B5's.
   (D266) excuses, and no row here asked it on purpose.
 - **The memory form needs its own reading.** The alignment refusal is the one rule a packed memory form adds, and no row
   above reaches it.
+
+## D282 — B5's shape: `vparith`/`vparithm`, two new constructors over `VArithOp`, and the scalar call factored so both forms make it
+
+⚖️ QUEUE P3, B5, the act after D281's hardware reading. **This is the SHAPE commit: no roster row, no vector and no pin.**
+A roster row here means differentially tested, so the rows land with their vectors, in the batch.
+
+### 1. THE FORK, AND WHY NEITHER FOLD
+```
+  (a) a `packed : Bool` field on `varith`     REJECTED — `varith` is matched by every landed B1/B2 wrong-model arm
+                                               (Main.lean's `wrongSimdWith` and the families that feed it), whose
+                                               scores are ON RECORD; a field there moves them all for no reason B5
+                                               needs. And the forms differ in more than D270's premise allows:
+                                               every lane written vs one, `m128` vs `m32`/`m64`, #GP off a 16-byte
+                                               boundary vs no check at all.
+  (b) eight `VBinKind` members                REJECTED — `vbin` computes its value (`vbinApply`) and its flags
+                                               (`vbinFlags`) in TWO calls and takes no rounding mode. A rounding
+                                               form's value and flags come from ONE call, so they cannot disagree
+                                               about the rounding (`varithLow`'s stated reason).
+  (c) `vparith (op) (dbl) (dst src)` + `vparithm (op) (dbl) (dst) (ea)`   TAKEN
+```
+`dbl` is the format (two binary64 lanes, `pd`; four binary32, `ps`), which is `vcvtsi2`'s and `vcvtt2si`'s field and
+not `Size`: `VArithOp.mnemonic`'s note records that `Size` spells binary32 at three values, and a packed form has no
+width but the lane's.
+
+### 2. ONE `SoftFloat` CALL FOR BOTH FORMS
+`varithCall op f rc a b` is factored out of `varithLow`, which now calls it, and `vparithAll` calls it per lane and ORs
+the flags. The alternative, a copy of the four-way match inside the packed function, is the defect this file has named
+before: two copies of one rule agree on the day they are written. ⚠️ **It changes a LANDED definition's body**, so
+the draft's A′ reading must include the landed B1/B2 pins, and it is measured before this lands, not argued.
+
+### 3. THE MEMORY FORM IS ALIGNED
+`vparithm` halts `byDesign` on a linear address that is not 16-byte aligned, with `vbinm`'s own message. It is the
+one rule the memory form adds, and D281 §6 declares that no hwprobe row reached it.
+
+### 4. THE ARMS
+`Main.lean`'s `wrongSimdWith` runs the packed forms at their TRUE rule, as it does B3, so only an arm that swaps
+`raise` reaches them for now. B5's own arms come with its vectors, and D281's rows name the likely wrong models:
+flags from lane 0 alone (`loud@k`), DE suppressed across lanes by a NaN elsewhere (`de_split`), and ZE suppressing
+DE in another lane (`ze_de`).
+
+### 5. THE RULE AGAINST SILICON'S 84 ROWS, BEFORE ANY VECTOR — AND TWO WRONG MODELS IT MUST REJECT
+A scratch pass (`run/`, not tracked) evaluates `vparithAll` on every D281 packed row, value and flags, at the row's RC:
+```
+  vparithAll (the rule)                             84 / 84
+  control: one row's expected HIGH quadword flipped 83 / 84, the one miss exactly that row
+  mutant: flags from lane 0 alone                   26 / 84
+  mutant: DE suppressed in EVERY lane by a NaN in any 76 / 84, the 8 misses exactly the 8 `de_split` rows
+```
+⇒ The rows separate the rule from the two likeliest wrong models, and each mutant fails where the row design said
+it would. That is the same rows read on two Intel processors and on x86isa, so the model agrees with silicon on
+LANE-OR and LANE-DE before a vector exists.
+⚠️ **Build receipt:** `lean_route build` rc 0, 0 tagged errors (both orders) and 0 plain `error` lines in the log.
+
+### 6. A′ ON THE DRAFT — CLEAN, AND WHAT THE FACTORING COST THE LANDED PINS
+`ku_delta --arm a-prime 058064e → 76bd4d1` (yukon.lan, load 4.0–4.5): **rc 0, CLEAN.**
+```
+  module            Δku    allowance         module            Δku   allowance
+  X86.Syntax       +497        5,148         Tests.Anchors      +82     122,865   <- §2's question
+  X86.Theorems     +538       17,067         Tests.Coverage    +220     638,946
+  X86.Semantics     +12          238         X86.Coverage       +10         155
+  X86.Serialize     +10          117         X86.Program         +2      14,655
+  every other module +0 · ms: X86.Basic 30 % · X86.Syntax 36 % · X86.Theorems 35 % of ceiling
+```
+⇒ **§2's open cost is measured: factoring `varithCall` out of `varithLow` costs the landed B1–B4 pins +82 ku in total**,
+one more unfolding per pin that reaches the call, against D270's +180 for the fold. Two new constructors cost `X86.Syntax`
++497 and `X86.Theorems` +538, inside D270's per-constructor projection.
+⚠️ **A draft reading, not the landing row.** The drift-ledger row is measured on the landing step against `origin/master`
+when this lands, and `kernel_drift --gap` refuses the branch until then, as it should.
+
+## D283 — P2 batch 47, sub-group B5: the packed arithmetic — 19 vectors from a reach census, four lane arms, and a prediction premise that was wrong
+
+⚖️ QUEUE P3, B5, on D282's constructors. **Eight roster rows** (`mulps` `mulpd` `addps` `addpd` `subps` `subpd`
+`divps` `divpd`), **19 vectors**, **4 wrong-model arms**. Assembly-class demand **1,225**; sub-group B's unclaimed
+drops from 1,709 to **484** over 6 pairs (`p2_residue`, derived).
+
+### 1. THE VECTORS — A REACH CENSUS, NOT A HAND PICK
+The 88 pre-states were read out of `run/cases.lsp` (every vector runs against the same 88; rbx = 0x2000 in all of
+them; memory populated at 0x1fe0–0x201f). For each candidate — 4 operations × 2 formats × (xmm1–xmm15, and m128 at
+rbx−0x20, −0x10, +0, +0x10) — `mk_rows.packed` gave, over the 88: every flag reached, how many states each D281
+wrong model would DIFFER in (flags from lane 0 alone; DE suppressed across lanes by a NaN elsewhere), how many states
+the rounding mode changes, and how many produce the indefinite. A greedy cover per mnemonic then took every reachable
+flag, both wrong models visible, RC mattering, one aligned m128 source and one REX.B source: **19 vectors.** The bytes
+are clang's, and each vector carries its census line as a comment.
+⛔ **EVERY SOURCE REACHES NO INDEFINITE, AND THAT IS A CHOICE WITH A PRICE.** x86isa's indefinite has no sign bit
+(D265), and `knownDivergences`' `pair` form excuses a disagreement only in the LOW lane with every bit above it
+agreeing, so a packed indefinite in lanes 1–3 cannot be declared. Indefinite-free sources exist for every mnemonic,
+so the batch avoids it rather than widening the mechanism. **The price is `divps`**: every register source meets
+0/0 in 47 of 88 states, its only indefinite-free source is `m-16`, and so its IE, UE and ZE are reached by no vector.
+They stay on D281's pins (`loud@k`, `ze_de`, `ze_only`), and a packed indefinite is reached by NEITHER vectors nor
+D281's rows. **That is a named gap, not a covered one.**
+⚠️ Every m128 address is 16-byte aligned. x86isa does not implement the alignment check (D91), so a misaligned vector
+would disagree by construction; `vparithm`'s #GP is D282's rule, tested by no vector.
+
+### 2. THE ARMS — `wrongPackedWith`, AND WHY NOT `wrongSimdWith`
+`wrongSimdWith` takes the scalar `arith` shape and every earlier arm family goes through it; changing it would move
+landed scores. `wrongPackedWith` swaps `vparithAll` ALONE and hands every other form to `step`.
+```
+  arm                                                   key        PREDICTED   READ
+  raises lane 0's flags alone                           mxcsr.pe       377       377
+  suppresses DE in every lane when any lane holds a NaN mxcsr.de       354       354
+  computes lane 0 and keeps the lanes above it          xmm0         1,412     1,412
+  ignores MXCSR.RC and rounds to nearest                xmm0           526       521   ✘
+  lane-0 arm's TOTAL unexplained (all six flag keys)    —              921       919   ✘
+  B0 "flags replace the sticky bits" (reaches B5 via raise) mxcsr.ze   +378    2,269
+  B0 "DE is raised beside a NaN"                        mxcsr.de        +0    not re-run: it plants through the
+                                                                              scalar `arith`, which B5 never calls
+```
+Predictions posted on the bus before the run, computed by `mk_rows.packed` in a pass that never reads
+`X86/SoftFloat.lean`.
+
+### 3. ⛔ THE TWO MISSES WERE MY PREMISE, AND THE POST HAD NAMED IT
+The prediction ran over "the first 84 of the differential's 88 states", stated in the post as an assumption the
+reading would test. **It was false for the four random states.** `preStates seed n` pairs `rs[i]` with `rs[n+i]`,
+so n = 4 (the selftest) and n = 8 (the differential) draw DIFFERENT second operands. The 80 fixed states are identical.
+**Reconciled at the case, not by argument:**
+- `vparithAll` and `mk_rows.packed` agree on **all 3,192 exact inputs** (19 vectors × 84 states × {the state's own
+  RC, RC 0}), so the rule was never in question.
+- The selftest's own four random states, dumped from Lean (`preStates 0x9E3779B97F4A7C15 4`), give **521 and 919
+  exactly**, and 377 · 354 · 1,412 · +378 still exactly. So the three earlier matches were not luck in the other states.
+⇒ 🔑 ***A PREDICTION OVER "THE SAME STATES" NEEDS THE GENERATOR'S OWN STATES, NOT A DUMP OF A NEIGHBOURING RUN
+WITH A DIFFERENT PARAMETER.*** Both are "the pre-states"; they share 80 of 84 members, which is exactly how the
+difference hid.
+⚠️ **The sticky arm's base is DERIVED, not measured:** record 30 has 1,771 after B3, and B4's records do not carry
+the arm. +20 per B4 vector (6 vectors, as every earlier vector added) gives 1,891, and 1,891 + 378 = 2,269, the reading.
+
+### 4. THE BUILD
+`rosterSize` 184 → **192**, `vectorCount` 1,112 → **1,131**, `tableP0` +8 rows, `Tests/VectorRuns.lean` regenerated
+by `x86lean-diff runs` (333 runs over 1,131 vectors). Full build route rc 0, 0 errors.
+
+### 5. THE DIFFERENTIAL — EVERY FIELD AS POSTED
+`cases=99528 matched=78879 explained=29479 unexplained=0 oracle-divergence=244` against record 32's 97,856 / 77,207 /
+29,479 / 244: **+1,672 cases, +1,672 matched, +0 explained, +0 divergence**, the prediction posted before the run.
+Per vector: 88 cases on both sides for all 19, 0 refused on either side (checked on a field that is present and a
+refusal count that is live). Record 33 (`docs/DIFFERENTIAL-P2-BATCH33.md`) carries the tables.
+
+## D284 — the packed indefinite, on silicon and on x86isa: 8 rows, and the divergence is lane-level exactly as the scalar one
+
+⚖️ The gap D283 §1 named: no B5 vector reaches the indefinite, and D281's rows did not ask it. **8 hwprobe rows now put
+it in the TOP lane beside exact lanes** — 0/0, ∞×0, ∞−∞, ∞+(−∞), one per operation and format (`<op><fmt>_indef@k`).
+```
+  Rosetta 2 (corroboration)      580/580, all four controls behave
+  x86isa, predicted on the bus   50 = the 42 on record + all 8 new, each wrong in exactly its top lane by the sign bit
+  x86isa, read                   50; the 42 by name unchanged; each of the 8 reads 7fc00000 / 7ff8… where the SDM
+                                 and the expectation read ffc00000 / fff8…, every other lane and the flags (IE) agreeing
+```
+⇒ **x86isa's packed path builds the same sign-less indefinite as its scalar path (`rtl::indef`, D265), in whichever
+lane produces it.** That is the shape a lane-level declared divergence would have to excuse. `knownDivergences`' `pair`
+form excuses a SUFFIX (the low lane), so an upper-lane indefinite is still inexpressible there, and B5's vectors
+avoiding it (D283) stays the right call. These rows are what B5's kernel PINS will pin, since no vector can.
+✅ **Silicon, read (hwprobe run 35841289038, on this branch's push, head 30e2030): 580/580 on BOTH referees** —
+Intel Core i7-8700B (macos-15-intel) and **AMD EPYC 7763** (ubuntu-latest), `rows 580 disagreements 0` on each. The one
+`disagreements 1` line per referee is the planted control (`mulps_mix/nearest`, one ULP moved in lane 2) firing as it
+must, beside the two REFUSED byte controls. ⇒ **The 8 top-lane indefinites read ffc00000 / fff8… on an AMD part and an
+Intel part alike; x86isa's 7fc00000 / 7ff8… is the outlier, by the sign bit, as on Rosetta.** First AMD reading of the
+packed path (D281's draw had none).
+
+## D285 — B5's kernel pins: a LANE-LEVEL reach rule, 40 rows of 92, pinned in two steps by price
+
+⚖️ D267 §2's rule pins a row iff x86isa differs OR no vector reaches its class. For the scalar forms, "reaches" means
+some vector's source EQUALS the row's at that RC (`reach_table.py`). **At 128 bits that reading pins every packed row:**
+no random state equals two or four lanes of chosen constants. `packed_reach.py --selftest` measures it: the literal
+rule pins **92 of 92**, the eight x86isa rows included.
+
+### 1. THE RULE — `hwprobe/packed_reach.py`, a command, not a scratch pass
+A packed row is REACHED iff every part of it is reached by some (vector, state) of the same mnemonic over the 88
+pre-states (`run/prestates.json`, D283 §1):
+```
+  LANE     per lane: the flags that lane raises ALONE, plus the RC where that lane ROUNDS (raises PE). An exact,
+           NaN, invalid or zero-divide lane has the same result at every mode, so RC is not asked of it
+  DE-X     DE raised in one lane while ANOTHER lane holds a NaN or a zero divisor (LANE-DE's cross-lane shape)
+  PRESET   a preset flag the row's lanes do not raise
+```
+**A lane's POSITION is deliberately not a part.** Where a lane's result and flags land is what D283 §2's arms show the
+differential already kills: *"raises lane 0's flags alone"* **377** and *"computes lane 0 and keeps the lanes above
+it"* **1,412**, both read exactly as predicted. `--positional` puts position back in and pins **59**.
+The per-lane VALUE class (sign, tie, path) is not a part either. That is the scalar rule's class, and the packed form
+calls the same `varithCall` (D282) that B1 and B2 pinned and carried. ⚠️ **That is an argument about shared code, and
+it is stated here as one.** No arm measures it.
+```
+  rule                          pins    of which x86isa     control in --selftest
+  literal 128-bit equality        92          8             must be a strict superset of the lane rule's: ✔
+  lane rule, positional           59          8             must be a strict superset of the lane rule's: ✔
+  lane rule (this one)            40          8             the known answers from D283 §1's census:
+                                                            divps (one vector, m-16) reaches no IE ⇒ every divps
+                                                            loud@k pinned ✔; mulps x7 reaches IE ⇒ no mulps loud@k ✔
+```
+The 32 reach pins are the packed rows that ask for an overflow at a mode no vector overflows at (`*_mix/<mode>` for
+add, sub and div), an SNaN lane where no vector of that mnemonic has one (`loud@k` for the pd forms and divps), and
+divps's ZE, DE-beside-ZE and DE-X, which its one indefinite-free source never reaches (D283 §1's named gap).
+
+### 2. THE CHECK — `b5Pre` / `b5Agrees`, every bit of %xmm0
+`b5Pre` loads all 128 bits of both sources as `LOAD4` does, and `b5Agrees` compares all 128 bits of the destination
+plus MXCSR = `mx ||| fl`. **Red backwards:** planting x86isa's sign-less indefinite as `divps_indef@3`'s `want`
+(`0x7fc00000…` for `0xffc00000…`) makes `decide` refuse at `Tests/Anchors.lean`, build rc 1. So the pins check the sign
+the model computes and x86isa does not.
+
+### 3. THE PRICE — MEASURED ON DRAFTS, AND WHY TWO STEPS
+A′'s budget for `Tests.Anchors` is 23.3% × its base ku (527,389 at `f1f9e60`) ≈ **122.9k**. `deterministic_cost.py
+--module Tests.Anchors`, base `f1f9e60`:
+```
+  draft                                   Δku        per theorem (ku)
+  positional, 59 rows (de93a6d, dropped)  +209,027   divps 50,255 · subps 39,926 · addps 39,868 · addpd 18,613 ·
+                                                     subpd 18,306 · mulps 15,435 · divpd 15,165 · mulpd 11,454
+  step A, 22 rows (this commit)           +82,258    divps 37,411 · addps 22,855 · mulpd 5,686 · subps 4,852 ·
+                                                     mulps 4,285 · subpd 2,418 · addpd 2,407 · divpd 2,339
+```
+About **4k ku per 4-lane row and 2.4k per 2-lane row.** All 40 in one step is ~137k (estimated from these readings in
+the same module), which is over the budget. So:
+- **Step A (this branch): the 8 x86isa rows plus the 14 reach pins of mulps, mulpd, addps and divps.** Measured +82,258:
+  CLEAN, 40.6k margin.
+- **Step B: the 18 reach pins of subps, addpd, subpd and divpd**, named NOW in `mk_anchors._B5_R_NEXT` and refused if
+  one is also pinned. About 53k by the same readings. It is priced on its own draft when it is built, not from this line.
+⚠️ **The split is a pricing decision, and it does not claim the held rows are carried.** Until step B lands, those 18
+rows are checked by silicon and x86isa (D281) and by nothing in the kernel.
+
+### 4. ⚠️ WHAT THIS DOES NOT SEE (declared beside the verdict)
+- `packed_reach.py` reads two DECLARED inputs from `run/`: the pre-states and x86isa's saved reading. CI cannot re-run
+  it, and `mk_anchors.py`'s lists are its output, as B0–B4's are `reach_table.py`'s.
+- Reach is not coverage: a reached part says nothing about whether the differential compares that case soundly.
+- No row asks for FZ, DAZ, an unmasked exception or the m128 alignment rule (D281 §6), so no pin covers them.
