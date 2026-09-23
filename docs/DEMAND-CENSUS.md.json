@@ -716,8 +716,8 @@
  },
  "glibc": {
   "total": 603554,
-  "covered": 559147,
-  "pct": 92.6424147632192,
+  "covered": 559149,
+  "pct": 92.64274613373452,
   "miss": [
    [
     "fldt",
@@ -1066,13 +1066,11 @@
    "sqrtsd": 49,
    "cmpnltsd": 4,
    "vfmaddsd": 405,
-   "cvtsd2si": 1,
    "cmpltsd": 4,
    "cmplesd": 1,
    "sqrtss": 31,
    "vfmadd213ss": 1,
    "vfmaddss": 1,
-   "cvtss2si": 1,
    "fstps": 10,
    "cvtdq2pd": 10,
    "fsubrl": 1,
@@ -1306,7 +1304,7 @@
     "AA": 15883,
     "CA": 8988,
     "AC": 40845,
-    "CC": 484650,
+    "CC": 484652,
     "U": 8781
    },
    "name_route_asm": 76182,
@@ -1322,7 +1320,7 @@
    "XSAVE": 8,
    "CPUID": 52,
    "TSC": 28,
-   "SSE-legacy (xmm)": 1303,
+   "SSE-legacy (xmm)": 1301,
    "VEX-128 (v\u2026 xmm)": 9950,
    "AVX-512 (zmm/k)": 6980,
    "AVX2/AVX (ymm)": 9665,
@@ -1336,7 +1334,7 @@
   },
   "ext_covered": {
    "GPR/other (unclassified)": 488427,
-   "SSE-legacy (xmm)": 62219,
+   "SSE-legacy (xmm)": 62221,
    "segment base %fs:/%gs: (P2 addition 1)": 6130,
    "486": 191,
    "mov imm64 / movabs (P2 addition 3)": 1415,
@@ -1987,9 +1985,6 @@
    "vfmaddsd": {
     "VEX-128 (v\u2026 xmm)": 405
    },
-   "cvtsd2si": {
-    "SSE-legacy (xmm)": 1
-   },
    "cmpltsd": {
     "SSE-legacy (xmm)": 4
    },
@@ -2004,9 +1999,6 @@
    },
    "vfmaddss": {
     "VEX-128 (v\u2026 xmm)": 1
-   },
-   "cvtss2si": {
-    "SSE-legacy (xmm)": 1
    },
    "fstps": {
     "x87 (st)": 10
@@ -4277,8 +4269,8 @@
  },
  "ffmpeg": {
   "total": 3116986,
-  "covered": 2987109,
-  "pct": 95.8332504541246,
+  "covered": 2987367,
+  "pct": 95.84152768090713,
   "miss": [
    [
     "endbr64",
@@ -4445,9 +4437,7 @@
    "endbr64": 11236,
    "sqrtss": 126,
    "cmpltss": 27,
-   "cvtss2si": 165,
    "sqrtsd": 45,
-   "cvtsd2si": 93,
    "emms": 55,
    "cmpnless": 12,
    "cmpless": 1,
@@ -4788,7 +4778,7 @@
     "AA": 111859,
     "CA": 131,
     "AC": 122716,
-    "CC": 2737217,
+    "CC": 2737475,
     "U": 15186
    },
    "name_route_asm": 355174,
@@ -4797,7 +4787,7 @@
   },
   "ext": {
    "CET-IBT": 11236,
-   "SSE-legacy (xmm)": 19279,
+   "SSE-legacy (xmm)": 19021,
    "MMX (mm)": 19887,
    "LOCK prefix (P2 addition 2)": 88,
    "VEX-128 (v\u2026 xmm)": 33492,
@@ -4813,7 +4803,7 @@
   "ext_covered": {
    "GPR/other (unclassified)": 2781708,
    "segment base %fs:/%gs: (P2 addition 1)": 27187,
-   "SSE-legacy (xmm)": 165684,
+   "SSE-legacy (xmm)": 165942,
    "486": 9449,
    "mov imm64 / movabs (P2 addition 3)": 2939,
    "BMI1": 139,
@@ -4830,14 +4820,8 @@
    "cmpltss": {
     "SSE-legacy (xmm)": 27
    },
-   "cvtss2si": {
-    "SSE-legacy (xmm)": 165
-   },
    "sqrtsd": {
     "SSE-legacy (xmm)": 45
-   },
-   "cvtsd2si": {
-    "SSE-legacy (xmm)": 93
    },
    "emms": {
     "MMX (mm)": 55
@@ -8972,13 +8956,13 @@
  },
  "_asm_pooled": {
   "total": 4784269,
-  "covered": 4421694,
-  "pct": 92.4215172683643,
+  "covered": 4421952,
+  "pct": 92.42690994172777,
   "ext": {
    "CET-IBT": 16488,
    "CPUID": 15,
    "XSAVE": 11,
-   "SSE-legacy (xmm)": 96447,
+   "SSE-legacy (xmm)": 96189,
    "AVX2/AVX (ymm)": 108554,
    "VEX-128 (v\u2026 xmm)": 62252,
    "AVX (state)": 1241,

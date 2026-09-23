@@ -20108,3 +20108,14 @@ D287) ask it directly, and it is named here as a gap the vectors cannot close. I
 x86isa agreed with all 256 cvt*2si hwprobe rows at every mode (D287 §4), so: **+1,056 cases (12 × 88), all matched;
 explained, unexplained and divergence unchanged** ⇒ `cases=100584 matched=79935 explained=29479 unexplained=0
 oracle-divergence=244`.
+
+### 5. THE READINGS — every predicted field as committed
+- **Differential:** `cases=100584 matched=79935 explained=29479 unexplained=0 oracle-divergence=244` = §4 exactly. Each
+  of the 12 vectors ran 88 cases on both sides with 0 refused, on a live refusal field (record 34,
+  `docs/DIFFERENTIAL-P2-BATCH34.md`).
+- **Arms:** truncates **56 = 56** (total 208 = 208) · DE on a denormal **114 = 114** · ignores REX.W **43 = 43**. Its
+  total, 143, is the 139 value cases I predicted plus **4 in `mxcsr.ie`** (an int32 out of range where the int64 is not).
+  I reconciled those 4 AFTER the run, because I had predicted only the value half, and I say so here.
+- **Derived documents regenerated:** `docs/COVERAGE.md` (194 rows), `docs/DEMAND-CENSUS.md` + `.json` (staleness gate
+  CLEAN), `docs/P2-ROSTER.md` (gate CLEAN), README counts and the commission's residue: **484 → 226 over 4 pairs**
+  (`p2_residue`, derived). What remains is `sqrtss` 134 · `sqrtsd` 89 (B6b) · `sqrtps` 2 · `cvtpd2ps` 1.
