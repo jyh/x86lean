@@ -1103,6 +1103,8 @@ def isMemDestVector (v : Vec) : Bool :=
     -- SUB-GROUP B6b, in the same commit as the constructors: a square root writes an XMM register at
     -- both shapes; the memory operand is its SOURCE.
     | .vsqrt .. | .vsqrtm .. => false
+    -- SUB-GROUP B7, in the same commit as the constructors: both write an XMM register; the memory operand is the SOURCE.
+    | .vsqrtps .. | .vsqrtpsm .. | .vcvtpd2ps .. | .vcvtpd2psm .. => false
     -- SUB-GROUP B1, in the same commit as the constructors: a multiply writes an
     -- XMM register at both shapes; the memory operand is its SOURCE.
     | .varith .. | .varithm .. => false

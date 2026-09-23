@@ -20245,3 +20245,13 @@ silicon confirms the SDM on both vendors.
 ⇒ **The packed narrowing inherits every x86isa defect of its scalar lane rule; predict a packed form's column as
 "the scalar rows' known defects, per lane, plus the packed-only rules".** The prediction method changes, not the
 tolerance.
+
+## D295 — B7's shape and batch: `vsqrtps`/`vsqrtpsm`, `vcvtpd2ps`/`vcvtpd2psm`
+
+### 1. THE SHAPE
+Four constructors for two mnemonics: register and 16-byte-aligned memory, the memory forms carrying `vparithm`'s
+Type-4 #GP verbatim. `vsqrtpsAll` folds `SoftFloat.fsqrt` over the four binary32 lanes, and `vcvtpd2psAll` folds
+`SoftFloat.f64to32` (CVTSD2SS's own call) over the two binary64 lanes into the low half, ZEROING bits 127:64. The flags
+are ORed across lanes, as `vparithAll`'s are. **Checked against the hardware rows before any vector**
+(`run/b7_check.lean`): **24 / 24** at all 128 bits and the flags. **Control:** ignoring MXCSR.RC misses **6** =
+`mk_rows`' independent 6.

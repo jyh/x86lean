@@ -713,6 +713,20 @@ def vparithAll (op : VArithOp) (dbl : Bool) (rc : Nat) (a b : BitVec 128)
     let p := varithCall op f rc ((a >>> (w * i)).setWidth 64) ((b >>> (w * i)).setWidth 64)
     (acc.1 ||| (((p.1.setWidth w).setWidth 128) <<< (w * i)), acc.2 ||| p.2)) (0, 0)
 
+/-- ⭐⭐⭐ SUB-GROUP B7 — SQRTPS's WRITE AND ITS FLAGS (D295): lane `i` of the result is `SoftFloat.fsqrt` of lane `i` of
+`b` (binary32, four lanes), and the flags are the OR of the lanes' (LANE-OR, read on silicon: D294). -/
+def vsqrtpsAll (rc : Nat) (b : BitVec 128) : BitVec 128 × BitVec 32 :=
+  (List.range 4).foldl (fun (acc : BitVec 128 × BitVec 32) i =>
+    let p := SoftFloat.fsqrt SoftFloat.binary32 rc ((b >>> (32 * i)).setWidth 64)
+    (acc.1 ||| (((p.1.setWidth 32).setWidth 128) <<< (32 * i)), acc.2 ||| p.2)) (0, 0)
+
+/-- ⭐⭐⭐ SUB-GROUP B7 — CVTPD2PS's WRITE AND ITS FLAGS (D295): the two binary64 lanes of `b`, each by
+`SoftFloat.f64to32` (CVTSD2SS's own call), become the low two binary32 lanes; bits 127:64 are ZERO. -/
+def vcvtpd2psAll (rc : Nat) (b : BitVec 128) : BitVec 128 × BitVec 32 :=
+  (List.range 2).foldl (fun (acc : BitVec 128 × BitVec 32) i =>
+    let p := SoftFloat.f64to32 rc ((b >>> (64 * i)).setWidth 64)
+    (acc.1 ||| (((p.1.setWidth 32).setWidth 128) <<< (32 * i)), acc.2 ||| p.2)) (0, 0)
+
 /-- MXCSR.RC, bits 13–14, as the `Nat` `SoftFloat.roundPack` reads (0 nearest · 1 down · 2 up ·
 3 toward zero, SDM Vol. 1 §10.2.3). -/
 def mxcsrRC (m : BitVec 32) : Nat := ((m >>> 13) &&& 3#32).toNat
@@ -1055,6 +1069,31 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
       else
         let p := vparithAll op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem128 a)
+        s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+
+  -- ⭐⭐⭐ SQRTPS / CVTPD2PS (SDM Vol. 2B / 2A) — SUB-GROUP B7. The whole destination is written; the memory forms carry
+  -- the Type-4 alignment fault, as `vparithm`.
+  | .vsqrtps dst src =>
+      let p := vsqrtpsAll (mxcsrRC s.mxcsr) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vsqrtpsm dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else
+        let p := vsqrtpsAll (mxcsrRC s.mxcsr) (s.readMem128 a)
+        s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vcvtpd2ps dst src =>
+      let p := vcvtpd2psAll (mxcsrRC s.mxcsr) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vcvtpd2psm dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else
+        let p := vcvtpd2psAll (mxcsrRC s.mxcsr) (s.readMem128 a)
         s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ CVTSD2SS (SDM Vol. 2A) — SUB-GROUP B3, the first CONVERSION that rounds under
