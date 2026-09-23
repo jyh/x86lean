@@ -19921,3 +19921,68 @@ Intel Core i7-8700B (macos-15-intel) and **AMD EPYC 7763** (ubuntu-latest), `row
 must, beside the two REFUSED byte controls. ⇒ **The 8 top-lane indefinites read ffc00000 / fff8… on an AMD part and an
 Intel part alike; x86isa's 7fc00000 / 7ff8… is the outlier, by the sign bit, as on Rosetta.** First AMD reading of the
 packed path (D281's draw had none).
+
+## D285 — B5's kernel pins: a LANE-LEVEL reach rule, 40 rows of 92, pinned in two steps by price
+
+⚖️ D267 §2's rule pins a row iff x86isa differs OR no vector reaches its class. For the scalar forms, "reaches" means
+some vector's source EQUALS the row's at that RC (`reach_table.py`). **At 128 bits that reading pins every packed row:**
+no random state equals two or four lanes of chosen constants. `packed_reach.py --selftest` measures it: the literal
+rule pins **92 of 92**, the eight x86isa rows included.
+
+### 1. THE RULE — `hwprobe/packed_reach.py`, a command, not a scratch pass
+A packed row is REACHED iff every part of it is reached by some (vector, state) of the same mnemonic over the 88
+pre-states (`run/prestates.json`, D283 §1):
+```
+  LANE     per lane: the flags that lane raises ALONE, plus the RC where that lane ROUNDS (raises PE). An exact,
+           NaN, invalid or zero-divide lane has the same result at every mode, so RC is not asked of it
+  DE-X     DE raised in one lane while ANOTHER lane holds a NaN or a zero divisor (LANE-DE's cross-lane shape)
+  PRESET   a preset flag the row's lanes do not raise
+```
+**A lane's POSITION is deliberately not a part.** Where a lane's result and flags land is what D283 §2's arms show the
+differential already kills: *"raises lane 0's flags alone"* **377** and *"computes lane 0 and keeps the lanes above
+it"* **1,412**, both read exactly as predicted. `--positional` puts position back in and pins **59**.
+The per-lane VALUE class (sign, tie, path) is not a part either. That is the scalar rule's class, and the packed form
+calls the same `varithCall` (D282) that B1 and B2 pinned and carried. ⚠️ **That is an argument about shared code, and
+it is stated here as one.** No arm measures it.
+```
+  rule                          pins    of which x86isa     control in --selftest
+  literal 128-bit equality        92          8             must be a strict superset of the lane rule's: ✔
+  lane rule, positional           59          8             must be a strict superset of the lane rule's: ✔
+  lane rule (this one)            40          8             the known answers from D283 §1's census:
+                                                            divps (one vector, m-16) reaches no IE ⇒ every divps
+                                                            loud@k pinned ✔; mulps x7 reaches IE ⇒ no mulps loud@k ✔
+```
+The 32 reach pins are the packed rows that ask for an overflow at a mode no vector overflows at (`*_mix/<mode>` for
+add, sub and div), an SNaN lane where no vector of that mnemonic has one (`loud@k` for the pd forms and divps), and
+divps's ZE, DE-beside-ZE and DE-X, which its one indefinite-free source never reaches (D283 §1's named gap).
+
+### 2. THE CHECK — `b5Pre` / `b5Agrees`, every bit of %xmm0
+`b5Pre` loads all 128 bits of both sources as `LOAD4` does, and `b5Agrees` compares all 128 bits of the destination
+plus MXCSR = `mx ||| fl`. **Red backwards:** planting x86isa's sign-less indefinite as `divps_indef@3`'s `want`
+(`0x7fc00000…` for `0xffc00000…`) makes `decide` refuse at `Tests/Anchors.lean`, build rc 1. So the pins check the sign
+the model computes and x86isa does not.
+
+### 3. THE PRICE — MEASURED ON DRAFTS, AND WHY TWO STEPS
+A′'s budget for `Tests.Anchors` is 23.3% × its base ku (527,389 at `f1f9e60`) ≈ **122.9k**. `deterministic_cost.py
+--module Tests.Anchors`, base `f1f9e60`:
+```
+  draft                                   Δku        per theorem (ku)
+  positional, 59 rows (de93a6d, dropped)  +209,027   divps 50,255 · subps 39,926 · addps 39,868 · addpd 18,613 ·
+                                                     subpd 18,306 · mulps 15,435 · divpd 15,165 · mulpd 11,454
+  step A, 22 rows (this commit)           +82,258    divps 37,411 · addps 22,855 · mulpd 5,686 · subps 4,852 ·
+                                                     mulps 4,285 · subpd 2,418 · addpd 2,407 · divpd 2,339
+```
+About **4k ku per 4-lane row and 2.4k per 2-lane row.** All 40 in one step is ~137k (estimated from these readings in
+the same module), which is over the budget. So:
+- **Step A (this branch): the 8 x86isa rows plus the 14 reach pins of mulps, mulpd, addps and divps.** Measured +82,258:
+  CLEAN, 40.6k margin.
+- **Step B: the 18 reach pins of subps, addpd, subpd and divpd**, named NOW in `mk_anchors._B5_R_NEXT` and refused if
+  one is also pinned. About 53k by the same readings. It is priced on its own draft when it is built, not from this line.
+⚠️ **The split is a pricing decision, and it does not claim the held rows are carried.** Until step B lands, those 18
+rows are checked by silicon and x86isa (D281) and by nothing in the kernel.
+
+### 4. ⚠️ WHAT THIS DOES NOT SEE (declared beside the verdict)
+- `packed_reach.py` reads two DECLARED inputs from `run/`: the pre-states and x86isa's saved reading. CI cannot re-run
+  it, and `mk_anchors.py`'s lists are its output, as B0–B4's are `reach_table.py`'s.
+- Reach is not coverage: a reached part says nothing about whether the differential compares that case soundly.
+- No row asks for FZ, DAZ, an unmasked exception or the m128 alignment rule (D281 §6), so no pin covers them.
