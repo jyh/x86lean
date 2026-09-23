@@ -3050,6 +3050,49 @@ def vectors : List Vec :=
   , { id := "divpd_mN10", mnemonic := "divpd", asm := "divpd -0x10(%rbx), %xmm0"
     , bytes := "660f5e43f0", instr := ⟨.vparithm .div true .x0 { base := some .rbx, disp := -16 }, 5⟩ }
 
+  -- ⭐⭐⭐ SUB-GROUP B6a — CVTSD2SI / CVTSS2SI, THE ROUNDING CONVERSION TO AN INTEGER (D288, D289).  THREE SOURCES
+  -- PER FORM, from a reach census over the 88 pre-states by `mk_rows.cvt2si`: %xmm0 (the only register holding
+  -- denormals, so the DE arm is visible there), -0x10(%rbx) (the memory form; the mode matters in all 88 states) and
+  -- %xmm11 (REX.B; the most mode-sensitive register).  Destinations include a REX.R one, and every 32-bit one checks
+  -- the zero-extension.  `reach:` is the census line: flags reached, and in how many states the mode matters
+  -- (rcSens), a TRUNCATING model and a NEAREST-ONLY model would differ, the source is a denormal (den), IE and PE.
+  -- reach: flags=IP rcSens=57 trunc=17 near=17 den=43 IE=20 PE=57 inrange=57
+  , { id := "cvtsd2si_x0_eax", mnemonic := "cvtsd2si", asm := "cvtsd2si %xmm0, %eax"
+    , bytes := "f20f2dc0", instr := ⟨.vcvt2si true false .rax .x0, 4⟩ }
+  -- reach: flags=IP rcSens=68 trunc=17 near=17 den= 0 IE=20 PE=68 inrange=68
+  , { id := "cvtsd2si_x11_r9d", mnemonic := "cvtsd2si", asm := "cvtsd2si %xmm11, %r9d"
+    , bytes := "f2450f2dcb", instr := ⟨.vcvt2si true false .r9 .x11, 5⟩ }
+  -- reach: flags=P rcSens=88 trunc=22 near=22 den= 0 IE= 0 PE=88 inrange=88
+  , { id := "cvtsd2si_mN10_ecx", mnemonic := "cvtsd2si", asm := "cvtsd2si -0x10(%rbx), %ecx"
+    , bytes := "f20f2d4bf0", instr := ⟨.vcvt2sim true false .rcx { base := some .rbx, disp := -0x10 }, 5⟩ }
+  -- reach: flags=IP rcSens=57 trunc=17 near=17 den=43 IE=20 PE=57 inrange=57
+  , { id := "cvtsd2si_x0_rax", mnemonic := "cvtsd2si", asm := "cvtsd2si %xmm0, %rax"
+    , bytes := "f2480f2dc0", instr := ⟨.vcvt2si true true .rax .x0, 5⟩ }
+  -- reach: flags=IP rcSens=68 trunc=17 near=17 den= 0 IE=20 PE=68 inrange=68
+  , { id := "cvtsd2si_x11_r9", mnemonic := "cvtsd2si", asm := "cvtsd2si %xmm11, %r9"
+    , bytes := "f24d0f2dcb", instr := ⟨.vcvt2si true true .r9 .x11, 5⟩ }
+  -- reach: flags=P rcSens=88 trunc=22 near=22 den= 0 IE= 0 PE=88 inrange=88
+  , { id := "cvtsd2si_mN10_rdx", mnemonic := "cvtsd2si", asm := "cvtsd2si -0x10(%rbx), %rdx"
+    , bytes := "f2480f2d53f0", instr := ⟨.vcvt2sim true true .rdx { base := some .rbx, disp := -0x10 }, 6⟩ }
+  -- reach: flags=IP rcSens=47 trunc=13 near=13 den=33 IE=24 PE=47 inrange=47
+  , { id := "cvtss2si_x0_eax", mnemonic := "cvtss2si", asm := "cvtss2si %xmm0, %eax"
+    , bytes := "f30f2dc0", instr := ⟨.vcvt2si false false .rax .x0, 4⟩ }
+  -- reach: flags=IP rcSens=79 trunc=19 near=20 den= 0 IE= 6 PE=79 inrange=82
+  , { id := "cvtss2si_x11_r9d", mnemonic := "cvtss2si", asm := "cvtss2si %xmm11, %r9d"
+    , bytes := "f3450f2dcb", instr := ⟨.vcvt2si false false .r9 .x11, 5⟩ }
+  -- reach: flags=P rcSens=88 trunc=22 near=22 den= 0 IE= 0 PE=88 inrange=88
+  , { id := "cvtss2si_mN10_ecx", mnemonic := "cvtss2si", asm := "cvtss2si -0x10(%rbx), %ecx"
+    , bytes := "f30f2d4bf0", instr := ⟨.vcvt2sim false false .rcx { base := some .rbx, disp := -0x10 }, 5⟩ }
+  -- reach: flags=IP rcSens=47 trunc=13 near=13 den=33 IE=19 PE=47 inrange=52
+  , { id := "cvtss2si_x0_rax", mnemonic := "cvtss2si", asm := "cvtss2si %xmm0, %rax"
+    , bytes := "f3480f2dc0", instr := ⟨.vcvt2si false true .rax .x0, 5⟩ }
+  -- reach: flags=IP rcSens=79 trunc=19 near=20 den= 0 IE= 6 PE=79 inrange=82
+  , { id := "cvtss2si_x11_r9", mnemonic := "cvtss2si", asm := "cvtss2si %xmm11, %r9"
+    , bytes := "f34d0f2dcb", instr := ⟨.vcvt2si false true .r9 .x11, 5⟩ }
+  -- reach: flags=P rcSens=88 trunc=22 near=22 den= 0 IE= 0 PE=88 inrange=88
+  , { id := "cvtss2si_mN10_rdx", mnemonic := "cvtss2si", asm := "cvtss2si -0x10(%rbx), %rdx"
+    , bytes := "f3480f2d53f0", instr := ⟨.vcvt2sim false true .rdx { base := some .rbx, disp := -0x10 }, 6⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:

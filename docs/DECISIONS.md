@@ -20072,3 +20072,39 @@ not yet have, so it is its own step.
   misses **51**, which is exactly the number `mk_rows.cvt2si` predicts for that mutant independently, so the check
   can fail and fails where it should.
 Build: full route rc 0.
+
+## D289 — P2 batch 48, sub-group B6a: CVTSD2SI / CVTSS2SI — 12 vectors, three arms, and a rounding direction no vector can reach
+
+⚖️ On D288's shape. **Two roster rows** (`cvtsd2si`, `cvtss2si`), **12 vectors**, **3 arms**. Assembly-class demand
+**258**.
+
+### 1. THE VECTORS — A REACH CENSUS OVER THE 88 PRE-STATES (`run/b6a_census.txt`)
+For every register source and every memory offset in −32..+24, at both widths, `mk_rows.cvt2si` gave over the 88:
+the flags reached, how many states the mode matters in (rcSens), how many a truncating and a nearest-only model
+would differ in, and how many sources are denormal. Per form (sd/ss × int32/int64): **%xmm0** (the only register
+holding denormals, 43 and 33 states, so the DE arm is visible), **-0x10(%rbx)** (the memory form, RC-sensitive in
+all 88) and **%xmm11** (REX.B, the most RC-sensitive register). The destinations include REX.R (`r9`), and every
+int32 destination checks the zero-extension. The bytes are clang's.
+
+### 2. ⛔ A ROUNDING DIRECTION NO VECTOR CAN REACH, FOUND BY THE ARM PREDICTION
+Over driveWrong's 84 states, a TRUNCATING model and a NEAREST-ONLY model fail on **exactly the same 56 cases in
+`rax`, and the same cases in every other destination** (the sets are equal, not just the counts). The census's
+nearest-separating column then reads **0 for every binary64 source, registers and every memory offset**, and 2 states
+at most for binary32. **No pre-state puts a fraction ≥ 1/2 under RC = nearest.** So a model that truncated at
+nearest and rounded correctly at the other three modes would pass the differential.
+⇒ The nearest-only arm is NOT registered: it would be the truncation arm under a second name. **The distinction goes
+to the kernel pins**, whose hwprobe rows (`*_tie/nearest`, `*_tieodd/nearest`, `*_half/nearest`, `*_frac/nearest`,
+D287) ask it directly, and it is named here as a gap the vectors cannot close. It is not claimed as covered.
+
+### 3. THE ARMS — `wrongCvt2siWith`, PREDICTED BEFORE THE RUN (`run/b6a_arm_pred.txt`)
+```
+  arm                                              key         PREDICTED
+  truncates instead of reading MXCSR.RC            rax            56
+  raises DE on a denormal source                   mxcsr.de      114
+  ignores REX.W and rounds to an int32             rax            43
+```
+
+### 4. THE DIFFERENTIAL — PREDICTED BEFORE THE RUN
+x86isa agreed with all 256 cvt*2si hwprobe rows at every mode (D287 §4), so: **+1,056 cases (12 × 88), all matched;
+explained, unexplained and divergence unchanged** ⇒ `cases=100584 matched=79935 explained=29479 unexplained=0
+oracle-divergence=244`.

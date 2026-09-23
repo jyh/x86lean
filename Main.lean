@@ -3736,6 +3736,42 @@ def wrongPackedLowLane : Instr → Cpu → Cpu :=
 def wrongPackedIgnoresRC : Instr → Cpu → Cpu :=
   wrongPackedWith fun op dbl _ a b => vparithAll op dbl 0 a b
 
+/-! ### ⭐⭐⭐ SUB-GROUP B6a — CVTS?2SI's ARMS (D289).
+`wrongCvt2siWith` swaps `cvt2siLow` ALONE and hands every other form to `step`, so no landed family's score moves.
+Each score was predicted before the run over driveWrong's own 84 states (`run/b6a_states.lean` dumps
+`preStates 0x9E3779B97F4A7C15 4`, which D283 §3 learned is not the differential's 88) by `hwprobe/mk_rows.py`'s
+`cvt2si`, which never reads `X86/SoftFloat.lean`.
+⛔ **A NEAREST-ONLY ARM IS NOT HERE, AND THAT IS A FINDING (D289 §2):** over those states it fails on EXACTLY the
+truncation arm's 56 cases in every destination. No pre-state puts a fraction ≥ 1/2 under RC = nearest for binary64,
+so no vector can tell rounding to nearest from truncation there. The kernel pins carry that distinction. -/
+
+/-- CVTS?2SI with its rule swapped out; every other form is `step`. -/
+def wrongCvt2siWith (rule : Bool → Bool → Nat → BitVec 64 → BitVec 64 × BitVec 32) (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vcvt2si dbl wide dst src =>
+      let p := rule dbl wide (mxcsrRC s.mxcsr) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setReg (if wide then .q else .d) dst p.1).setRip nr
+  | .vcvt2sim dbl wide dst ea =>
+      let p := rule dbl wide (mxcsrRC s.mxcsr) (s.readMem (if dbl then .q else .d) (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setReg (if wide then .q else .d) dst p.1).setRip nr
+  | _ => step i s
+
+/-- ⛔ THE `t` FORM'S RULE ON THE ROUNDING FORM: MXCSR.RC is not read and the lane is truncated toward zero. -/
+def wrongCvt2siTruncates : Instr → Cpu → Cpu :=
+  wrongCvt2siWith fun dbl wide _ b => (cvttLane dbl wide b, cvttFlags dbl wide b)
+
+/-- ⛔ DE ON A DENORMAL SOURCE, which the SDM does not list and silicon does not raise (D287 §4). -/
+def wrongCvt2siRaisesDE : Instr → Cpu → Cpu :=
+  wrongCvt2siWith fun dbl wide rc b =>
+    let f := if dbl then SoftFloat.binary64 else SoftFloat.binary32
+    let p := cvt2siLow dbl wide rc b
+    (p.1, if f.isDenormal b then p.2 ||| SoftFloat.fDE else p.2)
+
+/-- ⛔ REX.W IS NOT READ: the lane is rounded to an int32 whatever the destination's width. -/
+def wrongCvt2siIgnoresRexW : Instr → Cpu → Cpu :=
+  wrongCvt2siWith fun dbl _ rc b => cvt2siLow dbl false rc b
+
 /-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both
 mnemonics fault. This is the arm `movdqu_load_unal` exists for: it is the only
 vector in the table at an address that is not 16-byte aligned, so without it this
@@ -4354,6 +4390,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("mulps..divpd suppresses DE in every lane when any lane holds a NaN", wrongPackedGlobalDE, "mxcsr.de")
   , ("mulps..divpd computes lane 0 and keeps the lanes above it", wrongPackedLowLane, "xmm0")
   , ("mulps..divpd ignores MXCSR.RC and rounds to nearest", wrongPackedIgnoresRC, "xmm0")
+  -- ⭐⭐⭐ SUB-GROUP B6a — the rounding conversion to an integer (D289).  Only `cvt2siLow` is swapped in each.
+  , ("cvts?2si truncates instead of reading MXCSR.RC", wrongCvt2siTruncates, "rax")
+  , ("cvts?2si raises DE on a denormal source", wrongCvt2siRaisesDE, "mxcsr.de")
+  , ("cvts?2si ignores REX.W and rounds to an int32", wrongCvt2siIgnoresRexW, "rax")
   , ("movl fails to zero-extend", wrongMovD, "rax")
   , ("shift forgets to mask its count", wrongShiftMask, "rax")
   , ("adc drops the carry-in", wrongAdcNoCarry, "rax")
