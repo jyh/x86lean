@@ -16,6 +16,11 @@ The job is `.github/workflows/hwprobe.yml`. It prints the processor it ran on an
 expectation must fail exactly one row (exit 1), and a wrong instruction byte must refuse the run (exit 2). Only then
 does it run the referee.
 
+The packed forms (B5, D281) read all 128 bits: each takes both quadwords of each operand and returns an `unsigned
+__int128`, because the scalar load zeroes bits 127:64 and a packed instruction would compute lanes no row declares.
+They carry their own two controls (`--plant-packed` flips a bit of a HIGH quadword; `--plant-pop` a packed instruction
+byte), since a plant in a scalar row says nothing about the 128-bit comparison.
+
 Locally, on an x86-64 machine:
 
 ```

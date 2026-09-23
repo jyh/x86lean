@@ -2403,7 +2403,15 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4's HARDWARE READING IN (D274); THE INEXACT INTEGER CONVERSIONS ARE NEXT**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); THE PACKED ARITHMETIC IS NEXT**
+⚖️ **STATUS AT 2026-09-23 (paris, life-79, D281): B5 = THE PACKED ARITHMETIC, 1,225 of the 1,709 left** (`mulps` 477 ·
+`addps` 424 · `subps` 150 · `divps` 12 · `mulpd` 60 · `addpd` 60 · `subpd` 31 · `divpd` 11). Its hardware reading is IN,
+taken before any Lean: 84 packed rows at all 128 bits, 572/572 on a Xeon 8370C and an i7-8700B (both Intel, no AMD
+this draw), x86isa 42 = the 42 on record, as posted before the run. **NEXT: the B5 batch, by D271's recipe, on
+`varithLow`'s call per lane and `vbinFlags`' OR**, with the memory form's alignment rule as its own question, since no
+row reached it. Left after B5: `cvtss2si` 165 · `sqrtss` 134 · `cvtsd2si` 93 · `sqrtsd` 89 · `sqrtps` 2 · `cvtpd2ps` 1.
+*B4 LANDED in #53 (`4516f95`). The line above still read "B4's hardware reading in; the inexact integer conversions are
+next" three merges after that; the header is corrected here, together with the new status.*
 ⚖️⚖️ **STATUS AT 2026-09-20, NIGHT (paris, life-72): B4'S PIN PRICE DOES NOT STRADDLE ITS ALLOWANCE — THE STRADDLE WAS A
 STALE DENOMINATOR, AND IT WAS MINE.** My own hand-over priced B4's pin selection as *"85 rows at 43,350–82,875 ku against a
 **60,901** allowance — it STRADDLES, so it needs a measured Δku on a draft"*, and made that straddle the first act of the

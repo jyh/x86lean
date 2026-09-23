@@ -19,7 +19,7 @@ import portable as P  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RUN = os.path.join(ROOT, "run")
-BYTES = M.OPS
+BYTES = dict(M.OPS, **M.POPS)
 EXCLUDED = {"cvtss2sd_negzero", "cvtsd2ss_zero", "cvtsd2ss_negzero"}
 # Paths are relative to the repository root, where the ACL2 image is run from.
 DRIVE = """(include-book "projects/x86isa/tools/execution/init-state" :dir :system :ttags :all)
@@ -38,6 +38,13 @@ def rows():
     M.ROWS.clear()
     M.build()
     return [r for r in M.ROWS if r[0] not in EXCLUDED]
+
+
+def prows():
+    """B5: the packed rows. %xmm0 and %xmm1 are loaded with all 128 bits of A and B, and all 128 of %xmm0 are scored."""
+    M.PROWS.clear()
+    M.build_packed()
+    return list(M.PROWS)
 
 
 def gen():
@@ -60,6 +67,7 @@ def gen():
         return r.replace(':rflags', ':mxcsr #x%08x :rflags' % mx, 1)
 
     out = [mk(n, BYTES[fn], a, b, mx) for (n, fn, mx, a, b, want, mask, fl) in rows()]
+    out += [mk(n, BYTES[fn], A, B, mx) for (n, fn, mx, A, B, want, fl) in prows()]
     out.append(mk("CONTROL_last", "f20f59c1", 0x3FF8000000000000, 0x4000000000000000, 0x1F80))
     with open(os.path.join(RUN, "hwprobe_cases.lsp"), "w", encoding="utf-8") as fh:
         fh.write('(in-package "X86ISA")\n(defconst *x86lean-cases*\n \'(\n' + "\n".join(out) + "\n ))\n")
@@ -95,8 +103,16 @@ def score():
         bad += not ok
         print("%s %-28s x86isa %016x want %016x  mxcsr %04x want %04x" %
               ("ok  " if ok else "DIFF", n, got, want, gmx, mx | fl))
+    for (n, fn, mx, A, B, want, fl) in prows():
+        kv = post[n]
+        got = int(kv["xmm0"], 16)
+        gmx = int(kv["mxcsr"], 16)
+        ok = got == want and gmx == (mx | fl) and kv.get("refused") == "0"
+        bad += not ok
+        print("%s %-28s x86isa %032x want %032x  mxcsr %04x want %04x" %
+              ("ok  " if ok else "DIFF", n, got, want, gmx, mx | fl))
     c = post.get("CONTROL_last", {})
-    print("rows", len(rows()), "disagreements", bad, "control xmm0", c.get("xmm0"), "mxcsr", c.get("mxcsr"))
+    print("rows", len(rows()) + len(prows()), "disagreements", bad, "control xmm0", c.get("xmm0"), "mxcsr", c.get("mxcsr"))
 
 
 if __name__ == "__main__":
