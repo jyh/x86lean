@@ -240,6 +240,8 @@ _B5_R = [
 # Step A pinned the 8 x86isa rows and the reach rows of mulps, mulpd, addps and divps; step B (D286) pinned the rest.
 _B5_R_NEXT: list[str] = [
 ]
+# B7 (D294): SQRTPS and CVTPD2PS, read before their batch; pending until it names its pins.
+PPENDING: set[str] = {"p_sqrtps", "p_cvtpd2ps"}
 PPINNED = {n: _X for n in _B5_X}
 PPINNED.update({n: _R for n in _B5_R})
 
@@ -472,8 +474,10 @@ def block():
         lines.append("  ] : List (%s)).all" % PTY)
         lines += ["    " + c for c in check]
         lines[-1] += " = true := by decide"
-    if pused != len(prs):
-        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family" % (len(prs) - pused))
+    ppend = sum(1 for r in prs if r[1] in PPENDING)
+    if pused + ppend != len(prs):
+        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family and not pending"
+                         % (len(prs) - pused - ppend))
     lines += ["", END]
     return lines
 

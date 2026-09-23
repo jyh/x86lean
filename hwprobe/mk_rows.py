@@ -366,7 +366,8 @@ OPS = {"p_cvtsi2sd": "f20f2ac7",
 
 # B5: the packed forms, as the bytes each p_ function executes after LOAD4 (offset 28, checked by probe.c).
 POPS = {"p_mulps": "0f59c1", "p_mulpd": "660f59c1", "p_addps": "0f58c1", "p_addpd": "660f58c1",
-        "p_subps": "0f5cc1", "p_subpd": "660f5cc1", "p_divps": "0f5ec1", "p_divpd": "660f5ec1"}
+        "p_subps": "0f5cc1", "p_subpd": "660f5cc1", "p_divps": "0f5ec1", "p_divpd": "660f5ec1",
+        "p_sqrtps": "0f51c1", "p_cvtpd2ps": "660f5ac1"}
 
 ROWS = []   # (name, fn, mxcsr_in, a, b, want, want_mask, want_flags)
 PROWS = []  # B5: (name, fn, mxcsr_in, A, B, want, want_flags), A B want 128-bit, every bit compared
@@ -610,6 +611,55 @@ def build_b6():
                     add("%s_%s_sticky%04x" % (nm, name, mx), fn, mx, a, 0, v, full, f)
 
 
+def build_b7():
+    """B7 (D294): SQRTPS (every binary32 lane by `fsqrt`, flags ORed) and CVTPD2PS (the two binary64 lanes by
+    `cvtsd2ss` into the low two binary32 lanes, bits 127:64 ZEROED, flags ORed). Only %xmm1 (B) is read; A is a canary
+    in %xmm0 that neither form may keep. The lane cases are B6b's and B3's scalar rows, so a packed disagreement can be
+    told from a scalar one by looking up that lane's own row."""
+    CANA = 0xC3C35A5A_A5A53C3C_0F0FF0F0_12345678
+    S = lambda q: R.encode(F32, False, Fraction(q))
+    SDEN, SQN, SSN, SNEG = 0x007FFFFF, 0x7FC00000, 0x7F800123, 0xBF800000
+    lanes = lambda xs, w: sum(x << (w * i) for i, x in enumerate(xs))
+
+    def sq(name, xs, mx):
+        rc = (mx >> 13) & 3
+        r, f = 0, 0
+        for i, x in enumerate(xs):
+            v, g = fsqrt(F32, rc, x)
+            r |= v << (32 * i)
+            f |= g
+        PROWS.append(("sqrtps_%s" % name, "p_sqrtps", mx, CANA, lanes(xs, 32), r, f))
+
+    for rc, mode in enumerate(MODES):
+        sq("mix/%s" % mode, [S(2), S(4), SDEN, SQN], 0x1F80 | (rc << 13))
+    for k in range(4):
+        sq("loud@%d" % k, [SSN if i == k else S(4) for i in range(4)], 0x1F80)
+    sq("de_nan", [SQN, SDEN, S(4), S(4)], 0x1F80)
+    sq("negden_de", [SDEN | (1 << 31), SDEN, S(4), S(4)], 0x1F80)
+    sq("indef@3", [S(4), S(4), S(4), SNEG], 0x1F80)
+    sq("sticky1fbf", [S(4)] * 4, 0x1FBF)
+
+    D = lambda q: R.encode(F64, False, Fraction(q))
+    DTH, DOV, DDN, DSN = 0x3FD5555555555555, 0x7FEFFFFFFFFFFFFF, 0x000FFFFFFFFFFFFF, 0x7FF0000000000789
+
+    def cv(name, xs, mx):
+        rc = (mx >> 13) & 3
+        r, f = 0, 0
+        for i, x in enumerate(xs):
+            v, g = cvtsd2ss(rc, x)
+            r |= (v & 0xFFFFFFFF) << (32 * i)
+            f |= g
+        PROWS.append(("cvtpd2ps_%s" % name, "p_cvtpd2ps", mx, CANA, lanes(xs, 64), r, f))
+
+    for rc, mode in enumerate(MODES):
+        cv("mix/%s" % mode, [DTH, DOV], 0x1F80 | (rc << 13))
+        cv("tiny/%s" % mode, [0x3800000000080000, D(1)], 0x1F80 | (rc << 13))
+    for k in range(2):
+        cv("loud@%d" % k, [DSN if i == k else D(1) for i in range(2)], 0x1F80)
+    cv("den@1", [D(1), DDN], 0x1F80)
+    cv("sticky1fbf", [D(1), D(2)], 0x1FBF)
+
+
 def build_packed():
     """B5 (LANE-OR, LANE-DE). Each lane is a scalar case the B1/B2 rows already name; a row is a choice of case per
     lane. `mix` puts a different flag set in every lane at every mode, with every lane a different value, so a lane
@@ -664,6 +714,7 @@ def build_packed():
             ninf = inf | (1 << (w - 1))
             ind = {"div": (0, 0), "mul": (inf, 0), "sub": (inf, inf), "add": (inf, ninf)}[op]
             row("indef@%d" % (n - 1), [ex] * (n - 1) + [ind], 0x1F80)
+    build_b7()
 
 
 def main():

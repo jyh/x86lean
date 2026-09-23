@@ -20212,3 +20212,21 @@ root does not raise), with the path qnan · snan · zero · inf · negative · e
 - **Red backwards:** planting x86isa's `7ff8…` for `sqrtsd_negone`'s `fff8…` makes `decide` refuse (build rc 1).
 - **Price** (`deterministic_cost.py --module Tests.Anchors`, base `a8dac6d`): **Δku +102,527** (sd 74,108 · ss 28,419)
   against A′'s 23.3% × 757,055 ≈ **176.4k**. **CLEAN in one step.** `PENDING` is empty: every hwprobe row is in a family.
+
+## D294 — B7's hardware reading, before the batch: SQRTPS and CVTPD2PS, the last 3 instructions of sub-group B
+
+⚖️ `p2_residue` after B6: **`sqrtps` 2 · `cvtpd2ps` 1**. Both are 128-bit forms, read through D281's probe (`PROWS`,
+bytes checked at +28). Both read all of %xmm1 and write all of %xmm0, whose incoming bits are a canary neither may
+keep. **24 rows** (`mk_rows.build_b7`):
+```
+  sqrtps    mix/<mode> (√2 inexact · √4 exact · a denormal · a QNaN) · loud@k (an SNaN at every lane) · de_nan (DE in
+            lane 1 beside a NaN in lane 0: DE is per lane) · negden_de (the signed indefinite in lane 0, DE in lane 1)
+            · indef@3 (−1 in the top lane) · sticky1fbf
+  cvtpd2ps  mix/<mode> (1/3 inexact · MAX overflowing) · tiny/<mode> (a tiny inexact binary32) · loud@k · den@1
+            (a binary64 denormal narrowing to 0 with UE|PE|DE) · sticky1fbf. Bits 127:64 of the result are ZERO.
+```
+Rosetta 2 reads 958/958. Planting x86isa's sign-less indefinite on `sqrtps_indef@3` gives exactly that one DIFF, beside
+the packed plant's.
+**x86isa — THE PREDICTION, COMMITTED BEFORE `gen`: 58 = the 56 of D287 + `sqrtps_indef@3` + `sqrtps_negden_de`,** each
+wrong in one lane's sign bit alone (`7fc00000` for `ffc00000`), the flags agreeing. CVTPD2PS is predicted to agree
+on all 12 of its rows.
