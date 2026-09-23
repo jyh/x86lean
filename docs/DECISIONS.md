@@ -20255,3 +20255,24 @@ Type-4 #GP verbatim. `vsqrtpsAll` folds `SoftFloat.fsqrt` over the four binary32
 are ORed across lanes, as `vparithAll`'s are. **Checked against the hardware rows before any vector**
 (`run/b7_check.lean`): **24 / 24** at all 128 bits and the flags. **Control:** ignoring MXCSR.RC misses **6** =
 `mk_rows`' independent 6.
+
+### 2. ⛔ SQRTPS GETS A SHAPE AND NO ROW — a design fork, taken on the narrow arm
+Every SQRTPS source in the populated window meets a NEGATIVE lane ABOVE lane 0 in 15–88 of the 88 states. There,
+x86isa's indefinite is sign-less (D294) and `knownDivergences`' `pair` form (D266) excuses a LOW lane only, so the
+disagreement is inexpressible. The only negative-free offsets (−48, +32) lie outside the populated window.
+**(a)** widen the pair form to any lane · **(b) claim CVTPD2PS alone and name SQRTPS as the residue: TAKEN.** Two
+instructions do not buy a wider excuse mechanism. D283 declined the same widening for B5, and the shape stays,
+checked on 12 hardware rows, for whoever meets a reason to claim it.
+
+### 3. THE BATCH — CVTPD2PS: 1 roster row, 3 vectors, 3 arms. PREDICTIONS, COMMITTED BEFORE THE RUNS
+Sources with **no zero binary64 lane in any state**, because x86isa aborts the whole run on a zero narrowing (D258,
+D272), and no pre-state presets OE, so D294's defect cannot fire: `%xmm2 → %xmm1`, `%xmm9 → %xmm10` (REX.R + REX.B),
+aligned `−0x10(%rbx) → %xmm1`.
+```
+  differential   +264 cases (3 × 88), all matched ⇒ cases=101376 matched=80679 explained=29479 unexplained=0
+                 oracle-divergence=292
+  arms (84 states, run/b7_arm_pred.txt)
+    cvtpd2ps ignores MXCSR.RC                       xmm1    54
+    cvtpd2ps keeps bits 127:64 of the destination   xmm1   156
+    cvtpd2ps narrows lane 0 only                    xmm1   125
+```

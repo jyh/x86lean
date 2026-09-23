@@ -3810,6 +3810,35 @@ def wrongSqrtNoDE : Instr → Cpu → Cpu :=
 def wrongSqrtZeroesUpper : Instr → Cpu → Cpu :=
   wrongSqrtWith fun sz rc d b => vsqrtLow sz rc 0 b
 
+/-! ### ⭐⭐⭐ SUB-GROUP B7 — CVTPD2PS's ARMS (D295), predicted over driveWrong's 84 states (`run/b7_states.lean`). -/
+
+/-- CVTPD2PS with its write-and-flags pair swapped out; every other form is `step`. -/
+def wrongCvtpd2psWith (rule : Nat → BitVec 128 → BitVec 128 → BitVec 128 × BitVec 32) (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vcvtpd2ps dst src =>
+      let p := rule (mxcsrRC s.mxcsr) (s.getXmm dst) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vcvtpd2psm dst ea =>
+      let a := ea.addr s nr
+      if aligned16 a then
+        let p := rule (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem128 a)
+        s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+      else step i s
+  | _ => step i s
+
+/-- ⛔ MXCSR.RC IS NOT READ. -/
+def wrongCvtpd2psIgnoresRC : Instr → Cpu → Cpu :=
+  wrongCvtpd2psWith fun _ _ b => vcvtpd2psAll 0 b
+
+/-- ⛔ BITS 127:64 OF THE DESTINATION ARE KEPT, not zeroed. -/
+def wrongCvtpd2psKeepsUpper : Instr → Cpu → Cpu :=
+  wrongCvtpd2psWith fun rc d b => let p := vcvtpd2psAll rc b; (((d >>> 64) <<< 64) ||| p.1, p.2)
+
+/-- ⛔ ONLY LANE 0 IS NARROWED; the second binary32 lane is left zero. -/
+def wrongCvtpd2psLane0 : Instr → Cpu → Cpu :=
+  wrongCvtpd2psWith fun rc _ b => let p := vcvtpd2psAll rc b; (p.1 &&& 0xFFFFFFFF, p.2)
+
 /-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both
 mnemonics fault. This is the arm `movdqu_load_unal` exists for: it is the only
 vector in the table at an address that is not 16-byte aligned, so without it this
@@ -4436,6 +4465,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("sqrts? ignores MXCSR.RC and rounds to nearest", wrongSqrtIgnoresRC, "xmm1")
   , ("sqrts? raises no DE on a denormal source", wrongSqrtNoDE, "mxcsr.de")
   , ("sqrts? zeroes the bits above the lane", wrongSqrtZeroesUpper, "xmm1")
+  -- ⭐⭐⭐ SUB-GROUP B7 — the packed narrowing (D295).
+  , ("cvtpd2ps ignores MXCSR.RC", wrongCvtpd2psIgnoresRC, "xmm1")
+  , ("cvtpd2ps keeps bits 127:64 of the destination", wrongCvtpd2psKeepsUpper, "xmm1")
+  , ("cvtpd2ps narrows lane 0 only", wrongCvtpd2psLane0, "xmm1")
   , ("movl fails to zero-extend", wrongMovD, "rax")
   , ("shift forgets to mask its count", wrongShiftMask, "rax")
   , ("adc drops the carry-in", wrongAdcNoCarry, "rax")

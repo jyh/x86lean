@@ -2669,6 +2669,9 @@ def rosterP0 : List String :=
    "cvtsd2si", "cvtss2si",
    -- ⭐⭐⭐ SUB-GROUP B6b: the square roots, TWO rows, `vsqrt`/`vsqrtm` (D291, D292).
    "sqrtsd", "sqrtss",
+   -- ⭐⭐⭐ SUB-GROUP B7: the packed narrowing, ONE row, `vcvtpd2ps`/`vcvtpd2psm` (D294, D295). `sqrtps` has a shape
+   -- and no row: no pre-state source avoids a declared-inexpressible divergence (D295 §2).
+   "cvtpd2ps",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this
