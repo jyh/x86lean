@@ -2404,6 +2404,13 @@ kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced
 The prose goes in `note`, which is not reduced.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); B5 = P2 BATCH 47 (D282, D283), BUILT ON `paris/b5`, LANDING AFTER #55**
+⚖️ **STATUS AT 2026-09-23, LATER STILL (paris, life-80, D284–D286): B5'S PINS ARE BUILT, IN TWO STEPS, STACKED ON `paris/b5`.**
+The packed indefinite is now on 8 hwprobe rows (D284): silicon 580/580 on an i7-8700B AND an EPYC 7763; x86isa 50, wrong
+by the sign bit in the top lane only. The pins' reach is LANE-LEVEL (`hwprobe/packed_reach.py`, D285), because the scalar
+rule pins 92 of 92 at 128 bits: 40 pins = the 8 indefinites + 32 unreached. `paris/b5-pins` (step A, 22 rows, Δku
++82,258) and `paris/b5-pins-b` (step B, 18 rows, Δku +53,716) are each CLEAN on their own step and on both tiers.
+**OWED, in order:** merge #55 → land `paris/b5` (landing row on the master step) → land step A → land step B, each with
+its row. **Then B6:** `cvtss2si` 165 · `sqrtss` 134 · `cvtsd2si` 93 · `sqrtsd` 89, with the hardware reading first.
 ⚖️ **STATUS AT 2026-09-23, LATER (paris, life-79, D282, D283): B5 IS BUILT AS P2 BATCH 47, RECORD 33, on `paris/b5`.**
 Shape: `vparith`/`vparithm` over `VArithOp`, with `varithCall` factored out so both forms make one call (A′ on the draft
 CLEAN; landed pins +82 ku). Batch: 8 roster rows and 19 vectors from a reach census, all indefinite-free. The differential
