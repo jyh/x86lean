@@ -20144,3 +20144,20 @@ what no vector can: a model that truncated at nearest, or broke a tie away from 
 60.9k margin.** `PENDING` now holds the square roots alone (B6b).
 ⚠️ Not measured: whether a reached class is compared soundly. And `run/prestates.json` is a declared input, so CI
 cannot re-run the selection, exactly as for B0–B5.
+
+## D291 — B6b's shape: `vsqrt`/`vsqrtm` and `SoftFloat.fsqrt` on `roundPack`
+
+⚖️ QUEUE P3, B6b = `sqrtss` 134 + `sqrtsd` 89 = **223**, on D287's reading.
+- **`SoftFloat.isqrtGo`**: `⌊√n⌋` digit by digit, STRUCTURAL on the bit count. Core's `Nat.sqrt` is defined by
+  well-founded recursion, which the kernel's `decide` does not reduce well, and the B6b pins will be `decide`.
+- **`SoftFloat.fsqrt`**: NaN quieted (IE on an SNaN); ±0 and +∞ returned; any other negative source gives the SIGNED
+  indefinite and IE ALONE (both vendors, D287 §4). Otherwise `m × 2^e` is scaled by an even shift that leaves at least
+  `mw + 2` root bits, and `2q + sticky` goes to **`roundPack`**, the rounding every B-form shares. A square root is
+  never exactly half-way, so the sticky bit below the round bit gives the correctly rounded result. A root is never
+  tiny or huge, so the flags are PE iff inexact, plus DE on a denormal source. No power above 256 (`m · 2^s < 2^166`).
+- **`vsqrt` / `vsqrtm`** over `Size` as `varith` is, NOT a fifth `VArithOp` member, for D273's reason (the fold's
+  operations take two operands). `vsqrtLow` keeps every bit above the lane, as `varithLow` does.
+- **Checked against the hardware rows before any vector** (`run/b6b_check.lean`): `vsqrtLow` equals `want` (canary
+  lane included) and the flags on **all 90** sqrt rows that silicon read 934/934. **Control:** ignoring MXCSR.RC misses
+  **17**, which is exactly what `mk_rows.fsqrt` predicts for that mutant independently.
+Build: full route rc 0.

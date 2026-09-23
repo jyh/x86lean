@@ -691,6 +691,13 @@ def varithLow (op : VArithOp) (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVe
   let (r, fl) := varithCall op f rc (d.setWidth 64) b
   (((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128), fl)
 
+/-- ⭐⭐⭐ SUB-GROUP B6b — SQRTSS / SQRTSD's WRITE AND ITS FLAGS, ONE PAIR (D291): the low lane of `d` becomes
+`SoftFloat.fsqrt` of `b`'s low lane under `rc`, and every bit above the lane is KEPT, as `varithLow` keeps it. -/
+def vsqrtLow (sz : Size) (rc : Nat) (d : BitVec 128) (b : BitVec 64) : BitVec 128 × BitVec 32 :=
+  let n := sz.bits
+  let (r, fl) := SoftFloat.fsqrt (if sz == .q then SoftFloat.binary64 else SoftFloat.binary32) rc b
+  (((d >>> n) <<< n) ||| ((r.setWidth n).setWidth 128), fl)
+
 /-- ⭐⭐⭐ SUB-GROUP B5 — THE PACKED FP ARITHMETIC WRITE AND ITS FLAGS, ONE PAIR (SDM Vol. 2B,
 ADDP?/SUBP?/MULP?/DIVP?): lane `i` of the result is `varithCall` of lane `i` of `a` and of `b`, rounded
 under `rc`, and the flags are the OR of the lanes' flags (LANE-OR, read on silicon before this
@@ -1024,6 +1031,15 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
   | .varithm op sz dst ea =>
       let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+
+  -- ⭐⭐⭐ SQRTSS / SQRTSD (SDM Vol. 2B) — SUB-GROUP B6b. The low lane only; bits above it are preserved; no EFLAGS
+  -- bit is written. ⚠️ NO ALIGNMENT CHECK at the memory form.
+  | .vsqrt sz dst src =>
+      let p := vsqrtLow sz (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vsqrtm sz dst ea =>
+      let p := vsqrtLow sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
       s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
 
   -- ⭐⭐⭐ MULPS/MULPD/ADDPS/ADDPD/SUBPS/SUBPD/DIVPS/DIVPD (SDM Vol. 2B) — SUB-GROUP B5.  EVERY lane is

@@ -1098,6 +1098,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- SUB-GROUP B6a, in the same commit as the constructors: the rounding conversion writes a
     -- GENERAL-PURPOSE register at both shapes; the memory operand is its SOURCE.
     | .vcvt2si .. | .vcvt2sim .. => false
+    -- SUB-GROUP B6b, in the same commit as the constructors: a square root writes an XMM register at
+    -- both shapes; the memory operand is its SOURCE.
+    | .vsqrt .. | .vsqrtm .. => false
     -- SUB-GROUP B1, in the same commit as the constructors: a multiply writes an
     -- XMM register at both shapes; the memory operand is its SOURCE.
     | .varith .. | .varithm .. => false
