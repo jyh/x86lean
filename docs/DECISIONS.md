@@ -20195,3 +20195,20 @@ a declaration that can never fire is an untested claim.
 - **Regenerated:** COVERAGE.md (196 rows), the demand census (CLEAN at 196 mnemonics; ⚠️ run it AFTER COVERAGE.md,
   since it reads the model from there and read 194 when run first), P2-ROSTER.md (CLEAN), README, and the commission:
   **226 → 3** (`sqrtps` 2 · `cvtpd2ps` 1). ⇒ **Sub-group B is 3 instructions from empty.**
+
+## D293 — B6b's kernel pins: 24 of 90 sqrt rows (6 x86isa · 18 by a PATH reach rule), in one step
+
+`hwprobe/sqrt_reach.py` classes a row by (path, a denormal source, RC where the root is inexact, a preset flag the
+root does not raise), with the path qnan · snan · zero · inf · negative · exact · inexact, as D290 classed cvt*2si.
+```
+  result      TOTAL 90 / PINNED 24 (x86isa 6: sqrt?_neginf · _negone · _negden) / CARRIED 66
+  --selftest  6 vectors, 90 rows; the x86isa set is exactly the six negatives; the known answers from D292 (the memory
+              vector reaches an inexact root at round-up; no vector presents +∞); and the control: value-and-RC
+              equality pins 84, a STRICT superset of 24 ✔
+```
+- **`isqrtGo` recurses once per root bit**, past the elaborator's default depth, so the two `b6b_*` theorems carry
+  `set_option maxRecDepth 8000 in`. The generator emits it from `mk_anchors.RECDEPTH`, scoped to those two only, as
+  `Tests/Nonvacuity.lean` scopes its own.
+- **Red backwards:** planting x86isa's `7ff8…` for `sqrtsd_negone`'s `fff8…` makes `decide` refuse (build rc 1).
+- **Price** (`deterministic_cost.py --module Tests.Anchors`, base `a8dac6d`): **Δku +102,527** (sd 74,108 · ss 28,419)
+  against A′'s 23.3% × 757,055 ≈ **176.4k**. **CLEAN in one step.** `PENDING` is empty: every hwprobe row is in a family.
