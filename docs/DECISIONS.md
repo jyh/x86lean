@@ -20053,3 +20053,22 @@ which is where a scalar SQRT writes, so that form expresses it.
 ⚠️ **NOT SEEN (declared beside the verdict):** the memory-source forms, FZ/DAZ, any unmasked exception, and `sqrtps` /
 `cvtpd2ps` (the other 3 of the 484). `want` is DERIVED by mk_rows.py and never read from x86lean or x86isa, so 934/934
 means hardware and our derivation agree; it says nothing about a rule the derivation leaves out.
+
+## D288 — B6a's shape: `vcvt2si`/`vcvt2sim`, CVTS?2SI as `truncToInt`'s rounding sibling
+
+⚖️ QUEUE P3, B6 split by what each half needs: **B6a = `cvtss2si` 165 + `cvtsd2si` 93 = 258**, which rounds an integer
+that `truncToInt` already places. **B6b = `sqrtss` + `sqrtsd` (223)** needs an integer square root that SoftFloat does
+not yet have, so it is its own step.
+- **`SoftFloat.cvtToInt f w rc x`**: the significand placed as `truncToInt` places it, and the part shifted off decided
+  by **`roundsUp`, `roundPack`'s own rounding decision**, so the four modes are stated once. The range test comes
+  after rounding. IE alone on NaN, ±∞ or out of range; PE iff anything was shifted off; no DE (D287 §4, both vendors).
+  An exponent at or past `w` is out of range before any shift, and `shiftOut` clamps the long right shift, so no
+  literal power above 256 is on any path (D262 §3).
+- **`vcvt2si` / `vcvt2sim`**, two constructors beside `vcvtt2si` / `vcvtt2sim`, as B5 added `vparith` beside
+  `varith`: the existing forms' vectors, arms and pins do not move. `Semantics.cvt2siLow` returns the value and flags
+  from one call, so they cannot disagree about the rounding.
+- **Checked against the hardware rows before any vector** (`run/b6a_check.lean`): `cvt2siLow` equals `want` and the
+  flags on **all 264** cvt*2si rows that silicon read 934/934 (D287). **Control:** a mutant that ignores MXCSR.RC
+  misses **51**, which is exactly the number `mk_rows.cvt2si` predicts for that mutant independently, so the check
+  can fail and fails where it should.
+Build: full route rc 0.

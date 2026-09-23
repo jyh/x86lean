@@ -1628,6 +1628,13 @@ inductive Op where
   EIGHT bytes when `dbl` and FOUR otherwise.  ⚠️ NO ALIGNMENT CHECK: a scalar
   operand states none, exactly as `vcvtsi2m`. -/
   | vcvtt2sim (dbl wide : Bool) (dst : GPR) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B6a — CVTSD2SI / CVTSS2SI (SDM Vol. 2A), register source: `vcvtt2si`'s sibling that ROUNDS
+  under MXCSR.RC (`SoftFloat.cvtToInt`) where the `t` form truncates. The same destination rule (an int32 is
+  zero-extended), and MXCSR's IE and PE (D288). -/
+  | vcvt2si (dbl wide : Bool) (dst : GPR) (src : XmmReg)
+  /-- ⭐⭐⭐ SUB-GROUP B6a — the same at a MEMORY source, eight bytes when `dbl` and four otherwise. ⚠️ NO ALIGNMENT
+  CHECK: a scalar operand states none. -/
+  | vcvt2sim (dbl wide : Bool) (dst : GPR) (ea : Ea)
   /-- ⭐⭐⭐ SUB-GROUP B1 — MULSS / MULSD (SDM Vol. 2B), register source, and the FIRST
   FORM HERE THAT READS MXCSR.RC.  The low lane of the destination becomes
   `SoftFloat.fmul` of the two low lanes, rounded under the mode in MXCSR bits 13–14,
@@ -2048,6 +2055,8 @@ def opOperands : Op → List Operand
   -- memory source names its address.
   | .vcvtt2si _ _ r _ => [.reg r]
   | .vcvtt2sim _ _ r ea => [.reg r, .mem ea]
+  | .vcvt2si _ _ r _ => [.reg r]
+  | .vcvt2sim _ _ r ea => [.reg r, .mem ea]
   -- SUB-GROUP B1: the scalar multiply's memory SOURCE names its address.
   | .varith .. => []
   | .varithm _ _ _ ea => [.mem ea]
@@ -2197,6 +2206,8 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 40: `lock cvttsd2si` is not a form the SDM lists.
   | .vcvtt2si .. => false
   | .vcvtt2sim _ _ _ ea => ea.lock
+  | .vcvt2si .. => false
+  | .vcvt2sim _ _ _ ea => ea.lock
   -- SUB-GROUP B1: `lock mulsd` is not a form the SDM lists.
   | .varith .. => false
   | .varithm _ _ _ ea => ea.lock
@@ -2383,6 +2394,7 @@ def Op.mnemonic : Op → String
   -- P2 BATCH 40: ONE name for both destination widths, as objdump prints it and
   -- as the census keys it (D259's key has no width).
   | .vcvtt2si dbl .. | .vcvtt2sim dbl .. => if dbl then "cvttsd2si" else "cvttss2si"
+  | .vcvt2si dbl .. | .vcvt2sim dbl .. => if dbl then "cvtsd2si" else "cvtss2si"
   -- SUB-GROUP B1: both operand shapes print one name.
   | .varith op sz .. | .varithm op sz .. => op.mnemonic sz
   -- SUB-GROUP B3: both operand shapes print one name.

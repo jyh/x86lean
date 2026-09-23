@@ -541,5 +541,35 @@ def i2f (f : Fmt) (wide : Bool) (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVec
   if mag == 0 then (0, 0)
   else roundPack f rc neg mag.toNat 0
 
+/-! ### ⭐⭐⭐ SUB-GROUP B6a — CVTSD2SI / CVTSS2SI, THE ROUNDING CONVERSION TO AN INTEGER (D288).
+
+`truncToInt`'s sibling that READS MXCSR.RC. The significand is placed as an integer the same way, and the part
+shifted off rounds under `roundsUp`, which is `roundPack`'s own decision, so the four modes are stated once in this
+file. The flags come out of the same pass: IE ALONE on a NaN, ±∞, or a ROUNDED result outside the destination's
+range; otherwise PE iff anything was shifted off. No DE: the SDM lists Invalid and Precision only, and silicon
+agrees on both vendors (D287 §4). -/
+
+/-- ⭐⭐ CVTS?2SI's RULE (SDM Vol. 2A): the low `f`-format lane of `x` rounded to an integer under `rc` (0 nearest ·
+1 down · 2 up · 3 zero), as a `w`-bit two's-complement integer zero-extended to 64 bits, with its flags.
+* **±0 gives 0** with no flag; a denormal rounds like any other value (to 0, or to ±1 away from zero).
+* **The range test is AFTER rounding**: binary64 `2^31 − 1/2` is in range at down and zero, and out at nearest and up.
+* **The integer indefinite is `2^(w−1)`**, the sign bit alone, as `truncToInt`'s.
+* ⛔ **No power above 256 on any path** (D262 §3): an exponent at or past `w` is out of range before any shift, and
+  `shiftOut` clamps a long right shift, so a binary64 denormal's 1,074-bit shift never becomes a literal power. -/
+def cvtToInt (f : Fmt) (w : Nat) (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let e := (f.expo x).toNat
+  let ind : BitVec 64 := 1 <<< (w - 1)
+  if e == 2 ^ f.ew - 1 || bias f + w ≤ e then (ind, fIE)
+  else if f.isZero x then (0, 0)
+  else
+    let neg := f.sign x
+    let m : Nat := (f.mant x).toNat + (if e == 0 then 0 else 2 ^ f.mw)
+    let (q, r, half) := shiftOut m ((bias f + f.mw : Nat) - (max e 1 : Nat) : Int)
+    let n := if roundsUp rc neg q r half then q + 1 else q
+    if (if neg then n ≤ 2 ^ (w - 1) else n < 2 ^ (w - 1)) then
+      let v := BitVec.ofNat 64 n
+      ((if neg then ((-v).setWidth w).setWidth 64 else v), if r != 0 then fPE else 0)
+    else (ind, fIE)
+
 end SoftFloat
 end X86
