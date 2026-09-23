@@ -29,6 +29,12 @@ uint64_t p_cvtsd2ss(uint64_t, uint64_t);
 uint64_t p_cvtsi2ss(uint64_t, uint64_t);
 uint64_t p_cvtsi2ssq(uint64_t, uint64_t);
 uint64_t p_cvtsi2sdq(uint64_t, uint64_t);
+uint64_t p_sqrtss(uint64_t, uint64_t);
+uint64_t p_sqrtsd(uint64_t, uint64_t);
+uint64_t p_cvtss2si(uint64_t, uint64_t);
+uint64_t p_cvtss2siq(uint64_t, uint64_t);
+uint64_t p_cvtsd2si(uint64_t, uint64_t);
+uint64_t p_cvtsd2siq(uint64_t, uint64_t);
 
 /* B5: the packed forms take both quadwords of each operand and return all 128 bits (sse_ops.S). */
 typedef unsigned __int128 u128;

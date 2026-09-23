@@ -168,7 +168,8 @@ PINNED.update({n: _R for n in _B4_R})
 
 # B4's hardware reading lands before its batch, as B3's did (D272): its rows are PENDING until the batch names its
 # pins, so the tracked block stays byte-identical. B3 (D273) retired the set its own rows sat in.
-PENDING: set[str] = set()   # B4 named its families in P2 batch 45; nothing is pending.
+# B6 (D287): the square roots and CVTS?2SI, read before their batch; pending until it names its pins.
+PENDING: set[str] = {"p_sqrtss", "p_sqrtsd", "p_cvtss2si", "p_cvtss2siq", "p_cvtsd2si", "p_cvtsd2siq"}
 
 # B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
 # source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8

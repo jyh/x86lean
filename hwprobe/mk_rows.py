@@ -39,6 +39,7 @@ import os as _os
 sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "scripts"))
 import portable as P  # noqa: E402
 from fractions import Fraction
+import math
 import ref_mul as R
 
 IE, DE, ZE, OE, UE, PE = 1, 2, 4, 8, 16, 32
@@ -263,6 +264,70 @@ def cvttsd2si32(a):
     return t & 0xFFFFFFFF, PE if v != t else 0
 
 
+def fsqrt(fmt, rc, a):
+    """SQRTSS / SQRTSD (SDM Vol. 2B: Invalid, Precision, Denormal). NaN: quieted, IE on an SNaN. +-0 and +inf are
+    returned as they are. Any other NEGATIVE source (-inf, a negative normal or denormal) gives the negative QNaN
+    indefinite and IE ALONE: PREDICTED, not read, that invalid outranks the denormal pre-computation exception, so a
+    negative denormal raises no DE (D287 s2). Otherwise the exact square root is rounded by ref_mul.round_to, which
+    never meets an overflow or a tiny result here; PE iff inexact, and DE on a denormal source. The square root of a
+    binary floating-point number is never exactly a rounding midpoint, so the sticky half-bit below cannot make a tie."""
+    ew, mw = fmt
+    w = 1 + ew + mw
+    x = a & ((1 << w) - 1)
+    quiet, sbit = 1 << (mw - 1), 1 << (w - 1)
+    k = kind(fmt, x)
+    if k in ("qnan", "snan"):
+        return x | quiet, IE if k == "snan" else 0
+    if k == "zero":
+        return x, 0
+    if x & sbit:
+        return sbit | (((1 << ew) - 1) << mw) | quiet, IE
+    if k == "inf":
+        return x, 0
+    v = R.value(fmt, x)
+    K = v.denominator.bit_length() // 2 + 256     # 4^K is a multiple of the (dyadic) denominator, with 256 bits spare
+    t = v.numerator * (1 << (2 * K))
+    assert t % v.denominator == 0
+    t //= v.denominator
+    q = math.isqrt(t)
+    r = Fraction(q, 1 << K)
+    if q * q != t:
+        r += Fraction(1, 1 << (K + 1))
+    bits, path = R.round_to(fmt, MODES[rc], r)
+    assert not path.startswith("overflow")
+    return bits, (DE if k == "den" else 0) | (0 if path == "exact" else PE)
+
+
+def cvt2si(fmt, width, rc, a):
+    """CVTSS2SI / CVTSD2SI (SDM Vol. 2A: Invalid, Precision) to an int32 or int64 under MXCSR.RC. NaN, infinity, or a
+    rounded result outside the destination's range give the integer indefinite (the sign bit alone) and IE ALONE.
+    Otherwise the exact value rounded to an integer at the mode, PE iff inexact. PREDICTED, not read: a denormal
+    source raises no DE (the SDM lists none, and CVTTSD2SI's denormal-free rows never asked; D287 s2)."""
+    w = 1 + fmt[0] + fmt[1]
+    x = a & ((1 << w) - 1)
+    ind = 1 << (width - 1)
+    k = kind(fmt, x)
+    if k in ("qnan", "snan", "inf"):
+        return ind, IE
+    if k == "zero":
+        return 0, 0
+    v = R.value(fmt, x)
+    lo = math.floor(v)
+    mode = MODES[rc]
+    if lo == v or mode == "down":
+        t = lo
+    elif mode == "up":
+        t = lo + 1
+    elif mode == "zero":
+        t = int(v)
+    else:
+        d = v - lo
+        t = lo if d < Fraction(1, 2) else lo + 1 if d > Fraction(1, 2) else (lo if lo % 2 == 0 else lo + 1)
+    if not (-ind <= t < ind):
+        return ind, IE
+    return t & ((1 << width) - 1), 0 if t == v else PE
+
+
 def packed(op, fmt, rc, A, B):
     """B5: MULP?/ADDP?/SUBP?/DIVP? as the scalar rule applied to each lane alone (LANE-OR, LANE-DE). A and B are
     128-bit integers; lane i is bits [w*i, w*i+w). Returns the 128-bit result and the OR of the lanes' flags."""
@@ -295,7 +360,9 @@ OPS = {"p_cvtsi2sd": "f20f2ac7",
        "p_cvtss2sd": "f30f5ac8", "p_cvttsd2si": "f20f2cc0", "p_cvtsd2ss": "f20f5ac8",
        "p_addsd": "f20f58c1", "p_addss": "f30f58c1", "p_subsd": "f20f5cc1", "p_subss": "f30f5cc1",
        "p_divsd": "f20f5ec1", "p_divss": "f30f5ec1",
-       "p_cvtsi2ss": "f30f2acf", "p_cvtsi2ssq": "f3480f2acf", "p_cvtsi2sdq": "f2480f2acf"}
+       "p_cvtsi2ss": "f30f2acf", "p_cvtsi2ssq": "f3480f2acf", "p_cvtsi2sdq": "f2480f2acf",
+       "p_sqrtss": "f30f51c8", "p_sqrtsd": "f20f51c8",
+       "p_cvtss2si": "f30f2dc0", "p_cvtss2siq": "f3480f2dc0", "p_cvtsd2si": "f20f2dc0", "p_cvtsd2siq": "f2480f2dc0"}
 
 # B5: the packed forms, as the bytes each p_ function executes after LOAD4 (offset 28, checked by probe.c).
 POPS = {"p_mulps": "0f59c1", "p_mulpd": "660f59c1", "p_addps": "0f58c1", "p_addpd": "660f58c1",
@@ -470,6 +537,77 @@ def build():
             for mx in (0x1F88, 0x1FBF, 0x5F88, 0x7F88):
                 v, f = cvtsi2f(fmt, wide, (mx >> 13) & 3, a)
                 add("%s_%s_sticky%04x" % (nm, name, mx), fn, mx, a, CAN, keep | v, (1 << 64) - 1, f)
+    build_b6()
+
+
+def build_b6():
+    """B6 (D287): the square roots and the rounding conversions to an integer, read before any Lean. SQRTS? writes
+    %xmm1's low lane, so SQRTSS must leave the canary in bits 63:32; CVTS?2SI writes %eax (zero-extended) or %rax,
+    and all 64 bits are compared. Every mode where the mode can matter; one row where it cannot; preset flags as
+    history, never input."""
+    CAN = 0x5A5AC3C3 << 32
+    full = (1 << 64) - 1
+    for fmt, suf in ((F64, "sd"), (F32, "ss")):
+        fn = "p_sqrt" + suf
+        w = 1 + fmt[0] + fmt[1]
+        one = R.encode(fmt, False, Fraction(1))
+        e = lambda q: R.encode(fmt, False, Fraction(q))
+        maxf = (((1 << fmt[0]) - 2) << fmt[1]) | ((1 << fmt[1]) - 1)
+        den, sb = (1 << fmt[1]) - 1, 1 << (w - 1)
+        inf = ((1 << fmt[0]) - 1) << fmt[1]
+        qn = inf | (1 << (fmt[1] - 1))
+        keep = CAN if w == 32 else 0
+        alls = [("two", e(2)), ("three", e(3)), ("onep", one + 1), ("onem", one - 1), ("max", maxf), ("den", den)]
+        ones = [("four", e(4)), ("one", one), ("quarter", e(Fraction(1, 4))), ("zero", 0), ("negzero", sb),
+                ("inf", inf), ("neginf", sb | inf), ("negone", sb | one), ("negden", sb | den), ("minden", 1),
+                ("qnan", qn), ("snan", inf | 0x123), ("negqnan_payload", sb | qn | 0x5A5)]
+        for name, a in alls:
+            for rc, mode in enumerate(MODES):
+                v, f = fsqrt(fmt, rc, a)
+                add("sqrt%s_%s/%s" % (suf, name, mode), fn, 0x1F80 | (rc << 13), a, CAN, keep | v, full, f)
+        for name, a in ones:
+            v, f = fsqrt(fmt, 0, a)
+            add("sqrt%s_%s" % (suf, name), fn, 0x1F80, a, CAN, keep | v, full, f)
+        for name, a in [("four", e(4)), ("two", e(2))]:
+            for mx in (0x1F88, 0x1FBF, 0x5F88, 0x7F88):
+                v, f = fsqrt(fmt, (mx >> 13) & 3, a)
+                add("sqrt%s_%s_sticky%04x" % (suf, name, mx), fn, mx, a, CAN, keep | v, full, f)
+    for fmt, src in ((F64, "sd"), (F32, "ss")):
+        w = 1 + fmt[0] + fmt[1]
+        e = lambda neg, q: R.encode(fmt, neg, Fraction(q))
+        sb = 1 << (w - 1)
+        inf = ((1 << fmt[0]) - 1) << fmt[1]
+        maxf = (((1 << fmt[0]) - 2) << fmt[1]) | ((1 << fmt[1]) - 1)
+        den = (1 << fmt[1]) - 1
+        for width, q in ((32, ""), (64, "q")):
+            fn = "p_cvt%s2si%s" % (src, q)
+            nm = "cvt%s2si%s" % (src, q)
+            # the edges of the range: the largest value below 2^(width-1) the format holds, and the value just below
+            # -2^(width-1). Where the format holds a half there (binary64 at int32), both round OUT of range at one
+            # mode and IN at another; elsewhere the top is an integer and the bottom is -2^(width-1) exactly.
+            half = w == 64 and width == 32
+            top = (1 << (width - 1)) - (Fraction(1, 2) if half else 1 << (width - 1 - fmt[1] - 1))
+            bot = (1 << (width - 1)) + Fraction(1, 2) if half else (1 << (width - 1))
+            alls = [("tie", e(False, Fraction(5, 2))), ("tieodd", e(False, Fraction(7, 2))),
+                    ("negtie", e(True, Fraction(5, 2))), ("frac", e(False, Fraction(5, 4))),
+                    ("negfrac", e(True, Fraction(7, 4))), ("half", e(False, Fraction(1, 2))),
+                    ("neghalf", e(True, Fraction(1, 2))), ("den", den), ("negden", sb | den),
+                    ("top", e(False, top)), ("bottom", e(True, bot))]
+            ones = [("exact", e(False, 3)), ("negexact", e(True, 7)), ("zero", 0), ("negzero", sb), ("inf", inf),
+                    ("neginf", sb | inf), ("qnan", inf | (1 << (fmt[1] - 1))), ("snan", inf | 0x123),
+                    ("two31", e(False, 1 << 31)), ("negtwo31", e(True, 1 << 31)), ("big", e(False, 1 << 40)),
+                    ("two63", e(False, 1 << 63)), ("negtwo63", e(True, 1 << 63)), ("max", maxf)]
+            for name, a in alls:
+                for rc, mode in enumerate(MODES):
+                    v, f = cvt2si(fmt, width, rc, a)
+                    add("%s_%s/%s" % (nm, name, mode), fn, 0x1F80 | (rc << 13), a, 0, v, full, f)
+            for name, a in ones:
+                v, f = cvt2si(fmt, width, 0, a)
+                add("%s_%s" % (nm, name), fn, 0x1F80, a, 0, v, full, f)
+            for name, a in [("exact", e(False, 3)), ("frac", e(False, Fraction(5, 4)))]:
+                for mx in (0x1F88, 0x1FBF, 0x5F88, 0x7F88):
+                    v, f = cvt2si(fmt, width, (mx >> 13) & 3, a)
+                    add("%s_%s_sticky%04x" % (nm, name, mx), fn, mx, a, 0, v, full, f)
 
 
 def build_packed():

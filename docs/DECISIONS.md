@@ -19998,3 +19998,38 @@ rows are checked by silicon and x86isa (D281) and by nothing in the kernel.
 ```
 Built through the route, rc 0. Every packed row now falls in one of two places: pinned in the kernel (40) or reached
 by a vector that x86isa agrees with (52). D285 §4's limits still hold.
+
+## D287 — B6's hardware reading, taken BEFORE the batch: the square roots and the rounding conversions to an integer
+
+⚖️ QUEUE P3, sub-group B after B5. `p2_residue` names **6 unclaimed pairs, 484 instructions**: `cvtss2si` 165 ·
+`sqrtss` 134 · `cvtsd2si` 93 · `sqrtsd` 89 · `sqrtps` 2 · `cvtpd2ps` 1. B6 is the first four (481). As D269, D272, D274
+and D281 did, **the rows are written, predicted on x86isa in a commit made before `gen`, and read on silicon before
+any Lean.** (The prediction is committed rather than posted because a council sitting was open, and a sitting holds
+bus posts; the commit is pushed, so its time is on the forge.)
+
+### 1. THE ROWS — 354, `mk_rows.build_b6`
+```
+  sqrtsd · sqrtss       every mode: 2, 3, 1+ulp, 1−ulp, MAX, the largest denormal
+                        one mode:   4, 1, 1/4, ±0, ±∞, −1, the negative denormal, the least denormal, QNaN, SNaN,
+                                    a negative QNaN with a payload
+                        preset:     4 and 2 under 1F88 · 1FBF · 5F88 · 7F88
+  cvtsd2si · cvtss2si,  every mode: ±5/2, 7/2, 5/4, −7/4, ±1/2, ± the largest denormal, the top and the bottom of the
+  each at int32 and     destination's range (binary64 at int32 holds a half there, so both edges round OUT at one mode
+  int64                 and IN at another)
+                        one mode:   3, −7, ±0, ±∞, QNaN, SNaN, 2^31, −2^31, 2^40, 2^63, −2^63, MAX
+                        preset:     3 and 5/4 under the four presets
+```
+`p_sqrts?` write %xmm1, so SQRTSS must keep the canary in bits 63:32. `p_cvts?2si[q]` write %eax (zero-extended) or %rax,
+and all 64 bits are compared. `probe.c` checks each one's bytes at +10.
+
+### 2. TWO RULES ARE PREDICTIONS, AND THE ROWS ASK THEM
+- **A negative denormal under SQRT raises IE ALONE**: invalid outranks the denormal pre-computation exception, so DE
+  is not also set. (`sqrt?_negden`)
+- **CVTS?2SI raises no DE on a denormal source.** The SDM lists Invalid and Precision only. (`cvt*_den/*`, `cvt*_negden/*`)
+
+### 3. x86isa — THE PREDICTION, COMMITTED BEFORE `gen`
+**56 disagreements = the 50 on record (D284) + 6 new**, namely `sqrtsd_neginf` · `sqrtsd_negone` · `sqrtsd_negden` ·
+`sqrtss_neginf` · `sqrtss_negone` · `sqrtss_negden`. Each should be wrong in its **sign bit alone** (`7ff8…` / `7fc00000`
+where silicon reads `fff8…` / `ffc00000`), with the flags agreeing. The mechanism is the same as D265's:
+`sqrt-spec.lisp`'s `sse-sqrt` is `rtl::sse-sqrt-spec`, whose invalid result is RTL's sign-less indefinite. **The
+cvt*2si rows are predicted to agree, all 256 of them.**

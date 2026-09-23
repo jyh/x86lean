@@ -172,6 +172,46 @@ SYM(p_cvtsi2sdq):
         movq %xmm1, %rax
         ret
 
+/* B6 (D287): the square roots, into %xmm1 as cvtsd2ss is, so sqrtss must keep b's bits 63:32; and the rounding
+   conversions to an integer, into %eax (zero-extended) or %rax. */
+        .globl SYM(p_sqrtss)
+SYM(p_sqrtss):
+        LOAD
+        sqrtss %xmm0, %xmm1             /* f3 0f 51 c8 */
+        movq %xmm1, %rax
+        ret
+
+        .globl SYM(p_sqrtsd)
+SYM(p_sqrtsd):
+        LOAD
+        sqrtsd %xmm0, %xmm1             /* f2 0f 51 c8 */
+        movq %xmm1, %rax
+        ret
+
+        .globl SYM(p_cvtss2si)
+SYM(p_cvtss2si):
+        LOAD
+        cvtss2si %xmm0, %eax            /* f3 0f 2d c0 : 32-bit destination, zero-extended */
+        ret
+
+        .globl SYM(p_cvtss2siq)
+SYM(p_cvtss2siq):
+        LOAD
+        cvtss2si %xmm0, %rax            /* f3 48 0f 2d c0 */
+        ret
+
+        .globl SYM(p_cvtsd2si)
+SYM(p_cvtsd2si):
+        LOAD
+        cvtsd2si %xmm0, %eax            /* f2 0f 2d c0 : 32-bit destination, zero-extended */
+        ret
+
+        .globl SYM(p_cvtsd2siq)
+SYM(p_cvtsd2siq):
+        LOAD
+        cvtsd2si %xmm0, %rax            /* f2 48 0f 2d c0 */
+        ret
+
 /* B5: the PACKED arithmetic. Every lane is an operand, so the scalar LOAD (which zeroes bits 127:64) would
    compute lanes the row never declared -- and a DIVPS over zeroed lanes raises IE from 0/0 in them. So each
    function takes BOTH quadwords of each operand and returns all 128 bits of the result:
