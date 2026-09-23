@@ -19900,3 +19900,19 @@ by `x86lean-diff runs` (333 runs over 1,131 vectors). Full build route rc 0, 0 e
 29,479 / 244: **+1,672 cases, +1,672 matched, +0 explained, +0 divergence**, the prediction posted before the run.
 Per vector: 88 cases on both sides for all 19, 0 refused on either side (checked on a field that is present and a
 refusal count that is live). Record 33 (`docs/DIFFERENTIAL-P2-BATCH33.md`) carries the tables.
+
+## D284 — the packed indefinite, on silicon and on x86isa: 8 rows, and the divergence is lane-level exactly as the scalar one
+
+⚖️ The gap D283 §1 named: no B5 vector reaches the indefinite, and D281's rows did not ask it. **8 hwprobe rows now put
+it in the TOP lane beside exact lanes** — 0/0, ∞×0, ∞−∞, ∞+(−∞), one per operation and format (`<op><fmt>_indef@k`).
+```
+  Rosetta 2 (corroboration)      580/580, all four controls behave
+  x86isa, predicted on the bus   50 = the 42 on record + all 8 new, each wrong in exactly its top lane by the sign bit
+  x86isa, read                   50; the 42 by name unchanged; each of the 8 reads 7fc00000 / 7ff8… where the SDM
+                                 and the expectation read ffc00000 / fff8…, every other lane and the flags (IE) agreeing
+```
+⇒ **x86isa's packed path builds the same sign-less indefinite as its scalar path (`rtl::indef`, D265), in whichever
+lane produces it.** That is the shape a lane-level declared divergence would have to excuse. `knownDivergences`' `pair`
+form excuses a SUFFIX (the low lane), so an upper-lane indefinite is still inexpressible there, and B5's vectors
+avoiding it (D283) stays the right call. These rows are what B5's kernel PINS will pin, since no vector can.
+⚠️ Silicon's reading of the 8 rows is the hwprobe workflow's, on this branch's push. It is recorded when it lands.
