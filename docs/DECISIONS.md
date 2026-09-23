@@ -20283,3 +20283,14 @@ vector on both sides, 0 refused (record 36). Arms 54 = 54 · 156 = 156 · 125 = 
 the per-destination sums predicted. Regenerated, in the order that works (COVERAGE, then the census, then the roster):
 197 rows, census and roster CLEAN, and the commission's sub-group B: **2 instructions, `sqrtps` alone, by design.**
 ⇒ ⭐ **SUB-GROUP B IS COMPLETE TO ITS NAMED RESIDUE.**
+
+## D296 — B7's kernel pins: CVTPD2PS, 10 of 12, by `packed_reach.py`'s lane rule
+
+`hwprobe/packed_reach.py` now classes CVTPD2PS too: its lanes are the source's two binary64 lanes, each classed by
+CVTSD2SS's own flags. It reads x86isa's column from `run/hwprobe_score4.txt` (after D294). SQRTPS is NOT classed, because
+it has no roster row (D295 §2). **B5's pins are unchanged** (40 of 92). CVTPD2PS pins **10 of 12**: `cvtpd2ps_sticky1fbf`
+(x86isa's preset-OE defect, D294) and 9 no vector reaches (an exact lane, an SNaN lane, rounding at up and at zero).
+`--selftest`: 22 vectors; x86isa's set = the 8 indefinites + `cvtpd2ps_sticky1fbf` exactly; literal equality pins 104
+⊋ 50; positional pins 69 ⊋ 50.
+**Red backwards:** x86isa's `7f800000` ×2 planted on `cvtpd2ps_sticky1fbf` makes `decide` refuse (build rc 1).
+**Price:** Δku **+19,461** against 23.3% × 859,582 ≈ 200.3k (base `7b4c0d8`). CLEAN.
