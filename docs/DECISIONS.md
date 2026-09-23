@@ -19915,4 +19915,9 @@ it in the TOP lane beside exact lanes** — 0/0, ∞×0, ∞−∞, ∞+(−∞)
 lane produces it.** That is the shape a lane-level declared divergence would have to excuse. `knownDivergences`' `pair`
 form excuses a SUFFIX (the low lane), so an upper-lane indefinite is still inexpressible there, and B5's vectors
 avoiding it (D283) stays the right call. These rows are what B5's kernel PINS will pin, since no vector can.
-⚠️ Silicon's reading of the 8 rows is the hwprobe workflow's, on this branch's push. It is recorded when it lands.
+✅ **Silicon, read (hwprobe run 35841289038, on this branch's push, head 30e2030): 580/580 on BOTH referees** —
+Intel Core i7-8700B (macos-15-intel) and **AMD EPYC 7763** (ubuntu-latest), `rows 580 disagreements 0` on each. The one
+`disagreements 1` line per referee is the planted control (`mulps_mix/nearest`, one ULP moved in lane 2) firing as it
+must, beside the two REFUSED byte controls. ⇒ **The 8 top-lane indefinites read ffc00000 / fff8… on an AMD part and an
+Intel part alike; x86isa's 7fc00000 / 7ff8… is the outlier, by the sign bit, as on Rosetta.** First AMD reading of the
+packed path (D281's draw had none).
