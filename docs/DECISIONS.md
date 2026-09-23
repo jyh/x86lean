@@ -19674,3 +19674,95 @@ the vocabulary stands on its own merits as x86lean library content.
     public exposure    saltbench origin 1,505 paths, 0 withheld / 0 reference, control fires
     x86lean today      0 crc32 paths — nothing to undo
     no build           this entry changes no `.lean`; no kernel reading is owed for it
+
+## D281 — B5's hardware reading, taken BEFORE the batch: the packed arithmetic, read at all 128 bits
+
+⚖️ QUEUE P3, sub-group B after B4 (D276). `p2_residue` derives **14 unclaimed pairs, 1,709 instructions** at `a275afb`.
+The packed arithmetic is the bulk of that: `mulps` 477 · `addps` 424 · `subps` 150 · `divps` 12 · `mulpd` 60 · `addpd` 60
+· `subpd` 31 · `divpd` 11 = **1,225**. The rest is `cvtss2si` 165 · `sqrtss` 134 · `cvtsd2si` 93 · `sqrtsd` 89 · `sqrtps`
+2 · `cvtpd2ps` 1. **The rows were written and read on x86isa, against a prediction posted on the bus before `gen`, and
+pushed before any B5 Lean existed**, which is the order D269, D272 and D274 kept.
+
+### 1. THE PROBE COULD NOT ASK THIS, AND WHY
+Every `p_` function took two `uint64_t` and loaded each into a low quadword with `movq`, **which zeroes bits 127:64**.
+A scalar form never reads above its lane, so that was sound for B0–B4. A packed form computes every lane. The probe would
+have run lanes no row declares, and `DIVPS` over zeroed lanes computes 0/0 there and raises IE. Every `divps` row would
+then carry a flag from lanes nobody wrote down.
+- **The packed functions take four GPRs and return `unsigned __int128`**: `(a_lo, b_lo, a_hi, b_hi)` in
+  `%rdi %rsi %rdx %rcx`, and the result in `%rdx:%rax` (SysV). `LOAD4` is four 5-byte `movq` and two 4-byte `punpcklqdq`,
+  so the instruction sits at **+28**, and `probe.c` checks those bytes before it runs a row, as it checks +10 for the
+  scalar forms. The result is compared at **all 128 bits with no mask**, since every lane is declared.
+- **`PROWS` is a separate list, and `ROWS` and its struct are unchanged.** `ci.yml` generates B0–B4's kernel pins from
+  `mk_rows.ROWS`, and `mk_anchors` and `reach_table` read its 8-tuples. A packed row in that list would have changed
+  every consumer at once.
+
+### 2. THE ROWS — 84, from two named hypotheses
+```
+  LANE-OR   a packed form's flags are the OR of the scalar rule applied to each lane ALONE (all exceptions masked)
+  LANE-DE   DE-SUPPRESS and ZE-BEFORE-DE hold PER LANE: a NaN or a zero divisor in one lane does not withhold the DE
+            that a denormal raises in another
+
+  per op (mul add sub div) × format (ps: 4 binary32 lanes · pd: 2 binary64 lanes)
+    mix/<mode>     every mode; a different flag set in every lane (inexact · exact · overflow · QNaN beside a
+                   denormal) and a different value in every lane, so a swapped or dropped lane changes the result
+    loud@k         an SNaN lane at EVERY position against exact lanes: a rule reading lane 0's flags alone fails 3 of 4
+    de_split       QNaN+denormal in lane 0, denormal in lane 1 ⇒ DE     · nan_den_only, its control ⇒ no DE
+    ze_de (div)    denormal/0 in lane 0, denormal in lane 1  ⇒ ZE|DE  · ze_only, its control ⇒ ZE alone
+    sticky1fbf     every flag preset over exact lanes ⇒ nothing new
+```
+The lane cases are the B1/B2 scalar cases already on record, so a packed disagreement can be told apart from a scalar
+one by looking up that lane's own scalar row.
+
+### 3. THE CONTROLS — two new, because the old pair cannot see the new half
+`--plant` flips row 0 of `ROWS`, which is a scalar row, and `--plant-op` flips `OPS[0]`. **Neither touches the 128-bit
+comparison or the +28 check**, so a packed comparison that ignored bits 127:64 would pass both.
+- `--plant-packed` flips **one bit of a packed row's HIGH quadword** ⇒ exactly one `DIFF`, exit 1.
+- `--plant-pop` flips one packed instruction byte ⇒ `REFUSED p_mulps: the bytes at +28 …`, exit 2.
+`hwprobe.yml` runs all four and requires the packed plant's single DIFF to be a packed row.
+
+### 4. x86isa — 42 DISAGREEMENTS, THE SAME 42, AS POSTED BEFORE THE RUN
+The prediction (bus, 09/23, before `gen`): **42, the ones already on record, and none new.** Every scalar arithmetic
+divergence on x86isa is the indefinite's sign (`mul*_invalid`, `sub*_infinf`, `divsd` 0/0 and ∞/∞; D265), and no packed
+lane case here produces the indefinite.
+**The reading: `rows 569 disagreements 42`**, 570 cases with the control last. The 42 are **the same 42 by name**, and the
+first 485 score lines are **byte-identical** to D274's. **84 of 84 packed rows agree.** ⇒ x86isa's packed arithmetic
+matches LANE-OR and LANE-DE on every row asked.
+- The all-agree column has its own control: one bit of one packed `want`, mutated in the scorer ⇒ `disagreements 43`,
+  and the one DIFF is that row.
+
+### 5. THE READINGS — two processors, one file
+```
+  run          leg              processor                               rows   disagreements
+  35830226385  ubuntu-latest    Intel Xeon Platinum 8370C                572        0
+  35830226385  macos-15-intel   Intel Core i7-8700B                      572        0
+  controls, both legs   plant rc 1 · badop rc 2 · pplant rc 1, its one DIFF mulps_mix/nearest's HIGH quadword ·
+                        pbadop rc 2, "REFUSED p_mulps: the bytes at +28"
+```
+**Both legs' 572 sorted row lines are byte-identical** (sha256 `8aa1c7aee1fc…`), and so are the 572 that Rosetta 2 read
+on the development machine. A one-character mutation of one line shows up as exactly one difference, so the comparison
+is live. 84 of the 572 are B5's.
+- ⚠️ **TWO INTEL PROCESSORS, NO AMD.** ubuntu-latest drew the Xeon 8370C this time. D274's two runs drew the EPYC 7763
+  both times. **LANE-OR and LANE-DE are corroborated on one VENDOR here, not two**, and the PR's own `pull_request` run
+  is a second draw that may land on AMD. That run is recorded as it comes and is not required.
+
+### 6. ⚠️ WHAT THIS READING DOES NOT SEE (declared beside the verdict)
+```
+  NOT SEEN   any UNMASKED exception: every row runs with all six masked, so the SDM's rule that an unmasked
+             pre-computation exception in ANY lane suppresses the whole write is not asked
+  NOT SEEN   FZ or DAZ set
+  NOT SEEN   the memory-source forms (m128), and so their 16-byte ALIGNMENT rule (#GP on a misaligned legacy-SSE
+             packed operand): every row here is register-to-register
+  NOT SEEN   any processor but these two, both Intel
+  ⚠️ AND     `want` is DERIVED by mk_rows.py from the scalar rules plus LANE-OR, never from x86lean or x86isa, so
+             572/572 is HARDWARE and OUR DERIVATION agreeing. It says nothing about a rule the derivation leaves out
+```
+
+### 7. WHAT IT SETTLES FOR THE BATCH
+- **B5's rule may be written as the landed scalar rule mapped over the lanes, with the flags ORed.** That is
+  `varithLow`'s `SoftFloat` call per lane and `vbinFlags`' fold (batch 38's `minps`/`maxps`). Silicon, x86isa and the
+  derivation agree on all 84 rows at all four modes.
+- **No declared divergence is expected from the register forms' lane cases.** A packed indefinite (0/0, ∞−∞, ∞×0 in
+  some lane) would meet x86isa's sign defect lane by lane (D265). That is the shape `knownDivergences`' `pair` form
+  (D266) excuses, and no row here asked it on purpose.
+- **The memory form needs its own reading.** The alignment refusal is the one rule a packed memory form adds, and no row
+  above reaches it.
