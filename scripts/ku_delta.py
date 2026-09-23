@@ -363,15 +363,22 @@ def measure(base_rev, head_rev, keep=None, plant=None):
 # ────────────────────────────────────────────────────────────────────────────
 # THE VERDICT
 # ────────────────────────────────────────────────────────────────────────────
-def verdict(data, arm, quiet=False):
+def verdict(data, arm, quiet=False, ceilings=None):
     """(rc, findings). `arm` is "a" (Δku only) or "a-prime" (Δku + the ceilings).
+
+    `ceilings`, when given, REPLACES the registry's ms ceilings for this call. It
+    exists for exactly one caller, the measured red-first arm, whose ceilings are
+    a per-run CONTROL derived on the box it runs on (see `selftest_measure`, CI-3).
+    The real gate never passes it.
 
     ⭐ THE TWO ARMS ARE ONE CODE PATH WITH ONE SWITCH, AND THAT IS THE POINT. The
     red-first arm has to show a plant that A PASSES and A′ REFUSES; if the two
     were separate implementations, the demonstration would be about the difference
     between two programs rather than about the difference between two DESIGNS."""
     default, per, _ = kd.read_budgets(kd.BUDGET_FILE)
-    floor, ceilings, new_ku = read_registry_full()
+    floor, reg_ceilings, new_ku = read_registry_full()
+    where = "registered here" if ceilings is None else "per-run ceiling"
+    ceilings = reg_ceilings if ceilings is None else ceilings
     findings, rows = [], []
     new = set(data.get("new_modules") or [])
 
@@ -450,7 +457,7 @@ def verdict(data, arm, quiet=False):
             got = data["head_ms"].get(u)
             have = ceilings.get((u, mach))
             print(f"  {u:16} head {got if got is None else f'{got:,.0f}'} ms"
-                  f"   registered here: {'—' if have is None else f'{have:,.0f} ms'}"
+                  f"   {where}: {'—' if have is None else f'{have:,.0f} ms'}"
                   f"{'' if have is not None or got is None else f'   ⇒ would register {max(got * 3.0, 50):,.0f}'}")
         if missing:
             print(f"  ⚠️ {len(missing)} of {len(want)} have NO ceiling on this box, so "
@@ -915,16 +922,52 @@ def selftest_measure():
     print(f"✅ Δku is exactly 0 on all {len(ctl['base_ku'])} modules")
     # The control's ms too, not only the plant's: the plant's runner cost is the difference.
     print_readings(readings(ctl, read_registry()[1]))
+
+    # ⚖️ CI-3 (2026-09-22): THIS ARM'S ms CEILINGS ARE A PER-RUN CONTROL, NEVER THE REGISTRY.
+    # The registry keys ceilings by MACHINE, and a GitHub runner's hostname is drawn per JOB
+    # from a pool: measured on master 158c1ec (run 35742453223), `ku-delta` drew the
+    # registered `runnervmlun5p` and read CLEAN while this job drew `runnervmtr4k5`, found no
+    # ceiling, and REFUSED. Red 2 of the last 10 runs, by lottery. The registry's bootstrap
+    # (refuse once, print the reading, register it) converges for a stable box and never
+    # converges for an ephemeral one.
+    # ⇒ Here a ceiling is not a gate value: it is the question "does A′'s ms half fire on a
+    # plant?" To answer it, the UNPLANTED reading on THIS box, times the registry's own rule
+    # `max(got × 3, 50)`, is the ceiling for THIS run. It uses the same rule as a registered
+    # line and needs no registry, so nothing in it can go stale.
+    # ⚠️ STATED, NOT HIDDEN: under these ceilings the CONTROL's ms half is CLEAN BY
+    # CONSTRUCTION (got ≤ 3 × got). The control still gates Δku, which is exact. The
+    # discriminator is the PLANT, which must go over ceilings taken from a tree without it.
+    # ⛔ THE REAL GATE (`ku-delta`) STILL READS THE REGISTRY. The same trick would be circular
+    # there, because the ceiling would come from the tree it gates. That half of CI-3 is open.
+    mach = ctl["machine"]
+    units = sorted({u for (u, _) in read_registry()[1]})
+    absent = [u for u in units if ctl["head_ms"].get(u) is None]
+    if absent:
+        print(f"⛔ the control returned no ms reading for {absent}, so no per-run ceiling "
+              f"can be derived for them and the arm cannot say whether A′ fires.")
+        return 2
+    run_ceil = {(u, mach): max(ctl["head_ms"][u] * 3.0, 50) for u in units}
+    print(f"\nPER-RUN ms CEILINGS on {mach} (control × 3, floor 50; the registry "
+          f"{'also names' if any(m == mach for (_, m) in read_registry()[1]) else 'names NO ceiling for'} "
+          f"this box, and this arm does not read it):")
+    for u in units:
+        print(f"  {u:16} control {ctl['head_ms'][u]:,.0f} ms  ⇒  ceiling "
+              f"{run_ceil[(u, mach)]:,.0f} ms")
+
     for arm in ("a", "a-prime"):
-        rc, f = verdict(ctl, arm, quiet=True)
+        rc, f = verdict(ctl, arm, quiet=True, ceilings=run_ceil)
         lines.append(f"control  arm {arm:8} rc {rc} {'CLEAN' if rc == 0 else f}")
         if rc != 0:
             rc_total = 1
 
     print(f"\n── ARM 2 · THE ku-BLIND PLANT (K3, n={K3_N}) ────────────────────────")
     pl = measure(head, head, keep=None, plant=plant_ku_blind())
-    rc_a, f_a = verdict(pl, "a", quiet=False)
-    rc_ap, f_ap = verdict(pl, "a-prime", quiet=True)
+    if pl["machine"] != mach:
+        print(f"⛔ the plant was measured on {pl['machine']!r} and the control on "
+              f"{mach!r}; per-run ceilings from one box say nothing about another.")
+        return 2
+    rc_a, f_a = verdict(pl, "a", quiet=False, ceilings=run_ceil)
+    rc_ap, f_ap = verdict(pl, "a-prime", quiet=True, ceilings=run_ceil)
     lines.append(f"planted  arm a        rc {rc_a} "
                  f"{'PASSED (as designed)' if rc_a == 0 else f_a}")
     lines.append(f"planted  arm a-prime  rc {rc_ap} "
