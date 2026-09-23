@@ -19818,3 +19818,19 @@ A scratch pass (`run/`, not tracked) evaluates `vparithAll` on every D281 packed
 it would. That is the same rows read on two Intel processors and on x86isa, so the model agrees with silicon on
 LANE-OR and LANE-DE before a vector exists.
 ⚠️ **Build receipt:** `lean_route build` rc 0, 0 tagged errors (both orders) and 0 plain `error` lines in the log.
+
+### 6. A′ ON THE DRAFT — CLEAN, AND WHAT THE FACTORING COST THE LANDED PINS
+`ku_delta --arm a-prime 058064e → 76bd4d1` (yukon.lan, load 4.0–4.5): **rc 0, CLEAN.**
+```
+  module            Δku    allowance         module            Δku   allowance
+  X86.Syntax       +497        5,148         Tests.Anchors      +82     122,865   <- §2's question
+  X86.Theorems     +538       17,067         Tests.Coverage    +220     638,946
+  X86.Semantics     +12          238         X86.Coverage       +10         155
+  X86.Serialize     +10          117         X86.Program         +2      14,655
+  every other module +0 · ms: X86.Basic 30 % · X86.Syntax 36 % · X86.Theorems 35 % of ceiling
+```
+⇒ **§2's open cost is measured: factoring `varithCall` out of `varithLow` costs the landed B1–B4 pins +82 ku in total**,
+one more unfolding per pin that reaches the call, against D270's +180 for the fold. Two new constructors cost `X86.Syntax`
++497 and `X86.Theorems` +538, inside D270's per-constructor projection.
+⚠️ **A draft reading, not the landing row.** The drift-ledger row is measured on the landing step against `origin/master`
+when this lands, and `kernel_drift --gap` refuses the branch until then, as it should.
