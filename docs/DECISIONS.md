@@ -20230,3 +20230,18 @@ the packed plant's.
 **x86isa — THE PREDICTION, COMMITTED BEFORE `gen`: 58 = the 56 of D287 + `sqrtps_indef@3` + `sqrtps_negden_de`,** each
 wrong in one lane's sign bit alone (`7fc00000` for `ffc00000`), the flags agreeing. CVTPD2PS is predicted to agree
 on all 12 of its rows.
+### READ — x86isa 59, NOT the 58 committed: ONE MISS, and it is a known defect I did not carry across
+```
+  x86isa (run/hwprobe_score4.txt)   rows 955 disagreements 59 = the 56 by name + sqrtps_indef@3 + sqrtps_negden_de
+                                    (both as predicted: 7fc00000 for ffc00000 in one lane, flags agreeing)
+                                    + cvtpd2ps_sticky1fbf  ✘ NOT PREDICTED: x86isa reads 7f800000 in BOTH lanes
+  hwprobe run 35885976098 (push, deb0186)   AMD EPYC 7763 958/958 · Intel i7-8700B 958/958 · all four controls behave
+```
+⛔ **The miss is D272 §3's defect in packed form, and I had the scalar case in hand.** x86isa reads a PRESET MXCSR.OE as
+this conversion's own overflow, so a 0x1FBF pre-state turns 1.0 and 2.0 into +∞. `cvtsd2ss`'s eight `*_sticky*` rows
+are pinned "x86isa differs" for exactly that reason (mk_anchors `_B3_X`). I predicted CVTPD2PS "agrees on all 12" from
+the arithmetic lanes and did not ask whether the scalar narrowing's known defects applied lane by lane. They do, and
+silicon confirms the SDM on both vendors.
+⇒ **The packed narrowing inherits every x86isa defect of its scalar lane rule; predict a packed form's column as
+"the scalar rows' known defects, per lane, plus the packed-only rules".** The prediction method changes, not the
+tolerance.
