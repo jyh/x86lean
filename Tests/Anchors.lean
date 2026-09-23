@@ -3137,6 +3137,23 @@ theorem b5_divpd_pins :
       let t := step ⟨.vparith .div true .x0 .x1, 4⟩ (b5Pre mx a b)
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
+theorem b7_cvtpd2ps_pins :
+  ([  -- 10 of hwprobe's 12 rows
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/nearest · no vector reaches
+    (0x3f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/down · no vector reaches
+    (0x5f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7fefffffffffffff3fd5555555555555, 0x00000000000000007f8000003eaaaaab, 0x28),  -- cvtpd2ps_mix/up · no vector reaches
+    (0x5f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400001, 0x30),  -- cvtpd2ps_tiny/up · no vector reaches
+    (0x7f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7fefffffffffffff3fd5555555555555, 0x00000000000000007f7fffff3eaaaaaa, 0x28),  -- cvtpd2ps_mix/zero · no vector reaches
+    (0x7f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/zero · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000007ff0000000000789, 0x00000000000000003f8000007fc00000, 0x01),  -- cvtpd2ps_loud@0 · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7ff00000000007893ff0000000000000, 0x00000000000000007fc000003f800000, 0x01),  -- cvtpd2ps_loud@1 · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x000fffffffffffff3ff0000000000000, 0x0000000000000000000000003f800000, 0x32),  -- cvtpd2ps_den@1 · no vector reaches
+    (0x1fbf, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x40000000000000003ff0000000000000, 0x0000000000000000400000003f800000, 0x00)  -- cvtpd2ps_sticky1fbf · x86isa differs
+  ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vcvtpd2ps .x0 .x1, 4⟩ (b5Pre mx a b)
+      b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
+
 -- ⟦B0–B4 PINS END⟧
 
 end X86.Tests

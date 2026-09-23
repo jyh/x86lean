@@ -240,10 +240,15 @@ _B5_R = [
 # Step A pinned the 8 x86isa rows and the reach rows of mulps, mulpd, addps and divps; step B (D286) pinned the rest.
 _B5_R_NEXT: list[str] = [
 ]
-# B7 (D294): SQRTPS and CVTPD2PS, read before their batch; pending until it names its pins.
-PPENDING: set[str] = {"p_sqrtps", "p_cvtpd2ps"}
+# B7 (D296): CVTPD2PS's pins, packed_reach.py's output (its lane rule, with CVTSD2SS's per-lane flags); the preset-OE
+# row is x86isa's (D294). SQRTPS has hardware rows and NO roster row (D295 s2), so it stays pending: nothing claims it.
+_B7_X = ["cvtpd2ps_sticky1fbf"]
+_B7_R = ["cvtpd2ps_tiny/nearest", "cvtpd2ps_tiny/down", "cvtpd2ps_mix/up", "cvtpd2ps_tiny/up", "cvtpd2ps_mix/zero", "cvtpd2ps_tiny/zero", "cvtpd2ps_loud@0", "cvtpd2ps_loud@1", "cvtpd2ps_den@1"]
+PPENDING: set[str] = {"p_sqrtps"}
 PPINNED = {n: _X for n in _B5_X}
 PPINNED.update({n: _R for n in _B5_R})
+PPINNED.update({n: _X for n in _B7_X})
+PPINNED.update({n: _R for n in _B7_R})
 
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}
@@ -431,6 +436,11 @@ PFAMILIES = [
       "  b5Agrees t mx fl (t.getXmm .x0) r)"])
     for op in ("mul", "add", "sub", "div") for suf in ("ps", "pd")
 ]
+# B7: `cvtpd2ps %xmm1, %xmm0` over all 128 bits of both; %xmm0's incoming bits are the canary the form must zero.
+PFAMILIES.append(("b7_cvtpd2ps_pins", "p_cvtpd2ps",
+                  ["(fun (mx, a, b, r, fl) =>",
+                   "  let t := step ⟨.vcvtpd2ps .x0 .x1, 4⟩ (b5Pre mx a b)",
+                   "  b5Agrees t mx fl (t.getXmm .x0) r)"]))
 # The families whose `decide` needs more than the elaborator's default recursion depth, and how much.
 RECDEPTH = {"b6b_sqrtsd_pins": 8000, "b6b_sqrtss_pins": 8000}
 PTY = "BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32"
