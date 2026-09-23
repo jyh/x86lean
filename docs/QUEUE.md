@@ -2404,6 +2404,24 @@ kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced
 The prose goes in `note`, which is not reduced.
 
 ## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); B5 = P2 BATCH 47 (D282, D283), BUILT ON `paris/b5`, LANDING AFTER #55**
+⚖️⚖️ **STATUS AT 2026-09-23, EVENING (paris, life-80, D287–D293): SUB-GROUP B IS BUILT TO 3 INSTRUCTIONS, ON ONE STACK.**
+B6's hardware reading (D287: 934/934 on AMD + Intel; x86isa 56 as committed before gen) · B6a = `cvtsd2si`/`cvtss2si`
+(D288 shape, D289 batch 48, D290 pins 130 rows +93,692 ku) · B6b = `sqrtsd`/`sqrtss` (D291 shape, D292 batch 49 with 48
+declared sign-less indefinites, D293 pins 24 rows +102,527 ku). Every differential and arm read as committed before its
+run. **Residue 3: `sqrtps` 2 · `cvtpd2ps` 1.**
+**THE STACK, each branch on both tiers:** `paris/b5` → `b5-pins` → `b5-pins-b` → `b6-hw` → `b6a` → `b6a-pins` → `b6b` →
+`b6b-pins` (389257b). ⚖️ **LAND IN FOUR PRs, NOT SEVEN**, grouped so each master step's `Tests.Anchors` Δku fits A′
+(23.3% of that step's base), because `strict: true` makes every landing a serial ~3 h CI cycle:
+```
+  PR1  paris/b5-pins      (b5 + pins A)                     Anchors ≈ +82.3k   of ~122.9k
+  PR2  paris/b6a          (pins B + b6-hw + b6a)            Anchors ≈ +54k + shape
+  PR3  paris/b6b          (b6a-pins + b6b)                  Anchors ≈ +94k + shape
+  PR4  paris/b6b-pins                                       Anchors ≈ +103k
+```
+Each: update the branch to origin/master, `kernel_delta --base origin/master --head HEAD` (+ `ku_delta --arm a-prime` if
+rc 3), `kernel_drift --record`, commit the row IN the PR, MERGE COMMIT, `git push local origin/master:master`. ⚠️ Every
+group is an ESTIMATE from per-step readings. A′ is re-measured on each PR's own step before it is trusted.
+
 ⚖️ **STATUS AT 2026-09-23, LATER STILL (paris, life-80, D284–D286): B5'S PINS ARE BUILT, IN TWO STEPS, STACKED ON `paris/b5`.**
 The packed indefinite is now on 8 hwprobe rows (D284): silicon 580/580 on an i7-8700B AND an EPYC 7763; x86isa 50, wrong
 by the sign bit in the top lane only. The pins' reach is LANE-LEVEL (`hwprobe/packed_reach.py`, D285), because the scalar
