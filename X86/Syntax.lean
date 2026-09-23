@@ -2621,6 +2621,9 @@ def rosterP0 : List String :=
    -- ⭐⭐⭐ SUB-GROUP B3: the narrowing conversion, ONE row, the first conversion that rounds
    -- under MXCSR.RC.  `cvtpd2ps` is packed and not taken.
    "cvtsd2ss",
+   -- ⭐⭐⭐ SUB-GROUP B5: the packed arithmetic, EIGHT rows, `vparith`/`vparithm` (D282, D283).
+   -- Every lane rounded by the scalar form's own call; the flags ORed across lanes.
+   "mulps", "mulpd", "addps", "addpd", "subps", "subpd", "divps", "divpd",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

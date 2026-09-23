@@ -3683,6 +3683,59 @@ def wrongNarrowQuietIE : Instr → Cpu → Cpu :=
     let p := vcvtsd2ssLow rc d b
     (p.1, if SoftFloat.binary64.isNaN b then p.2 ||| SoftFloat.fIE else p.2)
 
+/-! ### ⭐⭐⭐ SUB-GROUP B5 — THE PACKED ARITHMETIC's ARMS (D283).
+`wrongPackedWith` swaps `vparithAll` ALONE and leaves every other form to `step`, so no landed arm family's
+recorded score moves when these are added: `wrongSimdWith`, which every earlier family goes through, is not
+touched. The plants are the wrong models D281's rows were built to separate. Each score was predicted before
+the run over driveWrong's 84 states (taken as the first 84 of the differential's 88, an assumption the reading
+tests), by `hwprobe/mk_rows.py`'s `packed` in a pass that never reads `X86/SoftFloat.lean`. -/
+
+/-- The packed arithmetic with its write-and-flags pair swapped out; every other form is `step`. -/
+def wrongPackedWith (rule : VArithOp → Bool → Nat → BitVec 128 → BitVec 128 → BitVec 128 × BitVec 32)
+    (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vparith op dbl dst src =>
+      let p := rule op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vparithm op dbl dst ea =>
+      let a := ea.addr s nr
+      if aligned16 a then
+        let p := rule op dbl (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem128 a)
+        s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+      else step i s
+  | _ => step i s
+
+/-- Lane 0's own result and flags, by the scalar form's call. -/
+def packedLane0 (op : VArithOp) (dbl : Bool) (rc : Nat) (a b : BitVec 128) : BitVec 64 × BitVec 32 :=
+  varithCall op (if dbl then SoftFloat.binary64 else SoftFloat.binary32) rc (a.setWidth 64) (b.setWidth 64)
+
+/-- ⛔ THE FLAGS ARE LANE 0's ALONE — the other lanes' exceptions are dropped (D281 `loud@k`). -/
+def wrongPackedLane0Flags : Instr → Cpu → Cpu :=
+  wrongPackedWith fun op dbl rc a b => ((vparithAll op dbl rc a b).1, (packedLane0 op dbl rc a b).2)
+
+/-- ⛔ A NaN IN ANY LANE SUPPRESSES DE IN EVERY LANE — DE-SUPPRESS applied to the register, not the lane
+(D281 `de_split`). -/
+def wrongPackedGlobalDE : Instr → Cpu → Cpu :=
+  wrongPackedWith fun op dbl rc a b =>
+    let f := if dbl then SoftFloat.binary64 else SoftFloat.binary32
+    let w := if dbl then 64 else 32
+    let p := vparithAll op dbl rc a b
+    let nan := (List.range (128 / w)).any fun i =>
+      f.isNaN ((a >>> (w * i)).setWidth 64) || f.isNaN ((b >>> (w * i)).setWidth 64)
+    (p.1, if nan then p.2 &&& ~~~SoftFloat.fDE else p.2)
+
+/-- ⛔ THE SCALAR RULE ON A PACKED FORM: lane 0 computed, every lane above it KEPT from the destination. -/
+def wrongPackedLowLane : Instr → Cpu → Cpu :=
+  wrongPackedWith fun op dbl rc a b =>
+    let w := if dbl then 64 else 32
+    let p := packedLane0 op dbl rc a b
+    (((a >>> w) <<< w) ||| ((p.1.setWidth w).setWidth 128), p.2)
+
+/-- ⛔ MXCSR.RC IS NOT READ: every lane rounds to nearest. -/
+def wrongPackedIgnoresRC : Instr → Cpu → Cpu :=
+  wrongPackedWith fun op dbl _ a b => vparithAll op dbl 0 a b
+
 /-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both
 mnemonics fault. This is the arm `movdqu_load_unal` exists for: it is the only
 vector in the table at an address that is not 16-byte aligned, so without it this
@@ -4296,6 +4349,11 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("cvtsd2ss raises UE on an exact tiny result", wrongNarrowUEWhenExact, "mxcsr.ue")
   , ("cvtsd2ss raises no DE on a denormal source", wrongNarrowNoDE, "mxcsr.de")
   , ("cvtsd2ss raises IE on a quiet NaN", wrongNarrowQuietIE, "mxcsr.ie")
+  -- ⭐⭐⭐ SUB-GROUP B5 — the packed arithmetic (D283).  Only `vparithAll` is swapped in each.
+  , ("mulps..divpd raises lane 0's flags alone", wrongPackedLane0Flags, "mxcsr.pe")
+  , ("mulps..divpd suppresses DE in every lane when any lane holds a NaN", wrongPackedGlobalDE, "mxcsr.de")
+  , ("mulps..divpd computes lane 0 and keeps the lanes above it", wrongPackedLowLane, "xmm0")
+  , ("mulps..divpd ignores MXCSR.RC and rounds to nearest", wrongPackedIgnoresRC, "xmm0")
   , ("movl fails to zero-extend", wrongMovD, "rax")
   , ("shift forgets to mask its count", wrongShiftMask, "rax")
   , ("adc drops the carry-in", wrongAdcNoCarry, "rax")

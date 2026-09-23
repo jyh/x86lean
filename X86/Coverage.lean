@@ -878,6 +878,30 @@ acc,imm · rh"
   , { mnemonic := "cvtsd2ss",
       shapes := "x,x · x,m", note := "binary64 -> low binary32 lane, rounded under MXCSR.RC; NaN keeps sign and top payload, quieted; upper kept; D273",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTSD2SS" }
+  , { mnemonic := "mulps",
+      shapes := "x,x · x,m", note := "every lane (four binary32) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULPS" }
+  , { mnemonic := "mulpd",
+      shapes := "x,x · x,m", note := "every lane (two binary64) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULPD" }
+  , { mnemonic := "addps",
+      shapes := "x,x · x,m", note := "every lane (four binary32) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDPS" }
+  , { mnemonic := "addpd",
+      shapes := "x,x · x,m", note := "every lane (two binary64) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDPD" }
+  , { mnemonic := "subps",
+      shapes := "x,x · x,m", note := "every lane (four binary32) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBPS" }
+  , { mnemonic := "subpd",
+      shapes := "x,x · x,m", note := "every lane (two binary64) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBPD" }
+  , { mnemonic := "divps",
+      shapes := "x,x · x,m", note := "every lane (four binary32) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVPS" }
+  , { mnemonic := "divpd",
+      shapes := "x,x · x,m", note := "every lane (two binary64) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVPD" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
