@@ -2410,14 +2410,17 @@ B6's hardware reading (D287: 934/934 on AMD + Intel; x86isa 56 as committed befo
 declared sign-less indefinites, D293 pins 24 rows +102,527 ku). Every differential and arm read as committed before its
 run. **Residue 3: `sqrtps` 2 · `cvtpd2ps` 1.**
 **THE STACK, each branch on both tiers:** `paris/b5` → `b5-pins` → `b5-pins-b` → `b6-hw` → `b6a` → `b6a-pins` → `b6b` →
-`b6b-pins` (389257b). ⚖️ **LAND IN FOUR PRs, NOT SEVEN**, grouped so each master step's `Tests.Anchors` Δku fits A′
+`b6b-pins` → `b7-hw` → `b7` → `b7-pins`. ⚖️ **LAND IN FOUR PRs, NOT SEVEN**, grouped so each master step's `Tests.Anchors` Δku fits A′
 (23.3% of that step's base), because `strict: true` makes every landing a serial ~3 h CI cycle:
 ```
   PR1  paris/b5-pins      (b5 + pins A)                     Anchors ≈ +82.3k   of ~122.9k
   PR2  paris/b6a          (pins B + b6-hw + b6a)            Anchors ≈ +54k + shape
   PR3  paris/b6b          (b6a-pins + b6b)                  Anchors ≈ +94k + shape
-  PR4  paris/b6b-pins                                       Anchors ≈ +103k
+  PR4  paris/b7-pins      (b6b-pins + b7-hw + b7 + b7-pins)  Anchors ≈ +103k + 19k, of ~176k at that base
 ```
+⭐ **B7 BUILT THE SAME EVENING (D294–D296):** `cvtpd2ps` claimed (3 vectors, 10 pins); `sqrtps` has a shape and NO row
+by design (every source meets an undeclarable upper-lane divergence). **SUB-GROUP B IS COMPLETE TO ITS NAMED RESIDUE:
+`sqrtps` 2.** The stack's top is `paris/b7-pins`. PR1 = #56 is open (landing row recorded, CI running).
 Each: update the branch to origin/master, `kernel_delta --base origin/master --head HEAD` (+ `ku_delta --arm a-prime` if
 rc 3), `kernel_drift --record`, commit the row IN the PR, MERGE COMMIT, `git push local origin/master:master`. ⚠️ Every
 group is an ESTIMATE from per-step readings. A′ is re-measured on each PR's own step before it is trusted.
