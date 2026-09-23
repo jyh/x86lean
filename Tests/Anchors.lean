@@ -2872,7 +2872,13 @@ theorem b5_addps_pins :
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
 theorem b5_addpd_pins :
-  ([  -- 1 of hwprobe's 10 rows
+  ([  -- 7 of hwprobe's 10 rows
+    (0x1f80, 0x7fefffffffffffff3ff0000000000000, 0x7fefffffffffffff3ca0000000000000, 0x7ff00000000000003ff0000000000000, 0x28),  -- addpd_mix/nearest · no vector reaches
+    (0x3f80, 0x7fefffffffffffff3ff0000000000000, 0x7fefffffffffffff3ca0000000000000, 0x7fefffffffffffff3ff0000000000000, 0x28),  -- addpd_mix/down · no vector reaches
+    (0x5f80, 0x7fefffffffffffff3ff0000000000000, 0x7fefffffffffffff3ca0000000000000, 0x7ff00000000000003ff0000000000001, 0x28),  -- addpd_mix/up · no vector reaches
+    (0x7f80, 0x7fefffffffffffff3ff0000000000000, 0x7fefffffffffffff3ca0000000000000, 0x7fefffffffffffff3ff0000000000000, 0x28),  -- addpd_mix/zero · no vector reaches
+    (0x1f80, 0x3ff00000000000007ff0000000000789, 0x40000000000000003ff0000000000000, 0x40080000000000007ff8000000000789, 0x01),  -- addpd_loud@0 · no vector reaches
+    (0x1f80, 0x7ff00000000007893ff0000000000000, 0x3ff00000000000004000000000000000, 0x7ff80000000007894008000000000000, 0x01),  -- addpd_loud@1 · no vector reaches
     (0x1f80, 0x7ff00000000000003ff0000000000000, 0xfff00000000000004000000000000000, 0xfff80000000000004008000000000000, 0x01)  -- addpd_indef@1 · x86isa differs
   ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
@@ -2880,7 +2886,11 @@ theorem b5_addpd_pins :
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
 theorem b5_subps_pins :
-  ([  -- 1 of hwprobe's 12 rows
+  ([  -- 5 of hwprobe's 12 rows
+    (0x1f80, 0x7fc000007f7fffff404000003f800000, 0x007fffffff7fffff3f80000030000000, 0x7fc000007f800000400000003f800000, 0x28),  -- subps_mix/nearest · no vector reaches
+    (0x3f80, 0x7fc000007f7fffff404000003f800000, 0x007fffffff7fffff3f80000030000000, 0x7fc000007f7fffff400000003f7fffff, 0x28),  -- subps_mix/down · no vector reaches
+    (0x5f80, 0x7fc000007f7fffff404000003f800000, 0x007fffffff7fffff3f80000030000000, 0x7fc000007f800000400000003f800000, 0x28),  -- subps_mix/up · no vector reaches
+    (0x7f80, 0x7fc000007f7fffff404000003f800000, 0x007fffffff7fffff3f80000030000000, 0x7fc000007f7fffff400000003f7fffff, 0x28),  -- subps_mix/zero · no vector reaches
     (0x1f80, 0x7f800000404000004040000040400000, 0x7f8000003f8000003f8000003f800000, 0xffc00000400000004000000040000000, 0x01)  -- subps_indef@3 · x86isa differs
   ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
@@ -2888,7 +2898,13 @@ theorem b5_subps_pins :
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
 theorem b5_subpd_pins :
-  ([  -- 1 of hwprobe's 10 rows
+  ([  -- 7 of hwprobe's 10 rows
+    (0x1f80, 0x7fefffffffffffff3ff0000000000000, 0xffefffffffffffff3c30000000000000, 0x7ff00000000000003ff0000000000000, 0x28),  -- subpd_mix/nearest · no vector reaches
+    (0x3f80, 0x7fefffffffffffff3ff0000000000000, 0xffefffffffffffff3c30000000000000, 0x7fefffffffffffff3fefffffffffffff, 0x28),  -- subpd_mix/down · no vector reaches
+    (0x5f80, 0x7fefffffffffffff3ff0000000000000, 0xffefffffffffffff3c30000000000000, 0x7ff00000000000003ff0000000000000, 0x28),  -- subpd_mix/up · no vector reaches
+    (0x7f80, 0x7fefffffffffffff3ff0000000000000, 0xffefffffffffffff3c30000000000000, 0x7fefffffffffffff3fefffffffffffff, 0x28),  -- subpd_mix/zero · no vector reaches
+    (0x1f80, 0x40080000000000007ff0000000000789, 0x3ff00000000000003ff0000000000000, 0x40000000000000007ff8000000000789, 0x01),  -- subpd_loud@0 · no vector reaches
+    (0x1f80, 0x7ff00000000007894008000000000000, 0x3ff00000000000003ff0000000000000, 0x7ff80000000007894000000000000000, 0x01),  -- subpd_loud@1 · no vector reaches
     (0x1f80, 0x7ff00000000000004008000000000000, 0x7ff00000000000003ff0000000000000, 0xfff80000000000004000000000000000, 0x01)  -- subpd_indef@1 · x86isa differs
   ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
@@ -2912,7 +2928,9 @@ theorem b5_divps_pins :
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
 theorem b5_divpd_pins :
-  ([  -- 1 of hwprobe's 12 rows
+  ([  -- 3 of hwprobe's 12 rows
+    (0x1f80, 0x40000000000000007ff0000000000789, 0x3ff00000000000003ff0000000000000, 0x40000000000000007ff8000000000789, 0x01),  -- divpd_loud@0 · no vector reaches
+    (0x1f80, 0x7ff00000000007894000000000000000, 0x3ff00000000000003ff0000000000000, 0x7ff80000000007894000000000000000, 0x01),  -- divpd_loud@1 · no vector reaches
     (0x1f80, 0x00000000000000004000000000000000, 0x00000000000000003ff0000000000000, 0xfff80000000000004000000000000000, 0x01)  -- divpd_indef@1 · x86isa differs
   ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>

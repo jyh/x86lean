@@ -19986,3 +19986,15 @@ rows are checked by silicon and x86isa (D281) and by nothing in the kernel.
   it, and `mk_anchors.py`'s lists are its output, as B0–B4's are `reach_table.py`'s.
 - Reach is not coverage: a reached part says nothing about whether the differential compares that case soundly.
 - No row asks for FZ, DAZ, an unmasked exception or the m128 alignment rule (D281 §6), so no pin covers them.
+
+## D286 — B5's pins, step B: the 18 held rows, so all 40 of the lane rule's pins are in the kernel
+
+⚖️ D285 §3 named 18 reach pins (subps · addpd · subpd · divpd) and held them for a second step by price. This step moves
+`mk_anchors._B5_R_NEXT` into `_B5_R` and leaves the held list empty. `mk_anchors.PPINNED` is now **exactly
+`packed_reach.py --pinned`** (diffed, 40 = 40).
+```
+  base 4b1a44e (step A)   Tests.Anchors 609,647 ku   A′ budget 23.3% ≈ 142.0k
+  step B                  663,363 ku   Δku +53,716   CLEAN   (D285 §3 estimated ~53k from step A's per-row readings)
+```
+Built through the route, rc 0. Every packed row now falls in one of two places: pinned in the kernel (40) or reached
+by a vector that x86isa agrees with (52). D285 §4's limits still hold.
