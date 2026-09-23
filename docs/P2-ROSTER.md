@@ -7,7 +7,7 @@ P1's roster counted forms. This one counts what runs them.
 The supply side is K's own tree: the **1,665 variants**
 `scripts/k_roster.py` drops as SIMD/FP, over **578 distinct
 mnemonics**. The demand side is the assembly column class of
-`docs/DEMAND-CENSUS.md` — **363,800 instructions the model does
+`docs/DEMAND-CENSUS.md` — **362,575 instructions the model does
 not cover**, across 6 codec columns, never pooled with compiler
 output or with the kernel.
 
@@ -61,63 +61,63 @@ not by this table's sort — but the row count is DERIVED now, and it is
 
 ## The vector roster, ranked by measured demand
 
-Cumulative share is over the whole uncovered gap (363,800 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
+Cumulative share is over the whole uncovered gap (362,575 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
 
 | rank | mnemonic | occurrences | share | cumulative | of it, MMX | oracle | K operand shapes |
 |---|---|---|---|---|---|---|---|
-| 1 | `pmaddwd` | 21,239 | 5.84% | 5.8% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
-| 2 | `psubusw` | 17,214 | 4.73% | 10.6% | 0% | ⛔ **REFUSES** | `xm`, `xx` |
-| 3 | `vmovdqa` | 16,813 | 4.62% | 15.2% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 4 | `vpaddw` | 11,682 | 3.21% | 18.4% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
-| 5 | `movq` | 11,109 | 3.05% | 21.5% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 6 | `vpaddd` | 10,950 | 3.01% | 24.5% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
-| 7 | `vmovaps` | 7,599 | 2.09% | 26.6% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 8 | `vpmaddwd` | 7,209 | 1.98% | 28.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 9 | `psadbw` | 6,411 | 1.76% | 30.3% | ⚠️ 14% | ⛔ **REFUSES** | `xm`, `xx` |
-| 10 | `vpsrad` | 6,338 | 1.74% | 32.0% | — | ⛔ **REFUSES** | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
-| 11 | `vpsubw` | 6,234 | 1.71% | 33.8% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
-| 12 | `vmovdqu` | 6,160 | 1.69% | 35.4% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 13 | `packssdw` | 5,613 | 1.54% | 37.0% | 3% | ⛔ **REFUSES** | `xm`, `xx` |
-| 14 | `vpmulhrsw` | 5,010 | 1.38% | 38.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 15 | `vshufps` | 4,693 | 1.29% | 39.7% | — | ⛔ **REFUSES** | `xxmi`, `xxxi`, `yymi`, `yyyi` |
-| 16 | `pmullw` | 4,539 | 1.25% | 40.9% | ⚠️ 21% | ⛔ **REFUSES** | `xm`, `xx` |
-| 17 | `paddsw` | 4,473 | 1.23% | 42.1% | ⚠️ 18% | ⛔ **REFUSES** | `xm`, `xx` |
-| 18 | `paddw` | 4,166 | 1.15% | 43.3% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 19 | `vpbroadcastd` | 3,941 | 1.08% | 44.4% | — | ⛔ **REFUSES** | `xm`, `xx`, `ym`, `yx` |
-| 20 | `pmaxsw` | 3,776 | 1.04% | 45.4% | ⚠️ 24% | ⛔ **REFUSES** | `xm`, `xx` |
-| 21 | `vpunpcklwd` | 3,630 | 1.00% | 46.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 22 | `vaddps` | 3,434 | 0.94% | 47.3% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 23 | `vmovq` | 3,430 | 0.94% | 48.3% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 24 | `movd` | 3,386 | 0.93% | 49.2% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr` |
-| 25 | `vpunpckhwd` | 3,352 | 0.92% | 50.1% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 26 | `pmaddubsw` | 3,188 | 0.88% | 51.0% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
-| 27 | `psubusb` | 3,087 | 0.85% | 51.9% | ⚠️ 16% | ⛔ **REFUSES** | `xm`, `xx` |
-| 28 | `vpmaddubsw` | 3,048 | 0.84% | 52.7% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 29 | `vpackssdw` | 3,026 | 0.83% | 53.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 30 | `vpshufb` | 2,984 | 0.82% | 54.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 31 | `psubw` | 2,932 | 0.81% | 55.2% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 32 | `vsubps` | 2,795 | 0.77% | 55.9% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 33 | `pmuludq` | 2,790 | 0.77% | 56.7% | — | ⛔ **REFUSES** | `xm`, `xx` |
-| 34 | `vmulps` | 2,715 | 0.75% | 57.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 35 | `pmulhrsw` | 2,690 | 0.74% | 58.2% | 4% | ⛔ **REFUSES** | `xm`, `xx` |
-| 36 | `vmovd` | 2,689 | 0.74% | 58.9% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr` |
-| 37 | `pshufb` | 2,469 | 0.68% | 59.6% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
-| 38 | `vinserti128` | 2,394 | 0.66% | 60.3% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
-| 39 | `punpcklbw` | 2,381 | 0.65% | 60.9% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 40 | `pmulhw` | 2,200 | 0.60% | 61.5% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |
+| 1 | `pmaddwd` | 21,239 | 5.86% | 5.9% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
+| 2 | `psubusw` | 17,214 | 4.75% | 10.6% | 0% | ⛔ **REFUSES** | `xm`, `xx` |
+| 3 | `vmovdqa` | 16,813 | 4.64% | 15.2% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 4 | `vpaddw` | 11,682 | 3.22% | 18.5% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
+| 5 | `movq` | 11,109 | 3.06% | 21.5% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 6 | `vpaddd` | 10,950 | 3.02% | 24.5% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
+| 7 | `vmovaps` | 7,599 | 2.10% | 26.6% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 8 | `vpmaddwd` | 7,209 | 1.99% | 28.6% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 9 | `psadbw` | 6,411 | 1.77% | 30.4% | ⚠️ 14% | ⛔ **REFUSES** | `xm`, `xx` |
+| 10 | `vpsrad` | 6,338 | 1.75% | 32.1% | — | ⛔ **REFUSES** | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
+| 11 | `vpsubw` | 6,234 | 1.72% | 33.9% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
+| 12 | `vmovdqu` | 6,160 | 1.70% | 35.6% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 13 | `packssdw` | 5,613 | 1.55% | 37.1% | 3% | ⛔ **REFUSES** | `xm`, `xx` |
+| 14 | `vpmulhrsw` | 5,010 | 1.38% | 38.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 15 | `vshufps` | 4,693 | 1.29% | 39.8% | — | ⛔ **REFUSES** | `xxmi`, `xxxi`, `yymi`, `yyyi` |
+| 16 | `pmullw` | 4,539 | 1.25% | 41.0% | ⚠️ 21% | ⛔ **REFUSES** | `xm`, `xx` |
+| 17 | `paddsw` | 4,473 | 1.23% | 42.3% | ⚠️ 18% | ⛔ **REFUSES** | `xm`, `xx` |
+| 18 | `paddw` | 4,166 | 1.15% | 43.4% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 19 | `vpbroadcastd` | 3,941 | 1.09% | 44.5% | — | ⛔ **REFUSES** | `xm`, `xx`, `ym`, `yx` |
+| 20 | `pmaxsw` | 3,776 | 1.04% | 45.6% | ⚠️ 24% | ⛔ **REFUSES** | `xm`, `xx` |
+| 21 | `vpunpcklwd` | 3,630 | 1.00% | 46.6% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 22 | `vaddps` | 3,434 | 0.95% | 47.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 23 | `vmovq` | 3,430 | 0.95% | 48.4% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 24 | `movd` | 3,386 | 0.93% | 49.4% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr` |
+| 25 | `vpunpckhwd` | 3,352 | 0.92% | 50.3% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 26 | `pmaddubsw` | 3,188 | 0.88% | 51.2% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
+| 27 | `psubusb` | 3,087 | 0.85% | 52.0% | ⚠️ 16% | ⛔ **REFUSES** | `xm`, `xx` |
+| 28 | `vpmaddubsw` | 3,048 | 0.84% | 52.9% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 29 | `vpackssdw` | 3,026 | 0.83% | 53.7% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 30 | `vpshufb` | 2,984 | 0.82% | 54.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 31 | `psubw` | 2,932 | 0.81% | 55.3% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 32 | `vsubps` | 2,795 | 0.77% | 56.1% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 33 | `pmuludq` | 2,790 | 0.77% | 56.9% | — | ⛔ **REFUSES** | `xm`, `xx` |
+| 34 | `vmulps` | 2,715 | 0.75% | 57.6% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 35 | `pmulhrsw` | 2,690 | 0.74% | 58.4% | 4% | ⛔ **REFUSES** | `xm`, `xx` |
+| 36 | `vmovd` | 2,689 | 0.74% | 59.1% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr` |
+| 37 | `pshufb` | 2,469 | 0.68% | 59.8% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
+| 38 | `vinserti128` | 2,394 | 0.66% | 60.5% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
+| 39 | `punpcklbw` | 2,381 | 0.66% | 61.1% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 40 | `pmulhw` | 2,200 | 0.61% | 61.7% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |
 
-- The joined set — **329 mnemonics K has semantics for AND the corpus executes** — accounts for **328,997 instructions (90.4% of the gap)**.
+- The joined set — **321 mnemonics K has semantics for AND the corpus executes** — accounts for **327,772 instructions (90.4% of the gap)**.
 
 ## The two residues
 
-### ⛔ Demand without supply — 185 mnemonics, 34,641 instructions (9.5% of the gap)
+### ⛔ Demand without supply — 185 mnemonics, 34,641 instructions (9.6% of the gap)
 
 The corpus executes these and **K has no rule for them**, so they cannot be priced from the coverage target list at all. A roster that listed only the join would price P2 this much too low.
 
 | rank | mnemonic | occurrences | share |
 |---|---|---|---|
-| 1 | `endbr64` | 16,488 | 4.53% |
-| 2 | `vmovdqa32` | 6,230 | 1.71% |
+| 1 | `endbr64` | 16,488 | 4.55% |
+| 2 | `vmovdqa32` | 6,230 | 1.72% |
 | 3 | `vpdpwssd` | 1,589 | 0.44% |
 | 4 | `vpermb` | 794 | 0.22% |
 | 5 | `vmovdqu32` | 712 | 0.20% |
@@ -142,13 +142,13 @@ The corpus executes these and **K has no rule for them**, so they cannot be pric
 | 24 | `movq2dq` | 110 | 0.03% |
 | 25 | `vpperm` | 100 | 0.03% |
 
-### Supply without demand — 249 mnemonics
+### Supply without demand — 257 mnemonics
 
 K has semantics for these and the corpus never executes one. Cheap to model; worth nothing to model first.
 
-`addsd`, `addss`, `addsubpd`, `andnpd`, `andnps`, `andpd`, `andps`, `blendpd`, `blendps`, `blendvpd`, `cmppd`, `cmpps`, `cmpsd`, `cmpss`, `cmpxchg16b`, `comisd`, `comiss`, `cvtpd2dq`, `cvtpi2pd`, `cvtpi2ps`, `cvtps2pd`, `cvtsd2ss`, `cvtsi2sdl`, `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq`, `cvtss2sd`, `cvttsd2si`, `cvttss2si`, `divsd`, `divss`, `dppd`, `dpps`, `haddpd`, `hsubpd`, `hsubps`, `insertps`, `maskmovdqu`, `maxpd`, `maxps`, `maxsd`, `maxss`, `minpd`, `minps`, `minsd`, `minss`, `movapd`, `movaps`, `movddup`, `movdqa`, `movdqu`, `movhlps`, `movhpd`, `movhps`, `movlhps`, `movlpd`, `movlps`, `movmskpd`, `movntpd`, `movsd`
+`addpd`, `addps`, `addsd`, `addss`, `addsubpd`, `andnpd`, `andnps`, `andpd`, `andps`, `blendpd`, `blendps`, `blendvpd`, `cmppd`, `cmpps`, `cmpsd`, `cmpss`, `cmpxchg16b`, `comisd`, `comiss`, `cvtpd2dq`, `cvtpi2pd`, `cvtpi2ps`, `cvtps2pd`, `cvtsd2ss`, `cvtsi2sdl`, `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq`, `cvtss2sd`, `cvttsd2si`, `cvttss2si`, `divpd`, `divps`, `divsd`, `divss`, `dppd`, `dpps`, `haddpd`, `hsubpd`, `hsubps`, `insertps`, `maskmovdqu`, `maxpd`, `maxps`, `maxsd`, `maxss`, `minpd`, `minps`, `minsd`, `minss`, `movapd`, `movaps`, `movddup`, `movdqa`, `movdqu`, `movhlps`, `movhpd`, `movhps`, `movlhps`, `movlpd`
 
-…and 189 more.
+…and 197 more.
 
 ## What the oracle can answer — measured, not read
 
@@ -167,10 +167,10 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 138 | 114,374 | 31.4% |
-| the oracle REFUSES | 82 | 217,162 | 59.7% |
+| the oracle EXECUTES | 138 | 113,149 | 31.2% |
+| the oracle REFUSES | 82 | 217,162 | 59.9% |
 | the oracle STALLS | 3 | 243 | 0.1% |
-| **probed so far** | 223 | **331,779** | **91.2%** |
+| **probed so far** | 223 | **330,554** | **91.2%** |
 
 ⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
 unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
@@ -189,11 +189,11 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 80 | 104,638 | 28.8% |
-| the oracle REFUSES | 88 | 169,877 | 46.7% |
+| the oracle EXECUTES | 72 | 103,413 | 28.5% |
+| the oracle REFUSES | 88 | 169,877 | 46.9% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 171 | **274,756** | **75.5%** |
-| not asked at its own bucket | | 88,882 | 24.4% |
+| **probed so far** | 163 | **273,531** | **75.4%** |
+| not asked at its own bucket | | 88,882 | 24.5% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
 57,023 instructions, 15.7% of the gap** — that is
@@ -207,7 +207,7 @@ pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
-rank 1 in the demand list, 5.84% of the whole gap, refusing in the same run in
+rank 1 in the demand list, 5.86% of the whole gap, refusing in the same run in
 which `movdqa` beside it executes. The 82 the oracle does not have are
 `movntdq`, `movntdqa`, `pabsw`, `packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pinsrw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmuldq`, `pmulhrsw`, `pmulhuw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vbroadcasti128`, `vextracti128`, `vinserti128`, `vmovd`, `vmovdqa32`, `vmovhps`, `vmovq`, `vmulps`, `vpabsw`, `vpackssdw`, `vpackuswb`, `vpaddsw`, `vpaddw`, `vpalignr`, `vpblendd`, `vpbroadcastd`, `vpbroadcastq`, `vpbroadcastw`, `vperm2f128`, `vpermq`, `vpmaddubsw`, `vpmaddwd`, `vpmaxsd`, `vpmaxsw`, `vpminsd`, `vpminsw`, `vpmovzxbw`, `vpmulhrsw`, `vpmulld`, `vpmullw`, `vpsadbw`, `vpshufb`, `vpshufd`, `vpsrad`, `vpsraw`, `vpsrld`, `vpsrlw`, `vpsubsw`, `vpsubusb`, `vpunpckhbw`, `vpunpckhdq`, `vpunpckhqdq`, `vpunpckhwd`, `vpunpcklbw`, `vpunpckldq`, `vpunpcklqdq`, `vpunpcklwd`, `vshufps`, `vsubps`.
 
@@ -243,12 +243,12 @@ class shares it. Within a batch the order is by demand.
 
 | batch | bucket | occurrences | share of the gap | cumulative |
 |---|---|---|---|---|
-| 1 | AVX2/AVX (ymm) | 108,554 | 29.84% | 29.8% |
-| 2 | SSE-legacy (xmm) | 97,672 | 26.85% | 56.7% |
-| 3 | VEX-128 (v… xmm) | 62,252 | 17.11% | 73.8% |
-| 4 | MMX (mm) | 43,045 | 11.83% | 85.6% |
-| 5 | AVX-512 (zmm/k) | 33,884 | 9.31% | 94.9% |
-| 6 | CET-IBT | 16,488 | 4.53% | 99.5% |
+| 1 | AVX2/AVX (ymm) | 108,554 | 29.94% | 29.9% |
+| 2 | SSE-legacy (xmm) | 96,447 | 26.60% | 56.5% |
+| 3 | VEX-128 (v… xmm) | 62,252 | 17.17% | 73.7% |
+| 4 | MMX (mm) | 43,045 | 11.87% | 85.6% |
+| 5 | AVX-512 (zmm/k) | 33,884 | 9.35% | 94.9% |
+| 6 | CET-IBT | 16,488 | 4.55% | 99.5% |
 | 7 | AVX (state) | 1,241 | 0.34% | 99.8% |
 | 8 | BMI2 | 400 | 0.11% | 99.9% |
 | 9 | SSE (fence) | 32 | 0.01% | 99.9% |

@@ -19834,3 +19834,69 @@ one more unfolding per pin that reaches the call, against D270's +180 for the fo
 +497 and `X86.Theorems` +538, inside D270's per-constructor projection.
 ⚠️ **A draft reading, not the landing row.** The drift-ledger row is measured on the landing step against `origin/master`
 when this lands, and `kernel_drift --gap` refuses the branch until then, as it should.
+
+## D283 — P2 batch 47, sub-group B5: the packed arithmetic — 19 vectors from a reach census, four lane arms, and a prediction premise that was wrong
+
+⚖️ QUEUE P3, B5, on D282's constructors. **Eight roster rows** (`mulps` `mulpd` `addps` `addpd` `subps` `subpd`
+`divps` `divpd`), **19 vectors**, **4 wrong-model arms**. Assembly-class demand **1,225**; sub-group B's unclaimed
+drops from 1,709 to **484** over 6 pairs (`p2_residue`, derived).
+
+### 1. THE VECTORS — A REACH CENSUS, NOT A HAND PICK
+The 88 pre-states were read out of `run/cases.lsp` (every vector runs against the same 88; rbx = 0x2000 in all of
+them; memory populated at 0x1fe0–0x201f). For each candidate — 4 operations × 2 formats × (xmm1–xmm15, and m128 at
+rbx−0x20, −0x10, +0, +0x10) — `mk_rows.packed` gave, over the 88: every flag reached, how many states each D281
+wrong model would DIFFER in (flags from lane 0 alone; DE suppressed across lanes by a NaN elsewhere), how many states
+the rounding mode changes, and how many produce the indefinite. A greedy cover per mnemonic then took every reachable
+flag, both wrong models visible, RC mattering, one aligned m128 source and one REX.B source: **19 vectors.** The bytes
+are clang's, and each vector carries its census line as a comment.
+⛔ **EVERY SOURCE REACHES NO INDEFINITE, AND THAT IS A CHOICE WITH A PRICE.** x86isa's indefinite has no sign bit
+(D265), and `knownDivergences`' `pair` form excuses a disagreement only in the LOW lane with every bit above it
+agreeing, so a packed indefinite in lanes 1–3 cannot be declared. Indefinite-free sources exist for every mnemonic,
+so the batch avoids it rather than widening the mechanism. **The price is `divps`**: every register source meets
+0/0 in 47 of 88 states, its only indefinite-free source is `m-16`, and so its IE, UE and ZE are reached by no vector.
+They stay on D281's pins (`loud@k`, `ze_de`, `ze_only`), and a packed indefinite is reached by NEITHER vectors nor
+D281's rows. **That is a named gap, not a covered one.**
+⚠️ Every m128 address is 16-byte aligned. x86isa does not implement the alignment check (D91), so a misaligned vector
+would disagree by construction; `vparithm`'s #GP is D282's rule, tested by no vector.
+
+### 2. THE ARMS — `wrongPackedWith`, AND WHY NOT `wrongSimdWith`
+`wrongSimdWith` takes the scalar `arith` shape and every earlier arm family goes through it; changing it would move
+landed scores. `wrongPackedWith` swaps `vparithAll` ALONE and hands every other form to `step`.
+```
+  arm                                                   key        PREDICTED   READ
+  raises lane 0's flags alone                           mxcsr.pe       377       377
+  suppresses DE in every lane when any lane holds a NaN mxcsr.de       354       354
+  computes lane 0 and keeps the lanes above it          xmm0         1,412     1,412
+  ignores MXCSR.RC and rounds to nearest                xmm0           526       521   ✘
+  lane-0 arm's TOTAL unexplained (all six flag keys)    —              921       919   ✘
+  B0 "flags replace the sticky bits" (reaches B5 via raise) mxcsr.ze   +378    2,269
+  B0 "DE is raised beside a NaN"                        mxcsr.de        +0    not re-run: it plants through the
+                                                                              scalar `arith`, which B5 never calls
+```
+Predictions posted on the bus before the run, computed by `mk_rows.packed` in a pass that never reads
+`X86/SoftFloat.lean`.
+
+### 3. ⛔ THE TWO MISSES WERE MY PREMISE, AND THE POST HAD NAMED IT
+The prediction ran over "the first 84 of the differential's 88 states", stated in the post as an assumption the
+reading would test. **It was false for the four random states.** `preStates seed n` pairs `rs[i]` with `rs[n+i]`,
+so n = 4 (the selftest) and n = 8 (the differential) draw DIFFERENT second operands. The 80 fixed states are identical.
+**Reconciled at the case, not by argument:**
+- `vparithAll` and `mk_rows.packed` agree on **all 3,192 exact inputs** (19 vectors × 84 states × {the state's own
+  RC, RC 0}), so the rule was never in question.
+- The selftest's own four random states, dumped from Lean (`preStates 0x9E3779B97F4A7C15 4`), give **521 and 919
+  exactly**, and 377 · 354 · 1,412 · +378 still exactly. So the three earlier matches were not luck in the other states.
+⇒ 🔑 ***A PREDICTION OVER "THE SAME STATES" NEEDS THE GENERATOR'S OWN STATES, NOT A DUMP OF A NEIGHBOURING RUN
+WITH A DIFFERENT PARAMETER.*** Both are "the pre-states"; they share 80 of 84 members, which is exactly how the
+difference hid.
+⚠️ **The sticky arm's base is DERIVED, not measured:** record 30 has 1,771 after B3, and B4's records do not carry
+the arm. +20 per B4 vector (6 vectors, as every earlier vector added) gives 1,891, and 1,891 + 378 = 2,269, the reading.
+
+### 4. THE BUILD
+`rosterSize` 184 → **192**, `vectorCount` 1,112 → **1,131**, `tableP0` +8 rows, `Tests/VectorRuns.lean` regenerated
+by `x86lean-diff runs` (333 runs over 1,131 vectors). Full build route rc 0, 0 errors.
+
+### 5. THE DIFFERENTIAL — EVERY FIELD AS POSTED
+`cases=99528 matched=78879 explained=29479 unexplained=0 oracle-divergence=244` against record 32's 97,856 / 77,207 /
+29,479 / 244: **+1,672 cases, +1,672 matched, +0 explained, +0 divergence**, the prediction posted before the run.
+Per vector: 88 cases on both sides for all 19, 0 refused on either side (checked on a field that is present and a
+refusal count that is live). Record 33 (`docs/DIFFERENTIAL-P2-BATCH33.md`) carries the tables.
