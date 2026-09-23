@@ -2403,7 +2403,17 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); THE PACKED ARITHMETIC IS NEXT**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); B5 = P2 BATCH 47 (D282, D283), BUILT ON `paris/b5`, LANDING AFTER #55**
+⚖️ **STATUS AT 2026-09-23, LATER (paris, life-79, D282, D283): B5 IS BUILT AS P2 BATCH 47, RECORD 33, on `paris/b5`.**
+Shape: `vparith`/`vparithm` over `VArithOp`, with `varithCall` factored out so both forms make one call (A′ on the draft
+CLEAN; landed pins +82 ku). Batch: 8 roster rows and 19 vectors from a reach census, all indefinite-free. The differential
+reads every field as posted: +1,672 cases, all matched, 0 unexplained, divergence 244 → 244. Four lane arms read, and two
+misses traced to the prediction's premise, reconciled case by case. The residue is now **484 over 6 pairs**.
+**OWED, in order:** (1) merge #55 (the hardware reading); (2) one PR from `paris/b5` with its landing row measured on the
+master step; (3) **B5's kernel pins**, as B4's were a separate landing (#53): `mk_anchors.py` reads `ROWS` only and must
+learn `PROWS`. The rows to pin are the classes no vector reaches, above all `divps`'s IE/UE/ZE. ⛔ **THE PACKED INDEFINITE
+IS ON NO ROW AND NO VECTOR**: a hwprobe row for it (and x86isa's lane-level sign divergence) is owed before the pins can
+cover it.
 ⚖️ **STATUS AT 2026-09-23 (paris, life-79, D281): B5 = THE PACKED ARITHMETIC, 1,225 of the 1,709 left** (`mulps` 477 ·
 `addps` 424 · `subps` 150 · `divps` 12 · `mulpd` 60 · `addpd` 60 · `subpd` 31 · `divpd` 11). Its hardware reading is IN,
 taken before any Lean: 84 packed rows at all 128 bits, 572/572 on a Xeon 8370C and an i7-8700B (both Intel, no AMD
