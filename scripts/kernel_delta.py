@@ -539,6 +539,18 @@ def repeats_to_decide(n, se, margin):
 # THE NUMBER. The analysis lived one directory over, in the one place a reader
 # staring at a red CI run would never open.
 REPEATS_BUYABLE = 2.0
+# ⚖️ AND THE TEST IS ON `need`, NOT ON `need / n` (2026-09-22). `need = n·(K·se/margin)²` with
+# `se = σ/√n`, so `need = K²σ²/margin²` and THE `n` CANCELS: the diagnosis is a fact about the
+# box (σ) and the commit (margin), never about how many repeats the caller happened to buy. A
+# ratio made it one. Measured: the same σ and margin read `need 7` at n=3 (ratio 2.33, "make the
+# commit cheaper") and at n=4 (ratio 1.75, "buy repeats"), on a unit whose branch changed no file
+# at all, so "make the commit cheaper" named an act that could not exist. The corpus above was
+# taken at n=6, so its threshold IS `need > 2.0 × 6 = 12`, in the same empty gap (11 … 23).
+# ⛔ `need` arrives FLOORED at n+1 (`repeats_to_decide`), so at CI's `--repeats 12` every refusal
+# reads ≥ 13 whatever the box did. A floored value says nothing about σ, so it can never be the
+# commit-cost reading. Hence `max(…, n + 1)` below.
+# [[feedback-match-the-gate-units-to-the-growth-law]]
+COMMIT_COST_NEED = int(REPEATS_BUYABLE * 6)
 
 
 def price_of_an_answer(need, n):
@@ -548,7 +560,7 @@ def price_of_an_answer(need, n):
     cases ask opposite acts of the reader: one is bought with wall clock, and
     the other cannot be bought at any n the gate will ever be given."""
     ratio = need / n if n else float("inf")
-    if ratio > REPEATS_BUYABLE:
+    if need > max(COMMIT_COST_NEED, n + 1):
         return (f"~{need} repeats a side would decide it — but that is "
                 f"{ratio:.1f}x this run's {n}, so THIS IS A COMMIT-COST REFUSAL, "
                 f"NOT A NOISY BOX: the delta sits too close to its budget for "
@@ -1640,6 +1652,20 @@ def selftest():
     run("…and at the SAME dispersion a delta further from its budget is buyable",
         _explicit([1000.0 + x for x in JIT], [1380.0 + x for x in JIT]),
         None, {"M": ("abs", 500.0)}, 3, "PRICE AND NOT AN ALLOWANCE")
+
+    # ⛔ THE DIAGNOSIS MUST NOT DEPEND ON THE CALLER'S n (COMMIT_COST_NEED). `need` is σ and the
+    # margin only, so one `need` read at two repeat counts is ONE diagnosis — and a floored `need`
+    # (n+1) is never the commit-cost reading. The old `need / n` rule fails the first pair.
+    for (nd, nn, want) in [(7, 3, "PRICE AND NOT"), (7, 4, "PRICE AND NOT"),
+                           (13, 12, "PRICE AND NOT"), (47, 6, "COMMIT-COST"),
+                           (47, 12, "COMMIT-COST")]:
+        got = price_of_an_answer(nd, nn)
+        name = f"need {nd} at n={nn} reads {want}"
+        arms.append(name)
+        ok_ = want in got
+        print(("  ✔ " if ok_ else "  ⛔ ") + f"the diagnosis is a fact about σ and the margin: {name}")
+        if not ok_:
+            bad.append(name)
 
     # ⛔ THE COIN FLIP THE OLD RULE DELIVERED AS A VERDICT. A commit sitting
     # exactly on its budget cannot be called by any run with noise in it, and on

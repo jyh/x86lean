@@ -811,4 +811,267 @@ theorem runP_code (p : Program) (I : BitVec 64 → Cpu → Prop)
       rw [stepP_at hst hf]
       exact hstep s.rip i s (at?_mem_at hf) rfl hl hs
 
+/-! ## ⭐⭐⭐ S2/B1 — THE LOADING AND ABI VOCABULARY `crc32_x86_correct` IS STATED OVER
+
+PROPOSAL v1 §3.3 freezes the CRC-32 statement. **Nine of its names existed nowhere in this
+repository**, the perturbation lemma stated beside it adds two more (`InImage`, `Hyps`), and its
+stack band is built from a constant `K` that §3.3 calls *"a declared constant"* and never declares.
+Censused over all 24 tracked `.lean` files — population taken from `git ls-files`, not a glob — on
+three axes (literal case-sensitive, case-insensitive, and a definition-site regex over
+`def|structure|abbrev|inductive|class`), each with a firing control.
+
+⛔⛔ **THE HAND-OVER SAID SIX OF THEM "NEED NOTHING FROM THE OTHER LANE", AND THAT IS FALSE FOR
+THREE OF THE SIX.** Read from the SIGNATURES rather than from the names: `Loaded` and `Separated`
+take an `Image` **as a parameter type**, and `SysVCall`'s BODY names `Submission.prog`. A head
+building "the six" in the order given meets the wall on the second one.
+
+✅ **AND THE WALL IS NOT WHERE IT LOOKED, WHICH IS WHY THIS SECTION PARAMETERISES RATHER THAN
+STUBS.** `Image` is not submission vocabulary at all: the only thing §3.3 ever asks of it is
+`∀ p ∈ img.data, m.read p.1 = p.2` — *a list of (address, byte) pairs*, which is a claim about THIS
+model's memory and nothing else. What belongs to the other lane is the particular INSTANCE
+(`Submission`), never the TYPE. Likewise `SysVCall`'s one submission-shaped clause says only *the
+return address is not inside the program*, which is a fact about **a** program.
+
+⇒ 🔑 ***A STUB IS SWAPPED LATER AND EVERY PROOF WRITTEN AGAINST IT CHURNS; A PARAMETER IS PERMANENT
+AND IS THE HONEST STATEMENT OF WHAT THE PREDICATE ACTUALLY DEPENDS ON.*** The submission lane
+supplies an `Image`, a `Program` and a band size, and nothing in this file moves.
+
+⚠️ **`K` IS A PARAMETER HERE FOR THE SAME REASON, AND THAT IS A REFUSAL TO GUESS.** §3.3 wants a
+single declared constant; the size of a stack band is a fact about the ROUTINE being verified, and
+this file cannot see one. Fixing a number here would put an unmeasured constant into the statement
+every later proof is written against — the expensive direction to be wrong in. -/
+
+/-- A loaded image: the bytes that sit at fixed addresses. **This is x86lean vocabulary, not the
+submission's** — it says only which byte is at which address. -/
+structure Image where
+  data : List (BitVec 64 × BitVec 8)
+
+/-- The image's data bytes at their fixed addresses — region-local by construction. -/
+def Loaded (img : Image) (m : Mem) : Prop := ∀ p ∈ img.data, m.read p.1 = p.2
+
+/-- An address the image claims. The perturbation lemma's `¬ InImage a` side condition. -/
+def InImage (img : Image) (a : BitVec 64) : Prop := ∃ p ∈ img.data, p.1 = a
+
+/-- `bs` sits at `base` — a claim about THOSE addresses only. -/
+def HoldsBytes (m : Mem) (base : BitVec 64) (bs : List UInt8) : Prop :=
+  ∀ i, (h : i < bs.length) → m.read (base + BitVec.ofNat 64 i) = (bs.get ⟨i, h⟩).toBitVec
+
+/-- The SysV AMD64 callee-saved set (§3.2: `rbx rbp r12-r15`), preserved across the call.
+⛔ `rsp` is NOT in this list: it is restored by `ret`, and the statement asserts its value
+separately. Folding it in here would make the predicate true of a routine that never returned. -/
+def CalleeSaved (s t : Cpu) : Prop :=
+  ∀ r ∈ [GPR.rbx, GPR.rbp, GPR.r12, GPR.r13, GPR.r14, GPR.r15],
+    t.getReg .q r = s.getReg .q r
+
+/-- The stack BAND a routine may write: `[rsp0 - K, rsp0)`, with `K` supplied by the caller. -/
+def StackBand (K : Nat) (rsp0 : BitVec 64) : BitVec 64 → Prop :=
+  Region (rsp0 - BitVec.ofNat 64 K) K
+
+/-- The call, over an arbitrary program. `canonical ret` is REQUIRED: without it
+`step_ret_refused_frame` halts at the `ret` instruction's own address and the conclusion is
+false. `prog.at? ret = none` is the "returns OUTSIDE the routine" clause. -/
+def SysVCall (prog : Program) (s : Cpu) (entry buf : BitVec 64) (len : Nat)
+    (ret : BitVec 64) : Prop :=
+  s.rip = entry
+  ∧ s.getReg .q .rdi = buf
+  ∧ s.getReg .q .rsi = BitVec.ofNat 64 len
+  ∧ s.readMem .q (s.getReg .q .rsp) = ret
+  ∧ canonical ret = true
+  ∧ prog.at? ret = none
+
+/-! ### The non-vacuity witnesses, beside the definitions in this file's own idiom
+
+⛔ **A PREDICATE THAT IS ALWAYS TRUE WOULD SATISFY EVERY THEOREM STATED OVER IT AND MEAN NOTHING**,
+and nothing in a build complains about that. `agreeOutside_rfl` sits beside `AgreeOutside` for the
+same reason; these sit beside theirs. The reflexivity lemmas are what a proof USES; the refutation
+below it is the half a vocabulary written from "what will the proof need?" leaves out. -/
+
+/-- A routine that changes nothing preserves the callee-saved set. -/
+@[simp] theorem calleeSaved_rfl (s : Cpu) : CalleeSaved s s := fun _ _ => rfl
+
+/-- ⭐ ...and `CalleeSaved` is NOT trivially true: clobbering `rbx` REFUTES it. Without this
+witness the predicate could be `True` and every theorem above would still hold. -/
+theorem calleeSaved_not_trivial : ¬ CalleeSaved (Cpu.setReg {} .q .rbx 1) {} := by
+  intro h
+  have := h GPR.rbx (by simp)
+  simp [Cpu.getReg, Cpu.setReg] at this
+  exact absurd this (by decide)
+
+/-- The empty image is loaded in any memory — the base case a loader induction needs. -/
+@[simp] theorem loaded_empty (m : Mem) : Loaded ⟨[]⟩ m := fun _ hp => nomatch hp
+
+/-- No address belongs to the empty image. -/
+@[simp] theorem inImage_empty (a : BitVec 64) : ¬ InImage ⟨[]⟩ a := fun ⟨_, hp, _⟩ => nomatch hp
+
+/-- The empty byte list is held anywhere — the base case for a buffer induction. -/
+@[simp] theorem holdsBytes_nil (m : Mem) (b : BitVec 64) : HoldsBytes m b [] :=
+  fun _ h => absurd h (by simp)
+
+/-! ### `Separated` and `Hyps` — the remaining two, and why the THEOREM is not here
+
+§3.3 elides `Separated`'s body (`:= …`, "written in B1"). It names four objects — image data, the
+buffer, the band, the return slot — and asks for PAIRWISE disjointness with no wrapping. Four
+objects is SIX pairs, and writing them out is the point: an elided conjunction is where a missing
+pair hides, and a missing pair is invisible in every proof that does not happen to need it.
+
+⛔ **THE IMAGE IS TREATED POINTWISE, NOT AS A REGION, AND THAT IS FORCED BY ITS TYPE.** `Image.data`
+is a LIST of (address, byte) pairs — it need not be contiguous, so `Region` cannot describe it and
+`∀ p ∈ img.data, ¬ R p.1` is the honest form.
+
+📌 **WHAT IS DELIBERATELY NOT IN THIS FILE: `crc32_x86_correct` ITSELF.** Its conclusion names
+`Crc32.Bits.crc32BitSerial` — the mathematical CRC-32 the routine must equal. That is the
+SPECIFICATION: it DEFINES the problem rather than varying per submission, so it is PINNED and not
+parameterised. ⇒ **PARAMETERISE WHAT VARIES (`Image`, `Program`, `K`); PIN WHAT DEFINES THE PROBLEM.**
+
+⚠️ **THIS PARAGRAPH CARRIED TWO ERRORS UNTIL D280 AND THEY ARE NAMED RATHER THAN QUIETLY DELETED,
+because a reader of THIS FILE met them while the correction lived only in `docs/DECISIONS.md`.**
+(a) It said parameterising the spec gives *"a schema satisfiable by any function"*. **Wrong, and
+wrong in the direction that sounds more rigorous:** `∀ spec, … → rax = spec msg` is UNPROVABLE — the
+routine computes exactly ONE function — not vacuous. Opposite failures, and it named the wrong one.
+(b) It said *"x86lean owes the VOCABULARY; the CARD owns the STATEMENT."* **Too wide:** the
+proposal's own step table reads S2 = *"B1 reference proof (R1) + the perturbation lemma — paris"*, so
+paris owes a reference proof, and a reference proof needs the concrete spec.
+⇒ **WHERE THE SPEC LIVES IS SETTLED IN D280 AND NOT HERE:** it is PINNED to the object that already
+exists (`Crc32.Bits.crc32BitSerial`, identical at both v2 rungs), and R1 lives WITHHELD beside that
+reference — **never in this file**, because this repo is public and is vendored into every cell, so a
+spec defined here would reach the `none` arm and collapse the `none`/`statement` contrast in silence.
+⇒ 🔑 ***A SUPERSEDED SENTENCE IN THE CODE OUTRANKS ITS CORRECTION IN A DECISION LOG, BECAUSE THE
+READER OF THE CODE NEVER OPENS THE LOG.*** -/
+
+/-- Image data, the buffer, the band and the return slot are pairwise disjoint, and none wraps.
+All six pairs are written out; `rsp` is read once and shared. -/
+def Separated (K : Nat) (img : Image) (buf : BitVec 64) (len : Nat) (s : Cpu) : Prop :=
+  let rsp := s.getReg .q .rsp
+  -- neither sized region wraps: `Region` is built on BitVec addition, which does
+  (buf.toNat + len ≤ 2^64)
+  ∧ ((rsp - BitVec.ofNat 64 K).toNat + K ≤ 2^64)
+  -- image vs the other three
+  ∧ (∀ p ∈ img.data, ¬ Region buf len p.1)
+  ∧ (∀ p ∈ img.data, ¬ StackBand K rsp p.1)
+  ∧ (∀ p ∈ img.data, p.1 ∉ Mem.span .q rsp)
+  -- buffer vs the remaining two
+  ∧ (∀ a, Region buf len a → ¬ StackBand K rsp a)
+  ∧ (∀ a ∈ Mem.span .q rsp, ¬ Region buf len a)
+  -- band vs the return slot
+  ∧ (∀ a ∈ Mem.span .q rsp, ¬ StackBand K rsp a)
+
+/-- The four call hypotheses bundled, as the perturbation lemma takes them. -/
+def Hyps (prog : Program) (K : Nat) (img : Image) (msg : List UInt8)
+    (entry buf ret : BitVec 64) (s : Cpu) : Prop :=
+  Loaded img s.mem
+  ∧ SysVCall prog s entry buf msg.length ret
+  ∧ HoldsBytes s.mem buf msg
+  ∧ Separated K img buf msg.length s
+
+/-- ⭐ `Separated` IS SATISFIABLE — an empty image, an empty buffer and a zero band meet all eight
+conjuncts. Without this the definition could be unsatisfiable and every theorem taking it as a
+hypothesis would be VACUOUSLY true, which no build would report. -/
+theorem separated_trivial (s : Cpu) : Separated 0 ⟨[]⟩ 0 0 s := by
+  refine ⟨by simp, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [BitVec.toNat_sub]; omega
+  · intro p hp; cases hp
+  · intro p hp; cases hp
+  · intro p hp; cases hp
+  · rintro a ⟨i, hi, rfl⟩; omega
+  · rintro a _ ⟨i, hi, rfl⟩; omega
+  · rintro a _ ⟨i, hi, rfl⟩; omega
+
+/-- ⭐ ...and `Separated` is NOT trivially true: a one-byte buffer sitting ON the return slot
+REFUTES it, through the buffer-vs-return-slot pair. **Satisfiability alone would leave
+`Separated := True` indistinguishable from this definition**, and every theorem taking it as a
+hypothesis would be weaker than it reads while every proof still went through. -/
+theorem separated_not_trivial (K : Nat) : ¬ Separated K ⟨[]⟩ 0 1 {} := by
+  intro h
+  obtain ⟨-, -, -, -, -, -, h7, -⟩ := h
+  exact h7 0 (by decide) ⟨0, by omega, by simp⟩
+
+/-! ### The perturbation lemma — §3.3 calls it "required, proved in B1" -/
+
+/-- **THE PERTURBATION LEMMA.** The four call hypotheses pin memory only on their OWN regions, so a
+byte written anywhere outside the image, the buffer and the return slot leaves all four standing.
+
+⛔ **WHY IT IS REQUIRED RATHER THAN A CONVENIENCE.** The draft of §3.3 claimed *"the `∀` over `Cpu`
+ALREADY forces independence"*, and that sentence is struck. The `∀` forces it **provided the
+hypotheses pin memory only on their own regions** — and this lemma is that proviso, stated and
+proved. Under the `none` treatment, where a model writes its own hypotheses, a submission whose
+hypotheses pinned memory GLOBALLY would be strictly weaker while reading identically.
+
+⛔ **THE THREE SIDE CONDITIONS ARE EACH LOAD-BEARING** and the witnesses below drop them one at a
+time. A perturbation lemma with a side condition that is not needed is a lemma about a smaller set
+of writes than it appears to cover. -/
+theorem hyps_local (prog : Program) (K : Nat) (img : Image) (msg : List UInt8)
+    (entry buf ret a : BitVec 64) (v : BitVec 8) (s : Cpu)
+    (h : Hyps prog K img msg entry buf ret s)
+    (hi : ¬ InImage img a)
+    (hb : ¬ Region buf msg.length a)
+    (hr : a ∉ Mem.span .q (s.getReg .q .rsp)) :
+    Hyps prog K img msg entry buf ret { s with mem := s.mem.write a v } := by
+  obtain ⟨hload, hcall, hbuf, hsep⟩ := h
+  refine ⟨?_, ?_, ?_, hsep⟩
+  · -- `Loaded`: every image address differs from `a`, or `a` would be InImage.
+    intro p hp
+    have hne : p.1 ≠ a := fun e => hi ⟨p, hp, e⟩
+    show (s.mem.write a v).read p.1 = p.2
+    rw [Mem.read_write_ne _ _ _ _ hne]
+    exact hload p hp
+  · -- `SysVCall`: rip and the registers are untouched by a memory write; the return slot is
+    -- untouched because `a` is outside its span.
+    obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hcall
+    refine ⟨h1, h2, h3, ?_, h5, h6⟩
+    show (s.mem.write a v).readN (s.getReg .q .rsp) (Size.q.bytes) = ret
+    rw [Mem.readN_congr (s.mem.write a v) s.mem _ _ ?_]
+    · exact h4
+    · intro i hlt
+      refine Mem.read_write_ne _ _ _ _ (fun e => hr ?_)
+      exact List.mem_map.mpr ⟨i, List.mem_range.mpr hlt, e⟩
+  · -- `HoldsBytes`: every buffer address is in `Region buf msg.length`, which excludes `a`.
+    intro i hlt
+    have hne : buf + BitVec.ofNat 64 i ≠ a := fun e => hb ⟨i, hlt, e.symm⟩
+    show (s.mem.write a v).read (buf + BitVec.ofNat 64 i) = _
+    rw [Mem.read_write_ne _ _ _ _ hne]
+    exact hbuf i hlt
+
+/-! ### ...and each side condition is LOAD-BEARING, refuted one at a time
+
+⛔ A perturbation lemma carrying a side condition it does not need covers a SMALLER set of writes
+than it appears to, and every proof built on it still goes through. These three say the conditions
+cannot be dropped, each by exhibiting the write that breaks the conjunct it guards. -/
+
+/-- ⭐ `¬ InImage img a` is load-bearing: writing a different byte AT an image address refutes
+`Loaded`. -/
+theorem loaded_write_needs_notInImage :
+    ¬ ∀ (img : Image) (m : Mem) (a : BitVec 64) (v : BitVec 8),
+        Loaded img m → Loaded img (m.write a v) := by
+  intro h
+  have hl : Loaded ⟨[(0, 0)]⟩ Mem.empty := by
+    intro p hp
+    simp only [List.mem_singleton] at hp
+    subst hp; rfl
+  have hbad := h ⟨[(0, 0)]⟩ Mem.empty 0 1 hl (0, 0) (by simp)
+  rw [Mem.read_write_same] at hbad
+  exact absurd hbad (by decide)
+
+/-- ⭐ `¬ Region buf msg.length a` is load-bearing: writing INTO the buffer refutes `HoldsBytes`. -/
+theorem holdsBytes_write_needs_notRegion :
+    ¬ ∀ (m : Mem) (base : BitVec 64) (bs : List UInt8) (a : BitVec 64) (v : BitVec 8),
+        HoldsBytes m base bs → HoldsBytes (m.write a v) base bs := by
+  intro h
+  have hb : HoldsBytes Mem.empty 0 [0] := by
+    intro i hlt
+    simp only [List.length_singleton] at hlt
+    have hi0 : i = 0 := by omega
+    subst hi0
+    rfl
+  have hbad := h Mem.empty 0 [0] 0 1 hb 0 (by simp)
+  simp [Mem.empty, Mem.read, Mem.write] at hbad
+
+/-- ⭐ `a ∉ Mem.span .q rsp` is load-bearing: writing INSIDE the return slot's span changes the
+`readMem` that `SysVCall` pins. -/
+theorem readSize_write_needs_notSpan :
+    ¬ ∀ (m : Mem) (rsp a : BitVec 64) (v : BitVec 8),
+        (m.write a v).readSize .q rsp = m.readSize .q rsp := by
+  intro h
+  have hbad := h Mem.empty 0 0 1
+  simp [Mem.readSize, Mem.readN, Mem.empty, Mem.read, Mem.write] at hbad
+
 end X86

@@ -92,3 +92,82 @@ LLVM from the same tables, one mechanism in two directions. It is that `hwprobe/
 executes all four pairings on real silicon (488/488, two vendors, D274). Their bytes were measured from
 the assembled object rather than read off the comments, **which validated four hand-written byte
 annotations as a side effect** — controlling a hand derivation with another hand derivation is circular.
+
+## 6. THE KERNEL PINS — 85 OF 127, AND A′ IS CLEAN WITH 15.2 % MARGIN
+
+The rows the differential cannot carry, pinned in the kernel by D267 §2's rule. **The selection is a
+COMMAND, which is the thing that changes with this batch:**
+
+```
+  python3 hwprobe/reach_table.py
+    p_cvtsi2ss    46 rows · pinned 32 · carried 14 · vectors mapped 2
+    p_cvtsi2ssq   40 rows · pinned 25 · carried 15 · vectors mapped 2   (11 carried by ONE pair)
+    p_cvtsi2sdq   41 rows · pinned 28 · carried 13 · vectors mapped 2   (9 carried by ONE pair)
+    TOTAL 127 rows · PINNED 85 · CARRIED 42
+```
+`classify()` is passed `x86isa_diffs()`, so this is the **full** rule — *pinned iff x86isa disagrees or
+cannot run it, OR no vector of the same form reaches its class over the 88 pre-states* — and not the
+reach half alone. The split is **3 x86isa-differs and 82 unreached**.
+⭐ **THE THREE ARE `cvtsi2ss_zero/down`, `cvtsi2ssq_zero/down`, `cvtsi2sdq_zero/down`**, and the reading
+shows why: x86isa returns `…80000000` where the rule wants `…00000000` — **−0 for a +0 result at
+round-down**, which is D274 §1's *"the three zero rows at round-down"*, confirmed from the DIFF lines
+rather than from the prose.
+⚠️ **Earlier batches' lists cite `b2_pin_rows.py` and `b3_pin_rows.py`; neither exists on any ref**
+(driven four ways, firing control each). B2's and B3's selections are therefore not re-derivable from
+this repository. **B4's is** — that is the whole reason `reach_table.py` was built.
+
+### THE ENCODING FOLLOWS THE FOLD, AND THE DESTINATION REGISTER IS LOAD-BEARING
+Each family steps `.vcvtsi2 dbl wide .x1 .rdi` from `b0Pre mx a b` — `(false,false)` · `(false,true)` ·
+`(true,true)` for `ss` / `ssq` / `sdq`.
+⛔ **The destination is `.x1`, NOT `.x0`.** `vcvtsi2` preserves the bits above the lane, so the binary32
+forms must find the canary `5a5ac3c3` in bits 63:32 — and `b0Pre` loads **`x0` with the SOURCE**, which
+would make those rows read their own input back. `b3_cvtsd2ss_pins` has the same shape for the same
+reason. Visible in the rows themselves: a want of `0x5a5ac3c34b800000`.
+
+### A′ — MEASURED ON THE DRAFT, AND THE PREDICTION WAS FILED FIRST
+```
+  ku_delta --arm a-prime  158c1ec99 → aa60c66a5        (yukon.lan, load 4.48)
+    Tests.Anchors      440,286 → 527,317    +87,031    allowance 102,587    84.8 %   CLEAN
+    every other module                           +0
+    ms ceilings        X86.Basic 34 % · X86.Syntax 43 % · X86.Theorems 37 % of ceiling
+  gate: ku-delta (a-prime) CLEAN
+```
+⚠️ **RE-MEASURED AT THE LANDING BASE, AND THE TWO HALVES BEHAVED DIFFERENTLY — WHICH IS THE
+EVIDENCE FOR THE LANDING RULE, NOT A FOOTNOTE TO IT.** The block above was first taken at
+`61123cd99 → 8dbd03680`; the branch was rebased onto `158c1ec` and re-run.
+**The ku figures came back BIT-IDENTICAL** — same base, same head, same delta, same allowance —
+because `ku` counts unfoldings and nothing this batch depends on moved. **The `ms` ceilings moved
+3–5 points on the same code** (29/39/34 % → 34/43/37 %) on box load alone.
+⇒ 🔑 ***A COUNTER SURVIVES A REBASE AND A CLOCK DOES NOT, SO A RECORD THAT CITES BOTH UNDER ONE
+SHA PAIR GOES HALF-STALE SILENTLY*** — the ku half stays true and the ms half quietly stops being
+about this tree. The sha pair is the only thing that says which.
+⚠️ **THE ms ARM RETURNED `rc 3` UNMEASURABLE AT THIS BASE** (`Tests.Anchors` delta +189.0 vs
+budget 216.9, band ±36.1), so D251's landing rule put this step on the **a-prime** verdict — the
+third ledger row to land that way. **Repeats were NOT bought**, deliberately: `kernel_delta`'s own
+price line calls the projection *a price and not an allowance*, the box sat at load ~8, and the
+deterministic arm already decides the batch. **~6 repeats a side (≈20 min) is the act a later head
+can take if the ms reading is ever wanted for this sha; it would not change the landing.**
+
+**B4's own rate is `1,023.9 ku/pin-row`** — the cheapest this module has measured:
+```
+  B4 1,023.9   B3 1,076.3   B1 1,170   B2 1,270      break-even for 85 rows was 1,206.9
+```
+⇒ **THE STRADDLE NEVER BOUND.** The break-even sat between B1's and B2's rates, so on borrowed numbers
+the batch looked like it might need splitting; **on its own rate it fits in one step with 15.2 %
+margin.** QUEUE P3's warning was right to demand the measurement and right that no allowance should be
+widened to fit its subject.
+⚠️ **THE PREDICTION, SCORED HONESTLY:** filed before the run as **Δku ∈ [88,000, 100,000], verdict
+CLEAN**, on the argument that B4 is structurally a *conversion* like B3 rather than binary arithmetic
+like B1/B2. **The verdict HELD; the band MISSED LOW by 969** — and *"below 88,000 ⇒ the band is wrong
+low, the `ss` forms are cheaper than B3's narrowing"* was one of the three falsifiers named in advance,
+so the miss is the outcome that was written down, not one explained afterwards.
+⚠️ **The second prediction — every module but `Tests.Anchors` at Δku ≈ 0 — HELD EXACTLY (`+0`),** which
+is what a pins-only change should do and is worth stating because D267 §3 records a case where it was
+not automatic.
+
+### THE GREEN WAS EARNED, NOT ASSUMED
+`Built Tests.Anchors (1.5 s)` is fast for 85 kernel `decide`s, so it was driven **RED BACKWARDS**: flip
+one `want` field (`0x5a5ac3c34b800000` → `0x1a5ac3c3…`) and the build fails rc 1 with `is false`;
+restore and it is green. `mk_anchors --check` passes byte for byte both times.
+📌 `PENDING` is now empty — B4's three forms were the last held back — and `mk_anchors`' completeness
+check (every row in a family or pending) covers that.
