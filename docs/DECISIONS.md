@@ -20161,3 +20161,29 @@ cannot re-run the selection, exactly as for B0–B5.
   lane included) and the flags on **all 90** sqrt rows that silicon read 934/934. **Control:** ignoring MXCSR.RC misses
   **17**, which is exactly what `mk_rows.fsqrt` predicts for that mutant independently.
 Build: full route rc 0.
+
+## D292 — P2 batch 49, sub-group B6b: SQRTSD / SQRTSS — 6 vectors, a declared indefinite, three arms
+
+⚖️ On D291's shape. **Two roster rows** (`sqrtsd`, `sqrtss`), **6 vectors**, **3 arms**. Assembly-class demand **223**.
+
+### 1. THE VECTORS (`run/b6b_census.txt`)
+The census over the 88 pre-states found that **every source reaching DE or IE also reaches a negative source**, and so
+x86isa's sign-less indefinite. The only negative-free sources are memory offsets (−0x20, −0x1c), which reach PE alone.
+So per format: **%xmm0 → %xmm1** (IDP; negative in 12 / 11 states), **−0x20(%rbx) → %xmm9** (REX.R, the memory form;
+no negative; RC matters in all 88) and **%xmm15 → %xmm2** (REX.B; negative in 13 / 12). The REX.B sources x8–x14 are
+negative in ~67 of 88 and were passed over, to keep the declared divergence small.
+
+### 2. THE DECLARED DIVERGENCE — B2's `divsd_m10` precedent (D271)
+The four register vectors carry a `pair` in `knownDivergences`: `fff8…`/`7ff8…` (sd) and `ffc00000`/`7fc00000` (ss)
+in the destination's LOW lane, with every bit above it required to agree. The memory vectors are not declared, because
+a declaration that can never fire is an untested claim.
+
+### 3. PREDICTIONS, COMMITTED BEFORE THE RUNS
+```
+  differential   cases +528 (6 × 88) = 101112 · matched +480 = 80415 · explained +0 = 29479 · unexplained 0
+                 · oracle-divergence +48 = 292   (sqrtsd_x0_x1 12 · sqrtsd_x15_x2 13 · sqrtss_x0_x1 11 · sqrtss_x15_x2 12)
+  arms (84 states, run/b6b_arm_pred.txt)
+    sqrts? ignores MXCSR.RC and rounds to nearest    xmm1       32
+    sqrts? raises no DE on a denormal source         mxcsr.de   57
+    sqrts? zeroes the bits above the lane            xmm1      162
+```

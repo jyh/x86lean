@@ -2651,6 +2651,8 @@ def rosterP0 : List String :=
    "mulps", "mulpd", "addps", "addpd", "subps", "subpd", "divps", "divpd",
    -- ⭐⭐⭐ SUB-GROUP B6a: the rounding conversion to an integer, TWO rows, `vcvt2si`/`vcvt2sim` (D288, D289).
    "cvtsd2si", "cvtss2si",
+   -- ⭐⭐⭐ SUB-GROUP B6b: the square roots, TWO rows, `vsqrt`/`vsqrtm` (D291, D292).
+   "sqrtsd", "sqrtss",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

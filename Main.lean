@@ -414,7 +414,18 @@ def knownDivergences : List KnownDivergence :=
     fun (v, ours, theirs) =>
     { vec := v, field := "xmm0", pair := some (ours, theirs)
     , source := "SDM Vol. 1 §4.8.3.7 (the QNaN floating-point indefinite: sign 1) · x86isa rtl/rel11/lib/defs.lisp indef: no sign bit (D265 §3) · processor: hwprobe divsd_zero_zero on an AMD EPYC 7763 and an Intel i7-8700B (D269)"
-    , note := "D271" })
+    , note := "D271" }) ++
+  -- ⛔⛔ D292 §2 — THE SAME SIGN-LESS INDEFINITE, reached by SQRT OF A NEGATIVE SOURCE (D287 §4: x86isa's `sse-sqrt` is
+  -- `rtl::sse-sqrt-spec`).  Only the vectors whose source is negative in some pre-state are declared: %xmm0 and %xmm15
+  -- at both formats.  The memory vectors (-0x20(%rbx)) never meet a negative source and are deliberately NOT declared.
+  ([("sqrtsd_x0_x1", "xmm1", "fff8000000000000", "7ff8000000000000"),
+    ("sqrtsd_x15_x2", "xmm2", "fff8000000000000", "7ff8000000000000"),
+    ("sqrtss_x0_x1", "xmm1", "ffc00000", "7fc00000"),
+    ("sqrtss_x15_x2", "xmm2", "ffc00000", "7fc00000")].map
+    fun (v, f, ours, theirs) =>
+    { vec := v, field := f, pair := some (ours, theirs)
+    , source := "SDM Vol. 1 §4.8.3.7 (the QNaN floating-point indefinite: sign 1) · x86isa rtl sse-sqrt-spec: rtl::indef, no sign bit (D265 §3) · processor: hwprobe sqrtsd_negone / sqrtss_negone on an AMD EPYC 7763 and an Intel i7-8700B read the signed indefinite (D287 §4)"
+    , note := "D292" })
 
 /-- ⭐ D266: does a declared pair describe this disagreement? The two values must end in
 the pair and agree before it. -/
@@ -3772,6 +3783,33 @@ def wrongCvt2siRaisesDE : Instr → Cpu → Cpu :=
 def wrongCvt2siIgnoresRexW : Instr → Cpu → Cpu :=
   wrongCvt2siWith fun dbl _ rc b => cvt2siLow dbl false rc b
 
+/-! ### ⭐⭐⭐ SUB-GROUP B6b — SQRTS?'s ARMS (D292). `wrongSqrtWith` swaps `vsqrtLow` ALONE. Each score was predicted
+before the run over driveWrong's own 84 states (`run/b6b_states.lean`) by `hwprobe/mk_rows.py`'s `fsqrt`. -/
+
+/-- SQRTS? with its write-and-flags pair swapped out; every other form is `step`. -/
+def wrongSqrtWith (rule : Size → Nat → BitVec 128 → BitVec 64 → BitVec 128 × BitVec 32) (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .vsqrt sz dst src =>
+      let p := rule sz (mxcsrRC s.mxcsr) (s.getXmm dst) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | .vsqrtm sz dst ea =>
+      let p := rule sz (mxcsrRC s.mxcsr) (s.getXmm dst) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmm dst p.1).setRip nr
+  | _ => step i s
+
+/-- ⛔ MXCSR.RC IS NOT READ: every root rounds to nearest. -/
+def wrongSqrtIgnoresRC : Instr → Cpu → Cpu :=
+  wrongSqrtWith fun sz _ d b => vsqrtLow sz 0 d b
+
+/-- ⛔ NO DE ON A DENORMAL SOURCE. -/
+def wrongSqrtNoDE : Instr → Cpu → Cpu :=
+  wrongSqrtWith fun sz rc d b => let p := vsqrtLow sz rc d b; (p.1, p.2 &&& ~~~SoftFloat.fDE)
+
+/-- ⛔ THE BITS ABOVE THE LANE ARE ZEROED, as a VEX form with a zero source would, not KEPT. -/
+def wrongSqrtZeroesUpper : Instr → Cpu → Cpu :=
+  wrongSqrtWith fun sz rc d b => vsqrtLow sz rc 0 b
+
 /-- ⛔ `movdqu` APPLIES THE ALIGNMENT CHECK TOO — i.e. a model that made both
 mnemonics fault. This is the arm `movdqu_load_unal` exists for: it is the only
 vector in the table at an address that is not 16-byte aligned, so without it this
@@ -4394,6 +4432,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("cvts?2si truncates instead of reading MXCSR.RC", wrongCvt2siTruncates, "rax")
   , ("cvts?2si raises DE on a denormal source", wrongCvt2siRaisesDE, "mxcsr.de")
   , ("cvts?2si ignores REX.W and rounds to an int32", wrongCvt2siIgnoresRexW, "rax")
+  -- ⭐⭐⭐ SUB-GROUP B6b — the square roots (D292).  Only `vsqrtLow` is swapped in each.
+  , ("sqrts? ignores MXCSR.RC and rounds to nearest", wrongSqrtIgnoresRC, "xmm1")
+  , ("sqrts? raises no DE on a denormal source", wrongSqrtNoDE, "mxcsr.de")
+  , ("sqrts? zeroes the bits above the lane", wrongSqrtZeroesUpper, "xmm1")
   , ("movl fails to zero-extend", wrongMovD, "rax")
   , ("shift forgets to mask its count", wrongShiftMask, "rax")
   , ("adc drops the carry-in", wrongAdcNoCarry, "rax")
