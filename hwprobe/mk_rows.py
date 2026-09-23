@@ -23,9 +23,16 @@ Two rules below are HYPOTHESES the rows exist to test, and each is named where i
   INT-PE-ONLY  (B4) CVTSI2SS / CVTSI2SD from an int32 or int64 raise PE alone, when the integer is not representable:
                no integer is tiny, none overflows (|v| <= 2^63 < FLT_MAX), and an integer is never a denormal operand
   INT-WIDTH    (B4) without REX.W the source is the GPR's low 32 bits, read as signed; the upper 32 are never read
-Usage: mk_rows.py [--plant | --plant-op]   writes C rows on stdout.
-  --plant     flips ONE expectation: the referee must report exactly one disagreement (exit 1)
-  --plant-op  declares ONE instruction byte wrong: the probe must refuse to run (exit 2)
+  LANE-OR      (B5) a packed form's MXCSR flags are the OR of its lanes' flags, each lane's computed by the scalar rule
+               on that lane alone (all exceptions masked); a flag raised in lane 3 is raised as surely as in lane 0
+  LANE-DE      (B5) DE-SUPPRESS and ZE-BEFORE-DE hold PER LANE: a NaN, or a zero divisor, in one lane does not
+               withhold DE raised by a denormal in another
+Usage: mk_rows.py [--plant | --plant-op | --plant-packed | --plant-pop]   writes C rows on stdout.
+  --plant         flips ONE expectation: the referee must report exactly one disagreement (exit 1)
+  --plant-op      declares ONE instruction byte wrong: the probe must refuse to run (exit 2)
+  --plant-packed  flips ONE bit of ONE packed row's HIGH quadword: exactly one disagreement (exit 1), which is what
+                  proves the 128-bit comparison reads bits 127:64 at all
+  --plant-pop     declares ONE packed instruction byte wrong: the probe must refuse to run (exit 2)
 """
 import sys
 import os as _os
@@ -256,6 +263,20 @@ def cvttsd2si32(a):
     return t & 0xFFFFFFFF, PE if v != t else 0
 
 
+def packed(op, fmt, rc, A, B):
+    """B5: MULP?/ADDP?/SUBP?/DIVP? as the scalar rule applied to each lane alone (LANE-OR, LANE-DE). A and B are
+    128-bit integers; lane i is bits [w*i, w*i+w). Returns the 128-bit result and the OR of the lanes' flags."""
+    w = 1 + fmt[0] + fmt[1]
+    m = (1 << w) - 1
+    r, f = 0, 0
+    for i in range(128 // w):
+        a, b = (A >> (w * i)) & m, (B >> (w * i)) & m
+        v, g = mul(fmt, MODES[rc], a, b) if op == "mul" else arith(op, fmt, rc, a, b)
+        r |= (v & m) << (w * i)
+        f |= g
+    return r, f
+
+
 D1 = 0x3FF0000000000000          # 1.0
 D2 = 0x4000000000000000          # 2.0
 DQ = 0x7FF8000000000000          # QNaN (positive)
@@ -276,7 +297,12 @@ OPS = {"p_cvtsi2sd": "f20f2ac7",
        "p_divsd": "f20f5ec1", "p_divss": "f30f5ec1",
        "p_cvtsi2ss": "f30f2acf", "p_cvtsi2ssq": "f3480f2acf", "p_cvtsi2sdq": "f2480f2acf"}
 
+# B5: the packed forms, as the bytes each p_ function executes after LOAD4 (offset 28, checked by probe.c).
+POPS = {"p_mulps": "0f59c1", "p_mulpd": "660f59c1", "p_addps": "0f58c1", "p_addpd": "660f58c1",
+        "p_subps": "0f5cc1", "p_subpd": "660f5cc1", "p_divps": "0f5ec1", "p_divpd": "660f5ec1"}
+
 ROWS = []   # (name, fn, mxcsr_in, a, b, want, want_mask, want_flags)
+PROWS = []  # B5: (name, fn, mxcsr_in, A, B, want, want_flags), A B want 128-bit, every bit compared
 
 
 def add(name, fn, mx, a, b, want, mask, flags):
@@ -446,6 +472,55 @@ def build():
                 add("%s_%s_sticky%04x" % (nm, name, mx), fn, mx, a, CAN, keep | v, (1 << 64) - 1, f)
 
 
+def build_packed():
+    """B5 (LANE-OR, LANE-DE). Each lane is a scalar case the B1/B2 rows already name; a row is a choice of case per
+    lane. `mix` puts a different flag set in every lane at every mode, with every lane a different value, so a lane
+    swap or a dropped lane changes the result. `loud@k` moves one IE lane through every position against silent
+    lanes, so a rule that reads lane 0's flags alone fails three of four. `de_split` and `ze_de` are LANE-DE, each
+    beside the control that raises the suppressing condition with no denormal elsewhere."""
+    SMAX, DMAX = 0x7F7FFFFF, 0x7FEFFFFFFFFFFFFF
+    cases = {
+        F32: {"exact": {"mul": (0x3FC00000, S2), "add": (0x3FC00000, S2), "sub": (0x40400000, S1), "div": (S2, S1)},
+              "round": {"mul": (0x3F800001, 0x3FC00000), "add": (S1, 0x33800000), "sub": (S1, 0x30000000),
+                        "div": (S1, 0x40400000)},
+              "over": {"mul": (SMAX, S2), "add": (SMAX, SMAX), "sub": (SMAX, 0xFF7FFFFF), "div": (SMAX, 0x3F000000)},
+              "snan": (SS, S1), "qnan_den": (SQ, SDEN), "den": (SDEN, S1), "den_zero": (SDEN, 0)},
+        F64: {"exact": {"mul": (D1 | 0x8000000000000, D2), "add": (D1, D2), "sub": (0x4008000000000000, D1),
+                        "div": (D2, D1)},
+              "round": {"mul": (0x3FF0000000000001, 0x3FF8000000000000), "add": (D1, 0x3CA0000000000000),
+                        "sub": (D1, 0x3C30000000000000), "div": (D1, 0x4008000000000000)},
+              "over": {"mul": (DMAX, D2), "add": (DMAX, DMAX), "sub": (DMAX, 0xFFEFFFFFFFFFFFFF),
+                       "div": (DMAX, 0x3FE0000000000000)},
+              "snan": (DS, D1), "qnan_den": (DQ, DDEN), "den": (DDEN, D1), "den_zero": (DDEN, 0)},
+    }
+    for op in ("mul", "add", "sub", "div"):
+        for fmt, suf in ((F32, "ps"), (F64, "pd")):
+            w = 1 + fmt[0] + fmt[1]
+            n = 128 // w
+            c = cases[fmt]
+            ex, rd, ov = c["exact"][op], c["round"][op], c["over"][op]
+            fn = "p_%s%s" % (op, suf)
+
+            def row(name, lanes, mx):
+                A = sum(a << (w * i) for i, (a, b) in enumerate(lanes))
+                B = sum(b << (w * i) for i, (a, b) in enumerate(lanes))
+                v, f = packed(op, fmt, (mx >> 13) & 3, A, B)
+                PROWS.append(("%s%s_%s" % (op, suf, name), fn, mx, A, B, v, f))
+
+            mix = [rd, ex, ov, c["qnan_den"]] if n == 4 else [rd, ov]
+            for rc, mode in enumerate(MODES):
+                row("mix/%s" % mode, mix, 0x1F80 | (rc << 13))
+            for k in range(n):
+                row("loud@%d" % k, [c["snan"] if i == k else ex for i in range(n)], 0x1F80)
+            row("de_split", [c["qnan_den"], c["den"]] + [ex] * (n - 2), 0x1F80)
+            row("nan_den_only", [c["qnan_den"]] + [ex] * (n - 1), 0x1F80)
+            if op == "div":
+                row("ze_de", [c["den_zero"], c["den"]] + [ex] * (n - 2), 0x1F80)
+                row("ze_only", [c["den_zero"]] + [ex] * (n - 1), 0x1F80)
+            # a sticky flag is history, never an input
+            row("sticky1fbf", [ex] * n, 0x1FBF)
+
+
 def main():
     # ⛔ AN UNKNOWN FLAG USED TO PRINT THE WHOLE GENERATED FILE AND EXIT 0 — and worse, the
     # line below echoes `sys.argv[1:]` into the artifact's OWN PROVENANCE COMMENT, so a typo'd
@@ -453,6 +528,7 @@ def main():
     # `--definitely-not-a-real-flag-xyz` gave 514 lines, rc 0, and a header claiming it.
     P.strict_flags(__file__)
     build()
+    build_packed()
     plant = "--plant" in sys.argv
     print("/* GENERATED by hwprobe/mk_rows.py %s. Do not edit. */" % " ".join(sys.argv[1:]))
     print("static const struct row ROWS[] = {")
@@ -467,6 +543,21 @@ def main():
         b = bytearray.fromhex(bs)
         if "--plant-op" in sys.argv and i == 0:
             b[-1] ^= 0x01      # the control: the declared instruction is not the one in sse_ops.S
+        print('  {"%s", %s, %d, {%s}},' % (fn, fn, len(b), ", ".join("0x%02x" % x for x in b)))
+    print("};")
+    lo = lambda x: x & ((1 << 64) - 1)
+    print("static const struct prow PROWS[] = {")
+    for i, (name, fn, mx, A, B, want, flags) in enumerate(PROWS):
+        if "--plant-packed" in sys.argv and i == 0:
+            want ^= 1 << 64    # the control: one bit of the HIGH quadword made wrong on purpose
+        print('  {"%s", %s, 0x%04x, 0x%016xULL, 0x%016xULL, 0x%016xULL, 0x%016xULL, 0x%016xULL, 0x%016xULL, 0x%02x},'
+              % (name, fn, mx, lo(A), A >> 64, lo(B), B >> 64, lo(want), want >> 64, flags))
+    print("};")
+    print("static const struct pop POPS[] = {")
+    for i, (fn, bs) in enumerate(POPS.items()):
+        b = bytearray.fromhex(bs)
+        if "--plant-pop" in sys.argv and i == 0:
+            b[-1] ^= 0x01      # the control: the declared packed instruction is not the one in sse_ops.S
         print('  {"%s", %s, %d, {%s}},' % (fn, fn, len(b), ", ".join("0x%02x" % x for x in b)))
     print("};")
 

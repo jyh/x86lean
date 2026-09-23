@@ -172,6 +172,74 @@ SYM(p_cvtsi2sdq):
         movq %xmm1, %rax
         ret
 
+/* B5: the PACKED arithmetic. Every lane is an operand, so the scalar LOAD (which zeroes bits 127:64) would
+   compute lanes the row never declared -- and a DIVPS over zeroed lanes raises IE from 0/0 in them. So each
+   function takes BOTH quadwords of each operand and returns all 128 bits of the result:
+     unsigned __int128 p_X(uint64_t a_lo, uint64_t b_lo, uint64_t a_hi, uint64_t b_hi)
+   (SysV: %rdi %rsi %rdx %rcx in; the 128-bit result in %rdx:%rax). The instruction under test starts at
+   offset 28: four 5-byte movq and two 4-byte punpcklqdq, which probe.c checks before it runs a row. */
+#define LOAD4             \
+        movq %rdi, %xmm0; \
+        movq %rsi, %xmm1; \
+        movq %rdx, %xmm2; \
+        movq %rcx, %xmm3; \
+        punpcklqdq %xmm2, %xmm0; \
+        punpcklqdq %xmm3, %xmm1
+
+#define RET128            \
+        movq %xmm0, %rax; \
+        punpckhqdq %xmm0, %xmm0; \
+        movq %xmm0, %rdx; \
+        ret
+
+        .globl SYM(p_mulps)
+SYM(p_mulps):
+        LOAD4
+        mulps %xmm1, %xmm0              /* 0f 59 c1 */
+        RET128
+
+        .globl SYM(p_mulpd)
+SYM(p_mulpd):
+        LOAD4
+        mulpd %xmm1, %xmm0              /* 66 0f 59 c1 */
+        RET128
+
+        .globl SYM(p_addps)
+SYM(p_addps):
+        LOAD4
+        addps %xmm1, %xmm0              /* 0f 58 c1 */
+        RET128
+
+        .globl SYM(p_addpd)
+SYM(p_addpd):
+        LOAD4
+        addpd %xmm1, %xmm0              /* 66 0f 58 c1 */
+        RET128
+
+        .globl SYM(p_subps)
+SYM(p_subps):
+        LOAD4
+        subps %xmm1, %xmm0              /* 0f 5c c1 */
+        RET128
+
+        .globl SYM(p_subpd)
+SYM(p_subpd):
+        LOAD4
+        subpd %xmm1, %xmm0              /* 66 0f 5c c1 */
+        RET128
+
+        .globl SYM(p_divps)
+SYM(p_divps):
+        LOAD4
+        divps %xmm1, %xmm0              /* 0f 5e c1 */
+        RET128
+
+        .globl SYM(p_divpd)
+SYM(p_divpd):
+        LOAD4
+        divpd %xmm1, %xmm0              /* 66 0f 5e c1 */
+        RET128
+
 #ifndef __APPLE__
         .section .note.GNU-stack,"",@progbits
 #endif

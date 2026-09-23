@@ -57,6 +57,8 @@ jobs:
           python3 mk_rows.py > rows.h
           python3 mk_rows.py --plant > rows_plant.h
           python3 mk_rows.py --plant-op > rows_badop.h
+          python3 mk_rows.py --plant-packed > rows_pplant.h
+          python3 mk_rows.py --plant-pop > rows_pbadop.h
 
       - name: Build
         working-directory: hwprobe
@@ -66,19 +68,32 @@ jobs:
           sed 's/"rows.h"/"rows_badop.h"/' probe.c > probe_badop.c
           gcc -O1 -o probe_plant probe_plant.c sse_ops.S
           gcc -O1 -o probe_badop probe_badop.c sse_ops.S
+          sed 's/"rows.h"/"rows_pplant.h"/' probe.c > probe_pplant.c
+          sed 's/"rows.h"/"rows_pbadop.h"/' probe.c > probe_pbadop.c
+          gcc -O1 -o probe_pplant probe_pplant.c sse_ops.S
+          gcc -O1 -o probe_pbadop probe_pbadop.c sse_ops.S
 
+      # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
+      # so --plant-packed flips a bit of a packed row's HIGH quadword, and --plant-pop a packed instruction byte.
       - name: Controls (a wrong expectation reds exactly one row; a wrong instruction refuses the run)
         working-directory: hwprobe
         run: |
           set +e
           ./probe_plant > plant.out; rc_plant=$?
           ./probe_badop > badop.out; rc_badop=$?
+          ./probe_pplant > pplant.out; rc_pplant=$?
+          ./probe_pbadop > pbadop.out; rc_pbadop=$?
           set -e
-          tail -1 plant.out; cat badop.out
-          echo "plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2)"
+          tail -1 plant.out; cat badop.out; grep '^DIFF' pplant.out; cat pbadop.out
+          echo "plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · pplant rc=$rc_pplant (want 1) · pbadop rc=$rc_pbadop (want 2)"
           test "$rc_plant" = 1
           test "$(grep -c '^DIFF' plant.out)" = 1
           test "$rc_badop" = 2
+          test "$rc_pplant" = 1
+          test "$(grep -c '^DIFF' pplant.out)" = 1
+          grep -q '^DIFF [a-z]*p[sd]_' pplant.out
+          test "$rc_pbadop" = 2
+          grep -q 'at +28' pbadop.out
 
       - name: Referee
         working-directory: hwprobe
