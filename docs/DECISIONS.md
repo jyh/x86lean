@@ -20187,3 +20187,11 @@ a declaration that can never fire is an untested claim.
     sqrts? raises no DE on a denormal source         mxcsr.de   57
     sqrts? zeroes the bits above the lane            xmm1      162
 ```
+
+### 4. THE READINGS — every predicted field as committed
+- **Differential:** `cases=101112 matched=80415 explained=29479 unexplained=0 oracle-divergence=292` = §3 exactly.
+  88 cases per vector on both sides, 0 refused (record 35).
+- **Arms:** 32 = 32 (total 129 = 129) · 57 = 57 · 162 = 162 (total 498 = 498).
+- **Regenerated:** COVERAGE.md (196 rows), the demand census (CLEAN at 196 mnemonics; ⚠️ run it AFTER COVERAGE.md,
+  since it reads the model from there and read 194 when run first), P2-ROSTER.md (CLEAN), README, and the commission:
+  **226 → 3** (`sqrtps` 2 · `cvtpd2ps` 1). ⇒ **Sub-group B is 3 instructions from empty.**
