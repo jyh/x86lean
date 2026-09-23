@@ -20276,3 +20276,10 @@ aligned `−0x10(%rbx) → %xmm1`.
     cvtpd2ps keeps bits 127:64 of the destination   xmm1   156
     cvtpd2ps narrows lane 0 only                    xmm1   125
 ```
+
+### 4. THE READINGS — every predicted field as committed
+Differential `cases=101376 matched=80679 explained=29479 unexplained=0 oracle-divergence=292` = §3 exactly, 88 per
+vector on both sides, 0 refused (record 36). Arms 54 = 54 · 156 = 156 · 125 = 125, and their totals 97 · 240 · 166 equal
+the per-destination sums predicted. Regenerated, in the order that works (COVERAGE, then the census, then the roster):
+197 rows, census and roster CLEAN, and the commission's sub-group B: **2 instructions, `sqrtps` alone, by design.**
+⇒ ⭐ **SUB-GROUP B IS COMPLETE TO ITS NAMED RESIDUE.**

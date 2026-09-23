@@ -96,7 +96,9 @@ SUB-GROUP A′ — a FIXED rounding mode, independent of MXCSR.RC
    cvttsd2si 548 · cvttss2si 382     (truncation toward zero is not a mode choice)
 
 SUB-GROUP B — arithmetic and inexact conversions: MXCSR.RC-DEPENDENT
-   26 pairs,      3 instructions   UNCLAIMED — 226 before 2026-09-23, later still, when sqrtsd/sqrtss (223) landed as
+   26 pairs,      2 instructions   UNCLAIMED — sqrtps ALONE, by design (D295 §2: every source meets a negative lane above
+                                    lane 0, where x86isa's sign-less indefinite cannot be declared); 3 before 2026-09-23, night,
+                                    when cvtpd2ps (1) landed as sub-group B7, P2 batch 50, D295; 226 before 2026-09-23, later still, when sqrtsd/sqrtss (223) landed as
                                     sub-group B6b, P2 batch 49, D292; 484 before 2026-09-23, later, when cvtsd2si/cvtss2si (258) landed as sub-group
                                     B6a, P2 batch 48, D289; 1,709 before 2026-09-23, when mulps/mulpd/addps/addpd/subps/subpd/divps/divpd
                                     (1,225) landed as sub-group B5, P2 batch 47, D283; 3,836 before 2026-09-19, when cvtsi2sdq/cvtsi2ssl/cvtsi2ssq (2,127)

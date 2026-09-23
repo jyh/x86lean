@@ -7,7 +7,7 @@ P1's roster counted forms. This one counts what runs them.
 The supply side is K's own tree: the **1,665 variants**
 `scripts/k_roster.py` drops as SIMD/FP, over **578 distinct
 mnemonics**. The demand side is the assembly column class of
-`docs/DEMAND-CENSUS.md` — **362,094 instructions the model does
+`docs/DEMAND-CENSUS.md` — **362,093 instructions the model does
 not cover**, across 6 codec columns, never pooled with compiler
 output or with the kernel.
 
@@ -61,7 +61,7 @@ not by this table's sort — but the row count is DERIVED now, and it is
 
 ## The vector roster, ranked by measured demand
 
-Cumulative share is over the whole uncovered gap (362,094 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
+Cumulative share is over the whole uncovered gap (362,093 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
 
 | rank | mnemonic | occurrences | share | cumulative | of it, MMX | oracle | K operand shapes |
 |---|---|---|---|---|---|---|---|
@@ -106,7 +106,7 @@ Cumulative share is over the whole uncovered gap (362,094 instructions), so a ro
 | 39 | `punpcklbw` | 2,381 | 0.66% | 61.2% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
 | 40 | `pmulhw` | 2,200 | 0.61% | 61.8% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |
 
-- The joined set — **317 mnemonics K has semantics for AND the corpus executes** — accounts for **327,291 instructions (90.4% of the gap)**.
+- The joined set — **316 mnemonics K has semantics for AND the corpus executes** — accounts for **327,290 instructions (90.4% of the gap)**.
 
 ## The two residues
 
@@ -142,13 +142,13 @@ The corpus executes these and **K has no rule for them**, so they cannot be pric
 | 24 | `movq2dq` | 110 | 0.03% |
 | 25 | `vpperm` | 100 | 0.03% |
 
-### Supply without demand — 261 mnemonics
+### Supply without demand — 262 mnemonics
 
 K has semantics for these and the corpus never executes one. Cheap to model; worth nothing to model first.
 
-`addpd`, `addps`, `addsd`, `addss`, `addsubpd`, `andnpd`, `andnps`, `andpd`, `andps`, `blendpd`, `blendps`, `blendvpd`, `cmppd`, `cmpps`, `cmpsd`, `cmpss`, `cmpxchg16b`, `comisd`, `comiss`, `cvtpd2dq`, `cvtpi2pd`, `cvtpi2ps`, `cvtps2pd`, `cvtsd2si`, `cvtsd2ss`, `cvtsi2sdl`, `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq`, `cvtss2sd`, `cvtss2si`, `cvttsd2si`, `cvttss2si`, `divpd`, `divps`, `divsd`, `divss`, `dppd`, `dpps`, `haddpd`, `hsubpd`, `hsubps`, `insertps`, `maskmovdqu`, `maxpd`, `maxps`, `maxsd`, `maxss`, `minpd`, `minps`, `minsd`, `minss`, `movapd`, `movaps`, `movddup`, `movdqa`, `movdqu`, `movhlps`, `movhpd`, `movhps`
+`addpd`, `addps`, `addsd`, `addss`, `addsubpd`, `andnpd`, `andnps`, `andpd`, `andps`, `blendpd`, `blendps`, `blendvpd`, `cmppd`, `cmpps`, `cmpsd`, `cmpss`, `cmpxchg16b`, `comisd`, `comiss`, `cvtpd2dq`, `cvtpd2ps`, `cvtpi2pd`, `cvtpi2ps`, `cvtps2pd`, `cvtsd2si`, `cvtsd2ss`, `cvtsi2sdl`, `cvtsi2sdq`, `cvtsi2ssl`, `cvtsi2ssq`, `cvtss2sd`, `cvtss2si`, `cvttsd2si`, `cvttss2si`, `divpd`, `divps`, `divsd`, `divss`, `dppd`, `dpps`, `haddpd`, `hsubpd`, `hsubps`, `insertps`, `maskmovdqu`, `maxpd`, `maxps`, `maxsd`, `maxss`, `minpd`, `minps`, `minsd`, `minss`, `movapd`, `movaps`, `movddup`, `movdqa`, `movdqu`, `movhlps`, `movhpd`
 
-…and 201 more.
+…and 202 more.
 
 ## What the oracle can answer — measured, not read
 
@@ -167,10 +167,10 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 138 | 112,668 | 31.1% |
+| the oracle EXECUTES | 138 | 112,667 | 31.1% |
 | the oracle REFUSES | 82 | 217,162 | 60.0% |
 | the oracle STALLS | 3 | 243 | 0.1% |
-| **probed so far** | 223 | **330,073** | **91.2%** |
+| **probed so far** | 223 | **330,072** | **91.2%** |
 
 ⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
 unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
@@ -189,10 +189,10 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 68 | 102,932 | 28.4% |
+| the oracle EXECUTES | 67 | 102,931 | 28.4% |
 | the oracle REFUSES | 88 | 169,877 | 46.9% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 159 | **273,050** | **75.4%** |
+| **probed so far** | 158 | **273,049** | **75.4%** |
 | not asked at its own bucket | | 88,882 | 24.5% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
@@ -244,7 +244,7 @@ class shares it. Within a batch the order is by demand.
 | batch | bucket | occurrences | share of the gap | cumulative |
 |---|---|---|---|---|
 | 1 | AVX2/AVX (ymm) | 108,554 | 29.98% | 30.0% |
-| 2 | SSE-legacy (xmm) | 95,966 | 26.50% | 56.5% |
+| 2 | SSE-legacy (xmm) | 95,965 | 26.50% | 56.5% |
 | 3 | VEX-128 (v… xmm) | 62,252 | 17.19% | 73.7% |
 | 4 | MMX (mm) | 43,045 | 11.89% | 85.6% |
 | 5 | AVX-512 (zmm/k) | 33,884 | 9.36% | 94.9% |
