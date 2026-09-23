@@ -20119,3 +20119,28 @@ oracle-divergence=244`.
 - **Derived documents regenerated:** `docs/COVERAGE.md` (194 rows), `docs/DEMAND-CENSUS.md` + `.json` (staleness gate
   CLEAN), `docs/P2-ROSTER.md` (gate CLEAN), README counts and the commission's residue: **484 → 226 over 4 pairs**
   (`p2_residue`, derived). What remains is `sqrtss` 134 · `sqrtsd` 89 (B6b) · `sqrtps` 2 · `cvtpd2ps` 1.
+
+## D290 — B6a's kernel pins: 130 of 264 cvt*2si rows, by a ROUNDING-PATH reach rule, in one step
+
+⚖️ x86isa agrees with all 264 cvt*2si rows (D287 §4), so D267 §2's rule selects on REACH alone. B4's reach
+(`reach_table.py`: some vector's source EQUALS the row's at that RC) pins **256 of 264** here, because no random state
+equals 5/2 or 7/2. So the class is the rounding PATH, as B3 classed `cvtsd2ss` (D273): **`hwprobe/cvt2si_reach.py`**,
+a command, reading `run/prestates.json` and the vectors' constructors.
+```
+  class      (path, sign, RC where inexact)
+  path       nan · inf · zero · exact · toward (inexact, toward zero) · away (inexact, away from zero)
+             · tie (exactly half-way) · range (rounded result out of range)
+  result     TOTAL 264 / PINNED 130 / CARRIED 134   (carried: toward 56 · exact 27 · away 20 · range 15 · nan 8 · zero 8)
+  --selftest the two known answers from D289 §2 (every tie at nearest unreached; the memory source makes some
+             round-up row reached), a NaN row reached, and the control: value-and-RC equality pins 256, a STRICT
+             superset of the path rule's 130 ✔
+```
+**The 130 include every tie at every mode and every away-at-nearest**, which is D289 §2's gap. The kernel now carries
+what no vector can: a model that truncated at nearest, or broke a tie away from zero, is refused by `decide`.
+**Red backwards:** planting the round-half-away result on `cvtsd2si_tie/nearest` (`3` for `2`) makes `decide` refuse
+(build rc 1).
+**Price, measured on the draft** (`deterministic_cost.py --module Tests.Anchors`, base `c31209b`): **Δku +93,692**
+(sd 27,341 · sdq 28,938 · ss 19,970 · ssq 17,443) against A′'s 23.3% × 663,363 ≈ **154.6k**. **CLEAN in one step,
+60.9k margin.** `PENDING` now holds the square roots alone (B6b).
+⚠️ Not measured: whether a reached class is compared soundly. And `run/prestates.json` is a declared input, so CI
+cannot re-run the selection, exactly as for B0–B5.
