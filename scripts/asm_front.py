@@ -575,7 +575,7 @@ def cmd_translate(argv):
     lines += ["] }", "", f"end {ns}", ""]
     text = "\n".join(lines)
     if out:
-        open(out, "w").write(text)
+        open(out, "w", encoding="utf-8").write(text)
         print(f"asm_front: {len(code)} instructions, {len(image)} data bytes -> {out}")
     else:
         sys.stdout.write(text)
@@ -586,7 +586,7 @@ def cmd_translate(argv):
 def _vector_mnemonics(tmp):
     """id -> Vec.mnemonic, from the compiled differential binary."""
     lean = os.path.join(tmp, "Mn.lean")
-    open(lean, "w").write("import Tests.Vectors\nopen X86.Tests\n"
+    open(lean, "w", encoding="utf-8").write("import Tests.Vectors\nopen X86.Tests\n"
                           "def row (v : Vec) : String := v.id ++ \"\\t\" ++ v.mnemonic\n"
                           "#eval do\n  for v in vectors do\n    IO.println (row v)\n")
     r = subprocess.run([sys.executable, os.path.join(HERE, "lean_route.py"), "lean", lean],
@@ -626,7 +626,7 @@ def selftest_one(name, tool, obj, mnems, tmp):
     lean = os.path.join(tmp, f"B2Self{name}.lean")
     body = ",\n".join(entries)
     core_list = ", ".join(f'"{m}"' for m in CORE_VEC_MNEMONICS)
-    open(lean, "w").write(f"""import Tests.Vectors
+    open(lean, "w", encoding="utf-8").write(f"""import Tests.Vectors
 open X86 X86.Tests
 
 set_option maxRecDepth 32768 in
@@ -740,7 +740,7 @@ def translate_e2e(tmp):
     unlinked object that needs a layout decision (a data section)."""
     bad = 0
     s, o, lean = (os.path.join(tmp, x) for x in ("e2e.s", "e2e.o", "E2E.lean"))
-    open(s, "w").write(E2E_ASM)
+    open(s, "w", encoding="utf-8").write(E2E_ASM)
     subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu", "-c", s, "-o", o], check=True)
     me = [sys.executable, os.path.abspath(__file__), "translate"]
     r = subprocess.run(me + [o, "--base", "0x1000", "--namespace", "E2E", "--out", lean],
@@ -750,7 +750,7 @@ def translate_e2e(tmp):
         return 1, 3
     msg = b"x86lean"
     want = sum(msg)
-    with open(lean, "a") as f:
+    with open(lean, "a", encoding="utf-8") as f:
         f.write(f"""
 def putBytes (m : Mem) (a : BitVec 64) : List Nat → Mem
   | [] => m
@@ -775,7 +775,7 @@ def e2eStart : Cpu :=
           f"{got.group(2) if got else '?'} (want {want}), returned to {got.group(1) if got else '?'}")
     if not ok:
         print(r.stdout[-2000:], r.stderr[-2000:])
-    open(s, "w").write(E2E_ASM.replace("\taddl %ecx, %eax", "\tadcl %ecx, %eax"))
+    open(s, "w", encoding="utf-8").write(E2E_ASM.replace("\taddl %ecx, %eax", "\tadcl %ecx, %eax"))
     subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu", "-c", s, "-o", o], check=True)
     r = subprocess.run(me + [o, "--base", "0x1000", "--out", os.devnull], capture_output=True, text=True)
     # ⛔ THE NEEDLE IS `adc`, NOT `adcl`: GNU objdump prints the refused line without the
@@ -783,7 +783,7 @@ def e2eStart : Cpu :=
     ok = r.returncode == 3 and "REFUSED-TRANSLATE" in r.stdout and re.search(r'`adc', r.stdout)
     bad += not ok
     print(f"  {'✔' if ok else '✘'} a non-core instruction is REFUSED-TRANSLATE, rc 3, by name (rc {r.returncode})")
-    open(s, "w").write(E2E_ASM + "\t.section .rodata\n\t.long 7\n")
+    open(s, "w", encoding="utf-8").write(E2E_ASM + "\t.section .rodata\n\t.long 7\n")
     subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu", "-c", s, "-o", o], check=True)
     r = subprocess.run(me + [o, "--base", "0x1000", "--out", os.devnull], capture_output=True, text=True)
     ok = r.returncode == 1 and "link at the fixed layout first" in r.stderr
