@@ -54,9 +54,9 @@ declaration in CI.
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
   it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
   oracle. Single-threaded, one instruction at a time.
-- **Instructions.** 192 mnemonics in 1131 differentially tested forms, covering
+- **Instructions.** 194 mnemonics in 1143 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
-  forms, and 149 of them are alias spellings of another row. 106 of those
+  forms, and 149 of them are alias spellings of another row. 108 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
   `movss`/`movsd`, the packed integer add, subtract, bitwise and unpack groups,
   the packed shift group — eight lane-wise shifts at three count shapes each,
@@ -67,7 +67,7 @@ declaration in CI.
   of AND/OR/XOR, which are bit manipulation wearing a floating-point name —
   the cross-register-file `movd`/`movq`, and the first floating point: the
   compares `comiss`/`comisd`/`ucomiss`/`ucomisd`, `minss`/`minsd`/`maxss`/
-  `maxsd`/`minps`/`maxps`, the exact widenings `cvtss2sd`/`cvtsi2sdl`, the truncations `cvttsd2si`/`cvttss2si`, the first form that rounds under MXCSR.RC, the scalar multiply `mulss`/`mulsd`, the scalar add, subtract and divide `addss`/`addsd`/`subss`/`subsd`/`divss`/`divsd`, and their packed forms `mulps`/`mulpd`/`addps`/`addpd`/`subps`/`subpd`/`divps`/`divpd`, every lane by the scalar rule with the flags ORed across lanes); the P1 roster excludes
+  `maxsd`/`minps`/`maxps`, the exact widenings `cvtss2sd`/`cvtsi2sdl`, the truncations `cvttsd2si`/`cvttss2si`, the first form that rounds under MXCSR.RC, the scalar multiply `mulss`/`mulsd`, the scalar add, subtract and divide `addss`/`addsd`/`subss`/`subsd`/`divss`/`divsd`, and their packed forms `mulps`/`mulpd`/`addps`/`addpd`/`subps`/`subpd`/`divps`/`divpd`, every lane by the scalar rule with the flags ORed across lanes, and the rounding conversions to an integer `cvtsd2si`/`cvtss2si`); the P1 roster excludes
   an `xmm` operand **by derivation**, so they claim no row in that 525 and are
   counted against the P2 roster instead. The moves, the ALU
   group at every width and operand shape including read-modify-write to memory,
@@ -261,7 +261,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 33 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 34 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -272,7 +272,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1131 vectors · 88 pre-states · 99528 cases · 0 unexplained · 0 oracle leaks
+1143 vectors · 88 pre-states · 100584 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

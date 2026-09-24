@@ -168,7 +168,8 @@ PINNED.update({n: _R for n in _B4_R})
 
 # B4's hardware reading lands before its batch, as B3's did (D272): its rows are PENDING until the batch names its
 # pins, so the tracked block stays byte-identical. B3 (D273) retired the set its own rows sat in.
-PENDING: set[str] = set()   # B4 named its families in P2 batch 45; nothing is pending.
+# B6 (D287): the square roots and CVTS?2SI, read before their batch; pending until it names its pins.
+PENDING: set[str] = {"p_sqrtss", "p_sqrtsd", "p_cvtss2si", "p_cvtss2siq", "p_cvtsd2si", "p_cvtsd2siq"}
 
 # B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
 # source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8
@@ -179,15 +180,14 @@ _B5_R = [
           "mulpd_loud@0", "mulpd_loud@1", "addps_mix/nearest", "addps_mix/down", "addps_mix/up", "addps_mix/zero",
           "divps_mix/nearest", "divps_loud@0", "divps_loud@1", "divps_loud@2", "divps_loud@3", "divps_de_split",
           "divps_ze_de", "divps_ze_only",
-]
-# ⚖️ PINNED IN TWO STEPS, BY PRICE (D285 s3): all 40 at once is ~137k ku on Tests.Anchors against A′'s ~122.9k. These
-# are packed_reach.py's rows for subps, addpd, subpd and divpd, NAMED NOW and pinned in the next step; a later vector
-# that reaches one makes it redundant, never wrong. Their 4 x86isa rows are pinned in this step with the rest.
-_B5_R_NEXT = [
           "addpd_mix/nearest", "addpd_mix/down", "addpd_mix/up", "addpd_mix/zero", "addpd_loud@0", "addpd_loud@1",
           "subps_mix/nearest", "subps_mix/down", "subps_mix/up", "subps_mix/zero", "subpd_mix/nearest",
           "subpd_mix/down", "subpd_mix/up", "subpd_mix/zero", "subpd_loud@0", "subpd_loud@1", "divpd_loud@0",
           "divpd_loud@1",
+]
+# ⚖️ PINNED IN TWO STEPS, BY PRICE (D285 s3): all 40 at once was ~137k ku on Tests.Anchors against A′'s ~122.9k.
+# Step A pinned the 8 x86isa rows and the reach rows of mulps, mulpd, addps and divps; step B (D286) pinned the rest.
+_B5_R_NEXT: list[str] = [
 ]
 PPINNED = {n: _X for n in _B5_X}
 PPINNED.update({n: _R for n in _B5_R})

@@ -746,6 +746,11 @@ conversion's flags now come from `cvtsi2Low`'s own call to `SoftFloat.i2f`. -/
 def cvtss2sdFlags (b : BitVec 64) : BitVec 32 :=
   SoftFloat.preFlags SoftFloat.binary32 false b b
 
+/-- ⭐⭐ SUB-GROUP B6a — CVTSD2SI / CVTSS2SI's LANE RULE AND ITS FLAGS, ONE PAIR (D288): `b`'s low binary64 (`dbl`)
+or binary32 lane rounded under `rc` to an int64 (`wide`) or an int32. The forms differ only in where `b` is read. -/
+def cvt2siLow (dbl wide : Bool) (rc : Nat) (b : BitVec 64) : BitVec 64 × BitVec 32 :=
+  SoftFloat.cvtToInt (if dbl then SoftFloat.binary64 else SoftFloat.binary32) (if wide then 64 else 32) rc b
+
 /-- CVTTSD2SI / CVTTSS2SI: IE or PE, on `cvttLane`'s own split. -/
 def cvttFlags (dbl wide : Bool) (b : BitVec 64) : BitVec 32 :=
   SoftFloat.truncFlags (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
@@ -1000,6 +1005,15 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let b := s.readMem (if dbl then .q else .d) (ea.addr s nr)
       s.withSimd (cvttFlags dbl wide b) fun s =>
         (s.setReg (if wide then .q else .d) dst (cvttLane dbl wide b)).setRip nr
+
+  -- ⭐⭐⭐ CVTSD2SI / CVTSS2SI (SDM Vol. 2A) — SUB-GROUP B6a. The truncation's shape with MXCSR.RC read: the low
+  -- lane ROUNDED, into a GPR of the REX.W width. No EFLAGS bit is written. ⚠️ NO ALIGNMENT CHECK at the memory form.
+  | .vcvt2si dbl wide dst src =>
+      let p := cvt2siLow dbl wide (mxcsrRC s.mxcsr) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setReg (if wide then .q else .d) dst p.1).setRip nr
+  | .vcvt2sim dbl wide dst ea =>
+      let p := cvt2siLow dbl wide (mxcsrRC s.mxcsr) (s.readMem (if dbl then .q else .d) (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setReg (if wide then .q else .d) dst p.1).setRip nr
 
   -- ⭐⭐⭐ MULSS / MULSD (SDM Vol. 2B) — SUB-GROUP B1, the first form that ROUNDS
   -- under MXCSR.RC.  The low lane only; bits above it are preserved; no EFLAGS bit

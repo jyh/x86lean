@@ -19986,3 +19986,136 @@ rows are checked by silicon and x86isa (D281) and by nothing in the kernel.
   it, and `mk_anchors.py`'s lists are its output, as B0–B4's are `reach_table.py`'s.
 - Reach is not coverage: a reached part says nothing about whether the differential compares that case soundly.
 - No row asks for FZ, DAZ, an unmasked exception or the m128 alignment rule (D281 §6), so no pin covers them.
+
+## D286 — B5's pins, step B: the 18 held rows, so all 40 of the lane rule's pins are in the kernel
+
+⚖️ D285 §3 named 18 reach pins (subps · addpd · subpd · divpd) and held them for a second step by price. This step moves
+`mk_anchors._B5_R_NEXT` into `_B5_R` and leaves the held list empty. `mk_anchors.PPINNED` is now **exactly
+`packed_reach.py --pinned`** (diffed, 40 = 40).
+```
+  base 4b1a44e (step A)   Tests.Anchors 609,647 ku   A′ budget 23.3% ≈ 142.0k
+  step B                  663,363 ku   Δku +53,716   CLEAN   (D285 §3 estimated ~53k from step A's per-row readings)
+```
+Built through the route, rc 0. Every packed row now falls in one of two places: pinned in the kernel (40) or reached
+by a vector that x86isa agrees with (52). D285 §4's limits still hold.
+
+## D287 — B6's hardware reading, taken BEFORE the batch: the square roots and the rounding conversions to an integer
+
+⚖️ QUEUE P3, sub-group B after B5. `p2_residue` names **6 unclaimed pairs, 484 instructions**: `cvtss2si` 165 ·
+`sqrtss` 134 · `cvtsd2si` 93 · `sqrtsd` 89 · `sqrtps` 2 · `cvtpd2ps` 1. B6 is the first four (481). As D269, D272, D274
+and D281 did, **the rows are written, predicted on x86isa in a commit made before `gen`, and read on silicon before
+any Lean.** (The prediction is committed rather than posted because a council sitting was open, and a sitting holds
+bus posts; the commit is pushed, so its time is on the forge.)
+
+### 1. THE ROWS — 354, `mk_rows.build_b6`
+```
+  sqrtsd · sqrtss       every mode: 2, 3, 1+ulp, 1−ulp, MAX, the largest denormal
+                        one mode:   4, 1, 1/4, ±0, ±∞, −1, the negative denormal, the least denormal, QNaN, SNaN,
+                                    a negative QNaN with a payload
+                        preset:     4 and 2 under 1F88 · 1FBF · 5F88 · 7F88
+  cvtsd2si · cvtss2si,  every mode: ±5/2, 7/2, 5/4, −7/4, ±1/2, ± the largest denormal, the top and the bottom of the
+  each at int32 and     destination's range (binary64 at int32 holds a half there, so both edges round OUT at one mode
+  int64                 and IN at another)
+                        one mode:   3, −7, ±0, ±∞, QNaN, SNaN, 2^31, −2^31, 2^40, 2^63, −2^63, MAX
+                        preset:     3 and 5/4 under the four presets
+```
+`p_sqrts?` write %xmm1, so SQRTSS must keep the canary in bits 63:32. `p_cvts?2si[q]` write %eax (zero-extended) or %rax,
+and all 64 bits are compared. `probe.c` checks each one's bytes at +10.
+
+### 2. TWO RULES ARE PREDICTIONS, AND THE ROWS ASK THEM
+- **A negative denormal under SQRT raises IE ALONE**: invalid outranks the denormal pre-computation exception, so DE
+  is not also set. (`sqrt?_negden`)
+- **CVTS?2SI raises no DE on a denormal source.** The SDM lists Invalid and Precision only. (`cvt*_den/*`, `cvt*_negden/*`)
+
+### 3. x86isa — THE PREDICTION, COMMITTED BEFORE `gen`
+**56 disagreements = the 50 on record (D284) + 6 new**, namely `sqrtsd_neginf` · `sqrtsd_negone` · `sqrtsd_negden` ·
+`sqrtss_neginf` · `sqrtss_negone` · `sqrtss_negden`. Each should be wrong in its **sign bit alone** (`7ff8…` / `7fc00000`
+where silicon reads `fff8…` / `ffc00000`), with the flags agreeing. The mechanism is the same as D265's:
+`sqrt-spec.lisp`'s `sse-sqrt` is `rtl::sse-sqrt-spec`, whose invalid result is RTL's sign-less indefinite. **The
+cvt*2si rows are predicted to agree, all 256 of them.**
+
+### 4. THE READINGS — x86isa as committed; silicon on both vendors
+```
+  x86isa (run/hwprobe_score3.txt)   rows 931 disagreements 56: the 50 of D284 BY NAME (diffed) + exactly the 6
+                                    predicted, each 7ff8… / 7fc00000 where silicon reads fff8… / ffc00000, the
+                                    flags agreeing (IE alone, so x86isa too raises no DE on sqrt of a negative
+                                    denormal). 348 of the 354 B6 rows agree, all 256 cvt*2si rows among them.
+  Rosetta 2 (corroboration)         934/934; a planted IE|DE on sqrtsd_negden gives exactly that one DIFF
+  hwprobe run 35863889798 (push, 952420b)
+    ubuntu-latest   AMD EPYC 7763                934/934
+    macos-15-intel  Intel Core i7-8700B          934/934
+    controls, both legs   plant 1 DIFF · badop REFUSED at +10 · pplant 1 DIFF (mulps_mix/nearest) · pbadop REFUSED at +28
+```
+⇒ **Both §2 predictions hold on BOTH vendors**: SQRT of a negative denormal raises IE alone, and CVTS?2SI raises no DE.
+⇒ **B6's rule may be written as `fsqrt` and `cvt2si` state it.** The only x86isa divergence is D265's sign-less
+indefinite, reached here by SQRT of a negative source. A declared divergence for it is the `pair` form's LOW lane,
+which is where a scalar SQRT writes, so that form expresses it.
+⚠️ **NOT SEEN (declared beside the verdict):** the memory-source forms, FZ/DAZ, any unmasked exception, and `sqrtps` /
+`cvtpd2ps` (the other 3 of the 484). `want` is DERIVED by mk_rows.py and never read from x86lean or x86isa, so 934/934
+means hardware and our derivation agree; it says nothing about a rule the derivation leaves out.
+
+## D288 — B6a's shape: `vcvt2si`/`vcvt2sim`, CVTS?2SI as `truncToInt`'s rounding sibling
+
+⚖️ QUEUE P3, B6 split by what each half needs: **B6a = `cvtss2si` 165 + `cvtsd2si` 93 = 258**, which rounds an integer
+that `truncToInt` already places. **B6b = `sqrtss` + `sqrtsd` (223)** needs an integer square root that SoftFloat does
+not yet have, so it is its own step.
+- **`SoftFloat.cvtToInt f w rc x`**: the significand placed as `truncToInt` places it, and the part shifted off decided
+  by **`roundsUp`, `roundPack`'s own rounding decision**, so the four modes are stated once. The range test comes
+  after rounding. IE alone on NaN, ±∞ or out of range; PE iff anything was shifted off; no DE (D287 §4, both vendors).
+  An exponent at or past `w` is out of range before any shift, and `shiftOut` clamps the long right shift, so no
+  literal power above 256 is on any path (D262 §3).
+- **`vcvt2si` / `vcvt2sim`**, two constructors beside `vcvtt2si` / `vcvtt2sim`, as B5 added `vparith` beside
+  `varith`: the existing forms' vectors, arms and pins do not move. `Semantics.cvt2siLow` returns the value and flags
+  from one call, so they cannot disagree about the rounding.
+- **Checked against the hardware rows before any vector** (`run/b6a_check.lean`): `cvt2siLow` equals `want` and the
+  flags on **all 264** cvt*2si rows that silicon read 934/934 (D287). **Control:** a mutant that ignores MXCSR.RC
+  misses **51**, which is exactly the number `mk_rows.cvt2si` predicts for that mutant independently, so the check
+  can fail and fails where it should.
+Build: full route rc 0.
+
+## D289 — P2 batch 48, sub-group B6a: CVTSD2SI / CVTSS2SI — 12 vectors, three arms, and a rounding direction no vector can reach
+
+⚖️ On D288's shape. **Two roster rows** (`cvtsd2si`, `cvtss2si`), **12 vectors**, **3 arms**. Assembly-class demand
+**258**.
+
+### 1. THE VECTORS — A REACH CENSUS OVER THE 88 PRE-STATES (`run/b6a_census.txt`)
+For every register source and every memory offset in −32..+24, at both widths, `mk_rows.cvt2si` gave over the 88:
+the flags reached, how many states the mode matters in (rcSens), how many a truncating and a nearest-only model
+would differ in, and how many sources are denormal. Per form (sd/ss × int32/int64): **%xmm0** (the only register
+holding denormals, 43 and 33 states, so the DE arm is visible), **-0x10(%rbx)** (the memory form, RC-sensitive in
+all 88) and **%xmm11** (REX.B, the most RC-sensitive register). The destinations include REX.R (`r9`), and every
+int32 destination checks the zero-extension. The bytes are clang's.
+
+### 2. ⛔ A ROUNDING DIRECTION NO VECTOR CAN REACH, FOUND BY THE ARM PREDICTION
+Over driveWrong's 84 states, a TRUNCATING model and a NEAREST-ONLY model fail on **exactly the same 56 cases in
+`rax`, and the same cases in every other destination** (the sets are equal, not just the counts). The census's
+nearest-separating column then reads **0 for every binary64 source, registers and every memory offset**, and 2 states
+at most for binary32. **No pre-state puts a fraction ≥ 1/2 under RC = nearest.** So a model that truncated at
+nearest and rounded correctly at the other three modes would pass the differential.
+⇒ The nearest-only arm is NOT registered: it would be the truncation arm under a second name. **The distinction goes
+to the kernel pins**, whose hwprobe rows (`*_tie/nearest`, `*_tieodd/nearest`, `*_half/nearest`, `*_frac/nearest`,
+D287) ask it directly, and it is named here as a gap the vectors cannot close. It is not claimed as covered.
+
+### 3. THE ARMS — `wrongCvt2siWith`, PREDICTED BEFORE THE RUN (`run/b6a_arm_pred.txt`)
+```
+  arm                                              key         PREDICTED
+  truncates instead of reading MXCSR.RC            rax            56
+  raises DE on a denormal source                   mxcsr.de      114
+  ignores REX.W and rounds to an int32             rax            43
+```
+
+### 4. THE DIFFERENTIAL — PREDICTED BEFORE THE RUN
+x86isa agreed with all 256 cvt*2si hwprobe rows at every mode (D287 §4), so: **+1,056 cases (12 × 88), all matched;
+explained, unexplained and divergence unchanged** ⇒ `cases=100584 matched=79935 explained=29479 unexplained=0
+oracle-divergence=244`.
+
+### 5. THE READINGS — every predicted field as committed
+- **Differential:** `cases=100584 matched=79935 explained=29479 unexplained=0 oracle-divergence=244` = §4 exactly. Each
+  of the 12 vectors ran 88 cases on both sides with 0 refused, on a live refusal field (record 34,
+  `docs/DIFFERENTIAL-P2-BATCH34.md`).
+- **Arms:** truncates **56 = 56** (total 208 = 208) · DE on a denormal **114 = 114** · ignores REX.W **43 = 43**. Its
+  total, 143, is the 139 value cases I predicted plus **4 in `mxcsr.ie`** (an int32 out of range where the int64 is not).
+  I reconciled those 4 AFTER the run, because I had predicted only the value half, and I say so here.
+- **Derived documents regenerated:** `docs/COVERAGE.md` (194 rows), `docs/DEMAND-CENSUS.md` + `.json` (staleness gate
+  CLEAN), `docs/P2-ROSTER.md` (gate CLEAN), README counts and the commission's residue: **484 → 226 over 4 pairs**
+  (`p2_residue`, derived). What remains is `sqrtss` 134 · `sqrtsd` 89 (B6b) · `sqrtps` 2 · `cvtpd2ps` 1.

@@ -902,6 +902,12 @@ acc,imm · rh"
   , { mnemonic := "divpd",
       shapes := "x,x · x,m", note := "every lane (two binary64) by the scalar rule under MXCSR.RC, flags ORed across lanes; m128 16-byte aligned (#GP); D282, D283",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVPD" }
+  , { mnemonic := "cvtsd2si",
+      shapes := "r,x · r,m", note := "low binary64 rounded under MXCSR.RC to int32/int64 (REX.W); NaN, inf or out of range after rounding give 2^(w-1) and IE; D288, D289",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTSD2SI" }
+  , { mnemonic := "cvtss2si",
+      shapes := "r,x · r,m", note := "low binary32 rounded under MXCSR.RC to int32/int64 (REX.W); NaN, inf or out of range after rounding give 2^(w-1) and IE; D288, D289",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTSS2SI" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not
