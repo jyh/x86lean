@@ -20119,3 +20119,21 @@ oracle-divergence=244`.
 - **Derived documents regenerated:** `docs/COVERAGE.md` (194 rows), `docs/DEMAND-CENSUS.md` + `.json` (staleness gate
   CLEAN), `docs/P2-ROSTER.md` (gate CLEAN), README counts and the commission's residue: **484 → 226 over 4 pairs**
   (`p2_residue`, derived). What remains is `sqrtss` 134 · `sqrtsd` 89 (B6b) · `sqrtps` 2 · `cvtpd2ps` 1.
+
+## D298 — CVTSI-MEM-PROBE closed: the memory shape of three pooled width keys, asked and answered by a sealed batch
+
+⚖️ From D257's pooling: one (mnemonic, bucket) key covers the register AND memory shapes of `cvtsi2s[sd][lq]`, so
+register-only probes were crediting ~960 memory-source instructions that nobody had asked about. Batch 39's vectors
+answered `cvtsi2sdl` and `cvtss2sd` at memory (D258). The three owed keys are now asked directly: `cvtsi2sdq`,
+`cvtsi2ssl` and `cvtsi2ssq`, each at `(%rbx), %xmm0`. The bytes are clang's (`f2480f2a03` · `f30f2a03` ·
+`f3480f2a03`), and LLVM and GNU objdump agree on all three.
+- **Sealed before ACL2 ran:** sha256 `90cb19b4…f57649` over the three rows, committed `25220ba` ahead of the run.
+  Declared: refuses at CR4=0, executes at CR4=0x600, the same pair as each key's register row.
+- **The source is memory the probe does not write, so it reads 0.** An INTEGER zero converts to +0.0 and executes
+  (D258 §2). The zero-source guard violation belongs to a FLOAT source (`cvtss2sd`), which is why that key stays with
+  the vectors.
+- **Read:** `oracle_availability.py --p2`: 3 of 3 as sealed. The gate is CLEAN at 264 of 267 declarations matching, 3
+  refuted, and those 3 are the pre-existing records (`emms` · `movmskps` · `vmovmskps_v`, D170/D177). Nothing new is refuted, and
+  the table's conflict rule accepts each new row beside its register row. 16.8 s.
+- **What it moves:** no verdict (all three keys already read `executes`). It removes the unasked half of ~960
+  instructions of demand, which is the point: the key now describes both shapes it pools.

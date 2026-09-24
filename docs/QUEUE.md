@@ -3207,7 +3207,7 @@ sub-group A work, not 74.6%.**
 no-rounding group, or 1,941 ~~exact~~ int32 ones out of it, depending on which way it guesses. **The control is the part to trust: the scan
 reproduces the census's own population exactly, so the split joins its columns rather than standing beside them.**
 
-## ⚠️ CVTSI-MEM-PROBE (2026-09-16, from D257) — **HALF ANSWERED BY BATCH 39'S VECTORS; the three sub-group-B keys still owe the sealed probe**
+## ✅ CVTSI-MEM-PROBE (2026-09-16, from D257) — **CLOSED 2026-09-23 (D298): the three owed keys asked by a sealed batch (`cvtsi2sdq_m` · `cvtsi2ssl_m` · `cvtsi2ssq_m`), 3 of 3 as sealed, each agreeing with its register row.** *(Filed as: "HALF ANSWERED BY BATCH 39'S VECTORS; the three sub-group-B keys still owe the sealed probe".)*
 ✅ **`cvtsi2sdl` and `cvtss2sd` are answered, and more strongly than a probe would:** batch 39 runs four memory-source
 vectors on x86isa (`cvtsi2sdl (%rbx)` and `-0x3(%rbx)`, `cvtss2sd -0x3(%rbx)` and `0xe(%rbx)`): 352 cases, every one
 EXECUTED and every one agreeing with the SDM computed from the pre-state (D258, record 25).
