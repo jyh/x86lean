@@ -1659,6 +1659,16 @@ inductive Op where
   | vsqrt (sz : Size) (dst src : XmmReg)
   /-- SUB-GROUP B6b — the same at a MEMORY source (`m32` / `m64`). ⚠️ NO ALIGNMENT CHECK: a scalar operand states none. -/
   | vsqrtm (sz : Size) (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B7 — SQRTPS (SDM Vol. 2B), register source: every binary32 lane of `dst` becomes `SoftFloat.fsqrt`
+  of the same lane of `src`, rounded under MXCSR.RC, with the flags ORed across lanes (D294, D295). -/
+  | vsqrtps (dst src : XmmReg)
+  /-- SUB-GROUP B7 — the same at a 16-byte-ALIGNED memory source (#GP otherwise), as `vparithm`. -/
+  | vsqrtpsm (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ SUB-GROUP B7 — CVTPD2PS (SDM Vol. 2A), register source: the two binary64 lanes of `src`, each narrowed by
+  `SoftFloat.f64to32` under MXCSR.RC, become the LOW two binary32 lanes of `dst`, and **bits 127:64 are ZEROED** (D294). -/
+  | vcvtpd2ps (dst src : XmmReg)
+  /-- SUB-GROUP B7 — the same at a 16-byte-ALIGNED memory source (#GP otherwise). -/
+  | vcvtpd2psm (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ SUB-GROUP B3 — CVTSD2SS (SDM Vol. 2A), register source: the low binary64 lane of
   `src` becomes the low binary32 lane of `dst` (`SoftFloat.f64to32`), rounded under MXCSR.RC,
   and **bits 127:32 of `dst` are PRESERVED**.  No EFLAGS bit is written; MXCSR's OE, UE, PE, IE
@@ -2070,6 +2080,8 @@ def opOperands : Op → List Operand
   | .varithm _ _ _ ea => [.mem ea]
   | .vsqrt .. => []
   | .vsqrtm _ _ ea => [.mem ea]
+  | .vsqrtps .. | .vcvtpd2ps .. => []
+  | .vsqrtpsm _ ea | .vcvtpd2psm _ ea => [.mem ea]
   -- SUB-GROUP B3: the narrowing conversion's memory SOURCE names its address.
   | .vcvtsd2ss .. => []
   | .vcvtsd2ssm _ ea => [.mem ea]
@@ -2223,6 +2235,8 @@ def Op.anyLocked : Op → Bool
   | .varithm _ _ _ ea => ea.lock
   | .vsqrt .. => false
   | .vsqrtm _ _ ea => ea.lock
+  | .vsqrtps .. | .vcvtpd2ps .. => false
+  | .vsqrtpsm _ ea | .vcvtpd2psm _ ea => ea.lock
   -- SUB-GROUP B3: `lock cvtsd2ss` is not a form the SDM lists.
   | .vcvtsd2ss .. => false
   | .vcvtsd2ssm _ ea => ea.lock
@@ -2410,6 +2424,8 @@ def Op.mnemonic : Op → String
   -- SUB-GROUP B1: both operand shapes print one name.
   | .varith op sz .. | .varithm op sz .. => op.mnemonic sz
   | .vsqrt sz .. | .vsqrtm sz .. => if sz == .q then "sqrtsd" else "sqrtss"
+  | .vsqrtps .. | .vsqrtpsm .. => "sqrtps"
+  | .vcvtpd2ps .. | .vcvtpd2psm .. => "cvtpd2ps"
   -- SUB-GROUP B3: both operand shapes print one name.
   | .vcvtsd2ss .. | .vcvtsd2ssm .. => "cvtsd2ss"
   -- SUB-GROUP B5: both operand shapes print one name.
@@ -2653,6 +2669,9 @@ def rosterP0 : List String :=
    "cvtsd2si", "cvtss2si",
    -- ⭐⭐⭐ SUB-GROUP B6b: the square roots, TWO rows, `vsqrt`/`vsqrtm` (D291, D292).
    "sqrtsd", "sqrtss",
+   -- ⭐⭐⭐ SUB-GROUP B7: the packed narrowing, ONE row, `vcvtpd2ps`/`vcvtpd2psm` (D294, D295). `sqrtps` has a shape
+   -- and no row: no pre-state source avoids a declared-inexpressible divergence (D295 §2).
+   "cvtpd2ps",
    -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13: the packed SHIFT group.  EIGHT rows for the
    -- eight encodable (operation, lane) pairs — `vshiftEncodable` is what says
    -- there are eight and not twelve, and `Tests/Coverage.lean` asserts that this

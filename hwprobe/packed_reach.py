@@ -47,13 +47,17 @@ import mk_rows as M                                    # noqa: E402
 import portable as P                                   # noqa: E402
 
 PRESTATES = os.path.join(ROOT, "run", "prestates.json")
-X86ISA = os.path.join(ROOT, "run", "hwprobe_score2.txt")
+X86ISA = os.path.join(ROOT, "run", "hwprobe_score4.txt")   # after D294: B5 + B7
 VECTORS = os.path.join(ROOT, "Tests", "Vectors.lean")
 FLAGBITS = "IDZOUP"
 POSITIONAL = False
 
 VEC_RE = re.compile(r"\.vparith(m?) \.(mul|add|sub|div) (true|false) \.x0 "
                     r"(?:\.x(\d+)|\{ base := some \.rbx(?:, disp := (-?(?:0x)?[0-9a-f]+))? \})")
+# B7 (D296): CVTPD2PS, whose lanes are the binary64 source's two, each narrowed by CVTSD2SS's own rule.
+CVT_RE = re.compile(r"\.vcvtpd2ps(m?) \.x\d+ (?:\.x(\d+)|\{ base := some \.rbx(?:, disp := (-?(?:0x)?[0-9a-f]+))? \})")
+# The packed forms this table classes. SQRTPS has hardware rows and no roster row (D295 §2), so it is not classed.
+CLASSED = {"p_mulps", "p_mulpd", "p_addps", "p_addpd", "p_subps", "p_subpd", "p_divps", "p_divpd", "p_cvtpd2ps"}
 
 
 def fl(f):
@@ -65,6 +69,8 @@ def vectors(text):
     for mem, op, pd, reg, disp in VEC_RE.findall(text):
         src = ("m", int(disp, 0) if disp else 0) if mem else ("x", int(reg))
         out.append((op, M.F64 if pd == "true" else M.F32, src))
+    for mem, reg, disp in CVT_RE.findall(text):
+        out.append(("cvt", M.F64, ("m", int(disp, 0) if disp else 0) if mem else ("x", int(reg))))
     return out
 
 
@@ -75,6 +81,10 @@ def lanes(op, fmt, rc, A, B):
     res = []
     for i in range(128 // w):
         a, b = (A >> (w * i)) & m, (B >> (w * i)) & m
+        if op == "cvt":
+            _, g = M.cvtsd2ss(rc, b)
+            res.append((g, M.kind(fmt, b) in ("qnan", "snan")))
+            continue
         _, g = M.mul(fmt, M.MODES[rc], a, b) if op == "mul" else M.arith(op, fmt, rc, a, b)
         ka, kb = M.kind(fmt, a), M.kind(fmt, b)
         sup = "qnan" in (ka, kb) or "snan" in (ka, kb) or (op == "div" and kb == "zero")
@@ -132,7 +142,9 @@ def table(states, vecs, diffs):
     got = reached(states, vecs)
     rows = []
     for name, fn, mx, A, B, want, f in M.PROWS:
-        op, suf = fn[2:5], fn[5:]
+        if fn not in CLASSED:
+            continue
+        op, suf = (("cvt", "pd") if fn == "p_cvtpd2ps" else (fn[2:5], fn[5:]))
         fmt = M.F64 if suf == "pd" else M.F32
         miss = sorted(parts(op, fmt, mx, A, B) - got.get(op + suf, set()), key=repr)
         why = "x86isa differs" if name in diffs else ("no vector reaches" if miss else "")
@@ -145,8 +157,9 @@ def literal_pins(states, vecs, diffs):
     for op, fmt, src in vecs:
         for s in states:
             seen.add((mnemonic(op, fmt), (s["mxcsr"] >> 13) & 3, s["xmm"]["0"], state_source(s, src)))
+    key = lambda fn: "cvtpd" if fn == "p_cvtpd2ps" else fn[2:]
     return {name for name, fn, mx, A, B, want, f in M.PROWS
-            if name in diffs or (fn[2:], (mx >> 13) & 3, A, B) not in seen}
+            if fn in CLASSED and (name in diffs or (key(fn), (mx >> 13) & 3, A, B) not in seen)}
 
 
 def show_part(p):
@@ -168,12 +181,13 @@ def selftest():
     arms = [
         # KNOWN ANSWERS, from D283 §1's census, which this file did not produce: divps's only vector (m-16) reaches
         # no IE, so every loud@k row of divps is unreached; mulps's x7 reaches IE, so the mulps loud@k rows are not.
-        ("19 vectors read from the constructors", len(vecs) == 19),
+        ("22 vectors read from the constructors (19 of B5, 3 of B7)", len(vecs) == 22),
         ("divps has exactly one vector, m-16", divps == [("div", M.F32, ("m", -16))]),
         ("every divps loud@k is unreached", all(rows["divps_loud@%d" % k][1] for k in range(4))),
         ("every mulps loud@k is carried", all(not rows["mulps_loud@%d" % k][1] for k in range(4))),
-        ("the 8 indef rows are x86isa's, and only they",
-         {n for n, (w, _) in rows.items() if w == "x86isa differs"} == {n for n in rows if "_indef@" in n}),
+        ("x86isa's rows are the 8 indefinites and cvtpd2ps_sticky1fbf (D294), and only they",
+         {n for n, (w, _) in rows.items() if w == "x86isa differs"} ==
+         {n for n in rows if "_indef@" in n} | {"cvtpd2ps_sticky1fbf"}),
     ]
     # MUTANT: the scalar rule transferred literally (some state's two sources EQUAL the row's at its RC) must pin
     # every row this rule carries, or the lane class is not what is doing the carrying.

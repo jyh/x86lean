@@ -207,8 +207,20 @@ _B6A_R = [
 ]
 PINNED.update({n: _R for n in _B6A_R})
 
-# B6b (D287): the square roots, read before their batch; pending until it names its pins.
-PENDING: set[str] = {"p_sqrtss", "p_sqrtsd"}
+# B6b (D293): SQRTS?. x86isa differs on the 6 negative sources (its indefinite has no sign bit, D287 s4); the rest is
+# hwprobe/sqrt_reach.py's output, the rows whose PATH (with a denormal source, RC where inexact, and a preset flag) no
+# vector of the same format presents over the 88 pre-states.
+_B6B_X = ["sqrtsd_negden", "sqrtsd_neginf", "sqrtsd_negone", "sqrtss_negden", "sqrtss_neginf", "sqrtss_negone"]
+_B6B_R = [
+          "sqrtsd_four", "sqrtsd_one", "sqrtsd_quarter", "sqrtsd_inf", "sqrtsd_snan", "sqrtsd_four_sticky1f88",
+          "sqrtsd_four_sticky1fbf", "sqrtsd_four_sticky5f88", "sqrtsd_four_sticky7f88", "sqrtss_four", "sqrtss_one",
+          "sqrtss_quarter", "sqrtss_inf", "sqrtss_snan", "sqrtss_four_sticky1f88", "sqrtss_four_sticky1fbf",
+          "sqrtss_four_sticky5f88", "sqrtss_four_sticky7f88",
+]
+PINNED.update({n: _X for n in _B6B_X})
+PINNED.update({n: _R for n in _B6B_R})
+
+PENDING: set[str] = set()   # B6b named its pins in D293; nothing is pending.
 
 # B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
 # source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8
@@ -228,8 +240,15 @@ _B5_R = [
 # Step A pinned the 8 x86isa rows and the reach rows of mulps, mulpd, addps and divps; step B (D286) pinned the rest.
 _B5_R_NEXT: list[str] = [
 ]
+# B7 (D296): CVTPD2PS's pins, packed_reach.py's output (its lane rule, with CVTSD2SS's per-lane flags); the preset-OE
+# row is x86isa's (D294). SQRTPS has hardware rows and NO roster row (D295 s2), so it stays pending: nothing claims it.
+_B7_X = ["cvtpd2ps_sticky1fbf"]
+_B7_R = ["cvtpd2ps_tiny/nearest", "cvtpd2ps_tiny/down", "cvtpd2ps_mix/up", "cvtpd2ps_tiny/up", "cvtpd2ps_mix/zero", "cvtpd2ps_tiny/zero", "cvtpd2ps_loud@0", "cvtpd2ps_loud@1", "cvtpd2ps_den@1"]
+PPENDING: set[str] = {"p_sqrtps"}
 PPINNED = {n: _X for n in _B5_X}
 PPINNED.update({n: _R for n in _B5_R})
+PPINNED.update({n: _X for n in _B7_X})
+PPINNED.update({n: _R for n in _B7_R})
 
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}
@@ -387,6 +406,18 @@ FAMILIES = [
      ["(fun (mx, a, r, fl) =>",
       "  let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)",
       "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6b_sqrtsd_pins", lambda fn: fn == "p_sqrtsd",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vsqrt .q .x1 .x0, 4⟩ (b0Pre mx a b)",
+      "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
+    ("b6b_sqrtss_pins", lambda fn: fn == "p_sqrtss",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vsqrt .d .x1 .x0, 4⟩ (b0Pre mx a b)",
+      "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
     ("b3_cvtsd2ss_pins", lambda fn: fn == "p_cvtsd2ss",
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
@@ -405,6 +436,13 @@ PFAMILIES = [
       "  b5Agrees t mx fl (t.getXmm .x0) r)"])
     for op in ("mul", "add", "sub", "div") for suf in ("ps", "pd")
 ]
+# B7: `cvtpd2ps %xmm1, %xmm0` over all 128 bits of both; %xmm0's incoming bits are the canary the form must zero.
+PFAMILIES.append(("b7_cvtpd2ps_pins", "p_cvtpd2ps",
+                  ["(fun (mx, a, b, r, fl) =>",
+                   "  let t := step ⟨.vcvtpd2ps .x0 .x1, 4⟩ (b5Pre mx a b)",
+                   "  b5Agrees t mx fl (t.getXmm .x0) r)"]))
+# The families whose `decide` needs more than the elaborator's default recursion depth, and how much.
+RECDEPTH = {"b6b_sqrtsd_pins": 8000, "b6b_sqrtss_pins": 8000}
 PTY = "BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32"
 
 
@@ -416,7 +454,9 @@ def block():
         allf = [r for r in rs if pick(r[1])]
         used += len(allf)
         fam = [r for r in allf if r[0] in PINNED]
-        lines += ["", "theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
+        lines += [""] + (["-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).",
+                          "set_option maxRecDepth %d in" % RECDEPTH[thm]] if thm in RECDEPTH else [])
+        lines += ["theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
         for i, (n, fn, mx, a, b, want, mask, fl) in enumerate(fam):
             sep = "," if i + 1 < len(fam) else ""
             lines.append("    (%s)%s  -- %s · %s" % (", ".join(fmt(fn, mx, a, b, want, mask, fl)), sep, n,
@@ -444,8 +484,10 @@ def block():
         lines.append("  ] : List (%s)).all" % PTY)
         lines += ["    " + c for c in check]
         lines[-1] += " = true := by decide"
-    if pused != len(prs):
-        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family" % (len(prs) - pused))
+    ppend = sum(1 for r in prs if r[1] in PPENDING)
+    if pused + ppend != len(prs):
+        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family and not pending"
+                         % (len(prs) - pused - ppend))
     lines += ["", END]
     return lines
 

@@ -47,6 +47,8 @@ u128 p_subps(uint64_t, uint64_t, uint64_t, uint64_t);
 u128 p_subpd(uint64_t, uint64_t, uint64_t, uint64_t);
 u128 p_divps(uint64_t, uint64_t, uint64_t, uint64_t);
 u128 p_divpd(uint64_t, uint64_t, uint64_t, uint64_t);
+u128 p_sqrtps(uint64_t, uint64_t, uint64_t, uint64_t);
+u128 p_cvtpd2ps(uint64_t, uint64_t, uint64_t, uint64_t);
 
 struct row {
   const char *name;

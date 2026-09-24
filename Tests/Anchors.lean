@@ -2960,6 +2960,48 @@ theorem b6a_cvtss2siq_pins :
       let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)
       b0Agrees t mx fl t.regs.rax r) = true := by decide
 
+-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).
+set_option maxRecDepth 8000 in
+theorem b6b_sqrtsd_pins :
+  ([  -- 12 of hwprobe's 45 rows
+    (0x1f80, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four · no vector reaches
+    (0x1f80, 0x3ff0000000000000, 0x5a5ac3c300000000, 0x3ff0000000000000, 0x00),  -- sqrtsd_one · no vector reaches
+    (0x1f80, 0x3fd0000000000000, 0x5a5ac3c300000000, 0x3fe0000000000000, 0x00),  -- sqrtsd_quarter · no vector reaches
+    (0x1f80, 0x7ff0000000000000, 0x5a5ac3c300000000, 0x7ff0000000000000, 0x00),  -- sqrtsd_inf · no vector reaches
+    (0x1f80, 0xfff0000000000000, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_neginf · x86isa differs
+    (0x1f80, 0xbff0000000000000, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_negone · x86isa differs
+    (0x1f80, 0x800fffffffffffff, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_negden · x86isa differs
+    (0x1f80, 0x7ff0000000000123, 0x5a5ac3c300000000, 0x7ff8000000000123, 0x01),  -- sqrtsd_snan · no vector reaches
+    (0x1f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky1f88 · no vector reaches
+    (0x1fbf, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky1fbf · no vector reaches
+    (0x5f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky5f88 · no vector reaches
+    (0x7f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00)  -- sqrtsd_four_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vsqrt .q .x1 .x0, 4⟩ (b0Pre mx a b)
+      b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
+
+-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).
+set_option maxRecDepth 8000 in
+theorem b6b_sqrtss_pins :
+  ([  -- 12 of hwprobe's 45 rows
+    (0x1f80, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four · no vector reaches
+    (0x1f80, 0x000000003f800000, 0x5a5ac3c300000000, 0x5a5ac3c33f800000, 0x00),  -- sqrtss_one · no vector reaches
+    (0x1f80, 0x000000003e800000, 0x5a5ac3c300000000, 0x5a5ac3c33f000000, 0x00),  -- sqrtss_quarter · no vector reaches
+    (0x1f80, 0x000000007f800000, 0x5a5ac3c300000000, 0x5a5ac3c37f800000, 0x00),  -- sqrtss_inf · no vector reaches
+    (0x1f80, 0x00000000ff800000, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_neginf · x86isa differs
+    (0x1f80, 0x00000000bf800000, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_negone · x86isa differs
+    (0x1f80, 0x00000000807fffff, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_negden · x86isa differs
+    (0x1f80, 0x000000007f800123, 0x5a5ac3c300000000, 0x5a5ac3c37fc00123, 0x01),  -- sqrtss_snan · no vector reaches
+    (0x1f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky1f88 · no vector reaches
+    (0x1fbf, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky1fbf · no vector reaches
+    (0x5f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky5f88 · no vector reaches
+    (0x7f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00)  -- sqrtss_four_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vsqrt .d .x1 .x0, 4⟩ (b0Pre mx a b)
+      b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
+
 theorem b3_cvtsd2ss_pins :
   ([  -- 32 of hwprobe's 77 rows
     (0x1f80, 0x3ff0000010000000, 0x5a5ac3c300000000, 0x5a5ac3c33f800000, 0x20),  -- cvtsd2ss_tie/nearest · no vector reaches
@@ -3093,6 +3135,23 @@ theorem b5_divpd_pins :
   ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
       let t := step ⟨.vparith .div true .x0 .x1, 4⟩ (b5Pre mx a b)
+      b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
+
+theorem b7_cvtpd2ps_pins :
+  ([  -- 10 of hwprobe's 12 rows
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/nearest · no vector reaches
+    (0x3f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/down · no vector reaches
+    (0x5f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7fefffffffffffff3fd5555555555555, 0x00000000000000007f8000003eaaaaab, 0x28),  -- cvtpd2ps_mix/up · no vector reaches
+    (0x5f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400001, 0x30),  -- cvtpd2ps_tiny/up · no vector reaches
+    (0x7f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7fefffffffffffff3fd5555555555555, 0x00000000000000007f7fffff3eaaaaaa, 0x28),  -- cvtpd2ps_mix/zero · no vector reaches
+    (0x7f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/zero · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000007ff0000000000789, 0x00000000000000003f8000007fc00000, 0x01),  -- cvtpd2ps_loud@0 · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7ff00000000007893ff0000000000000, 0x00000000000000007fc000003f800000, 0x01),  -- cvtpd2ps_loud@1 · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x000fffffffffffff3ff0000000000000, 0x0000000000000000000000003f800000, 0x32),  -- cvtpd2ps_den@1 · no vector reaches
+    (0x1fbf, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x40000000000000003ff0000000000000, 0x0000000000000000400000003f800000, 0x00)  -- cvtpd2ps_sticky1fbf · x86isa differs
+  ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vcvtpd2ps .x0 .x1, 4⟩ (b5Pre mx a b)
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
 -- ⟦B0–B4 PINS END⟧
