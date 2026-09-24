@@ -142,6 +142,13 @@ jobs:
       - name: Encoding cross-check (every `Instr.len` against a real assembler)
         run: python3 scripts/check_encodings.py
 
+      # ⭐ D297 (x86 SaltBench S3). The asm front end maps a disassembler's AT&T text onto the
+      # AST. Its selftest assembles every vector's own `asm`, translates it, and asks Lean
+      # for `==` with the hand-written `instr` on the 29-mnemonic core and a refusal everywhere
+      # else, on EVERY disassembler the runner has (GNU here, where macOS gives LLVM).
+      - name: Asm front end (B2) — every core vector translates EQUAL, every other is refused
+        run: python3 scripts/asm_front.py --selftest
+
       # ⭐⭐ D128. The availability table keys itself by the `asm` column and
       # MEASURES through the `hx` column, and until this step nothing said they
       # were the same instruction. Needs no ACL2 — clang and objdump only — so it
