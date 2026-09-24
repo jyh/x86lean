@@ -2802,6 +2802,206 @@ theorem b4_cvtsi2sdq_pins :
       let t := step ⟨.vcvtsi2 true true .x1 .rdi, 4⟩ (b0Pre mx a b)
       b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
 
+theorem b6a_cvtsd2si_pins :
+  ([  -- 35 of hwprobe's 66 rows
+    (0x1f80, 0x4004000000000000, 0x0000000000000002, 0x20),  -- cvtsd2si_tie/nearest · no vector reaches
+    (0x3f80, 0x4004000000000000, 0x0000000000000002, 0x20),  -- cvtsd2si_tie/down · no vector reaches
+    (0x5f80, 0x4004000000000000, 0x0000000000000003, 0x20),  -- cvtsd2si_tie/up · no vector reaches
+    (0x7f80, 0x4004000000000000, 0x0000000000000002, 0x20),  -- cvtsd2si_tie/zero · no vector reaches
+    (0x1f80, 0x400c000000000000, 0x0000000000000004, 0x20),  -- cvtsd2si_tieodd/nearest · no vector reaches
+    (0x3f80, 0x400c000000000000, 0x0000000000000003, 0x20),  -- cvtsd2si_tieodd/down · no vector reaches
+    (0x5f80, 0x400c000000000000, 0x0000000000000004, 0x20),  -- cvtsd2si_tieodd/up · no vector reaches
+    (0x7f80, 0x400c000000000000, 0x0000000000000003, 0x20),  -- cvtsd2si_tieodd/zero · no vector reaches
+    (0x1f80, 0xc004000000000000, 0x00000000fffffffe, 0x20),  -- cvtsd2si_negtie/nearest · no vector reaches
+    (0x3f80, 0xc004000000000000, 0x00000000fffffffd, 0x20),  -- cvtsd2si_negtie/down · no vector reaches
+    (0x5f80, 0xc004000000000000, 0x00000000fffffffe, 0x20),  -- cvtsd2si_negtie/up · no vector reaches
+    (0x7f80, 0xc004000000000000, 0x00000000fffffffe, 0x20),  -- cvtsd2si_negtie/zero · no vector reaches
+    (0x1f80, 0xbffc000000000000, 0x00000000fffffffe, 0x20),  -- cvtsd2si_negfrac/nearest · no vector reaches
+    (0x1f80, 0x3fe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2si_half/nearest · no vector reaches
+    (0x3f80, 0x3fe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2si_half/down · no vector reaches
+    (0x5f80, 0x3fe0000000000000, 0x0000000000000001, 0x20),  -- cvtsd2si_half/up · no vector reaches
+    (0x7f80, 0x3fe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2si_half/zero · no vector reaches
+    (0x1f80, 0xbfe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2si_neghalf/nearest · no vector reaches
+    (0x3f80, 0xbfe0000000000000, 0x00000000ffffffff, 0x20),  -- cvtsd2si_neghalf/down · no vector reaches
+    (0x5f80, 0xbfe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2si_neghalf/up · no vector reaches
+    (0x7f80, 0xbfe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2si_neghalf/zero · no vector reaches
+    (0x3f80, 0x41dfffffffe00000, 0x000000007fffffff, 0x20),  -- cvtsd2si_top/down · no vector reaches
+    (0x7f80, 0x41dfffffffe00000, 0x000000007fffffff, 0x20),  -- cvtsd2si_top/zero · no vector reaches
+    (0x1f80, 0xc1e0000000100000, 0x0000000080000000, 0x20),  -- cvtsd2si_bottom/nearest · no vector reaches
+    (0x5f80, 0xc1e0000000100000, 0x0000000080000000, 0x20),  -- cvtsd2si_bottom/up · no vector reaches
+    (0x7f80, 0xc1e0000000100000, 0x0000000080000000, 0x20),  -- cvtsd2si_bottom/zero · no vector reaches
+    (0x1f80, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2si_exact · no vector reaches
+    (0x1f80, 0xc01c000000000000, 0x00000000fffffff9, 0x00),  -- cvtsd2si_negexact · no vector reaches
+    (0x1f80, 0x7ff0000000000000, 0x0000000080000000, 0x01),  -- cvtsd2si_inf · no vector reaches
+    (0x1f80, 0xfff0000000000000, 0x0000000080000000, 0x01),  -- cvtsd2si_neginf · no vector reaches
+    (0x1f80, 0xc1e0000000000000, 0x0000000080000000, 0x00),  -- cvtsd2si_negtwo31 · no vector reaches
+    (0x1f88, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2si_exact_sticky1f88 · no vector reaches
+    (0x1fbf, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2si_exact_sticky1fbf · no vector reaches
+    (0x5f88, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2si_exact_sticky5f88 · no vector reaches
+    (0x7f88, 0x4008000000000000, 0x0000000000000003, 0x00)  -- cvtsd2si_exact_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, r, fl) =>
+      let t := step ⟨.vcvt2si true false .rax .x0, 4⟩ (b0Pre mx a 0)
+      b0Agrees t mx fl t.regs.rax r) = true := by decide
+
+theorem b6a_cvtsd2siq_pins :
+  ([  -- 41 of hwprobe's 66 rows
+    (0x1f80, 0x4004000000000000, 0x0000000000000002, 0x20),  -- cvtsd2siq_tie/nearest · no vector reaches
+    (0x3f80, 0x4004000000000000, 0x0000000000000002, 0x20),  -- cvtsd2siq_tie/down · no vector reaches
+    (0x5f80, 0x4004000000000000, 0x0000000000000003, 0x20),  -- cvtsd2siq_tie/up · no vector reaches
+    (0x7f80, 0x4004000000000000, 0x0000000000000002, 0x20),  -- cvtsd2siq_tie/zero · no vector reaches
+    (0x1f80, 0x400c000000000000, 0x0000000000000004, 0x20),  -- cvtsd2siq_tieodd/nearest · no vector reaches
+    (0x3f80, 0x400c000000000000, 0x0000000000000003, 0x20),  -- cvtsd2siq_tieodd/down · no vector reaches
+    (0x5f80, 0x400c000000000000, 0x0000000000000004, 0x20),  -- cvtsd2siq_tieodd/up · no vector reaches
+    (0x7f80, 0x400c000000000000, 0x0000000000000003, 0x20),  -- cvtsd2siq_tieodd/zero · no vector reaches
+    (0x1f80, 0xc004000000000000, 0xfffffffffffffffe, 0x20),  -- cvtsd2siq_negtie/nearest · no vector reaches
+    (0x3f80, 0xc004000000000000, 0xfffffffffffffffd, 0x20),  -- cvtsd2siq_negtie/down · no vector reaches
+    (0x5f80, 0xc004000000000000, 0xfffffffffffffffe, 0x20),  -- cvtsd2siq_negtie/up · no vector reaches
+    (0x7f80, 0xc004000000000000, 0xfffffffffffffffe, 0x20),  -- cvtsd2siq_negtie/zero · no vector reaches
+    (0x1f80, 0xbffc000000000000, 0xfffffffffffffffe, 0x20),  -- cvtsd2siq_negfrac/nearest · no vector reaches
+    (0x1f80, 0x3fe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2siq_half/nearest · no vector reaches
+    (0x3f80, 0x3fe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2siq_half/down · no vector reaches
+    (0x5f80, 0x3fe0000000000000, 0x0000000000000001, 0x20),  -- cvtsd2siq_half/up · no vector reaches
+    (0x7f80, 0x3fe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2siq_half/zero · no vector reaches
+    (0x1f80, 0xbfe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2siq_neghalf/nearest · no vector reaches
+    (0x3f80, 0xbfe0000000000000, 0xffffffffffffffff, 0x20),  -- cvtsd2siq_neghalf/down · no vector reaches
+    (0x5f80, 0xbfe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2siq_neghalf/up · no vector reaches
+    (0x7f80, 0xbfe0000000000000, 0x0000000000000000, 0x20),  -- cvtsd2siq_neghalf/zero · no vector reaches
+    (0x1f80, 0x43dfffffffffffff, 0x7ffffffffffffc00, 0x00),  -- cvtsd2siq_top/nearest · no vector reaches
+    (0x3f80, 0x43dfffffffffffff, 0x7ffffffffffffc00, 0x00),  -- cvtsd2siq_top/down · no vector reaches
+    (0x5f80, 0x43dfffffffffffff, 0x7ffffffffffffc00, 0x00),  -- cvtsd2siq_top/up · no vector reaches
+    (0x7f80, 0x43dfffffffffffff, 0x7ffffffffffffc00, 0x00),  -- cvtsd2siq_top/zero · no vector reaches
+    (0x1f80, 0xc3e0000000000000, 0x8000000000000000, 0x00),  -- cvtsd2siq_bottom/nearest · no vector reaches
+    (0x3f80, 0xc3e0000000000000, 0x8000000000000000, 0x00),  -- cvtsd2siq_bottom/down · no vector reaches
+    (0x5f80, 0xc3e0000000000000, 0x8000000000000000, 0x00),  -- cvtsd2siq_bottom/up · no vector reaches
+    (0x7f80, 0xc3e0000000000000, 0x8000000000000000, 0x00),  -- cvtsd2siq_bottom/zero · no vector reaches
+    (0x1f80, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2siq_exact · no vector reaches
+    (0x1f80, 0xc01c000000000000, 0xfffffffffffffff9, 0x00),  -- cvtsd2siq_negexact · no vector reaches
+    (0x1f80, 0x7ff0000000000000, 0x8000000000000000, 0x01),  -- cvtsd2siq_inf · no vector reaches
+    (0x1f80, 0xfff0000000000000, 0x8000000000000000, 0x01),  -- cvtsd2siq_neginf · no vector reaches
+    (0x1f80, 0x41e0000000000000, 0x0000000080000000, 0x00),  -- cvtsd2siq_two31 · no vector reaches
+    (0x1f80, 0xc1e0000000000000, 0xffffffff80000000, 0x00),  -- cvtsd2siq_negtwo31 · no vector reaches
+    (0x1f80, 0x4270000000000000, 0x0000010000000000, 0x00),  -- cvtsd2siq_big · no vector reaches
+    (0x1f80, 0xc3e0000000000000, 0x8000000000000000, 0x00),  -- cvtsd2siq_negtwo63 · no vector reaches
+    (0x1f88, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2siq_exact_sticky1f88 · no vector reaches
+    (0x1fbf, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2siq_exact_sticky1fbf · no vector reaches
+    (0x5f88, 0x4008000000000000, 0x0000000000000003, 0x00),  -- cvtsd2siq_exact_sticky5f88 · no vector reaches
+    (0x7f88, 0x4008000000000000, 0x0000000000000003, 0x00)  -- cvtsd2siq_exact_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, r, fl) =>
+      let t := step ⟨.vcvt2si true true .rax .x0, 5⟩ (b0Pre mx a 0)
+      b0Agrees t mx fl t.regs.rax r) = true := by decide
+
+theorem b6a_cvtss2si_pins :
+  ([  -- 29 of hwprobe's 66 rows
+    (0x1f80, 0x0000000040200000, 0x0000000000000002, 0x20),  -- cvtss2si_tie/nearest · no vector reaches
+    (0x3f80, 0x0000000040200000, 0x0000000000000002, 0x20),  -- cvtss2si_tie/down · no vector reaches
+    (0x5f80, 0x0000000040200000, 0x0000000000000003, 0x20),  -- cvtss2si_tie/up · no vector reaches
+    (0x7f80, 0x0000000040200000, 0x0000000000000002, 0x20),  -- cvtss2si_tie/zero · no vector reaches
+    (0x1f80, 0x0000000040600000, 0x0000000000000004, 0x20),  -- cvtss2si_tieodd/nearest · no vector reaches
+    (0x3f80, 0x0000000040600000, 0x0000000000000003, 0x20),  -- cvtss2si_tieodd/down · no vector reaches
+    (0x5f80, 0x0000000040600000, 0x0000000000000004, 0x20),  -- cvtss2si_tieodd/up · no vector reaches
+    (0x7f80, 0x0000000040600000, 0x0000000000000003, 0x20),  -- cvtss2si_tieodd/zero · no vector reaches
+    (0x1f80, 0x00000000c0200000, 0x00000000fffffffe, 0x20),  -- cvtss2si_negtie/nearest · no vector reaches
+    (0x3f80, 0x00000000c0200000, 0x00000000fffffffd, 0x20),  -- cvtss2si_negtie/down · no vector reaches
+    (0x5f80, 0x00000000c0200000, 0x00000000fffffffe, 0x20),  -- cvtss2si_negtie/up · no vector reaches
+    (0x7f80, 0x00000000c0200000, 0x00000000fffffffe, 0x20),  -- cvtss2si_negtie/zero · no vector reaches
+    (0x1f80, 0x00000000bfe00000, 0x00000000fffffffe, 0x20),  -- cvtss2si_negfrac/nearest · no vector reaches
+    (0x1f80, 0x000000003f000000, 0x0000000000000000, 0x20),  -- cvtss2si_half/nearest · no vector reaches
+    (0x3f80, 0x000000003f000000, 0x0000000000000000, 0x20),  -- cvtss2si_half/down · no vector reaches
+    (0x5f80, 0x000000003f000000, 0x0000000000000001, 0x20),  -- cvtss2si_half/up · no vector reaches
+    (0x7f80, 0x000000003f000000, 0x0000000000000000, 0x20),  -- cvtss2si_half/zero · no vector reaches
+    (0x1f80, 0x00000000bf000000, 0x0000000000000000, 0x20),  -- cvtss2si_neghalf/nearest · no vector reaches
+    (0x3f80, 0x00000000bf000000, 0x00000000ffffffff, 0x20),  -- cvtss2si_neghalf/down · no vector reaches
+    (0x5f80, 0x00000000bf000000, 0x0000000000000000, 0x20),  -- cvtss2si_neghalf/up · no vector reaches
+    (0x7f80, 0x00000000bf000000, 0x0000000000000000, 0x20),  -- cvtss2si_neghalf/zero · no vector reaches
+    (0x1f80, 0x00000000cf000000, 0x0000000080000000, 0x00),  -- cvtss2si_bottom/nearest · no vector reaches
+    (0x3f80, 0x00000000cf000000, 0x0000000080000000, 0x00),  -- cvtss2si_bottom/down · no vector reaches
+    (0x5f80, 0x00000000cf000000, 0x0000000080000000, 0x00),  -- cvtss2si_bottom/up · no vector reaches
+    (0x7f80, 0x00000000cf000000, 0x0000000080000000, 0x00),  -- cvtss2si_bottom/zero · no vector reaches
+    (0x1f80, 0x00000000c0e00000, 0x00000000fffffff9, 0x00),  -- cvtss2si_negexact · no vector reaches
+    (0x1f80, 0x000000007f800000, 0x0000000080000000, 0x01),  -- cvtss2si_inf · no vector reaches
+    (0x1f80, 0x00000000ff800000, 0x0000000080000000, 0x01),  -- cvtss2si_neginf · no vector reaches
+    (0x1f80, 0x00000000cf000000, 0x0000000080000000, 0x00)  -- cvtss2si_negtwo31 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, r, fl) =>
+      let t := step ⟨.vcvt2si false false .rax .x0, 4⟩ (b0Pre mx a 0)
+      b0Agrees t mx fl t.regs.rax r) = true := by decide
+
+theorem b6a_cvtss2siq_pins :
+  ([  -- 25 of hwprobe's 66 rows
+    (0x1f80, 0x0000000040200000, 0x0000000000000002, 0x20),  -- cvtss2siq_tie/nearest · no vector reaches
+    (0x3f80, 0x0000000040200000, 0x0000000000000002, 0x20),  -- cvtss2siq_tie/down · no vector reaches
+    (0x5f80, 0x0000000040200000, 0x0000000000000003, 0x20),  -- cvtss2siq_tie/up · no vector reaches
+    (0x7f80, 0x0000000040200000, 0x0000000000000002, 0x20),  -- cvtss2siq_tie/zero · no vector reaches
+    (0x1f80, 0x0000000040600000, 0x0000000000000004, 0x20),  -- cvtss2siq_tieodd/nearest · no vector reaches
+    (0x3f80, 0x0000000040600000, 0x0000000000000003, 0x20),  -- cvtss2siq_tieodd/down · no vector reaches
+    (0x5f80, 0x0000000040600000, 0x0000000000000004, 0x20),  -- cvtss2siq_tieodd/up · no vector reaches
+    (0x7f80, 0x0000000040600000, 0x0000000000000003, 0x20),  -- cvtss2siq_tieodd/zero · no vector reaches
+    (0x1f80, 0x00000000c0200000, 0xfffffffffffffffe, 0x20),  -- cvtss2siq_negtie/nearest · no vector reaches
+    (0x3f80, 0x00000000c0200000, 0xfffffffffffffffd, 0x20),  -- cvtss2siq_negtie/down · no vector reaches
+    (0x5f80, 0x00000000c0200000, 0xfffffffffffffffe, 0x20),  -- cvtss2siq_negtie/up · no vector reaches
+    (0x7f80, 0x00000000c0200000, 0xfffffffffffffffe, 0x20),  -- cvtss2siq_negtie/zero · no vector reaches
+    (0x1f80, 0x00000000bfe00000, 0xfffffffffffffffe, 0x20),  -- cvtss2siq_negfrac/nearest · no vector reaches
+    (0x1f80, 0x000000003f000000, 0x0000000000000000, 0x20),  -- cvtss2siq_half/nearest · no vector reaches
+    (0x3f80, 0x000000003f000000, 0x0000000000000000, 0x20),  -- cvtss2siq_half/down · no vector reaches
+    (0x5f80, 0x000000003f000000, 0x0000000000000001, 0x20),  -- cvtss2siq_half/up · no vector reaches
+    (0x7f80, 0x000000003f000000, 0x0000000000000000, 0x20),  -- cvtss2siq_half/zero · no vector reaches
+    (0x1f80, 0x00000000bf000000, 0x0000000000000000, 0x20),  -- cvtss2siq_neghalf/nearest · no vector reaches
+    (0x3f80, 0x00000000bf000000, 0xffffffffffffffff, 0x20),  -- cvtss2siq_neghalf/down · no vector reaches
+    (0x5f80, 0x00000000bf000000, 0x0000000000000000, 0x20),  -- cvtss2siq_neghalf/up · no vector reaches
+    (0x7f80, 0x00000000bf000000, 0x0000000000000000, 0x20),  -- cvtss2siq_neghalf/zero · no vector reaches
+    (0x1f80, 0x000000007f800000, 0x8000000000000000, 0x01),  -- cvtss2siq_inf · no vector reaches
+    (0x1f80, 0x00000000ff800000, 0x8000000000000000, 0x01),  -- cvtss2siq_neginf · no vector reaches
+    (0x1f80, 0x000000005f000000, 0x8000000000000000, 0x01),  -- cvtss2siq_two63 · no vector reaches
+    (0x1f80, 0x000000007f7fffff, 0x8000000000000000, 0x01)  -- cvtss2siq_max · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, r, fl) =>
+      let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)
+      b0Agrees t mx fl t.regs.rax r) = true := by decide
+
+-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).
+set_option maxRecDepth 8000 in
+theorem b6b_sqrtsd_pins :
+  ([  -- 12 of hwprobe's 45 rows
+    (0x1f80, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four · no vector reaches
+    (0x1f80, 0x3ff0000000000000, 0x5a5ac3c300000000, 0x3ff0000000000000, 0x00),  -- sqrtsd_one · no vector reaches
+    (0x1f80, 0x3fd0000000000000, 0x5a5ac3c300000000, 0x3fe0000000000000, 0x00),  -- sqrtsd_quarter · no vector reaches
+    (0x1f80, 0x7ff0000000000000, 0x5a5ac3c300000000, 0x7ff0000000000000, 0x00),  -- sqrtsd_inf · no vector reaches
+    (0x1f80, 0xfff0000000000000, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_neginf · x86isa differs
+    (0x1f80, 0xbff0000000000000, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_negone · x86isa differs
+    (0x1f80, 0x800fffffffffffff, 0x5a5ac3c300000000, 0xfff8000000000000, 0x01),  -- sqrtsd_negden · x86isa differs
+    (0x1f80, 0x7ff0000000000123, 0x5a5ac3c300000000, 0x7ff8000000000123, 0x01),  -- sqrtsd_snan · no vector reaches
+    (0x1f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky1f88 · no vector reaches
+    (0x1fbf, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky1fbf · no vector reaches
+    (0x5f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00),  -- sqrtsd_four_sticky5f88 · no vector reaches
+    (0x7f88, 0x4010000000000000, 0x5a5ac3c300000000, 0x4000000000000000, 0x00)  -- sqrtsd_four_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vsqrt .q .x1 .x0, 4⟩ (b0Pre mx a b)
+      b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
+
+-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).
+set_option maxRecDepth 8000 in
+theorem b6b_sqrtss_pins :
+  ([  -- 12 of hwprobe's 45 rows
+    (0x1f80, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four · no vector reaches
+    (0x1f80, 0x000000003f800000, 0x5a5ac3c300000000, 0x5a5ac3c33f800000, 0x00),  -- sqrtss_one · no vector reaches
+    (0x1f80, 0x000000003e800000, 0x5a5ac3c300000000, 0x5a5ac3c33f000000, 0x00),  -- sqrtss_quarter · no vector reaches
+    (0x1f80, 0x000000007f800000, 0x5a5ac3c300000000, 0x5a5ac3c37f800000, 0x00),  -- sqrtss_inf · no vector reaches
+    (0x1f80, 0x00000000ff800000, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_neginf · x86isa differs
+    (0x1f80, 0x00000000bf800000, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_negone · x86isa differs
+    (0x1f80, 0x00000000807fffff, 0x5a5ac3c300000000, 0x5a5ac3c3ffc00000, 0x01),  -- sqrtss_negden · x86isa differs
+    (0x1f80, 0x000000007f800123, 0x5a5ac3c300000000, 0x5a5ac3c37fc00123, 0x01),  -- sqrtss_snan · no vector reaches
+    (0x1f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky1f88 · no vector reaches
+    (0x1fbf, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky1fbf · no vector reaches
+    (0x5f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00),  -- sqrtss_four_sticky5f88 · no vector reaches
+    (0x7f88, 0x0000000040800000, 0x5a5ac3c300000000, 0x5a5ac3c340000000, 0x00)  -- sqrtss_four_sticky7f88 · no vector reaches
+  ] : List (BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vsqrt .d .x1 .x0, 4⟩ (b0Pre mx a b)
+      b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r) = true := by decide
+
 theorem b3_cvtsd2ss_pins :
   ([  -- 32 of hwprobe's 77 rows
     (0x1f80, 0x3ff0000010000000, 0x5a5ac3c300000000, 0x5a5ac3c33f800000, 0x20),  -- cvtsd2ss_tie/nearest · no vector reaches
@@ -2935,6 +3135,23 @@ theorem b5_divpd_pins :
   ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
     (fun (mx, a, b, r, fl) =>
       let t := step ⟨.vparith .div true .x0 .x1, 4⟩ (b5Pre mx a b)
+      b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
+
+theorem b7_cvtpd2ps_pins :
+  ([  -- 10 of hwprobe's 12 rows
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/nearest · no vector reaches
+    (0x3f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/down · no vector reaches
+    (0x5f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7fefffffffffffff3fd5555555555555, 0x00000000000000007f8000003eaaaaab, 0x28),  -- cvtpd2ps_mix/up · no vector reaches
+    (0x5f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400001, 0x30),  -- cvtpd2ps_tiny/up · no vector reaches
+    (0x7f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7fefffffffffffff3fd5555555555555, 0x00000000000000007f7fffff3eaaaaaa, 0x28),  -- cvtpd2ps_mix/zero · no vector reaches
+    (0x7f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000003800000000080000, 0x00000000000000003f80000000400000, 0x30),  -- cvtpd2ps_tiny/zero · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x3ff00000000000007ff0000000000789, 0x00000000000000003f8000007fc00000, 0x01),  -- cvtpd2ps_loud@0 · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x7ff00000000007893ff0000000000000, 0x00000000000000007fc000003f800000, 0x01),  -- cvtpd2ps_loud@1 · no vector reaches
+    (0x1f80, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x000fffffffffffff3ff0000000000000, 0x0000000000000000000000003f800000, 0x32),  -- cvtpd2ps_den@1 · no vector reaches
+    (0x1fbf, 0xc3c35a5aa5a53c3c0f0ff0f012345678, 0x40000000000000003ff0000000000000, 0x0000000000000000400000003f800000, 0x00)  -- cvtpd2ps_sticky1fbf · x86isa differs
+  ] : List (BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32)).all
+    (fun (mx, a, b, r, fl) =>
+      let t := step ⟨.vcvtpd2ps .x0 .x1, 4⟩ (b5Pre mx a b)
       b5Agrees t mx fl (t.getXmm .x0) r) = true := by decide
 
 -- ⟦B0–B4 PINS END⟧

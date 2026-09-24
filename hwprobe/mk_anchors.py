@@ -168,8 +168,59 @@ PINNED.update({n: _R for n in _B4_R})
 
 # B4's hardware reading lands before its batch, as B3's did (D272): its rows are PENDING until the batch names its
 # pins, so the tracked block stays byte-identical. B3 (D273) retired the set its own rows sat in.
-# B6 (D287): the square roots and CVTS?2SI, read before their batch; pending until it names its pins.
-PENDING: set[str] = {"p_sqrtss", "p_sqrtsd", "p_cvtss2si", "p_cvtss2siq", "p_cvtsd2si", "p_cvtsd2siq"}
+# B6a (D290): CVTS?2SI. x86isa agrees with every row (D287 s4), so the pins are hwprobe/cvt2si_reach.py's output: the
+# rows whose ROUNDING PATH (nan, inf, zero, exact, toward, away, tie, range) with its sign, and RC where inexact, no
+# vector of the same form presents over the 88 pre-states. Every tie and every away-at-nearest is here (D289 s2).
+_B6A_R = [
+          "cvtsd2si_tie/nearest", "cvtsd2si_tie/down", "cvtsd2si_tie/up", "cvtsd2si_tie/zero",
+          "cvtsd2si_tieodd/nearest", "cvtsd2si_tieodd/down", "cvtsd2si_tieodd/up", "cvtsd2si_tieodd/zero",
+          "cvtsd2si_negtie/nearest", "cvtsd2si_negtie/down", "cvtsd2si_negtie/up", "cvtsd2si_negtie/zero",
+          "cvtsd2si_negfrac/nearest", "cvtsd2si_half/nearest", "cvtsd2si_half/down", "cvtsd2si_half/up",
+          "cvtsd2si_half/zero", "cvtsd2si_neghalf/nearest", "cvtsd2si_neghalf/down", "cvtsd2si_neghalf/up",
+          "cvtsd2si_neghalf/zero", "cvtsd2si_top/down", "cvtsd2si_top/zero", "cvtsd2si_bottom/nearest",
+          "cvtsd2si_bottom/up", "cvtsd2si_bottom/zero", "cvtsd2si_exact", "cvtsd2si_negexact", "cvtsd2si_inf",
+          "cvtsd2si_neginf", "cvtsd2si_negtwo31", "cvtsd2si_exact_sticky1f88", "cvtsd2si_exact_sticky1fbf",
+          "cvtsd2si_exact_sticky5f88", "cvtsd2si_exact_sticky7f88", "cvtsd2siq_tie/nearest", "cvtsd2siq_tie/down",
+          "cvtsd2siq_tie/up", "cvtsd2siq_tie/zero", "cvtsd2siq_tieodd/nearest", "cvtsd2siq_tieodd/down",
+          "cvtsd2siq_tieodd/up", "cvtsd2siq_tieodd/zero", "cvtsd2siq_negtie/nearest", "cvtsd2siq_negtie/down",
+          "cvtsd2siq_negtie/up", "cvtsd2siq_negtie/zero", "cvtsd2siq_negfrac/nearest", "cvtsd2siq_half/nearest",
+          "cvtsd2siq_half/down", "cvtsd2siq_half/up", "cvtsd2siq_half/zero", "cvtsd2siq_neghalf/nearest",
+          "cvtsd2siq_neghalf/down", "cvtsd2siq_neghalf/up", "cvtsd2siq_neghalf/zero", "cvtsd2siq_top/nearest",
+          "cvtsd2siq_top/down", "cvtsd2siq_top/up", "cvtsd2siq_top/zero", "cvtsd2siq_bottom/nearest",
+          "cvtsd2siq_bottom/down", "cvtsd2siq_bottom/up", "cvtsd2siq_bottom/zero", "cvtsd2siq_exact",
+          "cvtsd2siq_negexact", "cvtsd2siq_inf", "cvtsd2siq_neginf", "cvtsd2siq_two31", "cvtsd2siq_negtwo31",
+          "cvtsd2siq_big", "cvtsd2siq_negtwo63", "cvtsd2siq_exact_sticky1f88", "cvtsd2siq_exact_sticky1fbf",
+          "cvtsd2siq_exact_sticky5f88", "cvtsd2siq_exact_sticky7f88", "cvtss2si_tie/nearest", "cvtss2si_tie/down",
+          "cvtss2si_tie/up", "cvtss2si_tie/zero", "cvtss2si_tieodd/nearest", "cvtss2si_tieodd/down",
+          "cvtss2si_tieodd/up", "cvtss2si_tieodd/zero", "cvtss2si_negtie/nearest", "cvtss2si_negtie/down",
+          "cvtss2si_negtie/up", "cvtss2si_negtie/zero", "cvtss2si_negfrac/nearest", "cvtss2si_half/nearest",
+          "cvtss2si_half/down", "cvtss2si_half/up", "cvtss2si_half/zero", "cvtss2si_neghalf/nearest",
+          "cvtss2si_neghalf/down", "cvtss2si_neghalf/up", "cvtss2si_neghalf/zero", "cvtss2si_bottom/nearest",
+          "cvtss2si_bottom/down", "cvtss2si_bottom/up", "cvtss2si_bottom/zero", "cvtss2si_negexact", "cvtss2si_inf",
+          "cvtss2si_neginf", "cvtss2si_negtwo31", "cvtss2siq_tie/nearest", "cvtss2siq_tie/down", "cvtss2siq_tie/up",
+          "cvtss2siq_tie/zero", "cvtss2siq_tieodd/nearest", "cvtss2siq_tieodd/down", "cvtss2siq_tieodd/up",
+          "cvtss2siq_tieodd/zero", "cvtss2siq_negtie/nearest", "cvtss2siq_negtie/down", "cvtss2siq_negtie/up",
+          "cvtss2siq_negtie/zero", "cvtss2siq_negfrac/nearest", "cvtss2siq_half/nearest", "cvtss2siq_half/down",
+          "cvtss2siq_half/up", "cvtss2siq_half/zero", "cvtss2siq_neghalf/nearest", "cvtss2siq_neghalf/down",
+          "cvtss2siq_neghalf/up", "cvtss2siq_neghalf/zero", "cvtss2siq_inf", "cvtss2siq_neginf", "cvtss2siq_two63",
+          "cvtss2siq_max",
+]
+PINNED.update({n: _R for n in _B6A_R})
+
+# B6b (D293): SQRTS?. x86isa differs on the 6 negative sources (its indefinite has no sign bit, D287 s4); the rest is
+# hwprobe/sqrt_reach.py's output, the rows whose PATH (with a denormal source, RC where inexact, and a preset flag) no
+# vector of the same format presents over the 88 pre-states.
+_B6B_X = ["sqrtsd_negden", "sqrtsd_neginf", "sqrtsd_negone", "sqrtss_negden", "sqrtss_neginf", "sqrtss_negone"]
+_B6B_R = [
+          "sqrtsd_four", "sqrtsd_one", "sqrtsd_quarter", "sqrtsd_inf", "sqrtsd_snan", "sqrtsd_four_sticky1f88",
+          "sqrtsd_four_sticky1fbf", "sqrtsd_four_sticky5f88", "sqrtsd_four_sticky7f88", "sqrtss_four", "sqrtss_one",
+          "sqrtss_quarter", "sqrtss_inf", "sqrtss_snan", "sqrtss_four_sticky1f88", "sqrtss_four_sticky1fbf",
+          "sqrtss_four_sticky5f88", "sqrtss_four_sticky7f88",
+]
+PINNED.update({n: _X for n in _B6B_X})
+PINNED.update({n: _R for n in _B6B_R})
+
+PENDING: set[str] = set()   # B6b named its pins in D293; nothing is pending.
 
 # B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
 # source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8
@@ -189,8 +240,15 @@ _B5_R = [
 # Step A pinned the 8 x86isa rows and the reach rows of mulps, mulpd, addps and divps; step B (D286) pinned the rest.
 _B5_R_NEXT: list[str] = [
 ]
+# B7 (D296): CVTPD2PS's pins, packed_reach.py's output (its lane rule, with CVTSD2SS's per-lane flags); the preset-OE
+# row is x86isa's (D294). SQRTPS has hardware rows and NO roster row (D295 s2), so it stays pending: nothing claims it.
+_B7_X = ["cvtpd2ps_sticky1fbf"]
+_B7_R = ["cvtpd2ps_tiny/nearest", "cvtpd2ps_tiny/down", "cvtpd2ps_mix/up", "cvtpd2ps_tiny/up", "cvtpd2ps_mix/zero", "cvtpd2ps_tiny/zero", "cvtpd2ps_loud@0", "cvtpd2ps_loud@1", "cvtpd2ps_den@1"]
+PPENDING: set[str] = {"p_sqrtps"}
 PPINNED = {n: _X for n in _B5_X}
 PPINNED.update({n: _R for n in _B5_R})
+PPINNED.update({n: _X for n in _B7_X})
+PPINNED.update({n: _R for n in _B7_R})
 
 COMIS = {"p_comisd": ("true", ".q"), "p_ucomisd": ("false", ".q"),
          "p_comiss": ("true", ".d"), "p_ucomiss": ("false", ".d")}
@@ -324,6 +382,42 @@ FAMILIES = [
      ["(fun (mx, a, b, r, fl) =>",
       "  let t := step ⟨.vcvtsi2 true true .x1 .rdi, 4⟩ (b0Pre mx a b)",
       "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
+    ("b6a_cvtsd2si_pins", lambda fn: fn == "p_cvtsd2si",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si true false .rax .x0, 4⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6a_cvtsd2siq_pins", lambda fn: fn == "p_cvtsd2siq",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si true true .rax .x0, 5⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6a_cvtss2si_pins", lambda fn: fn == "p_cvtss2si",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si false false .rax .x0, 4⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6a_cvtss2siq_pins", lambda fn: fn == "p_cvtss2siq",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6b_sqrtsd_pins", lambda fn: fn == "p_sqrtsd",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vsqrt .q .x1 .x0, 4⟩ (b0Pre mx a b)",
+      "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
+    ("b6b_sqrtss_pins", lambda fn: fn == "p_sqrtss",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, b, r, fl) =>",
+      "  let t := step ⟨.vsqrt .d .x1 .x0, 4⟩ (b0Pre mx a b)",
+      "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
     ("b3_cvtsd2ss_pins", lambda fn: fn == "p_cvtsd2ss",
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),
@@ -342,6 +436,13 @@ PFAMILIES = [
       "  b5Agrees t mx fl (t.getXmm .x0) r)"])
     for op in ("mul", "add", "sub", "div") for suf in ("ps", "pd")
 ]
+# B7: `cvtpd2ps %xmm1, %xmm0` over all 128 bits of both; %xmm0's incoming bits are the canary the form must zero.
+PFAMILIES.append(("b7_cvtpd2ps_pins", "p_cvtpd2ps",
+                  ["(fun (mx, a, b, r, fl) =>",
+                   "  let t := step ⟨.vcvtpd2ps .x0 .x1, 4⟩ (b5Pre mx a b)",
+                   "  b5Agrees t mx fl (t.getXmm .x0) r)"]))
+# The families whose `decide` needs more than the elaborator's default recursion depth, and how much.
+RECDEPTH = {"b6b_sqrtsd_pins": 8000, "b6b_sqrtss_pins": 8000}
 PTY = "BitVec 32 × BitVec 128 × BitVec 128 × BitVec 128 × BitVec 32"
 
 
@@ -353,7 +454,9 @@ def block():
         allf = [r for r in rs if pick(r[1])]
         used += len(allf)
         fam = [r for r in allf if r[0] in PINNED]
-        lines += ["", "theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
+        lines += [""] + (["-- `isqrtGo` recurses once per root bit, past the elaborator's default depth (D293).",
+                          "set_option maxRecDepth %d in" % RECDEPTH[thm]] if thm in RECDEPTH else [])
+        lines += ["theorem %s :" % thm, "  ([  -- %d of hwprobe's %d rows" % (len(fam), len(allf))]
         for i, (n, fn, mx, a, b, want, mask, fl) in enumerate(fam):
             sep = "," if i + 1 < len(fam) else ""
             lines.append("    (%s)%s  -- %s · %s" % (", ".join(fmt(fn, mx, a, b, want, mask, fl)), sep, n,
@@ -381,8 +484,10 @@ def block():
         lines.append("  ] : List (%s)).all" % PTY)
         lines += ["    " + c for c in check]
         lines[-1] += " = true := by decide"
-    if pused != len(prs):
-        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family" % (len(prs) - pused))
+    ppend = sum(1 for r in prs if r[1] in PPENDING)
+    if pused + ppend != len(prs):
+        raise SystemExit("mk_anchors: %d of mk_rows.py's packed rows are in no family and not pending"
+                         % (len(prs) - pused - ppend))
     lines += ["", END]
     return lines
 

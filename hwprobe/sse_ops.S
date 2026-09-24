@@ -280,6 +280,20 @@ SYM(p_divpd):
         divpd %xmm1, %xmm0              /* 66 0f 5e c1 */
         RET128
 
+/* B7 (D294): the last two packed forms sub-group B holds. Both read all of %xmm1 and write all of %xmm0: SQRTPS
+   every lane, CVTPD2PS the low two binary32 lanes with bits 127:64 ZEROED. %xmm0's incoming bits are a canary. */
+        .globl SYM(p_sqrtps)
+SYM(p_sqrtps):
+        LOAD4
+        sqrtps %xmm1, %xmm0             /* 0f 51 c1 */
+        RET128
+
+        .globl SYM(p_cvtpd2ps)
+SYM(p_cvtpd2ps):
+        LOAD4
+        cvtpd2ps %xmm1, %xmm0           /* 66 0f 5a c1 */
+        RET128
+
 #ifndef __APPLE__
         .section .note.GNU-stack,"",@progbits
 #endif
