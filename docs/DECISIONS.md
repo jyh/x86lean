@@ -20119,3 +20119,79 @@ oracle-divergence=244`.
 - **Derived documents regenerated:** `docs/COVERAGE.md` (194 rows), `docs/DEMAND-CENSUS.md` + `.json` (staleness gate
   CLEAN), `docs/P2-ROSTER.md` (gate CLEAN), README counts and the commission's residue: **484 → 226 over 4 pairs**
   (`p2_residue`, derived). What remains is `sqrtss` 134 · `sqrtsd` 89 (B6b) · `sqrtps` 2 · `cvtpd2ps` 1.
+
+## D290 — B6a's kernel pins: 130 of 264 cvt*2si rows, by a ROUNDING-PATH reach rule, in one step
+
+⚖️ x86isa agrees with all 264 cvt*2si rows (D287 §4), so D267 §2's rule selects on REACH alone. B4's reach
+(`reach_table.py`: some vector's source EQUALS the row's at that RC) pins **256 of 264** here, because no random state
+equals 5/2 or 7/2. So the class is the rounding PATH, as B3 classed `cvtsd2ss` (D273): **`hwprobe/cvt2si_reach.py`**,
+a command, reading `run/prestates.json` and the vectors' constructors.
+```
+  class      (path, sign, RC where inexact)
+  path       nan · inf · zero · exact · toward (inexact, toward zero) · away (inexact, away from zero)
+             · tie (exactly half-way) · range (rounded result out of range)
+  result     TOTAL 264 / PINNED 130 / CARRIED 134   (carried: toward 56 · exact 27 · away 20 · range 15 · nan 8 · zero 8)
+  --selftest the two known answers from D289 §2 (every tie at nearest unreached; the memory source makes some
+             round-up row reached), a NaN row reached, and the control: value-and-RC equality pins 256, a STRICT
+             superset of the path rule's 130 ✔
+```
+**The 130 include every tie at every mode and every away-at-nearest**, which is D289 §2's gap. The kernel now carries
+what no vector can: a model that truncated at nearest, or broke a tie away from zero, is refused by `decide`.
+**Red backwards:** planting the round-half-away result on `cvtsd2si_tie/nearest` (`3` for `2`) makes `decide` refuse
+(build rc 1).
+**Price, measured on the draft** (`deterministic_cost.py --module Tests.Anchors`, base `c31209b`): **Δku +93,692**
+(sd 27,341 · sdq 28,938 · ss 19,970 · ssq 17,443) against A′'s 23.3% × 663,363 ≈ **154.6k**. **CLEAN in one step,
+60.9k margin.** `PENDING` now holds the square roots alone (B6b).
+⚠️ Not measured: whether a reached class is compared soundly. And `run/prestates.json` is a declared input, so CI
+cannot re-run the selection, exactly as for B0–B5.
+
+## D291 — B6b's shape: `vsqrt`/`vsqrtm` and `SoftFloat.fsqrt` on `roundPack`
+
+⚖️ QUEUE P3, B6b = `sqrtss` 134 + `sqrtsd` 89 = **223**, on D287's reading.
+- **`SoftFloat.isqrtGo`**: `⌊√n⌋` digit by digit, STRUCTURAL on the bit count. Core's `Nat.sqrt` is defined by
+  well-founded recursion, which the kernel's `decide` does not reduce well, and the B6b pins will be `decide`.
+- **`SoftFloat.fsqrt`**: NaN quieted (IE on an SNaN); ±0 and +∞ returned; any other negative source gives the SIGNED
+  indefinite and IE ALONE (both vendors, D287 §4). Otherwise `m × 2^e` is scaled by an even shift that leaves at least
+  `mw + 2` root bits, and `2q + sticky` goes to **`roundPack`**, the rounding every B-form shares. A square root is
+  never exactly half-way, so the sticky bit below the round bit gives the correctly rounded result. A root is never
+  tiny or huge, so the flags are PE iff inexact, plus DE on a denormal source. No power above 256 (`m · 2^s < 2^166`).
+- **`vsqrt` / `vsqrtm`** over `Size` as `varith` is, NOT a fifth `VArithOp` member, for D273's reason (the fold's
+  operations take two operands). `vsqrtLow` keeps every bit above the lane, as `varithLow` does.
+- **Checked against the hardware rows before any vector** (`run/b6b_check.lean`): `vsqrtLow` equals `want` (canary
+  lane included) and the flags on **all 90** sqrt rows that silicon read 934/934. **Control:** ignoring MXCSR.RC misses
+  **17**, which is exactly what `mk_rows.fsqrt` predicts for that mutant independently.
+Build: full route rc 0.
+
+## D292 — P2 batch 49, sub-group B6b: SQRTSD / SQRTSS — 6 vectors, a declared indefinite, three arms
+
+⚖️ On D291's shape. **Two roster rows** (`sqrtsd`, `sqrtss`), **6 vectors**, **3 arms**. Assembly-class demand **223**.
+
+### 1. THE VECTORS (`run/b6b_census.txt`)
+The census over the 88 pre-states found that **every source reaching DE or IE also reaches a negative source**, and so
+x86isa's sign-less indefinite. The only negative-free sources are memory offsets (−0x20, −0x1c), which reach PE alone.
+So per format: **%xmm0 → %xmm1** (IDP; negative in 12 / 11 states), **−0x20(%rbx) → %xmm9** (REX.R, the memory form;
+no negative; RC matters in all 88) and **%xmm15 → %xmm2** (REX.B; negative in 13 / 12). The REX.B sources x8–x14 are
+negative in ~67 of 88 and were passed over, to keep the declared divergence small.
+
+### 2. THE DECLARED DIVERGENCE — B2's `divsd_m10` precedent (D271)
+The four register vectors carry a `pair` in `knownDivergences`: `fff8…`/`7ff8…` (sd) and `ffc00000`/`7fc00000` (ss)
+in the destination's LOW lane, with every bit above it required to agree. The memory vectors are not declared, because
+a declaration that can never fire is an untested claim.
+
+### 3. PREDICTIONS, COMMITTED BEFORE THE RUNS
+```
+  differential   cases +528 (6 × 88) = 101112 · matched +480 = 80415 · explained +0 = 29479 · unexplained 0
+                 · oracle-divergence +48 = 292   (sqrtsd_x0_x1 12 · sqrtsd_x15_x2 13 · sqrtss_x0_x1 11 · sqrtss_x15_x2 12)
+  arms (84 states, run/b6b_arm_pred.txt)
+    sqrts? ignores MXCSR.RC and rounds to nearest    xmm1       32
+    sqrts? raises no DE on a denormal source         mxcsr.de   57
+    sqrts? zeroes the bits above the lane            xmm1      162
+```
+
+### 4. THE READINGS — every predicted field as committed
+- **Differential:** `cases=101112 matched=80415 explained=29479 unexplained=0 oracle-divergence=292` = §3 exactly.
+  88 cases per vector on both sides, 0 refused (record 35).
+- **Arms:** 32 = 32 (total 129 = 129) · 57 = 57 · 162 = 162 (total 498 = 498).
+- **Regenerated:** COVERAGE.md (196 rows), the demand census (CLEAN at 196 mnemonics; ⚠️ run it AFTER COVERAGE.md,
+  since it reads the model from there and read 194 when run first), P2-ROSTER.md (CLEAN), README, and the commission:
+  **226 → 3** (`sqrtps` 2 · `cvtpd2ps` 1). ⇒ **Sub-group B is 3 instructions from empty.**

@@ -168,8 +168,47 @@ PINNED.update({n: _R for n in _B4_R})
 
 # B4's hardware reading lands before its batch, as B3's did (D272): its rows are PENDING until the batch names its
 # pins, so the tracked block stays byte-identical. B3 (D273) retired the set its own rows sat in.
-# B6 (D287): the square roots and CVTS?2SI, read before their batch; pending until it names its pins.
-PENDING: set[str] = {"p_sqrtss", "p_sqrtsd", "p_cvtss2si", "p_cvtss2siq", "p_cvtsd2si", "p_cvtsd2siq"}
+# B6a (D290): CVTS?2SI. x86isa agrees with every row (D287 s4), so the pins are hwprobe/cvt2si_reach.py's output: the
+# rows whose ROUNDING PATH (nan, inf, zero, exact, toward, away, tie, range) with its sign, and RC where inexact, no
+# vector of the same form presents over the 88 pre-states. Every tie and every away-at-nearest is here (D289 s2).
+_B6A_R = [
+          "cvtsd2si_tie/nearest", "cvtsd2si_tie/down", "cvtsd2si_tie/up", "cvtsd2si_tie/zero",
+          "cvtsd2si_tieodd/nearest", "cvtsd2si_tieodd/down", "cvtsd2si_tieodd/up", "cvtsd2si_tieodd/zero",
+          "cvtsd2si_negtie/nearest", "cvtsd2si_negtie/down", "cvtsd2si_negtie/up", "cvtsd2si_negtie/zero",
+          "cvtsd2si_negfrac/nearest", "cvtsd2si_half/nearest", "cvtsd2si_half/down", "cvtsd2si_half/up",
+          "cvtsd2si_half/zero", "cvtsd2si_neghalf/nearest", "cvtsd2si_neghalf/down", "cvtsd2si_neghalf/up",
+          "cvtsd2si_neghalf/zero", "cvtsd2si_top/down", "cvtsd2si_top/zero", "cvtsd2si_bottom/nearest",
+          "cvtsd2si_bottom/up", "cvtsd2si_bottom/zero", "cvtsd2si_exact", "cvtsd2si_negexact", "cvtsd2si_inf",
+          "cvtsd2si_neginf", "cvtsd2si_negtwo31", "cvtsd2si_exact_sticky1f88", "cvtsd2si_exact_sticky1fbf",
+          "cvtsd2si_exact_sticky5f88", "cvtsd2si_exact_sticky7f88", "cvtsd2siq_tie/nearest", "cvtsd2siq_tie/down",
+          "cvtsd2siq_tie/up", "cvtsd2siq_tie/zero", "cvtsd2siq_tieodd/nearest", "cvtsd2siq_tieodd/down",
+          "cvtsd2siq_tieodd/up", "cvtsd2siq_tieodd/zero", "cvtsd2siq_negtie/nearest", "cvtsd2siq_negtie/down",
+          "cvtsd2siq_negtie/up", "cvtsd2siq_negtie/zero", "cvtsd2siq_negfrac/nearest", "cvtsd2siq_half/nearest",
+          "cvtsd2siq_half/down", "cvtsd2siq_half/up", "cvtsd2siq_half/zero", "cvtsd2siq_neghalf/nearest",
+          "cvtsd2siq_neghalf/down", "cvtsd2siq_neghalf/up", "cvtsd2siq_neghalf/zero", "cvtsd2siq_top/nearest",
+          "cvtsd2siq_top/down", "cvtsd2siq_top/up", "cvtsd2siq_top/zero", "cvtsd2siq_bottom/nearest",
+          "cvtsd2siq_bottom/down", "cvtsd2siq_bottom/up", "cvtsd2siq_bottom/zero", "cvtsd2siq_exact",
+          "cvtsd2siq_negexact", "cvtsd2siq_inf", "cvtsd2siq_neginf", "cvtsd2siq_two31", "cvtsd2siq_negtwo31",
+          "cvtsd2siq_big", "cvtsd2siq_negtwo63", "cvtsd2siq_exact_sticky1f88", "cvtsd2siq_exact_sticky1fbf",
+          "cvtsd2siq_exact_sticky5f88", "cvtsd2siq_exact_sticky7f88", "cvtss2si_tie/nearest", "cvtss2si_tie/down",
+          "cvtss2si_tie/up", "cvtss2si_tie/zero", "cvtss2si_tieodd/nearest", "cvtss2si_tieodd/down",
+          "cvtss2si_tieodd/up", "cvtss2si_tieodd/zero", "cvtss2si_negtie/nearest", "cvtss2si_negtie/down",
+          "cvtss2si_negtie/up", "cvtss2si_negtie/zero", "cvtss2si_negfrac/nearest", "cvtss2si_half/nearest",
+          "cvtss2si_half/down", "cvtss2si_half/up", "cvtss2si_half/zero", "cvtss2si_neghalf/nearest",
+          "cvtss2si_neghalf/down", "cvtss2si_neghalf/up", "cvtss2si_neghalf/zero", "cvtss2si_bottom/nearest",
+          "cvtss2si_bottom/down", "cvtss2si_bottom/up", "cvtss2si_bottom/zero", "cvtss2si_negexact", "cvtss2si_inf",
+          "cvtss2si_neginf", "cvtss2si_negtwo31", "cvtss2siq_tie/nearest", "cvtss2siq_tie/down", "cvtss2siq_tie/up",
+          "cvtss2siq_tie/zero", "cvtss2siq_tieodd/nearest", "cvtss2siq_tieodd/down", "cvtss2siq_tieodd/up",
+          "cvtss2siq_tieodd/zero", "cvtss2siq_negtie/nearest", "cvtss2siq_negtie/down", "cvtss2siq_negtie/up",
+          "cvtss2siq_negtie/zero", "cvtss2siq_negfrac/nearest", "cvtss2siq_half/nearest", "cvtss2siq_half/down",
+          "cvtss2siq_half/up", "cvtss2siq_half/zero", "cvtss2siq_neghalf/nearest", "cvtss2siq_neghalf/down",
+          "cvtss2siq_neghalf/up", "cvtss2siq_neghalf/zero", "cvtss2siq_inf", "cvtss2siq_neginf", "cvtss2siq_two63",
+          "cvtss2siq_max",
+]
+PINNED.update({n: _R for n in _B6A_R})
+
+# B6b (D287): the square roots, read before their batch; pending until it names its pins.
+PENDING: set[str] = {"p_sqrtss", "p_sqrtsd"}
 
 # B5 (D285): the packed arithmetic. Its reach is LANE-LEVEL (hwprobe/packed_reach.py, D285 s1), because a 128-bit
 # source equal to a row's is reached by no state and the literal rule would pin all 92. x86isa differs on the 8
@@ -324,6 +363,30 @@ FAMILIES = [
      ["(fun (mx, a, b, r, fl) =>",
       "  let t := step ⟨.vcvtsi2 true true .x1 .rdi, 4⟩ (b0Pre mx a b)",
       "  b0Agrees t mx fl ((t.getXmm .x1).setWidth 64) r)"]),
+    ("b6a_cvtsd2si_pins", lambda fn: fn == "p_cvtsd2si",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si true false .rax .x0, 4⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6a_cvtsd2siq_pins", lambda fn: fn == "p_cvtsd2siq",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si true true .rax .x0, 5⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6a_cvtss2si_pins", lambda fn: fn == "p_cvtss2si",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si false false .rax .x0, 4⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
+    ("b6a_cvtss2siq_pins", lambda fn: fn == "p_cvtss2siq",
+     "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 32",
+     lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(want, 16), hx(fl, 2)),
+     ["(fun (mx, a, r, fl) =>",
+      "  let t := step ⟨.vcvt2si false true .rax .x0, 5⟩ (b0Pre mx a 0)",
+      "  b0Agrees t mx fl t.regs.rax r)"]),
     ("b3_cvtsd2ss_pins", lambda fn: fn == "p_cvtsd2ss",
      "BitVec 32 × BitVec 64 × BitVec 64 × BitVec 64 × BitVec 32",
      lambda fn, mx, a, b, want, mask, fl: (hx(mx, 4), hx(a, 16), hx(b, 16), hx(want, 16), hx(fl, 2)),

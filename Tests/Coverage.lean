@@ -168,7 +168,8 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B5 (D283) adds EIGHT: the packed arithmetic, `mulps` `mulpd` `addps` `addpd` `subps` `subpd`
 --   `divps` `divpd`, through `vparith`/`vparithm` (D282).
 -- ⭐ SUB-GROUP B6a (D289) adds TWO: `cvtsd2si`, `cvtss2si`, through `vcvt2si`/`vcvt2sim` (D288).
-theorem roster_size_is_194 : rosterSize = 194 := by decide
+-- ⭐ SUB-GROUP B6b (D292) adds TWO: `sqrtsd`, `sqrtss`, through `vsqrt`/`vsqrtm` (D291).
+theorem roster_size_is_196 : rosterSize = 196 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -219,7 +220,8 @@ def vectorCount : Nat := vectors.length
 -- the MNEMONIC, so a full row set is not per-form evidence.
 -- ⭐ SUB-GROUP B5 (D283) adds 19, chosen by a reach census over the 88 pre-states (D283 §1).
 -- ⭐ SUB-GROUP B6a (D289) adds 12, three sources per form from a reach census (D289 §1).
-theorem vector_count_is_1143 : vectorCount = 1143 := by decide
+-- ⭐ SUB-GROUP B6b (D292) adds 6, three sources per format from a reach census (D292 §1).
+theorem vector_count_is_1149 : vectorCount = 1149 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1098,6 +1100,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- SUB-GROUP B6a, in the same commit as the constructors: the rounding conversion writes a
     -- GENERAL-PURPOSE register at both shapes; the memory operand is its SOURCE.
     | .vcvt2si .. | .vcvt2sim .. => false
+    -- SUB-GROUP B6b, in the same commit as the constructors: a square root writes an XMM register at
+    -- both shapes; the memory operand is its SOURCE.
+    | .vsqrt .. | .vsqrtm .. => false
     -- SUB-GROUP B1, in the same commit as the constructors: a multiply writes an
     -- XMM register at both shapes; the memory operand is its SOURCE.
     | .varith .. | .varithm .. => false

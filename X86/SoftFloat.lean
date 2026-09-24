@@ -571,5 +571,41 @@ def cvtToInt (f : Fmt) (w : Nat) (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVe
       ((if neg then ((-v).setWidth w).setWidth 64 else v), if r != 0 then fPE else 0)
     else (ind, fIE)
 
+/-! ### ⭐⭐⭐ SUB-GROUP B6b — SQRTSS / SQRTSD ON `roundPack` (D291). -/
+
+/-- `⌊√n⌋`, digit by digit from bit `k − 1` down: `isqrtGo k n r` tries each bit of the root in turn and keeps it when
+the square does not pass `n`. STRUCTURAL on `k`, so the kernel reduces it (core's `Nat.sqrt` is well-founded).
+Correct when `⌊√n⌋ < 2^k`, which `fsqrt` arranges by passing the bit length of its operand. -/
+def isqrtGo : Nat → Nat → Nat → Nat
+  | 0, _, r => r
+  | k + 1, n, r =>
+    let c := r ||| (1 <<< k)
+    isqrtGo k n (if c * c ≤ n then c else r)
+
+/-- ⭐⭐ SQRTSS / SQRTSD's lane rule and flags (SDM Vol. 2B SQRTSD: "Invalid, Precision, Denormal").
+* **NaN**: quieted; IE on an SNaN. **±0** and **+∞** are returned. **Any other negative source** (−∞, a negative
+  normal or denormal) gives the QNaN indefinite, whose sign bit is SET (x86isa's is clear, D287 §4), and **IE ALONE**:
+  a negative denormal raises no DE, read on both vendors (D287 §4).
+* Otherwise `m × 2^e` is scaled by an EVEN shift `s` that leaves at least `mw + 2` bits of root, and
+  `q = ⌊√(m · 2^s)⌋` is handed to `roundPack` as `2q + sticky` at exponent `(e − s)/2 − 1`. The sticky bit sits below the
+  round bit, so `roundPack`'s decision is the correctly rounded one (a square root is never exactly half-way). A root is
+  never tiny or huge, so the flags are PE iff inexact, and DE on a denormal source.
+* No power above 256 on any path: `m < 2^(mw+1)` and `s ≤ 2·mw + 6`, so `m · 2^s < 2^166`. -/
+def fsqrt (f : Fmt) (rc : Nat) (x : BitVec 64) : BitVec 64 × BitVec 32 :=
+  let lane : BitVec 64 := (1 <<< f.w) - 1
+  let quiet : BitVec 64 := 1 <<< (f.mw - 1)
+  let infE : BitVec 64 := ((1 <<< f.ew) - 1) <<< f.mw
+  if f.isNaN x then ((x ||| quiet) &&& lane, if f.isSNaN x then fIE else 0)
+  else if f.isZero x then (x &&& lane, 0)
+  else if f.sign x then ((1 <<< (f.ew + f.mw)) ||| infE ||| quiet, fIE)
+  else if f.isInf x then (x &&& lane, 0)
+  else
+    let (m, e) := sig f x
+    let s : Nat := 2 * f.mw + 5 + (if (e - (2 * f.mw + 5 : Nat)) % 2 == 0 then 0 else 1)
+    let n := m <<< s
+    let q := isqrtGo (Nat.log2 n / 2 + 1) n 0
+    let (r, fl) := roundPack f rc false (2 * q + (if q * q == n then 0 else 1)) ((e - s) / 2 - 1)
+    (r, fl ||| (if f.isDenormal x then fDE else 0))
+
 end SoftFloat
 end X86
