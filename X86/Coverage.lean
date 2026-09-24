@@ -908,6 +908,15 @@ acc,imm · rh"
   , { mnemonic := "cvtss2si",
       shapes := "r,x · r,m", note := "low binary32 rounded under MXCSR.RC to int32/int64 (REX.W); NaN, inf or out of range after rounding give 2^(w-1) and IE; D288, D289",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTSS2SI" }
+  , { mnemonic := "sqrtsd",
+      shapes := "x,x · x,m", note := "low binary64 square root under MXCSR.RC, upper kept; a negative source gives the signed indefinite and IE alone; D291, D292",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SQRTSD" }
+  , { mnemonic := "sqrtss",
+      shapes := "x,x · x,m", note := "low binary32 square root under MXCSR.RC, upper kept; a negative source gives the signed indefinite and IE alone; D291, D292",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SQRTSS" }
+  , { mnemonic := "cvtpd2ps",
+      shapes := "x,x · x,m", note := "two binary64 lanes narrowed under MXCSR.RC into the low two binary32 lanes, bits 127:64 zeroed, flags ORed; m128 16-byte aligned (#GP); D294, D295",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A CVTPD2PS" }
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFT GROUP.
   --
   -- ⚠️ `x,m` HERE IS A COUNT SOURCE, NOT A DESTINATION.  These rows must not

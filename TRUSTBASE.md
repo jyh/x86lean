@@ -24,6 +24,14 @@ The model's AST is produced by Intel XED (Apache-2.0) in phase 1; a Lean decoder
 subset is a later phase. Until then, "this instruction's bytes mean this AST node" is TRUSTED, not
 proven, and the coverage table carries a decode-trust column saying so per form.
 
+The asm front end (`scripts/asm_front.py`, D297) sits on the same trust line with a different
+decoder: it maps the AT&T text an `objdump` prints (LLVM or GNU binutils) onto the AST, and takes
+each instruction's length from the byte count the disassembler printed. So for a translated program,
+"these bytes mean this text" is the disassembler's claim, TRUSTED. "This text means this AST node"
+is the front end's claim, TESTED rather than proven: its selftest translates every differential
+vector's own encoding and requires equality with the hand-written AST on the declared core, and
+refusal everywhere else.
+
 ## The undefined-bit oracle
 Where the SDM says a flag or result is undefined, the model draws the value from an oracle stream in
 the state (a cursor and a `Nat → Bool`/byte stream). Theorems cannot learn the drawn value; the

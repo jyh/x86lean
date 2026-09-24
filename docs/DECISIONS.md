@@ -20120,6 +20120,228 @@ oracle-divergence=244`.
   CLEAN), `docs/P2-ROSTER.md` (gate CLEAN), README counts and the commission's residue: **484 → 226 over 4 pairs**
   (`p2_residue`, derived). What remains is `sqrtss` 134 · `sqrtsd` 89 (B6b) · `sqrtps` 2 · `cvtpd2ps` 1.
 
+## D290 — B6a's kernel pins: 130 of 264 cvt*2si rows, by a ROUNDING-PATH reach rule, in one step
+
+⚖️ x86isa agrees with all 264 cvt*2si rows (D287 §4), so D267 §2's rule selects on REACH alone. B4's reach
+(`reach_table.py`: some vector's source EQUALS the row's at that RC) pins **256 of 264** here, because no random state
+equals 5/2 or 7/2. So the class is the rounding PATH, as B3 classed `cvtsd2ss` (D273): **`hwprobe/cvt2si_reach.py`**,
+a command, reading `run/prestates.json` and the vectors' constructors.
+```
+  class      (path, sign, RC where inexact)
+  path       nan · inf · zero · exact · toward (inexact, toward zero) · away (inexact, away from zero)
+             · tie (exactly half-way) · range (rounded result out of range)
+  result     TOTAL 264 / PINNED 130 / CARRIED 134   (carried: toward 56 · exact 27 · away 20 · range 15 · nan 8 · zero 8)
+  --selftest the two known answers from D289 §2 (every tie at nearest unreached; the memory source makes some
+             round-up row reached), a NaN row reached, and the control: value-and-RC equality pins 256, a STRICT
+             superset of the path rule's 130 ✔
+```
+**The 130 include every tie at every mode and every away-at-nearest**, which is D289 §2's gap. The kernel now carries
+what no vector can: a model that truncated at nearest, or broke a tie away from zero, is refused by `decide`.
+**Red backwards:** planting the round-half-away result on `cvtsd2si_tie/nearest` (`3` for `2`) makes `decide` refuse
+(build rc 1).
+**Price, measured on the draft** (`deterministic_cost.py --module Tests.Anchors`, base `c31209b`): **Δku +93,692**
+(sd 27,341 · sdq 28,938 · ss 19,970 · ssq 17,443) against A′'s 23.3% × 663,363 ≈ **154.6k**. **CLEAN in one step,
+60.9k margin.** `PENDING` now holds the square roots alone (B6b).
+⚠️ Not measured: whether a reached class is compared soundly. And `run/prestates.json` is a declared input, so CI
+cannot re-run the selection, exactly as for B0–B5.
+
+## D291 — B6b's shape: `vsqrt`/`vsqrtm` and `SoftFloat.fsqrt` on `roundPack`
+
+⚖️ QUEUE P3, B6b = `sqrtss` 134 + `sqrtsd` 89 = **223**, on D287's reading.
+- **`SoftFloat.isqrtGo`**: `⌊√n⌋` digit by digit, STRUCTURAL on the bit count. Core's `Nat.sqrt` is defined by
+  well-founded recursion, which the kernel's `decide` does not reduce well, and the B6b pins will be `decide`.
+- **`SoftFloat.fsqrt`**: NaN quieted (IE on an SNaN); ±0 and +∞ returned; any other negative source gives the SIGNED
+  indefinite and IE ALONE (both vendors, D287 §4). Otherwise `m × 2^e` is scaled by an even shift that leaves at least
+  `mw + 2` root bits, and `2q + sticky` goes to **`roundPack`**, the rounding every B-form shares. A square root is
+  never exactly half-way, so the sticky bit below the round bit gives the correctly rounded result. A root is never
+  tiny or huge, so the flags are PE iff inexact, plus DE on a denormal source. No power above 256 (`m · 2^s < 2^166`).
+- **`vsqrt` / `vsqrtm`** over `Size` as `varith` is, NOT a fifth `VArithOp` member, for D273's reason (the fold's
+  operations take two operands). `vsqrtLow` keeps every bit above the lane, as `varithLow` does.
+- **Checked against the hardware rows before any vector** (`run/b6b_check.lean`): `vsqrtLow` equals `want` (canary
+  lane included) and the flags on **all 90** sqrt rows that silicon read 934/934. **Control:** ignoring MXCSR.RC misses
+  **17**, which is exactly what `mk_rows.fsqrt` predicts for that mutant independently.
+Build: full route rc 0.
+
+## D292 — P2 batch 49, sub-group B6b: SQRTSD / SQRTSS — 6 vectors, a declared indefinite, three arms
+
+⚖️ On D291's shape. **Two roster rows** (`sqrtsd`, `sqrtss`), **6 vectors**, **3 arms**. Assembly-class demand **223**.
+
+### 1. THE VECTORS (`run/b6b_census.txt`)
+The census over the 88 pre-states found that **every source reaching DE or IE also reaches a negative source**, and so
+x86isa's sign-less indefinite. The only negative-free sources are memory offsets (−0x20, −0x1c), which reach PE alone.
+So per format: **%xmm0 → %xmm1** (IDP; negative in 12 / 11 states), **−0x20(%rbx) → %xmm9** (REX.R, the memory form;
+no negative; RC matters in all 88) and **%xmm15 → %xmm2** (REX.B; negative in 13 / 12). The REX.B sources x8–x14 are
+negative in ~67 of 88 and were passed over, to keep the declared divergence small.
+
+### 2. THE DECLARED DIVERGENCE — B2's `divsd_m10` precedent (D271)
+The four register vectors carry a `pair` in `knownDivergences`: `fff8…`/`7ff8…` (sd) and `ffc00000`/`7fc00000` (ss)
+in the destination's LOW lane, with every bit above it required to agree. The memory vectors are not declared, because
+a declaration that can never fire is an untested claim.
+
+### 3. PREDICTIONS, COMMITTED BEFORE THE RUNS
+```
+  differential   cases +528 (6 × 88) = 101112 · matched +480 = 80415 · explained +0 = 29479 · unexplained 0
+                 · oracle-divergence +48 = 292   (sqrtsd_x0_x1 12 · sqrtsd_x15_x2 13 · sqrtss_x0_x1 11 · sqrtss_x15_x2 12)
+  arms (84 states, run/b6b_arm_pred.txt)
+    sqrts? ignores MXCSR.RC and rounds to nearest    xmm1       32
+    sqrts? raises no DE on a denormal source         mxcsr.de   57
+    sqrts? zeroes the bits above the lane            xmm1      162
+```
+
+### 4. THE READINGS — every predicted field as committed
+- **Differential:** `cases=101112 matched=80415 explained=29479 unexplained=0 oracle-divergence=292` = §3 exactly.
+  88 cases per vector on both sides, 0 refused (record 35).
+- **Arms:** 32 = 32 (total 129 = 129) · 57 = 57 · 162 = 162 (total 498 = 498).
+- **Regenerated:** COVERAGE.md (196 rows), the demand census (CLEAN at 196 mnemonics; ⚠️ run it AFTER COVERAGE.md,
+  since it reads the model from there and read 194 when run first), P2-ROSTER.md (CLEAN), README, and the commission:
+  **226 → 3** (`sqrtps` 2 · `cvtpd2ps` 1). ⇒ **Sub-group B is 3 instructions from empty.**
+
+## D293 — B6b's kernel pins: 24 of 90 sqrt rows (6 x86isa · 18 by a PATH reach rule), in one step
+
+`hwprobe/sqrt_reach.py` classes a row by (path, a denormal source, RC where the root is inexact, a preset flag the
+root does not raise), with the path qnan · snan · zero · inf · negative · exact · inexact, as D290 classed cvt*2si.
+```
+  result      TOTAL 90 / PINNED 24 (x86isa 6: sqrt?_neginf · _negone · _negden) / CARRIED 66
+  --selftest  6 vectors, 90 rows; the x86isa set is exactly the six negatives; the known answers from D292 (the memory
+              vector reaches an inexact root at round-up; no vector presents +∞); and the control: value-and-RC
+              equality pins 84, a STRICT superset of 24 ✔
+```
+- **`isqrtGo` recurses once per root bit**, past the elaborator's default depth, so the two `b6b_*` theorems carry
+  `set_option maxRecDepth 8000 in`. The generator emits it from `mk_anchors.RECDEPTH`, scoped to those two only, as
+  `Tests/Nonvacuity.lean` scopes its own.
+- **Red backwards:** planting x86isa's `7ff8…` for `sqrtsd_negone`'s `fff8…` makes `decide` refuse (build rc 1).
+- **Price** (`deterministic_cost.py --module Tests.Anchors`, base `a8dac6d`): **Δku +102,527** (sd 74,108 · ss 28,419)
+  against A′'s 23.3% × 757,055 ≈ **176.4k**. **CLEAN in one step.** `PENDING` is empty: every hwprobe row is in a family.
+
+## D294 — B7's hardware reading, before the batch: SQRTPS and CVTPD2PS, the last 3 instructions of sub-group B
+
+⚖️ `p2_residue` after B6: **`sqrtps` 2 · `cvtpd2ps` 1**. Both are 128-bit forms, read through D281's probe (`PROWS`,
+bytes checked at +28). Both read all of %xmm1 and write all of %xmm0, whose incoming bits are a canary neither may
+keep. **24 rows** (`mk_rows.build_b7`):
+```
+  sqrtps    mix/<mode> (√2 inexact · √4 exact · a denormal · a QNaN) · loud@k (an SNaN at every lane) · de_nan (DE in
+            lane 1 beside a NaN in lane 0: DE is per lane) · negden_de (the signed indefinite in lane 0, DE in lane 1)
+            · indef@3 (−1 in the top lane) · sticky1fbf
+  cvtpd2ps  mix/<mode> (1/3 inexact · MAX overflowing) · tiny/<mode> (a tiny inexact binary32) · loud@k · den@1
+            (a binary64 denormal narrowing to 0 with UE|PE|DE) · sticky1fbf. Bits 127:64 of the result are ZERO.
+```
+Rosetta 2 reads 958/958. Planting x86isa's sign-less indefinite on `sqrtps_indef@3` gives exactly that one DIFF, beside
+the packed plant's.
+**x86isa — THE PREDICTION, COMMITTED BEFORE `gen`: 58 = the 56 of D287 + `sqrtps_indef@3` + `sqrtps_negden_de`,** each
+wrong in one lane's sign bit alone (`7fc00000` for `ffc00000`), the flags agreeing. CVTPD2PS is predicted to agree
+on all 12 of its rows.
+### READ — x86isa 59, NOT the 58 committed: ONE MISS, and it is a known defect I did not carry across
+```
+  x86isa (run/hwprobe_score4.txt)   rows 955 disagreements 59 = the 56 by name + sqrtps_indef@3 + sqrtps_negden_de
+                                    (both as predicted: 7fc00000 for ffc00000 in one lane, flags agreeing)
+                                    + cvtpd2ps_sticky1fbf  ✘ NOT PREDICTED: x86isa reads 7f800000 in BOTH lanes
+  hwprobe run 35885976098 (push, deb0186)   AMD EPYC 7763 958/958 · Intel i7-8700B 958/958 · all four controls behave
+```
+⛔ **The miss is D272 §3's defect in packed form, and I had the scalar case in hand.** x86isa reads a PRESET MXCSR.OE as
+this conversion's own overflow, so a 0x1FBF pre-state turns 1.0 and 2.0 into +∞. `cvtsd2ss`'s eight `*_sticky*` rows
+are pinned "x86isa differs" for exactly that reason (mk_anchors `_B3_X`). I predicted CVTPD2PS "agrees on all 12" from
+the arithmetic lanes and did not ask whether the scalar narrowing's known defects applied lane by lane. They do, and
+silicon confirms the SDM on both vendors.
+⇒ **The packed narrowing inherits every x86isa defect of its scalar lane rule; predict a packed form's column as
+"the scalar rows' known defects, per lane, plus the packed-only rules".** The prediction method changes, not the
+tolerance.
+
+## D295 — B7's shape and batch: `vsqrtps`/`vsqrtpsm`, `vcvtpd2ps`/`vcvtpd2psm`
+
+### 1. THE SHAPE
+Four constructors for two mnemonics: register and 16-byte-aligned memory, the memory forms carrying `vparithm`'s
+Type-4 #GP verbatim. `vsqrtpsAll` folds `SoftFloat.fsqrt` over the four binary32 lanes, and `vcvtpd2psAll` folds
+`SoftFloat.f64to32` (CVTSD2SS's own call) over the two binary64 lanes into the low half, ZEROING bits 127:64. The flags
+are ORed across lanes, as `vparithAll`'s are. **Checked against the hardware rows before any vector**
+(`run/b7_check.lean`): **24 / 24** at all 128 bits and the flags. **Control:** ignoring MXCSR.RC misses **6** =
+`mk_rows`' independent 6.
+
+### 2. ⛔ SQRTPS GETS A SHAPE AND NO ROW — a design fork, taken on the narrow arm
+Every SQRTPS source in the populated window meets a NEGATIVE lane ABOVE lane 0 in 15–88 of the 88 states. There,
+x86isa's indefinite is sign-less (D294) and `knownDivergences`' `pair` form (D266) excuses a LOW lane only, so the
+disagreement is inexpressible. The only negative-free offsets (−48, +32) lie outside the populated window.
+**(a)** widen the pair form to any lane · **(b) claim CVTPD2PS alone and name SQRTPS as the residue: TAKEN.** Two
+instructions do not buy a wider excuse mechanism. D283 declined the same widening for B5, and the shape stays,
+checked on 12 hardware rows, for whoever meets a reason to claim it.
+
+### 3. THE BATCH — CVTPD2PS: 1 roster row, 3 vectors, 3 arms. PREDICTIONS, COMMITTED BEFORE THE RUNS
+Sources with **no zero binary64 lane in any state**, because x86isa aborts the whole run on a zero narrowing (D258,
+D272), and no pre-state presets OE, so D294's defect cannot fire: `%xmm2 → %xmm1`, `%xmm9 → %xmm10` (REX.R + REX.B),
+aligned `−0x10(%rbx) → %xmm1`.
+```
+  differential   +264 cases (3 × 88), all matched ⇒ cases=101376 matched=80679 explained=29479 unexplained=0
+                 oracle-divergence=292
+  arms (84 states, run/b7_arm_pred.txt)
+    cvtpd2ps ignores MXCSR.RC                       xmm1    54
+    cvtpd2ps keeps bits 127:64 of the destination   xmm1   156
+    cvtpd2ps narrows lane 0 only                    xmm1   125
+```
+
+### 4. THE READINGS — every predicted field as committed
+Differential `cases=101376 matched=80679 explained=29479 unexplained=0 oracle-divergence=292` = §3 exactly, 88 per
+vector on both sides, 0 refused (record 36). Arms 54 = 54 · 156 = 156 · 125 = 125, and their totals 97 · 240 · 166 equal
+the per-destination sums predicted. Regenerated, in the order that works (COVERAGE, then the census, then the roster):
+197 rows, census and roster CLEAN, and the commission's sub-group B: **2 instructions, `sqrtps` alone, by design.**
+⇒ ⭐ **SUB-GROUP B IS COMPLETE TO ITS NAMED RESIDUE.**
+
+## D296 — B7's kernel pins: CVTPD2PS, 10 of 12, by `packed_reach.py`'s lane rule
+
+`hwprobe/packed_reach.py` now classes CVTPD2PS too: its lanes are the source's two binary64 lanes, each classed by
+CVTSD2SS's own flags. It reads x86isa's column from `run/hwprobe_score4.txt` (after D294). SQRTPS is NOT classed, because
+it has no roster row (D295 §2). **B5's pins are unchanged** (40 of 92). CVTPD2PS pins **10 of 12**: `cvtpd2ps_sticky1fbf`
+(x86isa's preset-OE defect, D294) and 9 no vector reaches (an exact lane, an SNaN lane, rounding at up and at zero).
+`--selftest`: 22 vectors; x86isa's set = the 8 indefinites + `cvtpd2ps_sticky1fbf` exactly; literal equality pins 104
+⊋ 50; positional pins 69 ⊋ 50.
+**Red backwards:** x86isa's `7f800000` ×2 planted on `cvtpd2ps_sticky1fbf` makes `decide` refuse (build rc 1).
+**Price:** Δku **+19,461** against 23.3% × 859,582 ≈ 200.3k (base `7b4c0d8`). CLEAN.
+
+## D297 — S3: the asm → x86lean front end (B2) for the declared 29-mnemonic core
+
+⚖️ The x86 SaltBench commission's step S3 (proposal v1 §3.5, ruled "fire v1 as priced" 2026-09-21; "the Claude side can
+commence", 2026-09-23). Until now every `Program` was translated from an objdump listing BY HAND. `scripts/asm_front.py`
+does it mechanically: `translate <elf>` emits a Lean module with `prog : Program` and `image : Image`, or prints
+`REFUSED-TRANSLATE` for each form outside the core and exits 3.
+
+### 1. SCOPE — AN ALLOWLIST, NOT x86lean's COVERAGE
+The 29 mnemonics of v1 §3.5 (`mov movzx movsx add sub and or xor cmp test shl shr sar inc dec neg not lea push pop jmp
+jcc call ret cmovcc setcc imul rol ror`). Forms x86lean models but the core omits (adc, xchg, bt, the string ops, all
+SSE) are REFUSED by name. The core list lives in one place, `CORE`.
+
+### 2. THE LAYOUT IS THE LINKER'S
+A linked executable is translated as it stands. An unlinked object is accepted only with `--base` and only when nothing
+in it needs a layout decision: no relocation section, no allocated data section. Anything else is refused ("link at the
+fixed layout first"). The link is the harness's step (B4), not this script's.
+
+### 3. THE SELFTEST, AND WHAT IT READ
+Every differential vector's own `asm` is assembled by clang and disassembled, and B2's translation is compared with the
+hand-written `instr` by Lean's `==`. The comparison runs on EVERY disassembler found, because LLVM and GNU print
+different text for the same bytes: GNU drops suffixes, prints negative immediates unsigned and wraps at seven bytes,
+while LLVM gives `lock` its own line.
+```
+  corpus 1,149 vectors · core 484 (v1's 479 + S1's 5, exactly)
+  LLVM   484 core EQUAL · 665 non-core REFUSED · 0 BAD
+  GNU    484 core EQUAL · 665 non-core REFUSED · 0 BAD
+  parser arms 15/15 · translate end to end 3/3 (a byte sum run to 646; rc 3 on adcl; rc 1 on a data section)
+```
+- **The comparison was shown to fail first.** A mutant that swaps a binary op's operands reads **181 BAD**, which is
+  the core's whole binary-op population (21+22+28+29+29+29+23). A mutant that drops `lock` reads **9 BAD**, the core's
+  nine lock vectors. Both counts were predicted before the run. The `lock` mutant passed every parser arm, so a
+  lock-positive arm was added.
+- **The first run was 445/484**: every branch was refused, because operands were parsed before the branch case. The
+  corpus caught it, and no arm had.
+- **Conventions reproduced, each read from the corpus:** an immediate is its value modulo the operand width; a
+  displacement is sign-extended; `rel` = target − next address; a count-less shift counts 1; `lock` is on the `Ea`.
+
+### 4. ACCEPTANCE ON THE REFERENCE ROUTINE (not in this repository)
+On the proposal's CRC-32 routine, `translate --base 0x1000` produced a `Program` that is `==` to the hand-written one
+(12 of 12). Run by `runP`, it returns zlib's value on 4 of 4 inputs (`cbf43926` · 0 · `d202ef8d` · `29058c73`), and a
+planted `shr 7` changes the answer. The routine is the benchmark's reference, so it is not committed here.
+- **Addendum, the first Linux run (CI run 35941536369):** the corpus was green on GNU objdump (484 EQUAL · 659 REFUSED ·
+  0 BAD, of master's 1,143). The translate arm was RED on its own needle: it looked for `adcl`, and GNU prints the refused
+  line as `adc`. This is the suffix difference B2 exists to absorb, and it was missed in B2's own test. The needle is
+  now `` `adc ``, re-driven against both tools' refusal text (old needle: LLVM true, GNU FALSE; new: both true).
+  ⚠️ `translate` uses the FIRST disassembler found, so on macOS its arms exercise LLVM only; CI exercises GNU.
+
 ## D298 — CVTSI-MEM-PROBE closed: the memory shape of three pooled width keys, asked and answered by a sealed batch
 
 ⚖️ From D257's pooling: one (mnemonic, bucket) key covers the register AND memory shapes of `cvtsi2s[sd][lq]`, so

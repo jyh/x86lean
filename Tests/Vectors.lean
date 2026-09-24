@@ -3093,6 +3093,46 @@ def vectors : List Vec :=
   , { id := "cvtss2si_mN10_rdx", mnemonic := "cvtss2si", asm := "cvtss2si -0x10(%rbx), %rdx"
     , bytes := "f3480f2d53f0", instr := ⟨.vcvt2sim false true .rdx { base := some .rbx, disp := -0x10 }, 6⟩ }
 
+  -- ⭐⭐⭐ SUB-GROUP B6b — SQRTSD / SQRTSS (D291, D292).  THREE SOURCES PER FORMAT, from a reach census over the 88
+  -- pre-states by `mk_rows.fsqrt`: %xmm0 (the source holding denormals, so IE and DE are reached), -0x20(%rbx) (the
+  -- memory form, with no negative source in any state, and RC matters in all 88) and %xmm15 (REX.B).  The destinations
+  -- are %xmm1, %xmm9 (REX.R) and %xmm2, whose upper bits the form must keep.  ⛔ A NEGATIVE SOURCE meets x86isa's
+  -- sign-less indefinite (D265, D287 §4) in the LOW lane only, so the %xmm0 and %xmm15 vectors carry a declared
+  -- `pair` in `knownDivergences` (D292 §2); the memory vector never meets one.  `reach:` is the census line.
+  -- reach: flags=IDP rcSens=47 near=21 den=43 NEG=12
+  , { id := "sqrtsd_x0_x1", mnemonic := "sqrtsd", asm := "sqrtsd %xmm0, %xmm1"
+    , bytes := "f20f51c8", instr := ⟨.vsqrt .q .x1 .x0, 4⟩ }
+  -- reach: flags=P rcSens=88 near=44 den= 0 NEG= 0
+  , { id := "sqrtsd_mN20_x9", mnemonic := "sqrtsd", asm := "sqrtsd -0x20(%rbx), %xmm9"
+    , bytes := "f2440f514be0", instr := ⟨.vsqrtm .q .x9 { base := some .rbx, disp := -0x20 }, 6⟩ }
+  -- reach: flags=IP rcSens=12 near= 4 den= 0 NEG=13
+  , { id := "sqrtsd_x15_x2", mnemonic := "sqrtsd", asm := "sqrtsd %xmm15, %xmm2"
+    , bytes := "f2410f51d7", instr := ⟨.vsqrt .q .x2 .x15, 5⟩ }
+  -- reach: flags=IDP rcSens=36 near=13 den=33 NEG=11
+  , { id := "sqrtss_x0_x1", mnemonic := "sqrtss", asm := "sqrtss %xmm0, %xmm1"
+    , bytes := "f30f51c8", instr := ⟨.vsqrt .d .x1 .x0, 4⟩ }
+  -- reach: flags=P rcSens=88 near=44 den= 0 NEG= 0
+  , { id := "sqrtss_mN20_x9", mnemonic := "sqrtss", asm := "sqrtss -0x20(%rbx), %xmm9"
+    , bytes := "f3440f514be0", instr := ⟨.vsqrtm .d .x9 { base := some .rbx, disp := -0x20 }, 6⟩ }
+  -- reach: flags=IP rcSens=11 near= 5 den= 0 NEG=12
+  , { id := "sqrtss_x15_x2", mnemonic := "sqrtss", asm := "sqrtss %xmm15, %xmm2"
+    , bytes := "f3410f51d7", instr := ⟨.vsqrt .d .x2 .x15, 5⟩ }
+
+  -- ⭐⭐⭐ SUB-GROUP B7 — CVTPD2PS (D294, D295).  THREE SOURCES, from a census over the 88 pre-states: each has NO zero
+  -- binary64 lane in any state, because x86isa aborts the whole run on a zero narrowing (D258, D272), and no pre-state
+  -- presets OE, so D294's preset-OE defect cannot fire.  %xmm2 → %xmm1, %xmm9 → %xmm10 (REX.R + REX.B) and the aligned
+  -- -0x10(%rbx) → %xmm1.  ⛔ SQRTPS HAS NO VECTOR: every source meets a negative lane above lane 0, where x86isa's
+  -- sign-less indefinite cannot be declared (D295 §2).
+  -- reach: flags=DOUP rcSens=88 zero-lane=0
+  , { id := "cvtpd2ps_x2_x1", mnemonic := "cvtpd2ps", asm := "cvtpd2ps %xmm2, %xmm1"
+    , bytes := "660f5aca", instr := ⟨.vcvtpd2ps .x1 .x2, 4⟩ }
+  -- reach: flags=DOUP rcSens=88 zero-lane=0
+  , { id := "cvtpd2ps_x9_x10", mnemonic := "cvtpd2ps", asm := "cvtpd2ps %xmm9, %xmm10"
+    , bytes := "66450f5ad1", instr := ⟨.vcvtpd2ps .x10 .x9, 5⟩ }
+  -- reach: flags=UP rcSens=88 zero-lane=0
+  , { id := "cvtpd2ps_mN10_x1", mnemonic := "cvtpd2ps", asm := "cvtpd2ps -0x10(%rbx), %xmm1"
+    , bytes := "660f5a4bf0", instr := ⟨.vcvtpd2psm .x1 { base := some .rbx, disp := -0x10 }, 5⟩ }
+
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 5 — MOVD / MOVQ ACROSS THE REGISTER FILES.
   -- Rank 4 and rank 8 of the measured demand list.  Both directions of each
   -- width, so the zeroing is observable in BOTH files:
