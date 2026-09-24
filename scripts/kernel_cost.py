@@ -186,7 +186,7 @@ PORTED_VERBATIM = {
         "`TemporaryDirectory()` holds a git-only fixture repo (no `lean` ever runs there) and "
         "an `x86lean-` prefix would fork a shared port for a name that is wrong in the other three"),
     "check_pr_descriptions.py": (("pr-gate-selftest-", "pr-gate-selftest-empty-",
-                                  "pr-gate-selftest-shallow-"),
+                                  "pr-gate-selftest-shallow-", "pr-gate-selftest-wf-"),
         "the fleet's forge-prose gate (desk QA), byte-identical to salt/saltworks/saltbench; its "
         "three `mkdtemp`s hold git-only fixture repos and a clone (no `lean` ever runs there), and "
         "renaming them here would fork the shared port"),
