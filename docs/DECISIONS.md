@@ -20294,3 +20294,22 @@ it has no roster row (D295 §2). **B5's pins are unchanged** (40 of 92). CVTPD2P
 ⊋ 50; positional pins 69 ⊋ 50.
 **Red backwards:** x86isa's `7f800000` ×2 planted on `cvtpd2ps_sticky1fbf` makes `decide` refuse (build rc 1).
 **Price:** Δku **+19,461** against 23.3% × 859,582 ≈ 200.3k (base `7b4c0d8`). CLEAN.
+
+## D299 — CI-3's real-gate half: an unregistered box judges A′'s ms half against the BASE tree × 3
+
+**The defect (CI-3):** `kernel_ceilings.txt` keys A′'s ms ceilings by `(unit, machine)`, and a GitHub runner's hostname is
+drawn per job from a pool. A job that draws an unregistered VM refuses with rc 2 and no verdict. It happened on #61's run
+35990088091 (`runnervmtr4k5`), after the same refusal on 35957914324, while every Δku sat inside its allowance. Of the two
+arms CI-3 recorded, the per-run bootstrap was called circular for the real gate, since its ceiling would come from the tree it
+gates. A runner-CLASS key brings back the loose bound D198 forbids.
+**The third arm, TAKEN:** on a box the registry does not name, the ceiling is `max(base ms × 3, 50)`. The base is profiled on
+the SAME box in the SAME job, and it is the tree WITHOUT the change, so the ceiling is not derived from what it gates. The rule
+is the registry's own (`max(got × 3, 50)`). A box the registry names is still judged by the registry. A missing base reading
+on any gated unit is still a refusal (rc 2), never a partial gate.
+**Limit, printed beside the verdict:** it refuses a single step that triples a unit. It is BLIND to a cost the base already
+carries and to drift arriving in steps each under 3×. The registry covers those, on the boxes it names.
+**Decided under XF (checkable, reversible; `ku-delta` is not a required check).** Posted to the helm with the arms. Reversal is
+one `if`. It would be shown wrong by a real ku-blind regression that CI passes on an unregistered box and a registered box
+refuses.
+**Arms:** `--selftest` 49/49 (5 new). **Red backwards:** the old unconditional refusal restored as a mutant reds exactly the
+two arms that name it (47/49). A mutant deriving the ceiling from the HEAD (the circular arm) reds four (45/49).

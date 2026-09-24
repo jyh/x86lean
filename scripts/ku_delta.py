@@ -465,16 +465,35 @@ def verdict(data, arm, quiet=False, ceilings=None):
                   f"not from this single pass.")
     if arm == "a-prime":
         gated = sorted(u for (u, mm) in ceilings if mm == mach)
+        if not gated and where == "registered here":
+            # ⚖️ CI-3's REAL-GATE HALF (D299): an UNREGISTERED BOX takes its ceilings from
+            # the BASE tree, measured on this box in this job. Not circular — the base is
+            # the tree WITHOUT the change — and it needs no registry, so a runner hostname
+            # drawn per job from a pool can no longer turn A′ into a refusal by lottery.
+            derived = base_ceilings(data, ceilings)
+            if derived:
+                ceilings, where = derived, "per-run ceiling from the BASE tree"
+                gated = sorted(u for (u, _) in ceilings)
         if not gated:
             # ⛔ REFUSE, DO NOT PASS. A′ without its complement is ARM A, and ARM A
             # reports a confident zero on exactly the work the complement exists to
             # catch. A green here would be the blindness reading as a measurement.
             print(f"⛔ this box is {mach!r} and A′'s registry names no ms ceiling for "
-                  f"it. A′ WITHOUT ITS ms HALF IS ARM A, and ARM A passes literal "
+                  f"it, and the base tree gave no ms reading to derive one from. A′ "
+                  f"WITHOUT ITS ms HALF IS ARM A, and ARM A passes literal "
                   f"arithmetic and large no-unfolding terms AT ANY SIZE with an exact "
                   f"zero (D228). Register a ceiling on this box or run --arm a and "
                   f"say so.")
             sys.exit(2)
+        if where != "registered here" and not quiet:
+            # ⛔ THE LIMIT RIDES WITH THE VERDICT. A base-derived ceiling sees a STEP that
+            # multiplies a unit's kernel time by more than 3; it cannot see a cost the base
+            # already carries, nor drift that arrives in steps each under 3×. The registry
+            # sees those, and only on the boxes it names.
+            print(f"⚠️ A′'s ms half on {mach!r} is judged against {where} (base × 3, "
+                  f"floor 50): it refuses a single step that triples a unit, and it is "
+                  f"BLIND to a cost the base already carries and to drift in steps each "
+                  f"under 3×. The registry judges those on the boxes it names.")
         for u in gated:
             ceil = ceilings[(u, mach)]
             got = data["head_ms"].get(u)
@@ -516,6 +535,29 @@ def verdict(data, arm, quiet=False, ceilings=None):
 READINGS_TAG = "READINGS-JSON "
 
 
+def base_ceilings(data, reg):
+    """{(unit, this box): max(base ms × 3, 50)} for every unit the registry gates by ms on
+    ANY box — or {} when any of them has no BASE reading, because a partial set would gate
+    some units and silently pass the rest. The rule is the registry's own (`max(got × 3,
+    50)`, as `selftest_measure` and ARM A's readings print it), read off the BASE tree."""
+    mach = data["machine"]
+    units = sorted({u for (u, _) in reg})
+    base = data.get("base_ms") or {}
+    if not units or any(base.get(u) is None for u in units):
+        return {}
+    return {(u, mach): max(base[u] * 3.0, 50) for u in units}
+
+
+def judged_ceilings(data, reg):
+    """The ceilings A′ actually judges this box against: the registry's where it names the
+    box, else the base-derived ones. The summary reads this so it prints the number the
+    verdict used, never an empty registry column beside a verdict that had one."""
+    mach = data["machine"]
+    if any(m == mach for (_, m) in reg):
+        return reg
+    return base_ceilings(data, reg) or reg
+
+
 def readings(data, ceilings):
     """The ms reading of every unit A′'s registry gates by ms, on ANY machine, with THIS
     machine's ceiling beside it — the same record under BOTH arms.
@@ -543,7 +585,8 @@ def summary_md(r, arm, rc, findings):
            "",
            f"`{r['base_rev'][:9]}` → `{r['head_rev'][:9]}`"
            f"{' · PLANTED' if r['planted'] else ''}. ARM A judges Δku only; A′ also judges the "
-           f"head's ms against the ceiling registered for this machine name. D243: one machine "
+           f"head's ms against the ceiling registered for this machine name, or, on a box the "
+           f"registry does not name, base ms × 3 from this job (D299). D243: one machine "
            f"name is several VM classes, so a reading well under the others is a fast draw, "
            f"not a cheaper tree.",
            "",
@@ -698,6 +741,31 @@ def selftest():
             check("ARM A′ REFUSES the ku-blind plant", rc_ap == 1 and len(f_ap) == 1)
             check("and it refuses it for the ms ceiling, not for ku",
                   rc_ap == 1 and f_ap[0].startswith("ms ceiling"))
+
+            # ── CI-3's real-gate half (D299): an UNREGISTERED box derives from the BASE ──
+            # red backwards: with the old `if not gated: sys.exit(2)` restored, the first two
+            # arms read "SystemExit 2" — the lottery refusal on master since #50.
+            def ap(d):
+                try:
+                    return verdict(d, "a-prime", quiet=True)
+                except SystemExit as e:
+                    return (f"SystemExit {e.code}", [])
+            loose = dict(blind, machine="runnerpoolbox", base_ms={"X86.Basic": 80.0})
+            rc_u, f_u = ap(loose)
+            check("an unregistered box REFUSES a step that triples a unit, against base × 3",
+                  rc_u == 1 and len(f_u) == 1 and f_u[0].startswith("ms ceiling X86.Basic")
+                  and "240 ms" in f_u[0])
+            rc_c, f_c = ap(dict(loose, head_ms={"X86.Basic": 200.0}))
+            check("and PASSES a step under base × 3 there, instead of refusing by lottery",
+                  rc_c == 0 and not f_c)
+            check("no BASE reading on an unregistered box is still a REFUSAL, never a pass",
+                  ap(dict(blind, machine="runnerpoolbox"))[0] == "SystemExit 2")
+            rc_r, _ = ap(dict(blind, base_ms={"X86.Basic": 400.0}))
+            check("a box the registry NAMES is judged by the registry, not by its base",
+                  rc_r == 1)
+            check("the summary prints the ceiling the verdict USED on an unregistered box",
+                  judged_ceilings(loose, read_registry()[1])
+                  == {("X86.Basic", "runnerpoolbox"): 240.0})
 
             # the mirror: a ku-VISIBLE regression must be caught by BOTH arms, or the
             # ku half is decorative. Δku +64,240 is D229 §2's N=512 constructor plant.
@@ -1023,7 +1091,8 @@ def main():
         # Written only once a verdict exists: a refusal (rc 2) exits inside `verdict`, and
         # the CI step reads a MISSING file as that case rather than as an empty summary.
         with open(md, "w", encoding="utf-8") as fh:
-            fh.write(summary_md(readings(data, read_registry()[1]), arm, rc, findings))
+            fh.write(summary_md(readings(data, judged_ceilings(data, read_registry()[1])),
+                                arm, rc, findings))
     return report(rc, findings, arm)
 
 

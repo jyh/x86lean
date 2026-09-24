@@ -10,7 +10,7 @@ prints them, so a stale one is a bug someone can find rather than a sentence tha
 
 ---
 
-## CI-3 (2026-09-22) — **OPEN: A′'s ms CEILINGS ARE KEYED TO A RUNNER HOSTNAME THAT DOES NOT RECUR, SO `ku-delta-redfirst` IS RED BY LOTTERY — and red on `master` since the #50 merge**
+## CI-3 (2026-09-22) — **REAL-GATE HALF BUILT 2026-09-24 (D299, `paris/ci3-base-ceiling`): an unregistered box judges A′ against BASE ms × 3 from the same job. WAS OPEN: A′'s ms CEILINGS ARE KEYED TO A RUNNER HOSTNAME THAT DOES NOT RECUR, SO `ku-delta-redfirst` IS RED BY LOTTERY — and red on `master` since the #50 merge**
 `scripts/kernel_ceilings.txt` keys ceilings by `(unit, machine)`, and its runner rows name `runnervmlun5p`.
 GitHub runner hostnames are drawn per JOB from a pool. Measured in one run (master `158c1ec`, run
 35742453223): `ku-delta` drew `runnervmlun5p` and read CLEAN, while `ku-delta-redfirst` drew `runnervmtr4k5`,
@@ -38,6 +38,11 @@ master pushes"*, is refuted by four green push runs. The hostnames were read fro
   runs where `kernel-delta` read UNMEASURABLE (rc 3), A′ was CLEAN on all 12. It has never met a real
   defect in CI; red-first shows it CAN refuse one.
 - **Release:** the red-first half is released when this lands. **Owner:** the helm, for the real-gate half. **Re-measure:** at the next landing after #53.
+- ✅ **REAL-GATE HALF, 2026-09-24 (D299):** neither recorded arm; the third one. The ceiling on an unregistered box is
+  `max(base ms × 3, 50)`, with the base profiled on the same box in the same job. It is not circular because the base is
+  the tree without the change. The registry still judges the boxes it names. The limit is printed beside every verdict it
+  gives: blind to cost the base already carries and to drift in sub-3× steps. Taken under XF and posted to the helm.
+  **Release:** CI-3 closes when `ku-delta` reads a verdict (rc 0 or 1, never 2) on an unregistered runner at origin.
 
 ## ✅ CI-1 (2026-09-09) — **CLOSED: REPAIRED THE SAME DAY (the `build` job's checkout depth, below); master's `build` read `success` at 2f612fb on 2026-09-14.**
 *(Filed as: `CI/build` HAS BEEN RED ON `master` FOR FIVE DAYS AND THIS SEAT DID NOT KNOW.)*
