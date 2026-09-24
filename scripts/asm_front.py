@@ -778,7 +778,9 @@ def e2eStart : Cpu :=
     open(s, "w").write(E2E_ASM.replace("\taddl %ecx, %eax", "\tadcl %ecx, %eax"))
     subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu", "-c", s, "-o", o], check=True)
     r = subprocess.run(me + [o, "--base", "0x1000", "--out", os.devnull], capture_output=True, text=True)
-    ok = r.returncode == 3 and "REFUSED-TRANSLATE" in r.stdout and "adcl" in r.stdout
+    # ⛔ THE NEEDLE IS `adc`, NOT `adcl`: GNU objdump prints the refused line without the
+    # suffix, and this arm's first CI run went red on exactly that (the corpus was green).
+    ok = r.returncode == 3 and "REFUSED-TRANSLATE" in r.stdout and re.search(r'`adc', r.stdout)
     bad += not ok
     print(f"  {'✔' if ok else '✘'} a non-core instruction is REFUSED-TRANSLATE, rc 3, by name (rc {r.returncode})")
     open(s, "w").write(E2E_ASM + "\t.section .rodata\n\t.long 7\n")

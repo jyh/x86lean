@@ -20161,3 +20161,8 @@ while LLVM gives `lock` its own line.
 On the proposal's CRC-32 routine, `translate --base 0x1000` produced a `Program` that is `==` to the hand-written one
 (12 of 12). Run by `runP`, it returns zlib's value on 4 of 4 inputs (`cbf43926` · 0 · `d202ef8d` · `29058c73`), and a
 planted `shr 7` changes the answer. The routine is the benchmark's reference, so it is not committed here.
+- **Addendum, the first Linux run (CI run 35941536369):** the corpus was green on GNU objdump (484 EQUAL · 659 REFUSED ·
+  0 BAD, of master's 1,143). The translate arm was RED on its own needle: it looked for `adcl`, and GNU prints the refused
+  line as `adc`. This is the suffix difference B2 exists to absorb, and it was missed in B2's own test. The needle is
+  now `` `adc ``, re-driven against both tools' refusal text (old needle: LLVM true, GNU FALSE; new: both true).
+  ⚠️ `translate` uses the FIRST disassembler found, so on macOS its arms exercise LLVM only; CI exercises GNU.
