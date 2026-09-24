@@ -803,7 +803,7 @@ def cmd_selftest():
     bad, total = translate_arms()
     print(f"  {total - bad}/{total} arms as required")
     rc = 1 if bad else 0
-    with tempfile.TemporaryDirectory(prefix="b2self-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="x86lean-b2self-") as tmp:
         asm, obj = os.path.join(tmp, "v.s"), os.path.join(tmp, "v.o")
         r = subprocess.run(["lake", "env", ".lake/build/bin/x86lean-diff", "emit-asm", asm],
                            capture_output=True, text=True, cwd=ROOT)
@@ -835,6 +835,8 @@ def cmd_selftest():
 
 if __name__ == "__main__":
     sys.path.insert(0, HERE)
+    from portable import strict_flags
+    strict_flags(__file__)
     a = sys.argv[1:]
     if a == ["--selftest"]:
         sys.exit(cmd_selftest())
