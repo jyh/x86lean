@@ -471,7 +471,7 @@ of its five machines.
 \src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
-eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added]; 292 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48; every other record since BATCH22 adds 0), D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added, p2\_shift\_divergences, liblisa\_machines]; 292 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48; every other record since BATCH22 adds 0), D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
@@ -490,7 +490,7 @@ on the low 64 bits of the count register and on none of the upper 64: 40 verdict
 control instruction whose upper-half read is visible and plants that each turn a verdict red. The two
 encodings differ above bit 127, which this reading does not examine.
 \src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; scripts/liblisa\_hardware\_check.py;
-docs/CLAIMS.tsv[liblisa\_shift\_verdicts\_pass]; docs/DECISIONS.md D221}
+docs/CLAIMS.tsv[liblisa\_shift\_verdicts\_pass, liblisa\_shift\_forms, liblisa\_machines]; docs/DECISIONS.md D221}
 A model that disagrees with itself across two operand shapes of one instruction has a defect, not a
 reading. We record each of the eight as a known divergence naming one vector and one field, with its
 independent source; the cases keep running, and an entry that stops diverging fails the run, so a fix
@@ -542,7 +542,7 @@ demand actually occurs, it executes the forms carrying 102{,}931 of them and ref
 169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 88{,}882 have not yet been
 asked at their own class. The five parts sum to the total.
 \src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
-p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
+p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_stalls\_pairs, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
 162 + 102931 + 169877 + 241 + 88882 = 362093}
 Among those whose form has been asked, the reference model therefore refuses more than it executes, both
 counted by instructions and counted by forms (88 forms refused, 67 executed). The unasked share is larger
@@ -705,7 +705,7 @@ Six routines, four of them with two to seven labels, written by one author again
 Against x86isa's eight verified program families, including full functional correctness for an
 unbounded copy loop, this is a far weaker proof development (Section~\ref{sec:related}). A benchmark of such properties, and a program logic proved sound over this
 semantics, are the subject of later work.
-\src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2; docs/CLAIMS.tsv[proof\_sample\_routines]}
+\src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2; docs/CLAIMS.tsv[proof\_sample\_routines, x86isa\_program\_families]}
 
 % ---------------------------------------------------------------------------------------------
 \section{Related Work}
@@ -723,7 +723,7 @@ operation'' and runs ``co-simulations against an actual x86 processor for model 
 Its proof development is far stronger than ours: eight verified program families carry 559 theorem
 forms over a separate proof library, and one of them proves full functional correctness and freedom
 from faults for a copy loop of unbounded length.
-\src{docs/CLAIMS.tsv[x86isa\_theorem\_forms]; docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
+\src{docs/CLAIMS.tsv[x86isa\_theorem\_forms, x86isa\_program\_families]; docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
 603 forms of the utilities library}
 The K semantics~\cite{dasgupta-k-x86,k-x86-repo} counts ``3155 instruction variants, corresponding to
 774 mnemonics'', and ``is fully executable and has been tested against more than 7,000

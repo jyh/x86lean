@@ -20429,3 +20429,24 @@ After the change the census reads 27 unaccounted for, none of them measured. ⚠
 written as a word is outside it.
 **Not done here:** the Data Availability section still says an archived DOI waits on the repository's archive toggle. Minting
 a DOI is an outward act that cannot be withdrawn, so it went to the helm as an ask. The helm carries it for the Captain (the 09-25 pack's ledger a10; default no DOI), and the LaTeX comment stays until his word.
+
+## D302 — The paper's figures written as words: a census, and five more rows
+
+**The owed item (D301's last line):** D301's census read digits only, so a figure written as a word was outside it. **The census,
+2026-09-25:** every number word from zero to twenty in the prose, comments and `\src` bodies excluded, split into spans at the `\src`
+markers exactly as `check_prose` splits them: **195 words, 16 already cited** (the D233/D234 fractions and phrases). The haystack was
+checked for size before it was searched; an earlier pass that also read inside the markers found 212. Most of the rest are not
+measurements: pronoun and determiner uses of "one" and "two", architecture constants (sixteen registers, six arithmetic flags, a
+five-bit count mask), counts of the paper's own structure (four designs, five parts, and "Five findings fall there", which is right:
+§4.3 has five paragraphs), and figures quoted from other papers with their own `\src` (libLISA's five processors in §7, K's ten
+programs). **Five were measured figures with a record and no row**, and each now has one, derived from the record its span already
+names: `p2_bucket_stalls_pairs` 3 (§4.3's "in three mnemonics"; the by-bucket table counts (mnemonic, bucket) pairs, and the three
+pairs are three mnemonics, `emms`, `movmskps` and `vmovmskps`, one stall entry each in `oracle_availability.py`);
+`p2_shift_divergences` 8 (BATCH11's settled divergences, 171, less the MOVD/MOVQ first run's 163); `liblisa_machines` 5 and
+`liblisa_shift_forms` 8 (the check's machine sections and its distinct VEX shift forms, so the cited 40 is now 8 × 5 in rows);
+`x86isa_program_families` 8 (G1 1c.2, the families carrying the cited 559). Each is registered in `PHRASES`, because every one of
+those spans holds other small numbers. Red backwards: a plant of each word fires its own row, and the unplanted control reads 0.
+After the change the census reads 24 cited.
+**Left as read, and why:** "three vectors" for PAND/POR/PXOR (D113 §2 names the three vectors; the marker cites D113); "about eleven
+lines plus about one per instruction" and "a factor of about eight between the two tiers", which are approximate readings stated as
+such beside cited digits; "six codec columns", a property of the corpus recipe `docs/DEMAND-CENSUS.md` defines, not a measurement.

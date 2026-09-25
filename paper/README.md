@@ -55,6 +55,8 @@ so the draft does no anonymization. *(This read "is the Captain's; the draft pro
   silent on why. Read routes measured, not assumed: Springer `10.1007/978-3-319-48628-4_8` is paywalled
   (Crossref confirms the record; TDM licence only); the UT dissertation is unreachable because **the whole UT
   Austin estate 403s this box** — a fact about our network, not about the work's availability.
+- ✅ **Figures written as words were censused 2026-09-25 (D302):** 195 number words, five measured figures given rows; the rest are
+  constants, the text's own structure, or quotations.
 - Every number moved into `docs/CLAIMS.tsv` at the submission sha, so artifact evaluation reproduces
   it with one command (G5). §4.3's ceiling and packed-shift figures are there now (pinned `d7dbd58`). *The packed-shift record rows read
   `p2_batch13_*` and cited a different batch's record until 2026-09-15 (D249); the file number and the batch number are two counters.*
