@@ -106,11 +106,17 @@ PAIRS = {"recheck_d201_total": "recheck_d201_failed",
          "recheck_d202_total": "recheck_d202_failed",
          "coverage_rows_total": "coverage_rows_covered",
          "coverage_forms_distinct": "coverage_forms_covered",
-         "armstrong_avs_tests": "armstrong_avs_asl_only"}
+         "armstrong_avs_tests": "armstrong_avs_asl_only",
+         "cursor_plant_cases": "cursor_plant_fired"}
 
 # ⛔ D234: the same defect for a lone small value — "by 5 lines" was satisfied after a plant changed it to 3, because the
 # label count 5 sits in the same span. A row named here must appear inside its phrase; `{v}` is the value (digits or word).
-PHRASES = {"fit_max_residual": "by {v} lines"}
+PHRASES = {"fit_max_residual": "by {v} lines",
+           # D301: four counts that sit beside other small numbers (16, 64, 88) in their own spans.
+           "cursor_walk_prestates": "walk of {v} pre-states",
+           "d52_prestates": "over the {v} pre-states",
+           "d52_count_over16": "exceeded 16 in {v}",
+           "pin_vectors": "of {v} vectors"}
 
 
 # ⚠️ D235: a figure QUOTED from another paper keeps that paper's spacing ("over 118 000 different instruction groups"),

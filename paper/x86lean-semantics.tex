@@ -286,7 +286,7 @@ It is checked case by case: the leak check of Section~\ref{sec:undef:derived} al
 to leave the cursor in the same place, and over the 89{,}056 cases the differential compares the cursors
 differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
 the cases that draw, 27{,}717 of 85{,}008 in the check's own walk of 84 pre-states per vector.
-\src{docs/CURSOR-LEAK-CHECK-2026-09-13.md, the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks]; X86/Serialize.lean
+\src{docs/CURSOR-LEAK-CHECK-2026-09-13.md, the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks, cursor\_plant\_fired, cursor\_plant\_cases, cursor\_walk\_prestates]; X86/Serialize.lean
 undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
 The check cannot see a branch on a drawn bit that changes only the value a flag receives: a flag's
 undefinedness is derived from those same two runs, with no second source to disagree.
@@ -335,7 +335,7 @@ search of the model's sources, with a planted positive control, and not by proof
 Below a 64-bit operand SHLD and SHRD mask their count to five bits, so at a 16-bit operand the count can
 exceed the width and the destination becomes undefined. This is not a corner: over the 82 pre-states of the harness at the
 time, a count taken from CL exceeded 16 in 35.
-\src{docs/DECISIONS.md D52, measured on the reference model before the constructor existed; D52's ``five bits (six at .q)''}
+\src{docs/DECISIONS.md D52, measured on the reference model before the constructor existed; D52's ``five bits (six at .q)''; docs/CLAIMS.tsv[d52\_prestates, d52\_count\_over16]}
 With a register destination, x86lean answers from the oracle, and the register channel above carries
 it. With a memory destination there is no channel: \lean{undefinedLeaked} demands that the two runs
 agree on every watched byte, and the comparator cannot explain a memory disagreement at all. Rather than
@@ -393,7 +393,7 @@ the re-run reproduced every counter: 89{,}056 cases, 68{,}524 matched, 29{,}435 
 divergences, 0 unexplained and 0 leaks. The current record was itself taken against that pinned commit. That
 re-run's leak count was taken before the leak check compared the oracle cursor, and the current record's
 was taken after; the cursor's own count is the separate record of Section~\ref{sec:undef:draw}.
-\src{docs/REFERENCE-PIN-RUN-2026-09-12.md; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, pin\_cases,
+\src{docs/REFERENCE-PIN-RUN-2026-09-12.md; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, pin\_vectors, pin\_cases,
 pin\_matched, pin\_explained, pin\_diverged, pin\_unexplained, pin\_leaks]}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
 therefore runs deliberately wrong copies of x86lean against the correct one, with an empty divergence
