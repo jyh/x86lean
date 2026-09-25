@@ -835,6 +835,9 @@ def cmd_selftest():
 
 if __name__ == "__main__":
     sys.path.insert(0, HERE)
+    # ⛔ THIS SCRIPT IS TWO FILES: it needs its sibling `portable.py`. A consumer that copies
+    # asm_front.py alone gets a translator that dies on ModuleNotFoundError before it reads a byte
+    # (systems measured it in the x86 harness, 2026-09-24: 8 of 76 arms). Copy both.
     from portable import strict_flags
     strict_flags(__file__)
     a = sys.argv[1:]

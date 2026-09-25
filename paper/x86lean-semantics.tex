@@ -64,7 +64,7 @@ list of what was validated against what, a statement of which bits are undefined
 disagreements: each is ordinarily prose, and prose is not checked against the artifact it describes.
 
 We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
-first. It covers 158 mnemonics, where K's coverage target lists 774, and its proof support is a safety
+first. It covers 197 mnemonics, where K's coverage target lists 774, and its proof support is a safety
 theorem for each of six small routines, where x86isa proves full functional correctness of an
 unbounded loop. Other formal x86-64 models exist beyond the three we compare against, and one of them,
 libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
@@ -121,14 +121,14 @@ lack a row, and the published coverage document is regenerated from the table an
 The tier is \emph{exact} when every architected bit of the result and the flags is computed,
 \emph{frame} when the set of changed state components is exact but some bits come from the oracle
 because the manual leaves them undefined, and \emph{absent} when the model refuses the mnemonic entirely; forms it refuses within a row are
-listed in that row's shapes. Of 158 mnemonics, 132 are exact, 26 are frame, and 0 are absent. The tier names are this project's coinage.
+listed in that row's shapes. Of 197 mnemonics, 171 are exact, 26 are frame, and 0 are absent. The tier names are this project's coinage.
 \src{X86/Coverage.lean inductive Tier; Tests/Coverage.lean table\_mnemonics\_subset\_roster and roster\_covered\_by\_table compare mnemonic
 lists; refused forms inside non-absent rows: docs/COVERAGE.md bswap, shld, bt (D250); docs/COVERAGE.md:13; docs/CLAIMS.tsv[coverage\_mnemonics, tier\_exact, tier\_frame,
 tier\_absent]}
 
 \paragraph{Trust.}
 Decoding is trusted, not proved. The AST is produced from Intel XED's structured output, and every one
-of the 158 rows records its decoding as trusted to XED; a Lean decoder for the covered subset is later
+of the 197 rows records its decoding as trusted to XED; a Lean decoder for the covered subset is later
 work.
 \src{TRUSTBASE.md, Decode trust; X86/Coverage.lean DecodeTrust; docs/CLAIMS.tsv[decode\_xed\_rows]}
 Every theorem outside the test tree and a separately compiled native library depends on at most
@@ -382,16 +382,17 @@ contains it; it is a \emph{declared divergence} if an entry names that vector an
 \src{Main.lean classify, bothRefused, undefinableFields, knownDivergences}
 
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
-The current record covers 1{,}012 vectors at 88 pre-states, 89{,}056 cases, of which 68{,}524 are
-matched. The remaining cases carry 29{,}435 field disagreements explained by the undefined set and 171
+The current record covers 1{,}152 vectors at 88 pre-states, 101{,}376 cases, of which 80{,}679 are
+matched. The remaining cases carry 29{,}479 field disagreements explained by the undefined set and 292
 declared divergences. 0 disagreements are unexplained, and in 0 cases did an undefined bit leak.
-\src{docs/DIFFERENTIAL-P2-BATCH22.md:4-5; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
+\src{docs/DIFFERENTIAL-P2-BATCH36.md, the RUN block; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
-A re-run with the reference model pinned at ACL2 commit c8897a34 reproduced every counter: 89{,}056 cases,
-68{,}524 matched, 29{,}435 explained, 171 declared divergences, 0 unexplained and 0 leaks. Both leak counts
-were taken before the leak check compared the oracle cursor; the cursor's own count is the separate record of
-Section~\ref{sec:undef:draw}.
+An earlier record, of 1{,}012 vectors, was re-run with the reference model pinned at ACL2 commit c8897a34, and
+the re-run reproduced every counter: 89{,}056 cases, 68{,}524 matched, 29{,}435 explained, 171 declared
+divergences, 0 unexplained and 0 leaks. The current record was itself taken against that pinned commit. That
+re-run's leak count was taken before the leak check compared the oracle cursor, and the current record's
+was taken after; the cursor's own count is the separate record of Section~\ref{sec:undef:draw}.
 \src{docs/REFERENCE-PIN-RUN-2026-09-12.md; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, pin\_cases,
 pin\_matched, pin\_explained, pin\_diverged, pin\_unexplained, pin\_leaks]}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
@@ -436,7 +437,7 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
 A paper whose argument is that claims about a semantics should be checked must also report where the
-check has nothing to check against. Four findings fall there.
+check has nothing to check against. Five findings fall there.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
@@ -462,14 +463,15 @@ Agreement with a reference model that does not implement a rule is not evidence 
 Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
 the manual and in K's rules; the reference model keeps them and writes only the low 32 or 64. x86lean
 follows the manual, and the two vectors are declared divergences with K's rule as their independent
-source. They are most of the declared count: 163 of the 171. A wrong model planted to merge rather than
+source. They are most of the declared count: 163 of the current record's 292. The eight shifts below are
+another eight, and the floating-point batches added the remaining 121. A wrong model planted to merge rather than
 clear was already one of the batch's controls, and it fired against x86lean; the reference model
 implements the same mistake. libLISA's semantics agree with the manual on the VEX-encoded forms, on each
 of its five machines.
 \src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
-eight shifts were declared; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+eight shifts were declared; 292 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48; every other record since BATCH22 adds 0), D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
@@ -509,26 +511,44 @@ irrelevant, so no entry can weaken them.
 \src{docs/DECISIONS.md D108 4; Tests/Coverage.lean vshift\_saturates\_rather\_than\_wrapping;
 Main.lean driveWrong, compareRecs [] good bad}
 
+\paragraph{A reference model whose floating point is not the processor's.}
+The rounding forms (scalar and packed arithmetic, conversions and square roots) share one rounding
+rule, and there the reference model departs from the manual in ways the manual alone does not settle.
+An invalid operation returns the floating-point indefinite without its sign bit. A conversion from single
+to double precision returns an overflow result whenever the sticky overflow flag is already set, because
+the reference reads its own accumulated flags as an input. Converting the integer 0 under round-down
+returns $-0$. So a processor decides each case: every such row is executed on two vendors' processors, an
+AMD EPYC 7763 and an Intel Core i7-8700B, one instruction per row, before any Lean is written, and the row
+is then pinned in the kernel as a \texttt{decide} theorem over x86lean's semantics. The sign-less
+indefinite and the signed zero are declared divergences, each at exactly its shape. The overflow defect
+never reaches the differential, because no pre-state presets that flag, and is carried by the pinned rows.
+One instruction is left out. On SQRTPS, every source in the populated pre-states puts a negative value in
+a lane above the lowest, and a divergence entry can excuse only the lowest lane, so SQRTPS has a
+definition and processor rows but is not claimed.
+\src{docs/DECISIONS.md D266 4 (the preset-OE and zero-sign defects, at cvt-spec.lisp), D265 and D284 (rtl::indef,
+scalar and packed), D267 10 (the Intel reading beside the AMD runner's), D291 (vsqrt on roundPack); X86/SoftFloat.lean roundPack, and roundsUp, its decision rule, which cvtToInt calls directly, D295 2 (SQRTPS);
+hwprobe/; Tests/Anchors.lean, the cvtss2sd\_*\_sticky rows marked ``x86isa differs''; Main.lean knownDivergences}
+
 \paragraph{The ceiling of the method.}
 Differential validation needs a reference model that runs the instruction, and for much of what
 x86lean does not yet cover, ours does not. We measure demand with a census of the instructions in
 public Debian binaries; in its assembly class, six codec columns counted apart from compiler output,
-401{,}653 instructions are forms the model does not cover.
+362{,}093 instructions are forms the model does not cover.
 \src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
 Of those, 162 are scalar instructions in the census row for the LOCK vocabulary, still counted as
 uncovered although the vocabulary itself has landed, and the rest are vector instructions.
 Asking the reference model to execute one form of each vector mnemonic, at the operand class where the
-demand actually occurs, it executes the forms carrying 139{,}854 of them and refuses the forms carrying
-169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 91{,}519 have not yet been
+demand actually occurs, it executes the forms carrying 102{,}931 of them and refuses the forms carrying
+169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 88{,}882 have not yet been
 asked at their own class. The five parts sum to the total.
 \src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
 p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
-162 + 139854 + 169877 + 241 + 91519 = 401653}
-Counted by instructions, among those whose form has been asked the reference model therefore refuses
-more than it executes, although more of the forms asked execute (106) than refuse (88); the unasked share
-is larger than the difference in instructions, so the comparison does not yet extend to the whole gap.
+162 + 102931 + 169877 + 241 + 88882 = 362093}
+Among those whose form has been asked, the reference model therefore refuses more than it executes, both
+counted by instructions and counted by forms (88 forms refused, 67 executed). The unasked share is larger
+than the difference in instructions, so the comparison does not yet extend to the whole gap.
 \src{docs/P2-ROSTER.md, the BY (mnemonic, BUCKET) table's pairs column, one form asked per pair; docs/CLAIMS.tsv[p2\_bucket\_pairs\_executes,
-p2\_bucket\_pairs\_refuses]; this sentence said ``Among the forms it has been asked'' until 2026-09-15, true only by instruction, D250}
+p2\_bucket\_pairs\_refuses]; this sentence said ``Among the forms it has been asked'' until 2026-09-15, true only by instruction, D250; and until the 2026-09-24 re-pin (D300) it said more forms executed (106) than refused (88), which the covered batches since have reversed}
 The refused instructions cannot be differentially validated against it at any price, however the work
 is ordered. K has
 semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
@@ -556,13 +576,13 @@ claim a row only if the two assemble to the same opcode, so a mis-parse cannot s
 instances assemble to identical bytes are reported as spellings of one machine form, which is why the
 figures count both rows and distinct forms.
 \src{scripts/claimed\_forms.py module docstring}
-The published figures are 158 mnemonics in 1{,}012 differentially tested vectors, read from the table
+The published figures are 197 mnemonics in 1{,}152 differentially tested vectors, read from the table
 the model generates, and 500 of the 525 roster rows, which are 351 of the 374 distinct machine forms those
 rows describe; CI fails if the prose that states them disagrees with the derivation. The roster is K's
 scalar forms: the model's vector forms have no row there, are listed by name as exempt, and are counted
 against a separate demand roster instead.
 \src{scripts/claimed\_forms.py, the mnemonic count read from the generated COVERAGE.md, and CLAIMS\_NO\_ROW (204 SIMD entries of 234);
-72 of the 158 table rows take an xmm operand (D250); docs/COVERAGE.md:5 and README.md:56-57, checked against the derivation by scripts/claimed\_forms.py --check in CI;
+111 of the 197 table rows take an xmm operand (README.md:59, at the pinned sha); docs/COVERAGE.md:5 and README.md:56-57, checked against the derivation by scripts/claimed\_forms.py --check in CI;
 this paper's copy is checked against docs/CLAIMS.tsv[coverage\_mnemonics, coverage\_forms, coverage\_rows\_covered,
 coverage\_rows\_total, coverage\_forms\_covered, coverage\_forms\_distinct], which read COVERAGE.md at the pin (D231)}
 Numbers outside the coverage table are entered in a manifest with the command that re-derives each
@@ -717,11 +737,11 @@ The Sail x86 model~\cite{sail-x86-repo} is translated automatically from x86isa,
 theorems, and is validated by co-simulation against K's single-instruction tests, so agreement with it
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
-Against these, x86lean covers 158 mnemonics where K's target lists 774; x86isa's figure is stated in
+Against these, x86lean covers 197 mnemonics where K's target lists 774; x86isa's figure is stated in
 opcodes, a different unit, and Sail's model publishes no count. Its proof support, a safety theorem for
 each of six small routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
-158 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
+197 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
 means. libLISA discovers instructions and synthesizes their semantics by executing them on a CPU,
 producing ``the most extensive formal x86-64 model to date, with over 118 000 different instruction
