@@ -20360,5 +20360,9 @@ record; the current record was itself taken against `acl2@c8897a34` (its RUN blo
 the cursor conjunct (D226, `6f01541`), and the current record's includes it (`undefinedLeakedBy` compares the cursor), so the
 old "both leak counts were taken before" is split in two.
 **Also:** the xmm row count on the §5 source line, 72→111 (README at the pin). check_claims CLEAN (94 claims), paper builds.
-**Not done, and named:** the paper does not yet mention P3 (the soft-float commission: roundPack, the sqrt and cvt families).
-That is a content question for O38, not a re-pin.
+**And P3 joins §4.3 as its fifth finding** (routed to the helm with the recommendation, proceeding on it): x86isa's sign-less
+indefinite, its preset-OE overflow (`cvt-spec.lisp`, D266 §4) and its round-down −0, each decided on two vendors' processors
+and pinned in the kernel (`Tests/Anchors.lean`, the `cvtss2sd_*_sticky` rows), and SQRTPS as the one instruction left out.
+Every sentence was checked at its source, and one was corrected before commit: the forms share one rounding RULE, not one
+function (`cvtToInt` calls `roundsUp` directly). Declared divergences: 163 of 292, with the +121 attributed by record deltas
+(BATCH27/29/31/35: +50/+11/+12/+48, all others since BATCH22 +0). The paper is 17 pages including the bibliography.

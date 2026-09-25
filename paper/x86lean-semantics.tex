@@ -437,7 +437,7 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
 A paper whose argument is that claims about a semantics should be checked must also report where the
-check has nothing to check against. Four findings fall there.
+check has nothing to check against. Five findings fall there.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
@@ -463,14 +463,15 @@ Agreement with a reference model that does not implement a rule is not evidence 
 Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
 the manual and in K's rules; the reference model keeps them and writes only the low 32 or 64. x86lean
 follows the manual, and the two vectors are declared divergences with K's rule as their independent
-source. They are most of the declared count: 163 of the 171. A wrong model planted to merge rather than
+source. They are most of the declared count: 163 of the current record's 292. The eight shifts below are
+another eight, and the floating-point batches added the remaining 121. A wrong model planted to merge rather than
 clear was already one of the batch's controls, and it fired against x86lean; the reference model
 implements the same mistake. libLISA's semantics agree with the manual on the VEX-encoded forms, on each
 of its five machines.
 \src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
-eight shifts were declared; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+eight shifts were declared; 292 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48; every other record since BATCH22 adds 0), D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
@@ -509,6 +510,24 @@ against x86lean itself with an empty divergence list, where the reference model'
 irrelevant, so no entry can weaken them.
 \src{docs/DECISIONS.md D108 4; Tests/Coverage.lean vshift\_saturates\_rather\_than\_wrapping;
 Main.lean driveWrong, compareRecs [] good bad}
+
+\paragraph{A reference model whose floating point is not the processor's.}
+The rounding forms (scalar and packed arithmetic, conversions and square roots) share one rounding
+rule, and there the reference model departs from the manual in ways the manual alone does not settle.
+An invalid operation returns the floating-point indefinite without its sign bit. A conversion from single
+to double precision returns an overflow result whenever the sticky overflow flag is already set, because
+the reference reads its own accumulated flags as an input. Converting the integer 0 under round-down
+returns $-0$. So a processor decides each case: every such row is executed on two vendors' processors, an
+AMD EPYC 7763 and an Intel Core i7-8700B, one instruction per row, before any Lean is written, and the row
+is then pinned in the kernel as a \texttt{decide} theorem over x86lean's semantics. The sign-less
+indefinite and the signed zero are declared divergences, each at exactly its shape. The overflow defect
+never reaches the differential, because no pre-state presets that flag, and is carried by the pinned rows.
+One instruction is left out. On SQRTPS, every source in the populated pre-states puts a negative value in
+a lane above the lowest, and a divergence entry can excuse only the lowest lane, so SQRTPS has a
+definition and processor rows but is not claimed.
+\src{docs/DECISIONS.md D266 4 (the preset-OE and zero-sign defects, at cvt-spec.lisp), D265 and D284 (rtl::indef,
+scalar and packed), D267 10 (the Intel reading beside the AMD runner's), D291 (vsqrt on roundPack); X86/SoftFloat.lean roundPack, and roundsUp, its decision rule, which cvtToInt calls directly, D295 2 (SQRTPS);
+hwprobe/; Tests/Anchors.lean, the cvtss2sd\_*\_sticky rows marked ``x86isa differs''; Main.lean knownDivergences}
 
 \paragraph{The ceiling of the method.}
 Differential validation needs a reference model that runs the instruction, and for much of what
