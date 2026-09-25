@@ -20295,6 +20295,53 @@ it has no roster row (D295 §2). **B5's pins are unchanged** (40 of 92). CVTPD2P
 **Red backwards:** x86isa's `7f800000` ×2 planted on `cvtpd2ps_sticky1fbf` makes `decide` refuse (build rc 1).
 **Price:** Δku **+19,461** against 23.3% × 859,582 ≈ 200.3k (base `7b4c0d8`). CLEAN.
 
+## D297 — S3: the asm → x86lean front end (B2) for the declared 29-mnemonic core
+
+⚖️ The x86 SaltBench commission's step S3 (proposal v1 §3.5, ruled "fire v1 as priced" 2026-09-21; "the Claude side can
+commence", 2026-09-23). Until now every `Program` was translated from an objdump listing BY HAND. `scripts/asm_front.py`
+does it mechanically: `translate <elf>` emits a Lean module with `prog : Program` and `image : Image`, or prints
+`REFUSED-TRANSLATE` for each form outside the core and exits 3.
+
+### 1. SCOPE — AN ALLOWLIST, NOT x86lean's COVERAGE
+The 29 mnemonics of v1 §3.5 (`mov movzx movsx add sub and or xor cmp test shl shr sar inc dec neg not lea push pop jmp
+jcc call ret cmovcc setcc imul rol ror`). Forms x86lean models but the core omits (adc, xchg, bt, the string ops, all
+SSE) are REFUSED by name. The core list lives in one place, `CORE`.
+
+### 2. THE LAYOUT IS THE LINKER'S
+A linked executable is translated as it stands. An unlinked object is accepted only with `--base` and only when nothing
+in it needs a layout decision: no relocation section, no allocated data section. Anything else is refused ("link at the
+fixed layout first"). The link is the harness's step (B4), not this script's.
+
+### 3. THE SELFTEST, AND WHAT IT READ
+Every differential vector's own `asm` is assembled by clang and disassembled, and B2's translation is compared with the
+hand-written `instr` by Lean's `==`. The comparison runs on EVERY disassembler found, because LLVM and GNU print
+different text for the same bytes: GNU drops suffixes, prints negative immediates unsigned and wraps at seven bytes,
+while LLVM gives `lock` its own line.
+```
+  corpus 1,149 vectors · core 484 (v1's 479 + S1's 5, exactly)
+  LLVM   484 core EQUAL · 665 non-core REFUSED · 0 BAD
+  GNU    484 core EQUAL · 665 non-core REFUSED · 0 BAD
+  parser arms 15/15 · translate end to end 3/3 (a byte sum run to 646; rc 3 on adcl; rc 1 on a data section)
+```
+- **The comparison was shown to fail first.** A mutant that swaps a binary op's operands reads **181 BAD**, which is
+  the core's whole binary-op population (21+22+28+29+29+29+23). A mutant that drops `lock` reads **9 BAD**, the core's
+  nine lock vectors. Both counts were predicted before the run. The `lock` mutant passed every parser arm, so a
+  lock-positive arm was added.
+- **The first run was 445/484**: every branch was refused, because operands were parsed before the branch case. The
+  corpus caught it, and no arm had.
+- **Conventions reproduced, each read from the corpus:** an immediate is its value modulo the operand width; a
+  displacement is sign-extended; `rel` = target − next address; a count-less shift counts 1; `lock` is on the `Ea`.
+
+### 4. ACCEPTANCE ON THE REFERENCE ROUTINE (not in this repository)
+On the proposal's CRC-32 routine, `translate --base 0x1000` produced a `Program` that is `==` to the hand-written one
+(12 of 12). Run by `runP`, it returns zlib's value on 4 of 4 inputs (`cbf43926` · 0 · `d202ef8d` · `29058c73`), and a
+planted `shr 7` changes the answer. The routine is the benchmark's reference, so it is not committed here.
+- **Addendum, the first Linux run (CI run 35941536369):** the corpus was green on GNU objdump (484 EQUAL · 659 REFUSED ·
+  0 BAD, of master's 1,143). The translate arm was RED on its own needle: it looked for `adcl`, and GNU prints the refused
+  line as `adc`. This is the suffix difference B2 exists to absorb, and it was missed in B2's own test. The needle is
+  now `` `adc ``, re-driven against both tools' refusal text (old needle: LLVM true, GNU FALSE; new: both true).
+  ⚠️ `translate` uses the FIRST disassembler found, so on macOS its arms exercise LLVM only; CI exercises GNU.
+
 ## D299 — CI-3's real-gate half: an unregistered box judges A′'s ms half against the BASE tree × 3
 
 **The defect (CI-3):** `kernel_ceilings.txt` keys A′'s ms ceilings by `(unit, machine)`, and a GitHub runner's hostname is
