@@ -116,7 +116,13 @@ PHRASES = {"fit_max_residual": "by {v} lines",
            "cursor_walk_prestates": "walk of {v} pre-states",
            "d52_prestates": "over the {v} pre-states",
            "d52_count_over16": "exceeded 16 in {v}",
-           "pin_vectors": "of {v} vectors"}
+           "pin_vectors": "of {v} vectors",
+           # D302: five counts the prose writes as WORDS, each beside other small numbers in its span.
+           "p2_bucket_stalls_pairs": "in {v} mnemonics",
+           "p2_shift_divergences": "are another {v}",
+           "liblisa_machines": "{v} machines",
+           "liblisa_shift_forms": "each of the {v} shifts",
+           "x86isa_program_families": "{v} verified program families"}
 
 
 # ⚠️ D235: a figure QUOTED from another paper keeps that paper's spacing ("over 118 000 different instruction groups"),
