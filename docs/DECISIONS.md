@@ -20378,3 +20378,28 @@ one `if`. It would be shown wrong by a real ku-blind regression that CI passes o
 refuses.
 **Arms:** `--selftest` 49/49 (5 new). **Red backwards:** the old unconditional refusal restored as a mutant reds exactly the
 two arms that name it (47/49). A mutant deriving the ceiling from the HEAD (the circular arm) reds four (45/49).
+
+## D300 — The paper's figures re-pinned from d7dbd58 to 1f9ad9b, at the model's natural freeze
+
+**Why now:** the paper's CLAIMS rows were pinned at `d7dbd58` (2026-09-13). Since then P2 batches 40–50 and P3's sub-groups
+A, A′ and B have landed, and the buildable SSE-legacy residue is empty (`p2_residue.py`: sqrtps 2, declined by design, D295
+§2). The coverage will not move again until a new commission, so this is the snapshot to submit from (deadline 2026-10-15).
+**Measured before editing:** every paper-cited CLAIMS row was re-derived at `1f9ad9b`. 74 held; 8 moved: coverage_mnemonics
+158→197, coverage_forms 1,012→1,152, tier_exact 132→171, decode_xed_rows 158→197, p2_gap_total 401,653→362,093,
+p2_bucket_executes 139,854→102,931, p2_bucket_unasked 91,519→88,882, p2_bucket_pairs_executes 106→67. The `diff_*` rows did not
+move, because they read one dated record (P2 batch 22) that the prose called "the current record"; they now read batch 36
+(1,152 vectors, 101,376 cases, 80,679 matched, 29,479 explained, 292 declared, 0 unexplained, 0 leaks).
+**Three sentences were rewritten, not substituted.** (1) The pairs sentence's direction REVERSED: "more of the forms asked
+execute (106) than refuse (88)" is false at 67 against 88, so it now says the reference model refuses more by instructions AND
+by forms. A number swap would have published a false sentence with every gate green, because check_claims checks that a value
+appears, not what the sentence says about it. (2) The pinned re-run is now stated as a re-run of the EARLIER 1,012-vector
+record; the current record was itself taken against `acl2@c8897a34` (its RUN block). (3) Leak counts: the re-run's predates
+the cursor conjunct (D226, `6f01541`), and the current record's includes it (`undefinedLeakedBy` compares the cursor), so the
+old "both leak counts were taken before" is split in two.
+**Also:** the xmm row count on the §5 source line, 72→111 (README at the pin). check_claims CLEAN (94 claims), paper builds.
+**And P3 joins §4.3 as its fifth finding** (routed to the helm with the recommendation, proceeding on it): x86isa's sign-less
+indefinite, its preset-OE overflow (`cvt-spec.lisp`, D266 §4) and its round-down −0, each decided on two vendors' processors
+and pinned in the kernel (`Tests/Anchors.lean`, the `cvtss2sd_*_sticky` rows), and SQRTPS as the one instruction left out.
+Every sentence was checked at its source, and one was corrected before commit: the forms share one rounding RULE, not one
+function (`cvtToInt` calls `roundsUp` directly). Declared divergences: 163 of 292, with the +121 attributed by record deltas
+(BATCH27/29/31/35: +50/+11/+12/+48, all others since BATCH22 +0). The paper is 17 pages including the bibliography.
