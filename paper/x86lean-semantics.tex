@@ -471,7 +471,7 @@ of its five machines.
 \src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
-eight shifts were declared; 292 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48; every other record since BATCH22 adds 0), D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added]; 292 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48; every other record since BATCH22 adds 0), D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
