@@ -44,7 +44,7 @@ so the draft does no anonymization. *(This read "is the Captain's; the draft pro
   Myreen FMCAD 2012 record was taken from the author's page and bibtex (D222). ✅ **Re-read 2026-09-15 (D249)** against Crossref and
   each paper's own footer: Goel is cited as its EPTCS 249 publication, the two PACMPL entries carry their article numbers
   (Armstrong's "1--31" did not locate the article; libLISA's "333--361" was Crossref issue pagination absent from the PDF), and
-  the four repository entries carry sort keys. ⚠️ The TACAS 2007 LNCS volume is still unverified and is not written from memory. *This item read "the SDM entry
+  the four repository entries carry sort keys. ✅ **The TACAS 2007 LNCS volume is 4424 (D301)**, read from the Library of Congress MARC record (LCCN 2007922076, field 830), because Crossref carries no volume for the chapter or the book DOI and Springer's page is behind a bot check. *This item read "the TACAS 2007 LNCS volume is still unverified" until 2026-09-25.* *This item read "the SDM entry
   needs its order number and URL; the Myreen FMCAD 2012 record needs a browser" until 2026-09-13.*
 - ✅ **CLOSED 2026-09-13 (D237): which Goel work to cite for x86isa's design (D214).** Keep the arXiv note
   (`goel-x86isa`, read; cited since D249 as its EPTCS 249 publication, the same text) + `x86isa-repo`; cite NEITHER the dissertation NOR the Springer chapter, both UNREAD.
@@ -61,4 +61,4 @@ so the draft does no anonymization. *(This read "is the Captain's; the draft pro
 - ✅ A number in the `.tex` IS checked against the row its `\src` cites, when it cites one:
   write `docs/CLAIMS.tsv[id, id]` inside the marker, and `scripts/check_claims.py` (in CI) requires
   each cited value in the prose since the previous marker (D216). ⚠️ A number with no such citation
-  is NOT checked. Before submission, every number in the paper should carry one.
+  is NOT checked. Before submission, every number in the paper should carry one. ✅ **Censused 2026-09-25 (D301):** of 122 digit-numbers in the prose, the six measured ones that had no row now have one; the 27 left are constants, versions and quotations. ⚠️ Numbers written as words were not censused.

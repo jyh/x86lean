@@ -20403,3 +20403,29 @@ and pinned in the kernel (`Tests/Anchors.lean`, the `cvtss2sd_*_sticky` rows), a
 Every sentence was checked at its source, and one was corrected before commit: the forms share one rounding RULE, not one
 function (`cvtToInt` calls `roundsUp` directly). Declared divergences: 163 of 292, with the +121 attributed by record deltas
 (BATCH27/29/31/35: +50/+11/+12/+48, all others since BATCH22 +0). The paper is 17 pages including the bibliography.
+
+## D301 — The TACAS 2007 citation's LNCS volume (4424, from the Library of Congress record), and six uncited figures given rows
+
+**The owed item:** `paper/README.md` carried "the TACAS 2007 LNCS volume is still unverified and is not written from memory"
+since D249. **The routes, as measured 2026-09-25:** Crossref's record for the chapter DOI `10.1007/978-3-540-71209-1_44` and for
+the book DOI `10.1007/978-3-540-71209-1` both carry `volume: null` (the book record does carry the editors, Grumberg and Huth);
+Springer's book page and DBLP's search API both answered with a bot check; Google Books answered 429. **The record that answered:**
+Open Library's edition for ISBN 9783540712084 names LCCN 2007922076 and its source MARC record from the Library of Congress
+(`marc_loc_2016/BooksAll.2016.part35.utf8`, offset 80053130, length 1459), fetched by byte range from archive.org. Its field
+830 reads `Lecture notes in computer science ;$v4424`, its 111 field `TACAS 2007 (2007 : Braga, Portugal)`, and its 245
+statement of responsibility `Orna Grumberg, Michael Huth (eds.)`, which agrees with Crossref's editors.
+**The entry** gains `volume = {4424}` and the two editors, in the form the EPTCS entry already uses; a comment above it names
+the source. The paper builds at 17 pages, and the build's three underfull-box warnings are the same three the base tree gives.
+**And the paper's uncited measured figures (the README's "every number should carry one").** A census of the
+prose's digit-numbers against the CLAIMS values cited in each one's span read 122, of which 33 were unaccounted for. Most
+are constants of the architecture or the text (bit widths, the 66 prefix, a processor model number, version strings,
+quotations), and two were the census's own misses: `40` is cited, and `118 000` is cited in its spaced form. Six were
+measured figures with no row, and each now has one, derived from the record the prose already names: `pin_vectors` 1,012
+(§4.1); `cursor_plant_fired` 27,717 of `cursor_plant_cases` 85,008 and `cursor_walk_prestates` 84 (§3.2); `d52_prestates` 82
+and `d52_count_over16` 35 (§3.4, which D52 writes in words and the command converts). The fraction is registered in `PAIRS`
+and the four lone counts in `PHRASES`, because each sits in a span beside other small numbers (16, 64, 88) that a presence
+check would accept. Red backwards: a plant of each figure in the prose fires its own row and the unplanted control reads 0.
+After the change the census reads 27 unaccounted for, none of them measured. ⚠️ The census reads digits only, so a figure
+written as a word is outside it.
+**Not done here:** the Data Availability section still says an archived DOI waits on the repository's archive toggle. Minting
+a DOI is an outward act that cannot be withdrawn, so it went to the helm as an ask. The helm carries it for the Captain (the 09-25 pack's ledger a10; default no DOI), and the LaTeX comment stays until his word.
