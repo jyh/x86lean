@@ -2403,7 +2403,7 @@ non-zero values or the arm scores 0 and reports green about a model that destroy
 kernel `decide` and has been re-paid twice ([[feedback-prose-in-a-kernel-reduced-string-is-a-cost]]).
 The prose goes in `note`, which is not reduced.
 
-## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); B5 = P2 BATCH 47 (D282, D283), BUILT ON `paris/b5`, LANDING AFTER #55**
+## P3 — THE SOFT-FLOAT COMMISSION · **OPEN — A AND A′ LANDED (D261); B0 = P2 BATCH 41 (D267); B1 = P2 BATCH 42 (D268); B2 = P2 BATCH 43 (D271), LANDED; B3 = P2 BATCH 44 (D273), `cvtsd2ss`, LANDED; B4 = P2 BATCH 45 (D275, D276), LANDED; B5's HARDWARE READING IN (D281); B5 = P2 BATCH 47 (D282, D283); B6a/B6b = BATCHES 48/49 (D287–D293); B7 (D294–D296): ALL LANDED in four PRs (#56 · #57 · #58 · #61, the last `c888ce1`, 2026-09-24). SUB-GROUP B IS COMPLETE TO ITS NAMED RESIDUE, `sqrtps` 2, by design (D295 §2).**
 ⚖️⚖️ **STATUS AT 2026-09-23, EVENING (paris, life-80, D287–D293): SUB-GROUP B IS BUILT TO 3 INSTRUCTIONS, ON ONE STACK.**
 B6's hardware reading (D287: 934/934 on AMD + Intel; x86isa 56 as committed before gen) · B6a = `cvtsd2si`/`cvtss2si`
 (D288 shape, D289 batch 48, D290 pins 130 rows +93,692 ku) · B6b = `sqrtsd`/`sqrtss` (D291 shape, D292 batch 49 with 48
@@ -3228,7 +3228,7 @@ sub-group A work, not 74.6%.**
 no-rounding group, or 1,941 ~~exact~~ int32 ones out of it, depending on which way it guesses. **The control is the part to trust: the scan
 reproduces the census's own population exactly, so the split joins its columns rather than standing beside them.**
 
-## ⚠️ CVTSI-MEM-PROBE (2026-09-16, from D257) — **HALF ANSWERED BY BATCH 39'S VECTORS; the three sub-group-B keys still owe the sealed probe**
+## ✅ CVTSI-MEM-PROBE (2026-09-16, from D257) — **CLOSED 2026-09-23 (D298): the three owed keys asked by a sealed batch (`cvtsi2sdq_m` · `cvtsi2ssl_m` · `cvtsi2ssq_m`), 3 of 3 as sealed, each agreeing with its register row.** *(Filed as: "HALF ANSWERED BY BATCH 39'S VECTORS; the three sub-group-B keys still owe the sealed probe".)*
 ✅ **`cvtsi2sdl` and `cvtss2sd` are answered, and more strongly than a probe would:** batch 39 runs four memory-source
 vectors on x86isa (`cvtsi2sdl (%rbx)` and `-0x3(%rbx)`, `cvtss2sd -0x3(%rbx)` and `0xe(%rbx)`): 352 cases, every one
 EXECUTED and every one agreeing with the SDM computed from the pre-state (D258, record 25).

@@ -1120,6 +1120,25 @@ P2_FORMS = [
     # = a8e42fdc011a58efee0b7624781e5a7cc3a2feba62096ca53748cca0efb8a542,
     # 2026-09-06T20:55:40Z.
     ("pandn_mmx",       "pandn %mm1, %mm0",                  "0fdfc1",        "executes", "executes"),
+    # ══════════════════════════════════════════════════════════════════
+    # CVTSI-MEM-PROBE (QUEUE, from D257; D298) — THE MEMORY SHAPE OF THREE WIDTH KEYS.
+    # D257 pooled the register and memory shapes of `cvtsi2s[sd][lq]` under one
+    # (mnemonic, bucket) key, so the register rows above were crediting ~960
+    # memory-source instructions of demand that no probe had asked about. Batch 39's
+    # vectors answered `cvtsi2sdl` and `cvtss2sd` at memory; these three were still
+    # owed. Same key as their register rows, so `measured_availability`'s conflict
+    # rule is the comparison: a disagreement is a FINDING and refuses the table.
+    # ⚠️ THE SOURCE IS MEMORY AT (%rbx) = 0x2000, WHICH THIS PROBE DOES NOT WRITE, so
+    # it reads 0. An INTEGER source at zero converts to +0.0 and executes (D258 §2);
+    # the zero-source guard violation is `cvtss2sd`'s, a FLOAT source, and is why
+    # that key is not probed here.
+    # ⛔ `hx` FROM `clang`, and LLVM and GNU `objdump` agree on all three.
+    # ⛔ DECLARATION SEALED BEFORE ACL2 RAN: sha256 of the 3 rows below
+    # = 90cb19b494b498bcb355d29755707f8047a9b1cb196976c6cecb7f2531f57649,
+    # 2026-09-24T01:09:28Z.
+    ("cvtsi2sdq_m",     "cvtsi2sdq (%rbx), %xmm0",           "f2480f2a03",      "refuses", "executes"),
+    ("cvtsi2ssl_m",     "cvtsi2ssl (%rbx), %xmm0",           "f30f2a03",        "refuses", "executes"),
+    ("cvtsi2ssq_m",     "cvtsi2ssq (%rbx), %xmm0",           "f3480f2a03",      "refuses", "executes"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),
