@@ -178,6 +178,19 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    reach; the unpacking and the `Loop` witnesses (`⟨k, hk, …⟩`) it cannot. So the expectation is **~42–46,
    inside the band and short of the prediction**, and a result at or under 40 would mean the closer reached
    the witnesses too.
+   ⛔ **RESULT, BUILT AND MEASURED (D310): 55 LINES — DESIGN 2 IS REFUTED (> 47).** Probed site by site
+   before writing the macro, because the census had already been wrong once in each direction:
+   `bv_omega` (theorem-tier safe, standard axioms) closes **2 of the 3** arithmetic sites (the `inc`
+   pointer step and the `dec` counter step, the second WITHOUT the four-way case split on `k`), and
+   **does not** close the third (the ZF-flag goal, which mixes a Boolean flag with the arithmetic; omega
+   returns a counterexample shape). `fill_safe` 57 → **55**, `EXIT`-clean, same statement. Design 1's halt
+   collapse on top would give ~49: **still refuted.**
+   ⇒ **The measured law:** at this interface the per-label cost is the CASE STRUCTURE (the branch's
+   `by_cases` on the flag) and the LOOP WITNESSES (`⟨k, hk, …⟩`), not arithmetic a closer can reach. That
+   is paper 1 §6's residue argument, now with two refuted designs behind it, and it points at the
+   INVARIANT'S REPRESENTATION (the witness shape), not at automation, as the next lever.
+   📌 **The expectation registered above (~42–46) was wrong too, in the flattering direction:** it priced
+   the reachable arithmetic at ~15 lines, and the measured saving is 2.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load

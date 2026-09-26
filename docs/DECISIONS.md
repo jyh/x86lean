@@ -20561,3 +20561,20 @@ statement no longer depends on the loop body having exactly seven steps. That is
 does NOT change what any cell is scored against: the harness pin, and whether the control adopts it, belong to the harness's owners.
 **The counter:** a block count applied identically to both versions. It is not `scripts/proof_lines.py`, which reads this repository's
 shas and cannot see the withheld tree, and the design doc says so where the number appears.
+
+## D310 — The arithmetic closer (design 2), pre-registered and then BUILT: refuted at 55 lines
+
+**Pre-registered at `fbd21f5`, before any code:** `fill_safe` re-proved with a closer on each side goal; same bar as design 1 (≤ 40 met,
+> 47 refuted, floor ~32); the expectation stated as ~42–46.
+**Driven site by site, not assumed:** `bv_omega`, which is on the standard axioms and so legal at the theorem tier (TRUSTBASE excludes only
+`bv_decide`), closed the `inc` pointer step and the `dec` counter step, the latter without the four-way case split on `k`. It did NOT
+close the ZF-flag goal: that goal mixes a Boolean flag with the arithmetic, and omega returned a counterexample shape. That site keeps
+its case split.
+**Measured:** `fill_safe` 57 → **55** lines, same statement, route rc 0 with 0 tagged errors. **REFUTED (> 47).** Design 1's halt collapse on top
+would give ~49, still refuted.
+**The finding, which is paper 2's:** at this interface the per-label cost is the CASE STRUCTURE and the LOOP WITNESSES, not arithmetic a
+closer can reach. Two designs are now refuted. The next lever is the invariant's REPRESENTATION, not automation.
+**Against myself, twice in one day:** design 1's census first said 41–45 and then 47–48, and design 2's expectation said 42–46 and measured
+55. Every one of these errors was optimistic. The probe (`bv_omega` at the real side goals) is what caught this one, where another census
+would not have.
+**Not landed:** the 55-line proof is a measurement, kept outside the tree. `fill_safe` stays as it is, and nothing cites the probe's proof.
