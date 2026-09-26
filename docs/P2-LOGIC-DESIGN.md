@@ -165,7 +165,13 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    aims at the ~40 lines of re-establishment and arithmetic** (a closer that tries `decide` / `omega` /
    the `Flags` normalisations on each side goal), and it will be pre-registered in the same way.
 5. R-CRC, on the withheld tree.
-6. The two-run judgment for R-READ.
+6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
+   `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
+   from `[rdi]` reads only `R = {rdi}` for every start; `ldb1_not_readsOnly` proves a load from `[rdi+1]`
+   does NOT (the red control). ⚠️ **What the terminal form does NOT say:** it constrains the END states
+   only, so a routine that reads outside `R`, and whose result never depends on that read, passes. The
+   lockstep all-fuel form would catch that, and it is a SECOND judgment — named, not built. Paper 2 states
+   which one it claims.
 
 ## 6. Receipts
 

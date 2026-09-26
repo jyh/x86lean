@@ -164,4 +164,35 @@ theorem runP_final {p : Program} {s : Cpu} (n m : Nat) (h : (runP p n s).stopped
   rw [runP_add, runP_stopped p m _ h]
 
 
+
+/-! ## R-READ — read safety as a TWO-RUN property, stated over the UNCHANGED `runP` (D308)
+
+Paper 1 §6 records that *"a scan reads only inside its buffer"* cannot be stated as a single-run
+invariant: a load leaves no trace in the state. The honest form is non-interference over two runs whose
+memories agree on the region `R`. **Math's refuter pass (R3, 2026-09-26) drove two forms**: a lockstep
+all-fuel one, which is a SECOND judgment beside `Spec`, and the TERMINAL one below, which is an
+INSTANCE of `Spec` whose post nests a second `Spec`. This file takes the terminal form, so there is still
+one judgment; the lockstep form is named in the design doc and not built. The definitions are ported
+from that drive, whose Lean the helm ruled public-safe. -/
+
+/-- Two memories agree on the region `R`. -/
+def AgreeOnMem (R : BitVec 64 → Prop) (m m' : Mem) : Prop := ∀ a, R a → m.read a = m'.read a
+
+/-- Two states differ at most in memory: every register, flag, `rip`, the oracle and `ms` equal. -/
+def SameExceptMem (s₁ s₂ : Cpu) : Prop := ∃ m, s₂ = { s₁ with mem := m }
+
+/-- The end memories may differ only where BOTH runs left their own start byte alone — a cell either
+run wrote must hold the same byte in both (the write-then-read-back case). -/
+def MemRel (s₁ s₂ t₁ t₂ : Cpu) : Prop :=
+  ∀ a, t₁.mem.read a = t₂.mem.read a ∨ (t₁.mem.read a = s₁.mem.read a ∧ t₂.mem.read a = s₂.mem.read a)
+
+/-- **READS ONLY `R`, terminal form.** Every `P`-run stops, and a second `P`-run from a state that differs
+only in memory, agreeing on `R`, stops in a state that differs from the first's only in memory, and only
+where neither run wrote. -/
+def ReadsOnly (p : Program) (R : BitVec 64 → Prop) (P : Cpu → Prop) : Prop :=
+  Spec p P (fun s₁ t₁ => t₁.stopped = true ∧
+    ∀ s₂, P s₂ → SameExceptMem s₁ s₂ → AgreeOnMem R s₁.mem s₂.mem →
+      Spec p (fun u => u = s₂)
+        (fun _ t₂ => t₂.stopped = true ∧ SameExceptMem t₁ t₂ ∧ MemRel s₁ s₂ t₁ t₂))
+
 end X86

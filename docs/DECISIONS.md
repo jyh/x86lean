@@ -20530,3 +20530,18 @@ with ONE `Spec.step` (the `dec`) through `Spec.seq`.
 **Census now, every rule used in the tree:** `loop` 2 · `conseq` 3 · `reach` 1 · `Total` 3 · `with_invariant` 1 · `Total.and` 1 ·
 `seq` 1 · `step` 1 · `skip` 1 (in the control). ⚠️ **One use each is a census of REACH, not of adequacy.** Paper 2's "proof system"
 claim still carries the limit that no rule has met a routine of the PoC's size, until R-CRC.
+
+## D308 — R-READ in its terminal form: read safety as a `Spec` whose post nests a second `Spec`, with a load that really reads
+
+**The gap (paper 1 §6):** "a scan reads only inside its buffer" cannot be a single-run invariant, because a load leaves no trace.
+**The form, ported from the refuters' drive (math, R3; ruled public-safe by the helm):** `ReadsOnly p R P` is a `Spec` whose post says
+the run stopped, and that any second `P`-run differing only in memory and agreeing on `R` stops differing only in memory, and only where
+neither run wrote (`MemRel`). It is an INSTANCE of `Spec`, so there is still one judgment. The lockstep all-fuel form is a second judgment
+and is not built.
+**The witness the drive did not have:** its instance was `R = ∅` on a routine with no load, which never exercises the read path.
+`ldb_readsOnly` proves a one-byte load from `[rdi]` is read-safe for `R = {rdi}` for every start state. `ldb1_not_readsOnly` proves the
+same load from `[rdi + 1]` is NOT: two states agreeing at `0x2000` and differing at `0x2001` end with different `rax`. It uses
+`stopped_witness_unique` to pin both runs' end states. `ldb_reads_R` shows the load returns the byte at `R`.
+**Axioms:** all three on `[propext, Quot.sound]`; a `sorryAx` control in the same log; 0 tagged errors.
+**The limit, stated where the claim is:** the terminal form constrains END states. A routine that reads outside `R`, and whose result never
+depends on that read, satisfies it. Paper 2 claims the terminal form and says so.
