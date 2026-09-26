@@ -169,6 +169,15 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    and it is declared owed only if paper 2 wants the point measured rather than argued. **The next design
    aims at the ~40 lines of re-establishment and arithmetic** (a closer that tries `decide` / `omega` /
    the `Flags` normalisations on each side goal), and it will be pre-registered in the same way.
+   ⚖️ **DESIGN 2, PRE-REGISTERED 2026-09-26 BEFORE ANY CODE (D310):** a closer macro `vc_close`, applied to
+   every side goal left after the effect rewrite, trying in order `rfl` · `decide` · the `regcalc`
+   normalisation followed by `omega` · `simp_all` then `omega`; no `bv_decide` (theorem tier, TRUSTBASE).
+   **Same subject and thresholds as design 1, so the two are comparable:** `fill_safe` re-proved, same statement;
+   ≤ 40 lines is the prediction met, > 47 refuted, the floor ~32 declared. **The census's expectation, stated
+   now:** of the ~40 residue lines, the arithmetic at the loop and at the branch (~15) is what `vc_close` can
+   reach; the unpacking and the `Loop` witnesses (`⟨k, hk, …⟩`) it cannot. So the expectation is **~42–46,
+   inside the band and short of the prediction**, and a result at or under 40 would mean the closer reached
+   the witnesses too.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
