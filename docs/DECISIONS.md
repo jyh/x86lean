@@ -20545,3 +20545,19 @@ same load from `[rdi + 1]` is NOT: two states agreeing at `0x2000` and differing
 **Axioms:** all three on `[propext, Quot.sound]`; a `sorryAx` control in the same log; 0 tagged errors.
 **The limit, stated where the claim is:** the terminal form constrains END states. A routine that reads outside `R`, and whose result never
 depends on that read, satisfies it. Paper 2 claims the terminal form and says so.
+
+## D309 — R-CRC not refuted: the PoC's own statement proved through `Spec.loop`, at or below the hand proof's length
+
+**The pre-registered refutation (D303 §4.2):** R1's `CorrectFor` proof cannot be re-expressed through `seq` + `loop` at or below its hand
+length. **Measured on the withheld tree only (D280)**, in a scratch copy with the model vendored at `5614026`, on the harness toolchain.
+No withheld line enters this repository; the evidence is in the private record at commit `d3f166857`.
+**Baseline first:** R1's control builds unchanged against `5614026`, `EXIT=0` with 0 tagged errors, so the model's changes since the
+harness pin break nothing R1 relies on.
+**The result:** R1's loop lemma is 23 lines by induction on `7 * n`, and 19 lines through `Spec.loop`, with the variant the bytes remaining
+in `rsi` and no step count. Its top-level theorem is 50 lines, and 49 with the loop's fuel existential (`3 + 1 + n + 3`). **Total
+73 → 68.** All three theorems are on `[propext, Classical.choice, Quot.sound]`, with a `sorryAx` control in the same log.
+**What it means and what it does not:** the saving is small, and it is not the point. The point is that the proof of a real routine's real
+statement no longer depends on the loop body having exactly seven steps. That is R-LOOP's property, exercised at the PoC's size. It
+does NOT change what any cell is scored against: the harness pin, and whether the control adopts it, belong to the harness's owners.
+**The counter:** a block count applied identically to both versions. It is not `scripts/proof_lines.py`, which reads this repository's
+shas and cannot see the withheld tree, and the design doc says so where the number appears.

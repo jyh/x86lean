@@ -95,6 +95,11 @@ compare.
 2. **R-CRC.** R1's `CorrectFor` proof cannot be re-expressed through `seq` + `loop` at or below its
    hand-proof length. Measured by `scripts/proof_lines.py`, on the withheld tree only (the spec may
    never enter this public repo, D280).
+   ✅ **NOT REFUTED, D309 (numbers only; the proof stays in the private record, commit `d3f166857`):**
+   R1's `loop` 23 lines → 19 through `Spec.loop` (variant: bytes remaining, no `7 * n`); its top-level
+   theorem 50 → 49; **73 → 68**, same block counter both sides, all on the standard three axioms with a
+   `sorryAx` control. ⚠️ The counter is a block count, not `scripts/proof_lines.py`, which reads this
+   repository's shas and cannot see the withheld tree; this line says so rather than borrow its name.
 3. **R-READ.** The logic still cannot state read-safety (paper 1 §6, "What cannot be stated"): a
    load leaves no trace, so no single-run `Spec` can say *"reads only inside the buffer"*. The
    design's answer is a RELATIONAL two-run judgment (non-interference over two runs agreeing on the
