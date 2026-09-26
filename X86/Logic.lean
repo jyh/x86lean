@@ -126,6 +126,34 @@ theorem stopped_witness_unique {s : Cpu} {n m : Nat} (hn : (runP p n s).stopped 
   · obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le h
     rw [runP_add, runP_stopped p k _ hm]
 
+/-! ### The composition kit (D307) — how a CRC-shaped post is assembled from separate proofs
+
+`CorrectFor`'s post is a conjunction of a FUNCTIONAL fact (`rax = spec msg`), a TERMINATION fact (stopped at
+`ret`) and FRAME facts (`AgreeOutside`, `CalleeSaved`). These two rules let each be proved where it is
+cheapest: frames in the frame tier, the rest through `loop`. -/
+
+/-- **INVARIANT.** A relation `J s ·` preserved by EVERY program step rides along any `Spec`: the frame
+tier's `runP_invariant`, joined to the judgment. No step count and no label appear in `hstep`. -/
+theorem with_invariant (J : Cpu → Cpu → Prop) (hinit : ∀ s, P s → J s s)
+    (hstep : ∀ s u, P s → J s u → J s (stepP p u)) (h : Spec p P Q) :
+    Spec p P (fun s t => Q s t ∧ J s t) := by
+  intro s hs
+  obtain ⟨n, hn⟩ := h s hs
+  exact ⟨n, hn, runP_invariant p (J s) (fun u hu => hstep s u hs hu) n s (hinit s hs)⟩
+
+/-- **AND, for TOTAL specs.** Two total specs of one program conjoin, because a stopped end state is the
+run's UNIQUE result (`stopped_witness_unique`) — so the two proofs name the SAME state.
+⛔ It is FALSE for a bare `Spec`: `Tests.Logic.spec_and_is_false` exhibits two eventually-reaches posts
+that each hold and never hold together. -/
+theorem Total.and {Q₁ Q₂ : Cpu → Cpu → Prop} (h₁ : Total p P Q₁) (h₂ : Total p P Q₂) :
+    Total p P (fun s t => Q₁ s t ∧ Q₂ s t) := by
+  intro s hs
+  obtain ⟨n, hn, hq₁⟩ := h₁ s hs
+  obtain ⟨m, hm, hq₂⟩ := h₂ s hs
+  refine ⟨n, hn, hq₁, ?_⟩
+  rw [stopped_witness_unique hn hm]
+  exact hq₂
+
 end Spec
 
 /-- **STOPPED IS FINAL** — a lemma about `runP`, NOT a rule of the judgment: a proof that reaches a

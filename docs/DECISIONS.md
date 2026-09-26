@@ -20510,3 +20510,23 @@ halt-reason position was stated and not applied, since the tree's only `Total` w
 (.outsideProgram "no instruction at RIP")`, proved at the exit step, so `countdownN_total` states the reason and the concrete control
 decides it. **A8:** §4a said R-LOOP was "discharged three ways" when two of the three live in a private record. It now says one is in this
 tree and two are not checkable from here. The reader judged that these three need no further read.
+
+## D307 — The composition kit: a frame-tier invariant rides along any `Spec`, and TOTAL specs conjoin
+
+**Why these two:** `CorrectFor`'s post is the conjunction of a functional fact, a termination fact and frame facts (`AgreeOutside`,
+`CalleeSaved`). Without a way to conjoin posts proved apart, every one of them must be threaded through the single `loop` invariant.
+**`Spec.with_invariant`:** a relation `J s ·` preserved by every program step (no label, no `rip`) is carried to the end state of any
+`Spec`. It is `runP_invariant` joined to the judgment, and it is the bridge from the frame tier.
+**`Spec.Total.and`:** two TOTAL specs of one program conjoin, because a stopped end state is unique (`stopped_witness_unique`).
+⛔ **It is false for a bare `Spec`**, and `Tests.Logic.spec_and_is_false` shows it: "at the start" and "has moved" are each reached
+(fuel 0, fuel 1) and never together. The restriction is load-bearing.
+**Exercised:** `countdownN_step_rbx` proves `rbx` is untouched by one step at EVERY state (dispatch, halt, both instructions, live or
+not). `countdownN_keeps_rbx` carries it through `with_invariant`, and `countdownN_total_with_frame` joins it to `countdownN_total` by
+`Total.and`.
+**Receipts:** `lean_route build Tests.Logic` rc 0. Axioms: the three new rules on `[propext, Quot.sound]`, the witnesses on the standard
+three, a `sorryAx` control in the same log, 0 tagged errors.
+**`seq` and `step`, the census's last two zeros:** `clampLoop_to_jne` composes the conditional prefix (`to_skip` restated as a `Spec`)
+with ONE `Spec.step` (the `dec`) through `Spec.seq`.
+**Census now, every rule used in the tree:** `loop` 2 · `conseq` 3 · `reach` 1 · `Total` 3 · `with_invariant` 1 · `Total.and` 1 ·
+`seq` 1 · `step` 1 · `skip` 1 (in the control). ⚠️ **One use each is a census of REACH, not of adequacy.** Paper 2's "proof system"
+claim still carries the limit that no rule has met a routine of the PoC's size, until R-CRC.

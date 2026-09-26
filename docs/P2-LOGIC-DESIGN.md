@@ -111,9 +111,9 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
   private record and are not checkable from here.
 - **R-READ is statable over the UNCHANGED `runP`:** the terminal two-run form is an EXTENSION (a `Spec`
   whose post nests a `Spec`, and needs `reach`); the lockstep all-fuel form would be a SECOND logic.
-- **Census 3b — A LIMIT THAT RIDES WITH THE CLAIM:** in this tree `loop`, `conseq` and `reach` are exercised;
-  `skip`, `step` and `seq` only in the refuters' scratch. Paper 2's LIMITS section carries this BESIDE any
-  "proof system" claim until R-CRC exercises `seq` + `loop` on the withheld tree.
+- **Census 3b — A LIMIT THAT RIDES WITH THE CLAIM:** since D307 every rule has at least one use in this tree
+  (`seq` and `step` in `clampLoop_to_jne`). That measures REACH, not adequacy: paper 2's LIMITS section
+  carries, BESIDE any "proof system" claim, that no rule has yet met a routine of the PoC's size (R-CRC).
 - ⚠️ **THE HALT REASON (UNDRIVEN).** `CorrectFor`'s `t.stopped ∧ t.rip = ret` does not pin WHY the machine
   stopped: a fault is also `stopped`. A fault halting with `rip = ret` would need an instruction at `ret`,
   which `SysVCall`'s `prog.at? ret = none` forbids, so it is probably unreachable — and nobody has proved it.
@@ -128,9 +128,24 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
 1. The nonvacuity pair for every new judgment (precondition met; a concrete run reaches `Q`,
    computed by the kernel independently of the rule). **Done for `countdownN`.**
 2. R-LOOP's witness: a loop with an inner branch. **Done (D304, `clampLoop`).**
-3. A relational composition kit: `AgreeOutside`/`CalleeSaved` transitivity lifted to `seq` posts.
+3. A relational composition kit. **Done (D307):** `Spec.with_invariant` (a frame-tier step invariant
+   rides along any `Spec`) and `Spec.Total.and` (total specs conjoin; FALSE for a bare `Spec`, and the
+   tree carries the counterexample).
 4. The VC tactic — the remedy paper 1 §6 names for the per-label residue — measured on the P2
    sample against the ~7.6 lines/label law, with its prediction pre-registered.
+   ⚖️ **PRE-REGISTERED 2026-09-26, BEFORE ANY TACTIC CODE EXISTS (D307):**
+   - **Subject:** `fill_safe` (5 labels, 57 lines by `scripts/proof_lines.py`, the fit 22 + 7.6/label,
+     `docs/CLAIMS.tsv`), re-proved with the tactic, same statement token for token.
+   - **Mechanism predicted:** the tactic removes the DISPATCH and the EFFECT-THEOREM naming at each label
+     (`stepP_at` + the instruction's `step_*` lemma + the record-field `simp`). It cannot remove the
+     invariant TABLE, since that is the specification, or the per-label re-establishing argument where
+     the argument is arithmetic.
+   - **Prediction:** `fill_safe` ≤ 40 lines, i.e. ≤ ~3.6/label above the 22-line base.
+   - **Refutation:** > 47 lines (> 5/label). Then this tactic design does NOT carry paper 1 §6's claim
+     that "a tactic … rather than more lemmas" is the remedy, and paper 2 says so.
+   - **Declared floor (the residue, stated with the prediction so a win cannot read as arrival):** the
+     table itself is ~2 lines/label, so no tactic of this kind goes below ~22 + 2 × 5 = 32 lines. A
+     result between 32 and 40 is the prediction met; nothing below 32 is claimable from this design.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ.
 
