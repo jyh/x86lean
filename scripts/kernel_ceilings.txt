@@ -340,3 +340,8 @@ X86.SoftFloat 50 @on yukon.lan
 # registration it wanted verbatim: head 6.6 ms ⇒ max(6.6 × 3, 50) = 50. It lands in its own step because this file is a
 # PROFILER_PATH and could not follow the batch's ledger row inside that step (D252 §6).
 X86.SoftFloat 50 @on runnervmlun5p
+# D303 (paper 2's logic core, 2026-09-26): the gate's own suggested lines from kernel_delta 4f2ae98 → 52b3a18,
+# yukon.lan, not retyped: X86.Logic head 4.8 ms ⇒ max(4.8 × 3, 50) = 50; Tests.Logic head 24.2 ms ⇒ 73. The runner
+# lines follow the merge ref's first refusal in their own step, as X86.SoftFloat's did (D252 §6).
+X86.Logic 50 @on yukon.lan
+Tests.Logic 73 @on yukon.lan

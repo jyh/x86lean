@@ -154,3 +154,7 @@ X86.Theorems @ms @on runnervmlun5p 6660
 # and that run was never kept (D254). The kernel checks now live in `Tests.Anchors` (`fcmp_ieee_*`,
 # `minmax_ieee_*`); P2 batch 38 added `fmin`/`fmax` here at Δku 0 (D253 §1).
 X86.SoftFloat @ku 221
+# D303 (paper 2's logic core, 2026-09-26): both readings are ARM A′'s own, 4f2ae98 → 52b3a18 on yukon.lan
+# (ku is machine-independent, D185); every pre-existing module read Δku +0 in the same run.
+X86.Logic @ku 1579
+Tests.Logic @ku 7706
