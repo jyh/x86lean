@@ -21,5 +21,6 @@ import X86.Flags
 import X86.Semantics
 import X86.Theorems
 import X86.Program
+import X86.Logic
 import X86.Coverage
 import X86.Serialize

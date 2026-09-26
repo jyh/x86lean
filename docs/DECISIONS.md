@@ -20450,3 +20450,22 @@ After the change the census reads 24 cited.
 **Left as read, and why:** "three vectors" for PAND/POR/PXOR (D113 §2 names the three vectors; the marker cites D113); "about eleven
 lines plus about one per instruction" and "a factor of about eight between the two tiers", which are approximate readings stated as
 such beside cited digits; "six codec columns", a property of the corpus recipe `docs/DEMAND-CENSUS.md` defines, not a measurement.
+
+## D303 — Paper 2's spine: a relational total-correctness judgment over `runP`, shallow, with a variant loop rule
+
+**The commission:** O38 (the Captain, 2026-09-10: *"small-step operational semantics + ~hoare logic"*; 2026-09-11: *"two papers
+probably"*), framing (c) of 2026-09-12 (the logic is paper 2's headline), and the helm's order of 2026-09-25 23:51 (bus @69,848,014)
+to pull the paper's spine on the kriterion pool. **Read from the object before designing:** the one statement the campaign owes with a
+loop in it, `Crc32X86Interface.CorrectFor`, is TOTAL correctness (`∃ n`, reaching `ret`) with a RELATIONAL post (`AgreeOutside … s.mem
+t.mem`, `CalleeSaved s t`, `rsp + 8`). `runP_invariant` is the every-fuel half and cannot state it; R1's hand proof reaches it by
+counting `7 * n` steps, which only a fixed-length body allows.
+**Built:** `X86/Logic.lean` — `Spec p P Q := ∀ s, P s → ∃ n, Q s (runP p n s)` with `skip`, `step`, `conseq`, `seq` (by `runP_add`),
+`loop` (invariant + `Nat` variant, induction on a bound; no library lemma) and `runP_final`. Shallow, so soundness is each rule being a
+kernel-checked theorem about `runP`; the deep arm is named in `docs/P2-LOGIC-DESIGN.md` §3 with the trigger that would build it.
+**The witness:** `Tests/Logic.lean`, `countdownN_terminates` — `dec rcx; jne L` reaches its exit with `rcx = 0` and memory unchanged
+from EVERY live start at `L`, every count **including 0**, which wraps and runs 2^64 passes; the variant is `(rcx − 1).toNat` and no
+fuel is named. Nonvacuity beside it, computed by the kernel independently of `loop`: the precondition is met (`start3`), fuel 7
+reaches exactly `Done`, and fuel 6 has not stopped.
+**What it does not discharge, pre-registered in the design doc §4:** R-LOOP (a body of VARIABLE length — `countdownN`'s is fixed),
+R-CRC (R1 re-expressed through `seq` + `loop` at or below its hand length, measured on the withheld tree only, D280), R-READ (read
+safety needs a two-run judgment). The design is an author's freeze; a non-author refuter pass is owed before an executor consumes it.

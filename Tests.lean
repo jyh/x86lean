@@ -11,3 +11,4 @@ import Tests.Nonvacuity
 import Tests.Vectors
 import Tests.Coverage
 import Tests.Program
+import Tests.Logic
