@@ -155,6 +155,15 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    > 47 refutation. ⇒ **The prediction was optimistic by ~1 line/label before a line of tactic was written**,
    and the census says the lever is the ARITHMETIC RE-ESTABLISHMENT, not the dispatch — which is paper 1
    §6's residue argument, now with a count behind it.
+   ⛔ **AND THE ADDENDUM'S OWN ARITHMETIC WAS OPTIMISTIC, CORRECTED WITHIN THE HOUR.** It subtracted the
+   ~6 effect-naming lines as REMOVABLE. They are not: `runP_code` already does the dispatch, and a tactic
+   call REPLACES a `rw [step_*]` line one for one. Only the halt case and the case split (~10 lines)
+   collapse, to about one line. ⇒ **Expected ≈ 47–48 lines: AT OR PAST THE REGISTERED REFUTATION (> 47).**
+   ⚖️ **THE REGISTERED DESIGN IS REFUTED AT DESIGN TIME BY A MEASURED CENSUS, AND IS NOT BUILT.** This is a
+   census of the proof text plus an argument, not a build of the tactic; a build would pin the number,
+   and it is declared owed only if paper 2 wants the point measured rather than argued. **The next design
+   aims at the ~40 lines of re-establishment and arithmetic** (a closer that tries `decide` / `omega` /
+   the `Flags` normalisations on each side goal), and it will be pre-registered in the same way.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ.
 
