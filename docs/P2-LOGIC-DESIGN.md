@@ -23,7 +23,10 @@ The one statement this campaign already owes with a loop in it is the x86 SaltBe
 
 Two facts decide the judgment:
 
-1. **It is TOTAL correctness** — `∃ n`, reaching an exit. `runP_invariant` (every fuel) is the
+1. **CorrectFor is TOTAL correctness** — `∃ n`, reaching an exit that has STOPPED. The judgment built for
+   it, `Spec`, is **EVENTUALLY-REACHES**, and total correctness exactly when its post implies `t.stopped`
+   (`Spec.Total`). (This line called `Spec` itself total until the refuter pass, W1, and again in its
+   first repair until the fresh read, A1.) `runP_invariant` (every fuel) is the
    partial/safety half and cannot state it.
 2. **Its postcondition is a RELATION between start and end** — `AgreeOutside … s.mem t.mem`,
    `CalleeSaved s t`, `t.rsp = s.rsp + 8`. A unary post needs ghost variables for every one of these.
@@ -49,7 +52,12 @@ Rules, each a theorem about `runP` (`X86/Logic.lean`):
 | `conseq` | pre stronger, post weaker (the post may use the pre) | — |
 | `seq` | `Spec p P R`, and `∀ s, P s → Spec p (R s) (Q s ·)` | `runP_add` |
 | `loop` | invariant `I s u`, variant `v : Cpu → Nat`; from each `I`-state some fuel finishes (`Q`) or returns to `I` with `v` smaller | induction on a bound of `v`, `runP_add` |
-| `runP_final` | a stopped state is final under more fuel | `runP_stopped` |
+| `reach` | none: the post may remember `∃ n, t = runP p n s` | fuel of the witness (D305) |
+| `Total` | an abbreviation: `Spec` whose post carries `t.stopped` | — |
+
+`runP_final` (a stopped state is final under more fuel) is a lemma about `runP`, **not a rule** — it
+sat in this table until D305 (W2). `stopped_witness_unique` beside `Total`: a stopped end state is the
+run's unique result.
 
 ⚖️ **Soundness is by construction (a shallow embedding).** The rules are kernel-checked theorems
 about the semantics itself, so there is no second system to relate to the first — the argument
@@ -81,6 +89,9 @@ compare.
    an inner conditional proved through `loop` without naming a step count. (`countdownN` has a
    fixed-length body; it proves the variant rule works and that `dec`'s wrap case needs no
    precondition — it does NOT discharge R-LOOP.)
+   ✅ **NOT REFUTED, D304:** `clampLoop_terminates` — a pass is 4 or 5 steps by an inner `jae`, and
+   one concrete run mixes both (5 + 5 + 4 + 4, pinned by the kernel beside it); the loop proof never
+   names a step count, only `to_skip`'s existential `k`.
 2. **R-CRC.** R1's `CorrectFor` proof cannot be re-expressed through `seq` + `loop` at or below its
    hand-proof length. Measured by `scripts/proof_lines.py`, on the withheld tree only (the spec may
    never enter this public repo, D280).
@@ -90,12 +101,33 @@ compare.
    buffer). Nothing is built for it in v0; if it cannot be stated over `runP` without changing the
    semantics, that is a finding for paper 2, not a defect to hide.
 
+## 4a. The non-author refuter pass (math, 2026-09-26, 3/3, 0 kills, FIRE) and what it changed
+
+Receipts, in the fleet's private record: the criteria commit `69322f034` (before the drive) and the evidence commit `99df4b304`
+(8 scratch files, 7 logs, the verdicts).
+- **W1, W2, the missing `reach`:** repaired in D305 as above.
+- **R-LOOP:** discharged IN THIS TREE by `clampLoop` (D304); two further witnesses, `condLoop` and `nested`
+  (an inner `Spec` with a live exit discharging the outer body by `seq` + `conseq`), are in the refuters'
+  private record and are not checkable from here.
+- **R-READ is statable over the UNCHANGED `runP`:** the terminal two-run form is an EXTENSION (a `Spec`
+  whose post nests a `Spec`, and needs `reach`); the lockstep all-fuel form would be a SECOND logic.
+- **Census 3b — A LIMIT THAT RIDES WITH THE CLAIM:** in this tree `loop`, `conseq` and `reach` are exercised;
+  `skip`, `step` and `seq` only in the refuters' scratch. Paper 2's LIMITS section carries this BESIDE any
+  "proof system" claim until R-CRC exercises `seq` + `loop` on the withheld tree.
+- ⚠️ **THE HALT REASON (UNDRIVEN).** `CorrectFor`'s `t.stopped ∧ t.rip = ret` does not pin WHY the machine
+  stopped: a fault is also `stopped`. A fault halting with `rip = ret` would need an instruction at `ret`,
+  which `SysVCall`'s `prog.at? ret = none` forbids, so it is probably unreachable — and nobody has proved it.
+  ⚖️ **THE FREEZE'S POSITION: the reason belongs in the POST, as `t.ms = some (.outsideProgram _)`** — `Hyps`
+  describes the START state and cannot say how a run ends. A `Total` post written for this logic states the
+  reason — and the tree's one `Total` witness, `countdownN_total`, does (D306). Changing the statement the PoC's cells are scored against is its owner's ruling, not this
+  repository's; the finding is routed to them.
+- The refuters supplied repairs, so a re-read of the amended text is a FRESH non-author read, owed.
+
 ## 5. Next, in order
 
 1. The nonvacuity pair for every new judgment (precondition met; a concrete run reaches `Q`,
    computed by the kernel independently of the rule). **Done for `countdownN`.**
-2. R-LOOP's witness: a loop with an inner branch (the guarded store, `Tests/Program.lean`
-   `guarded`, as a loop).
+2. R-LOOP's witness: a loop with an inner branch. **Done (D304, `clampLoop`).**
 3. A relational composition kit: `AgreeOutside`/`CalleeSaved` transitivity lifted to `seq` posts.
 4. The VC tactic — the remedy paper 1 §6 names for the per-label residue — measured on the P2
    sample against the ~7.6 lines/label law, with its prediction pre-registered.

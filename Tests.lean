@@ -12,3 +12,4 @@ import Tests.Vectors
 import Tests.Coverage
 import Tests.Program
 import Tests.Logic
+import Tests.LogicLoop

@@ -158,3 +158,6 @@ X86.SoftFloat @ku 221
 # (ku is machine-independent, D185); every pre-existing module read Δku +0 in the same run.
 X86.Logic @ku 1579
 Tests.Logic @ku 7706
+# D311 (R-LOOP in its own module, 2026-09-26): ARM A′'s own reading, c456fe7 → a810afd on yukon.lan; every other
+# module in that run was within budget (Tests.Logic +9, X86.Logic +2).
+Tests.LogicLoop @ku 11288
