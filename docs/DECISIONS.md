@@ -20469,3 +20469,44 @@ reaches exactly `Done`, and fuel 6 has not stopped.
 **What it does not discharge, pre-registered in the design doc §4:** R-LOOP (a body of VARIABLE length — `countdownN`'s is fixed),
 R-CRC (R1 re-expressed through `seq` + `loop` at or below its hand length, measured on the withheld tree only, D280), R-READ (read
 safety needs a two-run judgment). The design is an author's freeze; a non-author refuter pass is owed before an executor consumes it.
+
+## D304 — R-LOOP not refuted: a loop whose pass is four steps or five, proved through `Spec.loop` with no step count
+
+**The pre-registered refutation (D303, `docs/P2-LOGIC-DESIGN.md` §4.1):** `Spec.loop` cannot carry a body whose length varies.
+**The witness, `Tests/Logic.lean` `clampLoop_terminates`:** `L: cmp rax, rbx; jae SKIP; inc rax; SKIP: dec rcx; jne L` reaches its exit
+with `rcx = 0` and memory unchanged from every live start at `L`. The conditional half is `to_skip`, which returns an EXISTENTIAL `k`
+(two steps when `jae` is taken, three when not) and states only what holds at `SKIP`; the loop proof composes `k + 2` or `k + 3`
+through `runP_add` and never learns which. Axioms: `Spec.loop` and `Spec.seq` on `[propext, Quot.sound]`; both witnesses on the three
+standard axioms; a `sorryAx` control in the same log prints `sorryAx`; route rc 0, zero tagged errors.
+**Nonvacuity, and the error it caught:** the first draft used `inc rbx` and claimed one run mixes both lengths. The kernel refuted both
+concrete controls (`stopped` at 18, `rbx = 2` at 19): `jae` is taken when `rax ≥ rbx`, and incrementing `rbx` only widens the gap, so no
+single run ever changes arm. The program was changed to `inc rax`, which climbs to `rbx`, and the controls now pin a run of
+5 + 5 + 4 + 4 steps: not stopped at 18, `CDone` at 19, and `rax = 2`. ⇒ The controls were red first, against my own description.
+**Still open:** R-CRC (withheld tree only) and R-READ (two-run judgment).
+
+## D305 — The non-author refuter pass on the logic freeze (math, 3/3, 0 kills, FIRE): two wording wounds and a missing lemma repaired
+
+**The pass (bus @69,952,600):** criteria committed before the drive (seat `69322f034`), evidence in seat `99df4b304`. Seven logs at
+`EXIT=0` with zero tagged errors, and every axiom receipt paired with a `sorryAx` control. No kill.
+**W1 — "TOTAL correctness" was the wrong name.** Driven by R1 and R2 independently: a `Spec` whose post omits `stopped` holds of a program that
+never stops. The judgment is kept, because `seq` and `loop` need live midpoints. `X86/Logic.lean` now calls it an eventually-reaches judgment,
+and `Spec.Total` names the instance whose post carries `t.stopped`. `stopped_witness_unique` shows a stopped end state is the run's unique result.
+**W2 — `runP_final` is a `runP` lemma, not a rule.** Its docstring said "lifted to the judgment" and it never was. It moved out of `namespace Spec`
+and out of the design doc's rule table (it had no users: census 0).
+**The missing lemma, `Spec.reach`:** a `Spec` post forgets `t = runP p n s`. R3's read-safety corollary could not close by `conseq` without it,
+and it is 4 lines.
+**Census 3b answered in part:** `countdownN_total` exercises `conseq` and `Total`, and `countdownN_reaches_a_run` exercises `reach`. `skip`,
+`step` and `seq` remain exercised only in the refuters' scratch, and the design doc says so.
+**Routed, not mine:** `CorrectFor` does not pin the HALT REASON (UNDRIVEN). Recorded in `docs/P2-LOGIC-DESIGN.md` §4a for the statement's owners.
+**What this does not do:** the refuters wrote these repairs, which spends their independence on them. A fresh non-author read of the amended
+text is owed.
+
+## D306 — The fresh non-author read of the amended freeze (a new math head: 6 of 8 answered, 0 new defects in the Lean), and its three residues closed
+
+**The read (bus @69,968,630):** criteria committed before opening the object. The kernel log reads `EXIT=0` with zero tagged errors, and a
+`sorryAx` control sits in the same log. **A1:** W1 was partial, because two sites still called `Spec` total (`Tests/Logic.lean`'s header and
+the design doc's §1 lead). Both are reworded; the bold lead now names `CorrectFor` as total and `Spec` as eventually-reaches. **A4:** the
+halt-reason position was stated and not applied, since the tree's only `Total` witness did not state it. `Done` now carries `t.ms = some
+(.outsideProgram "no instruction at RIP")`, proved at the exit step, so `countdownN_total` states the reason and the concrete control
+decides it. **A8:** §4a said R-LOOP was "discharged three ways" when two of the three live in a private record. It now says one is in this
+tree and two are not checkable from here. The reader judged that these three need no further read.

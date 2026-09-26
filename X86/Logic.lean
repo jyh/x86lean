@@ -9,12 +9,18 @@ the validated semantics; this file is the spine of paper 2. Design, arms and wha
 ## The judgment
 
 `Spec p P Q` — from every state satisfying `P`, SOME amount of fuel reaches a state `t` with
-`Q s t`. It is a TOTAL-correctness triple, and its postcondition is a RELATION between the start
+`Q s t`. It is an EVENTUALLY-REACHES judgment — **total correctness exactly when `Q` implies
+`t.stopped`** (`Spec.Total` below) — and its postcondition is a RELATION between the start
 state and the end state, because the statements this campaign actually proves are relational:
 `CorrectFor` (the x86 SaltBench PoC) asks for `AgreeOutside … s.mem t.mem`, `CalleeSaved s t` and
 `t.rsp = s.rsp + 8`, and none of those can be said about `t` alone without ghost variables.
 
-⛔ **WHY TOTAL AND NOT PARTIAL.** `runP_invariant` already IS the partial/safety half: it quantifies
+⚠️ **IT IS NOT "TOTAL CORRECTNESS" BY ITSELF, AND THIS HEADER SAID IT WAS until D305** (math's refuter
+pass, W1, driven: a `Spec` whose post omits `stopped` holds of a program that never stops). The
+judgment is kept as it is because `seq` and `loop` need LIVE midpoints; totality is a property of the
+post, and `Spec.Total` names it.
+
+⛔ **WHY EVENTUALLY AND NOT PARTIAL.** `runP_invariant` already IS the partial/safety half: it quantifies
 over EVERY fuel. What the campaign could not state before this file is REACHING an exit — the PoC's
 `∃ n, (runP prog n s).stopped ∧ … = ret`. R1's hand proof reached it by counting steps exactly
 (`7 * n` per loop), which works only for a loop body of fixed length. `Spec.loop` below needs no
@@ -96,12 +102,38 @@ theorem loop (I : Cpu → Cpu → Prop) (v : Cpu → Nat)
     · obtain ⟨m, hm⟩ := ih _ (by omega) hI'
       exact ⟨n + m, by rw [runP_add]; exact hm⟩
 
-/-- **STOPPED IS FINAL.** A post that holds of a stopped state holds for any further fuel, so a
-proof that reaches a halt may overshoot freely. `runP_stopped`, lifted to the judgment. -/
-theorem runP_final {s : Cpu} (n m : Nat) (h : (runP p n s).stopped = true) :
+/-- **REACH.** A post may remember that its end state IS a run of the program from the start.
+`Spec` forgets `t = runP p n s`, so without this `conseq` cannot lift a post into one that talks
+about the run itself — a relational or two-run post (D305; math's refuter pass, R3, where a
+read-safety corollary could not close without it). -/
+theorem reach (h : Spec p P Q) : Spec p P (fun s t => Q s t ∧ ∃ n, t = runP p n s) := by
+  intro s hs
+  obtain ⟨n, hn⟩ := h s hs
+  exact ⟨n, hn, n, rfl⟩
+
+/-- **TOTAL.** The instance of the judgment that is total correctness: the reached state has
+STOPPED. A `Spec` alone is not this (see the header). -/
+abbrev Total (p : Program) (P : Cpu → Prop) (Q : Cpu → Cpu → Prop) : Prop :=
+  Spec p P (fun s t => t.stopped = true ∧ Q s t)
+
+/-- A stopped end state is the UNIQUE one: every longer run stops at the same state, so a `Total`
+witness names the run's result and not merely a state the run passed through. -/
+theorem stopped_witness_unique {s : Cpu} {n m : Nat} (hn : (runP p n s).stopped = true)
+    (hm : (runP p m s).stopped = true) : runP p n s = runP p m s := by
+  rcases Nat.le_total n m with h | h
+  · obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le h
+    rw [runP_add, runP_stopped p k _ hn]
+  · obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le h
+    rw [runP_add, runP_stopped p k _ hm]
+
+end Spec
+
+/-- **STOPPED IS FINAL** — a lemma about `runP`, NOT a rule of the judgment: a proof that reaches a
+halt may overshoot freely. (It sat in the rule table as `Spec.runP_final` until D305, with a
+docstring calling it "lifted to the judgment", which it never was — math's refuter pass, W2.) -/
+theorem runP_final {p : Program} {s : Cpu} (n m : Nat) (h : (runP p n s).stopped = true) :
     runP p (n + m) s = runP p n s := by
   rw [runP_add, runP_stopped p m _ h]
 
-end Spec
 
 end X86
