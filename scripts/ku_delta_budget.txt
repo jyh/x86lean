@@ -161,3 +161,7 @@ Tests.Logic @ku 7706
 # D311 (R-LOOP in its own module, 2026-09-26): ARM A′'s own reading, c456fe7 → a810afd on yukon.lan; every other
 # module in that run was within budget (Tests.Logic +9, X86.Logic +2).
 Tests.LogicLoop @ku 11288
+# D307/D308 (the kit and R-READ, 2026-09-26): ARM A′'s own readings, f8f96a6 → 1d4dd67 on yukon.lan; every other
+# module in that run was within budget (X86.Logic +8 of 368, the rest +0).
+Tests.LogicKit @ku 502
+Tests.LogicRead @ku 2536
