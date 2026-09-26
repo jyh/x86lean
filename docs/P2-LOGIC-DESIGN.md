@@ -95,6 +95,11 @@ compare.
 2. **R-CRC.** R1's `CorrectFor` proof cannot be re-expressed through `seq` + `loop` at or below its
    hand-proof length. Measured by `scripts/proof_lines.py`, on the withheld tree only (the spec may
    never enter this public repo, D280).
+   ✅ **NOT REFUTED, D309 (numbers only; the proof stays in the private record, commit `d3f166857`):**
+   R1's `loop` 23 lines → 19 through `Spec.loop` (variant: bytes remaining, no `7 * n`); its top-level
+   theorem 50 → 49; **73 → 68**, same block counter both sides, all on the standard three axioms with a
+   `sorryAx` control. ⚠️ The counter is a block count, not `scripts/proof_lines.py`, which reads this
+   repository's shas and cannot see the withheld tree; this line says so rather than borrow its name.
 3. **R-READ.** The logic still cannot state read-safety (paper 1 §6, "What cannot be stated"): a
    load leaves no trace, so no single-run `Spec` can say *"reads only inside the buffer"*. The
    design's answer is a RELATIONAL two-run judgment (non-interference over two runs agreeing on the
@@ -111,9 +116,9 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
   private record and are not checkable from here.
 - **R-READ is statable over the UNCHANGED `runP`:** the terminal two-run form is an EXTENSION (a `Spec`
   whose post nests a `Spec`, and needs `reach`); the lockstep all-fuel form would be a SECOND logic.
-- **Census 3b — A LIMIT THAT RIDES WITH THE CLAIM:** in this tree `loop`, `conseq` and `reach` are exercised;
-  `skip`, `step` and `seq` only in the refuters' scratch. Paper 2's LIMITS section carries this BESIDE any
-  "proof system" claim until R-CRC exercises `seq` + `loop` on the withheld tree.
+- **Census 3b — A LIMIT THAT RIDES WITH THE CLAIM:** since D307 every rule has at least one use in this tree
+  (`seq` and `step` in `clampLoop_to_jne`). That measures REACH, not adequacy: paper 2's LIMITS section
+  carries, BESIDE any "proof system" claim, that no rule has yet met a routine of the PoC's size (R-CRC).
 - ⚠️ **THE HALT REASON (UNDRIVEN).** `CorrectFor`'s `t.stopped ∧ t.rip = ret` does not pin WHY the machine
   stopped: a fault is also `stopped`. A fault halting with `rip = ret` would need an instruction at `ret`,
   which `SysVCall`'s `prog.at? ret = none` forbids, so it is probably unreachable — and nobody has proved it.
@@ -128,11 +133,79 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
 1. The nonvacuity pair for every new judgment (precondition met; a concrete run reaches `Q`,
    computed by the kernel independently of the rule). **Done for `countdownN`.**
 2. R-LOOP's witness: a loop with an inner branch. **Done (D304, `clampLoop`).**
-3. A relational composition kit: `AgreeOutside`/`CalleeSaved` transitivity lifted to `seq` posts.
+3. A relational composition kit. **Done (D307):** `Spec.with_invariant` (a frame-tier step invariant
+   rides along any `Spec`) and `Spec.Total.and` (total specs conjoin; FALSE for a bare `Spec`, and the
+   tree carries the counterexample).
 4. The VC tactic — the remedy paper 1 §6 names for the per-label residue — measured on the P2
    sample against the ~7.6 lines/label law, with its prediction pre-registered.
+   ⚖️ **PRE-REGISTERED 2026-09-26, BEFORE ANY TACTIC CODE EXISTS (D307):**
+   - **Subject:** `fill_safe` (5 labels, 57 lines by `scripts/proof_lines.py`, the fit 22 + 7.6/label,
+     `docs/CLAIMS.tsv`), re-proved with the tactic, same statement token for token.
+   - **Mechanism predicted:** the tactic removes the DISPATCH and the EFFECT-THEOREM naming at each label
+     (`stepP_at` + the instruction's `step_*` lemma + the record-field `simp`). It cannot remove the
+     invariant TABLE, since that is the specification, or the per-label re-establishing argument where
+     the argument is arithmetic.
+   - **Prediction:** `fill_safe` ≤ 40 lines, i.e. ≤ ~3.6/label above the 22-line base.
+   - **Refutation:** > 47 lines (> 5/label). Then this tactic design does NOT carry paper 1 §6's claim
+     that "a tactic … rather than more lemmas" is the remedy, and paper 2 says so.
+   - **Declared floor (the residue, stated with the prediction so a win cannot read as arrival):** the
+     table itself is ~2 lines/label, so no tactic of this kind goes below ~22 + 2 × 5 = 32 lines. A
+     result between 32 and 40 is the prediction met; nothing below 32 is claimable from this design.
+   📌 **ADDENDUM, SAME DAY, AFTER THE REGISTRATION AND BEFORE ANY BUILD — the registration above is left as
+   written.** A line census of `fill_safe` by role, taken to test the layer before building it: **dispatch
+   ~11 lines** (the halt case 7, the per-instruction case split 4) · **effect-naming ~6** (one `rw [step_*]`
+   per label, two at the store) · **the rest ~40** (unpacking, re-establishing, and the arithmetic —
+   `regcalc`, `decide`, `omega` — at the loop and the branch). A tactic of the registered design removes at
+   most the first two, so the expected result is **~41–45 lines**: above the ≤ 40 prediction and below the
+   > 47 refutation. ⇒ **The prediction was optimistic by ~1 line/label before a line of tactic was written**,
+   and the census says the lever is the ARITHMETIC RE-ESTABLISHMENT, not the dispatch — which is paper 1
+   §6's residue argument, now with a count behind it.
+   ⛔ **AND THE ADDENDUM'S OWN ARITHMETIC WAS OPTIMISTIC, CORRECTED WITHIN THE HOUR.** It subtracted the
+   ~6 effect-naming lines as REMOVABLE. They are not: `runP_code` already does the dispatch, and a tactic
+   call REPLACES a `rw [step_*]` line one for one. Only the halt case and the case split (~10 lines)
+   collapse, to about one line. ⇒ **Expected ≈ 47–48 lines: AT OR PAST THE REGISTERED REFUTATION (> 47).**
+   ⚖️ **THE REGISTERED DESIGN IS REFUTED AT DESIGN TIME BY A MEASURED CENSUS, AND IS NOT BUILT.** This is a
+   census of the proof text plus an argument, not a build of the tactic; a build would pin the number,
+   and it is declared owed only if paper 2 wants the point measured rather than argued. **The next design
+   aims at the ~40 lines of re-establishment and arithmetic** (a closer that tries `decide` / `omega` /
+   the `Flags` normalisations on each side goal), and it will be pre-registered in the same way.
+   ⚖️ **DESIGN 2, PRE-REGISTERED 2026-09-26 BEFORE ANY CODE (D310):** a closer macro `vc_close`, applied to
+   every side goal left after the effect rewrite, trying in order `rfl` · `decide` · the `regcalc`
+   normalisation followed by `omega` · `simp_all` then `omega`; no `bv_decide` (theorem tier, TRUSTBASE).
+   **Same subject and thresholds as design 1, so the two are comparable:** `fill_safe` re-proved, same statement;
+   ≤ 40 lines is the prediction met, > 47 refuted, the floor ~32 declared. **The census's expectation, stated
+   now:** of the ~40 residue lines, the arithmetic at the loop and at the branch (~15) is what `vc_close` can
+   reach; the unpacking and the `Loop` witnesses (`⟨k, hk, …⟩`) it cannot. So the expectation is **~42–46,
+   inside the band and short of the prediction**, and a result at or under 40 would mean the closer reached
+   the witnesses too.
+   ⛔ **RESULT, BUILT AND MEASURED (D310): 55 LINES — DESIGN 2 IS REFUTED (> 47).** Probed site by site
+   before writing the macro, because the census had already been wrong once in each direction:
+   `bv_omega` (theorem-tier safe, standard axioms) closes **2 of the 3** arithmetic sites (the `inc`
+   pointer step and the `dec` counter step, the second WITHOUT the four-way case split on `k`), and
+   **does not** close the third (the ZF-flag goal, which mixes a Boolean flag with the arithmetic; omega
+   returns a counterexample shape). `fill_safe` 57 → **55**, `EXIT`-clean, same statement. Design 1's halt
+   collapse on top would give ~49: **still refuted.**
+   ⇒ **The measured law:** at this interface the per-label cost is the CASE STRUCTURE (the branch's
+   `by_cases` on the flag) and the LOOP WITNESSES (`⟨k, hk, …⟩`), not arithmetic a closer can reach. That
+   is paper 1 §6's residue argument, now with two refuted designs behind it, and it points at the
+   INVARIANT'S REPRESENTATION (the witness shape), not at automation, as the next lever.
+   📌 **The expectation registered above (~42–46) was wrong too, in the flattering direction:** it priced
+   the reachable arithmetic at ~15 lines, and the measured saving is 2.
+   ⚖️ **DESIGN 3 — THE REPRESENTATION, PRE-REGISTERED 2026-09-26 BEFORE ANY CODE (D313):** the same subject,
+   `fill_safe`, with its `Loop` invariant made WITNESS-FREE — `k` read off the state (`k = c − rcx.toNat`)
+   instead of existentially bound — so no label constructs `⟨k, hk, …⟩`, and the obligations the witnesses
+   carried become arithmetic, which D310 measured `bv_omega` closing. **Prediction: ≤ 45 lines. Refuted: ≥ 55**
+   (no better than design 2). Floor ~32, unchanged. **Expectation, with the direction of my last four errors
+   priced in:** 48–52, i.e. an improvement short of the prediction. The ZF clause is the one obligation this
+   design does not touch.
 5. R-CRC, on the withheld tree.
-6. The two-run judgment for R-READ.
+6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
+   `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
+   from `[rdi]` reads only `R = {rdi}` for every start; `ldb1_not_readsOnly` proves a load from `[rdi+1]`
+   does NOT (the red control). ⚠️ **What the terminal form does NOT say:** it constrains the END states
+   only, so a routine that reads outside `R`, and whose result never depends on that read, passes. The
+   lockstep all-fuel form would catch that, and it is a SECOND judgment — named, not built. Paper 2 states
+   which one it claims.
 
 ## 6. Receipts
 
