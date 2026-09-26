@@ -345,3 +345,9 @@ X86.SoftFloat 50 @on runnervmlun5p
 # lines follow the merge ref's first refusal in their own step, as X86.SoftFloat's did (D252 §6).
 X86.Logic 50 @on yukon.lan
 Tests.Logic 73 @on yukon.lan
+# ⭐ AND THEIR RUNNER LINES, THE WAY X86.SoftFloat's CAME (D252 §6): PR #68's `kernel-delta` job (run 36238473453, job
+# 108394490208, runnervmtr4k5) REFUSED ONCE on the two NEW units, for the named cause, and printed the registrations it
+# wanted verbatim: Tests.Logic head 51.1 ms ⇒ max(51.1 × 3, 50) = 153; X86.Logic head 8.8 ms ⇒ 50. They land in their
+# own step because this file is a PROFILER_PATH (D251 §3).
+Tests.Logic 153 @on runnervmtr4k5
+X86.Logic 50 @on runnervmtr4k5
