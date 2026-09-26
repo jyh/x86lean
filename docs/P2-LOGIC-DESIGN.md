@@ -146,6 +146,15 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    - **Declared floor (the residue, stated with the prediction so a win cannot read as arrival):** the
      table itself is ~2 lines/label, so no tactic of this kind goes below ~22 + 2 × 5 = 32 lines. A
      result between 32 and 40 is the prediction met; nothing below 32 is claimable from this design.
+   📌 **ADDENDUM, SAME DAY, AFTER THE REGISTRATION AND BEFORE ANY BUILD — the registration above is left as
+   written.** A line census of `fill_safe` by role, taken to test the layer before building it: **dispatch
+   ~11 lines** (the halt case 7, the per-instruction case split 4) · **effect-naming ~6** (one `rw [step_*]`
+   per label, two at the store) · **the rest ~40** (unpacking, re-establishing, and the arithmetic —
+   `regcalc`, `decide`, `omega` — at the loop and the branch). A tactic of the registered design removes at
+   most the first two, so the expected result is **~41–45 lines**: above the ≤ 40 prediction and below the
+   > 47 refutation. ⇒ **The prediction was optimistic by ~1 line/label before a line of tactic was written**,
+   and the census says the lever is the ARITHMETIC RE-ESTABLISHMENT, not the dispatch — which is paper 1
+   §6's residue argument, now with a count behind it.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ.
 
