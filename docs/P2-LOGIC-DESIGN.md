@@ -293,6 +293,13 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    out of the set. It is pre-registered as this one was.
    📌 **The expectation (text 32–44, kernel 150–400 ms) had no number to be tested against.** The failure was the one the registration
    named as the bar, and it arrived at a place the expectation did not name.
+   ⚖️ **DESIGN 6 (D319, pre-registered before any code) → REFUTED (D320).** With `canonical` out of the executor and the branch target
+   decided once on the closed literal, the `jne` diagnostic still recursed, and so did the `ms` projection, which does not depend on the
+   branch. (Its first probe was a harness defect of mine and tested nothing; this is declared.)
+   ⛔ **AND THE CORRECTION THAT MATTERS MORE (D320): design 5's REGISTERED executor was never built.** D317 registered a STAGED executor
+   (`rw [runP_succ, stepP_at <fetch>]`, then `generalize`). All eight probes ran a one-call `simp` that UNFOLDS `stepP`, which produces one
+   `if (…).ms.isSome … match List.find? …` nest per step. D318 therefore refutes the executor that was built, not the one registered.
+   **The staged executor is untested and is the next design.** A probe counts toward it only if it runs `stepP_at`.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load

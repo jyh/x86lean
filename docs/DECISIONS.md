@@ -20710,3 +20710,20 @@ with ≤ 4 added lines).
 If it still recurses, the suspect is cleared and the design is refuted on its own mechanism, with three probes left for a different arm
 of it, never for a different design.
 **Expectation:** 50/50 that the diagnostic passes. If it does, text 30–42, because the bridges D313 measured come back as `bv_omega` goals.
+
+## D320 — Design 6 refuted on its own mechanism, and a correction to D318: the registered staged executor was never built
+
+**Design 6 (D319), measured.** Probe 1 was a harness defect of mine: the custom discharger could not close `Live {…}`, so every example
+stalled after step 1 and never reached the `jne`. It tested nothing and is declared as such. Probe 2 repaired the discharger, took
+`canonical` out of the set and decided the branch target once on the closed literal. All three diagnostics still reach maxRecDepth,
+including the `ms` projection, which does not depend on the branch. **The suspect is cleared, and design 6 is REFUTED on its own
+mechanism**, as D319 registered.
+**Correction to D318, found while writing this entry.** D317 registered a STAGED executor: one step per call by `rw [runP_succ,
+stepP_at <fetch>]`, the post-state named by `generalize`, and BitVec goals closed at the end. **None of the eight probes built it.** Every
+one ran a ONE-CALL `simp` that unfolds `stepP`. D6-1's stalled goal shows what that unfolding produces: an `if (…).ms.isSome … match
+List.find? …` nest per step, each one nesting the previous state. D318's verdict stands by its registered bar (four probes, no build),
+but it refutes the executor I built, not the mechanism I registered. **The staged executor is UNTESTED.** It is the next design, to be
+pre-registered as written in D317, and a probe counts toward it only if it runs `stepP_at`.
+⇒ The departure was made one probe at a time, each a cheap test of the previous result. None of those tests asked whether the executor
+was still the registered one.
+**Not landed**; the evidence is in the private record at commit `01c462bdf`.
