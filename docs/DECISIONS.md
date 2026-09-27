@@ -20697,3 +20697,16 @@ parse. The recursion fires independently of both, in the diagnostic and in every
 **Not tested, and named for the next design:** `canonical` stayed in the simp set in every variant, on a target built from
 `BitVec.ofInt 64 (-10)`, so the fact supplied in probe 3 could not stop simp unfolding the goal's copy.
 **Not landed**; the evidence is in the private record at commit `9128c681f`.
+
+## D319 — Design 6, the branch side condition discharged once: pre-registered before any code
+
+D318 left one suspect untested. Every variant kept `canonical` in the simp set, on a branch target built from `BitVec.ofInt 64 (-10)`.
+**Mechanism:** design 5's executor with `canonical` and `step_jcc` REMOVED from the simp set. At the `jne`, one library lemma rewrites
+`step ⟨.jcc c d, len⟩ s` to its `if` form, given a closed fact `canonical <target> = true` proved once by `decide` on the literal target.
+**Subjects, thresholds and probe bar exactly as D317**, so designs 5 and 6 are comparable: subject 1 `fill_safe` with `k` symbolic (text
+≤ 40 met, ≥ 55 refuted; kernel ≤ 180 ms met, ≥ 740 ms refuted; no build in four probes refuted) and subject 2 `fillN c` (carries over
+with ≤ 4 added lines).
+**Probe 1 is fixed now, so the first build separates this design from D318's:** probe 2's 4-step diagnostic, rerun with this executor.
+If it still recurses, the suspect is cleared and the design is refuted on its own mechanism, with three probes left for a different arm
+of it, never for a different design.
+**Expectation:** 50/50 that the diagnostic passes. If it does, text 30–42, because the bridges D313 measured come back as `bv_omega` goals.
