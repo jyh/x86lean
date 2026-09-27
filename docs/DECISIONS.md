@@ -20680,3 +20680,20 @@ block. The BitVec side goals are collected and closed at the end by `bv_omega`, 
 **Expectation, with six optimistic errors in two days priced in:** text 32–44, kernel 150–400 ms. I expect subject 2 to carry over only if
 subject 1 does. The likeliest failure is the one D313 measured: `toNat` bridges come back at the counter step, one for one.
 The full registration, with what each step of the executor removes and what it adds back, is in `docs/P2-LOGIC-DESIGN.md` §5 item 4.
+
+## D318 — Design 5 did not build in four probes: REFUTED, and the recursion is at the `jne`, not at the counter
+
+**Registered at `28529ab` (D317) before any code.** The bar for subject 1 was: not building within four probes is a refutation.
+**Measured, one hypothesis per probe:**
+1. With no `decide` and no `k` hypothesis in the simp set, the loop block still reaches maxRecDepth. So `k` was not the cause.
+2. From a FULLY symbolic state (no `k` anywhere), the block executes 1–3 steps and recurses at step 4, the `jne`.
+3. At the `jne`, `decide := true`, the branch target's canonicality supplied as a fact, and a hand split on `ZF` each still recurse.
+4. With `Flags.dec` left folded (one `rfl` lemma projects `zf`), the diagnostic still recurses, and so do both complete variants.
+**REFUTED.** Subject 2 (`fillN c`) was not attempted: its bar is that subject 1's proof carries over, and there is none.
+**The finding:** D315's limit is sharper than it said. The symbolic executor fails at the conditional branch over a symbolic state,
+not at the counter's arithmetic. Every probe that removed a `k` term left the failure where it was.
+**Declared errors of mine in probe 4, which are not the cause:** a docstring before `set_option … in` and an alternation that did not
+parse. The recursion fires independently of both, in the diagnostic and in every block goal.
+**Not tested, and named for the next design:** `canonical` stayed in the simp set in every variant, on a target built from
+`BitVec.ofInt 64 (-10)`, so the fact supplied in probe 3 could not stop simp unfolding the goal's copy.
+**Not landed**; the evidence is in the private record at commit `9128c681f`.

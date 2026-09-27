@@ -284,6 +284,15 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    - **Expectation, with six optimistic errors priced in:** text 32–44, kernel 150–400 ms, and subject 2 carries over only if subject 1
      does. The likeliest failure is D313's: the bridges come back one for one, now as `bv_omega` calls, and the ZF exit is where `bv_omega`
      already failed once (D310).
+   ⛔ **RESULT (D318): NOT BUILT IN FOUR PROBES — REFUTED, WITH THE REGISTRATION ABOVE LEFT AS WRITTEN.** Each probe removed one suspect:
+   `k` from the simp set (still recursed) · the state made fully symbolic (1–3 steps execute; the 4th, the `jne`, recurses) · `decide`,
+   the target's canonicality and a hand `ZF` split (each still recursed) · `Flags.dec` left folded (still recursed). **So the executor
+   fails at the conditional branch over a symbolic state, and not at the counter's arithmetic that D315 blamed.** Subject 2 was not
+   attempted, because its bar is subject 1's proof. ⚠️ Untested and named: `canonical` stayed unfolded in every variant, on an
+   `ofInt (-10)` target. The next design discharges `step_jcc`'s side condition once, by `decide` on the closed target, with `canonical`
+   out of the set. It is pre-registered as this one was.
+   📌 **The expectation (text 32–44, kernel 150–400 ms) had no number to be tested against.** The failure was the one the registration
+   named as the bar, and it arrived at a place the expectation did not name.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
