@@ -20758,3 +20758,14 @@ executor never reduces. That leaves `rip` non-literal and wraps `rdi` in the ari
 `if_false` to the normaliser is the apparent fix. It is **untested**, and it is the flattering reading, the direction every expectation
 here has erred in. A design 8 that adds it is pre-registered as its own design with its own four probes, never run as a fifth probe of this one.
 **Not landed**; the evidence is in the private record at commit `fd82dba2d`.
+
+## D323 — Design 8, design 7 with `if_false` in the step normaliser: pre-registered before any code
+
+**Mechanism:** design 7's staged executor (`stepP_at` per step, the state normalised after each step), with `if_false` and `if_true`
+added to the per-step normaliser, so that `Cpu.getReg`'s `if False then … else …` reduces. This is the hypothesis D322 named. Nothing
+else changes.
+**Subjects, thresholds and bar exactly as D317**, and a probe counts only if it runs `stepP_at`.
+**Probe 1 is fixed now:** design 7's probe-4 file, unchanged except the two lemmas. If D322's reading is right, subject 1 builds on
+the first probe. If it does not, that reading was wrong, and the residue it leaves is the next finding.
+**Expectation:** 55/45 that probe 1 builds, lower than the reading suggests, because every expectation here has erred optimistically.
+If it builds, the text is 38–48 lines against the ≤ 40 prediction, and kernel time is unknown.
