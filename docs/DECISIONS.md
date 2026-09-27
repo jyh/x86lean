@@ -20801,3 +20801,18 @@ D317 registered subject 2's bar: subject 1's proof carries over with ≤ 4 added
 split on `c`, or no build, refutes it. D317 gave it no probe limit, so one is fixed now, before any subject-2 code: **four probes, the
 same as subject 1.** The statement is fixed too: `fillN c` is `fill` with `mov rcx, c`, for `0 < c < 2^64`, and it is safe outside
 `Region d0 c`. The executor is design 8's, unchanged.
+
+## D326 — Subject 2, `fillN c`: built on the first probe, 56 lines, and subject 1's proof carries over (MET)
+
+**Bar fixed at `199c0bf` (D325) before any subject-2 code:** four probes; met if subject 1's proof carries over with ≤ 4 added lines;
+refuted by a new case split on `c` or by no build.
+**Measured, probe 1 of 4:** `fillN_safe` builds, with route rc 0 and 0 errors, on `[propext, Classical.choice, Quot.sound]` and with a
+`sorryAx` control in the same log. It is **56 lines** by `scripts/proof_lines.py`, against subject 1's 57. The proof body differs from
+`fill_safe`'s by token substitution only (`4 → c`, `3 → c − 1`, `Cut → CutN`, `fill → fillN`) and one closer line. The only split
+mentioning `c` is `k = c − 1`, which replaces `k = 3`. **MET.** The executor library is design 8's, byte for byte.
+**What it changes:** D315's second limit said a routine whose length is an argument is not covered, and that covers the PoC and anything
+the twenty-instruction criterion will meet. **That limit is lifted for this shape.** One loop, with its length as an argument, is proved
+safe at every fuel through cut points, and the proof is the constant-length proof with the constant replaced.
+**Its scope, stated where the result is:** one routine, with one loop and a straight-line body of four instructions. The text cost is
+design 8's 57-line class, not design 4's 24, so the saving D315 measured does not transfer. What transfers is coverage.
+**Not landed**; the evidence is in the private record at commit `2aeefa5e8`.
