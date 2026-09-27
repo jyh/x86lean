@@ -20769,3 +20769,28 @@ else changes.
 the first probe. If it does not, that reading was wrong, and the residue it leaves is the next finding.
 **Expectation:** 55/45 that probe 1 builds, lower than the reading suggests, because every expectation here has erred optimistically.
 If it builds, the text is 38–48 lines against the ≤ 40 prediction, and kernel time is unknown.
+
+## D324 — Design 8 builds `fill_safe` with the counter symbolic: 57 lines (REFUTED on text), < 100 ms in the kernel (met)
+
+**Registered at `670dbdc` (D323) before any code. Subject 1 BUILT on probe 4 of 4:** route rc 0, 0 errors of any form, on
+`[propext, Classical.choice, Quot.sound]`, with a `sorryAx` control in the same log. **It is the first proof of `fill_safe` through
+cut points that does not enumerate the trip count.**
+**Measured against the registered thresholds:**
+- **Text: 57 lines** by `scripts/proof_lines.py`, the same as the current proof. **REFUTED (≥ 55).** Design 4 was 24.
+- **Kernel: `fill_safe` < 100 ms** (two profiled runs; the whole file type-checks in 182 and 177 ms, and the profiler prints no line for
+  `fill_safe`, so it is under its 100 ms floor). **MET (≤ 180 ms)**, against design 4's ~740 ms.
+- The library, reported beside the result: 29 lines (`runP_cut`, `Flags.dec_zf`, and the `xstep`/`xrun` executors).
+**What moved where:** design 4 put the per-label content into the KERNEL (24 lines of text, ~740 ms), and could do so only because the
+counter was enumerable. With the counter symbolic, design 8 puts it back into the TEXT, as the counter bridges D313 measured: the
+store's region fact, the branch fact in two literal spellings, and the `bv_omega` re-establishment. That gives 57 lines and a cheap
+kernel. **Paper 2's law holds a fifth time, now across both currencies: per-label content is conserved across text and kernel, and
+enumerability decides which one pays.**
+**Probes 1–3 each removed one measured obstacle:** `if False` from `Cpu.getReg` (the `omega` failures) · the branch fact's literal
+spelling (`1#64` against `1`) · `if False` left in the branch pass. Every one was read from the previous probe's goal, not from an
+expectation.
+**Declared departure:** the `k = 3` exit's last step is closed by one `simp` that unfolds `stepP` on a flat, closed-`rip` record. That
+is in the subject's text, not the executor, and D321's counting rule is about the executor. It is stated because the design's
+premise was never to unfold `stepP`.
+**Subject 2 (`fillN c`) is not yet attempted.** Its bar, that subject 1's proof carries over with ≤ 4 added lines, is now testable,
+because subject 1 exists.
+**Not landed**; the evidence is in the private record at commit `3cb846d7a`.
