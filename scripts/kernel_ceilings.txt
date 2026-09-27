@@ -371,3 +371,7 @@ Tests.LogicRead 64 @on runnervmtr4k5
 # D316 (MemRel's write clause in its own module): the gate's own suggested line from kernel_delta c8e3a04 → the split, yukon.lan,
 # not retyped: Tests.LogicMemRel head 17.8 ms ⇒ max(17.8 × 3, 50) = 53. The runner line follows the merge ref's refusal (D252 §6).
 Tests.LogicMemRel 53 @on yukon.lan
+# ⭐ AND ITS RUNNER LINE, from the refusal that printed it: PR #73's `kernel-delta` job (run 36321199182, job 108625236075,
+# runnervmtr4k5) refused ONCE on the NEW unit and printed, verbatim: Tests.LogicMemRel head 37.0 ms ⇒ 111. No `.lean` step follows #73,
+# so it lands in a step of its own (#69's precedent).
+Tests.LogicMemRel 111 @on runnervmtr4k5
