@@ -20624,3 +20624,21 @@ property at each prefix of the block, which is case structure.
 removed and what is added back, is in `docs/P2-LOGIC-DESIGN.md` §5 item 4.
 **Scope:** a win on one five-label loop does not extrapolate to twenty instructions. A second subject with a longer
 straight-line body is named, not registered.
+
+## D315 — Design 4 built: 24 lines in the text, ≥ ~16× in the kernel, and only for an enumerable trip count
+
+**Registered at `b8de066` (D314) before any code**, with the thresholds ≤ 40 met, ≥ 55 refuted and a floor of ~26.
+**Measured:**
+- `fill_safe` through cut points is **24 lines** (57 today), so the prediction is **met**. It is on the standard three axioms, with
+  a `sorryAx` control in the same log and 0 tagged errors.
+- The library (`runP_cut` and the `sym` executor) is **20 lines**, reported beside the result: **44** if charged in full.
+- **Kernel type checking is ~740 ms against at most ~45 ms (at least ~16×)**, over two runs; the bound is the remainder of each run's total.
+
+**Two limits, stated where the result is:**
+1. The saving depends on enumerating the loop counter's four values. A symbolic-counter variant did not build in four probes:
+   `simp` does not terminate, even at maxRecDepth 8192, and it needed hand `toNat` bridges first.
+2. The cost moved out of the text and into the kernel rather than disappearing.
+
+**Paper 2's law, restated from four designs:** per-label content is conserved across text and kernel. Design 4 is the first
+design that moved it, and it moved it into computation that works only when the state space is small enough to enumerate.
+**Not landed**; the evidence is in the private record at commit `d555bca86`.
