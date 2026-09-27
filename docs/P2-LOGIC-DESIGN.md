@@ -209,6 +209,33 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    reports. A design that beats it must remove OBLIGATIONS, not restate them — for example, a
    verification-condition generator that discharges whole labels by symbolic execution. Not attempted here.
    📌 **The expectation (48–52) was optimistic, the fifth such error today, and it is left standing.**
+   ⚖️ **DESIGN 4 — CUT POINTS, PRE-REGISTERED 2026-09-26 BEFORE ANY CODE (D314):** the first design aimed at
+   removing OBLIGATIONS rather than restating them. Invariants are asserted only at CUT POINTS (the entry
+   `0x1000` and the loop head `0x1007`), and each path between cut points is one block, symbolically executed
+   by a rule over `runP` (working name `runP_cut`, a library theorem). The block's intermediate states are
+   COMPUTED, not asserted. The subject and the statement are the same as in designs 1–3: `fill_safe`, token for token.
+   - **What it removes, named per line of the current proof:**
+     - three of the five table entries (`0x1009`, `0x100C`, `0x100F`);
+     - the `c = 3 → zf` clause of `Loop` and its `o`/`c` parameters, because the flag is produced and consumed
+       inside the block, so no assertion ever names it;
+     - the three per-label re-establishing arguments at those labels.
+   - **What it must add back, named now so the saving cannot be read net of it:**
+     - `fill_safe` is a SAFETY claim at EVERY fuel, so a run can stop MID-BLOCK. The rule must still
+       show `AgreeOutside` at each prefix of the body, and that prefix split is case structure, the kind D310
+       found conserved.
+     - The block has TWO exits (`jne` taken, `jne` not taken), so the branch split stays.
+   - **Prediction:** `fill_safe` ≤ 40 lines by `scripts/proof_lines.py`. **Refuted:** ≥ 55, no better than design 2.
+     These are the thresholds designs 1–3 used, so the four designs remain comparable.
+   - **Floor:** two table entries instead of five, so by design 1's rule (22 + ~2 lines per asserted entry) **22 + 2 × 2 ≈ 26**. A
+     result under 26 means the count moved into the library; it is not a claim about this design.
+   - **Expectation, with five optimistic errors today priced in:** **44–52**, an improvement that falls short
+     of the prediction. The prefix split is the term most likely to eat the saving.
+   - ⛔ **The library is counted beside the result, never inside it.** `runP_cut` and any symbolic-step
+     helper are reported as their own line count next to `fill_safe`'s. A saving smaller than the library
+     that bought it is reported as that, because designs 1–3 were one-subject measurements and so is this one.
+   - ⚠️ **Scope of any win:** this is one five-label routine with one loop. Cut points pay in proportion to the
+     labels BETWEEN cuts, so the claim that matters for the Captain's twenty-instruction criterion needs a
+     second subject with a longer straight-line body. That subject is named here and not registered.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load

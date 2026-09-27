@@ -20610,3 +20610,17 @@ projections before `omega` could see the counter.
 **The law, now measured three ways:** the dispatch tactic (D307), the arithmetic closer (D310, 55) and the witness-free representation (D313,
 57) each removed one kind of line and created an equal obligation of another kind. Paper 2 reports this as its finding on proof cost,
 and names the design that could beat it only as one that removes obligations (a VC generator by symbolic execution), which is not attempted.
+
+## D314 — Design 4, cut points: pre-registered before any code
+
+The three refuted designs (D307, D310, D313) each restated the per-label obligations. This one removes them. Invariants are
+asserted only at the entry and the loop head, and each path between cut points is symbolically executed as one block by a
+library rule over `runP`. The block's intermediate states are computed, never asserted.
+**Subject, statement and thresholds are unchanged, so the four designs stay comparable:** `fill_safe`, with ≤ 40 lines as
+the prediction and ≥ 55 as the refutation. The floor is ~26, because only two table entries remain.
+**Expectation: 44–52.** Every expectation today has erred optimistically, and a safety claim at every fuel still needs the
+property at each prefix of the block, which is case structure.
+**The library is reported beside the result, never inside it.** The full registration, with the per-line account of what is
+removed and what is added back, is in `docs/P2-LOGIC-DESIGN.md` §5 item 4.
+**Scope:** a win on one five-label loop does not extrapolate to twenty instructions. A second subject with a longer
+straight-line body is named, not registered.
