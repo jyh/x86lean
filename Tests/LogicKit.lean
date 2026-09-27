@@ -13,7 +13,7 @@ open X86
 
 /-! ### The composition kit, exercised (D307)
 
-A FRAME fact proved per step in the frame tier, joined to the termination proof by `with_invariant`, and
+A step-invariant fact (the frame tier's kind: preserved by every step, no footprint) proved per step, joined to the termination proof by `with_invariant`, and
 two total specs joined by `Total.and` — the shape `CorrectFor`'s post needs. -/
 
 /-- One step of `countdownN` never touches `rbx`: `dec rcx` writes only `rcx`, `jne` writes no register,
@@ -40,7 +40,7 @@ theorem countdownN_step_rbx (u : Cpu) : (stepP countdownN u).regs.get .rbx = u.r
           · split <;> rfl
           · rfl
 
-/-- `with_invariant`: the loop's termination proof, with `rbx` carried along by the frame tier. -/
+/-- `with_invariant`: the loop's termination proof, with `rbx` carried along as a step invariant. -/
 theorem countdownN_keeps_rbx :
     Spec.Total countdownN (fun s => s.ms = none ∧ s.rip = 0x1000)
       (fun s t => t.regs.get .rbx = s.regs.get .rbx) :=
@@ -48,7 +48,7 @@ theorem countdownN_keeps_rbx :
     (Spec.with_invariant (fun s u => u.regs.get .rbx = s.regs.get .rbx) (fun _ _ => rfl)
       (fun _ u _ h => (countdownN_step_rbx u).trans h) countdownN_total)
 
-/-- `Total.and`: the functional-and-reason post and the frame post, proved apart, joined. -/
+/-- `Total.and`: the functional-and-reason post and the `rbx` invariant post, proved apart, joined. -/
 theorem countdownN_total_with_frame :
     Spec.Total countdownN (fun s => s.ms = none ∧ s.rip = 0x1000)
       (fun s t => (t.regs.get .rcx = 0 ∧ t.mem = s.mem

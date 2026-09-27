@@ -363,3 +363,11 @@ Tests.LogicLoop 227 @on runnervmtr4k5
 # Their runner lines follow the merge ref's first refusal (D252 §6).
 Tests.LogicKit 50 @on yukon.lan
 Tests.LogicRead 50 @on yukon.lan
+# ⭐ AND THEIR RUNNER LINES, from the refusal that printed them: PR #71's `kernel-delta` job (run 36293701548, job 108548495767,
+# runnervmtr4k5) refused ONCE on the two NEW units and printed, verbatim: Tests.LogicKit head 16.9 ms ⇒ 51; Tests.LogicRead head
+# 21.5 ms ⇒ 64. They ride in the NEXT `.lean` step (the kit read's repairs, D316) rather than a step of their own.
+Tests.LogicKit 51 @on runnervmtr4k5
+Tests.LogicRead 64 @on runnervmtr4k5
+# D316 (MemRel's write clause in its own module): the gate's own suggested line from kernel_delta c8e3a04 → the split, yukon.lan,
+# not retyped: Tests.LogicMemRel head 17.8 ms ⇒ max(17.8 × 3, 50) = 53. The runner line follows the merge ref's refusal (D252 §6).
+Tests.LogicMemRel 53 @on yukon.lan

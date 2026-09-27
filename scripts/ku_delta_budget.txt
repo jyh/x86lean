@@ -165,3 +165,6 @@ Tests.LogicLoop @ku 11288
 # module in that run was within budget (X86.Logic +8 of 368, the rest +0).
 Tests.LogicKit @ku 502
 Tests.LogicRead @ku 2536
+# D316 (MemRel's write clause, 2026-09-27): ARM A′'s own reading, 647de6a → the split on yukon.lan; every other module in that
+# run read Δku +0 (Tests.LogicRead included, so its repairs are docstring-only).
+Tests.LogicMemRel @ku 5183
