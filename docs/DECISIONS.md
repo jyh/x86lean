@@ -20794,3 +20794,10 @@ premise was never to unfold `stepP`.
 **Subject 2 (`fillN c`) is not yet attempted.** Its bar, that subject 1's proof carries over with ≤ 4 added lines, is now testable,
 because subject 1 exists.
 **Not landed**; the evidence is in the private record at commit `3cb846d7a`.
+
+## D325 — Subject 2 (`fillN c`), its probe bar fixed before its first build
+
+D317 registered subject 2's bar: subject 1's proof carries over with ≤ 4 added lines, which is ≤ 61 against D324's 57. A new case
+split on `c`, or no build, refutes it. D317 gave it no probe limit, so one is fixed now, before any subject-2 code: **four probes, the
+same as subject 1.** The statement is fixed too: `fillN c` is `fill` with `mov rcx, c`, for `0 < c < 2^64`, and it is safe outside
+`Region d0 c`. The executor is design 8's, unchanged.
