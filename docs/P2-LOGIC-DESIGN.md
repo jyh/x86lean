@@ -313,6 +313,10 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    ⇒ **Paper 2's law, across both currencies:** per-label content is conserved across text and kernel. Design 4 paid it in the kernel,
    and could only because the counter was enumerable. Design 8 pays it in the text, as the counter bridges D313 measured. **Enumerability
    decides which currency pays; nothing measured here removes the content.** Subject 2 (`fillN c`) is now testable and not yet run.
+   ⭐ **SUBJECT 2 (D325 → D326): `fillN c`, THE LENGTH AN ARGUMENT, BUILT ON ITS FIRST PROBE, 56 LINES: MET.** Subject 1's proof carries
+   over by token substitution (`4 → c`, `3 → c − 1`), with no new split on `c`. **D315's "enumerable trip count only" limit is lifted for this
+   shape:** a loop whose length is an argument is proved safe at every fuel through cut points. What transfers is coverage, not the
+   24-line saving. The text cost stays in the 57-line class.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
