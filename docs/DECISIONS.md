@@ -20659,3 +20659,160 @@ non-vacuity) and two are WOUNDED. None of the repairs changes a statement.
   budget being widened.
 - The test comments that called `with_invariant`'s use a FRAME now say step invariant, which is what the rule is.
 **Receipts:** `lean_route build` rc 0 with 0 tagged errors. The new theorems are on `[propext, Quot.sound]` or the standard three, with a `sorryAx` control in the same log.
+
+## D317 — Design 5, a symbolic-counter executor: pre-registered before any code
+
+D315 left one gap, and it is the one that matters for the Captain's criterion: design 4 met its bar only by enumerating the loop
+counter's four values, so a routine whose length is an argument is not covered. The symbolic variant did not build in four probes
+(`simp` past maxRecDepth 8192, after three hand `toNat` bridges). This design keeps the cut points and replaces the executor.
+**Mechanism:** a STAGED executor. It takes one step at a time (`rw [runP_succ, stepP_at <fetch>]` with the fetch closed by `rfl` at the
+concrete `rip`), and after each step it names the new state (`generalize`), so no `simp` call ever sees the nested record of a whole
+block. The BitVec side goals are collected and closed at the end by `bv_omega`, with the counter's range as a hypothesis. It never uses
+`decide := true` on a term that mentions `k`.
+**Two subjects, both registered, so the scope claim is measured and not argued:**
+1. `fill_safe`, same statement, `k` symbolic. **Text:** ≤ 40 lines met, ≥ 55 refuted (the thresholds of designs 1–4). **Kernel:** ≤ 180 ms
+   met (≤ 4× the current proof's ~45), ≥ 740 ms refuted (no better than design 4). **Not building within four probes is a refutation**,
+   the same bar Cut2 failed.
+2. `fillN c`: `fill` with the count `c` as an argument (`mov rcx, c`, `0 < c`), with the safety statement over `Region d0 c`. It is not in the
+   tree, and it is built in scratch beside subject 1. **Met:** subject 1's proof carries over with ≤ 4 added lines. **Refuted:** it needs a
+   new case split on `c`, or it does not build.
+**Library counted beside the result, never inside it**, as in D314.
+**Expectation, with six optimistic errors in two days priced in:** text 32–44, kernel 150–400 ms. I expect subject 2 to carry over only if
+subject 1 does. The likeliest failure is the one D313 measured: `toNat` bridges come back at the counter step, one for one.
+The full registration, with what each step of the executor removes and what it adds back, is in `docs/P2-LOGIC-DESIGN.md` §5 item 4.
+
+## D318 — Design 5 did not build in four probes: REFUTED, and the recursion is at the `jne`, not at the counter
+
+**Registered at `28529ab` (D317) before any code.** The bar for subject 1 was: not building within four probes is a refutation.
+**Measured, one hypothesis per probe:**
+1. With no `decide` and no `k` hypothesis in the simp set, the loop block still reaches maxRecDepth. So `k` was not the cause.
+2. From a FULLY symbolic state (no `k` anywhere), the block executes 1–3 steps and recurses at step 4, the `jne`.
+3. At the `jne`, `decide := true`, the branch target's canonicality supplied as a fact, and a hand split on `ZF` each still recurse.
+4. With `Flags.dec` left folded (one `rfl` lemma projects `zf`), the diagnostic still recurses, and so do both complete variants.
+**REFUTED.** Subject 2 (`fillN c`) was not attempted: its bar is that subject 1's proof carries over, and there is none.
+**The finding:** D315's limit is sharper than it said. The symbolic executor fails at the conditional branch over a symbolic state,
+not at the counter's arithmetic. Every probe that removed a `k` term left the failure where it was.
+**Declared errors of mine in probe 4, which are not the cause:** a docstring before `set_option … in` and an alternation that did not
+parse. The recursion fires independently of both, in the diagnostic and in every block goal.
+**Not tested, and named for the next design:** `canonical` stayed in the simp set in every variant, on a target built from
+`BitVec.ofInt 64 (-10)`, so the fact supplied in probe 3 could not stop simp unfolding the goal's copy.
+**Not landed**; the evidence is in the private record at commit `9128c681f`.
+
+## D319 — Design 6, the branch side condition discharged once: pre-registered before any code
+
+D318 left one suspect untested. Every variant kept `canonical` in the simp set, on a branch target built from `BitVec.ofInt 64 (-10)`.
+**Mechanism:** design 5's executor with `canonical` and `step_jcc` REMOVED from the simp set. At the `jne`, one library lemma rewrites
+`step ⟨.jcc c d, len⟩ s` to its `if` form, given a closed fact `canonical <target> = true` proved once by `decide` on the literal target.
+**Subjects, thresholds and probe bar exactly as D317**, so designs 5 and 6 are comparable: subject 1 `fill_safe` with `k` symbolic (text
+≤ 40 met, ≥ 55 refuted; kernel ≤ 180 ms met, ≥ 740 ms refuted; no build in four probes refuted) and subject 2 `fillN c` (carries over
+with ≤ 4 added lines).
+**Probe 1 is fixed now, so the first build separates this design from D318's:** probe 2's 4-step diagnostic, rerun with this executor.
+If it still recurses, the suspect is cleared and the design is refuted on its own mechanism, with three probes left for a different arm
+of it, never for a different design.
+**Expectation:** 50/50 that the diagnostic passes. If it does, text 30–42, because the bridges D313 measured come back as `bv_omega` goals.
+
+## D320 — Design 6 refuted on its own mechanism, and a correction to D318: the registered staged executor was never built
+
+**Design 6 (D319), measured.** Probe 1 was a harness defect of mine: the custom discharger could not close `Live {…}`, so every example
+stalled after step 1 and never reached the `jne`. It tested nothing and is declared as such. Probe 2 repaired the discharger, took
+`canonical` out of the set and decided the branch target once on the closed literal. All three diagnostics still reach maxRecDepth,
+including the `ms` projection, which does not depend on the branch. **The suspect is cleared, and design 6 is REFUTED on its own
+mechanism**, as D319 registered.
+**Correction to D318, found while writing this entry.** D317 registered a STAGED executor: one step per call by `rw [runP_succ,
+stepP_at <fetch>]`, the post-state named by `generalize`, and BitVec goals closed at the end. **None of the eight probes built it.** Every
+one ran a ONE-CALL `simp` that unfolds `stepP`. D6-1's stalled goal shows what that unfolding produces: an `if (…).ms.isSome … match
+List.find? …` nest per step, each one nesting the previous state. D318's verdict stands by its registered bar (four probes, no build),
+but it refutes the executor I built, not the mechanism I registered. **The staged executor is UNTESTED.** It is the next design, to be
+pre-registered as written in D317, and a probe counts toward it only if it runs `stepP_at`.
+⇒ The departure was made one probe at a time, each a cheap test of the previous result. None of those tests asked whether the executor
+was still the registered one.
+**Not landed**; the evidence is in the private record at commit `01c462bdf`.
+
+## D321 — Design 7, D317's staged executor as registered: pre-registered before any code
+
+**Mechanism, as D317 wrote it:** one step per tactic call, `rw [runP_succ, stepP_at <not stopped> <fetch>]`, never unfolding `stepP`.
+Then the instruction's `step_*` lemma rewrites the step to a record update, so the next step starts from a record. To make every
+fetch closed, the start state's `rip` and `ms` are fixed to literals first (destructure the state and substitute), so `<fetch>` is `rfl`.
+**Subjects, thresholds and bar exactly as D317.** A probe counts only if the executor it runs contains `stepP_at` and not `stepP`.
+**Probe 1 is fixed now:** D318's 4-step `jne` diagnostic, `(runP fill 4 s).rip = 0x1007` with the counter's branch fact, under this
+executor. D6-1's goal showed `stepP` unfolding into a per-step `if (…).ms.isSome …` nest that repeats the previous state. This design
+is built so that no such nest can form, and probe 1 tests exactly that.
+**Expectation:** 60/40 that the diagnostic passes. If it does, subject 1's text is 34–46: each step is now a line or two of `rw`, which
+the one-call `simp` did not cost.
+
+## D322 — Design 7, the staged executor as registered: it runs the block, and subject 1 did not build in four probes (REFUTED at the bar)
+
+**Registered at `4c4edf0` (D321) before any code. All four probes run `stepP_at` and never `stepP`.**
+1. **No recursion.** Steps 1–3 execute on a fully symbolic state. The `jne` is fetched, and `step_jcc`'s side condition is not yet discharged.
+2. `step_jcc` fires. Without normalisation between steps the state term roughly doubles per step, because each `step_*` lemma
+   mentions the previous state several times, and the final `simp` recurses.
+3. The state is normalised after every step. The `ms` diagnostic BUILDS, and the two branch diagnostics are left with exactly their
+   branch fact. **The registered mechanism executes the whole block, `jne` included, where designs 5 and 6 never got past it.**
+4. The full subject 1 with `k` symbolic. The entry block and every prefix-safety goal BUILD. Four errors remain, all in re-establishing
+   the cut at the loop head.
+**REFUTED by the registered bar** (no build in four probes). Subject 2 was not attempted.
+**What the four probes establish:** the recursion of D318 and D320 was caused by unfolding `stepP`, not by the counter or the branch.
+Staged through `stepP_at`, with the state normalised after each step, a symbolic loop body executes.
+**Probe 4's residue has one visible root, and it is a hypothesis:** `Cpu.getReg` normalises to `if False then … else …`, which the
+executor never reduces. That leaves `rip` non-literal and wraps `rdi` in the arithmetic, which accounts for all four errors. Adding
+`if_false` to the normaliser is the apparent fix. It is **untested**, and it is the flattering reading, the direction every expectation
+here has erred in. A design 8 that adds it is pre-registered as its own design with its own four probes, never run as a fifth probe of this one.
+**Not landed**; the evidence is in the private record at commit `fd82dba2d`.
+
+## D323 — Design 8, design 7 with `if_false` in the step normaliser: pre-registered before any code
+
+**Mechanism:** design 7's staged executor (`stepP_at` per step, the state normalised after each step), with `if_false` and `if_true`
+added to the per-step normaliser, so that `Cpu.getReg`'s `if False then … else …` reduces. This is the hypothesis D322 named. Nothing
+else changes.
+**Subjects, thresholds and bar exactly as D317**, and a probe counts only if it runs `stepP_at`.
+**Probe 1 is fixed now:** design 7's probe-4 file, unchanged except the two lemmas. If D322's reading is right, subject 1 builds on
+the first probe. If it does not, that reading was wrong, and the residue it leaves is the next finding.
+**Expectation:** 55/45 that probe 1 builds, lower than the reading suggests, because every expectation here has erred optimistically.
+If it builds, the text is 38–48 lines against the ≤ 40 prediction, and kernel time is unknown.
+
+## D324 — Design 8 builds `fill_safe` with the counter symbolic: 57 lines (REFUTED on text), < 100 ms in the kernel (met)
+
+**Registered at `670dbdc` (D323) before any code. Subject 1 BUILT on probe 4 of 4:** route rc 0, 0 errors of any form, on
+`[propext, Classical.choice, Quot.sound]`, with a `sorryAx` control in the same log. **It is the first proof of `fill_safe` through
+cut points that does not enumerate the trip count.**
+**Measured against the registered thresholds:**
+- **Text: 57 lines** by `scripts/proof_lines.py`, the same as the current proof. **REFUTED (≥ 55).** Design 4 was 24.
+- **Kernel: `fill_safe` < 100 ms** (two profiled runs; the whole file type-checks in 182 and 177 ms, and the profiler prints no line for
+  `fill_safe`, so it is under its 100 ms floor). **MET (≤ 180 ms)**, against design 4's ~740 ms.
+- The library, reported beside the result: 29 lines (`runP_cut`, `Flags.dec_zf`, and the `xstep`/`xrun` executors).
+**What moved where:** design 4 put the per-label content into the KERNEL (24 lines of text, ~740 ms), and could do so only because the
+counter was enumerable. With the counter symbolic, design 8 puts it back into the TEXT, as the counter bridges D313 measured: the
+store's region fact, the branch fact in two literal spellings, and the `bv_omega` re-establishment. That gives 57 lines and a cheap
+kernel. **Paper 2's law holds a fifth time, now across both currencies: per-label content is conserved across text and kernel, and
+enumerability decides which one pays.**
+**Probes 1–3 each removed one measured obstacle:** `if False` from `Cpu.getReg` (the `omega` failures) · the branch fact's literal
+spelling (`1#64` against `1`) · `if False` left in the branch pass. Every one was read from the previous probe's goal, not from an
+expectation.
+**Declared departure:** the `k = 3` exit's last step is closed by one `simp` that unfolds `stepP` on a flat, closed-`rip` record. That
+is in the subject's text, not the executor, and D321's counting rule is about the executor. It is stated because the design's
+premise was never to unfold `stepP`.
+**Subject 2 (`fillN c`) is not yet attempted.** Its bar, that subject 1's proof carries over with ≤ 4 added lines, is now testable,
+because subject 1 exists.
+**Not landed**; the evidence is in the private record at commit `3cb846d7a`.
+
+## D325 — Subject 2 (`fillN c`), its probe bar fixed before its first build
+
+D317 registered subject 2's bar: subject 1's proof carries over with ≤ 4 added lines, which is ≤ 61 against D324's 57. A new case
+split on `c`, or no build, refutes it. D317 gave it no probe limit, so one is fixed now, before any subject-2 code: **four probes, the
+same as subject 1.** The statement is fixed too: `fillN c` is `fill` with `mov rcx, c`, for `0 < c < 2^64`, and it is safe outside
+`Region d0 c`. The executor is design 8's, unchanged.
+
+## D326 — Subject 2, `fillN c`: built on the first probe, 56 lines, and subject 1's proof carries over (MET)
+
+**Bar fixed at `199c0bf` (D325) before any subject-2 code:** four probes; met if subject 1's proof carries over with ≤ 4 added lines;
+refuted by a new case split on `c` or by no build.
+**Measured, probe 1 of 4:** `fillN_safe` builds, with route rc 0 and 0 errors, on `[propext, Classical.choice, Quot.sound]` and with a
+`sorryAx` control in the same log. It is **56 lines** by `scripts/proof_lines.py`, against subject 1's 57. The proof body differs from
+`fill_safe`'s by token substitution only (`4 → c`, `3 → c − 1`, `Cut → CutN`, `fill → fillN`) and one closer line. The only split
+mentioning `c` is `k = c − 1`, which replaces `k = 3`. **MET.** The executor library is design 8's, byte for byte.
+**What it changes:** D315's second limit said a routine whose length is an argument is not covered, and that covers the PoC and anything
+the twenty-instruction criterion will meet. **That limit is lifted for this shape.** One loop, with its length as an argument, is proved
+safe at every fuel through cut points, and the proof is the constant-length proof with the constant replaced.
+**Its scope, stated where the result is:** one routine, with one loop and a straight-line body of four instructions. The text cost is
+design 8's 57-line class, not design 4's 24, so the saving D315 measured does not transfer. What transfers is coverage.
+**Not landed**; the evidence is in the private record at commit `2aeefa5e8`.

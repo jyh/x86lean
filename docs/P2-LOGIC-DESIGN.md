@@ -264,6 +264,59 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    📌 **The expectation (44–52) was pessimistic for the local count and correct for the charged one.** This is the first
    expectation today that was not optimistic in the direction that matters, and the only reason is that the cost went to a place
    the expectation did not price.
+   ⚖️ **DESIGN 5 — A SYMBOLIC-COUNTER EXECUTOR, PRE-REGISTERED 2026-09-27 BEFORE ANY CODE (D317).** It keeps design 4's cut points and
+   `runP_cut`, and replaces the `sym` executor, whose one-call `simp (config := {decide := true})` over the whole block is what fails once
+   `k` is symbolic.
+   - **The executor:** one step per call, `rw [runP_succ, stepP_at h]` with the fetch `h` closed by `rfl` at the concrete `rip`. Then
+     `generalize` names the post-state, so each `simp` sees one record update and never a nested block. Register and memory reads go
+     through the existing `Regs.get_set_*` and `Mem` lemmas. The BitVec goals are left open to the end and closed by `bv_omega`, with
+     `k < 4` (subject 1) or `k < c` (subject 2) in context. `decide` never runs on a term that mentions `k`.
+   - **What it removes:** the enumeration of `k` (design 4's four-way `rcases` and its two `refine` arms), and with it the kernel's
+     evaluation of four concrete blocks, which is where D315's ~740 ms went.
+   - **What it must add back, named now:** (i) the `toNat` bridges D313 measured (counter step, "zf false ⇒ k + 1 < 4"), now as `bv_omega`
+     goals, which D310 found `bv_omega` closes at the counter and NOT at a flag goal; (ii) the prefix split for safety at every fuel,
+     still present; (iii) the two exits of `jne`.
+   - **Subject 1:** `fill_safe`, same statement, symbolic `k`. **Text** ≤ 40 met, ≥ 55 refuted. **Kernel** ≤ 180 ms met, ≥ 740 ms refuted.
+     Not building in four probes is refuted (Cut2's bar).
+   - **Subject 2, and it is the claim that matters:** `fillN c`, the same routine with `c` an argument (`0 < c`), safe outside
+     `Region d0 c`. **Met:** subject 1's proof carries over with ≤ 4 added lines. **Refuted:** a case split on `c`, or no build.
+   - **Floor:** unchanged at ~26 text lines. The library (`runP_cut` plus the executor) is reported beside the result.
+   - **Expectation, with six optimistic errors priced in:** text 32–44, kernel 150–400 ms, and subject 2 carries over only if subject 1
+     does. The likeliest failure is D313's: the bridges come back one for one, now as `bv_omega` calls, and the ZF exit is where `bv_omega`
+     already failed once (D310).
+   ⛔ **RESULT (D318): NOT BUILT IN FOUR PROBES — REFUTED, WITH THE REGISTRATION ABOVE LEFT AS WRITTEN.** Each probe removed one suspect:
+   `k` from the simp set (still recursed) · the state made fully symbolic (1–3 steps execute; the 4th, the `jne`, recurses) · `decide`,
+   the target's canonicality and a hand `ZF` split (each still recursed) · `Flags.dec` left folded (still recursed). **So the executor
+   fails at the conditional branch over a symbolic state, and not at the counter's arithmetic that D315 blamed.** Subject 2 was not
+   attempted, because its bar is subject 1's proof. ⚠️ Untested and named: `canonical` stayed unfolded in every variant, on an
+   `ofInt (-10)` target. The next design discharges `step_jcc`'s side condition once, by `decide` on the closed target, with `canonical`
+   out of the set. It is pre-registered as this one was.
+   📌 **The expectation (text 32–44, kernel 150–400 ms) had no number to be tested against.** The failure was the one the registration
+   named as the bar, and it arrived at a place the expectation did not name.
+   ⚖️ **DESIGN 6 (D319, pre-registered before any code) → REFUTED (D320).** With `canonical` out of the executor and the branch target
+   decided once on the closed literal, the `jne` diagnostic still recursed, and so did the `ms` projection, which does not depend on the
+   branch. (Its first probe was a harness defect of mine and tested nothing; this is declared.)
+   ⛔ **AND THE CORRECTION THAT MATTERS MORE (D320): design 5's REGISTERED executor was never built.** D317 registered a STAGED executor
+   (`rw [runP_succ, stepP_at <fetch>]`, then `generalize`). All eight probes ran a one-call `simp` that UNFOLDS `stepP`, which produces one
+   `if (…).ms.isSome … match List.find? …` nest per step. D318 therefore refutes the executor that was built, not the one registered.
+   **The staged executor is untested and is the next design.** A probe counts toward it only if it runs `stepP_at`.
+   ⚖️ **DESIGN 7 — THE STAGED EXECUTOR AS REGISTERED (D321, pre-registered before any code) → REFUTED AT THE BAR (D322), AND IT RUNS THE BLOCK.**
+   Four probes, all through `stepP_at`. There is no recursion anywhere. Once the state is normalised after every step, the symbolic loop body
+   executes end to end, `jne` included. In the full subject 1 the entry block and every prefix-safety goal build, and four errors remain,
+   all in re-establishing the cut. ⇒ **The recursion of designs 5 and 6 was caused by unfolding `stepP`, not by the counter or the branch.**
+   ⚠️ The residue's apparent single root (`if False` left unreduced by `Cpu.getReg`) is a hypothesis and the flattering one. A design 8
+   that adds `if_false` is its own registration with its own four probes.
+   ⭐ **DESIGN 8 (D323 → D324): `fill_safe` WITH THE COUNTER SYMBOLIC BUILDS.** It is the first cut-point proof that does not enumerate the
+   trip count, on the standard three axioms, and it was measured against the registered thresholds:
+   - **Text: 57 lines, REFUTED (≥ 55).** It equals the current proof. Design 4 was 24.
+   - **Kernel: `fill_safe` < 100 ms, MET (≤ 180).** Design 4 was ~740 ms. The library is 29 lines, counted beside.
+   ⇒ **Paper 2's law, across both currencies:** per-label content is conserved across text and kernel. Design 4 paid it in the kernel,
+   and could only because the counter was enumerable. Design 8 pays it in the text, as the counter bridges D313 measured. **Enumerability
+   decides which currency pays; nothing measured here removes the content.** Subject 2 (`fillN c`) is now testable and not yet run.
+   ⭐ **SUBJECT 2 (D325 → D326): `fillN c`, THE LENGTH AN ARGUMENT, BUILT ON ITS FIRST PROBE, 56 LINES: MET.** Subject 1's proof carries
+   over by token substitution (`4 → c`, `3 → c − 1`), with no new split on `c`. **D315's "enumerable trip count only" limit is lifted for this
+   shape:** a loop whose length is an argument is proved safe at every fuel through cut points. What transfers is coverage, not the
+   24-line saving. The text cost stays in the 57-line class.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
