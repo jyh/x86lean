@@ -15,3 +15,4 @@ import Tests.Logic
 import Tests.LogicLoop
 import Tests.LogicKit
 import Tests.LogicRead
+import Tests.LogicMemRel

@@ -41,9 +41,10 @@ theorem ldb_run (s : Cpu) (hms : s.ms = none) (hrip : s.rip = 0x1000) :
   simp only [runP_succ, runP_zero, e1]
   exact stepP_off hst1 rfl
 
-/-- ⭐ **The load reads only `[rdi]`.** For EVERY start state and every second memory agreeing with the
-first at `d0`, the two runs end differing in memory alone — and they do not differ in memory either,
-because the routine writes nothing. -/
+/-- ⭐ **The load reads only `[rdi]`, in the terminal form.** For EVERY start state and every second memory
+agreeing with the first at `d0`, the two runs end differing in memory alone. The end memories DO differ
+wherever the start memories did, because the routine writes nothing; `MemRel` allows exactly that through its
+"neither run wrote" disjunct. Terminal form: a read outside `R` whose result is discarded would also pass. -/
 theorem ldb_readsOnly (d0 : BitVec 64) : ReadsOnly ldb (fun a => a = d0) (ldbPre d0) := by
   rintro s₁ ⟨h1, h2, h3⟩
   refine ⟨2, ?_, ?_⟩

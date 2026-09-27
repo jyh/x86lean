@@ -209,6 +209,61 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    reports. A design that beats it must remove OBLIGATIONS, not restate them — for example, a
    verification-condition generator that discharges whole labels by symbolic execution. Not attempted here.
    📌 **The expectation (48–52) was optimistic, the fifth such error today, and it is left standing.**
+   ⚖️ **DESIGN 4 — CUT POINTS, PRE-REGISTERED 2026-09-26 BEFORE ANY CODE (D314):** the first design aimed at
+   removing OBLIGATIONS rather than restating them. Invariants are asserted only at CUT POINTS (the entry
+   `0x1000` and the loop head `0x1007`), and each path between cut points is one block, symbolically executed
+   by a rule over `runP` (working name `runP_cut`, a library theorem). The block's intermediate states are
+   COMPUTED, not asserted. The subject and the statement are the same as in designs 1–3: `fill_safe`, token for token.
+   - **What it removes, named per line of the current proof:**
+     - three of the five table entries (`0x1009`, `0x100C`, `0x100F`);
+     - the `c = 3 → zf` clause of `Loop` and its `o`/`c` parameters, because the flag is produced and consumed
+       inside the block, so no assertion ever names it;
+     - the three per-label re-establishing arguments at those labels.
+   - **What it must add back, named now so the saving cannot be read net of it:**
+     - `fill_safe` is a SAFETY claim at EVERY fuel, so a run can stop MID-BLOCK. The rule must still
+       show `AgreeOutside` at each prefix of the body, and that prefix split is case structure, the kind D310
+       found conserved.
+     - The block has TWO exits (`jne` taken, `jne` not taken), so the branch split stays.
+   - **Prediction:** `fill_safe` ≤ 40 lines by `scripts/proof_lines.py`. **Refuted:** ≥ 55, no better than design 2.
+     These are the thresholds designs 1–3 used, so the four designs remain comparable.
+   - **Floor:** two table entries instead of five, so by design 1's rule (22 + ~2 lines per asserted entry) **22 + 2 × 2 ≈ 26**. A
+     result under 26 means the count moved into the library; it is not a claim about this design.
+   - **Expectation, with five optimistic errors today priced in:** **44–52**, an improvement that falls short
+     of the prediction. The prefix split is the term most likely to eat the saving.
+   - ⛔ **The library is counted beside the result, never inside it.** `runP_cut` and any symbolic-step
+     helper are reported as their own line count next to `fill_safe`'s. A saving smaller than the library
+     that bought it is reported as that, because designs 1–3 were one-subject measurements and so is this one.
+   - ⚠️ **Scope of any win:** this is one five-label routine with one loop. Cut points pay in proportion to the
+     labels BETWEEN cuts, so the claim that matters for the Captain's twenty-instruction criterion needs a
+     second subject with a longer straight-line body. That subject is named here and not registered.
+   ⭐ **RESULT, BUILT AND MEASURED (D315), WITH THE REGISTRATION ABOVE LEFT AS WRITTEN:**
+   - **`fill_safe` through cut points: 24 lines.** The current proof is 57, so the prediction (≤ 40) is **met**. The statement is
+     the same, `fill_safe` is on the standard three axioms, the same log carries a `sorryAx` control, and there are 0 tagged errors.
+   - **Library, counted beside:** 20 lines (`runP_cut`, 12, and the `sym` executor macro, 8). Both are program-agnostic and paid
+     once. Charged in full to this one subject, the total is **44**: neither met nor refuted.
+   - **Invariant:** the cut assertion is 5 lines, against 9 for `Loop` + `FillInv`. The `zf` clause and the three intermediate
+     table entries are gone, as registered.
+   - ⚠️ **Under the declared floor (~26).** The registration says a result under the floor means the count moved into the library.
+     Only part of it did (20 library lines). The rest moved somewhere the registration did not name, which is the next point.
+   - ⛔ **THE CONSERVED QUANTITY CHANGED CURRENCY.** Kernel type checking of `fill_safe`: **~740 ms** through cut points
+     (723 and 760 in two runs), against **at most ~45 ms** for the current proof: the rest of each run's total (770 and 804 ms) also covers `runP_cut`
+     and the definitions. That is **at least ~16×.**
+     - The executor proves its obligations by `decide`-driven evaluation. What the text no longer states, the kernel now computes.
+     - At that price the proof alone would take `Tests.Program` over its registered yukon ceiling (975 ms, module ~350 today).
+     - **So paper 2's law gets a sharper form: per-label content is conserved across TEXT and KERNEL together. Design 4 is the
+       first design that moved it out of the text.**
+   - ⛔ **CONDITIONAL ON AN ENUMERABLE TRIP COUNT.** The proof splits the loop counter into its four concrete values, which
+     works because `fill` counts to the constant 4. A symbolic-counter variant (split only at the exit) was **not built after
+     four probes**:
+     - once `k` is symbolic, the executor's `simp` does not terminate (maxRecDepth, still at 8192);
+     - it had already needed three hand arithmetic bridges, the `toNat` obligations D313 measured.
+     A routine whose length is an argument, which covers the PoC and anything the Captain's twenty-instruction criterion will
+     meet, is therefore **not** covered by this result.
+   - **Not landed.** The proofs are measurements kept outside the tree, and the evidence is in the private record at commit
+     `d555bca86`.
+   📌 **The expectation (44–52) was pessimistic for the local count and correct for the charged one.** This is the first
+   expectation today that was not optimistic in the direction that matters, and the only reason is that the cost went to a place
+   the expectation did not price.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load

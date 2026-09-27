@@ -188,7 +188,11 @@ def MemRel (s₁ s₂ t₁ t₂ : Cpu) : Prop :=
 
 /-- **READS ONLY `R`, terminal form.** Every `P`-run stops, and a second `P`-run from a state that differs
 only in memory, agreeing on `R`, stops in a state that differs from the first's only in memory, and only
-where neither run wrote. -/
+where neither run wrote.
+
+⚠️ **What the terminal form gives up (D308):** it constrains the END states only. A routine that reads outside
+`R` and whose result never depends on that read satisfies it. The lockstep all-fuel form would reject that
+routine; it is a second judgment, named in the design doc and not built. -/
 def ReadsOnly (p : Program) (R : BitVec 64 → Prop) (P : Cpu → Prop) : Prop :=
   Spec p P (fun s₁ t₁ => t₁.stopped = true ∧
     ∀ s₂, P s₂ → SameExceptMem s₁ s₂ → AgreeOnMem R s₁.mem s₂.mem →

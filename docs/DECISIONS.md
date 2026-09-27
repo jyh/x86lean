@@ -20610,3 +20610,52 @@ projections before `omega` could see the counter.
 **The law, now measured three ways:** the dispatch tactic (D307), the arithmetic closer (D310, 55) and the witness-free representation (D313,
 57) each removed one kind of line and created an equal obligation of another kind. Paper 2 reports this as its finding on proof cost,
 and names the design that could beat it only as one that removes obligations (a VC generator by symbolic execution), which is not attempted.
+
+## D314 — Design 4, cut points: pre-registered before any code
+
+The three refuted designs (D307, D310, D313) each restated the per-label obligations. This one removes them. Invariants are
+asserted only at the entry and the loop head, and each path between cut points is symbolically executed as one block by a
+library rule over `runP`. The block's intermediate states are computed, never asserted.
+**Subject, statement and thresholds are unchanged, so the four designs stay comparable:** `fill_safe`, with ≤ 40 lines as
+the prediction and ≥ 55 as the refutation. The floor is ~26, because only two table entries remain.
+**Expectation: 44–52.** Every expectation today has erred optimistically, and a safety claim at every fuel still needs the
+property at each prefix of the block, which is case structure.
+**The library is reported beside the result, never inside it.** The full registration, with the per-line account of what is
+removed and what is added back, is in `docs/P2-LOGIC-DESIGN.md` §5 item 4.
+**Scope:** a win on one five-label loop does not extrapolate to twenty instructions. A second subject with a longer
+straight-line body is named, not registered.
+
+## D315 — Design 4 built: 24 lines in the text, ≥ ~16× in the kernel, and only for an enumerable trip count
+
+**Registered at `b8de066` (D314) before any code**, with the thresholds ≤ 40 met, ≥ 55 refuted and a floor of ~26.
+**Measured:**
+- `fill_safe` through cut points is **24 lines** (57 today), so the prediction is **met**. It is on the standard three axioms, with
+  a `sorryAx` control in the same log and 0 tagged errors.
+- The library (`runP_cut` and the `sym` executor) is **20 lines**, reported beside the result: **44** if charged in full.
+- **Kernel type checking is ~740 ms against at most ~45 ms (at least ~16×)**, over two runs; the bound is the remainder of each run's total.
+
+**Two limits, stated where the result is:**
+1. The saving depends on enumerating the loop counter's four values. A symbolic-counter variant did not build in four probes:
+   `simp` does not terminate, even at maxRecDepth 8192, and it needed hand `toNat` bridges first.
+2. The cost moved out of the text and into the kernel rather than disappearing.
+
+**Paper 2's law, restated from four designs:** per-label content is conserved across text and kernel. Design 4 is the first
+design that moved it, and it moved it into computation that works only when the state space is small enough to enumerate.
+**Not landed**; the evidence is in the private record at commit `d555bca86`.
+## D316 — The kit read's repairs: the terminal-form limit where the reader meets it, one false sentence corrected, and `MemRel`'s write clause pinned
+
+**The read (a fresh non-author head, #71 at `c8e3a04`):** no false Lean statement. Three items STAND (`Total.and`, `with_invariant`,
+non-vacuity) and two are WOUNDED. None of the repairs changes a statement.
+- **(a)** The `ReadsOnly` docstring now states what the terminal form gives up. Until now that lived only in D308, where the theorem's reader never looks.
+- **(b)** `ldb_readsOnly`'s docstring said the end memories "do not differ", which is false: the start memories differ outside `R` and
+  `ldb` writes nothing, so the end memories differ there too. `MemRel`'s "neither run wrote" disjunct is what admits that.
+- **(c)** `MemRel`'s write-then-read-back clause was pinned by no witness: `ldb` writes nothing, and `ldb1`'s red comes from a register.
+  - `stb_readsOnly` (a store, `R = ∅`) meets it at the written cell by the first disjunct.
+  - `cpb_not_readsOnly` (load `[rdi+1]`, store `[rdi]`, clear `al`) fails through it, and `cpb_regs_agree` shows the end `rax` and `rip` agree.
+  - **Red backwards:** with the clause emptied (`True ∨ …`) exactly ONE error appears, at `cpb_not_readsOnly`, while `ldb`, `ldb1` and `stb` still build.
+  - A blunter mutant (`MemRel := True`) broke the positives structurally as well, so it could not tell a pin from a type error, and it is not the evidence.
+- **Module (D311's rule):** in `Tests.LogicRead`, the red control's `decide` over two concrete four-step runs read OVER budget (11.0 → 28.5 ms
+  against 6, kernel_delta `c8e3a04` → `c304a16`, yukon). The two witnesses moved to their own unit, `Tests/LogicMemRel.lean`, instead of the
+  budget being widened.
+- The test comments that called `with_invariant`'s use a FRAME now say step invariant, which is what the rule is.
+**Receipts:** `lean_route build` rc 0 with 0 tagged errors. The new theorems are on `[propext, Quot.sound]` or the standard three, with a `sorryAx` control in the same log.
