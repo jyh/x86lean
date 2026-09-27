@@ -20727,3 +20727,15 @@ pre-registered as written in D317, and a probe counts toward it only if it runs 
 ⇒ The departure was made one probe at a time, each a cheap test of the previous result. None of those tests asked whether the executor
 was still the registered one.
 **Not landed**; the evidence is in the private record at commit `01c462bdf`.
+
+## D321 — Design 7, D317's staged executor as registered: pre-registered before any code
+
+**Mechanism, as D317 wrote it:** one step per tactic call, `rw [runP_succ, stepP_at <not stopped> <fetch>]`, never unfolding `stepP`.
+Then the instruction's `step_*` lemma rewrites the step to a record update, so the next step starts from a record. To make every
+fetch closed, the start state's `rip` and `ms` are fixed to literals first (destructure the state and substitute), so `<fetch>` is `rfl`.
+**Subjects, thresholds and bar exactly as D317.** A probe counts only if the executor it runs contains `stepP_at` and not `stepP`.
+**Probe 1 is fixed now:** D318's 4-step `jne` diagnostic, `(runP fill 4 s).rip = 0x1007` with the counter's branch fact, under this
+executor. D6-1's goal showed `stepP` unfolding into a per-step `if (…).ms.isSome …` nest that repeats the previous state. This design
+is built so that no such nest can form, and probe 1 tests exactly that.
+**Expectation:** 60/40 that the diagnostic passes. If it does, subject 1's text is 34–46: each step is now a line or two of `rw`, which
+the one-call `simp` did not cost.
