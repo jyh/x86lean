@@ -20659,3 +20659,24 @@ non-vacuity) and two are WOUNDED. None of the repairs changes a statement.
   budget being widened.
 - The test comments that called `with_invariant`'s use a FRAME now say step invariant, which is what the rule is.
 **Receipts:** `lean_route build` rc 0 with 0 tagged errors. The new theorems are on `[propext, Quot.sound]` or the standard three, with a `sorryAx` control in the same log.
+
+## D317 — Design 5, a symbolic-counter executor: pre-registered before any code
+
+D315 left one gap, and it is the one that matters for the Captain's criterion: design 4 met its bar only by enumerating the loop
+counter's four values, so a routine whose length is an argument is not covered. The symbolic variant did not build in four probes
+(`simp` past maxRecDepth 8192, after three hand `toNat` bridges). This design keeps the cut points and replaces the executor.
+**Mechanism:** a STAGED executor. It takes one step at a time (`rw [runP_succ, stepP_at <fetch>]` with the fetch closed by `rfl` at the
+concrete `rip`), and after each step it names the new state (`generalize`), so no `simp` call ever sees the nested record of a whole
+block. The BitVec side goals are collected and closed at the end by `bv_omega`, with the counter's range as a hypothesis. It never uses
+`decide := true` on a term that mentions `k`.
+**Two subjects, both registered, so the scope claim is measured and not argued:**
+1. `fill_safe`, same statement, `k` symbolic. **Text:** ≤ 40 lines met, ≥ 55 refuted (the thresholds of designs 1–4). **Kernel:** ≤ 180 ms
+   met (≤ 4× the current proof's ~45), ≥ 740 ms refuted (no better than design 4). **Not building within four probes is a refutation**,
+   the same bar Cut2 failed.
+2. `fillN c`: `fill` with the count `c` as an argument (`mov rcx, c`, `0 < c`), with the safety statement over `Region d0 c`. It is not in the
+   tree, and it is built in scratch beside subject 1. **Met:** subject 1's proof carries over with ≤ 4 added lines. **Refuted:** it needs a
+   new case split on `c`, or it does not build.
+**Library counted beside the result, never inside it**, as in D314.
+**Expectation, with six optimistic errors in two days priced in:** text 32–44, kernel 150–400 ms. I expect subject 2 to carry over only if
+subject 1 does. The likeliest failure is the one D313 measured: `toNat` bridges come back at the counter step, one for one.
+The full registration, with what each step of the executor removes and what it adds back, is in `docs/P2-LOGIC-DESIGN.md` §5 item 4.

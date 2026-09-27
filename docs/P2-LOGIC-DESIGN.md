@@ -264,6 +264,26 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    📌 **The expectation (44–52) was pessimistic for the local count and correct for the charged one.** This is the first
    expectation today that was not optimistic in the direction that matters, and the only reason is that the cost went to a place
    the expectation did not price.
+   ⚖️ **DESIGN 5 — A SYMBOLIC-COUNTER EXECUTOR, PRE-REGISTERED 2026-09-27 BEFORE ANY CODE (D317).** It keeps design 4's cut points and
+   `runP_cut`, and replaces the `sym` executor, whose one-call `simp (config := {decide := true})` over the whole block is what fails once
+   `k` is symbolic.
+   - **The executor:** one step per call, `rw [runP_succ, stepP_at h]` with the fetch `h` closed by `rfl` at the concrete `rip`. Then
+     `generalize` names the post-state, so each `simp` sees one record update and never a nested block. Register and memory reads go
+     through the existing `Regs.get_set_*` and `Mem` lemmas. The BitVec goals are left open to the end and closed by `bv_omega`, with
+     `k < 4` (subject 1) or `k < c` (subject 2) in context. `decide` never runs on a term that mentions `k`.
+   - **What it removes:** the enumeration of `k` (design 4's four-way `rcases` and its two `refine` arms), and with it the kernel's
+     evaluation of four concrete blocks, which is where D315's ~740 ms went.
+   - **What it must add back, named now:** (i) the `toNat` bridges D313 measured (counter step, "zf false ⇒ k + 1 < 4"), now as `bv_omega`
+     goals, which D310 found `bv_omega` closes at the counter and NOT at a flag goal; (ii) the prefix split for safety at every fuel,
+     still present; (iii) the two exits of `jne`.
+   - **Subject 1:** `fill_safe`, same statement, symbolic `k`. **Text** ≤ 40 met, ≥ 55 refuted. **Kernel** ≤ 180 ms met, ≥ 740 ms refuted.
+     Not building in four probes is refuted (Cut2's bar).
+   - **Subject 2, and it is the claim that matters:** `fillN c`, the same routine with `c` an argument (`0 < c`), safe outside
+     `Region d0 c`. **Met:** subject 1's proof carries over with ≤ 4 added lines. **Refuted:** a case split on `c`, or no build.
+   - **Floor:** unchanged at ~26 text lines. The library (`runP_cut` plus the executor) is reported beside the result.
+   - **Expectation, with six optimistic errors priced in:** text 32–44, kernel 150–400 ms, and subject 2 carries over only if subject 1
+     does. The likeliest failure is D313's: the bridges come back one for one, now as `bv_omega` calls, and the ZF exit is where `bv_omega`
+     already failed once (D310).
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
