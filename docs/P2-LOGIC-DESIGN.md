@@ -300,6 +300,12 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    (`rw [runP_succ, stepP_at <fetch>]`, then `generalize`). All eight probes ran a one-call `simp` that UNFOLDS `stepP`, which produces one
    `if (…).ms.isSome … match List.find? …` nest per step. D318 therefore refutes the executor that was built, not the one registered.
    **The staged executor is untested and is the next design.** A probe counts toward it only if it runs `stepP_at`.
+   ⚖️ **DESIGN 7 — THE STAGED EXECUTOR AS REGISTERED (D321, pre-registered before any code) → REFUTED AT THE BAR (D322), AND IT RUNS THE BLOCK.**
+   Four probes, all through `stepP_at`. There is no recursion anywhere. Once the state is normalised after every step, the symbolic loop body
+   executes end to end, `jne` included. In the full subject 1 the entry block and every prefix-safety goal build, and four errors remain,
+   all in re-establishing the cut. ⇒ **The recursion of designs 5 and 6 was caused by unfolding `stepP`, not by the counter or the branch.**
+   ⚠️ The residue's apparent single root (`if False` left unreduced by `Cpu.getReg`) is a hypothesis and the flattering one. A design 8
+   that adds `if_false` is its own registration with its own four probes.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load

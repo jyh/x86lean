@@ -20739,3 +20739,22 @@ executor. D6-1's goal showed `stepP` unfolding into a per-step `if (…).ms.isSo
 is built so that no such nest can form, and probe 1 tests exactly that.
 **Expectation:** 60/40 that the diagnostic passes. If it does, subject 1's text is 34–46: each step is now a line or two of `rw`, which
 the one-call `simp` did not cost.
+
+## D322 — Design 7, the staged executor as registered: it runs the block, and subject 1 did not build in four probes (REFUTED at the bar)
+
+**Registered at `4c4edf0` (D321) before any code. All four probes run `stepP_at` and never `stepP`.**
+1. **No recursion.** Steps 1–3 execute on a fully symbolic state. The `jne` is fetched, and `step_jcc`'s side condition is not yet discharged.
+2. `step_jcc` fires. Without normalisation between steps the state term roughly doubles per step, because each `step_*` lemma
+   mentions the previous state several times, and the final `simp` recurses.
+3. The state is normalised after every step. The `ms` diagnostic BUILDS, and the two branch diagnostics are left with exactly their
+   branch fact. **The registered mechanism executes the whole block, `jne` included, where designs 5 and 6 never got past it.**
+4. The full subject 1 with `k` symbolic. The entry block and every prefix-safety goal BUILD. Four errors remain, all in re-establishing
+   the cut at the loop head.
+**REFUTED by the registered bar** (no build in four probes). Subject 2 was not attempted.
+**What the four probes establish:** the recursion of D318 and D320 was caused by unfolding `stepP`, not by the counter or the branch.
+Staged through `stepP_at`, with the state normalised after each step, a symbolic loop body executes.
+**Probe 4's residue has one visible root, and it is a hypothesis:** `Cpu.getReg` normalises to `if False then … else …`, which the
+executor never reduces. That leaves `rip` non-literal and wraps `rdi` in the arithmetic, which accounts for all four errors. Adding
+`if_false` to the normaliser is the apparent fix. It is **untested**, and it is the flattering reading, the direction every expectation
+here has erred in. A design 8 that adds it is pre-registered as its own design with its own four probes, never run as a fifth probe of this one.
+**Not landed**; the evidence is in the private record at commit `fd82dba2d`.
