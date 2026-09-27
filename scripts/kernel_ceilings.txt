@@ -354,3 +354,12 @@ X86.Logic 50 @on runnervmtr4k5
 # D311: the gate's own suggested line from kernel_delta c456fe7 → a810afd, yukon.lan, not retyped: Tests.LogicLoop head
 # 38.4 ms ⇒ max(38.4 × 3, 50) = 115. The runner line follows the merge ref's first refusal in its own step (D252 §6).
 Tests.LogicLoop 115 @on yukon.lan
+# ⭐ AND ITS RUNNER LINE, from the refusal that printed it: PR #70's `kernel-delta` job (run 36274967542, job 108495818599,
+# runnervmtr4k5) refused ONCE on the NEW unit and printed, verbatim: Tests.LogicLoop head 75.8 ms ⇒ max(75.8 × 3, 50) = 227.
+# It rides in the NEXT `.lean` step instead of a step of its own: the reading now exists, so nothing forces the extra landing.
+Tests.LogicLoop 227 @on runnervmtr4k5
+# D307/D308 (the kit and R-READ, each in its own module, 2026-09-26): the gate's own suggested lines from kernel_delta
+# f8f96a6 → 1d4dd67, yukon.lan, not retyped: Tests.LogicKit head 9.1 ms ⇒ 50; Tests.LogicRead head 10.8 ms ⇒ 50.
+# Their runner lines follow the merge ref's first refusal (D252 §6).
+Tests.LogicKit 50 @on yukon.lan
+Tests.LogicRead 50 @on yukon.lan

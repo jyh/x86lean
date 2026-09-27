@@ -20522,3 +20522,91 @@ tree and two are not checkable from here. The reader judged that these three nee
 machine, as `X86.Logic` was. Its concrete control is halved (two passes, 5 + 4 steps, still mixing both arms; fuel 10, not 19).
 The rule going forward: one test module per witness family, so the kit and R-READ get their own modules too. A test module that
 absorbs every new witness converts each addition into a delta against a budget sized for a stable module.
+
+## D307 — The composition kit: a frame-tier invariant rides along any `Spec`, and TOTAL specs conjoin
+
+**Why these two:** `CorrectFor`'s post is the conjunction of a functional fact, a termination fact and frame facts (`AgreeOutside`,
+`CalleeSaved`). Without a way to conjoin posts proved apart, every one of them must be threaded through the single `loop` invariant.
+**`Spec.with_invariant`:** a relation `J s ·` preserved by every program step (no label, no `rip`) is carried to the end state of any
+`Spec`. It is `runP_invariant` joined to the judgment, and it is the bridge from the frame tier.
+**`Spec.Total.and`:** two TOTAL specs of one program conjoin, because a stopped end state is unique (`stopped_witness_unique`).
+⛔ **It is false for a bare `Spec`**, and `Tests.Logic.spec_and_is_false` shows it: "at the start" and "has moved" are each reached
+(fuel 0, fuel 1) and never together. The restriction is load-bearing.
+**Exercised:** `countdownN_step_rbx` proves `rbx` is untouched by one step at EVERY state (dispatch, halt, both instructions, live or
+not). `countdownN_keeps_rbx` carries it through `with_invariant`, and `countdownN_total_with_frame` joins it to `countdownN_total` by
+`Total.and`.
+**Receipts:** `lean_route build Tests.Logic` rc 0. Axioms: the three new rules on `[propext, Quot.sound]`, the witnesses on the standard
+three, a `sorryAx` control in the same log, 0 tagged errors.
+**`seq` and `step`, the census's last two zeros:** `clampLoop_to_jne` composes the conditional prefix (`to_skip` restated as a `Spec`)
+with ONE `Spec.step` (the `dec`) through `Spec.seq`.
+**Census now, every rule used in the tree:** `loop` 2 · `conseq` 3 · `reach` 1 · `Total` 3 · `with_invariant` 1 · `Total.and` 1 ·
+`seq` 1 · `step` 1 · `skip` 1 (in the control). ⚠️ **One use each is a census of REACH, not of adequacy.** Paper 2's "proof system"
+claim still carries the limit that no rule has met a routine of the PoC's size, until R-CRC.
+
+## D308 — R-READ in its terminal form: read safety as a `Spec` whose post nests a second `Spec`, with a load that really reads
+
+**The gap (paper 1 §6):** "a scan reads only inside its buffer" cannot be a single-run invariant, because a load leaves no trace.
+**The form, ported from the refuters' drive (math, R3; ruled public-safe by the helm):** `ReadsOnly p R P` is a `Spec` whose post says
+the run stopped, and that any second `P`-run differing only in memory and agreeing on `R` stops differing only in memory, and only where
+neither run wrote (`MemRel`). It is an INSTANCE of `Spec`, so there is still one judgment. The lockstep all-fuel form is a second judgment
+and is not built.
+**The witness the drive did not have:** its instance was `R = ∅` on a routine with no load, which never exercises the read path.
+`ldb_readsOnly` proves a one-byte load from `[rdi]` is read-safe for `R = {rdi}` for every start state. `ldb1_not_readsOnly` proves the
+same load from `[rdi + 1]` is NOT: two states agreeing at `0x2000` and differing at `0x2001` end with different `rax`. It uses
+`stopped_witness_unique` to pin both runs' end states. `ldb_reads_R` shows the load returns the byte at `R`.
+**Axioms:** all three on `[propext, Quot.sound]`; a `sorryAx` control in the same log; 0 tagged errors.
+**The limit, stated where the claim is:** the terminal form constrains END states. A routine that reads outside `R`, and whose result never
+depends on that read, satisfies it. Paper 2 claims the terminal form and says so.
+
+## D309 — R-CRC not refuted: the PoC's own statement proved through `Spec.loop`, at or below the hand proof's length
+
+**The pre-registered refutation (D303 §4.2):** R1's `CorrectFor` proof cannot be re-expressed through `seq` + `loop` at or below its hand
+length. **Measured on the withheld tree only (D280)**, in a scratch copy with the model vendored at `5614026`, on the harness toolchain.
+No withheld line enters this repository; the evidence is in the private record at commit `d3f166857`.
+**Baseline first:** R1's control builds unchanged against `5614026`, `EXIT=0` with 0 tagged errors, so the model's changes since the
+harness pin break nothing R1 relies on.
+**The result:** R1's loop lemma is 23 lines by induction on `7 * n`, and 19 lines through `Spec.loop`, with the variant the bytes remaining
+in `rsi` and no step count. Its top-level theorem is 50 lines, and 49 with the loop's fuel existential (`3 + 1 + n + 3`). **Total
+73 → 68.** All three theorems are on `[propext, Classical.choice, Quot.sound]`, with a `sorryAx` control in the same log.
+**What it means and what it does not:** the saving is small, and it is not the point. The point is that the proof of a real routine's real
+statement no longer depends on the loop body having exactly seven steps. That is R-LOOP's property, exercised at the PoC's size. It
+does NOT change what any cell is scored against: the harness pin, and whether the control adopts it, belong to the harness's owners.
+**The counter:** a block count applied identically to both versions. It is not `scripts/proof_lines.py`, which reads this repository's
+shas and cannot see the withheld tree, and the design doc says so where the number appears.
+
+## D310 — The arithmetic closer (design 2), pre-registered and then BUILT: refuted at 55 lines
+
+**Pre-registered at `fbd21f5`, before any code:** `fill_safe` re-proved with a closer on each side goal; same bar as design 1 (≤ 40 met,
+> 47 refuted, floor ~32); the expectation stated as ~42–46.
+**Driven site by site, not assumed:** `bv_omega`, which is on the standard axioms and so legal at the theorem tier (TRUSTBASE excludes only
+`bv_decide`), closed the `inc` pointer step and the `dec` counter step, the latter without the four-way case split on `k`. It did NOT
+close the ZF-flag goal: that goal mixes a Boolean flag with the arithmetic, and omega returned a counterexample shape. That site keeps
+its case split.
+**Measured:** `fill_safe` 57 → **55** lines, same statement, route rc 0 with 0 tagged errors. **REFUTED (> 47).** Design 1's halt collapse on top
+would give ~49, still refuted.
+**The finding, which is paper 2's:** at this interface the per-label cost is the CASE STRUCTURE and the LOOP WITNESSES, not arithmetic a
+closer can reach. Two designs are now refuted. The next lever is the invariant's REPRESENTATION, not automation.
+**Against myself, twice in one day:** design 1's census first said 41–45 and then 47–48, and design 2's expectation said 42–46 and measured
+55. Every one of these errors was optimistic. The probe (`bv_omega` at the real side goals) is what caught this one, where another census
+would not have.
+**Not landed:** the 55-line proof is a measurement, kept outside the tree. `fill_safe` stays as it is, and nothing cites the probe's proof.
+
+## D312 — The kit and R-READ, re-cut onto R-LOOP's landed shape: each in its own test module
+
+D307–D310 were written on a stack whose base (R-LOOP inside `Tests.Logic`) was replaced by D311. Their witnesses are re-cut unchanged into
+`Tests/LogicKit.lean` (the composition kit, D307, including `clampLoop_to_jne`, which now imports `Tests.LogicLoop`) and
+`Tests/LogicRead.lean` (R-READ, D308). The decision entries above keep their original text, and D307's references to `Tests/Logic.lean`
+now mean these two modules. The theorems, the axioms and the design doc are unchanged.
+
+## D313 — Design 3, the witness-free invariant: pre-registered, built, and unchanged at 57 lines
+
+**Registered at `f504c98`, 17:13:32, before any code:** `fill_safe` with `Loop` made witness-free (`k` read off `rcx`). Met ≤ 45, refuted
+≥ 55, expected 48–52.
+**Built (scratch, not landed):** `Loop3` states `c − 3 ≤ r ≤ c`, `rdi = d0 + (c − r + o)`, and the ZF clause as `r = 0`, where `r = rcx.toNat`.
+`fill_safe3` is the same statement, route rc 0 with 0 tagged errors, on the standard three axioms with a `sorryAx` control.
+**Measured:** 57 lines, the same as `fill_safe`, and the invariant is 4 lines as before. **REFUTED.** The witness lines became `toNat` bridges one
+for one: the counter lemma `(rcx − 1).toNat = rcx.toNat − 1`, the branch fact that zf false means r ≠ 0, and a `dsimp` of the record
+projections before `omega` could see the counter.
+**The law, now measured three ways:** the dispatch tactic (D307), the arithmetic closer (D310, 55) and the witness-free representation (D313,
+57) each removed one kind of line and created an equal obligation of another kind. Paper 2 reports this as its finding on proof cost,
+and names the design that could beat it only as one that removes obligations (a VC generator by symbolic execution), which is not attempted.

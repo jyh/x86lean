@@ -13,3 +13,5 @@ import Tests.Coverage
 import Tests.Program
 import Tests.Logic
 import Tests.LogicLoop
+import Tests.LogicKit
+import Tests.LogicRead
