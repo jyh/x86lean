@@ -1,7 +1,8 @@
 /-
 # Tests.Logic — the program logic's first witness: a loop that TERMINATES, for every count
 
-`X86/Logic.lean`'s `Spec` is a total-correctness judgment. This file proves, through `Spec.loop`,
+`X86/Logic.lean`'s `Spec` is an eventually-reaches judgment, and total correctness exactly when its post
+implies `stopped` (`Spec.Total`). This file proves, through `Spec.loop`,
 a statement no theorem in this repository could state before it: a counted loop entered with an
 ARBITRARY 64-bit count reaches its exit, with the counter at zero and memory untouched.
 
@@ -33,10 +34,12 @@ def countdownN : Program := { code := [
 /-- The loop head, related to the start: live, at `L`, memory as the start left it. -/
 def AtHead (s u : Cpu) : Prop := u.ms = none ∧ u.rip = 0x1000 ∧ u.mem = s.mem
 
-/-- The exit, related to the start: stopped at the exit address, the counter at zero, and
-memory exactly the start's. -/
+/-- The exit, related to the start: stopped at the exit address, the counter at zero, memory
+exactly the start's — and stopped for the RIGHT REASON, by leaving the program (D306: a fault is also
+`stopped`, so `stopped` alone does not say the routine finished). -/
 def Done (s t : Cpu) : Prop :=
   t.stopped = true ∧ t.rip = 0x1005 ∧ t.regs.get .rcx = 0 ∧ t.mem = s.mem
+  ∧ t.ms = some (.outsideProgram "no instruction at RIP")
 
 /-- The state after `dec rcx` at the head. -/
 def afterDec (u : Cpu) : Cpu :=
@@ -92,11 +95,12 @@ theorem pass (s u : Cpu) (h : AtHead s u) :
   · simp only [runP_succ, runP_zero, step1 u hms hrip, step2 u hms]
     exact ⟨⟨hms, if_neg hne, hmem⟩, afterJne_rcx u⟩
   · simp only [runP_succ, runP_zero, step1 u hms hrip, step2 u hms, step3 u hms heq]
-    refine ⟨?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · simp [Cpu.halt, Cpu.stopped, afterJne, afterDec, hms]
     · rw [halt_rip]; exact if_pos heq
     · rw [halt_regs, afterJne_rcx]; exact heq
     · rw [halt_mem]; exact hmem
+    · simp [Cpu.halt, afterJne, afterDec, hms]
 
 /-- The variant falls: a non-zero `y` has `(y - 1).toNat < y.toNat`, wrap-free. -/
 theorem toNat_pred_lt (y : BitVec 64) (hy : y ≠ 0) : (y - 1).toNat < y.toNat := by
@@ -121,6 +125,25 @@ theorem countdownN_terminates :
     · obtain ⟨hI', hr⟩ := hgo hc
       exact ⟨2, Or.inr ⟨hI', by simp only [hr]; exact toNat_pred_lt _ hc⟩⟩
 
+/-! ### The judgment's other rules, exercised in the tree (D305; census 3b of math's refuter pass read
+`loop` as the ONLY rule any theorem here used) -/
+
+/-- `Spec.Total` by `conseq`: `Done` already carries `stopped`, so the witness is total correctness
+and not merely an eventually-reaches claim — and its post states the halt REASON, as the design doc's
+§4a says a `Total` post in this logic does. -/
+theorem countdownN_total :
+    Spec.Total countdownN (fun s => s.ms = none ∧ s.rip = 0x1000)
+      (fun s t => t.regs.get .rcx = 0 ∧ t.mem = s.mem
+        ∧ t.ms = some (.outsideProgram "no instruction at RIP")) :=
+  Spec.conseq (fun _ h => h) (fun _ _ _ ⟨h1, _, h3, h4, h5⟩ => ⟨h1, h3, h4, h5⟩) countdownN_terminates
+
+/-- `Spec.reach`: the end state is a RUN of the program from the start, which is what a relational
+or two-run corollary needs and `Spec` alone forgets. -/
+theorem countdownN_reaches_a_run :
+    Spec countdownN (fun s => s.ms = none ∧ s.rip = 0x1000)
+      (fun s t => Done s t ∧ ∃ n, t = runP countdownN n s) :=
+  Spec.reach countdownN_terminates
+
 /-! ## ⭐ NONVACUITY — the precondition is met, and the machine really does what `Done` says
 
 ⛔ A total-correctness theorem with an unsatisfiable precondition is vacuously true and no build
@@ -135,7 +158,7 @@ theorem start3_meets_pre : start3.ms = none ∧ start3.rip = 0x1000 := by decide
 
 /-- Three passes of two steps plus the halting third: fuel 7 reaches `Done`. -/
 theorem start3_run_is_done : Done start3 (runP countdownN 7 start3) :=
-  ⟨by decide, by decide, by decide, rfl⟩
+  ⟨by decide, by decide, by decide, rfl, rfl⟩
 
 /-- …and one step earlier it had NOT stopped — so `Done` describes a run that did the work, not
 a machine that halted at once. -/

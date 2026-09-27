@@ -351,3 +351,6 @@ Tests.Logic 73 @on yukon.lan
 # own step because this file is a PROFILER_PATH (D251 §3).
 Tests.Logic 153 @on runnervmtr4k5
 X86.Logic 50 @on runnervmtr4k5
+# D311: the gate's own suggested line from kernel_delta c456fe7 → a810afd, yukon.lan, not retyped: Tests.LogicLoop head
+# 38.4 ms ⇒ max(38.4 × 3, 50) = 115. The runner line follows the merge ref's first refusal in its own step (D252 §6).
+Tests.LogicLoop 115 @on yukon.lan
