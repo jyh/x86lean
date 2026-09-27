@@ -306,6 +306,13 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    all in re-establishing the cut. ⇒ **The recursion of designs 5 and 6 was caused by unfolding `stepP`, not by the counter or the branch.**
    ⚠️ The residue's apparent single root (`if False` left unreduced by `Cpu.getReg`) is a hypothesis and the flattering one. A design 8
    that adds `if_false` is its own registration with its own four probes.
+   ⭐ **DESIGN 8 (D323 → D324): `fill_safe` WITH THE COUNTER SYMBOLIC BUILDS.** It is the first cut-point proof that does not enumerate the
+   trip count, on the standard three axioms, and it was measured against the registered thresholds:
+   - **Text: 57 lines, REFUTED (≥ 55).** It equals the current proof. Design 4 was 24.
+   - **Kernel: `fill_safe` < 100 ms, MET (≤ 180).** Design 4 was ~740 ms. The library is 29 lines, counted beside.
+   ⇒ **Paper 2's law, across both currencies:** per-label content is conserved across text and kernel. Design 4 paid it in the kernel,
+   and could only because the counter was enumerable. Design 8 pays it in the text, as the counter bridges D313 measured. **Enumerability
+   decides which currency pays; nothing measured here removes the content.** Subject 2 (`fillN c`) is now testable and not yet run.
 5. R-CRC, on the withheld tree.
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
