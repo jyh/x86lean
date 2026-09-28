@@ -169,8 +169,8 @@ jobs:
       # thing that makes sharding safe: it fails if shards 1..N do not name every
       # arm exactly once.  Sharding a coverage gate is how a coverage gate
       # silently stops covering, and this is what stands in the way of that.
-      - name: Shard partition gate (shards 1..6 name every selftest arm exactly once)
-        run: lake env .lake/build/bin/x86lean-diff selftest-shards 6
+      - name: Shard partition gate (shards 1..10 name every selftest arm exactly once)
+        run: lake env .lake/build/bin/x86lean-diff selftest-shards 10
 
       # ⛔⛔ D226: WHAT THE SHARDING DROPPED, RESTORED. Until 289a330 (D92, 09/04) this job ran
       # `x86lean-diff selftest` with no argument, and that command runs the arms AND THEN two
@@ -652,7 +652,7 @@ jobs:
   # merely run beside each other.  Which arms belong to which shard is computed
   # by the binary from `selftestArms.length`, never written down here, so adding
   # an arm cannot leave it uncovered — and the `Shard partition gate` step in the
-  # `build` job proves shards 1..6 name every arm exactly once.
+  # `build` job proves shards 1..10 name every arm exactly once.
   #
   # ⚠️ THE `6` APPEARS TWICE — in `matrix.shard` and in the command — and
   # `scripts/check_ci_shards.py` is what holds those two to each other. A matrix
@@ -708,7 +708,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
@@ -718,8 +718,8 @@ jobs:
           test: false
       - name: Build the differential executable
         run: lake build x86lean-diff
-      - name: "Harness selftest shard ${{ matrix.shard }} of 6"
-        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 6
+      - name: "Harness selftest shard ${{ matrix.shard }} of 10"
+        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 10
 
   # ⭐⭐⭐ THE KERNEL-TIME DELTA GATE (D123), REGISTERED HERE BY THE HELM'S RULING
   # OF 2026-09-04 21:42: *"the absolute ceilings are retired as a MERGE GATE …
