@@ -3867,6 +3867,43 @@ def vectors : List Vec :=
     , bytes := "89049d00a0ffff"
     , instr := ⟨.mov .d (.mem { index := some .rbx, scale := .s4, disp := 0xffffffffffffa000 })
                 (R .rax), 7⟩ }
+  -- ⭐⭐ THE SIX WIDTH SIBLINGS THE PRIMITIVE CENSUS NAMED (docs/PRIMITIVE-CENSUS.md).
+  --
+  -- `scripts/primitive_census.py` measured 57 public scalar primitives against the
+  -- vectors' FORMS and found that almost every gap in the scalar rows is a form this
+  -- table already tests AT ANOTHER WIDTH: the same mnemonic, the same operand shape,
+  -- a different size.  These six close the ones that complete the most candidates —
+  -- `cmovbq` alone completes ten — taking the census from 23 ALL COVERED to 40.
+  --
+  --   cmovb_rr_q · cmovae_rr_q    `cmov` is vectored at `.d` for all sixteen
+  --                               predicates and at `.q` for `e`/`ne` only; the
+  --                               census keys a form by its printed mnemonic, so
+  --                               the predicate is part of the form
+  --   add_d · sub_d               register-register at `.d`; `.b` and `.q` existed
+  --   neg_d                       `.b` and `.q` existed
+  --   shr_r_one_d                 the by-one shift at `.d`; `.b` and `.q` existed
+  --
+  -- ⚠️ NO SEMANTICS CHANGES, AND THAT IS THE CLAIM THE DIFFERENTIAL TESTS: every one
+  -- of these constructors already takes the size as an argument, so the run is the
+  -- whole check that the size is threaded through.  The `.d` destinations carry the
+  -- one content `not_r_d` was added for — a 32-bit write ZERO-EXTENDS to 64 — which
+  -- only a differential sees.  The two `.q` cmovs are the other side of the note on
+  -- the `cmov` block above: at `.q` a false condition leaves RAX exactly as it was,
+  -- where the `.d` forms clear its upper half.
+  -- Bytes and lengths are clang's (`-target x86_64-unknown-linux-gnu`, `objdump -d`),
+  -- the recipe `scripts/check_encodings.py` re-derives in CI.
+  , { id := "cmovb_rr_q", mnemonic := "cmovcc", asm := "cmovbq %rcx, %rax"
+    , bytes := "480f42c1", instr := ⟨.cmov .b .q .rax (R .rcx), 4⟩ }
+  , { id := "cmovae_rr_q", mnemonic := "cmovcc", asm := "cmovaeq %rcx, %rax"
+    , bytes := "480f43c1", instr := ⟨.cmov .ae .q .rax (R .rcx), 4⟩ }
+  , { id := "add_d", mnemonic := "add", asm := "addl %ecx, %eax", bytes := "01c8"
+    , instr := ⟨.bin .add .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "sub_d", mnemonic := "sub", asm := "subl %ecx, %eax", bytes := "29c8"
+    , instr := ⟨.bin .sub .d (R .rax) (R .rcx), 2⟩ }
+  , { id := "neg_d", mnemonic := "neg", asm := "negl %eax", bytes := "f7d8"
+    , instr := ⟨.un .neg .d (R .rax), 2⟩ }
+  , { id := "shr_r_one_d", mnemonic := "shr", asm := "shrl %eax"
+    , bytes := "d1e8", instr := ⟨.shift .shr .d (R .rax) (.imm8 1), 2⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

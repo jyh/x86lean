@@ -223,7 +223,11 @@ def vectorCount : Nat := vectors.length
 -- ⭐ SUB-GROUP B6a (D289) adds 12, three sources per form from a reach census (D289 §1).
 -- ⭐ SUB-GROUP B6b (D292) adds 6, three sources per format from a reach census (D292 §1).
 -- ⭐ SUB-GROUP B7 (D295) adds 3.
-theorem vector_count_is_1152 : vectorCount = 1152 := by decide
+-- ⭐ THE WIDTH SIBLINGS (D327) add SIX, named by `scripts/primitive_census.py` as the forms
+-- that complete the most public primitives: `cmovb`/`cmovae` at `.q`, `add`/`sub` reg-reg,
+-- `neg` and the by-one `shr` at `.d`.  Each is a form this table already tested at another
+-- width, so they add RUNS and no new coverage ROW.
+theorem vector_count_is_1158 : vectorCount = 1158 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
