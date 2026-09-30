@@ -52,8 +52,11 @@ declaration in CI.
 ### What it covers
 
 - **Scope.** The integer instruction set of 64-bit mode as a user program sees
-  it: registers, flags, RIP, RSP, a byte-addressed memory, and the undefined-bit
-  oracle. Single-threaded, one instruction at a time.
+  it, and the SSE/SSE2 forms listed below (with SSE3's `movddup`, the one form
+  from a later extension) in their legacy (non-VEX) encoding:
+  registers, flags, RIP, RSP, the XMM registers and MXCSR, a byte-addressed
+  memory, and the undefined-bit oracle. Single-threaded, one instruction at a
+  time.
 - **Instructions.** 197 mnemonics in 1152 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 111 of those
@@ -86,10 +89,17 @@ declaration in CI.
 
 ### What it does not cover — yet
 
-- **Not in scope.** SIMD and floating point (SSE, AVX, x87), segmentation and
-  paging, privileged and system instructions, interrupts and exceptions beyond
-  the faults named below, memory ordering and multi-threading, 32-bit and 16-bit
-  modes.
+- **Not in scope.** AVX and everything VEX- or EVEX-encoded (so no YMM or ZMM
+  register), SSSE3 and SSE4 (`pshufb`, `palignr`, `pinsr*`, `pextr*`), x87 and
+  MMX, the rest of SSE3, the SSE/SSE2 forms not listed above, segmentation and paging, privileged
+  and system instructions, interrupts and exceptions beyond the faults named
+  below, memory ordering and multi-threading, 32-bit and 16-bit modes. The
+  vectors' SIMD content by class is derived, not written here:
+  [`docs/PRIMITIVE-CENSUS.md`](docs/PRIMITIVE-CENSUS.md).
+  *(Until 2026-09-30 these two bullets said the scope was the integer
+  instruction set and that SSE was out of scope. Both were written on 09-03,
+  and the first vector semantics landed on 09-04; the list below them was the
+  current one.)*
 - **No decoder yet.** "These bytes mean this instruction" is trusted to Intel
   XED and recorded as trusted in the coverage table. A Lean decoder for the
   covered subset is a later phase.
