@@ -317,7 +317,9 @@ Receipts, in the fleet's private record: the criteria commit `69322f034` (before
    over by token substitution (`4 → c`, `3 → c − 1`), with no new split on `c`. **D315's "enumerable trip count only" limit is lifted for this
    shape:** a loop whose length is an argument is proved safe at every fuel through cut points. What transfers is coverage, not the
    24-line saving. The text cost stays in the 57-line class.
-5. R-CRC, on the withheld tree.
+5. R-CRC, on the withheld tree. **Done (D309): not refuted** — the PoC's own statement proved through `Spec.loop`, at or below the
+   hand proof's length, measured on the withheld tree only (D280). Census 3b's limit above is about THIS tree and still stands.
+   *(Marked done 2026-09-30; it was done at D309 and the list did not say so.)*
 6. The two-run judgment for R-READ. **Done in its TERMINAL form (D308):** `ReadsOnly` is an instance of
    `Spec` (the post nests a second `Spec`), so there is still one judgment. `ldb_readsOnly` proves a load
    from `[rdi]` reads only `R = {rdi}` for every start; `ldb1_not_readsOnly` proves a load from `[rdi+1]`
