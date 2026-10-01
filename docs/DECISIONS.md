@@ -20816,3 +20816,29 @@ safe at every fuel through cut points, and the proof is the constant-length proo
 **Its scope, stated where the result is:** one routine, with one loop and a straight-line body of four instructions. The text cost is
 design 8's 57-line class, not design 4's 24, so the saving D315 measured does not transfer. What transfers is coverage.
 **Not landed**; the evidence is in the private record at commit `2aeefa5e8`.
+
+## D327 — The six width siblings the primitive census named, and what their run must show (committed before it is read)
+
+**Why these six.** `scripts/primitive_census.py` (#76) measured 57 public scalar primitives against the vectors' forms: 23 used
+only tested forms, and almost every gap in the scalar rows was a form the table already tests at another width. Its greedy
+ladder named six that complete 17 more: `cmovbq`/`cmovaeq` r64,r64 (`cmov` was vectored at `.d` for all sixteen predicates
+and at `.q` for `e`/`ne` only) · `addl`/`subl` r32,r32 · `negl` r32 · the by-one `shrl` r32. `claimed_forms.py` resolves each
+new vector to the SAME roster row as its tested sibling (row 292 holds `cmovb_rr_l` and `cmovb_rr_q`), so they add runs and
+no row. No constructor changes: each already takes the size as an argument.
+**The census, re-derived from the 1158-vector table rather than edited:** 40 of 57 ALL COVERED, the ladder's prediction;
+the s2n-bignum appendix moves from 145 to 199 of 332.
+**Predictions, committed at 12:5x PDT on 2026-09-30 while `run_differential.sh` was still in its pre-run gates — after the
+run was LAUNCHED and before its emit, so no output existed to read:**
+1. +6 vectors ⇒ **+528 cases** (6 × 88); `unexplained` stays **0**; `oracle-divergence` and `oracle-leaks` do not move.
+2. `cmovb_rr_q`, `cmovae_rr_q`: **88 matched each** — `cmov` writes no flag, so no declared-undefined component exists.
+3. `add_d`, `sub_d`, `neg_d`: **88 matched each** — every flag they write is defined.
+4. `shr_r_one_d`: **matched + explained = 88**, split unpredicted — a shift by a non-zero count leaves AF undefined, so all 88
+   cases carry a declared-undefined component and the split is a fact about the values (the `xor_rm_sib_nobase_d` shape, D-record 32).
+5. Each new id appears **88 times on BOTH sides** of the run; a count below 88 on either is a harness finding, not agreement.
+**Wrong if:** any prediction fails, or any of the six needs a semantics change — then it is not a width sibling and the
+population is drawn from the 23.
+**Result (record 37):** all five predictions held — 101904 cases (+528), 0 unexplained, divergence 292 unmoved; five vectors 88
+matched each, `shr_r_one_d` 44 matched + 44 explained; each id 88 records on both sides. A plant (`add_d` given `add_q`'s POST
+states) reds 88 of 88. ⚠️ **Correction to the timing line above:** the file times show the Lean emit finished at 12:52:59, 42 s
+after this note was committed, and its start is not recorded; "before its emit" is stronger than the evidence. What holds is
+that the note precedes the oracle's output (12:53:33) and every comparison. The predictions' own commit is preserved as the tag `d327-predictions` (`36085ec`, committed 12:52:17): the landing ritual needs the batch as ONE commit, so the branch was squashed after the run.

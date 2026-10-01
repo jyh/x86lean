@@ -57,7 +57,7 @@ declaration in CI.
   registers, flags, RIP, RSP, the XMM registers and MXCSR, a byte-addressed
   memory, and the undefined-bit oracle. Single-threaded, one instruction at a
   time.
-- **Instructions.** 197 mnemonics in 1152 differentially tested forms, covering
+- **Instructions.** 197 mnemonics in 1158 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 111 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
@@ -271,7 +271,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 36 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 37 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -282,7 +282,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1152 vectors · 88 pre-states · 101376 cases · 0 unexplained · 0 oracle leaks
+1158 vectors · 88 pre-states · 101904 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
