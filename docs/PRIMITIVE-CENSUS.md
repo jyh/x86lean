@@ -42,7 +42,7 @@ The README's scope lines name these classes and point here for the counts.
 | [smhasher](https://github.com/aappleby/smhasher) | `07bb4de10a63` |
 | libjade (Jasmin) | **NOT MEASURED** — the repository ships `.jazz` sources and no generated assembly, and `jasminc` is not on this box; its amd64/ref primitives (ChaCha20, Poly1305, SHA-256, Keccak, X25519) are the next rows to add |
 
-## The verdict: 41 of 57 candidates are ALL COVERED
+## The verdict: 40 of 57 candidates are ALL COVERED
 
 By family: MAC **1** · bignum limb **26** · checksum **3** · field arithmetic **2** · hash (keyed) **2** · hash (non-crypto) **4** · hash compression **2**.
 
