@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""B2 — the asm -> x86lean front end for the DECLARED 29-mnemonic core.
+"""B2 — the asm -> x86lean front end for the DECLARED core (29 mnemonics, + 10 by the O60 widening).
 
 WHAT IT IS FOR.  The x86 SaltBench cell (desk PE, proposal v1 §3.5) hands a
 model's assembly to a referee that must run it under x86lean.  x86lean has no
@@ -61,11 +61,21 @@ GNU_OBJDUMP = "/opt/homebrew/opt/binutils/bin/objdump"
 # ── THE DECLARED CORE (proposal v1 §3.5).  One line per mnemonic class. ──────
 CORE = ("mov movzx movsx add sub and or xor cmp test shl shr sar inc dec neg "
         "not lea push pop jmp jcc call ret cmovcc setcc imul rol ror").split()
+# ⭐ O60 WIDENING (2026-10-01, desk ZD; docs/DECISIONS.md D328): EXACTLY the mnemonics the population's
+#   reference routines execute and the 29 above refuse — measured over all 20 references, not chosen. Each is already
+#   modelled and vector-covered, and the selftest below checks each one against every vector that names it, so the
+#   widening is checked by the corpus, never by eye. Deliberately NOT here: bt/btc/shrd and the rest of their classes,
+#   which no reference executes (a wider core is a wider claim; widen by measurement).
+CORE += "adc sbb mul bsr bswap shld bts btr cltq nop".split()
+# …and `rep` (the corpus's mnemonic for rep movs/stos/lods): BLAKE2b's SSE-free reference copies a 128-byte block with
+#   `rep movsq`. The selftest checks a mnemonic CLASS, so the class comes whole: all four `rep` vectors (movs b/q, stos,
+#   lods). `repe`/`repne` (cmps/scas) are separate classes and stay refused.
+CORE += ["rep"]
 # The corpus's `Vec.mnemonic` for ret is `retq`; every other class is spelled
 # the same in both places.
 CORE_VEC_MNEMONICS = [("retq" if m == "ret" else m) for m in CORE]
 
-BIN = {"add", "sub", "and", "or", "xor", "cmp", "test"}
+BIN = {"add", "sub", "and", "or", "xor", "cmp", "test", "adc", "sbb"}
 UN = {"inc", "dec", "neg", "not"}
 SHIFT = {"shl", "shr", "sar"}
 ROT = {"rol", "ror"}
@@ -322,6 +332,23 @@ def translate(addr, n, text):
             return done(lambda: f".call (.rel {bv(d)})")
         return done(lambda: f".jcc .{CC[mn[1:]]} {bv(d)}")
 
+    # `rep` + a string op (the O60 widening, see CORE): its operands are implicit (rsi, rdi, rcx), so it is read here,
+    #   before the operand parser, which would take `movsq` for an operand
+    if mn == "rep" and len(words) == 2:
+        rest = words[1].strip()
+        sm = re.match(r'^(movs|stos|lods)([bwlq])\b', rest)
+        if sm:
+            return done(lambda: f".repstrop .rep .{sm.group(1)} .{SUFFIX[sm.group(2)]}")
+        # GNU drops the suffix when the accumulator operand fixes the width: `rep stos %al,(%rdi)`, `rep lods (%rsi),%eax`
+        gm = re.match(r'^(stos|lods)\s+(.*)$', rest)
+        if gm:
+            acc = [o for o in _split_operands(gm.group(2)) if o.strip().startswith("%") and "(" not in o]
+            if len(acc) == 1:
+                r, w, h = _reg(acc[0].strip())
+                if r == "rax" and not h:
+                    return done(lambda: f".repstrop .rep .{gm.group(1)} .{w}")
+        raise Refused(f"{what}: `rep` is translated for movs/stos/lods only")
+
     # every other form: AT&T operands, source first
     ops = [operand(t) for t in _split_operands(words[1])] if len(words) > 1 else []
 
@@ -450,6 +477,78 @@ def translate(addr, n, text):
             im = "none" if imm is None else f"(some {bv(imm % (1 << WIDTH[s]))})"
             return done(lambda: f".imulr .{s} .{dst[1]} {lean_operand(src, s)} {im}")
         raise Refused(f"{what}: imul takes one, two or three operands")
+
+    # ── the O60 widening (see CORE) ──
+    base, sz = _split_suffix(mn, {"mul"})
+    if base:
+        if len(ops) != 1:
+            raise Refused(f"{what}: mul takes one operand")
+        _no_imm_dst(ops[0], what)
+        s = _size(sz, ops, what)
+        return done(lambda: f".muldiv .mul .{s} {lean_operand(ops[0], s)}")
+
+    base, sz = _split_suffix(mn, {"bsr"})
+    if base:
+        if len(ops) != 2 or ops[1][0] != "reg" or ops[1][3] or ops[0][0] == "imm":
+            raise Refused(f"{what}: bsr needs a register or memory source and a register destination")
+        s = _size(sz, ops, what)
+        if s == "b":
+            raise Refused(f"{what}: there is no byte-width bsr")
+        return done(lambda: f".bitcnt .bsr .{s} .{ops[1][1]} {lean_operand(ops[0], s)}")
+
+    base, sz = _split_suffix(mn, {"bswap"})
+    if base:
+        if len(ops) != 1 or ops[0][0] != "reg" or ops[0][3]:
+            raise Refused(f"{what}: bswap takes one register")
+        s = _size(sz, ops, what)
+        if s not in ("d", "q"):
+            raise Refused(f"{what}: bswap is defined at 32 and 64 bits only")
+        return done(lambda: f".bswap .{s} .{ops[0][1]}")
+
+    base, sz = _split_suffix(mn, {"shld"})
+    if base:
+        if len(ops) != 3:
+            raise Refused(f"{what}: shld takes a count, a source register and a destination")
+        a, src, dst = ops
+        if src[0] != "reg" or src[3]:
+            raise Refused(f"{what}: shld's source is a register")
+        if a[0] == "imm":
+            amt = f"(.imm8 {bv(a[1], 8)})"
+        elif a[0] == "reg" and a[1] == "rcx" and a[2] == "b" and not a[3]:
+            amt = ".cl"
+        else:
+            raise Refused(f"{what}: a shift count that is neither an immediate nor %cl")
+        _no_imm_dst(dst, what)
+        s = _size(sz, [src, dst], what)
+        if s == "b":
+            raise Refused(f"{what}: there is no byte-width shld")
+        return done(lambda: f".dshift .shld .{s} {lean_operand(dst, s)} .{src[1]} {amt}")
+
+    base, sz = _split_suffix(mn, {"bts", "btr"})
+    if base:
+        if len(ops) != 2:
+            raise Refused(f"{what}: {base} takes a bit offset and a destination")
+        off, dst = ops
+        if off[0] == "mem":
+            raise Refused(f"{what}: {base}'s bit offset is a register or an immediate")
+        _no_imm_dst(dst, what)
+        s = _size(sz, [o for o in ops if o[0] != "imm"], what)
+        if s == "b":
+            raise Refused(f"{what}: there is no byte-width {base}")
+        return done(lambda: f".bit .{base} .{s} {lean_operand(dst, s)} {lean_operand(off, s)}")
+
+    if mn == "cltq" and not ops:
+        return done(lambda: ".cext .cdqe")
+
+    if mn in ("nop", "nopw", "nopl", "nopq"):
+        # a NOP's operand is never dereferenced (SDM: "the memory operand is not accessed"); the model's `.nop _` ignores
+        #   it, and its LENGTH (the disassembler's byte count, prefixes included) is what moves rip
+        if len(ops) > 1:
+            raise Refused(f"{what}: nop takes at most one operand")
+        if not ops:
+            return done(lambda: ".nop none")
+        s = {"nopw": "w", "nopl": "d", "nopq": "q"}.get(mn, "d")
+        return done(lambda: f".nop (some {lean_operand(ops[0], s)})")
 
     raise Refused(f"{what}: `{mn}` is outside the declared {len(CORE)}-mnemonic core")
 
@@ -679,12 +778,12 @@ def translate_arms():
     arms = [
         # (what, addr, n, text, expected: Lean text, or 'REFUSED')
         ("xchg is outside the core", 0, 3, "xchgq %rax, (%rbx)", "REFUSED"),
-        ("adc is outside the core, though x86lean models it", 0, 3, "adcq %rcx, %rax", "REFUSED"),
+        ("btc is outside the core, though x86lean models it (no O60 reference executes it)", 0, 4, "btcq %rcx, %rax", "REFUSED"),
         ("a string move is not movsx", 0, 2, "movsq %ds:(%rsi), %es:(%rdi)", "REFUSED"),
         ("an SSE movq is not mov", 0, 5, "movq %xmm0, %rax", "REFUSED"),
         ("crc32 (SSE4.2) is REFUSED — the TRANSLATE ordering rule's case", 0, 5,
          "crc32b %cl, %eax", "REFUSED"),
-        ("a nop is outside the core", 0, 1, "nop", "REFUSED"),
+        ("a nop is IN the core since the O60 widening, and translates to the model's inert nop", 0, 1, "nop", "⟨.nop none, 1⟩"),
         ("lock with no memory operand", 0, 4, "lock addq %rcx, %rax", "REFUSED"),
         ("suffix vs register disagreement", 0, 3, "addq %ecx, %eax", "REFUSED"),
         ("GNU unsuffixed, size from the register", 0x10, 3, "add    %rcx,%rax",
@@ -775,12 +874,13 @@ def e2eStart : Cpu :=
           f"{got.group(2) if got else '?'} (want {want}), returned to {got.group(1) if got else '?'}")
     if not ok:
         print(r.stdout[-2000:], r.stderr[-2000:])
-    open(s, "w", encoding="utf-8").write(E2E_ASM.replace("\taddl %ecx, %eax", "\tadcl %ecx, %eax"))
+    open(s, "w", encoding="utf-8").write(E2E_ASM.replace("\taddl %ecx, %eax", "\txaddl %ecx, %eax"))
     subprocess.run(["clang", "-target", "x86_64-unknown-linux-gnu", "-c", s, "-o", o], check=True)
     r = subprocess.run(me + [o, "--base", "0x1000", "--out", os.devnull], capture_output=True, text=True)
-    # ⛔ THE NEEDLE IS `adc`, NOT `adcl`: GNU objdump prints the refused line without the
-    # suffix, and this arm's first CI run went red on exactly that (the corpus was green).
-    ok = r.returncode == 3 and "REFUSED-TRANSLATE" in r.stdout and re.search(r'`adc', r.stdout)
+    # ⛔ THE NEEDLE IS THE BARE MNEMONIC, NOT `xaddl`: GNU objdump prints the refused line without the
+    # suffix, and this arm's first CI run went red on exactly that (the corpus was green). It was `adc` until the O60
+    # widening put adc in the core; xadd is modelled and still outside it.
+    ok = r.returncode == 3 and "REFUSED-TRANSLATE" in r.stdout and re.search(r'`xadd', r.stdout)
     bad += not ok
     print(f"  {'✔' if ok else '✘'} a non-core instruction is REFUSED-TRANSLATE, rc 3, by name (rc {r.returncode})")
     open(s, "w", encoding="utf-8").write(E2E_ASM + "\t.section .rodata\n\t.long 7\n")

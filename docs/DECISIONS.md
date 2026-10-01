@@ -20842,3 +20842,25 @@ matched each, `shr_r_one_d` 44 matched + 44 explained; each id 88 records on bot
 states) reds 88 of 88. ⚠️ **Correction to the timing line above:** the file times show the Lean emit finished at 12:52:59, 42 s
 after this note was committed, and its start is not recorded; "before its emit" is stronger than the evidence. What holds is
 that the note precedes the oracle's output (12:53:33) and every comparison. The predictions' own commit is preserved as the tag `d327-predictions` (`36085ec`, committed 12:52:17): the landing ritual needs the batch as ONE commit, so the branch was squashed after the run.
+
+## D328 — The translator's core widened by exactly what the O60 population's references execute
+
+**Why:** saltbench's O60 registration draws 20 scalar primitives from the census at `dfb26e2`, and the referee translates each
+submission (and runs each reference) through `scripts/asm_front.py`. Measured 2026-10-01 over all 20 references plus both smoke
+routines, with the census's own builder (`scripts/primitive_census.py`, its target and flags) and the pinned translator's own
+`parse_listing` + `translate()` over each routine's closure — a measurement made in the SaltBench harness: **3 of 22 translated.** Five were refused only
+on clang's NOP alignment padding; the rest needed `adc sbb mul bsr bswap shld bts btr cltq`. BLAKE2b's SSE-free build
+(the reference its card uses) adds one `rep movsq`.
+**The decision:** add exactly those ten classes to `CORE`, plus `rep`, each mapped onto the constructor the model already has.
+`rep` is the corpus's mnemonic for `rep movs/stos/lods`; the selftest checks a class, so the class comes whole (12 vectors).
+Nothing else is added: `bt`, `btc`, `shrd`, `xadd`, `xchg` and `repe`/`repne` stay refused. A wider core is a wider claim, and the measurement
+says which claim is needed.
+**Checked by the corpus, not by eye:** the selftest translates every differential vector on both disassemblers and compares each
+core vector with its hand-written `instr` by `==`. The core grows from 490 to 612 vectors (adc 28 · sbb 28 · shld 15 · rep 12 ·
+bts 10 · btr 9 · bsr 6 · mul 6 · nop 5 · bswap 2 · cltq 1), and both runs read `612 core EQUAL · 546 non-core REFUSED · 0 BAD`.
+GNU prints `rep stos`/`rep lods` without a suffix, the width carried by the accumulator; the first GNU run read 8 BAD on exactly
+those, and the translator now reads the width from the register. Three hand
+arms that used `adc` or `nop` as their non-core example now use `btc` and `xadd`, and the `nop` arm asserts the translation.
+**After it:** 20 of 22 references translate as the census built them. The two that do not are BLAKE2s/2b, whose census builds copy
+structs with `movups` (SSE). Built SSE-free (`-mno-sse -mno-sse2 -D_FORTIFY_SOURCE=0`), both translate.
+**Not decided here:** moving the harness's x86lean pin to this commit. That is a registration change and belongs to the Captain's word.

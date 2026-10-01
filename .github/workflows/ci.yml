@@ -144,7 +144,7 @@ jobs:
 
       # ⭐ D297 (x86 SaltBench S3). The asm front end maps a disassembler's AT&T text onto the
       # AST. Its selftest assembles every vector's own `asm`, translates it, and asks Lean
-      # for `==` with the hand-written `instr` on the 29-mnemonic core and a refusal everywhere
+      # for `==` with the hand-written `instr` on the declared core (29 mnemonics + the O60 widening's 10) and a refusal everywhere
       # else, on EVERY disassembler the runner has (GNU here, where macOS gives LLVM).
       - name: Asm front end (B2) — every core vector translates EQUAL, every other is refused
         run: python3 scripts/asm_front.py --selftest
