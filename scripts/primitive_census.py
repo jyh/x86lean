@@ -656,7 +656,12 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
     for name, why in NOT_MEASURED:
         w(f"| {name} | **NOT MEASURED** — {why} |")
     w("")
-    ok = [r for r in rows if r.get("all")]
+    # ⛔ A ROW THAT CALLS OUT IS NEVER COVERED (this file's own rule), and this
+    # heading counted it anyway until 2026-09-30: at 1158 vectors it read 41 while
+    # stdout and the by-family line read 40, the extra being HACL* Salsa20, whose
+    # forms are all covered and which calls `memcpy`.  `run()` now refuses a
+    # document whose heading disagrees with the count it prints.
+    ok = [r for r in rows if r.get("all") and not r.get("external")]
     w(f"## The verdict: {len(ok)} of {len(rows)} candidates are ALL COVERED\n")
     fam = collections.Counter(r["family"] for r in ok if not r.get("external"))
     w("By family: " + " · ".join(f"{k} **{v}**" for k, v in sorted(fam.items())) + ".\n")
@@ -843,9 +848,14 @@ def run(src, work, out):
                          f"`{' '.join(CFLAGS)}`, disassembled by `objdump` (LLVM)"}
     text = render(meta, nvec, len(forms), modes_ok, rows, unlock, strict_ok, (tot, okn, byext),
                   simd_content(forms))
+    ok = [r["id"] for r in rows if r.get("all") and not r.get("external")]
+    m = re.search(r"^## The verdict: (\d+) of (\d+) candidates", text, re.M)
+    if not m or int(m.group(1)) != len(ok) or int(m.group(2)) != len(rows):
+        print(f"⛔ the document's verdict heading ({m.group(0) if m else 'absent'}) "
+              f"disagrees with the count this run prints ({len(ok)} of {len(rows)})")
+        sys.exit(3)
     if out:
         open(out, "w", encoding="utf-8").write(text)
-    ok = [r["id"] for r in rows if r.get("all") and not r.get("external")]
     print(f"primitive-census: vectors={nvec} forms={len(forms)} modes={sorted(modes_ok)}")
     print(f"primitive-census: {len(ok)} of {len(rows)} ALL COVERED ({len(errs)} not measured): "
           + " ".join(ok))
