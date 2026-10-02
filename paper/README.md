@@ -35,7 +35,10 @@ The PDF is a build product and is not tracked.
 The paper is posted to arXiv (cs.SE) as a SaltBench paper, as soon as it has had its reads, ahead of
 any TACAS decision. That is inside the window in which the TACAS call asks authors not to post
 (two weeks either side of 2026-10-15); the case-study track is not double-blind, and whether the paper
-still goes to TACAS, with the preprint declared, is the author's decision. The arXiv upload is the
+still goes to TACAS, with the preprint declared, was the author's decision. ⚖️ **Decided 2026-10-02:
+post the preprint now, and submit to TACAS on 2026-10-15 as well, declaring the preprint** (his words: "I think
+we should go ahead and post now" and "we stay with TACAS"), against the call's "we strongly encourage authors to
+not put the work on arXiv (or similar repos) around 2 weeks before and after the submission deadline". The arXiv upload is the
 `.tex`, the `.bbl` that the build produces, and `llncs.cls`; arXiv compiles with pdflatex, so read its
 compiler log before announcing.
 
@@ -46,6 +49,11 @@ mandatory** (drafted on the case-study arm; it names acl2@c8897a34, pinned by D2
 so the draft does no anonymization. *(This read "is the Captain's; the draft proceeds on the recommendation" until 2026-09-15.)* No arXiv posting ~2 weeks either side of the deadline.
 
 ## Owed before submission
+
+- **The preprint declaration (decided 2026-10-02).** The TACAS submission names the arXiv preprint by its
+  identifier, says it was posted inside the call's two-week window by the author's choice, and notes that the
+  case-study track is not double-blind, so the preprint reveals nothing a reviewer would not see. The
+  identifier goes here once arXiv announces it.
 
 - Every `.bib` entry fetched by DOI from the registrar, never copied from G6 (D214: 3 of G6's 8 rows
   disagreed with their own DOI's record). Done for every DOI entry in the file on 2026-09-12. ✅ The SDM
