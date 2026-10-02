@@ -325,9 +325,12 @@ def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
 \paragraph{A case the model declines.}
 SHLD and SHRD stop the model in two different ways. A form the encoding does not allow is an illegal
 operand. A 16-bit form with a count above 16 and a memory destination has a result the manual leaves
-undefined, and the model declines it as unimplemented rather than writing undefined bytes to memory.
-The listing stops at that halt; the arm continues with the three cases whose counts are defined.
-\src{X86/Semantics.lean step, the .dshift arm; X86/State.lean inductive MsErr}
+undefined (16 bits is the only width whose masked count can exceed the operand size), and the model
+declines it as unimplemented rather than writing undefined bytes to memory. The listing stops at that
+halt. The arm continues with three cases: a zero count; a count above the operand size into a register,
+whose result and flags are drawn from the oracle; and the ordinary shift. The same undefined result is
+drawn when its destination is a register and declined when it is memory.
+\src{X86/Semantics.lean step, the .dshift arm (the n = 0, sz.bits < n and ordinary branches after the halt); Flags.shiftCount masks the count; X86/State.lean inductive MsErr}
 {\scriptsize
 % LISTING dshift file=X86/Semantics.lean from=^\s\s\|\s\.dshift\sk\ssz\sdst\ssrc\samt\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s"shld/shrd:\san\sundefined\sRESULT\sin\smemory\s\(16-bit\soperand,\scount\s>\s16\)"\)$
 \begin{alltt}
