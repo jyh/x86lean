@@ -28,6 +28,8 @@ THE MARKER, one line, in the .tex:
           of regex b (after a) with one line "  -- ... <label> (N lines)", indented
           like the first elided line.  Every elision is marked and counted.
   Values may not contain spaces; write \\s in a regex for a space.
+  Runs of blank lines in the result are collapsed to one, and trailing blank lines are dropped.
+  Glyphs are mapped AFTER elision, so a glyph inside an elided span never needs a mapping.
 
 WHY ANCHORS AND NOT LINE NUMBERS.  A listing should go red when ITS lines change,
 not when a line is added above it.  A regex anchor that stops matching, or matches
@@ -194,6 +196,13 @@ def generate(lid, opts, root):
         indent = re.match(r"^\s*", body[i]).group(0)
         n = j - i + 1
         body = body[:i] + [f"{indent}-- ... {label} ({n} line{'s' if n != 1 else ''})"] + body[j + 1:]
+    # A removed doc comment can leave blank lines on both sides of it: keep one.
+    collapsed = []
+    for l in body:
+        if not l.strip() and collapsed and not collapsed[-1].strip():
+            continue
+        collapsed.append(l)
+    body = collapsed
     while body and not body[-1].strip():
         body.pop()
     return ["\\begin{alltt}"] + [escape(l.rstrip(), lid) for l in body] + ["\\end{alltt}"]
@@ -330,6 +339,18 @@ def selftest():
         except ListingError as e:
             print(f"  selftest ok  red: unmapped glyph refused ({e})")
             results.append(True)
+        # GREEN: a glyph inside an ELIDED span needs no mapping (elision happens first).
+        put_src(base_src.replace("  c : Nat := 2", "  c : Nat := 2 -- ☃"))
+        open(tex, "w").write(good_tex)
+        results.append(check(0, "green: a glyph inside an elided span"))
+        # Blank runs: a doc comment between two blank lines leaves one blank line, not two.
+        put_src(base_src.replace("  a : Nat := 0\n", "  a : Nat := 0\n\n  /-- gone -/\n\n"))
+        rc = run(tex, d, True)
+        txt = open(tex).read()
+        one_blank = "  a : Nat := 0\n\n  b" in txt and "\n\n\n" not in txt.split("% LISTING")[1]
+        print(f"  selftest {'ok ' if one_blank else 'BAD'} blank runs collapse to one line")
+        results.append(one_blank)
+        open(tex, "w").write(good_tex)
         # RED: an unclosed marker.
         put_src(base_src)
         open(tex, "w").write("intro\n" + marker + "\noutro\n")
