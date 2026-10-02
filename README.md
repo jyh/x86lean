@@ -18,8 +18,9 @@ benchmark for machine-checked program construction. It supplies the formal
 x86-64 semantics that SaltBench's x86 assembly suite verifies against: a task in
 that suite asks for code meeting a natural-language requirement, and the referee
 is x86lean's kernel-checked `step` — a theorem about the resulting machine
-state, which no model can game. The x86 suite is in preparation and has not yet
-been run. Its problems will land here and in SaltBench together.
+state, which no model can game. A pilot of that suite (CRC-32) has run and its
+records are public in SaltBench; the full suite is not yet built. Its problems
+will land here and in SaltBench together.
 
 ## What this is
 
