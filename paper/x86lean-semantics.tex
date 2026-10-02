@@ -20,6 +20,7 @@
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
 \usepackage{microtype}
+\usepackage{alltt}
 \newcommand{\src}[1]{}  % source-file marker; expands to nothing in the PDF
 \newcommand{\lean}[1]{\texttt{#1}}
 \newcommand{\placeholder}[1]{\par\noindent\fbox{\parbox{0.95\linewidth}{\small\emph{Not yet drafted.} #1}}\par}
@@ -155,6 +156,42 @@ vector results where hardware with \texttt{CR4.OSFXSR} clear would fault, and th
 configured to match, a configuration that is itself checked. The LOCK prefix is recorded, and which
 forms accept it is enforced, but atomicity is not verified: the semantics is single-threaded.
 \src{TRUSTBASE.md, SSE availability and Atomicity; scripts/check\_driver\_cr4.py}
+
+% ---------------------------------------------------------------------------------------------
+\section{The Semantics by Example}
+\label{sec:examples}
+% Every listing in this section is generated from the Lean source by scripts/check_listings.py, from the
+% marker line above it, and CI fails if a listing differs from its source. Edit the marker, never the block.
+
+The full semantics is too large to print, so this section shows representative parts of it. Every listing
+below is extracted from the source by a script, from the file and declaration its marker names, and CI
+fails if a listing no longer equals its source. Lean documentation comments are removed from the
+listings, and any other omission is marked in the listing with the number of lines it replaces.
+\src{scripts/check\_listings.py; .github/workflows/ci.yml, the listings step}
+
+\paragraph{The state.}
+The machine state is a Lean structure with a default for every field. Registers, flags, memory and the
+vector registers are nested records, so a proof about one component projects through one field. The last
+two fields are not machine state: \lean{oracle} supplies the bits the manual leaves undefined
+(Section~\ref{sec:undef}), and \lean{ms} is the halt field.
+\src{X86/State.lean structure Cpu}
+{\small
+% LISTING cpu file=X86/State.lean from=^structure\sCpu\swhere to=^\s+ms\s: strip=doc
+\begin{alltt}
+structure Cpu where
+  regs : Regs := \{\}
+  rip : BitVec 64 := 0
+  flags : Flags := \{\}
+  mem : Mem := \{\}
+  fsBase : BitVec 64 := 0
+  gsBase : BitVec 64 := 0
+  xmm : Xmms := \{\}
+  mxcsr : BitVec 32 := 0x1F80
+  oracle : Oracle := Oracle.zero
+  ms : Option MsErr := none
+\end{alltt}
+% END LISTING cpu
+}
 
 % ---------------------------------------------------------------------------------------------
 \section{Undefined Behaviour}

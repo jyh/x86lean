@@ -360,6 +360,14 @@ jobs:
           python3 scripts/label_fit.py --selftest
           python3 scripts/check_claims.py
 
+      # 2026-10-02: the paper prints Lean listings (Section 3, "The Semantics by Example").
+      # A listing is a copy of source, so it is generated from a marker that names its file
+      # and anchors, and this step fails when any printed listing differs from its source.
+      - name: Every Lean listing in the paper equals its source
+        run: |
+          python3 scripts/check_listings.py --selftest
+          python3 scripts/check_listings.py
+
       - name: Every positioning-table cell carries its provenance
         run: |
           python3 scripts/check_positioning_table.py --selftest
