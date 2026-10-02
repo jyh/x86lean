@@ -31,17 +31,16 @@ The PDF is a build product and is not tracked.
 | Abstract · 1 Introduction · 8 Conclusion | drafted, from the sections; no new figures | the sections they summarise |
 | remaining placeholders | none — §7's last was replaced 2026-09-12 (D223). *This cell read "§7's read-dependent sentences" until 2026-09-13 (D235), against the §7 cell above it.* | — |
 
-## arXiv (council 2026-10-02)
+## Where it is published (decided 2026-10-02)
 
-The paper is posted to arXiv (cs.SE) as a SaltBench paper, as soon as it has had its reads, ahead of
-any TACAS decision. That is inside the window in which the TACAS call asks authors not to post
-(two weeks either side of 2026-10-15); the case-study track is not double-blind, and whether the paper
-still goes to TACAS, with the preprint declared, was the author's decision. ⚖️ **Decided 2026-10-02:
-post the preprint now, and submit to TACAS on 2026-10-15 as well, declaring the preprint** (his words: "I think
-we should go ahead and post now" and "we stay with TACAS"), against the call's "we strongly encourage authors to
-not put the work on arXiv (or similar repos) around 2 weeks before and after the submission deadline". The arXiv upload is the
-`.tex`, the `.bbl` that the build produces, and `llncs.cls`; arXiv compiles with pdflatex, so read its
-compiler log before announcing.
+The paper is dated publicly by the repository's Zenodo record (concept DOI 10.5281/zenodo.23105272, the release
+v2026.10.02 of 2026-10-02), and it goes to TACAS on 2026-10-15. **It is not posted to arXiv before the deadline**
+(his words, 2026-10-02: "we have the zenodo submission, so there is no real reason to post on arXiv, and it keeps
+us out of having to explain"), which keeps it outside the call's request that authors not post "around 2 weeks
+before and after the submission deadline". Whether to post to arXiv after that window is a later decision.
+*(This section read, for a few minutes on 2026-10-02, that the paper would be posted to arXiv at once and declared
+in the TACAS submission. That decision was revised the same morning.)* A dated x86lean release carrying a revised
+`paper/` mints a new version of the Zenodo record, never a replacement.
 
 ## The call (read 2026-09-12, `docs/TACAS-PRICING.md` §3a)
 
@@ -50,11 +49,6 @@ mandatory** (drafted on the case-study arm; it names acl2@c8897a34, pinned by D2
 so the draft does no anonymization. *(This read "is the Captain's; the draft proceeds on the recommendation" until 2026-09-15.)* No arXiv posting ~2 weeks either side of the deadline.
 
 ## Owed before submission
-
-- **The preprint declaration (decided 2026-10-02).** The TACAS submission names the arXiv preprint by its
-  identifier, says it was posted inside the call's two-week window by the author's choice, and notes that the
-  case-study track is not double-blind, so the preprint reveals nothing a reviewer would not see. The
-  identifier goes here once arXiv announces it.
 
 - Every `.bib` entry fetched by DOI from the registrar, never copied from G6 (D214: 3 of G6's 8 rows
   disagreed with their own DOI's record). Done for every DOI entry in the file on 2026-09-12. ✅ The SDM
