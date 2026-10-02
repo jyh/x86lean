@@ -199,7 +199,8 @@ structure Cpu where
 \lean{step} is one match over the instruction's AST. The two-operand arithmetic and logic instructions
 share an arm; the listing stops after its first case, ADD, and the arm continues with SUB, ADC, SBB, CMP,
 AND, OR, XOR and TEST. An instruction whose operands are both in memory is refused before anything is
-read: x86 cannot encode one, because an instruction has a single ModR/M byte. The flags are computed
+read: these instructions cannot encode one, because their two operands share a single ModR/M byte. The
+flags are computed
 from the inputs, then the result is written, then \lean{rip} is set to \lean{nr}, the address of the next
 instruction, which \lean{step} computes once from the instruction's encoded length.
 \src{X86/Semantics.lean step, the .bin arm; wellFormed2 is !(dst.isMem \&\& src.isMem), citing SDM Vol. 2A 2.1.5}
