@@ -21,7 +21,8 @@ The PDF is a build product and is not tracked.
 | section | state | register it is written from |
 |---|---|---|
 | 2 The Model | drafted | `X86/State.lean`, `X86/Coverage.lean`, `TRUSTBASE.md`, `docs/COVERAGE.md` |
-| 3 Undefined Behaviour | drafted | `docs/TACAS-G2-SECTION-DRAFT.md`, `docs/DECISIONS.md` D5 D6 D20 D52 D213 D226 |
+| 3 The Semantics by Example | drafted 2026-10-02 on his read ("we owe at least some representative examples"); nine listings, each GENERATED from its source by `scripts/check_listings.py` and gated in CI; listings chosen by paris | `X86/State.lean`, `X86/Semantics.lean`, `X86/Flags.lean`, `X86/Theorems.lean`, `Tests/Program.lean` |
+| 4 Undefined Behaviour (was 3) | drafted | `docs/TACAS-G2-SECTION-DRAFT.md`, `docs/DECISIONS.md` D5 D6 D20 D52 D213 D226 |
 | 4.3 Where the Reference Model Is Not the Specification | drafted | D91, D108, D115; `docs/P2-ROSTER.md` |
 | 5 Gated Claims | drafted | `scripts/claimed_forms.py`, `docs/CLAIMS.tsv`, D201 D202 D213 D214 |
 | 6 Proofs Over the Semantics | drafted; the six proof sizes are cited to the manifest (D217), and since D234 the label counts and the fitted law too. *This cell read "the label counts and the fitted law are not" until 2026-09-13 (D235).* | `docs/P2-PROOF-INTERFACE.md`, `X86/Program.lean`, `Tests/Program.lean` |
@@ -29,6 +30,17 @@ The PDF is a build product and is not tracked.
 | 4.1 The Harness · 4.2 Two Origins | drafted | `Main.lean` comparator; `docs/DIFFERENTIAL-P2-BATCH22.md`; `docs/TACAS-G1-POSITIONING.md` 1c.7 |
 | Abstract · 1 Introduction · 8 Conclusion | drafted, from the sections; no new figures | the sections they summarise |
 | remaining placeholders | none — §7's last was replaced 2026-09-12 (D223). *This cell read "§7's read-dependent sentences" until 2026-09-13 (D235), against the §7 cell above it.* | — |
+
+## Where it is published (decided 2026-10-02)
+
+The paper is dated publicly by the repository's Zenodo record (concept DOI 10.5281/zenodo.23105272, the release
+v2026.10.02 of 2026-10-02), and it goes to TACAS on 2026-10-15. **It is not posted to arXiv before the deadline**
+(his words, 2026-10-02: "we have the zenodo submission, so there is no real reason to post on arXiv, and it keeps
+us out of having to explain"), which keeps it outside the call's request that authors not post "around 2 weeks
+before and after the submission deadline". Whether to post to arXiv after that window is a later decision.
+*(This section read, for a few minutes on 2026-10-02, that the paper would be posted to arXiv at once and declared
+in the TACAS submission. That decision was revised the same morning.)* A dated x86lean release carrying a revised
+`paper/` mints a new version of the Zenodo record, never a replacement.
 
 ## The call (read 2026-09-12, `docs/TACAS-PRICING.md` §3a)
 
