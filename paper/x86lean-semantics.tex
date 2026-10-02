@@ -90,6 +90,12 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
 Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
 combination is checkable in one clone of a public repository.
 
+x86lean is developed as part of SaltBench~\cite{saltbench}, a benchmark for machine-checked program
+construction. It is the semantics a planned SaltBench suite of x86 assembly tasks will verify against:
+a task asks for code meeting a requirement, and the referee is a theorem about the machine state that
+x86lean's \lean{step} produces. That suite is not yet built, and nothing in this paper depends on it.
+\src{README.md, the section "Part of SaltBench"}
+
 % ---------------------------------------------------------------------------------------------
 \section{The Model}
 \label{sec:model}
@@ -254,7 +260,7 @@ Lean definition: \lean{step} reads undefined bits from the state, so it is an or
 that can be evaluated on a pre-state, and a theorem that places no hypothesis on the oracle holds for
 every resolution of the undefined bits. x86isa keeps a logical story and an execution story apart; we
 do not have to. What it costs is that undefinedness becomes a parameter the harness and the theorems
-must both thread, and the three mechanisms below are what keep that parameter honest.
+must both thread, and the three mechanisms below are what keep that parameter in check.
 
 \subsection{The Draw Is Part of the Model}
 \label{sec:undef:draw}
@@ -696,7 +702,7 @@ expect the remedy to be a tactic or a verification-condition generator rather th
 \paragraph{What cannot be stated.}
 One property in the sample cannot be expressed as an invariant of a single run: that a scan reads only
 inside its buffer. Memory reads are total and leave no trace in the state, so a wild read is
-unobservable to any single-run invariant. The honest form is non-interference over two runs whose
+unobservable to any single-run invariant. The property that does state it is non-interference over two runs whose
 memories agree on the buffer, and the interface's combinators are all single-run.
 \src{docs/P2-PROOF-INTERFACE.md, problem 3 section 2}
 

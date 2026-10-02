@@ -30,6 +30,15 @@ The PDF is a build product and is not tracked.
 | Abstract · 1 Introduction · 8 Conclusion | drafted, from the sections; no new figures | the sections they summarise |
 | remaining placeholders | none — §7's last was replaced 2026-09-12 (D223). *This cell read "§7's read-dependent sentences" until 2026-09-13 (D235), against the §7 cell above it.* | — |
 
+## arXiv (council 2026-10-02)
+
+The paper is posted to arXiv (cs.SE) as a SaltBench paper, as soon as it has had its reads, ahead of
+any TACAS decision. That is inside the window in which the TACAS call asks authors not to post
+(two weeks either side of 2026-10-15); the case-study track is not double-blind, and whether the paper
+still goes to TACAS, with the preprint declared, is the author's decision. The arXiv upload is the
+`.tex`, the `.bbl` that the build produces, and `llncs.cls`; arXiv compiles with pdflatex, so read its
+compiler log before announcing.
+
 ## The call (read 2026-09-12, `docs/TACAS-PRICING.md` §3a)
 
 Deadline **2026-10-15**; **18 pp excluding bibliography**, llncs; a **data availability statement is
