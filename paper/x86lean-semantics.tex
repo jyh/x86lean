@@ -176,6 +176,7 @@ vector registers are nested records, so a proof about one component projects thr
 two fields are not machine state: \lean{oracle} supplies the bits the manual leaves undefined
 (Section~\ref{sec:undef}), and \lean{ms} is the halt field.
 \src{X86/State.lean structure Cpu}
+
 {\scriptsize
 % LISTING cpu file=X86/State.lean from=^structure\sCpu\swhere to=^\s+ms\s: strip=doc
 \begin{alltt}
@@ -201,6 +202,7 @@ AND, OR, XOR and TEST. Two memory operands are refused before anything is read. 
 from the inputs, then the result is written, then \lean{rip} is set to \lean{nr}, the address of the next
 instruction, which \lean{step} computes once from the instruction's encoded length.
 \src{X86/Semantics.lean step, the .bin arm}
+
 {\scriptsize
 % LISTING add-arm file=X86/Semantics.lean from=^\s\s\|\s\.bin\sk\ssz\sdst\ssrc\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s\(s\.writeOperand\ssz\snr\sdst\sres\)\.setRip\snr$
 \begin{alltt}
@@ -221,6 +223,7 @@ instruction, which \lean{step} computes once from the instruction's encoded leng
 The flag function is ordinary Lean over bit vectors. SF, ZF and PF come from the result through
 \lean{fromResult}; CF, AF and OF have one definition each.
 \src{X86/Flags.lean addResult, addCF, addOF, add}
+
 {\scriptsize
 % LISTING add-flags file=X86/Flags.lean from=^def\saddResult to=^\s\s\s\sof\s:=\saddOF\ssz\sa\sb\sres\s\}$ strip=doc
 \begin{alltt}
@@ -253,6 +256,7 @@ RIP-relative address is taken from the next instruction's address. The offset, w
 writes, and the address, which adds the FS or GS base and is what a memory access uses, are separate
 functions; a theorem states the address as the sum of the two.
 \src{X86/Semantics.lean Ea.offset, Ea.addr, Ea.addr\_eq\_segBase\_add; the .lea arm writes ea.offset}
+
 {\scriptsize
 % LISTING ea file=X86/Semantics.lean from=^def\sEa\.offset to=^\s\s\|\ssome\sg\s=>\ss\.segBase\s\(some\sg\)\s\+\sea\.offset\ss\snextRip$ strip=doc elide=^\s\s--\s\S+\sMATCHED,\sNOT..^\s\s--\sdiscipline,\sarriving\sas\sa\sdesign\sconstraint|why_a_match_rather_than_the_sum
 \begin{alltt}
@@ -277,6 +281,7 @@ only through \lean{Ea.addr}, and an immediate destination stops the model rather
 Most rows of the coverage table, between 162 and 165 of 197 depending on how a shape such as a
 relative branch target is read, take a memory operand in at least one shape.
 \src{X86/Semantics.lean readOperand, writeOperand; docs/COVERAGE.md operand-shapes column, read three ways (2026-10-02): 162, 163, 165}
+
 {\scriptsize
 % LISTING operand file=X86/Semantics.lean from=^def\sreadOperand to=^\s\s\|\s\.imm\s_,\s_\s=>\ss\.halt\s\(\.illegalOperands\s"immediate\sdestination"\)$ strip=doc
 \begin{alltt}
@@ -300,6 +305,7 @@ operand's width: the manual says the destination's content is undefined, and the
 than inventing a value. Of the 26 frame rows, 4 draw a destination and the rest draw flags only. The
 order of the draws is part of the model, which Section~\ref{sec:undef} returns to.
 \src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
+
 {\scriptsize
 % LISTING bsf file=X86/Semantics.lean from=^def\sbitScanStep to=^\s\s\s\s\(s\.setReg\ssz\sdst\s\(BitVec\.ofNat\s64\sidx\)\)\.setRip\snr$ strip=doc
 \begin{alltt}
@@ -332,6 +338,7 @@ halt. The arm continues with three cases: a zero count; a count above the operan
 whose result and flags are drawn from the oracle; and the ordinary shift. The same undefined result is
 drawn when its destination is a register and declined when it is memory.
 \src{X86/Semantics.lean step, the .dshift arm (the n = 0, sz.bits < n and ordinary branches after the halt); Flags.shiftCount masks the count; X86/State.lean inductive MsErr}
+
 {\scriptsize
 % LISTING dshift file=X86/Semantics.lean from=^\s\s\|\s\.dshift\sk\ssz\sdst\ssrc\samt\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s"shld/shrd:\san\sundefined\sRESULT\sin\smemory\s\(16-bit\soperand,\scount\s>\s16\)"\)$
 \begin{alltt}
@@ -357,6 +364,7 @@ drawn when its destination is a register and declined when it is memory.
 The refusal is a theorem, which Section~\ref{sec:undef:refusal} discusses. The statement is shown; its
 proof is omitted, and \lean{s}, \lean{rs} and \lean{len} are section variables.
 \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
+
 {\scriptsize
 % LISTING dshift-thm file=X86/Theorems.lean from=^theorem\sstep_dshift_mem_undefined_refuses to=:=\sby$
 \begin{alltt}
@@ -376,6 +384,7 @@ does not follow the backward jump and leaves ECX at 2. \lean{runP} fetches the i
 after seven ECX is 0, and after eight the model has stopped, because \lean{rip} has left the program.
 Each fact is a theorem proved by \lean{decide}.
 \src{Tests/Program.lean countdown and its four theorems; X86/Program.lean stepP, runP (outsideProgram halts)}
+
 {\scriptsize
 % LISTING countdown file=Tests/Program.lean from=^def\scountdown\s:\sProgram to=^theorem\srunP_exits strip=doc
 \begin{alltt}
