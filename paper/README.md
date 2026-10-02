@@ -11,13 +11,8 @@ the text and never print.
 Build:
 
 ```
-cd paper && tectonic x86lean-semantics.tex            # the TACAS submission: LNCS default font
-cd paper && tectonic x86lean-semantics-preprint.tex   # the preprint (Zenodo): Palatino, same source
+cd paper && tectonic x86lean-semantics.tex
 ```
-
-The preprint wrapper defines `\preprintbuild` and reads the main file, which then loads newpx (Palatino text and
-math) and a wider `\emergencystretch`; nothing else differs. On 2026-10-02 both builds are 20 pages with the
-references from page 19, and both have 0 overfull lines. Palatino for the TACAS build waits on his word.
 
 The PDF is a build product and is not tracked.
 

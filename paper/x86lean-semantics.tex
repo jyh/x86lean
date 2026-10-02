@@ -14,16 +14,6 @@
 % owed" until 2026-09-13.
 \documentclass[runningheads]{llncs}
 \usepackage[T1]{fontenc}
-% THE ONE FONT FLAG. The TACAS submission is built from this file and keeps the LNCS default
-% font. The preprint (the Zenodo record) is built from x86lean-semantics-preprint.tex, which
-% defines \preprintbuild and then reads this file, and gets Palatino for text and math (newpx).
-% One source, two builds; the listings are typewriter in both, so their extraction is unaffected.
-\ifdefined\preprintbuild
-\usepackage{newpxtext}
-\usepackage{newpxmath}
-% Palatino sets wider, and long typewriter names cannot break: let paragraphs stretch instead.
-\setlength{\emergencystretch}{3em}
-\fi
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{amsmath}
