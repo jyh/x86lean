@@ -263,7 +263,7 @@ def run(tex_path, root, write):
 
 
 def selftest():
-    d = tempfile.mkdtemp(prefix="check_listings_")
+    d = tempfile.mkdtemp(prefix="x86lean-check-listings-")
     try:
         os.makedirs(os.path.join(d, "X"))
         src = os.path.join(d, "X", "A.lean")
@@ -296,10 +296,10 @@ def selftest():
         # CONTROL FIRST: generate, then the check must be clean, and the block must
         # carry exactly what the rules say.
         put_src(base_src)
-        open(tex, "w").write(base_tex)
+        open(tex, "w", encoding="utf-8").write(base_tex)
         results.append(check(0, "control: --write on an empty block", write=True))
         results.append(check(0, "control: the regenerated block is clean"))
-        body = open(tex).read()
+        body = open(tex, encoding="utf-8").read()
         want_bits = ["structure R where", "  a : Nat := 0", r"b : Nat \(\to\) Nat",
                      "  -- ... two fields (2 lines)", r"e : \{x : Nat // x \(\le\) 1\}"]
         for w in want_bits:
@@ -327,11 +327,11 @@ def selftest():
             results.append(True)
         # RED: a hand edit to the block.
         put_src(base_src)
-        open(tex, "w").write(good_tex.replace("a : Nat := 0", "a : Nat := 0 "))
+        open(tex, "w", encoding="utf-8").write(good_tex.replace("a : Nat := 0", "a : Nat := 0 "))
         results.append(check(1, "red: a hand-edited block"))
         # RED: an unmapped glyph.
         put_src(base_src.replace("a : Nat := 0", "a : Nat := 0 -- ☃"))
-        open(tex, "w").write(good_tex)
+        open(tex, "w", encoding="utf-8").write(good_tex)
         try:
             run(tex, d, False)
             print("  selftest BAD red: unmapped glyph raised nothing")
@@ -341,19 +341,19 @@ def selftest():
             results.append(True)
         # GREEN: a glyph inside an ELIDED span needs no mapping (elision happens first).
         put_src(base_src.replace("  c : Nat := 2", "  c : Nat := 2 -- ☃"))
-        open(tex, "w").write(good_tex)
+        open(tex, "w", encoding="utf-8").write(good_tex)
         results.append(check(0, "green: a glyph inside an elided span"))
         # Blank runs: a doc comment between two blank lines leaves one blank line, not two.
         put_src(base_src.replace("  a : Nat := 0\n", "  a : Nat := 0\n\n  /-- gone -/\n\n"))
         rc = run(tex, d, True)
-        txt = open(tex).read()
+        txt = open(tex, encoding="utf-8").read()
         one_blank = "  a : Nat := 0\n\n  b" in txt and "\n\n\n" not in txt.split("% LISTING")[1]
         print(f"  selftest {'ok ' if one_blank else 'BAD'} blank runs collapse to one line")
         results.append(one_blank)
-        open(tex, "w").write(good_tex)
+        open(tex, "w", encoding="utf-8").write(good_tex)
         # RED: an unclosed marker.
         put_src(base_src)
-        open(tex, "w").write("intro\n" + marker + "\noutro\n")
+        open(tex, "w", encoding="utf-8").write("intro\n" + marker + "\noutro\n")
         try:
             run(tex, d, False)
             print("  selftest BAD red: unclosed marker raised nothing")
