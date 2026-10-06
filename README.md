@@ -1,14 +1,14 @@
 # x86lean
 
-A **user-level x86-64 ISA semantics in Lean 4** — definitional, executable,
-kernel-checked, and differentially validated against public executable models
+A **user-level x86-64 ISA semantics in Lean 4** ([`X86/`](X86/)) — definitional,
+executable, kernel-checked, and differentially validated against public executable models
 and (from P1) against real hardware. Built from **public sources only** and
 licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 
 See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
 [`TRUSTBASE.md`](TRUSTBASE.md) for what is proven and what is trusted,
 [`docs/DECISIONS.md`](docs/DECISIONS.md) for the P0 decisions and their reasons,
-and [`docs/COVERAGE.md`](docs/COVERAGE.md) for the generated coverage table.
+and [`docs/COVERAGE.md`](docs/COVERAGE.md) for the generated coverage table. <!-- claim-check: not-a-claim: points at the document that lists what is proven and what is trusted; claims nothing itself -->
 
 ## Part of SaltBench
 
@@ -81,7 +81,9 @@ declaration in CI.
 - **Fidelity per form** is stated in [`docs/COVERAGE.md`](docs/COVERAGE.md),
   generated from the model: `T-exact` (the result and every flag the SDM defines
   are proved), `T-frame` (the defined parts proved, the undefined bits declared
-  and drawn from the oracle), and a decode-trust column.
+  and drawn from the oracle), and a decode-trust column. The table is checked
+  against the AST by [`Tests/Coverage.lean`](Tests/Coverage.lean), and the tiers'
+  behavioural theorems are in [`Tests/Nonvacuity.lean`](Tests/Nonvacuity.lean).
 - **Validation.** Every form is run against ACL2 x86isa on 72068 generated cases
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
@@ -173,7 +175,7 @@ their shapes and says which bucket each is in.
 Read the trust story before citing a theorem:
 [`TRUSTBASE.md`](TRUSTBASE.md) (what is proven, what is trusted, what is
 validated), [`PROVENANCE.md`](PROVENANCE.md) (every source and its licence), and
-[`docs/DECISIONS.md`](docs/DECISIONS.md) (every design call and its reason).
+[`docs/DECISIONS.md`](docs/DECISIONS.md) (every design call and its reason). <!-- claim-check: not-a-claim: points at the document that lists what is proven and what is trusted; claims nothing itself -->
 
 ## What kind of semantics
 

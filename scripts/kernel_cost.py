@@ -190,6 +190,10 @@ PORTED_VERBATIM = {
         "the fleet's forge-prose gate (desk QA), byte-identical to salt/saltworks/saltbench; its "
         "three `mkdtemp`s hold git-only fixture repos and a clone (no `lean` ever runs there), and "
         "renaming them here would fork the shared port"),
+    "check_verification_claims.py": (("vclaims-",),
+        "the claim-citation gate (council 2026-10-06 ruling 1, desk AAN), byte-identical in "
+        "salt/saltworks/saltbench/jas; its self-test's `mkdtemp` holds git-only fixture repos "
+        "(no `lean` ever runs there), and renaming it here would fork the shared port"),
 }
 _DIR_PRODUCERS = ("mkdtemp", "TemporaryDirectory")
 _FILE_PRODUCERS = ("mkstemp", "NamedTemporaryFile", "SpooledTemporaryFile", "TemporaryFile")
