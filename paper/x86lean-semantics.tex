@@ -1009,7 +1009,7 @@ means. libLISA discovers instructions and synthesizes their semantics by executi
 producing ``the most extensive formal x86-64 model to date, with over 118 000 different instruction
 groups'', compares models across five machines, and reports exposing bugs in handwritten
 models~\cite{liblisa}. Where x86lean asks whether a model built from the manual agrees with another
-model, libLISA takes the processor as ground truth. The two are complementary rather than competing.
+model, libLISA takes the processor as ground truth.
 We have used libLISA's models for the two rules on which x86lean and the reference model part, the
 packed-shift count and MOVD/MOVQ's upper bits (Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
 direct second source this work still lacks, and for the SSE forms it would first need their scope extended.
@@ -1036,12 +1036,13 @@ controls are explicit, and coverage and validation claims that are derived and c
 written.
 
 \paragraph{Techniques.}
-Most of x86lean's techniques have public precedents, and we cite them where they originate. A step over one machine state is
+Most of x86lean's techniques have public precedents. A step over one machine state is
 the shape of all three models above: a function in x86isa and Sail, rewrite rules in K. The closest precedent in Lean~4 is
 LNSym~\cite{lnsym-repo}, a model of an Arm instruction set with co-simulation conformance testing and a
-benchmarks target. It models a different instruction set, so we cite it for the method and do not
-compare coverage with it.
-\src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6}
+benchmarks target; one level up, Talos~\cite{talos-repo} is a WebAssembly interpreter in Lean~4 that is
+its own proof object, tested against V8. We cite both for the method, not for coverage.
+\src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6; the Talos row of 4, read at its
+README and .github/workflows/differential.yml at 80644390de3a, 2026-10-09}
 Validation by differential testing against executable models and hardware is established practice:
 K was tested against more than 7{,}000 instruction-level cases~\cite{dasgupta-k-x86}, x86isa is
 co-simulated against a processor~\cite{goel-x86isa}, and stratified synthesis learned the x86-64
