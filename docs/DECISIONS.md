@@ -20970,3 +20970,85 @@ executes MULX; neither is decided here.
 leaks 0, the 8 ADX ids 88 matched each on both sides; **census 42 of 57** (W1a's `xxh32` + `vale-fadd`).
 **Re-run result:** 102960 cases, matched 82131, explained 29699, unexplained 0, divergence 292, leaks 0; each ADX id 88
 matched alone with 88 records on both sides. Census 42 of 57; the s2n appendix (unpredicted) 202 → 206 of 332. All held.
+
+## D331 — The bit-string `m,r` shape of BT/BTS/BTR/BTC is modelled, and what its run must show (committed before the run)
+
+D329 and D330 are taken by two batches running beside this one; this note does not depend on them.
+
+**Why.** D23 declined the four `m,r` rows (a memory base with a register offset) because the modulo rule `step` uses for
+the other shapes would be quietly wrong there. This batch models the shape and gives it vectors that the modulo rule fails.
+
+**The rule, from the public sources.** SDM Vol. 2A §3.1.1.9 (the `Bit(BitBase, BitOffset)` notation and its memory-indexing
+figure) and Table 3-2: with a memory bit base and a register offset, the offset is a SIGNED integer of the operand size
+(−2^15..2^15−1, −2^31..2^31−1, −2^63..2^63−1), and the addressed bit is bit `(offset MOD 8)` of the byte at
+`BitBase + (offset DIV 8)`, where DIV rounds toward negative infinity and MOD is non-negative. In two's complement that is:
+**byte address = EA + (offset SAR 3), bit = offset AND 7.** The operand-size word form the BT pages give
+(`EA + (4 * (BitOffset DIV 32))` at 32 bits, `EA + (2 * (BitOffset DIV 16))` at 16) names the same bit inside a wider unit.
+BTS/BTR/BTC write that byte back with the bit set, cleared or complemented; BT writes nothing. CF = the selected bit
+BEFORE any write; ZF unchanged; OF, SF, AF, PF undefined — the drawn bits and their order (PF, AF, SF, OF) are the ones the
+other `.bit` shapes already use.
+
+**The access width, stated.** The model reads and writes ONE BYTE, the byte that holds the bit. The SDM allows the processor
+to access the whole operand-size unit that contains it ("may access 4 bytes … may do so even when only a single byte needs
+to be accessed"). The two choices give the same CF and the same memory contents; they differ only in WHICH ADDRESSES must be
+accessible. This model has no page-fault vocabulary, so the only access condition it checks is canonicity — of the byte
+address (plus the segment base, as every access here adds it). A non-canonical byte address halts the model with the
+`non-canonical … (#GP(0) in hardware)` reason the branch checks already use. **Limit, declared:** a canonical byte inside an
+operand-size unit that crosses the canonical boundary executes here and might fault on hardware; no vector reaches it.
+ACL2 x86isa (`machine/instructions/bit.lisp`, `rme-size … 1 byte-addr … :check-canonicity t`) and K
+(`memoryInstructions/bt?_m*_r*.k`, `loadFromMemory(…, 8)`) both access the one byte too.
+
+**The design.** No new constructor. `step`'s `.bit` case dispatches on its operand pair: `.mem` destination with `.reg`
+offset is the bit string; every other pair keeps the modulo rule byte for byte. The AST could always express the shape (the
+decoder's output for `0f a3 /r` with a memory ModR/M is already `.bit k sz (.mem ea) (.reg r)`), so a separate constructor
+would add a dozen exhaustive-match arms (coverage, lockability, `eas`, `stripOp`) to say what the operand pair already says.
+LOCK follows the existing rule: BTS/BTR/BTC at memory are lockable, BT is not (`Op.lockable` is unchanged).
+
+**The vectors (28).** Offsets come from the harness's pre-states, so every vector runs all 88:
+- 12 `bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)` — the forms that claim the four roster rows. RCX sweeps `adversarial`: in-word
+  offsets (0, 1, 2, 15) where the old and new rules agree; word-boundary pairs 15/16 (`.w`) and 127/128 (last bit of one
+  dword/qword, first of the next); far positive offsets; and NEGATIVE ones (0xFFFF is −1 at `.w`, 0xFFFFFFFF at `.l`,
+  0x8000 is −32768 at `.w`).
+- 12 `bt{,s,r,c}{w,l,q} %{dx,edx,rdx},0x10(%rbx)` — RDX = ~RAX, so the small RAX values give offsets −1, −2, −3, −16, −17,
+  −128, −129, −256: negative, several words below the base, and inside the watched window from a base of 0x2010.
+- 3 at fixed far offsets, with a displacement that brings the bit back into the window: `btsw %sp,0x1000(%rbx)` (SP = 0x8000
+  = −32768 at 16 bits ⇒ −4096 bytes), `btcl %esp,-0x1000(%rbx)` (+32768 ⇒ +4096 bytes), `btrq %rbx,-0x400(%rbx)`
+  (+0x2000 ⇒ +1024 bytes). Each lands on bit 0 of the swept byte at 0x2000.
+- 1 `lock btsl %edx,0x10(%rbx)`.
+The memory values give both bit values: per vector, among in-window cases, CF is 0 in 12–38 and 1 in 14–50 (below).
+
+**A finding made before the run, by reading the oracle.** ACL2 x86isa computes the byte address as
+`addr + floor(offset/8)` — correct — but the bit number as `(mod (abs offset) 8)`. For a negative offset not ≡ 0 or 4
+(mod 8) that is the wrong bit: offset −1 selects bit 1 of byte EA−1, where the SDM rule selects bit 7. A Rosetta 2
+translation on this machine (an independent x86-64 implementation; NOT silicon) agrees with the SDM rule in all 20 probed
+offsets (−1 … −256, 1 … 255), at all three widths, and for BTS the changed byte and bit match it; at −1, −3, −5, −7 and −129
+its CF differs from x86isa's rule. K's bit number is the offset's low three bits (`extractMInt(…, 61, 64)`), which agrees with
+this model. ⚠️ K's ADDRESS term for a negative offset is a LOGICAL shift of the sign-extended offset
+(`concatenateMInt(mi(3, 0), extractMInt(…, 0, 61))`), so K witnesses only the bit-number half and is not cited for the
+address. ⇒ these disagreements are declared as oracle divergences, and so that the declaration cannot excuse anything else,
+`KnownDivergence` gains a `states` field: an entry with states excuses its field ONLY at the listed pre-state indices, and
+`compare` fails if any listed (vector, field, state) does not diverge.
+
+**Predictions** (from a simulation of both rules over the 88 pre-states taken from record 37's own PRE lines; x86isa's
+undefined-flag pattern taken from the existing `bt*_mi_*` vectors, where PF and SF differ in 88 of 88 cases and AF, OF never):
+1. +28 vectors ⇒ **+2464 cases** (1158 → 1186 vectors, 101904 → 104368 cases); `unexplained` stays **0**; `oracle-leaks` 0;
+   `missing` 0.
+2. **+236 matched** (both models refuse: 31 states for each `rcx` `.q` vector, 28 for each `rdx` `.q` vector; no other case
+   matches, because PF/SF always differ), **+4456 explained** (two per executed case), **+324 oracle-divergence**
+   (292 → 616). Totals: matched 81399, explained 33979.
+3. Per vector (matched / explained / divergence): `bt_mr_w`,`bts_mr_w` 0/176/0 · `bt_mr_l`,`bts_mr_l` 0/176/0 ·
+   `bt_mr_q`,`bts_mr_q` 31/114/0 · `btr_mr_w`,`btc_mr_w` 0/176/18 · `btr_mr_l`,`btc_mr_l` 0/176/12 ·
+   `btr_mr_q`,`btc_mr_q` 31/114/6 · `bt_mr_neg_{w,l}` 0/176/6 · `bt_mr_neg_q` 28/120/6 · `bts_mr_neg_{w,l}` 0/176/12 ·
+   `bts_mr_neg_q` 28/120/12 · `btr_mr_neg_w`,`btc_mr_neg_w` 0/176/35 · `btr_mr_neg_l`,`btc_mr_neg_l` 0/176/32 ·
+   `btr_mr_neg_q`,`btc_mr_neg_q` 28/120/26 · the three far vectors 0/176/0 · `lock_btsl_neg` 0/176/12.
+4. The divergent cases, exactly: `cf` at states {1, 4, 21, 24, 41, 44} on every `rdx` vector; the data window at the same
+   six states on `bts_mr_neg_*` and `lock_btsl_neg`; the data window at 29 / 26 / 20 states on `btr`/`btc` `_mr_neg_` at
+   w / l / q, and at 18 / 12 / 6 states on `btr`/`btc` `_mr_` at w / l / q (the RCX states whose offset is negative at that
+   width). No divergence on `bt`/`bts` `_mr_` or on the far vectors (every offset there is ≡ 0 mod 8 or non-negative).
+5. In-window cases per vector (the rest read and write memory nobody watches, and agree by construction): 59 / 50 / 36 for the
+   `rcx` vectors at w / l / q, 56 / 47 / 35 for the `rdx` vectors, 88 for each far vector.
+6. **The plant** — `step` with D23's modulo rule on this shape — compared against the same oracle output reds every one of
+   the 28 vectors, through `cf`, the data window, and (at `.q`) the refusal channel.
+**Wrong if:** any count differs; a refusal on one side only; a divergence outside the listed states or a listed one that does
+not occur; the plant leaves any vector green; or x86isa refuses the shape outright (it would change the referee).
+**Reversal of D23:** D23 stands as the record of why the shape was declined; it gains a pointer here and no edit.
