@@ -14,12 +14,14 @@
 % owed" until 2026-09-13.
 \documentclass[runningheads]{llncs}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}  % one family for text, math and typewriter (without it, T1 text is Latin Modern and math is old CM)
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{amsmath}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
 \usepackage{microtype}
+\usepackage{alltt}
 \newcommand{\src}[1]{}  % source-file marker; expands to nothing in the PDF
 \newcommand{\lean}[1]{\texttt{#1}}
 \newcommand{\placeholder}[1]{\par\noindent\fbox{\parbox{0.95\linewidth}{\small\emph{Not yet drafted.} #1}}\par}
@@ -90,6 +92,13 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
 Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
 combination is checkable in one clone of a public repository.
 
+x86lean is developed as part of SaltBench~\cite{saltbench}, a benchmark for machine-checked program
+construction. It is the semantics a planned SaltBench suite of x86 assembly tasks will verify against:
+a task asks for code meeting a requirement, and the referee is a theorem about the machine state that
+x86lean's \lean{step} produces. A pilot of that suite (CRC-32) has run and its records are public in
+SaltBench; the full suite is not yet built, and nothing in this paper depends on either.
+\src{README.md, the section "Part of SaltBench"; saltbench harness/systems-x86/RESULT-x86-crc32-*.md (four files, 2026-09-26 and 2026-09-29)}
+
 % ---------------------------------------------------------------------------------------------
 \section{The Model}
 \label{sec:model}
@@ -148,6 +157,259 @@ vector results where hardware with \texttt{CR4.OSFXSR} clear would fault, and th
 configured to match, a configuration that is itself checked. The LOCK prefix is recorded, and which
 forms accept it is enforced, but atomicity is not verified: the semantics is single-threaded.
 \src{TRUSTBASE.md, SSE availability and Atomicity; scripts/check\_driver\_cr4.py}
+
+% ---------------------------------------------------------------------------------------------
+\section{The Semantics by Example}
+\label{sec:examples}
+% Every listing in this section is generated from the Lean source by scripts/check_listings.py, from the
+% marker line above it, and CI fails if a listing differs from its source. Edit the marker, never the block.
+
+The full semantics is too large to print, so this section shows representative parts of it. Every listing
+below is extracted from the source by a script, from the file and declaration its marker names, and CI
+fails if a listing no longer equals its source. Lean documentation comments are removed from the
+listings, and any other omission is marked in the listing with the number of lines it replaces.
+\src{scripts/check\_listings.py; .github/workflows/ci.yml, the listings step}
+
+\paragraph{The state.}
+The machine state is a Lean structure with a default for every field. Registers, flags, memory and the
+vector registers are nested records, so a proof about one component projects through one field. The last
+two fields are not machine state: \lean{oracle} supplies the bits the manual leaves undefined
+(Section~\ref{sec:undef}), and \lean{ms} is the halt field.
+\src{X86/State.lean structure Cpu}
+
+{\scriptsize
+% LISTING cpu file=X86/State.lean from=^structure\sCpu\swhere to=^\s+ms\s: strip=doc
+\begin{alltt}
+structure Cpu where
+  regs : Regs := \{\}
+  rip : BitVec 64 := 0
+  flags : Flags := \{\}
+  mem : Mem := \{\}
+  fsBase : BitVec 64 := 0
+  gsBase : BitVec 64 := 0
+  xmm : Xmms := \{\}
+  mxcsr : BitVec 32 := 0x1F80
+  oracle : Oracle := Oracle.zero
+  ms : Option MsErr := none
+\end{alltt}
+% END LISTING cpu
+}
+
+\paragraph{An exact-tier clause.}
+\lean{step} is one match over the instruction's AST. The two-operand arithmetic and logic instructions
+share an arm; the listing stops after its first case, ADD, and the arm continues with SUB, ADC, SBB, CMP,
+AND, OR, XOR and TEST. An instruction whose operands are both in memory is refused before anything is
+read: these instructions cannot encode one, because their two operands share a single ModR/M byte. The
+flags are computed
+from the inputs, then the result is written, then \lean{rip} is set to \lean{nr}, the address of the next
+instruction, which \lean{step} computes once from the instruction's encoded length.
+\src{X86/Semantics.lean step, the .bin arm; wellFormed2 is !(dst.isMem \&\& src.isMem), citing SDM Vol. 2A 2.1.5}
+
+{\scriptsize
+% LISTING add-arm file=X86/Semantics.lean from=^\s\s\|\s\.bin\sk\ssz\sdst\ssrc\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s\(s\.writeOperand\ssz\snr\sdst\sres\)\.setRip\snr$
+\begin{alltt}
+  | .bin k sz dst src =>
+      if !wellFormed2 dst src then s.halt (.illegalOperands "two memory operands")
+      else
+        let a := s.readOperand sz nr dst
+        let b := s.readOperand sz nr src
+        match k with
+        | .add =>
+            let res := Flags.addResult sz a b
+            let s := s.setFlags (Flags.add sz a b s.flags)
+            (s.writeOperand sz nr dst res).setRip nr
+\end{alltt}
+% END LISTING add-arm
+}
+
+The flag function is ordinary Lean over bit vectors. SF, ZF and PF come from the result through
+\lean{fromResult}; CF, AF and OF have one definition each.
+\src{X86/Flags.lean addResult, addCF, addOF, add}
+
+{\scriptsize
+% LISTING add-flags file=X86/Flags.lean from=^def\saddResult to=^\s\s\s\sof\s:=\saddOF\ssz\sa\sb\sres\s\}$ strip=doc
+\begin{alltt}
+def addResult (sz : Size) (a b : Val) : Val := Value.trunc sz (a + b)
+
+def addCF (sz : Size) (a b : Val) : Bool :=
+  decide (2 ^ sz.bits \(\le\) Value.uval sz a + Value.uval sz b)
+
+def addOF (sz : Size) (a b res : Val) : Bool :=
+  (Value.msb sz a == Value.msb sz b) && (Value.msb sz res != Value.msb sz a)
+
+def add (sz : Size) (a b : Val) (f : Flags) : Flags :=
+  let res := addResult sz a b
+  \{ fromResult sz res f with
+    cf := addCF sz a b
+    af := auxCarry a b res
+    of := addOF sz a b res \}
+\end{alltt}
+% END LISTING add-flags
+}
+
+The same arm spans two tiers. ADD, SUB, ADC, SBB and CMP are exact. AND, OR, XOR and TEST are frame,
+because the manual leaves AF undefined after them, and their cases draw it from the oracle a few lines
+below the listing.
+\src{X86/Semantics.lean step, the .and/.or/.xor cases of the .bin arm, each with s.undefBit for AF; docs/COVERAGE.md and/or/xor/test rows}
+
+\paragraph{Memory.}
+An effective address is computed in 64-bit bit vectors, so it wraps modulo $2^{64}$, and a
+RIP-relative address is taken from the next instruction's address. The offset, which is what LEA
+writes, and the address, which adds the FS or GS base and is what a memory access uses, are separate
+functions; a theorem states the address as the sum of the two.
+\src{X86/Semantics.lean Ea.offset, Ea.addr, Ea.addr\_eq\_segBase\_add; the .lea arm writes ea.offset}
+
+{\scriptsize
+% LISTING ea file=X86/Semantics.lean from=^def\sEa\.offset to=^\s\s\|\ssome\sg\s=>\ss\.segBase\s\(some\sg\)\s\+\sea\.offset\ss\snextRip$ strip=doc elide=^\s\s--\s\S+\sMATCHED,\sNOT..^\s\s--\sdiscipline,\sarriving\sas\sa\sdesign\sconstraint|why_a_match_rather_than_the_sum
+\begin{alltt}
+def Ea.offset (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
+  if ea.ripRel then nextRip + ea.disp
+  else
+    let b := match ea.base with | some r => s.regs.get r | none => 0
+    let i := match ea.index with | some r => s.regs.get r * ea.scale.toVal | none => 0
+    b + i + ea.disp
+
+def Ea.addr (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
+  -- ... why a match rather than the sum (10 lines)
+  match ea.seg with
+  | none => ea.offset s nextRip
+  | some g => s.segBase (some g) + ea.offset s nextRip
+\end{alltt}
+% END LISTING ea
+}
+
+Every instruction reads and writes its operands through two functions, so a memory operand is reached
+only through \lean{Ea.addr}, and an immediate destination stops the model rather than being dropped.
+Most rows of the coverage table, between 162 and 165 of 197 depending on how a shape such as a
+relative branch target is read, take a memory operand in at least one shape.
+\src{X86/Semantics.lean readOperand, writeOperand; docs/COVERAGE.md operand-shapes column, read three ways (2026-10-02): 162, 163, 165}
+
+{\scriptsize
+% LISTING operand file=X86/Semantics.lean from=^def\sreadOperand to=^\s\s\|\s\.imm\s_,\s_\s=>\ss\.halt\s\(\.illegalOperands\s"immediate\sdestination"\)$ strip=doc
+\begin{alltt}
+def readOperand (s : Cpu) (sz : Size) (nextRip : BitVec 64) : Operand \(\to\) Val
+  | .reg r h8 => s.getReg sz r h8
+  | .mem ea => s.readMem sz (ea.addr s nextRip)
+  | .imm v => Value.trunc sz v
+
+def writeOperand (s : Cpu) (sz : Size) (nextRip : BitVec 64) : Operand \(\to\) Val \(\to\) Cpu
+  | .reg r h8, v => s.setReg sz r v h8
+  | .mem ea, v => s.writeMem sz (ea.addr s nextRip) v
+  | .imm _, _ => s.halt (.illegalOperands "immediate destination")
+\end{alltt}
+% END LISTING operand
+}
+
+\paragraph{A frame-tier clause.}
+BSF and BSR share one function. It draws the five flags the manual leaves undefined, in a fixed order,
+before it writes anything, and when the source is zero it draws the destination as well, at the
+operand's width: the manual says the destination's content is undefined, and the model draws it rather
+than inventing a value. Of the 26 frame rows, 4 draw a destination and the rest draw flags only. The
+order of the draws is part of the model, which Section~\ref{sec:undef} returns to.
+\src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
+
+{\scriptsize
+% LISTING bsf file=X86/Semantics.lean from=^def\sbitScanStep to=^\s\s\s\s\(s\.setReg\ssz\sdst\s\(BitVec\.ofNat\s64\sidx\)\)\.setRip\snr$ strip=doc
+\begin{alltt}
+def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
+    (nr : BitVec 64) (s : Cpu) : Cpu :=
+  let (cfU, s) := s.undefBit
+  let (pfU, s) := s.undefBit
+  let (afU, s) := s.undefBit
+  let (sfU, s) := s.undefBit
+  let (ofU, s) := s.undefBit
+  let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
+  if Value.isZero sz a then
+    -- the SDM's "the content of the destination operand is undefined", drawn
+    -- rather than invented.  `sz.bits` bits, so the draw is the operand's width.
+    let (u, s) := s.undefVal sz.bits
+    (s.setReg sz dst u).setRip nr
+  else
+    let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
+    (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
+\end{alltt}
+% END LISTING bsf
+}
+
+\paragraph{A case the model declines.}
+SHLD and SHRD stop the model in two different ways. A form the encoding does not allow is an illegal
+operand. A 16-bit form with a count above 16 and a memory destination has a result the manual leaves
+undefined (16 bits is the only width whose masked count can exceed the operand size), and the model
+declines it as unimplemented rather than writing undefined bytes to memory. The listing stops at that
+halt. The arm continues with three cases: a zero count; a count above the operand size into a register,
+whose result and flags are drawn from the oracle; and the ordinary shift. The same undefined result is
+drawn when its destination is a register and declined when it is memory.
+\src{X86/Semantics.lean step, the .dshift arm (the n = 0, sz.bits < n and ordinary branches after the halt); Flags.shiftCount masks the count; X86/State.lean inductive MsErr}
+
+{\scriptsize
+% LISTING dshift file=X86/Semantics.lean from=^\s\s\|\s\.dshift\sk\ssz\sdst\ssrc\samt\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s"shld/shrd:\san\sundefined\sRESULT\sin\smemory\s\(16-bit\soperand,\scount\s>\s16\)"\)$
+\begin{alltt}
+  | .dshift k sz dst src amt =>
+      if !(dshiftEncodable sz) then
+        s.halt (.illegalOperands "shld/shrd have no 8-bit encoding")
+      else if dst.isImm then
+        s.halt (.illegalOperands "shld/shrd: immediate destination")
+      else
+        let cnt : BitVec 8 :=
+          match amt with
+          | .imm8 v => v
+          | .cl => (s.getReg .b .rcx).setWidth 8
+        let n := Flags.shiftCount sz cnt
+        let a := s.readOperand sz nr dst
+        if dshiftMemUndefined sz dst.isMem n then
+          s.halt (.unimplemented
+            "shld/shrd: an undefined RESULT in memory (16-bit operand, count > 16)")
+\end{alltt}
+% END LISTING dshift
+}
+
+The refusal is a theorem, which Section~\ref{sec:undef:refusal} discusses. The statement is shown; its
+proof is omitted, and \lean{s}, \lean{rs} and \lean{len} are section variables.
+\src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
+
+{\scriptsize
+% LISTING dshift-thm file=X86/Theorems.lean from=^theorem\sstep_dshift_mem_undefined_refuses to=:=\sby$
+\begin{alltt}
+theorem step_dshift_mem_undefined_refuses (k : DShiftKind) (ea : Ea) (c : BitVec 8)
+    (h : Live s) (hc : 16 < Flags.shiftCount .w c) (hl : ea.lock = false) :
+    step \(\langle\).dshift k .w (.mem ea) rs (.imm8 c), len\(\rangle\) s =
+      \{ s with ms := some (.unimplemented
+          "shld/shrd: an undefined RESULT in memory (16-bit operand, count > 16)") \} := by
+\end{alltt}
+% END LISTING dshift-thm
+}
+
+\paragraph{A program.}
+A program is a list of instructions at addresses. \lean{run} folds \lean{step} over a list once, so it
+does not follow the backward jump and leaves ECX at 2. \lean{runP} fetches the instruction at
+\lean{rip} for a given number of steps: after three steps the jump has gone back to \texttt{0x1005},
+after seven ECX is 0, and after eight the model has stopped, because \lean{rip} has left the program.
+Each fact is a theorem proved by \lean{decide}.
+\src{Tests/Program.lean countdown and its four theorems; X86/Program.lean stepP, runP (outsideProgram halts)}
+
+{\scriptsize
+% LISTING countdown file=Tests/Program.lean from=^def\scountdown\s:\sProgram to=^theorem\srunP_exits strip=doc
+\begin{alltt}
+def countdown : Program := \{ code := [
+  (0x1000, \(\langle\).mov .d (.reg .rcx) (.imm 3), 5\(\rangle\)),
+  (0x1005, \(\langle\).un .dec .d (.reg .rcx), 2\(\rangle\)),
+  (0x1007, \(\langle\).jcc .ne (BitVec.ofInt 64 (-4)), 2\(\rangle\))] \}
+
+def start : Cpu := \{ rip := 0x1000 \}
+
+theorem run_fold_does_not_loop :
+    ((run [\(\langle\).mov .d (.reg .rcx) (.imm 3), 5\(\rangle\), \(\langle\).un .dec .d (.reg .rcx), 2\(\rangle\),
+           \(\langle\).jcc .ne (BitVec.ofInt 64 (-4)), 2\(\rangle\)] start).regs.get .rcx) = 2 := by
+  decide
+
+theorem runP_loops : ((runP countdown 7 start).regs.get .rcx) = 0 := by decide
+
+theorem runP_branches_backward : (runP countdown 3 start).rip = 0x1005 := by decide
+
+theorem runP_exits : (runP countdown 8 start).stopped = true := by decide
+\end{alltt}
+% END LISTING countdown
+}
 
 % ---------------------------------------------------------------------------------------------
 \section{Undefined Behaviour}
@@ -254,7 +516,7 @@ Lean definition: \lean{step} reads undefined bits from the state, so it is an or
 that can be evaluated on a pre-state, and a theorem that places no hypothesis on the oracle holds for
 every resolution of the undefined bits. x86isa keeps a logical story and an execution story apart; we
 do not have to. What it costs is that undefinedness becomes a parameter the harness and the theorems
-must both thread, and the three mechanisms below are what keep that parameter honest.
+must both thread, and the three mechanisms below are what keep that parameter in check.
 
 \subsection{The Draw Is Part of the Model}
 \label{sec:undef:draw}
@@ -620,7 +882,7 @@ reproducible from what they stated. In the first sample, where it could be teste
 present when the claims were written rather than acquired later.
 Re-checking more often does not answer that; only a mechanical check does.
 \src{docs/CLAIMS.tsv[recheck\_d201\_failed, recheck\_d201\_total, recheck\_d214\_failed, recheck\_d214\_total,
-recheck\_d202\_failed, recheck\_d202\_total]; the draft of Section~3 and the related-work cases have no denominator
+recheck\_d202\_failed, recheck\_d202\_total]; the draft of the undefined-behaviour section and the related-work cases have no denominator
 and are not in the rate (D235)}
 
 \paragraph{What this is not.}
@@ -696,7 +958,7 @@ expect the remedy to be a tactic or a verification-condition generator rather th
 \paragraph{What cannot be stated.}
 One property in the sample cannot be expressed as an invariant of a single run: that a scan reads only
 inside its buffer. Memory reads are total and leave no trace in the state, so a wild read is
-unobservable to any single-run invariant. The honest form is non-interference over two runs whose
+unobservable to any single-run invariant. The property that does state it is non-interference over two runs whose
 memories agree on the buffer, and the interface's combinators are all single-run.
 \src{docs/P2-PROOF-INTERFACE.md, problem 3 section 2}
 
@@ -747,7 +1009,7 @@ means. libLISA discovers instructions and synthesizes their semantics by executi
 producing ``the most extensive formal x86-64 model to date, with over 118 000 different instruction
 groups'', compares models across five machines, and reports exposing bugs in handwritten
 models~\cite{liblisa}. Where x86lean asks whether a model built from the manual agrees with another
-model, libLISA takes the processor as ground truth. The two are complementary rather than competing.
+model, libLISA takes the processor as ground truth.
 We have used libLISA's models for the two rules on which x86lean and the reference model part, the
 packed-shift count and MOVD/MOVQ's upper bits (Section~\ref{sec:validation:limits}); a comparison of x86lean against them beyond those rules is the most
 direct second source this work still lacks, and for the SSE forms it would first need their scope extended.
@@ -774,12 +1036,13 @@ controls are explicit, and coverage and validation claims that are derived and c
 written.
 
 \paragraph{Techniques.}
-Most of x86lean's techniques have public precedents, and we cite them where they originate. A step over one machine state is
+Most of x86lean's techniques have public precedents. A step over one machine state is
 the shape of all three models above: a function in x86isa and Sail, rewrite rules in K. The closest precedent in Lean~4 is
 LNSym~\cite{lnsym-repo}, a model of an Arm instruction set with co-simulation conformance testing and a
-benchmarks target. It models a different instruction set, so we cite it for the method and do not
-compare coverage with it.
-\src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6}
+benchmarks target; one level up, Talos~\cite{talos-repo} is a WebAssembly interpreter in Lean~4 that is
+its own proof object, tested against V8. We cite both for the method, not for coverage.
+\src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6; the Talos row of 4, read at its
+README and .github/workflows/differential.yml at 80644390de3a, 2026-10-09}
 Validation by differential testing against executable models and hardware is established practice:
 K was tested against more than 7{,}000 instruction-level cases~\cite{dasgupta-k-x86}, x86isa is
 co-simulated against a processor~\cite{goel-x86isa}, and stratified synthesis learned the x86-64
@@ -851,10 +1114,11 @@ a re-check at least one time in three in each of the three samples we could coun
 % (docs/TACAS-PRICING.md 3a, read at etaps.org/2027/cfp/).
 \section*{Data Availability}
 % The category is ruled: case-study track, not double-blind (docs/TACAS-PRICING.md 3a, council 2026-09-13), so
-% nothing here is anonymized. The submission commit is not yet fixed, and an archived DOI waits on the repository's
-% archive toggle.
+% nothing here is anonymized. The submission commit is not yet fixed. The archive is the repository's Zenodo record
+% (release v2026.10.02, 2026-10-02); the CONCEPT DOI is cited so it resolves to the latest version.
 The model, its proofs, the differential harness and every record cited here are public at
-\url{https://github.com/jyh/x86lean} under the Apache-2.0 licence. Every figure this paper quotes from
+\url{https://github.com/jyh/x86lean} under the Apache-2.0 licence, and archived on Zenodo at
+\url{https://doi.org/10.5281/zenodo.23105272}. Every figure this paper quotes from
 the manifest \texttt{docs/CLAIMS.tsv} names the commit it is pinned at and the command that re-derives
 it, and \texttt{python3 scripts/\allowbreak check\_\allowbreak claims.py} re-derives all of them and checks the paper's text
 against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the reference model is ACL2
