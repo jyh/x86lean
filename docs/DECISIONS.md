@@ -20864,3 +20864,38 @@ arms that used `adc` or `nop` as their non-core example now use `btc` and `xadd`
 **After it:** 20 of 22 references translate as the census built them. The two that do not are BLAKE2s/2b, whose census builds copy
 structs with `movups` (SSE). Built SSE-free (`-mno-sse -mno-sse2 -D_FORTIFY_SOURCE=0`), both translate.
 **Not decided here:** moving the harness's x86lean pin to this commit. That is a registration change and belongs to the Captain's word.
+
+## D329 — The four remaining width siblings the primitive census named, and what their run must show (committed before it is read)
+
+**Why these four.** After D327 the census's table of not-covered forms carried exactly four marked † (the same mnemonic and
+operand shape tested at another width): `movb imm,r8` (5 candidates) · `roll r32`, the by-one rotate (`d1 /0`; 2) ·
+`imull imm,m,r32` (1) · `cmovnsq r64,r64` (1). D327's record held `imull`/`roll` out so its batch carried exactly the six its ladder
+priced; this batch takes the rest. Each new vector is the constructor of a tested sibling at another size: `mov_ri_b` beside
+`mov_ri`/`mov_ri_d` (`.mov`), `rol_r_one_d` beside `rol_r_one_b`/`rol_r_one_q` (`.rot`), `imul3_ml` beside `imul3_mq` (`.imulr`),
+`cmovns_rr_q` beside `cmovns_rr_l` (`.cmov`). `claimed_forms.py` resolves each to the SAME roster row as its sibling (rows 256
+`mov r,imm` · 509 `rol r,one` · 416 `imul r,m,imm` · 434 `cmovns r,r`); claimed rows stay 500 of 525, so they add four runs (343 →
+347) and no row. No constructor changes.
+**The census, from the ladder before any run, then re-derived by the tool on the 1162-vector table (no oracle involved):** only one
+non-calling-out row is incomplete solely on these forms — `xxh32` — so **40 → 41 of 57 ALL COVERED**; the four HACL* rows that miss
+only `movb imm,r8` call out to `memcpy` and are never counted. The tool's run on the 1162-vector table reads 41, with the
+s2n-bignum appendix 199 → 202 of 332, and no † form left in the table.
+**Predictions, committed before `run_differential.sh` is launched — no output of this run exists:**
+1. +4 vectors ⇒ **+352 cases** (4 × 88, the per-vector count of record 37); `unexplained` stays **0**; `oracle-divergence` and
+   `oracle-leaks` do not move.
+2. `mov_ri_b`, `cmovns_rr_q`: **88 matched each** — neither writes a flag, so no declared-undefined component exists.
+3. `rol_r_one_d`: **88 matched** — a rotate writes only CF and OF, and at a count of 1 OF is defined (`Flags.rotFlags` uses the undefined
+   bit only for a masked count above 1).
+4. `imul3_ml`: **matched + explained = 88**, split unpredicted — three-operand `imul` leaves SF, ZF, AF and PF undefined at every
+   input, so every case carries a declared-undefined component and the split is a fact about the values.
+5. Each new id appears **88 times on BOTH sides** of the run; a count below 88 on either is a harness finding, not agreement.
+**Wrong if:** any prediction fails, or any of the four needs a semantics change — then it is not a width sibling.
+**Result (record 38):** four of five predictions held; **prediction 4 FAILED as written.** 102256 cases (+352), 0 unexplained,
+divergence 292 and leaks 0 unmoved (1 ✔); `mov_ri_b` and `cmovns_rr_q` 88 matched each (2 ✔); `rol_r_one_d` 88 matched (3 ✔);
+each new id 88 records on both sides (5 ✔). `imul3_ml` reads **0 matched, 176 explained**, not "matched + explained = 88":
+`compareRecs` counts `matched` in cases and `explained` in disagreements, and every case disagrees on exactly two declared-undefined
+flags (ZF and PF, all 88 cases, nothing else). The prediction added two different units, copying record 37's `shr_r_one_d`, where
+one component per case made them coincide; the `.q` sibling `imul3_mq` reads the identical 0 / 176. What it was meant to assert —
+no difference outside the declared-undefined flags — holds. A plant (`mov_ri_b` given the zero-extending `.d` rule) reds 59 of 88,
+the 29 others being the pre-states whose RAX upper bits are already zero. The census re-derived from the 1162-vector table reads
+41 of 57 ALL COVERED and 202 of 332 in the appendix, as stated above. The predictions' own commit is preserved as the tag
+`d329-predictions`; the branch was squashed after the run so the landing ritual has one batch commit.

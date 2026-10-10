@@ -3904,6 +3904,36 @@ def vectors : List Vec :=
     , instr := ⟨.un .neg .d (R .rax), 2⟩ }
   , { id := "shr_r_one_d", mnemonic := "shr", asm := "shrl %eax"
     , bytes := "d1e8", instr := ⟨.shift .shr .d (R .rax) (.imm8 1), 2⟩ }
+  -- ⭐⭐ THE FOUR REMAINING WIDTH SIBLINGS THE PRIMITIVE CENSUS NAMED (D329).
+  --
+  -- After D327 the census's table of not-covered forms carried exactly four marked
+  -- † (tested at another width): these.  Each is the same constructor as a vector
+  -- above at a different size, so they add RUNS and no coverage ROW.
+  --
+  --   mov_ri_b        `movb $imm, %r8` (opcode B0+r); `.d` and `.q` existed.  The
+  --                   content is the one an 8-bit write carries: bits 8..63 of RAX
+  --                   are KEPT, where the `.d` form clears them
+  --   rol_r_one_d     the by-one rotate at `.d`; `.b` and `.q` existed (and the
+  --                   by-five form at `.d`).  Count 1 is the one count whose OF is
+  --                   DEFINED
+  --   imul3_ml        three-operand `imul` with a MEMORY source at `.d`; `.q`
+  --                   existed (and the register source at `.d`).  The immediate is
+  --                   XXH32's PRIME32_1, the constant the census's candidate
+  --                   multiplies by
+  --   cmovns_rr_q     `cmovns` at `.q`; `.d` existed — the `cmov` note above, the
+  --                   other way round: at `.q` a false condition leaves RAX intact
+  --
+  -- ⚠️ NO SEMANTICS CHANGES; the run is the whole check that the size is threaded
+  -- through.  Bytes and lengths are clang's (`-target x86_64-unknown-linux-gnu`,
+  -- `objdump -d`), the recipe `scripts/check_encodings.py` re-derives in CI.
+  , { id := "mov_ri_b", mnemonic := "mov", asm := "movb $0x5a, %al"
+    , bytes := "b05a", instr := ⟨.mov .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "rol_r_one_d", mnemonic := "rol", asm := "roll %eax"
+    , bytes := "d1c0", instr := ⟨.rot .rol .d (R .rax) (.imm8 1), 2⟩ }
+  , { id := "imul3_ml", mnemonic := "imul", asm := "imull $0x9e3779b1, (%rbx), %eax"
+    , bytes := "6903b179379e", instr := ⟨.imulr .d .rax (M .rbx) (some 0x9e3779b1), 6⟩ }
+  , { id := "cmovns_rr_q", mnemonic := "cmovcc", asm := "cmovnsq %rcx, %rax"
+    , bytes := "480f49c1", instr := ⟨.cmov .ns .q .rax (R .rcx), 4⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random
