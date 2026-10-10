@@ -20899,3 +20899,49 @@ no difference outside the declared-undefined flags — holds. A plant (`mov_ri_b
 the 29 others being the pre-states whose RAX upper bits are already zero. The census re-derived from the 1162-vector table reads
 41 of 57 ALL COVERED and 202 of 332 in the appendix, as stated above. The predictions' own commit is preserved as the tag
 `d329-predictions`; the branch was squashed after the run so the landing ritual has one batch commit.
+
+## D330 — W1b: ADCX, ADOX and MULX, refereed by the differential where it can run them and by silicon where it cannot (predictions committed before any run)
+
+**Why these three.** `docs/PRIMITIVE-CENSUS.md` names six BMI/ADX forms as the gap in four public candidates — `adcxq r64,r64`
+· `adcxq m,r64` · `adoxq r64,r64` · `adoxq m,r64` · `mulxq r64,r64,r64` · `mulxq m,r64,r64` — completing (with nothing else)
+`vale-fadd`, and with `mulx` `s2n-bignum_mul_4_8`, `s2n-bignum_montmul_p256` and `vale-fmul`.
+**The oracle, measured rather than assumed.** The commission said the reference model refuses these forms. `mulx` is on
+`scripts/oracle_availability.py`'s list (refuses 88/88). `adcx` and `adox` were NOT on it, so both were added as `refuses`
+and the gate run before any constructor existed: **both EXECUTE, 88 of 88**, with both controls behaving. So the referee
+splits: `adcx`/`adox` are ordinary differential rows (vectors, the 88 pre-states, x86isa as partner), and `hwprobe/` reads them
+on silicon as a third source; `mulx` has no differential partner and silicon is its only referee.
+**The model.** One constructor `.adx (ofChain : Bool) sz dst src` (ADCX: CF in and out; ADOX: OF) whose sum and carry-out are
+ADC's (`Flags.adcResult`, `Flags.adcCF`) and which replaces exactly one flag; one constructor `.mulx sz hi lo src` writing
+`lo` (VEX.vvvv) and then `hi` (ModRM.reg), so one register named twice holds the high half (SDM Vol. 2B MULX: DEST2 is
+written before DEST1). Both refuse `.b`/`.w` (no encoding) and are `T-exact` (no undefined bit). SDM: Vol. 2A ADCX, ADOX;
+Vol. 2B MULX; Vol. 1 §3.4.1.1 for the 32-bit zero-extension. Characterisations in `X86/Theorems.lean` §W1b (three standard
+axioms, no `bv_decide`). `adcx`/`adox` join `tableP0` and the roster (197 → 199); `mulx` does NOT — `tableP0` is the table of
+differentially tested rows and `every_row_has_a_vector` would be false — and is the one row of a new `siliconTable`, rendered
+in its own section of `docs/COVERAGE.md`.
+**The differential rows:** 8 vectors — `adcx`/`adox` × `.q`/`.d` × `%rcx`/`(%rbx)` source, destination RAX.
+**The silicon rows (`hwprobe/mk_int_rows.py`, derived from the stated rules ADD-CARRY · ONE-FLAG · MUL-HALVES · SAME-DEST ·
+ZERO-EXT, never typed):** 384 rows. ADCX/ADOX: 8 forms × 9 operand pairs (zero; 0 + all-ones; all-ones + 1; all-ones + all-ones;
+2^63 + 2^63; (2^63−1) + 1; a pair summing to all-ones; a pair whose LOW 32 bits carry and whose 64-bit sum does not; one whose
+HIGH half alone carries) × carry-in {0, 1} × the other five arithmetic flags {all clear, all set} = 288. MULX: 6 forms
+(`q`/`l` × register source / memory source / both destinations the same register) × 8 (RDX, SRC) pairs (zero, one, all-ones
+squared, 2^63 × 2, a mixed pair, 2^32−1 squared, and two with junk above bit 31 that the 32-bit forms must ignore) × flags
+{all clear, all set} = 96. Destinations are pre-filled with a canary; the same-register form also checks that the other
+register (R9) still holds it; every 32-bit form's result is compared at 64 bits (bits 63:32 must be zero). RFLAGS is compared
+on the six arithmetic flags. The probe reads CPUID.(7,0):EBX bits 8 (BMI2) and 19 (ADX), prints them, and REFUSES (exit 2)
+without both. The 96 MULX rows are pinned in `Tests/Anchors.lean` by `decide` (`hwprobe/mk_int_anchors.py`); the 288
+ADCX/ADOX rows are carried by the vectors, as `mk_anchors.py`'s rule says.
+**Predictions — committed before the hwprobe push, before any Rosetta run of the probe, and before the differential run:**
+1. **hwprobe, both legs (ubuntu-latest — expected an AMD EPYC, the label names none; macos-15-intel — documented Intel):**
+   CPUID reports BMI2=1 ADX=1; `rows 384 disagreements 0`. The SSE referee is unchanged and still agrees on every row.
+2. **Controls, both legs:** `--plant` (CF flipped in row 0, `adcxq_rr_zero_c0`) → rc 1, exactly one `DIFF`, on that row;
+   `--plant-op` (one declared byte of `i_adcxq_rr` wrong) → rc 2, `REFUSED i_adcxq_rr`. The SSE controls unchanged.
+3. **No AMD/Intel difference:** none of the three instructions has an undefined flag or an implementation-specific field.
+4. **Differential:** +8 vectors ⇒ **+704 cases** (8 × 88) = 102608; **+704 matched** (every flag either written by the rule or
+   unmodified, so no declared-undefined component exists); `explained`, `oracle-divergence` (292) and `oracle-leaks` (0) do
+   not move; `unexplained` stays **0**; each new id has 88 records on BOTH sides.
+5. **Census, re-derived:** `vale-fadd` becomes ALL COVERED (40 → 41 of 57). The three MULX candidates do NOT move: the census
+   counts a form only from a differential vector, and MULX has none. The s2n appendix figure is not predicted.
+**Wrong if:** a leg disagrees on any row (then the rule or the processor is wrong, and which is decided from the SDM, never
+by editing an expectation to match), the plant reds other than exactly its row, the bad byte does not refuse, the two vendors
+differ, or the differential reports any of the 704 new cases as other than matched, or `unexplained` above 0. Rosetta 2 is an emulator: if it
+runs the probe its agreement is corroboration only, and if it lacks BMI2/ADX the probe must refuse rather than crash.
