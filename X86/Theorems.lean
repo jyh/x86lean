@@ -2008,4 +2008,100 @@ theorem unpack_spelling_mnemonics_are_distinct :
 
 end Batch34
 
+/-! ## D330 (W1b) — ADCX, ADOX and MULX
+
+⭐ THE CONTENT OF ALL THREE IS WHAT THEY DO **NOT** WRITE.  ADCX writes CF and no
+other flag, ADOX writes OF and no other flag, and MULX writes no flag at all
+(SDM Vol. 2A ADCX, ADOX; Vol. 2B MULX).  A model that routed `adcx` through
+`.bin .adc` would compute the same sum and write six flags; these theorems are
+the statements that separate the two, and they are equations a reader can check
+without running anything.
+
+⚠️ MULX HAS NO DIFFERENTIAL PARTNER: ACL2 x86isa refuses it at every pre-state
+(`scripts/oracle_availability.py`).  Its numbers are checked against a PROCESSOR
+by `hwprobe/` and pinned in `Tests/Anchors.lean`; these theorems state its frame. -/
+section W1b
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- ADCX, register source: the sum is ADC's, and the flags are the incoming flags
+with CF — and only CF — replaced by the carry out. -/
+theorem step_adcx_reg (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.adx false sz dst (.reg rs), len⟩ s =
+      ((s.setFlags { s.flags with
+          cf := Flags.adcCF sz (s.getReg sz dst) (s.getReg sz rs) s.flags.cf }).setReg sz dst
+        (Flags.adcResult sz (s.getReg sz dst) (s.getReg sz rs) s.flags.cf)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ADOX, register source: the same sum, carried through OF instead. -/
+theorem step_adox_reg (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.adx true sz dst (.reg rs), len⟩ s =
+      ((s.setFlags { s.flags with
+          of := Flags.adcCF sz (s.getReg sz dst) (s.getReg sz rs) s.flags.of }).setReg sz dst
+        (Flags.adcResult sz (s.getReg sz dst) (s.getReg sz rs) s.flags.of)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ ADCX LEAVES OF, SF, ZF, AF AND PF EXACTLY AS IT FOUND THEM — the half of
+the SDM's flag sentence that ADC does not share. -/
+theorem step_adcx_keeps_other_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.adx false sz dst (.reg rs), len⟩ s).flags
+    f.of = s.flags.of ∧ f.sf = s.flags.sf ∧ f.zf = s.flags.zf
+      ∧ f.af = s.flags.af ∧ f.pf = s.flags.pf := by
+  rw [step_adcx_reg h dst rs hsz]; simp
+
+/-- ⭐ ADOX LEAVES CF, SF, ZF, AF AND PF EXACTLY AS IT FOUND THEM — including CF,
+which is the flag a reader expects an add-with-carry to touch. -/
+theorem step_adox_keeps_other_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.adx true sz dst (.reg rs), len⟩ s).flags
+    f.cf = s.flags.cf ∧ f.sf = s.flags.sf ∧ f.zf = s.flags.zf
+      ∧ f.af = s.flags.af ∧ f.pf = s.flags.pf := by
+  rw [step_adox_reg h dst rs hsz]; simp
+
+/-- ADCX/ADOX spend no oracle bit: every flag is either the carry or unmodified. -/
+@[simp] theorem step_adx_oracle (o : Bool) (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.adx o sz dst (.reg rs), len⟩ s).oracle = s.oracle := by
+  cases o
+  · rw [step_adcx_reg h dst rs hsz]; simp
+  · rw [step_adox_reg h dst rs hsz]; simp
+
+/-- MULX, register source: RDX times the source, the low half written to `lo`
+FIRST and the high half to `hi` SECOND (the SDM's order), and nothing else. -/
+theorem step_mulx_reg (h : Live s) (hi lo rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.mulx sz hi lo (.reg rs), len⟩ s =
+      (let p := Value.mulPair sz (s.getReg sz .rdx) (s.getReg sz rs)
+       ((s.setReg sz lo p.1).setReg sz hi p.2).setRip (s.rip + BitVec.ofNat 64 len)) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ "FLAGS AFFECTED: NONE", as an equation. -/
+@[simp] theorem step_mulx_flags (h : Live s) (hi lo rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.mulx sz hi lo (.reg rs), len⟩ s).flags = s.flags := by
+  rw [step_mulx_reg h hi lo rs hsz]; simp
+
+@[simp] theorem step_mulx_oracle (h : Live s) (hi lo rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.mulx sz hi lo (.reg rs), len⟩ s).oracle = s.oracle := by
+  rw [step_mulx_reg h hi lo rs hsz]; simp
+
+/-- ⭐⭐ THE SAME-DESTINATION CASE: when both destinations name one register, it
+holds the HIGH half (SDM Vol. 2B, MULX: DEST2 is written before DEST1). -/
+theorem step_mulx_same_dest_is_high (h : Live s) (r rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.mulx sz r r (.reg rs), len⟩ s).getReg sz r
+      = Value.trunc sz (Value.mulPair sz (s.getReg sz .rdx) (s.getReg sz rs)).2 := by
+  rw [step_mulx_reg h r r rs hsz]
+  rcases hsz with rfl | rfl <;> simp [Cpu.getReg, Value.trunc_writeView]
+
+/-- ⛔ NEITHER FORM EXISTS AT 8 OR 16 BITS, and `step` refuses rather than
+answering for bytes no encoding can carry. -/
+theorem step_adx_narrow_refuses (o : Bool) (dst : GPR) (src : Operand) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.adx o sz dst src, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+theorem step_mulx_narrow_refuses (hi lo : GPR) (src : Operand) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.mulx sz hi lo src, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+end W1b
+
 end X86

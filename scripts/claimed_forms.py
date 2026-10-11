@@ -589,6 +589,21 @@ CLAIMS_NO_ROW = {
     "movabs_q":           "movabs is a distinct ENCODING of a row already claimed",
     "movabs_lo32_ones":   "movabs is a distinct ENCODING of a row already claimed",
     "movabs_hi32_ones":   "movabs is a distinct ENCODING of a row already claimed",
+    # ⭐ D330 (W1b): ADCX and ADOX.  A FOURTH reason, stated per member and true of
+    # each: K's tree (the commit `p1/roster.tsv` is generated from) carries NO
+    # adcx or adox rule at all — `find semantics -iname '*adcx*' -o -iname
+    # '*adox*'` returns nothing, against `mulx`'s four files — so the roster has
+    # no row to claim, by derivation and not by exclusion.  Like the SIMD block,
+    # the gate stays two-way: the day a regenerated roster gains the row, these
+    # resolve and this table reports itself stale.
+    "adcx_rr_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adcx_rm_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adcx_rr_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adcx_rm_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rr_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rm_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rr_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rm_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
     # ⭐ P2 BATCH 35 (the `pd` spellings of the two 128-bit moves), added in
     # the SAME COMMIT as the vectors.  Eight entries, one visible line each,
     # for the same reason the batch-15 block states: a prefix pattern would

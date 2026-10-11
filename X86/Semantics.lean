@@ -1968,6 +1968,48 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         let (pfU, s) := s.undefBit
         ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setReg sz dst l).setRip nr
 
+  -- ADCX / ADOX (SDM Vol. 2A, ADCX and ADOX), D330.  ADCX: "DEST := DEST + SRC +
+  -- CF", "CF is updated based on the result.  OF, SF, ZF, AF and PF flags are
+  -- unmodified."  ADOX is the same sentence with OF in both places.
+  --
+  -- ⭐ THE SUM AND THE CARRY-OUT ARE ADC'S, SHARED RATHER THAN RESTATED
+  -- (`Flags.adcResult`, `Flags.adcCF`): the arithmetic is identical and only the
+  -- flag that carries it differs.  ⚠️ The carry is read from the INCOMING flags,
+  -- exactly as `.bin .adc` reads it.
+  --
+  -- ⛔ NOTHING IS DRAWN FROM THE UNDEFINED-BIT ORACLE: every flag is either the
+  -- one carry or unmodified, so the form is `T-exact`.
+  | .adx o sz dst src =>
+      match sz with
+      | .d | .q =>
+          let a := s.getReg sz dst
+          let b := s.readOperand sz nr src
+          let cin := if o then s.flags.of else s.flags.cf
+          let res := Flags.adcResult sz a b cin
+          let cout := Flags.adcCF sz a b cin
+          let f := if o then { s.flags with of := cout } else { s.flags with cf := cout }
+          ((s.setFlags f).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands
+          "adcx/adox at an 8- or 16-bit operand size (no encoding exists)")
+
+  -- MULX (SDM Vol. 2B, MULX), D330.  "DEST2 := (SRC1 * SRC2)[OperandSize-1:0];
+  -- DEST1 := (SRC1 * SRC2)[2*OperandSize-1:OperandSize]", SRC1 being RDX (EDX at
+  -- 32 bits) and DEST2 the VEX.vvvv register.  "Flags Affected: None."
+  --
+  -- ⚠️ THE ORDER OF THE TWO WRITES IS THE SDM's, AND IT IS OBSERVABLE: when `hi`
+  -- and `lo` are the same register the second write wins, and the SDM says the
+  -- high half is what that register holds.  ⚠️ Both reads (RDX and `src`) happen
+  -- before either write, so a source addressed through a destination reads the
+  -- pre-state.  At `.d` both writes zero-extend (SDM Vol. 1 §3.4.1.1).
+  | .mulx sz hi lo src =>
+      match sz with
+      | .d | .q =>
+          let b := s.readOperand sz nr src
+          let (l, h) := Value.mulPair sz (s.getReg sz .rdx) b
+          ((s.setReg sz lo l).setReg sz hi h).setRip nr
+      | _ => s.halt (.illegalOperands
+          "mulx at an 8- or 16-bit operand size (VEX.W selects 32 or 64 only)")
+
   -- ══ P1 BATCH 18 ═══════════════════════════════════════════════════════
   -- The compare-exchange pair and the double-precision shifts.
 
