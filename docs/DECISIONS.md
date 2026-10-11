@@ -600,6 +600,8 @@ convenient.
 **Reversal cost:** none — this is a recorded absence. Closing it means modelling
 signed bit-string addressing and giving it its own vectors.
 
+➡️ **Reversed by D331** (2026-10-10): the shape is modelled and vectored there; the text above is kept as written.
+
 ## D24 — `xchg %rax, %rax` is NOP and `xchg %eax, %eax` is not, and the assembler is the witness.
 
 P1 batch 10 needed a vector for `xchg` with the same register twice, because
@@ -21052,3 +21054,25 @@ undefined-flag pattern taken from the existing `bt*_mi_*` vectors, where PF and 
 **Wrong if:** any count differs; a refusal on one side only; a divergence outside the listed states or a listed one that does
 not occur; the plant leaves any vector green; or x86isa refuses the shape outright (it would change the referee).
 **Reversal of D23:** D23 stands as the record of why the shape was declined; it gains a pointer here and no edit.
+**Result (record 39, `docs/DIFFERENTIAL-P2-BATCH39.md`):** predictions 1–6 held on the second run — 104368 cases, matched
+81399, explained 33979, oracle-divergence 616, unexplained 0; per vector and per (vector, field, state) exactly as listed; the
+Lean records equal the SDM-rule simulation and the oracle's equal the x86isa-rule simulation in all 2464 cases; the plant reds
+all 28 vectors (2402 unexplained). ⛔ **The FIRST run was red, 284 unexplained, and refuted an assumption the predictions
+rested on, not the model:** every count but `unexplained` matched, and the 284 were out-of-window CFs the oracle read as 1
+because its memory persists between cases and earlier cases had written there. The emitter now writes the addressed
+byte into each case's pre-state (`memToLisp`, via `bitStringByte`), and run 2 changed nothing else.
+**Re-base, 2026-10-10 19:15 PDT (written before the re-run):** this batch is re-based onto W1b (`86d66a8`, record 39), so
+its record is **40** (`docs/DIFFERENTIAL-P2-BATCH40.md`, P2 batch 54); the "record 39" in the Result above is the pre-rebase
+branch's numbering, and its file name now belongs to W1b. The predictions and the vectors are unchanged; the pre-states are
+unchanged (88 per vector), so every per-vector count carries over. **Predicted for the re-run:** 1170 + 28 = **1198 vectors**,
+**105424 cases** (102960 + 2464), matched **82367** (82131 + 236), explained **34155** (29699 + 4456), `unexplained` **0**,
+`oracle-divergence` **616** (292 + 324), leaks 0, missing 0; each of the 28 ids at its D331 §3 counts and every declared
+(vector, field, state) diverging. Silicon reading: see W2b's decision note (branch `paris/w2b-bitstring-silicon`), landing after this batch; its number is not written here because it heads no section on this tree (`check_citations`; reworded after the re-run for that reason alone).
+**Census prediction (written before re-deriving it):** `docs/PRIMITIVE-CENSUS.md` names no `bt`-family form among any
+candidate's uncovered forms, so ALL COVERED stays **42 of 57** and the s2n appendix **206 of 332**; only the model header moves,
+to `vectors=1198` and `forms=963` (12 new `bt*` m,r forms plus `lock btsl` as its own prefixed form).
+**Re-base result (record 40):** 1198 vectors, 105424 cases, matched 82367, explained 34155, unexplained 0, oracle-divergence
+616, leaks 0, missing 0 — every figure as predicted; per vector and per declared (vector, field, state) exactly as D331 §3–4,
+with the Lean records equal to the SDM-rule simulation and the oracle's to the x86isa-rule simulation in all 2464 cases. Census:
+42 of 57 and 206 of 332 held; the model header reads `forms=962`, not 963 — the census strips `lock` as a prefix before keying
+a form, so `lock btsl` is the `btsl` m,r form and the prediction's thirteenth form does not exist.
