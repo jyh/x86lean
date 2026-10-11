@@ -3934,6 +3934,30 @@ def vectors : List Vec :=
     , bytes := "6903b179379e", instr := ⟨.imulr .d .rax (M .rbx) (some 0x9e3779b1), 6⟩ }
   , { id := "cmovns_rr_q", mnemonic := "cmovcc", asm := "cmovnsq %rcx, %rax"
     , bytes := "480f49c1", instr := ⟨.cmov .ns .q .rax (R .rcx), 4⟩ }
+  -- ⭐ D330 (W1b): ADCX AND ADOX, the two ADX forms the primitive census needs
+  -- (`adcxq`/`adoxq` at `r64,r64` and `m,r64`) and their `.d` siblings.
+  --
+  -- ⚠️ THE CONTENT IS THE FLAGS THEY LEAVE ALONE.  Each reads one carry and writes
+  -- one flag; the pre-states' flag seeds (0, 5, 63 and the random tail) put CF and
+  -- OF in all four combinations, so an `adcx` that read OF, or an `adox` that wrote
+  -- CF, differs in the cases where the two flags differ.  The `.d` forms carry the
+  -- 32-bit zero-extension.  x86isa executes both (`oracle_availability.py`, 88/88).
+  , { id := "adcx_rr_q", mnemonic := "adcx", asm := "adcxq %rcx, %rax"
+    , bytes := "66480f38f6c1", instr := ⟨.adx false .q .rax (R .rcx), 6⟩ }
+  , { id := "adcx_rm_q", mnemonic := "adcx", asm := "adcxq (%rbx), %rax"
+    , bytes := "66480f38f603", instr := ⟨.adx false .q .rax (M .rbx), 6⟩ }
+  , { id := "adcx_rr_d", mnemonic := "adcx", asm := "adcxl %ecx, %eax"
+    , bytes := "660f38f6c1", instr := ⟨.adx false .d .rax (R .rcx), 5⟩ }
+  , { id := "adcx_rm_d", mnemonic := "adcx", asm := "adcxl (%rbx), %eax"
+    , bytes := "660f38f603", instr := ⟨.adx false .d .rax (M .rbx), 5⟩ }
+  , { id := "adox_rr_q", mnemonic := "adox", asm := "adoxq %rcx, %rax"
+    , bytes := "f3480f38f6c1", instr := ⟨.adx true .q .rax (R .rcx), 6⟩ }
+  , { id := "adox_rm_q", mnemonic := "adox", asm := "adoxq (%rbx), %rax"
+    , bytes := "f3480f38f603", instr := ⟨.adx true .q .rax (M .rbx), 6⟩ }
+  , { id := "adox_rr_d", mnemonic := "adox", asm := "adoxl %ecx, %eax"
+    , bytes := "f30f38f6c1", instr := ⟨.adx true .d .rax (R .rcx), 5⟩ }
+  , { id := "adox_rm_d", mnemonic := "adox", asm := "adoxl (%rbx), %eax"
+    , bytes := "f30f38f603", instr := ⟨.adx true .d .rax (M .rbx), 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

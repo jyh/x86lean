@@ -56,6 +56,18 @@ theorem table_rows_distinct :
 
 theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
+/-- ⭐ D330 (W1b): a form refereed by a PROCESSOR is never also claimed as
+differentially tested.  `siliconTable`'s mnemonics are in neither `tableP0` nor
+`rosterP0`, and every one of them is a mnemonic `step` implements (the one-row
+list is checked against a constructor below, so a row for a form the AST cannot
+produce fails here). -/
+theorem silicon_rows_are_not_differential_rows :
+    siliconTable.all (fun r => !(tableP0.map Row.mnemonic).contains r.mnemonic
+      && !rosterP0.contains r.mnemonic) = true := by decide
+
+theorem silicon_rows_name_ast_mnemonics :
+    siliconTable.map Row.mnemonic = [(Op.mulx .q .rdx .rax (.reg .rcx)).mnemonic] := by decide
+
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
 `rosterP0`'s docstring said `Tests/Coverage.lean` *"checks that this list and the
@@ -170,7 +182,9 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B6a (D289) adds TWO: `cvtsd2si`, `cvtss2si`, through `vcvt2si`/`vcvt2sim` (D288).
 -- ⭐ SUB-GROUP B6b (D292) adds TWO: `sqrtsd`, `sqrtss`, through `vsqrt`/`vsqrtm` (D291).
 -- ⭐ SUB-GROUP B7 (D295) adds ONE: `cvtpd2ps`, through `vcvtpd2ps`/`vcvtpd2psm`.
-theorem roster_size_is_197 : rosterSize = 197 := by decide
+-- ⭐ D330 (W1b) adds TWO: `adcx`, `adox`, through `.adx`.  ⚠️ `mulx` (`.mulx`) is implemented
+--   and is NOT counted here: x86isa refuses it, so it has no vector; it is `siliconTable`'s row.
+theorem roster_size_is_199 : rosterSize = 199 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -230,7 +244,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ THE FOUR REMAINING WIDTH SIBLINGS (D329) add FOUR, the census's last † forms:
 -- `mov imm,r` at `.b`, the by-one `rol` at `.d`, three-operand `imul` with a memory
 -- source at `.d`, and `cmovns` at `.q`.  Runs, no new coverage ROW.
-theorem vector_count_is_1162 : vectorCount = 1162 := by decide
+-- ⭐ D330 (W1b) adds EIGHT: `adcx` and `adox` at `.q` and `.d`, register and memory source.
+theorem vector_count_is_1170 : vectorCount = 1170 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1168,6 +1183,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- difference visible.  `.imulr`'s destination is a `GPR` by its type.
     | .muldiv .. => false
     | .imulr .. => false
+    -- D330 (W1b): `adcx`/`adox` and `mulx` write GPRs named by their types; the
+    -- `m` in each is a SOURCE.
+    | .adx .. | .mulx .. => false
     -- ⭐ P1 BATCH 18, AND THE EXHAUSTIVE MATCH EARNED ITS KEEP A FIFTH TIME:
     -- three new constructors, three compile errors here, three answers written
     -- down instead of assumed.  All three take an `Operand` destination and all

@@ -1327,6 +1327,32 @@ inductive Op where
   16-, 32- or 64-bit operand, and the byte-wide multiply is the one-operand
   `F6 /5` above.  `imulrEncodable` is the table, and `step` declines `.b`. -/
   | imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val)
+  /-- D330 (W1b): ADCX and ADOX (SDM Vol. 2A, ADCX and ADOX) — an add with carry
+  that reads and writes ONE flag and leaves every other flag alone.  `ofChain =
+  false` is ADCX, whose carry is CF; `true` is ADOX, whose carry is OF.
+
+  ⭐ ONE CONSTRUCTOR, KEYED BY THE FLAG, because the two differ in exactly one
+  thing — which flag is the carry — and the sum, the width rule and the operand
+  shapes are identical.  It is NOT `.bin .adc`: ADC writes all six arithmetic
+  flags, and these write one, which is the whole reason the instructions exist
+  (two independent carry chains interleaved in one multiply loop).
+
+  ⛔ THE DESTINATION IS A REGISTER BY THE ENCODING (`66/F3 0F 38 F6 /r` is
+  `r, r/m`), and only widths `.d` and `.q` exist: there is no 8- or 16-bit form,
+  so `step` declines them. -/
+  | adx (ofChain : Bool) (sz : Size) (dst : GPR) (src : Operand)
+  /-- D330 (W1b): MULX (SDM Vol. 2B, MULX) — the unsigned multiply of RDX (EDX
+  at `.d`) by `src`, the high half to `hi` (ModRM.reg) and the low half to `lo`
+  (VEX.vvvv).  "Flags Affected: None."
+
+  ⚠️ BOTH DESTINATIONS ARE NAMED BY THE INSTRUCTION, unlike `.muldiv .mul`'s
+  fixed RDX:RAX pair, and they may be the SAME register.  The SDM's operation
+  writes DEST2 (low) and then DEST1 (high), and says that when the two are the
+  same register the high half is the result; `step` writes them in that order.
+
+  ⛔ Widths `.b` and `.w` have no encoding (VEX.W selects 32 or 64), so `step`
+  declines them, as it does for `.shiftx`. -/
+  | mulx (sz : Size) (hi lo : GPR) (src : Operand)
   /-- P1 BATCH 18: CMPXCHG — the first form in this model whose DESTINATION is
   decided by a comparison the instruction makes about its own operands.
 
@@ -2122,6 +2148,8 @@ def opOperands : Op → List Operand
   | .repstrop _ _ _ => []
   | .muldiv _ _ src => [src]
   | .imulr _ _ src _ => [src]
+  | .adx _ _ _ src => [src]
+  | .mulx _ _ _ src => [src]
   | .cmpxchg _ dst _ => [dst]
   | .xadd _ dst _ => [dst]
   | .dshift _ _ dst _ _ => [dst]
@@ -2275,6 +2303,8 @@ def Op.anyLocked : Op → Bool
   | .repstrop _ _ _ => false
   | .muldiv _ _ src => src.locked
   | .imulr _ _ src _ => src.locked
+  | .adx _ _ _ src => src.locked
+  | .mulx _ _ _ src => src.locked
   | .cmpxchg _ dst _ => dst.locked
   | .xadd _ dst _ => dst.locked
   | .dshift _ _ dst _ _ => dst.locked
@@ -2356,6 +2386,14 @@ one per family whose operand is a VARIABLE, stating the obvious fact in the form
 
 @[simp] theorem lockIllegal_imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val)
     (h : src.locked = false) : (Op.imulr sz dst src imm).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_adx (o : Bool) (sz : Size) (dst : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.adx o sz dst src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_mulx (sz : Size) (hi lo : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.mulx sz hi lo src).lockIllegal = false := by
   cases src <;> simp_all [Operand.locked, opOperands]
 
 @[simp] theorem lockIllegal_dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR)
@@ -2486,6 +2524,8 @@ def Op.mnemonic : Op → String
   | .repstrop r _ _ => r.mnemonic
   | .muldiv k .. => k.mnemonic
   | .imulr .. => "imul"
+  | .adx o .. => if o then "adox" else "adcx"
+  | .mulx .. => "mulx"
   | .cmpxchg .. => "cmpxchg"
   | .xadd .. => "xadd"
   | .dshift k .. => k.mnemonic
@@ -2734,7 +2774,12 @@ def rosterP0 : List String :=
    "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
    -- ⭐⭐⭐ P2 BATCH 37 — the two-source shuffles, 88% of the batch's demand and
    -- the only NEW SEMANTICS in it.  One row each, both operand shapes.
-   "shufps", "shufpd"]
+   "shufps", "shufpd",
+   -- D330 (W1b): the ADX pair, one constructor (`.adx`, keyed by which flag
+   -- carries).  ⚠️ `mulx` is implemented and is NOT here: this list is what the
+   -- DIFFERENTIAL covers, and x86isa refuses `mulx`; it is `siliconTable`'s row
+   -- (X86/Coverage.lean).
+   "adcx", "adox"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`
