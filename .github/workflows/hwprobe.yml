@@ -71,6 +71,11 @@ jobs:
           python3 mk_int_rows.py > int_rows.h
           python3 mk_int_rows.py --plant > int_rows_plant.h
           python3 mk_int_rows.py --plant-op > int_rows_badop.h
+          python3 mk_bitstr_rows.py > bitstr_rows.h
+          python3 mk_bitstr_rows.py --plant > bitstr_rows_plant.h
+          python3 mk_bitstr_rows.py --plant-mem > bitstr_rows_pmem.h
+          python3 mk_bitstr_rows.py --plant-stray > bitstr_rows_stray.h
+          python3 mk_bitstr_rows.py --plant-op > bitstr_rows_badop.h
 
       - name: Build
         working-directory: hwprobe
@@ -89,6 +94,11 @@ jobs:
           sed 's/"int_rows.h"/"int_rows_badop.h"/' int_probe.c > int_probe_badop.c
           gcc -O1 -o int_probe_plant int_probe_plant.c int_ops.S
           gcc -O1 -o int_probe_badop int_probe_badop.c int_ops.S
+          gcc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S
+          for v in plant pmem stray badop; do
+            sed "s/\"bitstr_rows.h\"/\"bitstr_rows_$v.h\"/" bitstr_probe.c > bitstr_probe_$v.c
+            gcc -O1 -o bitstr_probe_$v bitstr_probe_$v.c bitstr_ops.S
+          done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
       # so --plant-packed flips a bit of a packed row's HIGH quadword, and --plant-pop a packed instruction byte.
@@ -137,3 +147,48 @@ jobs:
       - name: Integer referee
         working-directory: hwprobe
         run: ./int_probe
+
+      # D333: THE BIT-STRING PATH (BT/BTS/BTR/BTC, memory base, register offset), with its OWN controls — a CF plant, a
+      # MEMORY plant (one BTS row expects the x86isa rule's byte), a STRAY plant (the probe watches the wrong byte, so the
+      # real write lands where the whole-buffer comparison expects PATTERN), and a wrong declared instruction byte.
+      - name: Bit-string controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./bitstr_probe_plant > bs_plant.out; rc_plant=$?
+          ./bitstr_probe_pmem > bs_pmem.out; rc_pmem=$?
+          ./bitstr_probe_stray > bs_stray.out; rc_stray=$?
+          ./bitstr_probe_badop > bs_badop.out; rc_badop=$?
+          set -e
+          grep '^DIFF' bs_plant.out; grep '^DIFF' bs_pmem.out; grep '^DIFF' bs_stray.out; cat bs_badop.out
+          echo "bs plant rc=$rc_plant (want 1) · pmem rc=$rc_pmem (want 1) · stray rc=$rc_stray (want 1) · badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' bs_plant.out)" = 1
+          grep -q '^DIFF btw_mr_p0_v00 ' bs_plant.out
+          test "$rc_pmem" = 1
+          test "$(grep -c '^DIFF' bs_pmem.out)" = 1
+          grep -q '^DIFF btsw_mr_m1_v00 ' bs_pmem.out
+          test "$rc_stray" = 1
+          test "$(grep -c '^DIFF' bs_stray.out)" = 1
+          grep -q '^DIFF btcw_mr_p0_v00 .*STRAY WRITE' bs_stray.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED b_btw_mr:' bs_badop.out
+
+      - name: Bit-string referee (the verdict is the SDM column; the x86isa column is a reading)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./bitstr_probe > bitstr.out; rc=$?
+          set -e
+          grep -v '^ok  ' bitstr.out || true
+          echo "--- negative offsets where the two rules differ (sample: -1, -3, -4097) ---"
+          grep -E '_m(1|3|4097)_' bitstr.out | grep 'rules differ' || true
+          echo "bitstr rc=$rc"
+          test "$rc" = 0
+
+      - name: Bit-string rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitstr-${{ matrix.os }}
+          path: hwprobe/bitstr*.out
