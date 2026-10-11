@@ -21077,6 +21077,53 @@ with the Lean records equal to the SDM-rule simulation and the oracle's to the x
 42 of 57 and 206 of 332 held; the model header reads `forms=962`, not 963 — the census strips `lock` as a prefix before keying
 a form, so `lock btsl` is the `btsl` m,r form and the prediction's thirteenth form does not exist.
 
+## D332 — The primitive census credits silicon-refereed forms in a separately labelled column, never pooled with the differential verdict (design and predictions committed before the census is regenerated)
+
+**The ruling this implements (the helm, 2026-10-10):** count MECHANISMS, not voices. The differential (a vector, refereed by
+ACL2 x86isa over the 88 pre-states) and the processor probe (`hwprobe/`, rows derived from the SDM's rules, run on two vendors'
+silicon, the model pinned to the same rows by `decide`) are different instruments. The census may credit a form `siliconTable`
+refers to silicon, but only in its OWN column under its OWN verdict; the `ALL COVERED` verdict and its count stay the
+differential's alone. A paper may cite the two side by side, never summed. The silicon column is **not a semantic oracle**: it
+says a processor agreed with the model on chosen rows, not that a second model of the instruction agrees on the swept pre-states.
+**Design.**
+1. **Which mnemonics.** Read from the tree: the `mnemonic := "…"` strings of `def siliconTable` in `X86/Coverage.lean` (10 rows
+   on this base: `mulx` and D334's nine). Never a hand list; the kernel already pins that list (`Tests/Coverage.lean`).
+2. **Which forms.** The probe's own declaration of what it executed: `hwprobe/mk_int_rows.py`'s generated output names, per
+   function, the instruction BYTES the probe refuses to run without (read back at the `_at` label), and the rows that call it.
+   Every function with at least one row has its declared bytes assembled as `.byte` lines and disassembled by the SAME clang +
+   objdump the census uses for both other sides, and keyed by the SAME `form_of` (printed mnemonic + operand classes; the
+   addressing mode is checked separately, as for every candidate). A form is silicon-refereed when its width-erased mnemonic is a
+   `siliconTable` mnemonic. The ADCX/ADOX functions on the same path are excluded by that filter: the differential referees them.
+   The run REFUSES if a `siliconTable` mnemonic yields no form, or a declared byte string disassembles to anything but one
+   instruction.
+3. **The new verdict, `COVERED WITH SILICON`:** a candidate that is NOT `ALL COVERED`, does not call out of its object, uses no
+   addressing mode outside the vectors' set, and whose every not-covered form is silicon-refereed (so at least one is). It is
+   counted in a separate heading; the differential heading, the by-family line, the unlock search and the ladder are computed
+   exactly as before, from the differential forms alone. The per-row table gains one column naming the silicon-refereed forms
+   among that row's not-covered ones; the not-covered-forms table gains one column marking each form silicon-refereed or not.
+   The s2n-bignum appendix gains a separately labelled silicon line. The column header names the referee as the records do —
+   **AMD EPYC 7763 + Intel Core i7-8700B, hwprobe** (D330's run 38096322511, D334's runs 38102866008 and 38106227137) — and says
+   it is not a semantic oracle; the run refuses if either processor name is absent from D334's text.
+4. **No-pooling is checked, not asserted.** `run()` snapshots every row's differential verdict BEFORE the silicon forms are
+   loaded and refuses (exit 3) if any is different after the silicon classification, or if the differential heading's count
+   differs from the snapshot. `--selftest` carries a plant: a classifier that pools (marks a silicon-completed row `all`) must
+   red that check, and the honest classifier must pass it on the same fixture.
+**Predictions (written before the census is regenerated):**
+1. **The differential does not move:** `ALL COVERED` **42 of 57**, the same 42 candidates; header `vectors=1198 forms=962`; the
+   unlock list and ladder unchanged; the s2n appendix **206 of 332**.
+2. **The silicon forms: 38**, from the 10 `siliconTable` mnemonics, each width × register/memory shape once — `mulx` 4 (the
+   same-register function is the `r,r,r` form again), `andn` `bextr` `bzhi` `blsmsk` `blsr` `pdep` `pext` `rorx` 4 each,
+   `movnti` 2.
+3. **`COVERED WITH SILICON`: exactly 4** — `vale-fmul`, `s2n-bignum_mul_4_8`, `s2n-bignum_montmul_p256` (D330's three) and
+   `s2n-bignum_mul_p25519`, which D330's Result did not name and the current table shows lacking only `mulxq r64,r64,r64` and
+   `mulxq m,r64,r64`. So **silicon-inclusive 46 of 57** — printed as 42 + 4, never as one pooled figure. No candidate lacks only
+   a W1c form, so none of the nine W1c mnemonics completes a candidate here.
+4. The s2n appendix's silicon line is NOT predicted (a reading).
+**Wrong if:** the differential count or its 42 ids move (a pooling defect, or a model change this note does not make); the
+silicon form count is not 38 or a `siliconTable` mnemonic contributes none; the silicon verdict is not exactly those four; or
+the pooling plant does not red. **And the ruling's own condition:** if a second EXECUTABLE model of MULX turns up, its forms move
+to the differential column (with vectors) and the silicon column keeps its rows.
+
 ## D333 — W2b: silicon referees the bit-string rule of BT/BTS/BTR/BTC (memory base, register offset), and above all its negative offsets (predictions committed before any run)
 
 **Numbering.** D331 is the bit-string MODEL and its differential (`paris/w2-bitstring`), and the number after it was reserved
