@@ -1994,6 +1994,22 @@ def main():
               f"   {' '.join(sorted({rows[i]['base'] for i in bmi}))}")
         print(f"      re-measure: scripts/oracle_availability.py "
               f"(gated both ways, red-first, ~6 s)")
+        # ⭐ D334 (W1c): HOW MANY OF THOSE A PROCESSOR REFEREES, read from
+        # `siliconTable` (X86/Coverage.lean) and never pooled with the
+        # differential: a row stays in UNAVAILABLE because the census credits
+        # only differential evidence (D330's rule), and this line says which of
+        # them the model implements anyway, checked by `hwprobe/` and the kernel.
+        _cov = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "X86", "Coverage.lean"), encoding="utf-8").read()
+        _sm = re.search(r"^def siliconTable : List Row :=(.*?)(?=^/--|^def )", _cov, re.S | re.M)
+        if not _sm:
+            print("⛔ could not read siliconTable from X86/Coverage.lean")
+            sys.exit(2)
+        _sil = set(re.findall(r'mnemonic := "([^"]+)"', _sm.group(1)))
+        _bs = [i for i in bmi if rows[i]["base"] in _sil]
+        print(f"      of which REFEREED BY SILICON (siliconTable, D330/D334; not "
+              f"differential evidence) {len(_bs)} of {len(bmi)}"
+              f"   {' '.join(sorted({rows[i]['base'] for i in _bs}))}")
         print(f"  DECLINED by a recorded decision            {len(dec):3d}")
         for i in dec:
             print(f"      {rows[i]['base']:11s} {rows[i]['shape']:12s} "

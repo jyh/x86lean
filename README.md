@@ -110,11 +110,13 @@ declaration in CI.
   - 19 rows the oracle does not implement (the BMI group and `movnti`), so no
     differential evidence can exist for them. Measured by executing them, not
     read off a catalogue (`scripts/oracle_availability.py`); a second oracle is
-    the route. ⚠️ Two of the 19 — `mulx` at `r,r,r` and `r,r,m` — ARE modelled
-    since D330, refereed by a processor instead (`hwprobe/`, rows derived from
-    the SDM and run on hosted x86-64 runners, the model checked against the same
-    rows in the kernel). They stay in this count because that referee is not
-    differential evidence; `docs/COVERAGE.md` lists them in their own table.
+    the route. ⚠️ All 19 ARE modelled — `mulx` since D330, the other nine
+    mnemonics (`andn` `bextr` `blsmsk` `blsr` `bzhi` `pdep` `pext` `rorx`
+    `movnti`) since D334 — refereed by a processor instead (`hwprobe/`, rows
+    derived from the SDM and run on hosted x86-64 runners, the model checked
+    against the same rows in the kernel). They stay in this count because that
+    referee is not differential evidence; `docs/COVERAGE.md` lists them in their
+    own table.
   - 2 rows that describe no encoding at all — `jecxz rel32` and `jrcxz rel32`,
     which the assembler refuses because those instructions have only an 8-bit
     displacement.

@@ -66,7 +66,13 @@ theorem silicon_rows_are_not_differential_rows :
       && !rosterP0.contains r.mnemonic) = true := by decide
 
 theorem silicon_rows_name_ast_mnemonics :
-    siliconTable.map Row.mnemonic = [(Op.mulx .q .rdx .rax (.reg .rcx)).mnemonic] := by decide
+    siliconTable.map Row.mnemonic = [(Op.mulx .q .rdx .rax (.reg .rcx)).mnemonic,
+      -- D334 (W1c): one AST constructor (or constructor and key) per row.
+      (Op.andn .q .rax .rdx (.reg .rcx)).mnemonic, (Op.bextr .q .rax (.reg .rcx) .rdx).mnemonic,
+      (Op.blsx true .q .rax (.reg .rcx)).mnemonic, (Op.blsx false .q .rax (.reg .rcx)).mnemonic,
+      (Op.bzhi .q .rax (.reg .rcx) .rdx).mnemonic, (Op.pbits false .q .rax .rdx (.reg .rcx)).mnemonic,
+      (Op.pbits true .q .rax .rdx (.reg .rcx)).mnemonic, (Op.rorx .q .rax (.reg .rcx) 0).mnemonic,
+      (Op.movnti .q (.mem { base := some .rbx }) .rax).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1188,6 +1194,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- D330 (W1b): `adcx`/`adox` and `mulx` write GPRs named by their types; the
     -- `m` in each is a SOURCE.
     | .adx .. | .mulx .. => false
+    -- D334 (W1c): the BMI forms write GPRs named by their types; MOVNTI's
+    -- destination is an `Operand` and is asked (no vector reaches either today).
+    | .andn .. | .bextr .. | .bzhi .. | .blsx .. | .pbits .. | .rorx .. => false
+    | .movnti _ d _ => d.isMem
     -- ⭐ P1 BATCH 18, AND THE EXHAUSTIVE MATCH EARNED ITS KEEP A FIFTH TIME:
     -- three new constructors, three compile errors here, three answers written
     -- down instead of assumed.  All three take an `Operand` destination and all

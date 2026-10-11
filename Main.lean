@@ -5698,7 +5698,7 @@ proof is P4.\n"
 The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can \
 test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in \
 `hwprobe/mk_int_rows.py`, run on a hosted runner's processor — and this model is checked against the same \
-rows by `decide` in `Tests/Anchors.lean` (D330). The rows are CHOSEN, not swept over the 88 pre-states, \
+rows by `decide` in `Tests/Anchors.lean` (D330, D334). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, \
 and they are not counted in the roster figure above.\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable)
       IO.println s!"wrote coverage table ({tableP0.length} rows) → {out}"

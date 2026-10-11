@@ -2053,6 +2053,73 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | _ => s.halt (.illegalOperands
           "mulx at an 8- or 16-bit operand size (VEX.W selects 32 or 64 only)")
 
+  -- ══ D334 (W1c): ANDN, BEXTR, BZHI, BLSMSK/BLSR, PDEP/PEXT, RORX, MOVNTI ══
+  -- x86isa refuses every one; `hwprobe/` referees them on a processor and
+  -- `Tests/Anchors.lean` pins this model to the same rows.  ⚠️ Every source is
+  -- read BEFORE the destination is written, so a source that names the destination
+  -- reads the pre-state.  ⚠️ The undefined flags are drawn in a FIXED order — PF,
+  -- AF (and SF for BEXTR) — exactly as `.bitcnt .blsi` draws them, so the oracle
+  -- cursor depends on the form alone.  At `.d` the register write zero-extends.
+  | .andn sz dst src1 src2 =>
+      match sz with
+      | .d | .q =>
+          let res := Value.andn sz (s.getReg sz src1) (s.readOperand sz nr src2)
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          ((s.setFlags (Flags.andn sz res pfU afU s.flags)).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "andn at an 8- or 16-bit operand size (no encoding)")
+  | .bextr sz dst src ctl =>
+      match sz with
+      | .d | .q =>
+          let res := Value.bextr sz (s.readOperand sz nr src) (s.getReg sz ctl)
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (sfU, s) := s.undefBit
+          ((s.setFlags (Flags.bextr sz res pfU afU sfU s.flags)).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "bextr at an 8- or 16-bit operand size (no encoding)")
+  | .bzhi sz dst src idx =>
+      match sz with
+      | .d | .q =>
+          let c := s.getReg sz idx
+          let res := Value.bzhi sz (s.readOperand sz nr src) c
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          ((s.setFlags (Flags.bzhi sz (Value.bzhiIndex c) res pfU afU s.flags)).setReg
+            sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "bzhi at an 8- or 16-bit operand size (no encoding)")
+  | .blsx m sz dst src =>
+      match sz with
+      | .d | .q =>
+          let a := s.readOperand sz nr src
+          let res := if m then Value.blsmsk sz a else Value.blsr sz a
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let f := if m then Flags.blsmsk sz a res pfU afU s.flags
+                   else Flags.blsr sz a res pfU afU s.flags
+          ((s.setFlags f).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "blsmsk/blsr at an 8- or 16-bit operand size (no encoding)")
+  -- PDEP / PEXT / RORX: "Flags Affected: None", and nothing is drawn.
+  | .pbits e sz dst src1 mask =>
+      match sz with
+      | .d | .q =>
+          let v := s.getReg sz src1
+          let mk := s.readOperand sz nr mask
+          (s.setReg sz dst (if e then Value.pext sz v mk else Value.pdep sz v mk)).setRip nr
+      | _ => s.halt (.illegalOperands "pdep/pext at an 8- or 16-bit operand size (no encoding)")
+  | .rorx sz dst src imm =>
+      match sz with
+      | .d | .q => (s.setReg sz dst (Value.rorx sz (s.readOperand sz nr src) imm)).setRip nr
+      | _ => s.halt (.illegalOperands "rorx at an 8- or 16-bit operand size (no encoding)")
+  -- MOVNTI (SDM Vol. 2B): `DEST := SRC`, a plain store in this model.  The
+  -- non-temporal hint and the weak (write-combining) ordering it permits have no
+  -- counterpart in a single-threaded state without memory types (D334).
+  | .movnti sz dst src =>
+      if !dst.isMem then
+        s.halt (.illegalOperands "movnti requires a memory destination (0F C3 /r)")
+      else match sz with
+      | .d | .q => (s.writeOperand sz nr dst (s.getReg sz src)).setRip nr
+      | _ => s.halt (.illegalOperands "movnti at an 8- or 16-bit operand size (no encoding)")
+
   -- ══ P1 BATCH 18 ═══════════════════════════════════════════════════════
   -- The compare-exchange pair and the double-precision shifts.
 

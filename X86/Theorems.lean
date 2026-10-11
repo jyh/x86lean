@@ -2104,4 +2104,122 @@ theorem step_mulx_narrow_refuses (hi lo : GPR) (src : Operand) (h : Live s)
 
 end W1b
 
+/-! ## D334 (W1c) — ANDN, BEXTR, BZHI, BLSMSK, BLSR, PDEP, PEXT, RORX, MOVNTI
+
+⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses every one
+(`scripts/oracle_availability.py`).  Their numbers are checked against a PROCESSOR
+by `hwprobe/` and pinned in `Tests/Anchors.lean`; these theorems state the frame
+and the flag rules the SDM gives, as equations. -/
+section W1c
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- ANDN, register sources: `(NOT src1) AND src2`, PF then AF from the oracle. -/
+theorem step_andn_reg (h : Live s) (dst r1 r2 : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.andn sz dst r1 (.reg r2), len⟩ s =
+      (let res := Value.andn sz (s.getReg sz r1) (s.getReg sz r2)
+       let (pfU, s1) := s.undefBit
+       let (afU, s2) := s1.undefBit
+       ((s2.setFlags (Flags.andn sz res pfU afU s2.flags)).setReg sz dst res).setRip
+         (s.rip + BitVec.ofNat 64 len)) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ ANDN CLEARS CF AND OF, whatever they were. -/
+theorem step_andn_cf_of (h : Live s) (dst r1 r2 : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.andn sz dst r1 (.reg r2), len⟩ s).flags
+    f.cf = false ∧ f.of = false := by
+  rw [step_andn_reg h dst r1 r2 hsz]; simp [Flags.andn]
+
+/-- ⭐ BLSMSK CLEARS ZF UNCONDITIONALLY and sets CF exactly at a zero source
+(SDM Vol. 2A, BLSMSK: `ZF := 0`). -/
+theorem step_blsmsk_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.blsx true sz dst (.reg rs), len⟩ s).flags
+    f.zf = false ∧ f.of = false ∧ f.cf = Value.isZero sz (s.getReg sz rs) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.blsmsk]
+
+/-- BLSR: ZF from the result, CF exactly at a zero source, OF cleared. -/
+theorem step_blsr_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.blsx false sz dst (.reg rs), len⟩ s).flags
+    f.zf = Value.isZero sz (Value.blsr sz (s.getReg sz rs)) ∧ f.of = false
+      ∧ f.cf = Value.isZero sz (s.getReg sz rs) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.blsr]
+
+/-- BEXTR: ZF from the result; CF and OF cleared. -/
+theorem step_bextr_flags (h : Live s) (dst rs rc : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.bextr sz dst (.reg rs) rc, len⟩ s).flags
+    f.zf = Value.isZero sz (Value.bextr sz (s.getReg sz rs) (s.getReg sz rc))
+      ∧ f.cf = false ∧ f.of = false := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.bextr]
+
+/-- ⭐ BEXTR AT A START OF 64 OR MORE EXTRACTS NOTHING — the 512-bit zero-extension
+in the SDM's operation supplies only zeros there. -/
+theorem bextr_start_past (v ctl : Val) (hs : 64 ≤ ctl.toNat % 256) :
+    Value.bextr sz v ctl = 0 := by
+  have h0 : Value.trunc sz v >>> (ctl.toNat % 256) = 0 := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_ushiftRight]
+    apply Nat.shiftRight_eq_zero
+    exact Nat.lt_of_lt_of_le (BitVec.isLt _) (Nat.pow_le_pow_right (by decide) hs)
+  simp only [Value.bextr, h0]
+  split <;> simp
+
+/-- ⭐ BZHI's CF READS THE INDEX, NOT THE SOURCE: it is set exactly when the
+control's low byte exceeds width − 1. -/
+theorem step_bzhi_cf (h : Live s) (dst rs ri : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.bzhi sz dst (.reg rs) ri, len⟩ s).flags.cf
+      = decide (sz.bits - 1 < Value.bzhiIndex (s.getReg sz ri)) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.bzhi]
+
+/-- ⭐ BZHI AT AN INDEX OF THE WIDTH OR MORE CLEARS NOTHING (the SDM's Operation;
+D334 records the prose that reads otherwise). -/
+theorem bzhi_index_past (v ctl : Val) (hn : sz.bits ≤ Value.bzhiIndex ctl) :
+    Value.bzhi sz v ctl = Value.trunc sz v := by
+  simp [Value.bzhi, Nat.not_lt.mpr hn]
+
+/-- ⭐ PDEP AND PEXT: "FLAGS AFFECTED: NONE", and no oracle bit is spent. -/
+@[simp] theorem step_pbits_flags (e : Bool) (h : Live s) (dst r1 rm : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.pbits e sz dst r1 (.reg rm), len⟩ s).flags = s.flags
+      ∧ (step ⟨.pbits e sz dst r1 (.reg rm), len⟩ s).oracle = s.oracle := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ RORX: "FLAGS AFFECTED: NONE" — unlike ROR, at every count. -/
+@[simp] theorem step_rorx_flags (h : Live s) (dst rs : GPR) (imm : Val) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.rorx sz dst (.reg rs) imm, len⟩ s).flags = s.flags
+      ∧ (step ⟨.rorx sz dst (.reg rs) imm, len⟩ s).oracle = s.oracle := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- RORX, register source: the rotated source, and nothing else. -/
+theorem step_rorx_reg (h : Live s) (dst rs : GPR) (imm : Val) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.rorx sz dst (.reg rs) imm, len⟩ s =
+      (s.setReg sz dst (Value.rorx sz (s.getReg sz rs) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ MOVNTI IS A PLAIN STORE IN THIS MODEL: the source written at the operand
+width to the memory destination, no flag, no oracle bit (D334: the non-temporal
+hint and its weak ordering are outside a single-threaded state). -/
+theorem step_movnti (h : Live s) (ea : Ea) (hl : ea.lock = false) (rs : GPR)
+    (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.movnti sz (.mem ea) rs, len⟩ s =
+      (s.writeOperand sz (s.rip + BitVec.ofNat 64 len) (.mem ea) (s.getReg sz rs)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, hl, Operand.isMem]
+
+/-- ⛔ NO W1c FORM EXISTS AT 8 OR 16 BITS (VEX.W, or MOVNTI's REX.W, selects 32 or
+64 only), and `step` refuses rather than answering for an encoding that is not. -/
+theorem step_andn_narrow_refuses (dst r1 : GPR) (src : Operand) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.andn sz dst r1 src, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+theorem step_rorx_narrow_refuses (dst : GPR) (src : Operand) (imm : Val) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.rorx sz dst src imm, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+/-- ⛔ MOVNTI TO A REGISTER HAS NO ENCODING (`0F C3` takes a memory r/m only). -/
+theorem step_movnti_reg_refuses (r rs : GPR) (h8 : Bool) (h : Live s) :
+    (step ⟨.movnti sz (.reg r h8) rs, len⟩ s).stopped = true := by
+  simp [step, h, Cpu.halt, Operand.isMem] <;> split <;> simp
+
+end W1c
+
 end X86

@@ -218,8 +218,17 @@ Tiers: T-exact 173 · T-frame 26 · T-absent 0.
 
 ## Implemented, refereed by a processor, NOT differentially tested
 
-The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in `hwprobe/mk_int_rows.py`, run on a hosted runner's processor — and this model is checked against the same rows by `decide` in `Tests/Anchors.lean` (D330). The rows are CHOSEN, not swept over the 88 pre-states, and they are not counted in the roster figure above.
+The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in `hwprobe/mk_int_rows.py`, run on a hosted runner's processor — and this model is checked against the same rows by `decide` in `Tests/Anchors.lean` (D330, D334). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, and they are not counted in the roster figure above.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
 | `mulx` | r,r,r · r,r,m — l/q only · RDX (EDX) times the source, high half to ModRM.reg, low half to VEX.vvvv; the same register twice holds the high half; no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MULX |
+| `andn` | r,r,r · r,r,m — l/q only · (NOT VEX.vvvv) AND r/m; SF ZF from the result, CF OF cleared · x86isa refuses it | T-frame | XED (trusted) | PF, AF | Vol. 2A ANDN |
+| `bextr` | r,r,r · r,m,r — l/q only · start = control[7:0], length = control[15:8]; a start at or past the width extracts nothing; ZF from the result, CF OF cleared · x86isa refuses it | T-frame | XED (trusted) | PF, AF, SF | Vol. 2A BEXTR |
+| `blsmsk` | r,r · r,m — l/q only · (src−1) XOR src; CF = (src = 0), ZF and OF cleared · x86isa refuses it | T-frame | XED (trusted) | PF, AF | Vol. 2A BLSMSK |
+| `blsr` | r,r · r,m — l/q only · (src−1) AND src; CF = (src = 0), OF cleared · x86isa refuses it | T-frame | XED (trusted) | PF, AF | Vol. 2A BLSR |
+| `bzhi` | r,r,r · r,m,r — l/q only · index = control[7:0]; at an index of the width or more nothing is cleared and CF is set (the SDM Operation; D334) · x86isa refuses it | T-frame | XED (trusted) | PF, AF | Vol. 2A BZHI |
+| `pdep` | r,r,r · r,r,m — l/q only · the low bits of VEX.vvvv deposited at the set bits of the r/m mask; no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PDEP |
+| `pext` | r,r,r · r,r,m — l/q only · the bits of VEX.vvvv at the set bits of the r/m mask, packed low; no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXT |
+| `rorx` | r,r,imm · r,m,imm — l/q only · rotate right by imm8 masked to the width; no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B RORX |
+| `movnti` | m,r — l/q only · a plain store in this model: the non-temporal hint and its weakly-ordered protocol are outside a single-threaded state without memory types (D334); no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVNTI |
