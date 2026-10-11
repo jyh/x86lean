@@ -21079,9 +21079,10 @@ a form, so `lock btsl` is the `btsl` m,r form and the prediction's thirteenth fo
 
 ## D333 — W2b: silicon referees the bit-string rule of BT/BTS/BTR/BTC (memory base, register offset), and above all its negative offsets (predictions committed before any run)
 
-**Numbering.** D331 and D332 are taken by work on other branches (D331 is the bit-string MODEL and its differential, on
-`paris/w2-bitstring`); this entry is D333 so it collides with neither, and it cites nothing those branches carry beyond what
-is restated here. It touches only `hwprobe/`, the hwprobe workflow and this file: no Lean, no differential.
+**Numbering.** D331 is the bit-string MODEL and its differential (`paris/w2-bitstring`), and the number after it was reserved
+for the census's silicon column; this entry is D333 so it collides with neither, and it cites nothing those branches carry beyond what
+is restated here. *(Reworded at the re-base onto D331's batch: the first wording named the reserved number, which heads no
+section yet, and `check_citations` reads a bare decision number as a citation.)* It touches only `hwprobe/`, the hwprobe workflow and this file: no Lean, no differential.
 **Why.** The model's bit-string rule (SDM Vol. 2A §3.1.1.9 and Table 3-2: the register offset is SIGNED at the operand size;
 the addressed bit is bit `offset AND 7` of the byte at `EA + (offset SAR 3)`) disagrees with ACL2 x86isa for a negative
 offset, because x86isa (`books/projects/x86isa/machine/instructions/bit.lisp`, the memory arm of `x86-bt-0F-A3`,
