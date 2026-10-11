@@ -345,6 +345,75 @@ def blsi (sz : Size) (v : Val) : Val :=
   let a := trunc sz v
   trunc sz ((0 - a) &&& a)
 
+/-! ### D334 (W1c) — the BMI1/BMI2 results the reference model refuses
+
+Each is checked against a processor by `hwprobe/` (rows in `hwprobe/mk_int_rows.py`)
+and pinned by `decide` in `Tests/AnchorsBmi.lean`.  Every one reads its sources at the
+operand width and returns a value already zero above it. -/
+
+/-- BLSMSK: `(src − 1) XOR src` at the width (SDM Vol. 2A, BLSMSK) — the mask up to
+and including the lowest set bit; all ones at a zero source. -/
+def blsmsk (sz : Size) (v : Val) : Val :=
+  let a := trunc sz v
+  trunc sz ((a - 1) ^^^ a)
+
+/-- BLSR: `(src − 1) AND src` at the width (SDM Vol. 2A, BLSR) — the lowest set bit
+cleared; zero in, zero out. -/
+def blsr (sz : Size) (v : Val) : Val :=
+  let a := trunc sz v
+  trunc sz ((a - 1) &&& a)
+
+/-- ANDN: `(NOT a) AND b` at the width (SDM Vol. 2A, ANDN). -/
+def andn (sz : Size) (a b : Val) : Val := trunc sz ((~~~ a) &&& b)
+
+/-- BEXTR (SDM Vol. 2A): `START := ctl[7:0]; LEN := ctl[15:8]; DEST :=
+ZERO_EXTEND(ZERO_EXTEND_TO_512(src)[START+LEN−1:START])`.  ⚠️ The 512-bit extension
+supplies only zeros above the width, so a START at or beyond the width yields 0
+and a LEN reaching past bit width−1 is cut there — both fall out of shifting the
+width-truncated source right by START (a shift of 64 or more is 0) and keeping LEN
+bits of it. -/
+def bextr (sz : Size) (v ctl : Val) : Val :=
+  let start := ctl.toNat % 256
+  let len := (ctl.toNat / 256) % 256
+  let r := trunc sz v >>> start
+  if len < 64 then r &&& ((1 <<< len) - 1) else r
+
+/-- BZHI's index: the low BYTE of the control register (SDM Vol. 2A, BZHI:
+`N := SRC2[7:0]`). -/
+def bzhiIndex (ctl : Val) : Nat := ctl.toNat % 256
+
+/-- BZHI (SDM Vol. 2A): `DEST := SRC1; IF N < OperandSize THEN DEST[OperandSize−1:N]
+:= 0`.  ⚠️ At N ≥ the width nothing is cleared — the Operation's reading, which
+D334 states against the prose ("saturated at OperandSize −1") that reads otherwise. -/
+def bzhi (sz : Size) (v ctl : Val) : Val :=
+  let n := bzhiIndex ctl
+  if n < sz.bits then trunc sz v &&& ((1 <<< n) - 1) else trunc sz v
+
+/-- PDEP (SDM Vol. 2B): the low bits of `v`, in order, deposited at the set
+positions of `m`; every other bit zero.  Written as a fold over the bit positions,
+carrying the index `k` of the next source bit. -/
+def pdep (sz : Size) (v m : Val) : Val :=
+  ((List.range sz.bits).foldl (fun (acc : Val × Nat) i =>
+    if m.getLsbD i then
+      ((if v.getLsbD acc.2 then acc.1 ||| ((1 : Val) <<< i) else acc.1), acc.2 + 1)
+    else acc) (0, 0)).1
+
+/-- PEXT (SDM Vol. 2B): the bits of `v` at the set positions of `m`, packed into
+the low bits in order; every other bit zero. -/
+def pext (sz : Size) (v m : Val) : Val :=
+  ((List.range sz.bits).foldl (fun (acc : Val × Nat) i =>
+    if m.getLsbD i then
+      ((if v.getLsbD i then acc.1 ||| ((1 : Val) <<< acc.2) else acc.1), acc.2 + 1)
+    else acc) (0, 0)).1
+
+/-- RORX (SDM Vol. 2B): rotate right by `imm AND 1FH` (32 bits) or `imm AND 3FH`
+(64 bits) — the width is a power of two, so the mask is `% sz.bits`.  A count of
+zero returns the source (the left shift by the full width contributes nothing). -/
+def rorx (sz : Size) (v imm : Val) : Val :=
+  let y := imm.toNat % sz.bits
+  let a := trunc sz v
+  trunc sz ((a >>> y) ||| (a <<< (sz.bits - y)))
+
 /-! ### The double-width products and the dividing pair (P1 BATCH 17)
 
 ⭐ EVERY FUNCTION BELOW IS WRITTEN OVER `Nat` OR `Int` AND TRUNCATED AT THE END,

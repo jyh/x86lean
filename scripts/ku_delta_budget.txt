@@ -168,3 +168,7 @@ Tests.LogicRead @ku 2536
 # D316 (MemRel's write clause, 2026-09-27): ARM A′'s own reading, 647de6a → the split on yukon.lan; every other module in that
 # run read Δku +0 (Tests.LogicRead included, so its repairs are docstring-only).
 Tests.LogicMemRel @ku 5183
+# D334 arm (A) (the W1c pins in their own module, 2026-10-11): ARM A′'s own reading, 24d3644 → 4ddeb56 on yukon.lan; in that run
+# Tests.Anchors read Δku +0 (the pins left it), Tests.Coverage +134,029 of 692,953, X86.Theorems +12,964 of 19,107,
+# X86.Syntax +2,081 of 5,728.
+Tests.AnchorsBmi @ku 1885444

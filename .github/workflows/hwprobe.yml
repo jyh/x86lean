@@ -52,11 +52,13 @@ jobs:
           # D330: the integer path needs BMI2 (MULX) and ADX (ADCX/ADOX). Printed here as the OS reports them;
           # int_probe reads CPUID leaf 7 itself and REFUSES (exit 2) if either is absent, so this is a record, not
           # the guard.
+          # D334 adds BMI1 (ANDN, BEXTR, BLSMSK, BLSR); int_probe reads CPUID itself and refuses without BMI1, BMI2, ADX or SSE2.
           if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow bmi1 /proc/cpuinfo || echo "bmi1: NOT REPORTED"
             grep -m1 -ow bmi2 /proc/cpuinfo || echo "bmi2: NOT REPORTED"
             grep -m1 -ow adx /proc/cpuinfo || echo "adx: NOT REPORTED"
           else
-            sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x -e BMI2 -e ADX || echo "BMI2/ADX: NOT REPORTED"
+            sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x -e BMI1 -e BMI2 -e ADX || echo "BMI1/BMI2/ADX: NOT REPORTED"
           fi
 
       - name: Rows, derived from the rules (never typed)
@@ -71,6 +73,7 @@ jobs:
           python3 mk_int_rows.py > int_rows.h
           python3 mk_int_rows.py --plant > int_rows_plant.h
           python3 mk_int_rows.py --plant-op > int_rows_badop.h
+          python3 mk_int_rows.py --plant-new > int_rows_plantnew.h
           python3 mk_bitstr_rows.py > bitstr_rows.h
           python3 mk_bitstr_rows.py --plant > bitstr_rows_plant.h
           python3 mk_bitstr_rows.py --plant-mem > bitstr_rows_pmem.h
@@ -94,6 +97,8 @@ jobs:
           sed 's/"int_rows.h"/"int_rows_badop.h"/' int_probe.c > int_probe_badop.c
           gcc -O1 -o int_probe_plant int_probe_plant.c int_ops.S
           gcc -O1 -o int_probe_badop int_probe_badop.c int_ops.S
+          sed 's/"int_rows.h"/"int_rows_plantnew.h"/' int_probe.c > int_probe_plantnew.c
+          gcc -O1 -o int_probe_plantnew int_probe_plantnew.c int_ops.S
           gcc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S
           for v in plant pmem stray badop; do
             sed "s/\"bitstr_rows.h\"/\"bitstr_rows_$v.h\"/" bitstr_probe.c > bitstr_probe_$v.c
@@ -143,6 +148,21 @@ jobs:
           grep -q '^DIFF adcxq_rr_zero_c0 ' int_plant.out
           test "$rc_badop" = 2
           grep -q '^REFUSED i_adcxq_rr:' int_badop.out
+
+      # D334: THE MASK'S OWN CONTROL. W1c rows compare RFLAGS on a per-row mask (the SDM leaves AF/PF, and for BEXTR SF,
+      # undefined). A mask that dropped a DEFINED flag would make rows vacuous on it, so a flipped ZF in a masked row
+      # (andnq_rr_zero) must red exactly that row.
+      - name: Integer mask control (a defined flag in a masked row is still compared)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./int_probe_plantnew > int_plantnew.out; rc_pn=$?
+          set -e
+          grep '^DIFF' int_plantnew.out; tail -1 int_plantnew.out
+          echo "int plant-new rc=$rc_pn (want 1)"
+          test "$rc_pn" = 1
+          test "$(grep -c '^DIFF' int_plantnew.out)" = 1
+          grep -q '^DIFF andnq_rr_zero ' int_plantnew.out
 
       - name: Integer referee
         working-directory: hwprobe

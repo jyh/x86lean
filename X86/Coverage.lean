@@ -1105,7 +1105,28 @@ way that is named here rather than hidden: its rows are chosen, not swept over
 the 88 pre-states. -/
 def siliconTable : List Row :=
   [ { mnemonic := "mulx", shapes := "r,r,r · r,r,m", note := "l/q only · RDX (EDX) times the source, high half to ModRM.reg, low half to VEX.vvvv; the same register twice holds the high half; no flag written · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULX" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULX" }
+  -- ⭐ D334 (W1c): the rest of the oracle-UNAVAILABLE rows.  `T-frame` where the
+  -- SDM leaves a flag undefined (drawn from the oracle, as `blsi`'s are);
+  -- `T-exact` where the instruction writes no flag.
+  , { mnemonic := "andn", shapes := "r,r,r · r,r,m", note := "l/q only · (NOT VEX.vvvv) AND r/m; SF ZF from the result, CF OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A ANDN" }
+  , { mnemonic := "bextr", shapes := "r,r,r · r,m,r", note := "l/q only · start = control[7:0], length = control[15:8]; a start at or past the width extracts nothing; ZF from the result, CF OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF", "SF"], sdm := "Vol. 2A BEXTR" }
+  , { mnemonic := "blsmsk", shapes := "r,r · r,m", note := "l/q only · (src−1) XOR src; CF = (src = 0), ZF and OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSMSK" }
+  , { mnemonic := "blsr", shapes := "r,r · r,m", note := "l/q only · (src−1) AND src; CF = (src = 0), OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSR" }
+  , { mnemonic := "bzhi", shapes := "r,r,r · r,m,r", note := "l/q only · index = control[7:0]; at an index of the width or more nothing is cleared and CF is set (the SDM Operation; D334) · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BZHI" }
+  , { mnemonic := "pdep", shapes := "r,r,r · r,r,m", note := "l/q only · the low bits of VEX.vvvv deposited at the set bits of the r/m mask; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PDEP" }
+  , { mnemonic := "pext", shapes := "r,r,r · r,r,m", note := "l/q only · the bits of VEX.vvvv at the set bits of the r/m mask, packed low; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXT" }
+  , { mnemonic := "rorx", shapes := "r,r,imm · r,m,imm", note := "l/q only · rotate right by imm8 masked to the width; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B RORX" }
+  , { mnemonic := "movnti", shapes := "m,r", note := "l/q only · a plain store in this model: the non-temporal hint and its weakly-ordered protocol are outside a single-threaded state without memory types (D334); no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVNTI" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

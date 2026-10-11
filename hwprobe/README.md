@@ -28,12 +28,20 @@ rules), `int_probe.c` (reads CPUID leaf 7 and refuses without BMI2 and ADX, refu
 (`--plant`, `--plant-op`). `mk_int_anchors.py` pins the MULX rows in `Tests/Anchors.lean`: x86isa refuses MULX, so those rows
 are the only check of the model's MULX numbers. ADCX/ADOX rows are read here too, and are carried by the differential vectors.
 
+**D334 (W1c)** adds ANDN, BEXTR, BLSMSK, BLSR, BZHI, PDEP, PEXT, RORX and MOVNTI on the same path — x86isa refuses all
+nine, so every one of their 888 rows is pinned, generated into a module of its own, `Tests/AnchorsBmi.lean`, so it is metered as its own kernel unit. Three things are new:
+the probe also requires BMI1 and SSE2 (CPUID.(7,0):EBX bit 3, CPUID.1:EDX bit 26) and refuses without them; each row
+carries a FLAG MASK — the six arithmetic flags less those the SDM leaves undefined for the form (AF/PF, and SF for BEXTR) —
+and the probe compares only those while printing all six, so each leg's readings of the undefined bits are on record; and
+a third control, `--plant-new`, flips a DEFINED flag (ZF) in a masked row (`andnq_rr_zero`), which must red exactly that
+row. MOVNTI's destination is memory: the probe reads the quadword back after SFENCE.
+
 | file | role |
 |---|---|
 | `int_ops.S` | one function per integer form under test (register conventions in its header) |
-| `mk_int_rows.py` | the integer rows and their expectations; `--plant` / `--plant-op` build the controls |
+| `mk_int_rows.py` | the integer rows and their expectations; `--plant` / `--plant-op` / `--plant-new` build the controls |
 | `int_probe.c` | runs each integer row and compares GPRs and RFLAGS |
-| `mk_int_anchors.py` | the MULX rows as Lean pins, with `--check` / `--selftest` |
+| `mk_int_anchors.py` | the MULX rows and (D334) the W1c rows as Lean pins, with `--check` / `--selftest` |
 
 **The bit-string path (D333)** is a third program, sharing nothing with the other two: `bitstr_ops.S` (one function per
 `bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)` form), `mk_bitstr_rows.py` (2944 rows, derived from the SDM's bit-string rule: the
