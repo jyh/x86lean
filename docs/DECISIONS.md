@@ -21077,6 +21077,8 @@ with the Lean records equal to the SDM-rule simulation and the oracle's to the x
 42 of 57 and 206 of 332 held; the model header reads `forms=962`, not 963 — the census strips `lock` as a prefix before keying
 a form, so `lock btsl` is the `btsl` m,r form and the prediction's thirteenth form does not exist.
 
+**Reported upstream, 2026-10-11:** the x86isa divergence this batch declares per state is [acl2/acl2#2066](https://github.com/acl2/acl2/issues/2066). The declared states stay declared until x86isa changes; when it does, `compare` reds on every listed state that stops diverging, which is the signal to re-pin the reference and remove them.
+
 ## D333 — W2b: silicon referees the bit-string rule of BT/BTS/BTR/BTC (memory base, register offset), and above all its negative offsets (predictions committed before any run)
 
 **Numbering.** D331 is the bit-string MODEL and its differential (`paris/w2-bitstring`), and the number after it was reserved
@@ -21168,6 +21170,8 @@ generated from this branch's `hwprobe.yml`, so the steps are CI's own — ran on
 was NOT measured (no Windows-side reader), so a Hyper-V mask on some feature this file does not use is not excluded. Result: bit-string
 `rows 2944 disagreements 0`, all four controls as stated (plant rc 1, pmem rc 1, stray rc 1, badop rc 2) — the SDM's bit on all 852
 rows where x86isa's rule differs, on a second AMD microarchitecture. The raw listings are not committed here.
+
+**Reported upstream, 2026-10-11:** [acl2/acl2#2066](https://github.com/acl2/acl2/issues/2066) carries these silicon readings.
 
 ## D334 — W1c: the rest of the oracle-UNAVAILABLE rows (ANDN, BEXTR, BLSMSK, BLSR, BZHI, PDEP, PEXT, RORX, MOVNTI), refereed by silicon (predictions committed before any run)
 
