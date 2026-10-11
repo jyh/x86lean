@@ -21076,3 +21076,60 @@ to `vectors=1198` and `forms=963` (12 new `bt*` m,r forms plus `lock btsl` as it
 with the Lean records equal to the SDM-rule simulation and the oracle's to the x86isa-rule simulation in all 2464 cases. Census:
 42 of 57 and 206 of 332 held; the model header reads `forms=962`, not 963 — the census strips `lock` as a prefix before keying
 a form, so `lock btsl` is the `btsl` m,r form and the prediction's thirteenth form does not exist.
+
+## D333 — W2b: silicon referees the bit-string rule of BT/BTS/BTR/BTC (memory base, register offset), and above all its negative offsets (predictions committed before any run)
+
+**Numbering.** D331 and D332 are taken by work on other branches (D331 is the bit-string MODEL and its differential, on
+`paris/w2-bitstring`); this entry is D333 so it collides with neither, and it cites nothing those branches carry beyond what
+is restated here. It touches only `hwprobe/`, the hwprobe workflow and this file: no Lean, no differential.
+**Why.** The model's bit-string rule (SDM Vol. 2A §3.1.1.9 and Table 3-2: the register offset is SIGNED at the operand size;
+the addressed bit is bit `offset AND 7` of the byte at `EA + (offset SAR 3)`) disagrees with ACL2 x86isa for a negative
+offset, because x86isa (`books/projects/x86isa/machine/instructions/bit.lisp`, the memory arm of `x86-bt-0F-A3`,
+`x86-bts-0F-AB`, `x86-btr-0F-B3`, `x86-btc-0F-BB`) takes the byte as `addr + floor(offset/8)` — the same byte — but the bit
+as `(mod (abs offset) 8)`: offset −1 selects bit 1 of byte EA−1 where the SDM selects bit 7. The two bit numbers differ exactly
+when the offset is negative and not ≡ 0 (mod 4). So far the SDM's side is held by the manual, by K's bit-number term, and by
+Rosetta 2, which is a translator and not silicon. This entry makes PROCESSORS the referee, on two vendors when the Linux leg
+draws AMD.
+**The probe (a third program beside the SSE and integer paths, sharing nothing with them):** `hwprobe/bitstr_ops.S` (one
+function per form; RBX = the base pointer, RCX = the offset register, RFLAGS' six arithmetic bits from the row, RFLAGS read
+back immediately after), `hwprobe/mk_bitstr_rows.py` (rows and expectations, derived from the stated rules SIGNED-OFFSET ·
+BIT-STRING · CF · WRITE-BACK, never typed), `hwprobe/bitstr_probe.c`. The 12 forms are `bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)`
+(`[66|48] 0f {a3,ab,b3,bb} 0b`), each read back at its `_at` label: a declared byte that is not the assembled one REFUSES the
+run (exit 2).
+**The buffer.** A static 16384-byte buffer, 4096-aligned, filled from a PATTERN the generator derives from a stated LCG and
+emits as data; the base pointer is its middle (+8192). Every offset addresses a byte within ±4097 bytes of the base, so at
+least 4 KiB on each side is guard. Each row overrides exactly ONE byte — the addressed one — with a chosen pre-value; after the
+instruction the probe compares the WHOLE buffer: the addressed byte against the expected value, every other byte against
+PATTERN. A write to any other byte, or a write by BT, is a DIFF. RFLAGS is compared on CF (written) and ZF (must be unchanged);
+OF, SF, AF, PF are undefined and not compared.
+**The rows: 2944.** Per form, the offsets (signed at the operand size): 0–9, 15–17, 31–33, 63–65, 127, 128, 255, 256,
+4095–4097, 32767; −1 … −16, −17, −31, −32, −33, −63, −64, −65, −127, −128, −129, −255, −256, −257, −4095, −4096, −4097,
+−32768; and at 32 and 64 bits also +32768 and −32769 — 60 offsets at `w`, 62 at `l`/`q`. The 16- and 32-bit rows carry junk
+(`0xA5…`) in the register above the operand size, which SIGNED-OFFSET says is not read. Each offset runs four pre-values of the
+addressed byte: `00` (flags in: all six set), `ff` (all clear), only the SDM's bit set (all clear), all but the SDM's bit
+(all set) — so CF is seen changing both ways, ZF is seen held at both values, and in the last two the x86isa bit, where it
+differs, holds the opposite value. 12 forms × {240 (w), 248 (l, q)} = 4 × (240 + 248 + 248) = 2944.
+**The x86isa column.** Beside each SDM expectation the generator computes x86isa's rule on the same row, and the probe prints
+per row whether the processor matched it, with a total. It is a predicted DISAGREEMENT, never an expectation: the verdict
+(exit 0/1) is the SDM column alone. Rows where the two rules predict different (CF, byte): **852** of 2944 — all on negative
+offsets, none on a non-negative one — by form: `bt` w/l/q 46/48/48 (CF only: BT writes nothing); `bts` and `btr` w/l/q
+69/72/72; `btc` w/l/q 92/96/96. (Per width 23 negative offsets have different bit numbers at `w`, 24 at `l`/`q`; BT differs on
+two of four pre-values, BTS/BTR on three, BTC on four.) `python3 hwprobe/mk_bitstr_rows.py --summary --rows` prints the per-row
+table; those counts are this generator's output, landed in the commit after this one.
+**Predictions — committed before the hwprobe push and before any Rosetta run of the probe:**
+1. **hwprobe, both legs (ubuntu-latest — the label names no processor, expected an AMD EPYC; macos-15-intel — documented
+   Intel):** `rows 2944 disagreements 0` against the SDM rule. The SSE and integer referees are unchanged and still agree.
+2. **The x86isa column, both legs:** the processor matches x86isa's rule on exactly the **2092** rows where the two rules agree,
+   and DISAGREES with it on exactly the **852** where they differ: `x86isa-rule agreement 2092 of 2944`, and every row marked
+   as differing is a row where silicon took the SDM's value.
+3. **Controls, both legs:** `--plant` (CF flipped in row 0, `btw_mr_p0_v00`) → rc 1, exactly one `DIFF`, on that row;
+   `--plant-mem` (row `btsw_mr_m1_v00` expects the x86isa rule's byte, `02`, where the SDM's is `80`) → rc 1, exactly one
+   `DIFF`, on that row, through the memory channel; `--plant-op` (one declared byte of `b_btw_mr` wrong) → rc 2,
+   `REFUSED b_btw_mr`.
+4. **No AMD/Intel difference** on any compared field: CF and the memory contents are architecturally defined here, and the
+   undefined flags are not compared.
+**Wrong if / refuted if:** any silicon row matches x86isa's rule over the SDM's (refutes the model's rule on that vendor, and
+the D331 differential's divergence declaration with it); any other disagreement (a wrong byte written, ZF moved, the junk above
+the operand size read — the last would likely fault, a crash is a failure, never a pass); the plants red other than exactly
+their row; the bad byte does not refuse; or the two vendors differ. An expectation is never edited to match a processor: a
+disagreement is decided from the SDM. Rosetta 2 is a translator: if it runs the probe, its agreement is corroboration only.
