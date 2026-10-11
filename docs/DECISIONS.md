@@ -21133,3 +21133,30 @@ the D331 differential's divergence declaration with it); any other disagreement 
 the operand size read — the last would likely fault, a crash is a failure, never a pass); the plants red other than exactly
 their row; the bad byte does not refuse; or the two vendors differ. An expectation is never edited to match a processor: a
 disagreement is decided from the SDM. Rosetta 2 is a translator: if it runs the probe, its agreement is corroboration only.
+**Result: all four predictions held, on two vendors and three processors; nothing refuted.**
+1. hwprobe run **38100851346** (push), both jobs `success`: **ubuntu-latest drew an INTEL Xeon Platinum 8573C**, not the AMD
+   the prediction expected, and macos-15-intel an **Intel Core i7-8700B** — so that run is ONE vendor, two Intel generations.
+   A `workflow_dispatch` re-run, **38100955005**, on the same head: ubuntu-latest drew an **AMD EPYC 9V45**, macos-15-intel
+   the i7-8700B again; both jobs `success`. On all four legs: **`rows 2944 disagreements 0`**. The SSE referee (958/958) and the
+   integer referee (384/384) unchanged on all four.
+2. **The x86isa column, all four legs: `x86isa-rule agreement 2092 of 2944; rows where the rules differ 852, silicon took the
+   SDM's value on 852`.** Every row marked as differing reads `x86isa differ`. The four legs' full `bitstr.out` listings (the
+   workflow's artifacts) are **byte-identical** (sha256 `bf88215fd1ef4df3…` each), so AMD and both Intel parts agree row for
+   row, not merely in total. E.g. `btw (%rbx),%cx` with CX = −1 and only bit 7 of byte −1 set: CF = 1 on every processor (the
+   SDM's bit 7); x86isa's rule reads bit 1 and predicts CF = 0.
+3. **Controls, all four legs:** CF plant rc 1, one `DIFF`, `btw_mr_p0_v00`; memory plant rc 1, one `DIFF`, `btsw_mr_m1_v00`
+   (silicon wrote `80`, the plant expected x86isa's `02`); stray plant rc 1, one `DIFF`, `btcw_mr_p0_v00` naming `STRAY WRITE
+   byte[+0]`; bad byte rc 2, `REFUSED b_btw_mr`. ⚠️ The stray plant is a FOURTH control, added after this entry's
+   pre-registration (commit before) and before any push or Rosetta run; it was not predicted, and it held.
+4. **No AMD/Intel difference** on any compared field, as predicted.
+⇒ **The x86isa disagreement is now a two-vendor silicon reading:** for a memory bit base with a negative register offset, AMD
+(EPYC 9V45) and Intel (Xeon Platinum 8573C, Core i7-8700B) select bit `offset AND 7` of the byte at `EA + (offset SAR 3)`,
+as the SDM and this model say, and not x86isa's bit `(mod (abs offset) 8)` — on all 852 rows where the two differ, at 16, 32
+and 64 bits, for BT, BTS, BTR and BTC, CF and written byte both. The bits above the operand size (junk in every 16/32-bit
+row) were ignored everywhere. The declared oracle divergences of the bit-string differential (D331 on its branch) are the
+oracle's defect, now refereed by silicon.
+⚠️ **Rosetta 2** (an Apple-silicon translator, NOT silicon), run locally after the pre-registration: rows 2944, 0
+disagreements, the same 2092/852, all controls as above, and its listing is byte-identical to the four silicon legs.
+Corroboration only. **Limits, declared:** the buffer is in-bounds by construction, so this says nothing about which addresses
+a processor ACCESSES (the SDM lets it touch the whole operand-size unit) or about faults; no LOCK-prefixed row; offsets
+beyond ±32769 (far negative offsets at 32/64 bits) are not exercised; three processors are three readings, not a population.
