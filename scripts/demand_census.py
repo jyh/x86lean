@@ -40,10 +40,84 @@ import os, re, io, sys, json, contextlib, subprocess, collections, argparse
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ── the model's roster, read from the model, never restated ────────────────
+# ⚖️⚖️ D337 — COUNT MECHANISMS, NOT VOICES (the helm's D332 ruling, extended to
+# this census by paris, 2026-10-10).  Since D330 the model also implements
+# mnemonics that NO differential vector can test — x86isa refuses them — and that
+# a PROCESSOR referees instead (`hwprobe/`, rows derived from the SDM's rules, run
+# on two vendors' silicon; the model pinned to the same rows by `decide`).  They
+# are the rows of `siliconTable` in `X86/Coverage.lean`, and `docs/COVERAGE.md`
+# prints them in their own section.  Reading every mnemonic row of that file, this
+# census pooled them into "covered" from D335 on — 70,115 instructions of the
+# assembly class credited on a processor's word, and P2-ROSTER dropped the eleven
+# from its ranking as a result.
+# ⇒ THREE CLASSES: (a) covered by a DIFFERENTIALLY tested mnemonic — the headline,
+# alone; (b) implemented and SILICON-refereed only — its own labelled line, never
+# summed into (a); (c) not modelled.  `Model` below is the differential set AS A
+# SET, so every `r in model` in this file means (a) without anyone remembering to
+# subtract; `.names` is every implemented mnemonic and is what the MAPPING uses, so
+# a silicon instruction is classified (b) rather than mis-filed as "unmapped".
+# ⛔ And it is CHECKED, not asserted: `check_no_pooling` recomputes (a) with a model
+# that cannot even name a silicon mnemonic and the run exits 3 if anything moved.
+SILICON_REFEREES = (
+    ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+)
+SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
+SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
+                 + ") — NOT a semantic oracle")
+
+
+class Model(frozenset):
+    """The DIFFERENTIAL mnemonics, as the set itself (class (a)); `.names` is
+    every mnemonic the model implements (the mapping's vocabulary) and
+    `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
+    where a `Model` is expected behaves as a model with no silicon rows, which
+    is exactly the reference pass `check_no_pooling` needs."""
+    def __new__(cls, names, silicon=()):
+        sil = frozenset(silicon)
+        self = super().__new__(cls, frozenset(names) - sil)
+        self.names = frozenset(names)
+        self.silicon = sil
+        return self
+
+
+def names_of(model):
+    """Every mnemonic a model can be MAPPED to (its `.names`, or the set itself)."""
+    return getattr(model, "names", model)
+
+
+def silicon_of(model):
+    return getattr(model, "silicon", frozenset())
+
+
+def silicon_mnemonics():
+    """The `mnemonic := "…"` strings of `def siliconTable` (X86/Coverage.lean),
+    read from the tree by `primitive_census.silicon_mnemonics`'s rule (the
+    definition runs to its first blank line, and its list closes there) — never
+    a hand list.  ⛔ This file imports nothing local (oracle_availability and
+    p2_roster import IT), so the rule is restated here and `--selftest` checks it
+    agrees with primitive_census's reader on the tree."""
+    src = open(os.path.join(root, "X86", "Coverage.lean"), encoding="utf-8").read()
+    m = re.search(r'^def siliconTable\b.*?(?=\n[ \t]*\n)', src, re.M | re.S)
+    if not m or not m.group(0).rstrip().endswith("]"):
+        print("⛔ silicon: `def siliconTable` not found in X86/Coverage.lean")
+        sys.exit(2)
+    mn = re.findall(r'mnemonic := "([^"]+)"', m.group(0))
+    if not mn:
+        print("⛔ silicon: `siliconTable` has no rows — refusing, not reading zero")
+        sys.exit(2)
+    return frozenset(mn)
+
+
+SILICON_SECTION = "## Implemented, refereed by a processor, NOT differentially tested"
+
 def model_mnemonics():
-    """The mnemonics `X86.rosterP0` names.  ⚠️ Read from the GENERATED coverage
-    table, which CI already fails on if it is stale — not from a list here,
-    which would be a copy that drifts."""
+    """The mnemonics the model implements, as a `Model` (D337).  ⚠️ Read from
+    the GENERATED coverage table, which CI already fails on if it is stale —
+    not from a list here, which would be a copy that drifts.  The silicon split
+    is read from `siliconTable`, and the run REFUSES if COVERAGE.md's processor
+    section names a different set: two artifacts that must agree are compared,
+    never assumed to."""
     path = os.path.join(root, "docs", "COVERAGE.md")
     text = open(path, encoding="utf-8").read()
     ms = re.findall(r'^\| `([a-z0-9]+)` \|', text, re.M)
@@ -51,7 +125,15 @@ def model_mnemonics():
         print("⛔ no mnemonics read from docs/COVERAGE.md; a census with no "
               "model to compare against is not a measurement.")
         sys.exit(2)
-    return set(ms)
+    sil = silicon_mnemonics()
+    i = text.find(SILICON_SECTION)
+    sect = set(re.findall(r'^\| `([a-z0-9]+)` \|', text[i:], re.M)) if i >= 0 else set()
+    if sect != set(sil) or not sil <= set(ms):
+        print("⛔ silicon: docs/COVERAGE.md's processor section and `siliconTable` "
+              f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
+              f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
+        sys.exit(2)
+    return Model(ms, sil)
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -61,7 +143,14 @@ SUFFIXED = {"mov","add","sub","and","or","xor","cmp","test","shl","shr","sar",
             "rcl","rcr","bt","bts","btr","btc","xchg","bswap","mul","imul",
             "div","idiv","cmpxchg","xadd","shld","shrd","popcnt","lzcnt",
             "tzcnt","bsf","bsr","blsi","movbe","sarx","shlx","shrx","nop",
-            "cmpxchg8b"}
+            "cmpxchg8b",
+            # ⭐ D337: objdump prints these GPR forms with an l/q suffix
+            # (`andnl`, `rorxq`, `movntiq`, `adcxq`) and nothing here named
+            # them, so their demand read as "not mapped at all" while the model
+            # implemented every one.  adcx/adox are differential rows; the rest
+            # are `siliconTable` rows and land in the silicon line, not "covered".
+            "adcx","adox","mulx","andn","bextr","blsmsk","blsr","bzhi","pdep",
+            "pext","rorx","movnti"}
 STRING  = {"movs","stos","lods","cmps","scas"}
 REPS    = {"rep","repe","repz","repne","repnz"}
 EXACT = {
@@ -118,7 +207,10 @@ def to_roster(m, ext=None, model=None):
     instruction the model has, so the census would silently claim it.  The
     """
     # ⭐ the vector spelling wins where the operands ARE vector: see `ext` above.
-    if model is not None and ext in XMM_EXT and m in model:
+    # ⚖️ D337: the MAPPING's vocabulary is every implemented mnemonic
+    # (`names_of`), silicon-refereed ones included; whether the mapped name is
+    # COVERED is `_decide`'s question, and it asks the differential set alone.
+    if model is not None and ext in XMM_EXT and m in names_of(model):
         return m
     if m in EXACT:
         return EXACT[m]
@@ -154,7 +246,7 @@ def to_roster(m, ext=None, model=None):
     # which is every SSE mnemonic the model has ever gained.  It fires last, so
     # no rewrite above can be overridden by it, and it claims nothing the model
     # does not name.
-    if model is not None and m in model:
+    if model is not None and m in names_of(model):
         return m
     return None
 
@@ -871,7 +963,7 @@ def _rule_domain(model):
     """Every mnemonic this file's mapping tables can possibly rewrite, plus the
     model's own names.  ⛔ NOT read from the census's output: a gate whose
     domain came from the document it checks could only agree with it."""
-    d = set(model) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
+    d = set(names_of(model)) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
         | set(GPR_EXT)
     for base in list(SUFFIXED) + list(STRING):
         d |= {base + c for c in "bwlq"}
@@ -883,7 +975,10 @@ def _rule_domain(model):
 
 def model_stamp(model):
     import hashlib
-    h = hashlib.sha256(" ".join(sorted(model)).encode()).hexdigest()[:16]
+    # ⚖️ D337: the identity is the implemented set AND its silicon split — moving
+    # a mnemonic between (a) and (b) moves every figure, so it must move the stamp
+    h = hashlib.sha256((" ".join(sorted(names_of(model))) + " | silicon: "
+                        + " ".join(sorted(silicon_of(model)))).encode()).hexdigest()[:16]
     rows = []
     for m in sorted(_rule_domain(model)):
         for ext in sorted(EXT_SCOPE):
@@ -906,7 +1001,7 @@ def model_stamp(model):
             # document publishes; a packed-rule change left the stamp unmoved too
             rows.append(f"PACKED\t{m}\t{ops}\t{int(is_packed(m, ops))}")
     rh = hashlib.sha256("\n".join(rows).encode()).hexdigest()[:16]
-    return len(model), h, rh
+    return len(names_of(model)), h, rh
 
 def check_stale(out_path):
     model = model_mnemonics()
@@ -969,6 +1064,9 @@ def _decide(m, ext, model):
         return None, False, "unmapped"
     if not form_in_scope(ext):
         return r, False, "outscope"
+    # ⚖️ D337: (b) is NOT covered — it is its own class, counted beside (a)
+    if r in silicon_of(model):
+        return r, False, "silicon"
     return r, (r in model), "mapped"
 
 def _split(counts, model):
@@ -1080,7 +1178,14 @@ def ext_table(name, counts, model, fh):
         # 11,109 instructions that are **100% `%mm`**, which no XMM or GPR form
         # in K's tree would close.  The mnemonic and the bucket are both facts
         # this loop already has; only the JOIN was lossy.
-        by_mn.setdefault(m, collections.Counter())[ext] += k
+        # ⛔ D337: KEYED AS `miss_all` KEYS IT — the roster name for a mapped,
+        # in-scope instruction (`andnl` -> `andn`), the printed mnemonic
+        # otherwise.  Until D337 no mapped instruction was ever uncovered, so the
+        # two keyings agreed by accident; the first silicon GPR rows split them
+        # and p2_roster's shared-denominator check refused (`rorx`: 398 by
+        # mnemonic, 0 by bucket).
+        key = _r if (_r is not None and form_in_scope(ext)) else m
+        by_mn.setdefault(key, collections.Counter())[ext] += k
     fh.write("\n#### What is NOT covered, bucketed by ISA extension\n\n")
     fh.write("| bucket | occurrences | share of column | the mnemonics in it |\n")
     fh.write("|---|---|---|---|\n")
@@ -1096,7 +1201,11 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     counts = rest
     tot = sum(counts.values())
     covered = sum(k for r, k in mapped.items() if r in model)
-    out_of  = sum(k for r, k in mapped.items() if r not in model)
+    # ⚖️ D337: (b) is carved out of "mapped to a name the model does not
+    # differentially cover" and printed on its own line — never added to (a)
+    sil_set = silicon_of(model)
+    silicon = sum(k for r, k in mapped.items() if r in sil_set)
+    out_of  = sum(k for r, k in mapped.items() if r not in model) - silicon
     unk     = sum(unmapped.values())
     oos     = sum(outscope.values())
     fh.write(f"\n### {name}\n\n")
@@ -1108,7 +1217,13 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
                  f"PADDING and excluded** from the line above and from every "
                  f"percentage below. Before this exclusion they were "
                  f"{100.0*padding/(tot+padding):.1f}% of this column.\n")
-    fh.write(f"- **Covered by the model: {covered:,} ({100.0*covered/tot:.1f}%).**\n")
+    fh.write(f"- **Covered by the model (differentially tested mnemonics): "
+             f"{covered:,} ({100.0*covered/tot:.1f}%).**\n")
+    if sil_set:
+        fh.write(f"- ⚙ **Implemented, {SILICON_LABEL}: {silicon:,} "
+                 f"({100.0*silicon/tot:.2f}%)** — counted as NOT covered above, "
+                 f"printed beside the differential figure and never summed into it "
+                 f"(D337).\n")
     fh.write(f"- Mapped to a roster name the model does not have: {out_of:,} "
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
@@ -1129,11 +1244,11 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
         merged[m] += k
     for i, (m, k) in enumerate(merged.most_common(30), 1):
         plain = m.strip("`").split("`")[0]
-        yes = "✅" if plain in model else "—"
+        yes = "✅" if plain in model else "⚙ silicon only" if plain in sil_set else "—"
         fh.write(f"| {i} | `{plain}` | {k:,} | {100.0*k/tot:.2f}% | {yes} |\n")
     fh.write(f"\n**The ranked list of mnemonics the model does NOT cover** "
              f"(the P2 roster candidates, by demand):\n\n")
-    fh.write("| rank | mnemonic | occurrences | share |\n|---|---|---|---|\n")
+    fh.write("| rank | mnemonic | occurrences | share | referee |\n|---|---|---|---|---|\n")
     miss = collections.Counter()
     for r, k in mapped.items():
         if r not in model:
@@ -1143,7 +1258,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     for m, k in outscope.items():
         miss[m] += k
     for i, (m, k) in enumerate(miss.most_common(25), 1):
-        fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% |\n")
+        ref = "⚙ silicon (hwprobe), implemented" if m in sil_set else "—"
+        fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% | {ref} |\n")
     att = attribution(name, counts, model, fns or {}, n, n_sym, fh)
     ext, ext_covered, miss_by_ext = ext_table(name, counts, model, fh)
     # ⚠️ THE FULL uncovered map rides in the JSON, not just the top 40.  The P2
@@ -1151,9 +1267,44 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     # truncated list would price the tail at zero — which is the direction that
     # makes a roster look cheaper than it is.
     return dict(total=tot, covered=covered, pct=100.0*covered/tot,
+                silicon=silicon, silicon_pct=100.0*silicon/tot,
+                silicon_all={r: k for r, k in mapped.items() if r in sil_set},
                 miss=miss.most_common(40), miss_all=dict(miss),
                 attribution=att, ext=ext, ext_covered=ext_covered,
                 miss_by_ext=miss_by_ext)
+
+def differential_reference(model):
+    """The reference model for `check_no_pooling`: every implemented mnemonic
+    minus `siliconTable` READ FRESH FROM THE TREE, as a plain set.  ⛔ Never the
+    `Model` the report used: a model that pooled would then be its own referee."""
+    return frozenset(names_of(model)) - silicon_mnemonics()
+
+
+def check_no_pooling(counts, ref, reported):
+    """⚖️ D337 — None when the reported differential figure is the figure a
+    model WITHOUT `siliconTable` produces, in total, in every attribution cell
+    and in every covered bucket; else the first difference.  The reference model
+    is a PLAIN set of the differential mnemonics, so its mapping cannot even name
+    a silicon mnemonic: if (a) moved when the silicon rows were loaded,
+    something pooled them."""
+    ref = frozenset(ref)                     # a PLAIN set: no `.names`, no `.silicon`
+    tot, cov = _covered(counts, ref)
+    if cov != reported["covered"] or tot != reported["total"]:
+        return (f"covered {reported['covered']:,} of {reported['total']:,} with the "
+                f"silicon rows loaded, {cov:,} of {tot:,} without them")
+    rest = {key: k for key, k in counts.items() if key[1] != "padding"}
+    for cell, got in (reported.get("attribution", {}).get("cells_covered") or {}).items():
+        sub = {key: k for key, k in rest.items() if key[2] == cell}
+        _t, want = _covered(sub, ref)
+        if want != got:
+            return f"attribution cell `{cell}`: {got:,} with the silicon rows, {want:,} without"
+    for ext, got in (reported.get("ext_covered") or {}).items():
+        want = sum(k for (m, _kd, _o, e), k in rest.items()
+                   if e == ext and _decide(m, e, ref)[1])
+        if want != got:
+            return f"bucket `{ext}`: {got:,} covered with the silicon rows, {want:,} without"
+    return None
+
 
 def selftest():
     """⛔ THE MAPPING IS WHERE A CENSUS INFLATES ITSELF, so it is driven on the
@@ -1302,6 +1453,92 @@ def selftest():
           f"== total {c_tot} (padding {_pad} excluded)" +
           ("" if ok else "   EXPECTED 167 + 68 == 235"))
     bad += [] if ok else ["conservation"]
+
+    # ── ⚖️ D337: the silicon class, the mapping it needed, and NO POOLING ──────
+    d337 = 0
+    def arm(ok, label, tag):
+        print(("  ✔ " if ok else "  ⛔ ") + label)
+        if not ok:
+            bad.append("d337:" + tag)
+    # the l/q-suffixed GPR spellings objdump prints, which nothing used to map
+    for m, want in (("andnl", "andn"), ("bzhiq", "bzhi"), ("rorxq", "rorx"),
+                    ("blsmskl", "blsmsk"), ("blsrq", "blsr"), ("bextrl", "bextr"),
+                    ("pdepq", "pdep"), ("pextl", "pext"), ("mulxq", "mulx"),
+                    ("movntiq", "movnti"), ("adcxq", "adcx"), ("adoxl", "adox"),
+                    # ⛔ and the vector extract that SHARES a prefix must not follow it
+                    ("pextrw", None), ("pextrd", None)):
+        got = to_roster(m)
+        arm(got == want, f"map {m:8s} -> {got}" + ("" if got == want else f"   EXPECTED {want}"),
+            "map:" + m)
+        d337 += 1
+    # the split is read from the tree, and agrees with primitive_census's reader
+    _sil = silicon_mnemonics()
+    try:
+        import primitive_census as _PC
+        _pc = frozenset(_PC.silicon_mnemonics())
+    except Exception as e:                     # noqa: BLE001 — an arm, not a crash
+        _pc = f"unreadable: {e}"
+    arm(_pc == _sil, f"siliconTable read here ({len(_sil)}) == primitive_census's reader", "reader")
+    arm({"mulx", "pmaddwd", "andn"} <= _sil and not ({"paddd", "adcx", "mov"} & _sil),
+        "siliconTable holds mulx/pmaddwd/andn and no differential row (paddd, adcx, mov)", "content")
+    arm(_M.silicon == _sil and not (_M & _sil) and set(_M) | _sil == set(_M.names),
+        f"Model: {len(_M)} differential + {len(_sil)} silicon == {len(_M.names)} implemented, disjoint",
+        "model-split")
+    d337 += 3
+    # three classes, one decision each
+    for m, ext, want in (("paddd",   "SSE-legacy (xmm)", (True,  "mapped")),
+                         ("pmaddwd", "SSE-legacy (xmm)", (False, "silicon")),
+                         ("pmaddwd", "MMX (mm)",         (False, "outscope")),
+                         ("andnl",   "BMI1",             (False, "silicon")),
+                         ("adcxq",   "ADX",              (True,  "mapped")),
+                         ("pshufb",  "SSE-legacy (xmm)", (False, "unmapped"))):
+        _r, cov, cls = _decide(m, ext, _M)
+        arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
+            + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
+        d337 += 1
+    # ⛔⛔ THE NO-POOLING ARM, with its plants.  One fixture: 50 differential, 30 +
+    # 5 silicon-refereed, 4 out of scope, 2 unmapped.
+    fx = collections.Counter({("paddd",   "vector", "CC", "SSE-legacy (xmm)"): 50,
+                              ("pmaddwd", "vector", "AA", "SSE-legacy (xmm)"): 30,
+                              ("andnl",   "plain",  "CC", "BMI1"):             5,
+                              ("paddw",   "vector", "AA", "MMX (mm)"):         4,
+                              ("pshufb",  "vector", "AA", "SSE-legacy (xmm)"): 2})
+    ref = differential_reference(_M)
+    with contextlib.redirect_stdout(io.StringIO()):
+        honest = report("fixture", fx, _M, io.StringIO(), {}, 1, 1)
+        # PLANT 1: a classifier that POOLS — a model whose covered set includes
+        # the silicon rows (the census as it stood from D335 to D337)
+        pooled = report("fixture", fx, Model(_M.names, ()), io.StringIO(), {}, 1, 1)
+    why_h = check_no_pooling(fx, ref, honest)
+    arm(why_h is None and honest["covered"] == 50 and honest["silicon"] == 35
+        and honest["total"] == 91 and sum(honest["miss_all"].values()) == 41,
+        f"honest: covered 50, silicon 35 beside it, not-covered 41 of 91 — no-pooling passes ({why_h})",
+        "honest")
+    why_p = check_no_pooling(fx, ref, pooled)
+    arm(why_p is not None and pooled["covered"] == 85,
+        f"PLANT pooling classifier (covered {pooled['covered']}) is REFUSED: {why_p}", "plant-pool")
+    # the two keyings of the residue agree (p2_roster joins them on a shared denominator)
+    _strip = collections.Counter()
+    for _k, _v in honest["miss_all"].items():
+        _strip[re.sub(r" \((vector|segment|lock) operand\)$", "", _k)] += _v
+    _byx = {_k: sum(_v.values()) for _k, _v in honest["miss_by_ext"].items()}
+    arm(dict(_strip) == _byx and _byx.get("andn") == 5,
+        f"miss_all and miss_by_ext key the residue alike (andnl -> andn): {_byx}", "keying")
+    d337 += 1
+    # PLANT 2: the honest classification, with (b) SUMMED into the headline
+    summed = dict(honest, covered=honest["covered"] + honest["silicon"])
+    why_s = check_no_pooling(fx, ref, summed)
+    arm(why_s is not None, f"PLANT (a)+(b) summed into one figure is REFUSED: {why_s}", "plant-sum")
+    # PLANT 3: a reference that is the pooled model's own set must NOT be what
+    # `differential_reference` returns — it reads siliconTable from the tree
+    arm(not (differential_reference(Model(_M.names, ())) & _sil),
+        "the reference reads siliconTable from the tree, never the model under test", "plant-ref")
+    # and the stamp sees a mnemonic move between (a) and (b) with the set unchanged
+    _sa, _sb = model_stamp(_M), model_stamp(Model(_M.names, ()))
+    arm(_sa[0] == _sb[0] and _sa[1] != _sb[1],
+        "the stamp's model half moves when the silicon split moves and the implemented set does not",
+        "stamp-split")
+    d337 += 5
     # ⭐ THE STAMP'S SECOND HALF MOVES WHEN THE MAPPING DOES AND THE MODEL DOES NOT
     _n0, _h0, _r0 = model_stamp(_M)
     _saved = EXT_SCOPE["MMX (mm)"]
@@ -1740,7 +1977,9 @@ def selftest():
              # conservation, the stamp's second half, and the second plant
              len(map_arms) + len(scope_arms) + 6 +
              # D257: the width key, its origin invariance, the stamp seeing it
-             len(width_arms) + 2)
+             len(width_arms) + 2 +
+             # D337: the silicon class, its mapping, and the no-pooling plants
+             d337)
     print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7+n_new} arms; "
           f"the width-changing/string-move trap in both directions, every "
           f"line-level rule that moved the number, and both routes of the "
@@ -1944,14 +2183,29 @@ def main():
                   f"that guesses a column's class is a census that pools.")
             return 2
         groups[g] = [os.path.join(r, f) for r, _, fs in os.walk(d) for f in fs]
-    with open(os.path.join(root, args.out), "w", encoding="utf-8") as fh:
+    # ⛔ D337: written to a sibling `.partial` and moved into place only at the
+    # end, so a run the no-pooling check refuses (exit 3) leaves the shipped
+    # document untouched — a half-written census still carries a fresh stamp.
+    out_final = os.path.join(root, args.out)
+    out_part = out_final + ".partial"
+    with open(out_part, "w", encoding="utf-8") as fh:
         fh.write("# THE DEMAND-SIDE CENSUS — what real binaries actually execute\n\n")
         fh.write("*Generated by `scripts/demand_census.py`. Do not edit.*\n\n")
         n_m, h_m, rh_m = model_stamp(model)
         fh.write(f"<!-- census-model: mnemonics={n_m} sha={h_m} "
                  f"rules={rh_m} -->\n\n")
         fh.write(DOC_PREAMBLE)
-        fh.write(f"The model covers **{len(model)} mnemonics**. Every number below "
+        fh.write(f"The model implements **{len(names_of(model))} mnemonics**: "
+                 f"**{len(model)} differentially tested** (refereed by ACL2 x86isa "
+                 f"over the swept pre-states) and **{len(silicon_of(model))} "
+                 f"{SILICON_LABEL}** (the rows of `siliconTable`). ⚖️ **Count "
+                 f"mechanisms, not voices (D332, D337):** every \"covered\" figure "
+                 f"below is the DIFFERENTIAL one alone, and equals what a model "
+                 f"without `siliconTable` would read — the run recomputes it that "
+                 f"way and refuses (exit 3) if it differs. The silicon-refereed "
+                 f"demand is printed on its own line beside it and is never summed "
+                 f"into it; a reader may cite the two side by side.\n\n")
+        fh.write(f"Every number below "
                  f"is a STATIC count of instruction occurrences in a disassembly, "
                  f"not a dynamic profile: it measures what a binary CONTAINS, which "
                  f"is the right question for deciding what to model next and the "
@@ -1973,6 +2227,13 @@ def main():
                 results[g] = report(f"{g} — {n} ELF x86-64 objects", counts,
                                     model, fh, fns, n, n_sym)
                 results[g]["class"] = klass
+                # ⛔ D337 NO-POOLING: checked per column, before the document is
+                # finished, so a pooled figure never reaches a reader
+                why = check_no_pooling(counts, differential_reference(model), results[g])
+                if why:
+                    print(f"⛔ D337 NO-POOLING ({g}): {why}\n   Nothing written; "
+                          f"the partial output is {out_part}.")
+                    return 3
             # ⛔ POOLED WITHIN A CLASS AND NEVER ACROSS ONE.
             if klass == "asm" and len(cols) > 1:
                 ext_pool = collections.Counter()
@@ -1981,9 +2242,15 @@ def main():
                         ext_pool[e] += k
                 tot = sum(results[g]["total"] for g in cols if g in results)
                 cov = sum(results[g]["covered"] for g in cols if g in results)
+                sil_n = sum(results[g]["silicon"] for g in cols if g in results)
                 fh.write(f"\n### The assembly class, pooled\n\n")
                 fh.write(f"- **{tot:,} instructions**, covered by the model "
+                         f"(differentially tested mnemonics) "
                          f"**{cov:,} ({100.0*cov/tot:.1f}%)**.\n")
+                if silicon_of(model):
+                    fh.write(f"- ⚙ **Implemented, {SILICON_LABEL}: {sil_n:,} "
+                             f"({100.0*sil_n/tot:.2f}%)** — inside the not-covered "
+                             f"figure below, never added to the line above (D337).\n")
                 fh.write(f"- ⛔ Pooled ACROSS the codec columns and never with "
                          f"compiler output: the two are different demands, which "
                          f"is why this class exists.\n\n")
@@ -1998,6 +2265,8 @@ def main():
                              f"{100.0*k/unc:.1f}% |\n")
                 results["_asm_pooled"] = dict(total=tot, covered=cov,
                                               pct=100.0*cov/tot,
+                                              silicon=sil_n,
+                                              silicon_pct=100.0*sil_n/tot,
                                               ext=dict(ext_pool))
         # ── the pre-registered controls, checked in the generated document ──
         fh.write("\n## The controls, and the one that fired\n\n")
@@ -2024,14 +2293,17 @@ def main():
             fh.write(f"| `{g}` | {want} | {nm:.1f}% | {bd:.1f}% | {v} |\n")
         fh.write(CONTROL_VERDICT)
         results["_controls"] = ctl
-        json.dump(results, open(os.path.join(root, args.out + ".json"), "w", encoding="utf-8"),
+        json.dump(results, open(out_final + ".json.partial", "w", encoding="utf-8"),
                   indent=1, default=str)
+    os.replace(out_part, out_final)
+    os.replace(out_final + ".json.partial", out_final + ".json")
     print(f"wrote {args.out}")
     for g, r in results.items():
         if g.startswith("_"):
             continue
         a = r["attribution"]
-        print(f"  {g:18s} {r['total']:>12,} insns  covered {r['pct']:5.1f}%  "
+        print(f"  {g:18s} {r['total']:>12,} insns  covered {r['covered']:>10,} "
+              f"{r['pct']:5.1f}%  silicon {r['silicon']:>7,}  "
               f"hand-written(name) {100.0*a['name_route_asm']/(a['total'] or 1):5.1f}%  "
               f"(body) {100.0*a['body_route_asm']/(a['total'] or 1):5.1f}%")
     return 0

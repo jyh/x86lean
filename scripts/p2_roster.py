@@ -103,18 +103,13 @@ def silicon_mnemonics():
     """D335: the `mnemonic := "…"` strings of `def siliconTable` (X86/Coverage.lean), read from the tree — the
     forms the model implements and a PROCESSOR referees (`hwprobe/`), never the differential.  ⛔ The oracle column
     keeps x86isa's verdict for them; this set only adds a mark beside it, so a reader can tell a REFUSES row the
-    model already covers on silicon from one nobody has touched.  The definition runs to its first blank line
-    (`primitive_census.silicon_mnemonics`'s rule), and an empty or unparsed table refuses rather than reads zero."""
-    src = open(os.path.join(root, "X86", "Coverage.lean"), encoding="utf-8").read()
-    m = re.search(r'^def siliconTable\b.*?(?=\n[ \t]*\n)', src, re.M | re.S)
-    mn = re.findall(r'mnemonic := "([^"]+)"', m.group(0)) if m else []
-    if not mn:
-        print("⛔ siliconTable not read from X86/Coverage.lean; refusing rather than marking nothing")
-        sys.exit(2)
-    return set(mn)
+    model already covers on silicon from one nobody has touched.  ⭐ D337: THE CENSUS'S OWN READER, called — this
+    file carried a second copy of the rule until the census needed the same set, and two readers of one table are
+    a duplicate born in agreement.  An empty or unparsed table refuses there rather than reads zero."""
+    return set(DC.silicon_mnemonics())
 
 
-SILICON_MARK = " · ⚙ silicon-refereed at xmm (`siliconTable`, D335; NOT differential)"
+SILICON_MARK = " · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337)"
 
 
 def oracle_note(verdict, silicon=False):
@@ -518,16 +513,18 @@ K supply and **cannot be differentially validated at all**.
 ⚠️ A row marked *not measured* is exactly that — the probe does not name it. It
 is not a licence, and it is not a refusal.
 
-⚙ **A REFUSES row marked *silicon-refereed* is implemented** (D335): the model
-carries the mnemonic at its xmm shapes, checked against a PROCESSOR by `hwprobe/`
+⚙ **A row marked *silicon-refereed* is implemented** (D330, D334, D335): the
+model carries the mnemonic, checked against a PROCESSOR by `hwprobe/` (AMD + Intel)
 and pinned in the kernel, and it is a row of `siliconTable`, not of the roster
 `docs/COVERAGE.md` counts. The oracle verdict beside it stays x86isa's, so the row
 is still not differentially validated; the mark says only that it is no longer
-untouched. ⚠️ **The demand census counts such a mnemonic's demand as COVERED** —
-it reads every mnemonic row of `docs/COVERAGE.md`, the processor-refereed table
-included — so a silicon-refereed mnemonic normally LEAVES this ranking (D335's
-eleven did, 70,115 instructions of the gap). Covered here means *implemented*,
-never *differentially tested*; the mark exists for any that remain.
+untouched. ⚖️ **Such a row STAYS in this ranking (D337, after D332: count
+mechanisms, not voices).** The demand census's "covered" figure is the
+differential's alone, so a silicon-refereed mnemonic's demand is still part of
+the gap priced here — it is the gap a second executable oracle would close — and
+the census prints that demand on its own labelled line, never summed into
+"covered". (From D335 to D337 the census pooled it, and the eleven LEFT this
+ranking; they are back, marked.)
 
 """)
 
@@ -635,10 +632,11 @@ not by this table's sort — but the row count is DERIVED now, and it is
     fh.write("The corpus executes these and **K has no rule for them**, so they "
              "cannot be priced from the coverage target list at all. A roster "
              "that listed only the join would price P2 this much too low.\n\n")
-    fh.write("| rank | mnemonic | occurrences | share |\n|---|---|---|---|\n")
+    fh.write("| rank | mnemonic | occurrences | share | referee |\n|---|---|---|---|---|\n")
     for i, (mn, occ) in enumerate(b["demand_only"][:25], 1):
+        ref = "⚙ implemented, silicon-refereed (hwprobe; NOT differential)" if mn in sil else "—"
         fh.write(f"| {i} | `{mn}` | {occ:,} | "
-                 f"{100.0*occ/b['total_uncovered']:.2f}% |\n")
+                 f"{100.0*occ/b['total_uncovered']:.2f}% | {ref} |\n")
     fh.write(f"\n### Supply without demand — {len(b['supply_only'])} mnemonics\n\n")
     fh.write("K has semantics for these and the corpus never executes one. "
              "Cheap to model; worth nothing to model first.\n\n")

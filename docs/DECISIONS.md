@@ -21724,3 +21724,33 @@ and the D335 census, before any regeneration):**
 **Wrong if:** any (a) figure differs from item 1 (a pooling defect, or a mapping change this note does not declare); any (b)
 figure differs from item 2; the gap or join differ from item 3; or either pooling plant does not red. **Refutation route:** the
 runtime check itself — a non-zero exit 3 on the real corpus refutes the design's central claim before any document is written.
+**Result (census regenerated on the Debian corpus, P2-ROSTER regenerated against K's tree and a `saltbuild EXIT=0` build of
+`x86lean-diff`; no `.lean` touched): all three predictions held, to the instruction.**
+1. **(a) equals the pre-D330 census in every column**, and the run's own no-pooling check (exit 3 on any difference, per column,
+   per attribution cell, per covered bucket) passed on all ten: cc1 **5,378,222** · coreutils **865,527** · glibc **559,250** ·
+   dav1d **195,087** · ffmpeg **2,987,538** · vlc-codec **150,727** · vlc-video_chroma **98,858** · vpx **655,525** · x264
+   **334,441** · vmlinux-kernel **2,767,164**; assembly class pooled **4,422,176 of 4,784,269 (92.4%)**. Totals unchanged.
+2. **(b) exactly as predicted:** cc1 **8** · coreutils **0** · glibc **143** · dav1d **8,972** · ffmpeg **13,974** · vlc-codec
+   **70** · vlc-video_chroma **1,536** · vpx **42,356** · x264 **3,607** · vmlinux-kernel **16**; pooled **70,515 (1.47%)**,
+   printed beside the 92.4% and inside the not-covered 362,093, never added to (a).
+3. **P2-ROSTER:** gap **362,093**, joined set **316 mnemonics / 327,290 instructions**, demand-without-supply **185 → 184**
+   mnemonics at the same **34,641** (`rorx` 398 now one row). The vector ranking's mnemonic, occurrence, share, cumulative and
+   MMX columns are row-for-row the pre-D335 ranking; the eleven are back at their old ranks (`pmaddwd` 1, `psubusw` 2, …),
+   each marked *implemented, silicon-refereed* beside x86isa's REFUSES.
+**One defect the run found that the pre-registration did not foresee, fixed in the same change:** p2_roster refused —
+*"`rorx` has 398 occurrences by mnemonic and 0 by bucket"*. `miss_all` keys a mapped residue by its roster name (`rorx`) and
+`ext_table`'s per-bucket map keyed every residue by the printed mnemonic (`rorxl`); until D337 no MAPPED instruction was ever
+uncovered, so the two keyings agreed by accident. `miss_by_ext` now keys as `miss_all` does (roster name for a mapped, in-scope
+instruction). Measured before/after: the only keys that changed were the new BMI/MOVNTI ones; every figure above is unaffected.
+**Selftest:** `demand_census.py --selftest` PASS (215 arms; 29 new for D337 — 14 mapping arms including `pextrw`/`pextrd`
+refused, the reader agreeing with `primitive_census`'s, the 199 + 21 = 220 split, six three-class decisions, the honest
+classifier passing and two pooling plants — a classifier whose covered set includes the silicon rows, and (a)+(b) summed into
+one figure — both REFUSED, the reference read from the tree and never from the model under test, the two residue keyings
+agreeing, the stamp moving when only the split moves). `census_redprobe.py` PASS: control + **32** mutations caught, 6 new —
+`_decide` pooling silicon into covered, the no-pooling check switched off, the reference taken from the model under test, the
+silicon split dropped, the BMI suffix mapping removed, the residue re-keyed by printed mnemonic; each reds on its own named arms.
+**Gates:** `demand_census --check` CLEAN (220 mnemonics, sha `78e74ff846163d7b`, rules `3f95fb487dc7b72a`); `p2_roster
+--selftest` PASS (81) and `--check` CLEAN; every `python3 scripts/…` step of ci.yml's build job (33 steps) rc 0;
+`scripts/preflight.sh` 26 ok and two red, both as expected and neither mine: `kernel_drift --gap` (the ledger rows are
+paris's at landing) and the synthetic merge with `origin/master`, which conflicts identically at the base
+`origin/paris/v1a-simd-arith` (the stack is not yet rebased onto PR #85).
