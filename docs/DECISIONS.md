@@ -20970,3 +20970,100 @@ executes MULX; neither is decided here.
 leaks 0, the 8 ADX ids 88 matched each on both sides; **census 42 of 57** (W1a's `xxh32` + `vale-fadd`).
 **Re-run result:** 102960 cases, matched 82131, explained 29699, unexplained 0, divergence 292, leaks 0; each ADX id 88
 matched alone with 88 records on both sides. Census 42 of 57; the s2n appendix (unpredicted) 202 → 206 of 332. All held.
+
+## D334 — W1c: the rest of the oracle-UNAVAILABLE rows (ANDN, BEXTR, BLSMSK, BLSR, BZHI, PDEP, PEXT, RORX, MOVNTI), refereed by silicon (predictions committed before any run)
+
+*(Numbering: D331–D333 are taken by decisions on other branches not yet merged here, so this one is D334.)*
+**Why these.** `scripts/claimed_forms.py --remaining` lists **oracle UNAVAILABLE 19**: `andn` `bextr` `blsmsk` `blsr` `bzhi`
+`movnti` `mulx` `pdep` `pext` `rorx`. `mulx` (2 rows) is D330's; the other **17 rows** are these nine mnemonics at the roster's
+shapes and widths, and nothing else: `andn` r,r,r · r,r,m; `bextr` r,r,r · r,m,r; `bzhi` r,r,r · r,m,r; `blsmsk` r,r · r,m;
+`blsr` r,r · r,m; `pdep` r,r,r · r,r,m; `pext` r,r,r · r,r,m; `rorx` r,r,imm · r,m,imm — all `lq` — and `movnti` m,r. The roster
+files `movnti`'s widths as `-` with **2** K variants: K spells the mnemonic without a size suffix, and its two variants are the
+32- and 64-bit stores (SDM Vol. 2B MOVNTI: `NP 0F C3 /r` m32,r32 and `NP REX.W 0F C3 /r` m64,r64), so both widths are taken.
+**Not taken, and why:** `blsi`, `sarx`, `shlx`, `shrx` are already modelled (P1 batches 13/14, `.bitcnt .blsi` and `.shiftx`)
+and differentially tested — x86isa EXECUTES them, so they are not in the UNAVAILABLE set and a silicon row would add no referee
+they lack. **The oracle** is `scripts/oracle_availability.py`'s existing measurement (each of the nine `refuses`, 88 of 88); it is
+not re-declared, and silicon is the only referee for every form below.
+**The model, one constructor per family (D330's idiom):** `.andn sz dst src1 src2` (dst ModRM.reg, src1 VEX.vvvv, src2 r/m);
+`.bextr sz dst src ctl` and `.bzhi sz dst src idx` (src r/m, the control in VEX.vvvv); `.blsx (msk : Bool) sz dst src` (BLSMSK
+when `true`, BLSR when `false`; dst VEX.vvvv, src r/m); `.pbits (ext : Bool) sz dst src1 mask` (PEXT when `true`, PDEP when
+`false`; src1 VEX.vvvv, mask r/m); `.rorx sz dst src imm`; `.movnti sz dst src` (dst memory, src a GPR). Every BMI constructor
+refuses `.b`/`.w` (VEX.W selects 32 or 64; no encoding); `.movnti` refuses `.b`/`.w` and a non-memory destination (`0F C3` takes
+only a memory r/m). At `.d` every register destination zero-extends (SDM Vol. 1 §3.4.1.1) and every source is read at 32 bits.
+**The rules, per form (SDM Vol. 2A for ANDN, BEXTR, BLSMSK, BLSR, BZHI; Vol. 2B for MOVNTI, PDEP, PEXT, RORX):**
+- **ANDN-RULE.** `DEST := (NOT SRC1) AND SRC2`. "SF and ZF are updated based on result. OF and CF flags are cleared. AF and PF
+  flags are undefined." SF = DEST[w−1], ZF = (DEST = 0), CF = OF = 0.
+- **BEXTR-RULE.** `START := SRC2[7:0]; LEN := SRC2[15:8]; TEMP := ZERO_EXTEND_TO_512(SRC1); DEST := ZERO_EXTEND(TEMP[START+LEN−1:
+  START])`. Only SRC2's low 16 bits are read (bits w−1:16 are ignored); a START ≥ w extracts nothing (DEST = 0, the 512-bit
+  zero-extension supplies only zeros); a LEN reaching past bit w−1 extracts only up to bit w−1; LEN = 0 gives 0. "ZF is updated
+  based on the result. AF, SF, and PF are undefined. All other flags are cleared." So ZF = (DEST = 0), CF = OF = 0.
+- **BLSMSK-RULE.** `temp := (SRC−1) XOR SRC`; SF = temp[w−1]; **ZF := 0** (the SDM's operation sets it unconditionally — the
+  mask always has bit 0 set); CF = (SRC = 0); OF cleared; AF, PF undefined. At SRC = 0 the result is all ones at w bits.
+- **BLSR-RULE.** `temp := (SRC−1) AND SRC`; SF = temp[w−1]; ZF = (temp = 0); CF = (SRC = 0); OF cleared; AF, PF undefined.
+- **BZHI-RULE.** `N := SRC2[7:0]; DEST := SRC1; IF N < w THEN DEST[w−1:N] := 0; IF N > w−1 THEN CF := 1 ELSE CF := 0`. Only the
+  index BYTE is read (bits w−1:8 ignored, so an index register of `…ff05` is 5 and of `0x100` is 0). "ZF and SF flags are updated
+  based on the result. … OF flag is cleared. AF and PF flags are undefined." ⚠️ **THE DOCUMENTED DISCREPANCY, stated before the
+  run:** the SDM's prose says "The INDEX value is saturated at the value of OperandSize −1", and AMD's APM Vol. 3 says "If the value
+  of index is greater than or equal to the operand size, index is set to (op_size−1)" — read literally, both clear bit w−1 at N ≥ w
+  — while the SDM's OPERATION clears nothing at N ≥ w (DEST = SRC1). This model follows the Operation; the rows with SRC1 = all ones
+  and N ∈ {w, w+1, 128, 255} decide between the two readings on a processor. (A public LLVM code review, D32616, reports Haswell,
+  Excavator and Ryzen returning SRC1 unchanged; that is a third-party reading, not evidence here.)
+- **PDEP-RULE / PEXT-RULE.** "Flags Affected: None." PDEP: for m = 0…w−1 with MASK[m] = 1, the next low bit of SRC1 goes to DEST[m];
+  every other DEST bit is 0. PEXT: for m with MASK[m] = 1, SRC1[m] goes to the next low bit of DEST; the rest are 0. SRC1 is
+  VEX.vvvv, MASK the r/m operand.
+- **RORX-RULE.** `y := imm8 AND 1FH` (w = 32) or `imm8 AND 3FH` (w = 64); `DEST := (SRC >> y) OR (SRC << (w−y))`. "Flags Affected:
+  None" — unlike ROR, no CF/OF at all, at every count.
+- **NT-STORE (MOVNTI).** `DEST := SRC`, a w-bit store; "Flags Affected: None". The SDM: "The non-temporal hint is implemented by using
+  a write combining (WC) memory type protocol … Because the WC protocol uses a weakly-ordered memory consistency model, a fencing
+  operation implemented with the SFENCE or MFENCE instruction should be used in conjunction with MOVNTI." ⇒ **For this model's
+  user-level, single-threaded, cache-free state MOVNTI IS A PLAIN STORE**; the cache hint and the weak ordering it permits are OUTSIDE
+  the model's scope (it has no memory types, no other agents and no fences), and the row says so rather than claiming them.
+**Undefined flags** follow the repository's treatment (`.bitcnt .blsi`, `Flags.blsi`): each is drawn from the undefined-bit oracle,
+in a fixed order — PF then AF (ANDN, BLSMSK, BLSR, BZHI), PF, AF then SF (BEXTR) — and those rows are `T-frame` with the bits
+listed. PDEP, PEXT, RORX and MOVNTI draw nothing (`T-exact`). Characterisations in `X86/Theorems.lean` §W1c, on the three standard
+axioms (no `bv_decide`).
+**Coverage.** None of the nine joins `tableP0` or `rosterP0` (still **199**; vectors still **1170**): they are rows of
+`siliconTable` beside `mulx` (1 → 10 rows), rendered in `docs/COVERAGE.md`'s processor-refereed section. The differential is not
+re-run: no vector, constructor of a vectored form or pre-state changes. `claimed_forms.py --remaining` keeps the 19 in the
+UNAVAILABLE bucket (the census credits only differential evidence — D330's rule, unchanged) and gains one derived line naming how
+many of them `siliconTable` referees.
+**The silicon rows (`hwprobe/mk_int_rows.py`, derived from the rules above, never typed): 888 new rows**, 1272 in all with D330's
+384. Destination R8 (R8D); R9 is named by no operand of any W1c form and must still hold the canary; every 32-bit form is compared at
+64 bits. Flags in ∈ {all six clear, all six set} for every operand set, so a cleared flag and an untouched one are both asked.
+- ANDN (4 forms: q/l × rr/rm) × 9 (RDX, SRC2) pairs (zero; 0, all-ones; all-ones, all-ones; all-ones, 0; alternating bytes;
+  sign bit; 2^63−1; a high-half pattern; one whose 32-bit result has its sign set where the 64-bit one does not) × 2 = **72**.
+- BEXTR (4) × 2 sources (all-ones, `0123456789abcdef`) × 11 controls (start/len 0/0, 0/8, 4/8, 0/w, 0/255, (w−1)/1, (w−8)/16,
+  w/1 — START = width, 200/10 — START beyond, 32/16 — beyond at l and the upper half at q, and 4/8 with junk in bits 63:16) × 2
+  = **176**.
+- BZHI (4) × 2 sources × 10 index registers (0, 1, w/2, w−1, w, w+1, 128, 255, `…ffffff05`, `0x100`) × 2 = **160**.
+- BLSMSK, BLSR (4 each) × 8 sources (0, 1, all-ones, 2^63, 2^31, 0x10, `ffffffff00000000` — zero at l, `0123456789abcde0`) × 2
+  = **64 + 64**.
+- PDEP, PEXT (4 each) × 2 values (all-ones, the pattern) × 8 masks (0, all-ones, `5555…`, `aaaa…`, sparse `8000000100000001`,
+  `f0f0…`, 2^63, `00000000ffffffff`) × 2 = **128 + 128**.
+- RORX: 10 forms — per width, register source at imm 0, 1, w−1 and w+5 (masked to 5: 69 at q, 37 at l) and memory source at imm 7
+  — × 4 sources (the pattern, 1, `8000000000000001`, `ffffffff00000001`) × 2 = **80**.
+- MOVNTI (q, l; memory destination at RBX, read back after SFENCE as a quadword) × 4 (stored value, prior memory) pairs × 2
+  = **16**; at l the quadword's high half must be the memory's own.
+RFLAGS is compared on the six arithmetic flags MINUS each row's undefined ones (a per-row mask, `0x8d5` for every D330 row and every
+flagless W1c row); the probe prints all six as read, so the undefined bits are RECORDED per leg though never judged. The probe reads
+CPUID.(7,0):EBX bits 3 (BMI1), 8 (BMI2) and 19 (ADX) and CPUID.1:EDX bit 26 (SSE2, MOVNTI's feature flag), prints them, and REFUSES
+(exit 2) unless all four are set. All 888 rows are pinned in `Tests/Anchors.lean` by `decide` (`hwprobe/mk_int_anchors.py`): x86isa
+refuses every one of these forms, so no vector carries any of them; the pins compare the same masked flags.
+**Predictions — committed before the hwprobe push and before any build of the new probe on any processor:**
+1. **hwprobe, both legs** (ubuntu-latest — an AMD EPYC expected but not named by the label; re-dispatched until a run has an AMD
+   leg; macos-15-intel — Intel): BMI1=1 BMI2=1 ADX=1 SSE2=1; **`rows 1272 disagreements 0`** on each leg. The SSE referee unchanged.
+2. **Controls, both legs:** D330's two unchanged — `--plant` (CF in row 0, `adcxq_rr_zero_c0`) → rc 1, exactly one `DIFF` on that
+   row; `--plant-op` (one byte of `i_adcxq_rr`) → rc 2, `REFUSED i_adcxq_rr`. **A third, new:** `--plant-new` flips ZF — a DEFINED
+   flag — in `andnq_rr_zero` (a masked row) → rc 1, exactly one `DIFF`, on that row: the per-row mask still compares what it must.
+3. **BZHI at N ≥ w:** both processors return SRC1 unchanged with CF = 1 (the Operation), NOT the bit-w−1-cleared value the prose
+   and AMD's APM describe. If either leg clears bit w−1, that leg disagrees on the `nw`/`nw1`/`n128`/`n255` rows with SRC1 = all
+   ones, and the finding is a vendor difference to be recorded, not an expectation to edit.
+4. **No AMD/Intel difference on any compared bit.** On the UNDEFINED bits no prediction is made; any difference between the legs'
+   printed AF/PF/SF readings is recorded in the result as measured.
+5. **Kernel:** every one of the 888 pins builds by `decide`; axiom gate CLEAN on the three standard axioms; `rosterSize` 199 and
+   `vectorCount` 1170 unchanged; `siliconTable` 10 rows. `claimed_forms --remaining`: UNAVAILABLE still 19, the new line reading
+   19 of 19 refereed by silicon; AVAILABLE WORK 0.
+**Wrong if:** any leg disagrees on any row (the rule or the processor is wrong; which is decided from the SDM and the APM, never by
+editing an expectation to fit), a plant reds other than exactly its row, the bad byte does not refuse, the two vendors differ on a
+compared bit, or a pin fails to build. Rosetta 2 is an emulator: if it runs the probe its agreement is corroboration only, and if it
+lacks a required CPUID bit the probe must refuse rather than crash.
