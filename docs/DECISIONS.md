@@ -21670,3 +21670,57 @@ first refusal (D252 §6). **Re-read after registering, at `d795bb7`, base `a62d0
 288.2 ok — and ⚠️ **`X86.Syntax` UNMEASURABLE: +87.5 ± 35.7 against a budget of 79.8** (load 5.9–7.7; the earlier three-repeat run
 read +38 ± 54.6, also UNMEASURABLE). That unit is the six new `Op` constructors' cost, unchanged by this move; it is recorded as
 read, the budget is not widened, and it is not decided here.
+
+## D337 — The demand census credits silicon-refereed mnemonics in a separately labelled line, never pooled with the differential "covered" figure; P2-ROSTER keeps them in its ranking (design and predictions committed before the census is regenerated)
+
+**The ruling this extends.** D332 (the helm, 2026-10-10: count MECHANISMS, not voices) put the primitive census's
+silicon-refereed forms in their own column. Paris decided (2026-10-10, helm-delegated, reversible) that the demand census gets
+the same treatment. **The defect it removes:** `scripts/demand_census.py` reads every mnemonic row of `docs/COVERAGE.md`, the
+processor-refereed section included, so since D335 its headline "Covered by the model" pooled the differential's mnemonics with
+`siliconTable`'s — 70,115 instructions of the assembly class credited as covered on a processor's word, and `scripts/p2_roster.py`
+consequently dropped the eleven from its ranking (its own text: *"a silicon-refereed mnemonic normally LEAVES this ranking"*).
+**Design.**
+1. **Three classes per instruction.** (a) covered by a DIFFERENTIALLY tested mnemonic; (b) a mnemonic the model implements and
+   only SILICON referees, in a form its state can hold; (c) not modelled (unmapped, a roster name the model lacks, or an
+   out-of-scope register file/prefix — exactly as before). (b)'s mnemonics are the `mnemonic := "…"` strings of `def siliconTable`
+   in `X86/Coverage.lean` (21 rows on this base: `mulx`, D334's nine, D335's eleven), read from the tree by the same rule
+   `primitive_census.silicon_mnemonics` uses — never a hand list. The run REFUSES if `docs/COVERAGE.md`'s processor section and
+   `siliconTable` name different sets, or if `siliconTable` is empty.
+2. **The headline is (a) alone** and must equal the figure a model WITHOUT `siliconTable` produces: the run computes, per
+   column and per attribution cell, the covered count of an independent pass whose model is the differential mnemonics only (so
+   its mapping cannot even NAME a silicon mnemonic), and **exits 3** if (a) differs from it anywhere. Mapping still uses every
+   implemented mnemonic, so a silicon instruction is classified as (b) and not mis-filed as "unmapped".
+3. **(b) is printed on its own line per column** — *"⚙ Implemented, silicon-refereed only (AMD + Intel hwprobe — NOT a semantic
+   oracle)"*, the referee pairs named per decision as D332/D335 name them — and in the pooled assembly-class block; it is
+   counted inside the NOT-covered remainder, never added to (a). The ranked "not covered" list marks such rows. The JSON carries
+   `silicon` and `silicon_all` per column beside `covered`; `miss_all`/`miss_by_ext`/`ext` still hold everything that is not (a).
+4. **P2-ROSTER keeps silicon-refereed mnemonics in its ranked list** (they are in `miss_all` again), each marked with its
+   referee beside x86isa's oracle verdict (the D335 mark, worded for GPR rows too, and now also on the demand-without-supply
+   table); its "LEAVES this ranking" paragraph is replaced.
+5. **One mapping correction rides with it, declared:** the l/q-suffixed GPR spellings of the BMI/ADX/MOVNTI rows (`andnl`,
+   `bzhil`, `rorxq`, `movntiq`, `adcxq`, …) were UNMAPPED — `SUFFIXED` never named `andn bextr blsmsk blsr bzhi pdep pext rorx
+   mulx movnti adcx adox` — so their demand read as "not mapped at all". They are added to `SUFFIXED`, with selftest arms. The
+   silicon ones land in (b); `adcx`/`adox` are differential and land in (a).
+6. **No-pooling is checked, not asserted** (D332's form): `--selftest` plants a POOLING classifier (a model whose covered set
+   includes the silicon mnemonics) and the no-pooling check must red on it, while the honest classifier passes on the same
+   fixture; `census_redprobe.py` gains a mutation that pools silicon into (a) inside the classifier and must red the selftest.
+**Predictions (dry computation from the committed census JSONs — `7b4c0d8`, the last census before D330, model 197 mnemonics —
+and the D335 census, before any regeneration):**
+1. **(a) equals the pre-D330 census exactly, in every column:** cc1 **5,378,222** (100.0%), coreutils **865,527** (98.4%), glibc
+   **559,250** (92.7%), dav1d **195,087** (64.2%), ffmpeg **2,987,538** (95.8%), vlc-codec **150,727** (99.4%), vlc-video_chroma
+   **98,858** (88.2%), vpx **655,525** (90.8%), x264 **334,441** (88.6%), vmlinux-kernel **2,767,164** (99.5%); assembly class
+   pooled **4,422,176 of 4,784,269 (92.4%)**. The only differential mnemonics added since (`adcx`, `adox`, D330) have ZERO
+   demand: no `adcx*`/`adox*` key appears in any column's uncovered map at the D335 census, where they would sit as unmapped.
+   Totals per column unchanged.
+2. **(b), per column** = the D335 census's covered minus the pre-D330 covered (exactly the eleven, at xmm) plus the BMI/MOVNTI
+   demand item 5 maps: cc1 **8** · coreutils **0** · glibc **143** (43 + `bzhi` 36, `blsmsk` 56, `andn` 4, `blsr` 4) · dav1d
+   **8,972** (8,580 + `rorx` 392) · ffmpeg **13,974** · vlc-codec **70** · vlc-video_chroma **1,536** · vpx **42,356** · x264
+   **3,607** (3,599 + `bzhi` 2, `rorx` 6) · vmlinux-kernel **16** (`movnti`); assembly class pooled **70,515** (70,115 + 400).
+   `mulx` contributes 0 (no `mulx*` key anywhere).
+3. **P2-ROSTER:** the gap returns to **362,093** instructions (D335's 291,978 + 70,115; the BMI keys only re-key), the joined set
+   to **316 mnemonics / 327,290 instructions** (the pre-D335 reading), and the eleven reappear ranked, each marked
+   silicon-refereed; the demand-without-supply table loses one row (`rorxl` + `rorxq` → `rorx`, `bzhil` → `bzhi`) at the same
+   instruction total.
+**Wrong if:** any (a) figure differs from item 1 (a pooling defect, or a mapping change this note does not declare); any (b)
+figure differs from item 2; the gap or join differ from item 3; or either pooling plant does not red. **Refutation route:** the
+runtime check itself — a non-zero exit 3 on the real corpus refutes the design's central claim before any document is written.
