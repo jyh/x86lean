@@ -49,6 +49,15 @@ jobs:
             sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x SSE2
             test "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = 0
           fi
+          # D330: the integer path needs BMI2 (MULX) and ADX (ADCX/ADOX). Printed here as the OS reports them;
+          # int_probe reads CPUID leaf 7 itself and REFUSES (exit 2) if either is absent, so this is a record, not
+          # the guard.
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow bmi2 /proc/cpuinfo || echo "bmi2: NOT REPORTED"
+            grep -m1 -ow adx /proc/cpuinfo || echo "adx: NOT REPORTED"
+          else
+            sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x -e BMI2 -e ADX || echo "BMI2/ADX: NOT REPORTED"
+          fi
 
       - name: Rows, derived from the rules (never typed)
         working-directory: hwprobe
@@ -59,6 +68,9 @@ jobs:
           python3 mk_rows.py --plant-op > rows_badop.h
           python3 mk_rows.py --plant-packed > rows_pplant.h
           python3 mk_rows.py --plant-pop > rows_pbadop.h
+          python3 mk_int_rows.py > int_rows.h
+          python3 mk_int_rows.py --plant > int_rows_plant.h
+          python3 mk_int_rows.py --plant-op > int_rows_badop.h
 
       - name: Build
         working-directory: hwprobe
@@ -72,6 +84,11 @@ jobs:
           sed 's/"rows.h"/"rows_pbadop.h"/' probe.c > probe_pbadop.c
           gcc -O1 -o probe_pplant probe_pplant.c sse_ops.S
           gcc -O1 -o probe_pbadop probe_pbadop.c sse_ops.S
+          gcc -O1 -o int_probe int_probe.c int_ops.S
+          sed 's/"int_rows.h"/"int_rows_plant.h"/' int_probe.c > int_probe_plant.c
+          sed 's/"int_rows.h"/"int_rows_badop.h"/' int_probe.c > int_probe_badop.c
+          gcc -O1 -o int_probe_plant int_probe_plant.c int_ops.S
+          gcc -O1 -o int_probe_badop int_probe_badop.c int_ops.S
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
       # so --plant-packed flips a bit of a packed row's HIGH quadword, and --plant-pop a packed instruction byte.
@@ -98,3 +115,25 @@ jobs:
       - name: Referee
         working-directory: hwprobe
         run: ./probe
+
+      # D330: THE INTEGER PATH (ADCX, ADOX, MULX), with its OWN pair of controls — a plant in an SSE row says nothing
+      # about the GPR/RFLAGS comparison. A wrong expectation (CF flipped in one row) must red exactly that row, and a
+      # wrong declared instruction byte must refuse the run.
+      - name: Integer controls (a wrong expectation reds exactly one row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./int_probe_plant > int_plant.out; rc_plant=$?
+          ./int_probe_badop > int_badop.out; rc_badop=$?
+          set -e
+          head -1 int_plant.out; grep '^DIFF' int_plant.out; tail -1 int_plant.out; cat int_badop.out
+          echo "int plant rc=$rc_plant (want 1) · int badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' int_plant.out)" = 1
+          grep -q '^DIFF adcxq_rr_zero_c0 ' int_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED i_adcxq_rr:' int_badop.out
+
+      - name: Integer referee
+        working-directory: hwprobe
+        run: ./int_probe

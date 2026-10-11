@@ -57,7 +57,7 @@ declaration in CI.
   registers, flags, RIP, RSP, the XMM registers and MXCSR, a byte-addressed
   memory, and the undefined-bit oracle. Single-threaded, one instruction at a
   time.
-- **Instructions.** 197 mnemonics in 1162 differentially tested forms, covering
+- **Instructions.** 199 mnemonics in 1170 differentially tested forms, covering
   500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 111 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
@@ -110,7 +110,11 @@ declaration in CI.
   - 19 rows the oracle does not implement (the BMI group and `movnti`), so no
     differential evidence can exist for them. Measured by executing them, not
     read off a catalogue (`scripts/oracle_availability.py`); a second oracle is
-    the route.
+    the route. ⚠️ Two of the 19 — `mulx` at `r,r,r` and `r,r,m` — ARE modelled
+    since D330, refereed by a processor instead (`hwprobe/`, rows derived from
+    the SDM and run on hosted x86-64 runners, the model checked against the same
+    rows in the kernel). They stay in this count because that referee is not
+    differential evidence; `docs/COVERAGE.md` lists them in their own table.
   - 2 rows that describe no encoding at all — `jecxz rel32` and `jrcxz rel32`,
     which the assembler refuses because those instructions have only an 8-bit
     displacement.
@@ -273,7 +277,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 38 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 39 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -284,7 +288,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1162 vectors · 88 pre-states · 102256 cases · 0 unexplained · 0 oracle leaks
+1170 vectors · 88 pre-states · 102960 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
