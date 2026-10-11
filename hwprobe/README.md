@@ -35,11 +35,26 @@ are the only check of the model's MULX numbers. ADCX/ADOX rows are read here too
 | `int_probe.c` | runs each integer row and compares GPRs and RFLAGS |
 | `mk_int_anchors.py` | the MULX rows as Lean pins, with `--check` / `--selftest` |
 
+**The bit-string path (D333)** is a third program, sharing nothing with the other two: `bitstr_ops.S` (one function per
+`bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)` form), `mk_bitstr_rows.py` (2944 rows, derived from the SDM's bit-string rule: the
+register offset is signed at the operand size, and the bit is `offset AND 7` of the byte at `EA + (offset SAR 3)`), and
+`bitstr_probe.c`, which fills a 16 KiB buffer from the generator's PATTERN, overrides the one addressed byte, runs the row, and
+compares CF, ZF and the WHOLE buffer. Beside each row it prints whether the processor also matched ACL2 x86isa's rule (bit
+`(mod (abs offset) 8)`), which differs for negative offsets; that column is a reading, not the verdict. Controls: `--plant`
+(CF), `--plant-mem` (one row expects x86isa's byte), `--plant-stray` (a write outside the watched byte), `--plant-op`.
+
+| file | role |
+|---|---|
+| `bitstr_ops.S` | one function per bit-string form (register conventions in its header) |
+| `mk_bitstr_rows.py` | the rows, PATTERN and both rules' expectations; `--summary [--rows]` prints the counts and the per-row table |
+| `bitstr_probe.c` | runs each row and compares CF, ZF and the whole buffer; prints the x86isa-rule agreement count |
+
 Locally, on an x86-64 machine:
 
 ```
 (cd hwprobe && python3 mk_rows.py > rows.h && cc -O1 -o probe probe.c sse_ops.S && ./probe)
 (cd hwprobe && python3 mk_int_rows.py > int_rows.h && cc -O1 -o int_probe int_probe.c int_ops.S && ./int_probe)
+(cd hwprobe && python3 mk_bitstr_rows.py > bitstr_rows.h && cc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S && ./bitstr_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is
