@@ -227,7 +227,10 @@ def vectorCount : Nat := vectors.length
 -- that complete the most public primitives: `cmovb`/`cmovae` at `.q`, `add`/`sub` reg-reg,
 -- `neg` and the by-one `shr` at `.d`.  Each is a form this table already tested at another
 -- width, so they add RUNS and no new coverage ROW.
-theorem vector_count_is_1158 : vectorCount = 1158 := by decide
+-- ⭐ THE FOUR REMAINING WIDTH SIBLINGS (D329) add FOUR, the census's last † forms:
+-- `mov imm,r` at `.b`, the by-one `rol` at `.d`, three-operand `imul` with a memory
+-- source at `.d`, and `cmovns` at `.q`.  Runs, no new coverage ROW.
+theorem vector_count_is_1162 : vectorCount = 1162 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
