@@ -54,3 +54,11 @@ every file consulted for a semantic rule; these files were consulted for a CLASS
 whose source is in this repository and whose output is regenerated in CI. The audit unit is the script,
 not the file list — the file list is `semantics/` at the named commit, and `scripts/setup_k_roster.sh`
 fetches exactly it.
+
+## Reports to upstream sources
+
+A defect this repository found in a source it executes is reported to that source's own tracker, and recorded here.
+
+| filed | source | report | what it says | where the evidence is |
+|---|---|---|---|---|
+| 2026-10-11 | ACL2 x86isa, `machine/instructions/bit.lisp` (read at acl2 `c8897a34d3ef`) | [acl2/acl2#2066](https://github.com/acl2/acl2/issues/2066) | BT/BTS/BTR/BTC with a memory bit base and a negative register offset select bit `(mod (abs off) 8)`; the SDM selects `off AND 7`. Four sites. `sail-x86-from-acl2` inherits it at one site (`model/bit.sail`). | D331 (the model, and the per-state declared divergence) and D333 (the silicon referee) in `docs/DECISIONS.md` |
