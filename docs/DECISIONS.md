@@ -21123,6 +21123,22 @@ says a processor agreed with the model on chosen rows, not that a second model o
 silicon form count is not 38 or a `siliconTable` mnemonic contributes none; the silicon verdict is not exactly those four; or
 the pooling plant does not red. **And the ruling's own condition:** if a second EXECUTABLE model of MULX turns up, its forms move
 to the differential column (with vectors) and the silicon column keeps its rows.
+**Result (census regenerated at the pinned sources, `x86lean-diff` built `saltbuild EXIT=0`): all four predictions held.**
+1. **The differential did not move:** `ALL COVERED` **42 of 57**, the same 42 ids; header `vectors=1198 forms=962`; unlock 22
+   forms for 7 more, ladder 5 steps; s2n appendix **206 of 332**. Measured against the previous document: with the two new
+   columns and the new section and lines removed, every line is byte-identical except the two table separators that gained a
+   cell.
+2. **Silicon forms: 38** from the 10 `siliconTable` mnemonics, exactly the predicted breakdown (`mulx`'s same-register function
+   keys as the `r,r,r` form; `rorx`'s four register functions as one `imm,r,r` form per width).
+3. **`COVERED WITH SILICON`: exactly** `vale-fmul`, `s2n-bignum_montmul_p256`, `s2n-bignum_mul_p25519`, `s2n-bignum_mul_4_8` —
+   printed as **42 ALL COVERED · 4 COVERED WITH SILICON**, never summed. No W1c form completes a candidate.
+4. **The s2n appendix's silicon line (unpredicted): 67** of the 126 not-covered functions lack only silicon-refereed forms.
+   It is printed beside, and not added to, the 206.
+**Selftest:** `--selftest` OK (18 shapes + 11 arms). The no-pooling arm passes the honest classifier (exactly the row lacking
+only a silicon form gets the new verdict; rows that also lack another form, call out, or use an unvectored mode do not) and reds
+on both pooling plants — a classifier that marks a silicon-completed row `all`, and the differential re-scored with the silicon
+forms pooled into its set — and `check_disjoint` reds a silicon form placed in the differential set. **Red backwards:**
+`check_no_pooling` mutated to return `None` reds the selftest on exactly the two pooling plants (rc 1).
 
 ## D333 — W2b: silicon referees the bit-string rule of BT/BTS/BTR/BTC (memory base, register offset), and above all its negative offsets (predictions committed before any run)
 
