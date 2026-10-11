@@ -383,6 +383,56 @@ def blsi (sz : Size) (src res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
     of := false
     pf := pfU, af := afU }
 
+/-! ### D334 (W1c) — the BMI1/BMI2 flag rules
+
+Each is the SDM's sentence for its instruction, and they disagree in the places a
+shared helper would hide: BLSMSK clears ZF unconditionally where BLSR computes it;
+BEXTR leaves SF undefined where ANDN computes it; BZHI's CF reads the INDEX, not the
+source.  PDEP, PEXT, RORX and MOVNTI write no flag and have no function here. -/
+
+/-- ANDN (SDM Vol. 2A): "SF and ZF are updated based on result. OF and CF flags are
+cleared. AF and PF flags are undefined." -/
+def andn (sz : Size) (res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
+  { f with
+    sf := Value.msb sz res, zf := Value.isZero sz res
+    cf := false, of := false
+    pf := pfU, af := afU }
+
+/-- BEXTR (SDM Vol. 2A): "ZF is updated based on the result. AF, SF, and PF are
+undefined. All other flags are cleared." -/
+def bextr (sz : Size) (res : Val) (pfU afU sfU : Bool) (f : Flags) : Flags :=
+  { f with
+    zf := Value.isZero sz res
+    cf := false, of := false
+    pf := pfU, af := afU, sf := sfU }
+
+/-- BLSMSK (SDM Vol. 2A): `SF := temp[OperandSize−1]; ZF := 0; CF := (SRC = 0)`;
+"ZF and OF flags are cleared. AF and PF flag are undefined."  ⛔ ZF IS CLEARED
+WHATEVER THE RESULT — the mask always has bit 0 set, and the SDM writes the
+constant rather than the test. -/
+def blsmsk (sz : Size) (src res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
+  { f with
+    sf := Value.msb sz res, zf := false
+    cf := Value.isZero sz src, of := false
+    pf := pfU, af := afU }
+
+/-- BLSR (SDM Vol. 2A): "ZF and SF flags are updated based on the result. CF is set
+if the source is zero. OF flag is cleared. AF and PF flags are undefined." -/
+def blsr (sz : Size) (src res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
+  { f with
+    sf := Value.msb sz res, zf := Value.isZero sz res
+    cf := Value.isZero sz src, of := false
+    pf := pfU, af := afU }
+
+/-- BZHI (SDM Vol. 2A): `IF (N > OperandSize − 1) CF := 1 ELSE CF := 0`; "ZF and SF
+flags are updated based on the result … OF flag is cleared. AF and PF flags are
+undefined."  ⚠️ CF reads the INDEX `n` (the control's low byte), never the source. -/
+def bzhi (sz : Size) (n : Nat) (res : Val) (pfU afU : Bool) (f : Flags) : Flags :=
+  { f with
+    sf := Value.msb sz res, zf := Value.isZero sz res
+    cf := decide (sz.bits - 1 < n), of := false
+    pf := pfU, af := afU }
+
 /-! ### The multiply and divide flags (P1 BATCH 17) -/
 
 /-- MUL and IMUL, all three operand shapes (SDM Vol. 2A, MUL / IMUL): "the CF

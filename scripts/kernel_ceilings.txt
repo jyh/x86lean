@@ -375,3 +375,10 @@ Tests.LogicMemRel 53 @on yukon.lan
 # runnervmtr4k5) refused ONCE on the NEW unit and printed, verbatim: Tests.LogicMemRel head 37.0 ms ⇒ 111. No `.lean` step follows #73,
 # so it lands in a step of its own (#69's precedent).
 Tests.LogicMemRel 111 @on runnervmtr4k5
+# D334 arm (A) (the W1c pins in their own module, 2026-10-11): the gate's own suggested line from kernel_delta 24d3644 → 4ddeb56,
+# yukon.lan, not retyped: Tests.AnchorsBmi head 3570.0 ms ⇒ max(3570.0 × 3, 50) = 10710. The katmai and runner lines follow
+# those machines' first refusals (D252 §6): no reading of this module exists there yet.
+Tests.AnchorsBmi 10710 @on yukon.lan
+# katmai, 2026-10-11, the line kernel_delta PRINTED on refusing the NEW unit there (base 24d3644 -> 0529afa, --repeats 6):
+# head 3935.0 ms => max(3935.0 x 3, 50) = 11805, copied, not retyped.
+Tests.AnchorsBmi 11805 @on katmai

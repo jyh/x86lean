@@ -1353,6 +1353,41 @@ inductive Op where
   ⛔ Widths `.b` and `.w` have no encoding (VEX.W selects 32 or 64), so `step`
   declines them, as it does for `.shiftx`. -/
   | mulx (sz : Size) (hi lo : GPR) (src : Operand)
+  /-- D334 (W1c): ANDN (SDM Vol. 2A, ANDN) — `dst := (NOT src1) AND src2`, `src1`
+  the VEX.vvvv register and `src2` the r/m operand.  SF and ZF from the result,
+  CF and OF cleared, AF and PF undefined.  ⛔ `.b`/`.w` have no encoding. -/
+  | andn (sz : Size) (dst src1 : GPR) (src2 : Operand)
+  /-- D334 (W1c): BEXTR (SDM Vol. 2A, BEXTR) — the bit field of `src` (r/m) that
+  starts at `ctl[7:0]` and is `ctl[15:8]` long, `ctl` the VEX.vvvv register.
+  ⚠️ Only the low 16 bits of `ctl` are read; a start at or beyond the width
+  extracts nothing.  ZF from the result, CF and OF cleared, AF SF PF undefined. -/
+  | bextr (sz : Size) (dst : GPR) (src : Operand) (ctl : GPR)
+  /-- D334 (W1c): BZHI (SDM Vol. 2A, BZHI) — `src` (r/m) with every bit at or above
+  `idx[7:0]` cleared, `idx` the VEX.vvvv register.  ⚠️ Only the index BYTE is
+  read, and an index at or above the width clears nothing and sets CF (the SDM's
+  Operation; D334 records the prose that reads otherwise). -/
+  | bzhi (sz : Size) (dst : GPR) (src : Operand) (idx : GPR)
+  /-- D334 (W1c): BLSMSK (`msk = true`) and BLSR (`msk = false`) (SDM Vol. 2A) —
+  `(src − 1) XOR src` and `(src − 1) AND src`.  ONE CONSTRUCTOR for the pair, as
+  `.adx` is for ADCX/ADOX: the shape, the width rule, CF (= the source is zero) and
+  OF (cleared) are shared, and the result and ZF are what differ — BLSMSK clears ZF
+  unconditionally.  The destination is the VEX.vvvv register.  `blsi` is the third
+  of the family and stays `.bitcnt .blsi`, where it was modelled first. -/
+  | blsx (msk : Bool) (sz : Size) (dst : GPR) (src : Operand)
+  /-- D334 (W1c): PDEP (`ext = false`) and PEXT (`ext = true`) (SDM Vol. 2B) — the
+  bits of `src1` (VEX.vvvv) deposited at, or gathered from, the set positions of
+  `mask` (r/m).  "Flags Affected: None." -/
+  | pbits (ext : Bool) (sz : Size) (dst src1 : GPR) (mask : Operand)
+  /-- D334 (W1c): RORX (SDM Vol. 2B, RORX) — rotate `src` right by `imm` masked to
+  the width (`imm AND 1FH` / `3FH`).  "Flags Affected: None": unlike ROR it writes
+  no CF and no OF at any count. -/
+  | rorx (sz : Size) (dst : GPR) (src : Operand) (imm : Val)
+  /-- D334 (W1c): MOVNTI (SDM Vol. 2B, MOVNTI) — store `src` to `dst`, which the
+  encoding (`0F C3 /r`) makes a MEMORY operand.  For this model's single-threaded,
+  cache-free user-level state it is a plain store: the non-temporal hint and the
+  weakly-ordered (write-combining) protocol it permits are out of the model's
+  scope, which has no memory types and no other agent.  Widths `.d` and `.q`. -/
+  | movnti (sz : Size) (dst : Operand) (src : GPR)
   /-- P1 BATCH 18: CMPXCHG — the first form in this model whose DESTINATION is
   decided by a comparison the instruction makes about its own operands.
 
@@ -2150,6 +2185,13 @@ def opOperands : Op → List Operand
   | .imulr _ _ src _ => [src]
   | .adx _ _ _ src => [src]
   | .mulx _ _ _ src => [src]
+  | .andn _ _ _ src => [src]
+  | .bextr _ _ src _ => [src]
+  | .bzhi _ _ src _ => [src]
+  | .blsx _ _ _ src => [src]
+  | .pbits _ _ _ _ src => [src]
+  | .rorx _ _ src _ => [src]
+  | .movnti _ dst _ => [dst]
   | .cmpxchg _ dst _ => [dst]
   | .xadd _ dst _ => [dst]
   | .dshift _ _ dst _ _ => [dst]
@@ -2305,6 +2347,13 @@ def Op.anyLocked : Op → Bool
   | .imulr _ _ src _ => src.locked
   | .adx _ _ _ src => src.locked
   | .mulx _ _ _ src => src.locked
+  | .andn _ _ _ src => src.locked
+  | .bextr _ _ src _ => src.locked
+  | .bzhi _ _ src _ => src.locked
+  | .blsx _ _ _ src => src.locked
+  | .pbits _ _ _ _ src => src.locked
+  | .rorx _ _ src _ => src.locked
+  | .movnti _ dst _ => dst.locked
   | .cmpxchg _ dst _ => dst.locked
   | .xadd _ dst _ => dst.locked
   | .dshift _ _ dst _ _ => dst.locked
@@ -2394,6 +2443,30 @@ one per family whose operand is a VARIABLE, stating the obvious fact in the form
 
 @[simp] theorem lockIllegal_mulx (sz : Size) (hi lo : GPR) (src : Operand)
     (h : src.locked = false) : (Op.mulx sz hi lo src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_andn (sz : Size) (dst src1 : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.andn sz dst src1 src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_bextr (sz : Size) (dst : GPR) (src : Operand) (ctl : GPR)
+    (h : src.locked = false) : (Op.bextr sz dst src ctl).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_bzhi (sz : Size) (dst : GPR) (src : Operand) (idx : GPR)
+    (h : src.locked = false) : (Op.bzhi sz dst src idx).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_blsx (m : Bool) (sz : Size) (dst : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.blsx m sz dst src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_pbits (e : Bool) (sz : Size) (dst src1 : GPR) (mask : Operand)
+    (h : mask.locked = false) : (Op.pbits e sz dst src1 mask).lockIllegal = false := by
+  cases mask <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_rorx (sz : Size) (dst : GPR) (src : Operand) (imm : Val)
+    (h : src.locked = false) : (Op.rorx sz dst src imm).lockIllegal = false := by
   cases src <;> simp_all [Operand.locked, opOperands]
 
 @[simp] theorem lockIllegal_dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR)
@@ -2526,6 +2599,13 @@ def Op.mnemonic : Op → String
   | .imulr .. => "imul"
   | .adx o .. => if o then "adox" else "adcx"
   | .mulx .. => "mulx"
+  | .andn .. => "andn"
+  | .bextr .. => "bextr"
+  | .bzhi .. => "bzhi"
+  | .blsx m .. => if m then "blsmsk" else "blsr"
+  | .pbits e .. => if e then "pext" else "pdep"
+  | .rorx .. => "rorx"
+  | .movnti .. => "movnti"
   | .cmpxchg .. => "cmpxchg"
   | .xadd .. => "xadd"
   | .dshift k .. => k.mnemonic
