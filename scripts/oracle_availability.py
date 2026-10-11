@@ -98,6 +98,13 @@ FORMS = [
     ("pdep",    "pdepl %ecx, %edx, %eax",   "c4e26bf5c1",         "refuses"),
     ("pext",    "pextl %ecx, %edx, %eax",   "c4e26af5c1",         "refuses"),
     ("rorx",    "rorxl $3, %ecx, %eax",     "c4e37bf0c103",       "refuses"),
+    # ⭐ D330 (W1b): the two ADX forms, MEASURED here before their constructor was written, because the
+    # silicon referee is only the right referee for a form the oracle cannot run.  First declared
+    # `refuses` (the commission's expectation, by analogy with `mulx` above) and MEASURED `executes`,
+    # 88 of 88 each, with both controls behaving — so ADCX/ADOX are differential rows and `mulx` alone
+    # is refereed by silicon.  The row stays here so the reading is re-taken on every run.
+    ("adcx",    "adcxl %ecx, %eax",         "660f38f6c1",         "executes"),
+    ("adox",    "adoxl %ecx, %eax",         "f30f38f6c1",         "executes"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the

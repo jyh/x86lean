@@ -1077,7 +1077,35 @@ acc,imm · rh"
       shapes := "x,x · x,m",
       note := "bitwise XOR of the whole 128 bits, bit for bit what pxor does, at opcode 66 0f 57",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XORPD" }
+  -- ⭐ D330 (W1b): THE ADX PAIR.  `T-exact` with an empty undefined list: each
+  -- writes ONE flag and leaves the other five unmodified, so there is nothing for
+  -- the undefined-bit oracle to supply.  ACL2 x86isa EXECUTES both (88 of 88 in
+  -- `scripts/oracle_availability.py`), so they are differential rows like any
+  -- other; `hwprobe/` reads the same rules on a processor as well.
+  , { mnemonic := "adcx", shapes := "r,r · r,m", note := "l/q only · CF in and out, every other flag unmodified",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ADCX" }
+  , { mnemonic := "adox", shapes := "r,r · r,m", note := "l/q only · OF in and out, every other flag unmodified",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ADOX" }
   ]
+
+/-- ⭐⭐ D330 (W1b): FORMS THIS MODEL IMPLEMENTS THAT THE DIFFERENTIAL CANNOT TEST.
+
+`tableP0` is the table of DIFFERENTIALLY TESTED forms — `Tests/Coverage.lean`
+proves every one of its rows is exercised by a vector — and a form the reference
+model refuses cannot have a vector without filing every case as a one-sided
+refusal.  So a form refereed by a PROCESSOR instead is a row here, never there:
+putting it in `tableP0` would make `every_row_has_a_vector` false, and leaving it
+out of every table would make an implemented form invisible.
+
+⚠️ WHAT THE REFEREE IS: `hwprobe/` runs each row of `hwprobe/mk_int_rows.py`
+(expectations derived from the SDM's rules, never from x86isa or this model) on a
+hosted runner's processor, and `Tests/Anchors.lean` checks THIS model against the
+same rows by `decide`.  That is a weaker instrument than the differential in one
+way that is named here rather than hidden: its rows are chosen, not swept over
+the 88 pre-states. -/
+def siliconTable : List Row :=
+  [ { mnemonic := "mulx", shapes := "r,r,r · r,r,m", note := "l/q only · RDX (EDX) times the source, high half to ModRM.reg, low half to VEX.vvvv; the same register twice holds the high half; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULX" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

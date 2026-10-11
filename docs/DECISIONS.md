@@ -20945,3 +20945,28 @@ ADCX/ADOX rows are carried by the vectors, as `mk_anchors.py`'s rule says.
 by editing an expectation to match), the plant reds other than exactly its row, the bad byte does not refuse, the two vendors
 differ, or the differential reports any of the 704 new cases as other than matched, or `unexplained` above 0. Rosetta 2 is an emulator: if it
 runs the probe its agreement is corroboration only, and if it lacks BMI2/ADX the probe must refuse rather than crash.
+**Result (record 38, `docs/DIFFERENTIAL-P2-BATCH38.md`): all five predictions held.**
+1. hwprobe run 38096322511, both jobs `success`: **ubuntu-latest drew an AMD EPYC 7763** (CPUID.7.0.EBX `219c07a9`),
+   **macos-15-intel an Intel Core i7-8700B** (`029c6fbf`); BMI2=1 ADX=1 on both; **`rows 384 disagreements 0` on both**, and
+   the two legs' 384 lines are byte-identical (a one-character mutation is reported). SSE referee unchanged: 958/958 on both.
+2. Controls, both legs: plant rc 1 with exactly one `DIFF`, on `adcxq_rr_zero_c0`; bad byte rc 2, `REFUSED i_adcxq_rr`.
+   SSE controls 1 · 2 · 1 · 2 as before.
+3. No AMD/Intel difference.
+4. Differential: 102608 cases (+704), matched 81867 (+704), explained 29523, divergence 292, leaks 0, **unexplained 0**; each
+   new id 88 matched alone, 88 records on both sides. Plants: ADOX carried through CF reds 54 of 88 cases (104 `spec`); the
+   64-bit rule at `adcx_rm_d` reds 88 of 88.
+5. Census: **41 of 57 ALL COVERED** (`vale-fadd`); s2n appendix 199 → 203 of 332 (unpredicted). `vale-fmul`,
+   `s2n-bignum_mul_4_8` and `s2n-bignum_montmul_p256` now lack only `mulxq` forms.
+⚠️ **Rosetta 2:** CPUID.7.0.EBX reads 0, the probe refuses (rc 2), and with the guard removed the first ADCX row is SIGILL —
+the emulator implements neither extension, so it corroborates nothing here. **Kernel:** the 96 MULX pins build by `decide`;
+a mutant that multiplies a memory source at 64 bits reds exactly `w1b_mulxl_rm_pins`. Axiom gate CLEAN (4427 declarations). `ku_delta.py --arm a-prime` cb08c68 → aa04915 on yukon.lan: **CLEAN** — `Tests.Anchors` +112,927 ku against an allowance of 204,819, `Tests.Coverage` +128,430 against 677,753, `X86.Theorems` +6,637 against 17,744.
+**What the census does not count, and what would make it:** it credits a form only when a differential vector has the same
+form, so MULX's processor-refereed rows complete none of the three. Crediting them would need a census rule that reads
+`siliconTable` as a separately labelled column (never pooled with the differential), or a second differential partner that
+executes MULX; neither is decided here.
+**Re-based 2026-10-10 onto batch 52 (D329, PR #83, `52ba97c`), written BEFORE the re-run.** The record is renumbered 38 → 39
+(`docs/DIFFERENTIAL-P2-BATCH39.md`, P2 batch 53); the predictions above are unchanged. Re-derived from the tree: 1170 vectors
+(W1a's 1162 + 8), roster 199. **Predicted for the re-run:** 102960 cases (W1a's 102256 + 704), `unexplained` 0, divergence 292,
+leaks 0, the 8 ADX ids 88 matched each on both sides; **census 42 of 57** (W1a's `xxh32` + `vale-fadd`).
+**Re-run result:** 102960 cases, matched 82131, explained 29699, unexplained 0, divergence 292, leaks 0; each ADX id 88
+matched alone with 88 records on both sides. Census 42 of 57; the s2n appendix (unpredicted) 202 → 206 of 332. All held.
