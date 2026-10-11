@@ -224,19 +224,19 @@ acc,imm · rh"
   -- SF, AF, and PF flags are undefined" — which is the widest undefined set in
   -- this model and the reason all four rows are T-frame despite computing
   -- almost nothing.  `bt` writes no destination, exactly as `cmp` does.
-  -- ⛔ The `m,r` shape (memory base with a REGISTER offset) is a signed BIT
-  -- STRING index that reaches outside the operand; it is NOT modelled and is
-  -- named as absent here rather than quietly folded in.  See D23.
-  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm", note := "w/l/q (m,r: bit-string, not modelled)",
+  -- ⭐ The `m,r` shape (memory base with a REGISTER offset) is a signed BIT
+  -- STRING index that reaches outside the operand.  D23 declined it rather than
+  -- fold it into the modulo rule; D331 models it (one byte at EA + offset SAR 3).
+  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm · m,r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BT" }
-  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
+  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm · m(rmw),r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTS" }
-  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
+  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm · m(rmw),r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTR" }
-  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
+  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm · m(rmw),r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTC" }
   , { mnemonic := "rol",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",

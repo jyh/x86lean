@@ -581,6 +581,8 @@ CLAIMS_NO_ROW = {
     "lock_mov_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
     "lock_lea_ud":        "a LOCK prefix is a prefix on a row already claimed",
     "lock_shl_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
+    # D331: the bit-string `bts m,r` row is claimed by `bts_mr_l` and its siblings.
+    "lock_btsl_neg":      "a LOCK prefix is a prefix on a row already claimed",
     # ⭐ P2 ITEM 3.  K files `mov r,imm` as ONE row with six variants and `blqw`
     # widths, and `mov_ri` already claims it: `movabs` is a distinct ENCODING of
     # a claimed row, not a row of its own.  The resolver assembles the roster
@@ -1134,8 +1136,11 @@ PUBLISHED_RE = re.compile(
 # `xchg` rows for the implicit LOCK (D25), and the four `bt`-family rows for
 # SIGNED BIT-STRING ADDRESSING (D23), which no LOCK vocabulary touches.
 # `p2_roster.py` derives its sentence from here now instead of asserting one.
-DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
-            ("btr", "m,r"): "D23", ("btc", "m,r"): "D23"}
+#
+# ⭐⭐ D331 EMPTIED IT.  D23's four bit-string rows are modelled (one byte at
+# EA + offset SAR 3) and vectored, so they leave this table and enter
+# `DECLINE_REVERSED` below, which `--check` holds to the claimed set.
+DECLINED = {}
 
 # The decision that blocks a row on ATOMICITY, i.e. the one a LOCK vocabulary
 # answers.  Named rather than spelled at the use site, so the claim "this is
@@ -1153,6 +1158,13 @@ LOCK_BLOCKED_DECISION = "D25"
 # ⚠️ The residue's total is unchanged in kind: six rows were declined, four are
 # (D23's bit-string shape, which no LOCK vocabulary touches — D76).
 LOCK_UNBLOCKED = {("xchg", "m,r"), ("xchg", "r,m")}
+
+# ⭐⭐ D331: THE ROWS D23 DECLINED, NOW MODELLED.  The same gate as
+# `LOCK_UNBLOCKED`, for the same reason: taking a row out of DECLINED shrinks the
+# residue, and `--check` requires every row here to be CLAIMED, so the shrink
+# cannot be a deletion nobody checked.
+DECLINE_REVERSED = {("bt", "m,r"): "D331", ("bts", "m,r"): "D331",
+                    ("btr", "m,r"): "D331", ("btc", "m,r"): "D331"}
 
 
 def residue_buckets(rows, claimed, noform):
@@ -1890,7 +1902,14 @@ def main():
             f"{len(lock_unclaimed)} row(s) recorded as UNBLOCKED by the LOCK "
             f"vocabulary are not claimed: " +
             ", ".join(f"{b} {sh}" for b, sh in lock_unclaimed))
-    still_declined = sorted(LOCK_UNBLOCKED & set(globals()['DECLINED']))
+    reversed_unclaimed = sorted(set(DECLINE_REVERSED) - claimed_pairs)
+    if reversed_unclaimed:
+        findings.append(
+            f"{len(reversed_unclaimed)} row(s) recorded as MODELLED since their "
+            f"decline (D331) are not claimed: " +
+            ", ".join(f"{b} {sh}" for b, sh in reversed_unclaimed))
+    still_declined = sorted((LOCK_UNBLOCKED | set(DECLINE_REVERSED))
+                            & set(globals()['DECLINED']))
     if still_declined:
         findings.append(
             f"{len(still_declined)} row(s) are recorded as both DECLINED and "

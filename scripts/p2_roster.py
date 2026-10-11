@@ -233,6 +233,9 @@ def lock_why():
     lock_names = ", ".join(f"`{b} {sh}`" for b, sh in unblocked)
     other_names = ", ".join(f"`{b} {sh}`" for (b, sh), _ in still)
     other_decisions = ", ".join(sorted({d for _, d in still}))
+    rev = sorted(getattr(CF, "DECLINE_REVERSED", {}).items())
+    rev_names = ", ".join(f"`{b} {sh}`" for (b, sh), _ in rev)
+    rev_decisions = ", ".join(sorted({d for _, d in rev}))
     remaining_lock = sum(1 for d in CF.DECLINED.values()
                          if d == CF.LOCK_BLOCKED_DECISION)
     return (
@@ -243,14 +246,22 @@ def lock_why():
         f"addition unblocked exactly the **{len(unblocked)} row(s)** declined "
         f"for that reason — {lock_names} — which are CLAIMED now, and "
         f"**{remaining_lock} row(s)** remain blocked on atomicity.\n\n"
-        f"⛔ **It did NOT unblock the {len(still)} row(s) still declined** "
-        f"({other_names}, {other_decisions}), whose reason is signed BIT-STRING "
-        f"addressing: the offset may reach far outside the addressed operand and "
-        f"the effective address moves with it. That is a different addressing "
-        f"mode wearing the same mnemonic, and no LOCK vocabulary touches it. "
-        f"⚠️ This paragraph is DERIVED from `claimed_forms`'s tables, each gated "
+        + (f"⛔ **It did NOT unblock the {len(still)} row(s) still declined** "
+           f"({other_names}, {other_decisions}), whose reason is signed BIT-STRING "
+           f"addressing: the offset may reach far outside the addressed operand and "
+           f"the effective address moves with it. That is a different addressing "
+           f"mode wearing the same mnemonic, and no LOCK vocabulary touches it. "
+           if still else
+           # ⭐ D331: the bit-string rows were modelled later, by their own work, so
+           # the sentence names them as NOT this addition's and says what closed them.
+           f"⛔ **It did NOT unblock the {len(rev)} bit-string row(s)** ({rev_names}, "
+           f"D23), whose reason is signed BIT-STRING addressing: the offset may reach "
+           f"far outside the addressed operand and the effective address moves with "
+           f"it, and no LOCK vocabulary touches that. They were modelled later, by "
+           f"{rev_decisions}, which leaves the {len(still)} row(s) still declined. ")
+        + f"⚠️ This paragraph is DERIVED from `claimed_forms`'s tables, each gated "
         f"in its own direction; an earlier hand-written version claimed all "
-        f"{len(unblocked) + len(still)} rows for this addition.")
+        f"{len(unblocked) + len(still) + len(rev)} rows for this addition.")
 
 
 def census():

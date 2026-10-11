@@ -245,7 +245,9 @@ def vectorCount : Nat := vectors.length
 -- `mov imm,r` at `.b`, the by-one `rol` at `.d`, three-operand `imul` with a memory
 -- source at `.d`, and `cmovns` at `.q`.  Runs, no new coverage ROW.
 -- ⭐ D330 (W1b) adds EIGHT: `adcx` and `adox` at `.q` and `.d`, register and memory source.
-theorem vector_count_is_1170 : vectorCount = 1170 := by decide
+-- ⭐ THE BIT STRING (D331) adds 28: the four `m,r` rows D23 declined, at w/l/q with RCX and
+-- RDX offsets, three fixed far offsets, and one LOCK form.
+theorem vector_count_is_1198 : vectorCount = 1198 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1380,7 +1382,11 @@ theorem memDestSweep :
       -- start.  ⚠️ This is the ONLY row of 106 whose classification moved:
       -- computed before the edit under the invariant "no row's `claimsMemDest`
       -- changes", and confirmed by this gate after.
-      == [("bt", false), ("sarx", true), ("shlx", true), ("shrx", true),
+      -- ⭐⭐ D331 TAKES `bt` BACK OUT, AND FOR THE HONEST REASON THIS TIME: its shapes now
+      -- carry `m,r` because the bit-string shape IS modelled, so both rules read a memory
+      -- operand and agree.  The batch-11 paragraph above stays as the record of the
+      -- prose-reading defect; the row it describes no longer has the parenthetical.
+      == [("sarx", true), ("shlx", true), ("shrx", true),
           ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
           ("movdqa", false), ("movdqu", false),
           -- ⭐ P2 VECTOR WAVE, BATCH 11 adds four more in the SAME direction, and
@@ -1462,8 +1468,8 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
         | true,  false => some (r.mnemonic, true)
         | false, true  => some (r.mnemonic, false)
         | _,     _     => none)
-      = [-- ⛔ P2 BATCH 11: `bt`. See `memDestSweep` for why it is here and was not.
-         ("bt", false), ("sarx", true), ("shlx", true), ("shrx", true),
+      = [-- ⛔ P2 BATCH 11 put `bt` here and D331 took it out. See `memDestSweep`.
+         ("sarx", true), ("shlx", true), ("shrx", true),
          ("cmps", false), ("scas", false),
          -- P1 BATCH 16: `repe` and `repne` join for the same reason `cmps` and
          -- `scas` did — they ADDRESS a memory destination and write none, so
