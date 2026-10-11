@@ -21161,3 +21161,10 @@ disagreements, the same 2092/852, all controls as above, and its listing is byte
 Corroboration only. **Limits, declared:** the buffer is in-bounds by construction, so this says nothing about which addresses
 a processor ACCESSES (the SDM lets it touch the whole operand-size unit) or about faults; no LOCK-prefixed row; offsets
 beyond ±32769 (far negative offsets at 32/64 bits) are not exercised; three processors are three readings, not a population.
+
+**A fourth processor, 2026-10-11 00:30–00:31 PDT (after the Result; added at landing).** The same probe sources — the run script
+generated from this branch's `hwprobe.yml`, so the steps are CI's own — ran on kenai, an AMD Ryzen 7 8700F (Zen 4), inside WSL2
+(Ubuntu 26.04.1, gcc 15.2.0 installed for it). WSL2 reports `hypervisor=1` and every feature these probes need; the bare-metal CPUID
+was NOT measured (no Windows-side reader), so a Hyper-V mask on some feature this file does not use is not excluded. Result: bit-string
+`rows 2944 disagreements 0`, all four controls as stated (plant rc 1, pmem rc 1, stray rc 1, badop rc 2) — the SDM's bit on all 852
+rows where x86isa's rule differs, on a second AMD microarchitecture. The raw listings are not committed here.
