@@ -73,8 +73,10 @@ and `leaq %fs:...` is a vector, so the differential run would see it.
 ⚠️ ONE DEPARTURE FROM x86isa, NAMED RATHER THAN LEFT TO BE FOUND: x86isa's
 `ea-to-la` also requires the resulting LINEAR address to be canonical and faults
 if it is not, for segmented and unsegmented accesses alike.  This model checks
-canonicity on branch TARGETS only (D9) and on no data address at all — a
-pre-existing gap that this batch does not widen and does not close.  It is
+canonicity on branch TARGETS (D9) and on one data address only — the byte a
+bit-string BT/BTS/BTR/BTC touches (D331), whose register offset can carry it
+anywhere in the address space — a pre-existing gap that this batch does not
+widen and does not close.  It is
 unreachable in this harness by construction rather than by luck, and
 `segmentedAddressesAreCanonical` in `Tests/Coverage.lean` is the assertion that
 says so over the whole vector × pre-state cross product; the day a swept segment
@@ -195,6 +197,17 @@ def popValue (s : Cpu) (sz : Size) : Val × Cpu :=
   (v, s.setReg .q .rsp (sp + BitVec.ofNat 64 sz.bytes))
 
 end Cpu
+
+/-- ⭐⭐ D331: THE BYTE A BIT-STRING BT/BTS/BTR/BTC ADDRESSES — a memory bit base `ea`
+with the register offset `r` at operand size `sz`.  The offset is SIGNED at `sz`, and the
+byte is `EA + (offset SAR 3)` (SDM Vol. 2A §3.1.1.9, Table 3-2: `BitBase + offset DIV 8`,
+DIV rounding toward negative infinity); the bit inside it is `offset AND 7`.  A function
+rather than a `let` in `step` because the harness's ACL2 emitter must name the same byte:
+the oracle's memory persists between cases, so a byte outside the watched windows that
+the case reads has to be written into its pre-state explicitly. -/
+def bitStringByte (s : Cpu) (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool)
+    (nr : BitVec 64) : BitVec 64 :=
+  ea.addr s nr + (Value.sext sz (s.getReg sz r h8)).sshiftRight 3
 
 /-- P1 BATCH 14: BSF and BSR, which differ in ONE expression.
 
@@ -1421,14 +1434,44 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- SURVIVES: "the ZF flag is unaffected... the OF, SF, AF and PF flags are
   -- undefined".  Four oracle draws, in the fixed order PF, AF, SF, OF.
   --
-  -- ⛔ NAMED GAP: the MEMORY destination with a REGISTER offset is not here.
-  -- That shape is not a bit within the addressed operand — it is an index into
-  -- a BIT STRING, signed, reaching outside the operand entirely, and the
-  -- effective address moves with it.  Modelling it is a real piece of work and
-  -- guessing at it would be worse than declining, so the four `m,r` forms of
-  -- roster family 31/41 are NOT claimed (docs/DECISIONS.md D23).  The forms
-  -- here take the offset MODULO the operand width, which is what the SDM
-  -- specifies for a register destination and for an immediate offset.
+  -- ⭐⭐ THE BIT STRING (D331, reversing D23's decline): a MEMORY base with a
+  -- REGISTER offset is not a bit inside the addressed operand.  The offset is a
+  -- SIGNED integer of the operand size, and the bit is bit `offset AND 7` of the
+  -- byte at `EA + (offset SAR 3)` (SDM Vol. 2A §3.1.1.9 and Table 3-2: bit
+  -- `offset MOD 8` of the byte at `BitBase + offset DIV 8`, DIV rounding toward
+  -- negative infinity).  ONE BYTE is read and, for BTS/BTR/BTC, written back.
+  -- The SDM lets the processor access the operand-size unit that contains it;
+  -- that changes which addresses must be accessible and never the result, and
+  -- the only access condition this model has is canonicity, checked on the byte
+  -- it touches.  ⛔ The `abs` in x86isa's bit number is WRONG for a negative
+  -- offset (D331; declared in `knownDivergences`, per state).
+  | .bit k sz (.mem ea) (.reg r h8) =>
+      let o := s.getReg sz r h8
+      let ba := bitStringByte s sz ea r h8 nr
+      if !canonical ba then
+        s.halt (.unimplemented "non-canonical bit-string byte address (#GP(0) in hardware)")
+      else
+        let a := s.readMem .b ba
+        let n := o.toNat % 8
+        let bit := a.getLsbD n
+        let res : Val :=
+          match k with
+          | .bt  => a
+          | .bts => Value.trunc .b (a ||| (BitVec.ofNat 64 1 <<< n))
+          | .btr => Value.trunc .b (a &&& ~~~(BitVec.ofNat 64 1 <<< n))
+          | .btc => Value.trunc .b (a ^^^ (BitVec.ofNat 64 1 <<< n))
+        let (pfU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        let (sfU, s) := s.undefBit
+        let (ofU, s) := s.undefBit
+        let s := s.setFlags { s.flags with
+          cf := bit, pf := pfU, af := afU, sf := sfU, of := ofU }
+        match k with
+        | .bt => s.setRip nr
+        | _ => (s.writeMem .b ba res).setRip nr
+  -- Every other operand pair takes the offset MODULO the operand width, which is
+  -- what the SDM specifies for a register destination and for an immediate
+  -- offset.
   | .bit k sz dst off =>
       let a := s.readOperand sz nr dst
       let n := (s.readOperand sz nr off).toNat % sz.bits

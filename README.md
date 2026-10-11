@@ -57,8 +57,8 @@ declaration in CI.
   registers, flags, RIP, RSP, the XMM registers and MXCSR, a byte-addressed
   memory, and the undefined-bit oracle. Single-threaded, one instruction at a
   time.
-- **Instructions.** 199 mnemonics in 1170 differentially tested forms, covering
-  500 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
+- **Instructions.** 199 mnemonics in 1198 differentially tested forms, covering
+  504 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 111 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
   `movss`/`movsd`, the packed integer add, subtract, bitwise and unpack groups,
@@ -105,7 +105,7 @@ declaration in CI.
 - **No decoder yet.** "These bytes mean this instruction" is trusted to Intel
   XED and recorded as trusted in the coverage table. A Lean decoder for the
   covered subset is a later phase.
-- **Rows of the roster not modelled, with the reason** — 25 of 525, and
+- **Rows of the roster not modelled, with the reason** — 21 of 525, and
   **nothing on that list is merely undone**:
   - 19 rows the oracle does not implement (the BMI group and `movnti`), so no
     differential evidence can exist for them. Measured by executing them, not
@@ -118,18 +118,17 @@ declaration in CI.
   - 2 rows that describe no encoding at all — `jecxz rel32` and `jrcxz rel32`,
     which the assembler refuses because those instructions have only an 8-bit
     displacement.
-  - 4 rows declined on record: the bit-string `m,r` shape of
-    `bt`/`bts`/`btr`/`btc`, where the offset is signed and the effective address
-    moves with it (`docs/DECISIONS.md` D23). ⚠️ That is a decision and not an
-    oracle limitation: all four execute on ACL2 x86isa, and the availability
-    gate records it so the reason cannot quietly be re-read as "unsupported".
-    ⭐ It was **6** until P2 batch 23: `xchg` at a memory operand was declined
-    because its implicit LOCK is an atomicity claim a model with no LOCK
-    vocabulary could neither make nor break (D25), and the LOCK vocabulary is
-    what that addition added. The two rows are claimed now, and the claim is
+  - 0 rows declined on record. ⭐ It was **6** until P2 batch 23: `xchg` at a
+    memory operand was declined because its implicit LOCK is an atomicity claim
+    a model with no LOCK vocabulary could neither make nor break (D25), and the
+    LOCK vocabulary is what that addition added. It was **4** until D331: the
+    bit-string `m,r` shape of `bt`/`bts`/`btr`/`btc`, where the offset is signed
+    and the effective address moves with it (D23), is modelled and vectored now —
+    and its run found that ACL2 x86isa selects the wrong bit for a negative
+    offset, declared per pre-state as an oracle divergence. Both reversals are
     gated — `scripts/claimed_forms.py` requires every row it records as
-    unblocked to be in the claimed set, so shrinking this residue cannot be a
-    deletion nobody checked.
+    unblocked or modelled to be in the claimed set, so shrinking this residue
+    cannot be a deletion nobody checked.
   - 0 rows of available work. This is what the number means: the residue is
     fully accounted for, and the partition is checked rather than asserted.
 - **Faults** are modelled as refusals of `step`, not as exception delivery:
@@ -277,18 +276,18 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 39 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 40 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
-**500 of the 525 rows** in [`p1/roster.tsv`](p1/roster.tsv) — which are 351 of
+**504 of the 525 rows** in [`p1/roster.tsv`](p1/roster.tsv) — which are 355 of
 the 374 distinct MACHINE FORMS those rows describe, 149 of the rows being alias
 spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 `stos -`) — differentially tested
 against ACL2 x86isa on every batch:
 
 ```
-1170 vectors · 88 pre-states · 102960 cases · 0 unexplained · 0 oracle leaks
+1198 vectors · 88 pre-states · 105424 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
@@ -325,4 +324,4 @@ first form whose whole meaning is a FAULT.
 memory (implicit LOCK, an atomicity claim a single-threaded model cannot make),
 `bswap` at 16 bits (the SDM leaves the whole result undefined, so the
 undefined-BIT oracle is the wrong instrument), and the bit-string `m,r` shape of
-BT/BTS/BTR/BTC.
+BT/BTS/BTR/BTC (modelled since D331).
