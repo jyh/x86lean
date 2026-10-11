@@ -21258,3 +21258,28 @@ refuses every one of these forms, so no vector carries any of them; the pins com
 editing an expectation to fit), a plant reds other than exactly its row, the bad byte does not refuse, the two vendors differ on a
 compared bit, or a pin fails to build. Rosetta 2 is an emulator: if it runs the probe its agreement is corroboration only, and if it
 lacks a required CPUID bit the probe must refuse rather than crash.
+**Result (hwprobe run 38102866008 at `fe04f79`, both jobs `success`; the first run, no re-dispatch needed): all five predictions held.**
+1. **ubuntu-latest drew an AMD EPYC 7763** (CPUID.7.0.EBX `219c07a9`, CPUID.1.EDX `178bfbff`); **macos-15-intel an Intel Core
+   i7-8700B** (`029c6fbf`, `9f8bfbff`); BMI1=1 BMI2=1 ADX=1 SSE2=1 on both; **`rows 1272 disagreements 0` on both**. SSE referee
+   958/958 on both.
+2. Controls, both legs: plant rc 1, exactly one `DIFF`, on `adcxq_rr_zero_c0`; bad byte rc 2, `REFUSED i_adcxq_rr`; **plant-new rc 1,
+   exactly one `DIFF`, on `andnq_rr_zero`**. SSE controls 1 · 2 · 1 · 2 as before.
+3. **BZHI at N ≥ w: both processors returned SRC1 unchanged with CF = 1** — the SDM's Operation — on every `nw`/`nw1`/`n128`/`n255`
+   row; neither cleared bit w−1 as the SDM's prose and AMD's APM Vol. 3 text, read literally, describe. The documented discrepancy
+   is a discrepancy between DOCUMENTS; on these two parts the hardware follows the Operation.
+4. **No AMD/Intel difference on any compared bit**: every result (R8, the MOVNTI quadword), R9 and every masked flag agree across the
+   legs. **The UNDEFINED bits DO differ, and the difference is recorded as measured** (848 of the 1272 lines are byte-identical
+   between the legs; the other 424 differ ONLY in an undefined flag):
+   - **Intel i7-8700B:** AF and PF read **0** on every ANDN, BEXTR, BLSMSK, BLSR and BZHI row (536 rows), and BEXTR's SF reads 0.
+   - **AMD EPYC 7763:** PF reads the **even parity of the result's low byte** on every one of those 536 rows (as the arithmetic
+     instructions define it); AF reads **0** except on BEXTR, where it reads **1** on all 176 rows; BEXTR's SF reads 0.
+   - On both, none of these readings depends on the incoming flags (268 of 268 clear/set pairs read alike on each leg).
+   ⇒ The SDM's "undefined" is not a reading either vendor fixes for the other, and these two parts give opposite PF values on the
+   same instruction and operands. This model draws those bits from the oracle and claims neither, which is the treatment D334
+   pre-registered; nothing about it changes.
+5. Kernel: all 888 pins build by `decide` (`saltbuild EXIT=0`, full build); axiom gate CLEAN (4572 declarations, the three standard
+   axioms); `rosterSize` 199, `vectorCount` 1170, `siliconTable` 10 rows. A mutant `Value.bzhi` that saturates the index at w−1
+   reds exactly the four BZHI pin theorems (`w1c_bzhi{q,l}_{rr,rm}_pins`) and nothing else. `claimed_forms --remaining`:
+   UNAVAILABLE 19, refereed by silicon 19 of 19, AVAILABLE WORK 0.
+⚠️ **Rosetta 2:** CPUID.7.0.EBX reads 0 and the probe refuses (rc 2, `lacks BMI1 BMI2 ADX`) — corroborates nothing, as predicted.
+**Not done here:** the ku-delta ledger row (`kernel_drift --gap` reds until it is recorded at landing), and no PR.
