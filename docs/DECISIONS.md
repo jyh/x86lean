@@ -21283,3 +21283,11 @@ lacks a required CPUID bit the probe must refuse rather than crash.
    UNAVAILABLE 19, refereed by silicon 19 of 19, AVAILABLE WORK 0.
 ⚠️ **Rosetta 2:** CPUID.7.0.EBX reads 0 and the probe refuses (rc 2, `lacks BMI1 BMI2 ADX`) — corroborates nothing, as predicted.
 **Not done here:** the ku-delta ledger row (`kernel_drift --gap` reds until it is recorded at landing), and no PR.
+**Re-based 2026-10-10 onto W2b (D333, `fd878d1`, above W2's batch 54), re-measured from the tree rather than carried.**
+Vectors 1198, roster 199, `siliconTable` 10; `docs/COVERAGE.md` regenerates byte-identical; `claimed_forms --remaining`:
+REMAINING 21 — NO ENCODING 2, UNAVAILABLE 19 (refereed by silicon 19 of 19), DECLINED 0 (W2's D331), AVAILABLE WORK 0. Full
+build `saltbuild EXIT=0`; axiom gate CLEAN (4575 declarations). **Second hwprobe reading, run 38106227137 at the re-based head:**
+ubuntu-latest again an **AMD EPYC 7763**, macos-15-intel the **Intel i7-8700B**; `rows 1272 disagreements 0` on both, the three
+integer controls as before (plant rc 1 · bad byte rc 2 · plant-new rc 1), W2b's bit-string path 2944/0 beside it; the undefined-bit
+readings repeat exactly (Intel AF = PF = 0; AMD PF = parity of the result's low byte, AF = 1 on BEXTR only; BEXTR SF = 0 on both;
+848 of 1272 lines identical across the legs, the rest differing only in undefined flags; no dependence on the incoming flags).
