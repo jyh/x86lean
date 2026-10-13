@@ -21754,3 +21754,15 @@ silicon split dropped, the BMI suffix mapping removed, the residue re-keyed by p
 `scripts/preflight.sh` 26 ok and two red, both as expected and neither mine: `kernel_drift --gap` (the ledger rows are
 paris's at landing) and the synthetic merge with `origin/master`, which conflicts identically at the base
 `origin/paris/v1a-simd-arith` (the stack is not yet rebased onto PR #85).
+**Addendum, 2026-10-13 — re-derived at landing, on V1b (D336) and V1a (D335) in that order.** D337 was built on V1a alone; V1b
+landed first and made six more mnemonics silicon-refereed (`pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`), so the
+census and the roster were regenerated against the 226-mnemonic model (199 differential + 27 silicon; `--check` CLEAN, sha
+`85a9b6feea57cc7c`, rules `bf476bace9bb212c`). **(a) is unchanged in every column, to the instruction** (the figures of item 1;
+assembly class 4,422,176 of 4,784,269, 92.4%) — the six add no differential coverage, which is the design's claim. **(b) grows by
+exactly V1b's demand:** cc1 **8** · coreutils **0** · glibc **464** · dav1d **10,474** · ffmpeg **14,639** · vlc-codec **70** ·
+vlc-video_chroma **1,792** · vpx **43,336** · x264 **4,096** · vmlinux-kernel **20**; assembly class pooled **74,407 (1.56%)**,
+up 3,892 from 70,515, still inside the not-covered 362,093 and never added to (a). **P2-ROSTER: gap 362,093 and joined 327,290
+unchanged** — the six were already counted as not covered; they are now marked silicon-refereed instead of unmapped. One
+selftest fixture moved with them: the three-class arm and the no-pooling fixture used `pshufb` as the UNMAPPED example, which
+V1b makes silicon; they now use `pmulld` (SSE4.1, in neither table), and the fixture's figures (covered 50, silicon 35, not
+covered 41 of 91; the pooling plant 85) are unchanged. `--selftest` PASS (215), `census_redprobe.py` PASS (control + 32).

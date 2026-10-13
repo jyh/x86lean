@@ -114,7 +114,7 @@ Cumulative share is over the whole uncovered gap (362,093 instructions), so a ro
 | 34 | `vmulps` | 2,715 | 0.75% | 57.7% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
 | 35 | `pmulhrsw` | 2,690 | 0.74% | 58.5% | 4% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 | 36 | `vmovd` | 2,689 | 0.74% | 59.2% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr` |
-| 37 | `pshufb` | 2,469 | 0.68% | 59.9% | 2% | ⛔ **REFUSES** | `xm`, `xx` |
+| 37 | `pshufb` | 2,469 | 0.68% | 59.9% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 | 38 | `vinserti128` | 2,394 | 0.66% | 60.5% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
 | 39 | `punpcklbw` | 2,381 | 0.66% | 61.2% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
 | 40 | `pmulhw` | 2,200 | 0.61% | 61.8% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |

@@ -1491,7 +1491,7 @@ def selftest():
                          ("pmaddwd", "MMX (mm)",         (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
-                         ("pshufb",  "SSE-legacy (xmm)", (False, "unmapped"))):
+                         ("pmulld",  "SSE-legacy (xmm)", (False, "unmapped"))):
         _r, cov, cls = _decide(m, ext, _M)
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
@@ -1502,7 +1502,7 @@ def selftest():
                               ("pmaddwd", "vector", "AA", "SSE-legacy (xmm)"): 30,
                               ("andnl",   "plain",  "CC", "BMI1"):             5,
                               ("paddw",   "vector", "AA", "MMX (mm)"):         4,
-                              ("pshufb",  "vector", "AA", "SSE-legacy (xmm)"): 2})
+                              ("pmulld",  "vector", "AA", "SSE-legacy (xmm)"): 2})
     ref = differential_reference(_M)
     with contextlib.redirect_stdout(io.StringIO()):
         honest = report("fixture", fx, _M, io.StringIO(), {}, 1, 1)
