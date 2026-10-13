@@ -2222,4 +2222,95 @@ theorem step_movnti_reg_refuses (r rs : GPR) (h8 : Bool) (h : Live s) :
 
 end W1c
 
+/-! ## D336 (V1b) — PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q
+
+⚠️ No differential partner: ACL2 x86isa refuses all six
+(`scripts/oracle_availability.py`).  Their numbers are checked against a PROCESSOR
+by `hwprobe/` and pinned in `Tests/AnchorsShuf.lean`; these theorems state the frame
+and the rules' edge cases as equations. -/
+section V1b
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- PSHUFB between registers: the destination's ORIGINAL value shuffled by the
+source's control bytes; no flag, no oracle bit, no GPR written. -/
+theorem step_vshufb (h : Live s) (d x : XmmReg) :
+    step ⟨.vshufb d x, len⟩ s =
+      (s.setXmm d (vshufbApply (s.getXmm d) (s.getXmm x))).setRip (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ A CONTROL BYTE WITH BIT 7 SET ZEROES ITS LANE, whatever the data: an
+all-`0x80` control returns zero. -/
+theorem vshufb_all_high (a : BitVec 128) :
+    vshufbApply a 0x80808080808080808080808080808080 = 0 := by
+  have hm : (128#8).msb = true := by decide
+  simp [vshufbApply, vshufbAux, hm]
+
+/-- ⛔⭐ AN UNALIGNED PSHUFB m128 FAULTS (Exception Type 4, D110). -/
+theorem vshufbm_unaligned_faults (d : XmmReg) (ea : Ea) (h : Live s) (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vshufbm d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- PALIGNR between registers. -/
+theorem step_valignr (h : Live s) (d x : XmmReg) (imm : BitVec 8) :
+    step ⟨.valignr d x imm, len⟩ s =
+      (s.setXmm d (valignrApply (s.getXmm d) (s.getXmm x) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ PALIGNR AT A SHIFT OF 32 BYTES OR MORE RETURNS ZERO — the whole 256-bit
+concatenation has been shifted out (SDM Vol. 2B, PALIGNR). -/
+theorem valignr_past (a b : BitVec 128) (imm : BitVec 8) (h : 31 < imm.toNat) :
+    valignrApply a b imm = 0 := by
+  simp [valignrApply, h]
+
+/-- ⭐ AND AT ZERO IT RETURNS THE SOURCE (the sixteen-byte case, which returns the
+destination, is pinned by the silicon rows in `Tests/AnchorsShuf.lean`). -/
+theorem valignr_zero (a b : BitVec 128) : valignrApply a b 0 = b := by
+  simp [valignrApply]
+
+/-- ⛔⭐ AN UNALIGNED PALIGNR m128 FAULTS (Exception Type 4, D110). -/
+theorem valignrm_unaligned_faults (d : XmmReg) (ea : Ea) (imm : BitVec 8) (h : Live s)
+    (hl : ea.lock = false) (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.valignrm d ea imm, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- PINSRD/PINSRQ from a register: the lane replaced, nothing else written. -/
+theorem step_vinsr_reg (h : Live s) (d : XmmReg) (r : GPR) (imm : BitVec 8)
+    (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vinsr sz d (.reg r) imm, len⟩ s =
+      (s.setXmm d (vinsrApply sz (s.getXmm d) (s.getReg sz r) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm,
+      Cpu.readOperand]
+
+/-- ⭐ ONLY `imm[1:0]` SELECTS AT 32 BITS AND `imm[0]` AT 64: the imm8 bits above
+are ignored (SDM Vol. 2B, PINSRD/PINSRQ and PEXTRD/PEXTRQ). -/
+theorem vlaneSel_d (imm : BitVec 8) : vlaneSel .d imm = imm.toNat % 4 := rfl
+theorem vlaneSel_q (imm : BitVec 8) : vlaneSel .q imm = imm.toNat % 2 := rfl
+
+/-- PEXTRD/PEXTRQ to a register: an ordinary GPR write of the selected lane (at
+`.d` it zero-extends, by `setReg`), nothing else written. -/
+theorem step_vextr (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
+    (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vextr sz r x imm, len⟩ s =
+      (s.setReg sz r (vextrApply sz (s.getXmm x) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⛔ NO FLAG: PSHUFB, PALIGNR, PINSR* and PEXTR* leave RFLAGS as they found it. -/
+theorem step_vextr_flags (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
+    (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.vextr sz r x imm, len⟩ s).flags = s.flags := by
+  rw [step_vextr h r x imm hsz]; simp
+
+/-- ⛔ PINSR*/PEXTR* AT 8 OR 16 BITS ARE OTHER MNEMONICS, and `step` refuses them. -/
+theorem step_vextr_narrow_refuses (r : GPR) (x : XmmReg) (imm : BitVec 8) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.vextr sz r x imm, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Cpu.halt, Cpu.stopped, Op.lockIllegal,
+    Op.anyLocked, Op.lockable]
+
+end V1b
+
 end X86

@@ -105,6 +105,16 @@ FORMS = [
     # is refereed by silicon.  The row stays here so the reading is re-taken on every run.
     ("adcx",    "adcxl %ecx, %eax",         "660f38f6c1",         "executes"),
     ("adox",    "adoxl %ecx, %eax",         "f30f38f6c1",         "executes"),
+    # ⭐ D336 (V1b): the six SSSE3/SSE4.1 shuffle/insert/extract mnemonics, DECLARED `refuses` from
+    # x86isa's catalogue (a `'NIL` semantic function for each) and MEASURED here before any
+    # constructor's referee was fixed — D330's lesson, since the catalogue is a hypothesis.  A
+    # mnemonic that executes would be a differential row instead of a silicon one.
+    ("pshufb",  "pshufb %xmm1, %xmm0",      "660f3800c1",         "refuses"),
+    ("palignr", "palignr $3, %xmm1, %xmm0", "660f3a0fc103",       "refuses"),
+    ("pinsrd",  "pinsrd $1, %ecx, %xmm0",   "660f3a22c101",       "refuses"),
+    ("pinsrq",  "pinsrq $1, %rcx, %xmm0",   "66480f3a22c101",     "refuses"),
+    ("pextrd",  "pextrd $1, %xmm1, %eax",   "660f3a16c801",       "refuses"),
+    ("pextrq",  "pextrq $1, %xmm1, %rax",   "66480f3a16c801",     "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the

@@ -93,7 +93,10 @@ declaration in CI.
 ### What it does not cover — yet
 
 - **Not in scope.** AVX and everything VEX- or EVEX-encoded (so no YMM or ZMM
-  register), SSSE3 and SSE4 (`pshufb`, `palignr`, `pinsr*`, `pextr*`), x87 and
+  register), SSSE3 and SSE4 beyond six legacy-SSE mnemonics (`pshufb`,
+  `palignr`, `pinsrd`, `pinsrq`, `pextrd`, `pextrq` are modelled since D336 and
+  refereed by a processor, not differentially tested — x86isa refuses them;
+  `docs/COVERAGE.md` lists them in their own table), x87 and
   MMX, the rest of SSE3, the SSE/SSE2 forms not listed above, segmentation and paging, privileged
   and system instructions, interrupts and exceptions beyond the faults named
   below, memory ordering and multi-threading, 32-bit and 16-bit modes. The

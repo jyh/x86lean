@@ -382,3 +382,7 @@ Tests.AnchorsBmi 10710 @on yukon.lan
 # katmai, 2026-10-11, the line kernel_delta PRINTED on refusing the NEW unit there (base 24d3644 -> 0529afa, --repeats 6):
 # head 3935.0 ms => max(3935.0 x 3, 50) = 11805, copied, not retyped.
 Tests.AnchorsBmi 11805 @on katmai
+# D336 arm (A) (the V1b pins in their own module, 2026-10-11): the gate's own suggested line from kernel_delta a62d055 → 7ea3841,
+# yukon.lan, not retyped: Tests.AnchorsShuf head 1030.0 ms ⇒ max(1030.0 × 3, 50) = 3090. The runner line follows the merge ref's
+# first refusal (D252 §6): no runner reading exists before CI runs the module.
+Tests.AnchorsShuf 3090 @on yukon.lan
