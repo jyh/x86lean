@@ -57,12 +57,28 @@ compares CF, ZF and the WHOLE buffer. Beside each row it prints whether the proc
 | `mk_bitstr_rows.py` | the rows, PATTERN and both rules' expectations; `--summary [--rows]` prints the counts and the per-row table |
 | `bitstr_probe.c` | runs each row and compares CF, ZF and the whole buffer; prints the x86isa-rule agreement count |
 
+**The shuffle path (D336, V1b)** is a fourth program, sharing nothing with the other three: `shuf_ops.S` (one function per
+form and imm8 of PSHUFB, PALIGNR, PINSRD, PINSRQ, PEXTRD and PEXTRQ, legacy SSE), `mk_shuf_rows.py` (220 rows, derived from the
+SDM's rules), and `shuf_probe.c`, which reads CPUID.1:ECX and refuses without SSSE3 or SSE4.1, refuses unless each function's bytes
+are the declared ones, and compares ALL 128 bits of XMM0, all of RAX and the six arithmetic flags (none is written) on every row.
+x86isa refuses all six mnemonics, so every row is pinned in `Tests/AnchorsShuf.lean` (a metered module of its own) by `mk_shuf_anchors.py`. Controls: `--plant`
+(bit 64 of row 0's expected XMM0), `--plant-op` (a declared byte), `--plant-zx` (bit 32 of one PEXTRD row's expected RAX: the
+zero-extension is compared).
+
+| file | role |
+|---|---|
+| `shuf_ops.S` | one function per shuffle form and imm8 (register conventions in its header) |
+| `mk_shuf_rows.py` | the rows and their expectations; `--plant` / `--plant-op` / `--plant-zx` build the controls |
+| `shuf_probe.c` | runs each row and compares XMM0, RAX and RFLAGS |
+| `mk_shuf_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
+
 Locally, on an x86-64 machine:
 
 ```
 (cd hwprobe && python3 mk_rows.py > rows.h && cc -O1 -o probe probe.c sse_ops.S && ./probe)
 (cd hwprobe && python3 mk_int_rows.py > int_rows.h && cc -O1 -o int_probe int_probe.c int_ops.S && ./int_probe)
 (cd hwprobe && python3 mk_bitstr_rows.py > bitstr_rows.h && cc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S && ./bitstr_probe)
+(cd hwprobe && python3 mk_shuf_rows.py > shuf_rows.h && cc -O1 -o shuf_probe shuf_probe.c shuf_ops.S && ./shuf_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is

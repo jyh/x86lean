@@ -1959,6 +1959,33 @@ inductive Op where
   16-byte `#GP` every other 128-bit memory operand in this model carries (D110).
   ⚠️ The DESTINATION register is still read; only the SOURCE moves to memory. -/
   | vshufpm (k : VShufpKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
+  /-- D336 (V1b): PSHUFB between registers (`66 0F 38 00 /r`, SDM Vol. 2B PSHUFB) —
+  each result byte is the destination's ORIGINAL byte indexed by the low four bits
+  of the source's matching control byte, or zero when that control byte's bit 7 is
+  set.  ⚠️ The destination is the DATA and the source the CONTROL: the operand
+  order is not symmetric.  x86isa refuses it; `hwprobe/` referees it (D336). -/
+  | vshufb (dst src : XmmReg)
+  /-- D336 (V1b): PSHUFB with a 128-bit memory control, Exception Type 4 — a
+  misaligned address is `#GP(0)` (D110's rule, as `vshufm`). -/
+  | vshufbm (dst : XmmReg) (ea : Ea)
+  /-- D336 (V1b): PALIGNR between registers (`66 0F 3A 0F /r ib`, SDM Vol. 2B
+  PALIGNR) — the 256-bit concatenation `DEST:SRC` shifted right by `imm × 8` bits,
+  low 128 kept.  `imm` 16 returns the destination, ≥ 32 returns zero. -/
+  | valignr (dst src : XmmReg) (imm : BitVec 8)
+  /-- D336 (V1b): PALIGNR with a 128-bit memory source (the LOW half of the
+  concatenation), Exception Type 4 alignment. -/
+  | valignrm (dst : XmmReg) (ea : Ea) (imm : BitVec 8)
+  /-- D336 (V1b): PINSRD (`.d`, `66 0F 3A 22 /r ib`) and PINSRQ (`.q`, `66 REX.W 0F 3A
+  22 /r ib`) (SDM Vol. 2B PINSRB/PINSRD/PINSRQ) — the `sz`-bit `src` (a GPR or a
+  memory operand) replaces lane `imm[1:0]` (`.d`) or `imm[0]` (`.q`) of `dst`;
+  the other lanes keep their values.  Type 5: no alignment requirement.  `.b`/`.w`
+  are other mnemonics and refused here, as is an immediate `src`. -/
+  | vinsr (sz : Size) (dst : XmmReg) (src : Operand) (imm : BitVec 8)
+  /-- D336 (V1b): PEXTRD (`.d`, `66 0F 3A 16 /r ib`) and PEXTRQ (`.q`, `66 REX.W 0F 3A
+  16 /r ib`) to a GPR (SDM Vol. 2B PEXTRB/PEXTRD/PEXTRQ) — lane `imm[1:0]` (`.d`) or
+  `imm[0]` (`.q`) of `src`.  At `.d` the register write zero-extends to 64 bits
+  (SDM Vol. 1 §3.4.1.1), as every 32-bit GPR write in this model does. -/
+  | vextr (sz : Size) (dst : GPR) (src : XmmReg) (imm : BitVec 8)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE
   (`66 0F ..` with a memory ModRM), the second operand shape of the nineteen
   operations `Op.vbin` has carried since batches 5 and 7.
@@ -2119,6 +2146,11 @@ def opOperands : Op → List Operand
   | .vshufm _ _ ea _ => [.mem ea]
   | .vshufp .. => []
   | .vshufpm _ _ ea _ => [.mem ea]
+  -- D336 (V1b): the register shapes name no `Operand`; a memory source names its
+  -- address; PINSRD/Q's source IS an `Operand`; PEXTRD/Q's destination is a GPR.
+  | .vshufb .. | .valignr .. | .vextr .. => []
+  | .vshufbm _ ea | .valignrm _ ea _ => [.mem ea]
+  | .vinsr _ _ src _ => [src]
   -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
   | .vbinm _ _ ea => [.mem ea]
   -- P2 BATCH 38: the scalar min/max memory SOURCE names its address.
@@ -2286,6 +2318,10 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 37: `lock shufps` is not a form the SDM lists, as for `pshufd`.
   | .vshufp .. => false
   | .vshufpm _ _ ea _ => ea.lock
+  -- D336 (V1b): no SDM lock form for any of the six.
+  | .vshufb .. | .valignr .. | .vextr .. => false
+  | .vshufbm _ ea | .valignrm _ ea _ => ea.lock
+  | .vinsr _ _ src _ => src.locked
   -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
   | .vbinm _ _ ea => ea.lock
   -- P2 BATCH 38: `lock minsd` is not a form the SDM lists.
@@ -2469,6 +2505,10 @@ one per family whose operand is a VARIABLE, stating the obvious fact in the form
     (h : src.locked = false) : (Op.rorx sz dst src imm).lockIllegal = false := by
   cases src <;> simp_all [Operand.locked, opOperands]
 
+@[simp] theorem lockIllegal_vinsr (sz : Size) (dst : XmmReg) (src : Operand) (imm : BitVec 8)
+    (h : src.locked = false) : (Op.vinsr sz dst src imm).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
 @[simp] theorem lockIllegal_dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR)
     (amt : ShiftAmt) (h : dst.locked = false) :
     (Op.dshift k sz dst src amt).lockIllegal = false := by
@@ -2514,6 +2554,11 @@ def Op.mnemonic : Op → String
   -- source's provenance is in the operands.
   | .vshuf k .. | .vshufm k .. => k.mnemonic
   | .vshufp k .. | .vshufpm k .. => k.mnemonic
+  -- D336 (V1b): one mnemonic per family, the width spelled by the size at insert/extract.
+  | .vshufb .. | .vshufbm .. => "pshufb"
+  | .valignr .. | .valignrm .. => "palignr"
+  | .vinsr sz .. => if sz == .q then "pinsrq" else "pinsrd"
+  | .vextr sz .. => if sz == .q then "pextrq" else "pextrd"
   | .vmovq .. => "movq"
   -- ⭐ P2 BATCH 15: BOTH operand shapes read the SAME table, which is now a
   -- function beside the kind rather than a `match` inside this one.  A copy here

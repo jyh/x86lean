@@ -1098,7 +1098,7 @@ putting it in `tableP0` would make `every_row_has_a_vector` false, and leaving i
 out of every table would make an implemented form invisible.
 
 ⚠️ WHAT THE REFEREE IS: `hwprobe/` runs each row of `hwprobe/mk_int_rows.py`
-(expectations derived from the SDM's rules, never from x86isa or this model) on a
+(and, since D336, of `hwprobe/mk_shuf_rows.py`) (expectations derived from the SDM's rules, never from x86isa or this model) on a
 hosted runner's processor, and `Tests/Anchors.lean` checks THIS model against the
 same rows by `decide`.  That is a weaker instrument than the differential in one
 way that is named here rather than hidden: its rows are chosen, not swept over
@@ -1126,7 +1126,21 @@ def siliconTable : List Row :=
   , { mnemonic := "rorx", shapes := "r,r,imm · r,m,imm", note := "l/q only · rotate right by imm8 masked to the width; no flag written · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B RORX" }
   , { mnemonic := "movnti", shapes := "m,r", note := "l/q only · a plain store in this model: the non-temporal hint and its weakly-ordered protocol are outside a single-threaded state without memory types (D334); no flag written · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVNTI" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVNTI" }
+  -- ⭐ D336 (V1b): the SSSE3/SSE4.1 shuffle, align, insert and extract forms the
+  -- primitive census names; x86isa refuses all six (measured).  No flag is written.
+  , { mnemonic := "pshufb", shapes := "x,x · x,m", note := "legacy SSE · each byte of the destination's original value selected by the low 4 bits of the matching control byte, zero where its bit 7 is set; m128 16-byte aligned (#GP) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFB" }
+  , { mnemonic := "palignr", shapes := "x,x,i · x,m,i", note := "legacy SSE · (DEST:SRC) >> imm×8, low 128 bits; imm ≥ 32 gives zero; m128 16-byte aligned (#GP) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PALIGNR" }
+  , { mnemonic := "pinsrd", shapes := "x,r,i · x,m,i", note := "legacy SSE · the 32-bit source replaces lane imm[1:0]; the other lanes kept · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRD" }
+  , { mnemonic := "pinsrq", shapes := "x,r,i", note := "legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRQ" }
+  , { mnemonic := "pextrd", shapes := "r,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRD" }
+  , { mnemonic := "pextrq", shapes := "r,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRQ" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

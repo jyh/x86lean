@@ -218,7 +218,7 @@ Tiers: T-exact 173 · T-frame 26 · T-absent 0.
 
 ## Implemented, refereed by a processor, NOT differentially tested
 
-The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in `hwprobe/mk_int_rows.py`, run on a hosted runner's processor — and this model is checked against the same rows by `decide` in `Tests/Anchors.lean` (D330) and `Tests/AnchorsBmi.lean` (D334). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, and they are not counted in the roster figure above.
+The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in `hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py`, run on a hosted runner's processor — and this model is checked against the same rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334) and `Tests/AnchorsShuf.lean` (D336). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, and they are not counted in the roster figure above.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -232,3 +232,9 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `pext` | r,r,r · r,r,m — l/q only · the bits of VEX.vvvv at the set bits of the r/m mask, packed low; no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXT |
 | `rorx` | r,r,imm · r,m,imm — l/q only · rotate right by imm8 masked to the width; no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B RORX |
 | `movnti` | m,r — l/q only · a plain store in this model: the non-temporal hint and its weakly-ordered protocol are outside a single-threaded state without memory types (D334); no flag written · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVNTI |
+| `pshufb` | x,x · x,m — legacy SSE · each byte of the destination's original value selected by the low 4 bits of the matching control byte, zero where its bit 7 is set; m128 16-byte aligned (#GP) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSHUFB |
+| `palignr` | x,x,i · x,m,i — legacy SSE · (DEST:SRC) >> imm×8, low 128 bits; imm ≥ 32 gives zero; m128 16-byte aligned (#GP) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PALIGNR |
+| `pinsrd` | x,r,i · x,m,i — legacy SSE · the 32-bit source replaces lane imm[1:0]; the other lanes kept · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PINSRD |
+| `pinsrq` | x,r,i — legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PINSRQ |
+| `pextrd` | r,x,i — legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRD |
+| `pextrq` | r,x,i — legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRQ |

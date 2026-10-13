@@ -172,3 +172,7 @@ Tests.LogicMemRel @ku 5183
 # Tests.Anchors read Δku +0 (the pins left it), Tests.Coverage +134,029 of 692,953, X86.Theorems +12,964 of 19,107,
 # X86.Syntax +2,081 of 5,728.
 Tests.AnchorsBmi @ku 1885444
+# D336 arm (A) (the V1b pins in their own module, 2026-10-11): ARM A′'s own reading, a62d055 → 7ea3841 on yukon.lan; in that run
+# Tests.Anchors read Δku +0 (the pins left it), Tests.Coverage +89,704 of 702,603, X86.Theorems +5,227, X86.Syntax +1,526,
+# X86.Semantics +47, X86.Coverage +30, X86.Serialize +30, X86.Program +5, every other module +0.
+Tests.AnchorsShuf @ku 511292
