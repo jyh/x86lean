@@ -72,6 +72,23 @@ zero-extension is compared).
 | `shuf_probe.c` | runs each row and compares XMM0, RAX and RFLAGS |
 | `mk_shuf_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
 
+**The packed-integer arithmetic path (D335, V1a)** is a fifth program, sharing nothing with the other four:
+`simda_ops.S` (one function per form — PMADDWD, PMADDUBSW, PMULLW, PMULHRSW, PMULUDQ, PADDSW, PSUBUSW, PSUBUSB, PMAXSW,
+PSADBW, PACKSSDW, each at `%xmm1,%xmm0` and at a 16-byte-aligned `(%rbx),%xmm0`), `mk_simda_rows.py` (396 rows, 18 per
+form: edge-lane crosses, uniform extremes and seeded random values, derived from each instruction's SDM Operation), and
+`simda_probe.c`, which reads CPUID.1 and refuses without SSE2 or SSSE3, refuses unless the declared bytes are the assembled
+ones, and compares ALL 128 bits of %xmm0 plus %xmm1, the m128 source and the six arithmetic flags unchanged. x86isa refuses
+all eleven mnemonics, so every row is pinned (`mk_simda_anchors.py`, generated into a module of its own, `Tests/AnchorsSimd.lean`, so it is metered as its own kernel unit).
+Controls: `--plant` (bit 64 of row 0's expectation) and `--plant-op`; `--reach` counts the rows on which one named wrong
+rule per mnemonic disagrees with the right one (it must be non-zero).
+
+| file | role |
+|---|---|
+| `simda_ops.S` | one function per packed-integer form (register conventions in its header) |
+| `mk_simda_rows.py` | the rows and their expectations; `--plant` / `--plant-op` build the controls; `--summary`, `--reach` |
+| `simda_probe.c` | runs each row and compares all 128 bits of the destination, the sources and RFLAGS |
+| `mk_simda_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -79,6 +96,7 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_int_rows.py > int_rows.h && cc -O1 -o int_probe int_probe.c int_ops.S && ./int_probe)
 (cd hwprobe && python3 mk_bitstr_rows.py > bitstr_rows.h && cc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S && ./bitstr_probe)
 (cd hwprobe && python3 mk_shuf_rows.py > shuf_rows.h && cc -O1 -o shuf_probe shuf_probe.c shuf_ops.S && ./shuf_probe)
+(cd hwprobe && python3 mk_simda_rows.py > simda_rows.h && cc -O1 -o simda_probe simda_probe.c simda_ops.S && ./simda_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is

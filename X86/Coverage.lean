@@ -1140,7 +1140,32 @@ def siliconTable : List Row :=
   , { mnemonic := "pextrd", shapes := "r,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRD" }
   , { mnemonic := "pextrq", shapes := "r,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRQ" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRQ" }
+  -- ⭐ D335 (V1a): eleven SSE-legacy packed-integer arithmetic mnemonics, `VBinKind`
+  -- kinds on `Op.vbin`/`Op.vbinm`.  Every result bit is defined and no flag is
+  -- written, so each is `T-exact`; the rows are `hwprobe/mk_simda_rows.py`'s.
+  , { mnemonic := "pmaddwd", shapes := "x,x · x,m", note := "four dwords, each two SIGNED word products added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" }
+  , { mnemonic := "pmaddubsw", shapes := "x,x · x,m", note := "SSSE3 · eight words, each the destination's two UNSIGNED bytes times the source's two SIGNED bytes, summed and signed-saturated; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDUBSW" }
+  , { mnemonic := "pmullw", shapes := "x,x · x,m", note := "eight words, the low 16 bits of each product; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULLW" }
+  , { mnemonic := "pmulhrsw", shapes := "x,x · x,m", note := "SSSE3 · eight words, bits 16:1 of ((signed product >> 14) + 1); 8000H × 8000H gives 8000H; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHRSW" }
+  , { mnemonic := "pmuludq", shapes := "x,x · x,m", note := "the EVEN dwords, UNSIGNED, each full 64-bit product to its quadword; dwords 1 and 3 are not read; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULUDQ" }
+  , { mnemonic := "paddsw", shapes := "x,x · x,m", note := "eight words, signed add saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDSW" }
+  , { mnemonic := "psubusw", shapes := "x,x · x,m", note := "eight words, unsigned destination minus source, 0 where the source is larger; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSW" }
+  , { mnemonic := "psubusb", shapes := "x,x · x,m", note := "sixteen bytes, unsigned destination minus source, 0 where the source is larger; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSB" }
+  , { mnemonic := "pmaxsw", shapes := "x,x · x,m", note := "eight words, the SIGNED maximum; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMAXSW" }
+  , { mnemonic := "psadbw", shapes := "x,x · x,m", note := "two sums of eight unsigned byte absolute differences, each in the low word of its quadword with bits 63:16 ZEROED; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSADBW" }
+  , { mnemonic := "packssdw", shapes := "x,x · x,m", note := "the destination's four dwords to the LOW four words and the source's to the high four, each signed-saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

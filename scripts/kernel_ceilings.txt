@@ -386,3 +386,7 @@ Tests.AnchorsBmi 11805 @on katmai
 # yukon.lan, not retyped: Tests.AnchorsShuf head 1030.0 ms ⇒ max(1030.0 × 3, 50) = 3090. The runner line follows the merge ref's
 # first refusal (D252 §6): no runner reading exists before CI runs the module.
 Tests.AnchorsShuf 3090 @on yukon.lan
+# D335 arm (A) (the V1a pins in their own module, 2026-10-10): the gate's own suggested line from kernel_delta a62d055 → a203602,
+# yukon.lan, not retyped: Tests.AnchorsSimd head 6650.0 ms ⇒ max(6650.0 × 3, 50) = 19950. The runner line follows the merge ref's
+# first refusal (D252 §6): no runner reading exists before CI runs the module.
+Tests.AnchorsSimd 19950 @on yukon.lan
