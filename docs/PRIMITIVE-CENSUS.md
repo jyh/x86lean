@@ -14,6 +14,7 @@ A **form** is a printed mnemonic (width suffix, condition code and prefixes incl
 - **One compiler, one target, one set of flags:** `Apple clang version 21.0.0 (clang-2100.3.34.2)`, `-target x86_64-apple-macos13`, `-O2 -fno-stack-protector -fcf-protection=none -fno-asynchronous-unwind-tables -fno-jump-tables -DNDEBUG -w`, disassembled by `objdump` (LLVM). C candidates are built twice: the default (`-O2`, clang may vectorise into SSE) and `scalar` (`-O2 -fno-vectorize -fno-slp-vectorize`). A different compiler emits different forms.
 - **Calls that leave the object** are listed and mark the row; a candidate that calls out is never counted as covered. Calls and tail jumps inside the object are followed and counted with the entry.
 - **The reference column is not uniform.** Only the s2n-bignum and Vale rows measure the verified artifact itself; a HACL* row measures clang's compilation of verified C; the checksum rows have a specification and test vectors and no machine-checked reference was found.
+- **A second instrument, in its own column (D332).** 38 forms of 10 mnemonics are in `siliconTable`: x86isa refuses them, so no differential vector can exist, and they are refereed by PROCESSORS instead (silicon: AMD EPYC 7763 + Intel Core i7-8700B, hwprobe — NOT a semantic oracle; rows derived from the SDM's rules, the model pinned to the same rows by `decide`). That is NOT a semantic oracle — a processor agreeing on chosen rows is not a second model agreeing on the swept pre-states — so those forms are credited in a separately labelled column and verdict, **never in ALL COVERED**. The two counts may be cited side by side, never summed.
 
 ## The vectors' SIMD and floating-point content (derived)
 
@@ -48,65 +49,84 @@ By family: MAC **1** · bignum limb **26** · checksum **3** · field arithmetic
 
 `instrs` counts the instructions the walk reached from the entry (calls and branches inside the object, and fall-through between an assembly file's labels); `unreached` is the rest of the object's code — for a one-routine `.S` file it must be 0, for a compiled file it is the file's other functions — printed so a short walk cannot pass as a small function. `strict` counts not-covered forms with the addressing mode kept in the form. **Same-register operands are not a dimension here** (`xorq %r8,%r8` is the form `xorq r64,r64`), and neither is which register is used.
 
-| candidate | family | reference | instrs | unreached | forms | not covered | strict | verdict |
-|---|---|---|---:|---:|---:|---|---:|---|
-| `crc32-poc` | checksum | poc | 12 | 0 | 12 | — | 0 | **ALL COVERED** |
-| `zlib-crc32` | checksum | spec | 624 | 300 | 40 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `zlib-adler32` | checksum | spec | 284 | 113 | 41 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `xxh32` | hash (non-crypto) | spec | 154 | 8737 | 38 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `xxh64` | hash (non-crypto) | spec | 219 | 8671 | 33 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `xxh3-64` | hash (non-crypto) | spec | 721 | 8171 | 65 | `pextrq imm,xmm,r64`×8 (SSSE3/SSE4) | 1 | 1 missing · scalar build: ALL COVERED |
-| `murmur3-x86-32` | hash (non-crypto) | spec | 96 | 445 | 35 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `murmur3-x64-128` | hash (non-crypto) | spec | 192 | 348 | 34 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `lookup3` | hash (non-crypto) | spec | 144 | 11 | 27 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `siphash-2-4` | hash (keyed) | spec | 257 | 0 | 34 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `halfsiphash` | hash (keyed) | spec | 235 | 0 | 31 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `hacl-sha256` | hash compression | hacl | 3597 | 6029 | 61 | `pinsrd imm,r32,xmm`×6 (SSSE3/SSE4); **calls out:** `memcpy` | 1 | 1 missing · scalar build: covered, calls out |
-| `hacl-sha512` | hash compression | hacl | 4444 | 5183 | 54 | —; **calls out:** `memcpy` | 0 | covered, calls out · scalar build: covered, calls out |
-| `hacl-sha1` | hash compression | hacl | 259 | 390 | 68 | `pinsrd imm,r32,xmm`×3 (SSSE3/SSE4), `pextrd imm,xmm,r32`×3 (SSSE3/SSE4); **calls out:** `__bzero`, `memcpy` | 2 | 2 missing · scalar build: covered, calls out |
-| `hacl-md5` | hash compression | hacl | 813 | 364 | 55 | —; **calls out:** `memcpy` | 0 | covered, calls out · scalar build: covered, calls out |
-| `hacl-sha3` | hash compression | hacl | 601 | 5199 | 52 | `pinsrq imm,r64,xmm`×1 (SSSE3/SSE4); **calls out:** `exit`, `fprintf`, `memcpy` | 1 | 1 missing · scalar build: covered, calls out |
-| `hacl-blake2s` | hash compression | hacl | 1786 | 1067 | 30 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `hacl-blake2b` | hash compression | hacl | 2108 | 1251 | 32 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED |
-| `hacl-chacha20` | stream cipher | hacl | 1275 | 182 | 44 | `pinsrd imm,r32,xmm`×9 (SSSE3/SSE4), `pinsrd imm,m,xmm`×2 (SSSE3/SSE4), `movq m,xmm`×1; **calls out:** `__memcpy_chk`, `memcpy` | 3 | 3 missing · scalar build: covered, calls out |
-| `hacl-salsa20` | stream cipher | hacl | 331 | 1243 | 41 | —; **calls out:** `__memcpy_chk`, `memcpy` | 0 | covered, calls out · scalar build: covered, calls out |
-| `hacl-poly1305` | MAC | hacl | 507 | 496 | 60 | —; **calls out:** `__memcpy_chk`, `memcpy` | 0 | covered, calls out · scalar build: covered, calls out |
-| `vale-poly1305` | MAC | vale | 189 | 0 | 30 | — | 0 | **ALL COVERED** |
-| `vale-fadd` | field arithmetic | vale | 24 | 718 | 10 | — | 0 | **ALL COVERED** |
-| `vale-fsub` | field arithmetic | vale | 23 | 719 | 9 | — | 0 | **ALL COVERED** |
-| `vale-fmul` | field arithmetic | vale | 112 | 630 | 16 | `mulxq m,r64,r64`×20 (BMI/ADX) | 1 | 1 missing |
-| `vale-cswap2` | field arithmetic | vale | 58 | 684 | 6 | — | 0 | **ALL COVERED** |
-| `vale-sha256` | hash compression | vale | 250 | 0 | 23 | `sha256rnds2 xmm,xmm,xmm`×32 (SHA-NI), `palignr imm,xmm,xmm`×14 (SSSE3/SSE4), `sha256msg1 xmm,xmm`×12 (SHA-NI), `sha256msg2 xmm,xmm`×12 (SHA-NI), `pshufb xmm,xmm`×4 (SSSE3/SSE4), `pinsrq imm,r64,xmm`×2 (SSSE3/SSE4) | 6 | 6 missing |
-| `vale-aesgcm` | AEAD | vale | 1417 | 6379 | 52 | `vpxor xmm,xmm,xmm`×238 (AVX/VEX), `vpclmulqdq imm,xmm,xmm,xmm`×200 (AVX/VEX), `vaesenc xmm,xmm,xmm`×162 (AVX/VEX), `vpaddd xmm,xmm,xmm`×42 (AVX/VEX), `vpshufb xmm,xmm,xmm`×35 (AVX/VEX), `pshufb xmm,xmm`×29 (SSSE3/SSE4), `pinsrq imm,r64,xmm`×28 (SSSE3/SSE4), `aesenc xmm,xmm`×27 (AES-NI/CLMUL), `vpxor m,xmm,xmm`×25 (AVX/VEX), `vpalignr imm,xmm,xmm,xmm`×20 (AVX/VEX), `vaesenclast xmm,xmm,xmm`×18 (AVX/VEX), `pinsrd imm,r32,xmm`×10 (SSSE3/SSE4), `vpslldq imm,xmm,xmm`×10 (AVX/VEX), `vpsrldq imm,xmm,xmm`×10 (AVX/VEX), `pextrq imm,xmm,r64`×5 (SSSE3/SSE4), `aesenclast xmm,xmm`×3 (AES-NI/CLMUL) | 16 | 16 missing |
-| `s2n-bignum_add` | bignum limb | s2n | 59 | 0 | 17 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_sub` | bignum limb | s2n | 55 | 0 | 19 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_cmadd` | bignum limb | s2n | 42 | 0 | 23 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_mul` | bignum limb | s2n | 47 | 0 | 23 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_sqr` | bignum limb | s2n | 64 | 0 | 27 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_montmul` | bignum limb | s2n | 117 | 0 | 33 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_mux` | bignum limb | s2n | 12 | 0 | 11 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_eq` | bignum limb | s2n | 23 | 0 | 16 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_ctz` | bignum limb | s2n | 17 | 0 | 14 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_bitsize` | bignum limb | s2n | 17 | 0 | 14 | — | 0 | **ALL COVERED** |
-| `s2n-word_clz` | bignum limb | s2n | 6 | 0 | 6 | — | 0 | **ALL COVERED** |
-| `s2n-word_popcount` | bignum limb | s2n | 20 | 0 | 9 | — | 0 | **ALL COVERED** |
-| `s2n-word_bytereverse` | bignum limb | s2n | 3 | 0 | 3 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_shl_small` | bignum limb | s2n | 31 | 0 | 13 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_cmul` | bignum limb | s2n | 36 | 0 | 15 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_modadd` | bignum limb | s2n | 31 | 0 | 21 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_demont` | bignum limb | s2n | 86 | 0 | 30 | — | 0 | **ALL COVERED** |
-| `s2n-word_negmodinv` | bignum limb | s2n | 24 | 0 | 9 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_add_p256` | bignum limb | s2n | 28 | 0 | 15 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_neg_p256` | bignum limb | s2n | 25 | 0 | 11 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_mod_n256_alt` | bignum limb | s2n | 94 | 0 | 29 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_montmul_p256_alt` | bignum limb | s2n | 178 | 0 | 18 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_montmul_p256` | bignum limb | s2n | 125 | 0 | 19 | `mulxq m,r64,r64`×16 (BMI/ADX), `mulxq r64,r64,r64`×8 (BMI/ADX) | 2 | 2 missing |
-| `s2n-bignum_add_p25519` | bignum limb | s2n | 26 | 0 | 11 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_mul_p25519_alt` | bignum limb | s2n | 139 | 0 | 22 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_mul_p25519` | bignum limb | s2n | 103 | 0 | 23 | `mulxq m,r64,r64`×16 (BMI/ADX), `mulxq r64,r64,r64`×5 (BMI/ADX) | 2 | 2 missing |
-| `s2n-bignum_mul_4_8_alt` | bignum limb | s2n | 93 | 0 | 9 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_sqr_4_8_alt` | bignum limb | s2n | 81 | 0 | 10 | — | 0 | **ALL COVERED** |
-| `s2n-bignum_mul_4_8` | bignum limb | s2n | 69 | 0 | 10 | `mulxq m,r64,r64`×16 (BMI/ADX) | 1 | 1 missing |
+| candidate | family | reference | instrs | unreached | forms | not covered | strict | verdict | silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B, hwprobe; NOT a semantic oracle) |
+|---|---|---|---:|---:|---:|---|---:|---|---|
+| `crc32-poc` | checksum | poc | 12 | 0 | 12 | — | 0 | **ALL COVERED** | — |
+| `zlib-crc32` | checksum | spec | 624 | 300 | 40 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `zlib-adler32` | checksum | spec | 284 | 113 | 41 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `xxh32` | hash (non-crypto) | spec | 154 | 8737 | 38 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `xxh64` | hash (non-crypto) | spec | 219 | 8671 | 33 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `xxh3-64` | hash (non-crypto) | spec | 721 | 8171 | 65 | `pextrq imm,xmm,r64`×8 (SSSE3/SSE4) | 1 | 1 missing · scalar build: ALL COVERED | — |
+| `murmur3-x86-32` | hash (non-crypto) | spec | 96 | 445 | 35 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `murmur3-x64-128` | hash (non-crypto) | spec | 192 | 348 | 34 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `lookup3` | hash (non-crypto) | spec | 144 | 11 | 27 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `siphash-2-4` | hash (keyed) | spec | 257 | 0 | 34 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `halfsiphash` | hash (keyed) | spec | 235 | 0 | 31 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `hacl-sha256` | hash compression | hacl | 3597 | 6029 | 61 | `pinsrd imm,r32,xmm`×6 (SSSE3/SSE4); **calls out:** `memcpy` | 1 | 1 missing · scalar build: covered, calls out | — |
+| `hacl-sha512` | hash compression | hacl | 4444 | 5183 | 54 | —; **calls out:** `memcpy` | 0 | covered, calls out · scalar build: covered, calls out | — |
+| `hacl-sha1` | hash compression | hacl | 259 | 390 | 68 | `pinsrd imm,r32,xmm`×3 (SSSE3/SSE4), `pextrd imm,xmm,r32`×3 (SSSE3/SSE4); **calls out:** `__bzero`, `memcpy` | 2 | 2 missing · scalar build: covered, calls out | — |
+| `hacl-md5` | hash compression | hacl | 813 | 364 | 55 | —; **calls out:** `memcpy` | 0 | covered, calls out · scalar build: covered, calls out | — |
+| `hacl-sha3` | hash compression | hacl | 601 | 5199 | 52 | `pinsrq imm,r64,xmm`×1 (SSSE3/SSE4); **calls out:** `exit`, `fprintf`, `memcpy` | 1 | 1 missing · scalar build: covered, calls out | — |
+| `hacl-blake2s` | hash compression | hacl | 1786 | 1067 | 30 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `hacl-blake2b` | hash compression | hacl | 2108 | 1251 | 32 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
+| `hacl-chacha20` | stream cipher | hacl | 1275 | 182 | 44 | `pinsrd imm,r32,xmm`×9 (SSSE3/SSE4), `pinsrd imm,m,xmm`×2 (SSSE3/SSE4), `movq m,xmm`×1; **calls out:** `__memcpy_chk`, `memcpy` | 3 | 3 missing · scalar build: covered, calls out | — |
+| `hacl-salsa20` | stream cipher | hacl | 331 | 1243 | 41 | —; **calls out:** `__memcpy_chk`, `memcpy` | 0 | covered, calls out · scalar build: covered, calls out | — |
+| `hacl-poly1305` | MAC | hacl | 507 | 496 | 60 | —; **calls out:** `__memcpy_chk`, `memcpy` | 0 | covered, calls out · scalar build: covered, calls out | — |
+| `vale-poly1305` | MAC | vale | 189 | 0 | 30 | — | 0 | **ALL COVERED** | — |
+| `vale-fadd` | field arithmetic | vale | 24 | 718 | 10 | — | 0 | **ALL COVERED** | — |
+| `vale-fsub` | field arithmetic | vale | 23 | 719 | 9 | — | 0 | **ALL COVERED** | — |
+| `vale-fmul` | field arithmetic | vale | 112 | 630 | 16 | `mulxq m,r64,r64`×20 (BMI/ADX) | 1 | 1 missing | `mulxq m,r64,r64`×20 · **COVERED WITH SILICON** |
+| `vale-cswap2` | field arithmetic | vale | 58 | 684 | 6 | — | 0 | **ALL COVERED** | — |
+| `vale-sha256` | hash compression | vale | 250 | 0 | 23 | `sha256rnds2 xmm,xmm,xmm`×32 (SHA-NI), `palignr imm,xmm,xmm`×14 (SSSE3/SSE4), `sha256msg1 xmm,xmm`×12 (SHA-NI), `sha256msg2 xmm,xmm`×12 (SHA-NI), `pshufb xmm,xmm`×4 (SSSE3/SSE4), `pinsrq imm,r64,xmm`×2 (SSSE3/SSE4) | 6 | 6 missing | — |
+| `vale-aesgcm` | AEAD | vale | 1417 | 6379 | 52 | `vpxor xmm,xmm,xmm`×238 (AVX/VEX), `vpclmulqdq imm,xmm,xmm,xmm`×200 (AVX/VEX), `vaesenc xmm,xmm,xmm`×162 (AVX/VEX), `vpaddd xmm,xmm,xmm`×42 (AVX/VEX), `vpshufb xmm,xmm,xmm`×35 (AVX/VEX), `pshufb xmm,xmm`×29 (SSSE3/SSE4), `pinsrq imm,r64,xmm`×28 (SSSE3/SSE4), `aesenc xmm,xmm`×27 (AES-NI/CLMUL), `vpxor m,xmm,xmm`×25 (AVX/VEX), `vpalignr imm,xmm,xmm,xmm`×20 (AVX/VEX), `vaesenclast xmm,xmm,xmm`×18 (AVX/VEX), `pinsrd imm,r32,xmm`×10 (SSSE3/SSE4), `vpslldq imm,xmm,xmm`×10 (AVX/VEX), `vpsrldq imm,xmm,xmm`×10 (AVX/VEX), `pextrq imm,xmm,r64`×5 (SSSE3/SSE4), `aesenclast xmm,xmm`×3 (AES-NI/CLMUL) | 16 | 16 missing | — |
+| `s2n-bignum_add` | bignum limb | s2n | 59 | 0 | 17 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_sub` | bignum limb | s2n | 55 | 0 | 19 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_cmadd` | bignum limb | s2n | 42 | 0 | 23 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_mul` | bignum limb | s2n | 47 | 0 | 23 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_sqr` | bignum limb | s2n | 64 | 0 | 27 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_montmul` | bignum limb | s2n | 117 | 0 | 33 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_mux` | bignum limb | s2n | 12 | 0 | 11 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_eq` | bignum limb | s2n | 23 | 0 | 16 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_ctz` | bignum limb | s2n | 17 | 0 | 14 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_bitsize` | bignum limb | s2n | 17 | 0 | 14 | — | 0 | **ALL COVERED** | — |
+| `s2n-word_clz` | bignum limb | s2n | 6 | 0 | 6 | — | 0 | **ALL COVERED** | — |
+| `s2n-word_popcount` | bignum limb | s2n | 20 | 0 | 9 | — | 0 | **ALL COVERED** | — |
+| `s2n-word_bytereverse` | bignum limb | s2n | 3 | 0 | 3 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_shl_small` | bignum limb | s2n | 31 | 0 | 13 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_cmul` | bignum limb | s2n | 36 | 0 | 15 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_modadd` | bignum limb | s2n | 31 | 0 | 21 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_demont` | bignum limb | s2n | 86 | 0 | 30 | — | 0 | **ALL COVERED** | — |
+| `s2n-word_negmodinv` | bignum limb | s2n | 24 | 0 | 9 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_add_p256` | bignum limb | s2n | 28 | 0 | 15 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_neg_p256` | bignum limb | s2n | 25 | 0 | 11 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_mod_n256_alt` | bignum limb | s2n | 94 | 0 | 29 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_montmul_p256_alt` | bignum limb | s2n | 178 | 0 | 18 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_montmul_p256` | bignum limb | s2n | 125 | 0 | 19 | `mulxq m,r64,r64`×16 (BMI/ADX), `mulxq r64,r64,r64`×8 (BMI/ADX) | 2 | 2 missing | `mulxq m,r64,r64`×16, `mulxq r64,r64,r64`×8 · **COVERED WITH SILICON** |
+| `s2n-bignum_add_p25519` | bignum limb | s2n | 26 | 0 | 11 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_mul_p25519_alt` | bignum limb | s2n | 139 | 0 | 22 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_mul_p25519` | bignum limb | s2n | 103 | 0 | 23 | `mulxq m,r64,r64`×16 (BMI/ADX), `mulxq r64,r64,r64`×5 (BMI/ADX) | 2 | 2 missing | `mulxq m,r64,r64`×16, `mulxq r64,r64,r64`×5 · **COVERED WITH SILICON** |
+| `s2n-bignum_mul_4_8_alt` | bignum limb | s2n | 93 | 0 | 9 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_sqr_4_8_alt` | bignum limb | s2n | 81 | 0 | 10 | — | 0 | **ALL COVERED** | — |
+| `s2n-bignum_mul_4_8` | bignum limb | s2n | 69 | 0 | 10 | `mulxq m,r64,r64`×16 (BMI/ADX) | 1 | 1 missing | `mulxq m,r64,r64`×16 · **COVERED WITH SILICON** |
+
+## The silicon column, separately: 4 more candidates are COVERED WITH SILICON
+
+**Referee: silicon: AMD EPYC 7763 + Intel Core i7-8700B, hwprobe — NOT a semantic oracle.** A candidate is COVERED WITH SILICON when it is not ALL COVERED, does not call out of its object, uses only addressing modes the vectors use, and every form it lacks is a `siliconTable` form the processor probe executed. The verdict above is computed before these forms are loaded and the run refuses if any differential verdict moves after (D332).
+
+**42 ALL COVERED (differential, x86isa) · 4 COVERED WITH SILICON (processors, hwprobe)** — two instruments, two counts, cited side by side and never added. COVERED WITH SILICON: `vale-fmul`, `s2n-bignum_montmul_p256`, `s2n-bignum_mul_p25519`, `s2n-bignum_mul_4_8`.
+
+The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s declared bytes, keyed by the same disassembler and classifier as both other sides):
+
+- `andn`: `andnl m,r32,r32`, `andnl r32,r32,r32`, `andnq m,r64,r64`, `andnq r64,r64,r64`
+- `bextr`: `bextrl r32,m,r32`, `bextrl r32,r32,r32`, `bextrq r64,m,r64`, `bextrq r64,r64,r64`
+- `blsmsk`: `blsmskl m,r32`, `blsmskl r32,r32`, `blsmskq m,r64`, `blsmskq r64,r64`
+- `blsr`: `blsrl m,r32`, `blsrl r32,r32`, `blsrq m,r64`, `blsrq r64,r64`
+- `bzhi`: `bzhil r32,m,r32`, `bzhil r32,r32,r32`, `bzhiq r64,m,r64`, `bzhiq r64,r64,r64`
+- `movnti`: `movntil r32,m`, `movntiq r64,m`
+- `mulx`: `mulxl m,r32,r32`, `mulxl r32,r32,r32`, `mulxq m,r64,r64`, `mulxq r64,r64,r64`
+- `pdep`: `pdepl m,r32,r32`, `pdepl r32,r32,r32`, `pdepq m,r64,r64`, `pdepq r64,r64,r64`
+- `pext`: `pextl m,r32,r32`, `pextl r32,r32,r32`, `pextq m,r64,r64`, `pextq r64,r64,r64`
+- `rorx`: `rorxl imm,m,r32`, `rorxl imm,r32,r32`, `rorxq imm,m,r64`, `rorxq imm,r64,r64`
 
 ## The shortest list of new forms that would unlock the next 7
 
@@ -149,33 +169,33 @@ Search: all incomplete rows, over the rows that do not call out of their object.
 
 † = the same mnemonic and operand shape IS tested at another width, so the form needs a vector, not new semantics (S1's five were this kind).
 
-| form | candidates | tested at another width | extension |
-|---|---:|---|---|
-| `pinsrd imm,r32,xmm` | 4 | no | SSSE3/SSE4 |
-| `mulxq m,r64,r64` | 4 | no | BMI/ADX |
-| `pinsrq imm,r64,xmm` | 3 | no | SSSE3/SSE4 |
-| `pextrq imm,xmm,r64` | 2 | no | SSSE3/SSE4 |
-| `pshufb xmm,xmm` | 2 | no | SSSE3/SSE4 |
-| `mulxq r64,r64,r64` | 2 | no | BMI/ADX |
-| `pextrd imm,xmm,r32` | 1 | no | SSSE3/SSE4 |
-| `movq m,xmm` | 1 | no | — |
-| `pinsrd imm,m,xmm` | 1 | no | SSSE3/SSE4 |
-| `palignr imm,xmm,xmm` | 1 | no | SSSE3/SSE4 |
-| `sha256rnds2 xmm,xmm,xmm` | 1 | no | SHA-NI |
-| `sha256msg1 xmm,xmm` | 1 | no | SHA-NI |
-| `sha256msg2 xmm,xmm` | 1 | no | SHA-NI |
-| `vpclmulqdq imm,xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpxor xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpslldq imm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpalignr imm,xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpsrldq imm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpaddd xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpshufb xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vaesenc xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `vpxor m,xmm,xmm` | 1 | no | AVX/VEX |
-| `vaesenclast xmm,xmm,xmm` | 1 | no | AVX/VEX |
-| `aesenc xmm,xmm` | 1 | no | AES-NI/CLMUL |
-| `aesenclast xmm,xmm` | 1 | no | AES-NI/CLMUL |
+| form | candidates | tested at another width | extension | silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B, hwprobe; NOT a semantic oracle) |
+|---|---:|---|---|---|
+| `pinsrd imm,r32,xmm` | 4 | no | SSSE3/SSE4 | no |
+| `mulxq m,r64,r64` | 4 | no | BMI/ADX | **yes** |
+| `pinsrq imm,r64,xmm` | 3 | no | SSSE3/SSE4 | no |
+| `pextrq imm,xmm,r64` | 2 | no | SSSE3/SSE4 | no |
+| `pshufb xmm,xmm` | 2 | no | SSSE3/SSE4 | no |
+| `mulxq r64,r64,r64` | 2 | no | BMI/ADX | **yes** |
+| `pextrd imm,xmm,r32` | 1 | no | SSSE3/SSE4 | no |
+| `movq m,xmm` | 1 | no | — | no |
+| `pinsrd imm,m,xmm` | 1 | no | SSSE3/SSE4 | no |
+| `palignr imm,xmm,xmm` | 1 | no | SSSE3/SSE4 | no |
+| `sha256rnds2 xmm,xmm,xmm` | 1 | no | SHA-NI | no |
+| `sha256msg1 xmm,xmm` | 1 | no | SHA-NI | no |
+| `sha256msg2 xmm,xmm` | 1 | no | SHA-NI | no |
+| `vpclmulqdq imm,xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpxor xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpslldq imm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpalignr imm,xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpsrldq imm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpaddd xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpshufb xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vaesenc xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vpxor m,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `vaesenclast xmm,xmm,xmm` | 1 | no | AVX/VEX | no |
+| `aesenc xmm,xmm` | 1 | no | AES-NI/CLMUL | no |
+| `aesenclast xmm,xmm` | 1 | no | AES-NI/CLMUL | no |
 
 ## Appendix: every s2n-bignum x86 function
 
@@ -187,4 +207,6 @@ Of **332** functions in `s2n-bignum/x86/` (every `.S`, each its own entry), **20
 | base-ISA form untested | 39 |
 | AVX/VEX | 20 |
 | SSSE3/SSE4 | 1 |
+
+**The silicon column, separately (silicon: AMD EPYC 7763 + Intel Core i7-8700B, hwprobe — NOT a semantic oracle):** 67 of the 126 not-covered functions lack only silicon-refereed forms (COVERED WITH SILICON). That figure is not added to the 206 above. They are: `bignum_cmul_p25519`, `bignum_invsqrt_p25519`, `bignum_madd_n25519`, `bignum_mul_p25519`, `bignum_sqr_p25519`, `bignum_sqrt_p25519`, `curve25519_ladderstep`, `curve25519_pxscalarmul`, `edwards25519_decode`, `edwards25519_epadd`, `edwards25519_epdouble`, `edwards25519_pdouble`, `edwards25519_pepadd`, `bignum_emontredc_8n`, `bignum_kmul_16_32`, `bignum_kmul_32_64`, `bignum_ksqr_16_32`, `bignum_ksqr_32_64`, `bignum_mul_4_8`, `bignum_mul_6_12`, `bignum_mul_8_16`, `bignum_sqr_4_8`, `bignum_sqr_6_12`, `bignum_sqr_8_16`, `bignum_cmul_p256`, `bignum_deamont_p256`, `bignum_demont_p256`, `bignum_mod_n256`, `bignum_mod_p256`, `bignum_montmul_p256`, `bignum_montsqr_p256`, `bignum_tomont_p256`, `bignum_triple_p256`, `p256_montjdouble`, `p256_montjmixadd`, `bignum_cmul_p384`, `bignum_deamont_p384`, `bignum_demont_p384`, `bignum_mod_n384`, `bignum_mod_p384`, `bignum_montmul_p384`, `bignum_montsqr_p384`, `bignum_tomont_p384`, `p384_montjdouble`, `p384_montjmixadd`, `bignum_cmul_p521`, `bignum_mod_n521_9`, `bignum_montmul_p521`, `bignum_montsqr_p521`, `bignum_mul_p521`, `bignum_sqr_p521`, `p521_jdouble`, `p521_jmixadd`, `bignum_cmul_p256k1`, `bignum_montmul_p256k1`, `bignum_montsqr_p256k1`, `bignum_mul_p256k1`, `bignum_sqr_p256k1`, `bignum_tomont_p256k1`, `secp256k1_jdouble`, `secp256k1_jmixadd`, `bignum_cmul_sm2`, `bignum_mod_nsm2`, `bignum_montmul_sm2`, `bignum_montsqr_sm2`, `sm2_montjdouble`, `sm2_montjmixadd`.
 
