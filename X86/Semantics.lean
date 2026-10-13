@@ -602,6 +602,58 @@ objdump's own comment shows. -/
 def vpackus (dst src : BitVec 128) : BitVec 128 :=
   vpackusAux dst 0 8 ||| vpackusAux src 8 8
 
+/-! ### D335 (V1a) — the packed-integer arithmetic x86isa refuses, refereed by silicon
+
+Every helper below is the SDM Vol. 2B Operation of one instruction, read at the lane width the rule
+names.  ⚠️ A pair-reading rule (`pmaddwd` reads two words per dword, `pmaddubsw` two bytes per word,
+`psadbw` eight bytes per quadword, `pmuludq` the low dword of each quadword) IS lane-wise at the WIDER
+width — lane `i` of the result depends only on lane `i` of each operand there — so it goes through
+`vlanes` at that width rather than a new fold.  `packssdw` NARROWS, as `packuswb` does, and gets its
+own fold for `vpackus`'s reason. -/
+
+/-- SaturateToSignedWord of a value held sign-extended in 32 bits (SDM Vol. 2B, PACKSSDW/PADDSW/PMADDUBSW):
+below −32768 gives 8000H, above 32767 gives 7FFFH, else the low word. -/
+def ssatW (v : BitVec 32) : BitVec 16 :=
+  if v.slt (0xFFFF8000 : BitVec 32) then 0x8000
+  else if (0x00007FFF : BitVec 32).slt v then 0x7FFF
+  else v.setWidth 16
+
+/-- One dword of `pmaddwd`: two SIGNED word products ADDED, mod 2^32 — no saturation; the one overflowing
+case (all four words 8000H) wraps to 80000000H, as the SDM says. -/
+def vmaddwdLane (x y : BitVec 32) : BitVec 32 :=
+  (x.extractLsb' 0 16).signExtend 32 * (y.extractLsb' 0 16).signExtend 32
+    + (x.extractLsb' 16 16).signExtend 32 * (y.extractLsb' 16 16).signExtend 32
+
+/-- One word of `pmaddubsw`: the DESTINATION's two bytes UNSIGNED (`setWidth`), the SOURCE's two SIGNED
+(`signExtend`), the pair summed and signed-saturated.  ⛔ The asymmetry is the instruction. -/
+def vmaddubswLane (x y : BitVec 16) : BitVec 16 :=
+  ssatW ((x.extractLsb' 0 8).setWidth 32 * (y.extractLsb' 0 8).signExtend 32
+    + (x.extractLsb' 8 8).setWidth 32 * (y.extractLsb' 8 8).signExtend 32)
+
+/-- One word of `pmulhrsw`: `TEMP := ((x*y) >> 14) + 1; result := TEMP[16:1]`, the product SIGNED 32-bit.
+⚠️ The shift may be logical: bits 16:1 of the result read product bits 30:14 and a carry upward, which an
+arithmetic and a logical shift agree on. -/
+def vmulhrswLane (x y : BitVec 16) : BitVec 16 :=
+  (((x.signExtend 32 * y.signExtend 32) >>> 14) + 1).extractLsb' 1 16
+
+/-- One quadword of `psadbw`: the sum of the eight unsigned byte differences' absolute values, in the low
+word; the 48 bits above it are ZERO by construction (the sum is at most 8 × 255 = 7F8H). -/
+def vsadLane (x y : BitVec 64) : BitVec 64 :=
+  (List.range 8).foldl (fun acc i =>
+    let p := (x.extractLsb' (8 * i) 8).toNat
+    let q := (y.extractLsb' (8 * i) 8).toNat
+    acc + BitVec.ofNat 64 (if q ≤ p then p - q else q - p)) 0
+
+/-- One signed-saturated word of `packssdw`, folded from the top down (`vpackusAux`'s shape). -/
+private def vpackssAux (src : BitVec 128) (base : Nat) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      (vpackssAux src base i) ||| (((ssatW (src.extractLsb' (i * 32) 32)).setWidth 128) <<< ((base + i) * 16))
+
+/-- `packssdw`: the DESTINATION's four dwords become the LOW four words, the SOURCE's the high four. -/
+def vpackss (dst src : BitVec 128) : BitVec 128 :=
+  vpackssAux dst 0 4 ||| vpackssAux src 4 4
+
 /-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
 Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
 get a packed operation wrong is to reach for `BinKind`'s flag machinery by
@@ -676,6 +728,21 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
                             (x.setWidth 64) (y.setWidth 64)).setWidth 32) a b
   | .maxps => vlanes 32 (fun x y => (SoftFloat.fmax SoftFloat.binary32
                             (x.setWidth 64) (y.setWidth 64)).setWidth 32) a b
+  -- ⭐⭐ D335 (V1a) — refereed by silicon (`hwprobe/mk_simda_rows.py`), never by a vector.
+  | .maddwd   => vlanes 32 vmaddwdLane a b
+  | .maddubsw => vlanes 16 vmaddubswLane a b
+  | .mullw    => vlanes 16 (· * ·) a b
+  | .mulhrsw  => vlanes 16 vmulhrswLane a b
+  -- the EVEN dwords, UNSIGNED, full 64-bit product: the low dword of each quadword lane
+  | .muludq   => vlanes 64 (fun x y => (x.setWidth 32).setWidth 64 * (y.setWidth 32).setWidth 64) a b
+  | .addsw    => vlanes 16 (fun x y => ssatW (x.signExtend 32 + y.signExtend 32)) a b
+  -- ⚠️ `<` on `BitVec` is UNSIGNED, which is exactly the comparison `psubus*` makes.
+  | .subusw   => vlanes 16 (fun x y => if x < y then 0 else x - y) a b
+  | .subusb   => vlanes 8  (fun x y => if x < y then 0 else x - y) a b
+  -- ⛔ SIGNED: `slt`, not `<` (batch 17's trap).  `DEST > SRC` keeps DEST, else SRC.
+  | .maxsw    => vlanes 16 (fun x y => if y.slt x then x else y) a b
+  | .sadbw    => vlanes 64 vsadLane a b
+  | .packssdw => vpackss a b
 
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and

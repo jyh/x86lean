@@ -424,6 +424,23 @@ inductive VBinKind where
   Kinds rather than a new constructor because the operand shapes, the alignment
   rule and the `#GP` branch are exactly `vbin`/`vbinm`'s. -/
   | minps | maxps
+  /-- ⭐⭐ D335 (V1a) — ELEVEN PACKED-INTEGER ARITHMETIC KINDS THE DIFFERENTIAL CANNOT
+  REFEREE: ACL2 x86isa refuses every one at every pre-state
+  (`scripts/oracle_availability.py`), so they are checked by `hwprobe/` on silicon
+  and pinned by `decide` in `Tests/AnchorsSimd.lean`, and their coverage rows live in
+  `siliconTable`, never `tableP0`.  Kinds rather than a constructor for batch 17's
+  reason: two XMM operands, lane-wise, no flag written, and `Op.vbin`/`Op.vbinm`
+  carry both operand shapes and the 16-byte `#GP` rule already (SDM Vol. 2B,
+  PMADDWD PMADDUBSW PMULLW PMULHRSW PMULUDQ PADDSW PSUBUSW PSUBUSB PMAXSW PSADBW
+  PACKSSDW).
+
+  ⛔ FOUR OF THEM ARE ASYMMETRIC IN THEIR OPERANDS AND THAT IS THEIR CONTENT:
+  `pmaddubsw` reads the DESTINATION's bytes UNSIGNED and the SOURCE's SIGNED;
+  `packssdw` puts the DESTINATION's dwords in the LOW words; `psubus*` subtracts the
+  source FROM the destination; `pmaxsw` keeps the source on a tie (the same value).
+  `a` is the destination at both operand shapes, as everywhere in `vbinApply`. -/
+  | maddwd | maddubsw | mullw | mulhrsw | muludq
+  | addsw | subusw | subusb | maxsw | sadbw | packssdw
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -453,6 +470,11 @@ def VBinKind.mnemonic : VBinKind → String
   | .orps => "orps"    | .orpd => "orpd"
   | .xorps => "xorps"  | .xorpd => "xorpd"
   | .minps => "minps"  | .maxps => "maxps"
+  -- D335 (V1a): silicon-refereed, `siliconTable`'s rows (never `rosterP0`).
+  | .maddwd => "pmaddwd" | .maddubsw => "pmaddubsw" | .mullw => "pmullw"
+  | .mulhrsw => "pmulhrsw" | .muludq => "pmuludq" | .addsw => "paddsw"
+  | .subusw => "psubusw" | .subusb => "psubusb" | .maxsw => "pmaxsw"
+  | .sadbw => "psadbw" | .packssdw => "packssdw"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.

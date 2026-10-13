@@ -9,6 +9,7 @@ against another model; that is `lake exe x86lean-diff` and the ACL2 side.
 import Tests.Anchors
 import Tests.AnchorsBmi
 import Tests.AnchorsShuf
+import Tests.AnchorsSimd
 import Tests.Nonvacuity
 import Tests.Vectors
 import Tests.Coverage
