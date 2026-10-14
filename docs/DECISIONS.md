@@ -21713,3 +21713,59 @@ mixed — every one is 88/0 or 0/88):
 logic, integer compares): the new semantics is VEX decode, the three-operand `vvvv` source, and the upper-half rule — not new
 arithmetic. That is the cheapest differential coverage left in the vector campaign, and it is where the YMM-upper record channel
 earns its keep. The silicon half is the ten refusers above that `vale-aesgcm` needs; the other 67 refusers are not taken by V3.
+
+## D341 — V3 design: VEX-128 decode, the YMM upper half as state, and a record that can see it (predictions sealed before any model change)
+
+**Why now.** D339 fixed V3's differential half at 33 mnemonics, all VEX-128 twins of rules the model already states. The new
+semantics is small: VEX decode, a three-operand `vvvv` source, and one rule about bits 255:128. The risk is in what we observe.
+A model and an oracle that both leave the upper half alone, compared by a record that does not report it, agree without having
+tested anything (D27). So the record is designed first and the semantics second.
+
+**The design, in five clauses.**
+1. **State.** A new structure `YmmHi` with sixteen `BitVec 128` fields (`hi0 … hi15`, default 0) becomes ONE field `hi` of
+   `Xmms`. `Cpu` does not grow at all, and a whole-record proof pays for one more projection inside `Xmms` (D71). The `YmmHi`
+   accessors copy `Xmms.get`/`set` exactly, with the same `get_set_same`/`get_set_ne` lemmas.
+2. **The upper-half rule, applied by WHICH SETTER a rule calls, never by a flag.** `Xmms.set`, which every legacy SSE rule
+   already uses, writes the low 128 bits and leaves `hi` untouched, so legacy SSE PRESERVES the upper half with no edit to any
+   existing rule. A new `Xmms.setVex128 r v` writes the low half and zeroes `hi r` (SDM Vol. 1 §14.1.2: VEX.128 zeroes
+   MAXVL−1:128; our MAXVL is 256 and bits 511:256 are not modelled). A rule cannot choose the wrong behaviour by forgetting an
+   argument.
+3. **Decode.** C5 (2-byte) and C4 (3-byte, `mmmmm = 00001` only, i.e. the 0F map, which covers all 33). `VEX.L = 1` decodes to
+   `none` (an unsupported form, not a semantics). `pp` selects the implied 66/F3/F2 prefix exactly as a legacy prefix would, and
+   the opcode is then looked up in the SAME table the legacy form uses. A VEX prefix together with a legacy 66/F2/F3/REX/LOCK
+   is #UD (SDM Vol. 2A §2.3.2). A two-operand form (the moves, `vmovddup`) with `vvvv ≠ 1111b` is #UD.
+4. **AST.** One constructor per family, carrying `src1 : XmmReg` (from `vvvv`) beside the existing operands, and executing the
+   SAME 128-bit function the legacy rule uses, so the arithmetic is shared by construction and only the operand routing and the
+   setter differ. V3 takes REGISTER forms only; memory forms wait for an oracle measurement of their own (D339 measured none).
+5. **The record, on BOTH sides.** The driver gains `x86l-ymmhis`, which reports bits 255:128 of each ZMM register as
+   `ymmhiN=<32 hex>` after the existing `xmmN=` fields, and `x86l-set-ymmhis`, which seeds them from a new `:ymmhis` case key
+   AFTER `:xmms` (writing the ZMM through `wz256`, so the low half set by `:xmms` is kept). The Lean emitter prints the same
+   sixteen fields from `Xmms.hi`, and `check_xmm_format.py` grows to hold the two formats together. **Every vector pre-state
+   seeds all sixteen upper halves with NON-ZERO values that differ per register and per pre-state**, derived from the case seed
+   the way the low halves already are.
+
+**Predictions, each one stated so that it can fail.**
+- P1. No existing theorem needs a proof edit. Whole-record `rfl` proofs on `Cpu` re-elaborate unchanged, and kernel cost rises
+  by at most 10% on any module whose proofs touch `Xmms` (measured by `kernel_delta.py` against master; a breach is a finding,
+  not a ceiling to raise).
+- P2. With the new channel seeded non-zero, EVERY existing legacy SSE differential row still agrees: x86isa's `wx128` preserves
+  bits 255:128, and so does `Xmms.set`. This turns the whole existing SSE differential into a test of the preservation rule at
+  no new oracle cost. A disagreement here would mean one side clobbers the upper half on a legacy write.
+- P3. All 33 VEX-128 twins agree at the 88 pre-states, INCLUDING `ymmhi(dst) = 0` on both sides and every other `ymmhi`
+  unchanged.
+- P4. A planted mutant `setVex128 := set` (the model forgets to zero) is CAUGHT by the differential on every one of the 33,
+  and a mutant that zeroes on legacy writes is caught across the existing SSE rows. Both mutants are driven before the PR opens.
+  If either mutant survives, the channel is a D27 constant and the batch does not ship.
+- P5. x86isa executes the 33 with only the existing CR4 value (`#x600`) and no XCR0 or OSXSAVE configuration (as D339
+  measured for `vpaddd`/`vpxor`). A form that faults on that ground is a harness finding and is recorded, not worked around.
+- P6. A `VEX.L = 1` form and a `vvvv ≠ 1111b` two-operand form are each refused by the model (no step) and #UD at the oracle.
+  This is the only place where the model's refusal and the oracle's fault are compared rather than a post-state.
+
+**What V3 does not claim.** Nothing about bits 511:256, AVX-512, VEX.256, memory operands, or the 77 VEX forms the oracle
+refuses. The ten `vale-aesgcm` refusers take the silicon half on hwprobe's pattern (D336/D338), with the upper half reported on
+silicon too. That half is a separate decision.
+
+**How it is built.** As an executor wave, as V2 was: (a) state + setters + lemmas, then the full build and the axiom gate;
+(b) the record channel on both sides with non-zero seeds and the format check, then the EXISTING differential re-run (P2) BEFORE
+any VEX form exists; (c) decode + the 33 forms + the P6 refusals; (d) the P4 mutants; (e) the ledger row and the PR. Each step
+reports against the prediction it tests.
