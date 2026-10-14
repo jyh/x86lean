@@ -92,22 +92,27 @@ on:
 # the 48 h before the Actions budget ran out at 19:05Z 09-06). The 6-min build and the 5-s scrub are
 # not the bill. RULE: a branch push runs the BUILD ONLY; the matrix and kernel-delta run on a PULL
 # REQUEST (the merge gate under the fleet's branch -> CI green -> merge law) and on manual dispatch.
-# A newer push to the same ref cancels the older run, so a PR with ten pushes buys one matrix, not ten.
+# A newer push to the same ref cancels the older run (a PR ref only, since 2026-10-13), so a PR with ten pushes buys one matrix, not ten.
 # ⚖️ D224, RULED 2026-09-12 (desk KN, part 2): THAT CANCELLATION NOW LIVES ON EACH JOB, NOT ON THE
-# WORKFLOW, AND `kernel-delta-redfirst` HAS NONE. A workflow-wide group with cancel-in-progress killed
+# WORKFLOW, AND `kernel-delta-redfirst` HAS NONE ON MASTER. A workflow-wide group with cancel-in-progress killed
 # redfirst on 24 of the last 30 master pushes -- pushes land faster than its ~45 min -- so the gate
 # almost never delivered a verdict. Redfirst must CONCLUDE on every master push. PRICE, stated: ~45
 # runner-minutes per push, on a PUBLIC repository's standard runners, where Actions minutes are not
 # billed; each run is its own VM, so overlapping runs do not share a box. If that price ever changes,
 # the ruling's alternative is to declare the job SAMPLED here and in PROVENANCE.md, never to leave a
 # cancelled gate standing as a gate. A matrix job's group carries its shard, or its legs cancel each other.
+# ⚖️ EVERY MASTER PUSH CONCLUDES (the helm, 2026-10-13 20:56, with PR #93): EVERY job's group now cancels a
+# superseded PULL REQUEST run only. On any other event the group is keyed by run_id, so no two master runs
+# share one -- a per-ref group without cancel would still let GitHub drop a PENDING master run when a third
+# queues. WHY: until this edit five jobs cancelled a superseded MASTER push too, and a master run's checks
+# are the only reading of THAT push's range of a public repository; the newer run does not cover it.
 
 jobs:
   build:
     runs-on: ubuntu-latest
     concurrency:
-      group: ci-${{ github.workflow }}-${{ github.ref }}-build
-      cancel-in-progress: true
+      group: ci-${{ github.workflow }}-build-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       # ⛔⛔ `fetch-depth: 0` IS LOAD-BEARING HERE TOO, AND ITS ABSENCE COST FIVE
       # DAYS OF RED. `actions/checkout@v4` defaults to depth 1. The User-CPU budget
@@ -688,8 +693,8 @@ jobs:
   selftest-gate:
     runs-on: ubuntu-latest
     concurrency:
-      group: ci-${{ github.workflow }}-${{ github.ref }}-selftest-gate
-      cancel-in-progress: true
+      group: ci-${{ github.workflow }}-selftest-gate-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     outputs:
       skip: ${{ steps.decide.outputs.skip }}
       digest: ${{ steps.decide.outputs.digest }}
@@ -712,10 +717,18 @@ jobs:
     if: needs.selftest-gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     concurrency:
-      group: ci-${{ github.workflow }}-${{ github.ref }}-selftest-${{ matrix.shard }}
-      cancel-in-progress: true
+      group: ci-${{ github.workflow }}-selftest-${{ matrix.shard }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     strategy:
       fail-fast: false
+      # ⚖️ AT MOST FIVE SHARDS AT ONCE (the helm, 2026-10-13 20:53, on bench's measurement): GitHub Free caps
+      # the ACCOUNT at 20 concurrent jobs, and two x86lean PR matrices held 17 of them while three signed
+      # saltbench merges waited on one-minute scrub jobs. Priced from PR #90's ten shard times (sum 1,381
+      # min, longest 205): wall time ~3.4 h at 10 wide, ~5.6 h at 5, ~5.5 h at 6, ~7.3 h at 4 -- so 5
+      # buys the same wall time as 6 and leaves 15 of the 20 slots to every other repo. The cost is ~2 h
+      # per PR, paid by this lane. A superseded PR push frees its slots: every job cancels a superseded
+      # pull_request run, and none ever cancels a master run (the paragraph above `jobs:`).
+      max-parallel: 5
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
@@ -782,8 +795,8 @@ jobs:
   kernel-delta:
     runs-on: ubuntu-latest
     concurrency:
-      group: ci-${{ github.workflow }}-${{ github.ref }}-kernel-delta
-      cancel-in-progress: true
+      group: ci-${{ github.workflow }}-kernel-delta-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -991,8 +1004,14 @@ jobs:
   # the NEGATIVE control that could invalidate every green this gate has ever
   # printed: base and head at the SAME commit, which must be CLEAN.
   kernel-delta-redfirst:
+    # ⚖️ PR RUNS ONLY (the helm, 2026-10-13 20:53): a superseded PR head's verdict gates nothing, so a newer
+    # push to the same PR cancels it and frees its slot; on master, and on every other event, the group is
+    # keyed by run_id, so no two runs ever share it and D224 stands -- every master push still concludes.
+    concurrency:
+      group: ci-${{ github.workflow }}-kernel-delta-redfirst-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
-    # ⛔ NO `concurrency:` HERE, DELIBERATELY (D224 part 2, above). `checks: write` publishes the verdict.
+    # ⛔ NO CANCELLATION ON MASTER, DELIBERATELY (D224 part 2, above); the group above cancels a superseded PR run only. `checks: write` publishes the verdict.
     permissions:
       contents: read
       checks: write
@@ -1093,8 +1112,8 @@ jobs:
   ku-delta:
     runs-on: ubuntu-latest
     concurrency:
-      group: ci-${{ github.workflow }}-${{ github.ref }}-ku-delta
-      cancel-in-progress: true
+      group: ci-${{ github.workflow }}-ku-delta-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1141,12 +1160,18 @@ jobs:
   # ARM A must PASS and ARM A′ must REFUSE on the ms ceiling. It is the only arm that shows A′'s ms
   # half firing HERE, against THIS machine's ceilings, rather than on the box they were not
   # registered for.
-  # ⛔ ITS OWN JOB, WITH NO cancel-in-progress, FOR D224's REASON: a verdict that a later push can
+  # ⛔ ITS OWN JOB, WITH NO cancel-in-progress ON MASTER (a superseded PR run only, since 2026-10-13), FOR D224's REASON: a verdict that a later push can
   # cancel concludes one time in five and reads as coverage. Priced from 16 runner `ku-delta` jobs:
   # one tree pair is ~13 min, so this job is ~25 min a push.
   # ⚠️ n=8000, NOT D240's 4000: on the fast VM class D243 found, a 4000 plant is predicted to read
   # ~511 ms against a 567 ms ceiling — a MISS that would have made this arm flake on the draw.
   ku-delta-redfirst:
+    # ⚖️ PR RUNS ONLY (the helm, 2026-10-13 20:53): a superseded PR head's verdict gates nothing, so a newer
+    # push to the same PR cancels it and frees its slot; on master, and on every other event, the group is
+    # keyed by run_id, so no two runs ever share it and D224 stands -- every master push still concludes.
+    concurrency:
+      group: ci-${{ github.workflow }}-ku-delta-redfirst-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -1183,10 +1208,16 @@ jobs:
   # (X86.Syntax 254/200, vectorCoverage 1920/1760, the Coverage residue 15060/12420). It now
   # passes against a 100x probe of that file with the machine pins removed, so it still
   # proves the gate can reach CLEAN, on any machine. The kernel-time GATE is `kernel-delta`.
-  # ⛔ NO `concurrency:`, on D224's reasoning: a job that a faster push cancels is not a gate.
+  # ⛔ NO CANCELLATION ON MASTER, on D224's reasoning: a job that a faster push cancels is not a gate (a superseded PR run only, since 2026-10-13).
   # PRICE: about 12 min on the development box, four nested build-and-profile runs and a
   # fifth for the control; a public repository's standard runners are not billed.
   kernel-cost-selftest:
+    # ⚖️ PR RUNS ONLY (the helm, 2026-10-13 20:53): a superseded PR head's verdict gates nothing, so a newer
+    # push to the same PR cancels it and frees its slot; on master, and on every other event, the group is
+    # keyed by run_id, so no two runs ever share it and D224 stands -- every master push still concludes.
+    concurrency:
+      group: ci-${{ github.workflow }}-kernel-cost-selftest-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -1221,6 +1252,12 @@ jobs:
   # FAILS unless it says 4.27.0. That is the same control v1's own receipt used
   # (`elan show` + `lean --version` side by side), promoted from prose to a gate.
   harness-pin-v4270:
+    # ⚖️ PR RUNS ONLY (the helm, 2026-10-13 20:53): a superseded PR head's verdict gates nothing, so a newer
+    # push to the same PR cancels it and frees its slot; on master, and on every other event, the group is
+    # keyed by run_id, so no two runs ever share it and D224 stands -- every master push still concludes.
+    concurrency:
+      group: ci-${{ github.workflow }}-harness-pin-v4270-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
