@@ -2313,4 +2313,49 @@ theorem step_vextr_narrow_refuses (r : GPR) (x : XmmReg) (imm : BitVec 8) (h : L
 
 end V1b
 
+/-! ## D335 (V1a) — the packed-integer arithmetic x86isa refuses
+
+⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses all eleven
+(`scripts/oracle_availability.py`).  Their numbers are checked against a PROCESSOR by
+`hwprobe/` (`mk_simda_rows.py`) and pinned in `Tests/AnchorsSimd.lean`.  The FRAME is
+already stated for every `VBinKind` — `step_vbin` (XMM and RIP only), `step_vbin_flags`
+(no flag), `vbinm_unaligned_faults` (the 16-byte `#GP`) — and applies to these kinds
+because none is min/max (the first theorem below).  The rest state, as equations, the
+edge cases the SDM names in words. -/
+section V1a
+
+/-- The eleven kinds are not min/max, so `step_vbin` and `vbinm_aligned_runs` apply. -/
+theorem v1a_kinds_not_minmax :
+    [VBinKind.maddwd, .maddubsw, .mullw, .mulhrsw, .muludq, .addsw, .subusw, .subusb,
+      .maxsw, .sadbw, .packssdw].all (fun k => !k.isMinMax) = true := by decide
+
+/-- ⭐ PMADDWD WRAPS, ONCE: all four words 8000H give 80000000H (the SDM's one wrap). -/
+theorem maddwd_wraps_at_min : vmaddwdLane 0x80008000 0x80008000 = 0x80000000 := by decide
+
+/-- ⭐ PMULHRSW's ONE OVERFLOW: 8000H × 8000H rounds to 8000H, not +32768. -/
+theorem mulhrsw_min_min : vmulhrswLane 0x8000 0x8000 = 0x8000 := by decide
+
+/-- ⛔ PMADDUBSW IS ASYMMETRIC: the destination byte FFH is 255 (unsigned) and the
+source byte FFH is −1 (signed), so swapping the operands changes the word. -/
+theorem maddubsw_asymmetric :
+    vmaddubswLane 0x00FF 0x0001 = 0x00FF ∧ vmaddubswLane 0x0001 0x00FF = 0xFFFF := by decide
+
+/-- PMADDUBSW saturates at both ends: 2 × 255 × 127 to 7FFFH and 2 × 255 × (−128) to 8000H. -/
+theorem maddubsw_saturates :
+    vmaddubswLane 0xFFFF 0x7F7F = 0x7FFF ∧ vmaddubswLane 0xFFFF 0x8080 = 0x8000 := by decide
+
+/-- SaturateToSignedWord, below and above. -/
+theorem ssatW_low {v : BitVec 32} (h : v.slt 0xFFFF8000 = true) : ssatW v = 0x8000 := by
+  rw [ssatW, if_pos h]
+
+theorem ssatW_high {v : BitVec 32} (hl : v.slt 0xFFFF8000 = false)
+    (h : (0x00007FFF : BitVec 32).slt v = true) : ssatW v = 0x7FFF := by
+  rw [ssatW, if_neg (by rw [hl]; exact Bool.false_ne_true), if_pos h]
+
+/-- ⭐ PSADBW's quadword holds the sum in its low word and ZERO above it: the
+largest sum, eight differences of 255, is 7F8H. -/
+theorem sad_max : vsadLane 0xFFFFFFFFFFFFFFFF 0 = 0x7F8 := by decide
+
+end V1a
+
 end X86

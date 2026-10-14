@@ -14,7 +14,7 @@ A **form** is a printed mnemonic (width suffix, condition code and prefixes incl
 - **One compiler, one target, one set of flags:** `Apple clang version 21.0.0 (clang-2100.3.34.2)`, `-target x86_64-apple-macos13`, `-O2 -fno-stack-protector -fcf-protection=none -fno-asynchronous-unwind-tables -fno-jump-tables -DNDEBUG -w`, disassembled by `objdump` (LLVM). C candidates are built twice: the default (`-O2`, clang may vectorise into SSE) and `scalar` (`-O2 -fno-vectorize -fno-slp-vectorize`). A different compiler emits different forms.
 - **Calls that leave the object** are listed and mark the row; a candidate that calls out is never counted as covered. Calls and tail jumps inside the object are followed and counted with the entry.
 - **The reference column is not uniform.** Only the s2n-bignum and Vale rows measure the verified artifact itself; a HACL* row measures clang's compilation of verified C; the checksum rows have a specification and test vectors and no machine-checked reference was found.
-- **A second instrument, in its own column (D332).** 47 forms of 16 mnemonics are in `siliconTable`: x86isa refuses them, so no differential vector can exist, and they are refereed by PROCESSORS instead (silicon: AMD EPYC 7763 + Intel Core i7-8700B, hwprobe — NOT a semantic oracle; rows derived from the SDM's rules, the model pinned to the same rows by `decide`). That is NOT a semantic oracle — a processor agreeing on chosen rows is not a second model agreeing on the swept pre-states — so those forms are credited in a separately labelled column and verdict, **never in ALL COVERED**. The two counts may be cited side by side, never summed.
+- **A second instrument, in its own column (D332).** 69 forms of 27 mnemonics are in `siliconTable`: x86isa refuses them, so no differential vector can exist, and they are refereed by PROCESSORS instead (silicon: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335), hwprobe — NOT a semantic oracle; rows derived from the SDM's rules, the model pinned to the same rows by `decide`). That is NOT a semantic oracle — a processor agreeing on chosen rows is not a second model agreeing on the swept pre-states — so those forms are credited in a separately labelled column and verdict, **never in ALL COVERED**. The two counts may be cited side by side, never summed.
 
 ## The vectors' SIMD and floating-point content (derived)
 
@@ -49,7 +49,7 @@ By family: MAC **1** · bignum limb **26** · checksum **3** · field arithmetic
 
 `instrs` counts the instructions the walk reached from the entry (calls and branches inside the object, and fall-through between an assembly file's labels); `unreached` is the rest of the object's code — for a one-routine `.S` file it must be 0, for a compiled file it is the file's other functions — printed so a short walk cannot pass as a small function. `strict` counts not-covered forms with the addressing mode kept in the form. **Same-register operands are not a dimension here** (`xorq %r8,%r8` is the form `xorq r64,r64`), and neither is which register is used.
 
-| candidate | family | reference | instrs | unreached | forms | not covered | strict | verdict | silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B, hwprobe; NOT a semantic oracle) |
+| candidate | family | reference | instrs | unreached | forms | not covered | strict | verdict | silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335), hwprobe; NOT a semantic oracle) |
 |---|---|---|---:|---:|---:|---|---:|---|---|
 | `crc32-poc` | checksum | poc | 12 | 0 | 12 | — | 0 | **ALL COVERED** | — |
 | `zlib-crc32` | checksum | spec | 624 | 300 | 40 | — | 0 | **ALL COVERED** · scalar build: ALL COVERED | — |
@@ -111,11 +111,11 @@ By family: MAC **1** · bignum limb **26** · checksum **3** · field arithmetic
 
 ## The silicon column, separately: 5 more candidates are COVERED WITH SILICON
 
-**Referee: silicon: AMD EPYC 7763 + Intel Core i7-8700B, hwprobe — NOT a semantic oracle.** A candidate is COVERED WITH SILICON when it is not ALL COVERED, does not call out of its object, uses only addressing modes the vectors use, and every form it lacks is a `siliconTable` form the processor probe executed. The verdict above is computed before these forms are loaded and the run refuses if any differential verdict moves after (D332).
+**Referee: silicon: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335), hwprobe — NOT a semantic oracle.** A candidate is COVERED WITH SILICON when it is not ALL COVERED, does not call out of its object, uses only addressing modes the vectors use, and every form it lacks is a `siliconTable` form the processor probe executed. The verdict above is computed before these forms are loaded and the run refuses if any differential verdict moves after (D332).
 
 **42 ALL COVERED (differential, x86isa) · 5 COVERED WITH SILICON (processors, hwprobe)** — two instruments, two counts, cited side by side and never added. COVERED WITH SILICON: `xxh3-64`, `vale-fmul`, `s2n-bignum_montmul_p256`, `s2n-bignum_mul_p25519`, `s2n-bignum_mul_4_8`.
 
-The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s and `hwprobe/mk_shuf_rows.py`'s declared bytes, keyed by the same disassembler and classifier as both other sides):
+The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s and `hwprobe/mk_simda_rows.py`'s declared bytes, keyed by the same disassembler and classifier as both other sides):
 
 - `andn`: `andnl m,r32,r32`, `andnl r32,r32,r32`, `andnq m,r64,r64`, `andnq r64,r64,r64`
 - `bextr`: `bextrl r32,m,r32`, `bextrl r32,r32,r32`, `bextrq r64,m,r64`, `bextrq r64,r64,r64`
@@ -124,6 +124,8 @@ The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s and `hwprobe/mk_shuf
 - `bzhi`: `bzhil r32,m,r32`, `bzhil r32,r32,r32`, `bzhiq r64,m,r64`, `bzhiq r64,r64,r64`
 - `movnti`: `movntil r32,m`, `movntiq r64,m`
 - `mulx`: `mulxl m,r32,r32`, `mulxl r32,r32,r32`, `mulxq m,r64,r64`, `mulxq r64,r64,r64`
+- `packssdw`: `packssdw m,xmm`, `packssdw xmm,xmm`
+- `paddsw`: `paddsw m,xmm`, `paddsw xmm,xmm`
 - `palignr`: `palignr imm,m,xmm`, `palignr imm,xmm,xmm`
 - `pdep`: `pdepl m,r32,r32`, `pdepl r32,r32,r32`, `pdepq m,r64,r64`, `pdepq r64,r64,r64`
 - `pext`: `pextl m,r32,r32`, `pextl r32,r32,r32`, `pextq m,r64,r64`, `pextq r64,r64,r64`
@@ -131,7 +133,16 @@ The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s and `hwprobe/mk_shuf
 - `pextrq`: `pextrq imm,xmm,r64`
 - `pinsrd`: `pinsrd imm,m,xmm`, `pinsrd imm,r32,xmm`
 - `pinsrq`: `pinsrq imm,r64,xmm`
+- `pmaddubsw`: `pmaddubsw m,xmm`, `pmaddubsw xmm,xmm`
+- `pmaddwd`: `pmaddwd m,xmm`, `pmaddwd xmm,xmm`
+- `pmaxsw`: `pmaxsw m,xmm`, `pmaxsw xmm,xmm`
+- `pmulhrsw`: `pmulhrsw m,xmm`, `pmulhrsw xmm,xmm`
+- `pmullw`: `pmullw m,xmm`, `pmullw xmm,xmm`
+- `pmuludq`: `pmuludq m,xmm`, `pmuludq xmm,xmm`
+- `psadbw`: `psadbw m,xmm`, `psadbw xmm,xmm`
 - `pshufb`: `pshufb m,xmm`, `pshufb xmm,xmm`
+- `psubusb`: `psubusb m,xmm`, `psubusb xmm,xmm`
+- `psubusw`: `psubusw m,xmm`, `psubusw xmm,xmm`
 - `rorx`: `rorxl imm,m,r32`, `rorxl imm,r32,r32`, `rorxq imm,m,r64`, `rorxq imm,r64,r64`
 
 ## The shortest list of new forms that would unlock the next 7
@@ -175,7 +186,7 @@ Search: all incomplete rows, over the rows that do not call out of their object.
 
 † = the same mnemonic and operand shape IS tested at another width, so the form needs a vector, not new semantics (S1's five were this kind).
 
-| form | candidates | tested at another width | extension | silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B, hwprobe; NOT a semantic oracle) |
+| form | candidates | tested at another width | extension | silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335), hwprobe; NOT a semantic oracle) |
 |---|---:|---|---|---|
 | `pinsrd imm,r32,xmm` | 4 | no | SSSE3/SSE4 | **yes** |
 | `mulxq m,r64,r64` | 4 | no | BMI/ADX | **yes** |
@@ -214,5 +225,5 @@ Of **332** functions in `s2n-bignum/x86/` (every `.S`, each its own entry), **20
 | AVX/VEX | 20 |
 | SSSE3/SSE4 | 1 |
 
-**The silicon column, separately (silicon: AMD EPYC 7763 + Intel Core i7-8700B, hwprobe — NOT a semantic oracle):** 67 of the 126 not-covered functions lack only silicon-refereed forms (COVERED WITH SILICON). That figure is not added to the 206 above. They are: `bignum_cmul_p25519`, `bignum_invsqrt_p25519`, `bignum_madd_n25519`, `bignum_mul_p25519`, `bignum_sqr_p25519`, `bignum_sqrt_p25519`, `curve25519_ladderstep`, `curve25519_pxscalarmul`, `edwards25519_decode`, `edwards25519_epadd`, `edwards25519_epdouble`, `edwards25519_pdouble`, `edwards25519_pepadd`, `bignum_emontredc_8n`, `bignum_kmul_16_32`, `bignum_kmul_32_64`, `bignum_ksqr_16_32`, `bignum_ksqr_32_64`, `bignum_mul_4_8`, `bignum_mul_6_12`, `bignum_mul_8_16`, `bignum_sqr_4_8`, `bignum_sqr_6_12`, `bignum_sqr_8_16`, `bignum_cmul_p256`, `bignum_deamont_p256`, `bignum_demont_p256`, `bignum_mod_n256`, `bignum_mod_p256`, `bignum_montmul_p256`, `bignum_montsqr_p256`, `bignum_tomont_p256`, `bignum_triple_p256`, `p256_montjdouble`, `p256_montjmixadd`, `bignum_cmul_p384`, `bignum_deamont_p384`, `bignum_demont_p384`, `bignum_mod_n384`, `bignum_mod_p384`, `bignum_montmul_p384`, `bignum_montsqr_p384`, `bignum_tomont_p384`, `p384_montjdouble`, `p384_montjmixadd`, `bignum_cmul_p521`, `bignum_mod_n521_9`, `bignum_montmul_p521`, `bignum_montsqr_p521`, `bignum_mul_p521`, `bignum_sqr_p521`, `p521_jdouble`, `p521_jmixadd`, `bignum_cmul_p256k1`, `bignum_montmul_p256k1`, `bignum_montsqr_p256k1`, `bignum_mul_p256k1`, `bignum_sqr_p256k1`, `bignum_tomont_p256k1`, `secp256k1_jdouble`, `secp256k1_jmixadd`, `bignum_cmul_sm2`, `bignum_mod_nsm2`, `bignum_montmul_sm2`, `bignum_montsqr_sm2`, `sm2_montjdouble`, `sm2_montjmixadd`.
+**The silicon column, separately (silicon: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335), hwprobe — NOT a semantic oracle):** 67 of the 126 not-covered functions lack only silicon-refereed forms (COVERED WITH SILICON). That figure is not added to the 206 above. They are: `bignum_cmul_p25519`, `bignum_invsqrt_p25519`, `bignum_madd_n25519`, `bignum_mul_p25519`, `bignum_sqr_p25519`, `bignum_sqrt_p25519`, `curve25519_ladderstep`, `curve25519_pxscalarmul`, `edwards25519_decode`, `edwards25519_epadd`, `edwards25519_epdouble`, `edwards25519_pdouble`, `edwards25519_pepadd`, `bignum_emontredc_8n`, `bignum_kmul_16_32`, `bignum_kmul_32_64`, `bignum_ksqr_16_32`, `bignum_ksqr_32_64`, `bignum_mul_4_8`, `bignum_mul_6_12`, `bignum_mul_8_16`, `bignum_sqr_4_8`, `bignum_sqr_6_12`, `bignum_sqr_8_16`, `bignum_cmul_p256`, `bignum_deamont_p256`, `bignum_demont_p256`, `bignum_mod_n256`, `bignum_mod_p256`, `bignum_montmul_p256`, `bignum_montsqr_p256`, `bignum_tomont_p256`, `bignum_triple_p256`, `p256_montjdouble`, `p256_montjmixadd`, `bignum_cmul_p384`, `bignum_deamont_p384`, `bignum_demont_p384`, `bignum_mod_n384`, `bignum_mod_p384`, `bignum_montmul_p384`, `bignum_montsqr_p384`, `bignum_tomont_p384`, `p384_montjdouble`, `p384_montjmixadd`, `bignum_cmul_p521`, `bignum_mod_n521_9`, `bignum_montmul_p521`, `bignum_montsqr_p521`, `bignum_mul_p521`, `bignum_sqr_p521`, `p521_jdouble`, `p521_jmixadd`, `bignum_cmul_p256k1`, `bignum_montmul_p256k1`, `bignum_montsqr_p256k1`, `bignum_mul_p256k1`, `bignum_sqr_p256k1`, `bignum_tomont_p256k1`, `secp256k1_jdouble`, `secp256k1_jmixadd`, `bignum_cmul_sm2`, `bignum_mod_nsm2`, `bignum_montmul_sm2`, `bignum_montsqr_sm2`, `sm2_montjdouble`, `sm2_montjmixadd`.
 

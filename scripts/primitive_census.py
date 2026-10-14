@@ -436,10 +436,26 @@ def model_forms(work):
 # from D334's text — a header naming a referee the record does not is a claim.
 # WRONG IF a second EXECUTABLE model of MULX turns up: its forms then move to the
 # differential column (with vectors) and this column keeps its rows.
-SILICON_REFEREE = ("AMD EPYC 7763", "Intel Core i7-8700B")
-SILICON_LABEL = ("silicon: " + " + ".join(SILICON_REFEREE)
-                 + ", hwprobe — NOT a semantic oracle")
+# ⭐ D335 (V1a): a second probe path, the SSE-legacy packed-integer arithmetic (`hwprobe/mk_simda_rows.py`,
+# `simda_probe.c`), refereed by a DIFFERENT AMD part (its run drew an EPYC 9V45).  So the referees are named PER
+# DECISION, every name must be in its own decision's text, and the label names every pair — a header naming one
+# pair over forms another pair refereed would be a claim.
+SILICON_REFEREES = (
+    ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+)
 SILICON_DECISION = "D334"
+SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
+SILICON_REFEREE = tuple(sorted({n for _d, rs in SILICON_REFEREES for n in rs}))
+SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
+SILICON_LABEL = "silicon: " + SILICON_PAIRS + ", hwprobe — NOT a semantic oracle"
+# Each probe path: the generator, the probe that refuses to run without the declared bytes, the prefix of its
+# functions, and the regex of one of its ROW lines (to count the rows calling each function).
+SILICON_PATHS = (
+    ("mk_int_rows.py", "int_probe.c", "i_", r'^  \{"[^"]+", (i_\w+), 0x'),
+    ("mk_shuf_rows.py", "shuf_probe.c", "s_", r'^  \{"[^"]+", (s_\w+), 0x'),
+    ("mk_simda_rows.py", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+)
 
 
 def silicon_mnemonics():
@@ -467,9 +483,9 @@ def silicon_key(f, mn):
 
 def silicon_forms(work):
     """{form: [hwprobe function, …]} for every form the processor probe declares
-    it executes (the bytes `int_probe.c` and, since D336, `shuf_probe.c` refuse
-    to run without, read back at each function's `_at` label, for every function
-    at least one row calls)
+    it executes (the bytes `int_probe.c` and, since D336, `shuf_probe.c` — and, D335, `simda_probe.c` —
+    refuse to run without, read back at each function's `_at` label, for every function at least one row
+    calls)
     whose width-erased mnemonic is a `siliconTable` mnemonic.  The bytes go
     through the SAME clang + objdump + `form_of` as both other sides.  ADCX/ADOX
     share the path and are excluded by the filter: the differential referees
@@ -477,26 +493,29 @@ def silicon_forms(work):
     # the referee names are checked against the record, whitespace-flattened
     # (DECISIONS.md is hard-wrapped, and a phrase can straddle a line break)
     dec = " ".join(open(os.path.join(ROOT, "docs", "DECISIONS.md"), encoding="utf-8").read().split())
-    k = dec.find(f"## {SILICON_DECISION} ")
-    sect = dec[k:dec.find(" ## D", k + 4)] if k >= 0 else ""
-    if len(sect) < 1000:
-        raise SystemExit(f"⛔ silicon: {SILICON_DECISION}'s section not found ({len(sect)} chars)")
-    for name in SILICON_REFEREE:
-        if name not in sect:
-            raise SystemExit(f"⛔ silicon: the referee `{name}` is not in {SILICON_DECISION}'s text")
+    for dn, refs in SILICON_REFEREES:
+        k = dec.find(f"## {dn} ")
+        sect = dec[k:dec.find(" ## D", k + 4)] if k >= 0 else ""
+        if len(sect) < 1000:
+            raise SystemExit(f"⛔ silicon: {dn}'s section not found ({len(sect)} chars)")
+        for name in refs:
+            if name not in sect:
+                raise SystemExit(f"⛔ silicon: the referee `{name}` is not in {dn}'s text")
     mn = set(silicon_mnemonics())
-    # D336: TWO generators declare silicon-run forms — the integer path (D330, D334) and the shuffle path
-    # (D336, `mk_shuf_rows.py`, functions `s_*`). Each must yield both its op table and its rows; the forms are
-    # pooled ACROSS the two probes (both are the silicon instrument), never with the differential.
+    # D336, D335: THREE generators declare silicon-run forms (SILICON_PATHS) — the integer path (D330, D334), the
+    # shuffle path (D336) and the packed-integer path (D335). Each must yield both its op table and its rows; the
+    # forms are pooled ACROSS the probes (all are the silicon instrument), never with the differential.
     nrows, ops = collections.Counter(), []
-    for gen, pfx in (("mk_int_rows.py", "i"), ("mk_shuf_rows.py", "s")):
+    for gen, _probe, pre, row_re in SILICON_PATHS:
         q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen)], capture_output=True, text=True)
         if q.returncode != 0:
             raise SystemExit(f"⛔ silicon: hwprobe/{gen} failed:\n" + q.stderr)
-        nr = collections.Counter(re.findall(r'^  \{"[^"]+", (%s_\w+), 0x' % pfx, q.stdout, re.M))
-        op = re.findall(r'^  \{"(%s_\w+)", %s_\w+_at, (\d+), \{([^}]*)\}\},$' % (pfx, pfx), q.stdout, re.M)
+        nr = collections.Counter(re.findall(row_re, q.stdout, re.M))
+        # an operation line: {"fn", fn_at, LEN, [the SSSE3 flag,] {bytes}}
+        op = re.findall(r'^  \{"(' + pre + r'\w+)", ' + pre + r'\w+_at, (\d+), (?:\d+, )?\{([^}]*)\}\},$',
+                        q.stdout, re.M)
         if not op or not nr:
-            raise SystemExit(f"⛔ silicon: no op table / rows parsed from {gen}'s output")
+            raise SystemExit(f"⛔ silicon: no operations/rows parsed from {gen}'s output")
         nrows.update(nr)
         ops += op
     asm = [".text"]
@@ -531,7 +550,7 @@ def silicon_forms(work):
     return dict(forms)
 
 
-SILICON_COL = "silicon-refereed (AMD EPYC 7763 + Intel Core i7-8700B, hwprobe; NOT a semantic oracle)"
+SILICON_COL = "silicon-refereed (" + SILICON_PAIRS + ", hwprobe; NOT a semantic oracle)"
 
 
 def silcell(r):
@@ -881,7 +900,7 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
           "(processors, hwprobe)** — two instruments, two counts, cited side by side and never "
           "added. "
           + ("COVERED WITH SILICON: " + ", ".join(f"`{r['id']}`" for r in ws) + "." if ws else "") + "\n")
-        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s and `hwprobe/mk_shuf_rows.py`'s declared bytes, keyed by "
+        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s and `hwprobe/mk_simda_rows.py`'s declared bytes, keyed by "
           "the same disassembler and classifier as both other sides):\n")
         by = collections.defaultdict(list)
         for f in sil:
