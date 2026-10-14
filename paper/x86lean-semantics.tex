@@ -67,10 +67,10 @@ disagreements: each is ordinarily prose, and prose is not checked against the ar
 
 We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
 first. It covers 197 mnemonics, where K reports 774, and its proof support is a safety
-theorem for each of six small routines, where x86isa proves full functional correctness of an
-unbounded loop. Other formal x86-64 models exist beyond the three we compare against, and one of them,
+theorem for each of six small routines, where x86isa proves full functional correctness of a
+copy loop of any length below $2^{14}$. Other formal x86-64 models exist beyond the three we compare against, and one of them,
 libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
-synthesized from a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
+enumerated on a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
 read.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 Its decoding is trusted to Intel XED, and its validation is against one executable model.
@@ -283,9 +283,9 @@ only through \lean{Ea.addr}, and an immediate destination stops the model rather
 \src{X86/Semantics.lean readOperand, writeOperand}
 
 \paragraph{A frame-tier clause.}
-BSF and BSR share one function. It draws the five flags the manual leaves undefined, in a fixed order,
+BSF and BSR share one function. It draws the five flags the cited manual leaves undefined, in a fixed order,
 before it writes anything, and when the source is zero it draws the destination as well, at the
-operand's width: the manual says the destination's content is undefined, and the model draws it rather
+operand's width: the edition we cite says the destination's content is undefined, and the model draws it rather
 than inventing a value. Of the 26 frame rows, 4 draw a destination and the rest draw flags only. The
 order of the draws is part of the model, which Section~\ref{sec:undef} returns to.
 \src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
@@ -376,11 +376,12 @@ A \emph{flag} can be left undefined by a named clause: CF is undefined for ``SHL
 where the count is greater than or equal to the size (in bits) of the destination operand''.
 \src{docs/DECISIONS.md D20; the wording re-read at the cited edition's PDF (325462-092US, SAL/SAR/SHL/SHR, Flags Affected) 2026-09-15,
 where it carries ``(in bits)'', which this quotation dropped until then; X86/Flags.lean:194 has it; docs/DECISIONS.md D249}
-A \emph{result} can be undefined: for SHLD, and in almost the same words for SHRD, ``if the count is
+A \emph{result} can be undefined: for SHLD, and in almost the same words for SHRD, ``if a count is
 greater than the operand size, the result is undefined'', and the undefined part is the destination
 together with all six arithmetic flags.
 \src{docs/DECISIONS.md D52; both descriptions and both Flags Affected sections (``If the count is greater than the operand size, the
-flags are undefined'') re-read at 325462-092US 2026-09-15, docs/DECISIONS.md D249}
+flags are undefined'') re-read at 325462-092US 2026-09-15, docs/DECISIONS.md D249; SHLD's own article (``If a count'', SHRD ``If the count'') re-read at
+093US 2026-10-14}
 And a case can look undefined without being so. An arithmetic right shift past the operand width has
 no such clause and needs none: every vacated bit, and the last bit shifted out, is the sign bit. A
 model that treats ``count at least the width'' as uniformly undefined invents undefinedness the manual
@@ -435,27 +436,27 @@ These are different designs, not variations on one. x86isa's documentation state
 design is built for: because nothing is known about \lean{create-undef}, ``we wouldn't be able to prove
 that a value obtained from \lean{undef} is equal (or not) to any other value \ldots\ an undefined value
 is different from another undefined value, and also all the known values''~\cite{x86isa-repo}.
-\src{docs/TACAS-G1-POSITIONING.md 1c.10, verbatim from create-undef's :long}
-In K, 497 of the 3{,}064 per-instruction semantic files mention an undefined constant, and none of
+\src{docs/TACAS-G1-POSITIONING.md 1c.10, verbatim from the :long of defsection characterizing-undefined-behavior (register-readers-and-writers.lisp:1439), beside create-undef}
+In K, 491 of the 3{,}064 per-instruction semantic files mention an undefined constant, and none of
 them is a system instruction.
 \src{docs/CLAIMS.tsv[k\_undef\_files, k\_perinst\_files]; docs/TACAS-G1-POSITIONING.md 1c.6: the denominator is the five directories K's README names as
-holding per-instruction semantics; register 161, memory 227, immediate 109, system 0}
+holding per-instruction semantics; files naming undefMInt or undefBool, re-derived at K 592380a: register 155, memory 227, immediate 109, system 0
+(six more register files carry the string undef only in metadata comments, which G1's 497 counted)}
 We make no claim about how K's or Sail's tools decide equality between two undefined values: we have
 read both models' sources on that question and have run neither.
 \src{docs/TACAS-G2-SECTION-DRAFT.md 5: measured at both sources, unrun against K}
 The Isabelle/HOL model, of roughly 120 instructions, is by its own description ``purposefully
-incomplete, but overapproximative'', and it deliberately avoids Isabelle's \lean{undefined}, ``since that
+incomplete, but overapproximative'', and it deliberately avoids Isabelle's \lean{undefined} for unknown flags, ``since that
 could be used to prove that the semantics of two undefined behaviors are equivalent''~\cite{afp-x86}.
-Its unknown flag values are the results of a function fixed by a locale, applied to the instruction and
+Its unknown flag values are the results of a function fixed by a locale, applied to a mnemonic tag and
 the flag name. Undefinedness as a parameter is therefore not new with us. What differs is the key: that
-model's value is determined by the instruction and the flag, x86lean's by a position in a stream that
+model's value is determined by the mnemonic and the flag, x86lean's by a position in a stream that
 advances with each draw.
 \src{docs/CLAIMS.tsv[afp\_instructions]; isa-afp.org/entries/X86\_Semantics.html and X86\_InstructionSemantics, locale unknowns, read
-2026-09-12; docs/TACAS-G1-POSITIONING.md 1d; D220}
+2026-09-12, and its fall-through branches (else undefined) and tags (unknown\_flags ''ADD'' f, ''logic'') re-read 2026-10-14; docs/TACAS-G1-POSITIONING.md 1d; D220}
 A sixth answer inverts the question. libLISA synthesizes instruction semantics by observing a processor,
 and its model is CPU-specific: behaviour ``that is `undefined' is synthesized for the current
-machine''~\cite{liblisa}. We have read its models only for two of the rules of
-Section~\ref{sec:validation:limits} on which x86lean and the reference model part, where they serve as a second source.
+machine''~\cite{liblisa}.
 \src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221}
 
 x86lean's oracle is x86isa's seed discipline made concrete.
@@ -517,7 +518,8 @@ Derived, there is one notion of ``undefined here'', and it is the semantics'.
 
 Registers need the opposite treatment, and the reason is instructive. BSF and BSR leave their
 destination register undefined when the source is zero (``If the content of the source operand is 0,
-the content of the destination operand is undefined''). Deriving the undefined registers from the same
+the content of the destination operand is undefined'', in edition 092US; its successor, 093US, makes the
+destination unmodified and its five flags defined, except on some older processors). Deriving the undefined registers from the same
 two runs would disarm the check that matters most: an oracle bit reaching a register by mistake would
 be re-read as ``that register is undefined here'' and filed as explained. So registers have two
 sources, required to agree. \lean{declaredUndefGPRs} reads the instruction and the manual's rule;
@@ -525,7 +527,9 @@ sources, required to agree. \lean{declaredUndefGPRs} reads the instruction and t
 without being declared is a leak; a register that is declared and does not move is a false claim of
 undefinedness, which would otherwise license the harness to explain away disagreements in that register
 indefinitely.
-\src{X86/Serialize.lean declaredUndefGPRs, undefinedRegs, and the P1 batch 14 note}
+\src{X86/Serialize.lean declaredUndefGPRs, undefinedRegs, and the P1 batch 14 note; 325462-093US (September 2026) read at its PDF 2026-10-14:
+BSF ``If the content of the source operand is zero, the destination operand is unmodified.1'', BSR the same, flags PF by parity and CF, OF,
+SF, AF cleared, footnotes 1--2 on ``some older processors''; the 092US wording is kept because it is the edition cited}
 
 Everything outside those two channels must agree exactly between the two runs.
 \lean{undefinedLeaked}, checked on every differential case, requires the vector registers, MXCSR, the
@@ -684,9 +688,10 @@ a negative register offset, x86isa selects bit $|\mathit{off}| \bmod 8$ where th
 $\mathit{off} \mathbin{\&} 7$; of 2{,}944 probe rows the two rules differ on 852, and every processor read
 takes the manual's bit. Upstream confirmed it ``on host and in the model'' and proposed a fix
 (acl2/acl2\#2066); the Sail model translated from x86isa has the same rule in its BT memory arm, reported
-as rems-project/sail-x86-from-acl2\#7. x86lean follows the manual and declares the states where the two differ.
+as rems-project/sail-x86-from-acl2\#7; libLISA reports K's rule for these forms wrong on negative offsets too~\cite{liblisa}. x86lean follows the manual and declares the states where it and x86isa differ.
 \src{docs/CLAIMS.tsv[bitstr\_rows, bitstr\_rules\_differ]; docs/DECISIONS.md D331, D333; PROVENANCE.md;
-https://github.com/acl2/acl2/issues/2066; https://github.com/rems-project/sail-x86-from-acl2/issues/7}
+https://github.com/acl2/acl2/issues/2066; https://github.com/rems-project/sail-x86-from-acl2/issues/7;
+liblisa.nl/publications/liblisa-oopsla24/05-results section 5.2.2, the BT/BTS/BTR/BTC entry (byte offset zero-extended, 8 variants), read 2026-10-14}
 
 \paragraph{A reference model that keeps bits the manual clears.}
 Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
@@ -853,8 +858,9 @@ and are not in the rate (D235)}
 
 \paragraph{What this is not.}
 Deriving a claim and failing the build on disagreement is ordinary engineering, and it is not novel in
-kind. K derives its own list of unsupported instructions with a script rather than declaring it.
-\src{docs/TACAS-G6-RELATED-WORK.md 2: scripts/find\_unsupported\_insttructions.pl}
+kind. K derives its own list of unsupported instructions with a script rather than declaring it, and x86isa
+generates a per-mnemonic catalogue of what it implements from its opcode maps~\cite{x86isa-catalogue}.
+\src{docs/TACAS-G6-RELATED-WORK.md 2: scripts/find\_unsupported\_insttructions.pl; x86isa machine/catalogue-doc.lisp (defxdoc implemented-instructions) and catalogue-data.lisp at acl2 c8897a34}
 What we add is the gate on the prose, and its application to a semantics' coverage and validation
 claims, where a referee can clone the repository and watch it run.
 The paper is held to the same rule. Each number it quotes from the manifest carries, in its source,
@@ -930,8 +936,8 @@ memories agree on the buffer, and the interface's combinators are all single-run
 
 \paragraph{The sample.}
 Six routines, four of them with two to seven labels, written by one author against one interface, are a sample.
-Against x86isa's eight verified program families, including full functional correctness for an
-unbounded copy loop, this is a far weaker proof development (Section~\ref{sec:related}). A benchmark of such properties is later work. The repository also holds a program logic under development
+Against x86isa's eight verified program families, including full functional correctness for a
+copy loop of any length below $2^{14}$, this is a far weaker proof development (Section~\ref{sec:related}). A benchmark of such properties is later work. The repository also holds a program logic under development
 (\lean{X86/Logic.lean}), which this paper does not evaluate; its soundness and results are a second paper's subject.
 \src{docs/TACAS-PRICING.md 2.1 (the ruling) and G4; docs/TACAS-G1-POSITIONING.md 1c.2; docs/CLAIMS.tsv[proof\_sample\_routines, x86isa\_program\_families]; X86/Logic.lean, Tests/Logic*.lean and docs/P2-LOGIC-DESIGN.md are in the tree and not evaluated here}
 
@@ -950,8 +956,8 @@ operation'' and runs ``co-simulations against an actual x86 processor for model 
 (re-read at the PDF 2026-09-15, D249), published as EPTCS 249}
 Its proof development is far stronger than ours: eight verified program families carry 559 theorem
 forms over a separate proof library, and one of them proves full functional correctness and freedom
-from faults for a copy loop of unbounded length.
-\src{docs/CLAIMS.tsv[x86isa\_theorem\_forms, x86isa\_program\_families]; docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct; 559 excludes the
+from faults for a copy loop of any length below $2^{14}$.
+\src{docs/CLAIMS.tsv[x86isa\_theorem\_forms, x86isa\_program\_families]; docs/TACAS-G1-POSITIONING.md 1c.2: dataCopy/dataCopy.lisp copyData-is-correct, whose preconditions carry (unsigned-byte-p 14 n); 559 excludes the
 603 forms of the utilities library}
 The K semantics~\cite{dasgupta-k-x86,k-x86-repo} counts ``3155 instruction variants, corresponding to
 774 mnemonics'', and ``is fully executable and has been tested against more than 7,000
@@ -965,10 +971,9 @@ The Sail x86 model~\cite{sail-x86-repo} is translated automatically from x86isa,
 theorems, and is validated by co-simulation on K's single-instruction tests, so agreement with it
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
-Against these, x86lean covers 197 mnemonics where K reports 774; x86isa's figure is stated in
-opcodes, a different unit, and Sail's model publishes no count. Its proof support, a safety theorem for
-each of six small routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
-\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
+Against these, x86lean covers 197 mnemonics where K reports 774; x86isa's catalogue also counts
+mnemonics~\cite{x86isa-catalogue}, in generated documentation whose total we have not built, and Sail's model publishes no count.
+\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics]; docs/TACAS-G1-POSITIONING.md, the scale row and 1d; x86isa machine/catalogue-doc.lisp at acl2 c8897a34;
 197 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
 means. libLISA discovers instructions and synthesizes their semantics by executing them on a CPU,
@@ -997,8 +1002,7 @@ and section 2, ``Strata demonstrates trustworthy semantics for 692 instructions,
 PLDI 2022 section 1, ``a representation that contains an overapproximation of all possible execution paths of the binary'' (abstract) and
 ``We also assume the existence of sound instruction semantics''; docs/DECISIONS.md D246}
 What x86lean adds is the subject of Sections~\ref{sec:undef}--\ref{sec:gated}: an undefined-bit design
-whose limits are stated, one of them as a theorem, a differential harness whose disagreement classes and wrong-model
-controls are explicit, and coverage and validation claims that are derived and checked rather than
+whose limits are stated, one of them as a theorem, and coverage and validation claims that are derived and checked rather than
 written.
 
 \paragraph{Techniques.}
@@ -1006,9 +1010,10 @@ Most of x86lean's techniques have public precedents. A step over one machine sta
 the shape of all three models above: a function in x86isa and Sail, rewrite rules in K. The closest precedent in Lean~4 is
 LNSym~\cite{lnsym-repo}, a model of an Arm instruction set with co-simulation conformance testing and a
 benchmarks target; one level up, Talos~\cite{talos-repo} is a WebAssembly interpreter in Lean~4 that is
-its own proof object, tested against V8. We cite both for the method, not for coverage.
+its own proof object, tested against V8 by a harness that also has explicit verdict classes, allowlisted
+divergences that fail when stale, and fault-injection controls. We cite both for the method, not for coverage.
 \src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6; the Talos row of 4, read at its
-README and .github/workflows/differential.yml at 80644390de3a, 2026-10-09}
+README and .github/workflows/differential.yml at 80644390de3a, 2026-10-09; scripts/tests/test\_differential\_ci.py there, read 2026-10-14}
 Validation by differential testing against executable models and hardware is established practice:
 K was tested against more than 7{,}000 instruction-level cases~\cite{dasgupta-k-x86}, x86isa is
 co-simulated against a processor~\cite{goel-x86isa}, and stratified synthesis learned the x86-64
@@ -1031,9 +1036,9 @@ x86isa's opcode maps were generated from XED's data files.
 Specifying which parts of a machine state code may change, with the rest held as a frame, has a direct
 precedent for machine code: Myreen and Gordon's Hoare logic over realistically modelled machine code
 writes specifications in the style of separation logic and derives its frame rule~\cite{myreen-hoare-machine-code},
-and it was instantiated to models of x86, ARM and PowerPC~\cite{myreen-multiple-architectures}. Its later
-form derives one theorem per instruction by evaluating the instruction-set model once and composes those
-theorems without evaluating the model again~\cite{myreen-decompilation-improved}. Our program proofs
+and it was instantiated to models of x86, ARM and PowerPC~\cite{myreen-multiple-architectures}. Its decompiler
+derives one theorem per instruction by evaluating the instruction-set model and composes those
+theorems~\cite{myreen-multiple-architectures}; a later form makes that composition cheap~\cite{myreen-decompilation-improved}. Our program proofs
 likewise cite an instruction's effect theorem rather than unfolding the step function, though ours are
 proved by hand and theirs are derived automatically.
 \src{author PDFs and the author's bibtex (cse.chalmers.se/\textasciitilde myreen), read 2026-09-12: TACAS 2007
