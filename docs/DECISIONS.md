@@ -21699,3 +21699,17 @@ DIFFERENT table (`P2_FORMS`, 270 rows) and does NOT read the `FORMS` rows this m
 `FORMS` row still reads CLEAN. D338's result paragraph cites that gate for its SHA rows; the bytes were re-checked by hand here and
 are right, and that sentence is corrected at V2's landing. The gap itself (a `FORMS` row's bytes are checked by nothing but the
 oracle run they feed) is recorded, not yet repaired.
+**Widened the same day, as the paragraph above said it would be: the VEX-128 twin of every differentially tested SSE form.** Of the
+model's 199 differential mnemonics, 107 have a VEX-128 register-form twin that clang assembles (the shape found by trying the
+assembler's own operand orders, never typed). Each was run through the oracle at the 88 pre-states in an UNCOMMITTED copy of this
+script (declared `executes` throughout, so every refusal reads as a gate mismatch by design; both controls executed; no row was
+mixed — every one is 88/0 or 0/88):
+- **EXECUTE (31, plus `vpaddd`/`vpxor` above = 33):** `vmovdqa vmovdqu vmovaps vmovups vmovapd vmovupd vmovddup` ·
+  `vpaddb vpaddw vpaddq vpsubb vpsubw vpsubd vpsubq` · `vpand vpandn vpor vandps vandpd vandnps vandnpd vorps vorpd vxorps vxorpd`
+  · `vpcmpeqb vpcmpeqw vpcmpeqd vpcmpgtb vpcmpgtw vpcmpgtd`.
+- **REFUSE (77):** every VEX scalar and packed FP arithmetic, compare-to-flags and conversion form; every VEX shift (`vpsll*`
+  `vpsrl*` `vpsra*`); every VEX shuffle, unpack and pack; `vmovd vmovq vmovss vmovsd vmovhlps vmovlhps vpmovmskb`.
+⇒ **V3's differential half is 33 mnemonics, all VEX twins of rules the model already states** (moves, integer add/sub, bitwise
+logic, integer compares): the new semantics is VEX decode, the three-operand `vvvv` source, and the upper-half rule — not new
+arithmetic. That is the cheapest differential coverage left in the vector campaign, and it is where the YMM-upper record channel
+earns its keep. The silicon half is the ten refusers above that `vale-aesgcm` needs; the other 67 refusers are not taken by V3.
