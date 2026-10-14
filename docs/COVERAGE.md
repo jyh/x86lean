@@ -218,7 +218,7 @@ Tiers: T-exact 173 · T-frame 26 · T-absent 0.
 
 ## Implemented, refereed by a processor, NOT differentially tested
 
-The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in `hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py`, run on a hosted runner's processor — and this model is checked against the same rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334) and `Tests/AnchorsShuf.lean` (D336). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, and they are not counted in the roster figure above.
+The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in `hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py` (and, for the packed-integer arithmetic, `hwprobe/mk_simda_rows.py`), run on a hosted runner's processor — and this model is checked against the same rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334), `Tests/AnchorsShuf.lean` (D336) and `Tests/AnchorsSimd.lean` (D335). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, and they are not counted in the roster figure above.
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -238,3 +238,14 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `pinsrq` | x,r,i — legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PINSRQ |
 | `pextrd` | r,x,i — legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRD |
 | `pextrq` | r,x,i — legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRQ |
+| `pmaddwd` | x,x · x,m — four dwords, each two SIGNED word products added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMADDWD |
+| `pmaddubsw` | x,x · x,m — SSSE3 · eight words, each the destination's two UNSIGNED bytes times the source's two SIGNED bytes, summed and signed-saturated; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMADDUBSW |
+| `pmullw` | x,x · x,m — eight words, the low 16 bits of each product; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULLW |
+| `pmulhrsw` | x,x · x,m — SSSE3 · eight words, bits 16:1 of ((signed product >> 14) + 1); 8000H × 8000H gives 8000H; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULHRSW |
+| `pmuludq` | x,x · x,m — the EVEN dwords, UNSIGNED, each full 64-bit product to its quadword; dwords 1 and 3 are not read; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULUDQ |
+| `paddsw` | x,x · x,m — eight words, signed add saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PADDSW |
+| `psubusw` | x,x · x,m — eight words, unsigned destination minus source, 0 where the source is larger; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSUBUSW |
+| `psubusb` | x,x · x,m — sixteen bytes, unsigned destination minus source, 0 where the source is larger; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSUBUSB |
+| `pmaxsw` | x,x · x,m — eight words, the SIGNED maximum; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMAXSW |
+| `psadbw` | x,x · x,m — two sums of eight unsigned byte absolute differences, each in the low word of its quadword with bits 63:16 ZEROED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSADBW |
+| `packssdw` | x,x · x,m — the destination's four dwords to the LOW four words and the source's to the high four, each signed-saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PACKSSDW |

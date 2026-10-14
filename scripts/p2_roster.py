@@ -99,7 +99,25 @@ def mmx_note(n_mmx, occ):
             f"{f:.0f}%" if n_mmx else "—")
 
 
-def oracle_note(verdict):
+def silicon_mnemonics():
+    """D335: the `mnemonic := "…"` strings of `def siliconTable` (X86/Coverage.lean), read from the tree — the
+    forms the model implements and a PROCESSOR referees (`hwprobe/`), never the differential.  ⛔ The oracle column
+    keeps x86isa's verdict for them; this set only adds a mark beside it, so a reader can tell a REFUSES row the
+    model already covers on silicon from one nobody has touched.  The definition runs to its first blank line
+    (`primitive_census.silicon_mnemonics`'s rule), and an empty or unparsed table refuses rather than reads zero."""
+    src = open(os.path.join(root, "X86", "Coverage.lean"), encoding="utf-8").read()
+    m = re.search(r'^def siliconTable\b.*?(?=\n[ \t]*\n)', src, re.M | re.S)
+    mn = re.findall(r'mnemonic := "([^"]+)"', m.group(0)) if m else []
+    if not mn:
+        print("⛔ siliconTable not read from X86/Coverage.lean; refusing rather than marking nothing")
+        sys.exit(2)
+    return set(mn)
+
+
+SILICON_MARK = " · ⚙ silicon-refereed at xmm (`siliconTable`, D335; NOT differential)"
+
+
+def oracle_note(verdict, silicon=False):
     """The ORACLE column of one roster row — P2 batch 11.
 
     ⛔ A ROSTER PRICES DEMAND AND SUPPLY AND, UNTIL THIS COLUMN, NOTHING ELSE.
@@ -124,10 +142,11 @@ def oracle_note(verdict):
     buildable-today residue", a work order D170 had already refuted five days
     earlier.  ⇒ 🔑 A RENDERER THAT COLLAPSES A KNOWN NEGATIVE INTO "UNKNOWN"
     RE-COMMISSIONS THE WORK THAT NEGATIVE WAS RECORDED TO PREVENT."""
+    # ⭐ D335: a mark BESIDE the verdict, never in place of it — the verdict is x86isa's and it does not change.
     return ("⛔ **REFUSES**" if verdict == "refuses" else
             "✔" if verdict == "executes" else
             "⛔ **STALLS**" if verdict == "stalls" else
-            "⚠️ not measured")
+            "⚠️ not measured") + (SILICON_MARK if silicon else "")
 
 
 # ⭐⭐ P2 BATCH 25 — THE PER-BUCKET DEMAND MAP, ACCUMULATED ONCE.
@@ -499,6 +518,17 @@ K supply and **cannot be differentially validated at all**.
 ⚠️ A row marked *not measured* is exactly that — the probe does not name it. It
 is not a licence, and it is not a refusal.
 
+⚙ **A REFUSES row marked *silicon-refereed* is implemented** (D335): the model
+carries the mnemonic at its xmm shapes, checked against a PROCESSOR by `hwprobe/`
+and pinned in the kernel, and it is a row of `siliconTable`, not of the roster
+`docs/COVERAGE.md` counts. The oracle verdict beside it stays x86isa's, so the row
+is still not differentially validated; the mark says only that it is no longer
+untouched. ⚠️ **The demand census counts such a mnemonic's demand as COVERED** —
+it reads every mnemonic row of `docs/COVERAGE.md`, the processor-refereed table
+included — so a silicon-refereed mnemonic normally LEAVES this ranking (D335's
+eleven did, 70,115 instructions of the gap). Covered here means *implemented*,
+never *differentially tested*; the mark exists for any that remain.
+
 """)
 
     # ── the three additions, first, in the Captain's order ──
@@ -577,6 +607,7 @@ not by this table's sort — but the row count is DERIVED now, and it is
     per_ext = per_ext_map(d)
     # ⭐⭐ P2 BATCH 11 — THE THIRD ARTIFACT, JOINED.  See `oracle_note`.
     avail = measured_availability()
+    sil = silicon_mnemonics()
     fh.write("| rank | mnemonic | occurrences | share | cumulative | "
              "of it, MMX | oracle | K operand shapes |\n")
     fh.write("|---|---|---|---|---|---|---|---|\n")
@@ -584,7 +615,7 @@ not by this table's sort — but the row count is DERIVED now, and it is
     for i, (mn, occ, shapes) in enumerate(b["joined"][:40], 1):
         cum += occ
         note = mmx_note(mmx.get(mn, 0), occ)
-        orc = oracle_note(avail.get((mn, dominant_bucket(per_ext, mn))))
+        orc = oracle_note(avail.get((mn, dominant_bucket(per_ext, mn))), mn in sil)
         fh.write(f"| {i} | `{mn}` | {occ:,} | "
                  f"{100.0*occ/b['total_uncovered']:.2f}% | "
                  f"{100.0*cum/b['total_uncovered']:.1f}% | {note} | {orc} | "
@@ -930,6 +961,16 @@ def selftest():
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append(f"oracle:{verdict}")
+    # ⭐ D335: the silicon mark rides BESIDE the verdict and never replaces it — a REFUSES row stays REFUSES.
+    got = oracle_note("refuses", True)
+    ok = got.startswith("⛔ **REFUSES**") and got.endswith(SILICON_MARK) and "✔" not in got
+    say(("  ✔ " if ok else "  ⛔ ") + f"oracle note refuses+silicon -> {got}")
+    if not ok:
+        bad.append("oracle:silicon")
+    ok = {"pmaddwd", "mulx"} <= silicon_mnemonics() and "paddd" not in silicon_mnemonics()
+    say(("  ✔ " if ok else "  ⛔ ") + "siliconTable read: pmaddwd and mulx in it, paddd (a differential row) not")
+    if not ok:
+        bad.append("silicon:read")
     # ⛔⛔ AND THE KEY THE VERDICT IS JOINED ON.  Keying by mnemonic alone printed
     # ⛔ REFUSES against `vpaddw` — a row of 11,682 AVX2 `%ymm` instructions —
     # on the strength of an AVX-512 `%zmm` probe. Same defect as D100, opposite

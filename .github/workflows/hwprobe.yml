@@ -60,8 +60,8 @@ jobs:
           else
             sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x -e BMI1 -e BMI2 -e ADX || echo "BMI1/BMI2/ADX: NOT REPORTED"
           fi
-          # D336: the shuffle path needs SSSE3 (PSHUFB, PALIGNR) and SSE4.1 (PINSRD/Q, PEXTRD/Q); shuf_probe reads CPUID
-          # itself and refuses without either, so this is a record, not the guard.
+          # D336: the shuffle path (and D335's PMADDUBSW, PMULHRSW) needs SSSE3 (PSHUFB, PALIGNR) and SSE4.1 (PINSRD/Q, PEXTRD/Q); shuf_probe and simda_probe read CPUID
+          # themselves and refuse without what they need, so this is a record, not the guard.
           if [ -r /proc/cpuinfo ]; then
             grep -m1 -ow ssse3 /proc/cpuinfo || echo "ssse3: NOT REPORTED"
             grep -m1 -ow sse4_1 /proc/cpuinfo || echo "sse4_1: NOT REPORTED"
@@ -91,6 +91,10 @@ jobs:
           python3 mk_shuf_rows.py --plant > shuf_rows_plant.h
           python3 mk_shuf_rows.py --plant-op > shuf_rows_badop.h
           python3 mk_shuf_rows.py --plant-zx > shuf_rows_zx.h
+          python3 mk_simda_rows.py --reach
+          python3 mk_simda_rows.py > simda_rows.h
+          python3 mk_simda_rows.py --plant > simda_rows_plant.h
+          python3 mk_simda_rows.py --plant-op > simda_rows_badop.h
 
       - name: Build
         working-directory: hwprobe
@@ -120,6 +124,11 @@ jobs:
           for v in plant badop zx; do
             sed "s/\"shuf_rows.h\"/\"shuf_rows_$v.h\"/" shuf_probe.c > shuf_probe_$v.c
             gcc -O1 -o shuf_probe_$v shuf_probe_$v.c shuf_ops.S
+          done
+          gcc -O1 -o simda_probe simda_probe.c simda_ops.S
+          for v in plant badop; do
+            sed "s/\"simda_rows.h\"/\"simda_rows_$v.h\"/" simda_probe.c > simda_probe_$v.c
+            gcc -O1 -o simda_probe_$v simda_probe_$v.c simda_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -255,6 +264,35 @@ jobs:
           echo "shuf rc=$rc"
           test "$rc" = 0
 
+      # D335: THE PACKED-INTEGER ARITHMETIC PATH (PMADDWD … PACKSSDW, xmm and m128), with its OWN pair of controls — a plant
+      # in any other path says nothing about this 128-bit comparison. A wrong expectation (bit 64, the HIGH quadword, of row
+      # 0) must red exactly that row, and a wrong declared instruction byte must refuse the run.
+      - name: Packed-integer controls (a wrong expectation reds exactly one row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./simda_probe_plant > simda_plant.out; rc_plant=$?
+          ./simda_probe_badop > simda_badop.out; rc_badop=$?
+          set -e
+          head -1 simda_plant.out; grep '^DIFF' simda_plant.out; tail -1 simda_plant.out; cat simda_badop.out
+          echo "simda plant rc=$rc_plant (want 1) · simda badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' simda_plant.out)" = 1
+          grep -q '^DIFF pmaddwd_xx_edge0 ' simda_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED v_pmaddwd_xx:' simda_badop.out
+
+      - name: Packed-integer referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./simda_probe > simda.out; rc=$?
+          set -e
+          head -1 simda.out
+          grep -v '^ok  ' simda.out || true
+          echo "simda rc=$rc"
+          test "$rc" = 0
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4
@@ -268,3 +306,10 @@ jobs:
         with:
           name: shuf-${{ matrix.os }}
           path: hwprobe/shuf*.out
+
+      - name: Packed-integer rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simda-${{ matrix.os }}
+          path: hwprobe/simda*.out
