@@ -32,7 +32,7 @@
 \titlerunning{x86lean}
 \author{Jason Hickey}
 \authorrunning{J. Hickey}
-\institute{Independent}
+\institute{Independent Researcher, Watsonville, CA, USA\\\email{jason@karyk.com}}
 
 \maketitle
 
@@ -280,25 +280,7 @@ def Ea.addr (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
 
 Every instruction reads and writes its operands through two functions, so a memory operand is reached
 only through \lean{Ea.addr}, and an immediate destination stops the model rather than being dropped.
-Most rows of the coverage table, between 162 and 165 of 197 depending on how a shape such as a
-relative branch target is read, take a memory operand in at least one shape.
-\src{X86/Semantics.lean readOperand, writeOperand; docs/COVERAGE.md operand-shapes column, read three ways (2026-10-02): 162, 163, 165}
-
-{\scriptsize
-% LISTING operand file=X86/Semantics.lean from=^def\sreadOperand to=^\s\s\|\s\.imm\s_,\s_\s=>\ss\.halt\s\(\.illegalOperands\s"immediate\sdestination"\)$ strip=doc
-\begin{alltt}
-def readOperand (s : Cpu) (sz : Size) (nextRip : BitVec 64) : Operand \(\to\) Val
-  | .reg r h8 => s.getReg sz r h8
-  | .mem ea => s.readMem sz (ea.addr s nextRip)
-  | .imm v => Value.trunc sz v
-
-def writeOperand (s : Cpu) (sz : Size) (nextRip : BitVec 64) : Operand \(\to\) Val \(\to\) Cpu
-  | .reg r h8, v => s.setReg sz r v h8
-  | .mem ea, v => s.writeMem sz (ea.addr s nextRip) v
-  | .imm _, _ => s.halt (.illegalOperands "immediate destination")
-\end{alltt}
-% END LISTING operand
-}
+\src{X86/Semantics.lean readOperand, writeOperand}
 
 \paragraph{A frame-tier clause.}
 BSF and BSR share one function. It draws the five flags the manual leaves undefined, in a fixed order,
@@ -379,39 +361,6 @@ theorem step_dshift_mem_undefined_refuses (k : DShiftKind) (ea : Ea) (c : BitVec
 % END LISTING dshift-thm
 }
 
-\paragraph{A program.}
-A program is a list of instructions at addresses. \lean{run} folds \lean{step} over a list once, so it
-does not follow the backward jump and leaves ECX at 2. \lean{runP} fetches the instruction at
-\lean{rip} for a given number of steps: after three steps the jump has gone back to \texttt{0x1005},
-after seven ECX is 0, and after eight the model has stopped, because \lean{rip} has left the program.
-Each fact is a theorem proved by \lean{decide}.
-\src{Tests/Program.lean countdown and its four theorems; X86/Program.lean stepP, runP (outsideProgram halts)}
-
-{\scriptsize
-% LISTING countdown file=Tests/Program.lean from=^def\scountdown\s:\sProgram to=^theorem\srunP_exits strip=doc
-\begin{alltt}
-def countdown : Program := \{ code := [
-  (0x1000, \(\langle\).mov .d (.reg .rcx) (.imm 3), 5\(\rangle\)),
-  (0x1005, \(\langle\).un .dec .d (.reg .rcx), 2\(\rangle\)),
-  (0x1007, \(\langle\).jcc .ne (BitVec.ofInt 64 (-4)), 2\(\rangle\))] \}
-
-def start : Cpu := \{ rip := 0x1000 \}
-
-theorem run_fold_does_not_loop :
-    ((run [\(\langle\).mov .d (.reg .rcx) (.imm 3), 5\(\rangle\), \(\langle\).un .dec .d (.reg .rcx), 2\(\rangle\),
-           \(\langle\).jcc .ne (BitVec.ofInt 64 (-4)), 2\(\rangle\)] start).regs.get .rcx) = 2 := by
-  decide
-
-theorem runP_loops : ((runP countdown 7 start).regs.get .rcx) = 0 := by decide
-
-theorem runP_branches_backward : (runP countdown 3 start).rip = 0x1005 := by decide
-
-theorem runP_exits : (runP countdown 8 start).stopped = true := by decide
-\end{alltt}
-% END LISTING countdown
-}
-
-% ---------------------------------------------------------------------------------------------
 \section{Undefined Behaviour}
 \label{sec:undef}
 % Register: docs/TACAS-G2-SECTION-DRAFT.md, docs/TACAS-G2-UNDEFINED-BITS.md,
@@ -699,7 +648,7 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
 A paper whose argument is that claims about a semantics should be checked must also report where the
-check has nothing to check against. Five findings fall there.
+check has nothing to check against. Six findings fall there.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
@@ -720,6 +669,23 @@ proof that the model implements that reading, and nothing else.
 \src{docs/DECISIONS.md D113 (three of nineteen validatable; the other sixteen and vload, vstore, vshufm, vshiftm theorem-only);
 X86/Theorems.lean vbinm\_unaligned\_faults; D250}
 Agreement with a reference model that does not implement a rule is not evidence about the rule.
+
+\paragraph{A processor where the reference model refuses.}
+For forms the reference model refuses to execute, a second source of another kind now exists: a probe
+runs rows derived from the manual's rules on the processors of hosted x86-64 runners, and the model is
+pinned to the same rows by \lean{decide}. It referees 27 mnemonics that no differential vector can test
+(the BMI and ADX groups, MOVNTI, and SSSE3/SSE4.1 shuffles and packed-integer arithmetic) on AMD and
+Intel processors. Its rows are chosen rather than swept and are never counted with the differential
+figures; a processor can refute a reading of the manual, but cannot show that an undefined bit is defined.
+\src{docs/CLAIMS.tsv[silicon\_mnemonics]; X86/Coverage.lean siliconTable; hwprobe/; docs/DECISIONS.md D330, D334--D336}
+The probe also found a defect in the reference model. For BT, BTS, BTR and BTC with a memory bit base and
+a negative register offset, x86isa selects bit $|\mathit{off}| \bmod 8$ where the manual selects
+$\mathit{off} \mathbin{\&} 7$; of 2{,}944 probe rows the two rules differ on 852, and every processor read
+takes the manual's bit. Upstream confirmed it ``on host and in the model'' and proposed a fix
+(acl2/acl2\#2066); the Sail model translated from x86isa has the same rule in its BT memory arm, reported
+as rems-project/sail-x86-from-acl2\#7. x86lean follows the manual and declares the states where the two differ.
+\src{docs/CLAIMS.tsv[bitstr\_rows, bitstr\_rules\_differ]; docs/DECISIONS.md D331, D333; PROVENANCE.md;
+https://github.com/acl2/acl2/issues/2066; https://github.com/rems-project/sail-x86-from-acl2/issues/7}
 
 \paragraph{A reference model that keeps bits the manual clears.}
 Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
@@ -1096,10 +1062,10 @@ semantics (PLDI 2022 section 1), so it states no model's fidelity: docs/DECISION
 
 The limitations are the ones stated where they arise. x86lean is small, and its proofs are few. Its
 decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
-by reading a second, and for two rules by a model synthesized on processors; K has not been run, and no
-hardware co-simulation has been. Of the remaining instructions it has
-been asked, the reference model refuses more than it executes, and for the refused ones a model built from
-the manual currently has no second source. A rule the reference model does not implement, such as the alignment fault of most legacy SSE memory
+by reading a second, for two rules by a model synthesized on processors, and, where the reference model
+refuses, by a probe on processors that tests chosen rows rather than a sweep; K has not been run. Of the
+remaining instructions it has been asked, the reference model refuses more than it executes, and a refused
+form with no processor rows has no second source. A rule the reference model does not implement, such as the alignment fault of most legacy SSE memory
 forms, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
 gate on quoted figures checks the figures that cite the manifest, not every number in the text.
 
