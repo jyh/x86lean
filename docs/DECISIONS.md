@@ -21670,3 +21670,32 @@ first refusal (D252 §6). **Re-read after registering, at `d795bb7`, base `a62d0
 288.2 ok — and ⚠️ **`X86.Syntax` UNMEASURABLE: +87.5 ± 35.7 against a budget of 79.8** (load 5.9–7.7; the earlier three-repeat run
 read +38 ± 54.6, also UNMEASURABLE). That unit is the six new `Op` constructors' cost, unchanged by this move; it is recorded as
 read, the budget is not widened, and it is not decided here.
+
+## D339 — V3 scoping: what the oracle does with VEX, measured before any design is fixed (the vale-aesgcm forms)
+
+**Why.** The primitive census's ladder step 5 completes `vale-aesgcm` with twelve more forms, nine of them VEX-128 (AVX). VEX is
+not one more opcode table: VEX.128 ZEROES bits MAXVL−1:128 of its destination where legacy SSE PRESERVES them, so a model without
+the upper half of each vector register cannot state the difference, and a comparator that does not watch it reports agreement it
+did not test (D27). Whether the oracle runs VEX at all decides which half of that problem V3 has to solve, so it is measured first.
+**Measured 2026-10-14 on yukon.lan** (`oracle_availability.py`, model from master `76b6890`; each row's bytes assembled by clang and
+checked against the declared encoding, all 15 identical — see the note below on why that was done by hand):
+- **EXECUTES at 88 of 88:** `vpaddd xmm,xmm,xmm` (`c5e9fec1`) and `vpxor xmm,xmm,xmm` (`c5e9efc1`) — x86isa's VEX semantic
+  functions (`x86-vpaddb/vpaddw/vpaddd/vpaddq-vex`, and VPXOR's) run in the harness's start state.
+- **REFUSES at 88 of 88:** `aesenc`, `aesenclast`, `pclmulqdq` (legacy SSE) and `vpshufb`, `vpalignr`, `vpslldq`, `vpsrldq`,
+  `vaesenc`, `vaesenclast`, `vpclmulqdq` (VEX-128). Both controls executed; the gate reads CLEAN.
+**What it decides.** V3 has TWO halves, and they are different kinds of work:
+1. **A DIFFERENTIAL half** (VEX forms x86isa executes). It needs VEX decode in the model (C4/C5, VEX.L = 0 only; `vvvv` as the
+   non-destructive first source), the upper 128 bits of each of the 16 vector registers as STATE (nested inside `Xmms`, so a
+   whole-record proof pays one projection, D71), legacy SSE writes PRESERVING them and VEX.128 writes ZEROING them, and — the
+   load-bearing part — the differential RECORD gaining that upper half on BOTH sides (the ACL2 driver's post-state reads it from
+   x86isa's ZMM file), with pre-states that seed the upper halves NON-ZERO so a missed zeroing is visible. Without that last
+   clause the half would be a D27 constant: agreement that tested nothing.
+2. **A SILICON half** (the ten that refuse), on hwprobe's pattern (D336/D338), with the upper half compared on silicon too.
+**Next, and not yet decided:** which further VEX forms of already-modelled SSE operations x86isa executes (the cheap way to buy
+differential VEX coverage is the VEX twin of a form the model already has), measured by widening this table before the design
+note is written. The design and its predictions follow in a numbered decision of their own, committed before any model change.
+**A note on the instrument, recorded because it nearly let a claim through:** `oracle_availability.py --check-encodings` gates a
+DIFFERENT table (`P2_FORMS`, 270 rows) and does NOT read the `FORMS` rows this measurement runs — a byte planted wrong in a new
+`FORMS` row still reads CLEAN. D338's result paragraph cites that gate for its SHA rows; the bytes were re-checked by hand here and
+are right, and that sentence is corrected at V2's landing. The gap itself (a `FORMS` row's bytes are checked by nothing but the
+oracle run they feed) is recorded, not yet repaired.

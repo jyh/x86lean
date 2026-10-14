@@ -115,6 +115,23 @@ FORMS = [
     ("pinsrq",  "pinsrq $1, %rcx, %xmm0",   "66480f3a22c101",     "refuses"),
     ("pextrd",  "pextrd $1, %xmm1, %eax",   "660f3a16c801",       "refuses"),
     ("pextrq",  "pextrq $1, %xmm1, %rax",   "66480f3a16c801",     "refuses"),
+    # ⭐ D339 (V3, scoping): the forms the primitive census's ladder step 5 needs for vale-aesgcm.
+    # DECLARED from x86isa's inst-listing (a semantic function named ⇒ `executes`; 'NIL or none
+    # found ⇒ `refuses`) and MEASURED here before any design is fixed: whether the oracle runs
+    # VEX at all decides whether V3 is a differential wave (and its record needs YMM's upper
+    # half) or a silicon one.
+    ("aesenc",      "aesenc %xmm1, %xmm0",                    "660f38dcc1",     "refuses"),
+    ("aesenclast",  "aesenclast %xmm1, %xmm0",                "660f38ddc1",     "refuses"),
+    ("pclmulqdq",   "pclmulqdq $0, %xmm1, %xmm0",             "660f3a44c100",   "refuses"),
+    ("vpaddd",      "vpaddd %xmm1, %xmm2, %xmm0",             "c5e9fec1",       "executes"),
+    ("vpxor",       "vpxor %xmm1, %xmm2, %xmm0",              "c5e9efc1",       "executes"),
+    ("vpshufb",     "vpshufb %xmm1, %xmm2, %xmm0",            "c4e26900c1",     "refuses"),
+    ("vpalignr",    "vpalignr $3, %xmm1, %xmm2, %xmm0",       "c4e3690fc103",   "refuses"),
+    ("vpslldq",     "vpslldq $3, %xmm1, %xmm0",               "c5f973f903",     "refuses"),
+    ("vpsrldq",     "vpsrldq $3, %xmm1, %xmm0",               "c5f973d903",     "refuses"),
+    ("vaesenc",     "vaesenc %xmm1, %xmm2, %xmm0",            "c4e269dcc1",     "refuses"),
+    ("vaesenclast", "vaesenclast %xmm1, %xmm2, %xmm0",        "c4e269ddc1",     "refuses"),
+    ("vpclmulqdq",  "vpclmulqdq $0, %xmm1, %xmm2, %xmm0",     "c4e36944c100",   "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the
