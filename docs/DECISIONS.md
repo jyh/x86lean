@@ -21670,3 +21670,37 @@ first refusal (D252 §6). **Re-read after registering, at `d795bb7`, base `a62d0
 288.2 ok — and ⚠️ **`X86.Syntax` UNMEASURABLE: +87.5 ± 35.7 against a budget of 79.8** (load 5.9–7.7; the earlier three-repeat run
 read +38 ± 54.6, also UNMEASURABLE). That unit is the six new `Op` constructors' cost, unchanged by this move; it is recorded as
 read, the budget is not widened, and it is not decided here.
+
+## D340 — The FAST PATH: a PR whose merge ref has a green master's selftest digest merges on its required checks alone
+
+**Why.** Measured on 2026-10-14 (paris's census for the helm, after the Captain's word that x86lean "has plenty more work to do"):
+CI wall time is the floor of every landing — the selftest matrix is ~3.4 h a PR at ten shards and ~5.6 h at five (#93) — and it
+is paid in full by PRs that change no selftest input: #89 (three ceiling lines) and #94 (a census script and its documents) each
+re-ran the whole matrix. **Ruled by the helm under its delegation, 2026-10-14 07:57, GO WITH A CONDITION**: (1) enumerate every
+input of the selftest digest; (2) a planted change to EACH input class must move it, red-first, and a change outside the list must
+not; (3) then a PR whose digest equals a green master's merges on the required checks without the matrix — the matrix still runs on
+master after the merge, and a red there REVERTS the PR; (4) say where a reader meets it which PRs took the fast path.
+**(1) The inputs** — `selftest_skip.digest`, the digest the skip has used since 2026-09-11, imported and not re-derived: every tracked
+`*.lean` file, keyed by (path, blob) so an edit, an addition, a deletion and a rename all move it; and exactly `lakefile.toml`,
+`lean-toolchain`, `lake-manifest.json`, `.github/workflows/ci.yml`. Searched for anything else that feeds the binary the shards run:
+no `include_str` and no compile-time file read (`Main.lean:1446`'s `readFile` is a runtime read in another subcommand), no C source
+and no link argument in `lakefile.toml`. ⚠️ **Outside it, declared:** the runner image (a green run inherited across an image change
+is a reading on the older image; the post-merge master run is what catches that).
+**(2) Driven red-first on the real tree** (a scratch clone of master `76b6890`, one commit per plant, the digest read after each):
+an edit to `X86/Semantics.lean`, to `Tests/AnchorsSimd.lean` and to `Main.lean`; a NEW `.lean` file; that file DELETED; a `.lean`
+file RENAMED with its content unchanged; and an edit to each of the four exact files — **all ten MOVE the digest**. An edit to
+`docs/DECISIONS.md`, `scripts/claimed_forms.py`, `hwprobe/shuf_probe.c`, `.github/workflows/hwprobe.yml` and `README.md` — **all
+five leave it unchanged**. 15 of 15. The drive was itself shown able to fail: a MUTANT digest with `ci.yml` dropped from its set
+leaves the `ci.yml` plant unmoved, so that arm fails as it must.
+**(3) `scripts/fast_path.py --check <PR>`** fetches `refs/pull/<PR>/merge` (the tree that would land — a head can match while its
+merge with a moved master does not), computes its digest, finds the newest master run whose every selftest shard RAN and succeeded
+(`selftest_skip.last_green_selftest`, which never inherits from a run that itself skipped), reads branch protection's required
+checks LIVE, and says GO only if the digests are equal and every required check reported success on every run that reported it.
+Anything unknown REFUSES. It merges nothing itself. Its decision rule is pure and armed: `--selftest` (10 arms; CI's
+`selftest-gate` job and `preflight.sh`), and a mutant (`any` → `all` in the required-check test) reds exactly the arm that names it.
+First live reading, #94: REFUSED, correctly — the newest green master run (`1d70fbf`) predates #93's `ci.yml`, so every PR measures
+until master's own run on the new workflow is green, as the skip already does.
+**(4) The record is the merge commit.** A GO prints a line beginning `FAST-PATH:` (both digests' source, the green run's id, the
+required-check count) and the `gh pr merge … --body` command that puts it in the merge commit's body, so
+`git log --grep '^FAST-PATH:' origin/master` lists every fast-path merge, and the post-merge master run of each is the check that
+reverts it if it reds.
