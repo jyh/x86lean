@@ -72,7 +72,11 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.blsx true .q .rax (.reg .rcx)).mnemonic, (Op.blsx false .q .rax (.reg .rcx)).mnemonic,
       (Op.bzhi .q .rax (.reg .rcx) .rdx).mnemonic, (Op.pbits false .q .rax .rdx (.reg .rcx)).mnemonic,
       (Op.pbits true .q .rax .rdx (.reg .rcx)).mnemonic, (Op.rorx .q .rax (.reg .rcx) 0).mnemonic,
-      (Op.movnti .q (.mem { base := some .rbx }) .rax).mnemonic] := by decide
+      (Op.movnti .q (.mem { base := some .rbx }) .rax).mnemonic,
+      -- D336 (V1b): PSHUFB, PALIGNR, and PINSR/PEXTR at each width (one row per mnemonic).
+      (Op.vshufb .x0 .x1).mnemonic, (Op.valignr .x0 .x1 0).mnemonic,
+      (Op.vinsr .d .x0 (.reg .rcx) 0).mnemonic, (Op.vinsr .q .x0 (.reg .rcx) 0).mnemonic,
+      (Op.vextr .d .rax .x1 0).mnemonic, (Op.vextr .q .rax .x1 0).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1108,6 +1112,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- `vshufpm`'s memory operand is its SOURCE, as `vshufm`'s is.  Added in the
     -- same commit as the constructors, which is what this function's doc asks.
     | .vshuf .. | .vshufm .. | .vshufp .. | .vshufpm .. => false
+    -- D336 (V1b): every memory operand of the six is a SOURCE (PEXTRD/Q's
+    -- destination is a GPR by its type); no vector reaches any of them today.
+    | .vshufb .. | .vshufbm .. | .valignr .. | .valignrm .. | .vinsr .. | .vextr .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 15, added in the SAME COMMIT as the constructor.
     -- `vbinm`'s memory operand is its SOURCE; the destination is always an XMM
     -- register, so this is not a memory-destination form either.

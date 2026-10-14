@@ -21405,3 +21405,123 @@ until their gates run it, and by D252 §6 each line follows that machine's first
 both W1c's own `X86` additions and untouched by this move: `X86.Syntax` +51 ± 87 against 71.2, and ⚠️ `X86.Theorems` **+225 ± 47
 against 240.6** (at three repeats it read +260 ± 28 against 247). That second one sits at its budget on this box; it is recorded, not
 widened. The katmai ledger is the deciding reading.
+
+## D336 — V1b: PSHUFB, PALIGNR, PINSRD/PINSRQ, PEXTRD/PEXTRQ (legacy SSE), refereed by silicon where x86isa cannot run them (predictions committed before any hardware, oracle or differential run)
+
+*(Numbering: D334 heads the section above on this base; the number between is reserved on another branch, whose packed-integer
+forms this decision does not touch.)*
+**Why these.** The primitive census (D332) names them as the unlocking candidates of the vector campaign's SSSE3/SSE4 class:
+`xxh3-64` lacks only `pextrq imm,xmm,r64`; `vale-sha256` needs `palignr`, `pshufb`, `pinsrq` (beside three SHA-NI forms);
+`vale-aesgcm` needs `pshufb`, `pinsrq`, `pinsrd`, `pextrq` (beside AVX and AES-NI forms); the HACL* SHA-1/SHA-256/SHA3/ChaCha20
+rows need `pinsrd`/`pextrd`/`pinsrq` but call out of their objects. The forms taken, all legacy-SSE (non-VEX), and nothing else:
+`pshufb xmm,xmm` · `pshufb m128,xmm` · `palignr imm,xmm,xmm` · `palignr imm,m128,xmm` · `pinsrd imm,r32,xmm` · `pinsrd imm,m32,xmm`
+· `pinsrq imm,r64,xmm` · `pextrd imm,xmm,r32` · `pextrq imm,xmm,r64` — nine forms of six mnemonics.
+**The referee, per form, decided by the oracle's EXECUTION, not its catalogue.** x86isa's `inst-listing.lisp` gives `PSHUFB`
+(66 0F 38 00), `PALIGNR` (66 0F 3A 0F), `PEXTRD/Q` (66 0F 3A 16) and `PINSRD/Q` (66 0F 3A 22) a `'NIL` semantic function, and
+`docs/P2-ROSTER.md` already records `pshufb` and `palignr` as REFUSES. W1b's lesson (D330: ADCX/ADOX declared `refuses` and
+measured `executes`) is that a catalogue reading is a hypothesis, so all six mnemonics are added to
+`scripts/oracle_availability.py`'s measured table, declared `refuses`, and run at the 88 pre-states with its two controls BEFORE
+any constructor's referee is fixed. **A mnemonic that executes goes to the DIFFERENTIAL** (ordinary vectors, `run_differential.sh`)
+and leaves the silicon rows; a mnemonic that refuses is refereed by silicon alone.
+**The model (the shuffle group's idiom: register and memory shapes as separate constructors; Type-4 m128 alignment as `vshufm`):**
+`.vshufb dst src` / `.vshufbm dst ea` (PSHUFB), `.valignr dst src imm` / `.valignrm dst ea imm` (PALIGNR), `.vinsr sz dst src imm`
+(PINSRD at `.d`, PINSRQ at `.q`; `src` a GPR or a memory `Operand`) and `.vextr sz dst src imm` (PEXTRD at `.d`, PEXTRQ at `.q`; `dst`
+a GPR). `.b`/`.w` are refused (PINSRB/PEXTRB/PINSRW/PEXTRW are other opcodes and other mnemonics), as is an immediate `src`.
+**The rules (SDM Vol. 2B, PSHUFB, PALIGNR, PINSRB/PINSRD/PINSRQ, PEXTRB/PEXTRD/PEXTRQ):**
+- **SHUFB-RULE.** For each byte i = 0…15 of the result: `IF SRC[8i+7] = 1 THEN DEST[i] := 0 ELSE DEST[i] := TEMP[SRC[8i+3:8i]]`,
+  TEMP the destination's ORIGINAL value. Only the control byte's low FOUR bits index (bits 6:4 are ignored) and bit 7 zeroes. The
+  destination is read as data and the source is the control, so the operand order is not symmetric.
+- **ALIGNR-RULE.** `temp1[255:0] := ((DEST[127:0] << 128) OR SRC[127:0]) >> (imm8 × 8); DEST[127:0] := temp1[127:0]`. So imm8 = 0
+  returns SRC, 16 returns DEST, 17…31 return DEST's high bytes with zeros above, and **imm8 ≥ 32 returns zero**.
+- **INSR-RULE.** PINSRD: `SEL := imm8[1:0]`; PINSRQ: `SEL := imm8[0]`; the w-bit source (the low 32 bits of a 32-bit register,
+  or the m32 / r64 operand) replaces lane SEL of the destination; every other lane keeps the destination's value. The imm8 bits
+  above SEL are ignored.
+- **EXTR-RULE.** PEXTRD: `SEL := imm8[1:0]`; PEXTRQ: `SEL := imm8[0]`; DEST := lane SEL of the source. A 32-bit register
+  destination is an ordinary 32-bit GPR write, so bits 63:32 are ZEROED (SDM Vol. 1 §3.4.1.1); the imm8 bits above SEL are ignored.
+- **NO-FLAGS / UPPER.** "Flags Affected: None" for all six; the legacy-SSE forms leave bits MAXVL−1:128 unmodified, which this
+  model's 128-bit `XmmReg` carries by its type. **Memory alignment:** PSHUFB and PALIGNR are Exception Type 4 (a misaligned m128 is
+  `#GP(0)`, as for `pshufd`, D110); PINSRD's m32 is Type 5 (no alignment requirement).
+**The silicon rows (a new program, `hwprobe/shuf_ops.S` + `mk_shuf_rows.py` + `shuf_probe.c`, sharing nothing with the SSE, integer
+or bit-string paths; expectations derived from the rules above in Python, never typed):** one function per (form, imm8). On entry
+XMM0 = `a` (the destination), XMM1 = `b`, RBX = the 16-byte-aligned address of a copy of `b` (the memory source), RCX = `g`
+(the GPR source, junk above bit 31), RAX = the canary `c3c3…c3`, and RFLAGS' six arithmetic bits from the row. Every row compares
+ALL 128 bits of XMM0, all 64 of RAX and the six arithmetic flags (expected unchanged), so a form that writes one of them is also
+asked not to write the others.
+- PSHUFB (rr, rm) × 2 destinations × 8 controls (identity, reversal, all bit-7, alternating bit-7, bits 6:4 junk over a reversed
+  index, broadcast 0, broadcast 15, a mixed pattern) × 2 flag sets = **64**.
+- PALIGNR: rr at imm8 ∈ {0, 1, 4, 8, 15, 16, 17, 24, 31, 32, 33, 128, 255} and rm at {5, 16, 20} (16 functions) × 2 (a, b) pairs ×
+  2 flag sets = **64**.
+- PINSRD: r32 at imm8 ∈ {0, 1, 2, 3, 4, 7, 0xfe} and m32 at {1, 6} (9 functions) × 2 × 2 = **36**; PINSRQ at {0, 1, 2, 0xff} × 2 × 2
+  = **16**.
+- PEXTRD at {0, 1, 2, 3, 5, 0xff} × 2 × 2 = **24**; PEXTRQ at {0, 1, 3, 0x80} × 2 × 2 = **16**.
+**220 rows, 41 functions.** The probe reads CPUID.01H:ECX bits 9 (SSSE3) and 19 (SSE4.1), prints them, and REFUSES (exit 2) unless
+both are set; it refuses unless each function's bytes at its `_at` label are the declared instruction. **Three controls:** `--plant`
+flips bit 64 of row 0's expected XMM0 (the HIGH quadword) → exactly one `DIFF`, rc 1; `--plant-op` declares one instruction byte
+wrong → rc 2, `REFUSED`; `--plant-zx` sets bit 32 of the expected RAX in one PEXTRD row → exactly that row `DIFF`, rc 1 (the
+zero-extension is compared, not assumed). All silicon rows of refused forms are pinned in `Tests/Anchors.lean` by `decide`
+(a generator with `--check`, in its own marked block); they are rows of `siliconTable`, never of `tableP0`.
+**Predictions — committed before the oracle measurement, before any build of the probe on any processor and before any
+differential run:**
+1. **Oracle:** all six mnemonics `refuses`, 88 of 88, with the existing controls executing. ⇒ every one of the nine forms is
+   refereed by SILICON; no vector is added; vectors stay **1198**, `rosterSize` **199**, the differential is not re-run.
+2. **hwprobe, both legs** (ubuntu-latest — an AMD EPYC expected but not named by the label, re-dispatched until a run has an AMD
+   leg; macos-15-intel — Intel): SSSE3=1 SSE4.1=1; **`rows 220 disagreements 0`** on each leg; the SSE, integer (1272) and bit-string
+   (2944) referees unchanged.
+3. **Controls, both legs:** plant rc 1 with exactly one `DIFF` on row 0; bad byte rc 2, `REFUSED`; plant-zx rc 1 with exactly one
+   `DIFF` on its PEXTRD row. **No AMD/Intel difference on any bit** (nothing compared is undefined).
+4. **Kernel:** all 220 pins build by `decide`; axiom gate CLEAN on the three standard axioms; `siliconTable` **10 → 16** rows;
+   `claimed_forms --remaining` unchanged (REMAINING 21, UNAVAILABLE 19, silicon 19 of 19 — the P1 roster excludes XMM operands).
+   `Tests.Anchors` grows; its Δku is measured with `ku_delta.py` and recorded, not predicted.
+5. **Census** (the ladder's arithmetic: `xxh3-64` lacks only `pextrq imm,xmm,r64`; every other candidate needing these forms also
+   needs a SHA-NI, AES-NI or AVX form or calls out of its object): the differential does NOT move — **ALL COVERED 42 of 57**, header
+   `vectors=1198 forms=962`, unlock list and ladder unchanged, s2n appendix 206 of 332; **COVERED WITH SILICON 4 → 5** (`xxh3-64`
+   joins); silicon forms **38 → 47** from **16** mnemonics (`pshufb` 2, `palignr` 2, `pinsrd` 2, `pinsrq` 1, `pextrd` 1, `pextrq` 1).
+   The s2n appendix's silicon line is a reading (67 before), not a prediction. **Had `pextrq` been executable** it would have been a
+   differential vector and the prediction would read ALL COVERED 42 → 43 with the silicon verdict unmoved.
+**Wrong if:** any mnemonic executes on x86isa (it moves to the differential, and that leg's predictions are re-derived and recorded
+before its run); any leg disagrees on any row (decided from the SDM, never by editing an expectation); a plant reds other than
+exactly its row; the bad byte does not refuse; the vendors differ on a bit; a pin fails to build; or the census moves other than
+by `xxh3-64`'s silicon verdict.
+**Result (hwprobe run 38108854973 at `89a1510`, both jobs `success`; the first run, no re-dispatch needed): all five predictions held.**
+1. **Oracle:** `pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq` each **refuses, 88 of 88**, both controls executing
+   (`oracle_availability.py` CLEAN, 26 forms). Every form is silicon-refereed; no vector added — vectors **1198**, roster **199**.
+2. **ubuntu-latest drew an AMD EPYC 7763** (CPUID.1.ECX `feda3203`); **macos-15-intel an Intel Core i7-8700B** (`fefa7a37`);
+   SSSE3=1 SSE4.1=1 on both; **`rows 220 disagreements 0` on both**, and the two listings are byte-identical below the CPUID line.
+   SSE 958/0, integer 1272/0 and bit-string 2944/0 beside them, unchanged.
+3. Controls, both legs: plant rc 1, exactly one `DIFF`, on `pshufb_rr_a1_ident`; bad byte rc 2, `REFUSED s_pshufb_rr`; plant-zx
+   rc 1, exactly one `DIFF`, on `pextrd_rr_i1_p1`. No AMD/Intel difference on any bit.
+4. Kernel: all 220 pins build by `decide` (`saltbuild EXIT=0`, full build); axiom gate CLEAN (4684 declarations, the three
+   standard axioms); `siliconTable` 16 rows; `claimed_forms --remaining` REMAINING 21, UNAVAILABLE 19 (silicon 19 of 19), AVAILABLE
+   WORK 0. **Red backwards:** a mutant `vshufbAux` indexing with seven bits (`% 128`) reds exactly the two PSHUFB pin theorems.
+   `ku_delta.py --arm a-prime` `a62d055` → `89a1510` on yukon.lan: **CLEAN** — `Tests.Anchors` **+511,445 ku** (2,878,319 →
+   3,389,764, +17.8%) against an allowance of 670,648; `Tests.Coverage` +89,704 against 702,603; `X86.Theorems` +5,227,
+   `X86.Syntax` +1,526; ms ceilings X86.Syntax 56 %, X86.Theorems 51 %.
+5. Census: **ALL COVERED 42 of 57** (the same ids, header `vectors=1198 forms=962`, unlock 22 forms for 7, ladder 5 steps), s2n
+   appendix 206 of 332; **COVERED WITH SILICON 4 → 5** (`xxh3-64`); silicon forms **47 of 16 mnemonics**; the s2n silicon line
+   (a reading) stays 67. ⚠️ **One census defect found on the way:** the silicon keyer width-erased mnemonics, so `pshufb`,
+   `pinsrq`, `pextrq` keyed as `pshuf`/`pinsr`/`pextr` and the run refused ("no probed form") — for an SSE mnemonic the last letter
+   is its name. A form is now keyed by its printed mnemonic when that is a `siliconTable` row, else by the width-erased one.
+   `check_readme_snapshot` counted XMM mnemonics over the WHOLE coverage file, silicon table included; the README's figure is "of
+   those" differentially tested mnemonics, so the count now stops at the processor-refereed heading (111 unchanged).
+⚠️ **Rosetta 2** (an emulator, corroboration only) ran the probe 220/0 with all three controls behaving.
+**Also regenerated:** `docs/DEMAND-CENSUS.md` (model mnemonics 197 → 215: these six, plus the twelve D330/D334 had already added
+and the committed census did not yet carry — its `--check` reds on a moved model sha) and `docs/P2-ROSTER.md`, derived from it.
+The demand census counts by MNEMONIC the model implements, so the six now count as model-covered there; that is its rule, not the
+differential's. **Not done here:** the ku-delta ledger row (`kernel_drift --gap` reds until it is recorded at landing), and no PR.
+**Note, 2026-10-11 — arm (A) of the 2026-10-10 fork, applied before landing: the pins moved to a metered module.** The
+predictions and the Result above are untouched. The 220 pin theorems left `Tests/Anchors.lean` for a NEW module,
+`Tests/AnchorsShuf.lean` (imported by the `Tests` root; `hwprobe/mk_shuf_anchors.py` now generates into it, `--check` byte for
+byte), which restates the two private `Tests.Anchors` helpers it used from `X86` alone; `Tests/Anchors.lean` is byte-identical to
+its pre-V1b content. Full build `saltbuild EXIT=0`. The same 7-bit-index PSHUFB mutant reds exactly `v1b_pshufb_rr_pins` and
+`v1b_pshufb_rm_pins`, now in the new module, while `Tests.Anchors` builds clean under it. **Measured at `7ea3841`, base `a62d055`,
+yukon.lan:** `ku_delta --arm a-prime` — `Tests.Anchors` Δku **+0** (2,878,319, allowance 670,648); `Tests.AnchorsShuf` NEW at
+**511,292** ku, refused until registered; `kernel_delta` — `Tests.AnchorsShuf` NEW at **1,030 ms**, refused with the line it
+printed. **Registered from those readings, not retyped:** `Tests.AnchorsShuf @ku 511292` (`scripts/ku_delta_budget.txt`) and
+`Tests.AnchorsShuf 3090 @on yukon.lan` (`scripts/kernel_ceilings.txt`, max(1030 × 3, 50)); the runner line follows the merge ref's
+first refusal (D252 §6). **Re-read after registering, at `d795bb7`, base `a62d055`, yukon.lan:** `ku_delta --arm a-prime` **CLEAN**
+— `Tests.Anchors` +0 of 670,648, `Tests.AnchorsShuf` 511,292 "NEW, registered", `Tests.Coverage` +89,704 of 702,603; ms ceilings
+`X86.Basic` 33 %, `X86.Syntax` 54 %, `X86.Theorems` 51 %. `kernel_delta --repeats 6`: `Tests.AnchorsShuf` 1,025 ms "NEW ok
+(ceiling 3090.0 @on yukon.lan)", `Tests.Anchors` +45 of 1,318.8 ok, `Tests.Coverage` +900 of 2,426.4 ok, `X86.Theorems` +120 of
+288.2 ok — and ⚠️ **`X86.Syntax` UNMEASURABLE: +87.5 ± 35.7 against a budget of 79.8** (load 5.9–7.7; the earlier three-repeat run
+read +38 ± 54.6, also UNMEASURABLE). That unit is the six new `Op` constructors' cost, unchanged by this move; it is recorded as
+read, the budget is not widened, and it is not decided here.

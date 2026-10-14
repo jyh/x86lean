@@ -456,10 +456,20 @@ def silicon_mnemonics():
     return mn
 
 
+def silicon_key(f, mn):
+    """The `siliconTable` mnemonic a form belongs to, or None: its printed mnemonic if that is a row, else its
+    width-erased one (D336)."""
+    if f[0] in mn:
+        return f[0]
+    w = widthless(f)[0]
+    return w if w in mn else None
+
+
 def silicon_forms(work):
     """{form: [hwprobe function, …]} for every form the processor probe declares
-    it executes (the bytes `int_probe.c` refuses to run without, read back at
-    each function's `_at` label, for every function at least one row calls)
+    it executes (the bytes `int_probe.c` and, since D336, `shuf_probe.c` refuse
+    to run without, read back at each function's `_at` label, for every function
+    at least one row calls)
     whose width-erased mnemonic is a `siliconTable` mnemonic.  The bytes go
     through the SAME clang + objdump + `form_of` as both other sides.  ADCX/ADOX
     share the path and are excluded by the filter: the differential referees
@@ -475,14 +485,20 @@ def silicon_forms(work):
         if name not in sect:
             raise SystemExit(f"⛔ silicon: the referee `{name}` is not in {SILICON_DECISION}'s text")
     mn = set(silicon_mnemonics())
-    q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", "mk_int_rows.py")],
-                       capture_output=True, text=True)
-    if q.returncode != 0:
-        raise SystemExit("⛔ silicon: hwprobe/mk_int_rows.py failed:\n" + q.stderr)
-    nrows = collections.Counter(re.findall(r'^  \{"[^"]+", (i_\w+), 0x', q.stdout, re.M))
-    ops = re.findall(r'^  \{"(i_\w+)", i_\w+_at, (\d+), \{([^}]*)\}\},$', q.stdout, re.M)
-    if not ops or not nrows:
-        raise SystemExit("⛔ silicon: no IOPS/IROWS parsed from mk_int_rows.py's output")
+    # D336: TWO generators declare silicon-run forms — the integer path (D330, D334) and the shuffle path
+    # (D336, `mk_shuf_rows.py`, functions `s_*`). Each must yield both its op table and its rows; the forms are
+    # pooled ACROSS the two probes (both are the silicon instrument), never with the differential.
+    nrows, ops = collections.Counter(), []
+    for gen, pfx in (("mk_int_rows.py", "i"), ("mk_shuf_rows.py", "s")):
+        q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen)], capture_output=True, text=True)
+        if q.returncode != 0:
+            raise SystemExit(f"⛔ silicon: hwprobe/{gen} failed:\n" + q.stderr)
+        nr = collections.Counter(re.findall(r'^  \{"[^"]+", (%s_\w+), 0x' % pfx, q.stdout, re.M))
+        op = re.findall(r'^  \{"(%s_\w+)", %s_\w+_at, (\d+), \{([^}]*)\}\},$' % (pfx, pfx), q.stdout, re.M)
+        if not op or not nr:
+            raise SystemExit(f"⛔ silicon: no op table / rows parsed from {gen}'s output")
+        nrows.update(nr)
+        ops += op
     asm = [".text"]
     for fn, n, bs in ops:
         b = [x.strip() for x in bs.split(",")]
@@ -502,9 +518,13 @@ def silicon_forms(work):
         if len(ins) != 1:
             raise SystemExit(f"⛔ silicon: {fn}'s declared bytes are {len(ins)} instructions, not one")
         f = form_of(ins[0]["text"])[0]
-        if widthless(f)[0] in mn:
+        # ⚠️ D336: an SSE mnemonic's last letter is part of its NAME, not a width suffix — `pshufb`, `pinsrq` and
+        # `pextrq` width-erase to `pshuf`, `pinsr`, `pextr` and would match no row. A form is keyed by its printed
+        # mnemonic when that is a siliconTable mnemonic, and by the width-erased one otherwise (`andnq` → `andn`).
+        key = silicon_key(f, mn)
+        if key is not None:
             forms[f].append(strip_us(fn))
-    got = {widthless(f)[0] for f in forms}
+    got = {silicon_key(f, mn) for f in forms}
     if got != mn:
         raise SystemExit("⛔ silicon: siliconTable mnemonic(s) with no probed form: "
                          + ", ".join(sorted(mn - got)))
@@ -783,7 +803,7 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
       "machine-checked reference was found.")
     if sil is not None:
         w(f"- **A second instrument, in its own column (D332).** {len(sil)} forms of "
-          f"{len({widthless(f)[0] for f in sil})} mnemonics are in `siliconTable`: x86isa "
+          f"{len({silicon_key(f, set(silicon_mnemonics())) for f in sil})} mnemonics are in `siliconTable`: x86isa "
           "refuses them, so no differential vector can exist, and they are refereed by "
           f"PROCESSORS instead ({SILICON_LABEL}; rows derived from the SDM's rules, the "
           "model pinned to the same rows by `decide`). That is NOT a semantic oracle — a "
@@ -861,11 +881,11 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
           "(processors, hwprobe)** — two instruments, two counts, cited side by side and never "
           "added. "
           + ("COVERED WITH SILICON: " + ", ".join(f"`{r['id']}`" for r in ws) + "." if ws else "") + "\n")
-        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s declared bytes, keyed by "
+        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s and `hwprobe/mk_shuf_rows.py`'s declared bytes, keyed by "
           "the same disassembler and classifier as both other sides):\n")
         by = collections.defaultdict(list)
         for f in sil:
-            by[widthless(f)[0]].append(f)
+            by[silicon_key(f, set(silicon_mnemonics()))].append(f)
         for m in sorted(by):
             w(f"- `{m}`: " + ", ".join(f"`{fmt_form(f)}`" for f in sorted(by[m], key=str)))
         w("")
@@ -1064,7 +1084,7 @@ def run(src, work, out):
           f"ladder {len(unlock[4])} steps")
     print(f"primitive-census: s2n-bignum appendix {okn}/{tot} ALL COVERED")
     print(f"primitive-census: SILICON COLUMN (separate, never summed; {SILICON_LABEL}): "
-          f"{len(sil)} forms of {len({widthless(f)[0] for f in sil})} siliconTable mnemonics; "
+          f"{len(sil)} forms of {len({silicon_key(f, set(silicon_mnemonics())) for f in sil})} siliconTable mnemonics; "
           f"{len(ws)} COVERED WITH SILICON: " + " ".join(ws)
           + f"; s2n appendix {len(s2n_sil)} COVERED WITH SILICON")
     print("primitive-census: controls OK (CRC-32 PoC covered; SHA-NI routine refused; "

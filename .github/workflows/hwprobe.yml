@@ -60,6 +60,14 @@ jobs:
           else
             sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x -e BMI1 -e BMI2 -e ADX || echo "BMI1/BMI2/ADX: NOT REPORTED"
           fi
+          # D336: the shuffle path needs SSSE3 (PSHUFB, PALIGNR) and SSE4.1 (PINSRD/Q, PEXTRD/Q); shuf_probe reads CPUID
+          # itself and refuses without either, so this is a record, not the guard.
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow ssse3 /proc/cpuinfo || echo "ssse3: NOT REPORTED"
+            grep -m1 -ow sse4_1 /proc/cpuinfo || echo "sse4_1: NOT REPORTED"
+          else
+            sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x -e SSSE3 -e SSE4.1 || echo "SSSE3/SSE4.1: NOT REPORTED"
+          fi
 
       - name: Rows, derived from the rules (never typed)
         working-directory: hwprobe
@@ -79,6 +87,10 @@ jobs:
           python3 mk_bitstr_rows.py --plant-mem > bitstr_rows_pmem.h
           python3 mk_bitstr_rows.py --plant-stray > bitstr_rows_stray.h
           python3 mk_bitstr_rows.py --plant-op > bitstr_rows_badop.h
+          python3 mk_shuf_rows.py > shuf_rows.h
+          python3 mk_shuf_rows.py --plant > shuf_rows_plant.h
+          python3 mk_shuf_rows.py --plant-op > shuf_rows_badop.h
+          python3 mk_shuf_rows.py --plant-zx > shuf_rows_zx.h
 
       - name: Build
         working-directory: hwprobe
@@ -103,6 +115,11 @@ jobs:
           for v in plant pmem stray badop; do
             sed "s/\"bitstr_rows.h\"/\"bitstr_rows_$v.h\"/" bitstr_probe.c > bitstr_probe_$v.c
             gcc -O1 -o bitstr_probe_$v bitstr_probe_$v.c bitstr_ops.S
+          done
+          gcc -O1 -o shuf_probe shuf_probe.c shuf_ops.S
+          for v in plant badop zx; do
+            sed "s/\"shuf_rows.h\"/\"shuf_rows_$v.h\"/" shuf_probe.c > shuf_probe_$v.c
+            gcc -O1 -o shuf_probe_$v shuf_probe_$v.c shuf_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -206,9 +223,48 @@ jobs:
           echo "bitstr rc=$rc"
           test "$rc" = 0
 
+      # D336: THE SHUFFLE PATH (PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q), with its OWN controls — a plant in the HIGH quadword of
+      # XMM0's expectation (the 128-bit comparison), a wrong declared instruction byte, and a set bit 32 in one PEXTRD row's
+      # expected RAX (the zero-extension is compared, not assumed).
+      - name: Shuffle controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./shuf_probe_plant > sh_plant.out; rc_plant=$?
+          ./shuf_probe_badop > sh_badop.out; rc_badop=$?
+          ./shuf_probe_zx > sh_zx.out; rc_zx=$?
+          set -e
+          head -1 sh_plant.out; grep '^DIFF' sh_plant.out; cat sh_badop.out; grep '^DIFF' sh_zx.out
+          echo "shuf plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · zx rc=$rc_zx (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' sh_plant.out)" = 1
+          grep -q '^DIFF pshufb_rr_a1_ident ' sh_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED s_pshufb_rr:' sh_badop.out
+          test "$rc_zx" = 1
+          test "$(grep -c '^DIFF' sh_zx.out)" = 1
+          grep -q '^DIFF pextrd_rr_i1_p1 ' sh_zx.out
+
+      - name: Shuffle referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./shuf_probe > shuf.out; rc=$?
+          set -e
+          head -1 shuf.out; grep -v '^ok  ' shuf.out || true
+          echo "shuf rc=$rc"
+          test "$rc" = 0
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bitstr-${{ matrix.os }}
           path: hwprobe/bitstr*.out
+
+      - name: Shuffle rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shuf-${{ matrix.os }}
+          path: hwprobe/shuf*.out

@@ -538,6 +538,51 @@ def vshufpApply (k : VShufpKind) (a b : BitVec 128) (sel : BitVec 8) : BitVec 12
       ((a.extractLsb' ((sel.toNat % 2) * 64) 64).setWidth 128)
         ||| (((b.extractLsb' (((sel.toNat >>> 1) % 2) * 64) 64).setWidth 128) <<< 64)
 
+/-! ### D336 (V1b) — PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q
+
+x86isa refuses all six (`scripts/oracle_availability.py`), so each is refereed by a
+processor (`hwprobe/mk_shuf_rows.py`, D336) and pinned to the same rows by `decide`
+in `Tests/AnchorsShuf.lean`.  None writes a flag. -/
+
+/-- One byte of PSHUFB, folded from the top down: control byte `i` of `ctl` either
+zeroes result byte `i` (its bit 7) or selects byte `ctl[8i+3:8i]` of `a`, the
+destination's ORIGINAL value.  ⚠️ Bits 6:4 of the control byte are ignored — the
+index is taken `% 16`, never the whole low seven bits. -/
+def vshufbAux (a ctl : BitVec 128) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      let c := ctl.extractLsb' (8 * i) 8
+      (vshufbAux a ctl i)
+        ||| (if c.msb then 0
+             else ((a.extractLsb' (8 * (c.toNat % 16)) 8).setWidth 128) <<< (8 * i))
+
+/-- PSHUFB (SDM Vol. 2B): sixteen bytes, each from `a` (the destination) by the
+matching control byte of `ctl` (the source), or zero. -/
+def vshufbApply (a ctl : BitVec 128) : BitVec 128 := vshufbAux a ctl 16
+
+/-- PALIGNR (SDM Vol. 2B): `((DEST << 128) OR SRC) >> (imm × 8)`, low 128 bits.
+⚠️ The guard is the rule, not an optimisation: at `imm ≥ 32` the whole 256-bit
+concatenation has been shifted out and the result is zero. -/
+def valignrApply (dst src : BitVec 128) (imm : BitVec 8) : BitVec 128 :=
+  if imm.toNat > 31 then 0
+  else ((((dst.setWidth 256) <<< 128) ||| src.setWidth 256) >>> (8 * imm.toNat)).setWidth 128
+
+/-- The lane PINSR*/PEXTR* select: `imm[1:0]` at 32 bits, `imm[0]` at 64 — the
+lane count is `128 / width`, and the imm8 bits above it are ignored. -/
+def vlaneSel (sz : Size) (imm : BitVec 8) : Nat := imm.toNat % (128 / sz.bits)
+
+/-- PINSRD/PINSRQ (SDM Vol. 2B): the `sz`-bit `v` replaces lane `vlaneSel sz imm`
+of `dst`; every other bit of `dst` is kept. -/
+def vinsrApply (sz : Size) (dst : BitVec 128) (v : Val) (imm : BitVec 8) : BitVec 128 :=
+  let sh := sz.bits * vlaneSel sz imm
+  let m : BitVec 128 := ((Value.trunc sz (BitVec.allOnes 64)).setWidth 128) <<< sh
+  (dst &&& ~~~m) ||| (((Value.trunc sz v).setWidth 128) <<< sh)
+
+/-- PEXTRD/PEXTRQ (SDM Vol. 2B): lane `vlaneSel sz imm` of `src`, zero above the
+width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
+def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
+  (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
+
 /-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
 lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
 instruction is named for: a negative word becomes 0, not 255. -/
@@ -1269,6 +1314,36 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         s.halt (.byDesign
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (vshufpApply k (s.getXmm dst) (s.readMem128 a) sel)).setRip nr
+
+  -- ⭐ D336 (V1b): PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q.  x86isa refuses all six;
+  -- `hwprobe/` referees them.  ⚠️ PSHUFB and PALIGNR READ THE DESTINATION
+  -- (`s.getXmm dst` is an argument); their m128 shapes carry the Type-4 16-byte
+  -- `#GP` (D110).  PINSRD/Q's m32/m64 is Type 5 and has no alignment check.
+  | .vshufb dst src =>
+      (s.setXmm dst (vshufbApply (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vshufbm dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vshufbApply (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | .valignr dst src imm =>
+      (s.setXmm dst (valignrApply (s.getXmm dst) (s.getXmm src) imm)).setRip nr
+  | .valignrm dst ea imm =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (valignrApply (s.getXmm dst) (s.readMem128 a) imm)).setRip nr
+  | .vinsr sz dst src imm =>
+      if src.isImm then s.halt (.illegalOperands "pinsrd/pinsrq with an immediate source")
+      else match sz with
+      | .d | .q => (s.setXmm dst (vinsrApply sz (s.getXmm dst) (s.readOperand sz nr src) imm)).setRip nr
+      | _ => s.halt (.illegalOperands "pinsr at an 8- or 16-bit width (pinsrb/pinsrw are other mnemonics)")
+  | .vextr sz dst src imm =>
+      match sz with
+      | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
+      | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
 
   -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
   --

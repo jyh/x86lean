@@ -238,7 +238,15 @@ if not (im and xm):
         "differentially tested forms` and `N of those mnemonics take an XMM "
         "operand`). A missing subject is not a pass.", 2)
 cov_xmm = 0
-for line in cov.splitlines():
+# ⛔ D336: the README counts XMM mnemonics "of those" DIFFERENTIALLY TESTED ones, so the population is the
+# differential table only. docs/COVERAGE.md also carries the processor-refereed table (siliconTable) below its
+# own heading, and D336's rows are the first there with an `x` operand — counting them would compare the
+# README's number against a different population. The heading is required, so a renamed one refuses.
+SIL_HEAD = "## Implemented, refereed by a processor, NOT differentially tested"
+if SIL_HEAD not in cov:
+    die("⛔ docs/COVERAGE.md has no processor-refereed heading (%r); the differential table's end cannot be "
+        "found, and counting past it would pool the two populations." % SIL_HEAD, 2)
+for line in cov.split(SIL_HEAD)[0].splitlines():
     if not line.startswith("| `"):
         continue
     cells = [c.strip() for c in line.strip().strip("|").split("|")]
