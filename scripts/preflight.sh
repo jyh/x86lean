@@ -52,6 +52,15 @@ done
 # B0 (D266): the kernel pins are hwprobe's rows, generated; CI's build job runs this beside the format gates.
 if python3 hwprobe/mk_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_anchors --check\n"; rc=1; fi
+# D330: the MULX pins, from hwprobe's integer rows.
+if python3 hwprobe/mk_int_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_int_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_int_anchors --check\n"; rc=1; fi
+# D336: the V1b pins, from hwprobe's shuffle rows.
+if python3 hwprobe/mk_shuf_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_shuf_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_shuf_anchors --check\n"; rc=1; fi
+# D335: the packed-integer arithmetic pins, from hwprobe's SIMD rows.
+if python3 hwprobe/mk_simda_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.

@@ -424,6 +424,23 @@ inductive VBinKind where
   Kinds rather than a new constructor because the operand shapes, the alignment
   rule and the `#GP` branch are exactly `vbin`/`vbinm`'s. -/
   | minps | maxps
+  /-- ⭐⭐ D335 (V1a) — ELEVEN PACKED-INTEGER ARITHMETIC KINDS THE DIFFERENTIAL CANNOT
+  REFEREE: ACL2 x86isa refuses every one at every pre-state
+  (`scripts/oracle_availability.py`), so they are checked by `hwprobe/` on silicon
+  and pinned by `decide` in `Tests/AnchorsSimd.lean`, and their coverage rows live in
+  `siliconTable`, never `tableP0`.  Kinds rather than a constructor for batch 17's
+  reason: two XMM operands, lane-wise, no flag written, and `Op.vbin`/`Op.vbinm`
+  carry both operand shapes and the 16-byte `#GP` rule already (SDM Vol. 2B,
+  PMADDWD PMADDUBSW PMULLW PMULHRSW PMULUDQ PADDSW PSUBUSW PSUBUSB PMAXSW PSADBW
+  PACKSSDW).
+
+  ⛔ FOUR OF THEM ARE ASYMMETRIC IN THEIR OPERANDS AND THAT IS THEIR CONTENT:
+  `pmaddubsw` reads the DESTINATION's bytes UNSIGNED and the SOURCE's SIGNED;
+  `packssdw` puts the DESTINATION's dwords in the LOW words; `psubus*` subtracts the
+  source FROM the destination; `pmaxsw` keeps the source on a tie (the same value).
+  `a` is the destination at both operand shapes, as everywhere in `vbinApply`. -/
+  | maddwd | maddubsw | mullw | mulhrsw | muludq
+  | addsw | subusw | subusb | maxsw | sadbw | packssdw
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -453,6 +470,11 @@ def VBinKind.mnemonic : VBinKind → String
   | .orps => "orps"    | .orpd => "orpd"
   | .xorps => "xorps"  | .xorpd => "xorpd"
   | .minps => "minps"  | .maxps => "maxps"
+  -- D335 (V1a): silicon-refereed, `siliconTable`'s rows (never `rosterP0`).
+  | .maddwd => "pmaddwd" | .maddubsw => "pmaddubsw" | .mullw => "pmullw"
+  | .mulhrsw => "pmulhrsw" | .muludq => "pmuludq" | .addsw => "paddsw"
+  | .subusw => "psubusw" | .subusb => "psubusb" | .maxsw => "pmaxsw"
+  | .sadbw => "psadbw" | .packssdw => "packssdw"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
@@ -1327,6 +1349,67 @@ inductive Op where
   16-, 32- or 64-bit operand, and the byte-wide multiply is the one-operand
   `F6 /5` above.  `imulrEncodable` is the table, and `step` declines `.b`. -/
   | imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val)
+  /-- D330 (W1b): ADCX and ADOX (SDM Vol. 2A, ADCX and ADOX) — an add with carry
+  that reads and writes ONE flag and leaves every other flag alone.  `ofChain =
+  false` is ADCX, whose carry is CF; `true` is ADOX, whose carry is OF.
+
+  ⭐ ONE CONSTRUCTOR, KEYED BY THE FLAG, because the two differ in exactly one
+  thing — which flag is the carry — and the sum, the width rule and the operand
+  shapes are identical.  It is NOT `.bin .adc`: ADC writes all six arithmetic
+  flags, and these write one, which is the whole reason the instructions exist
+  (two independent carry chains interleaved in one multiply loop).
+
+  ⛔ THE DESTINATION IS A REGISTER BY THE ENCODING (`66/F3 0F 38 F6 /r` is
+  `r, r/m`), and only widths `.d` and `.q` exist: there is no 8- or 16-bit form,
+  so `step` declines them. -/
+  | adx (ofChain : Bool) (sz : Size) (dst : GPR) (src : Operand)
+  /-- D330 (W1b): MULX (SDM Vol. 2B, MULX) — the unsigned multiply of RDX (EDX
+  at `.d`) by `src`, the high half to `hi` (ModRM.reg) and the low half to `lo`
+  (VEX.vvvv).  "Flags Affected: None."
+
+  ⚠️ BOTH DESTINATIONS ARE NAMED BY THE INSTRUCTION, unlike `.muldiv .mul`'s
+  fixed RDX:RAX pair, and they may be the SAME register.  The SDM's operation
+  writes DEST2 (low) and then DEST1 (high), and says that when the two are the
+  same register the high half is the result; `step` writes them in that order.
+
+  ⛔ Widths `.b` and `.w` have no encoding (VEX.W selects 32 or 64), so `step`
+  declines them, as it does for `.shiftx`. -/
+  | mulx (sz : Size) (hi lo : GPR) (src : Operand)
+  /-- D334 (W1c): ANDN (SDM Vol. 2A, ANDN) — `dst := (NOT src1) AND src2`, `src1`
+  the VEX.vvvv register and `src2` the r/m operand.  SF and ZF from the result,
+  CF and OF cleared, AF and PF undefined.  ⛔ `.b`/`.w` have no encoding. -/
+  | andn (sz : Size) (dst src1 : GPR) (src2 : Operand)
+  /-- D334 (W1c): BEXTR (SDM Vol. 2A, BEXTR) — the bit field of `src` (r/m) that
+  starts at `ctl[7:0]` and is `ctl[15:8]` long, `ctl` the VEX.vvvv register.
+  ⚠️ Only the low 16 bits of `ctl` are read; a start at or beyond the width
+  extracts nothing.  ZF from the result, CF and OF cleared, AF SF PF undefined. -/
+  | bextr (sz : Size) (dst : GPR) (src : Operand) (ctl : GPR)
+  /-- D334 (W1c): BZHI (SDM Vol. 2A, BZHI) — `src` (r/m) with every bit at or above
+  `idx[7:0]` cleared, `idx` the VEX.vvvv register.  ⚠️ Only the index BYTE is
+  read, and an index at or above the width clears nothing and sets CF (the SDM's
+  Operation; D334 records the prose that reads otherwise). -/
+  | bzhi (sz : Size) (dst : GPR) (src : Operand) (idx : GPR)
+  /-- D334 (W1c): BLSMSK (`msk = true`) and BLSR (`msk = false`) (SDM Vol. 2A) —
+  `(src − 1) XOR src` and `(src − 1) AND src`.  ONE CONSTRUCTOR for the pair, as
+  `.adx` is for ADCX/ADOX: the shape, the width rule, CF (= the source is zero) and
+  OF (cleared) are shared, and the result and ZF are what differ — BLSMSK clears ZF
+  unconditionally.  The destination is the VEX.vvvv register.  `blsi` is the third
+  of the family and stays `.bitcnt .blsi`, where it was modelled first. -/
+  | blsx (msk : Bool) (sz : Size) (dst : GPR) (src : Operand)
+  /-- D334 (W1c): PDEP (`ext = false`) and PEXT (`ext = true`) (SDM Vol. 2B) — the
+  bits of `src1` (VEX.vvvv) deposited at, or gathered from, the set positions of
+  `mask` (r/m).  "Flags Affected: None." -/
+  | pbits (ext : Bool) (sz : Size) (dst src1 : GPR) (mask : Operand)
+  /-- D334 (W1c): RORX (SDM Vol. 2B, RORX) — rotate `src` right by `imm` masked to
+  the width (`imm AND 1FH` / `3FH`).  "Flags Affected: None": unlike ROR it writes
+  no CF and no OF at any count. -/
+  | rorx (sz : Size) (dst : GPR) (src : Operand) (imm : Val)
+  /-- D334 (W1c): MOVNTI (SDM Vol. 2B, MOVNTI) — store `src` to `dst`, which the
+  encoding (`0F C3 /r`) makes a MEMORY operand.  For this model's single-threaded,
+  cache-free user-level state it is a plain store: the non-temporal hint and the
+  weakly-ordered (write-combining) protocol it permits are out of the model's
+  scope, which has no memory types and no other agent.  Widths `.d` and `.q`. -/
+  | movnti (sz : Size) (dst : Operand) (src : GPR)
   /-- P1 BATCH 18: CMPXCHG — the first form in this model whose DESTINATION is
   decided by a comparison the instruction makes about its own operands.
 
@@ -1898,6 +1981,33 @@ inductive Op where
   16-byte `#GP` every other 128-bit memory operand in this model carries (D110).
   ⚠️ The DESTINATION register is still read; only the SOURCE moves to memory. -/
   | vshufpm (k : VShufpKind) (dst : XmmReg) (ea : Ea) (sel : BitVec 8)
+  /-- D336 (V1b): PSHUFB between registers (`66 0F 38 00 /r`, SDM Vol. 2B PSHUFB) —
+  each result byte is the destination's ORIGINAL byte indexed by the low four bits
+  of the source's matching control byte, or zero when that control byte's bit 7 is
+  set.  ⚠️ The destination is the DATA and the source the CONTROL: the operand
+  order is not symmetric.  x86isa refuses it; `hwprobe/` referees it (D336). -/
+  | vshufb (dst src : XmmReg)
+  /-- D336 (V1b): PSHUFB with a 128-bit memory control, Exception Type 4 — a
+  misaligned address is `#GP(0)` (D110's rule, as `vshufm`). -/
+  | vshufbm (dst : XmmReg) (ea : Ea)
+  /-- D336 (V1b): PALIGNR between registers (`66 0F 3A 0F /r ib`, SDM Vol. 2B
+  PALIGNR) — the 256-bit concatenation `DEST:SRC` shifted right by `imm × 8` bits,
+  low 128 kept.  `imm` 16 returns the destination, ≥ 32 returns zero. -/
+  | valignr (dst src : XmmReg) (imm : BitVec 8)
+  /-- D336 (V1b): PALIGNR with a 128-bit memory source (the LOW half of the
+  concatenation), Exception Type 4 alignment. -/
+  | valignrm (dst : XmmReg) (ea : Ea) (imm : BitVec 8)
+  /-- D336 (V1b): PINSRD (`.d`, `66 0F 3A 22 /r ib`) and PINSRQ (`.q`, `66 REX.W 0F 3A
+  22 /r ib`) (SDM Vol. 2B PINSRB/PINSRD/PINSRQ) — the `sz`-bit `src` (a GPR or a
+  memory operand) replaces lane `imm[1:0]` (`.d`) or `imm[0]` (`.q`) of `dst`;
+  the other lanes keep their values.  Type 5: no alignment requirement.  `.b`/`.w`
+  are other mnemonics and refused here, as is an immediate `src`. -/
+  | vinsr (sz : Size) (dst : XmmReg) (src : Operand) (imm : BitVec 8)
+  /-- D336 (V1b): PEXTRD (`.d`, `66 0F 3A 16 /r ib`) and PEXTRQ (`.q`, `66 REX.W 0F 3A
+  16 /r ib`) to a GPR (SDM Vol. 2B PEXTRB/PEXTRD/PEXTRQ) — lane `imm[1:0]` (`.d`) or
+  `imm[0]` (`.q`) of `src`.  At `.d` the register write zero-extends to 64 bits
+  (SDM Vol. 1 §3.4.1.1), as every 32-bit GPR write in this model does. -/
+  | vextr (sz : Size) (dst : GPR) (src : XmmReg) (imm : BitVec 8)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE
   (`66 0F ..` with a memory ModRM), the second operand shape of the nineteen
   operations `Op.vbin` has carried since batches 5 and 7.
@@ -2058,6 +2168,11 @@ def opOperands : Op → List Operand
   | .vshufm _ _ ea _ => [.mem ea]
   | .vshufp .. => []
   | .vshufpm _ _ ea _ => [.mem ea]
+  -- D336 (V1b): the register shapes name no `Operand`; a memory source names its
+  -- address; PINSRD/Q's source IS an `Operand`; PEXTRD/Q's destination is a GPR.
+  | .vshufb .. | .valignr .. | .vextr .. => []
+  | .vshufbm _ ea | .valignrm _ ea _ => [.mem ea]
+  | .vinsr _ _ src _ => [src]
   -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
   | .vbinm _ _ ea => [.mem ea]
   -- P2 BATCH 38: the scalar min/max memory SOURCE names its address.
@@ -2122,6 +2237,15 @@ def opOperands : Op → List Operand
   | .repstrop _ _ _ => []
   | .muldiv _ _ src => [src]
   | .imulr _ _ src _ => [src]
+  | .adx _ _ _ src => [src]
+  | .mulx _ _ _ src => [src]
+  | .andn _ _ _ src => [src]
+  | .bextr _ _ src _ => [src]
+  | .bzhi _ _ src _ => [src]
+  | .blsx _ _ _ src => [src]
+  | .pbits _ _ _ _ src => [src]
+  | .rorx _ _ src _ => [src]
+  | .movnti _ dst _ => [dst]
   | .cmpxchg _ dst _ => [dst]
   | .xadd _ dst _ => [dst]
   | .dshift _ _ dst _ _ => [dst]
@@ -2216,6 +2340,10 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 37: `lock shufps` is not a form the SDM lists, as for `pshufd`.
   | .vshufp .. => false
   | .vshufpm _ _ ea _ => ea.lock
+  -- D336 (V1b): no SDM lock form for any of the six.
+  | .vshufb .. | .valignr .. | .vextr .. => false
+  | .vshufbm _ ea | .valignrm _ ea _ => ea.lock
+  | .vinsr _ _ src _ => src.locked
   -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
   | .vbinm _ _ ea => ea.lock
   -- P2 BATCH 38: `lock minsd` is not a form the SDM lists.
@@ -2275,6 +2403,15 @@ def Op.anyLocked : Op → Bool
   | .repstrop _ _ _ => false
   | .muldiv _ _ src => src.locked
   | .imulr _ _ src _ => src.locked
+  | .adx _ _ _ src => src.locked
+  | .mulx _ _ _ src => src.locked
+  | .andn _ _ _ src => src.locked
+  | .bextr _ _ src _ => src.locked
+  | .bzhi _ _ src _ => src.locked
+  | .blsx _ _ _ src => src.locked
+  | .pbits _ _ _ _ src => src.locked
+  | .rorx _ _ src _ => src.locked
+  | .movnti _ dst _ => dst.locked
   | .cmpxchg _ dst _ => dst.locked
   | .xadd _ dst _ => dst.locked
   | .dshift _ _ dst _ _ => dst.locked
@@ -2358,6 +2495,42 @@ one per family whose operand is a VARIABLE, stating the obvious fact in the form
     (h : src.locked = false) : (Op.imulr sz dst src imm).lockIllegal = false := by
   cases src <;> simp_all [Operand.locked, opOperands]
 
+@[simp] theorem lockIllegal_adx (o : Bool) (sz : Size) (dst : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.adx o sz dst src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_mulx (sz : Size) (hi lo : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.mulx sz hi lo src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_andn (sz : Size) (dst src1 : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.andn sz dst src1 src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_bextr (sz : Size) (dst : GPR) (src : Operand) (ctl : GPR)
+    (h : src.locked = false) : (Op.bextr sz dst src ctl).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_bzhi (sz : Size) (dst : GPR) (src : Operand) (idx : GPR)
+    (h : src.locked = false) : (Op.bzhi sz dst src idx).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_blsx (m : Bool) (sz : Size) (dst : GPR) (src : Operand)
+    (h : src.locked = false) : (Op.blsx m sz dst src).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_pbits (e : Bool) (sz : Size) (dst src1 : GPR) (mask : Operand)
+    (h : mask.locked = false) : (Op.pbits e sz dst src1 mask).lockIllegal = false := by
+  cases mask <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_rorx (sz : Size) (dst : GPR) (src : Operand) (imm : Val)
+    (h : src.locked = false) : (Op.rorx sz dst src imm).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
+@[simp] theorem lockIllegal_vinsr (sz : Size) (dst : XmmReg) (src : Operand) (imm : BitVec 8)
+    (h : src.locked = false) : (Op.vinsr sz dst src imm).lockIllegal = false := by
+  cases src <;> simp_all [Operand.locked, opOperands]
+
 @[simp] theorem lockIllegal_dshift (k : DShiftKind) (sz : Size) (dst : Operand) (src : GPR)
     (amt : ShiftAmt) (h : dst.locked = false) :
     (Op.dshift k sz dst src amt).lockIllegal = false := by
@@ -2403,6 +2576,11 @@ def Op.mnemonic : Op → String
   -- source's provenance is in the operands.
   | .vshuf k .. | .vshufm k .. => k.mnemonic
   | .vshufp k .. | .vshufpm k .. => k.mnemonic
+  -- D336 (V1b): one mnemonic per family, the width spelled by the size at insert/extract.
+  | .vshufb .. | .vshufbm .. => "pshufb"
+  | .valignr .. | .valignrm .. => "palignr"
+  | .vinsr sz .. => if sz == .q then "pinsrq" else "pinsrd"
+  | .vextr sz .. => if sz == .q then "pextrq" else "pextrd"
   | .vmovq .. => "movq"
   -- ⭐ P2 BATCH 15: BOTH operand shapes read the SAME table, which is now a
   -- function beside the kind rather than a `match` inside this one.  A copy here
@@ -2486,6 +2664,15 @@ def Op.mnemonic : Op → String
   | .repstrop r _ _ => r.mnemonic
   | .muldiv k .. => k.mnemonic
   | .imulr .. => "imul"
+  | .adx o .. => if o then "adox" else "adcx"
+  | .mulx .. => "mulx"
+  | .andn .. => "andn"
+  | .bextr .. => "bextr"
+  | .bzhi .. => "bzhi"
+  | .blsx m .. => if m then "blsmsk" else "blsr"
+  | .pbits e .. => if e then "pext" else "pdep"
+  | .rorx .. => "rorx"
+  | .movnti .. => "movnti"
   | .cmpxchg .. => "cmpxchg"
   | .xadd .. => "xadd"
   | .dshift k .. => k.mnemonic
@@ -2734,7 +2921,12 @@ def rosterP0 : List String :=
    "unpcklps", "unpckhps", "unpcklpd", "unpckhpd",
    -- ⭐⭐⭐ P2 BATCH 37 — the two-source shuffles, 88% of the batch's demand and
    -- the only NEW SEMANTICS in it.  One row each, both operand shapes.
-   "shufps", "shufpd"]
+   "shufps", "shufpd",
+   -- D330 (W1b): the ADX pair, one constructor (`.adx`, keyed by which flag
+   -- carries).  ⚠️ `mulx` is implemented and is NOT here: this list is what the
+   -- DIFFERENTIAL covers, and x86isa refuses `mulx`; it is `siliconTable`'s row
+   -- (X86/Coverage.lean).
+   "adcx", "adox"]
 
 /-- ⭐ EVERY ASSEMBLER SPELLING OF THE TWO WIDTH-CHANGING MOVES, for the same
 reason `Cc.suffixes` exists: K's tree files `movzb`, `movzw`, `movsb`, `movsw`

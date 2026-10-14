@@ -56,6 +56,35 @@ theorem table_rows_distinct :
 
 theorem roster_size_matches : rosterP0.length = rosterSize := by decide
 
+/-- ⭐ D330 (W1b): a form refereed by a PROCESSOR is never also claimed as
+differentially tested.  `siliconTable`'s mnemonics are in neither `tableP0` nor
+`rosterP0`, and every one of them is a mnemonic `step` implements (the one-row
+list is checked against a constructor below, so a row for a form the AST cannot
+produce fails here). -/
+theorem silicon_rows_are_not_differential_rows :
+    siliconTable.all (fun r => !(tableP0.map Row.mnemonic).contains r.mnemonic
+      && !rosterP0.contains r.mnemonic) = true := by decide
+
+theorem silicon_rows_name_ast_mnemonics :
+    siliconTable.map Row.mnemonic = [(Op.mulx .q .rdx .rax (.reg .rcx)).mnemonic,
+      -- D334 (W1c): one AST constructor (or constructor and key) per row.
+      (Op.andn .q .rax .rdx (.reg .rcx)).mnemonic, (Op.bextr .q .rax (.reg .rcx) .rdx).mnemonic,
+      (Op.blsx true .q .rax (.reg .rcx)).mnemonic, (Op.blsx false .q .rax (.reg .rcx)).mnemonic,
+      (Op.bzhi .q .rax (.reg .rcx) .rdx).mnemonic, (Op.pbits false .q .rax .rdx (.reg .rcx)).mnemonic,
+      (Op.pbits true .q .rax .rdx (.reg .rcx)).mnemonic, (Op.rorx .q .rax (.reg .rcx) 0).mnemonic,
+      (Op.movnti .q (.mem { base := some .rbx }) .rax).mnemonic,
+      -- D336 (V1b): PSHUFB, PALIGNR, and PINSR/PEXTR at each width (one row per mnemonic).
+      (Op.vshufb .x0 .x1).mnemonic, (Op.valignr .x0 .x1 0).mnemonic,
+      (Op.vinsr .d .x0 (.reg .rcx) 0).mnemonic, (Op.vinsr .q .x0 (.reg .rcx) 0).mnemonic,
+      (Op.vextr .d .rax .x1 0).mnemonic, (Op.vextr .q .rax .x1 0).mnemonic,
+      -- D335 (V1a): one `VBinKind` kind per row, on `Op.vbin`.
+      (Op.vbin .maddwd .x0 .x1).mnemonic, (Op.vbin .maddubsw .x0 .x1).mnemonic,
+      (Op.vbin .mullw .x0 .x1).mnemonic, (Op.vbin .mulhrsw .x0 .x1).mnemonic,
+      (Op.vbin .muludq .x0 .x1).mnemonic, (Op.vbin .addsw .x0 .x1).mnemonic,
+      (Op.vbin .subusw .x0 .x1).mnemonic, (Op.vbin .subusb .x0 .x1).mnemonic,
+      (Op.vbin .maxsw .x0 .x1).mnemonic, (Op.vbin .sadbw .x0 .x1).mnemonic,
+      (Op.vbin .packssdw .x0 .x1).mnemonic] := by decide
+
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
 `rosterP0`'s docstring said `Tests/Coverage.lean` *"checks that this list and the
@@ -170,7 +199,9 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B6a (D289) adds TWO: `cvtsd2si`, `cvtss2si`, through `vcvt2si`/`vcvt2sim` (D288).
 -- ⭐ SUB-GROUP B6b (D292) adds TWO: `sqrtsd`, `sqrtss`, through `vsqrt`/`vsqrtm` (D291).
 -- ⭐ SUB-GROUP B7 (D295) adds ONE: `cvtpd2ps`, through `vcvtpd2ps`/`vcvtpd2psm`.
-theorem roster_size_is_197 : rosterSize = 197 := by decide
+-- ⭐ D330 (W1b) adds TWO: `adcx`, `adox`, through `.adx`.  ⚠️ `mulx` (`.mulx`) is implemented
+--   and is NOT counted here: x86isa refuses it, so it has no vector; it is `siliconTable`'s row.
+theorem roster_size_is_199 : rosterSize = 199 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -227,7 +258,13 @@ def vectorCount : Nat := vectors.length
 -- that complete the most public primitives: `cmovb`/`cmovae` at `.q`, `add`/`sub` reg-reg,
 -- `neg` and the by-one `shr` at `.d`.  Each is a form this table already tested at another
 -- width, so they add RUNS and no new coverage ROW.
-theorem vector_count_is_1158 : vectorCount = 1158 := by decide
+-- ⭐ THE FOUR REMAINING WIDTH SIBLINGS (D329) add FOUR, the census's last † forms:
+-- `mov imm,r` at `.b`, the by-one `rol` at `.d`, three-operand `imul` with a memory
+-- source at `.d`, and `cmovns` at `.q`.  Runs, no new coverage ROW.
+-- ⭐ D330 (W1b) adds EIGHT: `adcx` and `adox` at `.q` and `.d`, register and memory source.
+-- ⭐ THE BIT STRING (D331) adds 28: the four `m,r` rows D23 declined, at w/l/q with RCX and
+-- RDX offsets, three fixed far offsets, and one LOCK form.
+theorem vector_count_is_1198 : vectorCount = 1198 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1082,6 +1119,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- `vshufpm`'s memory operand is its SOURCE, as `vshufm`'s is.  Added in the
     -- same commit as the constructors, which is what this function's doc asks.
     | .vshuf .. | .vshufm .. | .vshufp .. | .vshufpm .. => false
+    -- D336 (V1b): every memory operand of the six is a SOURCE (PEXTRD/Q's
+    -- destination is a GPR by its type); no vector reaches any of them today.
+    | .vshufb .. | .vshufbm .. | .valignr .. | .valignrm .. | .vinsr .. | .vextr .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 15, added in the SAME COMMIT as the constructor.
     -- `vbinm`'s memory operand is its SOURCE; the destination is always an XMM
     -- register, so this is not a memory-destination form either.
@@ -1165,6 +1205,13 @@ def isMemDestVector (v : Vec) : Bool :=
     -- difference visible.  `.imulr`'s destination is a `GPR` by its type.
     | .muldiv .. => false
     | .imulr .. => false
+    -- D330 (W1b): `adcx`/`adox` and `mulx` write GPRs named by their types; the
+    -- `m` in each is a SOURCE.
+    | .adx .. | .mulx .. => false
+    -- D334 (W1c): the BMI forms write GPRs named by their types; MOVNTI's
+    -- destination is an `Operand` and is asked (no vector reaches either today).
+    | .andn .. | .bextr .. | .bzhi .. | .blsx .. | .pbits .. | .rorx .. => false
+    | .movnti _ d _ => d.isMem
     -- ⭐ P1 BATCH 18, AND THE EXHAUSTIVE MATCH EARNED ITS KEEP A FIFTH TIME:
     -- three new constructors, three compile errors here, three answers written
     -- down instead of assumed.  All three take an `Operand` destination and all
@@ -1359,7 +1406,11 @@ theorem memDestSweep :
       -- start.  ⚠️ This is the ONLY row of 106 whose classification moved:
       -- computed before the edit under the invariant "no row's `claimsMemDest`
       -- changes", and confirmed by this gate after.
-      == [("bt", false), ("sarx", true), ("shlx", true), ("shrx", true),
+      -- ⭐⭐ D331 TAKES `bt` BACK OUT, AND FOR THE HONEST REASON THIS TIME: its shapes now
+      -- carry `m,r` because the bit-string shape IS modelled, so both rules read a memory
+      -- operand and agree.  The batch-11 paragraph above stays as the record of the
+      -- prose-reading defect; the row it describes no longer has the parenthetical.
+      == [("sarx", true), ("shlx", true), ("shrx", true),
           ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
           ("movdqa", false), ("movdqu", false),
           -- ⭐ P2 VECTOR WAVE, BATCH 11 adds four more in the SAME direction, and
@@ -1441,8 +1492,8 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
         | true,  false => some (r.mnemonic, true)
         | false, true  => some (r.mnemonic, false)
         | _,     _     => none)
-      = [-- ⛔ P2 BATCH 11: `bt`. See `memDestSweep` for why it is here and was not.
-         ("bt", false), ("sarx", true), ("shlx", true), ("shrx", true),
+      = [-- ⛔ P2 BATCH 11 put `bt` here and D331 took it out. See `memDestSweep`.
+         ("sarx", true), ("shlx", true), ("shrx", true),
          ("cmps", false), ("scas", false),
          -- P1 BATCH 16: `repe` and `repne` join for the same reason `cmps` and
          -- `scas` did — they ADDRESS a memory destination and write none, so

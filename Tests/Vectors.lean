@@ -3904,6 +3904,135 @@ def vectors : List Vec :=
     , instr := ⟨.un .neg .d (R .rax), 2⟩ }
   , { id := "shr_r_one_d", mnemonic := "shr", asm := "shrl %eax"
     , bytes := "d1e8", instr := ⟨.shift .shr .d (R .rax) (.imm8 1), 2⟩ }
+  -- ⭐⭐ THE FOUR REMAINING WIDTH SIBLINGS THE PRIMITIVE CENSUS NAMED (D329).
+  --
+  -- After D327 the census's table of not-covered forms carried exactly four marked
+  -- † (tested at another width): these.  Each is the same constructor as a vector
+  -- above at a different size, so they add RUNS and no coverage ROW.
+  --
+  --   mov_ri_b        `movb $imm, %r8` (opcode B0+r); `.d` and `.q` existed.  The
+  --                   content is the one an 8-bit write carries: bits 8..63 of RAX
+  --                   are KEPT, where the `.d` form clears them
+  --   rol_r_one_d     the by-one rotate at `.d`; `.b` and `.q` existed (and the
+  --                   by-five form at `.d`).  Count 1 is the one count whose OF is
+  --                   DEFINED
+  --   imul3_ml        three-operand `imul` with a MEMORY source at `.d`; `.q`
+  --                   existed (and the register source at `.d`).  The immediate is
+  --                   XXH32's PRIME32_1, the constant the census's candidate
+  --                   multiplies by
+  --   cmovns_rr_q     `cmovns` at `.q`; `.d` existed — the `cmov` note above, the
+  --                   other way round: at `.q` a false condition leaves RAX intact
+  --
+  -- ⚠️ NO SEMANTICS CHANGES; the run is the whole check that the size is threaded
+  -- through.  Bytes and lengths are clang's (`-target x86_64-unknown-linux-gnu`,
+  -- `objdump -d`), the recipe `scripts/check_encodings.py` re-derives in CI.
+  , { id := "mov_ri_b", mnemonic := "mov", asm := "movb $0x5a, %al"
+    , bytes := "b05a", instr := ⟨.mov .b (R .rax) (.imm 0x5a), 2⟩ }
+  , { id := "rol_r_one_d", mnemonic := "rol", asm := "roll %eax"
+    , bytes := "d1c0", instr := ⟨.rot .rol .d (R .rax) (.imm8 1), 2⟩ }
+  , { id := "imul3_ml", mnemonic := "imul", asm := "imull $0x9e3779b1, (%rbx), %eax"
+    , bytes := "6903b179379e", instr := ⟨.imulr .d .rax (M .rbx) (some 0x9e3779b1), 6⟩ }
+  , { id := "cmovns_rr_q", mnemonic := "cmovcc", asm := "cmovnsq %rcx, %rax"
+    , bytes := "480f49c1", instr := ⟨.cmov .ns .q .rax (R .rcx), 4⟩ }
+  -- ⭐ D330 (W1b): ADCX AND ADOX, the two ADX forms the primitive census needs
+  -- (`adcxq`/`adoxq` at `r64,r64` and `m,r64`) and their `.d` siblings.
+  --
+  -- ⚠️ THE CONTENT IS THE FLAGS THEY LEAVE ALONE.  Each reads one carry and writes
+  -- one flag; the pre-states' flag seeds (0, 5, 63 and the random tail) put CF and
+  -- OF in all four combinations, so an `adcx` that read OF, or an `adox` that wrote
+  -- CF, differs in the cases where the two flags differ.  The `.d` forms carry the
+  -- 32-bit zero-extension.  x86isa executes both (`oracle_availability.py`, 88/88).
+  , { id := "adcx_rr_q", mnemonic := "adcx", asm := "adcxq %rcx, %rax"
+    , bytes := "66480f38f6c1", instr := ⟨.adx false .q .rax (R .rcx), 6⟩ }
+  , { id := "adcx_rm_q", mnemonic := "adcx", asm := "adcxq (%rbx), %rax"
+    , bytes := "66480f38f603", instr := ⟨.adx false .q .rax (M .rbx), 6⟩ }
+  , { id := "adcx_rr_d", mnemonic := "adcx", asm := "adcxl %ecx, %eax"
+    , bytes := "660f38f6c1", instr := ⟨.adx false .d .rax (R .rcx), 5⟩ }
+  , { id := "adcx_rm_d", mnemonic := "adcx", asm := "adcxl (%rbx), %eax"
+    , bytes := "660f38f603", instr := ⟨.adx false .d .rax (M .rbx), 5⟩ }
+  , { id := "adox_rr_q", mnemonic := "adox", asm := "adoxq %rcx, %rax"
+    , bytes := "f3480f38f6c1", instr := ⟨.adx true .q .rax (R .rcx), 6⟩ }
+  , { id := "adox_rm_q", mnemonic := "adox", asm := "adoxq (%rbx), %rax"
+    , bytes := "f3480f38f603", instr := ⟨.adx true .q .rax (M .rbx), 6⟩ }
+  , { id := "adox_rr_d", mnemonic := "adox", asm := "adoxl %ecx, %eax"
+    , bytes := "f30f38f6c1", instr := ⟨.adx true .d .rax (R .rcx), 5⟩ }
+  , { id := "adox_rm_d", mnemonic := "adox", asm := "adoxl (%rbx), %eax"
+    , bytes := "f30f38f603", instr := ⟨.adx true .d .rax (M .rbx), 5⟩ }
+  -- ⭐⭐ THE BIT STRING (D331, reversing D23): a memory base with a REGISTER offset.
+  -- The offset is signed and moves the byte address, so these vectors are chosen for
+  -- WHERE the bit lands, not for what the operand holds.  Three groups:
+  --   · offset RCX, base (%rbx) — the forms that claim the four roster rows.  RCX sweeps
+  --     `adversarial`: in-word offsets where D23's modulo rule happens to agree, the word
+  --     boundaries 15/16 and 127/128, far positive offsets, and negative ones at width
+  --     (0xFFFF is −1 at `.w`, 0xFFFFFFFF at `.l`).
+  --   · offset RDX = ~RAX, base 0x10(%rbx) — the small RAX values make −1, −2, −3, −16,
+  --     −17, −128, −129, −256: below the base, several words away, inside the window.
+  --   · three FIXED far offsets with a displacement that brings the bit back to 0x2000:
+  --     SP = 0x8000 is −32768 at 16 bits (−4096 bytes) and +32768 at 32 (+4096 bytes);
+  --     RBX = 0x2000 is +1024 bytes at 64.
+  -- ⚠️ Out of the window a read is 0 on both sides and a write is unobserved, so those
+  -- cases agree by construction; D331 counts the in-window cases per vector.
+  -- Bytes and lengths are clang's (`-target x86_64-unknown-linux-gnu`, `objdump -d`).
+  , { id := "bt_mr_w", mnemonic := "bt", asm := "btw %cx, (%rbx)", bytes := "660fa30b"
+    , instr := ⟨.bit .bt .w (M .rbx) (R .rcx), 4⟩ }
+  , { id := "bt_mr_l", mnemonic := "bt", asm := "btl %ecx, (%rbx)", bytes := "0fa30b"
+    , instr := ⟨.bit .bt .d (M .rbx) (R .rcx), 3⟩ }
+  , { id := "bt_mr_q", mnemonic := "bt", asm := "btq %rcx, (%rbx)", bytes := "480fa30b"
+    , instr := ⟨.bit .bt .q (M .rbx) (R .rcx), 4⟩ }
+  , { id := "bts_mr_w", mnemonic := "bts", asm := "btsw %cx, (%rbx)", bytes := "660fab0b"
+    , instr := ⟨.bit .bts .w (M .rbx) (R .rcx), 4⟩ }
+  , { id := "bts_mr_l", mnemonic := "bts", asm := "btsl %ecx, (%rbx)", bytes := "0fab0b"
+    , instr := ⟨.bit .bts .d (M .rbx) (R .rcx), 3⟩ }
+  , { id := "bts_mr_q", mnemonic := "bts", asm := "btsq %rcx, (%rbx)", bytes := "480fab0b"
+    , instr := ⟨.bit .bts .q (M .rbx) (R .rcx), 4⟩ }
+  , { id := "btr_mr_w", mnemonic := "btr", asm := "btrw %cx, (%rbx)", bytes := "660fb30b"
+    , instr := ⟨.bit .btr .w (M .rbx) (R .rcx), 4⟩ }
+  , { id := "btr_mr_l", mnemonic := "btr", asm := "btrl %ecx, (%rbx)", bytes := "0fb30b"
+    , instr := ⟨.bit .btr .d (M .rbx) (R .rcx), 3⟩ }
+  , { id := "btr_mr_q", mnemonic := "btr", asm := "btrq %rcx, (%rbx)", bytes := "480fb30b"
+    , instr := ⟨.bit .btr .q (M .rbx) (R .rcx), 4⟩ }
+  , { id := "btc_mr_w", mnemonic := "btc", asm := "btcw %cx, (%rbx)", bytes := "660fbb0b"
+    , instr := ⟨.bit .btc .w (M .rbx) (R .rcx), 4⟩ }
+  , { id := "btc_mr_l", mnemonic := "btc", asm := "btcl %ecx, (%rbx)", bytes := "0fbb0b"
+    , instr := ⟨.bit .btc .d (M .rbx) (R .rcx), 3⟩ }
+  , { id := "btc_mr_q", mnemonic := "btc", asm := "btcq %rcx, (%rbx)", bytes := "480fbb0b"
+    , instr := ⟨.bit .btc .q (M .rbx) (R .rcx), 4⟩ }
+  , { id := "bt_mr_neg_w", mnemonic := "bt", asm := "btw %dx, 0x10(%rbx)", bytes := "660fa35310"
+    , instr := ⟨.bit .bt .w (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "bt_mr_neg_l", mnemonic := "bt", asm := "btl %edx, 0x10(%rbx)", bytes := "0fa35310"
+    , instr := ⟨.bit .bt .d (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 4⟩ }
+  , { id := "bt_mr_neg_q", mnemonic := "bt", asm := "btq %rdx, 0x10(%rbx)", bytes := "480fa35310"
+    , instr := ⟨.bit .bt .q (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "bts_mr_neg_w", mnemonic := "bts", asm := "btsw %dx, 0x10(%rbx)", bytes := "660fab5310"
+    , instr := ⟨.bit .bts .w (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "bts_mr_neg_l", mnemonic := "bts", asm := "btsl %edx, 0x10(%rbx)", bytes := "0fab5310"
+    , instr := ⟨.bit .bts .d (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 4⟩ }
+  , { id := "bts_mr_neg_q", mnemonic := "bts", asm := "btsq %rdx, 0x10(%rbx)", bytes := "480fab5310"
+    , instr := ⟨.bit .bts .q (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "btr_mr_neg_w", mnemonic := "btr", asm := "btrw %dx, 0x10(%rbx)", bytes := "660fb35310"
+    , instr := ⟨.bit .btr .w (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "btr_mr_neg_l", mnemonic := "btr", asm := "btrl %edx, 0x10(%rbx)", bytes := "0fb35310"
+    , instr := ⟨.bit .btr .d (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 4⟩ }
+  , { id := "btr_mr_neg_q", mnemonic := "btr", asm := "btrq %rdx, 0x10(%rbx)", bytes := "480fb35310"
+    , instr := ⟨.bit .btr .q (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "btc_mr_neg_w", mnemonic := "btc", asm := "btcw %dx, 0x10(%rbx)", bytes := "660fbb5310"
+    , instr := ⟨.bit .btc .w (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "btc_mr_neg_l", mnemonic := "btc", asm := "btcl %edx, 0x10(%rbx)", bytes := "0fbb5310"
+    , instr := ⟨.bit .btc .d (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 4⟩ }
+  , { id := "btc_mr_neg_q", mnemonic := "btc", asm := "btcq %rdx, 0x10(%rbx)", bytes := "480fbb5310"
+    , instr := ⟨.bit .btc .q (.mem { base := some .rbx, disp := 0x10 }) (R .rdx), 5⟩ }
+  , { id := "btsw_far_neg", mnemonic := "bts", asm := "btsw %sp, 0x1000(%rbx)"
+    , bytes := "660faba300100000"
+    , instr := ⟨.bit .bts .w (.mem { base := some .rbx, disp := 0x1000 }) (R .rsp), 8⟩ }
+  , { id := "btcl_far_pos", mnemonic := "btc", asm := "btcl %esp, -0x1000(%rbx)"
+    , bytes := "0fbba300f0ffff"
+    , instr := ⟨.bit .btc .d (.mem { base := some .rbx, disp := 0xFFFFFFFFFFFFF000 }) (R .rsp), 7⟩ }
+  , { id := "btrq_far_pos", mnemonic := "btr", asm := "btrq %rbx, -0x400(%rbx)"
+    , bytes := "480fb39b00fcffff"
+    , instr := ⟨.bit .btr .q (.mem { base := some .rbx, disp := 0xFFFFFFFFFFFFFC00 }) (R .rbx), 8⟩ }
+  , { id := "lock_btsl_neg", mnemonic := "bts", asm := "lock btsl %edx, 0x10(%rbx)"
+    , bytes := "f00fab5310"
+    , instr := ⟨.bit .bts .d (.mem { base := some .rbx, disp := 0x10, lock := true }) (R .rdx), 5⟩ }
   ]
 
 /-! ## Pre-states: adversarial first, then pseudo-random

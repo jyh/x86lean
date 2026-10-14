@@ -49,6 +49,25 @@ jobs:
             sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x SSE2
             test "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = 0
           fi
+          # D330: the integer path needs BMI2 (MULX) and ADX (ADCX/ADOX). Printed here as the OS reports them;
+          # int_probe reads CPUID leaf 7 itself and REFUSES (exit 2) if either is absent, so this is a record, not
+          # the guard.
+          # D334 adds BMI1 (ANDN, BEXTR, BLSMSK, BLSR); int_probe reads CPUID itself and refuses without BMI1, BMI2, ADX or SSE2.
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow bmi1 /proc/cpuinfo || echo "bmi1: NOT REPORTED"
+            grep -m1 -ow bmi2 /proc/cpuinfo || echo "bmi2: NOT REPORTED"
+            grep -m1 -ow adx /proc/cpuinfo || echo "adx: NOT REPORTED"
+          else
+            sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x -e BMI1 -e BMI2 -e ADX || echo "BMI1/BMI2/ADX: NOT REPORTED"
+          fi
+          # D336: the shuffle path (and D335's PMADDUBSW, PMULHRSW) needs SSSE3 (PSHUFB, PALIGNR) and SSE4.1 (PINSRD/Q, PEXTRD/Q); shuf_probe and simda_probe read CPUID
+          # themselves and refuse without what they need, so this is a record, not the guard.
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow ssse3 /proc/cpuinfo || echo "ssse3: NOT REPORTED"
+            grep -m1 -ow sse4_1 /proc/cpuinfo || echo "sse4_1: NOT REPORTED"
+          else
+            sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x -e SSSE3 -e SSE4.1 || echo "SSSE3/SSE4.1: NOT REPORTED"
+          fi
 
       - name: Rows, derived from the rules (never typed)
         working-directory: hwprobe
@@ -59,6 +78,23 @@ jobs:
           python3 mk_rows.py --plant-op > rows_badop.h
           python3 mk_rows.py --plant-packed > rows_pplant.h
           python3 mk_rows.py --plant-pop > rows_pbadop.h
+          python3 mk_int_rows.py > int_rows.h
+          python3 mk_int_rows.py --plant > int_rows_plant.h
+          python3 mk_int_rows.py --plant-op > int_rows_badop.h
+          python3 mk_int_rows.py --plant-new > int_rows_plantnew.h
+          python3 mk_bitstr_rows.py > bitstr_rows.h
+          python3 mk_bitstr_rows.py --plant > bitstr_rows_plant.h
+          python3 mk_bitstr_rows.py --plant-mem > bitstr_rows_pmem.h
+          python3 mk_bitstr_rows.py --plant-stray > bitstr_rows_stray.h
+          python3 mk_bitstr_rows.py --plant-op > bitstr_rows_badop.h
+          python3 mk_shuf_rows.py > shuf_rows.h
+          python3 mk_shuf_rows.py --plant > shuf_rows_plant.h
+          python3 mk_shuf_rows.py --plant-op > shuf_rows_badop.h
+          python3 mk_shuf_rows.py --plant-zx > shuf_rows_zx.h
+          python3 mk_simda_rows.py --reach
+          python3 mk_simda_rows.py > simda_rows.h
+          python3 mk_simda_rows.py --plant > simda_rows_plant.h
+          python3 mk_simda_rows.py --plant-op > simda_rows_badop.h
 
       - name: Build
         working-directory: hwprobe
@@ -72,6 +108,28 @@ jobs:
           sed 's/"rows.h"/"rows_pbadop.h"/' probe.c > probe_pbadop.c
           gcc -O1 -o probe_pplant probe_pplant.c sse_ops.S
           gcc -O1 -o probe_pbadop probe_pbadop.c sse_ops.S
+          gcc -O1 -o int_probe int_probe.c int_ops.S
+          sed 's/"int_rows.h"/"int_rows_plant.h"/' int_probe.c > int_probe_plant.c
+          sed 's/"int_rows.h"/"int_rows_badop.h"/' int_probe.c > int_probe_badop.c
+          gcc -O1 -o int_probe_plant int_probe_plant.c int_ops.S
+          gcc -O1 -o int_probe_badop int_probe_badop.c int_ops.S
+          sed 's/"int_rows.h"/"int_rows_plantnew.h"/' int_probe.c > int_probe_plantnew.c
+          gcc -O1 -o int_probe_plantnew int_probe_plantnew.c int_ops.S
+          gcc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S
+          for v in plant pmem stray badop; do
+            sed "s/\"bitstr_rows.h\"/\"bitstr_rows_$v.h\"/" bitstr_probe.c > bitstr_probe_$v.c
+            gcc -O1 -o bitstr_probe_$v bitstr_probe_$v.c bitstr_ops.S
+          done
+          gcc -O1 -o shuf_probe shuf_probe.c shuf_ops.S
+          for v in plant badop zx; do
+            sed "s/\"shuf_rows.h\"/\"shuf_rows_$v.h\"/" shuf_probe.c > shuf_probe_$v.c
+            gcc -O1 -o shuf_probe_$v shuf_probe_$v.c shuf_ops.S
+          done
+          gcc -O1 -o simda_probe simda_probe.c simda_ops.S
+          for v in plant badop; do
+            sed "s/\"simda_rows.h\"/\"simda_rows_$v.h\"/" simda_probe.c > simda_probe_$v.c
+            gcc -O1 -o simda_probe_$v simda_probe_$v.c simda_ops.S
+          done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
       # so --plant-packed flips a bit of a packed row's HIGH quadword, and --plant-pop a packed instruction byte.
@@ -98,3 +156,160 @@ jobs:
       - name: Referee
         working-directory: hwprobe
         run: ./probe
+
+      # D330: THE INTEGER PATH (ADCX, ADOX, MULX), with its OWN pair of controls — a plant in an SSE row says nothing
+      # about the GPR/RFLAGS comparison. A wrong expectation (CF flipped in one row) must red exactly that row, and a
+      # wrong declared instruction byte must refuse the run.
+      - name: Integer controls (a wrong expectation reds exactly one row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./int_probe_plant > int_plant.out; rc_plant=$?
+          ./int_probe_badop > int_badop.out; rc_badop=$?
+          set -e
+          head -1 int_plant.out; grep '^DIFF' int_plant.out; tail -1 int_plant.out; cat int_badop.out
+          echo "int plant rc=$rc_plant (want 1) · int badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' int_plant.out)" = 1
+          grep -q '^DIFF adcxq_rr_zero_c0 ' int_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED i_adcxq_rr:' int_badop.out
+
+      # D334: THE MASK'S OWN CONTROL. W1c rows compare RFLAGS on a per-row mask (the SDM leaves AF/PF, and for BEXTR SF,
+      # undefined). A mask that dropped a DEFINED flag would make rows vacuous on it, so a flipped ZF in a masked row
+      # (andnq_rr_zero) must red exactly that row.
+      - name: Integer mask control (a defined flag in a masked row is still compared)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./int_probe_plantnew > int_plantnew.out; rc_pn=$?
+          set -e
+          grep '^DIFF' int_plantnew.out; tail -1 int_plantnew.out
+          echo "int plant-new rc=$rc_pn (want 1)"
+          test "$rc_pn" = 1
+          test "$(grep -c '^DIFF' int_plantnew.out)" = 1
+          grep -q '^DIFF andnq_rr_zero ' int_plantnew.out
+
+      - name: Integer referee
+        working-directory: hwprobe
+        run: ./int_probe
+
+      # D333: THE BIT-STRING PATH (BT/BTS/BTR/BTC, memory base, register offset), with its OWN controls — a CF plant, a
+      # MEMORY plant (one BTS row expects the x86isa rule's byte), a STRAY plant (the probe watches the wrong byte, so the
+      # real write lands where the whole-buffer comparison expects PATTERN), and a wrong declared instruction byte.
+      - name: Bit-string controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./bitstr_probe_plant > bs_plant.out; rc_plant=$?
+          ./bitstr_probe_pmem > bs_pmem.out; rc_pmem=$?
+          ./bitstr_probe_stray > bs_stray.out; rc_stray=$?
+          ./bitstr_probe_badop > bs_badop.out; rc_badop=$?
+          set -e
+          grep '^DIFF' bs_plant.out; grep '^DIFF' bs_pmem.out; grep '^DIFF' bs_stray.out; cat bs_badop.out
+          echo "bs plant rc=$rc_plant (want 1) · pmem rc=$rc_pmem (want 1) · stray rc=$rc_stray (want 1) · badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' bs_plant.out)" = 1
+          grep -q '^DIFF btw_mr_p0_v00 ' bs_plant.out
+          test "$rc_pmem" = 1
+          test "$(grep -c '^DIFF' bs_pmem.out)" = 1
+          grep -q '^DIFF btsw_mr_m1_v00 ' bs_pmem.out
+          test "$rc_stray" = 1
+          test "$(grep -c '^DIFF' bs_stray.out)" = 1
+          grep -q '^DIFF btcw_mr_p0_v00 .*STRAY WRITE' bs_stray.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED b_btw_mr:' bs_badop.out
+
+      - name: Bit-string referee (the verdict is the SDM column; the x86isa column is a reading)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./bitstr_probe > bitstr.out; rc=$?
+          set -e
+          grep -v '^ok  ' bitstr.out || true
+          echo "--- negative offsets where the two rules differ (sample: -1, -3, -4097) ---"
+          grep -E '_m(1|3|4097)_' bitstr.out | grep 'rules differ' || true
+          echo "bitstr rc=$rc"
+          test "$rc" = 0
+
+      # D336: THE SHUFFLE PATH (PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q), with its OWN controls — a plant in the HIGH quadword of
+      # XMM0's expectation (the 128-bit comparison), a wrong declared instruction byte, and a set bit 32 in one PEXTRD row's
+      # expected RAX (the zero-extension is compared, not assumed).
+      - name: Shuffle controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./shuf_probe_plant > sh_plant.out; rc_plant=$?
+          ./shuf_probe_badop > sh_badop.out; rc_badop=$?
+          ./shuf_probe_zx > sh_zx.out; rc_zx=$?
+          set -e
+          head -1 sh_plant.out; grep '^DIFF' sh_plant.out; cat sh_badop.out; grep '^DIFF' sh_zx.out
+          echo "shuf plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · zx rc=$rc_zx (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' sh_plant.out)" = 1
+          grep -q '^DIFF pshufb_rr_a1_ident ' sh_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED s_pshufb_rr:' sh_badop.out
+          test "$rc_zx" = 1
+          test "$(grep -c '^DIFF' sh_zx.out)" = 1
+          grep -q '^DIFF pextrd_rr_i1_p1 ' sh_zx.out
+
+      - name: Shuffle referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./shuf_probe > shuf.out; rc=$?
+          set -e
+          head -1 shuf.out; grep -v '^ok  ' shuf.out || true
+          echo "shuf rc=$rc"
+          test "$rc" = 0
+
+      # D335: THE PACKED-INTEGER ARITHMETIC PATH (PMADDWD … PACKSSDW, xmm and m128), with its OWN pair of controls — a plant
+      # in any other path says nothing about this 128-bit comparison. A wrong expectation (bit 64, the HIGH quadword, of row
+      # 0) must red exactly that row, and a wrong declared instruction byte must refuse the run.
+      - name: Packed-integer controls (a wrong expectation reds exactly one row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./simda_probe_plant > simda_plant.out; rc_plant=$?
+          ./simda_probe_badop > simda_badop.out; rc_badop=$?
+          set -e
+          head -1 simda_plant.out; grep '^DIFF' simda_plant.out; tail -1 simda_plant.out; cat simda_badop.out
+          echo "simda plant rc=$rc_plant (want 1) · simda badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' simda_plant.out)" = 1
+          grep -q '^DIFF pmaddwd_xx_edge0 ' simda_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED v_pmaddwd_xx:' simda_badop.out
+
+      - name: Packed-integer referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./simda_probe > simda.out; rc=$?
+          set -e
+          head -1 simda.out
+          grep -v '^ok  ' simda.out || true
+          echo "simda rc=$rc"
+          test "$rc" = 0
+
+      - name: Bit-string rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitstr-${{ matrix.os }}
+          path: hwprobe/bitstr*.out
+
+      - name: Shuffle rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shuf-${{ matrix.os }}
+          path: hwprobe/shuf*.out
+
+      - name: Packed-integer rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simda-${{ matrix.os }}
+          path: hwprobe/simda*.out

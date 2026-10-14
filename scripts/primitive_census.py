@@ -421,6 +421,183 @@ def model_forms(work):
     return nvec, forms, strict, modes
 
 
+
+# ── the silicon side (D332): a SEPARATE column, never pooled ────────────────
+# ⚖️ THE RULING (the helm, 2026-10-10): count MECHANISMS, not voices.  A form
+# `siliconTable` refers to a processor is refereed by `hwprobe/` (rows derived
+# from the SDM's rules, run on two vendors' silicon, the model pinned to the
+# same rows by `decide`) — a different instrument from the differential, and
+# NOT a semantic oracle: a processor agreeing on CHOSEN rows is not a second
+# model agreeing on the swept pre-states.  So it gets its own column and its own
+# verdict, and the ALL COVERED verdict stays the differential's alone.  A paper
+# may cite the two side by side, never summed.
+# ⛔ The processor names are the records' (D330 run 38096322511; D334 runs
+# 38102866008, 38106227137), and `silicon_forms` refuses if either is absent
+# from D334's text — a header naming a referee the record does not is a claim.
+# WRONG IF a second EXECUTABLE model of MULX turns up: its forms then move to the
+# differential column (with vectors) and this column keeps its rows.
+# ⭐ D335 (V1a): a second probe path, the SSE-legacy packed-integer arithmetic (`hwprobe/mk_simda_rows.py`,
+# `simda_probe.c`), refereed by a DIFFERENT AMD part (its run drew an EPYC 9V45).  So the referees are named PER
+# DECISION, every name must be in its own decision's text, and the label names every pair — a header naming one
+# pair over forms another pair refereed would be a claim.
+SILICON_REFEREES = (
+    ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+)
+SILICON_DECISION = "D334"
+SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
+SILICON_REFEREE = tuple(sorted({n for _d, rs in SILICON_REFEREES for n in rs}))
+SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
+SILICON_LABEL = "silicon: " + SILICON_PAIRS + ", hwprobe — NOT a semantic oracle"
+# Each probe path: the generator, the probe that refuses to run without the declared bytes, the prefix of its
+# functions, and the regex of one of its ROW lines (to count the rows calling each function).
+SILICON_PATHS = (
+    ("mk_int_rows.py", "int_probe.c", "i_", r'^  \{"[^"]+", (i_\w+), 0x'),
+    ("mk_shuf_rows.py", "shuf_probe.c", "s_", r'^  \{"[^"]+", (s_\w+), 0x'),
+    ("mk_simda_rows.py", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+)
+
+
+def silicon_mnemonics():
+    """The `mnemonic := "…"` strings of `def siliconTable` (X86/Coverage.lean),
+    read from the tree — never a hand list."""
+    src = open(os.path.join(ROOT, "X86", "Coverage.lean"), encoding="utf-8").read()
+    # the definition runs to the first blank line, and its list closes there
+    m = re.search(r'^def siliconTable\b.*?(?=\n[ \t]*\n)', src, re.M | re.S)
+    if not m or not m.group(0).rstrip().endswith("]"):
+        raise SystemExit("⛔ silicon: `def siliconTable` not found in X86/Coverage.lean")
+    mn = re.findall(r'mnemonic := "([^"]+)"', m.group(0))
+    if not mn:
+        raise SystemExit("⛔ silicon: `siliconTable` has no rows — refusing, not reading zero")
+    return mn
+
+
+def silicon_key(f, mn):
+    """The `siliconTable` mnemonic a form belongs to, or None: its printed mnemonic if that is a row, else its
+    width-erased one (D336)."""
+    if f[0] in mn:
+        return f[0]
+    w = widthless(f)[0]
+    return w if w in mn else None
+
+
+def silicon_forms(work):
+    """{form: [hwprobe function, …]} for every form the processor probe declares
+    it executes (the bytes `int_probe.c` and, since D336, `shuf_probe.c` — and, D335, `simda_probe.c` —
+    refuse to run without, read back at each function's `_at` label, for every function at least one row
+    calls)
+    whose width-erased mnemonic is a `siliconTable` mnemonic.  The bytes go
+    through the SAME clang + objdump + `form_of` as both other sides.  ADCX/ADOX
+    share the path and are excluded by the filter: the differential referees
+    them."""
+    # the referee names are checked against the record, whitespace-flattened
+    # (DECISIONS.md is hard-wrapped, and a phrase can straddle a line break)
+    dec = " ".join(open(os.path.join(ROOT, "docs", "DECISIONS.md"), encoding="utf-8").read().split())
+    for dn, refs in SILICON_REFEREES:
+        k = dec.find(f"## {dn} ")
+        sect = dec[k:dec.find(" ## D", k + 4)] if k >= 0 else ""
+        if len(sect) < 1000:
+            raise SystemExit(f"⛔ silicon: {dn}'s section not found ({len(sect)} chars)")
+        for name in refs:
+            if name not in sect:
+                raise SystemExit(f"⛔ silicon: the referee `{name}` is not in {dn}'s text")
+    mn = set(silicon_mnemonics())
+    # D336, D335: THREE generators declare silicon-run forms (SILICON_PATHS) — the integer path (D330, D334), the
+    # shuffle path (D336) and the packed-integer path (D335). Each must yield both its op table and its rows; the
+    # forms are pooled ACROSS the probes (all are the silicon instrument), never with the differential.
+    nrows, ops = collections.Counter(), []
+    for gen, _probe, pre, row_re in SILICON_PATHS:
+        q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen)], capture_output=True, text=True)
+        if q.returncode != 0:
+            raise SystemExit(f"⛔ silicon: hwprobe/{gen} failed:\n" + q.stderr)
+        nr = collections.Counter(re.findall(row_re, q.stdout, re.M))
+        # an operation line: {"fn", fn_at, LEN, [the SSSE3 flag,] {bytes}}
+        op = re.findall(r'^  \{"(' + pre + r'\w+)", ' + pre + r'\w+_at, (\d+), (?:\d+, )?\{([^}]*)\}\},$',
+                        q.stdout, re.M)
+        if not op or not nr:
+            raise SystemExit(f"⛔ silicon: no operations/rows parsed from {gen}'s output")
+        nrows.update(nr)
+        ops += op
+    asm = [".text"]
+    for fn, n, bs in ops:
+        b = [x.strip() for x in bs.split(",")]
+        if len(b) != int(n):
+            raise SystemExit(f"⛔ silicon: {fn} declares {n} bytes and lists {len(b)}")
+        if nrows[fn]:
+            asm += [f"_{fn}:", "  .byte " + ", ".join(b)]
+    os.makedirs(work, exist_ok=True)
+    s = os.path.join(work, "silicon.s")
+    open(s, "w", encoding="utf-8").write("\n".join(asm) + "\n")
+    obj = os.path.join(work, "silicon.o")
+    rc, out = clang(["-c", s, "-o", obj])
+    if rc != 0:
+        raise SystemExit("⛔ silicon: the declared bytes do not assemble:\n" + out)
+    forms = collections.defaultdict(list)
+    for fn, ins in disassemble(obj).items():
+        if len(ins) != 1:
+            raise SystemExit(f"⛔ silicon: {fn}'s declared bytes are {len(ins)} instructions, not one")
+        f = form_of(ins[0]["text"])[0]
+        # ⚠️ D336: an SSE mnemonic's last letter is part of its NAME, not a width suffix — `pshufb`, `pinsrq` and
+        # `pextrq` width-erase to `pshuf`, `pinsr`, `pextr` and would match no row. A form is keyed by its printed
+        # mnemonic when that is a siliconTable mnemonic, and by the width-erased one otherwise (`andnq` → `andn`).
+        key = silicon_key(f, mn)
+        if key is not None:
+            forms[f].append(strip_us(fn))
+    got = {silicon_key(f, mn) for f in forms}
+    if got != mn:
+        raise SystemExit("⛔ silicon: siliconTable mnemonic(s) with no probed form: "
+                         + ", ".join(sorted(mn - got)))
+    return dict(forms)
+
+
+SILICON_COL = "silicon-refereed (" + SILICON_PAIRS + ", hwprobe; NOT a semantic oracle)"
+
+
+def silcell(r):
+    """The per-row silicon cell: the row's not-covered forms the processors referee."""
+    if not r.get("silicon"):
+        return "—"
+    v = ", ".join(f"`{fmt_form(f)}`×{k}" for f, k in sorted(r["silicon"].items(), key=lambda t: -t[1]))
+    return v + (" · **COVERED WITH SILICON**" if r.get("with_silicon") else "")
+
+
+def check_disjoint(forms, sil):
+    """None when no silicon form is a differential form.  `Tests/Coverage.lean`
+    proves `siliconTable`'s mnemonics are in no differential table, so an overlap
+    is either a pooling defect on the model side or D332's wrong-if (a second
+    executable model): either way the column is no longer what it says."""
+    both = sorted(fmt_form(f) for f in sil if f in forms)
+    return None if not both else ("silicon form(s) also in the differential set: " + ", ".join(both)
+                                  + " — pooled, or a second executable model (D332: move them to the "
+                                  "differential column)")
+
+
+def classify_silicon(rows, sil):
+    """Mark each row's silicon-refereed not-covered forms, and the separate
+    verdict COVERED WITH SILICON.  ⛔ It never touches `all`: that is the
+    differential's verdict, and `check_no_pooling` refuses if it moved."""
+    for r in rows:
+        if "error" in r:
+            continue
+        r["silicon"] = {f: k for f, k in r["missing"].items() if f in sil}
+        r["with_silicon"] = (not r["all"] and not r["external"] and not r["badmodes"]
+                             and bool(r["missing"]) and len(r["silicon"]) == len(r["missing"]))
+    return rows
+
+
+def check_no_pooling(snapshot, rows):
+    """None when every row's differential verdict equals the snapshot taken
+    BEFORE the silicon forms were loaded; else the first difference."""
+    for r in rows:
+        if "error" in r:
+            continue
+        if bool(r["all"]) != snapshot.get(r["id"]):
+            return (f"{r['id']}: differential verdict {snapshot.get(r['id'])} -> {r['all']} "
+                    f"after the silicon classification")
+        if r.get("with_silicon") and r["all"]:
+            return f"{r['id']}: counted both ALL COVERED and COVERED WITH SILICON"
+    return None
+
 # ── the candidate side ──────────────────────────────────────────────────────
 def build_candidate(c, src, work, scalar):
     cid, fam, ref, kind, path, syms, extra = c
@@ -605,7 +782,8 @@ def simd_content(forms):
             "VEX/EVEX-encoded", "YMM operand", "ZMM operand", "x87", "MMX register")}
 
 
-def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=None):
+def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=None,
+           sil=None, s2n_sil=None):
     L = []
     sib_all = set().union(*[r["sibling"] for r in rows if "error" not in r])
     w = L.append
@@ -641,7 +819,18 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
     w("- **The reference column is not uniform.** Only the s2n-bignum and Vale rows "
       "measure the verified artifact itself; a HACL* row measures clang's compilation "
       "of verified C; the checksum rows have a specification and test vectors and no "
-      "machine-checked reference was found.\n")
+      "machine-checked reference was found.")
+    if sil is not None:
+        w(f"- **A second instrument, in its own column (D332).** {len(sil)} forms of "
+          f"{len({silicon_key(f, set(silicon_mnemonics())) for f in sil})} mnemonics are in `siliconTable`: x86isa "
+          "refuses them, so no differential vector can exist, and they are refereed by "
+          f"PROCESSORS instead ({SILICON_LABEL}; rows derived from the SDM's rules, the "
+          "model pinned to the same rows by `decide`). That is NOT a semantic oracle — a "
+          "processor agreeing on chosen rows is not a second model agreeing on the swept "
+          "pre-states — so those forms are credited in a separately labelled column and "
+          "verdict, **never in ALL COVERED**. The two counts may be cited side by side, "
+          "never summed.")
+    w("")
     if simd:
         w("## The vectors' SIMD and floating-point content (derived)\n")
         w("The README's scope lines name these classes and point here for the counts.\n")
@@ -673,11 +862,13 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
       "`strict` counts not-covered forms with the addressing mode kept in the "
       "form. **Same-register operands are not a dimension here** (`xorq %r8,%r8` "
       "is the form `xorq r64,r64`), and neither is which register is used.\n")
-    w("| candidate | family | reference | instrs | unreached | forms | not covered | strict | verdict |")
-    w("|---|---|---|---:|---:|---:|---|---:|---|")
+    sh = "" if sil is None else (" " + SILICON_COL + " |")
+    w("| candidate | family | reference | instrs | unreached | forms | not covered | strict | verdict |" + sh)
+    w("|---|---|---|---:|---:|---:|---|---:|---|" + ("" if sil is None else "---|"))
     for r in rows:
         if "error" in r:
-            w(f"| `{r['id']}` | {r['family']} | {r['ref']} | — | — | — | **{r['error']}** | — | NOT MEASURED |")
+            w(f"| `{r['id']}` | {r['family']} | {r['ref']} | — | — | — | **{r['error']}** | — | NOT MEASURED |"
+              + ("" if sil is None else " — |"))
             continue
         miss = ", ".join(f"`{fmt_form(f)}`×{k}" + ("†" if f in r["sibling"] else "")
                          + (f" ({ext_tag(f)})" if ext_tag(f) else "")
@@ -694,8 +885,29 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
                                    f"{r['scalar_missing']} missing" if r["scalar_missing"]
                                    else "covered, calls out"))
         w(f"| `{r['id']}` | {r['family']} | {r['ref']} | {r['n']} | {r['unreached']} | {len(r['forms'])} "
-          f"| {miss} | {r['strict_missing']} | {verdict}{sc} |")
+          f"| {miss} | {r['strict_missing']} | {verdict}{sc} |" + ("" if sil is None else f" {silcell(r)} |"))
     w("")
+    if sil is not None:
+        ok_d = [r for r in rows if r.get("all") and not r.get("external")]
+        ws = [r for r in rows if r.get("with_silicon")]
+        w(f"## The silicon column, separately: {len(ws)} more candidates are COVERED WITH SILICON\n")
+        w(f"**Referee: {SILICON_LABEL}.** A candidate is COVERED WITH SILICON when it is not "
+          "ALL COVERED, does not call out of its object, uses only addressing modes the "
+          "vectors use, and every form it lacks is a `siliconTable` form the processor probe "
+          "executed. The verdict above is computed before these forms are loaded and the run "
+          "refuses if any differential verdict moves after (D332).\n")
+        w(f"**{len(ok_d)} ALL COVERED (differential, x86isa) · {len(ws)} COVERED WITH SILICON "
+          "(processors, hwprobe)** — two instruments, two counts, cited side by side and never "
+          "added. "
+          + ("COVERED WITH SILICON: " + ", ".join(f"`{r['id']}`" for r in ws) + "." if ws else "") + "\n")
+        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s and `hwprobe/mk_simda_rows.py`'s declared bytes, keyed by "
+          "the same disassembler and classifier as both other sides):\n")
+        by = collections.defaultdict(list)
+        for f in sil:
+            by[silicon_key(f, set(silicon_mnemonics()))].append(f)
+        for m in sorted(by):
+            w(f"- `{m}`: " + ", ".join(f"`{fmt_form(f)}`" for f in sorted(by[m], key=str)))
+        w("")
     ids, u, how, alsodone, steps = unlock
     w(f"## The shortest list of new forms that would unlock the next {len(ids)}\n")
     w(f"Search: {how}, over the rows that do not call out of their object. Adding "
@@ -730,10 +942,13 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
     w("## Every not-covered form, by how many candidates need it\n")
     w("† = the same mnemonic and operand shape IS tested at another width, so the "
       "form needs a vector, not new semantics (S1's five were this kind).\n")
-    w("| form | candidates | tested at another width | extension |\n|---|---:|---|---|")
+    w("| form | candidates | tested at another width | extension |"
+      + ("" if sil is None else " " + SILICON_COL + " |")
+      + "\n|---|---:|---|---|" + ("" if sil is None else "---|"))
     sib = set().union(*[r["sibling"] for r in rows if "error" not in r])
     for f, k in freq.most_common():
-        w(f"| `{fmt_form(f)}` | {k} | {'† yes' if f in sib else 'no'} | {ext_tag(f) or '—'} |")
+        w(f"| `{fmt_form(f)}` | {k} | {'† yes' if f in sib else 'no'} | {ext_tag(f) or '—'} |"
+          + ("" if sil is None else (" **yes** |" if f in sil else " no |")))
     w("")
     if all_s2n:
         tot, okn, byext = all_s2n
@@ -745,6 +960,11 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
         for k, v in byext.most_common():
             w(f"| {k} | {v} |")
         w("")
+        if s2n_sil is not None:
+            w(f"**The silicon column, separately ({SILICON_LABEL}):** {len(s2n_sil)} of the "
+              f"{tot - okn} not-covered functions lack only silicon-refereed forms (COVERED WITH "
+              "SILICON). That figure is not added to the "
+              f"{okn} above." + (" They are: " + ", ".join(f"`{x}`" for x in s2n_sil) + "." if s2n_sil else "") + "\n")
     return "\n".join(L) + "\n"
 
 
@@ -811,6 +1031,15 @@ def run(src, work, out):
         print("⛔ NEGATIVE CONTROL FAILED: the SHA-NI routine is not reported missing sha256rnds2")
         sys.exit(3)
     errs = [r for r in rows if "error" in r]
+    # ⛔ D332: the differential verdict is SNAPSHOT before the silicon forms
+    # exist in this process, and every guard below compares against it.
+    snapshot = {r["id"]: bool(r["all"]) for r in rows if "error" not in r}
+    sil = silicon_forms(work)
+    why = check_disjoint(forms, sil) or check_no_pooling(snapshot, classify_silicon(rows, sil))
+    if why:
+        print("⛔ D332 NO-POOLING: " + why)
+        sys.exit(3)
+    s2n_sil = []
     # the appendix: every s2n-bignum x86 function
     tot, okn, byext = 0, 0, collections.Counter()
     for sub in sorted(os.listdir(os.path.join(src, S2N))):
@@ -826,6 +1055,13 @@ def run(src, work, out):
                 continue
             tot += 1
             score(r, forms, modes_ok, mnems)
+            d_all = bool(r["all"])
+            classify_silicon([r], sil)
+            if bool(r["all"]) != d_all:
+                print(f"⛔ D332 NO-POOLING: s2n `{nm}` changed differential verdict")
+                sys.exit(3)
+            if r["with_silicon"]:
+                s2n_sil.append(nm)
             if r["all"] and not r["external"]:
                 okn += 1
             else:
@@ -847,8 +1083,12 @@ def run(src, work, out):
     meta = {"toolchain": f"`{q.stdout.splitlines()[0]}`, `-target {TARGET}`, "
                          f"`{' '.join(CFLAGS)}`, disassembled by `objdump` (LLVM)"}
     text = render(meta, nvec, len(forms), modes_ok, rows, unlock, strict_ok, (tot, okn, byext),
-                  simd_content(forms))
+                  simd_content(forms), sil, s2n_sil)
     ok = [r["id"] for r in rows if r.get("all") and not r.get("external")]
+    if sorted(ok) != sorted(i for i, a in snapshot.items() if a and not byid[i]["external"]):
+        print("⛔ D332 NO-POOLING: the ALL COVERED list differs from the pre-silicon snapshot")
+        sys.exit(3)
+    ws = [r["id"] for r in rows if r.get("with_silicon")]
     m = re.search(r"^## The verdict: (\d+) of (\d+) candidates", text, re.M)
     if not m or int(m.group(1)) != len(ok) or int(m.group(2)) != len(rows):
         print(f"⛔ the document's verdict heading ({m.group(0) if m else 'absent'}) "
@@ -862,7 +1102,12 @@ def run(src, work, out):
     print(f"primitive-census: {len(unlock[1])} form(s) unlock {len(unlock[3])} more ({unlock[2]}); "
           f"ladder {len(unlock[4])} steps")
     print(f"primitive-census: s2n-bignum appendix {okn}/{tot} ALL COVERED")
-    print("primitive-census: controls OK (CRC-32 PoC covered; SHA-NI routine refused)")
+    print(f"primitive-census: SILICON COLUMN (separate, never summed; {SILICON_LABEL}): "
+          f"{len(sil)} forms of {len({silicon_key(f, set(silicon_mnemonics())) for f in sil})} siliconTable mnemonics; "
+          f"{len(ws)} COVERED WITH SILICON: " + " ".join(ws)
+          + f"; s2n appendix {len(s2n_sil)} COVERED WITH SILICON")
+    print("primitive-census: controls OK (CRC-32 PoC covered; SHA-NI routine refused; "
+          "differential verdict unmoved by the silicon column)")
     return 0
 
 
@@ -916,7 +1161,46 @@ def selftest():
         print("⛔ addl/addq not width siblings"); bad += 1
     if widthless(("jb", ("rel",))) == widthless(("jl", ("rel",))):
         print("⛔ jb/jl read as width siblings"); bad += 1
-    print("primitive-census selftest:", "FAIL" if bad else f"OK ({len(cases)} shapes + 7 arms)")
+    # ⭐ D332 NO-POOLING, both directions on one fixture: the honest classifier
+    # passes and gives COVERED WITH SILICON to exactly the row that lacks only a
+    # silicon form; two plants that POOL must red the guard.
+    MX = ("mulxq", ("r64", "r64", "r64"))
+    AD = ("addq", ("r64", "r64"))
+    dforms, smods = {AD: ["v"]}, {"base"}
+    sil = {MX: ["i_mulxq_rr"]}
+
+    def fx():
+        mk = lambda i, fs, ext=None, md=None: dict(id=i, forms=fs, modes=md or {}, external=ext or {})
+        rs = [mk("only-diff", {AD: 1}), mk("only-sil", {AD: 1, MX: 2}),
+              mk("sil-and-other", {MX: 1, ("pshufb", ("xmm", "xmm")): 1}),
+              mk("sil-calls-out", {MX: 1}, ext={"memcpy": 1}),
+              mk("sil-bad-mode", {MX: 1}, md={"rip": 1})]
+        for r in rs:
+            score(r, dforms, smods, set())
+        return rs
+    rs = fx()
+    snap = {r["id"]: bool(r["all"]) for r in rs}
+    why = check_no_pooling(snap, classify_silicon(rs, sil))
+    got = [r["id"] for r in rs if r["with_silicon"]]
+    if why or got != ["only-sil"] or [r["id"] for r in rs if r["all"]] != ["only-diff"]:
+        print(f"⛔ honest silicon classification: why={why} with_silicon={got}"); bad += 1
+    # plant 1: a classifier that marks a silicon-completed row ALL COVERED
+    rs = fx()
+    for r in classify_silicon(rs, sil):
+        if r["with_silicon"]:
+            r["all"] = True
+    if check_no_pooling(snap, rs) is None:
+        print("⛔ PLANT (pooling classifier) not caught by check_no_pooling"); bad += 1
+    # plant 2: the realistic defect — the differential re-scored with silicon pooled in
+    rs = fx()
+    for r in rs:
+        score(r, {**dforms, **sil}, smods, set())
+    if check_no_pooling(snap, classify_silicon(rs, sil)) is None:
+        print("⛔ PLANT (silicon pooled into the scorer) not caught by check_no_pooling"); bad += 1
+    # plant 3: a silicon form placed in the differential set
+    if check_disjoint(dforms, sil) is not None or check_disjoint({**dforms, **sil}, sil) is None:
+        print("⛔ check_disjoint does not separate the two sets"); bad += 1
+    print("primitive-census selftest:", "FAIL" if bad else f"OK ({len(cases)} shapes + 11 arms)")
     return 1 if bad else 0
 
 

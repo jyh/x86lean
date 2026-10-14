@@ -98,6 +98,23 @@ FORMS = [
     ("pdep",    "pdepl %ecx, %edx, %eax",   "c4e26bf5c1",         "refuses"),
     ("pext",    "pextl %ecx, %edx, %eax",   "c4e26af5c1",         "refuses"),
     ("rorx",    "rorxl $3, %ecx, %eax",     "c4e37bf0c103",       "refuses"),
+    # ⭐ D330 (W1b): the two ADX forms, MEASURED here before their constructor was written, because the
+    # silicon referee is only the right referee for a form the oracle cannot run.  First declared
+    # `refuses` (the commission's expectation, by analogy with `mulx` above) and MEASURED `executes`,
+    # 88 of 88 each, with both controls behaving — so ADCX/ADOX are differential rows and `mulx` alone
+    # is refereed by silicon.  The row stays here so the reading is re-taken on every run.
+    ("adcx",    "adcxl %ecx, %eax",         "660f38f6c1",         "executes"),
+    ("adox",    "adoxl %ecx, %eax",         "f30f38f6c1",         "executes"),
+    # ⭐ D336 (V1b): the six SSSE3/SSE4.1 shuffle/insert/extract mnemonics, DECLARED `refuses` from
+    # x86isa's catalogue (a `'NIL` semantic function for each) and MEASURED here before any
+    # constructor's referee was fixed — D330's lesson, since the catalogue is a hypothesis.  A
+    # mnemonic that executes would be a differential row instead of a silicon one.
+    ("pshufb",  "pshufb %xmm1, %xmm0",      "660f3800c1",         "refuses"),
+    ("palignr", "palignr $3, %xmm1, %xmm0", "660f3a0fc103",       "refuses"),
+    ("pinsrd",  "pinsrd $1, %ecx, %xmm0",   "660f3a22c101",       "refuses"),
+    ("pinsrq",  "pinsrq $1, %rcx, %xmm0",   "66480f3a22c101",     "refuses"),
+    ("pextrd",  "pextrd $1, %xmm1, %eax",   "660f3a16c801",       "refuses"),
+    ("pextrq",  "pextrq $1, %xmm1, %rax",   "66480f3a16c801",     "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the
@@ -116,42 +133,32 @@ FORMS = [
     # ⭐ AND A SECOND CONTROL AT THIS BATCH'S OWN FORM, so a run that has stopped
     # seeing memory-operand instructions cannot pass.
     ("CONTROL:cmpxchg8b", "cmpxchg8b (%rbx)", "0fc70b",           "executes"),
-    # ⭐⭐ THE DECLINED ROWS, RECORDED AS **EXECUTES** — and that is the point.
+    # ⭐⭐ THE ROWS THAT USED TO BE DECLINED, STILL RECORDED AS **EXECUTES**.
     #
-    # `claimed_forms.py --remaining` puts these in a bucket called "DECLINED by a
-    # recorded decision", which is only honest if the decline is a DECISION and
-    # not an oracle limitation wearing a decision's name.  Measured: all six
-    # execute at every pre-state, so **oracle support is not what is stopping
-    # them**, and a later reader cannot quietly re-derive "declined" as
-    # "unsupported".
+    # `claimed_forms.py --remaining` had a bucket called "DECLINED by a recorded
+    # decision", which was only honest if each decline was a DECISION and not an
+    # oracle limitation wearing a decision's name.  Measured: all of them execute
+    # at every pre-state, so oracle support was never what stopped them.
     #
-    # D23 — the bit-string `m,r` shape of the bit-test group: `step`'s `.bit`
-    # case takes the offset MODULO the operand width, which is right for a
-    # register destination and wrong here, where the offset is signed and the
-    # effective address moves with it.  ⚠️ Closing D23 is real work in the
-    # PRE-STATES, not in `step`: with RBX at 0x2000 and ECX sweeping the
-    # adversarial list, the effective address leaves the watched window, and an
-    # unobserved region reports agreement.
-    #
-    # ⛔⛔ D25's ROW LEFT THIS LIST IN P2 BATCH 23, AND ITS DEPARTURE IS THE
-    # ENTRY WORTH READING.  `xchg` at a memory operand was declined because its
-    # implicit LOCK is an atomicity claim a model with no LOCK vocabulary could
-    # neither make nor break — and this comment used to end *"oracle support is
-    # not an argument to un-decline it."*  It still is not: what un-declined it
-    # was the VOCABULARY (`Ea.lock`, D77), not the measurement in this table.
-    # The row is gone from here because it is CLAIMED now, and a probe that went
-    # on labelling a claimed row `DECLINED:` would be publishing a decision the
-    # repository no longer holds.
-    #
-    # ⚠️ The count in this comment used to be SIX and is now FOUR; it is written
-    # as "the declined rows" rather than a number, because a number in a comment
-    # beside a list is the thing that goes stale while the list is right (D74).
-    # `claimed_forms.DECLINED` is the table, and `claimed_forms --check` is what
-    # holds it to the claimed set.
-    ("DECLINED:bt m,r",   "btl %ecx,(%rbx)",   "0fa30b",          "executes"),
-    ("DECLINED:bts m,r",  "btsl %ecx,(%rbx)",  "0fab0b",          "executes"),
-    ("DECLINED:btr m,r",  "btrl %ecx,(%rbx)",  "0fb30b",          "executes"),
-    ("DECLINED:btc m,r",  "btcl %ecx,(%rbx)",  "0fbb0b",          "executes"),
+    # ⛔⛔ THE BUCKET IS EMPTY NOW, AND BOTH DEPARTURES ARE WORTH READING.
+    #   · D25's `xchg` rows left in P2 batch 23: their implicit LOCK was an
+    #     atomicity claim a model with no LOCK vocabulary could neither make nor
+    #     break, and what un-declined them was the VOCABULARY (`Ea.lock`, D77), not
+    #     the measurement in this table.
+    #   · D23's four bit-string `m,r` rows left with D331: `step` now addresses one
+    #     byte at EA + (offset SAR 3) for a register offset at a memory base.  This
+    #     comment had said closing D23 was "real work in the PRE-STATES, not in
+    #     `step`" — half right: the pre-states were not changed; the VECTORS chose
+    #     offset registers (RDX = ~RAX) and displacements that land inside the
+    #     watched window, and D331 counts the cases that do.
+    # A probe that went on labelling a claimed row `DECLINED:` would be publishing
+    # a decision the repository no longer holds, so they are `CLAIMED:` here and
+    # stay in the run, because a row that left the residue is exactly the row
+    # whose oracle support somebody will want to re-check.
+    ("CLAIMED:bt m,r",    "btl %ecx,(%rbx)",   "0fa30b",          "executes"),
+    ("CLAIMED:bts m,r",   "btsl %ecx,(%rbx)",  "0fab0b",          "executes"),
+    ("CLAIMED:btr m,r",   "btrl %ecx,(%rbx)",  "0fb30b",          "executes"),
+    ("CLAIMED:btc m,r",   "btcl %ecx,(%rbx)",  "0fbb0b",          "executes"),
     # ⭐ AND `xchg` STAYS IN THE RUN AS AN UNLABELLED FORM, because a row that
     # left the residue is exactly the row whose oracle support somebody will
     # want to re-check — and because dropping it entirely would shrink the

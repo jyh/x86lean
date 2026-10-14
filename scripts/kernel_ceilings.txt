@@ -375,3 +375,24 @@ Tests.LogicMemRel 53 @on yukon.lan
 # runnervmtr4k5) refused ONCE on the NEW unit and printed, verbatim: Tests.LogicMemRel head 37.0 ms ⇒ 111. No `.lean` step follows #73,
 # so it lands in a step of its own (#69's precedent).
 Tests.LogicMemRel 111 @on runnervmtr4k5
+# D334 arm (A) (the W1c pins in their own module, 2026-10-11): the gate's own suggested line from kernel_delta 24d3644 → 4ddeb56,
+# yukon.lan, not retyped: Tests.AnchorsBmi head 3570.0 ms ⇒ max(3570.0 × 3, 50) = 10710. The katmai and runner lines follow
+# those machines' first refusals (D252 §6): no reading of this module exists there yet.
+Tests.AnchorsBmi 10710 @on yukon.lan
+# katmai, 2026-10-11, the line kernel_delta PRINTED on refusing the NEW unit there (base 24d3644 -> 0529afa, --repeats 6):
+# head 3935.0 ms => max(3935.0 x 3, 50) = 11805, copied, not retyped.
+Tests.AnchorsBmi 11805 @on katmai
+# D336 arm (A) (the V1b pins in their own module, 2026-10-11): the gate's own suggested line from kernel_delta a62d055 → 7ea3841,
+# yukon.lan, not retyped: Tests.AnchorsShuf head 1030.0 ms ⇒ max(1030.0 × 3, 50) = 3090. The runner line follows the merge ref's
+# first refusal (D252 §6): no runner reading exists before CI runs the module.
+Tests.AnchorsShuf 3090 @on yukon.lan
+# katmai, 2026-10-13, the line kernel_delta PRINTED on refusing the NEW unit there (base cf408b4 -> 8ca3074, --repeats 6):
+# head 1050.0 ms => max(1050.0 x 3, 50) = 3150, copied, not retyped.
+Tests.AnchorsShuf 3150 @on katmai
+# D335 arm (A) (the V1a pins in their own module, 2026-10-10): the gate's own suggested line from kernel_delta a62d055 → a203602,
+# yukon.lan, not retyped: Tests.AnchorsSimd head 6650.0 ms ⇒ max(6650.0 × 3, 50) = 19950. The runner line follows the merge ref's
+# first refusal (D252 §6): no runner reading exists before CI runs the module.
+Tests.AnchorsSimd 19950 @on yukon.lan
+# katmai, 2026-10-13, the line kernel_delta PRINTED on refusing the NEW unit there (base 34239af -> 9880f78, --repeats 6):
+# head 6770.0 ms => max(6770.0 x 3, 50) = 20310, copied, not retyped.
+Tests.AnchorsSimd 20310 @on katmai

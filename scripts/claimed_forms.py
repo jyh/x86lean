@@ -581,6 +581,8 @@ CLAIMS_NO_ROW = {
     "lock_mov_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
     "lock_lea_ud":        "a LOCK prefix is a prefix on a row already claimed",
     "lock_shl_m_q_ud":    "a LOCK prefix is a prefix on a row already claimed",
+    # D331: the bit-string `bts m,r` row is claimed by `bts_mr_l` and its siblings.
+    "lock_btsl_neg":      "a LOCK prefix is a prefix on a row already claimed",
     # ⭐ P2 ITEM 3.  K files `mov r,imm` as ONE row with six variants and `blqw`
     # widths, and `mov_ri` already claims it: `movabs` is a distinct ENCODING of
     # a claimed row, not a row of its own.  The resolver assembles the roster
@@ -589,6 +591,21 @@ CLAIMS_NO_ROW = {
     "movabs_q":           "movabs is a distinct ENCODING of a row already claimed",
     "movabs_lo32_ones":   "movabs is a distinct ENCODING of a row already claimed",
     "movabs_hi32_ones":   "movabs is a distinct ENCODING of a row already claimed",
+    # ⭐ D330 (W1b): ADCX and ADOX.  A FOURTH reason, stated per member and true of
+    # each: K's tree (the commit `p1/roster.tsv` is generated from) carries NO
+    # adcx or adox rule at all — `find semantics -iname '*adcx*' -o -iname
+    # '*adox*'` returns nothing, against `mulx`'s four files — so the roster has
+    # no row to claim, by derivation and not by exclusion.  Like the SIMD block,
+    # the gate stays two-way: the day a regenerated roster gains the row, these
+    # resolve and this table reports itself stale.
+    "adcx_rr_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adcx_rm_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adcx_rr_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adcx_rm_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rr_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rm_q": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rr_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
+    "adox_rm_d": "ADX: K's tree has no adcx/adox rule, so the P1 roster derived from it has no row",
     # ⭐ P2 BATCH 35 (the `pd` spellings of the two 128-bit moves), added in
     # the SAME COMMIT as the vectors.  Eight entries, one visible line each,
     # for the same reason the batch-15 block states: a prefix pattern would
@@ -1119,8 +1136,11 @@ PUBLISHED_RE = re.compile(
 # `xchg` rows for the implicit LOCK (D25), and the four `bt`-family rows for
 # SIGNED BIT-STRING ADDRESSING (D23), which no LOCK vocabulary touches.
 # `p2_roster.py` derives its sentence from here now instead of asserting one.
-DECLINED = {("bt", "m,r"): "D23", ("bts", "m,r"): "D23",
-            ("btr", "m,r"): "D23", ("btc", "m,r"): "D23"}
+#
+# ⭐⭐ D331 EMPTIED IT.  D23's four bit-string rows are modelled (one byte at
+# EA + offset SAR 3) and vectored, so they leave this table and enter
+# `DECLINE_REVERSED` below, which `--check` holds to the claimed set.
+DECLINED = {}
 
 # The decision that blocks a row on ATOMICITY, i.e. the one a LOCK vocabulary
 # answers.  Named rather than spelled at the use site, so the claim "this is
@@ -1138,6 +1158,13 @@ LOCK_BLOCKED_DECISION = "D25"
 # ⚠️ The residue's total is unchanged in kind: six rows were declined, four are
 # (D23's bit-string shape, which no LOCK vocabulary touches — D76).
 LOCK_UNBLOCKED = {("xchg", "m,r"), ("xchg", "r,m")}
+
+# ⭐⭐ D331: THE ROWS D23 DECLINED, NOW MODELLED.  The same gate as
+# `LOCK_UNBLOCKED`, for the same reason: taking a row out of DECLINED shrinks the
+# residue, and `--check` requires every row here to be CLAIMED, so the shrink
+# cannot be a deletion nobody checked.
+DECLINE_REVERSED = {("bt", "m,r"): "D331", ("bts", "m,r"): "D331",
+                    ("btr", "m,r"): "D331", ("btc", "m,r"): "D331"}
 
 
 def residue_buckets(rows, claimed, noform):
@@ -1875,7 +1902,14 @@ def main():
             f"{len(lock_unclaimed)} row(s) recorded as UNBLOCKED by the LOCK "
             f"vocabulary are not claimed: " +
             ", ".join(f"{b} {sh}" for b, sh in lock_unclaimed))
-    still_declined = sorted(LOCK_UNBLOCKED & set(globals()['DECLINED']))
+    reversed_unclaimed = sorted(set(DECLINE_REVERSED) - claimed_pairs)
+    if reversed_unclaimed:
+        findings.append(
+            f"{len(reversed_unclaimed)} row(s) recorded as MODELLED since their "
+            f"decline (D331) are not claimed: " +
+            ", ".join(f"{b} {sh}" for b, sh in reversed_unclaimed))
+    still_declined = sorted((LOCK_UNBLOCKED | set(DECLINE_REVERSED))
+                            & set(globals()['DECLINED']))
     if still_declined:
         findings.append(
             f"{len(still_declined)} row(s) are recorded as both DECLINED and "
@@ -1960,6 +1994,22 @@ def main():
               f"   {' '.join(sorted({rows[i]['base'] for i in bmi}))}")
         print(f"      re-measure: scripts/oracle_availability.py "
               f"(gated both ways, red-first, ~6 s)")
+        # ⭐ D334 (W1c): HOW MANY OF THOSE A PROCESSOR REFEREES, read from
+        # `siliconTable` (X86/Coverage.lean) and never pooled with the
+        # differential: a row stays in UNAVAILABLE because the census credits
+        # only differential evidence (D330's rule), and this line says which of
+        # them the model implements anyway, checked by `hwprobe/` and the kernel.
+        _cov = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "X86", "Coverage.lean"), encoding="utf-8").read()
+        _sm = re.search(r"^def siliconTable : List Row :=(.*?)(?=^/--|^def )", _cov, re.S | re.M)
+        if not _sm:
+            print("⛔ could not read siliconTable from X86/Coverage.lean")
+            sys.exit(2)
+        _sil = set(re.findall(r'mnemonic := "([^"]+)"', _sm.group(1)))
+        _bs = [i for i in bmi if rows[i]["base"] in _sil]
+        print(f"      of which REFEREED BY SILICON (siliconTable, D330/D334; not "
+              f"differential evidence) {len(_bs)} of {len(bmi)}"
+              f"   {' '.join(sorted({rows[i]['base'] for i in _bs}))}")
         print(f"  DECLINED by a recorded decision            {len(dec):3d}")
         for i in dec:
             print(f"      {rows[i]['base']:11s} {rows[i]['shape']:12s} "

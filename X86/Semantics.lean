@@ -73,8 +73,10 @@ and `leaq %fs:...` is a vector, so the differential run would see it.
 ⚠️ ONE DEPARTURE FROM x86isa, NAMED RATHER THAN LEFT TO BE FOUND: x86isa's
 `ea-to-la` also requires the resulting LINEAR address to be canonical and faults
 if it is not, for segmented and unsegmented accesses alike.  This model checks
-canonicity on branch TARGETS only (D9) and on no data address at all — a
-pre-existing gap that this batch does not widen and does not close.  It is
+canonicity on branch TARGETS (D9) and on one data address only — the byte a
+bit-string BT/BTS/BTR/BTC touches (D331), whose register offset can carry it
+anywhere in the address space — a pre-existing gap that this batch does not
+widen and does not close.  It is
 unreachable in this harness by construction rather than by luck, and
 `segmentedAddressesAreCanonical` in `Tests/Coverage.lean` is the assertion that
 says so over the whole vector × pre-state cross product; the day a swept segment
@@ -195,6 +197,17 @@ def popValue (s : Cpu) (sz : Size) : Val × Cpu :=
   (v, s.setReg .q .rsp (sp + BitVec.ofNat 64 sz.bytes))
 
 end Cpu
+
+/-- ⭐⭐ D331: THE BYTE A BIT-STRING BT/BTS/BTR/BTC ADDRESSES — a memory bit base `ea`
+with the register offset `r` at operand size `sz`.  The offset is SIGNED at `sz`, and the
+byte is `EA + (offset SAR 3)` (SDM Vol. 2A §3.1.1.9, Table 3-2: `BitBase + offset DIV 8`,
+DIV rounding toward negative infinity); the bit inside it is `offset AND 7`.  A function
+rather than a `let` in `step` because the harness's ACL2 emitter must name the same byte:
+the oracle's memory persists between cases, so a byte outside the watched windows that
+the case reads has to be written into its pre-state explicitly. -/
+def bitStringByte (s : Cpu) (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool)
+    (nr : BitVec 64) : BitVec 64 :=
+  ea.addr s nr + (Value.sext sz (s.getReg sz r h8)).sshiftRight 3
 
 /-- P1 BATCH 14: BSF and BSR, which differ in ONE expression.
 
@@ -525,6 +538,51 @@ def vshufpApply (k : VShufpKind) (a b : BitVec 128) (sel : BitVec 8) : BitVec 12
       ((a.extractLsb' ((sel.toNat % 2) * 64) 64).setWidth 128)
         ||| (((b.extractLsb' (((sel.toNat >>> 1) % 2) * 64) 64).setWidth 128) <<< 64)
 
+/-! ### D336 (V1b) — PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q
+
+x86isa refuses all six (`scripts/oracle_availability.py`), so each is refereed by a
+processor (`hwprobe/mk_shuf_rows.py`, D336) and pinned to the same rows by `decide`
+in `Tests/AnchorsShuf.lean`.  None writes a flag. -/
+
+/-- One byte of PSHUFB, folded from the top down: control byte `i` of `ctl` either
+zeroes result byte `i` (its bit 7) or selects byte `ctl[8i+3:8i]` of `a`, the
+destination's ORIGINAL value.  ⚠️ Bits 6:4 of the control byte are ignored — the
+index is taken `% 16`, never the whole low seven bits. -/
+def vshufbAux (a ctl : BitVec 128) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      let c := ctl.extractLsb' (8 * i) 8
+      (vshufbAux a ctl i)
+        ||| (if c.msb then 0
+             else ((a.extractLsb' (8 * (c.toNat % 16)) 8).setWidth 128) <<< (8 * i))
+
+/-- PSHUFB (SDM Vol. 2B): sixteen bytes, each from `a` (the destination) by the
+matching control byte of `ctl` (the source), or zero. -/
+def vshufbApply (a ctl : BitVec 128) : BitVec 128 := vshufbAux a ctl 16
+
+/-- PALIGNR (SDM Vol. 2B): `((DEST << 128) OR SRC) >> (imm × 8)`, low 128 bits.
+⚠️ The guard is the rule, not an optimisation: at `imm ≥ 32` the whole 256-bit
+concatenation has been shifted out and the result is zero. -/
+def valignrApply (dst src : BitVec 128) (imm : BitVec 8) : BitVec 128 :=
+  if imm.toNat > 31 then 0
+  else ((((dst.setWidth 256) <<< 128) ||| src.setWidth 256) >>> (8 * imm.toNat)).setWidth 128
+
+/-- The lane PINSR*/PEXTR* select: `imm[1:0]` at 32 bits, `imm[0]` at 64 — the
+lane count is `128 / width`, and the imm8 bits above it are ignored. -/
+def vlaneSel (sz : Size) (imm : BitVec 8) : Nat := imm.toNat % (128 / sz.bits)
+
+/-- PINSRD/PINSRQ (SDM Vol. 2B): the `sz`-bit `v` replaces lane `vlaneSel sz imm`
+of `dst`; every other bit of `dst` is kept. -/
+def vinsrApply (sz : Size) (dst : BitVec 128) (v : Val) (imm : BitVec 8) : BitVec 128 :=
+  let sh := sz.bits * vlaneSel sz imm
+  let m : BitVec 128 := ((Value.trunc sz (BitVec.allOnes 64)).setWidth 128) <<< sh
+  (dst &&& ~~~m) ||| (((Value.trunc sz v).setWidth 128) <<< sh)
+
+/-- PEXTRD/PEXTRQ (SDM Vol. 2B): lane `vlaneSel sz imm` of `src`, zero above the
+width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
+def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
+  (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
+
 /-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
 lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
 instruction is named for: a negative word becomes 0, not 255. -/
@@ -543,6 +601,58 @@ eight bytes and the SOURCE's the high eight — the order the SDM gives and the 
 objdump's own comment shows. -/
 def vpackus (dst src : BitVec 128) : BitVec 128 :=
   vpackusAux dst 0 8 ||| vpackusAux src 8 8
+
+/-! ### D335 (V1a) — the packed-integer arithmetic x86isa refuses, refereed by silicon
+
+Every helper below is the SDM Vol. 2B Operation of one instruction, read at the lane width the rule
+names.  ⚠️ A pair-reading rule (`pmaddwd` reads two words per dword, `pmaddubsw` two bytes per word,
+`psadbw` eight bytes per quadword, `pmuludq` the low dword of each quadword) IS lane-wise at the WIDER
+width — lane `i` of the result depends only on lane `i` of each operand there — so it goes through
+`vlanes` at that width rather than a new fold.  `packssdw` NARROWS, as `packuswb` does, and gets its
+own fold for `vpackus`'s reason. -/
+
+/-- SaturateToSignedWord of a value held sign-extended in 32 bits (SDM Vol. 2B, PACKSSDW/PADDSW/PMADDUBSW):
+below −32768 gives 8000H, above 32767 gives 7FFFH, else the low word. -/
+def ssatW (v : BitVec 32) : BitVec 16 :=
+  if v.slt (0xFFFF8000 : BitVec 32) then 0x8000
+  else if (0x00007FFF : BitVec 32).slt v then 0x7FFF
+  else v.setWidth 16
+
+/-- One dword of `pmaddwd`: two SIGNED word products ADDED, mod 2^32 — no saturation; the one overflowing
+case (all four words 8000H) wraps to 80000000H, as the SDM says. -/
+def vmaddwdLane (x y : BitVec 32) : BitVec 32 :=
+  (x.extractLsb' 0 16).signExtend 32 * (y.extractLsb' 0 16).signExtend 32
+    + (x.extractLsb' 16 16).signExtend 32 * (y.extractLsb' 16 16).signExtend 32
+
+/-- One word of `pmaddubsw`: the DESTINATION's two bytes UNSIGNED (`setWidth`), the SOURCE's two SIGNED
+(`signExtend`), the pair summed and signed-saturated.  ⛔ The asymmetry is the instruction. -/
+def vmaddubswLane (x y : BitVec 16) : BitVec 16 :=
+  ssatW ((x.extractLsb' 0 8).setWidth 32 * (y.extractLsb' 0 8).signExtend 32
+    + (x.extractLsb' 8 8).setWidth 32 * (y.extractLsb' 8 8).signExtend 32)
+
+/-- One word of `pmulhrsw`: `TEMP := ((x*y) >> 14) + 1; result := TEMP[16:1]`, the product SIGNED 32-bit.
+⚠️ The shift may be logical: bits 16:1 of the result read product bits 30:14 and a carry upward, which an
+arithmetic and a logical shift agree on. -/
+def vmulhrswLane (x y : BitVec 16) : BitVec 16 :=
+  (((x.signExtend 32 * y.signExtend 32) >>> 14) + 1).extractLsb' 1 16
+
+/-- One quadword of `psadbw`: the sum of the eight unsigned byte differences' absolute values, in the low
+word; the 48 bits above it are ZERO by construction (the sum is at most 8 × 255 = 7F8H). -/
+def vsadLane (x y : BitVec 64) : BitVec 64 :=
+  (List.range 8).foldl (fun acc i =>
+    let p := (x.extractLsb' (8 * i) 8).toNat
+    let q := (y.extractLsb' (8 * i) 8).toNat
+    acc + BitVec.ofNat 64 (if q ≤ p then p - q else q - p)) 0
+
+/-- One signed-saturated word of `packssdw`, folded from the top down (`vpackusAux`'s shape). -/
+private def vpackssAux (src : BitVec 128) (base : Nat) : Nat → BitVec 128
+  | 0 => 0
+  | i + 1 =>
+      (vpackssAux src base i) ||| (((ssatW (src.extractLsb' (i * 32) 32)).setWidth 128) <<< ((base + i) * 16))
+
+/-- `packssdw`: the DESTINATION's four dwords become the LOW four words, the SOURCE's the high four. -/
+def vpackss (dst src : BitVec 128) : BitVec 128 :=
+  vpackssAux dst 0 4 ||| vpackssAux src 4 4
 
 /-- The packed binary operations.  ⚠️ NO FLAG IS WRITTEN BY ANY OF THEM — SDM
 Vol. 2B gives "Flags Affected: None" for every entry here, and the easiest way to
@@ -618,6 +728,21 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
                             (x.setWidth 64) (y.setWidth 64)).setWidth 32) a b
   | .maxps => vlanes 32 (fun x y => (SoftFloat.fmax SoftFloat.binary32
                             (x.setWidth 64) (y.setWidth 64)).setWidth 32) a b
+  -- ⭐⭐ D335 (V1a) — refereed by silicon (`hwprobe/mk_simda_rows.py`), never by a vector.
+  | .maddwd   => vlanes 32 vmaddwdLane a b
+  | .maddubsw => vlanes 16 vmaddubswLane a b
+  | .mullw    => vlanes 16 (· * ·) a b
+  | .mulhrsw  => vlanes 16 vmulhrswLane a b
+  -- the EVEN dwords, UNSIGNED, full 64-bit product: the low dword of each quadword lane
+  | .muludq   => vlanes 64 (fun x y => (x.setWidth 32).setWidth 64 * (y.setWidth 32).setWidth 64) a b
+  | .addsw    => vlanes 16 (fun x y => ssatW (x.signExtend 32 + y.signExtend 32)) a b
+  -- ⚠️ `<` on `BitVec` is UNSIGNED, which is exactly the comparison `psubus*` makes.
+  | .subusw   => vlanes 16 (fun x y => if x < y then 0 else x - y) a b
+  | .subusb   => vlanes 8  (fun x y => if x < y then 0 else x - y) a b
+  -- ⛔ SIGNED: `slt`, not `<` (batch 17's trap).  `DEST > SRC` keeps DEST, else SRC.
+  | .maxsw    => vlanes 16 (fun x y => if y.slt x then x else y) a b
+  | .sadbw    => vlanes 64 vsadLane a b
+  | .packssdw => vpackss a b
 
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and
@@ -1257,6 +1382,36 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (vshufpApply k (s.getXmm dst) (s.readMem128 a) sel)).setRip nr
 
+  -- ⭐ D336 (V1b): PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q.  x86isa refuses all six;
+  -- `hwprobe/` referees them.  ⚠️ PSHUFB and PALIGNR READ THE DESTINATION
+  -- (`s.getXmm dst` is an argument); their m128 shapes carry the Type-4 16-byte
+  -- `#GP` (D110).  PINSRD/Q's m32/m64 is Type 5 and has no alignment check.
+  | .vshufb dst src =>
+      (s.setXmm dst (vshufbApply (s.getXmm dst) (s.getXmm src))).setRip nr
+  | .vshufbm dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vshufbApply (s.getXmm dst) (s.readMem128 a))).setRip nr
+  | .valignr dst src imm =>
+      (s.setXmm dst (valignrApply (s.getXmm dst) (s.getXmm src) imm)).setRip nr
+  | .valignrm dst ea imm =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (valignrApply (s.getXmm dst) (s.readMem128 a) imm)).setRip nr
+  | .vinsr sz dst src imm =>
+      if src.isImm then s.halt (.illegalOperands "pinsrd/pinsrq with an immediate source")
+      else match sz with
+      | .d | .q => (s.setXmm dst (vinsrApply sz (s.getXmm dst) (s.readOperand sz nr src) imm)).setRip nr
+      | _ => s.halt (.illegalOperands "pinsr at an 8- or 16-bit width (pinsrb/pinsrw are other mnemonics)")
+  | .vextr sz dst src imm =>
+      match sz with
+      | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
+      | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
+
   -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
   --
   -- ⚠️ THE OPERAND ORDER IS `dst` THEN `mem`, AND IT IS NOT SYMMETRIC.  Eleven of
@@ -1421,14 +1576,44 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- SURVIVES: "the ZF flag is unaffected... the OF, SF, AF and PF flags are
   -- undefined".  Four oracle draws, in the fixed order PF, AF, SF, OF.
   --
-  -- ⛔ NAMED GAP: the MEMORY destination with a REGISTER offset is not here.
-  -- That shape is not a bit within the addressed operand — it is an index into
-  -- a BIT STRING, signed, reaching outside the operand entirely, and the
-  -- effective address moves with it.  Modelling it is a real piece of work and
-  -- guessing at it would be worse than declining, so the four `m,r` forms of
-  -- roster family 31/41 are NOT claimed (docs/DECISIONS.md D23).  The forms
-  -- here take the offset MODULO the operand width, which is what the SDM
-  -- specifies for a register destination and for an immediate offset.
+  -- ⭐⭐ THE BIT STRING (D331, reversing D23's decline): a MEMORY base with a
+  -- REGISTER offset is not a bit inside the addressed operand.  The offset is a
+  -- SIGNED integer of the operand size, and the bit is bit `offset AND 7` of the
+  -- byte at `EA + (offset SAR 3)` (SDM Vol. 2A §3.1.1.9 and Table 3-2: bit
+  -- `offset MOD 8` of the byte at `BitBase + offset DIV 8`, DIV rounding toward
+  -- negative infinity).  ONE BYTE is read and, for BTS/BTR/BTC, written back.
+  -- The SDM lets the processor access the operand-size unit that contains it;
+  -- that changes which addresses must be accessible and never the result, and
+  -- the only access condition this model has is canonicity, checked on the byte
+  -- it touches.  ⛔ The `abs` in x86isa's bit number is WRONG for a negative
+  -- offset (D331; declared in `knownDivergences`, per state).
+  | .bit k sz (.mem ea) (.reg r h8) =>
+      let o := s.getReg sz r h8
+      let ba := bitStringByte s sz ea r h8 nr
+      if !canonical ba then
+        s.halt (.unimplemented "non-canonical bit-string byte address (#GP(0) in hardware)")
+      else
+        let a := s.readMem .b ba
+        let n := o.toNat % 8
+        let bit := a.getLsbD n
+        let res : Val :=
+          match k with
+          | .bt  => a
+          | .bts => Value.trunc .b (a ||| (BitVec.ofNat 64 1 <<< n))
+          | .btr => Value.trunc .b (a &&& ~~~(BitVec.ofNat 64 1 <<< n))
+          | .btc => Value.trunc .b (a ^^^ (BitVec.ofNat 64 1 <<< n))
+        let (pfU, s) := s.undefBit
+        let (afU, s) := s.undefBit
+        let (sfU, s) := s.undefBit
+        let (ofU, s) := s.undefBit
+        let s := s.setFlags { s.flags with
+          cf := bit, pf := pfU, af := afU, sf := sfU, of := ofU }
+        match k with
+        | .bt => s.setRip nr
+        | _ => (s.writeMem .b ba res).setRip nr
+  -- Every other operand pair takes the offset MODULO the operand width, which is
+  -- what the SDM specifies for a register destination and for an immediate
+  -- offset.
   | .bit k sz dst off =>
       let a := s.readOperand sz nr dst
       let n := (s.readOperand sz nr off).toNat % sz.bits
@@ -1967,6 +2152,115 @@ def step (i : Instr) (s : Cpu) : Cpu :=
         let (afU, s) := s.undefBit
         let (pfU, s) := s.undefBit
         ((s.setFlags (Flags.mulFlags ovf sfU zfU afU pfU s.flags)).setReg sz dst l).setRip nr
+
+  -- ADCX / ADOX (SDM Vol. 2A, ADCX and ADOX), D330.  ADCX: "DEST := DEST + SRC +
+  -- CF", "CF is updated based on the result.  OF, SF, ZF, AF and PF flags are
+  -- unmodified."  ADOX is the same sentence with OF in both places.
+  --
+  -- ⭐ THE SUM AND THE CARRY-OUT ARE ADC'S, SHARED RATHER THAN RESTATED
+  -- (`Flags.adcResult`, `Flags.adcCF`): the arithmetic is identical and only the
+  -- flag that carries it differs.  ⚠️ The carry is read from the INCOMING flags,
+  -- exactly as `.bin .adc` reads it.
+  --
+  -- ⛔ NOTHING IS DRAWN FROM THE UNDEFINED-BIT ORACLE: every flag is either the
+  -- one carry or unmodified, so the form is `T-exact`.
+  | .adx o sz dst src =>
+      match sz with
+      | .d | .q =>
+          let a := s.getReg sz dst
+          let b := s.readOperand sz nr src
+          let cin := if o then s.flags.of else s.flags.cf
+          let res := Flags.adcResult sz a b cin
+          let cout := Flags.adcCF sz a b cin
+          let f := if o then { s.flags with of := cout } else { s.flags with cf := cout }
+          ((s.setFlags f).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands
+          "adcx/adox at an 8- or 16-bit operand size (no encoding exists)")
+
+  -- MULX (SDM Vol. 2B, MULX), D330.  "DEST2 := (SRC1 * SRC2)[OperandSize-1:0];
+  -- DEST1 := (SRC1 * SRC2)[2*OperandSize-1:OperandSize]", SRC1 being RDX (EDX at
+  -- 32 bits) and DEST2 the VEX.vvvv register.  "Flags Affected: None."
+  --
+  -- ⚠️ THE ORDER OF THE TWO WRITES IS THE SDM's, AND IT IS OBSERVABLE: when `hi`
+  -- and `lo` are the same register the second write wins, and the SDM says the
+  -- high half is what that register holds.  ⚠️ Both reads (RDX and `src`) happen
+  -- before either write, so a source addressed through a destination reads the
+  -- pre-state.  At `.d` both writes zero-extend (SDM Vol. 1 §3.4.1.1).
+  | .mulx sz hi lo src =>
+      match sz with
+      | .d | .q =>
+          let b := s.readOperand sz nr src
+          let (l, h) := Value.mulPair sz (s.getReg sz .rdx) b
+          ((s.setReg sz lo l).setReg sz hi h).setRip nr
+      | _ => s.halt (.illegalOperands
+          "mulx at an 8- or 16-bit operand size (VEX.W selects 32 or 64 only)")
+
+  -- ══ D334 (W1c): ANDN, BEXTR, BZHI, BLSMSK/BLSR, PDEP/PEXT, RORX, MOVNTI ══
+  -- x86isa refuses every one; `hwprobe/` referees them on a processor and
+  -- `Tests/AnchorsBmi.lean` pins this model to the same rows.  ⚠️ Every source is
+  -- read BEFORE the destination is written, so a source that names the destination
+  -- reads the pre-state.  ⚠️ The undefined flags are drawn in a FIXED order — PF,
+  -- AF (and SF for BEXTR) — exactly as `.bitcnt .blsi` draws them, so the oracle
+  -- cursor depends on the form alone.  At `.d` the register write zero-extends.
+  | .andn sz dst src1 src2 =>
+      match sz with
+      | .d | .q =>
+          let res := Value.andn sz (s.getReg sz src1) (s.readOperand sz nr src2)
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          ((s.setFlags (Flags.andn sz res pfU afU s.flags)).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "andn at an 8- or 16-bit operand size (no encoding)")
+  | .bextr sz dst src ctl =>
+      match sz with
+      | .d | .q =>
+          let res := Value.bextr sz (s.readOperand sz nr src) (s.getReg sz ctl)
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let (sfU, s) := s.undefBit
+          ((s.setFlags (Flags.bextr sz res pfU afU sfU s.flags)).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "bextr at an 8- or 16-bit operand size (no encoding)")
+  | .bzhi sz dst src idx =>
+      match sz with
+      | .d | .q =>
+          let c := s.getReg sz idx
+          let res := Value.bzhi sz (s.readOperand sz nr src) c
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          ((s.setFlags (Flags.bzhi sz (Value.bzhiIndex c) res pfU afU s.flags)).setReg
+            sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "bzhi at an 8- or 16-bit operand size (no encoding)")
+  | .blsx m sz dst src =>
+      match sz with
+      | .d | .q =>
+          let a := s.readOperand sz nr src
+          let res := if m then Value.blsmsk sz a else Value.blsr sz a
+          let (pfU, s) := s.undefBit
+          let (afU, s) := s.undefBit
+          let f := if m then Flags.blsmsk sz a res pfU afU s.flags
+                   else Flags.blsr sz a res pfU afU s.flags
+          ((s.setFlags f).setReg sz dst res).setRip nr
+      | _ => s.halt (.illegalOperands "blsmsk/blsr at an 8- or 16-bit operand size (no encoding)")
+  -- PDEP / PEXT / RORX: "Flags Affected: None", and nothing is drawn.
+  | .pbits e sz dst src1 mask =>
+      match sz with
+      | .d | .q =>
+          let v := s.getReg sz src1
+          let mk := s.readOperand sz nr mask
+          (s.setReg sz dst (if e then Value.pext sz v mk else Value.pdep sz v mk)).setRip nr
+      | _ => s.halt (.illegalOperands "pdep/pext at an 8- or 16-bit operand size (no encoding)")
+  | .rorx sz dst src imm =>
+      match sz with
+      | .d | .q => (s.setReg sz dst (Value.rorx sz (s.readOperand sz nr src) imm)).setRip nr
+      | _ => s.halt (.illegalOperands "rorx at an 8- or 16-bit operand size (no encoding)")
+  -- MOVNTI (SDM Vol. 2B): `DEST := SRC`, a plain store in this model.  The
+  -- non-temporal hint and the weak (write-combining) ordering it permits have no
+  -- counterpart in a single-threaded state without memory types (D334).
+  | .movnti sz dst src =>
+      if !dst.isMem then
+        s.halt (.illegalOperands "movnti requires a memory destination (0F C3 /r)")
+      else match sz with
+      | .d | .q => (s.writeOperand sz nr dst (s.getReg sz src)).setRip nr
+      | _ => s.halt (.illegalOperands "movnti at an 8- or 16-bit operand size (no encoding)")
 
   -- ══ P1 BATCH 18 ═══════════════════════════════════════════════════════
   -- The compare-exchange pair and the double-precision shifts.

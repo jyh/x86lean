@@ -600,6 +600,8 @@ convenient.
 **Reversal cost:** none — this is a recorded absence. Closing it means modelling
 signed bit-string addressing and giving it its own vectors.
 
+➡️ **Reversed by D331** (2026-10-10): the shape is modelled and vectored there; the text above is kept as written.
+
 ## D24 — `xchg %rax, %rax` is NOP and `xchg %eax, %eax` is not, and the assembler is the witness.
 
 P1 batch 10 needed a vector for `xchg` with the same register twice, because
@@ -20864,3 +20866,807 @@ arms that used `adc` or `nop` as their non-core example now use `btc` and `xadd`
 **After it:** 20 of 22 references translate as the census built them. The two that do not are BLAKE2s/2b, whose census builds copy
 structs with `movups` (SSE). Built SSE-free (`-mno-sse -mno-sse2 -D_FORTIFY_SOURCE=0`), both translate.
 **Not decided here:** moving the harness's x86lean pin to this commit. That is a registration change and belongs to the Captain's word.
+
+## D329 — The four remaining width siblings the primitive census named, and what their run must show (committed before it is read)
+
+**Why these four.** After D327 the census's table of not-covered forms carried exactly four marked † (the same mnemonic and
+operand shape tested at another width): `movb imm,r8` (5 candidates) · `roll r32`, the by-one rotate (`d1 /0`; 2) ·
+`imull imm,m,r32` (1) · `cmovnsq r64,r64` (1). D327's record held `imull`/`roll` out so its batch carried exactly the six its ladder
+priced; this batch takes the rest. Each new vector is the constructor of a tested sibling at another size: `mov_ri_b` beside
+`mov_ri`/`mov_ri_d` (`.mov`), `rol_r_one_d` beside `rol_r_one_b`/`rol_r_one_q` (`.rot`), `imul3_ml` beside `imul3_mq` (`.imulr`),
+`cmovns_rr_q` beside `cmovns_rr_l` (`.cmov`). `claimed_forms.py` resolves each to the SAME roster row as its sibling (rows 256
+`mov r,imm` · 509 `rol r,one` · 416 `imul r,m,imm` · 434 `cmovns r,r`); claimed rows stay 500 of 525, so they add four runs (343 →
+347) and no row. No constructor changes.
+**The census, from the ladder before any run, then re-derived by the tool on the 1162-vector table (no oracle involved):** only one
+non-calling-out row is incomplete solely on these forms — `xxh32` — so **40 → 41 of 57 ALL COVERED**; the four HACL* rows that miss
+only `movb imm,r8` call out to `memcpy` and are never counted. The tool's run on the 1162-vector table reads 41, with the
+s2n-bignum appendix 199 → 202 of 332, and no † form left in the table.
+**Predictions, committed before `run_differential.sh` is launched — no output of this run exists:**
+1. +4 vectors ⇒ **+352 cases** (4 × 88, the per-vector count of record 37); `unexplained` stays **0**; `oracle-divergence` and
+   `oracle-leaks` do not move.
+2. `mov_ri_b`, `cmovns_rr_q`: **88 matched each** — neither writes a flag, so no declared-undefined component exists.
+3. `rol_r_one_d`: **88 matched** — a rotate writes only CF and OF, and at a count of 1 OF is defined (`Flags.rotFlags` uses the undefined
+   bit only for a masked count above 1).
+4. `imul3_ml`: **matched + explained = 88**, split unpredicted — three-operand `imul` leaves SF, ZF, AF and PF undefined at every
+   input, so every case carries a declared-undefined component and the split is a fact about the values.
+5. Each new id appears **88 times on BOTH sides** of the run; a count below 88 on either is a harness finding, not agreement.
+**Wrong if:** any prediction fails, or any of the four needs a semantics change — then it is not a width sibling.
+**Result (record 38):** four of five predictions held; **prediction 4 FAILED as written.** 102256 cases (+352), 0 unexplained,
+divergence 292 and leaks 0 unmoved (1 ✔); `mov_ri_b` and `cmovns_rr_q` 88 matched each (2 ✔); `rol_r_one_d` 88 matched (3 ✔);
+each new id 88 records on both sides (5 ✔). `imul3_ml` reads **0 matched, 176 explained**, not "matched + explained = 88":
+`compareRecs` counts `matched` in cases and `explained` in disagreements, and every case disagrees on exactly two declared-undefined
+flags (ZF and PF, all 88 cases, nothing else). The prediction added two different units, copying record 37's `shr_r_one_d`, where
+one component per case made them coincide; the `.q` sibling `imul3_mq` reads the identical 0 / 176. What it was meant to assert —
+no difference outside the declared-undefined flags — holds. A plant (`mov_ri_b` given the zero-extending `.d` rule) reds 59 of 88,
+the 29 others being the pre-states whose RAX upper bits are already zero. The census re-derived from the 1162-vector table reads
+41 of 57 ALL COVERED and 202 of 332 in the appendix, as stated above. The predictions' own commit is preserved as the tag
+`d329-predictions`; the branch was squashed after the run so the landing ritual has one batch commit.
+
+## D330 — W1b: ADCX, ADOX and MULX, refereed by the differential where it can run them and by silicon where it cannot (predictions committed before any run)
+
+**Why these three.** `docs/PRIMITIVE-CENSUS.md` names six BMI/ADX forms as the gap in four public candidates — `adcxq r64,r64`
+· `adcxq m,r64` · `adoxq r64,r64` · `adoxq m,r64` · `mulxq r64,r64,r64` · `mulxq m,r64,r64` — completing (with nothing else)
+`vale-fadd`, and with `mulx` `s2n-bignum_mul_4_8`, `s2n-bignum_montmul_p256` and `vale-fmul`.
+**The oracle, measured rather than assumed.** The commission said the reference model refuses these forms. `mulx` is on
+`scripts/oracle_availability.py`'s list (refuses 88/88). `adcx` and `adox` were NOT on it, so both were added as `refuses`
+and the gate run before any constructor existed: **both EXECUTE, 88 of 88**, with both controls behaving. So the referee
+splits: `adcx`/`adox` are ordinary differential rows (vectors, the 88 pre-states, x86isa as partner), and `hwprobe/` reads them
+on silicon as a third source; `mulx` has no differential partner and silicon is its only referee.
+**The model.** One constructor `.adx (ofChain : Bool) sz dst src` (ADCX: CF in and out; ADOX: OF) whose sum and carry-out are
+ADC's (`Flags.adcResult`, `Flags.adcCF`) and which replaces exactly one flag; one constructor `.mulx sz hi lo src` writing
+`lo` (VEX.vvvv) and then `hi` (ModRM.reg), so one register named twice holds the high half (SDM Vol. 2B MULX: DEST2 is
+written before DEST1). Both refuse `.b`/`.w` (no encoding) and are `T-exact` (no undefined bit). SDM: Vol. 2A ADCX, ADOX;
+Vol. 2B MULX; Vol. 1 §3.4.1.1 for the 32-bit zero-extension. Characterisations in `X86/Theorems.lean` §W1b (three standard
+axioms, no `bv_decide`). `adcx`/`adox` join `tableP0` and the roster (197 → 199); `mulx` does NOT — `tableP0` is the table of
+differentially tested rows and `every_row_has_a_vector` would be false — and is the one row of a new `siliconTable`, rendered
+in its own section of `docs/COVERAGE.md`.
+**The differential rows:** 8 vectors — `adcx`/`adox` × `.q`/`.d` × `%rcx`/`(%rbx)` source, destination RAX.
+**The silicon rows (`hwprobe/mk_int_rows.py`, derived from the stated rules ADD-CARRY · ONE-FLAG · MUL-HALVES · SAME-DEST ·
+ZERO-EXT, never typed):** 384 rows. ADCX/ADOX: 8 forms × 9 operand pairs (zero; 0 + all-ones; all-ones + 1; all-ones + all-ones;
+2^63 + 2^63; (2^63−1) + 1; a pair summing to all-ones; a pair whose LOW 32 bits carry and whose 64-bit sum does not; one whose
+HIGH half alone carries) × carry-in {0, 1} × the other five arithmetic flags {all clear, all set} = 288. MULX: 6 forms
+(`q`/`l` × register source / memory source / both destinations the same register) × 8 (RDX, SRC) pairs (zero, one, all-ones
+squared, 2^63 × 2, a mixed pair, 2^32−1 squared, and two with junk above bit 31 that the 32-bit forms must ignore) × flags
+{all clear, all set} = 96. Destinations are pre-filled with a canary; the same-register form also checks that the other
+register (R9) still holds it; every 32-bit form's result is compared at 64 bits (bits 63:32 must be zero). RFLAGS is compared
+on the six arithmetic flags. The probe reads CPUID.(7,0):EBX bits 8 (BMI2) and 19 (ADX), prints them, and REFUSES (exit 2)
+without both. The 96 MULX rows are pinned in `Tests/Anchors.lean` by `decide` (`hwprobe/mk_int_anchors.py`); the 288
+ADCX/ADOX rows are carried by the vectors, as `mk_anchors.py`'s rule says.
+**Predictions — committed before the hwprobe push, before any Rosetta run of the probe, and before the differential run:**
+1. **hwprobe, both legs (ubuntu-latest — expected an AMD EPYC, the label names none; macos-15-intel — documented Intel):**
+   CPUID reports BMI2=1 ADX=1; `rows 384 disagreements 0`. The SSE referee is unchanged and still agrees on every row.
+2. **Controls, both legs:** `--plant` (CF flipped in row 0, `adcxq_rr_zero_c0`) → rc 1, exactly one `DIFF`, on that row;
+   `--plant-op` (one declared byte of `i_adcxq_rr` wrong) → rc 2, `REFUSED i_adcxq_rr`. The SSE controls unchanged.
+3. **No AMD/Intel difference:** none of the three instructions has an undefined flag or an implementation-specific field.
+4. **Differential:** +8 vectors ⇒ **+704 cases** (8 × 88) = 102608; **+704 matched** (every flag either written by the rule or
+   unmodified, so no declared-undefined component exists); `explained`, `oracle-divergence` (292) and `oracle-leaks` (0) do
+   not move; `unexplained` stays **0**; each new id has 88 records on BOTH sides.
+5. **Census, re-derived:** `vale-fadd` becomes ALL COVERED (40 → 41 of 57). The three MULX candidates do NOT move: the census
+   counts a form only from a differential vector, and MULX has none. The s2n appendix figure is not predicted.
+**Wrong if:** a leg disagrees on any row (then the rule or the processor is wrong, and which is decided from the SDM, never
+by editing an expectation to match), the plant reds other than exactly its row, the bad byte does not refuse, the two vendors
+differ, or the differential reports any of the 704 new cases as other than matched, or `unexplained` above 0. Rosetta 2 is an emulator: if it
+runs the probe its agreement is corroboration only, and if it lacks BMI2/ADX the probe must refuse rather than crash.
+**Result (record 38, `docs/DIFFERENTIAL-P2-BATCH38.md`): all five predictions held.**
+1. hwprobe run 38096322511, both jobs `success`: **ubuntu-latest drew an AMD EPYC 7763** (CPUID.7.0.EBX `219c07a9`),
+   **macos-15-intel an Intel Core i7-8700B** (`029c6fbf`); BMI2=1 ADX=1 on both; **`rows 384 disagreements 0` on both**, and
+   the two legs' 384 lines are byte-identical (a one-character mutation is reported). SSE referee unchanged: 958/958 on both.
+2. Controls, both legs: plant rc 1 with exactly one `DIFF`, on `adcxq_rr_zero_c0`; bad byte rc 2, `REFUSED i_adcxq_rr`.
+   SSE controls 1 · 2 · 1 · 2 as before.
+3. No AMD/Intel difference.
+4. Differential: 102608 cases (+704), matched 81867 (+704), explained 29523, divergence 292, leaks 0, **unexplained 0**; each
+   new id 88 matched alone, 88 records on both sides. Plants: ADOX carried through CF reds 54 of 88 cases (104 `spec`); the
+   64-bit rule at `adcx_rm_d` reds 88 of 88.
+5. Census: **41 of 57 ALL COVERED** (`vale-fadd`); s2n appendix 199 → 203 of 332 (unpredicted). `vale-fmul`,
+   `s2n-bignum_mul_4_8` and `s2n-bignum_montmul_p256` now lack only `mulxq` forms.
+⚠️ **Rosetta 2:** CPUID.7.0.EBX reads 0, the probe refuses (rc 2), and with the guard removed the first ADCX row is SIGILL —
+the emulator implements neither extension, so it corroborates nothing here. **Kernel:** the 96 MULX pins build by `decide`;
+a mutant that multiplies a memory source at 64 bits reds exactly `w1b_mulxl_rm_pins`. Axiom gate CLEAN (4427 declarations). `ku_delta.py --arm a-prime` cb08c68 → aa04915 on yukon.lan: **CLEAN** — `Tests.Anchors` +112,927 ku against an allowance of 204,819, `Tests.Coverage` +128,430 against 677,753, `X86.Theorems` +6,637 against 17,744.
+**What the census does not count, and what would make it:** it credits a form only when a differential vector has the same
+form, so MULX's processor-refereed rows complete none of the three. Crediting them would need a census rule that reads
+`siliconTable` as a separately labelled column (never pooled with the differential), or a second differential partner that
+executes MULX; neither is decided here.
+**Re-based 2026-10-10 onto batch 52 (D329, PR #83, `52ba97c`), written BEFORE the re-run.** The record is renumbered 38 → 39
+(`docs/DIFFERENTIAL-P2-BATCH39.md`, P2 batch 53); the predictions above are unchanged. Re-derived from the tree: 1170 vectors
+(W1a's 1162 + 8), roster 199. **Predicted for the re-run:** 102960 cases (W1a's 102256 + 704), `unexplained` 0, divergence 292,
+leaks 0, the 8 ADX ids 88 matched each on both sides; **census 42 of 57** (W1a's `xxh32` + `vale-fadd`).
+**Re-run result:** 102960 cases, matched 82131, explained 29699, unexplained 0, divergence 292, leaks 0; each ADX id 88
+matched alone with 88 records on both sides. Census 42 of 57; the s2n appendix (unpredicted) 202 → 206 of 332. All held.
+
+## D331 — The bit-string `m,r` shape of BT/BTS/BTR/BTC is modelled, and what its run must show (committed before the run)
+
+D329 and D330 are taken by two batches running beside this one; this note does not depend on them.
+
+**Why.** D23 declined the four `m,r` rows (a memory base with a register offset) because the modulo rule `step` uses for
+the other shapes would be quietly wrong there. This batch models the shape and gives it vectors that the modulo rule fails.
+
+**The rule, from the public sources.** SDM Vol. 2A §3.1.1.9 (the `Bit(BitBase, BitOffset)` notation and its memory-indexing
+figure) and Table 3-2: with a memory bit base and a register offset, the offset is a SIGNED integer of the operand size
+(−2^15..2^15−1, −2^31..2^31−1, −2^63..2^63−1), and the addressed bit is bit `(offset MOD 8)` of the byte at
+`BitBase + (offset DIV 8)`, where DIV rounds toward negative infinity and MOD is non-negative. In two's complement that is:
+**byte address = EA + (offset SAR 3), bit = offset AND 7.** The operand-size word form the BT pages give
+(`EA + (4 * (BitOffset DIV 32))` at 32 bits, `EA + (2 * (BitOffset DIV 16))` at 16) names the same bit inside a wider unit.
+BTS/BTR/BTC write that byte back with the bit set, cleared or complemented; BT writes nothing. CF = the selected bit
+BEFORE any write; ZF unchanged; OF, SF, AF, PF undefined — the drawn bits and their order (PF, AF, SF, OF) are the ones the
+other `.bit` shapes already use.
+
+**The access width, stated.** The model reads and writes ONE BYTE, the byte that holds the bit. The SDM allows the processor
+to access the whole operand-size unit that contains it ("may access 4 bytes … may do so even when only a single byte needs
+to be accessed"). The two choices give the same CF and the same memory contents; they differ only in WHICH ADDRESSES must be
+accessible. This model has no page-fault vocabulary, so the only access condition it checks is canonicity — of the byte
+address (plus the segment base, as every access here adds it). A non-canonical byte address halts the model with the
+`non-canonical … (#GP(0) in hardware)` reason the branch checks already use. **Limit, declared:** a canonical byte inside an
+operand-size unit that crosses the canonical boundary executes here and might fault on hardware; no vector reaches it.
+ACL2 x86isa (`machine/instructions/bit.lisp`, `rme-size … 1 byte-addr … :check-canonicity t`) and K
+(`memoryInstructions/bt?_m*_r*.k`, `loadFromMemory(…, 8)`) both access the one byte too.
+
+**The design.** No new constructor. `step`'s `.bit` case dispatches on its operand pair: `.mem` destination with `.reg`
+offset is the bit string; every other pair keeps the modulo rule byte for byte. The AST could always express the shape (the
+decoder's output for `0f a3 /r` with a memory ModR/M is already `.bit k sz (.mem ea) (.reg r)`), so a separate constructor
+would add a dozen exhaustive-match arms (coverage, lockability, `eas`, `stripOp`) to say what the operand pair already says.
+LOCK follows the existing rule: BTS/BTR/BTC at memory are lockable, BT is not (`Op.lockable` is unchanged).
+
+**The vectors (28).** Offsets come from the harness's pre-states, so every vector runs all 88:
+- 12 `bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)` — the forms that claim the four roster rows. RCX sweeps `adversarial`: in-word
+  offsets (0, 1, 2, 15) where the old and new rules agree; word-boundary pairs 15/16 (`.w`) and 127/128 (last bit of one
+  dword/qword, first of the next); far positive offsets; and NEGATIVE ones (0xFFFF is −1 at `.w`, 0xFFFFFFFF at `.l`,
+  0x8000 is −32768 at `.w`).
+- 12 `bt{,s,r,c}{w,l,q} %{dx,edx,rdx},0x10(%rbx)` — RDX = ~RAX, so the small RAX values give offsets −1, −2, −3, −16, −17,
+  −128, −129, −256: negative, several words below the base, and inside the watched window from a base of 0x2010.
+- 3 at fixed far offsets, with a displacement that brings the bit back into the window: `btsw %sp,0x1000(%rbx)` (SP = 0x8000
+  = −32768 at 16 bits ⇒ −4096 bytes), `btcl %esp,-0x1000(%rbx)` (+32768 ⇒ +4096 bytes), `btrq %rbx,-0x400(%rbx)`
+  (+0x2000 ⇒ +1024 bytes). Each lands on bit 0 of the swept byte at 0x2000.
+- 1 `lock btsl %edx,0x10(%rbx)`.
+The memory values give both bit values: per vector, among in-window cases, CF is 0 in 12–38 and 1 in 14–50 (below).
+
+**A finding made before the run, by reading the oracle.** ACL2 x86isa computes the byte address as
+`addr + floor(offset/8)` — correct — but the bit number as `(mod (abs offset) 8)`. For a negative offset not ≡ 0 or 4
+(mod 8) that is the wrong bit: offset −1 selects bit 1 of byte EA−1, where the SDM rule selects bit 7. A Rosetta 2
+translation on this machine (an independent x86-64 implementation; NOT silicon) agrees with the SDM rule in all 20 probed
+offsets (−1 … −256, 1 … 255), at all three widths, and for BTS the changed byte and bit match it; at −1, −3, −5, −7 and −129
+its CF differs from x86isa's rule. K's bit number is the offset's low three bits (`extractMInt(…, 61, 64)`), which agrees with
+this model. ⚠️ K's ADDRESS term for a negative offset is a LOGICAL shift of the sign-extended offset
+(`concatenateMInt(mi(3, 0), extractMInt(…, 0, 61))`), so K witnesses only the bit-number half and is not cited for the
+address. ⇒ these disagreements are declared as oracle divergences, and so that the declaration cannot excuse anything else,
+`KnownDivergence` gains a `states` field: an entry with states excuses its field ONLY at the listed pre-state indices, and
+`compare` fails if any listed (vector, field, state) does not diverge.
+
+**Predictions** (from a simulation of both rules over the 88 pre-states taken from record 37's own PRE lines; x86isa's
+undefined-flag pattern taken from the existing `bt*_mi_*` vectors, where PF and SF differ in 88 of 88 cases and AF, OF never):
+1. +28 vectors ⇒ **+2464 cases** (1158 → 1186 vectors, 101904 → 104368 cases); `unexplained` stays **0**; `oracle-leaks` 0;
+   `missing` 0.
+2. **+236 matched** (both models refuse: 31 states for each `rcx` `.q` vector, 28 for each `rdx` `.q` vector; no other case
+   matches, because PF/SF always differ), **+4456 explained** (two per executed case), **+324 oracle-divergence**
+   (292 → 616). Totals: matched 81399, explained 33979.
+3. Per vector (matched / explained / divergence): `bt_mr_w`,`bts_mr_w` 0/176/0 · `bt_mr_l`,`bts_mr_l` 0/176/0 ·
+   `bt_mr_q`,`bts_mr_q` 31/114/0 · `btr_mr_w`,`btc_mr_w` 0/176/18 · `btr_mr_l`,`btc_mr_l` 0/176/12 ·
+   `btr_mr_q`,`btc_mr_q` 31/114/6 · `bt_mr_neg_{w,l}` 0/176/6 · `bt_mr_neg_q` 28/120/6 · `bts_mr_neg_{w,l}` 0/176/12 ·
+   `bts_mr_neg_q` 28/120/12 · `btr_mr_neg_w`,`btc_mr_neg_w` 0/176/35 · `btr_mr_neg_l`,`btc_mr_neg_l` 0/176/32 ·
+   `btr_mr_neg_q`,`btc_mr_neg_q` 28/120/26 · the three far vectors 0/176/0 · `lock_btsl_neg` 0/176/12.
+4. The divergent cases, exactly: `cf` at states {1, 4, 21, 24, 41, 44} on every `rdx` vector; the data window at the same
+   six states on `bts_mr_neg_*` and `lock_btsl_neg`; the data window at 29 / 26 / 20 states on `btr`/`btc` `_mr_neg_` at
+   w / l / q, and at 18 / 12 / 6 states on `btr`/`btc` `_mr_` at w / l / q (the RCX states whose offset is negative at that
+   width). No divergence on `bt`/`bts` `_mr_` or on the far vectors (every offset there is ≡ 0 mod 8 or non-negative).
+5. In-window cases per vector (the rest read and write memory nobody watches, and agree by construction): 59 / 50 / 36 for the
+   `rcx` vectors at w / l / q, 56 / 47 / 35 for the `rdx` vectors, 88 for each far vector.
+6. **The plant** — `step` with D23's modulo rule on this shape — compared against the same oracle output reds every one of
+   the 28 vectors, through `cf`, the data window, and (at `.q`) the refusal channel.
+**Wrong if:** any count differs; a refusal on one side only; a divergence outside the listed states or a listed one that does
+not occur; the plant leaves any vector green; or x86isa refuses the shape outright (it would change the referee).
+**Reversal of D23:** D23 stands as the record of why the shape was declined; it gains a pointer here and no edit.
+**Result (record 39, `docs/DIFFERENTIAL-P2-BATCH39.md`):** predictions 1–6 held on the second run — 104368 cases, matched
+81399, explained 33979, oracle-divergence 616, unexplained 0; per vector and per (vector, field, state) exactly as listed; the
+Lean records equal the SDM-rule simulation and the oracle's equal the x86isa-rule simulation in all 2464 cases; the plant reds
+all 28 vectors (2402 unexplained). ⛔ **The FIRST run was red, 284 unexplained, and refuted an assumption the predictions
+rested on, not the model:** every count but `unexplained` matched, and the 284 were out-of-window CFs the oracle read as 1
+because its memory persists between cases and earlier cases had written there. The emitter now writes the addressed
+byte into each case's pre-state (`memToLisp`, via `bitStringByte`), and run 2 changed nothing else.
+**Re-base, 2026-10-10 19:15 PDT (written before the re-run):** this batch is re-based onto W1b (`86d66a8`, record 39), so
+its record is **40** (`docs/DIFFERENTIAL-P2-BATCH40.md`, P2 batch 54); the "record 39" in the Result above is the pre-rebase
+branch's numbering, and its file name now belongs to W1b. The predictions and the vectors are unchanged; the pre-states are
+unchanged (88 per vector), so every per-vector count carries over. **Predicted for the re-run:** 1170 + 28 = **1198 vectors**,
+**105424 cases** (102960 + 2464), matched **82367** (82131 + 236), explained **34155** (29699 + 4456), `unexplained` **0**,
+`oracle-divergence` **616** (292 + 324), leaks 0, missing 0; each of the 28 ids at its D331 §3 counts and every declared
+(vector, field, state) diverging. Silicon reading: see W2b's decision note (branch `paris/w2b-bitstring-silicon`), landing after this batch; its number is not written here because it heads no section on this tree (`check_citations`; reworded after the re-run for that reason alone).
+**Census prediction (written before re-deriving it):** `docs/PRIMITIVE-CENSUS.md` names no `bt`-family form among any
+candidate's uncovered forms, so ALL COVERED stays **42 of 57** and the s2n appendix **206 of 332**; only the model header moves,
+to `vectors=1198` and `forms=963` (12 new `bt*` m,r forms plus `lock btsl` as its own prefixed form).
+**Re-base result (record 40):** 1198 vectors, 105424 cases, matched 82367, explained 34155, unexplained 0, oracle-divergence
+616, leaks 0, missing 0 — every figure as predicted; per vector and per declared (vector, field, state) exactly as D331 §3–4,
+with the Lean records equal to the SDM-rule simulation and the oracle's to the x86isa-rule simulation in all 2464 cases. Census:
+42 of 57 and 206 of 332 held; the model header reads `forms=962`, not 963 — the census strips `lock` as a prefix before keying
+a form, so `lock btsl` is the `btsl` m,r form and the prediction's thirteenth form does not exist.
+
+**Reported upstream, 2026-10-11:** the x86isa divergence this batch declares per state is [acl2/acl2#2066](https://github.com/acl2/acl2/issues/2066). The declared states stay declared until x86isa changes; when it does, `compare` reds on every listed state that stops diverging, which is the signal to re-pin the reference and remove them.
+
+## D332 — The primitive census credits silicon-refereed forms in a separately labelled column, never pooled with the differential verdict (design and predictions committed before the census is regenerated)
+
+**The ruling this implements (the helm, 2026-10-10):** count MECHANISMS, not voices. The differential (a vector, refereed by
+ACL2 x86isa over the 88 pre-states) and the processor probe (`hwprobe/`, rows derived from the SDM's rules, run on two vendors'
+silicon, the model pinned to the same rows by `decide`) are different instruments. The census may credit a form `siliconTable`
+refers to silicon, but only in its OWN column under its OWN verdict; the `ALL COVERED` verdict and its count stay the
+differential's alone. A paper may cite the two side by side, never summed. The silicon column is **not a semantic oracle**: it
+says a processor agreed with the model on chosen rows, not that a second model of the instruction agrees on the swept pre-states.
+**Design.**
+1. **Which mnemonics.** Read from the tree: the `mnemonic := "…"` strings of `def siliconTable` in `X86/Coverage.lean` (10 rows
+   on this base: `mulx` and D334's nine). Never a hand list; the kernel already pins that list (`Tests/Coverage.lean`).
+2. **Which forms.** The probe's own declaration of what it executed: `hwprobe/mk_int_rows.py`'s generated output names, per
+   function, the instruction BYTES the probe refuses to run without (read back at the `_at` label), and the rows that call it.
+   Every function with at least one row has its declared bytes assembled as `.byte` lines and disassembled by the SAME clang +
+   objdump the census uses for both other sides, and keyed by the SAME `form_of` (printed mnemonic + operand classes; the
+   addressing mode is checked separately, as for every candidate). A form is silicon-refereed when its width-erased mnemonic is a
+   `siliconTable` mnemonic. The ADCX/ADOX functions on the same path are excluded by that filter: the differential referees them.
+   The run REFUSES if a `siliconTable` mnemonic yields no form, or a declared byte string disassembles to anything but one
+   instruction.
+3. **The new verdict, `COVERED WITH SILICON`:** a candidate that is NOT `ALL COVERED`, does not call out of its object, uses no
+   addressing mode outside the vectors' set, and whose every not-covered form is silicon-refereed (so at least one is). It is
+   counted in a separate heading; the differential heading, the by-family line, the unlock search and the ladder are computed
+   exactly as before, from the differential forms alone. The per-row table gains one column naming the silicon-refereed forms
+   among that row's not-covered ones; the not-covered-forms table gains one column marking each form silicon-refereed or not.
+   The s2n-bignum appendix gains a separately labelled silicon line. The column header names the referee as the records do —
+   **AMD EPYC 7763 + Intel Core i7-8700B, hwprobe** (D330's run 38096322511, D334's runs 38102866008 and 38106227137) — and says
+   it is not a semantic oracle; the run refuses if either processor name is absent from D334's text.
+4. **No-pooling is checked, not asserted.** `run()` snapshots every row's differential verdict BEFORE the silicon forms are
+   loaded and refuses (exit 3) if any is different after the silicon classification, or if the differential heading's count
+   differs from the snapshot. `--selftest` carries a plant: a classifier that pools (marks a silicon-completed row `all`) must
+   red that check, and the honest classifier must pass it on the same fixture.
+**Predictions (written before the census is regenerated):**
+1. **The differential does not move:** `ALL COVERED` **42 of 57**, the same 42 candidates; header `vectors=1198 forms=962`; the
+   unlock list and ladder unchanged; the s2n appendix **206 of 332**.
+2. **The silicon forms: 38**, from the 10 `siliconTable` mnemonics, each width × register/memory shape once — `mulx` 4 (the
+   same-register function is the `r,r,r` form again), `andn` `bextr` `bzhi` `blsmsk` `blsr` `pdep` `pext` `rorx` 4 each,
+   `movnti` 2.
+3. **`COVERED WITH SILICON`: exactly 4** — `vale-fmul`, `s2n-bignum_mul_4_8`, `s2n-bignum_montmul_p256` (D330's three) and
+   `s2n-bignum_mul_p25519`, which D330's Result did not name and the current table shows lacking only `mulxq r64,r64,r64` and
+   `mulxq m,r64,r64`. So **silicon-inclusive 46 of 57** — printed as 42 + 4, never as one pooled figure. No candidate lacks only
+   a W1c form, so none of the nine W1c mnemonics completes a candidate here.
+4. The s2n appendix's silicon line is NOT predicted (a reading).
+**Wrong if:** the differential count or its 42 ids move (a pooling defect, or a model change this note does not make); the
+silicon form count is not 38 or a `siliconTable` mnemonic contributes none; the silicon verdict is not exactly those four; or
+the pooling plant does not red. **And the ruling's own condition:** if a second EXECUTABLE model of MULX turns up, its forms move
+to the differential column (with vectors) and the silicon column keeps its rows.
+**Result (census regenerated at the pinned sources, `x86lean-diff` built `saltbuild EXIT=0`): all four predictions held.**
+1. **The differential did not move:** `ALL COVERED` **42 of 57**, the same 42 ids; header `vectors=1198 forms=962`; unlock 22
+   forms for 7 more, ladder 5 steps; s2n appendix **206 of 332**. Measured against the previous document: with the two new
+   columns and the new section and lines removed, every line is byte-identical except the two table separators that gained a
+   cell.
+2. **Silicon forms: 38** from the 10 `siliconTable` mnemonics, exactly the predicted breakdown (`mulx`'s same-register function
+   keys as the `r,r,r` form; `rorx`'s four register functions as one `imm,r,r` form per width).
+3. **`COVERED WITH SILICON`: exactly** `vale-fmul`, `s2n-bignum_montmul_p256`, `s2n-bignum_mul_p25519`, `s2n-bignum_mul_4_8` —
+   printed as **42 ALL COVERED · 4 COVERED WITH SILICON**, never summed. No W1c form completes a candidate.
+4. **The s2n appendix's silicon line (unpredicted): 67** of the 126 not-covered functions lack only silicon-refereed forms.
+   It is printed beside, and not added to, the 206.
+**Selftest:** `--selftest` OK (18 shapes + 11 arms). The no-pooling arm passes the honest classifier (exactly the row lacking
+only a silicon form gets the new verdict; rows that also lack another form, call out, or use an unvectored mode do not) and reds
+on both pooling plants — a classifier that marks a silicon-completed row `all`, and the differential re-scored with the silicon
+forms pooled into its set — and `check_disjoint` reds a silicon form placed in the differential set. **Red backwards:**
+`check_no_pooling` mutated to return `None` reds the selftest on exactly the two pooling plants (rc 1).
+**Re-based 2026-10-11 onto master `e274cae` (W1a · W1b · W2 · W2b · W1c and the #2066 notes merged; W1c's pins now in
+`Tests/AnchorsBmi.lean`), written BEFORE the re-run.** `docs/PRIMITIVE-CENSUS.md` is taken from master and re-derived by the
+tool. `siliconTable` on master is the same 10 mnemonics. **Predicted:** differential `ALL COVERED` **42 of 57** unchanged (header
+`vectors=1198 forms=962`, s2n appendix 206 of 332); silicon forms **38** from **10** mnemonics; `COVERED WITH SILICON` **4** (the same
+four); the s2n silicon line 67. The referee check reads D334's section, whose later readings (on master) still name both
+processors, so it must still parse.
+**Re-run result (full build `saltbuild EXIT=0`, sources re-fetched at the pins):** `ALL COVERED` 42 of 57, the same 42; header
+`vectors=1198 forms=962`; unlock 22 forms for 7, ladder 5 steps; s2n appendix 206 of 332; silicon forms 38 of 10 mnemonics;
+`COVERED WITH SILICON` 4 (the same four); s2n silicon line 67; the referee check parsed. The re-derived document is byte-identical
+to the one this branch carried before the re-base. All held.
+
+## D333 — W2b: silicon referees the bit-string rule of BT/BTS/BTR/BTC (memory base, register offset), and above all its negative offsets (predictions committed before any run)
+
+**Numbering.** D331 is the bit-string MODEL and its differential (`paris/w2-bitstring`), and the number after it was reserved
+for the census's silicon column; this entry is D333 so it collides with neither, and it cites nothing those branches carry beyond what
+is restated here. *(Reworded at the re-base onto D331's batch: the first wording named the reserved number, which heads no
+section yet, and `check_citations` reads a bare decision number as a citation.)* It touches only `hwprobe/`, the hwprobe workflow and this file: no Lean, no differential.
+**Why.** The model's bit-string rule (SDM Vol. 2A §3.1.1.9 and Table 3-2: the register offset is SIGNED at the operand size;
+the addressed bit is bit `offset AND 7` of the byte at `EA + (offset SAR 3)`) disagrees with ACL2 x86isa for a negative
+offset, because x86isa (`books/projects/x86isa/machine/instructions/bit.lisp`, the memory arm of `x86-bt-0F-A3`,
+`x86-bts-0F-AB`, `x86-btr-0F-B3`, `x86-btc-0F-BB`) takes the byte as `addr + floor(offset/8)` — the same byte — but the bit
+as `(mod (abs offset) 8)`: offset −1 selects bit 1 of byte EA−1 where the SDM selects bit 7. The two bit numbers differ exactly
+when the offset is negative and not ≡ 0 (mod 4). So far the SDM's side is held by the manual, by K's bit-number term, and by
+Rosetta 2, which is a translator and not silicon. This entry makes PROCESSORS the referee, on two vendors when the Linux leg
+draws AMD.
+**The probe (a third program beside the SSE and integer paths, sharing nothing with them):** `hwprobe/bitstr_ops.S` (one
+function per form; RBX = the base pointer, RCX = the offset register, RFLAGS' six arithmetic bits from the row, RFLAGS read
+back immediately after), `hwprobe/mk_bitstr_rows.py` (rows and expectations, derived from the stated rules SIGNED-OFFSET ·
+BIT-STRING · CF · WRITE-BACK, never typed), `hwprobe/bitstr_probe.c`. The 12 forms are `bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)`
+(`[66|48] 0f {a3,ab,b3,bb} 0b`), each read back at its `_at` label: a declared byte that is not the assembled one REFUSES the
+run (exit 2).
+**The buffer.** A static 16384-byte buffer, 4096-aligned, filled from a PATTERN the generator derives from a stated LCG and
+emits as data; the base pointer is its middle (+8192). Every offset addresses a byte within ±4097 bytes of the base, so at
+least 4 KiB on each side is guard. Each row overrides exactly ONE byte — the addressed one — with a chosen pre-value; after the
+instruction the probe compares the WHOLE buffer: the addressed byte against the expected value, every other byte against
+PATTERN. A write to any other byte, or a write by BT, is a DIFF. RFLAGS is compared on CF (written) and ZF (must be unchanged);
+OF, SF, AF, PF are undefined and not compared.
+**The rows: 2944.** Per form, the offsets (signed at the operand size): 0–9, 15–17, 31–33, 63–65, 127, 128, 255, 256,
+4095–4097, 32767; −1 … −16, −17, −31, −32, −33, −63, −64, −65, −127, −128, −129, −255, −256, −257, −4095, −4096, −4097,
+−32768; and at 32 and 64 bits also +32768 and −32769 — 60 offsets at `w`, 62 at `l`/`q`. The 16- and 32-bit rows carry junk
+(`0xA5…`) in the register above the operand size, which SIGNED-OFFSET says is not read. Each offset runs four pre-values of the
+addressed byte: `00` (flags in: all six set), `ff` (all clear), only the SDM's bit set (all clear), all but the SDM's bit
+(all set) — so CF is seen changing both ways, ZF is seen held at both values, and in the last two the x86isa bit, where it
+differs, holds the opposite value. 12 forms × {240 (w), 248 (l, q)} = 4 × (240 + 248 + 248) = 2944.
+**The x86isa column.** Beside each SDM expectation the generator computes x86isa's rule on the same row, and the probe prints
+per row whether the processor matched it, with a total. It is a predicted DISAGREEMENT, never an expectation: the verdict
+(exit 0/1) is the SDM column alone. Rows where the two rules predict different (CF, byte): **852** of 2944 — all on negative
+offsets, none on a non-negative one — by form: `bt` w/l/q 46/48/48 (CF only: BT writes nothing); `bts` and `btr` w/l/q
+69/72/72; `btc` w/l/q 92/96/96. (Per width 23 negative offsets have different bit numbers at `w`, 24 at `l`/`q`; BT differs on
+two of four pre-values, BTS/BTR on three, BTC on four.) `python3 hwprobe/mk_bitstr_rows.py --summary --rows` prints the per-row
+table; those counts are this generator's output, landed in the commit after this one.
+**Predictions — committed before the hwprobe push and before any Rosetta run of the probe:**
+1. **hwprobe, both legs (ubuntu-latest — the label names no processor, expected an AMD EPYC; macos-15-intel — documented
+   Intel):** `rows 2944 disagreements 0` against the SDM rule. The SSE and integer referees are unchanged and still agree.
+2. **The x86isa column, both legs:** the processor matches x86isa's rule on exactly the **2092** rows where the two rules agree,
+   and DISAGREES with it on exactly the **852** where they differ: `x86isa-rule agreement 2092 of 2944`, and every row marked
+   as differing is a row where silicon took the SDM's value.
+3. **Controls, both legs:** `--plant` (CF flipped in row 0, `btw_mr_p0_v00`) → rc 1, exactly one `DIFF`, on that row;
+   `--plant-mem` (row `btsw_mr_m1_v00` expects the x86isa rule's byte, `02`, where the SDM's is `80`) → rc 1, exactly one
+   `DIFF`, on that row, through the memory channel; `--plant-op` (one declared byte of `b_btw_mr` wrong) → rc 2,
+   `REFUSED b_btw_mr`.
+4. **No AMD/Intel difference** on any compared field: CF and the memory contents are architecturally defined here, and the
+   undefined flags are not compared.
+**Wrong if / refuted if:** any silicon row matches x86isa's rule over the SDM's (refutes the model's rule on that vendor, and
+the D331 differential's divergence declaration with it); any other disagreement (a wrong byte written, ZF moved, the junk above
+the operand size read — the last would likely fault, a crash is a failure, never a pass); the plants red other than exactly
+their row; the bad byte does not refuse; or the two vendors differ. An expectation is never edited to match a processor: a
+disagreement is decided from the SDM. Rosetta 2 is a translator: if it runs the probe, its agreement is corroboration only.
+**Result: all four predictions held, on two vendors and three processors; nothing refuted.**
+1. hwprobe run **38100851346** (push), both jobs `success`: **ubuntu-latest drew an INTEL Xeon Platinum 8573C**, not the AMD
+   the prediction expected, and macos-15-intel an **Intel Core i7-8700B** — so that run is ONE vendor, two Intel generations.
+   A `workflow_dispatch` re-run, **38100955005**, on the same head: ubuntu-latest drew an **AMD EPYC 9V45**, macos-15-intel
+   the i7-8700B again; both jobs `success`. On all four legs: **`rows 2944 disagreements 0`**. The SSE referee (958/958) and the
+   integer referee (384/384) unchanged on all four.
+2. **The x86isa column, all four legs: `x86isa-rule agreement 2092 of 2944; rows where the rules differ 852, silicon took the
+   SDM's value on 852`.** Every row marked as differing reads `x86isa differ`. The four legs' full `bitstr.out` listings (the
+   workflow's artifacts) are **byte-identical** (sha256 `bf88215fd1ef4df3…` each), so AMD and both Intel parts agree row for
+   row, not merely in total. E.g. `btw (%rbx),%cx` with CX = −1 and only bit 7 of byte −1 set: CF = 1 on every processor (the
+   SDM's bit 7); x86isa's rule reads bit 1 and predicts CF = 0.
+3. **Controls, all four legs:** CF plant rc 1, one `DIFF`, `btw_mr_p0_v00`; memory plant rc 1, one `DIFF`, `btsw_mr_m1_v00`
+   (silicon wrote `80`, the plant expected x86isa's `02`); stray plant rc 1, one `DIFF`, `btcw_mr_p0_v00` naming `STRAY WRITE
+   byte[+0]`; bad byte rc 2, `REFUSED b_btw_mr`. ⚠️ The stray plant is a FOURTH control, added after this entry's
+   pre-registration (commit before) and before any push or Rosetta run; it was not predicted, and it held.
+4. **No AMD/Intel difference** on any compared field, as predicted.
+⇒ **The x86isa disagreement is now a two-vendor silicon reading:** for a memory bit base with a negative register offset, AMD
+(EPYC 9V45) and Intel (Xeon Platinum 8573C, Core i7-8700B) select bit `offset AND 7` of the byte at `EA + (offset SAR 3)`,
+as the SDM and this model say, and not x86isa's bit `(mod (abs offset) 8)` — on all 852 rows where the two differ, at 16, 32
+and 64 bits, for BT, BTS, BTR and BTC, CF and written byte both. The bits above the operand size (junk in every 16/32-bit
+row) were ignored everywhere. The declared oracle divergences of the bit-string differential (D331 on its branch) are the
+oracle's defect, now refereed by silicon.
+⚠️ **Rosetta 2** (an Apple-silicon translator, NOT silicon), run locally after the pre-registration: rows 2944, 0
+disagreements, the same 2092/852, all controls as above, and its listing is byte-identical to the four silicon legs.
+Corroboration only. **Limits, declared:** the buffer is in-bounds by construction, so this says nothing about which addresses
+a processor ACCESSES (the SDM lets it touch the whole operand-size unit) or about faults; no LOCK-prefixed row; offsets
+beyond ±32769 (far negative offsets at 32/64 bits) are not exercised; three processors are three readings, not a population.
+
+**A fourth processor, 2026-10-11 00:30–00:31 PDT (after the Result; added at landing).** The same probe sources — the run script
+generated from this branch's `hwprobe.yml`, so the steps are CI's own — ran on kenai, an AMD Ryzen 7 8700F (Zen 4), inside WSL2
+(Ubuntu 26.04.1, gcc 15.2.0 installed for it). WSL2 reports `hypervisor=1` and every feature these probes need; the bare-metal CPUID
+was NOT measured (no Windows-side reader), so a Hyper-V mask on some feature this file does not use is not excluded. Result: bit-string
+`rows 2944 disagreements 0`, all four controls as stated (plant rc 1, pmem rc 1, stray rc 1, badop rc 2) — the SDM's bit on all 852
+rows where x86isa's rule differs, on a second AMD microarchitecture. The raw listings are not committed here.
+
+**Reported upstream, 2026-10-11:** [acl2/acl2#2066](https://github.com/acl2/acl2/issues/2066) carries these silicon readings.
+
+## D334 — W1c: the rest of the oracle-UNAVAILABLE rows (ANDN, BEXTR, BLSMSK, BLSR, BZHI, PDEP, PEXT, RORX, MOVNTI), refereed by silicon (predictions committed before any run)
+
+*(Numbering: D331 and D333 head the sections above on the base this is rebased onto; the number between them is reserved on another branch, so this one is D334.)*
+**Why these.** `scripts/claimed_forms.py --remaining` lists **oracle UNAVAILABLE 19**: `andn` `bextr` `blsmsk` `blsr` `bzhi`
+`movnti` `mulx` `pdep` `pext` `rorx`. `mulx` (2 rows) is D330's; the other **17 rows** are these nine mnemonics at the roster's
+shapes and widths, and nothing else: `andn` r,r,r · r,r,m; `bextr` r,r,r · r,m,r; `bzhi` r,r,r · r,m,r; `blsmsk` r,r · r,m;
+`blsr` r,r · r,m; `pdep` r,r,r · r,r,m; `pext` r,r,r · r,r,m; `rorx` r,r,imm · r,m,imm — all `lq` — and `movnti` m,r. The roster
+files `movnti`'s widths as `-` with **2** K variants: K spells the mnemonic without a size suffix, and its two variants are the
+32- and 64-bit stores (SDM Vol. 2B MOVNTI: `NP 0F C3 /r` m32,r32 and `NP REX.W 0F C3 /r` m64,r64), so both widths are taken.
+**Not taken, and why:** `blsi`, `sarx`, `shlx`, `shrx` are already modelled (P1 batches 13/14, `.bitcnt .blsi` and `.shiftx`)
+and differentially tested — x86isa EXECUTES them, so they are not in the UNAVAILABLE set and a silicon row would add no referee
+they lack. **The oracle** is `scripts/oracle_availability.py`'s existing measurement (each of the nine `refuses`, 88 of 88); it is
+not re-declared, and silicon is the only referee for every form below.
+**The model, one constructor per family (D330's idiom):** `.andn sz dst src1 src2` (dst ModRM.reg, src1 VEX.vvvv, src2 r/m);
+`.bextr sz dst src ctl` and `.bzhi sz dst src idx` (src r/m, the control in VEX.vvvv); `.blsx (msk : Bool) sz dst src` (BLSMSK
+when `true`, BLSR when `false`; dst VEX.vvvv, src r/m); `.pbits (ext : Bool) sz dst src1 mask` (PEXT when `true`, PDEP when
+`false`; src1 VEX.vvvv, mask r/m); `.rorx sz dst src imm`; `.movnti sz dst src` (dst memory, src a GPR). Every BMI constructor
+refuses `.b`/`.w` (VEX.W selects 32 or 64; no encoding); `.movnti` refuses `.b`/`.w` and a non-memory destination (`0F C3` takes
+only a memory r/m). At `.d` every register destination zero-extends (SDM Vol. 1 §3.4.1.1) and every source is read at 32 bits.
+**The rules, per form (SDM Vol. 2A for ANDN, BEXTR, BLSMSK, BLSR, BZHI; Vol. 2B for MOVNTI, PDEP, PEXT, RORX):**
+- **ANDN-RULE.** `DEST := (NOT SRC1) AND SRC2`. "SF and ZF are updated based on result. OF and CF flags are cleared. AF and PF
+  flags are undefined." SF = DEST[w−1], ZF = (DEST = 0), CF = OF = 0.
+- **BEXTR-RULE.** `START := SRC2[7:0]; LEN := SRC2[15:8]; TEMP := ZERO_EXTEND_TO_512(SRC1); DEST := ZERO_EXTEND(TEMP[START+LEN−1:
+  START])`. Only SRC2's low 16 bits are read (bits w−1:16 are ignored); a START ≥ w extracts nothing (DEST = 0, the 512-bit
+  zero-extension supplies only zeros); a LEN reaching past bit w−1 extracts only up to bit w−1; LEN = 0 gives 0. "ZF is updated
+  based on the result. AF, SF, and PF are undefined. All other flags are cleared." So ZF = (DEST = 0), CF = OF = 0.
+- **BLSMSK-RULE.** `temp := (SRC−1) XOR SRC`; SF = temp[w−1]; **ZF := 0** (the SDM's operation sets it unconditionally — the
+  mask always has bit 0 set); CF = (SRC = 0); OF cleared; AF, PF undefined. At SRC = 0 the result is all ones at w bits.
+- **BLSR-RULE.** `temp := (SRC−1) AND SRC`; SF = temp[w−1]; ZF = (temp = 0); CF = (SRC = 0); OF cleared; AF, PF undefined.
+- **BZHI-RULE.** `N := SRC2[7:0]; DEST := SRC1; IF N < w THEN DEST[w−1:N] := 0; IF N > w−1 THEN CF := 1 ELSE CF := 0`. Only the
+  index BYTE is read (bits w−1:8 ignored, so an index register of `…ff05` is 5 and of `0x100` is 0). "ZF and SF flags are updated
+  based on the result. … OF flag is cleared. AF and PF flags are undefined." ⚠️ **THE DOCUMENTED DISCREPANCY, stated before the
+  run:** the SDM's prose says "The INDEX value is saturated at the value of OperandSize −1", and AMD's APM Vol. 3 says "If the value
+  of index is greater than or equal to the operand size, index is set to (op_size−1)" — read literally, both clear bit w−1 at N ≥ w
+  — while the SDM's OPERATION clears nothing at N ≥ w (DEST = SRC1). This model follows the Operation; the rows with SRC1 = all ones
+  and N ∈ {w, w+1, 128, 255} decide between the two readings on a processor. (A public LLVM code review, D32616, reports Haswell,
+  Excavator and Ryzen returning SRC1 unchanged; that is a third-party reading, not evidence here.)
+- **PDEP-RULE / PEXT-RULE.** "Flags Affected: None." PDEP: for m = 0…w−1 with MASK[m] = 1, the next low bit of SRC1 goes to DEST[m];
+  every other DEST bit is 0. PEXT: for m with MASK[m] = 1, SRC1[m] goes to the next low bit of DEST; the rest are 0. SRC1 is
+  VEX.vvvv, MASK the r/m operand.
+- **RORX-RULE.** `y := imm8 AND 1FH` (w = 32) or `imm8 AND 3FH` (w = 64); `DEST := (SRC >> y) OR (SRC << (w−y))`. "Flags Affected:
+  None" — unlike ROR, no CF/OF at all, at every count.
+- **NT-STORE (MOVNTI).** `DEST := SRC`, a w-bit store; "Flags Affected: None". The SDM: "The non-temporal hint is implemented by using
+  a write combining (WC) memory type protocol … Because the WC protocol uses a weakly-ordered memory consistency model, a fencing
+  operation implemented with the SFENCE or MFENCE instruction should be used in conjunction with MOVNTI." ⇒ **For this model's
+  user-level, single-threaded, cache-free state MOVNTI IS A PLAIN STORE**; the cache hint and the weak ordering it permits are OUTSIDE
+  the model's scope (it has no memory types, no other agents and no fences), and the row says so rather than claiming them.
+**Undefined flags** follow the repository's treatment (`.bitcnt .blsi`, `Flags.blsi`): each is drawn from the undefined-bit oracle,
+in a fixed order — PF then AF (ANDN, BLSMSK, BLSR, BZHI), PF, AF then SF (BEXTR) — and those rows are `T-frame` with the bits
+listed. PDEP, PEXT, RORX and MOVNTI draw nothing (`T-exact`). Characterisations in `X86/Theorems.lean` §W1c, on the three standard
+axioms (no `bv_decide`).
+**Coverage.** None of the nine joins `tableP0` or `rosterP0` (still **199**; vectors still **1170**): they are rows of
+`siliconTable` beside `mulx` (1 → 10 rows), rendered in `docs/COVERAGE.md`'s processor-refereed section. The differential is not
+re-run: no vector, constructor of a vectored form or pre-state changes. `claimed_forms.py --remaining` keeps the 19 in the
+UNAVAILABLE bucket (the census credits only differential evidence — D330's rule, unchanged) and gains one derived line naming how
+many of them `siliconTable` referees.
+**The silicon rows (`hwprobe/mk_int_rows.py`, derived from the rules above, never typed): 888 new rows**, 1272 in all with D330's
+384. Destination R8 (R8D); R9 is named by no operand of any W1c form and must still hold the canary; every 32-bit form is compared at
+64 bits. Flags in ∈ {all six clear, all six set} for every operand set, so a cleared flag and an untouched one are both asked.
+- ANDN (4 forms: q/l × rr/rm) × 9 (RDX, SRC2) pairs (zero; 0, all-ones; all-ones, all-ones; all-ones, 0; alternating bytes;
+  sign bit; 2^63−1; a high-half pattern; one whose 32-bit result has its sign set where the 64-bit one does not) × 2 = **72**.
+- BEXTR (4) × 2 sources (all-ones, `0123456789abcdef`) × 11 controls (start/len 0/0, 0/8, 4/8, 0/w, 0/255, (w−1)/1, (w−8)/16,
+  w/1 — START = width, 200/10 — START beyond, 32/16 — beyond at l and the upper half at q, and 4/8 with junk in bits 63:16) × 2
+  = **176**.
+- BZHI (4) × 2 sources × 10 index registers (0, 1, w/2, w−1, w, w+1, 128, 255, `…ffffff05`, `0x100`) × 2 = **160**.
+- BLSMSK, BLSR (4 each) × 8 sources (0, 1, all-ones, 2^63, 2^31, 0x10, `ffffffff00000000` — zero at l, `0123456789abcde0`) × 2
+  = **64 + 64**.
+- PDEP, PEXT (4 each) × 2 values (all-ones, the pattern) × 8 masks (0, all-ones, `5555…`, `aaaa…`, sparse `8000000100000001`,
+  `f0f0…`, 2^63, `00000000ffffffff`) × 2 = **128 + 128**.
+- RORX: 10 forms — per width, register source at imm 0, 1, w−1 and w+5 (masked to 5: 69 at q, 37 at l) and memory source at imm 7
+  — × 4 sources (the pattern, 1, `8000000000000001`, `ffffffff00000001`) × 2 = **80**.
+- MOVNTI (q, l; memory destination at RBX, read back after SFENCE as a quadword) × 4 (stored value, prior memory) pairs × 2
+  = **16**; at l the quadword's high half must be the memory's own.
+RFLAGS is compared on the six arithmetic flags MINUS each row's undefined ones (a per-row mask, `0x8d5` for every D330 row and every
+flagless W1c row); the probe prints all six as read, so the undefined bits are RECORDED per leg though never judged. The probe reads
+CPUID.(7,0):EBX bits 3 (BMI1), 8 (BMI2) and 19 (ADX) and CPUID.1:EDX bit 26 (SSE2, MOVNTI's feature flag), prints them, and REFUSES
+(exit 2) unless all four are set. All 888 rows are pinned in `Tests/Anchors.lean` by `decide` (`hwprobe/mk_int_anchors.py`): x86isa
+refuses every one of these forms, so no vector carries any of them; the pins compare the same masked flags.
+**Predictions — committed before the hwprobe push and before any build of the new probe on any processor:**
+1. **hwprobe, both legs** (ubuntu-latest — an AMD EPYC expected but not named by the label; re-dispatched until a run has an AMD
+   leg; macos-15-intel — Intel): BMI1=1 BMI2=1 ADX=1 SSE2=1; **`rows 1272 disagreements 0`** on each leg. The SSE referee unchanged.
+2. **Controls, both legs:** D330's two unchanged — `--plant` (CF in row 0, `adcxq_rr_zero_c0`) → rc 1, exactly one `DIFF` on that
+   row; `--plant-op` (one byte of `i_adcxq_rr`) → rc 2, `REFUSED i_adcxq_rr`. **A third, new:** `--plant-new` flips ZF — a DEFINED
+   flag — in `andnq_rr_zero` (a masked row) → rc 1, exactly one `DIFF`, on that row: the per-row mask still compares what it must.
+3. **BZHI at N ≥ w:** both processors return SRC1 unchanged with CF = 1 (the Operation), NOT the bit-w−1-cleared value the prose
+   and AMD's APM describe. If either leg clears bit w−1, that leg disagrees on the `nw`/`nw1`/`n128`/`n255` rows with SRC1 = all
+   ones, and the finding is a vendor difference to be recorded, not an expectation to edit.
+4. **No AMD/Intel difference on any compared bit.** On the UNDEFINED bits no prediction is made; any difference between the legs'
+   printed AF/PF/SF readings is recorded in the result as measured.
+5. **Kernel:** every one of the 888 pins builds by `decide`; axiom gate CLEAN on the three standard axioms; `rosterSize` 199 and
+   `vectorCount` 1170 unchanged; `siliconTable` 10 rows. `claimed_forms --remaining`: UNAVAILABLE still 19, the new line reading
+   19 of 19 refereed by silicon; AVAILABLE WORK 0.
+**Wrong if:** any leg disagrees on any row (the rule or the processor is wrong; which is decided from the SDM and the APM, never by
+editing an expectation to fit), a plant reds other than exactly its row, the bad byte does not refuse, the two vendors differ on a
+compared bit, or a pin fails to build. Rosetta 2 is an emulator: if it runs the probe its agreement is corroboration only, and if it
+lacks a required CPUID bit the probe must refuse rather than crash.
+**Result (hwprobe run 38102866008 at `fe04f79`, both jobs `success`; the first run, no re-dispatch needed): all five predictions held.**
+1. **ubuntu-latest drew an AMD EPYC 7763** (CPUID.7.0.EBX `219c07a9`, CPUID.1.EDX `178bfbff`); **macos-15-intel an Intel Core
+   i7-8700B** (`029c6fbf`, `9f8bfbff`); BMI1=1 BMI2=1 ADX=1 SSE2=1 on both; **`rows 1272 disagreements 0` on both**. SSE referee
+   958/958 on both.
+2. Controls, both legs: plant rc 1, exactly one `DIFF`, on `adcxq_rr_zero_c0`; bad byte rc 2, `REFUSED i_adcxq_rr`; **plant-new rc 1,
+   exactly one `DIFF`, on `andnq_rr_zero`**. SSE controls 1 · 2 · 1 · 2 as before.
+3. **BZHI at N ≥ w: both processors returned SRC1 unchanged with CF = 1** — the SDM's Operation — on every `nw`/`nw1`/`n128`/`n255`
+   row; neither cleared bit w−1 as the SDM's prose and AMD's APM Vol. 3 text, read literally, describe. The documented discrepancy
+   is a discrepancy between DOCUMENTS; on these two parts the hardware follows the Operation.
+4. **No AMD/Intel difference on any compared bit**: every result (R8, the MOVNTI quadword), R9 and every masked flag agree across the
+   legs. **The UNDEFINED bits DO differ, and the difference is recorded as measured** (848 of the 1272 lines are byte-identical
+   between the legs; the other 424 differ ONLY in an undefined flag):
+   - **Intel i7-8700B:** AF and PF read **0** on every ANDN, BEXTR, BLSMSK, BLSR and BZHI row (536 rows), and BEXTR's SF reads 0.
+   - **AMD EPYC 7763:** PF reads the **even parity of the result's low byte** on every one of those 536 rows (as the arithmetic
+     instructions define it); AF reads **0** except on BEXTR, where it reads **1** on all 176 rows; BEXTR's SF reads 0.
+   - On both, none of these readings depends on the incoming flags (268 of 268 clear/set pairs read alike on each leg).
+   ⇒ The SDM's "undefined" is not a reading either vendor fixes for the other, and these two parts give opposite PF values on the
+   same instruction and operands. This model draws those bits from the oracle and claims neither, which is the treatment D334
+   pre-registered; nothing about it changes.
+5. Kernel: all 888 pins build by `decide` (`saltbuild EXIT=0`, full build); axiom gate CLEAN (4572 declarations, the three standard
+   axioms); `rosterSize` 199, `vectorCount` 1170, `siliconTable` 10 rows. A mutant `Value.bzhi` that saturates the index at w−1
+   reds exactly the four BZHI pin theorems (`w1c_bzhi{q,l}_{rr,rm}_pins`) and nothing else. `claimed_forms --remaining`:
+   UNAVAILABLE 19, refereed by silicon 19 of 19, AVAILABLE WORK 0.
+⚠️ **Rosetta 2:** CPUID.7.0.EBX reads 0 and the probe refuses (rc 2, `lacks BMI1 BMI2 ADX`) — corroborates nothing, as predicted.
+**Not done here:** the ku-delta ledger row (`kernel_drift --gap` reds until it is recorded at landing), and no PR.
+**Re-based 2026-10-10 onto W2b (D333, `fd878d1`, above W2's batch 54), re-measured from the tree rather than carried.**
+Vectors 1198, roster 199, `siliconTable` 10; `docs/COVERAGE.md` regenerates byte-identical; `claimed_forms --remaining`:
+REMAINING 21 — NO ENCODING 2, UNAVAILABLE 19 (refereed by silicon 19 of 19), DECLINED 0 (W2's D331), AVAILABLE WORK 0. Full
+build `saltbuild EXIT=0`; axiom gate CLEAN (4575 declarations). **Second hwprobe reading, run 38106227137 at the re-based head:**
+ubuntu-latest again an **AMD EPYC 7763**, macos-15-intel the **Intel i7-8700B**; `rows 1272 disagreements 0` on both, the three
+integer controls as before (plant rc 1 · bad byte rc 2 · plant-new rc 1), W2b's bit-string path 2944/0 beside it; the undefined-bit
+readings repeat exactly (Intel AF = PF = 0; AMD PF = parity of the result's low byte, AF = 1 on BEXTR only; BEXTR SF = 0 on both;
+848 of 1272 lines identical across the legs, the rest differing only in undefined flags; no dependence on the incoming flags).
+
+**A third microarchitecture, 2026-10-11 00:30–00:31 PDT (added at landing).** The same rows, run on an AMD Ryzen 7 8700F (Zen 4)
+inside WSL2 (the run script generated from `hwprobe.yml`, gcc 15.2.0; WSL2 reports `hypervisor=1`, BMI1=1 BMI2=1 ADX=1,
+`cpuid.07.0.ebx f1bf07a9`; bare-metal CPUID NOT measured): `rows 1272 disagreements 0`, the three controls rc 1 / rc 2 / rc 1.
+⭐ **Its listing is byte-identical to the EPYC 7763's on all 1272 rows, undefined flags included**, and agrees with the Intel
+i7-8700B on 848 — the same 424 rows that differ only in undefined AF/PF. ⇒ On these families the undefined-flag values are
+stable across two AMD microarchitectures (Zen 3, Zen 4) and differ by vendor. A reading of three processors, not a population;
+and, as above, a fidelity observation only — hardware may refute definedness and never establishes it.
+**Note, 2026-10-11 — arm (A) of the 2026-10-10 fork, applied at landing: the pins moved to a metered module.** The predictions
+above are untouched. At landing the ledger (katmai, base `24d3644`) read `Tests.Anchors` 2240 → 6240 ms against a budget of 521.9:
+the ms delta gate FAILED, and A′ cannot overrule a conviction. The remedy is the one the helm ruled for V1a (2026-10-10 21:21, arm (A)): the 888 pin
+theorems left `Tests/Anchors.lean` for a NEW module, `Tests/AnchorsBmi.lean` (imported by the `Tests` root; `hwprobe/mk_int_anchors.py`
+now generates the W1c block into it, `--check` byte for byte, and refuses a copy left in `Tests/Anchors.lean`), which restates the two
+private `Tests.Anchors` helpers it used from `X86` alone. `Tests/Anchors.lean` is byte-identical to the base's again; W1b's MULX pins
+stay in it. Full build `saltbuild EXIT=0`. The BZHI clamp mutant reds exactly `w1c_bzhi{q,l}_{rr,rm}_pins`, now in the new module,
+while `Tests.Anchors` builds clean under it.
+**Measured on yukon.lan, base `24d3644`:** `ku_delta --arm a-prime` — `Tests.Anchors` Δku **+0** (991,994, allowance 231,135);
+`Tests.AnchorsBmi` NEW at **1,885,444** ku, refused until registered, as a new module must be; `Tests.Coverage` +134,029 of 692,953;
+`X86.Theorems` +12,964 of 19,107; `X86.Syntax` +2,081 of 5,728. `kernel_delta` (3 repeats a side) — `Tests.Anchors` **+70 ms against a
+budget of 428.7, ok**; `Tests.AnchorsBmi` NEW at **3,570 ms**, refused with the line it printed. **Registered from those readings, not
+retyped:** `Tests.AnchorsBmi @ku 1885444` (`scripts/ku_delta_budget.txt`) and `Tests.AnchorsBmi 10710 @on yukon.lan`
+(`scripts/kernel_ceilings.txt`, max(3570 × 3, 50)). ⚠️ No katmai or runner line: no reading of this module exists on those machines
+until their gates run it, and by D252 §6 each line follows that machine's first refusal.
+**Re-read after registering, base `24d3644`, yukon.lan (load 5–9, other seats building):** `ku_delta --arm a-prime` **CLEAN** —
+`Tests.Anchors` +0 of 231,135, `Tests.AnchorsBmi` 1,885,444 "NEW, registered", ms ceilings `X86.Basic` 32 %, `X86.Syntax` 52 %,
+`X86.Theorems` 46 %. `kernel_delta --repeats 6` — `Tests.Anchors` −5 ms of 447.4 **ok**; `Tests.AnchorsBmi` 3,630 ms **"NEW ok
+(ceiling 10710.0 @on yukon.lan)"**; `Tests.Coverage` +500 of 2,408 ok; every other unit ok except two the gate calls UNMEASURABLE,
+both W1c's own `X86` additions and untouched by this move: `X86.Syntax` +51 ± 87 against 71.2, and ⚠️ `X86.Theorems` **+225 ± 47
+against 240.6** (at three repeats it read +260 ± 28 against 247). That second one sits at its budget on this box; it is recorded, not
+widened. The katmai ledger is the deciding reading.
+
+## D335 — V1a: eleven SSE-legacy packed-integer arithmetic mnemonics (PMADDWD PMADDUBSW PMULLW PMULHRSW PMULUDQ PADDSW PSUBUSW PSUBUSB PMAXSW PSADBW PACKSSDW), refereed by silicon (predictions committed before any run)
+
+*(Numbering: a sibling branch, run beside this one on the shuffle/insert/extract group, holds the next number; nothing here depends on it.)*
+**Why these.** The vector campaign's remainder is blocked: `docs/P2-ROSTER.md` marks 29 high-demand SSE mnemonics ⛔ **REFUSES** —
+ACL2 x86isa refuses them at every pre-state (`scripts/oracle_availability.py`, measured, each `refuses` in both arms), so no
+differential vector can exist. These eleven are the arithmetic members of the SSE-legacy (non-VEX, xmm) set, roster ranks 1, 2, 9,
+13, 16, 17, 20, 26, 27, 33 and 35 — together 75,020 instructions of the census's assembly class (the roster's own figure, its MMX
+share included). Each is taken at the roster's two K operand shapes, `xx` (`%xmm1,%xmm0`) and `xm` (`m128,%xmm0`): **22 forms**.
+None is modelled on this base (no `docs/COVERAGE.md` row, no `siliconTable` row, no constructor). Not taken: their VEX spellings
+(`vpmaddwd` …; another encoding space) and the MMX spellings (no MMX register file); `pshufb` and the insert/extract forms are the
+sibling branch's.
+**The referee is silicon, as for D330 and D334**, not the differential: `hwprobe/`, rows derived from the SDM's rules in Python,
+run on hosted runners' processors, and the model pinned to the same rows by `decide`. The coverage rows go in `siliconTable`, never
+`tableP0`/`rosterP0` (roster stays **199**, vectors **1198**).
+**The model, the repository's idiom (P2 batches 17 and 18):** eleven new `VBinKind` kinds — `.maddwd .maddubsw .mullw .mulhrsw
+.muludq .addsw .subusw .subusb .maxsw .sadbw .packssdw` — so `Op.vbin` carries `xx` and `Op.vbinm` carries `xm`, with `vbinm`'s
+existing 16-byte alignment rule: a legacy-SSE m128 operand that is not 16-byte aligned is `#GP(0)` (SDM Vol. 2A Table 2-21, Type 4,
+the class every one of the eleven names for its legacy form), and the model halts `byDesign` there as it does for every `vbinm`
+kind. The probe uses only aligned buffers, so the misaligned branch is theorem-only (`vbinm_unaligned_faults`, already quantified over
+every kind). No flag is written; `vbinApply` computes each; `vbinFlags` is 0 for all of them (none is min/max).
+**The rules, per form (SDM Vol. 2B, each instruction's Operation; DEST = %xmm0, SRC = %xmm1 or m128):**
+- **PMADDWD.** `DEST[31:0] := (DEST[15:0]*SRC[15:0]) + (DEST[31:16]*SRC[31:16])`, and so for each dword: words SIGNED, the two
+  products ADDED, **no saturation** — the SDM: "The (V)PMADDWD instruction wraps around only in one situation: when the 2 pairs of
+  words being operated on in a group are all 8000H. In this case, the result wraps around to 80000000H."
+- **PMADDUBSW (SSSE3).** `DEST[15:0] := SaturateToSignedWord(SRC[15:8]*DEST[15:8] + SRC[7:0]*DEST[7:0])`, each word: it multiplies
+  each UNSIGNED byte of the destination with the corresponding SIGNED byte of the source, adds adjacent pairs, saturates signed.
+- **PMULLW.** `DEST[15:0] := (DEST[15:0] * SRC[15:0])[15:0]`, each word (the low half is sign-independent).
+- **PMULHRSW (SSSE3).** `temp0[31:0] := INT32((DEST[15:0] * SRC[15:0]) >> 14) + 1; DEST[15:0] := temp0[16:1]`, each word, a signed
+  multiply. Rounding by the +1; 8000H × 8000H gives 8000H.
+- **PMULUDQ.** `DEST[63:0] := DEST[31:0] * SRC[31:0]; DEST[127:64] := DEST[95:64] * SRC[95:64]` — UNSIGNED, the EVEN dwords only.
+- **PADDSW.** `DEST[15:0] := SaturateToSignedWord(DEST[15:0] + SRC[15:0])`, each word.
+- **PSUBUSW / PSUBUSB.** `DEST[15:0] := SaturateToUnsignedWord(DEST[15:0] − SRC[15:0])` (each word; bytes for PSUBUSB): 0 where
+  SRC > DEST.
+- **PMAXSW.** `IF DEST[15:0] > SRC[15:0] THEN DEST[15:0] := DEST[15:0] ELSE DEST[15:0] := SRC[15:0]`, signed, each word.
+- **PSADBW.** `TEMP0 := ABS(DEST[7:0] − SRC[7:0])` … `TEMP7`; `DEST[15:0] := SUM(TEMP0:TEMP7); DEST[63:16] := 000000000000H`; the
+  same over bytes 8–15 into `DEST[79:64]`, with `DEST[127:80] := 000000000000H` — two sums, the upper words of each quadword ZEROED.
+- **PACKSSDW.** `DEST[15:0] := SaturateSignedDwordToSignedWord(DEST[31:0])` … `DEST[63:48]` from `DEST[127:96]`; then `DEST[79:64]`
+  … `DEST[127:112]` from `SRC[31:0]` … `SRC[127:96]`: DEST's four dwords to the LOW four words, SRC's to the high four, signed
+  saturation to [8000H, 7FFFH].
+- "Flags Affected: None" for all eleven; the source register and the memory source are not written.
+**The silicon rows (`hwprobe/mk_simda_rows.py`, derived from the rules above, never typed): 396 rows, 18 per form.** Per mnemonic,
+the same 18 operand pairs at both shapes:
+- **EDGE, 8 rows** at the lane width the rule reads — words `{0, 1, FFFF (−1), 7FFF, 8000, 8001, 4000, 00FF}` (PMADDWD, PMULLW,
+  PMULHRSW, PADDSW, PSUBUSW, PMAXSW); bytes `{00, 01, FF, 7F, 80, 81, 40, FE}` (PMADDUBSW, PSUBUSB, PSADBW); dwords `{0, 1,
+  FFFFFFFF, 7FFFFFFF, 80000000, 00008000, FFFF8000, FFFF7FFF}` (PMULUDQ, PACKSSDW: the word-saturation boundaries ±32768 and one past
+  each). At word and byte lanes DEST's lanes are the edge set in order and SRC's are it rotated by the row number (0–7), so every
+  (DEST, SRC) edge pair occurs; at dword lanes 32 of the 64 pairs, every DEST edge at four distances including 0.
+- **UNIFORM, 4 rows**, every lane equal: words (8000, 8000) — PMADDWD's wrap and PMULHRSW's overflow, (7FFF, 7FFF), (8000, 7FFF),
+  (FFFF, 0001); bytes (FF, 7F) and (FF, 80) — PMADDUBSW's two saturations, (00, FF) — PSADBW's maximum 7F8H and PSUBUSB's floor,
+  (7F, FF); dwords (80000000, 7FFFFFFF), (FFFFFFFF, FFFFFFFF) — PMULUDQ's largest product, (7FFFFFFF, 80000000), (00008000,
+  FFFF7FFF).
+- **RANDOM, 6 rows**, every bit from Python's `random.Random(335000 + k)` (k = the mnemonic's index, 0–10), never re-seeded.
+- Flags in: the six arithmetic flags all clear on even rows, all set on odd rows (each form's rows alternate).
+The probe (`hwprobe/simda_ops.S` + `simda_probe.c`, a new program sharing nothing with the three existing paths, which stay
+byte-unchanged in behaviour) loads all 128 bits of both operands, the m128 source from a 16-byte-aligned buffer at RBX, executes the
+declared bytes, and compares **all 128 bits of %xmm0**, plus %xmm1 and the memory source unchanged and the six arithmetic flags
+unchanged. It reads CPUID.1:EDX bit 26 (SSE2) and CPUID.1:ECX bit 9 (SSSE3), prints both, and REFUSES (exit 2) unless both are set;
+it refuses unless the bytes at each function's `_at` label are the declared ones. **Two controls of its own:** `--plant` flips bit 64
+(the HIGH quadword) of row 0's expectation (`pmaddwd_xx_edge0`) → rc 1, exactly one `DIFF`, on that row; `--plant-op` flips the
+last declared byte of `v_pmaddwd_xx` → rc 2, `REFUSED v_pmaddwd_xx`. A generator-side reach check (`--reach`) names one plausible
+WRONG rule per mnemonic (saturating PMADDWD, swapped PMADDUBSW signedness, PMULHW for PMULLW, unrounded PMULHRSW, odd dwords for
+PMULUDQ, wrapping PADDSW/PSUBUSW, signed PSUBUSB, unsigned PMAXSW, swapped PSADBW sums, swapped PACKSSDW halves) and requires a
+non-zero count of rows on which it disagrees with the rule; it reads, before any run, in that order: 2, 32, 34, 30, 28, 32, 26, 30,
+30, 12, 28 of 36. ⚠️ PMADDWD's wrap is ONE case (the two UNIFORM (8000, 8000) rows); that is what the rule has, not a thin row set.
+**Lean anchors:** all 396 rows pinned by `decide` in a new generated block of `Tests/Anchors.lean` (`hwprobe/mk_simda_anchors.py`,
+with `--check` and `--selftest`, wired beside the other two generators in `scripts/preflight.sh`): pre-state %xmm0 = DEST, %xmm1 = SRC,
+RBX = 0x2000 holding SRC as an m128, the row's flags; a row agrees when the step does not refuse, %xmm0 is the row's 128 bits, %xmm1
+and the m128 are unchanged, the six flags are the row's and RIP advanced by the declared length. **Kernel cost** is measured
+(`scripts/ku_delta.py`) and recorded; if `Tests.Anchors` grows unreasonably, rows per form are reduced and the reduction is stated.
+**Predictions — committed before the hwprobe push and before any build of the new probe on any processor:**
+1. **hwprobe, both legs** (ubuntu-latest — an AMD EPYC expected but not named by the label; re-dispatched until a run has an AMD leg;
+   macos-15-intel — Intel): SSE2=1 SSSE3=1; **`rows 396 disagreements 0`** on each. The three existing paths unchanged (SSE, integer
+   1272/0, bit-string 2944/0, all their controls).
+2. **Controls, both legs:** `--plant` → rc 1, exactly one `DIFF`, on `pmaddwd_xx_edge0`; `--plant-op` → rc 2, `REFUSED v_pmaddwd_xx`.
+3. **No AMD/Intel difference on any bit**: every result is defined, so the comparison is total and the two legs' row listings are
+   byte-identical.
+4. **Kernel:** every pin builds by `decide`; axiom gate CLEAN on the three standard axioms; `rosterSize` 199 and `vectorCount` 1198
+   unchanged; `siliconTable` 10 → **21** rows.
+5. **Census (`scripts/primitive_census.py`, D332):** re-derived from `docs/PRIMITIVE-CENSUS.md` before any change — none of the eleven
+   mnemonics occurs in ANY candidate's not-covered forms, the ladder, or the s2n appendix (0 hits for each). So **no candidate moves:
+   42 ALL COVERED and 4 COVERED WITH SILICON**, unchanged. Only the silicon column's form list grows (38 forms of 10 mnemonics → 60 of
+   21), once `silicon_forms` is taught to read this path's declared bytes beside `mk_int_rows.py`'s.
+6. **Roster:** `docs/P2-ROSTER.md`'s rows for these eleven keep their ⛔ **REFUSES** oracle verdict (it is x86isa's, and it does not
+   change) and gain a mark that they are silicon-refereed — never "differential", never ✔.
+**Wrong if:** any leg disagrees on any row (the rule or the processor is wrong — which, is decided from the SDM, never by editing an
+expectation to fit), a plant reds other than exactly its row, the bad byte does not refuse, the two vendors differ on any bit, a pin
+fails to build, or a census candidate changes verdict. Rosetta 2 is an emulator: if it runs the probe its agreement is corroboration
+only.
+**Result (hwprobe runs 38109099137 at `232ed91` and 38109996895, its re-dispatch at the same head; all four jobs `success`).**
+1. **The first run's ubuntu-latest leg drew an Intel Xeon Platinum 8573C**, so the run was re-dispatched as pre-registered; the second
+   drew an **AMD EPYC 9V45** (CPUID.1.ECX `fefa3203`, EDX `178bfbff`). macos-15-intel drew the **Intel Core i7-8700B** both times
+   (`fefa7a37`, `9f8bfbff`). SSE2=1 SSSE3=1 on all four legs; **`rows 396 disagreements 0` on every leg — three processors, two
+   vendors.** The three existing paths unchanged on every leg: SSE 958/0, integer 1272/0, bit-string 2944/0, all their controls.
+2. **Controls, every leg:** `--plant` → rc 1, exactly one `DIFF`, on `pmaddwd_xx_edge0`; `--plant-op` → rc 2, `REFUSED v_pmaddwd_xx`.
+3. **No vendor difference on any bit:** the 396 row lines of the AMD EPYC 9V45, the Intel Core i7-8700B and the Intel Xeon Platinum
+   8573C listings are byte-identical (the artifacts `simda-*`, compared with `cmp` after the CPUID line). Every result is defined,
+   so the comparison was total, as predicted.
+4. **Kernel:** every pin builds by `decide` (`saltbuild EXIT=0`, full build); axiom gate CLEAN (4627 declarations, the three standard
+   axioms); `rosterSize` 199, `vectorCount` 1198, `siliconTable` 21. **Red backwards:** a mutant with PMULHRSW's `+ 1` removed and
+   PACKSSDW's halves swapped reds exactly `v1a_pmulhrsw_{xx,xm}_pins` and `v1a_packssdw_{xx,xm}_pins` and nothing else.
+   **Kernel cost, and it BIT** (`ku_delta.py --arm a-prime` `a62d055` → `232ed91`, yukon.lan, load 4.7–4.9): **FAILED, one
+   finding — `Tests.Anchors` +3,499,586 ku (2,878,319 → 6,377,905) against an allowance of 670,648**, about 8,800 ku per row;
+   `Tests.Coverage` +163,749 (allowance 702,603; the eleven new `VBinKind` constructors, not attributed further), `X86.Theorems`
+   +3,112, `X86.Syntax` +1,111, `X86.Semantics` +26, every other module +0; the three ms ceilings at 30 %, 52 % and 47 %. The rows
+   were NOT cut: at that price the allowance buys about 76 rows, three or four per form, which would keep neither the edge cross
+   nor PMADDWD's wrap at both shapes, and 18 per form is already under the ≤ 24 the commission set. ⚠️ The cost is the lane
+   arithmetic, not the `step` dispatch — measured on one family (`pmaddubsw_xx`, the kernel counters `set_option diagnostics true` lists): the same 18 rows
+   pinned through `vbinApply` alone cost 86 % of the `step` form, and an Int-free spelling of the sign extension (`(x ^^^ 80H) −
+   80H` in place of `signExtend`) a further 32 % less. Neither was taken: the first drops the frame from the pin, the second trades
+   the SDM's reading for the kernel's. The overage is the landing's decision, recorded here with its measurement.
+5. **Census: held.** Re-run with `silicon_forms` reading both probe paths: 42 ALL COVERED and 4 COVERED WITH SILICON, unchanged; the
+   silicon column lists **60 forms of 21 mnemonics**. Two repairs it needed, neither predicted: the packed mnemonics were matched
+   width-stripped (`pmullw` read as a width of `pmull`, so ten of the eleven were "unprobed"), now keyed by the printed name first (and so are the column's mnemonic count and grouping, where `psubusw` and `psubusb` had collapsed into one);
+   and the referee check named one processor pair for the whole column, while this decision's AMD part is an EPYC 9V45 — the
+   referees are now named per decision (D334: AMD EPYC 7763 + Intel Core i7-8700B; D335: AMD EPYC 9V45 + Intel Core i7-8700B).
+6. **Roster: WRONG in form, and recorded rather than re-worded.** The rows did not keep a ⛔ REFUSES verdict with a mark: once
+   `docs/DEMAND-CENSUS.md` was regenerated against the 220-mnemonic model (CI's `demand_census.py --check` requires it), the census
+   counted the eleven mnemonics' xmm demand as COVERED — it reads every mnemonic row of `docs/COVERAGE.md`, `siliconTable`'s
+   included — and they LEFT the ranked roster: the gap is **291,978** instructions, was 362,093. The renderer's mark is in place
+   for any silicon-refereed row that remains (none in the top 40 now), and the roster's prose says covered there means
+   *implemented*, never *differentially tested*. ⚠️ That the demand census pools the processor-refereed table into "covered" is
+   D330's and D334's behaviour too, not new here; it is named so a later reading does not take it for differential coverage.
+⚠️ **Also found:** `scripts/check_readme_snapshot.py` counted XMM-operand mnemonics over the whole of `docs/COVERAGE.md`; with
+silicon rows that have an `x` shape it would have read the README's "N of those [differentially tested] mnemonics" as 122. It now
+stops at the processor-refereed table (111, unchanged). Rosetta 2 ran the probe locally at 396/0 — corroboration only.
+**Not done here:** the ku-delta ledger row (`kernel_drift --gap` reds until it is recorded at landing), and no PR.
+**Note, 2026-10-10 — arm (A) of the 2026-10-10 fork: the pins moved to a metered module.** The predictions above are untouched.
+The 396 pin theorems left `Tests/Anchors.lean` for a NEW module, `Tests/AnchorsSimd.lean` (imported by the `Tests` root;
+`hwprobe/mk_simda_anchors.py` now generates into it, `--check` byte for byte), which restates the two private `Tests.Anchors`
+helpers it used from `X86` alone; `Tests.Anchors` is its pre-V1a content again. Full build `saltbuild EXIT=0`. The same mutant
+(unrounded PMULHRSW, swapped PACKSSDW halves) reds exactly `v1a_pmulhrsw_{xx,xm}_pins` and `v1a_packssdw_{xx,xm}_pins`, now in the
+new module, while `Tests.Anchors` builds clean under it. **Measured at `a203602`, base `a62d055`, yukon.lan:** `ku_delta --arm
+a-prime` — `Tests.Anchors` Δku **+0** (2,878,319, allowance 670,648); `Tests.AnchorsSimd` NEW at **3,499,549** ku, refused until
+registered, as a new module must be; `Tests.Coverage` +163,749 of 702,603; ms ceilings `X86.Basic` 30 %, `X86.Syntax` 49 %,
+`X86.Theorems` 48 %. `kernel_delta` — every existing unit `ok` (`Tests.Anchors` −30 ms against a budget of 1,281.5), and
+`Tests.AnchorsSimd` NEW at **6,650 ms**, refused with the line it printed. **Registered from those readings, not retyped:**
+`Tests.AnchorsSimd @ku 3499549` (`scripts/ku_delta_budget.txt`) and `Tests.AnchorsSimd 19950 @on yukon.lan`
+(`scripts/kernel_ceilings.txt`, max(6650 × 3, 50)). ⚠️ The registry's runner machines have no line: a runner reading exists only once CI
+runs the module, and by D252 §6 that line follows the merge ref's first refusal. **Re-read after registering, at `24029f0`, base `a62d055`, yukon.lan:**
+`ku_delta --arm a-prime` **CLEAN** — `Tests.Anchors` +0 of 670,648, `Tests.AnchorsSimd` 3,499,549 "NEW, registered", ms ceilings
+`X86.Basic` 30 %, `X86.Syntax` 53 %, `X86.Theorems` 49 %. `kernel_delta` at the default three repeats read `Tests.AnchorsSimd`
+"NEW ok" (7,030 ms against 19,950) but `X86.Syntax` UNMEASURABLE (+39 ± 45.5 against 81.5, load 5–6); re-run with `--repeats 6`
+it reads **CLEAN**: `X86.Syntax` +2.0 ± 18.8 of 80.7, `Tests.Anchors` −85 of 1,289.7, `Tests.Coverage` +650 of 2,430,
+`Tests.AnchorsSimd` 6,740 ms "NEW ok (ceiling 19950.0 @on yukon.lan)".
+
+## D336 — V1b: PSHUFB, PALIGNR, PINSRD/PINSRQ, PEXTRD/PEXTRQ (legacy SSE), refereed by silicon where x86isa cannot run them (predictions committed before any hardware, oracle or differential run)
+
+*(Numbering: D334 heads the section above on this base; the number between is reserved on another branch, whose packed-integer
+forms this decision does not touch.)*
+**Why these.** The primitive census (D332) names them as the unlocking candidates of the vector campaign's SSSE3/SSE4 class:
+`xxh3-64` lacks only `pextrq imm,xmm,r64`; `vale-sha256` needs `palignr`, `pshufb`, `pinsrq` (beside three SHA-NI forms);
+`vale-aesgcm` needs `pshufb`, `pinsrq`, `pinsrd`, `pextrq` (beside AVX and AES-NI forms); the HACL* SHA-1/SHA-256/SHA3/ChaCha20
+rows need `pinsrd`/`pextrd`/`pinsrq` but call out of their objects. The forms taken, all legacy-SSE (non-VEX), and nothing else:
+`pshufb xmm,xmm` · `pshufb m128,xmm` · `palignr imm,xmm,xmm` · `palignr imm,m128,xmm` · `pinsrd imm,r32,xmm` · `pinsrd imm,m32,xmm`
+· `pinsrq imm,r64,xmm` · `pextrd imm,xmm,r32` · `pextrq imm,xmm,r64` — nine forms of six mnemonics.
+**The referee, per form, decided by the oracle's EXECUTION, not its catalogue.** x86isa's `inst-listing.lisp` gives `PSHUFB`
+(66 0F 38 00), `PALIGNR` (66 0F 3A 0F), `PEXTRD/Q` (66 0F 3A 16) and `PINSRD/Q` (66 0F 3A 22) a `'NIL` semantic function, and
+`docs/P2-ROSTER.md` already records `pshufb` and `palignr` as REFUSES. W1b's lesson (D330: ADCX/ADOX declared `refuses` and
+measured `executes`) is that a catalogue reading is a hypothesis, so all six mnemonics are added to
+`scripts/oracle_availability.py`'s measured table, declared `refuses`, and run at the 88 pre-states with its two controls BEFORE
+any constructor's referee is fixed. **A mnemonic that executes goes to the DIFFERENTIAL** (ordinary vectors, `run_differential.sh`)
+and leaves the silicon rows; a mnemonic that refuses is refereed by silicon alone.
+**The model (the shuffle group's idiom: register and memory shapes as separate constructors; Type-4 m128 alignment as `vshufm`):**
+`.vshufb dst src` / `.vshufbm dst ea` (PSHUFB), `.valignr dst src imm` / `.valignrm dst ea imm` (PALIGNR), `.vinsr sz dst src imm`
+(PINSRD at `.d`, PINSRQ at `.q`; `src` a GPR or a memory `Operand`) and `.vextr sz dst src imm` (PEXTRD at `.d`, PEXTRQ at `.q`; `dst`
+a GPR). `.b`/`.w` are refused (PINSRB/PEXTRB/PINSRW/PEXTRW are other opcodes and other mnemonics), as is an immediate `src`.
+**The rules (SDM Vol. 2B, PSHUFB, PALIGNR, PINSRB/PINSRD/PINSRQ, PEXTRB/PEXTRD/PEXTRQ):**
+- **SHUFB-RULE.** For each byte i = 0…15 of the result: `IF SRC[8i+7] = 1 THEN DEST[i] := 0 ELSE DEST[i] := TEMP[SRC[8i+3:8i]]`,
+  TEMP the destination's ORIGINAL value. Only the control byte's low FOUR bits index (bits 6:4 are ignored) and bit 7 zeroes. The
+  destination is read as data and the source is the control, so the operand order is not symmetric.
+- **ALIGNR-RULE.** `temp1[255:0] := ((DEST[127:0] << 128) OR SRC[127:0]) >> (imm8 × 8); DEST[127:0] := temp1[127:0]`. So imm8 = 0
+  returns SRC, 16 returns DEST, 17…31 return DEST's high bytes with zeros above, and **imm8 ≥ 32 returns zero**.
+- **INSR-RULE.** PINSRD: `SEL := imm8[1:0]`; PINSRQ: `SEL := imm8[0]`; the w-bit source (the low 32 bits of a 32-bit register,
+  or the m32 / r64 operand) replaces lane SEL of the destination; every other lane keeps the destination's value. The imm8 bits
+  above SEL are ignored.
+- **EXTR-RULE.** PEXTRD: `SEL := imm8[1:0]`; PEXTRQ: `SEL := imm8[0]`; DEST := lane SEL of the source. A 32-bit register
+  destination is an ordinary 32-bit GPR write, so bits 63:32 are ZEROED (SDM Vol. 1 §3.4.1.1); the imm8 bits above SEL are ignored.
+- **NO-FLAGS / UPPER.** "Flags Affected: None" for all six; the legacy-SSE forms leave bits MAXVL−1:128 unmodified, which this
+  model's 128-bit `XmmReg` carries by its type. **Memory alignment:** PSHUFB and PALIGNR are Exception Type 4 (a misaligned m128 is
+  `#GP(0)`, as for `pshufd`, D110); PINSRD's m32 is Type 5 (no alignment requirement).
+**The silicon rows (a new program, `hwprobe/shuf_ops.S` + `mk_shuf_rows.py` + `shuf_probe.c`, sharing nothing with the SSE, integer
+or bit-string paths; expectations derived from the rules above in Python, never typed):** one function per (form, imm8). On entry
+XMM0 = `a` (the destination), XMM1 = `b`, RBX = the 16-byte-aligned address of a copy of `b` (the memory source), RCX = `g`
+(the GPR source, junk above bit 31), RAX = the canary `c3c3…c3`, and RFLAGS' six arithmetic bits from the row. Every row compares
+ALL 128 bits of XMM0, all 64 of RAX and the six arithmetic flags (expected unchanged), so a form that writes one of them is also
+asked not to write the others.
+- PSHUFB (rr, rm) × 2 destinations × 8 controls (identity, reversal, all bit-7, alternating bit-7, bits 6:4 junk over a reversed
+  index, broadcast 0, broadcast 15, a mixed pattern) × 2 flag sets = **64**.
+- PALIGNR: rr at imm8 ∈ {0, 1, 4, 8, 15, 16, 17, 24, 31, 32, 33, 128, 255} and rm at {5, 16, 20} (16 functions) × 2 (a, b) pairs ×
+  2 flag sets = **64**.
+- PINSRD: r32 at imm8 ∈ {0, 1, 2, 3, 4, 7, 0xfe} and m32 at {1, 6} (9 functions) × 2 × 2 = **36**; PINSRQ at {0, 1, 2, 0xff} × 2 × 2
+  = **16**.
+- PEXTRD at {0, 1, 2, 3, 5, 0xff} × 2 × 2 = **24**; PEXTRQ at {0, 1, 3, 0x80} × 2 × 2 = **16**.
+**220 rows, 41 functions.** The probe reads CPUID.01H:ECX bits 9 (SSSE3) and 19 (SSE4.1), prints them, and REFUSES (exit 2) unless
+both are set; it refuses unless each function's bytes at its `_at` label are the declared instruction. **Three controls:** `--plant`
+flips bit 64 of row 0's expected XMM0 (the HIGH quadword) → exactly one `DIFF`, rc 1; `--plant-op` declares one instruction byte
+wrong → rc 2, `REFUSED`; `--plant-zx` sets bit 32 of the expected RAX in one PEXTRD row → exactly that row `DIFF`, rc 1 (the
+zero-extension is compared, not assumed). All silicon rows of refused forms are pinned in `Tests/Anchors.lean` by `decide`
+(a generator with `--check`, in its own marked block); they are rows of `siliconTable`, never of `tableP0`.
+**Predictions — committed before the oracle measurement, before any build of the probe on any processor and before any
+differential run:**
+1. **Oracle:** all six mnemonics `refuses`, 88 of 88, with the existing controls executing. ⇒ every one of the nine forms is
+   refereed by SILICON; no vector is added; vectors stay **1198**, `rosterSize` **199**, the differential is not re-run.
+2. **hwprobe, both legs** (ubuntu-latest — an AMD EPYC expected but not named by the label, re-dispatched until a run has an AMD
+   leg; macos-15-intel — Intel): SSSE3=1 SSE4.1=1; **`rows 220 disagreements 0`** on each leg; the SSE, integer (1272) and bit-string
+   (2944) referees unchanged.
+3. **Controls, both legs:** plant rc 1 with exactly one `DIFF` on row 0; bad byte rc 2, `REFUSED`; plant-zx rc 1 with exactly one
+   `DIFF` on its PEXTRD row. **No AMD/Intel difference on any bit** (nothing compared is undefined).
+4. **Kernel:** all 220 pins build by `decide`; axiom gate CLEAN on the three standard axioms; `siliconTable` **10 → 16** rows;
+   `claimed_forms --remaining` unchanged (REMAINING 21, UNAVAILABLE 19, silicon 19 of 19 — the P1 roster excludes XMM operands).
+   `Tests.Anchors` grows; its Δku is measured with `ku_delta.py` and recorded, not predicted.
+5. **Census** (the ladder's arithmetic: `xxh3-64` lacks only `pextrq imm,xmm,r64`; every other candidate needing these forms also
+   needs a SHA-NI, AES-NI or AVX form or calls out of its object): the differential does NOT move — **ALL COVERED 42 of 57**, header
+   `vectors=1198 forms=962`, unlock list and ladder unchanged, s2n appendix 206 of 332; **COVERED WITH SILICON 4 → 5** (`xxh3-64`
+   joins); silicon forms **38 → 47** from **16** mnemonics (`pshufb` 2, `palignr` 2, `pinsrd` 2, `pinsrq` 1, `pextrd` 1, `pextrq` 1).
+   The s2n appendix's silicon line is a reading (67 before), not a prediction. **Had `pextrq` been executable** it would have been a
+   differential vector and the prediction would read ALL COVERED 42 → 43 with the silicon verdict unmoved.
+**Wrong if:** any mnemonic executes on x86isa (it moves to the differential, and that leg's predictions are re-derived and recorded
+before its run); any leg disagrees on any row (decided from the SDM, never by editing an expectation); a plant reds other than
+exactly its row; the bad byte does not refuse; the vendors differ on a bit; a pin fails to build; or the census moves other than
+by `xxh3-64`'s silicon verdict.
+**Result (hwprobe run 38108854973 at `89a1510`, both jobs `success`; the first run, no re-dispatch needed): all five predictions held.**
+1. **Oracle:** `pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq` each **refuses, 88 of 88**, both controls executing
+   (`oracle_availability.py` CLEAN, 26 forms). Every form is silicon-refereed; no vector added — vectors **1198**, roster **199**.
+2. **ubuntu-latest drew an AMD EPYC 7763** (CPUID.1.ECX `feda3203`); **macos-15-intel an Intel Core i7-8700B** (`fefa7a37`);
+   SSSE3=1 SSE4.1=1 on both; **`rows 220 disagreements 0` on both**, and the two listings are byte-identical below the CPUID line.
+   SSE 958/0, integer 1272/0 and bit-string 2944/0 beside them, unchanged.
+3. Controls, both legs: plant rc 1, exactly one `DIFF`, on `pshufb_rr_a1_ident`; bad byte rc 2, `REFUSED s_pshufb_rr`; plant-zx
+   rc 1, exactly one `DIFF`, on `pextrd_rr_i1_p1`. No AMD/Intel difference on any bit.
+4. Kernel: all 220 pins build by `decide` (`saltbuild EXIT=0`, full build); axiom gate CLEAN (4684 declarations, the three
+   standard axioms); `siliconTable` 16 rows; `claimed_forms --remaining` REMAINING 21, UNAVAILABLE 19 (silicon 19 of 19), AVAILABLE
+   WORK 0. **Red backwards:** a mutant `vshufbAux` indexing with seven bits (`% 128`) reds exactly the two PSHUFB pin theorems.
+   `ku_delta.py --arm a-prime` `a62d055` → `89a1510` on yukon.lan: **CLEAN** — `Tests.Anchors` **+511,445 ku** (2,878,319 →
+   3,389,764, +17.8%) against an allowance of 670,648; `Tests.Coverage` +89,704 against 702,603; `X86.Theorems` +5,227,
+   `X86.Syntax` +1,526; ms ceilings X86.Syntax 56 %, X86.Theorems 51 %.
+5. Census: **ALL COVERED 42 of 57** (the same ids, header `vectors=1198 forms=962`, unlock 22 forms for 7, ladder 5 steps), s2n
+   appendix 206 of 332; **COVERED WITH SILICON 4 → 5** (`xxh3-64`); silicon forms **47 of 16 mnemonics**; the s2n silicon line
+   (a reading) stays 67. ⚠️ **One census defect found on the way:** the silicon keyer width-erased mnemonics, so `pshufb`,
+   `pinsrq`, `pextrq` keyed as `pshuf`/`pinsr`/`pextr` and the run refused ("no probed form") — for an SSE mnemonic the last letter
+   is its name. A form is now keyed by its printed mnemonic when that is a `siliconTable` row, else by the width-erased one.
+   `check_readme_snapshot` counted XMM mnemonics over the WHOLE coverage file, silicon table included; the README's figure is "of
+   those" differentially tested mnemonics, so the count now stops at the processor-refereed heading (111 unchanged).
+⚠️ **Rosetta 2** (an emulator, corroboration only) ran the probe 220/0 with all three controls behaving.
+**Also regenerated:** `docs/DEMAND-CENSUS.md` (model mnemonics 197 → 215: these six, plus the twelve D330/D334 had already added
+and the committed census did not yet carry — its `--check` reds on a moved model sha) and `docs/P2-ROSTER.md`, derived from it.
+The demand census counts by MNEMONIC the model implements, so the six now count as model-covered there; that is its rule, not the
+differential's. **Not done here:** the ku-delta ledger row (`kernel_drift --gap` reds until it is recorded at landing), and no PR.
+**Note, 2026-10-11 — arm (A) of the 2026-10-10 fork, applied before landing: the pins moved to a metered module.** The
+predictions and the Result above are untouched. The 220 pin theorems left `Tests/Anchors.lean` for a NEW module,
+`Tests/AnchorsShuf.lean` (imported by the `Tests` root; `hwprobe/mk_shuf_anchors.py` now generates into it, `--check` byte for
+byte), which restates the two private `Tests.Anchors` helpers it used from `X86` alone; `Tests/Anchors.lean` is byte-identical to
+its pre-V1b content. Full build `saltbuild EXIT=0`. The same 7-bit-index PSHUFB mutant reds exactly `v1b_pshufb_rr_pins` and
+`v1b_pshufb_rm_pins`, now in the new module, while `Tests.Anchors` builds clean under it. **Measured at `7ea3841`, base `a62d055`,
+yukon.lan:** `ku_delta --arm a-prime` — `Tests.Anchors` Δku **+0** (2,878,319, allowance 670,648); `Tests.AnchorsShuf` NEW at
+**511,292** ku, refused until registered; `kernel_delta` — `Tests.AnchorsShuf` NEW at **1,030 ms**, refused with the line it
+printed. **Registered from those readings, not retyped:** `Tests.AnchorsShuf @ku 511292` (`scripts/ku_delta_budget.txt`) and
+`Tests.AnchorsShuf 3090 @on yukon.lan` (`scripts/kernel_ceilings.txt`, max(1030 × 3, 50)); the runner line follows the merge ref's
+first refusal (D252 §6). **Re-read after registering, at `d795bb7`, base `a62d055`, yukon.lan:** `ku_delta --arm a-prime` **CLEAN**
+— `Tests.Anchors` +0 of 670,648, `Tests.AnchorsShuf` 511,292 "NEW, registered", `Tests.Coverage` +89,704 of 702,603; ms ceilings
+`X86.Basic` 33 %, `X86.Syntax` 54 %, `X86.Theorems` 51 %. `kernel_delta --repeats 6`: `Tests.AnchorsShuf` 1,025 ms "NEW ok
+(ceiling 3090.0 @on yukon.lan)", `Tests.Anchors` +45 of 1,318.8 ok, `Tests.Coverage` +900 of 2,426.4 ok, `X86.Theorems` +120 of
+288.2 ok — and ⚠️ **`X86.Syntax` UNMEASURABLE: +87.5 ± 35.7 against a budget of 79.8** (load 5.9–7.7; the earlier three-repeat run
+read +38 ± 54.6, also UNMEASURABLE). That unit is the six new `Op` constructors' cost, unchanged by this move; it is recorded as
+read, the budget is not widened, and it is not decided here.

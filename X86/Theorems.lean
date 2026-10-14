@@ -2008,4 +2008,354 @@ theorem unpack_spelling_mnemonics_are_distinct :
 
 end Batch34
 
+/-! ## D330 (W1b) — ADCX, ADOX and MULX
+
+⭐ THE CONTENT OF ALL THREE IS WHAT THEY DO **NOT** WRITE.  ADCX writes CF and no
+other flag, ADOX writes OF and no other flag, and MULX writes no flag at all
+(SDM Vol. 2A ADCX, ADOX; Vol. 2B MULX).  A model that routed `adcx` through
+`.bin .adc` would compute the same sum and write six flags; these theorems are
+the statements that separate the two, and they are equations a reader can check
+without running anything.
+
+⚠️ MULX HAS NO DIFFERENTIAL PARTNER: ACL2 x86isa refuses it at every pre-state
+(`scripts/oracle_availability.py`).  Its numbers are checked against a PROCESSOR
+by `hwprobe/` and pinned in `Tests/Anchors.lean`; these theorems state its frame. -/
+section W1b
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- ADCX, register source: the sum is ADC's, and the flags are the incoming flags
+with CF — and only CF — replaced by the carry out. -/
+theorem step_adcx_reg (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.adx false sz dst (.reg rs), len⟩ s =
+      ((s.setFlags { s.flags with
+          cf := Flags.adcCF sz (s.getReg sz dst) (s.getReg sz rs) s.flags.cf }).setReg sz dst
+        (Flags.adcResult sz (s.getReg sz dst) (s.getReg sz rs) s.flags.cf)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ADOX, register source: the same sum, carried through OF instead. -/
+theorem step_adox_reg (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.adx true sz dst (.reg rs), len⟩ s =
+      ((s.setFlags { s.flags with
+          of := Flags.adcCF sz (s.getReg sz dst) (s.getReg sz rs) s.flags.of }).setReg sz dst
+        (Flags.adcResult sz (s.getReg sz dst) (s.getReg sz rs) s.flags.of)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ ADCX LEAVES OF, SF, ZF, AF AND PF EXACTLY AS IT FOUND THEM — the half of
+the SDM's flag sentence that ADC does not share. -/
+theorem step_adcx_keeps_other_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.adx false sz dst (.reg rs), len⟩ s).flags
+    f.of = s.flags.of ∧ f.sf = s.flags.sf ∧ f.zf = s.flags.zf
+      ∧ f.af = s.flags.af ∧ f.pf = s.flags.pf := by
+  rw [step_adcx_reg h dst rs hsz]; simp
+
+/-- ⭐ ADOX LEAVES CF, SF, ZF, AF AND PF EXACTLY AS IT FOUND THEM — including CF,
+which is the flag a reader expects an add-with-carry to touch. -/
+theorem step_adox_keeps_other_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.adx true sz dst (.reg rs), len⟩ s).flags
+    f.cf = s.flags.cf ∧ f.sf = s.flags.sf ∧ f.zf = s.flags.zf
+      ∧ f.af = s.flags.af ∧ f.pf = s.flags.pf := by
+  rw [step_adox_reg h dst rs hsz]; simp
+
+/-- ADCX/ADOX spend no oracle bit: every flag is either the carry or unmodified. -/
+@[simp] theorem step_adx_oracle (o : Bool) (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.adx o sz dst (.reg rs), len⟩ s).oracle = s.oracle := by
+  cases o
+  · rw [step_adcx_reg h dst rs hsz]; simp
+  · rw [step_adox_reg h dst rs hsz]; simp
+
+/-- MULX, register source: RDX times the source, the low half written to `lo`
+FIRST and the high half to `hi` SECOND (the SDM's order), and nothing else. -/
+theorem step_mulx_reg (h : Live s) (hi lo rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.mulx sz hi lo (.reg rs), len⟩ s =
+      (let p := Value.mulPair sz (s.getReg sz .rdx) (s.getReg sz rs)
+       ((s.setReg sz lo p.1).setReg sz hi p.2).setRip (s.rip + BitVec.ofNat 64 len)) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ "FLAGS AFFECTED: NONE", as an equation. -/
+@[simp] theorem step_mulx_flags (h : Live s) (hi lo rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.mulx sz hi lo (.reg rs), len⟩ s).flags = s.flags := by
+  rw [step_mulx_reg h hi lo rs hsz]; simp
+
+@[simp] theorem step_mulx_oracle (h : Live s) (hi lo rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.mulx sz hi lo (.reg rs), len⟩ s).oracle = s.oracle := by
+  rw [step_mulx_reg h hi lo rs hsz]; simp
+
+/-- ⭐⭐ THE SAME-DESTINATION CASE: when both destinations name one register, it
+holds the HIGH half (SDM Vol. 2B, MULX: DEST2 is written before DEST1). -/
+theorem step_mulx_same_dest_is_high (h : Live s) (r rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.mulx sz r r (.reg rs), len⟩ s).getReg sz r
+      = Value.trunc sz (Value.mulPair sz (s.getReg sz .rdx) (s.getReg sz rs)).2 := by
+  rw [step_mulx_reg h r r rs hsz]
+  rcases hsz with rfl | rfl <;> simp [Cpu.getReg, Value.trunc_writeView]
+
+/-- ⛔ NEITHER FORM EXISTS AT 8 OR 16 BITS, and `step` refuses rather than
+answering for bytes no encoding can carry. -/
+theorem step_adx_narrow_refuses (o : Bool) (dst : GPR) (src : Operand) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.adx o sz dst src, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+theorem step_mulx_narrow_refuses (hi lo : GPR) (src : Operand) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.mulx sz hi lo src, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+end W1b
+
+/-! ## D334 (W1c) — ANDN, BEXTR, BZHI, BLSMSK, BLSR, PDEP, PEXT, RORX, MOVNTI
+
+⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses every one
+(`scripts/oracle_availability.py`).  Their numbers are checked against a PROCESSOR
+by `hwprobe/` and pinned in `Tests/AnchorsBmi.lean`; these theorems state the frame
+and the flag rules the SDM gives, as equations. -/
+section W1c
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- ANDN, register sources: `(NOT src1) AND src2`, PF then AF from the oracle. -/
+theorem step_andn_reg (h : Live s) (dst r1 r2 : GPR) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.andn sz dst r1 (.reg r2), len⟩ s =
+      (let res := Value.andn sz (s.getReg sz r1) (s.getReg sz r2)
+       let (pfU, s1) := s.undefBit
+       let (afU, s2) := s1.undefBit
+       ((s2.setFlags (Flags.andn sz res pfU afU s2.flags)).setReg sz dst res).setRip
+         (s.rip + BitVec.ofNat 64 len)) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ ANDN CLEARS CF AND OF, whatever they were. -/
+theorem step_andn_cf_of (h : Live s) (dst r1 r2 : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.andn sz dst r1 (.reg r2), len⟩ s).flags
+    f.cf = false ∧ f.of = false := by
+  rw [step_andn_reg h dst r1 r2 hsz]; simp [Flags.andn]
+
+/-- ⭐ BLSMSK CLEARS ZF UNCONDITIONALLY and sets CF exactly at a zero source
+(SDM Vol. 2A, BLSMSK: `ZF := 0`). -/
+theorem step_blsmsk_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.blsx true sz dst (.reg rs), len⟩ s).flags
+    f.zf = false ∧ f.of = false ∧ f.cf = Value.isZero sz (s.getReg sz rs) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.blsmsk]
+
+/-- BLSR: ZF from the result, CF exactly at a zero source, OF cleared. -/
+theorem step_blsr_flags (h : Live s) (dst rs : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.blsx false sz dst (.reg rs), len⟩ s).flags
+    f.zf = Value.isZero sz (Value.blsr sz (s.getReg sz rs)) ∧ f.of = false
+      ∧ f.cf = Value.isZero sz (s.getReg sz rs) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.blsr]
+
+/-- BEXTR: ZF from the result; CF and OF cleared. -/
+theorem step_bextr_flags (h : Live s) (dst rs rc : GPR) (hsz : sz = .d ∨ sz = .q) :
+    let f := (step ⟨.bextr sz dst (.reg rs) rc, len⟩ s).flags
+    f.zf = Value.isZero sz (Value.bextr sz (s.getReg sz rs) (s.getReg sz rc))
+      ∧ f.cf = false ∧ f.of = false := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.bextr]
+
+/-- ⭐ BEXTR AT A START OF 64 OR MORE EXTRACTS NOTHING — the 512-bit zero-extension
+in the SDM's operation supplies only zeros there. -/
+theorem bextr_start_past (v ctl : Val) (hs : 64 ≤ ctl.toNat % 256) :
+    Value.bextr sz v ctl = 0 := by
+  have h0 : Value.trunc sz v >>> (ctl.toNat % 256) = 0 := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_ushiftRight]
+    apply Nat.shiftRight_eq_zero
+    exact Nat.lt_of_lt_of_le (BitVec.isLt _) (Nat.pow_le_pow_right (by decide) hs)
+  simp only [Value.bextr, h0]
+  split <;> simp
+
+/-- ⭐ BZHI's CF READS THE INDEX, NOT THE SOURCE: it is set exactly when the
+control's low byte exceeds width − 1. -/
+theorem step_bzhi_cf (h : Live s) (dst rs ri : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.bzhi sz dst (.reg rs) ri, len⟩ s).flags.cf
+      = decide (sz.bits - 1 < Value.bzhiIndex (s.getReg sz ri)) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Flags.bzhi]
+
+/-- ⭐ BZHI AT AN INDEX OF THE WIDTH OR MORE CLEARS NOTHING (the SDM's Operation;
+D334 records the prose that reads otherwise). -/
+theorem bzhi_index_past (v ctl : Val) (hn : sz.bits ≤ Value.bzhiIndex ctl) :
+    Value.bzhi sz v ctl = Value.trunc sz v := by
+  simp [Value.bzhi, Nat.not_lt.mpr hn]
+
+/-- ⭐ PDEP AND PEXT: "FLAGS AFFECTED: NONE", and no oracle bit is spent. -/
+@[simp] theorem step_pbits_flags (e : Bool) (h : Live s) (dst r1 rm : GPR) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.pbits e sz dst r1 (.reg rm), len⟩ s).flags = s.flags
+      ∧ (step ⟨.pbits e sz dst r1 (.reg rm), len⟩ s).oracle = s.oracle := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ RORX: "FLAGS AFFECTED: NONE" — unlike ROR, at every count. -/
+@[simp] theorem step_rorx_flags (h : Live s) (dst rs : GPR) (imm : Val) (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.rorx sz dst (.reg rs) imm, len⟩ s).flags = s.flags
+      ∧ (step ⟨.rorx sz dst (.reg rs) imm, len⟩ s).oracle = s.oracle := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- RORX, register source: the rotated source, and nothing else. -/
+theorem step_rorx_reg (h : Live s) (dst rs : GPR) (imm : Val) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.rorx sz dst (.reg rs) imm, len⟩ s =
+      (s.setReg sz dst (Value.rorx sz (s.getReg sz rs) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h]
+
+/-- ⭐ MOVNTI IS A PLAIN STORE IN THIS MODEL: the source written at the operand
+width to the memory destination, no flag, no oracle bit (D334: the non-temporal
+hint and its weak ordering are outside a single-threaded state). -/
+theorem step_movnti (h : Live s) (ea : Ea) (hl : ea.lock = false) (rs : GPR)
+    (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.movnti sz (.mem ea) rs, len⟩ s =
+      (s.writeOperand sz (s.rip + BitVec.ofNat 64 len) (.mem ea) (s.getReg sz rs)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, hl, Operand.isMem]
+
+/-- ⛔ NO W1c FORM EXISTS AT 8 OR 16 BITS (VEX.W, or MOVNTI's REX.W, selects 32 or
+64 only), and `step` refuses rather than answering for an encoding that is not. -/
+theorem step_andn_narrow_refuses (dst r1 : GPR) (src : Operand) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.andn sz dst r1 src, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+theorem step_rorx_narrow_refuses (dst : GPR) (src : Operand) (imm : Val) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.rorx sz dst src imm, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> cases src <;> simp [step, h, Cpu.halt] <;> split <;> simp
+
+/-- ⛔ MOVNTI TO A REGISTER HAS NO ENCODING (`0F C3` takes a memory r/m only). -/
+theorem step_movnti_reg_refuses (r rs : GPR) (h8 : Bool) (h : Live s) :
+    (step ⟨.movnti sz (.reg r h8) rs, len⟩ s).stopped = true := by
+  simp [step, h, Cpu.halt, Operand.isMem] <;> split <;> simp
+
+end W1c
+
+/-! ## D336 (V1b) — PSHUFB, PALIGNR, PINSRD/Q, PEXTRD/Q
+
+⚠️ No differential partner: ACL2 x86isa refuses all six
+(`scripts/oracle_availability.py`).  Their numbers are checked against a PROCESSOR
+by `hwprobe/` and pinned in `Tests/AnchorsShuf.lean`; these theorems state the frame
+and the rules' edge cases as equations. -/
+section V1b
+variable {sz : Size} {len : Nat} {s : Cpu}
+
+/-- PSHUFB between registers: the destination's ORIGINAL value shuffled by the
+source's control bytes; no flag, no oracle bit, no GPR written. -/
+theorem step_vshufb (h : Live s) (d x : XmmReg) :
+    step ⟨.vshufb d x, len⟩ s =
+      (s.setXmm d (vshufbApply (s.getXmm d) (s.getXmm x))).setRip (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ A CONTROL BYTE WITH BIT 7 SET ZEROES ITS LANE, whatever the data: an
+all-`0x80` control returns zero. -/
+theorem vshufb_all_high (a : BitVec 128) :
+    vshufbApply a 0x80808080808080808080808080808080 = 0 := by
+  have hm : (128#8).msb = true := by decide
+  simp [vshufbApply, vshufbAux, hm]
+
+/-- ⛔⭐ AN UNALIGNED PSHUFB m128 FAULTS (Exception Type 4, D110). -/
+theorem vshufbm_unaligned_faults (d : XmmReg) (ea : Ea) (h : Live s) (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vshufbm d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- PALIGNR between registers. -/
+theorem step_valignr (h : Live s) (d x : XmmReg) (imm : BitVec 8) :
+    step ⟨.valignr d x imm, len⟩ s =
+      (s.setXmm d (valignrApply (s.getXmm d) (s.getXmm x) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ PALIGNR AT A SHIFT OF 32 BYTES OR MORE RETURNS ZERO — the whole 256-bit
+concatenation has been shifted out (SDM Vol. 2B, PALIGNR). -/
+theorem valignr_past (a b : BitVec 128) (imm : BitVec 8) (h : 31 < imm.toNat) :
+    valignrApply a b imm = 0 := by
+  simp [valignrApply, h]
+
+/-- ⭐ AND AT ZERO IT RETURNS THE SOURCE (the sixteen-byte case, which returns the
+destination, is pinned by the silicon rows in `Tests/AnchorsShuf.lean`). -/
+theorem valignr_zero (a b : BitVec 128) : valignrApply a b 0 = b := by
+  simp [valignrApply]
+
+/-- ⛔⭐ AN UNALIGNED PALIGNR m128 FAULTS (Exception Type 4, D110). -/
+theorem valignrm_unaligned_faults (d : XmmReg) (ea : Ea) (imm : BitVec 8) (h : Live s)
+    (hl : ea.lock = false) (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.valignrm d ea imm, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- PINSRD/PINSRQ from a register: the lane replaced, nothing else written. -/
+theorem step_vinsr_reg (h : Live s) (d : XmmReg) (r : GPR) (imm : BitVec 8)
+    (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vinsr sz d (.reg r) imm, len⟩ s =
+      (s.setXmm d (vinsrApply sz (s.getXmm d) (s.getReg sz r) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm,
+      Cpu.readOperand]
+
+/-- ⭐ ONLY `imm[1:0]` SELECTS AT 32 BITS AND `imm[0]` AT 64: the imm8 bits above
+are ignored (SDM Vol. 2B, PINSRD/PINSRQ and PEXTRD/PEXTRQ). -/
+theorem vlaneSel_d (imm : BitVec 8) : vlaneSel .d imm = imm.toNat % 4 := rfl
+theorem vlaneSel_q (imm : BitVec 8) : vlaneSel .q imm = imm.toNat % 2 := rfl
+
+/-- PEXTRD/PEXTRQ to a register: an ordinary GPR write of the selected lane (at
+`.d` it zero-extends, by `setReg`), nothing else written. -/
+theorem step_vextr (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
+    (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vextr sz r x imm, len⟩ s =
+      (s.setReg sz r (vextrApply sz (s.getXmm x) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⛔ NO FLAG: PSHUFB, PALIGNR, PINSR* and PEXTR* leave RFLAGS as they found it. -/
+theorem step_vextr_flags (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
+    (hsz : sz = .d ∨ sz = .q) :
+    (step ⟨.vextr sz r x imm, len⟩ s).flags = s.flags := by
+  rw [step_vextr h r x imm hsz]; simp
+
+/-- ⛔ PINSR*/PEXTR* AT 8 OR 16 BITS ARE OTHER MNEMONICS, and `step` refuses them. -/
+theorem step_vextr_narrow_refuses (r : GPR) (x : XmmReg) (imm : BitVec 8) (h : Live s)
+    (hsz : sz = .b ∨ sz = .w) :
+    (step ⟨.vextr sz r x imm, len⟩ s).stopped = true := by
+  rcases hsz with rfl | rfl <;> simp [step, h, Cpu.halt, Cpu.stopped, Op.lockIllegal,
+    Op.anyLocked, Op.lockable]
+
+end V1b
+
+/-! ## D335 (V1a) — the packed-integer arithmetic x86isa refuses
+
+⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses all eleven
+(`scripts/oracle_availability.py`).  Their numbers are checked against a PROCESSOR by
+`hwprobe/` (`mk_simda_rows.py`) and pinned in `Tests/AnchorsSimd.lean`.  The FRAME is
+already stated for every `VBinKind` — `step_vbin` (XMM and RIP only), `step_vbin_flags`
+(no flag), `vbinm_unaligned_faults` (the 16-byte `#GP`) — and applies to these kinds
+because none is min/max (the first theorem below).  The rest state, as equations, the
+edge cases the SDM names in words. -/
+section V1a
+
+/-- The eleven kinds are not min/max, so `step_vbin` and `vbinm_aligned_runs` apply. -/
+theorem v1a_kinds_not_minmax :
+    [VBinKind.maddwd, .maddubsw, .mullw, .mulhrsw, .muludq, .addsw, .subusw, .subusb,
+      .maxsw, .sadbw, .packssdw].all (fun k => !k.isMinMax) = true := by decide
+
+/-- ⭐ PMADDWD WRAPS, ONCE: all four words 8000H give 80000000H (the SDM's one wrap). -/
+theorem maddwd_wraps_at_min : vmaddwdLane 0x80008000 0x80008000 = 0x80000000 := by decide
+
+/-- ⭐ PMULHRSW's ONE OVERFLOW: 8000H × 8000H rounds to 8000H, not +32768. -/
+theorem mulhrsw_min_min : vmulhrswLane 0x8000 0x8000 = 0x8000 := by decide
+
+/-- ⛔ PMADDUBSW IS ASYMMETRIC: the destination byte FFH is 255 (unsigned) and the
+source byte FFH is −1 (signed), so swapping the operands changes the word. -/
+theorem maddubsw_asymmetric :
+    vmaddubswLane 0x00FF 0x0001 = 0x00FF ∧ vmaddubswLane 0x0001 0x00FF = 0xFFFF := by decide
+
+/-- PMADDUBSW saturates at both ends: 2 × 255 × 127 to 7FFFH and 2 × 255 × (−128) to 8000H. -/
+theorem maddubsw_saturates :
+    vmaddubswLane 0xFFFF 0x7F7F = 0x7FFF ∧ vmaddubswLane 0xFFFF 0x8080 = 0x8000 := by decide
+
+/-- SaturateToSignedWord, below and above. -/
+theorem ssatW_low {v : BitVec 32} (h : v.slt 0xFFFF8000 = true) : ssatW v = 0x8000 := by
+  rw [ssatW, if_pos h]
+
+theorem ssatW_high {v : BitVec 32} (hl : v.slt 0xFFFF8000 = false)
+    (h : (0x00007FFF : BitVec 32).slt v = true) : ssatW v = 0x7FFF := by
+  rw [ssatW, if_neg (by rw [hl]; exact Bool.false_ne_true), if_pos h]
+
+/-- ⭐ PSADBW's quadword holds the sum in its low word and ZERO above it: the
+largest sum, eight differences of 255, is 7F8H. -/
+theorem sad_max : vsadLane 0xFFFFFFFFFFFFFFFF 0 = 0x7F8 := by decide
+
+end V1a
+
 end X86

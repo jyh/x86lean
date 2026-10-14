@@ -224,19 +224,19 @@ acc,imm · rh"
   -- SF, AF, and PF flags are undefined" — which is the widest undefined set in
   -- this model and the reason all four rows are T-frame despite computing
   -- almost nothing.  `bt` writes no destination, exactly as `cmp` does.
-  -- ⛔ The `m,r` shape (memory base with a REGISTER offset) is a signed BIT
-  -- STRING index that reaches outside the operand; it is NOT modelled and is
-  -- named as absent here rather than quietly folded in.  See D23.
-  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm", note := "w/l/q (m,r: bit-string, not modelled)",
+  -- ⭐ The `m,r` shape (memory base with a REGISTER offset) is a signed BIT
+  -- STRING index that reaches outside the operand.  D23 declined it rather than
+  -- fold it into the modulo rule; D331 models it (one byte at EA + offset SAR 3).
+  , { mnemonic := "bt",   shapes := "r,imm · r,r · m,imm · m,r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BT" }
-  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
+  , { mnemonic := "bts",  shapes := "r,imm · r,r · m(rmw),imm · m(rmw),r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTS" }
-  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
+  , { mnemonic := "btr",  shapes := "r,imm · r,r · m(rmw),imm · m(rmw),r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTR" }
-  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm", note := "w/l/q (m,r: not modelled)",
+  , { mnemonic := "btc",  shapes := "r,imm · r,r · m(rmw),imm · m(rmw),r", note := "w/l/q (m,r: bit string, D331)",
       tier := .frame, decode := .xed,
       undefined := ["PF", "AF", "SF", "OF"], sdm := "Vol. 2A BTC" }
   , { mnemonic := "rol",  shapes := "r · m(rmw)", note := "one/imm8/cl, b/w/l/q",
@@ -1077,7 +1077,95 @@ acc,imm · rh"
       shapes := "x,x · x,m",
       note := "bitwise XOR of the whole 128 bits, bit for bit what pxor does, at opcode 66 0f 57",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XORPD" }
+  -- ⭐ D330 (W1b): THE ADX PAIR.  `T-exact` with an empty undefined list: each
+  -- writes ONE flag and leaves the other five unmodified, so there is nothing for
+  -- the undefined-bit oracle to supply.  ACL2 x86isa EXECUTES both (88 of 88 in
+  -- `scripts/oracle_availability.py`), so they are differential rows like any
+  -- other; `hwprobe/` reads the same rules on a processor as well.
+  , { mnemonic := "adcx", shapes := "r,r · r,m", note := "l/q only · CF in and out, every other flag unmodified",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ADCX" }
+  , { mnemonic := "adox", shapes := "r,r · r,m", note := "l/q only · OF in and out, every other flag unmodified",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ADOX" }
   ]
+
+/-- ⭐⭐ D330 (W1b): FORMS THIS MODEL IMPLEMENTS THAT THE DIFFERENTIAL CANNOT TEST.
+
+`tableP0` is the table of DIFFERENTIALLY TESTED forms — `Tests/Coverage.lean`
+proves every one of its rows is exercised by a vector — and a form the reference
+model refuses cannot have a vector without filing every case as a one-sided
+refusal.  So a form refereed by a PROCESSOR instead is a row here, never there:
+putting it in `tableP0` would make `every_row_has_a_vector` false, and leaving it
+out of every table would make an implemented form invisible.
+
+⚠️ WHAT THE REFEREE IS: `hwprobe/` runs each row of `hwprobe/mk_int_rows.py`
+(and, since D336, of `hwprobe/mk_shuf_rows.py`) (expectations derived from the SDM's rules, never from x86isa or this model) on a
+hosted runner's processor, and `Tests/Anchors.lean` checks THIS model against the
+same rows by `decide`.  That is a weaker instrument than the differential in one
+way that is named here rather than hidden: its rows are chosen, not swept over
+the 88 pre-states. -/
+def siliconTable : List Row :=
+  [ { mnemonic := "mulx", shapes := "r,r,r · r,r,m", note := "l/q only · RDX (EDX) times the source, high half to ModRM.reg, low half to VEX.vvvv; the same register twice holds the high half; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULX" }
+  -- ⭐ D334 (W1c): the rest of the oracle-UNAVAILABLE rows.  `T-frame` where the
+  -- SDM leaves a flag undefined (drawn from the oracle, as `blsi`'s are);
+  -- `T-exact` where the instruction writes no flag.
+  , { mnemonic := "andn", shapes := "r,r,r · r,r,m", note := "l/q only · (NOT VEX.vvvv) AND r/m; SF ZF from the result, CF OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A ANDN" }
+  , { mnemonic := "bextr", shapes := "r,r,r · r,m,r", note := "l/q only · start = control[7:0], length = control[15:8]; a start at or past the width extracts nothing; ZF from the result, CF OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF", "SF"], sdm := "Vol. 2A BEXTR" }
+  , { mnemonic := "blsmsk", shapes := "r,r · r,m", note := "l/q only · (src−1) XOR src; CF = (src = 0), ZF and OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSMSK" }
+  , { mnemonic := "blsr", shapes := "r,r · r,m", note := "l/q only · (src−1) AND src; CF = (src = 0), OF cleared · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSR" }
+  , { mnemonic := "bzhi", shapes := "r,r,r · r,m,r", note := "l/q only · index = control[7:0]; at an index of the width or more nothing is cleared and CF is set (the SDM Operation; D334) · x86isa refuses it",
+      tier := .frame, decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BZHI" }
+  , { mnemonic := "pdep", shapes := "r,r,r · r,r,m", note := "l/q only · the low bits of VEX.vvvv deposited at the set bits of the r/m mask; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PDEP" }
+  , { mnemonic := "pext", shapes := "r,r,r · r,r,m", note := "l/q only · the bits of VEX.vvvv at the set bits of the r/m mask, packed low; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXT" }
+  , { mnemonic := "rorx", shapes := "r,r,imm · r,m,imm", note := "l/q only · rotate right by imm8 masked to the width; no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B RORX" }
+  , { mnemonic := "movnti", shapes := "m,r", note := "l/q only · a plain store in this model: the non-temporal hint and its weakly-ordered protocol are outside a single-threaded state without memory types (D334); no flag written · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVNTI" }
+  -- ⭐ D336 (V1b): the SSSE3/SSE4.1 shuffle, align, insert and extract forms the
+  -- primitive census names; x86isa refuses all six (measured).  No flag is written.
+  , { mnemonic := "pshufb", shapes := "x,x · x,m", note := "legacy SSE · each byte of the destination's original value selected by the low 4 bits of the matching control byte, zero where its bit 7 is set; m128 16-byte aligned (#GP) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFB" }
+  , { mnemonic := "palignr", shapes := "x,x,i · x,m,i", note := "legacy SSE · (DEST:SRC) >> imm×8, low 128 bits; imm ≥ 32 gives zero; m128 16-byte aligned (#GP) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PALIGNR" }
+  , { mnemonic := "pinsrd", shapes := "x,r,i · x,m,i", note := "legacy SSE · the 32-bit source replaces lane imm[1:0]; the other lanes kept · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRD" }
+  , { mnemonic := "pinsrq", shapes := "x,r,i", note := "legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRQ" }
+  , { mnemonic := "pextrd", shapes := "r,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRD" }
+  , { mnemonic := "pextrq", shapes := "r,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRQ" }
+  -- ⭐ D335 (V1a): eleven SSE-legacy packed-integer arithmetic mnemonics, `VBinKind`
+  -- kinds on `Op.vbin`/`Op.vbinm`.  Every result bit is defined and no flag is
+  -- written, so each is `T-exact`; the rows are `hwprobe/mk_simda_rows.py`'s.
+  , { mnemonic := "pmaddwd", shapes := "x,x · x,m", note := "four dwords, each two SIGNED word products added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" }
+  , { mnemonic := "pmaddubsw", shapes := "x,x · x,m", note := "SSSE3 · eight words, each the destination's two UNSIGNED bytes times the source's two SIGNED bytes, summed and signed-saturated; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDUBSW" }
+  , { mnemonic := "pmullw", shapes := "x,x · x,m", note := "eight words, the low 16 bits of each product; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULLW" }
+  , { mnemonic := "pmulhrsw", shapes := "x,x · x,m", note := "SSSE3 · eight words, bits 16:1 of ((signed product >> 14) + 1); 8000H × 8000H gives 8000H; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHRSW" }
+  , { mnemonic := "pmuludq", shapes := "x,x · x,m", note := "the EVEN dwords, UNSIGNED, each full 64-bit product to its quadword; dwords 1 and 3 are not read; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULUDQ" }
+  , { mnemonic := "paddsw", shapes := "x,x · x,m", note := "eight words, signed add saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDSW" }
+  , { mnemonic := "psubusw", shapes := "x,x · x,m", note := "eight words, unsigned destination minus source, 0 where the source is larger; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSW" }
+  , { mnemonic := "psubusb", shapes := "x,x · x,m", note := "sixteen bytes, unsigned destination minus source, 0 where the source is larger; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSB" }
+  , { mnemonic := "pmaxsw", shapes := "x,x · x,m", note := "eight words, the SIGNED maximum; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMAXSW" }
+  , { mnemonic := "psadbw", shapes := "x,x · x,m", note := "two sums of eight unsigned byte absolute differences, each in the low word of its quadword with bits 63:16 ZEROED; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSADBW" }
+  , { mnemonic := "packssdw", shapes := "x,x · x,m", note := "the destination's four dwords to the LOW four words and the source's to the high four, each signed-saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table
