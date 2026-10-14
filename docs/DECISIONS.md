@@ -21670,3 +21670,46 @@ first refusal (D252 §6). **Re-read after registering, at `d795bb7`, base `a62d0
 288.2 ok — and ⚠️ **`X86.Syntax` UNMEASURABLE: +87.5 ± 35.7 against a budget of 79.8** (load 5.9–7.7; the earlier three-repeat run
 read +38 ± 54.6, also UNMEASURABLE). That unit is the six new `Op` constructors' cost, unchanged by this move; it is recorded as
 read, the budget is not widened, and it is not decided here.
+
+## D338 — V2: SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE), refereed by silicon (predictions committed before any hardware, oracle or differential run)
+
+**Why these.** After V1b (D336) the primitive census's ladder step 4 needs exactly three more forms to complete `vale-sha256`:
+`sha256rnds2 xmm,xmm,xmm` (×32 in that routine), `sha256msg1 xmm,xmm` (×12) and `sha256msg2 xmm,xmm` (×12). Its other forms
+(`palignr`, `pinsrq`, `pshufb`) are silicon-refereed since D336. The forms taken, legacy-SSE only (no VEX form of these exists below
+AVX-512/SHA512 extensions, which are out of scope): `sha256msg1 xmm,xmm` · `sha256msg1 m128,xmm` · `sha256msg2 xmm,xmm` ·
+`sha256msg2 m128,xmm` · `sha256rnds2 xmm,xmm` · `sha256rnds2 m128,xmm` — six forms of three mnemonics. SHA1* is NOT taken: no
+candidate in the census needs it.
+**The referee, per form, decided by the oracle's EXECUTION.** x86isa's catalogue gives the SHA instructions (0F 38 CB/CC/CD) no
+semantic function; as in D330/D336 that is a hypothesis, so the three are added to `scripts/oracle_availability.py`'s measured table
+declared `refuses` and run at the 88 pre-states with its two controls before any referee is fixed. A mnemonic that executes goes to
+the DIFFERENTIAL; one that refuses is refereed by silicon alone.
+**The rules (SDM Vol. 2B, SHA256MSG1 / SHA256MSG2 / SHA256RNDS2; FIPS 180-4 §4.1.2 for σ and Σ):**
+- σ0(W) = ROR(W,7) ⊕ ROR(W,18) ⊕ SHR(W,3); σ1(W) = ROR(W,17) ⊕ ROR(W,19) ⊕ SHR(W,10); Σ0(A) = ROR(A,2) ⊕ ROR(A,13) ⊕ ROR(A,22);
+  Σ1(E) = ROR(E,6) ⊕ ROR(E,11) ⊕ ROR(E,25); Ch(E,F,G) = (E ∧ F) ⊕ (¬E ∧ G); Maj(A,B,C) = (A ∧ B) ⊕ (A ∧ C) ⊕ (B ∧ C). All mod 2³².
+- **MSG1-RULE.** W4 := SRC2[31:0]; W3..W0 := SRC1[127:96], [95:64], [63:32], [31:0]; DEST[127:96] := W3 + σ0(W4),
+  DEST[95:64] := W2 + σ0(W3), DEST[63:32] := W1 + σ0(W2), DEST[31:0] := W0 + σ0(W1). Only SRC2's LOW dword is read.
+- **MSG2-RULE.** W14 := SRC2[95:64]; W15 := SRC2[127:96]; W16 := SRC1[31:0] + σ1(W14); W17 := SRC1[63:32] + σ1(W15);
+  W18 := SRC1[95:64] + σ1(W16); W19 := SRC1[127:96] + σ1(W17); DEST := W19:W18:W17:W16. SRC2's low two dwords are NOT read, and
+  W18/W19 depend on W16/W17 (the serial chain the SDM's Operation states).
+- **RNDS2-RULE.** A := SRC2[127:96], B := SRC2[95:64], C := SRC1[127:96], D := SRC1[95:64], E := SRC2[63:32], F := SRC2[31:0],
+  G := SRC1[63:32], H := SRC1[31:0]; WK0 := XMM0[31:0], WK1 := XMM0[63:32] (XMM0 is an IMPLICIT third operand; its high quadword is
+  not read); two rounds of FIPS 180-4's compression, i = 0, 1: T1 := H + Σ1(E) + Ch(E,F,G) + WKi; T2 := Σ0(A) + Maj(A,B,C);
+  (A..H) := (T1+T2, A, B, C, D+T1, E, F, G). DEST := A₂ : B₂ : E₂ : F₂ (A₂ at [127:96], F₂ at [31:0]).
+- **NO-FLAGS / UPPER.** "Flags Affected: None"; legacy SSE leaves bits MAXVL−1:128 unmodified (this model's 128-bit `XmmReg`).
+**Predictions (each is wrong if the named reading differs):**
+1. **Oracle:** all three REFUSE at 88 of 88 pre-states with both controls executing — so all six forms are silicon-refereed, no
+   vector is added, and the roster (199) and vector count (1198) do not move.
+2. **Silicon:** every row agrees on every SHA-capable processor read. ⚠️ **The Intel leg is a DRAW, not a guarantee:** the
+   `macos-15-intel` runner is an i7-8700B (Coffee Lake), which has NO SHA-NI (CPUID.(EAX=07H,ECX=0):EBX bit 29 = 0), so the new
+   probe REFUSES there by CPUID, and that leg records the refusal rather than failing. The Intel reading comes from an
+   `ubuntu-latest` leg that draws an Intel Xeon Platinum 8573C (Emerald Rapids, SHA-NI), as runs 38100851346 and D335's first run
+   did; the run is re-dispatched until one AMD and one Intel SHA-capable processor have each read every row, and every dispatch is
+   recorded. A verdict with one vendor only is stated as such, never as both.
+3. **Alignment:** the m128 forms are Exception Type 4 (a misaligned m128 is #GP(0)); the model faults on a misaligned EA and the
+   silicon rows use only aligned addresses (a fault is not a row).
+4. **Census:** `vale-sha256` becomes COVERED WITH SILICON (5 → 6); ALL COVERED stays 42 of 57 (the differential verdict is unmoved);
+   siliconTable 27 → 30.
+5. **Kernel cost:** the pins go in their own metered module from the start (arm (A) of the 2026-10-10 fork), `Tests/AnchorsSha.lean`.
+**Refutation routes:** a SHA instruction that EXECUTES in x86isa (refutes 1, and sends it to the differential); a silicon row that
+disagrees with the rule (refutes the model or the rule's reading — the FIPS 180-4 test vector "abc" is computed through the three
+mnemonics in a separate known-answer row, so a misread operand order cannot pass by symmetry).
