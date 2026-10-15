@@ -606,19 +606,20 @@ entry narrows, that pre-state or value pair); it is a
 \src{Main.lean classify, bothRefused, undefinableFields, knownDivergences; KnownDivergence's states and pair fields (D331, D266)}
 
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
-The record we cite covers 1{,}198 vectors at 88 pre-states, 105{,}424 cases, of which 82{,}367 are
+The record we cite, taken against the reference model pinned at ACL2 commit c8897a34, covers
+1{,}198 vectors at 88 pre-states, 105{,}424 cases, of which 82{,}367 are
 matched. The remaining cases carry 34{,}155 field disagreements explained by the undefined set and 616
 declared divergences. 0 disagreements are unexplained, and in 0 cases did an undefined bit leak.
 \src{docs/DIFFERENTIAL-P2-BATCH40.md, the RUN block; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
-An earlier record, of 1{,}012 vectors, was re-run with the reference model pinned at ACL2 commit c8897a34, and
-the re-run reproduced every counter: 89{,}056 cases, 68{,}524 matched, 29{,}435 explained, 171 declared
-divergences, 0 unexplained and 0 leaks. The cited record was itself taken against that pinned commit. That
-re-run's leak count was taken before the leak check compared the oracle cursor, and the cited record's
-was taken after; the cursor's own count is the separate record of Section~\ref{sec:undef:draw}.
-\src{docs/REFERENCE-PIN-RUN-2026-09-12.md; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, pin\_vectors, pin\_cases,
-pin\_matched, pin\_explained, pin\_diverged, pin\_unexplained, pin\_leaks]}
+Every form the model implements has a vector (Section~\ref{sec:gated}), and each vector runs at the same 88
+pre-states, chosen rather than sampled: adversarial operand pairs and their neighbours, the carry
+boundary, both direction-flag states, counter, stack and string-pointer boundaries, the branch states
+of CMPXCHG8B and in-range shift counts, then a pseudo-random tail; every rounding mode is reached by
+every vector, with exceptions masked and DAZ and FZ clear. Value coverage is by construction, not
+exhaustive.
+\src{Tests/Vectors.lean preStates and mxcsrFor, their docstrings}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
 therefore runs deliberately wrong copies of x86lean against the correct one, with an empty divergence
 list, and requires each to produce a specification or refusal disagreement in the field its defect
@@ -660,8 +661,7 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % Register: docs/TACAS-G2-SECTION-DRAFT.md 4; docs/DECISIONS.md D91 D108 D115; Main.lean
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
-A paper whose argument is that claims about a semantics should be checked must also report where the
-check has nothing to check against. Six findings fall there.
+We report six findings where there is no semantics to check against.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
@@ -787,10 +787,6 @@ asked at their own class. The five parts sum to the total.
 \src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
 p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_stalls\_pairs, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
 162 + 102931 + 169877 + 241 + 88882 = 362093}
-Counted by forms, one asked per pair, 88 are refused and 67 executed; the share not yet asked is
-large enough that neither count describes the whole gap.
-\src{docs/P2-ROSTER.md, the BY (mnemonic, BUCKET) table's pairs column, one form asked per pair; docs/CLAIMS.tsv[p2\_bucket\_pairs\_executes,
-p2\_bucket\_pairs\_refuses]; until 2026-10-14 this sentence also compared the two shares by instructions (``refuses more than it executes''), a sign that rests on pinned figures and had reversed at the head (P2-ROSTER at 6479be7: executes 102,931, refuses 95,889), so it states the counts and no inequality (refuter finding 3); this sentence said ``Among the forms it has been asked'' until 2026-09-15, true only by instruction, D250; and until the 2026-09-24 re-pin (D300) it said more forms executed (106) than refused (88), which the covered batches since have reversed}
 The refused instructions cannot be differentially validated against it at any price, however the work
 is ordered. K has
 semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
