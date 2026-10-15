@@ -86,10 +86,10 @@ MUTATIONS = [
     # `movdqa` moves the headline by +0.0%.  It went unseen for twenty-two
     # batches because a stale number is silent.
     ("the identity rule is removed — the mapping stops seeing the model (D98)",
-     "    if model is not None and m in model:\n        return m\n    return None",
+     "    if model is not None and m in names_of(model):\n        return m\n    return None",
      "    return None"),
     ("the vector spelling no longer wins — `movq %xmm0,%rax` resolves as `mov`",
-     "    if model is not None and ext in XMM_EXT and m in model:\n        return m",
+     "    if model is not None and ext in XMM_EXT and m in names_of(model):\n        return m",
      "    if False:\n        return m"),
     ("`movabsq` stops mapping to the `mov` P2 batch 3 landed",
      '    "movabsq":"mov", "movabs":"mov",', '    "movabsq":None, "movabs":None,'),
@@ -149,6 +149,28 @@ MUTATIONS = [
      "        _r, covered, _cls = _decide(m, ext, model)",
      '        _r = to_roster(m, ext, model)\n'
      '        covered = (_r is not None and _kind == "plain" and _r in model)'),
+
+    # ⚖️⚖️ D337 — COUNT MECHANISMS, NOT VOICES.  The silicon-refereed class must
+    # never reach the differential headline, and each way it could is planted.
+    ("`_decide` POOLS a silicon-refereed mnemonic into covered (the census from D335 to D337)",
+     '    if r in silicon_of(model):\n        return r, False, "silicon"',
+     '    if r in silicon_of(model):\n        return r, True, "silicon"'),
+    ("the no-pooling check is switched off",
+     "    ref = frozenset(ref)                     # a PLAIN set: no `.names`, no `.silicon`",
+     "    return None"),
+    ("the no-pooling reference is the model under test, so a pooled model referees itself",
+     "    return frozenset(names_of(model)) - silicon_mnemonics()",
+     "    return frozenset(model)"),
+    ("the silicon split is dropped — every implemented mnemonic reads as differential",
+     "    return Model(ms, sil)",
+     "    return Model(ms, ())"),
+    ("the l/q-suffixed BMI/ADX/MOVNTI spellings stop mapping (their demand reads as unmapped)",
+     '            "adcx","adox","mulx","andn","bextr","blsmsk","blsr","bzhi","pdep",\n'
+     '            "pext","rorx","movnti"}',
+     '            }'),
+    ("`miss_by_ext` keys a mapped residue by the printed mnemonic again (`andnl`, not `andn`)",
+     "        key = _r if (_r is not None and form_in_scope(ext)) else m",
+     "        key = m"),
 ]
 
 
