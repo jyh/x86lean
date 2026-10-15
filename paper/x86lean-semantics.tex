@@ -588,8 +588,10 @@ theorem it cannot be quietly forgotten either.
 % Register: Main.lean classify, compareRecs, bothRefused, driveWrong; X86/Serialize.lean Cpu.render;
 % docs/DIFFERENTIAL-P2-BATCH22.md; docs/CLAIMS.tsv diff\_*.
 
-A differential case is one instruction, run from one pre-state. x86lean and the reference model each
-emit a record of the post-state in one format: the general-purpose and vector registers, MXCSR, the
+Validation is differential: x86lean and the reference model run the same test, and their results
+are compared. Each test, a \emph{differential case}, executes a single instruction from a single
+starting machine state, its \emph{pre-state}. Each model emits a record of the resulting post-state
+in one format: the general-purpose and vector registers, MXCSR, the
 instruction pointer, the flags, whether the instruction was refused, and a set of watched memory
 windows.
 \src{X86/Serialize.lean Cpu.render; scripts/run\_differential.sh}
