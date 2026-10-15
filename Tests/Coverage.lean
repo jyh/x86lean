@@ -83,7 +83,10 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vbin .muludq .x0 .x1).mnemonic, (Op.vbin .addsw .x0 .x1).mnemonic,
       (Op.vbin .subusw .x0 .x1).mnemonic, (Op.vbin .subusb .x0 .x1).mnemonic,
       (Op.vbin .maxsw .x0 .x1).mnemonic, (Op.vbin .sadbw .x0 .x1).mnemonic,
-      (Op.vbin .packssdw .x0 .x1).mnemonic] := by decide
+      (Op.vbin .packssdw .x0 .x1).mnemonic,
+      -- D338 (V2): one `ShaKind` kind per row, on `Op.vsha`.
+      (Op.vsha .msg1 .x1 .x2).mnemonic, (Op.vsha .msg2 .x1 .x2).mnemonic,
+      (Op.vsha .rnds2 .x1 .x2).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1122,6 +1125,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- D336 (V1b): every memory operand of the six is a SOURCE (PEXTRD/Q's
     -- destination is a GPR by its type); no vector reaches any of them today.
     | .vshufb .. | .vshufbm .. | .valignr .. | .valignrm .. | .vinsr .. | .vextr .. => false
+    -- D338 (V2): `vsham`'s memory operand is SRC2, a SOURCE; the destination is
+    -- always an XMM register.  Added in the same commit as the constructors.
+    | .vsha .. | .vsham .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 15, added in the SAME COMMIT as the constructor.
     -- `vbinm`'s memory operand is its SOURCE; the destination is always an XMM
     -- register, so this is not a memory-destination form either.

@@ -68,6 +68,13 @@ jobs:
           else
             sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x -e SSSE3 -e SSE4.1 || echo "SSSE3/SSE4.1: NOT REPORTED"
           fi
+          # D338: the SHA-NI path needs SHA (CPUID.(EAX=07H,ECX=0):EBX bit 29). sha_probe reads CPUID itself and refuses
+          # with its OWN exit code (3) without it, so this is a record, not the guard.
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow sha_ni /proc/cpuinfo || echo "sha_ni: NOT REPORTED"
+          else
+            sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x SHA || echo "SHA: NOT REPORTED"
+          fi
 
       - name: Rows, derived from the rules (never typed)
         working-directory: hwprobe
@@ -95,6 +102,12 @@ jobs:
           python3 mk_simda_rows.py > simda_rows.h
           python3 mk_simda_rows.py --plant > simda_rows_plant.h
           python3 mk_simda_rows.py --plant-op > simda_rows_badop.h
+          python3 mk_sha_rows.py --selftest
+          python3 mk_sha_rows.py --reach
+          python3 mk_sha_rows.py > sha_rows.h
+          python3 mk_sha_rows.py --plant > sha_rows_plant.h
+          python3 mk_sha_rows.py --plant-op > sha_rows_badop.h
+          python3 mk_sha_rows.py --plant-wk > sha_rows_wk.h
 
       - name: Build
         working-directory: hwprobe
@@ -129,6 +142,11 @@ jobs:
           for v in plant badop; do
             sed "s/\"simda_rows.h\"/\"simda_rows_$v.h\"/" simda_probe.c > simda_probe_$v.c
             gcc -O1 -o simda_probe_$v simda_probe_$v.c simda_ops.S
+          done
+          gcc -O1 -o sha_probe sha_probe.c sha_ops.S
+          for v in plant badop wk; do
+            sed "s/\"sha_rows.h\"/\"sha_rows_$v.h\"/" sha_probe.c > sha_probe_$v.c
+            gcc -O1 -o sha_probe_$v sha_probe_$v.c sha_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -293,6 +311,71 @@ jobs:
           echo "simda rc=$rc"
           test "$rc" = 0
 
+      # D338: THE SHA-NI PATH (SHA256MSG1, SHA256MSG2, SHA256RNDS2, xmm and m128). ⚠️ NOT EVERY LEG HAS THE EXTENSION:
+      # `macos-15-intel` is an i7-8700B (Coffee Lake), which has no SHA-NI, and sha_probe REFUSES there by CPUID with its
+      # OWN exit code, 3. That refusal is PRINTED and ACCEPTED on that one label, and only there: every ubuntu-latest draw
+      # so far (AMD EPYC, Intel Xeon 8573C) carries SHA-NI, so a 3 on any other leg FAILS the job — a refusal must never
+      # read as a pass where a reading was expected. The controls and the referee run only where the CPUID check passed,
+      # and a leg that skips them says so in this step's output.
+      - name: SHA-NI guard (CPUID; a refusal is accepted on macos-15-intel only, and printed)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./sha_probe --cpuid > sha_cpuid.out; rc=$?
+          set -e
+          cat sha_cpuid.out
+          echo "sha cpuid rc=$rc (0 = SHA-NI present, 3 = absent)"
+          if [ "$rc" = 0 ]; then
+            echo "SHA_NI=present" >> "$GITHUB_ENV"
+          elif [ "$rc" = 3 ] && [ "${{ matrix.os }}" = macos-15-intel ]; then
+            echo "::notice title=SHA-NI absent::${{ matrix.os }} refused the SHA-NI path by CPUID (rc 3): its SHA rows were NOT read on this leg"
+            echo "SHA_NI=absent" >> "$GITHUB_ENV"
+          else
+            echo "⛔ sha_probe --cpuid rc=$rc on ${{ matrix.os }}: not an accepted refusal on this leg"
+            exit 1
+          fi
+
+      # The SHA controls — a plant in the HIGH quadword of one row's expectation (the 128-bit comparison), a wrong declared
+      # instruction byte, and one SHA256RNDS2 row's expectation computed with WK from XMM0's HIGH quadword (the implicit
+      # operand's half is compared, not assumed).
+      - name: SHA controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        if: env.SHA_NI == 'present'
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./sha_probe_plant > sha_plant.out; rc_plant=$?
+          ./sha_probe_badop > sha_badop.out; rc_badop=$?
+          ./sha_probe_wk > sha_wk.out; rc_wk=$?
+          set -e
+          head -1 sha_plant.out; grep '^DIFF' sha_plant.out; cat sha_badop.out; grep '^DIFF' sha_wk.out
+          echo "sha plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · wk rc=$rc_wk (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' sha_plant.out)" = 1
+          grep -q '^DIFF sha256msg1_xx_edge0 ' sha_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED h_sha256msg1_xx:' sha_badop.out
+          test "$rc_wk" = 1
+          test "$(grep -c '^DIFF' sha_wk.out)" = 1
+          grep -q '^DIFF sha256rnds2_xx_kat_abc_r01 ' sha_wk.out
+
+      - name: SHA referee
+        if: env.SHA_NI == 'present'
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./sha_probe > sha.out; rc=$?
+          set -e
+          head -1 sha.out
+          grep -v '^ok  ' sha.out || true
+          echo "sha rc=$rc"
+          test "$rc" = 0
+
+      - name: SHA-NI not read on this leg (printed, never silent)
+        if: env.SHA_NI == 'absent'
+        run: |
+          echo "⚠️ ${{ matrix.os }}: SHA-NI absent by CPUID — the SHA controls and the SHA referee did NOT run on this leg."
+          echo "   This leg contributes NO SHA reading; D338's vendor coverage must come from a SHA-capable leg."
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4
@@ -313,3 +396,10 @@ jobs:
         with:
           name: simda-${{ matrix.os }}
           path: hwprobe/simda*.out
+
+      - name: SHA-NI rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha-${{ matrix.os }}
+          path: hwprobe/sha*.out

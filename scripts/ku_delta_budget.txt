@@ -180,3 +180,8 @@ Tests.AnchorsShuf @ku 511292
 # Tests.Anchors read Δku +0 (the pins left it), Tests.Coverage +163,749 of 702,603, X86.Theorems +3,112, X86.Syntax +1,111,
 # X86.Semantics +26, every other module +0.
 Tests.AnchorsSimd @ku 3499549
+# D338 arm (A) (the V2 SHA-NI pins in their own module from the start, 2026-10-14): ARM A′'s own reading and its printed line,
+# 76b6890 → 34cee41 on yukon.lan, copied not retyped; in that run Tests.Anchors read Δku +0, Tests.Coverage +45,620 of 720,809,
+# X86.Theorems +3,767, X86.Syntax +616, X86.Semantics +16, X86.Coverage +10, X86.Serialize +10, X86.Program +2,
+# Tests.LogicKit +2, every other module +0.
+Tests.AnchorsSha @ku 1217137

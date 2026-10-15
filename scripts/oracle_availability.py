@@ -115,6 +115,12 @@ FORMS = [
     ("pinsrq",  "pinsrq $1, %rcx, %xmm0",   "66480f3a22c101",     "refuses"),
     ("pextrd",  "pextrd $1, %xmm1, %eax",   "660f3a16c801",       "refuses"),
     ("pextrq",  "pextrq $1, %xmm1, %rax",   "66480f3a16c801",     "refuses"),
+    # ⭐ D338 (V2): the three SHA-NI mnemonics vale-sha256 needs, DECLARED `refuses` from x86isa's
+    # catalogue and MEASURED here before any referee is fixed (D330's lesson).  sha256rnds2's third
+    # operand is the IMPLICIT %xmm0, so its destination here is %xmm2.
+    ("sha256msg1",  "sha256msg1 %xmm1, %xmm0",   "0f38ccc1",     "refuses"),
+    ("sha256msg2",  "sha256msg2 %xmm1, %xmm0",   "0f38cdc1",     "refuses"),
+    ("sha256rnds2", "sha256rnds2 %xmm1, %xmm2",  "0f38cbd1",     "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the

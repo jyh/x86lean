@@ -583,6 +583,79 @@ width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
 def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
   (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
 
+/-! ### D338 (V2) — SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE)
+
+x86isa refuses all three (`scripts/oracle_availability.py`, D338 prediction 1), so
+each is refereed by a processor (`hwprobe/mk_sha_rows.py`, D338) and pinned to the
+same rows by `decide` in `Tests/AnchorsSha.lean`.  None writes a flag.  The six
+functions of FIPS 180-4 §4.1.2 are stated once, on 32-bit words, and every rule
+below is built from them; dword `i` of a 128-bit value is bits `32i+31 : 32i`. -/
+
+/-- FIPS 180-4 σ0 (the SDM's `σ0`): `ROR 7 ⊕ ROR 18 ⊕ SHR 3`. -/
+def shaSig0 (w : BitVec 32) : BitVec 32 := w.rotateRight 7 ^^^ w.rotateRight 18 ^^^ (w >>> 3)
+/-- FIPS 180-4 σ1: `ROR 17 ⊕ ROR 19 ⊕ SHR 10`. -/
+def shaSig1 (w : BitVec 32) : BitVec 32 := w.rotateRight 17 ^^^ w.rotateRight 19 ^^^ (w >>> 10)
+/-- FIPS 180-4 Σ0: `ROR 2 ⊕ ROR 13 ⊕ ROR 22`. -/
+def shaSum0 (a : BitVec 32) : BitVec 32 := a.rotateRight 2 ^^^ a.rotateRight 13 ^^^ a.rotateRight 22
+/-- FIPS 180-4 Σ1: `ROR 6 ⊕ ROR 11 ⊕ ROR 25`. -/
+def shaSum1 (e : BitVec 32) : BitVec 32 := e.rotateRight 6 ^^^ e.rotateRight 11 ^^^ e.rotateRight 25
+/-- FIPS 180-4 Ch: `(E ∧ F) ⊕ (¬E ∧ G)`. -/
+def shaCh (e f g : BitVec 32) : BitVec 32 := (e &&& f) ^^^ (~~~e &&& g)
+/-- FIPS 180-4 Maj: `(A ∧ B) ⊕ (A ∧ C) ⊕ (B ∧ C)`. -/
+def shaMaj (a b c : BitVec 32) : BitVec 32 := (a &&& b) ^^^ (a &&& c) ^^^ (b &&& c)
+
+/-- Dword `i` of a 128-bit value. -/
+def shaD (x : BitVec 128) (i : Nat) : BitVec 32 := x.extractLsb' (32 * i) 32
+
+/-- Four dwords to a 128-bit value, HIGH first: `shaPack d3 d2 d1 d0` (the SDM's
+`DEST[127:96] … DEST[31:0]` order). -/
+def shaPack (d3 d2 d1 d0 : BitVec 32) : BitVec 128 :=
+  (d3.setWidth 128 <<< 96) ||| (d2.setWidth 128 <<< 64) ||| (d1.setWidth 128 <<< 32) ||| d0.setWidth 128
+
+/-- SHA256MSG1 (SDM Vol. 2B) on the dword `w4 = SRC2[31:0]`: `W3 + σ0(W4) : W2 + σ0(W3) :
+W1 + σ0(W2) : W0 + σ0(W1)`, W3..W0 the dwords of SRC1.  Stated on `w4` so that "only
+SRC2's LOW dword is read" is the TYPE of the argument, not a remark. -/
+def sha256msg1W (src1 : BitVec 128) (w4 : BitVec 32) : BitVec 128 :=
+  shaPack (shaD src1 3 + shaSig0 w4) (shaD src1 2 + shaSig0 (shaD src1 3))
+    (shaD src1 1 + shaSig0 (shaD src1 2)) (shaD src1 0 + shaSig0 (shaD src1 1))
+
+/-- SHA256MSG2 (SDM Vol. 2B) on `w14 = SRC2[95:64]`, `w15 = SRC2[127:96]`:
+`W16 := SRC1[31:0] + σ1(W14)`, `W17 := SRC1[63:32] + σ1(W15)`, and ⚠️ `W18`, `W19`
+from `W16`, `W17` — the serial chain the SDM's Operation states.  DEST = W19:W18:W17:W16. -/
+def sha256msg2W (src1 : BitVec 128) (w14 w15 : BitVec 32) : BitVec 128 :=
+  let w16 := shaD src1 0 + shaSig1 w14
+  let w17 := shaD src1 1 + shaSig1 w15
+  shaPack (shaD src1 3 + shaSig1 w17) (shaD src1 2 + shaSig1 w16) w17 w16
+
+/-- One FIPS 180-4 round on `(A, B, C, D, E, F, G, H)` with the word `wk` (= K[t] + W[t]):
+`T1 := H + Σ1(E) + Ch(E,F,G) + wk`, `T2 := Σ0(A) + Maj(A,B,C)`, and the state shifts to
+`(T1+T2, A, B, C, D+T1, E, F, G)`. -/
+def shaRound (st : BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32)
+    (wk : BitVec 32) :
+    BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 :=
+  let (a, b, c, d, e, f, g, h) := st
+  let t1 := h + shaSum1 e + shaCh e f g + wk
+  let t2 := shaSum0 a + shaMaj a b c
+  (t1 + t2, a, b, c, d + t1, e, f, g)
+
+/-- SHA256RNDS2 (SDM Vol. 2B) on `wk0 = XMM0[31:0]`, `wk1 = XMM0[63:32]`: A B E F from
+SRC2 (`[127:96] [95:64] [63:32] [31:0]`), C D G H from SRC1 (the same positions), two
+rounds, DEST := A₂ : B₂ : E₂ : F₂.  ⚠️ Stated on the two words, so "XMM0's high
+quadword is not read" is the TYPE again. -/
+def sha256rnds2W (src1 src2 : BitVec 128) (wk0 wk1 : BitVec 32) : BitVec 128 :=
+  let s0 := (shaD src2 3, shaD src2 2, shaD src1 3, shaD src1 2,
+             shaD src2 1, shaD src2 0, shaD src1 1, shaD src1 0)
+  let (a, b, _, _, e, f, _, _) := shaRound (shaRound s0 wk0) wk1
+  shaPack a b e f
+
+/-- The three kinds on the WHOLE operands — SRC1 (the destination's value), SRC2, and
+XMM0 — each reading only the dwords its rule names. -/
+def shaApply (k : ShaKind) (src1 src2 xmm0 : BitVec 128) : BitVec 128 :=
+  match k with
+  | .msg1 => sha256msg1W src1 (shaD src2 0)
+  | .msg2 => sha256msg2W src1 (shaD src2 2) (shaD src2 3)
+  | .rnds2 => sha256rnds2W src1 src2 (shaD xmm0 0) (shaD xmm0 1)
+
 /-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
 lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
 instruction is named for: a negative word becomes 0, not 255. -/
@@ -1411,6 +1484,19 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       match sz with
       | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
+
+  -- ⭐ D338 (V2): SHA256MSG1, SHA256MSG2, SHA256RNDS2.  x86isa refuses all three;
+  -- `hwprobe/` referees them.  ⚠️ ALL THREE READ THE DESTINATION (SRC1), and RNDS2
+  -- reads XMM0 as well — read here BEFORE the write, so `dst = .x0` reads the old
+  -- value as the SDM's Operation does.  The m128 shape carries the Type-4 16-byte `#GP`.
+  | .vsha k dst src =>
+      (s.setXmm dst (shaApply k (s.getXmm dst) (s.getXmm src) (s.getXmm .x0))).setRip nr
+  | .vsham k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (shaApply k (s.getXmm dst) (s.readMem128 a) (s.getXmm .x0))).setRip nr
 
   -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
   --
