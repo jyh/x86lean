@@ -89,14 +89,17 @@ declaration in CI.
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
   execution, never a theorem about the other model.
-- **Refereed by a processor, not differentially (D330, D334, D335, D336).** 27
-  more mnemonics are implemented that ACL2 x86isa refuses to execute, so no
+- **Refereed by a processor, not differentially (D330, D334, D335, D336, D338).**
+  30 more mnemonics are implemented that ACL2 x86isa refuses to execute, so no
   differential vector can exist for them: `mulx`, the BMI group and `movnti`;
   six SSSE3/SSE4.1 legacy-SSE shuffle, align, insert and extract mnemonics —
-  `pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`; and eleven SSE-legacy
+  `pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`; eleven SSE-legacy
   packed-integer arithmetic mnemonics at both xmm shapes —
   `pmaddwd` `pmaddubsw` `pmullw` `pmulhrsw` `pmuludq` `paddsw` `psubusw`
-  `psubusb` `pmaxsw` `psadbw` `packssdw` (two of them SSSE3). Each is checked by
+  `psubusb` `pmaxsw` `psadbw` `packssdw` (two of them SSSE3); and the three
+  SHA-NI SHA-256 mnemonics at both xmm shapes — `sha256msg1` `sha256msg2`
+  `sha256rnds2` (its implicit `%xmm0` included), whose rows also carry FIPS
+  180-4's "abc" block computed by a textbook SHA-256. Each is checked by
   `hwprobe/` — rows derived from the SDM's rules, run on hosted x86-64 runners'
   processors — and the model is pinned to the same rows by `decide`. The rows
   are chosen, not swept over the pre-states, and none is counted in the 199
@@ -107,7 +110,8 @@ declaration in CI.
 - **Not in scope.** AVX and everything VEX- or EVEX-encoded (so no YMM or ZMM
   register), SSSE3 and SSE4 beyond the eight mnemonics refereed by a processor
   above (`pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`, and the SSSE3
-  `pmaddubsw` `pmulhrsw`), x87 and
+  `pmaddubsw` `pmulhrsw`), the SHA extensions beyond the three SHA-256
+  mnemonics above (no `sha1*`), x87 and
   MMX, the rest of SSE3, the SSE/SSE2 forms not listed above, segmentation and paging, privileged
   and system instructions, interrupts and exceptions beyond the faults named
   below, memory ordering and multi-threading, 32-bit and 16-bit modes. The

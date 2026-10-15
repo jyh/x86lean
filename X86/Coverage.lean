@@ -1098,7 +1098,8 @@ putting it in `tableP0` would make `every_row_has_a_vector` false, and leaving i
 out of every table would make an implemented form invisible.
 
 ⚠️ WHAT THE REFEREE IS: `hwprobe/` runs each row of `hwprobe/mk_int_rows.py`
-(and, since D336, of `hwprobe/mk_shuf_rows.py`) (expectations derived from the SDM's rules, never from x86isa or this model) on a
+(and, since D336, of `hwprobe/mk_shuf_rows.py`; D335, `mk_simda_rows.py`; D338,
+`mk_sha_rows.py`) (expectations derived from the SDM's rules, never from x86isa or this model) on a
 hosted runner's processor, and `Tests/Anchors.lean` checks THIS model against the
 same rows by `decide`.  That is a weaker instrument than the differential in one
 way that is named here rather than hidden: its rows are chosen, not swept over
@@ -1165,7 +1166,16 @@ def siliconTable : List Row :=
   , { mnemonic := "psadbw", shapes := "x,x · x,m", note := "two sums of eight unsigned byte absolute differences, each in the low word of its quadword with bits 63:16 ZEROED; m 16-byte aligned, else #GP(0) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSADBW" }
   , { mnemonic := "packssdw", shapes := "x,x · x,m", note := "the destination's four dwords to the LOW four words and the source's to the high four, each signed-saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" }
+  -- ⭐ D338 (V2): the three SHA-NI SHA-256 mnemonics `vale-sha256` needs, `ShaKind`
+  -- kinds on `Op.vsha`/`Op.vsham`.  Every result bit is defined and no flag is
+  -- written, so each is `T-exact`; the rows are `hwprobe/mk_sha_rows.py`'s.
+  , { mnemonic := "sha256msg1", shapes := "x,x · x,m", note := "SHA-NI · W3+σ0(W4) : W2+σ0(W3) : W1+σ0(W2) : W0+σ0(W1), W3..W0 the destination's dwords and W4 the source's LOW dword (the only one read); m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256MSG1" }
+  , { mnemonic := "sha256msg2", shapes := "x,x · x,m", note := "SHA-NI · W16..W19 from the destination plus σ1 of the source's HIGH two dwords (W14, W15), W18 and W19 chained on W16 and W17; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256MSG2" }
+  , { mnemonic := "sha256rnds2", shapes := "x,x · x,m", note := "SHA-NI · two FIPS 180-4 rounds, ABEF from the source and CDGH from the destination, WK0:WK1 from XMM0's LOW quadword (an implicit operand); DEST = A:B:E:F after round 2; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256RNDS2" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

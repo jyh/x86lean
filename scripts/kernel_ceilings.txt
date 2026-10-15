@@ -405,3 +405,10 @@ Tests.AnchorsSimd 20310 @on katmai
 # runner, 2026-10-13: the line PR #92's kernel-delta job PRINTED on refusing the NEW unit (job 115618753011, head 9340.0 ms
 # on runnervmmprz5 => max(9340.0 x 3, 50) = 28020), copied, not retyped. Same step as the two runner lines above.
 Tests.AnchorsSimd 28020 @on runnervmmprz5
+# D338 arm (A) (the V2 SHA-NI pins in their own module from the start, 2026-10-14): the gate's own suggested line from kernel_delta
+# 76b6890 → 34cee41, yukon.lan, --repeats 3, not retyped: Tests.AnchorsSha head 2630.0 ms ⇒ max(2630.0 × 3, 50) = 7890. The runner
+# line follows the merge ref's first refusal (D252 §6): no runner reading exists before CI runs the module.
+Tests.AnchorsSha 7890 @on yukon.lan
+# katmai, 2026-10-14, the line kernel_delta PRINTED on refusing the NEW unit there (base 76b6890 -> 5441610, --repeats 6):
+# head 2535.0 ms => max(2535.0 x 3, 50) = 7605, copied, not retyped.
+Tests.AnchorsSha 7605 @on katmai

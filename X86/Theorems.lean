@@ -2358,4 +2358,89 @@ theorem sad_max : vsadLane 0xFFFFFFFFFFFFFFFF 0 = 0x7F8 := by decide
 
 end V1a
 
+/-! ## D338 (V2) — SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE)
+
+⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses all three
+(`scripts/oracle_availability.py`, D338 prediction 1).  Their numbers are checked
+against a PROCESSOR by `hwprobe/` (`mk_sha_rows.py`, whose known-answer rows come from a
+textbook FIPS 180-4 SHA-256) and pinned in `Tests/AnchorsSha.lean`.  The theorems
+below state the frame, the Type-4 fault, WHICH DWORDS EACH RULE READS (the SDM's
+Operation in words, here as equations), the σ boundaries, and FIPS 180-4's "abc"
+block through the message and round rules. -/
+section V2
+variable {len : Nat} {s : Cpu}
+
+/-- SHA256MSG1/MSG2/RNDS2 between registers: SRC1 is the destination's ORIGINAL value
+and XMM0 is read before the write; no flag, no oracle bit, no GPR written. -/
+theorem step_vsha (h : Live s) (k : ShaKind) (d x : XmmReg) :
+    step ⟨.vsha k d x, len⟩ s =
+      (s.setXmm d (shaApply k (s.getXmm d) (s.getXmm x) (s.getXmm .x0))).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⛔ NO FLAG: "Flags Affected: None" for all three. -/
+theorem step_vsha_flags (h : Live s) (k : ShaKind) (d x : XmmReg) :
+    (step ⟨.vsha k d x, len⟩ s).flags = s.flags := by
+  rw [step_vsha h k d x]; simp
+
+/-- ⛔⭐ AN UNALIGNED SHA m128 FAULTS (Exception Type 4, D110). -/
+theorem vsham_unaligned_faults (k : ShaKind) (d : XmmReg) (ea : Ea) (h : Live s) (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vsham k d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- And an ALIGNED one is the register rule with SRC2 read from memory. -/
+theorem step_vsham_aligned (k : ShaKind) (d : XmmReg) (ea : Ea) (h : Live s) (hl : ea.lock = false)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    step ⟨.vsham k d ea, len⟩ s =
+      (s.setXmm d (shaApply k (s.getXmm d) (s.readMem128 (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+        (s.getXmm .x0))).setRip (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, hl, hA, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ SHA256MSG1 READS ONLY SRC2's LOW DWORD (W4): two SRC2s that agree there give the
+same result, whatever their other 96 bits. -/
+theorem sha256msg1_reads_src2_low (a b b' x : BitVec 128) (h : shaD b 0 = shaD b' 0) :
+    shaApply .msg1 a b x = shaApply .msg1 a b' x := by
+  simp [shaApply, h]
+
+/-- ⭐ SHA256MSG2 READS ONLY SRC2's HIGH TWO DWORDS (W14, W15). -/
+theorem sha256msg2_reads_src2_high (a b b' x : BitVec 128) (h2 : shaD b 2 = shaD b' 2)
+    (h3 : shaD b 3 = shaD b' 3) :
+    shaApply .msg2 a b x = shaApply .msg2 a b' x := by
+  simp [shaApply, h2, h3]
+
+/-- ⭐ SHA256RNDS2 READS ONLY XMM0's LOW QUADWORD (WK0, WK1). -/
+theorem sha256rnds2_reads_xmm0_low (a b x x' : BitVec 128) (h0 : shaD x 0 = shaD x' 0)
+    (h1 : shaD x 1 = shaD x' 1) :
+    shaApply .rnds2 a b x = shaApply .rnds2 a b x' := by
+  simp [shaApply, h0, h1]
+
+/-- ⭐ THE TWO MESSAGE KINDS DO NOT READ XMM0 AT ALL. -/
+theorem sha_msg_ignores_xmm0 (k : ShaKind) (hk : k ≠ .rnds2) (a b x x' : BitVec 128) :
+    shaApply k a b x = shaApply k a b x' := by
+  cases k <;> simp_all [shaApply]
+
+/-- σ0 and σ1 at bit 0 — the rotates wrap it to bits 25 and 14 (σ0) and 15 and 13 (σ1);
+the shifts drop it — and σ0 at bit 3, the first bit `SHR 3` keeps. -/
+theorem shaSig0_bit0 : shaSig0 1 = 0x02004000 := by decide
+theorem shaSig1_bit0 : shaSig1 1 = 0x0000A000 := by decide
+theorem shaSig0_bit3 : shaSig0 8 = 0x10020001 := by decide
+
+/-- ⭐ FIPS 180-4's "abc" block through SHA256MSG2: SRC1 = W[i] + σ0(W[i+1]) + W[i+9]
+(here W0 alone, every other of W1..W12 is zero), SRC2 = W12..W15 (W15 = 18H, the bit
+length), gives W16..W19 = 61626380H, 000F0000H, 7DA86405H, 600003C6H — the values of the
+textbook schedule (`hwprobe/mk_sha_rows.py`'s KAT, checked against the FIPS digest). -/
+theorem sha256msg2_abc :
+    shaApply .msg2 0x00000000000000000000000061626380 0x00000018000000000000000000000000 0 =
+      0x600003c67da86405000f000061626380 := by decide
+
+/-- ⭐ AND ROUNDS 0–1 FROM H0 THROUGH SHA256RNDS2: ABEF = 6A09E667 BB67AE85 510E527F
+9B05688C, CDGH = 3C6EF372 A54FF53A 1F83D9AB 5BE0CD19, WK = K0+W0, K1+W1 — and the
+result is the textbook's (a, b, e, f) after round 1. -/
+theorem sha256rnds2_abc_r01 :
+    shaApply .rnds2 0x3c6ef372a54ff53a1f83d9ab5be0cd19 0x6a09e667bb67ae85510e527f9b05688c
+      0x000000000000000071374491a3ec9318 = 0x5a6ad9ad5d6aebcd78ce7989fa2a4622 := by decide
+
+end V2
+
 end X86
