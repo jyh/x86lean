@@ -121,6 +121,35 @@ FORMS = [
     ("sha256msg1",  "sha256msg1 %xmm1, %xmm0",   "0f38ccc1",     "refuses"),
     ("sha256msg2",  "sha256msg2 %xmm1, %xmm0",   "0f38cdc1",     "refuses"),
     ("sha256rnds2", "sha256rnds2 %xmm1, %xmm2",  "0f38cbd1",     "refuses"),
+    # ⭐ D339 (V3, scoping): the forms the primitive census's ladder step 5 needs for vale-aesgcm.
+    # DECLARED from x86isa's inst-listing (a semantic function named ⇒ `executes`; 'NIL or none
+    # found ⇒ `refuses`) and MEASURED here before any design is fixed: whether the oracle runs
+    # VEX at all decides whether V3 is a differential wave (and its record needs YMM's upper
+    # half) or a silicon one.
+    ("aesenc",      "aesenc %xmm1, %xmm0",                    "660f38dcc1",     "refuses"),
+    ("aesenclast",  "aesenclast %xmm1, %xmm0",                "660f38ddc1",     "refuses"),
+    ("pclmulqdq",   "pclmulqdq $0, %xmm1, %xmm0",             "660f3a44c100",   "refuses"),
+    ("vpaddd",      "vpaddd %xmm1, %xmm2, %xmm0",             "c5e9fec1",       "executes"),
+    ("vpxor",       "vpxor %xmm1, %xmm2, %xmm0",              "c5e9efc1",       "executes"),
+    ("vpshufb",     "vpshufb %xmm1, %xmm2, %xmm0",            "c4e26900c1",     "refuses"),
+    ("vpalignr",    "vpalignr $3, %xmm1, %xmm2, %xmm0",       "c4e3690fc103",   "refuses"),
+    ("vpslldq",     "vpslldq $3, %xmm1, %xmm0",               "c5f973f903",     "refuses"),
+    ("vpsrldq",     "vpsrldq $3, %xmm1, %xmm0",               "c5f973d903",     "refuses"),
+    ("vaesenc",     "vaesenc %xmm1, %xmm2, %xmm0",            "c4e269dcc1",     "refuses"),
+    ("vaesenclast", "vaesenclast %xmm1, %xmm2, %xmm0",        "c4e269ddc1",     "refuses"),
+    ("vpclmulqdq",  "vpclmulqdq $0, %xmm1, %xmm2, %xmm0",     "c4e36944c100",   "refuses"),
+    # ⭐ V3 (D341) P6, MEASURED 2026-10-14 and kept in the run so the reading is re-taken. VEX.256 (VEX.L = 1) of two
+    # twins V3 takes: x86isa EXECUTES both at 88/88 — VEX.256 is valid for these forms, and D341's prediction of #UD
+    # was wrong. V3 does NOT take VEX.256 (the model has no 256-bit operand); these rows say so, they are not vectors.
+    ("NOTTAKEN:vpaddd256",  "vpaddd %ymm1, %ymm2, %ymm0",     "c5edfec1",       "executes"),
+    ("NOTTAKEN:vmovdqa256", "vmovdqa %ymm1, %ymm0",           "c5fd6fc1",       "executes"),
+    # The #UD encodings: a two-operand form with VEX.vvvv != 1111b (clang's c5f96fc1 / c5fb12c1 with vvvv rewritten
+    # to 0010b — no assembler emits them), and a legacy 66 / REX prefix before VEX (clang's c5e9fec1 with the byte
+    # prepended). x86isa REFUSES all four at 88/88, agreeing with SDM Vol. 2A §2.3.2 / §2.3.6.
+    ("UD:vmovdqa_vvvv",     ".byte 0xc5,0xe9,0x6f,0xc1",      "c5e96fc1",       "refuses"),
+    ("UD:vmovddup_vvvv",    ".byte 0xc5,0xeb,0x12,0xc1",      "c5eb12c1",       "refuses"),
+    ("UD:66_vpaddd",        ".byte 0x66,0xc5,0xe9,0xfe,0xc1", "66c5e9fec1",     "refuses"),
+    ("UD:rex_vpaddd",       ".byte 0x40,0xc5,0xe9,0xfe,0xc1", "40c5e9fec1",     "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the

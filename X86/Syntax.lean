@@ -2068,7 +2068,35 @@ inductive Op where
   rather than from running it — `por 8(%rbx)` refuses at all 88 pre-states,
   `paddd`, `psubw` and `punpcklbw` at the same address execute at all 88. -/
   | vbinm (k : VBinKind) (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ V3 (D341) — THE VEX.128 TWIN OF A REGISTER MOVE (`vmovdqa vmovdqu vmovaps
+  vmovups vmovapd vmovupd`, SDM Vol. 2B): the same transfer as `vmov`, written through
+  `setXmmVex128`, so bits 255:128 of the destination's YMM register become ZERO where the
+  legacy form preserves them (SDM Vol. 1 §14.1.2).  Register forms only. -/
+  | vexmov (k : VMovKind) (dst src : XmmReg)
+  /-- ⭐⭐ V3 (D341) — `vmovddup xmm, xmm` (VEX.128 F2 0F 12): `vddupR`'s value, written
+  through `setXmmVex128`. -/
+  | vexddup (dst src : XmmReg)
+  /-- ⭐⭐⭐ V3 (D341) — THE VEX.128 TWIN OF A PACKED BINARY OPERATION, register form:
+  `dst := src1 op src`, where `src1` is the NON-DESTRUCTIVE first source named by
+  VEX.vvvv and `src` the ModRM.rm operand the legacy form already names.  The 128-bit
+  function is `vbinApply`'s, with `src1` in the place the legacy form gives its
+  DESTINATION — so `vpandn` complements `src1` and `vpcmpgt` asks `src1 > src`, exactly
+  as `pandn`/`pcmpgt` ask of their destination (SDM Vol. 2B: VPANDN `DEST ← (NOT SRC1)
+  AND SRC2`).  Only the kinds `VBinKind.vexTaken` lists are taken (D339: the oracle
+  executes exactly those); `step` refuses any other as unimplemented. -/
+  | vexbin (k : VBinKind) (dst src1 src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:
+integer add/sub, the bitwise group, and the integer compares.  Exactly the twins the
+oracle executes (D339 measured the other VEX twins REFUSED), so the differential can
+referee every one. -/
+def VBinKind.vexTaken : VBinKind → Bool
+  | .addb | .addw | .addd | .addq | .subb | .subw | .subd | .subq => true
+  | .xor | .and | .or | .andn | .andnps | .andnpd => true
+  | .andps | .andpd | .orps | .orpd | .xorps | .xorpd => true
+  | .cmpeqb | .cmpeqw | .cmpeqd | .cmpgtb | .cmpgtw | .cmpgtd => true
+  | _ => false
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
 
@@ -2179,6 +2207,8 @@ def opOperands : Op → List Operand
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => [.mem ea]
   -- ⚠️ Two register files and no address: the cross moves name no `Ea` at all.
   | .vmovhl .. | .vddupR .. => []
+  -- V3: the VEX.128 register twins name no address.
+  | .vexmov .. | .vexddup .. | .vexbin .. => []
   | .vddupM _ ea => [.mem ea]
   -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
   | .prefetch _ ea => [.mem ea]
@@ -2363,6 +2393,7 @@ def Op.anyLocked : Op → Bool
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .vmovhl .. | .vddupR .. => false
+  | .vexmov .. | .vexddup .. | .vexbin .. => false
   | .vddupM _ ea => ea.lock
   | .prefetch _ ea => ea.lock
   | .vmovmsk .. => false
@@ -2593,6 +2624,10 @@ def Op.mnemonic : Op → String
   -- one and the mnemonic is named for the move, not for the destination.
   | .vmovhl d _ _ => match d with | .lo => "movhlps" | .hi => "movlhps"
   | .vddupR .. | .vddupM .. => "movddup"
+  -- V3: every VEX.128 twin is its legacy spelling with a `v` in front.
+  | .vexmov k .. => "v" ++ k.mnemonic
+  | .vexddup .. => "vmovddup"
+  | .vexbin k .. => "v" ++ k.mnemonic
   -- ⚠️ FOUR MNEMONICS FROM TWO FIELDS, and neither may be dropped: `ordered`
   -- picks the opcode byte (`0f 2f` / `0f 2e`) and `sz` picks the format.
   | .vcomis o sz _ _ =>

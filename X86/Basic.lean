@@ -10,6 +10,7 @@ reference only.  See PROVENANCE.md for the reading log rule.
 
 LANE. Personal lane, public sources only.  See CLAUDE.md.
 -/
+import X86.YmmHi
 
 namespace X86
 
@@ -219,6 +220,18 @@ applied in advance: P2 batch 1 blew three inherited proofs by adding TWO fields
 to `Cpu`, because a whole-record `rfl` costs O(fields).  Sixteen would have cost
 eight times that.  Nested, `Cpu` grows by exactly ONE field and every existing
 record proof pays for one more projection, not sixteen. -/
+/-- The sixteen XMM registers, and (V3, D341) the UPPER half of each as one
+nested field `hi`.
+
+⭐ THE UPPER HALF IS ONE FIELD OF THIS STRUCTURE, NOT SIXTEEN, AND NOT A FIELD OF
+`Cpu`: D71's lesson again. `Cpu` does not grow at all, and a whole-record proof
+over `Xmms` pays for one more projection.  Bits 255:128 of YMMr are `hi.get r`;
+bits 511:256 are not modelled (MAXVL is 256 here, D341).
+
+⚠️ WHICH SETTER A RULE CALLS DECIDES THE UPPER-HALF RULE, never a flag: `set`
+(every legacy SSE rule) leaves `hi` untouched, so legacy SSE PRESERVES bits
+255:128; `setVex128` zeroes `hi r` (SDM Vol. 1 §14.1.2, VEX.128 zeroes
+MAXVL−1:128). -/
 structure Xmms where
   xmm0  : BitVec 128 := 0
   xmm1  : BitVec 128 := 0
@@ -236,6 +249,8 @@ structure Xmms where
   xmm13 : BitVec 128 := 0
   xmm14 : BitVec 128 := 0
   xmm15 : BitVec 128 := 0
+  /-- ⭐ V3 (D341): bits 255:128 of each YMM register. -/
+  hi    : YmmHi := {}
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The sixteen XMM registers, by their encoding number (SDM Vol. 2A Table 2-2 —

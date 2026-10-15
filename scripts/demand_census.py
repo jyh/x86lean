@@ -120,6 +120,10 @@ def model_mnemonics():
     never assumed to."""
     path = os.path.join(root, "docs", "COVERAGE.md")
     text = open(path, encoding="utf-8").read()
+    # ⭐ V3 (D341): the VEX.128 twins are a THIRD population, published in a section of their
+    # own and deliberately NOT counted in this census's model (its figures are pinned at the
+    # 199 + 27 it was generated against). Read only what precedes that section.
+    text = text.split("\n## VEX.128 register twins", 1)[0]
     ms = re.findall(r'^\| `([a-z0-9]+)` \|', text, re.M)
     if not ms:
         print("⛔ no mnemonics read from docs/COVERAGE.md; a census with no "

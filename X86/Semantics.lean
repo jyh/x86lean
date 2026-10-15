@@ -36,6 +36,7 @@ LANE. Personal lane, public sources only.  SDM read per instruction, cited at
 each case.
 -/
 import X86.Flags
+import X86.Vex
 
 namespace X86
 
@@ -1090,6 +1091,19 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vddupR dst src =>
       let lo := ((s.getXmm src).setWidth 64).setWidth 128
       (s.setXmm dst ((lo <<< 64) ||| lo)).setRip nr
+  -- ⭐⭐⭐ V3 (D341) — THE VEX.128 REGISTER TWINS.  Each computes exactly the legacy
+  -- form's 128-bit value and writes it through `setXmmVex128`, which zeroes bits
+  -- 255:128 of the destination's YMM register (SDM Vol. 1 §14.1.2).  That setter is
+  -- the whole difference from the legacy arm, by construction.
+  | .vexmov _ dst src =>
+      (s.setXmmVex128 dst (s.getXmm src)).setRip nr
+  | .vexddup dst src =>
+      let lo := ((s.getXmm src).setWidth 64).setWidth 128
+      (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
+  | .vexbin k dst src1 src =>
+      if k.vexTaken then
+        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.getXmm src))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic}: a VEX twin not taken (D339)")
   | .vddupM dst ea =>
       let a := ea.addr s nr
       -- ⚠️ `readMem .q`, the same 64-bit path the half-moves use: a second route

@@ -1088,6 +1088,168 @@ acc,imm · rh"
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ADOX" }
   ]
 
+
+/-- ⭐⭐⭐ V3 (D341): one row of the VEX table — a coverage row and the LEGACY mnemonic it is the
+VEX.128 twin of. -/
+structure VexRow where
+  row : Row
+  /-- The legacy SSE mnemonic whose 128-bit function this form computes; a row of `tableP0`. -/
+  twin : String
+  deriving Repr, Inhabited
+
+/-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS — a THIRD population beside `tableP0` (the 199
+differentially tested mnemonics) and `siliconTable` (the forms only a processor referees).
+
+Each row is DIFFERENTIALLY TESTED (`Tests.Vectors.vexVectors`, run in the same differential as
+`vectors`), and each computes its legacy twin's 128-bit function, written through
+`setXmmVex128`: bits 255:128 of the destination's YMM register are ZEROED where the legacy form
+preserves them, and the record compares them (`ymmhiN=`).
+
+⛔ A TABLE OF ITS OWN, NOT 33 MORE ROWS OF `tableP0`, AND THE REASON IS A MEASUREMENT. The
+coverage theorems over `tableP0` are quadratic in its row count: as 33 more rows there they moved
+`Tests.Coverage` by +5,300 ms (+14%) against a 2,671 ms delta budget — `table_mnemonics_subset_roster`
+4.51 s, `roster_covered_by_table` 4.41 s, `table_rows_distinct` 4.07 s, `vectorCoverage` 4.51 s on
+yukon. A separate table prices VEX in its own unit (`Tests.CoverageVex`) for good; splitting
+the batch would only have moved the same wall to the next one. The published 199 is unchanged.
+
+⛔ NOT TAKEN, declared rather than absent: the VEX.256 (VEX.L = 1) forms of these mnemonics (the
+model has no 256-bit operand; x86isa EXECUTES them, `oracle_availability.py`'s NOTTAKEN rows),
+their memory forms, and the 77 VEX twins the oracle refuses (D339). -/
+def vexTable : List VexRow :=
+  [ { twin := "movdqa",
+      row := { mnemonic := "vmovdqa", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQA" } }
+  , { twin := "movdqu",
+      row := { mnemonic := "vmovdqu", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" } }
+  , { twin := "movaps",
+      row := { mnemonic := "vmovaps", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPS" } }
+  , { twin := "movups",
+      row := { mnemonic := "vmovups", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPS" } }
+  , { twin := "movapd",
+      row := { mnemonic := "vmovapd", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPD" } }
+  , { twin := "movupd",
+      row := { mnemonic := "vmovupd", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPD" } }
+  , { twin := "movddup",
+      row := { mnemonic := "vmovddup", shapes := "x,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDDUP" } }
+  , { twin := "paddb",
+      row := { mnemonic := "vpaddb", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" } }
+  , { twin := "paddw",
+      row := { mnemonic := "vpaddw", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" } }
+  , { twin := "paddd",
+      row := { mnemonic := "vpaddd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" } }
+  , { twin := "paddq",
+      row := { mnemonic := "vpaddq", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" } }
+  , { twin := "psubb",
+      row := { mnemonic := "vpsubb", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" } }
+  , { twin := "psubw",
+      row := { mnemonic := "vpsubw", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" } }
+  , { twin := "psubd",
+      row := { mnemonic := "vpsubd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" } }
+  , { twin := "psubq",
+      row := { mnemonic := "vpsubq", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" } }
+  , { twin := "pand",
+      row := { mnemonic := "vpand", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAND" } }
+  , { twin := "pandn",
+      row := { mnemonic := "vpandn", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PANDN" } }
+  , { twin := "por",
+      row := { mnemonic := "vpor", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" } }
+  , { twin := "pxor",
+      row := { mnemonic := "vpxor", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" } }
+  , { twin := "andps",
+      row := { mnemonic := "vandps", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDPS" } }
+  , { twin := "andpd",
+      row := { mnemonic := "vandpd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDPD" } }
+  , { twin := "andnps",
+      row := { mnemonic := "vandnps", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDNPS" } }
+  , { twin := "andnpd",
+      row := { mnemonic := "vandnpd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ANDNPD" } }
+  , { twin := "orps",
+      row := { mnemonic := "vorps", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ORPS" } }
+  , { twin := "orpd",
+      row := { mnemonic := "vorpd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ORPD" } }
+  , { twin := "xorps",
+      row := { mnemonic := "vxorps", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XORPS" } }
+  , { twin := "xorpd",
+      row := { mnemonic := "vxorpd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A XORPD" } }
+  , { twin := "pcmpeqb",
+      row := { mnemonic := "vpcmpeqb", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQB" } }
+  , { twin := "pcmpeqw",
+      row := { mnemonic := "vpcmpeqw", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQW" } }
+  , { twin := "pcmpeqd",
+      row := { mnemonic := "vpcmpeqd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQD" } }
+  , { twin := "pcmpgtb",
+      row := { mnemonic := "vpcmpgtb", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTB" } }
+  , { twin := "pcmpgtw",
+      row := { mnemonic := "vpcmpgtw", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTW" } }
+  , { twin := "pcmpgtd",
+      row := { mnemonic := "vpcmpgtd", shapes := "x,x,x",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTD" } }
+  ]
+
 /-- ⭐⭐ D330 (W1b): FORMS THIS MODEL IMPLEMENTS THAT THE DIFFERENTIAL CANNOT TEST.
 
 `tableP0` is the table of DIFFERENTIALLY TESTED forms — `Tests/Coverage.lean`
