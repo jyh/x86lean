@@ -120,8 +120,8 @@ recorded logs with a reduced re-run.
         mtimes span 9 m 10 s (first to last), against 9 m 30 s by the same reading today — same book count.
   4  cite every remaining number in the paper to the manifest (paper/README.md)
      ⚠️ PARTLY, 2026-09-13: +20 rows (49 → 69), each value DERIVED by its command at 673b64a, never typed, and
-        cited where the paper quotes it — K's 3155/774/7,000 and 497 of 3,064; x86isa's 400+, 559, 186 of
-        3,192; libLISA's 118,000 and 18–28; the AFP's ~120; Roessle's 1,625; D108's 8 in 78,584; the
+        cited where the paper quotes it — K's 3155/774/7,000 and 491 of 3,064; x86isa's 400+, 559, 138 of
+        3,192 (497 and 186 until 2026-10-15); libLISA's 118,000 and 18–28; the AFP's ~120; Roessle's 1,625; D108's 8 in 78,584; the
         proof rounds 25/12/9.6/7.6. Planted: 497 → 479 in the paper, check_claims FAILs naming the row.
         ⛔ A row gates PAPER == OUR RECORD; an external figure's record carries its source and read date,
         and re-reading the source is still G1's job, not this gate's.
