@@ -711,6 +711,10 @@ jobs:
           fetch-depth: 0
       - name: Prove the skip decision before trusting it
         run: python3 scripts/selftest_skip.py --selftest
+      # ⚖️ D340 (the helm, 2026-10-14): the FAST PATH reuses this digest to let a PR whose merge ref
+      # equals a green master's merge on its required checks alone; its rule is proved here too.
+      - name: Prove the fast-path rule before anyone takes it
+        run: python3 scripts/fast_path.py --selftest
       - name: Decide SKIP or MEASURE on the consumed-set digest
         id: decide
         env:

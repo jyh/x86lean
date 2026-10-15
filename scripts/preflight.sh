@@ -55,6 +55,9 @@ else printf "  ⛔ FAIL hwprobe/mk_anchors --check\n"; rc=1; fi
 # D330: the MULX pins, from hwprobe's integer rows.
 if python3 hwprobe/mk_int_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_int_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_int_anchors --check\n"; rc=1; fi
+# D340: the fast-path rule (merge on required checks when the selftest digest matches a green master).
+if python3 scripts/fast_path.py --selftest >/dev/null 2>&1; then printf "  ok   fast_path --selftest\n"
+else printf "  ⛔ FAIL fast_path --selftest\n"; rc=1; fi
 # D336: the V1b pins, from hwprobe's shuffle rows.
 if python3 hwprobe/mk_shuf_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_shuf_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_shuf_anchors --check\n"; rc=1; fi
