@@ -412,3 +412,6 @@ Tests.AnchorsSha 7890 @on yukon.lan
 # katmai, 2026-10-14, the line kernel_delta PRINTED on refusing the NEW unit there (base 76b6890 -> 5441610, --repeats 6):
 # head 2535.0 ms => max(2535.0 x 3, 50) = 7605, copied, not retyped.
 Tests.AnchorsSha 7605 @on katmai
+# runner, 2026-10-15: the line PR #96's kernel-delta job PRINTED on refusing the NEW unit (job 116210156569, head 4945.0 ms
+# on runnervm8k3b6 => max(4945.0 x 3, 50) = 14835), copied, not retyped. Same step as the runner lines above (D252 §6).
+Tests.AnchorsSha 14835 @on runnervm8k3b6
