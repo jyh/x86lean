@@ -5697,8 +5697,8 @@ proof is P4.\n"
       let silicon := "\n## Implemented, refereed by a processor, NOT differentially tested\n\n\
 The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can \
 test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in \
-`hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py` (and, for the packed-integer arithmetic, `hwprobe/mk_simda_rows.py`), run on a hosted runner's processor — and this model is checked against the same \
-rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334), `Tests/AnchorsShuf.lean` (D336) and `Tests/AnchorsSimd.lean` (D335). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, \
+`hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py` (and, for the packed-integer arithmetic, `hwprobe/mk_simda_rows.py`; for SHA-NI, `hwprobe/mk_sha_rows.py`, whose known-answer rows come from a textbook FIPS 180-4 SHA-256), run on a hosted runner's processor — and this model is checked against the same \
+rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334), `Tests/AnchorsShuf.lean` (D336), `Tests/AnchorsSimd.lean` (D335) and `Tests/AnchorsSha.lean` (D338). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, \
 and they are not counted in the roster figure above.\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable)
       IO.println s!"wrote coverage table ({tableP0.length} rows) → {out}"

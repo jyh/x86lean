@@ -64,6 +64,9 @@ else printf "  ⛔ FAIL hwprobe/mk_shuf_anchors --check\n"; rc=1; fi
 # D335: the packed-integer arithmetic pins, from hwprobe's SIMD rows.
 if python3 hwprobe/mk_simda_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
+# D338: the SHA-NI pins, from hwprobe's SHA rows.
+if python3 hwprobe/mk_sha_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_sha_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_sha_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.

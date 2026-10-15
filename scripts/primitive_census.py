@@ -443,6 +443,9 @@ def model_forms(work):
 SILICON_REFEREES = (
     ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D338 (V2): the SHA-NI path. The i7-8700B has no SHA-NI and REFUSES by CPUID, so it is NOT a D338 referee;
+    # the Intel reading is an ubuntu-latest draw (runs 38583936507, 38585577976, 38588753153).
+    ("D338", ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Xeon 6973P-C")),
 )
 SILICON_DECISION = "D334"
 SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
@@ -455,6 +458,8 @@ SILICON_PATHS = (
     ("mk_int_rows.py", "int_probe.c", "i_", r'^  \{"[^"]+", (i_\w+), 0x'),
     ("mk_shuf_rows.py", "shuf_probe.c", "s_", r'^  \{"[^"]+", (s_\w+), 0x'),
     ("mk_simda_rows.py", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+    # D338 (V2): the SHA-NI path (SHA256MSG1/MSG2/RNDS2), its functions `h_*`.
+    ("mk_sha_rows.py", "sha_probe.c", "h_", r'^  \{"[^"]+", (h_\w+), \{'),
 )
 
 
@@ -483,7 +488,7 @@ def silicon_key(f, mn):
 
 def silicon_forms(work):
     """{form: [hwprobe function, …]} for every form the processor probe declares
-    it executes (the bytes `int_probe.c` and, since D336, `shuf_probe.c` — and, D335, `simda_probe.c` —
+    it executes (the bytes `int_probe.c` and, since D336, `shuf_probe.c` — and, D335, `simda_probe.c`; D338, `sha_probe.c` —
     refuse to run without, read back at each function's `_at` label, for every function at least one row
     calls)
     whose width-erased mnemonic is a `siliconTable` mnemonic.  The bytes go
@@ -502,8 +507,8 @@ def silicon_forms(work):
             if name not in sect:
                 raise SystemExit(f"⛔ silicon: the referee `{name}` is not in {dn}'s text")
     mn = set(silicon_mnemonics())
-    # D336, D335: THREE generators declare silicon-run forms (SILICON_PATHS) — the integer path (D330, D334), the
-    # shuffle path (D336) and the packed-integer path (D335). Each must yield both its op table and its rows; the
+    # D336, D335, D338: FOUR generators declare silicon-run forms (SILICON_PATHS) — the integer path (D330, D334),
+    # the shuffle path (D336), the packed-integer path (D335) and the SHA-NI path (D338). Each must yield both its op table and its rows; the
     # forms are pooled ACROSS the probes (all are the silicon instrument), never with the differential.
     nrows, ops = collections.Counter(), []
     for gen, _probe, pre, row_re in SILICON_PATHS:
@@ -900,7 +905,7 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
           "(processors, hwprobe)** — two instruments, two counts, cited side by side and never "
           "added. "
           + ("COVERED WITH SILICON: " + ", ".join(f"`{r['id']}`" for r in ws) + "." if ws else "") + "\n")
-        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s and `hwprobe/mk_simda_rows.py`'s declared bytes, keyed by "
+        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s, `hwprobe/mk_simda_rows.py`'s and `hwprobe/mk_sha_rows.py`'s declared bytes, keyed by "
           "the same disassembler and classifier as both other sides):\n")
         by = collections.defaultdict(list)
         for f in sil:

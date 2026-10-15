@@ -542,6 +542,11 @@ jobs:
           # D335: the packed-integer arithmetic pins are hwprobe's SIMD rows (mk_simda_rows.py), same rule.
           python3 hwprobe/mk_simda_anchors.py --selftest
           python3 hwprobe/mk_simda_anchors.py --check
+          # D338: the SHA-NI pins are hwprobe's SHA rows (mk_sha_rows.py), same rule; the generator's own selftest
+          # holds its textbook SHA-256 to FIPS 180-4's digests and every known-answer row to the rule.
+          python3 hwprobe/mk_sha_rows.py --selftest
+          python3 hwprobe/mk_sha_anchors.py --selftest
+          python3 hwprobe/mk_sha_anchors.py --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the

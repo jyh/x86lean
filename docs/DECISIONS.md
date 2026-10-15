@@ -21767,6 +21767,91 @@ selftest fixture moved with them: the three-class arm and the no-pooling fixture
 V1b makes silicon; they now use `pmulld` (SSE4.1, in neither table), and the fixture's figures (covered 50, silicon 35, not
 covered 41 of 91; the pooling plant 85) are unchanged. `--selftest` PASS (215), `census_redprobe.py` PASS (control + 32).
 
+## D338 — V2: SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE), refereed by silicon (predictions committed before any hardware, oracle or differential run)
+
+**Why these.** After V1b (D336) the primitive census's ladder step 4 needs exactly three more forms to complete `vale-sha256`:
+`sha256rnds2 xmm,xmm,xmm` (×32 in that routine), `sha256msg1 xmm,xmm` (×12) and `sha256msg2 xmm,xmm` (×12). Its other forms
+(`palignr`, `pinsrq`, `pshufb`) are silicon-refereed since D336. The forms taken, legacy-SSE only (no VEX form of these exists below
+AVX-512/SHA512 extensions, which are out of scope): `sha256msg1 xmm,xmm` · `sha256msg1 m128,xmm` · `sha256msg2 xmm,xmm` ·
+`sha256msg2 m128,xmm` · `sha256rnds2 xmm,xmm` · `sha256rnds2 m128,xmm` — six forms of three mnemonics. SHA1* is NOT taken: no
+candidate in the census needs it.
+**The referee, per form, decided by the oracle's EXECUTION.** x86isa's catalogue gives the SHA instructions (0F 38 CB/CC/CD) no
+semantic function; as in D330/D336 that is a hypothesis, so the three are added to `scripts/oracle_availability.py`'s measured table
+declared `refuses` and run at the 88 pre-states with its two controls before any referee is fixed. A mnemonic that executes goes to
+the DIFFERENTIAL; one that refuses is refereed by silicon alone.
+**The rules (SDM Vol. 2B, SHA256MSG1 / SHA256MSG2 / SHA256RNDS2; FIPS 180-4 §4.1.2 for σ and Σ):**
+- σ0(W) = ROR(W,7) ⊕ ROR(W,18) ⊕ SHR(W,3); σ1(W) = ROR(W,17) ⊕ ROR(W,19) ⊕ SHR(W,10); Σ0(A) = ROR(A,2) ⊕ ROR(A,13) ⊕ ROR(A,22);
+  Σ1(E) = ROR(E,6) ⊕ ROR(E,11) ⊕ ROR(E,25); Ch(E,F,G) = (E ∧ F) ⊕ (¬E ∧ G); Maj(A,B,C) = (A ∧ B) ⊕ (A ∧ C) ⊕ (B ∧ C). All mod 2³².
+- **MSG1-RULE.** W4 := SRC2[31:0]; W3..W0 := SRC1[127:96], [95:64], [63:32], [31:0]; DEST[127:96] := W3 + σ0(W4),
+  DEST[95:64] := W2 + σ0(W3), DEST[63:32] := W1 + σ0(W2), DEST[31:0] := W0 + σ0(W1). Only SRC2's LOW dword is read.
+- **MSG2-RULE.** W14 := SRC2[95:64]; W15 := SRC2[127:96]; W16 := SRC1[31:0] + σ1(W14); W17 := SRC1[63:32] + σ1(W15);
+  W18 := SRC1[95:64] + σ1(W16); W19 := SRC1[127:96] + σ1(W17); DEST := W19:W18:W17:W16. SRC2's low two dwords are NOT read, and
+  W18/W19 depend on W16/W17 (the serial chain the SDM's Operation states).
+- **RNDS2-RULE.** A := SRC2[127:96], B := SRC2[95:64], C := SRC1[127:96], D := SRC1[95:64], E := SRC2[63:32], F := SRC2[31:0],
+  G := SRC1[63:32], H := SRC1[31:0]; WK0 := XMM0[31:0], WK1 := XMM0[63:32] (XMM0 is an IMPLICIT third operand; its high quadword is
+  not read); two rounds of FIPS 180-4's compression, i = 0, 1: T1 := H + Σ1(E) + Ch(E,F,G) + WKi; T2 := Σ0(A) + Maj(A,B,C);
+  (A..H) := (T1+T2, A, B, C, D+T1, E, F, G). DEST := A₂ : B₂ : E₂ : F₂ (A₂ at [127:96], F₂ at [31:0]).
+- **NO-FLAGS / UPPER.** "Flags Affected: None"; legacy SSE leaves bits MAXVL−1:128 unmodified (this model's 128-bit `XmmReg`).
+**Predictions (each is wrong if the named reading differs):**
+1. **Oracle:** all three REFUSE at 88 of 88 pre-states with both controls executing — so all six forms are silicon-refereed, no
+   vector is added, and the roster (199) and vector count (1198) do not move.
+2. **Silicon:** every row agrees on every SHA-capable processor read. ⚠️ **The Intel leg is a DRAW, not a guarantee:** the
+   `macos-15-intel` runner is an i7-8700B (Coffee Lake), which has NO SHA-NI (CPUID.(EAX=07H,ECX=0):EBX bit 29 = 0), so the new
+   probe REFUSES there by CPUID, and that leg records the refusal rather than failing. The Intel reading comes from an
+   `ubuntu-latest` leg that draws an Intel Xeon Platinum 8573C (Emerald Rapids, SHA-NI), as runs 38100851346 and D335's first run
+   did; the run is re-dispatched until one AMD and one Intel SHA-capable processor have each read every row, and every dispatch is
+   recorded. A verdict with one vendor only is stated as such, never as both.
+3. **Alignment:** the m128 forms are Exception Type 4 (a misaligned m128 is #GP(0)); the model faults on a misaligned EA and the
+   silicon rows use only aligned addresses (a fault is not a row).
+4. **Census:** `vale-sha256` becomes COVERED WITH SILICON (5 → 6); ALL COVERED stays 42 of 57 (the differential verdict is unmoved);
+   siliconTable 27 → 30.
+5. **Kernel cost:** the pins go in their own metered module from the start (arm (A) of the 2026-10-10 fork), `Tests/AnchorsSha.lean`.
+**Refutation routes:** a SHA instruction that EXECUTES in x86isa (refutes 1, and sends it to the differential); a silicon row that
+disagrees with the rule (refutes the model or the rule's reading — the FIPS 180-4 test vector "abc" is computed through the three
+mnemonics in a separate known-answer row, so a misread operand order cannot pass by symmetry).
+**Result, prediction 1 (oracle, measured 2026-10-14 on yukon.lan, before any model or hardware work): HELD.** `oracle_availability.py`
+(model built from master `76b6890`'s sources): `sha256msg1`, `sha256msg2` and `sha256rnds2` each REFUSE at 88 of 88 pre-states (0
+executed, 0 stalled); both controls (`mov`, `cmpxchg8b`) execute 88 of 88; the gate reads CLEAN. The encodings (`0f38ccc1`,
+`0f38cdc1`, `0f38cbd1`) were checked against clang's assembly of each row's text, byte for byte (corrected at landing:
+this sentence first credited `--check-encodings`, which gates `P2_FORMS` and does not read these `FORMS` rows). ⇒ All six forms are silicon-refereed; no vector is added.
+**Result, prediction 2 (silicon, 2026-10-14, branch `paris/v2-sha-ni` at `9f0fe65`): HELD, BOTH VENDORS.** `hwprobe/sha_probe`
+read all 148 rows (`mk_sha_rows.py`: per form 16 edge + 6 seeded random rows, and 16 known-answer rows from FIPS 180-4's "abc" and
+448-bit first blocks, computed by a textbook SHA-256 that `--selftest` holds to both published digests) with **0 disagreements on
+every SHA-capable leg**, each row comparing all 128 bits of %xmm1 plus %xmm2, the m128, %xmm0 and the six arithmetic flags. Three
+runs, two of them dispatches (of the at-most-six allowed): push run 38583936507 — ubuntu-latest **AMD EPYC 7763** (CPUID.7.0:EBX
+`219c07a9`, SHA=1) 148/148; dispatch 38585577976 — ubuntu-latest **AMD EPYC 9V45** 148/148; dispatch 38588753153 — ubuntu-latest
+**Intel Xeon 6973P-C** (Granite Rapids, SHA=1; NOT the Xeon 8573C the prediction expected, a different Intel part) 148/148. On
+all three runs the `macos-15-intel` leg drew the **Intel Core i7-8700B**, read CPUID.7.0:EBX `029c6fbf` (SHA=0), and REFUSED by
+CPUID with exit 3 — printed, accepted on that label only, and no SHA control or referee ran there, exactly as stated. The controls,
+on every SHA-capable leg: the HIGH-quadword plant reds exactly `sha256msg1_xx_edge0` (rc 1), the wrong declared byte refuses the
+run (rc 2, `REFUSED h_sha256msg1_xx`), and the WK-from-XMM0's-high-quadword plant reds exactly `sha256rnds2_xx_kat_abc_r01` (rc 1).
+Generator-side, before any processor: every KAT row agrees with the RULE as well as the textbook (`build` refuses otherwise; a rule
+with ABEF read in reverse, with SRC1/SRC2 swapped in MSG1, or with σ0's SHR 2 is each refused on a KAT row), every KAT expectation
+changes when SRC1 and SRC2 are swapped, and `--reach` finds the named wrong rule (MSG1's W4 from SRC2's high dword, MSG2's W14/W15
+from SRC2's low dwords, RNDS2's WK from XMM0's high quadword) disagreeing on 46/48, 48/48 and 52/52 rows.
+**Result, prediction 3 (alignment): HELD.** `step` faults the m128 shape on a misaligned EA by the same Type-4 rule as every other
+128-bit memory operand (`vsham_unaligned_faults`, and `step_vsham_aligned` for the aligned case, both on the three standard axioms);
+every silicon row's m128 is the 16-byte-aligned `&p->b`, and the pins read it at 0x2000. **The model's reading of the rules:**
+`Op.vsha`/`Op.vsham` carry a `ShaKind` (`msg1 · msg2 · rnds2`); `shaApply` is stated on exactly the dwords each rule reads, so
+`sha256msg1_reads_src2_low`, `sha256msg2_reads_src2_high`, `sha256rnds2_reads_xmm0_low` and `sha_msg_ignores_xmm0` are one-line
+`simp` proofs; `sha256msg2_abc` and `sha256rnds2_abc_r01` check FIPS 180-4's "abc" block by `decide`. `axiom_gate.sh`: CLEAN over
+4832 declarations. **Red-first mutant:** σ0's `SHR 3` made `SHR 2` reds `X86.Theorems`' `shaSig0_bit3` (and not `shaSig0_bit0`,
+whose bit the shift drops either way) and, run against the mutant `X86.Semantics`, exactly 2 of `Tests/AnchorsSha.lean`'s 6 pin
+theorems — `v2_sha256msg1_xx_pins` and `v2_sha256msg1_xm_pins`, the two whose rows the generator predicts the mutant to change (23
+of 24 rows each; 0 of the MSG2 and RNDS2 rows, which do not use σ0). Restored; the module is green.
+**Result, prediction 4 (census): HELD.** `primitive_census.py` (the SHA probe's declared bytes added to `SILICON_PATHS`; D338's
+referees, named in this section, added to `SILICON_REFEREES`): `vale-sha256` is COVERED WITH SILICON, **5 → 6**; ALL COVERED stays
+**42 of 57**; the silicon column reads 75 forms of 30 `siliconTable` mnemonics (siliconTable **27 → 30**); the controls read OK (the
+SHA-NI routine is still refused by the differential). The demand census and P2 roster were regenerated (`--check` CLEAN on both).
+**Result, prediction 5 (kernel cost, yukon.lan, 76b6890 → 34cee41): HELD.** The 148 pins live in `Tests/AnchorsSha.lean` from the
+first commit; `Tests.Anchors` reads Δku **+0**. ARM A′ (`ku_delta.py --arm a-prime`) refused the NEW unit once and printed its line,
+`Tests.AnchorsSha @ku 1217137` (Tests.Coverage +45,620 of its 720,809 allowance, X86.Theorems +3,767, X86.Syntax +616, every other
+module ≤ +16); `kernel_delta.py --repeats 3` refused it once and printed `Tests.AnchorsSha 7890 @on yukon.lan` (head 2630.0 ms ×
+3). Both lines are copied into `scripts/ku_delta_budget.txt` and `scripts/kernel_ceilings.txt`; the re-run ku gate reads CLEAN. ⚠️
+In the same 3-repeat run `Tests.AnchorsSimd` read UNMEASURABLE (Δ −230 ms, band ±2085 ms against a 1717 ms budget, loads 5.2–9.6):
+a noise band on a module this change does not touch (Δku +0), not a finding; every other unit read `ok`. No ledger row is written
+here — it is taken at landing.
+
 ## D340 — The FAST PATH: a PR whose merge ref has a green master's selftest digest merges on its required checks alone
 
 **Why.** Measured on 2026-10-14 (paris's census for the helm, after the Captain's word that x86lean "has plenty more work to do"):

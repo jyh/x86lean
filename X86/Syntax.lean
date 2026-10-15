@@ -709,6 +709,32 @@ reason: this is walked character by character inside a kernel `decide`). -/
 def VShufpKind.mnemonic : VShufpKind → String
   | .ps => "shufps" | .pd => "shufpd"
 
+/-- D338 (V2): WHICH SHA-NI SHA-256 STEP — three mnemonics (SDM Vol. 2B), one
+operand shape each (`NP 0F 38 CC/CD/CB /r`, legacy SSE), so they are KINDS on one
+pair of constructors (`Op.vsha`, `Op.vsham`) rather than six constructors.
+⚠️ `rnds2` reads a THIRD operand that no field names: XMM0, implicitly (its low
+quadword is WK0:WK1).  The two message kinds do not read it.  x86isa refuses all
+three (`scripts/oracle_availability.py`, D338); `hwprobe/` referees them. -/
+inductive ShaKind where
+  /-- `sha256msg1` (`NP 0F 38 CC /r`): the σ0 half of the message schedule for
+  four words; only SRC2's LOW dword (W4) is read. -/
+  | msg1
+  /-- `sha256msg2` (`NP 0F 38 CD /r`): the σ1 half, W16..W19 in one serial chain;
+  only SRC2's HIGH two dwords (W14, W15) are read. -/
+  | msg2
+  /-- `sha256rnds2` (`NP 0F 38 CB /r`, `<XMM0>` implicit): two compression rounds
+  over the state split ABEF (SRC2) / CDGH (SRC1, the destination). -/
+  | rnds2
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Every SHA-NI SHA-256 spelling, so a claim can be made about the TYPE. -/
+def ShaKind.all : List ShaKind := [.msg1, .msg2, .rnds2]
+
+/-- The assembler spelling.  Three literals, not a concatenation (`quadMnemonic`'s
+reason: this is walked character by character inside a kernel `decide`). -/
+def ShaKind.mnemonic : ShaKind → String
+  | .msg1 => "sha256msg1" | .msg2 => "sha256msg2" | .rnds2 => "sha256rnds2"
+
 /-- ⭐⭐ P2 BATCH 37 — WHICH LANE WIDTH A SIGN-MASK REDUCES, i.e. WHICH
 MNEMONIC.  `Op.vmovmsk` carried no field at all until this batch: it was built for
 `pmovmskb` alone (batch 23) and its lane count was the literal sixteen.
@@ -2008,6 +2034,15 @@ inductive Op where
   `imm[0]` (`.q`) of `src`.  At `.d` the register write zero-extends to 64 bits
   (SDM Vol. 1 §3.4.1.1), as every 32-bit GPR write in this model does. -/
   | vextr (sz : Size) (dst : GPR) (src : XmmReg) (imm : BitVec 8)
+  /-- D338 (V2): SHA256MSG1 / SHA256MSG2 / SHA256RNDS2 between registers (SDM Vol. 2B;
+  `NP 0F 38 CC/CD/CB /r`) — `dst` is SRC1 and the destination, `src` is SRC2.
+  ⚠️ The operand order is NOT symmetric for any kind, and `.rnds2` also reads XMM0
+  (WK0 = XMM0[31:0], WK1 = XMM0[63:32]) — implicitly, so `dst` may itself be XMM0.
+  No flag is written.  x86isa refuses all three; `hwprobe/` referees them (D338). -/
+  | vsha (k : ShaKind) (dst src : XmmReg)
+  /-- D338 (V2): the same with a 128-bit memory SRC2, Exception Type 4 — a misaligned
+  address is `#GP(0)` (D110's rule, as `vshufbm`). -/
+  | vsham (k : ShaKind) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE
   (`66 0F ..` with a memory ModRM), the second operand shape of the nineteen
   operations `Op.vbin` has carried since batches 5 and 7.
@@ -2173,6 +2208,10 @@ def opOperands : Op → List Operand
   | .vshufb .. | .valignr .. | .vextr .. => []
   | .vshufbm _ ea | .valignrm _ ea _ => [.mem ea]
   | .vinsr _ _ src _ => [src]
+  -- D338 (V2): the register shape names no `Operand` (nor does the implicit XMM0);
+  -- the memory SRC2 names its address.
+  | .vsha .. => []
+  | .vsham _ _ ea => [.mem ea]
   -- P2 BATCH 15: the packed binary group's memory SOURCE names its address.
   | .vbinm _ _ ea => [.mem ea]
   -- P2 BATCH 38: the scalar min/max memory SOURCE names its address.
@@ -2344,6 +2383,9 @@ def Op.anyLocked : Op → Bool
   | .vshufb .. | .valignr .. | .vextr .. => false
   | .vshufbm _ ea | .valignrm _ ea _ => ea.lock
   | .vinsr _ _ src _ => src.locked
+  -- D338 (V2): no SDM lock form for any SHA-NI instruction.
+  | .vsha .. => false
+  | .vsham _ _ ea => ea.lock
   -- P2 BATCH 15: `lock paddd` is not a form the SDM lists.
   | .vbinm _ _ ea => ea.lock
   -- P2 BATCH 38: `lock minsd` is not a form the SDM lists.
@@ -2581,6 +2623,8 @@ def Op.mnemonic : Op → String
   | .valignr .. | .valignrm .. => "palignr"
   | .vinsr sz .. => if sz == .q then "pinsrq" else "pinsrd"
   | .vextr sz .. => if sz == .q then "pextrq" else "pextrd"
+  -- D338 (V2): both shapes print the kind's name, as `vbin`/`vbinm` do.
+  | .vsha k .. | .vsham k .. => k.mnemonic
   | .vmovq .. => "movq"
   -- ⭐ P2 BATCH 15: BOTH operand shapes read the SAME table, which is now a
   -- function beside the kind rather than a `match` inside this one.  A copy here

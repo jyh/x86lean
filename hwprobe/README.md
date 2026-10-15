@@ -89,6 +89,28 @@ rule per mnemonic disagrees with the right one (it must be non-zero).
 | `simda_probe.c` | runs each row and compares all 128 bits of the destination, the sources and RFLAGS |
 | `mk_simda_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
 
+**The SHA-NI path (D338, V2)** is a sixth program, sharing nothing with the other five: `sha_ops.S` (one function per
+form — SHA256MSG1, SHA256MSG2, SHA256RNDS2, each at `%xmm2,%xmm1` and at a 16-byte-aligned `(%rbx),%xmm1`; the
+destination is `%xmm1` because `%xmm0` is SHA256RNDS2's implicit operand), `mk_sha_rows.py` (148 rows: per form 16 edge
+rows over single bits at every σ/Σ rotate and shift boundary, 6 seeded random rows, and known-answer rows from FIPS
+180-4's "abc" and 448-bit examples whose expectations come from a TEXTBOOK SHA-256 — message schedule and 64 rounds,
+its K and H0 derived from the prime roots — held to the published digests by `--selftest`, so an operand-order misreading
+cannot pass by symmetry), and `sha_probe.c`, which reads CPUID.(EAX=07H,ECX=0):EBX bit 29 and refuses without SHA-NI
+with its OWN exit code, 3 (`--cpuid` stops there), refuses unless the declared bytes are the assembled ones, and compares
+ALL 128 bits of %xmm1 plus %xmm2, the m128, %xmm0 and the six arithmetic flags unchanged. ⚠️ `macos-15-intel`'s i7-8700B
+has no SHA-NI: the workflow accepts exit 3 on that label only, prints it, and runs no SHA control or referee there; a 3
+on any other leg fails. x86isa refuses all three mnemonics, so every row is pinned (`mk_sha_anchors.py`, into a module of
+its own, `Tests/AnchorsSha.lean`). Controls: `--plant` (bit 64 of row 0's expectation), `--plant-op`, and `--plant-wk`
+(one SHA256RNDS2 row's expectation computed with WK from %xmm0's HIGH quadword); `--reach` counts the rows on which one
+named wrong rule per mnemonic disagrees with the right one.
+
+| file | role |
+|---|---|
+| `sha_ops.S` | one function per SHA-NI form (register conventions in its header) |
+| `mk_sha_rows.py` | the rows, the textbook SHA-256 and the KAT; `--plant` / `--plant-op` / `--plant-wk`; `--summary`, `--reach`, `--selftest` |
+| `sha_probe.c` | runs each row and compares all 128 bits of the destination, the sources, %xmm0 and RFLAGS |
+| `mk_sha_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -97,6 +119,7 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_bitstr_rows.py > bitstr_rows.h && cc -O1 -o bitstr_probe bitstr_probe.c bitstr_ops.S && ./bitstr_probe)
 (cd hwprobe && python3 mk_shuf_rows.py > shuf_rows.h && cc -O1 -o shuf_probe shuf_probe.c shuf_ops.S && ./shuf_probe)
 (cd hwprobe && python3 mk_simda_rows.py > simda_rows.h && cc -O1 -o simda_probe simda_probe.c simda_ops.S && ./simda_probe)
+(cd hwprobe && python3 mk_sha_rows.py > sha_rows.h && cc -O1 -o sha_probe sha_probe.c sha_ops.S && ./sha_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is
