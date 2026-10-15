@@ -613,13 +613,13 @@ declared divergences. 0 disagreements are unexplained, and in 0 cases did an und
 \src{docs/DIFFERENTIAL-P2-BATCH40.md, the RUN block; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
-Every form the model implements has a vector (Section~\ref{sec:gated}), and each vector runs at the same 88
+Every mnemonic in the differential table has a vector (Section~\ref{sec:gated}), and each vector runs at the same 88
 pre-states, chosen rather than sampled: adversarial operand pairs and their neighbours, the carry
 boundary, both direction-flag states, counter, stack and string-pointer boundaries, the branch states
 of CMPXCHG8B and in-range shift counts, then a pseudo-random tail; every rounding mode is reached by
 every vector, with exceptions masked and DAZ and FZ clear. Value coverage is by construction, not
 exhaustive.
-\src{Tests/Vectors.lean preStates and mxcsrFor, their docstrings}
+\src{Tests/Coverage.lean vectorCoverage (per table row) and silicon\_rows\_are\_not\_differential\_rows; Tests/Vectors.lean preStates and mxcsrFor, their docstrings}
 A comparator that never reports a disagreement is indistinguishable from one that cannot. The harness
 therefore runs deliberately wrong copies of x86lean against the correct one, with an empty divergence
 list, and requires each to produce a specification or refusal disagreement in the field its defect
