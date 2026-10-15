@@ -252,3 +252,43 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `sha256msg1` | x,x · x,m — SHA-NI · W3+σ0(W4) : W2+σ0(W3) : W1+σ0(W2) : W0+σ0(W1), W3..W0 the destination's dwords and W4 the source's LOW dword (the only one read); m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B SHA256MSG1 |
 | `sha256msg2` | x,x · x,m — SHA-NI · W16..W19 from the destination plus σ1 of the source's HIGH two dwords (W14, W15), W18 and W19 chained on W16 and W17; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B SHA256MSG2 |
 | `sha256rnds2` | x,x · x,m — SHA-NI · two FIPS 180-4 rounds, ABEF from the source and CDGH from the destination, WK0:WK1 from XMM0's LOW quadword (an implicit operand); DEST = A:B:E:F after round 2; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B SHA256RNDS2 |
+
+## VEX.128 register twins, differentially tested (V3, D341)
+
+33 mnemonics in 39 differentially tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin of a row of the main table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy form preserves them, and the differential record compares those bits on both sides. Register forms only; VEX.256 (VEX.L = 1) is not taken. Decode trust here is LLVM `objdump`'s, which decodes a legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries one (D341).
+
+| mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
+|---|---|---|---|---|---|
+| `vmovdqa` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVDQA |
+| `vmovdqu` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVDQU |
+| `vmovaps` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVAPS |
+| `vmovups` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVUPS |
+| `vmovapd` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVAPD |
+| `vmovupd` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVUPD |
+| `vmovddup` | x,x — VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed | T-exact | XED (trusted) | — | Vol. 2B MOVDDUP |
+| `vpaddb` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `vpaddw` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `vpaddd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `vpaddq` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PADDB/PADDW/PADDD/PADDQ |
+| `vpsubb` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `vpsubw` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `vpsubd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `vpsubq` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ |
+| `vpand` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PAND |
+| `vpandn` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PANDN |
+| `vpor` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B POR |
+| `vpxor` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PXOR |
+| `vandps` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A ANDPS |
+| `vandpd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A ANDPD |
+| `vandnps` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A ANDNPS |
+| `vandnpd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A ANDNPD |
+| `vorps` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A ORPS |
+| `vorpd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A ORPD |
+| `vxorps` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A XORPS |
+| `vxorpd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2A XORPD |
+| `vpcmpeqb` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PCMPEQB |
+| `vpcmpeqw` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PCMPEQW |
+| `vpcmpeqd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PCMPEQD |
+| `vpcmpgtb` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PCMPGTB |
+| `vpcmpgtw` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PCMPGTW |
+| `vpcmpgtd` | x,x,x — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed | T-exact | XED (trusted) | — | Vol. 2B PCMPGTD |

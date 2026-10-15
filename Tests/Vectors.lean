@@ -4035,6 +4035,101 @@ def vectors : List Vec :=
     , instr := ⟨.bit .bts .d (.mem { base := some .rbx, disp := 0x10, lock := true }) (R .rdx), 5⟩ }
   ]
 
+
+/-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS' VECTORS — the differential vectors of
+`X86.vexTable`, kept apart from `vectors` exactly as that table is kept apart from `tableP0`
+(its doc says why). The differential runs `allVectors`, so these are emitted, run on the oracle
+and compared like every other vector; `check_encodings.py` re-assembles their `asm` too. -/
+def vexVectors : List Vec :=
+  -- ⭐⭐⭐ V3 (D341): THE 33 VEX.128 REGISTER TWINS. Bytes are clang's (`scripts/check_encodings.py`
+  -- re-assembles each `asm`). The six trailing rows move the operands off xmm0/1/2: the C4 form
+  -- (VEX.B / VEX.R̄ for xmm8-15) and the store-form opcode clang picks for a high source register.
+  -- ⛔ Every pre-state seeds bits 255:128 NON-ZERO (`ymmHiPattern`), so a twin that forgot to
+  -- zero them, or a legacy write that zeroed them, disagrees with the oracle on every case.
+  [ { id := "vmovdqa_xx", mnemonic := "vmovdqa", asm := "vmovdqa %xmm1, %xmm0"
+    , bytes := "c5f96fc1", instr := ⟨.vexmov .dqa .x0 .x1, 4⟩ }
+  , { id := "vmovdqu_xx", mnemonic := "vmovdqu", asm := "vmovdqu %xmm1, %xmm0"
+    , bytes := "c5fa6fc1", instr := ⟨.vexmov .dqu .x0 .x1, 4⟩ }
+  , { id := "vmovaps_xx", mnemonic := "vmovaps", asm := "vmovaps %xmm1, %xmm0"
+    , bytes := "c5f828c1", instr := ⟨.vexmov .aps .x0 .x1, 4⟩ }
+  , { id := "vmovups_xx", mnemonic := "vmovups", asm := "vmovups %xmm1, %xmm0"
+    , bytes := "c5f810c1", instr := ⟨.vexmov .ups .x0 .x1, 4⟩ }
+  , { id := "vmovapd_xx", mnemonic := "vmovapd", asm := "vmovapd %xmm1, %xmm0"
+    , bytes := "c5f928c1", instr := ⟨.vexmov .apd .x0 .x1, 4⟩ }
+  , { id := "vmovupd_xx", mnemonic := "vmovupd", asm := "vmovupd %xmm1, %xmm0"
+    , bytes := "c5f910c1", instr := ⟨.vexmov .upd .x0 .x1, 4⟩ }
+  , { id := "vmovddup_xx", mnemonic := "vmovddup", asm := "vmovddup %xmm1, %xmm0"
+    , bytes := "c5fb12c1", instr := ⟨.vexddup .x0 .x1, 4⟩ }
+  , { id := "vpaddb_xxx", mnemonic := "vpaddb", asm := "vpaddb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fcc1", instr := ⟨.vexbin .addb .x0 .x2 .x1, 4⟩ }
+  , { id := "vpaddw_xxx", mnemonic := "vpaddw", asm := "vpaddw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fdc1", instr := ⟨.vexbin .addw .x0 .x2 .x1, 4⟩ }
+  , { id := "vpaddd_xxx", mnemonic := "vpaddd", asm := "vpaddd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fec1", instr := ⟨.vexbin .addd .x0 .x2 .x1, 4⟩ }
+  , { id := "vpaddq_xxx", mnemonic := "vpaddq", asm := "vpaddq %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9d4c1", instr := ⟨.vexbin .addq .x0 .x2 .x1, 4⟩ }
+  , { id := "vpsubb_xxx", mnemonic := "vpsubb", asm := "vpsubb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9f8c1", instr := ⟨.vexbin .subb .x0 .x2 .x1, 4⟩ }
+  , { id := "vpsubw_xxx", mnemonic := "vpsubw", asm := "vpsubw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9f9c1", instr := ⟨.vexbin .subw .x0 .x2 .x1, 4⟩ }
+  , { id := "vpsubd_xxx", mnemonic := "vpsubd", asm := "vpsubd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fac1", instr := ⟨.vexbin .subd .x0 .x2 .x1, 4⟩ }
+  , { id := "vpsubq_xxx", mnemonic := "vpsubq", asm := "vpsubq %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fbc1", instr := ⟨.vexbin .subq .x0 .x2 .x1, 4⟩ }
+  , { id := "vpand_xxx", mnemonic := "vpand", asm := "vpand %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9dbc1", instr := ⟨.vexbin .and .x0 .x2 .x1, 4⟩ }
+  , { id := "vpandn_xxx", mnemonic := "vpandn", asm := "vpandn %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9dfc1", instr := ⟨.vexbin .andn .x0 .x2 .x1, 4⟩ }
+  , { id := "vpor_xxx", mnemonic := "vpor", asm := "vpor %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9ebc1", instr := ⟨.vexbin .or .x0 .x2 .x1, 4⟩ }
+  , { id := "vpxor_xxx", mnemonic := "vpxor", asm := "vpxor %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9efc1", instr := ⟨.vexbin .xor .x0 .x2 .x1, 4⟩ }
+  , { id := "vandps_xxx", mnemonic := "vandps", asm := "vandps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e854c1", instr := ⟨.vexbin .andps .x0 .x2 .x1, 4⟩ }
+  , { id := "vandpd_xxx", mnemonic := "vandpd", asm := "vandpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e954c1", instr := ⟨.vexbin .andpd .x0 .x2 .x1, 4⟩ }
+  , { id := "vandnps_xxx", mnemonic := "vandnps", asm := "vandnps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e855c1", instr := ⟨.vexbin .andnps .x0 .x2 .x1, 4⟩ }
+  , { id := "vandnpd_xxx", mnemonic := "vandnpd", asm := "vandnpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e955c1", instr := ⟨.vexbin .andnpd .x0 .x2 .x1, 4⟩ }
+  , { id := "vorps_xxx", mnemonic := "vorps", asm := "vorps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e856c1", instr := ⟨.vexbin .orps .x0 .x2 .x1, 4⟩ }
+  , { id := "vorpd_xxx", mnemonic := "vorpd", asm := "vorpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e956c1", instr := ⟨.vexbin .orpd .x0 .x2 .x1, 4⟩ }
+  , { id := "vxorps_xxx", mnemonic := "vxorps", asm := "vxorps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e857c1", instr := ⟨.vexbin .xorps .x0 .x2 .x1, 4⟩ }
+  , { id := "vxorpd_xxx", mnemonic := "vxorpd", asm := "vxorpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e957c1", instr := ⟨.vexbin .xorpd .x0 .x2 .x1, 4⟩ }
+  , { id := "vpcmpeqb_xxx", mnemonic := "vpcmpeqb", asm := "vpcmpeqb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e974c1", instr := ⟨.vexbin .cmpeqb .x0 .x2 .x1, 4⟩ }
+  , { id := "vpcmpeqw_xxx", mnemonic := "vpcmpeqw", asm := "vpcmpeqw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e975c1", instr := ⟨.vexbin .cmpeqw .x0 .x2 .x1, 4⟩ }
+  , { id := "vpcmpeqd_xxx", mnemonic := "vpcmpeqd", asm := "vpcmpeqd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e976c1", instr := ⟨.vexbin .cmpeqd .x0 .x2 .x1, 4⟩ }
+  , { id := "vpcmpgtb_xxx", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e964c1", instr := ⟨.vexbin .cmpgtb .x0 .x2 .x1, 4⟩ }
+  , { id := "vpcmpgtw_xxx", mnemonic := "vpcmpgtw", asm := "vpcmpgtw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e965c1", instr := ⟨.vexbin .cmpgtw .x0 .x2 .x1, 4⟩ }
+  , { id := "vpcmpgtd_xxx", mnemonic := "vpcmpgtd", asm := "vpcmpgtd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e966c1", instr := ⟨.vexbin .cmpgtd .x0 .x2 .x1, 4⟩ }
+  , { id := "vmovdqa_x4x9", mnemonic := "vmovdqa", asm := "vmovdqa %xmm9, %xmm4"
+    , bytes := "c5797fcc", instr := ⟨.vexmov .dqa .x4 .x9, 4⟩ }
+  , { id := "vmovdqu_x12x5", mnemonic := "vmovdqu", asm := "vmovdqu %xmm5, %xmm12"
+    , bytes := "c57a6fe5", instr := ⟨.vexmov .dqu .x12 .x5, 4⟩ }
+  , { id := "vmovddup_x3x11", mnemonic := "vmovddup", asm := "vmovddup %xmm11, %xmm3"
+    , bytes := "c4c17b12db", instr := ⟨.vexddup .x3 .x11, 5⟩ }
+  , { id := "vpsubd_x7x10x13", mnemonic := "vpsubd", asm := "vpsubd %xmm13, %xmm10, %xmm7"
+    , bytes := "c4c129fafd", instr := ⟨.vexbin .subd .x7 .x10 .x13, 5⟩ }
+  , { id := "vpandn_x9x14x3", mnemonic := "vpandn", asm := "vpandn %xmm3, %xmm14, %xmm9"
+    , bytes := "c509dfcb", instr := ⟨.vexbin .andn .x9 .x14 .x3, 4⟩ }
+  , { id := "vpcmpgtb_x15x5x8", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %xmm8, %xmm5, %xmm15"
+    , bytes := "c4415164f8", instr := ⟨.vexbin .cmpgtb .x15 .x5 .x8, 5⟩ }
+  ]
+
+/-- Every differential vector: the main table's, then the VEX twins'. What `emit`, `emit-acl2`
+and the encoding checks walk. -/
+def allVectors : List Vec := vectors ++ vexVectors
+
 /-! ## Pre-states: adversarial first, then pseudo-random
 
 The adversarial list is not "interesting numbers" — every entry is a boundary
@@ -4537,6 +4632,28 @@ def mxcsrFor (i : Nat) : BitVec 32 :=
   0x1F80 ||| (BitVec.ofNat 32 (i % 4) <<< 13)
     ||| (if i / 4 % 2 == 1 then BitVec.ofNat 32 (i * 37 % 64) &&& 0x37 else 0)
 
+/-- ⭐⭐⭐ V3 (D341): THE YMM UPPER HALVES, SEEDED NON-ZERO, DISTINCT PER REGISTER AND
+PER PRE-STATE, derived from the low halves (which `xmmPattern` derives from the
+swept values `a`, `c`) and from the pre-state's index `n`.
+
+⛔ ZERO WOULD BE THE D27 TRAP IN ITS PUREST FORM: a VEX.128 write zeroes bits
+255:128, so with zero upper halves a model that FORGOT to zero agrees with the
+oracle in every case, and so does a legacy write that wrongly zeroes.  Here:
+  * the top byte of every upper half is `0xA5`, so none is ever zero;
+  * bits 119:112 carry the register's index and 111:96 the pre-state's, so no two
+    registers and no two pre-states (below 65536) carry the same value;
+  * the rest is taken from the register's own low half (complemented in the low
+    quadword), so the upper half also sweeps with the case's values. -/
+def ymmHiPattern (xs : Xmms) (n : Nat) : Xmms :=
+  { xs with hi := XmmReg.all.foldl (fun ys r =>
+      let lo := xs.get r
+      let k : BitVec 64 := BitVec.ofNat 64 r.index.val
+      let m : BitVec 64 := BitVec.ofNat 64 (n % 65536)
+      let w1 : BitVec 64 := 0xA500000000000000 ||| (k <<< 48) ||| (m <<< 32)
+        ||| ((lo >>> 96).setWidth 64)
+      let w0 : BitVec 64 := ~~~(lo.setWidth 64)
+      ys.set r ((w1.setWidth 128 <<< 64) ||| w0.setWidth 128)) xs.hi }
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
 its neighbours, the carry boundary, the two DF states, the two `addr32`
 counter states, the two stack frames, the two string-pointer boundaries, the
@@ -4552,6 +4669,7 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
     (fun ((a, c), i) => mkPre a c i)
   (diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
     ++ frameStates ++ stringBoundaryStates ++ cmpxchg8bStates ++ shiftCountStates
-    ++ rnd).zipIdx.map (fun (s, i) => { s with mxcsr := mxcsrFor i })
+    ++ rnd).zipIdx.map (fun (s, i) =>
+      { s with mxcsr := mxcsrFor i, xmm := ymmHiPattern s.xmm i })
 
 end X86.Tests

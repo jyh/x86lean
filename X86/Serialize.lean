@@ -90,6 +90,19 @@ def Cpu.renderXmms (s : Cpu) : String :=
       let lo : BitVec 64 := v.setWidth 64
       s!"{r.name}={hex64 hi}{hex64 lo}"))
 
+/-- ⭐⭐⭐ V3 (D341): BITS 255:128 OF EACH YMM REGISTER, as `ymmhiN=<32 hex>`, after
+the sixteen `xmmN=` fields.  The driver prints the same fields from x86isa's ZMM
+file (`x86l-ymmhis`, `rz256`), and `scripts/check_xmm_format.py` holds the two
+together.  ⛔ Without this field the VEX.128 zeroing rule and the legacy
+preservation rule are both UNOBSERVED, and an unobserved region reports agreement. -/
+def Cpu.renderYmmHis (s : Cpu) : String :=
+  String.intercalate " "
+    (XmmReg.all.map (fun r =>
+      let v := s.xmm.hi.get r
+      let hi : BitVec 64 := (v >>> 64).setWidth 64
+      let lo : BitVec 64 := v.setWidth 64
+      s!"ymmhi{r.index.val}={hex64 hi}{hex64 lo}"))
+
 /-- ⭐⭐ MXCSR IN THE WIRE FORMAT (sub-group B0, D266): ONE KEY PER STICKY FLAG, and the
 control half (RC, the masks, DAZ, FZ) as one hex field.
 
@@ -123,7 +136,7 @@ is what the record carries; the reason stays in `Cpu.ms` for a human reading a
 single case. -/
 def Cpu.render (s : Cpu) (ws : List Window) : String :=
   String.intercalate " "
-    ([s.renderRegs, s.renderXmms, s!"rip={hex64 s.rip}", s.flags.render, s.renderMxcsr,
+    ([s.renderRegs, s.renderXmms, s.renderYmmHis, s!"rip={hex64 s.rip}", s.flags.render, s.renderMxcsr,
       s!"refused={if s.ms.isSome then "1" else "0"}"]
       ++ ws.map (renderWindow s.mem))
 

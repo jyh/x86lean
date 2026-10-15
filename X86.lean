@@ -10,11 +10,13 @@ Importing `X86` gives the whole model: state, syntax, semantics, and the
 characterization theorems.  It does NOT give the native-computation tier
 (`X86Native`), which is separately labelled and separately gated on purpose.
 -/
+import X86.YmmHi
 import X86.Basic
 import X86.Value
 import X86.Oracle
 import X86.Memory
 import X86.State
+import X86.Vex
 import X86.SoftFloat
 import X86.Syntax
 import X86.Flags

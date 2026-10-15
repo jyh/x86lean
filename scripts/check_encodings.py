@@ -173,7 +173,8 @@ obj = os.path.join(tmp, "v.o")
 segf = os.path.join(tmp, "seg.txt")
 for mode, out in (("emit-asm", asm), ("expected-lengths", exp),
                   ("segment-decls", segf)):
-    r = run(f"lake env .lake/build/bin/x86lean-diff {mode} {out}")
+    # ⭐ V3 (D341): `all` — the main table's vectors AND the VEX twins' (`vexVectors`).
+    r = run(f"lake env .lake/build/bin/x86lean-diff {mode} {out} all")
     if r.returncode != 0:
         print(r.stdout, r.stderr); sys.exit(2)
 

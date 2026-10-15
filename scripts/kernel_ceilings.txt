@@ -412,3 +412,27 @@ Tests.AnchorsSha 7890 @on yukon.lan
 # katmai, 2026-10-14, the line kernel_delta PRINTED on refusing the NEW unit there (base 76b6890 -> 5441610, --repeats 6):
 # head 2535.0 ms => max(2535.0 x 3, 50) = 7605, copied, not retyped.
 Tests.AnchorsSha 7605 @on katmai
+# runner, 2026-10-15: the line PR #96's kernel-delta job PRINTED on refusing the NEW unit (job 116210156569, head 4945.0 ms
+# on runnervm8k3b6 => max(4945.0 x 3, 50) = 14835), copied, not retyped. Same step as the runner lines above (D252 §6).
+Tests.AnchorsSha 14835 @on runnervm8k3b6
+# V3 (D341) arm (A) (the YMM upper half's new state in its own module, 2026-10-14): the gate's own suggested line from
+# kernel_delta 76b6890 → c5bb943, yukon.lan, not retyped: X86.YmmHi head 9.2 ms. Built inside X86.Basic the same
+# declarations moved that unit by +54.9 ms, then +37.7 ms, against its 21.6 ms delta budget; the budget was not widened.
+X86.YmmHi 50 @on yukon.lan
+# V3 (D341) arm (A) (the YMM upper half's new state in its own module, 2026-10-14): the gate's own suggested line from
+# kernel_delta 76b6890 → c5bb943, yukon.lan, not retyped: X86.Vex head 28.7 ms. Built inside X86.Basic the same
+# declarations moved that unit by +54.9 ms, then +37.7 ms, against its 21.6 ms delta budget; the budget was not widened.
+X86.Vex 86 @on yukon.lan
+# V3 (D341) arm (A) (the VEX twins' step equations, upper-half theorems and SDM anchors in their own module, 2026-10-14): the gate's own
+# suggested line from kernel_delta 76b6890 → 3a88a63, yukon.lan, not retyped: Tests.AnchorsVex head 35.3 ms.
+Tests.AnchorsVex 106 @on yukon.lan
+# V3 (D341) arm (A) (the VEX table's own coverage checks, kept out of Tests.Coverage, whose table theorems are quadratic in
+# the row count: as tableP0 rows the 33 moved that unit +5,300 ms against its 2,671 ms budget, 2026-10-14): the gate's own
+# suggested line from kernel_delta 76b6890 → 3a88a63, yukon.lan, not retyped: Tests.CoverageVex head 3000.0 ms.
+Tests.CoverageVex 9000 @on yukon.lan
+# katmai, 2026-10-15, the lines kernel_delta PRINTED on refusing the four NEW units there (base 63bc82d -> cfefffd, --repeats 6;
+# heads X86.YmmHi 10.4 · X86.Vex 35.0 · Tests.AnchorsVex 41.4 · Tests.CoverageVex 3345.0 ms), copied, not retyped.
+X86.YmmHi 50 @on katmai
+X86.Vex 105 @on katmai
+Tests.AnchorsVex 124 @on katmai
+Tests.CoverageVex 10035 @on katmai

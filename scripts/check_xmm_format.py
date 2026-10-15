@@ -69,6 +69,58 @@ def lisp_spec(text):
     return (m.group(1), int(m.group(2)))
 
 
+def lean_ymm_spec(text):
+    """(prefix, hex-digit count) from `Cpu.renderYmmHis` (V3, D341)."""
+    m = re.search(r'def Cpu\.renderYmmHis.*?let v := s\.xmm\.hi\.get r.*?'
+                  r's!"(ymmhi)\{r\.index\.val\}=\{(\w+) hi\}\{(\w+) lo\}"', text, re.S)
+    if not m:
+        return None
+    w = {"hex64": 16}.get(m.group(2))
+    if w is None or m.group(2) != m.group(3):
+        return None
+    return (m.group(1), 2 * w)
+
+
+def lisp_ymm_spec(text):
+    """(prefix, hex-digit count) from `x86l-ymmhis`: bits 255:128 of `rz256`."""
+    m = re.search(r'\(defun x86l-ymmhis\s.*?"\s*(ymmhi)"\s*.*?'
+                  r'\(x86l-hex \(ash \(rz256 i x86\) -128\) (\d+)\)', text, re.S)
+    if not m:
+        return None
+    return (m.group(1), int(m.group(2)))
+
+
+def ymm_compare(lean_text, lisp_text):
+    """V3 (D341): the `ymmhiN=` half of the record, held across the boundary."""
+    out = []
+    ls, ps = lean_ymm_spec(lean_text), lisp_ymm_spec(lisp_text)
+    if ls is None:
+        out.append("could not parse Cpu.renderYmmHis in " + LEAN)
+    if ps is None:
+        out.append("could not parse x86l-ymmhis (rz256 >> 128) in " + LISP)
+    if ls and ps:
+        if ls[0] != ps[0]:
+            out.append(f"upper-half NAME prefix differs: Lean {ls[0]!r}, Lisp {ps[0]!r}")
+        if ls[1] != ps[1]:
+            out.append(f"upper-half WIDTH differs: Lean {ls[1]} hex digits, Lisp {ps[1]}")
+    m = re.search(r'\(defun x86l-ymmhis\s.*?\(>= i (\d+)\)', lisp_text, re.S)
+    if not m or int(m.group(1)) != 16:
+        out.append("the Lisp side does not walk 16 upper halves")
+    # ⛔ ORDER: the ymmhi fields come AFTER the xmm fields on BOTH sides.
+    if not re.search(r'\(x86l-xmms 0 "" x86\)\s*\(x86l-ymmhis 0 "" x86\)', lisp_text):
+        out.append("the Lisp POST line does not call x86l-ymmhis right after x86l-xmms")
+    if not re.search(r's\.renderXmms, s\.renderYmmHis,', lean_text):
+        out.append("the Lean record does not call renderYmmHis right after renderXmms")
+    # ⛔ THE SEED: written after :xmms, through wz256, keeping the low half (rz128).
+    if not re.search(r'\(wz256 i \(logior \(ash \(n128 hi\) 128\) \(rz128 i x86\)\) x86\)', lisp_text):
+        out.append("x86l-set-ymmhis no longer writes (hi << 128) | rz128 through wz256 — "
+                   "the seed would clobber the low half")
+    if not re.search(r'\(x86l-set-xmms xmms x86\)\)\s*(;;[^\n]*\n\s*)*\(x86 \(x86l-set-ymmhis 0 ymmhis x86\)\)',
+                     lisp_text):
+        out.append("x86l-set-ymmhis is not applied right after x86l-set-xmms")
+    return out
+
+
 def count_spec(text, pat):
     m = re.search(pat, text)
     return int(m.group(1)) if m else None
@@ -111,6 +163,7 @@ def compare(lean_text, lisp_text):
     if not re.search(r's\.renderXmms', lean_text):
         out.append("the Lean record no longer calls renderXmms — the "
                    "registers would silently leave the record")
+    out += ymm_compare(lean_text, lisp_text)
     return out
 
 
@@ -131,6 +184,24 @@ def selftest():
                  bool(compare(lean, lisp.replace('(x86l-xmms 0 "" x86)', '""')))))
     arms.append(("the Lean record stops CALLING it",
                  bool(compare(lean.replace("s.renderXmms", '""'), lisp))))
+    # ⭐ V3 (D341): the upper-half arms, each side mutated separately.
+    arms.append(("ymm: the Lisp side reads 16 hex digits (half width)",
+                 bool(compare(lean, lisp.replace("(rz256 i x86) -128) 32", "(rz256 i x86) -128) 16")))))
+    arms.append(("ymm: the Lisp side reads the LOW half (no shift)",
+                 bool(compare(lean, lisp.replace("(ash (rz256 i x86) -128)", "(rz128 i x86)")))))
+    arms.append(("ymm: the Lean side prints the low half",
+                 bool(compare(lean.replace("let v := s.xmm.hi.get r", "let v := s.xmm.get r"), lisp))))
+    arms.append(("ymm: the Lean name prefix changes",
+                 bool(compare(lean.replace('s!"ymmhi{r.index.val}', 's!"ymm{r.index.val}'), lisp))))
+    arms.append(("ymm: the Lisp POST line stops CALLING it",
+                 bool(compare(lean, lisp.replace('(x86l-ymmhis 0 "" x86)', '""')))))
+    arms.append(("ymm: the Lean record stops CALLING it",
+                 bool(compare(lean.replace("s.renderYmmHis,", ""), lisp))))
+    arms.append(("ymm: the seed writes the upper half alone (clobbers the low)",
+                 bool(compare(lean, lisp.replace("(logior (ash (n128 hi) 128) (rz128 i x86))",
+                                                 "(ash (n128 hi) 128)")))))
+    arms.append(("ymm: the seed is never applied",
+                 bool(compare(lean, lisp.replace("(x86 (x86l-set-ymmhis 0 ymmhis x86))", "")))))
     for name, good in arms:
         print(("  ✔ " if good else "  ✖ ") + name)
         ok = ok and good
@@ -150,5 +221,5 @@ if bad:
     print("   Any drift here makes every rendered record differ and the whole "
           "differential run come back as disagreement.")
     sys.exit(1)
-print("✅ xmm record format agrees: 16 registers, 32 hex digits each, on both "
-      "sides of the oracle boundary")
+print("✅ xmm record format agrees: 16 registers and 16 ymm upper halves, 32 hex "
+      "digits each, on both sides of the oracle boundary")

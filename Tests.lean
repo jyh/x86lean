@@ -11,9 +11,11 @@ import Tests.AnchorsBmi
 import Tests.AnchorsShuf
 import Tests.AnchorsSimd
 import Tests.AnchorsSha
+import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors
 import Tests.Coverage
+import Tests.CoverageVex
 import Tests.Program
 import Tests.Logic
 import Tests.LogicLoop

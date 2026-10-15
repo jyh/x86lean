@@ -21885,3 +21885,142 @@ until master's own run on the new workflow is green, as the skip already does.
 required-check count) and the `gh pr merge … --body` command that puts it in the merge commit's body, so
 `git log --grep '^FAST-PATH:' origin/master` lists every fast-path merge, and the post-merge master run of each is the check that
 reverts it if it reds.
+## D339 — V3 scoping: what the oracle does with VEX, measured before any design is fixed (the vale-aesgcm forms)
+
+**Why.** The primitive census's ladder step 5 completes `vale-aesgcm` with twelve more forms, nine of them VEX-128 (AVX). VEX is
+not one more opcode table: VEX.128 ZEROES bits MAXVL−1:128 of its destination where legacy SSE PRESERVES them, so a model without
+the upper half of each vector register cannot state the difference, and a comparator that does not watch it reports agreement it
+did not test (D27). Whether the oracle runs VEX at all decides which half of that problem V3 has to solve, so it is measured first.
+**Measured 2026-10-14 on yukon.lan** (`oracle_availability.py`, model from master `76b6890`; each row's bytes assembled by clang and
+checked against the declared encoding, all 15 identical — see the note below on why that was done by hand):
+- **EXECUTES at 88 of 88:** `vpaddd xmm,xmm,xmm` (`c5e9fec1`) and `vpxor xmm,xmm,xmm` (`c5e9efc1`) — x86isa's VEX semantic
+  functions (`x86-vpaddb/vpaddw/vpaddd/vpaddq-vex`, and VPXOR's) run in the harness's start state.
+- **REFUSES at 88 of 88:** `aesenc`, `aesenclast`, `pclmulqdq` (legacy SSE) and `vpshufb`, `vpalignr`, `vpslldq`, `vpsrldq`,
+  `vaesenc`, `vaesenclast`, `vpclmulqdq` (VEX-128). Both controls executed; the gate reads CLEAN.
+**What it decides.** V3 has TWO halves, and they are different kinds of work:
+1. **A DIFFERENTIAL half** (VEX forms x86isa executes). It needs VEX decode in the model (C4/C5, VEX.L = 0 only; `vvvv` as the
+   non-destructive first source), the upper 128 bits of each of the 16 vector registers as STATE (nested inside `Xmms`, so a
+   whole-record proof pays one projection, D71), legacy SSE writes PRESERVING them and VEX.128 writes ZEROING them, and — the
+   load-bearing part — the differential RECORD gaining that upper half on BOTH sides (the ACL2 driver's post-state reads it from
+   x86isa's ZMM file), with pre-states that seed the upper halves NON-ZERO so a missed zeroing is visible. Without that last
+   clause the half would be a D27 constant: agreement that tested nothing.
+2. **A SILICON half** (the ten that refuse), on hwprobe's pattern (D336/D338), with the upper half compared on silicon too.
+**Next, and not yet decided:** which further VEX forms of already-modelled SSE operations x86isa executes (the cheap way to buy
+differential VEX coverage is the VEX twin of a form the model already has), measured by widening this table before the design
+note is written. The design and its predictions follow in a numbered decision of their own, committed before any model change.
+**A note on the instrument, recorded because it nearly let a claim through:** `oracle_availability.py --check-encodings` gates a
+DIFFERENT table (`P2_FORMS`, 270 rows) and does NOT read the `FORMS` rows this measurement runs — a byte planted wrong in a new
+`FORMS` row still reads CLEAN. D338's result paragraph cites that gate for its SHA rows; the bytes were re-checked by hand here and
+are right, and that sentence is corrected at V2's landing. The gap itself (a `FORMS` row's bytes are checked by nothing but the
+oracle run they feed) is recorded, not yet repaired.
+**Widened the same day, as the paragraph above said it would be: the VEX-128 twin of every differentially tested SSE form.** Of the
+model's 199 differential mnemonics, 107 have a VEX-128 register-form twin that clang assembles (the shape found by trying the
+assembler's own operand orders, never typed). Each was run through the oracle at the 88 pre-states in an UNCOMMITTED copy of this
+script (declared `executes` throughout, so every refusal reads as a gate mismatch by design; both controls executed; no row was
+mixed — every one is 88/0 or 0/88):
+- **EXECUTE (31, plus `vpaddd`/`vpxor` above = 33):** `vmovdqa vmovdqu vmovaps vmovups vmovapd vmovupd vmovddup` ·
+  `vpaddb vpaddw vpaddq vpsubb vpsubw vpsubd vpsubq` · `vpand vpandn vpor vandps vandpd vandnps vandnpd vorps vorpd vxorps vxorpd`
+  · `vpcmpeqb vpcmpeqw vpcmpeqd vpcmpgtb vpcmpgtw vpcmpgtd`.
+- **REFUSE (77):** every VEX scalar and packed FP arithmetic, compare-to-flags and conversion form; every VEX shift (`vpsll*`
+  `vpsrl*` `vpsra*`); every VEX shuffle, unpack and pack; `vmovd vmovq vmovss vmovsd vmovhlps vmovlhps vpmovmskb`.
+⇒ **V3's differential half is 33 mnemonics, all VEX twins of rules the model already states** (moves, integer add/sub, bitwise
+logic, integer compares): the new semantics is VEX decode, the three-operand `vvvv` source, and the upper-half rule — not new
+arithmetic. That is the cheapest differential coverage left in the vector campaign, and it is where the YMM-upper record channel
+earns its keep. The silicon half is the ten refusers above that `vale-aesgcm` needs; the other 67 refusers are not taken by V3.
+
+## D341 — V3 design: VEX-128 decode, the YMM upper half as state, and a record that can see it (predictions sealed before any model change)
+
+**Why now.** D339 fixed V3's differential half at 33 mnemonics, all VEX-128 twins of rules the model already states. The new
+semantics is small: VEX decode, a three-operand `vvvv` source, and one rule about bits 255:128. The risk is in what we observe.
+A model and an oracle that both leave the upper half alone, compared by a record that does not report it, agree without having
+tested anything (D27). So the record is designed first and the semantics second.
+
+**The design, in five clauses.**
+1. **State.** A new structure `YmmHi` with sixteen `BitVec 128` fields (`hi0 … hi15`, default 0) becomes ONE field `hi` of
+   `Xmms`. `Cpu` does not grow at all, and a whole-record proof pays for one more projection inside `Xmms` (D71). The `YmmHi`
+   accessors copy `Xmms.get`/`set` exactly, with the same `get_set_same`/`get_set_ne` lemmas.
+2. **The upper-half rule, applied by WHICH SETTER a rule calls, never by a flag.** `Xmms.set`, which every legacy SSE rule
+   already uses, writes the low 128 bits and leaves `hi` untouched, so legacy SSE PRESERVES the upper half with no edit to any
+   existing rule. A new `Xmms.setVex128 r v` writes the low half and zeroes `hi r` (SDM Vol. 1 §14.1.2: VEX.128 zeroes
+   MAXVL−1:128; our MAXVL is 256 and bits 511:256 are not modelled). A rule cannot choose the wrong behaviour by forgetting an
+   argument.
+3. **Decode.** C5 (2-byte) and C4 (3-byte, `mmmmm = 00001` only, i.e. the 0F map, which covers all 33). `VEX.L = 1` decodes to
+   `none` (an unsupported form, not a semantics). `pp` selects the implied 66/F3/F2 prefix exactly as a legacy prefix would, and
+   the opcode is then looked up in the SAME table the legacy form uses. A VEX prefix together with a legacy 66/F2/F3/REX/LOCK
+   is #UD (SDM Vol. 2A §2.3.2). A two-operand form (the moves, `vmovddup`) with `vvvv ≠ 1111b` is #UD.
+4. **AST.** One constructor per family, carrying `src1 : XmmReg` (from `vvvv`) beside the existing operands, and executing the
+   SAME 128-bit function the legacy rule uses, so the arithmetic is shared by construction and only the operand routing and the
+   setter differ. V3 takes REGISTER forms only; memory forms wait for an oracle measurement of their own (D339 measured none).
+5. **The record, on BOTH sides.** The driver gains `x86l-ymmhis`, which reports bits 255:128 of each ZMM register as
+   `ymmhiN=<32 hex>` after the existing `xmmN=` fields, and `x86l-set-ymmhis`, which seeds them from a new `:ymmhis` case key
+   AFTER `:xmms` (writing the ZMM through `wz256`, so the low half set by `:xmms` is kept). The Lean emitter prints the same
+   sixteen fields from `Xmms.hi`, and `check_xmm_format.py` grows to hold the two formats together. **Every vector pre-state
+   seeds all sixteen upper halves with NON-ZERO values that differ per register and per pre-state**, derived from the case seed
+   the way the low halves already are.
+
+**Predictions, each one stated so that it can fail.**
+- P1. No existing theorem needs a proof edit. Whole-record `rfl` proofs on `Cpu` re-elaborate unchanged, and kernel cost rises
+  by at most 10% on any module whose proofs touch `Xmms` (measured by `kernel_delta.py` against master; a breach is a finding,
+  not a ceiling to raise).
+- P2. With the new channel seeded non-zero, EVERY existing legacy SSE differential row still agrees: x86isa's `wx128` preserves
+  bits 255:128, and so does `Xmms.set`. This turns the whole existing SSE differential into a test of the preservation rule at
+  no new oracle cost. A disagreement here would mean one side clobbers the upper half on a legacy write.
+- P3. All 33 VEX-128 twins agree at the 88 pre-states, INCLUDING `ymmhi(dst) = 0` on both sides and every other `ymmhi`
+  unchanged.
+- P4. A planted mutant `setVex128 := set` (the model forgets to zero) is CAUGHT by the differential on every one of the 33,
+  and a mutant that zeroes on legacy writes is caught across the existing SSE rows. Both mutants are driven before the PR opens.
+  If either mutant survives, the channel is a D27 constant and the batch does not ship.
+- P5. x86isa executes the 33 with only the existing CR4 value (`#x600`) and no XCR0 or OSXSAVE configuration (as D339
+  measured for `vpaddd`/`vpxor`). A form that faults on that ground is a harness finding and is recorded, not worked around.
+- P6. A `VEX.L = 1` form and a `vvvv ≠ 1111b` two-operand form are each refused by the model (no step) and #UD at the oracle.
+  This is the only place where the model's refusal and the oracle's fault are compared rather than a post-state.
+
+**What V3 does not claim.** Nothing about bits 511:256, AVX-512, VEX.256, memory operands, or the 77 VEX forms the oracle
+refuses. The ten `vale-aesgcm` refusers take the silicon half on hwprobe's pattern (D336/D338), with the upper half reported on
+silicon too. That half is a separate decision.
+
+**How it is built.** As an executor wave, as V2 was: (a) state + setters + lemmas, then the full build and the axiom gate;
+(b) the record channel on both sides with non-zero seeds and the format check, then the EXISTING differential re-run (P2) BEFORE
+any VEX form exists; (c) decode + the 33 forms + the P6 refusals; (d) the P4 mutants; (e) the ledger row and the PR. Each step
+reports against the prediction it tests.
+
+**Result (2026-10-14, on yukon.lan; the differential record is `docs/DIFFERENTIAL-V3.md`; the final tree's emitted records are byte-identical to that run's; kernel deltas
+`76b6890 →` each head, `--repeats 3`): P2, P3, P4 and P5 held; P1 is refuted on its bound and P6 on its L = 1 half.**
+- **P1 — REFUTED on the bound, CONFIRMED on the proofs.** No existing proof needed an edit. But built inside `X86.Basic`, the
+  new state and its lemmas moved that unit by **+54.9 ms**, and by **+37.7 ms** once `setVex128`'s low-half lemmas went through
+  one 16-way lemma instead of a 16×16 split, against a 21.6 ms delta budget — beyond noise both times. The budget was not
+  widened. The response was to price the new state as NEW units: the structure is `X86.YmmHi` (structure only, since `XmmReg`
+  is defined in `X86.Basic` after its import point) and its accessors, `setVex128`, `Xmms.set_hi` and the `Cpu` helpers are
+  `X86.Vex`. After the move `X86.Basic` read −4.6 ms, then +1.0 ms at the final head; the new units read 8.5 ms and 30.1 ms
+  against their registered ceilings (50, 86 @on yukon.lan). Every existing unit at the final head is within its budget
+  (`X86.Theorems` +20 ms, `X86.Syntax` +18 ms, `Tests.Coverage` +100 ms).
+- **P2 — CONFIRMED.** With the channel live and seeded non-zero, before any VEX form existed: `cases=105424 matched=82367
+  explained=34155 unexplained=0 oracle-divergence=616`, identical to record 40, and all 105424 oracle POST lines carry a non-zero
+  `ymmhi15`. x86isa's legacy writes and `Xmms.set` both preserve bits 255:128.
+- **P3 — CONFIRMED.** `cases=108856 matched=85799 explained=34155 unexplained=0 oracle-divergence=616 oracle-leaks=0 missing=0`:
+  the 39 VEX vectors add 3432 cases, all matched. In every one of the 3432, `ymmhi(dst)` is non-zero in the pre-state and zero
+  after on BOTH sides, and every other `ymmhi` is unchanged on both sides.
+- **P4 — CONFIRMED**, driven on scratch copies (never committed) against this run's oracle records. `setVex128 := set` (the three
+  VEX arms call `setXmm`): caught on **39 of 39** VEX vectors, **3432 of 3432** cases. Legacy `setXmm` zeroing the written
+  register's upper half: caught on **282 of 282** legacy vectors that write an XMM register, **24816 of 24816** cases.
+- **P5 — CONFIRMED.** None of the 3432 VEX cases refused, under the driver's CR4 `#x600` and no XCR0 or OSXSAVE configuration.
+- **P6 — HALF REFUTED.** `vpaddd %ymm1,%ymm2,%ymm0` (`c5edfec1`) and `vmovdqa %ymm1,%ymm0` (`c5fd6fc1`) EXECUTE at 88 of 88:
+  VEX.256 is valid for these forms and the prediction of #UD was wrong. V3 does not take VEX.256 (the model has no 256-bit
+  operand), so those forms are declared NOT TAKEN — rows `NOTTAKEN:` in `oracle_availability.py`, re-read every run, and the
+  `vexTable` note — never refusals. The `vvvv ≠ 1111b` half holds: `c5e96fc1` (vmovdqa) and `c5eb12c1` (vmovddup), clang's
+  bytes with only vvvv rewritten, REFUSE at 88 of 88; so do `66 c5e9fec1` and `40 c5e9fec1` (a legacy prefix before VEX).
+**(i) A limit of the decode trust, stated and not modelled.** LLVM `objdump` reports `c5e96fc1` and `c5eb12c1` as `<unknown>`,
+agreeing with the oracle's fault, but it decodes `66 c5e9fec1` and `40 c5e9fec1` as `vpaddd %xmm1,%xmm2,%xmm0`, where the SDM
+says #UD (Vol. 2A §2.3.2) and the oracle refuses 88 of 88. No vector carries either byte string.
+**(ii) There is no XED on this box.** Clause 3 above assumed XED; `/usr/bin/xed` here is Xcode's editor, nothing is vendored,
+and no script runs Intel XED. The vector path's decoder is LLVM `objdump` (`check_encodings.py`), and the VEX forms reach the
+model through the AST as every other vector form does: there is no Lean decoder and no encoding field in the AST.
+**(iii) The VEX table.** The 33 twins are `X86.vexTable` (each row names its legacy twin) and `Tests.Vectors.vexVectors`, a third
+population beside `tableP0`'s 199 and `siliconTable`, with their own checks in `Tests.CoverageVex`. As 33 more rows of `tableP0`
+they moved `Tests.Coverage` by **+5,300 ms (+14%)** against a 2,671 ms budget, because its table theorems are quadratic in the
+row count — profiled on yukon: `table_mnemonics_subset_roster` 4.51 s, `vectorCoverage` 4.51 s, `roster_covered_by_table`
+4.41 s, `table_rows_distinct` 4.07 s, `memDestSweep` 6.53 s. Splitting the batch would only have moved that wall to the next
+one. The differential runs `allVectors = vectors ++ vexVectors`; the roster figure (199), the vector count (1198), the run index
+and `docs/COVERAGE.md`'s headline are byte-unchanged, and `COVERAGE.md` states the VEX population in a section of its own.
+`Tests.CoverageVex` read 3000 ms and `Tests.AnchorsVex` 35.3 ms as NEW units; their lines are in `scripts/kernel_ceilings.txt`
+(9000, 106 @on yukon.lan), copied from the gate's output.

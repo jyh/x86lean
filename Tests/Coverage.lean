@@ -1102,6 +1102,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- destination: the cross moves have no memory operand at all, and
     -- `vddupM`'s `Ea` is its SOURCE — the distinction `vshiftm` established.
     | .vmovhl .. | .vddupR .. | .vddupM .. => false
+    -- ⭐ V3 (D341), in the SAME COMMIT as the constructors: the VEX.128 register
+    -- twins write an XMM register (and zero its YMM upper half), never memory.
+    | .vexmov .. | .vexddup .. | .vexbin .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
     -- does not even READ.
