@@ -22217,3 +22217,74 @@ at 6 repeats, two of the five structural readings do not reproduce across runs, 
 - **4 — HELD.** Regenerated `Tests/VectorRuns.lean` and `docs/COVERAGE.md` are byte-identical (`git diff` empty).
   `claimed_forms.py --check` rc 0 (199 mnemonics, 1,198 forms; 504/525 rows, 355/374 machine forms). `demand_census.py --check`
   CLEAN (238 mnemonics, sha `eb3420f16cbe4c9a`, unchanged).
+
+## D344 — V6: VEX.256 (VEX.L = 1) for the 33 V3 register twins, the upper half WRITTEN (predictions before any model change)
+
+**Why these.** D341 P6 predicted #UD for `VEX.L = 1` and was refuted: x86isa executes `vpaddd %ymm1,%ymm2,%ymm0` and
+`vmovdqa %ymm1,%ymm0` at 88 of 88, so those forms are recorded as NOT TAKEN rather than refused. The state they need already
+exists. Bits 255:128 are `Xmms.hi` (D341), and both sides of the differential report and seed them. So the only new thing is
+the rule. Demand is the larger reason. `docs/DEMAND-CENSUS.md`'s pooled `AVX2/AVX (ymm)` class is 108,554 instructions, about
+3.7× the whole VEX-128 line (~29,084, D342).
+
+**The rule (SDM Vol. 2B, each form's VEX.256 encoding; Vol. 1 §14.1.2).** Every one of the 33 is LANE-WISE: the 256-bit result
+is the 128-bit legacy function applied separately to the low halves and to the high halves of its sources. That covers:
+- the seven moves, which copy all 256 bits;
+- `vmovddup ymm`, whose SDM pseudo-code duplicates `SRC[63:0]` and `SRC[191:128]` within each lane;
+- the integer add, sub, logic and compare forms (AVX2);
+- the FP logic forms (AVX).
+
+The destination gets both halves. Bits 511:256 are not modelled (MAXVL 256, as in D341).
+
+**The design.**
+1. **AST.** Three `VexOp` constructors, mirroring the V3 register three:
+   - `vexmov256 (k) (dst src)`
+   - `vexddup256 (dst src)`
+   - `vexbin256 (k) (dst src1 src)`
+
+   `Op` does not grow (V5). Only `VBinKind.vexTaken` kinds are taken, and `step` refuses any other as unimplemented, exactly
+   as `vexbin` does.
+2. **One setter.** `Cpu.setYmm r lo hi` writes `lo` through `Xmms.set` and `hi` through the `YmmHi` setter. `Cpu.getYmmHi r`
+   reads the upper half. Each rule computes `(f lo₁ lo₂, f hi₁ hi₂)` with the SAME 128-bit function the legacy and VEX.128
+   arms call, so the arithmetic is shared by construction.
+3. **Vectors.** Clang's bytes for the 33 at L = 1 (`check_encodings.py` re-assembles each `asm`). They follow the same register
+   choices as V3's 39, including the off-xmm0/1/2 rows (C4 form, VEX.R̄/VEX.B for ymm8–15). They form one more population,
+   `vex256Vectors`, so that `allVectors`, the 199-mnemonic roster and COVERAGE's headline stay byte-unchanged, as V3's did.
+4. **The record.** No new channel. `ymmhiN=` already carries bits 255:128 on both sides, and every pre-state seeds them non-zero
+   and distinct per register (`ymmHiPattern`). The `NOTTAKEN:` rows in `oracle_availability.py` for `c5edfec1`/`c5fd6fc1`
+   become executed rows of the differential.
+
+**Predictions (each is wrong if the named reading differs):**
+- P1. **Oracle.** All 33 forms EXECUTE at 88 of 88 under the existing CR4 `#x600`, with no XCR0 or OSXSAVE configuration,
+  measured by `oracle_availability.py` at this master BEFORE any model work. A refuser leaves V6 (it is recorded, never worked
+  around) and the count is reported.
+- P2. **Differential.** Every case of the new vectors is MATCHED: zero unexplained, zero new oracle-divergence, and every other
+  total is V5's line (`cases=109032 … matched=85975`) plus exactly the new vectors × 88 cases. In every new case, `ymmhi(dst)`
+  after the instruction equals the lane rule applied to the pre-state's upper halves on BOTH sides. That value is non-zero in
+  the overwhelming majority (the pcmp forms can legitimately produce 0), and the run counts how many.
+- P3. **Mutants, driven before the PR opens, on scratch copies.** Each is caught on every vector it can reach:
+  - (m1) the upper half ZEROED (the VEX.128 rule applied at L = 1);
+  - (m2) the upper half PRESERVED (the legacy rule);
+  - (m3) the LOW lane's result copied into the high lane;
+  - (m4) the lanes SWAPPED in `vmovddup ymm` (high lane from `SRC[63:0]`).
+
+  A mutant that survives on a vector it can reach is a D27 constant, and V6 does not ship.
+- P4. **No existing proof edit**, and the existing record is byte-identical. `run/lean.txt` restricted to the V5 vectors is
+  `cmp`-identical to V5's.
+- P5. **Kernel cost.** New vector checks go in their own metered unit (`Tests.CoverageVex256`) from the first commit. Every
+  NEW unit is registered in BOTH `scripts/kernel_ceilings.txt` and `scripts/ku_delta_budget.txt`. `X86.Syntax` moves by at
+  most its delta budget, because three `VexOp` constructors do not touch `Op`'s structural declarations (D343). A breach there
+  is a finding about V5's nesting, not a budget to widen.
+
+**Refutation routes:**
+- a refuser (P1);
+- one unmatched case (P2);
+- a surviving mutant (P3);
+- any moved byte of the V5 record (P4);
+- an `X86.Syntax` breach (P5).
+
+**Not claimed:** VEX.256 memory forms, AVX2 forms with no VEX.128 twin here (`vpermq`, `vinserti128`, `vextracti128`, the
+broadcasts, `vpmovmskb`), cross-lane forms, and bits 511:256.
+**Result, P1 (oracle, measured 2026-10-16 on yukon.lan at V5's head `e92b5fc`, before any model work): HELD.**
+`oracle_availability.py`: the 39 `V6:` rows (the 33 twins at L = 1 and V3's six off-xmm0/1/2 rows, including the C4 forms)
+each EXECUTE at 88 of 88 (0 refused, 0 stalled). The four `UD:` rows still refuse at 88 of 88, both controls executed, and
+the gate reads CLEAN. The two `NOTTAKEN:` rows are replaced by their `V6:` rows.
