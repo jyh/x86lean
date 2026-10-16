@@ -22146,3 +22146,31 @@ UNMEASURABLE, neither over budget: `X86.Syntax` +59.0 ms ± 45.8 against 100.0 (
 5.8–8.0), and `Tests.Vectors` +0.0 ± 8.5 against 8.2 — recorded as read, budgets not widened; every other unit read `ok`.
 The delta-allowance ledger row is taken at landing, not here. **Not done:** memory forms of the nine (the census needs none),
 VEX.256, and any VEX memory twin but `vpxor`'s.
+
+## D343 — V5: the nine VEX constructors nested under one `Op.vex`, because `X86.Syntax`'s kernel cost tracks `Op`'s constructor count (predictions before any change)
+
+**Why.** #102's katmai ms run could not place `X86.Syntax` (+95.5 ms against a 111.2 budget, ±32.0), so V4 landed on ARM A′'s
+verdict. A trace profile of `X86/Syntax.lean` at V4's head (yukon) gave the module's kernel time by declaration:
+- `X86.Instr` 176 ms
+- `Op.noConfusion` 78 ms
+- the two derived `Op.match_on_same_ctor` 51 + 50 ms
+- `Op.anyLocked_eq` 47 ms
+- `Op.ctorElim` 22 ms
+
+That is of a 639 ms total. Every one of these is STRUCTURAL over `Op`, and `Op` grew 99 → 104 → 111 constructors across V2/V3/V4.
+The remedy is D71's, which nested the sixteen XMM registers to stop `Cpu`'s field count growing: nest a family under one
+constructor so the outer inductive stops growing.
+**The change.** `inductive VexOp` takes the nine VEX constructors verbatim (`vexmov vexddup vexbin vexbinm vexaes vexclmul vexshufb
+vexalignr vexshiftdq`), and `Op` gains `| vex (v : VexOp)` in their place. `vaes` (legacy AES) stays in `Op`. Every match
+over `Op` routes `.vex v` to a function over `VexOp`, every semantic rule is unchanged, and every vector and theorem is restated
+through the one extra constructor. NO new form, NO new rule.
+**Predictions (each is wrong if the named reading differs):**
+1. **Count.** `Op`: 111 → 103 constructors. `VexOp`: 9.
+2. **Kernel cost, X86.Syntax.** The kernel delta, V4 → V5, is NEGATIVE on the same machine. Each of the five structural
+   declarations above reads lower. `VexOp`'s own structural declarations cost less than the eight `Op` constructors they
+   replace. A positive delta refutes the constructor-count reading.
+3. **Elsewhere.** No proof edit beyond a mechanical `.vex` wrap. The differential record is byte-identical (cases=109032, matched
+   85975, the same per-vector lines). Every theorem, the axiom gate (3 axioms) and the silicon rows are unchanged in content.
+   `Tests.CoverageVex`/`Tests.AnchorsVex`/`Tests.AnchorsAes` may move either way, and each reading is reported.
+4. **Published counts** (199 mnemonics, 1,198 vectors, the census) do not move.
+**Refutation route:** a positive X86.Syntax delta, or any record byte that moves.
