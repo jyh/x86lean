@@ -22288,3 +22288,70 @@ broadcasts, `vpmovmskb`), cross-lane forms, and bits 511:256.
 `oracle_availability.py`: the 39 `V6:` rows (the 33 twins at L = 1 and V3's six off-xmm0/1/2 rows, including the C4 forms)
 each EXECUTE at 88 of 88 (0 refused, 0 stalled). The four `UD:` rows still refuse at 88 of 88, both controls executed, and
 the gate reads CLEAN. The two `NOTTAKEN:` rows are replaced by their `V6:` rows.
+**Result, P2–P4 (2026-10-16, yukon.lan, reference model `acl2@c8897a34d3ef`): P3 and P4 HELD. P2 is REFUTED on one form of 33,
+and the form is the oracle's defect, not the model's.**
+- **P2 — REFUTED for `vandps`, HELD for the other 32 forms.** The first run read
+  `cases=112464 matched=89319 explained=34155 unexplained=176 oracle-divergence=616`. All 176 are `vandps_yyy`: 88 of 88
+  cases, in both lanes of ymm0 (`xmm0` and `ymmhi0`), and nowhere else. At case 0 the oracle writes
+  `00030000000000003333333333333333 00000000000000033333333333333333`, which is SRC1 XOR SRC2. The model writes their AND,
+  `a500000000000000cccccccccccccccc 00000000000000000000000000000000`. **The cause is in x86isa's source.** Its
+  `inst-listing.lisp` row for `VANDPS` with `:VEX '(:0F :NDS :256)` (line 5853) passes `(operation . #x5)`, and `#x5` is
+  `*OP-XOR*` (`portcullis/sharp-dot-constants.lisp`: OR 1, AND 3, XOR 5). Every other AND row, including VANDPS VEX.128
+  and VANDPD VEX.256, passes `#.*OP-AND*`. The six other `#x5` rows are the XOR forms, where it is right. The line is
+  unchanged on acl2 `master` today.
+  **Third source:** the SDM (Vol. 2B ANDPS, VEX.256: `DEST[255:0] ← SRC1[255:0] BITWISE AND SRC2[255:0]`). Also an x86-64
+  binary run under Rosetta 2 on this Apple M4 Pro (a translation, NOT silicon): case 0's operands give AND in both lanes,
+  and `vorps` on the same operands gives a different upper lane from the oracle's, so the oracle is not computing OR either.
+  The two fields are declared in `knownDivergences` (`vandps_yyy` · `xmm0`, `ymmhi0`, note D344), gated in both directions
+  like D93's and D331's. The re-run reads `cases=112464 matched=89319 explained=34155 unexplained=0 oracle-divergence=792
+  oracle-leaks=0 missing=0`: V5's line plus exactly 39 × 88 = 3432 cases, and divergence +176.
+  ⚠️ **The limit this declaration costs, stated:** a model defect in VANDPS VEX.256 alone would now be excused in those
+  two fields. What still holds the rule is that it is `vbinApply .andps` (agreeing at VEX.128 on 88 of 88) applied by the
+  lane rule, which agrees on the other 38 VEX.256 vectors. That is an argument, not a check.
+  **Upper half:** all 3432 new cases seed `ymmhi(dst)` non-zero. 3396 end non-zero. The 36 zeros are all
+  `vpcmpgtb_y15y5y8`, an all-false compare. In 21 cases the written upper half equals the pre-state's.
+- **P3 — HELD, every mutant caught on every vector it reaches.** These were built on scratch copies (never committed) and
+  scored per case against this run's oracle record. A case is CAUGHT when any POST field differs. The scorer's control is
+  the real model, which differs on `vandps_yyy` alone (88 of 3432), so `vandps_yyy` is uninformative under every mutant
+  and is not counted below.
+  - **(m1)** upper half ZEROED: 38 of 38 vectors. Every case is caught except the 36 of `vpcmpgtb_y15y5y8` whose correct
+    upper half is 0.
+  - **(m2)** upper half PRESERVED: 38 of 38 vectors. Every case is caught except 14, 7 each of `vpand_yyy` and
+    `vandpd_yyy`, where the written half equals the pre-state's.
+  - **(m3)** the low lane's result copied into the high lane: 3344 of 3344.
+  - **(m4)** `vmovddup ymm` with the high lane taken from `SRC[63:0]`: both `vmovddup` vectors, 176 of 176. It reaches no
+    other vector.
+
+  Each uncaught case is one where the mutant's value equals the correct one, so no mutant survives where it changes
+  anything.
+- **P4 — HELD.** With the 3432 V6 cases removed, `run/lean.txt` and `run/oracle.txt` are each `cmp`-identical to V5's
+  (446,970,873 B and 222,558,442 B). Regenerated `Tests/VectorRuns.lean` is byte-identical. `docs/COVERAGE.md` changes in
+  one paragraph, the VEX section's prose (199 rows, the headline unchanged). No existing proof was edited.
+  `axiom_gate.sh`: CLEAN over 5269 declarations on the three standard axioms. `check_encodings.py`: CLEAN over 1278 forms.
+  ⚠️ **5269 is 17 FEWER than V5's 5286, while V6 adds declarations, and it was traced before being believed.** The same
+  binary over the same module list was run per module. `X86.Vex` reads 30 → 43, `X86.Semantics` 190 → 196, and
+  `X86.Syntax` 3167 → 3131. A name-level diff of `X86.Syntax` (an `#eval` over `env.constants` in each tree, through the
+  wrapper) shows 32 names added: the three constructors with their `elim`/`inj`/`injEq`/`noConfusion`/`sizeOf_spec`, and
+  the new equation lemmas. It shows 68 removed, every one a derived-instance auxiliary: 59 `instDecidableEqVexOp.decEq._proof_N`
+  and 9 `instBEqVexOp.beq._sparseCasesOn_N`. With twelve constructors, `VexOp`'s derived `DecidableEq` and `BEq` come out
+  with fewer auxiliaries. Why the handlers do this was not traced. No hand-written declaration disappeared, so the gate's
+  count is a true count of a smaller environment.
+**Result, P5 (kernel cost, yukon.lan, `e92b5fc` → `59f2b96`, `kernel_delta.py --repeats 3`, loads 4.7–7.0): HELD.**
+- `X86.Syntax` 570.0 → 556.0, **−14.0 ± 70.7 ms** against a 106.6 budget: `ok`. Three `VexOp` constructors leave `Op`'s
+  structural declarations alone, as D343 intended.
+- Every existing unit reads `ok`. `X86.Vex` 31.6 → 33.8 (ceiling 86), `X86.Semantics` 26.0 → 23.7, and
+  `Tests.CoverageVex` 3170 → 3310 (ceiling 9000).
+- The one refusal is the NEW unit `Tests.CoverageVex256`, head 774.0 ms. Its printed line, `Tests.CoverageVex256 2322 @on
+  yukon.lan`, is copied into `scripts/kernel_ceilings.txt`.
+- `ku_delta.py --arm a-prime` refused the same unit and printed `Tests.CoverageVex256 @ku 231898`, which is copied into
+  `scripts/ku_delta_budget.txt`. Both registries are written in the same commit, so V3's miss (#99) is not repeated.
+- Δku elsewhere: `X86.Syntax` +146 of 7,303, `X86.Vex` +248 of 1,185, `X86.Semantics` +25 of 331, and `Tests.Coverage`,
+  `Tests.CoverageVex` and `Tests.Vectors` +0.
+- The katmai and runner lines are taken at landing, as V3's and V4's were.
+
+**Bundled (not a V6 claim):** `X86/Semantics.lean`'s BSF/BSR comment quoted the SDM's "the destination operand is
+undefined" as Intel's current text. SDM edition 093US now says UNMODIFIED (the O38 paper's refuter-2, item H2). The comment
+now says so. The rule is unchanged, and whether to follow the new text is a decision owed, not taken.
+**Not done:** VEX.256 memory forms; AVX2 forms with no VEX.128 twin here; census credit for the VEX.256 forms.
+`demand_census.py` still classes `%ymm` as a state the model cannot represent, so the 108,554-instruction ymm class does
+not move until that classifier learns the 39 forms. That is the next step, and it is measured, not assumed.

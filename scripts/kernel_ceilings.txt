@@ -449,3 +449,6 @@ Tests.AnchorsAes 10290 @on yukon.lan
 Tests.AnchorsAes 10065 @on katmai
 # runner, 2026-10-16: the line PR #102's kernel-delta job PRINTED on refusing the NEW unit (D252 §6), copied, not retyped.
 Tests.AnchorsAes 13890 @on runnervm8k3b6
+# D344 (V6): the NEW unit kernel_delta printed on refusing it, e92b5fc (V5's head) → 59f2b96, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.CoverageVex256 head 774.0 ms ⇒ max(774.0 × 3, 50).
+Tests.CoverageVex256 2322 @on yukon.lan

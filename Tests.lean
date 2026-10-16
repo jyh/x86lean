@@ -17,6 +17,7 @@ import Tests.Nonvacuity
 import Tests.Vectors
 import Tests.Coverage
 import Tests.CoverageVex
+import Tests.CoverageVex256
 import Tests.Program
 import Tests.Logic
 import Tests.LogicLoop

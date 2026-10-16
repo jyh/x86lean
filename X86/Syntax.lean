@@ -1245,6 +1245,18 @@ inductive VexOp where
   /-- ⭐ V4 (D342) — VPSLLDQ / VPSRLDQ (VEX.128 66 0F 73 /7 ib, /3 ib): `dst` is VEX.vvvv and `src`
   the ModRM.rm register; `vshiftdqApply`'s value, through `setXmmVex128`. -/
   | vexshiftdq (left : Bool) (dst src : XmmReg) (cnt : BitVec 8)
+  /-- ⭐⭐⭐ V6 (D344) — THE VEX.256 TWIN OF A REGISTER MOVE: all 256 bits of `src`'s YMM
+  register to `dst`'s, through `setYmm` (both halves WRITTEN).  Register forms only. -/
+  | vexmov256 (k : VMovKind) (dst src : XmmReg)
+  /-- ⭐⭐ V6 (D344) — `vmovddup ymm, ymm` (VEX.256 F2 0F 12): `vexddup`'s value in each
+  128-bit lane separately (SDM Vol. 2B MOVDDUP: `DEST[191:128] ← SRC[191:128]`,
+  `DEST[255:192] ← SRC[191:128]`), never the low quadword copied across lanes. -/
+  | vexddup256 (dst src : XmmReg)
+  /-- ⭐⭐⭐ V6 (D344) — THE VEX.256 TWIN OF A PACKED BINARY OPERATION, register form:
+  `vexbin`'s 128-bit function applied to the low halves and, separately, to the high
+  halves of `src1` and `src`.  Every kind `VBinKind.vexTaken` lists is lane-wise, so
+  this is the whole 256-bit rule. -/
+  | vexbin256 (k : VBinKind) (dst src1 src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1253,19 +1265,22 @@ def VexOp.operands : VexOp → List Operand
   | .vexmov .. | .vexddup .. | .vexbin .. => []
   | .vexbinm _ _ _ ea => [.mem ea]
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
+  -- V6: the VEX.256 register twins name no address.
+  | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
 
 /-- V5 (D343) — `Op.anyLocked` over the nested VEX forms: V3's and V4's arms, verbatim. -/
 def VexOp.anyLocked : VexOp → Bool
   | .vexmov .. | .vexddup .. | .vexbin .. => false
   | .vexbinm _ _ _ ea => ea.lock
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
+  | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
 
 /-- V5 (D343) — `Op.mnemonic` over the nested VEX forms: V3's and V4's arms, verbatim.
 V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
 def VexOp.mnemonic : VexOp → String
-  | .vexmov k .. => "v" ++ k.mnemonic
-  | .vexddup .. => "vmovddup"
-  | .vexbin k .. | .vexbinm k .. => "v" ++ k.mnemonic
+  | .vexmov k .. | .vexmov256 k .. => "v" ++ k.mnemonic
+  | .vexddup .. | .vexddup256 .. => "vmovddup"
+  | .vexbin k .. | .vexbinm k .. | .vexbin256 k .. => "v" ++ k.mnemonic
   | .vexaes k .. => k.vexMnemonic
   | .vexclmul .. => "vpclmulqdq"
   | .vexshufb .. => "vpshufb"

@@ -492,7 +492,19 @@ def knownDivergences : List KnownDivergence :=
        mk s!"btr_mr_neg_{w}" "cf" negCf, mk s!"btc_mr_neg_{w}" "cf" negCf]) ++
    (rdxMem.flatMap fun (w, st) => [mk s!"btr_mr_neg_{w}" mem st, mk s!"btc_mr_neg_{w}" mem st]) ++
    (rcxMem.flatMap fun (w, st) => [mk s!"btr_mr_{w}" mem st, mk s!"btc_mr_{w}" mem st]) ++
-   [mk "lock_btsl_neg" "cf" negCf, mk "lock_btsl_neg" mem negCf])
+   [mk "lock_btsl_neg" "cf" negCf, mk "lock_btsl_neg" mem negCf]) ++
+  -- ⛔⛔ V6 (D344) — ACL2 x86isa COMPUTES XOR FOR VEX.256 VANDPS. Its `inst-listing.lisp` row for
+  -- `VANDPS` with `:VEX '(:0F :NDS :256)` passes `(operation . #x5)`, and `#x5` is `*OP-XOR*`
+  -- (`portcullis/sharp-dot-constants.lisp`), where every other AND row, including VANDPS VEX.128 and
+  -- VANDPD VEX.256, passes `#.*OP-AND*`. Found by the differential: 88 of 88 cases of `vandps_yyy`
+  -- disagree in both lanes of ymm0, by exactly SRC1 XOR SRC2, and nowhere else. The entry names the two
+  -- fields of the one vector that carries the form, so a model defect in VANDPS VEX.256 is now visible
+  -- only through the shared `vbinApply .andps` (agreeing at VEX.128) and the lane rule (agreeing on
+  -- the other 38 VEX.256 vectors). That is a stated limit, not a check.
+  (["xmm0", "ymmhi0"].map fun f =>
+    { vec := "vandps_yyy", field := f
+    , source := "SDM Vol. 2B ANDPS, VEX.256 encoded version: DEST[255:0] ← SRC1[255:0] BITWISE AND SRC2[255:0] · x86isa's own VEX.128 VANDPS and VEX.256 VANDPD rows, which pass *OP-AND* · processor: Rosetta 2 x86-64 translation on an Apple M4 Pro (NOT silicon) computes AND in both lanes on case 0's operands (D344)"
+    , note := "D344" })
 
 /-- ⭐ D331: the pre-state index of a case id, the number after its `/` (`bt_mr_w/17` ⇒
 17).  An id with no such suffix reads as a number no `states` list contains. -/
@@ -5729,7 +5741,9 @@ tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin o
 table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy \
 destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy \
 form preserves them, and the differential record compares those bits on both sides. Register forms \
-only, save `vpxor`'s m128 form (D342), which has no alignment check; VEX.256 (VEX.L = 1) is not taken. Decode trust here is LLVM `objdump`'s, which decodes a \
+only, save `vpxor`'s m128 form (D342), which has no alignment check. Every register form is also \
+differentially tested at VEX.256 (VEX.L = 1, V6, D344): " ++ toString vex256Vectors.length ++ " more forms, each \
+computing the 128-bit function in each lane and WRITING bits 255:128. Decode trust here is LLVM `objdump`'s, which decodes a \
 legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries \
 one (D341).\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable
@@ -5793,6 +5807,7 @@ one (D341).\n\n"
       let n := 8
       IO.println s!"vectors={vectors.length} mnemonics={(vectors.map Vec.mnemonic).eraseDups.length} \
 vex-vectors={vexVectors.length} vex-mnemonics={(vexVectors.map Vec.mnemonic).eraseDups.length} \
+vex256-vectors={vex256Vectors.length} \
 pre-states={(preStates 1 n).length} cases={allVectors.length * (preStates 1 n).length}"
       return 0
   | _ =>
