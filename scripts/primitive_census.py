@@ -422,6 +422,38 @@ def model_forms(work):
 
 
 
+def vex_forms(work, forms):
+    """⭐ D342 (a): {form: [vector id, …]} for the VEX table's differential vectors (`vexVectors`, D341) — the forms
+    `emit-asm … all` adds to the main table's. A THIRD population: differentially tested like the main table, but not
+    counted in its published figures (199 mnemonics, 1198 vectors), so it is credited in a labelled cell beside the
+    silicon one and never in ALL COVERED. ⛔ It refuses if the two emissions overlap in a form."""
+    asm = os.path.join(work, "vectors-all.s")
+    q = subprocess.run(["lake", "env", ".lake/build/bin/x86lean-diff", "emit-asm", asm, "all"],
+                       cwd=ROOT, capture_output=True, text=True)
+    if q.returncode != 0:
+        print("⛔ could not emit the VEX vectors (build x86lean-diff first):\n" + q.stdout + q.stderr)
+        sys.exit(2)
+    obj = os.path.join(work, "vectors-all.o")
+    rc, out = clang(["-c", asm, "-o", obj])
+    if rc != 0:
+        print("⛔ the full vector table does not assemble:\n" + out)
+        sys.exit(2)
+    allf = collections.defaultdict(list)
+    for vid, ins in disassemble(obj).items():
+        for i in ins:
+            r = form_of(i["text"])
+            if r is not None:
+                allf[r[0]].append(vid)
+    vex = {f: v for f, v in allf.items() if f not in forms}
+    if not vex or not all(f[0].startswith("v") for f in vex):
+        raise SystemExit("⛔ VEX: the full emission adds no form, or adds a non-VEX one: "
+                         + ", ".join(fmt_form(f) for f in vex if not f[0].startswith("v")))
+    return vex
+
+
+VEX_LABEL = "VEX table: differentially tested against x86isa (D341), NOT counted in the published 199/1198"
+
+
 # ── the silicon side (D332): a SEPARATE column, never pooled ────────────────
 # ⚖️ THE RULING (the helm, 2026-10-10): count MECHANISMS, not voices.  A form
 # `siliconTable` refers to a processor is refereed by `hwprobe/` (rows derived
@@ -440,12 +472,17 @@ def model_forms(work):
 # `simda_probe.c`), refereed by a DIFFERENT AMD part (its run drew an EPYC 9V45).  So the referees are named PER
 # DECISION, every name must be in its own decision's text, and the label names every pair — a header naming one
 # pair over forms another pair refereed would be a claim.
+# D342's referees, as its result paragraph records them (each name must be in D342's text; `silicon_forms` refuses
+# otherwise).
+D342_REFEREES = ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Core i7-8700B")
 SILICON_REFEREES = (
     ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
     # D338 (V2): the SHA-NI path. The i7-8700B has no SHA-NI and REFUSES by CPUID, so it is NOT a D338 referee;
     # the Intel reading is an ubuntu-latest draw (runs 38583936507, 38585577976, 38588753153).
     ("D338", ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Xeon 6973P-C")),
+    # D342 (V4): the AES-NI / VPCLMULQDQ / VEX-shuffle path; filled from its hwprobe runs' CPU lines.
+    ("D342", D342_REFEREES),
 )
 SILICON_DECISION = "D334"
 SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
@@ -460,6 +497,8 @@ SILICON_PATHS = (
     ("mk_simda_rows.py", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
     # D338 (V2): the SHA-NI path (SHA256MSG1/MSG2/RNDS2), its functions `h_*`.
     ("mk_sha_rows.py", "sha_probe.c", "h_", r'^  \{"[^"]+", (h_\w+), \{'),
+    # D342 (V4): the AES-NI / VPCLMULQDQ / VEX-shuffle path, its functions `e_*`.
+    ("mk_aes_rows.py", "aes_probe.c", "e_", r'^  \{"[^"]+", (e_\w+), [13], \{'),
 )
 
 
@@ -560,9 +599,13 @@ SILICON_COL = "silicon-refereed (" + SILICON_PAIRS + ", hwprobe; NOT a semantic 
 
 def silcell(r):
     """The per-row silicon cell: the row's not-covered forms the processors referee."""
-    if not r.get("silicon"):
+    if not r.get("silicon") and not r.get("vex"):
         return "—"
-    v = ", ".join(f"`{fmt_form(f)}`×{k}" for f, k in sorted(r["silicon"].items(), key=lambda t: -t[1]))
+    v = ", ".join(f"`{fmt_form(f)}`×{k}" for f, k in sorted(r.get("silicon", {}).items(), key=lambda t: -t[1]))
+    if r.get("vex"):
+        # D342 (a): the VEX table's forms, in their own labelled part of the cell.
+        v += ("; " if v else "") + "VEX table (D341): " + ", ".join(
+            f"`{fmt_form(f)}`×{k}" for f, k in sorted(r["vex"].items(), key=lambda t: -t[1]))
     return v + (" · **COVERED WITH SILICON**" if r.get("with_silicon") else "")
 
 
@@ -577,16 +620,21 @@ def check_disjoint(forms, sil):
                                   "differential column)")
 
 
-def classify_silicon(rows, sil):
+def classify_silicon(rows, sil, vex=None):
     """Mark each row's silicon-refereed not-covered forms, and the separate
     verdict COVERED WITH SILICON.  ⛔ It never touches `all`: that is the
-    differential's verdict, and `check_no_pooling` refuses if it moved."""
+    differential's verdict, and `check_no_pooling` refuses if it moved.
+    ⭐ D342 (a): a not-covered form in the VEX table (`vex`, differentially tested but outside the published
+    figures) is marked in its own key and counts toward COVERED WITH SILICON beside the silicon forms."""
+    vex = vex or {}
     for r in rows:
         if "error" in r:
             continue
         r["silicon"] = {f: k for f, k in r["missing"].items() if f in sil}
+        r["vex"] = {f: k for f, k in r["missing"].items() if f in vex and f not in sil}
         r["with_silicon"] = (not r["all"] and not r["external"] and not r["badmodes"]
-                             and bool(r["missing"]) and len(r["silicon"]) == len(r["missing"]))
+                             and bool(r["missing"])
+                             and len(r["silicon"]) + len(r["vex"]) == len(r["missing"]))
     return rows
 
 
@@ -788,7 +836,7 @@ def simd_content(forms):
 
 
 def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=None,
-           sil=None, s2n_sil=None):
+           sil=None, s2n_sil=None, vex=None):
     L = []
     sib_all = set().union(*[r["sibling"] for r in rows if "error" not in r])
     w = L.append
@@ -835,6 +883,11 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
           "pre-states — so those forms are credited in a separately labelled column and "
           "verdict, **never in ALL COVERED**. The two counts may be cited side by side, "
           "never summed.")
+    if vex is not None:
+        w(f"- **A third population, labelled in the same column (D342).** {len(vex)} forms are executed only by the "
+          f"VEX table's vectors ({VEX_LABEL}): they ARE differentially tested, but the published figures above "
+          "(and ALL COVERED) count the main table alone, so a candidate's VEX-table forms are marked `VEX table` in the "
+          "silicon column and count toward COVERED WITH SILICON, never toward ALL COVERED.")
     w("")
     if simd:
         w("## The vectors' SIMD and floating-point content (derived)\n")
@@ -899,13 +952,14 @@ def render(meta, nvec, nforms, modes_ok, rows, unlock, strict_ok, all_s2n, simd=
         w(f"**Referee: {SILICON_LABEL}.** A candidate is COVERED WITH SILICON when it is not "
           "ALL COVERED, does not call out of its object, uses only addressing modes the "
           "vectors use, and every form it lacks is a `siliconTable` form the processor probe "
-          "executed. The verdict above is computed before these forms are loaded and the run "
+          "executed (or, D342, a VEX-table form the differential tests outside the published figures). "
+          "The verdict above is computed before these forms are loaded and the run "
           "refuses if any differential verdict moves after (D332).\n")
         w(f"**{len(ok_d)} ALL COVERED (differential, x86isa) · {len(ws)} COVERED WITH SILICON "
           "(processors, hwprobe)** — two instruments, two counts, cited side by side and never "
           "added. "
           + ("COVERED WITH SILICON: " + ", ".join(f"`{r['id']}`" for r in ws) + "." if ws else "") + "\n")
-        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s, `hwprobe/mk_simda_rows.py`'s and `hwprobe/mk_sha_rows.py`'s declared bytes, keyed by "
+        w("The silicon-refereed forms (from `hwprobe/mk_int_rows.py`'s, `hwprobe/mk_shuf_rows.py`'s, `hwprobe/mk_simda_rows.py`'s, `hwprobe/mk_sha_rows.py`'s and `hwprobe/mk_aes_rows.py`'s declared bytes, keyed by "
           "the same disassembler and classifier as both other sides):\n")
         by = collections.defaultdict(list)
         for f in sil:
@@ -1040,7 +1094,12 @@ def run(src, work, out):
     # exist in this process, and every guard below compares against it.
     snapshot = {r["id"]: bool(r["all"]) for r in rows if "error" not in r}
     sil = silicon_forms(work)
-    why = check_disjoint(forms, sil) or check_no_pooling(snapshot, classify_silicon(rows, sil))
+    vex = vex_forms(work, forms)
+    both = sorted(fmt_form(f) for f in vex if f in sil)
+    if both:
+        print("⛔ D342 NO-POOLING: form(s) in BOTH the VEX table and the silicon column: " + ", ".join(both))
+        sys.exit(3)
+    why = check_disjoint(forms, sil) or check_no_pooling(snapshot, classify_silicon(rows, sil, vex))
     if why:
         print("⛔ D332 NO-POOLING: " + why)
         sys.exit(3)
@@ -1061,7 +1120,7 @@ def run(src, work, out):
             tot += 1
             score(r, forms, modes_ok, mnems)
             d_all = bool(r["all"])
-            classify_silicon([r], sil)
+            classify_silicon([r], sil, vex)
             if bool(r["all"]) != d_all:
                 print(f"⛔ D332 NO-POOLING: s2n `{nm}` changed differential verdict")
                 sys.exit(3)
@@ -1088,7 +1147,7 @@ def run(src, work, out):
     meta = {"toolchain": f"`{q.stdout.splitlines()[0]}`, `-target {TARGET}`, "
                          f"`{' '.join(CFLAGS)}`, disassembled by `objdump` (LLVM)"}
     text = render(meta, nvec, len(forms), modes_ok, rows, unlock, strict_ok, (tot, okn, byext),
-                  simd_content(forms), sil, s2n_sil)
+                  simd_content(forms), sil, s2n_sil, vex)
     ok = [r["id"] for r in rows if r.get("all") and not r.get("external")]
     if sorted(ok) != sorted(i for i, a in snapshot.items() if a and not byid[i]["external"]):
         print("⛔ D332 NO-POOLING: the ALL COVERED list differs from the pre-silicon snapshot")
@@ -1111,6 +1170,9 @@ def run(src, work, out):
           f"{len(sil)} forms of {len({silicon_key(f, set(silicon_mnemonics())) for f in sil})} siliconTable mnemonics; "
           f"{len(ws)} COVERED WITH SILICON: " + " ".join(ws)
           + f"; s2n appendix {len(s2n_sil)} COVERED WITH SILICON")
+    print(f"primitive-census: VEX TABLE (separate, never summed; {VEX_LABEL}): {len(vex)} forms; credited in "
+          f"{sum(1 for r in rows if r.get('vex'))} candidate row(s): "
+          + " ".join(r["id"] for r in rows if r.get("vex")))
     print("primitive-census: controls OK (CRC-32 PoC covered; SHA-NI routine refused; "
           "differential verdict unmoved by the silicon column)")
     return 0
@@ -1205,7 +1267,21 @@ def selftest():
     # plant 3: a silicon form placed in the differential set
     if check_disjoint(dforms, sil) is not None or check_disjoint({**dforms, **sil}, sil) is None:
         print("⛔ check_disjoint does not separate the two sets"); bad += 1
-    print("primitive-census selftest:", "FAIL" if bad else f"OK ({len(cases)} shapes + 11 arms)")
+    # D342 (a): a VEX-table form counts toward COVERED WITH SILICON beside a silicon one, never toward ALL COVERED
+    VX = ("vpxor", ("xmm", "xmm", "xmm"))
+    vx = {VX: ["vpxor_xxx"]}
+    rs = [dict(id=i, forms=fs, modes={}, external={}) for i, fs in
+          (("vex-only", {VX: 1}), ("vex-and-sil", {VX: 1, MX: 1}), ("vex-and-other", {VX: 1, ("vpmulld", ("xmm",)): 1}))]
+    for r in rs:
+        score(r, dforms, smods, set())
+    snap = {r["id"]: bool(r["all"]) for r in rs}
+    why = check_no_pooling(snap, classify_silicon(rs, sil, vx))
+    got = [r["id"] for r in rs if r["with_silicon"]]
+    if why or got != ["vex-only", "vex-and-sil"] or any(r["all"] for r in rs):
+        print(f"⛔ D342 VEX classification: why={why} with_silicon={got}"); bad += 1
+    if [r["id"] for r in classify_silicon(rs, sil) if r["with_silicon"]] != []:
+        print("⛔ D342: without the VEX table, a VEX-only row read COVERED WITH SILICON"); bad += 1
+    print("primitive-census selftest:", "FAIL" if bad else f"OK ({len(cases)} shapes + 13 arms)")
     return 1 if bad else 0
 
 

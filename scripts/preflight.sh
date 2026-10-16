@@ -67,6 +67,9 @@ else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
 # D338: the SHA-NI pins, from hwprobe's SHA rows.
 if python3 hwprobe/mk_sha_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_sha_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_sha_anchors --check\n"; rc=1; fi
+# D342: the AES-NI / VPCLMULQDQ / VEX-shuffle pins, from hwprobe's AES rows.
+if python3 hwprobe/mk_aes_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_aes_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_aes_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.

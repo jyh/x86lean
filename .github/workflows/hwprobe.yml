@@ -75,6 +75,13 @@ jobs:
           else
             sysctl -n machdep.cpu.leaf7_features | tr ' ' '\n' | grep -x SHA || echo "SHA: NOT REPORTED"
           fi
+          # D342: the AES path needs AES-NI, PCLMULQDQ and AVX (CPUID.01H:ECX bits 25, 1, 28, with OSXSAVE and XCR0's SSE
+          # and AVX state). aes_probe reads CPUID and XCR0 itself and refuses (exit 3) without them, so this is a record.
+          if [ -r /proc/cpuinfo ]; then
+            grep -m1 -ow -e aes -e pclmulqdq -e avx /proc/cpuinfo | sort -u | tr '\n' ' '; echo
+          else
+            sysctl -n machdep.cpu.features | tr ' ' '\n' | grep -x -e AES -e PCLMULQDQ -e AVX1.0 || echo "AES/PCLMULQDQ/AVX: NOT REPORTED"
+          fi
 
       - name: Rows, derived from the rules (never typed)
         working-directory: hwprobe
@@ -108,6 +115,13 @@ jobs:
           python3 mk_sha_rows.py --plant > sha_rows_plant.h
           python3 mk_sha_rows.py --plant-op > sha_rows_badop.h
           python3 mk_sha_rows.py --plant-wk > sha_rows_wk.h
+          python3 mk_aes_rows.py --selftest
+          python3 mk_aes_rows.py --refuse-wrong
+          python3 mk_aes_rows.py --reach
+          python3 mk_aes_rows.py > aes_rows.h
+          python3 mk_aes_rows.py --plant > aes_rows_plant.h
+          python3 mk_aes_rows.py --plant-op > aes_rows_badop.h
+          python3 mk_aes_rows.py --plant-hi > aes_rows_hi.h
 
       - name: Build
         working-directory: hwprobe
@@ -147,6 +161,11 @@ jobs:
           for v in plant badop wk; do
             sed "s/\"sha_rows.h\"/\"sha_rows_$v.h\"/" sha_probe.c > sha_probe_$v.c
             gcc -O1 -o sha_probe_$v sha_probe_$v.c sha_ops.S
+          done
+          gcc -O1 -o aes_probe aes_probe.c aes_ops.S
+          for v in plant badop hi; do
+            sed "s/\"aes_rows.h\"/\"aes_rows_$v.h\"/" aes_probe.c > aes_probe_$v.c
+            gcc -O1 -o aes_probe_$v aes_probe_$v.c aes_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -376,6 +395,41 @@ jobs:
           echo "⚠️ ${{ matrix.os }}: SHA-NI absent by CPUID — the SHA controls and the SHA referee did NOT run on this leg."
           echo "   This leg contributes NO SHA reading; D338's vendor coverage must come from a SHA-capable leg."
 
+      # D342: THE AES-NI / PCLMULQDQ / VEX PATH (AESENC, AESENCLAST legacy; VAESENC, VAESENCLAST, VPCLMULQDQ, VPSHUFB,
+      # VPALIGNR, VPSLLDQ, VPSRLDQ VEX.128). D342 predicts EVERY leg has AES-NI, PCLMULQDQ and AVX — including
+      # `macos-15-intel`'s i7-8700B, unlike SHA-NI — so a CPUID refusal (exit 3) is accepted on NO leg: it fails the job.
+      # Each row compares all 256 bits of the destination's YMM register and of the other two.
+      - name: AES controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./aes_probe --cpuid
+          set +e
+          ./aes_probe_plant > aes_plant.out; rc_plant=$?
+          ./aes_probe_badop > aes_badop.out; rc_badop=$?
+          ./aes_probe_hi > aes_hi.out; rc_hi=$?
+          set -e
+          head -1 aes_plant.out; grep '^DIFF' aes_plant.out; cat aes_badop.out; grep '^DIFF' aes_hi.out
+          echo "aes plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' aes_plant.out)" = 1
+          grep -q '^DIFF aesenc_edge0 ' aes_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED e_aesenc:' aes_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' aes_hi.out)" = 1
+          grep -q '^DIFF vaesenc_edge0 ' aes_hi.out
+
+      - name: AES referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./aes_probe > aes.out; rc=$?
+          set -e
+          head -1 aes.out
+          grep -v '^ok  ' aes.out || true
+          echo "aes rc=$rc"
+          test "$rc" = 0
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4
@@ -403,3 +457,10 @@ jobs:
         with:
           name: sha-${{ matrix.os }}
           path: hwprobe/sha*.out
+
+      - name: AES-NI / CLMUL / VEX rows, full listing (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aes-${{ matrix.os }}
+          path: hwprobe/aes*.out

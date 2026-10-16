@@ -22024,3 +22024,125 @@ one. The differential runs `allVectors = vectors ++ vexVectors`; the roster figu
 and `docs/COVERAGE.md`'s headline are byte-unchanged, and `COVERAGE.md` states the VEX population in a section of its own.
 `Tests.CoverageVex` read 3000 ms and `Tests.AnchorsVex` 35.3 ms as NEW units; their lines are in `scripts/kernel_ceilings.txt`
 (9000, 106 @on yukon.lan), copied from the gate's output.
+
+## D342 — V4: completing `vale-aesgcm` — AES-NI and VEX forms refereed by silicon, the VEX memory form of `vpxor`, and the census crediting the VEX table (predictions committed before any model, oracle or hardware work)
+
+**Why these.** After V3 (D341) the primitive census's ladder step 5 still lists ten forms `vale-aesgcm` needs that nothing
+referees:
+- **legacy:** `aesenc xmm,xmm` ×27 · `aesenclast xmm,xmm` ×3;
+- **VEX.128:** `vpclmulqdq imm,xmm,xmm,xmm` ×200 · `vaesenc xmm,xmm,xmm` ×162 · `vpshufb xmm,xmm,xmm` ×35 · `vpalignr imm,xmm,xmm,xmm` ×20 ·
+  `vaesenclast xmm,xmm,xmm` ×18 · `vpslldq imm,xmm,xmm` ×10 · `vpsrldq imm,xmm,xmm` ×10;
+- **VEX memory:** `vpxor m,xmm,xmm` ×25.
+
+Separately, `demand_census.py` reads COVERAGE.md only up to its VEX section (D341), so V3's 33 differentially tested VEX twins
+(`vpxor xmm,xmm,xmm` ×238 and `vpaddd` ×42 among them) are credited to no candidate. V4 has three parts:
+- **(a)** the census credits the VEX table, in a separately labelled population exactly as D337 credits silicon;
+- **(b)** `vpxor m,xmm,xmm`, whose referee is decided by the oracle's execution;
+- **(c)** the nine refusers, on silicon.
+
+**The rules (SDM Vol. 2A/2B AESENC, AESENCLAST, PCLMULQDQ, PSHUFB, PALIGNR, PSLLDQ, PSRLDQ; FIPS-197 §5.1 for the round functions):**
+- **AESENC:** STATE := SRC1; STATE := ShiftRows(STATE); STATE := SubBytes(STATE); STATE := MixColumns(STATE);
+  DEST := STATE ⊕ SRC2 (the round key).
+- **AESENCLAST:** the same without MixColumns. The state is the 16 bytes in FIPS-197's column-major order, byte 0 = SRC1[7:0].
+- **PCLMULQDQ:** imm8[0] selects SRC1's quadword (0 low, 1 high), imm8[4] selects SRC2's; DEST := the 127-bit carry-less product,
+  bit 127 = 0. imm8's other bits are ignored.
+- **VEX.128 forms:** compute the legacy rule with `vvvv` as the first source and write through `Xmms.setVex128`, so the
+  destination's bits 255:128 are ZEROED (D341). The legacy forms write through `Xmms.set`, so they are PRESERVED.
+  `vpshufb`/`vpalignr`/`vpslldq`/`vpsrldq` reuse V1b's (D336) and the existing byte-shift rules unchanged.
+- **NO-FLAGS:** every form: "Flags Affected: None".
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Oracle.** The nine of (c) REFUSE at 88 of 88 pre-states (D339 measured all nine; re-run at this master before any referee is
+   fixed). `vpxor m,xmm,xmm` EXECUTES at 88 of 88 and goes to the differential with its legacy twin's memory shape, while the eight
+   other differentially tested VEX memory twins are NOT taken (no candidate needs them). A refuser that executes moves to the
+   differential instead.
+2. **Silicon.** Every row agrees on every processor read. Every leg is AES-NI + PCLMULQDQ + AVX capable, INCLUDING the
+   `macos-15-intel` i7-8700B (Coffee Lake has all three, unlike SHA-NI in D338). So unlike V2, the 8700B leg REFEREES rather than
+   refusing by CPUID, and the run has an Intel reading without a lucky draw.
+   - Each VEX row reads the destination's FULL YMM register (bits 255:128 seeded non-zero before the instruction), so a processor
+     that did not zero the upper half would disagree.
+   - Known-answer rows: FIPS-197 Appendix B's round-by-round AES-128 state through `aesenc` ×9 + `aesenclast`; the GCM carry-less
+     product example from Intel's CLMUL white paper (Gueron and Kounavis), computed by a textbook implementation that `--selftest`
+     holds to both.
+3. **Census (a).**
+   - VEX-table forms are credited in a labelled line beside the silicon line.
+   - The headline differential verdict does not move.
+   - `vale-aesgcm` becomes COVERED WITH SILICON only after (b) and (c) land; nothing else in it moves.
+   - The published counts (199 mnemonics, 1,198 vectors) do not move; VEX stays its own population.
+4. **Kernel cost.** The pins go in their own metered module from the start, `Tests/AnchorsAes.lean`. Every NEW unit is registered in
+   BOTH `scripts/kernel_ceilings.txt` (the printed `@on` line) AND `scripts/ku_delta_budget.txt` (the printed `@ku` line). The
+   ku registration was V3's miss (#99), so this commits to it before the build.
+
+**Refutation routes:**
+- a refuser that executes (refutes 1);
+- a silicon row disagreeing with the rule;
+- a KAT that the textbook and the rule disagree on before any processor — the generator refuses a rule with ShiftRows and SubBytes
+  swapped (which commute, so this must be caught by a MixColumns-sensitive row, not assumed), with MixColumns on the last round, or
+  with PCLMULQDQ's selector bits read as imm8[1:0].
+**Result, prediction 1 (oracle, measured 2026-10-15 on yukon.lan at master `9d81f4b`'s sources, before any model or hardware
+work): HELD.** `oracle_availability.py` (48 forms): the nine of (c) — `aesenc`, `aesenclast`, `vaesenc`, `vaesenclast`,
+`vpclmulqdq`, `vpshufb`, `vpalignr`, `vpslldq`, `vpsrldq` — each REFUSE at 88 of 88 (0 executed, 0 stalled); the new row
+`vpxor (%rbx), %xmm2, %xmm0` (`c5e9ef03`) EXECUTES at 88 of 88; both controls executed; the gate reads CLEAN. Every row's
+bytes were checked by hand against clang's assembly (D339's note: `--check-encodings` does not read `FORMS`). The eight
+other VEX memory twins were not taken. **Part (b), the differential (reference model `acl2@c8897a34d3ef`):**
+`cases=109032 matched=85975 explained=34155 unexplained=0 oracle-divergence=616 oracle-leaks=0 missing=0` — two vectors,
+`vpxor_xxm` (the legacy `pxor_m` shape) and `vpxor_x9x13m_u` (a misaligned m128 at 0x2001 with xmm9/xmm13, the one rule
+where the VEX form departs from the legacy one: no alignment check, as x86isa's `logical.lisp` states with `inst-ac? nil`),
+add 176 cases, all matched; every other total is V3's. `Op.vexbinm` is taken for `vpxor` alone (`VBinKind.vexMemTaken`).
+**Result, prediction 2 (silicon, branch `paris/v4-aes-silicon` at `0db31e6`): HELD, BOTH VENDORS, AND THE i7-8700B
+REFEREES.** `hwprobe/aes_probe` read all 207 rows (`mk_aes_rows.py`: per AES form 8 edge + 8 seeded random + the KATs,
+VPCLMULQDQ at eight imm8 values with the white paper's five vectors, VPSHUFB 16, VPALIGNR at 13 imm8 values, VPSLLDQ/VPSRLDQ
+at 9 each) with **0 disagreements on every leg**, each row comparing all 256 bits of the destination's YMM register (bits
+255:128 seeded non-zero, so the VEX zeroing and the legacy preservation are both read), all 256 bits of the other two and
+the six arithmetic flags. Two runs, one of them a dispatch (of the at-most-six allowed): push run 38814323211 —
+ubuntu-latest **AMD EPYC 7763** (CPUID.01H:ECX `feda3203`, XCR0 `07`) 207/207 and macos-15-intel **Intel Core i7-8700B**
+(`fefa7a37`, XCR0 `07`) 207/207; dispatch 38814623311 — ubuntu-latest **AMD EPYC 9V45** (`fefa3203`, XCR0 `e7`) 207/207 and
+the **Intel Core i7-8700B** again 207/207. AES=1 PCLMULQDQ=1 AVX=1 on all four legs: unlike V2's SHA-NI, the Coffee Lake leg
+REFEREES, so the run has an Intel reading without a lucky draw. The controls, on every leg: the HIGH-quadword plant reds
+exactly `aesenc_edge0` (rc 1), the wrong declared byte refuses the run (rc 2, `REFUSED e_aesenc`), and the upper-half plant
+(one VEX row's expectation keeping YMM3's bits 255:128 instead of zeroing them) reds exactly `vaesenc_edge0` (rc 1).
+Generator-side, before any processor: the textbook AES-128 reproduces FIPS-197 Appendix B (its start-of-round-2 state
+`a49c7ff2…5049` and ciphertext `3925841d…0b32`) and Appendix C.1 (`69c4e0d8…c55a`); its S-box (from b^254 and the affine
+map, bit by bit) equals the rule's (from the GF(2^8) inverse); the textbook CLMUL reproduces the white paper's five test
+vectors, read from the paper itself (rev. 2.02: imm 0x10 multiplies xmm2's HIGH quadword by xmm1's LOW one); every one of
+the 45 KAT rows agrees with the rule (`build` refuses otherwise), and every AES KAT expectation changes when SRC1 and SRC2
+are swapped. `--refuse-wrong`: MixColumns on the last round is refused on `kat_b_r10` (aesenclast), PCLMULQDQ's selectors
+read as imm8[1:0] on `kat_wp2` (imm 0x10), and MixColumns before ShiftRows on `kat_b_r1` (aesenc). ⚠️ **A miss in D342's own
+text:** the first wrong rule it names, *ShiftRows and SubBytes swapped*, is not a wrong rule at all — SubBytes acts per byte
+and ShiftRows only permutes bytes, so they COMMUTE and no row can tell them apart (`--reach` prints 0 disagreements on all
+207). The MixColumns-sensitive wrong rule refused in its place is MixColumns before ShiftRows, which every aesenc/vaesenc row
+can see (30 of 34) and no aesenclast row can (0 of 18). **The model** (`Op.vaes`, `Op.vexaes`, `Op.vexclmul`, `Op.vexshufb`,
+`Op.vexalignr`, `Op.vexshiftdq`; register forms only): all 207 rows pinned by `decide` in `Tests/AnchorsAes.lean`. **Red
+backwards:** MixColumns applied on the last round reds exactly `v4_aesenclast_pins` and `v4_vaesenclast_pins`; the CLMUL
+SRC2 selector read from imm8[1] reds exactly `v4_vpclmulqdq_10/11/02/ee_pins`, the four imm8 values where bit 1 and bit 4
+differ. `axiom_gate.sh`: CLEAN over 5147 declarations. siliconTable 30 → 39 (the VEX forms are silicon rows, not
+`vexTable` rows: `Tests.CoverageVex` requires a differential vector for every `vexTable` row, which a form the oracle
+refuses cannot have).
+**Result, prediction 3 (census (a), regenerated 2026-10-15 at `fc5f3e1`): HELD.** `primitive_census.py`: the VEX table's
+34 forms (`emit-asm … all` minus the main table's) are credited in the silicon column under their own `VEX table (D341)`
+label and count toward COVERED WITH SILICON, never toward ALL COVERED, and the run refuses if a form is in both the VEX
+table and the silicon column. **ALL COVERED stays 42 of 57**, the header stays `vectors=1198 forms=962`, the unlock (22
+forms for 7) and the 5-step ladder are unchanged; **COVERED WITH SILICON 6 → 7: `vale-aesgcm` joins, and no other candidate
+moved** (s2n appendix 206 of 332, its silicon line 67, both unchanged). `vale-aesgcm`'s 16 missing forms now read 13
+silicon-refereed (the nine of (c) plus V1b's `pshufb`, `pinsrq`, `pinsrd`, `pextrq`) and 3 in the VEX table (`vpxor
+xmm,xmm,xmm` ×238, `vpaddd` ×42, and (b)'s `vpxor m,xmm,xmm` ×25), so its verdict needs (b) and (c) both, as predicted.
+siliconTable 39 mnemonics, 84 forms. `demand_census.py`: the Model reads COVERAGE.md's VEX section; a VEX-128 instruction
+whose mnemonic is a VEX-table row is a class of its own, printed on a labelled line beside the silicon line, and one whose
+mnemonic is a `siliconTable` row lands on the silicon line. **(a) is unchanged in every column** (the run's own no-pooling
+check passed: cc1 5,378,222 · coreutils 865,527 · glibc 559,250 · dav1d 195,087 · ffmpeg 2,987,538 · vlc-codec 150,727 ·
+vlc-video_chroma 98,858 · vpx 655,525 · x264 334,441 · vmlinux 2,767,164; assembly class 4,422,176 of 4,784,269). The VEX
+line reads cc1 0 · coreutils 95 · glibc 2,104 · dav1d 3,266 · ffmpeg 16,064 · vlc-codec 0 · vlc-video_chroma 0 · vpx 1,402 ·
+x264 6,116 · vmlinux 37 (top: `vmovdqa` 7,524, `vpaddw` 4,434, `vpaddd` 3,619); the silicon line grows by D338's and D342's
+demand (pooled assembly class 74,407 → 75,863). The published counts (199 mnemonics, 1,198 vectors) do not move. P2-ROSTER:
+gap 362,093 and joined 327,290 unchanged. `--selftest` PASS (220), `census_redprobe.py` PASS (control + 33: the new
+mutation pools the VEX class into covered and is caught), `--check` CLEAN (238 mnemonics, sha `eb3420f16cbe4c9a`).
+**Result, prediction 4 (kernel cost, yukon.lan, `9d81f4b` → `fc5f3e1`): HELD.** The 207 pins live in `Tests/AnchorsAes.lean`
+from the first commit (`Tests.Anchors` Δku **+0**). `kernel_delta.py --repeats 3` refused the NEW unit and printed
+`Tests.AnchorsAes 10290 @on yukon.lan` (head 3430.0 ms); ARM A′ refused it and printed `Tests.AnchorsAes @ku 1611835`. Both
+lines are copied into `scripts/kernel_ceilings.txt` and `scripts/ku_delta_budget.txt` (`3d596e2`), and the re-run ARM A′ reads
+CLEAN — so V3's miss (#99) is not repeated. Δku elsewhere: `Tests.Coverage` +127,310 of 724,129, `Tests.CoverageVex` +31,809
+of 245,025, `X86.Syntax` +2,025 of 6,884, `X86.Theorems` +433. ⚠️ In the same 3-repeat run two existing units read
+UNMEASURABLE, neither over budget: `X86.Syntax` +59.0 ms ± 45.8 against 100.0 (the seven new `Op` constructors' cost; loads
+5.8–8.0), and `Tests.Vectors` +0.0 ± 8.5 against 8.2 — recorded as read, budgets not widened; every other unit read `ok`.
+The delta-allowance ledger row is taken at landing, not here. **Not done:** memory forms of the nine (the census needs none),
+VEX.256, and any VEX memory twin but `vpxor`'s.

@@ -86,7 +86,13 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vbin .packssdw .x0 .x1).mnemonic,
       -- D338 (V2): one `ShaKind` kind per row, on `Op.vsha`.
       (Op.vsha .msg1 .x1 .x2).mnemonic, (Op.vsha .msg2 .x1 .x2).mnemonic,
-      (Op.vsha .rnds2 .x1 .x2).mnemonic] := by decide
+      (Op.vsha .rnds2 .x1 .x2).mnemonic,
+      -- D342 (V4): AES-NI (legacy and VEX), VPCLMULQDQ and the VEX shuffles.
+      (Op.vaes .enc .x1 .x2).mnemonic, (Op.vaes .enclast .x1 .x2).mnemonic,
+      (Op.vexaes .enc .x3 .x1 .x2).mnemonic, (Op.vexaes .enclast .x3 .x1 .x2).mnemonic,
+      (Op.vexclmul .x3 .x1 .x2 0).mnemonic, (Op.vexshufb .x3 .x1 .x2).mnemonic,
+      (Op.vexalignr .x3 .x1 .x2 0).mnemonic, (Op.vexshiftdq true .x3 .x1 0).mnemonic,
+      (Op.vexshiftdq false .x3 .x1 0).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1104,7 +1110,9 @@ def isMemDestVector (v : Vec) : Bool :=
     | .vmovhl .. | .vddupR .. | .vddupM .. => false
     -- ⭐ V3 (D341), in the SAME COMMIT as the constructors: the VEX.128 register
     -- twins write an XMM register (and zero its YMM upper half), never memory.
-    | .vexmov .. | .vexddup .. | .vexbin .. => false
+    | .vexmov .. | .vexddup .. | .vexbin .. | .vexbinm .. => false
+    -- V4 (D342): the AES-NI / CLMUL / VEX-shuffle register forms write an XMM register, never memory.
+    | .vaes .. | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
     -- does not even READ.

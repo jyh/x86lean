@@ -735,6 +735,29 @@ reason: this is walked character by character inside a kernel `decide`). -/
 def ShaKind.mnemonic : ShaKind → String
   | .msg1 => "sha256msg1" | .msg2 => "sha256msg2" | .rnds2 => "sha256rnds2"
 
+/-- ⭐ V4 (D342): which AES round an AES-NI instruction performs.  `aesenc` is a
+middle round (ShiftRows, SubBytes, MixColumns, AddRoundKey); `aesenclast` the final
+one, WITHOUT MixColumns (SDM Vol. 2A AESENC/AESENCLAST; FIPS-197 §5.1). -/
+inductive AesKind where
+  | enc
+  | enclast
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- Every AES-NI encryption-round spelling taken. -/
+def AesKind.all : List AesKind := [.enc, .enclast]
+
+/-- Whether the round omits MixColumns. -/
+def AesKind.last : AesKind → Bool
+  | .enc => false | .enclast => true
+
+/-- The legacy spelling; literals, as `ShaKind.mnemonic`. -/
+def AesKind.mnemonic : AesKind → String
+  | .enc => "aesenc" | .enclast => "aesenclast"
+
+/-- The VEX.128 spelling; literals, as `ShaKind.mnemonic`. -/
+def AesKind.vexMnemonic : AesKind → String
+  | .enc => "vaesenc" | .enclast => "vaesenclast"
+
 /-- ⭐⭐ P2 BATCH 37 — WHICH LANE WIDTH A SIGN-MASK REDUCES, i.e. WHICH
 MNEMONIC.  `Op.vmovmsk` carried no field at all until this batch: it was built for
 `pmovmskb` alone (batch 23) and its lane count was the literal sixteen.
@@ -2085,6 +2108,36 @@ inductive Op where
   AND SRC2`).  Only the kinds `VBinKind.vexTaken` lists are taken (D339: the oracle
   executes exactly those); `step` refuses any other as unimplemented. -/
   | vexbin (k : VBinKind) (dst src1 src : XmmReg)
+  /-- ⭐⭐ V4 (D342) — THE VEX.128 TWIN OF A PACKED BINARY OPERATION, MEMORY form:
+  `dst := src1 op [ea]`, the 128-bit operand at `ea` in the place `vexbin` gives its
+  ModRM.rm register.  ⛔ NO ALIGNMENT CHECK, and that is the departure from `vbinm`: a
+  VEX-encoded m128 operand of Exception Type 4 does not fault on a misaligned address (SDM
+  Vol. 2A Table 2-21; x86isa's `logical.lisp` passes `inst-ac? nil` for the VEX form), where
+  the legacy form's #GP(0) is `vbinm`'s.  Only the kinds `VBinKind.vexMemTaken` lists are
+  taken (D342: `vpxor` alone, the one a candidate needs); `step` refuses any other. -/
+  | vexbinm (k : VBinKind) (dst src1 : XmmReg) (ea : Ea)
+  /-- ⭐⭐ V4 (D342) — AESENC / AESENCLAST between registers (legacy SSE, `66 0F 38 DC/DD /r`):
+  `dst := round(dst, src)`, the destination the STATE and `src` the round key; bits 255:128 of
+  the destination's YMM register are PRESERVED (`setXmm`).  No flag is written.  x86isa refuses
+  both; `hwprobe/` referees them (D342).  Register form only. -/
+  | vaes (k : AesKind) (dst src : XmmReg)
+  /-- ⭐⭐ V4 (D342) — VAESENC / VAESENCLAST (VEX.128 66 0F38 DC/DD): `dst := round(src1, src)`,
+  `src1` (VEX.vvvv) the state and `src` (ModRM.rm) the round key, written through `setXmmVex128`
+  (bits 255:128 ZEROED).  Register form only; silicon-refereed. -/
+  | vexaes (k : AesKind) (dst src1 src : XmmReg)
+  /-- ⭐⭐ V4 (D342) — VPCLMULQDQ (VEX.128 66 0F3A 44 /r ib): the carry-less product of `src1`'s
+  quadword imm8[0] and `src`'s quadword imm8[4] (the other imm8 bits ignored), written through
+  `setXmmVex128`.  Register form only; silicon-refereed. -/
+  | vexclmul (dst src1 src : XmmReg) (imm : BitVec 8)
+  /-- ⭐ V4 (D342) — VPSHUFB (VEX.128 66 0F38 00 /r): `vshufbApply src1 src` — `src1` the DATA (where
+  the legacy form reads its destination) and `src` the control — through `setXmmVex128`. -/
+  | vexshufb (dst src1 src : XmmReg)
+  /-- ⭐ V4 (D342) — VPALIGNR (VEX.128 66 0F3A 0F /r ib): `valignrApply src1 src imm`, `src1` in the
+  legacy destination's (high) place, through `setXmmVex128`. -/
+  | vexalignr (dst src1 src : XmmReg) (imm : BitVec 8)
+  /-- ⭐ V4 (D342) — VPSLLDQ / VPSRLDQ (VEX.128 66 0F 73 /7 ib, /3 ib): `dst` is VEX.vvvv and `src`
+  the ModRM.rm register; `vshiftdqApply`'s value, through `setXmmVex128`. -/
+  | vexshiftdq (left : Bool) (dst src : XmmReg) (cnt : BitVec 8)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:
@@ -2096,6 +2149,13 @@ def VBinKind.vexTaken : VBinKind → Bool
   | .xor | .and | .or | .andn | .andnps | .andnpd => true
   | .andps | .andpd | .orps | .orpd | .xorps | .xorpd => true
   | .cmpeqb | .cmpeqw | .cmpeqd | .cmpgtb | .cmpgtw | .cmpgtd => true
+  | _ => false
+
+/-- ⭐ V4 (D342) — the packed binary kinds whose VEX.128 MEMORY twin is taken: `vpxor` alone.
+The oracle executes it (`oracle_availability.py`, 88 of 88); the other differentially tested
+VEX twins' memory forms are not taken because no census candidate needs them. -/
+def VBinKind.vexMemTaken : VBinKind → Bool
+  | .xor => true
   | _ => false
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
@@ -2209,6 +2269,8 @@ def opOperands : Op → List Operand
   | .vmovhl .. | .vddupR .. => []
   -- V3: the VEX.128 register twins name no address.
   | .vexmov .. | .vexddup .. | .vexbin .. => []
+  | .vexbinm _ _ _ ea => [.mem ea]
+  | .vaes .. | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   | .vddupM _ ea => [.mem ea]
   -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
   | .prefetch _ ea => [.mem ea]
@@ -2394,6 +2456,8 @@ def Op.anyLocked : Op → Bool
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .vmovhl .. | .vddupR .. => false
   | .vexmov .. | .vexddup .. | .vexbin .. => false
+  | .vexbinm _ _ _ ea => ea.lock
+  | .vaes .. | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vddupM _ ea => ea.lock
   | .prefetch _ ea => ea.lock
   | .vmovmsk .. => false
@@ -2627,7 +2691,13 @@ def Op.mnemonic : Op → String
   -- V3: every VEX.128 twin is its legacy spelling with a `v` in front.
   | .vexmov k .. => "v" ++ k.mnemonic
   | .vexddup .. => "vmovddup"
-  | .vexbin k .. => "v" ++ k.mnemonic
+  | .vexbin k .. | .vexbinm k .. => "v" ++ k.mnemonic
+  | .vaes k .. => k.mnemonic
+  | .vexaes k .. => k.vexMnemonic
+  | .vexclmul .. => "vpclmulqdq"
+  | .vexshufb .. => "vpshufb"
+  | .vexalignr .. => "vpalignr"
+  | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
   -- ⚠️ FOUR MNEMONICS FROM TWO FIELDS, and neither may be dropped: `ordered`
   -- picks the opcode byte (`0f 2f` / `0f 2e`) and `sz` picks the format.
   | .vcomis o sz _ _ =>

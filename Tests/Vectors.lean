@@ -4124,6 +4124,15 @@ def vexVectors : List Vec :=
     , bytes := "c509dfcb", instr := ⟨.vexbin .andn .x9 .x14 .x3, 4⟩ }
   , { id := "vpcmpgtb_x15x5x8", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %xmm8, %xmm5, %xmm15"
     , bytes := "c4415164f8", instr := ⟨.vexbin .cmpgtb .x15 .x5 .x8, 5⟩ }
+  -- ⭐⭐ V4 (D342, part (b)): `vpxor m,xmm,xmm`, which the oracle EXECUTES (88 of 88). The first row
+  -- takes the legacy `pxor_m` shape (`(%rbx)`, the swept eight bytes at 0x2000). The second is the
+  -- one rule where the VEX memory form DEPARTS from the legacy one: a misaligned m128 (0x2001, inside
+  -- the data window) does not fault under VEX, where `pxor_m` at that address is #GP(0) — and it
+  -- moves the operands to xmm9/xmm13 (VEX.R̄ and VEX.vvvv's high bit).
+  , { id := "vpxor_xxm", mnemonic := "vpxor", asm := "vpxor (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9ef03", instr := ⟨.vexbinm .xor .x0 .x2 { base := some .rbx }, 4⟩ }
+  , { id := "vpxor_x9x13m_u", mnemonic := "vpxor", asm := "vpxor 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511ef4b01", instr := ⟨.vexbinm .xor .x9 .x13 { base := some .rbx, disp := 0x1 }, 5⟩ }
   ]
 
 /-- Every differential vector: the main table's, then the VEX twins'. What `emit`, `emit-acl2`

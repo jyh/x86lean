@@ -111,6 +111,29 @@ named wrong rule per mnemonic disagrees with the right one.
 | `sha_probe.c` | runs each row and compares all 128 bits of the destination, the sources, %xmm0 and RFLAGS |
 | `mk_sha_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
 
+**The AES-NI / CLMUL / VEX path (D342, V4)** is a seventh program, sharing nothing with the other six: `aes_ops.S` (one
+function per form and imm8 — AESENC and AESENCLAST at `%xmm2,%xmm1` (legacy SSE), and VAESENC, VAESENCLAST, VPCLMULQDQ,
+VPSHUFB, VPALIGNR at `%xmm2,%xmm1,%xmm3` and VPSLLDQ, VPSRLDQ at `%xmm1,%xmm3` (VEX.128); YMM1-3 are loaded WHOLE, every
+upper half seeded non-zero, and read back whole), `mk_aes_rows.py` (207 rows: edge, seeded random and known-answer rows —
+FIPS-197 Appendix B and C.1 round by round through `aesenc` ×9 + `aesenclast`, and the five PCLMULQDQ test vectors of
+Gueron and Kounavis's Intel CLMUL white paper — whose expectations come from a TEXTBOOK AES-128 (its S-box derived from
+the GF(2^8) inverse, its own key expansion) and a TEXTBOOK carry-less product, held to the published values by
+`--selftest`; `--refuse-wrong` shows `build` refusing MixColumns on the last round, PCLMULQDQ's selectors read as
+imm8[1:0], and MixColumns before ShiftRows), and `aes_probe.c`, which reads CPUID.01H:ECX (AES, PCLMULQDQ, AVX, OSXSAVE)
+and XCR0 and refuses without them with exit 3 — accepted on NO leg, since D342 predicts every runner has all three —
+refuses unless the declared bytes are the assembled ones, and compares all 256 bits of the destination's YMM register
+(a VEX form must zero bits 255:128, a legacy one keep them), the other two registers' 256 bits and the six arithmetic
+flags. x86isa refuses all nine mnemonics, so every row is pinned (`mk_aes_anchors.py`, into `Tests/AnchorsAes.lean`).
+Controls: `--plant` (bit 64 of row 0's expectation), `--plant-op`, and `--plant-hi` (one VEX row's expectation with the
+destination's upper half NOT zeroed).
+
+| file | role |
+|---|---|
+| `aes_ops.S` | one function per AES-NI / CLMUL / VEX form and imm8 (register conventions in its header) |
+| `mk_aes_rows.py` | the rows, the textbook AES-128 and CLMUL and the KATs; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `aes_probe.c` | runs each row and compares all 256 bits of YMM1-3 and RFLAGS |
+| `mk_aes_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -120,6 +143,7 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_shuf_rows.py > shuf_rows.h && cc -O1 -o shuf_probe shuf_probe.c shuf_ops.S && ./shuf_probe)
 (cd hwprobe && python3 mk_simda_rows.py > simda_rows.h && cc -O1 -o simda_probe simda_probe.c simda_ops.S && ./simda_probe)
 (cd hwprobe && python3 mk_sha_rows.py > sha_rows.h && cc -O1 -o sha_probe sha_probe.c sha_ops.S && ./sha_probe)
+(cd hwprobe && python3 mk_aes_rows.py > aes_rows.h && cc -O1 -o aes_probe aes_probe.c aes_ops.S && ./aes_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is

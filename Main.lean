@@ -5718,8 +5718,8 @@ proof is P4.\n"
       let silicon := "\n## Implemented, refereed by a processor, NOT differentially tested\n\n\
 The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no differential vector can \
 test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's rules in \
-`hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py` (and, for the packed-integer arithmetic, `hwprobe/mk_simda_rows.py`; for SHA-NI, `hwprobe/mk_sha_rows.py`, whose known-answer rows come from a textbook FIPS 180-4 SHA-256), run on a hosted runner's processor — and this model is checked against the same \
-rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334), `Tests/AnchorsShuf.lean` (D336), `Tests/AnchorsSimd.lean` (D335) and `Tests/AnchorsSha.lean` (D338). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, \
+`hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py` (and, for the packed-integer arithmetic, `hwprobe/mk_simda_rows.py`; for SHA-NI, `hwprobe/mk_sha_rows.py`, whose known-answer rows come from a textbook FIPS 180-4 SHA-256; for AES-NI, VPCLMULQDQ and the VEX shuffles, `hwprobe/mk_aes_rows.py`, whose known-answer rows come from a textbook FIPS-197 AES-128 and a textbook carry-less product), run on a hosted runner's processor — and this model is checked against the same \
+rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334), `Tests/AnchorsShuf.lean` (D336), `Tests/AnchorsSimd.lean` (D335), `Tests/AnchorsSha.lean` (D338) and `Tests/AnchorsAes.lean` (D342). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, \
 and they are not counted in the roster figure above.\n\n"
       -- ⭐⭐⭐ V3 (D341): the VEX.128 twins, a THIRD population, published as their own table and
       -- their own count, never folded into the roster figure above.
@@ -5729,7 +5729,7 @@ tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin o
 table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy \
 destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy \
 form preserves them, and the differential record compares those bits on both sides. Register forms \
-only; VEX.256 (VEX.L = 1) is not taken. Decode trust here is LLVM `objdump`'s, which decodes a \
+only, save `vpxor`'s m128 form (D342), which has no alignment check; VEX.256 (VEX.L = 1) is not taken. Decode trust here is LLVM `objdump`'s, which decodes a \
 legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries \
 one (D341).\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable

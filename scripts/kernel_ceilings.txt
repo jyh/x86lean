@@ -441,3 +441,9 @@ Tests.AnchorsVex 152 @on runnervm8k3b6
 Tests.CoverageVex 13800 @on runnervm8k3b6
 X86.Vex 112 @on runnervm8k3b6
 X86.YmmHi 50 @on runnervm8k3b6
+# D342 (V4): the NEW unit kernel_delta printed on refusing it, 9d81f4b (origin/master) → fc5f3e1, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.AnchorsAes head 3430.0 ms ⇒ max(3430.0 × 3, 50).
+Tests.AnchorsAes 10290 @on yukon.lan
+# katmai, 2026-10-15, the line kernel_delta PRINTED on refusing the NEW unit there (base 40ad9ae -> 3fc46fd, --repeats 6):
+# head 3355.0 ms => max(3355.0 x 3, 50) = 10065, copied, not retyped.
+Tests.AnchorsAes 10065 @on katmai

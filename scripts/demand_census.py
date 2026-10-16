@@ -61,10 +61,14 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SILICON_REFEREES = (
     ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D342 (V4): AES-NI / VPCLMULQDQ / the VEX shuffles (hwprobe runs 38814323211, 38814623311).
+    ("D342", ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
                  + ") — NOT a semantic oracle")
+VEX_LABEL = ("Implemented in the VEX table only (VEX.128, differentially tested against x86isa — D341; "
+             "NOT in the published 199-mnemonic figures)")
 
 
 class Model(frozenset):
@@ -73,11 +77,14 @@ class Model(frozenset):
     `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
-    def __new__(cls, names, silicon=()):
+    def __new__(cls, names, silicon=(), vex=()):
         sil = frozenset(silicon)
         self = super().__new__(cls, frozenset(names) - sil)
         self.names = frozenset(names)
         self.silicon = sil
+        # ⭐ D342 (a): the VEX table's mnemonics (COVERAGE.md's VEX section, D341) — a THIRD population,
+        # differentially tested but outside the published figures, credited on its own line (never in (a)).
+        self.vex = frozenset(vex)
         return self
 
 
@@ -88,6 +95,11 @@ def names_of(model):
 
 def silicon_of(model):
     return getattr(model, "silicon", frozenset())
+
+
+def vex_of(model):
+    """⭐ D342 (a): the VEX table's mnemonics, or nothing for a plain set (the no-pooling reference)."""
+    return getattr(model, "vex", frozenset())
 
 
 def silicon_mnemonics():
@@ -121,9 +133,13 @@ def model_mnemonics():
     path = os.path.join(root, "docs", "COVERAGE.md")
     text = open(path, encoding="utf-8").read()
     # ⭐ V3 (D341): the VEX.128 twins are a THIRD population, published in a section of their
-    # own and deliberately NOT counted in this census's model (its figures are pinned at the
-    # 199 + 27 it was generated against). Read only what precedes that section.
-    text = text.split("\n## VEX.128 register twins", 1)[0]
+    # own and NOT counted in this census's model. ⭐ D342 (a): they are now read — into the
+    # Model's `.vex`, credited on a separately labelled line beside the silicon one, never in (a).
+    text, _sep, vtext = text.partition("\n## VEX.128 register twins")
+    vex = re.findall(r'^\| `([a-z0-9]+)` \|', vtext, re.M)
+    if _sep and not vex:
+        print("⛔ VEX: docs/COVERAGE.md has a VEX section and no mnemonic rows in it — refusing, not reading zero")
+        sys.exit(2)
     ms = re.findall(r'^\| `([a-z0-9]+)` \|', text, re.M)
     if not ms:
         print("⛔ no mnemonics read from docs/COVERAGE.md; a census with no "
@@ -137,7 +153,7 @@ def model_mnemonics():
               f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
               f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
         sys.exit(2)
-    return Model(ms, sil)
+    return Model(ms, sil, vex)
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -214,7 +230,7 @@ def to_roster(m, ext=None, model=None):
     # ⚖️ D337: the MAPPING's vocabulary is every implemented mnemonic
     # (`names_of`), silicon-refereed ones included; whether the mapped name is
     # COVERED is `_decide`'s question, and it asks the differential set alone.
-    if model is not None and ext in XMM_EXT and m in names_of(model):
+    if model is not None and ext in XMM_EXT and (m in names_of(model) or m in vex_of(model)):
         return m
     if m in EXACT:
         return EXACT[m]
@@ -618,6 +634,7 @@ EXT_SCOPE.update({
 # reason: `vmovq %xmm0,%rax` must resolve its spelling the same way even though
 # `EXT_SCOPE` then refuses it for the ENCODING.
 XMM_EXT = frozenset({"SSE-legacy (xmm)", "VEX-128 (v… xmm)"})
+VEX128 = "VEX-128 (v… xmm)"
 
 def form_in_scope(ext):
     """⛔ REFUSES rather than defaulting. See EXT_SCOPE."""
@@ -982,7 +999,9 @@ def model_stamp(model):
     # ⚖️ D337: the identity is the implemented set AND its silicon split — moving
     # a mnemonic between (a) and (b) moves every figure, so it must move the stamp
     h = hashlib.sha256((" ".join(sorted(names_of(model))) + " | silicon: "
-                        + " ".join(sorted(silicon_of(model)))).encode()).hexdigest()[:16]
+                        + " ".join(sorted(silicon_of(model)))
+                        + (" | vex: " + " ".join(sorted(vex_of(model))) if vex_of(model) else "")
+                        ).encode()).hexdigest()[:16]
     rows = []
     for m in sorted(_rule_domain(model)):
         for ext in sorted(EXT_SCOPE):
@@ -1067,6 +1086,13 @@ def _decide(m, ext, model):
     if r is None:
         return None, False, "unmapped"
     if not form_in_scope(ext):
+        # ⭐ D342 (a): a VEX.128 instruction is outside (a)'s scope (the model's VEX forms are not in the
+        # published figures), but one whose mnemonic is a VEX-table row or a siliconTable row is credited
+        # in that row's OWN labelled class rather than filed as unrepresentable.
+        if ext == VEX128 and r in vex_of(model):
+            return r, False, "vex"
+        if ext == VEX128 and r in silicon_of(model):
+            return r, False, "silicon-vex"
         return r, False, "outscope"
     # ⚖️ D337: (b) is NOT covered — it is its own class, counted beside (a)
     if r in silicon_of(model):
@@ -1209,7 +1235,10 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     # differentially cover" and printed on its own line — never added to (a)
     sil_set = silicon_of(model)
     silicon = sum(k for r, k in mapped.items() if r in sil_set)
-    out_of  = sum(k for r, k in mapped.items() if r not in model) - silicon
+    # ⭐ D342 (a): the VEX table's line, carved out the same way and never added to (a)
+    vex_set = vex_of(model)
+    vexn = sum(k for r, k in mapped.items() if r in vex_set and r not in sil_set)
+    out_of  = sum(k for r, k in mapped.items() if r not in model) - silicon - vexn
     unk     = sum(unmapped.values())
     oos     = sum(outscope.values())
     fh.write(f"\n### {name}\n\n")
@@ -1228,6 +1257,10 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
                  f"({100.0*silicon/tot:.2f}%)** — counted as NOT covered above, "
                  f"printed beside the differential figure and never summed into it "
                  f"(D337).\n")
+    if vex_set:
+        fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)** — VEX.128 instructions whose "
+                 f"mnemonic is a VEX-table row; counted as NOT covered above, printed beside it and never "
+                 f"summed into it (D342).\n")
     fh.write(f"- Mapped to a roster name the model does not have: {out_of:,} "
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
@@ -1248,7 +1281,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
         merged[m] += k
     for i, (m, k) in enumerate(merged.most_common(30), 1):
         plain = m.strip("`").split("`")[0]
-        yes = "✅" if plain in model else "⚙ silicon only" if plain in sil_set else "—"
+        yes = ("✅" if plain in model else "⚙ silicon only" if plain in sil_set
+               else "⚙ VEX table only" if plain in vex_set else "—")
         fh.write(f"| {i} | `{plain}` | {k:,} | {100.0*k/tot:.2f}% | {yes} |\n")
     fh.write(f"\n**The ranked list of mnemonics the model does NOT cover** "
              f"(the P2 roster candidates, by demand):\n\n")
@@ -1262,7 +1296,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     for m, k in outscope.items():
         miss[m] += k
     for i, (m, k) in enumerate(miss.most_common(25), 1):
-        ref = "⚙ silicon (hwprobe), implemented" if m in sil_set else "—"
+        ref = ("⚙ silicon (hwprobe), implemented" if m in sil_set
+               else "⚙ VEX table (differential, D341), implemented" if m in vex_set else "—")
         fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% | {ref} |\n")
     att = attribution(name, counts, model, fns or {}, n, n_sym, fh)
     ext, ext_covered, miss_by_ext = ext_table(name, counts, model, fh)
@@ -1273,6 +1308,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     return dict(total=tot, covered=covered, pct=100.0*covered/tot,
                 silicon=silicon, silicon_pct=100.0*silicon/tot,
                 silicon_all={r: k for r, k in mapped.items() if r in sil_set},
+                vex=vexn, vex_pct=100.0*vexn/tot,
+                vex_all={r: k for r, k in mapped.items() if r in vex_set and r not in sil_set},
                 miss=miss.most_common(40), miss_all=dict(miss),
                 attribution=att, ext=ext, ext_covered=ext_covered,
                 miss_by_ext=miss_by_ext)
@@ -1361,9 +1398,13 @@ def selftest():
         ("movd",   "SSE-legacy (xmm)",   "movd"),
         # ⭐ the form P2 batch 3 landed and nothing mapped
         ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
-        # ⛔ a VEX spelling is still not a roster name, model or no model
-        ("vmovdqa", "VEX-128 (v… xmm)",  None),
+        # ⛔ a VEX spelling the model does not name is still not a roster name
+        ("vpshufd", "VEX-128 (v… xmm)",  None),
         ("vpaddd",  "AVX2/AVX (ymm)",    None),
+        # ⭐ D342 (a): a VEX-128 spelling that IS a VEX-table row maps to itself (and `_decide` files it
+        # in the VEX class, never covered); the same spelling at ymm still maps to nothing
+        ("vmovdqa", "VEX-128 (v… xmm)",  "vmovdqa"),
+        ("vmovdqa", "AVX2/AVX (ymm)",    None),
         # ⛔ and the rewrite rules still win over the identity rule
         ("movsbl",  None,                "movsx"),
         ("nopw",    None,                "nop"),
@@ -1495,7 +1536,12 @@ def selftest():
                          ("pmaddwd", "MMX (mm)",         (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
-                         ("pmulld",  "SSE-legacy (xmm)", (False, "unmapped"))):
+                         ("pmulld",  "SSE-legacy (xmm)", (False, "unmapped")),
+                         # D342 (a): a VEX-table mnemonic at VEX-128 is its own class; a VEX siliconTable
+                         # mnemonic is silicon; a VEX spelling of neither is still out of scope
+                         ("vpxor",   "VEX-128 (v… xmm)", (False, "vex")),
+                         ("vaesenc", "VEX-128 (v… xmm)", (False, "silicon-vex")),
+                         ("vmulps",  "VEX-128 (v… xmm)", (False, "unmapped"))):
         _r, cov, cls = _decide(m, ext, _M)
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
@@ -2209,6 +2255,12 @@ def main():
                  f"way and refuses (exit 3) if it differs. The silicon-refereed "
                  f"demand is printed on its own line beside it and is never summed "
                  f"into it; a reader may cite the two side by side.\n\n")
+        if vex_of(model):
+            fh.write(f"⭐ **D342 (a): a third population, {len(vex_of(model))} VEX-table mnemonics** (VEX.128, "
+                     f"differentially tested against x86isa in the VEX table of `docs/COVERAGE.md`, D341, and NOT "
+                     f"in the 199-mnemonic figure). A VEX.128 instruction is outside the differential figure's scope, "
+                     f"so one whose mnemonic is a VEX-table row is printed on a third labelled line, and one whose "
+                     f"mnemonic is a `siliconTable` row on the silicon line; neither is summed into \"covered\".\n\n")
         fh.write(f"Every number below "
                  f"is a STATIC count of instruction occurrences in a disassembly, "
                  f"not a dynamic profile: it measures what a binary CONTAINS, which "
@@ -2247,6 +2299,7 @@ def main():
                 tot = sum(results[g]["total"] for g in cols if g in results)
                 cov = sum(results[g]["covered"] for g in cols if g in results)
                 sil_n = sum(results[g]["silicon"] for g in cols if g in results)
+                vex_n = sum(results[g].get("vex", 0) for g in cols if g in results)
                 fh.write(f"\n### The assembly class, pooled\n\n")
                 fh.write(f"- **{tot:,} instructions**, covered by the model "
                          f"(differentially tested mnemonics) "
@@ -2255,6 +2308,9 @@ def main():
                     fh.write(f"- ⚙ **Implemented, {SILICON_LABEL}: {sil_n:,} "
                              f"({100.0*sil_n/tot:.2f}%)** — inside the not-covered "
                              f"figure below, never added to the line above (D337).\n")
+                if vex_of(model):
+                    fh.write(f"- ⚙ **{VEX_LABEL}: {vex_n:,} ({100.0*vex_n/tot:.2f}%)** — inside the "
+                             f"not-covered figure below, never added to the line above (D342).\n")
                 fh.write(f"- ⛔ Pooled ACROSS the codec columns and never with "
                          f"compiler output: the two are different demands, which "
                          f"is why this class exists.\n\n")
@@ -2271,6 +2327,7 @@ def main():
                                               pct=100.0*cov/tot,
                                               silicon=sil_n,
                                               silicon_pct=100.0*sil_n/tot,
+                                              vex=vex_n, vex_pct=100.0*vex_n/tot,
                                               ext=dict(ext_pool))
         # ── the pre-registered controls, checked in the generated document ──
         fh.write("\n## The controls, and the one that fired\n\n")
