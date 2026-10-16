@@ -46,6 +46,8 @@ def instr(fn, bs, mn, imm):
           "vpalignr": ".vexalignr .x3 .x1 .x2 0x%02x" % (imm or 0),
           "vpslldq": ".vexshiftdq true .x3 .x1 0x%02x" % (imm or 0),
           "vpsrldq": ".vexshiftdq false .x3 .x1 0x%02x" % (imm or 0)}[mn]
+    if op.startswith(".vex"):  # V5 (D343): the VEX forms are nested under `Op.vex`
+        op = ".vex (%s)" % op
     return "⟨%s, %d⟩" % (op, n), n
 
 

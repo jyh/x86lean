@@ -1339,7 +1339,7 @@ def siliconTable : List Row :=
   , { mnemonic := "sha256rnds2", shapes := "x,x · x,m", note := "SHA-NI · two FIPS 180-4 rounds, ABEF from the source and CDGH from the destination, WK0:WK1 from XMM0's LOW quadword (an implicit operand); DEST = A:B:E:F after round 2; m 16-byte aligned, else #GP(0) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256RNDS2" }
   -- ⭐ D342 (V4): the nine forms `vale-aesgcm` needs that x86isa refuses — AES-NI legacy
-  -- (`Op.vaes`) and VEX (`Op.vexaes`), VPCLMULQDQ, and the VEX twins of V1b's PSHUFB/PALIGNR and
+  -- (`Op.vaes`) and VEX (`Op.vex (.vexaes ..)`), VPCLMULQDQ, and the VEX twins of V1b's PSHUFB/PALIGNR and
   -- the byte shifts.  Every result bit is defined and no flag is written, so each is `T-exact`;
   -- the rows are `hwprobe/mk_aes_rows.py`'s.  ⚠️ The VEX ones are rows HERE and not of `vexTable`:
   -- that table is the DIFFERENTIALLY tested VEX population, and `Tests.CoverageVex` requires a

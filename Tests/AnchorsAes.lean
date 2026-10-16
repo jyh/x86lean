@@ -166,7 +166,7 @@ theorem v4_vaesenc_pins :
     (0x53a1d0bbc2664f68167b3a09efa1d29ff137fef14e964735d7d0e505d2bae3fd, 0x8a6dc6f716894b0ae3561577076c70f14e972cbe9ced9310685785f0d1329954, 0x9679c6acbda7ec2e9bd42e07d0d3bc9f6d70b44fe0625ca08837760287a41cf7, 0x8d5, 0x0000000000000000000000000000000089b6108b6e21610b9e77b5f23d7c6ebd)  -- vaesenc_kat_c1_r9
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexaes .enc .x3 .x1 .x2, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexaes .enc .x3 .x1 .x2), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -192,7 +192,7 @@ theorem v4_vaesenclast_pins :
     (0xfe7118945a9c3f9f36933917f8d77fe389b6108b6e21610b9e77b5f23d7c6ebd, 0xa140b5c688590ff274d42881f5bb8897c5302b4d8ba707f3174a94e37f1d1113, 0x2662429dc0ccdc11018b7fc5a4caa05f60c4dd9c01e4ac2d66973fce75f58d79, 0x8d5, 0x000000000000000000000000000000005ac5b47080b7cdd830047b6ad8e0c469)  -- vaesenclast_kat_c1_r10
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexaes .enclast .x3 .x1 .x2, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexaes .enclast .x3 .x1 .x2), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -216,7 +216,7 @@ theorem v4_vpshufb_pins :
     (0xbba82f909f3ca33096f060b4522e19fbaf8928cc3858a923d714b9edcfe1e419, 0x91e46de3b1ade883695a17983096e9e13805c40f006d02990a4107f00c1e8f03, 0x5605eb3a44159b9b2f64fd37022e65915f8a4fceeb2680270b266e35bfc8ac30, 0x8d5, 0x0000000000000000000000000000000023b900af1928e10058e4d700cc8900cf)  -- vpshufb_d1_c7
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshufb .x3 .x1 .x2, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshufb .x3 .x1 .x2), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -232,7 +232,7 @@ theorem v4_vpclmulqdq_00_pins :
     (0x73251608d8a42423e074441669631b6100000000000000008000000000000000, 0xb275aebf949df6390be2cf92b747d01700000000000000008000000000000000, 0x05cbe0502da4053e78de05cb0871b721711de87f735b940d966f1e958680682d, 0x8d5, 0x0000000000000000000000000000000040000000000000000000000000000000)  -- vpclmulqdq_00_kat_wp5
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0x00, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0x00), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -243,7 +243,7 @@ theorem v4_vpclmulqdq_01_pins :
     (0x68176ba369be1a1c78ee7a5091b94c3b7b5b54657374566563746f725d53475d, 0xb0b7933ddf684113056c3d56b9f23d5948692853686179295b477565726f6e5d, 0x4cc8ac939fbab2ef16e07c6447b7cb9584233d9f47ab0ff649658290e5c9c1ac, 0x000, 0x000000000000000000000000000000001a2bf6db3a30862fbabf262df4b7d5c9)  -- vpclmulqdq_01_kat_wp3
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0x01, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0x01), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -254,7 +254,7 @@ theorem v4_vpclmulqdq_10_pins :
     (0xfbaef617d4cc6ea20089054d538baef37b5b54657374566563746f725d53475d, 0xef75bec3a4849dd7f1a67eade01ba05148692853686179295b477565726f6e5d, 0x8ce5c2115848db5e7a28c67a31784f0f24cb30a30b37e87bb225628f06f25448, 0x000, 0x000000000000000000000000000000001bd17c8d556ab5a17fa540ac2a281315)  -- vpclmulqdq_10_kat_wp2
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0x10, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0x10), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -265,7 +265,7 @@ theorem v4_vpclmulqdq_11_pins :
     (0xd8c6a0272a038a74d5cea9d125fb48b37b5b54657374566563746f725d53475d, 0x9dc4f4f9b025803773dbd1784177d73148692853686179295b477565726f6e5d, 0xb8d26d7e175bcd41fd72083d93f97f6d443f8a4219786d25c285d455b13542fc, 0x000, 0x000000000000000000000000000000001d1e1f2c592e7c45d66ee03e410fd4ed)  -- vpclmulqdq_11_kat_wp4
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0x11, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0x11), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -275,7 +275,7 @@ theorem v4_vpclmulqdq_02_pins :
     (0xd51aaa3949710fd7112e552a599835a1e84a1406fddb522752d1aac2ff17b399, 0x50dd6004524915b7a67f04b5e23f0e5b044351fe92f3aa016c47705373a3bf9e, 0xfbc1dfcbb4b0e165693e19932ad4e1851225cb4af51d21bc177539c149379522, 0x8d5, 0x000000000000000000000000000000001d26879928813a7f540cfb403f65f78e)  -- vpclmulqdq_02_rand
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0x02, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0x02), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -285,7 +285,7 @@ theorem v4_vpclmulqdq_20_pins :
     (0x2ceb458775bf55e0cd43fb2905bc15a52dab89a9bf5d4614745bc9950aa13cc1, 0xbe75bd8f945e51acb97435a1929e51d322e80813d6b44ec0320cb2842db9122b, 0xfba6d15c98a7e3f055982c719f980fef752e133551afb500003c326ce73749ee, 0x8d5, 0x00000000000000000000000000000000092432b9d7d21a5fa772053e4c01a96b)  -- vpclmulqdq_20_rand
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0x20, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0x20), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -295,7 +295,7 @@ theorem v4_vpclmulqdq_ee_pins :
     (0x2a2339b8e749ec99abbbbc4df7be31b3541c1c18cadfd805fe19769aecb37994, 0xe40faddd788ce099d0d31adfc91a778f03f4b67bd5af0d3739cce9c12a1d5b39, 0x821f3aa9692b76021590d162fe7059cf269f42735527b46c15e7d7d08862a2dd, 0x8d5, 0x000000000000000000000000000000001768b1374c64643f05201542b1ee42f4)  -- vpclmulqdq_ee_rand
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0xee, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0xee), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -305,7 +305,7 @@ theorem v4_vpclmulqdq_ff_pins :
     (0x9a032e199e27f9bbbad3256f44dbde1b2309178bfddf0ab6b2ac2ef955757797, 0xfdab6b4e14605563a177b1ba29282dc59c5ddaaf7e87ec143e58c2d60e0b2f5b, 0x71cc5382aca396c1945a1d38106c0b97dd54e50611a434869efc4fee7744d053, 0x8d5, 0x00000000000000000000000000000000122b29d240d25e78069d8e7a4251a9b8)  -- vpclmulqdq_ff_rand
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexclmul .x3 .x1 .x2 0xff, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexclmul .x3 .x1 .x2 0xff), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -315,7 +315,7 @@ theorem v4_vpalignr_0_pins :
     (0x9a8ef96f685f9f2c927a22e0ef6d49c7c9b043376d842f038466414ee5734e0c, 0xe45e7089fbb35bbe88120062f6497e07497e037ad1ed1d8a49ac14621d19291e, 0x74958bf12af73332fa9383c0e98a060d1c3b883bd4101ddf38f44b4dcaed0268, 0x8d5, 0x00000000000000000000000000000000497e037ad1ed1d8a49ac14621d19291e)  -- vpalignr_0_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x00, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x00), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -325,7 +325,7 @@ theorem v4_vpalignr_1_pins :
     (0x2ee910246861e1decaf68986ea56bac9f1002fdcefdbbd0ee9383de6a1400ced, 0xf48f9928fded5acdbc9e9e1658e73401796abfdad4e3fad1b475cebd2fee80c5, 0x5577a9771847c31321d21de469b7f887a2d4cfef8032f88c482eb84009f9fbf5, 0x8d5, 0x00000000000000000000000000000000ed796abfdad4e3fad1b475cebd2fee80)  -- vpalignr_1_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x01, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x01), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -335,7 +335,7 @@ theorem v4_vpalignr_4_pins :
     (0xff0e40bca35f849c0386f7b705eb1e7f4f0358636fe1d18bfbfd3fe9628416ef, 0xdb8ad786e007144262e5def3577258f98371d53c1548ccc5fe890293a20302b7, 0xea82166b1eeaea5cc63472d784f243891c86843a8a0c6638bfe0564b18bd06f3, 0x8d5, 0x00000000000000000000000000000000628416ef8371d53c1548ccc5fe890293)  -- vpalignr_4_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x04, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x04), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -345,7 +345,7 @@ theorem v4_vpalignr_8_pins :
     (0x91b6e3c0c1da882286589953aee34f7d2d9fcd8c1a1803b02bdd31bc1e3b9f62, 0x9354eb314e9ed85f07ed575d56f4b47d5f3136db5d2a27f1b8ac29fada8d3169, 0x86235cc89d863aecd6b2f1971c11a86fca1d9c3f62777cfd7683b705eb77e075, 0x8d5, 0x000000000000000000000000000000002bdd31bc1e3b9f625f3136db5d2a27f1)  -- vpalignr_8_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x08, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x08), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -355,7 +355,7 @@ theorem v4_vpalignr_15_pins :
     (0xf56180634406f4bfd56c3a8ca67e36b566545b9ae784160cb6d4e01354c3a8b6, 0x826616b61a2113527063879ae0c1b37d16a2bae0f828221d6d55f7601d393328, 0xe5f0039c082e5fdd810b30c60ca91f1da2a08f246400ea161671c085cdc3ef8a, 0x8d5, 0x00000000000000000000000000000000545b9ae784160cb6d4e01354c3a8b616)  -- vpalignr_15_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x0f, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x0f), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -365,7 +365,7 @@ theorem v4_vpalignr_16_pins :
     (0x6dff32af18d9952b59b80ee8fb8bd72f70dcddca0ce3a37482a93e9dd0309fde, 0xf9e8a110f28b2a9131b8a73cadf91c0f98c019c484a983ebd355313787230f3d, 0xfdbd008eee3232f67a56cd657712bca3dcdab7921877766953b63c0e56f0dc43, 0x8d5, 0x0000000000000000000000000000000070dcddca0ce3a37482a93e9dd0309fde)  -- vpalignr_16_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x10, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x10), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -375,7 +375,7 @@ theorem v4_vpalignr_17_pins :
     (0xa768c09ba3803bbbb209705ed00db3d3efd0f2c02c8c0f9e6a41af15d3a65eb7, 0x5bb9a69aebc72be5fa682f8f7238fd1176181f8d77d4abe8d4c077bb72a8e4f1, 0x12802613f039070193e32c6e69c5102b1c3704b921b6b752025079ba81526a56, 0x8d5, 0x0000000000000000000000000000000000efd0f2c02c8c0f9e6a41af15d3a65e)  -- vpalignr_17_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x11, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x11), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -385,7 +385,7 @@ theorem v4_vpalignr_24_pins :
     (0x8d5570a07fcf6b3792daa1239e491667d2eeefa84e3f9b5eb3f41edf9ea0888b, 0xf7a4399ba0af9e38d8e31157b0d8ad2de143624a5715e5ced6d4f85264e86307, 0xceaf00a5061dee9cf333468268d6427d971695c508b6ae04219aa2099db7e2aa, 0x8d5, 0x000000000000000000000000000000000000000000000000d2eeefa84e3f9b5e)  -- vpalignr_24_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x18, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x18), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -395,7 +395,7 @@ theorem v4_vpalignr_31_pins :
     (0x97a4650239fe4adeec710bb3476b874becd044148ee03391cb5bba6edb441fa4, 0x63a02b1c95ce2246e753d61175b59191b8209d92e1d4b6d1d261d8e761cd6804, 0xab7ad2e8e306385ea406ad5b6fe60d19b1a7f66d21acd60451390db13bb9da63, 0x8d5, 0x00000000000000000000000000000000000000000000000000000000000000ec)  -- vpalignr_31_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x1f, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x1f), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -405,7 +405,7 @@ theorem v4_vpalignr_32_pins :
     (0x94120a6d3b3a1cd7d4d1b2e0b2889c57a3c28323fc25755fb4414e89b0134905, 0x00aa758bd22bd95d185cc86a91b82917bf31d83c3ade6454b39524ed636555e7, 0x12a12fb4ea9d13c179fe53623ef991794c3c5edc3042ef2a3d13293eca875c08, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpalignr_32_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x20, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x20), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -415,7 +415,7 @@ theorem v4_vpalignr_33_pins :
     (0x5eff123c342138b1b3405f6bcd1909b11ccf7adbe552da5795a070d6abf4fdb1, 0x9b25c37fa8498eba364b67a9a03ed0cf59ef94d25a931c8285ba99ef6e7db49b, 0x80a5c448b621e9a32aae1d28951517e9645b5622dc31e10620e9a6e45790836b, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpalignr_33_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x21, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x21), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -425,7 +425,7 @@ theorem v4_vpalignr_128_pins :
     (0x3c8632751fb277a65ed7f06079773a7bb90d1b7cad16a514fdaea2a0d8c5d2b3, 0x47c51b0a3f7efa7953a2368230009bd78276284a410ef8c41a85f81d2fe51d73, 0xa1382528c9943b4d3bf3ce04bd7ae731c346ce8de3c45a7647e14eaa9ac23fd3, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpalignr_128_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0x80, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0x80), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -435,7 +435,7 @@ theorem v4_vpalignr_255_pins :
     (0x9f3499f0677ed0b574b40dd6d0cdecefb2dddcea082c20bffcd99d96e9e20732, 0xb9934d14b92322e9e78cf8d6bff0cf07bca673488f410d52960f493da6a9e78e, 0x304db9b6b3d1120e205090223a659497bdcf77d468540fd0ed799b79fdf87dbb, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpalignr_255_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexalignr .x3 .x1 .x2 0xff, 6⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexalignr .x3 .x1 .x2 0xff), 6⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 6 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -445,7 +445,7 @@ theorem v4_vpslldq_0_pins :
     (0x5d75cc91d08e69ea4cfa4783ede691a355f4fb53693ad81f3725b4c0fa353646, 0x06d1130d45c59a0f1a28a5379ebf6b5958a8580f3000d4c563294c34c8aac56c, 0xe70d8e1302d0a919aa134cb85630df6f1be80820daf9383607b0d0d747ff29fb, 0x8d5, 0x0000000000000000000000000000000055f4fb53693ad81f3725b4c0fa353646)  -- vpslldq_0_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x00, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x00), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -455,7 +455,7 @@ theorem v4_vpsrldq_0_pins :
     (0x911c23ab431295ec3a35626339e4299fb19a92fbabb112393257b2a4f3746eb0, 0xa24426ca5ad012fa89c3c55658395551f5a2e4954e5f887886a3c3b4c1359787, 0x21bfe03d21016b76010021a4719843e55e2c32bcdefeb7d252997937ab554c47, 0x8d5, 0x00000000000000000000000000000000b19a92fbabb112393257b2a4f3746eb0)  -- vpsrldq_0_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x00, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x00), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -465,7 +465,7 @@ theorem v4_vpslldq_1_pins :
     (0x515c58eaee9641583a0d5b4a4e3971c9a893dbd1708237c85f8259ab4c9a012b, 0xcdc1c28d5a0e71f0abee689449a26fe14173925a2b9da51a184d5cafe9a3b200, 0x1dc000bbbb8bd2b26ec8cc2f1e30ad47101506339299830558d53f16af4e5bb3, 0x8d5, 0x0000000000000000000000000000000093dbd1708237c85f8259ab4c9a012b00)  -- vpslldq_1_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x01, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x01), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -475,7 +475,7 @@ theorem v4_vpsrldq_1_pins :
     (0xb5dc6dd500b9786023ef03fd0768d98d6a7fd4f460efd095a1ce7ce8aaaa4672, 0xd937574dca25ce2820c377be26a29679911fbebe0542c28fc032f7912f744b5c, 0x119720afb8643d00358abcb7555f9e2f9e9bef364a3f092d1e3012e456bb7606, 0x8d5, 0x00000000000000000000000000000000006a7fd4f460efd095a1ce7ce8aaaa46)  -- vpsrldq_1_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x01, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x01), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -485,7 +485,7 @@ theorem v4_vpslldq_3_pins :
     (0x58c785d928456c350c840ecdec1d07e1b81c139988eca74b601c5853f9cbad9c, 0x53673585cebe20b72badd55c79632461de56441230a5626103dbba7fb285c434, 0xb35a3982ff6fa3dbf057a7478225842982286f0cef607260480549fd2e8598b8, 0x8d5, 0x000000000000000000000000000000009988eca74b601c5853f9cbad9c000000)  -- vpslldq_3_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x03, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x03), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -495,7 +495,7 @@ theorem v4_vpsrldq_3_pins :
     (0x18f9988790c58d1e9e9d39b8461a50cfef9c227bc927204bdcbb3789d354ac64, 0x990fc6de748c261bcad6447f473b484faff2c210ddf9e3c76bb5c99d69384a79, 0xdd4e6a6fd242827d1fab64970cd2ab01305068e98dc0340bc032aa8168c82cb1, 0x8d5, 0x00000000000000000000000000000000000000ef9c227bc927204bdcbb3789d3)  -- vpsrldq_3_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x03, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x03), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -505,7 +505,7 @@ theorem v4_vpslldq_7_pins :
     (0x49332694844ba8f2daeaba0ed89652a978f953c7d64836a21eca998dce99dbf5, 0x7e5872b2a591ee6fae16f813f98c7bf91e1d9e2820ee46a303924b6abaa8529c, 0xac9ce00e7eca1d99a4df28a61c4fc093e94e462bfa9d91ecf88dd5fdba6608cd, 0x8d5, 0x00000000000000000000000000000000a21eca998dce99dbf500000000000000)  -- vpslldq_7_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x07, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x07), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -515,7 +515,7 @@ theorem v4_vpsrldq_7_pins :
     (0xeee043d64a81fe3ef882ad1abe8b9c91fa0d04f360e297c8ed10bbaa2430e453, 0x351578f26fcd695761b4ab759ad670e5be5b55dd9075d8703a6f4f21b0d93e6f, 0xe2a6aa89fd624181c1285e66115a2cc9ec8c80a87f64b501a30c27ccae24aebf, 0x8d5, 0x0000000000000000000000000000000000000000000000fa0d04f360e297c8ed)  -- vpsrldq_7_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x07, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x07), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -525,7 +525,7 @@ theorem v4_vpslldq_8_pins :
     (0x35ab7cebfcdc5b3126ef79228598e6832f9c9c7bee26da41bf2036b2791f51d4, 0xe06a381e0567e45ffc00fba1f4e36e8f5584f4e3b80ad9222ff92ae1e9d25048, 0x43056ddb968d490a922e916a26023a277710e8f4d712c77e426833fae76861d3, 0x8d5, 0x00000000000000000000000000000000bf2036b2791f51d40000000000000000)  -- vpslldq_8_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x08, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x08), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -535,7 +535,7 @@ theorem v4_vpsrldq_8_pins :
     (0x09d5b0f9c460b0b717586c3e75a546c9fde09f4047b9b76d8e48333798fc7de1, 0x3b221653150da7b440bb99e0a11c4299c978c201fae1b5c65a3c90c61e396dda, 0x676163e294e6f5eba8e30b73db498ea1244b4e59a6dc1dcce5c3dfe315320251, 0x8d5, 0x000000000000000000000000000000000000000000000000fde09f4047b9b76d)  -- vpsrldq_8_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x08, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x08), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -545,7 +545,7 @@ theorem v4_vpslldq_15_pins :
     (0x30d85168e156020bc70dfbd69e527a976c170fbb38e99fe8400a1773a8364f44, 0xe26a6623a545f09dbf6b2bde1a90ee5f040006133c3e44140b3d7489e9deb6a5, 0x090ea1525e5f7b68aa51e1fb1a22a543c6ac5453c194d5fee8c0d95d938af061, 0x8d5, 0x0000000000000000000000000000000044000000000000000000000000000000)  -- vpslldq_15_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x0f, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x0f), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -555,7 +555,7 @@ theorem v4_vpsrldq_15_pins :
     (0x4de2e1b69d234d248985a4d47173ce41ec1b3e957b89866b57cd5abdc843fed9, 0xe009a5f8029c93d668dee537733a5ae34516a11a8383a47d26bfd10059378a79, 0x9ced9fe0f2a0d3e9814fcb5cf961af8b5b58ff317980d49ab3143e228ed7ef92, 0x8d5, 0x00000000000000000000000000000000000000000000000000000000000000ec)  -- vpsrldq_15_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x0f, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x0f), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -565,7 +565,7 @@ theorem v4_vpslldq_16_pins :
     (0x62f5bf9d7f73a2302d5cb5bf4275908913a428b3b5dd8d3eccaf06d65f99713f, 0x64c868b3dc3e0baf0ee1060762259683b45a1a29722960dda08a7ce58b11a75d, 0xab78ca577b7d7e4292ca32fb3b41759b939573376a1cebbea052a7c279b5132a, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpslldq_16_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x10, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x10), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -575,7 +575,7 @@ theorem v4_vpsrldq_16_pins :
     (0x4070508abb75738ba744cfa2b28527374a17f0b98c635a53230f83029892fc57, 0x79c327202815ec84cb2410f89b34d96d872e2ff173c5a8fa83ef563299e7b5c8, 0x2e7354a95930f72409b5129ac955f1394ef460f22419a939f909c3ac9f59a6f2, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpsrldq_16_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x10, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x10), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -585,7 +585,7 @@ theorem v4_vpslldq_17_pins :
     (0x584161c34b1dbd7c1db01f37b2b5cda951b6cf1eb181c975745da45e31099d74, 0x8249e64ee92b8c36ea2cc58c960d3e7b1a9ec2de8faea02b57abd5b340035d93, 0x01d5a6f91914d62d16d598a8e5f89cd3ed31292411f9bc04ce5e65efbaf49ddd, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpslldq_17_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0x11, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0x11), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -595,7 +595,7 @@ theorem v4_vpsrldq_17_pins :
     (0xa47dbc1dc138fb40e71c09bdadc5d4af2ca4462cb278bff47b465fb7cead5acf, 0x48f89ab4483b1e7cc1156f9a3045bbfb5b91119f695e6471793089f2493f3c51, 0x81b476e334da39983d57be27b88bf2f7fc31a4d6c62faf2df66304b35289e6bc, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpsrldq_17_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0x11, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0x11), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -605,7 +605,7 @@ theorem v4_vpslldq_255_pins :
     (0xae96b88de3ac38ada246c8eba4dd1c4599f38d3d3868e15cd13b7b2c6b793baf, 0xa067ad8294bb9163a4ec592d3c393747baac99f7056dbe56cfcae2c43a035218, 0x6b240d99d0e640ee7f917e3f6a5b8c5d4802b62cb71c9f6ff1b8698eba6e456d, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpslldq_255_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq true .x3 .x1 0xff, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq true .x3 .x1 0xff), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 set_option maxRecDepth 8000 in
@@ -615,7 +615,7 @@ theorem v4_vpsrldq_255_pins :
     (0x62a3b7cc4273cd772584e7c032a0f7ff39f906b388d17fbdef9478ff4ba06a08, 0x1775384a799f39fd6964156a1ed594ef834dced6134d0fcd3a9f499d32806fd6, 0xe1e28b704892fa8920d8dba9dabbcb4d49ee3dd2a5c0e08cc3d92a2a1fa2bd8e, 0x8d5, 0x0000000000000000000000000000000000000000000000000000000000000000)  -- vpsrldq_255_p1
   ] : List (BitVec 256 × BitVec 256 × BitVec 256 × BitVec 64 × BitVec 256)).all
     (fun (y1, y2, y3, f, w) =>
-      let t := step ⟨.vexshiftdq false .x3 .x1 0xff, 5⟩ (v4Pre y1 y2 y3 f)
+      let t := step ⟨.vex (.vexshiftdq false .x3 .x1 0xff), 5⟩ (v4Pre y1 y2 y3 f)
       v4Agrees t 5 .x3 y1 y2 y3 f w) = true := by decide
 
 -- ⟦V4 AES PINS END⟧

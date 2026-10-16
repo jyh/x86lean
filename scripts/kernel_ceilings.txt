@@ -447,3 +447,5 @@ Tests.AnchorsAes 10290 @on yukon.lan
 # katmai, 2026-10-15, the line kernel_delta PRINTED on refusing the NEW unit there (base 40ad9ae -> 3fc46fd, --repeats 6):
 # head 3355.0 ms => max(3355.0 x 3, 50) = 10065, copied, not retyped.
 Tests.AnchorsAes 10065 @on katmai
+# runner, 2026-10-16: the line PR #102's kernel-delta job PRINTED on refusing the NEW unit (D252 §6), copied, not retyped.
+Tests.AnchorsAes 13890 @on runnervm8k3b6
