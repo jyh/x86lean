@@ -1045,6 +1045,48 @@ def cvttFlags (dbl wide : Bool) (b : BitVec 64) : BitVec 32 :=
   SoftFloat.truncFlags (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
     (if wide then 64 else 32) b
 
+/-- ⭐⭐ V5 (D343) — `step` over the nested VEX forms (`Op.vex`): V3's and V4's arms, VERBATIM,
+moved out of `step`'s match and nothing else.  `nr` is `step`'s next-instruction address and the
+lock guard has already run in `step`, so no arm here re-checks it.
+
+⭐ `@[simp]`, so `simp [step]` sees through the nesting exactly as it saw the arms in place: every
+theorem about a VEX form keeps its proof, and only its statement gains the `.vex` wrap. -/
+@[simp] def stepVex (v : VexOp) (s : Cpu) (nr : BitVec 64) : Cpu :=
+  match v with
+  -- ⭐⭐⭐ V3 (D341) — THE VEX.128 REGISTER TWINS.  Each computes exactly the legacy
+  -- form's 128-bit value and writes it through `setXmmVex128`, which zeroes bits
+  -- 255:128 of the destination's YMM register (SDM Vol. 1 §14.1.2).  That setter is
+  -- the whole difference from the legacy arm, by construction.
+  | .vexmov _ dst src =>
+      (s.setXmmVex128 dst (s.getXmm src)).setRip nr
+  | .vexddup dst src =>
+      let lo := ((s.getXmm src).setWidth 64).setWidth 128
+      (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
+  | .vexbin k dst src1 src =>
+      if k.vexTaken then
+        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.getXmm src))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic}: a VEX twin not taken (D339)")
+  -- ⭐⭐ V4 (D342) — the VEX.128 memory twin: `vexbin`'s value with the m128 at `ea` as the
+  -- second source, and NO alignment check (VEX Exception Type 4; `vbinm` keeps the legacy #GP).
+  | .vexbinm k dst src1 ea =>
+      if k.vexMemTaken then
+        let a := ea.addr s nr
+        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.readMem128 a))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic} m128: a VEX memory twin not taken (D342)")
+  -- ⭐⭐ V4 (D342) — AES-NI, VPCLMULQDQ and the VEX shuffles.  x86isa refuses all nine;
+  -- `hwprobe/` referees them.  The legacy AES form writes through `setXmm` (bits 255:128
+  -- PRESERVED); every VEX form through `setXmmVex128` (ZEROED).  None writes a flag.
+  | .vexaes k dst src1 src =>
+      (s.setXmmVex128 dst (aesRound k.last (s.getXmm src1) (s.getXmm src))).setRip nr
+  | .vexclmul dst src1 src imm =>
+      (s.setXmmVex128 dst (pclmulApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
+  | .vexshufb dst src1 src =>
+      (s.setXmmVex128 dst (vshufbApply (s.getXmm src1) (s.getXmm src))).setRip nr
+  | .vexalignr dst src1 src imm =>
+      (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
+  | .vexshiftdq left dst src cnt =>
+      (s.setXmmVex128 dst (vshiftdqApply left (s.getXmm src) cnt.toNat)).setRip nr
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -1160,41 +1202,12 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vddupR dst src =>
       let lo := ((s.getXmm src).setWidth 64).setWidth 128
       (s.setXmm dst ((lo <<< 64) ||| lo)).setRip nr
-  -- ⭐⭐⭐ V3 (D341) — THE VEX.128 REGISTER TWINS.  Each computes exactly the legacy
-  -- form's 128-bit value and writes it through `setXmmVex128`, which zeroes bits
-  -- 255:128 of the destination's YMM register (SDM Vol. 1 §14.1.2).  That setter is
-  -- the whole difference from the legacy arm, by construction.
-  | .vexmov _ dst src =>
-      (s.setXmmVex128 dst (s.getXmm src)).setRip nr
-  | .vexddup dst src =>
-      let lo := ((s.getXmm src).setWidth 64).setWidth 128
-      (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
-  | .vexbin k dst src1 src =>
-      if k.vexTaken then
-        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.getXmm src))).setRip nr
-      else s.halt (.unimplemented s!"v{k.mnemonic}: a VEX twin not taken (D339)")
-  -- ⭐⭐ V4 (D342) — the VEX.128 memory twin: `vexbin`'s value with the m128 at `ea` as the
-  -- second source, and NO alignment check (VEX Exception Type 4; `vbinm` keeps the legacy #GP).
-  | .vexbinm k dst src1 ea =>
-      if k.vexMemTaken then
-        let a := ea.addr s nr
-        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.readMem128 a))).setRip nr
-      else s.halt (.unimplemented s!"v{k.mnemonic} m128: a VEX memory twin not taken (D342)")
-  -- ⭐⭐ V4 (D342) — AES-NI, VPCLMULQDQ and the VEX shuffles.  x86isa refuses all nine;
-  -- `hwprobe/` referees them.  The legacy AES form writes through `setXmm` (bits 255:128
-  -- PRESERVED); every VEX form through `setXmmVex128` (ZEROED).  None writes a flag.
+  -- V3/V4, nested by V5 (D343): the VEX.128 forms, through `stepVex`.
+  | .vex v => stepVex v s nr
+  -- ⭐⭐ V4 (D342) — legacy AES-NI.  x86isa refuses it; `hwprobe/` referees it.  It writes
+  -- through `setXmm` (bits 255:128 PRESERVED).  No flag is written.
   | .vaes k dst src =>
       (s.setXmm dst (aesRound k.last (s.getXmm dst) (s.getXmm src))).setRip nr
-  | .vexaes k dst src1 src =>
-      (s.setXmmVex128 dst (aesRound k.last (s.getXmm src1) (s.getXmm src))).setRip nr
-  | .vexclmul dst src1 src imm =>
-      (s.setXmmVex128 dst (pclmulApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
-  | .vexshufb dst src1 src =>
-      (s.setXmmVex128 dst (vshufbApply (s.getXmm src1) (s.getXmm src))).setRip nr
-  | .vexalignr dst src1 src imm =>
-      (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
-  | .vexshiftdq left dst src cnt =>
-      (s.setXmmVex128 dst (vshiftdqApply left (s.getXmm src) cnt.toNat)).setRip nr
   | .vddupM dst ea =>
       let a := ea.addr s nr
       -- ⚠️ `readMem .q`, the same 64-bit path the half-moves use: a second route

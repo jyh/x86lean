@@ -22146,3 +22146,74 @@ UNMEASURABLE, neither over budget: `X86.Syntax` +59.0 ms ± 45.8 against 100.0 (
 5.8–8.0), and `Tests.Vectors` +0.0 ± 8.5 against 8.2 — recorded as read, budgets not widened; every other unit read `ok`.
 The delta-allowance ledger row is taken at landing, not here. **Not done:** memory forms of the nine (the census needs none),
 VEX.256, and any VEX memory twin but `vpxor`'s.
+
+## D343 — V5: the nine VEX constructors nested under one `Op.vex`, because `X86.Syntax`'s kernel cost tracks `Op`'s constructor count (predictions before any change)
+
+**Why.** #102's katmai ms run could not place `X86.Syntax` (+95.5 ms against a 111.2 budget, ±32.0), so V4 landed on ARM A′'s
+verdict. A trace profile of `X86/Syntax.lean` at V4's head (yukon) gave the module's kernel time by declaration:
+- `X86.Instr` 176 ms
+- `Op.noConfusion` 78 ms
+- the two derived `Op.match_on_same_ctor` 51 + 50 ms
+- `Op.anyLocked_eq` 47 ms
+- `Op.ctorElim` 22 ms
+
+That is of a 639 ms total. Every one of these is STRUCTURAL over `Op`, and `Op` grew 99 → 104 → 111 constructors across V2/V3/V4.
+The remedy is D71's, which nested the sixteen XMM registers to stop `Cpu`'s field count growing: nest a family under one
+constructor so the outer inductive stops growing.
+**The change.** `inductive VexOp` takes the nine VEX constructors verbatim (`vexmov vexddup vexbin vexbinm vexaes vexclmul vexshufb
+vexalignr vexshiftdq`), and `Op` gains `| vex (v : VexOp)` in their place. `vaes` (legacy AES) stays in `Op`. Every match
+over `Op` routes `.vex v` to a function over `VexOp`, every semantic rule is unchanged, and every vector and theorem is restated
+through the one extra constructor. NO new form, NO new rule.
+**Predictions (each is wrong if the named reading differs):**
+1. **Count.** `Op`: 111 → 103 constructors. `VexOp`: 9.
+2. **Kernel cost, X86.Syntax.** The kernel delta, V4 → V5, is NEGATIVE on the same machine. Each of the five structural
+   declarations above reads lower. `VexOp`'s own structural declarations cost less than the eight `Op` constructors they
+   replace. A positive delta refutes the constructor-count reading.
+3. **Elsewhere.** No proof edit beyond a mechanical `.vex` wrap. The differential record is byte-identical (cases=109032, matched
+   85975, the same per-vector lines). Every theorem, the axiom gate (3 axioms) and the silicon rows are unchanged in content.
+   `Tests.CoverageVex`/`Tests.AnchorsVex`/`Tests.AnchorsAes` may move either way, and each reading is reported.
+4. **Published counts** (199 mnemonics, 1,198 vectors, the census) do not move.
+**Refutation route:** a positive X86.Syntax delta, or any record byte that moves.
+**Result (2026-10-16, yukon.lan, `a991cd1` → `7ea57ca`): 1, 3 and 4 HELD; 2 HELD in sign only. The module delta is not resolved
+at 6 repeats, two of the five structural readings do not reproduce across runs, and the deterministic ku count moved UP.**
+- **1 — HELD.** Counted from the source (constructor lines between `inductive … where` and `deriving`): `Op` 111 at `a991cd1`,
+  103 at `7ea57ca`. `VexOp`: 9. Full build `saltbuild EXIT=0`, 0 errors (both marker orders), `axiom_gate.sh` CLEAN over 5,286
+  declarations on the three standard axioms.
+- **2 — HELD IN SIGN, NOT RESOLVED.** `kernel_delta.py --repeats 6` (alternated, loads 3.8–7.6): `X86.Syntax` 578.0 → 568.5,
+  **−9.5 ± 27.8 ms** (range 61), against a 108.1 budget: `delta gate: CLEAN`. The sign is the predicted one, and the band
+  straddles zero. One `trace.profiler` pass per tree, same session, kernel ms:
+  ```
+                                   threshold 20 (base → head)    threshold 1 (base → head)
+    X86.Instr                       181.8 → 162.6                 192.0 → 185.3
+    Op.noConfusion                   84.7 →  60.6                  71.8 →  63.3
+    Op.match_on_same_ctor ×2      54.1+51.5 → 44.9+42.3         49.3+48.2 → 44.4+44.0
+    Op.anyLocked_eq                  48.9 →  44.1                  45.9 →  46.7
+    Op.ctorElim                      24.3 → < 20                   20.2 →  25.4
+  ```
+  Three of the five read lower in both passes. `anyLocked_eq` and `ctorElim` read lower in one pass and higher in the other, so
+  "each reads lower" is NOT established for those two. That is single-pass spread, not a measured rise. Summed over the five, the
+  head is 71–91 ms lower at threshold 20 (`ctorElim` fell under the threshold, so its head value is only bounded by it) and
+  18.3 ms lower at threshold 1. `VexOp`'s own declarations, read at threshold 0, total
+  **26.8 ms over 219 declarations**. The structural ones are small: `noConfusion` 0.95, `ctorElim` 0.51, `noConfusionType` 0.28,
+  each `.noConfusion` 0.13–0.30. The largest are the derived `DecidableEq` (`decEq.match_1` 3.05, `decEq` 2.60). That is less
+  than the 18–91 ms the structural five shed. **`ku_delta.py --arm a-prime`: `X86.Syntax` 38,840 → 39,056, +216 ku (+0.6%)**,
+  within its 7,263 allowance (`ku-delta gate (a-prime): CLEAN`). The deterministic instrument moved the OTHER way from the ms
+  point estimate. The nine routing functions and the extra case in `anyLocked_eq` cost more elaboration-side reductions than
+  the smaller `Op` saves in what ku counts. ⇒ The constructor-count reading is NOT refuted: no positive ms delta. It is also not
+  confirmed at a size this box can resolve. The ms win per constructor is real on `Instr`/`noConfusion`/`match_on_same_ctor`
+  and small next to the module's noise. No new unit appeared; the unit list is identical on both sides.
+- **3 — HELD, with two edits beyond a bare `.vex` wrap, both named here.** (a) `Op.anyLocked_eq` gains one line:
+  `case vex v => cases v <;> simp [… VexOp.anyLocked, VexOp.operands …]`, the same one-level split its `jmp`/`nop` cases already
+  make. (b) `stepVex` is `@[simp]`, and `VexOp.anyLocked` joins `attribute [simp] Op.anyLocked …`, so `simp [step]` sees through
+  the nesting. Every other proof re-elaborated unchanged, and every statement changed only by the wrap. `Tests/Coverage.lean`'s
+  `isMemDestVector` matches `.vex v` one level down instead of `| .vex _ => false`, so a new `VexOp` constructor stays a compile
+  error there. **The differential, `run_differential.sh` (reference model `acl2@c8897a34d3ef`):**
+  `cases=109032 matched=85975 explained=34155 unexplained=0 oracle-divergence=616 oracle-leaks=0 missing=0`. This is V4's line
+  verbatim. `run/lean.txt` (446,970,873 B), `run/cases.lsp` and `run/oracle.txt` are each `cmp`-identical to V4's. The Lean side
+  was re-emitted from `a991cd1`'s binary, and that re-emission is itself `cmp`-identical to V4's own run. Kernel ms of the three
+  named modules: `Tests.CoverageVex` 3255 → 3300 (+45 ± 129), `Tests.AnchorsVex` 36.8 → 37.6 (+0.8 ± 2.1),
+  `Tests.AnchorsAes` 3445 → 3405 (−40 ± 121), all within noise. ku: +0 / +26 / +704. The silicon rows are not re-run: the
+  207 pins are `mk_aes_anchors.py --check` byte-identical through the updated generator, and they elaborate by `decide`.
+- **4 — HELD.** Regenerated `Tests/VectorRuns.lean` and `docs/COVERAGE.md` are byte-identical (`git diff` empty).
+  `claimed_forms.py --check` rc 0 (199 mnemonics, 1,198 forms; 504/525 rows, 355/374 machine forms). `demand_census.py --check`
+  CLEAN (238 mnemonics, sha `eb3420f16cbe4c9a`, unchanged).

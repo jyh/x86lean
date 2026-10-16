@@ -1196,6 +1196,82 @@ def DShiftKind.mnemonic : DShiftKind → String
   | .shld => "shld" | .shrd => "shrd"
 
 def DShiftKind.all : List DShiftKind := [.shld, .shrd]
+/-- ⭐⭐ V5 (D343) — THE NINE VEX.128 FORMS, NESTED UNDER ONE `Op.vex`.  The constructors are
+V3's and V4's verbatim (D341, D342); only their home moved.  `X86.Syntax`'s kernel cost is
+STRUCTURAL over `Op`'s constructor count (`Op.noConfusion`, the derived `match_on_same_ctor`s,
+`Op.anyLocked_eq`, `Op.ctorElim` all scale with it), so a family nested under one constructor
+stops the outer inductive growing — D71's remedy for `Cpu`'s fields, applied to the AST.
+Every consumer routes `.vex v` to a function over `VexOp`; no rule changed. -/
+inductive VexOp where
+  /-- ⭐⭐⭐ V3 (D341) — THE VEX.128 TWIN OF A REGISTER MOVE (`vmovdqa vmovdqu vmovaps
+  vmovups vmovapd vmovupd`, SDM Vol. 2B): the same transfer as `vmov`, written through
+  `setXmmVex128`, so bits 255:128 of the destination's YMM register become ZERO where the
+  legacy form preserves them (SDM Vol. 1 §14.1.2).  Register forms only. -/
+  | vexmov (k : VMovKind) (dst src : XmmReg)
+  /-- ⭐⭐ V3 (D341) — `vmovddup xmm, xmm` (VEX.128 F2 0F 12): `vddupR`'s value, written
+  through `setXmmVex128`. -/
+  | vexddup (dst src : XmmReg)
+  /-- ⭐⭐⭐ V3 (D341) — THE VEX.128 TWIN OF A PACKED BINARY OPERATION, register form:
+  `dst := src1 op src`, where `src1` is the NON-DESTRUCTIVE first source named by
+  VEX.vvvv and `src` the ModRM.rm operand the legacy form already names.  The 128-bit
+  function is `vbinApply`'s, with `src1` in the place the legacy form gives its
+  DESTINATION — so `vpandn` complements `src1` and `vpcmpgt` asks `src1 > src`, exactly
+  as `pandn`/`pcmpgt` ask of their destination (SDM Vol. 2B: VPANDN `DEST ← (NOT SRC1)
+  AND SRC2`).  Only the kinds `VBinKind.vexTaken` lists are taken (D339: the oracle
+  executes exactly those); `step` refuses any other as unimplemented. -/
+  | vexbin (k : VBinKind) (dst src1 src : XmmReg)
+  /-- ⭐⭐ V4 (D342) — THE VEX.128 TWIN OF A PACKED BINARY OPERATION, MEMORY form:
+  `dst := src1 op [ea]`, the 128-bit operand at `ea` in the place `vexbin` gives its
+  ModRM.rm register.  ⛔ NO ALIGNMENT CHECK, and that is the departure from `vbinm`: a
+  VEX-encoded m128 operand of Exception Type 4 does not fault on a misaligned address (SDM
+  Vol. 2A Table 2-21; x86isa's `logical.lisp` passes `inst-ac? nil` for the VEX form), where
+  the legacy form's #GP(0) is `vbinm`'s.  Only the kinds `VBinKind.vexMemTaken` lists are
+  taken (D342: `vpxor` alone, the one a candidate needs); `step` refuses any other. -/
+  | vexbinm (k : VBinKind) (dst src1 : XmmReg) (ea : Ea)
+  /-- ⭐⭐ V4 (D342) — VAESENC / VAESENCLAST (VEX.128 66 0F38 DC/DD): `dst := round(src1, src)`,
+  `src1` (VEX.vvvv) the state and `src` (ModRM.rm) the round key, written through `setXmmVex128`
+  (bits 255:128 ZEROED).  Register form only; silicon-refereed. -/
+  | vexaes (k : AesKind) (dst src1 src : XmmReg)
+  /-- ⭐⭐ V4 (D342) — VPCLMULQDQ (VEX.128 66 0F3A 44 /r ib): the carry-less product of `src1`'s
+  quadword imm8[0] and `src`'s quadword imm8[4] (the other imm8 bits ignored), written through
+  `setXmmVex128`.  Register form only; silicon-refereed. -/
+  | vexclmul (dst src1 src : XmmReg) (imm : BitVec 8)
+  /-- ⭐ V4 (D342) — VPSHUFB (VEX.128 66 0F38 00 /r): `vshufbApply src1 src` — `src1` the DATA (where
+  the legacy form reads its destination) and `src` the control — through `setXmmVex128`. -/
+  | vexshufb (dst src1 src : XmmReg)
+  /-- ⭐ V4 (D342) — VPALIGNR (VEX.128 66 0F3A 0F /r ib): `valignrApply src1 src imm`, `src1` in the
+  legacy destination's (high) place, through `setXmmVex128`. -/
+  | vexalignr (dst src1 src : XmmReg) (imm : BitVec 8)
+  /-- ⭐ V4 (D342) — VPSLLDQ / VPSRLDQ (VEX.128 66 0F 73 /7 ib, /3 ib): `dst` is VEX.vvvv and `src`
+  the ModRM.rm register; `vshiftdqApply`'s value, through `setXmmVex128`. -/
+  | vexshiftdq (left : Bool) (dst src : XmmReg) (cnt : BitVec 8)
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
+def VexOp.operands : VexOp → List Operand
+  -- V3: the VEX.128 register twins name no address.
+  | .vexmov .. | .vexddup .. | .vexbin .. => []
+  | .vexbinm _ _ _ ea => [.mem ea]
+  | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
+
+/-- V5 (D343) — `Op.anyLocked` over the nested VEX forms: V3's and V4's arms, verbatim. -/
+def VexOp.anyLocked : VexOp → Bool
+  | .vexmov .. | .vexddup .. | .vexbin .. => false
+  | .vexbinm _ _ _ ea => ea.lock
+  | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
+
+/-- V5 (D343) — `Op.mnemonic` over the nested VEX forms: V3's and V4's arms, verbatim.
+V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
+def VexOp.mnemonic : VexOp → String
+  | .vexmov k .. => "v" ++ k.mnemonic
+  | .vexddup .. => "vmovddup"
+  | .vexbin k .. | .vexbinm k .. => "v" ++ k.mnemonic
+  | .vexaes k .. => k.vexMnemonic
+  | .vexclmul .. => "vpclmulqdq"
+  | .vexshufb .. => "vpshufb"
+  | .vexalignr .. => "vpalignr"
+  | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
+
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
 inductive Op where
@@ -2091,53 +2167,14 @@ inductive Op where
   rather than from running it — `por 8(%rbx)` refuses at all 88 pre-states,
   `paddd`, `psubw` and `punpcklbw` at the same address execute at all 88. -/
   | vbinm (k : VBinKind) (dst : XmmReg) (ea : Ea)
-  /-- ⭐⭐⭐ V3 (D341) — THE VEX.128 TWIN OF A REGISTER MOVE (`vmovdqa vmovdqu vmovaps
-  vmovups vmovapd vmovupd`, SDM Vol. 2B): the same transfer as `vmov`, written through
-  `setXmmVex128`, so bits 255:128 of the destination's YMM register become ZERO where the
-  legacy form preserves them (SDM Vol. 1 §14.1.2).  Register forms only. -/
-  | vexmov (k : VMovKind) (dst src : XmmReg)
-  /-- ⭐⭐ V3 (D341) — `vmovddup xmm, xmm` (VEX.128 F2 0F 12): `vddupR`'s value, written
-  through `setXmmVex128`. -/
-  | vexddup (dst src : XmmReg)
-  /-- ⭐⭐⭐ V3 (D341) — THE VEX.128 TWIN OF A PACKED BINARY OPERATION, register form:
-  `dst := src1 op src`, where `src1` is the NON-DESTRUCTIVE first source named by
-  VEX.vvvv and `src` the ModRM.rm operand the legacy form already names.  The 128-bit
-  function is `vbinApply`'s, with `src1` in the place the legacy form gives its
-  DESTINATION — so `vpandn` complements `src1` and `vpcmpgt` asks `src1 > src`, exactly
-  as `pandn`/`pcmpgt` ask of their destination (SDM Vol. 2B: VPANDN `DEST ← (NOT SRC1)
-  AND SRC2`).  Only the kinds `VBinKind.vexTaken` lists are taken (D339: the oracle
-  executes exactly those); `step` refuses any other as unimplemented. -/
-  | vexbin (k : VBinKind) (dst src1 src : XmmReg)
-  /-- ⭐⭐ V4 (D342) — THE VEX.128 TWIN OF A PACKED BINARY OPERATION, MEMORY form:
-  `dst := src1 op [ea]`, the 128-bit operand at `ea` in the place `vexbin` gives its
-  ModRM.rm register.  ⛔ NO ALIGNMENT CHECK, and that is the departure from `vbinm`: a
-  VEX-encoded m128 operand of Exception Type 4 does not fault on a misaligned address (SDM
-  Vol. 2A Table 2-21; x86isa's `logical.lisp` passes `inst-ac? nil` for the VEX form), where
-  the legacy form's #GP(0) is `vbinm`'s.  Only the kinds `VBinKind.vexMemTaken` lists are
-  taken (D342: `vpxor` alone, the one a candidate needs); `step` refuses any other. -/
-  | vexbinm (k : VBinKind) (dst src1 : XmmReg) (ea : Ea)
+  /-- ⭐⭐ V5 (D343) — every VEX.128 form, nested: see `VexOp`.  `vaes` (legacy SSE AES) stays
+  here; it is not VEX-encoded. -/
+  | vex (v : VexOp)
   /-- ⭐⭐ V4 (D342) — AESENC / AESENCLAST between registers (legacy SSE, `66 0F 38 DC/DD /r`):
   `dst := round(dst, src)`, the destination the STATE and `src` the round key; bits 255:128 of
   the destination's YMM register are PRESERVED (`setXmm`).  No flag is written.  x86isa refuses
   both; `hwprobe/` referees them (D342).  Register form only. -/
   | vaes (k : AesKind) (dst src : XmmReg)
-  /-- ⭐⭐ V4 (D342) — VAESENC / VAESENCLAST (VEX.128 66 0F38 DC/DD): `dst := round(src1, src)`,
-  `src1` (VEX.vvvv) the state and `src` (ModRM.rm) the round key, written through `setXmmVex128`
-  (bits 255:128 ZEROED).  Register form only; silicon-refereed. -/
-  | vexaes (k : AesKind) (dst src1 src : XmmReg)
-  /-- ⭐⭐ V4 (D342) — VPCLMULQDQ (VEX.128 66 0F3A 44 /r ib): the carry-less product of `src1`'s
-  quadword imm8[0] and `src`'s quadword imm8[4] (the other imm8 bits ignored), written through
-  `setXmmVex128`.  Register form only; silicon-refereed. -/
-  | vexclmul (dst src1 src : XmmReg) (imm : BitVec 8)
-  /-- ⭐ V4 (D342) — VPSHUFB (VEX.128 66 0F38 00 /r): `vshufbApply src1 src` — `src1` the DATA (where
-  the legacy form reads its destination) and `src` the control — through `setXmmVex128`. -/
-  | vexshufb (dst src1 src : XmmReg)
-  /-- ⭐ V4 (D342) — VPALIGNR (VEX.128 66 0F3A 0F /r ib): `valignrApply src1 src imm`, `src1` in the
-  legacy destination's (high) place, through `setXmmVex128`. -/
-  | vexalignr (dst src1 src : XmmReg) (imm : BitVec 8)
-  /-- ⭐ V4 (D342) — VPSLLDQ / VPSRLDQ (VEX.128 66 0F 73 /7 ib, /3 ib): `dst` is VEX.vvvv and `src`
-  the ModRM.rm register; `vshiftdqApply`'s value, through `setXmmVex128`. -/
-  | vexshiftdq (left : Bool) (dst src : XmmReg) (cnt : BitVec 8)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:
@@ -2267,10 +2304,9 @@ def opOperands : Op → List Operand
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => [.mem ea]
   -- ⚠️ Two register files and no address: the cross moves name no `Ea` at all.
   | .vmovhl .. | .vddupR .. => []
-  -- V3: the VEX.128 register twins name no address.
-  | .vexmov .. | .vexddup .. | .vexbin .. => []
-  | .vexbinm _ _ _ ea => [.mem ea]
-  | .vaes .. | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
+  -- V3/V4: the VEX.128 forms, nested by V5 (D343) — see `VexOp.operands`.
+  | .vex v => v.operands
+  | .vaes .. => []
   | .vddupM _ ea => [.mem ea]
   -- ⚠️ NAMED even though nothing reads it — see `Op.prefetch`.
   | .prefetch _ ea => [.mem ea]
@@ -2455,9 +2491,8 @@ def Op.anyLocked : Op → Bool
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .vmovhl .. | .vddupR .. => false
-  | .vexmov .. | .vexddup .. | .vexbin .. => false
-  | .vexbinm _ _ _ ea => ea.lock
-  | .vaes .. | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
+  | .vex v => v.anyLocked
+  | .vaes .. => false
   | .vddupM _ ea => ea.lock
   | .prefetch _ ea => ea.lock
   | .vmovmsk .. => false
@@ -2571,6 +2606,8 @@ theorem Op.anyLocked_eq (o : Op) :
   cases o
   case jmp t | call t => cases t <;> simp [Op.anyLocked, opOperands, Operand.locked]
   case nop d => cases d <;> simp [Op.anyLocked, opOperands, Operand.locked]
+  -- V5 (D343): the nested VEX forms, split one level down as `jmp`/`nop` are.
+  case vex v => cases v <;> simp [Op.anyLocked, opOperands, VexOp.anyLocked, VexOp.operands, Operand.locked]
   all_goals simp [Op.anyLocked, opOperands, Operand.locked]
 
 /-- ⭐⭐ IS A `lock` FLAG SET ON A FORM THE SDM DOES NOT ALLOW IT ON?
@@ -2609,7 +2646,7 @@ theorem was making a claim that is now FALSE for a locked operand, because a
 locked `mov` is #UD.  Those theorems gain `(hl : ea.lock = false)` and say so —
 narrowing a claim that had become too wide is the honest repair, and hiding it
 behind a simp lemma would be the dishonest one. -/
-attribute [simp] Op.anyLocked Op.lockable Op.lockIllegal
+attribute [simp] Op.anyLocked Op.lockable Op.lockIllegal VexOp.anyLocked
 
 /-! ### The lock-guard's side condition, discharged per family
 
@@ -2688,16 +2725,9 @@ def Op.mnemonic : Op → String
   -- one and the mnemonic is named for the move, not for the destination.
   | .vmovhl d _ _ => match d with | .lo => "movhlps" | .hi => "movlhps"
   | .vddupR .. | .vddupM .. => "movddup"
-  -- V3: every VEX.128 twin is its legacy spelling with a `v` in front.
-  | .vexmov k .. => "v" ++ k.mnemonic
-  | .vexddup .. => "vmovddup"
-  | .vexbin k .. | .vexbinm k .. => "v" ++ k.mnemonic
+  -- V3/V4: the VEX.128 forms, nested by V5 (D343) — see `VexOp.mnemonic`.
+  | .vex v => v.mnemonic
   | .vaes k .. => k.mnemonic
-  | .vexaes k .. => k.vexMnemonic
-  | .vexclmul .. => "vpclmulqdq"
-  | .vexshufb .. => "vpshufb"
-  | .vexalignr .. => "vpalignr"
-  | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
   -- ⚠️ FOUR MNEMONICS FROM TWO FIELDS, and neither may be dropped: `ordered`
   -- picks the opcode byte (`0f 2f` / `0f 2e`) and `sz` picks the format.
   | .vcomis o sz _ _ =>
