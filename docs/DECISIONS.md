@@ -22370,3 +22370,34 @@ the silicon line and never covered.
 - ⚠️ **The granularity, stated in advance:** like the VEX.128 class, it credits by MNEMONIC within the bucket. So a VEX.256
   MEMORY form of a table mnemonic (none is modelled) is credited too. That is the D342 (a) limit carried to a second length,
   not a new one, and the census prints it on the line.
+**Result, part (b) (census; demand on katmai over `~/x86lean-corpus`, primitive on yukon over `~/x86lean-prim-src`,
+2026-10-16): Q1, Q2 and Q3 HELD. The work found two defects in `demand_census.py` that predate V6, and both are fixed here.**
+- **Q1 — HELD.** Every numeric field of `DEMAND-CENSUS.md.json` except the VEX line's is V5's, in every corpus (cc1 5,378,222
+  · coreutils 865,527 · glibc 559,250 · dav1d 195,087 · ffmpeg 2,987,538 · vlc-codec 150,727 · vlc-video_chroma 98,858 · vpx
+  655,525 · x264 334,441 · vmlinux 2,767,164). The run's own no-pooling check passed.
+- **Q2 — HELD, by exact counts.** In each corpus the VEX line's gain equals the fall in "not mapped at all": coreutils 95 → 144
+  (+49 / −49) · glibc 2,104 → 7,475 (+5,371 / −5,371) · dav1d 3,266 → 18,450 (+15,184 / −15,184) · ffmpeg 16,064 → 33,552
+  (+17,488 / −17,488) · vpx 1,402 → 7,669 · x264 6,116 → 7,765 · vmlinux 37 → 43. cc1 and both vlc columns are unchanged.
+  `--selftest` carries three new arms (`vpaddd`/`vmovdqa` at ymm map to themselves, `vpxor` at ymm is the VEX class, and
+  `vpermq` at ymm stays unmapped). **Red backwards:** with the ymm rule removed, exactly those three arms fail.
+- **Q3 — HELD.** `primitive_census.py`: the VEX-table column goes from 34 to 67 forms (V6's 39 vectors are 33 forms). ALL
+  COVERED stays 42 of 57, the unlock (22 forms for 7) and the 5-step ladder are unchanged, and no candidate's COVERED WITH
+  SILICON verdict moved. The document differs in that one line.
+- ⛔ **Defect 1, the stamp's blind spot, and it would have let a stale census read fresh.** The `rules=` hash evaluates
+  `_decide` over `_rule_domain(model)`, and that domain held no VEX-table mnemonic, because `names_of` excludes the VEX table.
+  So the VEX.256 rule left `rules=5a59c1677778c186` byte-identical, and `--check` read V5's document CLEAN against V6's
+  mapping. The domain now includes `vex_of(model)`. Both directions were driven on the stamp function: with the fix, removing
+  the ymm rule moves the hash (`65e5992461bef55a` → `0a8aa6393e9656e8`). Without the fix, V5's rules and V6's hashed alike.
+  The document is regenerated under the new stamp, and the regeneration differs from the one before the fix in that stamp
+  line alone. A selftest arm now asks the precondition (every VEX-table mnemonic is in the domain).
+  `census_redprobe.py` gains two mutations: the domain dropping the VEX table, and the VEX class at ymm pooled into covered.
+  Its D342 anchor, which my ymm branch had made ambiguous ("ANCHOR MISSING (2 hits)"), now names its own branch. It reads
+  PASS: control + 35 mutations, every one caught.
+- ⚠️ **Defect 2, a label.** The per-corpus ranked table keys mapped and unmapped spellings separately, but it computed the
+  "in the model?" cell from the bare name. So an UNMAPPED row whose name matches a VEX-table row printed "⚙ VEX table only".
+  V5's dav1d table showed `vpaddd` 4,078 under that label, and all 4,078 were ymm (2,975) and zmm (1,103) instructions that
+  nothing mapped. An unmapped row now prints "—". No row of today's corpus reaches the branch any more: the ymm half is now
+  mapped, and the zmm 1,103 rank below 30. So the fix is unexercised by today's document and carries no arm. That is a limit,
+  stated.
+- **Granularity, as predicted:** the VEX line credits by mnemonic within the bucket, so VEX.256 memory forms of table
+  mnemonics are in its counts while no VEX.256 memory form is modelled. The line now says so in its own text.
