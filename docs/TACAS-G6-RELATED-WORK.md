@@ -18,7 +18,7 @@ so it did not wait on the Captain's choice. *(Ruled (c) on 2026-09-12; nothing h
 |---|---|---|
 | 1 | x86isa: `x86-fetch-decode-execute` over the `x86` STOBJ with an `app-view` switch | ✅ **VERIFIED verbatim** — `machine/x86.lisp:207`; the switch's own doc in `machine/state.lisp` |
 | 2 | x86isa `UNDEF`: *"Field that seeds unknown values that characterize commonly occurring undefined behavior"* | ✅ **VERIFIED verbatim** — `machine/state.lisp`, and see §3 |
-| 3 | *"x86isa itself uses XED's tables via `xedscan.py`"* | ⛔ **REFUTED** — a self-described *"small proof of concept"*; **186 of 3,192** map entries (5.8%), the x87 escape block, plus 9 sites citing `xed-isa.txt` for undocumented encodings |
+| 3 | *"x86isa itself uses XED's tables via `xedscan.py`"* | ⛔ **REFUTED** — a self-described *"small proof of concept"*; **138 of 3,192** map entries (4.3%; 129 live — this read 186 until 2026-10-15, re-derived at inst-listing.lisp, acl2 c8897a34), the x87 escape block, plus 9 sites citing `xed-isa.txt` for undocumented encodings |
 | 4 | *"K: an explicit list of supported vs unsupported variants"* | ⛔ **MIS-STATED** — see §2 |
 | 5 | *"Sail: `Unspecified`-valued results"* | ⛔ **TERM NOT PRESENT** — 0 of 14 model files (202,493 B; positive control fires in 12). The mechanism is Sail's builtin `undefined`; see §3 |
 | 6 | K: co-simulation against a real machine, per-instruction compare | ✅ **VERIFIED verbatim** — its README's *"Testing the semantics"* |

@@ -13923,7 +13923,7 @@ rather than letting a referee find it** — the same call §3 already made about
    SHIFT.** The 2026-09-02 provenance verdict says *"x86isa itself uses XED's tables via
    `xedscan.py`"*; my own §1c.3 said its maps are an SDM transcription. **Measured: `xedscan.py` is
    a self-described PROOF OF CONCEPT that generated 186 of 3,192 entries (5.8%, the x87 escape
-   block), plus 9 sites citing `xed-isa.txt` for UNDOCUMENTED encodings.** The brief
+   block) [CORRECTED 2026-10-15: 138 of 3,192 (4.3%; 129 live), counted at inst-listing.lisp, acl2 c8897a34], plus 9 sites citing `xed-isa.txt` for UNDOCUMENTED encodings.** The brief
    over-generalised; I omitted. Both errors bought a cleaner story.
    ⇒ **It destroys the tidy contrast** *"their decode trust is the SDM; ours is XED"*: **both models
    reach for XED, and x86isa reaches for it exactly where the SDM is weakest.** What differs is the

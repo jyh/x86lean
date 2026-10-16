@@ -189,7 +189,7 @@ choice, and the external decoder — each with **public** prior art and an evide
   1  x86isa x86-fetch-decode-execute over the x86 STOBJ, app-view switch   VERIFIED verbatim
   2  x86isa UNDEF "seeds unknown values ... undefined behavior"            VERIFIED verbatim
   3  "x86isa itself uses XED's tables via xedscan.py"                      REFUTED -- a self-
-       described PROOF OF CONCEPT; 186 of 3,192 entries (5.8%), the x87 escape block
+       described PROOF OF CONCEPT; 138 of 3,192 entries (4.3%; read 186 until 2026-10-15), the x87 escape block
   4  "K: an explicit list of supported vs unsupported variants"            MIS-STATED -- K has a
        DERIVATION SCRIPT for its own support and NO checked-in list of it.  Its checked-in
        supported/unsupported lists are about OTHER systems, and that folder's own README says they

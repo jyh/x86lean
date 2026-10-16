@@ -185,3 +185,10 @@ Tests.AnchorsSimd @ku 3499549
 # X86.Theorems +3,767, X86.Syntax +616, X86.Semantics +16, X86.Coverage +10, X86.Serialize +10, X86.Program +2,
 # Tests.LogicKit +2, every other module +0.
 Tests.AnchorsSha @ku 1217137
+# D341 (V3): the four NEW modules, registered at ARM A′'s own readings — the lines PR #98's ku-delta job PRINTED
+# ("register `<unit> @ku <n>`"), copied, not retyped. They were missing from the batch (the executor copied only the
+# ms ceilings), so the PR's ku-delta refused all four once; this is that registration, in its own step.
+Tests.AnchorsVex @ku 5648
+Tests.CoverageVex @ku 1051609
+X86.Vex @ku 5085
+X86.YmmHi @ku 75
