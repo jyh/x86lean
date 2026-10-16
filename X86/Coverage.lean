@@ -1114,7 +1114,7 @@ the batch would only have moved the same wall to the next one. The published 199
 
 ⛔ NOT TAKEN, declared rather than absent: the VEX.256 (VEX.L = 1) forms of these mnemonics (the
 model has no 256-bit operand; x86isa EXECUTES them, `oracle_availability.py`'s NOTTAKEN rows),
-their memory forms, and the 77 VEX twins the oracle refuses (D339). -/
+their memory forms (save `vpxor`'s, V4, D342), and the 77 VEX twins the oracle refuses (D339). -/
 def vexTable : List VexRow :=
   [ { twin := "movdqa",
       row := { mnemonic := "vmovdqa", shapes := "x,x",
@@ -1189,8 +1189,8 @@ def vexTable : List VexRow :=
                note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" } }
   , { twin := "pxor",
-      row := { mnemonic := "vpxor", shapes := "x,x,x",
-               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed",
+      row := { mnemonic := "vpxor", shapes := "x,x,x · x,x,m",
+               note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed; the m128 form (V4, D342) has NO alignment check, where pxor's is #GP(0)",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" } }
   , { twin := "andps",
       row := { mnemonic := "vandps", shapes := "x,x,x",
@@ -1261,7 +1261,7 @@ out of every table would make an implemented form invisible.
 
 ⚠️ WHAT THE REFEREE IS: `hwprobe/` runs each row of `hwprobe/mk_int_rows.py`
 (and, since D336, of `hwprobe/mk_shuf_rows.py`; D335, `mk_simda_rows.py`; D338,
-`mk_sha_rows.py`) (expectations derived from the SDM's rules, never from x86isa or this model) on a
+`mk_sha_rows.py`; D342, `mk_aes_rows.py`) (expectations derived from the SDM's rules, never from x86isa or this model) on a
 hosted runner's processor, and `Tests/Anchors.lean` checks THIS model against the
 same rows by `decide`.  That is a weaker instrument than the differential in one
 way that is named here rather than hidden: its rows are chosen, not swept over
@@ -1337,7 +1337,31 @@ def siliconTable : List Row :=
   , { mnemonic := "sha256msg2", shapes := "x,x · x,m", note := "SHA-NI · W16..W19 from the destination plus σ1 of the source's HIGH two dwords (W14, W15), W18 and W19 chained on W16 and W17; m 16-byte aligned, else #GP(0) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256MSG2" }
   , { mnemonic := "sha256rnds2", shapes := "x,x · x,m", note := "SHA-NI · two FIPS 180-4 rounds, ABEF from the source and CDGH from the destination, WK0:WK1 from XMM0's LOW quadword (an implicit operand); DEST = A:B:E:F after round 2; m 16-byte aligned, else #GP(0) · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256RNDS2" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHA256RNDS2" }
+  -- ⭐ D342 (V4): the nine forms `vale-aesgcm` needs that x86isa refuses — AES-NI legacy
+  -- (`Op.vaes`) and VEX (`Op.vexaes`), VPCLMULQDQ, and the VEX twins of V1b's PSHUFB/PALIGNR and
+  -- the byte shifts.  Every result bit is defined and no flag is written, so each is `T-exact`;
+  -- the rows are `hwprobe/mk_aes_rows.py`'s.  ⚠️ The VEX ones are rows HERE and not of `vexTable`:
+  -- that table is the DIFFERENTIALLY tested VEX population, and `Tests.CoverageVex` requires a
+  -- vector for every one of its rows, which a form the oracle refuses cannot have.
+  , { mnemonic := "aesenc", shapes := "x,x", note := "AES-NI · one AES round: ShiftRows, SubBytes, MixColumns of the destination (the state), XOR the source (the round key); YMM bits 255:128 preserved · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A AESENC" }
+  , { mnemonic := "aesenclast", shapes := "x,x", note := "AES-NI · the last AES round: ShiftRows, SubBytes (NO MixColumns), XOR the round key; YMM bits 255:128 preserved · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A AESENCLAST" }
+  , { mnemonic := "vaesenc", shapes := "x,x,x", note := "VEX.128 AES round: state = src1 (VEX.vvvv), round key = src; YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A AESENC" }
+  , { mnemonic := "vaesenclast", shapes := "x,x,x", note := "VEX.128 last AES round (no MixColumns): state = src1 (VEX.vvvv), round key = src; YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A AESENCLAST" }
+  , { mnemonic := "vpclmulqdq", shapes := "x,x,x,i", note := "VEX.128 carry-less 64×64 product of src1's quadword imm8[0] and src's quadword imm8[4] (other imm8 bits ignored; bit 127 = 0); YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCLMULQDQ" }
+  , { mnemonic := "vpshufb", shapes := "x,x,x", note := "VEX.128 PSHUFB: bytes of src1 (VEX.vvvv, the data) selected by src's control bytes (bit 7 zeroes; bits 3:0 index); YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFB" }
+  , { mnemonic := "vpalignr", shapes := "x,x,x,i", note := "VEX.128 PALIGNR: ((src1 << 128) | src) >> 8·imm8, low 128 bits, 0 at imm8 ≥ 32; YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PALIGNR" }
+  , { mnemonic := "vpslldq", shapes := "x,x,i", note := "VEX.128 byte shift left of src (ModRM.rm) into dst (VEX.vvvv), 0 at imm8 > 15; YMM bits 255:128 of dst zeroed · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLDQ" }
+  , { mnemonic := "vpsrldq", shapes := "x,x,i", note := "VEX.128 byte shift right of src (ModRM.rm) into dst (VEX.vvvv), 0 at imm8 > 15; YMM bits 255:128 of dst zeroed · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLDQ" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

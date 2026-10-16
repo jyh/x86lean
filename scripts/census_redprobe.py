@@ -89,7 +89,7 @@ MUTATIONS = [
      "    if model is not None and m in names_of(model):\n        return m\n    return None",
      "    return None"),
     ("the vector spelling no longer wins — `movq %xmm0,%rax` resolves as `mov`",
-     "    if model is not None and ext in XMM_EXT and m in names_of(model):\n        return m",
+     "    if model is not None and ext in XMM_EXT and (m in names_of(model) or m in vex_of(model)):\n        return m",
      "    if False:\n        return m"),
     ("`movabsq` stops mapping to the `mov` P2 batch 3 landed",
      '    "movabsq":"mov", "movabs":"mov",', '    "movabsq":None, "movabs":None,'),
@@ -162,8 +162,12 @@ MUTATIONS = [
      "    return frozenset(names_of(model)) - silicon_mnemonics()",
      "    return frozenset(model)"),
     ("the silicon split is dropped — every implemented mnemonic reads as differential",
-     "    return Model(ms, sil)",
-     "    return Model(ms, ())"),
+     "    return Model(ms, sil, vex)",
+     "    return Model(ms, (), vex)"),
+    # ⭐ D342 (a): the VEX-table class pooled into (a) — `_decide` files a VEX-table instruction as COVERED.
+    ("the VEX-table class is pooled into covered (D342)",
+     '            return r, False, "vex"',
+     '            return r, True, "vex"'),
     ("the l/q-suffixed BMI/ADX/MOVNTI spellings stop mapping (their demand reads as unmapped)",
      '            "adcx","adox","mulx","andn","bextr","blsmsk","blsr","bzhi","pdep",\n'
      '            "pext","rorx","movnti"}',

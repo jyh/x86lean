@@ -138,6 +138,11 @@ FORMS = [
     ("vaesenc",     "vaesenc %xmm1, %xmm2, %xmm0",            "c4e269dcc1",     "refuses"),
     ("vaesenclast", "vaesenclast %xmm1, %xmm2, %xmm0",        "c4e269ddc1",     "refuses"),
     ("vpclmulqdq",  "vpclmulqdq $0, %xmm1, %xmm2, %xmm0",     "c4e36944c100",   "refuses"),
+    # ⭐ D342 (V4, part (b)): the VEX memory form vale-aesgcm needs, DECLARED `executes` (x86isa's VPXOR
+    # semantic function takes the memory shape the register form already runs) and MEASURED here before
+    # its referee is fixed. Executing sends it to the differential beside `vpxor xmm,xmm,xmm`; the nine
+    # vale-aesgcm refusers above (all but legacy `pclmulqdq`) are re-read by the same run (D342 prediction 1).
+    ("vpxor m,xmm", "vpxor (%rbx), %xmm2, %xmm0",             "c5e9ef03",       "executes"),
     # ⭐ V3 (D341) P6, MEASURED 2026-10-14 and kept in the run so the reading is re-taken. VEX.256 (VEX.L = 1) of two
     # twins V3 takes: x86isa EXECUTES both at 88/88 — VEX.256 is valid for these forms, and D341's prediction of #UD
     # was wrong. V3 does NOT take VEX.256 (the model has no 256-bit operand); these rows say so, they are not vectors.
