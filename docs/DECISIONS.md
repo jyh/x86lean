@@ -22352,6 +22352,21 @@ and the form is the oracle's defect, not the model's.**
 **Bundled (not a V6 claim):** `X86/Semantics.lean`'s BSF/BSR comment quoted the SDM's "the destination operand is
 undefined" as Intel's current text. SDM edition 093US now says UNMODIFIED (the O38 paper's refuter-2, item H2). The comment
 now says so. The rule is unchanged, and whether to follow the new text is a decision owed, not taken.
-**Not done:** VEX.256 memory forms; AVX2 forms with no VEX.128 twin here; census credit for the VEX.256 forms.
-`demand_census.py` still classes `%ymm` as a state the model cannot represent, so the 108,554-instruction ymm class does
-not move until that classifier learns the 39 forms. That is the next step, and it is measured, not assumed.
+**Not done:** VEX.256 memory forms, and AVX2 forms with no VEX.128 twin here.
+
+**Part (b), the census crediting VEX.256 — predictions committed before any census change (2026-10-16).** It is folded
+into V6 rather than given a PR of its own, because a selftest input change costs every PR the full ten-shard matrix
+(about four hours this morning, and `fast_path.py --check 103` refused). Today `demand_census.py` maps a `%ymm`
+instruction to no roster name (its selftest pins `vpaddd`/`vmovdqa` at ymm → None). The change: in `to_roster`, a `%ymm`
+spelling that IS a VEX-table row maps to itself, and `_decide` files it in the existing VEX class, the D342 (a) one, beside
+the silicon line and never covered.
+- Q1. **(a) is unchanged in every column.** The run's own no-pooling check passes, and the covered figure of every corpus is
+  V5's.
+- Q2. **Conservation.** The VEX line grows in each corpus by exactly the `AVX2/AVX (ymm)` instructions whose mnemonic is a
+  VEX-table row. Those leave the uncovered gap's unmapped part by the same count. The census's own conservation arm holds.
+- Q3. **The published counts (199 mnemonics, 1,198 vectors) and the 5-step ladder do not move.** `primitive_census.py`'s
+  VEX-table column gains the VEX.256 register forms, and ALL COVERED stays 42 of 57. Any candidate whose COVERED WITH SILICON
+  verdict moves is named, with the forms that moved it.
+- ⚠️ **The granularity, stated in advance:** like the VEX.128 class, it credits by MNEMONIC within the bucket. So a VEX.256
+  MEMORY form of a table mnemonic (none is modelled) is credited too. That is the D342 (a) limit carried to a second length,
+  not a new one, and the census prints it on the line.
