@@ -22470,7 +22470,8 @@ Three are NOT a plain per-lane map, and each is predicted separately:
   AMD microarchitecture from the 10-16 leg's, and the one consistent with an EPYC 7763; its log again prints no model
   name (`model name` is empty on the hosted VM). macos-15-intel drew the Intel Core i7-8700B again, 503/503. On both legs
   the three controls behaved as asserted. ⇒ **Two AMD parts and one Intel, all 503/503; both AMD readings are by CPUID
-  signature only.**
+  signature only.** The censuses name D345's referees as **AMD CPUID feda3203** (both AMD parts share that CPUID.01H:ECX)
+  and **Intel Core i7-8700B**.
 **Result, prediction 3 (model, step (b), 2026-10-17, yukon): HELD.**
 - **No new arithmetic.** Ten `VexOp` constructors (`vexshufps`, `vexsrax`, `vexsrai`, `vexparith`, `vexmovmskb`, each with a
   `…256` twin), and the four unpack/pack kinds enter `vexbin`/`vexbin256` through a new `VBinKind.vexSilTaken`, kept apart
