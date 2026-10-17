@@ -22634,3 +22634,8 @@ does.
    declares it. Green before and after; the file restored byte-identical.
 Also: `wrongBsrIsLzcnt` (a planted wrong model in `Main.lean`) still drew at a zero source; it now follows the new rule, so
 it differs from `step` only in its named bug. `docs/COVERAGE.md` changes in the two rows (`DEST (src=0)` removed).
+6. **Kernel cost, yukon (`5171fff` → `297c965`, `--repeats 3`, loads 8.6–23.5: a loaded box): no NEW unit, and every unit
+   D346 touches reads `ok`** — `Tests.Nonvacuity` 189 → 156 (−33.0 ± 44.4 of 64.8; the theorems no longer unfold 64 oracle
+   draws), `X86.Semantics` +1.6 ± 4.6 of 7.5, `X86.Serialize` −0.7, `X86.Coverage` −0.2. Four UNTOUCHED test units
+   (`Tests.CoverageVex`, `Tests.CoverageVex256`, `Tests.Logic`, `Tests.LogicLoop`) read UNMEASURABLE, with bands of ±16 to
+   ±1,635 ms at those loads: a reading of the box, not of the commit. The katmai row at landing is the verdict of record.
