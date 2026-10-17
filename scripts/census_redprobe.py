@@ -166,8 +166,15 @@ MUTATIONS = [
      "    return Model(ms, (), vex)"),
     # ⭐ D342 (a): the VEX-table class pooled into (a) — `_decide` files a VEX-table instruction as COVERED.
     ("the VEX-table class is pooled into covered (D342)",
-     '            return r, False, "vex"',
-     '            return r, True, "vex"'),
+     '        if ext == VEX128 and r in vex_of(model):\n            return r, False, "vex"',
+     '        if ext == VEX128 and r in vex_of(model):\n            return r, True, "vex"'),
+    # ⭐ D344 (V6): the same class at VEX.256 pooled into (a), and the stamp's rule domain losing the VEX table.
+    ("the VEX-table class at ymm is pooled into covered (D344)",
+     '        if ext == YMM and r in vex_of(model):\n            return r, False, "vex"',
+     '        if ext == YMM and r in vex_of(model):\n            return r, True, "vex"'),
+    ("the stamp's rule domain drops the VEX table (D344)",
+     "    d = set(names_of(model)) | set(vex_of(model)) | set(EXACT)",
+     "    d = set(names_of(model)) | set(EXACT)"),
     ("the l/q-suffixed BMI/ADX/MOVNTI spellings stop mapping (their demand reads as unmapped)",
      '            "adcx","adox","mulx","andn","bextr","blsmsk","blsr","bzhi","pdep",\n'
      '            "pext","rorx","movnti"}',

@@ -85,6 +85,18 @@ theorem setVex128_hi_same (xs : Xmms) (r : XmmReg) (v : BitVec 128) :
 theorem setVex128_hi_ne (xs : Xmms) (r r' : XmmReg) (v : BitVec 128) (h : r ≠ r') :
     (xs.setVex128 r v).hi.get r' = xs.hi.get r' := by simp [h]
 
+/-- ⭐⭐⭐ V6 (D344) — THE VEX.256 WRITE: the low 128 bits of `r` become `lo` and bits 255:128
+of YMMr become `hi`.  Both halves are WRITTEN, which is what separates it from both
+other setters: `set` preserves bits 255:128 and `setVex128` zeroes them. -/
+def setVex256 (xs : Xmms) (r : XmmReg) (lo hi : BitVec 128) : Xmms :=
+  { xs.set r lo with hi := xs.hi.set r hi }
+
+@[simp] theorem setVex256_hi (xs : Xmms) (r : XmmReg) (lo hi : BitVec 128) :
+    (xs.setVex256 r lo hi).hi = xs.hi.set r hi := rfl
+
+@[simp] theorem setVex256_get_same (xs : Xmms) (r : XmmReg) (lo hi : BitVec 128) :
+    (xs.setVex256 r lo hi).get r = lo := by cases r <;> rfl
+
 end Xmms
 
 namespace Cpu
@@ -126,6 +138,31 @@ theorem getYmmHi_setXmmVex128_ne (s : Cpu) (r r' : XmmReg) (v : BitVec 128) (h :
   simp [getYmmHi, setXmmVex128, h]
 @[simp] theorem getYmmHi_setXmm (s : Cpu) (r r' : XmmReg) (v : BitVec 128) :
     (s.setXmm r v).getYmmHi r' = s.getYmmHi r' := by simp [getYmmHi]
+
+/-! ### V6 (D344): the VEX.256 write -/
+
+/-- ⭐⭐⭐ THE VEX.256 WRITE: XMMr := lo and bits 255:128 of YMMr := hi.  Every VEX.256 rule
+computes its two lanes with the SAME 128-bit function its legacy and VEX.128 twins use,
+and writes them here. -/
+def setYmm (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) : Cpu :=
+  { s with xmm := s.xmm.setVex256 r lo hi }
+
+@[simp] theorem setYmm_regs (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).regs = s.regs := rfl
+@[simp] theorem setYmm_rip (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).rip = s.rip := rfl
+@[simp] theorem setYmm_flags (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).flags = s.flags := rfl
+@[simp] theorem setYmm_mem (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).mem = s.mem := rfl
+@[simp] theorem setYmm_ms (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).ms = s.ms := rfl
+@[simp] theorem setYmm_mxcsr (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).mxcsr = s.mxcsr := rfl
+@[simp] theorem getXmm_setYmm_same (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).getXmm r = lo := by simp [getXmm, setYmm]
+@[simp] theorem getYmmHi_setYmm_same (s : Cpu) (r : XmmReg) (lo hi : BitVec 128) :
+    (s.setYmm r lo hi).getYmmHi r = hi := by simp [getYmmHi, setYmm]
 
 end Cpu
 

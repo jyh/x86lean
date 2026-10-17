@@ -194,3 +194,5 @@ X86.Vex @ku 5085
 X86.YmmHi @ku 75
 # D342 (V4): the NEW unit ARM A′ refused, 9d81f4b (origin/master) → fc5f3e1, yukon.lan, copied from its printed line, not retyped.
 Tests.AnchorsAes @ku 1611835
+# D344 (V6): the NEW unit ARM A′ refused, e92b5fc (V5's head) → 59f2b96, yukon.lan, copied from its printed line, not retyped.
+Tests.CoverageVex256 @ku 231898

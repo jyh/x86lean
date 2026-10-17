@@ -1112,9 +1112,13 @@ coverage theorems over `tableP0` are quadratic in its row count: as 33 more rows
 yukon. A separate table prices VEX in its own unit (`Tests.CoverageVex`) for good; splitting
 the batch would only have moved the same wall to the next one. The published 199 is unchanged.
 
-⛔ NOT TAKEN, declared rather than absent: the VEX.256 (VEX.L = 1) forms of these mnemonics (the
-model has no 256-bit operand; x86isa EXECUTES them, `oracle_availability.py`'s NOTTAKEN rows),
-their memory forms (save `vpxor`'s, V4, D342), and the 77 VEX twins the oracle refuses (D339). -/
+⭐ V6 (D344): every register row is ALSO differentially tested at VEX.256 (VEX.L = 1), in
+`Tests.Vectors.vex256Vectors` — the same mnemonic, the 128-bit function applied in each lane, and
+bits 255:128 of the destination WRITTEN. The rows below do not change: a VEX.256 form is a second
+operand size of a row, not a row.
+
+⛔ NOT TAKEN, declared rather than absent: the memory forms of these mnemonics at either length
+(save `vpxor`'s VEX.128 one, V4, D342), and the 77 VEX twins the oracle refuses (D339). -/
 def vexTable : List VexRow :=
   [ { twin := "movdqa",
       row := { mnemonic := "vmovdqa", shapes := "x,x",
