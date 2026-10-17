@@ -455,3 +455,6 @@ Tests.CoverageVex256 2322 @on yukon.lan
 # katmai, 2026-10-16, the line kernel_delta PRINTED on refusing the NEW unit (base 2feb887 → 883aed0, --repeats 6;
 # head Tests.CoverageVex256 794.5 ms), copied, not retyped. The ledger row is measured AFTER this line, on the tree that lands.
 Tests.CoverageVex256 2384 @on katmai
+# runner, 2026-10-17: the line PR #104's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 38994375361,
+# head Tests.CoverageVex256 990.0 ms ⇒ max(990.0 × 3, 50)), copied, not retyped.
+Tests.CoverageVex256 2970 @on runnervm8k3b6
