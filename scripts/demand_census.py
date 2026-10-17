@@ -67,8 +67,8 @@ SILICON_REFEREES = (
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
                  + ") — NOT a semantic oracle")
-VEX_LABEL = ("Implemented in the VEX table only (VEX.128, differentially tested against x86isa — D341; "
-             "NOT in the published 199-mnemonic figures)")
+VEX_LABEL = ("Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against "
+             "x86isa — D341; NOT in the published 199-mnemonic figures)")
 
 
 class Model(frozenset):
@@ -231,6 +231,10 @@ def to_roster(m, ext=None, model=None):
     # (`names_of`), silicon-refereed ones included; whether the mapped name is
     # COVERED is `_decide`'s question, and it asks the differential set alone.
     if model is not None and ext in XMM_EXT and (m in names_of(model) or m in vex_of(model)):
+        return m
+    # ⭐ D344 (V6): every VEX-table row is also modelled at VEX.256, so a `%ymm` spelling that IS a VEX-table
+    # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
+    if model is not None and ext == YMM and m in vex_of(model):
         return m
     if m in EXACT:
         return EXACT[m]
@@ -635,6 +639,8 @@ EXT_SCOPE.update({
 # `EXT_SCOPE` then refuses it for the ENCODING.
 XMM_EXT = frozenset({"SSE-legacy (xmm)", "VEX-128 (v… xmm)"})
 VEX128 = "VEX-128 (v… xmm)"
+# ⭐ D344 (V6): the VEX.256 bucket, where a VEX-table mnemonic is credited in the same VEX class.
+YMM = "AVX2/AVX (ymm)"
 
 def form_in_scope(ext):
     """⛔ REFUSES rather than defaulting. See EXT_SCOPE."""
@@ -984,7 +990,10 @@ def _rule_domain(model):
     """Every mnemonic this file's mapping tables can possibly rewrite, plus the
     model's own names.  ⛔ NOT read from the census's output: a gate whose
     domain came from the document it checks could only agree with it."""
-    d = set(names_of(model)) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
+    # ⛔ D344: `vex_of(model)` too. `names_of` excludes the VEX table, so until D344 no VEX-table mnemonic was in the
+    # domain and the stamp could not see a rule that moved one: the VEX.256 rule (ymm → the VEX class) left
+    # `rules=` byte-identical, and V5's document read CLEAN against V6's mapping.
+    d = set(names_of(model)) | set(vex_of(model)) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
         | set(GPR_EXT)
     for base in list(SUFFIXED) + list(STRING):
         d |= {base + c for c in "bwlq"}
@@ -1090,6 +1099,9 @@ def _decide(m, ext, model):
         # published figures), but one whose mnemonic is a VEX-table row or a siliconTable row is credited
         # in that row's OWN labelled class rather than filed as unrepresentable.
         if ext == VEX128 and r in vex_of(model):
+            return r, False, "vex"
+        # ⭐ D344 (V6): the same class at VEX.256 — credited by mnemonic within the bucket, as VEX.128 is.
+        if ext == YMM and r in vex_of(model):
             return r, False, "vex"
         if ext == VEX128 and r in silicon_of(model):
             return r, False, "silicon-vex"
@@ -1258,9 +1270,10 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
                  f"printed beside the differential figure and never summed into it "
                  f"(D337).\n")
     if vex_set:
-        fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)** — VEX.128 instructions whose "
-                 f"mnemonic is a VEX-table row; counted as NOT covered above, printed beside it and never "
-                 f"summed into it (D342).\n")
+        fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)** — VEX.128 and VEX.256 instructions whose "
+                 f"mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, "
+                 f"which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and "
+                 f"never summed into it (D342, D344).\n")
     fh.write(f"- Mapped to a roster name the model does not have: {out_of:,} "
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
@@ -1281,7 +1294,11 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
         merged[m] += k
     for i, (m, k) in enumerate(merged.most_common(30), 1):
         plain = m.strip("`").split("`")[0]
-        yes = ("✅" if plain in model else "⚙ silicon only" if plain in sil_set
+        # ⛔ D344: an UNMAPPED key names a spelling no roster row took (e.g. `vpaddd` at zmm), so it is never in
+        # the model whatever its bare name matches. Until D344 such a row printed "⚙ VEX table only": V5's dav1d
+        # table showed `vpaddd` 4,078 (ymm 2,975 + zmm 1,103, all unmapped) under that label.
+        yes = ("—" if m.endswith("*(unmapped)*")
+               else "✅" if plain in model else "⚙ silicon only" if plain in sil_set
                else "⚙ VEX table only" if plain in vex_set else "—")
         fh.write(f"| {i} | `{plain}` | {k:,} | {100.0*k/tot:.2f}% | {yes} |\n")
     fh.write(f"\n**The ranked list of mnemonics the model does NOT cover** "
@@ -1400,11 +1417,13 @@ def selftest():
         ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
         # ⛔ a VEX spelling the model does not name is still not a roster name
         ("vpshufd", "VEX-128 (v… xmm)",  None),
-        ("vpaddd",  "AVX2/AVX (ymm)",    None),
+        # ⭐ D344 (V6): a VEX-table spelling at ymm maps to itself; a ymm spelling of no VEX-table row does not
+        ("vpaddd",  "AVX2/AVX (ymm)",    "vpaddd"),
+        ("vpermq",  "AVX2/AVX (ymm)",    None),
         # ⭐ D342 (a): a VEX-128 spelling that IS a VEX-table row maps to itself (and `_decide` files it
-        # in the VEX class, never covered); the same spelling at ymm still maps to nothing
+        # in the VEX class, never covered); since D344 the same spelling at ymm maps to itself too
         ("vmovdqa", "VEX-128 (v… xmm)",  "vmovdqa"),
-        ("vmovdqa", "AVX2/AVX (ymm)",    None),
+        ("vmovdqa", "AVX2/AVX (ymm)",    "vmovdqa"),
         # ⛔ and the rewrite rules still win over the identity rule
         ("movsbl",  None,                "movsx"),
         ("nopw",    None,                "nop"),
@@ -1541,7 +1560,10 @@ def selftest():
                          # mnemonic is silicon; a VEX spelling of neither is still out of scope
                          ("vpxor",   "VEX-128 (v… xmm)", (False, "vex")),
                          ("vaesenc", "VEX-128 (v… xmm)", (False, "silicon-vex")),
-                         ("vmulps",  "VEX-128 (v… xmm)", (False, "unmapped"))):
+                         ("vmulps",  "VEX-128 (v… xmm)", (False, "unmapped")),
+                         # D344: a VEX-table mnemonic at ymm is the same VEX class; a ymm spelling of none is not
+                         ("vpxor",   "AVX2/AVX (ymm)",   (False, "vex")),
+                         ("vpermq",  "AVX2/AVX (ymm)",   (False, "unmapped"))):
         _r, cov, cls = _decide(m, ext, _M)
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
@@ -1602,6 +1624,12 @@ def selftest():
           "does not — the exact blindness D98 was" +
           ("" if ok else f"   model {_h0}/{_h1}  rules {_r0}/{_r1}/{_r2}"))
     bad += [] if ok else ["stamp-rules-half"]
+    # ⛔ D344: the `rules` half must see a rule that moves a VEX-table mnemonic. Its domain once held none, so the
+    # VEX.256 rule left the stamp byte-identical. The arm asks the precondition directly (every VEX-table mnemonic is
+    # in the domain); `census_redprobe.py` drives the mutation that removes them and sees this arm fail.
+    ok = bool(vex_of(_M)) and vex_of(_M) <= _rule_domain(_M)
+    print(("  ✔ " if ok else "  ⛔ ") + "every VEX-table mnemonic is in the stamp's rule domain (D344)")
+    bad += [] if ok else ["stamp-vex-domain"]
 
     # ── the LINE-LEVEL rules, each driven on the shape that moved the number ──
     def L(*rows):

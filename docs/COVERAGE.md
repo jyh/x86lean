@@ -264,7 +264,7 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 
 ## VEX.128 register twins, differentially tested (V3, D341)
 
-33 mnemonics in 41 differentially tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin of a row of the main table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy form preserves them, and the differential record compares those bits on both sides. Register forms only, save `vpxor`'s m128 form (D342), which has no alignment check; VEX.256 (VEX.L = 1) is not taken. Decode trust here is LLVM `objdump`'s, which decodes a legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries one (D341).
+33 mnemonics in 41 differentially tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin of a row of the main table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy form preserves them, and the differential record compares those bits on both sides. Register forms only, save `vpxor`'s m128 form (D342), which has no alignment check. Every register form is also differentially tested at VEX.256 (VEX.L = 1, V6, D344): 39 more forms, each computing the 128-bit function in each lane and WRITING bits 255:128. Decode trust here is LLVM `objdump`'s, which decodes a legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries one (D341).
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|

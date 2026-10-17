@@ -1086,6 +1086,20 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
   | .vexshiftdq left dst src cnt =>
       (s.setXmmVex128 dst (vshiftdqApply left (s.getXmm src) cnt.toNat)).setRip nr
+  -- ⭐⭐⭐ V6 (D344) — THE VEX.256 REGISTER TWINS.  Each lane is the VEX.128 twin's 128-bit
+  -- function, applied to the low halves (`getXmm`) and to the high halves (`getYmmHi`)
+  -- separately, and both are written through `setYmm`.  That the high lane uses the SAME
+  -- function as the low one is the lane rule, by construction.
+  | .vexmov256 _ dst src =>
+      (s.setYmm dst (s.getXmm src) (s.getYmmHi src)).setRip nr
+  | .vexddup256 dst src =>
+      let dup := fun (x : BitVec 128) => let lo := (x.setWidth 64).setWidth 128; (lo <<< 64) ||| lo
+      (s.setYmm dst (dup (s.getXmm src)) (dup (s.getYmmHi src))).setRip nr
+  | .vexbin256 k dst src1 src =>
+      if k.vexTaken then
+        (s.setYmm dst (vbinApply k (s.getXmm src1) (s.getXmm src))
+                      (vbinApply k (s.getYmmHi src1) (s.getYmmHi src))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic} ymm: a VEX.256 twin not taken (D344)")
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
@@ -2127,8 +2141,11 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- ⛔⛔ BSF AND BSR AT A ZERO SOURCE ARE THIS MODEL'S FIRST UNDEFINED
   -- DESTINATION.  "If the content source operand is 0, the content of the
   -- destination operand is undefined" — a REGISTER, not a flag.  Real silicon
-  -- leaves the destination unmodified and AMD documents that it does; Intel
-  -- does not, and this model follows its stated source rather than the folklore.
+  -- leaves the destination unmodified and AMD documents that it does.  That
+  -- quotation is from the SDM editions this model was built against; ⚠️ Intel's
+  -- SDM, edition 093US, now states the destination is UNMODIFIED (the
+  -- O38 paper's refuter-2, item H2).  This model still draws it from the oracle,
+  -- an unchanged rule, and a decision owed rather than taken in this comment.
   -- Writing the old value back would be INVENTING A FACT in exactly the sense
   -- X86/Oracle.lean's header forbids, and it is the more tempting invention
   -- because it happens to match the machine on the desk.

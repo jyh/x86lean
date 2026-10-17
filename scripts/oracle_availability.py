@@ -143,11 +143,49 @@ FORMS = [
     # its referee is fixed. Executing sends it to the differential beside `vpxor xmm,xmm,xmm`; the nine
     # vale-aesgcm refusers above (all but legacy `pclmulqdq`) are re-read by the same run (D342 prediction 1).
     ("vpxor m,xmm", "vpxor (%rbx), %xmm2, %xmm0",             "c5e9ef03",       "executes"),
-    # ⭐ V3 (D341) P6, MEASURED 2026-10-14 and kept in the run so the reading is re-taken. VEX.256 (VEX.L = 1) of two
-    # twins V3 takes: x86isa EXECUTES both at 88/88 — VEX.256 is valid for these forms, and D341's prediction of #UD
-    # was wrong. V3 does NOT take VEX.256 (the model has no 256-bit operand); these rows say so, they are not vectors.
-    ("NOTTAKEN:vpaddd256",  "vpaddd %ymm1, %ymm2, %ymm0",     "c5edfec1",       "executes"),
-    ("NOTTAKEN:vmovdqa256", "vmovdqa %ymm1, %ymm0",           "c5fd6fc1",       "executes"),
+    # ⭐ V3 (D341) P6, MEASURED 2026-10-14: x86isa EXECUTES VEX.256 (VEX.L = 1) of `vpaddd` and `vmovdqa` at 88/88, so
+    # D341's prediction of #UD was wrong. Those two were `NOTTAKEN:` rows until V6.
+    # ⭐ V6 (D344) P1, MEASURED 2026-10-16 before any model work: VEX.256 of all 33 V3 twins plus V3's six
+    # off-xmm0/1/2 register rows, clang's bytes, each EXECUTES at 88/88. V6 takes them as differential vectors.
+    ("V6:vmovdqa256", "vmovdqa %ymm1, %ymm0", "c5fd6fc1", "executes"),
+    ("V6:vmovdqu256", "vmovdqu %ymm1, %ymm0", "c5fe6fc1", "executes"),
+    ("V6:vmovaps256", "vmovaps %ymm1, %ymm0", "c5fc28c1", "executes"),
+    ("V6:vmovups256", "vmovups %ymm1, %ymm0", "c5fc10c1", "executes"),
+    ("V6:vmovapd256", "vmovapd %ymm1, %ymm0", "c5fd28c1", "executes"),
+    ("V6:vmovupd256", "vmovupd %ymm1, %ymm0", "c5fd10c1", "executes"),
+    ("V6:vmovddup256", "vmovddup %ymm1, %ymm0", "c5ff12c1", "executes"),
+    ("V6:vpaddb256", "vpaddb %ymm1, %ymm2, %ymm0", "c5edfcc1", "executes"),
+    ("V6:vpaddw256", "vpaddw %ymm1, %ymm2, %ymm0", "c5edfdc1", "executes"),
+    ("V6:vpaddd256", "vpaddd %ymm1, %ymm2, %ymm0", "c5edfec1", "executes"),
+    ("V6:vpaddq256", "vpaddq %ymm1, %ymm2, %ymm0", "c5edd4c1", "executes"),
+    ("V6:vpsubb256", "vpsubb %ymm1, %ymm2, %ymm0", "c5edf8c1", "executes"),
+    ("V6:vpsubw256", "vpsubw %ymm1, %ymm2, %ymm0", "c5edf9c1", "executes"),
+    ("V6:vpsubd256", "vpsubd %ymm1, %ymm2, %ymm0", "c5edfac1", "executes"),
+    ("V6:vpsubq256", "vpsubq %ymm1, %ymm2, %ymm0", "c5edfbc1", "executes"),
+    ("V6:vpand256", "vpand %ymm1, %ymm2, %ymm0", "c5eddbc1", "executes"),
+    ("V6:vpandn256", "vpandn %ymm1, %ymm2, %ymm0", "c5eddfc1", "executes"),
+    ("V6:vpor256", "vpor %ymm1, %ymm2, %ymm0", "c5edebc1", "executes"),
+    ("V6:vpxor256", "vpxor %ymm1, %ymm2, %ymm0", "c5edefc1", "executes"),
+    ("V6:vandps256", "vandps %ymm1, %ymm2, %ymm0", "c5ec54c1", "executes"),
+    ("V6:vandpd256", "vandpd %ymm1, %ymm2, %ymm0", "c5ed54c1", "executes"),
+    ("V6:vandnps256", "vandnps %ymm1, %ymm2, %ymm0", "c5ec55c1", "executes"),
+    ("V6:vandnpd256", "vandnpd %ymm1, %ymm2, %ymm0", "c5ed55c1", "executes"),
+    ("V6:vorps256", "vorps %ymm1, %ymm2, %ymm0", "c5ec56c1", "executes"),
+    ("V6:vorpd256", "vorpd %ymm1, %ymm2, %ymm0", "c5ed56c1", "executes"),
+    ("V6:vxorps256", "vxorps %ymm1, %ymm2, %ymm0", "c5ec57c1", "executes"),
+    ("V6:vxorpd256", "vxorpd %ymm1, %ymm2, %ymm0", "c5ed57c1", "executes"),
+    ("V6:vpcmpeqb256", "vpcmpeqb %ymm1, %ymm2, %ymm0", "c5ed74c1", "executes"),
+    ("V6:vpcmpeqw256", "vpcmpeqw %ymm1, %ymm2, %ymm0", "c5ed75c1", "executes"),
+    ("V6:vpcmpeqd256", "vpcmpeqd %ymm1, %ymm2, %ymm0", "c5ed76c1", "executes"),
+    ("V6:vpcmpgtb256", "vpcmpgtb %ymm1, %ymm2, %ymm0", "c5ed64c1", "executes"),
+    ("V6:vpcmpgtw256", "vpcmpgtw %ymm1, %ymm2, %ymm0", "c5ed65c1", "executes"),
+    ("V6:vpcmpgtd256", "vpcmpgtd %ymm1, %ymm2, %ymm0", "c5ed66c1", "executes"),
+    ("V6:vmovdqa256_hi", "vmovdqa %ymm9, %ymm4", "c57d7fcc", "executes"),
+    ("V6:vmovdqu256_hi", "vmovdqu %ymm5, %ymm12", "c57e6fe5", "executes"),
+    ("V6:vmovddup256_hi", "vmovddup %ymm11, %ymm3", "c4c17f12db", "executes"),
+    ("V6:vpsubd256_hi", "vpsubd %ymm13, %ymm10, %ymm7", "c4c12dfafd", "executes"),
+    ("V6:vpandn256_hi", "vpandn %ymm3, %ymm14, %ymm9", "c50ddfcb", "executes"),
+    ("V6:vpcmpgtb256_hi", "vpcmpgtb %ymm8, %ymm5, %ymm15", "c4415564f8", "executes"),
     # The #UD encodings: a two-operand form with VEX.vvvv != 1111b (clang's c5f96fc1 / c5fb12c1 with vvvv rewritten
     # to 0010b — no assembler emits them), and a legacy 66 / REX prefix before VEX (clang's c5e9fec1 with the byte
     # prepended). x86isa REFUSES all four at 88/88, agreeing with SDM Vol. 2A §2.3.2 / §2.3.6.

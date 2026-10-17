@@ -4135,9 +4135,95 @@ def vexVectors : List Vec :=
     , bytes := "c511ef4b01", instr := ⟨.vex (.vexbinm .xor .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
   ]
 
-/-- Every differential vector: the main table's, then the VEX twins'. What `emit`, `emit-acl2`
+/-- ⭐⭐⭐ V6 (D344): THE 39 VEX.256 (VEX.L = 1) REGISTER TWINS — V3's 39 register rows, operand for operand,
+with every `%xmm` an `%ymm`. Bytes are clang's (`scripts/check_encodings.py` re-assembles each `asm`); each
+differs from its V3 row only in VEX.L. ⛔ Every pre-state seeds bits 255:128 NON-ZERO and distinct per register
+(`ymmHiPattern`), so a rule that zeroed or preserved the destination's upper half, or computed it from the low
+lane, disagrees with the oracle. -/
+def vex256Vectors : List Vec :=
+  [ { id := "vmovdqa_yy", mnemonic := "vmovdqa", asm := "vmovdqa %ymm1, %ymm0"
+    , bytes := "c5fd6fc1", instr := ⟨.vex (.vexmov256 .dqa .x0 .x1), 4⟩ }
+  , { id := "vmovdqu_yy", mnemonic := "vmovdqu", asm := "vmovdqu %ymm1, %ymm0"
+    , bytes := "c5fe6fc1", instr := ⟨.vex (.vexmov256 .dqu .x0 .x1), 4⟩ }
+  , { id := "vmovaps_yy", mnemonic := "vmovaps", asm := "vmovaps %ymm1, %ymm0"
+    , bytes := "c5fc28c1", instr := ⟨.vex (.vexmov256 .aps .x0 .x1), 4⟩ }
+  , { id := "vmovups_yy", mnemonic := "vmovups", asm := "vmovups %ymm1, %ymm0"
+    , bytes := "c5fc10c1", instr := ⟨.vex (.vexmov256 .ups .x0 .x1), 4⟩ }
+  , { id := "vmovapd_yy", mnemonic := "vmovapd", asm := "vmovapd %ymm1, %ymm0"
+    , bytes := "c5fd28c1", instr := ⟨.vex (.vexmov256 .apd .x0 .x1), 4⟩ }
+  , { id := "vmovupd_yy", mnemonic := "vmovupd", asm := "vmovupd %ymm1, %ymm0"
+    , bytes := "c5fd10c1", instr := ⟨.vex (.vexmov256 .upd .x0 .x1), 4⟩ }
+  , { id := "vmovddup_yy", mnemonic := "vmovddup", asm := "vmovddup %ymm1, %ymm0"
+    , bytes := "c5ff12c1", instr := ⟨.vex (.vexddup256 .x0 .x1), 4⟩ }
+  , { id := "vpaddb_yyy", mnemonic := "vpaddb", asm := "vpaddb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfcc1", instr := ⟨.vex (.vexbin256 .addb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddw_yyy", mnemonic := "vpaddw", asm := "vpaddw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfdc1", instr := ⟨.vex (.vexbin256 .addw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddd_yyy", mnemonic := "vpaddd", asm := "vpaddd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfec1", instr := ⟨.vex (.vexbin256 .addd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddq_yyy", mnemonic := "vpaddq", asm := "vpaddq %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edd4c1", instr := ⟨.vex (.vexbin256 .addq .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubb_yyy", mnemonic := "vpsubb", asm := "vpsubb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edf8c1", instr := ⟨.vex (.vexbin256 .subb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubw_yyy", mnemonic := "vpsubw", asm := "vpsubw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edf9c1", instr := ⟨.vex (.vexbin256 .subw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubd_yyy", mnemonic := "vpsubd", asm := "vpsubd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfac1", instr := ⟨.vex (.vexbin256 .subd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubq_yyy", mnemonic := "vpsubq", asm := "vpsubq %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfbc1", instr := ⟨.vex (.vexbin256 .subq .x0 .x2 .x1), 4⟩ }
+  , { id := "vpand_yyy", mnemonic := "vpand", asm := "vpand %ymm1, %ymm2, %ymm0"
+    , bytes := "c5eddbc1", instr := ⟨.vex (.vexbin256 .and .x0 .x2 .x1), 4⟩ }
+  , { id := "vpandn_yyy", mnemonic := "vpandn", asm := "vpandn %ymm1, %ymm2, %ymm0"
+    , bytes := "c5eddfc1", instr := ⟨.vex (.vexbin256 .andn .x0 .x2 .x1), 4⟩ }
+  , { id := "vpor_yyy", mnemonic := "vpor", asm := "vpor %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edebc1", instr := ⟨.vex (.vexbin256 .or .x0 .x2 .x1), 4⟩ }
+  , { id := "vpxor_yyy", mnemonic := "vpxor", asm := "vpxor %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edefc1", instr := ⟨.vex (.vexbin256 .xor .x0 .x2 .x1), 4⟩ }
+  , { id := "vandps_yyy", mnemonic := "vandps", asm := "vandps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec54c1", instr := ⟨.vex (.vexbin256 .andps .x0 .x2 .x1), 4⟩ }
+  , { id := "vandpd_yyy", mnemonic := "vandpd", asm := "vandpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed54c1", instr := ⟨.vex (.vexbin256 .andpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vandnps_yyy", mnemonic := "vandnps", asm := "vandnps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec55c1", instr := ⟨.vex (.vexbin256 .andnps .x0 .x2 .x1), 4⟩ }
+  , { id := "vandnpd_yyy", mnemonic := "vandnpd", asm := "vandnpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed55c1", instr := ⟨.vex (.vexbin256 .andnpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vorps_yyy", mnemonic := "vorps", asm := "vorps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec56c1", instr := ⟨.vex (.vexbin256 .orps .x0 .x2 .x1), 4⟩ }
+  , { id := "vorpd_yyy", mnemonic := "vorpd", asm := "vorpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed56c1", instr := ⟨.vex (.vexbin256 .orpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vxorps_yyy", mnemonic := "vxorps", asm := "vxorps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec57c1", instr := ⟨.vex (.vexbin256 .xorps .x0 .x2 .x1), 4⟩ }
+  , { id := "vxorpd_yyy", mnemonic := "vxorpd", asm := "vxorpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed57c1", instr := ⟨.vex (.vexbin256 .xorpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqb_yyy", mnemonic := "vpcmpeqb", asm := "vpcmpeqb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed74c1", instr := ⟨.vex (.vexbin256 .cmpeqb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqw_yyy", mnemonic := "vpcmpeqw", asm := "vpcmpeqw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed75c1", instr := ⟨.vex (.vexbin256 .cmpeqw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqd_yyy", mnemonic := "vpcmpeqd", asm := "vpcmpeqd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed76c1", instr := ⟨.vex (.vexbin256 .cmpeqd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtb_yyy", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed64c1", instr := ⟨.vex (.vexbin256 .cmpgtb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtw_yyy", mnemonic := "vpcmpgtw", asm := "vpcmpgtw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed65c1", instr := ⟨.vex (.vexbin256 .cmpgtw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtd_yyy", mnemonic := "vpcmpgtd", asm := "vpcmpgtd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed66c1", instr := ⟨.vex (.vexbin256 .cmpgtd .x0 .x2 .x1), 4⟩ }
+  , { id := "vmovdqa_y4y9", mnemonic := "vmovdqa", asm := "vmovdqa %ymm9, %ymm4"
+    , bytes := "c57d7fcc", instr := ⟨.vex (.vexmov256 .dqa .x4 .x9), 4⟩ }
+  , { id := "vmovdqu_y12y5", mnemonic := "vmovdqu", asm := "vmovdqu %ymm5, %ymm12"
+    , bytes := "c57e6fe5", instr := ⟨.vex (.vexmov256 .dqu .x12 .x5), 4⟩ }
+  , { id := "vmovddup_y3y11", mnemonic := "vmovddup", asm := "vmovddup %ymm11, %ymm3"
+    , bytes := "c4c17f12db", instr := ⟨.vex (.vexddup256 .x3 .x11), 5⟩ }
+  , { id := "vpsubd_y7y10y13", mnemonic := "vpsubd", asm := "vpsubd %ymm13, %ymm10, %ymm7"
+    , bytes := "c4c12dfafd", instr := ⟨.vex (.vexbin256 .subd .x7 .x10 .x13), 5⟩ }
+  , { id := "vpandn_y9y14y3", mnemonic := "vpandn", asm := "vpandn %ymm3, %ymm14, %ymm9"
+    , bytes := "c50ddfcb", instr := ⟨.vex (.vexbin256 .andn .x9 .x14 .x3), 4⟩ }
+  , { id := "vpcmpgtb_y15y5y8", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %ymm8, %ymm5, %ymm15"
+    , bytes := "c4415564f8", instr := ⟨.vex (.vexbin256 .cmpgtb .x15 .x5 .x8), 5⟩ }
+  ]
+
+/-- Every differential vector: the main table's, then the VEX twins', then their VEX.256 twins'. What `emit`, `emit-acl2`
 and the encoding checks walk. -/
-def allVectors : List Vec := vectors ++ vexVectors
+def allVectors : List Vec := vectors ++ vexVectors ++ vex256Vectors
 
 /-! ## Pre-states: adversarial first, then pseudo-random
 
