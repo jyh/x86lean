@@ -1,0 +1,105 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{x86isa-repo}
+{ACL2} x86isa, \url{https://github.com/acl2/acl2},
+  \texttt{books/projects/x86isa/}
+
+\bibitem{x86isa-catalogue}
+{ACL2} x86isa documentation: implemented-instructions,
+  \url{https://acl2.org/doc/?topic=X86ISA____IMPLEMENTED-INSTRUCTIONS};
+  generated from \texttt{books/projects/x86isa/machine/catalogue-doc.lisp}
+
+\bibitem{armstrong-isa}
+Armstrong, A., Bauereiss, T., Campbell, B., Reid, A., Gray, K.E., Norton, R.M.,
+  Mundkur, P., Wassell, M., French, J., Pulte, C., Flur, S., Stark, I.,
+  Krishnaswami, N., Sewell, P.: {ISA} semantics for {ARMv8-A}, {RISC-V}, and
+  {CHERI-MIPS}. Proceedings of the ACM on Programming Languages
+  \textbf{3}(POPL),  71:1--71:31 (2019). \doi{10.1145/3290384}
+
+\bibitem{liblisa}
+Craaijo, J., Verbeek, F., Ravindran, B.: {libLISA}: Instruction discovery and
+  analysis on x86-64. Proceedings of the ACM on Programming Languages
+  \textbf{8}(OOPSLA2),  283:1--283:29 (2024). \doi{10.1145/3689723}
+
+\bibitem{dasgupta-k-x86}
+Dasgupta, S., Park, D., Kasampalis, T., Adve, V.S., Ro{\c{s}}u, G.: A complete
+  formal semantics of x86-64 user-level instruction set architecture. In:
+  Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design
+  and Implementation (PLDI). pp. 1133--1148 (2019).
+  \doi{10.1145/3314221.3314601}
+
+\bibitem{goel-x86isa}
+Goel, S.: The x86isa books: Features, usage, and future plans. In: Hunt, Jr.,
+  W., Slobodova, A. (eds.) ACL2 Theorem Prover and its Applications. EPTCS,
+  vol.~249, pp. 1--17 (2017). \doi{10.4204/EPTCS.249.1}
+
+\bibitem{heule-stratified}
+Heule, S., Schkufza, E., Sharma, R., Aiken, A.: Stratified synthesis:
+  Automatically learning the x86-64 instruction set. In: Proceedings of the
+  37th ACM SIGPLAN Conference on Programming Language Design and Implementation
+  (PLDI). pp. 237--250 (2016). \doi{10.1145/2908080.2908121}
+
+\bibitem{saltbench}
+Hickey, J.: {SaltBench}: A referee-gated protocol for measuring method effects
+  in machine-checked software work (2026),
+  \url{https://arxiv.org/abs/2609.11076}
+
+\bibitem{intel-sdm}
+Intel Corporation: Intel 64 and {IA}-32 Architectures Software Developer's
+  Manual, Combined Volumes 1--4 (Jun 2026), {Order Number} 325462-092US,
+  \url{https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html};
+  superseded by 325462-093US (September 2026), which defines BSF's and BSR's
+  destination and flags at a zero source
+
+\bibitem{k-x86-repo}
+{K} x86-64 semantics, \url{https://github.com/kframework/X86-64-semantics}
+
+\bibitem{lnsym-repo}
+{LNSym}, \url{https://github.com/leanprover/LNSym}
+
+\bibitem{myreen-hoare-machine-code}
+Myreen, M.O., Gordon, M.J.C.: Hoare logic for realistically modelled machine
+  code. In: Grumberg, O., Huth, M. (eds.) Tools and Algorithms for the
+  Construction and Analysis of Systems (TACAS). LNCS, vol.~4424, pp. 568--582
+  (2007). \doi{10.1007/978-3-540-71209-1_44}
+
+\bibitem{myreen-multiple-architectures}
+Myreen, M.O., Gordon, M.J.C., Slind, K.: Machine-code verification for multiple
+  architectures: An application of decompilation into logic. In: Formal Methods
+  in Computer-Aided Design (FMCAD). pp.~1--8 (2008).
+  \doi{10.1109/fmcad.2008.ecp.24}
+
+\bibitem{myreen-decompilation-improved}
+Myreen, M.O., Gordon, M.J.C., Slind, K.: Decompilation into logic -- improved.
+  In: Formal Methods in Computer-Aided Design (FMCAD). pp. 78--81 (2012)
+
+\bibitem{roessle-bigstep}
+Roessle, I., Verbeek, F., Ravindran, B.: Formally verified big step semantics
+  out of x86-64 binaries. In: Proceedings of the 8th ACM SIGPLAN International
+  Conference on Certified Programs and Proofs (CPP). pp. 181--195 (2019).
+  \doi{10.1145/3293880.3294102}
+
+\bibitem{sail-x86-repo}
+Sail x86 model, translated from the {ACL2} model,
+  \url{https://github.com/rems-project/sail-x86-from-acl2}
+
+\bibitem{talos-repo}
+{Talos}, \url{https://github.com/cajal-technologies/talos}
+
+\bibitem{afp-x86}
+Verbeek, F., Bharadwaj, A., Bockenek, J., Roessle, I., Weerwag, T., Ravindran,
+  B.: X86 instruction semantics and basic block symbolic execution. Archive of
+  Formal Proofs  (October 2021),
+  \url{https://isa-afp.org/entries/X86_Semantics.html}, Formal proof
+  development
+
+\bibitem{verbeek-lifting}
+Verbeek, F., Bockenek, J., Fu, Z., Ravindran, B.: Formally verified lifting of
+  {C}-compiled x86-64 binaries. In: Proceedings of the 43rd ACM SIGPLAN
+  International Conference on Programming Language Design and Implementation
+  (PLDI). pp. 934--949 (2022). \doi{10.1145/3519939.3523702}
+
+\end{thebibliography}
