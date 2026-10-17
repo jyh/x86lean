@@ -552,6 +552,11 @@ jobs:
           python3 hwprobe/mk_aes_rows.py --selftest
           python3 hwprobe/mk_aes_anchors.py --selftest
           python3 hwprobe/mk_aes_anchors.py --check
+          # D345: the VEX-silicon pins are hwprobe's VEX-silicon rows (mk_vexsil_rows.py), same rule; the generator's
+          # selftest holds every row's rule to an independent textbook and both FP references to the host's binary32.
+          python3 hwprobe/mk_vexsil_rows.py --selftest
+          python3 hwprobe/mk_vexsil_anchors.py --selftest
+          python3 hwprobe/mk_vexsil_anchors.py --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the

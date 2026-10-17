@@ -51,9 +51,9 @@ theorem step_vexbin (k : VBinKind) (d s1 s2 : XmmReg) (h : Live s) (hk : k.vexTa
 
 /-- A kind whose VEX twin is not taken is REFUSED, never given a semantics. -/
 theorem step_vexbin_not_taken (k : VBinKind) (d s1 s2 : XmmReg) (h : Live s)
-    (hk : k.vexTaken = false) :
+    (hk : k.vexTaken = false) (hs : k.vexSilTaken = false) :
     (step ⟨.vex (.vexbin k d s1 s2), len⟩ s).ms.isSome = true := by
-  simp [step, h, Cpu.stopped, hk, Cpu.halt]
+  simp [step, h, Cpu.stopped, hk, hs, Cpu.halt]
 
 /-! ## 2. The upper-half rule, both directions -/
 
