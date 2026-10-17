@@ -22490,3 +22490,24 @@ Three are NOT a plain per-lane map, and each is predicted separately:
   because vpmovmskb writes no vector register.
 - ⚠️ **Limit:** the red-backwards pair does not exercise vpmovmskb's lane order in the model; wrong rule (c) was refused at
   the generator (P2), and the pins hold the model to the rows.
+**Result, prediction 4 (census; demand on katmai over `~/x86lean-corpus` at `cac895b`, 2026-10-17): HELD for the demand
+census; the primitive census is re-run separately (below).**
+- **(a) unchanged in every column.** Every numeric field of `DEMAND-CENSUS.md.json` except `silicon`/`silicon_pct` is V6's,
+  in all ten corpora (covered cc1 5,378,222 · coreutils 865,527 · glibc 559,250 · dav1d 195,087 · ffmpeg 2,987,538 ·
+  vlc-codec 150,727 · vlc-video_chroma 98,858 · vpx 655,525 · x264 334,441 · vmlinux 2,767,164). The VEX line is unchanged.
+  `docs/COVERAGE.md`'s published table stays 199 rows, and no vector is added (1,198).
+- **The silicon line grows, and only by the eleven:** coreutils 47 → 48 · glibc 465 → 1,732 · dav1d 10,892 → 16,488 · ffmpeg
+  15,247 → 36,489 · vpx 43,405 → 44,492 · x264 4,457 → 5,735; cc1, both vlc columns and vmlinux unchanged. Every row of
+  `silicon_all` that moved is one of the eleven mnemonics.
+- **Conservation, by exact counts:** in each corpus the silicon gain equals the fall in "not mapped at all" plus the change
+  in "a name the model has, in a form it cannot represent". That second term is NEW and was not predicted: in dav1d
+  (+2,915) and glibc (+191) and x264 (+49), EVEX/zmm spellings of the eleven now map by name (the model has the name) and are
+  filed out of scope, where before they were unmapped. That is the existing class's meaning, applied to new names.
+- **The mapping needed no new rule, and the first one written was dead.** I added a `to_roster` branch mapping a `%ymm`
+  spelling of a VEX.256 silicon row to itself; `census_redprobe.py`'s mutation removing it changed nothing, because the
+  identity rule already maps any name the model has. It is removed. The class decision is `_decide`'s new branch (a silicon
+  row whose `siliconTable` note declares VEX.256 is `silicon-vex` at ymm), and the red probe catches its pooling into (a).
+- Gates: `--selftest` PASS (228 arms, five new or changed: `vshufps`/`vpmovmskb` at ymm map to themselves, `vmulps` at ymm
+  is `silicon-vex`, `vaesenc` at ymm stays outscope, and the VEX-128 "unmapped" example moves from `vmulps` to `vdivps`);
+  `--check` CLEAN under the new stamp; `census_redprobe.py` PASS, control + 36 mutations (one D345 mutation added, and the
+  anchor of "the silicon split is dropped" updated to the changed `Model(...)` call it mutates).
