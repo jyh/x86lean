@@ -1399,8 +1399,9 @@ def wrongBsrIsLzcnt (i : Instr) (s : Cpu) : Cpu :=
         let (ofU, s) := s.undefBit
         let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
         if Value.isZero sz a then
-          let (u, s) := s.undefVal sz.bits
-          (s.setReg sz dst u).setRip nr
+          -- D346: the model's own zero-source rule (the destination unmodified), so the
+          -- plant differs from `step` in the branch below and nowhere else
+          s.setRip nr
         else
           -- the BUG, and only here
           (s.setReg sz dst (BitVec.ofNat 64 (Value.clz sz a))).setRip nr

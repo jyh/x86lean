@@ -444,10 +444,10 @@ acc,imm · rh"
   -- selftest" was TRUE until D92 sharded that selftest (09/04) into arms-only
   -- shards, and FALSE from then until D226 put the mode in the build job.
   --
-  -- ⛔ AND `bsf`/`bsr` CARRY A TOKEN NO ROW HAS EVER CARRIED: `DEST`.  Their
-  -- undefined region includes the DESTINATION REGISTER at a zero source, not
-  -- only flags, and a column that could only name flags would have been unable
-  -- to state the most unusual claim in the table.
+  -- ⛔ D346: `bsf`/`bsr` NO LONGER CARRY `DEST (src=0)`.  From batch 14 to D346 their
+  -- undefined region included the destination register at a zero source (D40, on the
+  -- SDM's older wording); SDM 093US, AMD and x86isa leave it UNMODIFIED and the model now
+  -- writes nothing there.  The five flags stay undefined: AMD and x86isa draw them.
   , { mnemonic := "popcnt", shapes := "r,r · r,m", note := "w/l/q", tier := .exact,
       decode := .xed, undefined := [], sdm := "Vol. 2B POPCNT" }
   , { mnemonic := "lzcnt", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
@@ -457,10 +457,10 @@ acc,imm · rh"
       decode := .xed, undefined := ["PF", "AF", "SF", "OF"],
       sdm := "Vol. 2A TZCNT" }
   , { mnemonic := "bsf", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
-      decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF", "DEST (src=0)"],
+      decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF"],
       sdm := "Vol. 2A BSF" }
   , { mnemonic := "bsr", shapes := "r,r · r,m", note := "w/l/q", tier := .frame,
-      decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF", "DEST (src=0)"],
+      decode := .xed, undefined := ["CF", "PF", "AF", "SF", "OF"],
       sdm := "Vol. 2A BSR" }
   , { mnemonic := "blsi", shapes := "r,r · r,m", note := "l/q only", tier := .frame,
       decode := .xed, undefined := ["PF", "AF"], sdm := "Vol. 2A BLSI" }

@@ -23,8 +23,8 @@ count draws exactly THREE bits, in the order CF, OF, AF, whether or not each is
 needed; the logic group draws exactly ONE (AF).  Once an instruction's branch is
 decided its draws are UNCONDITIONAL, so they never depend on WHICH flags are
 undefined — but the draw COUNT does depend on operand values through that branch
-(a masked count of zero draws nothing; BSF/BSR draw a further destination width
-only when the source is zero).  What must never happen is a branch reading a bit
+(a masked count of zero draws nothing; BSF/BSR drew a further destination width
+at a zero source until D346, which made the destination unmodified there).  What must never happen is a branch reading a bit
 drawn in the same step: the two opposite-oracle runs that derive the undefined set
 could then take different branches and report a difference of CONTROL as undefined
 fields (D213).  *(This paragraph said fixing the count makes the cursor "a
@@ -214,7 +214,7 @@ def bitStringByte (s : Cpu) (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool)
 
 ⭐ THEY ARE ONE FUNCTION BECAUSE EVERYTHING THAT IS SUBTLE ABOUT THEM IS SHARED:
 five undefined flags drawn in a fixed order, ZF from the SOURCE, and the
-UNDEFINED DESTINATION at a zero source.  `rev` selects which index the non-zero
+destination at a zero source (UNMODIFIED since D346; drawn from the oracle before it).  `rev` selects which index the non-zero
 case reports.  Writing the two arms out separately would have duplicated the
 undefined-destination branch — the one thing in this batch that had never been
 written before — and a duplicate born in agreement diverges on the next edit.
@@ -231,10 +231,12 @@ def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
   let (ofU, s) := s.undefBit
   let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
   if Value.isZero sz a then
-    -- the SDM's "the content of the destination operand is undefined", drawn
-    -- rather than invented.  `sz.bits` bits, so the draw is the operand's width.
-    let (u, s) := s.undefVal sz.bits
-    (s.setReg sz dst u).setRip nr
+    -- ⭐ D346: the destination is UNMODIFIED — no write at all, so a 32-bit form does not
+    -- zero-extend either.  SDM 253666-093US Vol. 2A BSF/BSR: "If the content of the source
+    -- operand is zero, the destination operand is unmodified"; AMD APM Vol. 3 and x86isa
+    -- (`(if (equal source 0) x86 …)`) agree.  Until D346 this arm drew `sz.bits` oracle bits,
+    -- on the SDM's older "undefined" (D40).
+    s.setRip nr
   else
     let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
     (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
@@ -2197,27 +2199,22 @@ def step (i : Instr) (s : Cpu) : Cpu :=
 
   -- POPCNT (SDM Vol. 2B) · LZCNT/TZCNT · BSF/BSR · BLSI (SDM Vol. 2A).
   --
-  -- ⛔⛔ BSF AND BSR AT A ZERO SOURCE ARE THIS MODEL'S FIRST UNDEFINED
-  -- DESTINATION.  "If the content source operand is 0, the content of the
-  -- destination operand is undefined" — a REGISTER, not a flag.  Real silicon
-  -- leaves the destination unmodified and AMD documents that it does.  That
-  -- quotation is from the SDM editions this model was built against; ⚠️ Intel's
-  -- SDM, edition 093US, now states the destination is UNMODIFIED (the
-  -- O38 paper's refuter-2, item H2).  This model still draws it from the oracle,
-  -- an unchanged rule, and a decision owed rather than taken in this comment.
-  -- Writing the old value back would be INVENTING A FACT in exactly the sense
-  -- X86/Oracle.lean's header forbids, and it is the more tempting invention
-  -- because it happens to match the machine on the desk.
+  -- ⭐⭐ D346 (2026-10-17): BSF AND BSR AT A ZERO SOURCE LEAVE THE DESTINATION
+  -- UNMODIFIED.  SDM 253666-093US Vol. 2A, read at the source: "If the content of
+  -- the source operand is zero, the destination operand is unmodified." AMD's APM
+  -- says the same, and x86isa writes no register there.  From batch 14 until D346
+  -- this arm DREW the destination (D40), on the older SDM's "undefined"; that
+  -- reason was the source this model follows, and the source changed.  Writing
+  -- nothing is now the stated rule, not an invention.
   --
   -- ⚠️ THE ZERO SOURCE IS REACHABLE, not hypothetical: `adversarial` contains 0,
   -- so every `bsf`/`bsr` vector runs this branch at one pre-state in eleven.
   --
   -- ⚠️ THE FIVE FLAG DRAWS HAPPEN BEFORE THE BRANCH, unconditionally, so that
   -- the flags always read the same five positions of the stream whichever way
-  -- the source falls.  ⛔ THE TOTAL a `bsf` consumes IS still data-dependent —
-  -- a zero source draws `sz.bits` more for the destination — and saying
-  -- otherwise would be a comment claiming a property the code does not have.
-  -- What matters is the weaker fact, and it holds: the cursor depends on the
+  -- the source falls.  ⭐ Since D346 the total is FIVE at every source (the zero
+  -- source no longer draws a destination).  Until then it was data-dependent, and
+  -- the weaker fact below was the one that mattered: the cursor depends on the
   -- SOURCE, never on the oracle's own BITS, so the two opposite-oracle runs
   -- that derive the undefined set always take the same branch and end at the
   -- same position (`cursor_independent_of_bits`, `Tests/Nonvacuity.lean`).

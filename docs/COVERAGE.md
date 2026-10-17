@@ -78,8 +78,8 @@ Tiers: T-exact 173 · T-frame 26 · T-absent 0.
 | `popcnt` | r,r · r,m — w/l/q | T-exact | XED (trusted) | — | Vol. 2B POPCNT |
 | `lzcnt` | r,r · r,m — w/l/q | T-frame | XED (trusted) | PF, AF, SF, OF | Vol. 2A LZCNT |
 | `tzcnt` | r,r · r,m — w/l/q | T-frame | XED (trusted) | PF, AF, SF, OF | Vol. 2A TZCNT |
-| `bsf` | r,r · r,m — w/l/q | T-frame | XED (trusted) | CF, PF, AF, SF, OF, DEST (src=0) | Vol. 2A BSF |
-| `bsr` | r,r · r,m — w/l/q | T-frame | XED (trusted) | CF, PF, AF, SF, OF, DEST (src=0) | Vol. 2A BSR |
+| `bsf` | r,r · r,m — w/l/q | T-frame | XED (trusted) | CF, PF, AF, SF, OF | Vol. 2A BSF |
+| `bsr` | r,r · r,m — w/l/q | T-frame | XED (trusted) | CF, PF, AF, SF, OF | Vol. 2A BSR |
 | `blsi` | r,r · r,m — l/q only | T-frame | XED (trusted) | PF, AF | Vol. 2A BLSI |
 | `movs` | m(w),m — b/w/l/q · implicit rdi ← rsi | T-exact | XED (trusted) | — | Vol. 2A MOVS |
 | `stos` | m(w),acc — b/w/l/q · implicit rdi ← rAX | T-exact | XED (trusted) | — | Vol. 2B STOS |

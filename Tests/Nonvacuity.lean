@@ -194,6 +194,11 @@ theorem cursor_independent_of_bits :
 
 /-! ## §3 — P1 BATCH 14: the first UNDEFINED REGISTER, and the flags around it
 
+⛔ D346 (2026-10-17): THE UNDEFINED REGISTER THIS SECTION WAS WRITTEN FOR IS GONE.  SDM 093US, AMD and x86isa leave the
+destination UNMODIFIED at a zero source, and the model now writes nothing there; the first pair below says so.  The prose
+that follows is batch 14's, kept as the record of why the section exists; SHLD/SHRD (batch 18) is now the register-undefined
+form `undefinedLeaked` exercises.
+
 ⭐⭐ THE OBLIGATION IN THIS SECTION IS NEW IN KIND.  Every theorem above is about
 a FLAG: the oracle may reach it, or must not.  `bsf`/`bsr` at a zero source leave
 the DESTINATION REGISTER undefined (SDM Vol. 2A), so for the first time the
@@ -214,15 +219,44 @@ simply deeper than the default allows. -/
 
 set_option maxRecDepth 8000
 
-/-- BSF at a zero source: the DESTINATION is undefined. -/
-theorem bsf_dest_undefined_at_zero_source :
-    (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax
-      ≠ (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax := by
+/-- ⭐ D346: BSF/BSR at a zero source leave the destination UNMODIFIED (SDM 253666-093US, AMD APM, x86isa), so under
+BOTH oracles it is the pre-state's value.  Until D346 this pair asserted the two oracles DIFFER here (D40's undefined
+destination); the region is gone, and these are its replacement. -/
+theorem bsf_dest_unmodified_at_zero_source :
+    (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax = 0xDEAD
+      ∧ (step ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax = 0xDEAD := by
   decide
 
-theorem bsr_dest_undefined_at_zero_source :
-    (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax
-      ≠ (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax := by
+theorem bsr_dest_unmodified_at_zero_source :
+    (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 })).regs.get .rax = 0xDEAD
+      ∧ (step ⟨.bitcnt .bsr .q .rax (.reg .rcx), 4⟩ (s1 { rax := 0xDEAD, rcx := 0 })).regs.get .rax = 0xDEAD := by
+  decide
+
+/-- ⭐ D346 prediction 2: at operand size `.d` NOTHING is written, so bits 63:32 survive — no zero-extension (x86isa
+writes no register; Intel's footnote assigns the clearing to "some older processors"). -/
+theorem bsf_dest_upper_kept_at_zero_source_d :
+    (step ⟨.bitcnt .bsf .d .rax (.reg .rcx), 3⟩ (s0 { rax := 0x123456780000DEAD, rcx := 0 })).regs.get .rax
+      = 0x123456780000DEAD := by
+  decide
+
+theorem bsr_dest_upper_kept_at_zero_source_d :
+    (step ⟨.bitcnt .bsr .d .rax (.reg .rcx), 3⟩ (s1 { rax := 0x123456780000DEAD, rcx := 0 })).regs.get .rax
+      = 0x123456780000DEAD := by
+  decide
+
+/-- ⭐ D346 prediction 3, BOTH DIRECTIONS OF THE REGISTER DECLARATION, on concrete cases.  `undefinedLeaked` requires the
+registers the two opposite oracles MOVE to equal the registers the AST DECLARES.  At a zero source BSF now declares none
+and moves none; SHLD at `.w` with a count of 20 declares its destination and moves exactly it.  (Until D346 no planted arm
+asked either direction: a comment cited "the `bsf`/`bsr` arms of `scripts/axiom_gate_selftest.sh`", which has none.) -/
+theorem bsf_zero_source_declares_and_moves_no_register :
+    declaredUndefRegs ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 }) = []
+      ∧ undefinedRegs ⟨.bitcnt .bsf .q .rax (.reg .rcx), 4⟩ (s0 { rax := 0xDEAD, rcx := 0 }) = [] := by
+  decide
+
+theorem shld_w_bad_count_declares_and_moves_its_destination :
+    declaredUndefRegs ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩ (s0 { rax := 0xABCD, rcx := 0x1234 }) = ["rax"]
+      ∧ undefinedRegs ⟨.dshift .shld .w (.reg .rax) .rcx (.imm8 20), 5⟩ (s0 { rax := 0xABCD, rcx := 0x1234 })
+        = ["rax"] := by
   decide
 
 /-- ⛔ AND AT A NON-ZERO SOURCE IT IS NOT.  This is the half that says the

@@ -22599,6 +22599,9 @@ does.
 1. **Differential.** Every BSF/BSR case at a zero source AGREES with x86isa in every register, the destination included, so
    the `undefined-region` disagreements in BSF/BSR's destination fall to ZERO, and `unexplained=0` holds. No other mnemonic's
    record changes (the change removes `sz.bits` oracle draws after the five flag draws, and each case starts a fresh oracle).
+   **The baseline, counted before any run (yesterday's V6 record, `v6-vex256/run/lean.txt`, a model equal to master's for
+   these forms):** BSF and BSR have 528 cases each, and **78 + 78 = 156** of them carry a register in their `UNDEF` line (the
+   zero-source destination). SHLD/SHRD carry **124 + 36 = 160**. ⇒ After D346: BSF/BSR **0**, SHLD/SHRD **exactly 160**.
 2. **The 32-bit case.** At operand size `.d` and a zero source, bits 63:32 of the destination are preserved — a theorem, and
    visible in the differential wherever a pre-state's destination has non-zero upper bits.
 3. **The leak check keeps its teeth.** `declaredUndefGPRs` no longer names BSF/BSR; SHLD/SHRD (D-batch 18) remains a
@@ -22608,3 +22611,26 @@ does.
 5. **Red backwards:** restoring the draw reddens the new "unmodified" theorems, and the Nonvacuity pair that asserted the two
    oracles DIFFER at a zero source is replaced by one asserting they AGREE with the pre-state.
 6. **Kernel cost:** no NEW unit; every existing unit within budget.
+**Result, predictions 1–5 (yukon, 2026-10-17; the differential at `acl2@c8897a34`): HELD, with one premise of 3 wrong.**
+1. **Differential: HELD, exactly.** `cases=112464 … unexplained=0 oracle-divergence=792 oracle-leaks=0 missing=0`.
+   BSF/BSR's register-undefined cases **156 → 0**; SHLD/SHRD **124 + 36 = 160, unchanged**. Against yesterday's record (V6,
+   a model equal to master's for every other form), **112,308 of 112,464 cases are byte-identical** in `run/lean.txt`, and the
+   156 that differ are exactly BSF's 78 and BSR's 78. `run/oracle.txt` is **byte-identical** (229,569,100 B), so the whole
+   change is on the model side. `explained` falls 34,155 → 34,047 (−108); the compare's counters are not per case, and
+   which 108 of the 156 cases carried an explained destination difference was not traced.
+2. **The 32-bit case: HELD.** `bsf_dest_upper_kept_at_zero_source_d` / `bsr_…_d` (bits 63:32 kept), and in the differential
+   no BSF/BSR case disagrees in any register while none is declared undefined.
+3. **The leak check keeps its teeth: HELD, and its stated premise was WRONG.** I predicted "the selftest arms that planted
+   through BSF move to SHLD/SHRD". There were none: `X86/Serialize.lean` cited "the `bsf`/`bsr` arms of
+   `scripts/axiom_gate_selftest.sh`", and that script has no such arms. So no planted arm had ever asked either direction
+   of the register declaration. Two theorems now ask both on concrete cases:
+   `bsf_zero_source_declares_and_moves_no_register` (declares `[]`, moves `[]`) and
+   `shld_w_bad_count_declares_and_moves_its_destination` (declares `["rax"]`, moves `["rax"]`). The stale citation is
+   corrected in place.
+4. **Flags unchanged: HELD.** The five draws stand; `bsf_cf_undefined`, `bsr_of_undefined` and the ZF theorems are unedited
+   and green.
+5. **Red backwards: HELD, exactly.** The draw restored (the declaration left removed) reddens exactly five theorems: the four
+   "unmodified" ones and `bsf_zero_source_declares_and_moves_no_register`, which sees the destination MOVE while nothing
+   declares it. Green before and after; the file restored byte-identical.
+Also: `wrongBsrIsLzcnt` (a planted wrong model in `Main.lean`) still drew at a zero source; it now follows the new rule, so
+it differs from `step` only in its named bug. `docs/COVERAGE.md` changes in the two rows (`DEST (src=0)` removed).
