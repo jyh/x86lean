@@ -1045,6 +1045,13 @@ def cvttFlags (dbl wide : Bool) (b : BitVec 64) : BitVec 32 :=
   SoftFloat.truncFlags (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
     (if wide then 64 else 32) b
 
+/-- V7 (D345) — the sign bit of each of the sixteen bytes of `v`, at bits 15:0: the legacy `vmovmsk`
+arm's fold, with its lane width at `VMovMskKind.b`'s 8.  `Tests.AnchorsVexSil` proves the legacy
+`pmovmskb` writes exactly this, so the VEX twins share its arithmetic rather than restate it. -/
+def pmovmskbLane (v : BitVec 128) : Val :=
+  (List.range (128 / 8)).foldl
+    (fun acc i => acc ||| (((v >>> (8 * i + (8 - 1))) &&& 1).setWidth 64 <<< i)) 0
+
 /-- ⭐⭐ V5 (D343) — `step` over the nested VEX forms (`Op.vex`): V3's and V4's arms, VERBATIM,
 moved out of `step`'s match and nothing else.  `nr` is `step`'s next-instruction address and the
 lock guard has already run in `step`, so no arm here re-checks it.
@@ -1063,7 +1070,7 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       let lo := ((s.getXmm src).setWidth 64).setWidth 128
       (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
   | .vexbin k dst src1 src =>
-      if k.vexTaken then
+      if k.vexTaken || k.vexSilTaken then
         (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.getXmm src))).setRip nr
       else s.halt (.unimplemented s!"v{k.mnemonic}: a VEX twin not taken (D339)")
   -- ⭐⭐ V4 (D342) — the VEX.128 memory twin: `vexbin`'s value with the m128 at `ea` as the
@@ -1096,10 +1103,62 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       let dup := fun (x : BitVec 128) => let lo := (x.setWidth 64).setWidth 128; (lo <<< 64) ||| lo
       (s.setYmm dst (dup (s.getXmm src)) (dup (s.getYmmHi src))).setRip nr
   | .vexbin256 k dst src1 src =>
-      if k.vexTaken then
+      if k.vexTaken || k.vexSilTaken then
         (s.setYmm dst (vbinApply k (s.getXmm src1) (s.getXmm src))
                       (vbinApply k (s.getYmmHi src1) (s.getYmmHi src))).setRip nr
       else s.halt (.unimplemented s!"v{k.mnemonic} ymm: a VEX.256 twin not taken (D344)")
+  -- ⭐⭐⭐ V7 (D345) — THE SILICON-REFEREED VEX TWINS.  Each VEX.128 arm is its legacy twin's 128-bit
+  -- function with `src1` (VEX.vvvv) in the legacy destination's place, written through
+  -- `setXmmVex128`; each VEX.256 arm applies that SAME function to the low and the high halves and
+  -- writes through `setYmm`.  No arm here has arithmetic of its own (D345 prediction 3).
+  | .vexshufps dst src1 src sel =>
+      (s.setXmmVex128 dst (vshufpApply .ps (s.getXmm src1) (s.getXmm src) sel)).setRip nr
+  | .vexshufps256 dst src1 src sel =>
+      (s.setYmm dst (vshufpApply .ps (s.getXmm src1) (s.getXmm src) sel)
+                    (vshufpApply .ps (s.getYmmHi src1) (s.getYmmHi src) sel)).setRip nr
+  -- ⚠️ ONE COUNT FOR BOTH LANES: the count register's low 64 bits, read from its XMM half even at
+  -- VEX.256 (`getXmm cnt`, never `getYmmHi cnt`).
+  | .vexsrax w dst src1 cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.getXmm cnt).setWidth 64).toNat
+        (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src1) c)).setRip nr
+  | .vexsrax256 w dst src1 cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.getXmm cnt).setWidth 64).toNat
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src1) c)
+                      (vshiftApply .sra w (s.getYmmHi src1) c)).setRip nr
+  | .vexsrai w dst src cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src) cnt.toNat)).setRip nr
+  | .vexsrai256 w dst src cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src) cnt.toNat)
+                      (vshiftApply .sra w (s.getYmmHi src) cnt.toNat)).setRip nr
+  -- ⚠️ THE FLAGS ARE THE OR OVER BOTH LANES at VEX.256: `withSimd` sees `plo.2 ||| phi.2`, so a flag
+  -- raised in the high lane alone is raised (D345 wrong rule (b) drops it).
+  | .vexparith op dst src1 src =>
+      if op == .div then s.halt (.unimplemented "vdivps: a VEX twin not taken (D345)") else
+      let p := vparithAll op false (mxcsrRC s.mxcsr) (s.getXmm src1) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexparith256 op dst src1 src =>
+      if op == .div then s.halt (.unimplemented "vdivps ymm: a VEX.256 twin not taken (D345)") else
+      let rc := mxcsrRC s.mxcsr
+      let plo := vparithAll op false rc (s.getXmm src1) (s.getXmm src)
+      let phi := vparithAll op false rc (s.getYmmHi src1) (s.getYmmHi src)
+      s.withSimd (plo.2 ||| phi.2) fun s => (s.setYmm dst plo.1 phi.1).setRip nr
+  -- The legacy `vmovmsk .b` fold, per lane; the high lane's sixteen bits land at 31:16.  `.d`, as the
+  -- legacy arm: the 32-bit write zero-extends to 64 (SDM Vol. 1 §3.4.1.1).
+  | .vexmovmskb dst src =>
+      (s.setReg .d dst (pmovmskbLane (s.getXmm src))).setRip nr
+  | .vexmovmskb256 dst src =>
+      (s.setReg .d dst (pmovmskbLane (s.getXmm src) ||| (pmovmskbLane (s.getYmmHi src) <<< 16))).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=

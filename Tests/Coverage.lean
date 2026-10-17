@@ -92,7 +92,14 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexaes .enc .x3 .x1 .x2)).mnemonic, (Op.vex (.vexaes .enclast .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexclmul .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexshufb .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexalignr .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexshiftdq true .x3 .x1 0)).mnemonic,
-      (Op.vex (.vexshiftdq false .x3 .x1 0)).mnemonic] := by decide
+      (Op.vex (.vexshiftdq false .x3 .x1 0)).mnemonic,
+      -- D345 (V7): the silicon-refereed VEX twins, one row per mnemonic.
+      (Op.vex (.vexshufps .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexsrax .w32 .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexsrax .w16 .x3 .x1 .x2)).mnemonic, (Op.vex (.vexparith .add .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexparith .sub .x3 .x1 .x2)).mnemonic, (Op.vex (.vexparith .mul .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpcklw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpcklb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packuswb .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexmovmskb .rax .x1)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1117,7 +1124,10 @@ def isMemDestVector (v : Vec) : Bool :=
       -- V4 (D342): the AES-NI / CLMUL / VEX-shuffle register forms write an XMM register, never memory.
       | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
       -- V6 (D344): the VEX.256 register twins write a YMM register, never memory.
-      | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false)
+      | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
+      -- V7 (D345): the silicon-refereed twins write a vector register or (vpmovmskb) a GPR, never memory.
+      | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
+      | .vexparith .. | .vexparith256 .. | .vexmovmskb .. | .vexmovmskb256 .. => false)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it

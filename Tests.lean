@@ -12,6 +12,7 @@ import Tests.AnchorsShuf
 import Tests.AnchorsSimd
 import Tests.AnchorsSha
 import Tests.AnchorsAes
+import Tests.AnchorsVexSil
 import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors
