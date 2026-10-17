@@ -116,7 +116,7 @@ top of this file hashes the mapping's behaviour as well as the model, because a
 stamp over two coupled artifacts that hashes one of them reports only about the
 one it hashes.
 
-The model implements **249 mnemonics**: **199 differentially tested** (refereed by ACL2 x86isa over the swept pre-states) and **50 silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle** (the rows of `siliconTable`). ⚖️ **Count mechanisms, not voices (D332, D337):** every "covered" figure below is the DIFFERENTIAL one alone, and equals what a model without `siliconTable` would read — the run recomputes it that way and refuses (exit 3) if it differs. The silicon-refereed demand is printed on its own line beside it and is never summed into it; a reader may cite the two side by side.
+The model implements **249 mnemonics**: **199 differentially tested** (refereed by ACL2 x86isa over the swept pre-states) and **50 silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle** (the rows of `siliconTable`). ⚖️ **Count mechanisms, not voices (D332, D337):** every "covered" figure below is the DIFFERENTIAL one alone, and equals what a model without `siliconTable` would read — the run recomputes it that way and refuses (exit 3) if it differs. The silicon-refereed demand is printed on its own line beside it and is never summed into it; a reader may cite the two side by side.
 
 ⭐ **D342 (a): a third population, 33 VEX-table mnemonics** (VEX.128, differentially tested against x86isa in the VEX table of `docs/COVERAGE.md`, D341, and NOT in the 199-mnemonic figure). A VEX.128 instruction is outside the differential figure's scope, so one whose mnemonic is a VEX-table row is printed on a third labelled line, and one whose mnemonic is a `siliconTable` row on the silicon line; neither is summed into "covered".
 
@@ -128,7 +128,7 @@ Every number below is a STATIC count of instruction occurrences in a disassembly
 
 - **5,379,923 instructions** over 261 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 5,378,222 (100.0%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 8 (0.00%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 8 (0.00%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 0 (0.00%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 82 (0.00%) — counted as NOT covered.
@@ -223,7 +223,7 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 
 - **879,551 instructions** over 294 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 865,527 (98.4%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 48 (0.01%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 48 (0.01%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 144 (0.02%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 50 (0.01%) — counted as NOT covered.
@@ -327,7 +327,7 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 
 - **603,554 instructions** over 688 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 559,250 (92.7%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 1,732 (0.29%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 1,732 (0.29%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 7,475 (1.24%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 863 (0.14%) — counted as NOT covered.
@@ -456,7 +456,7 @@ are excluded, or every math-heavy C function would read as hand-written.
 
 - **303,830 instructions** over 496 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 195,087 (64.2%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 16,488 (5.43%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 16,488 (5.43%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 18,450 (6.07%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 4,939 (1.63%) — counted as NOT covered.
@@ -560,7 +560,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 - **3,116,986 instructions** over 592 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 2,987,538 (95.8%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 36,489 (1.17%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 36,489 (1.17%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 33,552 (1.08%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 19,193 (0.62%) — counted as NOT covered.
@@ -667,7 +667,7 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 
 - **151,688 instructions** over 230 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 150,727 (99.4%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 70 (0.05%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 70 (0.05%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 0 (0.00%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 12 (0.01%) — counted as NOT covered.
@@ -748,7 +748,7 @@ Symbol maps were found for **52 of 52** objects in this column. Rows are the two
 
 - **112,104 instructions** over 120 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 98,858 (88.2%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 1,792 (1.60%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 1,792 (1.60%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 0 (0.00%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 6,199 (5.53%) — counted as NOT covered.
@@ -844,7 +844,7 @@ Symbol maps were found for **19 of 19** objects in this column. Rows are the two
 
 - **722,331 instructions** over 409 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 655,525 (90.8%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 44,492 (6.16%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 44,492 (6.16%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 7,669 (1.06%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 713 (0.10%) — counted as NOT covered.
@@ -950,7 +950,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 - **377,330 instructions** over 522 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 334,441 (88.6%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 5,735 (1.52%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 5,735 (1.52%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 7,765 (2.06%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 14,801 (3.92%) — counted as NOT covered.
@@ -1055,7 +1055,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 ### The assembly class, pooled
 
 - **4,784,269 instructions**, covered by the model (differentially tested mnemonics) **4,422,176 (92.4%)**.
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 105,066 (2.20%)** — inside the not-covered figure below, never added to the line above (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 105,066 (2.20%)** — inside the not-covered figure below, never added to the line above (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 67,436 (1.41%)** — inside the not-covered figure below, never added to the line above (D342).
 - ⛔ Pooled ACROSS the codec columns and never with compiler output: the two are different demands, which is why this class exists.
 
@@ -1088,7 +1088,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 - **2,781,898 instructions** over 336 distinct objdump mnemonics.
 - ⛔ **3,881,051 `int3` in runs of two or more were counted as PADDING and excluded** from the line above and from every percentage below. Before this exclusion they were 58.2% of this column.
 - **Covered by the model (differentially tested mnemonics): 2,767,164 (99.5%).**
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342)) — NOT a semantic oracle: 20 (0.00%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345)) — NOT a semantic oracle: 20 (0.00%)** — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 43 (0.00%)** — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - Mapped to a roster name the model does not have: 0 (0.0%).
 - Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 9,023 (0.32%) — counted as NOT covered.
