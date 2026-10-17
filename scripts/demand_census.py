@@ -77,7 +77,7 @@ class Model(frozenset):
     `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
-    def __new__(cls, names, silicon=(), vex=()):
+    def __new__(cls, names, silicon=(), vex=(), silicon256=()):
         sil = frozenset(silicon)
         self = super().__new__(cls, frozenset(names) - sil)
         self.names = frozenset(names)
@@ -85,6 +85,9 @@ class Model(frozenset):
         # ⭐ D342 (a): the VEX table's mnemonics (COVERAGE.md's VEX section, D341) — a THIRD population,
         # differentially tested but outside the published figures, credited on its own line (never in (a)).
         self.vex = frozenset(vex)
+        # ⭐ D345 (V7): the `siliconTable` rows modelled at VEX.256 too (their note declares it), so a `%ymm`
+        # spelling of one maps to itself and lands in the silicon line (b), never in (a).
+        self.silicon256 = frozenset(silicon256) & sil
         return self
 
 
@@ -95,6 +98,11 @@ def names_of(model):
 
 def silicon_of(model):
     return getattr(model, "silicon", frozenset())
+
+
+def silicon256_of(model):
+    """⭐ D345: the silicon rows modelled at VEX.256, or nothing for a plain set."""
+    return getattr(model, "silicon256", frozenset())
 
 
 def vex_of(model):
@@ -119,6 +127,19 @@ def silicon_mnemonics():
         print("⛔ silicon: `siliconTable` has no rows — refusing, not reading zero")
         sys.exit(2)
     return frozenset(mn)
+
+
+def silicon256_mnemonics():
+    """⭐ D345 (V7): the `siliconTable` rows whose `note` declares `VEX.256` — the rows the model implements at
+    both lengths — read row by row from the same definition `silicon_mnemonics` reads, never a hand list.  A
+    row whose note does not name VEX.256 is not credited at `%ymm`, which is the conservative direction."""
+    src = open(os.path.join(root, "X86", "Coverage.lean"), encoding="utf-8").read()
+    m = re.search(r'^def siliconTable\b.*?(?=\n[ \t]*\n)', src, re.M | re.S)
+    if not m:
+        print("⛔ silicon: `def siliconTable` not found in X86/Coverage.lean")
+        sys.exit(2)
+    rows = re.findall(r'mnemonic := "([^"]+)", shapes := "[^"]*", note := "([^"]*)"', m.group(0))
+    return frozenset(mn for mn, note in rows if "VEX.256" in note)
 
 
 SILICON_SECTION = "## Implemented, refereed by a processor, NOT differentially tested"
@@ -153,7 +174,7 @@ def model_mnemonics():
               f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
               f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
         sys.exit(2)
-    return Model(ms, sil, vex)
+    return Model(ms, sil, vex, silicon256_mnemonics())
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -235,6 +256,9 @@ def to_roster(m, ext=None, model=None):
     # ⭐ D344 (V6): every VEX-table row is also modelled at VEX.256, so a `%ymm` spelling that IS a VEX-table
     # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
     if model is not None and ext == YMM and m in vex_of(model):
+        return m
+    # ⭐ D345 (V7): likewise a `%ymm` spelling of a silicon row the model implements at VEX.256.
+    if model is not None and ext == YMM and m in silicon256_of(model):
         return m
     if m in EXACT:
         return EXACT[m]
@@ -1105,6 +1129,9 @@ def _decide(m, ext, model):
             return r, False, "vex"
         if ext == VEX128 and r in silicon_of(model):
             return r, False, "silicon-vex"
+        # ⭐ D345 (V7): a silicon row the model implements at VEX.256 too, in the same labelled class.
+        if ext == YMM and r in silicon256_of(model):
+            return r, False, "silicon-vex"
         return r, False, "outscope"
     # ⚖️ D337: (b) is NOT covered — it is its own class, counted beside (a)
     if r in silicon_of(model):
@@ -1420,6 +1447,10 @@ def selftest():
         # ⭐ D344 (V6): a VEX-table spelling at ymm maps to itself; a ymm spelling of no VEX-table row does not
         ("vpaddd",  "AVX2/AVX (ymm)",    "vpaddd"),
         ("vpermq",  "AVX2/AVX (ymm)",    None),
+        # ⭐ D345 (V7): a silicon row the model implements at VEX.256 maps to itself at ymm; a silicon row that is
+        # VEX.128 only (`vaesenc`) maps by name but is NOT the silicon class there (the class arm below)
+        ("vshufps", "AVX2/AVX (ymm)",    "vshufps"),
+        ("vpmovmskb", "AVX2/AVX (ymm)",  "vpmovmskb"),
         # ⭐ D342 (a): a VEX-128 spelling that IS a VEX-table row maps to itself (and `_decide` files it
         # in the VEX class, never covered); since D344 the same spelling at ymm maps to itself too
         ("vmovdqa", "VEX-128 (v… xmm)",  "vmovdqa"),
@@ -1560,10 +1591,17 @@ def selftest():
                          # mnemonic is silicon; a VEX spelling of neither is still out of scope
                          ("vpxor",   "VEX-128 (v… xmm)", (False, "vex")),
                          ("vaesenc", "VEX-128 (v… xmm)", (False, "silicon-vex")),
-                         ("vmulps",  "VEX-128 (v… xmm)", (False, "unmapped")),
+                         # ⚠️ D345 moved `vmulps` from this arm's "unmapped" example into the silicon class; the
+                         # unmapped example is now `vdivps`, which no table names
+                         ("vmulps",  "VEX-128 (v… xmm)", (False, "silicon-vex")),
+                         ("vdivps",  "VEX-128 (v… xmm)", (False, "unmapped")),
                          # D344: a VEX-table mnemonic at ymm is the same VEX class; a ymm spelling of none is not
                          ("vpxor",   "AVX2/AVX (ymm)",   (False, "vex")),
-                         ("vpermq",  "AVX2/AVX (ymm)",   (False, "unmapped"))):
+                         ("vpermq",  "AVX2/AVX (ymm)",   (False, "unmapped")),
+                         # D345: a silicon row modelled at VEX.256 is the silicon class at ymm; a VEX.128-only one
+                         # stays "a name the model has, in a form it cannot represent"
+                         ("vmulps",  "AVX2/AVX (ymm)",   (False, "silicon-vex")),
+                         ("vaesenc", "AVX2/AVX (ymm)",   (False, "outscope"))):
         _r, cov, cls = _decide(m, ext, _M)
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
