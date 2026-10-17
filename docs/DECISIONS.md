@@ -22447,3 +22447,17 @@ Three are NOT a plain per-lane map, and each is predicted separately:
    (D344's ordering lesson: a ceiling line added after the measurement leaves the row pricing another tree.)
 
 **Not claimed:** memory forms, the cross-lane AVX2 forms, the forms with no main-table twin, and bits 511:256.
+**Result, prediction 2 (generator, step (a), `5d78982`, re-driven by the seat after the executor reported): HELD.**
+- 503 rows over 26 encodings and 76 functions. `--selftest` passes: every row's rule agrees with its independent textbook,
+  and so do 24,000 swept FP cases.
+- `--refuse-wrong` refuses 4 of 4 on named rows: (a) `vpsrad256_x_c0_edge` · (b) `vaddps256_hionly_IE` · (c)
+  `vpmovmskb256_lo1` · (d) `vshufps256_00_p0`.
+- Under Rosetta 2 on yukon (a translation, NOT silicon, and only with `ROSETTA_ADVERTISE_AVX=1`; without it Rosetta reports
+  no AVX and the probe refuses, exit 3): 503/503 agree. `--plant` reds exactly `vshufps256_1b_p0` and `--plant-hi` exactly
+  `vpackuswb128_edge0` (rc 1 each), and `--plant-op` refuses `x_vshufps128_00` (rc 2).
+**Result, prediction 1 (silicon, push run 38995460544 at `d2aa322`): HELD on two legs.**
+- macos-15-intel **Intel Core i7-8700B** (named by its brand string): 503/503.
+- ubuntu-latest: 503/503. Its log prints no model name, so the leg is AMD **by CPUID signature only**: CPUID.01H:ECX `feda3203`,
+  the value D342 recorded for its EPYC 7763; CPUID.07H:EBX `f1bf07a9`; XCR0 `e7`.
+- On both legs the three controls behaved as asserted (plant rc 1 on its row, badop rc 2, hi rc 1 on its row), and AVX2=1.
+- ⚠️ A second AMD reading under a named model is owed: one dispatch, as V4's EPYC 9V45 leg was.
