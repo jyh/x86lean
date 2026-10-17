@@ -22401,3 +22401,49 @@ the silicon line and never covered.
   stated.
 - **Granularity, as predicted:** the VEX line credits by mnemonic within the bucket, so VEX.256 memory forms of table
   mnemonics are in its counts while no VEX.256 memory form is modelled. The line now says so in its own text.
+
+## D345 — V7: the VEX.128 and VEX.256 twins of eleven main-table forms, refereed by silicon (predictions before any model, row or hardware work)
+
+**Why these.** After V6 (D344) the census's `AVX2/AVX (ymm)` class still holds about 72,300 instructions whose mnemonic is
+no VEX-table row. Eleven of the top thirty are VEX twins of forms the MAIN table already models and the differential
+already tests: `shufps psrad addps subps mulps punpcklwd punpckhwd pmovmskb punpcklbw packuswb psraw`. Their demand is
+about 23,100 at ymm, plus their VEX.128 counts (`docs/DEMAND-CENSUS.md.json`, `miss_by_ext`). The others in the top thirty
+either cross lanes (`vinserti128`, `vextracti128`, `vpermq`, the broadcasts, `vperm2f128`) or have no main-table twin
+(`pmaddwd`, `pmulhrsw`, …), and are not V7.
+
+**The referee, measured before anything was designed (P1, 2026-10-16, yukon, `acl2@c8897a34d3ef`, an uncommitted copy of
+`oracle_availability.py`).** All 26 encodings REFUSE at 88 of 88. That is the 11 mnemonics at both lengths, plus the
+immediate-count forms of `vpsrad`/`vpsraw`, with clang's bytes. In the same run the 39 V6 rows executed at 88 of 88, and
+so did both controls. This agrees with D339's count (x86isa executes exactly the 33 V3 twins and `vpxor m`). ⇒ **V7 is a
+SILICON wave on V4's pattern (`hwprobe/`), not a differential one.** The 26 rows enter `oracle_availability.py` as
+`refuses`, so the reading is re-taken every run.
+
+**The rules.** Each VEX.128 form is its legacy twin's 128-bit function with VEX.vvvv as the first source, written through
+`setXmmVex128` (D341). Each VEX.256 form applies the same function per 128-bit lane, written through `setYmm` (D344).
+Three are NOT a plain per-lane map, and each is predicted separately:
+- **`vpsrad`/`vpsraw` with an xmm count:** the count is the low 64 bits of the count register, and one count applies to
+  every lane at both lengths (SDM VPSRAD/VPSRAW). The count register is an xmm even at VEX.256.
+- **`vaddps`/`vsubps`/`vmulps`:** MXCSR's sticky exception flags are the OR over all eight lanes at VEX.256 (four at VEX.128).
+  Rounding follows MXCSR.RC as the legacy rule does.
+- **`vpmovmskb`:** the destination is a GPR. At VEX.256 it is a 32-bit mask whose bits 15:0 come from the low lane and bits
+  31:16 from the high lane, zero-extended to 64 bits. It writes no XMM/YMM register.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on BOTH vendors (an AMD and an Intel leg, as V4 had). Each row reads
+   the destination's full YMM register, with bits 255:128 seeded non-zero, so VEX.128's zeroing and VEX.256's writing are both
+   read. For the three FP forms it also reads MXCSR's six sticky flags.
+2. **Generator, before any processor.** A textbook implementation per form, written independently of the rule, reproduces every
+   row. `--refuse-wrong` refuses, each on a named row:
+   - (a) the count taken per lane instead of from the count register's low 64 bits;
+   - (b) the FP flags of the high lane dropped;
+   - (c) `vpmovmskb`'s lanes swapped;
+   - (d) `vshufps`'s immediate applied across lanes rather than within each.
+3. **Model.** Each VEX twin's arm calls the legacy form's existing 128-bit function: no new arithmetic. All rows are pinned by
+   `decide` in a NEW metered unit (`Tests/AnchorsVexSil.lean`). **Red backwards:** the upper half preserved (a VEX.128 mutant)
+   and the low lane copied (a VEX.256 mutant) each red exactly the rows they reach.
+4. **Census.** The eleven move to the silicon line at both buckets (VEX.128 and ymm). (a) is unchanged in every column, and the
+   published counts (199 mnemonics, 1,198 vectors) do not move.
+5. **Kernel cost.** Every NEW unit is registered in BOTH registries, before the katmai row is measured on the landing tree.
+   (D344's ordering lesson: a ceiling line added after the measurement leaves the row pricing another tree.)
+
+**Not claimed:** memory forms, the cross-lane AVX2 forms, the forms with no main-table twin, and bits 511:256.
