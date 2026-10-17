@@ -22568,3 +22568,43 @@ CLEAN`, `KDELTA-EXIT=0`; `ku-delta gate (a-prime): CLEAN`, `KU-EXIT=0`. Every pr
   `Tests.AnchorsVexSil` 4,010 ms, `NEW ok` against its 12,630 katmai ceiling.
 - `kernel_drift --record` (D251): ms verdict rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. The helm
   granted an x86lean merge window at 11:19 so that master holds still until this PR lands.
+## D346 — BSF/BSR at a zero source: the destination UNMODIFIED, as Intel's current SDM, AMD and x86isa all state (predictions before any model change)
+
+**Why now.** D40 drew the destination from the oracle at a zero source, and its reason was the source it followed: Intel's
+SDM then said *"the content of the destination operand is undefined."* That reason has expired. Read at the source on
+2026-10-17 (`253666-093US`, Vol. 2A, BSF and BSR, pp. 3-107 and 3-109, downloaded from Intel's SDM page): *"If the content
+of the source operand is zero, the destination operand is unmodified."* Its footnote 1: *"With a zero source operand on
+some older processors, use of a 32-bit operand size may clear the upper 32 bits of a 64-bit destination while leaving the
+lower 32 bits unmodified."* (This repository carried the claim from the O38 paper's refuter-2 item H2 since V6, and had not
+read it at the source. The relay was right about the destination and silent about the flags; see below.)
+
+**The four readings of the destination, each measured or read at its own source:**
+| source | at a zero source | where |
+|---|---|---|
+| Intel SDM 093US | UNMODIFIED (older processors: 32-bit size may clear bits 63:32) | Vol. 2A 3-107, 3-109 |
+| AMD APM Vol. 3 | *"does not change the contents of the destination register"* | 24594 rev. 3.10, BSF/BSR (a mirror; rev. 3.37 not read) |
+| ACL2 x86isa | no register write at all, so bits 63:32 survive at 32-bit size too | `machine/instructions/bit.lisp`, `x86-bsr`/`x86-bsf`: `(if (equal source 0) x86 (!rgfi-size …))` |
+| this model | DRAWN from the oracle (`bitScanStep`), declared undefined (`declaredUndefGPRs`) | D40 |
+So the model's draw is now the only reading no source supports. ⇒ **Decision: at a zero source BSF/BSR write NOTHING to the
+destination** (not even the 32-bit zero-extension), which is Intel's main text, AMD's, and x86isa's. Intel's older-processor
+footnote is a property of processors this model does not claim, and is recorded here rather than modelled.
+
+**The flags do NOT change, and the reason is the same union rule.** 093US now DEFINES them (ZF from the source; PF set iff
+the source has an even number of set bits; CF, OF, SF, AF cleared; footnote 2: *"On some older processors, the CF, OF, SF, AF,
+and PF flags are unmodified"*). AMD's rFLAGS table marks OF, SF, AF, PF and CF **U** (undefined), and x86isa draws all five
+(`!flgi-undefined`). A flag one vendor leaves undefined stays undefined here; the destination is different because no vendor
+does.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Differential.** Every BSF/BSR case at a zero source AGREES with x86isa in every register, the destination included, so
+   the `undefined-region` disagreements in BSF/BSR's destination fall to ZERO, and `unexplained=0` holds. No other mnemonic's
+   record changes (the change removes `sz.bits` oracle draws after the five flag draws, and each case starts a fresh oracle).
+2. **The 32-bit case.** At operand size `.d` and a zero source, bits 63:32 of the destination are preserved — a theorem, and
+   visible in the differential wherever a pre-state's destination has non-zero upper bits.
+3. **The leak check keeps its teeth.** `declaredUndefGPRs` no longer names BSF/BSR; SHLD/SHRD (D-batch 18) remains a
+   register-undefined form, so both directions of `undefinedLeaked` are still exercised, and the selftest arms that planted
+   through BSF move to SHLD/SHRD.
+4. **The flags are unchanged:** five drawn, ZF from the source, at both zero and non-zero sources.
+5. **Red backwards:** restoring the draw reddens the new "unmodified" theorems, and the Nonvacuity pair that asserted the two
+   oracles DIFFER at a zero source is replaced by one asserting they AGREE with the pre-state.
+6. **Kernel cost:** no NEW unit; every existing unit within budget.
