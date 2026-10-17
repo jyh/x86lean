@@ -162,8 +162,8 @@ MUTATIONS = [
      "    return frozenset(names_of(model)) - silicon_mnemonics()",
      "    return frozenset(model)"),
     ("the silicon split is dropped — every implemented mnemonic reads as differential",
-     "    return Model(ms, sil, vex)",
-     "    return Model(ms, (), vex)"),
+     "    return Model(ms, sil, vex, silicon256_mnemonics())",
+     "    return Model(ms, (), vex, silicon256_mnemonics())"),
     # ⭐ D342 (a): the VEX-table class pooled into (a) — `_decide` files a VEX-table instruction as COVERED.
     ("the VEX-table class is pooled into covered (D342)",
      '        if ext == VEX128 and r in vex_of(model):\n            return r, False, "vex"',
@@ -172,6 +172,10 @@ MUTATIONS = [
     ("the VEX-table class at ymm is pooled into covered (D344)",
      '        if ext == YMM and r in vex_of(model):\n            return r, False, "vex"',
      '        if ext == YMM and r in vex_of(model):\n            return r, True, "vex"'),
+    # ⭐ D345 (V7): the silicon rows modelled at VEX.256 — their ymm class pooled into (a), and their ymm mapping lost.
+    ("the silicon class at ymm is pooled into covered (D345)",
+     '        if ext == YMM and r in silicon256_of(model):\n            return r, False, "silicon-vex"',
+     '        if ext == YMM and r in silicon256_of(model):\n            return r, True, "silicon-vex"'),
     ("the stamp's rule domain drops the VEX table (D344)",
      "    d = set(names_of(model)) | set(vex_of(model)) | set(EXACT)",
      "    d = set(names_of(model)) | set(EXACT)"),

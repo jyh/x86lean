@@ -257,9 +257,9 @@ def to_roster(m, ext=None, model=None):
     # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
     if model is not None and ext == YMM and m in vex_of(model):
         return m
-    # ⭐ D345 (V7): likewise a `%ymm` spelling of a silicon row the model implements at VEX.256.
-    if model is not None and ext == YMM and m in silicon256_of(model):
-        return m
+    # ⚠️ D345 (V7) needs no rule here: a `%ymm` spelling of a siliconTable mnemonic already maps to itself through
+    # the identity rule below (a name the model has), and `_decide` decides its class. A branch added here was
+    # dead code, found by `census_redprobe.py` (its mutation changed nothing), and removed.
     if m in EXACT:
         return EXACT[m]
     # the width-changing moves: movs/movz + src width + dst width
