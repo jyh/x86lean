@@ -22511,3 +22511,18 @@ census; the primitive census is re-run separately (below).**
   is `silicon-vex`, `vaesenc` at ymm stays outscope, and the VEX-128 "unmapped" example moves from `vmulps` to `vdivps`);
   `--check` CLEAN under the new stamp; `census_redprobe.py` PASS, control + 36 mutations (one D345 mutation added, and the
   anchor of "the silicon split is dropped" updated to the changed `Model(...)` call it mutates).
+**Result, prediction 5 (kernel cost, yukon.lan, `8862206` → `cac895b`, `kernel_delta.py --repeats 3`, loads 6.0–17.0): the
+NEW unit is registered in BOTH registries, in one commit, before any katmai row.**
+- Every existing unit reads `ok` but one: `X86.Syntax` 563.0 → 569.0, **+6.0 ± 95.3** against 105.3 (ten constructors nested
+  under `Op.vex`, as D343 intended); `X86.Semantics` 24.3 → 24.1; `X86.Vex` 34.7 → 33.9; `Tests.Coverage` 36,200 → 36,200
+  (`memDestSweep` 6,310 → 6,300, so the eleven new shapes cost nothing measurable); `Tests.AnchorsVex` 36.1 → 38.2.
+- ⚠️ `X86.Value` reads **UNMEASURABLE** (Δ −0.6 ms, band ±16.1 against a 6.0 budget). V7 does not touch `X86/Value.lean`
+  (`git diff 8862206 cac895b -- X86/Value.lean` is empty), and the run's first pass was taken at load 17.0. It is a reading
+  of this box tonight, not of the commit; the katmai row at 6 repeats is the verdict of record.
+- The NEW unit `Tests.AnchorsVexSil`: head **3,680 ms**. Its printed line, `Tests.AnchorsVexSil 11040 @on yukon.lan`, is
+  copied into `scripts/kernel_ceilings.txt`.
+- `ku_delta.py --arm a-prime` (same pair) refused only that unit, **2,010,793** unfoldings, registered as
+  `Tests.AnchorsVexSil @ku 2010793`. Every other Δku is inside its budget: `Tests.Coverage` +155,122 of 733,234 ·
+  `Tests.CoverageVex` +23,924 of 252,436 · `X86.Syntax` +2,315 of 7,331 · `X86.Semantics` +103 of 337 · `Tests.AnchorsVex`
+  +6 of 1,323. `--check-registry` rc 0.
+- The katmai ceiling and the ledger row are taken at landing, as V6's were; the runner line goes in a follow-up PR.
