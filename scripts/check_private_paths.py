@@ -1329,7 +1329,7 @@ def self_test() -> int:
         plant12 = ["see projects/claude/" + "saltbench-sys" + "tems" + "/tasks/a.md",
                    "see projects/claude/" + "saltbench-sys" + "tems" + "/tasks/b.md"]
         for i, text in enumerate(plant12):
-            with open(f"f{i}.md", "w") as fh:
+            with open(f"f{i}.md", "w", encoding="utf-8", newline="") as fh:
                 fh.write(text + "\n")
             subprocess.run(["git", "add", f"f{i}.md"], check=True)
             subprocess.run(g12 + ["commit", "-q", "-m", f"c{i} " + text], check=True)
