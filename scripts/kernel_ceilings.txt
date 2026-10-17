@@ -458,3 +458,6 @@ Tests.CoverageVex256 2384 @on katmai
 # runner, 2026-10-17: the line PR #104's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 38994375361,
 # head Tests.CoverageVex256 990.0 ms ⇒ max(990.0 × 3, 50)), copied, not retyped.
 Tests.CoverageVex256 2970 @on runnervm8k3b6
+# D345 (V7): the NEW unit kernel_delta printed on refusing it, 8862206 (origin/master) → cac895b, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.AnchorsVexSil head 3680.0 ms ⇒ max(3680.0 × 3, 50).
+Tests.AnchorsVexSil 11040 @on yukon.lan
