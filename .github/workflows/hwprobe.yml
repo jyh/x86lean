@@ -122,6 +122,13 @@ jobs:
           python3 mk_aes_rows.py --plant > aes_rows_plant.h
           python3 mk_aes_rows.py --plant-op > aes_rows_badop.h
           python3 mk_aes_rows.py --plant-hi > aes_rows_hi.h
+          python3 mk_vexsil_rows.py --selftest
+          python3 mk_vexsil_rows.py --refuse-wrong
+          python3 mk_vexsil_rows.py --reach
+          python3 mk_vexsil_rows.py > vexsil_rows.h
+          python3 mk_vexsil_rows.py --plant > vexsil_rows_plant.h
+          python3 mk_vexsil_rows.py --plant-op > vexsil_rows_badop.h
+          python3 mk_vexsil_rows.py --plant-hi > vexsil_rows_hi.h
 
       - name: Build
         working-directory: hwprobe
@@ -166,6 +173,11 @@ jobs:
           for v in plant badop hi; do
             sed "s/\"aes_rows.h\"/\"aes_rows_$v.h\"/" aes_probe.c > aes_probe_$v.c
             gcc -O1 -o aes_probe_$v aes_probe_$v.c aes_ops.S
+          done
+          gcc -O1 -o vexsil_probe vexsil_probe.c vexsil_ops.S
+          for v in plant badop hi; do
+            sed "s/\"vexsil_rows.h\"/\"vexsil_rows_$v.h\"/" vexsil_probe.c > vexsil_probe_$v.c
+            gcc -O1 -o vexsil_probe_$v vexsil_probe_$v.c vexsil_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -428,6 +440,41 @@ jobs:
           head -1 aes.out
           grep -v '^ok  ' aes.out || true
           echo "aes rc=$rc"
+          test "$rc" = 0
+
+      # D345 (V7): THE VEX TWINS OF ELEVEN MAIN-TABLE FORMS (vshufps vpsrad vpsraw vaddps vsubps vmulps vpunpcklwd
+      # vpunpckhwd vpunpcklbw vpackuswb vpmovmskb, VEX.128 and VEX.256), which x86isa refuses (D345 P1). D345 predicts
+      # EVERY leg has AVX and AVX2 (the i7-8700B included), so a CPUID refusal (exit 3) is accepted on NO leg. Each row
+      # compares all 256 bits of YMM1-3, RAX, MXCSR and the six arithmetic flags.
+      - name: VEX-silicon controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsil_probe --cpuid
+          set +e
+          ./vexsil_probe_plant > vexsil_plant.out; rc_plant=$?
+          ./vexsil_probe_badop > vexsil_badop.out; rc_badop=$?
+          ./vexsil_probe_hi > vexsil_hi.out; rc_hi=$?
+          set -e
+          head -1 vexsil_plant.out; grep '^DIFF' vexsil_plant.out; cat vexsil_badop.out; grep '^DIFF' vexsil_hi.out
+          echo "vexsil plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsil_plant.out)" = 1
+          grep -q '^DIFF vshufps256_1b_p0 ' vexsil_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vshufps128_00:' vexsil_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsil_hi.out)" = 1
+          grep -q '^DIFF vpackuswb128_edge0 ' vexsil_hi.out
+
+      - name: VEX-silicon referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./vexsil_probe > vexsil.out; rc=$?
+          set -e
+          head -1 vexsil.out
+          grep -v '^ok  ' vexsil.out || true
+          echo "vexsil rc=$rc"
           test "$rc" = 0
 
       - name: Bit-string rows, full listing (artifact)
