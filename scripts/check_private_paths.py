@@ -1359,7 +1359,7 @@ def self_test() -> int:
     #     over a scratch repo against ANNOTATED baselines: every `#` line survives, the history and message lists are
     #     APPEND-ONLY (the old file is a byte prefix of the new one, a row the scan no longer sees is kept), and the tree
     #     list keeps its comments and live rows in place, drops a paid row BY NAME, and appends the new one.
-    tmp12 = tempfile.mkdtemp()
+    tmp12 = tempfile.mkdtemp(prefix="x86lean-ppwb-selftest-")
     here12 = os.getcwd()
     saved12 = {k: globals()[k] for k in ("BASELINE", "HISTORY_BASELINE", "MSG_BASELINE")}
     try:
