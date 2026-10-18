@@ -22527,3 +22527,24 @@ NEW unit is registered in BOTH registries, in one commit, before any katmai row.
   `Tests.CoverageVex` +23,924 of 252,436 · `X86.Syntax` +2,315 of 7,331 · `X86.Semantics` +103 of 337 · `Tests.AnchorsVex`
   +6 of 1,323. `--check-registry` rc 0.
 - The katmai ceiling and the ledger row are taken at landing, as V6's were; the runner line goes in a follow-up PR.
+**katmai (K1), 2026-10-17, base `5171fff` (master, after #106) → head `7ad1fd3`, `--repeats 6`, loads 1.9–4.4:** every
+existing unit `ok`; **`X86.Syntax` 620.0 → 667.0, +47.0 ± 15.2 against 115.9** (the ten constructors' cost, clearer than
+yukon's +6.0 ± 95.3 because katmai's band is six times narrower); `Tests.Coverage` +500 ± 416.5 of 2,685.6;
+`X86.Semantics` +1.0. The NEW unit's head is 4,210 ms, and its printed line `Tests.AnchorsVexSil 12630 @on katmai` is
+copied into `scripts/kernel_ceilings.txt`. ⚠️ Getting there cost four starts: the katmai door first refused on a memory
+floor whose premise was false (14.6 GiB of cold compressor pages, no pressure); the helm's 08:02 decision moved K1 to the
+OS's own `memory_pressure` gauge; and that door's new stop rule then fired three times on the WORD "default" in the Z
+wave's log (a substring match on FAULT), until it was fixed to whole words over new bytes only (seat
+`tools/katmai-saltbuild-door.sh`). The fourth start ran clean.
+**katmai (K3), 2026-10-17, base `5171fff` → head `9fd5e19` (the ceiling commit), `--repeats 6`, loads 1.7–4.6: `delta
+gate: CLEAN`, `KDELTA-EXIT=0`.** Every one of the 42 existing units reads `ok`: `X86.Syntax` 622.5 → 655.0, +32.5 ± 39.7
+against 116.4; `Tests.Coverage` 37,100 → 37,650, +550 ± 1,215.4 against 2,671.2; `X86.Semantics` +1.1; `X86.Vex` −0.3;
+`Tests.AnchorsVex` +0.2. The NEW unit `Tests.AnchorsVexSil` reads 4,020 ms, `NEW ok` against the 12,630 ceiling registered
+for the same box. A′ on katmai (K2), same pair: `ku-delta gate (a-prime): CLEAN`, the NEW unit at 2,010,793 unfoldings.
+⛔ **K3 is a READING, not the row.** #105 (systems' scrub port, `scripts/check_private_paths.py` only) merged while K3 ran,
+so master's chain is now `5171fff → 2139c68`, and `kernel_drift --gap` on the synthetic merge refused the gate-written
+row, rc 2: *"names head 9fd5e198e, which is neither this base's first-parent child 2139c6826 nor a commit reachable from it
+that differs only in the record."* The branch is rebased onto `2139c68`; the rebased ceiling commit `30b0239` differs from
+`9fd5e19` only in that script (exempt, not a profiler path). As in D266 §9, the row is re-measured, not re-keyed by
+argument: **K4, `2139c68 → 30b0239`, both arms, on katmai.** Predicted before it runs: A′ CLEAN and identical to K2
+module for module; ms CLEAN, every unit `ok`, `X86.Syntax` inside +32.5 ± 60, `Tests.AnchorsVexSil` NEW ok near 4,000 ms.
