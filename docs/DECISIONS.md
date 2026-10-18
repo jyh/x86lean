@@ -22560,3 +22560,11 @@ tip only in #107's script and the dropped row. **K5, `86dda5b → 93aa680`, both
 A′ identical to K2/K4 module for module; ms CLEAN, every unit `ok`, `X86.Syntax` inside +31 ± 45, the NEW unit near
 4,000 ms. Two intervening landings in one batch are a cost of a ~9 h measure-then-CI cycle on a repo another seat merges
 into; a merge window for x86lean master is asked for on the bus, rather than re-keying a row by argument.
+**katmai (K5), the ledger row, 2026-10-18, base `86dda5b` → head `93aa680`, `--repeats 6`, loads 2.0–4.1: `delta gate:
+CLEAN`, `KDELTA-EXIT=0`; `ku-delta gate (a-prime): CLEAN`, `KU-EXIT=0`. Every prediction held.**
+- A′ identical to K2 and K4: all 39 modules' unfoldings equal on both sides, the NEW unit at 2,010,793.
+- ms: all 42 existing units `ok`. `X86.Syntax` 621.5 → 648.0, +26.5 ± 54.9 against 116.2 (inside +31 ± 45);
+  `Tests.Coverage` +600 ± 237.1 against 2,667.6; `X86.Semantics` +2.0; `X86.Vex` −0.2; `Tests.AnchorsVex` +0.7.
+  `Tests.AnchorsVexSil` 4,010 ms, `NEW ok` against its 12,630 katmai ceiling.
+- `kernel_drift --record` (D251): ms verdict rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. The helm
+  granted an x86lean merge window at 11:19 so that master holds still until this PR lands.
