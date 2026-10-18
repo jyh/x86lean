@@ -22548,3 +22548,15 @@ that differs only in the record."* The branch is rebased onto `2139c68`; the reb
 `9fd5e19` only in that script (exempt, not a profiler path). As in D266 §9, the row is re-measured, not re-keyed by
 argument: **K4, `2139c68 → 30b0239`, both arms, on katmai.** Predicted before it runs: A′ CLEAN and identical to K2
 module for module; ms CLEAN, every unit `ok`, `X86.Syntax` inside +32.5 ± 60, `Tests.AnchorsVexSil` NEW ok near 4,000 ms.
+**katmai (K4), 2026-10-18, base `2139c68` → head `30b0239`, `--repeats 6`, loads 1.8–4.2: both arms CLEAN, every K4
+prediction held** — and K4 is ALSO a reading, not the row, for the same reason as K3. A′ matched K2 for all 39 modules on
+both sides (the NEW unit at 2,010,793). ms: all 42 existing units `ok`; `X86.Syntax` 620.5 → 651.0, +30.5 ± 17.9 against
+116.0; `Tests.Coverage` +250 ± 343; `Tests.AnchorsVexSil` 4,005 ms, `NEW ok`. Its row was recorded (`33eb331`) and PR
+#108's CI then ran on it, with only the expected runner NEW-unit red (`Tests.AnchorsVexSil 20925 @on runnervm8k3b6`).
+⛔ **#107 (systems, `scripts/check_private_paths.py` only) merged during that CI run**, so master's chain became
+`2139c68 → 86dda5b`, and `--gap` on the new synthetic merge refused the row exactly as it had refused K3's. The branch is
+rebuilt on `86dda5b` without that row (old tip kept as `backup/v7-k4-on-2139c68`); the rebuilt tree differs from the old
+tip only in #107's script and the dropped row. **K5, `86dda5b → 93aa680`, both arms, on katmai.** Predicted before it runs:
+A′ identical to K2/K4 module for module; ms CLEAN, every unit `ok`, `X86.Syntax` inside +31 ± 45, the NEW unit near
+4,000 ms. Two intervening landings in one batch are a cost of a ~9 h measure-then-CI cycle on a repo another seat merges
+into; a merge window for x86lean master is asked for on the bus, rather than re-keying a row by argument.
