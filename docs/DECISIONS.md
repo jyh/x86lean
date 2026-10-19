@@ -20457,7 +20457,7 @@ such beside cited digits; "six codec columns", a property of the corpus recipe `
 
 **The commission:** O38 (the Captain, 2026-09-10: *"small-step operational semantics + ~hoare logic"*; 2026-09-11: *"two papers
 probably"*), framing (c) of 2026-09-12 (the logic is paper 2's headline), and the helm's order of 2026-09-25 23:51 (bus @69,848,014)
-to pull the paper's spine on the kriterion pool. **Read from the object before designing:** the one statement the campaign owes with a
+to pull the paper's spine on the account pool. **Read from the object before designing:** the one statement the campaign owes with a
 loop in it, `Crc32X86Interface.CorrectFor`, is TOTAL correctness (`∃ n`, reaching `ret`) with a RELATIONAL post (`AgreeOutside … s.mem
 t.mem`, `CalleeSaved s t`, `rsp + 8`). `runP_invariant` is the every-fuel half and cannot state it; R1's hand proof reaches it by
 counting `7 * n` steps, which only a fixed-length body allows.
