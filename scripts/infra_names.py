@@ -80,4 +80,9 @@ def self_test() -> int:
 
 
 if __name__ == "__main__":
+    # Refuse an unknown flag before any work (the repo's flag-strictness gate; see portable.strict_flags).
+    import os as _os
+    sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from portable import strict_flags as _strict_flags
+    _strict_flags(__file__)
     sys.exit(self_test() if "--self-test" in sys.argv[1:] else 0)
