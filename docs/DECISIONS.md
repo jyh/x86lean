@@ -22714,3 +22714,10 @@ Record: `docs/DIFFERENTIAL-P2-BATCH41.md`.**
    exactly 88 `spec` disagreements, all `endbr64`, all in RAX.
 Also: `claimed_forms.py` exempts `endbr64` (K has no `endbr` rule, measured), the README counts move to 200 / 1199 /
 105,512 and P2 batches landed 40 → 41, and the axiom gate is CLEAN over 5,436 declarations.
+**Result, prediction 6, the katmai row (V8a K1, 2026-10-19, master `f9e6860` → `4616441`, `--repeats 6`, loads 1.8–5.4):
+HELD.** ms `delta gate: CLEAN`, no NEW unit, all 43 units `ok`: `X86.Syntax` 652.0 → 655.0, +3.0 ± 22.1 of 121.9 (predicted
+under +10); `X86.Theorems` +10.0 ± 44.1 of 350.4; `Tests.Coverage` +200 ± 243.6 of 2,700; `X86.Semantics` +0.4. A′
+`ku-delta gate (a-prime): CLEAN`; six modules grow, each one that names the new constructor or reduces over the roster:
+`Tests.Coverage` +61,335 · `Tests.CoverageVex` +5,467 · `X86.Theorems` +448 · `X86.Syntax` +206 · `X86.Coverage` +5 ·
+`X86.Serialize` +5. `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. Master
+is held still by the helm's merge window (10-19 13:21) until this PR lands.
