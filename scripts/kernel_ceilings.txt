@@ -464,3 +464,6 @@ Tests.AnchorsVexSil 11040 @on yukon.lan
 # katmai, 2026-10-17, the line kernel_delta PRINTED on refusing the NEW unit (base 5171fff → 7ad1fd3, --repeats 6;
 # head Tests.AnchorsVexSil 4210.0 ms), copied, not retyped. The ledger row is measured AFTER this line, on the tree that lands.
 Tests.AnchorsVexSil 12630 @on katmai
+# runner, 2026-10-18: the line PR #108's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 39159507167,
+# head Tests.AnchorsVexSil 7105.0 ms ⇒ max(7105.0 × 3, 50)), copied, not retyped.
+Tests.AnchorsVexSil 21315 @on runnervm8k3b6
