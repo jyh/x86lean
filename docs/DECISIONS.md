@@ -22663,3 +22663,39 @@ four of five predictions held, and one was worded too widely.**
   D346 edits. The prediction's own WRONG-IF, a module growing, did not fire: every move is a fall.
 - `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. Master is held still by the
   helm's merge window (10-19 02:30) until this PR lands.
+
+## D347 — V8a: `endbr64`, the largest uncovered demand in the census (predictions before any model change)
+
+**Why this form.** At master `f9e6860`, `docs/DEMAND-CENSUS.md.json` summed over the ten corpora, with every mnemonic the
+differential table, the silicon table or the VEX table covers subtracted, ranks **`endbr64` first at 29,689** instructions
+(next: `movq` vector operand 11,109; `vpmaddwd` 7,209). It was already rank 1 of `P2-ROSTER.md`'s "demand without supply"
+(QUEUE §1a, 2026-09-09), and the oracle EXECUTES it (`oracle_availability.py`, probe `f30f1efa`).
+⛔ **QUEUE §1a/1b recorded its blocker as "K has no rule … a semantics-source constraint", and that was a PRICING fact, not
+a modelling one.** `p2_roster.py`'s own definition: *"a mnemonic the corpus runs that K has no rule for … it cannot be priced
+from K at all"*. Nothing in this repository requires a K rule before a form is modelled (V3–V7 shipped forms K has no rule
+for), and the fleet map records that K does not decode machine bytes at all. The semantics source here is the SDM; the
+referee is x86isa.
+
+**The sources, read at each:**
+| source | ENDBR64 | where |
+|---|---|---|
+| Intel SDM 093US | *"This opcode is a NOP when CET indirect branch tracking is not enabled, on processors that do not support CET, and outside 64-bit mode."* Operation: only `IA32_U_CET`/`IA32_S_CET` TRACKER/SUPPRESS, when `EndbranchEnabled`. Flags: *"None."* Exceptions: *"#UD If the LOCK prefix is used."* Encoding `F3 0F 1E FA`, op/en ZO | Vol. 2A p. 3-288, `253666-093US`, downloaded 2026-10-19 (Intel's `getContent/671199`) |
+| ACL2 x86isa | `x86-endbr32/endbr64`: a no-op that requires the mandatory `F3` (else #UD), accepts and ignores other prefixes, and #UDs unless the next byte is `FA`/`FB` | `machine/instructions/endbranch.lisp` at `c8897a34` |
+| this model | — (not modelled) | |
+⇒ **Decision: `endbr64` is a no-op on the state this model carries** (it has no CET MSRs), exactly `.nop`'s semantics with
+its own constructor, so it prints and encodes as itself. No LOCK form is modelled. `endbr32` is not taken: outside 64-bit
+mode it is a NOP too, but its demand is not in the ranking above.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Availability:** the oracle-availability gate reads `endbr64` as `executes` at `c8897a34` (re-measured in the run, not
+   copied from the table).
+2. **Differential:** every `endbr64` case agrees with x86isa in every field; the post-state equals the pre-state except
+   `rip += 4`. `unexplained=0`. Cases rise by exactly 88 per `endbr64` vector added, and no other mnemonic's record changes.
+3. **Theorem:** `step ⟨.endbr64, 4⟩ s = { s with rip := s.rip + 4 }`, by the same proof shape as `.nop`'s, and the flags
+   are unchanged.
+4. **Census:** `endbr64` leaves "not mapped at all" in every corpus and enters `covered`; each corpus's covered count rises
+   by exactly its `endbr64` count (pooled 29,689), and no other column moves (conservation by exact counts).
+5. **Red backwards:** a mutant `endbr64` that writes `rax` is caught by the differential (a register disagreement on every
+   case whose pre-state `rax` is not already the written value) and by the theorem.
+6. **Kernel cost:** no NEW unit; `X86.Syntax` grows by one constructor's cost (V7's ten cost +32.5 ms at katmai ⇒ predict
+   under +10 ms), every unit within budget.
