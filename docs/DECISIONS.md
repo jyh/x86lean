@@ -22699,3 +22699,18 @@ mode it is a NOP too, but its demand is not in the ranking above.
    case whose pre-state `rax` is not already the written value) and by the theorem.
 6. **Kernel cost:** no NEW unit; `X86.Syntax` grows by one constructor's cost (V7's ten cost +32.5 ms at katmai ⇒ predict
    under +10 ms), every unit within budget.
+**Result, predictions 1–5 (yukon and katmai, 2026-10-19; the differential at `acl2@c8897a34`): HELD, all five, exactly.
+Record: `docs/DIFFERENTIAL-P2-BATCH41.md`.**
+1. **Availability: HELD.** The run's oracle-availability gate passed with `endbr64` in it (`executes`).
+2. **Differential: HELD.** Full run `cases=112552 matched=89407 explained=34047 unexplained=0 oracle-divergence=792`
+   against D346's 112464 / 89319: +88 cases, +88 matched, nothing else moved. The main table alone, measured by filtering
+   the run's records to the 1199 `vectors` ids: `cases=105512 matched=82455 explained=34047 divergence=616`.
+3. **Theorem: HELD.** `step_endbr64` and `step_endbr64_flags` by `simp [step, h, Cpu.setRip]`.
+4. **Census: HELD, exactly.** Every corpus's covered count rose by exactly its `endbr64` count, 29,689 pooled (cc1 1,490 ·
+   coreutils 11,626 · glibc 85 · dav1d 691 · ffmpeg 11,236 · vlc-codec 813 · vlc-video_chroma 235 · vpx 2,345 · x264
+   1,168 · vmlinux 0); the only other field that moved is the CET-IBT bucket of the uncovered-by-extension map, now empty.
+   `P2-ROSTER.md`'s gap 362,093 → 345,605 (−16,488).
+5. **Red backwards: HELD.** A mutant writing RAX fails `step_endbr64` and, against the same oracle records, produces
+   exactly 88 `spec` disagreements, all `endbr64`, all in RAX.
+Also: `claimed_forms.py` exempts `endbr64` (K has no `endbr` rule, measured), the README counts move to 200 / 1199 /
+105,512 and P2 batches landed 40 → 41, and the axiom gate is CLEAN over 5,436 declarations.
