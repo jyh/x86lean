@@ -22650,3 +22650,16 @@ both arms.** ms: `delta gate: CLEAN`, no NEW unit, every unit `ok`; `Tests.Nonva
 64.8; predicted −25 ± 30 on katmai's narrower band); `X86.Semantics` within +1.6 ± 5. A′: CLEAN, `Tests.Nonvacuity`'s
 unfoldings FALL (the four zero-source theorems no longer reduce the oracle's 64 draws), every module D346 does not touch
 equal to its base. Wrong if any untouched unit moves past its band at katmai's loads, or A′ shows any module growing.
+**Result, the katmai row (D346 K1, 2026-10-19, `08cbf0f` → `1a95275`, `--repeats 6`, loads 1.7–4.5): both arms CLEAN;
+four of five predictions held, and one was worded too widely.**
+- ms: `delta gate: CLEAN`, no NEW unit, all 43 units `ok`. `Tests.Nonvacuity` 182.0 → 177.0, −5.0 ± 7.7 of 62.4 (inside the
+  predicted −25 ± 30, and smaller than yukon's −33.0 ± 44.4 at loads to 23.5); `X86.Semantics` +0.1; `X86.Serialize` −0.0;
+  `X86.Coverage` +0.1.
+- A′: `ku-delta gate (a-prime): CLEAN`. `Tests.Nonvacuity` 74,402 → 57,604 unfoldings (−16,798), as predicted.
+- ✘ **"every module D346 does not touch equal to its base" was wrong as worded.** `X86.Theorems` moved 129,512 → 128,931
+  (−581) although D346 edits no line of it: its theorems reduce `step` at BSF/BSR, and `step` changed in `X86/Semantics.lean`.
+  A module DOWNSTREAM of a changed one is not untouched; the prediction should have said "every module that imports none of
+  the five changed files". The other two that moved, `X86.Serialize` 626 → 608 and `X86.Semantics` 1,317 → 1,315, are files
+  D346 edits. The prediction's own WRONG-IF, a module growing, did not fire: every move is a fall.
+- `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. Master is held still by the
+  helm's merge window (10-19 02:30) until this PR lands.
