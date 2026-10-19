@@ -22645,3 +22645,8 @@ declarations; the differential reads `cases=112464 matched=89319 explained=34047
 oracle-leaks=0 missing=0`, the same counts as prediction 1's reading on `5171fff`, so V7 (silicon-only forms, no new vectors)
 does not touch D346's cases. The katmai row waits for #109 (it changes `scripts/kernel_ceilings.txt`, a profiler path on
 master's chain); the row is measured on the master that #109 leaves.
+**The katmai row (D346 K1), predicted before it runs: base `08cbf0f` (master after #109) → head `1a95275`, `--repeats 6`,
+both arms.** ms: `delta gate: CLEAN`, no NEW unit, every unit `ok`; `Tests.Nonvacuity` falls (yukon read −33.0 ± 44.4 of
+64.8; predicted −25 ± 30 on katmai's narrower band); `X86.Semantics` within +1.6 ± 5. A′: CLEAN, `Tests.Nonvacuity`'s
+unfoldings FALL (the four zero-source theorems no longer reduce the oracle's 64 draws), every module D346 does not touch
+equal to its base. Wrong if any untouched unit moves past its band at katmai's loads, or A′ shows any module growing.
