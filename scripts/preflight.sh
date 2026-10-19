@@ -94,6 +94,39 @@ else printf "  ⛔ FAIL hwprobe/mk_vexsil_anchors --check\n"; rc=1; fi
 #   verdict, and RED-BACKWARDS in that same condition still reds it. ~1 s, no Lean, no heavy slot.
 if python3 hwprobe/reach_table.py --selftest-static >/dev/null 2>&1; then printf "  ok   hwprobe/reach_table --selftest-static\n"
 else printf "  ⛔ FAIL hwprobe/reach_table --selftest-static\n"; rc=1; fi
+# ⛔⛔ ADDED 2026-10-18 (paris, D345's red on #108): every `python3 <script>.py … --check…` command in
+#   ci.yml, READ FROM ci.yml rather than listed here. The hand list above is a subset of CI and
+#   rots: on #108 CI reddened on `p2_roster.py --check` (a derived doc V7 never regenerated) while
+#   this script had never run it, nor k_roster --check, oracle_availability --check-encodings or
+#   delta_band_calibration --check. A command the lines above already ran is skipped by name; the
+#   count of commands read is printed, so a parse that finds nothing reads as a refusal, not as ok.
+#   All of them ran on yukon in ≤ 32 s each (2026-10-18). None takes the heavy slot.
+ci_checks=$(python3 - <<'PYEOF'
+import re
+seen = []
+for line in open(".github/workflows/ci.yml", encoding="utf-8"):
+    m = re.match(r"\s*(?:run:\s*)?(python3\s+\S+\.py\b.*\s--check[\w-]*)\s*$", line)
+    if m and m.group(1) not in seen:
+        seen.append(m.group(1))
+print("\n".join(seen))
+PYEOF
+)
+n_ci=$(printf "%s\n" "$ci_checks" | grep -c 'python3' || true)
+if [ "$n_ci" -lt 1 ]; then printf "  ⛔ FAIL ci.yml --check census: 0 commands read (the parse found nothing)\n"; rc=1; fi
+[ -x .lake/build/bin/x86lean-diff ] || printf "  ⚠️  no .lake/build/bin/x86lean-diff in this checkout: CI builds it before these steps, so the ones\n      that run it (p2_roster, p2_residue, claimed_forms) FAIL here until \`python3 scripts/lean_route.py build\`\n"
+n_ran=0
+while IFS= read -r cmd; do
+  [ -n "$cmd" ] || continue
+  name=${cmd#python3 }
+  case "$name" in
+    hwprobe/mk_anchors.py\ --check|hwprobe/mk_int_anchors.py\ --check|hwprobe/mk_shuf_anchors.py\ --check|\
+    hwprobe/mk_simda_anchors.py\ --check|hwprobe/mk_sha_anchors.py\ --check|hwprobe/mk_aes_anchors.py\ --check) continue ;;
+  esac
+  n_ran=$((n_ran+1))
+  if $cmd >/dev/null 2>&1; then printf "  ok   %s   (from ci.yml)\n" "$name"
+  else printf "  ⛔ FAIL %s   (from ci.yml)\n" "$name"; rc=1; fi
+done <<< "$ci_checks"
+printf "  ci.yml --check census: %s command(s) read, %s run here, the rest ran above by name\n" "$n_ci" "$n_ran"
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.
