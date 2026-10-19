@@ -134,6 +134,31 @@ destination's upper half NOT zeroed).
 | `aes_probe.c` | runs each row and compares all 256 bits of YMM1-3 and RFLAGS |
 | `mk_aes_anchors.py` | the rows as Lean pins, with `--check` / `--selftest` |
 
+**The VEX.128/VEX.256 twin path (D345, V7)** is an eighth program, sharing nothing with the other seven:
+`vexsil_ops.S` (76 functions: one per form, length and imm8 — VSHUFPS imm, VPSRAD and VPSRAW with an xmm count and with
+an imm8, VADDPS, VSUBPS, VMULPS, VPUNPCKLWD, VPUNPCKHWD, VPUNPCKLBW, VPACKUSWB at `%ymm2,%ymm1,%ymm3` and VPMOVMSKB at
+`%ymm1,%eax`, each at VEX.128 and VEX.256: 26 encodings), `mk_vexsil_rows.py` (503 rows, derived from the SDM's rules and
+written down in its docstring with the four places the SDM was read by its pseudo-code; every row is computed TWICE, by a
+rule over 128-bit integers with floating point by exact rationals and by a textbook reading the flat pseudo-code over
+bytes with floating point by integer significands and explicit round/sticky bits, and `build` REFUSES any row where they
+differ; `--selftest` also holds both FP references to the host's IEEE binary32 at round-to-nearest; `--refuse-wrong`
+shows `build` refusing D345's four wrong rules, each on a named row: the count taken per lane, the high lane's FP flags
+dropped, VPMOVMSKB's lanes swapped, VSHUFPS's imm8 applied across lanes), and `vexsil_probe.c`, which reads CPUID.01H:ECX
+(AVX, OSXSAVE), XCR0 and CPUID.(7,0):EBX (AVX2) and refuses without them with exit 3, refuses unless the declared bytes
+are the assembled ones, and compares all 256 bits of YMM3 (a VEX.128 form must zero bits 255:128; a VEX.256 form writes
+them with the high lane's result), all 64 bits of RAX (VPMOVMSKB's destination, upper bits zero), all 32 bits of MXCSR
+(the six sticky flags OR'ed over every lane for the three FP forms, with RC rotated through all four modes; unchanged
+otherwise), YMM1 and YMM2 whole and the six arithmetic flags. Every YMM3 upper half is seeded random and non-zero, and so
+are the sources' at VEX.128. x86isa refuses all 26 encodings (D345 P1). Controls: `--plant` (bit 128 of one VEX.256 row's
+expectation, `vshufps256_1b_p0`), `--plant-op`, and `--plant-hi` (one VEX.128 row, `vpackuswb128_edge0`, expecting the
+destination's upper half kept); `--reach` counts the rows each wrong rule, and D345's two red-backwards mutants, disagree on.
+
+| file | role |
+|---|---|
+| `vexsil_ops.S` | one function per VEX twin, length and imm8 (register conventions in its header) |
+| `mk_vexsil_rows.py` | the rows, the rule and the textbook; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsil_probe.c` | runs each row and compares all 256 bits of YMM1-3, RAX, MXCSR and RFLAGS |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -144,7 +169,10 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_simda_rows.py > simda_rows.h && cc -O1 -o simda_probe simda_probe.c simda_ops.S && ./simda_probe)
 (cd hwprobe && python3 mk_sha_rows.py > sha_rows.h && cc -O1 -o sha_probe sha_probe.c sha_ops.S && ./sha_probe)
 (cd hwprobe && python3 mk_aes_rows.py > aes_rows.h && cc -O1 -o aes_probe aes_probe.c aes_ops.S && ./aes_probe)
+(cd hwprobe && python3 mk_vexsil_rows.py > vexsil_rows.h && cc -O1 -o vexsil_probe vexsil_probe.c vexsil_ops.S && ./vexsil_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is
-corroboration and never the referee's verdict.
+corroboration and never the referee's verdict. Rosetta hides AVX and AVX2 from CPUID unless the environment carries
+`ROSETTA_ADVERTISE_AVX=1`; without it `vexsil_probe` (and `aes_probe`) refuse with exit 3. Run the binary as
+`/usr/bin/arch -x86_64 ./vexsil_probe` and check that `/usr/bin/arch -x86_64 /usr/bin/uname -m` prints `x86_64`.

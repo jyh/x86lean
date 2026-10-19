@@ -22401,3 +22401,170 @@ the silicon line and never covered.
   stated.
 - **Granularity, as predicted:** the VEX line credits by mnemonic within the bucket, so VEX.256 memory forms of table
   mnemonics are in its counts while no VEX.256 memory form is modelled. The line now says so in its own text.
+
+## D345 — V7: the VEX.128 and VEX.256 twins of eleven main-table forms, refereed by silicon (predictions before any model, row or hardware work)
+
+**Why these.** After V6 (D344) the census's `AVX2/AVX (ymm)` class still holds about 72,300 instructions whose mnemonic is
+no VEX-table row. Eleven of the top thirty are VEX twins of forms the MAIN table already models and the differential
+already tests: `shufps psrad addps subps mulps punpcklwd punpckhwd pmovmskb punpcklbw packuswb psraw`. Their demand is
+about 23,100 at ymm, plus their VEX.128 counts (`docs/DEMAND-CENSUS.md.json`, `miss_by_ext`). The others in the top thirty
+either cross lanes (`vinserti128`, `vextracti128`, `vpermq`, the broadcasts, `vperm2f128`) or have no main-table twin
+(`pmaddwd`, `pmulhrsw`, …), and are not V7.
+
+**The referee, measured before anything was designed (P1, 2026-10-16, yukon, `acl2@c8897a34d3ef`, an uncommitted copy of
+`oracle_availability.py`).** All 26 encodings REFUSE at 88 of 88. That is the 11 mnemonics at both lengths, plus the
+immediate-count forms of `vpsrad`/`vpsraw`, with clang's bytes. In the same run the 39 V6 rows executed at 88 of 88, and
+so did both controls. This agrees with D339's count (x86isa executes exactly the 33 V3 twins and `vpxor m`). ⇒ **V7 is a
+SILICON wave on V4's pattern (`hwprobe/`), not a differential one.** The 26 rows enter `oracle_availability.py` as
+`refuses`, so the reading is re-taken every run.
+
+**The rules.** Each VEX.128 form is its legacy twin's 128-bit function with VEX.vvvv as the first source, written through
+`setXmmVex128` (D341). Each VEX.256 form applies the same function per 128-bit lane, written through `setYmm` (D344).
+Three are NOT a plain per-lane map, and each is predicted separately:
+- **`vpsrad`/`vpsraw` with an xmm count:** the count is the low 64 bits of the count register, and one count applies to
+  every lane at both lengths (SDM VPSRAD/VPSRAW). The count register is an xmm even at VEX.256.
+- **`vaddps`/`vsubps`/`vmulps`:** MXCSR's sticky exception flags are the OR over all eight lanes at VEX.256 (four at VEX.128).
+  Rounding follows MXCSR.RC as the legacy rule does.
+- **`vpmovmskb`:** the destination is a GPR. At VEX.256 it is a 32-bit mask whose bits 15:0 come from the low lane and bits
+  31:16 from the high lane, zero-extended to 64 bits. It writes no XMM/YMM register.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on BOTH vendors (an AMD and an Intel leg, as V4 had). Each row reads
+   the destination's full YMM register, with bits 255:128 seeded non-zero, so VEX.128's zeroing and VEX.256's writing are both
+   read. For the three FP forms it also reads MXCSR's six sticky flags.
+2. **Generator, before any processor.** A textbook implementation per form, written independently of the rule, reproduces every
+   row. `--refuse-wrong` refuses, each on a named row:
+   - (a) the count taken per lane instead of from the count register's low 64 bits;
+   - (b) the FP flags of the high lane dropped;
+   - (c) `vpmovmskb`'s lanes swapped;
+   - (d) `vshufps`'s immediate applied across lanes rather than within each.
+3. **Model.** Each VEX twin's arm calls the legacy form's existing 128-bit function: no new arithmetic. All rows are pinned by
+   `decide` in a NEW metered unit (`Tests/AnchorsVexSil.lean`). **Red backwards:** the upper half preserved (a VEX.128 mutant)
+   and the low lane copied (a VEX.256 mutant) each red exactly the rows they reach.
+4. **Census.** The eleven move to the silicon line at both buckets (VEX.128 and ymm). (a) is unchanged in every column, and the
+   published counts (199 mnemonics, 1,198 vectors) do not move.
+5. **Kernel cost.** Every NEW unit is registered in BOTH registries, before the katmai row is measured on the landing tree.
+   (D344's ordering lesson: a ceiling line added after the measurement leaves the row pricing another tree.)
+
+**Not claimed:** memory forms, the cross-lane AVX2 forms, the forms with no main-table twin, and bits 511:256.
+**Result, prediction 2 (generator, step (a), `5d78982`, re-driven by the seat after the executor reported): HELD.**
+- 503 rows over 26 encodings and 76 functions. `--selftest` passes: every row's rule agrees with its independent textbook,
+  and so do 24,000 swept FP cases.
+- `--refuse-wrong` refuses 4 of 4 on named rows: (a) `vpsrad256_x_c0_edge` · (b) `vaddps256_hionly_IE` · (c)
+  `vpmovmskb256_lo1` · (d) `vshufps256_00_p0`.
+- Under Rosetta 2 on yukon (a translation, NOT silicon, and only with `ROSETTA_ADVERTISE_AVX=1`; without it Rosetta reports
+  no AVX and the probe refuses, exit 3): 503/503 agree. `--plant` reds exactly `vshufps256_1b_p0` and `--plant-hi` exactly
+  `vpackuswb128_edge0` (rc 1 each), and `--plant-op` refuses `x_vshufps128_00` (rc 2).
+**Result, prediction 1 (silicon, push run 38995460544 at `d2aa322`): HELD on two legs.**
+- macos-15-intel **Intel Core i7-8700B** (named by its brand string): 503/503.
+- ubuntu-latest: 503/503. Its log prints no model name, so the leg is AMD **by CPUID signature only**: CPUID.01H:ECX `feda3203`,
+  the value D342 recorded for its EPYC 7763; CPUID.07H:EBX `f1bf07a9`; XCR0 `e7`.
+- On both legs the three controls behaved as asserted (plant rc 1 on its row, badop rc 2, hi rc 1 on its row), and AVX2=1.
+- ⚠️ A second AMD reading under a named model is owed: one dispatch, as V4's EPYC 9V45 leg was.
+- ⛔ **CORRECTION (2026-10-17), and it is to the AMD leg's identity, not its verdict.** The sentence above calls `feda3203`
+  "the value D342 recorded for its EPYC 7763". CPUID.01H:ECX does not identify the part. That leg's CPUID.07H:EBX
+  `f1bf07a9` has bit 16 (AVX512F) SET and its XCR0 `e7` enables the AVX-512 state, and a Zen 3 EPYC 7763 has no AVX-512.
+  So the 10-16 leg was an AVX-512 AMD part, NOT a 7763, and its model is unknown.
+- **A THIRD LEG, 2026-10-17 (push run 39014709807 at the rebased head `65f90f2`): HELD, 503/503.** ubuntu-latest drew an
+  AMD part with the same ECX `feda3203` but CPUID.07H:EBX `219c07a9` (AVX512F clear) and XCR0 `07`. That is a DIFFERENT
+  AMD microarchitecture from the 10-16 leg's, and the one consistent with an EPYC 7763; its log again prints no model
+  name (`model name` is empty on the hosted VM). macos-15-intel drew the Intel Core i7-8700B again, 503/503. On both legs
+  the three controls behaved as asserted. ⇒ **Two AMD parts and one Intel, all 503/503; both AMD readings are by CPUID
+  signature only.** The censuses name D345's referees as **AMD CPUID feda3203** (both AMD parts share that CPUID.01H:ECX)
+  and **Intel Core i7-8700B**.
+**Result, prediction 3 (model, step (b), 2026-10-17, yukon): HELD.**
+- **No new arithmetic.** Ten `VexOp` constructors (`vexshufps`, `vexsrax`, `vexsrai`, `vexparith`, `vexmovmskb`, each with a
+  `…256` twin), and the four unpack/pack kinds enter `vexbin`/`vexbin256` through a new `VBinKind.vexSilTaken`, kept apart
+  from `vexTaken` (which records what the DIFFERENTIAL tests). Every arm calls the legacy form's 128-bit function by name
+  (`vshufpApply .ps`, `vshiftApply .sra`, `vparithAll … false`, `vbinApply`). The one fold that had no name, the legacy
+  `pmovmskb`'s, is factored out as `pmovmskbLane`, and `legacy_pmovmskb_is_pmovmskbLane` proves the legacy arm writes
+  exactly it. `vdivps` and the byte/quadword arithmetic shifts are refused, not given a semantics.
+- **All 503 rows pinned by `decide`** in the NEW unit `Tests/AnchorsVexSil.lean`, generated by `hwprobe/mk_vexsil_anchors.py`
+  (`--check` and a 5-arm `--selftest` in CI and preflight). Each pin reads YMM3's 256 bits, YMM1 and YMM2, RAX, MXCSR, the
+  six flags and RIP. `saltbuild EXIT=0`, 0 tagged errors.
+- **The pins are live (a planted control):** one expectation changed (`vaddps256_hionly_IE` with IE dropped) reddened
+  exactly `v7_vaddps256_pins`, 1 error, and nothing else. The unit builds in ~5 s, so this was asked before trusting it.
+- **Red backwards: HELD, exactly.** Both mutants in one build (they touch disjoint theorems): every VEX.128 arm through
+  `setXmm` (the upper half PRESERVED), and every VEX.256 arm's high lane computed from the low halves. The predicted red set,
+  derived from the generator's own `m_keep_upper`/`m_copy_low` over the 503 rows, is 74 of 76 theorems. The build reddened
+  exactly those 74. The two green ones are `v7_vpmovmskb128_pins` and `v7_vpmovmskb256_pins`, which the prediction excludes
+  because vpmovmskb writes no vector register.
+- ⚠️ **Limit:** the red-backwards pair does not exercise vpmovmskb's lane order in the model; wrong rule (c) was refused at
+  the generator (P2), and the pins hold the model to the rows.
+**Result, prediction 4 (census; demand on katmai over `~/x86lean-corpus` at `cac895b`, 2026-10-17): HELD for the demand
+census; the primitive census is re-run separately (below).**
+- **(a) unchanged in every column.** Every numeric field of `DEMAND-CENSUS.md.json` except `silicon`/`silicon_pct` is V6's,
+  in all ten corpora (covered cc1 5,378,222 · coreutils 865,527 · glibc 559,250 · dav1d 195,087 · ffmpeg 2,987,538 ·
+  vlc-codec 150,727 · vlc-video_chroma 98,858 · vpx 655,525 · x264 334,441 · vmlinux 2,767,164). The VEX line is unchanged.
+  `docs/COVERAGE.md`'s published table stays 199 rows, and no vector is added (1,198).
+- **The silicon line grows, and only by the eleven:** coreutils 47 → 48 · glibc 465 → 1,732 · dav1d 10,892 → 16,488 · ffmpeg
+  15,247 → 36,489 · vpx 43,405 → 44,492 · x264 4,457 → 5,735; cc1, both vlc columns and vmlinux unchanged. Every row of
+  `silicon_all` that moved is one of the eleven mnemonics.
+- **Conservation, by exact counts:** in each corpus the silicon gain equals the fall in "not mapped at all" plus the change
+  in "a name the model has, in a form it cannot represent". That second term is NEW and was not predicted: in dav1d
+  (+2,915) and glibc (+191) and x264 (+49), EVEX/zmm spellings of the eleven now map by name (the model has the name) and are
+  filed out of scope, where before they were unmapped. That is the existing class's meaning, applied to new names.
+- **The mapping needed no new rule, and the first one written was dead.** I added a `to_roster` branch mapping a `%ymm`
+  spelling of a VEX.256 silicon row to itself; `census_redprobe.py`'s mutation removing it changed nothing, because the
+  identity rule already maps any name the model has. It is removed. The class decision is `_decide`'s new branch (a silicon
+  row whose `siliconTable` note declares VEX.256 is `silicon-vex` at ymm), and the red probe catches its pooling into (a).
+- Gates: `--selftest` PASS (228 arms, five new or changed: `vshufps`/`vpmovmskb` at ymm map to themselves, `vmulps` at ymm
+  is `silicon-vex`, `vaesenc` at ymm stays outscope, and the VEX-128 "unmapped" example moves from `vmulps` to `vdivps`);
+  `--check` CLEAN under the new stamp; `census_redprobe.py` PASS, control + 36 mutations (one D345 mutation added, and the
+  anchor of "the silicon split is dropped" updated to the changed `Model(...)` call it mutates).
+**Result, prediction 5 (kernel cost, yukon.lan, `8862206` → `cac895b`, `kernel_delta.py --repeats 3`, loads 6.0–17.0): the
+NEW unit is registered in BOTH registries, in one commit, before any katmai row.**
+- Every existing unit reads `ok` but one: `X86.Syntax` 563.0 → 569.0, **+6.0 ± 95.3** against 105.3 (ten constructors nested
+  under `Op.vex`, as D343 intended); `X86.Semantics` 24.3 → 24.1; `X86.Vex` 34.7 → 33.9; `Tests.Coverage` 36,200 → 36,200
+  (`memDestSweep` 6,310 → 6,300, so the eleven new shapes cost nothing measurable); `Tests.AnchorsVex` 36.1 → 38.2.
+- ⚠️ `X86.Value` reads **UNMEASURABLE** (Δ −0.6 ms, band ±16.1 against a 6.0 budget). V7 does not touch `X86/Value.lean`
+  (`git diff 8862206 cac895b -- X86/Value.lean` is empty), and the run's first pass was taken at load 17.0. It is a reading
+  of this box tonight, not of the commit; the katmai row at 6 repeats is the verdict of record.
+- The NEW unit `Tests.AnchorsVexSil`: head **3,680 ms**. Its printed line, `Tests.AnchorsVexSil 11040 @on yukon.lan`, is
+  copied into `scripts/kernel_ceilings.txt`.
+- `ku_delta.py --arm a-prime` (same pair) refused only that unit, **2,010,793** unfoldings, registered as
+  `Tests.AnchorsVexSil @ku 2010793`. Every other Δku is inside its budget: `Tests.Coverage` +155,122 of 733,234 ·
+  `Tests.CoverageVex` +23,924 of 252,436 · `X86.Syntax` +2,315 of 7,331 · `X86.Semantics` +103 of 337 · `Tests.AnchorsVex`
+  +6 of 1,323. `--check-registry` rc 0.
+- The katmai ceiling and the ledger row are taken at landing, as V6's were; the runner line goes in a follow-up PR.
+**katmai (K1), 2026-10-17, base `5171fff` (master, after #106) → head `7ad1fd3`, `--repeats 6`, loads 1.9–4.4:** every
+existing unit `ok`; **`X86.Syntax` 620.0 → 667.0, +47.0 ± 15.2 against 115.9** (the ten constructors' cost, clearer than
+yukon's +6.0 ± 95.3 because katmai's band is six times narrower); `Tests.Coverage` +500 ± 416.5 of 2,685.6;
+`X86.Semantics` +1.0. The NEW unit's head is 4,210 ms, and its printed line `Tests.AnchorsVexSil 12630 @on katmai` is
+copied into `scripts/kernel_ceilings.txt`. ⚠️ Getting there cost four starts: the katmai door first refused on a memory
+floor whose premise was false (14.6 GiB of cold compressor pages, no pressure); the helm's 08:02 decision moved K1 to the
+OS's own `memory_pressure` gauge; and that door's new stop rule then fired three times on the WORD "default" in the Z
+wave's log (a substring match on FAULT), until it was fixed to whole words over new bytes only (seat
+`tools/katmai-saltbuild-door.sh`). The fourth start ran clean.
+**katmai (K3), 2026-10-17, base `5171fff` → head `9fd5e19` (the ceiling commit), `--repeats 6`, loads 1.7–4.6: `delta
+gate: CLEAN`, `KDELTA-EXIT=0`.** Every one of the 42 existing units reads `ok`: `X86.Syntax` 622.5 → 655.0, +32.5 ± 39.7
+against 116.4; `Tests.Coverage` 37,100 → 37,650, +550 ± 1,215.4 against 2,671.2; `X86.Semantics` +1.1; `X86.Vex` −0.3;
+`Tests.AnchorsVex` +0.2. The NEW unit `Tests.AnchorsVexSil` reads 4,020 ms, `NEW ok` against the 12,630 ceiling registered
+for the same box. A′ on katmai (K2), same pair: `ku-delta gate (a-prime): CLEAN`, the NEW unit at 2,010,793 unfoldings.
+⛔ **K3 is a READING, not the row.** #105 (systems' scrub port, `scripts/check_private_paths.py` only) merged while K3 ran,
+so master's chain is now `5171fff → 2139c68`, and `kernel_drift --gap` on the synthetic merge refused the gate-written
+row, rc 2: *"names head 9fd5e198e, which is neither this base's first-parent child 2139c6826 nor a commit reachable from it
+that differs only in the record."* The branch is rebased onto `2139c68`; the rebased ceiling commit `30b0239` differs from
+`9fd5e19` only in that script (exempt, not a profiler path). As in D266 §9, the row is re-measured, not re-keyed by
+argument: **K4, `2139c68 → 30b0239`, both arms, on katmai.** Predicted before it runs: A′ CLEAN and identical to K2
+module for module; ms CLEAN, every unit `ok`, `X86.Syntax` inside +32.5 ± 60, `Tests.AnchorsVexSil` NEW ok near 4,000 ms.
+**katmai (K4), 2026-10-18, base `2139c68` → head `30b0239`, `--repeats 6`, loads 1.8–4.2: both arms CLEAN, every K4
+prediction held** — and K4 is ALSO a reading, not the row, for the same reason as K3. A′ matched K2 for all 39 modules on
+both sides (the NEW unit at 2,010,793). ms: all 42 existing units `ok`; `X86.Syntax` 620.5 → 651.0, +30.5 ± 17.9 against
+116.0; `Tests.Coverage` +250 ± 343; `Tests.AnchorsVexSil` 4,005 ms, `NEW ok`. Its row was recorded (`33eb331`) and PR
+#108's CI then ran on it, with only the expected runner NEW-unit red (`Tests.AnchorsVexSil 20925 @on runnervm8k3b6`).
+⛔ **#107 (systems, `scripts/check_private_paths.py` only) merged during that CI run**, so master's chain became
+`2139c68 → 86dda5b`, and `--gap` on the new synthetic merge refused the row exactly as it had refused K3's. The branch is
+rebuilt on `86dda5b` without that row (old tip kept as `backup/v7-k4-on-2139c68`); the rebuilt tree differs from the old
+tip only in #107's script and the dropped row. **K5, `86dda5b → 93aa680`, both arms, on katmai.** Predicted before it runs:
+A′ identical to K2/K4 module for module; ms CLEAN, every unit `ok`, `X86.Syntax` inside +31 ± 45, the NEW unit near
+4,000 ms. Two intervening landings in one batch are a cost of a ~9 h measure-then-CI cycle on a repo another seat merges
+into; a merge window for x86lean master is asked for on the bus, rather than re-keying a row by argument.
+**katmai (K5), the ledger row, 2026-10-18, base `86dda5b` → head `93aa680`, `--repeats 6`, loads 2.0–4.1: `delta gate:
+CLEAN`, `KDELTA-EXIT=0`; `ku-delta gate (a-prime): CLEAN`, `KU-EXIT=0`. Every prediction held.**
+- A′ identical to K2 and K4: all 39 modules' unfoldings equal on both sides, the NEW unit at 2,010,793.
+- ms: all 42 existing units `ok`. `X86.Syntax` 621.5 → 648.0, +26.5 ± 54.9 against 116.2 (inside +31 ± 45);
+  `Tests.Coverage` +600 ± 237.1 against 2,667.6; `X86.Semantics` +2.0; `X86.Vex` −0.2; `Tests.AnchorsVex` +0.7.
+  `Tests.AnchorsVexSil` 4,010 ms, `NEW ok` against its 12,630 katmai ceiling.
+- `kernel_drift --record` (D251): ms verdict rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. The helm
+  granted an x86lean merge window at 11:19 so that master holds still until this PR lands.

@@ -483,6 +483,9 @@ SILICON_REFEREES = (
     ("D338", ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Xeon 6973P-C")),
     # D342 (V4): the AES-NI / VPCLMULQDQ / VEX-shuffle path; filled from its hwprobe runs' CPU lines.
     ("D342", D342_REFEREES),
+    # D345 (V7): the VEX-silicon path. Both AMD legs are identified by CPUID only (the hosted VM prints no model name),
+    # so the AMD referee is named by that signature, as D345's text names it, never by a guessed model.
+    ("D345", ("AMD CPUID feda3203", "Intel Core i7-8700B")),
 )
 SILICON_DECISION = "D334"
 SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
@@ -499,6 +502,9 @@ SILICON_PATHS = (
     ("mk_sha_rows.py", "sha_probe.c", "h_", r'^  \{"[^"]+", (h_\w+), \{'),
     # D342 (V4): the AES-NI / VPCLMULQDQ / VEX-shuffle path, its functions `e_*`.
     ("mk_aes_rows.py", "aes_probe.c", "e_", r'^  \{"[^"]+", (e_\w+), [13], \{'),
+    # D345 (V7): the VEX-silicon path, its functions `x_*`. ⚠️ The row regex pins the `ULL` payload: an operation line
+    # (`{"x_…", x_…_at, 5, {0xc5, …}}`) also reads `x_\w+, N, {` and would be counted as a row.
+    ("mk_vexsil_rows.py", "vexsil_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \d+, \{0x[0-9a-f]+ULL'),
 )
 
 

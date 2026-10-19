@@ -196,3 +196,5 @@ X86.YmmHi @ku 75
 Tests.AnchorsAes @ku 1611835
 # D344 (V6): the NEW unit ARM A′ refused, e92b5fc (V5's head) → 59f2b96, yukon.lan, copied from its printed line, not retyped.
 Tests.CoverageVex256 @ku 231898
+# D345 (V7): the NEW unit ARM A′ refused, 8862206 (origin/master) → cac895b, yukon.lan, its printed count (2,010,793) with the commas removed by the shell, not retyped.
+Tests.AnchorsVexSil @ku 2010793

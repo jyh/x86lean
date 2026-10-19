@@ -1257,6 +1257,31 @@ inductive VexOp where
   halves of `src1` and `src`.  Every kind `VBinKind.vexTaken` lists is lane-wise, so
   this is the whole 256-bit rule. -/
   | vexbin256 (k : VBinKind) (dst src1 src : XmmReg)
+  /-- ⭐⭐ V7 (D345) — VSHUFPS (VEX.128 / VEX.256 0F C6 /r ib): `vshufpApply .ps src1 src sel`, `src1`
+  (VEX.vvvv) in the legacy destination's place.  At VEX.256 the SAME imm8 selects WITHIN each lane.
+  Register forms only; silicon-refereed (x86isa refuses both lengths). -/
+  | vexshufps (dst src1 src : XmmReg) (sel : BitVec 8)
+  | vexshufps256 (dst src1 src : XmmReg) (sel : BitVec 8)
+  /-- ⭐⭐ V7 (D345) — VPSRAW / VPSRAD with an XMM count (VEX 66 0F E1 / E2 /r): each element of `src1`
+  shifted by `cnt`'s low 64 bits, unsigned.  The count register is an XMM even at VEX.256, and ONE count
+  applies to both lanes (SDM Vol. 2B, the VEX.256 pseudo-code).  `w` is the legacy shift's lane width;
+  only `.w16` and `.w32` exist (`vshiftEncodable .sra`). -/
+  | vexsrax (w : VShiftW) (dst src1 cnt : XmmReg)
+  | vexsrax256 (w : VShiftW) (dst src1 cnt : XmmReg)
+  /-- ⭐⭐ V7 (D345) — VPSRAW / VPSRAD by imm8 (VEX 66 0F 71 /4 ib, 72 /4 ib): `dst` is VEX.vvvv and
+  `src` the ModRM.rm register, as `vexshiftdq`. -/
+  | vexsrai (w : VShiftW) (dst src : XmmReg) (cnt : BitVec 8)
+  | vexsrai256 (w : VShiftW) (dst src : XmmReg) (cnt : BitVec 8)
+  /-- ⭐⭐⭐ V7 (D345) — VADDPS / VSUBPS / VMULPS (VEX 0F 58 / 5C / 59 /r): `vparithAll`'s binary32 lanes
+  of `src1 op src`, rounded under MXCSR.RC; MXCSR's sticky flags are the OR over every lane (four at
+  VEX.128, EIGHT at VEX.256).  Only `add`, `sub` and `mul` are taken (D345); `div` is refused. -/
+  | vexparith (op : VArithOp) (dst src1 src : XmmReg)
+  | vexparith256 (op : VArithOp) (dst src1 src : XmmReg)
+  /-- ⭐⭐ V7 (D345) — VPMOVMSKB (VEX 66 0F D7 /r): the sign bit of each byte of `src` into the GPR `dst`,
+  zero-extended to 64 bits; 16 bits at VEX.128, 32 at VEX.256 (bits 31:16 from the high lane).  No vector
+  register is written. -/
+  | vexmovmskb (dst : GPR) (src : XmmReg)
+  | vexmovmskb256 (dst : GPR) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1267,6 +1292,9 @@ def VexOp.operands : VexOp → List Operand
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
+  -- V7: the silicon-refereed VEX twins are register forms; none names an address.
+  | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => []
+  | .vexparith .. | .vexparith256 .. | .vexmovmskb .. | .vexmovmskb256 .. => []
 
 /-- V5 (D343) — `Op.anyLocked` over the nested VEX forms: V3's and V4's arms, verbatim. -/
 def VexOp.anyLocked : VexOp → Bool
@@ -1274,6 +1302,8 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexbinm _ _ _ ea => ea.lock
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
+  | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
+  | .vexparith .. | .vexparith256 .. | .vexmovmskb .. | .vexmovmskb256 .. => false
 
 /-- V5 (D343) — `Op.mnemonic` over the nested VEX forms: V3's and V4's arms, verbatim.
 V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
@@ -1285,6 +1315,11 @@ def VexOp.mnemonic : VexOp → String
   | .vexclmul .. => "vpclmulqdq"
   | .vexshufb .. => "vpshufb"
   | .vexalignr .. => "vpalignr"
+  -- V7 (D345): the legacy spelling with a `v` in front, as V3's.
+  | .vexshufps .. | .vexshufps256 .. => "vshufps"
+  | .vexsrax w .. | .vexsrax256 w .. | .vexsrai w .. | .vexsrai256 w .. => "v" ++ VShiftOp.sra.mnemonic w
+  | .vexparith op .. | .vexparith256 op .. => "v" ++ op.mnemonicP false
+  | .vexmovmskb .. | .vexmovmskb256 .. => "vpmovmskb"
   | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
 
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
@@ -2201,6 +2236,15 @@ def VBinKind.vexTaken : VBinKind → Bool
   | .xor | .and | .or | .andn | .andnps | .andnpd => true
   | .andps | .andpd | .orps | .orpd | .xorps | .xorpd => true
   | .cmpeqb | .cmpeqw | .cmpeqd | .cmpgtb | .cmpgtw | .cmpgtd => true
+  | _ => false
+
+/-- ⭐⭐ V7 (D345) — the packed binary kinds whose VEX.128 and VEX.256 register twins are taken on
+SILICON's word, not the oracle's: x86isa refuses all eight encodings (D345 P1), and `hwprobe/`
+referees them.  Kept apart from `vexTaken`, which records what the DIFFERENTIAL tests.  Each is
+lane-wise within 128 bits (the unpacks and PACKUSWB never cross a lane), so `vexbin256`'s per-lane
+rule is the whole rule for them too. -/
+def VBinKind.vexSilTaken : VBinKind → Bool
+  | .unpcklb | .unpcklw | .unpckhw | .packuswb => true
   | _ => false
 
 /-- ⭐ V4 (D342) — the packed binary kinds whose VEX.128 MEMORY twin is taken: `vpxor` alone.
