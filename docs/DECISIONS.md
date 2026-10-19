@@ -22568,3 +22568,98 @@ CLEAN`, `KDELTA-EXIT=0`; `ku-delta gate (a-prime): CLEAN`, `KU-EXIT=0`. Every pr
   `Tests.AnchorsVexSil` 4,010 ms, `NEW ok` against its 12,630 katmai ceiling.
 - `kernel_drift --record` (D251): ms verdict rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. The helm
   granted an x86lean merge window at 11:19 so that master holds still until this PR lands.
+## D346 — BSF/BSR at a zero source: the destination UNMODIFIED, as Intel's current SDM, AMD and x86isa all state (predictions before any model change)
+
+**Why now.** D40 drew the destination from the oracle at a zero source, and its reason was the source it followed: Intel's
+SDM then said *"the content of the destination operand is undefined."* That reason has expired. Read at the source on
+2026-10-17 (`253666-093US`, Vol. 2A, BSF and BSR, pp. 3-107 and 3-109, downloaded from Intel's SDM page): *"If the content
+of the source operand is zero, the destination operand is unmodified."* Its footnote 1: *"With a zero source operand on
+some older processors, use of a 32-bit operand size may clear the upper 32 bits of a 64-bit destination while leaving the
+lower 32 bits unmodified."* (This repository carried the claim from the O38 paper's refuter-2 item H2 since V6, and had not
+read it at the source. The relay was right about the destination and silent about the flags; see below.)
+
+**The four readings of the destination, each measured or read at its own source:**
+| source | at a zero source | where |
+|---|---|---|
+| Intel SDM 093US | UNMODIFIED (older processors: 32-bit size may clear bits 63:32) | Vol. 2A 3-107, 3-109 |
+| AMD APM Vol. 3 | *"does not change the contents of the destination register"* | 24594 rev. 3.10, BSF/BSR (a mirror; rev. 3.37 not read) |
+| ACL2 x86isa | no register write at all, so bits 63:32 survive at 32-bit size too | `machine/instructions/bit.lisp`, `x86-bsr`/`x86-bsf`: `(if (equal source 0) x86 (!rgfi-size …))` |
+| this model | DRAWN from the oracle (`bitScanStep`), declared undefined (`declaredUndefGPRs`) | D40 |
+So the model's draw is now the only reading no source supports. ⇒ **Decision: at a zero source BSF/BSR write NOTHING to the
+destination** (not even the 32-bit zero-extension), which is Intel's main text, AMD's, and x86isa's. Intel's older-processor
+footnote is a property of processors this model does not claim, and is recorded here rather than modelled.
+
+**The flags do NOT change, and the reason is the same union rule.** 093US now DEFINES them (ZF from the source; PF set iff
+the source has an even number of set bits; CF, OF, SF, AF cleared; footnote 2: *"On some older processors, the CF, OF, SF, AF,
+and PF flags are unmodified"*). AMD's rFLAGS table marks OF, SF, AF, PF and CF **U** (undefined), and x86isa draws all five
+(`!flgi-undefined`). A flag one vendor leaves undefined stays undefined here; the destination is different because no vendor
+does.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Differential.** Every BSF/BSR case at a zero source AGREES with x86isa in every register, the destination included, so
+   the `undefined-region` disagreements in BSF/BSR's destination fall to ZERO, and `unexplained=0` holds. No other mnemonic's
+   record changes (the change removes `sz.bits` oracle draws after the five flag draws, and each case starts a fresh oracle).
+   **The baseline, counted before any run (yesterday's V6 record, `v6-vex256/run/lean.txt`, a model equal to master's for
+   these forms):** BSF and BSR have 528 cases each, and **78 + 78 = 156** of them carry a register in their `UNDEF` line (the
+   zero-source destination). SHLD/SHRD carry **124 + 36 = 160**. ⇒ After D346: BSF/BSR **0**, SHLD/SHRD **exactly 160**.
+2. **The 32-bit case.** At operand size `.d` and a zero source, bits 63:32 of the destination are preserved — a theorem, and
+   visible in the differential wherever a pre-state's destination has non-zero upper bits.
+3. **The leak check keeps its teeth.** `declaredUndefGPRs` no longer names BSF/BSR; SHLD/SHRD (D-batch 18) remains a
+   register-undefined form, so both directions of `undefinedLeaked` are still exercised, and the selftest arms that planted
+   through BSF move to SHLD/SHRD.
+4. **The flags are unchanged:** five drawn, ZF from the source, at both zero and non-zero sources.
+5. **Red backwards:** restoring the draw reddens the new "unmodified" theorems, and the Nonvacuity pair that asserted the two
+   oracles DIFFER at a zero source is replaced by one asserting they AGREE with the pre-state.
+6. **Kernel cost:** no NEW unit; every existing unit within budget.
+**Result, predictions 1–5 (yukon, 2026-10-17; the differential at `acl2@c8897a34`): HELD, with one premise of 3 wrong.**
+1. **Differential: HELD, exactly.** `cases=112464 … unexplained=0 oracle-divergence=792 oracle-leaks=0 missing=0`.
+   BSF/BSR's register-undefined cases **156 → 0**; SHLD/SHRD **124 + 36 = 160, unchanged**. Against yesterday's record (V6,
+   a model equal to master's for every other form), **112,308 of 112,464 cases are byte-identical** in `run/lean.txt`, and the
+   156 that differ are exactly BSF's 78 and BSR's 78. `run/oracle.txt` is **byte-identical** (229,569,100 B), so the whole
+   change is on the model side. `explained` falls 34,155 → 34,047 (−108); the compare's counters are not per case, and
+   which 108 of the 156 cases carried an explained destination difference was not traced.
+2. **The 32-bit case: HELD.** `bsf_dest_upper_kept_at_zero_source_d` / `bsr_…_d` (bits 63:32 kept), and in the differential
+   no BSF/BSR case disagrees in any register while none is declared undefined.
+3. **The leak check keeps its teeth: HELD, and its stated premise was WRONG.** I predicted "the selftest arms that planted
+   through BSF move to SHLD/SHRD". There were none: `X86/Serialize.lean` cited "the `bsf`/`bsr` arms of
+   `scripts/axiom_gate_selftest.sh`", and that script has no such arms. So no planted arm had ever asked either direction
+   of the register declaration. Two theorems now ask both on concrete cases:
+   `bsf_zero_source_declares_and_moves_no_register` (declares `[]`, moves `[]`) and
+   `shld_w_bad_count_declares_and_moves_its_destination` (declares `["rax"]`, moves `["rax"]`). The stale citation is
+   corrected in place.
+4. **Flags unchanged: HELD.** The five draws stand; `bsf_cf_undefined`, `bsr_of_undefined` and the ZF theorems are unedited
+   and green.
+5. **Red backwards: HELD, exactly.** The draw restored (the declaration left removed) reddens exactly five theorems: the four
+   "unmodified" ones and `bsf_zero_source_declares_and_moves_no_register`, which sees the destination MOVE while nothing
+   declares it. Green before and after; the file restored byte-identical.
+Also: `wrongBsrIsLzcnt` (a planted wrong model in `Main.lean`) still drew at a zero source; it now follows the new rule, so
+it differs from `step` only in its named bug. `docs/COVERAGE.md` changes in the two rows (`DEST (src=0)` removed).
+6. **Kernel cost, yukon (`5171fff` → `297c965`, `--repeats 3`, loads 8.6–23.5: a loaded box): no NEW unit, and every unit
+   D346 touches reads `ok`** — `Tests.Nonvacuity` 189 → 156 (−33.0 ± 44.4 of 64.8; the theorems no longer unfold 64 oracle
+   draws), `X86.Semantics` +1.6 ± 4.6 of 7.5, `X86.Serialize` −0.7, `X86.Coverage` −0.2. Four UNTOUCHED test units
+   (`Tests.CoverageVex`, `Tests.CoverageVex256`, `Tests.Logic`, `Tests.LogicLoop`) read UNMEASURABLE, with bands of ±16 to
+   ±1,635 ms at those loads: a reading of the box, not of the commit. The katmai row at landing is the verdict of record.
+**Rebased onto V7 (`df3acf9`, #108), 2026-10-18, and re-driven on yukon before any katmai row:** the build (`X86 X86Native
+Tests x86lean-diff x86lean-axioms`, through `lean_route`) exits 0 with zero tagged errors; `axiom_gate.sh` CLEAN over 5,428
+declarations; the differential reads `cases=112464 matched=89319 explained=34047 unexplained=0 oracle-divergence=792
+oracle-leaks=0 missing=0`, the same counts as prediction 1's reading on `5171fff`, so V7 (silicon-only forms, no new vectors)
+does not touch D346's cases. The katmai row waits for #109 (it changes `scripts/kernel_ceilings.txt`, a profiler path on
+master's chain); the row is measured on the master that #109 leaves.
+**The katmai row (D346 K1), predicted before it runs: base `08cbf0f` (master after #109) → head `1a95275`, `--repeats 6`,
+both arms.** ms: `delta gate: CLEAN`, no NEW unit, every unit `ok`; `Tests.Nonvacuity` falls (yukon read −33.0 ± 44.4 of
+64.8; predicted −25 ± 30 on katmai's narrower band); `X86.Semantics` within +1.6 ± 5. A′: CLEAN, `Tests.Nonvacuity`'s
+unfoldings FALL (the four zero-source theorems no longer reduce the oracle's 64 draws), every module D346 does not touch
+equal to its base. Wrong if any untouched unit moves past its band at katmai's loads, or A′ shows any module growing.
+**Result, the katmai row (D346 K1, 2026-10-19, `08cbf0f` → `1a95275`, `--repeats 6`, loads 1.7–4.5): both arms CLEAN;
+four of five predictions held, and one was worded too widely.**
+- ms: `delta gate: CLEAN`, no NEW unit, all 43 units `ok`. `Tests.Nonvacuity` 182.0 → 177.0, −5.0 ± 7.7 of 62.4 (inside the
+  predicted −25 ± 30, and smaller than yukon's −33.0 ± 44.4 at loads to 23.5); `X86.Semantics` +0.1; `X86.Serialize` −0.0;
+  `X86.Coverage` +0.1.
+- A′: `ku-delta gate (a-prime): CLEAN`. `Tests.Nonvacuity` 74,402 → 57,604 unfoldings (−16,798), as predicted.
+- ✘ **"every module D346 does not touch equal to its base" was wrong as worded.** `X86.Theorems` moved 129,512 → 128,931
+  (−581) although D346 edits no line of it: its theorems reduce `step` at BSF/BSR, and `step` changed in `X86/Semantics.lean`.
+  A module DOWNSTREAM of a changed one is not untouched; the prediction should have said "every module that imports none of
+  the five changed files". The other two that moved, `X86.Serialize` 626 → 608 and `X86.Semantics` 1,317 → 1,315, are files
+  D346 edits. The prediction's own WRONG-IF, a module growing, did not fire: every move is a fall.
+- `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. Master is held still by the
+  helm's merge window (10-19 02:30) until this PR lands.

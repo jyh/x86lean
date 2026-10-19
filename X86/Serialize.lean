@@ -185,24 +185,21 @@ check is their EQUALITY, which has teeth in both directions:
   that is the new hazard this batch introduced: it would license the harness to
   explain away a genuine disagreement in that register for ever.
 
-Neither direction existed as a possibility before this batch, and both are
-probed — see the `bsf`/`bsr` arms of `scripts/axiom_gate_selftest.sh`. -/
+Neither direction existed as a possibility before this batch.  ⛔ This comment said both were probed by "the
+`bsf`/`bsr` arms of `scripts/axiom_gate_selftest.sh`"; that script has no such arms (found at D346). Both directions
+are now asked on concrete cases in `Tests/Nonvacuity.lean` (`bsf_zero_source_declares_and_moves_no_register`,
+`shld_w_bad_count_declares_and_moves_its_destination`), and on every differential case by `LEAK`. -/
 
 /-- The registers a form DECLARES undefined, read from the AST and the SDM rule
 rather than from the model's behaviour. -/
 def declaredUndefGPRs (i : Instr) (s : Cpu) : List GPR :=
-  let nr : BitVec 64 := s.rip + BitVec.ofNat 64 i.len
   match i.op with
-  -- SDM Vol. 2A, BSF/BSR: "If the content of the source operand is 0, the
-  -- content of the destination operand is undefined."  ⚠️ ONLY THEN — at a
-  -- non-zero source the destination is an ordinary computed index, and
-  -- declaring it undefined there would be the false claim described above.
-  | .bitcnt .bsf sz dst src =>
-      if bitcntEncodable .bsf sz && Value.isZero sz (s.readOperand sz nr src)
-      then [dst] else []
-  | .bitcnt .bsr sz dst src =>
-      if bitcntEncodable .bsr sz && Value.isZero sz (s.readOperand sz nr src)
-      then [dst] else []
+  -- ⛔ D346: BSF/BSR are NO LONGER HERE.  Until D346 they declared the destination
+  -- undefined at a zero source, on the SDM's older wording (D40); edition 093US says
+  -- the destination is UNMODIFIED, as AMD and x86isa do, and `bitScanStep` now writes
+  -- nothing there.  Declaring it here would be the FALSE UNDEFINED CLAIM described
+  -- above, and `undefinedLeaked` would red on it.  SHLD/SHRD below keep this channel
+  -- exercised.
   -- ⭐⭐ P1 BATCH 18 — THE SECOND UNDEFINED DESTINATION, AND IT IS UNDEFINED FOR
   -- A DIFFERENT REASON THAN THE FIRST.  `bsf`/`bsr`'s destination is undefined
   -- when the SOURCE VALUE is zero; `shld`/`shrd`'s is undefined when the COUNT
