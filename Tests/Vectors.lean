@@ -1438,6 +1438,10 @@ def vectors : List Vec :=
     , instr := ⟨.nop (some (M .rbx)), 3⟩ }
   , { id := "nop_m_w", mnemonic := "nop", asm := "nopw (%rbx)", bytes := "660f1f03"
     , instr := ⟨.nop (some (M .rbx)), 4⟩ }
+  -- V8a (D347): ENDBR64, `F3 0F 1E FA`.  A NOP on every field the differential compares; the claim is
+  -- that the post state is RIP+4 and nothing else, as x86isa's `x86-endbr32/endbr64` also models it.
+  , { id := "endbr64", mnemonic := "endbr64", asm := "endbr64", bytes := "f30f1efa"
+    , instr := ⟨.endbr64, 4⟩ }
   -- UD2: the first vector in the roster whose EXPECTED result is a refusal on
   -- both sides.  `bothRefused` is what makes the two models agree here.
   , { id := "ud2", mnemonic := "ud2", asm := "ud2", bytes := "0f0b"

@@ -217,7 +217,8 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B7 (D295) adds ONE: `cvtpd2ps`, through `vcvtpd2ps`/`vcvtpd2psm`.
 -- ⭐ D330 (W1b) adds TWO: `adcx`, `adox`, through `.adx`.  ⚠️ `mulx` (`.mulx`) is implemented
 --   and is NOT counted here: x86isa refuses it, so it has no vector; it is `siliconTable`'s row.
-theorem roster_size_is_199 : rosterSize = 199 := by decide
+-- ⭐ V8a (D347) adds ONE: `endbr64`, a NOP on this model's state, refereed differentially.
+theorem roster_size_is_200 : rosterSize = 200 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -280,7 +281,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D330 (W1b) adds EIGHT: `adcx` and `adox` at `.q` and `.d`, register and memory source.
 -- ⭐ THE BIT STRING (D331) adds 28: the four `m,r` rows D23 declined, at w/l/q with RCX and
 -- RDX offsets, three fixed far offsets, and one LOCK form.
-theorem vector_count_is_1198 : vectorCount = 1198 := by decide
+-- ⭐ V8a (D347) adds ONE: `endbr64`, the census's largest uncovered row.
+theorem vector_count_is_1199 : vectorCount = 1199 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1282,6 +1284,7 @@ def isMemDestVector (v : Vec) : Bool :=
     | .loop .. => false
     | .flagop _ => false
     | .nop _ => false
+    | .endbr64 => false
     | .ud2 => false
     | .ret => false
     | .leave => false

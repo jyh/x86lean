@@ -2105,6 +2105,8 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- "harmlessly" would still be wrong, because a read from an unmapped page is
   -- a fault in hardware and the whole point of the form is that it is inert.
   | .nop _ => s.setRip nr
+  -- ENDBR64 (D347): a NOP on every piece of state this model carries (SDM Vol. 2A p. 3-288).
+  | .endbr64 => s.setRip nr
 
   -- UD2 (SDM Vol. 2A): "Generates an invalid opcode exception."  ⭐ THIS IS THE
   -- ONE HALT THAT IS A MODELLED ANSWER RATHER THAN A DECLINED ONE, which is why

@@ -1233,6 +1233,16 @@ theorem step_leave_rip (h : Live s) :
   | none => simp [step, h, Cpu.setRip]
   | some x => cases x <;> simp_all [step, h, Cpu.setRip]
 
+/-- V8a (D347): ENDBR64 is a NOP on this model's state — the SDM's "This opcode is a NOP when CET indirect
+branch tracking is not enabled" applied to a model that carries no CET state.  Only RIP moves. -/
+theorem step_endbr64 (h : Live s) :
+    step ⟨.endbr64, len⟩ s = { s with rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setRip]
+
+@[simp] theorem step_endbr64_flags (h : Live s) :
+    (step ⟨.endbr64, len⟩ s).flags = s.flags := by
+  simp [step, h, Cpu.setRip]
+
 /-! ## P1 BATCH 14 — the bit-counting group
 
 ⭐ THE THEOREMS THAT EARN THEIR KEEP HERE ARE THE ONES ABOUT THE THREE ZF RULES.
