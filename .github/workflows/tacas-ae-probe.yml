@@ -1,0 +1,17 @@
+# TACAS'27 artifact (O38): does a GitHub ubuntu runner give us an x86-64 host that can boot the
+# TACAS 2026 AE VM (amd64 OVA) under QEMU with KVM? A probe on a branch that is never merged.
+name: tacas-ae-probe
+on:
+  push:
+    branches: [paris/tacas-ae-vm]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: host
+        run: |
+          uname -m; nproc; free -g; df -h / | tail -1
+          ls -l /dev/kvm || echo "NO /dev/kvm"
+          grep -c -E 'vmx|svm' /proc/cpuinfo || true
