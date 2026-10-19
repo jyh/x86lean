@@ -37,6 +37,16 @@ same list now reads PR titles and bodies, and a finding names the PR and the
 surface but NEVER echoes the matched text, because a CI log on a public repo is
 public too.
 
+THE EDITED DOOR (desks SN and WB, 2026-09-21): this check became a REQUIRED
+status check on the default branch, so a red one now BLOCKS the merge. The
+remedy for forge-side prose is an EDIT on the forge, and an edit is not a
+push: `pull_request` defaults to opened/synchronize/reopened, so the fix that
+cleared the finding fired no run and its author sat blocked after doing
+exactly what this gate told them to. The workflow now lists `edited`, and the
+remedy printed below is DERIVED FROM THE WORKFLOW'S BYTES (edited_trigger_armed)
+rather than asserted -- it promises a re-run only where the trigger says so,
+and the self-test reds if this repository's trigger drops it.
+
 SHAPES: imported from the sibling gate, never re-typed. A fixture is a
 snapshot of a vocabulary; a copied pattern list is a stale fixture the day
 the sibling moves. One list, one owner, two readers.
@@ -78,6 +88,7 @@ import argparse
 import ast
 import contextlib
 import hashlib
+import html
 import io
 import json
 import os
@@ -87,10 +98,15 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_private_paths as gate  # noqa: E402  (the pattern owner)
 import check_commit_trailers as trailers  # noqa: E402  (the session-shape owner)
+try:  # the infra-name gate is a sibling in the repos that carry it; a repo without it is DECLARED in the OK line, never skipped silently
+    import infra_names as infra  # noqa: E402  (this repository's own list: measurement boxes are allowed, see that file)
+except ImportError:
+    infra = None
 
 
 def self_id() -> str:
@@ -114,6 +130,43 @@ def scan_session(number, title: str, body: str):
     rows = [(f"PR #{number} TITLE", title or ""),
             (f"PR #{number} BODY", body or "")]
     return trailers.scan(rows)
+
+
+_HTML_COMMENT = re.compile(r"<!--.*?(?:-->|\Z)", re.S)   # unclosed: to the end, as the forge hides it; linear (kent R1)
+_EMPHASIS = str.maketrans("", "", "*_~`")
+
+
+def rendered_text(s: str) -> str:
+    """What the forge SHOWS, near enough to match a name in (the helm's commission of 2026-10-18, on systems' G2):
+    drop HTML comments (keeping their newlines, so line numbers survive), html.unescape, NFKC, drop Unicode Cf
+    (zero-widths, soft hyphen, bidi), drop the markdown emphasis characters * _ ~ `. NOT a renderer: look-alike
+    letters from other scripts are not folded, and that is declared in the OK line."""
+    s = _HTML_COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), s or "")
+    s = unicodedata.normalize("NFKC", html.unescape(s))
+    return "".join(c for c in s if unicodedata.category(c) != "Cf").translate(_EMPHASIS)
+
+
+def scan_infra(number, title: str, body: str):
+    """Infrastructure names (a host, an account) in one PR's forge-side prose, via the
+    infra-name gate's FORBIDDEN list (imported, never re-typed; the helm's order of
+    2026-10-18 after a box host name sat in six public PR bodies). Returns
+    [(where, line_number)] and NEVER the matched text: this log is public too.
+    A repo with no infra_names.py returns [] and says so in the OK line."""
+    if infra is None:
+        return []
+    rows = [(f"PR #{number} TITLE", title or ""),
+            (f"PR #{number} BODY", body or "")]
+    # the SOURCE and its RENDERING both scanned; one finding per (surface, line)
+    hits = {(rel, i) for rel, i, _text in infra.scan(rows)}
+    hits |= {(rel, i) for rel, i, _text in infra.scan([(rel, rendered_text(s)) for rel, s in rows])}
+    order = {rel: k for k, (rel, _s) in enumerate(rows)}
+    return sorted(hits, key=lambda h: (order[h[0]], h[1]))
+
+
+def infra_finding_lines(rows) -> list[str]:
+    """Name the PR, the surface and the line number, NEVER the matched text."""
+    label = getattr(infra, "_FINDING_LABEL", "an infrastructure name")
+    return [f"  {where}, line {i}: {label}" for where, i in rows]
 
 
 def session_finding_lines(rows) -> list[str]:
@@ -489,6 +542,81 @@ def _gh(args: list[str]):
     return json.loads(out.stdout)
 
 
+_WORKFLOW = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                         ".github", "workflows", "scrub.yml")
+
+
+_DEFAULT_TYPES = frozenset({"opened", "synchronize", "reopened"})
+_REQUIRED_TYPES = _DEFAULT_TYPES | {"edited"}
+
+
+def _no_comment(line: str) -> str:
+    """A YAML comment is not configuration. None of the values read here can
+    contain `#`, so everything from the first one is dropped."""
+    return line.split("#", 1)[0]
+
+
+def pull_request_types(path: str = _WORKFLOW):
+    """The Scrub workflow's `pull_request` activity types, as a frozenset: the
+    list it declares, or the Actions DEFAULTS when it declares none -- `types:`
+    REPLACES the defaults, so the SET matters and not only one member. None when
+    no such trigger can be read here: an unreadable workflow is not an unarmed
+    one. READ FROM THE WORKFLOW'S BYTES, never asserted, and comments are
+    dropped first (a non-author read found `# edited ...` reading as armed)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = [_no_comment(l) for l in fh.read().splitlines()]
+    except OSError:
+        return None
+    for i, line in enumerate(lines):
+        if line.rstrip() != "  pull_request:":
+            continue
+        types, in_types = None, False
+        for nxt in lines[i + 1:]:
+            s = nxt.strip()
+            if not s:
+                continue
+            if not nxt.startswith("    "):
+                break  # the next trigger or a top-level key
+            if in_types:
+                if s.startswith("- "):
+                    types.add(s[2:].strip().strip("'\""))
+                    continue
+                in_types = False
+            if s.startswith("types:"):
+                inline = s[len("types:"):].strip()
+                types = set(re.findall(r"[a-z_]+", inline))
+                in_types = not inline
+        return frozenset(types) if types is not None else _DEFAULT_TYPES
+    return None
+
+
+def edited_trigger_armed(path: str = _WORKFLOW):
+    """True when a PR title/body edit re-runs this check (the trigger lists
+    `edited`), False when it does not, None when the trigger is unreadable.
+    This is the question the REMEDY needs; the self-test asks the wider one."""
+    types = pull_request_types(path)
+    return None if types is None else "edited" in types
+
+
+def rerun_note_lines(armed) -> list[str]:
+    """What an author does about the RED once the prose is fixed. A title or
+    body edit is not a push, so whether it re-runs this check is a property of
+    the workflow's trigger, passed in as `armed`."""
+    head = ["", "Where this check is REQUIRED for merge, a red one blocks it."]
+    if armed is True:
+        return head + [
+            "Saving the edit on the forge fires a fresh Scrub run by itself (the",
+            "workflow listens for `edited`). If none appears within a minute:",
+            "  gh run rerun <run-id> --failed"]
+    why = ("the workflow's pull_request types do not list `edited`"
+           if armed is False else "the workflow could not be read from here")
+    return head + [
+        f"A title or body edit fires NO run here ({why}).",
+        "After the edit, re-run the failed job:  gh run rerun <run-id> --failed",
+        "Never push an empty commit to re-trigger it."]
+
+
 def open_mode(repo: str) -> int:
     """Scan every OPEN PR's title+body; disclose REF-vs-RUN for each."""
     # desk SN rec (2), 2026-09-25: a CI check is NAMED after one of its N steps, so a red under a
@@ -506,14 +634,16 @@ def open_mode(repo: str) -> int:
     bad = []
     sess = []
     words = []
+    infra_f = []
     notes = []
     for pr in prs:
         n = pr["number"]
         pr_bad = scan_description(n, pr.get("title"), pr.get("body"))
         pr_sess = scan_session(n, pr.get("title"), pr.get("body"))
+        pr_infra = scan_infra(n, pr.get("title"), pr.get("body"))
         pr_words = subject_scan(pr_rows(pr))
-        bad += pr_bad; sess += pr_sess; words += pr_words
-        live_clean = not (pr_bad or pr_sess or pr_words)   # desk SN rec (1): what this run READ
+        bad += pr_bad; sess += pr_sess; words += pr_words; infra_f += pr_infra
+        live_clean = not (pr_bad or pr_sess or pr_words or pr_infra)   # desk SN rec (1): what this run READ
         head = pr["head"]["sha"]
         base_ref = pr["base"]["ref"]
         run_sha = run_green = None
@@ -546,6 +676,15 @@ def open_mode(repo: str) -> int:
         print("\n".join(session_finding_lines(sess)))
         print("\nThe PR-opening harness appends a session URL; this repository is")
         print("public. Delete that line on the forge. No push required.")
+    if infra_f:
+        print(f"FAIL [pr-gate {self_id()}]: {len(infra_f)} infrastructure name(s) (a host or an "
+              f"account) in OPEN PR titles/bodies (matched text withheld: this log is public).\n")
+        print("\n".join(infra_finding_lines(infra_f)))
+        print("\nA title or body is EDITABLE on the forge: name the machine by ROLE (\"the Windows box\").")
+        print("The forge keeps edit history on a public repo, so the earlier text stays readable there:")
+        print("do not paste the name again.")
+        print("This check reads EVERY open PR, so a red on a clean PR can come from ANOTHER PR\'s body: after that body is fixed,")
+        print("re-run the failed job on the other PRs (an edit re-runs only the edited PR\'s own job).")
     if words:
         print(f"FAIL [pr-gate {self_id()}]: {len(words)} refused word(s) in OPEN PR "
               f"titles, head refs or bodies (withheld: this log is public).\n")
@@ -553,11 +692,16 @@ def open_mode(repo: str) -> int:
         print("\nA title or body is EDITABLE on the forge: name the lane or the person")
         print("by ROLE. A head ref is not: its merge subject will quote it, so push")
         print("the branch under a neutral name and reopen.")
-    if bad or sess or words:
+    if bad or sess or words or infra_f:
+        print("\n".join(rerun_note_lines(edited_trigger_armed())))
         return 1
     print(f"check_pr_descriptions --open [pr-gate {self_id()}]: OK — {len(prs)} open "
           f"PR(s), 0 private-record paths and 0 session trailers/URLs in titles/bodies, "
           f"0 refused words in titles, head refs and bodies. {_vocab_id()}.")
+    print("infra-name arm: " + ("0 infrastructure names (host or account) in open PR titles/bodies (the measurement boxes this repository names by convention are allowed: scripts/infra_names.py). NOT COVERED by this arm: "
+          "look-alike letters from other scripts (confusables are not folded; the source AND its rendering are read: HTML comments, entities, Unicode Cf and * _ ~ ` dropped, then NFKC); "
+          "PR and review comments; CLOSED or MERGED PR bodies; more than 100 open PRs (no paging)." if infra is not None
+          else "NOT COVERED here: this repository carries no infra_names.py (declared, not skipped)."))
     print(_NOT_COVERED)
     if notes:
         print("REF-vs-RUN (which object each verdict is about; never status alone):")
@@ -954,6 +1098,162 @@ def self_test() -> int:
             "[Claude Code](https://" + "claude" + ".com/claude-code)")
     if scan_session(6, "", kept) or scan_session(6, None, None):
         failures.append("Co-Authored-By, the product link and a null body must pass")
+    # ARM 5b -- the helm's order of 2026-10-18 (flask STATUS § 447): a host or account NAME in a PR TITLE or BODY is
+    # caught, the finding names the PR, the surface and the line and NEVER the name, role words and a null body pass, and
+    # open_mode itself (not only the scanner) reds on it and stays green on a clean PR. The name is read from the infra
+    # gate's own list, which assembles it; this file never spells one.
+    if infra is None:
+        failures.append("this repository must carry infra_names.py for the PR-body infra-name arm")
+    else:
+        nm = infra.FORBIDDEN[0]
+        if not scan_infra(11, "", "ran on " + nm + " today"):
+            failures.append("a planted infrastructure name in a BODY must be caught")
+        if not scan_infra(11, "on " + nm, ""):
+            failures.append("a planted infrastructure name in a TITLE must be caught")
+        got_i = scan_infra(12, "", "x\nran on " + nm)
+        if not got_i or "PR #12 BODY" not in got_i[0][0] or got_i[0][1] != 2:
+            failures.append("an infra finding must name its PR, its surface and its line")
+        if any(nm.lower() in l.lower() for l in infra_finding_lines(got_i)):
+            failures.append("an infra finding must NEVER echo the matched text")
+        if scan_infra(13, "the Windows box", "ran on the bench account") or scan_infra(13, None, None):
+            failures.append("role words and a null body must pass")
+        if scan_infra(13, "", "measured on " + infra.ALLOWED_BOXES[0] + " at base 0000000"):
+            failures.append("a measurement box this repository names BY CONVENTION must pass (the allowlist)")
+        _real_gh = globals()["_gh"]
+        def _fake_gh(path_args, _title="t", _body=""):
+            p = path_args[0]
+            if "/pulls?" in p:
+                return [{"number": 21, "title": _title, "body": _body,
+                         "head": {"sha": "a" * 40, "ref": "x"}, "base": {"ref": "main"}}]
+            if "/check-runs" in p:
+                return {"check_runs": []}
+            return {"ahead_by": 0}
+        def _drive(body):
+            buf = io.StringIO()
+            globals()["_gh"] = lambda a: _fake_gh(a, "t", body)
+            try:
+                with contextlib.redirect_stdout(buf):
+                    rc = open_mode("owner/repo")
+            finally:
+                globals()["_gh"] = _real_gh
+            return rc, buf.getvalue()
+        rc_bad, out_bad = _drive("ran on " + nm)
+        if rc_bad != 1 or "infrastructure name" not in out_bad:
+            failures.append("open_mode must RED on a PR body carrying an infrastructure name")
+        if nm.lower() in out_bad.lower():
+            failures.append("open_mode must NEVER echo the infrastructure name into the log")
+        if "ANOTHER PR" not in out_bad:
+            failures.append("the infra FAIL block must carry the cross-PR remedy line")
+        rc_ok, out_ok = _drive("ran on the Windows box")
+        if "confusables are not folded" not in out_ok or "CLOSED or MERGED PR bodies" not in out_ok:
+            failures.append("the OK line must DECLARE what the infra arm does not cover")
+        if rc_ok != 0 or "infra-name arm: 0 infrastructure names" not in out_ok:
+            failures.append("open_mode must stay GREEN on a clean PR and DECLARE the infra arm's scope")
+        # ARM 5c -- the helm's commission of 2026-10-18 (systems' G2 on kent's arm): the arm read the SOURCE while the
+        # forge shows the RENDERING, so six spellings that RENDER as the name passed. Each is caught after the
+        # normalisation; the plain name still matches; a hyphenated near-name and a look-alike letter from another
+        # script still do NOT (confusables are not folded, and that is declared); a multi-line comment keeps line numbers.
+        a_, b_ = nm[:2], nm[2:]
+        rendered_cases = {
+            "an HTML comment inside the name": a_ + "<!-- -->" + b_,
+            "an HTML entity for one letter": "&#" + str(ord(nm[0])) + ";" + nm[1:],
+            "a zero-width space inside": a_ + chr(0x200B) + b_,      # chr(), never a literal: this file is cp1252-linted
+            "a soft hyphen inside": a_ + chr(0xAD) + b_,
+            "an emphasis split": "**" + a_ + "**" + b_,
+            "full-width letters": "".join(chr(ord(ch) + 0xFEE0) for ch in nm),
+        }
+        for what, s in rendered_cases.items():
+            if not scan_infra(14, "", "ran on " + s):
+                failures.append("a name that RENDERS through " + what + " must be caught")
+            if not scan_infra(14, "on " + s, ""):
+                failures.append("a TITLE that renders through " + what + " must be caught")
+        if not scan_infra(14, "", "ran on " + nm):
+            failures.append("the plain name must still be caught once the normaliser runs")
+        look = {"k": chr(0x43A), "y": chr(0x443), "j": chr(0x458), "s": chr(0x455), "c": chr(0x441), "a": chr(0x430)}
+        if scan_infra(15, "", "ran on " + nm[:2] + "-" + nm[2:]):
+            failures.append("a HYPHENATED near-name is not the name: the normaliser must not drop '-'")
+        if nm[0] in look and scan_infra(15, "", "ran on " + look[nm[0]] + nm[1:]):
+            failures.append("a look-alike letter from another script is NOT folded (declared): it must not match")
+        # kent's R1 (10-18 13:08): an UNCLOSED comment opener repeated was quadratic (64 KiB of "<!--" took 3 s); bounded
+        # here at 1 s, ~100x the fixed cost; and a name after an unclosed opener is still caught (by the SOURCE scan)
+        import time as _t
+        _t0 = _t.monotonic(); rendered_text("<!--" * 16384); _dt = _t.monotonic() - _t0
+        if _dt > 1.0:
+            failures.append("rendered_text must be linear on unclosed comment openers (64 KiB took %.2f s)" % _dt)
+        if not scan_infra(17, "", "<!-- never closed\nran on " + nm):
+            failures.append("a name after an UNCLOSED comment opener must still be caught")
+        got_c = scan_infra(16, "", "x\n<!-- a\nb -->\nran on " + a_ + "<!-- -->" + b_)
+        if [w for w in got_c] != [("PR #16 BODY", 4)]:
+            failures.append("a multi-line comment must keep the line numbers (want PR #16 BODY line 4, got " + repr(got_c) + ")")
+    # ARM 6 -- desks SN/WB: the remedy promises a re-run on edit ONLY where the
+    # workflow's bytes say so. Every state planted, both list forms; the note
+    # must not promise what an unarmed trigger cannot deliver; and THIS
+    # repository's own workflow must be armed, so dropping `edited` reds here.
+    d = tempfile.mkdtemp(prefix="pr-gate-selftest-wf-")
+    try:
+        def wf(text):
+            p = os.path.join(d, "w.yml")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            return p
+        top = "on:\n  push:\n  pull_request:\n"
+        if edited_trigger_armed(wf(top + "    types: [opened, synchronize, "
+                                   "reopened, edited]\n\njobs:\n")) is not True:
+            failures.append("an inline types list naming `edited` must read armed")
+        if edited_trigger_armed(wf(top + "    # a comment\n    types:\n      - opened"
+                                   "\n      - edited\n\njobs:\n")) is not True:
+            failures.append("a block types list naming `edited` must read armed")
+        if edited_trigger_armed(wf(top + "\npermissions:\n")) is not False:
+            failures.append("a bare pull_request trigger (default types) is NOT armed")
+        if edited_trigger_armed(wf(top + "    types: [opened, synchronize]\n")) is not False:
+            failures.append("a types list without `edited` is NOT armed")
+        if edited_trigger_armed(wf(top + "    types:\n      - opened\n  workflow_dispatch:\n"
+                                   )) is not False:
+            failures.append("a block list that ends without `edited` is NOT armed")
+        # The non-author read's two findings, each planted with its control.
+        # (1) A COMMENT IS NOT CONFIGURATION: `edited` in a trailing comment must
+        # not read armed -- a false ARMED promises a re-run the trigger cannot give.
+        if edited_trigger_armed(wf(top + "    types: [opened, synchronize]  "
+                                   "# edited is deliberately NOT listed\n")) is not False:
+            failures.append("`edited` inside a trailing COMMENT must NOT read armed")
+        if edited_trigger_armed(wf(top + "    types:\n      - opened  # not edited\n"
+                                   "      - edited  # re-run on a body edit\n")) is not True:
+            failures.append("a block item with a trailing comment must still be read")
+        if edited_trigger_armed(wf("on:\n  push:\n  pull_request:  # why\n    types: "
+                                   "[edited]\n")) is not True:
+            failures.append("a trigger line with a trailing comment must still be found")
+        # (2) THE SET, NOT THE MEMBER: `types:` REPLACES the Actions defaults, so
+        # `types: [edited]` is armed for the REMEDY while the gate stops running
+        # on opened/synchronize. The set is readable, and the defaults are named.
+        if pull_request_types(wf(top + "    types: [edited]\n")) != frozenset({"edited"}):
+            failures.append("pull_request_types must return the SET it read")
+        if pull_request_types(wf(top + "\npermissions:\n")) != _DEFAULT_TYPES:
+            failures.append("a bare pull_request trigger means the Actions DEFAULT types")
+        if _REQUIRED_TYPES <= pull_request_types(wf(top + "    types: [edited]\n")):
+            failures.append("`types: [edited]` must FAIL the required-set test: the "
+                            "gate would stop running on opened and synchronize")
+        if edited_trigger_armed(wf("on:\n  push:\n")) is not None:
+            failures.append("no pull_request trigger at all is UNREADABLE, not unarmed")
+        if edited_trigger_armed(os.path.join(d, "absent.yml")) is not None:
+            failures.append("a missing workflow is UNREADABLE, not unarmed")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    yes, no, unk = (" ".join(rerun_note_lines(x)) for x in (True, False, None))
+    if "by itself" not in yes or "gh run rerun" not in yes:
+        failures.append("the armed note must promise the re-run AND name the fallback")
+    for label, text in (("unarmed", no), ("unreadable", unk)):
+        if "by itself" in text or "gh run rerun" not in text or "NO run" not in text:
+            failures.append(f"the {label} note must NOT promise a re-run, and must "
+                            "say to re-run the failed job by hand")
+    here = pull_request_types()
+    if here is None or not _REQUIRED_TYPES <= here:
+        read = "unreadable" if here is None else (
+            "not listed" if "edited" not in here else
+            "missing " + ", ".join(sorted(_REQUIRED_TYPES - here)))
+        failures.append("THIS repository's .github/workflows/scrub.yml must list "
+                        "ALL of opened, synchronize, reopened and `edited` in its "
+                        f"pull_request types (read: {read}) -- `types:` REPLACES the "
+                        "defaults, and the remedy this gate prints depends on `edited`")
     failures += _subject_arms()
     for f in failures:
         print(f"SELF-TEST FAIL: {f}")
@@ -963,6 +1263,8 @@ def self_test() -> int:
           f"[gate {gate.self_id()}]: OK (title+body arms both directions; "
           f"session arm both surfaces, never echoed; "
           f"ref_vs_run all five branches; sibling vocabulary reached via import; "
+          f"pull_request types read from the workflow's bytes as a SET, comments "
+          f"dropped, thirteen planted states; "
           f"subject arm: {_vocab_id()}, every word planted in its surfaces, "
           f"rec (4) subject-only plant in a scratch repository, range/history/"
           f"msg-file modes in both directions, --open through a fake forge, "
