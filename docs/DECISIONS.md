@@ -22639,3 +22639,9 @@ it differs from `step` only in its named bug. `docs/COVERAGE.md` changes in the 
    draws), `X86.Semantics` +1.6 ± 4.6 of 7.5, `X86.Serialize` −0.7, `X86.Coverage` −0.2. Four UNTOUCHED test units
    (`Tests.CoverageVex`, `Tests.CoverageVex256`, `Tests.Logic`, `Tests.LogicLoop`) read UNMEASURABLE, with bands of ±16 to
    ±1,635 ms at those loads: a reading of the box, not of the commit. The katmai row at landing is the verdict of record.
+**Rebased onto V7 (`df3acf9`, #108), 2026-10-18, and re-driven on yukon before any katmai row:** the build (`X86 X86Native
+Tests x86lean-diff x86lean-axioms`, through `lean_route`) exits 0 with zero tagged errors; `axiom_gate.sh` CLEAN over 5,428
+declarations; the differential reads `cases=112464 matched=89319 explained=34047 unexplained=0 oracle-divergence=792
+oracle-leaks=0 missing=0`, the same counts as prediction 1's reading on `5171fff`, so V7 (silicon-only forms, no new vectors)
+does not touch D346's cases. The katmai row waits for #109 (it changes `scripts/kernel_ceilings.txt`, a profiler path on
+master's chain); the row is measured on the master that #109 leaves.
