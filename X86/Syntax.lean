@@ -1417,6 +1417,11 @@ inductive Op where
   DECODER produced it and a model that threw it away could not round-trip an
   encoding; nothing in `step` reads it. -/
   | nop   (dst : Option Operand)
+  /-- V8a (D347): ENDBR64 (SDM Vol. 2A p. 3-288, `F3 0F 1E FA`): "This opcode is a NOP when CET indirect
+  branch tracking is not enabled, on processors that do not support CET, and outside 64-bit mode."  Its one
+  effect with IBT enabled is on the CET tracker MSRs, which this model does not carry, so on the state it does
+  carry it is `nop`'s semantics.  Its own constructor so that it prints and encodes as itself. -/
+  | endbr64
   /-- P1 BATCH 12: UD2 (SDM Vol. 2A): "Generates an invalid opcode exception."
   The one form in the roster so far whose whole meaning is a fault. -/
   | ud2
@@ -2451,6 +2456,7 @@ def opOperands : Op → List Operand
   | .loop _ _ _ => []
   | .flagop _ => []
   | .nop dst => dst.toList
+  | .endbr64 => []
   | .ud2 => []
   | .ret => []
   | .leave => []
@@ -2624,6 +2630,7 @@ def Op.anyLocked : Op → Bool
   | .loop _ _ _ => false
   | .flagop _ => false
   | .nop dst => (dst.map Operand.locked).getD false
+  | .endbr64 => false
   | .ud2 => false
   | .ret => false
   | .leave => false
@@ -2880,6 +2887,7 @@ def Op.mnemonic : Op → String
   -- AT&T prints the near return and LEAVE with the operand-size suffix even
   -- though neither has an operand; the roster files them under those names.
   | .nop _ => "nop"
+  | .endbr64 => "endbr64"
   | .ud2 => "ud2"
   | .ret => "retq"
   | .leave => "leaveq"
@@ -2962,7 +2970,10 @@ def rosterP0 : List String :=
    -- P1 BATCH 12: the near-free four of roster family 7.  `nop` covers all
    -- three of its roster shapes (bare `0x90` and the multi-byte `0F 1F /0` at a
    -- register and a memory operand) because they are one instruction.
-   "nop", "ud2", "retq", "leaveq",
+   "nop",
+   -- V8a (D347): ENDBR64, a NOP on this model's state (SDM Vol. 2A p. 3-288); the census's largest uncovered row.
+   "endbr64",
+   "ud2", "retq", "leaveq",
    -- P1 BATCH 13: the flagless shifts and the byte-swapping move.  `sarx`,
    -- `shlx` and `shrx` are three names for ONE constructor (`.shiftx`, keyed by
    -- `ShiftKind`), as `shl`/`shr`/`sar` are for `.shift`; `movbe` is its own.

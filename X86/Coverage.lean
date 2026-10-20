@@ -393,6 +393,10 @@ acc,imm · rh"
   -- column — the batch's difficulty was never in the flags.
   , { mnemonic := "nop", shapes := "no operands (0x90) · r · m", note := "all inert",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A NOP" }
+  -- V8a (D347): ENDBR64 is a NOP when CET indirect branch tracking is not enabled; this model carries no CET
+  -- state, so it is `T-exact` with no undefined column, like `nop`.
+  , { mnemonic := "endbr64", shapes := "no operands (F3 0F 1E FA)", note := "inert on this model's state (no CET state)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A ENDBR64 p. 3-288" }
   -- ⭐ `ud2` IS `T-exact` AND NOT `T-absent`, AND THE DISTINCTION IS THE POINT.
   -- `T-absent` means the model REFUSED to give a form a meaning.  `ud2` has a
   -- meaning and the model computes it: the meaning is #UD.  Filing a fully

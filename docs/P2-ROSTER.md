@@ -7,7 +7,7 @@ P1's roster counted forms. This one counts what runs them.
 The supply side is K's own tree: the **1,665 variants**
 `scripts/k_roster.py` drops as SIMD/FP, over **578 distinct
 mnemonics**. The demand side is the assembly column class of
-`docs/DEMAND-CENSUS.md` — **362,093 instructions the model does
+`docs/DEMAND-CENSUS.md` — **345,605 instructions the model does
 not cover**, across 6 codec columns, never pooled with compiler
 output or with the kernel.
 
@@ -52,7 +52,7 @@ ranking; they are back, marked.)
 | # | addition | state | measured demand (asm class) | share of the gap |
 |---|---|---|---|---|
 | 1 | segment base in `Ea` | ✅ LANDED — 29,943 instructions now COUNTED AS COVERED | — | — |
-| 2 | the LOCK vocabulary | ⛔ still counted as a gap | 162 | 0.04% |
+| 2 | the LOCK vocabulary | ⛔ still counted as a gap | 162 | 0.05% |
 | 3 | the `movabs` mov form | ✅ LANDED — 3,791 instructions now COUNTED AS COVERED | — | — |
 
 **1. segment base in `Ea`** — `Ea` has no segment field: segmentation was declared out of scope, so `mov %fs:0x28, %rax` — the stack-protector load in most compiled functions — is refused. The addition is a base register on the effective address, not segmentation: FS/GS are the only two overrides long mode honours, and their base is an MSR-loaded value the model can carry as state.
@@ -74,86 +74,86 @@ not by this table's sort — but the row count is DERIVED now, and it is
 
 ## The vector roster, ranked by measured demand
 
-Cumulative share is over the whole uncovered gap (362,093 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
+Cumulative share is over the whole uncovered gap (345,605 instructions), so a row's cumulative column answers: *if P2 stopped here, what fraction of the assembly class would the model execute?*
 
 | rank | mnemonic | occurrences | share | cumulative | of it, MMX | oracle | K operand shapes |
 |---|---|---|---|---|---|---|---|
-| 1 | `pmaddwd` | 21,239 | 5.87% | 5.9% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 2 | `psubusw` | 17,214 | 4.75% | 10.6% | 0% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 3 | `vmovdqa` | 16,813 | 4.64% | 15.3% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 4 | `vpaddw` | 11,682 | 3.23% | 18.5% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
-| 5 | `movq` | 11,109 | 3.07% | 21.6% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 6 | `vpaddd` | 10,950 | 3.02% | 24.6% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
-| 7 | `vmovaps` | 7,599 | 2.10% | 26.7% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 8 | `vpmaddwd` | 7,209 | 1.99% | 28.7% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 9 | `psadbw` | 6,411 | 1.77% | 30.4% | ⚠️ 14% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 10 | `vpsrad` | 6,338 | 1.75% | 32.2% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
-| 11 | `vpsubw` | 6,234 | 1.72% | 33.9% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
-| 12 | `vmovdqu` | 6,160 | 1.70% | 35.6% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
-| 13 | `packssdw` | 5,613 | 1.55% | 37.2% | 3% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 14 | `vpmulhrsw` | 5,010 | 1.38% | 38.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 15 | `vshufps` | 4,693 | 1.30% | 39.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxmi`, `xxxi`, `yymi`, `yyyi` |
-| 16 | `pmullw` | 4,539 | 1.25% | 41.1% | ⚠️ 21% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 17 | `paddsw` | 4,473 | 1.24% | 42.3% | ⚠️ 18% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 18 | `paddw` | 4,166 | 1.15% | 43.5% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 19 | `vpbroadcastd` | 3,941 | 1.09% | 44.6% | — | ⛔ **REFUSES** | `xm`, `xx`, `ym`, `yx` |
-| 20 | `pmaxsw` | 3,776 | 1.04% | 45.6% | ⚠️ 24% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 21 | `vpunpcklwd` | 3,630 | 1.00% | 46.6% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 22 | `vaddps` | 3,434 | 0.95% | 47.6% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 23 | `vmovq` | 3,430 | 0.95% | 48.5% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr`, `xx` |
-| 24 | `movd` | 3,386 | 0.94% | 49.4% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr` |
-| 25 | `vpunpckhwd` | 3,352 | 0.93% | 50.4% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 26 | `pmaddubsw` | 3,188 | 0.88% | 51.3% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 27 | `psubusb` | 3,087 | 0.85% | 52.1% | ⚠️ 16% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 28 | `vpmaddubsw` | 3,048 | 0.84% | 52.9% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 29 | `vpackssdw` | 3,026 | 0.84% | 53.8% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
-| 30 | `vpshufb` | 2,984 | 0.82% | 54.6% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 31 | `psubw` | 2,932 | 0.81% | 55.4% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 32 | `vsubps` | 2,795 | 0.77% | 56.2% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 33 | `pmuludq` | 2,790 | 0.77% | 57.0% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 34 | `vmulps` | 2,715 | 0.75% | 57.7% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 35 | `pmulhrsw` | 2,690 | 0.74% | 58.5% | 4% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 36 | `vmovd` | 2,689 | 0.74% | 59.2% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr` |
-| 37 | `pshufb` | 2,469 | 0.68% | 59.9% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 38 | `vinserti128` | 2,394 | 0.66% | 60.5% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
-| 39 | `punpcklbw` | 2,381 | 0.66% | 61.2% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 40 | `pmulhw` | 2,200 | 0.61% | 61.8% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |
+| 1 | `pmaddwd` | 21,239 | 6.15% | 6.1% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 2 | `psubusw` | 17,214 | 4.98% | 11.1% | 0% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 3 | `vmovdqa` | 16,813 | 4.86% | 16.0% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 4 | `vpaddw` | 11,682 | 3.38% | 19.4% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
+| 5 | `movq` | 11,109 | 3.21% | 22.6% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 6 | `vpaddd` | 10,950 | 3.17% | 25.8% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
+| 7 | `vmovaps` | 7,599 | 2.20% | 28.0% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 8 | `vpmaddwd` | 7,209 | 2.09% | 30.0% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 9 | `psadbw` | 6,411 | 1.86% | 31.9% | ⚠️ 14% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 10 | `vpsrad` | 6,338 | 1.83% | 33.7% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxi`, `xxm`, `xxx`, `yyi`, `yym`, `yyx` |
+| 11 | `vpsubw` | 6,234 | 1.80% | 35.5% | — | ✔ | `xxm`, `xxx`, `yym`, `yyy` |
+| 12 | `vmovdqu` | 6,160 | 1.78% | 37.3% | — | ✔ | `mx`, `my`, `xm`, `xx`, `ym`, `yy` |
+| 13 | `packssdw` | 5,613 | 1.62% | 38.9% | 3% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 14 | `vpmulhrsw` | 5,010 | 1.45% | 40.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 15 | `vshufps` | 4,693 | 1.36% | 41.7% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxmi`, `xxxi`, `yymi`, `yyyi` |
+| 16 | `pmullw` | 4,539 | 1.31% | 43.1% | ⚠️ 21% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 17 | `paddsw` | 4,473 | 1.29% | 44.4% | ⚠️ 18% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 18 | `paddw` | 4,166 | 1.21% | 45.6% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 19 | `vpbroadcastd` | 3,941 | 1.14% | 46.7% | — | ⛔ **REFUSES** | `xm`, `xx`, `ym`, `yx` |
+| 20 | `pmaxsw` | 3,776 | 1.09% | 47.8% | ⚠️ 24% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 21 | `vpunpcklwd` | 3,630 | 1.05% | 48.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
+| 22 | `vaddps` | 3,434 | 0.99% | 49.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
+| 23 | `vmovq` | 3,430 | 0.99% | 50.8% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 24 | `movd` | 3,386 | 0.98% | 51.8% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr` |
+| 25 | `vpunpckhwd` | 3,352 | 0.97% | 52.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
+| 26 | `pmaddubsw` | 3,188 | 0.92% | 53.7% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 27 | `psubusb` | 3,087 | 0.89% | 54.6% | ⚠️ 16% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 28 | `vpmaddubsw` | 3,048 | 0.88% | 55.5% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 29 | `vpackssdw` | 3,026 | 0.88% | 56.4% | — | ⛔ **REFUSES** | `xxm`, `xxx`, `yym`, `yyy` |
+| 30 | `vpshufb` | 2,984 | 0.86% | 57.2% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
+| 31 | `psubw` | 2,932 | 0.85% | 58.1% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 32 | `vsubps` | 2,795 | 0.81% | 58.9% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
+| 33 | `pmuludq` | 2,790 | 0.81% | 59.7% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 34 | `vmulps` | 2,715 | 0.79% | 60.5% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
+| 35 | `pmulhrsw` | 2,690 | 0.78% | 61.2% | 4% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 36 | `vmovd` | 2,689 | 0.78% | 62.0% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr` |
+| 37 | `pshufb` | 2,469 | 0.71% | 62.7% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
+| 38 | `vinserti128` | 2,394 | 0.69% | 63.4% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
+| 39 | `punpcklbw` | 2,381 | 0.69% | 64.1% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
+| 40 | `pmulhw` | 2,200 | 0.64% | 64.8% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |
 
-- The joined set — **316 mnemonics K has semantics for AND the corpus executes** — accounts for **327,290 instructions (90.4% of the gap)**.
+- The joined set — **316 mnemonics K has semantics for AND the corpus executes** — accounts for **327,290 instructions (94.7% of the gap)**.
 
 ## The two residues
 
-### ⛔ Demand without supply — 184 mnemonics, 34,641 instructions (9.6% of the gap)
+### ⛔ Demand without supply — 183 mnemonics, 18,153 instructions (5.3% of the gap)
 
 The corpus executes these and **K has no rule for them**, so they cannot be priced from the coverage target list at all. A roster that listed only the join would price P2 this much too low.
 
 | rank | mnemonic | occurrences | share | referee |
 |---|---|---|---|---|
-| 1 | `endbr64` | 16,488 | 4.55% | — |
-| 2 | `vmovdqa32` | 6,230 | 1.72% | — |
-| 3 | `vpdpwssd` | 1,589 | 0.44% | — |
-| 4 | `vpermb` | 794 | 0.22% | — |
-| 5 | `vmovdqu32` | 712 | 0.20% | — |
-| 6 | `vinserti32x4` | 680 | 0.19% | — |
-| 7 | `pshufw` | 642 | 0.18% | — |
-| 8 | `vextracti32x4` | 620 | 0.17% | — |
-| 9 | `vshufi32x4` | 617 | 0.17% | — |
-| 10 | `vinserti32x8` | 469 | 0.13% | — |
-| 11 | `vbroadcasti32x4` | 452 | 0.12% | — |
-| 12 | `rorx` | 398 | 0.11% | ⚙ implemented, silicon-refereed (hwprobe; NOT differential) |
-| 13 | `vpdpbusd` | 364 | 0.10% | — |
-| 14 | `vpgatherdd` | 274 | 0.08% | — |
-| 15 | `vpxord` | 256 | 0.07% | — |
-| 16 | `vextracti32x8` | 242 | 0.07% | — |
-| 17 | `vpermt2q` | 190 | 0.05% | — |
-| 18 | `emms` | 164 | 0.05% | — |
-| 19 | `vpermt2b` | 147 | 0.04% | — |
-| 20 | `vpermw` | 131 | 0.04% | — |
-| 21 | `vpord` | 129 | 0.04% | — |
-| 22 | `vpmultishiftqb` | 123 | 0.03% | — |
-| 23 | `movq2dq` | 110 | 0.03% | — |
-| 24 | `vpperm` | 100 | 0.03% | — |
-| 25 | `kmovb` | 96 | 0.03% | — |
+| 1 | `vmovdqa32` | 6,230 | 1.80% | — |
+| 2 | `vpdpwssd` | 1,589 | 0.46% | — |
+| 3 | `vpermb` | 794 | 0.23% | — |
+| 4 | `vmovdqu32` | 712 | 0.21% | — |
+| 5 | `vinserti32x4` | 680 | 0.20% | — |
+| 6 | `pshufw` | 642 | 0.19% | — |
+| 7 | `vextracti32x4` | 620 | 0.18% | — |
+| 8 | `vshufi32x4` | 617 | 0.18% | — |
+| 9 | `vinserti32x8` | 469 | 0.14% | — |
+| 10 | `vbroadcasti32x4` | 452 | 0.13% | — |
+| 11 | `rorx` | 398 | 0.12% | ⚙ implemented, silicon-refereed (hwprobe; NOT differential) |
+| 12 | `vpdpbusd` | 364 | 0.11% | — |
+| 13 | `vpgatherdd` | 274 | 0.08% | — |
+| 14 | `vpxord` | 256 | 0.07% | — |
+| 15 | `vextracti32x8` | 242 | 0.07% | — |
+| 16 | `vpermt2q` | 190 | 0.05% | — |
+| 17 | `emms` | 164 | 0.05% | — |
+| 18 | `vpermt2b` | 147 | 0.04% | — |
+| 19 | `vpermw` | 131 | 0.04% | — |
+| 20 | `vpord` | 129 | 0.04% | — |
+| 21 | `vpmultishiftqb` | 123 | 0.04% | — |
+| 22 | `movq2dq` | 110 | 0.03% | — |
+| 23 | `vpperm` | 100 | 0.03% | — |
+| 24 | `kmovb` | 96 | 0.03% | — |
+| 25 | `kmovw` | 93 | 0.03% | — |
 
 ### Supply without demand — 262 mnemonics
 
@@ -180,10 +180,10 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 138 | 112,667 | 31.1% |
-| the oracle REFUSES | 82 | 217,162 | 60.0% |
+| the oracle EXECUTES | 138 | 96,179 | 27.8% |
+| the oracle REFUSES | 82 | 217,162 | 62.8% |
 | the oracle STALLS | 3 | 243 | 0.1% |
-| **probed so far** | 223 | **330,072** | **91.2%** |
+| **probed so far** | 223 | **313,584** | **90.7%** |
 
 ⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
 unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
@@ -202,25 +202,25 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 67 | 102,931 | 28.4% |
-| the oracle REFUSES | 88 | 169,877 | 46.9% |
+| the oracle EXECUTES | 66 | 86,443 | 25.0% |
+| the oracle REFUSES | 88 | 169,877 | 49.2% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 158 | **273,049** | **75.4%** |
-| not asked at its own bucket | | 88,882 | 24.5% |
+| **probed so far** | 157 | **256,561** | **74.2%** |
+| not asked at its own bucket | | 88,882 | 25.7% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-57,023 instructions, 15.7% of the gap** — that is
+57,023 instructions, 16.5% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
 
-So of the demand probed, **34% has an oracle** by mnemonic and
-**38%** by bucket — after a one-line change to the
+So of the demand probed, **31% has an oracle** by mnemonic and
+**34%** by bucket — after a one-line change to the
 pre-states, and not before it.
 
 ⛔ **A BATCH CANNOT BE PRICED FROM A SAMPLE OF ITS OWN MEMBERS.** Seven SSE forms
 were probed and all seven executed; the eighth, `pmaddwd`, refused — and it is
-rank 1 in the demand list, 5.87% of the whole gap, refusing in the same run in
+rank 1 in the demand list, 6.15% of the whole gap, refusing in the same run in
 which `movdqa` beside it executes. The 82 the oracle does not have are
 `movntdq`, `movntdqa`, `pabsw`, `packssdw`, `packsswb`, `paddsb`, `paddsw`, `paddusb`, `paddusw`, `palignr`, `pavgb`, `pavgw`, `pinsrw`, `pmaddubsw`, `pmaddwd`, `pmaxsw`, `pmaxub`, `pminsw`, `pminub`, `pmuldq`, `pmulhrsw`, `pmulhuw`, `pmulhw`, `pmullw`, `pmuludq`, `psadbw`, `pshufb`, `pshufw`, `psubsb`, `psubsw`, `psubusb`, `psubusw`, `vaddps`, `vbroadcasti128`, `vextracti128`, `vinserti128`, `vmovd`, `vmovdqa32`, `vmovhps`, `vmovq`, `vmulps`, `vpabsw`, `vpackssdw`, `vpackuswb`, `vpaddsw`, `vpaddw`, `vpalignr`, `vpblendd`, `vpbroadcastd`, `vpbroadcastq`, `vpbroadcastw`, `vperm2f128`, `vpermq`, `vpmaddubsw`, `vpmaddwd`, `vpmaxsd`, `vpmaxsw`, `vpminsd`, `vpminsw`, `vpmovzxbw`, `vpmulhrsw`, `vpmulld`, `vpmullw`, `vpsadbw`, `vpshufb`, `vpshufd`, `vpsrad`, `vpsraw`, `vpsrld`, `vpsrlw`, `vpsubsw`, `vpsubusb`, `vpunpckhbw`, `vpunpckhdq`, `vpunpckhqdq`, `vpunpckhwd`, `vpunpcklbw`, `vpunpckldq`, `vpunpcklqdq`, `vpunpcklwd`, `vshufps`, `vsubps`.
 
@@ -256,22 +256,21 @@ class shares it. Within a batch the order is by demand.
 
 | batch | bucket | occurrences | share of the gap | cumulative |
 |---|---|---|---|---|
-| 1 | AVX2/AVX (ymm) | 108,554 | 29.98% | 30.0% |
-| 2 | SSE-legacy (xmm) | 95,965 | 26.50% | 56.5% |
-| 3 | VEX-128 (v… xmm) | 62,252 | 17.19% | 73.7% |
-| 4 | MMX (mm) | 43,045 | 11.89% | 85.6% |
-| 5 | AVX-512 (zmm/k) | 33,884 | 9.36% | 94.9% |
-| 6 | CET-IBT | 16,488 | 4.55% | 99.5% |
-| 7 | AVX (state) | 1,241 | 0.34% | 99.8% |
-| 8 | BMI2 | 400 | 0.11% | 99.9% |
-| 9 | SSE (fence) | 32 | 0.01% | 99.9% |
-| 10 | x87 (st) | 23 | 0.01% | 99.9% |
-| 11 | CPUID | 15 | 0.00% | 99.9% |
-| 12 | XSAVE | 11 | 0.00% | 99.9% |
-| 13 | SSE2 (fence) | 11 | 0.00% | 100.0% |
-| 14 | PREFETCH | 4 | 0.00% | 100.0% |
-| 15 | TSC | 3 | 0.00% | 100.0% |
-| 16 | SSE2 (pause) | 3 | 0.00% | 100.0% |
+| 1 | AVX2/AVX (ymm) | 108,554 | 31.41% | 31.4% |
+| 2 | SSE-legacy (xmm) | 95,965 | 27.77% | 59.2% |
+| 3 | VEX-128 (v… xmm) | 62,252 | 18.01% | 77.2% |
+| 4 | MMX (mm) | 43,045 | 12.45% | 89.6% |
+| 5 | AVX-512 (zmm/k) | 33,884 | 9.80% | 99.4% |
+| 6 | AVX (state) | 1,241 | 0.36% | 99.8% |
+| 7 | BMI2 | 400 | 0.12% | 99.9% |
+| 8 | SSE (fence) | 32 | 0.01% | 99.9% |
+| 9 | x87 (st) | 23 | 0.01% | 99.9% |
+| 10 | CPUID | 15 | 0.00% | 99.9% |
+| 11 | XSAVE | 11 | 0.00% | 99.9% |
+| 12 | SSE2 (fence) | 11 | 0.00% | 100.0% |
+| 13 | PREFETCH | 4 | 0.00% | 100.0% |
+| 14 | TSC | 3 | 0.00% | 100.0% |
+| 15 | SSE2 (pause) | 3 | 0.00% | 100.0% |
 
 ⚠️ **This table stops at 100.0%, not at 100%, and the
 remainder is not missing.** The three additions are
@@ -281,7 +280,7 @@ size. A wave table that silently absorbed them would have ranked a segment base
 below MMX.
 
 ⚠️ **The first batch is not the cheapest one available.** `SSE-legacy (xmm)` is
-27% of the gap by itself,
+28% of the gap by itself,
 and it is also the widest vocabulary — P1 learned that a wave priced on its
 easiest batch is priced wrong, and the price is the whole reason the first batch
 is run.

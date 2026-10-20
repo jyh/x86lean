@@ -1487,9 +1487,12 @@ def selftest():
         # ⛔ and the one that landed and is still REFUSED, on purpose: the
         # model's lock legality is per-form and this tool cannot read it.
         ("addq",    "LOCK prefix (P2 addition 2)",            False),
-        # a GPR extension the model does not have is refused by `r in model`,
-        # not by the partition — the partition says its FORM is representable.
-        ("endbr64", "CET-IBT",                                False),
+        # a form the model does not have is refused by `r in model`, not by the
+        # partition — the partition says its FORM is representable.  ⭐ D347 (V8a)
+        # MODELLED `endbr64`, so this arm moved to `endbr32` (same bucket, still
+        # absent), and `endbr64` now asserts the other direction: landed ⇒ covered.
+        ("endbr32", "CET-IBT",                                False),
+        ("endbr64", "CET-IBT",                                True),
         ("popcntq", "POPCNT",                                 True),
     ]
     for m, ext, want in scope_arms:

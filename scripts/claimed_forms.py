@@ -591,6 +591,11 @@ CLAIMS_NO_ROW = {
     "movabs_q":           "movabs is a distinct ENCODING of a row already claimed",
     "movabs_lo32_ones":   "movabs is a distinct ENCODING of a row already claimed",
     "movabs_hi32_ones":   "movabs is a distinct ENCODING of a row already claimed",
+    # ⭐ D347 (V8a): ENDBR64.  The same reason as ADX, measured the same way: K's tree at the
+    # commit `p1/roster.tsv` is generated from has NO endbr rule — `find semantics -iname
+    # '*endbr*'` and `grep -rl -i endbr semantics` both return nothing, against `mulx`'s four
+    # files (2026-10-19) — so the roster has no row to claim, by derivation.  Two-way, as ADX.
+    "endbr64": "CET: K's tree has no endbr rule, so the P1 roster derived from it has no row",
     # ⭐ D330 (W1b): ADCX and ADOX.  A FOURTH reason, stated per member and true of
     # each: K's tree (the commit `p1/roster.tsv` is generated from) carries NO
     # adcx or adox rule at all — `find semantics -iname '*adcx*' -o -iname
