@@ -22841,3 +22841,10 @@ NEW unit is registered in BOTH registries, in one commit, before any katmai row.
 expected, since its ceiling was registered for yukon.lan only, and printed `Tests.AnchorsVexSilB 1262 @on katmai` (head
 420.5 ms). `X86.Syntax` 658.0 → 667.5, +9.5 ± 27.6 of 123.0, `ok`; `Tests.Vectors` UNMEASURABLE (above). The katmai line is
 committed, and the row is re-measured on the tree that holds it (K2), as V7's was.
+**The row, K2 on katmai (1a70f4b → 9c25102, `--repeats 6`, loads 1.79–5.00): ms `delta gate: CLEAN`; A′ `ku-delta gate
+(a-prime): CLEAN`; `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict.**
+- The NEW unit `Tests.AnchorsVexSilB` head 414.0 ms, judged against its katmai ceiling (1262). `X86.Syntax` 658.5 → 659.0,
+  +0.5 ± 31.3 of 123.1. `Tests.Vectors` 9.5 → 9.4, −0.1 ± 2.9 of 9.9, `ok`: the two UNMEASURABLE readings above did not
+  repeat. `Tests.Coverage` 38050.0 → 38300.0, +250.0 ± 370.4 of 2739.6.
+- A′: `Tests.AnchorsVexSilB` 250,470 (NEW, registered); `Tests.Coverage` +55,776 of 748,819; `X86.Syntax` 41,723 → 41,703.
+- Prediction 5's "`X86.Syntax` does not grow" HOLDS at the verdict of record: +0.5 ms at 6 repeats.
