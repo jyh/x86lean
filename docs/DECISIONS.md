@@ -22877,3 +22877,57 @@ rows of 254 mnemonics), and a census reading prose would be an ungated claim. Th
 (`d337 += 1` landed inside the new block's `finally`), and the selftest printed `PASS (216 arms)` against 229 before.
 **The PASS was green while thirteen arms had silently stopped being counted.** It was found only because the total went
 DOWN after arms were added, and it was fixed to 234 = 229 + 5.
+
+## D350 — V8c: `vpbroadcastd` (register and m32) and the VEX memory forms of V8b's four twins, refereed by silicon (predictions before any model, row or hardware work)
+
+**Why these.** D348 left `vpbroadcastd` out because 2,412 of its 2,581 VEX-bucket instructions take an m32 source, and
+D349's split showed what shape-blind credit costs. V8c models the memory forms that D348 counted and declined:
+`vpbroadcastd`'s 2,412 m32 plus its 169 register forms, and the four twins' 5,205 memory forms. That is **7,786 credited
+instructions that become modelled by shape.**
+
+**The referee, measured before anything was designed (P1, 2026-10-20, yukon, `acl2@c8897a34d3ef`, a scratch driver that
+imports `oracle_availability.py` unmodified, clang's bytes).** All 12 encodings REFUSE at 88 of 88: `vpbroadcastd` xmm←xmm,
+ymm←xmm, xmm←m32, ymm←m32, and `vpmaddwd`/`vpmulhrsw`/`vpmaddubsw`/`vpackssdw` with a `(%rbx)` source at VEX.128 and
+VEX.256. In the same run `CONTROL:mov` and V6's `vpaddw256` executed at 88/88. So did **V4's `vpxor (%rbx), %xmm2, %xmm0`,
+a VEX memory form**, which places the refusals on the opcodes and not on a VEX memory access. `movnti` and V7's
+`vpackuswb256` refused at 88/88. ⇒ **a silicon wave WITH memory operands**, which `hwprobe/` has done for legacy forms (`x,m`)
+and never for VEX. The 12 rows enter `oracle_availability.py` as `refuses`.
+
+**The rules.**
+- **`vpbroadcastd`:** every dword of the destination := the source's low dword (an xmm register's bits 31:0, or the 32 bits at
+  the effective address). Four dwords at VEX.128, with bits 255:128 zeroed; eight at VEX.256. No alignment check.
+- **The twins' memory forms:** the register rule (D348) with the second source (`src`, ModRM.rm) read from memory: 16 bytes at
+  VEX.128, 32 bytes at VEX.256, the high lane's operand being bytes 31:16. No alignment check (a VEX-encoded memory operand of
+  this exception class does not fault on misalignment; `vexbinm`'s rule since D342). The memory operand is always `src`, so
+  `vpmaddubsw`'s memory bytes are the SIGNED ones.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named. Every memory row is read at an
+   UNALIGNED address as well as an aligned one, so the no-fault rule is read, not assumed. Memory is never written.
+2. **Generator, before any processor.** A textbook per form reproduces every row. `--refuse-wrong` refuses, each on a named row:
+   - (a) `vpbroadcastd` broadcasting the source's dword 1 instead of dword 0;
+   - (b) a VEX.256 memory form whose high lane reads bytes 15:0 again instead of 31:16;
+   - (c) the memory operand taken as `src1`: `vpmaddubsw`'s memory bytes read UNSIGNED;
+   - (d) `vpbroadcastd` from m32 reading 64 bits (a qword broadcast).
+3. **Model.** The four kinds join a silicon-taken MEMORY set beside `vexMemTaken`; VEX.256 gains a memory twin of `vexbin256`;
+   `vpbroadcastd` is a new constructor pair (VEX.128 / VEX.256) over a register-or-memory source. All rows are pinned by
+   `decide` in a NEW metered unit. **Red backwards:** a VEX.256 memory mutant reading the high lane's operand from bytes 15:0
+   reds exactly the VEX.256 memory theorems; a broadcast mutant taking dword 1 reds exactly the `vpbroadcastd` theorems.
+4. **Census.** `vpbroadcastd` enters the silicon line at VEX.128 and ymm: **silicon +2,595 pooled** (385 + 2,210), of which
+   **memory-form +2,412** in D349's split. The four twins' memory forms are already credited (D348), so their figures do not
+   move. That is the case D349 v1 cannot show, and it is why v2 exists. (a) is unchanged in every column.
+   ⚠️ **A census defect named here, not hidden:** 14 of the 2,210 ymm-bucket `vpbroadcastd` are `vpbroadcastd %eax, %ymm…`,
+   a GPR source that exists only as an EVEX encoding, yet the bucket rule files them with AVX2. So the +2,595 includes 14
+   instructions this model does not have. The bucket fix is its own item.
+5. **Kernel cost.** The NEW unit is registered in BOTH registries before the katmai row; `X86.Syntax` grows by the new
+   constructors (V7's ten cost +32.5 ms at katmai ⇒ predict under +15 ms for these).
+
+**Not claimed:** EVEX/zmm, `vpbroadcastd` from a GPR, the other broadcasts (`vpbroadcastb/w/q`, `vbroadcastss`), and bits 511:256.
+⛔ **A correction to D348's record, made here because a commit message cannot be amended on a public branch.** V8b's first
+commit (`7b75f52`) said "`--check-encodings` CLEAN, 270 forms, two disassemblers" beside the eight rows it added to `FORMS`.
+**That gate reads `P2_FORMS` (270 rows) and never assembles a `FORMS` row**, so it did not check those eight. Measured
+2026-10-20: `FORMS` went 119 → 131 with V8c's twelve rows, and the gate still printed 270. The rows ARE right, because their
+bytes were taken from clang's own assembly of their `asm` text (V8b's and V8c's driver logs). But the sentence claimed a check
+that never ran on them. A `FORMS` row's bytes are checked today by the person who adds it, and by nothing else.
+  Re-driven the same day: all 20 `FORMS` rows that V8b and V8c added re-assemble from their `asm` text, with clang, to exactly
+  their declared bytes (20 of 20, no mismatch).
