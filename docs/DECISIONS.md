@@ -22989,3 +22989,34 @@ NEW unit is registered in BOTH registries, in one commit, before any katmai row.
 557.0, −15.0 ± 57.4 of 107.0, `ok`: prediction 5's "under +15 ms" is consistent but not established by a band this wide,
 and the katmai row decides it. Δku `X86.Syntax` +1,340 of 7,798 · `Tests.Coverage` +14,728 of 752,835. `ku_delta.py
 --check-registry` rc 0.
+
+## D352 — STATUS 7d: a MODELLED-shape census figure, derived from the model's own forms (design and predictions before any code)
+
+**Why.** D349 (7c) prints every credited census figure as `(register-form · memory-form)`, and showed 51 % of the VEX
+table's credit is memory-form against one modelled VEX memory form (V8c, D350, adds four kinds' memory forms). The helm
+(10-20 05:06): v2 prints how much of each credit the model's own forms cover. STATUS priced v2 at ~1–1.5 days as "each
+coverage row declares its shapes as TYPED DATA, gated against the AST". **That price is withdrawn before any work:** the
+table has 288 `shapes :=` sites, not 142, and retyping them would hand-type the very fact the idiom law says to derive.
+**The design.** The census already decides, for every demand line, its bucket (`isa_bucket(mn, ops, kind)`) and whether it
+is memory-form (`is_mem_form(ops)`). v2 applies THOSE SAME TWO FUNCTIONS to the model's own forms, so demand and model
+are classified by one rule:
+- the differential forms: every row of `Tests/Vectors.lean`, by its `mnemonic` field and the operands of its `asm`
+  (1,279 rows, 512 of them with an addressing mode in `asm`, read at e776518);
+- the silicon-refereed forms: the instruction each `hwprobe/` generator tests, taken from the generator's own form list,
+  never from its `_ops.S` (whose setup loads would read as modelled forms).
+A credited (mnemonic, bucket) is then split three ways: register-form demand, memory-form demand the model has a
+memory form for in that bucket, and memory-form demand it does not. Only the first two count as MODELLED. The census
+prints the modelled figure beside each credited one; nothing it credits today changes.
+**Scope, declared.** "Modelled" here means the model has a form that a vector or a silicon row EXECUTES, which is
+narrower than "the AST can express it": a form the AST has and no row runs is not counted, so the figure can only
+under-count. A memory form is one form: an addressing mode the model handles at one width is credited for every
+addressing mode at that (mnemonic, bucket).
+**Price (an estimate, unmeasured).** Python only: a reader for the two populations, the split, the selftest arms (red
+first), a regeneration. No Lean file changes, so no kernel-cost row and no katmai run. Half a day.
+**Predictions, sealed before the reader is written.**
+1. For every table (differential, silicon, VEX), modelled ≤ credited, and modelled ≥ the register-form part.
+2. The differential main table's memory-form demand is MOSTLY modelled (more than half of it), because its vector
+   batches carried `m` forms for most mnemonics.
+3. The VEX table's memory-form demand is MOSTLY NOT modelled (less than half of it), V8c included.
+4. The reader refuses, rather than reads zero, if either population parses empty or a vector's `mnemonic` disagrees
+   with its `asm`'s mnemonic beyond the census's own width-suffix normalisation.
