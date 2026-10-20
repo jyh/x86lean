@@ -22968,3 +22968,17 @@ implemented and silicon-refereed. `docs/PRIMITIVE-CENSUS.md` regenerated: the pr
 path.
 ⚠️ As predicted, the +2,595 includes the 14 EVEX-only `vpbroadcastd %eax, %ymm…` instructions the bucket rule files as
 AVX2. This model does not have them.
+**The unit's design changed after its first cost reading, and the change is recorded rather than folded in.** yukon's first
+`kernel_delta` (`0f0a069` → `394d9c6`, `--repeats 3`) read the NEW unit at **36,300 ms and 13,726,613 unfoldings**:
+216 ms a row, against V7's ~7 and V8b's ~5. That is as large as all of `Tests.Coverage`. Measured before anything was
+registered: with the per-row buffer read-back removed, the unit built in 16 s against ~40. ⇒ The read-back was more than
+half the cost, and it re-checked 168 times a fact that holds for EVERY state. So it was replaced by six **frame theorems**
+(`v8c_frame_*`: each of the six memory-reading and broadcast constructors leaves `mem` unchanged, given `Live s` and an
+unlocked operand), and each pre-state now writes only the qwords the operand spans (at most five), not all eight. The
+unit builds in **6.7 s**, with 0 errors and 0 warnings.
+**Red backwards, re-run on the redesigned unit** (the pins changed, so the earlier run is not inherited): the VEX.256
+memory mutant reds exactly the four `…256_m` theorems; the dword-1 broadcast mutant exactly the four `vpbroadcastd`
+theorems; a planted YMM3 bit in `vpackssdw256_m_lane_u` exactly `v8c_vpackssdw256_m_pins`. This time the plant is YMM3, with
+the field index fixed and checked by its length (66). A NEW arm for the frame theorems: a `vexbcastdm256` that also writes
+one byte at its address reds exactly `v8c_frame_bcastdm256`. Two defects of my own, caught by a build: the generator's
+span variable shadowed the instruction length (`n`), and eight pin theorems failed with `v8cAgrees t 0`.
