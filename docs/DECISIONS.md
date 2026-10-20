@@ -22821,3 +22821,17 @@ that lists `xxm` and `yym`, and V8b does not model those memory forms. Of the 15
 modelled here (the split above). A census that prints the split itself is queued (STATUS 7c, the helm 10-19 21:09).
 `docs/PRIMITIVE-CENSUS.md` regenerated too: no candidate's verdict moves. It now reads 1,199 vectors / 963 forms where it
 read 1,198 / 962, because V8a's `endbr64` (#113) had not been carried into this ungated document.
+**Result, prediction 5 (kernel cost, yukon.lan, `b14c4e0` → `7c54f8a`, `kernel_delta.py --repeats 3`, loads 5.45–8.67): the
+NEW unit is registered in BOTH registries, in one commit, before any katmai row.**
+- `X86.Syntax` 569.0 → 591.0, **+22.0 ± 29.1** against 106.4, `ok`. Prediction 5 said `X86.Syntax` "does not grow" because
+  no constructor is added; a +22 reading inside a ±29 band is not evidence either way, and the katmai row at 6 repeats is
+  the verdict of record. `Tests.Coverage` 36,800 → 36,800; `X86.Coverage` 16.0 → 15.7.
+- ⚠️ `Tests.Vectors` reads **UNMEASURABLE** (+11.3 ms, band ±10.7 against an 8.4 budget). V8b does not touch
+  `Tests/Vectors.lean` (`git diff --quiet b14c4e0 HEAD -- Tests/Vectors.lean`), so it is a reading of this box tonight,
+  not of the commit.
+- The NEW unit `Tests.AnchorsVexSilB`: head **351.0 ms**. Its printed line, `Tests.AnchorsVexSilB 1053 @on yukon.lan`, is
+  copied into `scripts/kernel_ceilings.txt`.
+- `ku_delta.py --arm a-prime` (same pair) refused only that unit, **250,470** unfoldings, registered as
+  `Tests.AnchorsVexSilB @ku 250470`. Every other Δku is inside its budget: `Tests.Coverage` +55,776 of 748,819 ·
+  `Tests.CoverageVex` +8,862 of 259,284; every Anchors unit +0. `ku_delta.py --check-registry` rc 0.
+- The katmai ceiling and the ledger row are taken on the landing tree after #113 merges.

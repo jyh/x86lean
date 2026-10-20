@@ -467,3 +467,6 @@ Tests.AnchorsVexSil 12630 @on katmai
 # runner, 2026-10-18: the line PR #108's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 39159507167,
 # head Tests.AnchorsVexSil 7105.0 ms ⇒ max(7105.0 × 3, 50)), copied, not retyped.
 Tests.AnchorsVexSil 21315 @on runnervm8k3b6
+# D348 (V8b): the NEW unit kernel_delta printed on refusing it, b14c4e0 (V8a's head) → 7c54f8a, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.AnchorsVexSilB head 351.0 ms ⇒ max(351.0 × 3, 50).
+Tests.AnchorsVexSilB 1053 @on yukon.lan
