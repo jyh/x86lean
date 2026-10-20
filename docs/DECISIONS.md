@@ -22946,3 +22946,25 @@ arm caught that before any commit. Under Rosetta 2 (a translation, not silicon):
 - On both legs: plant rc 1 on `vpmaddwd256_m_lane_u` (an unaligned VEX.256 memory row), badop rc 2, hi rc 1 on its row.
   **No memory row faulted at an odd offset on either processor**, so VEX's no-alignment rule is read on silicon. The 64-byte
   buffer was unchanged after every row; that comparison has no planted control (README).
+**Result, prediction 3 (model, step (b)): HELD.** `VBinKind.vexSilMemTaken` (the four kinds) beside `vexMemTaken`; the
+`vexbinm` arm takes either set; NEW constructors `vexbinm256` (the VEX.256 memory twin: `readMem128` at `a` and `a + 16`,
+per lane) and `vexbcastd` / `vexbcastd256` / `vexbcastdm` / `vexbcastdm256` over `bcast32x4`. `Tests/AnchorsVexSilC.lean`
+(NEW unit) pins all 168 rows in 12 theorems. Each pre-state writes the row's 64-byte buffer at `0x10000` with RBX =
+`0x10000 + off`, and each pin reads all eight qwords back, so the KERNEL also checks that nothing was written. saltbuild
+EXIT=0, 0 tagged errors (X86, the three VEX anchor units, Tests.Coverage, x86lean-diff). The warnings are identical, file
+by file, to V8b's build, so none is V8c's. **Red backwards, on the model**, each mutant built through the wrapper and the
+file restored (`cmp`-verified):
+- `vexbinm256`'s high lane read from `a` instead of `a + 16` reds exactly the four `…256_m` twin theorems;
+- every broadcast taking dword 1 (`>>> 32`, or the address + 4) reds exactly the four `vpbroadcastd` theorems;
+- one planted pin reds exactly `v8c_vpackssdw256_m_pins`. That pin was the row's RAX expectation, not its YMM3 as the
+  script's comment claimed: the row's trailing `,  -- name` shifted the field index by one.
+**Result, prediction 4 (census, regenerated on yukon from `~/x86lean-corpus`): HELD, exactly.** The silicon line rose by
+**2,595** pooled (385 + 2,210), and its memory-form share (D349's split) by **2,412**. Covered (a) is unchanged in every
+column, and the only JSON fields that moved are `silicon`, `silicon_all`, `silicon_pct`, `silicon_mem`, `miss` and
+`miss_all`. The four twins' figures do not move. Their memory forms were credited already (D348), and this wave makes them
+MODELLED, which v1's split cannot show; that is what 7d's v2 is for. Selftest PASS (234 arms), staleness CLEAN at 255
+mnemonics, red probe 36/36. Both censuses name D350's referees. `docs/P2-ROSTER.md` marks `vpbroadcastd` (rank 19, 3,941)
+implemented and silicon-refereed. `docs/PRIMITIVE-CENSUS.md` regenerated: the primitive census reads the `vexsilc` probe
+path.
+⚠️ As predicted, the +2,595 includes the 14 EVEX-only `vpbroadcastd %eax, %ymm…` instructions the bucket rule files as
+AVX2. This model does not have them.
