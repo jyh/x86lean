@@ -22931,3 +22931,18 @@ bytes were taken from clang's own assembly of their `asm` text (V8b's and V8c's 
 that never ran on them. A `FORMS` row's bytes are checked today by the person who adds it, and by nothing else.
   Re-driven the same day: all 20 `FORMS` rows that V8b and V8c added re-assemble from their `asm` text, with clang, to exactly
   their declared bytes (20 of 20, no mismatch).
+**Result, prediction 2 (generator, steps (a) and (c), `2dcfadd`): HELD.** 168 rows over 12 encodings. Every one of the 78
+memory cases runs twice with the same operand, at offset 0 and at an odd offset (1, 13, 7 or 29), and expects the same
+result. `--selftest` passes: two hand cases, including `vpmaddwd` ymm from m256 at offset 1, whose low lane wraps to
+`80000000H`; a 3,000-case sweep over form, length, operands, buffer and offset; both red-backwards mutants disagreeing on
+exactly the rows they reach (45 and 21). `--refuse-wrong` refuses 4 of 4 on named rows: (a) `vpbroadcastd128_r_k0` · (b)
+`vpmaddwd256_m_lane_a` · (c) `vpmaddubsw128_m_edge0_a` · (d) `vpbroadcastd128_m_k0_a`. (b)'s first guess, `edge0`, was wrong:
+every `vpmaddwd` edge row has EQUAL lanes, so reading bytes 15:0 twice is invisible there, and the selftest's named-row
+arm caught that before any commit. Under Rosetta 2 (a translation, not silicon): 168/168, each plant on its own row.
+**Result, prediction 1 (silicon, push run 39464224033 at `2dcfadd`): HELD on two legs, both named by the processor.**
+- macos-15-intel, **Intel Core i7-8700B**: 168/168.
+- ubuntu-latest, **AMD EPYC 9V74** (`/proc/cpuinfo`'s `model name`; CPUID.07H:EBX `f1bf07a9`, XCR0 `e7`, so AVX-512 is
+  enabled): 168/168. This is a different AMD part from V8b's EPYC 7763.
+- On both legs: plant rc 1 on `vpmaddwd256_m_lane_u` (an unaligned VEX.256 memory row), badop rc 2, hi rc 1 on its row.
+  **No memory row faulted at an odd offset on either processor**, so VEX's no-alignment rule is read on silicon. The 64-byte
+  buffer was unchanged after every row; that comparison has no planted control (README).
