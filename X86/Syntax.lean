@@ -2247,9 +2247,17 @@ def VBinKind.vexTaken : VBinKind → Bool
 SILICON's word, not the oracle's: x86isa refuses all eight encodings (D345 P1), and `hwprobe/`
 referees them.  Kept apart from `vexTaken`, which records what the DIFFERENTIAL tests.  Each is
 lane-wise within 128 bits (the unpacks and PACKUSWB never cross a lane), so `vexbin256`'s per-lane
-rule is the whole rule for them too. -/
+rule is the whole rule for them too.
+
+⭐⭐ V8b (D348) adds four D335 kinds on the same word: x86isa refuses their eight register encodings
+(D348 P1) and `hwprobe/` (`vexsilb`) referees them.  Each is lane-wise within 128 bits too: PMADDWD,
+PMULHRSW and PMADDUBSW combine adjacent elements of one lane, and PACKSSDW packs each lane's two
+sources into that lane (the SDM's VEX.256 pseudo-code), so `vexbin256`'s per-lane rule is theirs.
+`vbinApply` already gives each its legacy function with `src1` in the destination's place, which is
+where PMADDUBSW's UNSIGNED bytes and PACKSSDW's low words come from (SDM Vol. 2B). -/
 def VBinKind.vexSilTaken : VBinKind → Bool
   | .unpcklb | .unpcklw | .unpckhw | .packuswb => true
+  | .maddwd | .mulhrsw | .maddubsw | .packssdw => true
   | _ => false
 
 /-- ⭐ V4 (D342) — the packed binary kinds whose VEX.128 MEMORY twin is taken: `vpxor` alone.

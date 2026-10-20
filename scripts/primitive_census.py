@@ -486,6 +486,9 @@ SILICON_REFEREES = (
     # D345 (V7): the VEX-silicon path. Both AMD legs are identified by CPUID only (the hosted VM prints no model name),
     # so the AMD referee is named by that signature, as D345's text names it, never by a guessed model.
     ("D345", ("AMD CPUID feda3203", "Intel Core i7-8700B")),
+    # D348 (V8b): the second VEX-silicon path. Its AMD leg is NAMED: the workflow's processor step printed
+    # `/proc/cpuinfo`'s model name on run 39368903666, as D348's text records.
+    ("D348", ("AMD EPYC 7763", "Intel Core i7-8700B")),
 )
 SILICON_DECISION = "D334"
 SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
@@ -505,6 +508,9 @@ SILICON_PATHS = (
     # D345 (V7): the VEX-silicon path, its functions `x_*`. ⚠️ The row regex pins the `ULL` payload: an operation line
     # (`{"x_…", x_…_at, 5, {0xc5, …}}`) also reads `x_\w+, N, {` and would be counted as a row.
     ("mk_vexsil_rows.py", "vexsil_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \d+, \{0x[0-9a-f]+ULL'),
+    # D348 (V8b): the second VEX-silicon path, its functions also `x_*` (the names do not collide: no V7 function
+    # names a V8b mnemonic). Its rows carry no `gpr` field, so the payload follows the function directly.
+    ("mk_vexsilb_rows.py", "vexsilb_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 
