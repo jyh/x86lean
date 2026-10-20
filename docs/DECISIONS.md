@@ -23020,3 +23020,41 @@ first), a regeneration. No Lean file changes, so no kernel-cost row and no katma
 3. The VEX table's memory-form demand is MOSTLY NOT modelled (less than half of it), V8c included.
 4. The reader refuses, rather than reads zero, if either population parses empty or a vector's `mnemonic` disagrees
    with its `asm`'s mnemonic beyond the census's own width-suffix normalisation.
+**What was built (`scripts/demand_census.py`).** `forms_inputs` reads the model side as TEXT: every `Tests/Vectors.lean`
+record's `mnemonic` and `bytes` (1,279), and the instruction under test in every `hwprobe/*_ops.S` — the line after an
+`AT(…)` label, or after `LOAD` in `sse_ops.S`, the oldest probe (261). `model_forms` assembles them into one x86-64 object
+(`clang -target x86_64-apple-macos11`), disassembles it with the census's own command (`objdump -d --no-show-raw-insn`),
+and `forms_from_lines` classifies it with `_classify` and keys it with `to_roster`, so demand and model meet under one
+rule. It REFUSES (exit 2, nothing written) if either population parses empty, an assembler error, a form that does not
+disassemble to exactly one instruction (a bare `lock` line is the prefix `_classify` attributes to the next line, and is
+not counted), or a vector whose bytes disassemble to another roster name. `modelled_mem` filters 7c's memory-form tally by
+the model's (name, bucket) memory set; `report` prints `(register-form R · memory-form M, of which the model executes a
+memory form for M′)`. A second stamp, `census-forms`, hashes the model side's INPUTS (text, so `--check` runs on a runner
+with no x86 assembler) and `--check` refuses when it moves: a new memory-form vector moves no mnemonic, so the 7c stamp
+could not see it.
+**Own defects found before landing.** (1) The first draft of the population check refused 14 forms: llvm-objdump prints a
+LOCK prefix on its own line; fixed as above. (2) My first vector parser read 79 of 1,279 records (it assumed a field
+order the file does not keep); found because the count was printed beside the population, and replaced by a per-record
+parse that reads all 1,279. (3) An edit split `STAMP_RE`'s continuation line; caught by the syntax check.
+**Results, regenerated on yukon from `~/x86lean-corpus` (stacked on V8c, `e776518`).** The document change is purely
+additive: with the new clause and the note line stripped, it is byte-identical to the shipped one; 40 figures carry a
+modelled part. `--check` CLEAN; `--selftest` PASS, 240 arms (234 + six D352 arms, each with a red direction: no forms
+reads 0, every demanded form reads 7c's figure, a bucket mismatch does not count, a planted vector moves the stamp). Pooled
+over the ten columns:
+```
+  table          credited     memory-form   of which modelled
+  differential   14,022,028   4,618,808     4,540,339   (98.3 %)
+  silicon           124,907      18,418        17,141   (93.1 %)
+  VEX                75,098      38,453            73   ( 0.2 %)
+```
+- Prediction 1 (modelled ≤ credited, ≥ the register-form part): **HELD**, asserted per column and table.
+- Prediction 2 (the differential table's memory-form demand MOSTLY modelled): **HELD**, 98.3 %.
+- Prediction 3 (the VEX table's memory-form demand MOSTLY NOT modelled): **HELD**, and more sharply than sealed: 73 of
+  38,453, all `vpxor`'s VEX.128 memory form. V8c's memory forms are credited in the SILICON line, not the VEX line.
+- Prediction 4 (refuse on an empty population or a mnemonic disagreement "beyond the width-suffix normalisation"): the
+  refusals are built and the population arm fired on a real defect (the LOCK lines). **The sealed wording was too narrow:**
+  11 vectors disassemble to a PREFIX spelling (`repe` 8 as `rep`; `loop`, `loope`, `loopne` with a 32-bit address as
+  `addr32`). They are exempted BY NAME (`FORMS_PREFIX_SPELLINGS`), and the run prints the 11 with their names.
+⇒ **The rule the helm set at 7c ("credited" is not "modelled") now has its number: of the VEX table's 75,098 credited
+instructions, 36,645 are register-form and 73 memory-form instructions are modelled; 38,380 are credited on a form the
+model does not execute.**

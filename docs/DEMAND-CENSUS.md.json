@@ -193,6 +193,9 @@
   "covered_mem": 1680588,
   "silicon_mem": 0,
   "vex_mem": 0,
+  "covered_mem_modelled": 1662657,
+  "silicon_mem_modelled": 0,
+  "vex_mem_modelled": 0,
   "class": "compiler"
  },
  "coreutils": {
@@ -734,6 +737,9 @@
   "covered_mem": 283966,
   "silicon_mem": 0,
   "vex_mem": 72,
+  "covered_mem_modelled": 279349,
+  "silicon_mem_modelled": 0,
+  "vex_mem_modelled": 8,
   "class": "compiler"
  },
  "glibc": {
@@ -2758,6 +2764,9 @@
   "covered_mem": 198460,
   "silicon_mem": 136,
   "vex_mem": 4189,
+  "covered_mem_modelled": 195499,
+  "silicon_mem_modelled": 2,
+  "vex_mem_modelled": 0,
   "class": "compiler"
  },
  "dav1d": {
@@ -4391,6 +4400,9 @@
   "covered_mem": 72529,
   "silicon_mem": 4297,
   "vex_mem": 8990,
+  "covered_mem_modelled": 67866,
+  "silicon_mem_modelled": 4081,
+  "vex_mem_modelled": 0,
   "class": "asm"
  },
  "ffmpeg": {
@@ -6145,6 +6157,9 @@
   "covered_mem": 1135087,
   "silicon_mem": 8562,
   "vex_mem": 18510,
+  "covered_mem_modelled": 1114999,
+  "silicon_mem_modelled": 8188,
+  "vex_mem_modelled": 61,
   "class": "asm"
  },
  "vlc-codec": {
@@ -6283,6 +6298,9 @@
   "covered_mem": 52360,
   "silicon_mem": 0,
   "vex_mem": 0,
+  "covered_mem_modelled": 51742,
+  "silicon_mem_modelled": 0,
+  "vex_mem_modelled": 0,
   "class": "asm"
  },
  "vlc-video_chroma": {
@@ -6527,6 +6545,9 @@
   "covered_mem": 40511,
   "silicon_mem": 0,
   "vex_mem": 0,
+  "covered_mem_modelled": 37886,
+  "silicon_mem_modelled": 0,
+  "vex_mem_modelled": 0,
   "class": "asm"
  },
  "vpx": {
@@ -7563,6 +7584,9 @@
   "covered_mem": 238961,
   "silicon_mem": 4344,
   "vex_mem": 3780,
+  "covered_mem_modelled": 231620,
+  "silicon_mem_modelled": 4184,
+  "vex_mem_modelled": 2,
   "class": "asm"
  },
  "x264": {
@@ -9295,6 +9319,9 @@
   "covered_mem": 137924,
   "silicon_mem": 1063,
   "vex_mem": 2900,
+  "covered_mem_modelled": 135547,
+  "silicon_mem_modelled": 670,
+  "vex_mem_modelled": 2,
   "class": "asm"
  },
  "_asm_pooled": {
@@ -10108,6 +10135,9 @@
   "covered_mem": 778422,
   "silicon_mem": 16,
   "vex_mem": 12,
+  "covered_mem_modelled": 763174,
+  "silicon_mem_modelled": 16,
+  "vex_mem_modelled": 0,
   "class": "kernel"
  },
  "_controls": {
