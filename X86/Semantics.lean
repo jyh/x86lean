@@ -1078,7 +1078,7 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
   -- ⭐⭐ V4 (D342) — the VEX.128 memory twin: `vexbin`'s value with the m128 at `ea` as the
   -- second source, and NO alignment check (VEX Exception Type 4; `vbinm` keeps the legacy #GP).
   | .vexbinm k dst src1 ea =>
-      if k.vexMemTaken then
+      if k.vexMemTaken || k.vexSilMemTaken then
         let a := ea.addr s nr
         (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.readMem128 a))).setRip nr
       else s.halt (.unimplemented s!"v{k.mnemonic} m128: a VEX memory twin not taken (D342)")
@@ -1161,6 +1161,24 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       (s.setReg .d dst (pmovmskbLane (s.getXmm src))).setRip nr
   | .vexmovmskb256 dst src =>
       (s.setReg .d dst (pmovmskbLane (s.getXmm src) ||| (pmovmskbLane (s.getYmmHi src) <<< 16))).setRip nr
+  -- ⭐⭐ V8c (D350) — the VEX.256 memory twin and VPBROADCASTD, silicon-refereed.  The memory twin is `vexbin256`'s
+  -- per-lane rule with `readMem128` at `a` (the low lane) and at `a + 16` (the high lane); no alignment check.
+  | .vexbinm256 k dst src1 ea =>
+      if k.vexSilMemTaken then
+        let a := ea.addr s nr
+        (s.setYmm dst (vbinApply k (s.getXmm src1) (s.readMem128 a))
+                      (vbinApply k (s.getYmmHi src1) (s.readMem128 (a + 16)))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic} m256: a VEX.256 memory twin not taken (D350)")
+  | .vexbcastd dst src =>
+      (s.setXmmVex128 dst (bcast32x4 ((s.getXmm src).setWidth 32))).setRip nr
+  | .vexbcastd256 dst src =>
+      let b := bcast32x4 ((s.getXmm src).setWidth 32)
+      (s.setYmm dst b b).setRip nr
+  | .vexbcastdm dst ea =>
+      (s.setXmmVex128 dst (bcast32x4 ((s.readMem .d (ea.addr s nr)).setWidth 32))).setRip nr
+  | .vexbcastdm256 dst ea =>
+      let b := bcast32x4 ((s.readMem .d (ea.addr s nr)).setWidth 32)
+      (s.setYmm dst b b).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=

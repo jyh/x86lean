@@ -1282,13 +1282,26 @@ inductive VexOp where
   register is written. -/
   | vexmovmskb (dst : GPR) (src : XmmReg)
   | vexmovmskb256 (dst : GPR) (src : XmmReg)
+  /-- ⭐⭐ V8c (D350) — THE VEX.256 MEMORY TWIN of a packed binary operation: `vexbin256`'s per-lane value
+  with the 32 bytes at `ea` as the second source, bytes 15:0 the low lane's and 31:16 the high lane's.  No
+  alignment check, as `vexbinm` (D342).  Only `VBinKind.vexSilMemTaken` is taken; silicon-refereed. -/
+  | vexbinm256 (k : VBinKind) (dst src1 : XmmReg) (ea : Ea)
+  /-- ⭐⭐ V8c (D350) — VPBROADCASTD (VEX 66 0F38 58 /r): every dword of `dst` := the source's low dword, from an
+  xmm register or from the 32 bits at `ea` (no alignment check).  Four dwords at VEX.128 (bits 255:128 zeroed),
+  eight at VEX.256.  Silicon-refereed. -/
+  | vexbcastd (dst src : XmmReg)
+  | vexbcastd256 (dst src : XmmReg)
+  | vexbcastdm (dst : XmmReg) (ea : Ea)
+  | vexbcastdm256 (dst : XmmReg) (ea : Ea)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
 def VexOp.operands : VexOp → List Operand
   -- V3: the VEX.128 register twins name no address.
   | .vexmov .. | .vexddup .. | .vexbin .. => []
-  | .vexbinm _ _ _ ea => [.mem ea]
+  | .vexbinm _ _ _ ea | .vexbinm256 _ _ _ ea => [.mem ea]
+  | .vexbcastdm _ ea | .vexbcastdm256 _ ea => [.mem ea]
+  | .vexbcastd .. | .vexbcastd256 .. => []
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
@@ -1299,7 +1312,9 @@ def VexOp.operands : VexOp → List Operand
 /-- V5 (D343) — `Op.anyLocked` over the nested VEX forms: V3's and V4's arms, verbatim. -/
 def VexOp.anyLocked : VexOp → Bool
   | .vexmov .. | .vexddup .. | .vexbin .. => false
-  | .vexbinm _ _ _ ea => ea.lock
+  | .vexbinm _ _ _ ea | .vexbinm256 _ _ _ ea => ea.lock
+  | .vexbcastdm _ ea | .vexbcastdm256 _ ea => ea.lock
+  | .vexbcastd .. | .vexbcastd256 .. => false
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
@@ -1310,7 +1325,8 @@ V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
 def VexOp.mnemonic : VexOp → String
   | .vexmov k .. | .vexmov256 k .. => "v" ++ k.mnemonic
   | .vexddup .. | .vexddup256 .. => "vmovddup"
-  | .vexbin k .. | .vexbinm k .. | .vexbin256 k .. => "v" ++ k.mnemonic
+  | .vexbin k .. | .vexbinm k .. | .vexbin256 k .. | .vexbinm256 k .. => "v" ++ k.mnemonic
+  | .vexbcastd .. | .vexbcastd256 .. | .vexbcastdm .. | .vexbcastdm256 .. => "vpbroadcastd"
   | .vexaes k .. => k.vexMnemonic
   | .vexclmul .. => "vpclmulqdq"
   | .vexshufb .. => "vpshufb"
@@ -2266,6 +2282,17 @@ VEX twins' memory forms are not taken because no census candidate needs them. -/
 def VBinKind.vexMemTaken : VBinKind → Bool
   | .xor => true
   | _ => false
+
+/-- ⭐⭐ V8c (D350) — the packed binary kinds whose VEX MEMORY twins (VEX.128 `vexbinm` and VEX.256 `vexbinm256`)
+are taken on SILICON's word: x86isa refuses all eight encodings (D350 P1) while it executes `vpxor m,xmm` in the
+same run, and `hwprobe/` (`vexsilc`) referees them, at aligned and odd offsets.  Kept apart from `vexMemTaken`,
+which records what the DIFFERENTIAL tests. -/
+def VBinKind.vexSilMemTaken : VBinKind → Bool
+  | .maddwd | .mulhrsw | .maddubsw | .packssdw => true
+  | _ => false
+
+/-- ⭐ V8c (D350) — a dword replicated into all four dwords of 128 bits (VPBROADCASTD's lane). -/
+def bcast32x4 (d : BitVec 32) : BitVec 128 := d ++ d ++ d ++ d
 
 /-- P1 BATCH 14: which (kind, width) pairs of the bit-counting group EXIST.
 
