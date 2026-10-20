@@ -1392,7 +1392,16 @@ def siliconTable : List Row :=
   , { mnemonic := "vpackuswb", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per lane, src1's eight words then src's, each signed word saturated to 0..255 · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
   , { mnemonic := "vpmovmskb", shapes := "r,x", note := "VEX.128 and VEX.256: the sign bit of each byte of src into a GPR, zero-extended; 16 bits, or 32 at VEX.256 (bits 31:16 from the high lane); no vector register written · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" }
+  -- ⭐ D348 (V8b): the VEX.128 and VEX.256 twins of four D335 kinds, refereed by silicon (hwprobe `vexsilb`).
+  , { mnemonic := "vpmaddwd", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, each two SIGNED word products of src1 and src added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H · register forms only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" }
+  , { mnemonic := "vpmulhrsw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word := bits 16:1 of ((src1·src) >> 14) + 1, signed; 8000H·8000H reads 8000H · register forms only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHRSW" }
+  , { mnemonic := "vpmaddubsw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word the signed-saturated sum of two products, src1's bytes UNSIGNED and src's SIGNED · register forms only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDUBSW" }
+  , { mnemonic := "vpackssdw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per lane, src1's four dwords then src's, each signed dword saturated to a signed word — at VEX.256 the low lane packs the two low lanes, never a 256-bit pack · register forms only · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

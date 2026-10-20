@@ -99,7 +99,10 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexparith .sub .x3 .x1 .x2)).mnemonic, (Op.vex (.vexparith .mul .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .unpcklw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .unpcklb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packuswb .x3 .x1 .x2)).mnemonic,
-      (Op.vex (.vexmovmskb .rax .x1)).mnemonic] := by decide
+      (Op.vex (.vexmovmskb .rax .x1)).mnemonic,
+      -- D348 (V8b): four D335 kinds' VEX twins, one row per mnemonic.
+      (Op.vex (.vexbin .maddwd .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhrsw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .maddubsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packssdw .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
