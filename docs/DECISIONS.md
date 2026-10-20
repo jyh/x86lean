@@ -22826,12 +22826,18 @@ NEW unit is registered in BOTH registries, in one commit, before any katmai row.
 - `X86.Syntax` 569.0 → 591.0, **+22.0 ± 29.1** against 106.4, `ok`. Prediction 5 said `X86.Syntax` "does not grow" because
   no constructor is added; a +22 reading inside a ±29 band is not evidence either way, and the katmai row at 6 repeats is
   the verdict of record. `Tests.Coverage` 36,800 → 36,800; `X86.Coverage` 16.0 → 15.7.
-- ⚠️ `Tests.Vectors` reads **UNMEASURABLE** (+11.3 ms, band ±10.7 against an 8.4 budget). V8b does not touch
-  `Tests/Vectors.lean` (`git diff --quiet b14c4e0 HEAD -- Tests/Vectors.lean`), so it is a reading of this box tonight,
-  not of the commit.
+- ⚠️ `Tests.Vectors` reads **UNMEASURABLE** (+11.3 ms, band ±10.7 against an 8.4 budget). Its source is unchanged
+  (`git diff --quiet b14c4e0 HEAD -- Tests/Vectors.lean`). ⛔ This line first said "a unit V8b does not touch". That is
+  false: `Tests.Vectors` imports `X86`, so it is DOWNSTREAM of the changed `X86.Syntax` (D346's lesson). katmai's K1 then
+  read it UNMEASURABLE in the same direction (+6.8 ± 5.4 against 9.9). The ku arm reads its Δku as **+0**, so whatever
+  moves is elaboration time, not kernel work. Under D251 an UNMEASURABLE ms verdict is decided by ARM A′ on the same pair.
 - The NEW unit `Tests.AnchorsVexSilB`: head **351.0 ms**. Its printed line, `Tests.AnchorsVexSilB 1053 @on yukon.lan`, is
   copied into `scripts/kernel_ceilings.txt`.
 - `ku_delta.py --arm a-prime` (same pair) refused only that unit, **250,470** unfoldings, registered as
   `Tests.AnchorsVexSilB @ku 250470`. Every other Δku is inside its budget: `Tests.Coverage` +55,776 of 748,819 ·
   `Tests.CoverageVex` +8,862 of 259,284; every Anchors unit +0. `ku_delta.py --check-registry` rc 0.
 - The katmai ceiling and the ledger row are taken on the landing tree after #113 merges.
+**K1 on katmai (1a70f4b → 714a69f, `--repeats 6`, loads 1.77–5.82): a READING, not the row.** It refused the NEW unit as
+expected, since its ceiling was registered for yukon.lan only, and printed `Tests.AnchorsVexSilB 1262 @on katmai` (head
+420.5 ms). `X86.Syntax` 658.0 → 667.5, +9.5 ± 27.6 of 123.0, `ok`; `Tests.Vectors` UNMEASURABLE (above). The katmai line is
+committed, and the row is re-measured on the tree that holds it (K2), as V7's was.

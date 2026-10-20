@@ -470,3 +470,6 @@ Tests.AnchorsVexSil 21315 @on runnervm8k3b6
 # D348 (V8b): the NEW unit kernel_delta printed on refusing it, b14c4e0 (V8a's head) → 7c54f8a, yukon.lan,
 # --repeats 3, copied from its output, not retyped: Tests.AnchorsVexSilB head 351.0 ms ⇒ max(351.0 × 3, 50).
 Tests.AnchorsVexSilB 1053 @on yukon.lan
+# D348 (V8b): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (1a70f4b → 714a69f,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilB head 420.5 ms ⇒ max(420.5 × 3, 50).
+Tests.AnchorsVexSilB 1262 @on katmai
