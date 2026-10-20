@@ -22982,3 +22982,10 @@ theorems; a planted YMM3 bit in `vpackssdw256_m_lane_u` exactly `v8c_vpackssdw25
 the field index fixed and checked by its length (66). A NEW arm for the frame theorems: a `vexbcastdm256` that also writes
 one byte at its address reds exactly `v8c_frame_bcastdm256`. Two defects of my own, caught by a build: the generator's
 span variable shadowed the instruction length (`n`), and eight pin theorems failed with `v8cAgrees t 0`.
+**Result, prediction 5 (kernel cost, yukon.lan, `0f0a069` → `95ef3d3`, `kernel_delta.py --repeats 3`, loads 5.16–9.43): the
+NEW unit is registered in BOTH registries, in one commit, before any katmai row.** On the redesigned unit, the NEW
+`Tests.AnchorsVexSilC` reads head **5,450 ms** (was 36,300) and **2,478,482** unfoldings (was 13,726,613). Its printed lines,
+`Tests.AnchorsVexSilC 16350 @on yukon.lan` and `Tests.AnchorsVexSilC @ku 2478482`, are copied. `X86.Syntax` 572.0 →
+557.0, −15.0 ± 57.4 of 107.0, `ok`: prediction 5's "under +15 ms" is consistent but not established by a band this wide,
+and the katmai row decides it. Δku `X86.Syntax` +1,340 of 7,798 · `Tests.Coverage` +14,728 of 752,835. `ku_delta.py
+--check-registry` rc 0.
