@@ -22878,3 +22878,11 @@ repos; this paper's claims about theorems are read against it once it exists, an
 against their Lean statements. (2) Whether to re-pin the paper's figures to a current commit, which would describe the
 VEX work, or post it as the record of the pinned commits (this pass's choice, declared in Data Availability).
 (3) arXiv ships the `.tex` source: every `%` and `\src{}` comment is public there, as it already is in this repository.
+**Non-author read (paper, 10-20 16:09, at `cc1227d`): weakness-first gone in all three places; six findings, none blocking;
+fork (a) CONCUR.** All six applied: "manifest" is introduced as "a machine-readable manifest" on first use; "two origins
+and not three" says which two models are not independent; "wrong-model controls" is spelled out at first use; the abstract
+says the PROSE is checked, not that the claims stop being prose; the re-check figure is scoped to the project's working
+records; the Scope paragraph opens without a negation. And, ahead of ruling ①(b)'s gate, the three page-1 sentences that
+paraphrase a theorem now name it in `\src`: `step_dshift_mem_undefined_refuses`; `runP_safe` and the six routines'
+theorems; and "a property the proof interface cannot state" is marked a claim of absence, not a theorem. Each name was
+checked to exist as a `theorem` in the file cited. `check_claims` CLEAN 107; `check_verification_claims` rc 0; tectonic rc 0.

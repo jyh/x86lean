@@ -42,17 +42,19 @@
 x86lean is an executable semantics of x86-64 user-level instructions in Lean~4, built from public
 sources and validated by differential testing against ACL2 x86isa. Its contribution is a treatment of
 validation in which the claims made about a semantics, what it covers, how it was checked and where the
-check has nothing to check against, are derived from the artifact and checked in continuous integration
-rather than written as prose, with the reach of those checks stated beside them. We describe a design for undefined bits that keeps one
+check has nothing to check against, are derived from the artifact, and the prose that states them is checked against the artifact in continuous
+integration, with the reach of those checks stated beside them. We describe a design for undefined bits that keeps one
 definition for execution and proof, derives the undefined flags from the semantics instead of declaring
 them, checks undefined registers against a declared rule, and states a case the model declines as a theorem; a
-differential harness whose disagreement classes and wrong-model controls are explicit; the places where
+differential harness whose disagreement classes, and controls that run a deliberately wrong model, are explicit; the places where
 the reference model is not the specification, including one where it contradicts itself; and a
 measurement, on a sample of six routines, of what safety proofs over the semantics cost. The motivation is
-measured too: in this project, claims that no check covered failed a re-check at least one time in three, in
-each of three samples. The model is smaller than the K semantics and its proofs are fewer than x86isa's; the
+measured too: in this project's working records, claims that no check read failed a re-check at least one time
+in three, in each of three samples. The model is smaller than the K semantics and its proofs are fewer than x86isa's; the
 paper states its scope against both.
-\src{Each claim is the subject of a section below and is cited there; the six routines: docs/CLAIMS.tsv[proof\_sample\_routines].}
+\src{Each claim is the subject of a section below and is cited there; the six routines: docs/CLAIMS.tsv[proof\_sample\_routines];
+the three samples: Section 5, the paragraph on claims that no check read; the declined case: X86/Theorems.lean
+step\_dshift\_mem\_undefined\_refuses.}
 \end{abstract}
 
 % ---------------------------------------------------------------------------------------------
@@ -73,20 +75,26 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
 \item an undefined-bit design in which one Lean definition serves execution and proof, the undefined flags
   are derived from the semantics rather than declared, undefined registers are checked from two sources,
   and a case the model declines is stated as a theorem (Section~\ref{sec:undef});
+  \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
 \item a differential harness whose classes of disagreement, units and wrong-model controls are explicit,
-  a statement that the three models it could be compared against are two origins and not three, and the
+  a statement that two of the three models it could be compared against are not independent (one is
+  translated from the other), and the
   cases where the reference model is not the specification (Section~\ref{sec:validation});
 \item coverage figures derived from two sources, and validation figures re-derived from their records,
-  checked in CI against the prose that states them, this paper's manifest-cited figures among them, with a
+  checked in CI against the prose that states them, the figures this paper quotes from a machine-readable
+  manifest among them, with a
   measurement of how often unchecked claims in this project failed a re-check (Section~\ref{sec:gated});
 \item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
   proof interface cannot state (Section~\ref{sec:proofs}).
+  \src{X86/Program.lean runP\_safe; Tests/Program.lean countdown\_writes\_no\_memory, fill\_safe, memcpy\_safe,
+  scan\_writes\_no\_memory, prologue\_preserves\_caller\_frame, guarded\_writes\_only\_in\_buffer; the property that
+  cannot be stated is a claim of absence, not a theorem: Section 6, ``What cannot be stated''}
 \end{itemize}
 Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
 combination is checkable in one clone of a public repository.
 
 \paragraph{Scope.}
-x86lean is not the largest or the most strongly proved x86-64 semantics. It covers 197 mnemonics, where
+Against its neighbours, x86lean is smaller. It covers 197 mnemonics, where
 K's coverage target lists 774, and its proof support is a safety theorem for each of six small routines,
 where x86isa proves full functional correctness of an unbounded loop. Other formal x86-64 models exist
 beyond the three we compare against, and one of them, libLISA, describes itself as the most extensive to
