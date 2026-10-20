@@ -159,6 +159,25 @@ destination's upper half kept); `--reach` counts the rows each wrong rule, and D
 | `mk_vexsil_rows.py` | the rows, the rule and the textbook; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
 | `vexsil_probe.c` | runs each row and compares all 256 bits of YMM1-3, RAX, MXCSR and RFLAGS |
 
+**The second VEX-twin path (D348, V8b)** is a ninth program, sharing nothing with the other eight: `vexsilb_ops.S` (8
+functions: VPMADDWD, VPMULHRSW, VPMADDUBSW and VPACKSSDW at `%ymm2,%ymm1,%ymm3`, each at VEX.128 and VEX.256),
+`mk_vexsilb_rows.py` (66 rows, derived from the SDM's rules and written down in its docstring with the three places the
+SDM was read by its pseudo-code; every row is computed TWICE, by a per-lane rule over 128-bit integers and by a textbook
+reading the flat pseudo-code over bytes, and `build` REFUSES any row where they differ; `--refuse-wrong` shows `build`
+refusing D348's four wrong rules, each on a named row: VPMADDUBSW's signedness swapped, VPACKSSDW packed across lanes,
+VPMULHRSW without its rounding increment, VPMADDWD saturating where it wraps), and `vexsilb_probe.c` (V7's probe,
+restated), which compares all 256 bits of YMM3, YMM1 and YMM2 whole, RAX and MXCSR (both unchanged: the four forms are
+integer) and the six arithmetic flags. x86isa refuses all 8 encodings (D348 P1). Controls: `--plant` (bit 128 of
+`vpackssdw256_lane`'s expectation), `--plant-op`, and `--plant-hi` (`vpmaddwd128_edge0`, expecting the destination's upper
+half kept); `--reach` counts the rows each wrong rule and D348's two red-backwards mutants disagree on, and `--selftest`
+asserts each mutant reds exactly the rows it reaches.
+
+| file | role |
+|---|---|
+| `vexsilb_ops.S` | one function per VEX twin and length (register conventions in its header) |
+| `mk_vexsilb_rows.py` | the rows, the rule and the textbook; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsilb_probe.c` | runs each row and compares all 256 bits of YMM1-3, RAX, MXCSR and RFLAGS |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -170,6 +189,7 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_sha_rows.py > sha_rows.h && cc -O1 -o sha_probe sha_probe.c sha_ops.S && ./sha_probe)
 (cd hwprobe && python3 mk_aes_rows.py > aes_rows.h && cc -O1 -o aes_probe aes_probe.c aes_ops.S && ./aes_probe)
 (cd hwprobe && python3 mk_vexsil_rows.py > vexsil_rows.h && cc -O1 -o vexsil_probe vexsil_probe.c vexsil_ops.S && ./vexsil_probe)
+(cd hwprobe && python3 mk_vexsilb_rows.py > vexsilb_rows.h && cc -O1 -o vexsilb_probe vexsilb_probe.c vexsilb_ops.S && ./vexsilb_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is
