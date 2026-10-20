@@ -214,6 +214,17 @@ FORMS = [
     ("V7:vpsraw256i", "vpsraw $0x3, %ymm1, %ymm0", "c5fd71e103", "refuses"),
     ("V7:vpmovmskb128", "vpmovmskb %xmm1, %eax", "c5f9d7c1", "refuses"),
     ("V7:vpmovmskb256", "vpmovmskb %ymm1, %eax", "c5fdd7c1", "refuses"),
+    # ⭐ D348 (V8b) P1, MEASURED 2026-10-19 before any design: the VEX.128 and VEX.256 register twins of four D335 kinds
+    # each REFUSE at 88/88 (CONTROL:mov and V6:vpaddw256 executed, V7:vpackuswb256 and movnti refused, in the same run),
+    # so V8b is refereed by silicon. `vpmaddwd` at VEX.128 had never been asked; the other seven agree with batch 21/24/25.
+    ("V8b:vpmaddwd128", "vpmaddwd %xmm1, %xmm2, %xmm0", "c5e9f5c1", "refuses"),
+    ("V8b:vpmaddwd256", "vpmaddwd %ymm1, %ymm2, %ymm0", "c5edf5c1", "refuses"),
+    ("V8b:vpmulhrsw128", "vpmulhrsw %xmm1, %xmm2, %xmm0", "c4e2690bc1", "refuses"),
+    ("V8b:vpmulhrsw256", "vpmulhrsw %ymm1, %ymm2, %ymm0", "c4e26d0bc1", "refuses"),
+    ("V8b:vpmaddubsw128", "vpmaddubsw %xmm1, %xmm2, %xmm0", "c4e26904c1", "refuses"),
+    ("V8b:vpmaddubsw256", "vpmaddubsw %ymm1, %ymm2, %ymm0", "c4e26d04c1", "refuses"),
+    ("V8b:vpackssdw128", "vpackssdw %xmm1, %xmm2, %xmm0", "c5e96bc1", "refuses"),
+    ("V8b:vpackssdw256", "vpackssdw %ymm1, %ymm2, %ymm0", "c5ed6bc1", "refuses"),
     # The #UD encodings: a two-operand form with VEX.vvvv != 1111b (clang's c5f96fc1 / c5fb12c1 with vvvv rewritten
     # to 0010b — no assembler emits them), and a legacy 66 / REX prefix before VEX (clang's c5e9fec1 with the byte
     # prepended). x86isa REFUSES all four at 88/88, agreeing with SDM Vol. 2A §2.3.2 / §2.3.6.

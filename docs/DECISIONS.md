@@ -22721,3 +22721,64 @@ under +10); `X86.Theorems` +10.0 ± 44.1 of 350.4; `Tests.Coverage` +200 ± 243.
 `Tests.Coverage` +61,335 · `Tests.CoverageVex` +5,467 · `X86.Theorems` +448 · `X86.Syntax` +206 · `X86.Coverage` +5 ·
 `X86.Serialize` +5. `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict. Master
 is held still by the helm's merge window (10-19 13:21) until this PR lands.
+
+## D348 — V8b: the VEX.128 and VEX.256 twins of four silicon-refereed main-table forms, register forms (predictions before any model, row or hardware work)
+
+**Why these.** After V8a (D347) the largest uncovered VEX demand whose legacy twin this model already has is four of the
+eleven D335 (V1a) kinds: `vpmaddwd` 7,209 · `vpmulhrsw` 5,010 · `vpmaddubsw` 3,048 · `vpackssdw` 3,026 (pooled over the
+ten corpora, every bucket, `docs/DEMAND-CENSUS.md.json` at master). Each legacy form is a `VBinKind` refereed by silicon
+(`siliconTable`, `Tests/AnchorsSimd.lean`), so each twin is V7's shape: the legacy 128-bit function with VEX.vvvv as the
+first source.
+
+**The referee, measured before anything was designed (P1, 2026-10-19, yukon, `acl2@c8897a34d3ef`, a scratch driver that
+imports `oracle_availability.py` unmodified).** All 8 register encodings (the four mnemonics at both lengths, clang's bytes)
+REFUSE at 88 of 88. In the same run `CONTROL:mov` and V6's `vpaddw256` executed at 88 of 88, and V7's `vpackuswb256` and
+`movnti` refused at 88 of 88. Seven of the eight were already in the table as `refuses`; `vpmaddwd` at VEX.128 had never
+been asked and is added. ⇒ **V8b is a SILICON wave on V7's pattern (`hwprobe/`), not a differential one.** The eight rows
+enter `oracle_availability.py` as `refuses`, so the reading is re-taken every run.
+
+**The scope, and the measurement that set it.** The census credits by (mnemonic, bucket) and says it is an upper bound that
+is "not measured" on operand shape. For V8b it was measured: over the ten corpora, with the census's own disassembler,
+the five candidates' instructions total 22,265, equal to the census JSON's total for them. At the VEX buckets alone:
+
+```
+                     register   memory     the census credits (VEX.128 + ymm)
+  vpmaddwd             3,311     3,728       7,039
+  vpmulhrsw            2,377       969       3,346
+  vpmaddubsw           2,141       282       2,423
+  vpackssdw            2,404       226       2,630
+  vpbroadcastd           169     2,412       2,581   (+14 GPR-source, EVEX only, not in these buckets)
+```
+⇒ `vpbroadcastd` LEAVES V8b. 93 % of its VEX demand is the m32 source, so a register-only broadcast would buy 169 and be
+credited 2,581. It goes to V8c with its memory form. V8b takes the four twins' REGISTER forms. The census will credit
+15,438 at the VEX buckets for them, and this model will cover 10,233 of those by shape. That gap is a declared limit,
+printed here beside the credit. (Fork posted on the bus 2026-10-19, proceeding on rec (a).)
+
+**The rules.** Each VEX.128 form is its legacy twin's 128-bit function (`vbinApply`) with VEX.vvvv as the first source, in
+the place the legacy form gives its DESTINATION, written through `setXmmVex128` (D341). Each VEX.256 form applies the same
+function per 128-bit lane, written through `setYmm` (D344). Two are asymmetric, and the asymmetry is the content:
+- **`vpmaddubsw`:** `src1` (VEX.vvvv) supplies the UNSIGNED bytes and `src` (ModRM.rm) the SIGNED ones, as `pmaddubsw`'s
+  destination and source do (SDM Vol. 2B PMADDUBSW).
+- **`vpackssdw`:** at VEX.256 the low lane packs `src1`'s low lane then `src`'s low lane, and the high lane packs the two
+  high lanes. It is not a 256-bit pack of `src1` then `src` (SDM Vol. 2B PACKSSDW, VEX.256 encoded version).
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on BOTH vendors (an Intel leg named by its brand string, and an
+   AMD leg). Each row reads the destination's full YMM register with bits 255:128 seeded non-zero, so VEX.128's zeroing and
+   VEX.256's writing are both read. No row reads a flag; none is written.
+2. **Generator, before any processor.** A textbook implementation per form, written independently of the rule, reproduces
+   every row. `--refuse-wrong` refuses, each on a named row:
+   - (a) `vpmaddubsw` with the signedness of its two sources swapped;
+   - (b) `vpackssdw` at VEX.256 packed across lanes (`src1`'s eight dwords, then `src`'s);
+   - (c) `vpmulhrsw` without its rounding increment (`(a·b) >> 15` in place of `((a·b) >> 14 + 1) >> 1`);
+   - (d) `vpmaddwd` saturating where it wraps (the all-`8000H` case reads `80000000H`).
+3. **Model.** Each twin's arm is `vexbin`/`vexbin256` with its kind added to `VBinKind.vexSilTaken`: no new constructor and
+   no new arithmetic. All rows are pinned by `decide` in a NEW metered unit. **Red backwards:** the upper half preserved (a
+   VEX.128 mutant) and the low lane copied (a VEX.256 mutant) each red exactly the rows they reach.
+4. **Census.** The four move to the silicon line at both buckets (VEX.128 and ymm), 15,438 pooled. (a) is unchanged in every
+   column, and the published counts (200 mnemonics, 1,199 vectors) do not move.
+5. **Kernel cost.** The NEW unit is registered in BOTH registries before the katmai row is measured on the landing tree
+   (D344's ordering lesson). `X86.Syntax` does not grow (no constructor); `vexSilTaken` grows by four arms.
+
+**Not claimed:** the memory forms (5,205 of the four twins' VEX demand, above), `vpbroadcastd` (V8c), the EVEX/zmm forms, and
+bits 511:256.
