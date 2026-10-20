@@ -6,6 +6,10 @@
 %
 % Framing (ruled 2026-09-12, docs/TACAS-PRICING.md 2.1): a validated executable semantics. The Hoare
 % logic is the second paper's claim; the measured tier law is a section here, not the headline.
+% Revised 2026-10-20 for an arXiv posting (D351): the abstract, the introduction and the conclusion now
+% state the contribution first and the comparison with K and x86isa after it, as a Scope paragraph, with
+% every figure unchanged. Until then the abstract read "and we say so first" and the introduction opened
+% with the concessions.
 %
 % Status: DRAFT, every section written; no placeholder remains (the last, in Section 7, was replaced
 % 2026-09-12, D222-D223). A revision pass has read every section against its markers, for length and
@@ -36,18 +40,19 @@
 
 \begin{abstract}
 x86lean is an executable semantics of x86-64 user-level instructions in Lean~4, built from public
-sources and validated by differential testing against ACL2 x86isa. It covers fewer instructions than
-the K semantics and has far weaker proof support than x86isa or K, and we say so first. What it contributes is a
-treatment of validation in which the claims about a semantics, what it covers, how it was checked and
-where the check has nothing to check against, are derived and checked rather than written, as far as the
-gates reach, and the paper says where they stop. We describe a design for undefined bits that keeps one
+sources and validated by differential testing against ACL2 x86isa. Its contribution is a treatment of
+validation in which the claims made about a semantics, what it covers, how it was checked and where the
+check has nothing to check against, are derived from the artifact and checked in continuous integration
+rather than written as prose, with the reach of those checks stated beside them. We describe a design for undefined bits that keeps one
 definition for execution and proof, derives the undefined flags from the semantics instead of declaring
 them, checks undefined registers against a declared rule, and states a case the model declines as a theorem; a
 differential harness whose disagreement classes and wrong-model controls are explicit; the places where
 the reference model is not the specification, including one where it contradicts itself; and a
-measurement, on a sample, of what safety proofs over the semantics cost. We also report how often this
-project's own ungated claims failed a re-check: in each of three samples, at least one time in three.
-\src{Each claim is the subject of a section below and is cited there.}
+measurement, on a sample of six routines, of what safety proofs over the semantics cost. The motivation is
+measured too: in this project, claims that no check covered failed a re-check at least one time in three, in
+each of three samples. The model is smaller than the K semantics and its proofs are fewer than x86isa's; the
+paper states its scope against both.
+\src{Each claim is the subject of a section below and is cited there; the six routines: docs/CLAIMS.tsv[proof\_sample\_routines].}
 \end{abstract}
 
 % ---------------------------------------------------------------------------------------------
@@ -63,16 +68,6 @@ also has to take on trust: are the claims made \emph{about} the semantics right?
 list of what was validated against what, a statement of which bits are undefined, a count of
 disagreements: each is ordinarily prose, and prose is not checked against the artifact it describes.
 
-We begin with the concessions, because a reader comparing x86lean with its neighbours will reach them
-first. It covers 197 mnemonics, where K's coverage target lists 774, and its proof support is a safety
-theorem for each of six small routines, where x86isa proves full functional correctness of an
-unbounded loop. Other formal x86-64 models exist beyond the three we compare against, and one of them,
-libLISA, describes itself as the most extensive to date, with over 118{,}000 instruction groups
-synthesized from a processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not
-read.
-\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
-Its decoding is trusted to Intel XED, and its validation is against one executable model.
-
 What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
 \begin{itemize}
 \item an undefined-bit design in which one Lean definition serves execution and proof, the undefined flags
@@ -82,13 +77,23 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
   a statement that the three models it could be compared against are two origins and not three, and the
   cases where the reference model is not the specification (Section~\ref{sec:validation});
 \item coverage figures derived from two sources, and validation figures re-derived from their records,
-  gated in CI against the prose that states them, this paper's manifest-cited figures among them, with a
-  measurement of how often ungated claims in this project failed a re-check (Section~\ref{sec:gated});
+  checked in CI against the prose that states them, this paper's manifest-cited figures among them, with a
+  measurement of how often unchecked claims in this project failed a re-check (Section~\ref{sec:gated});
 \item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
   proof interface cannot state (Section~\ref{sec:proofs}).
 \end{itemize}
 Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
 combination is checkable in one clone of a public repository.
+
+\paragraph{Scope.}
+x86lean is not the largest or the most strongly proved x86-64 semantics. It covers 197 mnemonics, where
+K's coverage target lists 774, and its proof support is a safety theorem for each of six small routines,
+where x86isa proves full functional correctness of an unbounded loop. Other formal x86-64 models exist
+beyond the three we compare against, and one of them, libLISA, describes itself as the most extensive to
+date, with over 118{,}000 instruction groups synthesized from a processor~\cite{liblisa};
+Section~\ref{sec:related} says what we have and have not read.
+\src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
+Its decoding is trusted to Intel XED, and its validation is against one executable model.
 
 % ---------------------------------------------------------------------------------------------
 \section{The Model}
@@ -498,7 +503,7 @@ upstream is noticed rather than silently absorbed.
 \src{Main.lean knownDivergences; docs/DECISIONS.md D108 4}
 The published record of that batch reads the same 78{,}584 cases with 0 unexplained and 0 leaks, the
 eight now counted as divergences and the matched count unchanged.
-\src{docs/DIFFERENTIAL-P2-BATCH11.md:138-139, the eleventh differential record, which is the seat's batch 13 and D108's; docs/CLAIMS.tsv[p2\_shift\_record\_cases, p2\_shift\_record\_unexplained];
+\src{docs/DIFFERENTIAL-P2-BATCH11.md:138-139, the eleventh differential record, which is batch 13 in docs/DECISIONS.md D108; docs/CLAIMS.tsv[p2\_shift\_record\_cases, p2\_shift\_record\_unexplained];
 matched 58,052 and explained 29,435 in both records, divergences 163 -> 171. This sentence read 81,752 until 2026-09-15, the count of
 DIFFERENTIAL-P2-BATCH13.md, which is a later batch's record with 36 more vectors (the two counters that file's header names); docs/DECISIONS.md D249}
 A divergence entry has a cost, and we state it. It excuses one field of one vector at every
@@ -840,17 +845,17 @@ the manual currently has no second source. A rule the reference model does not i
 forms, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
 gate on quoted figures checks the figures that cite the manifest, not every number in the text.
 
-The contribution is not a larger or more strongly proved semantics. It is a semantics whose claims about
-itself are, as far as its gates reach, outputs: derived from the artifact, checked against a second source where one exists, and
-stated as absent where one does not. The measurement that motivates it is modest and, we think,
-general: in this project, claims about its artifacts and its sources that nothing checked did not survive
-a re-check at least one time in three in each of the three samples we could count.
+The contribution is a semantics whose claims about itself are, as far as its checks reach, outputs:
+derived from the artifact, checked against a second source where one exists, and stated as absent where
+one does not. The measurement that motivates it is modest and, we think, general: in this project, claims
+about its artifacts and its sources that nothing checked did not survive a re-check at least one time in
+three in each of the three samples we could count.
 
 % ---------------------------------------------------------------------------------------------
 % Mandatory for ETAPS 2027 papers: placed just before the references, outside the page limit
 % (docs/TACAS-PRICING.md 3a, read at etaps.org/2027/cfp/).
 \section*{Data Availability}
-% The category is ruled: case-study track, not double-blind (docs/TACAS-PRICING.md 3a, council 2026-09-13), so
+% The category is ruled: case-study track, not double-blind (docs/TACAS-PRICING.md 3a, ruled 2026-09-13), so
 % nothing here is anonymized. The submission commit is not yet fixed, and an archived DOI waits on the repository's
 % archive toggle.
 The model, its proofs, the differential harness and every record cited here are public at
@@ -861,7 +866,9 @@ against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the refer
 x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revision.txt} and fetched
 by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the image at that commit was built
 with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
-this paper that word names x86lean's source of undefined bits.
+this paper that word names x86lean's source of undefined bits. The figures describe the model at the
+commits the manifest names; the repository has grown since, by VEX-encoded instructions among others,
+and what was added after those commits is not described here.
 \src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);
 LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
 

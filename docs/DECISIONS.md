@@ -22848,3 +22848,33 @@ committed, and the row is re-measured on the tree that holds it (K2), as V7's wa
   repeat. `Tests.Coverage` 38050.0 → 38300.0, +250.0 ± 370.4 of 2739.6.
 - A′: `Tests.AnchorsVexSilB` 250,470 (NEW, registered); `Tests.Coverage` +55,776 of 748,819; `X86.Syntax` 41,723 → 41,703.
 - Prediction 5's "`X86.Syntax` does not grow" HOLDS at the verdict of record: +0.5 ms at 6 repeats.
+
+## D351 — The paper's framing for an arXiv posting: the contribution first, the scope after it (council 2026-10-20 ②)
+
+**Why.** The council of 2026-10-20 (ruling ②, O38) opened arXiv for this paper after its TACAS 2027 rejection: it goes
+up after the standing rule that a prose claim about a machine-checked result names the Lean statement it paraphrases and
+carries a non-author's read against it (ruling ①(b)), with its first-page framing revised under that rule: no private
+vocabulary and no weakness-first. Every other venue is held. The arXiv click is the author's.
+**What was weakness-first.** The abstract said the model "covers fewer instructions than the K semantics and has far
+weaker proof support than x86isa or K, and we say so first", and the introduction's second paragraph opened "We begin
+with the concessions". The conclusion's closing paragraph opened "The contribution is not a larger or more strongly
+proved semantics".
+**What changed (`paper/x86lean-semantics.tex`).**
+- The abstract states the contribution first and ends with one sentence of scope against K and x86isa.
+- The introduction's concessions paragraph moves, unchanged in its figures, below the contributions list as a
+  `Scope` paragraph.
+- The conclusion's closing paragraph states the contribution without the negation.
+- Fleet words on those pages are replaced: "ungated claims" by "unchecked claims" / "claims that no check covered",
+  "gated in CI" by "checked in CI", "as far as its gates reach" by "as far as its checks reach". The section titled
+  "Gated Claims" and its body are NOT changed in this pass: they define the term, and the non-author read is where
+  that is judged.
+- Two source comments that arXiv ships with the source named the seat and the council; reworded.
+- Data Availability gains one sentence: the figures describe the model at the commits the manifest names, and the
+  repository has grown since (VEX-encoded instructions among others), which the paper does not describe.
+**Checks.** No figure is touched: `scripts/check_claims.py` CLEAN, 107 claims re-derived and matching. The PDF builds
+(tectonic rc 0); pages 1–2 were read as rendered.
+**Owed before the posting, not done here.** (1) ruling ①(b)'s rule is a GATE kent is building across the five public
+repos; this paper's claims about theorems are read against it once it exists, and a non-author reads the sentences
+against their Lean statements. (2) Whether to re-pin the paper's figures to a current commit, which would describe the
+VEX work, or post it as the record of the pinned commits (this pass's choice, declared in Data Availability).
+(3) arXiv ships the `.tex` source: every `%` and `\src{}` comment is public there, as it already is in this repository.
