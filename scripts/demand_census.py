@@ -65,6 +65,8 @@ SILICON_REFEREES = (
     ("D342", ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Core i7-8700B")),
     # D345 (V7): the VEX-silicon path (hwprobe runs 38995460544, 39014709807); the AMD legs by CPUID signature only.
     ("D345", ("AMD CPUID feda3203", "Intel Core i7-8700B")),
+    # D348 (V8b): the second VEX-silicon path (hwprobe run 39368903666); the AMD leg NAMED by /proc/cpuinfo.
+    ("D348", ("AMD EPYC 7763", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
