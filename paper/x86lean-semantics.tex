@@ -79,7 +79,7 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
   model are explicit, a statement that two of the three models it could be compared against are not
   independent (one is translated from the other), and the
   cases where the reference model is not the specification (Section~\ref{sec:validation});
-\item coverage figures derived from two sources, and validation figures re-derived from their records,
+\item row and form coverage figures derived from two sources, mnemonic and vector counts read from the table the model generates, and validation figures re-derived from their records,
   checked in CI against the prose that states them, the figures this paper quotes from a machine-readable
   manifest among them, with a measurement of how often unchecked claims in this project were wrong or
   irreproducible (Section~\ref{sec:gated});
@@ -116,8 +116,7 @@ SaltBench; the full suite is not yet built, and nothing in this paper depends on
 % run; X86/Coverage.lean Tier, DecodeTrust; TRUSTBASE.md; docs/COVERAGE.md.
 
 \paragraph{State and step.}
-The machine state is a record: the sixteen general-purpose registers, the instruction pointer, the
-arithmetic flags, memory, the FS and GS segment bases, sixteen 128-bit XMM registers, MXCSR, the undefined-bit
+The machine state is a record: the sixteen general-purpose registers, the instruction pointer, the six arithmetic flags and the direction flag, memory, the FS and GS segment bases, sixteen 128-bit XMM registers, MXCSR, the undefined-bit
 oracle, and a halt field that records why the model stopped, if it did.
 \src{X86/State.lean structure Cpu; X86/Basic.lean GPR and Xmms}
 The FS and GS bases are inputs: no instruction in the model writes them, so they are left out of the
@@ -181,8 +180,7 @@ forms accept it is enforced, but atomicity is not verified: the semantics is sin
 
 The full semantics is too large to print, so this section shows representative parts of it. Every listing
 below is extracted from the source by a script, from the file and declaration its marker names, and CI
-fails if a listing no longer equals its source. Lean documentation comments are removed from the
-listings, and any other omission is marked in the listing with the number of lines it replaces.
+fails if a listing no longer equals its source. Lean documentation comments are removed from the listings, an omission inside a listing is marked there with the number of lines it replaces, and where a listing stops before the end of its declaration the text says so.
 \src{scripts/check\_listings.py; .github/workflows/ci.yml, the listings step}
 
 \paragraph{The state.}
@@ -219,6 +217,7 @@ flags are computed
 from the inputs, then the result is written, then \lean{rip} is set to \lean{nr}, the address of the next
 instruction, which \lean{step} computes once from the instruction's encoded length.
 \src{X86/Semantics.lean step, the .bin arm; wellFormed2 is !(dst.isMem \&\& src.isMem), citing SDM Vol. 2A 2.1.5}
+The listing shows the arm through its ADD case and stops there; the other operations follow the same pattern.
 
 {\scriptsize
 % LISTING add-arm file=X86/Semantics.lean from=^\s\s\|\s\.bin\sk\ssz\sdst\ssrc\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s\(s\.writeOperand\ssz\snr\sdst\sres\)\.setRip\snr$
@@ -293,9 +292,8 @@ def Ea.addr (ea : Ea) (s : Cpu) (nextRip : BitVec 64) : Val :=
 % END LISTING ea
 }
 
-Every instruction reads and writes its operands through two functions, so a memory operand is reached
-only through \lean{Ea.addr}, and an immediate destination stops the model rather than being dropped.
-\src{X86/Semantics.lean readOperand, writeOperand}
+General-purpose operands are read and written through two functions, and every explicit memory operand, in the vector and bit-string forms too, is addressed through \lean{Ea.addr}; an immediate destination stops the model rather than being dropped.
+\src{X86/Semantics.lean readOperand, writeOperand; the .vload/.vstore/.vbinm arms (ea.addr), bitStringByte}
 
 \paragraph{A frame-tier clause.}
 BSF and BSR share one function. It draws the five flags the cited manual leaves undefined, in a fixed order,
@@ -360,7 +358,7 @@ drawn when its destination is a register and declined when it is memory.
 % END LISTING dshift
 }
 
-The refusal is a theorem, which Section~\ref{sec:undef:refusal} discusses. The statement is shown; its
+The refusal with an immediate count is a theorem, which Section~\ref{sec:undef:refusal} discusses. The statement is shown; its
 proof is omitted, and \lean{s}, \lean{rs} and \lean{len} are section variables.
 \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
 
@@ -510,10 +508,9 @@ opposite oracles, and we have not proved it for every instruction.
 \src{Tests/Nonvacuity.lean cursor\_add\_spends\_nothing, cursor\_and\_spends\_one, cursor\_shift\_nonzero\_spends\_three,
 cursor\_shift\_zero\_spends\_nothing, cursor\_independent\_of\_bits (the one over two oracles, one SHL at one state); docs/DECISIONS.md D213, D250}
 It is checked case by case: the leak check of Section~\ref{sec:undef:derived} also requires the two runs
-to leave the cursor in the same place, and over the 89{,}056 cases of the 1{,}012-vector record's population, run in Lean alone, the cursors
-differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
+to leave the cursor in the same place, so the 0 leaks of the cited record's 105{,}424 cases include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
 the cases that draw, 27{,}717 of 85{,}008 in the check's own walk of 84 pre-states per vector.
-\src{docs/CURSOR-LEAK-CHECK-2026-09-13.md, ``emitted 1012 vectors x 88 pre-states = 89056 cases'', a Lean-only run without ACL2, and the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks, cursor\_plant\_fired, cursor\_plant\_cases, cursor\_walk\_prestates]; X86/Serialize.lean
+\src{X86/Serialize.lean undefinedLeaked (the oracle cursor clause); docs/CLAIMS.tsv[diff\_cases, diff\_leaks]; docs/CURSOR-LEAK-CHECK-2026-09-13.md, ``emitted 1012 vectors x 88 pre-states = 89056 cases'', a Lean-only run without ACL2, and the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks, cursor\_plant\_fired, cursor\_plant\_cases, cursor\_walk\_prestates]; X86/Serialize.lean
 undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
 The check cannot see a branch on drawn bits that agree under both constant oracles, or one that changes only a
 flag's value: flags are derived from those two runs, and CI checks the table's list of them by flag, not condition.
@@ -581,9 +578,7 @@ reason. Every other encodable double shift is answered.
 \src{X86/Syntax.lean dshiftMemUndefined; X86/Semantics.lean, the .dshift case}
 
 The refusal is stated as a theorem,
-\lean{step\_dshift\_mem\_\allowbreak undefined\_\allowbreak refuses}: for a live state, an immediate count and an effective address
-without a LOCK prefix, the step leaves the state unchanged except for the halt reason. The guard in \lean{step} is on the masked count, which a count in CL
-reaches as well.
+\lean{step\_dshift\_mem\_\allowbreak undefined\_\allowbreak refuses}: for a live state, a 16-bit SHLD or SHRD with a memory destination whose effective address carries no LOCK prefix, and an immediate count whose masked value exceeds 16, the step leaves the state unchanged except for the halt reason. The guard in \lean{step} is on the masked count, which a count in CL reaches as well; the theorem states the immediate form.
 \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
 Each of the other four designs in Table~\ref{tab:undef} has a general means of answering such a case,
 a constrained value, a constant, the built-in or a locale function; we have not read each model's rule for this
@@ -611,13 +606,7 @@ instruction pointer, the flags, whether the instruction was refused, and a set o
 windows.
 \src{X86/Serialize.lean Cpu.render; scripts/run\_differential.sh}
 The records are compared field by field. A case with no disagreeing field is \emph{matched}; a case in
-which both models refuse is matched on the refusal alone, since neither claims a post-state. Each
-disagreeing field is then classified. It is \emph{explained} if the field is one the comparator may
-excuse (a flag or a general-purpose register) and x86lean's derived undefined set for that case
-contains it; it is a \emph{declared divergence} if an entry names that vector and that field (and, if the
-entry narrows, that pre-state or value pair); it is a
-\emph{refusal} if only one side refused, a \emph{harness} failure if a record lacks the field, and a
-\emph{specification} disagreement otherwise. Only the first two classes are excused.
+which both models refuse is matched on the refusal alone, since neither claims a post-state. Each disagreeing field is then classified. It is a \emph{harness} failure if a record lacks the field; the field that records a refusal is a \emph{refusal} disagreement if only one side refused; any other field is \emph{explained} if it is one the comparator may excuse (a flag or a general-purpose register) and x86lean's derived undefined set for that case contains it, a \emph{declared divergence} if an entry names that vector and that field (and, if the entry narrows, that pre-state or value pair), and a \emph{specification} disagreement otherwise. Only explained fields and declared divergences are excused.
 \src{Main.lean classify, bothRefused, undefinableFields, knownDivergences; KnownDivergence's states and pair fields (D331, D266)}
 
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
@@ -677,7 +666,7 @@ docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the prefix census over all five machi
 % Register: docs/TACAS-G2-SECTION-DRAFT.md 4; docs/DECISIONS.md D91 D108 D115; Main.lean
 % knownDivergences; docs/DIFFERENTIAL-P2-BATCH13.md; docs/P2-ROSTER.md.
 
-We report six findings where there is no semantics to check against.
+We report six cases in which the reference model cannot serve as the specification.
 
 \paragraph{A rule with no second source.}
 MOVDQA faults on a memory operand that is not 16-byte aligned. Asked by execution, the reference model
@@ -772,7 +761,7 @@ An entry of this kind has a cost, and we state it. It excuses one field of one v
 pre-state, though only one pre-state diverges and the harness can now narrow an entry to it, so a genuine defect of x86lean in that field would now be absorbed by it. One thing stands
 against that, and it is not the entry itself. The saturation rule is checked by a theorem on a witness
 value at every lane width, chosen so that a model returning zero, or confusing a logical with an
-arithmetic shift, fails it.
+arithmetic shift, fails it. That theorem takes the count as a number, so it does not check which bits of the count register the model reads, which is the rule the eight entries excuse; for that rule the evidence is the manual, K's rules and libLISA's semantics on the VEX form.
 \src{docs/DECISIONS.md D108 4; Tests/Coverage.lean vshift\_saturates\_rather\_than\_wrapping. The eight entries carry no states narrowing,
 though the harness supports it since D331 (Main.lean psllw\_x and siblings); a sentence crediting the wrong models with this was cut 2026-10-14:
 they show the comparator sees a planted defect, not that no real one is excused}
@@ -799,7 +788,7 @@ hwprobe/; Tests/Anchors.lean, the cvtss2sd\_*\_sticky rows marked ``x86isa diffe
 Differential validation needs a reference model that runs the instruction, and for much of what
 x86lean does not yet cover, ours does not. We measure demand with a census of the instructions in
 ten public Debian amd64 packages; in its assembly class, six codec columns counted apart from compiler output,
-362{,}093 instructions are of forms the model does not cover.
+362{,}093 instructions are of forms the model does not differentially validate, a count that includes the demand for the mnemonics it implements and referees only on processors.
 \src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
 Of those, 162 are scalar instructions in the census row for the LOCK vocabulary, still counted as
 uncovered although the vocabulary itself has landed, and the rest are vector instructions.
@@ -1100,8 +1089,7 @@ semantics (PLDI 2022 section 1), so it states no model's fidelity: docs/DECISION
 
 The limitations are the ones stated where they arise. x86lean is small, and its proofs are few. Its
 decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
-by reading a second, for two rules by a model synthesized on processors, and, where the reference model
-refuses, by a probe on processors that tests chosen rows rather than a sweep; K has not been run. Of the
+by reading a second, for two rules by a model synthesized on processors, and by a probe on processors that tests chosen rows rather than a sweep, both where the reference model refuses and on rules where it departs from the manual; K has not been run. Of the
 remaining instructions it has been asked, the reference model refuses many, and a refused
 form with no processor rows has no second source. A rule the reference model does not implement, such as the alignment fault of many legacy SSE memory
 forms, is carried by theorem alone, and for the packed floating-point arithmetic, SQRTPS, CVTPD2PS, SHUFPS

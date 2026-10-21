@@ -21800,3 +21800,22 @@ floating-point forms have no unaligned vector.** Restored as its own sentence, w
 SQRTPS, CVTPD2PS, SHUFPS, SHUFPD: an `aligned16` check in the model, no theorem, no unaligned vector), placed AFTER the
 weakest-claim sentence and its `\src` so that "This … a proof" cannot reach it; the conclusion's limit names the same
 forms as carried "only by the model's code". Two invisible `\src` section references named by title. SQRTPS added above.
+**paper's two non-author reads of the submission's own sentences (the 147 that master's older tex never had), 10-21
+09:58: twelve fixes, applied** — F1 the saturation theorem takes the count as a number, so it cannot see which bits of the
+count register are read, the rule the eight packed-shift entries excuse · F2 the 362,093 gap counts forms not
+DIFFERENTIALLY validated, including the silicon-refereed mnemonics · F3 processors arbitrate both where the reference
+model refuses and where it departs from the manual · F4 general-purpose operands go through two functions; every
+explicit memory operand, vector and bit-string included, through `Ea.addr` · F5 the cursor check is inside the cited
+record's 105,424 cases (`diff_cases`, `diff_leaks`; folded into the existing `\src` so `cursor_leaks` keeps its 0) ·
+F6 · F7 the classes in `classify`'s own order (harness first; refusal is per field) · F8 the refusal theorem's
+hypotheses (16-bit, memory destination, immediate count above 16) · F9 · F10 "six cases in which the reference model
+cannot serve as the specification" · F11 the state holds the six arithmetic flags AND DF (`Flags.df`) · F12 how a
+truncated listing is marked — and the `add-arm` listing, which stops after its ADD case, now says so (the `dshift`
+and `dshift-thm` texts already did).
+**And a record corrected:** x86isa at ACL2 `c8897a34` carries the 16-byte alignment check
+(`:memory-address-is-not-16-byte-aligned`) in `fp/arithmetic.lisp` (4), `fp/convert.lisp` (1) and `fp/logical.lisp` (2)
+as well as `logical.lisp` (1), counted in the vendored tree at the pinned commit. D113 and D250 F5's "only in
+logical.lisp" is stale; the paper's `\src` already says the newer reading. The fp forms ship no unaligned vector, so no
+differential record tests them.
+**Checks at the commit:** `check_claims` CLEAN 112 · `check_listings` CLEAN 7 · `check_verification_claims` rc 0 ·
+private-paths OK · tectonic rc 0, 0 undefined.
