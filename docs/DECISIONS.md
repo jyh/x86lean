@@ -22989,3 +22989,11 @@ NEW unit is registered in BOTH registries, in one commit, before any katmai row.
 557.0, −15.0 ± 57.4 of 107.0, `ok`: prediction 5's "under +15 ms" is consistent but not established by a band this wide,
 and the katmai row decides it. Δku `X86.Syntax` +1,340 of 7,798 · `Tests.Coverage` +14,728 of 752,835. `ku_delta.py
 --check-registry` rc 0.
+**K1 on katmai (32b535f → e776518, `--repeats 6`, loads 1.82–11.05, one pass at 11.05): a READING, not the row.** The base
+`32b535f` is #117's head after a merge of master `c61cea5`; its tree is master's once #117 lands. The kernel arm refused
+the NEW unit as expected, since its ceiling was registered for yukon.lan only, and printed `Tests.AnchorsVexSilC 16605 @on
+katmai` (head 5535.0 ms); every other delta row is `ok`: `X86.Syntax` 656.0 → 674.0, +18.0 ± 9.6 of 122.7 · `Tests.Coverage`
+38150 → 38200, +50 ± 251.4 of 2746.8 · `Tests.Vectors` 9.3 → 9.6, +0.3 ± 3.2 of 9.6 · `X86.Coverage` +0.1. The ku arm
+(`ku_delta.py --arm a-prime`, same pair): `ku-delta gate (a-prime): CLEAN`, the NEW unit at 2,478,482 unfoldings,
+registered. The katmai line is committed, and the row is re-measured on the tree that holds it (K2) under a merge window,
+after #117 merges.
