@@ -478,12 +478,13 @@ vload\_unaligned\_movdqu\_runs}
 MOVDQA is the example of a class. The same fault is stated by theorem for the aligned loads and stores
 and for the packed binary, shuffle and shift operations at a memory source (\lean{vbinm\_unaligned\_faults},
 \lean{vshufm\_unaligned\_faults}, \lean{vshiftm\_unaligned\_faults}). The reference model implements it in
-one function, which serves twelve packed logical mnemonics, and five vectors test it there. The packed
-floating-point arithmetic, SHUFPS/SHUFPD and CVTPD2PS memory forms fault in \lean{step} with no theorem
-stating it. This is the weakest claim in the model: it rests on our reading of the manual and on a
+one function, which serves twelve packed logical mnemonics, and five vectors test it there. This is the weakest claim in the model: it rests on our reading of the manual and on a
 proof that the model implements that reading, and nothing else.
 \src{docs/DECISIONS.md D113 (three of nineteen validatable; the other sixteen and vload, vstore, vshufm, vshiftm theorem-only);
 X86/Theorems.lean vbinm\_unaligned\_faults; D250}
+The packed floating-point arithmetic, SHUFPS/SHUFPD and CVTPD2PS memory forms rest on less: they fault in
+\lean{step} with no theorem stating it.
+\src{docs/DECISIONS.md D157 (twelve of twenty-eight kinds run-backed, five vectors); X86/Theorems.lean vbinm\_unaligned\_faults docstring}
 Agreement with a reference model that does not implement a rule is not evidence about the rule.
 
 \paragraph{A reference model that keeps bits the manual clears.}
@@ -771,7 +772,7 @@ theorems, and is validated by co-simulation against K's single-instruction tests
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
 Against these, x86lean covers 197 mnemonics where K's target lists 774; x86isa's figure is stated in
-opcodes, a different unit, and Sail's model publishes no count. Those figures of x86lean's are at the commits
+opcodes, a different unit, and Sail's model publishes no count. That figure of x86lean's is at the commits
 its manifest names. The proof support this paper reports, a safety theorem for each of six small routines, is far weaker than x86isa's or
 K's; the Sail model carries no theorems.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
@@ -899,7 +900,8 @@ by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the imag
 with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
 this paper that word names x86lean's source of undefined bits. The figures describe the model at the
 commits the manifest names; the repository has grown since, by VEX-encoded instructions among others,
-and what was added after those commits is not described here. One behaviour has also changed since: BSF
+and what was added after those commits is not described here, except the two-run property of
+Section~\ref{sec:proofs}. One behaviour has also changed since: BSF
 and BSR at a zero source now leave the destination unmodified (Section~\ref{sec:undef:derived}).
 \src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);
 LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
