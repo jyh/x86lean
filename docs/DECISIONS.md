@@ -21777,7 +21777,7 @@ applied), whose Lean is `7e634fe` (2026-10-14): `e66e24a` changes no Lean above 
 attempt (branch `paris/o38-arxiv-framing`, retired unmerged) revised master's older tex, 519 lines away; it was caught
 at the re-freeze (17 pages against the package's 20); the census and the reads it was given are in the private
 working record, and only their findings that hold for THIS text are carried below. ⇒ The arXiv text describes `7e634fe`, and Data Availability says
-so, names the one later behaviour change (BSF/BSR at a zero source, D346) and says the Zenodo concept DOI resolves to the
+so, names the one later behaviour change (BSF/BSR at a zero source, decided on master after 7e634fe) and says the Zenodo concept DOI resolves to the
 latest version. This branch is NOT merged with master: master's Lean would change the generated listings of Section 3.
 **What changed (`paper/x86lean-semantics.tex` only).** The abstract and introduction state the contribution first and the
 comparison with K and x86isa in a `Scope` paragraph after the contributions (his figures: 199 mnemonics tested, a copy
