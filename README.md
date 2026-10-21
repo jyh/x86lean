@@ -108,12 +108,14 @@ declaration in CI.
 ### What it does not cover — yet
 
 - **Not in scope.** Everything EVEX-encoded (AVX-512: no ZMM or mask
-  register), and VEX beyond the 55 mnemonics `docs/COVERAGE.md` lists: 33
+  register), and VEX beyond the 56 mnemonics `docs/COVERAGE.md` lists: 33
   VEX.128 and VEX.256 register twins of main-table rows in the differential
-  (V3, V6; `vpxor` also in its VEX.128 memory form), and 22 VEX forms refereed
-  by a processor (V4 at VEX.128; V7 and V8b at both lengths). So YMM appears
-  only as those forms' operands; there is no other AVX/AVX2 instruction (no FMA,
-  no gather, no cross-lane permute), and no other VEX memory form. SSSE3 and SSE4 beyond the eight mnemonics refereed by a processor
+  (V3, V6; `vpxor` also in its VEX.128 memory form), and 23 VEX forms refereed
+  by a processor (V4 at VEX.128; V7, V8b and V8c at both lengths; V8c adds
+  `vpbroadcastd` and the memory forms of `vpmaddwd`, `vpmulhrsw`, `vpmaddubsw`
+  and `vpackssdw`). So YMM appears only as those forms' operands; there is no
+  other AVX/AVX2 instruction (no FMA, no gather, no cross-lane permute), and no
+  other VEX memory form. SSSE3 and SSE4 beyond the eight mnemonics refereed by a processor
   above (`pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`, and the SSSE3
   `pmaddubsw` `pmulhrsw`), the SHA extensions beyond the three SHA-256
   mnemonics above (no `sha1*`), x87 and
