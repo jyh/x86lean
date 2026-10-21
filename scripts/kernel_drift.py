@@ -472,6 +472,16 @@ EXEMPT_RULES = [
     # ⛔ ADDED 2026-09-17, BY THE GATE REFUSING — the fourth unargued path. `hwprobe/` (D266)
     # is the x86-64 referee: C, assembly, Python and Lisp, run by its own workflow on a hosted
     # runner and by ACL2 here. The local preflight met the refusal before the push, this time.
+    # ⛔ ADDED 2026-10-20, BY THE GATE REFUSING — the fifth unargued path, three files at once. The prose-claim
+    # gate (council 2026-10-20 ruling 1b, scripts/check_prose_lean.py, which the `scripts/` rule already covers)
+    # keeps its data at the repository root: sentence-hash records, an accepted-debt baseline and a ledger list.
+    # Each is read by that script and by nothing else; none is a `.lean`, none is read by `lake`.
+    (".prose-lean-reads", "data read only by scripts/check_prose_lean.py: claim records (sentence hash, Lean "
+                          "declaration, statement hash, author, reader). Never read by `lake`."),
+    (".prose-lean-baseline", "data read only by scripts/check_prose_lean.py: the accepted-debt claim hashes. "
+                             "Never read by `lake`."),
+    (".prose-lean-ledgers", "data read only by scripts/check_prose_lean.py: path prefixes counted and not gated. "
+                            "Never read by `lake`."),
     ("hwprobe/", "the x86-64 hardware referee (D266): C, assembly, Python and Lisp built by a C "
                  "compiler or run by ACL2, never by `lake`; a `.lean` under it would have been "
                  "bucketed as `.lean` first."),
