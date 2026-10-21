@@ -22848,3 +22848,32 @@ committed, and the row is re-measured on the tree that holds it (K2), as V7's wa
   repeat. `Tests.Coverage` 38050.0 → 38300.0, +250.0 ± 370.4 of 2739.6.
 - A′: `Tests.AnchorsVexSilB` 250,470 (NEW, registered); `Tests.Coverage` +55,776 of 748,819; `X86.Syntax` 41,723 → 41,703.
 - Prediction 5's "`X86.Syntax` does not grow" HOLDS at the verdict of record: +0.5 ms at 6 repeats.
+
+## D349 — STATUS 7c: every credited census figure prints its register/memory split, measured (v1)
+
+**Why.** D348 measured that the census credits by (mnemonic, bucket) whatever an instruction's operand form, and that for
+V8b's four twins 5,205 of the 15,438 credited are memory forms the model does not have. The helm (10-19 21:09, O88: claims
+match what is modelled): *any "covered" figure that leaves the repository prints the REGISTER/MEMORY split beside the
+credited figure.*
+
+**What changed (`scripts/demand_census.py`).** `_classify` keeps a second counter, `mem_sink`. It has exactly the main
+counter's keys, for the instructions whose operands carry an addressing mode (`is_mem_form`: a parenthesised base/index, or
+a `%fs:`/`%gs:` address). `report` runs the SAME `_split` over it (`shape_split`) and prints `(register-form R ·
+memory-form M)` beside the differential, silicon and VEX-table figures. The JSON carries `covered_mem`, `silicon_mem` and
+`vex_mem`. No existing JSON field moved (checked field by field), and the staleness stamp is unchanged. Five selftest
+arms (234 arms in total): the memory tally is a sub-counter of the main one key by key; exact splits on a synthetic column;
+the rule on a segment address, a base+disp and two registers; and a red arm in which a blind `is_mem_form` changes the
+split. The red probe catches 36 of 36.
+
+**What it shows, pooled over the nine user-space columns:** differential 11,254,864 credited, 3,840,386 memory-form ·
+silicon 122,292, 15,990 memory-form · **VEX table 75,055, 38,441 memory-form (51 %)**. The VEX table models ONE memory form
+(`vpxor` at VEX.128), so about half of its credit is a shape this model does not have.
+
+**⚠️ Limits, beside the figures.** The split is MEASURED from the binaries, never MODELLED. It says how much of a credited
+figure is memory-form, not how much of that the model implements. The second question needs the model to declare its
+shapes as DATA. Today they live in `Row.shapes`, a prose string (`x,x · x,m`, `m(w)`, `m8(w)`, `r/m64`, …, over 142
+rows of 254 mnemonics), and a census reading prose would be an ungated claim. That is v2, proposed, not built.
+**A defect of my own, caught before commit:** the first insertion of these arms split the class loop from its own counter
+(`d337 += 1` landed inside the new block's `finally`), and the selftest printed `PASS (216 arms)` against 229 before.
+**The PASS was green while thirteen arms had silently stopped being counted.** It was found only because the total went
+DOWN after arms were added, and it was fixed to 234 = 229 + 5.
