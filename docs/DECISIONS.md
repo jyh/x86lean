@@ -22997,6 +22997,19 @@ katmai` (head 5535.0 ms); every other delta row is `ok`: `X86.Syntax` 656.0 → 
 (`ku_delta.py --arm a-prime`, same pair): `ku-delta gate (a-prime): CLEAN`, the NEW unit at 2,478,482 unfoldings,
 registered. The katmai line is committed, and the row is re-measured on the tree that holds it (K2) under a merge window,
 after #117 merges.
+**The row, K2 on katmai (f43b62d → 0744687, `--repeats 6`, loads 1.89–4.99), under the merge window the helm granted in
+advance (10-20 20:04, effective when #117 and #119 had landed, 04:05): ms `delta gate: CLEAN`; A′ `ku-delta gate (a-prime):
+CLEAN`; `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict.**
+- The NEW unit `Tests.AnchorsVexSilC` head 5545.0 ms, judged against its katmai ceiling (16605): `NEW ok`. `Tests.Coverage`
+  38400 → 38350, −50 ± 938.3 of 2764.8 · `Tests.Vectors` 9.4 → 9.4 · `X86.Coverage` −0.1 · A′: the NEW unit 2,478,482
+  (registered) · `Tests.Coverage` +14,728 of 752,835.
+- ⛔ **Prediction 5's "`X86.Syntax` grows by under +15 ms" is NOT HELD on the point estimate:** K1 read +18.0 ± 9.6 and K2
+  +23.5 ± 15.6, both above +15; both bands reach below it, so it is not a conviction either, and both are `ok` against the
+  budget (122.7, 121.7). The prediction scaled V7's +32.5 ms for ten constructors to "these" and did not count them.
+- ⚠️ On the way to K2, `kernel_drift.py --selftest` read rc 2 ("a WRONG row", the V8a row f9e6860 → 4616441) on V8c's
+  BRANCH HEAD and rc 0 on a synthetic `master + --no-ff V8c` merge. V8c is stacked, so its own first-parent chain runs
+  through V8a's and V8b's branch commits, where rows written for master's chain do not line up; CI judges the PR's merge
+  ref, whose first parent is master. Not a defect; the selftest is judged on the synthetic merge.
 
 ## D352 — STATUS 7d: a MODELLED-shape census figure, derived from the model's own forms (design and predictions before any code)
 
