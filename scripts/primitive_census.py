@@ -489,6 +489,8 @@ SILICON_REFEREES = (
     # D348 (V8b): the second VEX-silicon path. Its AMD leg is NAMED: the workflow's processor step printed
     # `/proc/cpuinfo`'s model name on run 39368903666, as D348's text records.
     ("D348", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D350 (V8c): the VEX memory-operand path; its AMD leg named by /proc/cpuinfo on run 39464224033.
+    ("D350", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
 )
 SILICON_DECISION = "D334"
 SILICON_DECISIONS = tuple(d for d, _r in SILICON_REFEREES)
@@ -511,6 +513,8 @@ SILICON_PATHS = (
     # D348 (V8b): the second VEX-silicon path, its functions also `x_*` (the names do not collide: no V7 function
     # names a V8b mnemonic). Its rows carry no `gpr` field, so the payload follows the function directly.
     ("mk_vexsilb_rows.py", "vexsilb_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D350 (V8c): the VEX memory-operand path, also `x_*` (no name collides with V7's or V8b's); its rows open the same way.
+    ("mk_vexsilc_rows.py", "vexsilc_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

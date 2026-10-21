@@ -1394,14 +1394,17 @@ def siliconTable : List Row :=
   , { mnemonic := "vpmovmskb", shapes := "r,x", note := "VEX.128 and VEX.256: the sign bit of each byte of src into a GPR, zero-extended; 16 bits, or 32 at VEX.256 (bits 31:16 from the high lane); no vector register written · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" }
   -- ⭐ D348 (V8b): the VEX.128 and VEX.256 twins of four D335 kinds, refereed by silicon (hwprobe `vexsilb`).
-  , { mnemonic := "vpmaddwd", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, each two SIGNED word products of src1 and src added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H · register forms only · x86isa refuses it",
+  , { mnemonic := "vpmaddwd", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, each two SIGNED word products of src1 and src added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H · register forms (D348) and m128/m256 forms, src the memory operand, no alignment check (D350) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" }
-  , { mnemonic := "vpmulhrsw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word := bits 16:1 of ((src1·src) >> 14) + 1, signed; 8000H·8000H reads 8000H · register forms only · x86isa refuses it",
+  , { mnemonic := "vpmulhrsw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word := bits 16:1 of ((src1·src) >> 14) + 1, signed; 8000H·8000H reads 8000H · register forms (D348) and m128/m256 forms, src the memory operand, no alignment check (D350) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHRSW" }
-  , { mnemonic := "vpmaddubsw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word the signed-saturated sum of two products, src1's bytes UNSIGNED and src's SIGNED · register forms only · x86isa refuses it",
+  , { mnemonic := "vpmaddubsw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word the signed-saturated sum of two products, src1's bytes UNSIGNED and src's SIGNED · register forms (D348) and m128/m256 forms, src the memory operand, no alignment check (D350) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDUBSW" }
-  , { mnemonic := "vpackssdw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per lane, src1's four dwords then src's, each signed dword saturated to a signed word — at VEX.256 the low lane packs the two low lanes, never a 256-bit pack · register forms only · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" } ]
+  , { mnemonic := "vpackssdw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per lane, src1's four dwords then src's, each signed dword saturated to a signed word — at VEX.256 the low lane packs the two low lanes, never a 256-bit pack · register forms (D348) and m128/m256 forms, src the memory operand, no alignment check (D350) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" }
+  -- ⭐ D350 (V8c): VPBROADCASTD from xmm and from m32, refereed by silicon (hwprobe `vexsilc`).
+  , { mnemonic := "vpbroadcastd", shapes := "x,x · x,m", note := "VEX.128 (four dwords; YMM bits 255:128 of dst zeroed) and VEX.256 (eight dwords): every dword := the source's low dword, from an xmm register or the 32 bits at the address, no alignment check · the GPR source is EVEX-only and not modelled · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VPBROADCAST" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table
