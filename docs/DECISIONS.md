@@ -22941,8 +22941,11 @@ Population read: the gate's 7 claim sentences plus every sentence that paraphras
   what was added (read 2's note on G22).
 - **Two deviations from the readers' text, both forced by the prose gate's splitter, and declared:** (1) G52: read 2's
   qualifier "at the commits its manifest names" is a sentence of its own after the coverage sentence, not inside it.
-  `aan.sentences` does not break after a TeX closing quote (`''.`), so the gate hashes "ACL2 x86isa specifies …"
-  through to the end of that coverage sentence as ONE 1,983-character span, and any edit inside it moves a BASELINED
+  `aan.sentences` splits only after `[.!?]` + whitespace + a capital, so it never splits after a `\src{…}` tag
+  that follows a sentence's period (the tag ends in `}`), and the gate hashes "ACL2 x86isa specifies …" through
+  to the end of that coverage sentence as ONE 1,983-character span with five such breaks fused in it. ⛔ This line
+  first named the TeX closing quote (`''.`) as the cause; kent measured the span and corrected it the same hour
+  (the closing-quote shape is real and also unsplit, but it is not what fused this span). The span, and any edit inside it moves a BASELINED
   hash about another system, which can carry no Lean read record and whose re-baselining a pull request refuses.
   (2) G29's three theorems are named inline (`\lean{…}`) and D113's `\src` is left byte-identical, for the same reason.
 - **Declined:** G49 (optional; its original "is not false"): wherever its added sentence goes, the splitter folds it
