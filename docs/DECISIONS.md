@@ -21766,3 +21766,32 @@ unchanged** — the six were already counted as not covered; they are now marked
 selftest fixture moved with them: the three-class arm and the no-pooling fixture used `pshufb` as the UNMAPPED example, which
 V1b makes silicon; they now use `pmulld` (SSE4.1, in neither table), and the fixture's figures (covered 50, silicon 35, not
 covered 41 of 91; the pooling plant 85) are unchanged. `--selftest` PASS (215), `census_redprobe.py` PASS (control + 32).
+
+## D351 — The paper for arXiv: the submitted text (e66e24a), describing x86lean at 7e634fe, framed contribution first (council 2026-10-20 ②, O38)
+
+**Why.** Council 10-20 ② opened arXiv for this paper after its TACAS 2027 rejection, after the rule that a prose claim
+about a machine-checked result names its Lean statement and carries a non-author's read, with the first page revised:
+no private vocabulary, no weakness-first. Every other venue is held; the click is the author's.
+**The subject.** The paper of record is the TACAS submission `e66e24a` (tag `tacas27-submission`, his 10-15 read
+applied), whose Lean is `7e634fe` (2026-10-14): `e66e24a` changes no Lean above it. It is NOT master's paper. A first
+attempt (branch `paris/o38-arxiv-framing`, retired unmerged) revised master's older tex, 519 lines away; it was caught
+at the re-freeze (17 pages against the package's 20); the census and the reads it was given are in the private
+working record, and only their findings that hold for THIS text are carried below. ⇒ The arXiv text describes `7e634fe`, and Data Availability says
+so, names the one later behaviour change (BSF/BSR at a zero source, D346) and says the Zenodo concept DOI resolves to the
+latest version. This branch is NOT merged with master: master's Lean would change the generated listings of Section 3.
+**What changed (`paper/x86lean-semantics.tex` only).** The abstract and introduction state the contribution first and the
+comparison with K and x86isa in a `Scope` paragraph after the contributions (his figures: 199 mnemonics tested, a copy
+loop of any length below 2^14); fleet words replaced ("ungated", "gated in CI", "as far as its gates reach", "two
+origins and not three", "wrong-model controls"); the conclusion's close states the contribution without the negation.
+From the two non-author reads of the earlier attempt, only the findings still true of THIS text are applied, each
+re-checked here: the coverage table is checked against the roster, not the AST (G10, G55) · "every other ENCODABLE double
+shift" (G25) · the declared divergences: 10 of 28 cite K, the floating-point 18 cite the manual, x86isa and a processor
+run (G34; counted at the object) · the prologue's stack pointer is at least 8 (G43) · the alignment fault is by theorem
+for the loads, stores and packed binary, shuffle, byte-shuffle, align and shift memory forms, by run for twelve logical
+forms with five vectors, and NOT by theorem for the packed floating-point, SHUFPS/SHUFPD and CVTPD2PS forms (G29; the
+five theorem names exist at `e66e24a`; SHUFPS/SHUFPD are `VShufpKind`, which no alignment theorem covers). His text
+already carried G4, G6, G7, G19 (true at 7e634fe), G22 (his 092US/093US wording), G23, G35, G57 and the MXCSR record.
+**Checks at the commit:** `check_claims` CLEAN 112 · `check_listings` CLEAN, 7 · `check_verification_claims` rc 0 ·
+`check_private_paths --tree` OK · tectonic rc 0, no undefined reference · master's `check_prose_lean --list-claims`
+from a scratch copy: 7 claim sentences in the tex. Owed: paper's non-author reads of this diff and of the submitted
+sentences master's tex never had, then the records, then the re-freeze.
