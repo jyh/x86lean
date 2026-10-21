@@ -789,7 +789,15 @@ def width_key(mn, ops):
 _WIDTH_PROBE_SRCS = ("%eax", "%r8d", "%r15d", "%esp", "%rax", "%r8", "%r15",
                      "%rsp", "%ax", "%al", "(%rbx)", "0x8(%rsp,%rcx,4)", "%xmm1")
 
-def _classify(lines, syms=None, fn_sink=None):
+def is_mem_form(ops):
+    """⭐ STATUS 7c — True when an instruction's operands carry an ADDRESSING MODE: a parenthesised base/index
+    (`(%rbx)`, `0x8(%rip)`) or a segment-relative address (`%fs:0x28`). That is the operand SHAPE `m` in this
+    repository's coverage rows. It says nothing about whether memory is touched (`lea` names an address and reads
+    none); it classifies the FORM, which is what a credited figure claims."""
+    return "(" in ops or bool(SEGMENT_RE.search(ops))
+
+
+def _classify(lines, syms=None, fn_sink=None, mem_sink=None):
     """objdump lines -> Counter keyed by (mnemonic, kind, origin, ext).
 
     ⚠️ SPLIT OUT OF `disassemble` SO IT CAN BE DRIVEN ON SYNTHETIC INPUT.  The
@@ -801,7 +809,12 @@ def _classify(lines, syms=None, fn_sink=None):
     routes saying hand-written, `CC` both saying compiler, `AC` and `CA` the two
     disagreements, `U` an address no function symbol covers, and `-` a column
     with no symbol map at all.  Nothing collapses them here; `report` does the
-    collapsing where a reader can see the cells it collapsed."""
+    collapsing where a reader can see the cells it collapsed.
+
+    ⭐ STATUS 7c (the helm, 10-19 21:09, O88: claims match what is modelled): `mem_sink`, when given, receives
+    EXACTLY the keys `c` does, for the instructions whose operands carry an ADDRESSING MODE (`is_mem_form`) and
+    no others. `report` runs the same `_split` over it, so every credited figure can print its register/memory
+    split under the one rule that produced the figure, never a second one."""
     c = collections.Counter()
     run = 0
     pending_lock = False
@@ -829,8 +842,10 @@ def _classify(lines, syms=None, fn_sink=None):
         nonlocal buf, n_packed
         if buf:
             k = cell()
-            for mn, kind, ext in buf:
+            for mn, kind, ext, mem in buf:
                 c[(mn, kind, k, ext)] += 1
+                if mem and mem_sink is not None:
+                    mem_sink[(mn, kind, k, ext)] += 1
             # ⚠️ THE RESIDUE IS KEPT BY NAME, not just counted.  A disagreement
             # cell that cannot be read is a number nobody can check.
             if fn_sink is not None and cur is not None:
@@ -879,9 +894,12 @@ def _classify(lines, syms=None, fn_sink=None):
             # probe found it: mutating `cell()` to return "CC" left the selftest
             # GREEN.  ⇒ 🔑 A RULE WRITTEN TWICE IS A RULE ONE ARM CAN ONLY
             # HALF-TEST, and the half nobody exercises is the half that moves.
-            c[(width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind))] += 1
+            key = (width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind))
+            c[key] += 1
+            if mem_sink is not None and is_mem_form(ops):
+                mem_sink[key] += 1
         else:
-            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind)))
+            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind), is_mem_form(ops)))
             if is_packed(mn, ops):
                 n_packed += 1
     flush_padding(run)
@@ -900,14 +918,14 @@ def classify_lines(lines):
     return c
 
 
-def disassemble(path, syms=None, fn_sink=None):
+def disassemble(path, syms=None, fn_sink=None, mem_sink=None):
     """⚠️ STREAMED, not captured.  vmlinux is 63 MB of ELF and disassembles to
     well over a gigabyte of text; `capture_output` would hold all of it in
     memory at once for a job whose whole output is a counter."""
     with subprocess.Popen(["objdump", "-d", "--no-show-raw-insn", path],
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                           text=True, bufsize=1 << 20) as pr:
-        c = _classify(pr.stdout, syms, fn_sink)
+        c = _classify(pr.stdout, syms, fn_sink, mem_sink)
         rc = pr.wait()
     return c if rc == 0 else None
 
@@ -948,7 +966,7 @@ def elf_targets(paths):
     return out
 
 
-def census(paths, dbg=None):
+def census(paths, dbg=None, mem_sink=None):
     """⚠️ RETURNS THE SYMBOL COVERAGE TOO, because "how many of this column's
     binaries had a symbol map" is the condition under which every attribution
     number below it is true, and a column measured with no symbols reports the
@@ -964,10 +982,13 @@ def census(paths, dbg=None):
             syms = symbols(d) if d else symbols(p)
             if not syms:
                 syms = None
-        c = disassemble(p, syms, fns)
+        mem = collections.Counter()
+        c = disassemble(p, syms, fns, mem)
         if c is None:
             continue
         total += c
+        if mem_sink is not None:
+            mem_sink.update(mem)    # only for a file whose counts were kept, as `total` is
         n += 1
         n_sym += 1 if syms else 0
     return total, n, n_sym, fns
@@ -1269,7 +1290,22 @@ def ext_table(name, counts, model, fh):
             {e: k for e, k in covered_buckets.items()},
             {m: dict(c) for m, c in by_mn.items()})
 
-def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
+def shape_split(mem, model):
+    """⭐ STATUS 7c — (differential, silicon, VEX) MEMORY-FORM counts, by the SAME `_split` and the same three set
+    tests `report` uses for the credited figures, over the memory-form tally `_classify` kept beside them."""
+    mapped, _u, _o, _p, _r = _split(mem, model)
+    sil_set, vex_set = silicon_of(model), vex_of(model)
+    return (sum(k for r, k in mapped.items() if r in model),
+            sum(k for r, k in mapped.items() if r in sil_set),
+            sum(k for r, k in mapped.items() if r in vex_set and r not in sil_set))
+
+
+def _shape(credited, mem_n):
+    """The split printed beside a credited figure: register-form, memory-form."""
+    return f" (register-form {credited - mem_n:,} · memory-form {mem_n:,})"
+
+
+def report(name, counts, model, fh, fns=None, n=0, n_sym=0, mem=None):
     mapped, unmapped, outscope, padding, rest = _split(counts, model)
     counts = rest
     tot = sum(counts.values())
@@ -1284,6 +1320,9 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     out_of  = sum(k for r, k in mapped.items() if r not in model) - silicon - vexn
     unk     = sum(unmapped.values())
     oos     = sum(outscope.values())
+    # ⭐ STATUS 7c: the operand-shape split of each credited figure, or nothing when no tally was kept
+    cov_m, sil_m, vex_m = shape_split(mem, model) if mem is not None else (None, None, None)
+    sp = (lambda cred, m: "" if m is None else _shape(cred, m))
     fh.write(f"\n### {name}\n\n")
     fh.write(f"- **{tot:,} instructions** over "
              f"{len(set(m for m, _k, _o, _e in counts))} "
@@ -1294,17 +1333,22 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
                  f"percentage below. Before this exclusion they were "
                  f"{100.0*padding/(tot+padding):.1f}% of this column.\n")
     fh.write(f"- **Covered by the model (differentially tested mnemonics): "
-             f"{covered:,} ({100.0*covered/tot:.1f}%).**\n")
+             f"{covered:,} ({100.0*covered/tot:.1f}%).**{sp(covered, cov_m)}\n")
     if sil_set:
         fh.write(f"- ⚙ **Implemented, {SILICON_LABEL}: {silicon:,} "
-                 f"({100.0*silicon/tot:.2f}%)** — counted as NOT covered above, "
+                 f"({100.0*silicon/tot:.2f}%)**{sp(silicon, sil_m)} — counted as NOT covered above, "
                  f"printed beside the differential figure and never summed into it "
                  f"(D337).\n")
     if vex_set:
-        fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)** — VEX.128 and VEX.256 instructions whose "
+        fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)**{sp(vexn, vex_m)} — VEX.128 and VEX.256 instructions whose "
                  f"mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, "
                  f"which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and "
                  f"never summed into it (D342, D344).\n")
+    if mem is not None:
+        fh.write("- ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a "
+                 "mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a "
+                 "figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the "
+                 "operands.\n")
     fh.write(f"- Mapped to a roster name the model does not have: {out_of:,} "
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
@@ -1360,7 +1404,9 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
                 vex_all={r: k for r, k in mapped.items() if r in vex_set and r not in sil_set},
                 miss=miss.most_common(40), miss_all=dict(miss),
                 attribution=att, ext=ext, ext_covered=ext_covered,
-                miss_by_ext=miss_by_ext)
+                miss_by_ext=miss_by_ext,
+                # ⭐ STATUS 7c: the memory-form part of each credited figure (None when no tally was kept)
+                covered_mem=cov_m, silicon_mem=sil_m, vex_mem=vex_m)
 
 def differential_reference(model):
     """The reference model for `check_no_pooling`: every implemented mnemonic
@@ -1613,6 +1659,35 @@ def selftest():
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
         d337 += 1
+    # ⭐ STATUS 7c — the operand-shape split, derived from synthetic objdump lines by the one loop and the one rule:
+    # two silicon-VEX ymm forms (one register, one memory), three differential `mov`s (register, base+disp, and a
+    # `%fs:` address with no parenthesis), and a `lea` (an addressing mode that reads no memory: SHAPE m, by design)
+    _lines = ["  1000:\tvpmaddwd\t%ymm1, %ymm2, %ymm0", "  1004:\tvpmaddwd\t0x20(%rbx), %ymm2, %ymm0",
+              "  1009:\tmovl\t%ecx, %eax", "  100b:\tmovl\t0x8(%rbx), %eax", "  100e:\tmovq\t%fs:0x28, %rax",
+              "  1017:\tleaq\t0x10(%rip), %rax"]
+    _mem = collections.Counter()
+    _cnt = _classify(_lines, None, None, _mem)
+    _cm, _sm, _vm = shape_split(_mem, _M)
+    _rep = report("fixture", _cnt, _M, io.StringIO(), {}, 1, 1, _mem)
+    arm(all(_mem[k] <= _cnt[k] for k in _mem) and set(_mem) <= set(_cnt),
+        "7c: the memory-form tally is a SUB-counter of the main one, key by key", "7c:sub")
+    arm(_sm == 1 and _rep["silicon"] == 2 and _rep["silicon_mem"] == 1,
+        f"7c: silicon vpmaddwd at ymm credited 2, of which memory-form 1 (got {_rep['silicon']} / {_sm})", "7c:silicon")
+    arm(_rep["covered_mem"] == _cm and _cm == 3,
+        f"7c: differential memory-form = 3 (0x8(%rbx), %fs:0x28, lea's 0x10(%rip)); got {_cm}", "7c:diff")
+    arm(is_mem_form("%fs:0x28, %rax") and not is_mem_form("%ecx, %eax") and is_mem_form("0x10(%rip), %rax"),
+        "7c: is_mem_form reads a segment address and a base/disp as memory-form, two registers as not", "7c:rule")
+    # red arm: a rule that never sees memory-form must change the reading, or the arms above prove nothing
+    _orig = is_mem_form
+    try:
+        globals()["is_mem_form"] = lambda ops: False
+        _mem2 = collections.Counter()
+        _classify(_lines, None, None, _mem2)
+        arm(shape_split(_mem2, _M) != (_cm, _sm, _vm),
+            "7c red arm: a blind is_mem_form changes the split (the arms above can fail)", "7c:red")
+    finally:
+        globals()["is_mem_form"] = _orig
+    d337 += 5          # the five 7c arms above
     # ⛔⛔ THE NO-POOLING ARM, with its plants.  One fixture: 50 differential, 30 +
     # 5 silicon-refereed, 4 out of scope, 2 unmapped.
     fx = collections.Counter({("paddd",   "vector", "CC", "SSE-legacy (xmm)"): 50,
@@ -2350,11 +2425,12 @@ def main():
             if klass == "asm":
                 fh.write(ASM_CLASS_PREAMBLE)
             for g in sorted(cols):
-                counts, n, n_sym, fns = census(groups[g], dbg)
+                mem = collections.Counter()
+                counts, n, n_sym, fns = census(groups[g], dbg, mem)
                 if not counts:
                     continue
                 results[g] = report(f"{g} — {n} ELF x86-64 objects", counts,
-                                    model, fh, fns, n, n_sym)
+                                    model, fh, fns, n, n_sym, mem)
                 results[g]["class"] = klass
                 # ⛔ D337 NO-POOLING: checked per column, before the document is
                 # finished, so a pooled figure never reaches a reader

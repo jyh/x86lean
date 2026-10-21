@@ -190,6 +190,9 @@
     "SSE-legacy (xmm)": 4
    }
   },
+  "covered_mem": 1680588,
+  "silicon_mem": 0,
+  "vex_mem": 0,
   "class": "compiler"
  },
  "coreutils": {
@@ -728,6 +731,9 @@
     "AVX2/AVX (ymm)": 1
    }
   },
+  "covered_mem": 283966,
+  "silicon_mem": 0,
+  "vex_mem": 72,
   "class": "compiler"
  },
  "glibc": {
@@ -2747,6 +2753,9 @@
     "AVX-512 (zmm/k)": 1
    }
   },
+  "covered_mem": 198460,
+  "silicon_mem": 136,
+  "vex_mem": 4189,
   "class": "compiler"
  },
  "dav1d": {
@@ -4375,6 +4384,9 @@
     "LOCK prefix (P2 addition 2)": 6
    }
   },
+  "covered_mem": 72529,
+  "silicon_mem": 1999,
+  "vex_mem": 8990,
   "class": "asm"
  },
  "ffmpeg": {
@@ -6124,6 +6136,9 @@
     "AVX2/AVX (ymm)": 2
    }
   },
+  "covered_mem": 1135087,
+  "silicon_mem": 8478,
+  "vex_mem": 18510,
   "class": "asm"
  },
  "vlc-codec": {
@@ -6259,6 +6274,9 @@
     "LOCK prefix (P2 addition 2)": 6
    }
   },
+  "covered_mem": 52360,
+  "silicon_mem": 0,
+  "vex_mem": 0,
   "class": "asm"
  },
  "vlc-video_chroma": {
@@ -6500,6 +6518,9 @@
     "SSE (fence)": 10
    }
   },
+  "covered_mem": 40511,
+  "silicon_mem": 0,
+  "vex_mem": 0,
   "class": "asm"
  },
  "vpx": {
@@ -7532,6 +7553,9 @@
     "PREFETCH": 4
    }
   },
+  "covered_mem": 238961,
+  "silicon_mem": 4342,
+  "vex_mem": 3780,
   "class": "asm"
  },
  "x264": {
@@ -9259,6 +9283,9 @@
     "AVX-512 (zmm/k)": 4
    }
   },
+  "covered_mem": 137924,
+  "silicon_mem": 1035,
+  "vex_mem": 2900,
   "class": "asm"
  },
  "_asm_pooled": {
@@ -10069,6 +10096,9 @@
     "GPR/other (unclassified)": 1
    }
   },
+  "covered_mem": 778422,
+  "silicon_mem": 16,
+  "vex_mem": 12,
   "class": "kernel"
  },
  "_controls": {
