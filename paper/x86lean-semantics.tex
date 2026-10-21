@@ -40,8 +40,7 @@
 x86lean is an executable semantics of x86-64 user-level instructions in Lean~4, built from public
 sources and validated by differential testing against ACL2 x86isa. Its contribution is a treatment of
 validation in which the claims made about a semantics, what it covers, how it was checked and where the
-check has nothing to check against, are derived from the artifact, and the prose that states them is
-checked against the artifact in continuous integration, with the reach of those checks stated beside them.
+check has nothing to check against, are derived from the artifact as far as its checks reach, and the prose that states them is checked against the artifact in continuous integration; the paper states where those checks stop.
 We describe a design for undefined bits that keeps one
 definition for execution and proof, derives the undefined flags from the semantics instead of declaring
 them, checks undefined registers against a declared rule, and states a case the model declines as a theorem; a
@@ -50,7 +49,7 @@ the reference model is not the specification, including one where it contradicts
 measurement, on a sample of six routines, of what safety proofs over the semantics cost. The motivation is
 measured too: in this project's working records, claims that no check read were wrong or could not be
 reproduced as stated at least one time in three, in each of three samples. The model is smaller than the K
-semantics and its proofs are fewer than x86isa's; the paper states its scope against both.
+semantics and its proofs are fewer than x86isa's or K's; the paper states its scope against both.
 \src{Each claim is the subject of a section below and is cited there; the six routines: docs/CLAIMS.tsv[proof\_sample\_routines];
 the three samples: the section Gated Claims; the declined case: X86/Theorems.lean
 step\_dshift\_mem\_undefined\_refuses.}
@@ -217,7 +216,6 @@ flags are computed
 from the inputs, then the result is written, then \lean{rip} is set to \lean{nr}, the address of the next
 instruction, which \lean{step} computes once from the instruction's encoded length.
 \src{X86/Semantics.lean step, the .bin arm; wellFormed2 is !(dst.isMem \&\& src.isMem), citing SDM Vol. 2A 2.1.5}
-The listing shows the arm through its ADD case and stops there; the other operations follow the same pattern.
 
 {\scriptsize
 % LISTING add-arm file=X86/Semantics.lean from=^\s\s\|\s\.bin\sk\ssz\sdst\ssrc\s=>$ to=^\s\s\s\s\s\s\s\s\s\s\s\s\(s\.writeOperand\ssz\snr\sdst\sres\)\.setRip\snr$
@@ -508,7 +506,7 @@ opposite oracles, and we have not proved it for every instruction.
 \src{Tests/Nonvacuity.lean cursor\_add\_spends\_nothing, cursor\_and\_spends\_one, cursor\_shift\_nonzero\_spends\_three,
 cursor\_shift\_zero\_spends\_nothing, cursor\_independent\_of\_bits (the one over two oracles, one SHL at one state); docs/DECISIONS.md D213, D250}
 It is checked case by case: the leak check of Section~\ref{sec:undef:derived} also requires the two runs
-to leave the cursor in the same place, so the 0 leaks of the cited record's 105{,}424 cases include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
+to leave the cursor in the same place, so the 0 leaks in the 105{,}424 cases of the differential record cited in Section~\ref{sec:validation:harness} include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
 the cases that draw, 27{,}717 of 85{,}008 in the check's own walk of 84 pre-states per vector.
 \src{X86/Serialize.lean undefinedLeaked (the oracle cursor clause); docs/CLAIMS.tsv[diff\_cases, diff\_leaks]; docs/CURSOR-LEAK-CHECK-2026-09-13.md, ``emitted 1012 vectors x 88 pre-states = 89056 cases'', a Lean-only run without ACL2, and the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks, cursor\_plant\_fired, cursor\_plant\_cases, cursor\_walk\_prestates]; X86/Serialize.lean
 undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
@@ -641,10 +639,7 @@ with it would test the translation, not supply an independent semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
 Our use of the two origins is also unequal, and we state it. Every differential run in this paper is
 against x86isa alone. K has never been executed by this project: its rule files are read, for coverage
-and to arbitrate a disagreement between x86lean and x86isa, as in the packed-shift and MOVD/MOVQ cases of
-Section~\ref{sec:validation:limits}, where each of those ten divergence entries cites the K rule that agrees
-with x86lean; the floating-point entries cite the manual, the reference model's source and a processor run
-instead. Sail has not been used in any differential record.
+and to arbitrate a disagreement between x86lean and x86isa, as in the packed-shift, MOVD/MOVQ and bit-string cases of Section~\ref{sec:validation:limits}: each of those 39 divergence entries cites the K rule that agrees with x86lean, and the 18 floating-point entries cite the manual, the reference model's source and a processor run instead. Sail has not been used in any differential record.
 \src{PROVENANCE.md, the K and Sail rows; docs/TACAS-G1-POSITIONING.md, the executable row and 1c.7;
 Main.lean knownDivergences, the source field of every entry}
 The validation claims below are therefore claims of agreement with one executable model, arbitrated
@@ -684,7 +679,7 @@ MOVDQA is the example of a class. The same fault is stated by theorem for the al
 for the packed binary, shuffle, byte-shuffle, align and shift operations at a memory source
 (\lean{vbinm\_unaligned\_faults}, \lean{vshufm\_unaligned\_faults}, \lean{vshufbm\_unaligned\_faults},
 \lean{valignrm\_unaligned\_faults}, \lean{vshiftm\_unaligned\_faults}), and by run only for the twelve
-logical forms that share one body in the reference model, where five vectors test it. This is the weakest claim the model proves: it rests on our reading of the manual and on a
+logical forms that share one body in the reference model, where five vectors test it. For the forms carried by theorem alone this is the weakest claim the model proves: it rests on our reading of the manual and on a
 proof that the model implements that reading, and nothing else.
 \src{docs/DECISIONS.md D157 4 (``The run-backed set is twelve of twenty-eight kinds now''), superseding D113's three of nineteen;
 X86/Theorems.lean vbinm\_unaligned\_faults docstring; Tests/Vectors.lean pand, por, pxor, pandn and andnps \_m\_unal; x86isa
@@ -761,7 +756,7 @@ An entry of this kind has a cost, and we state it. It excuses one field of one v
 pre-state, though only one pre-state diverges and the harness can now narrow an entry to it, so a genuine defect of x86lean in that field would now be absorbed by it. One thing stands
 against that, and it is not the entry itself. The saturation rule is checked by a theorem on a witness
 value at every lane width, chosen so that a model returning zero, or confusing a logical with an
-arithmetic shift, fails it. That theorem takes the count as a number, so it does not check which bits of the count register the model reads, which is the rule the eight entries excuse; for that rule the evidence is the manual, K's rules and libLISA's semantics on the VEX form.
+arithmetic shift, fails it. That theorem takes the count as a number, so it does not check which bits of the count register the model reads, which is the rule the eight entries excuse; for that rule the evidence is the manual, K's rules, the reference model's own memory-count form and libLISA's semantics on the VEX form.
 \src{docs/DECISIONS.md D108 4; Tests/Coverage.lean vshift\_saturates\_rather\_than\_wrapping. The eight entries carry no states narrowing,
 though the harness supports it since D331 (Main.lean psllw\_x and siblings); a sentence crediting the wrong models with this was cut 2026-10-14:
 they show the comparator sees a planted defect, not that no real one is excused}
@@ -790,9 +785,8 @@ x86lean does not yet cover, ours does not. We measure demand with a census of th
 ten public Debian amd64 packages; in its assembly class, six codec columns counted apart from compiler output,
 362{,}093 instructions are of forms the model does not differentially validate, a count that includes the demand for the mnemonics it implements and referees only on processors.
 \src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
-Of those, 162 are scalar instructions in the census row for the LOCK vocabulary, still counted as
-uncovered although the vocabulary itself has landed, and the rest are vector instructions.
-Asking the reference model to execute one form of each vector mnemonic, at the operand class where the
+Of those, 162 are scalar instructions in the census row for the LOCK vocabulary, still counted as uncovered although the vocabulary itself has landed. Most of the rest are vector instructions; the rest also include scalar forms, among them ENDBR64 (16{,}488) and the BMI2 forms (400).
+Asking the reference model to execute one form of each mnemonic in the gap, at the operand class where the
 demand actually occurs, it executes the forms carrying 102{,}931 of them and refuses the forms carrying
 169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 88{,}882 have not yet been
 asked at their own class. The five parts sum to the total.
@@ -1119,7 +1113,7 @@ by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the imag
 with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
 this paper that word names x86lean's source of undefined bits. This paper describes x86lean at commit
 \texttt{7e634fe}; later commits extend the model, by VEX-encoded instructions among others, and are not
-reported here, and one of them changes a behaviour that Section~\ref{sec:undef:derived} describes: BSF and
+reported here, and one of them changes a behaviour that Sections~\ref{sec:examples}, \ref{sec:undef:draw} and \ref{sec:undef:derived} describe: BSF and
 BSR at a zero source now leave the destination unmodified, following edition 093US. The Zenodo record above
 is the repository's concept record, which resolves to its latest version, not to that commit.
 \src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);

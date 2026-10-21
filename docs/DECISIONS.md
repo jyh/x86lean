@@ -21785,8 +21785,8 @@ loop of any length below 2^14); fleet words replaced ("ungated", "gated in CI", 
 origins and not three", "wrong-model controls"); the conclusion's close states the contribution without the negation.
 From the two non-author reads of the earlier attempt, only the findings still true of THIS text are applied, each
 re-checked here: the coverage table is checked against the roster, not the AST (G10, G55) · "every other ENCODABLE double
-shift" (G25) · the declared divergences: 10 of 28 cite K, the floating-point 18 cite the manual, x86isa and a processor
-run (G34; counted at the object) · the prologue's stack pointer is at least 8 (G43) · the alignment fault is by theorem
+shift" (G25) · the declared divergences: at 7e634fe 39 of 57 cite K (MOVD/MOVQ 2, packed shifts 8, D331's bit-string 29) and
+the floating-point 18 cite the manual, x86isa and a processor run (G34; counted at the object — see the correction below) · the prologue's stack pointer is at least 8 (G43) · the alignment fault is by theorem
 for the loads, stores and packed binary, shuffle, byte-shuffle, align and shift memory forms, by run for twelve logical
 forms with five vectors, and NOT by theorem for the packed floating-point arithmetic, SQRTPS, SHUFPS/SHUFPD and CVTPD2PS forms (G29; the
 five theorem names exist at `e66e24a`; SHUFPS/SHUFPD are `VShufpKind`, which no alignment theorem covers). His text
@@ -21819,3 +21819,19 @@ logical.lisp" is stale; the paper's `\src` already says the newer reading. The f
 differential record tests them.
 **Checks at the commit:** `check_claims` CLEAN 112 · `check_listings` CLEAN 7 · `check_verification_claims` rc 0 ·
 private-paths OK · tectonic rc 0, 0 undefined.
+**paper's round 2, the non-author read of the FINAL diff e66e24a → 6f293f4 (10-21 10:12): eight fixes, applied** — R1 the
+gap's non-covered demand includes scalar forms (ENDBR64 16,488, BMI2 400), and "one form of each mnemonic in the gap" ·
+R2 39 entries cite K, including D331's 29 bit-string entries · R3 the abstract keeps "as far as its checks reach" ·
+R4 Data Availability points at all three sections that describe BSF/BSR at a zero source · R5 the cursor sentence names
+the record it means · R6 the `add-arm` sentence I added is deleted: the paragraph's second sentence already says the
+listing stops after ADD, and "the other operations follow the same pattern" was false (CMP and TEST write no result;
+the logical group draws AF) · R7 "for the forms carried by theorem alone this is the weakest claim the model proves",
+so "nothing else" no longer contradicts the run one sentence earlier · R8 the reference model's own memory-count form
+rejoins the evidence for the count-register rule. And, from its deletions note, the abstract keeps K beside x86isa:
+"its proofs are fewer than x86isa's or K's".
+⛔ **A COUNT OF MINE CORRECTED:** this entry first said "10 of 28 cite K". 28 is the count at `1f9ad9b`, the pin of
+master's OLDER paper, where I first counted it. At THIS paper's `7e634fe`, `knownDivergences` also carries D331's
+bit-string block, 29 entries built by nested `flatMap` (3 widths × 5, `rdxMem` 3 × 2, `rcxMem` 3 × 2, and 2 LOCK
+entries), whose shared source cites K's `bt*_m*_r*.k` rule beside the manual, x86isa and a processor reading. ⇒ 57
+entries, 39 citing K, 18 not. The same wrong-subject defect as this entry's first attempt, one level down: a count
+taken at the wrong commit is accurate and about something else.
