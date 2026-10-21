@@ -695,14 +695,15 @@ MOVDQA is the example of a class. The same fault is stated by theorem for the al
 for the packed binary, shuffle, byte-shuffle, align and shift operations at a memory source
 (\lean{vbinm\_unaligned\_faults}, \lean{vshufm\_unaligned\_faults}, \lean{vshufbm\_unaligned\_faults},
 \lean{valignrm\_unaligned\_faults}, \lean{vshiftm\_unaligned\_faults}), and by run only for the twelve
-logical forms that share one body in the reference model, where five vectors test it. This is the weakest claim in the model: it rests on our reading of the manual and on a
+logical forms that share one body in the reference model, where five vectors test it. This is the weakest claim the model proves: it rests on our reading of the manual and on a
 proof that the model implements that reading, and nothing else.
 \src{docs/DECISIONS.md D157 4 (``The run-backed set is twelve of twenty-eight kinds now''), superseding D113's three of nineteen;
 X86/Theorems.lean vbinm\_unaligned\_faults docstring; Tests/Vectors.lean pand, por, pxor, pandn and andnps \_m\_unal; x86isa
 machine/instructions/logical.lisp x86-andp?/andnp?/orp?/xorp?/pand/pandn/por/pxor-Op/En-RM at acl2 c8897a34, whose 16-byte check fp/arithmetic.lisp,
 fp/convert.lisp and fp/logical.lisp also carry, for forms that ship no unaligned vector; D250}
 The packed floating-point arithmetic, SQRTPS, CVTPD2PS, SHUFPS and SHUFPD memory forms fault the same way in
-the model, with neither a theorem nor an unaligned vector.
+the model, with neither a theorem nor an unaligned vector; for them the claim rests on our reading of the
+manual alone.
 \src{X86/Semantics.lean, the aligned16 checks in the .vparithm, .vsqrtpsm, .vcvtpd2psm and .vshufpm cases; none of the four
 is named in X86/Theorems.lean, and the only unaligned vectors are the five \_m\_unal rows}
 Agreement with a reference model that does not implement a rule is not evidence about the rule.
