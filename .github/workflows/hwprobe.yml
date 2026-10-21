@@ -136,6 +136,13 @@ jobs:
           python3 mk_vexsilb_rows.py --plant > vexsilb_rows_plant.h
           python3 mk_vexsilb_rows.py --plant-op > vexsilb_rows_badop.h
           python3 mk_vexsilb_rows.py --plant-hi > vexsilb_rows_hi.h
+          python3 mk_vexsilc_rows.py --selftest
+          python3 mk_vexsilc_rows.py --refuse-wrong
+          python3 mk_vexsilc_rows.py --reach
+          python3 mk_vexsilc_rows.py > vexsilc_rows.h
+          python3 mk_vexsilc_rows.py --plant > vexsilc_rows_plant.h
+          python3 mk_vexsilc_rows.py --plant-op > vexsilc_rows_badop.h
+          python3 mk_vexsilc_rows.py --plant-hi > vexsilc_rows_hi.h
 
       - name: Build
         working-directory: hwprobe
@@ -190,6 +197,11 @@ jobs:
           for v in plant badop hi; do
             sed "s/\"vexsilb_rows.h\"/\"vexsilb_rows_$v.h\"/" vexsilb_probe.c > vexsilb_probe_$v.c
             gcc -O1 -o vexsilb_probe_$v vexsilb_probe_$v.c vexsilb_ops.S
+          done
+          gcc -O1 -o vexsilc_probe vexsilc_probe.c vexsilc_ops.S
+          for v in plant badop hi; do
+            sed "s/\"vexsilc_rows.h\"/\"vexsilc_rows_$v.h\"/" vexsilc_probe.c > vexsilc_probe_$v.c
+            gcc -O1 -o vexsilc_probe_$v vexsilc_probe_$v.c vexsilc_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -521,6 +533,39 @@ jobs:
           head -1 vexsilb.out
           grep -v '^ok  ' vexsilb.out || true
           echo "vexsilb rc=$rc"
+          test "$rc" = 0
+
+      # D350 (V8c): VPBROADCASTD (xmm, m32) and the four V8b twins' VEX MEMORY forms, each memory case at offset 0 AND at an
+      # odd offset; x86isa refuses all 12 encodings (D350 P1). A CPUID refusal (exit 3) is accepted on NO leg.
+      - name: VEX-memory controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsilc_probe --cpuid
+          set +e
+          ./vexsilc_probe_plant > vexsilc_plant.out; rc_plant=$?
+          ./vexsilc_probe_badop > vexsilc_badop.out; rc_badop=$?
+          ./vexsilc_probe_hi > vexsilc_hi.out; rc_hi=$?
+          set -e
+          head -1 vexsilc_plant.out; grep '^DIFF' vexsilc_plant.out; cat vexsilc_badop.out; grep '^DIFF' vexsilc_hi.out
+          echo "vexsilc plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsilc_plant.out)" = 1
+          grep -q '^DIFF vpmaddwd256_m_lane_u ' vexsilc_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vpbroadcastd128_r:' vexsilc_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsilc_hi.out)" = 1
+          grep -q '^DIFF vpbroadcastd128_m_k1_a ' vexsilc_hi.out
+
+      - name: VEX-memory referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./vexsilc_probe > vexsilc.out; rc=$?
+          set -e
+          head -1 vexsilc.out
+          grep -v '^ok  ' vexsilc.out || true
+          echo "vexsilc rc=$rc"
           test "$rc" = 0
 
       - name: Bit-string rows, full listing (artifact)

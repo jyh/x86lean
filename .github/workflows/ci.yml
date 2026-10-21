@@ -561,6 +561,10 @@ jobs:
           python3 hwprobe/mk_vexsilb_rows.py --selftest
           python3 hwprobe/mk_vexsilb_anchors.py --selftest
           python3 hwprobe/mk_vexsilb_anchors.py --check
+          # D350: the VEX memory-operand pins are hwprobe's vexsilc rows (mk_vexsilc_rows.py), same rule.
+          python3 hwprobe/mk_vexsilc_rows.py --selftest
+          python3 hwprobe/mk_vexsilc_anchors.py --selftest
+          python3 hwprobe/mk_vexsilc_anchors.py --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the

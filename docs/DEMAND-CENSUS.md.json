@@ -740,12 +740,13 @@
   "total": 603554,
   "covered": 559335,
   "pct": 92.67356359165875,
-  "silicon": 1732,
-  "silicon_pct": 0.2869668662621737,
+  "silicon": 1747,
+  "silicon_pct": 0.2894521451270309,
   "silicon_all": {
    "vpmovmskb": 1030,
    "psubusb": 4,
    "bzhi": 36,
+   "vpbroadcastd": 15,
    "blsmsk": 56,
    "andn": 4,
    "vpshufb": 1,
@@ -972,6 +973,7 @@
    "bzhi": 36,
    "vmovdqu": 1338,
    "vpand": 191,
+   "vpbroadcastd": 15,
    "vpxor": 81,
    "vpaddb": 460,
    "vpcmpgtb": 184,
@@ -1073,7 +1075,6 @@
    "vpbroadcastb": 35,
    "vzeroupper": 662,
    "vmovntdq": 116,
-   "vpbroadcastd": 31,
    "vpminub": 243,
    "vpminud": 149,
    "xtest": 46,
@@ -1359,6 +1360,7 @@
    "orl (lock operand)": 1,
    "andl (lock operand)": 4,
    "decl (lock operand)": 2,
+   "vpbroadcastd (vector operand)": 16,
    "vpsrad (vector operand)": 4,
    "vmulps (vector operand)": 80,
    "vaddps (vector operand)": 46,
@@ -2762,14 +2764,15 @@
   "total": 303830,
   "covered": 195778,
   "pct": 64.43669157094428,
-  "silicon": 23363,
-  "silicon_pct": 7.689497416318336,
+  "silicon": 25713,
+  "silicon_pct": 8.462956258433993,
   "silicon_all": {
    "psubusw": 64,
    "vpmovmskb": 13,
    "vpsraw": 250,
    "pmaddubsw": 1483,
    "pshufb": 1347,
+   "vpbroadcastd": 2350,
    "vpmaddubsw": 1528,
    "vpackuswb": 589,
    "vpshufb": 224,
@@ -2838,12 +2841,12 @@
     4448
    ],
    [
-    "vpbroadcastd",
-    3577
-   ],
-   [
     "pmaddwd",
     2635
+   ],
+   [
+    "vpbroadcastd",
+    2350
    ],
    [
     "vpmulhrsw",
@@ -2908,6 +2911,10 @@
    [
     "vpaddsw",
     1238
+   ],
+   [
+    "vpbroadcastd (vector operand)",
+    1227
    ],
    [
     "vmovd",
@@ -2976,10 +2983,6 @@
    [
     "vpermb",
     755
-   ],
-   [
-    "vpshufd",
-    723
    ]
   ],
   "miss_all": {
@@ -2993,6 +2996,7 @@
    "vpsraw": 250,
    "pmaddubsw": 1483,
    "pshufb": 1347,
+   "vpbroadcastd": 2350,
    "vpmaddubsw": 1528,
    "vpackuswb": 589,
    "vpshufb": 224,
@@ -3048,7 +3052,6 @@
    "vpavgw": 252,
    "vzeroupper": 679,
    "pminub": 90,
-   "vpbroadcastd": 3577,
    "vmovq": 1385,
    "vpshuflw": 66,
    "vpshufd": 723,
@@ -3267,6 +3270,7 @@
    "vpsllvd": 1,
    "pminsd": 227,
    "vpshufb (vector operand)": 1685,
+   "vpbroadcastd (vector operand)": 1227,
    "vpmaddubsw (vector operand)": 604,
    "vpmulhrsw (vector operand)": 1658,
    "vpunpckhwd (vector operand)": 584,
@@ -4385,7 +4389,7 @@
    }
   },
   "covered_mem": 72529,
-  "silicon_mem": 1999,
+  "silicon_mem": 4297,
   "vex_mem": 8990,
   "class": "asm"
  },
@@ -4393,8 +4397,8 @@
   "total": 3116986,
   "covered": 2998774,
   "pct": 96.20749018442817,
-  "silicon": 43126,
-  "silicon_pct": 1.383580163658098,
+  "silicon": 43229,
+  "silicon_pct": 1.3868846379162434,
   "silicon_all": {
    "vshufps": 4340,
    "vmulps": 2620,
@@ -4425,6 +4429,7 @@
    "pmulhrsw": 689,
    "vpmaddubsw": 228,
    "vpmulhrsw": 936,
+   "vpbroadcastd": 103,
    "psadbw": 146,
    "pextrd": 6,
    "pmuludq": 8
@@ -4673,6 +4678,7 @@
    "pmulhrsw": 689,
    "vpmaddubsw": 228,
    "vpmulhrsw": 936,
+   "vpbroadcastd": 103,
    "vpcmpeqw": 593,
    "vmovapd": 16,
    "vmovupd": 30,
@@ -4803,7 +4809,6 @@
    "vpabsw": 242,
    "vmovmskps": 24,
    "vpsrld": 23,
-   "vpbroadcastd": 111,
    "vpermb": 39,
    "vpdpbusd": 34,
    "vpmovdw": 10,
@@ -4957,6 +4962,7 @@
    "palignr (vector operand)": 44,
    "pslld (vector operand)": 5,
    "psrld (vector operand)": 8,
+   "vpbroadcastd (vector operand)": 8,
    "pcmpeqb (vector operand)": 6,
    "pmulhrsw (vector operand)": 98,
    "pcmpeqd (vector operand)": 16,
@@ -6137,7 +6143,7 @@
    }
   },
   "covered_mem": 1135087,
-  "silicon_mem": 8478,
+  "silicon_mem": 8562,
   "vex_mem": 18510,
   "class": "asm"
  },
@@ -6527,8 +6533,8 @@
   "total": 722331,
   "covered": 657870,
   "pct": 91.07597486470884,
-  "silicon": 45562,
-  "silicon_pct": 6.307634588575044,
+  "silicon": 45655,
+  "silicon_pct": 6.320509572481314,
   "silicon_all": {
    "pmuludq": 2332,
    "pmullw": 2707,
@@ -6544,6 +6550,7 @@
    "packssdw": 1861,
    "paddsw": 1322,
    "vpshufb": 35,
+   "vpbroadcastd": 93,
    "vpmaddubsw": 273,
    "vpsraw": 183,
    "vpackuswb": 95,
@@ -6765,6 +6772,7 @@
    "paddsw": 1322,
    "vpshufb": 35,
    "vpor": 118,
+   "vpbroadcastd": 93,
    "vpmaddubsw": 273,
    "vpaddw": 1243,
    "vpsraw": 183,
@@ -6819,7 +6827,6 @@
    "vpsrlq": 74,
    "vpextrw": 22,
    "vbroadcasti128": 27,
-   "vpbroadcastd": 93,
    "vpaddsw": 81,
    "vpacksswb": 9,
    "vpermq": 74,
@@ -7554,7 +7561,7 @@
    }
   },
   "covered_mem": 238961,
-  "silicon_mem": 4342,
+  "silicon_mem": 4344,
   "vex_mem": 3780,
   "class": "asm"
  },
@@ -7562,8 +7569,8 @@
   "total": 377330,
   "covered": 335609,
   "pct": 88.9431002040654,
-  "silicon": 6591,
-  "silicon_pct": 1.7467468793893939,
+  "silicon": 6625,
+  "silicon_pct": 1.755757559695757,
   "silicon_all": {
    "paddsw": 115,
    "pmaddwd": 485,
@@ -7592,6 +7599,7 @@
    "vpsrldq": 110,
    "vpalignr": 81,
    "vpslldq": 26,
+   "vpbroadcastd": 34,
    "rorx": 6,
    "vpmaddwd": 289,
    "vmulps": 41,
@@ -7829,6 +7837,7 @@
    "vpand": 178,
    "vpaddb": 26,
    "vpsubb": 18,
+   "vpbroadcastd": 34,
    "vmovups": 20,
    "vmovaps": 71,
    "vxorps": 4,
@@ -7887,7 +7896,6 @@
    "vpextrd": 29,
    "vinserti128": 179,
    "kmovw": 32,
-   "vpbroadcastd": 160,
    "kshiftrw": 2,
    "vpunpckhbw": 33,
    "vshufi32x4": 24,
@@ -8097,6 +8105,7 @@
    "punpckhdq (vector operand)": 172,
    "paddsw (vector operand)": 34,
    "packuswb (vector operand)": 62,
+   "vpbroadcastd (vector operand)": 126,
    "vpunpcklbw (vector operand)": 18,
    "vpunpckhwd (vector operand)": 2,
    "vpunpcklwd (vector operand)": 2,
@@ -9284,7 +9293,7 @@
    }
   },
   "covered_mem": 137924,
-  "silicon_mem": 1035,
+  "silicon_mem": 1063,
   "vex_mem": 2900,
   "class": "asm"
  },
@@ -9292,8 +9301,8 @@
   "total": 4784269,
   "covered": 4438664,
   "pct": 92.77622140393862,
-  "silicon": 120504,
-  "silicon_pct": 2.518754693768264,
+  "silicon": 123084,
+  "silicon_pct": 2.572681427403016,
   "vex": 67436,
   "vex_pct": 1.4095361276717508,
   "ext": {

@@ -22877,3 +22877,136 @@ rows of 254 mnemonics), and a census reading prose would be an ungated claim. Th
 (`d337 += 1` landed inside the new block's `finally`), and the selftest printed `PASS (216 arms)` against 229 before.
 **The PASS was green while thirteen arms had silently stopped being counted.** It was found only because the total went
 DOWN after arms were added, and it was fixed to 234 = 229 + 5.
+
+## D350 — V8c: `vpbroadcastd` (register and m32) and the VEX memory forms of V8b's four twins, refereed by silicon (predictions before any model, row or hardware work)
+
+**Why these.** D348 left `vpbroadcastd` out because 2,412 of its 2,581 VEX-bucket instructions take an m32 source, and
+D349's split showed what shape-blind credit costs. V8c models the memory forms that D348 counted and declined:
+`vpbroadcastd`'s 2,412 m32 plus its 169 register forms, and the four twins' 5,205 memory forms. That is **7,786 credited
+instructions that become modelled by shape.**
+
+**The referee, measured before anything was designed (P1, 2026-10-20, yukon, `acl2@c8897a34d3ef`, a scratch driver that
+imports `oracle_availability.py` unmodified, clang's bytes).** All 12 encodings REFUSE at 88 of 88: `vpbroadcastd` xmm←xmm,
+ymm←xmm, xmm←m32, ymm←m32, and `vpmaddwd`/`vpmulhrsw`/`vpmaddubsw`/`vpackssdw` with a `(%rbx)` source at VEX.128 and
+VEX.256. In the same run `CONTROL:mov` and V6's `vpaddw256` executed at 88/88. So did **V4's `vpxor (%rbx), %xmm2, %xmm0`,
+a VEX memory form**, which places the refusals on the opcodes and not on a VEX memory access. `movnti` and V7's
+`vpackuswb256` refused at 88/88. ⇒ **a silicon wave WITH memory operands**, which `hwprobe/` has done for legacy forms (`x,m`)
+and never for VEX. The 12 rows enter `oracle_availability.py` as `refuses`.
+
+**The rules.**
+- **`vpbroadcastd`:** every dword of the destination := the source's low dword (an xmm register's bits 31:0, or the 32 bits at
+  the effective address). Four dwords at VEX.128, with bits 255:128 zeroed; eight at VEX.256. No alignment check.
+- **The twins' memory forms:** the register rule (D348) with the second source (`src`, ModRM.rm) read from memory: 16 bytes at
+  VEX.128, 32 bytes at VEX.256, the high lane's operand being bytes 31:16. No alignment check (a VEX-encoded memory operand of
+  this exception class does not fault on misalignment; `vexbinm`'s rule since D342). The memory operand is always `src`, so
+  `vpmaddubsw`'s memory bytes are the SIGNED ones.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named. Every memory row is read at an
+   UNALIGNED address as well as an aligned one, so the no-fault rule is read, not assumed. Memory is never written.
+2. **Generator, before any processor.** A textbook per form reproduces every row. `--refuse-wrong` refuses, each on a named row:
+   - (a) `vpbroadcastd` broadcasting the source's dword 1 instead of dword 0;
+   - (b) a VEX.256 memory form whose high lane reads bytes 15:0 again instead of 31:16;
+   - (c) the memory operand taken as `src1`: `vpmaddubsw`'s memory bytes read UNSIGNED;
+   - (d) `vpbroadcastd` from m32 reading 64 bits (a qword broadcast).
+3. **Model.** The four kinds join a silicon-taken MEMORY set beside `vexMemTaken`; VEX.256 gains a memory twin of `vexbin256`;
+   `vpbroadcastd` is a new constructor pair (VEX.128 / VEX.256) over a register-or-memory source. All rows are pinned by
+   `decide` in a NEW metered unit. **Red backwards:** a VEX.256 memory mutant reading the high lane's operand from bytes 15:0
+   reds exactly the VEX.256 memory theorems; a broadcast mutant taking dword 1 reds exactly the `vpbroadcastd` theorems.
+4. **Census.** `vpbroadcastd` enters the silicon line at VEX.128 and ymm: **silicon +2,595 pooled** (385 + 2,210), of which
+   **memory-form +2,412** in D349's split. The four twins' memory forms are already credited (D348), so their figures do not
+   move. That is the case D349 v1 cannot show, and it is why v2 exists. (a) is unchanged in every column.
+   ⚠️ **A census defect named here, not hidden:** 14 of the 2,210 ymm-bucket `vpbroadcastd` are `vpbroadcastd %eax, %ymm…`,
+   a GPR source that exists only as an EVEX encoding, yet the bucket rule files them with AVX2. So the +2,595 includes 14
+   instructions this model does not have. The bucket fix is its own item.
+5. **Kernel cost.** The NEW unit is registered in BOTH registries before the katmai row; `X86.Syntax` grows by the new
+   constructors (V7's ten cost +32.5 ms at katmai ⇒ predict under +15 ms for these).
+
+**Not claimed:** EVEX/zmm, `vpbroadcastd` from a GPR, the other broadcasts (`vpbroadcastb/w/q`, `vbroadcastss`), and bits 511:256.
+⛔ **A correction to D348's record, made here because a commit message cannot be amended on a public branch.** V8b's first
+commit (`7b75f52`) said "`--check-encodings` CLEAN, 270 forms, two disassemblers" beside the eight rows it added to `FORMS`.
+**That gate reads `P2_FORMS` (270 rows) and never assembles a `FORMS` row**, so it did not check those eight. Measured
+2026-10-20: `FORMS` went 119 → 131 with V8c's twelve rows, and the gate still printed 270. The rows ARE right, because their
+bytes were taken from clang's own assembly of their `asm` text (V8b's and V8c's driver logs). But the sentence claimed a check
+that never ran on them. A `FORMS` row's bytes are checked today by the person who adds it, and by nothing else.
+  Re-driven the same day: all 20 `FORMS` rows that V8b and V8c added re-assemble from their `asm` text, with clang, to exactly
+  their declared bytes (20 of 20, no mismatch).
+**Result, prediction 2 (generator, steps (a) and (c), `2dcfadd`): HELD.** 168 rows over 12 encodings. Every one of the 78
+memory cases runs twice with the same operand, at offset 0 and at an odd offset (1, 13, 7 or 29), and expects the same
+result. `--selftest` passes: two hand cases, including `vpmaddwd` ymm from m256 at offset 1, whose low lane wraps to
+`80000000H`; a 3,000-case sweep over form, length, operands, buffer and offset; both red-backwards mutants disagreeing on
+exactly the rows they reach (45 and 21). `--refuse-wrong` refuses 4 of 4 on named rows: (a) `vpbroadcastd128_r_k0` · (b)
+`vpmaddwd256_m_lane_a` · (c) `vpmaddubsw128_m_edge0_a` · (d) `vpbroadcastd128_m_k0_a`. (b)'s first guess, `edge0`, was wrong:
+every `vpmaddwd` edge row has EQUAL lanes, so reading bytes 15:0 twice is invisible there, and the selftest's named-row
+arm caught that before any commit. Under Rosetta 2 (a translation, not silicon): 168/168, each plant on its own row.
+**Result, prediction 1 (silicon, push run 39464224033 at `2dcfadd`): HELD on two legs, both named by the processor.**
+- macos-15-intel, **Intel Core i7-8700B**: 168/168.
+- ubuntu-latest, **AMD EPYC 9V74** (`/proc/cpuinfo`'s `model name`; CPUID.07H:EBX `f1bf07a9`, XCR0 `e7`, so AVX-512 is
+  enabled): 168/168. This is a different AMD part from V8b's EPYC 7763.
+- On both legs: plant rc 1 on `vpmaddwd256_m_lane_u` (an unaligned VEX.256 memory row), badop rc 2, hi rc 1 on its row.
+  **No memory row faulted at an odd offset on either processor**, so VEX's no-alignment rule is read on silicon. The 64-byte
+  buffer was unchanged after every row; that comparison has no planted control (README).
+**Result, prediction 3 (model, step (b)): HELD.** `VBinKind.vexSilMemTaken` (the four kinds) beside `vexMemTaken`; the
+`vexbinm` arm takes either set; NEW constructors `vexbinm256` (the VEX.256 memory twin: `readMem128` at `a` and `a + 16`,
+per lane) and `vexbcastd` / `vexbcastd256` / `vexbcastdm` / `vexbcastdm256` over `bcast32x4`. `Tests/AnchorsVexSilC.lean`
+(NEW unit) pins all 168 rows in 12 theorems. Each pre-state writes the row's 64-byte buffer at `0x10000` with RBX =
+`0x10000 + off`, and each pin reads all eight qwords back, so the KERNEL also checks that nothing was written. saltbuild
+EXIT=0, 0 tagged errors (X86, the three VEX anchor units, Tests.Coverage, x86lean-diff). The warnings are identical, file
+by file, to V8b's build, so none is V8c's. **Red backwards, on the model**, each mutant built through the wrapper and the
+file restored (`cmp`-verified):
+- `vexbinm256`'s high lane read from `a` instead of `a + 16` reds exactly the four `…256_m` twin theorems;
+- every broadcast taking dword 1 (`>>> 32`, or the address + 4) reds exactly the four `vpbroadcastd` theorems;
+- one planted pin reds exactly `v8c_vpackssdw256_m_pins`. That pin was the row's RAX expectation, not its YMM3 as the
+  script's comment claimed: the row's trailing `,  -- name` shifted the field index by one.
+**Result, prediction 4 (census, regenerated on yukon from `~/x86lean-corpus`): HELD, exactly.** The silicon line rose by
+**2,595** pooled (385 + 2,210), and its memory-form share (D349's split) by **2,412**. Covered (a) is unchanged in every
+column, and the only JSON fields that moved are `silicon`, `silicon_all`, `silicon_pct`, `silicon_mem`, `miss` and
+`miss_all`. The four twins' figures do not move. Their memory forms were credited already (D348), and this wave makes them
+MODELLED, which v1's split cannot show; that is what 7d's v2 is for. Selftest PASS (234 arms), staleness CLEAN at 255
+mnemonics, red probe 36/36. Both censuses name D350's referees. `docs/P2-ROSTER.md` marks `vpbroadcastd` (rank 19, 3,941)
+implemented and silicon-refereed. `docs/PRIMITIVE-CENSUS.md` regenerated: the primitive census reads the `vexsilc` probe
+path.
+⚠️ As predicted, the +2,595 includes the 14 EVEX-only `vpbroadcastd %eax, %ymm…` instructions the bucket rule files as
+AVX2. This model does not have them.
+**The unit's design changed after its first cost reading, and the change is recorded rather than folded in.** yukon's first
+`kernel_delta` (`0f0a069` → `394d9c6`, `--repeats 3`) read the NEW unit at **36,300 ms and 13,726,613 unfoldings**:
+216 ms a row, against V7's ~7 and V8b's ~5. That is as large as all of `Tests.Coverage`. Measured before anything was
+registered: with the per-row buffer read-back removed, the unit built in 16 s against ~40. ⇒ The read-back was more than
+half the cost, and it re-checked 168 times a fact that holds for EVERY state. So it was replaced by six **frame theorems**
+(`v8c_frame_*`: each of the six memory-reading and broadcast constructors leaves `mem` unchanged, given `Live s` and an
+unlocked operand), and each pre-state now writes only the qwords the operand spans (at most five), not all eight. The
+unit builds in **6.7 s**, with 0 errors and 0 warnings.
+**Red backwards, re-run on the redesigned unit** (the pins changed, so the earlier run is not inherited): the VEX.256
+memory mutant reds exactly the four `…256_m` theorems; the dword-1 broadcast mutant exactly the four `vpbroadcastd`
+theorems; a planted YMM3 bit in `vpackssdw256_m_lane_u` exactly `v8c_vpackssdw256_m_pins`. This time the plant is YMM3, with
+the field index fixed and checked by its length (66). A NEW arm for the frame theorems: a `vexbcastdm256` that also writes
+one byte at its address reds exactly `v8c_frame_bcastdm256`. Two defects of my own, caught by a build: the generator's
+span variable shadowed the instruction length (`n`), and eight pin theorems failed with `v8cAgrees t 0`.
+**Result, prediction 5 (kernel cost, yukon.lan, `0f0a069` → `95ef3d3`, `kernel_delta.py --repeats 3`, loads 5.16–9.43): the
+NEW unit is registered in BOTH registries, in one commit, before any katmai row.** On the redesigned unit, the NEW
+`Tests.AnchorsVexSilC` reads head **5,450 ms** (was 36,300) and **2,478,482** unfoldings (was 13,726,613). Its printed lines,
+`Tests.AnchorsVexSilC 16350 @on yukon.lan` and `Tests.AnchorsVexSilC @ku 2478482`, are copied. `X86.Syntax` 572.0 →
+557.0, −15.0 ± 57.4 of 107.0, `ok`: prediction 5's "under +15 ms" is consistent but not established by a band this wide,
+and the katmai row decides it. Δku `X86.Syntax` +1,340 of 7,798 · `Tests.Coverage` +14,728 of 752,835. `ku_delta.py
+--check-registry` rc 0.
+**K1 on katmai (32b535f → e776518, `--repeats 6`, loads 1.82–11.05, one pass at 11.05): a READING, not the row.** The base
+`32b535f` is #117's head after a merge of master `c61cea5`; its tree is master's once #117 lands. The kernel arm refused
+the NEW unit as expected, since its ceiling was registered for yukon.lan only, and printed `Tests.AnchorsVexSilC 16605 @on
+katmai` (head 5535.0 ms); every other delta row is `ok`: `X86.Syntax` 656.0 → 674.0, +18.0 ± 9.6 of 122.7 · `Tests.Coverage`
+38150 → 38200, +50 ± 251.4 of 2746.8 · `Tests.Vectors` 9.3 → 9.6, +0.3 ± 3.2 of 9.6 · `X86.Coverage` +0.1. The ku arm
+(`ku_delta.py --arm a-prime`, same pair): `ku-delta gate (a-prime): CLEAN`, the NEW unit at 2,478,482 unfoldings,
+registered. The katmai line is committed, and the row is re-measured on the tree that holds it (K2) under a merge window,
+after #117 merges.
+**The row, K2 on katmai (f43b62d → 0744687, `--repeats 6`, loads 1.89–4.99), under the merge window the helm granted in
+advance (10-20 20:04, effective when #117 and #119 had landed, 04:05): ms `delta gate: CLEAN`; A′ `ku-delta gate (a-prime):
+CLEAN`; `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the step lands on the ms verdict.**
+- The NEW unit `Tests.AnchorsVexSilC` head 5545.0 ms, judged against its katmai ceiling (16605): `NEW ok`. `Tests.Coverage`
+  38400 → 38350, −50 ± 938.3 of 2764.8 · `Tests.Vectors` 9.4 → 9.4 · `X86.Coverage` −0.1 · A′: the NEW unit 2,478,482
+  (registered) · `Tests.Coverage` +14,728 of 752,835.
+- ⛔ **Prediction 5's "`X86.Syntax` grows by under +15 ms" is NOT HELD on the point estimate:** K1 read +18.0 ± 9.6 and K2
+  +23.5 ± 15.6, both above +15; both bands reach below it, so it is not a conviction either, and both are `ok` against the
+  budget (122.7, 121.7). The prediction scaled V7's +32.5 ms for ten constructors to "these" and did not count them.
+- ⚠️ On the way to K2, `kernel_drift.py --selftest` read rc 2 ("a WRONG row", the V8a row f9e6860 → 4616441) on V8c's
+  BRANCH HEAD and rc 0 on a synthetic `master + --no-ff V8c` merge. V8c is stacked, so its own first-parent chain runs
+  through V8a's and V8b's branch commits, where rows written for master's chain do not line up; CI judges the PR's merge
+  ref, whose first parent is master. Not a defect; the selftest is judged on the synthetic merge.

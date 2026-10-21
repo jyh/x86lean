@@ -225,6 +225,21 @@ FORMS = [
     ("V8b:vpmaddubsw256", "vpmaddubsw %ymm1, %ymm2, %ymm0", "c4e26d04c1", "refuses"),
     ("V8b:vpackssdw128", "vpackssdw %xmm1, %xmm2, %xmm0", "c5e96bc1", "refuses"),
     ("V8b:vpackssdw256", "vpackssdw %ymm1, %ymm2, %ymm0", "c5ed6bc1", "refuses"),
+    # ⭐ D350 (V8c) P1, MEASURED 2026-10-20 before any design: vpbroadcastd (reg and m32) and the four V8b twins' memory
+    # forms each REFUSE at 88/88, while V4's VEX memory form `vpxor m,xmm` EXECUTES in the same run (so the refusal is on
+    # the opcode, not the VEX memory access); CONTROL:mov and V6:vpaddw256 executed, movnti and V7:vpackuswb256 refused.
+    ("V8c:vpbroadcastd128r", "vpbroadcastd %xmm1, %xmm0", "c4e27958c1", "refuses"),
+    ("V8c:vpbroadcastd256r", "vpbroadcastd %xmm1, %ymm0", "c4e27d58c1", "refuses"),
+    ("V8c:vpbroadcastd128m", "vpbroadcastd (%rbx), %xmm0", "c4e2795803", "refuses"),
+    ("V8c:vpbroadcastd256m", "vpbroadcastd (%rbx), %ymm0", "c4e27d5803", "refuses"),
+    ("V8c:vpmaddwd128m", "vpmaddwd (%rbx), %xmm2, %xmm0", "c5e9f503", "refuses"),
+    ("V8c:vpmaddwd256m", "vpmaddwd (%rbx), %ymm2, %ymm0", "c5edf503", "refuses"),
+    ("V8c:vpmulhrsw128m", "vpmulhrsw (%rbx), %xmm2, %xmm0", "c4e2690b03", "refuses"),
+    ("V8c:vpmulhrsw256m", "vpmulhrsw (%rbx), %ymm2, %ymm0", "c4e26d0b03", "refuses"),
+    ("V8c:vpmaddubsw128m", "vpmaddubsw (%rbx), %xmm2, %xmm0", "c4e2690403", "refuses"),
+    ("V8c:vpmaddubsw256m", "vpmaddubsw (%rbx), %ymm2, %ymm0", "c4e26d0403", "refuses"),
+    ("V8c:vpackssdw128m", "vpackssdw (%rbx), %xmm2, %xmm0", "c5e96b03", "refuses"),
+    ("V8c:vpackssdw256m", "vpackssdw (%rbx), %ymm2, %ymm0", "c5ed6b03", "refuses"),
     # The #UD encodings: a two-operand form with VEX.vvvv != 1111b (clang's c5f96fc1 / c5fb12c1 with vvvv rewritten
     # to 0010b — no assembler emits them), and a legacy 66 / REX prefix before VEX (clang's c5e9fec1 with the byte
     # prepended). x86isa REFUSES all four at 88/88, agreeing with SDM Vol. 2A §2.3.2 / §2.3.6.
