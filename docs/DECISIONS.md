@@ -21788,10 +21788,15 @@ re-checked here: the coverage table is checked against the roster, not the AST (
 shift" (G25) · the declared divergences: 10 of 28 cite K, the floating-point 18 cite the manual, x86isa and a processor
 run (G34; counted at the object) · the prologue's stack pointer is at least 8 (G43) · the alignment fault is by theorem
 for the loads, stores and packed binary, shuffle, byte-shuffle, align and shift memory forms, by run for twelve logical
-forms with five vectors, and NOT by theorem for the packed floating-point, SHUFPS/SHUFPD and CVTPD2PS forms (G29; the
+forms with five vectors, and NOT by theorem for the packed floating-point arithmetic, SQRTPS, SHUFPS/SHUFPD and CVTPD2PS forms (G29; the
 five theorem names exist at `e66e24a`; SHUFPS/SHUFPD are `VShufpKind`, which no alignment theorem covers). His text
 already carried G4, G6, G7, G19 (true at 7e634fe), G22 (his 092US/093US wording), G23, G35, G57 and the MXCSR record.
 **Checks at the commit:** `check_claims` CLEAN 112 · `check_listings` CLEAN, 7 · `check_verification_claims` rc 0 ·
 `check_private_paths --tree` OK · tectonic rc 0, no undefined reference · master's `check_prose_lean --list-claims`
 from a scratch copy: 7 claim sentences in the tex. Owed: paper's non-author reads of this diff and of the submitted
 sentences master's tex never had, then the records, then the re-freeze.
+**paper's read of this diff (10-21 09:51): one finding — the port had DELETED the submission's true limit that the packed
+floating-point forms have no unaligned vector.** Restored as its own sentence, wider than before (packed FP arithmetic,
+SQRTPS, CVTPD2PS, SHUFPS, SHUFPD: an `aligned16` check in the model, no theorem, no unaligned vector), placed AFTER the
+weakest-claim sentence and its `\src` so that "This … a proof" cannot reach it; the conclusion's limit names the same
+forms as carried "only by the model's code". Two invisible `\src` section references named by title. SQRTPS added above.

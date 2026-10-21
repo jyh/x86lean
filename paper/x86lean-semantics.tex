@@ -52,7 +52,7 @@ measured too: in this project's working records, claims that no check read were 
 reproduced as stated at least one time in three, in each of three samples. The model is smaller than the K
 semantics and its proofs are fewer than x86isa's; the paper states its scope against both.
 \src{Each claim is the subject of a section below and is cited there; the six routines: docs/CLAIMS.tsv[proof\_sample\_routines];
-the three samples: Section 5, the paragraph on claims that no check read; the declined case: X86/Theorems.lean
+the three samples: the section Gated Claims; the declined case: X86/Theorems.lean
 step\_dshift\_mem\_undefined\_refuses.}
 \end{abstract}
 
@@ -87,7 +87,7 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
   cheaper proof tier cannot see (Section~\ref{sec:proofs}).
   \src{X86/Program.lean runP\_safe; Tests/Program.lean countdown\_writes\_no\_memory, fill\_safe, memcpy\_safe,
   scan\_writes\_no\_memory, prologue\_preserves\_caller\_frame, guarded\_writes\_only\_in\_buffer; the property the
-  cheaper tier cannot see is not proved: Section 6, ``What the cheaper tier cannot see''}
+  cheaper tier cannot see is not proved: the section Proofs Over the Semantics, ``What the cheaper tier cannot see''}
 \end{itemize}
 Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
 combination is checkable in one clone of a public repository.
@@ -701,6 +701,10 @@ proof that the model implements that reading, and nothing else.
 X86/Theorems.lean vbinm\_unaligned\_faults docstring; Tests/Vectors.lean pand, por, pxor, pandn and andnps \_m\_unal; x86isa
 machine/instructions/logical.lisp x86-andp?/andnp?/orp?/xorp?/pand/pandn/por/pxor-Op/En-RM at acl2 c8897a34, whose 16-byte check fp/arithmetic.lisp,
 fp/convert.lisp and fp/logical.lisp also carry, for forms that ship no unaligned vector; D250}
+The packed floating-point arithmetic, SQRTPS, CVTPD2PS, SHUFPS and SHUFPD memory forms fault the same way in
+the model, with neither a theorem nor an unaligned vector.
+\src{X86/Semantics.lean, the aligned16 checks in the .vparithm, .vsqrtpsm, .vcvtpd2psm and .vshufpm cases; none of the four
+is named in X86/Theorems.lean, and the only unaligned vectors are the five \_m\_unal rows}
 Agreement with a reference model that does not implement a rule is not evidence about the rule.
 
 \paragraph{A processor where the reference model refuses.}
@@ -1099,7 +1103,8 @@ by reading a second, for two rules by a model synthesized on processors, and, wh
 refuses, by a probe on processors that tests chosen rows rather than a sweep; K has not been run. Of the
 remaining instructions it has been asked, the reference model refuses many, and a refused
 form with no processor rows has no second source. A rule the reference model does not implement, such as the alignment fault of many legacy SSE memory
-forms, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
+forms, is carried by theorem alone, and for the packed floating-point arithmetic, SQRTPS, CVTPD2PS, SHUFPS
+and SHUFPD memory forms only by the model's code. The proof-cost measurements are a sample of six routines. And the
 check on quoted figures covers the figures that cite the manifest, not every number in the text.
 
 The contribution is a semantics whose claims about itself are, as far as its checks reach, outputs: derived from the artifact, checked against a second source where one exists, and
