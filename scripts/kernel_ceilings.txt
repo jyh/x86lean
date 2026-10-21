@@ -473,3 +473,9 @@ Tests.AnchorsVexSilB 1053 @on yukon.lan
 # D348 (V8b): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (1a70f4b → 714a69f,
 # katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilB head 420.5 ms ⇒ max(420.5 × 3, 50).
 Tests.AnchorsVexSilB 1262 @on katmai
+# D350 (V8c): the NEW unit kernel_delta printed on refusing it, 0f0a069 → 95ef3d3, yukon.lan, --repeats 3, copied, not
+# retyped: Tests.AnchorsVexSilC head 5450.0 ms ⇒ max(5450.0 × 3, 50). (Its first design read 36,300 ms; D350.)
+Tests.AnchorsVexSilC 16350 @on yukon.lan
+# D350 (V8c): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (32b535f → e776518,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilC head 5535.0 ms ⇒ max(5535.0 × 3, 50).
+Tests.AnchorsVexSilC 16605 @on katmai

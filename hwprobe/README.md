@@ -178,6 +178,27 @@ asserts each mutant reds exactly the rows it reaches.
 | `mk_vexsilb_rows.py` | the rows, the rule and the textbook; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
 | `vexsilb_probe.c` | runs each row and compares all 256 bits of YMM1-3, RAX, MXCSR and RFLAGS |
 
+**The VEX memory-operand path (D350, V8c)** is a tenth program, sharing nothing with the other nine, and the first VEX path
+with a MEMORY operand: `vexsilc_ops.S` (12 functions: VPBROADCASTD from `%xmm2` and from `(%rbx)`, and VPMADDWD, VPMULHRSW,
+VPMADDUBSW and VPACKSSDW at `(%rbx),%ymm1,%ymm3`, each at VEX.128 and VEX.256), `mk_vexsilc_rows.py` (168 rows) and
+`vexsilc_probe.c`. Each row carries a 64-byte buffer and an offset; PRE pushes RBX (callee-saved), points it at
+`&mem[off]` and POST pops it. **Every memory case runs twice, with the same operand, at offset 0 and at an ODD offset**
+(unaligned for every operand size), so VEX's no-fault-on-misalignment rule is read on silicon, not assumed. The twins'
+per-lane function and its independent textbook are D348's, imported from `mk_vexsilb_rows.py`; the memory operand is
+extracted twice here (one big integer sliced, a byte list sliced), and `build` refuses any row where they differ.
+`--refuse-wrong` refuses D350's four wrong rules on named rows: VPBROADCASTD taking dword 1, a VEX.256 memory twin's high
+lane read from bytes 15:0, the memory operand taken as SRC1 (VPMADDUBSW's signedness), and an m32 broadcast read as 64
+bits. The probe compares YMM1-3, RAX, MXCSR, RFLAGS and **all 64 bytes of the buffer**. x86isa refuses all 12 encodings
+(D350 P1). Controls: `--plant` (`vpmaddwd256_m_lane_u`, an UNALIGNED VEX.256 memory row), `--plant-op`, `--plant-hi`
+(`vpbroadcastd128_m_k1_a`). ⚠️ **Limit: the buffer comparison has no planted control.** A planted write would need a
+second instruction, so "memory is never written" is compared on every row but has not been shown able to fail.
+
+| file | role |
+|---|---|
+| `vexsilc_ops.S` | one function per form and length; RBX = `&mem[off]` (register conventions in its header) |
+| `mk_vexsilc_rows.py` | the rows; the memory operand extracted two ways; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsilc_probe.c` | runs each row and compares YMM1-3, RAX, MXCSR, RFLAGS and the 64-byte buffer |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -190,6 +211,7 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_aes_rows.py > aes_rows.h && cc -O1 -o aes_probe aes_probe.c aes_ops.S && ./aes_probe)
 (cd hwprobe && python3 mk_vexsil_rows.py > vexsil_rows.h && cc -O1 -o vexsil_probe vexsil_probe.c vexsil_ops.S && ./vexsil_probe)
 (cd hwprobe && python3 mk_vexsilb_rows.py > vexsilb_rows.h && cc -O1 -o vexsilb_probe vexsilb_probe.c vexsilb_ops.S && ./vexsilb_probe)
+(cd hwprobe && python3 mk_vexsilc_rows.py > vexsilc_rows.h && cc -O1 -o vexsilc_probe vexsilc_probe.c vexsilc_ops.S && ./vexsilc_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is

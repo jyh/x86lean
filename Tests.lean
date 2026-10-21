@@ -14,6 +14,7 @@ import Tests.AnchorsSha
 import Tests.AnchorsAes
 import Tests.AnchorsVexSil
 import Tests.AnchorsVexSilB
+import Tests.AnchorsVexSilC
 import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors
