@@ -1,5 +1,5 @@
 # a claim record: id, path, claim-sha12, lean-decl (<tracked .lean path>::<name>), stmt-sha12, author, reader, date  -- see scripts/check_prose_lean.py
 o38-02	paper/x86lean-semantics.tex	0baa3df638da	Tests/Program.lean::countdown_writes_no_memory	c3912a5ef439	paris	paper:o38-reader1+o38-reader2	2026-10-21
-o38-07	paper/x86lean-semantics.tex	d529f1115eb3	X86/Theorems.lean::vbinm_unaligned_faults	aa4c7514398f	paris	paper:o38-reader1+o38-reader2	2026-10-21
+o38-07	paper/x86lean-semantics.tex	6db31d61098d	X86/Theorems.lean::vbinm_unaligned_faults	aa4c7514398f	paris	paper:o38-reader1+o38-reader2+o38-diff-reader	2026-10-21
 o38-G47a	paper/x86lean-semantics.tex	74517531c759	Tests/LogicRead.lean::ldb_readsOnly	1414ca4e7dcd	paris	paper	2026-10-21
 o38-G47b	paper/x86lean-semantics.tex	74517531c759	Tests/LogicRead.lean::ldb1_not_readsOnly	c107a8bc4446	paris	paper	2026-10-21
