@@ -22914,4 +22914,40 @@ says the PROSE is checked, not that the claims stop being prose; the re-check fi
 records; the Scope paragraph opens without a negation. And, ahead of ruling ①(b)'s gate, the three page-1 sentences that
 paraphrase a theorem now name it in `\src`: `step_dshift_mem_undefined_refuses`; `runP_safe` and the six routines'
 theorems; and "a property the proof interface cannot state" is marked a claim of absence, not a theorem. Each name was
-checked to exist as a `theorem` in the file cited. `check_claims` CLEAN 107; `check_verification_claims` rc 0; tectonic rc 0.
+checked to exist as a `theorem` in the file cited. `check_claims` CLEAN 107; `check_verification_claims` rc 0; tectonic rc 0.**The two non-author reads of 2026-10-21 (the helm's order, O38: "the full O12 treatment"; paper, seat
+`papers/x86-arxiv/O38-READ-2026-10-21.md`, the "FIX LIST FOR paris"): applied by the author at the next commit.**
+Population read: the gate's 7 claim sentences plus every sentence that paraphrases a machine-checked result, 60 in all
+(the gate's lexicon has no `theorem`, `proof` or `lemma`, so 54 such sentences are invisible to it). 43 held.
+- **Applied as read 1 wrote them:** G4 (the property "the safety interface of that section" cannot state) · G5 (the
+  Scope's figures "at the commits its manifest names") · G6 ("its differential validation") · G7 (the state has MXCSR) ·
+  G19 (the count-dependent draws are SHLD/SHRD's; BSF/BSR's sentence was false at HEAD) · G23 (`undefinedLeaked` requires
+  MXCSR too) · G25 ("every other ENCODABLE double shift") · G35 · G43 (the prologue's stack pointer is at least 8) ·
+  G55 (the fidelity table is checked against the model's ROSTER) · G57 (only the floating-point rows ran on processors).
+- **Applied as read 2 amended them:** G10 (the table is checked against `rosterP0`, a hand list, in both directions, and
+  six per-kind enumerations plus the encodable packed shifts against that roster, with one declared exception,
+  `movmskps`; the theorems are named in `\src`) · G22 (SHLD/SHRD are the register channel's case now; BSF/BSR at a zero
+  source were its first case at the manifest's commits, and the repository has since followed 253666-093US and leaves
+  the destination unmodified, D346) · G29 (the alignment fault: by theorem for loads, stores and the packed binary,
+  shuffle and shift memory forms; by run in one reference-model function serving TWELVE mnemonics, five vectors; the
+  packed floating-point, SHUFPS/SHUFPD and CVTPD2PS memory forms fault in `step` with no theorem — the old sentence said
+  "only for PAND, POR and PXOR, where three vectors test it"; checked by me at `X86/Theorems.lean:1848–1857`, written
+  2026-09-06 at `51e760b`, BEFORE the pin, so the old sentence was false at the pin too) · G34 · G47 (the repository
+  added `ReadsOnly` after the pin; it constrains only end states; `\src` names `ldb_readsOnly` and
+  `ldb1_not_readsOnly`) · the new :384 fix (the record carries MXCSR's sticky flags and control field).
+- **Finding 3, counted by the author at the object:** `knownDivergences` at the pin has **28** entries, 10 citing K (MOVD,
+  MOVQ, eight packed shifts) and 18 not, all floating-point. Three earlier counts were short (18/8, 14/4, and my own
+  19/9) because five `.map` blocks emit one entry per tuple under one `source :=` line. G34 and G35 are right at 28.
+- **Data Availability** also names the one behaviour that CHANGED after the pin (BSF/BSR at a zero source), not only
+  what was added (read 2's note on G22).
+- **Two deviations from the readers' text, both forced by the prose gate's splitter, and declared:** (1) G52: read 2's
+  qualifier "at the commits its manifest names" is a sentence of its own after the coverage sentence, not inside it.
+  `aan.sentences` does not break after a TeX closing quote (`''.`), so the gate hashes "ACL2 x86isa specifies …"
+  through to the end of that coverage sentence as ONE 1,983-character span, and any edit inside it moves a BASELINED
+  hash about another system, which can carry no Lean read record and whose re-baselining a pull request refuses.
+  (2) G29's three theorems are named inline (`\lean{…}`) and D113's `\src` is left byte-identical, for the same reason.
+- **Declined:** G49 (optional; its original "is not false"): wherever its added sentence goes, the splitter folds it
+  into the baselined future-work sentence's span. G32 was rejected by read 2.
+**Checks at the commit:** `check_claims` CLEAN, 107 · `check_verification_claims` rc 0 · tectonic rc 0, no undefined
+reference · `check_prose_lean --base origin/master`: **1 finding, UNREAD `74517531c759`, G47's new sentence ("It is
+proved for a one-byte load and refuted for a load one byte outside its region…")** — a non-author read record is owed
+(paper's), and the gate stays red until it lands. Every other claim sentence is BASELINED at its old hash.

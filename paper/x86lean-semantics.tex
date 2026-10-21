@@ -85,7 +85,7 @@ What x86lean contributes is a discipline for the claims around a semantics, appl
   manifest among them, with a
   measurement of how often unchecked claims in this project failed a re-check (Section~\ref{sec:gated});
 \item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
-  proof interface cannot state (Section~\ref{sec:proofs}).
+  safety interface of that section cannot state (Section~\ref{sec:proofs}).
   \src{X86/Program.lean runP\_safe; Tests/Program.lean countdown\_writes\_no\_memory, fill\_safe, memcpy\_safe,
   scan\_writes\_no\_memory, prologue\_preserves\_caller\_frame, guarded\_writes\_only\_in\_buffer; the property that
   cannot be stated is a claim of absence, not a theorem: Section 6, ``What cannot be stated''}
@@ -94,14 +94,14 @@ Most of these ideas have public precedents, which Section~\ref{sec:related} cite
 combination is checkable in one clone of a public repository.
 
 \paragraph{Scope.}
-Against its neighbours, x86lean is smaller. It covers 197 mnemonics, where
-K's coverage target lists 774, and its proof support is a safety theorem for each of six small routines,
-where x86isa proves full functional correctness of an unbounded loop. Other formal x86-64 models exist
+Against its neighbours, x86lean is smaller. At the commits its manifest names, x86lean covers 197
+mnemonics, where K's coverage target lists 774, and the proof support reported here is a safety theorem for
+each of six small routines, where x86isa proves full functional correctness of an unbounded loop. Other formal x86-64 models exist
 beyond the three we compare against, and one of them, libLISA, describes itself as the most extensive to
 date, with over 118{,}000 instruction groups synthesized from a processor~\cite{liblisa};
 Section~\ref{sec:related} says what we have and have not read.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
-Its decoding is trusted to Intel XED, and its validation is against one executable model.
+Its decoding is trusted to Intel XED, and its differential validation is against one executable model.
 
 % ---------------------------------------------------------------------------------------------
 \section{The Model}
@@ -111,8 +111,8 @@ Its decoding is trusted to Intel XED, and its validation is against one executab
 
 \paragraph{State and step.}
 The machine state is a record: the sixteen general-purpose registers, the instruction pointer, the
-arithmetic flags, memory, the FS and GS segment bases, sixteen 128-bit XMM registers, the undefined-bit
-oracle, and a halt field that records why the model stopped, if it did.
+arithmetic flags, memory, the FS and GS segment bases, sixteen 128-bit XMM registers, the MXCSR register, the
+undefined-bit oracle, and a halt field that records why the model stopped, if it did.
 \src{X86/State.lean structure Cpu; X86/Basic.lean GPR and Xmms}
 The FS and GS bases are inputs: no instruction in the model writes them, so they are left out of the
 differential record, and what is compared is the address they produce.
@@ -128,9 +128,14 @@ model does not yet fetch and decode from memory.
 \paragraph{Coverage as data.}
 What the model claims is a table in Lean, not prose: one row per mnemonic, carrying its operand shapes,
 a fidelity tier, how its decoding is trusted, and its undefined bits. A test module checks the table
-against the AST in both directions, so a row cannot name a mnemonic the AST lacks and a mnemonic cannot
-lack a row, and the published coverage document is regenerated from the table and compared in CI.
-\src{X86/Coverage.lean module docstring; .github/workflows/ci.yml, the COVERAGE.md regeneration check}
+against the model's mnemonic roster in both directions, so a row cannot name a mnemonic the roster lacks and
+a roster mnemonic cannot lack a row. It checks the mnemonics of six of the AST's per-kind enumerations, and
+of the encodable packed shifts, against that roster, with one declared exception (\texttt{movmskps}, a form
+the AST expresses and no row claims). The published coverage document is regenerated from the table and
+compared in CI.
+\src{X86/Coverage.lean module docstring; Tests/Coverage.lean table\_mnemonics\_subset\_roster,
+roster\_covered\_by\_table, kind\_mnemonics\_are\_named\_or\_declared, declaredUnclaimedKindMnemonics,
+vshift\_roster\_names\_exactly\_the\_encodable\_pairs; .github/workflows/ci.yml, the COVERAGE.md regeneration check}
 The tier is \emph{exact} when every architected bit of the result and the flags is computed,
 \emph{frame} when the set of changed state components is exact but some bits come from the oracle
 because the manual leaves them undefined, and \emph{absent} when the model refuses the mnemonic entirely; forms it refuses within a row are
@@ -281,9 +286,9 @@ width draws CF's bit and ignores it, because CF is the sign; SHL at a count of o
 ignores it, because OF is defined there.
 \src{X86/Flags.lean shiftFlags}
 The number of bits drawn does still depend on operand values through the coarse branch: a masked count
-of zero draws nothing, and BSF or BSR draw a further destination-width of bits only when the source is
-zero.
-\src{Tests/Nonvacuity.lean cursor\_shift\_zero\_spends\_nothing; X86/Semantics.lean bitScanStep;
+of zero draws nothing, and SHLD or SHRD draw six flag bits and a destination-width of bits only when the
+masked count exceeds the operand width, and two bits otherwise.
+\src{Tests/Nonvacuity.lean cursor\_shift\_zero\_spends\_nothing; X86/Semantics.lean, the .dshift case;
 docs/DECISIONS.md D213}
 What the rule is meant to exclude is dependence on the oracle's own bits. If a branch inside a step
 could read a bit drawn in that step, two runs under different oracles could take different branches,
@@ -317,21 +322,25 @@ the first time a form's rules changed. It would go stale in the permissive direc
 that still names a flag the model now defines licenses the harness to excuse a real disagreement in it.
 Derived, there is one notion of ``undefined here'', and it is the semantics'.
 
-Registers need the opposite treatment, and the reason is instructive. BSF and BSR leave their
-destination register undefined when the source is zero (``If the content of the source operand is 0,
-the content of the destination operand is undefined''). Deriving the undefined registers from the same
+Registers need the opposite treatment, and the reason is instructive. SHLD and SHRD leave their
+destination undefined when the masked count exceeds the operand size, so at a 16-bit register destination
+oracle bits reach a general-purpose register (\lean{shld\_w\_bad\_count\_dest\_undefined}). Deriving the undefined registers from the same
 two runs would disarm the check that matters most: an oracle bit reaching a register by mistake would
 be re-read as ``that register is undefined here'' and filed as explained. So registers have two
 sources, required to agree. \lean{declaredUndefGPRs} reads the instruction and the manual's rule;
 \lean{undefinedRegs} observes which registers differ between the two runs. A register that moves
 without being declared is a leak; a register that is declared and does not move is a false claim of
 undefinedness, which would otherwise license the harness to explain away disagreements in that register
-indefinitely.
+indefinitely. At the commits the manifest names, BSF and BSR at a zero source were this channel's first
+case, their destination drawn from the oracle on the manual's wording then. The repository has since
+followed edition 253666-093US, which leaves that destination unmodified
+(\lean{bsf\_zero\_source\_declares\_and\_moves\_no\_register}), and the record of
+Section~\ref{sec:validation} predates that change.
 \src{X86/Serialize.lean declaredUndefGPRs, undefinedRegs, and the P1 batch 14 note}
 
 Everything outside those two channels must agree exactly between the two runs.
 \lean{undefinedLeaked}, checked on every differential case, requires the vector registers, the
-instruction pointer, the oracle cursor, the halt state and every watched memory window to be identical
+MXCSR register, the instruction pointer, the oracle cursor, the halt state and every watched memory window to be identical
 under both oracles,
 and the comparator will explain a disagreement as undefined only in a closed list of fields: the flags
 and the general-purpose registers.
@@ -354,7 +363,7 @@ it. With a memory destination there is no channel: \lean{undefinedLeaked} demand
 agree on every watched byte, and the comparator cannot explain a memory disagreement at all. Rather than
 widen its strongest check as a side effect of one instruction family, the model declines exactly this
 combination (a memory destination, a 16-bit operand, a masked count above 16) and halts with a stated
-reason. Every other double shift is answered.
+reason. Every other encodable double shift is answered.
 \src{X86/Syntax.lean dshiftMemUndefined; X86/Semantics.lean, the .dshift case}
 
 The refusal is stated as a theorem,
@@ -382,7 +391,7 @@ theorem it cannot be quietly forgotten either.
 
 A differential case is one instruction, run from one pre-state. x86lean and the reference model each
 emit a record of the post-state in one format: the general-purpose and vector registers, the
-instruction pointer, the flags, whether the instruction was refused, and a set of watched memory
+instruction pointer, the flags, MXCSR's sticky flags and control field, whether the instruction was refused, and a set of watched memory
 windows.
 \src{X86/Serialize.lean Cpu.render; scripts/run\_differential.sh}
 The records are compared field by field. A case with no disagreeing field is \emph{matched}; a case in
@@ -425,14 +434,16 @@ with it would test the translation, not supply an independent semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
 Our use of the two origins is also unequal, and we state it. Every differential run in this paper is
 against x86isa alone. K has never been executed by this project: its rule files are read, for coverage
-and to arbitrate a disagreement between x86lean and x86isa, as in the packed-shift case of
-Section~\ref{sec:validation:limits}, where each declared divergence cites the K rule that agrees with
-x86lean. Sail has not been used in any differential record.
+and to arbitrate a disagreement between x86lean and x86isa, as in the packed-shift and MOVD/MOVQ cases of
+Section~\ref{sec:validation:limits}, where each of those ten divergence entries cites the K rule that agrees
+with x86lean; the floating-point entries cite the manual, the reference model's source and a processor run
+instead. Sail has not been used in any differential record.
 \src{PROVENANCE.md, the K and Sail rows; docs/TACAS-G1-POSITIONING.md, the executable row and 1c.7;
 Main.lean knownDivergences, the source field of every entry}
 The validation claims below are therefore claims of agreement with one executable model, arbitrated
-where the two disagree by the manual and by reading the other model's rules, and for the two rules behind
-every declared divergence by a model synthesized on processors (Section~\ref{sec:validation:limits}). That arbiter is fallible
+where the two disagree by the manual and by reading the other model's rules, for the two rules behind the ten
+integer-vector entries by a model synthesized on processors, and for the floating-point entries by rows
+executed on two processors (Section~\ref{sec:validation:limits}). That arbiter is fallible
 too: comparing K's semantics with semantics synthesized on five processors, libLISA judged K incorrect for
 between 18 and 28 instruction variants per machine~\cite{liblisa}.
 \src{docs/CLAIMS.tsv[liblisa\_k\_incorrect\_min, liblisa\_k\_incorrect\_max]; liblisa.nl/publications/liblisa-oopsla24/05-results, section 5.2.2 comparison table, row
@@ -464,9 +475,12 @@ rather than by run: an unaligned load faults, an unaligned store faults, and an 
 same address does not, which is the theorem that shows the alignment flag is doing the discriminating.
 \src{docs/DECISIONS.md D91 2; X86/Theorems.lean vload\_unaligned\_faults, vstore\_unaligned\_faults,
 vload\_unaligned\_movdqu\_runs}
-MOVDQA is the example of a class: the same fault on the legacy SSE memory forms is carried by theorem
-for most of them, because the reference model implements it only for PAND, POR and PXOR, where three
-vectors test it. This is the weakest claim in the model: it rests on our reading of the manual and on a
+MOVDQA is the example of a class. The same fault is stated by theorem for the aligned loads and stores
+and for the packed binary, shuffle and shift operations at a memory source (\lean{vbinm\_unaligned\_faults},
+\lean{vshufm\_unaligned\_faults}, \lean{vshiftm\_unaligned\_faults}). The reference model implements it in
+one function, which serves twelve packed logical mnemonics, and five vectors test it there. The packed
+floating-point arithmetic, SHUFPS/SHUFPD and CVTPD2PS memory forms fault in \lean{step} with no theorem
+stating it. This is the weakest claim in the model: it rests on our reading of the manual and on a
 proof that the model implements that reading, and nothing else.
 \src{docs/DECISIONS.md D113 (three of nineteen validatable; the other sixteen and vload, vstore, vshufm, vshiftm theorem-only);
 X86/Theorems.lean vbinm\_unaligned\_faults; D250}
@@ -681,7 +695,7 @@ is a fixed base of about eleven lines plus about one line per instruction.
 wrapping; counted by scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_countdown, proof\_lines\_scan]}
 A property that depends on position, such as ``every store lands inside the destination buffer'', needs
 an invariant indexed by label. These theorems are stated from an entry state whose pointer registers
-are universally quantified and whose other registers are fixed (defaults, and in one routine a count of
+are universally quantified (in the prologue, a stack pointer of at least 8) and whose other registers are fixed (defaults, and in one routine a count of
 four), over every amount of fuel and every initial memory; the two copying routines move a constant four
 bytes. Across four routines with 2, 3, 5 and 7 labels, the proofs are 34, 50, 57
 and 76 lines. A least-squares line through the four is about 22 lines plus 7.6 per label, or about 175
@@ -710,7 +724,13 @@ expect the remedy to be a tactic or a verification-condition generator rather th
 One property in the sample cannot be expressed as an invariant of a single run: that a scan reads only
 inside its buffer. Memory reads are total and leave no trace in the state, so a wild read is
 unobservable to any single-run invariant. The honest form is non-interference over two runs whose
-memories agree on the buffer, and the interface's combinators are all single-run.
+memories agree on the buffer, and the combinators of this section's interface are all single-run. After the
+commits the manifest names, the repository added a terminal-state form of that two-run property
+(\lean{ReadsOnly}). It constrains only the end states, so a read outside the buffer whose value is discarded
+satisfies it. It is proved for a one-byte load and refuted for a load one byte outside its region; it is not
+proved for the scan, and this paper does not report on it.
+\src{X86/Logic.lean ReadsOnly; Tests/LogicRead.lean ldb\_readsOnly (a one-byte load) and ldb1\_not\_readsOnly (a load one
+byte outside its region); both after the manifest's commits (X86/Logic.lean 05061b5, Tests/LogicRead.lean bae9e2b, 2026-09-26)}
 \src{docs/P2-PROOF-INTERFACE.md, problem 3 section 2}
 
 \paragraph{The sample.}
@@ -751,8 +771,9 @@ theorems, and is validated by co-simulation against K's single-instruction tests
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
 Against these, x86lean covers 197 mnemonics where K's target lists 774; x86isa's figure is stated in
-opcodes, a different unit, and Sail's model publishes no count. Its proof support, a safety theorem for
-each of six small routines, is far weaker than x86isa's or K's; the Sail model carries no theorems.
+opcodes, a different unit, and Sail's model publishes no count. Those figures of x86lean's are at the commits
+its manifest names. The proof support this paper reports, a safety theorem for each of six small routines, is far weaker than x86isa's or
+K's; the Sail model carries no theorems.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d;
 197 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
@@ -834,7 +855,7 @@ model's execution traces were compared against the Spike reference simulator~\ci
 ``compare the trace outputs of the Sail model and a version of Spike''; docs/DECISIONS.md D223}
 That a model should state its own fidelity is not our idea either: the Isabelle/HOL model above describes
 its semantics as over-approximative~\cite{afp-x86}. What the fidelity tier of
-Section~\ref{sec:model} adds is that the statement is made per mnemonic, as data that is checked against the AST.
+Section~\ref{sec:model} adds is that the statement is made per mnemonic, as data that is checked against the model's roster.
 \src{isa-afp.org/entries/X86\_Semantics.html, ``purposefully incomplete, but overapproximative''; X86/Coverage.lean inductive Tier and
 the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md D223. This sentence also cited the lifting work
 (verbeek-lifting) until 2026-09-14; its over-approximation is of a binary's execution paths, and it assumes the instruction
@@ -846,11 +867,13 @@ semantics (PLDI 2022 section 1), so it states no model's fidelity: docs/DECISION
 
 The limitations are the ones stated where they arise. x86lean is small, and its proofs are few. Its
 decoding is trusted. Its validation is agreement with one executable model, arbitrated by the manual and
-by reading a second, and for two rules by a model synthesized on processors; K has not been run, and no
-hardware co-simulation has been. Of the remaining instructions it has
+by reading a second, and for two rules by a model synthesized on processors; K has not been run, and the
+differential has not been co-simulated with hardware; only the floating-point rows of
+Section~\ref{sec:validation:limits} were executed on processors. Of the remaining instructions it has
 been asked, the reference model refuses more than it executes, and for the refused ones a model built from
-the manual currently has no second source. A rule the reference model does not implement, such as the alignment fault of most legacy SSE memory
-forms, is carried by theorem alone. The proof-cost measurements are a sample of six routines. And the
+the manual currently has no second source. A rule the reference model does not implement, such as the alignment fault of the legacy SSE memory forms
+outside its one function, is carried by theorem alone for most of those forms, and for the packed
+floating-point, SHUFPS/SHUFPD and CVTPD2PS memory forms by \lean{step} alone, with no theorem stating it. The proof-cost measurements are a sample of six routines. And the
 gate on quoted figures checks the figures that cite the manifest, not every number in the text.
 
 The contribution is a semantics whose claims about itself are, as far as its checks reach, outputs:
@@ -876,7 +899,8 @@ by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the imag
 with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
 this paper that word names x86lean's source of undefined bits. The figures describe the model at the
 commits the manifest names; the repository has grown since, by VEX-encoded instructions among others,
-and what was added after those commits is not described here.
+and what was added after those commits is not described here. One behaviour has also changed since: BSF
+and BSR at a zero source now leave the destination unmodified (Section~\ref{sec:undef:derived}).
 \src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);
 LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
 
