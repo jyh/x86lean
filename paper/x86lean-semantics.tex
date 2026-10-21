@@ -677,8 +677,9 @@ same address does not, which is the theorem that shows the alignment flag is doi
 vload\_unaligned\_movdqu\_runs}
 MOVDQA is the example of a class. The same fault is stated by theorem for the aligned loads and stores and
 for the packed binary, shuffle, byte-shuffle, align and shift operations at a memory source
-(\lean{vbinm\_unaligned\_faults}, \lean{vshufm\_unaligned\_faults}, \lean{vshufbm\_unaligned\_faults},
-\lean{valignrm\_unaligned\_faults}, \lean{vshiftm\_unaligned\_faults}), and by run only for the twelve
+(\lean{vbinm\_\allowbreak unaligned\_\allowbreak faults}, \lean{vshufm\_\allowbreak unaligned\_\allowbreak faults},
+\lean{vshufbm\_\allowbreak unaligned\_\allowbreak faults}, \lean{valignrm\_\allowbreak unaligned\_\allowbreak faults},
+\lean{vshiftm\_\allowbreak unaligned\_\allowbreak faults}), and by run only for the twelve
 logical forms that share one body in the reference model, where five vectors test it. For the forms carried by theorem alone this is the weakest claim the model proves: it rests on our reading of the manual and on a
 proof that the model implements that reading, and nothing else.
 \src{docs/DECISIONS.md D157 4 (``The run-backed set is twelve of twenty-eight kinds now''), superseding D113's three of nineteen;
