@@ -23079,3 +23079,51 @@ over the ten columns:
 ⇒ **The rule the helm set at 7c ("credited" is not "modelled") now has its number: of the VEX table's 75,098 credited
 instructions, 36,645 are register-form and 73 memory-form instructions are modelled; 38,380 are credited on a form the
 model does not execute.**
+## D353 — V9a: the VEX memory twins of the 26 differentially tested packed binary kinds, at VEX.128 and VEX.256 (predictions before any model, row or hardware work)
+
+**Why these.** D352 measured the gap: of the VEX table's 38,453 credited memory-form instructions the model executes a memory
+form for 73. The register twins of 26 packed binary kinds have been differentially tested since V3/V6 (`VBinKind.vexTaken`:
+add and sub at b/w/d/q, the eight logic ops, cmpeq and cmpgt at b/w/d), and the AST has carried their memory constructors
+since D342 (`vexbinm`) and D350 (`vexbinm256`). Only `vpxor`'s VEX.128 memory twin is taken (`vexMemTaken`). V9a takes the
+other 51, so the cheapest part of the gap closes on constructors that already exist. The moves (`vmovdqa`, `vmovdqu`,
+`vmovups`, `vmovaps`, …), which carry most of what remains, are V9b, priced after this row (helm 10-22 08:23, arm (A)).
+
+**The referee, measured before anything was designed (P1, 2026-10-22, yukon, `acl2@c8897a34d3ef`, a scratch driver that
+imports `oracle_availability.py` unmodified, clang's bytes).** All 52 memory encodings (26 kinds × VEX.128 and VEX.256, each
+`v… (%rbx), %reg2, %reg0`) EXECUTE at 88 of 88. In the same run `CONTROL:mov` executed 88/88, `vpxor m,xmm` executed 88/88,
+and `movnti` REFUSED 88/88, so the instrument separates the two states in this run. The 24 VEX move memory encodings (six
+moves × 128/256 × load/store) were read in the same run and also execute at 88 of 88; they are recorded for V9b and not taken
+here. ⇒ **the differential is the referee for all 52**, as it is for the register twins.
+
+**The rules (already the model's, D342/D350; V9a widens which kinds take them).**
+- **VEX.128 memory:** `vexbin`'s value with the 16 bytes at the effective address as the second source (`src`, ModRM.rm);
+  bits 255:128 of the destination zeroed. No alignment check (a VEX-encoded memory operand of this class does not fault on
+  misalignment; the legacy `vbinm` keeps its #GP).
+- **VEX.256 memory:** per 128-bit lane, the low lane's operand from bytes 15:0 and the high lane's from bytes 31:16, through
+  `setYmm`. No alignment check. No flag is written by any of the 26.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Oracle (P1, already read):** 52 of 52 execute at 88/88; controls as above. Recorded in `oracle_availability.py` FORMS as
+   `executes`, so the gate holds the reading in both directions from now on.
+2. **Differential.** Two vectors per encoding, 104 in all: one in the `vpxor_xxm` shape (`(%rbx)`, aligned) and one at a
+   MISALIGNED address with high registers (VEX.R̄ and VEX.vvvv's top bit), as `vpxor_x9x13m_u`. The two `vpxor` VEX.128
+   vectors exist since D342 and stay, so 102 are new. ⇒ `cases` grows by 102 × 88 = **8,976**, every one `matched`; `unexplained=0`,
+   `oracle-leaks=0` and `missing=0` unchanged; `explained` and `oracle-divergence` unchanged.
+3. **Model.** `VBinKind.vexMemTaken` becomes the same set as `vexTaken` (written as its own list, so a later register-only
+   kind does not silently gain a memory twin); the `vexbinm256` arm takes `vexMemTaken || vexSilMemTaken`. No new constructor.
+   **Red backwards**, each mutant built through the wrapper and the file restored:
+   - `vexMemTaken` back to `vpxor` alone: the 100 new non-`vpxor` vectors halt `unimplemented`, and the differential reports
+     them as unexplained, by name;
+   - `vexbinm256`'s high lane read from `a` instead of `a + 16`: exactly the VEX.256 memory vectors whose two 16-byte halves
+     differ are reported; the misaligned row of each kind differs by construction.
+4. **Census (derived, not typed).** `demand_census.py` was run twice from `~/x86lean-corpus` on #122's head (`eb25a9d`): the
+   control reproduced the shipped `docs/DEMAND-CENSUS.md` byte for byte; the second run added these 52 forms to the model's
+   vectors and nothing else. Only the stamp line and the "of which the model executes a memory form for" field moved, in six
+   columns: coreutils 8 → 11 · glibc 0 → 987 · dav1d 0 → 1,032 · ffmpeg 61 → 2,975 · vpx 2 → 693 · x264 2 → 318. **Pooled:
+   73 → 6,016 of 38,453 (0.2 % → 15.6 %).** The regenerated document after V9a must read exactly these. No credited figure
+   moves (the mnemonics are credited already).
+5. **Kernel cost.** No new constructor, so `X86.Syntax` changes by one Bool definition: predict |Δ| under 5 ms at katmai.
+   `Tests.Vectors` grows by 102 rows; its row is read on katmai before the merge window is asked.
+
+**Not claimed:** the VEX move memory forms (V9b); any VEX memory form outside the 26 kinds; EVEX/zmm; a memory DESTINATION
+(none of the 26 has one).
