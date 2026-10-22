@@ -1409,7 +1409,7 @@ def model_forms(root_dir, model, tmp):
     for i, (_f, l) in enumerate(probes):
         asm.append(f".globl _p{i}\n_p{i}:\n  {l}")
     S, O = os.path.join(tmp, "forms.S"), os.path.join(tmp, "forms.o")
-    open(S, "w").write("\n".join(asm) + "\n")
+    open(S, "w", encoding="utf-8").write("\n".join(asm) + "\n")
     r = subprocess.run(["clang", "-target", "x86_64-apple-macos11", "-c", S, "-o", O],
                        capture_output=True, text=True)
     if r.returncode != 0:
@@ -1903,15 +1903,15 @@ def selftest():
         "7d red arms: an empty model reads 0; a model with every demanded form reads the 7c memory-form figure", "7d:red")
     # the staleness half: the stamp hashes the model side's INPUTS, and a planted vector must move it
     import tempfile
-    with tempfile.TemporaryDirectory() as _td:
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-stale-") as _td:
         os.makedirs(os.path.join(_td, "Tests")); os.makedirs(os.path.join(_td, "hwprobe"))
         _vf = os.path.join(_td, "Tests", "Vectors.lean")
-        open(_vf, "w").write('[ { id := "a", mnemonic := "mov", asm := "movl %ecx, %eax", bytes := "89c8" }\n')
-        open(os.path.join(_td, "hwprobe", "x_ops.S"), "w").write(
+        open(_vf, "w", encoding="utf-8").write('[ { id := "a", mnemonic := "mov", asm := "movl %ecx, %eax", bytes := "89c8" }\n')
+        open(os.path.join(_td, "hwprobe", "x_ops.S"), "w", encoding="utf-8").write(
             "FN(x)\n  PRE\nAT(x_at)\n  vpxor (%rbx), %xmm1, %xmm3\n  POST\nSYM(p):\n  LOAD\n  mulsd %xmm1, %xmm0 /* f2 */\n")
         _d1 = forms_digest(_td)
         _vi, _pi = forms_inputs(_td)
-        open(_vf, "a").write(', { id := "b", mnemonic := "mov", asm := "movl 0x8(%rbx), %eax", bytes := "8b4308" }\n')
+        open(_vf, "a", encoding="utf-8").write(', { id := "b", mnemonic := "mov", asm := "movl 0x8(%rbx), %eax", bytes := "8b4308" }\n')
         _d2 = forms_digest(_td)
     arm(_d1[:2] == (1, 2) and _d2[:2] == (2, 2) and _d1[2] != _d2[2]
         and [l for _f, l in _pi] == ["vpxor (%rbx), %xmm1, %xmm3", "mulsd %xmm1, %xmm0"],
@@ -2603,7 +2603,7 @@ def main():
     model = model_mnemonics()
     # ⭐ D352 (STATUS 7d): the model's executed forms, read once; a refusal stops the run (never an empty set)
     import tempfile
-    with tempfile.TemporaryDirectory() as _td:
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-forms-") as _td:
         _reg, msk, _fnote = model_forms(root, model, _td)
     if msk is None:
         print(f"⛔ D352: the model's forms could not be read — {_fnote}. Nothing written.")
