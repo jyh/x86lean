@@ -504,7 +504,18 @@ def knownDivergences : List KnownDivergence :=
   (["xmm0", "ymmhi0"].map fun f =>
     { vec := "vandps_yyy", field := f
     , source := "SDM Vol. 2B ANDPS, VEX.256 encoded version: DEST[255:0] ← SRC1[255:0] BITWISE AND SRC2[255:0] · x86isa's own VEX.128 VANDPS and VEX.256 VANDPD rows, which pass *OP-AND* · processor: Rosetta 2 x86-64 translation on an Apple M4 Pro (NOT silicon) computes AND in both lanes on case 0's operands (D344)"
-    , note := "D344" })
+    , note := "D344" }) ++
+  -- ⛔ V9a (D353) — THE SAME x86isa ROW, REACHED BY THE MEMORY FORM. `vandps m256, ymm, ymm` (`c5 ec 54 /r`, mod != 11)
+  -- dispatches through the one VEX.256 VANDPS entry, so it inherits `#x5`: 88 of 88 cases of each of the two VEX.256
+  -- memory vectors disagree in both lanes of the destination by exactly SRC1 XOR m256, and nowhere else (D353 result).
+  -- The four entries name those fields alone. A model defect in the VEX.256 VANDPS memory form is then visible only
+  -- through the shared `vbinApply .andps` (agreeing at VEX.128, memory form included) and the shared `vexbinm256`
+  -- lane rule (agreeing on the other 50 VEX.256 memory vectors). That is a stated limit, not a check.
+  ([("vandps_yym", "xmm0"), ("vandps_yym", "ymmhi0"), ("vandps_y9y13m_u", "xmm9"), ("vandps_y9y13m_u", "ymmhi9")].map
+    fun (v, f) =>
+    { vec := v, field := f
+    , source := "SDM Vol. 2B ANDPS, VEX.256 encoded version: DEST[255:0] ← SRC1[255:0] BITWISE AND SRC2[255:0], SRC2 a ymm register or m256 · x86isa's VEX.256 VANDPS row is the one D344 declares (`(operation . #x5)`); the memory form takes the same row · x86isa's own VEX.128 VANDPS memory form and VEX.256 VANDPD memory form compute AND (D353)"
+    , note := "D353" })
 
 /-- ⭐ D331: the pre-state index of a case id, the number after its `/` (`bt_mr_w/17` ⇒
 17).  An id with no such suffix reads as a number no `states` list contains. -/

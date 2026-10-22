@@ -23124,6 +23124,12 @@ here. ⇒ **the differential is the referee for all 52**, as it is for the regis
    moves (the mnemonics are credited already).
 5. **Kernel cost.** No new constructor, so `X86.Syntax` changes by one Bool definition: predict |Δ| under 5 ms at katmai.
    `Tests.Vectors` grows by 102 rows; its row is read on katmai before the merge window is asked.
+   ⚠️ **Amended at the first build, before any cost was measured:** the predictions above missed that `Tests.CoverageVex`
+   (35 → 85 VEX.128 vectors) and `Tests.CoverageVex256` (39 → 91) walk every vector. The first build stopped on both: a
+   pinned count (39) and `vex_vectors_not_in_main` reaching the default recursion depth (raised for that theorem alone).
+   Both units grow roughly with their vector count, so predict each near 2.4× its current head, which crosses their
+   ceilings (`CoverageVex` head ~3.3 s against 9,000 ms at yukon). New ceiling lines are V9a's declared cost, measured
+   and written with the katmai row, not typed.
 
 **Not claimed:** the VEX move memory forms (V9b); any VEX memory form outside the 26 kinds; EVEX/zmm; a memory DESTINATION
 (none of the 26 has one).

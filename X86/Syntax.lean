@@ -1226,7 +1226,7 @@ inductive VexOp where
   VEX-encoded m128 operand of Exception Type 4 does not fault on a misaligned address (SDM
   Vol. 2A Table 2-21; x86isa's `logical.lisp` passes `inst-ac? nil` for the VEX form), where
   the legacy form's #GP(0) is `vbinm`'s.  Only the kinds `VBinKind.vexMemTaken` lists are
-  taken (D342: `vpxor` alone, the one a candidate needs); `step` refuses any other. -/
+  taken (D342: `vpxor` alone; since V9a, D353, the 26 kinds of `vexTaken`); `step` refuses any other. -/
   | vexbinm (k : VBinKind) (dst src1 : XmmReg) (ea : Ea)
   /-- ⭐⭐ V4 (D342) — VAESENC / VAESENCLAST (VEX.128 66 0F38 DC/DD): `dst := round(src1, src)`,
   `src1` (VEX.vvvv) the state and `src` (ModRM.rm) the round key, written through `setXmmVex128`
@@ -1284,7 +1284,8 @@ inductive VexOp where
   | vexmovmskb256 (dst : GPR) (src : XmmReg)
   /-- ⭐⭐ V8c (D350) — THE VEX.256 MEMORY TWIN of a packed binary operation: `vexbin256`'s per-lane value
   with the 32 bytes at `ea` as the second source, bytes 15:0 the low lane's and 31:16 the high lane's.  No
-  alignment check, as `vexbinm` (D342).  Only `VBinKind.vexSilMemTaken` is taken; silicon-refereed. -/
+  alignment check, as `vexbinm` (D342).  Taken for `VBinKind.vexSilMemTaken` (silicon-refereed, D350) and, since
+  V9a (D353), `VBinKind.vexMemTaken` (differential). -/
   | vexbinm256 (k : VBinKind) (dst src1 : XmmReg) (ea : Ea)
   /-- ⭐⭐ V8c (D350) — VPBROADCASTD (VEX 66 0F38 58 /r): every dword of `dst` := the source's low dword, from an
   xmm register or from the 32 bits at `ea` (no alignment check).  Four dwords at VEX.128 (bits 255:128 zeroed),
@@ -2276,11 +2277,16 @@ def VBinKind.vexSilTaken : VBinKind → Bool
   | .maddwd | .mulhrsw | .maddubsw | .packssdw => true
   | _ => false
 
-/-- ⭐ V4 (D342) — the packed binary kinds whose VEX.128 MEMORY twin is taken: `vpxor` alone.
-The oracle executes it (`oracle_availability.py`, 88 of 88); the other differentially tested
-VEX twins' memory forms are not taken because no census candidate needs them. -/
+/-- ⭐ V4 (D342) — the packed binary kinds whose VEX MEMORY twins (`vexbinm`, and since V9a `vexbinm256`) are
+taken on the DIFFERENTIAL's word. D342 took `vpxor`'s VEX.128 one alone; ⭐⭐ V9a (D353) takes all 26 kinds of
+`vexTaken`, at VEX.128 and VEX.256: the oracle executes all 52 encodings (`oracle_availability.py`, 88 of 88).
+Written as its own list rather than as `vexTaken`, so a kind added for its REGISTER twin does not silently gain
+a memory twin nobody tested. -/
 def VBinKind.vexMemTaken : VBinKind → Bool
-  | .xor => true
+  | .addb | .addw | .addd | .addq | .subb | .subw | .subd | .subq => true
+  | .xor | .and | .or | .andn | .andnps | .andnpd => true
+  | .andps | .andpd | .orps | .orpd | .xorps | .xorpd => true
+  | .cmpeqb | .cmpeqw | .cmpeqd | .cmpgtb | .cmpgtw | .cmpgtd => true
   | _ => false
 
 /-- ⭐⭐ V8c (D350) — the packed binary kinds whose VEX MEMORY twins (VEX.128 `vexbinm` and VEX.256 `vexbinm256`)
