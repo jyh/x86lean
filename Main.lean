@@ -5752,10 +5752,11 @@ and they are not counted in the roster figure above.\n\n"
 tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin of a row of the main \
 table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy \
 destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy \
-form preserves them, and the differential record compares those bits on both sides. Register forms \
-only, save `vpxor`'s m128 form (D342), which has no alignment check. Every register form is also \
+form preserves them, and the differential record compares those bits on both sides. Every register form is also \
 differentially tested at VEX.256 (VEX.L = 1, V6, D344): " ++ toString vex256Vectors.length ++ " more forms, each \
-computing the 128-bit function in each lane and WRITING bits 255:128. Decode trust here is LLVM `objdump`'s, which decodes a \
+computing the 128-bit function in each lane and WRITING bits 255:128. The MEMORY twins (an m128 or m256 second \
+source, with no alignment check) are differentially tested for the 26 packed binary kinds of `VBinKind.vexMemTaken`, \
+at VEX.128 and VEX.256: `vpxor`'s VEX.128 one since D342, and the rest since V9a (D353), in " ++ toString vexMemVectors.length ++ " more forms, aligned and misaligned. Decode trust here is LLVM `objdump`'s, which decodes a \
 legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries \
 one (D341).\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable
@@ -5819,7 +5820,7 @@ one (D341).\n\n"
       let n := 8
       IO.println s!"vectors={vectors.length} mnemonics={(vectors.map Vec.mnemonic).eraseDups.length} \
 vex-vectors={vexVectors.length} vex-mnemonics={(vexVectors.map Vec.mnemonic).eraseDups.length} \
-vex256-vectors={vex256Vectors.length} \
+vex256-vectors={vex256Vectors.length} vexmem-vectors={vexMemVectors.length} \
 pre-states={(preStates 1 n).length} cases={allVectors.length * (preStates 1 n).length}"
       return 0
   | _ =>

@@ -23163,3 +23163,21 @@ derived one byte for byte except its forms stamp (`vectors=1383`, the two `_hi` 
 **Prediction 5 (kernel cost): read on katmai before the merge window is asked**, with the two coverage units' ceilings.
 ⚠️ **Not a record of THIS work but met on the way:** the mutant runs' `emit` writes 498 MB per run; two of them were kent's 09:41
 disk burst (bus, @86,217,268). They are deleted at their read now.
+**Result, prediction 5, first reading (K1 on katmai, `eb25a9d` → `25a3120`, `--repeats 6`, the helm's GO 10-22 10:26; box
+load sampled every 300 s beside it, load1 1.3–4.9 while gemini's ZF chain shared the box): REFUSED, as the amendment above
+said it would be.** `Tests.CoverageVex256` 791 → 3,050 ms, OVER BUDGET (+2,259 against 184); `Tests.CoverageVex` 3,335 →
+4,320 ms, UNMEASURABLE (+985 against 777, band ±320); the ku arm convicts the same two (+500,789 unfoldings against 54,032;
++296,572 against 261,969). Nothing else moved (`X86.Syntax` +0.5 ms, against prediction 5's under-5 ms). The gate's own text:
+*"Make the commit cheaper … DO NOT WIDEN THE BUDGET."*
+**The repair is a NEW unit, D341's.** A budget that is 23.3 % of a unit's own size cannot take 104 more rows in that unit
+however cheap each check is, and two cheaper proofs were tried first and measured on yukon: deriving
+`vex_vectors_not_in_main` from theorems 2 and 4 (kept no further: the unit returns to base) and marking ids by the character
+after their first `_` (2.0 s against the pairwise form's 2.5 s: reading a string's characters in the kernel costs far more
+than comparing two strings). ⇒ V9a's 104 rows move to a fourth list, `vexMemVectors`; `vexVectors` and `vex256Vectors`,
+and `Tests/CoverageVex.lean` and `Tests/CoverageVex256.lean`, are byte-identical to `eb25a9d`; `Tests/CoverageVexMem.lean`
+(NEW unit) checks size 104, every mnemonic a VEX row, every row a `vexbinm`/`vexbinm256` of a `vexMemTaken` kind, and ids
+disjoint from both other lists (2.63 s of type checking on yukon, 2.41 s of it the ids). Its ceilings are measured and
+copied from kernel_delta's NEW-unit refusal on each machine, as V8c's were.
+Re-driven on the restructured tree: the differential is unchanged (`cases=121704 matched=98383 unexplained=0
+oracle-divergence=1144`; the list order moved, the set did not). `docs/COVERAGE.md` is regenerated: the VEX section no longer
+says "register forms only", and the 25 rows read `x,x,x · x,x,m` with the no-alignment rule.

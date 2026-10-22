@@ -49,9 +49,7 @@ theorem vex_rows_have_vectors :
 theorem vex_vectors_have_rows :
     (vexVectors.all fun v => vexMnemonics.contains v.mnemonic) = true := by decide
 
-set_option maxRecDepth 8000 in
-/-- 5. No VEX vector shares a mnemonic with the main vector table.  ⚠️ V9a (D353) took `vexVectors` from 35 rows to 85,
-and `decide` reached Lean's default recursion depth here; the depth is raised for this theorem alone. -/
+/-- 5. No VEX vector shares a mnemonic with the main vector table. -/
 theorem vex_vectors_not_in_main :
     (vexVectors.all fun v => !(tableP0.any (·.mnemonic == v.mnemonic))) = true := by decide
 
