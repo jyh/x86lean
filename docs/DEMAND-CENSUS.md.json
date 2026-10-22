@@ -739,7 +739,7 @@
   "vex_mem": 72,
   "covered_mem_modelled": 279349,
   "silicon_mem_modelled": 0,
-  "vex_mem_modelled": 8,
+  "vex_mem_modelled": 11,
   "class": "compiler"
  },
  "glibc": {
@@ -2766,7 +2766,7 @@
   "vex_mem": 4189,
   "covered_mem_modelled": 195499,
   "silicon_mem_modelled": 2,
-  "vex_mem_modelled": 0,
+  "vex_mem_modelled": 987,
   "class": "compiler"
  },
  "dav1d": {
@@ -4402,7 +4402,7 @@
   "vex_mem": 8990,
   "covered_mem_modelled": 67866,
   "silicon_mem_modelled": 4081,
-  "vex_mem_modelled": 0,
+  "vex_mem_modelled": 1032,
   "class": "asm"
  },
  "ffmpeg": {
@@ -6159,7 +6159,7 @@
   "vex_mem": 18510,
   "covered_mem_modelled": 1114999,
   "silicon_mem_modelled": 8188,
-  "vex_mem_modelled": 61,
+  "vex_mem_modelled": 2975,
   "class": "asm"
  },
  "vlc-codec": {
@@ -7586,7 +7586,7 @@
   "vex_mem": 3780,
   "covered_mem_modelled": 231620,
   "silicon_mem_modelled": 4184,
-  "vex_mem_modelled": 2,
+  "vex_mem_modelled": 693,
   "class": "asm"
  },
  "x264": {
@@ -9321,7 +9321,7 @@
   "vex_mem": 2900,
   "covered_mem_modelled": 135547,
   "silicon_mem_modelled": 670,
-  "vex_mem_modelled": 2,
+  "vex_mem_modelled": 318,
   "class": "asm"
  },
  "_asm_pooled": {

@@ -23133,3 +23133,33 @@ here. ⇒ **the differential is the referee for all 52**, as it is for the regis
 
 **Not claimed:** the VEX move memory forms (V9b); any VEX memory form outside the 26 kinds; EVEX/zmm; a memory DESTINATION
 (none of the 26 has one).
+
+**Result, prediction 1 (oracle): HELD**, as read before the design (52 of 52 at 88/88, controls as stated), and the rows are in FORMS.
+**Result, prediction 2 (differential): HELD on the count of new cases and on `unexplained=0`; NOT HELD on `oracle-divergence`.**
+First full run (`8cd795a`'s tree, `acl2@c8897a34d3ef`): `cases=121528 matched=98207 explained=34047 unexplained=352
+oracle-divergence=792`. Against master's `112552 / 89407 / 34047 / 792`: +8,976 cases, +8,800 matched, so 100 of the 102 new
+vectors agree on every case. All 352 unexplained were `vandps_yym` and `vandps_y9y13m_u`, 88 of 88 each, in both lanes of the
+destination and nowhere else, by exactly SRC1 XOR m256 (case `vandps_yym/3`: m128 low = `bfbebdbcbbbab9b8_000000000000000f`,
+xmm2 = `…0011_…222d`; AND gives the model's `…10_…0d`, XOR gives the oracle's `…a9_2222…22`). That is the VEX.256 VANDPS row
+D344 found passing `#x5`; the memory form reaches the same row. Its four fields join `knownDivergences` (note D353), and the run
+then reads `unexplained=0 oracle-divergence=1144` (+352 = 2 vectors × 88 × 2 fields). I predicted divergence UNCHANGED because
+I did not ask which of the 26 kinds share a row with a declared oracle defect; D344's own record named it.
+**Result, prediction 3 (model, red backwards): A HELD exactly; B HELD only after a vector was added, and the miss is the finding.**
+- A (`vexMemTaken` back to `vpxor` alone): exactly the 100 new non-`vpxor` vectors change, 88 of 88 each, nothing else
+  (`vpxor`'s VEX.256 rows stay green because the mutant still takes `.xor`, as it should).
+- B (`vexbinm256`'s high lane read from `a`): 47 of the 52 VEX.256 memory vectors changed. The 5 that did not are equality
+  compares (`vpcmpeqb_yym`, `vpcmpeqw_yym`, `vpcmpeqw_y9y13m_u`, `vpcmpeqd_yym`, `vpcmpeqd_y9y13m_u`): src1's high lane equals no
+  element of EITHER memory half, so the right lane and the wrong one both compute all-zero. `vpcmpeqb` is caught by its other row;
+  **`vpcmpeqw` and `vpcmpeqd` were caught by neither, so the prediction's "every kind's misaligned row differs by construction" was
+  false for them.** Repair: `vpcmpeqw_yym_hi` and `vpcmpeqd_yym_hi` at `-0x14(%rbx)` (m256 = 0x1fec..0x200b, bytes 31:16 carry a
+  zero dword where ymm2's high lane has one; bytes 15:0 do not). Re-driven: B now changes 49 of 54, including both new rows (52 and
+  45 of 88 cases), and the same five; every kind's high-lane read is refuted by at least one vector. Both files restored and
+  `cmp`-verified after each mutant; the restored tree rebuilt (saltbuild EXIT=0).
+- Differential with the two rows: `cases=121704 matched=98383 explained=34047 unexplained=0 oracle-divergence=1144 oracle-leaks=0
+  missing=0`. `vex256Vectors` is 93.
+**Result, prediction 4 (census): HELD, exactly.** Regenerated from `~/x86lean-corpus` on this tree: the document equals the
+derived one byte for byte except its forms stamp (`vectors=1383`, the two `_hi` rows add no (name, bucket)). Modelled memory-form
+73 → 6,016 of 38,453, in the six named columns. `--check` CLEAN.
+**Prediction 5 (kernel cost): read on katmai before the merge window is asked**, with the two coverage units' ceilings.
+⚠️ **Not a record of THIS work but met on the way:** the mutant runs' `emit` writes 498 MB per run; two of them were kent's 09:41
+disk burst (bus, @86,217,268). They are deleted at their read now.

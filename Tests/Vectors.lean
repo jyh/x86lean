@@ -4432,6 +4432,14 @@ def vex256Vectors : List Vec :=
     , bytes := "c5ed6603", instr := ⟨.vex (.vexbinm256 .cmpgtd .x0 .x2 { base := some .rbx }), 4⟩ }
   , { id := "vpcmpgtd_y9y13m_u", mnemonic := "vpcmpgtd", asm := "vpcmpgtd -0x11(%rbx), %ymm13, %ymm9"
     , bytes := "c515664bef", instr := ⟨.vex (.vexbinm256 .cmpgtd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  -- ⭐ V9a (D353), found by its own red-backwards mutant: in the two rows above, an equality compare's HIGH lane is
+  -- all-zero whether it reads bytes 31:16 (right) or 15:0 (the mutant), so `vpcmpeqw`/`vpcmpeqd` could not refute a
+  -- wrong lane. At -0x14(%rbx) the m256 is 0x1fec..0x200b: bytes 31:16 carry a zero dword (0x2004..0x2007) where
+  -- ymm2's high lane carries one, and bytes 15:0 do not, so the right lane compares EQUAL there and the wrong one does not.
+  , { id := "vpcmpeqw_yym_hi", mnemonic := "vpcmpeqw", asm := "vpcmpeqw -0x14(%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7543ec", instr := ⟨.vex (.vexbinm256 .cmpeqw .x0 .x2 { base := some .rbx, disp := -0x14 }), 5⟩ }
+  , { id := "vpcmpeqd_yym_hi", mnemonic := "vpcmpeqd", asm := "vpcmpeqd -0x14(%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7643ec", instr := ⟨.vex (.vexbinm256 .cmpeqd .x0 .x2 { base := some .rbx, disp := -0x14 }), 5⟩ }
   ]
 
 /-- Every differential vector: the main table's, then the VEX twins', then their VEX.256 twins'. What `emit`, `emit-acl2`
