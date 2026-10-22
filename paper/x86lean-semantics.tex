@@ -95,7 +95,9 @@ combination is checkable in one clone of a public repository.
 Against its neighbours, x86lean is smaller. At the commits its manifest names, it tests 199 mnemonics
 differentially, where K reports 774, and the proof support reported here is a safety theorem for each of
 six small routines, where x86isa proves full functional correctness of a copy loop of any length below
-$2^{14}$. Other formal x86-64 models exist beyond the three we compare against, and one of them, libLISA,
+$2^{14}$. One more x86 model, reported on 2026-10-22 and not public that day, underlies a proof
+about a real library's compiled x86 code~\cite{anthropic-fv}; Section~\ref{sec:related} says what that report states.
+Other formal x86-64 models exist beyond the three we compare against, and one of them, libLISA,
 describes itself as the most extensive to date, with over 118{,}000 instruction groups enumerated on a
 processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not read.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
@@ -963,8 +965,8 @@ copy loop of any length below $2^{14}$, this is a far weaker proof development (
 % 6), docs/DECISIONS.md D201 D214. Every bibliography record fetched by DOI (D214).
 
 \paragraph{x86-64 semantics.}
-We compare against three of the x86-64 semantics whose sources we have read: two independent of each other,
-and a third derived from one of them.
+We compare against three of the x86-64 semantics whose sources we have read, as surveyed on 2026-10-22: two
+independent of each other, and a third derived from one of them.
 ACL2 x86isa~\cite{goel-x86isa,x86isa-repo} specifies ``400+ opcodes executing in Intel's 64-bit mode of
 operation'' and runs ``co-simulations against an actual x86 processor for model validation''.
 \src{docs/CLAIMS.tsv[x86isa\_opcodes]; docs/TACAS-G1-POSITIONING.md 1b, verbatim from arXiv 1705.01225, both phrases in its section 1
@@ -1009,6 +1011,15 @@ Verbeek et al.\ lift stripped binaries to a representation that provably over-ap
 paths, exportable to Isabelle/HOL, and take sound instruction semantics as an assumption~\cite{verbeek-lifting}.
 We have read these two papers, not their artifacts, and do not position x86lean against them: Roessle et al.\
 count instruction variants rather than mnemonics, and Verbeek et al.\ is about lifting, not an instruction set.
+On 2026-10-22 Anthropic's Frontier Red Team and Theorem reported that the Linux kernel's zlib implementation was
+shown to meet a specification of RFC~1950 at the level of its x86 binary, over a semantics of the x86 instruction set
+that Claude generated, which they describe as heavily tested and as able, single-stepped, to boot an Ubuntu
+userspace~\cite{anthropic-fv}. The report names neither the prover, nor the operating mode, nor the instruction
+subset, and that day we found the semantics in none of the public repositories it links, whose released proofs
+are over RISC-V binaries. We therefore do not position x86lean against it, except to say what differs in kind as the report
+describes it: a result about a whole real library is beyond the six small routines this paper measures, and
+x86lean's subject is the checking of the claims made about a semantics that is public under the Apache-2.0 licence, built from public sources,
+and differentially validated against a second model and against processors.
 \src{docs/CLAIMS.tsv[afp\_instructions, roessle\_instructions]; abstracts via api.semanticscholar.org for DOIs 10.1145/3293880.3294102 and 10.1145/3519939.3523702,
 and 10.1145/3689723, and isa-afp.org/entries/X86\_Semantics.html, read 2026-09-12; docs/DECISIONS.md D220;
 the two papers read at the authors' PDFs 2026-09-14 (ssrg.ece.vt.edu/papers/cpp2019.pdf and pldi22.pdf, titles and authors matched to
