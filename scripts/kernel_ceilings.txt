@@ -485,3 +485,9 @@ Tests.AnchorsVexSilC 16605 @on katmai
 # D350 (V8c), runner, 2026-10-21: the line PR #120's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run
 # 39611122360, head Tests.AnchorsVexSilC 10250.0 ms ⇒ max(10250.0 × 3, 50)), copied, not retyped.
 Tests.AnchorsVexSilC 30750 @on runnervm8k3b6
+# D353 (V9a): the NEW unit kernel_delta printed on refusing it, 6b10e8b → 1ffdbc1, yukon.lan, --repeats 3, copied, not
+# retyped: Tests.CoverageVexMem head 2650.0 ms ⇒ max(2650.0 × 3, 50).
+Tests.CoverageVexMem 7950 @on yukon.lan
+# D353 (V9a): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1b (6b10e8b → 1ffdbc1,
+# katmai, --repeats 6), copied, not retyped: Tests.CoverageVexMem head 2545.0 ms ⇒ max(2545.0 × 3, 50).
+Tests.CoverageVexMem 7635 @on katmai

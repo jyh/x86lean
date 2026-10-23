@@ -23181,3 +23181,12 @@ copied from kernel_delta's NEW-unit refusal on each machine, as V8c's were.
 Re-driven on the restructured tree: the differential is unchanged (`cases=121704 matched=98383 unexplained=0
 oracle-divergence=1144`; the list order moved, the set did not). `docs/COVERAGE.md` is regenerated: the VEX section no longer
 says "register forms only", and the 25 rows read `x,x,x · x,x,m` with the no-alignment rule.
+**Result, prediction 5, after the restructure (K1b on katmai, `6b10e8b` → `1ffdbc1`, `--repeats 6`; and yukon, `--repeats 3`):
+the NEW unit is the ONLY refusal, as designed.** katmai: `Tests.CoverageVex` 3,390 → 3,350 ms (−40, ok), `Tests.CoverageVex256`
+795 → 792 (−3, ok), `X86.Syntax` flat; `Tests.CoverageVexMem` NEW 2,545 ms, REFUSED as NEW (not over budget). yukon: the same
+two units +140 and +29 (ok); `Tests.CoverageVexMem` NEW 2,650 ms. The ku arm: `Tests.CoverageVexMem` NEW, 678,739 unfoldings.
+Registered from the lines each tool printed, copied, not retyped: `Tests.CoverageVexMem 7950 @on yukon.lan`,
+`Tests.CoverageVexMem 7635 @on katmai`, `Tests.CoverageVexMem @ku 678739`. The runner's line comes from the PR's own
+kernel-delta refusal, as V8b's and V8c's did (a follow-up, as #116). On yukon three small units read UNMEASURABLE with signed
+noise at 3 repeats (`Tests.AnchorsVex` −1.0, `X86.Memory` −0.2, `X86.Program` −5.0, and `Tests.Coverage @decl memDestSweep`
++250 against a band of ±504); katmai's 6 repeats read none of them, and none is a unit V9a touches.
