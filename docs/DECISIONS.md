@@ -23279,3 +23279,35 @@ departs from every rule it already has.
 
 **Not claimed:** `vmovntdq`/`vmovntps` (non-temporal), `vmovdqu8/16/32/64` (EVEX), masked moves (`vmaskmov`), `vlddqu`, any
 memory form outside the six; EVEX/zmm.
+
+**Result, prediction 1 (oracle): HELD**, as read at P1. The 24 aligned encodings were already in `oracle_availability.py`
+FORMS as `executes` (V9a recorded them for V9b), so no FORMS edit was owed; the gate read CLEAN in the differential run below.
+**Result, prediction 2 (differential): HELD, exactly.** `acl2@c8897a34d3ef`, this tree: `cases=128040 matched=104719
+explained=34047 unexplained=0 oracle-divergence=1144 oracle-leaks=0 missing=0` against master's `121704 / 98383 / 34047 /
+1144`: +6,336 cases, +6,336 matched, so every one of the 72 vectors agrees on every case, and no declared x86isa defect is
+reached. The vectors were generated from clang's bytes (assembled, then disassembled back to the written line, 72 of 72).
+**Result, prediction 3 (theorems): built.** `Tests/CoverageVexMov.lean`: the four `…_unaligned_faults`, the four
+`…_unaligned_kind_runs`, `alignedVex_false` (VEX.128's test IS `aligned16`), `alignedVex_0x2010` and `vexload_aligned16_runs`.
+Their axiom receipt is the gate's, read with the PR.
+**Result, prediction 4 (model, red backwards): HELD, all four.** Each mutant built through the wrapper, re-emitted and compared
+against this run's own oracle output (the vectors do not change), then `Semantics.lean` restored and `cmp`-verified:
+- A (VEX.128 load through `setXmm`, keeping bits 255:128): `unexplained=1584` = 18 vectors × 88, and 18 is exactly the VEX.128
+  load vectors (12 aligned + 6 misaligned); silicon pins: exactly the six `v9b_*128_ld_pins` theorems fail.
+- B (VEX.256 load's high lane from `a`): 1,584 = the 18 VEX.256 load vectors; pins: exactly the six `*256_ld`.
+- C (VEX.256 store writing 16 bytes): 1,584 = the 18 VEX.256 store vectors; pins: exactly the six `*256_st`.
+- D (`alignedVex`'s 32 replaced by 16): the differential is UNCHANGED (`unexplained=0`), as predicted: no vector can see it.
+  `alignedVex_0x2010` fails, and so do exactly the six aligned-kind VEX.256 pin theorems (`vmovdqa/aps/apd` × `ld/st`), whose
+  `_f16` rows are the 16-but-not-32 addresses.
+⚠️ Limit: `compare` prints only its first disagreements, so for A–C the identity "these 18 vectors" rests on the count
+(1,584 = 18 × 88, the size of exactly one (width, direction) class) and on the pins naming the matching six functions, not on
+a full list by name.
+**Prediction 6 (silicon), the local half: Rosetta 2 is NOT a referee for the fault rows.** Under `ROSETTA_ADVERTISE_AVX=1`
+on yukon, `vexsild_probe` reads 96 of 96 value rows `ok` and all 30 fault rows RUN (no signal), so Rosetta, like x86isa,
+executes an aligned kind's misaligned move. The catch itself works under Rosetta (a scratch null load is caught 3 of 3 times).
+The processor legs (`hwprobe.yml`) are the reading.
+**Result, prediction 5 (census): HELD, exactly.** Regenerated from `~/x86lean-corpus` on this tree: the document equals the one
+derived before this entry (V9a's harness with the 24 aligned move encodings added) byte for byte except its forms stamp
+(`vectors=1455 probes=285`; the derivation read 1,407 and 261 because it added encodings, not this tree's 72 vectors and 24 probe
+functions, and neither adds a (name, bucket)). Modelled memory-form **6,016 → 38,287 of 38,453**. `--check` CLEAN.
+`docs/COVERAGE.md` is regenerated: the six move rows read `x,x · x,m · m,x` with their alignment rule. (The VEX table's
+"NOT TAKEN" note still said only `vpxor`'s memory form was taken, which V9a left stale; it now names V9a's 26 kinds and V9b's six.)

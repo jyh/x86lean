@@ -1294,6 +1294,18 @@ inductive VexOp where
   | vexbcastd256 (dst src : XmmReg)
   | vexbcastdm (dst : XmmReg) (ea : Ea)
   | vexbcastdm256 (dst : XmmReg) (ea : Ea)
+  /-- ⭐⭐⭐ V9b (D354) — THE VEX MEMORY FORMS OF THE SIX PACKED MOVES (`vmovdqa vmovdqu vmovaps vmovups
+  vmovapd vmovupd`, SDM Vol. 2B), split load from store for D91's reason (no type that can spell a
+  memory-to-memory move).  VEX.128 load: `dst[127:0] ← m128`, bits 255:128 ZEROED (`setXmmVex128`).
+  VEX.256 load: the low lane from bytes 15:0 and the high lane from bytes 31:16 (`setYmm`).  Stores write
+  16 or 32 bytes and no register.  ⛔ THE ALIGNMENT IS `VMovKind.aligned`'s, AT THE ACCESS'S OWN WIDTH:
+  `dqa` `aps` `apd` raise #GP(0) unless the address is a multiple of 16 at VEX.128 and of **32** at VEX.256
+  (`alignedVex`); the other three never fault on alignment.  x86isa does not implement either check (D91,
+  re-read at P1 for D354), so the rule is carried by theorem, not by the differential. -/
+  | vexload (k : VMovKind) (dst : XmmReg) (ea : Ea)
+  | vexstore (k : VMovKind) (ea : Ea) (src : XmmReg)
+  | vexload256 (k : VMovKind) (dst : XmmReg) (ea : Ea)
+  | vexstore256 (k : VMovKind) (ea : Ea) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1303,6 +1315,8 @@ def VexOp.operands : VexOp → List Operand
   | .vexbinm _ _ _ ea | .vexbinm256 _ _ _ ea => [.mem ea]
   | .vexbcastdm _ ea | .vexbcastdm256 _ ea => [.mem ea]
   | .vexbcastd .. | .vexbcastd256 .. => []
+  -- V9b (D354): the move memory forms name their one address.
+  | .vexload _ _ ea | .vexstore _ ea _ | .vexload256 _ _ ea | .vexstore256 _ ea _ => [.mem ea]
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
@@ -1316,6 +1330,7 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexbinm _ _ _ ea | .vexbinm256 _ _ _ ea => ea.lock
   | .vexbcastdm _ ea | .vexbcastdm256 _ ea => ea.lock
   | .vexbcastd .. | .vexbcastd256 .. => false
+  | .vexload _ _ ea | .vexstore _ ea _ | .vexload256 _ _ ea | .vexstore256 _ ea _ => ea.lock
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
@@ -1325,6 +1340,7 @@ def VexOp.anyLocked : VexOp → Bool
 V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
 def VexOp.mnemonic : VexOp → String
   | .vexmov k .. | .vexmov256 k .. => "v" ++ k.mnemonic
+  | .vexload k .. | .vexstore k .. | .vexload256 k .. | .vexstore256 k .. => "v" ++ k.mnemonic
   | .vexddup .. | .vexddup256 .. => "vmovddup"
   | .vexbin k .. | .vexbinm k .. | .vexbin256 k .. | .vexbinm256 k .. => "v" ++ k.mnemonic
   | .vexbcastd .. | .vexbcastd256 .. | .vexbcastdm .. | .vexbcastdm256 .. => "vpbroadcastd"

@@ -135,6 +135,13 @@ KIND of thing — a property of a computed address that decides whether the acce
 happens at all — and neither is a property of the `Cpu`. -/
 def aligned16 (a : BitVec 64) : Bool := (a &&& 0xF) == 0
 
+/-- ⭐⭐ V9b (D354) — the alignment a VEX packed move requires, AT ITS OWN WIDTH: 16 bytes at VEX.128,
+32 at VEX.256 (SDM Vol. 2B, MOVDQA: "aligned on a 16 (VEX.128) / 32 (VEX.256)-byte boundary").  One
+definition for both widths, so the 16 and the 32 cannot drift apart; `alignedVex false` is `aligned16`
+(`alignedVex_false`, X86/Theorems.lean). -/
+def alignedVex (wide : Bool) (a : BitVec 64) : Bool :=
+  (a &&& (if wide then 0x1F else 0xF)) == 0
+
 namespace Cpu
 
 /-- Set RIP to a branch target, CHECKING that the target is canonical.
@@ -1179,6 +1186,30 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
   | .vexbcastdm256 dst ea =>
       let b := bcast32x4 ((s.readMem .d (ea.addr s nr)).setWidth 32)
       (s.setYmm dst b b).setRip nr
+  -- ⭐⭐⭐ V9b (D354) — THE MOVE MEMORY FORMS.  The value rule is the register twin's with memory on
+  -- one side; the alignment rule is `vload`'s at the access's own width (`alignedVex`), checked on the
+  -- linear address `Ea.addr` produces.  A VEX.256 access is two 128-bit accesses at `a` and `a + 16`,
+  -- the composition `vexbinm256` already uses.
+  | .vexload k dst ea =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex false a then
+        s.halt (.byDesign "an aligned VEX.128 move at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmmVex128 dst (s.readMem128 a)).setRip nr
+  | .vexstore k ea src =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex false a then
+        s.halt (.byDesign "an aligned VEX.128 move at an address that is not 16-byte aligned (#GP(0))")
+      else (s.writeMem128 a (s.getXmm src)).setRip nr
+  | .vexload256 k dst ea =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex true a then
+        s.halt (.byDesign "an aligned VEX.256 move at an address that is not 32-byte aligned (#GP(0))")
+      else (s.setYmm dst (s.readMem128 a) (s.readMem128 (a + 16))).setRip nr
+  | .vexstore256 k ea src =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex true a then
+        s.halt (.byDesign "an aligned VEX.256 move at an address that is not 32-byte aligned (#GP(0))")
+      else ((s.writeMem128 a (s.getXmm src)).writeMem128 (a + 16) (s.getYmmHi src)).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
