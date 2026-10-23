@@ -23311,3 +23311,15 @@ derived before this entry (V9a's harness with the 24 aligned move encodings adde
 functions, and neither adds a (name, bucket)). Modelled memory-form **6,016 → 38,287 of 38,453**. `--check` CLEAN.
 `docs/COVERAGE.md` is regenerated: the six move rows read `x,x · x,m · m,x` with their alignment rule. (The VEX table's
 "NOT TAKEN" note still said only `vpxor`'s memory form was taken, which V9a left stale; it now names V9a's 26 kinds and V9b's six.)
+**Result, prediction 6 (silicon, push run 40019534543 at `27ee2d2`): HELD on two processors, named by the processors.**
+- macos-15-intel, **Intel Core i7-8700B**: `rows 126 faulted 30 disagreements 0`.
+- ubuntu-latest, **AMD EPYC 9V45** (`/proc/cpuinfo`'s `model name`; CPUID.07H:EBX `f1bf07a9`, XCR0 `e7`): `rows 126 faulted 30
+  disagreements 0`.
+- On both legs every plant reds exactly its row: `--plant` (`vmovdqu256_ld_a0_r0`, one value bit), `--plant-nf`
+  (`vmovups128_ld_u1_r0` RAN where a fault was entered), `--plant-a0` (`vmovaps256_st_a0_r0` RAN, and wrote the buffer, where a
+  fault was entered), `--plant-f` (`vmovapd256_ld_f16` FAULTED SIGSEGV where a run was entered), and `--plant-op` refuses, exit 2.
+  So the fault mechanism is shown able to fail in both directions on each processor.
+⇒ **The aligned kinds' #GP now has a second source, and so does the 32:** at offset 16 an aligned kind's VEX.256 access faults
+and its VEX.128 access runs, on Intel and on AMD. ⚠️ Limits: the referee step prints only non-`ok` rows, so which signal each
+real fault row raised is not in the log (the `--plant-f` row shows SIGSEGV on both); and the legacy `movdqa`'s 16-byte fault
+(D91) is still carried by theorem alone, since this path runs only the VEX forms.
