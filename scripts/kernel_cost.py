@@ -194,10 +194,12 @@ PORTED_VERBATIM = {
         "the claim-citation gate (council 2026-10-06 ruling 1, desk AAN), byte-identical in "
         "salt/saltworks/saltbench/jas; its self-test's `mkdtemp` holds git-only fixture repos "
         "(no `lean` ever runs there), and renaming it here would fork the shared port"),
-    "check_prose_lean.py": (("prose-lean-",),
+    "check_prose_lean.py": (("prose-lean-", "prose-lean-base-", "prose-lean-bview-"),
         "the prose-claim gate (council 2026-10-20 ruling 1b, desk AAN's sibling), byte-identical in "
         "salt/saltworks/saltbench/jas; its self-test's `mkdtemp` holds git-only fixture repos "
-        "(no `lean` ever runs there), and renaming it here would fork the shared port"),
+        "(no `lean` ever runs there), and renaming it here would fork the shared port; since epoch 3 "
+        "(#124) its ratchet also checks out the base tree into `prose-lean-base-` and `prose-lean-bview-` "
+        "(git-only, no `lean`), declared here when master's kernel-cost-selftest went red on them"),
 }
 _DIR_PRODUCERS = ("mkdtemp", "TemporaryDirectory")
 _FILE_PRODUCERS = ("mkstemp", "NamedTemporaryFile", "SpooledTemporaryFile", "TemporaryFile")
