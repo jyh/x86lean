@@ -1164,7 +1164,7 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
   -- ⭐⭐ V8c (D350) — the VEX.256 memory twin and VPBROADCASTD, silicon-refereed.  The memory twin is `vexbin256`'s
   -- per-lane rule with `readMem128` at `a` (the low lane) and at `a + 16` (the high lane); no alignment check.
   | .vexbinm256 k dst src1 ea =>
-      if k.vexSilMemTaken then
+      if k.vexMemTaken || k.vexSilMemTaken then
         let a := ea.addr s nr
         (s.setYmm dst (vbinApply k (s.getXmm src1) (s.readMem128 a))
                       (vbinApply k (s.getYmmHi src1) (s.readMem128 (a + 16)))).setRip nr

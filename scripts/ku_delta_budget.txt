@@ -202,3 +202,5 @@ Tests.AnchorsVexSil @ku 2010793
 Tests.AnchorsVexSilB @ku 250470
 # D350 (V8c): the NEW unit ARM A′ refused, 0f0a069 → 95ef3d3, yukon.lan, its printed count (2,478,482) with the commas removed, not retyped.
 Tests.AnchorsVexSilC @ku 2478482
+# D353 (V9a): the NEW unit ARM A′ refused, 6b10e8b → 1ffdbc1, katmai (K1b), its printed count (678,739) with the commas removed, not retyped.
+Tests.CoverageVexMem @ku 678739

@@ -504,7 +504,18 @@ def knownDivergences : List KnownDivergence :=
   (["xmm0", "ymmhi0"].map fun f =>
     { vec := "vandps_yyy", field := f
     , source := "SDM Vol. 2B ANDPS, VEX.256 encoded version: DEST[255:0] ← SRC1[255:0] BITWISE AND SRC2[255:0] · x86isa's own VEX.128 VANDPS and VEX.256 VANDPD rows, which pass *OP-AND* · processor: Rosetta 2 x86-64 translation on an Apple M4 Pro (NOT silicon) computes AND in both lanes on case 0's operands (D344)"
-    , note := "D344" })
+    , note := "D344" }) ++
+  -- ⛔ V9a (D353) — THE SAME x86isa ROW, REACHED BY THE MEMORY FORM. `vandps m256, ymm, ymm` (`c5 ec 54 /r`, mod != 11)
+  -- dispatches through the one VEX.256 VANDPS entry, so it inherits `#x5`: 88 of 88 cases of each of the two VEX.256
+  -- memory vectors disagree in both lanes of the destination by exactly SRC1 XOR m256, and nowhere else (D353 result).
+  -- The four entries name those fields alone. A model defect in the VEX.256 VANDPS memory form is then visible only
+  -- through the shared `vbinApply .andps` (agreeing at VEX.128, memory form included) and the shared `vexbinm256`
+  -- lane rule (agreeing on the other 50 VEX.256 memory vectors). That is a stated limit, not a check.
+  ([("vandps_yym", "xmm0"), ("vandps_yym", "ymmhi0"), ("vandps_y9y13m_u", "xmm9"), ("vandps_y9y13m_u", "ymmhi9")].map
+    fun (v, f) =>
+    { vec := v, field := f
+    , source := "SDM Vol. 2B ANDPS, VEX.256 encoded version: DEST[255:0] ← SRC1[255:0] BITWISE AND SRC2[255:0], SRC2 a ymm register or m256 · x86isa's VEX.256 VANDPS row is the one D344 declares (`(operation . #x5)`); the memory form takes the same row · x86isa's own VEX.128 VANDPS memory form and VEX.256 VANDPD memory form compute AND (D353)"
+    , note := "D353" })
 
 /-- ⭐ D331: the pre-state index of a case id, the number after its `/` (`bt_mr_w/17` ⇒
 17).  An id with no such suffix reads as a number no `states` list contains. -/
@@ -5741,10 +5752,11 @@ and they are not counted in the roster figure above.\n\n"
 tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin of a row of the main \
 table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy \
 destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy \
-form preserves them, and the differential record compares those bits on both sides. Register forms \
-only, save `vpxor`'s m128 form (D342), which has no alignment check. Every register form is also \
+form preserves them, and the differential record compares those bits on both sides. Every register form is also \
 differentially tested at VEX.256 (VEX.L = 1, V6, D344): " ++ toString vex256Vectors.length ++ " more forms, each \
-computing the 128-bit function in each lane and WRITING bits 255:128. Decode trust here is LLVM `objdump`'s, which decodes a \
+computing the 128-bit function in each lane and WRITING bits 255:128. The MEMORY twins (an m128 or m256 second \
+source, with no alignment check) are differentially tested for the 26 packed binary kinds of `VBinKind.vexMemTaken`, \
+at VEX.128 and VEX.256: `vpxor`'s VEX.128 one since D342, and the rest since V9a (D353), in " ++ toString vexMemVectors.length ++ " more forms, aligned and misaligned. Decode trust here is LLVM `objdump`'s, which decodes a \
 legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries \
 one (D341).\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable
@@ -5808,7 +5820,7 @@ one (D341).\n\n"
       let n := 8
       IO.println s!"vectors={vectors.length} mnemonics={(vectors.map Vec.mnemonic).eraseDups.length} \
 vex-vectors={vexVectors.length} vex-mnemonics={(vexVectors.map Vec.mnemonic).eraseDups.length} \
-vex256-vectors={vex256Vectors.length} \
+vex256-vectors={vex256Vectors.length} vexmem-vectors={vexMemVectors.length} \
 pre-states={(preStates 1 n).length} cases={allVectors.length * (preStates 1 n).length}"
       return 0
   | _ =>

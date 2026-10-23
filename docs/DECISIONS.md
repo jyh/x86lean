@@ -23079,3 +23079,114 @@ over the ten columns:
 ⇒ **The rule the helm set at 7c ("credited" is not "modelled") now has its number: of the VEX table's 75,098 credited
 instructions, 36,645 are register-form and 73 memory-form instructions are modelled; 38,380 are credited on a form the
 model does not execute.**
+## D353 — V9a: the VEX memory twins of the 26 differentially tested packed binary kinds, at VEX.128 and VEX.256 (predictions before any model, row or hardware work)
+
+**Why these.** D352 measured the gap: of the VEX table's 38,453 credited memory-form instructions the model executes a memory
+form for 73. The register twins of 26 packed binary kinds have been differentially tested since V3/V6 (`VBinKind.vexTaken`:
+add and sub at b/w/d/q, the eight logic ops, cmpeq and cmpgt at b/w/d), and the AST has carried their memory constructors
+since D342 (`vexbinm`) and D350 (`vexbinm256`). Only `vpxor`'s VEX.128 memory twin is taken (`vexMemTaken`). V9a takes the
+other 51, so the cheapest part of the gap closes on constructors that already exist. The moves (`vmovdqa`, `vmovdqu`,
+`vmovups`, `vmovaps`, …), which carry most of what remains, are V9b, priced after this row (helm 10-22 08:23, arm (A)).
+
+**The referee, measured before anything was designed (P1, 2026-10-22, yukon, `acl2@c8897a34d3ef`, a scratch driver that
+imports `oracle_availability.py` unmodified, clang's bytes).** All 52 memory encodings (26 kinds × VEX.128 and VEX.256, each
+`v… (%rbx), %reg2, %reg0`) EXECUTE at 88 of 88. In the same run `CONTROL:mov` executed 88/88, `vpxor m,xmm` executed 88/88,
+and `movnti` REFUSED 88/88, so the instrument separates the two states in this run. The 24 VEX move memory encodings (six
+moves × 128/256 × load/store) were read in the same run and also execute at 88 of 88; they are recorded for V9b and not taken
+here. ⇒ **the differential is the referee for all 52**, as it is for the register twins.
+
+**The rules (already the model's, D342/D350; V9a widens which kinds take them).**
+- **VEX.128 memory:** `vexbin`'s value with the 16 bytes at the effective address as the second source (`src`, ModRM.rm);
+  bits 255:128 of the destination zeroed. No alignment check (a VEX-encoded memory operand of this class does not fault on
+  misalignment; the legacy `vbinm` keeps its #GP).
+- **VEX.256 memory:** per 128-bit lane, the low lane's operand from bytes 15:0 and the high lane's from bytes 31:16, through
+  `setYmm`. No alignment check. No flag is written by any of the 26.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Oracle (P1, already read):** 52 of 52 execute at 88/88; controls as above. Recorded in `oracle_availability.py` FORMS as
+   `executes`, so the gate holds the reading in both directions from now on.
+2. **Differential.** Two vectors per encoding, 104 in all: one in the `vpxor_xxm` shape (`(%rbx)`, aligned) and one at a
+   MISALIGNED address with high registers (VEX.R̄ and VEX.vvvv's top bit), as `vpxor_x9x13m_u`. The two `vpxor` VEX.128
+   vectors exist since D342 and stay, so 102 are new. ⇒ `cases` grows by 102 × 88 = **8,976**, every one `matched`; `unexplained=0`,
+   `oracle-leaks=0` and `missing=0` unchanged; `explained` and `oracle-divergence` unchanged.
+3. **Model.** `VBinKind.vexMemTaken` becomes the same set as `vexTaken` (written as its own list, so a later register-only
+   kind does not silently gain a memory twin); the `vexbinm256` arm takes `vexMemTaken || vexSilMemTaken`. No new constructor.
+   **Red backwards**, each mutant built through the wrapper and the file restored:
+   - `vexMemTaken` back to `vpxor` alone: the 100 new non-`vpxor` vectors halt `unimplemented`, and the differential reports
+     them as unexplained, by name;
+   - `vexbinm256`'s high lane read from `a` instead of `a + 16`: exactly the VEX.256 memory vectors whose two 16-byte halves
+     differ are reported; the misaligned row of each kind differs by construction.
+4. **Census (derived, not typed).** `demand_census.py` was run twice from `~/x86lean-corpus` on #122's head (`eb25a9d`): the
+   control reproduced the shipped `docs/DEMAND-CENSUS.md` byte for byte; the second run added these 52 forms to the model's
+   vectors and nothing else. Only the stamp line and the "of which the model executes a memory form for" field moved, in six
+   columns: coreutils 8 → 11 · glibc 0 → 987 · dav1d 0 → 1,032 · ffmpeg 61 → 2,975 · vpx 2 → 693 · x264 2 → 318. **Pooled:
+   73 → 6,016 of 38,453 (0.2 % → 15.6 %).** The regenerated document after V9a must read exactly these. No credited figure
+   moves (the mnemonics are credited already).
+5. **Kernel cost.** No new constructor, so `X86.Syntax` changes by one Bool definition: predict |Δ| under 5 ms at katmai.
+   `Tests.Vectors` grows by 102 rows; its row is read on katmai before the merge window is asked.
+   ⚠️ **Amended at the first build, before any cost was measured:** the predictions above missed that `Tests.CoverageVex`
+   (35 → 85 VEX.128 vectors) and `Tests.CoverageVex256` (39 → 91) walk every vector. The first build stopped on both: a
+   pinned count (39) and `vex_vectors_not_in_main` reaching the default recursion depth (raised for that theorem alone).
+   Both units grow roughly with their vector count, so predict each near 2.4× its current head, which crosses their
+   ceilings (`CoverageVex` head ~3.3 s against 9,000 ms at yukon). New ceiling lines are V9a's declared cost, measured
+   and written with the katmai row, not typed.
+
+**Not claimed:** the VEX move memory forms (V9b); any VEX memory form outside the 26 kinds; EVEX/zmm; a memory DESTINATION
+(none of the 26 has one).
+
+**Result, prediction 1 (oracle): HELD**, as read before the design (52 of 52 at 88/88, controls as stated), and the rows are in FORMS.
+**Result, prediction 2 (differential): HELD on the count of new cases and on `unexplained=0`; NOT HELD on `oracle-divergence`.**
+First full run (`8cd795a`'s tree, `acl2@c8897a34d3ef`): `cases=121528 matched=98207 explained=34047 unexplained=352
+oracle-divergence=792`. Against master's `112552 / 89407 / 34047 / 792`: +8,976 cases, +8,800 matched, so 100 of the 102 new
+vectors agree on every case. All 352 unexplained were `vandps_yym` and `vandps_y9y13m_u`, 88 of 88 each, in both lanes of the
+destination and nowhere else, by exactly SRC1 XOR m256 (case `vandps_yym/3`: m128 low = `bfbebdbcbbbab9b8_000000000000000f`,
+xmm2 = `…0011_…222d`; AND gives the model's `…10_…0d`, XOR gives the oracle's `…a9_2222…22`). That is the VEX.256 VANDPS row
+D344 found passing `#x5`; the memory form reaches the same row. Its four fields join `knownDivergences` (note D353), and the run
+then reads `unexplained=0 oracle-divergence=1144` (+352 = 2 vectors × 88 × 2 fields). I predicted divergence UNCHANGED because
+I did not ask which of the 26 kinds share a row with a declared oracle defect; D344's own record named it.
+**Result, prediction 3 (model, red backwards): A HELD exactly; B HELD only after a vector was added, and the miss is the finding.**
+- A (`vexMemTaken` back to `vpxor` alone): exactly the 100 new non-`vpxor` vectors change, 88 of 88 each, nothing else
+  (`vpxor`'s VEX.256 rows stay green because the mutant still takes `.xor`, as it should).
+- B (`vexbinm256`'s high lane read from `a`): 47 of the 52 VEX.256 memory vectors changed. The 5 that did not are equality
+  compares (`vpcmpeqb_yym`, `vpcmpeqw_yym`, `vpcmpeqw_y9y13m_u`, `vpcmpeqd_yym`, `vpcmpeqd_y9y13m_u`): src1's high lane equals no
+  element of EITHER memory half, so the right lane and the wrong one both compute all-zero. `vpcmpeqb` is caught by its other row;
+  **`vpcmpeqw` and `vpcmpeqd` were caught by neither, so the prediction's "every kind's misaligned row differs by construction" was
+  false for them.** Repair: `vpcmpeqw_yym_hi` and `vpcmpeqd_yym_hi` at `-0x14(%rbx)` (m256 = 0x1fec..0x200b, bytes 31:16 carry a
+  zero dword where ymm2's high lane has one; bytes 15:0 do not). Re-driven: B now changes 49 of 54, including both new rows (52 and
+  45 of 88 cases), and the same five; every kind's high-lane read is refuted by at least one vector. Both files restored and
+  `cmp`-verified after each mutant; the restored tree rebuilt (saltbuild EXIT=0).
+- Differential with the two rows: `cases=121704 matched=98383 explained=34047 unexplained=0 oracle-divergence=1144 oracle-leaks=0
+  missing=0`. `vex256Vectors` is 93.
+**Result, prediction 4 (census): HELD, exactly.** Regenerated from `~/x86lean-corpus` on this tree: the document equals the
+derived one byte for byte except its forms stamp (`vectors=1383`, the two `_hi` rows add no (name, bucket)). Modelled memory-form
+73 → 6,016 of 38,453, in the six named columns. `--check` CLEAN.
+**Prediction 5 (kernel cost): read on katmai before the merge window is asked**, with the two coverage units' ceilings.
+⚠️ **Not a record of THIS work but met on the way:** the mutant runs' `emit` writes 498 MB per run; two of them were kent's 09:41
+disk burst (bus, @86,217,268). They are deleted at their read now.
+**Result, prediction 5, first reading (K1 on katmai, `eb25a9d` → `25a3120`, `--repeats 6`, the helm's GO 10-22 10:26; box
+load sampled every 300 s beside it, load1 1.3–4.9 while gemini's ZF chain shared the box): REFUSED, as the amendment above
+said it would be.** `Tests.CoverageVex256` 791 → 3,050 ms, OVER BUDGET (+2,259 against 184); `Tests.CoverageVex` 3,335 →
+4,320 ms, UNMEASURABLE (+985 against 777, band ±320); the ku arm convicts the same two (+500,789 unfoldings against 54,032;
++296,572 against 261,969). Nothing else moved (`X86.Syntax` +0.5 ms, against prediction 5's under-5 ms). The gate's own text:
+*"Make the commit cheaper … DO NOT WIDEN THE BUDGET."*
+**The repair is a NEW unit, D341's.** A budget that is 23.3 % of a unit's own size cannot take 104 more rows in that unit
+however cheap each check is, and two cheaper proofs were tried first and measured on yukon: deriving
+`vex_vectors_not_in_main` from theorems 2 and 4 (kept no further: the unit returns to base) and marking ids by the character
+after their first `_` (2.0 s against the pairwise form's 2.5 s: reading a string's characters in the kernel costs far more
+than comparing two strings). ⇒ V9a's 104 rows move to a fourth list, `vexMemVectors`; `vexVectors` and `vex256Vectors`,
+and `Tests/CoverageVex.lean` and `Tests/CoverageVex256.lean`, are byte-identical to `eb25a9d`; `Tests/CoverageVexMem.lean`
+(NEW unit) checks size 104, every mnemonic a VEX row, every row a `vexbinm`/`vexbinm256` of a `vexMemTaken` kind, and ids
+disjoint from both other lists (2.63 s of type checking on yukon, 2.41 s of it the ids). Its ceilings are measured and
+copied from kernel_delta's NEW-unit refusal on each machine, as V8c's were.
+Re-driven on the restructured tree: the differential is unchanged (`cases=121704 matched=98383 unexplained=0
+oracle-divergence=1144`; the list order moved, the set did not). `docs/COVERAGE.md` is regenerated: the VEX section no longer
+says "register forms only", and the 25 rows read `x,x,x · x,x,m` with the no-alignment rule.
+**Result, prediction 5, after the restructure (K1b on katmai, `6b10e8b` → `1ffdbc1`, `--repeats 6`; and yukon, `--repeats 3`):
+the NEW unit is the ONLY refusal, as designed.** katmai: `Tests.CoverageVex` 3,390 → 3,350 ms (−40, ok), `Tests.CoverageVex256`
+795 → 792 (−3, ok), `X86.Syntax` flat; `Tests.CoverageVexMem` NEW 2,545 ms, REFUSED as NEW (not over budget). yukon: the same
+two units +140 and +29 (ok); `Tests.CoverageVexMem` NEW 2,650 ms. The ku arm: `Tests.CoverageVexMem` NEW, 678,739 unfoldings.
+Registered from the lines each tool printed, copied, not retyped: `Tests.CoverageVexMem 7950 @on yukon.lan`,
+`Tests.CoverageVexMem 7635 @on katmai`, `Tests.CoverageVexMem @ku 678739`. The runner's line comes from the PR's own
+kernel-delta refusal, as V8b's and V8c's did (a follow-up, as #116). On yukon three small units read UNMEASURABLE with signed
+noise at 3 repeats (`Tests.AnchorsVex` −1.0, `X86.Memory` −0.2, `X86.Program` −5.0, and `Tests.Coverage @decl memDestSweep`
++250 against a band of ±504); katmai's 6 repeats read none of them, and none is a unit V9a touches.
