@@ -204,3 +204,6 @@ Tests.AnchorsVexSilB @ku 250470
 Tests.AnchorsVexSilC @ku 2478482
 # D353 (V9a): the NEW unit ARM A′ refused, 6b10e8b → 1ffdbc1, katmai (K1b), its printed count (678,739) with the commas removed, not retyped.
 Tests.CoverageVexMem @ku 678739
+# D354 (V9b): the two NEW units, the lines ku_delta printed on refusing them at K1 (61edd92 -> 27ee2d2, katmai), copied.
+Tests.AnchorsVexSilD @ku 2662681
+Tests.CoverageVexMov @ku 874362

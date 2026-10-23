@@ -23323,3 +23323,14 @@ functions, and neither adds a (name, bucket)). Modelled memory-form **6,016 → 
 and its VEX.128 access runs, on Intel and on AMD. ⚠️ Limits: the referee step prints only non-`ok` rows, so which signal each
 real fault row raised is not in the log (the `--plant-f` row shows SIGSEGV on both); and the legacy `movdqa`'s 16-byte fault
 (D91) is still carried by theorem alone, since this path runs only the VEX forms.
+**Result, prediction 7 (kernel cost), first reading (K1 on katmai, `61edd92` → `27ee2d2`, `--repeats 6`, both arms; load1 1.1–5.8
+sampled beside it while bench's U2 Lean jobs shared the box): HELD where it predicted, with one band left open and closed by the
+other arm.** ms: `X86.Syntax` 699.5 → 684.5 (−15, ok) and `X86.Vex` 37.6 → 37.7 (ok), both well inside +10 %; the VEX coverage
+units (`CoverageVex`, `CoverageVex256`, `CoverageVexMem`) and `Tests.Vectors` ok; the two NEW units the ONLY refusals, as NEW
+(`Tests.AnchorsVexSilD` 5,810 ms, `Tests.CoverageVexMov` 3,475 ms). `Tests.Coverage` (+100 ±2,751) and its `memDestSweep`
+(+185 ±399) read UNMEASURABLE: the band straddles the budget at this load. ⇒ **The ku arm settles them: `Tests.Coverage`
++0 unfoldings** (10,470,768 both sides), so the ms readings are noise, not V9b's cost; the only ku movements are `X86.Syntax`
++896 (budget 8,001), `X86.Semantics` +58, `CoverageVexMem` +20, `Tests.Vectors` +6, all ok, and the two NEW units (2,662,681 and
+874,362 unfoldings). Registered from the lines each tool printed, copied: `Tests.AnchorsVexSilD 17430 @on katmai`,
+`Tests.CoverageVexMov 10425 @on katmai`, and both `@ku` lines. Not registered: a yukon line for either unit (no yukon reading was
+taken; a local kernel_delta on yukon will refuse them as NEW until one is). The runner lines come from the PR's own refusal.
