@@ -23010,3 +23010,72 @@ CLEAN`; `kernel_drift --record` (D251): ms rc 0 · A′ rc 0 on katmai ⇒ the s
   BRANCH HEAD and rc 0 on a synthetic `master + --no-ff V8c` merge. V8c is stacked, so its own first-parent chain runs
   through V8a's and V8b's branch commits, where rows written for master's chain do not line up; CI judges the PR's merge
   ref, whose first parent is master. Not a defect; the selftest is judged on the synthetic merge.
+
+## D352 — STATUS 7d: a MODELLED-shape census figure, derived from the model's own forms (design and predictions before any code)
+
+**Why.** D349 (7c) prints every credited census figure as `(register-form · memory-form)`, and showed 51 % of the VEX
+table's credit is memory-form against one modelled VEX memory form (V8c, D350, adds four kinds' memory forms). The helm
+(10-20 05:06): v2 prints how much of each credit the model's own forms cover. STATUS priced v2 at ~1–1.5 days as "each
+coverage row declares its shapes as TYPED DATA, gated against the AST". **That price is withdrawn before any work:** the
+table has 288 `shapes :=` sites, not 142, and retyping them would hand-type the very fact the idiom law says to derive.
+**The design.** The census already decides, for every demand line, its bucket (`isa_bucket(mn, ops, kind)`) and whether it
+is memory-form (`is_mem_form(ops)`). v2 applies THOSE SAME TWO FUNCTIONS to the model's own forms, so demand and model
+are classified by one rule:
+- the differential forms: every row of `Tests/Vectors.lean`, by its `mnemonic` field and the operands of its `asm`
+  (1,279 rows, 512 of them with an addressing mode in `asm`, read at e776518);
+- the silicon-refereed forms: the instruction each `hwprobe/` generator tests, taken from the generator's own form list,
+  never from its `_ops.S` (whose setup loads would read as modelled forms).
+A credited (mnemonic, bucket) is then split three ways: register-form demand, memory-form demand the model has a
+memory form for in that bucket, and memory-form demand it does not. Only the first two count as MODELLED. The census
+prints the modelled figure beside each credited one; nothing it credits today changes.
+**Scope, declared.** "Modelled" here means the model has a form that a vector or a silicon row EXECUTES, which is
+narrower than "the AST can express it": a form the AST has and no row runs is not counted, so the figure can only
+under-count. A memory form is one form: an addressing mode the model handles at one width is credited for every
+addressing mode at that (mnemonic, bucket).
+**Price (an estimate, unmeasured).** Python only: a reader for the two populations, the split, the selftest arms (red
+first), a regeneration. No Lean file changes, so no kernel-cost row and no katmai run. Half a day.
+**Predictions, sealed before the reader is written.**
+1. For every table (differential, silicon, VEX), modelled ≤ credited, and modelled ≥ the register-form part.
+2. The differential main table's memory-form demand is MOSTLY modelled (more than half of it), because its vector
+   batches carried `m` forms for most mnemonics.
+3. The VEX table's memory-form demand is MOSTLY NOT modelled (less than half of it), V8c included.
+4. The reader refuses, rather than reads zero, if either population parses empty or a vector's `mnemonic` disagrees
+   with its `asm`'s mnemonic beyond the census's own width-suffix normalisation.
+**What was built (`scripts/demand_census.py`).** `forms_inputs` reads the model side as TEXT: every `Tests/Vectors.lean`
+record's `mnemonic` and `bytes` (1,279), and the instruction under test in every `hwprobe/*_ops.S` — the line after an
+`AT(…)` label, or after `LOAD` in `sse_ops.S`, the oldest probe (261). `model_forms` assembles them into one x86-64 object
+(`clang -target x86_64-apple-macos11`), disassembles it with the census's own command (`objdump -d --no-show-raw-insn`),
+and `forms_from_lines` classifies it with `_classify` and keys it with `to_roster`, so demand and model meet under one
+rule. It REFUSES (exit 2, nothing written) if either population parses empty, an assembler error, a form that does not
+disassemble to exactly one instruction (a bare `lock` line is the prefix `_classify` attributes to the next line, and is
+not counted), or a vector whose bytes disassemble to another roster name. `modelled_mem` filters 7c's memory-form tally by
+the model's (name, bucket) memory set; `report` prints `(register-form R · memory-form M, of which the model executes a
+memory form for M′)`. A second stamp, `census-forms`, hashes the model side's INPUTS (text, so `--check` runs on a runner
+with no x86 assembler) and `--check` refuses when it moves: a new memory-form vector moves no mnemonic, so the 7c stamp
+could not see it.
+**Own defects found before landing.** (1) The first draft of the population check refused 14 forms: llvm-objdump prints a
+LOCK prefix on its own line; fixed as above. (2) My first vector parser read 79 of 1,279 records (it assumed a field
+order the file does not keep); found because the count was printed beside the population, and replaced by a per-record
+parse that reads all 1,279. (3) An edit split `STAMP_RE`'s continuation line; caught by the syntax check.
+**Results, regenerated on yukon from `~/x86lean-corpus` (stacked on V8c, `e776518`).** The document change is purely
+additive: with the new clause and the note line stripped, it is byte-identical to the shipped one; 40 figures carry a
+modelled part. `--check` CLEAN; `--selftest` PASS, 240 arms (234 + six D352 arms, each with a red direction: no forms
+reads 0, every demanded form reads 7c's figure, a bucket mismatch does not count, a planted vector moves the stamp). Pooled
+over the ten columns:
+```
+  table          credited     memory-form   of which modelled
+  differential   14,022,028   4,618,808     4,540,339   (98.3 %)
+  silicon           124,907      18,418        17,141   (93.1 %)
+  VEX                75,098      38,453            73   ( 0.2 %)
+```
+- Prediction 1 (modelled ≤ credited, ≥ the register-form part): **HELD**, asserted per column and table.
+- Prediction 2 (the differential table's memory-form demand MOSTLY modelled): **HELD**, 98.3 %.
+- Prediction 3 (the VEX table's memory-form demand MOSTLY NOT modelled): **HELD**, and more sharply than sealed: 73 of
+  38,453, all `vpxor`'s VEX.128 memory form. V8c's memory forms are credited in the SILICON line, not the VEX line.
+- Prediction 4 (refuse on an empty population or a mnemonic disagreement "beyond the width-suffix normalisation"): the
+  refusals are built and the population arm fired on a real defect (the LOCK lines). **The sealed wording was too narrow:**
+  11 vectors disassemble to a PREFIX spelling (`repe` 8 as `rep`; `loop`, `loope`, `loopne` with a 32-bit address as
+  `addr32`). They are exempted BY NAME (`FORMS_PREFIX_SPELLINGS`), and the run prints the 11 with their names.
+⇒ **The rule the helm set at 7c ("credited" is not "modelled") now has its number: of the VEX table's 75,098 credited
+instructions, 36,645 are register-form and 73 memory-form instructions are modelled; 38,380 are credited on a form the
+model does not execute.**
