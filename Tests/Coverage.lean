@@ -287,7 +287,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ THE BIT STRING (D331) adds 28: the four `m,r` rows D23 declined, at w/l/q with RCX and
 -- RDX offsets, three fixed far offsets, and one LOCK form.
 -- ⭐ V8a (D347) adds ONE: `endbr64`, the census's largest uncovered row.
-theorem vector_count_is_1199 : vectorCount = 1199 := by decide
+-- ⭐ D355 adds 23: `sub` `cmp` `xchg` `test` and the kernel's per-CPU forms through `%fs:`/`%gs:`.
+theorem vector_count_is_1222 : vectorCount = 1222 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -2018,7 +2019,7 @@ cross-check that this replaced — and why — is in the note on that function. 
 def segVectors : List Vec := vectors.filter (fun v => !(segEas v.instr).isEmpty)
 
 /-- And there are some, so the sweep below is not vacuous. -/
-theorem some_vector_carries_a_segment : segVectors.length = 8 := by decide
+theorem some_vector_carries_a_segment : segVectors.length = 31 := by decide
 
 /-- ⭐ EVERY LINEAR ADDRESS THIS MODEL COMPUTES THROUGH A SEGMENT IS CANONICAL,
 over every pre-state.  This is what bounds the departure named in
