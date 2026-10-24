@@ -2235,6 +2235,85 @@ def vectors : List Vec :=
   , { id := "lea_fs_abs_q", mnemonic := "lea", asm := "leaq %fs:0x28, %rax"
     , bytes := "64488d042528000000"
     , instr := ⟨.lea .q .rax { disp := 0x28, seg := some .fs }, 9⟩ }
+  -- ⭐ D355: THE STACK-CANARY CHECK AND ITS NEIGHBOURS, the scalar remainder the
+  -- census measured (sub 20,297 user-space + 9,898 kernel; cmp 240; xchg 4; test 1).
+  -- The model already adds the base; these rows make the census able to SAY so.
+  -- `%rax` reaches the intact-canary case (ZF=1) in every `diag` pre-state.
+  , { id := "sub_fs_canary_rax", mnemonic := "sub", asm := "subq %fs:0x28, %rax"
+    , bytes := "64482b042528000000"
+    , instr := ⟨.bin .sub .q (R .rax) (.mem { disp := 0x28, seg := some .fs }), 9⟩ }
+  , { id := "sub_fs_canary_rdx", mnemonic := "sub", asm := "subq %fs:0x28, %rdx"
+    , bytes := "64482b142528000000"
+    , instr := ⟨.bin .sub .q (R .rdx) (.mem { disp := 0x28, seg := some .fs }), 9⟩ }
+  , { id := "sub_gs_canary_rax", mnemonic := "sub", asm := "subq %gs:0x28, %rax"
+    , bytes := "65482b042528000000"
+    , instr := ⟨.bin .sub .q (R .rax) (.mem { disp := 0x28, seg := some .gs }), 9⟩ }
+  , { id := "sub_gs_canary_rdx", mnemonic := "sub", asm := "subq %gs:0x28, %rdx"
+    , bytes := "65482b142528000000"
+    , instr := ⟨.bin .sub .q (R .rdx) (.mem { disp := 0x28, seg := some .gs }), 9⟩ }
+  -- glibc's errno test is `cmpl $N, %fs:(%reg)`; RBX + a displacement keeps the
+  -- access on the swept operand (a swept base register would leave the window).
+  , { id := "cmp_fs_errno_d", mnemonic := "cmp", asm := "cmpl $0x4, %fs:-0x1fd8(%rbx)"
+    , bytes := "6483bb28e0ffff04"
+    , instr := ⟨.bin .cmp .d (.mem { base := some .rbx, disp := 0xFFFFFFFFFFFFE028, seg := some .fs }) (.imm 4), 8⟩ }
+  , { id := "cmp_fs_rm_d", mnemonic := "cmp", asm := "cmpl %fs:0x28, %eax"
+    , bytes := "643b042528000000"
+    , instr := ⟨.bin .cmp .d (R .rax) (.mem { disp := 0x28, seg := some .fs }), 8⟩ }
+  , { id := "cmp_fs_mi_b", mnemonic := "cmp", asm := "cmpb $0x0, %fs:0x28"
+    , bytes := "64803c252800000000"
+    , instr := ⟨.bin .cmp .b (.mem { disp := 0x28, seg := some .fs }) (.imm 0), 9⟩ }
+  , { id := "xchg_fs_d", mnemonic := "xchg", asm := "xchgl %eax, %fs:0x28"
+    , bytes := "6487042528000000"
+    , instr := ⟨.xchg .d (.mem { disp := 0x28, seg := some .fs }) (R .rax), 8⟩ }
+  , { id := "test_gs_mi_b", mnemonic := "test", asm := "testb $-0x1, %gs:0x28"
+    , bytes := "65f6042528000000ff"
+    , instr := ⟨.bin .test .b (.mem { disp := 0x28, seg := some .gs }) (.imm 0xff), 9⟩ }
+  -- ⭐ D355: THE KERNEL'S PER-CPU FORMS (`incl %gs:x(%rip)` and kin, 5,348 of its
+  -- remainder). Most are SEGMENT + RIP-RELATIVE, the one composition of `Ea.addr`
+  -- no row ran before: the displacement is chosen per instruction LENGTH so that
+  -- `0x400000 + len + disp + gsBase = 0x2010`, the second swept operand.
+  , { id := "inc_gs_rip_l", mnemonic := "inc", asm := "incl %gs:-0x3fffdf(%rip)"
+    , bytes := "65ff052100c0ff"
+    , instr := ⟨.un .inc .d (.mem { ripRel := true, disp := 0xffffffffffc00021, seg := some .gs }), 7⟩ }
+  , { id := "dec_gs_rip_l", mnemonic := "dec", asm := "decl %gs:-0x3fffdf(%rip)"
+    , bytes := "65ff0d2100c0ff"
+    , instr := ⟨.un .dec .d (.mem { ripRel := true, disp := 0xffffffffffc00021, seg := some .gs }), 7⟩ }
+  , { id := "inc_gs_base_q", mnemonic := "inc", asm := "incq %gs:-0x1fe8(%rbx)"
+    , bytes := "6548ff8318e0ffff"
+    , instr := ⟨.un .inc .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }), 8⟩ }
+  , { id := "dec_gs_base_q", mnemonic := "dec", asm := "decq %gs:-0x1fe8(%rbx)"
+    , bytes := "6548ff8b18e0ffff"
+    , instr := ⟨.un .dec .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }), 8⟩ }
+  , { id := "inc_gs_rip_w", mnemonic := "inc", asm := "incw %gs:-0x3fffe0(%rip)"
+    , bytes := "6566ff052000c0ff"
+    , instr := ⟨.un .inc .w (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }), 8⟩ }
+  , { id := "xadd_gs_rip_l", mnemonic := "xadd", asm := "xaddl %eax, %gs:-0x3fffe0(%rip)"
+    , bytes := "650fc1052000c0ff"
+    , instr := ⟨.xadd .d (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }) .rax, 8⟩ }
+  , { id := "xadd_gs_base_b", mnemonic := "xadd", asm := "xaddb %al, %gs:-0x1fe8(%rbx)"
+    , bytes := "650fc08318e0ffff"
+    , instr := ⟨.xadd .b (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) .rax, 8⟩ }
+  , { id := "and_gs_rip_l", mnemonic := "and", asm := "andl $0x7fffffff, %gs:-0x3fffe3(%rip)"
+    , bytes := "6581251d00c0ffffffff7f"
+    , instr := ⟨.bin .and .d (.mem { ripRel := true, disp := 0xffffffffffc0001d, seg := some .gs }) (.imm 0x7fffffff), 11⟩ }
+  , { id := "or_gs_rip_w", mnemonic := "or", asm := "orw %ax, %gs:-0x3fffe0(%rip)"
+    , bytes := "656609052000c0ff"
+    , instr := ⟨.bin .or .w (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }) (R .rax), 8⟩ }
+  , { id := "cmpxchg_gs_rip_l", mnemonic := "cmpxchg", asm := "cmpxchgl %edx, %gs:-0x3fffe0(%rip)"
+    , bytes := "650fb1152000c0ff"
+    , instr := ⟨.cmpxchg .d (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }) .rdx, 8⟩ }
+  , { id := "cmpxchg_gs_base_b", mnemonic := "cmpxchg", asm := "cmpxchgb %dl, %gs:-0x1fe8(%rbx)"
+    , bytes := "650fb09318e0ffff"
+    , instr := ⟨.cmpxchg .b (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) .rdx, 8⟩ }
+  , { id := "bt_gs_q", mnemonic := "bt", asm := "btq %rcx, %gs:-0x1fe8(%rbx)"
+    , bytes := "65480fa38b18e0ffff"
+    , instr := ⟨.bit .bt .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) (R .rcx), 9⟩ }
+  , { id := "btr_gs_q", mnemonic := "btr", asm := "btrq %rcx, %gs:-0x1fe8(%rbx)"
+    , bytes := "65480fb38b18e0ffff"
+    , instr := ⟨.bit .btr .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) (R .rcx), 9⟩ }
+  , { id := "push_gs_q", mnemonic := "push", asm := "pushq %gs:0x28"
+    , bytes := "65ff342528000000"
+    , instr := ⟨.push .q (.mem { disp := 0x28, seg := some .gs }), 8⟩ }
   -- ⭐⭐⭐ P2 ITEM 2 (BATCH 23): THE LOCK VOCABULARY.  Two things at once, and
   -- they are worth separating because only one of them is a new instruction.
   --
