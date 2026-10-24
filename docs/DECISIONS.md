@@ -23488,3 +23488,19 @@ settled by K, the SDM and processor evidence for the same opcode; a hwprobe row 
 Built on `paris/d356-movdq-mem`, stacked on D355.
 
 **Not claimed:** the REX.W `66 48 0f 6e/7e` memory spellings; `vmovd`/`vmovq` (VEX); MMX `movd`/`movq`; `movq2dq`/`movdq2q`.
+
+**Result, prediction 1 (differential): HELD, exactly.** `acl2@c8897a34d3ef`, this tree: `cases=130768 matched=107030
+explained=34407 unexplained=0 oracle-divergence=1321`; main table `108240 / 84766 / 34407 / 0 / 793`. Per id `movd_ld_x0` 83 and
+`movd_ld_x9` 88 declared, the other 5 of `x0` and all six other ids matched. (The prediction's "the `movd` loads' other 5 cases"
+should have said `x0`'s other 5: `x9` has none, as its own line said.)
+**Result, prediction 2 (mutants): A and B HELD; C HELD on six of eight rows and taught something.** Record 43 §2 has each line.
+C (`movq` at 4 bytes) left `movq_st_x0` unchanged in all 88 cases. Measured: xmm0's low quadword equals the quadword at 0x2000 in
+every pre-state (`xmmPattern` makes it `c`, the swept operand), so a store from `%xmm0` to `(%rbx)` is invisible at any width,
+including width zero. The `%xmm9` rows carry the store; that is why both registers were written. ⚠️ **The shipped
+`movss_store_m`, `movsd_store_m` and `movlpd_store_m` have only the `%xmm0` row, so a model that dropped those stores would pass
+the differential.** Not this entry's scope; queued as its own small unit (`%xmm9` store rows and a dropped-store mutant).
+**Result, prediction 3 (theorems): HELD.** `vmovgld_zeroes_upper` and `step_vmovgst_regs`/`_flags` build; mutants A and C fail
+`vmovgld_zeroes_upper` and nothing else. ⚠️ Limit: no theorem pins the store's width (mutant B builds); the differential does,
+through the `%xmm9` rows.
+**Result, prediction 4 (census): HELD, exactly** in all ten columns (cc1 1,662,657 → 1,680,583, its remainder 17,931 → 5).
+**Prediction 5 (kernel cost):** K1 on katmai after V9b's K2, not yet read.
