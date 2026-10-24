@@ -23442,3 +23442,63 @@ not elaborated until the next unit's full build reached them: `vector_count_is_1
 `x86lean-diff runs` (378 runs over 1222 vectors), and the segment count 8 → 31 (batch 22's 8 plus these 23). `X86` and `Tests`
 then build with zero errors in both orders. ⇒ A unit that adds vectors is not checked until `Tests` builds; the differential's
 own build does not reach it.
+
+## D356 — `movd`/`movq` between an XMM register and memory (legacy SSE): the largest unmodelled memory-form remainder (predictions and price before any model work)
+
+**Why these, measured.** D355's census read (same functions, same control) puts `movq` SSE-legacy memory forms at **33,591** and
+`movd` at **7,752** user-space instructions the model does not execute, in nine columns; together they are 64 % of the remaining
+differential-class memory demand and **17,926 of cc1's 17,931**. The register forms are modelled since D93 (`vmovg`, `vmovq`);
+the memory forms have no constructor. The corpus uses four encodings and no others (objdump of cc1, libavutil, libvpx, libc):
+`movq` load `f3 0f 7e /r` · `movq` store `66 0f d6 /r` · `movd` load `66 0f 6e /r` · `movd` store `66 0f 7e /r` (the REX.W
+`66 48 0f 6e/7e` memory spellings of `movq` occur 0 times there, and are not taken).
+
+**The referee, read before any design (P1, 2026-10-24, yukon, `acl2@c8897a34d3ef`, `oracle_availability.measure` unmodified,
+clang's bytes for x86_64-linux).** All four encodings, at `%xmm0` and at `%xmm9`, plus the two REX.W spellings: **88 of 88
+executed**, each. In the same run `CONTROL:mov` executed 88/88 and `movnti` refused 88/88. ⇒ x86isa executes every form; whether
+it computes them RIGHT is the next paragraph.
+**x86isa's own source decides two of the four before any run** (`machine/instructions/move-sse.lisp`): `x86-movq-from-xmm/mem`
+(`f3 0f 7e`) writes `(!xmmi-size 16 …)`, a 128-bit write of the 64-bit value, so it zero-extends as the SDM says;
+`x86-movd/movq-to-xmm` (`66 0f 6e`) writes `(!xmmi-size operand-size …)`, 4 bytes, so it MERGES the upper bits: **D93's defect,
+now reached through memory**, which D93 settled against x86isa with K and processor evidence. The two stores write only memory.
+
+**The rules (SDM Vol. 2B MOVD/MOVQ).** Load: `DEST[31:0] ← m32; DEST[127:32] ← 0` (MOVD) and `DEST[63:0] ← m64; DEST[127:64] ←
+0` (MOVQ); legacy SSE, so `DEST[255:128]` is unmodified. Store: `m32 ← SRC[31:0]` / `m64 ← SRC[63:0]`; no register is written.
+No alignment requirement, no flags. ⇒ **These are exactly `vmovsld` and `vmovsst`'s meanings** (MOVSS/MOVSD from and to memory,
+batch 11), at `.d` and `.q`.
+
+**The design.** Two `Op` constructors, `vmovgld (sz) (dst : XmmReg) (ea)` and `vmovgst (sz) (ea) (src : XmmReg)` — split load
+from store for D91's reason — whose `step` arms are `vmovsld`'s and `vmovsst`'s formulas, and whose spelling is `movd`/`movq`
+by width. Not a reuse of `vmovsld`/`vmovsst` themselves: the AST is printed and assembled by the encoding cross-check, and
+`movss (%rbx),%xmm0` is not these bytes.
+
+**The vectors (8):** `movd (%rbx),%xmm0` · `movd (%rbx),%xmm9` · `movd %xmm0,(%rbx)` · `movd %xmm9,(%rbx)` · `movq (%rbx),%xmm0`
+· `movq (%rbx),%xmm9` · `movq %xmm0,(%rbx)` · `movq %xmm9,(%rbx)`. RBX = 0x2000, the swept operand; the window holds all 8 bytes.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Differential.** `cases` +8 × 88 = **+704**. The six non-`movd`-load vectors: every case `matched`. The two `movd` loads
+   disagree with x86isa in the destination's `xmm` field exactly where the pre-state's bits 127:32 of that register are
+   non-zero — derived from the 88 PRE lines: **83 at `%xmm0`, 88 at `%xmm9`** (the derivation reproduces D93's own
+   `movd_to_x` 83 and `movq_to_x` 80, measured in D355's run). Those **171 cases are declared** as D93's class, by vector and
+   field, and are `oracle-divergence`; `unexplained=0`; the `movd` loads' other 5 cases `matched`. Main table: `cases` 107,536
+   → **108,240**, divergence 622 → **793**.
+2. **Model, red backwards** (each mutant built through the wrapper, compared against the run's own oracle output, then restored
+   and `cmp`-verified):
+   - A — the loads MERGE (x86isa's rule): the `movq` loads become `unexplained` in 80 + 88 = **168** cases, and the two `movd`
+     loads' declared divergences DO NOT OCCUR (`compare` names them), so the declaration is shown to be load-bearing;
+   - B — the stores write 16 bytes: all four store vectors change in memory, every case;
+   - C — `movq`'s width taken as 4: the `movq` vectors change, the `movd` ones do not.
+3. **Theorems.** For both widths: a load zeroes bits 127:sz (the shape of `vmovg_to_xmm_zeroes_upper`), and a store leaves
+   every register unchanged. On the three standard axioms.
+4. **Census (derived before any model work, from the same functions):** the new memory keys are exactly `(movd, SSE-legacy)`
+   and `(movq, SSE-legacy)`; modelled memory-form rises by **cc1 +17,926 · coreutils +885 · dav1d +4,549 · ffmpeg +5,853 ·
+   glibc +763 · vlc-codec +371 · vlc-video_chroma +2,586 · vpx +6,373 · x264 +2,037 · kernel +16** (user-space **+41,343**).
+   cc1's remainder 17,931 → 5.
+5. **Kernel cost.** Two `Op` constructors: `X86.Syntax` and `X86.Semantics` rise; predict each under +10 % of its head at katmai,
+   every other unit `ok`, no NEW unit (the theorems go in an existing file).
+
+**The price.** About one working day: the constructors and their arms (a), the eight vectors, two declarations, the three
+mutants, the census and the docs (b), K1 on katmai (c). **No silicon**: the one question x86isa answers wrong is D93's, already
+settled by K, the SDM and processor evidence for the same opcode; a hwprobe row would be a third source for a known answer.
+Built on `paris/d356-movdq-mem`, stacked on D355.
+
+**Not claimed:** the REX.W `66 48 0f 6e/7e` memory spellings; `vmovd`/`vmovq` (VEX); MMX `movd`/`movq`; `movq2dq`/`movdq2q`.
