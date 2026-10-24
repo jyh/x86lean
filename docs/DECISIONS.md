@@ -23564,3 +23564,22 @@ quadword at 0x2000 in every pre-state, so `comisd (%rbx),%xmm0` would compare `c
 No silicon: the IE rule at the memory form is the register form's rule, which D266 refereed on two processors.
 
 **Not claimed:** `vcomiss`/`vcomisd` (VEX), `vucomis*`; any other floating-point memory form.
+
+**Result, prediction 1 (differential): HELD, exactly.** `cases=131472 matched=107692 explained=34407 unexplained=0
+oracle-divergence=1363`; main table `108944 / 85428 / 34407 / 0 / 835`. Per id: `comiss_m_x1`/`_x9` 13 declared each,
+`comisd_m_x1`/`_x9` 8 each, every other case of the eight matched.
+**Result, prediction 2 (mutants): B and C HELD; A as written did NOT red, and the reason is the coincidence this entry's own
+design paragraph names.** Record 44 §2 has each line.
+- A (the source read from `%xmm0`): no record changed. xmm0's low quadword IS the quadword at 0x2000 in every pre-state (D356),
+  so "read `%xmm0`" and "read memory at `(%rbx)`" are the same value here. I chose the vectors' destinations to avoid that
+  coincidence and then wrote a mutant that sits on it. Replaced by **A′, the source read 8 bytes past its address: all eight
+  vectors red** (70-122 fields each), and the four COMIS declarations are reported as not occurring.
+- B (COMIS takes UCOMIS's IE rule): exactly the 42 declared divergences do not occur (divergence 1363 → 1321), nothing else moves.
+- C (`comiss`/`ucomiss` read 8 bytes as binary64): the four single-precision vectors change (34-37 cases each), the four
+  double-precision ones do not.
+**Result, prediction 3 (theorem): HELD** after two failed proof shapes: `withSimd_regs` (any continuation that keeps `regs`)
+and `step_vcomism_regs` on top of it. The mutants did not touch either, as expected: none of them writes a general register.
+**Result, prediction 4 (census): HELD, exactly** (cc1 +5 · coreutils +231 · ffmpeg +327 · glibc +480 · vlc-codec +13 · vpx +170 ·
+x264 +110). ⭐ **With it, every column's differential-class memory-form demand is modelled in full**: each column's "of which the
+model executes a memory form for" figure now equals its memory-form total.
+**Prediction 5 (kernel cost):** K1 on katmai with D356's, after V9b lands; not yet read.
