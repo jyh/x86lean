@@ -23334,3 +23334,52 @@ units (`CoverageVex`, `CoverageVex256`, `CoverageVexMem`) and `Tests.Vectors` ok
 874,362 unfoldings). Registered from the lines each tool printed, copied: `Tests.AnchorsVexSilD 17430 @on katmai`,
 `Tests.CoverageVexMov 10425 @on katmai`, and both `@ku` lines. Not registered: a yukon line for either unit (no yukon reading was
 taken; a local kernel_delta on yukon will refuse them as NEW until one is). The runner lines come from the PR's own refusal.
+
+## D355 — the scalar remainder: `sub` `cmp` `xchg` `test` through `%fs:`/`%gs:`, the stack-canary check (predictions before any row)
+
+**Why these, measured.** STATUS-paris row 12 (the helm, O83, 10-23) asks for the next unit from the census's unmodelled
+remainder, scalar before vector (his 09-30 word). Read 2026-10-24 on V9b's tree (`db08d4e`) with the census's own functions
+(`census`, `_decide`, `model_forms`, unmodified; control: every column's memory-form total and modelled figure equal the shipped
+document, e.g. cc1 1,680,588 − 1,662,657 = 17,931): the differential-class memory-form demand the model does NOT execute is
+**64,664 user-space + 15,248 kernel**. By (roster name, bucket) it is `movq` xmm 33,591 · **`sub` segment-base 20,297 (kernel
+9,898)** · `movd` xmm 7,752 · `comiss`/`comisd`/`ucomiss`/`ucomisd` 1,336 · **`cmp` segment-base 240 (kernel 2)** · **`xchg`
+4** · **`test` 1 (kernel 2)**, and silicon/VEX rows under 1,000 together. The four bold rows are the SCALAR part. The `sub` is
+the stack protector's epilogue, `subq %fs:0x28,%rdx` / `%rax` (glibc 1,016 of its 1,022), and in the kernel `subq %gs:0x28,%rax`
+/ `%rdx` (9,892 of 9,898); the `cmp` is mostly glibc's errno test `cmpl $N,%fs:(%reg)`; the kernel `test` is `testb $-1,%gs:N`.
+**Nothing in the model is missing.** The segment base is in `Ea.addr` since batch 22 (D70, D72), and `sub`/`cmp`/`xchg`/`test`
+have memory forms through `(%rbx)`. What is missing is a ROW that runs these names through a segment, so the census, which keys a
+memory form by (name, bucket), cannot credit them (D352: it can only under-count). ⇒ **Vectors only.** The `movq`/`movd` and
+`comis*` remainders are rows 14 and 15 (D356, D357), not this entry.
+
+**The rows (9), each spelled by clang and disassembled back (bytes recorded at write):**
+`subq %fs:0x28,%rax` (64 48 2b 04 25 28 00 00 00) · `subq %fs:0x28,%rdx` · `subq %gs:0x28,%rax` · `subq %gs:0x28,%rdx` ·
+`cmpl $0x4,%fs:-0x1fd8(%rbx)` (64 83 bb 28 e0 ff ff 04: imm8 sign-extended, base + disp32, the errno shape) ·
+`cmpl %fs:0x28,%eax` · `cmpb $0x0,%fs:0x28` · `xchgl %eax,%fs:0x28` · `testb $-0x1,%gs:0x28`.
+Every address lands on a swept operand: `fsBase + 0x28 = 0x2000` (holds `c`), `gsBase + 0x28 = 0x2010` (holds `a XOR c`), and
+`-0x1fd8 + RBX(0x2000) + fsBase = 0x2000`. ⚠️ Not the corpus's `%fs:(%rax)`: RAX sweeps, so `fsBase + RAX` leaves the watched
+window in most pre-states, and an unwatched address reports agreement. ⭐ `subq %fs:0x28,%rax` reaches the canary-INTACT case
+(ZF=1) in every `diag` pre-state (`mkPre a a 0`: RAX = `c`), which is the case real code branches on; `%rdx` (= `~a`) reaches it
+only where `c = ~a`.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Differential.** `cases` +9 × 88 = **+792**, every one `matched`; `unexplained=0`, `oracle-leaks=0`, `missing=0`;
+   `explained` and `oracle-divergence` unchanged from V9b's `34047 / 1144`. (Against V9b: `128040 / 104719` → `128832 / 105511`.)
+2. **A plant, because no model change means no model mutant:** the row `subq %fs:0x28,%rax` with its AST's segment set to `.gs`
+   (the bytes unchanged). Every disagreement is on that row's id, and their number is the count of pre-states where the
+   quadword at 0x2000 differs from the one at 0x2010 or the flags differ: predicted **between 1 and 88**, and NOT 0 (a 0 would
+   mean the comparator does not see this row's segment). Built, read, reverted, `cmp`-verified.
+3. **Census (derived before any row, from the same functions, by classifying clang's object for these nine lines):** the new
+   memory keys are exactly `(sub|cmp|xchg|test, segment base %fs:/%gs:)`, and the modelled memory-form figure rises by exactly
+   the unmodelled demand at them: coreutils 279,349 → **282,850** · dav1d 67,866 → **67,980** · ffmpeg 1,114,999 → **1,128,907** ·
+   glibc 195,499 → **197,217** · vlc-codec 51,742 → **51,976** · vlc-video_chroma 37,886 → **37,925** · vpx 231,620 → **232,418** ·
+   x264 135,547 → **135,777** · kernel 763,174 → **773,076**; cc1 unchanged (its 17,931 is all `movq`/`movd`). User-space
+   **+20,542**, kernel **+9,902**. Nothing else in the document moves but the forms stamp (`vectors=1464`).
+4. **Kernel cost.** No `.lean` outside `Tests/Vectors.lean` changes. `Tests.Vectors` rises by nine rows of 1,455 (+0.6 %);
+   predict every unit `ok` at katmai and no NEW unit.
+
+**The price.** About half a day: the rows and the plant (an hour), one differential (~25 min), the census regeneration, K1 on
+katmai. No silicon: x86isa referees every row's value, and a TLS base is not a thing the hwprobe harness can set from user mode
+without the very instructions under test. Built on `paris/d355-seg-alu`, stacked on V9b; no PR and no master merge until V9b lands.
+
+**Not claimed:** `%fs:`/`%gs:` forms of any other name (none has demand in this corpus outside `mov`/`add`/`lea`, already rows);
+`rdfsbase`/`wrfsbase`; any write to a segment base; `cmpxchg` through `%gs:` (the kernel's 26, a LOCK question, P2 item 2).
