@@ -23518,3 +23518,49 @@ the differential.** Not this entry's scope; queued as its own small unit (`%xmm9
 through the `%xmm9` rows.
 **Result, prediction 4 (census): HELD, exactly** in all ten columns (cc1 1,662,657 → 1,680,583, its remainder 17,931 → 5).
 **Prediction 5 (kernel cost):** K1 on katmai after V9b's K2, not yet read.
+
+## D357 — `comiss` `comisd` `ucomiss` `ucomisd` with a memory source (predictions and price before any model work)
+
+**Why these.** After D355 and D356 the census's differential-class memory remainder is these four at 546 + 458 + 195 + 137 =
+**1,336** user-space instructions (six to seven columns) plus silicon and VEX rows under 1,000. The register forms are modelled
+since batch 32 (`vcomis`); the memory forms have no constructor.
+
+**The referee, read first (P1, 2026-10-24, yukon, `acl2@c8897a34d3ef`, `oracle_availability.measure` unmodified).** All four
+encodings at `%xmm0` and two at `%xmm9`: **88 of 88 executed** each; in the same run `CONTROL:mov` executed 88/88 and `movnti`
+refused 88/88. ⚠️ **What x86isa cannot referee is already known and declared for the register forms (D266):** it dispatches
+COMIS as UCOMIS, so it leaves MXCSR.IE clear on a QUIET NaN where the SDM (and both processors, D266) set it.
+
+**The rules (SDM Vol. 2A COMISS/COMISD/UCOMISS/UCOMISD).** The register forms' rules with `m32`/`m64` as the second operand:
+EFLAGS ZF PF CF from the unordered/less/equal/greater comparison of the destination's low lane with the memory value; OF AF SF
+:= 0; no XMM register is written; IE on any NaN (COMIS) or a signalling NaN (UCOMIS); DE on a denormal when no operand is a NaN.
+No alignment requirement.
+
+**The design.** One `Op` constructor `vcomism (ordered) (sz) (dst : XmmReg) (ea)`, whose `step` arm is `vcomis`'s with the
+source read as `s.readMem sz (ea.addr s nr)` (the shape `vminmaxm` already uses for its memory source).
+
+**The vectors (8):** each of the four at `%xmm1` and `%xmm9`. ⛔ **Not `%xmm0`: D356 measured that xmm0's low quadword is the
+quadword at 0x2000 in every pre-state, so `comisd (%rbx),%xmm0` would compare `c` with `c` and read EQUAL (or UNORDERED) in all
+88 cases.** xmm1 and xmm9 hold `c XOR i·0x1111…`, so the comparison reaches LESS, GREATER and EQUAL-by-NaN.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Differential.** `cases` +8 × 88 = **+704**; `unexplained=0`. The four COMIS vectors diverge in `mxcsr.ie` exactly where IE is
+   clear in the pre-state, an operand is a NaN, and no operand is a signalling NaN: derived from the 88 PRE lines as **13 at
+   `comiss` (each register) and 8 at `comisd` (each register), 42 in all**. The rule reproduces the measured divergence of the
+   shipped `comisd_x1_x0` (8) and `comiss_x1_x0` (13) exactly. Those 42 are declared with D266's entries (`pair ("1","0")`) and
+   read as `oracle-divergence`; every other case of the eight `matched`. Main table `108,240 → 108,944`, divergence `793 → 835`.
+2. **Model, red backwards** (as D356's harness: theorems first, then set aside for the binary; a mutant with no fresh binary is
+   refused):
+   - A — the memory source read from `%xmm0` instead: all eight vectors change in some cases, no other id moves;
+   - B — COMIS takes UCOMIS's IE rule at the memory form: the four COMIS vectors' 42 declared divergences DO NOT OCCUR (`compare`
+     names them) and nothing else moves;
+   - C — `comiss`/`ucomiss` read 8 bytes as binary64: the four single-precision vectors change, the double ones do not.
+3. **Theorem.** `vcomism` writes no general register (`step_vcomism_regs`), on the three standard axioms.
+4. **Census (derived from the same functions):** new memory keys exactly the four at SSE-legacy; modelled memory-form **cc1 +5
+   (its remainder → 0) · coreutils +231 · ffmpeg +327 · glibc +480 · vlc-codec +13 · vpx +170 · x264 +110**, user-space
+   **+1,336**, kernel +0.
+5. **Kernel cost.** One `Op` constructor: `X86.Syntax`/`X86.Semantics` under +10 %, every unit `ok`, no NEW unit.
+
+**The price.** Half a day: one constructor, eight vectors, four declarations, three mutants, the census and docs; K1 with D356's.
+No silicon: the IE rule at the memory form is the register form's rule, which D266 refereed on two processors.
+
+**Not claimed:** `vcomiss`/`vcomisd` (VEX), `vucomis*`; any other floating-point memory form.
