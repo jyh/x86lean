@@ -24,8 +24,9 @@ open X86 X86.Tests
 
 def vexMnemonics : List String := vexTable.map (·.row.mnemonic)
 
-/-- 1. One VEX.256 vector per VEX.128 REGISTER vector (the two `vpxor m` rows have no twin here). -/
-theorem vex256_vectors_size : vex256Vectors.length = 39 := by decide
+/-- 1. One VEX.256 vector per VEX.128 REGISTER vector (the two `vpxor m` rows have no twin here), plus D359's two
+`vmovddup m256` rows, the twins of its two `vmovddup m64` rows in `vexVectors`. -/
+theorem vex256_vectors_size : vex256Vectors.length = 41 := by decide
 
 /-- 2. The mnemonics are exactly the VEX table's. -/
 theorem vex256_vectors_have_rows :

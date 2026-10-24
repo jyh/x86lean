@@ -4248,6 +4248,11 @@ def vexVectors : List Vec :=
     , bytes := "c57a6fe5", instr := ⟨.vex (.vexmov .dqu .x12 .x5), 4⟩ }
   , { id := "vmovddup_x3x11", mnemonic := "vmovddup", asm := "vmovddup %xmm11, %xmm3"
     , bytes := "c4c17b12db", instr := ⟨.vex (.vexddup .x3 .x11), 5⟩ }
+  -- ⭐ D359: the memory source.
+  , { id := "vmovddup_x3m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %xmm3"
+    , bytes := "c5fb121b", instr := ⟨.vex (.vexddupm .x3 { base := some .rbx }), 4⟩ }
+  , { id := "vmovddup_x11m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %xmm11"
+    , bytes := "c57b121b", instr := ⟨.vex (.vexddupm .x11 { base := some .rbx }), 4⟩ }
   , { id := "vpsubd_x7x10x13", mnemonic := "vpsubd", asm := "vpsubd %xmm13, %xmm10, %xmm7"
     , bytes := "c4c129fafd", instr := ⟨.vex (.vexbin .subd .x7 .x10 .x13), 5⟩ }
   , { id := "vpandn_x9x14x3", mnemonic := "vpandn", asm := "vpandn %xmm3, %xmm14, %xmm9"
@@ -4343,6 +4348,11 @@ def vex256Vectors : List Vec :=
     , bytes := "c57e6fe5", instr := ⟨.vex (.vexmov256 .dqu .x12 .x5), 4⟩ }
   , { id := "vmovddup_y3y11", mnemonic := "vmovddup", asm := "vmovddup %ymm11, %ymm3"
     , bytes := "c4c17f12db", instr := ⟨.vex (.vexddup256 .x3 .x11), 5⟩ }
+  -- ⭐ D359: the memory source; the high lane is the quadword at +16.
+  , { id := "vmovddup_y3m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %ymm3"
+    , bytes := "c5ff121b", instr := ⟨.vex (.vexddupm256 .x3 { base := some .rbx }), 4⟩ }
+  , { id := "vmovddup_y11m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %ymm11"
+    , bytes := "c57f121b", instr := ⟨.vex (.vexddupm256 .x11 { base := some .rbx }), 4⟩ }
   , { id := "vpsubd_y7y10y13", mnemonic := "vpsubd", asm := "vpsubd %ymm13, %ymm10, %ymm7"
     , bytes := "c4c12dfafd", instr := ⟨.vex (.vexbin256 .subd .x7 .x10 .x13), 5⟩ }
   , { id := "vpandn_y9y14y3", mnemonic := "vpandn", asm := "vpandn %ymm3, %ymm14, %ymm9"

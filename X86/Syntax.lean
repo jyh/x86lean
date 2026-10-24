@@ -1252,6 +1252,11 @@ inductive VexOp where
   128-bit lane separately (SDM Vol. 2B MOVDDUP: `DEST[191:128] ← SRC[191:128]`,
   `DEST[255:192] ← SRC[191:128]`), never the low quadword copied across lanes. -/
   | vexddup256 (dst src : XmmReg)
+  /-- ⭐ D359 — `vmovddup m64, xmm` (VEX.128): the quadword at `ea` in both halves, bits 255:128 zeroed. -/
+  | vexddupm (dst : XmmReg) (ea : Ea)
+  /-- ⭐ D359 — `vmovddup m256, ymm` (VEX.256): the low lane duplicates the quadword at `ea`, the high lane the
+  quadword at `ea + 16` (SDM: `DEST[191:128] ← SRC[191:128]`), never `ea + 8`. -/
+  | vexddupm256 (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ V6 (D344) — THE VEX.256 TWIN OF A PACKED BINARY OPERATION, register form:
   `vexbin`'s 128-bit function applied to the low halves and, separately, to the high
   halves of `src1` and `src`.  Every kind `VBinKind.vexTaken` lists is lane-wise, so
@@ -1317,6 +1322,7 @@ def VexOp.operands : VexOp → List Operand
   | .vexbcastd .. | .vexbcastd256 .. => []
   -- V9b (D354): the move memory forms name their one address.
   | .vexload _ _ ea | .vexstore _ ea _ | .vexload256 _ _ ea | .vexstore256 _ ea _ => [.mem ea]
+  | .vexddupm _ ea | .vexddupm256 _ ea => [.mem ea]
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
@@ -1331,6 +1337,7 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexbcastdm _ ea | .vexbcastdm256 _ ea => ea.lock
   | .vexbcastd .. | .vexbcastd256 .. => false
   | .vexload _ _ ea | .vexstore _ ea _ | .vexload256 _ _ ea | .vexstore256 _ ea _ => ea.lock
+  | .vexddupm _ ea | .vexddupm256 _ ea => ea.lock
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
@@ -1341,7 +1348,7 @@ V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
 def VexOp.mnemonic : VexOp → String
   | .vexmov k .. | .vexmov256 k .. => "v" ++ k.mnemonic
   | .vexload k .. | .vexstore k .. | .vexload256 k .. | .vexstore256 k .. => "v" ++ k.mnemonic
-  | .vexddup .. | .vexddup256 .. => "vmovddup"
+  | .vexddup .. | .vexddup256 .. | .vexddupm .. | .vexddupm256 .. => "vmovddup"
   | .vexbin k .. | .vexbinm k .. | .vexbin256 k .. | .vexbinm256 k .. => "v" ++ k.mnemonic
   | .vexbcastd .. | .vexbcastd256 .. | .vexbcastdm .. | .vexbcastdm256 .. => "vpbroadcastd"
   | .vexaes k .. => k.vexMnemonic

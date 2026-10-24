@@ -1190,6 +1190,13 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
   -- one side; the alignment rule is `vload`'s at the access's own width (`alignedVex`), checked on the
   -- linear address `Ea.addr` produces.  A VEX.256 access is two 128-bit accesses at `a` and `a + 16`,
   -- the composition `vexbinm256` already uses.
+  | .vexddupm dst ea =>
+      let lo := (s.readMem .q (ea.addr s nr)).setWidth 128
+      (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
+  | .vexddupm256 dst ea =>
+      let a := ea.addr s nr
+      let dup := fun (q : BitVec 64) => let lo := q.setWidth 128; (lo <<< 64) ||| lo
+      (s.setYmm dst (dup (s.readMem .q a)) (dup (s.readMem .q (a + 16)))).setRip nr
   | .vexload k dst ea =>
       let a := ea.addr s nr
       if k.aligned && !alignedVex false a then
