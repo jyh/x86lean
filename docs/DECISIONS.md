@@ -23615,3 +23615,37 @@ every theorem in place; none pins a store's bytes), `unexplained=352` = 4 × 88:
 `movlpd_store_m` at 0** — the four shipped `%xmm0` rows agree with a model that never stores. Restored and `cmp`-verified.
 ⚠️ Limit, stated: no theorem pins a store's bytes for these forms, so the dropped store builds; the `%xmm9` rows are what catch it.
 **Result, prediction 3 (census): HELD** (no new key; the forms stamp only).
+
+## D359 — `vmovddup` with a memory source, VEX.128 and VEX.256: the VEX table's last memory-form demand (predictions before any model work)
+
+**Why.** After D354 the VEX table's modelled memory-form demand is 38,287 of 38,453; the remaining **166** are all `vmovddup`
+with a memory source (VEX.128 134, VEX.256 32; dav1d 5 · ffmpeg 6 · x264 155). The register forms are modelled since D341
+(`vexddup`) and D344 (`vexddup256`); the memory forms have no constructor (`movddup`'s legacy memory form is `vddupM`).
+
+**The referee, read first (P1, 2026-10-24, yukon, `acl2@c8897a34d3ef`, `oracle_availability.measure` unmodified):**
+`vmovddup (%rbx),%xmm3`/`%xmm11` and `vmovddup (%rbx),%ymm3`/`%ymm11` each **88 of 88 executed**; `CONTROL:mov` 88/88, `movnti`
+refused 88/88.
+
+**The rules (SDM Vol. 2B MOVDDUP, the VEX rows).** VEX.128: `DEST[63:0] ← SRC[63:0]; DEST[127:64] ← SRC[63:0]; DEST[MAXVL-1:128]
+← 0`, SRC = m64. VEX.256: `DEST[63:0] ← SRC[63:0]; DEST[127:64] ← SRC[63:0]; DEST[191:128] ← SRC[191:128]; DEST[255:192] ←
+SRC[191:128]`, SRC = m256 — so the high lane duplicates the quadword at **a + 16**, not a + 8. No alignment requirement.
+
+**The design.** Two `VexOp` constructors, `vexddupm (dst) (ea)` (through `setXmmVex128`, as `vexload`) and `vexddupm256 (dst)
+(ea)` (through `setYmm`, the high lane from `readMem .q (a + 16)`), nested in `VexOp` so `Op`'s count does not move.
+
+**The vectors (4):** `vmovddup (%rbx),%xmm3` · `(%rbx),%xmm11` · `(%rbx),%ymm3` · `(%rbx),%ymm11`. At 0x2000 the VEX.256 read
+covers 0x2000..0x201f, inside the watched window.
+
+**Predictions:**
+1. **Differential.** +4 × 88 = **+352** cases, all `matched`; `unexplained=0`; divergence unchanged (1,363). (VEX vectors are not
+   in the main table, so its line does not move.)
+2. **Mutants** (D356's guarded harness):
+   - A — VEX.128 PRESERVES bits 255:128 (the legacy rule): exactly the two VEX.128 vectors change (the pre-states' YMM highs
+     are non-zero, `ymmHiPattern`); the VEX.256 ones do not;
+   - B — VEX.256's high lane from `a + 8` instead of `a + 16`: exactly the two VEX.256 vectors change;
+   - C — VEX.256's high lane from `a` (the low quadword copied across lanes): exactly the two VEX.256 vectors change.
+3. **Census (derived):** the VEX-table modelled memory-form figure **38,287 → 38,453 of 38,453**: dav1d 8,985 → 8,990 · ffmpeg
+   18,504 → 18,510 · x264 2,745 → 2,900, each now equal to its VEX memory-form total.
+4. **Kernel cost.** Two `VexOp` constructors: `X86.Vex`/`X86.Syntax` under +10 %, no NEW unit.
+
+**The price.** Half a day. No silicon (x86isa executes and referees every value).
