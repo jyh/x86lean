@@ -23411,3 +23411,27 @@ until V9b lands.
 **Not claimed:** `lock`-prefixed forms (P2 item 2's question, outside the differential class); `cmpxchg16b %gs:` (unmapped);
 `rdfsbase`/`wrfsbase`; any write to a segment base; any addressing mode beyond the three shapes above (one memory form stands for
 every addressing mode at its (name, bucket), D352).
+
+**Result, prediction 1 (differential): NOT HELD as written, and the miss is a finding, not a model defect.** `acl2@c8897a34d3ef`,
+this tree: the first run read `cases=130064 matched=106497 explained=34407 unexplained=6 oracle-divergence=1144`. All six
+`unexplained` are `btr_gs_q`, at pre-states 17, 36, 50, 64, 65 and 67, each in one byte (0x1fef): the model clears bit 7, x86isa
+clears bit 1. That is D331's x86isa rule, `bitNumber = (mod (abs offset) 8)`, wrong for a negative offset (upstream
+acl2/acl2#2066), and the six states are EXACTLY `btr_mr_q`'s declared states: `btr_gs_q` addresses the same byte
+(`gsBase − 0x1fe8 + RBX = 0x2000`) with the same RCX. I did not predict it because I read `btr_gs_q` as a new address path and
+not as an old bit rule; D354's own lesson ("no declared x86isa defect is a move, I expect none to be reached") was about a
+different set of rows, and I did not ask it of these. Declared in `Main.lean` beside D331's entries, keyed to `btr_mr_q`'s
+states rather than re-typed. Re-run: **`cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=1150
+oracle-leaks=0 missing=0`** (+2,024 cases; divergence +6, the declared states).
+⚠️ The second miss in the same line: `explained` rose by **360**, where I wrote "unchanged". Compared over the 23 new ids alone
+(the records filtered from this run's own `lean.txt` and `oracle.txt`): `cases=2024 matched=1778 explained=360 unexplained=0
+oracle-divergence=6`, so all 360 are the new rows' undefined flags (measured per id: `bt_gs_q` 114 and `btr_gs_q` 114, where the SDM leaves
+OF/SF/AF/PF undefined; `and_gs_rip_l`, `or_gs_rip_w`, `test_gs_mi_b` 44 each, AF; the other 18 ids 0), which the comparator excuses by the model's own draw. My "unchanged" copied D354's line, whose moves have no
+undefined flags. ⇒ Every one of the 2,024 new cases agrees or is excused by a stated rule; none is unexplained.
+⚠️ The acl2#2067 trigger (STATUS row 5) now deletes **D331's declarations plus this one** when x86isa changes.
+**Result, prediction 2 (plants): HELD.** Both plants in one build, re-emitted and compared against this run's oracle output
+(the bytes are unchanged, so the oracle's records are too). Per id: `sub_fs_canary_rax` with `.gs` — 80 of 88 cases disagree
+(194 fields); `inc_gs_rip_l` with `ripRel := false` — 88 of 88 (181 fields); every other record of the 130,064 byte-identical
+to the unplanted run. `Tests/Vectors.lean` restored and `cmp`-verified against `HEAD`.
+**Result, prediction 3 (census): HELD, exactly.** Regenerated from `~/x86lean-corpus`: the nine figures moved to the derived values
+(coreutils 282,850 · dav1d 67,980 · ffmpeg 1,128,907 · glibc 197,217 · vlc-codec 51,976 · vlc-video_chroma 37,925 · vpx 232,418 ·
+x264 135,777 · kernel 778,406), cc1 unchanged, the forms stamp `vectors=1478`, and nothing else in the document. `--check` CLEAN.

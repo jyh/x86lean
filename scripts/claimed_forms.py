@@ -562,6 +562,31 @@ CLAIMS_NO_ROW = {
     "mov_fs_store_b": "a segment override is a prefix on a row already claimed",
     "add_fs_rmw_q":   "a segment override is a prefix on a row already claimed",
     "lea_fs_abs_q":   "a segment override is a prefix on a row already claimed",
+    # ⭐ D355: the same rule for the census's segment remainder (the canary check, the kernel's per-CPU
+    # forms); every row is claimed by its unsegmented sibling, and CLAIMED reads 504 before and after.
+    "sub_fs_canary_rax": "a segment override is a prefix on a row already claimed",
+    "sub_fs_canary_rdx": "a segment override is a prefix on a row already claimed",
+    "sub_gs_canary_rax": "a segment override is a prefix on a row already claimed",
+    "sub_gs_canary_rdx": "a segment override is a prefix on a row already claimed",
+    "cmp_fs_errno_d":    "a segment override is a prefix on a row already claimed",
+    "cmp_fs_rm_d":       "a segment override is a prefix on a row already claimed",
+    "cmp_fs_mi_b":       "a segment override is a prefix on a row already claimed",
+    "xchg_fs_d":         "a segment override is a prefix on a row already claimed",
+    "test_gs_mi_b":      "a segment override is a prefix on a row already claimed",
+    "inc_gs_rip_l":      "a segment override is a prefix on a row already claimed",
+    "dec_gs_rip_l":      "a segment override is a prefix on a row already claimed",
+    "inc_gs_base_q":     "a segment override is a prefix on a row already claimed",
+    "dec_gs_base_q":     "a segment override is a prefix on a row already claimed",
+    "inc_gs_rip_w":      "a segment override is a prefix on a row already claimed",
+    "xadd_gs_rip_l":     "a segment override is a prefix on a row already claimed",
+    "xadd_gs_base_b":    "a segment override is a prefix on a row already claimed",
+    "and_gs_rip_l":      "a segment override is a prefix on a row already claimed",
+    "or_gs_rip_w":       "a segment override is a prefix on a row already claimed",
+    "cmpxchg_gs_rip_l":  "a segment override is a prefix on a row already claimed",
+    "cmpxchg_gs_base_b": "a segment override is a prefix on a row already claimed",
+    "bt_gs_q":           "a segment override is a prefix on a row already claimed",
+    "btr_gs_q":          "a segment override is a prefix on a row already claimed",
+    "push_gs_q":         "a segment override is a prefix on a row already claimed",
     # ⭐ P2 ITEM 2.  Same rule as the segment overrides one line up, for the same
     # reason: `f0` is a PREFIX, and the rows the eleven locked vectors sit on —
     # `inc m`, `add m,r`, `xadd m,r`, `cmpxchg8b m`, `mov m,r` — are all claimed
