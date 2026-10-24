@@ -1149,8 +1149,8 @@ def vexTable : List VexRow :=
                note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 loads and stores (V9b, D354) have NO alignment check",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPD" } }
   , { twin := "movddup",
-      row := { mnemonic := "vmovddup", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovddup", shapes := "x,x · x,m",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed; x,m since D359 (VEX.256: the high lane duplicates the quadword at +16)",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDDUP" } }
   , { twin := "paddb",
       row := { mnemonic := "vpaddb", shapes := "x,x,x · x,x,m",
