@@ -290,7 +290,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D355 adds 23: `sub` `cmp` `xchg` `test` and the kernel's per-CPU forms through `%fs:`/`%gs:`.
 -- ⭐ D356 adds 8: `movd`/`movq` between an XMM register and memory, both directions.
 -- ⭐ D357 adds 8: `comis*`/`ucomis*` with a memory source, at `%xmm1` and `%xmm9`.
-theorem vector_count_is_1238 : vectorCount = 1238 := by decide
+-- ⭐ D358 adds 3: `%xmm9` twins of the scalar stores whose `%xmm0` rows cannot see a dropped write.
+theorem vector_count_is_1241 : vectorCount = 1241 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.

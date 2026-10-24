@@ -2612,6 +2612,9 @@ def vectors : List Vec :=
     , bytes := "660f1203", instr := ⟨.vloadq .lo .pd .x0 { base := some .rbx }, 4⟩ }
   , { id := "movlpd_store_m", mnemonic := "movlpd", asm := "movlpd %xmm0, (%rbx)"
     , bytes := "660f1303", instr := ⟨.vstoreq .lo .pd { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ D358: the %xmm9 twin (see `movss_store_x9`).
+  , { id := "movlpd_store_x9", mnemonic := "movlpd", asm := "movlpd %xmm9, (%rbx)"
+    , bytes := "66440f130b", instr := ⟨.vstoreq .lo .pd { base := some .rbx } .x9, 5⟩ }
   , { id := "movhpd_load_m", mnemonic := "movhpd", asm := "movhpd (%rbx), %xmm0"
     , bytes := "660f1603", instr := ⟨.vloadq .hi .pd .x0 { base := some .rbx }, 4⟩ }
   , { id := "movhpd_store_m", mnemonic := "movhpd", asm := "movhpd %xmm0, (%rbx)"
@@ -3384,6 +3387,10 @@ def vectors : List Vec :=
     , bytes := "f30f1003", instr := ⟨.vmovsld .d .x0 { base := some .rbx }, 4⟩ }
   , { id := "movss_store_m", mnemonic := "movss", asm := "movss %xmm0, (%rbx)"
     , bytes := "f30f1103", instr := ⟨.vmovsst .d { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ D358: the %xmm9 twin. xmm0's low lane IS the value at 0x2000 in every pre-state, so the row above
+  -- cannot see a dropped store; this one differs in all 88.
+  , { id := "movss_store_x9", mnemonic := "movss", asm := "movss %xmm9, (%rbx)"
+    , bytes := "f3440f110b", instr := ⟨.vmovsst .d { base := some .rbx } .x9, 5⟩ }
   , { id := "movsd_xx", mnemonic := "movsd", asm := "movsd %xmm1, %xmm0"
     , bytes := "f20f10c1", instr := ⟨.vmovs .q .x0 .x1, 4⟩ }
   , { id := "movsd_x4x5", mnemonic := "movsd", asm := "movsd %xmm5, %xmm4"
@@ -3392,6 +3399,9 @@ def vectors : List Vec :=
     , bytes := "f20f1003", instr := ⟨.vmovsld .q .x0 { base := some .rbx }, 4⟩ }
   , { id := "movsd_store_m", mnemonic := "movsd", asm := "movsd %xmm0, (%rbx)"
     , bytes := "f20f1103", instr := ⟨.vmovsst .q { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ D358: the %xmm9 twin (see `movss_store_x9`).
+  , { id := "movsd_store_x9", mnemonic := "movsd", asm := "movsd %xmm9, (%rbx)"
+    , bytes := "f2440f110b", instr := ⟨.vmovsst .q { base := some .rbx } .x9, 5⟩ }
 
   , { id := "punpcklbw_xx", mnemonic := "punpcklbw", asm := "punpcklbw %xmm1, %xmm0"
     , bytes := "660f60c1", instr := ⟨.vbin .unpcklb .x0 .x1, 4⟩ }
