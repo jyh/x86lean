@@ -23583,3 +23583,26 @@ and `step_vcomism_regs` on top of it. The mutants did not touch either, as expec
 x264 +110). ⭐ **With it, every column's differential-class memory-form demand is modelled in full**: each column's "of which the
 model executes a memory form for" figure now equals its memory-form total.
 **Prediction 5 (kernel cost):** K1 on katmai with D356's, after V9b lands; not yet read.
+
+## D358 — the `%xmm0` store blind spot: three scalar stores that a dropped write would pass (predictions before any row)
+
+**The finding (D356's mutant C, then a sweep).** `xmmPattern` makes xmm0's low quadword `c`, and `c` is the quadword at 0x2000 in
+every pre-state (measured, 88 of 88). So a store of xmm0's LOW lane to `(%rbx)` rewrites the bytes already there, and a model
+that drops the store agrees with one that performs it. Swept over every vector storing from `%xmm0` to `(%rbx)`: the 16-byte stores
+and the high-half stores (`movhps`/`movhpd`) write bytes that differ from memory and are visible; `movd`/`movq` gained `%xmm9`
+rows in D356; `movlps` has `movlps %xmm5,8(%rbx)`. **`movss`, `movsd` and `movlpd` have only the `%xmm0` row**, so the differential
+cannot today tell their store from no store.
+
+**The rows (3), clang's bytes:** `movss %xmm9,(%rbx)` (f3 44 0f 11 0b) · `movsd %xmm9,(%rbx)` (f2 44 0f 11 0b) · `movlpd
+%xmm9,(%rbx)` (66 44 0f 13 0b). No model change; the shipped `%xmm0` rows stay as they are (they still check the address and width
+of what is written, which is the same bytes).
+
+**Predictions:**
+1. **Differential.** +3 × 88 = **+264** cases, all `matched`; `unexplained=0`; divergence unchanged. Main table 108,944 → **109,208**.
+2. **The plant that is the point: a DROPPED low-lane store** (`vmovsst` and `vstoreq .lo` write nothing), built, compared against
+   the run's own oracle output, restored. Derived from the PRE lines: the three new rows disagree in **88 of 88** each, so does
+   `movlps %xmm5,8(%rbx)` (88), and the four `%xmm0` rows (`movss_store_m`, `movsd_store_m`, `movlps_store_m`,
+   `movlpd_store_m`) in **0** — the blind spot, shown rather than asserted.
+3. **Census:** no new (name, bucket) key, so nothing moves but the forms stamp.
+
+**The price.** An hour: three rows, one plant, the docs. No silicon, no new constructor.
