@@ -23606,3 +23606,12 @@ of what is written, which is the same bytes).
 3. **Census:** no new (name, bucket) key, so nothing moves but the forms stamp.
 
 **The price.** An hour: three rows, one plant, the docs. No silicon, no new constructor.
+
+**Result, prediction 1 (differential): HELD, exactly.** `cases=131736 matched=107956 explained=34407 unexplained=0
+oracle-divergence=1363`: +264 cases, +264 matched, nothing else moved.
+**Result, prediction 2 (the dropped-store plant): HELD, exactly.** With `vmovsst` and `vstoreq .lo` writing nothing (built with
+every theorem in place; none pins a store's bytes), `unexplained=352` = 4 × 88: `movss_store_x9`, `movsd_store_x9`,
+`movlpd_store_x9` and `movlps_store_x5` at 88 of 88 each, and **`movss_store_m`, `movsd_store_m`, `movlps_store_m`,
+`movlpd_store_m` at 0** — the four shipped `%xmm0` rows agree with a model that never stores. Restored and `cmp`-verified.
+⚠️ Limit, stated: no theorem pins a store's bytes for these forms, so the dropped store builds; the `%xmm9` rows are what catch it.
+**Result, prediction 3 (census): HELD** (no new key; the forms stamp only).
