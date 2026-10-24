@@ -147,7 +147,7 @@
   "covered_mem": 1680670,
   "silicon_mem": 0,
   "vex_mem": 0,
-  "covered_mem_modelled": 1662737,
+  "covered_mem_modelled": 1680663,
   "silicon_mem_modelled": 0,
   "vex_mem_modelled": 0,
   "class": "compiler"
@@ -686,7 +686,7 @@
   "covered_mem": 283966,
   "silicon_mem": 0,
   "vex_mem": 72,
-  "covered_mem_modelled": 282850,
+  "covered_mem_modelled": 283735,
   "silicon_mem_modelled": 0,
   "vex_mem_modelled": 72,
   "class": "compiler"
@@ -2685,7 +2685,7 @@
   "covered_mem": 199132,
   "silicon_mem": 136,
   "vex_mem": 4189,
-  "covered_mem_modelled": 197839,
+  "covered_mem_modelled": 198602,
   "silicon_mem_modelled": 2,
   "vex_mem_modelled": 4189,
   "class": "compiler"
@@ -4267,7 +4267,7 @@
   "covered_mem": 72589,
   "silicon_mem": 4107,
   "vex_mem": 8957,
-  "covered_mem_modelled": 68037,
+  "covered_mem_modelled": 72586,
   "silicon_mem_modelled": 3899,
   "vex_mem_modelled": 8952,
   "class": "asm"
@@ -5968,7 +5968,7 @@
   "covered_mem": 1135175,
   "silicon_mem": 8548,
   "vex_mem": 18510,
-  "covered_mem_modelled": 1128982,
+  "covered_mem_modelled": 1134835,
   "silicon_mem_modelled": 8174,
   "vex_mem_modelled": 18504,
   "class": "asm"
@@ -6089,7 +6089,7 @@
   "covered_mem": 52372,
   "silicon_mem": 0,
   "vex_mem": 0,
-  "covered_mem_modelled": 51982,
+  "covered_mem_modelled": 52353,
   "silicon_mem_modelled": 0,
   "vex_mem_modelled": 0,
   "class": "asm"
@@ -6332,7 +6332,7 @@
   "covered_mem": 40511,
   "silicon_mem": 0,
   "vex_mem": 0,
-  "covered_mem_modelled": 37925,
+  "covered_mem_modelled": 40511,
   "silicon_mem_modelled": 0,
   "vex_mem_modelled": 0,
   "class": "asm"
@@ -7364,7 +7364,7 @@
   "covered_mem": 238961,
   "silicon_mem": 4344,
   "vex_mem": 3780,
-  "covered_mem_modelled": 232418,
+  "covered_mem_modelled": 238791,
   "silicon_mem_modelled": 4184,
   "vex_mem_modelled": 3780,
   "class": "asm"
@@ -9076,7 +9076,7 @@
   "covered_mem": 137926,
   "silicon_mem": 1057,
   "vex_mem": 2872,
-  "covered_mem_modelled": 135779,
+  "covered_mem_modelled": 137816,
   "silicon_mem_modelled": 666,
   "vex_mem_modelled": 2745,
   "class": "asm"
@@ -9790,7 +9790,7 @@
   "covered_mem": 787445,
   "silicon_mem": 16,
   "vex_mem": 12,
-  "covered_mem_modelled": 786153,
+  "covered_mem_modelled": 786169,
   "silicon_mem_modelled": 16,
   "vex_mem_modelled": 12,
   "class": "kernel"
