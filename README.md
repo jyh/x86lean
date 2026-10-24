@@ -59,7 +59,7 @@ declaration in CI.
   registers, flags, RIP, RSP, the XMM registers and MXCSR, a byte-addressed
   memory, and the undefined-bit oracle. Single-threaded, one instruction at a
   time.
-- **Instructions.** 200 mnemonics in 1222 differentially tested forms, covering
+- **Instructions.** 200 mnemonics in 1230 differentially tested forms, covering
   504 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 111 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
@@ -86,7 +86,7 @@ declaration in CI.
   and drawn from the oracle), and a decode-trust column. The table is checked
   against the AST by [`Tests/Coverage.lean`](Tests/Coverage.lean), and the tiers'
   behavioural theorems are in [`Tests/Nonvacuity.lean`](Tests/Nonvacuity.lean).
-- **Validation.** Every form is run against ACL2 x86isa on 107536 generated cases
+- **Validation.** Every form is run against ACL2 x86isa on 108240 generated cases
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
   execution, never a theorem about the other model.
@@ -313,7 +313,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 42 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 43 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -324,7 +324,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1222 vectors · 88 pre-states · 107536 cases · 0 unexplained · 0 oracle leaks
+1230 vectors · 88 pre-states · 108240 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**
