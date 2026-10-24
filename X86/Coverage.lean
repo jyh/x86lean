@@ -779,16 +779,16 @@ acc,imm · rh"
   -- masked in every pre-state, and x86isa runs COMIS as UCOMIS, so the ucomis
   -- rows are the differential's and the comis QNaN rows are the kernel's.
   , { mnemonic := "comiss",
-      shapes := "x,x", note := "EFLAGS; MXCSR IE on any NaN, DE; binary32; D140, D266",
+      shapes := "x,x · x,m", note := "x,m since D357; EFLAGS; MXCSR IE on any NaN, DE; binary32; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A COMISS" }
   , { mnemonic := "comisd",
-      shapes := "x,x", note := "EFLAGS; MXCSR IE on any NaN, DE; binary64; D140, D266",
+      shapes := "x,x · x,m", note := "x,m since D357; EFLAGS; MXCSR IE on any NaN, DE; binary64; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A COMISD" }
   , { mnemonic := "ucomiss",
-      shapes := "x,x", note := "as comiss, but IE on an SNaN only; D140, D266",
+      shapes := "x,x · x,m", note := "x,m since D357; as comiss, but IE on an SNaN only; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISS" }
   , { mnemonic := "ucomisd",
-      shapes := "x,x", note := "as comisd, but IE on an SNaN only; D140, D266",
+      shapes := "x,x · x,m", note := "x,m since D357; as comisd, but IE on an SNaN only; D140, D266",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A UCOMISD" }
   -- ⭐⭐⭐ P2 BATCH 38 — MIN / MAX (D253), sub-group A of the soft-float commission.
   -- SIX rows.  ⚠️ THE NOTE NAMES THE ASYMMETRY, because it is the rule: a NaN or
