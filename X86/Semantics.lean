@@ -1604,6 +1604,17 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a := ea.addr s nr
       (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
 
+  -- ⭐ D356 — MOVD / MOVQ FROM AND TO MEMORY: `vmovsld`'s and `vmovsst`'s formulas, spelled
+  -- `movd`/`movq`. The load ZEROES bits 127:sz (SDM Vol. 2B MOVD/MOVQ; legacy SSE, so the
+  -- YMM bits above 127 are untouched, as `setXmm` leaves them). ⛔ x86isa MERGES at `66 0f 6e`
+  -- (D93, reached through memory): that is declared per vector, never modelled.
+  | .vmovgld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmm dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vmovgst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".
   --

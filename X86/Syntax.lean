@@ -2063,6 +2063,15 @@ inductive Op where
   merge/zero question does not arise in this direction at all, which is why the
   store is one function rather than two. -/
   | vmovsst (sz : Size) (ea : Ea) (src : XmmReg)
+  /-- ⭐ D356 — `movd`/`movq` FROM MEMORY (`66 0f 6e /r` at `.d`, `f3 0f 7e /r` at `.q`): `sz`
+  bytes are loaded and bits 127:sz are ZEROED (SDM Vol. 2B MOVD/MOVQ), which is `vmovsld`'s
+  meaning exactly. A separate constructor because the AST is printed and assembled by the
+  encoding cross-check, and `movss (%rbx),%xmm0` is not these bytes. -/
+  | vmovgld (sz : Size) (dst : XmmReg) (ea : Ea)
+  /-- ⭐ D356 — `movd`/`movq` TO MEMORY (`66 0f 7e /r` at `.d`, `66 0f d6 /r` at `.q`): the low
+  `sz` bytes are stored and no register is written — `vmovsst`'s meaning. Split from the load
+  for D91's reason: no type can then spell a memory-to-memory move. -/
+  | vmovgst (sz : Size) (ea : Ea) (src : XmmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS AT AN IMMEDIATE COUNT
   (`66 0F 71/72/73 /r ib`), and the first operation in this model whose RESULT
   IS NOT A FUNCTION OF ITS OPERANDS LANE BY LANE: one count is applied to every
@@ -2434,6 +2443,7 @@ def opOperands : Op → List Operand
   -- No memory operand at all: two register files, no address.
   | .vmovmsk .. => []
   | .vmovsld _ _ ea | .vmovsst _ ea _ => [.mem ea]
+  | .vmovgld _ _ ea | .vmovgst _ ea _ => [.mem ea]
   -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
   -- reported keeps the lock and segment walks exact.
   | .vmovg _ _ _ r => [.reg r]
@@ -2619,6 +2629,7 @@ def Op.anyLocked : Op → Bool
   | .prefetch _ ea => ea.lock
   | .vmovmsk .. => false
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
+  | .vmovgld _ _ ea | .vmovgst _ ea _ => ea.lock
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
   -- refusing it is what makes it #UD — the memory shape reports its `Ea` here
@@ -2863,7 +2874,7 @@ def Op.mnemonic : Op → String
   -- it does, these are two rows and not one, unlike `shl`/`sal`.
   | .vmovs sz .. | .vmovsld sz .. | .vmovsst sz .. =>
       match sz with | .q => "movsd" | _ => "movss"
-  | .vmovg _ sz .. => match sz with | .q => "movq" | _ => "movd"
+  | .vmovg _ sz .. | .vmovgld sz .. | .vmovgst sz .. => match sz with | .q => "movq" | _ => "movd"
   -- ⭐ P2 BATCH 13.  All three count shapes print the SAME mnemonic — `psrad`
   -- names the operation and the lane, and the count's provenance is in the
   -- operands, not in the name.  That is the opposite of `movss`/`movsd`, where
