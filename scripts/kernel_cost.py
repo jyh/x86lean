@@ -297,7 +297,9 @@ def scratch_convention(rows):
         if r["prefix"] is not None and (r["prefix"].startswith(TMP_PREFIX)
                                         or r["prefix"] in FOREIGN_FIXTURES):
             continue
-        if r["file"] in PORTED_VERBATIM and (r["prefix"] is None
+        # A bare (prefix-less) call is excused ONLY in a ported file that declares NO literals: once a file
+        # declares literals, a bare call in it is a call the declaration does not name (systems' R2 read, LOW).
+        if r["file"] in PORTED_VERBATIM and ((r["prefix"] is None and not PORTED_VERBATIM[r["file"]][0])
                                              or r["prefix"] in PORTED_VERBATIM[r["file"]][0]):
             continue
         offenders.append(f"{r['file']}:{r['line']} {r['callee']} ({r['why']}"
@@ -1589,15 +1591,18 @@ def conditions_selftest():
         _pv_row("a_native_tool.py", "pr-gate-selftest-", 7)])
     _gone = next(lit for k, (lits, _w) in PORTED_VERBATIM.items() for lit in lits)
     _pv_off2, _pv_stale2 = scratch_convention([r for r in _pv_base if r["prefix"] != _gone])
+    # a bare mkdtemp in a ported file that DECLARES literals is an offender; in one that declares none, it is excused
+    _pv_off3, _ = scratch_convention(_pv_base + [_pv_row("check_pr_descriptions.py", None, 11)])
     _pv_ok = ({o.split(" ")[0] for o in _pv_off} == {"check_pr_descriptions.py:9", "a_native_tool.py:7"}
               and not _pv_stale and not _pv_off2
-              and any(s.endswith(":" + _gone) for s in _pv_stale2))
+              and any(s.endswith(":" + _gone) for s in _pv_stale2)
+              and {o.split(" ")[0] for o in _pv_off3} == {"check_pr_descriptions.py:11"})
     out.append((_pv_ok,
                 "a ported file's declared literals are excused, an UNDECLARED literal in that file "
                 "and a declared literal in ANOTHER file are offenders, and a declared literal the "
                 "file no longer produces is STALE by name"
                 + ("" if _pv_ok else f" — GOT offenders {_pv_off} stale {_pv_stale} / "
-                   f"{_pv_off2} {_pv_stale2}")))
+                   f"{_pv_off2} {_pv_stale2} / {_pv_off3}")))
 
     rows, files_excluded = scratch_producers()
     offenders, stale = scratch_convention(rows)
