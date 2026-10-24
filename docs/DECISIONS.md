@@ -23190,3 +23190,154 @@ Registered from the lines each tool printed, copied, not retyped: `Tests.Coverag
 kernel-delta refusal, as V8b's and V8c's did (a follow-up, as #116). On yukon three small units read UNMEASURABLE with signed
 noise at 3 repeats (`Tests.AnchorsVex` −1.0, `X86.Memory` −0.2, `X86.Program` −5.0, and `Tests.Coverage @decl memDestSweep`
 +250 against a band of ±504); katmai's 6 repeats read none of them, and none is a unit V9a touches.
+
+## D354 — V9b: the VEX memory forms of the six packed moves, at VEX.128 and VEX.256, loads and stores (predictions and price before any model, row or hardware work)
+
+**Why these.** D352/D353 measured what remains: the model executes a memory form for 6,016 of the VEX table's 38,453 credited
+memory-form instructions, and the six packed moves (`vmovdqa` `vmovdqu` `vmovaps` `vmovups` `vmovapd` `vmovupd`) carry most of
+the rest. Their register twins are taken since D341 (`vexmov`) and D344 (`vexmov256`); their memory forms have no constructor.
+
+**The referee, measured before anything was designed (P1, 2026-10-23, yukon, `acl2@c8897a34d3ef`, the scratch driver of D353
+that imports `oracle_availability.py` unmodified, clang's bytes).**
+All 24 encodings (6 moves × VEX.128/256 × load/store) EXECUTE at 88 of 88 aligned, and all 36 misaligned encodings execute too:
+offset 1 for every one, and offset 0x10 for every VEX.256 one (16- but not 32-byte aligned). In the same run `CONTROL:mov`
+executed 88/88 and `movnti` REFUSED 88/88, so the instrument separates the two states. And the legacy control
+`movdqa 0x1(%rbx),%xmm0`, which the SDM says is #GP, ALSO executed: D91's reading, unchanged at this revision.
+⇒ **x86isa is the referee for the VALUE of every aligned access and of every misaligned access of the three unaligned kinds;
+it is NOT a referee for the aligned kinds' fault, at either width.** As in D91, that rule is carried by theorem, and here it
+also gets a second source: silicon.
+
+**The rules (SDM Vol. 2B, MOVDQA/MOVDQU/MOVAPS/MOVUPS/MOVAPD/MOVUPD, the VEX rows; Vol. 1 §14.1.2).**
+- **Load, VEX.128:** `dst[127:0] ← m128`; bits 255:128 of the destination's YMM register ZEROED (`setXmmVex128`).
+- **Load, VEX.256:** `dst[255:0] ← m256`, the low lane from bytes 15:0 and the high lane from bytes 31:16 (`setYmm`).
+- **Store:** `m128 ← src[127:0]` or `m256 ← src[255:0]`; no register is written. Bytes outside the 16 or 32 are untouched.
+- **Alignment, and it is the whole content of `VMovKind.aligned`:** `dqa` `aps` `apd` raise **#GP(0)** unless the effective
+  address is a multiple of **16 at VEX.128 and 32 at VEX.256**; `dqu` `ups` `upd` never fault on alignment. ⛔ The 32 is new to
+  the model: every alignment rule it has today is 16, so a VEX.256 aligned access at a 16-but-not-32 address is the case most
+  likely to be modelled wrong, and it is the one x86isa executes (P1's `_u16` rows).
+- No flag is written by any of the six.
+
+**The design.** Four `VexOp` constructors, `vexload` / `vexstore` / `vexload256` / `vexstore256` (each `(k : VMovKind)` with an
+`XmmReg` and an `Ea`), split load from store for D91's reason (no type that can spell `vmovdqa (%rax),(%rbx)`). VEX.256
+accesses compose two `readMem128`/`writeMem128` at `a` and `a + 16`, as `vexbinm256` does. The alignment test takes the width
+as a parameter, so the 16 and the 32 come from one definition. Nested in `VexOp`, so `Op`'s constructor count does not move.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Oracle (P1, already read):** 24 of 24 execute aligned at 88/88, and the 36 misaligned encodings execute; controls as above.
+   The 24 aligned encodings join `oracle_availability.py` FORMS as `executes`. The misaligned aligned-kind encodings are NOT
+   added there as a reading the differential relies on: they are the D91 class (oracle incomplete).
+2. **Differential.** Per encoding, one vector at `(%rbx)` = 0x2000 (32-aligned in every pre-state: `mkPre` fixes RBX, and the
+   swept window 0x1fe0..0x201f holds a 32-byte access there) and one with high registers (VEX.R̄ set). For the three unaligned
+   kinds, a third and fourth at misaligned addresses inside the window: VEX.128 at `0x1(%rbx)` and `-0x7(%rbx)`; VEX.256 at
+   `-0xf(%rbx)` (0x1ff1..0x2010) and `-0x10(%rbx)` (16- but not 32-aligned). ⚠️ Not offset 1 at VEX.256: 0x2001..0x2020
+   ends one byte past the watched window (0x1fe0..0x201f), and a byte the comparator does not watch reports agreement. No misaligned vector for an aligned kind (D91: it is a one-sided refusal and reads as a
+   model that is wrong when it is right). ⇒ 24 × 2 + 12 × 2 = **72 vectors**, `cases` +72 × 88 = **6,336**, every one
+   `matched`; `unexplained=0`, `oracle-leaks=0`, `missing=0`, `explained` and `oracle-divergence` unchanged. ⚠️ The D353
+   lesson, asked this time: no declared x86isa defect (D331's 29, D344's VANDPS row) is a move; I expect none to be reached,
+   and a new divergence is a finding to classify, not a prediction miss to explain away.
+3. **Theorems (the alignment rule, no differential can see it).** For each width: an aligned kind at a misaligned address
+   faults (load and store); an unaligned kind at the SAME address runs (D91's discriminating half); and at VEX.256, an aligned
+   kind at a 16-but-not-32 address faults while the same kind at VEX.128 and the same address runs. On the three standard
+   axioms; the axiom gate's count rises.
+4. **Model, red backwards** (each mutant built through the wrapper, the file restored and `cmp`-verified):
+   - VEX.128 load PRESERVING bits 255:128 (the legacy rule): every VEX.128 load vector changes (the pre-states' YMM highs are
+     not zero), and no store vector does;
+   - VEX.256 high lane read from `a` instead of `a + 16`: every VEX.256 load vector changes (the window pattern is non-uniform
+     over 32 bytes; to be checked against the bytes, not assumed — D353's mutant B is why);
+   - a store writing 16 bytes at VEX.256: every VEX.256 store vector changes, in memory only;
+   - the 32 replaced by 16 at VEX.256: NO vector changes (the differential cannot see it) and the theorem of prediction 3
+     fails to elaborate — that is the arm that proves the theorem is load-bearing, and silicon's (prediction 6) is the second.
+5. **Census (derived, measured before this entry by the v9cen harness: control == shipped).** Modelled memory-form
+   **6,016 → 38,287 of 38,453** (15.6 % → 99.6 %), in seven columns; nothing else moves. The regenerated document must read
+   exactly that.
+6. **Silicon (a hwprobe wave, `vexsild`, on the two processor legs as V8c).** Rows: each of the 24 encodings at offset 0
+   (value rows: the load's register or the store's buffer, 64-byte buffer read back whole), each unaligned kind at an odd
+   offset (no fault, same result), and ⭐ NEW TO THIS HARNESS: FAULT ROWS — each aligned kind at offset 1 at both widths, and
+   at offset 16 at VEX.256, expecting #GP (SIGSEGV on Linux; macOS delivers #GP as SIGSEGV or SIGBUS, and the row records
+   which), caught by `sigsetjmp`/`siglongjmp` around the instruction alone. Predict: every fault row faults, every no-fault
+   row does not, on Intel and on AMD. The harness owes a planted control in both directions: an UNALIGNED kind entered as a
+   fault row must REFUSE, and an aligned kind at offset 0 entered as a fault row must REFUSE.
+7. **Kernel cost.** Four constructors in `VexOp`: `X86.Vex` and `X86.Syntax` rise; predict each under +10 % of its head
+   at katmai. The 72 vectors go in a NEW list and a NEW unit (`Tests.CoverageVexMov`), declared now rather than found by a
+   refusal as D353's was: `Tests.CoverageVexMem` checks every row is a binary kind, and 72 rows in it would cross its 23.3 %
+   budget. The silicon pins are a NEW unit too (`Tests.AnchorsVexSilD`). Both units' ceilings are read from the NEW-unit
+   refusals on each machine, as V8c's and V9a's were; old units byte-identical.
+
+**The price (for the helm's word, its 10-22 terms "V9b priced after V9a's row").** Five pieces, in order, each landing behind
+the one before:
+- (a) model: four constructors, the width-parameterised alignment test, the theorems of prediction 3 — about one working day;
+- (b) vectors, differential, census, the four mutants of prediction 4 — about half a day, plus one ~500 MB emit per mutant,
+  deleted at its read;
+- (c) silicon: `vexsild_probe.c`/`_ops.S`, the fault-row mechanism (the new part, with its two plants), the rows generator, one
+  `hwprobe.yml` run, and the anchor unit — about one and a half days. This is the part a cheaper V9b could drop: without it the
+  32-byte rule rests on the SDM and a Lean proof, as `movdqa`'s 16 has since D91;
+- (d) K1 on katmai after (a)+(b), K2 after the PR's base settles, then the PR's CI (~4-5 h) and its runner-ceiling follow-up;
+- one master merge for V9b and one follow-up, and kent's AEG window stays open until V9b's first PR (not before 10-26).
+**Recommendation: all of (a)-(d), silicon included.** The fault rows are the only second source the aligned rule can ever
+have, the harness mechanism is reusable by every later aligned form, and the VEX.256 32-byte case is exactly where the model
+departs from every rule it already has.
+
+**Not claimed:** `vmovntdq`/`vmovntps` (non-temporal), `vmovdqu8/16/32/64` (EVEX), masked moves (`vmaskmov`), `vlddqu`, any
+memory form outside the six; EVEX/zmm.
+
+**Result, prediction 1 (oracle): HELD**, as read at P1. The 24 aligned encodings were already in `oracle_availability.py`
+FORMS as `executes` (V9a recorded them for V9b), so no FORMS edit was owed; the gate read CLEAN in the differential run below.
+**Result, prediction 2 (differential): HELD, exactly.** `acl2@c8897a34d3ef`, this tree: `cases=128040 matched=104719
+explained=34047 unexplained=0 oracle-divergence=1144 oracle-leaks=0 missing=0` against master's `121704 / 98383 / 34047 /
+1144`: +6,336 cases, +6,336 matched, so every one of the 72 vectors agrees on every case, and no declared x86isa defect is
+reached. The vectors were generated from clang's bytes (assembled, then disassembled back to the written line, 72 of 72).
+**Result, prediction 3 (theorems): built.** `Tests/CoverageVexMov.lean`: the four `…_unaligned_faults`, the four
+`…_unaligned_kind_runs`, `alignedVex_false` (VEX.128's test IS `aligned16`), `alignedVex_0x2010` and `vexload_aligned16_runs`.
+Their axiom receipt is the gate's, read with the PR.
+**Result, prediction 4 (model, red backwards): HELD, all four.** Each mutant built through the wrapper, re-emitted and compared
+against this run's own oracle output (the vectors do not change), then `Semantics.lean` restored and `cmp`-verified:
+- A (VEX.128 load through `setXmm`, keeping bits 255:128): `unexplained=1584` = 18 vectors × 88, and 18 is exactly the VEX.128
+  load vectors (12 aligned + 6 misaligned); silicon pins: exactly the six `v9b_*128_ld_pins` theorems fail.
+- B (VEX.256 load's high lane from `a`): 1,584 = the 18 VEX.256 load vectors; pins: exactly the six `*256_ld`.
+- C (VEX.256 store writing 16 bytes): 1,584 = the 18 VEX.256 store vectors; pins: exactly the six `*256_st`.
+- D (`alignedVex`'s 32 replaced by 16): the differential is UNCHANGED (`unexplained=0`), as predicted: no vector can see it.
+  `alignedVex_0x2010` fails, and so do exactly the six aligned-kind VEX.256 pin theorems (`vmovdqa/aps/apd` × `ld/st`), whose
+  `_f16` rows are the 16-but-not-32 addresses.
+⚠️ Limit: `compare` prints only its first disagreements, so for A–C the identity "these 18 vectors" rests on the count
+(1,584 = 18 × 88, the size of exactly one (width, direction) class) and on the pins naming the matching six functions, not on
+a full list by name.
+**Prediction 6 (silicon), the local half: Rosetta 2 is NOT a referee for the fault rows.** Under `ROSETTA_ADVERTISE_AVX=1`
+on yukon, `vexsild_probe` reads 96 of 96 value rows `ok` and all 30 fault rows RUN (no signal), so Rosetta, like x86isa,
+executes an aligned kind's misaligned move. The catch itself works under Rosetta (a scratch null load is caught 3 of 3 times).
+The processor legs (`hwprobe.yml`) are the reading.
+**Result, prediction 5 (census): HELD, exactly.** Regenerated from `~/x86lean-corpus` on this tree: the document equals the one
+derived before this entry (V9a's harness with the 24 aligned move encodings added) byte for byte except its forms stamp
+(`vectors=1455 probes=285`; the derivation read 1,407 and 261 because it added encodings, not this tree's 72 vectors and 24 probe
+functions, and neither adds a (name, bucket)). Modelled memory-form **6,016 → 38,287 of 38,453**. `--check` CLEAN.
+`docs/COVERAGE.md` is regenerated: the six move rows read `x,x · x,m · m,x` with their alignment rule. (The VEX table's
+"NOT TAKEN" note still said only `vpxor`'s memory form was taken, which V9a left stale; it now names V9a's 26 kinds and V9b's six.)
+**Result, prediction 6 (silicon, push run 40019534543 at `27ee2d2`): HELD on two processors, named by the processors.**
+- macos-15-intel, **Intel Core i7-8700B**: `rows 126 faulted 30 disagreements 0`.
+- ubuntu-latest, **AMD EPYC 9V45** (`/proc/cpuinfo`'s `model name`; CPUID.07H:EBX `f1bf07a9`, XCR0 `e7`): `rows 126 faulted 30
+  disagreements 0`.
+- On both legs every plant reds exactly its row: `--plant` (`vmovdqu256_ld_a0_r0`, one value bit), `--plant-nf`
+  (`vmovups128_ld_u1_r0` RAN where a fault was entered), `--plant-a0` (`vmovaps256_st_a0_r0` RAN, and wrote the buffer, where a
+  fault was entered), `--plant-f` (`vmovapd256_ld_f16` FAULTED SIGSEGV where a run was entered), and `--plant-op` refuses, exit 2.
+  So the fault mechanism is shown able to fail in both directions on each processor.
+⇒ **The aligned kinds' #GP now has a second source, and so does the 32:** at offset 16 an aligned kind's VEX.256 access faults
+and its VEX.128 access runs, on Intel and on AMD. ⚠️ Limits: the referee step prints only non-`ok` rows, so which signal each
+real fault row raised is not in the log (the `--plant-f` row shows SIGSEGV on both); and the legacy `movdqa`'s 16-byte fault
+(D91) is still carried by theorem alone, since this path runs only the VEX forms.
+**Result, prediction 7 (kernel cost), first reading (K1 on katmai, `61edd92` → `27ee2d2`, `--repeats 6`, both arms; load1 1.1–5.8
+sampled beside it while bench's U2 Lean jobs shared the box): HELD where it predicted, with one band left open and closed by the
+other arm.** ms: `X86.Syntax` 699.5 → 684.5 (−15, ok) and `X86.Vex` 37.6 → 37.7 (ok), both well inside +10 %; the VEX coverage
+units (`CoverageVex`, `CoverageVex256`, `CoverageVexMem`) and `Tests.Vectors` ok; the two NEW units the ONLY refusals, as NEW
+(`Tests.AnchorsVexSilD` 5,810 ms, `Tests.CoverageVexMov` 3,475 ms). `Tests.Coverage` (+100 ±2,751) and its `memDestSweep`
+(+185 ±399) read UNMEASURABLE: the band straddles the budget at this load. ⇒ **The ku arm settles them: `Tests.Coverage`
++0 unfoldings** (10,470,768 both sides), so the ms readings are noise, not V9b's cost; the only ku movements are `X86.Syntax`
++896 (budget 8,001), `X86.Semantics` +58, `CoverageVexMem` +20, `Tests.Vectors` +6, all ok, and the two NEW units (2,662,681 and
+874,362 unfoldings). Registered from the lines each tool printed, copied: `Tests.AnchorsVexSilD 17430 @on katmai`,
+`Tests.CoverageVexMov 10425 @on katmai`, and both `@ku` lines. Not registered: a yukon line for either unit (no yukon reading was
+taken; a local kernel_delta on yukon will refuse them as NEW until one is). The runner lines come from the PR's own refusal.
+**Result, prediction 7 (kernel cost), the ledger reading (K2 on katmai, `f8381e2` → `1f89e3f`, `--repeats 6`, both arms; master
+after #127, merged into this branch with no V9b file changed; load1 1.2–3.9 sampled beside it): HELD.** `delta gate: CLEAN` and
+`ku-delta gate (a-prime): CLEAN`. ms: `X86.Syntax` 676.0 → 686.5 (+10.5, +1.6 %) and `X86.Vex` 37.6 → 37.2, both inside +10 %;
+`Tests.Coverage` −350 ±825 and its declarations, `Tests.CoverageVexMem`, `Tests.Vectors` all `ok`; the two NEW units judged
+against their registered katmai ceilings (`Tests.AnchorsVexSilD` 5,850 of 17,430, `Tests.CoverageVexMov` 3,600 of 10,425). ku:
+`X86.Syntax` +896 (budget 8,001), `X86.Semantics` +58, `Tests.CoverageVexMem` +20, `Tests.Vectors` +6, `Tests.Coverage` +0,
+equal to K1's. The row is recorded by `kernel_drift.py --record` (D251: ms verdict rc 0, arm A′ rc 0, lands on the ms verdict).

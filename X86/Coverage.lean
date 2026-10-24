@@ -1122,31 +1122,31 @@ bits 255:128 of the destination WRITTEN. The rows below do not change: a VEX.256
 operand size of a row, not a row.
 
 ⛔ NOT TAKEN, declared rather than absent: the memory forms of these mnemonics at either length
-(save `vpxor`'s VEX.128 one, V4, D342), and the 77 VEX twins the oracle refuses (D339). -/
+(save `vpxor`'s VEX.128 one, V4, D342; the 26 binary kinds', V9a, D353; and the six moves', V9b, D354), and the 77 VEX twins the oracle refuses (D339). -/
 def vexTable : List VexRow :=
   [ { twin := "movdqa",
-      row := { mnemonic := "vmovdqa", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovdqa", shapes := "x,x · x,m · m,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 forms (V9b, D354) raise #GP unless 16-byte (VEX.128) or 32-byte (VEX.256) aligned, a rule carried by theorem since x86isa does not check it",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQA" } }
   , { twin := "movdqu",
-      row := { mnemonic := "vmovdqu", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovdqu", shapes := "x,x · x,m · m,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 loads and stores (V9b, D354) have NO alignment check",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" } }
   , { twin := "movaps",
-      row := { mnemonic := "vmovaps", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovaps", shapes := "x,x · x,m · m,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 forms (V9b, D354) raise #GP unless 16-byte (VEX.128) or 32-byte (VEX.256) aligned, a rule carried by theorem since x86isa does not check it",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPS" } }
   , { twin := "movups",
-      row := { mnemonic := "vmovups", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovups", shapes := "x,x · x,m · m,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 loads and stores (V9b, D354) have NO alignment check",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPS" } }
   , { twin := "movapd",
-      row := { mnemonic := "vmovapd", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovapd", shapes := "x,x · x,m · m,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 forms (V9b, D354) raise #GP unless 16-byte (VEX.128) or 32-byte (VEX.256) aligned, a rule carried by theorem since x86isa does not check it",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVAPD" } }
   , { twin := "movupd",
-      row := { mnemonic := "vmovupd", shapes := "x,x",
-               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed",
+      row := { mnemonic := "vmovupd", shapes := "x,x · x,m · m,x",
+               note := "VEX.128: the legacy transfer; YMM bits 255:128 of the destination zeroed (a load zeroes them too, a store writes none); the m128 and m256 loads and stores (V9b, D354) have NO alignment check",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVUPD" } }
   , { twin := "movddup",
       row := { mnemonic := "vmovddup", shapes := "x,x",

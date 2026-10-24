@@ -199,6 +199,27 @@ second instruction, so "memory is never written" is compared on every row but ha
 | `mk_vexsilc_rows.py` | the rows; the memory operand extracted two ways; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
 | `vexsilc_probe.c` | runs each row and compares YMM1-3, RAX, MXCSR, RFLAGS and the 64-byte buffer |
 
+**The VEX move path, with FAULT ROWS (D354, V9b)** is an eleventh program, sharing nothing with the others:
+`vexsild_ops.S` (24 functions: VMOVDQA VMOVDQU VMOVAPS VMOVUPS VMOVAPD VMOVUPD, each at VEX.128 and VEX.256, a load
+`(%rbx) -> %ymm3` and a store `%ymm2 -> (%rbx)`), `mk_vexsild_rows.py` (126 rows, 30 of them FAULT rows) and
+`vexsild_probe.c`. The buffer is 32-byte aligned, so a row's address alignment is its offset's. **A fault row is an
+aligned kind off its width's alignment (16 bytes at VEX.128, 32 at VEX.256), and it must raise #GP:** the probe installs
+a SIGSEGV/SIGBUS handler that `siglongjmp`s back to the caller, records the signal, restores MXCSR (POST never ran), and
+requires the buffer unchanged. Offset 16 is placed on purpose: it must RUN at VEX.128 and FAULT at VEX.256 for the aligned
+kinds, and RUN at both for the unaligned ones. A store row carries its expected 64-byte buffer. `--refuse-wrong` refuses
+D354's four wrong rules on named rows (a VEX.128 load keeping YMM3's upper half, a VEX.256 load's high lane from bytes
+15:0, the VEX.256 alignment taken as 16, a VEX.256 store writing 16 bytes). Controls, each reding exactly its row:
+`--plant` (a value bit), `--plant-op` (a declared byte; the run refuses, exit 2), `--plant-nf` (an unaligned kind
+expected to fault), `--plant-a0` (an aligned kind at offset 0 expected to fault) and `--plant-f` (a fault row expected to
+run). ⚠️ **x86isa executes every fault row's encoding (D354 P1) and so does Rosetta 2** (measured on yukon 2026-10-23: 96 of
+96 value rows agree and all 30 fault rows RUN), so neither can stand in for a processor here.
+
+| file | role |
+|---|---|
+| `vexsild_ops.S` | one function per move, length and direction; RBX = `&mem[off]` (register conventions in its header) |
+| `mk_vexsild_rows.py` | the rows, the rule and the textbook (alignment from two expressions); five plants; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsild_probe.c` | runs each row under a signal catch and compares YMM1-3, RAX, MXCSR, RFLAGS, the 64-byte buffer, and fault vs run |
+
 Locally, on an x86-64 machine:
 
 ```
@@ -212,6 +233,7 @@ Locally, on an x86-64 machine:
 (cd hwprobe && python3 mk_vexsil_rows.py > vexsil_rows.h && cc -O1 -o vexsil_probe vexsil_probe.c vexsil_ops.S && ./vexsil_probe)
 (cd hwprobe && python3 mk_vexsilb_rows.py > vexsilb_rows.h && cc -O1 -o vexsilb_probe vexsilb_probe.c vexsilb_ops.S && ./vexsilb_probe)
 (cd hwprobe && python3 mk_vexsilc_rows.py > vexsilc_rows.h && cc -O1 -o vexsilc_probe vexsilc_probe.c vexsilc_ops.S && ./vexsilc_probe)
+(cd hwprobe && python3 mk_vexsild_rows.py > vexsild_rows.h && cc -O1 -o vexsild_probe vexsild_probe.c vexsild_ops.S && ./vexsild_probe)
 ```
 
 ⚠️ On an arm64 Mac, `clang -arch x86_64` runs the probe under Rosetta 2. That is an emulator, so its agreement is
