@@ -23334,3 +23334,10 @@ units (`CoverageVex`, `CoverageVex256`, `CoverageVexMem`) and `Tests.Vectors` ok
 874,362 unfoldings). Registered from the lines each tool printed, copied: `Tests.AnchorsVexSilD 17430 @on katmai`,
 `Tests.CoverageVexMov 10425 @on katmai`, and both `@ku` lines. Not registered: a yukon line for either unit (no yukon reading was
 taken; a local kernel_delta on yukon will refuse them as NEW until one is). The runner lines come from the PR's own refusal.
+**Result, prediction 7 (kernel cost), the ledger reading (K2 on katmai, `f8381e2` → `1f89e3f`, `--repeats 6`, both arms; master
+after #127, merged into this branch with no V9b file changed; load1 1.2–3.9 sampled beside it): HELD.** `delta gate: CLEAN` and
+`ku-delta gate (a-prime): CLEAN`. ms: `X86.Syntax` 676.0 → 686.5 (+10.5, +1.6 %) and `X86.Vex` 37.6 → 37.2, both inside +10 %;
+`Tests.Coverage` −350 ±825 and its declarations, `Tests.CoverageVexMem`, `Tests.Vectors` all `ok`; the two NEW units judged
+against their registered katmai ceilings (`Tests.AnchorsVexSilD` 5,850 of 17,430, `Tests.CoverageVexMov` 3,600 of 10,425). ku:
+`X86.Syntax` +896 (budget 8,001), `X86.Semantics` +58, `Tests.CoverageVexMem` +20, `Tests.Vectors` +6, `Tests.Coverage` +0,
+equal to K1's. The row is recorded by `kernel_drift.py --record` (D251: ms verdict rc 0, arm A′ rc 0, lands on the ms verdict).
