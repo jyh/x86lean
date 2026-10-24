@@ -641,10 +641,10 @@ acc,imm · rh"
       shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
   , { mnemonic := "movd",
-      shapes := "r,x", note := "out of XMM at 32 bits; the x,r direction is proved, not vectored (D93)",
+      shapes := "r,x · x,m (upper ZEROED) · m,x", note := "out of XMM at 32 bits; the x,r direction is proved, not vectored (D93); x,m and m,x vectored (D356), and x,m is declared where x86isa merges (D93 through memory)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   , { mnemonic := "movq",
-      shapes := "r,x · x,x", note := "out of XMM at 64 bits; x,x zeroes the upper quadword; the x,r direction is proved, not vectored (D93)",
+      shapes := "r,x · x,x · x,m (upper ZEROED) · m,x", note := "out of XMM at 64 bits; x,x and x,m zero the upper quadword; the x,r direction is proved, not vectored (D93); x,m and m,x vectored (D356)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   , { mnemonic := "punpcklbw",
       shapes := "x,x · x,m", note := "interleaves the low 8-bit lanes, destination first",

@@ -754,6 +754,27 @@ theorem vmovsld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
   simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
         Op.lockable]
 
+/-- ⭐ D356 — `movd`/`movq` FROM MEMORY CLEAR bits 127:sz (SDM Vol. 2B MOVD/MOVQ), at both
+widths. ⛔ x86isa MERGES at `66 0f 6e` (D93's defect through memory); this theorem is the
+model's side of that declared divergence, stated so it cannot drift by a refactor. -/
+theorem vmovgld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovgld sz d ea, len⟩ s).getXmm d =
+      ((s.readMem sz (ea.addr s (s.rip + BitVec.ofNat 64 len))).setWidth sz.bits).setWidth 128 := by
+  simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+/-- ⭐ D356 — A `movd`/`movq` STORE WRITES NO GENERAL REGISTER and NO FLAG. -/
+@[simp] theorem step_vmovgst_regs (sz : Size) (ea : Ea) (x : XmmReg) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovgst sz ea x, len⟩ s).regs = s.regs := by
+  simp [step, h, hl, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+@[simp] theorem step_vmovgst_flags (sz : Size) (ea : Ea) (x : XmmReg) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovgst sz ea x, len⟩ s).flags = s.flags := by
+  simp [step, h, hl, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
 /-- ⭐ NO SCALAR MOVE TOUCHES A FLAG (SDM Vol. 2B, MOVSS/MOVSD: "Flags Affected:
 None"), stated for the same reason `step_vbin_flags` is. -/
 @[simp] theorem step_vmovs_flags (sz : Size) (d s' : XmmReg) (h : Live s) :
