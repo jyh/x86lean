@@ -1410,6 +1410,13 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let b  := (s.getXmm src).setWidth 64
       s.withSimd (SoftFloat.preFlags f ordered a b) fun s =>
         (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
+  -- ⭐ D357 — the same rule with the second operand read from memory (`vminmaxm`'s shape).
+  | .vcomism ordered sz dst ea =>
+      let f  := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
+      let a  := (s.getXmm dst).setWidth 64
+      let b  := s.readMem sz (ea.addr s nr)
+      s.withSimd (SoftFloat.preFlags f ordered a b) fun s =>
+        (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
 
   -- ⭐⭐⭐ MINSS / MINSD / MAXSS / MAXSD (SDM Vol. 2B) — P2 BATCH 38.  The low
   -- lane only; bits above it are preserved; no flag is written — the SDM's

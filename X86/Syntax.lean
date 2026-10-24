@@ -1852,6 +1852,11 @@ inductive Op where
   that confused them; `Tests.b0_comis_pins` does, against the SDM's rule and a
   processor's reading (D266). -/
   | vcomis (ordered : Bool) (sz : Size) (dst src : XmmReg)
+  /-- ⭐ D357 — COMISS / COMISD / UCOMISS / UCOMISD with a MEMORY source (`m32`/`m64`): `vcomis`'s
+  rule with the second operand read from memory. No XMM register is written, no alignment rule.
+  ⚠️ The same x86isa limit as the register form: COMIS is dispatched as UCOMIS, so its IE on a
+  quiet NaN is declared per vector (D266's class), never modelled away. -/
+  | vcomism (ordered : Bool) (sz : Size) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 BATCH 38 — MINSS / MINSD / MAXSS / MAXSD (SDM Vol. 2B), register
   source.  The LOW LANE of the destination becomes `SoftFloat.fmin` (or `fmax`)
   of the two low lanes, and **every bit above the lane is PRESERVED** — the legacy
@@ -2476,6 +2481,7 @@ def opOperands : Op → List Operand
   -- P2 BATCH 38: the scalar min/max memory SOURCE names its address.
   | .vminmax .. => []
   | .vminmaxm _ _ _ ea => [.mem ea]
+  | .vcomism _ _ _ ea => [.mem ea]
   -- P2 BATCH 39: the int32 source IS an `Operand` (as `vmovg`'s); the XMM half is
   -- not, and the memory source names its address.
   | .vcvtss2sd .. => []
@@ -2654,6 +2660,7 @@ def Op.anyLocked : Op → Bool
   -- P2 BATCH 38: `lock minsd` is not a form the SDM lists.
   | .vminmax .. => false
   | .vminmaxm _ _ _ ea => ea.lock
+  | .vcomism _ _ _ ea => ea.lock
   -- P2 BATCH 39: `lock cvtss2sd` is not a form the SDM lists.
   | .vcvtss2sd .. | .vcvtsi2 .. => false
   | .vcvtss2sdm _ ea => ea.lock
@@ -2864,7 +2871,7 @@ def Op.mnemonic : Op → String
   | .vaes k .. => k.mnemonic
   -- ⚠️ FOUR MNEMONICS FROM TWO FIELDS, and neither may be dropped: `ordered`
   -- picks the opcode byte (`0f 2f` / `0f 2e`) and `sz` picks the format.
-  | .vcomis o sz _ _ =>
+  | .vcomis o sz _ _ | .vcomism o sz _ _ =>
       (if o then "comis" else "ucomis") ++ (if sz == .q then "d" else "s")
   | .prefetch h _ => h.mnemonic
   | .vmovmsk k .. => k.mnemonic

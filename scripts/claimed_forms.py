@@ -552,6 +552,15 @@ CLAIMS_NO_ROW = {
     "movsd_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movsd_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movsd_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ D357: the memory forms of `comis*`/`ucomis*`, under the SIMD rule above.
+    "comiss_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "comiss_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "comisd_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "comisd_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomiss_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomiss_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomisd_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomisd_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     # ⭐ D356: the memory forms of `movd`/`movq`, under the SIMD rule above.
     "movd_ld_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movd_ld_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",

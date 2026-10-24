@@ -775,6 +775,22 @@ theorem vmovgld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
     (step ⟨.vmovgst sz ea x, len⟩ s).flags = s.flags := by
   simp [step, h, hl, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
 
+/-- ⭐ D357 — `withSimd` leaves the general registers alone whenever its continuation does, on both of
+its branches (the #XM halt and the continuation). -/
+theorem withSimd_regs (s : Cpu) (fl : BitVec 32) (k : Cpu → Cpu) (hk : ∀ t, (k t).regs = t.regs) :
+    (s.withSimd fl k).regs = s.regs := by
+  unfold Cpu.withSimd
+  split
+  · unfold Cpu.halt; split <;> rfl
+  · exact hk _
+
+/-- ⭐ D357 — A COMIS/UCOMIS WITH A MEMORY SOURCE WRITES NO GENERAL REGISTER. -/
+@[simp] theorem step_vcomism_regs (o : Bool) (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vcomism o sz d ea, len⟩ s).regs = s.regs := by
+  simp [step, h, hl, Op.lockIllegal, Op.anyLocked, Op.lockable]
+  exact withSimd_regs _ _ _ (fun _ => rfl)
+
 /-- ⭐ NO SCALAR MOVE TOUCHES A FLAG (SDM Vol. 2B, MOVSS/MOVSD: "Flags Affected:
 None"), stated for the same reason `step_vbin_flags` is. -/
 @[simp] theorem step_vmovs_flags (sz : Size) (d s' : XmmReg) (h : Live s) :

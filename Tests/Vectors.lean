@@ -2723,6 +2723,24 @@ def vectors : List Vec :=
     , bytes := "660f2edd", instr := ⟨.vcomis false .q .x3 .x5, 4⟩ }
   , { id := "ucomiss_x3_x5", mnemonic := "ucomiss", asm := "ucomiss %xmm3, %xmm5"
     , bytes := "0f2eeb", instr := ⟨.vcomis false .d .x5 .x3, 3⟩ }
+  -- ⭐ D357: THE MEMORY SOURCE. ⛔ Not %xmm0: its low quadword IS the quadword at 0x2000 in every
+  -- pre-state (D356), so the comparison would read EQUAL in all 88 cases.
+  , { id := "comiss_m_x1", mnemonic := "comiss", asm := "comiss (%rbx), %xmm1"
+    , bytes := "0f2f0b", instr := ⟨.vcomism true .d .x1 { base := some .rbx }, 3⟩ }
+  , { id := "comiss_m_x9", mnemonic := "comiss", asm := "comiss (%rbx), %xmm9"
+    , bytes := "440f2f0b", instr := ⟨.vcomism true .d .x9 { base := some .rbx }, 4⟩ }
+  , { id := "comisd_m_x1", mnemonic := "comisd", asm := "comisd (%rbx), %xmm1"
+    , bytes := "660f2f0b", instr := ⟨.vcomism true .q .x1 { base := some .rbx }, 4⟩ }
+  , { id := "comisd_m_x9", mnemonic := "comisd", asm := "comisd (%rbx), %xmm9"
+    , bytes := "66440f2f0b", instr := ⟨.vcomism true .q .x9 { base := some .rbx }, 5⟩ }
+  , { id := "ucomiss_m_x1", mnemonic := "ucomiss", asm := "ucomiss (%rbx), %xmm1"
+    , bytes := "0f2e0b", instr := ⟨.vcomism false .d .x1 { base := some .rbx }, 3⟩ }
+  , { id := "ucomiss_m_x9", mnemonic := "ucomiss", asm := "ucomiss (%rbx), %xmm9"
+    , bytes := "440f2e0b", instr := ⟨.vcomism false .d .x9 { base := some .rbx }, 4⟩ }
+  , { id := "ucomisd_m_x1", mnemonic := "ucomisd", asm := "ucomisd (%rbx), %xmm1"
+    , bytes := "660f2e0b", instr := ⟨.vcomism false .q .x1 { base := some .rbx }, 4⟩ }
+  , { id := "ucomisd_m_x9", mnemonic := "ucomisd", asm := "ucomisd (%rbx), %xmm9"
+    , bytes := "66440f2e0b", instr := ⟨.vcomism false .q .x9 { base := some .rbx }, 5⟩ }
 
   -- ⭐⭐⭐ P2 BATCH 38 — MIN / MAX (D253).  WHAT EACH VECTOR REACHES WAS COMPUTED
   -- FROM THE 88 PRE-STATES BEFORE ANY WAS WRITTEN, and the table is shaped by it.

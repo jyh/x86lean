@@ -422,6 +422,20 @@ def knownDivergences : List KnownDivergence :=
   , { vec := "comiss_x5_x3", field := "mxcsr.ie", pair := some ("1", "0")
     , source := "SDM Vol. 2A COMISS: SIMD exceptions Invalid (if SNaN or QNaN operands) · x86isa inst-listing.lisp:5140 dispatches COMISS with OPERATION #x9 = *OP-UCOMI* · processor: hwprobe (D266 §4)"
     , note := "D266" }
+  -- ⭐ D357: the same x86isa dispatch, reached through the MEMORY source. The states are where IE is
+  -- clear, an operand is a NaN and none is signalling: 13 at each `comiss`, 8 at each `comisd` (derived).
+  , { vec := "comiss_m_x1", field := "mxcsr.ie", pair := some ("1", "0")
+    , source := "SDM Vol. 2A COMISS/COMISD: SIMD exceptions Invalid (if SNaN or QNaN operands), the memory form included · x86isa inst-listing.lisp dispatches COMISS/COMISD (every ModR/M) with OPERATION #x9 = *OP-UCOMI* · processor: hwprobe on the register form (D266); the rule does not depend on where the second operand lives"
+    , note := "D357" }
+  , { vec := "comiss_m_x9", field := "mxcsr.ie", pair := some ("1", "0")
+    , source := "SDM Vol. 2A COMISS/COMISD: SIMD exceptions Invalid (if SNaN or QNaN operands), the memory form included · x86isa inst-listing.lisp dispatches COMISS/COMISD (every ModR/M) with OPERATION #x9 = *OP-UCOMI* · processor: hwprobe on the register form (D266); the rule does not depend on where the second operand lives"
+    , note := "D357" }
+  , { vec := "comisd_m_x1", field := "mxcsr.ie", pair := some ("1", "0")
+    , source := "SDM Vol. 2A COMISS/COMISD: SIMD exceptions Invalid (if SNaN or QNaN operands), the memory form included · x86isa inst-listing.lisp dispatches COMISS/COMISD (every ModR/M) with OPERATION #x9 = *OP-UCOMI* · processor: hwprobe on the register form (D266); the rule does not depend on where the second operand lives"
+    , note := "D357" }
+  , { vec := "comisd_m_x9", field := "mxcsr.ie", pair := some ("1", "0")
+    , source := "SDM Vol. 2A COMISS/COMISD: SIMD exceptions Invalid (if SNaN or QNaN operands), the memory form included · x86isa inst-listing.lisp dispatches COMISS/COMISD (every ModR/M) with OPERATION #x9 = *OP-UCOMI* · processor: hwprobe on the register form (D266); the rule does not depend on where the second operand lives"
+    , note := "D357" }
   ] ++
   -- ⛔⛔ D266 §4 — x86isa CONVERTS INTEGER 0 TO −0 UNDER ROUND-DOWN: `sse-cvt-int-to-fp`
   -- (`cvt-spec.lisp`) gives a zero result the sign `(if (int= rc #.*rc-rd*) 1 0)`.  The
