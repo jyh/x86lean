@@ -10,7 +10,7 @@ namespace X86.Tests
 differential vector table, in the vector table's own order.  A
 CERTIFICATE, not a claim: `X86.Tests.vectorCoverage` checks it against
 both tables and every coverage fact published about the vectors is read
-off that check.  384 runs over 1238 vectors and 200 rows. -/
+off that check.  384 runs over 1241 vectors and 200 rows. -/
 def vectorRunIdx : List Nat :=
   [0, 1, 2, 10, 11, 10, 11, 21, 24, 25, 26, 27, 28, 34, 3, 4,
    5, 7, 8, 6, 9, 3, 4, 5, 22, 23, 29, 28, 30, 31, 32, 33,
