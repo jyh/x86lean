@@ -23649,3 +23649,13 @@ covers 0x2000..0x201f, inside the watched window.
 4. **Kernel cost.** Two `VexOp` constructors: `X86.Vex`/`X86.Syntax` under +10 %, no NEW unit.
 
 **The price.** Half a day. No silicon (x86isa executes and referees every value).
+
+**Result, prediction 1 (differential): HELD, exactly.** `cases=132088 matched=108308 explained=34407 unexplained=0
+oracle-divergence=1363`: +352 cases, +352 matched; each of the four vectors 88 of 88 matched. The main table does not move.
+**Result, prediction 2 (mutants): HELD, all three, exactly.** A (VEX.128 preserving 255:128): `vmovddup_x3m`/`x11m` 88 each, the
+VEX.256 rows 0. B (high lane from `a + 8`): `vmovddup_y3m`/`y11m` 88 each, the VEX.128 rows 0. C (high lane from `a`): the two
+VEX.256 rows 80 each (the 8 agreeing states are those where the quadwords at 0x2000 and 0x2010 are equal), the VEX.128 rows 0.
+Built with every theorem in place, emitted from a fresh binary, restored and `cmp`-verified.
+**Result, prediction 3 (census): HELD, exactly** — dav1d 8,990 · ffmpeg 18,510 · x264 2,900, each equal to its VEX memory-form
+total, so the VEX table's modelled memory-form figure is **38,453 of 38,453**.
+**Prediction 4 (kernel cost):** K1 with D356-D358's, after V9b lands; not yet read.

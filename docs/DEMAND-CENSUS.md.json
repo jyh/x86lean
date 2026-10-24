@@ -4402,7 +4402,7 @@
   "vex_mem": 8990,
   "covered_mem_modelled": 72529,
   "silicon_mem_modelled": 4081,
-  "vex_mem_modelled": 8985,
+  "vex_mem_modelled": 8990,
   "class": "asm"
  },
  "ffmpeg": {
@@ -6159,7 +6159,7 @@
   "vex_mem": 18510,
   "covered_mem_modelled": 1135087,
   "silicon_mem_modelled": 8188,
-  "vex_mem_modelled": 18504,
+  "vex_mem_modelled": 18510,
   "class": "asm"
  },
  "vlc-codec": {
@@ -9321,7 +9321,7 @@
   "vex_mem": 2900,
   "covered_mem_modelled": 137924,
   "silicon_mem_modelled": 670,
-  "vex_mem_modelled": 2745,
+  "vex_mem_modelled": 2900,
   "class": "asm"
  },
  "_asm_pooled": {
