@@ -3246,6 +3246,25 @@ def vectors : List Vec :=
     , bytes := "66480f7ec0", instr := ⟨.vmovg false .q .x0 .rax, 5⟩ }
   , { id := "movq_xx", mnemonic := "movq", asm := "movq %xmm1, %xmm0"
     , bytes := "f30f7ec1", instr := ⟨.vmovq .x0 .x1, 4⟩ }
+  -- ⭐ D356: THE MEMORY FORMS, the census's largest unmodelled memory remainder (`movq` 33,591,
+  -- `movd` 7,752). Each width, each direction, at a low and a high register. ⛔ The two `movd`
+  -- loads go through x86isa's `66 0f 6e`, which MERGES (D93): their xmm field is declared.
+  , { id := "movd_ld_x0", mnemonic := "movd", asm := "movd (%rbx), %xmm0"
+    , bytes := "660f6e03", instr := ⟨.vmovgld .d .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movd_ld_x9", mnemonic := "movd", asm := "movd (%rbx), %xmm9"
+    , bytes := "66440f6e0b", instr := ⟨.vmovgld .d .x9 { base := some .rbx }, 5⟩ }
+  , { id := "movd_st_x0", mnemonic := "movd", asm := "movd %xmm0, (%rbx)"
+    , bytes := "660f7e03", instr := ⟨.vmovgst .d { base := some .rbx } .x0, 4⟩ }
+  , { id := "movd_st_x9", mnemonic := "movd", asm := "movd %xmm9, (%rbx)"
+    , bytes := "66440f7e0b", instr := ⟨.vmovgst .d { base := some .rbx } .x9, 5⟩ }
+  , { id := "movq_ld_x0", mnemonic := "movq", asm := "movq (%rbx), %xmm0"
+    , bytes := "f30f7e03", instr := ⟨.vmovgld .q .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movq_ld_x9", mnemonic := "movq", asm := "movq (%rbx), %xmm9"
+    , bytes := "f3440f7e0b", instr := ⟨.vmovgld .q .x9 { base := some .rbx }, 5⟩ }
+  , { id := "movq_st_x0", mnemonic := "movq", asm := "movq %xmm0, (%rbx)"
+    , bytes := "660fd603", instr := ⟨.vmovgst .q { base := some .rbx } .x0, 4⟩ }
+  , { id := "movq_st_x9", mnemonic := "movq", asm := "movq %xmm9, (%rbx)"
+    , bytes := "66440fd60b", instr := ⟨.vmovgst .q { base := some .rbx } .x9, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise

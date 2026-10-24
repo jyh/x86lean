@@ -349,6 +349,16 @@ def knownDivergences : List KnownDivergence :=
   , { vec := "movq_to_x", field := "xmm0"
     , source := "K `movq_xmm_r64.k`: concatenateMInt(mi(64,0), …); SDM Vol. 2B MOVQ: DEST[127:64] <- 0 · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form, zero the upper destination bits — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D93" }
+  -- ⛔ D356: D93's x86isa merge, reached through MEMORY. `movd m32, xmm` decodes to the same
+  -- `x86-movd/movq-to-xmm` (`66 0f 6e`), whose `!xmmi-size operand-size` writes 4 bytes and keeps
+  -- bits 127:32; the SDM, K and the processors clear them (D93). The `movq` load (`f3 0f 7e`) is a
+  -- different x86isa function that zero-extends, and is NOT declared.
+  , { vec := "movd_ld_x0", field := "xmm0"
+    , source := "SDM Vol. 2B MOVD: DEST[127:32] <- 0 · x86isa machine/instructions/move-sse.lisp x86-movd/movq-to-xmm: (!xmmi-size operand-size ...) writes 4 bytes and merges · K and processor evidence for the same opcode: D93, D221"
+    , note := "D356" }
+  , { vec := "movd_ld_x9", field := "xmm9"
+    , source := "SDM Vol. 2B MOVD: DEST[127:32] <- 0 · x86isa machine/instructions/move-sse.lisp x86-movd/movq-to-xmm: (!xmmi-size operand-size ...) writes 4 bytes and merges · K and processor evidence for the same opcode: D93, D221"
+    , note := "D356" }
   -- ⛔⛔⛔ P2 BATCH 13 (D108) — ACL2 x86isa READS THE PACKED-SHIFT COUNT FROM ALL
   -- 128 BITS OF THE COUNT REGISTER, where the SDM and K both read SRC[63:0].
   --
