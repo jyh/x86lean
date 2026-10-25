@@ -23659,3 +23659,44 @@ Built with every theorem in place, emitted from a fresh binary, restored and `cm
 **Result, prediction 3 (census): HELD, exactly** — dav1d 8,990 · ffmpeg 18,510 · x264 2,900, each equal to its VEX memory-form
 total, so the VEX table's modelled memory-form figure is **38,453 of 38,453**.
 **Prediction 4 (kernel cost):** K1 with D356-D358's, after V9b lands; not yet read.
+## D360 — The census's model side cannot see 51 of the processor-probe forms: `shuf_ops.S`'s `OP(…)` lines and `sse_ops.S`'s `LOAD4` lines (predictions before any code)
+
+**Why.** STATUS row 18 proposed a hwprobe wave for the legacy-SSE memory forms of `pshufb` and `palignr`, sized at 462 + 223
+user-space instructions. **The premise is false, and the measurement that refutes it is the model's own.** D336 (V1b) already
+models both memory forms (`.vshufbm`, `.valignrm`), runs them on silicon (`s_pshufb_rm`, three `s_palignr_rm_*` functions;
+`rows 220 disagreements 0` on an AMD EPYC 7763 and an Intel Core i7-8700B, hwprobe run 38108854973) and pins every row by
+`decide`. What cannot see them is D352's MODELLED figure: `forms_inputs` reads a probe form only from the line after an
+`AT(…)` label or a bare `LOAD`, and two files declare their forms otherwise.
+- `hwprobe/shuf_ops.S` declares all **41** of its forms inline, `OP(name, instr)` (`#define OP(name, ...) FN(name) PRE;
+  FN(name##_at) __VA_ARGS__; POST`). Measured at `9d8fa6e`: `forms_inputs` returns **0** probe forms from that file, against
+  41 `OP(` lines (`pshufb` rr/rm, `palignr` rr ×13 / rm ×3, `pinsrd` r32 ×7 / m32 ×2, `pinsrq` ×4, `pextrd` ×6, `pextrq` ×4).
+- `hwprobe/sse_ops.S` uses `LOAD` before 27 forms and `LOAD4` before **10** (`mulps` `mulpd` `addps` `addpd` `subps` …). The
+  test is `t == "LOAD"`, so the ten are missed. They are register forms of differentially tested mnemonics, so no printed
+  figure moves for them; the population is wrong all the same.
+⇒ The probe-form population is **312, not 261** (261 + 41 + 10). The name a gate looks for is a LITERAL, and a file written in
+another idiom is not "a file with no forms": it is a file the gate cannot read, reporting agreement.
+
+**The repair.** `forms_inputs` reads all three idioms (`AT(` / `LOAD…` then the next line; `OP(name, instr)` inline), and
+**REFUSES** when any `hwprobe/*_ops.S` yields ZERO forms, naming the file — the shape that hid 41 forms. `--selftest` gains a
+fixture with each idiom and a red arm: a file in a fourth, unknown idiom is refused by name, not counted as empty.
+**Limit, declared:** the zero-forms refusal catches a WHOLE file in an unknown idiom; it cannot catch a file that mixes a known
+idiom with an unknown one (as `sse_ops.S` did). That case is caught here only because this entry counted each file's idioms
+by hand; nothing re-counts them.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Red first.** The new zero-forms refusal, run against `9d8fa6e`'s parser, refuses naming `shuf_ops.S` and no other file.
+2. **Population.** After the repair: vectors **1383** (unchanged), probe forms **261 → 312**; the forms stamp's sha moves, so
+   `demand_census.py --check` reads STALE on the repaired tree before regeneration and CLEAN after.
+3. **Census, regenerated from `~/x86lean-corpus`.** Only `silicon_mem_modelled` moves, and only upward. Every corpus's
+   `total`, `covered`, `silicon`, `vex`, `covered_mem`, `silicon_mem`, `vex_mem`, `covered_mem_modelled` and `vex_mem_modelled`
+   are unchanged (the 51 forms are silicon or differential mnemonics already credited by name, and the ten `LOAD4` forms are
+   register forms). `cc1` `coreutils` `vlc-codec` `vlc-video_chroma` `vmlinux-kernel` do not move (their silicon memory gap is
+   already 0).
+4. **The size.** The silicon memory gap (`silicon_mem − silicon_mem_modelled`) summed over the corpora falls from **1,277** by
+   the SSE-legacy memory demand of `pshufb`, `palignr` and `pinsrd`: row 18's 685 for the first two, plus at most 5 for
+   `pinsrd` (x264's whole `pinsrd` demand) ⇒ **to between 587 and 592**. Per corpus the gap falls in glibc, dav1d, ffmpeg, vpx
+   and x264, and in none of them to zero unless that corpus's whole gap was these three mnemonics. `pshufb`/`palignr` in the
+   MMX bucket (ffmpeg 38 + 44, x264 22 + 17) stay unmodelled: the model has no MMX forms.
+**Not claimed:** any model, probe or vector change; the remaining gap's mnemonics (named from the regenerated census, not
+predicted). STATUS row 18 is retired by this entry if prediction 4 holds; row 19 (the VEX silicon memory remainder) is
+re-measured against the regenerated census before it is designed.
