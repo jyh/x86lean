@@ -1121,6 +1121,12 @@ def check_stale(out_path):
     # memory-form vector moves no mnemonic. Its INPUTS are hashed (text only, so this runs on any runner).
     fm = FORMS_STAMP_RE.search(text)
     fv, fp, fd = forms_digest(root)
+    unread = forms_unread(root)
+    if unread:
+        print(f"⛔ {len(unread)} probe file(s) yield ZERO forms to the census's model side (D360): {', '.join(unread)}. "
+              f"Their forms read as unmodelled in every \"of which the model executes a memory form\" figure, and the "
+              f"forms stamp cannot see it, because it hashes what was READ. Teach `forms_inputs` that file's idiom.")
+        return 1
     if not fm:
         print(f"⛔ {out_path} carries no `census-forms` stamp, so nothing can tell which of the model's forms its "
               f"modelled figures are about (D352). Regenerate it.")
@@ -1351,13 +1357,34 @@ def forms_inputs(root_dir):
         lines = open(f, encoding="utf-8").read().split("\n")
         for i, line in enumerate(lines):
             t = line.strip()
-            if t.startswith("AT(") or t == "LOAD":
+            # three idioms (D360): an `AT(…)` label, or a `LOAD`/`LOAD4` load macro, then the form on the next
+            # line; or `OP(name, form)` inline (`shuf_ops.S`), whose form is everything after the first comma
+            if t.startswith("AT(") or re.fullmatch(r"LOAD[0-9]*", t):
                 j = i + 1
                 while j < len(lines) and not lines[j].strip():
                     j += 1
                 ins = lines[j].split("/*")[0].strip() if j < len(lines) else ""
                 probes.append((os.path.basename(f), ins))
+            elif t.startswith("OP("):
+                body = t[len("OP("):].split("/*")[0].strip()
+                ins = body.split(",", 1)[1].strip() if "," in body else ""
+                if ins.endswith(")") and ins.count(")") > ins.count("("):
+                    ins = ins[:-1].rstrip()      # the macro call's own closing parenthesis
+                probes.append((os.path.basename(f), ins))
     return vecs, probes
+
+
+def forms_unread(root_dir, probes=None):
+    """The `hwprobe/*_ops.S` files from which `forms_inputs` read ZERO forms (D360).  A file written in an idiom the
+    parser does not know is not a file with no forms — it is a file the census cannot read, and its forms would be
+    reported as unmodelled.  `shuf_ops.S` (41 inline `OP(…)` forms) sat here from D352 to D360.  ⚠️ LIMIT: a file
+    that MIXES a known idiom with an unknown one yields some forms and passes this check (`sse_ops.S`'s `LOAD4`, D360)."""
+    import glob
+    if probes is None:
+        probes = forms_inputs(root_dir)[1]
+    seen = {f for f, _l in probes}
+    return sorted(os.path.basename(f) for f in glob.glob(os.path.join(root_dir, "hwprobe", "*_ops.S"))
+                  if os.path.basename(f) not in seen)
 
 
 def forms_digest(root_dir):
@@ -1401,6 +1428,10 @@ def model_forms(root_dir, model, tmp):
     vecs, probes = forms_inputs(root_dir)
     if not vecs or not probes:
         return None, None, f"the model side parsed EMPTY (vectors {len(vecs)}, probe lines {len(probes)})"
+    unread = forms_unread(root_dir, probes)
+    if unread:
+        return None, None, (f"{len(unread)} probe file(s) yield ZERO forms, so their forms would read as unmodelled "
+                            f"(D360): {', '.join(unread)} — teach `forms_inputs` that file's idiom")
     if any(not l for _f, l in probes):
         return None, None, "a probe label is followed by no instruction"
     asm = [".text"]
@@ -1920,6 +1951,31 @@ def selftest():
     arm({"rep", "addr32", "lock"} <= FORMS_PREFIX_SPELLINGS and "mov" not in FORMS_PREFIX_SPELLINGS,
         "7d: the prefix exemption names prefixes only", "7d:prefix")
     d337 += 6          # the six 7d arms above
+    # ⭐ D360: the third idiom (`OP(name, form)` inline) and `LOAD4`, and a file in an UNKNOWN idiom is REFUSED by
+    # name — never read as a file with no forms.  The red arm is the shape that hid shuf_ops.S's 41 forms.
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-idiom-") as _td:
+        os.makedirs(os.path.join(_td, "Tests")); os.makedirs(os.path.join(_td, "hwprobe"))
+        open(os.path.join(_td, "Tests", "Vectors.lean"), "w", encoding="utf-8").write(
+            '[ { id := "a", mnemonic := "mov", asm := "movl %ecx, %eax", bytes := "89c8" }\n')
+        open(os.path.join(_td, "hwprobe", "o_ops.S"), "w", encoding="utf-8").write(
+            "#define OP(name, ...) FN(name) PRE; FN(name##_at) __VA_ARGS__; POST\n"
+            "OP(s_a, pshufb (%rbx), %xmm0)\nOP(s_b, palignr $5, (%rbx), %xmm0)   /* rm */\n"
+            "SYM(p):\n  LOAD4\n  mulps %xmm1, %xmm0 /* 0f 59 c1 */\n  RET128\n")
+        _pi3 = [l for _f, l in forms_inputs(_td)[1]]
+        _u0 = forms_unread(_td)
+        open(os.path.join(_td, "hwprobe", "z_ops.S"), "w", encoding="utf-8").write(
+            "TEST(s_c)\n  pshufb %xmm1, %xmm0\n  DONE\n")
+        _u1 = forms_unread(_td)
+        with contextlib.redirect_stdout(io.StringIO()):
+            _mf = model_forms(_td, _M, _td)
+    arm(_pi3 == ["pshufb (%rbx), %xmm0", "palignr $5, (%rbx), %xmm0", "mulps %xmm1, %xmm0"] and _u0 == [],
+        f"D360: OP(name, form) inline and LOAD4 are read, the macro's own ')' and a comment stripped ({_pi3})", "D360:idiom")
+    arm(_u1 == ["z_ops.S"] and _mf[0] is None and "z_ops.S" in _mf[2],
+        f"D360 red arm: a probe file in an unknown idiom is REFUSED by name ({_u1}), never counted as having no forms",
+        "D360:unread")
+    arm(forms_unread(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) == [],
+        "D360: every hwprobe/*_ops.S in this tree yields at least one form", "D360:tree")
+    d337 += 3
     # ⛔⛔ THE NO-POOLING ARM, with its plants.  One fixture: 50 differential, 30 +
     # 5 silicon-refereed, 4 out of scope, 2 unmapped.
     fx = collections.Counter({("paddd",   "vector", "CC", "SSE-legacy (xmm)"): 50,

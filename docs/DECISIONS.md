@@ -23700,3 +23700,15 @@ by hand; nothing re-counts them.
 **Not claimed:** any model, probe or vector change; the remaining gap's mnemonics (named from the regenerated census, not
 predicted). STATUS row 18 is retired by this entry if prediction 4 holds; row 19 (the VEX silicon memory remainder) is
 re-measured against the regenerated census before it is designed.
+**Result (2026-10-25, yukon, census regenerated from `~/x86lean-corpus`): all four predictions HELD.**
+1. **Red first:** the zero-forms refusal on `9d8fa6e`'s parser: `--check` rc 1, naming `shuf_ops.S` and no other file.
+2. **Population:** `1383 vectors + 312 probe forms` (261 + 41 `OP(` + 10 `LOAD4`); `forms_unread` empty; `--check` read STALE
+   (261 → 312, sha `d1c41879c5bfd0ea` → `d3b0b51087faa726`) before regeneration and CLEAN after. `--selftest` PASS, 243 arms,
+   the three D360 arms included (each idiom read; an unknown-idiom file refused by name; this tree has no unread file).
+3. **Census:** `silicon_mem_modelled` is the ONLY field that moved, in exactly glibc, dav1d, ffmpeg, vpx and x264, each upward.
+   Every other field of every corpus, `_asm_pooled` and `_controls` is byte-identical in the JSON; the document's diff is the
+   forms stamp and five silicon lines.
+4. **Size:** the silicon memory gap fell **1,277 → 590**, closing **687** (inside 685 … 690):
+   glibc 134 → 14 · dav1d 216 → 81 · ffmpeg 374 → 337 · vpx 160 → 37 · x264 393 → 121; none reached zero.
+⇒ **STATUS row 18 is RETIRED: the forms it would have built a wave for were modelled and on silicon since D336.** The remaining
+590 are other mnemonics' memory forms; row 19 re-measures them from this census before it is designed.
