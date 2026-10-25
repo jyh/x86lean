@@ -1311,6 +1311,20 @@ inductive VexOp where
   | vexstore (k : VMovKind) (ea : Ea) (src : XmmReg)
   | vexload256 (k : VMovKind) (dst : XmmReg) (ea : Ea)
   | vexstore256 (k : VMovKind) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐ V10 (D361) — THE VEX MEMORY TWINS OF THE SILICON ROWS.  Each is its register twin with ModRM.rm read from
+  `ea`, no alignment check (VEX Exception Type 4, `vexbinm`'s rule): VPSHUFB's memory operand is the CONTROL, and
+  VPALIGNR's is the LOW half of the concatenation.  VEX.128 only for these two (the model has no VEX.256 register
+  form of either).  Silicon-refereed: x86isa refuses all of them (D361 P1). -/
+  | vexshufbm (dst src1 : XmmReg) (ea : Ea)
+  | vexalignrm (dst src1 : XmmReg) (ea : Ea) (imm : BitVec 8)
+  /-- ⭐⭐ V10 (D361) — VADDPS / VSUBPS / VMULPS with the second source from memory: 16 bytes at VEX.128, 32 at
+  VEX.256 (bytes 31:16 the high lane's).  The SIMD flags are the OR over both lanes, as `vexparith256`'s. -/
+  | vexparithm (op : VArithOp) (dst src1 : XmmReg) (ea : Ea)
+  | vexparithm256 (op : VArithOp) (dst src1 : XmmReg) (ea : Ea)
+  /-- ⭐⭐ V10 (D361) — VPSRAW/VPSRAD with the COUNT from memory.  ⛔ The count operand is `xmm3/m128` AT BOTH
+  LENGTHS (SDM Vol. 2B, PSRAW/PSRAD/PSRAQ): 16 bytes at `ea`, of which bits 63:0 are the count, never 32 bytes. -/
+  | vexsraxm (w : VShiftW) (dst src1 : XmmReg) (ea : Ea)
+  | vexsraxm256 (w : VShiftW) (dst src1 : XmmReg) (ea : Ea)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1323,6 +1337,9 @@ def VexOp.operands : VexOp → List Operand
   -- V9b (D354): the move memory forms name their one address.
   | .vexload _ _ ea | .vexstore _ ea _ | .vexload256 _ _ ea | .vexstore256 _ ea _ => [.mem ea]
   | .vexddupm _ ea | .vexddupm256 _ ea => [.mem ea]
+  -- V10 (D361): the silicon rows' memory twins name their address.
+  | .vexshufbm _ _ ea | .vexalignrm _ _ ea _ | .vexparithm _ _ _ ea | .vexparithm256 _ _ _ ea => [.mem ea]
+  | .vexsraxm _ _ _ ea | .vexsraxm256 _ _ _ ea => [.mem ea]
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
@@ -1338,6 +1355,8 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexbcastd .. | .vexbcastd256 .. => false
   | .vexload _ _ ea | .vexstore _ ea _ | .vexload256 _ _ ea | .vexstore256 _ ea _ => ea.lock
   | .vexddupm _ ea | .vexddupm256 _ ea => ea.lock
+  | .vexshufbm _ _ ea | .vexalignrm _ _ ea _ | .vexparithm _ _ _ ea | .vexparithm256 _ _ _ ea => ea.lock
+  | .vexsraxm _ _ _ ea | .vexsraxm256 _ _ _ ea => ea.lock
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
@@ -1353,12 +1372,13 @@ def VexOp.mnemonic : VexOp → String
   | .vexbcastd .. | .vexbcastd256 .. | .vexbcastdm .. | .vexbcastdm256 .. => "vpbroadcastd"
   | .vexaes k .. => k.vexMnemonic
   | .vexclmul .. => "vpclmulqdq"
-  | .vexshufb .. => "vpshufb"
-  | .vexalignr .. => "vpalignr"
+  | .vexshufb .. | .vexshufbm .. => "vpshufb"
+  | .vexalignr .. | .vexalignrm .. => "vpalignr"
   -- V7 (D345): the legacy spelling with a `v` in front, as V3's.
   | .vexshufps .. | .vexshufps256 .. => "vshufps"
   | .vexsrax w .. | .vexsrax256 w .. | .vexsrai w .. | .vexsrai256 w .. => "v" ++ VShiftOp.sra.mnemonic w
-  | .vexparith op .. | .vexparith256 op .. => "v" ++ op.mnemonicP false
+  | .vexsraxm w .. | .vexsraxm256 w .. => "v" ++ VShiftOp.sra.mnemonic w
+  | .vexparith op .. | .vexparith256 op .. | .vexparithm op .. | .vexparithm256 op .. => "v" ++ op.mnemonicP false
   | .vexmovmskb .. | .vexmovmskb256 .. => "vpmovmskb"
   | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
 
@@ -2332,6 +2352,8 @@ same run, and `hwprobe/` (`vexsilc`) referees them, at aligned and odd offsets. 
 which records what the DIFFERENTIAL tests. -/
 def VBinKind.vexSilMemTaken : VBinKind → Bool
   | .maddwd | .mulhrsw | .maddubsw | .packssdw => true
+  -- ⭐⭐ V10 (D361): the four V7 register kinds' memory twins, on the same word (x86isa refuses them, D361 P1).
+  | .unpcklb | .unpcklw | .unpckhw | .packuswb => true
   | _ => false
 
 /-- ⭐ V8c (D350) — a dword replicated into all four dwords of 128 bits (VPBROADCASTD's lane). -/

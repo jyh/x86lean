@@ -23771,3 +23771,28 @@ with ModRM.rm read from memory, VEX.128 through `setXmmVex128`, VEX.256 through 
 register form of either); `vdivps`; the legacy `pextrd m32` / `pinsrq m64` (11 instructions, a separate item).
 **Price.** V8c's shape plus two constructors: generator + probe (one day), model + anchors (one day), K1/K2 on katmai and the census.
 Lands after D360, one PR, on kent's board.
+**Result, prediction 2 (generator, step (a), `a7ce936`): HELD.** 356 rows over 22 functions (D345's FP and VPSRAD cases
+THINNED for the memory twin: every flag row, one rounding mode per FP case group, two random FP cases, VPSRAD's sixteen edge
+counts; the arithmetic is D345's, pinned there under every mode). Every one of the 178 memory cases runs at offset 0 and at
+an odd offset, expecting the same result. `--selftest` passes: three hand cases (VPSHUFB reversal from m128 at offset 13;
+VPALIGNR $5 with memory as the LOW half; VPSRAD ymm with count 4 and junk in bits 127:64), a 3,000-case sweep, both mutants
+on exactly the rows they reach (192, 140). `--refuse-wrong` refuses 5 of 5 on named rows: (a) `vpshufb128_m_ident_a` ·
+(b) `vmulps256_m_hionly_IE_a` · (c) `vpsrad256_m_c0_edge_a` · (d) `vaddps256_m_hionly_IE_a` · (e) `vpalignr128_m_i0_p0_a`.
+Under Rosetta 2 (a translation, not silicon, `ROSETTA_ADVERTISE_AVX=1`): 356/356, each plant on its own row.
+**Result, prediction 1 (silicon, hwprobe runs 40190842502 (push) and 40191605877 (re-dispatch for an AMD leg), `41ef1d7`):
+HELD on four legs, both vendors, each NAMED by `/proc/cpuinfo` or the brand string.** Intel Core i7-8700B: 356/356 on both
+runs. **Intel Xeon Platinum 8573C** (ubuntu-latest, the first run, so that run had no AMD leg): 356/356. **AMD EPYC 7763**
+(ubuntu-latest, the re-dispatch, CPUID.01.ECX `feda3203`): 356/356. On every leg: plant rc 1 on its row, badop rc 2
+(`REFUSED x_vpshufb128_m`), hi rc 1 on its row. No memory row faulted at an odd offset on any processor.
+**Result, prediction 3 (model, step (b)): HELD.** Six constructors under `Op.vex` (`vexshufbm` `vexalignrm` `vexparithm`
+`vexparithm256` `vexsraxm` `vexsraxm256`) and `vexSilMemTaken` += the four unpack/pack kinds. `Tests/AnchorsVexSilE.lean`
+(NEW unit) pins all 356 rows in 22 theorems, plus six frame theorems proving the new constructors never write memory (the
+unpack kinds' `vexbinm`/`vexbinm256` frames are V8c's). saltbuild EXIT=0, 0 tagged errors, 0 warnings in the new unit; full
+build of X86, Tests and x86lean-diff likewise. **Red backwards, on the model**, each mutant built and `X86/Semantics.lean`
+restored (`cmp`-verified): (b) the VEX.256 FP high lane read from `a` reds exactly `v10_vaddps256_m_pins`,
+`v10_vsubps256_m_pins`, `v10_vmulps256_m_pins`; (c) the VEX.256 VPSRAD count from all 128 bits reds exactly
+`v10_vpsrad256_m_pins`; (a) VPSHUFB's operands swapped reds exactly `v10_vpshufb128_m_pins`.
+**Result, prediction 4 (census, regenerated from `~/x86lean-corpus`): HELD exactly.** The silicon memory gap 590 → **11**, the
+11 being `pextrd` 9 and `pinsrq` 2 (legacy SSE), by the same second-path split as D360's. `silicon_mem_modelled` is the ONLY
+field that moved, upward, in glibc (122 → 136), dav1d (4,216 → 4,297), ffmpeg (8,225 → 8,556), vpx (4,307 → 4,342) and
+x264 (942 → 1,060). `docs/COVERAGE.md` regenerated (200 rows; the ten mnemonics' shapes gain `x,x,m`).
