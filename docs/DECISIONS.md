@@ -23796,3 +23796,10 @@ restored (`cmp`-verified): (b) the VEX.256 FP high lane read from `a` reds exact
 11 being `pextrd` 9 and `pinsrq` 2 (legacy SSE), by the same second-path split as D360's. `silicon_mem_modelled` is the ONLY
 field that moved, upward, in glibc (122 → 136), dav1d (4,216 → 4,297), ffmpeg (8,225 → 8,556), vpx (4,307 → 4,342) and
 x264 (942 → 1,060). `docs/COVERAGE.md` regenerated (200 rows; the ten mnemonics' shapes gain `x,x,m`).
+**Result, prediction 5 (kernel cost, K1 on katmai, `738411c` → `709af7c`, `--repeats 6`, both arms): HELD.** `X86.Syntax`
+673.0 → 697.0 ms (**+24.0**, band ±10.2, ok), under the +40 ms predicted for six constructors. The NEW unit is the only
+refusal on either arm, as designed: `Tests.AnchorsVexSilE` 14,450 ms (kernel_delta) and 6,163,927 unfoldings (ku_delta a′),
+each REFUSED as NEW and registered from the line its tool printed: `Tests.AnchorsVexSilE 43350 @on katmai` and
+`Tests.AnchorsVexSilE @ku 6163927`. ⚠️ **Not predicted, and the largest price in this entry:** the unit costs about 2.5× V9b's
+`Tests.AnchorsVexSilD` (5,810 ms at katmai) for 2.8× its rows (356 against 126); D361 named no figure for it. No yukon ceiling
+is registered (no yukon K1 was run); the runner's line comes from the PR's own kernel-delta refusal, as V9a's and V9b's did.

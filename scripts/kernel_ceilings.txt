@@ -498,3 +498,6 @@ Tests.CoverageVexMem 13545 @on runnervm8k3b6
 # katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilD head 5810.0 ms, Tests.CoverageVexMov head 3475.0 ms, each max(x 3, 50).
 Tests.AnchorsVexSilD 17430 @on katmai
 Tests.CoverageVexMov 10425 @on katmai
+# D361 (V10): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (738411c → 709af7c,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilE head 14450.0 ms ⇒ max(14450.0 × 3, 50).
+Tests.AnchorsVexSilE 43350 @on katmai
