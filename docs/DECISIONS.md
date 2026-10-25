@@ -23712,3 +23712,10 @@ re-measured against the regenerated census before it is designed.
    glibc 134 → 14 · dav1d 216 → 81 · ffmpeg 374 → 337 · vpx 160 → 37 · x264 393 → 121; none reached zero.
 ⇒ **STATUS row 18 is RETIRED: the forms it would have built a wave for were modelled and on silicon since D336.** The remaining
 590 are other mnemonics' memory forms; row 19 re-measures them from this census before it is designed.
+**The 590, by (roster name, bucket)** — measured the same day by a scratch driver that imports this tree's
+`demand_census` unmodified (`census`, `_decide`, `model_forms`) over the same corpus. It sums to **590**, the published
+gap, by a second path. VEX-128: `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 · `vaddps` 20 · `vpsrad` 16 · `vpalignr` 9 ·
+`vsubps` 4. VEX.256: `vmulps` 167 · `vaddps` 9 · `vpsrad` 8 · `vsubps` 5 · `vpunpcklbw` 4. Legacy SSE: `pextrd` 9 · `pinsrq` 2.
+⇒ **579 of 590 are VEX memory forms of silicon rows (STATUS row 19).** The legacy 11 are forms D336 never took: `pextrd` with
+an m32 DESTINATION, and `pinsrq` from m64. MMX `pshufb`/`palignr` are not in the silicon class (the model has no MMX forms),
+so they are not in the 590.
