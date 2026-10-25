@@ -23719,3 +23719,55 @@ gap, by a second path. VEX-128: `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 
 ⇒ **579 of 590 are VEX memory forms of silicon rows (STATUS row 19).** The legacy 11 are forms D336 never took: `pextrd` with
 an m32 DESTINATION, and `pinsrq` from m64. MMX `pshufb`/`palignr` are not in the silicon class (the model has no MMX forms),
 so they are not in the 590.
+
+## D361 — V10: the VEX memory forms of the silicon rows (`vpshufb` `vpalignr` `vmulps` `vaddps` `vsubps` `vpsrad` and two unpacks), refereed by silicon (predictions before any model, row or hardware work)
+
+**Why these.** D360's regenerated census leaves **590** silicon memory-form instructions unmodelled, and its by-name split
+(D360, last paragraph) puts **579** of them on the VEX memory forms of rows the model already has as VEX REGISTER forms:
+VEX.128 `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 · `vaddps` 20 · `vpsrad` 16 · `vpalignr` 9 · `vsubps` 4; VEX.256 `vmulps`
+167 · `vaddps` 9 · `vpsrad` 8 · `vsubps` 5 · `vpunpcklbw` 4. (The other 11 are legacy `pextrd m32` and `pinsrq m64`, not here.)
+
+**The referee, measured before anything was designed (P1, 2026-10-25, yukon, a scratch driver that
+imports `oracle_availability.py` unmodified and calls its `measure()`, bytes from its `encode_forms`).** All **16** encodings REFUSE at 88 of 88: the
+eight mnemonics above at `(%rbx)`, VEX.128 and VEX.256 each. In the same run `CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0`
+executed at 88/88, which places the refusals on the opcodes and not on a VEX memory access. ⇒ **a silicon wave with memory
+operands, V8c's shape** (`hwprobe/vexsilc`, D350).
+
+**The model (six new VEX constructors and one set widened; no new arithmetic).** Each memory twin is its register twin's function
+with ModRM.rm read from memory, VEX.128 through `setXmmVex128`, VEX.256 through `setYmm`, no alignment check (VEX Exception Type 4,
+`vexbinm`'s rule since D342):
+- `vexshufbm dst src1 ea` — `vshufbApply (getXmm src1) (readMem128 a)`. The memory operand is the CONTROL, never the data.
+- `vexalignrm dst src1 ea imm` — `valignrApply (getXmm src1) (readMem128 a) imm`. The memory operand is the LOW half of the
+  concatenation, as `src` is.
+- `vexparithm op` / `vexparithm256 op` — `vparithAll` with `readMem128 a` (and, at VEX.256, `readMem128 (a + 16)` for the high
+  lane); the SIMD flags are the OR over both lanes, as `vexparith256`'s. `div` stays refused, as for the register twins.
+- `vexsraxm w` / `vexsraxm256 w` — the count is the LOW 64 BITS OF THE m128 AT `a` AT BOTH WIDTHS. ⛔ The VEX.256 form's count
+  operand is `xmm3/m128` (SDM Vol. 2B, PSRAW/PSRAD/PSRAQ, VEX.256 encoding), so it reads 16 bytes, never 32; a count whose
+  upper qword is nonzero is still the low qword's count.
+- `VBinKind.vexSilMemTaken` gains the four `vexSilTaken` unpack/pack kinds (`unpcklb` `unpcklw` `unpckhw` `packuswb`): their
+  register twins are silicon-refereed (D345) and `vexbinm`/`vexbinm256` already carry the memory rule.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor. Every memory row is read
+   at an UNALIGNED offset as well as an aligned one, so the no-fault rule is read, not assumed. Memory is never written, and the
+   pins read the whole buffer back.
+2. **Generator, before any processor.** A textbook per form reproduces every row, and `--refuse-wrong` refuses each of these on a
+   named row:
+   - (a) `vpshufb` from memory with the operands swapped (memory as the data, `src1` as the control);
+   - (b) a VEX.256 `vmulps` from m256 whose high lane reads bytes 15:0 again instead of 31:16;
+   - (c) VEX.256 `vpsrad` from memory reading its count from all 128 bits (an upper qword ≠ 0 saturates the shift);
+   - (d) VEX.256 `vaddps` from m256 dropping a flag raised in the high lane only;
+   - (e) `vpalignr` from memory with memory as the HIGH half of the concatenation.
+3. **Model.** Six constructors under `Op.vex`; all rows pinned by `decide` in a NEW metered unit (`Tests/AnchorsVexSilE.lean`).
+   **Red backwards** on the model: (b)'s mutant reds exactly the `…256_m` `vparith` theorems; (c)'s exactly the VEX.256
+   `vpsrad` memory theorems; (a)'s exactly the `vpshufb` memory theorems.
+4. **Census.** The silicon memory gap falls **590 → 11**, every remaining instruction a legacy `pextrd m32` or `pinsrq m64`
+   (D360's split); `silicon_mem_modelled` is the only field that moves, in exactly the corpora whose split names these mnemonics
+   (dav1d, ffmpeg, vpx, x264, glibc's VEX rows if any). Every other figure is unchanged.
+5. **Kernel cost.** The NEW unit is registered in BOTH registries before the katmai row. `X86.Syntax` grows with six VEX
+   constructors: V8c's four cost +23.5 ms at katmai against a prediction of < +15 (D350, not held), so predict **under +40 ms**,
+   the point estimate read at K1 and recorded either way.
+**Not claimed:** EVEX/zmm; VEX.256 `vpshufb`/`vpalignr` (the census has no VEX.256 demand for them, and the model has no VEX.256
+register form of either); `vdivps`; the legacy `pextrd m32` / `pinsrq m64` (11 instructions, a separate item).
+**Price.** V8c's shape plus two constructors: generator + probe (one day), model + anchors (one day), K1/K2 on katmai and the census.
+Lands after D360, one PR, on kent's board.
