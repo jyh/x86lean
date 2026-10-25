@@ -29,6 +29,16 @@ mkdir -p "$TMP"
 PROBE="$TMP/SegRedProbe.lean"
 trap 'rm -rf "$TMP"' EXIT
 
+# ⛔ THE SEGMENTED COUNT IS READ FROM THE SHIPPED THEOREM, NEVER TYPED HERE.  This probe carried a literal 8 in five
+# places until D355 (2026-10-25) took the shipped count to 31: every arm refused, in CI, on the anchor.  A count
+# the probe restates is a duplicate born in agreement; a count it reads cannot drift from its subject.
+SEGN=$(grep -ohE '^theorem some_vector_carries_a_segment : segVectors\.length = [0-9]+' Tests/Coverage.lean | grep -oE '[0-9]+$')
+if [ -z "$SEGN" ]; then
+  echo "⛔ SEGMENT RED PROBE REFUSES — cannot read the shipped count from"
+  echo "     theorem some_vector_carries_a_segment : segVectors.length = <N>   (Tests/Coverage.lean)"
+  exit 2
+fi
+
 cat > "$PROBE" <<'EOF'
 import Tests.Coverage
 namespace X86.Tests
@@ -58,13 +68,13 @@ def segEasNoFilter (i : Instr) : List Ea :=
 
 -- S1: an extraction that has lost a constructor must move the COUNT.
 theorem s1 :
-    ((vectors.filter (fun v => !(segEasNoMov v.instr).isEmpty)).length == 8) = false := by decide
+    ((vectors.filter (fun v => !(segEasNoMov v.instr).isEmpty)).length == @SEGN@) = false := by decide
 
 -- S2: an extraction that has lost the `seg.isSome` filter must move it too —
 --     the opposite direction, and the one that would make the two sweeps below
 --     sweep the WHOLE vector table while still reporting green.
 theorem s2 :
-    ((vectors.filter (fun v => !(segEasNoFilter v.instr).isEmpty)).length == 8) = false := by decide
+    ((vectors.filter (fun v => !(segEasNoFilter v.instr).isEmpty)).length == @SEGN@) = false := by decide
 
 -- S3: a segment base that makes the linear address NON-CANONICAL.  Bit 47 set
 --     with bits 63:48 clear is the smallest non-canonical address there is.
@@ -92,12 +102,16 @@ theorem s4 :
 -- claims must be TRUE.  Without it, four `false`s are also what a probe that has
 -- stopped seeing its subject would print.
 theorem control :
-    (segVectors.length == 8
-      && ((vectors.filter (fun v => !(segEas v.instr).isEmpty)).length == 8)
+    (segVectors.length == @SEGN@
+      && ((vectors.filter (fun v => !(segEas v.instr).isEmpty)).length == @SEGN@)
       && (segVectors.all (fun v =>
             (preStates 1 8).all (fun s => (segEas v.instr).all (fun e =>
               canonical (e.addr s (s.rip + BitVec.ofNat 64 v.instr.len))))))) = true := by decide
 EOF
+sed -i.bak "s/@SEGN@/$SEGN/g" "$PROBE" && rm -f -- "${PROBE:?}.bak"
+if grep -qF '@SEGN@' "$PROBE" || ! grep -qF "== $SEGN" "$PROBE"; then
+  echo "⛔ SEGMENT RED PROBE REFUSES — the count $SEGN did not reach the arms"; exit 2
+fi
 
 # ⛔⛔ THE PROBE RESTATES ITS SUBJECTS, WHICH IS A DUPLICATE BORN IN AGREEMENT.
 # If a shipped theorem is renamed or rewritten, these arms would go on planting
@@ -110,7 +124,7 @@ ANCHORS=(
   'theorem segmentedAddressesAreCanonical'
   'theorem segmentedAddressesLandInAWatchedWindow'
   'def segVectors : List Vec'
-  'theorem some_vector_carries_a_segment : segVectors.length = 8'
+  "theorem some_vector_carries_a_segment : segVectors.length = $SEGN"
 )
 
 missing=0
