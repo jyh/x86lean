@@ -23341,3 +23341,10 @@ after #127, merged into this branch with no V9b file changed; load1 1.2–3.9 sa
 against their registered katmai ceilings (`Tests.AnchorsVexSilD` 5,850 of 17,430, `Tests.CoverageVexMov` 3,600 of 10,425). ku:
 `X86.Syntax` +896 (budget 8,001), `X86.Semantics` +58, `Tests.CoverageVexMem` +20, `Tests.Vectors` +6, `Tests.Coverage` +0,
 equal to K1's. The row is recorded by `kernel_drift.py --record` (D251: ms verdict rc 0, arm A′ rc 0, lands on the ms verdict).
+**RE-KEYED after #130 (`9d8fa6e`, `check_private_paths.py` only) landed on master during #129's CI.** On a synthetic merge with the
+new master `kernel_drift --gap` read the `f8381e2` row as WRONG (its base's first-parent child became `9d8fa6e`); the row was
+withdrawn and **K2b** measured on katmai, `9d8fa6e` → `62467ba` (master merged in; 0 `.lean` files differ from `c4984c2`), 6 repeats,
+both arms, load1 1.3–4.8: **`delta gate: CLEAN`** and **`ku-delta gate (a-prime): CLEAN`**; `X86.Syntax` 672.5 → 693.5 (+21.0,
++3.1 %), `X86.Vex` 37.3 → 37.8. Recorded by `kernel_drift.py --record`. The full CI on `c4984c2` passed every job but kernel-delta,
+whose verdict was exactly the two declared NEW-unit refusals (runner lines `Tests.AnchorsVexSilD 27885 @on runnervmtai0g`,
+`Tests.CoverageVexMov 16740 @on runnervmtai0g`).
