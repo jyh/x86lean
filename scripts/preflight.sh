@@ -135,6 +135,49 @@ while IFS= read -r cmd; do
   else printf "  ⛔ FAIL %s   (from ci.yml)\n" "$name"; rc=1; fi
 done <<< "$ci_checks"
 printf "  ci.yml --check census: %s command(s) read, %s run here, the rest ran above by name\n" "$n_ci" "$n_ran"
+# ⛔⛔ ADDED 2026-10-25 (paris, the #132 red, STATUS row 21): the reader above sees only `python3 <x>.py … --check…`
+#   lines, so a `.sh` red probe and every `--selftest` in ci.yml were invisible to it. MEASURED that day: 19 of the
+#   build job's 47 `run:` steps carried a command this script never ran, and `segment_redprobe.sh` (a literal count D355
+#   made stale) reddened CI with this script green. This second reader takes `./scripts/<x>.sh` lines and
+#   `python3 <x>.py --selftest…` lines from ci.yml's BUILD job (the others profile, shard or need a runner), skips one this script already runs (its text appears above), and
+#   SKIPS BY NAME, printing why, the ones too heavy or too external for a local gate. A parse that finds nothing refuses.
+ci_more=$(python3 - <<'PYEOF'
+import re
+seen, in_build = [], False
+for line in open(".github/workflows/ci.yml", encoding="utf-8"):
+    j = re.match(r"^  ([a-z][\w-]*):\s*$", line)     # a job key, two spaces in under `jobs:`
+    if j:
+        in_build = j.group(1) == "build"
+        continue
+    if not in_build:
+        continue                                       # the BUILD job only: the others profile or shard
+    m = (re.match(r"\s*(?:run:\s*)?(\./scripts/[\w.-]+\.sh)\s*$", line)
+         or re.match(r"\s*(?:run:\s*)?(python3\s+\S+\.py\s+--selftest[\w-]*)\s*$", line))
+    if m and m.group(1) not in seen:
+        seen.append(m.group(1))
+print("\n".join(seen))
+PYEOF
+)
+n_more=$(printf "%s\n" "$ci_more" | grep -cE '\.sh$|--selftest' || true)
+if [ "$n_more" -lt 1 ]; then printf "  ⛔ FAIL ci.yml probe/selftest census: 0 commands read (the parse found nothing)\n"; rc=1; fi
+self_text=$(sed -n '1,/^ci_more=/p' "$0")
+n_more_ran=0; n_more_skip=0
+while IFS= read -r cmd; do
+  [ -n "$cmd" ] || continue
+  case "$cmd" in
+    ./scripts/axiom_gate.sh|./scripts/axiom_gate_selftest.sh)
+      printf "  SKIP %s   (from ci.yml: builds the whole library; run it before a release, not at every preflight)\n" "$cmd"
+      n_more_skip=$((n_more_skip+1)); continue ;;
+    ./scripts/setup_k_roster.sh)
+      printf "  SKIP %s   (from ci.yml: fetches K's tree over the network)\n" "$cmd"
+      n_more_skip=$((n_more_skip+1)); continue ;;
+  esac
+  if printf "%s" "$self_text" | grep -qF -- "${cmd#python3 }"; then continue; fi
+  n_more_ran=$((n_more_ran+1))
+  if $cmd >/dev/null 2>&1; then printf "  ok   %s   (from ci.yml)\n" "$cmd"
+  else printf "  ⛔ FAIL %s   (from ci.yml)\n" "$cmd"; rc=1; fi
+done <<< "$ci_more"
+printf "  ci.yml probe/selftest census: %s command(s) read, %s run here, %s skipped by name, the rest ran above\n" "$n_more" "$n_more_ran" "$n_more_skip"
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.
