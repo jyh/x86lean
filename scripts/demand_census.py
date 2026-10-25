@@ -1525,7 +1525,7 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0, mem=None, msk=None):
     if vex_set:
         fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)**{sp(vexn, vex_m, vex_x)} — VEX.128 and VEX.256 instructions whose "
                  f"mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, "
-                 f"which only `vpxor`'s VEX.128 one models); counted as NOT covered above, printed beside it and "
+                 f"modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and "
                  f"never summed into it (D342, D344).\n")
     if mem is not None:
         fh.write("- ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a "

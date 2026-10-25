@@ -5756,7 +5756,11 @@ form preserves them, and the differential record compares those bits on both sid
 differentially tested at VEX.256 (VEX.L = 1, V6, D344): " ++ toString vex256Vectors.length ++ " more forms, each \
 computing the 128-bit function in each lane and WRITING bits 255:128. The MEMORY twins (an m128 or m256 second \
 source, with no alignment check) are differentially tested for the 26 packed binary kinds of `VBinKind.vexMemTaken`, \
-at VEX.128 and VEX.256: `vpxor`'s VEX.128 one since D342, and the rest since V9a (D353), in " ++ toString vexMemVectors.length ++ " more forms, aligned and misaligned. Decode trust here is LLVM `objdump`'s, which decodes a \
+at VEX.128 and VEX.256: `vpxor`'s VEX.128 one since D342, and the rest since V9a (D353), in " ++ toString vexMemVectors.length ++ " more forms, aligned and misaligned. The six packed MOVES' memory forms (loads and stores, VEX.128 and \
+VEX.256, V9b, D354) are differentially tested in " ++ toString vexMovVectors.length ++ " more forms: every kind aligned, \
+and the three unaligned kinds also misaligned. The aligned kinds' #GP (16 bytes at VEX.128, 32 at VEX.256) is NOT \
+differentially tested, because x86isa executes the misaligned forms; it is carried by theorem \
+(`Tests/CoverageVexMov.lean`); a silicon wave is V9b's next step. Decode trust here is LLVM `objdump`'s, which decodes a \
 legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries \
 one (D341).\n\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable
@@ -5820,7 +5824,7 @@ one (D341).\n\n"
       let n := 8
       IO.println s!"vectors={vectors.length} mnemonics={(vectors.map Vec.mnemonic).eraseDups.length} \
 vex-vectors={vexVectors.length} vex-mnemonics={(vexVectors.map Vec.mnemonic).eraseDups.length} \
-vex256-vectors={vex256Vectors.length} vexmem-vectors={vexMemVectors.length} \
+vex256-vectors={vex256Vectors.length} vexmem-vectors={vexMemVectors.length} vexmov-vectors={vexMovVectors.length} \
 pre-states={(preStates 1 n).length} cases={allVectors.length * (preStates 1 n).length}"
       return 0
   | _ =>
