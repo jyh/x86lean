@@ -10,7 +10,8 @@ from x86lean or from x86isa.
 ⛔ ALL ROWS ARE PINNED: ACL2 x86isa refuses these encodings (`oracle_availability.py`'s `measure()`, D361 P1), so
 these rows are the only check of the model's numbers for them. Each pin compares YMM3's FULL 256 bits (so VEX.128's
 zeroing and VEX.256's high lane are both read), YMM1's and YMM2's 256 bits, RAX, MXCSR, the six flags and RIP. Only the qwords the memory operand SPANS are written into the model's memory (the probe
-holds all 64 bytes); that memory is never written is proved ONCE, for every state, by the unit's frame theorems, not
+holds all 64 bytes); that memory is never written is stated once by the unit's frame theorems (for a live state and an
+unlocked address: `Live s`, `ea.lock = false`), not
 re-checked per row, as V8c's (D350 measured the per-row read-back at more than half of that unit's kernel cost).
 
     python3 hwprobe/mk_vexsile_anchors.py            print the generated block
