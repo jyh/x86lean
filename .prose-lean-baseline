@@ -83,8 +83,6 @@ ebfd3ade293b	paper/x86lean-semantics.tex	lexicon-e2
 # lexicon epoch 3 (R2, council 2026-10-22 item 3): Lean docstring claim sentences, gated from epoch 3 and accepted as debt by the WIDENING arm; class docstring-cited marks a declaration a public carrier names (read those first).
 adaa5a1af460	Tests/Anchors.lean	docstring
 d4a793902cc8	Tests/Anchors.lean	docstring
-8afffbccd381	Tests/AnchorsVexSilC.lean	docstring
-fcd4a5cb0de5	Tests/AnchorsVexSilC.lean	docstring
 25127b2cf11f	Tests/Coverage.lean	docstring
 2fef6b564190	Tests/Coverage.lean	docstring-cited
 5c4f3906a252	Tests/Coverage.lean	docstring

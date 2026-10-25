@@ -23,8 +23,9 @@ same run.  The rows below — run by `hwprobe/vexsilc_probe.c` on an Intel and a
 The pre-state is the probe's (`hwprobe/vexsilc_ops.S`): YMM1-3, RAX, MXCSR and the flags from the row, the row's 64-byte
 buffer at `v8cBuf` as eight little-endian qwords, and RBX = `v8cBuf + off`.  A row agrees when the step did not refuse, YMM3
 holds the row's 256 bits, YMM1 and YMM2 are unchanged, RAX and MXCSR are the row's, the six flags are `f`, RIP moved by the
-instruction's length.  Only the qwords the memory operand spans are written into the model; that the step never writes
-memory is proved once, for EVERY state, by the frame theorems below — the per-row read-back it replaces was more than half
+instruction's length.  Only the qwords the memory operand spans are written into the model; the frame theorems below
+(`v8c_frame_*`) state `(step ⟨.vex op, len⟩ s).mem = s.mem` for each of the six memory-reading and broadcast constructors,
+for any `s` with `Live s` and, where there is an address, `ea.lock = false` — the per-row read-back they replace was more than half
 of this unit's kernel cost (D350, measured: 36 s with it, 16 s without, on yukon). -/
 
 /-- The six arithmetic flags of an RFLAGS image (CF PF AF ZF SF OF at bits 0 2 4 6 7 11); DF stays clear. -/
@@ -63,7 +64,7 @@ private def v8cAgrees (t : Cpu) (n : Nat) (y1 y2 : BitVec 256) (f : BitVec 64) (
     && (v8cRflags t.flags &&& 0x8d5) == (f &&& 0x8d5) && t.rip == 0x400000 + BitVec.ofNat 64 n
 
 
-/-! ### The memory frame, proved once for every state (D350 prediction 1's "memory is never written", in the kernel) -/
+/-! ### The memory frame: `step` leaves `mem` unchanged, for a live state and an unlocked address (D350 prediction 1) -/
 
 theorem v8c_frame_binm (k : VBinKind) (d s1 : XmmReg) (ea : Ea) (len : Nat) (s : Cpu) (h : Live s) (hl : ea.lock = false) :
     (step ⟨.vex (.vexbinm k d s1 ea), len⟩ s).mem = s.mem := by
