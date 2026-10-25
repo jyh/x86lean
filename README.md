@@ -110,7 +110,10 @@ declaration in CI.
 - **Not in scope.** Everything EVEX-encoded (AVX-512: no ZMM or mask
   register), and VEX beyond the 56 mnemonics `docs/COVERAGE.md` lists: 33
   VEX.128 and VEX.256 register twins of main-table rows in the differential
-  (V3, V6; `vpxor` also in its VEX.128 memory form), and 23 VEX forms refereed
+  (V3, V6), with the memory forms of 26 packed binary kinds (V9a) and of the
+  six packed moves, loads and stores (V9b) at both lengths; the moves' aligned
+  kinds' #GP (16 bytes at VEX.128, 32 at VEX.256) is refereed by a processor,
+  since x86isa executes those forms. And 23 VEX forms refereed
   by a processor (V4 at VEX.128; V7, V8b and V8c at both lengths; V8c adds
   `vpbroadcastd` and the memory forms of `vpmaddwd`, `vpmulhrsw`, `vpmaddubsw`
   and `vpackssdw`). So YMM appears only as those forms' operands; there is no
@@ -127,6 +130,8 @@ declaration in CI.
   *(Until 2026-10-20 the first clause read "AVX and everything VEX- or
   EVEX-encoded (so no YMM or ZMM register)". It was false from V3 (D341) on,
   in the under-claiming direction, and no gate reads a scope sentence.)*
+  *(Until 2026-10-23 the twins' clause read "`vpxor` also in its VEX.128
+  memory form", false from V9a (D353) on, the same under-claiming direction.)*
   *(Until 2026-09-30 these two bullets said the scope was the integer
   instruction set and that SSE was out of scope. Both were written on 09-03,
   and the first vector semantics landed on 09-04; the list below them was the

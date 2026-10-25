@@ -143,6 +143,13 @@ jobs:
           python3 mk_vexsilc_rows.py --plant > vexsilc_rows_plant.h
           python3 mk_vexsilc_rows.py --plant-op > vexsilc_rows_badop.h
           python3 mk_vexsilc_rows.py --plant-hi > vexsilc_rows_hi.h
+          python3 mk_vexsild_rows.py --selftest
+          python3 mk_vexsild_rows.py --refuse-wrong
+          python3 mk_vexsild_rows.py --reach
+          python3 mk_vexsild_rows.py > vexsild_rows.h
+          for v in plant plant-op plant-nf plant-a0 plant-f; do
+            python3 mk_vexsild_rows.py --$v > vexsild_rows_$v.h
+          done
 
       - name: Build
         working-directory: hwprobe
@@ -202,6 +209,11 @@ jobs:
           for v in plant badop hi; do
             sed "s/\"vexsilc_rows.h\"/\"vexsilc_rows_$v.h\"/" vexsilc_probe.c > vexsilc_probe_$v.c
             gcc -O1 -o vexsilc_probe_$v vexsilc_probe_$v.c vexsilc_ops.S
+          done
+          gcc -O1 -o vexsild_probe vexsild_probe.c vexsild_ops.S
+          for v in plant plant-op plant-nf plant-a0 plant-f; do
+            sed "s/\"vexsild_rows.h\"/\"vexsild_rows_$v.h\"/" vexsild_probe.c > vexsild_probe_$v.c
+            gcc -O1 -o vexsild_probe_$v vexsild_probe_$v.c vexsild_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -566,6 +578,46 @@ jobs:
           head -1 vexsilc.out
           grep -v '^ok  ' vexsilc.out || true
           echo "vexsilc rc=$rc"
+          test "$rc" = 0
+
+      # D354 (V9b): the six packed moves' VEX memory forms, loads and stores, and the FIRST FAULT ROWS: an aligned kind
+      # (vmovdqa/vmovaps/vmovapd) off its width's alignment (16 at VEX.128, 32 at VEX.256) must raise #GP, caught as a
+      # signal. x86isa and Rosetta 2 both EXECUTE those encodings, so this job is the rule's only second source.
+      # Each plant must red exactly its own row: a value bit, a declared byte (refuse, exit 2), an unaligned kind
+      # expected to fault, an aligned kind at offset 0 expected to fault, and a fault row expected to run.
+      - name: VEX-move controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsild_probe --cpuid
+          set +e
+          for v in plant plant-op plant-nf plant-a0 plant-f; do
+            ./vexsild_probe_$v > vexsild_$v.out; echo "$?" > vexsild_$v.rc
+          done
+          set -e
+          for v in plant plant-nf plant-a0 plant-f; do
+            echo "vexsild $v rc=$(cat vexsild_$v.rc) (want 1)"; grep '^DIFF' vexsild_$v.out || true
+            test "$(cat vexsild_$v.rc)" = 1
+            test "$(grep -c '^DIFF' vexsild_$v.out)" = 1
+          done
+          grep -q '^DIFF vmovdqu256_ld_a0_r0 ' vexsild_plant.out
+          grep -q '^DIFF vmovups128_ld_u1_r0 .*RAN' vexsild_plant-nf.out
+          grep -q '^DIFF vmovaps256_st_a0_r0 .*RAN' vexsild_plant-a0.out
+          grep -q '^DIFF vmovapd256_ld_f16 .*FAULTED' vexsild_plant-f.out
+          cat vexsild_plant-op.out
+          echo "vexsild plant-op rc=$(cat vexsild_plant-op.rc) (want 2)"
+          test "$(cat vexsild_plant-op.rc)" = 2
+          grep -q '^REFUSED x_vmovdqa128_ld:' vexsild_plant-op.out
+
+      - name: VEX-move referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./vexsild_probe > vexsild.out; rc=$?
+          set -e
+          head -1 vexsild.out
+          grep -v '^ok  ' vexsild.out || true
+          grep -c '^ok .*faulted' vexsild.out || true
+          echo "vexsild rc=$rc"
           test "$rc" = 0
 
       - name: Bit-string rows, full listing (artifact)
