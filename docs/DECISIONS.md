@@ -23348,3 +23348,97 @@ both arms, load1 1.3–4.8: **`delta gate: CLEAN`** and **`ku-delta gate (a-prim
 +3.1 %), `X86.Vex` 37.3 → 37.8. Recorded by `kernel_drift.py --record`. The full CI on `c4984c2` passed every job but kernel-delta,
 whose verdict was exactly the two declared NEW-unit refusals (runner lines `Tests.AnchorsVexSilD 27885 @on runnervmtai0g`,
 `Tests.CoverageVexMov 16740 @on runnervmtai0g`).
+
+## D355 — the scalar remainder: every name the census sees through `%fs:`/`%gs:` and the model does not run there (the stack-canary check, the kernel's per-CPU forms); predictions before any reading
+
+**Why these, measured.** STATUS-paris row 12 (the helm, O83, 10-23) asks for the next unit from the census's unmodelled
+remainder, scalar before vector (his 09-30 word). Read 2026-10-24 on V9b's tree (`db08d4e`) with the census's own functions
+(`census`, `_decide`, `model_forms`, unmodified; control: every column's memory-form total and modelled figure equal the shipped
+document, e.g. cc1 1,680,588 − 1,662,657 = 17,931): the differential-class memory-form demand the model does NOT execute is
+**64,664 user-space + 15,248 kernel**. By (roster name, bucket), user-space: `movq` xmm 33,591 · **`sub` segment-base 20,297** ·
+`movd` xmm 7,752 · `comiss`/`comisd`/`ucomiss`/`ucomisd` 1,336 · **`cmp` segment-base 240** · **`xchg` 4** · **`test` 1**, and
+silicon/VEX rows under 1,000 together. Kernel: **15,232 of its 15,248 is segment-base** — `sub` 9,898 · `dec` 2,418 · `inc` 2,778
+· `xadd` 63 · `cmpxchg` 29 · `and` 15 · `or` 14 · `bt` 6 · `btr` 6 · `cmp` 2 · `test` 2 · `push` 1 — and the other 16 is `movd`.
+The `sub` is the stack protector's epilogue: glibc `subq %fs:0x28,%rdx`/`%rax` (1,016 of its 1,022), the kernel `subq
+%gs:0x28,%rax`/`%rdx` (9,892 of 9,898). The kernel's `inc`/`dec` are per-CPU counters, mostly `incl %gs:x(%rip)` (1,723) and
+`decl %gs:x(%rip)` (1,888): **segment base PLUS RIP-relative, a composition of `Ea.addr` no row has run.**
+⚠️ **The first draft of this entry (`e024582`) named four names and said no other name had segment demand. That was false:** my
+ranking printed only keys present in user space, so every kernel-only key was invisible to it. Found before any reading, by
+asking why the kernel's `cmpxchg %gs:` was not in the list; the entry is widened here and the false sentence removed.
+**Nothing in the model is missing.** The segment base is in `Ea.addr` since batch 22 (D70, D72), RIP-relative in `Ea.offset`, and
+every name above has a memory form through `(%rbx)`. What is missing is a ROW that runs these names through a segment, so the
+census, which keys a memory form by (name, bucket), cannot credit them (D352: it can only under-count). ⇒ **Vectors only.** The
+`movq`/`movd` and `comis*` remainders are rows 14 and 15 of the seat's queue, each its own entry.
+
+**The rows (23), each spelled by clang and disassembled back; the RIP displacements are solved per instruction length:**
+- the canary and its neighbours (9): `subq %fs:0x28,%rax` · `subq %fs:0x28,%rdx` · `subq %gs:0x28,%rax` · `subq %gs:0x28,%rdx` ·
+  `cmpl $0x4,%fs:-0x1fd8(%rbx)` (imm8 sign-extended, base + disp32: the errno shape) · `cmpl %fs:0x28,%eax` · `cmpb $0x0,%fs:0x28`
+  · `xchgl %eax,%fs:0x28` · `testb $-0x1,%gs:0x28`;
+- the per-CPU forms (14): `incl`/`decl %gs:-0x3fffdf(%rip)` · `incq`/`decq %gs:-0x1fe8(%rbx)` · `incw %gs:-0x3fffe0(%rip)` ·
+  `xaddl %eax,%gs:…(%rip)` · `xaddb %al,%gs:-0x1fe8(%rbx)` · `andl $0x7fffffff,%gs:-0x3fffe3(%rip)` · `orw %ax,%gs:…(%rip)` ·
+  `cmpxchgl %edx,%gs:…(%rip)` · `cmpxchgb %dl,%gs:-0x1fe8(%rbx)` · `btq`/`btrq %rcx,%gs:-0x1fe8(%rbx)` · `pushq %gs:0x28`.
+Every address lands on a swept operand: `fsBase + 0x28 = 0x2000` (holds `c`), `gsBase + 0x28 = 0x2010` (holds `a XOR c`),
+`fsBase − 0x1fd8 + RBX = gsBase − 0x1fe8 + RBX = 0x2000`, and `0x400000 + len + disp + gsBase = 0x2010` for each RIP row. ⚠️ Not
+the corpus's `%gs:(%rax)`: a swept base register leaves the watched window in most pre-states, and an unwatched address reports
+agreement. ⭐ `subq %fs:0x28,%rax` reaches the canary-INTACT case (ZF=1) in every `diag` pre-state (`mkPre a a 0`: RAX = `c`).
+⚠️ Limit: `btq`/`btrq` with a register bit offset address `base + (RCX >> 3)`, which leaves the window for most swept RCX — the
+same property as the existing `bt_mr_q`, whose treatment these rows inherit and do not improve.
+
+**Predictions (each is wrong if the named reading differs):**
+1. **Differential.** `cases` +23 × 88 = **+2,024**, every one `matched`; `unexplained=0`, `oracle-leaks=0`, `missing=0`;
+   `explained` and `oracle-divergence` unchanged from V9b's `34047 / 1144`. (Against V9b: `128040 / 104719` → **`130064 /
+   106743`**.) A row that x86isa resolves differently through segment + RIP is a finding to classify, not a miss to explain away.
+2. **Two plants, because no model change means no model mutant** (each built, read, reverted, `cmp`-verified):
+   (a) `sub_fs_canary_rax` with its AST's segment set to `.gs` (bytes unchanged): every disagreement on that row's id,
+   **between 1 and 88** and NOT 0; (b) `inc_gs_rip_l` with `ripRel := false` (the AST then reads `gsBase + disp`, an unwatched
+   address): every disagreement on that row's id, between 1 and 88 and not 0. A 0 in either means the comparator does not see
+   that row's address.
+3. **Census (derived before any reading, from the same functions, by classifying clang's object for these 23 lines):** the new
+   memory keys are exactly 13 names at `segment base %fs:/%gs:`, and the modelled memory-form figure rises by exactly the
+   unmodelled demand at them: coreutils 279,349 → **282,850** · dav1d 67,866 → **67,980** · ffmpeg 1,114,999 → **1,128,907** ·
+   glibc 195,499 → **197,217** · vlc-codec 51,742 → **51,976** · vlc-video_chroma 37,886 → **37,925** · vpx 231,620 → **232,418** ·
+   x264 135,547 → **135,777** · kernel 763,174 → **778,406**; cc1 unchanged (its 17,931 is all `movq`/`movd`). User-space
+   **+20,542**, kernel **+15,232** (its remainder 15,248 → 16). Nothing else in the document moves but the forms stamp
+   (`vectors=1478`).
+4. **Kernel cost.** No `.lean` outside `Tests/Vectors.lean` changes. `Tests.Vectors` rises by 23 rows of 1,455 (+1.6 %);
+   predict every unit `ok` at katmai and no NEW unit.
+
+**The price.** About half a day: the rows and the plants, one differential (~25 min) plus one per plant, the census
+regeneration, K1 on katmai. No silicon: x86isa referees every row's value, and the hwprobe harness cannot set a TLS base from
+user mode without the very instructions under test. Built on `paris/d355-seg-alu`, stacked on V9b; no PR and no master merge
+until V9b lands.
+
+**Not claimed:** `lock`-prefixed forms (P2 item 2's question, outside the differential class); `cmpxchg16b %gs:` (unmapped);
+`rdfsbase`/`wrfsbase`; any write to a segment base; any addressing mode beyond the three shapes above (one memory form stands for
+every addressing mode at its (name, bucket), D352).
+
+**Result, prediction 1 (differential): NOT HELD as written, and the miss is a finding, not a model defect.** `acl2@c8897a34d3ef`,
+this tree: the first run read `cases=130064 matched=106497 explained=34407 unexplained=6 oracle-divergence=1144`. All six
+`unexplained` are `btr_gs_q`, at pre-states 17, 36, 50, 64, 65 and 67, each in one byte (0x1fef): the model clears bit 7, x86isa
+clears bit 1. That is D331's x86isa rule, `bitNumber = (mod (abs offset) 8)`, wrong for a negative offset (upstream
+acl2/acl2#2066), and the six states are EXACTLY `btr_mr_q`'s declared states: `btr_gs_q` addresses the same byte
+(`gsBase − 0x1fe8 + RBX = 0x2000`) with the same RCX. I did not predict it because I read `btr_gs_q` as a new address path and
+not as an old bit rule; D354's own lesson ("no declared x86isa defect is a move, I expect none to be reached") was about a
+different set of rows, and I did not ask it of these. Declared in `Main.lean` beside D331's entries, keyed to `btr_mr_q`'s
+states rather than re-typed. Re-run: **`cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=1150
+oracle-leaks=0 missing=0`** (+2,024 cases; divergence +6, the declared states).
+⚠️ The second miss in the same line: `explained` rose by **360**, where I wrote "unchanged". Compared over the 23 new ids alone
+(the records filtered from this run's own `lean.txt` and `oracle.txt`): `cases=2024 matched=1778 explained=360 unexplained=0
+oracle-divergence=6`, so all 360 are the new rows' undefined flags (measured per id: `bt_gs_q` 114 and `btr_gs_q` 114, where the SDM leaves
+OF/SF/AF/PF undefined; `and_gs_rip_l`, `or_gs_rip_w`, `test_gs_mi_b` 44 each, AF; the other 18 ids 0), which the comparator excuses by the model's own draw. My "unchanged" copied D354's line, whose moves have no
+undefined flags. ⇒ Every one of the 2,024 new cases agrees or is excused by a stated rule; none is unexplained.
+⚠️ The acl2#2067 trigger (STATUS row 5) now deletes **D331's declarations plus this one** when x86isa changes.
+**Result, prediction 2 (plants): HELD.** Both plants in one build, re-emitted and compared against this run's oracle output
+(the bytes are unchanged, so the oracle's records are too). Per id: `sub_fs_canary_rax` with `.gs` — 80 of 88 cases disagree
+(194 fields); `inc_gs_rip_l` with `ripRel := false` — 88 of 88 (181 fields); every other record of the 130,064 byte-identical
+to the unplanted run. `Tests/Vectors.lean` restored and `cmp`-verified against `HEAD`.
+**Result, prediction 3 (census): HELD, exactly.** Regenerated from `~/x86lean-corpus`: the nine figures moved to the derived values
+(coreutils 282,850 · dav1d 67,980 · ffmpeg 1,128,907 · glibc 197,217 · vlc-codec 51,976 · vlc-video_chroma 37,925 · vpx 232,418 ·
+x264 135,777 · kernel 778,406), cc1 unchanged, the forms stamp `vectors=1478`, and nothing else in the document. `--check` CLEAN.
+**Found after the result above, before any PR: the run built the binary and never `Tests.Coverage`.** `run_differential.sh`
+builds `x86lean-diff`, which imports `Tests.Vectors` and not `Tests.Coverage`, so three `decide` facts this entry falsified were
+not elaborated until the next unit's full build reached them: `vector_count_is_1199`, the generated run certificate `Tests/VectorRuns.lean`
+(`vectorCoverage`), and `some_vector_carries_a_segment = 8`. Repaired: `vector_count_is_1222`, the certificate regenerated by
+`x86lean-diff runs` (378 runs over 1222 vectors), and the segment count 8 → 31 (batch 22's 8 plus these 23). `X86` and `Tests`
+then build with zero errors in both orders. ⇒ A unit that adds vectors is not checked until `Tests` builds; the differential's
+own build does not reach it.
