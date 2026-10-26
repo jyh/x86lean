@@ -343,7 +343,8 @@ FORMS = [
     # by CORRECT semantics, refusal clear: measured `stalls` 88/88 at acl2 c8897a3, babde610 and cbb699d.
     # `movmskps` stalls only because x86isa lacked its RIP write (fixed upstream, baecf7219b), so once the
     # pin moves past that fix this row is the stall branch's only live input. Its verdict is a fact about
-    # the OPERAND, not about `jmp`: NOT_AN_AVAILABILITY_QUESTION says so.
+    # the OPERAND, not about `jmp`; FORMS never feeds the availability answer (that is P2_FORMS), so it needs
+    # no exclusion entry, and p2_roster's orphan check refuses one.
     ("STALL:jmpself", "jmp .",               "ebfe",               "stalls"),
     # ⭐ THE POSITIVE CONTROL — identical shape and address to `movnti`.
     ("CONTROL:mov", "movl %ecx, (%rbx)",    "890b",               "executes"),
@@ -2222,7 +2223,6 @@ NOT_AN_AVAILABILITY_QUESTION = {
     # rulable on sight once priced; this one needed a gate to articulate, and the
     # gate could only speak once someone tried the ruling.
     "CONTROL:movnti":  "its bucket `SSE2 (nt store)` is not one of the census's buckets",
-    "STALL:jmpself":   "a jump to itself stalls by correct semantics: the verdict is about the operand, not `jmp`",
 }
 
 # ⚠️ THE WORD IS MATCHED, NOT THE ROWS.  A list of the six that were removed would
