@@ -23602,3 +23602,23 @@ faults. ⇒ **The differential could not have seen any of these upstream bugs at
 ask, recorded as STATUS row 25: RIP-relative memory forms of these mnemonics, which should DISAGREE with x86isa at `c8897a3`
 (where a CL-count `shld`/`shrd` with a RIP-relative destination is addressed as if an imm8 followed) and agree at `cbb699d`. The `movmskps` move changes nothing here because no
 differential vector carries it (it was silicon-refereed while the oracle stalled).
+
+
+## D366 — RIP-relative vectors for the mnemonics x86isa fixed in `babde610..cbb699d`: can the differential see a real upstream bug? (predictions before any run; STATUS row 25)
+
+*(Numbering: D355–D365 are on branches above this base.)*
+**Why.** D365 moved the oracle across fixes to RIP-relative addressing in SHLD/SHRD (`2a9f97eb37`), SARX/SHLX/SHRX
+(`520d2c1abd`) and BLSI (`cc1780b78d`), and the differential did not move, because none of those mnemonics had a RIP-relative
+vector. Eight vectors, derived (each displacement computed from the instruction length so that RIP + disp = 0x2000, the data
+window `cmp_rip_q` already uses): `shld`/`shrd` with a CL count and a RIP-relative destination at 32 and 64 bits; `shld $5` RIP-
+relative as the control; `shlx`, `sarx` and `blsi` from a RIP-relative m32. The model needs nothing new: each is an existing
+constructor with an `Ea` whose `ripRel` is set.
+**Predictions (each wrong if the named reading differs):**
+1. **At the OLD pin (`c8897a3`, this branch):** the four CL `shld`/`shrd` vectors DISAGREE (x86isa adds a phantom imm8 to the
+   RIP-relative address, so it reads and writes 0x2001 instead of 0x2000: memory and flags differ at most pre-states); the
+   `shld $5` control AGREES; `shlx`/`sarx`/`blsi` — upstream's message says the displacement "may increment the RIP" — are
+   predicted to disagree too, field not predicted. Unexplained > 0 at this pin is the POINT, and is filed by vector and commit.
+2. **At `cbb699d` (cherry-picked onto D365):** all eight AGREE; `unexplained=0`.
+3. Encoding cross-check CLEAN (the assembler's bytes are the derived ones); vectors 1,501 → 1,509 on master's count.
+**Wrong if:** a CL vector agrees at `c8897a3` (then that fix is not reachable this way and the row's premise fails for it); the
+control disagrees at either pin; anything disagrees at `cbb699d`.

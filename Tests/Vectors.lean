@@ -1962,6 +1962,34 @@ def vectors : List Vec :=
     , bytes := "0fad03", instr := ⟨.dshift .shrd .d (M .rbx) .rax .cl, 3⟩ }
   , { id := "shrd_m_cl_q", mnemonic := "shrd", asm := "shrdq %cl, %rax, (%rbx)"
     , bytes := "480fad03", instr := ⟨.dshift .shrd .q (M .rbx) .rax .cl, 4⟩ }
+  -- ⭐ D366: RIP-RELATIVE forms of the mnemonics acl2 fixed between c8897a3 and cbb699d (STATUS row 25). Until
+  -- now none of their vectors was RIP-relative, so the differential could not see those bugs. Each displacement
+  -- lands on the data window at 0x2000 (as `cmp_rip_q`'s does); `shld_rip_i5_l` is the control the SHLD fix
+  -- does not touch (an imm8 form already counted its immediate byte).
+  , { id := "shld_rip_cl_l", mnemonic := "shld", asm := "shldl %cl, %eax, -0x3fe007(%rip)"
+    , bytes := "0fa505f91fc0ff"
+    , instr := ⟨.dshift .shld .d (.mem { ripRel := true, disp := 0xffffffffffc01ff9 }) .rax .cl, 7⟩ }
+  , { id := "shld_rip_cl_q", mnemonic := "shld", asm := "shldq %cl, %rax, -0x3fe008(%rip)"
+    , bytes := "480fa505f81fc0ff"
+    , instr := ⟨.dshift .shld .q (.mem { ripRel := true, disp := 0xffffffffffc01ff8 }) .rax .cl, 8⟩ }
+  , { id := "shrd_rip_cl_l", mnemonic := "shrd", asm := "shrdl %cl, %eax, -0x3fe007(%rip)"
+    , bytes := "0fad05f91fc0ff"
+    , instr := ⟨.dshift .shrd .d (.mem { ripRel := true, disp := 0xffffffffffc01ff9 }) .rax .cl, 7⟩ }
+  , { id := "shrd_rip_cl_q", mnemonic := "shrd", asm := "shrdq %cl, %rax, -0x3fe008(%rip)"
+    , bytes := "480fad05f81fc0ff"
+    , instr := ⟨.dshift .shrd .q (.mem { ripRel := true, disp := 0xffffffffffc01ff8 }) .rax .cl, 8⟩ }
+  , { id := "shld_rip_i5_l", mnemonic := "shld", asm := "shldl $5, %eax, -0x3fe008(%rip)"
+    , bytes := "0fa405f81fc0ff05"
+    , instr := ⟨.dshift .shld .d (.mem { ripRel := true, disp := 0xffffffffffc01ff8 }) .rax (.imm8 5), 8⟩ }
+  , { id := "shlx_rip_d", mnemonic := "shlx", asm := "shlxl %edx, -0x3fe009(%rip), %eax"
+    , bytes := "c4e269f705f71fc0ff"
+    , instr := ⟨.shiftx .shl .d .rax (.mem { ripRel := true, disp := 0xffffffffffc01ff7 }) .rdx, 9⟩ }
+  , { id := "sarx_rip_d", mnemonic := "sarx", asm := "sarxl %edx, -0x3fe009(%rip), %eax"
+    , bytes := "c4e26af705f71fc0ff"
+    , instr := ⟨.shiftx .sar .d .rax (.mem { ripRel := true, disp := 0xffffffffffc01ff7 }) .rdx, 9⟩ }
+  , { id := "blsi_rip_d", mnemonic := "blsi", asm := "blsil -0x3fe009(%rip), %eax"
+    , bytes := "c4e278f31df71fc0ff"
+    , instr := ⟨.bitcnt .blsi .d .rax (.mem { ripRel := true, disp := 0xffffffffffc01ff7 }), 9⟩ }
   -- ══ P1 BATCH 20 ═══════════════════════════════════════════════════════
   -- THE SHAPES THIS MODEL COULD ALWAYS EXPRESS AND HAD NEVER BEEN ASKED.
   --
