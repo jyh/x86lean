@@ -209,3 +209,5 @@ Tests.AnchorsVexSilD @ku 2662681
 Tests.CoverageVexMov @ku 874362
 # D361 (V10): the NEW unit, the line ku_delta printed on refusing it at K1 (738411c → 709af7c, katmai), copied.
 Tests.AnchorsVexSilE @ku 6163927
+# D362: the NEW unit, the line ku_delta printed on refusing it at K1 (06ca21f → b45a6a8, katmai), copied.
+Tests.AnchorsShufM @ku 352020

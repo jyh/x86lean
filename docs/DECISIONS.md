@@ -23887,3 +23887,14 @@ the build's rc 1 is what showed the parser was wrong.
 exactly three fields change, all `silicon_mem_modelled`: ffmpeg 8,556 → 8,562, vpx 4,342 → 4,344, x264 1,060 → 1,063 (+11, the
 whole gap); probe forms 358 → 372. `--check` CLEAN; `docs/COVERAGE.md` changes in the `pinsrq`, `pextrd` and `pextrq` rows only.
 ⚠️ A first regeneration without `--debug` zeroed every attribution column; it was discarded, not committed.
+**Result, prediction 5 (kernel cost, K1 on katmai, `06ca21f` → `b45a6a8`, `--repeats 6`, both arms): NOT HELD on either price.**
+⛔ **The NEW unit costs more than predicted, on both arms:** `Tests.AnchorsShufM` **721 ms** (kernel_delta, ± 21.2) against
+150–600 predicted, and **352,020 ku** (ku_delta a′) against 80k–300k. Per row that is ~6,290 ku against AnchorsShuf's 2,324,
+about 2.7×: the 16-byte read-back each pin adds is most of a pin's cost, and the prediction's "may be higher" named the
+direction without pricing it. Each refusal is the NEW-unit refusal, as designed, and the unit is registered from the lines the
+tools printed: `Tests.AnchorsShufM 2163 @on katmai` and `Tests.AnchorsShufM @ku 352020`. ⚠️ `X86.Syntax` reads **+27.0 ms,
+± 38.9 at K = its band**, verdict ok, against a predicted |Δ| < 10: the point estimate is outside the prediction and the
+measurement cannot separate it from zero, so the prediction is NOT CONFIRMED rather than refuted. Its ku reading is +15 of an
+allowance of 8,654 (one field's type, no constructor), which is the sharper instrument here. Every other unit ok on both arms;
+`Tests.AnchorsShuf` +40 ms ± 36.3 and +360 ku (the ten `pextr` spellings). No yukon ceiling is registered (no yukon K1 was
+run); the runner's line comes from the PR's own kernel-delta refusal and rides in the next script-only PR.
