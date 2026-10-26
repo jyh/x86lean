@@ -23803,3 +23803,61 @@ each REFUSED as NEW and registered from the line its tool printed: `Tests.Anchor
 `Tests.AnchorsVexSilE @ku 6163927`. ⚠️ **Not predicted, and the largest price in this entry:** the unit costs about 2.5× V9b's
 `Tests.AnchorsVexSilD` (5,810 ms at katmai) for 2.8× its rows (356 against 126); D361 named no figure for it. No yukon ceiling
 is registered (no yukon K1 was run); the runner's line comes from the PR's own kernel-delta refusal, as V9a's and V9b's did.
+
+## D362 — the legacy silicon memory remainder: `pextrd`/`pextrq` to memory and `pinsrq` from m64, refereed by silicon (predictions and price before any model, row or hardware work)
+
+**Why these.** After D361 the census's silicon memory gap is **11** instructions, all legacy SSE: `pextrd` with an m32
+DESTINATION (9) and `pinsrq` from m64 (2), the forms D336 did not take (D360/D361's by-name split).
+**The referee, measured before anything was designed (P1, 2026-10-25, yukon, `oracle_availability.measure()` unmodified through a
+scratch driver, bytes from its `encode_forms`; the seat's P1 record, kept with its driver).** All four
+encodings REFUSE at 88 of 88 — `pextrd $1, %xmm0, (%rbx)` · `pextrd $3, %xmm2, (%rbx)` · `pinsrq $1, (%rbx), %xmm0` · `pinsrq $0,
+(%rbx), %xmm2` — while `CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0` executed at 88/88. ⇒ a silicon wave on D336's `shuf`
+path.
+
+**The model (no new constructor).** `pinsrq` from m64 is ALREADY modelled: `.vinsr`'s source is an `Operand` (D336), and `.q` reads
+it with `readOperand .q`. It lacks only silicon rows. `pextrd`/`pextrq` to memory is not: `.vextr`'s destination is a `GPR`. It is
+WIDENED to an `Operand`, `.vinsr`'s own idiom, rather than given a memory twin, because `X86.Syntax`'s kernel cost tracks `Op`'s
+constructor count (D343) and a field's type is nearly free there:
+- `vextr (sz : Size) (dst : Operand) (src : XmmReg) (imm : BitVec 8)`; semantics `s.writeOperand sz nr dst (vextrApply sz …)`,
+  which is `setReg sz r v false` at a register (the shipped meaning) and `writeMem sz a v` at memory, `sz.bits / 8` bytes,
+  Type 5 (no alignment requirement); an immediate destination halts as `writeOperand` already does.
+- `memOperands` names `[dst]`; `lockIllegal` is `dst.locked` (the SDM lists no lock form; a locked memory operand is `#UD`,
+  as for `.vinsr`).
+- `step_vextr` is restated at `.reg r`; a new `step_vextr_mem` states the memory write; `Tests/AnchorsShuf.lean`'s ten
+  `pextrd`/`pextrq` pins are regenerated with `(.reg .rax)` and keep their rows. `X86/Coverage.lean`: `pextrd` and `pextrq`
+  gain `m,x,i`, `pinsrq` gains `x,m,i`.
+
+**⛔ The blind spot this must not ship (D358's class).** In `shuf_ops.S` RBX = `&p->b` and XMM1 = `b`, so `pextrd $0, %xmm1,
+(%rbx)` stores b's own low dword over itself and a dropped store agrees with a performed one. ⇒ **every store row extracts from
+XMM0 = `a`**, and the two `(a, b)` pairs differ in every dword (checked by the generator, which refuses a store row whose
+expected memory equals its pre-state memory).
+
+**The rows (14 functions, 56 rows; `mk_shuf_rows.py`, expectations derived from the rules, never typed).**
+`pextrd $i, %xmm0, (%rbx)` at i ∈ {0, 1, 2, 3, 5, 0xff} · `pextrq $i, %xmm0, (%rbx)` at {0, 1, 3, 0x80} · `pinsrq $i, (%rbx),
+%xmm0` at {0, 1, 2, 0xff} — each × the two `(a, b)` pairs × the two flag sets. **Every row of the program (all 276) now also
+compares the 16 bytes at RBX after the instruction** (the probe re-reads `p->b`, as `sha_probe`/`simda_probe` do), so the 220
+D336 rows are asked not to write memory and a store is compared over all 16 bytes, never only the ones it should write.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Generator, before any processor.** A new `--refuse-wrong` refuses each of these on a named row: (a) `pextrd` to memory
+   storing 8 bytes (the lane zero-extended, as the register write is); (b) a dropped store; (c) `pextrd` selecting by `imm[2:0]`
+   (i = 5 then names no lane); (d) `pinsrq` from memory reading 4 bytes; (e) `pextrq` selecting by `imm[1:0]` (i = 3 then names a
+   dword lane). The store-row blind-spot check refuses a row built from XMM1.
+2. **Silicon.** `rows 276 disagreements 0` on every leg, both vendors, each processor NAMED; the three D336 controls behave as
+   before, and a fourth, `--plant-mem` (bit 0 of the expected memory flipped in one `pextrd` store row), gives exactly that row
+   `DIFF`, rc 1.
+3. **Model.** All 56 rows pinned by `decide` in a NEW metered unit, `Tests/AnchorsShufM.lean` (AnchorsShuf's ku allowance is
+   23.3 % × 511,292 ≈ 119k, and 56 rows at its ~2,300 ku per row would exceed it), each pin reading back RAX, XMM0 and the
+   16 bytes at 0x2000. **Red backwards on the model:** (a)'s mutant (`.d` store at `.q` width) reds exactly the `pextrd` memory
+   pins; (b)'s (memory destination writes nothing) exactly the `pextrd` and `pextrq` memory pins; (d)'s (`.vinsr .q` from memory
+   reading `.d`) exactly the `pinsrq` memory pins. The D336 pins build unchanged in meaning.
+4. **Census.** The silicon memory gap **11 → 0**; `silicon_mem_modelled` is the only field that moves, upward by 11, in
+   exactly the corpora whose split names these two mnemonics. `docs/COVERAGE.md` regenerates with the three shapes above.
+5. **Kernel cost.** `X86.Syntax` |Δ| < 10 ms at katmai (one field's type, no constructor). The NEW unit is priced from
+   AnchorsShuf's rate (1,050 ms and 511,292 ku for 220 rows): **150–600 ms at katmai and 80k–300k ku** (a store pin reads
+   memory back, so the per-row rate may be higher than D336's); registered in both registries from the lines the tools print.
+**Not claimed:** `pextrb`/`pextrw`/`pinsrb`/`pinsrw` (other mnemonics); VEX `vpextrd`/`vpinsrq` (no census demand);
+`pextrd` to a memory operand that faults (no row maps an unmapped page).
+**Price.** One day: model + the generator's new rows and `--refuse-wrong` (half), probe + hwprobe dispatch + pins + mutants (half);
+then K1/K2 on katmai and the census. Lands after D361 on the stack, one PR; the runner's ceiling line for the NEW unit rides in
+the next script-only PR (row 21's), not a PR of its own.
