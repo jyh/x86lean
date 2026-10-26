@@ -3,4 +3,5 @@
 # check_oracle_revision.sh refuse a vendor tree at any other commit. Why: docs/TACAS-G5-ARTIFACT.md §1, D218.
 # Chosen 2026-09-12 as the tree this machine has run since P0 (committed upstream 2026-09-02T06:14:00Z);
 # which tree each EARLIER differential record ran against is not recorded, and this pin does not claim to know.
-c8897a34d3efc37eb466d7ee50a2e3861c6e82db
+# D363 (2026-10-26): re-pinned from c8897a34d3ef to acl2/acl2 #2067's merge commit (the BT/BTS/BTR/BTC bit-number fix).
+cbb699d89f5c94792bcd6a8e59b3ac000ef0a71d

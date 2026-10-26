@@ -338,7 +338,9 @@ FORMS = [
     # CLEAR — the only form in the table that does — so the differential filed
     # 464 field mismatches as `spec`, i.e. as this model being wrong about a rule
     # the oracle never evaluated.
-    ("movmskps", "movmskps %xmm1, %eax",     "0f50c1",             "stalls"),
+    # ⭐ D363: EXECUTES at acl2@cbb699d (88/88), stalled 88/88 at c8897a3 on the same box: upstream
+    # baecf7219b (2026-10-18) added the missing RIP write to x86-movmskps-sse and its three siblings.
+    ("movmskps", "movmskps %xmm1, %eax",     "0f50c1",             "executes"),
     # ⭐ THE POSITIVE CONTROL — identical shape and address to `movnti`.
     ("CONTROL:mov", "movl %ecx, (%rbx)",    "890b",               "executes"),
     # ⭐ AND A SECOND CONTROL AT THIS BATCH'S OWN FORM, so a run that has stopped

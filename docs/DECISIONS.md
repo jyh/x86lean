@@ -23468,3 +23468,17 @@ pre-state) cases in 19 vectors (`cf` and the byte at `mem@…1fe0`), counted fro
 counts differ. **Not claimed:** anything about x86isa forms no vector exercises.
 **Price.** The oracle build (image + `projects/x86isa/top.cert`, ~10 min measured in docs/ORACLE-SETUP.md) and two
 differential runs; one PR with no `.lean` under `X86/` or `Tests/` (`Main.lean` is the harness).
+**Addendum, before any differential run (2026-10-26 00:5x): the span is not one fix, and the first gate says so.** The control
+run stopped before the differential, at the availability gate: `movmskps %xmm1, %eax` is declared `stalls` (D170) and measured
+**executes 88 of 88** at `cbb699d`, the only one of 207 forms whose status moved. Re-measured with one driver against both trees on
+this box, varying only `ACL2`: **`c8897a3` stalls 88/88, `cbb699d` executes 88/88**, `CONTROL:mov` and `pmovmskb` executing on both.
+Attributed upstream: `baecf7219b` (2026-10-18, "[X86ISA] Add some missing RIP advancements") adds the RIP write to
+`x86-movmskps-sse`, `x86-movmskpd-sse`, `x86-vmovmskps-vex` and `x86-vmovmskpd-vex` — D170's "x86isa leaves RIP unadvanced with
+its refused flag clear" was exactly this. ⇒ **Prediction 3 is withdrawn as written.** The forge lists 20 commits touching
+`books/projects/x86isa` in the span, among them semantic fixes to POP r/m (`a74ed4e5a6`, `56e007a9f5`), SHLD/SHRD (`2a9f97eb37`),
+BLSI (`cc1780b78d`), SARX/SHLX/SHRX (`520d2c1abd`), POP segreg (`4c539dc814`), RIP advancement in four books (`baecf7219b`,
+`c415764a40`, `8098725138`, `f6cf9d9eed`) and the BT fix's own commit (`babde610ed`). **Replaced by:** the control run is a
+CENSUS of the span — every entry that goes stale and every new disagreement is filed with the upstream commit that explains it,
+read from that commit's diff, before any declaration is changed; prediction 2's figures are re-derived from that census and
+recorded before the deletion run. The `movmskps` declaration moves to `executes` on this measurement now, because the gate
+refuses to run otherwise.
