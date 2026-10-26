@@ -1,8 +1,8 @@
 # x86lean
 
 A **user-level x86-64 ISA semantics in Lean 4** ([`X86/`](X86/)) — definitional,
-executable, kernel-checked, and differentially validated against public executable models
-and (from P1) against real hardware. Built from **public sources only** and
+executable, kernel-checked, and differentially validated against ACL2 x86isa; no hardware
+co-simulation has been run ([`TRUSTBASE.md`](TRUSTBASE.md)). Built from **public sources only** and
 licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 
 See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
