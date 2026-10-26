@@ -23590,3 +23590,15 @@ prediction did not name:** `--p2` refused on `REFUTED_BY_MEASUREMENT`, the D170/
 `docs/P2-ROSTER.md` regenerated: the oracle STALLS 3 mnemonics / 243 instructions → 0, and EXECUTES 138 → 141. All gates and
 their selftests rc 0 (`oracle_availability` plain, `--selftest`, `--p2`; `check_driver_cr4` and `--selftest`; `p2_roster
 --check` and `--selftest`; `claimed_forms --remaining`).
+**Result, predictions 3 and 4 (the differential at `cbb699d`): HELD, and the silence is a coverage finding, not an absence.**
+`cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=820`, identical in every counter to D363's
+`babde610ed` run: no new disagreement, no stale declared divergence. ⚠️ **Why nothing moved, read from the upstream diffs and
+the vector file, not assumed:** the span's semantic fixes are to RIP-relative address computation (`2a9f97eb37` SHLD/SHRD: the CL
+forms' immediate-byte count when computing a RIP-relative address; `520d2c1abd` SARX/SHLX/SHRX and `cc1780b78d` BLSI: the
+displacement's RIP increment), instruction-length checks (`a74ed4e5a6`, `520d2c1abd`, `cc1780b78d`) and fault-time state
+(`56e007a9f5` POP r/m, `4c539dc814` POP segreg). In `Tests/Vectors.lean` every one of those mnemonics has vectors — shld 15,
+shrd 12, pop 5, blsi/sarx/shlx/shrx 4 each — and **none is RIP-relative** (10 vectors in the whole file are), and no vector
+faults. ⇒ **The differential could not have seen any of these upstream bugs at the old pin.** That is a gap in what the vectors
+ask, recorded as STATUS row 25: RIP-relative memory forms of these mnemonics, which should DISAGREE with x86isa at `c8897a3`
+(where a CL-count `shld`/`shrd` with a RIP-relative destination is addressed as if an imm8 followed) and agree at `cbb699d`. The `movmskps` move changes nothing here because no
+differential vector carries it (it was silicon-refereed while the oracle stalled).

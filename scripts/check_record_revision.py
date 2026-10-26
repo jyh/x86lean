@@ -30,6 +30,8 @@ PRIOR_PINS = {
     "c8897a34d3efc37eb466d7ee50a2e3861c6e82db":   # D218, 2026-09-12 .. D363, 2026-10-26
         [f"DIFFERENTIAL-P2-BATCH{n}.md" for n in range(23, 43)]
         + ["DIFFERENTIAL-V3.md", "REFERENCE-PIN-RUN-2026-09-12.md"],
+    "babde610ed66311a80073b98e5efda3f03a61795":   # D363 .. D365, 2026-10-26
+        ["REFERENCE-PIN-RUN-2026-10-26.md"],
 }
 
 # The records that predate the pin (D218). Bounds, not a pattern: P0, P1 batches 1-21, P2 batches 1-22.
