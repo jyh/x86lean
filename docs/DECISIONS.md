@@ -23492,3 +23492,15 @@ touching `books/projects/x86isa`, none semantic by its title: `9a31d62d86` (usel
 `a213cdc218` (proof-speed changes). The `movmskps` edit is reverted. **Predictions 1 and 2 stand as written; prediction 3 is
 restored for THIS span** (four non-semantic commits plus the fix). The move to `testing` (`cbb699d` and later) is a separate item
 with a stall-control redesign; its certified tree is kept beside this one.
+**Result, prediction 1 (the control, `babde610ed` with the 29 entries present): HELD exactly.** `cases=128040 matched=104719
+explained=34047 unexplained=0 oracle-divergence=820`, and the run refuses (rc 1) on "DECLARED ORACLE DIVERGENCES THAT DID NOT
+OCCUR": exactly the 29 D331 entries, each at every state it names, and no other entry.
+**Baseline, measured to score prediction 2 (same tree and vectors, the OLD pin `c8897a3` through `check_oracle_revision.sh`'s
+`ORACLE_REV_FILE`/`ACL2_DIR` overrides and `ACL2`):** `cases=128040 matched=104719 explained=34047 unexplained=0
+oracle-divergence=1144`, rc 0. ⇒ **Prediction 2 NOT HELD as written, and the magnitude held in another counter.** Between the
+two oracles `matched` and `explained` are IDENTICAL; the only figure that moves is `oracle-divergence`, **1,144 → 820, exactly
+−324** — D331's 324 excusals. I named the wrong counters: this harness files a declared oracle divergence under
+`oracle-divergence`, not `explained`, and a case whose only disagreement is one counts toward `matched` at both pins.
+**Re-derived for the deletion run, recorded before it:** with the 29 entries deleted at `babde610ed` the figures are the
+control's exactly — `cases=128040 matched=104719 explained=34047 unexplained=0 oracle-divergence=820` — and rc 0 (no stale
+entry). Wrong if any figure differs.
