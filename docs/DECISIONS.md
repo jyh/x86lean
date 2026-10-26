@@ -23861,3 +23861,29 @@ D336 rows are asked not to write memory and a store is compared over all 16 byte
 **Price.** One day: model + the generator's new rows and `--refuse-wrong` (half), probe + hwprobe dispatch + pins + mutants (half);
 then K1/K2 on katmai and the census. Lands after D361 on the stack, one PR; the runner's ceiling line for the NEW unit rides in
 the next script-only PR (row 21's), not a PR of its own.
+**Result, prediction 1 (generator, step (a), `465c2cb`): HELD.** 276 rows over 55 functions (220 D336 rows unchanged field
+for field, each now also expecting the 16 bytes at [RBX] untouched; 56 new). `--refuse-wrong` refuses 6 of 6 on named rows:
+(a) `pextrd_mr_i0_p1` (24 rows) · (b) dropped store, `pextrd_mr_i0_p1` (24) and `pextrq_mr_i0_p1` (16) · (c) `pextrd_mr_i5_p1`
+(8) · (d) `pinsrq_rm_i0_p1` (16) · (e) `pextrq_mr_i1_p1` (8). No store row equals its pre-state memory (the generator's own
+refusal did not fire). Under Rosetta 2 (a translation, not silicon): 276/0, each of the four controls on its row.
+**Result, prediction 2 (silicon, hwprobe runs 40267603865 (push) and 40267766296 (re-dispatch for an AMD leg), `b45a6a8`):
+HELD on four legs, both vendors, each NAMED by `/proc/cpuinfo` or the brand string.** Intel Core i7-8700B: 276/0 on both runs.
+Intel Xeon Platinum 8573C (ubuntu-latest, the push run, so it had no AMD leg): 276/0. **AMD EPYC 7763** (the re-dispatch,
+CPUID.01.ECX `feda3203`): 276/0. On every leg: plant rc 1 on `pshufb_rr_a1_ident`, badop rc 2, zx rc 1 on `pextrd_rr_i1_p1`,
+**mem rc 1 on exactly `pextrd_mr_i1_p1`**, and `--refuse-wrong` 6 of 6.
+**Result, prediction 3 (model, `b848c4f`): HELD, with one thing the prediction did not name.** `.vextr`'s destination is an
+`Operand`; `step_vextr` restated at `.reg`, `step_vextr_mem` added; no new constructor. `Tests/AnchorsShufM.lean` (NEW unit)
+pins all 56 rows in 14 theorems; the 220 D336 pins keep their rows (only the ten `pextr` instruction spellings moved to
+`(.reg .rax)`). Full build of X86, Tests and x86lean-diff: the wrapper's audit line reads `EXIT=0`, 0 tagged errors, no warning
+on a changed line. **Red backwards**, each mutant built and `X86/Semantics.lean` restored (`cmp`-verified): ⭐ **not predicted:
+(a) and (b) are each caught FIRST by `step_vextr_mem`**, which states the store's width and bytes, so with the theorem in place
+the build never reaches the pins. To measure the pins on their own, that one proof was set to `sorry` inside the mutant only
+(restored with it): (a) the `.d` store at `.q` width reds exactly the six `pextrd` memory pin theorems; (b) the dropped store
+the six `pextrd` and four `pextrq` ones; (d) `pinsrq` from memory reading `.d` (theorem untouched) exactly the four `pinsrq`
+ones. No D336 pin reds under any of them. ⚠️ A harvest defect on the way: the first mutant pass counted ZERO red pins under
+(d), because its parser matched only the `path: error` order and lake prints `error: path` (the fleet map's two-order trap);
+the build's rc 1 is what showed the parser was wrong.
+**Result, prediction 4 (census, regenerated from `~/x86lean-corpus` with its debug tree): HELD exactly.** Against D361's census
+exactly three fields change, all `silicon_mem_modelled`: ffmpeg 8,556 → 8,562, vpx 4,342 → 4,344, x264 1,060 → 1,063 (+11, the
+whole gap); probe forms 358 → 372. `--check` CLEAN; `docs/COVERAGE.md` changes in the `pinsrq`, `pextrd` and `pextrq` rows only.
+⚠️ A first regeneration without `--debug` zeroed every attribution column; it was discarded, not committed.
