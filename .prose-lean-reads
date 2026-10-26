@@ -1,9 +1,9 @@
 # a claim record: id, path, claim-sha12, lean-decl (<tracked .lean path>::<name>), stmt-sha12, author, reader, date  -- see scripts/check_prose_lean.py
-o88-2026-10-26-001	README.md	b6e854137070	X86/Semantics.lean::step	0c38c21a856f	paper	math	2026-10-26
+o88-2026-10-26-001	README.md	82516bcd4fd5	X86/Semantics.lean::step	0c38c21a856f	paper	math	2026-10-26
 o88-2026-10-26-002	README.md	7287b3eb7e6a	X86/Semantics.lean::step	0c38c21a856f	paper	math	2026-10-26
 o88-2026-10-26-003	README.md	3775ec35ffcc	Tests/Coverage.lean::roster_covered_by_table	5a870eb99af8	paper	math	2026-10-26
 o88-2026-10-26-004	README.md	3842c191e749	X86/Theorems.lean::step_and_reg_reg	60393937ac27	paper	math	2026-10-26
 o88-2026-10-26-005	README.md	60f97ce4f76b	Tests/Nonvacuity.lean::and_af_undefined	c681fd03f247	paper	math	2026-10-26
 o88-2026-10-26-006	README.md	eae0e69e5704	Tests/Nonvacuity.lean::and_af_undefined	c681fd03f247	paper	math	2026-10-26
-o88-2026-10-26-007	README.md	7e19d1e730ee	X86/Coverage.lean::Tier	fba6e0b41d42	paper	math	2026-10-26
+o88-2026-10-26-007	README.md	f5967466a2e8	X86/Coverage.lean::Tier	fba6e0b41d42	paper	math	2026-10-26
 o88-2026-10-26-008	README.md	e1c4222ab2f4	X86/Logic.lean::step	8ba85c0cd1cf	paper	math	2026-10-26
