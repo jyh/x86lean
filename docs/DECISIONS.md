@@ -23546,7 +23546,7 @@ ever known to stall all execute, and the branch has no live input: it could be d
 **The row.** `jmp .` (`eb fe`) leaves RIP where it began by CORRECT semantics, refusal clear. **Measured before the edit**, one
 driver over `oracle_availability.measure()` unmodified: `stalls` 88/88 at acl2 `c8897a3`, `babde610` and `cbb699d`, with
 `CONTROL:mov` and `pmovmskb` executing at each. Added beside `movmskps` (not replacing it) as `STALL:jmpself` in
-`oracle_availability.py`'s FORMS (and `NOT_AN_AVAILABILITY_QUESTION`, because its verdict is about the operand, not `jmp`) and in
+`oracle_availability.py`'s FORMS and in
 `check_driver_cr4.py`'s FORMS, declared `stalls` under both CR4 arms (it is not an SSE form).
 **Result at the current pin (`c8897a3`):** both gates and both selftests rc 0; `STALL:jmpself` reads stalls 88/88 and stalls/stalls.
 `p2_roster --check` and `claimed_forms --remaining` CLEAN (the row moves no availability answer). **Red backwards:** with
@@ -23555,6 +23555,10 @@ driver over `oracle_availability.measure()` unmodified: `stalls` 88/88 at acl2 `
 ⚠️ **Measured on the way, as a defect of mine:** an ACL2 tree renamed on disk does not run in place. Its `saved_acl2` launcher names
 the core by absolute path, so a renamed `cbb699d` tree ran the `babde610` core sitting at the original path and read `movmskps`
 as stalling; caught because it contradicted the first reading. The `cbb699d` figures above come from that tree at its own path.
+**Correction (same day, found by D365's run):** the first version also put `STALL:jmpself` in `NOT_AN_AVAILABILITY_QUESTION`.
+That table is keyed on `P2_FORMS` labels, and FORMS never feeds the availability answer, so the entry excluded nothing and
+`p2_roster.py --selftest` refused it as an ORPHAN — a selftest I had not run on this branch. Removed; `p2_roster --selftest`
+re-run.
 
 ## D365 — the oracle moved to acl2 `testing` (`cbb699d`): a census of what the span changes, filed by upstream commit (predictions before the oracle is built; STATUS row 24, step 2)
 
