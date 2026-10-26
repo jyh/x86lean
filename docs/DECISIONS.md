@@ -23555,3 +23555,25 @@ driver over `oracle_availability.measure()` unmodified: `stalls` 88/88 at acl2 `
 ⚠️ **Measured on the way, as a defect of mine:** an ACL2 tree renamed on disk does not run in place. Its `saved_acl2` launcher names
 the core by absolute path, so a renamed `cbb699d` tree ran the `babde610` core sitting at the original path and read `movmskps`
 as stalling; caught because it contradicted the first reading. The `cbb699d` figures above come from that tree at its own path.
+
+## D365 — the oracle moved to acl2 `testing` (`cbb699d`): a census of what the span changes, filed by upstream commit (predictions before the oracle is built; STATUS row 24, step 2)
+
+*(Stacked on D363 and D364.)*
+**Why.** D363 pinned the BT fix's own commit to keep that item one change. The rest of the span to `testing`'s merge of it,
+`babde610ed..cbb699d89f`, carries the x86isa commits the forge lists between them (D363's first addendum): POP r/m
+(`a74ed4e5a6`, `56e007a9f5`), SHLD/SHRD (`2a9f97eb37`), BLSI (`cc1780b78d`), SARX/SHLX/SHRX (`520d2c1abd`), POP segreg
+(`4c539dc814`), RIP advancement (`baecf7219b` movmskps/movmskpd SSE and VEX; `c415764a40` bcd; `8098725138` emms; `f6cf9d9eed`
+push-and-pop), and non-semantic ones (XDOC, comments, proof speed, a merge from testing-kestrel). D364 gave the stall branches a
+live input that survives the move.
+**The act.** Pin `cbb699d89f5c94792bcd6a8e59b3ac000ef0a71d`; build the oracle in this tree; run the gates and the differential;
+for every refusal or disagreement, read the upstream commit that explains it before changing any declaration.
+**Predictions:**
+1. **Availability gate:** refuses on `movmskps` alone (measured at D363: executes 88/88 at `cbb699d`, the only one of 207 forms
+   to move); `STALL:jmpself` reads stalls. Declaration moved to `executes`, citing `baecf7219b`.
+2. **CR4 gate:** refuses on `STALL:movmskps`'s ON arm alone (executes), OFF still refuses (SSE without OSFXSR); `STALL:jmpself`
+   stalls/stalls. Row moved, citing `baecf7219b`; `jmpself` stays the stall control.
+3. **Differential:** `unexplained=0` OR every new disagreement and every stale declared divergence is in a mnemonic one of the
+   semantic commits above touches (pop · shld/shrd · blsi · sarx/shlx/shrx · movmsk* · emms · bcd forms · push/pop). **Anything
+   else is a finding** about an upstream change the commit titles do not name.
+4. The 1,150 → 820 of D363 does not move unless (3) names why.
+**Not claimed:** upstream changes no vector exercises.
