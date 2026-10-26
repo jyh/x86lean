@@ -92,22 +92,9 @@ e74be28eeeed	paper/x86lean-semantics.tex	lexicon-e2
 e8f9f0485ea9	paper/x86lean-semantics.tex	lexicon-e2
 ebfd3ade293b	paper/x86lean-semantics.tex	lexicon-e2
 # lexicon epoch 3 (R2, council 2026-10-22 item 3): Lean docstring claim sentences, gated from epoch 3 and accepted as debt by the WIDENING arm; class docstring-cited marks a declaration a public carrier names (read those first).
-adaa5a1af460	Tests/Anchors.lean	docstring
-d4a793902cc8	Tests/Anchors.lean	docstring
 8afffbccd381	Tests/AnchorsVexSilC.lean	docstring
 fcd4a5cb0de5	Tests/AnchorsVexSilC.lean	docstring
 25127b2cf11f	Tests/Coverage.lean	docstring
-2fef6b564190	Tests/Coverage.lean	docstring-cited
-5c4f3906a252	Tests/Coverage.lean	docstring
-73f6757de965	Tests/Logic.lean	docstring-cited
-917dade72735	Tests/LogicKit.lean	docstring-cited
-9e5da1649b3e	Tests/LogicKit.lean	docstring-cited
-09f3dc507f99	Tests/LogicRead.lean	docstring
-1911a50da4a3	Tests/Nonvacuity.lean	docstring
-5cdd99e4e4a6	Tests/Program.lean	docstring
-6bd561e7cd7f	Tests/Program.lean	docstring
-8204c7b54aba	Tests/Program.lean	docstring
-cfa3287f2230	Tests/Program.lean	docstring
 2589573ddebb	X86/Basic.lean	docstring-cited
 d92dbeece808	X86/Logic.lean	docstring
 026cbfa7995b	X86/Program.lean	docstring
