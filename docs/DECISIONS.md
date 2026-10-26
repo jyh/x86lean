@@ -23581,3 +23581,12 @@ for every refusal or disagreement, read the upstream commit that explains it bef
    else is a finding** about an upstream change the commit titles do not name.
 4. The 1,150 → 820 of D363 does not move unless (3) names why.
 **Not claimed:** upstream changes no vector exercises.
+**Results, predictions 1 and 2 (gates at `cbb699d`, before any declaration moved): HELD exactly.** The availability gate refused
+on `movmskps` alone (executes 88/88); the CR4 gate on `STALL:movmskps`'s ON arm alone (OFF refuses, ON executes); `STALL:jmpself`
+stalls in both. Declarations moved citing `baecf7219b`; the CR4 row becomes an ordinary SSE row. **And a third gate the
+prediction did not name:** `--p2` refused on `REFUTED_BY_MEASUREMENT`, the D170/D177 table overriding P2's declarations for
+`movmskps`, `vmovmskps_v` and `emms` to `stalls`. Measured at `cbb699d` by `--p2`: `emms` executes/executes, `movmskps` and
+`vmovmskps_v` refuses/executes — P2's ORIGINAL declarations. All three refutations retired (the table is empty, with a note);
+`docs/P2-ROSTER.md` regenerated: the oracle STALLS 3 mnemonics / 243 instructions → 0, and EXECUTES 138 → 141. All gates and
+their selftests rc 0 (`oracle_availability` plain, `--selftest`, `--p2`; `check_driver_cr4` and `--selftest`; `p2_roster
+--check` and `--selftest`; `claimed_forms --remaining`).

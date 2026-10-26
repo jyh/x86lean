@@ -338,7 +338,9 @@ FORMS = [
     # CLEAR — the only form in the table that does — so the differential filed
     # 464 field mismatches as `spec`, i.e. as this model being wrong about a rule
     # the oracle never evaluated.
-    ("movmskps", "movmskps %xmm1, %eax",     "0f50c1",             "stalls"),
+    # ⭐ D365: EXECUTES at acl2 cbb699d (88/88); it stalled through babde610 because x86isa lacked its RIP
+    # write, added upstream in baecf7219b (2026-10-18). `STALL:jmpself` below is now the stall branch's input.
+    ("movmskps", "movmskps %xmm1, %eax",     "0f50c1",             "executes"),
     # ⭐ STATUS row 24 (2026-10-26): A STALL THAT IS NOT A DEFECT. A jump to itself leaves RIP where it began
     # by CORRECT semantics, refusal clear: measured `stalls` 88/88 at acl2 c8897a3, babde610 and cbb699d.
     # `movmskps` stalls only because x86isa lacked its RIP write (fixed upstream, baecf7219b), so once the
@@ -2379,23 +2381,12 @@ def forms_vs_p2forms_check(forms=None, p2forms=None, refuted=None, quiet=False):
 # ([[feedback-a-positional-index-bets-the-record-wont-grow]]).  Fields are named
 # so the next arm added here cannot repeat it.
 Refutation = collections.namedtuple("Refutation", "e0 e1 why")
-REFUTED_BY_MEASUREMENT = {
-    "movmskps": Refutation("refuses", "stalls",
-        "D170 2026-09-06: 88/88 readings, RIP never advanced from ENTRY_RIP with "
-        "the refusal flag CLEAR. Re-measured D177 2026-09-08 by the repaired "
-        "three-valued `measure_cr4` in a run that also produced `refuses` and "
-        "`executes`, so the classifier was not stuck on one value."),
-    "vmovmskps_v": Refutation("refuses", "stalls",
-        "D177 2026-09-08: THE SIBLING D170 NEVER RULED ON. Same movmsk shape "
-        "(writes a GPR, not a vector register). Found by asking for it directly "
-        "rather than by any gate."),
-    "emms": Refutation("stalls", "stalls",
-        "D177 2026-09-08: FOUND ONLY BY THE FULL 267-ROW SWEEP, not by the "
-        "four-form probe that confirmed the other two — which is why the sweep "
-        "was run. Declared (executes, executes) and stalls under BOTH CR4 arms. "
-        "It sits in NOT_AN_AVAILABILITY_QUESTION, so it moves no availability "
-        "answer; its DECLARATION was still false and nothing had asked."),
-}
+# ⭐ D365 (2026-10-26): ALL THREE RETIRED, each by an upstream fix, re-measured at acl2 cbb699d rather than assumed.
+# `movmskps` and `vmovmskps_v` stalled because x86isa lacked their RIP write (added in baecf7219b, 2026-10-18);
+# `emms` likewise (8098725138, 2026-10-17). Their D170/D177 readings were true at c8897a3 and babde610, and the
+# history is in docs/DECISIONS.md D170, D177 and D365. An empty table is the state of the oracle, not a deletion
+# of the rule: a new refutation is added here the day a measurement contradicts a declaration again.
+REFUTED_BY_MEASUREMENT = {}
 
 
 def measured_availability():

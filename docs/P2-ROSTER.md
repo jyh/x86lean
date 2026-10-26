@@ -180,9 +180,9 @@ enabled and x86isa raised #UD exactly as hardware would. Setting
 
 | | mnemonics | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 138 | 96,179 | 27.8% |
+| the oracle EXECUTES | 141 | 96,422 | 27.9% |
 | the oracle REFUSES | 82 | 217,162 | 62.8% |
-| the oracle STALLS | 3 | 243 | 0.1% |
+| the oracle STALLS | 0 | 0 | 0.0% |
 | **probed so far** | 223 | **313,584** | **90.7%** |
 
 ⛔ **STALLS IS A THIRD ROW AND NOT A SHADE OF REFUSES** (D177). x86isa leaves RIP
@@ -190,7 +190,7 @@ unadvanced with its refusal flag CLEAR, so the form neither refuses nor runs; it
 cannot be differentially tested, and a roster row here means differentially
 tested. It was published as REFUSES until this row existed, which is wrong about
 the machine, and before that as EXECUTES, which invented buildable work. The
-3 stalling mnemonic(s): `emms`, `movmskps`, `vmovmskps`.
+0 stalling mnemonic(s): `(none)`.
 
 ⛔⛔ **AND THAT IS NOT THE COVERAGE NUMBER.** A mnemonic gets one verdict, so the
 table above carries a mnemonic's WHOLE demand on a reading taken at ONE of its
@@ -202,9 +202,9 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 66 | 86,443 | 25.0% |
+| the oracle EXECUTES | 69 | 86,684 | 25.1% |
 | the oracle REFUSES | 88 | 169,877 | 49.2% |
-| the oracle STALLS | 3 | 241 | 0.1% |
+| the oracle STALLS | 0 | 0 | 0.0% |
 | **probed so far** | 157 | **256,561** | **74.2%** |
 | not asked at its own bucket | | 88,882 | 25.7% |
 

@@ -113,7 +113,9 @@ FORMS = [
     # SEALED PREDICTION here (refuses, on the OSFXSR #UD gate), scored below.
     # It earns its place the way CONTROL:movnti does: without it the `stalls`
     # branch is never taken and could be deleted without a single arm going red.
-    ("STALL:movmskps", "movmskps %xmm1, %eax", "0f50c1", "refuses", "stalls"),
+    # D365: at acl2 cbb699d `movmskps` EXECUTES with CR4.OSFXSR set (upstream baecf7219b added its RIP write) and
+    # still refuses without it, so it is an ordinary SSE row now; `STALL:jmpself` is the stall control.
+    ("movmskps",       "movmskps %xmm1, %eax", "0f50c1", "refuses", "executes"),
     # ⭐ STATUS row 24: the stall control that does not depend on an x86isa defect. `jmp .` leaves RIP where it
     # began by correct semantics under BOTH arms (it is not an SSE form, so OSFXSR does not touch it); measured
     # 88/88 `stalls` at three acl2 pins. `movmskps` stops stalling once the pin passes upstream baecf7219b.
