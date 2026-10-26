@@ -174,8 +174,8 @@ jobs:
       # thing that makes sharding safe: it fails if shards 1..N do not name every
       # arm exactly once.  Sharding a coverage gate is how a coverage gate
       # silently stops covering, and this is what stands in the way of that.
-      - name: Shard partition gate (shards 1..10 name every selftest arm exactly once)
-        run: lake env .lake/build/bin/x86lean-diff selftest-shards 10
+      - name: Shard partition gate (shards 1..20 name every selftest arm exactly once)
+        run: lake env .lake/build/bin/x86lean-diff selftest-shards 20
 
       # ⛔⛔ D226: WHAT THE SHARDING DROPPED, RESTORED. Until 289a330 (D92, 09/04) this job ran
       # `x86lean-diff selftest` with no argument, and that command runs the arms AND THEN two
@@ -760,7 +760,13 @@ jobs:
       # pull_request run, and none ever cancels a master run (the paragraph above `jobs:`).
       max-parallel: 5
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # 20, not 10 (2026-10-26, STATUS row 23): measured per arm on master's run 40194035579 (208 arms,
+        # 35.3 arm-hours), the stride split over 10 put 4.81 h on shard 2; over 20 the slowest shard is
+        # 2.77 h. A runner ~1.6x slow (#132's run 40208935351) took shard 2 past GitHub's 360-min job limit.
+        # Shards run 5 at a time here, so the count is chosen for WALL CLOCK too: simulated at 5 slots
+        # (10 min per job for checkout and harness start) 20 shards take ~8.0 h, as 10 do, while 11 take
+        # ~9.7 h (a third round). A reading of today's arms: a new expensive arm can move it again.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
@@ -770,8 +776,8 @@ jobs:
           test: false
       - name: Build the differential executable
         run: lake build x86lean-diff
-      - name: "Harness selftest shard ${{ matrix.shard }} of 10"
-        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 10
+      - name: "Harness selftest shard ${{ matrix.shard }} of 20"
+        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 20
 
   # ⭐⭐⭐ THE KERNEL-TIME DELTA GATE (D123), REGISTERED HERE BY THE HELM'S RULING
   # OF 2026-09-04 21:42: *"the absolute ceilings are retired as a MERGE GATE …
