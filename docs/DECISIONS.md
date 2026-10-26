@@ -23634,7 +23634,8 @@ control disagrees at either pin; anything disagrees at `cbb699d`.
    106,589 → 106,775.
 3. **HELD in its delta, NOT in its base:** `check_encodings.py` CLEAN at **1,478 → 1,486** forms (master's tree at
    `paris/stall-jmpself`, then this one); +8 as predicted, but the base I wrote, 1,501, was not master's count, and I do not
-   know where it came from.
+   know where it came from. *(Found the same day: 1,501 is `check_encodings.py`'s count at the D356–D362 stack's tip
+   `bfb17a0`, the tree I had open, which carries 23 forms master does not.)*
 ⇒ The differential does see real upstream bugs when a vector reaches them: three classes x86isa fixed after `c8897a3` (the
 phantom imm8 in SHLD/SHRD's RIP-relative address, and the RIP-relative length in SARX/SHLX/SHRX and BLSI) read as 694
 `spec` disagreements at the old pin and as none at the new one. These vectors therefore land only on top of D365's pin.
