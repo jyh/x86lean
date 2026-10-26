@@ -23622,3 +23622,19 @@ constructor with an `Ea` whose `ripRel` is set.
 3. Encoding cross-check CLEAN (the assembler's bytes are the derived ones); vectors 1,501 → 1,509 on master's count.
 **Wrong if:** a CL vector agrees at `c8897a3` (then that fix is not reachable this way and the row's premise fails for it); the
 control disagrees at either pin; anything disagrees at `cbb699d`.
+**Readings (2026-10-26; the same eight vectors, one tree per pin, 130,768 cases each):**
+1. **HELD at `c8897a3`** (branch `paris/d366-rip-vectors`, off master): `unexplained=694`, all class `spec`, every one in
+   the eight new vectors (each vector's records compared alone: `shld_rip_cl_l` 106 · `shld_rip_cl_q` 114 · `shrd_rip_cl_l`
+   92 · `shrd_rip_cl_q` 118 · `shld_rip_i5_l` **0** · `shlx_rip_d` 88 · `sarx_rip_d` 88 · `blsi_rip_d` 88; sum 694).
+   The CL forms differ in memory at the data window and in flags; each matches only at the pre-states where the result does
+   not depend on the address. The control agrees. The field not predicted for `shlx`/`sarx`/`blsi` is **`rip` alone**, one per
+   case: the oracle ends at `0x400005` where the instruction is 9 bytes (`0x400009`), so the old x86isa leaves the 4-byte
+   displacement out of the instruction length, while the value it reads agrees. `oracle-divergence=1150` is master's.
+2. **HELD at `cbb699d`** (this branch, D365 + these vectors): `unexplained=0`, `oracle-divergence=820` (D365's), matched
+   106,589 → 106,775.
+3. **HELD in its delta, NOT in its base:** `check_encodings.py` CLEAN at **1,478 → 1,486** forms (master's tree at
+   `paris/stall-jmpself`, then this one); +8 as predicted, but the base I wrote, 1,501, was not master's count, and I do not
+   know where it came from.
+⇒ The differential does see real upstream bugs when a vector reaches them: three classes x86isa fixed after `c8897a3` (the
+phantom imm8 in SHLD/SHRD's RIP-relative address, and the RIP-relative length in SARX/SHLX/SHRX and BLSI) read as 694
+`spec` disagreements at the old pin and as none at the new one. These vectors therefore land only on top of D365's pin.
