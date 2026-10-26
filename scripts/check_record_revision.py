@@ -28,7 +28,7 @@ LOOSE = re.compile(r"reference-model:")
 # D363: earlier pins, each with the records that ran under it. Explicit lists, as for the exemption below.
 PRIOR_PINS = {
     "c8897a34d3efc37eb466d7ee50a2e3861c6e82db":   # D218, 2026-09-12 .. D363, 2026-10-26
-        [f"DIFFERENTIAL-P2-BATCH{n}.md" for n in range(23, 42)]
+        [f"DIFFERENTIAL-P2-BATCH{n}.md" for n in range(23, 43)]
         + ["DIFFERENTIAL-V3.md", "REFERENCE-PIN-RUN-2026-09-12.md"],
 }
 

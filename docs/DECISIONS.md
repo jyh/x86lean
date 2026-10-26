@@ -23525,3 +23525,10 @@ CLEAN, 107 of 107), but on master after this lands the file it names pins `babde
 Captain's arXiv click, so this is filed, not edited.
 **Not done here:** the move to acl2 `testing` (`cbb699d` and later; at least `movmskps`, `vmovmskps` and `emms` stop stalling,
 and two gates lose their only stall input) — a separate item.
+**Rebased onto master `066dab0` (after #132, D355), and the figures above are of the PRE-REBASE tree.** D355 added a 30th entry
+with the same x86isa rule: `btr_gs_q`'s byte at `mem@…1fe0`, reached through `%gs:`, at `btr_mr_q`'s six states (D355's own
+note: "found by the run, not predicted"). The rebase deletes it with D331's 29, and `PRIOR_PINS` gains `DIFFERENTIAL-P2-BATCH42.md`
+(D355's record, at `c8897a3`). **Re-derived for the rebased tree, before either run** (the baseline is D355's last run on this
+tree at the old pin, `cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=1150`): the control (entries
+present, `babde610ed`) reports exactly the 30 entries stale and `oracle-divergence=820` (1,150 − 330), everything else equal; the
+deletion run reads `cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=820`, rc 0.
