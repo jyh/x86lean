@@ -23461,3 +23461,26 @@ counted" arms still pass under that mutant, because a Python fixture is visible 
 measured on katmai and recorded on yukon, read `BOX yukon…` (math's catch on #138). `stamp_rows()` now gives a gate row
 the box from its own readings file, and a backfill row (whose walk ran on the writer) the writer's. Red backwards:
 restoring the writer's stamp reds exactly the new arm. Past rows are not rewritten.
+
+## D367 — the census credits LOCK-prefixed forms through a lockable set DERIVED from `Op.lockable`, the cheaper build its own refusal names (predictions before any code; STATUS row 26)
+
+**Why.** `demand_census.py`'s `EXT_SCOPE` keeps the LOCK bucket `False` on purpose: the model's lock legality is per FORM
+(`Op.lockable`), the tool had no model-derived route to it, and copying the SDM's list into the script would be a
+fourth hand-kept list. Its comment names the remedy: export the predicate into a generated artifact. This unit does that.
+`x86lean-diff coverage` gains a section listing every mnemonic that has a vector whose `Op` is `lockable`. The list is
+computed from the vectors, so it names only forms the differential runs. The census credits a LOCK-prefixed instruction
+as covered when its roster name is in the model and in that list, and refuses it otherwise.
+Measured at master `d4b7c00` before any code: the LOCK residue is **9,939** instructions over 28 printed spellings, which
+map to 11 roster names (`add` `and` `btr` `bts` `cmpxchg` `dec` `inc` `or` `sub` `xadd` `xor`); `xaddl` alone is 2,441, of
+which 2,383 are in vmlinux.
+**Predictions (each wrong if the named reading differs):**
+1. The derived list is exactly `add and btc btr bts cmpxchg cmpxchg8b dec inc neg not or sub xadd xchg xor` (16). `adc`
+   and `sbb` are absent because they have no memory-destination vector; `cmp`, `test`, `bt` and `mov` are absent because
+   `lockable` refuses them.
+2. The census's LOCK residue goes 9,939 → **0**, and the covered total rises by exactly 9,939. Every column's other
+   buckets, and the silicon and VEX columns, are unchanged; conservation holds.
+3. The selftest's refusal arm moves from `lock addq` (now credited) to a form `lockable` refuses (`lock movq`), and it is
+   refused. A mutant that credits LOCK by mnemonic alone (ignoring the list) is caught by that arm.
+**Wrong if:** any of the 11 demand names is missing from the list (then the model lacks that locked form and its
+instructions stay in the residue, which is the honest outcome); the list contains a name `lockable` refuses; any other
+figure moves.
