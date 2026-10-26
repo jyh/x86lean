@@ -23442,3 +23442,29 @@ not elaborated until the next unit's full build reached them: `vector_count_is_1
 `x86lean-diff runs` (378 runs over 1222 vectors), and the segment count 8 → 31 (batch 22's 8 plus these 23). `X86` and `Tests`
 then build with zero errors in both orders. ⇒ A unit that adds vectors is not checked until `Tests` builds; the differential's
 own build does not reach it.
+## D363 — the oracle re-pinned to the commit that fixes x86isa's bit-string bit number (acl2#2067), and D331's 29 declarations deleted (predictions before the oracle is built)
+
+*(Numbering: D355–D362 are on the stack branches above this base and land before this one.)*
+**Why.** D331 declared 29 known divergences: with a memory bit base and a register offset, x86isa's BT/BTS/BTR/BTC took the bit
+number as `(mod (abs off) 8)`, the wrong bit of the right byte for a negative offset not ≡ 0 or 4 (mod 8). The fix, `(mod off 8)`
+at all four sites of `books/projects/x86isa/machine/instructions/bit.lisp`, merged upstream as acl2/acl2 #2067 into `testing` at
+2026-10-26T00:20:52Z, merge commit `cbb699d89f5c94792bcd6a8e59b3ac000ef0a71d`. STATUS row 5 waited on exactly this event.
+**The act.** `scripts/oracle_revision.txt` pins `cbb699d…`; the 29 `KnownDivergence` entries with note `D331` are deleted from
+`Main.lean`; the oracle is set up from public sources at the new pin by `scripts/setup_oracle.sh` (its own tree, so the pinned
+tree the stack's records cite is not touched until this lands). The D331 MODEL is unchanged — the SDM rule it implements is the
+one the fix adopts.
+**What is counted.** The excusals D331's entries name: 324 (vector, field, pre-state) triples over **264** distinct (vector,
+pre-state) cases in 19 vectors (`cf` and the byte at `mem@…1fe0`), counted from the entries' own state lists.
+**Predictions (each wrong if the named reading differs):**
+1. **The control, before deleting anything.** The differential at the NEW oracle with the 29 entries STILL PRESENT reports
+   every one of them stale — each names states at which its field no longer disagrees — and no other entry stale, and
+   `unexplained=0` (nothing new disagrees). This is what shows the oracle's behaviour changed, rather than assuming it.
+2. **The run that is the point, entries deleted.** `unexplained=0`; `explained` falls by exactly **324**; `matched` rises by
+   exactly **264** (if a case carries another excused field it stays unmatched, and the shortfall is named by case);
+   `cases` and `oracle-divergence` unchanged; `reference-model: acl2@cbb699d89f5c`.
+3. **Nothing else in x86isa moved that the vectors see:** every other entry still fires at every state it names. The span
+   `c8897a3..cbb699d` is all of ACL2's commits between the two pins, so this is a claim about the whole span, not the fix alone.
+**Wrong if:** any vector newly disagrees (filed with its class before any edit); an entry other than D331's goes stale; the
+counts differ. **Not claimed:** anything about x86isa forms no vector exercises.
+**Price.** The oracle build (image + `projects/x86isa/top.cert`, ~10 min measured in docs/ORACLE-SETUP.md) and two
+differential runs; one PR with no `.lean` under `X86/` or `Tests/` (`Main.lean` is the harness).
