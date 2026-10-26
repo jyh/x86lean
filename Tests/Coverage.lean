@@ -288,7 +288,9 @@ def vectorCount : Nat := vectors.length
 -- RDX offsets, three fixed far offsets, and one LOCK form.
 -- ⭐ V8a (D347) adds ONE: `endbr64`, the census's largest uncovered row.
 -- ⭐ D355 adds 23: `sub` `cmp` `xchg` `test` and the kernel's per-CPU forms through `%fs:`/`%gs:`.
-theorem vector_count_is_1222 : vectorCount = 1222 := by decide
+-- ⭐ D366 adds EIGHT RIP-relative forms: `shld`/`shrd` with a CL count at `.d`/`.q`, `shld $5`, and `shlx`
+-- `sarx` `blsi` from a RIP-relative m32. Runs, no new coverage ROW.
+theorem vector_count_is_1230 : vectorCount = 1230 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
