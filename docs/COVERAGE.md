@@ -236,9 +236,9 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `pshufb` | x,x · x,m — legacy SSE · each byte of the destination's original value selected by the low 4 bits of the matching control byte, zero where its bit 7 is set; m128 16-byte aligned (#GP) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSHUFB |
 | `palignr` | x,x,i · x,m,i — legacy SSE · (DEST:SRC) >> imm×8, low 128 bits; imm ≥ 32 gives zero; m128 16-byte aligned (#GP) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PALIGNR |
 | `pinsrd` | x,r,i · x,m,i — legacy SSE · the 32-bit source replaces lane imm[1:0]; the other lanes kept · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PINSRD |
-| `pinsrq` | x,r,i — legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PINSRQ |
-| `pextrd` | r,x,i — legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRD |
-| `pextrq` | r,x,i — legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRQ |
+| `pinsrq` | x,r,i · x,m,i — legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PINSRQ |
+| `pextrd` | r,x,i · m,x,i — legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64, or to m32 (D362) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRD |
+| `pextrq` | r,x,i · m,x,i — legacy SSE · lane imm[0] to a 64-bit register or m64 (D362) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PEXTRQ |
 | `pmaddwd` | x,x · x,m — four dwords, each two SIGNED word products added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMADDWD |
 | `pmaddubsw` | x,x · x,m — SSSE3 · eight words, each the destination's two UNSIGNED bytes times the source's two SIGNED bytes, summed and signed-saturated; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMADDUBSW |
 | `pmullw` | x,x · x,m — eight words, the low 16 bits of each product; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULLW |
