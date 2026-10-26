@@ -23482,3 +23482,13 @@ CENSUS of the span — every entry that goes stale and every new disagreement is
 read from that commit's diff, before any declaration is changed; prediction 2's figures are re-derived from that census and
 recorded before the deletion run. The `movmskps` declaration moves to `executes` on this measurement now, because the gate
 refuses to run otherwise.
+**Second addendum, before any differential run: the pin is the FIX's OWN COMMIT, so the item stays one change.** A first remedy
+(flip `movmskps` to `executes`) reached the next gate, `check_driver_cr4.py`, whose `STALL:movmskps` row is that gate's ONLY live
+input for its `stalls` branch. The three forms ever known to stall — `movmskps`, `vmovmskps` (both `baecf7219b`) and `emms`
+(`8098725138`) — are all fixed in the span, so at `cbb699d` the stall branches of the availability and CR4 gates may have no real
+form to exercise them: a gate redesign, not a declaration edit. ⇒ **D363 pins `babde610ed66311a80073b98e5efda3f03a61795`**, the
+fix's own commit (2026-10-11, on its author's branch, merged by #2067). Between `c8897a3` and it the forge lists four other commits
+touching `books/projects/x86isa`, none semantic by its title: `9a31d62d86` (useless-runes files), `254c9fa974`, `bf5e74554f`,
+`a213cdc218` (proof-speed changes). The `movmskps` edit is reverted. **Predictions 1 and 2 stand as written; prediction 3 is
+restored for THIS span** (four non-semantic commits plus the fix). The move to `testing` (`cbb699d` and later) is a separate item
+with a stall-control redesign; its certified tree is kept beside this one.
