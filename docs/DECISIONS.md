@@ -23504,3 +23504,24 @@ two oracles `matched` and `explained` are IDENTICAL; the only figure that moves 
 **Re-derived for the deletion run, recorded before it:** with the 29 entries deleted at `babde610ed` the figures are the
 control's exactly — `cases=128040 matched=104719 explained=34047 unexplained=0 oracle-divergence=820` — and rc 0 (no stale
 entry). Wrong if any figure differs.
+**Result, the deletion run (`babde610ed`, the 29 entries deleted from `Main.lean`): HELD exactly as re-derived.**
+`cases=128040 matched=104719 explained=34047 unexplained=0 oracle-divergence=820`, rc 0, no stale entry; recorded verbatim in
+`docs/REFERENCE-PIN-RUN-2026-10-26.md` beside the baseline and the control. **Prediction 3 (for this span): HELD** — every
+other declared divergence still fires at every state it names (the stale list is exactly D331's), and nothing new disagrees.
+**A gate the re-pin needed (`scripts/check_record_revision.py`).** It required every record to name THE pin, so moving the pin
+turned 21 correct records red. It now carries `PRIOR_PINS`, each earlier pin with the explicit list of records that ran under
+it: a listed record must name that pin, every other record the current one. Four new selftest arms (a NEW record naming the OLD
+pin is refused; a prior-pin record re-labelled with the current pin is refused; a listed record that vanished is refused; a
+table listing the current pin as prior is refused); 12/12 green. **Red backwards:** a mutant accepting a prior pin for ANY record
+reds exactly the first new arm. Its CLEAN line also counted records with ANY line as naming the current pin ("21 … name
+acl2@babde610"); it now counts records naming the current pin (1).
+**The copies of the old sentence (the correction census).** Present-tense copies updated: `docs/ORACLE-SETUP.md` (the pin),
+`PROVENANCE.md` (#2066's row: fixed upstream), `hwprobe/README.md` and `hwprobe/mk_bitstr_rows.py` (the x86isa column is the rule
+x86isa used through `c8897a3`; the generator's output is unchanged). Dated records citing `c8897a3` stay as they are: they are
+true of their runs. ⚠️ **NOT changed, and owed to the paper's post-arXiv revision:** `paper/x86lean-semantics.tex` says "the
+reference model is ACL2 x86isa at ACL2 commit `c8897a34`, pinned by `scripts/oracle_revision.txt`". It is true at the arXiv
+submission's commit and its figure is derived from a fixed record (`CLAIMS.tsv` `pin_reference_model_short`; `check_claims`
+CLEAN, 107 of 107), but on master after this lands the file it names pins `babde610`. The paper text is frozen until the
+Captain's arXiv click, so this is filed, not edited.
+**Not done here:** the move to acl2 `testing` (`cbb699d` and later; at least `movmskps`, `vmovmskps` and `emms` stop stalling,
+and two gates lose their only stall input) — a separate item.

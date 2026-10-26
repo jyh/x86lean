@@ -465,38 +465,9 @@ def knownDivergences : List KnownDivergence :=
     { vec := v, field := f, pair := some (ours, theirs)
     , source := "SDM Vol. 1 §4.8.3.7 (the QNaN floating-point indefinite: sign 1) · x86isa rtl sse-sqrt-spec: rtl::indef, no sign bit (D265 §3) · processor: hwprobe sqrtsd_negone / sqrtss_negone on an AMD EPYC 7763 and an Intel i7-8700B read the signed indefinite (D287 §4)"
     , note := "D292" }) ++
-  -- ⛔⛔ D331 — x86isa's BIT-STRING BIT NUMBER IS `(mod (abs offset) 8)`: right for a
-  -- non-negative offset, and for a negative one it selects the wrong bit of the right
-  -- byte unless |offset| ≡ 0 or 4 (mod 8) — offset −1 is bit 7 of byte EA−1 by the SDM
-  -- and bit 1 by x86isa.  The divergence depends on the operand VALUE, so every entry
-  -- names its PRE-STATES (`states`) and excuses its field nowhere else; the states are
-  -- D331's prediction, from simulating both rules over the 88 pre-states before the run.
-  -- `cf` diverges where the two bits differ; the data window where BTS/BTR/BTC change a
-  -- different bit (BTS only where the SDM's bit was clear).
-  (let negCf : List Nat := [1, 4, 21, 24, 41, 44]
-   let rdxMem : List (String × List Nat) :=
-     [("w", [0, 1, 2, 4, 6, 12, 14, 16, 20, 21, 22, 24, 26, 32, 34, 36, 40, 41, 42, 44, 46, 52, 54, 56, 62, 63, 64, 65, 67]),
-      ("l", [0, 1, 2, 4, 6, 14, 16, 20, 21, 22, 24, 26, 34, 36, 40, 41, 42, 44, 46, 54, 56, 62, 63, 64, 65, 67]),
-      ("q", [0, 1, 2, 4, 6, 20, 21, 22, 24, 26, 40, 41, 42, 44, 46, 62, 63, 64, 65, 67])]
-   let rcxMem : List (String × List Nat) :=
-     [("w", [10, 11, 13, 15, 17, 29, 30, 32, 34, 36, 43, 44, 46, 48, 50, 64, 65, 67]),
-      ("l", [13, 15, 17, 32, 34, 36, 46, 48, 50, 64, 65, 67]),
-      ("q", [17, 36, 50, 64, 65, 67])]
-   let src := "SDM Vol. 2A §3.1.1.9 and Table 3-2 (a memory bit base with a register offset: bit offset MOD 8, non-negative, of the byte at BitBase + offset DIV 8, rounding toward negative infinity) · K memoryInstructions/bt*_m*_r*.k: the bit number is the offset's low three bits, extractMInt(…, 61, 64) (K's ADDRESS term is a logical shift and is not cited) · x86isa machine/instructions/bit.lisp: bitNumber = (mod (abs bitOffset) 8) · processor: Rosetta 2 x86-64 translation on an Apple M4 Pro (NOT silicon) selects the SDM's bit at 20 offsets incl. −1, −3, −5, −7, −129 (D331)"
-   let mem := "mem@0000000000001fe0"
-   let mk (v f : String) (st : List Nat) : KnownDivergence :=
-     { vec := v, field := f, source := src, note := "D331", states := st }
-   (["w", "l", "q"].flatMap fun w =>
-      [mk s!"bt_mr_neg_{w}" "cf" negCf,
-       mk s!"bts_mr_neg_{w}" "cf" negCf, mk s!"bts_mr_neg_{w}" mem negCf,
-       mk s!"btr_mr_neg_{w}" "cf" negCf, mk s!"btc_mr_neg_{w}" "cf" negCf]) ++
-   (rdxMem.flatMap fun (w, st) => [mk s!"btr_mr_neg_{w}" mem st, mk s!"btc_mr_neg_{w}" mem st]) ++
-   (rcxMem.flatMap fun (w, st) => [mk s!"btr_mr_{w}" mem st, mk s!"btc_mr_{w}" mem st]) ++
-   [mk "lock_btsl_neg" "cf" negCf, mk "lock_btsl_neg" mem negCf] ++
-   -- ⛔ D355: the same x86isa rule reached through `%gs:`. `btr_gs_q` addresses the byte `btr_mr_q` does
-   -- (gsBase − 0x1fe8 + RBX = 0x2000) with the same RCX, so its states are `btr_mr_q`'s; found by the run
-   -- (6 unexplained, exactly these), not predicted. `bt_gs_q` writes nothing and, like `bt_mr_q`, needs none.
-   (rcxMem.filter (·.1 == "q")).flatMap fun (_, st) => [mk "btr_gs_q" mem st]) ++
+  -- D363: the 30 entries for x86isa's BT/BTS/BTR/BTC bit number with a negative register offset (D331's 29, and
+  -- D355's `btr_gs_q`, the same rule through `%gs:`) are DELETED: the oracle is pinned past the upstream fix
+  -- (acl2 babde610ed, #2067).
   -- ⛔⛔ V6 (D344) — ACL2 x86isa COMPUTES XOR FOR VEX.256 VANDPS. Its `inst-listing.lisp` row for
   -- `VANDPS` with `:VEX '(:0F :NDS :256)` passes `(operation . #x5)`, and `#x5` is `*OP-XOR*`
   -- (`portcullis/sharp-dot-constants.lisp`), where every other AND row, including VANDPS VEX.128 and

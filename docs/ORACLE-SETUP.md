@@ -30,8 +30,9 @@ what Intel left undefined.
 
 ## ⛔ The revision is PINNED — since 2026-09-12 (D218)
 
-`scripts/oracle_revision.txt` names the ACL2 commit, **`c8897a34d3efc37eb466d7ee50a2e3861c6e82db`**
-(upstream 2026-09-02T06:14:00Z). `setup_oracle.sh` fetches exactly it, and `run_differential.sh` runs
+`scripts/oracle_revision.txt` names the ACL2 commit, **`babde610ed66311a80073b98e5efda3f03a61795`**
+(2026-10-11, the BT/BTS/BTR/BTC bit-number fix merged as acl2/acl2 #2067; D363). From 2026-09-12 until D363 it named
+`c8897a34d3efc37eb466d7ee50a2e3861c6e82db` (upstream 2026-09-02T06:14:00Z), and every record before D363 ran there. `setup_oracle.sh` fetches exactly it, and `run_differential.sh` runs
 `scripts/check_oracle_revision.sh` first, which refuses a tree at any other commit or with modified
 files and prints `reference-model: acl2@<sha>`. *Until that date the recipe below cloned whatever HEAD
 was, and no differential record named the commit it ran against — the recipe is kept as it was run.*

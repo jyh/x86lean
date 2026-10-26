@@ -16,8 +16,9 @@ pages), never from ACL2 x86isa and never from x86lean:
   WRITE-BACK      BT writes nothing; BTS sets the selected bit, BTR clears it, BTC complements it. NO OTHER BYTE of
                   memory changes: the probe compares the whole buffer, so a write to the wrong byte is a DIFF.
 
-Beside each expectation this file computes what ACL2 x86isa's memory/register-offset rule predicts
-(`machine/instructions/bit.lisp`: byte address `addr + floor(offset/8)`, bit number `(mod (abs offset) 8)`), so the
+Beside each expectation this file computes what ACL2 x86isa's memory/register-offset rule predicted through acl2 `c8897a3`
+(`machine/instructions/bit.lisp`: byte address `addr + floor(offset/8)`, bit number `(mod (abs offset) 8)`; fixed upstream
+by acl2/acl2 #2067, so the oracle pinned since D363 no longer computes it), so the
 probe can print, per row, whether the processor matched that rule too. The x86isa column is a PREDICTION OF A
 DISAGREEMENT, not an expectation: the referee's verdict (exit 0/1) is the SDM column alone.
 

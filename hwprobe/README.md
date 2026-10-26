@@ -47,8 +47,8 @@ row. MOVNTI's destination is memory: the probe reads the quadword back after SFE
 `bt{,s,r,c}{w,l,q} %{cx,ecx,rcx},(%rbx)` form), `mk_bitstr_rows.py` (2944 rows, derived from the SDM's bit-string rule: the
 register offset is signed at the operand size, and the bit is `offset AND 7` of the byte at `EA + (offset SAR 3)`), and
 `bitstr_probe.c`, which fills a 16 KiB buffer from the generator's PATTERN, overrides the one addressed byte, runs the row, and
-compares CF, ZF and the WHOLE buffer. Beside each row it prints whether the processor also matched ACL2 x86isa's rule (bit
-`(mod (abs offset) 8)`), which differs for negative offsets; that column is a reading, not the verdict. Controls: `--plant`
+compares CF, ZF and the WHOLE buffer. Beside each row it prints whether the processor also matched the rule ACL2 x86isa used through acl2 `c8897a3` (bit
+`(mod (abs offset) 8)`; fixed upstream by acl2/acl2 #2067, and the oracle is pinned past it since D363), which differs for negative offsets; that column is a reading, not the verdict. Controls: `--plant`
 (CF), `--plant-mem` (one row expects x86isa's byte), `--plant-stray` (a write outside the watched byte), `--plant-op`.
 
 | file | role |
