@@ -105,6 +105,8 @@ jobs:
           python3 mk_shuf_rows.py --plant > shuf_rows_plant.h
           python3 mk_shuf_rows.py --plant-op > shuf_rows_badop.h
           python3 mk_shuf_rows.py --plant-zx > shuf_rows_zx.h
+          python3 mk_shuf_rows.py --plant-mem > shuf_rows_mem.h
+          python3 mk_shuf_rows.py --refuse-wrong
           python3 mk_simda_rows.py --reach
           python3 mk_simda_rows.py > simda_rows.h
           python3 mk_simda_rows.py --plant > simda_rows_plant.h
@@ -183,7 +185,7 @@ jobs:
             gcc -O1 -o bitstr_probe_$v bitstr_probe_$v.c bitstr_ops.S
           done
           gcc -O1 -o shuf_probe shuf_probe.c shuf_ops.S
-          for v in plant badop zx; do
+          for v in plant badop zx mem; do
             sed "s/\"shuf_rows.h\"/\"shuf_rows_$v.h\"/" shuf_probe.c > shuf_probe_$v.c
             gcc -O1 -o shuf_probe_$v shuf_probe_$v.c shuf_ops.S
           done
@@ -339,9 +341,10 @@ jobs:
           ./shuf_probe_plant > sh_plant.out; rc_plant=$?
           ./shuf_probe_badop > sh_badop.out; rc_badop=$?
           ./shuf_probe_zx > sh_zx.out; rc_zx=$?
+          ./shuf_probe_mem > sh_mem.out; rc_mem=$?
           set -e
-          head -1 sh_plant.out; grep '^DIFF' sh_plant.out; cat sh_badop.out; grep '^DIFF' sh_zx.out
-          echo "shuf plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · zx rc=$rc_zx (want 1)"
+          head -1 sh_plant.out; grep '^DIFF' sh_plant.out; cat sh_badop.out; grep '^DIFF' sh_zx.out; grep '^DIFF' sh_mem.out
+          echo "shuf plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · zx rc=$rc_zx (want 1) · mem rc=$rc_mem (want 1)"
           test "$rc_plant" = 1
           test "$(grep -c '^DIFF' sh_plant.out)" = 1
           grep -q '^DIFF pshufb_rr_a1_ident ' sh_plant.out
@@ -350,6 +353,10 @@ jobs:
           test "$rc_zx" = 1
           test "$(grep -c '^DIFF' sh_zx.out)" = 1
           grep -q '^DIFF pextrd_rr_i1_p1 ' sh_zx.out
+          # D362: one bit of a PEXTRD STORE row's expected memory flipped: the 16 bytes at [RBX] are compared, not assumed.
+          test "$rc_mem" = 1
+          test "$(grep -c '^DIFF' sh_mem.out)" = 1
+          grep -q '^DIFF pextrd_mr_i1_p1 ' sh_mem.out
 
       - name: Shuffle referee
         working-directory: hwprobe
@@ -360,6 +367,7 @@ jobs:
           head -1 shuf.out; grep -v '^ok  ' shuf.out || true
           echo "shuf rc=$rc"
           test "$rc" = 0
+          grep -q '^rows 276 disagreements 0$' shuf.out
 
       # D335: THE PACKED-INTEGER ARITHMETIC PATH (PMADDWD … PACKSSDW, xmm and m128), with its OWN pair of controls — a plant
       # in any other path says nothing about this 128-bit comparison. A wrong expectation (bit 64, the HIGH quadword, of row
