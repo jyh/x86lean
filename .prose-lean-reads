@@ -1,1 +1,14 @@
 # a claim record: id, path, claim-sha12, lean-decl (<tracked .lean path>::<name>), stmt-sha12, author, reader, date  -- see scripts/check_prose_lean.py
+o88-2026-10-26-029	Tests/Anchors.lean	d4a793902cc8	Tests/Anchors.lean::andl_zero_extends	5f37f76c16be	paper	math	2026-10-26
+o88-2026-10-26-030	Tests/Anchors.lean	adaa5a1af460	Tests/Anchors.lean::movsq_copies_and_advances_both_pointers	2a27d05e98cf	paper	math	2026-10-26
+o88-2026-10-26-031	Tests/Coverage.lean	2fef6b564190	Tests/Coverage.lean::mem_collapseAdjacent	4e9695bd87be	paper	math	2026-10-26
+o88-2026-10-26-032	Tests/Coverage.lean	5c4f3906a252	Tests/Coverage.lean::all_decode_trust_is_xed_at_p0	06ede78162ae	paper	math	2026-10-26
+o88-2026-10-26-033	Tests/Logic.lean	73f6757de965	Tests/Logic.lean::countdownN_terminates	490af8573d9c	paper	math	2026-10-26
+o88-2026-10-26-034	Tests/LogicKit.lean	917dade72735	Tests/LogicKit.lean::countdownN_step_rbx	5e7d9e4a5444	paper	math	2026-10-26
+o88-2026-10-26-035	Tests/LogicKit.lean	9e5da1649b3e	Tests/LogicKit.lean::countdownN_total_with_frame	a5402a31abf1	paper	math	2026-10-26
+o88-2026-10-26-036	Tests/LogicRead.lean	09f3dc507f99	Tests/LogicRead.lean::ldb_readsOnly	1414ca4e7dcd	paper	math	2026-10-26
+o88-2026-10-26-037	Tests/Nonvacuity.lean	1911a50da4a3	Tests/Nonvacuity.lean::imul_overflow_is_not_mul_overflow	e69d9823bae3	paper	math	2026-10-26
+o88-2026-10-26-038	Tests/Program.lean	cfa3287f2230	Tests/Program.lean::fill_safe	ff13f257372f	paper	math	2026-10-26
+o88-2026-10-26-039	Tests/Program.lean	8204c7b54aba	Tests/Program.lean::fill_preserves_disjoint_buffer	9e55118343cc	paper	math	2026-10-26
+o88-2026-10-26-040	Tests/Program.lean	6bd561e7cd7f	Tests/Program.lean::fill_preserves_disjoint_buffer	9e55118343cc	paper	math	2026-10-26
+o88-2026-10-26-041	Tests/Program.lean	5cdd99e4e4a6	Tests/Program.lean::prologue_balances	e78af3f629f5	paper	math	2026-10-26
