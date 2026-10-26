@@ -1,9 +1,9 @@
 # x86lean
 
 A **user-level x86-64 ISA semantics in Lean 4** ([`X86/`](X86/)) — definitional,
-executable, kernel-checked, and differentially validated against ACL2 x86isa; forms the
-oracle cannot run are checked against SDM-derived rows read on real processors (`hwprobe/`);
-no co-simulation of `step` with hardware has been run ([`TRUSTBASE.md`](TRUSTBASE.md)).
+executable, kernel-checked, and differentially validated against ACL2 x86isa; the rows
+the differential cannot carry are kernel-pinned to SDM-derived rules read on real processors
+(`hwprobe/`); no co-simulation of `step` with hardware has been run ([`TRUSTBASE.md`](TRUSTBASE.md)).
 Built from **public sources only** and licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 
 See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
