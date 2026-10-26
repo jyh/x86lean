@@ -1,1 +1,21 @@
 # a claim record: id, path, claim-sha12, lean-decl (<tracked .lean path>::<name>), stmt-sha12, author, reader, date  -- see scripts/check_prose_lean.py
+o88-2026-10-26-009	X86/Basic.lean	2589573ddebb	X86/Basic.lean::X86.Regs.get_set_same	31993559e650	paper	math	2026-10-26
+o88-2026-10-26-010	X86/Logic.lean	d92dbeece808	X86/Logic.lean::with_invariant	02b456896d65	paper	math	2026-10-26
+o88-2026-10-26-011	X86/Program.lean	bfdf148f3c87	X86/Program.lean::runP_invariant	a8ee8825611d	paper	math	2026-10-26
+o88-2026-10-26-012	X86/Program.lean	9eef5f7ee163	X86/Memory.lean::readN_congr	98b21c223063	paper	math	2026-10-26
+o88-2026-10-26-013	X86/Program.lean	48eb43c4d46a	X86/Program.lean::readSize_of_agreeOutside_disjoint	8cede364235c	paper	math	2026-10-26
+o88-2026-10-26-014	X86/Program.lean	3d548b6d3bdc	X86/Program.lean::region_disjoint_of_le	c2a065f48d90	paper	math	2026-10-26
+o88-2026-10-26-015	X86/Program.lean	026cbfa7995b	X86/Program.lean::SysVCall	2436e524a512	paper	math	2026-10-26
+o88-2026-10-26-016	X86/Program.lean	cccfba31f4ef	X86/Program.lean::hyps_local	9671beb4e5f1	paper	math	2026-10-26
+o88-2026-10-26-017	X86/Program.lean	f43a870e750c	X86/Program.lean::hyps_local	9671beb4e5f1	paper	math	2026-10-26
+o88-2026-10-26-018	X86/Serialize.lean	6b372f0f4f8f	X86/Serialize.lean::Flags.render	ab1218575096	paper	math	2026-10-26
+o88-2026-10-26-019	X86/Theorems.lean	c3d33fcca788	X86/Theorems.lean::step_not_reg_mem	7e52cb1eb0c2	paper	math	2026-10-26
+o88-2026-10-26-020	X86/Theorems.lean	bd75d9781f06	X86/Theorems.lean::step_shift_reg_zero_mem	ef8add5c441c	paper	math	2026-10-26
+o88-2026-10-26-021	X86/Theorems.lean	7123c6c0f468	X86/Theorems.lean::vmovq_zeroes_upper	4aef0ed7c66b	paper	math	2026-10-26
+o88-2026-10-26-022	X86/Theorems.lean	03ca69422d43	X86/Theorems.lean::step_xchg_mem_reg	56e090a6a077	paper	math	2026-10-26
+o88-2026-10-26-023	X86/Theorems.lean	1b099a605e43	X86/Theorems.lean::step_strop_movs_flags	76e0d7d72971	paper	math	2026-10-26
+o88-2026-10-26-024	X86/Value.lean	7a89ee6c7d42	X86/Value.lean::merge_getLsbD	3e6d98d4a229	paper	math	2026-10-26
+o88-2026-10-26-025	X86/Vex.lean	9861248cad83	X86/Vex.lean::setVex128_get	bc9c9459b6b9	paper	math	2026-10-26
+o88-2026-10-26-026	docs/COVERAGE.md	ca6f5a0389d2	X86/Theorems.lean::vload_unaligned_faults	07cdcd1bcc2f	paper	math	2026-10-26
+o88-2026-10-26-027	docs/DECISIONS.md	5572ab7fc7b2	X86/Theorems.lean::vload_unaligned_faults	07cdcd1bcc2f	paper	math	2026-10-26
+o88-2026-10-26-028	docs/DIFFERENTIAL-P2-BATCH6.md	735a12c8ba9d	X86/Theorems.lean::vload_unaligned_faults	07cdcd1bcc2f	paper	math	2026-10-26
