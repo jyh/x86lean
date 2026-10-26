@@ -8,27 +8,35 @@ deleted. This is the first run at the new pin; the 21 records before it ran at `
 
 ```
 finished          2026-10-26T04:21 PDT, yukon
-x86lean           paris/d363-oracle-2067, D331's entries deleted (the commit that carries this record)
+x86lean           paris/d363-oracle-2067 on master 066dab0, the 30 entries deleted (the commit that carries this record)
 reference-model:  acl2@babde610ed66311a80073b98e5efda3f03a61795
 command           bash scripts/run_differential.sh     (log kept locally, not tracked)
 ```
 
-## The three runs, one tree, one vector set (128,040 cases)
+## On master `066dab0` (after #132 / D355), the tree this lands from: 130,064 cases, 30 entries
+```
+pin        entries   cases   matched  explained  unexplained  oracle-divergence  rc
+c8897a3    present   130064  106497   34407      0            1150               0   (D355's last run, its record)
+babde610   present   130064  106497   34407      0             820               1   (exactly the 30 entries stale)
+babde610   deleted   130064  106497   34407      0             820               0   (this record)
+```
+`oracle-divergence` falls by exactly 330 = D331's 324 excusals and D355's `btr_gs_q` (6).
+
+## Before the rebase (base `810c20c`): 128,040 cases, 29 entries
 ```
 pin        entries   cases   matched  explained  unexplained  oracle-divergence  rc
 c8897a3    present   128040  104719   34047      0            1144               0   (the baseline)
 babde610   present   128040  104719   34047      0             820               1   (exactly the 29 D331 entries stale)
-babde610   deleted   128040  104719   34047      0             820               0   (this record)
+babde610   deleted   128040  104719   34047      0             820               0   (before the rebase)
 ```
 `oracle-divergence` falls by exactly 324 = the (vector, field, state) excusals D331's entries named; nothing else moves.
 
 ## The run, verbatim (its record lines)
 ```
-── checking the reference model's pinned revision ──
 reference-model: acl2@babde610ed66311a80073b98e5efda3f03a61795
 driver-CR4 gate: CLEAN — through `x86l-run-case` itself, SSE forms execute with the shipped driver and REFUSE when its `*x86l-ctrs*` is planted back to `nil`; the scalar control executed in both arms and the refuse-always control refused in both.
 ── running the oracle (ACL2 x86isa) over run/cases.lsp ──
-oracle produced 128040 case records
+oracle produced 130064 case records
 ── comparing ──
-cases=128040 matched=104719 explained=34047 unexplained=0 oracle-divergence=820 oracle-leaks=0 missing=0
+cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=820 oracle-leaks=0 missing=0
 ```

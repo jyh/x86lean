@@ -23532,3 +23532,7 @@ note: "found by the run, not predicted"). The rebase deletes it with D331's 29, 
 tree at the old pin, `cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=1150`): the control (entries
 present, `babde610ed`) reports exactly the 30 entries stale and `oracle-divergence=820` (1,150 − 330), everything else equal; the
 deletion run reads `cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=820`, rc 0.
+**Result on the rebased tree (master `066dab0`): HELD exactly as re-derived.** Control (entries present, `babde610ed`):
+`cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=820`, rc 1, exactly the 30 entries reported stale
+(D331's 29 and `btr_gs_q`), no other. Deletion run: the same figures, rc 0. `oracle-divergence` 1,150 → 820, −330.
+`docs/REFERENCE-PIN-RUN-2026-10-26.md` now carries the rebased runs as its record and the pre-rebase ones beside them.
