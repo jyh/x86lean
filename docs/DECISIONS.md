@@ -23536,3 +23536,22 @@ deletion run reads `cases=130064 matched=106497 explained=34407 unexplained=0 or
 `cases=130064 matched=106497 explained=34407 unexplained=0 oracle-divergence=820`, rc 1, exactly the 30 entries reported stale
 (D331's 29 and `btr_gs_q`), no other. Deletion run: the same figures, rc 0. `oracle-divergence` 1,150 → 820, −330.
 `docs/REFERENCE-PIN-RUN-2026-10-26.md` now carries the rebased runs as its record and the pre-rebase ones beside them.
+
+## D364 — a stall control that is not an x86isa defect: `jmp .` in the availability and CR4 gates (STATUS row 24, step 1)
+
+*(Numbering: D355–D363 are on branches above this base.)*
+**Why.** Both gates exercise their `stalls` branch with `movmskps`, which stalls only because x86isa lacked its RIP write. Upstream
+fixed that (`baecf7219b`, 2026-10-18, with `vmovmskps`; `emms` in `8098725138`), so once the oracle pin passes it the three forms
+ever known to stall all execute, and the branch has no live input: it could be deleted without an arm going red.
+**The row.** `jmp .` (`eb fe`) leaves RIP where it began by CORRECT semantics, refusal clear. **Measured before the edit**, one
+driver over `oracle_availability.measure()` unmodified: `stalls` 88/88 at acl2 `c8897a3`, `babde610` and `cbb699d`, with
+`CONTROL:mov` and `pmovmskb` executing at each. Added beside `movmskps` (not replacing it) as `STALL:jmpself` in
+`oracle_availability.py`'s FORMS (and `NOT_AN_AVAILABILITY_QUESTION`, because its verdict is about the operand, not `jmp`) and in
+`check_driver_cr4.py`'s FORMS, declared `stalls` under both CR4 arms (it is not an SSE form).
+**Result at the current pin (`c8897a3`):** both gates and both selftests rc 0; `STALL:jmpself` reads stalls 88/88 and stalls/stalls.
+`p2_roster --check` and `claimed_forms --remaining` CLEAN (the row moves no availability answer). **Red backwards:** with
+`STALL:movmskps` deleted and the CR4 gate's stall reading mutated to `executes`, the gate reds on `STALL:jmpself` alone
+(declared stalls/stalls, measured executes/executes); restored `cmp`-equal.
+⚠️ **Measured on the way, as a defect of mine:** an ACL2 tree renamed on disk does not run in place. Its `saved_acl2` launcher names
+the core by absolute path, so a renamed `cbb699d` tree ran the `babde610` core sitting at the original path and read `movmskps`
+as stalling; caught because it contradicted the first reading. The `cbb699d` figures above come from that tree at its own path.

@@ -114,6 +114,10 @@ FORMS = [
     # It earns its place the way CONTROL:movnti does: without it the `stalls`
     # branch is never taken and could be deleted without a single arm going red.
     ("STALL:movmskps", "movmskps %xmm1, %eax", "0f50c1", "refuses", "stalls"),
+    # ⭐ STATUS row 24: the stall control that does not depend on an x86isa defect. `jmp .` leaves RIP where it
+    # began by correct semantics under BOTH arms (it is not an SSE form, so OSFXSR does not touch it); measured
+    # 88/88 `stalls` at three acl2 pins. `movmskps` stops stalling once the pin passes upstream baecf7219b.
+    ("STALL:jmpself",  "jmp .",                "ebfe",   "stalls",  "stalls"),
     ("CONTROL:mov",    "movl %ecx, (%rbx)",    "890b",   "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)", "0fc30b", "refuses",  "refuses"),
 ]
