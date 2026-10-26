@@ -2258,10 +2258,13 @@ inductive Op where
   are other mnemonics and refused here, as is an immediate `src`. -/
   | vinsr (sz : Size) (dst : XmmReg) (src : Operand) (imm : BitVec 8)
   /-- D336 (V1b): PEXTRD (`.d`, `66 0F 3A 16 /r ib`) and PEXTRQ (`.q`, `66 REX.W 0F 3A
-  16 /r ib`) to a GPR (SDM Vol. 2B PEXTRB/PEXTRD/PEXTRQ) — lane `imm[1:0]` (`.d`) or
-  `imm[0]` (`.q`) of `src`.  At `.d` the register write zero-extends to 64 bits
-  (SDM Vol. 1 §3.4.1.1), as every 32-bit GPR write in this model does. -/
-  | vextr (sz : Size) (dst : GPR) (src : XmmReg) (imm : BitVec 8)
+  16 /r ib`) (SDM Vol. 2B PEXTRB/PEXTRD/PEXTRQ) — lane `imm[1:0]` (`.d`) or `imm[0]`
+  (`.q`) of `src`.  At a register `.d` zero-extends to 64 bits (SDM Vol. 1
+  §3.4.1.1), as every 32-bit GPR write in this model does.  D362: `dst` is an
+  `Operand`, as `.vinsr`'s source is; at memory the lane is written to its
+  `sz.bits / 8` bytes and nothing else (Type 5: no alignment requirement).  An
+  immediate `dst` is refused. -/
+  | vextr (sz : Size) (dst : Operand) (src : XmmReg) (imm : BitVec 8)
   /-- D338 (V2): SHA256MSG1 / SHA256MSG2 / SHA256RNDS2 between registers (SDM Vol. 2B;
   `NP 0F 38 CC/CD/CB /r`) — `dst` is SRC1 and the destination, `src` is SRC2.
   ⚠️ The operand order is NOT symmetric for any kind, and `.rnds2` also reads XMM0
@@ -2497,10 +2500,11 @@ def opOperands : Op → List Operand
   | .vshufp .. => []
   | .vshufpm _ _ ea _ => [.mem ea]
   -- D336 (V1b): the register shapes name no `Operand`; a memory source names its
-  -- address; PINSRD/Q's source IS an `Operand`; PEXTRD/Q's destination is a GPR.
-  | .vshufb .. | .valignr .. | .vextr .. => []
+  -- address; PINSRD/Q's source IS an `Operand`; so is PEXTRD/Q's destination (D362).
+  | .vshufb .. | .valignr .. => []
   | .vshufbm _ ea | .valignrm _ ea _ => [.mem ea]
   | .vinsr _ _ src _ => [src]
+  | .vextr _ dst _ _ => [dst]
   -- D338 (V2): the register shape names no `Operand` (nor does the implicit XMM0);
   -- the memory SRC2 names its address.
   | .vsha .. => []
@@ -2678,9 +2682,10 @@ def Op.anyLocked : Op → Bool
   | .vshufp .. => false
   | .vshufpm _ _ ea _ => ea.lock
   -- D336 (V1b): no SDM lock form for any of the six.
-  | .vshufb .. | .valignr .. | .vextr .. => false
+  | .vshufb .. | .valignr .. => false
   | .vshufbm _ ea | .valignrm _ ea _ => ea.lock
   | .vinsr _ _ src _ => src.locked
+  | .vextr _ dst _ _ => dst.locked
   -- D338 (V2): no SDM lock form for any SHA-NI instruction.
   | .vsha .. => false
   | .vsham _ _ ea => ea.lock

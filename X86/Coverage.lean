@@ -1306,11 +1306,11 @@ def siliconTable : List Row :=
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PALIGNR" }
   , { mnemonic := "pinsrd", shapes := "x,r,i · x,m,i", note := "legacy SSE · the 32-bit source replaces lane imm[1:0]; the other lanes kept · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRD" }
-  , { mnemonic := "pinsrq", shapes := "x,r,i", note := "legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it",
+  , { mnemonic := "pinsrq", shapes := "x,r,i · x,m,i", note := "legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRQ" }
-  , { mnemonic := "pextrd", shapes := "r,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it",
+  , { mnemonic := "pextrd", shapes := "r,x,i · m,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64, or to m32 (D362) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRD" }
-  , { mnemonic := "pextrq", shapes := "r,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it",
+  , { mnemonic := "pextrq", shapes := "r,x,i · m,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register or m64 (D362) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRQ" }
   -- ⭐ D335 (V1a): eleven SSE-legacy packed-integer arithmetic mnemonics, `VBinKind`
   -- kinds on `Op.vbin`/`Op.vbinm`.  Every result bit is defined and no flag is

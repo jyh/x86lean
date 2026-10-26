@@ -2341,22 +2341,33 @@ theorem vlaneSel_q (imm : BitVec 8) : vlaneSel .q imm = imm.toNat % 2 := rfl
 `.d` it zero-extends, by `setReg`), nothing else written. -/
 theorem step_vextr (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
     (hsz : sz = .d ∨ sz = .q) :
-    step ⟨.vextr sz r x imm, len⟩ s =
+    step ⟨.vextr sz (.reg r) x imm, len⟩ s =
       (s.setReg sz r (vextrApply sz (s.getXmm x) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
-  rcases hsz with rfl | rfl <;> simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm, Cpu.writeOperand]
+
+/-- D362: PEXTRD/PEXTRQ to memory, an unlocked operand: the selected lane is
+written at the operand's address at width `sz`, and nothing else is written. -/
+theorem step_vextr_mem (h : Live s) (ea : Ea) (x : XmmReg) (imm : BitVec 8)
+    (hl : ea.lock = false) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vextr sz (.mem ea) x imm, len⟩ s =
+      (s.writeMem sz (ea.addr s (s.rip + BitVec.ofNat 64 len)) (vextrApply sz (s.getXmm x) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, hl, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm, Cpu.writeOperand]
 
 /-- ⛔ NO FLAG: PSHUFB, PALIGNR, PINSR* and PEXTR* leave RFLAGS as they found it. -/
 theorem step_vextr_flags (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
     (hsz : sz = .d ∨ sz = .q) :
-    (step ⟨.vextr sz r x imm, len⟩ s).flags = s.flags := by
+    (step ⟨.vextr sz (.reg r) x imm, len⟩ s).flags = s.flags := by
   rw [step_vextr h r x imm hsz]; simp
 
 /-- ⛔ PINSR*/PEXTR* AT 8 OR 16 BITS ARE OTHER MNEMONICS, and `step` refuses them. -/
 theorem step_vextr_narrow_refuses (r : GPR) (x : XmmReg) (imm : BitVec 8) (h : Live s)
     (hsz : sz = .b ∨ sz = .w) :
-    (step ⟨.vextr sz r x imm, len⟩ s).stopped = true := by
+    (step ⟨.vextr sz (.reg r) x imm, len⟩ s).stopped = true := by
   rcases hsz with rfl | rfl <;> simp [step, h, Cpu.halt, Cpu.stopped, Op.lockIllegal,
-    Op.anyLocked, Op.lockable]
+    Op.anyLocked, Op.lockable, Operand.isImm]
 
 end V1b
 

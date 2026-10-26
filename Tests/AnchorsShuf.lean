@@ -448,7 +448,7 @@ theorem v1b_pextrd_rr_i0_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x0000000044556677)  -- pextrd_rr_i0_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .d .rax .x1 0, 6⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .d (.reg .rax) .x1 0, 6⟩ (v1bPre a b g f)
       v1bAgrees t 6 f wr wax) = true := by decide
 
 theorem v1b_pextrd_rr_i1_pins :
@@ -459,7 +459,7 @@ theorem v1b_pextrd_rr_i1_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x0000000000112233)  -- pextrd_rr_i1_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .d .rax .x1 1, 6⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .d (.reg .rax) .x1 1, 6⟩ (v1bPre a b g f)
       v1bAgrees t 6 f wr wax) = true := by decide
 
 theorem v1b_pextrd_rr_i2_pins :
@@ -470,7 +470,7 @@ theorem v1b_pextrd_rr_i2_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x00000000ccddeeff)  -- pextrd_rr_i2_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .d .rax .x1 2, 6⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .d (.reg .rax) .x1 2, 6⟩ (v1bPre a b g f)
       v1bAgrees t 6 f wr wax) = true := by decide
 
 theorem v1b_pextrd_rr_i3_pins :
@@ -481,7 +481,7 @@ theorem v1b_pextrd_rr_i3_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x000000008899aabb)  -- pextrd_rr_i3_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .d .rax .x1 3, 6⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .d (.reg .rax) .x1 3, 6⟩ (v1bPre a b g f)
       v1bAgrees t 6 f wr wax) = true := by decide
 
 theorem v1b_pextrd_rr_i5_pins :
@@ -492,7 +492,7 @@ theorem v1b_pextrd_rr_i5_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x0000000000112233)  -- pextrd_rr_i5_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .d .rax .x1 5, 6⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .d (.reg .rax) .x1 5, 6⟩ (v1bPre a b g f)
       v1bAgrees t 6 f wr wax) = true := by decide
 
 theorem v1b_pextrd_rr_i255_pins :
@@ -503,7 +503,7 @@ theorem v1b_pextrd_rr_i255_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x000000008899aabb)  -- pextrd_rr_i255_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .d .rax .x1 255, 6⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .d (.reg .rax) .x1 255, 6⟩ (v1bPre a b g f)
       v1bAgrees t 6 f wr wax) = true := by decide
 
 theorem v1b_pextrq_rr_i0_pins :
@@ -514,7 +514,7 @@ theorem v1b_pextrq_rr_i0_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x0011223344556677)  -- pextrq_rr_i0_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .q .rax .x1 0, 7⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .q (.reg .rax) .x1 0, 7⟩ (v1bPre a b g f)
       v1bAgrees t 7 f wr wax) = true := by decide
 
 theorem v1b_pextrq_rr_i1_pins :
@@ -525,7 +525,7 @@ theorem v1b_pextrq_rr_i1_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff)  -- pextrq_rr_i1_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .q .rax .x1 1, 7⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .q (.reg .rax) .x1 1, 7⟩ (v1bPre a b g f)
       v1bAgrees t 7 f wr wax) = true := by decide
 
 theorem v1b_pextrq_rr_i3_pins :
@@ -536,7 +536,7 @@ theorem v1b_pextrq_rr_i3_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff)  -- pextrq_rr_i3_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .q .rax .x1 3, 7⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .q (.reg .rax) .x1 3, 7⟩ (v1bPre a b g f)
       v1bAgrees t 7 f wr wax) = true := by decide
 
 theorem v1b_pextrq_rr_i128_pins :
@@ -547,7 +547,7 @@ theorem v1b_pextrq_rr_i128_pins :
     (0xfedcba98765432100123456789abcdef, 0x8899aabbccddeeff0011223344556677, 0x7fffffff80000001, 0x8d5, 0xfedcba98765432100123456789abcdef, 0x0011223344556677)  -- pextrq_rr_i128_p2_set
   ] : List (BitVec 128 × BitVec 128 × BitVec 64 × BitVec 64 × BitVec 128 × BitVec 64)).all
     (fun (a, b, g, f, wr, wax) =>
-      let t := step ⟨.vextr .q .rax .x1 128, 7⟩ (v1bPre a b g f)
+      let t := step ⟨.vextr .q (.reg .rax) .x1 128, 7⟩ (v1bPre a b g f)
       v1bAgrees t 7 f wr wax) = true := by decide
 
 -- ⟦V1b SHUFFLE PINS END⟧

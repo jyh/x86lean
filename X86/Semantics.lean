@@ -589,7 +589,8 @@ def vinsrApply (sz : Size) (dst : BitVec 128) (v : Val) (imm : BitVec 8) : BitVe
   (dst &&& ~~~m) ||| (((Value.trunc sz v).setWidth 128) <<< sh)
 
 /-- PEXTRD/PEXTRQ (SDM Vol. 2B): lane `vlaneSel sz imm` of `src`, zero above the
-width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
+width (a GPR write then zero-extends a 32-bit lane by the ordinary rule; a memory
+write stores `sz.bits / 8` bytes of it, D362). -/
 def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
   (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
 
@@ -1779,8 +1780,9 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .d | .q => (s.setXmm dst (vinsrApply sz (s.getXmm dst) (s.readOperand sz nr src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pinsr at an 8- or 16-bit width (pinsrb/pinsrw are other mnemonics)")
   | .vextr sz dst src imm =>
-      match sz with
-      | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
+      if dst.isImm then s.halt (.illegalOperands "pextrd/pextrq with an immediate destination")
+      else match sz with
+      | .d | .q => (s.writeOperand sz nr dst (vextrApply sz (s.getXmm src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
 
   -- ⭐ D338 (V2): SHA256MSG1, SHA256MSG2, SHA256RNDS2.  x86isa refuses all three;
