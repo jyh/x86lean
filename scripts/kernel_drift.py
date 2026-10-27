@@ -951,6 +951,17 @@ def load_context(walk_rows):
     return out
 
 
+def stamp_rows(rows, measured_box, writer_box, t):
+    """Stamp each recorded row's `t` and `box`. ⛔ `box` names the box the readings were MEASURED on:
+    a `source='gate'` row takes it from its readings file, and only a backfill row (whose walk ran on
+    the writing box) takes the writer's stamp. Until 2026-10-26 every row took the writer's, so every
+    K2 row measured on katmai and recorded on yukon read `BOX yukon…` (math's catch on #138)."""
+    for r in rows:
+        r["t"] = t
+        r["box"] = measured_box if (r.get("source") == "gate" and measured_box) else writer_box
+    return rows
+
+
 def _row(base, head, alloc, base_ms=None, digest=DIG, source="synthetic",
          conditions=None):
     # ⭐ `conditions` (D171): the per-pass (load1, secs) of the run that produced
@@ -1598,6 +1609,13 @@ def selftest():
            f"CONTROL — the fixtures really are ms CLEAN / FAILED / UNMEASURABLE "
            f"(rc {rcs}) and A′ CLEAN / FAILED (rc {ku_ok['rc']}, {ku_bad['rc']}), by "
            f"the shipped verdicts")
+        _st = stamp_rows([{"source": "gate"}, {"source": "backfill:w.jsonl"}],
+                         "BOX measurer", "BOX writer", 7)
+        ok([r["box"] for r in _st] == ["BOX measurer", "BOX writer"]
+           and stamp_rows([{"source": "gate"}], None, "BOX writer", 7)[0]["box"] == "BOX writer",
+           "a gate row's `box` is the box its readings were MEASURED on, a backfill row's the "
+           "writer's, and a readings file with no box falls back to the writer's",
+           plant="the writer's box stamped on a gate row")
         ok(rule(ms_clean) == (LANDED_MS, None),
            "an ms-CLEAN step records, on the ms verdict")
         on, why = rule(ms_over, ku_ok)
@@ -1886,9 +1904,7 @@ def main():
         if walk:
             for l in load_context(w["rows"]):
                 print("   " + l)
-        for r in rows:
-            r["t"] = int(time.time())
-            r["box"] = kd.box_stamp()
+        stamp_rows(rows, (data.get("box") if saved else None), kd.box_stamp(), int(time.time()))
         append_rows(ledger_path, rows, load_ledger(ledger_path))
         print(f"ledger ← {len(rows)} step(s) → {ledger_path}")
         return 0
