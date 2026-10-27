@@ -325,7 +325,7 @@ argued design decision (the differential harness must enumerate a memory to ship
 it to ACL2 x86isa).  Separation logic's `P * Q` means *the heap SPLITS into two
 disjoint parts*, and **a total memory has nothing to split**: doing separation
 logic here means first adding a footprint or permission structure to `Cpu.mem`,
-which changes the type that **52 of this library's 298 theorems** (at 2026-09-10) state
+which changes the type that **52 of this library's 298 theorems** state
 something about, and every load/store arm of `step`.
 
 ⇒ **Regions cost nothing new and reuse what is already proven.** `Mem.span` is

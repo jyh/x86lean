@@ -329,8 +329,8 @@ def set (rs : Regs) : GPR → BitVec 64 → Regs
   | .r14, v => { rs with r14 := v } | .r15, v => { rs with r15 := v }
 
 /-- ONE-SHOT PROJECTION PACK (plan v1 §3.7).  `get` after `set` on the same
-register.  Proven by a 16-way `decide`-free case split on `r` that the kernel
-does by iota alone. -/
+register.  Proven by a 16×16 `decide`-free case split that the kernel does by
+iota alone. -/
 @[simp] theorem get_set_same (rs : Regs) (r : GPR) (v : BitVec 64) :
     (rs.set r v).get r = v := by
   cases r <;> rfl
