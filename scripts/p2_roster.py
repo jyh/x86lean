@@ -87,6 +87,16 @@ ADDITIONS = [
 ]
 
 
+def addition_landed(key):
+    """An addition is LANDED when the census counts its bucket as covered. ⭐ D367: the LOCK bucket's
+    `EXT_SCOPE` ruling stays False on purpose, and the census credits a locked form through the lockable
+    line `x86lean-diff coverage` derives from `Op.lockable`; so LOCK has landed when that line exists
+    (the census refuses to run without it). ONE predicate, so the table and the selftest arm cannot differ."""
+    if DC.EXT_SCOPE[key]:
+        return True
+    return key == DC.LOCK_BUCKET and bool(DC.lockable_mnemonics())
+
+
 def mmx_note(n_mmx, occ):
     """The MMX share of one roster row's demand, as the row prints it.
 
@@ -556,7 +566,7 @@ ranking; they are back, marked.)
     fh.write("|---|---|---|---|---|\n")
     for i, (name, key, _why) in enumerate(ADDITIONS, 1):
         k = ext.get(key, 0)
-        if DC.EXT_SCOPE[key]:
+        if addition_landed(key):
             fh.write(f"| {i} | {name} | ✅ LANDED — {covd.get(key, 0):,} "
                      f"instructions now COUNTED AS COVERED | — | — |\n")
         else:
@@ -1260,7 +1270,7 @@ def selftest():
     # and one it still refuses must be PRESENT — a delivered item still showing
     # as a gap is exactly the stale-census defect this batch is about.
     for name, key, _w in ADDITIONS:
-        landed = DC.EXT_SCOPE[key]
+        landed = addition_landed(key)
         ok = (key not in ext) if landed else (key in ext)
         say(("  ✔ " if ok else "  ⛔ ") +
               (f"addition `{name}` is in scope for the census and is ABSENT "

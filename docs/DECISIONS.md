@@ -23484,3 +23484,17 @@ which 2,383 are in vmlinux.
 **Wrong if:** any of the 11 demand names is missing from the list (then the model lacks that locked form and its
 instructions stay in the residue, which is the honest outcome); the list contains a name `lockable` refuses; any other
 figure moves.
+**Readings (2026-10-26, `paris/d367-lock-census`):**
+1. **NOT HELD.** The derived list has **18** names, not 16: `adc` and `sbb` are on it. They DO have memory-destination
+   vectors. I had counted them with a grep for `.mem` within two lines of the mnemonic, which missed their layout. The
+   list is the generator's and the prediction was mine, so the list stands. `cmp`, `test`, `bt` and `mov` are absent, as
+   predicted.
+2. **HELD exactly.** LOCK residue 9,939 → 0; covered +9,939 in total, with each column's total unchanged; every other
+   bucket and the silicon and VEX columns unchanged (all ten columns compared, key by key, against master's JSON). The
+   census's no-pooling check first REFUSED the run. Its reference model was a plain set, so it could not carry the
+   lockable line, and cc1's 82 credited instructions read as pooled silicon. The reference is now a silicon-free `Model`
+   that carries the line, read fresh from COVERAGE.md like the silicon list.
+3. **HELD.** The refusal arms moved to `lock movq` and `lock cmpq`, both refused; `lock addq` credited; conservation 170 + 65
+   == 235. Red backwards: crediting LOCK by mnemonic alone reds exactly those two arms. `census_redprobe.py` gains that
+   mutation and passes 37 of 37, after four anchors were re-pointed at the lines this unit rewrote. `p2_roster.py` reads
+   LOCK as LANDED through one `addition_landed()` predicate, shared by its table and its selftest; P2-ROSTER.md was regenerated.
