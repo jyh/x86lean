@@ -23533,3 +23533,26 @@ open or push), `cancel-in-progress: true` and `permissions: {}`. Red first: with
 and control 10 reds. Eight plants, each named by its needle; a mutant that disables the types arm reds exactly that
 plant (23 arms, red=1). ⇒ Each check's own reach is what its plants show; the drive is the only evidence that GitHub
 evaluates the group the way check 10 assumes.
+
+## D369 — `vzeroupper`, a differentially tested VEX form (predictions before any model work; STATUS row 28)
+
+**Why.** The demand census's residue at the D362 tip carries `vzeroupper` at 1,917 instructions over six columns (glibc 662,
+dav1d 679, ffmpeg 255, vpx 163, x264 144, coreutils 13, vmlinux 1), in the bucket `AVX (state)`, which `EXT_SCOPE` rules out
+of scope. ACL2 x86isa implements it (`x86-vzeroupper`, `machine/instructions/fp/non-arith.lisp`, at both pins `c8897a3`
+and `cbb699d`). Under VEX.L = 0 it zeroes bits 255:128 of YMM0–7, and in 64-bit mode of YMM8–15; VEX.L = 1 is #UD (SDM
+Vol. 2C, VZEROUPPER). The model already carries those bits (`X86.YmmHi`), and the differential record already compares them
+(D341). So this is a differential VEX form: no new state and no silicon referee.
+**Design.** One VEX constructor with no operands. Its `step` is `xmms.hi := {}`, with every other field framed. One vector
+(`c5 f8 77`); the VEX.L = 1 encoding `c5 fc 77` is #UD on both sides, carried by the `refused` channel if the harness can
+express it, and otherwise declared. A VEX-table row. The census credits `vzeroupper` in `AVX (state)` when it is a VEX-table
+mnemonic, by D342's rule extended to that bucket, with the bucket's own ruling unchanged.
+**Predictions (each wrong if the named reading differs):**
+1. The differential: 1 vector × 88 pre-states, unexplained 0, at both pins. ⚠️ This needs the pre-states to seed the YMM hi
+   halves non-zero. That is NOT VERIFIED; it is the first thing to read, and if they are zero the vector is vacuous. A mutant that zeroes only YMM0–7 disagrees on hi8–15
+   at every pre-state.
+2. The census: `vzeroupper` 1,917 → 0 in the residue, credited on the VEX line (not in (a)). Conservation holds, and nothing
+   else moves.
+3. Kernel: one new constructor in `VexOp`, so `Op.anyLocked_eq` and the other per-constructor matches grow one arm. Price
+   unknown; K1 reads it, and a breach of a registered ceiling is a stop, posted.
+**Wrong if:** x86isa refuses the form at any pre-state (then it is silicon-refereed, and that is the honest outcome), the
+census credits it in (a), or any other figure moves.
