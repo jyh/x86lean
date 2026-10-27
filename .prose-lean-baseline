@@ -2,12 +2,9 @@
 # class 'shape' = a sentence matching one of the lexicon's shapes (read off the 2026-10-19 census; matching is NOT thereby an overclaim, and each census correction, being the Captain's wording, shrinks this file); 'predates' = a claim word in a headline carrier.
 # A line whose sentence is gone is refused (STALE-BASELINE): delete it. A NEW claim is refused until a .prose-lean-reads record names its Lean statement and a non-author reader.
 8ed322743cc7	CLAUDE.md	shape
-25cb2dbc0352	README.md	predates
 37c9b492334a	README.md	predates
 38d48e8ef5e2	README.md	predates
 459a4eb3d3c8	README.md	predates
-7287b3eb7e6a	README.md	predates
-7e19d1e730ee	README.md	predates
 9fdb391603a3	README.md	predates
 2a2e64f7990b	docs/DECISIONS.md	shape
 45fbcc0084d1	docs/DECISIONS.md	shape
@@ -28,16 +25,11 @@ bf83e8e0ad34	paper/x86lean-semantics.tex	predates
 # lexicon epoch 2 (R5, council 2026-10-22 item 3): sentences the epoch-1 lexicon did not see, accepted as debt by the WIDENING arm; each exists at the same path in the base tree.
 22fce6e3cc1b	README.md	lexicon-e2
 246f5a8f0bb9	README.md	lexicon-e2
-3775ec35ffcc	README.md	lexicon-e2
-3842c191e749	README.md	lexicon-e2
 4af72819f413	README.md	lexicon-e2
 5ffa69ad64e2	README.md	lexicon-e2
-60f97ce4f76b	README.md	lexicon-e2
 8796e79228b6	README.md	lexicon-e2
 a3109aca41c4	README.md	lexicon-e2
 e13166b8db96	README.md	lexicon-e2
-e1c4222ab2f4	README.md	lexicon-e2
-eae0e69e5704	README.md	lexicon-e2
 566a968aa47e	docs/DECISIONS.md	lexicon-e2
 b71eb4cda152	docs/DECISIONS.md	lexicon-e2
 e2e28a6de9a4	docs/P2-LOGIC-DESIGN.md	lexicon-e2
@@ -105,5 +97,3 @@ fcd4a5cb0de5	Tests/AnchorsVexSilC.lean	docstring
 6bd561e7cd7f	Tests/Program.lean	docstring
 8204c7b54aba	Tests/Program.lean	docstring
 cfa3287f2230	Tests/Program.lean	docstring
-2589573ddebb	X86/Basic.lean	docstring-cited
-3ea661f9ee3e	X86/Program.lean	docstring
