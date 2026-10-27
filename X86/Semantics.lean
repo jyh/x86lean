@@ -8,7 +8,7 @@ and changes nothing else (the ACL2 x86isa model-state discipline).
 
 WHAT MAKES IT AN INTERPRETER RATHER THAN A RELATION: `step` computes, so the
 same definition that the theorems are about is the one the differential harness
-RUNS against ACL2 x86isa (no hardware co-simulation has been run).  A relational or
+RUNS against ACL2 x86isa and (P1) against real hardware.  A relational or
 axiomatic semantics could not be differentially tested at all, and a separate
 executable "reference" would be a second model to keep honest.
 

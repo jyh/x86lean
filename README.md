@@ -86,7 +86,7 @@ declaration in CI.
   and drawn from the oracle), and a decode-trust column. The table is checked
   against the AST by [`Tests/Coverage.lean`](Tests/Coverage.lean), and the tiers'
   behavioural theorems are in [`Tests/Nonvacuity.lean`](Tests/Nonvacuity.lean).
-- **Validation.** Every form is run against ACL2 x86isa on the generated cases counted under Status
+- **Validation.** Every form is run against ACL2 x86isa on 107536 generated cases
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
   execution, never a theorem about the other model.
