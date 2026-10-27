@@ -1,1 +1,3 @@
 # a claim record: id, path, claim-sha12, lean-decl (<tracked .lean path>::<name>), stmt-sha12, author, reader, date  -- see scripts/check_prose_lean.py
+o88-2026-10-26-055	X86/Basic.lean	bf3b6efb09ab	X86/Basic.lean::X86.Regs.get_set_same	31993559e650	paper	math	2026-10-26
+o88-2026-10-26-056	X86/Program.lean	9eef5f7ee163	X86/Memory.lean::readN_congr	98b21c223063	paper	math	2026-10-26
