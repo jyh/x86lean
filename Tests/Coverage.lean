@@ -47,8 +47,8 @@ theorem roster_covered_by_table :
 
 /-- The table has exactly one row per implemented mnemonic, and no duplicates.
 The count is `rosterSize` rather than a literal, so this theorem and
-`roster_size_matches` below cannot drift apart — twenty-two today, because P1
-batch 2 added `adc` and `sbb`. -/
+`roster_size_matches` below cannot drift apart (twenty-two when P1 batch 2
+added `adc` and `sbb`; `rosterSize` is the count now). -/
 theorem table_row_count : tableP0.length = rosterSize := by decide
 
 theorem table_rows_distinct :
