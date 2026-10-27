@@ -108,11 +108,9 @@ fcd4a5cb0de5	Tests/AnchorsVexSilC.lean	docstring
 6bd561e7cd7f	Tests/Program.lean	docstring
 8204c7b54aba	Tests/Program.lean	docstring
 cfa3287f2230	Tests/Program.lean	docstring
-2589573ddebb	X86/Basic.lean	docstring-cited
 d92dbeece808	X86/Logic.lean	docstring
 026cbfa7995b	X86/Program.lean	docstring
 3d548b6d3bdc	X86/Program.lean	docstring-cited
-3ea661f9ee3e	X86/Program.lean	docstring
 48eb43c4d46a	X86/Program.lean	docstring
 bfdf148f3c87	X86/Program.lean	docstring
 cccfba31f4ef	X86/Program.lean	docstring
