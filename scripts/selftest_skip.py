@@ -189,8 +189,26 @@ def run_qualifies(jobs):
     return all(j.get("conclusion") == "success" for j in shards)
 
 
+def lookup_branch(event, ref_name, base_ref):
+    """The branch whose green runs this decision may inherit from, or None (⇒ MEASURE).
+
+    ⛔ UNTIL 2026-10-29 CI PASSED `github.ref_name` HERE ON EVERY EVENT, AND ON A PULL REQUEST THAT IS
+    `N/merge`.  `gh run list --branch` matches runs by their HEAD branch, so the lookup found no run, the
+    gate MEASURED, and the skip seam never fired on a PR: every x86lean PR paid the full matrix even when
+    nothing it consumes had moved (found on kent's #884 fork; the helm's ruling @92,164,481).
+    ⭐ ON A PULL REQUEST THE CHECKOUT IS THE MERGE REF, the tree that would land, so its digest is compared
+    with the newest green run on the BASE branch: D340's fast-path question, asked by the gate itself.
+    An empty `base_ref` on a pull_request is not guessed at; it returns None, and the gate MEASURES."""
+    if event == "pull_request":
+        return base_ref or None
+    return ref_name or None
+
+
 def decide(ref="HEAD", branch="master", cwd=None, emit=None):
     """SKIP only on a positive digest match against a named green run."""
+    if not branch:
+        return _out(False, None, None, n=0, reason="no branch to inherit a green run from "
+                    "(a pull_request with no base ref)", emit=emit)
     try:
         head = git(["rev-parse", ref], cwd=cwd).strip()
         d, n = digest(ref, cwd=cwd)
@@ -253,6 +271,11 @@ def main(argv=None):
     ap.add_argument("--paths", action="store_true", help="list the consumed set at HEAD")
     ap.add_argument("--decide", action="store_true", help="SKIP/MEASURE decision")
     ap.add_argument("--branch", default="master")
+    # ⭐ 2026-10-29: CI passes the EVENT and both refs, and `lookup_branch` decides; `--branch` is kept
+    # for a hand run.
+    ap.add_argument("--event")
+    ap.add_argument("--ref-name")
+    ap.add_argument("--base-ref", default="")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
 
@@ -267,7 +290,10 @@ def main(argv=None):
         print(f"{d}  ({n} paths at {a.digest})")
         return 0
     if a.decide:
-        return decide(branch=a.branch, emit=os.environ.get("GITHUB_OUTPUT"))
+        branch = lookup_branch(a.event, a.ref_name, a.base_ref) if a.event else a.branch
+        print(f"selftest-skip: event={a.event or '-'} ref_name={a.ref_name or '-'} "
+              f"base_ref={a.base_ref or '-'} ⇒ inherits from branch {branch or 'NONE'}")
+        return decide(branch=branch, emit=os.environ.get("GITHUB_OUTPUT"))
     ap.print_help()
     return 64
 
@@ -428,6 +454,47 @@ def selftest():
             arm("⭐⭐ PLANT: the same green run + a MOVED digest MEASUREs "
                 "(the two directions differ only by the artefact)",
                 "MEASURE --" in out2 and "SKIP" not in out2, out2.strip()[:150])
+
+            # ---- ⭐⭐ THE PULL-REQUEST LOOKUP (2026-10-29), red-first. A lister with a green run on
+            # `master` ONLY, as the forge has: a PR's own runs are filed under its head branch, never
+            # under `N/merge`. The PR's checkout is a merge ref whose consumed inputs equal master's.
+            write("X86/Core.lean", "def a := 777\n")
+            git(["add", "-A"], cwd=R); git(["commit", "-qm", "master, measured green"], cwd=R)
+            green_sha = git(["rev-parse", "HEAD"], cwd=R).strip()
+            globals()["last_green_selftest"] = (
+                lambda b, x, limit=30: (green_sha, 4242) if b == "master" else None)
+            write("docs/PR.md", "a docs-only PR\n")
+            git(["add", "-A"], cwd=R); git(["commit", "-qm", "the PR's merge ref, digest unmoved"], cwd=R)
+
+            def run_decide(branch):
+                buf = _io.StringIO()
+                with _ctx.redirect_stdout(buf):
+                    decide(ref="HEAD", branch=branch, cwd=R)
+                return buf.getvalue()
+
+            old = run_decide("139/merge")          # what CI passed until today
+            arm("⭐⭐ RED-FIRST: the OLD lookup (ref_name `139/merge`) MEASUREs a digest-equal PR "
+                "(the defect, kept as an arm)", "MEASURE --" in old and "SKIP" not in old, old.strip()[:150])
+            lb = lookup_branch("pull_request", "139/merge", "master")
+            new = run_decide(lb)
+            arm("⭐⭐ FIX: on a pull_request the lookup is the BASE branch, and the same digest-equal "
+                "PR SKIPs, RECORDING the inherited master sha",
+                lb == "master" and "SKIP --" in new and "RECORD" in new and green_sha[:8] in new,
+                f"lb={lb} {new.strip()[:150]}")
+
+            # the WRONG-IF: a PR that moves a consumed input must still MEASURE through the fixed lookup
+            write("X86/Core.lean", "def a := 778\n")
+            git(["add", "-A"], cwd=R); git(["commit", "-qm", "the PR moves a consumed input"], cwd=R)
+            moved = run_decide(lookup_branch("pull_request", "139/merge", "master"))
+            arm("⭐⭐ GUARD: through the fixed lookup, a PR whose consumed input MOVED still MEASUREs",
+                "MEASURE --" in moved and "SKIP" not in moved, moved.strip()[:150])
+
+            arm("a push keeps its own branch (master's lookup is unchanged)",
+                lookup_branch("push", "master", "") == "master")
+            nobase = run_decide(lookup_branch("pull_request", "139/merge", ""))
+            arm("a pull_request with NO base ref is not guessed at: no branch ⇒ MEASURE",
+                lookup_branch("pull_request", "139/merge", "") is None
+                and "MEASURE --" in nobase and "SKIP" not in nobase, nobase.strip()[:150])
         finally:
             globals()["last_green_selftest"] = _real
 
