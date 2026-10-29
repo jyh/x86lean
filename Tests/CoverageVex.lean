@@ -23,8 +23,9 @@ open X86 X86.Tests
 
 def vexMnemonics : List String := vexTable.map (·.row.mnemonic)
 
-/-- The VEX table has 33 rows, as D339 measured: the twins x86isa executes. -/
-theorem vex_table_size : vexTable.length = 33 := by decide
+/-- The VEX table has 34 rows: the 33 twins x86isa executes, as D339 measured, and (D369) `vzeroupper`, the one
+VEX-only row (`vexNoTwin`). -/
+theorem vex_table_size : vexTable.length = 34 := by decide
 
 /-- 1. The rows are distinct. -/
 theorem vex_rows_distinct : vexMnemonics.eraseDups.length = vexTable.length := by decide
@@ -36,10 +37,12 @@ theorem vex_rows_not_in_other_tables :
   decide
 
 /-- 3. Every VEX row names its legacy twin; the twin is a row of `tableP0`; and the VEX mnemonic is
-the twin's spelling with a `v` in front. -/
+the twin's spelling with a `v` in front — OR (D369) the row is declared VEX-only in `vexNoTwin` and names no
+twin.  An unlisted row with no twin still fails. -/
 theorem vex_twins_are_main_rows :
     (vexTable.all fun r =>
-      tableP0.any (·.mnemonic == r.twin) && r.row.mnemonic == "v" ++ r.twin) = true := by
+      (tableP0.any (·.mnemonic == r.twin) && r.row.mnemonic == "v" ++ r.twin)
+      || (vexNoTwin.contains r.row.mnemonic && r.twin == "")) = true := by
   decide
 
 /-- 4. Every VEX row has a vector, and every VEX vector's mnemonic is a VEX row. -/

@@ -4216,6 +4216,9 @@ def vexVectors : List Vec :=
     , bytes := "c5e9ef03", instr := ⟨.vex (.vexbinm .xor .x0 .x2 { base := some .rbx }), 4⟩ }
   , { id := "vpxor_x9x13m_u", mnemonic := "vpxor", asm := "vpxor 0x1(%rbx), %xmm13, %xmm9"
     , bytes := "c511ef4b01", instr := ⟨.vex (.vexbinm .xor .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  -- ⭐⭐ D369: vzeroupper, the VEX-only row; every pre-state's sixteen upper halves are non-zero, so it is not vacuous.
+  , { id := "vzeroupper", mnemonic := "vzeroupper", asm := "vzeroupper"
+    , bytes := "c5f877", instr := ⟨.vex .vexzeroupper, 3⟩ }
   ]
 
 /-- ⭐⭐⭐ V6 (D344): THE 39 VEX.256 (VEX.L = 1) REGISTER TWINS — V3's 39 register rows, operand for operand,

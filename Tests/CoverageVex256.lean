@@ -31,8 +31,9 @@ theorem vex256_vectors_size : vex256Vectors.length = 39 := by decide
 theorem vex256_vectors_have_rows :
     (vex256Vectors.all fun v => vexMnemonics.contains v.mnemonic) = true := by decide
 
+/-- D369: a row declared VEX-only (`vexNoTwin`) has no VEX.256 size of its own mnemonic, and is exempt by name. -/
 theorem vex_rows_have_vex256_vectors :
-    (vexMnemonics.all fun m => vex256Vectors.any (·.mnemonic == m)) = true := by decide
+    (vexMnemonics.all fun m => vexNoTwin.contains m || vex256Vectors.any (·.mnemonic == m)) = true := by decide
 
 /-- 3. Their ids are not the VEX.128 vectors' ids. -/
 theorem vex256_ids_new :

@@ -23536,7 +23536,7 @@ evaluates the group the way check 10 assumes.
 
 ## D369 — `vzeroupper`, a differentially tested VEX form (predictions before any model work; STATUS row 28)
 
-**Why.** The demand census's residue at the D362 tip carries `vzeroupper` at 1,917 instructions over six columns (glibc 662,
+**Why.** The demand census's residue (measured at the tip of my unlanded VEX stack, before this note was rebased onto master) carries `vzeroupper` at 1,917 instructions over seven columns (glibc 662,
 dav1d 679, ffmpeg 255, vpx 163, x264 144, coreutils 13, vmlinux 1), in the bucket `AVX (state)`, which `EXT_SCOPE` rules out
 of scope. ACL2 x86isa implements it (`x86-vzeroupper`, `machine/instructions/fp/non-arith.lisp`, at both pins `c8897a3`
 and `cbb699d`). Under VEX.L = 0 it zeroes bits 255:128 of YMM0–7, and in 64-bit mode of YMM8–15; VEX.L = 1 is #UD (SDM
@@ -23556,3 +23556,15 @@ mnemonic, by D342's rule extended to that bucket, with the bucket's own ruling u
    unknown; K1 reads it, and a breach of a registered ceiling is a stop, posted.
 **Wrong if:** x86isa refuses the form at any pre-state (then it is silicon-refereed, and that is the honest outcome), the
 census credits it in (a), or any other figure moves.
+**Read before the model (2026-10-29).** (i) Prediction 1's precondition HOLDS: every pre-state passes through
+`ymmHiPattern` (`Tests/Vectors.lean`, `preStates`), which seeds all sixteen upper halves (`XmmReg.all`, x0–x15) with top byte
+`0xA5`, so none is zero; and the driver writes all sixteen from each case's `:ymmhis` (`x86l-set-ymmhis`,
+`scripts/x86isa_driver.lisp`). So the vector is not vacuous, and a model that zeroed only YMM0–7 disagrees on hi8–15.
+(ii) **The design said "a VEX-table row" and that cannot be built as written.** `Tests.CoverageVex`'s theorem 3 holds every
+`vexTable` row to a legacy twin (`twin` a row of `tableP0`, and the mnemonic is `"v" ++ twin`), and `vzeroupper` has no legacy
+twin. Two arms: (A) a separate table for VEX forms with no twin, which the census, `x86lean-diff` and the per-row gates would
+each have to learn; (B) keep `vexTable` and amend theorem 3 to "names its legacy twin, OR is in `vexNoTwin`", a declared list
+of one, with `twin := ""`. **Taken: (B).** The invariant keeps its force (an unlisted row with no twin is still a compile
+failure), the exception is named where the theorem is, and everything that already reads `vexTable` (theorems 1, 2, 4,
+`vexMnemonics`, the census's `vex` set) covers the row with no new plumbing. Wrong if a later VEX-only form needs a different
+shape of exception, which would make the list a category rather than a list (then (A)).
