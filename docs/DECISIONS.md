@@ -23498,3 +23498,14 @@ figure moves.
    == 235. Red backwards: crediting LOCK by mnemonic alone reds exactly those two arms. `census_redprobe.py` gains that
    mutation and passes 37 of 37, after four anchors were re-pointed at the lines this unit rewrote. `p2_roster.py` reads
    LOCK as LANDED through one `addition_landed()` predicate, shared by its table and its selftest; P2-ROSTER.md was regenerated.
+**Correction (2026-10-29, on paper's read of #142):** the figure "9,939 → 0" is the CREDITED count, not the residue. The
+LOCK bucket at master is **9,945** (the ten corpus columns; 10,107 with `_asm_pooled`). At the head it is **6**, all
+`cmpxchg16b` in vmlinux, correctly refused: `to_roster` maps it to no roster name and `Op.lockable`'s own comment says it
+is not in the roster. The measurement above and reading 2 counted the 28 MAPPED spellings, which left those six out. So:
+**LOCK residue 9,945 → 6, of which 9,939 credited**; covered +9,939 holds as read. The commit subjects that say
+"residue 9,939 -> 0" are not rewritten, because the ledger row is keyed on `26cd137`; this paragraph supersedes them.
+⚠️ **And a limit:** only 10 of the 18 names on the `Lockable:` line have a vector that carries the lock byte (`add bts
+cmpxchg cmpxchg8b dec inc neg not or xadd`). `and`, `sub`, `btr` and `xor` are credited from an UNLOCKED
+memory-destination vector plus the predicate (1,350 of the 9,939: and 647 · sub 421 · btr 279 · xor 3, paper's
+mapping); `adc`, `btc`, `sbb` and `xchg` are on the list the same way. The census's generated prose now says so, and
+its stale sentence ("`Op.lockIllegal`, which this document's inputs do not publish") is replaced.

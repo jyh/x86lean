@@ -87,15 +87,19 @@ explicitly — there is no default:
 | a `%ymm`, `%zmm` or `%k` register | ⛔ | no AVX/AVX-512 state |
 | a VEX-encoded `%xmm` form (`v…`) | ⛔ | a different encoding, not a different name |
 | an x87 `%st` register | ⛔ | no x87 state |
-| a `lock` prefix | ⛔ | see below |
+| a `lock` prefix | ✅ per form | see below |
 
-⛔ **The `lock` exclusion is a REFUSAL, not an absence.** P2 addition 2 landed a
-LOCK vocabulary, so the model does execute locked forms — but only the SDM's
-nineteen, and whether a given form is one of them is `Op.lockIllegal`, which
-this document's inputs do not publish. Claiming a locked instruction by
-MNEMONIC would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on
-silicon and the form a reader most expects to be lockable. So it is counted as
-NOT covered, at a measured cost, until that predicate is exported.
+⭐ **The `lock` prefix is credited PER FORM, through a published predicate (D367).** P2
+addition 2 landed a LOCK vocabulary, and `docs/COVERAGE.md` now publishes a `Lockable:`
+line: every mnemonic with a vector whose form `Op.lockable` accepts. A locked instruction
+is covered when its roster name is in the model AND on that line; any other locked form
+is refused and counted as NOT covered. Claiming a locked instruction by MNEMONIC alone
+would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on silicon and the
+form a reader most expects to be lockable; the line is what prevents that.
+⚠️ **The limit, declared:** a name is on the line when a vector's FORM is lockable, which
+need not be a vector that carries the `lock` byte. Some credited names (`and`, `sub`,
+`btr`, `xor` among them) are credited from an unlocked memory-destination vector plus
+the predicate, not from a differentially run locked instruction.
 
 ⛔ **The MMX exclusion was a real over-claim.** `%[xyz]mm` does not match
 `%mm0`, so until the assembly class arrived every MMX instruction whose mnemonic
@@ -134,7 +138,7 @@ Every number below is a STATIC count of instruction occurrences in a disassembly
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 0 (0.00%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 0 (0.00%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 121 (0.0%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -223,7 +227,7 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 50 (0.01%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 50 (0.01%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 2,156 (0.2%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -328,7 +332,7 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 207 (0.03%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 207 (0.03%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 34,118 (5.7%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -457,7 +461,7 @@ are excluded, or every math-heavy C function would read as hand-written.
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 8,878 (2.92%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 8,878 (2.92%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 54,951 (18.1%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -561,7 +565,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 19,114 (0.61%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 19,114 (0.61%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 22,229 (0.7%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -668,7 +672,7 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 0 (0.00%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 0 (0.00%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 66 (0.0%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -746,7 +750,7 @@ Symbol maps were found for **52 of 52** objects in this column. Rows are the two
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 6,199 (5.53%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 6,199 (5.53%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 5,020 (4.5%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -842,7 +846,7 @@ Symbol maps were found for **19 of 19** objects in this column. Rows are the two
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 713 (0.10%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 713 (0.10%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 10,424 (1.4%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -949,7 +953,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 15,007 (3.98%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 15,007 (3.98%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 12,322 (3.3%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -1085,7 +1089,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix (whose legality is per-form and not published here): 0 (0.00%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 0 (0.00%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 5,648 (0.2%).
 
 | rank | mnemonic | occurrences | share | in the model? |

@@ -1577,8 +1577,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0, mem=None, msk=None):
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
              f"cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, "
-             f"a VEX encoding, or a `lock` prefix (whose legality is per-form "
-             f"and not published here): {oos:,} ({100.0*oos/tot:.2f}%) — "
+             f"a VEX encoding, or a `lock` prefix on a form the model does not "
+             f"list as lockable (`Lockable:` in docs/COVERAGE.md): {oos:,} ({100.0*oos/tot:.2f}%) — "
              f"counted as NOT covered.\n")
     fh.write(f"- Not mapped at all, and therefore counted as NOT covered: "
              f"{unk:,} ({100.0*unk/tot:.1f}%).\n\n")
@@ -2538,15 +2538,19 @@ explicitly — there is no default:
 | a `%ymm`, `%zmm` or `%k` register | ⛔ | no AVX/AVX-512 state |
 | a VEX-encoded `%xmm` form (`v…`) | ⛔ | a different encoding, not a different name |
 | an x87 `%st` register | ⛔ | no x87 state |
-| a `lock` prefix | ⛔ | see below |
+| a `lock` prefix | ✅ per form | see below |
 
-⛔ **The `lock` exclusion is a REFUSAL, not an absence.** P2 addition 2 landed a
-LOCK vocabulary, so the model does execute locked forms — but only the SDM's
-nineteen, and whether a given form is one of them is `Op.lockIllegal`, which
-this document's inputs do not publish. Claiming a locked instruction by
-MNEMONIC would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on
-silicon and the form a reader most expects to be lockable. So it is counted as
-NOT covered, at a measured cost, until that predicate is exported.
+⭐ **The `lock` prefix is credited PER FORM, through a published predicate (D367).** P2
+addition 2 landed a LOCK vocabulary, and `docs/COVERAGE.md` now publishes a `Lockable:`
+line: every mnemonic with a vector whose form `Op.lockable` accepts. A locked instruction
+is covered when its roster name is in the model AND on that line; any other locked form
+is refused and counted as NOT covered. Claiming a locked instruction by MNEMONIC alone
+would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on silicon and the
+form a reader most expects to be lockable; the line is what prevents that.
+⚠️ **The limit, declared:** a name is on the line when a vector's FORM is lockable, which
+need not be a vector that carries the `lock` byte. Some credited names (`and`, `sub`,
+`btr`, `xor` among them) are credited from an unlocked memory-destination vector plus
+the predicate, not from a differentially run locked instruction.
 
 ⛔ **The MMX exclusion was a real over-claim.** `%[xyz]mm` does not match
 `%mm0`, so until the assembly class arrived every MMX instruction whose mnemonic
