@@ -52,6 +52,11 @@ theorem vex_rows_have_vectors :
 theorem vex_vectors_have_rows :
     (vexVectors.all fun v => vexMnemonics.contains v.mnemonic) = true := by decide
 
+-- ⚠️ D369: at 41 VEX vectors this `decide` builds at the default depth but FAILS ("maximum recursion depth")
+-- under `ku_delta`'s instrumented wrapper (`hb_count … in`), measured on katmai 2026-10-29 (K2 A′, base 87de9ad,
+-- head 85a40c5). The repo's idiom for a `decide` at the limit is a raised depth on the one declaration (D-notes
+-- on maxRecDepth); 8000 is the value the Anchors files use.
+set_option maxRecDepth 8000 in
 /-- 5. No VEX vector shares a mnemonic with the main vector table. -/
 theorem vex_vectors_not_in_main :
     (vexVectors.all fun v => !(tableP0.any (·.mnemonic == v.mnemonic))) = true := by decide
