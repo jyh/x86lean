@@ -1143,12 +1143,20 @@ _CEIL_LINE = re.compile(
     r"(?:\s+" + re.escape("@on") + r"\s+\S+)?\s*$")
 
 
-def _fake_lean_link(d):
-    """A process that LOOKS like a Lean build for as long as it lives: a symlink named
-    `lean` to the platform `sleep` (D227). Run it as `[path, "40"]`."""
-    import shutil as _shl
+def _fake_lean_link(d, body="import sys, time\ntime.sleep(float(sys.argv[1]))\n"):
+    """A process that LOOKS like a Lean build for as long as it lives: a script named `lean`
+    run by THIS interpreter (`#!<sys.executable>`). Run it as `[path, "40"]`; `ps` shows
+    `…python3 …/lean 40` for the whole life of ONE process.
+    ⛔ It was a SYMLINK named `lean` to `sleep` until 2026-10-26 (D227's form), and that broke on the
+    `ubuntu-26.04` runner image: its `sleep` is a multicall coreutils binary that dispatches on
+    argv[0], so invoked as `lean` it exits at once. The fixture died before the first `ps`, both
+    "IS counted" arms went red, and the "is NOT counted" arms beside them passed VACUOUSLY.
+    (D227's other constraints still hold: no shell `exec` that renames it, no copied binary.)
+    `body` lets the selftest plant a fixture that dies at once."""
     fk = os.path.join(d, "lean")
-    os.symlink(_shl.which("sleep") or "/bin/sleep", fk)
+    with open(fk, "w", encoding="utf-8") as fh:
+        fh.write(f"#!{sys.executable}\n{body}")
+    os.chmod(fk, 0o755)
     return fk
 
 
@@ -1434,6 +1442,10 @@ def conditions_selftest():
                         hit = True
                         break
                     time.sleep(0.2)
+                # ⛔ A DEAD FIXTURE IS NOT AN ANSWER: `hit = False` from a process that already exited
+                # would pass the "in" arm vacuously (the ubuntu-26.04 case), so it reads None.
+                if not hit and pr.poll() is not None:
+                    hit = None
                 if label == "out":
                     seen_out = hit
                 else:
@@ -1465,13 +1477,14 @@ def conditions_selftest():
         return subprocess.Popen([_fake_lean_link(d), "40"], cwd=d,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    def _is_foreign(pid, tries=25):
+    def _is_foreign(pr, tries=25):
+        """True / False, or None when the fixture had already EXITED, which answers neither."""
         for _ in range(tries):
             fb = foreign_builds()
-            if fb is not None and any(o["pid"] == pid for o in fb):
+            if fb is not None and any(o["pid"] == pr.pid for o in fb):
                 return True
             time.sleep(0.2)
-        return False
+        return None if pr.poll() is not None else False
 
     # (a) A REAL detached worktree of this repo, which is what the merge gate and
     # the drift gate actually profile. This exercises the STRUCTURAL test; a
@@ -1484,7 +1497,7 @@ def conditions_selftest():
         subprocess.run(["git", "worktree", "add", "--detach", wt_tree, "HEAD"],
                        cwd=root, capture_output=True, text=True, timeout=120)
         pr_a = _fake_lean_in(wt_tree)
-        out.append((_is_foreign(pr_a.pid) is False,
+        out.append((_is_foreign(pr_a) is False,
                     "a Lean build in a REAL detached worktree of this repo "
                     "(x86lean-delta-, what the merge and drift gates profile) is "
                     "NOT counted as another campaign's build"))
@@ -1502,7 +1515,7 @@ def conditions_selftest():
     pr_b = None
     try:
         pr_b = _fake_lean_in(d_b)
-        out.append((_is_foreign(pr_b.pid) is True,
+        out.append((_is_foreign(pr_b) is True,
                     "a genuinely foreign tree IS counted as another campaign's "
                     "build (the control that keeps the row above honest)"))
     finally:
@@ -1510,6 +1523,25 @@ def conditions_selftest():
             pr_b.kill()
             pr_b.wait()
         _sh.rmtree(d_b, ignore_errors=True)
+
+    # (b′) A FIXTURE THAT DIES AT ONCE IS REPORTED DEAD, NEVER AS AN ANSWER — the ubuntu-26.04 case,
+    # planted: a `lean` that exits immediately must make `_is_foreign` return None, so neither an
+    # "IS counted" nor an "is NOT counted" arm can pass on it.
+    d_d = tempfile.mkdtemp(prefix="some-other-campaign-")
+    pr_d = None
+    try:
+        pr_d = subprocess.Popen([_fake_lean_link(d_d, body="import sys\nsys.exit(0)\n"), "40"], cwd=d_d,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # ⛔ wait for the exit FIRST: a Python that is still starting up is alive, and is (rightly) seen.
+        pr_d.wait(timeout=30)
+        out.append((_is_foreign(pr_d, tries=5) is None,
+                    "a fixture that EXITS at once reads as dead (None), not as \"not counted\" "
+                    "(the multicall-`sleep` image, planted)"))
+    finally:
+        if pr_d:
+            pr_d.kill()
+            pr_d.wait()
+        _sh.rmtree(d_d, ignore_errors=True)
 
     # (c) THE POST-KILL CASE THE NAME FALLBACK EXISTS FOR: the process is alive
     # and its worktree DIRECTORY HAS BEEN REMOVED, so nothing structural is left

@@ -23442,3 +23442,22 @@ not elaborated until the next unit's full build reached them: `vector_count_is_1
 `x86lean-diff runs` (378 runs over 1222 vectors), and the segment count 8 → 31 (batch 22's 8 plus these 23). `X86` and `Tests`
 then build with zero errors in both orders. ⇒ A unit that adds vectors is not checked until `Tests` builds; the differential's
 own build does not reach it.
+
+## D368 — two tool defects found by other seats' PRs: the kernel-cost fixture dies on ubuntu-26.04, and the drift ledger stamps the writer's box (2026-10-26)
+
+**(a) `kernel_cost.py --selftest`'s fake `lean`.** #134 and #135 (records and README only) went red on the same two arms,
+"a Lean-looking build OUTSIDE this repo is counted" and "a genuinely foreign tree IS counted". Both jobs ran on
+`ubuntu-26.04`, while #136's job on `ubuntu-24.04` passed 33/33. The fixture was a symlink named `lean` to `sleep` (D227).
+On that image `sleep` is a multicall coreutils binary that dispatches on argv[0]; this mechanism is inferred from the image
+split and was not driven on a 26.04 box. Invoked as `lean`, it exits before the first `ps`. ⛔ **The worse half was
+silent:** the two arms that expect "NOT counted" passed on the same dead fixture. The fixture is now a script named
+`lean` run by `sys.executable`: one process, with no shell `exec` to rename it and no copied binary (D227's other two
+constraints). `_is_foreign` returns `None` for a fixture that has already exited, so neither direction can pass on it,
+and a new arm plants a fixture that exits at once and requires `None`. Red backwards: with the default fixture made to
+exit at once, the selftest reds exactly the two "NOT counted" arms (FAIL 2 of 34) instead of passing them. The "IS
+counted" arms still pass under that mutant, because a Python fixture is visible while it starts, which a multicall
+`sleep` is not. Locally 35/35, and the deleted-worktree arm, INAPPLICABLE on both 26.04 runs, is reachable here.
+**(b) `kernel_drift.py --record`'s `box`.** Every ledger row stamped `box` with the WRITER's box, so the last five K2 rows,
+measured on katmai and recorded on yukon, read `BOX yukon…` (math's catch on #138). `stamp_rows()` now gives a gate row
+the box from its own readings file, and a backfill row (whose walk ran on the writer) the writer's. Red backwards:
+restoring the writer's stamp reds exactly the new arm. Past rows are not rewritten.
