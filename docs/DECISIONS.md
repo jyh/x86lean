@@ -23470,14 +23470,14 @@ fourth hand-kept list. Its comment names the remedy: export the predicate into a
 `x86lean-diff coverage` gains a section listing every mnemonic that has a vector whose `Op` is `lockable`. The list is
 computed from the vectors, so it names only forms the differential runs. The census credits a LOCK-prefixed instruction
 as covered when its roster name is in the model and in that list, and refuses it otherwise.
-Measured at master `d4b7c00` before any code: the LOCK residue is **9,939** instructions over 28 printed spellings, which
+Measured at master `d4b7c00` before any code: the LOCK residue is **9,939** instructions over 28 printed spellings (⚠️ the MAPPED spellings only; the bucket is 9,945, see the correction below), which
 map to 11 roster names (`add` `and` `btr` `bts` `cmpxchg` `dec` `inc` `or` `sub` `xadd` `xor`); `xaddl` alone is 2,441, of
 which 2,383 are in vmlinux.
 **Predictions (each wrong if the named reading differs):**
 1. The derived list is exactly `add and btc btr bts cmpxchg cmpxchg8b dec inc neg not or sub xadd xchg xor` (16). `adc`
    and `sbb` are absent because they have no memory-destination vector; `cmp`, `test`, `bt` and `mov` are absent because
    `lockable` refuses them.
-2. The census's LOCK residue goes 9,939 → **0**, and the covered total rises by exactly 9,939. Every column's other
+2. The census's LOCK residue goes 9,939 → **0** (⚠️ superseded: 9,945 → 6, see the correction below), and the covered total rises by exactly 9,939. Every column's other
    buckets, and the silicon and VEX columns, are unchanged; conservation holds.
 3. The selftest's refusal arm moves from `lock addq` (now credited) to a form `lockable` refuses (`lock movq`), and it is
    refused. A mutant that credits LOCK by mnemonic alone (ignoring the list) is caught by that arm.
@@ -23489,7 +23489,7 @@ figure moves.
    vectors. I had counted them with a grep for `.mem` within two lines of the mnemonic, which missed their layout. The
    list is the generator's and the prediction was mine, so the list stands. `cmp`, `test`, `bt` and `mov` are absent, as
    predicted.
-2. **HELD exactly.** LOCK residue 9,939 → 0; covered +9,939 in total, with each column's total unchanged; every other
+2. **HELD exactly** for the credited count (⚠️ the residue is 9,945 → 6, see the correction below). LOCK residue 9,939 → 0; covered +9,939 in total, with each column's total unchanged; every other
    bucket and the silicon and VEX columns unchanged (all ten columns compared, key by key, against master's JSON). The
    census's no-pooling check first REFUSED the run. Its reference model was a plain set, so it could not carry the
    lockable line, and cc1's 82 credited instructions read as pooled silicon. The reference is now a silicon-free `Model`
