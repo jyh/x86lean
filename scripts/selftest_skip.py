@@ -482,6 +482,24 @@ def selftest():
                 lb == "master" and "SKIP --" in new and "RECORD" in new and green_sha[:8] in new,
                 f"lb={lb} {new.strip()[:150]}")
 
+            # ⭐⭐ AND THROUGH main(), THE PATH CI RUNS (paper's read of #143): the arms above call
+            # lookup_branch() and decide() directly, so a main() that wired `a.ref_name` back in passed
+            # 27/27. This arm invokes the CLI exactly as ci.yml does.
+            _cwd = os.getcwd()
+            buf = _io.StringIO()
+            try:
+                os.chdir(R)
+                with _ctx.redirect_stdout(buf):
+                    main(["--decide", "--event", "pull_request", "--ref-name", "139/merge",
+                          "--base-ref", "master"])
+            finally:
+                os.chdir(_cwd)
+            cli = buf.getvalue()
+            arm("⭐⭐ CLI: main() given CI's three arguments inherits from branch master and SKIPs "
+                "the digest-equal PR (the wiring ci.yml invokes, not only the function)",
+                "inherits from branch master" in cli and "SKIP --" in cli and green_sha[:8] in cli,
+                cli.strip()[:180])
+
             # the WRONG-IF: a PR that moves a consumed input must still MEASURE through the fixed lookup
             write("X86/Core.lean", "def a := 778\n")
             git(["add", "-A"], cwd=R); git(["commit", "-qm", "the PR moves a consumed input"], cwd=R)
