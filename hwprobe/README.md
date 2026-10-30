@@ -83,6 +83,11 @@ all eleven mnemonics, so every row is pinned (`mk_simda_anchors.py`, generated i
 D373 adds SET B beside it (`mk_simda_rows.py --set-b`: PMINSW, PMULHW, PMULHUW, PAVGB, 144 rows, the rules and the row
 construction shared with set A, its own seeds): `simdb_ops.S`, the same `simda_probe.c` compiled against `simdb_rows.h`,
 and its pins in `Tests/AnchorsSimdB.lean` (`mk_simda_anchors.py --set-b`). x86isa refuses all four (D373, P1).
+
+D374 adds the VEX twins of eleven modelled packed-integer kinds (VPADDSW VPMAXSW VPMINSW VPSUBUSB VPSADBW VPMULLW VPAVGB
+VPSUBUSW VPMULHW VPMULHUW VPMULUDQ; VEX.128 and VEX.256, register and memory source): `mk_vexsilg_rows.py` (561 rows; the
+128-bit function is `mk_simda_rows.rule`, imported), `vexsilg_ops.S` in D361's frame, and `vexsile_probe.c` compiled
+against `vexsilg_rows.h`. x86isa refuses all of them (D374, P1).
 Controls: `--plant` (bit 64 of row 0's expectation) and `--plant-op`; `--reach` counts the rows on which one named wrong
 rule per mnemonic disagrees with the right one (it must be non-zero).
 
