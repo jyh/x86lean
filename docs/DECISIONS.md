@@ -23938,3 +23938,11 @@ VEX.L = 1 is `#UD` for all four (SDM Vol. 2B, MOVD/MOVQ), so there is no VEX.256
 **Price.** One silicon wave (two vendors), one generator, four constructors, one metered anchor unit, one census regeneration.
 D361 is the comparable. The branch stacks on D362, the stack's tip (D356's constructors included), so it lands after the
 D356–D362 stack.
+**Readings (2026-10-30, `paris/d371-vex-movdq`):**
+1. **HELD** on both vendors, hwprobe run 41041988507 at `761159d`: AMD EPYC 7763 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 72 disagreements 0`. On each leg `--plant` reds exactly `vmovd_ld_ones_a`, `--plant-hi`
+   exactly `vmovq_gx_ones_r`, `--plant-mem` exactly `vmovd_st_ones_u`, and `--plant-op` refuses `x_vmovd_gx` (rc 2). The
+   `--plant-mem` control is new here: it shows the buffer comparison can fail, which V8c's and V10's probes never showed.
+2. **HELD.** Selftest 17 arms; `--refuse-wrong` refuses (a)-(d), each on its named row (`vmovd_gx_zero_r`,
+   `vmovd_ld_zero_a`, `vmovq_st_zero_a`, `vmovd_xg_zero_r`). Reach: (a) 36 rows, (b) 12, (c) 12, (d) 6. Two mutants of the
+   references themselves (the textbook's store one byte short; a `vmovd` r → xmm keeping 128 bits) each red the selftest.
