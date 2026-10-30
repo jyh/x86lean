@@ -24022,3 +24022,30 @@ regeneration. The branch stacks on D371 (`5796e5b`), the stack's tip, so it land
    `pminsw` 1,886 · `pmulhuw` 1,603 · `pmulhw` 1,590 · `pavgb` 974), its memory sub-column +620 inside it, and no other
    column moved. The 1,432 MMX instructions remain in the residue. `COVERAGE.md`, the census and `P2-ROSTER.md` regenerated;
    `demand_census --check` and `p2_roster --check` CLEAN.
+
+## D374 — the VEX twins of eleven modelled packed-integer kinds, refereed by silicon (STATUS row 36, wave B; predictions and price before any model work)
+
+**Why.** 8,608 instructions in the census residue at D373's head (xmm and ymm): `vpaddsw` 1,600 · `vpmaxsw` 1,384 ·
+`vpminsw` 1,371 · `vpsubusb` 1,315 · `vpsadbw` 850 · `vpmullw` 817 · `vpavgb` 453 · `vpsubusw` 389 · `vpmulhw` 346 ·
+`vpmulhuw` 64 · `vpmuludq` 19. Each is the VEX twin of a kind the model already has (D335's `addsw maxsw subusb sadbw mullw
+subusw muludq`, D373's `minsw avgb mulhw mulhuw`). The other four D335 kinds' twins are already taken (D348, D361).
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, `oracle_availability.measure()` unmodified,
+controls in the SAME run).** All **34** encodings REFUSE at 88 of 88: the eleven at VEX.128 register, VEX.128 m128 and
+VEX.256 register (and `vpaddsw` also at VEX.256 m256). `mov`, `vpxor (%rbx),%xmm2,%xmm0` and `vpaddw %xmm1,%xmm2,%xmm0`
+executed 88/88. ⇒ **a silicon wave, D348's and D361's shape.**
+**The model (no new semantics).** `vexbin`, `vexbinm`, `vexbin256` and `vexbinm256` already apply `vbinApply k` with the
+VEX write rule, behind `VBinKind.vexSilTaken` (register) and `VBinKind.vexSilMemTaken` (memory). The change is the eleven
+kinds added to both predicates.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor; the YMM upper half
+   is seeded nonzero before every VEX.128 row; every memory row runs at an unaligned offset as well as an aligned one.
+2. **Generator, before any processor.** The 128-bit function is `mk_simda_rows.rule` itself (imported, not restated), with
+   SRC1 in the legacy destination's place. Named wrong rules each refused on a named row: (a) a VEX.128 form that leaves YMM
+   255:128 (the legacy rule); (b) a VEX.256 form that applies the function to the low lane only; (c) the operands swapped
+   (SRC2 in the destination's place), which changes `psubus*`; (d) a memory form that checks 32- or 16-byte alignment.
+3. **Model.** The two predicates gain the eleven kinds; every row pinned by `decide` in a NEW unit. **Red backwards:**
+   removing one kind from `vexSilMemTaken` reds exactly that kind's memory pins.
+4. **Census.** The VEX column rises by the eleven mnemonics' xmm and ymm forms, 8,608 if every spelling counted is one of
+   the four shapes, and nothing else moves. Any shortfall is printed as residue.
+**Price.** One silicon wave (two vendors), one generator importing D335's rules, one `.S`, one probe, two predicate lines,
+one metered anchor unit, one census regeneration. Stacked on D373 (`f5d9ffa`).
