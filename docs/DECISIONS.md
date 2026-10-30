@@ -23898,3 +23898,43 @@ measurement cannot separate it from zero, so the prediction is NOT CONFIRMED rat
 allowance of 8,654 (one field's type, no constructor), which is the sharper instrument here. Every other unit ok on both arms;
 `Tests.AnchorsShuf` +40 ms ± 36.3 and +360 ku (the ten `pextr` spellings). No yukon ceiling is registered (no yukon K1 was
 run); the runner's line comes from the PR's own kernel-delta refusal and rides in the next script-only PR.
+
+## D371 — VEX `vmovd`/`vmovq` between an XMM register and a GPR or memory: the VEX twins of D356, refereed by silicon (STATUS row 27; predictions and price before any model work)
+
+**Why.** 6,939 instructions in the census residue (`vmovq` 3,922 · `vmovd` 3,017, all VEX.128: dav1d 2,551 · ffmpeg 1,848 ·
+x264 1,314 · glibc 815 · vpx 406 · coreutils 4 · vmlinux 1), read at D356's head `569b100`. These are the VEX encodings of
+D356's `vmovgld`/`vmovgst` and of the register forms the model has as `vmovg`.
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, a scratch driver that imports
+`oracle_availability.py` unmodified and calls its `measure()`, bytes from its `encode_forms`).** All **8** encodings REFUSE at
+88 of 88: `vmovd`/`vmovq` GPR→xmm (`c5f96ec1` `c4e1f96ec1`), xmm→GPR (`c5f97ec1` `c4e1f97ec1`), load (`c5f96e03`; `vmovq`
+load assembles as F3 0F 7E, `c5fa7e03`) and store (`c5f97e03`; `vmovq` store as 66 0F D6, `c5f9d603`). In the same run
+`CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0` executed at 88/88, which places the refusals on the opcodes and not on a VEX
+memory access. ⇒ **a silicon wave with register and memory operands, D361's shape.** (The driver's first two runs printed `None`
+for both controls: it looked the results up by mnemonic, and `measure()` keys them by `tag_of`, which maps `:` to `_`. The third
+run reads them by tag. A refusal table whose controls read `None` is uninterpretable, so the readings above are from that third
+run alone.)
+**The model (four VEX constructors; no new arithmetic).** Each is its legacy twin's value with the VEX.128 write rule: an XMM
+destination is written through `setXmmVex128`, so bits 255:128 of the YMM register are zeroed, where the legacy form leaves them.
+- `vexmovgx sz dst r` — GPR→xmm: the low 32 or 64 bits of `r`, zero-extended to 128 (VEX.W picks the width).
+- `vexmovxg sz r src` — xmm→GPR: the low 32 or 64 bits of `src`; a 32-bit write zero-extends into the 64-bit register.
+- `vexmovgld sz dst ea` — load: 4 or 8 bytes at `a`, zero-extended to 128 (no merge: the x86isa legacy `movd`-load merge D356
+  declared is not this form's question, since the referee is silicon).
+- `vexmovgst sz ea src` — store: exactly 4 or 8 bytes written, nothing else in memory or in the registers moved.
+VEX.L = 1 is `#UD` for all four (SDM Vol. 2B, MOVD/MOVQ), so there is no VEX.256 twin.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor. The YMM upper half is
+   SEEDED NONZERO before every row, so the VEX zeroing is read, not assumed. Every memory row is read at an UNALIGNED offset as
+   well as an aligned one, and the store rows read the whole buffer back.
+2. **Generator, before any processor.** A textbook per form reproduces every row, and `--refuse-wrong` refuses each of these
+   on a named row: (a) a VEX form that leaves YMM 255:128 untouched (the legacy rule); (b) a `vmovd` load that merges bits
+   127:32 instead of zeroing them; (c) a `vmovq` store that writes 16 bytes; (d) a `vmovd` xmm→r32 that leaves bits 63:32 of
+   the GPR.
+3. **Model.** Four constructors under `Op.vex`, all rows pinned by `decide` in a NEW metered unit. **Red backwards:** (a)'s
+   mutant reds exactly the four constructors' upper-zeroing theorems, and (c)'s reds exactly the store rows.
+4. **Census.** The VEX column rises by the `vmovd`/`vmovq` spellings these four shapes cover, and nothing else moves.
+   ⚠️ **Not 6,939 by construction:** the census counts by mnemonic, and VEX `vmovq xmm, xmm` (F3 0F 7E, register form) carries
+   the same name and is not one of these four shapes. Its share is UNMEASURED here. The census's form split (branch
+   `paris/census-shape-split`) or a by-spelling count at build time decides it, and the residue is printed, not assumed zero.
+**Price.** One silicon wave (two vendors), one generator, four constructors, one metered anchor unit, one census regeneration.
+D361 is the comparable. The branch stacks on D362, the stack's tip (D356's constructors included), so it lands after the
+D356–D362 stack.
