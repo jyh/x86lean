@@ -23970,3 +23970,37 @@ D356–D362 stack.
 unit, as a K1 does. `Tests.AnchorsVexSilF` reads 490.5 ms and 220,986 unfoldings; both registration lines are copied
 from the tools' own output. Every existing unit reads `ok`; `X86.Syntax` +6.0 ms (756.5 → 762.5, budget 141.5) for the
 three constructors. (A first K1 was stopped at 04:2x to free katmai for #142's re-key; it is not the reading.)
+
+## D373 — `pminsw`, `pmulhw`, `pmulhuw`, `pavgb` at xmm: four packed-integer kinds beside D335's eleven, refereed by silicon (STATUS row 35, wave A; predictions and price before any model work)
+
+**Why.** 7,485 instructions in the census residue at master `899a887` (`pmulhw` 2,200 · `pminsw` 2,088 · `pmulhuw` 1,605 ·
+`pavgb` 1,592; dav1d · ffmpeg · vlc-video_chroma · vpx · x264). By extension **6,053 are SSE-legacy (xmm)** and **1,432 are
+MMX (mm)**, which this model does not have (README, "Not in scope"). Each is the cheapest kind left: `pminsw` mirrors D335's
+`pmaxsw`, `pmulhw`/`pmulhuw` are the high halves of the product whose low half is D335's `pmullw`, and `pavgb` is one rounded
+average. None is modelled on master or on any open branch (needle control: `pmaddwd` found at `X86/Coverage.lean:1318`).
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, a scratch driver that imports
+`oracle_availability.py` unmodified and calls `measure()`, bytes from its `encode_forms`, results read by `tag_of`).** All
+**8** encodings REFUSE at 88 of 88: `pminsw` (`660feac1` `660fea03`), `pmulhw` (`660fe5c1` `660fe503`), `pmulhuw`
+(`660fe4c1` `660fe403`), `pavgb` (`660fe0c1` `660fe003`). `CONTROL:mov` executed 88/88 in the same run, and D335's modelled
+`pmaxsw` and `pmullw` refused 88/88 there as D335 recorded. A second run placed the refusals on the opcodes: `paddd
+%xmm1,%xmm0` and `pxor (%rbx),%xmm0` executed 88/88 (⚠️ a separate run from the refusals, not the same one). ⇒ **a silicon
+wave, D335's shape.**
+**The model (four `VBinKind` kinds; `Op.vbin`/`Op.vbinm` carry both operand shapes and the 16-byte `#GP` rule already).**
+- `minsw` — word i := DEST.w[i] if DEST.w[i] < SRC.w[i] (SIGNED) else SRC.w[i] (SDM Vol. 2B, PMINSW).
+- `mulhw` — word i := bits 31:16 of the SIGNED 32-bit product DEST.w[i]*SRC.w[i] (PMULHW).
+- `mulhuw` — the same with both words UNSIGNED (PMULHUW).
+- `avgb` — byte i := (DEST.b[i] + SRC.b[i] + 1) >> 1, unsigned, computed in 9 bits (PAVGB).
+"Flags Affected: None" for all four; the source register and the m128 source are not written.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor; `--plant`,
+   `--plant-op` and the source/flag checks behave as in D335.
+2. **Generator, before any processor.** `mk_simda_rows.py --set b` reproduces each rule, and `--reach` finds a non-zero
+   count for each named wrong rule: `pminsw` as an UNSIGNED minimum (PMINUW) · `pmulhw` with UNSIGNED words (PMULHUW) ·
+   `pmulhuw` with SIGNED words (PMULHW) · `pavgb` truncating (no +1).
+3. **Model.** Four kinds; every row pinned by `decide` in a NEW unit `Tests/AnchorsSimdB.lean`. **Red backwards:** a
+   truncating `avgb` reds exactly the two `pavgb` theorems, and a signed `mulhuw` exactly the two `pmulhuw` ones.
+4. **Census.** The silicon column rises by exactly **6,053** (the xmm spellings), and the 1,432 MMX instructions stay in the
+   residue, because the census credits silicon by extension (D335's ffmpeg `pmullw`: 330 xmm credited, 844 mm not).
+**Price.** One silicon wave (two vendors), one generator set beside D335's (`--set b`: the rules and the row construction are
+shared, not copied), one `.S`, the D335 probe compiled against the new rows, four kinds, one metered anchor unit, one census
+regeneration. The branch stacks on D371 (`5796e5b`), the stack's tip, so it lands after it.
