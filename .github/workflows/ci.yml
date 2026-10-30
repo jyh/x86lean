@@ -752,7 +752,10 @@ jobs:
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/selftest_skip.py --decide --branch "${{ github.ref_name }}"
+        # ⛔ 2026-10-29: this passed `--branch "${{ github.ref_name }}"`, which on a pull_request is `N/merge`;
+        # no run is filed under that name, so a PR never skipped. `lookup_branch` now picks the base branch on
+        # a pull_request (the checkout is the merge ref) and the ref's own branch otherwise.
+        run: python3 scripts/selftest_skip.py --decide --event "${{ github.event_name }}" --ref-name "${{ github.ref_name }}" --base-ref "${{ github.base_ref }}"
 
   selftest:
     needs: selftest-gate
