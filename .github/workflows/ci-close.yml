@@ -1,0 +1,27 @@
+# ⚖️ A CLOSED PULL REQUEST'S CI RUN IS CANCELLED WHOLE (D370; the helm concurred 2026-10-30 on STATUS row 33).
+# ci.yml's run-level group cancels a superseded pull-request run when a NEWER run is created, and a merged or
+# closed pull request has no newer run, so its matrix kept every runner slot it held. Measured 10-19 -> 10-30:
+# 14 of the last 30 merged PRs had a CI run still going after the merge, 22,474 job-min on the latest run per
+# PR alone, while salt's required checks queued behind the account-wide job cap (kent's #887).
+# This workflow joins that group on `closed` (merged or not); cancel-in-progress ends the CI run. It needs NO
+# permission: the cancel is the concurrency group's, not an API call. Driven on throwaway #146 (closed
+# unmerged): its CI run was cancelled with "a higher priority waiting request for ci-run-refs/pull/146/merge",
+# and an unrelated open PR's run kept running. `check_ci_shards.py` check 10 holds the two group strings to
+# each other.
+# ⛔ `types: [closed]` ONLY. Any other type would cancel a pull request's CI on every open or push.
+name: CI close
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: ci-run-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "closed ${{ github.ref }}; CI's run in group ci-run-${{ github.ref }} is cancelled"

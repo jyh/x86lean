@@ -23509,3 +23509,27 @@ cmpxchg cmpxchg8b dec inc neg not or xadd`). `and`, `sub`, `btr` and `xor` are c
 memory-destination vector plus the predicate (1,350 of the 9,939: and 647 · sub 421 · btr 279 · xor 3, paper's
 mapping); `adc`, `btc`, `sbb` and `xchg` are on the list the same way. The census's generated prose now says so, and
 its stale sentence ("`Op.lockIllegal`, which this document's inputs do not publish") is replaced.
+
+## D370 — a closed pull request's CI run is cancelled by joining ci.yml's run-level group (STATUS row 33; the helm concurred 2026-10-30)
+
+**Why.** #144's run-level group cancels a superseded pull-request run when a newer run is created. A merged or closed
+pull request has no newer run, so its matrix kept every runner slot it held. Measured over the last 30 merged PRs
+(2026-10-19 → 10-30, against 640 pull_request runs): 14 had a CI run still going after `mergedAt`, 29,030 job-min of
+running time after the merge, **22,474** counting only the latest run per PR, which is what survives #144. The three
+post-merge failures read were all the ubuntu-26.04 fixture red D368 fixed: the verdicts were already decided. The time
+held slots that salt's required checks queued behind (kent's #887).
+**Arms priced.** (a) a `closed` job calling `gh run cancel` needs `actions: write` on a public repository's workflow;
+(c) kent cancelling by hand misses every merge outside his line (the D340 fast path, a UI merge). (b), taken: a
+separate workflow on `pull_request: types: [closed]` whose `concurrency:` group is ci.yml's as it evaluates on a pull
+request, `ci-run-${{ github.ref }}`, with `cancel-in-progress: true` and `permissions: {}`. Groups are repository-wide,
+so it cancels the CI run by group and needs no permission.
+**Driven before any build, on throwaway #146** (draft, closed unmerged, branch deleted): its CI run (carrying #144's
+block and one sleep job) was cancelled with "a higher priority waiting request for ci-run-refs/pull/146/merge", and
+#144's own run, in progress in its own group, was untouched. ⚠️ A MERGED pull request's `closed` event was not driven;
+it is read back at the first merge after this lands.
+**Gate.** `check_ci_shards.py` check 10 holds the close workflow's group to ci.yml's (a string that differs matches
+nothing and cancels nothing, silently), its trigger to `closed` alone (⛔ any other type cancels a PR's CI on every
+open or push), `cancel-in-progress: true` and `permissions: {}`. Red first: with `ci-close.yml` absent the gate exits 1
+and control 10 reds. Eight plants, each named by its needle; a mutant that disables the types arm reds exactly that
+plant (23 arms, red=1). ⇒ Each check's own reach is what its plants show; the drive is the only evidence that GitHub
+evaluates the group the way check 10 assumes.
