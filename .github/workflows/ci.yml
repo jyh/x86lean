@@ -107,6 +107,18 @@ on:
 # queues. WHY: until this edit five jobs cancelled a superseded MASTER push too, and a master run's checks
 # are the only reading of THAT push's range of a public repository; the newer run does not cover it.
 
+# ⚖️ A SUPERSEDED PULL-REQUEST RUN IS CANCELLED WHOLE, WHEN THE NEWER RUN IS CREATED (the helm, 2026-10-29, #887 ①).
+# The per-job groups below cancel an older job only when the NEWER job of the same group is QUEUED, and with `needs:`
+# and max-parallel 5 a newer run's shards 6-20 are not queued for hours: on 10-29 a superseded #142 run had shard 15
+# SUCCESS and 17-20 still running beside the newer head's run, while salt's one-minute required checks sat queued
+# behind the account-wide job cap. This group acts on the RUN. Off pull_request it is keyed by run_id, so no master
+# run shares a group and none is ever cancelled (D224's reason, and the 10-13 rule, untouched). The per-job groups
+# stay. `check_ci_shards.py` check 9 holds this shape. NOT covered: a MERGED PR's still-running run (no newer run
+# exists to supersede it).
+concurrency:
+  group: ci-run-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest

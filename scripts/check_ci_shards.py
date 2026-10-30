@@ -137,6 +137,37 @@ def check_skip_seam(text):
     return out
 
 
+RUN_KEY = "github.event_name == 'pull_request' && github.ref || github.run_id"
+RUN_CANCEL = "${{ github.event_name == 'pull_request' }}"
+
+
+def check_run_concurrency(text):
+    """9. THE WORKFLOW-LEVEL GROUP (2026-10-29): a superseded PR run is cancelled whole, and NO master run ever is.
+
+    ⛔ The dangerous direction is the one D224 was ruled for: a group that can cancel a MASTER run kills the only
+    reading of that push's range on a public repository. So the key must fall back to `run_id` off pull_request,
+    and `cancel-in-progress` must be the pull_request expression, never a literal `true`."""
+    try:
+        import yaml
+    except ImportError:
+        return ["check 9 COULD NOT RUN: PyYAML is not installed — a REFUSAL, not a pass"]
+    d = yaml.safe_load(text)
+    c = d.get("concurrency") if isinstance(d, dict) else None
+    if not isinstance(c, dict):
+        return ["no workflow-level `concurrency:` — a superseded pull-request run keeps every job it has not "
+                "yet had cancelled by a newer QUEUED job, which for shards 6-20 is hours"]
+    out = []
+    g, x = str(c.get("group", "")), c.get("cancel-in-progress")
+    if RUN_KEY not in g:
+        out.append(f"the workflow group {g!r} is not keyed `{RUN_KEY}`: off pull_request it must fall back to "
+                   f"run_id, or two MASTER runs can share a group")
+    if x is True or str(x).strip().lower() == "true":
+        out.append("⛔⛔ the workflow group has cancel-in-progress: true — it would cancel a MASTER run (D224)")
+    elif str(x).strip() != RUN_CANCEL:
+        out.append(f"the workflow group's cancel-in-progress is {x!r}, not {RUN_CANCEL!r}")
+    return out
+
+
 def _skip_seam_selftest():
     """Drive checks 5-8 both ways.  A gate watched only passing has been probed
     for NOISE and not for SILENCE, and an arm that cannot fire is
@@ -149,9 +180,9 @@ def _skip_seam_selftest():
     red = 0
     arms = []
 
-    def arm(name, text, expect_finding, needle=None):
+    def arm(name, text, expect_finding, needle=None, check=check_skip_seam):
         nonlocal red
-        out = check_skip_seam(text if isinstance(text, str) else yaml.safe_dump(text))
+        out = check(text if isinstance(text, str) else yaml.safe_dump(text))
         got = len(out) > 0
         ok = (got == expect_finding) and (needle is None or any(needle in o for o in out))
         arms.append(name)
@@ -201,6 +232,19 @@ def _skip_seam_selftest():
     d["jobs"]["selftest"].pop("if", None); d["jobs"]["selftest"].pop("needs", None)
     arm("⭐ CONTROL: no gate job AND no if: is LEGAL — the unconditional world passes",
         d, False)
+
+    # ── 9. THE WORKFLOW-LEVEL GROUP, both ways (2026-10-29).
+    arm("control 9: the REAL ci.yml carries the run-level group", base_text, False,
+        check=check_run_concurrency)
+    d = copy.deepcopy(base); d.pop("concurrency", None)
+    arm("PLANT 9: no workflow-level group is caught (master's file before 2026-10-29)", d, True,
+        "no workflow-level", check=check_run_concurrency)
+    d = copy.deepcopy(base); d["concurrency"]["cancel-in-progress"] = True
+    arm("⛔ PLANT 9: cancel-in-progress: true is caught and named as cancelling MASTER", d, True,
+        "MASTER run", check=check_run_concurrency)
+    d = copy.deepcopy(base); d["concurrency"]["group"] = "ci-run-${{ github.ref }}"
+    arm("PLANT 9: a group not keyed by run_id off pull_request is caught", d, True,
+        "run_id", check=check_run_concurrency)
 
     # ⛔ AND THE REFUSAL PATH ITSELF, DRIVEN.  A refusal that has never fired is
     # a branch nobody has executed, and this one decides whether a missing parser
@@ -280,6 +324,8 @@ for g in gates:
 # STRUCTURAL facts about jobs, and a regex over YAML would be a second parser
 # disagreeing with the one GitHub actually uses.
 bad += check_skip_seam(text)
+# ── 9: the workflow-level group (2026-10-29).
+bad += check_run_concurrency(text)
 
 if bad:
     print(f"⛔ CI shard gate: FAIL ({CI})")
@@ -290,4 +336,5 @@ if bad:
 print(f"CI shard gate: CLEAN — matrix.shard is 1..{n}, every `selftest-shard` "
       f"passes divisor {n} with the matrix variable as k, the partition gate "
       f"asserts the same {n}, and the skip seam is wired in the permitting "
-      f"direction with fetch-depth 0")
+      f"direction with fetch-depth 0, and the run-level group cancels a superseded "
+      f"pull-request run only")
