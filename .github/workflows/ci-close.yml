@@ -1,0 +1,19 @@
+# When a pull request closes (merged or not), join CI's run-level group for that
+# pull request so cancel-in-progress ends the CI run still holding runners.
+# No permissions: the cancel is the concurrency group's, not an API call.
+name: CI close
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: ci-run-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "ref=${{ github.ref }} action=${{ github.event.action }}"
