@@ -23522,19 +23522,27 @@ read and a CI restart.
 **Design.** `records_step` already states the invariant: a reading is a function of the `.lean` sources and
 `PROFILER_PATHS`. So a row measured `b0 → rh` prices `b → h` when `b`'s reading inputs equal `b0`'s and `h`'s equal
 `rh`'s. `rh` is the pre-rebase commit, which a CI clone never fetches, so the comparison is against two digests the row
-carries (`base_reading`, `head_reading`: sha256/16 of `git ls-tree -r` restricted to `*.lean` and `PROFILER_PATHS`),
-written by `--record` while both commits exist. `effective_ledger()` moves each such row from its own base to the first
+carries (`base_reading`, `head_reading`: sha256/16 of `git ls-tree -r` restricted to the READING INPUTS), written by
+`--record` while both commits exist. **The reading inputs are `PROFILER_PATHS` (`scripts/kernel_cost.py`,
+`scripts/kernel_delta_budget.txt`, `scripts/kernel_delta.py`, `scripts/kernel_ceilings.txt`, `lean-toolchain`,
+`lake-manifest.json`) and every tracked path `EXEMPT_RULES` gives no reason for** — every `.lean`, and `lakefile.toml`,
+whose `[leanOptions]` `kernel_delta.py` names as moving every reading. It is the classifier's inverted default, the rule
+`gap()` and `null_pair_reason` already apply, so a path added later counts until someone argues it out. `--gap` prints
+this set beside any slide. ⚠️ **The first build digested `*.lean` and `PROFILER_PATHS` only and so left `lakefile.toml`
+out**: a master move editing it would have slid a stale reading under a green stamp. Found on the helm's WRONG-IF
+("PROFILER_PATHS is not the whole set of reading inputs"), checked against the tracked files, and fixed before any PR. `effective_ledger()` moves each such row from its own base to the first
 later step with no row of its own that matches both digests; `gap()` and `accumulated_allowance()` both read it. A row
 that matches nothing stays where it was and is refused as before, and the refusal now says why it did not slide. `--gap`
 prints each slide.
-**Arms (selftest, 79 → 87, plants 47 → 54).** The #142 shape is built in a scratch repo (M0, the PR measured on M0,
+**Arms (selftest, 79 → 89, plants 47 → 55).** The #142 shape is built in a scratch repo (M0, the PR measured on M0,
 master moved to M1, the PR rebased and merged `--no-ff`). CONTROL: a README move slides. RED-FIRST: the same shape with
-no digests is refused (#142 reproduced); a `.lean` move refused; a `lean-toolchain` move refused; a rebased head that
+no digests is refused (#142 reproduced); a `.lean` move refused; a `lean-toolchain` move refused; a `lakefile.toml` move refused, with an arm on the set's members; a rebased head that
 differs on a `.lean` file refused; master and the PR making the SAME `.lean` edit refused by the base digest alone; a row
 whose `head` object is absent still slides. On the real chain the digest moves across a `.lean` step and not across a
 `neither` step. Red backwards: dropping the base check reds exactly the convergent-edit arm (it was GREEN on every other
 arm, so that arm was added for it); dropping the head check reds the five refusal arms and the control; never sliding,
-and not honouring a slide in `gap()`, each red the two slide arms.
+and not honouring a slide in `gap()`, each red the two slide arms; the narrow `*.lean` + `PROFILER_PATHS` digest reds
+exactly the two `lakefile.toml` arms.
 **Limits.** (1) A slid row's `base_ms` is still the one measured on its ORIGINAL base, on that row's box and night;
 `--gap` says so beside each slide. (2) Rows recorded before D372 carry no digests and never slide, so the open stack
 (#145 and the stacked vector PRs not yet opened) pays one more K2 each before it benefits. (3) No arm drives `--record`'s two new lines (the
