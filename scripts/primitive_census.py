@@ -503,6 +503,9 @@ SILICON_PATHS = (
     ("mk_int_rows.py", "int_probe.c", "i_", r'^  \{"[^"]+", (i_\w+), 0x'),
     ("mk_shuf_rows.py", "shuf_probe.c", "s_", r'^  \{"[^"]+", (s_\w+), 0x'),
     ("mk_simda_rows.py", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+    # D373: set B of the same generator and probe (`--set-b`), also `v_*`; its function names (pminsw, pmulhw,
+    # pmulhuw, pavgb) are disjoint from set A's. An entry may carry the generator's arguments after its name.
+    ("mk_simda_rows.py --set-b", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
     # D338 (V2): the SHA-NI path (SHA256MSG1/MSG2/RNDS2), its functions `h_*`.
     ("mk_sha_rows.py", "sha_probe.c", "h_", r'^  \{"[^"]+", (h_\w+), \{'),
     # D342 (V4): the AES-NI / VPCLMULQDQ / VEX-shuffle path, its functions `e_*`.
@@ -573,7 +576,8 @@ def silicon_forms(work):
     # forms are pooled ACROSS the probes (all are the silicon instrument), never with the differential.
     nrows, ops = collections.Counter(), []
     for gen, _probe, pre, row_re in SILICON_PATHS:
-        q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen)], capture_output=True, text=True)
+        q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen.split()[0])] + gen.split()[1:],
+                           capture_output=True, text=True)
         if q.returncode != 0:
             raise SystemExit(f"⛔ silicon: hwprobe/{gen} failed:\n" + q.stderr)
         nr = collections.Counter(re.findall(row_re, q.stdout, re.M))
