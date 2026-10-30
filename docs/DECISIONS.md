@@ -23568,3 +23568,36 @@ of one, with `twin := ""`. **Taken: (B).** The invariant keeps its force (an unl
 failure), the exception is named where the theorem is, and everything that already reads `vexTable` (theorems 1, 2, 4,
 `vexMnemonics`, the census's `vex` set) covers the row with no new plumbing. Wrong if a later VEX-only form needs a different
 shape of exception, which would make the list a category rather than a list (then (A)).
+
+## D372 — a ledger row SLIDES across a master move that touches no reading input (`kernel_drift.py`; the helm's queue item 6, CONCUR 2026-10-30)
+
+**Why.** A drift-ledger row is keyed on `base`, the master tip its K2 was measured on. When master moves before the PR
+lands, the PR rebases, its step becomes `b → h` with a new `b`, and the row stops matching. Worse, the old base is still
+on the first-parent chain and now leads to an unrelated merge, so `gap()` refuses the row as a WRONG row (kent's red on
+#142, 2026-10-30). The remedy was a fresh K2 at the new base. Measured over the master moves that forced a re-measure:
+#105 and #107 (V7's K4 and K5), #143 and #144 (#142's two K2s) touched **no** reading input; only #61's base move (8
+files) did. So 4 of 5 re-measures re-read a number that could not have moved, at 2–3 h of katmai each plus a non-author
+read and a CI restart.
+**Design.** `records_step` already states the invariant: a reading is a function of the `.lean` sources and
+`PROFILER_PATHS`. So a row measured `b0 → rh` prices `b → h` when `b`'s reading inputs equal `b0`'s and `h`'s equal
+`rh`'s. `rh` is the pre-rebase commit, which a CI clone never fetches, so the comparison is against two digests the row
+carries (`base_reading`, `head_reading`: sha256/16 of `git ls-tree -r` restricted to `*.lean` and `PROFILER_PATHS`),
+written by `--record` while both commits exist. `effective_ledger()` moves each such row from its own base to the first
+later step with no row of its own that matches both digests; `gap()` and `accumulated_allowance()` both read it. A row
+that matches nothing stays where it was and is refused as before, and the refusal now says why it did not slide. `--gap`
+prints each slide.
+**Arms (selftest, 79 → 87, plants 47 → 54).** The #142 shape is built in a scratch repo (M0, the PR measured on M0,
+master moved to M1, the PR rebased and merged `--no-ff`). CONTROL: a README move slides. RED-FIRST: the same shape with
+no digests is refused (#142 reproduced); a `.lean` move refused; a `lean-toolchain` move refused; a rebased head that
+differs on a `.lean` file refused; master and the PR making the SAME `.lean` edit refused by the base digest alone; a row
+whose `head` object is absent still slides. On the real chain the digest moves across a `.lean` step and not across a
+`neither` step. Red backwards: dropping the base check reds exactly the convergent-edit arm (it was GREEN on every other
+arm, so that arm was added for it); dropping the head check reds the five refusal arms and the control; never sliding,
+and not honouring a slide in `gap()`, each red the two slide arms.
+**Limits.** (1) A slid row's `base_ms` is still the one measured on its ORIGINAL base, on that row's box and night;
+`--gap` says so beside each slide. (2) Rows recorded before D372 carry no digests and never slide, so the open stack
+(#145 and the stacked vector PRs not yet opened) pays one more K2 each before it benefits. (3) No arm drives `--record`'s two new lines (the
+record path is inline in `main()`); they call `reading_tree`, which the arms above drive, and the first real `--record`
+after this lands is read back by hand. (4) A master move that changes a reading input and a later commit that restores it
+leave equal digests and the row slides; that is sound by the invariant (the reading is a function of content), and it is
+stated rather than refused.
