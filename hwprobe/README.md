@@ -79,6 +79,10 @@ form: edge-lane crosses, uniform extremes and seeded random values, derived from
 `simda_probe.c`, which reads CPUID.1 and refuses without SSE2 or SSSE3, refuses unless the declared bytes are the assembled
 ones, and compares ALL 128 bits of %xmm0 plus %xmm1, the m128 source and the six arithmetic flags unchanged. x86isa refuses
 all eleven mnemonics, so every row is pinned (`mk_simda_anchors.py`, generated into a module of its own, `Tests/AnchorsSimd.lean`, so it is metered as its own kernel unit).
+
+D373 adds SET B beside it (`mk_simda_rows.py --set-b`: PMINSW, PMULHW, PMULHUW, PAVGB, 144 rows, the rules and the row
+construction shared with set A, its own seeds): `simdb_ops.S`, the same `simda_probe.c` compiled against `simdb_rows.h`,
+and its pins in `Tests/AnchorsSimdB.lean` (`mk_simda_anchors.py --set-b`). x86isa refuses all four (D373, P1).
 Controls: `--plant` (bit 64 of row 0's expectation) and `--plant-op`; `--reach` counts the rows on which one named wrong
 rule per mnemonic disagrees with the right one (it must be non-zero).
 

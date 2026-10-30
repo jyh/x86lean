@@ -111,6 +111,10 @@ jobs:
           python3 mk_simda_rows.py > simda_rows.h
           python3 mk_simda_rows.py --plant > simda_rows_plant.h
           python3 mk_simda_rows.py --plant-op > simda_rows_badop.h
+          python3 mk_simda_rows.py --set-b --reach
+          python3 mk_simda_rows.py --set-b > simdb_rows.h
+          python3 mk_simda_rows.py --set-b --plant > simdb_rows_plant.h
+          python3 mk_simda_rows.py --set-b --plant-op > simdb_rows_badop.h
           python3 mk_sha_rows.py --selftest
           python3 mk_sha_rows.py --reach
           python3 mk_sha_rows.py > sha_rows.h
@@ -201,6 +205,11 @@ jobs:
           for v in plant badop; do
             sed "s/\"simda_rows.h\"/\"simda_rows_$v.h\"/" simda_probe.c > simda_probe_$v.c
             gcc -O1 -o simda_probe_$v simda_probe_$v.c simda_ops.S
+          done
+          # D373: set B runs the SAME probe source against its own rows header and its own .S.
+          for v in "" _plant _badop; do
+            sed "s/\"simda_rows.h\"/\"simdb_rows$v.h\"/" simda_probe.c > simdb_probe$v.c
+            gcc -O1 -o simdb_probe$v simdb_probe$v.c simdb_ops.S
           done
           gcc -O1 -o sha_probe sha_probe.c sha_ops.S
           for v in plant badop wk; do
@@ -409,6 +418,27 @@ jobs:
           head -1 simda.out
           grep -v '^ok  ' simda.out || true
           echo "simda rc=$rc"
+          test "$rc" = 0
+
+      # D373: set B (PMINSW PMULHW PMULHUW PAVGB), the same controls and the same referee as set A.
+      - name: Packed-integer set B controls and referee (D373)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./simdb_probe_plant > simdb_plant.out; rc_plant=$?
+          ./simdb_probe_badop > simdb_badop.out; rc_badop=$?
+          ./simdb_probe > simdb.out; rc=$?
+          set -e
+          head -1 simdb_plant.out; grep '^DIFF' simdb_plant.out; tail -1 simdb_plant.out; cat simdb_badop.out
+          echo "simdb plant rc=$rc_plant (want 1) · simdb badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' simdb_plant.out)" = 1
+          grep -q '^DIFF pminsw_xx_edge0 ' simdb_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED v_pminsw_xx:' simdb_badop.out
+          head -1 simdb.out
+          grep -v '^ok  ' simdb.out || true
+          echo "simdb rc=$rc"
           test "$rc" = 0
 
       # D338: THE SHA-NI PATH (SHA256MSG1, SHA256MSG2, SHA256RNDS2, xmm and m128). ⚠️ NOT EVERY LEG HAS THE EXTENSION:
