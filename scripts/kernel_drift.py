@@ -582,13 +582,27 @@ def gap_anchor(ledger, head="HEAD", repo=ROOT):
 # head's. ⛔ The head is the PRE-REBASE commit, which a CI clone does not have, so
 # the comparison is against DIGESTS the row carries, written by `--record` while
 # both commits existed. A row without them never slides; it is refused as before.
+# ⛔ THE SET IS THE CLASSIFIER'S INVERTED DEFAULT, NOT `*.lean` + PROFILER_PATHS, and
+# the first draft of this function was the narrow one: it left `lakefile.toml` out,
+# which `kernel_delta.py` itself names as moving "every reading in the tree" (its
+# `[leanOptions]`), so a master move editing it would have slid a stale reading
+# under a green stamp (the helm's WRONG-IF on D372). A path is a reading input
+# unless EXEMPT_RULES states why it is not — the same rule `gap()` and
+# `kernel_delta.null_pair_reason` apply — so a path added tomorrow is counted
+# until someone argues it out. [[feedback-a-declared-list-inherits-its-default]]
+READING_INPUTS = ("PROFILER_PATHS (" + ", ".join(PROFILER_PATHS) + ") and every tracked "
+                  "path EXEMPT_RULES gives no reason for (every `.lean`, `lakefile.toml`, ...)")
+
+
+def reading_input(path):
+    return path in PROFILER_PATHS or exempt_reason(path) is None
+
+
 def reading_tree(rev, repo=ROOT):
-    """sha256/16 of every reading input at `rev`: the `*.lean` files and
-    PROFILER_PATHS, as `git ls-tree` names them (mode, blob, path)."""
+    """sha256/16 of every reading input at `rev` (READING_INPUTS), as `git ls-tree`
+    names them (mode, blob, path)."""
     out = kd.git("ls-tree", "-r", "--full-tree", rev, cwd=repo)
-    keep = sorted(ln for ln in out.splitlines()
-                  if ln.split("\t", 1)[-1].endswith(".lean")
-                  or ln.split("\t", 1)[-1] in PROFILER_PATHS)
+    keep = sorted(ln for ln in out.splitlines() if reading_input(ln.split("\t", 1)[-1]))
     return hashlib.sha256("\n".join(keep).encode()).hexdigest()[:16]
 
 
@@ -1475,6 +1489,16 @@ def selftest():
     ok(_r == ("REFUSED", 2),
        "RED-FIRST — master moved by a PROFILER_PATHS file (lean-toolchain): refused "
        "the same way", plant="profiler master move")
+    _r, _ = _slide_gap("lakefile.toml")
+    ok(_r == ("REFUSED", 2),
+       "RED-FIRST — master moved by `lakefile.toml` (no `.lean`, not in PROFILER_PATHS, "
+       "and no stated exemption): refused, because the digest covers every unexempted "
+       "path", plant="lakefile master move")
+    ok(reading_input("lakefile.toml") and reading_input("X86/Semantics.lean")
+       and reading_input("lean-toolchain") and not reading_input("docs/DECISIONS.md")
+       and not reading_input("scripts/check_citations.py"),
+       "...and the reading-input set is the classifier's inverted default: lakefile, "
+       "`.lean` and the toolchain in; docs and a non-profiler script out")
     _r, _ = _slide_gap("README.md", extra_pr_lean=True)
     ok(_r == ("REFUSED", 2),
        "RED-FIRST — the rebased PR differs from the measured head on a `.lean` file: "
@@ -1961,6 +1985,8 @@ def main():
             print(f"   ↪ SLID (D372): the row for {rb[:9]} prices {b[:9]} → {h[:9]}; the "
                   f"span between moved no reading input, and its base_ms is still the "
                   f"one measured on {rb[:9]}")
+        if slid:
+            print(f"   ⚠️  D372's reading inputs: {READING_INPUTS}")
         nl, npr, nn = (len(buckets["lean"]), len(buckets["profiler"]),
                        len(buckets["neither"]))
         nu = len(buckets["unclassified"])
