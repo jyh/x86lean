@@ -23946,3 +23946,23 @@ D356–D362 stack.
 2. **HELD.** Selftest 17 arms; `--refuse-wrong` refuses (a)-(d), each on its named row (`vmovd_gx_zero_r`,
    `vmovd_ld_zero_a`, `vmovq_st_zero_a`, `vmovd_xg_zero_r`). Reach: (a) 36 rows, (b) 12, (c) 12, (d) 6. Two mutants of the
    references themselves (the textbook's store one byte short; a `vmovd` r → xmm keeping 128 bits) each red the selftest.
+3. **HELD, with one design change declared.** THREE constructors under `Op.vex`, not four: `vexmovg toXmm sz x r`
+   mirrors the legacy `vmovg` (one constructor for both GPR directions), with `vexmovgld` and `vexmovgst`. All 72 rows are
+   pinned by `decide` in the NEW unit `Tests/AnchorsVexSilF.lean` (`mk_vexsilf_anchors.py --check`). A store row also
+   reads back the qwords it spans. The frame theorems `vf_frame_movg` and `vf_frame_movgld` state `mem` unchanged, with
+   axioms `propext` and `Quot.sound`. **Red backwards on the model:** the load written through `setXmm` (the legacy
+   upper rule) reds exactly `vf_vmovd_ld_pins` and `vf_vmovq_ld_pins`; the store writing 16 bytes reds exactly
+   `vf_vmovd_st_pins` and `vf_vmovq_st_pins`. `siliconTable` gains `vmovd` and `vmovq`, and `Tests.Coverage`'s
+   mnemonic gate gains both.
+4. **HELD, exactly, and the ⚠️ resolved.** The census's silicon column rises by **6,939**: coreutils 4 · glibc 815 ·
+   dav1d 2,551 · ffmpeg 1,848 · vpx 406 · x264 1,314 · vmlinux 1, plus `_asm_pooled` +6,119. Compared key by key against
+   the JSON before regeneration, only the silicon keys move: `silicon`, `silicon_all`, `silicon_pct`, and `silicon_mem` =
+   `silicon_mem_modelled` (glibc +464, which is its M,X 176 + 218 and X,M 34 + 36). `total`, `covered`, `vex` and every miss
+   figure are unchanged. The census credits silicon BY NAME, so the by-shape question was measured directly (`objdump -d` over the same
+   corpus, operands classed): `vmovd` M,X 1,017 · R,X 912 · X,M 715 · X,R 373; `vmovq` M,X 2,199 · R,X 101 · X,M 1,388 ·
+   X,R 234 = 6,939. **VEX `vmovq xmm, xmm` occurs ZERO times**, so here the by-name credit and the by-shape credit
+   are equal. If a later corpus carries that form, the census will credit it by name while the model lacks it. This
+   paragraph is the record of that limit.
+   P2-ROSTER.md regenerated (`vmovd` now reads silicon-refereed).
+⚠️ `check_readme_snapshot` reds on this branch as it already does on D362's tip (README 108,240 against the record's
+109,208). It belongs to the D356–D362 stack's rebase, not to D371.

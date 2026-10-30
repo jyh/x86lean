@@ -1249,6 +1249,19 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
         let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
         (s.setYmm dst (vshiftApply .sra w (s.getXmm src1) c)
                       (vshiftApply .sra w (s.getYmmHi src1) c)).setRip nr
+  -- ⭐ D371 — VEX `vmovd`/`vmovq`: `vmovg`'s, `vmovgld`'s and `vmovgst`'s formulas with an XMM destination written
+  -- through `setXmmVex128` (YMM bits 255:128 ZEROED). The GPR write and the store are the legacy ones exactly.
+  | .vexmovg toXmm sz x r =>
+      if toXmm then
+        (s.setXmmVex128 x ((s.getReg sz r).setWidth 128)).setRip nr
+      else
+        (s.setReg sz r ((s.getXmm x).setWidth 64)).setRip nr
+  | .vexmovgld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmmVex128 dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vexmovgst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=

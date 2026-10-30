@@ -518,6 +518,9 @@ SILICON_PATHS = (
     # D361 (V10): the VEX memory forms of the silicon rows, also `x_*`; no name collides with V7's, V8b's or V8c's (checked
     # mechanically when this line was added: the four paths' function sets are disjoint); its rows open the same way.
     ("mk_vexsile_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D371: VEX vmovd/vmovq, also `x_*` (`x_vmov[dq]_{gx,xg,ld,st}`, disjoint from the four paths above); its rows open
+    # the same way.
+    ("mk_vexsilf_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

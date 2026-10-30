@@ -1393,6 +1393,11 @@ def siliconTable : List Row :=
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
   , { mnemonic := "vpmovmskb", shapes := "r,x", note := "VEX.128 and VEX.256: the sign bit of each byte of src into a GPR, zero-extended; 16 bits, or 32 at VEX.256 (bits 31:16 from the high lane); no vector register written · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" }
+  -- ⭐ D371: VEX `vmovd`/`vmovq` (VEX.128 only), refereed by silicon (hwprobe `vexsilf`); x86isa refuses all eight.
+  , { mnemonic := "vmovd", shapes := "x,r · r,x · x,m · m,x", note := "VEX.128 MOVD: r32 → xmm and m32 → xmm zero-extend to 128 and ZERO YMM bits 255:128; xmm → r32 zero-extends into r64; xmm → m32 writes 4 bytes · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
+  , { mnemonic := "vmovq", shapes := "x,r · r,x · x,m · m,x", note := "VEX.128 MOVQ (VEX.W1 6E/7E, F3 0F 7E load, 66 0F D6 store): r64/m64 → xmm zero-extend to 128 and ZERO YMM bits 255:128; xmm → r64; xmm → m64 writes 8 bytes · the xmm,xmm form is NOT modelled · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   -- ⭐ D348 (V8b): the VEX.128 and VEX.256 twins of four D335 kinds, refereed by silicon (hwprobe `vexsilb`).
   , { mnemonic := "vpmaddwd", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, each two SIGNED word products of src1 and src added mod 2^32 — no saturation, all four words 8000H wrap to 80000000H · register forms (D348) and m128/m256 forms, src the memory operand, no alignment check (D350) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" }

@@ -1325,6 +1325,13 @@ inductive VexOp where
   LENGTHS (SDM Vol. 2B, PSRAW/PSRAD/PSRAQ): 16 bytes at `ea`, of which bits 63:0 are the count, never 32 bytes. -/
   | vexsraxm (w : VShiftW) (dst src1 : XmmReg) (ea : Ea)
   | vexsraxm256 (w : VShiftW) (dst src1 : XmmReg) (ea : Ea)
+  /-- ⭐ D371 — VEX `vmovd`/`vmovq` (VEX.128 only; VEX.L = 1 is #UD, SDM Vol. 2B MOVD/MOVQ): `vmovg`'s, `vmovgld`'s and
+  `vmovgst`'s meanings with the VEX.128 write rule. An XMM destination is written through `setXmmVex128`, so YMM bits
+  255:128 are ZEROED where the legacy forms leave them; a GPR destination is an ordinary write (`.d` zero-extends to
+  64); the store writes `sz` bytes and no register. Silicon-refereed: x86isa refuses all eight encodings (D371 P1). -/
+  | vexmovg (toXmm : Bool) (sz : Size) (x : XmmReg) (r : GPR)
+  | vexmovgld (sz : Size) (dst : XmmReg) (ea : Ea)
+  | vexmovgst (sz : Size) (ea : Ea) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1340,6 +1347,9 @@ def VexOp.operands : VexOp → List Operand
   -- V10 (D361): the silicon rows' memory twins name their address.
   | .vexshufbm _ _ ea | .vexalignrm _ _ ea _ | .vexparithm _ _ _ ea | .vexparithm256 _ _ _ ea => [.mem ea]
   | .vexsraxm _ _ _ ea | .vexsraxm256 _ _ _ ea => [.mem ea]
+  -- D371: VEX movd/movq name their GPR or their address, as the legacy forms do.
+  | .vexmovg _ _ _ r => [.reg r]
+  | .vexmovgld _ _ ea | .vexmovgst _ ea _ => [.mem ea]
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
@@ -1357,6 +1367,8 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexddupm _ ea | .vexddupm256 _ ea => ea.lock
   | .vexshufbm _ _ ea | .vexalignrm _ _ ea _ | .vexparithm _ _ _ ea | .vexparithm256 _ _ _ ea => ea.lock
   | .vexsraxm _ _ _ ea | .vexsraxm256 _ _ _ ea => ea.lock
+  | .vexmovg .. => false
+  | .vexmovgld _ _ ea | .vexmovgst _ ea _ => ea.lock
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
@@ -1381,6 +1393,7 @@ def VexOp.mnemonic : VexOp → String
   | .vexparith op .. | .vexparith256 op .. | .vexparithm op .. | .vexparithm256 op .. => "v" ++ op.mnemonicP false
   | .vexmovmskb .. | .vexmovmskb256 .. => "vpmovmskb"
   | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
+  | .vexmovg _ sz .. | .vexmovgld sz .. | .vexmovgst sz .. => match sz with | .q => "vmovq" | _ => "vmovd"
 
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/

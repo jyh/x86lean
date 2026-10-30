@@ -100,7 +100,7 @@ Cumulative share is over the whole uncovered gap (345,605 instructions), so a ro
 | 20 | `pmaxsw` | 3,776 | 1.09% | 47.8% | ⚠️ 24% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 | 21 | `vpunpcklwd` | 3,630 | 1.05% | 48.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
 | 22 | `vaddps` | 3,434 | 0.99% | 49.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
-| 23 | `vmovq` | 3,430 | 0.99% | 50.8% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr`, `xx` |
+| 23 | `vmovq` | 3,430 | 0.99% | 50.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `mx`, `rx`, `xm`, `xr`, `xx` |
 | 24 | `movd` | 3,386 | 0.98% | 51.8% | ⛔ **100% — PHANTOM ROW** | ✔ | `mx`, `rx`, `xm`, `xr` |
 | 25 | `vpunpckhwd` | 3,352 | 0.97% | 52.8% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
 | 26 | `pmaddubsw` | 3,188 | 0.92% | 53.7% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
@@ -113,7 +113,7 @@ Cumulative share is over the whole uncovered gap (345,605 instructions), so a ro
 | 33 | `pmuludq` | 2,790 | 0.81% | 59.7% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 | 34 | `vmulps` | 2,715 | 0.79% | 60.5% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xxm`, `xxx`, `yym`, `yyy` |
 | 35 | `pmulhrsw` | 2,690 | 0.78% | 61.2% | 4% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
-| 36 | `vmovd` | 2,689 | 0.78% | 62.0% | — | ⛔ **REFUSES** | `mx`, `rx`, `xm`, `xr` |
+| 36 | `vmovd` | 2,689 | 0.78% | 62.0% | — | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `mx`, `rx`, `xm`, `xr` |
 | 37 | `pshufb` | 2,469 | 0.71% | 62.7% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 | 38 | `vinserti128` | 2,394 | 0.69% | 63.4% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
 | 39 | `punpcklbw` | 2,381 | 0.69% | 64.1% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |

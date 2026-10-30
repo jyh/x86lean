@@ -84,6 +84,9 @@ else printf "  ⛔ FAIL hwprobe/mk_vexsild_anchors --check\n"; rc=1; fi
 # D361: the VEX memory pins of the silicon rows, from hwprobe's vexsile rows.
 if python3 hwprobe/mk_vexsile_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsile_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_vexsile_anchors --check\n"; rc=1; fi
+# D371: the VEX movd/movq pins, from hwprobe's vexsilf rows.
+if python3 hwprobe/mk_vexsilf_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilf_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilf_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.
