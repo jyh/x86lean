@@ -441,6 +441,12 @@ inductive VBinKind where
   `a` is the destination at both operand shapes, as everywhere in `vbinApply`. -/
   | maddwd | maddubsw | mullw | mulhrsw | muludq
   | addsw | subusw | subusb | maxsw | sadbw | packssdw
+  /-- ⭐ D373 — FOUR MORE, THE SAME CASE AS D335's ELEVEN (x86isa refuses each at every
+  pre-state; `hwprobe/mk_simda_rows.py --set-b` on silicon; pinned in
+  `Tests/AnchorsSimdB.lean`). `pminsw` keeps the source on a tie (the same value);
+  `pmulhw`/`pmulhuw` are the HIGH halves of the product whose low half is `pmullw`, and
+  differ only in signedness; `pavgb` rounds up (SDM Vol. 2B, PMINSW PMULHW PMULHUW PAVGB). -/
+  | minsw | mulhw | mulhuw | avgb
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
@@ -475,6 +481,8 @@ def VBinKind.mnemonic : VBinKind → String
   | .mulhrsw => "pmulhrsw" | .muludq => "pmuludq" | .addsw => "paddsw"
   | .subusw => "psubusw" | .subusb => "psubusb" | .maxsw => "pmaxsw"
   | .sadbw => "psadbw" | .packssdw => "packssdw"
+  -- D373: silicon-refereed, `siliconTable`'s rows.
+  | .minsw => "pminsw" | .mulhw => "pmulhw" | .mulhuw => "pmulhuw" | .avgb => "pavgb"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.

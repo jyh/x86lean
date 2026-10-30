@@ -24004,3 +24004,21 @@ wave, D335's shape.**
 **Price.** One silicon wave (two vendors), one generator set beside D335's (`--set b`: the rules and the row construction are
 shared, not copied), one `.S`, the D335 probe compiled against the new rows, four kinds, one metered anchor unit, one census
 regeneration. The branch stacks on D371 (`5796e5b`), the stack's tip, so it lands after it.
+**Readings (2026-10-30, `paris/d373-sse-word`):**
+1. **HELD** on both vendors, hwprobe run 41144876498 at `d75fab7`: AMD EPYC 7763 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 144 disagreements 0`. On each leg `--plant` reds exactly `pminsw_xx_edge0` (rc 1) and
+   `--plant-op` refuses `v_pminsw_xx` (rc 2). (A Rosetta run on yukon read the same 144/0 first; it is a translator, so it
+   is not counted as a referee.)
+2. **HELD.** `--set-b --reach`: the four wrong rules disagree on 30 · 32 · 32 · 30 of each mnemonic's 36 rows. Set A's
+   output (plain and `--plant`) is byte-identical to the generator's before set B was added, and `mk_simda_anchors.py
+   --check` still passes on `Tests/AnchorsSimd.lean`. Ten SDM edge values checked by hand against the rules (e.g. PMULHW
+   8000H × 8000H = 4000H, PMULHUW FFFFH × FFFFH = FFFEH, PAVGB FEH, FFH = FFH).
+3. **HELD for the unit, with one addition stated.** Four kinds; `Tests/AnchorsSimdB.lean` pins all 144 rows in 8 theorems;
+   `saltbuild EXIT=0`, 0 tagged errors. Red backwards, each mutant built on `X86.Theorems` and then on the unit imported below
+   it: a truncating `avgb` reds exactly `d373_pavgb_xx_pins` and `d373_pavgb_xm_pins`, and a signed `mulhuw` exactly
+   `d373_pmulhuw_xx_pins` and `d373_pmulhuw_xm_pins`. ⚠️ Each also reds one equation in `X86.Theorems` (`avgb_rounds_up`,
+   `mulhw_mulhuw_ones`), the edge case that theorem states; the prediction named the unit only.
+4. **HELD exactly.** Silicon +6,053 (dav1d 836 · ffmpeg 1,380 · vlc-video_chroma 1,152 · vpx 2,361 · x264 324; by name
+   `pminsw` 1,886 · `pmulhuw` 1,603 · `pmulhw` 1,590 · `pavgb` 974), its memory sub-column +620 inside it, and no other
+   column moved. The 1,432 MMX instructions remain in the residue. `COVERAGE.md`, the census and `P2-ROSTER.md` regenerated;
+   `demand_census --check` and `p2_roster --check` CLEAN.

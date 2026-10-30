@@ -1337,6 +1337,15 @@ def siliconTable : List Row :=
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSADBW" }
   , { mnemonic := "packssdw", shapes := "x,x · x,m", note := "the destination's four dwords to the LOW four words and the source's to the high four, each signed-saturated to [8000H, 7FFFH]; m 16-byte aligned, else #GP(0) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKSSDW" }
+  -- ⭐ D373: four more silicon-refereed packed-integer kinds (`Tests/AnchorsSimdB.lean`).
+  , { mnemonic := "pminsw", shapes := "x,x · x,m", note := "eight words, the SIGNED minimum; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMINSW" }
+  , { mnemonic := "pmulhw", shapes := "x,x · x,m", note := "eight words, bits 31:16 of the SIGNED product; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHW" }
+  , { mnemonic := "pmulhuw", shapes := "x,x · x,m", note := "eight words, bits 31:16 of the UNSIGNED product; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHUW" }
+  , { mnemonic := "pavgb", shapes := "x,x · x,m", note := "sixteen bytes, (DEST + SRC + 1) >> 1 unsigned, rounding up; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGB" }
   -- ⭐ D338 (V2): the three SHA-NI SHA-256 mnemonics `vale-sha256` needs, `ShaKind`
   -- kinds on `Op.vsha`/`Op.vsham`.  Every result bit is defined and no flag is
   -- written, so each is `T-exact`; the rows are `hwprobe/mk_sha_rows.py`'s.

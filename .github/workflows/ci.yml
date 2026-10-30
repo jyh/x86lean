@@ -542,6 +542,9 @@ jobs:
           # D335: the packed-integer arithmetic pins are hwprobe's SIMD rows (mk_simda_rows.py), same rule.
           python3 hwprobe/mk_simda_anchors.py --selftest
           python3 hwprobe/mk_simda_anchors.py --check
+          # D373: set B (pminsw pmulhw pmulhuw pavgb), its pins in Tests/AnchorsSimdB.lean, same rule.
+          python3 hwprobe/mk_simda_anchors.py --set-b --selftest
+          python3 hwprobe/mk_simda_anchors.py --set-b --check
           # D338: the SHA-NI pins are hwprobe's SHA rows (mk_sha_rows.py), same rule; the generator's own selftest
           # holds its textbook SHA-256 to FIPS 180-4's digests and every known-answer row to the rule.
           python3 hwprobe/mk_sha_rows.py --selftest

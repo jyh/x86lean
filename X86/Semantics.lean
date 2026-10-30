@@ -896,6 +896,14 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .maxsw    => vlanes 16 (fun x y => if y.slt x then x else y) a b
   | .sadbw    => vlanes 64 vsadLane a b
   | .packssdw => vpackss a b
+  -- ⭐ D373 — refereed by silicon (`mk_simda_rows.py --set-b`).  ⛔ `slt` again:
+  -- `DEST < SRC` (SIGNED) keeps DEST, else SRC.
+  | .minsw    => vlanes 16 (fun x y => if x.slt y then x else y) a b
+  -- bits 31:16 of the 32-bit product; the two differ ONLY in how a word is widened.
+  | .mulhw    => vlanes 16 (fun x y => (x.signExtend 32 * y.signExtend 32).extractLsb' 16 16) a b
+  | .mulhuw   => vlanes 16 (fun x y => (x.setWidth 32 * y.setWidth 32).extractLsb' 16 16) a b
+  -- the sum in 9 bits, so FFH + FFH + 1 does not wrap before the shift.
+  | .avgb     => vlanes 8 (fun x y => (x.setWidth 9 + y.setWidth 9 + 1).extractLsb' 1 8) a b
 
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and

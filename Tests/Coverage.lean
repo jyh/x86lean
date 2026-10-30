@@ -84,6 +84,9 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vbin .subusw .x0 .x1).mnemonic, (Op.vbin .subusb .x0 .x1).mnemonic,
       (Op.vbin .maxsw .x0 .x1).mnemonic, (Op.vbin .sadbw .x0 .x1).mnemonic,
       (Op.vbin .packssdw .x0 .x1).mnemonic,
+      -- D373: four more `VBinKind` kinds.
+      (Op.vbin .minsw .x0 .x1).mnemonic, (Op.vbin .mulhw .x0 .x1).mnemonic,
+      (Op.vbin .mulhuw .x0 .x1).mnemonic, (Op.vbin .avgb .x0 .x1).mnemonic,
       -- D338 (V2): one `ShaKind` kind per row, on `Op.vsha`.
       (Op.vsha .msg1 .x1 .x2).mnemonic, (Op.vsha .msg2 .x1 .x2).mnemonic,
       (Op.vsha .rnds2 .x1 .x2).mnemonic,

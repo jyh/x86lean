@@ -74,6 +74,8 @@ SILICON_REFEREES = (
     ("D361", ("AMD EPYC 7763", "Intel Xeon Platinum 8573C", "Intel Core i7-8700B")),
     # D371: VEX vmovd/vmovq (hwprobe run 41041988507); both legs NAMED by their processor.
     ("D371", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D373: pminsw/pmulhw/pmulhuw/pavgb, set B of the packed-integer path (hwprobe run 41144876498); both legs NAMED.
+    ("D373", ("AMD EPYC 7763", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS

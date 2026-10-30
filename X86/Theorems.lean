@@ -2416,6 +2416,37 @@ theorem sad_max : vsadLane 0xFFFFFFFFFFFFFFFF 0 = 0x7F8 := by decide
 
 end V1a
 
+/-! ⭐ D373 — `pminsw`, `pmulhw`, `pmulhuw`, `pavgb`: four more kinds with no
+differential partner (x86isa refuses all four), checked on silicon by
+`hwprobe/mk_simda_rows.py --set-b` and pinned in `Tests/AnchorsSimdB.lean`.  The frame
+theorems above apply for the same reason as D335's: none is min/max. -/
+section D373
+
+theorem d373_kinds_not_minmax :
+    [VBinKind.minsw, .mulhw, .mulhuw, .avgb].all (fun k => !k.isMinMax) = true := by decide
+
+/-- ⛔ PMINSW IS SIGNED: 8000H (−32768) is below 7FFFH, where an unsigned minimum
+would keep 7FFFH. -/
+theorem minsw_signed :
+    vbinApply .minsw 0x80008000800080008000800080008000 0x7FFF7FFF7FFF7FFF7FFF7FFF7FFF7FFF
+      = 0x80008000800080008000800080008000 := by decide
+
+/-- ⭐ THE TWO HIGH HALVES DIFFER ONLY IN SIGNEDNESS: FFFFH × FFFFH is 1 signed
+(high word 0) and FFFE0001H unsigned (high word FFFEH). -/
+theorem mulhw_mulhuw_ones :
+    vbinApply .mulhw 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF = 0 ∧
+    vbinApply .mulhuw 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      = 0xFFFEFFFEFFFEFFFEFFFEFFFEFFFEFFFE := by decide
+
+/-- ⭐ PAVGB ROUNDS UP AND DOES NOT WRAP: FFH and FFH average to FFH, 0 and 1 to 1. -/
+theorem avgb_rounds_up :
+    vbinApply .avgb 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ∧
+    vbinApply .avgb 0 0x01010101010101010101010101010101
+      = 0x01010101010101010101010101010101 := by decide
+
+end D373
+
 /-! ## D338 (V2) — SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE)
 
 ⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses all three

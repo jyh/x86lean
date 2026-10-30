@@ -117,7 +117,7 @@ Cumulative share is over the whole uncovered gap (345,605 instructions), so a ro
 | 37 | `pshufb` | 2,469 | 0.71% | 62.7% | 2% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 | 38 | `vinserti128` | 2,394 | 0.69% | 63.4% | — | ⛔ **REFUSES** | `yymi`, `yyxi` |
 | 39 | `punpcklbw` | 2,381 | 0.69% | 64.1% | ⛔ **100% — PHANTOM ROW** | ✔ | `xm`, `xx` |
-| 40 | `pmulhw` | 2,200 | 0.64% | 64.8% | ⚠️ 28% | ⛔ **REFUSES** | `xm`, `xx` |
+| 40 | `pmulhw` | 2,200 | 0.64% | 64.8% | ⚠️ 28% | ⛔ **REFUSES** · ⚙ implemented, silicon-refereed (`siliconTable`, AMD + Intel hwprobe; NOT differential, D337) | `xm`, `xx` |
 
 - The joined set — **316 mnemonics K has semantics for AND the corpus executes** — accounts for **327,290 instructions (94.7% of the gap)**.
 
