@@ -38,7 +38,14 @@ THE ROW POPULATION, per mnemonic (the same operand pairs at both shapes, `xx` an
   RANDOM  6 rows, every bit from `random.Random(335000 + k)` (k the mnemonic's index in MNEMONICS), never re-seeded.
 Flags in: all six clear on even-numbered rows of a form, all six set on odd-numbered ones.
 
-Usage: mk_simda_rows.py [--plant | --plant-op | --summary | --reach]   writes C rows on stdout.
+SET B (D373, `--set-b`): PMINSW PMULHW PMULHUW PAVGB, the same row construction and the same probe, its own `.S`
+(`simdb_ops.S`), its own rows header and its own random seeds (373000 + k):
+  PMINSW     word i := DEST.w[i] if DEST.w[i] < SRC.w[i] (SIGNED) else SRC.w[i].
+  PMULHW     word i := bits 31:16 of the SIGNED 32-bit product DEST.w[i]*SRC.w[i].
+  PMULHUW    the same with both words UNSIGNED.
+  PAVGB      byte i := (DEST.b[i] + SRC.b[i] + 1) >> 1, both unsigned, the sum taken in 9 bits.
+
+Usage: mk_simda_rows.py [--set-b] [--plant | --plant-op | --summary | --reach]   writes C rows on stdout.
   --plant     flips bit 64 (the HIGH quadword) of ONE expectation: exactly that row must disagree (exit 1)
   --plant-op  declares ONE instruction byte wrong: the probe must refuse to run (exit 2)
   --summary   prints the per-form row counts, not C
@@ -70,11 +77,32 @@ MNEMONICS = [
     ("packssdw", 32, "660f6b"),
 ]
 SSSE3 = {"pmaddubsw", "pmulhrsw"}
+# D373: set B, all SSE2 (SDM Vol. 2B). Its own list, so set A's random rows (seeded by index) do not move.
+MNEMONICS_B = [
+    ("pminsw", 16, "660fea"),
+    ("pmulhw", 16, "660fe5"),
+    ("pmulhuw", 16, "660fe4"),
+    ("pavgb", 8, "660fe0"),
+]
+SEED = {"a": 335000, "b": 373000}
+SET = "a"
 
 OPS = []   # (form, function, declared bytes hex, mnemonic, shape)
-for _mn, _w, _op in MNEMONICS:
-    OPS.append((_mn + "_xx", "v_" + _mn + "_xx", _op + "c1", _mn, "xx"))
-    OPS.append((_mn + "_xm", "v_" + _mn + "_xm", _op + "03", _mn, "xm"))
+
+
+def select(name):
+    """Make set `name` ("a": D335's eleven, "b": D373's four) the module's MNEMONICS and OPS."""
+    global MNEMONICS, SET
+    SET = name
+    MNEMONICS = {"a": MNEMONICS_A, "b": MNEMONICS_B}[name]
+    OPS.clear()
+    for _mn, _w, _op in MNEMONICS:
+        OPS.append((_mn + "_xx", "v_" + _mn + "_xx", _op + "c1", _mn, "xx"))
+        OPS.append((_mn + "_xm", "v_" + _mn + "_xm", _op + "03", _mn, "xm"))
+
+
+MNEMONICS_A = MNEMONICS
+select("a")
 
 EDGES = {
     16: [0x0000, 0x0001, 0xFFFF, 0x7FFF, 0x8000, 0x8001, 0x4000, 0x00FF],
@@ -139,6 +167,14 @@ def rule(mn, a, b):
         return join([sum(abs(x[i] - y[i]) for i in range(8)), sum(abs(x[i] - y[i]) for i in range(8, 16))], 64)
     if mn == "packssdw":
         return join([ssat16(sx(d, 32)) for d in lanes(a, 32)] + [ssat16(sx(d, 32)) for d in lanes(b, 32)], 16)
+    if mn == "pminsw":
+        return join([p if sx(p, 16) < sx(q, 16) else q for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pmulhw":
+        return join([(sx(p, 16) * sx(q, 16)) >> 16 for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pmulhuw":
+        return join([(p * q) >> 16 for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pavgb":
+        return join([(p + q + 1) >> 1 for p, q in zip(lanes(a, 8), lanes(b, 8))], 8)
     raise SystemExit("mk_simda_rows: no rule for %s" % mn)
 
 
@@ -171,6 +207,14 @@ def wrong(mn, a, b):
         return join([sum(abs(x[i] - y[i]) for i in range(8, 16)), sum(abs(x[i] - y[i]) for i in range(8))], 64)
     if mn == "packssdw":       # the source's dwords low and the destination's high
         return rule(mn, b, a)
+    if mn == "pminsw":         # unsigned comparison (PMINUW)
+        return join([min(p, q) for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pmulhw":         # unsigned words (PMULHUW)
+        return rule("pmulhuw", a, b)
+    if mn == "pmulhuw":        # signed words (PMULHW)
+        return rule("pmulhw", a, b)
+    if mn == "pavgb":          # truncating: no +1
+        return join([(p + q) >> 1 for p, q in zip(lanes(a, 8), lanes(b, 8))], 8)
     raise SystemExit("mk_simda_rows: no wrong rule for %s" % mn)
 
 
@@ -188,7 +232,7 @@ def operands(k, mn, w):
         out.append(("edge%d" % r, join(av, w), join(bv, w)))
     for nm, x, y in UNIFORM[w]:
         out.append((nm, join([x] * n, w), join([y] * n, w)))
-    rng = random.Random(335000 + k)
+    rng = random.Random(SEED[SET] + k)
     for r in range(N_RANDOM):
         out.append(("rand%d" % r, rng.getrandbits(128), rng.getrandbits(128)))
     return out
@@ -215,6 +259,8 @@ def q2(v):
 
 def main():
     P.strict_flags(__file__)
+    if "--set-b" in sys.argv:
+        select("b")
     build()
     if "--summary" in sys.argv:
         for _form, fn, _bs, _mn, _sh in OPS:
