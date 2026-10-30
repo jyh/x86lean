@@ -318,3 +318,9 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `vpcmpgtb` | x,x,x · x,x,m — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed; the m128 and m256 forms (V9a, D353) have NO alignment check | T-exact | XED (trusted) | — | Vol. 2B PCMPGTB |
 | `vpcmpgtw` | x,x,x · x,x,m — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed; the m128 and m256 forms (V9a, D353) have NO alignment check | T-exact | XED (trusted) | — | Vol. 2B PCMPGTW |
 | `vpcmpgtd` | x,x,x · x,x,m — VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed; the m128 and m256 forms (V9a, D353) have NO alignment check | T-exact | XED (trusted) | — | Vol. 2B PCMPGTD |
+
+## Lockable mnemonics, derived from `Op.lockable` (D367)
+
+Each mnemonic below has at least one differentially tested vector whose form `Op.lockable` accepts, so a `lock` prefix on that form is legal and the model executes it. `scripts/demand_census.py` reads this line to credit LOCK-prefixed instructions; a mnemonic not listed stays in its residue.
+
+Lockable: `adc` `add` `and` `btc` `btr` `bts` `cmpxchg` `cmpxchg8b` `dec` `inc` `neg` `not` `or` `sbb` `sub` `xadd` `xchg` `xor`

@@ -23461,3 +23461,51 @@ counted" arms still pass under that mutant, because a Python fixture is visible 
 measured on katmai and recorded on yukon, read `BOX yukon…` (math's catch on #138). `stamp_rows()` now gives a gate row
 the box from its own readings file, and a backfill row (whose walk ran on the writer) the writer's. Red backwards:
 restoring the writer's stamp reds exactly the new arm. Past rows are not rewritten.
+
+## D367 — the census credits LOCK-prefixed forms through a lockable set DERIVED from `Op.lockable`, the cheaper build its own refusal names (predictions before any code; STATUS row 26)
+
+**Why.** `demand_census.py`'s `EXT_SCOPE` keeps the LOCK bucket `False` on purpose: the model's lock legality is per FORM
+(`Op.lockable`), the tool had no model-derived route to it, and copying the SDM's list into the script would be a
+fourth hand-kept list. Its comment names the remedy: export the predicate into a generated artifact. This unit does that.
+`x86lean-diff coverage` gains a section listing every mnemonic that has a vector whose `Op` is `lockable`. The list is
+computed from the vectors, so it names only forms the differential runs. The census credits a LOCK-prefixed instruction
+as covered when its roster name is in the model and in that list, and refuses it otherwise.
+Measured at master `d4b7c00` before any code: the LOCK residue is **9,939** instructions over 28 printed spellings (⚠️ the MAPPED spellings only; the bucket is 9,945, see the correction below), which
+map to 11 roster names (`add` `and` `btr` `bts` `cmpxchg` `dec` `inc` `or` `sub` `xadd` `xor`); `xaddl` alone is 2,441, of
+which 2,383 are in vmlinux.
+**Predictions (each wrong if the named reading differs):**
+1. The derived list is exactly `add and btc btr bts cmpxchg cmpxchg8b dec inc neg not or sub xadd xchg xor` (16). `adc`
+   and `sbb` are absent because they have no memory-destination vector; `cmp`, `test`, `bt` and `mov` are absent because
+   `lockable` refuses them.
+2. The census's LOCK residue goes 9,939 → **0** (⚠️ superseded: 9,945 → 6, see the correction below), and the covered total rises by exactly 9,939. Every column's other
+   buckets, and the silicon and VEX columns, are unchanged; conservation holds.
+3. The selftest's refusal arm moves from `lock addq` (now credited) to a form `lockable` refuses (`lock movq`), and it is
+   refused. A mutant that credits LOCK by mnemonic alone (ignoring the list) is caught by that arm.
+**Wrong if:** any of the 11 demand names is missing from the list (then the model lacks that locked form and its
+instructions stay in the residue, which is the honest outcome); the list contains a name `lockable` refuses; any other
+figure moves.
+**Readings (2026-10-26, `paris/d367-lock-census`):**
+1. **NOT HELD.** The derived list has **18** names, not 16: `adc` and `sbb` are on it. They DO have memory-destination
+   vectors. I had counted them with a grep for `.mem` within two lines of the mnemonic, which missed their layout. The
+   list is the generator's and the prediction was mine, so the list stands. `cmp`, `test`, `bt` and `mov` are absent, as
+   predicted.
+2. **HELD exactly** for the credited count (⚠️ the residue is 9,945 → 6, see the correction below). LOCK residue 9,939 → 0; covered +9,939 in total, with each column's total unchanged; every other
+   bucket and the silicon and VEX columns unchanged (all ten columns compared, key by key, against master's JSON). The
+   census's no-pooling check first REFUSED the run. Its reference model was a plain set, so it could not carry the
+   lockable line, and cc1's 82 credited instructions read as pooled silicon. The reference is now a silicon-free `Model`
+   that carries the line, read fresh from COVERAGE.md like the silicon list.
+3. **HELD.** The refusal arms moved to `lock movq` and `lock cmpq`, both refused; `lock addq` credited; conservation 170 + 65
+   == 235. Red backwards: crediting LOCK by mnemonic alone reds exactly those two arms. `census_redprobe.py` gains that
+   mutation and passes 37 of 37, after four anchors were re-pointed at the lines this unit rewrote. `p2_roster.py` reads
+   LOCK as LANDED through one `addition_landed()` predicate, shared by its table and its selftest; P2-ROSTER.md was regenerated.
+**Correction (2026-10-29, on paper's read of #142):** the figure "9,939 → 0" is the CREDITED count, not the residue. The
+LOCK bucket at master is **9,945** (the ten corpus columns; 10,107 with `_asm_pooled`). At the head it is **6**, all
+`cmpxchg16b` in vmlinux, correctly refused: `to_roster` maps it to no roster name and `Op.lockable`'s own comment says it
+is not in the roster. The measurement above and reading 2 counted the 28 MAPPED spellings, which left those six out. So:
+**LOCK residue 9,945 → 6, of which 9,939 credited**; covered +9,939 holds as read. The commit subjects that say
+"residue 9,939 -> 0" are not rewritten, because the ledger row is keyed on `26cd137`; this paragraph supersedes them.
+⚠️ **And a limit:** only 10 of the 18 names on the `Lockable:` line have a vector that carries the lock byte (`add bts
+cmpxchg cmpxchg8b dec inc neg not or xadd`). `and`, `sub`, `btr` and `xor` are credited from an UNLOCKED
+memory-destination vector plus the predicate (1,350 of the 9,939: and 647 · sub 421 · btr 279 · xor 3, paper's
+mapping); `adc`, `btc`, `sbb` and `xchg` are on the list the same way. The census's generated prose now says so, and
+its stale sentence ("`Op.lockIllegal`, which this document's inputs do not publish") is replaced.

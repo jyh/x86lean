@@ -5767,8 +5767,17 @@ differentially tested, because x86isa executes the misaligned forms; it is carri
 (`Tests/CoverageVexMov.lean`); a silicon wave is V9b's next step. Decode trust here is LLVM `objdump`'s, which decodes a \
 legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries \
 one (D341).\n\n"
+      -- ⭐ D367: the mnemonics with a vector whose `Op` is `lockable`, DERIVED here so the demand census
+      -- can credit a LOCK-prefixed instruction without a hand-kept copy of the SDM's list. Computed from the
+      -- vectors, so it names only forms the differential runs.
+      let lockMns := ((vectors.filter (fun v => v.instr.op.lockable)).map Vec.mnemonic).eraseDups.mergeSort (· ≤ ·)
+      let lock := "\n## Lockable mnemonics, derived from `Op.lockable` (D367)\n\n\
+Each mnemonic below has at least one differentially tested vector whose form `Op.lockable` accepts, so a \
+`lock` prefix on that form is legal and the model executes it. `scripts/demand_census.py` reads this line to \
+credit LOCK-prefixed instructions; a mnemonic not listed stays in its residue.\n\n\
+Lockable: " ++ String.intercalate " " (lockMns.map (fun m => "`" ++ m ++ "`")) ++ "\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable
-        ++ vex ++ renderTable (vexTable.map (·.row)))
+        ++ vex ++ renderTable (vexTable.map (·.row)) ++ lock)
       IO.println s!"wrote coverage table ({tableP0.length} rows) → {out}"
       return 0
   -- ⭐⭐ P2 BATCH 12 (D105): THE RUN-INDEX CERTIFICATE.  `Tests/Coverage.lean`'s

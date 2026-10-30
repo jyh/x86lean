@@ -83,7 +83,7 @@ class Model(frozenset):
     `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
-    def __new__(cls, names, silicon=(), vex=(), silicon256=()):
+    def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=()):
         sil = frozenset(silicon)
         self = super().__new__(cls, frozenset(names) - sil)
         self.names = frozenset(names)
@@ -94,6 +94,9 @@ class Model(frozenset):
         # ⭐ D345 (V7): the `siliconTable` rows modelled at VEX.256 too (their note declares it), so a `%ymm`
         # spelling of one maps to itself and lands in the silicon line (b), never in (a).
         self.silicon256 = frozenset(silicon256) & sil
+        # ⭐ D367: the mnemonics `x86lean-diff coverage` DERIVES from `Op.lockable` over the vectors
+        # (COVERAGE.md's "Lockable" line). Only a differential mnemonic can be credited, so it is cut to (a).
+        self.lockable = frozenset(lockable) & (frozenset(names) - sil)
         return self
 
 
@@ -109,6 +112,11 @@ def silicon_of(model):
 def silicon256_of(model):
     """⭐ D345: the silicon rows modelled at VEX.256, or nothing for a plain set."""
     return getattr(model, "silicon256", frozenset())
+
+
+def lockable_of(model):
+    """⭐ D367: the derived lockable mnemonics, or nothing for a plain set (LOCK stays refused there)."""
+    return getattr(model, "lockable", frozenset())
 
 
 def vex_of(model):
@@ -150,6 +158,21 @@ def silicon256_mnemonics():
 
 SILICON_SECTION = "## Implemented, refereed by a processor, NOT differentially tested"
 
+def lockable_mnemonics(text=None):
+    """⭐ D367: the `Lockable:` line of the GENERATED COVERAGE.md (derived from `Op.lockable` over the vectors).
+    ⛔ A COVERAGE.md without it is stale, and a census that read its absence as "nothing is lockable" would
+    report the old residue as a measurement, so it REFUSES."""
+    if text is None:
+        text = open(os.path.join(root, "docs", "COVERAGE.md"), encoding="utf-8").read()
+    lk = re.findall(r'^Lockable: (.*)$', text, re.M)
+    lockable = re.findall(r'`([a-z0-9]+)`', lk[0]) if len(lk) == 1 else []
+    if not lockable:
+        print("⛔ LOCK: docs/COVERAGE.md has no (or more than one) `Lockable:` line, or it names nothing — "
+              "refusing, not reading zero. Regenerate: lake exe x86lean-diff coverage docs/COVERAGE.md")
+        sys.exit(2)
+    return lockable
+
+
 def model_mnemonics():
     """The mnemonics the model implements, as a `Model` (D337).  ⚠️ Read from
     the GENERATED coverage table, which CI already fails on if it is stale —
@@ -159,6 +182,7 @@ def model_mnemonics():
     never assumed to."""
     path = os.path.join(root, "docs", "COVERAGE.md")
     text = open(path, encoding="utf-8").read()
+    lockable = lockable_mnemonics(text)
     # ⭐ V3 (D341): the VEX.128 twins are a THIRD population, published in a section of their
     # own and NOT counted in this census's model. ⭐ D342 (a): they are now read — into the
     # Model's `.vex`, credited on a separately labelled line beside the silicon one, never in (a).
@@ -180,7 +204,7 @@ def model_mnemonics():
               f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
               f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
         sys.exit(2)
-    return Model(ms, sil, vex, silicon256_mnemonics())
+    return Model(ms, sil, vex, silicon256_mnemonics(), lockable)
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -576,6 +600,9 @@ _BUCKET_PROBE_OPS = ("", "(%rbx)", "(%rbx),%eax", "%ax", "%rax, %rbx",
                      "%xmm0,%eax", "%mm1, %mm0", "%st(1)", "%ymm0, %ymm1",
                      "%zmm0, %zmm1", "%fs:0x28, %rax")
 
+# ⭐ D367: the LOCK bucket's name, ONE spelling, so `_decide` and `isa_bucket` cannot drift apart.
+LOCK_BUCKET = "LOCK prefix (P2 addition 2)"
+
 def isa_bucket(mn, ops, kind="plain"):
     """⛔ THE BUCKET IS THE REASON THE MODEL CANNOT EXECUTE IT, not just the
     register file it touches.  `movq %gs:0x28, %rax` is a `mov` the model has;
@@ -585,7 +612,7 @@ def isa_bucket(mn, ops, kind="plain"):
     `Ea`, a LOCK vocabulary, and the `movabs` mov form) are therefore each a
     NAMED ROW here, so the roster can be priced off this table directly."""
     if kind == "lock":
-        return "LOCK prefix (P2 addition 2)"
+        return LOCK_BUCKET
     if kind == "segment":
         return "segment base %fs:/%gs: (P2 addition 1)"
     if mn == "movabsq" or mn == "movabs":
@@ -660,6 +687,9 @@ EXT_SCOPE.update({
     # 9,945 instructions (0.07% of this corpus), and the refusal names the
     # cheaper build: export `Op.lockIllegal` into a generated artifact and this
     # line becomes derivable ([[feedback-a-gate-that-refuses-names-a-cheaper-build]]).
+    # ⭐ D367 BUILT THAT: `x86lean-diff coverage` derives the lockable mnemonics from `Op.lockable` over the
+    # vectors, and `_decide` credits a locked form whose roster name is on that line. The ruling below stays
+    # False, so a locked form the model does not derive as lockable is still refused.
     "LOCK prefix (P2 addition 2)":            False,
     "GPR/other (unclassified)":               True,
 })
@@ -1062,6 +1092,7 @@ def model_stamp(model):
     h = hashlib.sha256((" ".join(sorted(names_of(model))) + " | silicon: "
                         + " ".join(sorted(silicon_of(model)))
                         + (" | vex: " + " ".join(sorted(vex_of(model))) if vex_of(model) else "")
+                        + (" | lock: " + " ".join(sorted(lockable_of(model))) if lockable_of(model) else "")
                         ).encode()).hexdigest()[:16]
     rows = []
     for m in sorted(_rule_domain(model)):
@@ -1160,6 +1191,10 @@ def _decide(m, ext, model):
     r = to_roster(m, ext, model)
     if r is None:
         return None, False, "unmapped"
+    # ⭐ D367: a LOCK-prefixed form is covered when the model DERIVES its mnemonic as lockable (and runs it
+    # differentially); the bucket's own ruling stays False, so every other locked form is still refused.
+    if ext == LOCK_BUCKET and r in lockable_of(model) and r in model:
+        return r, True, "mapped"
     if not form_in_scope(ext):
         # ⭐ D342 (a): a VEX.128 instruction is outside (a)'s scope (the model's VEX forms are not in the
         # published figures), but one whose mnemonic is a VEX-table row or a siliconTable row is credited
@@ -1542,8 +1577,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0, mem=None, msk=None):
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
              f"cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, "
-             f"a VEX encoding, or a `lock` prefix (whose legality is per-form "
-             f"and not published here): {oos:,} ({100.0*oos/tot:.2f}%) — "
+             f"a VEX encoding, or a `lock` prefix on a form the model does not "
+             f"list as lockable (`Lockable:` in docs/COVERAGE.md): {oos:,} ({100.0*oos/tot:.2f}%) — "
              f"counted as NOT covered.\n")
     fh.write(f"- Not mapped at all, and therefore counted as NOT covered: "
              f"{unk:,} ({100.0*unk/tot:.1f}%).\n\n")
@@ -1602,8 +1637,10 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0, mem=None, msk=None):
 def differential_reference(model):
     """The reference model for `check_no_pooling`: every implemented mnemonic
     minus `siliconTable` READ FRESH FROM THE TREE, as a plain set.  ⛔ Never the
-    `Model` the report used: a model that pooled would then be its own referee."""
-    return frozenset(names_of(model)) - silicon_mnemonics()
+    `Model` the report used: a model that pooled would then be its own referee.
+    ⭐ D367: it carries the lockable line (read fresh, like the silicon list), because a LOCK credit is class
+    (a), differential, and a reference without it would read every credited locked form as pooled silicon."""
+    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics())
 
 
 def check_no_pooling(counts, ref, reported):
@@ -1613,7 +1650,8 @@ def check_no_pooling(counts, ref, reported):
     is a PLAIN set of the differential mnemonics, so its mapping cannot even name
     a silicon mnemonic: if (a) moved when the silicon rows were loaded,
     something pooled them."""
-    ref = frozenset(ref)                     # a PLAIN set: no `.names`, no `.silicon`
+    # a PLAIN set (no `.names`, no `.silicon`), or a silicon-free `Model` carrying only D367's lockable line
+    ref = ref if isinstance(ref, Model) and not silicon_of(ref) else frozenset(ref)
     tot, cov = _covered(counts, ref)
     if cov != reported["covered"] or tot != reported["total"]:
         return (f"covered {reported['covered']:,} of {reported['total']:,} with the "
@@ -1723,9 +1761,11 @@ def selftest():
         # ⭐ the two P2 additions that LANDED and are therefore in scope
         ("movq",    "segment base %fs:/%gs: (P2 addition 1)", True),
         ("movabsq", "mov imm64 / movabs (P2 addition 3)",     True),
-        # ⛔ and the one that landed and is still REFUSED, on purpose: the
-        # model's lock legality is per-form and this tool cannot read it.
-        ("addq",    "LOCK prefix (P2 addition 2)",            False),
+        # ⭐ D367: the LOCK bucket's ruling stays False, but a mnemonic the model DERIVES as lockable is
+        # credited — and a form `lockable` refuses is still refused, which is the over-claim this arm exists for.
+        ("addq",    "LOCK prefix (P2 addition 2)",            True),
+        ("movq",    "LOCK prefix (P2 addition 2)",            False),
+        ("cmpq",    "LOCK prefix (P2 addition 2)",            False),
         # a form the model does not have is refused by `r in model`, not by the
         # partition — the partition says its FORM is representable.  ⭐ D347 (V8a)
         # MODELLED `endbr64`, so this arm moved to `endbr32` (same bucket, still
@@ -1782,7 +1822,7 @@ def selftest():
     buckets, cov_buckets, by_ext = ext_table("conservation", synth, _M,
                                              io.StringIO())
     ok = (c_cov + sum(buckets.values()) == c_tot and c_tot == 235
-          and c_cov == 167 and sum(cov_buckets.values()) == c_cov
+          and c_cov == 170 and sum(cov_buckets.values()) == c_cov
           # ⛔ the per-mnemonic keying is the SAME residue, not a second count
           and sum(sum(v.values()) for v in by_ext.values())
               == sum(buckets.values())
@@ -1790,7 +1830,7 @@ def selftest():
     print(("  ✔ " if ok else "  ⛔ ") +
           f"conservation: covered {c_cov} + uncovered {sum(buckets.values())} "
           f"== total {c_tot} (padding {_pad} excluded)" +
-          ("" if ok else "   EXPECTED 167 + 68 == 235"))
+          ("" if ok else "   EXPECTED 170 + 65 == 235 (D367: the 3 `lock addq` are credited)"))
     bad += [] if ok else ["conservation"]
 
     # ── ⚖️ D337: the silicon class, the mapping it needed, and NO POOLING ──────
@@ -2498,15 +2538,19 @@ explicitly — there is no default:
 | a `%ymm`, `%zmm` or `%k` register | ⛔ | no AVX/AVX-512 state |
 | a VEX-encoded `%xmm` form (`v…`) | ⛔ | a different encoding, not a different name |
 | an x87 `%st` register | ⛔ | no x87 state |
-| a `lock` prefix | ⛔ | see below |
+| a `lock` prefix | ✅ per form | see below |
 
-⛔ **The `lock` exclusion is a REFUSAL, not an absence.** P2 addition 2 landed a
-LOCK vocabulary, so the model does execute locked forms — but only the SDM's
-nineteen, and whether a given form is one of them is `Op.lockIllegal`, which
-this document's inputs do not publish. Claiming a locked instruction by
-MNEMONIC would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on
-silicon and the form a reader most expects to be lockable. So it is counted as
-NOT covered, at a measured cost, until that predicate is exported.
+⭐ **The `lock` prefix is credited PER FORM, through a published predicate (D367).** P2
+addition 2 landed a LOCK vocabulary, and `docs/COVERAGE.md` now publishes a `Lockable:`
+line: every mnemonic with a vector whose form `Op.lockable` accepts. A locked instruction
+is covered when its roster name is in the model AND on that line; any other locked form
+is refused and counted as NOT covered. Claiming a locked instruction by MNEMONIC alone
+would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on silicon and the
+form a reader most expects to be lockable; the line is what prevents that.
+⚠️ **The limit, declared:** a name is on the line when a vector's FORM is lockable, which
+need not be a vector that carries the `lock` byte. Some credited names (`and`, `sub`,
+`btr`, `xor` among them) are credited from an unlocked memory-destination vector plus
+the predicate, not from a differentially run locked instruction.
 
 ⛔ **The MMX exclusion was a real over-claim.** `%[xyz]mm` does not match
 `%mm0`, so until the assembly class arrived every MMX instruction whose mnemonic
