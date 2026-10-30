@@ -23966,3 +23966,7 @@ D356–D362 stack.
    P2-ROSTER.md regenerated (`vmovd` now reads silicon-refereed).
 ⚠️ `check_readme_snapshot` reds on this branch as it already does on D362's tip (README 108,240 against the record's
 109,208). It belongs to the D356–D362 stack's rebase, not to D371.
+**K1 (a reading; no kernel prediction was sealed), katmai, 733f8f2 → 914ab1c, 6 repeats:** both arms REFUSED only the NEW
+unit, as a K1 does. `Tests.AnchorsVexSilF` reads 490.5 ms and 220,986 unfoldings; both registration lines are copied
+from the tools' own output. Every existing unit reads `ok`; `X86.Syntax` +6.0 ms (756.5 → 762.5, budget 141.5) for the
+three constructors. (A first K1 was stopped at 04:2x to free katmai for #142's re-key; it is not the reading.)
