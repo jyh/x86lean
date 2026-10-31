@@ -24114,3 +24114,7 @@ metered anchor unit, one census regeneration. Stacked on D374 (`f0364d8`).
    read +3,808 with both FP spellings at 0.** The census credits a `siliconTable` row at `%ymm` only when its note
    DECLARES `VEX.256` (D345's rule), and the two FP rows' notes said only "VINSERTI128's function at the FP opcode". Both
    now begin "VEX.256 only:", as the integer rows did. The census was right and my notes were incomplete.
+**K1 (2026-10-31, katmai, `f0364d8 → 3248cf3`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilH` at 4,285.0 ms ⇒ `Tests.AnchorsVexSilH 12855 @on katmai`; `ku_delta` (A′)
+reads 1,977,574 unfoldings ⇒ `Tests.AnchorsVexSilH @ku 1977574`; both registered as printed. All 53 existing units are
+within their allowances (`Tests.Coverage` +350 against 2,944.8).
