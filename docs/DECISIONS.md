@@ -24068,3 +24068,31 @@ one metered anchor unit, one census regeneration. Stacked on D373 (`f5d9ffa`).
    (zmm/k)**, and AVX-512 is EVEX, out of this model's scope (README, "Not in scope"). Credited 7,022 = 4,195 + 2,827
    exactly; no other column moved. ⇒ **8,608 was my read of the residue by MNEMONIC, which pools the EVEX spellings**,
    the same pooling D373's MMX share showed; STATUS row 36 carried it and is corrected to 7,022.
+
+## D375 — VEX.256 128-bit lane insert and extract (`vinserti128` `vinsertf128` `vextracti128` `vextractf128`), refereed by silicon (STATUS row 37, wave C1; predictions and price before any model work)
+
+**Why.** 4,719 instructions in the census residue at D374's head, all ymm: `vinserti128` 2,396 · `vextracti128` 1,412 ·
+`vextractf128` 638 · `vinsertf128` 273 (counted by EXTENSION, so nothing EVEX is pooled — D374 reading 4).
+**The referee, measured before anything was designed (P1, 2026-10-31, yukon, `oracle_availability.measure()` unmodified,
+controls in the SAME run).** All **8** encodings REFUSE at 88 of 88: each insert from xmm and from m128, each extract to
+xmm and to m128. `mov`, `vpxor (%rbx),%xmm2,%xmm0`, `vpaddw %ymm1,%ymm2,%ymm0` and legacy `movlps (%rbx),%xmm0` executed
+88/88. ⇒ **a silicon wave, with a store, so D371's expected-buffer frame.**
+**The model (four VEX constructors; the integer and FP spellings are one function at two opcodes, a `fp` flag that only
+the mnemonic reads).** SDM Vol. 2C, VINSERTI128/VINSERTF128 and VEXTRACTI128/VEXTRACTF128, VEX.256 only (VEX.L = 0 is #UD):
+- `vexins128 fp dst src1 src imm` — DEST := SRC1 with the 128-bit lane `imm[0]` replaced by `src`'s low 128 bits.
+- `vexins128m fp dst src1 ea imm` — the same with the 16 bytes at `a`, no alignment check.
+- `vexext128 fp dst src imm` — DEST[127:0] := SRC's lane `imm[0]`; DEST[255:128] := 0 (a VEX.128 register write).
+- `vexext128m fp ea src imm` — the 16 bytes at `a` := SRC's lane `imm[0]`; no register written.
+`imm[7:1]` are ignored.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor; every memory row at
+   an odd offset as well as an aligned one; the store rows read the whole 64-byte buffer back against an expected buffer.
+2. **Generator, before any processor.** Named wrong rules each refused on a named row: (a) `imm` read as two bits (bit 1
+   selecting); (b) an extract to xmm that leaves YMM3[255:128]; (c) an insert into the wrong lane; (d) a store that
+   writes 32 bytes. Rows carry `imm` ∈ {0, 1, 2, 3, 0xfe, 0xff}, so the ignored bits are read.
+3. **Model.** Four constructors under `Op.vex`, all rows pinned by `decide` in a NEW metered unit. **Red backwards:**
+   (a)'s mutant reds exactly the rows whose `imm` has bit 1 set and bit 0 differs from it; (d)'s reds exactly the store
+   rows.
+4. **Census.** The silicon column rises by 4,719 and nothing else moves.
+**Price.** One silicon wave (two vendors), one generator, one `.S`, D371's probe against new rows, four constructors, one
+metered anchor unit, one census regeneration. Stacked on D374 (`f0364d8`).
