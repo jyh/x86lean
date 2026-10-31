@@ -24144,3 +24144,12 @@ twins stay on the differential), as do `mov`, `vpxor (%rbx),%xmm2,%xmm0` and `vp
 **Price.** One silicon wave in D371's frame (one generator covers all nine forms: `movntdqa (%rbx),%xmm3` reads YMM3 back
 whole, so the preserved upper half is read), three constructors, one metered unit, one census regeneration. Stacked on
 D375 (`3248cf3`). **Not built in the life that wrote this; the next head takes it from here.**
+**Readings (2026-10-31, `paris/d376-halfmoves`; steps (a) and (c) only — the model is not built yet):**
+1. **HELD** on both vendors, hwprobe run 41150000436 at `5d52058`: AMD EPYC 9V74 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 306 disagreements 0`. On each leg `--plant` reds exactly `vmovhps_ld_c0_o0`, `--plant-hi`
+   exactly `vmovlps_ld_c0_o0`, `--plant-mem` exactly `vmovhpd_st_c0_o1`, and `--plant-op` refuses `x_movntdqa` (rc 2).
+2. **HELD for the generator.** 306 rows over 9 functions; every row's rule equals its byte-list re-derivation; the
+   declared bytes equal clang's for all nine. `--reach`: (a) 18 · (b) 144 · (c) 144 · (d) 132 rows. ⚠️ (d) misses the 12
+   low-half store rows at offset 56, where a 16-byte write runs off the buffer's end and the in-buffer bytes it writes
+   equal the 8 the right rule writes; the other 132 store rows carry it.
+3–4. **OWED:** the three constructors, the unit, the mutants and the census, by the next head, from this record.
