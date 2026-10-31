@@ -219,3 +219,5 @@ Tests.AnchorsVexSilF @ku 220986
 Tests.AnchorsSimdB @ku 1267652
 # D374: the NEW unit, the line ku_delta printed on refusing it at K1 (f5d9ffa → f0364d8, katmai), copied.
 Tests.AnchorsVexSilG @ku 5371473
+# D375: the NEW unit, the line ku_delta printed on refusing it at K1 (f0364d8 → 3248cf3, katmai), copied.
+Tests.AnchorsVexSilH @ku 1977574
