@@ -76,6 +76,8 @@ SILICON_REFEREES = (
     ("D371", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     # D373: pminsw/pmulhw/pmulhuw/pavgb, set B of the packed-integer path (hwprobe run 41144876498); both legs NAMED.
     ("D373", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D374: the VEX twins of eleven modelled kinds (hwprobe run 41147377467); both legs NAMED by their processor.
+    ("D374", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS

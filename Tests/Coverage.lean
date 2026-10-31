@@ -109,7 +109,14 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexbin .maddwd .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhrsw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .maddubsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packssdw .x3 .x1 .x2)).mnemonic,
       -- D350 (V8c): VPBROADCASTD.
-      (Op.vex (.vexbcastd .x3 .x2)).mnemonic] := by decide
+      (Op.vex (.vexbcastd .x3 .x2)).mnemonic,
+      -- D374: the VEX twins of eleven modelled kinds.
+      (Op.vex (.vexbin .addsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .maxsw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .minsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusb .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .sadbw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mullw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .avgb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .mulhw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhuw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .muludq .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 

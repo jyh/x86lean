@@ -2356,6 +2356,10 @@ where PMADDUBSW's UNSIGNED bytes and PACKSSDW's low words come from (SDM Vol. 2B
 def VBinKind.vexSilTaken : VBinKind → Bool
   | .unpcklb | .unpcklw | .unpckhw | .packuswb => true
   | .maddwd | .mulhrsw | .maddubsw | .packssdw => true
+  -- ⭐⭐ D374: the remaining seven D335 kinds and D373's four, on the same word (x86isa refuses all their
+  -- encodings, D374 P1; `hwprobe/` `vexsilg` referees them).  Each is element- or quadword-wise within a lane.
+  | .addsw | .maxsw | .subusb | .sadbw | .mullw | .subusw | .muludq => true
+  | .minsw | .avgb | .mulhw | .mulhuw => true
   | _ => false
 
 /-- ⭐ V4 (D342) — the packed binary kinds whose VEX MEMORY twins (`vexbinm`, and since V9a `vexbinm256`) are
@@ -2378,6 +2382,9 @@ def VBinKind.vexSilMemTaken : VBinKind → Bool
   | .maddwd | .mulhrsw | .maddubsw | .packssdw => true
   -- ⭐⭐ V10 (D361): the four V7 register kinds' memory twins, on the same word (x86isa refuses them, D361 P1).
   | .unpcklb | .unpcklw | .unpckhw | .packuswb => true
+  -- ⭐⭐ D374: the same eleven kinds' memory twins, on the same word.
+  | .addsw | .maxsw | .subusb | .sadbw | .mullw | .subusw | .muludq => true
+  | .minsw | .avgb | .mulhw | .mulhuw => true
   | _ => false
 
 /-- ⭐ V8c (D350) — a dword replicated into all four dwords of 128 bits (VPBROADCASTD's lane). -/

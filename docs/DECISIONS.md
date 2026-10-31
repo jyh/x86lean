@@ -24049,3 +24049,22 @@ kinds added to both predicates.
    the four shapes, and nothing else moves. Any shortfall is printed as residue.
 **Price.** One silicon wave (two vendors), one generator importing D335's rules, one `.S`, one probe, two predicate lines,
 one metered anchor unit, one census regeneration. Stacked on D373 (`f5d9ffa`).
+**Readings (2026-10-31, `paris/d374-vex-twins`):**
+1. **HELD** on both vendors, hwprobe run 41147377467 at `4016ac2`: AMD EPYC 9V74 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 561 disagreements 0`. On each leg `--plant` reds exactly `vpaddsw256_r_p0`, `--plant-hi`
+   exactly `vpaddsw128_r_edge0`, and `--plant-op` refuses `x_vpaddsw128_r` (rc 2). (Rosetta on yukon has no AVX, so the
+   probe refused there by CPUID, rc 3, as it should.)
+2. **HELD.** 561 rows over 44 functions; every row's rule equals its byte-list re-derivation. `--reach`: (a) 330 · (b) 216
+   · (c) 91 · (d) 132 rows. The declared bytes are derived from the SDM's VEX rule and equal clang's for all 44 forms.
+   ⚠️ Wrong rule (d) is a READ at the aligned address, not an alignment FAULT: the generator cannot model a fault, so a
+   faulting model is caught only by the model pins at odd offsets, which `vexbinm` passes because it has no check.
+3. **HELD exactly.** The eleven kinds in both predicates; `Tests/AnchorsVexSilG.lean` pins all 561 rows in 44 theorems;
+   `saltbuild EXIT=0`, 0 tagged errors. Red backwards: `subusw` removed from `vexSilMemTaken` reds exactly
+   `d374_vpsubusw128_m_pins` and `d374_vpsubusw256_m_pins`.
+4. **NOT HELD as written, on two counts, and the figure is corrected here.** (i) The column: the census puts
+   silicon-refereed VEX forms in the SILICON column, not the VEX one, so it is silicon that rose. (ii) The count: silicon
+   **+7,022** (dav1d 2,394 · ffmpeg 2,639 · x264 1,207 · vpx 771 · glibc 11), not 8,608. The census's extension split
+   accounts for every one of the 1,586: by extension the eleven names are 4,195 ymm · 2,827 VEX-128 xmm · **1,586 AVX-512
+   (zmm/k)**, and AVX-512 is EVEX, out of this model's scope (README, "Not in scope"). Credited 7,022 = 4,195 + 2,827
+   exactly; no other column moved. ⇒ **8,608 was my read of the residue by MNEMONIC, which pools the EVEX spellings**,
+   the same pooling D373's MMX share showed; STATUS row 36 carried it and is corrected to 7,022.
