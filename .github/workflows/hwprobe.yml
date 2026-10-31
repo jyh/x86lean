@@ -177,6 +177,13 @@ jobs:
           python3 mk_vexsilf_rows.py --plant-op > vexsilf_rows_badop.h
           python3 mk_vexsilf_rows.py --plant-hi > vexsilf_rows_hi.h
           python3 mk_vexsilf_rows.py --plant-mem > vexsilf_rows_mem.h
+          python3 mk_vexsilh_rows.py --selftest
+          python3 mk_vexsilh_rows.py --reach
+          python3 mk_vexsilh_rows.py > vexsilh_rows.h
+          python3 mk_vexsilh_rows.py --plant > vexsilh_rows_plant.h
+          python3 mk_vexsilh_rows.py --plant-op > vexsilh_rows_badop.h
+          python3 mk_vexsilh_rows.py --plant-hi > vexsilh_rows_hi.h
+          python3 mk_vexsilh_rows.py --plant-mem > vexsilh_rows_mem.h
 
       - name: Build
         working-directory: hwprobe
@@ -251,6 +258,11 @@ jobs:
           for v in plant badop hi; do
             sed "s/\"vexsile_rows.h\"/\"vexsile_rows_$v.h\"/" vexsile_probe.c > vexsile_probe_$v.c
             gcc -O1 -o vexsile_probe_$v vexsile_probe_$v.c vexsile_ops.S
+          done
+          # D375: D371's probe source (an EXPECTED buffer), compiled against the lane insert/extract rows.
+          for v in "" _plant _badop _hi _mem; do
+            sed "s/\"vexsilf_rows.h\"/\"vexsilh_rows$v.h\"/" vexsilf_probe.c > vexsilh_probe$v.c
+            gcc -O1 -o vexsilh_probe$v vexsilh_probe$v.c vexsilh_ops.S
           done
           # D374: D361's probe source, compiled against the VEX-twin rows and their own .S.
           for v in "" _plant _badop _hi; do
@@ -722,6 +734,32 @@ jobs:
           head -1 vexsile.out
           grep -v '^ok  ' vexsile.out || true
           echo "vexsile rc=$rc"
+          test "$rc" = 0
+
+      # D375: the VEX.256 lane insert and extract, D371's probe and controls.
+      - name: D375 lane insert/extract controls and referee (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsilh_probe --cpuid
+          set +e
+          ./vexsilh_probe_plant > vexsilh_plant.out; rc_plant=$?
+          ./vexsilh_probe_badop > vexsilh_badop.out; rc_badop=$?
+          ./vexsilh_probe_hi > vexsilh_hi.out; rc_hi=$?
+          ./vexsilh_probe_mem > vexsilh_mem.out; rc_mem=$?
+          ./vexsilh_probe > vexsilh.out; rc=$?
+          set -e
+          grep '^DIFF' vexsilh_plant.out vexsilh_hi.out vexsilh_mem.out; cat vexsilh_badop.out
+          echo "vexsilh plant rc=$rc_plant · badop rc=$rc_badop · hi rc=$rc_hi · mem rc=$rc_mem (want 1 2 1 1)"
+          test "$rc_plant" = 1 && test "$(grep -c '^DIFF' vexsilh_plant.out)" = 1
+          grep -q '^DIFF vinserti128_r_i1_c0 ' vexsilh_plant.out
+          test "$rc_badop" = 2 && grep -q '^REFUSED x_vinserti128_r_i0:' vexsilh_badop.out
+          test "$rc_hi" = 1 && test "$(grep -c '^DIFF' vexsilh_hi.out)" = 1
+          grep -q '^DIFF vextracti128_r_i1_c0 ' vexsilh_hi.out
+          test "$rc_mem" = 1 && test "$(grep -c '^DIFF' vexsilh_mem.out)" = 1
+          grep -q '^DIFF vextracti128_m_i1_c0_u ' vexsilh_mem.out
+          head -1 vexsilh.out
+          grep -v '^ok  ' vexsilh.out || true
+          echo "vexsilh rc=$rc"
           test "$rc" = 0
 
       # D374: the VEX twins of eleven modelled packed-integer kinds, D361's probe and controls.

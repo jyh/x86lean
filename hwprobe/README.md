@@ -88,6 +88,10 @@ D374 adds the VEX twins of eleven modelled packed-integer kinds (VPADDSW VPMAXSW
 VPSUBUSW VPMULHW VPMULHUW VPMULUDQ; VEX.128 and VEX.256, register and memory source): `mk_vexsilg_rows.py` (561 rows; the
 128-bit function is `mk_simda_rows.rule`, imported), `vexsilg_ops.S` in D361's frame, and `vexsile_probe.c` compiled
 against `vexsilg_rows.h`. x86isa refuses all of them (D374, P1).
+
+D375 adds the VEX.256 128-bit lane insert and extract (VINSERTI128 VINSERTF128 VEXTRACTI128 VEXTRACTF128, register and
+memory, imm8 ∈ {0, 1, 2, 3, FEH, FFH}): `mk_vexsilh_rows.py` (288 rows), `vexsilh_ops.S` in D371's frame, and
+`vexsilf_probe.c` (its EXPECTED buffer reads the stores) compiled against `vexsilh_rows.h`. x86isa refuses all eight (D375, P1).
 Controls: `--plant` (bit 64 of row 0's expectation) and `--plant-op`; `--reach` counts the rows on which one named wrong
 rule per mnemonic disagrees with the right one (it must be non-zero).
 
