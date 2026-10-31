@@ -516,3 +516,7 @@ Tests.AnchorsVexSilF 1472 @on katmai
 # D373: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (5796e5b → f5d9ffa,
 # katmai, --repeats 6), copied, not retyped: Tests.AnchorsSimdB head 2500.0 ms ⇒ max(2500.0 × 3, 50).
 Tests.AnchorsSimdB 7500 @on katmai
+
+# D374: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (f5d9ffa → f0364d8,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilG head 12000.0 ms ⇒ max(12000.0 × 3, 50).
+Tests.AnchorsVexSilG 36000 @on katmai
