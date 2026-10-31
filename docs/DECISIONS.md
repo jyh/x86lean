@@ -24114,3 +24114,33 @@ metered anchor unit, one census regeneration. Stacked on D374 (`f0364d8`).
    read +3,808 with both FP spellings at 0.** The census credits a `siliconTable` row at `%ymm` only when its note
    DECLARES `VEX.256` (D345's rule), and the two FP rows' notes said only "VINSERTI128's function at the FP opcode". Both
    now begin "VEX.256 only:", as the integer rows did. The census was right and my notes were incomplete.
+
+## D376 — `movntdqa` and the VEX half-moves (`vmovhps` `vmovhpd` `vmovlps` `vmovlpd`), refereed by silicon (STATUS row 38, wave C2; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** 4,095 instructions in the census residue at D375's head, sized by extension (none EVEX): `movntdqa` 1,988 (SSE4.1,
+xmm) · `vmovhps` 1,987 · `vmovhpd` 63 · `vmovlps` 53 · `vmovlpd` 4 (VEX-128).
+**The referee, measured before anything was designed (P1, 2026-10-30/31, yukon, `oracle_availability.measure()`
+unmodified, controls in the SAME run).** All **9** encodings REFUSE at 88 of 88: `movntdqa (%rbx),%xmm0`; each VEX
+half-move as a 3-operand load and as a store. Legacy `movhps (%rbx),%xmm0` and `movlps (%rbx),%xmm0` EXECUTE 88/88 (their
+twins stay on the differential), as do `mov`, `vpxor (%rbx),%xmm2,%xmm0` and `vpaddw %ymm1,%ymm2,%ymm0`. ⇒ **silicon.**
+**The model (three constructors; no new arithmetic).**
+- `vloadnt dst ea` — `movntdqa`: the 16 bytes at `a` into `dst` through `setXmm` (a legacy write: YMM bits 255:128
+  PRESERVED); `a` must be 16-byte aligned, else #GP(0), as `movdqa`. The non-temporal hint is not observable in this
+  model's state. A constructor of its own, not a `VMovKind`: `movntdqa` has no register or store form, and a kind would
+  make those spellable (the `vloadq`/`vstoreq` reason).
+- `vexloadq h k dst src1 ea` — VEX `vmov{h,l}p{s,d} m64, xmm2, xmm1`: the legacy `vloadq` merge with SRC1 (VEX.vvvv) in
+  the place the legacy form gives its own destination, written through `setXmmVex128` (YMM bits 255:128 ZEROED).
+- `vexstoreq h k ea src` — the 8 bytes of `src`'s high or low quadword at `a`; no register written; as legacy `vstoreq`.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on both vendors. The `movntdqa` rows run at aligned offsets only (an unaligned one would
+   be #GP, which the probe cannot read as a value); the VEX rows at odd offsets as well; the stores against an EXPECTED
+   buffer (D371's frame, `vexsilf_probe.c`).
+2. **Generator, before any processor.** Named wrong rules each refused on a named row: (a) `movntdqa` zeroing YMM3's upper
+   half (the VEX rule); (b) a VEX load that merges with DEST instead of SRC1 (the legacy rule); (c) a VEX load that keeps
+   YMM3[255:128]; (d) a store of 16 bytes.
+3. **Model.** Three constructors, every row pinned by `decide` in a NEW metered unit; a mutant of (b) reds exactly the
+   load rows whose SRC1 and DEST differ in the merged half.
+4. **Census.** Silicon +4,095, nothing else moves.
+**Price.** One silicon wave in D371's frame (one generator covers all nine forms: `movntdqa (%rbx),%xmm3` reads YMM3 back
+whole, so the preserved upper half is read), three constructors, one metered unit, one census regeneration. Stacked on
+D375 (`3248cf3`). **Not built in the life that wrote this; the next head takes it from here.**
