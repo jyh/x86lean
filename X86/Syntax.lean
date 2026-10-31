@@ -1306,6 +1306,10 @@ inductive VexOp where
   | vexstore (k : VMovKind) (ea : Ea) (src : XmmReg)
   | vexload256 (k : VMovKind) (dst : XmmReg) (ea : Ea)
   | vexstore256 (k : VMovKind) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐ D369 — VZEROUPPER (VEX.128 0F 77): bits 255:128 of YMM0–15 zeroed (sixteen in 64-bit mode), every
+  other bit of state kept, no flag written (SDM Vol. 2C VZEROUPPER).  No operands.  VEX.L = 1 (`c5 fc 77`) is
+  VZEROALL, a different instruction, and is not this constructor.  Differentially tested (x86isa `x86-vzeroupper`). -/
+  | vexzeroupper
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1323,6 +1327,8 @@ def VexOp.operands : VexOp → List Operand
   -- V7: the silicon-refereed VEX twins are register forms; none names an address.
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => []
   | .vexparith .. | .vexparith256 .. | .vexmovmskb .. | .vexmovmskb256 .. => []
+  -- D369: vzeroupper has no operand at all.
+  | .vexzeroupper => []
 
 /-- V5 (D343) — `Op.anyLocked` over the nested VEX forms: V3's and V4's arms, verbatim. -/
 def VexOp.anyLocked : VexOp → Bool
@@ -1335,6 +1341,7 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
   | .vexparith .. | .vexparith256 .. | .vexmovmskb .. | .vexmovmskb256 .. => false
+  | .vexzeroupper => false
 
 /-- V5 (D343) — `Op.mnemonic` over the nested VEX forms: V3's and V4's arms, verbatim.
 V3: every VEX.128 twin is its legacy spelling with a `v` in front. -/
@@ -1354,6 +1361,7 @@ def VexOp.mnemonic : VexOp → String
   | .vexparith op .. | .vexparith256 op .. => "v" ++ op.mnemonicP false
   | .vexmovmskb .. | .vexmovmskb256 .. => "vpmovmskb"
   | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
+  | .vexzeroupper => "vzeroupper"
 
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/

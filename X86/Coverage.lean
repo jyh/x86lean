@@ -1256,7 +1256,18 @@ def vexTable : List VexRow :=
       row := { mnemonic := "vpcmpgtd", shapes := "x,x,x · x,x,m",
                note := "VEX.128: dst := src1 op src, the legacy function with src1 (VEX.vvvv) in the destination's place; YMM bits 255:128 of dst zeroed; the m128 and m256 forms (V9a, D353) have NO alignment check",
                tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTD" } }
+  -- ⭐⭐ D369: the one row with no legacy twin (`vexNoTwin`).
+  , { twin := "",
+      row := { mnemonic := "vzeroupper", shapes := "no operands",
+               note := "VEX.128 only: bits 255:128 of YMM0-15 zeroed, every other bit of state kept, no flag written; VEX.L = 1 is vzeroall, a different instruction, not taken",
+               tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VZEROUPPER" } }
   ]
+
+/-- ⭐⭐ D369: the `vexTable` rows that are VEX-ONLY — no legacy SSE twin, and no VEX.256 operand size of the
+same mnemonic (`vzeroupper` at VEX.L = 1 is `vzeroall`).  `Tests.CoverageVex`'s twin theorem and
+`Tests.CoverageVex256`'s per-row vector theorem each exempt exactly these, by name; a row with no twin that is
+NOT listed here still fails both. -/
+def vexNoTwin : List String := ["vzeroupper"]
 
 /-- ⭐⭐ D330 (W1b): FORMS THIS MODEL IMPLEMENTS THAT THE DIFFERENTIAL CANNOT TEST.
 

@@ -1102,6 +1102,9 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
   | .vexshiftdq left dst src cnt =>
       (s.setXmmVex128 dst (vshiftdqApply left (s.getXmm src) cnt.toNat)).setRip nr
+  -- ⭐⭐ D369 — VZEROUPPER: every upper half to zero, the low halves and everything else kept.
+  | .vexzeroupper =>
+      ({ s with xmm := { s.xmm with hi := {} } }).setRip nr
   -- ⭐⭐⭐ V6 (D344) — THE VEX.256 REGISTER TWINS.  Each lane is the VEX.128 twin's 128-bit
   -- function, applied to the low halves (`getXmm`) and to the high halves (`getYmmHi`)
   -- separately, and both are written through `setYmm`.  That the high lane uses the SAME

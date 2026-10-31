@@ -287,6 +287,9 @@ def to_roster(m, ext=None, model=None):
     # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
     if model is not None and ext == YMM and m in vex_of(model):
         return m
+    # ⭐ D369: D342's rule at `AVX (state)`: `vzeroupper` is a VEX-table row (a VEX-only one), so it maps to itself there.
+    if model is not None and ext == AVX_STATE and m in vex_of(model):
+        return m
     # ⚠️ D345 (V7) needs no rule here: a `%ymm` spelling of a siliconTable mnemonic already maps to itself through
     # the identity rule below (a name the model has), and `_decide` decides its class. A branch added here was
     # dead code, found by `census_redprobe.py` (its mutation changed nothing), and removed.
@@ -701,6 +704,8 @@ XMM_EXT = frozenset({"SSE-legacy (xmm)", "VEX-128 (v… xmm)"})
 VEX128 = "VEX-128 (v… xmm)"
 # ⭐ D344 (V6): the VEX.256 bucket, where a VEX-table mnemonic is credited in the same VEX class.
 YMM = "AVX2/AVX (ymm)"
+# ⭐ D369: the bucket `vzeroupper` lives in. `EXT_SCOPE` keeps it out of (a); a VEX-table row in it is credited on the VEX line.
+AVX_STATE = "AVX (state)"
 
 def form_in_scope(ext):
     """⛔ REFUSES rather than defaulting. See EXT_SCOPE."""
@@ -1203,6 +1208,9 @@ def _decide(m, ext, model):
             return r, False, "vex"
         # ⭐ D344 (V6): the same class at VEX.256 — credited by mnemonic within the bucket, as VEX.128 is.
         if ext == YMM and r in vex_of(model):
+            return r, False, "vex"
+        # ⭐ D369: and at `AVX (state)`, for the VEX-only rows (`vzeroupper`); the bucket's own scope ruling is unchanged.
+        if ext == AVX_STATE and r in vex_of(model):
             return r, False, "vex"
         if ext == VEX128 and r in silicon_of(model):
             return r, False, "silicon-vex"
