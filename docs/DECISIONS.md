@@ -24096,3 +24096,21 @@ the mnemonic reads).** SDM Vol. 2C, VINSERTI128/VINSERTF128 and VEXTRACTI128/VEX
 4. **Census.** The silicon column rises by 4,719 and nothing else moves.
 **Price.** One silicon wave (two vendors), one generator, one `.S`, D371's probe against new rows, four constructors, one
 metered anchor unit, one census regeneration. Stacked on D374 (`f0364d8`).
+**Readings (2026-10-31, `paris/d375-lane128`):**
+1. **HELD** on both vendors, hwprobe run 41148735460 at `812bc3f`: AMD EPYC 9V74 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 288 disagreements 0`. On each leg `--plant` reds exactly `vinserti128_r_i1_c0`,
+   `--plant-hi` exactly `vextracti128_r_i1_c0`, `--plant-mem` exactly `vextracti128_m_i1_c0_u` (a byte just past the
+   sixteen stored), and `--plant-op` refuses `x_vinserti128_r_i0` (rc 2).
+2. **HELD.** 288 rows over 48 functions; every row's rule equals its byte-list re-derivation; the declared bytes are the
+   SDM VEX derivation and equal clang's for all 48. `--reach`: (a) 144 · (b) 48 · (c) 144 · (d) 96 rows.
+3. **HELD, with the wording of (a) corrected.** Four constructors; `Tests/AnchorsVexSilH.lean` pins all 288 rows in 48
+   theorems, plus memory-frame theorems for the three non-store forms; `saltbuild EXIT=0`, 0 tagged errors, 0 warnings in
+   the unit. Red backwards on the unit: an insert that reads `imm[1]` reds exactly the six register-insert theorems at imm
+   1, 2 and FEH (both spellings); a store of 32 bytes reds exactly the twelve store theorems. ⚠️ The prediction said
+   (a) would red the rows "whose imm has bit 1 set and bit 0 differs" (2 and FEH). The mutant differs wherever bit 1 ≠
+   bit 0, so imm 1 is in its reach too. The run agrees with that, and the prediction's wording was wrong.
+4. **HELD exactly, on the second regeneration.** Silicon **+4,719** (`vinserti128` 2,396 · `vextracti128` 1,412 ·
+   `vextractf128` 638 · `vinsertf128` 273), its memory sub-column +3,108, nothing else moved. ⚠️ **The first regeneration
+   read +3,808 with both FP spellings at 0.** The census credits a `siliconTable` row at `%ymm` only when its note
+   DECLARES `VEX.256` (D345's rule), and the two FP rows' notes said only "VINSERTI128's function at the FP opcode". Both
+   now begin "VEX.256 only:", as the integer rows did. The census was right and my notes were incomplete.

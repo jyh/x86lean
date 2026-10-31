@@ -1270,6 +1270,19 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
   | .vexmovgst sz ea src =>
       let a := ea.addr s nr
       (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐ D375 — the VEX.256 lane insert/extract. Lane 0 is `getXmm`, lane 1 `getYmmHi`; `imm[0]` selects.
+  | .vexins128 _ dst src1 src imm =>
+      let v := s.getXmm src
+      (if imm.getLsbD 0 then s.setYmm dst (s.getXmm src1) v
+       else s.setYmm dst v (s.getYmmHi src1)).setRip nr
+  | .vexins128m _ dst src1 ea imm =>
+      let v := s.readMem128 (ea.addr s nr)
+      (if imm.getLsbD 0 then s.setYmm dst (s.getXmm src1) v
+       else s.setYmm dst v (s.getYmmHi src1)).setRip nr
+  | .vexext128 _ dst src imm =>
+      (s.setXmmVex128 dst (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
+  | .vexext128m _ ea src imm =>
+      (s.writeMem128 (ea.addr s nr) (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=

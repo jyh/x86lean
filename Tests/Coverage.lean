@@ -116,7 +116,10 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexbin .sadbw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mullw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .avgb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .mulhw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhuw .x3 .x1 .x2)).mnemonic,
-      (Op.vex (.vexbin .muludq .x3 .x1 .x2)).mnemonic] := by decide
+      (Op.vex (.vexbin .muludq .x3 .x1 .x2)).mnemonic,
+      -- D375: the lane insert and extract, one row per mnemonic.
+      (Op.vex (.vexins128 false .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexins128 true .x3 .x1 .x2 0)).mnemonic,
+      (Op.vex (.vexext128 false .x3 .x1 0)).mnemonic, (Op.vex (.vexext128 true .x3 .x1 0)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1165,7 +1168,11 @@ def isMemDestVector (v : Vec) : Bool :=
       -- D371, in the SAME COMMIT as the constructors: the VEX movd/movq STORE is a memory destination; the GPR and
       -- load forms are not.
       | .vexmovg .. | .vexmovgld .. => false
-      | .vexmovgst .. => true)
+      | .vexmovgst .. => true
+      -- D375, in the SAME COMMIT as the constructors: an extract to memory is a 16-byte memory destination; the
+      -- insert from memory READS it, and the register forms name none.
+      | .vexins128 .. | .vexins128m .. | .vexext128 .. => false
+      | .vexext128m .. => true)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it

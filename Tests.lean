@@ -20,6 +20,7 @@ import Tests.AnchorsVexSilC
 import Tests.AnchorsVexSilE
 import Tests.AnchorsVexSilF
 import Tests.AnchorsVexSilG
+import Tests.AnchorsVexSilH
 import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors

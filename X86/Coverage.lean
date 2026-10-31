@@ -1441,7 +1441,16 @@ def siliconTable : List Row :=
   , { mnemonic := "vpmulhuw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): eight words per lane, bits 31:16 of the UNSIGNED product · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHUW" }
   , { mnemonic := "vpmuludq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per quadword, the UNSIGNED product of the even dwords · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULUDQ" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULUDQ" }
+  -- ⭐ D375: the VEX.256 lane insert and extract, refereed by silicon (hwprobe `vexsilh`).
+  , { mnemonic := "vinserti128", shapes := "x,x,x,i · x,x,m,i", note := "VEX.256 only: dst := src1 with the 128-bit lane imm[0] replaced by src's low 128 bits (xmm or m128, no alignment check); imm[7:1] ignored · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VINSERTI128" }
+  , { mnemonic := "vinsertf128", shapes := "x,x,x,i · x,x,m,i", note := "VEX.256 only: VINSERTI128's function at the FP opcode (dst := src1 with the 128-bit lane imm[0] replaced) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VINSERTF128" }
+  , { mnemonic := "vextracti128", shapes := "x,x,i · m,x,i", note := "VEX.256 only: the 128-bit lane imm[0] of src, to an xmm (YMM bits 255:128 of dst zeroed) or to m128 (16 bytes, no alignment check); imm[7:1] ignored · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VEXTRACTI128" }
+  , { mnemonic := "vextractf128", shapes := "x,x,i · m,x,i", note := "VEX.256 only: VEXTRACTI128's function at the FP opcode (the 128-bit lane imm[0], to an xmm or to m128) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VEXTRACTF128" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

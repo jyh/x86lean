@@ -1340,6 +1340,16 @@ inductive VexOp where
   | vexmovg (toXmm : Bool) (sz : Size) (x : XmmReg) (r : GPR)
   | vexmovgld (sz : Size) (dst : XmmReg) (ea : Ea)
   | vexmovgst (sz : Size) (ea : Ea) (src : XmmReg)
+  /-- ⭐ D375 — the VEX.256 128-bit lane insert and extract (SDM Vol. 2C, VINSERTI128/VINSERTF128,
+  VEXTRACTI128/VEXTRACTF128; VEX.L = 0 is #UD). `imm[0]` selects the lane and `imm[7:1]` are ignored. An insert writes
+  all 256 bits of `dst` (`src1` with that lane replaced); an extract to a register writes its lane through
+  `setXmmVex128` (YMM bits 255:128 ZEROED); an extract to memory writes 16 bytes and no register. `fp` (the F spelling)
+  is read only by the mnemonic: the two spellings are one function at two opcodes. Silicon-refereed: x86isa refuses all
+  eight encodings (D375 P1). -/
+  | vexins128 (fp : Bool) (dst src1 src : XmmReg) (imm : BitVec 8)
+  | vexins128m (fp : Bool) (dst src1 : XmmReg) (ea : Ea) (imm : BitVec 8)
+  | vexext128 (fp : Bool) (dst src : XmmReg) (imm : BitVec 8)
+  | vexext128m (fp : Bool) (ea : Ea) (src : XmmReg) (imm : BitVec 8)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1358,6 +1368,9 @@ def VexOp.operands : VexOp → List Operand
   -- D371: VEX movd/movq name their GPR or their address, as the legacy forms do.
   | .vexmovg _ _ _ r => [.reg r]
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => [.mem ea]
+  -- D375: the lane insert/extract name their address (the register forms none).
+  | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => [.mem ea]
+  | .vexins128 .. | .vexext128 .. => []
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => []
@@ -1377,6 +1390,8 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexsraxm _ _ _ ea | .vexsraxm256 _ _ _ ea => ea.lock
   | .vexmovg .. => false
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => ea.lock
+  | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => ea.lock
+  | .vexins128 .. | .vexext128 .. => false
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
   | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
@@ -1402,6 +1417,9 @@ def VexOp.mnemonic : VexOp → String
   | .vexmovmskb .. | .vexmovmskb256 .. => "vpmovmskb"
   | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
   | .vexmovg _ sz .. | .vexmovgld sz .. | .vexmovgst sz .. => match sz with | .q => "vmovq" | _ => "vmovd"
+  -- D375: four literals, not a concatenation (`quadMnemonic`'s reason).
+  | .vexins128 fp .. | .vexins128m fp .. => if fp then "vinsertf128" else "vinserti128"
+  | .vexext128 fp .. | .vexext128m fp .. => if fp then "vextractf128" else "vextracti128"
 
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
