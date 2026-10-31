@@ -24068,3 +24068,8 @@ one metered anchor unit, one census regeneration. Stacked on D373 (`f5d9ffa`).
    (zmm/k)**, and AVX-512 is EVEX, out of this model's scope (README, "Not in scope"). Credited 7,022 = 4,195 + 2,827
    exactly; no other column moved. ⇒ **8,608 was my read of the residue by MNEMONIC, which pools the EVEX spellings**,
    the same pooling D373's MMX share showed; STATUS row 36 carried it and is corrected to 7,022.
+**K1 (2026-10-30, katmai, `f5d9ffa → f0364d8`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilG` at 12,000.0 ms ⇒ `Tests.AnchorsVexSilG 36000 @on katmai` (D361's
+`Tests.AnchorsVexSilE` reads 14,900 ms on the same run, so the unit is that path's ordinary size); `ku_delta` (A′) reads
+5,371,473 unfoldings ⇒ `Tests.AnchorsVexSilG @ku 5371473`; both registered as printed. All 52 existing units are within
+their allowances: `X86.Syntax` −2.0 ms, `X86.Theorems` +0.0, `X86.Semantics` +0.1, `Tests.Coverage` +650 (2,908.8).
