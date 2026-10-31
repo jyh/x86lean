@@ -295,6 +295,10 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `vpmulhw` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): eight words per lane, bits 31:16 of the SIGNED product · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULHW |
 | `vpmulhuw` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): eight words per lane, bits 31:16 of the UNSIGNED product · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULHUW |
 | `vpmuludq` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per quadword, the UNSIGNED product of the even dwords · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULUDQ |
+| `vinserti128` | x,x,x,i · x,x,m,i — VEX.256 only: dst := src1 with the 128-bit lane imm[0] replaced by src's low 128 bits (xmm or m128, no alignment check); imm[7:1] ignored · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VINSERTI128 |
+| `vinsertf128` | x,x,x,i · x,x,m,i — VEX.256 only: VINSERTI128's function at the FP opcode (dst := src1 with the 128-bit lane imm[0] replaced) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VINSERTF128 |
+| `vextracti128` | x,x,i · m,x,i — VEX.256 only: the 128-bit lane imm[0] of src, to an xmm (YMM bits 255:128 of dst zeroed) or to m128 (16 bytes, no alignment check); imm[7:1] ignored · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VEXTRACTI128 |
+| `vextractf128` | x,x,i · m,x,i — VEX.256 only: VEXTRACTI128's function at the FP opcode (the 128-bit lane imm[0], to an xmm or to m128) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VEXTRACTF128 |
 
 ## VEX.128 register twins, differentially tested (V3, D341)
 
