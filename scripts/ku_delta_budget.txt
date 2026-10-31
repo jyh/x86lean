@@ -213,3 +213,5 @@ Tests.AnchorsVexSilE @ku 6163927
 Tests.AnchorsShufM @ku 352020
 # D371: the NEW unit, the line ku_delta printed on refusing it at K1 (733f8f2 → 914ab1c, katmai), copied.
 Tests.AnchorsVexSilF @ku 220986
+# D373: the NEW unit, the line ku_delta printed on refusing it at K1 (5796e5b → f5d9ffa, katmai), copied.
+Tests.AnchorsSimdB @ku 1267652

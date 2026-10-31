@@ -24022,3 +24022,8 @@ regeneration. The branch stacks on D371 (`5796e5b`), the stack's tip, so it land
    `pminsw` 1,886 · `pmulhuw` 1,603 · `pmulhw` 1,590 · `pavgb` 974), its memory sub-column +620 inside it, and no other
    column moved. The 1,432 MMX instructions remain in the residue. `COVERAGE.md`, the census and `P2-ROSTER.md` regenerated;
    `demand_census --check` and `p2_roster --check` CLEAN.
+**K1 (2026-10-30, katmai, `5796e5b → f5d9ffa`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsSimdB` at 2,500.0 ms ⇒ `Tests.AnchorsSimdB 7500 @on katmai`; `ku_delta` (A′) reads
+1,267,652 unfoldings ⇒ `Tests.AnchorsSimdB @ku 1267652`; both lines registered as printed. Every existing unit is within
+its allowance: `X86.Syntax` +3.0 ms (allowance 143.9), `X86.Theorems` +25.0 (365.1), `X86.Semantics` +0.4,
+`Tests.AnchorsSimd` +25.0 (1,611.2), `Tests.Coverage` +400 (2,880).
