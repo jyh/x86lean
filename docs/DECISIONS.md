@@ -23568,3 +23568,32 @@ of one, with `twin := ""`. **Taken: (B).** The invariant keeps its force (an unl
 failure), the exception is named where the theorem is, and everything that already reads `vexTable` (theorems 1, 2, 4,
 `vexMnemonics`, the census's `vex` set) covers the row with no new plumbing. Wrong if a later VEX-only form needs a different
 shape of exception, which would make the list a category rather than a list (then (A)).
+
+## D378 — `fast_path.py --census`: the fast-path list DERIVED from the forge, because the merge-body record was kept on 3 of 22 occasions
+
+**Why.** D340 (4) made the merge commit the record: a fast-path merge carries a `FAST-PATH:` line, so `git log --grep
+'^FAST-PATH:' origin/master` was to list every merge whose matrix was skipped, and master's post-merge run was each one's
+revert check. The census in PR #149 (the helm's row-39 question) measured the record against the forge over 10-14 → 10-31.
+Of 54 merged PRs, 22 had no completed selftest matrix at the merged head before `mergedAt`, and 3 of those 22 carry the line.
+**A record that its writer must remember to write was written 3 times in 22**, so D340's revert duty could not be checked
+from it.
+**Built.** `scripts/fast_path.py --census [--since DATE]` (read-only; the forge and `git log`). For each merged PR it
+reads every `pull_request` CI run at the merged head and classifies the PR **BEFORE**, **AFTER** or **NEVER**. A run counts
+as a matrix only if it has `selftest (n)` shards and every shard succeeded; its completion time is its last shard's. It
+prints the population (how many PRs, since when) beside the list, marks which matrix-less merges carry the record, and
+prints what it does NOT read: who merged (one shared account), whether each merge ref's digest equalled a green
+master's (D340's actual GO), and a matrix at an earlier head of the same PR (by design, because that head is not what
+landed). `fast_path.py --check` is unchanged.
+**Arms (selftest 10 → 18; the rule is a pure function, `classify`).** Control BEFORE · AFTER · a cancelled shard ⇒ NEVER
+· no run ⇒ NEVER · a run with no shards ⇒ NEVER · an older complete run counts beside a newer cancelled one · a complete
+run before the merge and a re-run after it ⇒ BEFORE · a skipped shard ⇒ NEVER. **Red backwards, three mutants:**
+`all` → `any` reds exactly the cancelled-shard arm. Dropping the empty-run guard crashes the selftest (`max()` of an
+empty list), which is red but not an arm's red. `min` → `max` **survived the first 17 arms**, because none had two
+complete runs on opposite sides of the merge. The re-run arm was written for it, and it now reds exactly that arm. The
+printed arm count is now counted, not typed.
+**First live reading (2026-10-31, `--since 2026-10-14`):** 54 / 22 / 3, PR for PR the table in PR #149. ⚠️ **That is
+TRANSPORT, not corroboration.** The tool and that table share an author and a method (the same API fields, the same
+rule), so their agreement says the rule was coded as written and nothing about whether the rule is right.
+**Not done here, and named:** the census is not a CI step (it needs the forge and a token, and its reading is a list for
+a person, not a gate). D340's merge-body line is not retired: it still carries the digest and the green run, which the
+census does not. Whether a NEVER or AFTER merge whose master run went red owes a revert is the helm's ruling on PR #149's (1).

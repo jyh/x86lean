@@ -29,8 +29,17 @@ AGAINST: the newest master run whose every selftest shard RAN and succeeded
 `git log --grep '^FAST-PATH:' origin/master` lists every fast-path merge, with the digest
 and the green run it inherited. This file does not merge anything itself.
 
-Usage:  fast_path.py --check <PR>     decide one PR (reads git and the forge; writes nothing)
-        fast_path.py --selftest       the decision rule's arms, no network
+(4′) AND THE RECORD IS NOT THE CENSUS (D378, on PR #149's measurement): the `FAST-PATH:` line is
+written by whoever merges, and over 10-14 → 10-31 it was written for 3 of the 22 merges that
+landed without a completed matrix at their merged head. `--census` therefore DERIVES the list
+from the forge: for every merged PR, did a `pull_request` CI run AT THE MERGED HEAD complete
+every `selftest (n)` shard with success BEFORE `mergedAt`? It prints its population (how many
+PRs, which window) beside the list, and which of the matrix-less merges carry the record.
+A matrix-less merge is a fast-path merge for D340's revert duty, whatever its body says.
+
+Usage:  fast_path.py --check <PR>            decide one PR (reads git and the forge; writes nothing)
+        fast_path.py --census [--since DATE] every merged PR's matrix state at its merge (forge; read-only)
+        fast_path.py --selftest              the decision and census rules' arms, no network
 """
 import argparse, json, os, subprocess, sys
 
@@ -124,9 +133,55 @@ def check(pr):
     return 0
 
 
+def classify(merged_at, runs):
+    """BEFORE | AFTER | NEVER for one merged PR. `runs` is one entry per `pull_request` CI run at
+    the MERGED HEAD: a list of (shard conclusion, shard completed_at) pairs, one per `selftest (n)`
+    job. A run counts only if it HAS shards and EVERY shard succeeded; its completion is its last
+    shard's. BEFORE if any such run completed at or before `merged_at` (ISO-8601 UTC strings compare
+    as text), AFTER if one exists and all completed later, NEVER if none exists."""
+    done = [max(t for _c, t in r) for r in runs
+            if r and all(c == "success" for c, _t in r)]
+    if not done:
+        return "NEVER"
+    return "BEFORE" if min(done) <= merged_at else "AFTER"
+
+
+def census(since):
+    prs = _gh_json(["pr", "list", "--repo", REPO, "--state", "merged", "--limit", "500",
+                    "--json", "number,headRefOid,mergedAt,mergeCommit"])
+    prs = sorted((p for p in prs if p["mergedAt"] >= since), key=lambda p: p["mergedAt"])
+    rec = set(subprocess.run(["git", "log", "--first-parent", "--format=%H", "--grep", "^FAST-PATH:",
+                              "origin/master"], capture_output=True, text=True, check=True).stdout.split())
+    rows = []
+    for p in prs:
+        runs = []
+        page = _gh_json(["api", f"repos/{REPO}/actions/runs?head_sha={p['headRefOid']}"
+                         "&event=pull_request&per_page=100"])["workflow_runs"]
+        for r in page:
+            if r["name"] != "CI":
+                continue
+            jobs = _gh_json(["api", f"repos/{REPO}/actions/runs/{r['id']}/jobs?per_page=100"])["jobs"]
+            runs.append([(j["conclusion"], j["completed_at"] or "") for j in jobs
+                         if j["name"].startswith("selftest (")])
+        mc = (p.get("mergeCommit") or {}).get("oid", "")
+        rows.append((p["number"], mc[:7], p["mergedAt"][:16], classify(p["mergedAt"], runs), mc in rec))
+    less = [r for r in rows if r[3] != "BEFORE"]
+    print(f"fast-path census: {len(rows)} merged PR(s) since {since}; {len(less)} without a completed "
+          f"matrix at the merged head before the merge; {sum(r[4] for r in less)} of those carry FAST-PATH:")
+    for n, sha, at, cls, r in less:
+        print(f"  #{n:<4} {sha}  merged {at}Z  matrix {cls:<6}  {'FAST-PATH: recorded' if r else 'NOT recorded'}")
+    unrec = [r for r in rows if r[4] and r[3] == "BEFORE"]
+    for n, sha, at, _cls, _r in unrec:
+        print(f"  #{n:<4} {sha}  merged {at}Z  matrix BEFORE  FAST-PATH: recorded (the matrix had completed anyway)")
+    print("NOT READ: who merged (every merge reads one shared account); whether each merge ref's digest equalled a "
+          "green master's (D340's GO); a matrix at an EARLIER head of the same PR, by design.")
+    return 0
+
+
 def selftest():
-    bad = []
+    bad, ran = [], []
     def arm(name, cond):
+        ran.append(name)
         print(("  ✔ " if cond else "  ⛔ ") + name)
         if not cond:
             bad.append(name)
@@ -150,7 +205,23 @@ def selftest():
         not decide("d1", g, "d1", req, {"private-paths": ["pending"], "trailers": ["success"]})[0])
     arm("a failing NON-required check does not block (the matrix is what is skipped)",
         decide("d1", g, "d1", req, dict(ok_checks, **{"selftest (3)": ["failure"]}))[0])
-    print("fast-path selftest: %s (%d arms)" % ("CLEAN" if not bad else "FAIL", 10))
+    # D378: the census rule.
+    m = "2026-10-20T12:00:00Z"
+    ok = [("success", "2026-10-20T11:00:00Z"), ("success", "2026-10-20T11:30:00Z")]
+    arm("census control: every shard green before the merge ⇒ BEFORE", classify(m, [ok]) == "BEFORE")
+    arm("the matrix completing AFTER the merge ⇒ AFTER",
+        classify(m, [[("success", "2026-10-20T11:00:00Z"), ("success", "2026-10-20T13:00:00Z")]]) == "AFTER")
+    arm("a CANCELLED shard is no matrix (all, not any) ⇒ NEVER",
+        classify(m, [[("success", "2026-10-20T11:00:00Z"), ("cancelled", "2026-10-20T11:05:00Z")]]) == "NEVER")
+    arm("no PR run at the merged head ⇒ NEVER", classify(m, []) == "NEVER")
+    arm("a run with NO shards is not a matrix ⇒ NEVER", classify(m, [[]]) == "NEVER")
+    arm("an older complete run before the merge counts beside a newer cancelled one ⇒ BEFORE",
+        classify(m, [[("cancelled", "2026-10-20T12:30:00Z")], ok]) == "BEFORE")
+    arm("a complete run BEFORE the merge and a re-run AFTER it ⇒ BEFORE (a later re-run undoes nothing)",
+        classify(m, [[("success", "2026-10-20T14:00:00Z")], ok]) == "BEFORE")
+    arm("a SKIPPED shard is not a run shard ⇒ NEVER",
+        classify(m, [[("skipped", "2026-10-20T11:00:00Z")]]) == "NEVER")
+    print("fast-path selftest: %s (%d arms)" % ("CLEAN" if not bad else "FAIL", len(ran)))
     return 1 if bad else 0
 
 
@@ -158,8 +229,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", type=int, metavar="PR")
+    g.add_argument("--census", action="store_true")
     g.add_argument("--selftest", action="store_true")
+    ap.add_argument("--since", default="2026-10-14", metavar="DATE")
     a = ap.parse_args()
+    if a.census:
+        return census(a.since)
     return selftest() if a.selftest else check(a.check)
 
 
