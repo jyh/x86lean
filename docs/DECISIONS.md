@@ -23643,3 +23643,72 @@ rule), so their agreement says the rule was coded as written and nothing about w
 **Not done here, and named:** the census is not a CI step (it needs the forge and a token, and its reading is a list for
 a person, not a gate). D340's merge-body line is not retired: it still carries the digest and the green run, which the
 census does not. Whether a NEVER or AFTER merge whose master run went red owes a revert is the helm's ruling on PR #149's (1).
+
+## D377 — A REFUSAL on master's push run is not a red against the PR; and the fast-path record names 3 of 22 matrix-less merges (STATUS row 39, the helm's two questions of 2026-10-31 01:45)
+
+**Why.** #142's master push run 41142111878 went red on `kernel-delta` exit 3, UNMEASURABLE (`Tests.Vectors` +10.0 against
+18.5, band ±8.8). #142 had merged on a full PR run, and its ledger row (K2 on katmai, `c0dfb01 → dd5a67c`, ms_rc 0) had
+decided that exact `.lean` step. The helm ruled no revert and no rerun, because D340's revert clause binds fast-path merges only.
+It then asked two questions: (1) should a REFUSAL on master's push run read differently from a RED, and (2) which PRs took the
+D340 fast path, so that a future master red's revert duty can be checked (D340's own clause (4)).
+
+**(1) Three arms, and a fourth ruled out below.**
+- **(A) A refusal reads as a red.** Every master red is a revert candidate. This is simple, but exit 3 means *this run cannot
+  tell*. A revert on it reverses a verdict of record (six repeats on one quiet box) on the strength of a reading that declared
+  itself unable to decide. It reverts on runner noise.
+- **(B) A refusal reads differently, by rule, with no code.** D340's revert duty and any "master is red" escalation bind on
+  VERDICT reds: a failing test or gate, and `kernel-delta` exit 1 (OVER). They do not bind on REFUSALS (exit 2 or 3) when the
+  merged `.lean` step has a verdict of record: a ledger row, or a PR run whose `kernel-delta` concluded success at the merged
+  head. A refusal is recorded beside the merge and read again at master's next run. The same unit refusing on two consecutive
+  master runs escalates, because one refusal is noise and two is a pattern. Cost: master shows red until the next push, and
+  `preflight.sh` reports that red as master's last verdict.
+- **(C) A refusal reads differently, by code.** On a push to master, `kernel_delta.py` would map exit 3 to a pass with a warning
+  annotation that names the deciding row, whenever the merge's second parent has one (found through the row-slide rule of PR #148, once it lands). Exit 1 stays
+  red. Cost: a lookup from merge to PR head to ledger row, plus the arms to drive it. A master-only interaction regression would
+  read as a warning. An exit 3 cannot see that regression either, so this hides nothing that the red was showing.
+
+**Measured before choosing (the rate decides between B and C).** Since 10-14 there have been 47 master push CI runs: 25 green, 20
+red, 1 cancelled and 1 in progress. **13 of the 20 reds carry a `kernel-delta` red, and the job log of every one of the 13 ends
+`exit code 3`: a refusal each time, never an OVER.** In **11 of the 20**, `kernel-delta` is the ONLY failing job (in a 12th it fails beside
+`ku-delta`). ⇒ **Nearly a quarter of master's runs read red for no reason except that the runner could not tell.** My first
+draft of this paragraph said "two master `kernel-delta` reds since 10-14". That figure came from the 22 merges sampled in (2),
+and the population of master runs corrected it before commit.
+⚠️ **`kernel-delta` is NOT a required check** (branch protection, read live: strict; the five required checks are the scrub and
+prose gates). So a PR can merge with that job red or never measured, and master's push run is then the ONLY reading the step
+ever gets. That rules out a fourth arm, dropping `kernel-delta` from push runs: under strict protection a PR's merge ref equals
+master's post-merge tree, so it would be sound *when the PR's own reading exists*, and nothing enforces that it does.
+**Taken: (B) now; (C) recommended, mine to build on the helm's CONCUR.** (B) is the rule from today: no revert and no "master is red" escalation on a refusal
+when the merged step has a verdict of record. (C) is the remedy for the rate. Its condition is exactly (B)'s: exit 3 maps to a
+pass with a `::warning::` naming the deciding row or PR run, and only when one exists. Without one the refusal stays red,
+because then it is the step's only reading and it says nothing. **Wrong if** the eleven refusal-only reds include a step with
+NO verdict of record: then (C) would have turned a missing measurement green. Before (C) is built, its lookup is driven against
+these eleven as its fixture, and each must name its row or run.
+**(2) The fast-path list, derived from the forge and not from the record.** D340 (4) makes the merge commit the record:
+`git log --grep '^FAST-PATH:' origin/master` lists **3** merges (#109 `08cbf0f`, #139 `17be59d`, #131 `6e1e52e`). The forge
+census asks a different question of every PR merged since 10-14 (54 PRs): did a `pull_request` CI run *at the merged head*
+complete every `selftest (n)` shard with success *before* `mergedAt`? It compares job `completed_at` with `mergedAt`, both UTC
+from the GitHub API, and reads every PR run at that head. **22 of 54 did not:**
+```
+  NEVER  (no PR run at the merged head ever completed the matrix; shards cancelled or failed)
+    #93 76b6890 · #100 ef5972e · #114 c61cea5 · #130 9d8fa6e · #128 810c20c · #141 87de9ad · #139 17be59d* · #131 6e1e52e*
+  AFTER  (the matrix at the merged head completed green, but after the merge)
+    #94 7e634fe · #95 63bc82d · #101 85ff177 · #99 40ad9ae · #110 01cac70 · #111 be3fc51 · #109 08cbf0f* · #121 020081e
+    #123 b68b5e2 · #124 62d55ac · #138 ec32a0d · #134 b5f2c0a · #140 29ffc7a · #135 f812a16
+  * = carries the FAST-PATH: record
+```
+⇒ **The record names 3 of the 22.** As a census of merges taken without a completed matrix, `--grep '^FAST-PATH:'` is short by
+19. The merge-body record is a WRITER's discipline, and the forge shows it was kept on 3 of 22 occasions. Every merge reads
+`mergedBy jyh` (one account for every seat), so the forge cannot say who merged any of them.
+**Master's post-merge CI on the 22:** 13 green and 9 red. By failing STEP (not by check name), five are `kernel-cost-selftest`
+(10-27/28, the ubuntu-26.04 fixture, D368), one is `kernel-delta` beside it (`ec32a0d`), and three are unexplained here:
+`76b6890` (#93, `selftest (6)` failing in `lean-action`), `01cac70` (#110, `build` / flag strictness) and `c61cea5` (#114,
+`build`, no failing step reported). Whether those three were followed up is NOT measured in this note.
+**Recommendation for (2): derive the list, do not write it.** A merge whose head had no completed matrix before `mergedAt` *is*
+a fast-path merge for D340's revert duty, whatever its body says. The census above is about forty lines over `gh api` and
+belongs beside `fast_path.py` as `--census` (forge-derived, and printing its own population), so the revert check stops resting
+on a discipline. Proposed, not built.
+**Limits, declared.** (a) "Matrix-less" is not "unsafe". Whether each of the 22 merge refs had a digest equal to a green
+master's (D340's actual GO condition) is not measured. Several are docs-only or ledger-only and would have passed it. (b) The
+census reads `pull_request` runs at the exact merged head. A matrix on an earlier head of the same PR does not count, by design,
+because that head is not what landed. (c) The window is 10-14 → 10-31, from D340's ruling to today. (d) The three unexplained
+master reds are listed and not diagnosed.
