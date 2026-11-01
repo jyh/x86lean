@@ -2309,8 +2309,6 @@ def selftest():
         print(("  ✔ " if ok else "  ⛔ ") + f"a GNU-objdump raw line REFUSES: {gl.strip()[:40]!r}")
         if not ok:
             bad.append("raw:gnu")
-    if not ok:
-        bad.append("raw:continuation")
     # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
     got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
     ok = got == ["vcmplt_oqpd"]
