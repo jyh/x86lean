@@ -1,0 +1,19 @@
+name = "o95spike"
+defaultTargets = ["Router"]
+
+# x86lean as a LIBRARY, pinned to a PUBLIC master sha. Nothing here flows back into it.
+[[require]]
+name = "x86lean"
+git = "https://github.com/jyh/x86lean"
+rev = "b1848ac61ec78e6c5855ebd5e9545ddc0d09d3d1"
+
+[[lean_lib]]
+name = "Router"
+
+# vir's F as an EXIT RELATION (F_exit, U_exit), the specification of step 3. A dependency PINNED to a vir sha,
+# never a copy, so the spec cannot drift from the object's meaning. vir is public at github.com/jyh/vir.
+[[require]]
+name = "vir"
+git = "https://github.com/jyh/vir"
+rev = "ba6f3fcefeac28f02202ed63f62cdb4056f82d48"
+subDir = "lean"
