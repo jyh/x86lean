@@ -51,20 +51,22 @@ def cell : BitVec 64 := 0x8000 + 0x3000      -- sender 0's bucket cell
 
 /-! ### CONTROL FIRST: the OK path runs to `emit_slice` with I6's state. Without this, a witness below could be an
 artifact of a mis-placed program (a wrong length moves every later address), so it is proved before them. -/
+set_option maxRecDepth 20000 in
 theorem ok_control :
-    let t := runP asWritten 30 (start 100 MAGIC 0 0 1 5)
+    let t := runP asWritten 16 (start 100 MAGIC 0 0 1 5)
     t.stopped = true ∧ t.rip = 0x103b ∧ t.getReg .q .rax = 0x10000 + 24 ∧ t.getReg .q .rsi = 100 - 24
       ∧ t.readMem .d cell = 4 := by decide
 
 /-! ### P5, E2: `len = 2^63` takes `jl` to drop_truncated, while F's guard `len(b0) ≥ 24` (UNSIGNED) passes -/
 theorem e2_witness :
-    let t := runP asWritten 30 (start 0x8000000000000000 MAGIC 0 0 1 5)
+    let t := runP asWritten 3 (start 0x8000000000000000 MAGIC 0 0 1 5)
     t.stopped = true ∧ t.rip = 0x1038 ∧ (0x8000000000000000 : BitVec 64).toNat ≥ 24 := by decide
 
 /-! ### P5, E3: tokens = 0 reaches drop_rate_limited with the bucket cell ALREADY written (0 → 0xFFFFFFFF), while I6
 requires memory unchanged on every drop exit -/
+set_option maxRecDepth 20000 in
 theorem e3_witness :
-    let t := runP asWritten 30 (start 100 MAGIC 0 0 1 0)
+    let t := runP asWritten 13 (start 100 MAGIC 0 0 1 0)
     t.stopped = true ∧ t.rip = 0x103a ∧ t.readMem .d cell = 0xFFFFFFFF
       ∧ (start 100 MAGIC 0 0 1 0).readMem .d cell = 0 := by decide
 

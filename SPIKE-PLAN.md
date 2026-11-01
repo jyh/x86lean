@@ -61,3 +61,15 @@ The decoder cannot produce that shape from bytes. A hand-written `Program` can, 
 as its own item (STATUS-paris row 45): a well-formedness rule, `ripRel → base = none ∧ index = none`, enforced where it
 binds (a refusal in `step`, or a decidable predicate the program theorems carry), red-first. The spike states the
 as-written program with E1's REPAIRED form, so it does not depend on the fix.
+
+## Step 2 READING (2026-11-01 00:4x; x86lean pinned at public `b1848ac`, built through saltbuild, EXIT=0)
+- `ok_control` (16 steps, OK path): stops at emit_slice 0x103b with rax = b0+24, rsi = len−24, and the cell 5 → 4.
+  It is PROVED FIRST, so the witnesses are not artifacts of a misplaced program.
+- `e2_witness`: len = 2^63 stops at drop_truncated 0x1038, and 2^63 ≥ 24 unsigned (F's guard passes).
+- `e3_witness`: tokens = 0 stops at drop_rate_limited 0x103a with the cell 0 → 0xFFFFFFFF.
+- Axioms: all three `[propext, Quot.sound]`, from the same audit log as its EXIT=0.
+- RED BACKWARDS: the two REFINEMENT statements (`e3_refines`: the cell unchanged on the drop exit; `e2_refines`:
+  drop_truncated not taken) were driven as mutants in an audit file. `decide` PROVED EACH FALSE (EXIT=1, 2 errors).
+⇒ **P5 HELD, positively:** A.4 as written is not a refinement on E2 or E3, and each failure has a concrete,
+kernel-checked counterexample. The theorems took 347 ms, so the fast build was checked by the mutants, not trusted.
+NEXT: step 3, `Router/Repaired.lean` (JB; the bucket tested before it is written) and the ∀-state refinement.

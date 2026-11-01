@@ -1,0 +1,16 @@
+{"version": "1.2.0",
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"url": "https://github.com/jyh/x86lean",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "b1848ac61ec78e6c5855ebd5e9545ddc0d09d3d1",
+   "name": "x86lean",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "b1848ac61ec78e6c5855ebd5e9545ddc0d09d3d1",
+   "inherited": false,
+   "configFile": "lakefile.toml"}],
+ "name": "o95spike",
+ "lakeDir": ".lake",
+ "fixedToolchain": false}
