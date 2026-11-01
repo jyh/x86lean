@@ -2337,7 +2337,7 @@ def selftest_measure():
 # [[feedback-a-gate-that-refuses-must-say-what-it-saw]]
 KNOWN_FLAGS = {"--selftest", "--selftest-measure", "--budget", "--readings",
                "--head", "--base", "--repeats", "--out", "--save-readings",
-               "--plant", "--help", "-h"}
+               "--plant", "--help", "-h", "--refusal-by-record"}
 VALUED_FLAGS = {"--budget", "--readings", "--head", "--base", "--repeats",
                 "--out", "--save-readings", "--plant"}
 
@@ -2432,8 +2432,15 @@ def main():
     if out:
         json.dump(data, open(out, "w", encoding="utf-8"))
         print(f"readings → {out}")
-    rc, _ = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
+    rc, lines = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
     absolute_readings(data)
+    # ⚖️ D381 (the helm's (C) ruling, 2026-11-01): ON A MASTER PUSH RUN ONLY (ci.yml passes the flag there and
+    # nowhere else), an exit 3 is decided by the RECORD — a ledger row or a PR run at the merged head — and an
+    # exit 1 is never touched. `refusal_record.apply` prints the KERNEL-DELTA-REFUSED row every time, so the
+    # refusal is counted even when it reads green, and keeps two consecutive refusals of one unit RED.
+    if "--refusal-by-record" in sys.argv:
+        import refusal_record
+        rc = refusal_record.apply(rc, lines, base, git("rev-parse", head))
     return rc
 
 

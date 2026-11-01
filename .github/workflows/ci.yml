@@ -845,6 +845,11 @@ jobs:
   # a gate nobody reads.
   kernel-delta:
     runs-on: ubuntu-latest
+    # ⚖️ D381: `actions: read` lets a master push run read its PR run and its previous master run (the record and
+    # the two-in-a-row count). Nothing here writes.
+    permissions:
+      contents: read
+      actions: read
     concurrency:
       group: ci-${{ github.workflow }}-kernel-delta-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -869,6 +874,10 @@ jobs:
       # right. The command prints its own count.
       - name: Delta-gate comparison and budget file, driven red
         run: python3 scripts/kernel_delta.py --selftest
+
+      # ⚖️ D381: the record-decided refusal's own arms (no network: the forge is injected).
+      - name: A refusal decided by the record, driven red
+        run: python3 scripts/refusal_record.py --selftest
 
       # ⭐⭐ ARM A′ (the helm's ruling of 2026-09-13 on D229 §3). Two CHEAP arms,
       # here rather than in a job of their own because neither needs Lean: the
@@ -1043,7 +1052,12 @@ jobs:
       # refuse every job for billing, desk FH". That was STRUCK 2026-09-09 — Actions
       # runs here, and the jobs that looked refused were UNREACHABLE by trigger.
       - name: Kernel-time DELTA against this change's base (two trees, one machine)
-        run: python3 scripts/kernel_delta.py --repeats 12
+        # ⚖️ D381: on a MASTER PUSH run only, an exit 3 is decided by the record (scripts/refusal_record.py);
+        # a PR run passes no flag and is unchanged.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFUSAL_FLAG: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master') && '--refusal-by-record' || '' }}
+        run: python3 scripts/kernel_delta.py --repeats 12 $REFUSAL_FLAG
 
   # ⭐⭐ THE ARM THE HELM ASKED FOR BY NAME — *"a planted constructor that doubles
   # the delta must fail"* — in its own job because it needs FOUR builds and eight
