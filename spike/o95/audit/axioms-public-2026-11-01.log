@@ -1,0 +1,28 @@
+# O95 spike axiom receipt, 2026-11-01, at spike tip adbf22f9 (vir ba6f3fc at github.com/jyh/vir, x86lean b1848ac)
+# ONE log pair: the build, then the audit, both through the fleet build wrapper on the same tree.
+# build: saltbuild EXIT=0
+# audit (lake env lean audit/Axioms.lean):
+'control_sorry' depends on axioms: [sorryAx]
+'Router.path_truncated' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_unauth_magic' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_unauth_acl' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_rate_limited' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.rep_ok_control' depends on axioms: [propext, Quot.sound]
+'Router.rep_e2_control' depends on axioms: [propext, Quot.sound]
+'Router.rep_e3_control' depends on axioms: [propext, Quot.sound]
+'Router.Bridge.le32' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Bridge.trunc_d_toNat' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Bridge.canonical_of_lt' depends on axioms: [propext, Quot.sound]
+'Router.Refines.repaired_refines' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.readSize_writeSize_same' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.cells_disjoint' depends on axioms: [propext, Quot.sound]
+'Router.Refines.sval_dec' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.le_of_cmp0' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.ne_of_cmp' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.rd_bridge' depends on axioms: [propext, Quot.sound]
+'VIR.Deep.F_exit' depends on axioms: [propext, Quot.sound]
+'Router.MultiCall.two_calls' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.MultiCall.after_call1' depends on axioms: [propext, Quot.sound]
+'Router.MultiCall.two_calls_witness' depends on axioms: [propext, Classical.choice, Quot.sound]
+saltbuild EXIT=0
