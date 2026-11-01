@@ -53,3 +53,11 @@ encoding produces (the `vloadq` reason). Measure it, and file it in x86lean (pub
    (`seq`, `cc_direction_pinned`, `AgreeOutside` for the one write).
 4. Silicon (optional, Shape 1 (d)): assemble the repaired routine and run it at the boundaries on the hwprobe pattern.
    That would be a PRIVATE run, so it is not hwprobe.yml, which lives in public x86lean. Price it separately.
+
+## The E1 model question, ANSWERED 2026-11-01 00:2x (read at x86lean `4a0d64a`, `X86/Semantics.lean:52`)
+`Ea.offset` is `if ea.ripRel then nextRip + ea.disp else base + index·scale + disp`. **A `ripRel` Ea silently DROPS
+`base` and `index`**, so the AST spells E1's unencodable form and the model computes RIP+disp from it, never refusing.
+The decoder cannot produce that shape from bytes. A hand-written `Program` can, and this spike is one. Filed in x86lean
+as its own item (STATUS-paris row 45): a well-formedness rule, `ripRel → base = none ∧ index = none`, enforced where it
+binds (a refusal in `step`, or a decidable predicate the program theorems carry), red-first. The spike states the
+as-written program with E1's REPAIRED form, so it does not depend on the fix.
