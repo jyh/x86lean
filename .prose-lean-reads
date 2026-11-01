@@ -53,3 +53,6 @@ o88-2026-10-26-051	paper/x86lean-semantics.tex	0d47b4222be6	X86/Program.lean::ru
 o88-2026-10-26-052	paper/x86lean-semantics.tex	c8bab3765131	X86/Program.lean::runP_safe	42a1e32f22b2	paper	math	2026-10-26
 o88-2026-10-26-053	paper/x86lean-semantics.tex	2f04464ba75a	X86/Program.lean::stepP	b10cd4177788	paper	math	2026-10-26
 o88-2026-10-26-054	paper/x86lean-semantics.tex	1b5cb7581b41	Tests/Program.lean::fill_safe	ff13f257372f	paper	math	2026-10-26
+o95-2026-11-01-001	spike/o95/README.md	90df76fe098d	spike/o95/Router/Refines.lean::repaired_refines	2f693f962d8b	paris	paper	2026-11-01
+o95-2026-11-01-002	spike/o95/README.md	c4f912faf053	spike/o95/Router/Refines.lean::repaired_refines	2f693f962d8b	paris	paper	2026-11-01
+o95-2026-11-01-003	spike/o95/Router/AsWritten.lean	ff212f949c96	spike/o95/Router/AsWritten.lean::ok_control	2da56b8adff6	paris	paper	2026-11-01

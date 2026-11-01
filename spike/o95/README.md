@@ -1,7 +1,9 @@
 # spike/o95 — the O95 router spike
 
 A machine-code router (`Router/Repaired.lean`, the program as x86lean `Instr`s) proved to refine the VIR
-specification's exit relation `F_exit` for ALL states (`Router.Refines.repaired_refines`), and two calls composed
+specification's exit relation `F_exit` from every state that satisfies its premises: the code at 0x1000, the buffer,
+ACL and bucket state related to memory, a topic below 64, and a buffer disjoint from the current sender's bucket cell
+(`Router.Refines.repaired_refines`), and two calls composed
 (`Router.MultiCall.two_calls`, with `two_calls_witness` discharging every premise on one concrete layout). It is a
 separate Lake package that uses x86lean as a library and VIR as the specification:
 
