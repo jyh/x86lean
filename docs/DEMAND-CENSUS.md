@@ -327,13 +327,13 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 
 - **603,554 instructions** over 688 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 560,007 (92.8%).** (register-form 360,875 · memory-form 199,132, of which the model executes a memory form for 197,839)
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 1,747 (0.29%)** (register-form 1,611 · memory-form 136, of which the model executes a memory form for 2) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
-- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 8,137 (1.35%)** (register-form 3,948 · memory-form 4,189, of which the model executes a memory form for 4,189) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 1,742 (0.29%)** (register-form 1,606 · memory-form 136, of which the model executes a memory form for 2) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 8,045 (1.33%)** (register-form 3,856 · memory-form 4,189, of which the model executes a memory form for 4,189) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 207 (0.03%) — counted as NOT covered.
-- Not mapped at all, and therefore counted as NOT covered: 33,456 (5.5%).
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 212 (0.04%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 33,548 (5.6%).
 
 | rank | mnemonic | occurrences | share | in the model? |
 |---|---|---|---|---|
@@ -419,9 +419,9 @@ Symbol maps were found for **28 of 28** objects in this column. Rows are the two
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
 | x87 (st) | 13,773 | 2.28% | `fldt`, `fstp`, `fxch`, `fstpt`, `fld`, `fmul` |
-| VEX-128 (v… xmm) | 9,950 | 1.65% | `vmovsd`, `vmulsd`, `vaddsd`, `vsubsd`, `vmovq`, `vfmaddsd` |
-| AVX2/AVX (ymm) | 9,665 | 1.60% | `vmovdqu`, `vpmovmskb`, `vpcmpeqb`, `vmovdqu64`, `vmovdqa`, `vpcmpeqd` |
-| AVX-512 (zmm/k) | 6,980 | 1.16% | `vmovups`, `kmovd`, `vfmadd213pd`, `kmovw`, `vpcmpeqb`, `vptestnmb` |
+| VEX-128 (v… xmm) | 9,851 | 1.63% | `vmovsd`, `vmulsd`, `vaddsd`, `vsubsd`, `vmovq`, `vfmaddsd` |
+| AVX2/AVX (ymm) | 8,373 | 1.39% | `vmovdqu`, `vpmovmskb`, `vpcmpeqb`, `vmovdqa`, `vpcmpeqd`, `vmovups` |
+| AVX-512 (zmm/k) | 8,371 | 1.39% | `vmovups`, `vmovdqu64`, `kmovd`, `vmovdqa64`, `vfmadd213pd`, `kmovw` |
 | SSE-legacy (xmm) | 1,200 | 0.20% | `palignr`, `pcmpistri`, `pminub`, `movntps`, `movmskps`, `movmskpd` |
 | AVX (state) | 708 | 0.12% | `vzeroupper`, `vzeroall` |
 | SYSCALL | 544 | 0.09% | `syscall` |
@@ -456,13 +456,13 @@ are excluded, or every math-heavy C function would read as hand-written.
 
 - **303,830 instructions** over 496 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 195,838 (64.5%).** (register-form 123,249 · memory-form 72,589, of which the model executes a memory form for 68,037)
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 25,713 (8.46%)** (register-form 21,416 · memory-form 4,297, of which the model executes a memory form for 4,081) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
-- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 19,129 (6.30%)** (register-form 10,139 · memory-form 8,990, of which the model executes a memory form for 8,985) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 24,868 (8.18%)** (register-form 20,747 · memory-form 4,121, of which the model executes a memory form for 3,913) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 18,929 (6.23%)** (register-form 9,972 · memory-form 8,957, of which the model executes a memory form for 8,952) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 8,878 (2.92%) — counted as NOT covered.
-- Not mapped at all, and therefore counted as NOT covered: 54,272 (17.9%).
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 9,723 (3.20%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 54,472 (17.9%).
 
 | rank | mnemonic | occurrences | share | in the model? |
 |---|---|---|---|---|
@@ -481,21 +481,21 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 13 | `test` | 4,172 | 1.37% | ✅ |
 | 14 | `push` | 4,049 | 1.33% | ✅ |
 | 15 | `movzx` | 4,003 | 1.32% | ✅ |
-| 16 | `vpaddd` | 3,345 | 1.10% | ⚙ VEX table only |
+| 16 | `vpaddd` | 3,327 | 1.10% | ⚙ VEX table only |
 | 17 | `retq` | 3,323 | 1.09% | ✅ |
 | 18 | `pop` | 3,110 | 1.02% | ✅ |
 | 19 | `paddd` | 3,110 | 1.02% | ✅ |
 | 20 | `movq` | 3,050 | 1.00% | ✅ |
 | 21 | `movd` | 3,012 | 0.99% | ✅ |
-| 22 | `vpaddw` | 2,958 | 0.97% | ⚙ VEX table only |
-| 23 | `movsx` | 2,877 | 0.95% | ✅ |
+| 22 | `movsx` | 2,877 | 0.95% | ✅ |
+| 23 | `vpaddw` | 2,835 | 0.93% | ⚙ VEX table only |
 | 24 | `paddw` | 2,668 | 0.88% | ✅ |
 | 25 | `pmaddwd` | 2,635 | 0.87% | ⚙ silicon only |
 | 26 | `imul` | 2,484 | 0.82% | ✅ |
 | 27 | `xor` | 2,460 | 0.81% | ✅ |
-| 28 | `vpbroadcastd` | 2,350 | 0.77% | ⚙ silicon only |
-| 29 | `vpmulhrsw` | 2,347 | 0.77% | ⚙ silicon only |
-| 30 | `movdqu` | 2,340 | 0.77% | ✅ |
+| 28 | `movdqu` | 2,340 | 0.77% | ✅ |
+| 29 | `cmovcc` | 2,268 | 0.75% | ✅ |
+| 30 | `vpbroadcastd` | 2,197 | 0.72% | ⚙ silicon only |
 
 **The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
 
@@ -506,24 +506,24 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 3 | `vpaddw` | 4,658 | 1.53% | ⚙ VEX table (differential, D341), implemented |
 | 4 | `vpaddd` | 4,448 | 1.46% | ⚙ VEX table (differential, D341), implemented |
 | 5 | `pmaddwd` | 2,635 | 0.87% | ⚙ silicon (hwprobe), implemented |
-| 6 | `vpbroadcastd` | 2,350 | 0.77% | ⚙ silicon (hwprobe), implemented |
-| 7 | `vpmulhrsw` | 2,347 | 0.77% | ⚙ silicon (hwprobe), implemented |
-| 8 | `vpmaddwd` | 2,178 | 0.72% | ⚙ silicon (hwprobe), implemented |
-| 9 | `vpsrad` | 2,147 | 0.71% | ⚙ silicon (hwprobe), implemented |
-| 10 | `vinserti128` | 1,810 | 0.60% | — |
-| 11 | `pmulhrsw` | 1,743 | 0.57% | ⚙ silicon (hwprobe), implemented |
-| 12 | `vpmulld` | 1,731 | 0.57% | — |
-| 13 | `vpshufb (vector operand)` | 1,685 | 0.55% | — |
-| 14 | `vpmulhrsw (vector operand)` | 1,658 | 0.55% | — |
+| 6 | `vpbroadcastd` | 2,197 | 0.72% | ⚙ silicon (hwprobe), implemented |
+| 7 | `vpmaddwd` | 2,170 | 0.71% | ⚙ silicon (hwprobe), implemented |
+| 8 | `vpmulhrsw` | 2,166 | 0.71% | ⚙ silicon (hwprobe), implemented |
+| 9 | `vpsrad` | 2,053 | 0.68% | ⚙ silicon (hwprobe), implemented |
+| 10 | `vpmulhrsw (vector operand)` | 1,839 | 0.61% | — |
+| 11 | `vinserti128` | 1,810 | 0.60% | — |
+| 12 | `pmulhrsw` | 1,743 | 0.57% | ⚙ silicon (hwprobe), implemented |
+| 13 | `vpmulld` | 1,731 | 0.57% | — |
+| 14 | `vpshufb (vector operand)` | 1,724 | 0.57% | — |
 | 15 | `vmovdqu` | 1,611 | 0.53% | ⚙ VEX table (differential, D341), implemented |
 | 16 | `vpdpwssd` | 1,589 | 0.52% | — |
-| 17 | `vpmaddubsw` | 1,528 | 0.50% | ⚙ silicon (hwprobe), implemented |
-| 18 | `pmaddubsw` | 1,483 | 0.49% | ⚙ silicon (hwprobe), implemented |
+| 17 | `pmaddubsw` | 1,483 | 0.49% | ⚙ silicon (hwprobe), implemented |
+| 18 | `vpmaddubsw` | 1,433 | 0.47% | ⚙ silicon (hwprobe), implemented |
 | 19 | `vmovq` | 1,385 | 0.46% | — |
-| 20 | `vpsubw` | 1,367 | 0.45% | ⚙ VEX table (differential, D341), implemented |
-| 21 | `pshufb` | 1,347 | 0.44% | ⚙ silicon (hwprobe), implemented |
-| 22 | `vpaddsw` | 1,238 | 0.41% | — |
-| 23 | `vpbroadcastd (vector operand)` | 1,227 | 0.40% | — |
+| 20 | `vpbroadcastd (vector operand)` | 1,380 | 0.45% | — |
+| 21 | `vpsubw` | 1,367 | 0.45% | ⚙ VEX table (differential, D341), implemented |
+| 22 | `pshufb` | 1,347 | 0.44% | ⚙ silicon (hwprobe), implemented |
+| 23 | `vpaddsw` | 1,238 | 0.41% | — |
 | 24 | `vmovd` | 1,166 | 0.38% | — |
 | 25 | `vpsubd` | 1,137 | 0.37% | ⚙ VEX table (differential, D341), implemented |
 
@@ -547,10 +547,10 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
-| AVX2/AVX (ymm) | 47,468 | 15.62% | `vmovdqa`, `vpaddd`, `vpaddw`, `vpmulhrsw`, `vpbroadcastd`, `vpsrad` |
-| AVX-512 (zmm/k) | 31,951 | 10.52% | `vmovdqa32`, `vpaddw`, `vpmulhrsw`, `vpdpwssd`, `vpbroadcastd`, `vpaddd` |
+| AVX2/AVX (ymm) | 44,729 | 14.72% | `vmovdqa`, `vpaddd`, `vpaddw`, `vpmulhrsw`, `vpsrad`, `vpmaddwd` |
+| AVX-512 (zmm/k) | 36,181 | 11.91% | `vmovdqa32`, `vpmulhrsw`, `vpaddw`, `vpdpwssd`, `vpbroadcastd`, `vpaddd` |
 | SSE-legacy (xmm) | 14,947 | 4.92% | `pmaddwd`, `pmulhrsw`, `pmaddubsw`, `pshufb`, `packssdw`, `pinsrw` |
-| VEX-128 (v… xmm) | 12,553 | 4.13% | `vmovdqa`, `vmovq`, `vmovd`, `vmovhps`, `vmovdqu`, `vpextrd` |
+| VEX-128 (v… xmm) | 11,062 | 3.64% | `vmovdqa`, `vmovq`, `vmovd`, `vmovdqu`, `vmovhps`, `vpextrd` |
 | AVX (state) | 679 | 0.22% | `vzeroupper` |
 | BMI2 | 392 | 0.13% | `rorxl`, `rorxq` |
 | CPUID | 1 | 0.00% | `cpuid` |
@@ -560,12 +560,12 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 - **3,116,986 instructions** over 592 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 2,998,862 (96.2%).** (register-form 1,863,687 · memory-form 1,135,175, of which the model executes a memory form for 1,128,982)
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 43,229 (1.39%)** (register-form 34,667 · memory-form 8,562, of which the model executes a memory form for 8,188) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 43,213 (1.39%)** (register-form 34,665 · memory-form 8,548, of which the model executes a memory form for 8,174) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 33,807 (1.08%)** (register-form 15,297 · memory-form 18,510, of which the model executes a memory form for 18,504) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 19,114 (0.61%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 19,130 (0.61%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 21,974 (0.7%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -651,12 +651,12 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
-| AVX2/AVX (ymm) | 45,509 | 1.46% | `vmovaps`, `vshufps`, `vaddps`, `vsubps`, `vmulps`, `vpaddd` |
-| VEX-128 (v… xmm) | 33,492 | 1.07% | `vmovdqa`, `vpaddw`, `vpaddd`, `vpmaddwd`, `vpsrad`, `vpsubw` |
+| AVX2/AVX (ymm) | 45,396 | 1.46% | `vmovaps`, `vshufps`, `vaddps`, `vsubps`, `vmulps`, `vpaddd` |
+| VEX-128 (v… xmm) | 33,479 | 1.07% | `vmovdqa`, `vpaddw`, `vpaddd`, `vpmaddwd`, `vpsrad`, `vpsubw` |
 | MMX (mm) | 19,887 | 0.64% | `movq`, `paddw`, `movd`, `psubw`, `punpcklbw`, `pxor` |
 | SSE-legacy (xmm) | 18,850 | 0.60% | `pmaddwd`, `packssdw`, `psubusb`, `pmaxsw`, `pmaddubsw`, `pminsw` |
 | AVX (state) | 255 | 0.01% | `vzeroupper` |
-| AVX-512 (zmm/k) | 104 | 0.00% | `vpermb`, `vmovdqu32`, `vpdpbusd`, `vpbroadcastd`, `vpxord`, `vpmovdw` |
+| AVX-512 (zmm/k) | 230 | 0.01% | `vmovdqu32`, `vpermb`, `vpdpbusd`, `vpbroadcastd`, `vpxord`, `vbroadcasti32x4` |
 | x87 (st) | 19 | 0.00% | `fstpl`, `fldl`, `fprem`, `fnstsw`, `fstp`, `fildll` |
 | SSE2 (fence) | 3 | 0.00% | `lfence` |
 | TSC | 3 | 0.00% | `rdtsc` |
@@ -948,13 +948,13 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 - **377,330 instructions** over 522 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 335,611 (88.9%).** (register-form 197,685 · memory-form 137,926, of which the model executes a memory form for 135,779)
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 6,625 (1.76%)** (register-form 5,562 · memory-form 1,063, of which the model executes a memory form for 670) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
-- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 7,909 (2.10%)** (register-form 5,009 · memory-form 2,900, of which the model executes a memory form for 2,745) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 6,606 (1.75%)** (register-form 5,549 · memory-form 1,057, of which the model executes a memory form for 666) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 7,798 (2.07%)** (register-form 4,926 · memory-form 2,872, of which the model executes a memory form for 2,745) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 15,007 (3.98%) — counted as NOT covered.
-- Not mapped at all, and therefore counted as NOT covered: 12,178 (3.2%).
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 15,026 (3.98%) — counted as NOT covered.
+- Not mapped at all, and therefore counted as NOT covered: 12,289 (3.3%).
 
 | rank | mnemonic | occurrences | share | in the model? |
 |---|---|---|---|---|
@@ -1015,7 +1015,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | 20 | `pmaddwd` | 485 | 0.13% | ⚙ silicon (hwprobe), implemented |
 | 21 | `pshufw` | 437 | 0.12% | — |
 | 22 | `vpunpckhqdq` | 421 | 0.11% | — |
-| 23 | `vpmaddubsw` | 394 | 0.10% | ⚙ silicon (hwprobe), implemented |
+| 23 | `vpmaddubsw` | 388 | 0.10% | ⚙ silicon (hwprobe), implemented |
 | 24 | `punpcklwd (vector operand)` | 384 | 0.10% | — |
 | 25 | `punpcklbw (vector operand)` | 378 | 0.10% | — |
 
@@ -1040,10 +1040,10 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
 | MMX (mm) | 15,747 | 4.17% | `movq`, `paddw`, `psubw`, `movd`, `pxor`, `pmaxsw` |
-| VEX-128 (v… xmm) | 13,469 | 3.57% | `vmovdqa`, `vpaddw`, `vpsubw`, `vpaddd`, `vmovd`, `vmovq` |
+| VEX-128 (v… xmm) | 13,288 | 3.52% | `vmovdqa`, `vpaddw`, `vpsubw`, `vpaddd`, `vmovd`, `vmovq` |
 | SSE-legacy (xmm) | 6,538 | 1.73% | `psadbw`, `pmaxsw`, `pabsw`, `pmaddwd`, `pmuludq`, `pmaddubsw` |
-| AVX2/AVX (ymm) | 3,984 | 1.06% | `vpaddw`, `vmovdqa`, `vpsubw`, `vinserti128`, `vpsadbw`, `vpaddd` |
-| AVX-512 (zmm/k) | 1,805 | 0.48% | `vpbroadcastq`, `vmovdqa32`, `vpbroadcastd`, `vinserti32x4`, `vpaddd`, `vpaddw` |
+| AVX2/AVX (ymm) | 3,647 | 0.97% | `vpaddw`, `vmovdqa`, `vpsubw`, `vinserti128`, `vpabsw`, `vmovdqu` |
+| AVX-512 (zmm/k) | 2,323 | 0.62% | `vpbroadcastq`, `vmovdqa32`, `vinserti32x4`, `vpaddd`, `vpbroadcastd`, `vpsadbw` |
 | AVX (state) | 144 | 0.04% | `vzeroupper` |
 | SSE (fence) | 22 | 0.01% | `sfence` |
 | BMI2 | 8 | 0.00% | `rorxq`, `bzhil`, `rorxl` |
@@ -1053,19 +1053,19 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 ### The assembly class, pooled
 
 - **4,784,269 instructions**, covered by the model (differentially tested mnemonics) **4,438,826 (92.8%)**.
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 123,084 (2.57%)** — inside the not-covered figure below, never added to the line above (D337).
-- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 68,677 (1.44%)** — inside the not-covered figure below, never added to the line above (D342).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 122,204 (2.55%)** — inside the not-covered figure below, never added to the line above (D337).
+- ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 68,366 (1.43%)** — inside the not-covered figure below, never added to the line above (D342).
 - ⛔ Pooled ACROSS the codec columns and never with compiler output: the two are different demands, which is why this class exists.
 
 - **Not covered: 345,443 instructions (7.2% of the class)** — this is the P2 demand, and the table below is it, per extension.
 
 | bucket | occurrences | share of the class | share of the UNCOVERED work |
 |---|---|---|---|
-| AVX2/AVX (ymm) | 108,554 | 2.27% | 31.4% |
+| AVX2/AVX (ymm) | 105,365 | 2.20% | 30.5% |
 | SSE-legacy (xmm) | 95,965 | 2.01% | 27.8% |
-| VEX-128 (v… xmm) | 62,252 | 1.30% | 18.0% |
+| VEX-128 (v… xmm) | 60,567 | 1.27% | 17.5% |
 | MMX (mm) | 43,045 | 0.90% | 12.5% |
-| AVX-512 (zmm/k) | 33,884 | 0.71% | 9.8% |
+| AVX-512 (zmm/k) | 38,758 | 0.81% | 11.2% |
 | AVX (state) | 1,241 | 0.03% | 0.4% |
 | BMI2 | 400 | 0.01% | 0.1% |
 | SSE (fence) | 32 | 0.00% | 0.0% |
