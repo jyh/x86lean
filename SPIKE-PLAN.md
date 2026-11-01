@@ -73,3 +73,17 @@ as-written program with E1's REPAIRED form, so it does not depend on the fix.
 ⇒ **P5 HELD, positively:** A.4 as written is not a refinement on E2 or E3, and each failure has a concrete,
 kernel-checked counterexample. The theorems took 347 ms, so the fast build was checked by the mutants, not trusted.
 NEXT: step 3, `Router/Repaired.lean` (JB; the bucket tested before it is written) and the ∀-state refinement.
+
+## Step 3's specification: vir's `F_exit` (offered 2026-11-01 00:44, @[bus]; read at vir HEAD, `lean/VIR/Exit.lean`)
+vir proved F's meaning as an exit relation (`F_exit`, and `U_exit` for the unfused SPEC composition, so a refinement
+against it is a refinement against the specs). Its imports are `VIR.Deep` and `VIR.Core`, with no mathlib. The toolchain
+is the same v4.32.0-rc1. **Import it as a lake path dependency on vir's tree, PINNED to a vir sha**; do not copy it, or a
+copy drifts from the object's meaning.
+- Mapping (vir's): TRUNCATED ↔ drop_truncated · UNAUTH_OR_RATE ↔ drop_unauthorized OR drop_rate_limited (I6 splits F's
+  one code) · OK ↔ emit_slice with rax = b0+24, rsi = len−24, the bucket cell decremented.
+- **OWED BY THE SPIKE, the bridge:** vir's `Val` is abstract (wire bytes via `ByteArray.get!`, tokens as `Int`,
+  principal and topic as `UInt32`). Step 3 states an abstraction relation from x86lean's `Cpu` (rdi/rsi/rdx, the
+  buffer's bytes, the ACL bytes, the bucket dword as a SIGNED 32-bit count) to `F`'s inputs, and proves the repaired
+  program's exit and final state satisfy `F_exit` under it.
+- The fence: vir rules this file is the OBJECT's meaning, not the Lean arm's method, so reading it compares nothing.
+  The spike still reads nothing else under `vir/lean/`.
