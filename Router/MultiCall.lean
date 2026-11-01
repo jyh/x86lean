@@ -37,10 +37,11 @@ theorem aclRel_frame {R : BitVec 64 → Prop} {m m' : Mem} {acl : VIR.Principal 
     from rfl, hfr _ (hout p t ht)]
 
 /-! ## The caller, between the calls: it writes buffer 2 and nothing else, and re-enters at the routine. -/
-structure Caller (t1 s2 : Cpu) (buf2 : ByteArray) (off2 len2 : Nat) : Prop where
+structure Caller (rdx0 : BitVec 64) (t1 s2 : Cpu) (buf2 : ByteArray) (off2 len2 : Nat) : Prop where
   live : Live s2
   rip : s2.rip = 0x1000
-  rdx : s2.regs.get .rdx = t1.regs.get .rdx
+  /-- the SAME bucket array: a parameter (call 1's base), because `Exit` states `rdx` kept only on the OK path. -/
+  rdx : s2.regs.get .rdx = rdx0
   len : len2 = (s2.regs.get .rsi).toNat
   buf : BufRel buf2 off2 len2 s2.mem (s2.regs.get .rdi)
   frame : AgreeOutside (Region (s2.regs.get .rdi) len2) t1.mem s2.mem
@@ -66,5 +67,42 @@ theorem after_call1 (acl : VIR.Principal → VIR.TopicId → Bool) {s1 t1 : Cpu}
       have hfr : AgreeOutside (Region (Refines.cell (s1.regs.get .rdx) P) 4) s1.mem t1.mem := by
         rw [hm]; exact agreeOutside_writeSize (agreeOutside_rfl _ _) .d _ _ (fun k hk => ⟨k, hk, rfl⟩)
       exact aclRel_frame hfr hacw hacl
+
+/-- ⭐ TWO CALLS. Call 1 refines `F b1 σ`; then, for ANY caller that writes only buffer 2 (which must miss the bucket
+array and the ACL table) and re-enters with the same bucket base, call 2 refines `F b2 (nextState d1 σ)` — `F` applied to the
+state call 1 RETURNED, which is exactly vir's `MultiCall` specification. Call 1's written cell must miss the ACL table. -/
+theorem two_calls (acl : VIR.Principal → VIR.TopicId → Bool) (s1 : Cpu)
+    (buf1 : ByteArray) (off1 len1 : Nat) (σ : VIR.State) (buf2 : ByteArray) (off2 len2 : Nat)
+    (h : Live s1) (hrip : s1.rip = 0x1000)
+    (hlen : len1 = (s1.regs.get .rsi).toNat)
+    (hbuf : BufRel buf1 off1 len1 s1.mem (s1.regs.get .rdi))
+    (hacl : AclRel acl s1.mem)
+    (hst : StRel σ s1.mem (s1.regs.get .rdx))
+    (htopic : 24 ≤ len1 → ((VIR.Deep.Val.slice buf1 off1 len1).rd 8).toP.toNat < 64)
+    (hdisj : ∀ i, i < len1 → ¬ Region (Refines.cell (s1.regs.get .rdx) ((VIR.Deep.Val.slice buf1 off1 len1).rd 4).toP) 4
+      (s1.regs.get .rdi + BitVec.ofNat 64 i))
+    (hacw : ∀ p t : UInt32, t.toNat < 64 →
+      ¬ Region (Refines.cell (s1.regs.get .rdx) ((VIR.Deep.Val.slice buf1 off1 len1).rd 4).toP) 4 (aclAddr p t)) :
+    ∃ n1, (runP repaired n1 s1).stopped = true ∧
+      Exit s1 (runP repaired n1 s1) ((VIR.Deep.Val.slice buf1 off1 len1).rd 4).toP
+        (VIR.Deep.den acl (VIR.Deep.F (.slice buf1 off1 len1) (.state σ))) ∧
+      ∀ s2 : Cpu, Caller (s1.regs.get .rdx) (runP repaired n1 s1) s2 buf2 off2 len2 →
+        (∀ p : UInt32, ∀ k, k < 4 → ¬ Region (s2.regs.get .rdi) len2 (Refines.cell (s1.regs.get .rdx) p + BitVec.ofNat 64 k)) →
+        (∀ p t : UInt32, t.toNat < 64 → ¬ Region (s2.regs.get .rdi) len2 (aclAddr p t)) →
+        (24 ≤ len2 → ((VIR.Deep.Val.slice buf2 off2 len2).rd 8).toP.toNat < 64) →
+        (∀ i, i < len2 → ¬ Region (Refines.cell (s1.regs.get .rdx) ((VIR.Deep.Val.slice buf2 off2 len2).rd 4).toP) 4
+          (s2.regs.get .rdi + BitVec.ofNat 64 i)) →
+        ∃ n2, (runP repaired n2 s2).stopped = true ∧
+          Exit s2 (runP repaired n2 s2) ((VIR.Deep.Val.slice buf2 off2 len2).rd 4).toP
+            (VIR.Deep.den acl (VIR.Deep.F (.slice buf2 off2 len2)
+              (.state (nextState (VIR.Deep.den acl (VIR.Deep.F (.slice buf1 off1 len1) (.state σ))) σ)))) := by
+  obtain ⟨n1, hs1, hx1⟩ := repaired_refines acl s1 buf1 off1 len1 σ h hrip hlen hbuf hacl hst htopic hdisj
+  refine ⟨n1, hs1, hx1, ?_⟩
+  intro s2 hc hbk2 hac2 htopic2 hdisj2
+  obtain ⟨hst', hacl'⟩ := after_call1 acl hst hacl hacw hx1
+  have hst2 := stRel_frame hc.frame hbk2 hst'
+  have hacl2 := aclRel_frame hc.frame hac2 hacl'
+  rw [← hc.rdx] at hst2 hdisj2
+  exact repaired_refines acl s2 buf2 off2 len2 _ hc.live hc.rip hc.len hc.buf hacl2 hst2 htopic2 hdisj2
 
 end Router.MultiCall
