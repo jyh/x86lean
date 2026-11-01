@@ -24213,3 +24213,11 @@ never an execute control and is not counted as one. ⇒ **silicon**, on hwprobe'
 constructors, one metered unit, one census regeneration, one K1. Stacked on D376 (`7c5221b`). Smaller arithmetic than
 D375. The cost is the six constructors' plumbing (operands, lock, mnemonic, the memory-destination classifier,
 Coverage rows), each a place D374–D376 already show the shape of.
+
+**Readings (2026-10-31, `paris/d379-abs-mulld`; steps (a) and (c) only, the model is not built yet):**
+2. **HELD for the generator.** `hwprobe/mk_vexsilj_rows.py`: 480 rows over 24 functions (the 10 encodings P1 probed,
+   plus the 14 other register/memory × width spellings of the same two operations). Every row's rule equals its
+   byte-list re-derivation, and the declared bytes equal clang's for all 24. `--reach`: (a) 360, every abs row, because
+   the seeding puts each width's minimum in every source · (b) 120, every `pmulld` row · (c) 192, every VEX.128 row ·
+   (d) 120, every legacy row · (f) 168, every VEX.256 row. (e) is the model's rule, not the generator's (see 2).
+   `hwprobe/vexsilj_ops.S` is GENERATED from the same OPS table, and its assembled bytes equal the declared ones 24/24.
