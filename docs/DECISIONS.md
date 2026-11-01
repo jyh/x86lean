@@ -24215,9 +24215,37 @@ D375. The cost is the six constructors' plumbing (operands, lock, mnemonic, the 
 Coverage rows), each a place D374–D376 already show the shape of.
 
 **Readings (2026-10-31, `paris/d379-abs-mulld`; steps (a) and (c) only, the model is not built yet):**
+1. **HELD on both vendors, by two runs.** hwprobe run 41270561289 at `cbc52e8` (the push) landed BOTH legs on Intel: the
+   i7-8700B (`macos-15-intel`) and an Intel Xeon Platinum 8573C (`ubuntu-latest`), each `rows 480 disagreements 0`. The
+   prediction names two VENDORS, so that run alone did not hold it, and `ubuntu-latest` is not an AMD guarantee. A
+   `workflow_dispatch` re-run, 41270709768 at the same sha, landed `ubuntu-latest` on an AMD EPYC 9V45 (`rows 480
+   disagreements 0`) and the i7-8700B again. On every leg of both runs, `--plant` reds exactly `vpabsw_r_c0_o0`,
+   `--plant-hi` exactly `vpmulld_r_c0_o0` and `--plant-mem` exactly `pabsw_m_c0_o0` (YMM3 equal, the buffer not:
+   the probe compares it), and `--plant-op` refuses `x_pabsb_r` (rc 2). The real readings show the wrap directly:
+   `vpabsw` of a word `8000` reads `8000` on silicon.
 2. **HELD for the generator.** `hwprobe/mk_vexsilj_rows.py`: 480 rows over 24 functions (the 10 encodings P1 probed,
    plus the 14 other register/memory × width spellings of the same two operations). Every row's rule equals its
    byte-list re-derivation, and the declared bytes equal clang's for all 24. `--reach`: (a) 360, every abs row, because
    the seeding puts each width's minimum in every source · (b) 120, every `pmulld` row · (c) 192, every VEX.128 row ·
    (d) 120, every legacy row · (f) 168, every VEX.256 row. (e) is the model's rule, not the generator's (see 2).
    `hwprobe/vexsilj_ops.S` is GENERATED from the same OPS table, and its assembled bytes equal the declared ones 24/24.
+4. **The number, written 2026-10-31 after the model and BEFORE the census was regenerated:** every spelling the eight
+   names take in the census (register and memory; xmm, and ymm through the VEX notes' `VEX.256`) is implemented, so
+   silicon rises by **5,999 exactly**, column by column as `miss_all` reads at D376's head (dav1d 2,856 · ffmpeg 513 ·
+   x264 1,855 · vpx 752 · glibc 21 · coreutils 2; derived from the JSON by a script, after a hand-typed dav1d of
+   1,563 was caught against it before the census ran), and NONE of the eight names is left in any column's residue. Wrong if
+   any spelling is not credited (an EVEX or a form the notes do not reach).
+   **Reading: NOT HELD as written: silicon +4,862, not +5,999** (coreutils +1 · glibc +11 · dav1d +1,845 · ffmpeg
+   +500 · vpx +752 · x264 +1,753). Nothing else moves (`covered`, `vex` and `total` unchanged in every column), and
+   COVERAGE.md gains exactly the eight rows. **The 1,137 are AVX-512, out of scope:** each name's uncredited rows
+   reappear under the census's `<name> (vector operand)` key, its `AVX-512 (zmm/k)` bucket (any operand naming `%zmm`
+   or `%k0–7`, `EXT_SCOPE` False), and the drops sum to exactly 1,137 (dav1d 1,011 · x264 102 · ffmpeg 13 · glibc 10
+   · coreutils 1). A second method agrees on the population and not on the count: dav1d's own disassembly gives EVEX
+   by register class `vpmulld` 855 and `vpabsw` 179, against the census's 844 and 167. ⚠️ **The difference is a
+   census limit, recorded and not repaired here:** an EVEX form on `%ymm16–31` with no mask names no `%zmm` and no `%k`,
+   so the census buckets it as ymm and CREDITS it as VEX.256, while the model has 16 vector registers. Here that is 23
+   rows in two dav1d names. It predates this wave and touches every VEX.256 credit, so it is queued as its own item.
+   ⚠️ **And the miss is mine, for the SECOND time:** D374's prediction 4 failed the same way (`miss_all` pools
+   AVX-512 spellings under the plain name). This prediction was written from `miss_all` by name, after a bank that
+   recorded that failure. The rule now in the memory bank: predict a silicon delta from the census's per-ext buckets,
+   never from a name's pooled count.

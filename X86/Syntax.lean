@@ -447,7 +447,23 @@ inductive VBinKind where
   `pmulhw`/`pmulhuw` are the HIGH halves of the product whose low half is `pmullw`, and
   differ only in signedness; `pavgb` rounds up (SDM Vol. 2B, PMINSW PMULHW PMULHUW PAVGB). -/
   | minsw | mulhw | mulhuw | avgb
+  /-- ⭐ D379 — `pmulld` (SSE4.1): the LOW 32 bits of each 32×32 dword product (SDM Vol. 2B PMULLD), the dword
+  twin of `mullw`; x86isa refuses it and its VEX twins (D379 P1), `hwprobe/` `vexsilj` referees them. -/
+  | mulld
   deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- ⭐ D379 — the lane width of `pabs{b,w,d}` and its VEX twins. Its own type and not `VShiftW`, whose `w64` would
+make a `pabsq` spellable that no SSE or AVX2 encoding has (`vloadq`'s reason, one level down). -/
+inductive VAbsW where
+  | b | w | d
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+def VAbsW.bits : VAbsW → Nat
+  | .b => 8 | .w => 16 | .d => 32
+
+/-- Three literals, not a concatenation (`quadMnemonic`'s reason). -/
+def VAbsW.mnemonic : VAbsW → String
+  | .b => "pabsb" | .w => "pabsw" | .d => "pabsd"
 
 /-- The assembler spelling of each packed binary operation.  ⭐ ONE TABLE FOR
 BOTH OPERAND SHAPES (`Op.vbin` and `Op.vbinm`): the memory form prints exactly
@@ -477,6 +493,7 @@ def VBinKind.mnemonic : VBinKind → String
   | .xorps => "xorps"  | .xorpd => "xorpd"
   | .minps => "minps"  | .maxps => "maxps"
   -- D335 (V1a): silicon-refereed, `siliconTable`'s rows (never `rosterP0`).
+  | .mulld => "pmulld"
   | .maddwd => "pmaddwd" | .maddubsw => "pmaddubsw" | .mullw => "pmullw"
   | .mulhrsw => "pmulhrsw" | .muludq => "pmuludq" | .addsw => "paddsw"
   | .subusw => "psubusw" | .subusb => "psubusb" | .maxsw => "pmaxsw"
@@ -1358,6 +1375,14 @@ inductive VexOp where
   (at mod=11 the opcode is `vmovhlps`/`vmovlhps`). Silicon-refereed: x86isa refuses all eight encodings (D376 P1). -/
   | vexloadq (h : VHalf) (k : VQuadKind) (dst src1 : XmmReg) (ea : Ea)
   | vexstoreq (h : VHalf) (k : VQuadKind) (ea : Ea) (src : XmmReg)
+  /-- ⭐ D379 — VPABSB/W/D (SDM Vol. 2B PABSB/PABSW/PABSD, "VEX.128/VEX.256 encoded version"): each lane of the
+  source replaced by its absolute value as an UNSIGNED result, so |−2^(w−1)| = 2^(w−1) (it wraps). VEX.128 writes
+  through `setXmmVex128` (YMM bits 255:128 ZEROED); VEX.256 writes all 256 bits. Memory forms read m128/m256 with NO
+  alignment check (VEX Exception Type 4). Unary, so no `vvvv` source. Silicon-refereed (D379 P1). -/
+  | vexabs (w : VAbsW) (dst src : XmmReg)
+  | vexabsm (w : VAbsW) (dst : XmmReg) (ea : Ea)
+  | vexabs256 (w : VAbsW) (dst src : XmmReg)
+  | vexabsm256 (w : VAbsW) (dst : XmmReg) (ea : Ea)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1380,6 +1405,9 @@ def VexOp.operands : VexOp → List Operand
   | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => [.mem ea]
   -- D376: the half-moves name their address.
   | .vexloadq _ _ _ _ ea | .vexstoreq _ _ ea _ => [.mem ea]
+  -- D379: the abs memory forms name their address.
+  | .vexabsm _ _ ea | .vexabsm256 _ _ ea => [.mem ea]
+  | .vexabs .. | .vexabs256 .. => []
   | .vexins128 .. | .vexext128 .. => []
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
@@ -1402,6 +1430,8 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => ea.lock
   | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => ea.lock
   | .vexloadq _ _ _ _ ea | .vexstoreq _ _ ea _ => ea.lock
+  | .vexabsm _ _ ea | .vexabsm256 _ _ ea => ea.lock
+  | .vexabs .. | .vexabs256 .. => false
   | .vexins128 .. | .vexext128 .. => false
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
@@ -1436,6 +1466,9 @@ def VexOp.mnemonic : VexOp → String
       match h, k with
       | .lo, .ps => "vmovlps" | .lo, .pd => "vmovlpd"
       | .hi, .ps => "vmovhps" | .hi, .pd => "vmovhpd"
+  -- D379: three literals per width, `VAbsW.mnemonic`'s reason.
+  | .vexabs w .. | .vexabsm w .. | .vexabs256 w .. | .vexabsm256 w .. =>
+      match w with | .b => "vpabsb" | .w => "vpabsw" | .d => "vpabsd"
 
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
@@ -1838,6 +1871,12 @@ inductive Op where
   no register or store form, and a kind would make those spellable (`vloadq`'s reason). Silicon-refereed: x86isa
   refuses the encoding (D376 P1). -/
   | vloadnt (dst : XmmReg) (ea : Ea)
+  /-- ⭐ D379 — PABSB/W/D (SSSE3, `66 0f 38 1c/1d/1e`; SDM Vol. 2B): each lane of the source replaced by its absolute
+  value as an UNSIGNED result (|−2^(w−1)| = 2^(w−1): it wraps, never saturates), through `setXmm` (a LEGACY write: YMM
+  bits 255:128 PRESERVED). The memory form's m128 is 16-byte aligned or #GP(0), as every legacy SSE m128 here
+  (`vbinm`). Two constructors, `vload`/`vstore`'s reason. Silicon-refereed: x86isa refuses all three (D379 P1). -/
+  | vabs (w : VAbsW) (dst src : XmmReg)
+  | vabsm (w : VAbsW) (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐ P2 BATCH 36 — `movhlps` / `movlhps`, THE TWO CROSS HALF-MOVES.
   `0f 12` and `0f 16` at **mod=11**; 1,341 and 340 instructions.
 
@@ -2400,6 +2439,8 @@ def VBinKind.vexSilTaken : VBinKind → Bool
   -- encodings, D374 P1; `hwprobe/` `vexsilg` referees them).  Each is element- or quadword-wise within a lane.
   | .addsw | .maxsw | .subusb | .sadbw | .mullw | .subusw | .muludq => true
   | .minsw | .avgb | .mulhw | .mulhuw => true
+  -- ⭐⭐ D379: `vpmulld`, at VEX.128 and VEX.256 (x86isa refuses both, D379 P1; `vexsilj` referees them).
+  | .mulld => true
   | _ => false
 
 /-- ⭐ V4 (D342) — the packed binary kinds whose VEX MEMORY twins (`vexbinm`, and since V9a `vexbinm256`) are
@@ -2425,6 +2466,8 @@ def VBinKind.vexSilMemTaken : VBinKind → Bool
   -- ⭐⭐ D374: the same eleven kinds' memory twins, on the same word.
   | .addsw | .maxsw | .subusb | .sadbw | .mullw | .subusw | .muludq => true
   | .minsw | .avgb | .mulhw | .mulhuw => true
+  -- ⭐⭐ D379: `vpmulld`'s memory twins, on the same word.
+  | .mulld => true
   | _ => false
 
 /-- ⭐ V8c (D350) — a dword replicated into all four dwords of 128 bits (VPBROADCASTD's lane). -/
@@ -2535,6 +2578,8 @@ def opOperands : Op → List Operand
   -- what makes `lock movdqa` #UD for free: `lockable` does not list it.
   | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
   | .vloadnt _ ea => [.mem ea]
+  | .vabsm _ _ ea => [.mem ea]
+  | .vabs .. => []
   -- `movhps` names an address exactly as `vload`/`vstore` do, so the segment and
   -- lock gates see it with no new rule.
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => [.mem ea]
@@ -2730,6 +2775,8 @@ def Op.anyLocked : Op → Bool
   | .vmov .. | .vbin .. | .vcomis .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
   | .vloadnt _ ea => ea.lock
+  | .vabsm _ _ ea => ea.lock
+  | .vabs .. => false
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .vmovhl .. | .vddupR .. => false
   | .vex v => v.anyLocked
@@ -2963,6 +3010,7 @@ def Op.mnemonic : Op → String
   | .vmov k .. => k.mnemonic
   | .vload k .. | .vstore k .. => k.mnemonic
   | .vloadnt .. => "movntdqa"
+  | .vabs w .. | .vabsm w .. => w.mnemonic
   -- ⚠️ THE SPELLING IS THE (half, prefix) PAIR, and both directions of a given
   -- pair print the same name: `0f 16` and `0f 17` are both `movhps`.
   | .vloadq h k _ _ | .vstoreq h k _ _ => quadMnemonic h k

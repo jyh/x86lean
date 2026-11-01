@@ -304,6 +304,14 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `vmovhpd` | x,x,m · m,x — VEX.128 only: VMOVHPS's function at the 66 prefix (the spelling is the only difference) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVHPD |
 | `vmovlps` | x,x,m · m,x — VEX.128 only: load = m64 as the low quadword with src1's HIGH one (merged with SRC1, not DEST), YMM bits 255:128 ZEROED; store = xmm's low quadword to m64; no alignment rule · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVLPS |
 | `vmovlpd` | x,x,m · m,x — VEX.128 only: VMOVLPS's function at the 66 prefix (the spelling is the only difference) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVLPD |
+| `pabsb` | x,x · x,m — legacy SSSE3: each of 16 bytes := |lane| as an UNSIGNED result, so the minimum maps to itself (it wraps, never saturates); YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSB |
+| `pabsw` | x,x · x,m — legacy SSSE3: each of 8 words := |lane| as an UNSIGNED result, so the minimum maps to itself (it wraps, never saturates); YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSW |
+| `pabsd` | x,x · x,m — legacy SSSE3: each of 4 dwords := |lane| as an UNSIGNED result, so the minimum maps to itself (it wraps, never saturates); YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSD |
+| `pmulld` | x,x · x,m — legacy SSE4.1: four dwords, the low 32 bits of each signed product; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULLD |
+| `vpabsb` | x,x · x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PABSB's lane rule (it wraps) · register and m128/m256 forms, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSB |
+| `vpabsw` | x,x · x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PABSW's lane rule (it wraps) · register and m128/m256 forms, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSW |
+| `vpabsd` | x,x · x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PABSD's lane rule (it wraps) · register and m128/m256 forms, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSD |
+| `vpmulld` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, the low 32 bits of each signed product · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULLD |
 
 ## VEX.128 register twins, differentially tested (V3, D341)
 

@@ -99,6 +99,9 @@ else printf "  ⛔ FAIL hwprobe/mk_vexsilh_anchors --check\n"; rc=1; fi
 # D376: movntdqa and the VEX half-move pins.
 if python3 hwprobe/mk_vexsili_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsili_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_vexsili_anchors --check\n"; rc=1; fi
+# D379: the pabs / pmulld pins.
+if python3 hwprobe/mk_vexsilj_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilj_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilj_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.

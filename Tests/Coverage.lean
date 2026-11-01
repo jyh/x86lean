@@ -125,7 +125,12 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexloadq .hi .ps .x3 .x1 { base := some .rbx })).mnemonic,
       (Op.vex (.vexloadq .hi .pd .x3 .x1 { base := some .rbx })).mnemonic,
       (Op.vex (.vexloadq .lo .ps .x3 .x1 { base := some .rbx })).mnemonic,
-      (Op.vex (.vexloadq .lo .pd .x3 .x1 { base := some .rbx })).mnemonic] := by decide
+      (Op.vex (.vexloadq .lo .pd .x3 .x1 { base := some .rbx })).mnemonic,
+      -- D379: pabs and pmulld, legacy then VEX, one row per mnemonic.
+      (Op.vabs .b .x3 .x1).mnemonic, (Op.vabs .w .x3 .x1).mnemonic, (Op.vabs .d .x3 .x1).mnemonic,
+      (Op.vbin .mulld .x3 .x1).mnemonic,
+      (Op.vex (.vexabs .b .x3 .x1)).mnemonic, (Op.vex (.vexabs .w .x3 .x1)).mnemonic,
+      (Op.vex (.vexabs .d .x3 .x1)).mnemonic, (Op.vex (.vexbin .mulld .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1146,6 +1151,8 @@ def isMemDestVector (v : Vec) : Bool :=
     | .vstoreq .. => true
     -- D376, in the SAME COMMIT as the constructor: `movntdqa` READS 16 bytes and writes an XMM register.
     | .vloadnt .. => false
+    -- D379, in the SAME COMMIT as the constructors: `pabs` writes an XMM register; its memory operand is a SOURCE.
+    | .vabs .. | .vabsm .. => false
     -- ⭐ P2 BATCH 36, added in the SAME COMMIT as the constructors, which is what
     -- this function's own doc comment asks for.  NONE of the three is a memory
     -- destination: the cross moves have no memory operand at all, and
@@ -1183,7 +1190,9 @@ def isMemDestVector (v : Vec) : Bool :=
       | .vexext128m .. => true
       -- D376, in the SAME COMMIT as the constructors: the half-move STORE writes 8 bytes of memory; the load READS them.
       | .vexloadq .. => false
-      | .vexstoreq .. => true)
+      | .vexstoreq .. => true
+      -- D379, in the SAME COMMIT as the constructors: `vpabs` writes a vector register; its memory operand is a SOURCE.
+      | .vexabs .. | .vexabsm .. | .vexabs256 .. | .vexabsm256 .. => false)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it

@@ -531,6 +531,8 @@ SILICON_PATHS = (
     ("mk_vexsilh_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
     # D376: movntdqa and the VEX half-moves, also `x_*` (`x_movntdqa`, `x_vmov{h,l}p{s,d}_{ld,st}`, disjoint from the paths above).
     ("mk_vexsili_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D379: pabs and pmulld, also `x_*` (`x_[v]pabs{b,w,d}[y]_{r,m}`, `x_[v]pmulld[y]_{r,m}`, disjoint from the paths above).
+    ("mk_vexsilj_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

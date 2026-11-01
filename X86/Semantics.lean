@@ -397,6 +397,12 @@ truncated.  The count is a Nat here and stays one. -/
 def vlanes1 (w : Nat) (f : BitVec w → BitVec w) (a : BitVec 128) : BitVec 128 :=
   vlanes1Aux w f a (128 / w)
 
+/-- ⭐ D379 — PABS's lane, over 128 bits, through `vlanes1` (the unary combinator): `|x|` as an UNSIGNED result. `-x`
+in `BitVec` is two's-complement negation, so the minimum maps to itself, which is the SDM's "80H → 80H" (it wraps; a
+saturating abs would give 7FH). -/
+def vabsApply (w : VAbsW) (b : BitVec 128) : BitVec 128 :=
+  vlanes1 w.bits (fun y => if y.msb then -y else y) b
+
 /-- ⭐⭐⭐ ONE LANE OF A PACKED SHIFT — THE SATURATING COUNT RULE, WHICH IS THE
 WHOLE CONTENT OF THE GROUP (SDM Vol. 2B, PSLLW/PSRLW/PSRAW and their D and Q
 forms).
@@ -885,6 +891,8 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .maddwd   => vlanes 32 vmaddwdLane a b
   | .maddubsw => vlanes 16 vmaddubswLane a b
   | .mullw    => vlanes 16 (· * ·) a b
+  -- ⭐ D379: the dword twin, the low 32 bits of each product (`*` on `BitVec 32` is mod 2^32).
+  | .mulld    => vlanes 32 (· * ·) a b
   | .mulhrsw  => vlanes 16 vmulhrswLane a b
   -- the EVEN dwords, UNSIGNED, full 64-bit product: the low dword of each quadword lane
   | .muludq   => vlanes 64 (fun x y => (x.setWidth 32).setWidth 64 * (y.setWidth 32).setWidth 64) a b
@@ -1296,6 +1304,14 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       match h with
       | .hi => (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
       | .lo => (s.writeMem .q a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐ D379 — VPABS*: VEX.128 zeroes YMM bits 255:128; VEX.256 applies the lane rule to both halves; no alignment branch.
+  | .vexabs w dst src => (s.setXmmVex128 dst (vabsApply w (s.getXmm src))).setRip nr
+  | .vexabsm w dst ea => (s.setXmmVex128 dst (vabsApply w (s.readMem128 (ea.addr s nr)))).setRip nr
+  | .vexabs256 w dst src =>
+      (s.setYmm dst (vabsApply w (s.getXmm src)) (vabsApply w (s.getYmmHi src))).setRip nr
+  | .vexabsm256 w dst ea =>
+      let a := ea.addr s nr
+      (s.setYmm dst (vabsApply w (s.readMem128 a)) (vabsApply w (s.readMem128 (a + 16)))).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
@@ -1365,6 +1381,13 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       if !aligned16 a then
         s.halt (.byDesign "movntdqa at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
+  -- ⭐ D379 — PABS*: a LEGACY write through `setXmm`; the m128 form keeps `vbinm`'s 16-byte #GP.
+  | .vabs w dst src => (s.setXmm dst (vabsApply w (s.getXmm src))).setRip nr
+  | .vabsm w dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vabsApply w (s.readMem128 a))).setRip nr
 
   -- ⭐⭐ MOVHPS (SDM Vol. 2B) — the HIGH quadword moves and the LOW one is UNTOUCHED.
   --
