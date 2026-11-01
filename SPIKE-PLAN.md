@@ -87,3 +87,22 @@ copy drifts from the object's meaning.
   program's exit and final state satisfy `F_exit` under it.
 - The fence: vir rules this file is the OBJECT's meaning, not the Lean arm's method, so reading it compares nothing.
   The spike still reads nothing else under `vir/lean/`.
+
+## Step 3 READING (2026-11-01 ~07:0x PST; x86lean public `b1848ac`, vir `ba6f3fc` pinned; saltbuild EXIT=0)
+**`Router.Refines.repaired_refines` IS PROVED, for every start state, on [propext, Classical.choice, Quot.sound]**
+(`audit/axioms-step3.log`: the `sorryAx` control fires in the same log; 0 `sorry`, 0 tagged errors in the build).
+It states: under the abstraction (`BufRel` buffer bytes · `AclRel` bit t%8 of the byte at ACL+8p+t/8 · `StRel` σ p = x86lean's
+`Value.sval .d` of the dword at rdx+4p+0x3000 · len = rsi UNSIGNED) and I6's precondition as used (topic < 64; the buffer disjoint
+from the bucket array), there is an n at which `runP repaired n s` has STOPPED and `Exit` holds of vir's
+`den acl (F (.slice buf off len) (.state σ))`: TRUNCATED → 0x1040, memory unchanged · UNAUTH_OR_RATE → 0x1041 or 0x1042, memory
+unchanged · OK → 0x1043, rax = rdi+24, rdx kept, len−24 = rsi, the payload slice's bytes at rax, the decremented state at the
+cells, and memory = exactly one dword written. `F_exit` is IMPORTED (lake git dependency pinned to vir's sha), not copied.
+- Layer 1 (`Router.Paths`): 16 per-address step lemmas + the stop; five exit paths (3 · 6 · 11 · 13 · 17 steps) ∀ states.
+- Layer 2 (`Router.Refines`): the dword bridge (vir `rd` = x86lean `readSize .d`, by a 64-case bit lemma), the magic/ACL/sign
+  bridges, read-back, the signed decrement without wrap, and the disjointness of distinct senders' cells.
+- RED BACKWARDS: E2 restored (`jb` → `jl`, its concrete control removed so the ∀ proof is reached) ⇒ `Router.Paths` fails at
+  `path_truncated` and `prefix_magic`, exactly the two places the length guard is read. The E3 order was NOT driven as a mutant
+  here (step 2's witness already refutes it); declared.
+- FINDINGS: (1) I6's "code disjoint" is VACUOUS in x86lean (a Program is not in memory) and is not assumed. (2) the ACL table
+  needs no disjointness (read before the one write). (3) x86lean's pack lacked reg,imm and mem,imm cmp/sub and bit-string bt;
+  they are proved here (spike-private), a candidate for the public pack (no router content in them).

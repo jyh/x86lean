@@ -1,0 +1,23 @@
+saltqueue: ticket P2 seat=root pid=53060
+audit/Axioms.lean:3:8: warning: declaration uses `sorry`
+'control_sorry' depends on axioms: [sorryAx]
+'Router.path_truncated' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_unauth_magic' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_unauth_acl' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_rate_limited' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.path_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.rep_ok_control' depends on axioms: [propext, Quot.sound]
+'Router.rep_e2_control' depends on axioms: [propext, Quot.sound]
+'Router.rep_e3_control' depends on axioms: [propext, Quot.sound]
+'Router.Bridge.le32' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Bridge.trunc_d_toNat' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Bridge.canonical_of_lt' depends on axioms: [propext, Quot.sound]
+'Router.Refines.repaired_refines' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.readSize_writeSize_same' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.cells_disjoint' depends on axioms: [propext, Quot.sound]
+'Router.Refines.sval_dec' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.le_of_cmp0' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.ne_of_cmp' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Router.Refines.rd_bridge' depends on axioms: [propext, Quot.sound]
+'VIR.Deep.F_exit' depends on axioms: [propext, Quot.sound]
+saltbuild EXIT=0

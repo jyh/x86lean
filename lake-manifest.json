@@ -1,7 +1,9 @@
-{"version": "1.2.0",
+{
+ "version": "1.2.0",
  "packagesDir": ".lake/packages",
- "packages":
- [{"url": "https://github.com/jyh/x86lean",
+ "packages": [
+  {
+   "url": "https://github.com/jyh/x86lean",
    "type": "git",
    "subDir": null,
    "scope": "",
@@ -10,7 +12,22 @@
    "manifestFile": "lake-manifest.json",
    "inputRev": "b1848ac61ec78e6c5855ebd5e9545ddc0d09d3d1",
    "inherited": false,
-   "configFile": "lakefile.toml"}],
+   "configFile": "lakefile.toml"
+  },
+  {
+   "url": "https://github.com/jyh/vir",
+   "type": "git",
+   "subDir": "lean",
+   "scope": "",
+   "rev": "ba6f3fcefeac28f02202ed63f62cdb4056f82d48",
+   "name": "vir",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "ba6f3fcefeac28f02202ed63f62cdb4056f82d48",
+   "inherited": false,
+   "configFile": "lakefile.toml"
+  }
+ ],
  "name": "o95spike",
  "lakeDir": ".lake",
- "fixedToolchain": false}
+ "fixedToolchain": false
+}

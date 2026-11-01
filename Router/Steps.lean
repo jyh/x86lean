@@ -64,26 +64,4 @@ theorem stepP_eq_off {p : Program} {a : BitVec 64} (h : Live s) (hrip : s.rip = 
     stepP p s = s.halt (.outsideProgram "no instruction at RIP") := by
   simp [stepP, stopped_of_live h, hrip, hat]
 
-/-! ### EXPERIMENT: the truncation path, ∀ states, as explicit intermediate states. -/
-theorem trunc_path (s : Cpu) (h : Live s) (hrip : s.rip = 0x1000)
-    (hlt : (s.getReg .q .rsi).toNat < 24) :
-    let t := runP repaired 3 s
-    t.stopped = true ∧ t.rip = 0x1040 ∧ t.mem = s.mem := by
-  let s1 : Cpu := { s with flags := Flags.sub .q (s.getReg .q .rsi) (Value.trunc .q 24) s.flags, rip := 0x1004 }
-  have e1 : stepP repaired s = s1 := by
-    rw [stepP_eq h hrip rfl, step_cmp_reg_imm _ _ _ h, hrip]; rfl
-  have h1 : Live s1 := h
-  have e2 : stepP repaired s1 = { s1 with rip := 0x1040 } := by
-    rw [stepP_eq h1 rfl rfl, step_jcc _ _ h1
-      (by intro _; show canonical ((0x1004 : BitVec 64) + BitVec.ofNat 64 2 + BitVec.ofInt 64 0x3a) = true; decide)]
-    have hb : Cc.eval .b s1.flags = true := by
-      simp only [s1, cc_b_of_sub, Value.uval, Value.trunc_q]
-      simpa [Cpu.getReg] using hlt
-    rw [hb]
-    rfl
-  have h2 : Live ({ s1 with rip := 0x1040 } : Cpu) := h
-  have e3 := stepP_eq_off (p := repaired) h2 rfl rfl
-  simp only [runP_succ, runP_zero, e1, e2, e3]
-  simp [Cpu.halt, h, Cpu.stopped, s1]
-
 end Router
