@@ -21,7 +21,8 @@ LIMITS, carried beside the verdict (the warning text says them):
   * a PR run's `kernel-delta` success is taken from its conclusion. A null-pair SKIP also concludes success; it
     cannot coincide with a push-run refusal unless the PR changed no reading input, which a refusal contradicts.
   * the escalation compares the refused UNIT NAMES of two consecutive runs; it does not see a unit that refuses on
-    alternate runs.
+    alternate runs, and "the previous run" is the latest COMPLETED one, so a predecessor still running is skipped
+    (one missed pairing when two master pushes overlap; paper's LOW at its #153 read).
 
 Usage:
   python3 scripts/refusal_record.py --selftest
@@ -222,6 +223,10 @@ def decide(rc, units, record, prev):
     if not rec:
         out.append("⛔ D381: refusal stays RED — no verdict of record for this step: " + " · ".join(why))
         return 3, out
+    if not units:
+        out.append("⛔ D381: refusal stays RED — the gate refused but no refused unit could be parsed from its "
+                   "rows, so this refusal could not be counted by the next run's two-in-a-row check.")
+        return 3, out
     kinds = ", ".join(f"{u} ({k})" for u, k in units) or "(no unit row parsed)"
     out.append(f"::warning title=kernel-delta: pass by the record::pass by the record of {rec}; this run could "
                f"not measure: {kinds}. The record is another run's reading of this step, not this run's.")
@@ -313,6 +318,10 @@ def selftest():
     check("MUTANT 1: exit 3 with NO verdict of record stays RED", decide(3, U, NOREC, PREV_CLEAN)[0], 3)
     check("MUTANT 2: exit 1 (OVER) stays RED whatever record exists", decide(1, U, REC, PREV_CLEAN)[0], 1)
     check("exit 0 is untouched", decide(0, [], REC, PREV_CLEAN)[0], 0)
+    # ⛔ paper's finding at its #153 read: a refusal whose rows do not parse would read GREEN and be recorded with
+    # units [], so the two-in-a-row count could never see it. A refusal with no countable unit stays RED.
+    check("an exit 3 with NO parsed unit stays RED even with a record (it could never be counted)",
+          decide(3, [], REC, PREV_CLEAN)[0], 3)
     check("ESCALATION: the same unit refused on the previous master run stays RED with a record",
           decide(3, U, REC, (41000000001, {"Tests.Vectors"}))[0], 3)
     check("…a DIFFERENT unit on the previous run does not escalate",
