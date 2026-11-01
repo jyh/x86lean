@@ -1,0 +1,11 @@
+name = "o95spike"
+defaultTargets = ["Router"]
+
+# x86lean as a LIBRARY, pinned to a PUBLIC master sha. Nothing here flows back into it.
+[[require]]
+name = "x86lean"
+git = "https://github.com/jyh/x86lean"
+rev = "b1848ac61ec78e6c5855ebd5e9545ddc0d09d3d1"
+
+[[lean_lib]]
+name = "Router"
