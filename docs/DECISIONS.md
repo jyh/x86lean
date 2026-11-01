@@ -23748,3 +23748,30 @@ the same list finds 14,642 forms already in AVX-512), and none is in `vex_all` o
 wrongly, and only the ext labels and P2-ROSTER's AVX-512 row undercount, by at least that much. `{1toN}` broadcast and
 `{sae}` operands are the same class and are not counted. The mnemonic arm is STATUS-paris row 46, with its list derived
 from a source and not typed.
+
+## D383 — the public pack gains SUB/CMP reg,imm and mem,imm and BT on a bit string (STATUS row 48)
+
+**Why.** `X86/Theorems.lean` carried SUB and CMP for reg,reg only, and no BT equation at all. The O95 spike needed
+all three: `cmpq $24,%rsi` / `subq $24,%rsi` (reg,imm), `cmpl $0,(cell)` / `subl $1,(cell)` (mem,imm), and `bt`
+with a memory base and a register offset. It proved them in its own private file. They are statements about the ISA,
+not the spike's program, so they belong in the public pack. Only the lemmas move: no name, address or program from
+the spike comes with them.
+
+**What.** Six equations, each `step ⟨…, len⟩ s = { s with … }` under `Live s` (and `ea.lock = false` for a memory
+form), proved by `simp [step, …]` like the rest of the file:
+- `step_sub_reg_imm`, `step_cmp_reg_imm`: the immediate enters as `Value.trunc sz v`. CMP's equation names no `regs`.
+- `step_sub_mem_imm`, `step_cmp_mem_imm`: the address is `ea.addr s nr` (with `nr` the next RIP). SUB writes `mem`
+  with `Flags.subResult`; CMP names no `mem`.
+- `step_bt_mem_reg`: on a canonical `bitStringByte` (D331), CF is bit `offset mod 8` of that byte, and PF/AF/SF/OF are
+  four oracle bits drawn in that order (`cursor + 4` is in the statement). Neither `regs` nor `mem` is updated.
+  `step_bt_mem_reg_noncanonical` is the other case: the model halts with D331's message.
+
+**Red-first, by mutant.** A single build with one wrong statement per lemma (an untruncated immediate in SUB's
+result · a register write claimed for CMP · SUB mem,imm with no memory write · CMP's operands swapped · BT's bit index
+`mod 16` · the non-canonical case claimed to step). Six errors, one inside each of the six lemmas, `saltbuild EXIT=1`.
+After restoring the file (byte-identical, `cmp`): `saltbuild EXIT=0` with zero error lines. Axiom gate CLEAN over 5,587
+declarations, standard three only.
+
+**Limits.** These are the forms the spike used. BTS/BTR/BTC on a bit string, BT with an immediate offset or a register
+base, and the reg,mem forms of SUB/CMP are still without equations. The kernel cost is the K1's ledger row, not
+recorded here.
