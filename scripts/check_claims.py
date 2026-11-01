@@ -427,7 +427,9 @@ def selftest():
     arm("PLANT: a total cited WITHOUT its part in the same marker is caught",
         any("recheck_d201_total" in x and "SAME marker" in x for x in f), str(f)[:200])
 
-    f = check_prose(_plant("500 of the 525", "525 of the 500"), rs0, verbose=False)
+    # The anchor read "500 of the 525" until 2026-10-14: the eb4d609 re-pin made the prose "504 of the 525", and the
+    # plant refused (rightly) as absent, so this arm was RED at that head until re-anchored here.
+    f = check_prose(_plant("504 of the 525", "525 of the 504"), rs0, verbose=False)
     arm("PLANT: D231's declared limit, closed — a swapped COVERAGE fraction (525 of the 500) is caught",
         any("coverage_rows_total" in x for x in f), str(f)[:200])
 
