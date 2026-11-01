@@ -24176,3 +24176,40 @@ within its allowance (`Tests.Coverage` +300 against 2,962.8). The retired absolu
 same five at D375's K1, base and head alike. ⚠️ This branch sits on D375's PRE-registration tip, so D375's and D374's
 registration lines are absent here and arrive with the stack's rebase (one append conflict per registry file, as
 recorded for D374–D375).
+
+## D379 — `pabs{b,w,d}` · `pmulld` and their VEX twins, refereed by silicon (STATUS row 35's last two names, wave D; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** Row 35 named `vpabsw` (2,001) and `vpmulld` (1,794) as the in-scope residue with NO legacy twin in the model.
+The census JSON at D376's head (`docs/DEMAND-CENSUS.md.json`, `miss_all`) sizes the whole family: `pabsb` 44 · `pabsw`
+1,307 · `pabsd` 224 · `vpabsb` 38 · `vpabsw` 2,001 · `vpabsd` 57 · `pmulld` 534 · `vpmulld` 1,794 = **5,999** by name.
+⚠️ A name's count pools its spellings (register/memory; xmm/ymm), and the model is credited only for the spellings it
+implements. The split is read at the census, never assumed (prediction 4).
+**The referee, measured before anything was designed (P1, 2026-10-31, yukon, `oracle_availability.measure()` unmodified,
+88 pre-states, controls in the SAME run).** All **10** encodings REFUSE at 88 of 88: `pabsb` `pabsw` `pabsd` `pmulld`
+(legacy, `66 0f 38 1c/1d/1e/40`), `vpabsb` `vpabsw` `vpabsd` `vpmulld` (VEX.128) and `vpabsw`/`vpmulld` at VEX.256.
+`movl %ecx,%eax`, `vpaddw %ymm1,%ymm2,%ymm0` and `vpxor %xmm1,%xmm2,%xmm0` EXECUTE 88/88. ⚠️ A fourth control,
+`pmaxsw %xmm1,%xmm0`, REFUSED 88/88. That is consistent with its own status (a D335 kind, silicon-refereed), so it was
+never an execute control and is not counted as one. ⇒ **silicon**, on hwprobe's pattern (D371's frame).
+**The model (no new arithmetic beyond one lane function).**
+- `pmulld`: ONE new `VBinKind`, `.mulld` (the low 32 bits of each 32×32 lane product), beside `.mullw`. Its legacy form
+  and its VEX.128/VEX.256 twins come through the constructors D374 used for eleven kinds, with no new constructor.
+- `pabs{b,w,d}`: a UNARY lanewise operation, which no existing kind is. New constructors: `vabs (w) (dst src)` and
+  `vabsm (w) (dst ea)` (legacy, through `setXmm`: YMM bits 255:128 PRESERVED; the memory form is m128 and, as every
+  legacy SSE m128 operand here (`vbinm`'s rule), 16-byte ALIGNED or #GP(0)), and their VEX twins `vexabs`/`vexabsm` (VEX.128, through
+  `setXmmVex128`) and `vexabs256`/`vexabsm256`, whose memory forms carry NO alignment check (VEX Exception Type 4). `w` is the lane width (b/w/d). The lane function is the two's-complement
+  absolute value, which WRAPS: |−2^(n−1)| = 2^(n−1), the same bit pattern (SDM: "the unsigned result").
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on both vendors (AMD + Intel hwprobe legs), with each row's operands seeded so that every
+   lane width meets its minimum value (−128, −32768, −2^31) and zero.
+2. **Generator, before any processor.** Named wrong rules are each refused on a named row: (a) a SATURATING abs (|min| =
+   max), (b) `pmulld` keeping the HIGH 32 bits, (c) a VEX.128 form keeping YMM bits 255:128, (d) a legacy form zeroing
+   them, (e) an unaligned legacy memory row accepted (the probe cannot read a #GP as a value, so this one is the model's
+   `decide` row and not a silicon row), and (f) `vpabs` at VEX.256 computing only the low lane.
+3. **Model.** One kind and six constructors, every row pinned by `decide` in a NEW metered unit. A saturating-abs mutant
+   reds exactly the abs theorems, and a high-half `mulld` mutant reds exactly the `pmulld` theorems.
+4. **Census.** Silicon rises by the spellings implemented, at most 5,999. The figure is predicted per spelling from the
+   census's own `miss` breakdown before the model is built, and the residue it leaves is named.
+**Price.** One silicon wave in D371's frame (one generator over 10 functions × register/memory), one kind, six
+constructors, one metered unit, one census regeneration, one K1. Stacked on D376 (`7c5221b`). Smaller arithmetic than
+D375. The cost is the six constructors' plumbing (operands, lock, mnemonic, the memory-destination classifier,
+Coverage rows), each a place D374–D376 already show the shape of.
