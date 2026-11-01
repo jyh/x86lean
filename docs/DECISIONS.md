@@ -24249,3 +24249,9 @@ Coverage rows), each a place D374–D376 already show the shape of.
    AVX-512 spellings under the plain name). This prediction was written from `miss_all` by name, after a bank that
    recorded that failure. The rule now in the memory bank: predict a silicon delta from the census's per-ext buckets,
    never from a name's pooled count.
+**K1 (2026-11-01, katmai, `cbc52e8 → e09965c`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilJ` at 13,450.0 ms ⇒ `Tests.AnchorsVexSilJ 40350 @on katmai`; `ku_delta` (A′)
+reads 5,084,765 unfoldings ⇒ `Tests.AnchorsVexSilJ @ku 5084765`; both registered as printed. Every existing row (55) is
+within its allowance (`Tests.Coverage` +450 against 2,995.2); the retired absolute table's five `over/over` rows are the
+same five as at D375's and D376's K1s. This branch carries D376's registration but not D374's or D375's (the stack's
+recorded append conflicts at rebase).
