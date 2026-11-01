@@ -1367,8 +1367,20 @@ def selftest():
     # ── THE JOIN: `base` AND `head`, DRIVEN BOTH WAYS (D171) ──────────────────
     # ⛔ Every commit below is DERIVED from the live chain, never typed: an arm
     # naming a sha is an arm that stops being about this branch.
-    ritual = [(b, h, real[b]) for b, h in g_steps
-              if b in real and real[b].get("head") != h]
+    # ⛔ A SLID ROW IS NOT A RITUAL ROW (#154, D382's landing), and the raw ledger cannot tell them
+    # apart. A D372 row's `head` is the PRE-SQUASH commit, which a CI clone does
+    # not have, so `_touches` on it REFUSED (rc 2) on #154's run — the gate, read
+    # through `effective_ledger`, was green. The ritual control reads the rows
+    # that record their step WITHOUT sliding; the slid ones are priced by digest
+    # and have their own arms (D372).
+    _eff, _slid = effective_ledger(real, g_steps)
+    _slid_at = {b for _, b, _ in _slid}
+    ritual = [(b, h, _eff[b]) for b, h in g_steps
+              if b in _eff and b not in _slid_at and _eff[b].get("head") != h]
+    ok(all(_eff[b].get("base_reading") and _eff[b].get("head_reading")
+           for b in _slid_at),
+       f"...and the {len(_slid_at)} SLID row(s) left out of it each carry both "
+       f"reading digests, so they are priced by digest and not merely skipped")
     ok(all(records_step(r, b, h) for b, h, r in ritual),
        f"CONTROL — the {len(ritual)} row(s) written by the `--no-ff` landing "
        f"ritual ARE accepted: their head is the merge's second parent, reachable "
