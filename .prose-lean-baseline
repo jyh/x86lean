@@ -2,22 +2,16 @@
 # class 'shape' = a sentence matching one of the lexicon's shapes (read off the 2026-10-19 census; matching is NOT thereby an overclaim, and each census correction, being the Captain's wording, shrinks this file); 'predates' = a claim word in a headline carrier.
 # A line whose sentence is gone is refused (STALE-BASELINE): delete it. A NEW claim is refused until a .prose-lean-reads record names its Lean statement and a non-author reader.
 8ed322743cc7	CLAUDE.md	shape
-25cb2dbc0352	README.md	predates
 37c9b492334a	README.md	predates
 38d48e8ef5e2	README.md	predates
 459a4eb3d3c8	README.md	predates
-7287b3eb7e6a	README.md	predates
-7e19d1e730ee	README.md	predates
 9fdb391603a3	README.md	predates
-ca6f5a0389d2	docs/COVERAGE.md	shape
 2a2e64f7990b	docs/DECISIONS.md	shape
 45fbcc0084d1	docs/DECISIONS.md	shape
 4e4e420ecc7d	docs/DECISIONS.md	shape
-5572ab7fc7b2	docs/DECISIONS.md	shape
 82b8ec1e6c3f	docs/DECISIONS.md	shape
 a25f9bcceb77	docs/DECISIONS.md	shape
 b033d581a393	docs/DECISIONS.md	shape
-735a12c8ba9d	docs/DIFFERENTIAL-P2-BATCH6.md	shape
 11b239d7b57b	docs/TACAS-G1-POSITIONING.md	shape
 3c18c7d2f076	docs/TACAS-G3-TIMING-CLAIMS.md	shape
 071712810d85	paper/x86lean-semantics.tex	predates
@@ -31,16 +25,11 @@ bf83e8e0ad34	paper/x86lean-semantics.tex	predates
 # lexicon epoch 2 (R5, council 2026-10-22 item 3): sentences the epoch-1 lexicon did not see, accepted as debt by the WIDENING arm; each exists at the same path in the base tree.
 22fce6e3cc1b	README.md	lexicon-e2
 246f5a8f0bb9	README.md	lexicon-e2
-3775ec35ffcc	README.md	lexicon-e2
-3842c191e749	README.md	lexicon-e2
 4af72819f413	README.md	lexicon-e2
 5ffa69ad64e2	README.md	lexicon-e2
-60f97ce4f76b	README.md	lexicon-e2
 8796e79228b6	README.md	lexicon-e2
 a3109aca41c4	README.md	lexicon-e2
 e13166b8db96	README.md	lexicon-e2
-e1c4222ab2f4	README.md	lexicon-e2
-eae0e69e5704	README.md	lexicon-e2
 566a968aa47e	docs/DECISIONS.md	lexicon-e2
 b71eb4cda152	docs/DECISIONS.md	lexicon-e2
 e2e28a6de9a4	docs/P2-LOGIC-DESIGN.md	lexicon-e2
@@ -95,20 +84,3 @@ ebfd3ade293b	paper/x86lean-semantics.tex	lexicon-e2
 8afffbccd381	Tests/AnchorsVexSilC.lean	docstring
 fcd4a5cb0de5	Tests/AnchorsVexSilC.lean	docstring
 25127b2cf11f	Tests/Coverage.lean	docstring
-2589573ddebb	X86/Basic.lean	docstring-cited
-d92dbeece808	X86/Logic.lean	docstring
-026cbfa7995b	X86/Program.lean	docstring
-3d548b6d3bdc	X86/Program.lean	docstring-cited
-3ea661f9ee3e	X86/Program.lean	docstring
-48eb43c4d46a	X86/Program.lean	docstring
-bfdf148f3c87	X86/Program.lean	docstring
-cccfba31f4ef	X86/Program.lean	docstring
-f43a870e750c	X86/Program.lean	docstring
-6b372f0f4f8f	X86/Serialize.lean	docstring-cited
-03ca69422d43	X86/Theorems.lean	docstring
-1b099a605e43	X86/Theorems.lean	docstring
-7123c6c0f468	X86/Theorems.lean	docstring
-bd75d9781f06	X86/Theorems.lean	docstring
-c3d33fcca788	X86/Theorems.lean	docstring
-7a89ee6c7d42	X86/Value.lean	docstring
-9861248cad83	X86/Vex.lean	docstring
