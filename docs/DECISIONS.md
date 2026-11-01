@@ -23591,6 +23591,11 @@ run before the merge and a re-run after it ⇒ BEFORE · a skipped shard ⇒ NEV
 empty list), which is red but not an arm's red. `min` → `max` **survived the first 17 arms**, because none had two
 complete runs on opposite sides of the merge. The re-run arm was written for it, and it now reds exactly that arm. The
 printed arm count is now counted, not typed.
+**paper's read (CONCUR at `65974e5`, two LOWs, both taken).** (1) A `<=` → `<` mutant survived all 18 arms, because no
+arm put a completion exactly at the merge instant. The boundary arm is added (inclusive), and that mutant now reds it.
+19 arms. (2) The jobs endpoint returns a run's LATEST attempt. A run green before the merge and re-attempted after it
+therefore reads AFTER, which errs toward listing a merge as matrix-less (the safe direction). It is printed on the
+NOT READ line, where the reader meets it.
 **First live reading (2026-10-31, `--since 2026-10-14`):** 54 / 22 / 3, PR for PR the table in PR #149. ⚠️ **That is
 TRANSPORT, not corroboration.** The tool and that table share an author and a method (the same API fields, the same
 rule), so their agreement says the rule was coded as written and nothing about whether the rule is right.

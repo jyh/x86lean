@@ -174,7 +174,9 @@ def census(since):
     for n, sha, at, _cls, _r in unrec:
         print(f"  #{n:<4} {sha}  merged {at}Z  matrix BEFORE  FAST-PATH: recorded (the matrix had completed anyway)")
     print("NOT READ: who merged (every merge reads one shared account); whether each merge ref's digest equalled a "
-          "green master's (D340's GO); a matrix at an EARLIER head of the same PR, by design.")
+          "green master's (D340's GO); a matrix at an EARLIER head of the same PR, by design; "
+          "a re-ATTEMPTED run, read at its LATEST attempt only (a run green before the merge and re-attempted "
+          "after it reads AFTER: the safe direction).")
     return 0
 
 
@@ -219,6 +221,8 @@ def selftest():
         classify(m, [[("cancelled", "2026-10-20T12:30:00Z")], ok]) == "BEFORE")
     arm("a complete run BEFORE the merge and a re-run AFTER it ⇒ BEFORE (a later re-run undoes nothing)",
         classify(m, [[("success", "2026-10-20T14:00:00Z")], ok]) == "BEFORE")
+    arm("a matrix completing AT the merge instant ⇒ BEFORE (the boundary is inclusive; paper's LOW on #150)",
+        classify(m, [[("success", m)]]) == "BEFORE")
     arm("a SKIPPED shard is not a run shard ⇒ NEVER",
         classify(m, [[("skipped", "2026-10-20T11:00:00Z")]]) == "NEVER")
     print("fast-path selftest: %s (%d arms)" % ("CLEAN" if not bad else "FAIL", len(ran)))
