@@ -23782,10 +23782,12 @@ says "the eleven"; it means this population.
 **No escalation would have fired on any of the 14.** No unit refused on two consecutive master runs in the window.
 That is a reading of the past, not a property of the rule: the rule's arm is in the selftest.
 
-**Arms (`--selftest`, 23, no network: the forge is injected).** Parsing: band and NEW rows, unit names with spaces,
+**Arms (`--selftest`, 24, no network: the forge is injected).** Parsing: band and NEW rows, unit names with spaces,
 Actions timestamps stripped, the selftest's own rows above `── measuring the delta` ignored. **The PRODUCER**:
 `kernel_delta.verdict`'s own D141 UNMEASURABLE fixture exits 3 and parses to its unit, and an OVER parses to none.
-The decision: a record and a clean predecessor pass and the warning names the record. **MUTANT 1**: exit 3 with no
+The decision: a record and a clean predecessor pass and the warning names the record. **An exit 3 with NO parsed unit stays
+red even with a record** (paper's finding at its #153 read, driven red first: it read green with `units []`, which the next
+run's count could never see). **MUTANT 1**: exit 3 with no
 record stays red. **MUTANT 2**: exit 1 stays red with a record. The same unit on the previous run stays red; a different
 unit does not; an unreadable predecessor stays red. The TAG row round-trips. PR-run record: success at `HEAD^2` counts,
 a failed job, another workflow's job, an unreadable forge and a one-parent commit do not. The predecessor is the run
@@ -23798,7 +23800,8 @@ measuring-line scope dropped · "previous" taken as the latest run · any workfl
 so. (b) A PR run's `kernel-delta` success is read from its conclusion, and a null-pair SKIP also concludes success.
 That cannot coincide with a push-run refusal unless the PR changed no reading input, which a refusal contradicts.
 Declared, not driven. (c) The escalation compares unit NAMES on two CONSECUTIVE master runs. A unit refusing on
-alternate runs is not escalated. (d) A NEW-unit refusal is greened by a ledger row measured on another box (katmai);
+alternate runs is not escalated, and "the previous run" is the latest COMPLETED one, so when two master pushes overlap a
+predecessor still running is skipped: one missed pairing (paper's LOW at its #153 read). (d) A NEW-unit refusal is greened by a ledger row measured on another box (katmai);
 the runner still has no ceiling for that unit, and the next master run sees it as an existing unit. (e) The NEW-unit
 row's parser arm is typed from a real log line; the producer arm covers the band row only. (f) The code path in
 `kernel_delta.main` runs for the first time on the first master push after this merges. That run is the end-to-end
