@@ -202,14 +202,14 @@ question the differential actually depends on is whether the demand has a verdic
 
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
-| the oracle EXECUTES | 66 | 86,443 | 25.0% |
-| the oracle REFUSES | 88 | 169,877 | 49.2% |
+| the oracle EXECUTES | 66 | 86,191 | 25.0% |
+| the oracle REFUSES | 88 | 169,424 | 49.0% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 157 | **256,561** | **74.3%** |
-| not asked at its own bucket | | 88,882 | 25.7% |
+| **probed so far** | 157 | **255,856** | **74.1%** |
+| not asked at its own bucket | | 89,587 | 25.9% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-57,023 instructions, 16.5% of the gap** — that is
+57,728 instructions, 16.7% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.
@@ -256,11 +256,11 @@ class shares it. Within a batch the order is by demand.
 
 | batch | bucket | occurrences | share of the gap | cumulative |
 |---|---|---|---|---|
-| 1 | AVX2/AVX (ymm) | 108,554 | 31.42% | 31.4% |
-| 2 | SSE-legacy (xmm) | 95,965 | 27.78% | 59.2% |
-| 3 | VEX-128 (v… xmm) | 62,252 | 18.02% | 77.2% |
-| 4 | MMX (mm) | 43,045 | 12.46% | 89.7% |
-| 5 | AVX-512 (zmm/k) | 33,884 | 9.81% | 99.5% |
+| 1 | AVX2/AVX (ymm) | 105,365 | 30.50% | 30.5% |
+| 2 | SSE-legacy (xmm) | 95,965 | 27.78% | 58.3% |
+| 3 | VEX-128 (v… xmm) | 60,567 | 17.53% | 75.8% |
+| 4 | MMX (mm) | 43,045 | 12.46% | 88.3% |
+| 5 | AVX-512 (zmm/k) | 38,758 | 11.22% | 99.5% |
 | 6 | AVX (state) | 1,241 | 0.36% | 99.9% |
 | 7 | BMI2 | 400 | 0.12% | 100.0% |
 | 8 | SSE (fence) | 32 | 0.01% | 100.0% |

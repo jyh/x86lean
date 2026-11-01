@@ -620,7 +620,8 @@ def isa_bucket(mn, ops, kind="plain"):
         return "segment base %fs:/%gs: (P2 addition 1)"
     if mn == "movabsq" or mn == "movabs":
         return "mov imm64 / movabs (P2 addition 3)"
-    if re.search(r"%zmm|%k[0-7]\b", ops):
+    # ⭐ D380: %xmm16-31 / %ymm16-31 exist only under EVEX, so a form naming one is AVX-512 with or without a mask.
+    if re.search(r"%zmm|%k[0-7]\b|%[xy]mm(1[6-9]|2[0-9]|3[01])\b", ops):
         return "AVX-512 (zmm/k)"
     if "%ymm" in ops:
         return "AVX2/AVX (ymm)"
@@ -2179,6 +2180,14 @@ def selftest():
         (("vzeroupper", ""), "AVX (state)"),
         # ⛔ the DEFAULT is a named, printed bucket — never a silent "other"
         (("frobnicate", "%rax"), "GPR/other (unclassified)"),
+        # ⭐ D380: registers 16-31 exist only under EVEX, so they are AVX-512 even with no %zmm and no mask (an
+        # unmasked `vpmulld %ymm17,…` was bucketed ymm and CREDITED as VEX.256). The 15s and the low registers stay.
+        (("vpmulld", "%ymm17,%ymm1,%ymm3"), "AVX-512 (zmm/k)"),
+        (("vpaddd", "%xmm16,%xmm1,%xmm0"), "AVX-512 (zmm/k)"),
+        (("vmovdqu64", "(%rax),%ymm31"), "AVX-512 (zmm/k)"),
+        (("vpaddd", "%ymm15,%ymm1,%ymm0"), "AVX2/AVX (ymm)"),
+        (("paddd", "%xmm15,%xmm0"), "SSE-legacy (xmm)"),
+        (("vpaddd", "%xmm1,%xmm2,%xmm0"), "VEX-128 (v… xmm)"),
     ]
     for (mn, ops), want in ext_arms:
         got = isa_bucket(mn, ops)
