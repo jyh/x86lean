@@ -193,18 +193,11 @@ Every number below is a STATIC count of instruction occurrences in a disassembly
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **2 of 2** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 2** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 495 | 0.01% | 100.0% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 136,972 | 2.55% | 100.0% |
-| `CC` | both routes say compiler-emitted | 5,215,297 | 96.94% | 100.0% |
-| `U` | no function symbol covers this address | 27,159 | 0.50% | 100.0% |
-
-- **Hand-written by the NAME route: 136,972 (2.5%).** By the BODY route: 495 (0.0%). The two routes disagree on 137,467 instructions (2.6%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `_ZL22set_ix86_tune_featuresP11gcc_options14processor_typeb.lto_priv.0`, `btree_handle_root_split.part.0`, `_ZL16search_line_sse2PKhS0_.lto_priv.0`, `_ZN14range_op_table23initialize_integral_opsEv`, `_Z22ior_hard_reg_conflictsP11ira_allocnoRK12HARD_REG_SET`, `_ZL17zero_to_inf_rangeR10real_valueS0_i.lto_priv.0.cold`
-- The `AC` cell's largest functions: `_ZL23ix86_expand_int_sse_cmpP7rtx_def8rtx_codeS0_S0_S0_S0_Pb.lto_priv.0`, `_Z17gen_avx_haddv8sf3P7rtx_defS0_S0_`, `_Z17gen_avx_hsubv8sf3P7rtx_defS0_S0_`, `_Z21ix86_expand_sse_movccP7rtx_defS0_S0_S0_.cold`, `_ZN12_GLOBAL__N_134pass_remove_partial_avx_dependency7executeEP8function.lto_priv.0`, `_ZL21convert_mult_to_fma_1P9tree_nodeS0_S0_.lto_priv.0`
+| `-` | this column has no symbol map | 5,379,923 | 100.00% | 100.0% |
 
 #### What is NOT covered, bucketed by ISA extension
 
@@ -295,18 +288,11 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **106 of 106** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 106** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 344 | 0.04% | 100.0% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 1,155 | 0.13% | 69.1% |
-| `CC` | both routes say compiler-emitted | 863,382 | 98.16% | 99.8% |
-| `U` | no function symbol covers this address | 14,670 | 1.67% | 100.0% |
-
-- **Hand-written by the NAME route: 1,155 (0.1%).** By the BODY route: 344 (0.0%). The two routes disagree on 1,499 instructions (0.2%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `sha384_read_ctx`, `sha512_read_ctx`, `src_to_dest_compare`, `dev_ino_compare`, `sm3_init_ctx`
-- The `AC` cell's largest functions: `crc32_update_no_xor_pclmul`, `cksum_avx512`, `cksum_avx2`, `cksum_pclmul`, `wc_lines_avx512`, `wc_lines_avx2`
+| `-` | this column has no symbol map | 879,551 | 100.00% | 99.7% |
 
 #### What is NOT covered, bucketed by ISA extension
 
@@ -325,7 +311,7 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 
 ### glibc — 28 ELF x86-64 objects
 
-- **603,554 instructions** over 688 distinct objdump mnemonics.
+- **603,554 instructions** over 696 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 560,007 (92.8%).** (register-form 360,875 · memory-form 199,132, of which the model executes a memory form for 197,839)
 - ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 1,742 (0.29%)** (register-form 1,606 · memory-form 136, of which the model executes a memory form for 2) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 8,045 (1.33%)** (register-form 3,856 · memory-form 4,189, of which the model executes a memory form for 4,189) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
@@ -400,28 +386,20 @@ Symbol maps were found for **106 of 106** objects in this column. Rows are the t
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **28 of 28** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 28** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `AA` | both routes say HAND-WRITTEN | 20,563 | 3.41% | 77.3% |
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 13,783 | 2.28% | 65.2% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 55,619 | 9.22% | 73.4% |
-| `CC` | both routes say compiler-emitted | 504,808 | 83.64% | 96.2% |
-| `U` | no function symbol covers this address | 8,781 | 1.45% | 100.0% |
-
-- **Hand-written by the NAME route: 76,182 (12.6%).** By the BODY route: 34,346 (5.7%). The two routes disagree on 69,402 instructions (11.5%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `strcmp`, `__kernel_casinhf128`, `catanhf128`, `catanf128`, `__ieee754_hypotf128`, `__multc3`
-- The `AC` cell's largest functions: `__strncmp_sse2`, `__stpncpy_sse2_unaligned`, `__strncat_sse2_unaligned`, `__strncpy_sse2_unaligned`, `__strncmp_sse42`, `__wcscmp_sse2`
+| `-` | this column has no symbol map | 603,554 | 100.00% | 92.8% |
 
 #### What is NOT covered, bucketed by ISA extension
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
 | x87 (st) | 13,773 | 2.28% | `fldt`, `fstp`, `fxch`, `fstpt`, `fld`, `fmul` |
-| VEX-128 (v… xmm) | 9,851 | 1.63% | `vmovsd`, `vmulsd`, `vaddsd`, `vsubsd`, `vmovq`, `vfmaddsd` |
-| AVX2/AVX (ymm) | 8,373 | 1.39% | `vmovdqu`, `vpmovmskb`, `vpcmpeqb`, `vmovdqa`, `vpcmpeqd`, `vmovups` |
-| AVX-512 (zmm/k) | 8,371 | 1.39% | `vmovups`, `vmovdqu64`, `kmovd`, `vmovdqa64`, `vfmadd213pd`, `kmovw` |
+| VEX-128 (v… xmm) | 9,827 | 1.63% | `vmovsd`, `vmulsd`, `vaddsd`, `vsubsd`, `vmovq`, `vfmaddsd` |
+| AVX-512 (zmm/k) | 8,399 | 1.39% | `vmovups`, `vmovdqu64`, `kmovd`, `vmovdqa64`, `vfmadd213pd`, `kmovw` |
+| AVX2/AVX (ymm) | 8,369 | 1.39% | `vmovdqu`, `vpmovmskb`, `vpcmpeqb`, `vmovdqa`, `vpcmpeqd`, `vmovups` |
 | SSE-legacy (xmm) | 1,200 | 0.20% | `palignr`, `pcmpistri`, `pminub`, `movntps`, `movmskps`, `movmskpd` |
 | AVX (state) | 708 | 0.12% | `vzeroupper`, `vzeroall` |
 | SYSCALL | 544 | 0.09% | `syscall` |
@@ -456,12 +434,12 @@ are excluded, or every math-heavy C function would read as hand-written.
 
 - **303,830 instructions** over 496 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 195,838 (64.5%).** (register-form 123,249 · memory-form 72,589, of which the model executes a memory form for 68,037)
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 24,868 (8.18%)** (register-form 20,747 · memory-form 4,121, of which the model executes a memory form for 3,913) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 24,850 (8.18%)** (register-form 20,743 · memory-form 4,107, of which the model executes a memory form for 3,899) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 18,929 (6.23%)** (register-form 9,972 · memory-form 8,957, of which the model executes a memory form for 8,952) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).
 - ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the operands.
 - ⭐ **D352 (STATUS 7d): "of which the model executes a memory form for" is the MODELLED part** — memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential vector or a processor probe, classified by the same `_classify`. One memory form stands for every addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it can only under-count.
 - Mapped to a roster name the model does not have: 0 (0.0%).
-- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 9,723 (3.20%) — counted as NOT covered.
+- Mapped to a roster name the model HAS, but in a form its state cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, a VEX encoding, or a `lock` prefix on a form the model does not list as lockable (`Lockable:` in docs/COVERAGE.md): 9,741 (3.21%) — counted as NOT covered.
 - Not mapped at all, and therefore counted as NOT covered: 54,472 (17.9%).
 
 | rank | mnemonic | occurrences | share | in the model? |
@@ -495,7 +473,7 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 27 | `xor` | 2,460 | 0.81% | ✅ |
 | 28 | `movdqu` | 2,340 | 0.77% | ✅ |
 | 29 | `cmovcc` | 2,268 | 0.75% | ✅ |
-| 30 | `vpbroadcastd` | 2,197 | 0.72% | ⚙ silicon only |
+| 30 | `vpbroadcastd` | 2,193 | 0.72% | ⚙ silicon only |
 
 **The ranked list of mnemonics the model does NOT cover** (the P2 roster candidates, by demand):
 
@@ -506,11 +484,11 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 3 | `vpaddw` | 4,658 | 1.53% | ⚙ VEX table (differential, D341), implemented |
 | 4 | `vpaddd` | 4,448 | 1.46% | ⚙ VEX table (differential, D341), implemented |
 | 5 | `pmaddwd` | 2,635 | 0.87% | ⚙ silicon (hwprobe), implemented |
-| 6 | `vpbroadcastd` | 2,197 | 0.72% | ⚙ silicon (hwprobe), implemented |
+| 6 | `vpbroadcastd` | 2,193 | 0.72% | ⚙ silicon (hwprobe), implemented |
 | 7 | `vpmaddwd` | 2,170 | 0.71% | ⚙ silicon (hwprobe), implemented |
-| 8 | `vpmulhrsw` | 2,166 | 0.71% | ⚙ silicon (hwprobe), implemented |
+| 8 | `vpmulhrsw` | 2,152 | 0.71% | ⚙ silicon (hwprobe), implemented |
 | 9 | `vpsrad` | 2,053 | 0.68% | ⚙ silicon (hwprobe), implemented |
-| 10 | `vpmulhrsw (vector operand)` | 1,839 | 0.61% | — |
+| 10 | `vpmulhrsw (vector operand)` | 1,853 | 0.61% | — |
 | 11 | `vinserti128` | 1,810 | 0.60% | — |
 | 12 | `pmulhrsw` | 1,743 | 0.57% | ⚙ silicon (hwprobe), implemented |
 | 13 | `vpmulld` | 1,731 | 0.57% | — |
@@ -520,7 +498,7 @@ are excluded, or every math-heavy C function would read as hand-written.
 | 17 | `pmaddubsw` | 1,483 | 0.49% | ⚙ silicon (hwprobe), implemented |
 | 18 | `vpmaddubsw` | 1,433 | 0.47% | ⚙ silicon (hwprobe), implemented |
 | 19 | `vmovq` | 1,385 | 0.46% | — |
-| 20 | `vpbroadcastd (vector operand)` | 1,380 | 0.45% | — |
+| 20 | `vpbroadcastd (vector operand)` | 1,384 | 0.46% | — |
 | 21 | `vpsubw` | 1,367 | 0.45% | ⚙ VEX table (differential, D341), implemented |
 | 22 | `pshufb` | 1,347 | 0.44% | ⚙ silicon (hwprobe), implemented |
 | 23 | `vpaddsw` | 1,238 | 0.41% | — |
@@ -529,28 +507,20 @@ are excluded, or every math-heavy C function would read as hand-written.
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **1 of 1** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 1** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `AA` | both routes say HAND-WRITTEN | 181,083 | 59.60% | 43.7% |
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 3,619 | 1.19% | 100.0% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 24,700 | 8.13% | 76.0% |
-| `CC` | both routes say compiler-emitted | 93,471 | 30.76% | 100.0% |
-| `U` | no function symbol covers this address | 957 | 0.31% | 100.0% |
-
-- **Hand-written by the NAME route: 205,783 (67.7%).** By the BODY route: 184,702 (60.8%). The two routes disagree on 28,319 instructions (9.3%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `dav1d_itx_dsp_init_16bpc`, `dav1d_itx_dsp_init_8bpc`, `dav1d_mc_dsp_init_8bpc`, `dav1d_mc_dsp_init_16bpc`, `dav1d_calc_eih`, `dav1d_intra_pred_dsp_init_8bpc`
-- The `AC` cell's largest functions: `dav1d_fguv_32x32xn_i444_16bpc_ssse3`, `dav1d_fguv_32x32xn_i422_16bpc_ssse3`, `dav1d_fguv_32x32xn_i420_16bpc_ssse3`, `dav1d_fguv_32x32xn_i422_8bpc_ssse3`, `dav1d_fguv_32x32xn_i444_8bpc_ssse3`, `dav1d_fguv_32x32xn_i420_8bpc_ssse3`
+| `-` | this column has no symbol map | 303,830 | 100.00% | 64.5% |
 
 #### What is NOT covered, bucketed by ISA extension
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
-| AVX2/AVX (ymm) | 44,729 | 14.72% | `vmovdqa`, `vpaddd`, `vpaddw`, `vpmulhrsw`, `vpsrad`, `vpmaddwd` |
-| AVX-512 (zmm/k) | 36,181 | 11.91% | `vmovdqa32`, `vpmulhrsw`, `vpaddw`, `vpdpwssd`, `vpbroadcastd`, `vpaddd` |
+| AVX2/AVX (ymm) | 44,624 | 14.69% | `vmovdqa`, `vpaddd`, `vpaddw`, `vpmulhrsw`, `vpsrad`, `vpmaddwd` |
+| AVX-512 (zmm/k) | 36,320 | 11.95% | `vmovdqa32`, `vpmulhrsw`, `vpaddw`, `vpdpwssd`, `vpbroadcastd`, `vpaddd` |
 | SSE-legacy (xmm) | 14,947 | 4.92% | `pmaddwd`, `pmulhrsw`, `pmaddubsw`, `pshufb`, `packssdw`, `pinsrw` |
-| VEX-128 (v… xmm) | 11,062 | 3.64% | `vmovdqa`, `vmovq`, `vmovd`, `vmovdqu`, `vmovhps`, `vpextrd` |
+| VEX-128 (v… xmm) | 11,028 | 3.63% | `vmovdqa`, `vmovq`, `vmovd`, `vmovdqu`, `vmovhps`, `vpextrd` |
 | AVX (state) | 679 | 0.22% | `vzeroupper` |
 | BMI2 | 392 | 0.13% | `rorxl`, `rorxq` |
 | CPUID | 1 | 0.00% | `cpuid` |
@@ -633,30 +603,22 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **2 of 2** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 2** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `AA` | both routes say HAND-WRITTEN | 227,546 | 7.30% | 49.2% |
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 133 | 0.00% | 100.0% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 127,628 | 4.09% | 98.2% |
-| `CC` | both routes say compiler-emitted | 2,746,475 | 88.11% | 100.0% |
-| `U` | no function symbol covers this address | 15,204 | 0.49% | 99.9% |
-
-- **Hand-written by the NAME route: 355,174 (11.4%).** By the BODY route: 227,679 (7.3%). The two routes disagree on 127,761 instructions (4.1%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `apply_window.constprop.0`, `copy64_c`, `get_pixels_16_c`
-- The `AC` cell's largest functions: `ff_snow_horizontal_compose97i_mmx`, `dct_quantize_sse2`, `dct_quantize_ssse3`, `av_aes_init`, `gmc_mmx`, `ff_dct32_float_avx`
+| `-` | this column has no symbol map | 3,116,986 | 100.00% | 96.2% |
 
 #### What is NOT covered, bucketed by ISA extension
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
-| AVX2/AVX (ymm) | 45,396 | 1.46% | `vmovaps`, `vshufps`, `vaddps`, `vsubps`, `vmulps`, `vpaddd` |
-| VEX-128 (v… xmm) | 33,479 | 1.07% | `vmovdqa`, `vpaddw`, `vpaddd`, `vpmaddwd`, `vpsrad`, `vpsubw` |
+| AVX2/AVX (ymm) | 45,395 | 1.46% | `vmovaps`, `vshufps`, `vaddps`, `vsubps`, `vmulps`, `vpaddd` |
+| VEX-128 (v… xmm) | 33,474 | 1.07% | `vmovdqa`, `vpaddw`, `vpaddd`, `vpmaddwd`, `vpsrad`, `vpsubw` |
 | MMX (mm) | 19,887 | 0.64% | `movq`, `paddw`, `movd`, `psubw`, `punpcklbw`, `pxor` |
 | SSE-legacy (xmm) | 18,850 | 0.60% | `pmaddwd`, `packssdw`, `psubusb`, `pmaxsw`, `pmaddubsw`, `pminsw` |
 | AVX (state) | 255 | 0.01% | `vzeroupper` |
-| AVX-512 (zmm/k) | 230 | 0.01% | `vmovdqu32`, `vpermb`, `vpdpbusd`, `vpbroadcastd`, `vpxord`, `vbroadcasti32x4` |
+| AVX-512 (zmm/k) | 236 | 0.01% | `vmovdqu32`, `vpermb`, `vpdpbusd`, `vpbroadcastd`, `vpmovdw`, `vpxord` |
 | x87 (st) | 19 | 0.00% | `fstpl`, `fldl`, `fprem`, `fnstsw`, `fstp`, `fildll` |
 | SSE2 (fence) | 3 | 0.00% | `lfence` |
 | TSC | 3 | 0.00% | `rdtsc` |
@@ -724,16 +686,11 @@ Symbol maps were found for **2 of 2** objects in this column. Rows are the two r
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **52 of 52** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 52** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 282 | 0.19% | 94.7% |
-| `CC` | both routes say compiler-emitted | 150,388 | 99.14% | 99.9% |
-| `U` | no function symbol covers this address | 1,018 | 0.67% | 100.0% |
-
-- **Hand-written by the NAME route: 0 (0.0%).** By the BODY route: 282 (0.2%). The two routes disagree on 282 instructions (0.2%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `F64NDecode`, `Flush`
+| `-` | this column has no symbol map | 151,688 | 100.00% | 99.9% |
 
 #### What is NOT covered, bucketed by ISA extension
 
@@ -817,16 +774,11 @@ Symbol maps were found for **52 of 52** objects in this column. Rows are the two
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **19 of 19** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 19** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 59,515 | 53.09% | 80.9% |
-| `CC` | both routes say compiler-emitted | 52,317 | 46.67% | 96.9% |
-| `U` | no function symbol covers this address | 272 | 0.24% | 100.0% |
-
-- **Hand-written by the NAME route: 0 (0.0%).** By the BODY route: 59,515 (53.1%). The two routes disagree on 59,515 instructions (53.1%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `CopyFromUswc`, `I420_R5G6B5`, `I420_R5G5B5`, `I420_R8G8B8A8`, `I420_B8G8R8A8`, `I420_A8B8G8R8`
+| `-` | this column has no symbol map | 112,104 | 100.00% | 88.4% |
 
 #### What is NOT covered, bucketed by ISA extension
 
@@ -914,30 +866,22 @@ Symbol maps were found for **19 of 19** objects in this column. Rows are the two
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **1 of 1** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 1** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `AA` | both routes say HAND-WRITTEN | 181,880 | 25.18% | 72.8% |
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 81,330 | 11.26% | 89.3% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 31,862 | 4.41% | 90.3% |
-| `CC` | both routes say compiler-emitted | 412,101 | 57.05% | 99.7% |
-| `U` | no function symbol covers this address | 15,158 | 2.10% | 87.1% |
-
-- **Hand-written by the NAME route: 213,742 (29.6%).** By the BODY route: 263,210 (36.4%). The two routes disagree on 113,192 instructions (15.7%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `highbd_idct32_1024_4x32`, `highbd_idct32_135_4x32`, `set_segment_index.constprop.0`, `highbd_idct32_34_4x32`, `idct16_8col`, `highbd_idct16x16_38_4col`
-- The `AC` cell's largest functions: `vp9_apply_temporal_filter_sse4_1`, `vpx_scaled_2d_ssse3`, `vp9_highbd_apply_temporal_filter_sse4_1`, `vpx_convolve8_horiz_avx2`, `vp9_scale_and_extend_frame_ssse3`, `vpx_convolve8_vert_avx2`
+| `-` | this column has no symbol map | 722,331 | 100.00% | 91.1% |
 
 #### What is NOT covered, bucketed by ISA extension
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
 | SSE-legacy (xmm) | 49,492 | 6.85% | `psubusw`, `pmaddwd`, `psadbw`, `pmullw`, `pmuludq`, `packssdw` |
-| AVX2/AVX (ymm) | 11,593 | 1.60% | `vmovdqa`, `vmovdqu`, `vpaddd`, `vpaddw`, `vpsubw`, `vpabsw` |
+| AVX2/AVX (ymm) | 11,592 | 1.60% | `vmovdqa`, `vmovdqu`, `vpaddd`, `vpaddw`, `vpsubw`, `vpabsw` |
 | VEX-128 (v… xmm) | 2,738 | 0.38% | `vmovdqu`, `vmovdqa`, `vpxor`, `vmovd`, `vmovq`, `vpackssdw` |
 | MMX (mm) | 420 | 0.06% | `movq`, `movd`, `paddw`, `punpcklbw`, `paddsw`, `pmullw` |
 | AVX (state) | 163 | 0.02% | `vzeroupper` |
-| AVX-512 (zmm/k) | 24 | 0.00% | `vmovdqa64`, `vpaddd`, `vpsadbw`, `vpslldq`, `vpord`, `vmovdqu64` |
+| AVX-512 (zmm/k) | 25 | 0.00% | `vmovdqa64`, `vpaddd`, `vpsadbw`, `vpslldq`, `vpord`, `vmovdqu64` |
 | CPUID | 12 | 0.00% | `cpuid` |
 | XSAVE | 8 | 0.00% | `xgetbv` |
 | x87 (st) | 4 | 0.00% | `fldcw`, `wait`, `fnstcw` |
@@ -1021,29 +965,21 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 #### Hand-written vs compiler-emitted — the confusion matrix
 
-Symbol maps were found for **1 of 1** objects in this column. Rows are the two routes; a cell is a count of INSTRUCTIONS.
+Symbol maps were found for **0 of 1** objects in this column. ⛔ **No symbol map: this column is NOT attributed**, and every instruction below sits in the `-` cell rather than being counted as compiler output.
 
 | cell | what it means | instructions | share | covered by the model |
 |---|---|---|---|---|
-| `AA` | both routes say HAND-WRITTEN | 72,569 | 19.23% | 47.5% |
-| `CA` | packed-SIMD body, but no ISA suffix in the name | 572 | 0.15% | 78.0% |
-| `AC` | ISA-suffixed name, but the body is not packed SIMD | 33,250 | 8.81% | 90.7% |
-| `CC` | both routes say compiler-emitted | 269,143 | 71.33% | 99.8% |
-| `U` | no function symbol covers this address | 1,796 | 0.48% | 100.0% |
-
-- **Hand-written by the NAME route: 105,819 (28.0%).** By the BODY route: 73,141 (19.4%). The two routes disagree on 33,822 instructions (9.0%), and that disagreement is the honest width of this split.
-- The `CA` cell's largest functions: `mbcmp_init`, `x264_8_hadamard_load`, `x264_8_pixel_ssd_8x8_sse2slow`, `x264_10_hadamard_load`, `x264_8_pixel_ssd_16x16_sse2slow`, `x264_10_coeff_last64_lzcnt`
-- The `AC` cell's largest functions: `x264_8_trellis_cabac_chroma_422_dc_ssse3`, `x264_10_trellis_cabac_chroma_422_dc_ssse3`, `mbtree_propagate_list_avx2`, `mbtree_propagate_list_avx`, `mbtree_propagate_list_ssse3`, `x264_8_pixel_avg2_w16_cache64_ssse3`
+| `-` | this column has no symbol map | 377,330 | 100.00% | 88.9% |
 
 #### What is NOT covered, bucketed by ISA extension
 
 | bucket | occurrences | share of column | the mnemonics in it |
 |---|---|---|---|
 | MMX (mm) | 15,747 | 4.17% | `movq`, `paddw`, `psubw`, `movd`, `pxor`, `pmaxsw` |
-| VEX-128 (v… xmm) | 13,288 | 3.52% | `vmovdqa`, `vpaddw`, `vpsubw`, `vpaddd`, `vmovd`, `vmovq` |
+| VEX-128 (v… xmm) | 13,285 | 3.52% | `vmovdqa`, `vpaddw`, `vpsubw`, `vpaddd`, `vmovd`, `vmovq` |
 | SSE-legacy (xmm) | 6,538 | 1.73% | `psadbw`, `pmaxsw`, `pabsw`, `pmaddwd`, `pmuludq`, `pmaddubsw` |
 | AVX2/AVX (ymm) | 3,647 | 0.97% | `vpaddw`, `vmovdqa`, `vpsubw`, `vinserti128`, `vpabsw`, `vmovdqu` |
-| AVX-512 (zmm/k) | 2,323 | 0.62% | `vpbroadcastq`, `vmovdqa32`, `vinserti32x4`, `vpaddd`, `vpbroadcastd`, `vpsadbw` |
+| AVX-512 (zmm/k) | 2,326 | 0.62% | `vpbroadcastq`, `vmovdqa32`, `vinserti32x4`, `vpaddd`, `vpbroadcastd`, `vpsadbw` |
 | AVX (state) | 144 | 0.04% | `vzeroupper` |
 | SSE (fence) | 22 | 0.01% | `sfence` |
 | BMI2 | 8 | 0.00% | `rorxq`, `bzhil`, `rorxl` |
@@ -1053,7 +989,7 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 ### The assembly class, pooled
 
 - **4,784,269 instructions**, covered by the model (differentially tested mnemonics) **4,438,826 (92.8%)**.
-- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 122,204 (2.55%)** — inside the not-covered figure below, never added to the line above (D337).
+- ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 122,186 (2.55%)** — inside the not-covered figure below, never added to the line above (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 68,366 (1.43%)** — inside the not-covered figure below, never added to the line above (D342).
 - ⛔ Pooled ACROSS the codec columns and never with compiler output: the two are different demands, which is why this class exists.
 
@@ -1061,11 +997,11 @@ Symbol maps were found for **1 of 1** objects in this column. Rows are the two r
 
 | bucket | occurrences | share of the class | share of the UNCOVERED work |
 |---|---|---|---|
-| AVX2/AVX (ymm) | 105,365 | 2.20% | 30.5% |
+| AVX2/AVX (ymm) | 105,258 | 2.20% | 30.5% |
 | SSE-legacy (xmm) | 95,965 | 2.01% | 27.8% |
-| VEX-128 (v… xmm) | 60,567 | 1.27% | 17.5% |
+| VEX-128 (v… xmm) | 60,525 | 1.27% | 17.5% |
 | MMX (mm) | 43,045 | 0.90% | 12.5% |
-| AVX-512 (zmm/k) | 38,758 | 0.81% | 11.2% |
+| AVX-512 (zmm/k) | 38,907 | 0.81% | 11.3% |
 | AVX (state) | 1,241 | 0.03% | 0.4% |
 | BMI2 | 400 | 0.01% | 0.1% |
 | SSE (fence) | 32 | 0.00% | 0.0% |
@@ -1171,12 +1107,13 @@ Symbol maps were found for **0 of 1** objects in this column. ⛔ **No symbol ma
 | SSE2 (pause) | 314 | 0.01% | `pause` |
 | SSE2 (fence) | 168 | 0.01% | `lfence`, `mfence` |
 | TSC | 127 | 0.00% | `rdtsc`, `rdtscp` |
-| VEX-128 (v… xmm) | 52 | 0.00% | `vpxor`, `vpaddd`, `vprord`, `vmovdqu`, `vpshufd`, `vmovdqa` |
+| VEX-128 (v… xmm) | 44 | 0.00% | `vpxor`, `vpaddd`, `vmovdqu`, `vpshufd`, `vmovdqa`, `vmovd` |
 | CPUID | 41 | 0.00% | `cpuid` |
 | SSE (fence) | 28 | 0.00% | `sfence` |
 | x87 (st) | 18 | 0.00% | `fninit`, `wait`, `fldl`, `fnclex`, `fildl`, `fnstsw` |
 | SSE2 (nt store) | 16 | 0.00% | `movntiq`, `movntil` |
-| AVX2/AVX (ymm) | 10 | 0.00% | `vmovdqa`, `vmovdqu`, `vpermi2d`, `vextracti128` |
+| AVX-512 (zmm/k) | 10 | 0.00% | `vprord`, `vpermi2d` |
+| AVX2/AVX (ymm) | 8 | 0.00% | `vmovdqa`, `vmovdqu`, `vextracti128` |
 | RDRAND | 7 | 0.00% | `rdrandq` |
 | segment base %fs:/%gs: (P2 addition 1) | 7 | 0.00% | `cmpxchg16b` |
 | LOCK prefix (P2 addition 2) | 6 | 0.00% | `cmpxchg16b` |
@@ -1195,8 +1132,8 @@ Pre-registered before the corpus was downloaded, and riding in the same run as t
 
 | column | pre-registered | NAME route | BODY route | verdict |
 |---|---|---|---|---|
-| `cc1` | must read ~0% hand-written | 2.5% | 0.0% | ⛔ the NAME route is NOT as pre-registered |
-| `glibc` | must read substantially hand-written | 12.6% | 5.7% | ✅ both routes as pre-registered |
+| `cc1` | must read ~0% hand-written | 0.0% | 0.0% | ✅ both routes as pre-registered |
+| `glibc` | must read substantially hand-written | 0.0% | 0.0% | ⛔ NEITHER route is as pre-registered |
 
 ⛔ **THE `cc1` CONTROL FIRED ON THE NAME ROUTE, AND IT NAMED ITS OWN CAUSE.**
 A C++ compiler's own binary should contain no hand-written assembly, and the

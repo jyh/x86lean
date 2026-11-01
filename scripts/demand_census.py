@@ -331,7 +331,9 @@ def to_roster(m, ext=None, model=None):
         return m
     return None
 
-INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9.]*)\s*(.*)")
+# ⭐ D386: `_` is part of a mnemonic. AVX's compare pseudo-ops are spelled `vcmplt_oqpd`, `vcmpnle_uqps`, …, and with
+# `[a-z0-9.]*` the key stopped at the `_` (`vcmplt`) and the rest of the mnemonic became an operand (158 in glibc).
+INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9._]*)\s*(.*)")
 # ⛔⛔ TWO WAYS A MNEMONIC-LEVEL CENSUS OVER-CLAIMS, BOTH MEASURED RATHER THAN
 # FOOTNOTED.  This tool maps an objdump MNEMONIC to a roster name, but the model
 # covers FORMS -- so an instruction whose mnemonic the model has can still be
@@ -606,7 +608,7 @@ _BUCKET_PROBE_OPS = ("", "(%rbx)", "(%rbx),%eax", "%ax", "%rax, %rbx",
 # ⭐ D367: the LOCK bucket's name, ONE spelling, so `_decide` and `isa_bucket` cannot drift apart.
 LOCK_BUCKET = "LOCK prefix (P2 addition 2)"
 
-def isa_bucket(mn, ops, kind="plain"):
+def isa_bucket(mn, ops, kind="plain", evex=False):
     """⛔ THE BUCKET IS THE REASON THE MODEL CANNOT EXECUTE IT, not just the
     register file it touches.  `movq %gs:0x28, %rax` is a `mov` the model has;
     what it lacks is the SEGMENT BASE — and a table that files that under
@@ -620,6 +622,11 @@ def isa_bucket(mn, ops, kind="plain"):
         return "segment base %fs:/%gs: (P2 addition 1)"
     if mn == "movabsq" or mn == "movabs":
         return "mov imm64 / movabs (P2 addition 3)"
+    # ⭐ D385: an instruction whose own bytes are EVEX (`62` after any legacy prefix) is AVX-512 whatever its text says.
+    # Its TEXT can be a VEX form's (dav1d's `vpmulhrsw 0x3c0(%rdx),%xmm7,%xmm1` is `62 f2 45 08 0b 4a 3c`, the EVEX
+    # encoding the assembler chose for disp8*N), so no rule over the text can see it.  `evex` comes from `_classify`.
+    if evex:
+        return "AVX-512 (zmm/k)"
     # ⭐ D380: %xmm16-31 / %ymm16-31 exist only under EVEX, so a form naming one is AVX-512 with or without a mask.
     if re.search(r"%zmm|%k[0-7]\b|%[xy]mm(1[6-9]|2[0-9]|3[01])\b", ops):
         return "AVX-512 (zmm/k)"
@@ -835,6 +842,38 @@ def is_mem_form(ops):
     return "(" in ops or bool(SEGMENT_RE.search(ops))
 
 
+# ⭐ D385: the raw-bytes line of LLVM objdump, "addr: bytes<pad>\tmnemonic\toperands". The TAB is the boundary between
+# the bytes and the mnemonic; a byte pattern is never used to find it (a scratch parser that did read `c1` as a
+# mnemonic, and lost 948 instructions, before this was written).
+RAW_HEAD_RE = re.compile(r"^(\s*[0-9a-f]+:)\s+((?:[0-9a-f]{2} ?)+)\s*$")
+LEGACY_PREFIXES = {"66", "67", "f2", "f3", "2e", "36", "3e", "26", "64", "65", "f0"}
+
+
+def raw_split(line):
+    """(the line without its bytes, is-EVEX). A line with no bytes is returned unchanged, not EVEX, so the
+    `--no-show-raw-insn` lines the selftests drive still classify as before.  ⛔ A line holding ONLY bytes is GNU
+    objdump's wrap of a long instruction onto a continuation line (card `a-parsed-column-belongs-to-the-tool`): the
+    census would count the instruction once and read its prefix from the wrong line, so it REFUSES."""
+    parts = line.rstrip("\n").split("\t")
+    m = RAW_HEAD_RE.match(parts[0])
+    if not m:
+        return line, False
+    if len(parts) < 2 or not "".join(parts[1:]).strip():
+        raise SystemExit("⛔ demand_census: a line of instruction bytes with no mnemonic (an objdump that wraps long "
+                         "instructions, as GNU's does after 7 bytes): " + line.strip()[:80])
+    first = next((b for b in m.group(2).split() if b not in LEGACY_PREFIXES), None)
+    return m.group(1) + "\t" + "\t".join(parts[1:]), first == "62"
+
+
+def require_llvm_objdump():
+    """⛔ D385: the census reads instruction bytes, and only LLVM's objdump is measured to print them on one line
+    (the corpus's longest instruction, 13 bytes, on one line; 0 continuation lines, 2026-11-01)."""
+    v = subprocess.run(["objdump", "--version"], capture_output=True, text=True).stdout
+    if "LLVM" not in v:
+        raise SystemExit("⛔ demand_census: objdump is not LLVM's (" + (v.splitlines() or ["?"])[0] + "); D385 reads "
+                         "raw instruction bytes and is measured only against LLVM objdump's one-line format")
+
+
 def _classify(lines, syms=None, fn_sink=None, mem_sink=None):
     """objdump lines -> Counter keyed by (mnemonic, kind, origin, ext).
 
@@ -900,6 +939,7 @@ def _classify(lines, syms=None, fn_sink=None, mem_sink=None):
         return syms[i] if a <= addr < e else None
 
     for line in lines:
+        line, ev = raw_split(line)
         mm = INSN_RE.match(line)
         if not mm:
             continue
@@ -932,12 +972,12 @@ def _classify(lines, syms=None, fn_sink=None, mem_sink=None):
             # probe found it: mutating `cell()` to return "CC" left the selftest
             # GREEN.  ⇒ 🔑 A RULE WRITTEN TWICE IS A RULE ONE ARM CAN ONLY
             # HALF-TEST, and the half nobody exercises is the half that moves.
-            key = (width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind))
+            key = (width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind, ev))
             c[key] += 1
             if mem_sink is not None and is_mem_form(ops):
                 mem_sink[key] += 1
         else:
-            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind), is_mem_form(ops)))
+            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind, ev), is_mem_form(ops)))
             if is_packed(mn, ops):
                 n_packed += 1
     flush_padding(run)
@@ -960,7 +1000,8 @@ def disassemble(path, syms=None, fn_sink=None, mem_sink=None):
     """⚠️ STREAMED, not captured.  vmlinux is 63 MB of ELF and disassembles to
     well over a gigabyte of text; `capture_output` would hold all of it in
     memory at once for a job whose whole output is a counter."""
-    with subprocess.Popen(["objdump", "-d", "--no-show-raw-insn", path],
+    # ⭐ D385: WITH the raw bytes, so `_classify` can read EVEX from the instruction itself.
+    with subprocess.Popen(["objdump", "-d", path],
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                           text=True, bufsize=1 << 20) as pr:
         c = _classify(pr.stdout, syms, fn_sink, mem_sink)
@@ -1009,6 +1050,7 @@ def census(paths, dbg=None, mem_sink=None):
     binaries had a symbol map" is the condition under which every attribution
     number below it is true, and a column measured with no symbols reports the
     default silently."""
+    require_llvm_objdump()
     total = collections.Counter()
     fns = {}
     n = n_sym = 0
@@ -2215,6 +2257,40 @@ def selftest():
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append("pfx:" + mn)
+
+    # ⭐ D385: EVEX is read from the BYTES. Red-first: the EVEX line and its VEX twin have IDENTICAL text, so any rule
+    # over the text gives them one bucket; only the bytes separate them. Lines in LLVM objdump's raw format.
+    raw_arms = [
+        ("   24041: 62 f2 45 08 0b 4a 3c         \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1", "AVX-512 (zmm/k)"),
+        ("   24041: c4 e2 41 0b 8a c0 03 00 00   \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1", "VEX-128 (v… xmm)"),
+        ("   24056: 62 f2 45 28 0b 52 0a         \tvpmulhrsw\t0x140(%rdx), %ymm7, %ymm2", "AVX-512 (zmm/k)"),
+        # a legacy prefix before the 62 is still EVEX; a 66-prefixed SSE form is not
+        ("   10: 67 62 f1 7d 08 6f 01            \tvmovdqa32\t(%ecx), %xmm0", "AVX-512 (zmm/k)"),
+        ("   20: 66 0f 6f c1                     \tmovdqa\t%xmm1, %xmm0", "SSE-legacy (xmm)"),
+        # the no-bytes format the other arms drive is unchanged
+        ("   30:\tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1", "VEX-128 (v… xmm)"),
+    ]
+    for line, want in raw_arms:
+        got = [e for (_m, _k, _o, e) in _classify([line])]
+        ok = got == [want]
+        print(("  ✔ " if ok else "  ⛔ ") + f"raw bucket {line.split(chr(9))[0].strip()[:28]:28s} -> {got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append("raw:" + line[:20])
+    try:
+        _classify(["   40: 62 f2 45 08 0b 4a 3c 11 22 33 44 55"])
+        ok = False
+    except SystemExit:
+        ok = True
+    print(("  ✔ " if ok else "  ⛔ ") + "a bytes-only line (GNU objdump's wrap) REFUSES rather than miscounting")
+    if not ok:
+        bad.append("raw:continuation")
+    # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
+    got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
+    ok = got == ["vcmplt_oqpd"]
+    print(("  ✔ " if ok else "  ⛔ ") + f"mnemonic key vcmplt_oqpd -> {got}")
+    if not ok:
+        bad.append("key:vcmp_oq")
 
     # ── attribution by ADDRESS, with the unattributed gap printed as `U` ──
     def LA(base, *rows):

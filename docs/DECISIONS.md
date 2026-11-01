@@ -23754,6 +23754,77 @@ wrongly, and only the ext labels and P2-ROSTER's AVX-512 row undercount, by at l
 `{sae}` operands are the same class and are not counted. The mnemonic arm is STATUS-paris row 46, with its list derived
 from a source and not typed.
 
+## D385 — EVEX is read from the instruction's own bytes, not from its mnemonic (STATUS row 46; DESIGN ONLY, measured before any census change)
+
+**Why.** paper's LOW on D380: the census buckets by register file, so an EVEX-only MNEMONIC on registers 0–15 with
+no mask (`vmovdqa32`, `vpternlogd`, `vinserti32x4`, …) files under ymm or VEX-128. paper's hand list counted 125, as a
+floor. The design chosen at the row was to derive the EVEX-only list FROM THE ASSEMBLER: assemble each distinct
+(mnemonic, operand shape) with `clang -target x86_64-linux-gnu` and read whether it emits the `62` prefix.
+**Both methods were driven over the same population before choosing (2026-11-01, master `cbf075d`, the census's own
+`INSN_RE` and `isa_bucket`, every instruction the census files under ymm or VEX-128: 184,469 in both runs, equal per
+(mnemonic, column)).**
+- **The assembler** (4,642 distinct forms, each with immediates and displacements normalised and the k-th vector
+  register renamed): **173 instructions over 21 mnemonics encode with `62`.** 26 forms (80 instructions) do not
+  assemble. All of them are `vcmp<pred>_oq…`, which the census's `INSN_RE` splits at the `_`
+  (`[a-z][a-z0-9.]*`). That is a mnemonic-key defect of its own, outside this row. ⚠️ The 80 counts only the split forms
+  that FAIL to assemble. The `_uq` ones assemble even after the split. The defect's own population is **158**
+  instructions, all in glibc (D386).
+- **The binary's own bytes** (`objdump -d` with raw bytes, split at the TAB that separates bytes from mnemonic):
+  **187 instructions over 22 mnemonics are EVEX** (first byte after legacy prefixes = `62`): ymm 113, VEX-128 74.
+  It is the assembler's 173 plus **14 `vpmulhrsw` in dav1d** (e.g. `62 f2 45 08 0b 4a 3c  vpmulhrsw 0x3c0(%rdx),
+  %xmm7, %xmm1`). These are EVEX encodings of a VEX-encodable form, chosen by dav1d's assembler for the compressed
+  displacement (disp8×16). Their TEXT is the VEX form's, so no method that reads text can see them.
+**Choice: the bytes.** The fact to be measured is how THIS instruction is encoded. The assembler answers a different
+question (how it WOULD encode this text) and misses the encoder's choice. It also needs a list derived and committed,
+which can go stale against the corpus.
+**What it changes (predictions for the build, each wrong if the regenerated census differs):**
+1. **Relabel.** Exactly 187 instructions move to `AVX-512 (zmm/k)`: 113 from ymm, 74 from VEX-128. `total` does not
+   move in any column.
+2. **Credit.** Of the 22 mnemonics, two carry credit today: `vpmulhrsw` (silicon, a `vexSilTaken` kind) and `vpbroadcastd`.
+   Both come out of `silicon_all` by at most their EVEX instances (14 and 4). `vex_all` moves by 0. ⚠️ The 14
+   `vpmulhrsw` compute what the VEX form computes (unmasked, so the destination is zeroed above bit 127 or 255 either
+   way). Leaving them credited would claim a modelled DECODE the model does not have: x86lean has no EVEX in its AST,
+   and O88's law is that claims match what is modelled. The 4 `vpbroadcastd` have a GPR source, an AVX-512-only form
+   the model lacks. That would be an over-credit, and this change removes it.
+3. **The tool's own condition, gated.** The census must read raw bytes, which is the row's stated hazard: GNU objdump
+   wraps an instruction's bytes after 7 onto a continuation line (card `a-parsed-column-belongs-to-the-tool`). Measured
+   on this box's objdump (Apple LLVM 21): the longest instruction in the corpus is 13 bytes on one line, and there are
+   0 byte-only continuation lines. The build REFUSES to run when a byte-only continuation line appears or `objdump
+   --version` is not LLVM's, so that condition is enforced rather than assumed.
+**Price.** One change to `_classify`/`disassemble` (raw bytes in, an `evex` flag to `isa_bucket`), one red-first arm
+(a synthetic EVEX `vpmulhrsw` line must bucket AVX-512 and its VEX twin must not), the objdump guard with its own arm,
+and one census regeneration. No `.lean`, so no K-run.
+**Readings (2026-11-01, `paris/d385-evex-by-bytes`, the census regenerated over the same corpus):**
+1. **HELD.** Exactly 187 instructions move to `AVX-512 (zmm/k)` in `miss_by_ext`: ymm −113, VEX-128 −74, by column
+   dav1d +139 · glibc +28 · vmlinux-kernel +10 · ffmpeg +6 · x264 +3 · vpx +1. `total` moves by 0 in every column.
+2. **HELD.** `silicon_all` loses `vpmulhrsw` 14 and `vpbroadcastd` 4, all in dav1d, so dav1d's silicon falls by 18.
+   No other column's silicon moves, `vex_all` moves by 0, and `covered` moves by 0 everywhere.
+3. **HELD, as an arm, and driven red backwards.** `--selftest` has 248 arms, 7 of them new: three EVEX lines bucket
+   AVX-512, including one after a `67` prefix; the same `vpmulhrsw` text with VEX bytes buckets VEX-128; a
+   `66`-prefixed SSE form and a no-bytes line are unchanged; a bytes-only line REFUSES. Disabling the `evex` rule reds
+   exactly the three EVEX arms. Disabling the refusal reds exactly the continuation arm. `census()` refuses a
+   non-LLVM objdump.
+**`docs/P2-ROSTER.md`, regenerated (it reads the census):** the residue's AVX-512 class rises 38,758 → 38,907 (+149)
+as ymm falls 105,365 → 105,258 and VEX-128 60,567 → 60,525. That is the 187 restricted to the roster's columns
+(dav1d, ffmpeg, vpx, x264). The roster's REFUSES count moves 169,424 → 169,439 because the moved forms re-key under
+the bucket where they were probed.
+**Limit.** The `vcmp<pred>_{oq,uq}…` mnemonic split found on the way (158 instructions, all glibc, keyed under
+`vcmpgt` etc.; not the 80 above, which counted only the forms that fail to assemble) is not fixed here. It moves no bucket, since the bucket reads the operands, but it does mis-key a mnemonic.
+
+## D386 — a mnemonic may contain `_`: the compare pseudo-ops were keyed by their prefix (found by D385's discovery pass)
+
+**Defect.** `INSN_RE`'s mnemonic was `[a-z][a-z0-9.]*`, so `vcmplt_oqpd %ymm1,%ymm2,%ymm3` was keyed `vcmplt`, and
+`_oqpd` became the start of its operands. Census over the corpus with `[a-z0-9._]`: **158 instructions, all glibc**,
+16 spellings (`vcmplt_oqpd` 32 · `vcmpnle_uqpd` 19 · `vcmpnle_uqps` 18 · …). No bucket ever moved, because the bucket
+reads the operands and `%ymm`/`%xmm` stayed in them. Only the mnemonic KEY was wrong, in `miss_all` and every table
+keyed by name.
+**Fix.** `[a-z][a-z0-9._]*`. One arm: `vcmplt_oqpd` keys as itself. With the old pattern restored as a mutant it reads
+`vcmplt`, and the arm reds alone.
+**Reading.** In glibc's `miss_all`, the eight prefix keys fall by exactly 158 (`vcmplt` −48 · `vcmpnle` −37 · `vcmpnlt` −28
+· `vcmple` −18 · `vcmpgt` −11 · `vcmpge` −9 · `vcmpngt` −5 · `vcmpnge` −2) and the 16 full spellings rise by the same
+158. `total`, `covered`, `silicon` and `vex` are unchanged in every column. `docs/P2-ROSTER.md` regenerates
+byte-identical.
+
 ## D381 — (C) built: a `kernel-delta` REFUSAL on a master push run is decided by the RECORD (D377 (C); the helm's ruling of 2026-11-01 05:45, desk XF)
 
 **Why.** D377 measured that a large share of master's push runs read red only because `kernel-delta` exited 3
