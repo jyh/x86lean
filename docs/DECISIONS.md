@@ -23748,3 +23748,42 @@ the same list finds 14,642 forms already in AVX-512), and none is in `vex_all` o
 wrongly, and only the ext labels and P2-ROSTER's AVX-512 row undercount, by at least that much. `{1toN}` broadcast and
 `{sae}` operands are the same class and are not counted. The mnemonic arm is STATUS-paris row 46, with its list derived
 from a source and not typed.
+
+## D385 — EVEX is read from the instruction's own bytes, not from its mnemonic (STATUS row 46; DESIGN ONLY, measured before any census change)
+
+**Why.** paper's LOW on D380: the census buckets by register file, so an EVEX-only MNEMONIC on registers 0–15 with
+no mask (`vmovdqa32`, `vpternlogd`, `vinserti32x4`, …) files under ymm or VEX-128. paper's hand list counted 125, as a
+floor. The design chosen at the row was to derive the EVEX-only list FROM THE ASSEMBLER: assemble each distinct
+(mnemonic, operand shape) with `clang -target x86_64-linux-gnu` and read whether it emits the `62` prefix.
+**Both methods were driven over the same population before choosing (2026-11-01, master `cbf075d`, the census's own
+`INSN_RE` and `isa_bucket`, every instruction the census files under ymm or VEX-128: 184,469 in both runs, equal per
+(mnemonic, column)).**
+- **The assembler** (4,642 distinct forms, each with immediates and displacements normalised and the k-th vector
+  register renamed): **173 instructions over 21 mnemonics encode with `62`.** 26 forms (80 instructions) do not
+  assemble. All of them are `vcmp<pred>_oq…`, which the census's `INSN_RE` splits at the `_`
+  (`[a-z][a-z0-9.]*`). That is a mnemonic-key defect of its own, outside this row.
+- **The binary's own bytes** (`objdump -d` with raw bytes, split at the TAB that separates bytes from mnemonic):
+  **187 instructions over 22 mnemonics are EVEX** (first byte after legacy prefixes = `62`): ymm 113, VEX-128 74.
+  It is the assembler's 173 plus **14 `vpmulhrsw` in dav1d** (e.g. `62 f2 45 08 0b 4a 3c  vpmulhrsw 0x3c0(%rdx),
+  %xmm7, %xmm1`). These are EVEX encodings of a VEX-encodable form, chosen by dav1d's assembler for the compressed
+  displacement (disp8×16). Their TEXT is the VEX form's, so no method that reads text can see them.
+**Choice: the bytes.** The fact to be measured is how THIS instruction is encoded. The assembler answers a different
+question (how it WOULD encode this text) and misses the encoder's choice. It also needs a list derived and committed,
+which can go stale against the corpus.
+**What it changes (predictions for the build, each wrong if the regenerated census differs):**
+1. **Relabel.** Exactly 187 instructions move to `AVX-512 (zmm/k)`: 113 from ymm, 74 from VEX-128. `total` does not
+   move in any column.
+2. **Credit.** Of the 22 mnemonics, two carry credit today: `vpmulhrsw` (silicon, the V7 VEX twin) and `vpbroadcastd`.
+   Both come out of `silicon_all` by at most their EVEX instances (14 and 4). `vex_all` moves by 0. ⚠️ The 14
+   `vpmulhrsw` compute what the VEX form computes (unmasked, so the destination is zeroed above bit 127 or 255 either
+   way). Leaving them credited would claim a modelled DECODE the model does not have: x86lean has no EVEX in its AST,
+   and O88's law is that claims match what is modelled. The 4 `vpbroadcastd` have a GPR source, an AVX-512-only form
+   the model lacks. That would be an over-credit, and this change removes it.
+3. **The tool's own condition, gated.** The census must read raw bytes, which is the row's stated hazard: GNU objdump
+   wraps an instruction's bytes after 7 onto a continuation line (card `a-parsed-column-belongs-to-the-tool`). Measured
+   on this box's objdump (Apple LLVM 21): the longest instruction in the corpus is 13 bytes on one line, and there are
+   0 byte-only continuation lines. The build REFUSES to run when a byte-only continuation line appears or `objdump
+   --version` is not LLVM's, so that condition is enforced rather than assumed.
+**Price.** One change to `_classify`/`disassemble` (raw bytes in, an `evex` flag to `isa_bucket`), one red-first arm
+(a synthetic EVEX `vpmulhrsw` line must bucket AVX-512 and its VEX twin must not), the objdump guard with its own arm,
+and one census regeneration. No `.lean`, so no K-run.
