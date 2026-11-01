@@ -24255,3 +24255,48 @@ reads 5,084,765 unfoldings ⇒ `Tests.AnchorsVexSilJ @ku 5084765`; both register
 within its allowance (`Tests.Coverage` +450 against 2,995.2); the retired absolute table's five `over/over` rows are the
 same five as at D375's and D376's K1s. This branch carries D376's registration but not D374's or D375's (the stack's
 recorded append conflicts at rebase).
+## D384 — wave E: `psubsw` · `pavgw` · `pmuldq` and their VEX twins, refereed by silicon (STATUS row 44; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** Row 44 named the next three packed kinds the census leaves unmodelled. Each is the mirror of a kind the model
+has: `psubsw` of `.addsw` (signed saturating word subtract), `pavgw` of `.avgb` (D373, the rounded unsigned average at
+word width), and `pmuldq` the SIGNED twin of `.muludq` (the 64-bit product of the even signed dwords).
+**The census, derived by script from master's `docs/DEMAND-CENSUS.md.json` (`cbf075d`, so after D380), never typed.**
+D379's head carries the pre-D380 bucketing, where `%ymm16–31` and `%xmm16–31` were counted as VEX. None of the stack
+between master and D379 credits these six names, so master's buckets are the right base. Over `miss_by_ext`, the six
+names number 5,280 at both heads, split as follows:
+```
+  bucket              psubsw  pavgw  pmuldq | vpsubsw  vpavgw  vpmuldq | in scope
+  SSE-legacy (xmm)     1,185  1,114   1,079 |                          |   3,378
+  VEX-128                                   |      32     249        4 |     285
+  AVX2/AVX (ymm)                            |     306     314       44 |     664
+  ---- out of scope: MMX (mm) 196 + 172 = 368 · AVX-512 (zmm/k) 515 + 70 = 585
+                                                              IN SCOPE = 4,327
+```
+⚠️ **Row 44 read 4,404, at D379's head.** The 77-form difference is D380's rule: `vpsubsw` loses 25 VEX-128 and 48 ymm
+spellings to AVX-512, and `vpavgw` loses 2 of each. Both figures are right for the census they were read from.
+By column (in scope): dav1d 926 (xmm 408 · VEX-128 53 · ymm 465) · ffmpeg 780 (567 · 163 · 50) · vlc-video_chroma 384
+(384 · 0 · 0) · vpx 2,054 (1,901 · 9 · 144) · x264 183 (118 · 60 · 5).
+**The referee (P1, 2026-10-31 23:5x, yukon, `oracle_availability.measure()` unmodified, 88 pre-states, controls in the
+SAME run).** All 9 encodings (legacy reg, VEX.128 reg and VEX.256 reg of each name) REFUSE at 88 of 88, while `mov`,
+`vpaddw` (ymm) and `vpxor` EXECUTE 88/88 ⇒ **silicon**, in D371's frame.
+**The model (no new constructor).** Three new `VBinKind`s, `.subsw`, `.avgw` and `.muldq`, each with a lane function
+next to its mirror's. All three are added to `vexSilTaken` and `vexSilMemTaken`, so their legacy, VEX.128 and VEX.256
+register and memory forms go through the constructors D374 and D379 already use.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every generated row agrees on both vendors (an AMD leg and an Intel leg), with each source seeded so
+   that `psubsw` meets both saturation bounds (−32768 − 1 and 32767 − (−1)), `pavgw` meets 0xFFFF + 0xFFFF (the
+   17-bit carry before the shift), and `pmuldq` meets a negative dword in each even lane with garbage in the odd lanes.
+2. **Generator, before any processor.** Named wrong rules are each refused on a named row: (a) `psubsw` WRAPPING
+   instead of saturating, (b) `pavgw` truncating instead of rounding (no `+1`), (c) `pavgw` losing the carry (a
+   16-bit sum), (d) `pmuldq` zero-extending (`.muludq`'s rule), (e) `pmuldq` reading the ODD dwords, (f) a VEX.128 form
+   keeping YMM bits 255:128, (g) a legacy form zeroing them.
+3. **Model.** Three kinds, every row pinned by `decide` in a NEW metered unit. A wrapping-`subsw` mutant reds exactly the
+   `psubsw` theorems, and a zero-extending `muldq` mutant reds exactly the `pmuldq` theorems.
+4. **Census.** Silicon rises by **4,327 exactly**, column by column as above (by bucket: xmm 3,378 · VEX-128 285 · ymm
+   664). The 368 MMX and 585 AVX-512 spellings stay in the residue. `covered`, `vex` and `total` do not move. Wrong if
+   any in-scope spelling is not credited, or any out-of-scope one is. ⚠️ This prediction is written against master's
+   bucketing. Read at a stack head that does not yet carry D380, the ymm and VEX-128 figures will differ by the 77
+   above. The reading names its head.
+**Price.** One silicon wave in D374's frame (one generator over 3 names × legacy/VEX.128/VEX.256 × register/memory),
+three kinds, two predicate lines, one metered unit, one census regeneration, one K1. Stacked on D379 (`0875143`).
+Smaller than D379, which also needed six new constructors for a unary operation.
