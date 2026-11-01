@@ -88,7 +88,22 @@ structure Ea where
   it is not a claim that the model verifies anything about concurrency, and
   `TRUSTBASE.md` says so where a reader is looking. -/
   lock : Bool := false
-  deriving DecidableEq, Repr, Inhabited, BEq
+  /-- ⭐ D382: a RIP-relative address names NO base and NO index — ModR/M mod=00 r/m=101 has no SIB byte, so
+  `disp(%rip,%rcx,8)` is not an instruction. The field makes that shape UNREPRESENTABLE: every literal discharges it
+  with no evaluation (`ripRel := false` makes the premise absurd; a bare RIP-relative `Ea` is `⟨rfl, rfl⟩`), and a hand-written `{ ripRel := true, index := some .rcx }` fails to elaborate. Before this field the
+  model read such an `Ea` as RIP+disp and silently dropped both registers (D382's witness). -/
+  ripWf : ripRel = true → base = none ∧ index = none := by
+    intro h; first | exact absurd h Bool.false_ne_true | exact ⟨rfl, rfl⟩
+  deriving DecidableEq, Repr
+
+/-- `Inhabited` by hand: Lean 4.27.0 (the harness pin) cannot derive it through the proof field; `{}` discharges `ripWf`
+by the default tactic and gives the same field values the derived default did (paper's finding at its #154 read). -/
+instance : Inhabited Ea := ⟨{}⟩
+
+/-- `BEq` by hand because a proof field cannot be derived through; it compares exactly the data fields the derived
+instance compared (the proof field is a proposition, so two `Ea`s with equal data are equal). -/
+instance : BEq Ea := ⟨fun a b => a.base == b.base && a.index == b.index && a.scale == b.scale && a.disp == b.disp &&
+  a.ripRel == b.ripRel && a.seg == b.seg && a.lock == b.lock⟩
 
 /-- An operand.  The operand WIDTH is not here: it is one datum on the
 instruction, because these forms all have a single operand size. -/
