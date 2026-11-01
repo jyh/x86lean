@@ -1450,7 +1450,18 @@ def siliconTable : List Row :=
   , { mnemonic := "vextracti128", shapes := "x,x,i · m,x,i", note := "VEX.256 only: the 128-bit lane imm[0] of src, to an xmm (YMM bits 255:128 of dst zeroed) or to m128 (16 bytes, no alignment check); imm[7:1] ignored · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VEXTRACTI128" }
   , { mnemonic := "vextractf128", shapes := "x,x,i · m,x,i", note := "VEX.256 only: VEXTRACTI128's function at the FP opcode (the 128-bit lane imm[0], to an xmm or to m128) · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VEXTRACTF128" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2C VEXTRACTF128" }
+  -- ⭐ D376: `movntdqa` (legacy SSE4.1) and the VEX.128 half-moves, refereed by silicon (hwprobe `vexsili`).
+  , { mnemonic := "movntdqa", shapes := "x,m", note := "legacy SSE4.1: the 16 bytes at m128 into xmm (YMM bits 255:128 PRESERVED, a legacy write); m128 16-byte aligned, else #GP(0); the non-temporal hint is not state · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVNTDQA" }
+  , { mnemonic := "vmovhps", shapes := "x,x,m · m,x", note := "VEX.128 only: load = src1's LOW quadword with m64 as the high one (merged with SRC1, not DEST), YMM bits 255:128 ZEROED; store = xmm's high quadword to m64; no alignment rule · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHPS" }
+  , { mnemonic := "vmovhpd", shapes := "x,x,m · m,x", note := "VEX.128 only: VMOVHPS's function at the 66 prefix (the spelling is the only difference) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVHPD" }
+  , { mnemonic := "vmovlps", shapes := "x,x,m · m,x", note := "VEX.128 only: load = m64 as the low quadword with src1's HIGH one (merged with SRC1, not DEST), YMM bits 255:128 ZEROED; store = xmm's low quadword to m64; no alignment rule · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVLPS" }
+  , { mnemonic := "vmovlpd", shapes := "x,x,m · m,x", note := "VEX.128 only: VMOVLPS's function at the 66 prefix (the spelling is the only difference) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVLPD" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

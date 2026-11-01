@@ -21,6 +21,7 @@ import Tests.AnchorsVexSilE
 import Tests.AnchorsVexSilF
 import Tests.AnchorsVexSilG
 import Tests.AnchorsVexSilH
+import Tests.AnchorsVexSilI
 import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors

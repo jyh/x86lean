@@ -1350,6 +1350,14 @@ inductive VexOp where
   | vexins128m (fp : Bool) (dst src1 : XmmReg) (ea : Ea) (imm : BitVec 8)
   | vexext128 (fp : Bool) (dst src : XmmReg) (imm : BitVec 8)
   | vexext128m (fp : Bool) (ea : Ea) (src : XmmReg) (imm : BitVec 8)
+  /-- ⭐ D376 — the VEX.128 half-moves (SDM Vol. 2B, VMOVHPS/VMOVHPD/VMOVLPS/VMOVLPD; VEX.L = 1 is #UD). The load is
+  three-operand: the 8 bytes at `ea` replace half `h` of `src1` (VEX.vvvv), the other half comes from `src1` (where the
+  legacy form keeps its own destination's), and the result is written through `setXmmVex128` (YMM bits 255:128 ZEROED).
+  The store writes half `h` of `src` to 8 bytes at `ea` and no register, as legacy `vstoreq`. `k` (ps/pd) is read only by
+  the mnemonic, `vloadq`'s reason. Two constructors, `vloadq`/`vstoreq`'s reason: there is no register-to-register form
+  (at mod=11 the opcode is `vmovhlps`/`vmovlhps`). Silicon-refereed: x86isa refuses all eight encodings (D376 P1). -/
+  | vexloadq (h : VHalf) (k : VQuadKind) (dst src1 : XmmReg) (ea : Ea)
+  | vexstoreq (h : VHalf) (k : VQuadKind) (ea : Ea) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1370,6 +1378,8 @@ def VexOp.operands : VexOp → List Operand
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => [.mem ea]
   -- D375: the lane insert/extract name their address (the register forms none).
   | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => [.mem ea]
+  -- D376: the half-moves name their address.
+  | .vexloadq _ _ _ _ ea | .vexstoreq _ _ ea _ => [.mem ea]
   | .vexins128 .. | .vexext128 .. => []
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => []
   -- V6: the VEX.256 register twins name no address.
@@ -1391,6 +1401,7 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexmovg .. => false
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => ea.lock
   | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => ea.lock
+  | .vexloadq _ _ _ _ ea | .vexstoreq _ _ ea _ => ea.lock
   | .vexins128 .. | .vexext128 .. => false
   | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
   | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
@@ -1420,6 +1431,11 @@ def VexOp.mnemonic : VexOp → String
   -- D375: four literals, not a concatenation (`quadMnemonic`'s reason).
   | .vexins128 fp .. | .vexins128m fp .. => if fp then "vinsertf128" else "vinserti128"
   | .vexext128 fp .. | .vexext128m fp .. => if fp then "vextractf128" else "vextracti128"
+  -- D376: four literals, not "v" ++ `quadMnemonic` (a concatenation is a place for a name to drift from the table's).
+  | .vexloadq h k .. | .vexstoreq h k .. =>
+      match h, k with
+      | .lo, .ps => "vmovlps" | .lo, .pd => "vmovlpd"
+      | .hi, .ps => "vmovhps" | .hi, .pd => "vmovhpd"
 
 /-- The P0 roster: TWENTY mnemonics, in the plan v1 §5 order.
 `mov add sub and or xor cmp test shl shr lea inc dec neg not push pop jmp jcc call`. -/
@@ -1816,6 +1832,12 @@ inductive Op where
   zeroes, and it is caught only by a pre-state whose low quadword is non-zero. -/
   | vloadq  (h : VHalf) (k : VQuadKind) (dst : XmmReg) (ea : Ea)
   | vstoreq (h : VHalf) (k : VQuadKind) (ea : Ea) (src : XmmReg)
+  /-- ⭐ D376 — `movntdqa` (SSE4.1, `66 0f 38 2a`, SDM Vol. 2B MOVNTDQA): the 16 bytes at `ea` into `dst`, through
+  `setXmm` (a LEGACY write: YMM bits 255:128 PRESERVED); `ea` must be 16-byte aligned, else #GP(0), as `movdqa`. The
+  non-temporal hint is not observable in this model's state. Its own constructor and not a `VMovKind`: `movntdqa` has
+  no register or store form, and a kind would make those spellable (`vloadq`'s reason). Silicon-refereed: x86isa
+  refuses the encoding (D376 P1). -/
+  | vloadnt (dst : XmmReg) (ea : Ea)
   /-- ⭐⭐ P2 BATCH 36 — `movhlps` / `movlhps`, THE TWO CROSS HALF-MOVES.
   `0f 12` and `0f 16` at **mod=11**; 1,341 and 340 instructions.
 
@@ -2512,6 +2534,7 @@ def opOperands : Op → List Operand
   -- a vector load's address is reported here exactly as a scalar one is. That is
   -- what makes `lock movdqa` #UD for free: `lockable` does not list it.
   | .vload _ _ ea | .vstore _ ea _ => [.mem ea]
+  | .vloadnt _ ea => [.mem ea]
   -- `movhps` names an address exactly as `vload`/`vstore` do, so the segment and
   -- lock gates see it with no new rule.
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => [.mem ea]
@@ -2706,6 +2729,7 @@ def Op.anyLocked : Op → Bool
   -- a form the SDM lists and `lockable` refusing it is what makes it #UD.
   | .vmov .. | .vbin .. | .vcomis .. => false
   | .vload _ _ ea | .vstore _ ea _ => ea.lock
+  | .vloadnt _ ea => ea.lock
   | .vloadq _ _ _ ea | .vstoreq _ _ ea _ => ea.lock
   | .vmovhl .. | .vddupR .. => false
   | .vex v => v.anyLocked
@@ -2938,6 +2962,7 @@ def Op.mnemonic : Op → String
   -- names them. See `VMovKind`.
   | .vmov k .. => k.mnemonic
   | .vload k .. | .vstore k .. => k.mnemonic
+  | .vloadnt .. => "movntdqa"
   -- ⚠️ THE SPELLING IS THE (half, prefix) PAIR, and both directions of a given
   -- pair print the same name: `0f 16` and `0f 17` are both `movhps`.
   | .vloadq h k _ _ | .vstoreq h k _ _ => quadMnemonic h k

@@ -1283,6 +1283,19 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       (s.setXmmVex128 dst (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
   | .vexext128m _ ea src imm =>
       (s.writeMem128 (ea.addr s nr) (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
+  -- ⭐ D376 — the VEX.128 half-moves: legacy `vloadq`'s merge with SRC1 where the legacy form keeps its own
+  -- destination, written through `setXmmVex128` (YMM bits 255:128 ZEROED); the store is legacy `vstoreq`'s. No
+  -- alignment branch (VEX Exception Type 5, as the legacy forms have none).
+  | .vexloadq h _ dst src1 ea =>
+      let m := (s.readMem .q (ea.addr s nr)).setWidth 128
+      match h with
+      | .hi => (s.setXmmVex128 dst ((m <<< 64) ||| ((s.getXmm src1).setWidth 64).setWidth 128)).setRip nr
+      | .lo => (s.setXmmVex128 dst (((((s.getXmm src1) >>> 64).setWidth 64).setWidth 128 <<< 64) ||| m)).setRip nr
+  | .vexstoreq h _ ea src =>
+      let a := ea.addr s nr
+      match h with
+      | .hi => (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
+      | .lo => (s.writeMem .q a ((s.getXmm src).setWidth 64)).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
@@ -1345,6 +1358,12 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a := ea.addr s nr
       if k.aligned && !aligned16 a then
         s.halt (.byDesign "an aligned 128-bit move at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (s.readMem128 a)).setRip nr
+  -- ⭐ D376 — `movntdqa`: `movdqa`'s aligned load (the non-temporal hint is not state), a LEGACY write through `setXmm`.
+  | .vloadnt dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign "movntdqa at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
 
   -- ⭐⭐ MOVHPS (SDM Vol. 2B) — the HIGH quadword moves and the LOW one is UNTOUCHED.

@@ -119,7 +119,13 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexbin .muludq .x3 .x1 .x2)).mnemonic,
       -- D375: the lane insert and extract, one row per mnemonic.
       (Op.vex (.vexins128 false .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexins128 true .x3 .x1 .x2 0)).mnemonic,
-      (Op.vex (.vexext128 false .x3 .x1 0)).mnemonic, (Op.vex (.vexext128 true .x3 .x1 0)).mnemonic] := by decide
+      (Op.vex (.vexext128 false .x3 .x1 0)).mnemonic, (Op.vex (.vexext128 true .x3 .x1 0)).mnemonic,
+      -- D376: movntdqa and the VEX half-moves, one row per mnemonic.
+      (Op.vloadnt .x3 { base := some .rbx }).mnemonic,
+      (Op.vex (.vexloadq .hi .ps .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .hi .pd .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .lo .ps .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .lo .pd .x3 .x1 { base := some .rbx })).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1138,6 +1144,8 @@ def isMemDestVector (v : Vec) : Bool :=
     -- the store writes eight bytes of memory, the load does not.
     | .vloadq .. => false
     | .vstoreq .. => true
+    -- D376, in the SAME COMMIT as the constructor: `movntdqa` READS 16 bytes and writes an XMM register.
+    | .vloadnt .. => false
     -- ⭐ P2 BATCH 36, added in the SAME COMMIT as the constructors, which is what
     -- this function's own doc comment asks for.  NONE of the three is a memory
     -- destination: the cross moves have no memory operand at all, and
@@ -1172,7 +1180,10 @@ def isMemDestVector (v : Vec) : Bool :=
       -- D375, in the SAME COMMIT as the constructors: an extract to memory is a 16-byte memory destination; the
       -- insert from memory READS it, and the register forms name none.
       | .vexins128 .. | .vexins128m .. | .vexext128 .. => false
-      | .vexext128m .. => true)
+      | .vexext128m .. => true
+      -- D376, in the SAME COMMIT as the constructors: the half-move STORE writes 8 bytes of memory; the load READS them.
+      | .vexloadq .. => false
+      | .vexstoreq .. => true)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it

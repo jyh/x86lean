@@ -299,6 +299,11 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `vinsertf128` | x,x,x,i · x,x,m,i — VEX.256 only: VINSERTI128's function at the FP opcode (dst := src1 with the 128-bit lane imm[0] replaced) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VINSERTF128 |
 | `vextracti128` | x,x,i · m,x,i — VEX.256 only: the 128-bit lane imm[0] of src, to an xmm (YMM bits 255:128 of dst zeroed) or to m128 (16 bytes, no alignment check); imm[7:1] ignored · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VEXTRACTI128 |
 | `vextractf128` | x,x,i · m,x,i — VEX.256 only: VEXTRACTI128's function at the FP opcode (the 128-bit lane imm[0], to an xmm or to m128) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2C VEXTRACTF128 |
+| `movntdqa` | x,m — legacy SSE4.1: the 16 bytes at m128 into xmm (YMM bits 255:128 PRESERVED, a legacy write); m128 16-byte aligned, else #GP(0); the non-temporal hint is not state · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVNTDQA |
+| `vmovhps` | x,x,m · m,x — VEX.128 only: load = src1's LOW quadword with m64 as the high one (merged with SRC1, not DEST), YMM bits 255:128 ZEROED; store = xmm's high quadword to m64; no alignment rule · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVHPS |
+| `vmovhpd` | x,x,m · m,x — VEX.128 only: VMOVHPS's function at the 66 prefix (the spelling is the only difference) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVHPD |
+| `vmovlps` | x,x,m · m,x — VEX.128 only: load = m64 as the low quadword with src1's HIGH one (merged with SRC1, not DEST), YMM bits 255:128 ZEROED; store = xmm's low quadword to m64; no alignment rule · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVLPS |
+| `vmovlpd` | x,x,m · m,x — VEX.128 only: VMOVLPS's function at the 66 prefix (the spelling is the only difference) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVLPD |
 
 ## VEX.128 register twins, differentially tested (V3, D341)
 
