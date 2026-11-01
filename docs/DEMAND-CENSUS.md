@@ -311,7 +311,7 @@ Symbol maps were found for **0 of 106** objects in this column. ⛔ **No symbol 
 
 ### glibc — 28 ELF x86-64 objects
 
-- **603,554 instructions** over 688 distinct objdump mnemonics.
+- **603,554 instructions** over 696 distinct objdump mnemonics.
 - **Covered by the model (differentially tested mnemonics): 560,007 (92.8%).** (register-form 360,875 · memory-form 199,132, of which the model executes a memory form for 197,839)
 - ⚙ **Implemented, silicon-refereed only (AMD + Intel hwprobe: AMD EPYC 7763 + Intel Core i7-8700B (D334); AMD EPYC 9V45 + Intel Core i7-8700B (D335); AMD EPYC 7763 + AMD EPYC 9V45 + Intel Core i7-8700B (D342); AMD CPUID feda3203 + Intel Core i7-8700B (D345); AMD EPYC 7763 + Intel Core i7-8700B (D348); AMD EPYC 9V74 + Intel Core i7-8700B (D350)) — NOT a semantic oracle: 1,742 (0.29%)** (register-form 1,606 · memory-form 136, of which the model executes a memory form for 2) — counted as NOT covered above, printed beside the differential figure and never summed into it (D337).
 - ⚙ **Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against x86isa — D341; NOT in the published 199-mnemonic figures): 8,045 (1.33%)** (register-form 3,856 · memory-form 4,189, of which the model executes a memory form for 4,189) — VEX.128 and VEX.256 instructions whose mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and never summed into it (D342, D344).

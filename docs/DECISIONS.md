@@ -23761,7 +23761,9 @@ floor. The design chosen at the row was to derive the EVEX-only list FROM THE AS
 - **The assembler** (4,642 distinct forms, each with immediates and displacements normalised and the k-th vector
   register renamed): **173 instructions over 21 mnemonics encode with `62`.** 26 forms (80 instructions) do not
   assemble. All of them are `vcmp<pred>_oq…`, which the census's `INSN_RE` splits at the `_`
-  (`[a-z][a-z0-9.]*`). That is a mnemonic-key defect of its own, outside this row.
+  (`[a-z][a-z0-9.]*`). That is a mnemonic-key defect of its own, outside this row. ⚠️ The 80 counts only the split forms
+  that FAIL to assemble. The `_uq` ones assemble even after the split. The defect's own population is **158**
+  instructions, all in glibc (D386).
 - **The binary's own bytes** (`objdump -d` with raw bytes, split at the TAB that separates bytes from mnemonic):
   **187 instructions over 22 mnemonics are EVEX** (first byte after legacy prefixes = `62`): ymm 113, VEX-128 74.
   It is the assembler's 173 plus **14 `vpmulhrsw` in dav1d** (e.g. `62 f2 45 08 0b 4a 3c  vpmulhrsw 0x3c0(%rdx),
@@ -23801,5 +23803,19 @@ and one census regeneration. No `.lean`, so no K-run.
 as ymm falls 105,365 → 105,258 and VEX-128 60,567 → 60,525. That is the 187 restricted to the roster's columns
 (dav1d, ffmpeg, vpx, x264). The roster's REFUSES count moves 169,424 → 169,439 because the moved forms re-key under
 the bucket where they were probed.
-**Limit.** The `vcmp<pred>_oq…` mnemonic split found on the way (80 instructions keyed under `vcmpgt` etc.) is not
-fixed here. It moves no bucket, since the bucket reads the operands, but it does mis-key a mnemonic.
+**Limit.** The `vcmp<pred>_{oq,uq}…` mnemonic split found on the way (158 instructions, all glibc, keyed under
+`vcmpgt` etc.; not the 80 above, which counted only the forms that fail to assemble) is not fixed here. It moves no bucket, since the bucket reads the operands, but it does mis-key a mnemonic.
+
+## D386 — a mnemonic may contain `_`: the compare pseudo-ops were keyed by their prefix (found by D385's discovery pass)
+
+**Defect.** `INSN_RE`'s mnemonic was `[a-z][a-z0-9.]*`, so `vcmplt_oqpd %ymm1,%ymm2,%ymm3` was keyed `vcmplt`, and
+`_oqpd` became the start of its operands. Census over the corpus with `[a-z0-9._]`: **158 instructions, all glibc**,
+16 spellings (`vcmplt_oqpd` 32 · `vcmpnle_uqpd` 19 · `vcmpnle_uqps` 18 · …). No bucket ever moved, because the bucket
+reads the operands and `%ymm`/`%xmm` stayed in them. Only the mnemonic KEY was wrong, in `miss_all` and every table
+keyed by name.
+**Fix.** `[a-z][a-z0-9._]*`. One arm: `vcmplt_oqpd` keys as itself. With the old pattern restored as a mutant it reads
+`vcmplt`, and the arm reds alone.
+**Reading.** In glibc's `miss_all`, the eight prefix keys fall by exactly 158 (`vcmplt` −48 · `vcmpnle` −37 · `vcmpnlt` −28
+· `vcmple` −18 · `vcmpgt` −11 · `vcmpge` −9 · `vcmpngt` −5 · `vcmpnge` −2) and the 16 full spellings rise by the same
+158. `total`, `covered`, `silicon` and `vex` are unchanged in every column. `docs/P2-ROSTER.md` regenerates
+byte-identical.

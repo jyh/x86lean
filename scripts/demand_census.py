@@ -331,7 +331,9 @@ def to_roster(m, ext=None, model=None):
         return m
     return None
 
-INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9.]*)\s*(.*)")
+# ⭐ D386: `_` is part of a mnemonic. AVX's compare pseudo-ops are spelled `vcmplt_oqpd`, `vcmpnle_uqps`, …, and with
+# `[a-z0-9.]*` the key stopped at the `_` (`vcmplt`) and the rest of the mnemonic became an operand (158 in glibc).
+INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9._]*)\s*(.*)")
 # ⛔⛔ TWO WAYS A MNEMONIC-LEVEL CENSUS OVER-CLAIMS, BOTH MEASURED RATHER THAN
 # FOOTNOTED.  This tool maps an objdump MNEMONIC to a roster name, but the model
 # covers FORMS -- so an instruction whose mnemonic the model has can still be
@@ -2283,6 +2285,12 @@ def selftest():
     print(("  ✔ " if ok else "  ⛔ ") + "a bytes-only line (GNU objdump's wrap) REFUSES rather than miscounting")
     if not ok:
         bad.append("raw:continuation")
+    # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
+    got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
+    ok = got == ["vcmplt_oqpd"]
+    print(("  ✔ " if ok else "  ⛔ ") + f"mnemonic key vcmplt_oqpd -> {got}")
+    if not ok:
+        bad.append("key:vcmp_oq")
 
     # ── attribution by ADDRESS, with the unattributed gap printed as `U` ──
     def LA(base, *rows):

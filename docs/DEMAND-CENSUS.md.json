@@ -1166,10 +1166,10 @@
    "roundpd": 4,
    "cmpneqpd": 1,
    "vfmadd231pd": 102,
-   "vcmplt": 48,
+   "vcmplt_oqpd": 32,
    "vminpd": 18,
-   "vcmpnge": 2,
-   "vcmpnlt": 28,
+   "vcmpnge_uqpd": 1,
+   "vcmpnlt_uqpd": 17,
    "vrsqrtps": 10,
    "vcvtps2pd": 32,
    "vaddpd": 175,
@@ -1177,8 +1177,8 @@
    "vfnmadd213pd": 23,
    "vmovmskpd": 17,
    "vfmsub231pd": 8,
-   "vcmpnle": 37,
-   "vcmpngt": 5,
+   "vcmpnle_uqpd": 19,
+   "vcmpngt_uqpd": 3,
    "vsubpd": 160,
    "vfnmadd231pd": 59,
    "vmaxpd": 10,
@@ -1189,8 +1189,8 @@
    "vcvtdq2pd": 16,
    "vpextrd": 94,
    "vmovhpd": 60,
-   "vcmple": 18,
-   "vcmpge": 9,
+   "vcmple_oqpd": 9,
+   "vcmpge_oqpd": 6,
    "vpsllq": 48,
    "vdivpd": 4,
    "vmovmskps": 44,
@@ -1202,7 +1202,7 @@
    "vpslld": 64,
    "vpermps": 16,
    "vfnmadd132pd": 11,
-   "vcmpgt": 11,
+   "vcmpgt_oqpd": 8,
    "vextracti128": 7,
    "vgatherqpd": 12,
    "vgatherdpd": 27,
@@ -1258,15 +1258,21 @@
    "pmaxsd": 1,
    "pminsd": 1,
    "vfmadd231ps": 40,
+   "vcmpnge_uqps": 1,
+   "vcmplt_oqps": 16,
    "vminps": 16,
+   "vcmpnlt_uqps": 11,
    "vfmadd213ps": 313,
    "vfmsub213ps": 17,
    "vfnmadd213ps": 26,
    "vfmsub231ps": 9,
+   "vcmpnle_uqps": 18,
+   "vcmpngt_uqps": 2,
    "vfnmadd231ps": 59,
    "vmaxps": 10,
    "vcvtdq2ps": 11,
    "vfmadd132ps": 13,
+   "vcmple_oqps": 9,
    "vdivps": 3,
    "vcmpordps": 2,
    "vcmpeqps": 3,
@@ -1274,6 +1280,7 @@
    "vpunpcklqdq": 32,
    "vpmulld": 21,
    "vfnmadd132ps": 11,
+   "vcmpgt_oqps": 3,
    "vunpcklps": 15,
    "vunpckhps": 3,
    "vroundps": 1,
@@ -1285,6 +1292,7 @@
    "vgetexpps": 13,
    "vpermt2ps": 23,
    "vreduceps": 2,
+   "vcmpge_oqps": 3,
    "vgetmantps": 5,
    "vscalefps": 5,
    "vpandnd": 25,
@@ -2139,20 +2147,20 @@
     "AVX2/AVX (ymm)": 8,
     "AVX-512 (zmm/k)": 94
    },
-   "vcmplt": {
-    "AVX2/AVX (ymm)": 33,
-    "AVX-512 (zmm/k)": 15
+   "vcmplt_oqpd": {
+    "AVX2/AVX (ymm)": 22,
+    "AVX-512 (zmm/k)": 10
    },
    "vminpd": {
     "AVX2/AVX (ymm)": 10,
     "AVX-512 (zmm/k)": 8
    },
-   "vcmpnge": {
-    "AVX2/AVX (ymm)": 2
+   "vcmpnge_uqpd": {
+    "AVX2/AVX (ymm)": 1
    },
-   "vcmpnlt": {
-    "AVX2/AVX (ymm)": 7,
-    "AVX-512 (zmm/k)": 21
+   "vcmpnlt_uqpd": {
+    "AVX2/AVX (ymm)": 4,
+    "AVX-512 (zmm/k)": 13
    },
    "vrsqrtps": {
     "VEX-128 (v\u2026 xmm)": 5,
@@ -2181,13 +2189,13 @@
     "AVX2/AVX (ymm)": 2,
     "AVX-512 (zmm/k)": 6
    },
-   "vcmpnle": {
-    "AVX2/AVX (ymm)": 20,
-    "AVX-512 (zmm/k)": 17
+   "vcmpnle_uqpd": {
+    "AVX2/AVX (ymm)": 11,
+    "AVX-512 (zmm/k)": 8
    },
-   "vcmpngt": {
-    "AVX2/AVX (ymm)": 2,
-    "AVX-512 (zmm/k)": 3
+   "vcmpngt_uqpd": {
+    "AVX2/AVX (ymm)": 1,
+    "AVX-512 (zmm/k)": 2
    },
    "vsubpd": {
     "AVX2/AVX (ymm)": 69,
@@ -2232,13 +2240,13 @@
    "vmovhpd": {
     "VEX-128 (v\u2026 xmm)": 60
    },
-   "vcmple": {
-    "AVX2/AVX (ymm)": 7,
-    "AVX-512 (zmm/k)": 11
+   "vcmple_oqpd": {
+    "AVX2/AVX (ymm)": 3,
+    "AVX-512 (zmm/k)": 6
    },
-   "vcmpge": {
+   "vcmpge_oqpd": {
     "AVX2/AVX (ymm)": 2,
-    "AVX-512 (zmm/k)": 7
+    "AVX-512 (zmm/k)": 4
    },
    "vpsllq": {
     "AVX2/AVX (ymm)": 20,
@@ -2301,9 +2309,9 @@
     "AVX2/AVX (ymm)": 23,
     "AVX-512 (zmm/k)": 29
    },
-   "vcmpgt": {
-    "AVX2/AVX (ymm)": 7,
-    "AVX-512 (zmm/k)": 4
+   "vcmpgt_oqpd": {
+    "AVX2/AVX (ymm)": 5,
+    "AVX-512 (zmm/k)": 3
    },
    "vextracti128": {
     "AVX2/AVX (ymm)": 7
@@ -2486,6 +2494,13 @@
     "AVX2/AVX (ymm)": 80,
     "AVX-512 (zmm/k)": 80
    },
+   "vcmpnge_uqps": {
+    "AVX2/AVX (ymm)": 1
+   },
+   "vcmplt_oqps": {
+    "AVX2/AVX (ymm)": 11,
+    "AVX-512 (zmm/k)": 5
+   },
    "vminps": {
     "AVX2/AVX (ymm)": 10,
     "AVX-512 (zmm/k)": 6
@@ -2493,6 +2508,10 @@
    "vaddps": {
     "AVX2/AVX (ymm)": 64,
     "AVX-512 (zmm/k)": 46
+   },
+   "vcmpnlt_uqps": {
+    "AVX2/AVX (ymm)": 3,
+    "AVX-512 (zmm/k)": 8
    },
    "vfmadd213ps": {
     "AVX2/AVX (ymm)": 170,
@@ -2509,6 +2528,14 @@
    "vfmsub231ps": {
     "AVX2/AVX (ymm)": 4,
     "AVX-512 (zmm/k)": 5
+   },
+   "vcmpnle_uqps": {
+    "AVX2/AVX (ymm)": 9,
+    "AVX-512 (zmm/k)": 9
+   },
+   "vcmpngt_uqps": {
+    "AVX2/AVX (ymm)": 1,
+    "AVX-512 (zmm/k)": 1
    },
    "vsubps": {
     "AVX2/AVX (ymm)": 55,
@@ -2529,6 +2556,10 @@
    "vfmadd132ps": {
     "AVX2/AVX (ymm)": 9,
     "AVX-512 (zmm/k)": 4
+   },
+   "vcmple_oqps": {
+    "AVX2/AVX (ymm)": 4,
+    "AVX-512 (zmm/k)": 5
    },
    "vdivps": {
     "AVX2/AVX (ymm)": 3
@@ -2556,6 +2587,10 @@
    "vfnmadd132ps": {
     "AVX2/AVX (ymm)": 5,
     "AVX-512 (zmm/k)": 6
+   },
+   "vcmpgt_oqps": {
+    "AVX2/AVX (ymm)": 2,
+    "AVX-512 (zmm/k)": 1
    },
    "vunpcklps": {
     "VEX-128 (v\u2026 xmm)": 12,
@@ -2591,6 +2626,9 @@
    },
    "vreduceps": {
     "AVX-512 (zmm/k)": 2
+   },
+   "vcmpge_oqps": {
+    "AVX-512 (zmm/k)": 3
    },
    "vgetmantps": {
     "AVX-512 (zmm/k)": 5
