@@ -23773,7 +23773,7 @@ which can go stale against the corpus.
 **What it changes (predictions for the build, each wrong if the regenerated census differs):**
 1. **Relabel.** Exactly 187 instructions move to `AVX-512 (zmm/k)`: 113 from ymm, 74 from VEX-128. `total` does not
    move in any column.
-2. **Credit.** Of the 22 mnemonics, two carry credit today: `vpmulhrsw` (silicon, the V7 VEX twin) and `vpbroadcastd`.
+2. **Credit.** Of the 22 mnemonics, two carry credit today: `vpmulhrsw` (silicon, a `vexSilTaken` kind) and `vpbroadcastd`.
    Both come out of `silicon_all` by at most their EVEX instances (14 and 4). `vex_all` moves by 0. ⚠️ The 14
    `vpmulhrsw` compute what the VEX form computes (unmasked, so the destination is zeroed above bit 127 or 255 either
    way). Leaving them credited would claim a modelled DECODE the model does not have: x86lean has no EVEX in its AST,
@@ -23787,3 +23787,19 @@ which can go stale against the corpus.
 **Price.** One change to `_classify`/`disassemble` (raw bytes in, an `evex` flag to `isa_bucket`), one red-first arm
 (a synthetic EVEX `vpmulhrsw` line must bucket AVX-512 and its VEX twin must not), the objdump guard with its own arm,
 and one census regeneration. No `.lean`, so no K-run.
+**Readings (2026-11-01, `paris/d385-evex-by-bytes`, the census regenerated over the same corpus):**
+1. **HELD.** Exactly 187 instructions move to `AVX-512 (zmm/k)` in `miss_by_ext`: ymm −113, VEX-128 −74, by column
+   dav1d +139 · glibc +28 · vmlinux-kernel +10 · ffmpeg +6 · x264 +3 · vpx +1. `total` moves by 0 in every column.
+2. **HELD.** `silicon_all` loses `vpmulhrsw` 14 and `vpbroadcastd` 4, all in dav1d, so dav1d's silicon falls by 18.
+   No other column's silicon moves, `vex_all` moves by 0, and `covered` moves by 0 everywhere.
+3. **HELD, as an arm, and driven red backwards.** `--selftest` has 248 arms, 7 of them new: three EVEX lines bucket
+   AVX-512, including one after a `67` prefix; the same `vpmulhrsw` text with VEX bytes buckets VEX-128; a
+   `66`-prefixed SSE form and a no-bytes line are unchanged; a bytes-only line REFUSES. Disabling the `evex` rule reds
+   exactly the three EVEX arms. Disabling the refusal reds exactly the continuation arm. `census()` refuses a
+   non-LLVM objdump.
+**`docs/P2-ROSTER.md`, regenerated (it reads the census):** the residue's AVX-512 class rises 38,758 → 38,907 (+149)
+as ymm falls 105,365 → 105,258 and VEX-128 60,567 → 60,525. That is the 187 restricted to the roster's columns
+(dav1d, ffmpeg, vpx, x264). The roster's REFUSES count moves 169,424 → 169,439 because the moved forms re-key under
+the bucket where they were probed.
+**Limit.** The `vcmp<pred>_oq…` mnemonic split found on the way (80 instructions keyed under `vcmpgt` etc.) is not
+fixed here. It moves no bucket, since the bucket reads the operands, but it does mis-key a mnemonic.
