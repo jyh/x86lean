@@ -102,19 +102,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 5215297,
-    "U": 27159,
-    "CA": 495,
-    "AC": 136972
+    "-": 5379923
    },
    "cells_covered": {
-    "CA": 495,
-    "AC": 136972,
-    "CC": 5215086,
-    "U": 27159
+    "-": 5379712
    },
-   "name_route_asm": 136972,
-   "body_route_asm": 495,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 5379923
   },
   "ext": {
@@ -466,19 +460,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 863382,
-    "U": 14670,
-    "AC": 1155,
-    "CA": 344
+    "-": 879551
    },
    "cells_covered": {
-    "CA": 344,
-    "AC": 798,
-    "CC": 861341,
-    "U": 14670
+    "-": 877153
    },
-   "name_route_asm": 1155,
-   "body_route_asm": 344,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 879551
   },
   "ext": {
@@ -1389,21 +1377,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 504808,
-    "U": 8781,
-    "AC": 55619,
-    "CA": 13783,
-    "AA": 20563
+    "-": 603554
    },
    "cells_covered": {
-    "AA": 15902,
-    "CA": 8989,
-    "AC": 40847,
-    "CC": 484816,
-    "U": 8781
+    "-": 559335
    },
-   "name_route_asm": 76182,
-   "body_route_asm": 34346,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 603554
   },
   "ext": {
@@ -2788,14 +2768,16 @@
   "total": 303830,
   "covered": 195778,
   "pct": 64.43669157094428,
-  "silicon": 36981,
-  "silicon_pct": 12.171609123523023,
+  "silicon": 37984,
+  "silicon_pct": 12.501727939966429,
   "silicon_all": {
    "pmulhuw": 157,
    "psubusw": 64,
+   "pavgw": 144,
    "vmovd": 1166,
    "vpmulhuw": 42,
    "vpmovmskb": 13,
+   "vpavgw": 186,
    "vpsraw": 250,
    "pmaddubsw": 1483,
    "pshufb": 1347,
@@ -2806,6 +2788,7 @@
    "vpshufb": 224,
    "vinserti128": 1810,
    "pabsw": 215,
+   "pmuldq": 1,
    "pabsd": 1,
    "packssdw": 897,
    "vpabsw": 278,
@@ -2818,6 +2801,7 @@
    "vpsrad": 2147,
    "vpackssdw": 822,
    "vpaddsw": 619,
+   "vpsubsw": 409,
    "vpmulld": 887,
    "vpunpcklbw": 576,
    "vmovhps": 965,
@@ -2836,6 +2820,7 @@
    "pmulld": 410,
    "pmullw": 452,
    "pmulhw": 118,
+   "psubsw": 263,
    "paddsw": 439,
    "rorx": 392,
    "vpavgb": 24,
@@ -2999,10 +2984,6 @@
     863
    ],
    [
-    "vpsubsw",
-    851
-   ],
-   [
     "vpmulld (vector operand)",
     844
    ],
@@ -3033,11 +3014,16 @@
    [
     "vpermb",
     755
+   ],
+   [
+    "vpshufd",
+    723
    ]
   ],
   "miss_all": {
    "pmulhuw": 157,
    "psubusw": 64,
+   "pavgw": 144,
    "vmovdqa": 7097,
    "vmovd": 1166,
    "vpand": 365,
@@ -3045,6 +3031,7 @@
    "vpaddw": 4658,
    "vpcmpeqw": 38,
    "vpmovmskb": 13,
+   "vpavgw": 186,
    "vpsubw": 1367,
    "vpsraw": 250,
    "pmaddubsw": 1483,
@@ -3057,6 +3044,7 @@
    "vmovdqu": 1611,
    "vinserti128": 1810,
    "pabsw": 215,
+   "pmuldq": 1,
    "pabsd": 1,
    "packssdw": 897,
    "vpabsw": 278,
@@ -3072,6 +3060,7 @@
    "vpsrad": 2147,
    "vpackssdw": 822,
    "vpaddsw": 619,
+   "vpsubsw": 409,
    "vpmulld": 887,
    "vpunpcklbw": 576,
    "vmovhps": 965,
@@ -3096,6 +3085,7 @@
    "pmulld": 410,
    "pmullw": 452,
    "pmulhw": 118,
+   "psubsw": 263,
    "paddsw": 439,
    "rorx": 392,
    "vpavgb": 24,
@@ -3115,14 +3105,12 @@
    "pmuludq": 18,
    "cpuid": 1,
    "xgetbv": 1,
-   "pavgw": 144,
    "packsswb": 107,
    "vpbroadcastw": 546,
    "vbroadcasti128": 545,
    "vpsrlw": 757,
    "vpsllw": 406,
    "vpmaxuw": 145,
-   "vpavgw": 252,
    "vzeroupper": 679,
    "pminub": 90,
    "vpshuflw": 66,
@@ -3140,7 +3128,6 @@
    "vpermt2b": 147,
    "vshufi32x4": 593,
    "pmovsxwq": 1,
-   "pmuldq": 1,
    "psignd": 1,
    "vpbroadcastq": 610,
    "vpsllq": 24,
@@ -3156,7 +3143,6 @@
    "vmovdqu16": 31,
    "vmovdqu64": 6,
    "vpdpwssd": 1589,
-   "vpsubsw": 851,
    "vpxord": 231,
    "vpinsrd": 198,
    "vpmovzxbw": 528,
@@ -3213,7 +3199,6 @@
    "phaddd": 469,
    "phaddw": 353,
    "pmaxsd": 230,
-   "psubsw": 263,
    "vpermi2b": 51,
    "vgf2p8affineqb": 60,
    "vpdpbusd": 330,
@@ -3325,11 +3310,13 @@
    "vpabsw (vector operand)": 167,
    "vpmulhrsw (vector operand)": 1658,
    "vpaddsw (vector operand)": 619,
+   "vpsubsw (vector operand)": 442,
    "vpunpckhwd (vector operand)": 584,
    "vpunpcklwd (vector operand)": 604,
    "vpmulld (vector operand)": 844,
    "vpunpcklbw (vector operand)": 351,
    "vpackuswb (vector operand)": 370,
+   "vpavgw (vector operand)": 66,
    "vpsrad (vector operand)": 802,
    "vpackssdw (vector operand)": 392,
    "vshufps (vector operand)": 27,
@@ -3354,21 +3341,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 93471,
-    "CA": 3619,
-    "U": 957,
-    "AC": 24700,
-    "AA": 181083
+    "-": 303830
    },
    "cells_covered": {
-    "AA": 79058,
-    "CA": 3619,
-    "AC": 18760,
-    "CC": 93384,
-    "U": 957
+    "-": 195778
    },
-   "name_route_asm": 205783,
-   "body_route_asm": 184702,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 303830
   },
   "ext": {
@@ -4450,10 +4429,10 @@
    }
   },
   "covered_mem": 72529,
-  "silicon_mem": 9847,
+  "silicon_mem": 9862,
   "vex_mem": 8990,
   "covered_mem_modelled": 72529,
-  "silicon_mem_modelled": 9847,
+  "silicon_mem_modelled": 9862,
   "vex_mem_modelled": 8990,
   "class": "asm"
  },
@@ -4461,8 +4440,8 @@
   "total": 3116986,
   "covered": 2998774,
   "pct": 96.20749018442817,
-  "silicon": 51419,
-  "silicon_pct": 1.6496384648503395,
+  "silicon": 52199,
+  "silicon_pct": 1.6746626388440629,
   "silicon_all": {
    "vshufps": 4340,
    "vinsertf128": 75,
@@ -4490,13 +4469,17 @@
    "pmullw": 330,
    "vpunpcklbw": 678,
    "vpslldq": 81,
+   "psubsw": 139,
    "pmulhw": 149,
+   "pmuldq": 20,
    "vpackssdw": 1439,
    "vpunpckhwd": 1563,
    "vpunpcklwd": 1633,
    "pavgb": 404,
    "pmaddubsw": 827,
    "vpmullw": 282,
+   "pavgw": 408,
+   "vpavgw": 189,
    "psubusb": 1466,
    "vpackuswb": 542,
    "vpsubusb": 560,
@@ -4521,6 +4504,7 @@
    "vmovlpd": 4,
    "vmovhpd": 3,
    "psadbw": 146,
+   "vpmuldq": 24,
    "pextrd": 6,
    "pmuludq": 8,
    "vpsadbw": 16,
@@ -4760,7 +4744,9 @@
    "vpunpcklbw": 678,
    "vpslldq": 81,
    "vpaddb": 86,
+   "psubsw": 139,
    "pmulhw": 149,
+   "pmuldq": 20,
    "vpackssdw": 1439,
    "vpunpckhwd": 1563,
    "vpunpcklwd": 1633,
@@ -4769,6 +4755,8 @@
    "vpsubw": 2456,
    "vpmullw": 282,
    "vpaddw": 3966,
+   "pavgw": 408,
+   "vpavgw": 189,
    "psubusb": 1466,
    "vpackuswb": 542,
    "vpsubusb": 560,
@@ -4802,6 +4790,7 @@
    "vxorpd": 5,
    "vmovhpd": 3,
    "psadbw": 146,
+   "vpmuldq": 24,
    "vpaddq": 10,
    "pextrd": 6,
    "pmuludq": 8,
@@ -4871,8 +4860,6 @@
    "packusdw": 15,
    "vpunpckhbw": 317,
    "vperm2i128": 130,
-   "psubsw": 143,
-   "pmuldq": 20,
    "vpmacsdql": 4,
    "vpsrlq": 68,
    "pmovsxdq": 4,
@@ -4885,8 +4872,6 @@
    "paddusb": 475,
    "pshufw": 205,
    "vpsrlw": 212,
-   "pavgw": 470,
-   "vpavgw": 189,
    "pmaxub": 152,
    "vpaddusb": 106,
    "vpmaxub": 9,
@@ -4933,7 +4918,6 @@
    "vpermpd": 54,
    "vmulpd": 35,
    "vshufpd": 53,
-   "vpmuldq": 24,
    "vphaddubq": 4,
    "pmulhrw": 4,
    "movshdup": 1,
@@ -5043,6 +5027,7 @@
    "pmaddwd (vector operand)": 196,
    "packssdw (vector operand)": 120,
    "pmaddubsw (vector operand)": 50,
+   "pavgw (vector operand)": 62,
    "por (vector operand)": 253,
    "paddsw (vector operand)": 51,
    "paddd (vector operand)": 192,
@@ -5064,6 +5049,7 @@
    "pandn (vector operand)": 88,
    "pmulhw (vector operand)": 18,
    "pabsw (vector operand)": 13,
+   "psubsw (vector operand)": 4,
    "psubd (vector operand)": 4,
    "pcmpgtd (vector operand)": 2,
    "vpmaxsw (vector operand)": 2,
@@ -5074,21 +5060,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 2746475,
-    "AC": 127628,
-    "U": 15204,
-    "CA": 133,
-    "AA": 227546
+    "-": 3116986
    },
    "cells_covered": {
-    "AA": 111910,
-    "CA": 133,
-    "AC": 125303,
-    "CC": 2746242,
-    "U": 15186
+    "-": 2998774
    },
-   "name_route_asm": 355174,
-   "body_route_asm": 227679,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 3116986
   },
   "ext": {
@@ -6241,10 +6219,10 @@
    }
   },
   "covered_mem": 1135087,
-  "silicon_mem": 12284,
+  "silicon_mem": 12379,
   "vex_mem": 18510,
   "covered_mem_modelled": 1135087,
-  "silicon_mem_modelled": 12284,
+  "silicon_mem_modelled": 12379,
   "vex_mem_modelled": 18510,
   "class": "asm"
  },
@@ -6321,17 +6299,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 150388,
-    "U": 1018,
-    "CA": 282
+    "-": 151688
    },
    "cells_covered": {
-    "CA": 267,
-    "CC": 150255,
-    "U": 1018
+    "-": 151540
    },
    "name_route_asm": 0,
-   "body_route_asm": 282,
+   "body_route_asm": 0,
    "total": 151688
   },
   "ext": {
@@ -6393,11 +6367,12 @@
   "total": 112104,
   "covered": 99093,
   "pct": 88.39381288803254,
-  "silicon": 4928,
-  "silicon_pct": 4.395918076072219,
+  "silicon": 5312,
+  "silicon_pct": 4.738457146934989,
   "silicon_all": {
    "pshufb": 256,
    "movntdqa": 1984,
+   "psubsw": 384,
    "pmulhw": 1152,
    "paddsw": 1344,
    "psubusb": 192
@@ -6435,10 +6410,6 @@
     672
    ],
    [
-    "psubsw",
-    576
-   ],
-   [
     "pmulhw (vector operand)",
     576
    ],
@@ -6455,6 +6426,10 @@
     436
    ],
    [
+    "psubsw",
+    384
+   ],
+   [
     "punpckhbw (vector operand)",
     327
    ],
@@ -6468,6 +6443,10 @@
    ],
    [
     "psubusb",
+    192
+   ],
+   [
+    "psubsw (vector operand)",
     192
    ],
    [
@@ -6510,18 +6489,19 @@
   "miss_all": {
    "pshufb": 256,
    "movntdqa": 1984,
+   "psubsw": 384,
    "pmulhw": 1152,
    "paddsw": 1344,
    "psubusb": 192,
    "movntdq": 690,
    "mfence": 8,
    "emms": 24,
-   "psubsw": 576,
    "sfence": 10,
    "movd (vector operand)": 436,
    "pxor (vector operand)": 224,
    "movq (vector operand)": 1867,
    "punpcklbw (vector operand)": 897,
+   "psubsw (vector operand)": 192,
    "psllw (vector operand)": 448,
    "pmulhw (vector operand)": 576,
    "paddsw (vector operand)": 672,
@@ -6536,17 +6516,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 52317,
-    "U": 272,
-    "CA": 59515
+    "-": 112104
    },
    "cells_covered": {
-    "CA": 48141,
-    "CC": 50680,
-    "U": 272
+    "-": 99093
    },
    "name_route_asm": 0,
-   "body_route_asm": 59515,
+   "body_route_asm": 0,
    "total": 112104
   },
   "ext": {
@@ -6647,8 +6623,8 @@
   "total": 722331,
   "covered": 657870,
   "pct": 91.07597486470884,
-  "silicon": 50507,
-  "silicon_pct": 6.992223786601987,
+  "silicon": 52561,
+  "silicon_pct": 7.276580958037243,
   "silicon_all": {
    "pmuludq": 2332,
    "pmullw": 2707,
@@ -6662,6 +6638,7 @@
    "vmovd": 223,
    "vinserti128": 279,
    "pavgb": 371,
+   "pavgw": 444,
    "pmulhuw": 1391,
    "pmaxsw": 574,
    "psubusw": 16851,
@@ -6683,11 +6660,15 @@
    "vpsrad": 279,
    "vpminsw": 28,
    "vpunpckhwd": 159,
+   "vpavgw": 127,
    "psubusb": 477,
+   "psubsw": 399,
    "vmovhps": 17,
    "vpsubusb": 72,
+   "vpsubsw": 2,
    "vpackssdw": 259,
    "pmulhrsw": 90,
+   "pmuldq": 1058,
    "pabsw": 28,
    "vpabsw": 637,
    "vpmulhw": 76,
@@ -6695,6 +6676,7 @@
    "vpmaxsw": 59,
    "vpmovmskb": 11,
    "vpabsd": 9,
+   "vpmuldq": 24,
    "vpmulld": 8,
    "psadbw": 4426,
    "vpsadbw": 326,
@@ -6905,6 +6887,7 @@
    "vmovd": 223,
    "vinserti128": 279,
    "pavgb": 371,
+   "pavgw": 444,
    "pmulhuw": 1391,
    "pmaxsw": 574,
    "psubusw": 16851,
@@ -6928,7 +6911,9 @@
    "vpsrad": 279,
    "vpminsw": 28,
    "vpunpckhwd": 159,
+   "vpavgw": 127,
    "psubusb": 477,
+   "psubsw": 399,
    "vpcmpeqd": 9,
    "vmovhps": 17,
    "vmovaps": 6,
@@ -6936,11 +6921,13 @@
    "vpand": 92,
    "vpcmpeqb": 10,
    "vxorps": 2,
+   "vpsubsw": 2,
    "vpandn": 40,
    "vmovapd": 9,
    "vpcmpgtb": 3,
    "vpackssdw": 259,
    "pmulhrsw": 90,
+   "pmuldq": 1058,
    "pabsw": 28,
    "vpabsw": 637,
    "vpcmpgtw": 29,
@@ -6951,6 +6938,7 @@
    "vpmovmskb": 11,
    "vpabsd": 9,
    "vpcmpgtd": 14,
+   "vpmuldq": 24,
    "vpmulld": 8,
    "psadbw": 4426,
    "vpsubd": 64,
@@ -6972,7 +6960,6 @@
    "vpunpcklqdq": 37,
    "vpmovzxdq": 8,
    "pextrw": 389,
-   "pavgw": 444,
    "pinsrw": 250,
    "vpsrlq": 74,
    "vpextrw": 22,
@@ -6989,13 +6976,11 @@
    "vpermd": 20,
    "vpminsd": 22,
    "vpmaxsd": 22,
-   "vpavgw": 127,
    "vblendps": 8,
    "pmaxub": 127,
    "paddusb": 74,
    "psubsb": 112,
    "paddsb": 172,
-   "psubsw": 399,
    "vpbroadcastb": 6,
    "vpsrlw": 52,
    "vpaddusb": 4,
@@ -7003,11 +6988,9 @@
    "vbroadcastss": 1,
    "vpsubsb": 6,
    "vpaddsb": 15,
-   "vpsubsw": 2,
    "vbroadcastf128": 16,
    "paddusw": 253,
    "vpunpckhqdq": 41,
-   "pmuldq": 1058,
    "pmovzxwd": 47,
    "psignw": 22,
    "psignd": 8,
@@ -7017,7 +7000,6 @@
    "vpsllw": 4,
    "vpsrld": 17,
    "vpsignd": 28,
-   "vpmuldq": 24,
    "vpbroadcastq": 6,
    "vpsllq": 12,
    "vpmovsxwd": 26,
@@ -7072,21 +7054,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 412101,
-    "U": 15158,
-    "CA": 81330,
-    "AC": 31862,
-    "AA": 181880
+    "-": 722331
    },
    "cells_covered": {
-    "AA": 132379,
-    "CA": 72621,
-    "AC": 28778,
-    "CC": 410892,
-    "U": 13200
+    "-": 657870
    },
-   "name_route_asm": 213742,
-   "body_route_asm": 263210,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 722331
   },
   "ext": {
@@ -7699,10 +7673,10 @@
    }
   },
   "covered_mem": 238961,
-  "silicon_mem": 5313,
+  "silicon_mem": 5753,
   "vex_mem": 3780,
   "covered_mem_modelled": 238961,
-  "silicon_mem_modelled": 5313,
+  "silicon_mem_modelled": 5753,
   "vex_mem_modelled": 3780,
   "class": "asm"
  },
@@ -7710,8 +7684,8 @@
   "total": 377330,
   "covered": 335609,
   "pct": 88.9431002040654,
-  "silicon": 11708,
-  "silicon_pct": 3.102854265497045,
+  "silicon": 11891,
+  "silicon_pct": 3.1513529271459997,
   "silicon_all": {
    "paddsw": 115,
    "pmaddwd": 485,
@@ -7768,9 +7742,11 @@
    "vextractf128": 4,
    "vpmullw": 57,
    "vpmuludq": 8,
+   "pavgw": 118,
    "pinsrd": 5,
    "vpmaxsw": 188,
    "vpsadbw": 446,
+   "vpavgw": 65,
    "psubusw": 104,
    "pmulhuw": 52,
    "vpmulhuw": 10,
@@ -7952,10 +7928,6 @@
     239
    ],
    [
-    "pavgw",
-    228
-   ],
-   [
     "palignr",
     225
    ],
@@ -7966,6 +7938,10 @@
    [
     "vpbroadcastq",
     215
+   ],
+   [
+    "vpunpckhwd",
+    213
    ]
   ],
   "miss_all": {
@@ -8041,10 +8017,12 @@
    "vpmullw": 57,
    "vpaddd": 953,
    "vpmuludq": 8,
+   "pavgw": 118,
    "pinsrd": 5,
    "vpmaxsw": 188,
    "vmovddup": 185,
    "vpsadbw": 446,
+   "vpavgw": 65,
    "vandps": 2,
    "psubusw": 104,
    "pmulhuw": 52,
@@ -8076,7 +8054,6 @@
    "psignw": 75,
    "psignd": 102,
    "vmovdqa32": 205,
-   "pavgw": 228,
    "pinsrw": 69,
    "vmovsd": 6,
    "vpshuflw": 152,
@@ -8206,7 +8183,6 @@
    "vpaddusw": 52,
    "vpinsrb": 20,
    "vpinsrd": 11,
-   "vpavgw": 65,
    "vphminposuw": 6,
    "vphaddw": 10,
    "vpextrw": 9,
@@ -8274,6 +8250,7 @@
    "vpabsw (vector operand)": 10,
    "punpckhwd (vector operand)": 206,
    "punpckhdq (vector operand)": 172,
+   "pavgw (vector operand)": 110,
    "paddsw (vector operand)": 34,
    "packuswb (vector operand)": 62,
    "vpbroadcastd (vector operand)": 126,
@@ -8324,21 +8301,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 269143,
-    "U": 1796,
-    "AC": 33250,
-    "CA": 572,
-    "AA": 72569
+    "-": 377330
    },
    "cells_covered": {
-    "AA": 34491,
-    "CA": 446,
-    "AC": 30161,
-    "CC": 268715,
-    "U": 1796
+    "-": 335609
    },
-   "name_route_asm": 105819,
-   "body_route_asm": 73141,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 377330
   },
   "ext": {
@@ -9475,10 +9444,10 @@
    }
   },
   "covered_mem": 137924,
-  "silicon_mem": 2923,
+  "silicon_mem": 2958,
   "vex_mem": 2900,
   "covered_mem_modelled": 137924,
-  "silicon_mem_modelled": 2923,
+  "silicon_mem_modelled": 2958,
   "vex_mem_modelled": 2900,
   "class": "asm"
  },
@@ -9486,8 +9455,8 @@
   "total": 4784269,
   "covered": 4438664,
   "pct": 92.77622140393862,
-  "silicon": 155613,
-  "silicon_pct": 3.2525972097304727,
+  "silicon": 160017,
+  "silicon_pct": 3.3446488899349096,
   "vex": 67436,
   "vex_pct": 1.4095361276717508,
   "ext": {
@@ -10302,16 +10271,16 @@
  },
  "_controls": {
   "cc1": {
-   "name": 2.5459843942004374,
-   "body": 0.009200875179812053,
-   "ok_name": false,
+   "name": 0.0,
+   "body": 0.0,
+   "ok_name": true,
    "ok_body": true
   },
   "glibc": {
-   "name": 12.622234298836558,
-   "body": 5.6906258594922745,
-   "ok_name": true,
-   "ok_body": true
+   "name": 0.0,
+   "body": 0.0,
+   "ok_name": false,
+   "ok_body": false
   }
  }
 }

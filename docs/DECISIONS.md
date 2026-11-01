@@ -24260,8 +24260,8 @@ recorded append conflicts at rebase).
 **Why.** Row 44 named the next three packed kinds the census leaves unmodelled. Each is the mirror of a kind the model
 has: `psubsw` of `.addsw` (signed saturating word subtract), `pavgw` of `.avgb` (D373, the rounded unsigned average at
 word width), and `pmuldq` the SIGNED twin of `.muludq` (the 64-bit product of the even signed dwords).
-**The census, derived by script from master's `docs/DEMAND-CENSUS.md.json` (`cbf075d`, so after D380), never typed.**
-D379's head carries the pre-D380 bucketing, where `%ymm16–31` and `%xmm16–31` were counted as VEX. None of the stack
+**The census, derived by script from master's `docs/DEMAND-CENSUS.md.json` (`cbf075d`, after master's EVEX-register rule, x86lean #152), never typed.**
+D379's head carries the pre-#152 bucketing, where `%ymm16–31` and `%xmm16–31` were counted as VEX. None of the stack
 between master and D379 credits these six names, so master's buckets are the right base. Over `miss_by_ext`, the six
 names number 5,280 at both heads, split as follows:
 ```
@@ -24272,7 +24272,7 @@ names number 5,280 at both heads, split as follows:
   ---- out of scope: MMX (mm) 196 + 172 = 368 · AVX-512 (zmm/k) 515 + 70 = 585
                                                               IN SCOPE = 4,327
 ```
-⚠️ **Row 44 read 4,404, at D379's head.** The 77-form difference is D380's rule: `vpsubsw` loses 25 VEX-128 and 48 ymm
+⚠️ **Row 44 read 4,404, at D379's head.** The 77-form difference is master's EVEX-register rule (#152): `vpsubsw` loses 25 VEX-128 and 48 ymm
 spellings to AVX-512, and `vpavgw` loses 2 of each. Both figures are right for the census they were read from.
 By column (in scope): dav1d 926 (xmm 408 · VEX-128 53 · ymm 465) · ffmpeg 780 (567 · 163 · 50) · vlc-video_chroma 384
 (384 · 0 · 0) · vpx 2,054 (1,901 · 9 · 144) · x264 183 (118 · 60 · 5).
@@ -24295,8 +24295,33 @@ register and memory forms go through the constructors D374 and D379 already use.
 4. **Census.** Silicon rises by **4,327 exactly**, column by column as above (by bucket: xmm 3,378 · VEX-128 285 · ymm
    664). The 368 MMX and 585 AVX-512 spellings stay in the residue. `covered`, `vex` and `total` do not move. Wrong if
    any in-scope spelling is not credited, or any out-of-scope one is. ⚠️ This prediction is written against master's
-   bucketing. Read at a stack head that does not yet carry D380, the ymm and VEX-128 figures will differ by the 77
+   bucketing. Read at a stack head that does not yet carry #152, the ymm and VEX-128 figures will differ by the 77
    above. The reading names its head.
 **Price.** One silicon wave in D374's frame (one generator over 3 names × legacy/VEX.128/VEX.256 × register/memory),
 three kinds, two predicate lines, one metered unit, one census regeneration, one K1. Stacked on D379 (`0875143`).
 Smaller than D379, which also needed six new constructors for a unary operation.
+
+**Readings (2026-11-01, `paris/d384-wave-e`):**
+1. **HELD on both vendors.** hwprobe run 41338494131 at `34ceb05` landed `ubuntu-latest` on an **AMD EPYC 7763** and
+   `macos-15-intel` on an **Intel i7-8700B**. Each leg read set C `rows 108 disagreements 0` and vexsilk `rows 153
+   disagreements 0`. On each leg every control fired as designed: the set-C plant reds exactly `psubsw_xx_edge0` and its
+   bad op refuses (rc 2); the vexsilk plant reds `vpsubsw256_r_p0`, `--plant-hi` reds `vpsubsw128_r_edge0`, and its bad op
+   refuses. The seeding reaches every edge prediction 1 names (the generators' EDGES and UNIFORM rows).
+2. **HELD for the generators, with one limit.** Set C's `--reach`: (a) wrapping `psubsw` disagrees on 28 of 36 rows, (b) a
+   truncating `pavgw` on 26, (c) a 16-bit sum on 32, (d) a zero-extending `pmuldq` on 34, (e) the odd dwords on 28.
+   `mk_vexsilk_rows --reach`: (f) VEX.128 keeping YMM3[255:128] on 90 of 153, the low lane only on 60, swapped operands
+   on 43, an aligned read on 36. ⚠️ **(g) a legacy form zeroing YMM bits 255:128 is NOT refereed by silicon.**
+   `simda_probe.c` reads XMM only, as it did for sets A and B. It is the model's rule (`setXmm`), the same for every
+   legacy `vbin`. The SDM-derived bytes equal clang's for all 18 forms; the assembled `_at` bytes were read back from the
+   object, not taken from the derivation.
+3. **HELD.** Three kinds; 261 rows pinned by `decide` in one new unit `Tests/AnchorsVexSilK` (two generated blocks:
+   `mk_simda_anchors --set-c`, 108 rows; `mk_vexsilk_anchors`, 153 rows). A wrapping-`subsw` mutant reds exactly the six
+   `psubsw`/`vpsubsw` theorems, and a zero-extending `muldq` mutant reds exactly the six `pmuldq`/`vpmuldq` theorems.
+   The file is restored byte-identical after each (`cmp`).
+4. **NOT HELD as written; its own caveat HELD exactly. Silicon +4,404, not +4,327** (dav1d +1,003 · ffmpeg +780 ·
+   vlc-video_chroma +384 · vpx +2,054 · x264 +183). `covered`, `vex` and `total` do not move in any column. The census
+   was regenerated at THIS branch's head, which is stacked on D379 and does not carry #152. So `%ymm16–31`/`%xmm16–31`
+   spellings still bucket as VEX here, and the prediction's ⚠️ named this difference as 77 before the reading. It is 77
+   to the form, and all of it is in dav1d (926 + 77 = 1,003), the only column #152 moved for these names. The 368 MMX
+   and the AVX-512 spellings are not credited. When the stack is rebased onto master the figure should read 4,327; that
+   rebase's census is the check.

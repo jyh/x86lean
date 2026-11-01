@@ -450,6 +450,10 @@ inductive VBinKind where
   /-- ⭐ D379 — `pmulld` (SSE4.1): the LOW 32 bits of each 32×32 dword product (SDM Vol. 2B PMULLD), the dword
   twin of `mullw`; x86isa refuses it and its VEX twins (D379 P1), `hwprobe/` `vexsilj` referees them. -/
   | mulld
+  /-- ⭐ D384 (wave E) — refereed by silicon (`mk_simda_rows.py --set-c`, `mk_vexsilk_rows.py`), each the mirror of a
+  modelled kind: `psubsw` (signed saturating word subtract, `addsw`'s), `pavgw` (the rounded unsigned word average,
+  `avgb`'s at word width) and `pmuldq` (the EVEN dwords, SIGNED, full 64-bit product: `muludq`'s signed twin). -/
+  | subsw | avgw | muldq
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- ⭐ D379 — the lane width of `pabs{b,w,d}` and its VEX twins. Its own type and not `VShiftW`, whose `w64` would
@@ -500,6 +504,8 @@ def VBinKind.mnemonic : VBinKind → String
   | .sadbw => "psadbw" | .packssdw => "packssdw"
   -- D373: silicon-refereed, `siliconTable`'s rows.
   | .minsw => "pminsw" | .mulhw => "pmulhw" | .mulhuw => "pmulhuw" | .avgb => "pavgb"
+  -- D384: silicon-refereed, `siliconTable`'s rows.
+  | .subsw => "psubsw" | .avgw => "pavgw" | .muldq => "pmuldq"
 
 /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS' OPERATION, HELD APART
 FROM THEIR LANE WIDTH.
@@ -2441,6 +2447,8 @@ def VBinKind.vexSilTaken : VBinKind → Bool
   | .minsw | .avgb | .mulhw | .mulhuw => true
   -- ⭐⭐ D379: `vpmulld`, at VEX.128 and VEX.256 (x86isa refuses both, D379 P1; `vexsilj` referees them).
   | .mulld => true
+  -- ⭐⭐ D384: wave E's three, at VEX.128 and VEX.256 (x86isa refuses all six, D384 P1; `vexsilk` referees them).
+  | .subsw | .avgw | .muldq => true
   | _ => false
 
 /-- ⭐ V4 (D342) — the packed binary kinds whose VEX MEMORY twins (`vexbinm`, and since V9a `vexbinm256`) are
@@ -2468,6 +2476,8 @@ def VBinKind.vexSilMemTaken : VBinKind → Bool
   | .minsw | .avgb | .mulhw | .mulhuw => true
   -- ⭐⭐ D379: `vpmulld`'s memory twins, on the same word.
   | .mulld => true
+  -- ⭐⭐ D384: wave E's memory twins, on the same word.
+  | .subsw | .avgw | .muldq => true
   | _ => false
 
 /-- ⭐ V8c (D350) — a dword replicated into all four dwords of 128 bits (VPBROADCASTD's lane). -/

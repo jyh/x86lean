@@ -1478,7 +1478,20 @@ def siliconTable : List Row :=
   , { mnemonic := "vpabsd", shapes := "x,x · x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PABSD's lane rule (it wraps) · register and m128/m256 forms, no alignment check · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PABSD" }
   , { mnemonic := "vpmulld", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, the low 32 bits of each signed product · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULLD" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULLD" }
+  -- ⭐ D384 (wave E): `psubsw` · `pavgw` · `pmuldq`, legacy and VEX, refereed by silicon (hwprobe `simdc`, `vexsilk`).
+  , { mnemonic := "psubsw", shapes := "x,x · x,m", note := "legacy SSE2: eight words, each the SIGNED difference saturated to [-32768, 32767]; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBSW" }
+  , { mnemonic := "pavgw", shapes := "x,x · x,m", note := "legacy SSE2: eight words, each (a + b + 1) >> 1 UNSIGNED, the sum in 17 bits; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGW" }
+  , { mnemonic := "pmuldq", shapes := "x,x · x,m", note := "legacy SSE4.1: the even dwords (0 and 2), SIGN-extended, their full 64-bit products; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULDQ" }
+  , { mnemonic := "vpsubsw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PSUBSW's lane rule · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBSW" }
+  , { mnemonic := "vpavgw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PAVGW's lane rule · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGW" }
+  , { mnemonic := "vpmuldq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PMULDQ's rule per quadword · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULDQ" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

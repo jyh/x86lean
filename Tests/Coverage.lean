@@ -130,7 +130,11 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vabs .b .x3 .x1).mnemonic, (Op.vabs .w .x3 .x1).mnemonic, (Op.vabs .d .x3 .x1).mnemonic,
       (Op.vbin .mulld .x3 .x1).mnemonic,
       (Op.vex (.vexabs .b .x3 .x1)).mnemonic, (Op.vex (.vexabs .w .x3 .x1)).mnemonic,
-      (Op.vex (.vexabs .d .x3 .x1)).mnemonic, (Op.vex (.vexbin .mulld .x3 .x1 .x2)).mnemonic] := by decide
+      (Op.vex (.vexabs .d .x3 .x1)).mnemonic, (Op.vex (.vexbin .mulld .x3 .x1 .x2)).mnemonic,
+      -- D384: wave E, legacy then VEX, one row per mnemonic.
+      (Op.vbin .subsw .x3 .x1).mnemonic, (Op.vbin .avgw .x3 .x1).mnemonic, (Op.vbin .muldq .x3 .x1).mnemonic,
+      (Op.vex (.vexbin .subsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .avgw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .muldq .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
