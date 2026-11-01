@@ -23569,6 +23569,150 @@ failure), the exception is named where the theorem is, and everything that alrea
 `vexMnemonics`, the census's `vex` set) covers the row with no new plumbing. Wrong if a later VEX-only form needs a different
 shape of exception, which would make the list a category rather than a list (then (A)).
 
+## D372 — a ledger row SLIDES across a master move that touches no reading input (`kernel_drift.py`; the helm's queue item 6, CONCUR 2026-10-30)
+
+**Why.** A drift-ledger row is keyed on `base`, the master tip its K2 was measured on. When master moves before the PR
+lands, the PR rebases, its step becomes `b → h` with a new `b`, and the row stops matching. Worse, the old base is still
+on the first-parent chain and now leads to an unrelated merge, so `gap()` refuses the row as a WRONG row (kent's red on
+#142, 2026-10-30). The remedy was a fresh K2 at the new base. Measured over the master moves that forced a re-measure:
+#105 and #107 (V7's K4 and K5), #143 and #144 (#142's two K2s) touched **no** reading input; only #61's base move (8
+files) did. So 4 of 5 re-measures re-read a number that could not have moved, at 2–3 h of katmai each plus a non-author
+read and a CI restart.
+**Design.** `records_step` already states the invariant: a reading is a function of the `.lean` sources and
+`PROFILER_PATHS`. So a row measured `b0 → rh` prices `b → h` when `b`'s reading inputs equal `b0`'s and `h`'s equal
+`rh`'s. `rh` is the pre-rebase commit, which a CI clone never fetches, so the comparison is against two digests the row
+carries (`base_reading`, `head_reading`: sha256/16 of `git ls-tree -r` restricted to the READING INPUTS), written by
+`--record` while both commits exist. **The reading inputs are `PROFILER_PATHS` (`scripts/kernel_cost.py`,
+`scripts/kernel_delta_budget.txt`, `scripts/kernel_delta.py`, `scripts/kernel_ceilings.txt`, `lean-toolchain`,
+`lake-manifest.json`) and every tracked path `EXEMPT_RULES` gives no reason for** — every `.lean`, and `lakefile.toml`,
+whose `[leanOptions]` `kernel_delta.py` names as moving every reading. It is the classifier's inverted default, the rule
+`gap()` and `null_pair_reason` already apply, so a path added later counts until someone argues it out. `--gap` prints
+this set beside any slide. ⚠️ **The first build digested `*.lean` and `PROFILER_PATHS` only and so left `lakefile.toml`
+out**: a master move editing it would have slid a stale reading under a green stamp. Found on the helm's WRONG-IF
+("PROFILER_PATHS is not the whole set of reading inputs"), checked against the tracked files, and fixed before any PR. `effective_ledger()` moves each such row from its own base to the first
+later step with no row of its own that matches both digests; `gap()` and `accumulated_allowance()` both read it. A row
+that matches nothing stays where it was and is refused as before, and the refusal now says why it did not slide. `--gap`
+prints each slide.
+**Arms (selftest, 79 → 89, plants 47 → 55).** The #142 shape is built in a scratch repo (M0, the PR measured on M0,
+master moved to M1, the PR rebased and merged `--no-ff`). CONTROL: a README move slides. RED-FIRST: the same shape with
+no digests is refused (#142 reproduced); a `.lean` move refused; a `lean-toolchain` move refused; a `lakefile.toml` move refused, with an arm on the set's members; a rebased head that
+differs on a `.lean` file refused; master and the PR making the SAME `.lean` edit refused by the base digest alone; a row
+whose `head` object is absent still slides. On the real chain the digest moves across a `.lean` step and not across a
+`neither` step. Red backwards: dropping the base check reds exactly the convergent-edit arm (it was GREEN on every other
+arm, so that arm was added for it); dropping the head check reds the five refusal arms and the control; never sliding,
+and not honouring a slide in `gap()`, each red the two slide arms; the narrow `*.lean` + `PROFILER_PATHS` digest reds
+exactly the two `lakefile.toml` arms.
+**Limits.** (1) A slid row's `base_ms` is still the one measured on its ORIGINAL base, on that row's box and night;
+`--gap` says so beside each slide. (2) Rows recorded before D372 carry no digests and never slide, so the open stack
+(#145 and the stacked vector PRs not yet opened) pays one more K2 each before it benefits. (3) No arm drives `--record`'s two new lines (the
+record path is inline in `main()`); they call `reading_tree`, which the arms above drive, and the first real `--record`
+after this lands is read back by hand. (4) A master move that changes a reading input and a later commit that restores it
+leave equal digests and the row slides; that is sound by the invariant (the reading is a function of content), and it is
+stated rather than refused.
+
+## D378 — `fast_path.py --census`: the fast-path list DERIVED from the forge, because the merge-body record was kept on 3 of 22 occasions
+
+**Why.** D340 (4) made the merge commit the record: a fast-path merge carries a `FAST-PATH:` line, so `git log --grep
+'^FAST-PATH:' origin/master` was to list every merge whose matrix was skipped, and master's post-merge run was each one's
+revert check. The census in PR #149 (the helm's row-39 question) measured the record against the forge over 10-14 → 10-31.
+Of 54 merged PRs, 22 had no completed selftest matrix at the merged head before `mergedAt`, and 3 of those 22 carry the line.
+**A record that its writer must remember to write was written 3 times in 22**, so D340's revert duty could not be checked
+from it.
+**Built.** `scripts/fast_path.py --census [--since DATE]` (read-only; the forge and `git log`). For each merged PR it
+reads every `pull_request` CI run at the merged head and classifies the PR **BEFORE**, **AFTER** or **NEVER**. A run counts
+as a matrix only if it has `selftest (n)` shards and every shard succeeded; its completion time is its last shard's. It
+prints the population (how many PRs, since when) beside the list, marks which matrix-less merges carry the record, and
+prints what it does NOT read: who merged (one shared account), whether each merge ref's digest equalled a green
+master's (D340's actual GO), and a matrix at an earlier head of the same PR (by design, because that head is not what
+landed). `fast_path.py --check` is unchanged.
+**Arms (selftest 10 → 18; the rule is a pure function, `classify`).** Control BEFORE · AFTER · a cancelled shard ⇒ NEVER
+· no run ⇒ NEVER · a run with no shards ⇒ NEVER · an older complete run counts beside a newer cancelled one · a complete
+run before the merge and a re-run after it ⇒ BEFORE · a skipped shard ⇒ NEVER. **Red backwards, three mutants:**
+`all` → `any` reds exactly the cancelled-shard arm. Dropping the empty-run guard crashes the selftest (`max()` of an
+empty list), which is red but not an arm's red. `min` → `max` **survived the first 17 arms**, because none had two
+complete runs on opposite sides of the merge. The re-run arm was written for it, and it now reds exactly that arm. The
+printed arm count is now counted, not typed.
+**paper's read (CONCUR at `65974e5`, two LOWs, both taken).** (1) A `<=` → `<` mutant survived all 18 arms, because no
+arm put a completion exactly at the merge instant. The boundary arm is added (inclusive), and that mutant now reds it.
+19 arms. (2) The jobs endpoint returns a run's LATEST attempt. A run green before the merge and re-attempted after it
+therefore reads AFTER, which errs toward listing a merge as matrix-less (the safe direction). It is printed on the
+NOT READ line, where the reader meets it.
+**First live reading (2026-10-31, `--since 2026-10-14`):** 54 / 22 / 3, PR for PR the table in PR #149. ⚠️ **That is
+TRANSPORT, not corroboration.** The tool and that table share an author and a method (the same API fields, the same
+rule), so their agreement says the rule was coded as written and nothing about whether the rule is right.
+**Not done here, and named:** the census is not a CI step (it needs the forge and a token, and its reading is a list for
+a person, not a gate). D340's merge-body line is not retired: it still carries the digest and the green run, which the
+census does not. Whether a NEVER or AFTER merge whose master run went red owes a revert is the helm's ruling on PR #149's (1).
+
+## D377 — A REFUSAL on master's push run is not a red against the PR; and the fast-path record names 3 of 22 matrix-less merges (STATUS row 39, the helm's two questions of 2026-10-31 01:45)
+
+**Why.** #142's master push run 41142111878 went red on `kernel-delta` exit 3, UNMEASURABLE (`Tests.Vectors` +10.0 against
+18.5, band ±8.8). #142 had merged on a full PR run, and its ledger row (K2 on katmai, `c0dfb01 → dd5a67c`, ms_rc 0) had
+decided that exact `.lean` step. The helm ruled no revert and no rerun, because D340's revert clause binds fast-path merges only.
+It then asked two questions: (1) should a REFUSAL on master's push run read differently from a RED, and (2) which PRs took the
+D340 fast path, so that a future master red's revert duty can be checked (D340's own clause (4)).
+
+**(1) Three arms, and a fourth ruled out below.**
+- **(A) A refusal reads as a red.** Every master red is a revert candidate. This is simple, but exit 3 means *this run cannot
+  tell*. A revert on it reverses a verdict of record (six repeats on one quiet box) on the strength of a reading that declared
+  itself unable to decide. It reverts on runner noise.
+- **(B) A refusal reads differently, by rule, with no code.** D340's revert duty and any "master is red" escalation bind on
+  VERDICT reds: a failing test or gate, and `kernel-delta` exit 1 (OVER). They do not bind on REFUSALS (exit 2 or 3) when the
+  merged `.lean` step has a verdict of record: a ledger row, or a PR run whose `kernel-delta` concluded success at the merged
+  head. A refusal is recorded beside the merge and read again at master's next run. The same unit refusing on two consecutive
+  master runs escalates, because one refusal is noise and two is a pattern. Cost: master shows red until the next push, and
+  `preflight.sh` reports that red as master's last verdict.
+- **(C) A refusal reads differently, by code.** On a push to master, `kernel_delta.py` would map exit 3 to a pass with a warning
+  annotation that names the deciding row, whenever the merge's second parent has one (found through the row-slide rule of PR #148, once it lands). Exit 1 stays
+  red. Cost: a lookup from merge to PR head to ledger row, plus the arms to drive it. A master-only interaction regression would
+  read as a warning. An exit 3 cannot see that regression either, so this hides nothing that the red was showing.
+
+**Measured before choosing (the rate decides between B and C).** Since 10-14 there have been 47 master push CI runs: 25 green, 20
+red, 1 cancelled and 1 in progress. **13 of the 20 reds carry a `kernel-delta` red, and the job log of every one of the 13 ends
+`exit code 3`: a refusal each time, never an OVER.** In **11 of the 20**, `kernel-delta` is the ONLY failing job (in a 12th it fails beside
+`ku-delta`). ⇒ **Nearly a quarter of master's runs read red for no reason except that the runner could not tell.** My first
+draft of this paragraph said "two master `kernel-delta` reds since 10-14". That figure came from the 22 merges sampled in (2),
+and the population of master runs corrected it before commit.
+⚠️ **`kernel-delta` is NOT a required check** (branch protection, read live: strict; the five required checks are the scrub and
+prose gates). So a PR can merge with that job red or never measured, and master's push run is then the ONLY reading the step
+ever gets. That rules out a fourth arm, dropping `kernel-delta` from push runs: under strict protection a PR's merge ref equals
+master's post-merge tree, so it would be sound *when the PR's own reading exists*, and nothing enforces that it does.
+**Taken: (B) now; (C) recommended, mine to build on the helm's CONCUR.** (B) is the rule from today: no revert and no "master is red" escalation on a refusal
+when the merged step has a verdict of record. (C) is the remedy for the rate. Its condition is exactly (B)'s: exit 3 maps to a
+pass with a `::warning::` naming the deciding row or PR run, and only when one exists. Without one the refusal stays red,
+because then it is the step's only reading and it says nothing. **Wrong if** the eleven refusal-only reds include a step with
+NO verdict of record: then (C) would have turned a missing measurement green. Before (C) is built, its lookup is driven against
+these eleven as its fixture, and each must name its row or run.
+**(2) The fast-path list, derived from the forge and not from the record.** D340 (4) makes the merge commit the record:
+`git log --grep '^FAST-PATH:' origin/master` lists **3** merges (#109 `08cbf0f`, #139 `17be59d`, #131 `6e1e52e`). The forge
+census asks a different question of every PR merged since 10-14 (54 PRs): did a `pull_request` CI run *at the merged head*
+complete every `selftest (n)` shard with success *before* `mergedAt`? It compares job `completed_at` with `mergedAt`, both UTC
+from the GitHub API, and reads every PR run at that head. **22 of 54 did not:**
+```
+  NEVER  (no PR run at the merged head ever completed the matrix; shards cancelled or failed)
+    #93 76b6890 · #100 ef5972e · #114 c61cea5 · #130 9d8fa6e · #128 810c20c · #141 87de9ad · #139 17be59d* · #131 6e1e52e*
+  AFTER  (the matrix at the merged head completed green, but after the merge)
+    #94 7e634fe · #95 63bc82d · #101 85ff177 · #99 40ad9ae · #110 01cac70 · #111 be3fc51 · #109 08cbf0f* · #121 020081e
+    #123 b68b5e2 · #124 62d55ac · #138 ec32a0d · #134 b5f2c0a · #140 29ffc7a · #135 f812a16
+  * = carries the FAST-PATH: record
+```
+⇒ **The record names 3 of the 22.** As a census of merges taken without a completed matrix, `--grep '^FAST-PATH:'` is short by
+19. The merge-body record is a WRITER's discipline, and the forge shows it was kept on 3 of 22 occasions. Every merge reads
+`mergedBy jyh` (one account for every seat), so the forge cannot say who merged any of them.
+**Master's post-merge CI on the 22:** 13 green and 9 red. By failing STEP (not by check name), five are `kernel-cost-selftest`
+(10-27/28, the ubuntu-26.04 fixture, D368), one is `kernel-delta` beside it (`ec32a0d`), and three are unexplained here:
+`76b6890` (#93, `selftest (6)` failing in `lean-action`), `01cac70` (#110, `build` / flag strictness) and `c61cea5` (#114,
+`build`, no failing step reported). Whether those three were followed up is NOT measured in this note.
+**Recommendation for (2): derive the list, do not write it.** A merge whose head had no completed matrix before `mergedAt` *is*
+a fast-path merge for D340's revert duty, whatever its body says. The census above is about forty lines over `gh api` and
+belongs beside `fast_path.py` as `--census` (forge-derived, and printing its own population), so the revert check stops resting
+on a discipline. Proposed, not built.
+**Limits, declared.** (a) "Matrix-less" is not "unsafe". Whether each of the 22 merge refs had a digest equal to a green
+master's (D340's actual GO condition) is not measured. Several are docs-only or ledger-only and would have passed it. (b) The
+census reads `pull_request` runs at the exact merged head. A matrix on an earlier head of the same PR does not count, by design,
+because that head is not what landed. (c) The window is 10-14 → 10-31, from D340's ruling to today. (d) The three unexplained
+master reds are listed and not diagnosed.
+
 ## D380 — the census credited EVEX register forms as VEX: `%xmm16–31`/`%ymm16–31` are AVX-512 whether or not a mask is named (STATUS row 43)
 
 **Why.** `demand_census.isa_bucket` sent an instruction to `AVX-512 (zmm/k)` only when an operand named `%zmm` or a
@@ -23597,3 +23741,10 @@ as the ymm class falls 108,554 → 105,365 and VEX-128 62,252 → 60,567. The ro
 (EXECUTES 86,443 → 86,191 · REFUSES 169,877 → 169,424) because the moved forms leave the buckets where they were probed.
 The copies of the old figures were searched for across the tree: the only hits are dated readings inside earlier decision
 records (D-notes stand at their dates). The pooled ymm figure quoted at `108,554` in an earlier note reads 105,365 from here.
+**Limit, declared (paper's LOW at its read of `9d9ee9c`).** The rule buckets BY REGISTER FILE ONLY. An EVEX-only
+MNEMONIC on registers 0–15 with no mask (`vmovdqa32`, `vmovdqa64`, `vpternlogd`, `vinserti32x4`, …) still buckets as
+ymm or VEX-128. paper counted 125 such forms from the head's `miss_by_ext` with a hand-written list (a FLOOR; control:
+the same list finds 14,642 forms already in AVX-512), and none is in `vex_all` or `silicon_all`. So no form is CREDITED
+wrongly, and only the ext labels and P2-ROSTER's AVX-512 row undercount, by at least that much. `{1toN}` broadcast and
+`{sae}` operands are the same class and are not counted. The mnemonic arm is STATUS-paris row 46, with its list derived
+from a source and not typed.
