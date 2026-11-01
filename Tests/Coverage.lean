@@ -47,8 +47,8 @@ theorem roster_covered_by_table :
 
 /-- The table has exactly one row per implemented mnemonic, and no duplicates.
 The count is `rosterSize` rather than a literal, so this theorem and
-`roster_size_matches` below cannot drift apart — twenty-two today, because P1
-batch 2 added `adc` and `sbb`. -/
+`roster_size_matches` below cannot drift apart (twenty-two when P1 batch 2
+added `adc` and `sbb`; `rosterSize` is the count now). -/
 theorem table_row_count : tableP0.length = rosterSize := by decide
 
 theorem table_rows_distinct :
@@ -1141,7 +1141,9 @@ def isMemDestVector (v : Vec) : Bool :=
       -- V9b (D354), in the SAME COMMIT as the constructors: the move memory forms split as batch 3's did,
       -- a STORE is a memory destination (16 or 32 bytes) and a LOAD is not.
       | .vexload .. | .vexload256 .. => false
-      | .vexstore .. | .vexstore256 .. => true)
+      | .vexstore .. | .vexstore256 .. => true
+      -- D369, in the SAME COMMIT as the constructor: vzeroupper writes the YMM upper halves, never memory.
+      | .vexzeroupper => false)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it

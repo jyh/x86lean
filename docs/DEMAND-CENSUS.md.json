@@ -1,8 +1,8 @@
 {
  "cc1": {
   "total": 5379923,
-  "covered": 5379712,
-  "pct": 99.99607801078194,
+  "covered": 5379794,
+  "pct": 99.99760219616526,
   "silicon": 8,
   "silicon_pct": 0.0001487010130070635,
   "silicon_all": {
@@ -21,18 +21,6 @@
     28
    ],
    [
-    "xaddl (lock operand)",
-    28
-   ],
-   [
-    "cmpxchgq (lock operand)",
-    24
-   ],
-   [
-    "addl (lock operand)",
-    22
-   ],
-   [
     "rdsspq",
     12
    ],
@@ -46,10 +34,6 @@
    ],
    [
     "pcmpestri",
-    6
-   ],
-   [
-    "cmpxchgl (lock operand)",
     6
    ],
    [
@@ -73,10 +57,6 @@
     2
    ],
    [
-    "subl (lock operand)",
-    2
-   ],
-   [
     "xgetbv",
     1
    ]
@@ -93,12 +73,7 @@
    "incsspq": 28,
    "pinsrw": 3,
    "pcmpestri": 6,
-   "pextrw": 4,
-   "cmpxchgq (lock operand)": 24,
-   "xaddl (lock operand)": 28,
-   "cmpxchgl (lock operand)": 6,
-   "subl (lock operand)": 2,
-   "addl (lock operand)": 22
+   "pextrw": 4
   },
   "attribution": {
    "cells": {
@@ -110,7 +85,7 @@
    "cells_covered": {
     "CA": 495,
     "AC": 136972,
-    "CC": 5215086,
+    "CC": 5215168,
     "U": 27159
    },
    "name_route_asm": 136972,
@@ -120,7 +95,6 @@
   "ext": {
    "CPUID": 51,
    "XSAVE": 1,
-   "LOCK prefix (P2 addition 2)": 82,
    "GPR/other (unclassified)": 42,
    "RDRAND": 2,
    "RDSEED": 8,
@@ -133,6 +107,7 @@
    "mov imm64 / movabs (P2 addition 3)": 7234,
    "BMI1": 364,
    "PREFETCH": 4,
+   "LOCK prefix (P2 addition 2)": 82,
    "486": 9,
    "CET-IBT": 1490,
    "segment base %fs:/%gs: (P2 addition 1)": 4
@@ -144,23 +119,8 @@
    "xgetbv": {
     "XSAVE": 1
    },
-   "cmpxchgq": {
-    "LOCK prefix (P2 addition 2)": 24
-   },
-   "xaddl": {
-    "LOCK prefix (P2 addition 2)": 28
-   },
    "hlt": {
     "GPR/other (unclassified)": 2
-   },
-   "cmpxchgl": {
-    "LOCK prefix (P2 addition 2)": 6
-   },
-   "subl": {
-    "LOCK prefix (P2 addition 2)": 2
-   },
-   "addl": {
-    "LOCK prefix (P2 addition 2)": 22
    },
    "rdrandl": {
     "RDRAND": 2
@@ -190,10 +150,10 @@
     "SSE-legacy (xmm)": 4
    }
   },
-  "covered_mem": 1680588,
+  "covered_mem": 1680670,
   "silicon_mem": 0,
   "vex_mem": 0,
-  "covered_mem_modelled": 1662657,
+  "covered_mem_modelled": 1662737,
   "silicon_mem_modelled": 0,
   "vex_mem_modelled": 0,
   "class": "compiler"
@@ -210,12 +170,13 @@
    "vpshufb": 15,
    "vpmovmskb": 1
   },
-  "vex": 144,
-  "vex_pct": 0.0163719897993408,
+  "vex": 157,
+  "vex_pct": 0.017850016656225733,
   "vex_all": {
    "vmovdqu": 5,
    "vpxor": 52,
    "vmovdqa": 66,
+   "vzeroupper": 13,
    "vpand": 6,
    "vpaddq": 13,
    "vpcmpeqb": 2
@@ -387,6 +348,7 @@
    "vpxor": 52,
    "vmovdqa": 66,
    "vpclmulqdq": 26,
+   "vzeroupper": 13,
    "vpand": 6,
    "vpsrldq": 6,
    "vpshufb": 15,
@@ -397,7 +359,6 @@
    "cpuid": 28,
    "xgetbv": 2,
    "vmovd": 2,
-   "vzeroupper": 13,
    "fildll": 131,
    "fdivrp": 38,
    "fmulp": 33,
@@ -744,8 +705,8 @@
  },
  "glibc": {
   "total": 603554,
-  "covered": 559335,
-  "pct": 92.67356359165875,
+  "covered": 560007,
+  "pct": 92.78490408480434,
   "silicon": 1747,
   "silicon_pct": 0.2894521451270309,
   "silicon_all": {
@@ -767,8 +728,8 @@
    "vsubps": 55,
    "blsr": 4
   },
-  "vex": 7475,
-  "vex_pct": 1.2384973009871527,
+  "vex": 8137,
+  "vex_pct": 1.3481809415561823,
   "vex_all": {
    "vmovdqa": 593,
    "vpcmpeqb": 894,
@@ -780,6 +741,7 @@
    "vandnps": 20,
    "vandps": 84,
    "vorps": 26,
+   "vzeroupper": 662,
    "vpor": 107,
    "vmovdqu": 1338,
    "vpand": 191,
@@ -898,10 +860,6 @@
     474
    ],
    [
-    "cmpxchgl (lock operand)",
-    469
-   ],
-   [
     "vpaddb",
     460
    ],
@@ -960,6 +918,10 @@
    [
     "fucompi",
     278
+   ],
+   [
+    "fmulp",
+    278
    ]
   ],
   "miss_all": {
@@ -975,6 +937,7 @@
    "vandps": 115,
    "vorps": 41,
    "psubusb": 4,
+   "vzeroupper": 662,
    "vpor": 107,
    "bzhi": 36,
    "vmovdqu": 1338,
@@ -1079,7 +1042,6 @@
    "xlatb": 1,
    "pextrw": 11,
    "vpbroadcastb": 35,
-   "vzeroupper": 662,
    "vmovntdq": 116,
    "vpminub": 243,
    "vpminud": 149,
@@ -1353,19 +1315,6 @@
    "vinserti32x8": 2,
    "vextracti32x8": 1,
    "vpcmpnled": 1,
-   "cmpxchgl (lock operand)": 469,
-   "addl (lock operand)": 21,
-   "subl (lock operand)": 44,
-   "xaddl (lock operand)": 17,
-   "addq (lock operand)": 64,
-   "subq (lock operand)": 2,
-   "orq (lock operand)": 6,
-   "btsl (lock operand)": 1,
-   "cmpxchgq (lock operand)": 30,
-   "xaddq (lock operand)": 11,
-   "orl (lock operand)": 1,
-   "andl (lock operand)": 4,
-   "decl (lock operand)": 2,
    "vpbroadcastd (vector operand)": 16,
    "vpsrad (vector operand)": 4,
    "vmulps (vector operand)": 80,
@@ -1384,7 +1333,7 @@
     "AA": 15902,
     "CA": 8989,
     "AC": 40847,
-    "CC": 484816,
+    "CC": 485488,
     "U": 8781
    },
    "name_route_asm": 76182,
@@ -1393,7 +1342,6 @@
   },
   "ext": {
    "SYSCALL": 544,
-   "LOCK prefix (P2 addition 2)": 672,
    "x87 (st)": 13773,
    "GPR/other (unclassified)": 62,
    "XSAVE": 8,
@@ -1418,6 +1366,7 @@
    "segment base %fs:/%gs: (P2 addition 1)": 6130,
    "486": 191,
    "mov imm64 / movabs (P2 addition 3)": 1415,
+   "LOCK prefix (P2 addition 2)": 672,
    "BMI1": 480,
    "PREFETCH": 132,
    "BMI2": 110,
@@ -1427,15 +1376,6 @@
   "miss_by_ext": {
    "syscall": {
     "SYSCALL": 544
-   },
-   "cmpxchgl": {
-    "LOCK prefix (P2 addition 2)": 469
-   },
-   "addl": {
-    "LOCK prefix (P2 addition 2)": 21
-   },
-   "subl": {
-    "LOCK prefix (P2 addition 2)": 44
    },
    "fstpt": {
     "x87 (st)": 1142
@@ -1463,9 +1403,6 @@
    },
    "xgetbv": {
     "XSAVE": 2
-   },
-   "xaddl": {
-    "LOCK prefix (P2 addition 2)": 17
    },
    "rdtsc": {
     "TSC": 28
@@ -1629,12 +1566,6 @@
     "AVX2/AVX (ymm)": 24,
     "AVX-512 (zmm/k)": 15
    },
-   "addq": {
-    "LOCK prefix (P2 addition 2)": 64
-   },
-   "subq": {
-    "LOCK prefix (P2 addition 2)": 2
-   },
    "fnstenv": {
     "x87 (st)": 32
    },
@@ -1643,9 +1574,6 @@
    },
    "stmxcsr": {
     "SSE (MXCSR state)": 167
-   },
-   "orq": {
-    "LOCK prefix (P2 addition 2)": 6
    },
    "ldmxcsr": {
     "SSE (MXCSR state)": 143
@@ -1674,26 +1602,8 @@
    "fdiv": {
     "x87 (st)": 45
    },
-   "btsl": {
-    "LOCK prefix (P2 addition 2)": 1
-   },
-   "cmpxchgq": {
-    "LOCK prefix (P2 addition 2)": 30
-   },
-   "xaddq": {
-    "LOCK prefix (P2 addition 2)": 11
-   },
-   "orl": {
-    "LOCK prefix (P2 addition 2)": 1
-   },
-   "andl": {
-    "LOCK prefix (P2 addition 2)": 4
-   },
    "pause": {
     "SSE2 (pause)": 12
-   },
-   "decl": {
-    "LOCK prefix (P2 addition 2)": 2
    },
    "movntdq": {
     "SSE-legacy (xmm)": 28
@@ -2761,18 +2671,18 @@
     "AVX-512 (zmm/k)": 1
    }
   },
-  "covered_mem": 198460,
+  "covered_mem": 199132,
   "silicon_mem": 136,
   "vex_mem": 4189,
-  "covered_mem_modelled": 197217,
+  "covered_mem_modelled": 197839,
   "silicon_mem_modelled": 2,
   "vex_mem_modelled": 4189,
   "class": "compiler"
  },
  "dav1d": {
   "total": 303830,
-  "covered": 195778,
-  "pct": 64.43669157094428,
+  "covered": 195838,
+  "pct": 64.4564394562749,
   "silicon": 25713,
   "silicon_pct": 8.462956258433993,
   "silicon_all": {
@@ -2809,14 +2719,15 @@
    "palignr": 155,
    "pmuludq": 18
   },
-  "vex": 18450,
-  "vex_pct": 6.072474739163348,
+  "vex": 19129,
+  "vex_pct": 6.295954974821446,
   "vex_all": {
    "vmovdqa": 7097,
    "vpand": 365,
    "vpaddw": 2958,
    "vpcmpeqw": 38,
    "vpsubw": 854,
+   "vzeroupper": 679,
    "vmovdqu": 1611,
    "vpcmpgtd": 45,
    "vpor": 313,
@@ -3003,6 +2914,7 @@
    "vpmovmskb": 13,
    "vpsubw": 1367,
    "vpsraw": 250,
+   "vzeroupper": 679,
    "pmaddubsw": 1483,
    "pshufb": 1347,
    "vpbroadcastd": 2350,
@@ -3059,7 +2971,6 @@
    "vpmulhuw": 54,
    "vpmaxuw": 145,
    "vpavgw": 252,
-   "vzeroupper": 679,
    "pminub": 90,
    "vmovq": 1385,
    "vpshuflw": 66,
@@ -3293,12 +3204,7 @@
    "vpsrldq (vector operand)": 74,
    "vpalignr (vector operand)": 170,
    "vpslldq (vector operand)": 35,
-   "vpmaddwd (vector operand)": 118,
-   "addl (lock operand)": 29,
-   "cmpxchgl (lock operand)": 14,
-   "subl (lock operand)": 3,
-   "orl (lock operand)": 8,
-   "xaddl (lock operand)": 6
+   "vpmaddwd (vector operand)": 118
   },
   "attribution": {
    "cells": {
@@ -3312,7 +3218,7 @@
     "AA": 79058,
     "CA": 3619,
     "AC": 18760,
-    "CC": 93384,
+    "CC": 93444,
     "U": 957
    },
    "name_route_asm": 205783,
@@ -3327,8 +3233,7 @@
    "VEX-128 (v\u2026 xmm)": 12553,
    "AVX (state)": 679,
    "AVX-512 (zmm/k)": 31951,
-   "BMI2": 392,
-   "LOCK prefix (P2 addition 2)": 60
+   "BMI2": 392
   },
   "ext_covered": {
    "GPR/other (unclassified)": 141947,
@@ -3340,7 +3245,8 @@
    "LZCNT": 39,
    "mov imm64 / movabs (P2 addition 3)": 88,
    "BMI2": 45,
-   "POPCNT": 35
+   "POPCNT": 35,
+   "LOCK prefix (P2 addition 2)": 60
   },
   "miss_by_ext": {
    "cpuid": {
@@ -4380,35 +4286,20 @@
    },
    "pmuludq": {
     "SSE-legacy (xmm)": 18
-   },
-   "addl": {
-    "LOCK prefix (P2 addition 2)": 29
-   },
-   "cmpxchgl": {
-    "LOCK prefix (P2 addition 2)": 14
-   },
-   "subl": {
-    "LOCK prefix (P2 addition 2)": 3
-   },
-   "orl": {
-    "LOCK prefix (P2 addition 2)": 8
-   },
-   "xaddl": {
-    "LOCK prefix (P2 addition 2)": 6
    }
   },
-  "covered_mem": 72529,
+  "covered_mem": 72589,
   "silicon_mem": 4297,
   "vex_mem": 8990,
-  "covered_mem_modelled": 67980,
+  "covered_mem_modelled": 68037,
   "silicon_mem_modelled": 4081,
   "vex_mem_modelled": 8985,
   "class": "asm"
  },
  "ffmpeg": {
   "total": 3116986,
-  "covered": 2998774,
-  "pct": 96.20749018442817,
+  "covered": 2998862,
+  "pct": 96.21031342457104,
   "silicon": 43229,
   "silicon_pct": 1.3868846379162434,
   "silicon_all": {
@@ -4446,12 +4337,13 @@
    "pextrd": 6,
    "pmuludq": 8
   },
-  "vex": 33552,
-  "vex_pct": 1.0764244690223184,
+  "vex": 33807,
+  "vex_pct": 1.0846054489818049,
   "vex_all": {
    "vandps": 13,
    "vxorps": 1367,
    "vmovaps": 7522,
+   "vzeroupper": 255,
    "vmovdqu": 2176,
    "vmovdqa": 6036,
    "vpxor": 836,
@@ -4647,6 +4539,7 @@
    "vandps": 13,
    "vxorps": 1367,
    "vmovaps": 7522,
+   "vzeroupper": 255,
    "vmovdqu": 2176,
    "vmovdqa": 6036,
    "vsubps": 2791,
@@ -4717,7 +4610,6 @@
    "vmovd": 640,
    "vminps": 1,
    "vcvttps2dq": 1,
-   "vzeroupper": 255,
    "haddps": 9,
    "addsubps": 18,
    "extractps": 3,
@@ -4925,16 +4817,6 @@
    "vgatherdps": 2,
    "vfmaddsub231ps": 2,
    "vblendps": 2,
-   "addl (lock operand)": 20,
-   "orl (lock operand)": 2,
-   "subq (lock operand)": 3,
-   "addq (lock operand)": 3,
-   "subl (lock operand)": 10,
-   "xaddq (lock operand)": 2,
-   "xaddl (lock operand)": 5,
-   "xaddb (lock operand)": 41,
-   "addb (lock operand)": 1,
-   "cmpxchgl (lock operand)": 1,
    "vpshufb (vector operand)": 381,
    "pxor (vector operand)": 961,
    "movq (vector operand)": 5040,
@@ -4998,7 +4880,7 @@
     "AA": 111910,
     "CA": 133,
     "AC": 125303,
-    "CC": 2746242,
+    "CC": 2746330,
     "U": 15186
    },
    "name_route_asm": 355174,
@@ -5008,7 +4890,6 @@
   "ext": {
    "SSE-legacy (xmm)": 18850,
    "MMX (mm)": 19887,
-   "LOCK prefix (P2 addition 2)": 88,
    "VEX-128 (v\u2026 xmm)": 33492,
    "AVX2/AVX (ymm)": 45509,
    "AVX (state)": 255,
@@ -5027,6 +4908,7 @@
    "486": 9449,
    "mov imm64 / movabs (P2 addition 3)": 2939,
    "BMI1": 139,
+   "LOCK prefix (P2 addition 2)": 88,
    "BMI2": 2,
    "PREFETCH": 1
   },
@@ -5052,38 +4934,8 @@
    "cmpnlesd": {
     "SSE-legacy (xmm)": 12
    },
-   "addl": {
-    "LOCK prefix (P2 addition 2)": 20
-   },
-   "orl": {
-    "LOCK prefix (P2 addition 2)": 2
-   },
    "cmpnltsd": {
     "SSE-legacy (xmm)": 2
-   },
-   "subq": {
-    "LOCK prefix (P2 addition 2)": 3
-   },
-   "addq": {
-    "LOCK prefix (P2 addition 2)": 3
-   },
-   "subl": {
-    "LOCK prefix (P2 addition 2)": 10
-   },
-   "xaddq": {
-    "LOCK prefix (P2 addition 2)": 2
-   },
-   "xaddl": {
-    "LOCK prefix (P2 addition 2)": 5
-   },
-   "xaddb": {
-    "LOCK prefix (P2 addition 2)": 41
-   },
-   "addb": {
-    "LOCK prefix (P2 addition 2)": 1
-   },
-   "cmpxchgl": {
-    "LOCK prefix (P2 addition 2)": 1
    },
    "sqrtps": {
     "SSE-legacy (xmm)": 2
@@ -6154,18 +6006,18 @@
     "AVX2/AVX (ymm)": 2
    }
   },
-  "covered_mem": 1135087,
+  "covered_mem": 1135175,
   "silicon_mem": 8562,
   "vex_mem": 18510,
-  "covered_mem_modelled": 1128907,
+  "covered_mem_modelled": 1128982,
   "silicon_mem_modelled": 8188,
   "vex_mem_modelled": 18504,
   "class": "asm"
  },
  "vlc-codec": {
   "total": 151688,
-  "covered": 151540,
-  "pct": 99.9024313063657,
+  "covered": 151552,
+  "pct": 99.91034228152523,
   "silicon": 70,
   "silicon_pct": 0.04614735509730499,
   "silicon_all": {
@@ -6196,14 +6048,6 @@
     10
    ],
    [
-    "subl (lock operand)",
-    6
-   ],
-   [
-    "addl (lock operand)",
-    6
-   ],
-   [
     "cvtdq2pd",
     5
    ],
@@ -6229,9 +6073,7 @@
    "cvttps2dq": 12,
    "pinsrw": 2,
    "cvtdq2pd": 5,
-   "cvttpd2dq": 4,
-   "subl (lock operand)": 6,
-   "addl (lock operand)": 6
+   "cvttpd2dq": 4
   },
   "attribution": {
    "cells": {
@@ -6241,7 +6083,7 @@
    },
    "cells_covered": {
     "CA": 267,
-    "CC": 150255,
+    "CC": 150267,
     "U": 1018
    },
    "name_route_asm": 0,
@@ -6249,8 +6091,7 @@
    "total": 151688
   },
   "ext": {
-   "SSE-legacy (xmm)": 136,
-   "LOCK prefix (P2 addition 2)": 12
+   "SSE-legacy (xmm)": 136
   },
   "ext_covered": {
    "GPR/other (unclassified)": 143598,
@@ -6258,7 +6099,8 @@
    "mov imm64 / movabs (P2 addition 3)": 135,
    "segment base %fs:/%gs: (P2 addition 1)": 461,
    "SSE-legacy (xmm)": 6393,
-   "486": 140
+   "486": 140,
+   "LOCK prefix (P2 addition 2)": 12
   },
   "miss_by_ext": {
    "pextrw": {
@@ -6287,18 +6129,12 @@
    },
    "pmuludq": {
     "SSE-legacy (xmm)": 70
-   },
-   "subl": {
-    "LOCK prefix (P2 addition 2)": 6
-   },
-   "addl": {
-    "LOCK prefix (P2 addition 2)": 6
    }
   },
-  "covered_mem": 52360,
+  "covered_mem": 52372,
   "silicon_mem": 0,
   "vex_mem": 0,
-  "covered_mem_modelled": 51976,
+  "covered_mem_modelled": 51982,
   "silicon_mem_modelled": 0,
   "vex_mem_modelled": 0,
   "class": "asm"
@@ -6585,8 +6421,8 @@
    "vpmovmskb": 11,
    "psadbw": 4426
   },
-  "vex": 7669,
-  "vex_pct": 1.06170162986221,
+  "vex": 7832,
+  "vex_pct": 1.0842674618699737,
   "vex_all": {
    "vpxor": 224,
    "vmovdqu": 1729,
@@ -6594,6 +6430,7 @@
    "vpaddd": 1269,
    "vmovdqa": 1822,
    "vpaddq": 31,
+   "vzeroupper": 163,
    "vpor": 118,
    "vpaddw": 1243,
    "vpcmpeqd": 9,
@@ -6785,6 +6622,7 @@
    "vmovdqa": 1822,
    "vpaddq": 31,
    "vpsrldq": 34,
+   "vzeroupper": 163,
    "pmaxsw": 574,
    "psubusw": 16851,
    "palignr": 711,
@@ -6831,7 +6669,6 @@
    "vpunpckhdq": 36,
    "vextracti128": 266,
    "vmovq": 183,
-   "vzeroupper": 163,
    "vpinsrq": 28,
    "vpmovzxbw": 62,
    "vpunpcklqdq": 37,
@@ -7591,8 +7428,8 @@
  },
  "x264": {
   "total": 377330,
-  "covered": 335609,
-  "pct": 88.9431002040654,
+  "covered": 335611,
+  "pct": 88.94363024408342,
   "silicon": 6625,
   "silicon_pct": 1.755757559695757,
   "silicon_all": {
@@ -7634,12 +7471,13 @@
    "psubusw": 104,
    "vpsrad": 159
   },
-  "vex": 7765,
-  "vex_pct": 2.0578803699679327,
+  "vex": 7909,
+  "vex_pct": 2.0960432512654705,
   "vex_all": {
    "vmovdqa": 1858,
    "vpaddw": 1754,
    "vpsubw": 1404,
+   "vzeroupper": 144,
    "vpxor": 297,
    "vpcmpeqb": 34,
    "vmovdqu": 644,
@@ -7835,6 +7673,7 @@
    "vpunpckhwd": 213,
    "vpunpcklwd": 239,
    "vpsraw": 182,
+   "vzeroupper": 144,
    "vpxor": 297,
    "vpackuswb": 69,
    "pmuludq": 362,
@@ -7901,7 +7740,6 @@
    "vpunpcklqdq": 293,
    "vmovhps": 188,
    "vpmacsww": 8,
-   "vzeroupper": 144,
    "vpmovzxbw": 52,
    "vextracti128": 106,
    "vpaddsw": 101,
@@ -8101,7 +7939,6 @@
    "vpcmpnleud": 2,
    "vptestmb": 1,
    "vpcmpneqd": 4,
-   "xaddl (lock operand)": 2,
    "movd (vector operand)": 1149,
    "movq (vector operand)": 4071,
    "pmaxsw (vector operand)": 819,
@@ -8176,7 +8013,7 @@
     "AA": 34491,
     "CA": 446,
     "AC": 30161,
-    "CC": 268715,
+    "CC": 268717,
     "U": 1796
    },
    "name_route_asm": 105819,
@@ -8184,7 +8021,6 @@
    "total": 377330
   },
   "ext": {
-   "LOCK prefix (P2 addition 2)": 2,
    "MMX (mm)": 15747,
    "SSE-legacy (xmm)": 6538,
    "CPUID": 1,
@@ -8203,15 +8039,13 @@
    "mov imm64 / movabs (P2 addition 3)": 237,
    "SSE-legacy (xmm)": 38151,
    "PREFETCH": 178,
+   "LOCK prefix (P2 addition 2)": 2,
    "486": 760,
    "BMI1": 29,
    "LZCNT": 73,
    "BMI2": 27
   },
   "miss_by_ext": {
-   "xaddl": {
-    "LOCK prefix (P2 addition 2)": 2
-   },
    "emms": {
     "MMX (mm)": 83
    },
@@ -9316,22 +9150,22 @@
     "AVX-512 (zmm/k)": 4
    }
   },
-  "covered_mem": 137924,
+  "covered_mem": 137926,
   "silicon_mem": 1063,
   "vex_mem": 2900,
-  "covered_mem_modelled": 135777,
+  "covered_mem_modelled": 135779,
   "silicon_mem_modelled": 670,
   "vex_mem_modelled": 2745,
   "class": "asm"
  },
  "_asm_pooled": {
   "total": 4784269,
-  "covered": 4438664,
-  "pct": 92.77622140393862,
+  "covered": 4438826,
+  "pct": 92.77960750116685,
   "silicon": 123084,
   "silicon_pct": 2.572681427403016,
-  "vex": 67436,
-  "vex_pct": 1.4095361276717508,
+  "vex": 68677,
+  "vex_pct": 1.4354753045867614,
   "ext": {
    "CPUID": 15,
    "XSAVE": 11,
@@ -9341,7 +9175,6 @@
    "AVX (state)": 1241,
    "AVX-512 (zmm/k)": 33884,
    "BMI2": 400,
-   "LOCK prefix (P2 addition 2)": 162,
    "MMX (mm)": 43045,
    "x87 (st)": 23,
    "SSE2 (fence)": 11,
@@ -9353,63 +9186,32 @@
  },
  "vmlinux-kernel": {
   "total": 2781898,
-  "covered": 2767164,
-  "pct": 99.47036160204293,
+  "covered": 2776187,
+  "pct": 99.79470850476905,
   "silicon": 20,
   "silicon_pct": 0.0007189336201399189,
   "silicon_all": {
    "pshufb": 4,
    "movnti": 16
   },
-  "vex": 43,
-  "vex_pct": 0.0015457072833008256,
+  "vex": 44,
+  "vex_pct": 0.0015816539643078214,
   "vex_all": {
    "vmovdqu": 8,
    "vmovdqa": 9,
    "vpaddq": 1,
    "vpxor": 13,
-   "vpaddd": 12
+   "vpaddd": 12,
+   "vzeroupper": 1
   },
   "miss": [
-   [
-    "xaddl (lock operand)",
-    2383
-   ],
    [
     "int3",
     1427
    ],
    [
-    "orb (lock operand)",
-    1073
-   ],
-   [
-    "decl (lock operand)",
-    925
-   ],
-   [
     "ud1l",
     685
-   ],
-   [
-    "incl (lock operand)",
-    648
-   ],
-   [
-    "cmpxchgl (lock operand)",
-    631
-   ],
-   [
-    "andb (lock operand)",
-    617
-   ],
-   [
-    "btsq (lock operand)",
-    600
-   ],
-   [
-    "addl (lock operand)",
-    560
    ],
    [
     "pushfq",
@@ -9432,28 +9234,8 @@
     314
    ],
    [
-    "cmpxchgq (lock operand)",
-    313
-   ],
-   [
-    "btrq (lock operand)",
-    279
-   ],
-   [
-    "subq (lock operand)",
-    266
-   ],
-   [
-    "addq (lock operand)",
-    212
-   ],
-   [
     "inb",
     198
-   ],
-   [
-    "incq (lock operand)",
-    172
    ],
    [
     "clac",
@@ -9468,20 +9250,8 @@
     125
    ],
    [
-    "xaddq (lock operand)",
-    111
-   ],
-   [
     "rdtsc",
     110
-   ],
-   [
-    "subl (lock operand)",
-    85
-   ],
-   [
-    "decq (lock operand)",
-    84
    ],
    [
     "stac",
@@ -9524,12 +9294,76 @@
     23
    ],
    [
-    "orl (lock operand)",
-    23
-   ],
-   [
     "wbinvd",
     22
+   ],
+   [
+    "swapgs",
+    22
+   ],
+   [
+    "rdtscp",
+    17
+   ],
+   [
+    "movnti",
+    16
+   ],
+   [
+    "prefetchw",
+    16
+   ],
+   [
+    "popfq",
+    14
+   ],
+   [
+    "inw",
+    14
+   ],
+   [
+    "rdpkru",
+    14
+   ],
+   [
+    "vpxor",
+    13
+   ],
+   [
+    "cmpxchg16b",
+    13
+   ],
+   [
+    "vpaddd",
+    12
+   ],
+   [
+    "iretq",
+    12
+   ],
+   [
+    "verw",
+    12
+   ],
+   [
+    "vmovdqa",
+    9
+   ],
+   [
+    "hlt",
+    9
+   ],
+   [
+    "vmcall",
+    9
+   ],
+   [
+    "vmovdqu",
+    8
+   ],
+   [
+    "xrstor64",
+    8
    ]
   ],
   "miss_all": {
@@ -9539,6 +9373,7 @@
    "vpaddq": 1,
    "vpxor": 13,
    "vpaddd": 12,
+   "vzeroupper": 1,
    "movnti": 16,
    "wrmsr": 133,
    "lretq": 3,
@@ -9609,7 +9444,6 @@
    "vprord": 8,
    "vextracti128": 2,
    "vpshufd": 6,
-   "vzeroupper": 1,
    "cmpxchg16b": 13,
    "prefetcht1": 2,
    "rdseedq": 2,
@@ -9643,40 +9477,14 @@
    "xsavec64": 2,
    "prefetchw": 16,
    "clflushopt": 4,
-   "clwb": 1,
-   "incl (lock operand)": 648,
-   "decl (lock operand)": 925,
-   "xaddl (lock operand)": 2383,
-   "cmpxchgl (lock operand)": 631,
-   "cmpxchgq (lock operand)": 313,
-   "orb (lock operand)": 1073,
-   "andb (lock operand)": 617,
-   "btsq (lock operand)": 600,
-   "btrq (lock operand)": 279,
-   "xaddq (lock operand)": 111,
-   "addl (lock operand)": 560,
-   "decq (lock operand)": 84,
-   "subq (lock operand)": 266,
-   "incq (lock operand)": 172,
-   "cmpxchgb (lock operand)": 6,
-   "addq (lock operand)": 212,
-   "orl (lock operand)": 23,
-   "andq (lock operand)": 13,
-   "orq (lock operand)": 3,
-   "subl (lock operand)": 85,
-   "andl (lock operand)": 13,
-   "xorl (lock operand)": 1,
-   "xorq (lock operand)": 1,
-   "xorb (lock operand)": 1,
-   "cmpxchgw (lock operand)": 2,
-   "btsl (lock operand)": 1
+   "clwb": 1
   },
   "attribution": {
    "cells": {
     "-": 2781898
    },
    "cells_covered": {
-    "-": 2767164
+    "-": 2776187
    },
    "name_route_asm": 0,
    "body_route_asm": 0,
@@ -9687,7 +9495,6 @@
    "CPUID": 41,
    "RDRAND": 7,
    "XSAVE": 5,
-   "LOCK prefix (P2 addition 2)": 9029,
    "TSC": 127,
    "SSE (fence)": 28,
    "SYSCALL": 2,
@@ -9700,6 +9507,7 @@
    "VEX-128 (v\u2026 xmm)": 52,
    "AVX2/AVX (ymm)": 10,
    "AVX (state)": 1,
+   "LOCK prefix (P2 addition 2)": 6,
    "PREFETCH": 2,
    "RDSEED": 2,
    "SSE2 (nt store)": 16,
@@ -9709,6 +9517,7 @@
    "GPR/other (unclassified)": 2726009,
    "mov imm64 / movabs (P2 addition 3)": 6281,
    "segment base %fs:/%gs: (P2 addition 1)": 33463,
+   "LOCK prefix (P2 addition 2)": 9023,
    "BMI1": 278,
    "SSE-legacy (xmm)": 89,
    "PREFETCH": 44,
@@ -9759,33 +9568,6 @@
    "int3": {
     "GPR/other (unclassified)": 1427
    },
-   "incl": {
-    "LOCK prefix (P2 addition 2)": 648
-   },
-   "decl": {
-    "LOCK prefix (P2 addition 2)": 925
-   },
-   "xaddl": {
-    "LOCK prefix (P2 addition 2)": 2383
-   },
-   "cmpxchgl": {
-    "LOCK prefix (P2 addition 2)": 631
-   },
-   "cmpxchgq": {
-    "LOCK prefix (P2 addition 2)": 313
-   },
-   "orb": {
-    "LOCK prefix (P2 addition 2)": 1073
-   },
-   "andb": {
-    "LOCK prefix (P2 addition 2)": 617
-   },
-   "btsq": {
-    "LOCK prefix (P2 addition 2)": 600
-   },
-   "btrq": {
-    "LOCK prefix (P2 addition 2)": 279
-   },
    "rdtsc": {
     "TSC": 110
    },
@@ -9827,9 +9609,6 @@
    },
    "larl": {
     "GPR/other (unclassified)": 2
-   },
-   "xaddq": {
-    "LOCK prefix (P2 addition 2)": 111
    },
    "outb": {
     "GPR/other (unclassified)": 394
@@ -9882,23 +9661,11 @@
    "xsaves64": {
     "GPR/other (unclassified)": 3
    },
-   "addl": {
-    "LOCK prefix (P2 addition 2)": 560
-   },
-   "decq": {
-    "LOCK prefix (P2 addition 2)": 84
-   },
    "lfence": {
     "SSE2 (fence)": 125
    },
-   "subq": {
-    "LOCK prefix (P2 addition 2)": 266
-   },
    "encls": {
     "GPR/other (unclassified)": 23
-   },
-   "incq": {
-    "LOCK prefix (P2 addition 2)": 172
    },
    "inl": {
     "GPR/other (unclassified)": 38
@@ -9923,9 +9690,6 @@
    },
    "vmcall": {
     "GPR/other (unclassified)": 9
-   },
-   "cmpxchgb": {
-    "LOCK prefix (P2 addition 2)": 6
    },
    "strl": {
     "GPR/other (unclassified)": 1
@@ -9992,42 +9756,12 @@
    "vzeroupper": {
     "AVX (state)": 1
    },
-   "addq": {
-    "LOCK prefix (P2 addition 2)": 212
-   },
-   "orl": {
-    "LOCK prefix (P2 addition 2)": 23
-   },
-   "andq": {
-    "LOCK prefix (P2 addition 2)": 13
-   },
-   "orq": {
-    "LOCK prefix (P2 addition 2)": 3
-   },
-   "subl": {
-    "LOCK prefix (P2 addition 2)": 85
-   },
-   "andl": {
-    "LOCK prefix (P2 addition 2)": 13
-   },
-   "xorl": {
-    "LOCK prefix (P2 addition 2)": 1
-   },
-   "xorq": {
-    "LOCK prefix (P2 addition 2)": 1
-   },
    "cmpxchg16b": {
     "LOCK prefix (P2 addition 2)": 6,
     "segment base %fs:/%gs: (P2 addition 1)": 7
    },
    "prefetcht1": {
     "PREFETCH": 2
-   },
-   "xorb": {
-    "LOCK prefix (P2 addition 2)": 1
-   },
-   "cmpxchgw": {
-    "LOCK prefix (P2 addition 2)": 2
    },
    "rdseedq": {
     "RDSEED": 2
@@ -10067,9 +9801,6 @@
    },
    "sti": {
     "GPR/other (unclassified)": 454
-   },
-   "btsl": {
-    "LOCK prefix (P2 addition 2)": 1
    },
    "sysretq": {
     "GPR/other (unclassified)": 1
@@ -10132,10 +9863,10 @@
     "GPR/other (unclassified)": 1
    }
   },
-  "covered_mem": 778422,
+  "covered_mem": 787445,
   "silicon_mem": 16,
   "vex_mem": 12,
-  "covered_mem_modelled": 778406,
+  "covered_mem_modelled": 786153,
   "silicon_mem_modelled": 16,
   "vex_mem_modelled": 12,
   "class": "kernel"

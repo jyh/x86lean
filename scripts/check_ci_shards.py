@@ -137,6 +137,82 @@ def check_skip_seam(text):
     return out
 
 
+RUN_KEY = "github.event_name == 'pull_request' && github.ref || github.run_id"
+RUN_CANCEL = "${{ github.event_name == 'pull_request' }}"
+
+
+def check_run_concurrency(text):
+    """9. THE WORKFLOW-LEVEL GROUP (2026-10-29): a superseded PR run is cancelled whole, and NO master run ever is.
+
+    ⛔ The dangerous direction is the one D224 was ruled for: a group that can cancel a MASTER run kills the only
+    reading of that push's range on a public repository. So the key must fall back to `run_id` off pull_request,
+    and `cancel-in-progress` must be the pull_request expression, never a literal `true`."""
+    try:
+        import yaml
+    except ImportError:
+        return ["check 9 COULD NOT RUN: PyYAML is not installed — a REFUSAL, not a pass"]
+    d = yaml.safe_load(text)
+    c = d.get("concurrency") if isinstance(d, dict) else None
+    if not isinstance(c, dict):
+        return ["no workflow-level `concurrency:` — a superseded pull-request run keeps every job it has not "
+                "yet had cancelled by a newer QUEUED job, which for shards 6-20 is hours"]
+    out = []
+    g, x = str(c.get("group", "")), c.get("cancel-in-progress")
+    if RUN_KEY not in g:
+        out.append(f"the workflow group {g!r} is not keyed `{RUN_KEY}`: off pull_request it must fall back to "
+                   f"run_id, or two MASTER runs can share a group")
+    if x is True or str(x).strip().lower() == "true":
+        out.append("⛔⛔ the workflow group has cancel-in-progress: true — it would cancel a MASTER run (D224)")
+    elif str(x).strip() != RUN_CANCEL:
+        out.append(f"the workflow group's cancel-in-progress is {x!r}, not {RUN_CANCEL!r}")
+    return out
+
+
+CLOSE_WORKFLOW = os.path.join(".github", "workflows", "ci-close.yml")
+
+
+def check_close_group(ci_text, close_text):
+    """10. THE CLOSE WORKFLOW (D370, 2026-10-30): a closed PR's CI run is cancelled by joining ci.yml's group.
+
+    Its group must be ci.yml's run-level group as it evaluates on pull_request: the same prefix, keyed
+    `${{ github.ref }}`. A different string matches nothing and cancels nothing, silently. ⛔ The dangerous
+    direction is the trigger: any type besides `closed` would cancel a PR's CI on every open or push."""
+    try:
+        import yaml
+    except ImportError:
+        return ["check 10 COULD NOT RUN: PyYAML is not installed — a REFUSAL, not a pass"]
+    if close_text is None:
+        return [f"no {CLOSE_WORKFLOW}: a merged or closed PR's CI run keeps its runners (row 33's 22,474 job-min)"]
+    ci = yaml.safe_load(ci_text) or {}
+    g = str((ci.get("concurrency") or {}).get("group", ""))
+    key = "${{ " + RUN_KEY + " }}"
+    if key not in g:
+        return [f"check 10 COULD NOT RUN: ci.yml's group {g!r} does not carry `{key}` (check 9 names why)"]
+    want = g.replace(key, "${{ github.ref }}")
+    d = yaml.safe_load(close_text) or {}
+    on = d.get("on", d.get(True))          # PyYAML reads a bare `on:` key as True
+    out = []
+    pr = on.get("pull_request") if isinstance(on, dict) else None
+    types = pr.get("types") if isinstance(pr, dict) else None
+    if not isinstance(on, dict) or set(on) != {"pull_request"}:
+        out.append(f"⛔⛔ the close workflow triggers on {on!r}, not on pull_request alone")
+    if types != ["closed"]:
+        out.append(f"⛔⛔ the close workflow's pull_request types are {types!r}, not ['closed'] — any other type "
+                   f"cancels a pull request's CI on every open or push")
+    c = d.get("concurrency") if isinstance(d.get("concurrency"), dict) else {}
+    cg = str(c.get("group", ""))
+    if cg != want:
+        out.append(f"the close workflow's group {cg!r} is not ci.yml's pull_request group {want!r}: "
+                   f"it would join no run and cancel nothing")
+    if c.get("cancel-in-progress") is not True:
+        out.append(f"the close workflow's cancel-in-progress is {c.get('cancel-in-progress')!r}, not true: "
+                   f"it would wait for the CI run instead of ending it")
+    if d.get("permissions") != {}:
+        out.append(f"the close workflow's permissions are {d.get('permissions')!r}, not {{}}: the cancel is the "
+                   f"group's and needs none")
+    return out
+
+
 def _skip_seam_selftest():
     """Drive checks 5-8 both ways.  A gate watched only passing has been probed
     for NOISE and not for SILENCE, and an arm that cannot fire is
@@ -149,9 +225,9 @@ def _skip_seam_selftest():
     red = 0
     arms = []
 
-    def arm(name, text, expect_finding, needle=None):
+    def arm(name, text, expect_finding, needle=None, check=check_skip_seam):
         nonlocal red
-        out = check_skip_seam(text if isinstance(text, str) else yaml.safe_dump(text))
+        out = check(text if isinstance(text, str) else yaml.safe_dump(text))
         got = len(out) > 0
         ok = (got == expect_finding) and (needle is None or any(needle in o for o in out))
         arms.append(name)
@@ -201,6 +277,53 @@ def _skip_seam_selftest():
     d["jobs"]["selftest"].pop("if", None); d["jobs"]["selftest"].pop("needs", None)
     arm("⭐ CONTROL: no gate job AND no if: is LEGAL — the unconditional world passes",
         d, False)
+
+    # ── 9. THE WORKFLOW-LEVEL GROUP, both ways (2026-10-29).
+    arm("control 9: the REAL ci.yml carries the run-level group", base_text, False,
+        check=check_run_concurrency)
+    d = copy.deepcopy(base); d.pop("concurrency", None)
+    arm("PLANT 9: no workflow-level group is caught (master's file before 2026-10-29)", d, True,
+        "no workflow-level", check=check_run_concurrency)
+    d = copy.deepcopy(base); d["concurrency"]["cancel-in-progress"] = True
+    arm("⛔ PLANT 9: cancel-in-progress: true is caught and named as cancelling MASTER", d, True,
+        "MASTER run", check=check_run_concurrency)
+    d = copy.deepcopy(base); d["concurrency"]["group"] = "ci-run-${{ github.ref }}"
+    arm("PLANT 9: a group not keyed by run_id off pull_request is caught", d, True,
+        "run_id", check=check_run_concurrency)
+
+    # ── 10. THE CLOSE WORKFLOW, both ways (D370, 2026-10-30).
+    close_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CLOSE_WORKFLOW)
+    close_text = open(close_path, encoding="utf-8").read() if os.path.exists(close_path) else None
+    c10 = lambda ci, cl: (lambda _t: check_close_group(ci, cl))
+    arm("control 10: the REAL ci-close.yml joins the REAL ci.yml's group", base_text, False,
+        check=c10(base_text, close_text))
+    if close_text is not None:
+        cbase = yaml.safe_load(close_text)
+        dump = lambda x: yaml.safe_dump(x, sort_keys=False)
+        arm("PLANT 10: no close workflow is caught (master's tree before D370)", base_text, True,
+            "no .github", check=c10(base_text, None))
+        cd = copy.deepcopy(cbase); cd["concurrency"]["group"] = "ci-${{ github.ref }}"
+        arm("PLANT 10: a group prefix that differs from ci.yml's is caught", base_text, True,
+            "cancel nothing", check=c10(base_text, dump(cd)))
+        cd = copy.deepcopy(cbase); cd["concurrency"]["group"] = "ci-run-${{ github.head_ref }}"
+        arm("PLANT 10: a group keyed on head_ref (not ci.yml's ref) is caught", base_text, True,
+            "cancel nothing", check=c10(base_text, dump(cd)))
+        cd = copy.deepcopy(base); cd["concurrency"]["group"] = \
+            "ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}"
+        arm("PLANT 10: ci.yml's prefix moving without the close workflow is caught", base_text, True,
+            "cancel nothing", check=c10(dump(cd), close_text))
+        cd = copy.deepcopy(cbase); cd[True if True in cd else "on"]["pull_request"]["types"] = ["opened", "closed"]
+        arm("⛔ PLANT 10: a trigger type besides closed is caught and named", base_text, True,
+            "every open or push", check=c10(base_text, dump(cd)))
+        cd = copy.deepcopy(cbase); cd[True if True in cd else "on"]["push"] = {"branches": ["master"]}
+        arm("⛔ PLANT 10: a second trigger event is caught", base_text, True,
+            "pull_request alone", check=c10(base_text, dump(cd)))
+        cd = copy.deepcopy(cbase); cd["concurrency"]["cancel-in-progress"] = False
+        arm("PLANT 10: cancel-in-progress false is caught", base_text, True,
+            "not true", check=c10(base_text, dump(cd)))
+        cd = copy.deepcopy(cbase); cd["permissions"] = {"actions": "write"}
+        arm("PLANT 10: a permission grant is caught", base_text, True,
+            "needs none", check=c10(base_text, dump(cd)))
 
     # ⛔ AND THE REFUSAL PATH ITSELF, DRIVEN.  A refusal that has never fired is
     # a branch nobody has executed, and this one decides whether a missing parser
@@ -280,6 +403,11 @@ for g in gates:
 # STRUCTURAL facts about jobs, and a regex over YAML would be a second parser
 # disagreeing with the one GitHub actually uses.
 bad += check_skip_seam(text)
+# ── 9: the workflow-level group (2026-10-29).
+bad += check_run_concurrency(text)
+# ── 10: the close workflow (D370, 2026-10-30).
+bad += check_close_group(text, open(CLOSE_WORKFLOW, encoding="utf-8").read()
+                         if os.path.exists(CLOSE_WORKFLOW) else None)
 
 if bad:
     print(f"⛔ CI shard gate: FAIL ({CI})")
@@ -290,4 +418,5 @@ if bad:
 print(f"CI shard gate: CLEAN — matrix.shard is 1..{n}, every `selftest-shard` "
       f"passes divisor {n} with the matrix variable as k, the partition gate "
       f"asserts the same {n}, and the skip seam is wired in the permitting "
-      f"direction with fetch-depth 0")
+      f"direction with fetch-depth 0, the run-level group cancels a superseded "
+      f"pull-request run only, and ci-close.yml joins that group on a closed PR")

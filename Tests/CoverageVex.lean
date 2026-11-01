@@ -23,8 +23,9 @@ open X86 X86.Tests
 
 def vexMnemonics : List String := vexTable.map (·.row.mnemonic)
 
-/-- The VEX table has 33 rows, as D339 measured: the twins x86isa executes. -/
-theorem vex_table_size : vexTable.length = 33 := by decide
+/-- The VEX table has 34 rows: the 33 twins x86isa executes, as D339 measured, and (D369) `vzeroupper`, the one
+VEX-only row (`vexNoTwin`). -/
+theorem vex_table_size : vexTable.length = 34 := by decide
 
 /-- 1. The rows are distinct. -/
 theorem vex_rows_distinct : vexMnemonics.eraseDups.length = vexTable.length := by decide
@@ -36,10 +37,12 @@ theorem vex_rows_not_in_other_tables :
   decide
 
 /-- 3. Every VEX row names its legacy twin; the twin is a row of `tableP0`; and the VEX mnemonic is
-the twin's spelling with a `v` in front. -/
+the twin's spelling with a `v` in front — OR (D369) the row is declared VEX-only in `vexNoTwin` and names no
+twin.  An unlisted row with no twin still fails. -/
 theorem vex_twins_are_main_rows :
     (vexTable.all fun r =>
-      tableP0.any (·.mnemonic == r.twin) && r.row.mnemonic == "v" ++ r.twin) = true := by
+      (tableP0.any (·.mnemonic == r.twin) && r.row.mnemonic == "v" ++ r.twin)
+      || (vexNoTwin.contains r.row.mnemonic && r.twin == "")) = true := by
   decide
 
 /-- 4. Every VEX row has a vector, and every VEX vector's mnemonic is a VEX row. -/
@@ -49,6 +52,11 @@ theorem vex_rows_have_vectors :
 theorem vex_vectors_have_rows :
     (vexVectors.all fun v => vexMnemonics.contains v.mnemonic) = true := by decide
 
+-- ⚠️ D369: at 41 VEX vectors this `decide` builds at the default depth but FAILS ("maximum recursion depth")
+-- under `ku_delta`'s instrumented wrapper (`hb_count … in`), measured on katmai 2026-10-29 (K2 A′, base 87de9ad,
+-- head 85a40c5). The repo's idiom for a `decide` at the limit is a raised depth on the one declaration (D-notes
+-- on maxRecDepth); 8000 is the value the Anchors files use.
+set_option maxRecDepth 8000 in
 /-- 5. No VEX vector shares a mnemonic with the main vector table. -/
 theorem vex_vectors_not_in_main :
     (vexVectors.all fun v => !(tableP0.any (·.mnemonic == v.mnemonic))) = true := by decide

@@ -19,7 +19,7 @@ title: "x86lean: a differentially validated executable semantics of x86-64 user-
 abstract: >-
   A user-level x86-64 ISA semantics in Lean 4 — definitional, executable and
   kernel-checked — built from public sources only and differentially validated
-  against public executable models. Developed as part of the SaltBench campaign.
+  against ACL2 x86isa. Developed as part of the SaltBench campaign.
 authors:
   - family-names: Hickey
     given-names: Jason
