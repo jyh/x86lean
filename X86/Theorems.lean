@@ -121,6 +121,51 @@ theorem step_cmp_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h]
 
+/-! ### The immediate and memory forms of SUB and CMP (row 48)
+
+The pack carried SUB/CMP for reg,reg only.  The four equations below are the
+reg,imm and mem,imm forms (`cmpq $24,%rsi`, `subl $1,(%rdx)`), in the same
+`{ s with … }` shape.  The immediate is truncated to the operand size, as the
+decoder hands it over sign-extended.  CMP's equations name no `regs` and no
+`mem`: the discarded result is visible as an absence. -/
+
+theorem step_sub_reg_imm (sz : Size) (r : GPR) (v : Val) (h : Live s) :
+    step ⟨.bin .sub sz (.reg r) (.imm v), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.subResult sz (s.getReg sz r) (Value.trunc sz v))),
+        flags := Flags.sub sz (s.getReg sz r) (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_cmp_reg_imm (sz : Size) (r : GPR) (v : Val) (h : Live s) :
+    step ⟨.bin .cmp sz (.reg r) (.imm v), len⟩ s =
+      { s with
+        flags := Flags.sub sz (s.getReg sz r) (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h]
+
+theorem step_sub_mem_imm (sz : Size) (ea : Ea) (v : Val) (h : Live s)
+    (hl : ea.lock = false) :
+    step ⟨.bin .sub sz (.mem ea) (.imm v), len⟩ s =
+      { s with
+        mem := s.mem.writeSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len))
+          (Flags.subResult sz (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+            (Value.trunc sz v)),
+        flags := Flags.sub sz (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+          (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, hl] <;> rfl
+
+theorem step_cmp_mem_imm (sz : Size) (ea : Ea) (v : Val) (h : Live s)
+    (hl : ea.lock = false) :
+    step ⟨.bin .cmp sz (.mem ea) (.imm v), len⟩ s =
+      { s with
+        flags := Flags.sub sz (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+          (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, hl]
+
 /-! ## The logic group — SDM Vol. 2A: OF and CF cleared, SF/ZF/PF from the
 result, and **the AF flag is undefined**.  Each of these four equations spends
 exactly ONE oracle bit, and the `oracle` component says so. -/
@@ -2452,5 +2497,37 @@ theorem sha256rnds2_abc_r01 :
       0x000000000000000071374491a3ec9318 = 0x5a6ad9ad5d6aebcd78ce7989fa2a4622 := by decide
 
 end V2
+
+/-! ## BT on a bit string — SDM Vol. 2A §3.1.1.9, Table 3-2 (row 48)
+
+A MEMORY base with a REGISTER offset addresses ONE BYTE, `bitStringByte` (the
+offset is signed, `EA + (offset SAR 3)`), and BT copies bit `offset AND 7` of it
+into CF.  PF, AF, SF and OF are undefined: four oracle bits, drawn in that order.
+BT writes nothing, so `regs` and `mem` are absent from the update.  The byte
+address is checked for canonicity; the second equation is the other case.
+A LOCK prefix on BT is #UD (BT does not write), so both carry `ea.lock = false`. -/
+
+theorem step_bt_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool) (h : Live s)
+    (hl : ea.lock = false)
+    (hc : canonical (bitStringByte s sz ea r h8 (s.rip + BitVec.ofNat 64 len)) = true) :
+    step ⟨.bit .bt sz (.mem ea) (.reg r h8), len⟩ s =
+      { s with
+        flags := { s.flags with
+          cf := (s.mem.readSize .b (bitStringByte s sz ea r h8 (s.rip + BitVec.ofNat 64 len))).getLsbD
+            ((s.getReg sz r h8).toNat % 8),
+          pf := s.oracle.bits s.oracle.cursor,
+          af := s.oracle.bits (s.oracle.cursor + 1),
+          sf := s.oracle.bits (s.oracle.cursor + 2),
+          of := s.oracle.bits (s.oracle.cursor + 3) },
+        oracle := { s.oracle with cursor := s.oracle.cursor + 4 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, hl, hc]
+
+theorem step_bt_mem_reg_noncanonical (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool) (h : Live s)
+    (hl : ea.lock = false)
+    (hc : canonical (bitStringByte s sz ea r h8 (s.rip + BitVec.ofNat 64 len)) = false) :
+    step ⟨.bit .bt sz (.mem ea) (.reg r h8), len⟩ s =
+      s.halt (.unimplemented "non-canonical bit-string byte address (#GP(0) in hardware)") := by
+  simp [step, h, hl, hc]
 
 end X86
