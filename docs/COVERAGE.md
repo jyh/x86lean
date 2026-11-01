@@ -312,6 +312,12 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `vpabsw` | x,x · x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PABSW's lane rule (it wraps) · register and m128/m256 forms, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSW |
 | `vpabsd` | x,x · x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PABSD's lane rule (it wraps) · register and m128/m256 forms, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PABSD |
 | `vpmulld` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): four dwords per lane, the low 32 bits of each signed product · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULLD |
+| `psubsw` | x,x · x,m — legacy SSE2: eight words, each the SIGNED difference saturated to [-32768, 32767]; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSUBSW |
+| `pavgw` | x,x · x,m — legacy SSE2: eight words, each (a + b + 1) >> 1 UNSIGNED, the sum in 17 bits; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PAVGW |
+| `pmuldq` | x,x · x,m — legacy SSE4.1: the even dwords (0 and 2), SIGN-extended, their full 64-bit products; YMM bits 255:128 PRESERVED; m 16-byte aligned, else #GP(0) · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULDQ |
+| `vpsubsw` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PSUBSW's lane rule · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PSUBSW |
+| `vpavgw` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PAVGW's lane rule · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PAVGW |
+| `vpmuldq` | x,x,x · x,x,m — VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PMULDQ's rule per quadword · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B PMULDQ |
 
 ## VEX.128 register twins, differentially tested (V3, D341)
 

@@ -912,6 +912,12 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .mulhuw   => vlanes 16 (fun x y => (x.setWidth 32 * y.setWidth 32).extractLsb' 16 16) a b
   -- the sum in 9 bits, so FFH + FFH + 1 does not wrap before the shift.
   | .avgb     => vlanes 8 (fun x y => (x.setWidth 9 + y.setWidth 9 + 1).extractLsb' 1 8) a b
+  -- ⭐ D384 (wave E) — refereed by silicon (`mk_simda_rows.py --set-c`, `mk_vexsilk_rows.py`).  Each sits beside
+  -- the kind it mirrors: `addsw` with the sum turned to a difference, `avgb` at 16 bits (the sum in 17), and
+  -- `muludq` with each even dword SIGN-extended instead of zero-extended.
+  | .subsw    => vlanes 16 (fun x y => ssatW (x.signExtend 32 - y.signExtend 32)) a b
+  | .avgw     => vlanes 16 (fun x y => (x.setWidth 17 + y.setWidth 17 + 1).extractLsb' 1 16) a b
+  | .muldq    => vlanes 64 (fun x y => (x.setWidth 32).signExtend 64 * (y.setWidth 32).signExtend 64) a b
 
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and
