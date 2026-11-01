@@ -1,6 +1,6 @@
 /-
 # Router.Refines — O95 step 3, layer 2: the repaired router REFINES vir's `F_exit` under I6.
-PRIVATE (SPIKE-PLAN.md). The specification is vir's, imported at a pinned sha (`lakefile.toml`), never copied.
+Written private; published 2026-11-01 (SPIKE-PLAN.md). The specification is vir's, imported at a pinned sha (`lakefile.toml`), never copied.
 
 THE ABSTRACTION, from an x86lean `Cpu` to `F`'s inputs (`b0 := .slice buf off len`, `st := .state σ`):
   * `len` is `%rsi` read UNSIGNED (E2's repair is exactly that this reading is the program's);

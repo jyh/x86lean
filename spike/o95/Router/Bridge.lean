@@ -1,6 +1,6 @@
 /-
 # Router.Bridge — byte- and dword-level facts the abstraction bridge needs (no vir import; pure Lean + x86lean).
-PRIVATE (SPIKE-PLAN.md). EXPERIMENT FILE: alternative proofs of one statement are kept side by side until one builds.
+Written private; published 2026-11-01 (SPIKE-PLAN.md). EXPERIMENT FILE: alternative proofs of one statement are kept side by side until one builds.
 -/
 import X86
 

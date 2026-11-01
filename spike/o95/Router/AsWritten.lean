@@ -1,6 +1,6 @@
 /-
 # Router.AsWritten — A.4 AS WRITTEN (E1 and E5 in their repaired forms per vir's errata and I6; E2 and E3 KEPT), and
-P5's two witnesses. PRIVATE: unpublished O94 content (SPIKE-PLAN.md).
+P5's two witnesses. Written private as unpublished O94 content; published 2026-11-01 (SPIKE-PLAN.md).
 
 The bytes are clang's for `asm/aswritten.s` (code at 0 there, at 0x1000 here; every branch is RIP-relative, so the
 bytes do not move). Exits are the four labels just past the code. The program defines no instruction there, so

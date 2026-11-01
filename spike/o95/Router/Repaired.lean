@@ -1,6 +1,6 @@
 /-
 # Router.Repaired — A.4 REPAIRED (E1, E2, E3, E5 all in their repaired forms) and its refinement against vir's
-`F_exit` under I6. PRIVATE: unpublished O94 content (SPIKE-PLAN.md).
+`F_exit` under I6. Written private as unpublished O94 content; published 2026-11-01 (SPIKE-PLAN.md).
 
 The bytes are clang's for `asm/repaired.s` (code at 0 there, at 0x1000 here; every branch is RIP-relative).
 The repairs against `Router.AsWritten`: `jb` for `jl` (E2: the length compared UNSIGNED), and the bucket TESTED

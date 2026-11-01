@@ -1,6 +1,6 @@
 /-
 # Router.Paths — the repaired router's MACHINE-LEVEL exit relation, ∀ states (O95 step 3, layer 1).
-PRIVATE (SPIKE-PLAN.md).
+Written private; published 2026-11-01 (SPIKE-PLAN.md).
 
 Each instruction address gets one lemma stating what `stepP repaired` does there, as PROJECTION facts (liveness,
 rip, memory, flags, registers). A path is those lemmas chained over named intermediate states, so no proof ever

@@ -1,5 +1,5 @@
 /-
-# Router — the O95 lowering spike over appendix A.4 (PRIVATE; unpublished O94 content). See SPIKE-PLAN.md.
+# Router — the O95 lowering spike over appendix A.4 (written private; published 2026-11-01 by the council's ruling). See SPIKE-PLAN.md.
 -/
 import Router.AsWritten
 import Router.Repaired

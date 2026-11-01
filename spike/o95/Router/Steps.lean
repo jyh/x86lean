@@ -1,6 +1,6 @@
 /-
 # Router.Steps — the effect equations the repaired router needs that x86lean's `X86/Theorems.lean` does not carry,
-and the fetch/step plumbing for a ∀-state run of `repaired`. PRIVATE (SPIKE-PLAN.md).
+and the fetch/step plumbing for a ∀-state run of `repaired`. Written private; published 2026-11-01 (SPIKE-PLAN.md).
 
 The x86lean pack has `cmp`/`sub` only for reg,reg. The router uses reg,imm (`cmpq $24,%rsi`, `subq $24,%rsi`,
 `cmpl $M,%eax`), mem,imm (`cmpl $0,cell`, `subl $1,cell`) and the bit-string `bt` (mem, reg). Each is proved the

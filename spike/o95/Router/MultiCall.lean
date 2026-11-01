@@ -1,6 +1,6 @@
 /-
 # Router.MultiCall — O95 (b): TWO successive calls of the repaired router refine F twice, the state threaded.
-PRIVATE (SPIKE-PLAN.md). The helm's (b) ruling of 2026-11-01 07:11; priced @[bus]; arm (i) of the 07:4x finding.
+Written private; published 2026-11-01 (SPIKE-PLAN.md). The helm's (b) ruling of 2026-11-01 07:11; priced @[bus]; arm (i) of the 07:4x finding.
 
 ⛔ THE FINDING THIS FILE STATES AS HYPOTHESES (posted before building): A.4 bounds no sender, so the ACL table it can read
 is 2^35 bytes (ACL + 8p, p : UInt32) and the bucket array 2^34 (rdx + 4p + 0x3000). One call needs only the ONE written

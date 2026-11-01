@@ -1,6 +1,8 @@
 # O95 — the x86lean lowering spike over appendix A.4 (paris)
 
-PRIVATE, LOCAL-ONLY. No remote. The router exhibit is unpublished O94 content: nothing here enters public x86lean
+⚖️ PUBLISHED 2026-11-01 (council ask 2, his words "I'd like to publish today to establish precedent"), as `spike/o95/` on a branch of public x86lean. The paragraph below is as written while the spike was private.
+
+PRIVATE, LOCAL-ONLY (until 2026-11-01). No remote. The router exhibit is unpublished O94 content: nothing here enters public x86lean
 until O94 is published. x86lean is used as a library, pinned to a PUBLIC master sha.
 
 Object: vir `cd64c9fd` (frozen); inputs and predictions: vir `8a73bc8c` (I1–I6, P1–P5). Read only `object/`,
