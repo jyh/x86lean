@@ -23712,3 +23712,39 @@ master's (D340's actual GO condition) is not measured. Several are docs-only or 
 census reads `pull_request` runs at the exact merged head. A matrix on an earlier head of the same PR does not count, by design,
 because that head is not what landed. (c) The window is 10-14 → 10-31, from D340's ruling to today. (d) The three unexplained
 master reds are listed and not diagnosed.
+
+## D380 — the census credited EVEX register forms as VEX: `%xmm16–31`/`%ymm16–31` are AVX-512 whether or not a mask is named (STATUS row 43)
+
+**Why.** `demand_census.isa_bucket` sent an instruction to `AVX-512 (zmm/k)` only when an operand named `%zmm` or a
+mask `%k0–7`. Registers 16–31 exist ONLY under the EVEX encoding, so an unmasked `vpmulld %ymm17,%ymm1,%ymm3` was
+bucketed `AVX2/AVX (ymm)` and, for a name modelled at VEX.256, CREDITED as covered by a model that has 16 vector
+registers. The same happened at 128 bits: an EVEX `%xmm16–31` form was bucketed `VEX-128` and credited. Found at
+wave D's census (STATUS row 42, on its stacked branch `paris/d379-abs-mulld`), where dav1d's own disassembly gave more EVEX `vpmulld`/`vpabsw` by
+register class than the census's AVX-512 key held.
+**The fix.** One alternative in the bucket rule: `%[xy]mm(1[6-9]|2[0-9]|3[01])\b` joins `%zmm|%k[0-7]\b`. **Red first**:
+three new `--selftest` arms (`vpmulld %ymm17,…`, `vpaddd %xmm16,…`, `vmovdqu64 …,%ymm31`) failed against the old
+rule while their three controls (`%ymm15`, legacy `%xmm15`, a low VEX-128 form) passed. All 248 arms pass after.
+**Prediction, written before the census was regenerated:** `covered` and every column `total` unchanged, because no
+legacy SSE form can name a register above 15. Silicon and VEX credit fall, and nothing else moves.
+**Reading (2026-10-31, master `b1848ac`'s corpus).** First a control: master's own script reproduces master's committed
+`DEMAND-CENSUS.md.json` BYTE FOR BYTE, so every difference below is this rule's. **HELD:** `covered` +0 and `total`
++0 in every column. **silicon −885** (dav1d −845 · x264 −19 · ffmpeg −16 · glibc −5) and **VEX −403** (dav1d −200 ·
+x264 −111 · glibc −92). The JSON diff is large because each moved instruction re-keys under the AVX-512 bucket and the
+`miss` lists re-rank; the figures that carry claims are the ones above. ⚠️ **Measured on the unlanded stack too:**
+at wave D's head (`e09965c`) the same rule moves silicon −1,673 and VEX −403. The stack's later VEX.256 credits carry more
+of these forms, and each stacked wave's census is re-derived at its rebase, so the stack inherits the fix there.
+**What it changes for a reader.** Every published silicon and VEX figure since VEX.256 crediting began (D345) included
+these forms. The over-credit was dav1d's 0.28 points of silicon and 0.07 of VEX on master, and less elsewhere. No
+`covered` figure (the differential claim) was ever affected.
+**`docs/P2-ROSTER.md` moves with it, regenerated (it reads the census):** the residue's AVX-512 class rises 33,884 → 38,758 (+4,874)
+as the ymm class falls 108,554 → 105,365 and VEX-128 62,252 → 60,567. The roster's oracle counts by (mnemonic, bucket) move
+(EXECUTES 86,443 → 86,191 · REFUSES 169,877 → 169,424) because the moved forms leave the buckets where they were probed.
+The copies of the old figures were searched for across the tree: the only hits are dated readings inside earlier decision
+records (D-notes stand at their dates). The pooled ymm figure quoted at `108,554` in an earlier note reads 105,365 from here.
+**Limit, declared (paper's LOW at its read of `9d9ee9c`).** The rule buckets BY REGISTER FILE ONLY. An EVEX-only
+MNEMONIC on registers 0–15 with no mask (`vmovdqa32`, `vmovdqa64`, `vpternlogd`, `vinserti32x4`, …) still buckets as
+ymm or VEX-128. paper counted 125 such forms from the head's `miss_by_ext` with a hand-written list (a FLOOR; control:
+the same list finds 14,642 forms already in AVX-512), and none is in `vex_all` or `silicon_all`. So no form is CREDITED
+wrongly, and only the ext labels and P2-ROSTER's AVX-512 row undercount, by at least that much. `{1toN}` broadcast and
+`{sae}` operands are the same class and are not counted. The mnemonic arm is STATUS-paris row 46, with its list derived
+from a source and not typed.
