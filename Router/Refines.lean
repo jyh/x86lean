@@ -7,7 +7,8 @@ THE ABSTRACTION, from an x86lean `Cpu` to `F`'s inputs (`b0 := .slice buf off le
   * the buffer's bytes are memory at `%rdi + i` (`BufRel`);
   * `acl p t` is bit `t mod 8` of the byte at `ACL + 8p + t/8` (`AclRel`; the ACL table is a 64-bit row per sender);
   * `σ p` is the SIGNED dword at `%rdx + 4p + 0x3000`, read by x86lean's own `Value.sval .d` (`StRel`).
-I6'S PRECONDITION, as it is used: `topic < 64` (E4), and the buffer disjoint from the bucket array. ⚠️ I6 also asks
+I6'S PRECONDITION, as it is used: `topic < 64` (E4), and the buffer disjoint from the CURRENT SENDER's bucket cell (the one
+cell written; narrowed 2026-11-01 on vir's finding that disjointness from all 2^32 senders' cells excluded realistic layouts). ⚠️ I6 also asks
 "code disjoint"; in x86lean a `Program` is not in memory, so that clause is VACUOUS here, and stated, not assumed.
 The ACL table needs no disjointness: it is read before the one write.
 -/
@@ -262,7 +263,8 @@ theorem repaired_refines (acl : VIR.Principal → VIR.TopicId → Bool) (s : Cpu
     (hacl : AclRel acl s.mem)
     (hst : StRel σ s.mem (s.regs.get .rdx))
     (htopic : 24 ≤ len → ((VIR.Deep.Val.slice buf off len).rd 8).toP.toNat < 64)
-    (hdisj : ∀ q : UInt32, ∀ i, i < len → ¬ Region (cell (s.regs.get .rdx) q) 4 (s.regs.get .rdi + BitVec.ofNat 64 i)) :
+    (hdisj : ∀ i, i < len → ¬ Region (cell (s.regs.get .rdx) ((VIR.Deep.Val.slice buf off len).rd 4).toP) 4
+      (s.regs.get .rdi + BitVec.ofNat 64 i)) :
     ∃ n, (runP repaired n s).stopped = true ∧
       Exit s (runP repaired n s) ((VIR.Deep.Val.slice buf off len).rd 4).toP
         (VIR.Deep.den acl (VIR.Deep.F (.slice buf off len) (.state σ))) := by
@@ -279,7 +281,7 @@ theorem repaired_refines (acl : VIR.Principal → VIR.TopicId → Bool) (s : Cpu
     have hT : ((VIR.Deep.Val.slice buf off len).rd 8).toP = rd32 s.mem (s.regs.get .rdi + 8) :=
       rd_bridge hbuf 8 (by omega)
     generalize ((VIR.Deep.Val.slice buf off len).rd 0).toP = M at hM ⊢
-    generalize eP : ((VIR.Deep.Val.slice buf off len).rd 4).toP = P at hP ⊢
+    generalize eP : ((VIR.Deep.Val.slice buf off len).rd 4).toP = P at hP hdisj ⊢
     generalize eT : ((VIR.Deep.Val.slice buf off len).rd 8).toP = T at hT htopic ⊢
     have hT64 := htopic hl
     have hsend : sender s = P.toBitVec.setWidth 64 := by
@@ -335,7 +337,7 @@ theorem repaired_refines (acl : VIR.Principal → VIR.TopicId → Bool) (s : Cpu
               rw [t6, hcell]
               exact agreeOutside_writeSize (agreeOutside_rfl _ _) .d _ _ (fun k hk => ⟨k, hk, rfl⟩)
             rw [t3, show s.regs.get .rdi + 24 + BitVec.ofNat 64 i = s.regs.get .rdi + BitVec.ofNat 64 (24 + i) by bv_omega,
-              ← hfr _ (hdisj P (24 + i) (by omega)), ← hbuf (24 + i) (by omega), Nat.add_assoc]
+              ← hfr _ (hdisj (24 + i) (by omega)), ← hbuf (24 + i) (by omega), Nat.add_assoc]
           · intro q
             unfold VIR.decTokens
             have hfr : AgreeOutside (Region (cell (s.regs.get .rdx) P) 4) s.mem (runP repaired 17 s).mem := by
