@@ -441,6 +441,8 @@ def fixture(since="2026-10-14", api=gh_api):
 
 
 if __name__ == "__main__":
+    from portable import strict_flags
+    strict_flags(__file__)
     if "--selftest" in sys.argv:
         sys.exit(selftest())
     if "--fixture" in sys.argv:
