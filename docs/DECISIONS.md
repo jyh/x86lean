@@ -23844,5 +23844,10 @@ After restoring the file (byte-identical, `cmp`): `saltbuild EXIT=0` with zero e
 declarations, standard three only.
 
 **Limits.** These are the forms the spike used. BTS/BTR/BTC on a bit string, BT with an immediate offset or a register
-base, and the reg,mem forms of SUB/CMP are still without equations. The kernel cost is the K1's ledger row, not
-recorded here.
+base, the reg,mem forms of SUB/CMP, and the LOCKED `sub` mem,imm (`lock subl $1,(cell)`, a legal atomic form, which
+`step_sub_mem_imm` excludes by `ea.lock = false`; paper's LOW at 30b4e31) are still without equations.
+**The K1** (katmai, cbf075d → 02d7426): the ms gate was UNMEASURABLE on `Tests.Vectors` (+7.4 against a budget of 10.9,
+band ±5.7), and ARM A′ was CLEAN, so D251 lands the step on the a-prime verdict; `X86.Theorems` read +50 ms (ok).
+⚠️ The ledger row's message calls `Tests.Vectors` "a unit this commit does not edit". That is true, but the unit
+`import X86`, which imports `X86.Theorems`, so it DEPENDS on the edited file and is not shown unaffected. The landing
+does not turn on it: A′ decides (paper's wording note at 30b4e31).
