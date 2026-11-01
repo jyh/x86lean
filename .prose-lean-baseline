@@ -19,7 +19,6 @@ b033d581a393	docs/DECISIONS.md	shape
 51b183efd8e0	paper/x86lean-semantics.tex	predates
 6f5c2254eebe	paper/x86lean-semantics.tex	predates
 95077817af91	paper/x86lean-semantics.tex	predates
-a8be63fb9cff	paper/x86lean-semantics.tex	shape
 b4e9f31c0bb3	paper/x86lean-semantics.tex	predates
 bf83e8e0ad34	paper/x86lean-semantics.tex	predates
 # lexicon epoch 2 (R5, council 2026-10-22 item 3): sentences the epoch-1 lexicon did not see, accepted as debt by the WIDENING arm; each exists at the same path in the base tree.
@@ -36,22 +35,15 @@ e2e28a6de9a4	docs/P2-LOGIC-DESIGN.md	lexicon-e2
 a5286004630b	docs/QUEUE.md	lexicon-e2
 e08aa3a5bc7b	paper/README.md	lexicon-e2
 02b38d253e10	paper/x86lean-semantics.tex	lexicon-e2
-09e173d0d45f	paper/x86lean-semantics.tex	lexicon-e2
 0c68e2ae3a2f	paper/x86lean-semantics.tex	lexicon-e2
-0d47b4222be6	paper/x86lean-semantics.tex	lexicon-e2
 0fc24778b348	paper/x86lean-semantics.tex	lexicon-e2
 15c33c4e3ae7	paper/x86lean-semantics.tex	lexicon-e2
-18351fcac408	paper/x86lean-semantics.tex	lexicon-e2
 192719fc73a0	paper/x86lean-semantics.tex	lexicon-e2
 1b57e92d2f09	paper/x86lean-semantics.tex	lexicon-e2
-1b5cb7581b41	paper/x86lean-semantics.tex	lexicon-e2
 1bba58ade6eb	paper/x86lean-semantics.tex	lexicon-e2
 1c24272765ee	paper/x86lean-semantics.tex	lexicon-e2
 1f5967e75405	paper/x86lean-semantics.tex	lexicon-e2
-20101d196c1c	paper/x86lean-semantics.tex	lexicon-e2
-201fba882234	paper/x86lean-semantics.tex	lexicon-e2
 2466a4479dcf	paper/x86lean-semantics.tex	lexicon-e2
-2f04464ba75a	paper/x86lean-semantics.tex	lexicon-e2
 32b22b9a59fc	paper/x86lean-semantics.tex	lexicon-e2
 32c900d521c3	paper/x86lean-semantics.tex	lexicon-e2
 454609654156	paper/x86lean-semantics.tex	lexicon-e2
@@ -62,8 +54,6 @@ e08aa3a5bc7b	paper/README.md	lexicon-e2
 59b58d014d42	paper/x86lean-semantics.tex	lexicon-e2
 66b809ec52a3	paper/x86lean-semantics.tex	lexicon-e2
 6bcf96c14fa9	paper/x86lean-semantics.tex	lexicon-e2
-7b260ee990b3	paper/x86lean-semantics.tex	lexicon-e2
-7f737688cd50	paper/x86lean-semantics.tex	lexicon-e2
 8f04659c593f	paper/x86lean-semantics.tex	lexicon-e2
 90a3d15bf55c	paper/x86lean-semantics.tex	lexicon-e2
 91a3f4970e26	paper/x86lean-semantics.tex	lexicon-e2
@@ -74,26 +64,10 @@ aff59d20eb86	paper/x86lean-semantics.tex	lexicon-e2
 c0af3d955c9e	paper/x86lean-semantics.tex	lexicon-e2
 c22c25bf329b	paper/x86lean-semantics.tex	lexicon-e2
 c32c26be31fa	paper/x86lean-semantics.tex	lexicon-e2
-c8bab3765131	paper/x86lean-semantics.tex	lexicon-e2
 cc3b109c963b	paper/x86lean-semantics.tex	lexicon-e2
-dd224e714c1d	paper/x86lean-semantics.tex	lexicon-e2
 e74be28eeeed	paper/x86lean-semantics.tex	lexicon-e2
 e8f9f0485ea9	paper/x86lean-semantics.tex	lexicon-e2
-ebfd3ade293b	paper/x86lean-semantics.tex	lexicon-e2
 # lexicon epoch 3 (R2, council 2026-10-22 item 3): Lean docstring claim sentences, gated from epoch 3 and accepted as debt by the WIDENING arm; class docstring-cited marks a declaration a public carrier names (read those first).
-adaa5a1af460	Tests/Anchors.lean	docstring
-d4a793902cc8	Tests/Anchors.lean	docstring
 8afffbccd381	Tests/AnchorsVexSilC.lean	docstring
 fcd4a5cb0de5	Tests/AnchorsVexSilC.lean	docstring
 25127b2cf11f	Tests/Coverage.lean	docstring
-2fef6b564190	Tests/Coverage.lean	docstring-cited
-5c4f3906a252	Tests/Coverage.lean	docstring
-73f6757de965	Tests/Logic.lean	docstring-cited
-917dade72735	Tests/LogicKit.lean	docstring-cited
-9e5da1649b3e	Tests/LogicKit.lean	docstring-cited
-09f3dc507f99	Tests/LogicRead.lean	docstring
-1911a50da4a3	Tests/Nonvacuity.lean	docstring
-5cdd99e4e4a6	Tests/Program.lean	docstring
-6bd561e7cd7f	Tests/Program.lean	docstring
-8204c7b54aba	Tests/Program.lean	docstring
-cfa3287f2230	Tests/Program.lean	docstring
