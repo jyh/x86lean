@@ -77,19 +77,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 5215297,
-    "U": 27159,
-    "CA": 495,
-    "AC": 136972
+    "-": 5379923
    },
    "cells_covered": {
-    "CA": 495,
-    "AC": 136972,
-    "CC": 5215168,
-    "U": 27159
+    "-": 5379794
    },
-   "name_route_asm": 136972,
-   "body_route_asm": 495,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 5379923
   },
   "ext": {
@@ -422,19 +416,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 863382,
-    "U": 14670,
-    "AC": 1155,
-    "CA": 344
+    "-": 879551
    },
    "cells_covered": {
-    "CA": 344,
-    "AC": 798,
-    "CC": 861341,
-    "U": 14670
+    "-": 877153
    },
-   "name_route_asm": 1155,
-   "body_route_asm": 344,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 879551
   },
   "ext": {
@@ -1178,10 +1166,10 @@
    "roundpd": 4,
    "cmpneqpd": 1,
    "vfmadd231pd": 102,
-   "vcmplt": 48,
+   "vcmplt_oqpd": 32,
    "vminpd": 18,
-   "vcmpnge": 2,
-   "vcmpnlt": 28,
+   "vcmpnge_uqpd": 1,
+   "vcmpnlt_uqpd": 17,
    "vrsqrtps": 10,
    "vcvtps2pd": 32,
    "vaddpd": 175,
@@ -1189,8 +1177,8 @@
    "vfnmadd213pd": 23,
    "vmovmskpd": 17,
    "vfmsub231pd": 8,
-   "vcmpnle": 37,
-   "vcmpngt": 5,
+   "vcmpnle_uqpd": 19,
+   "vcmpngt_uqpd": 3,
    "vsubpd": 160,
    "vfnmadd231pd": 59,
    "vmaxpd": 10,
@@ -1201,8 +1189,8 @@
    "vcvtdq2pd": 16,
    "vpextrd": 94,
    "vmovhpd": 60,
-   "vcmple": 18,
-   "vcmpge": 9,
+   "vcmple_oqpd": 9,
+   "vcmpge_oqpd": 6,
    "vpsllq": 48,
    "vdivpd": 4,
    "vmovmskps": 44,
@@ -1214,7 +1202,7 @@
    "vpslld": 64,
    "vpermps": 16,
    "vfnmadd132pd": 11,
-   "vcmpgt": 11,
+   "vcmpgt_oqpd": 8,
    "vextracti128": 7,
    "vgatherqpd": 12,
    "vgatherdpd": 27,
@@ -1270,15 +1258,21 @@
    "pmaxsd": 1,
    "pminsd": 1,
    "vfmadd231ps": 40,
+   "vcmpnge_uqps": 1,
+   "vcmplt_oqps": 16,
    "vminps": 16,
+   "vcmpnlt_uqps": 11,
    "vfmadd213ps": 313,
    "vfmsub213ps": 17,
    "vfnmadd213ps": 26,
    "vfmsub231ps": 9,
+   "vcmpnle_uqps": 18,
+   "vcmpngt_uqps": 2,
    "vfnmadd231ps": 59,
    "vmaxps": 10,
    "vcvtdq2ps": 11,
    "vfmadd132ps": 13,
+   "vcmple_oqps": 9,
    "vdivps": 3,
    "vcmpordps": 2,
    "vcmpeqps": 3,
@@ -1286,6 +1280,7 @@
    "vpunpcklqdq": 32,
    "vpmulld": 21,
    "vfnmadd132ps": 11,
+   "vcmpgt_oqps": 3,
    "vunpcklps": 15,
    "vunpckhps": 3,
    "vroundps": 1,
@@ -1297,6 +1292,7 @@
    "vgetexpps": 13,
    "vpermt2ps": 23,
    "vreduceps": 2,
+   "vcmpge_oqps": 3,
    "vgetmantps": 5,
    "vscalefps": 5,
    "vpandnd": 25,
@@ -1322,21 +1318,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 504808,
-    "U": 8781,
-    "AC": 55619,
-    "CA": 13783,
-    "AA": 20563
+    "-": 603554
    },
    "cells_covered": {
-    "AA": 15902,
-    "CA": 8989,
-    "AC": 40847,
-    "CC": 485488,
-    "U": 8781
+    "-": 560007
    },
-   "name_route_asm": 76182,
-   "body_route_asm": 34346,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 603554
   },
   "ext": {
@@ -1347,9 +1335,9 @@
    "CPUID": 52,
    "TSC": 28,
    "SSE-legacy (xmm)": 1200,
-   "VEX-128 (v\u2026 xmm)": 9851,
-   "AVX-512 (zmm/k)": 8371,
-   "AVX2/AVX (ymm)": 8373,
+   "AVX-512 (zmm/k)": 8399,
+   "VEX-128 (v\u2026 xmm)": 9827,
+   "AVX2/AVX (ymm)": 8369,
    "SSE (MXCSR state)": 382,
    "SSE2 (pause)": 12,
    "SSE (fence)": 19,
@@ -1416,8 +1404,7 @@
     "SSE-legacy (xmm)": 146
    },
    "vmovdqa64": {
-    "VEX-128 (v\u2026 xmm)": 20,
-    "AVX-512 (zmm/k)": 381
+    "AVX-512 (zmm/k)": 401
    },
    "vmovdqa": {
     "VEX-128 (v\u2026 xmm)": 72,
@@ -1713,8 +1700,7 @@
     "AVX-512 (zmm/k)": 606
    },
    "vpternlogd": {
-    "AVX2/AVX (ymm)": 4,
-    "AVX-512 (zmm/k)": 69
+    "AVX-512 (zmm/k)": 73
    },
    "vmovdqu8": {
     "AVX-512 (zmm/k)": 4
@@ -1723,8 +1709,7 @@
     "AVX-512 (zmm/k)": 9
    },
    "vmovdqu64": {
-    "AVX-512 (zmm/k)": 817,
-    "VEX-128 (v\u2026 xmm)": 4
+    "AVX-512 (zmm/k)": 821
    },
    "vpxorq": {
     "AVX-512 (zmm/k)": 110
@@ -2162,20 +2147,20 @@
     "AVX2/AVX (ymm)": 8,
     "AVX-512 (zmm/k)": 94
    },
-   "vcmplt": {
-    "AVX2/AVX (ymm)": 33,
-    "AVX-512 (zmm/k)": 15
+   "vcmplt_oqpd": {
+    "AVX2/AVX (ymm)": 22,
+    "AVX-512 (zmm/k)": 10
    },
    "vminpd": {
     "AVX2/AVX (ymm)": 10,
     "AVX-512 (zmm/k)": 8
    },
-   "vcmpnge": {
-    "AVX2/AVX (ymm)": 2
+   "vcmpnge_uqpd": {
+    "AVX2/AVX (ymm)": 1
    },
-   "vcmpnlt": {
-    "AVX2/AVX (ymm)": 7,
-    "AVX-512 (zmm/k)": 21
+   "vcmpnlt_uqpd": {
+    "AVX2/AVX (ymm)": 4,
+    "AVX-512 (zmm/k)": 13
    },
    "vrsqrtps": {
     "VEX-128 (v\u2026 xmm)": 5,
@@ -2204,13 +2189,13 @@
     "AVX2/AVX (ymm)": 2,
     "AVX-512 (zmm/k)": 6
    },
-   "vcmpnle": {
-    "AVX2/AVX (ymm)": 20,
-    "AVX-512 (zmm/k)": 17
+   "vcmpnle_uqpd": {
+    "AVX2/AVX (ymm)": 11,
+    "AVX-512 (zmm/k)": 8
    },
-   "vcmpngt": {
-    "AVX2/AVX (ymm)": 2,
-    "AVX-512 (zmm/k)": 3
+   "vcmpngt_uqpd": {
+    "AVX2/AVX (ymm)": 1,
+    "AVX-512 (zmm/k)": 2
    },
    "vsubpd": {
     "AVX2/AVX (ymm)": 69,
@@ -2255,13 +2240,13 @@
    "vmovhpd": {
     "VEX-128 (v\u2026 xmm)": 60
    },
-   "vcmple": {
-    "AVX2/AVX (ymm)": 7,
-    "AVX-512 (zmm/k)": 11
+   "vcmple_oqpd": {
+    "AVX2/AVX (ymm)": 3,
+    "AVX-512 (zmm/k)": 6
    },
-   "vcmpge": {
+   "vcmpge_oqpd": {
     "AVX2/AVX (ymm)": 2,
-    "AVX-512 (zmm/k)": 7
+    "AVX-512 (zmm/k)": 4
    },
    "vpsllq": {
     "AVX2/AVX (ymm)": 20,
@@ -2324,9 +2309,9 @@
     "AVX2/AVX (ymm)": 23,
     "AVX-512 (zmm/k)": 29
    },
-   "vcmpgt": {
-    "AVX2/AVX (ymm)": 7,
-    "AVX-512 (zmm/k)": 4
+   "vcmpgt_oqpd": {
+    "AVX2/AVX (ymm)": 5,
+    "AVX-512 (zmm/k)": 3
    },
    "vextracti128": {
     "AVX2/AVX (ymm)": 7
@@ -2509,6 +2494,13 @@
     "AVX2/AVX (ymm)": 80,
     "AVX-512 (zmm/k)": 80
    },
+   "vcmpnge_uqps": {
+    "AVX2/AVX (ymm)": 1
+   },
+   "vcmplt_oqps": {
+    "AVX2/AVX (ymm)": 11,
+    "AVX-512 (zmm/k)": 5
+   },
    "vminps": {
     "AVX2/AVX (ymm)": 10,
     "AVX-512 (zmm/k)": 6
@@ -2516,6 +2508,10 @@
    "vaddps": {
     "AVX2/AVX (ymm)": 64,
     "AVX-512 (zmm/k)": 46
+   },
+   "vcmpnlt_uqps": {
+    "AVX2/AVX (ymm)": 3,
+    "AVX-512 (zmm/k)": 8
    },
    "vfmadd213ps": {
     "AVX2/AVX (ymm)": 170,
@@ -2532,6 +2528,14 @@
    "vfmsub231ps": {
     "AVX2/AVX (ymm)": 4,
     "AVX-512 (zmm/k)": 5
+   },
+   "vcmpnle_uqps": {
+    "AVX2/AVX (ymm)": 9,
+    "AVX-512 (zmm/k)": 9
+   },
+   "vcmpngt_uqps": {
+    "AVX2/AVX (ymm)": 1,
+    "AVX-512 (zmm/k)": 1
    },
    "vsubps": {
     "AVX2/AVX (ymm)": 55,
@@ -2552,6 +2556,10 @@
    "vfmadd132ps": {
     "AVX2/AVX (ymm)": 9,
     "AVX-512 (zmm/k)": 4
+   },
+   "vcmple_oqps": {
+    "AVX2/AVX (ymm)": 4,
+    "AVX-512 (zmm/k)": 5
    },
    "vdivps": {
     "AVX2/AVX (ymm)": 3
@@ -2579,6 +2587,10 @@
    "vfnmadd132ps": {
     "AVX2/AVX (ymm)": 5,
     "AVX-512 (zmm/k)": 6
+   },
+   "vcmpgt_oqps": {
+    "AVX2/AVX (ymm)": 2,
+    "AVX-512 (zmm/k)": 1
    },
    "vunpcklps": {
     "VEX-128 (v\u2026 xmm)": 12,
@@ -2614,6 +2626,9 @@
    },
    "vreduceps": {
     "AVX-512 (zmm/k)": 2
+   },
+   "vcmpge_oqps": {
+    "AVX-512 (zmm/k)": 3
    },
    "vgetmantps": {
     "AVX-512 (zmm/k)": 5
@@ -2679,22 +2694,22 @@
   "total": 303830,
   "covered": 195838,
   "pct": 64.4564394562749,
-  "silicon": 24868,
-  "silicon_pct": 8.184840206694533,
+  "silicon": 24850,
+  "silicon_pct": 8.17891584109535,
   "silicon_all": {
    "psubusw": 64,
    "vpmovmskb": 13,
    "vpsraw": 232,
    "pmaddubsw": 1483,
    "pshufb": 1347,
-   "vpbroadcastd": 2197,
+   "vpbroadcastd": 2193,
    "vpmaddubsw": 1433,
    "vpackuswb": 558,
    "vpshufb": 185,
    "packssdw": 897,
    "vpsrldq": 117,
    "vshufps": 140,
-   "vpmulhrsw": 2166,
+   "vpmulhrsw": 2152,
    "vpunpckhwd": 767,
    "vpunpcklwd": 922,
    "vpsrad": 2053,
@@ -2762,7 +2777,7 @@
    ],
    [
     "vpbroadcastd",
-    2197
+    2193
    ],
    [
     "vpmaddwd",
@@ -2770,7 +2785,7 @@
    ],
    [
     "vpmulhrsw",
-    2166
+    2152
    ],
    [
     "vpsrad",
@@ -2778,7 +2793,7 @@
    ],
    [
     "vpmulhrsw (vector operand)",
-    1839
+    1853
    ],
    [
     "vinserti128",
@@ -2818,7 +2833,7 @@
    ],
    [
     "vpbroadcastd (vector operand)",
-    1380
+    1384
    ],
    [
     "vpsubw",
@@ -2913,7 +2928,7 @@
    "vzeroupper": 679,
    "pmaddubsw": 1483,
    "pshufb": 1347,
-   "vpbroadcastd": 2197,
+   "vpbroadcastd": 2193,
    "vpmaddubsw": 1433,
    "vpackuswb": 558,
    "vpshufb": 185,
@@ -2924,7 +2939,7 @@
    "vpxor": 517,
    "vpsrldq": 117,
    "vshufps": 140,
-   "vpmulhrsw": 2166,
+   "vpmulhrsw": 2152,
    "vpunpckhwd": 767,
    "vpunpcklwd": 922,
    "vpsrad": 2053,
@@ -3186,9 +3201,9 @@
    "vpsllvd": 1,
    "pminsd": 227,
    "vpshufb (vector operand)": 1724,
-   "vpbroadcastd (vector operand)": 1380,
+   "vpbroadcastd (vector operand)": 1384,
    "vpmaddubsw (vector operand)": 699,
-   "vpmulhrsw (vector operand)": 1839,
+   "vpmulhrsw (vector operand)": 1853,
    "vpunpckhwd (vector operand)": 648,
    "vpunpcklwd (vector operand)": 678,
    "vpsrad (vector operand)": 896,
@@ -3204,31 +3219,23 @@
   },
   "attribution": {
    "cells": {
-    "CC": 93471,
-    "CA": 3619,
-    "U": 957,
-    "AC": 24700,
-    "AA": 181083
+    "-": 303830
    },
    "cells_covered": {
-    "AA": 79058,
-    "CA": 3619,
-    "AC": 18760,
-    "CC": 93444,
-    "U": 957
+    "-": 195838
    },
-   "name_route_asm": 205783,
-   "body_route_asm": 184702,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 303830
   },
   "ext": {
    "CPUID": 1,
    "XSAVE": 1,
    "SSE-legacy (xmm)": 14947,
-   "AVX2/AVX (ymm)": 44729,
-   "VEX-128 (v\u2026 xmm)": 11062,
+   "AVX2/AVX (ymm)": 44624,
+   "VEX-128 (v\u2026 xmm)": 11028,
    "AVX (state)": 679,
-   "AVX-512 (zmm/k)": 36181,
+   "AVX-512 (zmm/k)": 36320,
    "BMI2": 392
   },
   "ext_covered": {
@@ -3342,8 +3349,8 @@
     "SSE-legacy (xmm)": 90
    },
    "vpbroadcastd": {
-    "AVX2/AVX (ymm)": 1877,
-    "AVX-512 (zmm/k)": 1380,
+    "AVX2/AVX (ymm)": 1873,
+    "AVX-512 (zmm/k)": 1384,
     "VEX-128 (v\u2026 xmm)": 320
    },
    "vpmaddubsw": {
@@ -3380,8 +3387,8 @@
     "AVX-512 (zmm/k)": 100
    },
    "vpbroadcastb": {
-    "AVX2/AVX (ymm)": 155,
-    "AVX-512 (zmm/k)": 82,
+    "AVX2/AVX (ymm)": 153,
+    "AVX-512 (zmm/k)": 84,
     "VEX-128 (v\u2026 xmm)": 36
    },
    "vpminub": {
@@ -3400,12 +3407,10 @@
     "AVX2/AVX (ymm)": 227
    },
    "vbroadcasti32x4": {
-    "AVX-512 (zmm/k)": 389,
-    "AVX2/AVX (ymm)": 8
+    "AVX-512 (zmm/k)": 397
    },
    "vmovdqa32": {
-    "AVX-512 (zmm/k)": 5986,
-    "AVX2/AVX (ymm)": 33
+    "AVX-512 (zmm/k)": 6019
    },
    "vpmovwb": {
     "AVX-512 (zmm/k)": 6
@@ -3414,8 +3419,7 @@
     "AVX-512 (zmm/k)": 558
    },
    "vpermb": {
-    "AVX-512 (zmm/k)": 746,
-    "AVX2/AVX (ymm)": 9
+    "AVX-512 (zmm/k)": 755
    },
    "vpaddb": {
     "AVX-512 (zmm/k)": 73,
@@ -3503,8 +3507,7 @@
     "AVX-512 (zmm/k)": 85
    },
    "vinserti32x4": {
-    "AVX-512 (zmm/k)": 484,
-    "AVX2/AVX (ymm)": 14
+    "AVX-512 (zmm/k)": 498
    },
    "vpsubd": {
     "AVX-512 (zmm/k)": 540,
@@ -3512,8 +3515,7 @@
     "AVX2/AVX (ymm)": 589
    },
    "vpandd": {
-    "AVX-512 (zmm/k)": 57,
-    "AVX2/AVX (ymm)": 8
+    "AVX-512 (zmm/k)": 65
    },
    "vpunpckhqdq": {
     "AVX-512 (zmm/k)": 279,
@@ -3521,8 +3523,7 @@
     "VEX-128 (v\u2026 xmm)": 41
    },
    "vpternlogd": {
-    "AVX-512 (zmm/k)": 65,
-    "AVX2/AVX (ymm)": 8
+    "AVX-512 (zmm/k)": 73
    },
    "vextracti32x4": {
     "AVX-512 (zmm/k)": 600
@@ -3537,9 +3538,9 @@
     "AVX-512 (zmm/k)": 6
    },
    "vpmulhrsw": {
-    "VEX-128 (v\u2026 xmm)": 198,
-    "AVX-512 (zmm/k)": 1839,
-    "AVX2/AVX (ymm)": 1968
+    "VEX-128 (v\u2026 xmm)": 190,
+    "AVX-512 (zmm/k)": 1853,
+    "AVX2/AVX (ymm)": 1962
    },
    "vpunpckhwd": {
     "VEX-128 (v\u2026 xmm)": 93,
@@ -3552,9 +3553,7 @@
     "AVX2/AVX (ymm)": 726
    },
    "vpdpwssd": {
-    "VEX-128 (v\u2026 xmm)": 19,
-    "AVX-512 (zmm/k)": 1560,
-    "AVX2/AVX (ymm)": 10
+    "AVX-512 (zmm/k)": 1589
    },
    "vpsrad": {
     "VEX-128 (v\u2026 xmm)": 144,
@@ -3713,8 +3712,7 @@
     "AVX2/AVX (ymm)": 10
    },
    "vpord": {
-    "AVX-512 (zmm/k)": 118,
-    "AVX2/AVX (ymm)": 2
+    "AVX-512 (zmm/k)": 120
    },
    "vpmovzxwq": {
     "AVX2/AVX (ymm)": 2
@@ -3894,8 +3892,7 @@
     "AVX-512 (zmm/k)": 60
    },
    "vpdpbusd": {
-    "AVX-512 (zmm/k)": 327,
-    "VEX-128 (v\u2026 xmm)": 3
+    "AVX-512 (zmm/k)": 330
    },
    "vpcmpltw": {
     "AVX-512 (zmm/k)": 4
@@ -3995,8 +3992,7 @@
     "AVX-512 (zmm/k)": 12
    },
    "valignq": {
-    "AVX-512 (zmm/k)": 47,
-    "AVX2/AVX (ymm)": 1
+    "AVX-512 (zmm/k)": 48
    },
    "kandnq": {
     "AVX-512 (zmm/k)": 9
@@ -4207,8 +4203,7 @@
     "AVX-512 (zmm/k)": 45
    },
    "vpsravw": {
-    "AVX-512 (zmm/k)": 20,
-    "VEX-128 (v\u2026 xmm)": 4
+    "AVX-512 (zmm/k)": 24
    },
    "vpcmpleud": {
     "AVX-512 (zmm/k)": 2
@@ -4270,10 +4265,10 @@
    }
   },
   "covered_mem": 72589,
-  "silicon_mem": 4121,
+  "silicon_mem": 4107,
   "vex_mem": 8957,
   "covered_mem_modelled": 68037,
-  "silicon_mem_modelled": 3913,
+  "silicon_mem_modelled": 3899,
   "vex_mem_modelled": 8952,
   "class": "asm"
  },
@@ -4852,30 +4847,22 @@
   },
   "attribution": {
    "cells": {
-    "CC": 2746475,
-    "AC": 127628,
-    "U": 15204,
-    "CA": 133,
-    "AA": 227546
+    "-": 3116986
    },
    "cells_covered": {
-    "AA": 111910,
-    "CA": 133,
-    "AC": 125303,
-    "CC": 2746330,
-    "U": 15186
+    "-": 2998862
    },
-   "name_route_asm": 355174,
-   "body_route_asm": 227679,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 3116986
   },
   "ext": {
    "SSE-legacy (xmm)": 18850,
    "MMX (mm)": 19887,
-   "VEX-128 (v\u2026 xmm)": 33479,
-   "AVX2/AVX (ymm)": 45396,
+   "VEX-128 (v\u2026 xmm)": 33474,
+   "AVX2/AVX (ymm)": 45395,
    "AVX (state)": 255,
-   "AVX-512 (zmm/k)": 230,
+   "AVX-512 (zmm/k)": 236,
    "x87 (st)": 19,
    "SSE2 (fence)": 3,
    "TSC": 3,
@@ -5592,17 +5579,13 @@
     "AVX2/AVX (ymm)": 87
    },
    "vpermb": {
-    "VEX-128 (v\u2026 xmm)": 2,
-    "AVX-512 (zmm/k)": 37
+    "AVX-512 (zmm/k)": 39
    },
    "vpdpbusd": {
-    "VEX-128 (v\u2026 xmm)": 2,
-    "AVX-512 (zmm/k)": 32
+    "AVX-512 (zmm/k)": 34
    },
    "vpmovdw": {
-    "VEX-128 (v\u2026 xmm)": 1,
-    "AVX-512 (zmm/k)": 8,
-    "AVX2/AVX (ymm)": 1
+    "AVX-512 (zmm/k)": 10
    },
    "vmovdqu32": {
     "AVX-512 (zmm/k)": 48
@@ -6053,17 +6036,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 150388,
-    "U": 1018,
-    "CA": 282
+    "-": 151688
    },
    "cells_covered": {
-    "CA": 267,
-    "CC": 150267,
-    "U": 1018
+    "-": 151552
    },
    "name_route_asm": 0,
-   "body_route_asm": 282,
+   "body_route_asm": 0,
    "total": 151688
   },
   "ext": {
@@ -6255,17 +6234,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 52317,
-    "U": 272,
-    "CA": 59515
+    "-": 112104
    },
    "cells_covered": {
-    "CA": 48141,
-    "CC": 50680,
-    "U": 272
+    "-": 99093
    },
    "name_route_asm": 0,
-   "body_route_asm": 59515,
+   "body_route_asm": 0,
    "total": 112104
   },
   "ext": {
@@ -6768,21 +6743,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 412101,
-    "U": 15158,
-    "CA": 81330,
-    "AC": 31862,
-    "AA": 181880
+    "-": 722331
    },
    "cells_covered": {
-    "AA": 132379,
-    "CA": 72621,
-    "AC": 28778,
-    "CC": 410892,
-    "U": 13200
+    "-": 657870
    },
-   "name_route_asm": 213742,
-   "body_route_asm": 263210,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 722331
   },
   "ext": {
@@ -6791,9 +6758,9 @@
    "CPUID": 12,
    "XSAVE": 8,
    "VEX-128 (v\u2026 xmm)": 2738,
-   "AVX2/AVX (ymm)": 11593,
+   "AVX2/AVX (ymm)": 11592,
    "AVX (state)": 163,
-   "AVX-512 (zmm/k)": 24,
+   "AVX-512 (zmm/k)": 25,
    "SSE2 (pause)": 3,
    "MMX (mm)": 420,
    "PREFETCH": 4
@@ -7291,7 +7258,7 @@
     "AVX-512 (zmm/k)": 1
    },
    "vextracti32x4": {
-    "AVX2/AVX (ymm)": 1
+    "AVX-512 (zmm/k)": 1
    },
    "vpmovzxwd": {
     "AVX2/AVX (ymm)": 182,
@@ -7979,21 +7946,13 @@
   },
   "attribution": {
    "cells": {
-    "CC": 269143,
-    "U": 1796,
-    "AC": 33250,
-    "CA": 572,
-    "AA": 72569
+    "-": 377330
    },
    "cells_covered": {
-    "AA": 34491,
-    "CA": 446,
-    "AC": 30161,
-    "CC": 268717,
-    "U": 1796
+    "-": 335611
    },
-   "name_route_asm": 105819,
-   "body_route_asm": 73141,
+   "name_route_asm": 0,
+   "body_route_asm": 0,
    "total": 377330
   },
   "ext": {
@@ -8002,11 +7961,11 @@
    "CPUID": 1,
    "XSAVE": 1,
    "SSE (fence)": 22,
-   "VEX-128 (v\u2026 xmm)": 13288,
+   "VEX-128 (v\u2026 xmm)": 13285,
    "AVX (state)": 144,
    "AVX2/AVX (ymm)": 3647,
    "BMI2": 8,
-   "AVX-512 (zmm/k)": 2323
+   "AVX-512 (zmm/k)": 2326
   },
   "ext_covered": {
    "GPR/other (unclassified)": 294536,
@@ -8372,8 +8331,7 @@
     "AVX-512 (zmm/k)": 2
    },
    "vprold": {
-    "VEX-128 (v\u2026 xmm)": 1,
-    "AVX-512 (zmm/k)": 3
+    "AVX-512 (zmm/k)": 4
    },
    "vpsrlq": {
     "VEX-128 (v\u2026 xmm)": 5,
@@ -8560,8 +8518,8 @@
    },
    "vpbroadcastw": {
     "AVX2/AVX (ymm)": 49,
-    "AVX-512 (zmm/k)": 7,
-    "VEX-128 (v\u2026 xmm)": 23
+    "AVX-512 (zmm/k)": 9,
+    "VEX-128 (v\u2026 xmm)": 21
    },
    "vpblendd": {
     "AVX2/AVX (ymm)": 8
@@ -9127,18 +9085,18 @@
   "total": 4784269,
   "covered": 4438826,
   "pct": 92.77960750116685,
-  "silicon": 122204,
-  "silicon_pct": 2.5542878128299225,
+  "silicon": 122186,
+  "silicon_pct": 2.5539115798045637,
   "vex": 68366,
   "vex_pct": 1.4289748339819521,
   "ext": {
    "CPUID": 15,
    "XSAVE": 11,
    "SSE-legacy (xmm)": 95965,
-   "AVX2/AVX (ymm)": 105365,
-   "VEX-128 (v\u2026 xmm)": 60567,
+   "AVX2/AVX (ymm)": 105258,
+   "VEX-128 (v\u2026 xmm)": 60525,
    "AVX (state)": 1241,
-   "AVX-512 (zmm/k)": 38758,
+   "AVX-512 (zmm/k)": 38907,
    "BMI2": 400,
    "MMX (mm)": 43045,
    "x87 (st)": 23,
@@ -9469,8 +9427,9 @@
    "MMX (mm)": 1,
    "SSE2 (fence)": 168,
    "SSE-legacy (xmm)": 4,
-   "VEX-128 (v\u2026 xmm)": 52,
-   "AVX2/AVX (ymm)": 10,
+   "VEX-128 (v\u2026 xmm)": 44,
+   "AVX2/AVX (ymm)": 8,
+   "AVX-512 (zmm/k)": 10,
    "AVX (state)": 1,
    "LOCK prefix (P2 addition 2)": 6,
    "PREFETCH": 2,
@@ -9704,13 +9663,13 @@
     "VEX-128 (v\u2026 xmm)": 13
    },
    "vpermi2d": {
-    "AVX2/AVX (ymm)": 2
+    "AVX-512 (zmm/k)": 2
    },
    "vpaddd": {
     "VEX-128 (v\u2026 xmm)": 12
    },
    "vprord": {
-    "VEX-128 (v\u2026 xmm)": 8
+    "AVX-512 (zmm/k)": 8
    },
    "vextracti128": {
     "AVX2/AVX (ymm)": 2
@@ -9838,16 +9797,16 @@
  },
  "_controls": {
   "cc1": {
-   "name": 2.5459843942004374,
-   "body": 0.009200875179812053,
-   "ok_name": false,
+   "name": 0.0,
+   "body": 0.0,
+   "ok_name": true,
    "ok_body": true
   },
   "glibc": {
-   "name": 12.622234298836558,
-   "body": 5.6906258594922745,
-   "ok_name": true,
-   "ok_body": true
+   "name": 0.0,
+   "body": 0.0,
+   "ok_name": false,
+   "ok_body": false
   }
  }
 }
