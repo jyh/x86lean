@@ -24169,3 +24169,10 @@ D375 (`3248cf3`). **Not built in the life that wrote this; the next head takes i
    found on the way, and not D376's:** `check_readme_snapshot` is red at this branch's tip without this step's edits.
    D359 (`3c4bd22`) wrote a differential record (109,208 cases) and left README's paragraph at 108,240. Fixed in D359's
    own PR when the stack reaches it.
+**K1 (2026-10-31, katmai, `244dac3 → 681dd86`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else.
+`kernel_delta` reads `Tests.AnchorsVexSilI` at 3,625.0 ms ⇒ `Tests.AnchorsVexSilI 10875 @on katmai`. `ku_delta` (A′)
+reads 1,537,866 unfoldings ⇒ `Tests.AnchorsVexSilI @ku 1537866`. Both are registered as printed. Every existing row (54) is
+within its allowance (`Tests.Coverage` +300 against 2,962.8). The retired absolute table's five `over/over` rows are the
+same five at D375's K1, base and head alike. ⚠️ This branch sits on D375's PRE-registration tip, so D375's and D374's
+registration lines are absent here and arrive with the stack's rebase (one append conflict per registry file, as
+recorded for D374–D375).
