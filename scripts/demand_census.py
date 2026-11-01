@@ -857,6 +857,13 @@ def raw_split(line):
     parts = line.rstrip("\n").split("\t")
     m = RAW_HEAD_RE.match(parts[0])
     if not m:
+        # ⛔ GNU objdump's raw format puts the TAB after the ADDRESS ("0:\t62 f2 …\tvpmulhrsw\t…"), so the head above
+        # never matches and the line would fall to `INSN_RE`, which drops it (a hex byte is not a mnemonic). Refused
+        # rather than dropped: it is the format whose 7-byte wrap D385 cannot read (paper's LOW 1 at 1430d65).
+        if len(parts) >= 2 and re.match(r"^\s*[0-9a-f]+:\s*$", parts[0]) \
+                and re.match(r"^\s*(?:[0-9a-f]{2} )+\s*$", parts[1]):   # each byte FOLLOWED by a space, so `fadd` is not bytes
+            raise SystemExit("⛔ demand_census: a GNU-objdump raw line (bytes after the address's TAB); D385 reads "
+                             "only LLVM objdump's one-line format: " + line.strip()[:80])
         return line, False
     if len(parts) < 2 or not "".join(parts[1:]).strip():
         raise SystemExit("⛔ demand_census: a line of instruction bytes with no mnemonic (an objdump that wraps long "
@@ -2282,7 +2289,26 @@ def selftest():
         ok = False
     except SystemExit:
         ok = True
-    print(("  ✔ " if ok else "  ⛔ ") + "a bytes-only line (GNU objdump's wrap) REFUSES rather than miscounting")
+    print(("  ✔ " if ok else "  ⛔ ") + "a bytes-only line (a wrapped instruction's continuation) REFUSES rather than miscounting")
+    if not ok:
+        bad.append("raw:continuation")
+    # paper's LOW 1: the arm above is LLVM-shaped; GNU's own raw line (TAB after the address) must refuse too, and
+    # its continuation line ("  7:\t44 55") with it.
+    # ...and a no-bytes line whose mnemonic is spelled in hex letters is NOT taken for bytes
+    got = sorted(m for (m, _k) in classify_lines(["   60:\tfadd\t%st(1), %st", "   62:\tfaddp\t%st, %st(1)"]))
+    ok = got == ["fadd", "faddp"]
+    print(("  ✔ " if ok else "  ⛔ ") + f"a hex-lettered mnemonic in a no-bytes line is a mnemonic: {got}")
+    if not ok:
+        bad.append("raw:hexmn")
+    for gl in ["   0:\t62 f2 45 08 0b 4a 3c \tvpmulhrsw 0x3c0(%rdx),%xmm7,%xmm1", "   7:\t44 55 "]:
+        try:
+            _classify([gl])
+            ok = False
+        except SystemExit:
+            ok = True
+        print(("  ✔ " if ok else "  ⛔ ") + f"a GNU-objdump raw line REFUSES: {gl.strip()[:40]!r}")
+        if not ok:
+            bad.append("raw:gnu")
     if not ok:
         bad.append("raw:continuation")
     # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.

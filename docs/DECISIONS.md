@@ -23819,3 +23819,16 @@ keyed by name.
 · `vcmple` −18 · `vcmpgt` −11 · `vcmpge` −9 · `vcmpngt` −5 · `vcmpnge` −2) and the 16 full spellings rise by the same
 158. `total`, `covered`, `silicon` and `vex` are unchanged in every column. `docs/P2-ROSTER.md` regenerates
 byte-identical.
+
+## D387 — a GNU-objdump raw line REFUSES rather than vanishing (paper's LOW 1 on D385, at 1430d65)
+
+**The defect paper drove.** GNU objdump puts the TAB after the ADDRESS (`0:\t62 f2 45 08 …\tvpmulhrsw …`).
+D385's `raw_split` matches LLVM's head (`addr: bytes<pad>\t`) only, so a GNU line returned unchanged and not EVEX, and
+`INSN_RE` then dropped it silently, because a hex byte is not a mnemonic. D385's bytes-only arm drove an LLVM-shaped
+line GNU never emits, so its comment claimed more than it detected. The census was protected all along, but only by
+`require_llvm_objdump` in `census()`.
+**Fix.** `raw_split` refuses a line whose second TAB field is bytes: every pair FOLLOWED by a space, as GNU writes them.
+The space is load-bearing. Without it, `fadd` (`fa dd`) in a no-bytes line reads as bytes. Three arms: a GNU
+instruction line refuses; a GNU continuation line (`7:\t44 55 `) refuses; `fadd`/`faddp` in no-bytes lines stay
+mnemonics. Red backwards: with the refusal removed, the two GNU arms red; with the space made optional, the selftest
+aborts at the `fadd` arm with the GNU refusal, which is the hazard the arm names.
