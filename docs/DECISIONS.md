@@ -23663,7 +23663,7 @@ D340 fast path, so that a future master red's revert duty can be checked (D340's
   master runs escalates, because one refusal is noise and two is a pattern. Cost: master shows red until the next push, and
   `preflight.sh` reports that red as master's last verdict.
 - **(C) A refusal reads differently, by code.** On a push to master, `kernel_delta.py` would map exit 3 to a pass with a warning
-  annotation that names the deciding row, whenever the merge's second parent has one (found through the row-slide rule of PR #148, once it lands). Exit 1 stays
+  annotation that names the deciding row, whenever the merge's second parent has one (found through the row-slide rule of PR #148, which merged as `4d0ffa2e` on 2026-11-01). Exit 1 stays
   red. Cost: a lookup from merge to PR head to ledger row, plus the arms to drive it. A master-only interaction regression would
   read as a warning. An exit 3 cannot see that regression either, so this hides nothing that the red was showing.
 
@@ -23673,6 +23673,11 @@ red, 1 cancelled and 1 in progress. **13 of the 20 reds carry a `kernel-delta` r
 `ku-delta`). ⇒ **Nearly a quarter of master's runs read red for no reason except that the runner could not tell.** My first
 draft of this paragraph said "two master `kernel-delta` reds since 10-14". That figure came from the 22 merges sampled in (2),
 and the population of master runs corrected it before commit.
+⚠️ **CORRECTED BY D381 (2026-11-01), AND THE CORRECTION RAISES EVERY COUNT ABOVE.** At the forge, the same query
+(`actions/runs?branch=master&event=push&created=2026-10-14..2026-10-31`, `ci.yml`, paginated) returns 54 runs, and of the
+52 created before this note's reading (2026-10-31 01:45Z) **24 are red, 16 carry a `kernel-delta` red, and in 14
+`kernel-delta` is the only failing job**. All 14 logs, every one opened, end `exit code 3`. The verdict is unchanged
+("a refusal each time, never an OVER"); the counts 47 / 20 / 13 / 11 are low. **The mechanism, measured by paper (bus @94,466,603):** the query was unpaginated, and an unpaginated `actions/runs` query returns at most 100 rows ACROSS ALL WORKFLOWS (47 CI + 47 Scrub + 6 hwprobe = 100 of 117). The filter to `ci.yml` was applied after the cap. paper's re-derivation used the same query shape and agreed for that reason. D381 prints the run ids.
 ⚠️ **`kernel-delta` is NOT a required check** (branch protection, read live: strict; the five required checks are the scrub and
 prose gates). So a PR can merge with that job red or never measured, and master's push run is then the ONLY reading the step
 ever gets. That rules out a fourth arm, dropping `kernel-delta` from push runs: under strict protection a PR's merge ref equals
@@ -23819,3 +23824,92 @@ keyed by name.
 · `vcmple` −18 · `vcmpgt` −11 · `vcmpge` −9 · `vcmpngt` −5 · `vcmpnge` −2) and the 16 full spellings rise by the same
 158. `total`, `covered`, `silicon` and `vex` are unchanged in every column. `docs/P2-ROSTER.md` regenerates
 byte-identical.
+
+## D381 — (C) built: a `kernel-delta` REFUSAL on a master push run is decided by the RECORD (D377 (C); the helm's ruling of 2026-11-01 05:45, desk XF)
+
+**Why.** D377 measured that a large share of master's push runs read red only because `kernel-delta` exited 3
+(the run could not measure), while the merged step already had a verdict of record. (B) made that a rule with
+no code. The helm ruled (C), on three conditions: (1) red first, driven against every refusal-only master red as
+its fixture, with two mutants; (2) every refusal RECORDED as a row, so (B)'s two-in-a-row escalation survives a
+green; (3) master push runs only, with the limit printed beside the verdict.
+
+**What it does.** `scripts/refusal_record.py`, called by `kernel_delta.py --refusal-by-record`. ci.yml passes
+that flag on `push` to `refs/heads/master` and nowhere else, so PR runs are unchanged. On exit 3 it:
+- prints one `KERNEL-DELTA-REFUSED {json}` row (run, base, head, each refused unit with its KIND: `band` when the
+  run's band straddles the budget, `new` when a NEW unit has no ceiling for this box; the record; the previous
+  run) in the job log and the step summary, every time, green or red;
+- looks for a verdict of record for the step `HEAD^ → HEAD`: first a LEDGER ROW, read from the ledger AT `HEAD`
+  and joined by `kernel_drift`'s own `records_step` and D372's slide; then a `pull_request` run of `ci.yml`
+  whose `kernel-delta` job concluded success at the merged PR head `HEAD^2`;
+- reads the PREVIOUS master push run's refused units (its TAG row, or for a run from before D381 its unit lines);
+- reads GREEN, with `::warning::pass by the record of <row/run>; this run could not measure: <units>`, only when
+  a record exists, no refused unit also refused on the previous run, and the previous run could be read.
+  Otherwise it stays exit 3, with the reason printed. Exit 1 (OVER) and exit 0 are returned untouched.
+The job gains `permissions: contents: read, actions: read` and `GH_TOKEN`; nothing in it writes.
+
+**Condition (1), the fixture, derived from the forge (`refusal_record.py --fixture`, run 2026-11-01 ~06:00 PST).**
+Query `actions/runs?branch=master&event=push&created=>=2026-10-14`, `ci.yml`, paginated: 58 runs, 24 failure.
+**14 have `kernel-delta` as their ONLY failing job, every log ends `exit code 3`, and all 14 have a verdict of record**
+(13 ledger rows, 1 PR run). Simulated with each run's actual predecessor, D381 reads 13 of the 14 GREEN. The 14th is
+the window's first run: its predecessor was not in the window, so the escalation check could not run, and it stays red by rule.
+```
+  38491701417  3e16669e8  2026-10-14  Tests.AnchorsShuf (new), Tests.Coverage (band), Tests.Coverage
+      ⇒ ledger row cf408b455→d8eeb1127   ⇒ D381 rc 3
+  38517135847  1d70fbf84  2026-10-14  Tests.AnchorsSimd (new)                                       
+      ⇒ ledger row 3e16669e8→b6044541c   ⇒ D381 rc 0
+  38722671284  028883535  2026-10-15  Tests.AnchorsSha (new)                                        
+      ⇒ ledger row 7e634fe1e→7d90c3474   ⇒ D381 rc 0
+  38905455812  0bd01242a  2026-10-16  Tests.AnchorsAes (new)                                        
+      ⇒ ledger row 40ad9ae7c→dde3b7925 (katmai, verdict a-prime, ms_rc 3)   ⇒ D381 rc 0
+  38967742483  2feb88760  2026-10-16  Tests.AnchorsShuf (band)                                      
+      ⇒ ledger row 0bd01242a→c84b2198e   ⇒ D381 rc 0
+  39014578807  886220696  2026-10-17  Tests.CoverageVex256 (new)                                    
+      ⇒ ledger row 2feb88760→26efb2604 (katmai)   ⇒ D381 rc 0
+  39184198526  df3acf9b4  2026-10-19  Tests.AnchorsVexSil (new)                                     
+      ⇒ ledger row 86dda5b9c→93aa680a7 (katmai)   ⇒ D381 rc 0
+  39382180654  1a70f4b13  2026-10-20  X86.Serialize (band)                                          
+      ⇒ ledger row f9e686003→4616441b2 (katmai)   ⇒ D381 rc 0
+  39462762246  05135256a  2026-10-20  Tests.AnchorsVexSilB (new)                                    
+      ⇒ ledger row 1a70f4b13→9c251029b (katmai)   ⇒ D381 rc 0
+  39661994299  f6883ded5  2026-10-21  Tests.AnchorsVexSilC (new)                                    
+      ⇒ ledger row f43b62dec→07446871e (katmai)   ⇒ D381 rc 0
+  39743364790  aca2da45d  2026-10-22  Tests.Coverage (band)                                         
+      ⇒ PR run 39705659767 (kernel-delta success at 247f51597)   ⇒ D381 rc 0
+  39988061917  61edd92d1  2026-10-23  Tests.CoverageVexMem (new), X86.Serialize (band)              
+      ⇒ ledger row 2bba4d165→0f4bc9076 (katmai)   ⇒ D381 rc 0
+  40182101553  b7152ca09  2026-10-25  Tests.AnchorsVexSilD (new), Tests.CoverageVexMov (new), Tests.
+      ⇒ ledger row 9d8fa6e53→62467ba3d (katmai)   ⇒ D381 rc 0
+  41142111878  899a88786  2026-10-30  Tests.Vectors (band)                                          
+      ⇒ ledger row c0dfb01b7→dd5a67c90 (katmai)   ⇒ D381 rc 0
+```
+(`?` = a row from before `landed_on` recorded its machine. `0bd01242a`'s row is an A′ verdict, recorded when its ms
+reading was itself UNMEASURABLE on katmai: a verdict of record, of the A′ kind, and the name says so.)
+⚠️ **This fixture is 14, not D377's 11** (D377 carries the correction where its counts are). The helm's ruling text
+says "the eleven"; it means this population.
+**No escalation would have fired on any of the 14.** No unit refused on two consecutive master runs in the window.
+That is a reading of the past, not a property of the rule: the rule's arm is in the selftest.
+
+**Arms (`--selftest`, 24, no network: the forge is injected).** Parsing: band and NEW rows, unit names with spaces,
+Actions timestamps stripped, the selftest's own rows above `── measuring the delta` ignored. **The PRODUCER**:
+`kernel_delta.verdict`'s own D141 UNMEASURABLE fixture exits 3 and parses to its unit, and an OVER parses to none.
+The decision: a record and a clean predecessor pass and the warning names the record. **An exit 3 with NO parsed unit stays
+red even with a record** (paper's finding at its #153 read, driven red first: it read green with `units []`, which the next
+run's count could never see). **MUTANT 1**: exit 3 with no
+record stays red. **MUTANT 2**: exit 1 stays red with a record. The same unit on the previous run stays red; a different
+unit does not; an unreadable predecessor stays red. The TAG row round-trips. PR-run record: success at `HEAD^2` counts,
+a failed job, another workflow's job, an unreadable forge and a one-parent commit do not. The predecessor is the run
+BEFORE this one, never a later one.
+**Red backwards, seven mutants of the shipped file, run one at a time; each turned exactly its named arm red (rc 1):**
+the record check dropped · the escalation dropped · an unreadable predecessor passes · exit 1 touched · the
+measuring-line scope dropped · "previous" taken as the latest run · any workflow's job counted.
+
+**Limits, declared.** (a) The record is ANOTHER run's or box's reading of the step, not this run's; the warning says
+so. (b) A PR run's `kernel-delta` success is read from its conclusion, and a null-pair SKIP also concludes success.
+That cannot coincide with a push-run refusal unless the PR changed no reading input, which a refusal contradicts.
+Declared, not driven. (c) The escalation compares unit NAMES on two CONSECUTIVE master runs. A unit refusing on
+alternate runs is not escalated, and "the previous run" is the latest COMPLETED one, so when two master pushes overlap a
+predecessor still running is skipped: one missed pairing (paper's LOW at its #153 read). (d) A NEW-unit refusal is greened by a ledger row measured on another box (katmai);
+the runner still has no ceiling for that unit, and the next master run sees it as an existing unit. (e) The NEW-unit
+row's parser arm is typed from a real log line; the producer arm covers the band row only. (f) The code path in
+`kernel_delta.main` runs for the first time on the first master push after this merges. That run is the end-to-end
+reading, and its TAG row (or its absence, on a run that measures cleanly) is what to read.
