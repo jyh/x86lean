@@ -23998,8 +23998,8 @@ the step unrecorded.
 **Reading on the real chain.** `--gap` output is byte-identical to the shipped tool's (rc 0, no slides). 0 of the 70
 ledger rows carry digests today, so this changes no current verdict.
 **What it buys, MEASURED after it was built, and it is less than I first posted.** I first wrote that it would save the
-row-42 stack's seven re-key K2s. Measured on katmai the same hour: all seven stack K1s (D371 · D373 · D374 · D375 · D376 ·
-D379 · D384) ended `KDELTA-EXIT=3` and `KU-EXIT=1`, because each adds a NEW test unit, which both arms refuse by design
+row-42 stack's seven re-key K2s. Measured on katmai the same hour: all seven stack K1s (the waves of STATUS row 42, not yet
+on master) ended `KDELTA-EXIT=3` and `KU-EXIT=1`, because each adds a NEW test unit, which both arms refuse by design
 (one reading; a registration, not a ratio). Those K1s were never recordable rows, so their K2s at the real base are owed
 WITH or WITHOUT D390. **For the current stack it saves nothing.** It pays only for a future stacked PR whose K1 is a
 verdict (it edits existing units and adds none) and whose predecessor merges with an unchanged reading tree. It does not
