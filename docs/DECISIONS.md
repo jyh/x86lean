@@ -23832,3 +23832,17 @@ The space is load-bearing. Without it, `fadd` (`fa dd`) in a no-bytes line reads
 instruction line refuses; a GNU continuation line (`7:\t44 55 `) refuses; `fadd`/`faddp` in no-bytes lines stay
 mnemonics. Red backwards: with the refusal removed, the two GNU arms red; with the space made optional, the selftest
 aborts at the `fadd` arm with the GNU refusal, which is the hazard the arm names.
+
+## D388 — the model's own forms are bucketed by their bytes too (paper's LOW 2 on D385)
+
+**Defect.** D385 made the corpus side read EVEX from each instruction's bytes, but `model_forms` still disassembled the
+model's forms with `--no-show-raw-insn`. So an EVEX model form would bucket by text on the model side and by bytes on the
+corpus side, and the two halves of the join would disagree with no red. No model form is EVEX today, so nothing was
+mis-joined, which is why it was a LOW.
+**Fix.** `model_forms` runs `objdump -d` with the bytes, and `forms_from_lines` goes through the same `_classify` /
+`raw_split`: one rule on both sides, as its docstring promises. The one-instruction-per-form check counted a bare `lock`
+line by its text after the address, which with bytes is `f0 \tlock`. Its 14 locked forms then read 2 instructions each,
+and the census REFUSED (D352's own guard caught it). It now reads the line through `raw_split`.
+**Arm.** `forms_from_lines` buckets a raw EVEX `vpmulhrsw` line AVX-512 and its VEX twin VEX-128 (memory forms, the
+second set). Red backwards: disabling the EVEX read in `_classify` reds this arm along with D385's three EVEX arms.
+**Reading.** The census regenerates byte-identical over the corpus (git diff empty), as predicted: no model form is EVEX.
