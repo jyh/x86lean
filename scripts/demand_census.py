@@ -1003,12 +1003,17 @@ def classify_lines(lines):
     return c
 
 
+# ⭐ D388 (paper's LOW at 5ae0e68): ONE disassembly command for the corpus AND the model's own forms, WITH the raw bytes
+# (D385), so the two sides of the join cannot drift apart by an argv; the selftest asserts `model_forms` runs exactly this.
+OBJDUMP_DISASM = ["objdump", "-d"]
+
+
 def disassemble(path, syms=None, fn_sink=None, mem_sink=None):
     """⚠️ STREAMED, not captured.  vmlinux is 63 MB of ELF and disassembles to
     well over a gigabyte of text; `capture_output` would hold all of it in
     memory at once for a job whose whole output is a counter."""
     # ⭐ D385: WITH the raw bytes, so `_classify` can read EVEX from the instruction itself.
-    with subprocess.Popen(["objdump", "-d", path],
+    with subprocess.Popen(OBJDUMP_DISASM + [path],
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                           text=True, bufsize=1 << 20) as pr:
         c = _classify(pr.stdout, syms, fn_sink, mem_sink)
@@ -1510,7 +1515,7 @@ def model_forms(root_dir, model, tmp):
     # ⭐ D388 (paper's LOW 2 on D385): WITH the raw bytes, so the model's own forms are bucketed by `raw_split` exactly
     # as the corpus is. Bucketing them by text alone would put an EVEX model form on one side of the join and its corpus
     # instance on the other, with no red.
-    d = subprocess.run(["objdump", "-d", O], capture_output=True, text=True)
+    d = subprocess.run(OBJDUMP_DISASM + [O], capture_output=True, text=True)
     lines = d.stdout.split("\n")
     # one instruction per symbol, or the population is not what it claims to be
     per, cur, bad = collections.Counter(), None, []
@@ -2326,6 +2331,28 @@ def selftest():
     print(("  ✔ " if ok else "  ⛔ ") + f"model forms bucket by bytes: EVEX -> {_evb}, VEX twin -> {_vxb}")
     if not ok:
         bad.append("model:evex")
+    # ⭐ D388's guard (paper's LOW at 5ae0e68: the arm above never reached the line D388 changes). Run the REAL
+    # `model_forms` with `subprocess.run` recorded, and require its objdump argv to be the corpus's OBJDUMP_DISASM,
+    # with the bytes. Reverting `model_forms` to `--no-show-raw-insn`, or to any argv of its own, reds this.
+    import tempfile
+    _seen, _real = [], subprocess.run
+
+    def _rec(argv, *a, **k):
+        if argv and argv[0] == "objdump":
+            _seen.append(list(argv))
+        return _real(argv, *a, **k)
+    try:
+        subprocess.run = _rec
+        with tempfile.TemporaryDirectory(prefix="x86lean-census-argv-") as _td:
+            _r, _mk, _why = model_forms(root, model_mnemonics(), _td)
+    finally:
+        subprocess.run = _real
+    ok = (len(_seen) == 1 and _seen[0][:-1] == OBJDUMP_DISASM and "--no-show-raw-insn" not in _seen[0]
+          and OBJDUMP_DISASM == ["objdump", "-d"] and _mk is not None)
+    print(("  ✔ " if ok else "  ⛔ ") + f"model_forms disassembles with the corpus's command: {_seen[:1]} "
+          f"(forms read: {'yes' if _mk is not None else _why})")
+    if not ok:
+        bad.append("model:argv")
     # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
     got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
     ok = got == ["vcmplt_oqpd"]

@@ -24028,3 +24028,9 @@ and the census REFUSED (D352's own guard caught it). It now reads the line throu
 **Arm.** `forms_from_lines` buckets a raw EVEX `vpmulhrsw` line AVX-512 and its VEX twin VEX-128 (memory forms, the
 second set). Red backwards: disabling the EVEX read in `_classify` reds this arm along with D385's three EVEX arms.
 **Reading.** The census regenerates byte-identical over the corpus (git diff empty), as predicted: no model form is EVEX.
+**paper's delta read (2026-11-02 09:08, CONCUR at 5ae0e68, one LOW), taken.** The arm above calls `forms_from_lines`
+on hand-written raw lines. Those already bucketed by bytes at D385, so it never reached the line D388 changes, the
+objdump argv in `model_forms`: with only that line reverted, `--selftest` stayed rc 0. **Fixed:** one `OBJDUMP_DISASM`
+constant is now the argv of both the corpus read (`disassemble`) and `model_forms`. A new arm runs the REAL
+`model_forms` with `subprocess.run` recorded, and requires its one objdump call to be that constant, with the bytes.
+Mutant B (`model_forms` back to `--no-show-raw-insn`): rc 1, and this arm is the only new red.
