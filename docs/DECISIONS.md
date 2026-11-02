@@ -24004,3 +24004,13 @@ D379 · D384) ended `KDELTA-EXIT=3` and `KU-EXIT=1`, because each adds a NEW tes
 WITH or WITHOUT D390. **For the current stack it saves nothing.** It pays only for a future stacked PR whose K1 is a
 verdict (it edits existing units and adds none) and whose predecessor merges with an unchanged reading tree. It does not
 help #155 either: its K1 base cbf075d is on the chain, and #154 changes reading inputs.
+**paper's delta read (2026-11-02 00:26, CONCUR on the code at 23ffab2, two limits), both taken.** LIMIT 1: a slid
+off-chain row could HIDE a WRONG on-chain row's refusal. Row R at b0 does not record its step and slides nowhere, an
+off-chain row slides onto b0's step, and the end-of-walk restore wrote R back over it. The step was priced correctly and
+R's D171 refusal went silent. paper notes the same masking was already reachable on 6395507 by a displaced on-chain row,
+and D390 widened who can trigger it. **Fixed:** a leftover row whose base's step was taken by a slide is now REFUSED at
+the restore. Arm (selftest 93 → 94): a WRONG row at M1 with digests, beside the stacked slide. It failed on 23ffab2
+(the refusal was silent) and refuses rc 2 now. LIMIT 2: the docstring said "a LATER step" and "gap() refuses it", and
+both were false for off-chain rows. It now says an off-chain row may take any step, the first included, and that the
+population is any base that is no step of the walk (stacked, abandoned, pre-rebase). The four slide arms exercise the
+stacked shape only.

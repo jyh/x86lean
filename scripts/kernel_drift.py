@@ -609,8 +609,13 @@ def reading_tree(rev, repo=ROOT):
 def effective_ledger(ledger, steps, repo=ROOT):
     """({base: row}, [(row_base, b, h)]) — the ledger with each SLID row moved from
     its own base to the step it prices. A row slides only when it does not record
-    its own step, carries both digests, and a LATER step with no row of its own
-    matches them; an unmatched row stays where it was, so `gap()` refuses it."""
+    its own step, carries both digests, and a step with no row of its own matches
+    them. An on-chain row slides only to a LATER step; an off-chain row (D390: its
+    base is no step of the walk — a stacked PR's, an abandoned PR's, a pre-rebase
+    row's) may take ANY step, the window's first included. An unmatched row stays
+    where it was, so `gap()` refuses it — and if a slide has already taken its
+    base's step, it is REFUSED here, because restoring it would overwrite the slid
+    row and silence its own WRONG-row refusal (paper's LIMIT 1 on D390)."""
     eff, slid, pending, memo = dict(ledger), [], [], {}
 
     def rt(rev):
@@ -638,7 +643,12 @@ def effective_ledger(ledger, steps, repo=ROOT):
                 eff[b] = r
                 slid.append((r["base"], b, h))
                 break
+    taken = {b for _, b, _ in slid}
     for r in pending:
+        if r["base"] in taken:
+            refuse(f"⛔ ledger row for base {str(r['base'])[:9]} names head {str(r.get('head'))[:9]}, which records "
+                   f"no step and slides to none, while another row slid onto that base's step (D390). Restoring it "
+                   f"would overwrite the slid row and hide this WRONG row; delete it or re-measure it.")
         eff[r["base"]] = r
     return eff, slid
 
@@ -1549,7 +1559,7 @@ def selftest():
     # re-key K2 although its base TREE was unchanged. Same rule as D372: both reading digests must match.
     print("\nD390. AN OFF-CHAIN ROW SLIDES — the stacked shape, in the same scratch repo:")
 
-    def _stack_gap(digests=True, master_lean=False, pr2_differs=False):
+    def _stack_gap(digests=True, master_lean=False, pr2_differs=False, wrong_at_m1=False):
         _n[0] += 1
         _k = _n[0]
         _g("checkout", "-q", "--orphan", f"s{_k}")
@@ -1580,7 +1590,12 @@ def selftest():
             r2["base_reading"], r2["head_reading"] = reading_tree(p1, _sr), reading_tree(p2, _sr)
         moved = []
         try:
-            _, _, bk = gap({m0: r1, p1: r2}, m2, repo=_sr, slid=moved)
+            led = {m0: r1, p1: r2}
+            if wrong_at_m1:  # paper's LIMIT 1: a WRONG row at M1 (names M0, not M1's child; digests match no step)
+                w = _row(m1, m0, {"M": 1.0})
+                w["base_reading"], w["head_reading"] = "0" * 16, "0" * 16
+                led[m1] = w
+            _, _, bk = gap(led, m2, repo=_sr, slid=moved)
         except SystemExit as e:
             return ("REFUSED", e.code), (p1, m1, m2)
         return (bk, moved), (p1, m1, m2)
@@ -1601,6 +1616,10 @@ def selftest():
     ok(_bk != "REFUSED" and (_m1, _m2) in _bk["lean"],
        "RED-FIRST — PR2 was re-cut after its measurement: the merged head's reading tree is not P2's, the "
        "HEAD digest refuses the slide", plant="off-chain head digest")
+    _r, _ = _stack_gap(wrong_at_m1=True)
+    ok(_r == ("REFUSED", 2),
+       "RED-FIRST (paper's LIMIT 1 on D390) — a WRONG row at M1 with digests is still refused when the off-chain "
+       "row slides onto M1 → M2: the slide must not overwrite and silence it", plant="slide masks a wrong row")
 
     # ── THE CONDITIONS A ROW CARRIES (D171, queue item 3) ─────────────────────
     _fake = {"decl_map": {}, "readings": {
