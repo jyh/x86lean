@@ -617,6 +617,11 @@ def effective_ledger(ledger, steps, repo=ROOT):
         if rev not in memo:
             memo[rev] = reading_tree(rev, repo)
         return memo[rev]
+    # ⭐ D390: a row whose base is on NO step of this walk (a stacked PR measured from the PR below it, whose head a
+    # `--no-ff` merge leaves off the first-parent chain) starts in the slide set too, by the same two digests.
+    chain = {b for b, _ in steps}
+    for k in [k for k, r in eff.items() if k not in chain and r.get("base_reading") and r.get("head_reading")]:
+        pending.append(eff.pop(k))
     for b, h in steps:
         rec = eff.get(b)
         if rec is not None:
@@ -1537,6 +1542,65 @@ def selftest():
        "...and a row whose `head` object is ABSENT from the repo (a CI clone never "
        "fetches the pre-rebase head) still slides, because the digests decide",
        plant="head object absent")
+
+    # ── D390: A ROW WHOSE BASE IS OFF THE CHAIN SLIDES TOO ─────────────────────
+    # ⛔ The STACKED-PR shape: PR2's K1 was measured from PR1's HEAD (P1), and PR1 then merges `--no-ff`, so P1
+    # is on no first-parent step and PR2's row could never enter the slide set: every stacked PR paid a ~3 h
+    # re-key K2 although its base TREE was unchanged. Same rule as D372: both reading digests must match.
+    print("\nD390. AN OFF-CHAIN ROW SLIDES — the stacked shape, in the same scratch repo:")
+
+    def _stack_gap(digests=True, master_lean=False, pr2_differs=False):
+        _n[0] += 1
+        _k = _n[0]
+        _g("checkout", "-q", "--orphan", f"s{_k}")
+        _g("rm", "-rqf", "--ignore-unmatch", ".")
+        _put("A.lean", "def a := 0\n"); _put("B.lean", "def b := 0\n"); _put("README.md", "r0\n")
+        _g("add", "-A"); _g("commit", "-qm", "M0")
+        m0 = _g("rev-parse", "HEAD")
+        _g("checkout", "-q", "-b", f"sp{_k}")
+        _put("A.lean", "def a := 1\n"); _g("commit", "-qam", "P1")
+        p1 = _g("rev-parse", "HEAD")
+        _put("B.lean", "def b := 1\n"); _g("commit", "-qam", "P2")
+        p2 = _g("rev-parse", "HEAD")
+        if pr2_differs:      # PR2 re-cut after its measurement: the merged head is not the measured one
+            _put("B.lean", "def b := 2\n"); _g("commit", "-qam", "P2 re-cut")
+        p2m = _g("rev-parse", "HEAD")
+        _g("checkout", "-q", m0)
+        r1 = _row(m0, p1, {"M": 1.0})
+        r1["base_reading"], r1["head_reading"] = reading_tree(m0, _sr), reading_tree(p1, _sr)
+        if master_lean:      # master moves a reading input before PR1 lands; row1 then records THAT step
+            _put("C.lean", "def c := 0\n"); _g("add", "-A"); _g("commit", "-qm", "M0 lean move")
+            r1 = _row(m0, _g("rev-parse", "HEAD"), {"M": 1.0})
+        _g("merge", "-q", "--no-ff", "-m", "merge PR1", p1)
+        m1 = _g("rev-parse", "HEAD")
+        _g("merge", "-q", "--no-ff", "-m", "merge PR2", p2m)
+        m2 = _g("rev-parse", "HEAD")
+        r2 = _row(p1, p2, {"M": 1.0})
+        if digests:
+            r2["base_reading"], r2["head_reading"] = reading_tree(p1, _sr), reading_tree(p2, _sr)
+        moved = []
+        try:
+            _, _, bk = gap({m0: r1, p1: r2}, m2, repo=_sr, slid=moved)
+        except SystemExit as e:
+            return ("REFUSED", e.code), (p1, m1, m2)
+        return (bk, moved), (p1, m1, m2)
+
+    (_bk, _mv), (_p1, _m1, _m2) = _stack_gap()
+    ok((_p1, _m1, _m2) in _mv and (_m1, _m2) not in _bk["lean"],
+       "CONTROL — PR2's row (base P1, PR1's head, on no first-parent step) SLIDES onto M1 → M2: "
+       "P1 and M1 carry one reading tree, so no `.lean` step is unrecorded", plant="off-chain row ignored")
+    (_bk, _mv), (_p1, _m1, _m2) = _stack_gap(digests=False)
+    ok(_bk != "REFUSED" and (_m1, _m2) in _bk["lean"],
+       "RED-FIRST — the same row with NO digests stays off the chain: M1 → M2 is an unrecorded `.lean` step",
+       plant="off-chain row without digests")
+    (_bk, _mv), (_p1, _m1, _m2) = _stack_gap(master_lean=True)
+    ok(_bk != "REFUSED" and (_m1, _m2) in _bk["lean"],
+       "RED-FIRST — master moved a `.lean` file before PR1 landed: M1's reading tree is not P1's, the BASE "
+       "digest refuses the slide", plant="off-chain base digest")
+    (_bk, _mv), (_p1, _m1, _m2) = _stack_gap(pr2_differs=True)
+    ok(_bk != "REFUSED" and (_m1, _m2) in _bk["lean"],
+       "RED-FIRST — PR2 was re-cut after its measurement: the merged head's reading tree is not P2's, the "
+       "HEAD digest refuses the slide", plant="off-chain head digest")
 
     # ── THE CONDITIONS A ROW CARRIES (D171, queue item 3) ─────────────────────
     _fake = {"decl_map": {}, "readings": {
