@@ -23832,3 +23832,55 @@ The space is load-bearing. Without it, `fadd` (`fa dd`) in a no-bytes line reads
 instruction line refuses; a GNU continuation line (`7:\t44 55 `) refuses; `fadd`/`faddp` in no-bytes lines stay
 mnemonics. Red backwards: with the refusal removed, the two GNU arms red; with the space made optional, the selftest
 aborts at the `fadd` arm with the GNU refusal, which is the hazard the arm names.
+
+## D382 — a RIP-relative `Ea` silently DROPS its base and index: priced, with a witness (STATUS-paris row 45; found by the O95 spike's E1 check)
+
+**The defect.** `Ea.offset` (`X86/Semantics.lean`) is `if ea.ripRel then nextRip + ea.disp else base + index·scale + disp`.
+The AST can spell `disp(%rip,%rcx,8)`, with or without a base, which NO encoding produces: ModR/M mod=00 r/m=101 has no
+SIB byte. The model does not refuse that shape. It computes RIP+disp and drops both registers.
+**Witness, driven (`saltbuild` audit run, EXIT=0):** `{ ripRel := true, base := some .rdx, index := some .rcx, scale := .s8,
+disp := 0x2000 }.offset s nr = nr + 0x2000` holds by `rfl` for EVERY state. Concretely, with rcx = 5 and rdx = 0x7000 at
+nr = 0x101d it reads `0x301d`, and the same base and index without `ripRel` read `0x9028` (= 0x7000 + 5·8 + 0x2000).
+Control: a well-formed `{ ripRel := true, disp := 0x2000 }` reads the same as before.
+**Who can produce it.** The decoder path cannot: `scripts/asm_front.py` already REFUSES "rip-relative with an index"
+(it also never sets a base beside `%rip`), and it is the only script that builds a `ripRel` Ea. Every `ripRel := true` Ea
+in the tree (12, all in `Tests/`) is well-formed. **A hand-written `Program` can**, and a proof over one would then be a
+proof about an instruction that does not exist. That is the `vloadq` reason (a spellable form no encoding produces), at the
+addressing level. It was found that way: a private spike wrote the unencodable form from a design document.
+**Two arms, priced.**
+- **(A) A refusal in `step`, beside the lock rule.** `step` already checks `i.op.lockIllegal` once, before the match, over
+  the operand walk. A sibling check (`ripRel ∧ (base ≠ none ∨ index ≠ none)` ⇒ halt, `illegalOperands`) puts the shape
+  under the totality discipline, like two memory operands: it STOPS the model rather than meaning something.
+  Cost: (i) every theorem over a GENERIC `Ea` gains a hypothesis next to its `hl : ea.lock = false`. Counted by signature:
+  29 in `X86/Theorems.lean`, 1 in `X86/Program.lean`, and 16 in `Tests/` (AnchorsVexSilC 4, Coverage 2, CoverageVexMov 10).
+  Concrete-Ea theorems discharge it by `decide`. (ii) One more Boolean on every `step`'s operand walk: kernel time on every
+  memory form. NOT measured; it is a K1 delta on katmai before landing.
+- **(B) A decidable predicate, carried.** `Ea.wf`, plus `Program.wf` over the code list, by `decide`. `step` costs nothing
+  more, and program theorems carry `p.wf` as a hypothesis. The model still ACCEPTS the shape: a theorem that forgets the
+  hypothesis is about a non-instruction, and nothing refuses it.
+**Recommendation: (A).** It is the repository's own precedent twice over: the lock rule ("checked once, before the match")
+and two memory operands ("stop the model rather than mean something"). (B) leaves the defect in place and asks every future
+proof to remember it, the shape this file keeps recording as a gate whose precondition is a discipline. (A)'s cost is
+mechanical and countable (46 signatures, one hypothesis each). Its kernel cost is the open number, and a K1 decides it: if
+the delta is over budget, (B) is the fallback, and this note says so in advance.
+**AMENDED THE SAME HOUR: a THIRD arm, found while starting (A), and TAKEN.**
+- **(C) Make the shape UNREPRESENTABLE: a proof field on `Ea`,** `ripWf : ripRel = true → base = none ∧ index = none`,
+  discharged by a default tactic that evaluates nothing (`ripRel := false` makes the premise absurd; a bare RIP-relative
+  `Ea` is `⟨rfl, rfl⟩`). The bad shape then FAILS TO ELABORATE. `step` is untouched, so its kernel cost is zero, and so is
+  the cost to theorems over a generic `Ea`: an `ea : Ea` carries the invariant, and none of the 46 signatures changes.
+  Measured before choosing: 0 record updates in the tree touch `base`, `index` or `ripRel`, so no copied proof needs a
+  re-proof. No output path prints an `Ea` through `Repr`; the harness has its own serializer.
+  Its costs, as built: `BEq` is written by hand (a proof field cannot be derived through; it compares the same seven data
+  fields), and the derived `Repr` now prints `ripWf := _`. A first default of `by decide` FAILED on the suite's
+  variable-built literals (`{ base := some b }` in `Tests/Vectors.lean`): `decide` cannot evaluate over a free `b`. The
+  evaluation-free default builds all 25 `Tests` modules (`saltbuild` EXIT=0).
+- **Why (C) over (A):** (A) puts the refusal in the SEMANTICS, so every proof pays for a shape no encoding produces. (C) puts
+  it in the SYNTAX, where the defect is: the AST could spell a non-instruction. The lock rule is different and stays in `step`,
+  because a `lock` on a non-lockable form IS an encoding (it is #UD on silicon), while this shape is not.
+**Arms (`Tests/Program.lean`, D382 block):** RED: three unencodable shapes (base+index, index alone, base alone) each fail
+to elaborate, by `fail_if_success`. CONTROL: a bare RIP-relative `Ea` and a base+index `Ea` built from VARIABLES both
+elaborate. USE: `riprel_offset`, on every RIP-relative `Ea` the offset is RIP+disp AND base and index are `none`, from the
+field. **RED BACKWARDS, driven:** with the field removed, the red arm fails ("the tactic provided to `fail_if_success`
+succeeded"), on its first line.
+**Not measured: the kernel cost of the field on every `Ea` literal** (one small proof term each). A K1 on katmai at this
+PR's base decides it before the merge.
