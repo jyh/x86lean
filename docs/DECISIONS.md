@@ -24325,3 +24325,7 @@ Smaller than D379, which also needed six new constructors for a unary operation.
    to the form, and all of it is in dav1d (926 + 77 = 1,003), the only column #152 moved for these names. The 368 MMX
    and the AVX-512 spellings are not credited. When the stack is rebased onto master the figure should read 4,327; that
    rebase's census is the check.
+**K1 (2026-11-01, katmai, `0875143 → 0710c63`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilK` at 5,195.0 ms ⇒ `Tests.AnchorsVexSilK 15585 @on katmai`; `ku_delta` (A′)
+reads 2,410,985 unfoldings ⇒ `Tests.AnchorsVexSilK @ku 2410985`; both registered as printed. No existing row is
+refused or UNMEASURABLE in either arm.
