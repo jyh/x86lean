@@ -23852,3 +23852,9 @@ objdump argv in `model_forms`: with only that line reverted, `--selftest` stayed
 constant is now the argv of both the corpus read (`disassemble`) and `model_forms`. A new arm runs the REAL
 `model_forms` with `subprocess.run` recorded, and requires its one objdump call to be that constant, with the bytes.
 Mutant B (`model_forms` back to `--no-show-raw-insn`): rc 1, and this arm is the only new red.
+**paper's re-read (09:12, CONCUR at 6ab8264, two NITs), both taken.** NIT 1: the arm pinned only `model_forms`, so the
+corpus side (`disassemble`) could revert alone (Mutant C, rc 0). The arm now also records `subprocess.Popen`, outside
+any `run` call because `run` is built on `Popen`, and drives the real `disassemble` on the same `forms.o`. Mutants
+B (model side), C (corpus side) and D (the constant itself) now each give rc 1, and this arm is the only new red. NIT 2:
+D388's two inline arms are now in the PASS count (248 → 250). D385–D387's inline arms are still uncounted, which is
+stated beside the counter.
