@@ -24098,5 +24098,15 @@ After restoring the file (byte-identical, `cmp`): `saltbuild EXIT=0` with zero e
 declarations, standard three only.
 
 **Limits.** These are the forms the spike used. BTS/BTR/BTC on a bit string, BT with an immediate offset or a register
-base, and the reg,mem forms of SUB/CMP are still without equations. The kernel cost is the K1's ledger row, not
-recorded here.
+base, the reg,mem forms of SUB/CMP, and the LOCKED `sub` mem,imm (`lock subl $1,(cell)`, a legal atomic form, which
+`step_sub_mem_imm` excludes by `ea.lock = false`; paper's LOW at 30b4e31) are still without equations.
+**The kernel cost: the K4** (katmai, f46bce1 → 762d4e4, the re-key from #153's merge, which is master's base for this
+step). The ms gate is UNMEASURABLE on `Tests.Vectors` (+8.9 against a budget of 10.7, band ±7.2) and ARM A′ is CLEAN, so
+D251 lands the step on the a-prime verdict; `X86.Theorems` reads +35.0 ms (budget 354.1, ok). `Tests.Vectors` `import
+X86`, which imports `X86.Theorems`, so it DEPENDS on the edited file and is not shown unaffected (paper's wording note at
+30b4e31). The landing does not turn on it: A′ decides.
+⛔ **Two earlier measurements are NOT this PR's row, and each is superseded by a master move under it.** The K1
+(cbf075d → 02d7426: ms UNMEASURABLE, A′ CLEAN) shared its base with D382's K1, measured on another night, so
+`kernel_drift` refused the step as priced twice (rc 2). The K3 (300ed85 → 5ea9f96, CLEAN on both arms) was taken
+after #154, and #153 then changed `scripts/kernel_delta.py`, a reading input, so the K3's base reading is not master's.
+No D372 slide carries either row. The K4 is at the real base.
