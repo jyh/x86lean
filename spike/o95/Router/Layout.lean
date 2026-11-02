@@ -87,4 +87,35 @@ theorem acl_miss_buf {rdx rdi : BitVec 64} {len : Nat} (L : Placement rdx rdi le
   simp only [ACL_BASE, ACL_SPAN] at *
   omega
 
+/-! ## The layout relation R (P1), stated over the three store components, so it names nothing of VIRP's types:
+`R` is instantiated at `VIRP.Store`'s `wire`, `bucket` and `acl` when vir's `F_closed` lands. -/
+
+/-- The machine bit the ACL reads for (p, t): bit t mod 8 of the byte at `aclAddr p t`. For t ≥ 64 this is another
+principal's row (arm R: the relation records the aliasing rather than a guard in F). -/
+def aclBit (m : Mem) (p t : UInt32) : Bool := (m.read (aclAddr p t)).getLsbD (t.toNat % 8)
+
+/-- R: an abstract store (wire, bucket, acl) and a machine state at the routine's entry. -/
+structure Rel (wire : List Int) (bucket : Int → Nat) (acl : Int → Int → Bool) (s : Cpu) : Prop where
+  live : Live s
+  entry : s.rip = 0x1000
+  place : Placement (s.regs.get .rdx) (s.regs.get .rdi) wire.length
+  len : wire.length = (s.regs.get .rsi).toNat
+  /-- the buffer bytes, as the wire's Ints -/
+  wire_eq : ∀ i, (h : i < wire.length) → wire[i] = ((s.mem.read (s.regs.get .rdi + BitVec.ofNat 64 i)).toNat : Int)
+  /-- each sender's cell holds its token count, below 2^31 so the machine's SIGNED test agrees with `1 ≤ bucket p` -/
+  bucket_eq : ∀ p : UInt32, (bucket p.toNat : Int) = ((s.mem.readSize .d (Refines.cell (s.regs.get .rdx) p)).toNat : Int)
+  bucket_lt : ∀ p : UInt32, bucket p.toNat < 2 ^ 31
+  /-- the ACL for EVERY u32 (sender, topic), aliased rows included -/
+  acl_eq : ∀ p t : UInt32, acl p.toNat t.toNat = aclBit s.mem p t
+
+/-- Under R, today's side conditions hold at the entry state: the buffer misses the sender's cell, and the cell
+misses the whole ACL table. -/
+theorem Rel.hdisj {wire bucket acl s} (hR : Rel wire bucket acl s) (p : UInt32) :
+    ∀ i, i < wire.length → ¬ Region (Refines.cell (s.regs.get .rdx) p) 4 (s.regs.get .rdi + BitVec.ofNat 64 i) :=
+  buf_miss_cell hR.place p
+
+theorem Rel.hacw {wire bucket acl s} (hR : Rel wire bucket acl s) (P p t : UInt32) :
+    ¬ Region (Refines.cell (s.regs.get .rdx) P) 4 (aclAddr p t) :=
+  cell_miss_acl hR.place P p t
+
 end Router.Layout
