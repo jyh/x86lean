@@ -129,4 +129,84 @@ theorem sim_label (σ : VStore) (s : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s) 
     simp only [Exit] at hex
     simp [exitLabel, hex.1]
 
+/-! ## Step 5: R at the post-state (`sim_one`) -/
+
+/-- The post-state relation: the store `Fc` returns, read against the machine's FINAL memory, at the entry state's
+bases (the buffer at `rdi`, the buckets at `rdx`, the ACL at its absolute base). -/
+structure Post (σ : VStore) (s t : Cpu) : Prop where
+  wire_eq : ∀ i, (h : i < σ.wire.length) → σ.wire[i] = ((t.mem.read (s.regs.get .rdi + BitVec.ofNat 64 i)).toNat : Int)
+  bucket_eq : ∀ p : UInt32,
+    (σ.bucket p.toNat : Int) = ((t.mem.readSize .d (Refines.cell (s.regs.get .rdx) p)).toNat : Int)
+  bucket_lt : ∀ p : UInt32, σ.bucket p.toNat < 2 ^ 31
+  acl_eq : ∀ p q : UInt32, σ.acl p.toNat q.toNat = Layout.aclBit t.mem p q
+
+theorem post_of_same {σ : VStore} {s t : Cpu} (hR : Rel σ.wire σ.bucket σ.acl s) (hm : t.mem = s.mem) : Post σ s t :=
+  ⟨fun i h => by rw [hm]; exact hR.wire_eq i h, fun p => by rw [hm]; exact hR.bucket_eq p, hR.bucket_lt,
+   fun p q => by rw [hm]; exact hR.acl_eq p q⟩
+
+/-- A dword value whose signed reading is non-negative is its unsigned reading. -/
+theorem toNat_of_sval {x : UInt32} {v : Int} (h : v = Value.sval .d (x.toBitVec.setWidth 64)) (hv : 0 ≤ v) :
+    v = (x.toNat : Int) ∧ x.toNat < 2 ^ 31 := by
+  rw [sval_widen] at h
+  have := x.toNat_lt
+  split at h <;> omega
+
+theorem sim_one (σ : VStore) (s : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s) :
+    ∃ n, (runP repaired n s).stopped = true ∧ exitLabel (runP repaired n s) = some (Fc σ).2 ∧
+      Post (Fc σ).1 s (runP repaired n s) := by
+  obtain ⟨hl, hrip, hlen, hbuf, hacl, hst⟩ := entry hR
+  obtain ⟨n, hstop, hex⟩ := repaired_refines_all (toAcl σ.acl) s (toBuf σ.wire) 0 σ.wire.length (toSt σ.bucket)
+    hl hrip hlen hbuf hacl hst (hR.hdisj _)
+  refine ⟨n, hstop, ?_⟩
+  generalize runP repaired n s = t at hex ⊢
+  rw [VIR.Deep.F_exit] at hex
+  simp only [VIR.Deep.Val.len, VIR.Deep.Val.adv, VIR.Deep.Val.st] at hex
+  unfold Fc
+  by_cases h24 : 24 ≤ σ.wire.length
+  · have c24 : (σ.wire.length : Int) ≥ 24 := by omega
+    rw [if_pos h24] at hex; rw [if_pos c24]
+    have e0 := vrd_eq hR 0 (by omega); have e4 := vrd_eq hR 4 (by omega); have e8 := vrd_eq hR 8 (by omega)
+    generalize ((VIR.Deep.Val.slice (toBuf σ.wire) 0 σ.wire.length).rd 0).toP = M at hex e0
+    generalize ((VIR.Deep.Val.slice (toBuf σ.wire) 0 σ.wire.length).rd 4).toP = P at hex e4
+    generalize ((VIR.Deep.Val.slice (toBuf σ.wire) 0 σ.wire.length).rd 8).toP = T at hex e8
+    have hM : (M = VIR.MAGIC) ↔ vrd32 σ.wire 0 = MAGIC := by
+      rw [e0, MAGIC, ← UInt32.toNat_inj]
+      have : VIR.MAGIC.toNat = 0x4D534731 := rfl
+      rw [this]; omega
+    have hcond : (M = VIR.MAGIC ∧ toAcl σ.acl P T = true ∧ 0 < toSt σ.bucket P) ↔
+        (vrd32 σ.wire 0 = MAGIC ∧ σ.acl (vrd32 σ.wire 4) (vrd32 σ.wire 8) = true ∧ 1 ≤ σ.bucket (vrd32 σ.wire 4)) := by
+      rw [hM, e4, e8]; simp only [toAcl, toSt]
+      exact and_congr Iff.rfl (and_congr Iff.rfl (by omega))
+    by_cases hc : vrd32 σ.wire 0 = MAGIC ∧ σ.acl (vrd32 σ.wire 4) (vrd32 σ.wire 8) = true ∧ 1 ≤ σ.bucket (vrd32 σ.wire 4)
+    · rw [if_pos (hcond.mpr hc)] at hex; rw [if_pos hc]
+      simp only [Exit] at hex
+      obtain ⟨hr, -, -, -, -, hst', hmem⟩ := hex
+      refine ⟨by simp [exitLabel, hr], ?_⟩
+      have hfr : AgreeOutside (Region (Refines.cell (s.regs.get .rdx) P) 4) s.mem t.mem := by
+        rw [hmem]; exact agreeOutside_writeSize (agreeOutside_rfl _ _) .d _ _ (fun i hi => ⟨i, hi, rfl⟩)
+      rw [e4]
+      refine ⟨fun i h => ?_, fun p => ?_, fun p => ?_, fun p q => ?_⟩
+      · rw [← hfr _ (hR.hdisj P i h)]; exact hR.wire_eq i h
+      · have hv := hst' p
+        rw [readSize_d] at hv ⊢; rw [widen_toNat]
+        simp only [VStore.dec, VIR.decTokens, toSt] at hv ⊢
+        have hb1 := hc.2.2; rw [e4] at hb1
+        by_cases hp : p = P
+        · subst hp; simp only [if_true] at hv ⊢
+          have := (toNat_of_sval hv (by omega)).1; omega
+        · have hpn : ((p.toNat : Nat) : Int) ≠ ((P.toNat : Nat) : Int) := by
+            intro e; exact hp (UInt32.toNat_inj.mp (by omega))
+          simp only [hp, if_false, hpn] at hv ⊢
+          exact (toNat_of_sval hv (by omega)).1
+      · simp only [VStore.dec]; have := hR.bucket_lt p; split <;> omega
+      · simp only [VStore.dec, Layout.aclBit]; rw [← hfr _ (hR.hacw P p q)]; exact hR.acl_eq p q
+    · rw [if_neg (fun h => hc (hcond.mp h))] at hex; rw [if_neg hc]
+      simp only [Exit] at hex
+      refine ⟨?_, post_of_same hR hex.2⟩
+      rcases hex.1 with h | h <;> simp [exitLabel, h]
+  · have c24 : ¬ (σ.wire.length : Int) ≥ 24 := by omega
+    rw [if_neg h24] at hex; rw [if_neg c24]
+    simp only [Exit] at hex
+    exact ⟨by simp [exitLabel, hex.1], post_of_same hR hex.2⟩
+
 end Router.Sim
