@@ -209,4 +209,34 @@ theorem sim_one (σ : VStore) (s : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s) :
     simp only [Exit] at hex
     exact ⟨by simp [exitLabel, hex.1], post_of_same hR hex.2⟩
 
+/-! ## P4's step: re-entry. Between calls the caller writes the NEXT buffer and nothing else, then re-enters with
+the same bucket base (`two_calls`' `Caller` shape). R then holds again, at the store the previous call returned. -/
+theorem reenter {σ' : VStore} {s t s2 : Cpu} {w2 : List Int} (hP : Post σ' s t)
+    (hlive : Live s2) (hrip : s2.rip = 0x1000) (hrdx : s2.regs.get .rdx = s.regs.get .rdx)
+    (hplace : Placement (s.regs.get .rdx) (s2.regs.get .rdi) w2.length)
+    (hlen : w2.length = (s2.regs.get .rsi).toNat)
+    (hwire : ∀ i, (h : i < w2.length) → w2[i] = ((s2.mem.read (s2.regs.get .rdi + BitVec.ofNat 64 i)).toNat : Int))
+    (hfr : AgreeOutside (Region (s2.regs.get .rdi) w2.length) t.mem s2.mem) :
+    Rel w2 σ'.bucket σ'.acl s2 := by
+  refine ⟨hlive, hrip, by rw [hrdx]; exact hplace, hlen, hwire, fun p => ?_, hP.bucket_lt, fun p q => ?_⟩
+  · rw [hrdx, hP.bucket_eq p,
+      readSize_of_agreeOutside_disjoint (R' := fun a => ∃ k, k < 4 ∧ a = Refines.cell (s.regs.get .rdx) p + BitVec.ofNat 64 k)
+        hfr (by rintro a ⟨k, hk, rfl⟩; exact cells_miss_buf hplace p k hk) .d _ (fun k hk => ⟨k, hk, rfl⟩)]
+  · rw [hP.acl_eq p q, Layout.aclBit, Layout.aclBit, hfr _ (acl_miss_buf hplace p q)]
+
+/-- Two calls (vir's `MultiCall` shape, now with NO X-F1 premises): call 1 under R, then for ANY caller that writes the
+next buffer only and re-enters, call 2 is `Fc` applied to the store call 1 RETURNED, with the new wire. -/
+theorem sim_two (σ : VStore) (s1 : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s1) :
+    ∃ n1, (runP repaired n1 s1).stopped = true ∧ exitLabel (runP repaired n1 s1) = some (Fc σ).2 ∧
+      ∀ (s2 : Cpu) (w2 : List Int), Live s2 → s2.rip = 0x1000 → s2.regs.get .rdx = s1.regs.get .rdx →
+        Placement (s1.regs.get .rdx) (s2.regs.get .rdi) w2.length → w2.length = (s2.regs.get .rsi).toNat →
+        (∀ i, (h : i < w2.length) → w2[i] = ((s2.mem.read (s2.regs.get .rdi + BitVec.ofNat 64 i)).toNat : Int)) →
+        AgreeOutside (Region (s2.regs.get .rdi) w2.length) (runP repaired n1 s1).mem s2.mem →
+        let σ2 : VStore := { (Fc σ).1 with wire := w2 }
+        ∃ n2, (runP repaired n2 s2).stopped = true ∧ exitLabel (runP repaired n2 s2) = some (Fc σ2).2 ∧
+          Post (Fc σ2).1 s2 (runP repaired n2 s2) := by
+  obtain ⟨n1, hs1, hl1, hp1⟩ := sim_one σ s1 hR
+  refine ⟨n1, hs1, hl1, fun s2 w2 hlive hrip hrdx hpl hlen hw hfr => ?_⟩
+  exact sim_one { (Fc σ).1 with wire := w2 } s2 (reenter (σ' := (Fc σ).1) hp1 hlive hrip hrdx hpl hlen hw hfr)
+
 end Router.Sim
