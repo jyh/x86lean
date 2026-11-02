@@ -69,4 +69,64 @@ theorem entry {w : List Int} {b : Int → Nat} {a : Int → Int → Bool} {s : C
     have : ¬ 2 ^ 31 ≤ (rd32 s.mem (Refines.cell (s.regs.get .rdx) p)).toNat := by omega
     rw [if_neg this, hb]
 
+/-! ## Step 4: the exit label agrees with `Fc`'s (V5's reading) -/
+
+/-- VIRP's Int wire read is the old slice read's value, under R. -/
+theorem vrd_eq {w : List Int} {b : Int → Nat} {a : Int → Int → Bool} {s : Cpu} (hR : Rel w b a s)
+    (j : Nat) (hj : j + 4 ≤ w.length) :
+    vrd32 w j = ((((VIR.Deep.Val.slice (toBuf w) 0 w.length).rd j).toP).toNat : Int) := by
+  rw [rd_toP, ByteSum.le32_toNat]
+  have byte : ∀ k, k < 4 → ((((toBuf w).get! (0 + j + k)).toNat : Nat) : Int) = w.getD (j + k) 0 := by
+    intro k hk
+    have hi : j + k < w.length := by omega
+    rw [Nat.zero_add, toBuf_get w (j + k) hi, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some,
+      hR.wire_eq _ hi]
+    simp
+  have b0 := byte 0 (by omega); have b1 := byte 1 (by omega)
+  have b2 := byte 2 (by omega); have b3 := byte 3 (by omega)
+  simp only [Nat.add_zero] at b0 ⊢
+  simp only [vrd32]; omega
+
+/-- The label the machine's exit address means (A.4's exits: I6's convention). -/
+def exitLabel (t : Cpu) : Option Label :=
+  if t.rip = 0x1040 then some (.drop .truncated)
+  else if t.rip = 0x1041 ∨ t.rip = 0x1042 then some (.drop .unauthOrRate)
+  else if t.rip = 0x1043 then some (.emit 24) else none
+
+theorem sim_label (σ : VStore) (s : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s) :
+    ∃ n, (runP repaired n s).stopped = true ∧ exitLabel (runP repaired n s) = some (Fc σ).2 := by
+  obtain ⟨hl, hrip, hlen, hbuf, hacl, hst⟩ := entry hR
+  obtain ⟨n, hstop, hex⟩ := repaired_refines_all (toAcl σ.acl) s (toBuf σ.wire) 0 σ.wire.length (toSt σ.bucket)
+    hl hrip hlen hbuf hacl hst (hR.hdisj _)
+  refine ⟨n, hstop, ?_⟩
+  rw [VIR.Deep.F_exit] at hex
+  simp only [VIR.Deep.Val.len, VIR.Deep.Val.adv, VIR.Deep.Val.st] at hex
+  unfold Fc
+  by_cases h24 : 24 ≤ σ.wire.length
+  · have c24 : (σ.wire.length : Int) ≥ 24 := by omega
+    rw [if_pos h24] at hex; rw [if_pos c24]
+    have e0 := vrd_eq hR 0 (by omega); have e4 := vrd_eq hR 4 (by omega); have e8 := vrd_eq hR 8 (by omega)
+    generalize ((VIR.Deep.Val.slice (toBuf σ.wire) 0 σ.wire.length).rd 0).toP = M at hex e0
+    generalize ((VIR.Deep.Val.slice (toBuf σ.wire) 0 σ.wire.length).rd 4).toP = P at hex e4
+    generalize ((VIR.Deep.Val.slice (toBuf σ.wire) 0 σ.wire.length).rd 8).toP = T at hex e8
+    have hM : (M = VIR.MAGIC) ↔ vrd32 σ.wire 0 = MAGIC := by
+      rw [e0, MAGIC, ← UInt32.toNat_inj]
+      have : VIR.MAGIC.toNat = 0x4D534731 := rfl
+      rw [this]; omega
+    have hcond : (M = VIR.MAGIC ∧ toAcl σ.acl P T = true ∧ 0 < toSt σ.bucket P) ↔
+        (vrd32 σ.wire 0 = MAGIC ∧ σ.acl (vrd32 σ.wire 4) (vrd32 σ.wire 8) = true ∧ 1 ≤ σ.bucket (vrd32 σ.wire 4)) := by
+      rw [hM, e4, e8]; simp only [toAcl, toSt]
+      exact and_congr Iff.rfl (and_congr Iff.rfl (by omega))
+    by_cases hc : vrd32 σ.wire 0 = MAGIC ∧ σ.acl (vrd32 σ.wire 4) (vrd32 σ.wire 8) = true ∧ 1 ≤ σ.bucket (vrd32 σ.wire 4)
+    · rw [if_pos (hcond.mpr hc)] at hex; rw [if_pos hc]
+      simp only [Exit] at hex
+      simp [exitLabel, hex.1]
+    · rw [if_neg (fun h => hc (hcond.mp h))] at hex; rw [if_neg hc]
+      simp only [Exit] at hex
+      rcases hex.1 with h | h <;> simp [exitLabel, h]
+  · have c24 : ¬ (σ.wire.length : Int) ≥ 24 := by omega
+    rw [if_neg h24] at hex; rw [if_neg c24]
+    simp only [Exit] at hex
+    simp [exitLabel, hex.1]
+
 end Router.Sim
