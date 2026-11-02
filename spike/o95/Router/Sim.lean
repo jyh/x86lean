@@ -151,6 +151,15 @@ theorem toNat_of_sval {x : UInt32} {v : Int} (h : v = Value.sval .d (x.toBitVec.
   have := x.toNat_lt
   split at h <;> omega
 
+/-- **THE ONE-CALL BACKEND THEOREM** (O95, council 2026-11-02 §C). Under the layout relation R, the repaired router stops,
+its exit label is `Fc`'s, and its final memory is related (`Post`) to the store `Fc` returns.
+LIMITS, which ride with this statement (paper's read at e8c252f):
+(L1) `Fc` is vir's `F_closed` right-hand side RESTATED (vir 120c90662, `virp/VIRP/Router.lean:72`). The kernel link
+`denote F env0 σ = Part.some (Fc σ)`, composed with this theorem, is vir's `backend_F` (vir x86compose `V4.lean`
+e7f27f1, which is local and under evidence's scan until it is on vir's public master). It covers ONE call, this one.
+(L2) "every store" means every store RELATED BY R: each sender's bucket below 2^31, and (vir's arm R) the abstract
+ACL at topic ≥ 64 equal to the machine's aliased bit. A store whose ACL is not alias-consistent is related to no
+machine state, so the theorem says nothing about it. -/
 theorem sim_one (σ : VStore) (s : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s) :
     ∃ n, (runP repaired n s).stopped = true ∧ exitLabel (runP repaired n s) = some (Fc σ).2 ∧
       Post (Fc σ).1 s (runP repaired n s) := by
@@ -225,7 +234,9 @@ theorem reenter {σ' : VStore} {s t s2 : Cpu} {w2 : List Int} (hP : Post σ' s t
   · rw [hP.acl_eq p q, Layout.aclBit, Layout.aclBit, hfr _ (acl_miss_buf hplace p q)]
 
 /-- Two calls (vir's `MultiCall` shape, now with NO X-F1 premises): call 1 under R, then for ANY caller that writes the
-next buffer only and re-enters, call 2 is `Fc` applied to the store call 1 RETURNED, with the new wire. -/
+next buffer only and re-enters, call 2 is `Fc` applied to the store call 1 RETURNED, with the new wire.
+LIMITS: as `sim_one`'s (L1) and (L2), and (L3) it stops at TWO calls. The n-call form iterates `reenter` and
+`sim_one` and is NOT built here. No composed theorem states this one with `denote` on both calls. -/
 theorem sim_two (σ : VStore) (s1 : Cpu) (hR : Rel σ.wire σ.bucket σ.acl s1) :
     ∃ n1, (runP repaired n1 s1).stopped = true ∧ exitLabel (runP repaired n1 s1) = some (Fc σ).2 ∧
       ∀ (s2 : Cpu) (w2 : List Int), Live s2 → s2.rip = 0x1000 → s2.regs.get .rdx = s1.regs.get .rdx →
