@@ -1507,7 +1507,10 @@ def model_forms(root_dir, model, tmp):
                        capture_output=True, text=True)
     if r.returncode != 0:
         return None, None, f"the assembler refused the model's forms (rc {r.returncode}): {r.stderr[:300]}"
-    d = subprocess.run(["objdump", "-d", "--no-show-raw-insn", O], capture_output=True, text=True)
+    # ⭐ D388 (paper's LOW 2 on D385): WITH the raw bytes, so the model's own forms are bucketed by `raw_split` exactly
+    # as the corpus is. Bucketing them by text alone would put an EVEX model form on one side of the join and its corpus
+    # instance on the other, with no red.
+    d = subprocess.run(["objdump", "-d", O], capture_output=True, text=True)
     lines = d.stdout.split("\n")
     # one instruction per symbol, or the population is not what it claims to be
     per, cur, bad = collections.Counter(), None, []
@@ -1515,7 +1518,8 @@ def model_forms(root_dir, model, tmp):
         mm = re.match(r'^[0-9a-f]+ <(_[vp]\d+)>:', ln)
         if mm:
             cur = mm.group(1)
-        elif cur and re.match(r'^\s+[0-9a-f]+:\s', ln) and ln.split(":", 1)[1].strip() != "lock":
+        elif cur and re.match(r'^\s+[0-9a-f]+:\s', ln) and raw_split(ln)[0].split(":", 1)[1].strip() != "lock":
+            # ⭐ D388: through `raw_split`, so the bytes (`f0`) are not read as the text after the address
             # a LOCK prefix is printed on its own line; `_classify` attributes it to the next one
             per[cur] += 1
     want = len(vecs) + len(probes)
@@ -2309,6 +2313,19 @@ def selftest():
         print(("  ✔ " if ok else "  ⛔ ") + f"a GNU-objdump raw line REFUSES: {gl.strip()[:40]!r}")
         if not ok:
             bad.append("raw:gnu")
+    # ⭐ D388: the model's own forms go through the SAME bucket rule as the corpus: a raw EVEX line is AVX-512 on the
+    # model side too, and its VEX twin is not (paper's LOW 2 on D385). Memory forms, so the SECOND set holds them.
+    try:
+        _m = model_mnemonics()
+        _, _ev = forms_from_lines(["   0: 62 f2 45 08 0b 4a 3c         \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1"], _m)
+        _, _vx = forms_from_lines(["   0: c4 e2 41 0b 8a c0 03 00 00   \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1"], _m)
+        _evb = {b for (_r, b) in _ev}; _vxb = {b for (_r, b) in _vx}
+        ok = _evb == {"AVX-512 (zmm/k)"} and _vxb == {"VEX-128 (v… xmm)"}
+    except SystemExit as e:
+        ok, _evb, _vxb = False, str(e)[:60], "-"
+    print(("  ✔ " if ok else "  ⛔ ") + f"model forms bucket by bytes: EVEX -> {_evb}, VEX twin -> {_vxb}")
+    if not ok:
+        bad.append("model:evex")
     # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
     got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
     ok = got == ["vcmplt_oqpd"]
