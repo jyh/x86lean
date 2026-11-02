@@ -23663,7 +23663,7 @@ D340 fast path, so that a future master red's revert duty can be checked (D340's
   master runs escalates, because one refusal is noise and two is a pattern. Cost: master shows red until the next push, and
   `preflight.sh` reports that red as master's last verdict.
 - **(C) A refusal reads differently, by code.** On a push to master, `kernel_delta.py` would map exit 3 to a pass with a warning
-  annotation that names the deciding row, whenever the merge's second parent has one (found through the row-slide rule of PR #148, once it lands). Exit 1 stays
+  annotation that names the deciding row, whenever the merge's second parent has one (found through the row-slide rule of PR #148, which merged as `4d0ffa2e` on 2026-11-01). Exit 1 stays
   red. Cost: a lookup from merge to PR head to ledger row, plus the arms to drive it. A master-only interaction regression would
   read as a warning. An exit 3 cannot see that regression either, so this hides nothing that the red was showing.
 
@@ -23673,6 +23673,11 @@ red, 1 cancelled and 1 in progress. **13 of the 20 reds carry a `kernel-delta` r
 `ku-delta`). ⇒ **Nearly a quarter of master's runs read red for no reason except that the runner could not tell.** My first
 draft of this paragraph said "two master `kernel-delta` reds since 10-14". That figure came from the 22 merges sampled in (2),
 and the population of master runs corrected it before commit.
+⚠️ **CORRECTED BY D381 (2026-11-01), AND THE CORRECTION RAISES EVERY COUNT ABOVE.** At the forge, the same query
+(`actions/runs?branch=master&event=push&created=2026-10-14..2026-10-31`, `ci.yml`, paginated) returns 54 runs, and of the
+52 created before this note's reading (2026-10-31 01:45Z) **24 are red, 16 carry a `kernel-delta` red, and in 14
+`kernel-delta` is the only failing job**. All 14 logs, every one opened, end `exit code 3`. The verdict is unchanged
+("a refusal each time, never an OVER"); the counts 47 / 20 / 13 / 11 are low. **The mechanism, measured by paper (bus @94,466,603):** the query was unpaginated, and an unpaginated `actions/runs` query returns at most 100 rows ACROSS ALL WORKFLOWS (47 CI + 47 Scrub + 6 hwprobe = 100 of 117). The filter to `ci.yml` was applied after the cap. paper's re-derivation used the same query shape and agreed for that reason. D381 prints the run ids.
 ⚠️ **`kernel-delta` is NOT a required check** (branch protection, read live: strict; the five required checks are the scrub and
 prose gates). So a PR can merge with that job red or never measured, and master's push run is then the ONLY reading the step
 ever gets. That rules out a fourth arm, dropping `kernel-delta` from push runs: under strict protection a PR's merge ref equals
