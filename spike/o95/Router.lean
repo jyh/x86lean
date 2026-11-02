@@ -9,3 +9,4 @@ import Router.Paths
 import Router.Refines
 import Router.MultiCall
 import Router.Layout
+import Router.RefinesAll
