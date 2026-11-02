@@ -2335,21 +2335,37 @@ def selftest():
     # `model_forms` with `subprocess.run` recorded, and require its objdump argv to be the corpus's OBJDUMP_DISASM,
     # with the bytes. Reverting `model_forms` to `--no-show-raw-insn`, or to any argv of its own, reds this.
     import tempfile
-    _seen, _real = [], subprocess.run
+    # paper's NIT 1 at 6ab8264: the CORPUS side too: `disassemble` (Popen) is driven on the same object and recorded.
+    # ⚠️ `subprocess.run` is built on `Popen`, so a Popen made INSIDE a run call is not recorded twice.
+    _seen, _pseen, _real, _realp, _in_run = [], [], subprocess.run, subprocess.Popen, [0]
 
     def _rec(argv, *a, **k):
         if argv and argv[0] == "objdump":
             _seen.append(list(argv))
-        return _real(argv, *a, **k)
+        _in_run[0] += 1
+        try:
+            return _real(argv, *a, **k)
+        finally:
+            _in_run[0] -= 1
+
+    def _recp(argv, *a, **k):
+        if argv and argv[0] == "objdump" and not _in_run[0]:
+            _pseen.append(list(argv))
+        return _realp(argv, *a, **k)
+    _dc = None
     try:
-        subprocess.run = _rec
+        subprocess.run, subprocess.Popen = _rec, _recp
         with tempfile.TemporaryDirectory(prefix="x86lean-census-argv-") as _td:
             _r, _mk, _why = model_forms(root, model_mnemonics(), _td)
+            if _mk is not None:
+                _dc = disassemble(os.path.join(_td, "forms.o"))
     finally:
-        subprocess.run = _real
-    ok = (len(_seen) == 1 and _seen[0][:-1] == OBJDUMP_DISASM and "--no-show-raw-insn" not in _seen[0]
-          and OBJDUMP_DISASM == ["objdump", "-d"] and _mk is not None)
-    print(("  ✔ " if ok else "  ⛔ ") + f"model_forms disassembles with the corpus's command: {_seen[:1]} "
+        subprocess.run, subprocess.Popen = _real, _realp
+    _raw = lambda v: v[:-1] == OBJDUMP_DISASM and "--no-show-raw-insn" not in v
+    ok = (len(_seen) == 1 and _raw(_seen[0]) and len(_pseen) == 1 and _raw(_pseen[0])
+          and OBJDUMP_DISASM == ["objdump", "-d"] and _mk is not None and _dc is not None)
+    print(("  ✔ " if ok else "  ⛔ ") + f"model_forms AND disassemble run the one command with bytes: "
+          f"run {[v[:-1] for v in _seen]} · Popen {[v[:-1] for v in _pseen]} "
           f"(forms read: {'yes' if _mk is not None else _why})")
     if not ok:
         bad.append("model:argv")
@@ -2610,7 +2626,9 @@ def selftest():
              # D257: the width key, its origin invariance, the stamp seeing it
              len(width_arms) + 2 +
              # D337: the silicon class, its mapping, and the no-pooling plants
-             d337)
+             d337 +
+             # D388: the model-side bucket arm and the one-command arm (D385–D387's inline arms are NOT counted here)
+             2)
     print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7+n_new} arms; "
           f"the width-changing/string-move trap in both directions, every "
           f"line-level rule that moved the number, and both routes of the "
