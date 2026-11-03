@@ -49,7 +49,50 @@ import selftest_skip as SK
 REPO = "jyh/x86lean"
 
 
-def decide(pr_digest, green, green_digest, required, checks):
+CI_WORKFLOW = "CI"
+CI_NEED_JOBS = ("build",)
+CI_BAD = ("failure", "cancelled", "timed_out")
+
+
+def ci_verdict(ci):
+    """⛔ D392 (x86lean #159): the PR HEAD's own CI run, read beside the required set.
+
+    #159 took GO at head 757a0244 while that head's CI run 41574630785 had job `build` FAILED for
+    1 h 57 m: `build` is not a required check, and the digest equality skips only the selftest
+    matrix, so neither input this tool read could see it. Rule (kent's, seat f536334f0, mirrored):
+    for the LATEST run of workflow CI per event at the head, REFUSE on any job failure/cancelled/
+    timed_out, or a needed job (`build`) not completed/success or absent. Jobs still running do NOT
+    block (the kernel jobs take ~2 h). No run, or a read that failed (ci is None), REFUSES.
+
+    ci   None (the forge read failed) or a list of (event, run_id, [(job, status, conclusion), ...]),
+         one per event, the latest run of that event. Returns (ok, lines) — the lines are printed
+         beside the digest verdict whether it passes or not.
+    """
+    if ci is None:
+        return False, [f"the PR head's {CI_WORKFLOW} runs could not be read (a forge error or a fault in read_ci; its stderr line names which)"]
+    if not ci:
+        return False, [f"no {CI_WORKFLOW} run exists at the PR head"]
+    ok, lines = True, []
+    for ev, rid, jobs in ci:
+        bad = []
+        seen = {j for j, _s, _c in jobs}
+        for j, st, c in jobs:
+            if c in CI_BAD:
+                bad.append(f"job `{j}` is {c}")
+            elif j in CI_NEED_JOBS and not (st == "completed" and c == "success"):
+                bad.append(f"needed job `{j}` is {st}/{c or '-'}, not completed/success")
+        bad += [f"needed job `{j}` is not in the run" for j in CI_NEED_JOBS if j not in seen]
+        running = sum(1 for _j, st, _c in jobs if st != "completed")
+        if bad:
+            ok = False
+            lines += [f"{CI_WORKFLOW} event={ev} run={rid}: " + b for b in bad]
+        else:
+            lines.append(f"{CI_WORKFLOW} event={ev} run={rid}: no failed job; "
+                         f"{'/'.join(CI_NEED_JOBS)} completed/success; {running} job(s) still running")
+    return ok, lines
+
+
+def decide(pr_digest, green, green_digest, required, checks, ci):
     """The rule, pure.  Returns (go, reasons).
 
     pr_digest     the merge ref's digest, or None if it could not be computed
@@ -57,6 +100,8 @@ def decide(pr_digest, green, green_digest, required, checks):
     green_digest  that sha's digest, or None
     required      the names branch protection requires (read live, never typed here)
     checks        {name: [conclusions...]} for the PR head; a name may appear more than once
+    ci            the PR head's own CI runs, as `ci_verdict` takes them (D392); REQUIRED, no default,
+                  so no caller can decide without it
     ⛔ INVERTED DEFAULT, AS IN selftest_skip: anything unknown REFUSES. A refusal costs
     the matrix's wall time; a false GO lands an untested artifact.
     """
@@ -78,12 +123,39 @@ def decide(pr_digest, green, green_digest, required, checks):
             why.append(f"required check `{name}` has not reported")
         elif any(c != "success" for c in got):
             why.append(f"required check `{name}` is {sorted(set(got))}, not all success")
+    ci_ok, ci_lines = ci_verdict(ci)
+    if not ci_ok:
+        why += ci_lines
     return (not why), why
 
 
 def _gh_json(args):
     return json.loads(subprocess.run(["gh"] + args, capture_output=True, text=True,
                                      check=True).stdout)
+
+
+def read_ci(head):
+    """(event, run_id, jobs) for the latest CI run per event at `head`, or None on a read error."""
+    try:
+        runs = _gh_json(["api", f"repos/{REPO}/actions/runs?head_sha={head}&per_page=100"])
+        latest = {}
+        for r in runs.get("workflow_runs", []):
+            if r.get("name") != CI_WORKFLOW:
+                continue
+            ev = r.get("event")
+            if ev not in latest or r["created_at"] > latest[ev]["created_at"]:
+                latest[ev] = r
+        out = []
+        for ev, r in sorted(latest.items()):
+            js = _gh_json(["api", f"repos/{REPO}/actions/runs/{r['id']}/jobs?per_page=100"])
+            out.append((ev, r["id"], [(j["name"], j["status"], j.get("conclusion") or "")
+                                      for j in js.get("jobs", [])]))
+        return out
+    except Exception as e:
+        # Any error refuses (the safe direction), and its type is printed so a code fault
+        # is not reported as a forge outage (paper's LOW 2 on #163).
+        print(f"read_ci: {type(e).__name__}: {e}", file=sys.stderr)
+        return None
 
 
 def check(pr):
@@ -114,10 +186,14 @@ def check(pr):
     checks = {}
     for r in rows:
         checks.setdefault(r["name"], []).append(r["state"].lower())
-    go, why = decide(pr_digest, green, green_digest, required, checks)
+    ci = read_ci(head["headRefOid"])
+    go, why = decide(pr_digest, green, green_digest, required, checks, ci)
+    _ok, ci_lines = ci_verdict(ci)
     print(f"merge ref {ref}: digest {pr_digest} over {n} inputs")
     print(f"green master: {green} digest {green_digest}")
     print(f"required ({len(required)}): " + ", ".join(required))
+    for c in ci_lines:
+        print(f"PR head {head['headRefOid'][:8]} " + c)
     if not go:
         print(f"⛔ FAST-PATH REFUSED for #{pr} — the matrix runs:")
         for w in why:
@@ -125,6 +201,7 @@ def check(pr):
         return 1
     line = (f"FAST-PATH: merge-ref digest {pr_digest} == green master {green[0][:7]} "
             f"(selftest run {green[1]}); required checks {len(required)}/{len(required)} success; "
+            f"the head's own {CI_WORKFLOW} run has no failed job and `build` success; "
             f"the post-merge master run is the check, and a red there reverts this merge.")
     print("✅ FAST-PATH GO for #%s" % pr)
     print(line)
@@ -187,26 +264,51 @@ def selftest():
         print(("  ✔ " if cond else "  ⛔ ") + name)
         if not cond:
             bad.append(name)
+    CI_GREEN = [("pull_request", 1, [("build", "completed", "success")])]
+    D = lambda *a: decide(*a, ci=CI_GREEN)
     req = ["private-paths", "trailers"]
     ok_checks = {"private-paths": ["success", "success"], "trailers": ["success"]}
     g = ("a" * 40, 1)
-    go, _ = decide("d1", g, "d1", req, ok_checks)
+    go, _ = D("d1", g, "d1", req, ok_checks)
     arm("control: equal digests, all required success ⇒ GO", go)
-    arm("a DIFFERENT digest REFUSES", not decide("d1", g, "d2", req, ok_checks)[0])
-    arm("no green master run REFUSES", not decide("d1", None, None, req, ok_checks)[0])
-    arm("a green run not in the clone REFUSES", not decide("d1", g, None, req, ok_checks)[0])
-    arm("an uncomputable merge digest REFUSES", not decide(None, g, "d1", req, ok_checks)[0])
+    arm("a DIFFERENT digest REFUSES", not D("d1", g, "d2", req, ok_checks)[0])
+    arm("no green master run REFUSES", not D("d1", None, None, req, ok_checks)[0])
+    arm("a green run not in the clone REFUSES", not D("d1", g, None, req, ok_checks)[0])
+    arm("an uncomputable merge digest REFUSES", not D(None, g, "d1", req, ok_checks)[0])
     arm("an EMPTY required list REFUSES (a failed read is not 'nothing required')",
-        not decide("d1", g, "d1", [], ok_checks)[0])
+        not D("d1", g, "d1", [], ok_checks)[0])
     arm("a required check that has NOT REPORTED refuses",
-        not decide("d1", g, "d1", req + ["claim"], ok_checks)[0])
+        not D("d1", g, "d1", req + ["claim"], ok_checks)[0])
     arm("ONE failing run of a twice-reported check refuses (all, not any)",
-        not decide("d1", g, "d1", req, {"private-paths": ["success", "failure"],
+        not D("d1", g, "d1", req, {"private-paths": ["success", "failure"],
                                          "trailers": ["success"]})[0])
     arm("a PENDING required check refuses",
-        not decide("d1", g, "d1", req, {"private-paths": ["pending"], "trailers": ["success"]})[0])
-    arm("a failing NON-required check does not block (the matrix is what is skipped)",
-        decide("d1", g, "d1", req, dict(ok_checks, **{"selftest (3)": ["failure"]}))[0])
+        not D("d1", g, "d1", req, {"private-paths": ["pending"], "trailers": ["success"]})[0])
+    arm("a failing NON-required check does not block THROUGH THE REQUIRED SET (ci_verdict reads it, D392)",
+        D("d1", g, "d1", req, dict(ok_checks, **{"selftest (3)": ["failure"]}))[0])
+    # D392: the PR head's own CI run (x86lean #159, run 41574630785: `build` failure, GO printed anyway).
+    B = ("build", "completed", "success")
+    arm("ci control: build success, a kernel job still running ⇒ ok",
+        ci_verdict([("pull_request", 1, [B, ("kernel-delta", "in_progress", "")])])[0])
+    arm("ci: #159's shape, `build` FAILURE ⇒ REFUSE",
+        not ci_verdict([("pull_request", 41574630785, [("build", "completed", "failure")])])[0])
+    arm("ci: any OTHER job failed ⇒ REFUSE",
+        not ci_verdict([("pull_request", 1, [B, ("selftest (3)", "completed", "failure")])])[0])
+    arm("ci: a cancelled job ⇒ REFUSE", not ci_verdict([("pull_request", 1, [B, ("x", "completed", "cancelled")])])[0])
+    arm("ci: a timed-out job ⇒ REFUSE", not ci_verdict([("pull_request", 1, [B, ("x", "completed", "timed_out")])])[0])
+    arm("ci: `build` still running ⇒ REFUSE (needed, not yet success)",
+        not ci_verdict([("pull_request", 1, [("build", "in_progress", "")])])[0])
+    arm("ci: `build` absent from the run ⇒ REFUSE",
+        not ci_verdict([("pull_request", 1, [("trailers", "completed", "success")])])[0])
+    arm("ci: no run at the head ⇒ REFUSE", not ci_verdict([])[0])
+    arm("ci: a failed forge read (None) ⇒ REFUSE, never green", not ci_verdict(None)[0])
+    arm("ci: one event green and another red ⇒ REFUSE (all events)",
+        not ci_verdict([("pull_request", 1, [B]), ("workflow_dispatch", 2, [("build", "completed", "failure")])])[0])
+    arm("decide() REFUSES on a red CI run with everything else green (the wiring, not only ci_verdict)",
+        not decide("d1", g, "d1", req, ok_checks, ci=[("pull_request", 1, [("build", "completed", "failure")])])[0])
+    arm("decide() REFUSES on an unreadable CI (None) with everything else green",
+        not decide("d1", g, "d1", req, ok_checks, ci=None)[0])
+    arm("ci: a skipped job does not block", ci_verdict([("pull_request", 1, [B, ("x", "completed", "skipped")])])[0])
     # D378: the census rule.
     m = "2026-10-20T12:00:00Z"
     ok = [("success", "2026-10-20T11:00:00Z"), ("success", "2026-10-20T11:30:00Z")]

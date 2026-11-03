@@ -24114,3 +24114,23 @@ X86`, which imports `X86.Theorems`, so it DEPENDS on the edited file and is not 
 `kernel_drift` refused the step as priced twice (rc 2). The K3 (300ed85 → 5ea9f96, CLEAN on both arms) was taken
 after #154, and #153 then changed `scripts/kernel_delta.py`, a reading input, so the K3's base reading is not master's.
 No D372 slide carries either row. The K4 is at the real base.
+
+## D392 — the fast path reads the PR head's own CI run beside the required set (x86lean #159; kent's offer, seat f536334f0)
+
+**Defect.** `fast_path.py --check` printed GO on two inputs: the merge ref's digest equal to a green master's, and the
+required checks all success. #159 took GO at head 757a0244 while that head's own CI run 41574630785 had job `build`
+FAILED at 20:01:33 PST, 1 h 57 m before the merge. `build` is not a required check, and the digest equality licenses
+skipping only the selftest matrix, so neither input could see it. The red was in CI and nobody read it.
+**Rule (mirrors the seat's `hand-merge.sh --require-ci`).** For the LATEST run of workflow CI per event at the PR head:
+REFUSE on any job failure/cancelled/timed_out, or a needed job (`build`) not completed/success or absent. Jobs still
+running do NOT block (the kernel jobs take ~2 h). No run, or a failed forge read, REFUSES. It lives inside `decide()` as
+a required argument, so no caller decides without it, and its lines print beside the digest verdict either way.
+**Driven.** Selftest 32 arms (13 new). Real heads: 757a0244 REFUSES (`build` is failure), f8c70239 passes (`build`
+success, one job still running), 42d6c1d9 refuses while its `build` is in progress; `--check 160` printed that refusal.
+Red backwards: removing the failure test reds 3 arms; removing the needed-job test reds 1; removing the wiring in
+`decide()` reds 2 (it reddened none before the wiring moved into `decide()`, which is why it moved).
+**Not a digest input:** `selftest_skip.digest` reads f885de2351534349 with and without this change.
+**LIMITS:** runs, and each run's jobs, are read with `per_page=100` and the first page only (a failed job past job 100 would pass; a PR run has 9 jobs today, a master run 29); "latest per event" is by `created_at`; a job
+state other than the three refusing conclusions and success/skipped (e.g. `neutral`, `action_required`) passes unless
+the job is `build`. Any exception in `read_ci` refuses, and its type and message go to stderr, so a fault in the code is
+not reported as a forge outage (paper's two LOWs at a9bcca1, taken by amend).
