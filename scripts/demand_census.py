@@ -1003,12 +1003,17 @@ def classify_lines(lines):
     return c
 
 
+# ⭐ D388 (paper's LOW at 5ae0e68): ONE disassembly command for the corpus AND the model's own forms, WITH the raw bytes
+# (D385), so the two sides of the join cannot drift apart by an argv; the selftest asserts `model_forms` runs exactly this.
+OBJDUMP_DISASM = ["objdump", "-d"]
+
+
 def disassemble(path, syms=None, fn_sink=None, mem_sink=None):
     """⚠️ STREAMED, not captured.  vmlinux is 63 MB of ELF and disassembles to
     well over a gigabyte of text; `capture_output` would hold all of it in
     memory at once for a job whose whole output is a counter."""
     # ⭐ D385: WITH the raw bytes, so `_classify` can read EVEX from the instruction itself.
-    with subprocess.Popen(["objdump", "-d", path],
+    with subprocess.Popen(OBJDUMP_DISASM + [path],
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                           text=True, bufsize=1 << 20) as pr:
         c = _classify(pr.stdout, syms, fn_sink, mem_sink)
@@ -1507,7 +1512,10 @@ def model_forms(root_dir, model, tmp):
                        capture_output=True, text=True)
     if r.returncode != 0:
         return None, None, f"the assembler refused the model's forms (rc {r.returncode}): {r.stderr[:300]}"
-    d = subprocess.run(["objdump", "-d", "--no-show-raw-insn", O], capture_output=True, text=True)
+    # ⭐ D388 (paper's LOW 2 on D385): WITH the raw bytes, so the model's own forms are bucketed by `raw_split` exactly
+    # as the corpus is. Bucketing them by text alone would put an EVEX model form on one side of the join and its corpus
+    # instance on the other, with no red.
+    d = subprocess.run(OBJDUMP_DISASM + [O], capture_output=True, text=True)
     lines = d.stdout.split("\n")
     # one instruction per symbol, or the population is not what it claims to be
     per, cur, bad = collections.Counter(), None, []
@@ -1515,7 +1523,8 @@ def model_forms(root_dir, model, tmp):
         mm = re.match(r'^[0-9a-f]+ <(_[vp]\d+)>:', ln)
         if mm:
             cur = mm.group(1)
-        elif cur and re.match(r'^\s+[0-9a-f]+:\s', ln) and ln.split(":", 1)[1].strip() != "lock":
+        elif cur and re.match(r'^\s+[0-9a-f]+:\s', ln) and raw_split(ln)[0].split(":", 1)[1].strip() != "lock":
+            # ⭐ D388: through `raw_split`, so the bytes (`f0`) are not read as the text after the address
             # a LOCK prefix is printed on its own line; `_classify` attributes it to the next one
             per[cur] += 1
     want = len(vecs) + len(probes)
@@ -2309,6 +2318,57 @@ def selftest():
         print(("  ✔ " if ok else "  ⛔ ") + f"a GNU-objdump raw line REFUSES: {gl.strip()[:40]!r}")
         if not ok:
             bad.append("raw:gnu")
+    # ⭐ D388: the model's own forms go through the SAME bucket rule as the corpus: a raw EVEX line is AVX-512 on the
+    # model side too, and its VEX twin is not (paper's LOW 2 on D385). Memory forms, so the SECOND set holds them.
+    try:
+        _m = model_mnemonics()
+        _, _ev = forms_from_lines(["   0: 62 f2 45 08 0b 4a 3c         \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1"], _m)
+        _, _vx = forms_from_lines(["   0: c4 e2 41 0b 8a c0 03 00 00   \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1"], _m)
+        _evb = {b for (_r, b) in _ev}; _vxb = {b for (_r, b) in _vx}
+        ok = _evb == {"AVX-512 (zmm/k)"} and _vxb == {"VEX-128 (v… xmm)"}
+    except SystemExit as e:
+        ok, _evb, _vxb = False, str(e)[:60], "-"
+    print(("  ✔ " if ok else "  ⛔ ") + f"model forms bucket by bytes: EVEX -> {_evb}, VEX twin -> {_vxb}")
+    if not ok:
+        bad.append("model:evex")
+    # ⭐ D388's guard (paper's LOW at 5ae0e68: the arm above never reached the line D388 changes). Run the REAL
+    # `model_forms` with `subprocess.run` recorded, and require its objdump argv to be the corpus's OBJDUMP_DISASM,
+    # with the bytes. Reverting `model_forms` to `--no-show-raw-insn`, or to any argv of its own, reds this.
+    import tempfile
+    # paper's NIT 1 at 6ab8264: the CORPUS side too: `disassemble` (Popen) is driven on the same object and recorded.
+    # ⚠️ `subprocess.run` is built on `Popen`, so a Popen made INSIDE a run call is not recorded twice.
+    _seen, _pseen, _real, _realp, _in_run = [], [], subprocess.run, subprocess.Popen, [0]
+
+    def _rec(argv, *a, **k):
+        if argv and argv[0] == "objdump":
+            _seen.append(list(argv))
+        _in_run[0] += 1
+        try:
+            return _real(argv, *a, **k)
+        finally:
+            _in_run[0] -= 1
+
+    def _recp(argv, *a, **k):
+        if argv and argv[0] == "objdump" and not _in_run[0]:
+            _pseen.append(list(argv))
+        return _realp(argv, *a, **k)
+    _dc = None
+    try:
+        subprocess.run, subprocess.Popen = _rec, _recp
+        with tempfile.TemporaryDirectory(prefix="x86lean-census-argv-") as _td:
+            _r, _mk, _why = model_forms(root, model_mnemonics(), _td)
+            if _mk is not None:
+                _dc = disassemble(os.path.join(_td, "forms.o"))
+    finally:
+        subprocess.run, subprocess.Popen = _real, _realp
+    _raw = lambda v: v[:-1] == OBJDUMP_DISASM and "--no-show-raw-insn" not in v
+    ok = (len(_seen) == 1 and _raw(_seen[0]) and len(_pseen) == 1 and _raw(_pseen[0])
+          and OBJDUMP_DISASM == ["objdump", "-d"] and _mk is not None and _dc is not None)
+    print(("  ✔ " if ok else "  ⛔ ") + f"model_forms AND disassemble run the one command with bytes: "
+          f"run {[v[:-1] for v in _seen]} · Popen {[v[:-1] for v in _pseen]} "
+          f"(forms read: {'yes' if _mk is not None else _why})")
+    if not ok:
+        bad.append("model:argv")
     # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
     got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
     ok = got == ["vcmplt_oqpd"]
@@ -2566,7 +2626,9 @@ def selftest():
              # D257: the width key, its origin invariance, the stamp seeing it
              len(width_arms) + 2 +
              # D337: the silicon class, its mapping, and the no-pooling plants
-             d337)
+             d337 +
+             # D388: the model-side bucket arm and the one-command arm (D385–D387's inline arms are NOT counted here)
+             2)
     print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7+n_new} arms; "
           f"the width-changing/string-move trap in both directions, every "
           f"line-level rule that moved the number, and both routes of the "
