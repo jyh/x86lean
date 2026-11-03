@@ -316,7 +316,17 @@ jobs:
       # selftest to go red. It writes nothing into the tree.
       - name: Demand-census mapping + scope partition + staleness (both halves) + red probe
         run: |
-          python3 scripts/demand_census.py --selftest
+          # D391: the census reads LLVM objdump's one-line raw format (D385) and ubuntu's objdump is GNU's, so D388's
+          # one-command arm printed its forms-read half NOT RUN here. Put LLVM's objdump first on PATH for THIS step,
+          # print which one ran, and REFUSE a NOT RUN line, so a runner without LLVM objdump reds instead of passing.
+          LLVM_OD=$(command -v llvm-objdump || ls /usr/bin/llvm-objdump-* 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$LLVM_OD" ]; then sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq llvm >/dev/null; LLVM_OD=$(command -v llvm-objdump); fi
+          mkdir -p "$RUNNER_TEMP/llvm-od" && ln -sf "$LLVM_OD" "$RUNNER_TEMP/llvm-od/objdump"
+          export PATH="$RUNNER_TEMP/llvm-od:$PATH"
+          echo "objdump for the census: $LLVM_OD -> $(objdump --version | grep -m1 -i llvm)"
+          rc=0; python3 scripts/demand_census.py --selftest > "$RUNNER_TEMP/census-selftest.txt" || rc=$?
+          cat "$RUNNER_TEMP/census-selftest.txt"; test "$rc" -eq 0
+          if grep -F 'NOT RUN here' "$RUNNER_TEMP/census-selftest.txt"; then echo "::error::the forms-read half did not run"; exit 1; fi
           python3 scripts/demand_census.py --check
           python3 scripts/census_redprobe.py
 

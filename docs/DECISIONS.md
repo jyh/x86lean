@@ -24134,3 +24134,19 @@ Red backwards: removing the failure test reds 3 arms; removing the needed-job te
 state other than the three refusing conclusions and success/skipped (e.g. `neutral`, `action_required`) passes unless
 the job is `build`. Any exception in `read_ci` refuses, and its type and message go to stderr, so a fault in the code is
 not reported as a forge outage (paper's two LOWs at a9bcca1, taken by amend).
+
+## D391 — CI's census step runs on LLVM's objdump, and refuses a forms-read half that did not run (D388's declared limit closed)
+
+**Why.** D388's re-land made the one-command arm print its forms-read half `NOT RUN here` on a box whose objdump is
+GNU's, and ubuntu's is. That was declared, and it left the half that failed on 22050cd6 unexercised on the platform where
+merges are judged: a check that never runs there reports green, not unknown (the helm's rec on the re-land).
+**Change.** The census step in `.github/workflows/ci.yml` resolves `llvm-objdump` (on PATH, else the newest
+`/usr/bin/llvm-objdump-*`, else `apt-get update` then `apt-get install llvm`, paper's LOW at a0f00aa), links it as `objdump` first on PATH for THAT STEP ONLY, prints
+which one ran, and fails the step if the selftest prints `NOT RUN here`. No other step's objdump changes.
+**Driven, the step's own `run` block extracted from the YAML and run under `bash -e`:** with `llvm-objdump` resolving to
+an LLVM objdump: selftest PASS 250 (forms read: yes), staleness gate CLEAN, red probe PASS (control + 37 mutations; 22 s
+on this box; CI now spends that on this step). With `llvm-objdump` resolving to GNU 2.47: rc 1, `::error::the forms-read
+half did not run`. **NOT driven:** an upstream (non-Apple) LLVM objdump reading the Mach-O object on Linux; this PR's own
+CI run is the first reading of that, and a red there is this decision's to answer.
+**Cost.** `ci.yml` is a fast-path digest input, so this PR takes the full matrix, and every PR after it is fast-path
+only against a green master run at the new digest.
