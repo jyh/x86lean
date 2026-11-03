@@ -24042,7 +24042,11 @@ D388's two inline arms are now in the PASS count (248 → 250). D385–D387's in
 stated beside the counter.
 
 **AMENDED 2026-11-02 — POST-MERGE RED, REVERTED, RE-LANDED.** #159 merged on the fast path (22050cd6) and its post-merge
-`build` job went red at this selftest (CI run 41587035787). The one-command arm called the real `model_forms`, now on the
+`build` job went red at this selftest (CI run 41587035787). ⛔ **CORRECTED 2026-11-03:** that was NOT the first
+run of `build` on this content. The PR's own run (41574630785, head 757a0244) had reported `build` FAILURE at
+20:01:33 PST, 1 h 57 m before the merge; the merge and its inspection read the required-check set, which does not
+include `build`, and nobody read that run. paris's bus sentence that the job "first ran post-merge" was false at the
+object (kent's correction). The one-command arm called the real `model_forms`, now on the
 corpus's raw-byte argv, and on the ubuntu runner `objdump` is GNU's. CI's binutils printed nothing the forms reader
 could use ("0 symbols of 1764"); GNU 2.47, on this box, prints raw lines that D385's parser refuses by design (paper,
 reproduced on yukon: 003fddf2 PASS 248 under GNU, 13ef278 and 22050cd6 rc 1). The local selftest was green because
