@@ -23978,3 +23978,39 @@ the runner still has no ceiling for that unit, and the next master run sees it a
 row's parser arm is typed from a real log line; the producer arm covers the band row only. (f) The code path in
 `kernel_delta.main` runs for the first time on the first master push after this merges. That run is the end-to-end
 reading, and its TAG row (or its absence, on a run that measures cleanly) is what to read.
+
+## D390 — a drift-ledger row whose base is OFF the first-parent chain slides too (D372's rule, one more case)
+
+**Defect.** D372 lets a row slide to a later step with matching reading digests, but `effective_ledger` only looked at rows
+whose `base` is the base of a step in the walk. A STACKED PR is measured from the PR below it (its K1 base is that PR's
+head), and a `--no-ff` merge leaves that head on no first-parent step. So its row could never slide, and every stacked PR
+paid a ~3 h re-key K2 even when its base TREE was unchanged. Found 2026-11-02 while rehearsing #155's re-carry: a K2 fired
+from a local merge of master + #154 (the forge merge's tree) would have measured a row no rule could read, so I stopped it
+4 minutes in.
+**Fix.** Before the walk, a row whose base is on no step of the walk and which carries both digests joins the slide set.
+After that it obeys D372 exactly: it slides to the first step with no row of its own whose base and head reading trees
+equal its own, and if none matches it stays at its own key, where `gap()` never reads it.
+**Arms (selftest 89 → 93), the stacked shape in D372's scratch repo.** CONTROL: PR2's row (base P1, PR1's head) slides
+onto merge-PR1 → merge-PR2, and no `.lean` step is unrecorded. It was RED on the shipped code (the step read as
+unrecorded `.lean`), and that was the only failing arm. RED-FIRST ×3: the same row without digests, a master `.lean` move
+before PR1 lands (the BASE digest refuses), and PR2 re-cut after its measurement (the HEAD digest refuses). Each leaves
+the step unrecorded.
+**Reading on the real chain.** `--gap` output is byte-identical to the shipped tool's (rc 0, no slides). 0 of the 70
+ledger rows carry digests today, so this changes no current verdict.
+**What it buys, MEASURED after it was built, and it is less than I first posted.** I first wrote that it would save the
+row-42 stack's seven re-key K2s. Measured on katmai the same hour: all seven stack K1s (the waves of STATUS row 42, not yet
+on master) ended `KDELTA-EXIT=3` and `KU-EXIT=1`, because each adds a NEW test unit, which both arms refuse by design
+(one reading; a registration, not a ratio). Those K1s were never recordable rows, so their K2s at the real base are owed
+WITH or WITHOUT D390. **For the current stack it saves nothing.** It pays only for a future stacked PR whose K1 is a
+verdict (it edits existing units and adds none) and whose predecessor merges with an unchanged reading tree. It does not
+help #155 either: its K1 base cbf075d is on the chain, and #154 changes reading inputs.
+**paper's delta read (2026-11-02 00:26, CONCUR on the code at 23ffab2, two limits), both taken.** LIMIT 1: a slid
+off-chain row could HIDE a WRONG on-chain row's refusal. Row R at b0 does not record its step and slides nowhere, an
+off-chain row slides onto b0's step, and the end-of-walk restore wrote R back over it. The step was priced correctly and
+R's D171 refusal went silent. paper notes the same masking was already reachable on 6395507 by a displaced on-chain row,
+and D390 widened who can trigger it. **Fixed:** a leftover row whose base's step was taken by a slide is now REFUSED at
+the restore. Arm (selftest 93 → 94): a WRONG row at M1 with digests, beside the stacked slide. It failed on 23ffab2
+(the refusal was silent) and refuses rc 2 now. LIMIT 2: the docstring said "a LATER step" and "gap() refuses it", and
+both were false for off-chain rows. It now says an off-chain row may take any step, the first included, and that the
+population is any base that is no step of the walk (stacked, abandoned, pre-rebase). The four slide arms exercise the
+stacked shape only.
