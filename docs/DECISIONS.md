@@ -24014,3 +24014,43 @@ the restore. Arm (selftest 93 → 94): a WRONG row at M1 with digests, beside th
 both were false for off-chain rows. It now says an off-chain row may take any step, the first included, and that the
 population is any base that is no step of the walk (stacked, abandoned, pre-rebase). The four slide arms exercise the
 stacked shape only.
+
+## D388 — the model's own forms are bucketed by their bytes too (paper's LOW 2 on D385)
+
+**Defect.** D385 made the corpus side read EVEX from each instruction's bytes, but `model_forms` still disassembled the
+model's forms with `--no-show-raw-insn`. So an EVEX model form would bucket by text on the model side and by bytes on the
+corpus side, and the two halves of the join would disagree with no red. No model form is EVEX today, so nothing was
+mis-joined, which is why it was a LOW.
+**Fix.** `model_forms` runs `objdump -d` with the bytes, and `forms_from_lines` goes through the same `_classify` /
+`raw_split`: one rule on both sides, as its docstring promises. The one-instruction-per-form check counted a bare `lock`
+line by its text after the address, which with bytes is `f0 \tlock`. Its 14 locked forms then read 2 instructions each,
+and the census REFUSED (D352's own guard caught it). It now reads the line through `raw_split`.
+**Arm.** `forms_from_lines` buckets a raw EVEX `vpmulhrsw` line AVX-512 and its VEX twin VEX-128 (memory forms, the
+second set). Red backwards: disabling the EVEX read in `_classify` reds this arm along with D385's three EVEX arms.
+**Reading.** The census regenerates byte-identical over the corpus (git diff empty), as predicted: no model form is EVEX.
+**paper's delta read (2026-11-02 09:08, CONCUR at 5ae0e68, one LOW), taken.** The arm above calls `forms_from_lines`
+on hand-written raw lines. Those already bucketed by bytes at D385, so it never reached the line D388 changes, the
+objdump argv in `model_forms`: with only that line reverted, `--selftest` stayed rc 0. **Fixed:** one `OBJDUMP_DISASM`
+constant is now the argv of both the corpus read (`disassemble`) and `model_forms`. A new arm runs the REAL
+`model_forms` with `subprocess.run` recorded, and requires its one objdump call to be that constant, with the bytes.
+Mutant B (`model_forms` back to `--no-show-raw-insn`): rc 1, and this arm is the only new red.
+**paper's re-read (09:12, CONCUR at 6ab8264, two NITs), both taken.** NIT 1: the arm pinned only `model_forms`, so the
+corpus side (`disassemble`) could revert alone (Mutant C, rc 0). The arm now also records `subprocess.Popen`, outside
+any `run` call because `run` is built on `Popen`, and drives the real `disassemble` on the same `forms.o`. Mutants
+B (model side), C (corpus side) and D (the constant itself) now each give rc 1, and this arm is the only new red. NIT 2:
+D388's two inline arms are now in the PASS count (248 → 250). D385–D387's inline arms are still uncounted, which is
+stated beside the counter.
+
+**AMENDED 2026-11-02 — POST-MERGE RED, REVERTED, RE-LANDED.** #159 merged on the fast path (22050cd6) and its post-merge
+`build` job went red at this selftest (CI run 41587035787). The one-command arm called the real `model_forms`, now on the
+corpus's raw-byte argv, and on the ubuntu runner `objdump` is GNU's. CI's binutils printed nothing the forms reader
+could use ("0 symbols of 1764"); GNU 2.47, on this box, prints raw lines that D385's parser refuses by design (paper,
+reproduced on yukon: 003fddf2 PASS 248 under GNU, 13ef278 and 22050cd6 rc 1). The local selftest was green because
+this box's default objdump is LLVM's: a pass shaped by the box. Reverted by D340 (3) (#161). The arm now checks the
+census's own precondition (`require_llvm_objdump`, D385): the ARGV half, which is the regression it guards, is required on
+every box; the forms-READ half is required where objdump is LLVM's and elsewhere is printed `NOT RUN here` with the
+reason, beside the verdict (a D385 refusal inside the arm is caught and carried as that reason). Driven under three
+objdumps (Apple LLVM, GNU 2.47, and a stub that refuses the object): the pre-fix content reds under GNU 2.47; the fix
+passes under all three. Red backwards, under GNU 2.47 and LLVM: `--no-show-raw-insn` in `model_forms` reds on both;
+the same in `disassemble` reds on both; `model_forms` refusing reds on LLVM and is NOT RUN on GNU, as declared. LIMIT:
+the forms-read half is never exercised in CI.
