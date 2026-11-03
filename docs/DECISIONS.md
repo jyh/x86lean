@@ -24042,7 +24042,11 @@ D388's two inline arms are now in the PASS count (248 → 250). D385–D387's in
 stated beside the counter.
 
 **AMENDED 2026-11-02 — POST-MERGE RED, REVERTED, RE-LANDED.** #159 merged on the fast path (22050cd6) and its post-merge
-`build` job went red at this selftest (CI run 41587035787). The one-command arm called the real `model_forms`, now on the
+`build` job went red at this selftest (CI run 41587035787). ⛔ **CORRECTED 2026-11-03:** that was NOT the first
+run of `build` on this content. The PR's own run (41574630785, head 757a0244) had reported `build` FAILURE at
+20:01:33 PST, 1 h 57 m before the merge; the merge and its inspection read the required-check set, which does not
+include `build`, and nobody read that run. paris's bus sentence that the job "first ran post-merge" was false at the
+object (kent's correction). The one-command arm called the real `model_forms`, now on the
 corpus's raw-byte argv, and on the ubuntu runner `objdump` is GNU's. CI's binutils printed nothing the forms reader
 could use ("0 symbols of 1764"); GNU 2.47, on this box, prints raw lines that D385's parser refuses by design (paper,
 reproduced on yukon: 003fddf2 PASS 248 under GNU, 13ef278 and 22050cd6 rc 1). The local selftest was green because
@@ -24073,3 +24077,40 @@ the gate loop reads.
 byte: rc 1, naming `FORMS` and the two encodings. Mutant (FORMS dropped from `tables`): rc 1, the new arm silent. Cost
 about 4 s (207 clang assemblies).
 **Not claimed:** the `expect` column's verdicts (that is the oracle's measurement, not this gate's), and any assembler but clang.
+
+## D383 — the public pack gains SUB/CMP reg,imm and mem,imm and BT on a bit string (STATUS row 48)
+
+**Why.** `X86/Theorems.lean` carried SUB and CMP for reg,reg only, and no BT equation at all. The O95 spike needed
+all three: `cmpq $24,%rsi` / `subq $24,%rsi` (reg,imm), `cmpl $0,(cell)` / `subl $1,(cell)` (mem,imm), and `bt`
+with a memory base and a register offset. It proved them in its own private file. They are statements about the ISA,
+not the spike's program, so they belong in the public pack. Only the lemmas move: no name, address or program from
+the spike comes with them.
+
+**What.** Six equations, each `step ⟨…, len⟩ s = { s with … }` under `Live s` (and `ea.lock = false` for a memory
+form), proved by `simp [step, …]` like the rest of the file:
+- `step_sub_reg_imm`, `step_cmp_reg_imm`: the immediate enters as `Value.trunc sz v`. CMP's equation names no `regs`.
+- `step_sub_mem_imm`, `step_cmp_mem_imm`: the address is `ea.addr s nr` (with `nr` the next RIP). SUB writes `mem`
+  with `Flags.subResult`; CMP names no `mem`.
+- `step_bt_mem_reg`: on a canonical `bitStringByte` (D331), CF is bit `offset mod 8` of that byte, and PF/AF/SF/OF are
+  four oracle bits drawn in that order (`cursor + 4` is in the statement). Neither `regs` nor `mem` is updated.
+  `step_bt_mem_reg_noncanonical` is the other case: the model halts with D331's message.
+
+**Red-first, by mutant.** A single build with one wrong statement per lemma (an untruncated immediate in SUB's
+result · a register write claimed for CMP · SUB mem,imm with no memory write · CMP's operands swapped · BT's bit index
+`mod 16` · the non-canonical case claimed to step). Six errors, one inside each of the six lemmas, `saltbuild EXIT=1`.
+After restoring the file (byte-identical, `cmp`): `saltbuild EXIT=0` with zero error lines. Axiom gate CLEAN over 5,587
+declarations, standard three only.
+
+**Limits.** These are the forms the spike used. BTS/BTR/BTC on a bit string, BT with an immediate offset or a register
+base, the reg,mem forms of SUB/CMP, and the LOCKED `sub` mem,imm (`lock subl $1,(cell)`, a legal atomic form, which
+`step_sub_mem_imm` excludes by `ea.lock = false`; paper's LOW at 30b4e31) are still without equations.
+**The kernel cost: the K4** (katmai, f46bce1 → 762d4e4, the re-key from #153's merge, which is master's base for this
+step). The ms gate is UNMEASURABLE on `Tests.Vectors` (+8.9 against a budget of 10.7, band ±7.2) and ARM A′ is CLEAN, so
+D251 lands the step on the a-prime verdict; `X86.Theorems` reads +35.0 ms (budget 354.1, ok). `Tests.Vectors` `import
+X86`, which imports `X86.Theorems`, so it DEPENDS on the edited file and is not shown unaffected (paper's wording note at
+30b4e31). The landing does not turn on it: A′ decides.
+⛔ **Two earlier measurements are NOT this PR's row, and each is superseded by a master move under it.** The K1
+(cbf075d → 02d7426: ms UNMEASURABLE, A′ CLEAN) shared its base with D382's K1, measured on another night, so
+`kernel_drift` refused the step as priced twice (rc 2). The K3 (300ed85 → 5ea9f96, CLEAN on both arms) was taken
+after #154, and #153 then changed `scripts/kernel_delta.py`, a reading input, so the K3's base reading is not master's.
+No D372 slide carries either row. The K4 is at the real base.
