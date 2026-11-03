@@ -2352,21 +2352,41 @@ def selftest():
         if argv and argv[0] == "objdump" and not _in_run[0]:
             _pseen.append(list(argv))
         return _realp(argv, *a, **k)
+    # ⛔ D388 POST-MERGE RED (22050cd6, CI run 41587035787): on a box whose `objdump` is GNU's (ubuntu CI), the forms half
+    # CANNOT run: CI's binutils printed nothing the forms reader could use ("0 symbols of 1764"), and GNU 2.47 prints raw
+    # lines that D385's parser refuses by design (paper, reproduced on yukon). The census itself refuses that box
+    # (`require_llvm_objdump`, D385). So the ARGV half — the regression
+    # this arm guards — is required on EVERY box; the forms-READ half is required where the census runs (an LLVM
+    # objdump) and, elsewhere, is printed NOT RUN with the reason, beside the verdict.
+    _ver = subprocess.run(["objdump", "--version"], capture_output=True, text=True).stdout
+    _llvm = "LLVM" in _ver
     _dc = None
     try:
         subprocess.run, subprocess.Popen = _rec, _recp
         with tempfile.TemporaryDirectory(prefix="x86lean-census-argv-") as _td:
-            _r, _mk, _why = model_forms(root, model_mnemonics(), _td)
-            if _mk is not None:
-                _dc = disassemble(os.path.join(_td, "forms.o"))
+            # GNU objdump's raw lines are REFUSED by D385's parser (SystemExit at `raw_split`), AFTER the argv is
+            # recorded, so the refusal is caught here and carried as the reason; it fails the arm only on an LLVM box.
+            try:
+                _r, _mk, _why = model_forms(root, model_mnemonics(), _td)
+            except SystemExit as _e:
+                _mk, _why = None, "refused: " + str(_e)[:90]
+            if os.path.exists(os.path.join(_td, "forms.o")):
+                try:
+                    _dc = disassemble(os.path.join(_td, "forms.o"))
+                except SystemExit:
+                    _dc = None
     finally:
         subprocess.run, subprocess.Popen = _real, _realp
     _raw = lambda v: v[:-1] == OBJDUMP_DISASM and "--no-show-raw-insn" not in v
-    ok = (len(_seen) == 1 and _raw(_seen[0]) and len(_pseen) == 1 and _raw(_pseen[0])
-          and OBJDUMP_DISASM == ["objdump", "-d"] and _mk is not None and _dc is not None)
+    _argv_ok = (len(_seen) == 1 and _raw(_seen[0]) and len(_pseen) == 1 and _raw(_pseen[0])
+                and OBJDUMP_DISASM == ["objdump", "-d"])
+    ok = _argv_ok and (not _llvm or (_mk is not None and _dc is not None))
+    _read = ("yes" if _mk is not None else _why) if _llvm else (
+        "NOT RUN here: objdump is not LLVM's (" + ((_ver.splitlines() or ["?"])[0])[:60] + "), whose output the forms "
+        "reader cannot use; the census refuses this box too (require_llvm_objdump). The argv half above WAS checked")
     print(("  ✔ " if ok else "  ⛔ ") + f"model_forms AND disassemble run the one command with bytes: "
           f"run {[v[:-1] for v in _seen]} · Popen {[v[:-1] for v in _pseen]} "
-          f"(forms read: {'yes' if _mk is not None else _why})")
+          f"(forms read: {_read})")
     if not ok:
         bad.append("model:argv")
     # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.

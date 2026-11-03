@@ -24040,3 +24040,17 @@ any `run` call because `run` is built on `Popen`, and drives the real `disassemb
 B (model side), C (corpus side) and D (the constant itself) now each give rc 1, and this arm is the only new red. NIT 2:
 D388's two inline arms are now in the PASS count (248 → 250). D385–D387's inline arms are still uncounted, which is
 stated beside the counter.
+
+**AMENDED 2026-11-02 — POST-MERGE RED, REVERTED, RE-LANDED.** #159 merged on the fast path (22050cd6) and its post-merge
+`build` job went red at this selftest (CI run 41587035787). The one-command arm called the real `model_forms`, now on the
+corpus's raw-byte argv, and on the ubuntu runner `objdump` is GNU's. CI's binutils printed nothing the forms reader
+could use ("0 symbols of 1764"); GNU 2.47, on this box, prints raw lines that D385's parser refuses by design (paper,
+reproduced on yukon: 003fddf2 PASS 248 under GNU, 13ef278 and 22050cd6 rc 1). The local selftest was green because
+this box's default objdump is LLVM's: a pass shaped by the box. Reverted by D340 (3) (#161). The arm now checks the
+census's own precondition (`require_llvm_objdump`, D385): the ARGV half, which is the regression it guards, is required on
+every box; the forms-READ half is required where objdump is LLVM's and elsewhere is printed `NOT RUN here` with the
+reason, beside the verdict (a D385 refusal inside the arm is caught and carried as that reason). Driven under three
+objdumps (Apple LLVM, GNU 2.47, and a stub that refuses the object): the pre-fix content reds under GNU 2.47; the fix
+passes under all three. Red backwards, under GNU 2.47 and LLVM: `--no-show-raw-insn` in `model_forms` reds on both;
+the same in `disassemble` reds on both; `model_forms` refusing reds on LLVM and is NOT RUN on GNU, as declared. LIMIT:
+the forms-read half is never exercised in CI.
