@@ -1796,6 +1796,11 @@ def encode_forms(asms, objdump="objdump"):
     return out
 
 
+def _forms5(rows):
+    """`FORMS` rows (label, asm, hx, expect) in `P2_FORMS`'s 5-tuple shape, so one comparison reads both (D389)."""
+    return [(r[0], r[1], r[2], r[3], r[3]) for r in rows]
+
+
 def _disagreements(forms, objdump):
     enc = encode_forms([a for _l, a, _h, _e0, _e1 in forms], objdump=objdump)
     return [(l, h, enc[a]) for l, a, h, _e0, _e1 in forms if enc[a] != h]
@@ -1904,16 +1909,21 @@ def encoding_check():
     else:
         print("  ⚠️ GNU objdump is not on this box; the wrapped-column format is "
               "NOT exercised here. It is exercised on the x86-64 runner.")
+    # ⭐ D389: BOTH TABLES, NOT ONLY P2_FORMS.  `FORMS` (the P0/P1 probe table) also carries an `hx` that RUNS, and
+    # until D389 this gate read only `P2_FORMS`: a wrong byte planted in a `FORMS` row left it rc 0, printing
+    # "CLEAN — 270 forms", a count that names its scope and never says the other table is outside it.
+    tables = [("P2_FORMS", list(P2_FORMS)), ("FORMS", _forms5(FORMS))]
     for name, tool in tools:
-        bad = _disagreements(P2_FORMS, tool)
-        if bad:
-            print("⛔ oracle-encoding gate: FAIL under %s — the `asm` column and "
-                  "the `hx` that RUNS are different instructions:" % name)
-            for l, h, g in bad:
-                print("    %s: declared=%s  assembler=%s" % (l, h, g))
-            return 1
-        print("  ✔ %-14s %d forms: every `hx` is the assembly of its own `asm`"
-              % (name + ":", len(P2_FORMS)))
+        for tname, rows in tables:
+            bad = _disagreements(rows, tool)
+            if bad:
+                print("⛔ oracle-encoding gate: FAIL under %s in %s — the `asm` column and "
+                      "the `hx` that RUNS are different instructions:" % (name, tname))
+                for l, h, g in bad:
+                    print("    %s: declared=%s  assembler=%s" % (l, h, g))
+                return 1
+            print("  ✔ %-14s %-8s %d forms: every `hx` is the assembly of its own `asm`"
+                  % (name + ":", tname, len(rows)))
 
     # ⭐ RED FIRST, AND THE THIRD ARM IS THE ONE THAT MATTERS. A control drawn
     # from the same half of the space is silent: arms 1 and 3 are ordinary short
@@ -1939,8 +1949,17 @@ def encoding_check():
                   "so this gate is not watching what it claims to." % why)
             return 1
         print("  ✔ red arm caught: %s" % why)
-    print("oracle-encoding gate: CLEAN — %d forms, %d disassembler(s), 3 red arms"
-          % (len(P2_FORMS), len(tools)))
+    # ⭐ D389's arm, on the table the three above never touch: one byte flipped in a `FORMS` row.  Red first: on the
+    # shipped gate (P2_FORMS only) this plant left `--check-encodings` rc 0.
+    # It reads the rows through `tables`, the list the gate loop above reads, so a gate that drops FORMS reds it too.
+    rows = next((r for t, r in tables if t == "FORMS"), [])
+    planted = [(l, a, ("c4e268f2c2" if l == "andn" else h), e0, e1) for l, a, h, e0, e1 in rows]
+    if not rows or not _disagreements(planted, "objdump"):
+        print("⛔ oracle-encoding gate: RED ARM SILENT — a byte flipped in FORMS (`andn`) was NOT caught.")
+        return 1
+    print("  ✔ red arm caught: one byte flipped in a FORMS row (`andn`), the table D389 adds")
+    print("oracle-encoding gate: CLEAN — %d P2_FORMS + %d FORMS forms, %d disassembler(s), 4 red arms"
+          % (len(P2_FORMS), len(FORMS), len(tools)))
     return 0
 
 

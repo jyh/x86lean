@@ -24054,3 +24054,22 @@ objdumps (Apple LLVM, GNU 2.47, and a stub that refuses the object): the pre-fix
 passes under all three. Red backwards, under GNU 2.47 and LLVM: `--no-show-raw-insn` in `model_forms` reds on both;
 the same in `disassemble` reds on both; `model_forms` refusing reds on LLVM and is NOT RUN on GNU, as declared. LIMIT:
 the forms-read half is never exercised in CI.
+
+## D389 — the encoding gate reads `FORMS` too (row 46's probe-bucket item, priced; D348's recorded gap closed)
+
+**The item as queued.** Row 46 asked whether `oracle_availability.probe_bucket` must read EVEX from bytes, as D385 and
+D388 made the census do. **Priced 2026-11-02, and it need not:** over all 477 probe rows (`FORMS` 207, `P2_FORMS` 270),
+the text bucket and an EVEX read of each row's `hx` agree on every row (3 rows are EVEX by their bytes, all three
+`%zmm`, all three already AVX-512 by text; controls: a dav1d EVEX `vpmulhrsw` reads EVEX, a VEX and a legacy row do not).
+Text and bytes are one fact here because every `hx` is clang's assembly of its own `asm`, and clang emits EVEX only when
+the text forces it (`%zmm`, `%k`, registers 16–31), which `isa_bucket` already reads.
+**The defect that pricing found.** That premise was GATED for `P2_FORMS` only. `--check-encodings` never assembled a
+`FORMS` row, which D348 recorded on 2026-10-20 ("checked today by the person who adds it, and by nothing else"). Red first:
+one byte flipped in `FORMS`'s `andn` row left `--check-encodings` rc 0, printing "CLEAN — 270 forms".
+**Fix.** The gate loops over both tables under every disassembler (`_forms5` puts a `FORMS` row in `P2_FORMS`'s shape), and
+its CLEAN line names both counts. A fourth red arm flips a byte in `FORMS`, reading the rows through the same `tables` list
+the gate loop reads.
+**Arms, both directions.** Shipped tables: rc 0, 270 + 207 forms under LLVM and GNU objdump, 4 red arms. The planted `andn`
+byte: rc 1, naming `FORMS` and the two encodings. Mutant (FORMS dropped from `tables`): rc 1, the new arm silent. Cost
+about 4 s (207 clang assemblies).
+**Not claimed:** the `expect` column's verdicts (that is the oracle's measurement, not this gate's), and any assembler but clang.
