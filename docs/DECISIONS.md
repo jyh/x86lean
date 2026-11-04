@@ -24290,4 +24290,4 @@ and `step_vcomism_regs` on top of it. The mutants did not touch either, as expec
 **Result, prediction 4 (census): HELD, exactly** (cc1 +5 · coreutils +231 · ffmpeg +327 · glibc +480 · vlc-codec +13 · vpx +170 ·
 x264 +110). ⭐ **With it, every column's differential-class memory-form demand is modelled in full**: each column's "of which the
 model executes a memory form for" figure now equals its memory-form total.
-**Prediction 5 (kernel cost):** K1 on katmai with D356's, after V9b lands; not yet read.
+**Prediction 5 (kernel cost): HELD.** Read from the gate's own K2 output on katmai (`kernel_delta.py --base e3428b4 --head b413bf5 --repeats 6`, base = #165's head, whose tree a merge of it into bc090b3 carries): `X86.Syntax` base 707.5 ms, head 715.0 ms, delta column +7.5 ms (+1.1 %); `X86.Semantics` base 29.7 ms, head 29.6 ms, delta column −0.1 ms. Each is under the predicted +10 %; every unit `ok`, no NEW unit; ms delta gate CLEAN, ARM A′ CLEAN.
