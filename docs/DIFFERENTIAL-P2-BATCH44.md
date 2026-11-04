@@ -1,6 +1,6 @@
 # D357 — `comis*`/`ucomis*` with a memory source
 
-Record 44. Decision note: D357 (predictions committed as `57c1dfe` before any model work). One `Op` constructor, `vcomism`,
+Record 44. Decision note: D357 (predictions committed as `58d8b57` before any model work). One `Op` constructor, `vcomism`,
 whose `step` arm is `vcomis`'s with the second operand read from memory; eight vectors at `%xmm1` and `%xmm9` (never `%xmm0`,
 whose low quadword equals the memory operand in every pre-state, D356); four declarations of D266's class.
 
@@ -20,7 +20,7 @@ The whole run: `cases=131472 matched=107692 explained=34407 unexplained=0 oracle
 
 ## 2. RED BACKWARDS
 - A (source from `%xmm0`): **no record changed**, because xmm0's low quadword is the memory operand in every pre-state; the mutant
-  could not be told apart from the model by construction. A′ (source 8 bytes past its address): all eight vectors red, 70-122
+  could not be told apart from the model by construction. A2 (source 8 bytes past its address): all eight vectors red, 70-122
   fields each.
 - B (COMIS with UCOMIS's IE rule): the 42 declared divergences do not occur; nothing else moves.
 - C (single precision read as binary64): the four single-precision vectors change (34-37 cases each); the double ones do not.

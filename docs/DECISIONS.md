@@ -24280,7 +24280,7 @@ oracle-divergence=1363`; main table `108944 / 85428 / 34407 / 0 / 835`. Per id: 
 design paragraph names.** Record 44 §2 has each line.
 - A (the source read from `%xmm0`): no record changed. xmm0's low quadword IS the quadword at 0x2000 in every pre-state (D356),
   so "read `%xmm0`" and "read memory at `(%rbx)`" are the same value here. I chose the vectors' destinations to avoid that
-  coincidence and then wrote a mutant that sits on it. Replaced by **A′, the source read 8 bytes past its address: all eight
+  coincidence and then wrote a mutant that sits on it. Replaced by **A2, the source read 8 bytes past its address: all eight
   vectors red** (70-122 fields each), and the four COMIS declarations are reported as not occurring.
 - B (COMIS takes UCOMIS's IE rule): exactly the 42 declared divergences do not occur (divergence 1363 → 1321), nothing else moves.
 - C (`comiss`/`ucomiss` read 8 bytes as binary64): the four single-precision vectors change (34-37 cases each), the four
