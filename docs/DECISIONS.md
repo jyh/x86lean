@@ -24743,3 +24743,7 @@ discharged: it is rc 0 on this branch, since the D356–D362 re-carry moved READ
 Why's `569b100` (D356's record commit before the re-carry) was re-carried as `ed8749f`, now on master; `761159d` is the probe step `c842ce8` on this branch (its
 files identical). K1's `733f8f2` → `914ab1c` is the 10-24 base's; the shipped-base kernel reading is the K2 row. The
 predictions and the 10-24 Results are left as written.
+**K2 at the shipped base (a reading, as K1 was; 2026-11-05, katmai, `kernel_delta.py --base 9b66f3c --head e795506 --repeats 6`,
+both arms):** ms delta gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` 746.5 → 765.5 (+19.0,
+±8.4; K1 read +6.0 at its base), `X86.Semantics` +0.4, `X86.Vex` +0.1. The NEW `Tests.AnchorsVexSilF` reads 488.5 ms against its
+1,472 @on katmai and **220,986 ku, exactly its K1 registration**.
