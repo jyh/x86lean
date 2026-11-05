@@ -1,6 +1,6 @@
 # D358 — the `%xmm0` store blind spot: `%xmm9` twins for `movss`, `movsd`, `movlpd`
 
-Record 45. Decision note: D358 (predictions committed as `49ebe14` before any row). No model change; three vectors.
+Record 45. Decision note: D358 (predictions committed as `394427c` before any row). No model change; three vectors.
 
 `xmmPattern` makes xmm0's low quadword `c`, the quadword at 0x2000 in every pre-state, so a low-lane store from `%xmm0` to
 `(%rbx)` rewrites the bytes already there and a model that drops the store passes. Found by D356's mutant C, then swept over

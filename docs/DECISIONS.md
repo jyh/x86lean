@@ -24323,3 +24323,4 @@ every theorem in place; none pins a store's bytes), `unexplained=352` = 4 × 88:
 `movlpd_store_m` at 0** — the four shipped `%xmm0` rows agree with a model that never stores. Restored and `cmp`-verified.
 ⚠️ Limit, stated: no theorem pins a store's bytes for these forms, so the dropped store builds; the `%xmm9` rows are what catch it.
 **Result, prediction 3 (census): HELD** (no new key; the forms stamp only).
+**Kernel cost (measured; no prediction was made, since D358 adds test rows and no `Op`).** K2 on katmai (`kernel_delta.py --base 53f638c --head d54ed6a --repeats 6`, then `ku_delta --arm a-prime`): ms delta gate CLEAN, ARM A′ CLEAN, every unit `ok`; `X86.Syntax` +2.5 ms, `X86.Semantics` −0.2 ms, `Tests.Vectors` −4.2 ms (inside its ±4.5). The measured head `d54ed6a` is on no ref since the re-stack onto D357's docs-only `459821c`; on the branch it is `97359cb`, whose tree differs from it by docs only, so no reading input moved.
