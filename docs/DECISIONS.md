@@ -24367,4 +24367,4 @@ VEX.256 rows 80 each (the 8 agreeing states are those where the quadwords at 0x2
 Built with every theorem in place, emitted from a fresh binary, restored and `cmp`-verified.
 **Result, prediction 3 (census): HELD, exactly** — dav1d 8,990 · ffmpeg 18,510 · x264 2,900, each equal to its VEX memory-form
 total, so the VEX table's modelled memory-form figure is **38,453 of 38,453**.
-**Prediction 4 (kernel cost):** K1 with D356-D358's, after V9b lands; not yet read.
+**Prediction 4 (kernel cost): HELD.** Read from the gate's own K2 output on katmai (`kernel_delta.py --base 847c23e --head 7c476af --repeats 6`, base = D358's ledger-row commit): `X86.Vex` base 37.1 ms, head 37.5 ms, delta column +0.4 ms (+1.1 %); `X86.Syntax` base 717.0 ms, head 721.5 ms, delta column +4.5 ms (+0.6 %). Each is under the predicted +10 %; every unit `ok`, no NEW unit; ms delta gate CLEAN, ARM A′ CLEAN. The measured head `7c476af` is on no ref since the re-stack onto #167's docs-only `a2bcb36`; on the branch it is `f040a15`, whose tree differs from it by docs only, so no reading input moved.
