@@ -24436,3 +24436,12 @@ gap, by a second path. VEX-128: `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 
 ⇒ **579 of 590 are VEX memory forms of silicon rows (STATUS row 19).** The legacy 11 are forms D336 never took: `pextrd` with
 an m32 DESTINATION, and `pinsrq` from m64. MMX `pshufb`/`palignr` are not in the silicon class (the model has no MMX forms),
 so they are not in the 590.
+⚠️ **Re-carry correction (2026-11-04, paper's read of #169).** Every figure in this entry's Result was measured on 2026-10-25 at
+base `9d8fa6e` (stamp `vectors=1383 probes=261`). Re-carried, it ships on D359's tree, where D354 … D359 have added vectors and
+probe forms. **At the shipped tree** (the census generated in this PR, and the same driver re-run here): `1502 vectors + 336 probe
+forms` (285 + 41 `OP(` + 10 `LOAD4`, the same +51); the gap falls **1,267 → 580**, closing the same **687**: glibc 134 → 14 ·
+dav1d **208 → 73** · ffmpeg 374 → 337 · vpx 160 → 37 · x264 **391 → 119**; `--selftest` PASS, **253** arms. The (name, bucket)
+split, re-measured by the scratch driver (it imports this tree's `demand_census` unmodified: `model_forms`, `census`, `_decide`),
+sums to **580**, matching the JSON per corpus. Two keys moved: VEX-128 `vpshufb` **211** (not 220) and `vpalignr` **8** (not 9);
+the other eleven keys are as above. ⇒ **569 of 580 are VEX memory forms of silicon rows** (row 19); the legacy 11 are unchanged.
+The predictions and the 10-25 Result are left as written; their ranges (685 … 690 closed, none at zero) hold at both bases.
