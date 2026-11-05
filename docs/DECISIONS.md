@@ -24734,3 +24734,12 @@ D356–D362 stack.
 unit, as a K1 does. `Tests.AnchorsVexSilF` reads 490.5 ms and 220,986 unfoldings; both registration lines are copied
 from the tools' own output. Every existing unit reads `ok`; `X86.Syntax` +6.0 ms (756.5 → 762.5, budget 141.5) for the
 three constructors. (A first K1 was stopped at 04:2x to free katmai for #142's re-key; it is not the reading.)
+⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+rise was read at the 10-24 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, `silicon`, at D362's `9b66f3c` against
+this branch) the silicon column rises by **6,599**: coreutils 4 · glibc **784** · dav1d **2,311** · ffmpeg **1,846** · vpx 406 ·
+x264 **1,247** · vmlinux 1, plus `_asm_pooled` **+5,810**. The by-shape split (`vmovd`/`vmovq` M,X · R,X · X,M · X,R) and "VEX
+`vmovq xmm, xmm` occurs ZERO times" are the 10-24 reading and are NOT re-measured here. The ⚠️ about `check_readme_snapshot` is
+discharged: it is rc 0 on this branch, since the D356–D362 re-carry moved README's count. **Off-ref shas, declared:** the
+Why's `569b100` (D356's record commit before the re-carry) was re-carried as `ed8749f`, now on master; `761159d` is the probe step `c842ce8` on this branch (its
+files identical). K1's `733f8f2` → `914ab1c` is the 10-24 base's; the shipped-base kernel reading is the K2 row. The
+predictions and the 10-24 Results are left as written.
