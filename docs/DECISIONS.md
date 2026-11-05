@@ -24646,3 +24646,12 @@ measurement cannot separate it from zero, so the prediction is NOT CONFIRMED rat
 allowance of 8,654 (one field's type, no constructor), which is the sharper instrument here. Every other unit ok on both arms;
 `Tests.AnchorsShuf` +40 ms ± 36.3 and +360 ku (the ten `pextr` spellings). No yukon ceiling is registered (no yukon K1 was
 run); the runner's line comes from the PR's own kernel-delta refusal and rides in the next script-only PR.
+⚠️ **Re-carry correction (2026-11-04, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+three fields are the 10-25 base's. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json` at D361's `bc1f722` and at this branch):
+ffmpeg **8,542 → 8,548** · vpx 4,342 → 4,344 · x264 **1,054 → 1,057**, still +11 in exactly those three fields, and the gap
+still **11 → 0**. The census is regenerated here WITHOUT the debug tree, and it reproduces the branch's committed document with
+nothing moving. **Off-ref shas, declared:** prediction 2's hwprobe runs ran at `b45a6a8`, and the four probe files they consumed
+(`hwprobe/mk_shuf_rows.py`, `mk_shuf_anchors.py`, `shuf_ops.S`, `shuf_probe.c`) are blob-identical there and at this tip.
+`465c2cb` is `dc75332` on the branch (its files identical); `b848c4f` and `b45a6a8` are `e5be8da` and `8493634`, the same commits
+re-carried, whose shared files also carry the moved base. K1's `06ca21f` → `b45a6a8` is the 10-25 base's; the shipped-base
+kernel reading is the K2 row. Predictions and the 10-25 Results are left as written.
