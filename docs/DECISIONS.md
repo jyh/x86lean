@@ -24810,3 +24810,7 @@ x264 324, memory sub-column +620, and no other column moved. **Off-ref shas, dec
 which is the probe step `c5d8e6a` on this branch; its three files (`hwprobe.yml`, `hwprobe/README.md`, `simdb_ops.S`) are blob-identical
 there and at this tip. `5796e5b` (D371's K1 commit before the re-carry, this branch's stated parent and the K1 base) was re-carried
 as `e795506` on D371's branch; the trees differ by the moved base. The shipped-base kernel reading is the K2 row.
+**K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base c3eeffe --head 4960875 --repeats 6`, both arms):** ms delta
+gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +2.0 (±8.0); `Tests.AnchorsSimd` −20.0; `Tests.Coverage`
++150 (±453.4, budget 2,822). The NEW `Tests.AnchorsSimdB` reads 2,435 ms against its 7,500 @on katmai and **1,267,652 ku, exactly
+its K1 registration**.
