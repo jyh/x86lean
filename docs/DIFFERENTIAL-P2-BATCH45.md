@@ -4,7 +4,12 @@ Record 45. Decision note: D358 (predictions committed as `394427c` before any ro
 
 `xmmPattern` makes xmm0's low quadword `c`, the quadword at 0x2000 in every pre-state, so a low-lane store from `%xmm0` to
 `(%rbx)` rewrites the bytes already there and a model that drops the store passes. Found by D356's mutant C, then swept over
-every `%xmm0` → `(%rbx)` store: `movss`, `movsd` and `movlpd` had no other-register store row.
+every `%xmm0` → `(%rbx)` store: among the stores whose bytes equal memory's (a low-lane write of `c`), `movss`, `movsd` and
+`movlpd` had no other-register store row. Seven others also have only the `%xmm0` row (`movaps` `movapd` `movups` `movupd` `movdqa`
+`movdqu` `movhpd`); each writes xmm0's high quadword `a` (the 16-byte ones with `c` below it), so a dropped store is visible. That is derived from `xmmPattern`, not planted:
+a pre-state with `a = c` would hide `movhpd`'s store, and one with `a` equal to the background quadword at 0x2008
+(`0xBFBEBDBCBBBAB9B8`) would hide the 16-byte ones; a dropped store stays visible over the pre-state set while any one
+pre-state misses its condition.
 
 ## 1. THE RUN
 
