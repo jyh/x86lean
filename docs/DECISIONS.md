@@ -24355,6 +24355,13 @@ covers 0x2000..0x201f, inside the watched window.
    - C — VEX.256's high lane from `a` (the low quadword copied across lanes): exactly the two VEX.256 vectors change.
 3. **Census (derived):** the VEX-table modelled memory-form figure **38,287 → 38,453 of 38,453**: dav1d 8,985 → 8,990 · ffmpeg
    18,504 → 18,510 · x264 2,745 → 2,900, each now equal to its VEX memory-form total.
+   ⚠️ **Re-carry correction (2026-11-04, paper's read of #168).** The figures in **Why** and here were measured at the 10-24 base,
+   before D380/D385 moved EVEX-only registers and EVEX encodings out of the VEX table; those decisions land BELOW this entry. At its
+   shipped base (`a2bcb36`, `docs/DEMAND-CENSUS.md.json` summed over the ten non-pooled columns) the figure is **38,254 of 38,392**:
+   dav1d 8,952 of 8,957 · ffmpeg 18,504 of 18,510 · x264 2,745 of 2,872, a remainder of **138**, not 166. The predicted deltas hold for
+   dav1d (+5) and ffmpeg (+6); x264's is **+127, not +155**. Its modelled base is unchanged and its total fell by 28, so 28 of the
+   remainder's `vmovddup` left the table with the re-bucketing. The VEX.128/VEX.256 split of the 138 is NOT re-measured. The
+   prediction text is left as written; `f040a15`'s subject line still says "38,453 of 38,453".
 4. **Kernel cost.** Two `VexOp` constructors: `X86.Vex`/`X86.Syntax` under +10 %, no NEW unit.
 
 **The price.** Half a day. No silicon (x86isa executes and referees every value).
@@ -24365,6 +24372,7 @@ oracle-divergence=1363`: +352 cases, +352 matched; each of the four vectors 88 o
 VEX.256 rows 0. B (high lane from `a + 8`): `vmovddup_y3m`/`y11m` 88 each, the VEX.128 rows 0. C (high lane from `a`): the two
 VEX.256 rows 80 each (the 8 agreeing states are those where the quadwords at 0x2000 and 0x2010 are equal), the VEX.128 rows 0.
 Built with every theorem in place, emitted from a fresh binary, restored and `cmp`-verified.
-**Result, prediction 3 (census): HELD, exactly** — dav1d 8,990 · ffmpeg 18,510 · x264 2,900, each equal to its VEX memory-form
-total, so the VEX table's modelled memory-form figure is **38,453 of 38,453**.
+**Result, prediction 3 (census): HELD in its claim, with the shipped base's figures** (the correction above): each column's modelled
+figure equals its VEX memory-form total — dav1d 8,957 · ffmpeg 18,510 · x264 2,872 — so the VEX table's modelled memory-form figure is
+**38,392 of 38,392** (+138 from `a2bcb36`'s 38,254; x264's +127 is 28 below the predicted +155, for the reason stated there).
 **Prediction 4 (kernel cost): HELD.** Read from the gate's own K2 output on katmai (`kernel_delta.py --base 847c23e --head 7c476af --repeats 6`, base = D358's ledger-row commit): `X86.Vex` base 37.1 ms, head 37.5 ms, delta column +0.4 ms (+1.1 %); `X86.Syntax` base 717.0 ms, head 721.5 ms, delta column +4.5 ms (+0.6 %). Each is under the predicted +10 %; every unit `ok`, no NEW unit; ms delta gate CLEAN, ARM A′ CLEAN. The measured head `7c476af` is on no ref since the re-stack onto #167's docs-only `a2bcb36`; on the branch it is `f040a15`, whose tree differs from it by docs only, so no reading input moved.
