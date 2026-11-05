@@ -289,7 +289,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ V8a (D347) adds ONE: `endbr64`, the census's largest uncovered row.
 -- ⭐ D355 adds 23: `sub` `cmp` `xchg` `test` and the kernel's per-CPU forms through `%fs:`/`%gs:`.
 -- ⭐ D356 adds 8: `movd`/`movq` between an XMM register and memory, both directions.
-theorem vector_count_is_1230 : vectorCount = 1230 := by decide
+-- ⭐ D357 adds 8: `comis*`/`ucomis*` with a memory source, at `%xmm1` and `%xmm9`.
+theorem vector_count_is_1238 : vectorCount = 1238 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1107,6 +1108,8 @@ def isMemDestVector (v : Vec) : Bool :=
     -- ⭐ P2 BATCH 32: `vcomis` writes EFLAGS and nothing else, so it is not a
     -- memory destination and cannot become one — it has no `Ea` at all.
     | .vmov .. | .vbin .. | .vcomis .. => false
+    -- ⭐ D357, in the same commit as the constructor: the memory operand is a SOURCE.
+    | .vcomism .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 3.  A vector STORE is a memory destination; a
     -- vector LOAD is not.  This is the first time the two vector mnemonics
     -- differ from each other in this function, which is the shape of the whole
