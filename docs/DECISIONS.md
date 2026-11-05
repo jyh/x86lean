@@ -24522,6 +24522,14 @@ restored (`cmp`-verified): (b) the VEX.256 FP high lane read from `a` reds exact
 11 being `pextrd` 9 and `pinsrq` 2 (legacy SSE), by the same second-path split as D360's. `silicon_mem_modelled` is the ONLY
 field that moved, upward, in glibc (122 → 136), dav1d (4,216 → 4,297), ffmpeg (8,225 → 8,556), vpx (4,307 → 4,342) and
 x264 (942 → 1,060). `docs/COVERAGE.md` regenerated (200 rows; the ten mnemonics' shapes gain `x,x,m`).
+⚠️ **Re-carry correction (2026-11-04, the class paper found on #168/#169, applied before this entry's PR).** The census figures in
+**Why**, prediction 4 and this Result were measured at the 10-25 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`
+at D360's `61a0838` against this branch): the silicon memory gap falls **580 → 11** (D360's corrected split puts **569** of the 580
+on the VEX memory forms named here, `vpshufb` 211 and `vpalignr` 8 being the two keys that moved); the 11 are as stated, here
+ffmpeg 6 · vpx 2 · x264 3. `silicon_mem_modelled` is still the only field that moves, upward, in the same five corpora: glibc
+122 → 136 · dav1d **4,034 → 4,107** · ffmpeg **8,211 → 8,542** · vpx 4,307 → 4,342 · x264 **938 → 1,054**. The forms stamp reads
+`vectors=1502 probes=358`. The K1 reading of prediction 5 (`738411c` → `709af7c`, both now on no ref) is the 10-25 base's; the
+shipped-base reading is the K2 row. Predictions and the 10-25 Results are left as written.
 **Result, prediction 5 (kernel cost, K1 on katmai, `738411c` → `709af7c`, `--repeats 6`, both arms): HELD.** `X86.Syntax`
 673.0 → 697.0 ms (**+24.0**, band ±10.2, ok), under the +40 ms predicted for six constructors. The NEW unit is the only
 refusal on either arm, as designed: `Tests.AnchorsVexSilE` 14,450 ms (kernel_delta) and 6,163,927 unfoldings (ku_delta a′),
