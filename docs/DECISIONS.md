@@ -24537,3 +24537,17 @@ each REFUSED as NEW and registered from the line its tool printed: `Tests.Anchor
 `Tests.AnchorsVexSilE @ku 6163927`. ⚠️ **Not predicted, and the largest price in this entry:** the unit costs about 2.5× V9b's
 `Tests.AnchorsVexSilD` (5,810 ms at katmai) for 2.8× its rows (356 against 126); D361 named no figure for it. No yukon ceiling
 is registered (no yukon K1 was run); the runner's line comes from the PR's own kernel-delta refusal, as V9a's and V9b's did.
+**Prediction 5 at the shipped base (K2, 2026-11-04, katmai, `kernel_delta.py --base 02d3712 --head 89d5fee --repeats 6`):
+HELD.** `X86.Syntax` 721.0 → 756.0 ms (**+35.0**, ±11.8, ok), under the +40 predicted; the base moved, so this is 11.0 ms above
+the 10-25 K1's +24.0. `Tests.AnchorsVexSilE` NEW at 14,450 ms against its 43,350 @on katmai: ok. ms delta gate CLEAN.
+⚠️ **ARM A′ first REFUSED** the NEW unit at **6,163,945** unfoldings over its 10-25 registration of 6,163,927 (+18). The unit's
+file is unchanged since `bc8e21a`, and this entry's one later `.lean` change is to `Tests/AnchorsVexSilC.lean`. On yukon,
+`deterministic_cost.measure` reads **6,163,927** at the registration's own K1 head `709af7c` and **6,163,945** at this branch,
+equal to katmai's both times. ⇒ the count rose by 18 BELOW the unit, between `738411c` and `61a0838`, and is not localised to a
+commit. **Re-registered** at 6163945 from K2's `--json` head_ku (`e17d6ed`, the helm's ruling: no bisect before landing; the
+non-author read reproduces both readings). A′ re-run on the same pair against that registry: **CLEAN**, and the row lands on
+the ms verdict (D251).
+⚠️ **Two shas above are on no ref since the re-carry, declared rather than re-keyed** (a run is cited at the commit it ran at):
+prediction 1's hwprobe runs ran at `41ef1d7`. On the branch the probe step is `8b243b7`, and the three files those runs consumed
+(`hwprobe/mk_vexsile_rows.py`, `vexsile_ops.S`, `vexsile_probe.c`) are blob-identical at `41ef1d7` and at this entry's tip.
+Prediction 2's `a7ce936` is `05bd5f8` on the branch, its one file blob-identical. This branch's own hwprobe run re-reads the silicon.
