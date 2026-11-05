@@ -24866,3 +24866,11 @@ one metered anchor unit, one census regeneration. Stacked on D373 (`f5d9ffa`).
 `Tests.AnchorsVexSilE` reads 14,900 ms on the same run, so the unit is that path's ordinary size); `ku_delta` (A′) reads
 5,371,473 unfoldings ⇒ `Tests.AnchorsVexSilG @ku 5371473`; both registered as printed. All 52 existing units are within
 their allowances: `X86.Syntax` −2.0 ms, `X86.Theorems` +0.0, `X86.Semantics` +0.1, `Tests.Coverage` +650 (2,908.8).
+⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+corrected figure was read at the 10-30 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D373's `ca713e5` against this
+branch) the silicon column rises by **+6,772**: dav1d **2,211** · ffmpeg **2,635** · x264 **1,144** · vpx 771 · glibc 11, plus
+`_asm_pooled` +6,761. The memory sub-column (`silicon_mem` and `silicon_mem_modelled` alike) rises **+1,050**, and no other column
+moved. The extension split (4,195 ymm · 2,827 VEX-128 · 1,586 AVX-512) is the 10-30 reading and is NOT re-measured, so which
+spellings account for the 250 between 7,022 and 6,772 is not stated here. K1's `f5d9ffa` → `f0364d8` is the 10-30 base's (`f5d9ffa` is D373's pre-re-carry model step); the
+shipped-base kernel reading is the K2 row. Prediction 1's hwprobe run ran at `4016ac2`, which is the probe step `9652185` on this
+branch; its files are blob-identical there and at this tip. Predictions and the 10-30 Results are left as written.
