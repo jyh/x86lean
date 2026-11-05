@@ -24655,3 +24655,10 @@ nothing moving. **Off-ref shas, declared:** prediction 2's hwprobe runs ran at `
 `465c2cb` is `dc75332` on the branch (its files identical); `b848c4f` and `b45a6a8` are `e5be8da` and `8493634`, the same commits
 re-carried, whose shared files also carry the moved base. K1's `06ca21f` → `b45a6a8` is the 10-25 base's; the shipped-base
 kernel reading is the K2 row. Predictions and the 10-25 Results are left as written.
+**Prediction 5 at the shipped base (K2, 2026-11-05, katmai): NOT HELD, as at K1, and by the same margins.** The first K2
+(`kernel_delta.py --base bc1f722 --head abff07d --repeats 6`) read the ms gate **UNMEASURABLE**: `Tests.Vectors` 11.6 → 18.2
+(+6.6, ±7.0) against a 12.1 budget, with the box quiet. Per the tool, the budget was not widened; repeats were bought. At
+`--repeats 12` on the same pair, the gate is **CLEAN**: `Tests.Vectors` 19.9 → 18.4 (−1.5, ±4.7), so the first reading was noise in
+a ~15 ms unit. `X86.Syntax` −7.0 (±5.7) and `X86.Semantics` +0.2. The NEW `Tests.AnchorsShufM` is **699.5 ms** against the
+150–600 predicted (its 2,163 @on katmai ceiling: ok) and **352,020 ku** against 80k–300k, exactly its K1 registration (A′
+CLEAN, no drift below it). The row is recorded from the repeats-12 ms file and K2's A′ file (D251).
