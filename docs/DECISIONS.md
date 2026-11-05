@@ -24804,3 +24804,9 @@ regeneration. The branch stacks on D371 (`5796e5b`), the stack's tip, so it land
 1,267,652 unfoldings ⇒ `Tests.AnchorsSimdB @ku 1267652`; both lines registered as printed. Every existing unit is within
 its allowance: `X86.Syntax` +3.0 ms (allowance 143.9), `X86.Theorems` +25.0 (365.1), `X86.Semantics` +0.4,
 `Tests.AnchorsSimd` +25.0 (1,611.2), `Tests.Coverage` +400 (2,880).
+⚠️ **Re-carry note (2026-11-05).** The figure check was re-run at the shipped tree (`docs/DEMAND-CENSUS.md.json`, D371's `c3eeffe` against
+this branch). Result 4 holds as written: silicon **+6,053**, per column dav1d 836 · ffmpeg 1,380 · vlc-video_chroma 1,152 · vpx 2,361 ·
+x264 324, memory sub-column +620, and no other column moved. **Off-ref shas, declared:** prediction 1's hwprobe run ran at `d75fab7`,
+which is the probe step `c5d8e6a` on this branch; its three files (`hwprobe.yml`, `hwprobe/README.md`, `simdb_ops.S`) are blob-identical
+there and at this tip. `5796e5b` (D371's K1 commit before the re-carry, this branch's stated parent and the K1 base) was re-carried
+as `e795506` on D371's branch; the trees differ by the moved base. The shipped-base kernel reading is the K2 row.
