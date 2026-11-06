@@ -25000,3 +25000,9 @@ within its allowance (`Tests.Coverage` +300 against 2,962.8). The retired absolu
 same five at D375's K1, base and head alike. ⚠️ This branch sits on D375's PRE-registration tip, so D375's and D374's
 registration lines are absent here and arrive with the stack's rebase (one append conflict per registry file, as
 recorded for D374–D375).
+⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4 was
+read at the 10-31 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D375's `2d26935` against this branch) silicon rises
+**+3,933**: dav1d **808** · ffmpeg 877 · vlc-video_chroma 1,984 · x264 **187** · glibc 60 · vpx 17, and the pooled asm figure
+**+3,873**. Every gain is still in `silicon_mem_modelled` (`silicon_mem` alike), and nothing else moves. The by-name split is the
+10-31 reading and is not re-measured. The ⚠️ about `check_readme_snapshot` is discharged: it is rc 0 on this branch. K1's
+shas are the 10-31 base's; the shipped-base kernel reading is the K2 row. Predictions and the 10-31 Results are left as written.
