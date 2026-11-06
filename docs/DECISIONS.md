@@ -24934,3 +24934,6 @@ against this branch). Result 4 holds as written: silicon **+4,719**, memory sub-
 **Off-ref shas, declared:** prediction 1's hwprobe run ran at `812bc3f`, which is the probe step `85d950f` on this branch; its
 files (`hwprobe.yml`, `hwprobe/README.md`, `vexsilh_ops.S`) are blob-identical there and at this tip. K1's base `f0364d8` is
 D374's pre-re-carry model step; the shipped-base kernel reading is the K2 row.
+**K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base f28ee84 --head 04f6b5c --repeats 6`, both arms):** ms delta
+gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +24.0 (±7.5, budget 142.8). The NEW
+`Tests.AnchorsVexSilH` reads 4,230 ms against its 12,855 @on katmai and **1,977,574 ku, exactly its K1 registration**.
