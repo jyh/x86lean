@@ -24929,3 +24929,8 @@ metered anchor unit, one census regeneration. Stacked on D374 (`f0364d8`).
 `kernel_delta` reads `Tests.AnchorsVexSilH` at 4,285.0 ms ⇒ `Tests.AnchorsVexSilH 12855 @on katmai`; `ku_delta` (A′)
 reads 1,977,574 unfoldings ⇒ `Tests.AnchorsVexSilH @ku 1977574`; both registered as printed. All 53 existing units are
 within their allowances (`Tests.Coverage` +350 against 2,944.8).
+⚠️ **Re-carry note (2026-11-05).** The figure check was re-run at the shipped tree (`docs/DEMAND-CENSUS.md.json`, D374's `f28ee84`
+against this branch). Result 4 holds as written: silicon **+4,719**, memory sub-column **+3,108**, and no other column moved.
+**Off-ref shas, declared:** prediction 1's hwprobe run ran at `812bc3f`, which is the probe step `85d950f` on this branch; its
+files (`hwprobe.yml`, `hwprobe/README.md`, `vexsilh_ops.S`) are blob-identical there and at this tip. K1's base `f0364d8` is
+D374's pre-re-carry model step; the shipped-base kernel reading is the K2 row.
